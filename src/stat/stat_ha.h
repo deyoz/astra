@@ -75,8 +75,7 @@ struct THAShortStat: public THAShortAirlineMap, THAAbstractStat {
 
 void RunHAStat(
         const TStatParams &params,
-        THAAbstractStat &HAStat,
-        bool full = false
+        THAAbstractStat &HAStat
         );
 
 void createXMLHAFullStat(

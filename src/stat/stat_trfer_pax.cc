@@ -342,10 +342,7 @@ void RunTrferPaxStat(
                 for(TTrferPaxStat::iterator i = tmp_stat.begin();
                         i != tmp_stat.end(); i++) TrferPaxStat.push_back(*i);
 
-                if(
-                        not is_same<T, TOrderStatWriter>::value and
-                        TrferPaxStat.size() > (size_t)MAX_STAT_ROWS()
-                  ) throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
+                params.overflow.check(TrferPaxStat.size());
             }
         }
     }

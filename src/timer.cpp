@@ -146,6 +146,7 @@ void exec_tasks( const char *proc_name, int argc, char *argv[] )
       try {
         TDateTime execTask = NowUTC();
         name = Qry.FieldAsString( "name" );
+        int interval = Qry.FieldAsInteger("interval");
         if ( name == "astra_timer" ) astra_timer( utcdate );
         else
         if ( name == "createSPP" ) createSPP( utcdate );
@@ -178,7 +179,7 @@ void exec_tasks( const char *proc_name, int argc, char *argv[] )
       else
       if ( name == "stat_orders_synchro" ) stat_orders_synchro();
       else
-      if ( name == "stat_orders_collect" ) stat_orders_collect();
+      if ( name == "stat_orders_collect" ) stat_orders_collect(interval);
       else
       if ( name == "utg" ) utg();
       else
@@ -202,7 +203,7 @@ void exec_tasks( const char *proc_name, int argc, char *argv[] )
       else
         next_exec = Qry.FieldAsDateTime( "next_exec" );
       while ( next_exec <= utcdate ) {
-       next_exec += (double)Qry.FieldAsInteger( "interval" )/1440.0;
+       next_exec += (double)interval/1440.0;
       }
       if ( NowUTC() - execTask > 5.0/(1440.0*60.0) )
         ProgTrace( TRACE5, "Attention execute task time!!!, name=%s, time=%s", name.c_str(), DateTimeToStr( NowUTC() - execTask, "nn:ss" ).c_str() );

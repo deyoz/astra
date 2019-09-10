@@ -68,7 +68,7 @@ bool TKioskCmp::operator() (const TSelfCkinStatKey &lr, const TSelfCkinStatKey &
 
 void RunSelfCkinStat(const TStatParams &params,
                   TSelfCkinStat &SelfCkinStat, TSelfCkinStatRow &SelfCkinStatTotal,
-                  TPrintAirline &prn_airline, bool full)
+                  TPrintAirline &prn_airline)
 {
     TQuery Qry(&OraSession);
     for(int pass = 0; pass <= 2; pass++) {
@@ -198,7 +198,7 @@ void RunSelfCkinStat(const TStatParams &params,
                     key.places.set(GetRouteAfterStr( NoExists, point_id, trtNotCurrent, trtNotCancelled), false);
                 }
 
-                AddStatRow(key, row, SelfCkinStat, full);
+                AddStatRow(params.overflow, key, row, SelfCkinStat);
               }
               else
               {
@@ -227,13 +227,6 @@ void createXMLSelfCkinStat(const TStatParams &params,
     int rows = 0;
     for(TSelfCkinStat::const_iterator im = SelfCkinStat.begin(); im != SelfCkinStat.end(); ++im, rows++)
     {
-        if(rows >= MAX_STAT_ROWS()) {
-            throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
-            /*AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH",
-                    LParams() << LParam("num", MAX_STAT_ROWS()));
-            if (WITHOUT_TOTAL_WHEN_PROBLEM) showTotal=false; //не будем показывать итоговую строку дабы не ввести в заблуждение
-            break;*/
-        }
         //region обязательно в начале цикла, иначе будет испорчен xml
         string region;
         if(params.statType == statSelfCkinFull)
@@ -571,7 +564,7 @@ void RunSelfCkinStatFile(const TStatParams &params, TOrderStatWriter &writer, TP
 {
     TSelfCkinStat SelfCkinStat;
     TSelfCkinStatRow SelfCkinStatTotal;
-    RunSelfCkinStat(params, SelfCkinStat, SelfCkinStatTotal, prn_airline, true);
+    RunSelfCkinStat(params, SelfCkinStat, SelfCkinStatTotal, prn_airline);
     for (TSelfCkinStat::const_iterator i = SelfCkinStat.begin(); i != SelfCkinStat.end(); ++i)
         writer.insert(TSelfCkinStatCombo(*i, params));
 }

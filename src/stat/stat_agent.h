@@ -84,7 +84,7 @@ typedef std::map<TAgentStatKey, TAgentStatRow, TAgentCmp> TAgentStat;
 
 void RunAgentStat(const TStatParams &params,
                   TAgentStat &AgentStat, TAgentStatRow &AgentStatTotal,
-                  TPrintAirline &prn_airline, bool override_max_rows = false);
+                  TPrintAirline &prn_airline);
 void createXMLAgentStat(const TStatParams &params,
                         const TAgentStat &AgentStat, const TAgentStatRow &AgentStatTotal,
                         const TPrintAirline &airline, xmlNodePtr resNode);

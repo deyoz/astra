@@ -53,8 +53,7 @@ void TADFullStat::add(const TADStatRow &row)
 
 void RunADStat(
         const TStatParams &params,
-        TADAbstractStat &ADStat,
-        bool full
+        TADAbstractStat &ADStat
         )
 {
     for(int pass = 0; pass <= 2; pass++) {
@@ -129,8 +128,7 @@ void RunADStat(
                 row.desk = Qry.get().FieldAsString(col_desk);
                 row.station = Qry.get().FieldAsString(col_station);
                 ADStat.add(row);
-                if ((not full) and (ADStat.RowCount() > (size_t)MAX_STAT_ROWS()))
-                    throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
+                params.overflow.check(ADStat.RowCount());
             }
         }
     }
@@ -344,7 +342,7 @@ void TADFullStatCombo::add_data(ostringstream &buf) const
 void RunADFullFile(const TStatParams &params, TOrderStatWriter &writer)
 {
     TADFullStat ADFullStat;
-    RunADStat(params, ADFullStat, true);
+    RunADStat(params, ADFullStat);
 
     for(TADFullStat::const_iterator airline = ADFullStat.begin();
             airline != ADFullStat.end(); airline++) {

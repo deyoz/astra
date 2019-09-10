@@ -47,11 +47,15 @@ const string EncodeOrderStatus(TOrderStatus s)
   return TOrderStatusS[s];
 };
 
-void commit_progress(TQuery &Qry, int parts, int size)
+void commit_progress(TQuery &Qry, int parts, int size, long time_processing, int interval)
 {
     Qry.SetVariable("progress", round((double)parts / size * 100));
     Qry.Execute();
     OraSession.Commit();
+    if(interval != NoExists) {
+        if(time_processing > interval * 60 * 1000)
+            throw StatOverflowException();
+    }
 }
 
 int GetCrc32(const string& my_string) {

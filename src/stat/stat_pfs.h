@@ -63,8 +63,7 @@ struct TPFSShortStat: public TPFSScdOutMap, TPFSAbstractStat {
 void RunPFSStat(
         const TStatParams &params,
         TPFSAbstractStat &PFSStat,
-        TPrintAirline &prn_airline,
-        bool full = false
+        TPrintAirline &prn_airline
         );
 
 void createXMLPFSStat(

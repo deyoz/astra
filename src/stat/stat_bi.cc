@@ -70,8 +70,7 @@ void TBIFullStat::add(const TBIStatRow &row)
 
 void RunBIStat(
         const TStatParams &params,
-        TBIAbstractStat &BIStat,
-        bool full
+        TBIAbstractStat &BIStat
         )
 {
     for(int pass = 0; pass <= 2; pass++) {
@@ -143,9 +142,7 @@ void RunBIStat(
                 row.hall = Qry.get().FieldAsInteger(col_hall);
                 row.op_type = ASTRA::TDevOperTypes().decode(Qry.get().FieldAsString(col_op_type));
                 BIStat.add(row);
-
-                if ((not full) and (BIStat.RowCount() > (size_t)MAX_STAT_ROWS()))
-                    throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
+                params.overflow.check(BIStat.RowCount());
             }
         }
     }
@@ -330,7 +327,7 @@ void TBIFullStatCombo::add_header(ostringstream &buf) const
 void RunBIFullFile(const TStatParams &params, TOrderStatWriter &writer)
 {
     TBIFullStat BIFullStat;
-    RunBIStat(params, BIFullStat, true);
+    RunBIStat(params, BIFullStat);
     for(const auto &airline: BIFullStat) {
         for(const auto &airp: airline.second) {
             for(const auto &flt: airp.second) {
@@ -553,7 +550,7 @@ void TBIDetailStatCombo::add_data(ostringstream &buf) const
 void RunBIShortFile(const TStatParams &params, TOrderStatWriter &writer)
 {
     TBIShortStat BIShortStat;
-    RunBIStat(params, BIShortStat, true);
+    RunBIStat(params, BIShortStat);
 
     for(const auto &airline: BIShortStat) {
         for(const auto &airp: airline.second) {
@@ -568,7 +565,7 @@ void RunBIShortFile(const TStatParams &params, TOrderStatWriter &writer)
 void RunBIDetailFile(const TStatParams &params, TOrderStatWriter &writer)
 {
     TBIDetailStat BIDetailStat;
-    RunBIStat(params, BIDetailStat, true);
+    RunBIStat(params, BIDetailStat);
 
     for(const auto &airline: BIDetailStat) {
         for(const auto &airp: airline.second) {

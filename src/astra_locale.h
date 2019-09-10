@@ -47,6 +47,10 @@ struct LParam {
         name = aname;
       value = avalue;
     }
+    LParam( std::string aname, size_t avalue ) {
+        name = aname;
+      value = avalue;
+    }
     LParam( std::string aname, LexemaData avalue );/* {
         name = aname;
       value = avalue;

@@ -53,8 +53,7 @@ void TPFSShortStat::add(const TPFSStatRow &row)
 void RunPFSStat(
         const TStatParams &params,
         TPFSAbstractStat &PFSStat,
-        TPrintAirline &prn_airline,
-        bool full
+        TPrintAirline &prn_airline
         )
 {
     TDateTime first_date = params.FirstDate;
@@ -209,9 +208,7 @@ void RunPFSStat(
                     row.birth_date = Qry.get().FieldAsDateTime(col_birth_date);
                 PFSStat.add(row);
 
-                if ((not full) and (PFSStat.RowCount() > (size_t)MAX_STAT_ROWS())) {
-                    throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
-                }
+                params.overflow.check(PFSStat.RowCount());
             }
         }
     }
@@ -224,7 +221,6 @@ void createXMLPFSStat(
         xmlNodePtr resNode)
 {
     if(PFSStat.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
-    if(PFSStat.size() > (size_t)MAX_STAT_ROWS()) throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
     NewTextChild(resNode, "airline", prn_airline.get(), "");
     xmlNodePtr grdNode = NewTextChild(resNode, "grd");
 
@@ -319,7 +315,6 @@ void createXMLPFSShortStat(
         xmlNodePtr resNode)
 {
     if(PFSShortStat.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
-    if(PFSShortStat.size() > (size_t)MAX_STAT_ROWS()) throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
     NewTextChild(resNode, "airline", prn_airline.get(), "");
     xmlNodePtr grdNode = NewTextChild(resNode, "grd");
 
@@ -529,7 +524,7 @@ void TPFSFullStatCombo::add_header(ostringstream &buf) const
 void RunPFSShortFile(const TStatParams &params, TOrderStatWriter &writer, TPrintAirline &prn_airline)
 {
     TPFSShortStat PFSShortStat;
-    RunPFSStat(params, PFSShortStat, prn_airline, true);
+    RunPFSStat(params, PFSShortStat, prn_airline);
     for(TPFSShortStat::iterator
             stat = PFSShortStat.begin();
             stat != PFSShortStat.end(); stat++)
@@ -555,7 +550,7 @@ void RunPFSShortFile(const TStatParams &params, TOrderStatWriter &writer, TPrint
 void RunPFSFullFile(const TStatParams &params, TOrderStatWriter &writer, TPrintAirline &prn_airline)
 {
     TPFSStat PFSStat;
-    RunPFSStat(params, PFSStat, prn_airline, true);
+    RunPFSStat(params, PFSStat, prn_airline);
     for(TPFSStat::iterator i = PFSStat.begin(); i != PFSStat.end(); i++)
         writer.insert(TPFSFullStatCombo(*i));
 }

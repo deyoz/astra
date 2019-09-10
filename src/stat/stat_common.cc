@@ -407,14 +407,6 @@ const string EncodeOrderSource(TOrderSource s)
   return TOrderSourceS[s];
 };
 
-int MAX_STAT_ROWS()
-{
-  static int VAR=NoExists;
-  if (VAR==NoExists)
-    VAR=getTCLParam("MAX_STAT_ROWS",NoExists,NoExists,2000);
-  return VAR;
-};
-
 void TOrderStatWriter::finish()
 {
     if(rowcount == 0) return;
@@ -567,4 +559,39 @@ bool TDeskAccess::get(const string &desk)
         result = res.first;
     }
     return result->second;
+}
+
+int MAX_STAT_ROWS()
+{
+  static int VAR=NoExists;
+  if (VAR==NoExists)
+    VAR=getTCLParam("MAX_STAT_ROWS",NoExists,NoExists,2000);
+  return VAR;
+};
+
+int MAX_STAT_SECONDS()
+{
+  static int VAR=NoExists;
+  if (VAR==NoExists)
+    VAR=getTCLParam("MAX_STAT_SECONDS",NoExists,NoExists,30);
+  return VAR;
+};
+
+void TStatOverflow::trace(TRACE_SIGNATURE) const
+{
+    LogTrace(TRACE_PARAMS) << "TStatOverflow::trace: " << tm.Print();
+}
+
+void TStatOverflow::check(size_t RowCount) const
+{
+    if(apply_type == apply) {
+        if(RowCount > (size_t)MAX_STAT_ROWS())
+            throw StatOverflowException("MSG.TOO_MANY_ROWS_SELECTED.UPDATE_TERM");
+        if(tm.Print() > MAX_STAT_SECONDS() * 1000)
+            throw StatOverflowException("MSG.TIMEOUT_EXPIRED.UPDATE_TERM");
+    }
+}
+
+TStatParams::TStatParams(TStatOverflow::Enum apply_type): overflow(apply_type)
+{
 }

@@ -51,8 +51,7 @@ struct TVOShortStat: public TVOShortAirlineMap, TVOAbstractStat {
 
 void RunVOStat(
         const TStatParams &params,
-        TVOAbstractStat &VOStat,
-        bool full = false
+        TVOAbstractStat &VOStat
         );
 
 void createXMLVOFullStat(

@@ -470,7 +470,7 @@ int nosir_rfisc_all_xml(int argc,char **argv)
         nextDateQry.Execute();
         TDateTime end = nextDateQry.FieldAsDateTime(0);
 
-        TStatParams params;
+        TStatParams params(TStatOverflow::ignore);
         TPrintAirline airline;
         TRFISCStat RFISCStat;
         RunRFISCStat(params, RFISCStat, airline);
@@ -888,6 +888,7 @@ void RunRFISCStat(
                 if(not Qry.get().FieldIsNULL(col_paid))
                     row.paid = Qry.get().FieldAsInteger(col_paid);
                 RFISCStat.insert(row);
+                params.overflow.check(RFISCStat.size());
             }
         }
     }
@@ -896,7 +897,6 @@ void RunRFISCStat(
 void createXMLRFISCStat(const TStatParams &params, const TRFISCStat &RFISCStat, const TPrintAirline &prn_airline, xmlNodePtr resNode)
 {
     if(RFISCStat.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
-    if (RFISCStat.size() > (size_t)MAX_STAT_ROWS()) throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
     NewTextChild(resNode, "airline", prn_airline.get(), "");
     xmlNodePtr grdNode = NewTextChild(resNode, "grd");
 

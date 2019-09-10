@@ -120,7 +120,21 @@ class TSegCategory : public ASTRA::PairList<TSegCategories::Enum, std::string>
                                                                             boost::none) {}
 };
 
+struct TStatOverflow {
+    public:
+        enum Enum {
+            ignore,
+            apply
+        } apply_type;
+        void check(size_t RowCount) const;
+        void trace(TRACE_SIGNATURE) const;
+        TStatOverflow(TStatOverflow::Enum _apply_type): apply_type(_apply_type) {}
+    private:
+        mutable TPerfTimer tm;
+};
+
 struct TStatParams {
+    TStatOverflow overflow;
     std::string desk_city; // Используется в TReqInfo::Initialize(city) в фоновой статистике
     std::string desk_lang;
     std::string name, type;
@@ -156,6 +170,7 @@ struct TStatParams {
             const std::string &airline_col = "airline",
             const std::string &airp_col = "airp"
             ) const;
+    TStatParams(TStatOverflow::Enum stat_source);
 };
 
 struct TPrintAirline {
@@ -185,11 +200,15 @@ const std::string EncodeOrderSource(TOrderSource s);
 int MAX_STAT_ROWS();
 
 namespace AstraLocale {
-    class MaxStatRowsException: public UserException
+    class StatOverflowException: public UserException
     {
-        public: MaxStatRowsException(const std::string &vlexema, const LParams &aparams): UserException(vlexema, aparams) {}
+        public:
+            StatOverflowException(const std::string &vlexema): UserException(vlexema) {}
+            StatOverflowException(): UserException("") {}
     };
 }
+
+
 
 struct TOrderStatItem {
     static const char delim = ';';

@@ -82,8 +82,7 @@ struct TBIShortStat: public TBIShortAirlineMap, TBIAbstractStat {
 
 void RunBIStat(
         const TStatParams &params,
-        TBIAbstractStat &BIStat,
-        bool full = false
+        TBIAbstractStat &BIStat
         );
 
 void createXMLBIFullStat(
