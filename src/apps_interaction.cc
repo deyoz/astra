@@ -20,6 +20,7 @@
 
 #include <serverlib/str_utils.h>
 #include <serverlib/tcl_utils.h>
+#include <serverlib/testmode.h>
 #include <edilib/edi_user_func.h>
 #include <edilib/edi_except.h>
 
@@ -62,6 +63,10 @@ using namespace edilib;
 // static const std::string AnsErrCode = "ERR";
 
 // static const std::string APPSFormat = "APPS_FMT";
+
+#ifdef XP_TESTING
+void setLastAppsMsgId(int);
+#endif//XP_TESTING
 
 class AppsPaxNotFoundException : public std::exception {} ;
 
@@ -1681,6 +1686,11 @@ void TAPPSPaxCollector::AddPassenger(const int pax_id,
       }
       new_data.InitPaxlstInfo(*paxlstInfo);
       msg_id = new_data.get_msg_id();
+#ifdef XP_TESTING
+      if(inTestMode()) {
+          setLastAppsMsgId(msg_id);
+      }
+#endif//XP_TESTING
       point_id = new_data.get_point_id();
       first_pax = false;
     }

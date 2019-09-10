@@ -1152,9 +1152,12 @@ $(sql "update ROT set H2H=1, H2H_REM_ADDR_NUM=1, H2H_ADDR='1HCNIAPIR', OUR_H2H_A
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set move_id $(get_move_id $(get point_dep)))
 $(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
 
 $(OPEN_CHECKIN $(get point_dep))
+
+$(sql "insert into TRIP_HALL (PR_MISC, TYPE, POINT_ID) values (1, 101, $(get point_dep))")
 
 $(SAVE_ET_DISP $(get point_dep) 2981212121212 REPIN IVAN ž’ UTDC UTET G4LK6W DME BJS)
 
@@ -1257,9 +1260,9 @@ BGM+745"
 
 
 >>
-$(TKCREQ_ET_COS UTDC UTET $(get ediref_tktreq) ž’ 2981212121212 1 CK xxxxxx „Œ„ BJS)
+$(TKCREQ_ET_COS UTDC UTET $(get ediref_tktreq) ž’ 2981212121212 1 BD xxxxxx „Œ„ BJS)
 <<
-$(TKCRES_ET_COS UTET UTDC $(get ediref_tktreq) 2981212121212 1 CK)
+$(TKCRES_ET_COS UTET UTDC $(get ediref_tktreq) 2981212121212 1 BD)
 
 >> lines=auto
     <kick req_ctxt_id...
@@ -1310,15 +1313,58 @@ UNB+SIRE:4+NIAC:ZZ+NORDWIND:ZZ+190819:0930+$(get ediref_paxlst)0001++IAPI"
 UNG+CUSRES+NIAC:ZZ+NORDWIND:ZZ+190819:0930+1+UN+D:05B"
 UNH+11085B94E1F8FA+CUSRES:D:05B:UN:IATA"
 BGM+962"
-RFF+TN:2516"
+RFF+TN:$(lastAppsMsgId)"
 RFF+AF:FV256"
 DTM+189:1908011800:201"
 DTM+232:1908012300:201"
 LOC+125+DME"
-LOC+87+PEK"
-ERP+1"
-ERC+1"
-FTX+AAP+++AIRLINE NOT OPEN IAPI RULE"
-UNT+12+11085B94E1F8FA"
+LOC+87+BJS"
+ERP+2"
+RFF+AVF:0840Z6"
+RFF+ABO:$(get pax_id)"
+ERC+0Z"
+FTX+AAP+++OK TO BOARD"
+UNT+14+11085B94E1F8FA"
 UNE+1+1"
 UNZ+1+$(get ediref_paxlst)"
+
+
+!! err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='sopp' ver='1' opr='PIKE' screen='SOPP.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <WriteDests>
+      <data>
+        <move_id>$(get move_id)</move_id>
+        <canexcept>1</canexcept>
+        <reference/>
+        <dests>
+          <dest>
+            <modify/>
+            <point_id>$(get point_dep)</point_id>
+            <point_num>0</point_num>
+            <airp>„Œ„</airp>
+            <airline>ž’</airline>
+            <flt_no>103</flt_no>
+            <craft>735</craft>
+            <scd_out>$(date_format %d.%m.%Y) 14:00:00</scd_out>
+            <act_out>$(date_format %d.%m.%Y) 14:00:00</act_out>
+            <trip_type>¯</trip_type>
+            <pr_tranzit>0</pr_tranzit>
+            <pr_reg>1</pr_reg>
+          </dest>
+          <dest>
+            <point_id>$(get point_arv)</point_id>
+            <point_num>1</point_num>
+            <first_point>$(get point_dep)</first_point>
+            <airp>BJS</airp>
+            <scd_in>$(date_format %d.%m.%Y) 18:00:00</scd_in>
+            <trip_type>¯</trip_type>
+            <pr_tranzit>0</pr_tranzit>
+            <pr_reg>0</pr_reg>
+          </dest>
+        </dests>
+      </data>
+    </WriteDests>
+  </query>
+</term>}
