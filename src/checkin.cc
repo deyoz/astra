@@ -5249,7 +5249,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   // Для новых пассадиров ремарки APPS не проверяем
                   Timing::Points apps_timing("Timing::need_apps_1");
 //                  processPax( pax_id, apps_timing );
-                  apps_collector.AddPassenger(pax_id, apps_timing);
+                  apps_collector.AddPassenger(pax_id, apps_timing, TAPPSPaxCollector::IAPIClearPassengerRequest);
                 }
 
                 // Запись в pax_events
@@ -5521,7 +5521,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 HandleAPPSRems(p->rems, override, is_forced);
                 Timing::Points apps_timing("Timing::need_apps_2");
 //                processPax( pax.id, apps_timing, override, is_forced );
-                apps_collector.AddPassenger(pax.id, apps_timing, true, override, is_forced);
+                apps_collector.AddPassenger(pax.id, apps_timing, TAPPSPaxCollector::IAPIChangePassengerData, override, is_forced);
               }
             }
             catch(CheckIn::UserException)

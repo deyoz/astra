@@ -141,8 +141,7 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
                                    getSeqFlag( partNum, partsCnt ) ) ) ;
 
     // BGM
-    viewBgmElement( pMes, BgmElem( paxlst.type()==PaxlstInfo::FlightPassengerManifest?"745":"250",
-                                   paxlst.docId() ) );
+    viewBgmElement( pMes, paxlst.getBgmElem() );
 
     // RFF
     if (paxlst.settings().view_RFF_TN())
@@ -214,77 +213,72 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
         SetEdiPointToSegGrW( pMes, SegGrElement( 4, segmGroupNum ) );
 
         // NAD
-        viewNadElement( pMes, NadElem( paxlst.type()==PaxlstInfo::FlightPassengerManifest?"FL":"FM",
-                                       it->surname(),
-                                       it->first_name(),
-                                       it->second_name(),
-                                       it->street(),
-                                       it->city(),
-                                       it->countrySubEntityCode(),
-                                       it->postalCode(),
-                                       it->destCountry() ) );
+        viewNadElement( pMes, paxlst.getNadElem(*it) );
         // ATT
         viewAttElement( pMes, AttElem( "2", it->sex() ) );
-        // DTM
+       // DTM
         viewDtmElement( pMes, DtmElem( DtmElem::DateOfBirth, it->birthDate() ) );
 
-        // GEI
-        if (!it->procInfo().empty())
-          viewGeiElement( pMes, GeiElem("4", it->procInfo()) );
-
-        int meaNum = 0;
-        if( it->bagCount() != ASTRA::NoExists )
+        if (paxlst.type()!=PaxlstInfo::IAPIFlightCloseOnBoard)
         {
+          // GEI
+          if (!it->procInfo().empty())
+            viewGeiElement( pMes, GeiElem("4", it->procInfo()) );
+
+          int meaNum = 0;
+          if( it->bagCount() != ASTRA::NoExists )
+          {
             // MEA
             viewMeaElement( pMes, MeaElem( MeaElem::BagCount, it->bagCount() ), meaNum++ );
-        }
-        if( it->bagWeight() != ASTRA::NoExists )
-        {
+          }
+          if( it->bagWeight() != ASTRA::NoExists )
+          {
             // MEA
             viewMeaElement( pMes, MeaElem( MeaElem::BagWeight, it->bagWeight() ), meaNum++ );
-        }
+          }
 
-        int ftxNum = 0;
-        for (auto tag = it->bagTags().begin(); tag != it->bagTags().end() && ftxNum < 99; ++tag, ++ftxNum)
-        {
-          // FTX
-          viewFtx2Element( pMes, Ftx2Elem("BAG", *tag, "1"), ftxNum);
-        }
+          int ftxNum = 0;
+          for (auto tag = it->bagTags().begin(); tag != it->bagTags().end() && ftxNum < 99; ++tag, ++ftxNum)
+          {
+            // FTX
+            viewFtx2Element( pMes, Ftx2Elem("BAG", *tag, "1"), ftxNum);
+          }
 
-        int locNum = 0;
-        if( !it->CBPPort().empty() )
-        {
+          int locNum = 0;
+          if( !it->CBPPort().empty() )
+          {
             // LOC
             viewLocElement( pMes, LocElem( LocElem::CustomsAndBorderProtection, it->CBPPort() ), locNum++ );
-        }
-        if( !it->depPort().empty() )
-        {
+          }
+          if( !it->depPort().empty() )
+          {
             // LOC
             viewLocElement( pMes, LocElem( LocElem::StartJourney, it->depPort() ), locNum++ );
-        }
-        if( !it->arrPort().empty() )
-        {
+          }
+          if( !it->arrPort().empty() )
+          {
             // LOC
             viewLocElement( pMes, LocElem( LocElem::FinishJourney, it->arrPort() ), locNum++ );
-        }
-        if( !it->residCountry().empty() )
-        {
+          }
+          if( !it->residCountry().empty() )
+          {
             // LOC
             viewLocElement( pMes, LocElem( LocElem::CountryOfResidence, it->residCountry() ), locNum++ );
-        }
-        if( !it->birthCountry().empty() )
-        {
+          }
+          if( !it->birthCountry().empty() )
+          {
             // LOC
             viewLocElement( pMes, LocElem( LocElem::CountryOfBirth,
                                            it->birthCountry(),
                                            it->birthCity(),
                                            it->birthRegion()), locNum++ );
-        }
+          }
 
-        if( !it->nationality().empty() )
-        {
+          if( !it->nationality().empty() )
+          {
             // NAT
             viewNatElement( pMes, NatElem( "2", it->nationality() ) );
+          }
         }
 
         int rffNum = 0;
@@ -298,21 +292,24 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
             // RFF
             viewRffElement( pMes, RffElem( "ABO", it->paxRef() ), rffNum++ );
         }
-        if( !it->ticketNumber().empty() )
+
+        if (paxlst.type()!=PaxlstInfo::IAPIFlightCloseOnBoard)
         {
+          if( !it->ticketNumber().empty() )
+          {
             // RFF
             viewRffElement( pMes, RffElem( "YZY", it->ticketNumber() ), rffNum++ );
-        }
+          }
 
-        for( vector<pair<int,string>>::const_iterator i = it->seats().begin(); i != it->seats().end(); i++ )
-        {
+          for( vector<pair<int,string>>::const_iterator i = it->seats().begin(); i != it->seats().end(); i++ )
+          {
             // RFF
             viewRffElement( pMes, RffElem( "SEA", IntToString( i->first ) + i->second ), rffNum++ );
-        }
+          }
 
-        int seg5iter = 0;
-        if( !it->docType().empty() || !it->docNumber().empty() )
-        {
+          int seg5iter = 0;
+          if( !it->docType().empty() || !it->docNumber().empty() )
+          {
             SetEdiSegGr( pMes, SegGrElement( 5, seg5iter ) );
             PushEdiPointW( pMes );
             SetEdiPointToSegGrW( pMes, SegGrElement( 5, seg5iter ) );
@@ -322,24 +319,24 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
 
             if( it->docExpirateDate() != ASTRA::NoExists )
             {
-                // DTM
-                viewDtmElement( pMes, DtmElem( DtmElem::DocExpireDate, it->docExpirateDate() ) );
+              // DTM
+              viewDtmElement( pMes, DtmElem( DtmElem::DocExpireDate, it->docExpirateDate() ) );
             }
 
 
             if( !it->docCountry().empty() )
             {
-                // LOC
-                viewLocElement( pMes, LocElem( LocElem::DocCountry, it->docCountry() ) );
+              // LOC
+              viewLocElement( pMes, LocElem( LocElem::DocCountry, it->docCountry() ) );
             }
 
             PopEdiPointW( pMes );
             ++seg5iter;
-        }
+          }
 
-        // ВИЗА
-        if( !it->docoType().empty() || !it->docoNumber().empty() )
-        {
+          // ВИЗА
+          if( !it->docoType().empty() || !it->docoNumber().empty() )
+          {
             SetEdiSegGr( pMes, SegGrElement( 5, seg5iter ) );
             PushEdiPointW( pMes );
             SetEdiPointToSegGrW( pMes, SegGrElement( 5, seg5iter ) );
@@ -349,28 +346,27 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
 
             if( it->docoExpirateDate() != ASTRA::NoExists )
             {
-                // DTM
-                viewDtmElement( pMes, DtmElem( DtmElem::DocExpireDate, it->docoExpirateDate() ) );
+              // DTM
+              viewDtmElement( pMes, DtmElem( DtmElem::DocExpireDate, it->docoExpirateDate() ) );
             }
 
             if( !it->docoCountry().empty() )
             {
-                // LOC
-                viewLocElement( pMes, LocElem( LocElem::DocCountry, it->docoCountry() ) );
+              // LOC
+              viewLocElement( pMes, LocElem( LocElem::DocCountry, it->docoCountry() ) );
             }
 
             PopEdiPointW( pMes );
             ++seg5iter;
+          }
         }
 
         PopEdiPointW( pMes );
     }
 
     // CNT
-    viewCntElement( pMes, CntElem( paxlst.type()==PaxlstInfo::FlightPassengerManifest?
-                                     CntElem::PassengersTotal:
-                                     CntElem::CrewTotal,
-                                   totalCnt ) );
+    viewCntElement( pMes, paxlst.getCntElem(totalCnt) );
+
     if (paxlst.settings().viewUNGandUNE())
     {
       // UNE
@@ -500,8 +496,10 @@ std::vector< std::string > PaxlstInfo::toEdiStrings( unsigned maxPaxPerString ) 
 
 void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const int crew_num, const int version) const
 {
-  if ( ( ( m_type == FlightPassengerManifest ) && ( pax_num == 0 ) ) ||
-       ( ( m_type == FlightCrewManifest ) && ( crew_num == 0 ) ) )
+  if ( ( m_type == FlightPassengerManifest && pax_num == 0 )  ||
+       ( m_type == FlightCrewManifest && crew_num == 0 ) ||
+       ( m_type == IAPIFlightCloseOnBoard ) ||
+       ( m_type == IAPICancelFlight ) )
       return;
 
   // Make segment "Message"
@@ -699,6 +697,63 @@ void PaxlstInfo::checkInvariant() const
     if( senderName().empty() )
         throw EXCEPTIONS::Exception( "Empty sender name!" );
 }
+
+BgmElem PaxlstInfo::getBgmElem() const
+{
+  switch(m_type)
+  {
+    case FlightPassengerManifest:
+      return BgmElem("745", m_docId);
+    case FlightCrewManifest:
+      return BgmElem("250", m_docId);
+//    case IAPIClearPassengerRequest:
+//      return BgmElem("745","");
+//    case IAPIChangePassengerData:
+//      return BgmElem("745","CP");
+    case IAPIFlightCloseOnBoard:
+      return BgmElem("266","CLOB");
+    case IAPICancelFlight:
+      return BgmElem("266","XF");
+  }
+  throw EXCEPTIONS::Exception( "%s: Unsupported message type", __func__ );
+}
+
+CntElem PaxlstInfo::getCntElem(const int totalCnt) const
+{
+  switch(m_type)
+  {
+    case FlightPassengerManifest:
+    case IAPIFlightCloseOnBoard:
+    case IAPICancelFlight:
+      return CntElem(CntElem::PassengersTotal, totalCnt);
+    case FlightCrewManifest:
+      return CntElem(CntElem::CrewTotal, totalCnt);
+  }
+  throw EXCEPTIONS::Exception( "%s: Unsupported message type", __func__ );
+}
+
+NadElem PaxlstInfo::getNadElem(const Paxlst::PassengerInfo& pax) const
+{
+  switch(m_type)
+  {
+    case FlightPassengerManifest:
+    case FlightCrewManifest:
+      return NadElem(m_type==PaxlstInfo::FlightPassengerManifest?"FL":"FM",
+                     pax.surname(),
+                     pax.first_name(),
+                     pax.second_name(),
+                     pax.street(),
+                     pax.city(),
+                     pax.countrySubEntityCode(),
+                     pax.postalCode(),
+                     pax.destCountry());
+    case IAPIFlightCloseOnBoard:
+      return NadElem("ZZZ", "");
+    case IAPICancelFlight: ; //там вообще нет элементов NAD для пассажира
+  }
+  throw EXCEPTIONS::Exception( "%s: Unsupported message type", __func__ );
+}
+
 }//namespace Paxlst
 
 /////////////////////////////////////////////////////////////////////////////////////////

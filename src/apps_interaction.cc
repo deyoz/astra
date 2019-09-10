@@ -237,6 +237,7 @@ int TAppsSets::get_version()
 int GetVersion(string airline, string country)
 {
   TAppsSets sets(airline, country);
+  LogError(STDLOG) << "airline=" << airline << " country=" << country << " version=" <<sets.get_version();
   return sets.get_version();
 }
 
@@ -324,6 +325,10 @@ static void sendNewReq(const Paxlst::PaxlstInfo& paxlst, const int msg_id, const
   using namespace edifact;
   PaxlstRequest ediReq(PaxlstReqParams("", paxlst));
   ediReq.sendTlg();
+  if (paxlst.type()==Paxlst::PaxlstInfo::IAPIFlightCloseOnBoard ||
+      paxlst.type()==Paxlst::PaxlstInfo::IAPICancelFlight)
+    return;  //не пишем в apps_messages;
+
   string msg = paxlst.toEdiString();
   saveAppsMessage(msg, msg_id, point_id, version);
 }
@@ -369,7 +374,7 @@ const std::string getIAPIEdiProfileName()
     return ediProfileName;
 }
 
-bool checkAPPSSets( const int point_dep, const int point_arv )
+bool checkAPPSSets( const int point_dep, const int point_arv, set<string>* pFormats )
 {
   bool result = false;
   TAdvTripRoute route;
@@ -383,7 +388,10 @@ bool checkAPPSSets( const int point_dep, const int point_arv )
     if (not_eof &&
       !( r->point_id == point_dep && !outbound ) &&
       !( r->point_id == point_arv && !inbound ) )
+    {
+      if (pFormats!=nullptr) pFormats->insert(sets.get_format());
       result = true;
+    }
     if ( r->point_id == point_arv )
       return result;
   }
@@ -391,13 +399,13 @@ bool checkAPPSSets( const int point_dep, const int point_arv )
   return false;
 }
 
-bool checkAPPSSets( const int point_dep, const std::string& airp_arv, set<string>* pFormats )
+bool checkAPPSSetsByAirpArv( const int point_dep, const std::string& airp_arv, set<string>* pFormats )
 {
   bool transit;
-  return checkAPPSSets( point_dep, airp_arv, transit, pFormats );
+  return checkAPPSSetsByAirpArv( point_dep, airp_arv, transit, pFormats );
 }
 
-bool checkAPPSSets( const int point_dep, const std::string& airp_arv, bool& transit, set<string>* pFormats )
+bool checkAPPSSetsByAirpArv( const int point_dep, const std::string& airp_arv, bool& transit, set<string>* pFormats )
 {
   bool result = false;
   transit = false;
@@ -1113,7 +1121,7 @@ bool TPaxRequest::getByPaxId( const int pax_id, Timing::Points& timing, const st
      так обрабатывать транзитные рейсы. */
   timing.start("getByPaxId transfer");
   bool transit;
-  checkAPPSSets( point_dep, airp_arv, transit );
+  checkAPPSSetsByAirpArv( point_dep, airp_arv, transit );
 
   int transfer = transit?Dest:None;
 
@@ -1233,7 +1241,7 @@ bool TPaxRequest::getByCrsPaxId( const int pax_id, Timing::Points& timing, const
      спецификации, однако при проведении сертификации SITA потребовала именно
      так обрабатывать транзитные рейсы. */
   bool transit;
-  checkAPPSSets( point_id, airp_arv, transit );
+  checkAPPSSetsByAirpArv( point_id, airp_arv, transit );
 
   int transfer = transit?Dest:None;
 
@@ -1630,11 +1638,17 @@ void TPaxRequest::InitPaxInfo(Paxlst::PassengerInfo& paxInfo) const
 }
 
 void TAPPSPaxCollector::AddPassenger(const int pax_id,
-                            Timing::Points& timing,
-                            const bool change,
-                            const std::string& override_type,
-                            const bool is_forced)
+                                     Timing::Points& timing,
+                                     const RequestType requestType,
+                                     const std::string& override_type,
+                                     const bool is_forced)
 {
+  if (requestType==APPSRequest)
+  {
+    processPax(pax_id, timing, override_type, is_forced);
+    return;
+  }
+
   if (first_pax)
   {
     version = GetVersionByPaxId(pax_id);
@@ -1648,10 +1662,23 @@ void TAPPSPaxCollector::AddPassenger(const int pax_id,
     new_data.saveData();
     if (first_pax)
     {
-      string doc_id; // empty docId for Clear Passenger Request
-      if (change)
-        doc_id = "CP"; // Change Passenger Data
-      paxlstInfo.reset(new Paxlst::PaxlstInfo(Paxlst::PaxlstInfo::FlightPassengerManifest, doc_id));
+      switch(requestType)
+      {
+        case IAPIClearPassengerRequest:
+          paxlstInfo.reset(new Paxlst::PaxlstInfo(Paxlst::PaxlstInfo::FlightPassengerManifest, ""));
+          break;
+        case IAPIChangePassengerData:
+          paxlstInfo.reset(new Paxlst::PaxlstInfo(Paxlst::PaxlstInfo::FlightPassengerManifest, "CP"));
+          break;
+        case IAPIFlightCloseOnBoard:
+          paxlstInfo.reset(new Paxlst::PaxlstInfo(Paxlst::PaxlstInfo::IAPIFlightCloseOnBoard, ""));
+          break;
+        case IAPICancelFlight:
+          paxlstInfo.reset(new Paxlst::PaxlstInfo(Paxlst::PaxlstInfo::IAPICancelFlight, ""));
+          break;
+        default:
+          throw Exception( "TAPPSPaxCollector: Unsupported message type" );
+      }
       new_data.InitPaxlstInfo(*paxlstInfo);
       msg_id = new_data.get_msg_id();
       point_id = new_data.get_point_id();
@@ -1665,7 +1692,9 @@ void TAPPSPaxCollector::AddPassenger(const int pax_id,
   }
   else
   {
-    processPax(pax_id, timing, override_type, is_forced);
+    if (requestType==IAPIClearPassengerRequest ||
+        requestType==IAPIChangePassengerData)
+      processPax(pax_id, timing, override_type, is_forced);
     if (first_pax)
       first_pax = false;
   }
@@ -2798,50 +2827,97 @@ std::set<std::string> needFltCloseout( const std::set<std::string>& countries, c
   return countries_need_req;
 }
 
+void IAPIFlightCloseoutOnBoard(int point_dep, int point_arv)
+{
+  /* Определим, есть ли пассажиры прошедшие посадку,
+   * информация о которых была отправлена в IAPI.
+   * Для таких пассажиров нужно послать Flight Close On Board */
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText="SELECT DISTINCT pax.pax_id "
+              "FROM pax_grp, pax, apps_pax_data "
+              "WHERE pax_grp.grp_id=pax.grp_id AND apps_pax_data.pax_id = pax.pax_id AND "
+              "      pax_grp.point_dep=:point_dep AND pax_grp.point_arv=:point_arv AND "
+              "      (pax.name IS NULL OR pax.name<>'CBBG') AND "
+              "      pr_brd<>0 AND apps_pax_data.status IS NOT NULL and pax_crew != 'C'";
+  Qry.CreateVariable("point_dep", otInteger, point_dep);
+  Qry.CreateVariable("point_arv", otInteger, point_arv);
+  Qry.Execute();
+
+  Timing::Points timing("Timing::IAPIFlightCloseoutOnBoard");
+  timing.start("for !Qry.Eof");
+
+  TAPPSPaxCollector collector;
+  for( ; !Qry.Eof; Qry.Next() )
+  {
+    int pax_id=Qry.FieldAsInteger("pax_id");
+    collector.AddPassenger(pax_id, timing, TAPPSPaxCollector::IAPIFlightCloseOnBoard);
+  }
+  timing.start("for !Qry.Eof");
+
+  collector.Flush();
+}
+
 void APPSFlightCloseout( const int point_id )
 {
   ProgTrace(TRACE5, "APPSFlightCloseout: point_id = %d", point_id);
-  if ( !checkTime( point_id ) )
-    return;
+  bool timeIsOverForTrueAPPS=!checkTime( point_id );
 
   TAdvTripRoute route;
   route.GetRouteAfter( NoExists, point_id, trtWithCurrent, trtNotCancelled );
+  if ( route.empty() )  {
+    return;
+  }
   TAdvTripRoute::const_iterator r=route.begin();
   set<string> countries;
   countries.insert( getCountryByAirp(r->airp).code );
   for(r++; r!=route.end(); r++)
   {
     // определим, нужно ли отправлять данные
-    if( !checkAPPSSets( point_id, r->point_id ) )
+    std::set<std::string> apps_formats;
+    if( !checkAPPSSets( point_id, r->point_id, &apps_formats ) )
       continue;
-    countries.insert( getCountryByAirp(r->airp).code );
 
-    /* Определим, есть ли пассажиры не прошедшие посадку,
+    if (apps_formats.find(APPS_FORMAT_CHINA)!=apps_formats.end())
+    {
+      LogError(STDLOG) << "APPS_FORMAT_CHINA";
+      IAPIFlightCloseoutOnBoard(point_id, r->point_id);
+    }
+
+    if (apps_formats.find(APPS_FORMAT_21)!=apps_formats.end() ||
+        apps_formats.find(APPS_FORMAT_26)!=apps_formats.end())
+    {
+      LogError(STDLOG) << "APPS_FORMAT_21_26";
+      if ( timeIsOverForTrueAPPS ) continue;
+      countries.insert( getCountryByAirp(r->airp).code );
+
+      /* Определим, есть ли пассажиры не прошедшие посадку,
      * информация о которых была отправлена в SITA.
      * Для таких пассажиров нужно послать отмену */
-    TQuery Qry(&OraSession);
-    Qry.Clear();
-    Qry.SQLText="SELECT cirq_msg_id, pax_grp.status "
-                "FROM pax_grp, pax, apps_pax_data "
-                "WHERE pax_grp.grp_id=pax.grp_id AND apps_pax_data.pax_id = pax.pax_id AND "
-                "      pax_grp.point_dep=:point_dep AND pax_grp.point_arv=:point_arv AND "
-                "      (pax.name IS NULL OR pax.name<>'CBBG') AND "
-                "      pr_brd=0 AND apps_pax_data.status = 'B'  and pax_crew != 'C'";
-    Qry.CreateVariable("point_dep", otInteger, point_id);
-    Qry.CreateVariable("point_arv", otInteger, r->point_id);
-    Qry.Execute();
+      TQuery Qry(&OraSession);
+      Qry.Clear();
+      Qry.SQLText="SELECT cirq_msg_id, pax_grp.status "
+                  "FROM pax_grp, pax, apps_pax_data "
+                  "WHERE pax_grp.grp_id=pax.grp_id AND apps_pax_data.pax_id = pax.pax_id AND "
+                  "      pax_grp.point_dep=:point_dep AND pax_grp.point_arv=:point_arv AND "
+                  "      (pax.name IS NULL OR pax.name<>'CBBG') AND "
+                  "      pr_brd=0 AND apps_pax_data.status = 'B'  and pax_crew != 'C'";
+      Qry.CreateVariable("point_dep", otInteger, point_id);
+      Qry.CreateVariable("point_arv", otInteger, r->point_id);
+      Qry.Execute();
 
-    Timing::Points timing("Timing::APPSFlightCloseout");
-    timing.start("for !Qry.Eof");
-    for( ; !Qry.Eof; Qry.Next() )
-    {
-      TPaxRequest pax;
-      pax.fromDBByMsgId( Qry.FieldAsInteger("cirq_msg_id") );
-      if( pax.getStatus() != "B" )
-        continue; // CICX request has already been send
-      pax.sendReq(timing);
+      Timing::Points timing("Timing::APPSFlightCloseout");
+      timing.start("for !Qry.Eof");
+      for( ; !Qry.Eof; Qry.Next() )
+      {
+        TPaxRequest pax;
+        pax.fromDBByMsgId( Qry.FieldAsInteger("cirq_msg_id") );
+        if( pax.getStatus() != "B" )
+          continue; // CICX request has already been send
+        pax.sendReq(timing);
+      }
+      timing.finish("for !Qry.Eof");
     }
-    timing.finish("for !Qry.Eof");
   }
   set<string> countries_need_req = needFltCloseout( countries, route.front().airline );
   for( set<string>::const_iterator it = countries_need_req.begin(); it != countries_need_req.end(); it++ )
@@ -3022,9 +3098,9 @@ static void sendAPPSInfo( const int point_id, const int point_id_tlg )
   timing.start("for !Qry.Eof");
   TAPPSPaxCollector apps_collector;
   for ( ; !Qry.Eof; Qry.Next() )
-    if ( checkAPPSSets( point_id, Qry.FieldAsString( "airp_arv" ) ) )
+    if ( checkAPPSSetsByAirpArv( point_id, Qry.FieldAsString( "airp_arv" ) ) )
 //      processPax( Qry.FieldAsInteger( "pax_id" ), timing );
-      apps_collector.AddPassenger(Qry.FieldAsInteger("pax_id"), timing);
+      apps_collector.AddPassenger(Qry.FieldAsInteger("pax_id"), timing, TAPPSPaxCollector::APPSRequest);
   apps_collector.Flush();
   timing.finish("for !Qry.Eof");
 }
@@ -3068,7 +3144,7 @@ void sendNewAPPSInfo(const TTripTaskKey &task)
   for( ; !Qry.Eof; Qry.Next() ) {
     int pax_id = Qry.FieldAsInteger( "pax_id" );
 //    processPax( pax_id, timing );
-    apps_collector.AddPassenger(pax_id, timing);
+    apps_collector.AddPassenger(pax_id, timing, TAPPSPaxCollector::APPSRequest);
 
     TCachedQuery Qry( "UPDATE crs_pax SET need_apps=0 WHERE pax_id=:pax_id",
                       QParams() << QParam( "pax_id", otInteger, pax_id ) );

@@ -134,8 +134,10 @@ void viewBgmElement(_EDI_REAL_MES_STRUCT_* pMes, const BgmElem& elem)
 void viewNadElement(_EDI_REAL_MES_STRUCT_* pMes, const NadElem& elem, int num)
 {
     std::ostringstream nad;
-    nad << elem.m_funcCode << "+++" << elem.m_partyName;
-    if(elem.m_funcCode!="MS")
+    nad << elem.m_funcCode;
+    if (elem.m_funcCode!="ZZZ")
+      nad << "+++" << elem.m_partyName;
+    if(elem.m_funcCode!="MS" && elem.m_funcCode!="ZZZ")
     {
       nad << ":" << elem.m_partyName2;
       if(!elem.m_partyName3.empty())

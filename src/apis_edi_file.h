@@ -729,7 +729,11 @@ public:
     enum PaxlstType
     {
         FlightPassengerManifest,
-        FlightCrewManifest
+        FlightCrewManifest,
+//        IAPIClearPassengerRequest,
+//        IAPIChangePassengerData,
+        IAPIFlightCloseOnBoard,
+        IAPICancelFlight
     };
 private:
     PaxlstType m_type;
@@ -756,6 +760,9 @@ public:
     std::string toEdiString() const;
     void toXMLFormat(xmlNodePtr emulApisNode, const int psg_num, const int crew_num, const int version) const;
     std::vector< std::string > toEdiStrings( unsigned maxPaxPerString ) const;
+    edifact::BgmElem getBgmElem() const;
+    edifact::CntElem getCntElem(const int totalCnt) const;
+    edifact::NadElem getNadElem(const Paxlst::PassengerInfo& pax) const;
 
 protected:
     void checkInvariant() const;

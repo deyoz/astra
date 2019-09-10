@@ -36,9 +36,9 @@ void processPax( const int pax_id, Timing::Points& timing, const std::string& ov
 void APPSFlightCloseout( const int point_id );
 std::string getAnsText( const std::string& tlg );
 bool processReply( const std::string& source_raw );
-bool checkAPPSSets(const int point_dep, const int point_arv );
-bool checkAPPSSets( const int point_dep, const std::string& airp_arv, std::set<std::string>* pFormats = nullptr );
-bool checkAPPSSets( const int point_dep, const std::string& airp_arv, bool& transit, std::set<std::string>* pFormats = nullptr );
+bool checkAPPSSets(const int point_dep, const int point_arv, std::set<std::string>* pFormats = nullptr );
+bool checkAPPSSetsByAirpArv( const int point_dep, const std::string& airp_arv, std::set<std::string>* pFormats = nullptr );
+bool checkAPPSSetsByAirpArv( const int point_dep, const std::string& airp_arv, bool& transit, std::set<std::string>* pFormats = nullptr );
 bool checkTime( const int point_id );
 bool checkTime( const int point_id, TDateTime& start_time );
 std::string emulateAnswer( const std::string& request );
@@ -299,6 +299,16 @@ public:
 
 class TAPPSPaxCollector
 {
+  public:
+      enum RequestType
+      {
+          APPSRequest,
+          IAPIClearPassengerRequest,
+          IAPIChangePassengerData,
+          IAPIFlightCloseOnBoard,
+          IAPICancelFlight
+      };
+
   int version = 0;
   int msg_id = ASTRA::NoExists, point_id = ASTRA::NoExists;
 //  std::vector<std::pair<int,int>> msg_ids;
@@ -307,7 +317,7 @@ class TAPPSPaxCollector
 public:
   void AddPassenger(const int pax_id,
                     Timing::Points& timing,
-                    const bool change = false,
+                    const RequestType requestType,
                     const std::string& override_type = "",
                     const bool is_forced = false);
   void Flush();
