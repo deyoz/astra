@@ -15,8 +15,7 @@ using namespace BASIC::date_time;
 
 void RunHAStat(
         const TStatParams &params,
-        THAAbstractStat &HAStat,
-        bool full
+        THAAbstractStat &HAStat
         )
 {
     for(int pass = 0; pass <= 2; pass++) {
@@ -80,8 +79,7 @@ void RunHAStat(
                 row.chd = Qry.get().FieldAsInteger(col_chd);
                 row.inf = Qry.get().FieldAsInteger(col_inf);
                 HAStat.add(row);
-                if ((not full) and (HAStat.RowCount() > (size_t)MAX_STAT_ROWS()))
-                    throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
+                params.overflow.check(HAStat.RowCount());
             }
         }
     }
@@ -361,7 +359,7 @@ void THAFullStatCombo::add_data(ostringstream &buf) const
 void RunHAFullFile(const TStatParams &params, TOrderStatWriter &writer)
 {
     THAFullStat HAFullStat;
-    RunHAStat(params, HAFullStat, true);
+    RunHAStat(params, HAFullStat);
 
     for(THAFullStat::const_iterator airline = HAFullStat.begin();
             airline != HAFullStat.end(); airline++) {
@@ -427,7 +425,7 @@ void THAShortStatCombo::add_data(ostringstream &buf) const
 void RunHAShortFile(const TStatParams &params, TOrderStatWriter &writer)
 {
     THAShortStat HAShortStat;
-    RunHAStat(params, HAShortStat, true);
+    RunHAStat(params, HAShortStat);
 
     for(THAShortStat::const_iterator airline = HAShortStat.begin();
             airline != HAShortStat.end(); airline++) {

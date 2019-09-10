@@ -4,10 +4,21 @@
 #include "stat_utils.h"
 #include "points.h"
 
+#define NICKNAME "DENIS"
+#include "serverlib/slogger.h"
+
 using namespace std;
 using namespace ASTRA;
 using namespace AstraLocale;
 using namespace BASIC::date_time;
+
+void TLimitedCapabStat::add(const TFlight &row, const string &airp_arv, const string &rem_code, int pax_amount)
+{
+    total[rem_code] += pax_amount;
+    TRems &rems = rows[row][airp_arv];
+    if(rems.empty()) FRowCount++;
+    rems[rem_code] = pax_amount;
+}
 
 void RunLimitedCapabStat(
         const TStatParams &params,
@@ -82,9 +93,8 @@ void RunLimitedCapabStat(
                 string rem_code = Qry.get().FieldAsString(col_rem_code);
                 int pax_amount = Qry.get().FieldAsInteger(col_pax_amount);
 
-
-                LimitedCapabStat.total[rem_code] += pax_amount;
-                LimitedCapabStat.rows[row][airp_arv][rem_code] = pax_amount;
+                LimitedCapabStat.add(row, airp_arv, rem_code, pax_amount);
+                params.overflow.check(LimitedCapabStat.RowCount());
             }
         }
     }
@@ -93,8 +103,6 @@ void RunLimitedCapabStat(
 void createXMLLimitedCapabStat(const TStatParams &params, const TLimitedCapabStat &LimitedCapabStat, const TPrintAirline &prn_airline, xmlNodePtr resNode)
 {
     if(LimitedCapabStat.rows.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
-    if (LimitedCapabStat.rows.size() >= (size_t)MAX_STAT_ROWS())
-        throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
     NewTextChild(resNode, "airline", prn_airline.get(), "");
 
     xmlNodePtr grdNode = NewTextChild(resNode, "grd");
@@ -347,14 +355,13 @@ void get_limited_capability_stat(int point_id)
                     << QParam("rem_code", otString)
                     << QParam("pax_amount", otInteger)
                     );
-            for(map<string, map<string, int> >::iterator airp_arv = rems.begin(); airp_arv != rems.end(); airp_arv++) {
-                for(map<string, int>::iterator rem = airp_arv->second.begin(); rem != airp_arv->second.end(); rem++) {
-                    insQry.get().SetVariable("airp_arv", airp_arv->first);
-                    insQry.get().SetVariable("rem_code", rem->first);
-                    insQry.get().SetVariable("pax_amount", rem->second);
+            for(const auto &airp_arv: rems)
+                for(const auto &rem: airp_arv.second) {
+                    insQry.get().SetVariable("airp_arv", airp_arv.first);
+                    insQry.get().SetVariable("rem_code", rem.first);
+                    insQry.get().SetVariable("pax_amount", rem.second);
                     insQry.get().Execute();
                 }
-            }
         }
     }
 }

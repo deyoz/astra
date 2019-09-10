@@ -78,7 +78,7 @@ public:
 void get_flight_stat(int point_id, bool final_collection);
 int nosir_stat_order(int argc,char **argv);
 
-void stat_orders_collect(void);
+void stat_orders_collect(int interval);
 void stat_orders_synchro(void);
 
 void get_full_stat(TDateTime utcdate);

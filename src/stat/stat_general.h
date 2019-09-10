@@ -102,15 +102,15 @@ typedef std::map<TDetailStatKey, TDetailStatRow, TDetailCmp> TDetailStat;
 
 void RunPactDetailStat(const TStatParams &params,
                        TDetailStat &DetailStat, TDetailStatRow &DetailStatTotal,
-                       TPrintAirline &prn_airline, bool full = false);
+                       TPrintAirline &prn_airline);
 
 void RunDetailStat(const TStatParams &params,
                    TDetailStat &DetailStat, TDetailStatRow &DetailStatTotal,
-                   TPrintAirline &airline, bool full = false);
+                   TPrintAirline &airline);
 
 void RunFullStat(const TStatParams &params,
                  TFullStat &FullStat, TFullStatRow &FullStatTotal,
-                 TPrintAirline &airline, bool full = false);
+                 TPrintAirline &airline);
 
 void RunDetailStatFile(const TStatParams &params, TOrderStatWriter &writer, TPrintAirline &prn_airline);
 void RunFullStatFile(const TStatParams &params, TOrderStatWriter &writer, TPrintAirline &prn_airline);

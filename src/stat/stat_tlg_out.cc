@@ -55,7 +55,7 @@ bool TTlgOutStatCmp::operator() (const TTlgOutStatKey &key1, const TTlgOutStatKe
 
 void RunTlgOutStat(const TStatParams &params,
                    TTlgOutStat &TlgOutStat, TTlgOutStatRow &TlgOutStatTotal,
-                   TPrintAirline &prn_airline, bool full)
+                   TPrintAirline &prn_airline)
 {
     TQuery Qry(&OraSession);
     for(int pass = 0; pass <= 1; pass++) {
@@ -172,7 +172,7 @@ void RunTlgOutStat(const TStatParams &params,
                     key.tlg_type=Qry.FieldAsString(col_tlg_type);
                   };
                 };
-                AddStatRow(key, row, TlgOutStat, full);
+                AddStatRow(params.overflow, key, row, TlgOutStat);
               }
               else
               {
@@ -204,14 +204,6 @@ void createXMLTlgOutStat(const TStatParams &params,
       int rows = 0;
       for(TTlgOutStat::const_iterator im = TlgOutStat.begin(); im != TlgOutStat.end(); ++im, rows++)
       {
-          if(rows >= MAX_STAT_ROWS()) {
-              throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
-              /*AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH",
-                                            LParams() << LParam("num", MAX_STAT_ROWS()));
-              if (WITHOUT_TOTAL_WHEN_PROBLEM) showTotal=false; //не будем показывать итоговую строку дабы не ввести в заблуждение
-              break;*/
-          }
-
           rowNode = NewTextChild(rowsNode, "row");
           NewTextChild(rowNode, "col", im->first.sender_sita_addr);
           NewTextChild(rowNode, "col", im->first.receiver_descr);
@@ -461,7 +453,7 @@ void RunTlgOutStatFile(const TStatParams &params, TOrderStatWriter &writer, TPri
 {
     TTlgOutStat TlgOutStat;
     TTlgOutStatRow TlgOutStatTotal;
-    RunTlgOutStat(params, TlgOutStat, TlgOutStatTotal, prn_airline, true);
+    RunTlgOutStat(params, TlgOutStat, TlgOutStatTotal, prn_airline);
     for (TTlgOutStat::const_iterator i = TlgOutStat.begin(); i != TlgOutStat.end(); ++i)
         writer.insert(TTlgOutStatCombo(*i, params));
 }

@@ -37,7 +37,7 @@ void TAnnulBTStatRow::get_tags(TDateTime part_key, int id)
 
 void RunAnnulBTStat(TAnnulBTStat &AnnulBTStat, int point_id)
 {
-    TStatParams params;
+    TStatParams params(TStatOverflow::ignore);
     TPrintAirline airline;
     return RunAnnulBTStat(params, AnnulBTStat, airline, point_id);
 }
@@ -222,8 +222,7 @@ void RunAnnulBTStat(
                         string buf;
                         if(not agentQry.get().Eof)
                             buf = agentQry.get().FieldAsString("descr");
-                        pair<map<int, string>::iterator, bool> ret =
-                            agents.insert(make_pair(row.user_id, buf));
+                        auto ret = agents.insert(make_pair(row.user_id, buf));
                         agent = ret.first;
                     }
                     row.agent = agent->second;
@@ -240,6 +239,7 @@ void RunAnnulBTStat(
 
                 row.get_tags(part_key, row.id);
                 AnnulBTStat.rows.push_back(row);
+                params.overflow.check(AnnulBTStat.rows.size());
             }
         }
     }
@@ -252,8 +252,6 @@ void createXMLAnnulBTStat(
         xmlNodePtr resNode)
 {
     if(AnnulBTStat.rows.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
-    if (AnnulBTStat.rows.size() > (size_t)MAX_STAT_ROWS())
-        throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
     NewTextChild(resNode, "airline", prn_airline.get(), "");
     xmlNodePtr grdNode = NewTextChild(resNode, "grd");
 
@@ -506,7 +504,7 @@ void TAnnulBTStatCombo::add_data(ostringstream &buf) const
 void RunAnnulBTStatFile(const TStatParams &params, TOrderStatWriter &writer, TPrintAirline &prn_airline)
 {
     TAnnulBTStat AnnulBTStat;
-    RunAnnulBTStat(params, AnnulBTStat, prn_airline);
+    RunAnnulBTStat(params, AnnulBTStat, prn_airline, true);
     for (std::list<TAnnulBTStatRow>::const_iterator i = AnnulBTStat.rows.begin(); i != AnnulBTStat.rows.end(); ++i)
         writer.insert(TAnnulBTStatCombo(*i));
 }

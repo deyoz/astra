@@ -497,7 +497,7 @@ bool TFullCmp::operator() (const TFullStatKey &lr, const TFullStatKey &rr) const
 };
 void GetDetailStat(const TStatParams &params, TQuery &Qry,
                    TDetailStat &DetailStat, TDetailStatRow &DetailStatTotal,
-                   TPrintAirline &airline, string pact_descr = "", bool full = false)
+                   TPrintAirline &airline, string pact_descr = "")
 {
   Qry.Execute();
   for(; !Qry.Eof; Qry.Next())
@@ -541,7 +541,7 @@ void GetDetailStat(const TStatParams &params, TQuery &Qry,
           airline.check(key.col1);
       }
 
-      AddStatRow(key, row, DetailStat, full);
+      AddStatRow(params.overflow, key, row, DetailStat);
     }
     else
     {
@@ -552,7 +552,7 @@ void GetDetailStat(const TStatParams &params, TQuery &Qry,
 
 void GetFullStat(const TStatParams &params, TQuery &Qry,
                  TFullStat &FullStat, TFullStatRow &FullStatTotal,
-                 TPrintAirline &airline, bool full = false)
+                 TPrintAirline &airline)
 {
   Qry.Execute();
   if(!Qry.Eof) {
@@ -649,7 +649,7 @@ void GetFullStat(const TStatParams &params, TQuery &Qry,
                                              trtNotCurrent,
                                              trtNotCancelled),
                            false);
-          AddStatRow(key, row, FullStat, full);
+          AddStatRow(params.overflow, key, row, FullStat);
         }
         else
         {
@@ -776,14 +776,6 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
       int rows = 0;
       for(TDetailStat::const_iterator si = DetailStat.begin(); si != DetailStat.end(); ++si, rows++)
       {
-          if(rows >= MAX_STAT_ROWS()) {
-              throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
-              /*AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH",
-                      LParams() << LParam("num", MAX_STAT_ROWS()));
-              if (WITHOUT_TOTAL_WHEN_PROBLEM) showTotal=false; //не будем показывать итоговую строку дабы не ввести в заблуждение
-              break;*/
-          }
-
           rowNode = NewTextChild(rowsNode, "row");
           if(params.statType != statPactShort)
               NewTextChild(rowNode, "col", si->first.col1);
@@ -953,13 +945,6 @@ void createXMLFullStat(const TStatParams &params,
       int rows = 0;
       for(TFullStat::const_iterator im = FullStat.begin(); im != FullStat.end(); ++im, rows++)
       {
-          if(rows >= MAX_STAT_ROWS()) {
-              throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
-              /*AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH",
-                                            LParams() << LParam("num", MAX_STAT_ROWS()));
-              if (WITHOUT_TOTAL_WHEN_PROBLEM) showTotal=false; //не будем показывать итоговую строку дабы не ввести в заблуждение
-              break;*/
-          }
           //region обязательно в начале цикла, иначе будет испорчен xml
           string region;
           try
@@ -1132,7 +1117,7 @@ void createXMLFullStat(const TStatParams &params,
 
 void RunPactDetailStat(const TStatParams &params,
                        TDetailStat &DetailStat, TDetailStatRow &DetailStatTotal,
-                       TPrintAirline &prn_airline, bool full)
+                       TPrintAirline &prn_airline)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -1358,7 +1343,7 @@ void RunPactDetailStat(const TStatParams &params,
                         }
                     }
 
-                    AddStatRow(key, row, DetailStat, full);
+                    AddStatRow(params.overflow, key, row, DetailStat);
                 }
                 else
                 {
@@ -1371,7 +1356,7 @@ void RunPactDetailStat(const TStatParams &params,
 
 void RunDetailStat(const TStatParams &params,
                    TDetailStat &DetailStat, TDetailStatRow &DetailStatTotal,
-                   TPrintAirline &airline, bool full)
+                   TPrintAirline &airline)
 {
     TQuery Qry(&OraSession);
     Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
@@ -1398,7 +1383,7 @@ void RunDetailStat(const TStatParams &params,
                                             i!=params.airlines.elems().end(); i++)
             {
               Qry.SetVariable("ak",*i);
-              GetDetailStat(params, Qry, DetailStat, DetailStatTotal, airline, "", full);
+              GetDetailStat(params, Qry, DetailStat, DetailStatTotal, airline, "");
             };
           };
           continue;
@@ -1413,12 +1398,12 @@ void RunDetailStat(const TStatParams &params,
                                             i!=params.airps.elems().end(); i++)
             {
               Qry.SetVariable("ap",*i);
-              GetDetailStat(params, Qry, DetailStat, DetailStatTotal, airline, "", full);
+              GetDetailStat(params, Qry, DetailStat, DetailStatTotal, airline, "");
             };
           };
           continue;
         };
-        GetDetailStat(params, Qry, DetailStat, DetailStatTotal, airline, "", full);
+        GetDetailStat(params, Qry, DetailStat, DetailStatTotal, airline, "");
     }
 };
 
@@ -1512,16 +1497,16 @@ void RunDetailStatFile(const TStatParams &params, TOrderStatWriter &writer, TPri
     TDetailStat DetailStat;
     TDetailStatRow DetailStatTotal;
     if(params.pr_pacts)
-        RunPactDetailStat(params, DetailStat, DetailStatTotal, prn_airline, true);
+        RunPactDetailStat(params, DetailStat, DetailStatTotal, prn_airline);
     else
-        RunDetailStat(params, DetailStat, DetailStatTotal, prn_airline, true);
+        RunDetailStat(params, DetailStat, DetailStatTotal, prn_airline);
     for (TDetailStat::const_iterator i = DetailStat.begin(); i != DetailStat.end(); ++i)
         writer.insert(TDetailStatCombo(*i, params));
 }
 
 void RunFullStat(const TStatParams &params,
                  TFullStat &FullStat, TFullStatRow &FullStatTotal,
-                 TPrintAirline &airline, bool full)
+                 TPrintAirline &airline)
 {
     TQuery Qry(&OraSession);
     Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
@@ -1552,7 +1537,7 @@ void RunFullStat(const TStatParams &params,
                                             i!=params.airlines.elems().end(); i++)
             {
               Qry.SetVariable("ak",*i);
-              GetFullStat(params, Qry, FullStat, FullStatTotal, airline, full);
+              GetFullStat(params, Qry, FullStat, FullStatTotal, airline);
             };
           };
           continue;
@@ -1567,12 +1552,12 @@ void RunFullStat(const TStatParams &params,
                                             i!=params.airps.elems().end(); i++)
             {
               Qry.SetVariable("ap",*i);
-              GetFullStat(params, Qry, FullStat, FullStatTotal, airline, full);
+              GetFullStat(params, Qry, FullStat, FullStatTotal, airline);
             };
           };
           continue;
         };
-        GetFullStat(params, Qry, FullStat, FullStatTotal, airline, full);
+        GetFullStat(params, Qry, FullStat, FullStatTotal, airline);
     }
 };
 
@@ -1662,7 +1647,7 @@ void RunFullStatFile(const TStatParams &params, TOrderStatWriter &writer, TPrint
 {
     TFullStat FullStat;
     TFullStatRow FullStatTotal;
-    RunFullStat(params, FullStat, FullStatTotal, prn_airline, true);
+    RunFullStat(params, FullStat, FullStatTotal, prn_airline);
     for (TFullStat::const_iterator i = FullStat.begin(); i != FullStat.end(); ++i)
         writer.insert(TFullStatCombo(*i, params));
 }

@@ -256,9 +256,7 @@ void create_plain_files(
     timing.finish(file_name, item.id);
 }
 
-void processStatOrders(TQueueItem &item) {
-    TPerfTimer tm;
-    tm.Init();
+void processStatOrders(TQueueItem &item, TPerfTimer &tm, int interval) {
     try {
         TCachedQuery finishQry(
                 "update stat_orders set "
@@ -280,7 +278,7 @@ void processStatOrders(TQueueItem &item) {
                 << QParam("progress", otInteger)
                 );
 
-        TStatParams params;
+        TStatParams params(TStatOverflow::ignore);
         params.fromFileParams(item.params);
 
         TReqInfo::Instance()->Initialize(params.desk_city);
@@ -336,7 +334,7 @@ void processStatOrders(TQueueItem &item) {
 
         for(; i != periods.items.end();
                 i++,
-                commit_progress(progressQry.get(), ++parts, periods.items.size())
+                commit_progress(progressQry.get(), ++parts, periods.items.size(), tm.Print(), interval)
            ) {
             params.FirstDate = i->first;
             params.LastDate = i->second;
@@ -353,16 +351,18 @@ void processStatOrders(TQueueItem &item) {
         finishQry.get().SetVariable("tc", NowUTC());
         finishQry.get().SetVariable("status", stReady);
         finishQry.get().Execute();
+    } catch(StatOverflowException &E) {
+        throw;
     } catch(Exception &E) {
         TErrCommit::Instance()->exec(item.id, stError, string(E.what()).substr(0, 250).c_str());
     } catch(...) {
         TErrCommit::Instance()->exec(item.id, stError, "unknown");
     }
-     ProgTrace(TRACE5, "Stat Orders processing time: %s", tm.PrintWithMessage().c_str());
 }
 
-void stat_orders_collect(void)
+void stat_orders_collect(int interval)
 {
+    TPerfTimer tm;
     TFileQueue file_queue;
     file_queue.get( TFilterQueue( OWN_POINT_ADDR(), FILE_COLLECT_TYPE ) );
     for ( TFileQueue::iterator item=file_queue.begin();
@@ -371,12 +371,15 @@ void stat_orders_collect(void)
         try {
             switch(DecodeOrderSource(item->params[PARAM_ORDER_SOURCE])) {
                 case osSTAT :
-                    processStatOrders(*item);
+                    processStatOrders(*item, tm, interval);
                     break;
                 default:
                     break;
             }
             TFileQueue::deleteFile(item->id);
+        }
+        catch(StatOverflowException &E) {
+            LogTrace(TRACE5) << "stats partially collected due to timeout expired: " << tm.Print() << " ms, to be continued next time";
         }
         catch(Exception &E) {
             OraSession.Rollback();
@@ -403,7 +406,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     if (reqInfo->user.access.totally_not_permitted())
         throw AstraLocale::UserException("MSG.NOT_DATA");
 
-    TStatParams params;
+    TStatParams params(TStatOverflow::apply);
     params.get(reqNode);
 
 /*
@@ -594,7 +597,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         {
             TPrintAirline airline;
             TAnnulBTStat AnnulBTStat;
-            RunAnnulBTStat(params, AnnulBTStat, airline);
+            RunAnnulBTStat(params, AnnulBTStat, airline, false);
             createXMLAnnulBTStat(params, AnnulBTStat, airline, resNode);
         }
         if(params.statType == statPFSFull)
@@ -698,14 +701,14 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         }
     }
     /* GRISHA */
-    catch (MaxStatRowsException &E)
+    catch (StatOverflowException &E)
     {
         if(TReqInfo::Instance()->desk.compatible(STAT_ORDERS_VERSION))
         {
             RemoveChildNodes(resNode);
             return orderStat(params, ctxt, reqNode, resNode);
         } else {
-            AstraLocale::showErrorMessage(E.getLexemaData());
+            throw;
         }
     }
     catch (EOracleError &E)

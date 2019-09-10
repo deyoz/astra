@@ -98,8 +98,7 @@ void TServicesShortStat::add(const TServicesStatRow &row)
 
 void RunServicesStat(
         const TStatParams &params,
-        TServicesAbstractStat &ServicesStat,
-        bool full
+        TServicesAbstractStat &ServicesStat
         )
 {
     TFltInfoCache flt_cache;
@@ -174,8 +173,7 @@ void RunServicesStat(
 
                 ServicesStat.add(row);
 
-                if ((not full) and (ServicesStat.RowCount() > (size_t)MAX_STAT_ROWS()))
-                    throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
+                params.overflow.check(ServicesStat.RowCount());
             }
         }
     }
@@ -494,7 +492,7 @@ void TServicesFullStatCombo::add_header(ostringstream &buf) const
 void RunServicesFullFile(const TStatParams &params, TOrderStatWriter &writer)
 {
     TServicesFullStat ServicesFullStat;
-    RunServicesStat(params, ServicesFullStat, true);
+    RunServicesStat(params, ServicesFullStat);
     for(const auto &airp: ServicesFullStat) {
         for(const auto &airline: airp.second) {
             for(const auto &flt: airline.second) {
@@ -578,7 +576,7 @@ void TServicesDetailStatCombo::add_header(ostringstream &buf) const
 void RunServicesDetailFile(const TStatParams &params, TOrderStatWriter &writer)
 {
     TServicesDetailStat ServicesDetailStat;
-    RunServicesStat(params, ServicesDetailStat, true);
+    RunServicesStat(params, ServicesDetailStat);
     for(const auto &airp: ServicesDetailStat) {
         for(const auto &airline: airp.second) {
             for(const auto &flt: airline.second) {
@@ -650,7 +648,7 @@ void TServicesShortStatCombo::add_header(ostringstream &buf) const
 void RunServicesShortFile(const TStatParams &params, TOrderStatWriter &writer)
 {
     TServicesShortStat ServicesShortStat;
-    RunServicesStat(params, ServicesShortStat, true);
+    RunServicesStat(params, ServicesShortStat);
     for(const auto &airp: ServicesShortStat) {
         for(const auto &airline: airp.second) {
             for(const auto &rfic: airline.second) {

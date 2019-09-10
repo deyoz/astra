@@ -80,8 +80,7 @@ struct TUNACCFullStat: public TUNACCSet, TUNACCAbstractStat {
 
 void RunUNACCStat(
         const TStatParams &params,
-        TUNACCAbstractStat &UNACCStat,
-        bool full = false
+        TUNACCAbstractStat &UNACCStat
         );
 
 void createXMLUNACCFullStat(

@@ -65,7 +65,7 @@ bool TAgentCmp::operator() (const TAgentStatKey &lr, const TAgentStatKey &rr) co
 
 void RunAgentStat(const TStatParams &params,
                   TAgentStat &AgentStat, TAgentStatRow &AgentStatTotal,
-                  TPrintAirline &prn_airline, bool override_max_rows)
+                  TPrintAirline &prn_airline)
 {
     TQuery Qry(&OraSession);
     for(int pass = 0; pass <= 1; pass++) {
@@ -230,7 +230,7 @@ void RunAgentStat(const TStatParams &params,
                     key.user_descr = Qry.FieldAsString(col_user_descr);
                 }
 
-                AddStatRow(key, row, AgentStat, override_max_rows);
+                AddStatRow(params.overflow, key, row, AgentStat);
               }
               else
               {
@@ -261,13 +261,6 @@ void createXMLAgentStat(const TStatParams &params,
       int rows = 0;
       for(TAgentStat::const_iterator im = AgentStat.begin(); im != AgentStat.end(); ++im, rows++)
       {
-        if(rows >= MAX_STAT_ROWS()) {
-            throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
-            /*AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH",
-                                          LParams() << LParam("num", MAX_STAT_ROWS()));
-            if (WITHOUT_TOTAL_WHEN_PROBLEM) showTotal=false; //не будем показывать итоговую строку дабы не ввести в заблуждение
-            break;*/
-        }
         TDateTime scd_out_local=im->first.scd_out_local;
         if(
                 params.statType == statAgentFull or
@@ -606,7 +599,7 @@ void RunAgentStatFile(const TStatParams &params, TOrderStatWriter &writer, TPrin
 {
     TAgentStat AgentStat;
     TAgentStatRow AgentStatTotal;
-    RunAgentStat(params, AgentStat, AgentStatTotal, prn_airline, true);
+    RunAgentStat(params, AgentStat, AgentStatTotal, prn_airline);
     for(TAgentStat::const_iterator im = AgentStat.begin(); im != AgentStat.end(); ++im)
         writer.insert(TAgentStatCombo(*im, params));
 }

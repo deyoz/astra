@@ -46,7 +46,7 @@ typedef std::map<TSelfCkinStatKey, TSelfCkinStatRow, TKioskCmp> TSelfCkinStat;
 
 void RunSelfCkinStat(const TStatParams &params,
                   TSelfCkinStat &SelfCkinStat, TSelfCkinStatRow &SelfCkinStatTotal,
-                  TPrintAirline &prn_airline, bool full = false);
+                  TPrintAirline &prn_airline);
 
 void createXMLSelfCkinStat(const TStatParams &params,
                         const TSelfCkinStat &SelfCkinStat, const TSelfCkinStatRow &SelfCkinStatTotal,
