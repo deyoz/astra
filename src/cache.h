@@ -85,6 +85,7 @@ const
                          {"KIOSKS_GRP",              etKiosksGrp},
                          {"MISC_SET_TYPES",          etMiscSetType},
                          {"NO_TXT_REPORT_TYPES",     etReportType},
+                         {"PAY_METHODS_TYPES",       etPayMethodType},
                          {"RATE_COLORS",             etRateColor},
                          {"REM_GRP",                 etRemGrp},
                          {"REPORT_TYPES",            etReportType},

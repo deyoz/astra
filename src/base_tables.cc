@@ -138,6 +138,8 @@ TBaseTable &TBaseTables::get(string name)
             base_tables[name] = new TVoucherTypes();
         else if(name == "DCS_SERVICE_TYPES")
             base_tables[name] = new DCSServiceTypes();
+        else if(name == "PAY_METHODS_TYPES")
+            base_tables[name] = new TPayMethodTypes();
         else
             throw Exception("TBaseTables::get_base_table: " + name + " not found");
         mem.create(base_tables[name], STDLOG);
@@ -1019,5 +1021,13 @@ void DCSServiceTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow
   mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 }
+
+void TPayMethodTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  *row = new TTypeBOptionValuesRow;
+  mem.create(*row, STDLOG);
+  TIdBaseTable::create_row(Qry,row,replaced_row);
+}
+
 
 TBaseTables base_tables;

@@ -1212,7 +1212,7 @@ void ServicePaymentInterface::LoadServiceLists(XMLRequestCtxt *ctxt, xmlNodePtr 
 bool SvcSirenaInterface::equal(const SvcSirenaResponseHandler& handler1,
                                const SvcSirenaResponseHandler& handler2)
 {
-  return handler1.target<SvcSirenaResponseHandler>()==handler2.target<SvcSirenaResponseHandler>();
+  return (func_equal::getAddress(handler1)==func_equal::getAddress(handler2));
 }
 
 bool SvcSirenaInterface::addResponseHandler(const SvcSirenaResponseHandler& res)

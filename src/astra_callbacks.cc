@@ -51,6 +51,7 @@
 #include "hotel_acmd.h"
 #include "libra.h"
 #include "self_ckin_log.h"
+#include "service_eval.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -81,6 +82,7 @@ void AstraJxtCallbacks::InitInterfaces()
     new ImagesInterface();
     new EventsInterface();
     new SalonsInterface();
+    new ServiceEvalInterface();
     new CentInterface();
     new PrepRegInterface();
     new SoppInterface();

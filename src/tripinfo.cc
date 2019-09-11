@@ -34,6 +34,7 @@
 #include "comp_props.h"
 #include "ckin_search.h"
 #include "payment_base.h"
+#include "service_eval.h"
 
 #include <serverlib/testmode.h>
 
@@ -1121,6 +1122,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
         setList.fromDB(point_id);
         if (setList.empty()) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
         NewTextChild( node, "use_jmp", (int)setList.value<bool>(tsUseJmp) );
+        NewTextChild( node, "pr_payment_at_desk", (int)isPaymentAtDesk(point_id));
     };
   };
 
