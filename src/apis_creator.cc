@@ -357,7 +357,7 @@ bool omit_incomplete_apis(int point_id, const TApisPaxData& pax, const TAPISForm
 void CreateEdi( const TApisRouteData& route,
                 const TAPISFormat& format,
                 Paxlst::PaxlstInfo& FPM,
-                Paxlst::PaxlstInfo& FCM)
+                Paxlst::PaxlstInfo& FCM )
 {
   for(int pass=0; pass<2; pass++)
   {
@@ -570,6 +570,9 @@ void CreateEdi( const TApisRouteData& route,
       if (!pnr_addr.empty())
         paxInfo.setReservNum(convert_pnr_addr(pnr_addr, 1));
     }
+
+    if (format.rule(r_setPaxReference))
+      paxInfo.setPaxRef(IntToString(iPax->id));
 
     string doc_type = iPax->doc_type_lat(); // throws
     string doc_no = iPax->doc.no;
@@ -904,7 +907,9 @@ bool CreateApisFiles(const TApisDataset& dataset, TApisTestMap* test_map = nullp
 
         string lst_type_extra = pFormat->lst_type_extra(iRoute->final_apis);
 
-        Paxlst::PaxlstInfo FPM(Paxlst::PaxlstInfo::FlightPassengerManifest, lst_type_extra);
+        Paxlst::PaxlstInfo FPM(pFormat->format_type==t_format_iapi?
+                                 Paxlst::PaxlstInfo::IAPIFlightCloseOnBoard:
+                                 Paxlst::PaxlstInfo::FlightPassengerManifest, lst_type_extra);
         Paxlst::PaxlstInfo FCM(Paxlst::PaxlstInfo::FlightCrewManifest, lst_type_extra);
 
         vector< pair<string, string> > files;
@@ -919,6 +924,7 @@ bool CreateApisFiles(const TApisDataset& dataset, TApisTestMap* test_map = nullp
         switch (pFormat->format_type)
         {
           case t_format_edi:
+          case t_format_iapi:
             CreateEdi(*iRoute, *pFormat, FPM, FCM);
             switch (pFormat->file_rule)
             {

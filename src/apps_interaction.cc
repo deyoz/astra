@@ -242,7 +242,6 @@ int TAppsSets::get_version()
 int GetVersion(string airline, string country)
 {
   TAppsSets sets(airline, country);
-  LogError(STDLOG) << "airline=" << airline << " country=" << country << " version=" <<sets.get_version();
   return sets.get_version();
 }
 
@@ -2890,14 +2889,13 @@ void APPSFlightCloseout( const int point_id )
 
     if (apps_formats.find(APPS_FORMAT_CHINA)!=apps_formats.end())
     {
-      LogError(STDLOG) << "APPS_FORMAT_CHINA";
-      IAPIFlightCloseoutOnBoard(point_id, r->point_id);
+      continue;
+//      IAPIFlightCloseoutOnBoard(point_id, r->point_id);
     }
 
     if (apps_formats.find(APPS_FORMAT_21)!=apps_formats.end() ||
         apps_formats.find(APPS_FORMAT_26)!=apps_formats.end())
     {
-      LogError(STDLOG) << "APPS_FORMAT_21_26";
       if ( timeIsOverForTrueAPPS ) continue;
       countries.insert( getCountryByAirp(r->airp).code );
 

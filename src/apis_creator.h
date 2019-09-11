@@ -378,6 +378,7 @@ enum TApisRule
   r_docaR_US, // edi
   r_setBirthCountry, // edi
   r_docaB_US, // edi
+  r_setPaxReference, //edi
 
   // creation
   r_create_ON_CLOSE_CHECKIN,
@@ -418,6 +419,7 @@ enum TApisFormatType
   t_format_edi,
   t_format_txt,
   t_format_apps,
+  t_format_iapi,
 };
 
 enum TIataCodeType
@@ -662,6 +664,14 @@ struct TAppsSitaFormat : public TAPISFormat
   TAppsSitaFormat()
   {
     format_type = t_format_apps;
+  }
+};
+
+struct TIAPIFormat : public TEdiAPISFormat
+{
+  TIAPIFormat()
+  {
+    format_type = t_format_iapi;
   }
 };
 
@@ -1518,14 +1528,24 @@ struct TAPPSVersion26 : public TAppsSitaFormat
   bool CheckDocoIssueCountry(string issue_place);
 };
 
-struct TIAPIVersion_EDI_CN : public TAppsSitaFormat
+struct TIAPIFormat_CN : public TIAPIFormat
 {
+    TIAPIFormat_CN()
+    {
+      add_rule(r_view_RFF_TN); // новое поле
+      add_rule(r_setCarrier);
+      add_rule(r_setPaxReference);
+      add_rule(r_notOmitCrew);
+      file_rule = r_file_rule_1;
+    }
+
     long int required_fields(TPaxType pax, TAPIType api) const
     {
       if (api == apiDoc) return DOC_IAPI_CN_FIELDS;
       if (api == apiDoco) return DOCO_IAPI_CN_FIELDS;
       return NO_FIELDS;
     }
+    string mesRelNum() const { return "05B"; }
 };
 
 //---------------------------------------------------------------------------------------
@@ -1557,7 +1577,7 @@ inline TAPISFormat* SpawnAPISFormat(const string& fmt)
   if (fmt=="APPS_21")     p = new TAPPSVersion21; else
   if (fmt=="APPS_26")     p = new TAPPSVersion26; else
 
-  if (fmt=="IAPI_CN")     p = new TIAPIVersion_EDI_CN;
+  if (fmt=="IAPI_CN")     p = new TIAPIFormat_CN;
 
   if (p == nullptr) throw Exception("SpawnAPISFormat: unhandled format %s", fmt.c_str());
   p->fmt = fmt;
