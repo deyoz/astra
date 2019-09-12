@@ -136,10 +136,13 @@ class PrintInterface: public JxtInterface
             AddEvent("refresh_prn_tests", JXT_HANDLER(PrintInterface, RefreshPrnTests));
             AddEvent("GetImg",            JXT_HANDLER(PrintInterface, GetImg));
 
+            AddEvent("GetEMDAList",       JXT_HANDLER(PrintInterface, GetEMDAList));
+
             AddEvent("print_bp", JXT_HANDLER(PrintInterface, print_bp));
             AddEvent("print_bp2", JXT_HANDLER(PrintInterface, print_bp2));
         }
 
+        void GetEMDAList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void GetImg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void print_bp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);

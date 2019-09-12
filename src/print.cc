@@ -28,6 +28,7 @@
 #include "dcs_services.h"
 #include "tripinfo.h"
 #include "prn_forms_layout.h"
+#include "rfisc_price.h"
 
 #define NICKNAME "DENIS"
 #include <serverlib/slogger.h>
@@ -3073,6 +3074,33 @@ void PrintInterface::RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
             }
         }
     }
+}
+
+void dummy_emda(xmlNodePtr resNode)
+{
+    xmlNodePtr itemsNode = GetNode("items", resNode);
+    if(not itemsNode) return;
+    xmlNodePtr itemNode = GetNode("item", itemsNode);
+    if(not itemNode) return;
+    int i = 1;
+    while(itemNode) {
+        ostringstream buf;
+        buf << 298 << setw(12) << setfill('0') << i;
+        NewTextChild(itemNode, "emd_no", buf.str());
+        NewTextChild(itemNode, "emd_coupon", 1);
+        itemNode = itemNode->next;
+        i++;
+    }
+}
+
+void PrintInterface::GetEMDAList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    int grp_id = NodeAsInteger("grp_id", reqNode);
+    TPriceRFISCList prices;
+    prices.fromContextDB(grp_id);
+    prices.toXML(resNode);
+    dummy_emda(resNode);
+    LogTrace(TRACE5) << GetXMLDocText(resNode->doc);
 }
 
 void PrintInterface::GetImg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

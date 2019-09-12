@@ -1,6 +1,9 @@
 #include "prn_forms_layout.h"
 #include "oralib.h"
 
+#define NICKNAME "DENIS"
+#include "serverlib/slogger.h"
+
 using namespace ASTRA;
 using namespace std;
 using namespace EXCEPTIONS;
@@ -29,6 +32,12 @@ const std::string &TPrnFormsLayout::msg_not_avail_for_crew(TDevOper::Enum op_typ
 
 const std::string &TPrnFormsLayout::get(TDevOper::Enum op_type, const std::string &param_name)
 {
+    LogTrace(TRACE5)
+        << "TPrnFormsLayout::get("
+        << DevOperTypes().encode(op_type)
+        << ", "
+        << param_name
+        << ")";
     if(not items) {
         items = boost::in_place();
         TQuery Qry(&OraSession);
