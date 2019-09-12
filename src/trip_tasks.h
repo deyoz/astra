@@ -18,6 +18,7 @@ const std::string BEFORE_TAKEOFF_60="Takeoff -60";
 const std::string ON_CLOSE_CHECKIN="ON_CLOSE_CHECKIN";
 const std::string ON_CLOSE_BOARDING="ON_CLOSE_BOARDING";
 const std::string ON_TAKEOFF="ON_TAKEOFF";
+const std::string ON_FLIGHT_CANCEL="ON_FLIGHT_CANCEL";
 const std::string CREATE_APIS="APIS";
 const std::string CHECK_CREW_ALARMS="CREW_ALARMS";
 

@@ -384,6 +384,7 @@ enum TApisRule
   r_create_ON_CLOSE_CHECKIN,
   r_create_ON_CLOSE_BOARDING,
   r_skip_ON_TAKEOFF,
+  r_create_ON_FLIGHT_CANCEL,
 
   // file
   r_fileExtTXT, // edi
@@ -511,7 +512,10 @@ struct TAPISFormat
     }
   }
 
-  virtual string lst_type_extra(bool final_apis) const { return ""; }
+  virtual Paxlst::PaxlstInfo::PaxlstType firstPaxlstType(const string& task_name) const { return Paxlst::PaxlstInfo::FlightPassengerManifest; }
+  virtual string firstPaxlstTypeExtra(const string& task_name, bool final_apis) const { return ""; }
+  virtual Paxlst::PaxlstInfo::PaxlstType secondPaxlstType(const string& task_name) const { return Paxlst::PaxlstInfo::FlightCrewManifest; }
+  virtual string secondPaxlstTypeExtra(const string& task_name, bool final_apis) const { return ""; }
   virtual string process_doc_type(const string& doc_type) const { return doc_type; }
   virtual string process_doc_no(const string& no) const { return no; }
   virtual bool check_doc_type_no(const string& doc_type, const string& doc_no) const
@@ -903,7 +907,8 @@ struct TAPISFormat_EDI_UK : public TEdiAPISFormat
     return NO_FIELDS;
   }
   string unknown_gender() const { return "U"; }
-  string lst_type_extra(bool final_apis) const { return final_apis?"DC:1.0":"CI:1.0"; }
+  string firstPaxlstTypeExtra(const string& task_name, bool final_apis) const { return final_apis?"DC:1.0":"CI:1.0"; }
+  string secondPaxlstTypeExtra(const string& task_name, bool final_apis) const { return final_apis?"DC:1.0":"CI:1.0"; }
   string process_doc_no(const string& no) const { return NormalizeDocNo(no, false); }
   string respAgnCode() const { return "109"; }
   string appRef() const { return "UKBAOP"; }
@@ -1535,7 +1540,7 @@ struct TIAPIFormat_CN : public TIAPIFormat
       add_rule(r_view_RFF_TN); // новое поле
       add_rule(r_setCarrier);
       add_rule(r_setPaxReference);
-      add_rule(r_notOmitCrew);
+      add_rule(r_create_ON_FLIGHT_CANCEL);
       file_rule = r_file_rule_1;
     }
 
@@ -1546,6 +1551,12 @@ struct TIAPIFormat_CN : public TIAPIFormat
       return NO_FIELDS;
     }
     string mesRelNum() const { return "05B"; }
+    Paxlst::PaxlstInfo::PaxlstType firstPaxlstType(const string& task_name) const
+    {
+      return task_name==ON_FLIGHT_CANCEL?
+               Paxlst::PaxlstInfo::IAPICancelFlight:
+               Paxlst::PaxlstInfo::IAPIFlightCloseOnBoard;
+    }
 };
 
 //---------------------------------------------------------------------------------------

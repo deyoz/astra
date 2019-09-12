@@ -168,7 +168,10 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
               (rd.task_name==BEFORE_TAKEOFF_30 || rd.task_name==BEFORE_TAKEOFF_60 ))
               ||
               (!rd.use_us_customs_tasks &&
-              (rd.task_name==ON_TAKEOFF || rd.task_name==ON_CLOSE_CHECKIN || rd.task_name==ON_CLOSE_BOARDING )) ))
+              (rd.task_name==ON_TAKEOFF ||
+               rd.task_name==ON_CLOSE_CHECKIN ||
+               rd.task_name==ON_CLOSE_BOARDING ||
+               rd.task_name==ON_FLIGHT_CANCEL)) ))
         continue;
 
       //получим информацию по настройке APIS
@@ -455,6 +458,10 @@ void CreateEdi( const TApisRouteData& route,
         iPax != route.lstPaxData.end();
         ++iPax)
   {
+    Paxlst::PaxlstInfo& paxlstInfo=(iPax->status != psCrew?FPM:FCM);
+
+    if (paxlstInfo.passengersListAlwaysEmpty()) continue;
+
     Paxlst::PassengerInfo paxInfo;
 
     if (iPax->status==psCrew && !format.rule(r_notOmitCrew))
@@ -509,10 +516,8 @@ void CreateEdi( const TApisRouteData& route,
             throw Exception("mkt_suffix.code_lat empty (code=%s)",mkt_suffix.code.c_str());
           mkt_flt = mkt_flt + mkt_suffix.code_lat;
         }
-        if (iPax->status!=psCrew && (mkt_airline.code_lat != FPM.carrier() || mkt_flt != FPM.flight()))
-          FPM.addMarkFlt(mkt_airline.code_lat, mkt_flt);
-        else if (mkt_airline.code_lat != FCM.carrier() || mkt_flt != FCM.flight())
-          FCM.addMarkFlt(mkt_airline.code_lat, mkt_flt);
+        if (mkt_airline.code_lat != paxlstInfo.carrier() || mkt_flt != paxlstInfo.flight())
+          paxlstInfo.addMarkFlt(mkt_airline.code_lat, mkt_flt);
       }
     }
 
@@ -647,10 +652,7 @@ void CreateEdi( const TApisRouteData& route,
       paxInfo.setDocoCountry(format.ConvertCountry(iPax->doco.get().applic_country));
     }
 
-    if (iPax->status != psCrew)
-      FPM.addPassenger(paxInfo);
-    else
-      FCM.addPassenger(paxInfo);
+    paxlstInfo.addPassenger(paxInfo);
   } // for iPax
 }
 
@@ -672,7 +674,9 @@ void CreateEdiFile1(  const TApisRouteData& route,
           (route.task_name==BEFORE_TAKEOFF_60 && pass!=0)))
       continue;
 
-    if (!paxlstInfo.passengersList().empty())
+    if (!paxlstInfo.passengersList().empty() ||
+        paxlstInfo.passengersListMayBeEmpty() ||
+        paxlstInfo.passengersListAlwaysEmpty())
     {
       vector<string> parts;
       string file_extension;
@@ -682,7 +686,8 @@ void CreateEdiFile1(  const TApisRouteData& route,
       else
         file_extension=(pass==0?"FPM":"FCM");
 
-      if (format.rule(r_fileSimplePush))
+      if (paxlstInfo.passengersList().empty() ||
+          format.rule(r_fileSimplePush))
         parts.push_back(paxlstInfo.toEdiString());
       else
       {
@@ -902,15 +907,15 @@ bool CreateApisFiles(const TApisDataset& dataset, TApisTestMap* test_map = nullp
 
         if ((iRoute->task_name==ON_CLOSE_CHECKIN && !pFormat->rule(r_create_ON_CLOSE_CHECKIN)) ||
             (iRoute->task_name==ON_CLOSE_BOARDING && !pFormat->rule(r_create_ON_CLOSE_BOARDING)) ||
+            (iRoute->task_name==ON_FLIGHT_CANCEL && !pFormat->rule(r_create_ON_FLIGHT_CANCEL)) ||
             (iRoute->task_name==ON_TAKEOFF && pFormat->rule(r_skip_ON_TAKEOFF)))
           continue;
 
-        string lst_type_extra = pFormat->lst_type_extra(iRoute->final_apis);
+        Paxlst::PaxlstInfo FPM(pFormat->firstPaxlstType(iRoute->task_name),
+                               pFormat->firstPaxlstTypeExtra(iRoute->task_name, iRoute->final_apis));
 
-        Paxlst::PaxlstInfo FPM(pFormat->format_type==t_format_iapi?
-                                 Paxlst::PaxlstInfo::IAPIFlightCloseOnBoard:
-                                 Paxlst::PaxlstInfo::FlightPassengerManifest, lst_type_extra);
-        Paxlst::PaxlstInfo FCM(Paxlst::PaxlstInfo::FlightCrewManifest, lst_type_extra);
+        Paxlst::PaxlstInfo FCM(pFormat->secondPaxlstType(iRoute->task_name),
+                               pFormat->secondPaxlstTypeExtra(iRoute->task_name, iRoute->final_apis));
 
         vector< pair<string, string> > files;
         string text, type;

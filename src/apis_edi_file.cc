@@ -202,7 +202,7 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
     PopEdiPointW( pMes );
 
 
-    PassengersList_t passList = paxlst.passengersList();
+    const PassengersList_t& passList = paxlst.passengersList();
     int segmGroupNum = 0;
     for( std::list< Paxlst::PassengerInfo >::const_iterator it = passList.begin();
            it != passList.end(); ++it, segmGroupNum++ )
@@ -691,7 +691,7 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
 
 void PaxlstInfo::checkInvariant() const
 {
-    if( passengersList().size() < 1 || passengersList().size() > 99999 )
+    if( passengersList().size() > 99999 )
         throw EXCEPTIONS::Exception( "Bad paxlst size!" );
 
     if( senderName().empty() )

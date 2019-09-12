@@ -764,6 +764,9 @@ public:
     edifact::CntElem getCntElem(const int totalCnt) const;
     edifact::NadElem getNadElem(const Paxlst::PassengerInfo& pax) const;
 
+    bool passengersListMayBeEmpty() const { return m_type==IAPIFlightCloseOnBoard; }
+    bool passengersListAlwaysEmpty() const { return m_type==IAPICancelFlight; }
+
 protected:
     void checkInvariant() const;
 };
