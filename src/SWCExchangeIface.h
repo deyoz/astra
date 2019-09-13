@@ -18,7 +18,14 @@ class SWCExchange: public SirenaExchange::TExchange
   private:
     int clientId;
     std::string Authorization;
+    std::string Resource;
   public:
+    std::string getAuthorization() {
+      return Authorization;
+    }
+    std::string getResource() {
+      return Resource;
+    }
     void fromDB();
     virtual void build(std::string &content) const;
     virtual void errorFromXML(xmlNodePtr node);
@@ -31,7 +38,7 @@ class SWCExchangeIface: public ExchangeIterface::ExchangeIface
 {
 //protected:
 public:
-    static void Request(xmlNodePtr reqNode, const std::string& ifaceName, const SWCExchange& req);
+    static void Request(xmlNodePtr reqNode, const std::string& ifaceName, SWCExchange& req);
 public:
   SWCExchangeIface(const std::string &_iface):ExchangeIterface::ExchangeIface(_iface){
     domainName = "ASTRA-SWC";

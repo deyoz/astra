@@ -16,19 +16,21 @@ namespace ExchangeIterface
 
 class HTTPClient
 {
-private:
+protected:
     httpsrv::HostAndPort m_addr;
     int                  m_timeout;
     httpsrv::UseSSLFlag  m_useSsl;
+    std::string resource;
+    std::string authorization;
 public:
   HTTPClient( const std::string&_host,
               unsigned _port,
               int _req_timeout,
-              bool _useSSL):m_addr(_host,_port),m_timeout(_req_timeout/1000),m_useSsl(_useSSL) {}
-  virtual std::string makeHttpPostRequest(const std::string& resource,
-                                          const std::string& host,
-                                          const std::string& authorization,
-                                          const std::string& postbody) const  = 0;
+              bool _useSSL,
+              const std::string& _resource,
+              const std::string& _authorization ):m_addr(_host,_port),m_timeout(_req_timeout/1000),m_useSsl(_useSSL),
+                                                  resource(_resource),authorization(_authorization) {}
+  virtual std::string makeHttpPostRequest(const std::string& postbody) const  = 0;
   void sendRequest(const std::string& reqText, const edifact::KickInfo& kickInfo, const std::string &domainName) const;
   static boost::optional<httpsrv::HttpResp> receive(const std::string& pult, const std::string &domainName);
   virtual ~HTTPClient(){}

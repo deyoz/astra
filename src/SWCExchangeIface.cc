@@ -1,8 +1,5 @@
 #include "SWCExchangeIface.h"
 #include "xml_unit.h"
-#define NICKNAME "DJEK"
-#define NICKTRACE SYSTEM_TRACE
-#include <serverlib/slogger.h>
 
 namespace SWC
 {
@@ -16,11 +13,15 @@ class SWCClient : public ExchangeIterface::HTTPClient
       unsigned port;
       int timeout;
       bool useSSL;
+      std::string Resource;
+      std::string Authorization;
       void clear() {
         addr.clear();
         port = 0;
         timeout = 0;
         useSSL = false;
+        Authorization.clear();
+        Resource.clear();
       }
       ConnectProps() {
         clear();
@@ -32,19 +33,18 @@ class SWCClient : public ExchangeIterface::HTTPClient
         timeout = 15000;
       }
     };
-    virtual std::string makeHttpPostRequest(const std::string& resource,
-                                            const std::string& host,
-                                            const std::string& authorization,
-                                            const std::string& postbody) const {
-      return std::string("POST /swc-xml/site HTTP/1.1\r\n") + //+//not use POST http:// + // + " HTTP/1.1\r\n"
-             "Host: ws.sirena-travel.ru\r\n" +
-             "Content-Type: application/xml; charset=utf-8\r\n" +
-             "Authorization:Basic eG1sX2FzdHJhX0dSVF9VVDpXMFJ5M0VEQng0\r\n" +
-             "Content-Length: " + HelpCpp::string_cast(postbody.size()) + "\r\n" +
-             "\r\n" +
-             postbody;
+    virtual std::string makeHttpPostRequest( const std::string& postbody) const {
+      std::stringstream os; //+//not use POST http:// + // + " HTTP/1.1\r\n"
+      os << "POST " << resource << " HTTP/1.1\r\n";
+      os << "Host: " << m_addr.host << "\r\n";
+      os << "Content-Type: application/xml; charset=utf-8\r\n";
+      os << authorization << "\r\n";
+      os <<  "Content-Length: " << HelpCpp::string_cast(postbody.size()) << "\r\n";
+      os << "\r\n";
+      os << postbody;
+      return os.str();
     }
-    SWCClient( const ConnectProps& props ):ExchangeIterface::HTTPClient(props.addr, props.port, props.timeout, props.useSSL){}
+    SWCClient( const ConnectProps& props ):ExchangeIterface::HTTPClient(props.addr, props.port, props.timeout, props.useSSL, props.Resource, props.Authorization){}
     ~SWCClient(){}
 };
 
@@ -53,14 +53,12 @@ void SWCExchange::fromDB()
 {
   clientId = 105;
   Authorization = "Authorization:Basic eG1sX2FzdHJhX0dSVF9VVDpXMFJ5M0VEQng0";
+  Resource = "/swc-xml/site";
 }
 
 void SWCExchange::build(std::string &content) const
 {
   content.clear();
-  static int counter=0;
-
-counter++;
   try
   {
     XMLDoc doc;
@@ -76,7 +74,6 @@ counter++;
     SetProp(node, "xmlns:ser", "http://service.swc.comtech/");
     NewTextChild(node, "sirenaClientId", clientId);
     node = NewTextChild(node,"request");
-    SetProp(node, "counter",counter);
     node = NewTextChild(node,"sirena");
     node = NewTextChild(node,isRequest()?"query":"answer");
     if (error())
@@ -89,7 +86,6 @@ counter++;
   {
     throw EXCEPTIONS::Exception("SWCExchange::build: %s", e.what());
   };
-  //LogTrace(TRACE5) << __func__ << std::endl << content;
 }
 
 bool SWCExchange::isEmptyAnswer(xmlNodePtr node)
@@ -107,7 +103,6 @@ void SWCExchange::parseResponse(xmlNodePtr node)
 
 void SWCExchange::errorFromXML(xmlNodePtr node)
 {
-  tst();
   error_code.clear();
   error_message.clear();
   error_reference.clear();
@@ -117,7 +112,6 @@ void SWCExchange::errorFromXML(xmlNodePtr node)
 
   error_code=NodeAsString("@code", errNode, "");
   error_message=NodeAsString(errNode);
-  LogError(STDLOG) << "SWC exchange error: code=" << error_code << ",message=" << error_message;
 }
 
 void SWCExchange::errorToXML(xmlNodePtr node) const
@@ -127,24 +121,17 @@ void SWCExchange::errorToXML(xmlNodePtr node) const
   NewTextChild(n, "error", error_message + ",code=" + error_code );
 }
 
-void SWCExchangeIface::Request(xmlNodePtr reqNode, const std::string& ifaceName, const SWCExchange& req)
+void SWCExchangeIface::Request(xmlNodePtr reqNode, const std::string& ifaceName, SWCExchange& req)
 {
-  tst();
+  req.fromDB();
   SWCClient::ConnectProps props;
   props.fromDB();
-  tst();
+  props.Authorization = req.getAuthorization();
+  props.Resource = req.getResource();
   SWCClient client( props );
   ExchangeIface* iface=dynamic_cast<ExchangeIface*>(JxtInterfaceMng::Instance()->GetInterface(ifaceName));
-  tst();
   iface->DoRequest(reqNode, nullptr, req, client);
 }
 
-/*bool SWCExchangeIface::isResponseHandler( const std::string& name, xmlNodePtr node )
-{
-  return ( node != nullptr &&
-           std::string("answer") == (const char*)node->name &&
-           node->children != nullptr &&
-           name == (const char*)node->children->name );
-}*/
 
 }

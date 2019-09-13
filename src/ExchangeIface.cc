@@ -15,20 +15,6 @@
 namespace ExchangeIterface
 {
 
-
-/*static std::string makeHttpPostRequest(const std::string& resource,
-                                       const std::string& host,
-                                       const std::string& postbody)
-{
-    return "POST " + resource + " HTTP/1.1\r\n"
-             "Host: " + host + "\r\n"
-             "Content-Type: application/xml; charset=utf-8\r\n"
-             "Content-Length: " + HelpCpp::string_cast(postbody.size()) + "\r\n"
-             "\r\n" +
-             postbody;
-}*/
-
-
 void HTTPClient::sendRequest(const std::string &reqText, const edifact::KickInfo& kickInfo, const std::string& domainName) const
 {
     //msgid = kickInfo.msgId;
@@ -38,35 +24,21 @@ void HTTPClient::sendRequest(const std::string &reqText, const edifact::KickInfo
     tst();
     std::string desk = kickInfo.desk.empty() ? "SYSPUL" : kickInfo.desk;
 
-    const std::string path = "";
-    const std::string httpPost = makeHttpPostRequest( path, m_addr.host, "Authorization:Basic eG1sX2FzdHJhX0dSVF9VVDpXMFJ5M0VEQng0", reqText );
+    const std::string httpPost = makeHttpPostRequest( reqText );
 
     LogTrace(TRACE5) << "HTTP Request from [" << desk << "], text:\n" << reqText;
 
     const httpsrv::Pult pul(desk);
     const httpsrv::Domain domain(domainName);
     const std::string kick(AstraEdifact::make_xml_kick(kickInfo));
-    //LogTrace(TRACE5)<<httpPost;
-    //LogTrace(TRACE5)<<m_addr.host << ":" <<m_addr.port;
-    //LogTrace(TRACE5)<<"timeout=" << m_timeout;
 
     httpsrv::DoHttpRequest req(ServerFramework::getQueryRunner().getEdiHelpManager().msgId(),
                                domain, m_addr, httpPost);
-    req.setTimeout(boost::posix_time::seconds(/*m_timeout*/30))
+    req.setTimeout(boost::posix_time::seconds(m_timeout))
         .setMaxTryCount(1/*SIRENA_REQ_ATTEMPTS()*/)
         .setSSL(httpsrv::UseSSLFlag(false))
         .setPeresprosReq(kick)
         .setDeffered(true);
-
-#ifdef XP_TESTING
-    if (inTestMode()) {
-        const std::string httpPostCP866 = UTF8toCP866(httpPost);
-        LogTrace(TRACE1) << "request: " << httpPostCP866;
-        xp_testing::TlgOutbox::getInstance().push(tlgnum_t("httpreq"),
-                        StrUtils::replaceSubstrCopy(httpPostCP866, "\r", ""), 0 /* h2h */);
-    }
-#endif // XP_TESTING
-
     req();
 }
 
@@ -75,17 +47,13 @@ boost::optional<httpsrv::HttpResp> HTTPClient::receive(const std::string& pult, 
     const httpsrv::Pult pul(pult);
     const httpsrv::Domain domain(domainName);
 
-    LogTrace(TRACE5)<<ServerFramework::getQueryRunner().getEdiHelpManager().msgId();
-tst();
     const std::vector<httpsrv::HttpResp> responses = httpsrv::FetchHttpResponses(
                 ServerFramework::getQueryRunner().getEdiHelpManager().msgId(),
                 domain);
-tst();
     for (const httpsrv::HttpResp& httpResp: responses)
     {
         LogTrace(TRACE1) << "httpResp text: '" << httpResp.text << "'";
     }
-tst();
     const size_t responseCount = responses.size();
     if (responseCount == 0)
     {
