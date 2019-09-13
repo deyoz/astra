@@ -730,8 +730,8 @@ public:
     {
         FlightPassengerManifest,
         FlightCrewManifest,
-//        IAPIClearPassengerRequest,
-//        IAPIChangePassengerData,
+        IAPIClearPassengerRequest,
+        IAPIChangePassengerData,
         IAPIFlightCloseOnBoard,
         IAPICancelFlight
     };

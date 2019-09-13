@@ -1594,8 +1594,7 @@ void TPaxRequest::InitPaxInfo(Paxlst::PassengerInfo& paxInfo) const
   string pnr_addr = TPnrAddrs().firstAddrByPaxId(pax.pax_id, TPnrAddrInfo::AddrOnly);
   if (!pnr_addr.empty())
     paxInfo.setReservNum(convert_pnr_addr(pnr_addr, 1));
-  else
-    paxInfo.setReservNum("XXXXXX");
+
   // ABO
   paxInfo.setPaxRef(IntToString(pax.pax_id));
   // YZY
@@ -1669,10 +1668,10 @@ void TAPPSPaxCollector::AddPassenger(const int pax_id,
       switch(requestType)
       {
         case IAPIClearPassengerRequest:
-          paxlstInfo.reset(new Paxlst::PaxlstInfo(Paxlst::PaxlstInfo::FlightPassengerManifest, ""));
+          paxlstInfo.reset(new Paxlst::PaxlstInfo(Paxlst::PaxlstInfo::IAPIClearPassengerRequest, ""));
           break;
         case IAPIChangePassengerData:
-          paxlstInfo.reset(new Paxlst::PaxlstInfo(Paxlst::PaxlstInfo::FlightPassengerManifest, "CP"));
+          paxlstInfo.reset(new Paxlst::PaxlstInfo(Paxlst::PaxlstInfo::IAPIChangePassengerData, ""));
           break;
         case IAPIFlightCloseOnBoard:
           paxlstInfo.reset(new Paxlst::PaxlstInfo(Paxlst::PaxlstInfo::IAPIFlightCloseOnBoard, ""));

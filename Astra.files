@@ -13,6 +13,8 @@ src/aodb.cc
 src/aodb.h
 src/apis.cc
 src/apis.h
+src/apis_creator.cc
+src/apis_creator.h
 src/apis_edi_file.cc
 src/apis_edi_file.h
 src/apis_tools.cc

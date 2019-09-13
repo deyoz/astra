@@ -282,7 +282,9 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
         }
 
         int rffNum = 0;
-        if( !it->reservNum().empty() )
+        if( paxlst.type()==PaxlstInfo::IAPIClearPassengerRequest ||  //для IAPI выводим пустой элемент AVF
+            paxlst.type()==PaxlstInfo::IAPIChangePassengerData ||
+            !it->reservNum().empty() )
         {
             // RFF
             viewRffElement( pMes, RffElem( "AVF", it->reservNum() ), rffNum++ );
@@ -498,6 +500,8 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
 {
   if ( ( m_type == FlightPassengerManifest && pax_num == 0 )  ||
        ( m_type == FlightCrewManifest && crew_num == 0 ) ||
+       ( m_type == IAPIClearPassengerRequest ) ||
+       ( m_type == IAPIChangePassengerData ) ||
        ( m_type == IAPIFlightCloseOnBoard ) ||
        ( m_type == IAPICancelFlight ) )
       return;
@@ -706,10 +710,10 @@ BgmElem PaxlstInfo::getBgmElem() const
       return BgmElem("745", m_docId);
     case FlightCrewManifest:
       return BgmElem("250", m_docId);
-//    case IAPIClearPassengerRequest:
-//      return BgmElem("745","");
-//    case IAPIChangePassengerData:
-//      return BgmElem("745","CP");
+    case IAPIClearPassengerRequest:
+      return BgmElem("745","");
+    case IAPIChangePassengerData:
+      return BgmElem("745","CP");
     case IAPIFlightCloseOnBoard:
       return BgmElem("266","CLOB");
     case IAPICancelFlight:
@@ -723,6 +727,8 @@ CntElem PaxlstInfo::getCntElem(const int totalCnt) const
   switch(m_type)
   {
     case FlightPassengerManifest:
+    case IAPIClearPassengerRequest:
+    case IAPIChangePassengerData:
     case IAPIFlightCloseOnBoard:
     case IAPICancelFlight:
       return CntElem(CntElem::PassengersTotal, totalCnt);
@@ -738,7 +744,9 @@ NadElem PaxlstInfo::getNadElem(const Paxlst::PassengerInfo& pax) const
   {
     case FlightPassengerManifest:
     case FlightCrewManifest:
-      return NadElem(m_type==PaxlstInfo::FlightPassengerManifest?"FL":"FM",
+    case IAPIClearPassengerRequest:
+    case IAPIChangePassengerData:
+      return NadElem(m_type==PaxlstInfo::FlightCrewManifest?"FM":"FL",
                      pax.surname(),
                      pax.first_name(),
                      pax.second_name(),
