@@ -280,6 +280,10 @@ src/tlg/AgentWaitsForRemote.h
 src/tlg/CheckinBaseTypes.cpp
 src/tlg/CheckinBaseTypes.h
 src/tlg/CheckinBaseTypesOci.h
+src/tlg/CusResponseHandler.h
+src/tlg/CusResponseHandler.cpp
+src/tlg/CusRequestHandler.h
+src/tlg/CusRequestHandler.cpp
 src/tlg/EdiHandlersFactory.cpp
 src/tlg/EdiHandlersFactory.h
 src/tlg/EdiSessionTimeOut.cpp
