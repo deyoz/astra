@@ -433,10 +433,10 @@ void CreateEdi( const TApisRouteData& route,
       paxlstInfo.setCarrier(route.airline_code_lat());
 
     paxlstInfo.setFlight(flight.str());
-    paxlstInfo.setDepPort(route.airp_dep_code_lat());
-    paxlstInfo.setDepDateTime(route.scd_out_local);
-    paxlstInfo.setArrPort(route.airp_arv_code_lat());
-    paxlstInfo.setArrDateTime(route.scd_in_local);
+    paxlstInfo.setCrossBorderFlightStops(route.airp_dep_code_lat(),
+                                         route.scd_out_local,
+                                         route.airp_arv_code_lat(),
+                                         route.scd_in_local);
 
     if (format.rule(r_setFltLegs))
     {

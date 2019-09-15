@@ -173,34 +173,54 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
         PopEdiPointW( pMes );
     }
 
-    SetEdiSegGr( pMes, SegGrElement( 2, 0 ) );
-    PushEdiPointW( pMes );
-    SetEdiPointToSegGrW( pMes, SegGrElement( 2, 0 ) );
+    int segmGroup2Num=0;
+    boost::optional<FlightStop> priorFlightStop;
+    for(int pass=0; pass<2; pass++)
+    {
+      const FlightStops& flightStops=(pass==0?paxlst.stopsBeforeBorder():paxlst.stopsAfterBorder());
+      for(FlightStops::const_iterator i=flightStops.begin(); i!=flightStops.end(); ++i)
+      {
+        const FlightStop& currFlightStop=*i;
+        if (priorFlightStop)
+        {
+          SetEdiSegGr( pMes, SegGrElement( 2, segmGroup2Num ) );
+          PushEdiPointW( pMes );
+          SetEdiPointToSegGrW( pMes, SegGrElement( 2, segmGroup2Num++ ) );
 
-    // TDT
-    viewTdtElement( pMes, TdtElem( "20", paxlst.flight(), paxlst.carrier() ) );
-
-    SetEdiSegGr( pMes, SegGrElement( 3, 0 ) );
-    PushEdiPointW( pMes );
-    SetEdiPointToSegGrW( pMes, SegGrElement( 3, 0 ) );
-    // LOC departure
-    viewLocElement( pMes, LocElem( LocElem::Departure, paxlst.depPort() ) );
-    // DTM departure
-    viewDtmElement( pMes, DtmElem( DtmElem::Departure, paxlst.depDateTime(), "201" ) );
-    PopEdiPointW( pMes );
+          // TDT
+          viewTdtElement( pMes, TdtElem( "20", paxlst.flight(), paxlst.carrier() ) );
 
 
-    SetEdiSegGr( pMes, SegGrElement( 3, 1 ) );
-    PushEdiPointW( pMes );
-    SetEdiPointToSegGrW( pMes, SegGrElement( 3, 1 ) );
-    // LOC arrival
-    viewLocElement( pMes, LocElem( LocElem::Arrival, paxlst.arrPort() ) );
-    // DTM arrival
-    viewDtmElement( pMes, DtmElem( DtmElem::Arrival, paxlst.arrDateTime(), "201" ) );
-    PopEdiPointW( pMes );
+          int segmGroup3Num=0;
+          SetEdiSegGr( pMes, SegGrElement( 3, segmGroup3Num ) );
+          PushEdiPointW( pMes );
+          SetEdiPointToSegGrW( pMes, SegGrElement( 3, segmGroup3Num++ ) );
+          // LOC departure
+          viewLocElement( pMes, LocElem( i==paxlst.stopsAfterBorder().begin()?LocElem::LastDepartureBeforeBorder:
+                                                                              LocElem::OtherDeparturesAndArrivals,
+                                         priorFlightStop.get().depPort() ) );
+          // DTM departure
+          if (priorFlightStop.get().depDateTime()!=ASTRA::NoExists)
+            viewDtmElement( pMes, DtmElem( DtmElem::Departure, priorFlightStop.get().depDateTime(), "201" ) );
+          PopEdiPointW( pMes );
 
-    PopEdiPointW( pMes );
+          SetEdiSegGr( pMes, SegGrElement( 3, segmGroup3Num ) );
+          PushEdiPointW( pMes );
+          SetEdiPointToSegGrW( pMes, SegGrElement( 3, segmGroup3Num++ ) );
+          // LOC arrival
+          viewLocElement( pMes, LocElem( i==paxlst.stopsAfterBorder().begin()?LocElem::FirstArrivalAfterBorder:
+                                                                              LocElem::OtherDeparturesAndArrivals,
+                                         currFlightStop.arrPort() ) );
+          // DTM arrival
+          if (currFlightStop.arrDateTime()!=ASTRA::NoExists)
+            viewDtmElement( pMes, DtmElem( DtmElem::Arrival, currFlightStop.arrDateTime(), "201" ) );
+          PopEdiPointW( pMes );
 
+          PopEdiPointW( pMes );
+        }
+        priorFlightStop=currFlightStop;
+      }
+    }
 
     const PassengersList_t& passList = paxlst.passengersList();
     int segmGroupNum = 0;
@@ -567,20 +587,20 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
         NewTextChild(codeshareNode, "FlightNumber", i->second);
       }
     }
-    if (depDateTime() == ASTRA::NoExists)
-      throw Exception("ScheduledDepartureDateTime is empty");
-    NewTextChild(flightNode, "ScheduledDepartureDateTime",
-                 DateTimeToStr(depDateTime(), "yyyy-mm-dd'T'hh:nn:00"));
-    if (depPort().empty())
-      throw Exception("DepartureAirport is empty");
-    NewTextChild(flightNode, "DepartureAirport", depPort());
-    if (arrDateTime() == ASTRA::NoExists)
-      throw Exception("EstimatedArrivalDateTime is empty");
-    NewTextChild(flightNode, "EstimatedArrivalDateTime",
-                 DateTimeToStr(arrDateTime(), "yyyy-mm-dd'T'hh:nn:00"));
-    if (arrPort().empty())
-      throw Exception("ArrivalAirport is empty");
-    NewTextChild(flightNode, "ArrivalAirport", arrPort());
+//    if (depDateTime() == ASTRA::NoExists)  //!!!vlad
+//      throw Exception("ScheduledDepartureDateTime is empty");
+//    NewTextChild(flightNode, "ScheduledDepartureDateTime",
+//                 DateTimeToStr(depDateTime(), "yyyy-mm-dd'T'hh:nn:00"));
+//    if (depPort().empty())
+//      throw Exception("DepartureAirport is empty");
+//    NewTextChild(flightNode, "DepartureAirport", depPort());
+//    if (arrDateTime() == ASTRA::NoExists)
+//      throw Exception("EstimatedArrivalDateTime is empty");
+//    NewTextChild(flightNode, "EstimatedArrivalDateTime",
+//                 DateTimeToStr(arrDateTime(), "yyyy-mm-dd'T'hh:nn:00"));
+//    if (arrPort().empty())
+//      throw Exception("ArrivalAirport is empty");
+//    NewTextChild(flightNode, "ArrivalAirport", arrPort());
     xmlNodePtr FlightLegsNode = NewTextChild(flightNode, "FlightLegs");
     fltLegs().FlightLegstoXML(FlightLegsNode);
   }
@@ -700,6 +720,10 @@ void PaxlstInfo::checkInvariant() const
 
     if( senderName().empty() )
         throw EXCEPTIONS::Exception( "Empty sender name!" );
+
+    if( stopsBeforeBorder().empty() ||
+        stopsAfterBorder().empty())
+        throw EXCEPTIONS::Exception( "Empty stopsBeforeBorder or stopsAfterBorder!" );
 }
 
 BgmElem PaxlstInfo::getBgmElem() const

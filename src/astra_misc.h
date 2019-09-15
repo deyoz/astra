@@ -782,6 +782,7 @@ class TAdvTripRoute : public TTripBase, public std::vector<TAdvTripRouteItem>
                 TTripRouteType1 route_type1,
                 TTripRouteType2 route_type2);
   public:
+    void GetRouteBetween(int point_dep, const std::string &airp_arv);
     virtual ~TAdvTripRoute() {}
 };
 
@@ -1190,8 +1191,6 @@ double getFileSizeDouble(const std::string &str);
 std::string getFileSizeStr(double size);
 AstraLocale::LexemaData GetLexemeDataWithFlight(const AstraLocale::LexemaData &data, const TTripInfo &fltInfo);
 AstraLocale::LexemaData GetLexemeDataWithRegNo(const AstraLocale::LexemaData &data, int reg_no);
-
-TAdvTripRoute GetPaxRoute(int pax_id);
 
 #endif /*_ASTRA_MISC_H_*/
 

@@ -712,6 +712,7 @@ bool TTripRoute::GetRoute(TDateTime part_key,
                           TTripRouteType1 route_type1,
                           TTripRouteType2 route_type2)
 {
+  clear();
   TQuery Qry(&OraSession);
 
   ostringstream sql;
@@ -748,6 +749,8 @@ bool TAdvTripRoute::GetRoute(TDateTime part_key,
                           TTripRouteType1 route_type1,
                           TTripRouteType2 route_type2)
 {
+  clear();
+
   TQuery Qry(&OraSession);
 
   ostringstream sql;
@@ -2413,19 +2416,15 @@ void TInfantAdults::clear()
    temp_parent_id = NoExists;
 }
 
-TAdvTripRoute GetPaxRoute(int pax_id)
+void TAdvTripRoute::GetRouteBetween(int point_dep, const string& airp_arv)
 {
-  TAdvTripRoute route, result;
-  CheckIn::TSimplePaxItem pax_item;
-  CheckIn::TSimplePaxGrpItem grp_item;
-  if (pax_item.getByPaxId(pax_id) && grp_item.getByGrpId(pax_item.grp_id))
-  {
-    route.GetRouteAfter(NoExists, grp_item.point_dep, trtWithCurrent, trtNotCancelled);
-    auto i_arv = find_if(route.cbegin(), route.cend(), [&grp_item](auto i){return i.point_id == grp_item.point_arv;});
-    if (i_arv != route.cend())
-      result.insert(result.end(), route.cbegin(), i_arv);
-    else
-      ProgError(STDLOG, "%s pax point_arv not found in flight route, id=%d", __func__, pax_id);
-  }
-  return result;
+  clear();
+  GetRouteAfter(NoExists, point_dep, trtWithCurrent, trtNotCancelled);
+  TAdvTripRoute::iterator i=begin();
+  for(; i!=end(); ++i)
+    if (i->airp==airp_arv) break;
+  if (i!=end())
+    erase(++i, end());
+  else
+   clear();
 }

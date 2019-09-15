@@ -107,15 +107,8 @@ public:
 
 //---------------------------------------------------------------------------------------
 
-class FlightInfo
+class FlightStop
 {
-    std::string m_carrier;
-
-    // Carrier Code/Flight Number. For example: OK051
-    /* maxlen = 17 */
-    /* required = C */
-    std::string m_flight;
-
     // Flight departure Airport. Three-character IATA Code
     /* maxlen = 25 */
     /* required = C */
@@ -134,32 +127,14 @@ class FlightInfo
     /* required = C */
     TDateTime m_arrDateTime;
 
-    // Marketing flights
-    std::map<std::string, std::string> mktFlts;
-    // Flight legs
-    FlightLegs legs;
-
 public:
-    FlightInfo()
-        : m_depDateTime( ASTRA::NoExists ), m_arrDateTime( ASTRA::NoExists )
-    {}
-
-    // carrier
-    const std::string& carrier() const {
-        return m_carrier;
-    }
-    void setCarrier( const std::string& f ) {
-        m_carrier = upperc( f.substr( 0, 17 ) );
-    }
-
-    // flight
-    const std::string& flight() const {
-        return m_flight;
-    }
-    void setFlight( const std::string& f ) {
-        m_flight = upperc( f.substr( 0, 17 ) );
-    }
-
+    FlightStop(const std::string& port,
+               const TDateTime arrDateTime,    //это время прилета относительно пункта
+               const TDateTime depDateTime) :  //это время вылета относительно пункта
+      m_depPort(port),
+      m_depDateTime(depDateTime),
+      m_arrPort(port),
+      m_arrDateTime(arrDateTime) {}
     // departure airport
     const std::string& depPort() const {
         return m_depPort;
@@ -191,6 +166,46 @@ public:
     const TDateTime& arrDateTime() const {
         return m_arrDateTime;
     }
+};
+
+class FlightStops : public std::vector<FlightStop> {};
+
+class FlightInfo
+{
+    std::string m_carrier;
+
+    // Carrier Code/Flight Number. For example: OK051
+    /* maxlen = 17 */
+    /* required = C */
+    std::string m_flight;
+
+    FlightStops m_stopsBeforeBorder;
+    FlightStops m_stopsAfterBorder;
+
+    // Marketing flights
+    std::map<std::string, std::string> mktFlts;
+    // Flight legs
+    FlightLegs legs;
+
+public:
+    FlightInfo() {}
+
+    // carrier
+    const std::string& carrier() const {
+        return m_carrier;
+    }
+    void setCarrier( const std::string& f ) {
+        m_carrier = upperc( f.substr( 0, 17 ) );
+    }
+
+    // flight
+    const std::string& flight() const {
+        return m_flight;
+    }
+    void setFlight( const std::string& f ) {
+        m_flight = upperc( f.substr( 0, 17 ) );
+    }
+
     // marketing flights
     void addMarkFlt( const std::string& airline, const std::string& flight ) {
         mktFlts.insert(std::pair<std::string, std::string>(airline, flight));
@@ -204,6 +219,30 @@ public:
     }
     const FlightLegs& fltLegs() const {
         return legs;
+    }
+
+    const FlightStops& stopsBeforeBorder() const {
+        return m_stopsBeforeBorder;
+    }
+    FlightStops& stopsBeforeBorder() {
+        return m_stopsBeforeBorder;
+    }
+    const FlightStops& stopsAfterBorder() const {
+        return m_stopsAfterBorder;
+    }
+    FlightStops& stopsAfterBorder() {
+        return m_stopsAfterBorder;
+    }
+
+    void setCrossBorderFlightStops(const std::string& dp,
+                                   const TDateTime& ddt,
+                                   const std::string& ap,
+                                   const TDateTime& adt)
+    {
+      m_stopsBeforeBorder.clear();
+      m_stopsBeforeBorder.emplace_back(dp, ASTRA::NoExists, ddt);
+      m_stopsAfterBorder.clear();
+      m_stopsAfterBorder.emplace_back(ap, adt, ASTRA::NoExists);
     }
 };
 

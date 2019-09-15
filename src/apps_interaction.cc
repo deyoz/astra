@@ -1409,80 +1409,6 @@ TDateTime get_scd_local(const TDateTime& scd_utc, string airp_code)
   return UTCToLocal(scd_utc, AirpTZRegion(airp_code));
 }
 
-class DepArr
-{
-  bool valid_ = false;
-public:
-  string airp125;
-  TDateTime time189 = NoExists;
-  string airp87;
-  TDateTime time232 = NoExists;
-  string airpCBP;
-  bool valid() { return valid_; }
-  void validate()
-  {
-    time189 = get_scd_local(time189, airp125);
-    time232 = get_scd_local(time232, airp87);
-    airp125 = get_airp_code_lat(airp125);
-    airp87 = get_airp_code_lat(airp87);
-    airpCBP = get_airp_code_lat(airpCBP);
-    valid_ = true;
-  }
-};
-
-DepArr get_dep_arr(const TAdvTripRoute& route, const string& country)
-{
-  struct FindCountry
-  {
-    const string country_code;
-    FindCountry(const string& code) : country_code(code) {}
-    bool operator()(const TAdvTripRouteItem& item) const
-    { return getCountryByAirp(item.airp).code == country_code; }
-  };
-
-  // в настоящее время PAXLST Астры предоставляет только 2 поля: 125 и 87
-  // поэтому более сложные случаи пока не рассматриваем
-  DepArr da;
-  const FindCountry fc(country);
-  if (find_if_not(route.cbegin(), route.cend(), fc) == route.cend()) /* других нет - неожиданность */
-    return da;
-  if (find_if(route.crbegin(), route.crend(), fc) == route.crbegin()) /* inbound - последним */
-  {
-    auto last_before_arr = find_if_not(route.crbegin(), route.crend(), fc);
-    auto first_after_arr = find_if(last_before_arr.base()-1, route.cend(), fc);
-    da.airp125 = last_before_arr->airp;
-    da.time189 = last_before_arr->scd_out;
-    da.airp87 = first_after_arr->airp;
-    da.time232 = first_after_arr->scd_in;
-    da.airpCBP = da.airp87;
-    da.validate();
-  }
-  else if (find_if(route.cbegin(), route.cend(), fc) == route.cbegin()) /* outbound - первым */
-  {
-    auto first_after_dep = find_if_not(route.cbegin(), route.cend(), fc);
-    auto last_before_dep = find_if(make_reverse_iterator(first_after_dep), route.crend(), fc);
-    da.airp125 = last_before_dep->airp;
-    da.time189 = last_before_dep->scd_out;
-    da.airp87 = first_after_dep->airp;
-    da.time232 = first_after_dep->scd_in;
-    da.airpCBP = da.airp125;
-    da.validate();
-  }
-  else if (find_if(route.cbegin(), route.cend(), fc) != route.cend()) /* где-то в середине - рассмотрим как inbound */
-  {
-    auto first_after_arr = find_if(route.cbegin(), route.cend(), fc);
-    auto last_before_arr = find_if_not(make_reverse_iterator(first_after_arr), route.crend(), fc);
-    da.airp125 = last_before_arr->airp;
-    da.time189 = last_before_arr->scd_out;
-    da.airp87 = first_after_arr->airp;
-    da.time232 = first_after_arr->scd_in;
-    da.airpCBP = da.airp87;
-    da.validate();
-  }
-  /* не найдено - неожиданность */
-  return da;
-}
-
 //-----------------------------------------------------------------------------------
 
 /*std::string TPaxRequest::msg_china_iapi() const
@@ -1528,30 +1454,38 @@ void TPaxRequest::InitPaxlstInfo(Paxlst::PaxlstInfo& paxlstInfo) const
   paxlstInfo.setPhone("12 34 56 78"); // FIXME HARDCODE FOR TEST
   paxlstInfo.setFax("98765432"); // FIXME HARDCODE FOR TEST
 
-  TAdvTripRoute route, tmp;
-  route.GetRouteBefore(NoExists, m_point_id, trtWithCurrent, trtNotCancelled);
-  tmp.GetRouteAfter(NoExists, m_point_id, trtNotCurrent, trtNotCancelled);
-  route.insert(route.end(), tmp.begin(), tmp.end());
-  if(route.empty())
-    throw Exception("%s empty route, point_id %d", __func__, m_point_id);
+  TAdvTripRoute route;
+  route.GetRouteBetween(m_point_id, m_airp_arv);
+  if(route.size()<2)
+    throw Exception("%s: route.size()=%zu (point_id=%d, airp_arv=%s)", __func__, route.size(), m_point_id, m_airp_arv.c_str());
 
   // 5.9 TDT: Details of Transport-GR.2
   paxlstInfo.setFlight(int_flt.flt_num);
   string airline_lat = (static_cast<const TAirlinesRow&>(base_tables.get("airlines").get_row("code", route.front().airline))).code_lat;
   paxlstInfo.setCarrier(airline_lat);
 
-  DepArr da = get_dep_arr(route, country_china);
-  if (not da.valid())
-    throw Exception("%s cannot get departure or arrival", __func__);
+  std::string priorCountry;
+  vector<Paxlst::FlightStops> routeParts;
+  for(const TAdvTripRouteItem& i : route)
+  {
+    std::string currCountry=getCountryByAirp(i.airp).code;
+    if (priorCountry.empty() ||
+        (priorCountry==country_china) != (currCountry==country_china))
+      routeParts.emplace_back();
+    Paxlst::FlightStops& flightStops = routeParts.back();
+    flightStops.emplace_back(get_airp_code_lat(i.airp),
+                             get_scd_local(i.scd_in, i.airp),
+                             get_scd_local(i.scd_out, i.airp));
+    priorCountry=currCountry;
+  }
 
-  // 5.10 LOC: Place/Location Identification ? Flight Itinerary-GR.3 DEPARTURE
-  paxlstInfo.setDepPort(da.airp125);
-  // 5.11 DTM: Date/Time/Period ? Flight Time-GR.3 DEPARTURE
-  paxlstInfo.setDepDateTime(da.time189);
-  // 5.10 LOC: Place/Location Identification ? Flight Itinerary-GR.3 ARRIVAL
-  paxlstInfo.setArrPort(da.airp87);
-  // 5.11 DTM: Date/Time/Period ? Flight Time-GR.3 ARRIVAL
-  paxlstInfo.setArrDateTime(da.time232);
+  paxlstInfo.stopsBeforeBorder().clear();
+  paxlstInfo.stopsAfterBorder().clear();
+  vector<Paxlst::FlightStops>::const_iterator part=routeParts.begin();
+  if (part!=routeParts.end())
+    paxlstInfo.stopsBeforeBorder()=*(part++);
+  if (part!=routeParts.end())
+    paxlstInfo.stopsAfterBorder()=*part;
 }
 
 void TPaxRequest::InitPaxInfo(Paxlst::PassengerInfo& paxInfo) const

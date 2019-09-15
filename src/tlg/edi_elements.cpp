@@ -74,13 +74,13 @@ LocElem::LocQualifier LocElem::qualifierFromStr(const std::string& str)
     if(str == "22") {
         return LocElem::LocQualifier::CustomsAndBorderProtection;
     } else if(str == "87") {
-        return LocElem::LocQualifier::Arrival;
+        return LocElem::LocQualifier::FirstArrivalAfterBorder;
     } else if(str == "91") {
         return LocElem::LocQualifier::DocCountry;
     } else if(str == "92") {
-        return LocElem::LocQualifier::Next;
+        return LocElem::LocQualifier::OtherDeparturesAndArrivals;
     } else if(str == "125") {
-        return LocElem::LocQualifier::Departure;
+        return LocElem::LocQualifier::LastDepartureBeforeBorder;
     } else if(str == "174") {
         return LocElem::LocQualifier::CountryOfResidence;
     } else if(str == "178") {
@@ -617,7 +617,7 @@ std::ostream& operator<<(std::ostream &os, const BgmElem &bgm)
     os << "BGM: ";
     os << "DocCode: " << bgm.m_docCode << "; "
        << "DocId: " << bgm.m_docId;
-    return os;    
+    return os;
 }
 
 std::ostream& operator<<(std::ostream &os, const RffElem &rff)

@@ -219,15 +219,15 @@ struct LocElem
 {
     enum LocQualifier
     {
-        Departure = 125,
-        Arrival = 87,
+        LastDepartureBeforeBorder = 125,
+        FirstArrivalAfterBorder = 87,
         CustomsAndBorderProtection = 22,
         StartJourney = 178,
         FinishJourney = 179,
         CountryOfResidence = 174,
         CountryOfBirth = 180,
         DocCountry = 91,
-        Next = 92,
+        OtherDeparturesAndArrivals = 92,
     };
 
     LocQualifier m_qualifier;
