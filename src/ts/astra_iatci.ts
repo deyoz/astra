@@ -202,6 +202,7 @@ $(defmacro CHECK_TCKIN_ROUTE_2
           <pr_auto_pt_print>0</pr_auto_pt_print>
           <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
           <use_jmp>0</use_jmp>
+          <pr_payment_at_desk>0</pr_payment_at_desk>
         </tripheader>
         <tripdata>
           <airps>
@@ -424,6 +425,7 @@ $(defmacro CHECK_TCKIN_ROUTE_GRP_2
           <pr_auto_pt_print>0</pr_auto_pt_print>
           <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
           <use_jmp>0</use_jmp>
+          <pr_payment_at_desk>0</pr_payment_at_desk>
         </tripheader>
         <tripdata>
           <airps>
@@ -764,8 +766,8 @@ $(defmacro SAVE_GRP
               </document>
               <doco/>
               <addresses/>
-              <subclass>ù</subclass>              
-              <bag_pool_num/>              
+              <subclass>ù</subclass>
+              <bag_pool_num/>
               <transfer>
                 <segment>
                   <subclass>L</subclass>
@@ -1647,10 +1649,10 @@ $(TKCRES_ET_COS UTET UTDC $(last_edifact_ref) $(tickno) $(cpnno) $(status))
 
 $(defmacro ETS_COS_EXCHANGE2
     tickno1
-    cpnno1    
+    cpnno1
     tickno2
     cpnno2
-    status    
+    status
     pult=åéÇêéå
     airl=ûí
 {
@@ -2047,6 +2049,7 @@ $(KICK_IN)
           <pr_auto_pt_print>0</pr_auto_pt_print>
           <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
           <use_jmp>0</use_jmp>
+          <pr_payment_at_desk>0</pr_payment_at_desk>
         </tripheader>
         <tripdata>
           <airps>
@@ -2222,6 +2225,7 @@ $(KICK_IN)
           <pr_auto_pt_print>0</pr_auto_pt_print>
           <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
           <use_jmp>0</use_jmp>
+          <pr_payment_at_desk>0</pr_payment_at_desk>
         </tripheader>
         <tripdata>
           <airps>
@@ -2467,6 +2471,7 @@ $(KICK_IN)
           <pr_auto_pt_print>0</pr_auto_pt_print>
           <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
           <use_jmp>0</use_jmp>
+          <pr_payment_at_desk>0</pr_payment_at_desk>
         </tripheader>
         <tripdata>
           <airps>
@@ -2644,6 +2649,7 @@ $(KICK_IN)
           <pr_auto_pt_print>0</pr_auto_pt_print>
           <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
           <use_jmp>0</use_jmp>
+          <pr_payment_at_desk>0</pr_payment_at_desk>
         </tripheader>
         <tripdata>
           <airps>
@@ -2735,6 +2741,7 @@ $(KICK_IN)
           <pr_auto_pt_print>0</pr_auto_pt_print>
           <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
           <use_jmp>0</use_jmp>
+          <pr_payment_at_desk>0</pr_payment_at_desk>
         </tripheader>
         <tripdata>
           <airps>
@@ -3193,6 +3200,7 @@ $(KICK_IN)
           <pr_auto_pt_print>0</pr_auto_pt_print>
           <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
           <use_jmp>0</use_jmp>
+          <pr_payment_at_desk>0</pr_payment_at_desk>
         </tripheader>
         <tripdata>
           <airps>
@@ -3378,6 +3386,7 @@ $(KICK_IN)
           <pr_auto_pt_print>0</pr_auto_pt_print>
           <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
           <use_jmp>0</use_jmp>
+          <pr_payment_at_desk>0</pr_payment_at_desk>
         </tripheader>
         <tripdata>
           <airps>
@@ -4717,7 +4726,7 @@ ENDIFM
 
 $(CANCEL_PAX $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv)
              ûí 103 ÑåÑ èãä
-             ë7 1027 èãä ëéó 
+             ë7 1027 èãä ëéó
              REPIN IVAN 2986120030297)
 
 
@@ -4921,6 +4930,7 @@ $(KICK_IN)
           <pr_auto_pt_print>0</pr_auto_pt_print>
           <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
           <use_jmp>0</use_jmp>
+          <pr_payment_at_desk>0</pr_payment_at_desk>
         </tripheader>
         <tripdata>
           <airps>
@@ -5184,6 +5194,7 @@ $(KICK_IN)
           <pr_auto_pt_print>0</pr_auto_pt_print>
           <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
           <use_jmp>0</use_jmp>
+          <pr_payment_at_desk>0</pr_payment_at_desk>
         </tripheader>
         <tripdata>
           <airps>

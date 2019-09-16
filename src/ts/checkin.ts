@@ -634,6 +634,7 @@ $(KICK_IN)
           <pr_auto_pt_print>0</pr_auto_pt_print>
           <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
           <use_jmp>0</use_jmp>
+          <pr_payment_at_desk>0</pr_payment_at_desk>
         </tripheader>
         <tripdata>
           <airps>
