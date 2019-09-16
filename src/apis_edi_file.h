@@ -870,7 +870,9 @@ struct Cusres
     //---------------------------------
 
     BgmElem                  m_bgm;
+    boost::optional<UngElem> m_ung;
     boost::optional<RffElem> m_rff;
+    boost::optional<UneElem> m_une;
     std::vector<SegGr3>      m_vSegGr3;
     std::vector<SegGr4>      m_vSegGr4;
 

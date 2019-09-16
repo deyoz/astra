@@ -111,6 +111,8 @@ boost::optional<edifact::UsiElem> readEdiUsi(_EDI_REAL_MES_STRUCT_ *pMes);
 
 // APIS
 boost::optional<edifact::BgmElem> readEdiBgm(_EDI_REAL_MES_STRUCT_ *pMes);
+boost::optional<edifact::UngElem> readEdiUng(_EDI_REAL_MES_STRUCT_ *pMes);
+boost::optional<edifact::UneElem> readEdiUne(_EDI_REAL_MES_STRUCT_ *pMes);
 boost::optional<edifact::ErcElem> readEdiErc(_EDI_REAL_MES_STRUCT_ *pMes);
 boost::optional<edifact::FtxElem> readEdiFtx(_EDI_REAL_MES_STRUCT_ *pMes);
 boost::optional<edifact::RffElem> readEdiRff(_EDI_REAL_MES_STRUCT_ *pMes, unsigned n = 0);

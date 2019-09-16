@@ -1509,6 +1509,55 @@ boost::optional<BgmElem> readEdiBgm(_EDI_REAL_MES_STRUCT_ *pMes)
     return BgmElem(docCode, docId);
 }
 
+boost::optional<UngElem> readEdiUng(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    EdiPointHolder ung_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "UNG")) {
+        return boost::optional<UngElem>();
+    }
+
+    std::string funcGroupId = GetDBFName(pMes, DataElement(38), CompElement());
+    std::string    senderId = GetDBFName(pMes, DataElement(40), CompElement("S006"));
+    std::string  senderCode = GetDBFName(pMes, DataElement(7),  CompElement("S006"));
+    std::string     rcpntId = GetDBFName(pMes, DataElement(44), CompElement("S007"));
+    std::string   rcpntCode = GetDBFName(pMes, DataElement(7),  CompElement("S007"));
+    //std::string     theDate = GetDBFName(pMes, DataElement(17), CompElement("S004"));
+    //std::string     theTime = GetDBFName(pMes, DataElement(19), CompElement("S004"));
+    std::string groupRefNum = GetDBFName(pMes, DataElement(48), CompElement());
+    std::string cntrlAgency = GetDBFName(pMes, DataElement(51), CompElement());
+    std::string   msgVerNum = GetDBFName(pMes, DataElement(52), CompElement("S008"));
+    std::string   msgRelNum = GetDBFName(pMes, DataElement(54), CompElement("S008"));
+
+    return UngElem(funcGroupId,
+                   senderId,
+                   senderCode,
+                   rcpntId,
+                   rcpntCode,
+                   BASIC::date_time::NowUTC(),
+                   groupRefNum,
+                   cntrlAgency,
+                   msgVerNum,
+                   msgRelNum);
+}
+
+boost::optional<UneElem> readEdiUne(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    EdiPointHolder une_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "UNE")) {
+        return boost::optional<UneElem>();
+    }
+
+    unsigned controlCnt = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(),
+                                                   pMes,
+                                                   DataElement(60),
+                                                   "",
+                                                   CompElement());
+
+    std::string refNum = GetDBFName(pMes, DataElement(48), CompElement());
+
+    return UneElem(refNum, controlCnt);
+}
+
 boost::optional<ErcElem> readEdiErc(_EDI_REAL_MES_STRUCT_ *pMes)
 {
     EdiPointHolder erc_holder(pMes);

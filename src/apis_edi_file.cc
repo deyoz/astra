@@ -832,6 +832,8 @@ Cusres readCUSRES(_EDI_REAL_MES_STRUCT_ *pMes)
 
     Cusres cusres(*bgm);
 
+    // UNG
+    cusres.m_ung = readEdiUng(pMes);
     // RFF
     cusres.m_rff = readEdiRff(pMes);
 
@@ -892,10 +894,13 @@ Cusres readCUSRES(_EDI_REAL_MES_STRUCT_ *pMes)
         }
 
         // FTX
-        segGr4.m_ftx  = readEdiFtx(pMes);
+        segGr4.m_ftx = readEdiFtx(pMes);
 
         cusres.m_vSegGr4.push_back(segGr4);
     }
+
+    // UNE
+    cusres.m_une = readEdiUne(pMes);
 
     return cusres;
 }
