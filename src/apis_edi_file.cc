@@ -1005,13 +1005,10 @@ namespace
         paxlstInfo.setIataCode( "OK688/071008/1310" );
 
         paxlstInfo.setFlight( "OK688" );
-        paxlstInfo.setDepPort( "PrG" );
         TDateTime depDate = ASTRA::NoExists, arrDate = ASTRA::NoExists;
         StrToDateTime( "08.10.07 10:45:00", depDate ); //"0710081045"
-        paxlstInfo.setDepDateTime( depDate );
-        paxlstInfo.setArrPort( "BCN" );
-        StrToDateTime( "08.10.07 13:10:00", arrDate ); //"0710081310"
-        paxlstInfo.setArrDateTime( arrDate );
+        StrToDateTime( "08.10.07 13:10:00", arrDate ); //"0710081310"        
+        paxlstInfo.setCrossBorderFlightStops( "PrG", depDate, "BCN", arrDate);
 
         Paxlst::PassengerInfo pass1;
         pass1.setSurname( "STRANSKY" );
@@ -1083,15 +1080,15 @@ namespace
 
         paxlstInfo.setFlight( "OK688XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
 
-        paxlstInfo.setDepPort( "PRGXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         TDateTime depDate = ASTRA::NoExists;
         StrToDateTime( "08.10.07 10:45:00", depDate ); //"0710081045"
-        paxlstInfo.setDepDateTime( depDate );
-
-        paxlstInfo.setArrPort( "BCNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         TDateTime arrDate = ASTRA::NoExists;
         StrToDateTime( "08.10.07 13:10:00", arrDate ); //"0710081310"
-        paxlstInfo.setArrDateTime( arrDate );
+
+        paxlstInfo.setCrossBorderFlightStops( "PRGXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+                                              depDate,
+                                              "BCNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+                                              arrDate );
 
 
         Paxlst::PassengerInfo pass1;
