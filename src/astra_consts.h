@@ -5,6 +5,7 @@
 #include <limits.h>
 #include <string>
 #include <list>
+#include <map>
 #include <boost/optional.hpp>
 #include "exceptions.h"
 
