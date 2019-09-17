@@ -130,11 +130,13 @@ class FlightStop
 public:
     FlightStop(const std::string& port,
                const TDateTime arrDateTime,    //это время прилета относительно пункта
-               const TDateTime depDateTime) :  //это время вылета относительно пункта
-      m_depPort(port),
-      m_depDateTime(depDateTime),
-      m_arrPort(port),
-      m_arrDateTime(arrDateTime) {}
+               const TDateTime depDateTime)    //это время вылета относительно пункта
+    {
+        setDepPort(port);
+        setArrPort(port); // why??
+        setDepDateTime(depDateTime);
+        setArrDateTime(arrDateTime);
+    }
     // departure airport
     const std::string& depPort() const {
         return m_depPort;
@@ -240,9 +242,9 @@ public:
                                    const TDateTime& adt)
     {
       m_stopsBeforeBorder.clear();
-      m_stopsBeforeBorder.emplace_back(dp, ASTRA::NoExists, ddt);
+      m_stopsBeforeBorder.emplace_back(upperc(dp), ASTRA::NoExists, ddt);
       m_stopsAfterBorder.clear();
-      m_stopsAfterBorder.emplace_back(ap, adt, ASTRA::NoExists);
+      m_stopsAfterBorder.emplace_back(upperc(ap), adt, ASTRA::NoExists);
     }
 };
 

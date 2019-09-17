@@ -980,6 +980,14 @@ namespace
         Paxlst::PaxlstInfo paxlstInfo(Paxlst::PaxlstInfo::FlightPassengerManifest, "");
         paxlstInfo.settings().setViewUNGandUNE(true);
 
+        TDateTime depDate = ASTRA::NoExists;
+        StrToDateTime( "08.10.07 10:45:00", depDate ); //"0710081045"
+        TDateTime arrDate = ASTRA::NoExists;
+        StrToDateTime( "08.10.07 13:10:00", arrDate ); //"0710081310"
+
+        paxlstInfo.setCrossBorderFlightStops( "PRG", depDate,
+                                              "BCN", arrDate );
+
         paxlstInfo.setPartyName( "CDGkoAF" );
 
         paxlstInfo.setSenderName( "1h" );
@@ -1268,10 +1276,10 @@ START_TEST( test2 )
       "BGM+745'\n"
       "NAD+MS+++CDGKOAF'\n"
       "TDT+20'\n"
-      "LOC+125'\n"
-      "DTM+189::201'\n"
-      "LOC+87'\n"
-      "DTM+232::201'\n"
+      "LOC+125+PRG'\n"
+      "DTM+189:0710081045:201'\n"
+      "LOC+87+BCN'\n"
+      "DTM+232:0710081310:201'\n"
       "NAD+FL+++STRANSKY'\n"
       "ATT+2++M'\n"
       "DTM+329'\n"
@@ -1282,7 +1290,7 @@ START_TEST( test2 )
     // Сгенерированный текст
     LogTrace(TRACE5) << "\nText:\n" << text;
 
-    std::string chk( ts.check( text ) );
+    std::string chk( ts.show_mismatch( text ) );
     fail_unless( chk.empty(), "PAXLST mismatched %s", chk.c_str() );
 }
 END_TEST;
@@ -1337,7 +1345,7 @@ START_TEST( test3 )
     // Сгенерированный текст
     LogTrace(TRACE5) << "\nText:\n" << text;
 
-    std::string chk( ts.check( text ) );
+    std::string chk( ts.show_mismatch( text ) );
     fail_unless( chk.empty(), "PAXLST mismatched %s", chk.c_str() );
 }
 END_TEST;
@@ -1423,7 +1431,7 @@ START_TEST( test6 )
       "UNT+37+1'\n"
       "UNE+1+1'\n";
 
-    std::string chk( ts.check( tlgs.front() ) );
+    std::string chk( ts.show_mismatch( tlgs.front() ) );
     fail_unless( chk.empty(), "PAXLST mismatched %s", chk.c_str() );
 }
 END_TEST;
@@ -1469,7 +1477,7 @@ START_TEST( test7 )
           ts << "UNE+1+1'\n";;
 
         LogTrace(TRACE5) << "tlgs.part1:\n" << tlgs[ 0 ];
-        std::string chk( ts.check( tlgs[ 0 ] ) );
+        std::string chk( ts.show_mismatch( tlgs[ 0 ] ) );
         fail_unless( chk.empty(), "PAXLST part1 mismatched %s", chk.c_str() );
     }
 
@@ -1508,7 +1516,7 @@ START_TEST( test7 )
           "UNE+1+1'\n";
 
         LogTrace(TRACE5) << "tlg.part2:\n" << tlgs[ 1 ];
-        std::string chk( ts.check( tlgs[ 1 ] ) );
+        std::string chk( ts.show_mismatch( tlgs[ 1 ] ) );
         fail_unless( chk.empty(), "PAXLST part2 mismatched %s", chk.c_str() );
     }
 
@@ -1538,7 +1546,7 @@ START_TEST( test7 )
           "UNE+1+1'\n";
 
         LogTrace(TRACE5) << "tlg.part3:\n" << tlgs[ 2 ];
-        std::string chk( ts.check( tlgs[ 2 ] ) );
+        std::string chk( ts.show_mismatch( tlgs[ 2 ] ) );
         fail_unless( chk.empty(), "PAXLST part3 mismatched %s", chk.c_str() );
     }
 }
@@ -1596,7 +1604,7 @@ START_TEST( test8 )
       "UNT+37+1'\n"
       "UNE+1+1'\n";
 
-    std::string chk( ts.check( tlgs.front() ) );
+    std::string chk( ts.show_mismatch( tlgs.front() ) );
     fail_unless( chk.empty(), "PAXLST mismatched %s", chk.c_str() );
 }
 END_TEST;
