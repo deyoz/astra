@@ -1,7 +1,6 @@
 #ifndef _ASTRA_ELEMS_H_
 #define _ASTRA_ELEMS_H_
 
-#include <set>
 #include <string>
 #include <vector>
 #include "base_tables.h"
