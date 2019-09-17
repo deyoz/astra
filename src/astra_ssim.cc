@@ -27,6 +27,7 @@ using namespace SEASON;
 #include "tlg/tlg_parser.h"
 using namespace TypeB;
 
+#include <serverlib/lngv_user.h>
 #include <serverlib/lwriter.h>
 #include <boost/scoped_ptr.hpp>
 

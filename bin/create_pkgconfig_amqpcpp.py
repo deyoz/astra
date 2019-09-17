@@ -11,8 +11,15 @@ This file, when executed, will read a .pc file and print the result of
 processing.  The result will be functionally equivalent, but not identical.
 Re-running on its own output *should* produce identical results.
 """
+from __future__ import print_function
+import os
+import shutil
 from string import Template
-from StringIO import StringIO
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
+
 
 class PkgConfig:
   """
@@ -49,19 +56,19 @@ class PkgConfig:
   def __str__(self):
     OUT = StringIO()
     for comment in self.__comments:
-      print >> OUT, comment
-    print >> OUT
+      print(comment, file=OUT)
+    print(file=OUT)
     for i in self.__var_map:
-      print >> OUT, "%s=%s" % (i[0], i[1])
-    print >> OUT
+      print("%s=%s" % (i[0], i[1]), file=OUT)
+    print(file=OUT)
     for key in PkgConfig.fields:
       if key not in self.__field_map: continue
-      print >> OUT, "%s: %s" % (key, self.__field_map[key])
+      print("%s: %s" % (key, self.__field_map[key]), file=OUT)
     if self.__unrecognized_field_map:
-      print >> OUT
-      print >> OUT, PkgConfig.own_comments[0]
-      for key,val in self.__unrecognized_field_map.items():
-        print >> OUT, "%s: %s" % (key, val)
+      print(file=OUT)
+      print(PkgConfig.own_comments[0], file=OUT)
+      for key,val in list(self.__unrecognized_field_map.items()):
+        print("%s: %s" % (key, val), file=OUT)
     assert set(self.__field_map).issubset(PkgConfig.fields)
     return OUT.getvalue()
 
@@ -91,7 +98,7 @@ class PkgConfig:
     if hasattr(self, name):
       return self.__interpolated(getattr(self, name))
     else:
-      raise IndexError, name
+      raise IndexError(name)
 
   def __getattr__(self, name):
     if name in PkgConfig.fields:
@@ -137,8 +144,6 @@ class PkgConfig:
         name, val = line.split('=')
         self.__var_map[name] = val
 
-import os
-import shutil
 
 def create_pc(name, prefix, libs, incdir = "/include", libdir = "/lib"):
     a = PkgConfig()
@@ -168,7 +173,7 @@ if libroot:
 
 for i in default_dirs + [ os.path.join(externallibs, 'amqpcpp') ] :
   if os.path.isfile(i + "/include/amqpcpp.h"):
-    print "amqpcpp find", i
+    print("amqpcpp find", i)
     if not os.path.exists(os.path.dirname(i+'/lib/pkgconfig/')):
       os.makedirs(os.path.dirname(i+'/lib/pkgconfig/'))
     create_pc("amqp-cpp", i, "-lamqpcpp") 

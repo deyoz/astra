@@ -1,1 +1,1 @@
-LIBROOT=/home/roman/work/AstraServer/astralocal/ ./configure CC=clang CXX=clang++ --enable-xp-testing 
+LIBROOT=$PWD/locallibs ./configure CC=clang CXX=clang++ --enable-xp-testing

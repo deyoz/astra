@@ -1760,7 +1760,8 @@ void dumpTable(const std::string& table,
 
 static void commitInTestMode_()
 {
-    const char* sql = "SAVEPOINT SP_XP_TESTING";
+    make_curs("SAVEPOINT SP_XP_TESTING").exec();
+    /*
     LogTrace(TRACE3) << sql;
     std::shared_ptr <OciCpp::OracleData> odata;
     odata = OciCpp::mainSession().cdaCursor(sql,false);
@@ -1768,13 +1769,13 @@ static void commitInTestMode_()
     {
         fprintf(stderr, "SAVEPOINT SP_XP_TESTING failed");
         abort();
-    }
+    }*/
 }
 
 static void rollbackInTestMode_()
 {
-    const char* sql = "ROLLBACK TO SAVEPOINT SP_XP_TESTING";
-    LogTrace(TRACE3) << sql;
+    make_curs("ROLLBACK TO SAVEPOINT SP_XP_TESTING").exec();
+    /*LogTrace(TRACE3) << sql;
     std::shared_ptr <OciCpp::OracleData> odata;
     odata = OciCpp::mainSession().cdaCursor(sql,false);
     if (odata->exec())
@@ -1782,7 +1783,7 @@ static void rollbackInTestMode_()
         LogError (STDLOG) << odata->error_text()<<"\n" << sql;
         fprintf(stderr, "ROLLBACK TO SAVEPOINT SP_XP_TESTING failed\n");
         abort();
-    }
+    }*/
 }
 
 void commit()

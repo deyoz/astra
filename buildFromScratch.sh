@@ -5,6 +5,9 @@ export ENABLE_SHARED=${ENABLE_SHARED:? ENABLE_SHARED not set}
 export ASTRA_HOME=$(pwd)
 export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:$(pwd)/pkgconfig"
 export MAKE_J=${MAKE_J:-`grep -c ^processor /proc/cpuinfo`}
+export LOAD_A=${LOAD_A:-`grep -c ^processor /proc/cpuinfo`}
+#export PLATFORM='m32'
+export CPP_STD_VERSION='c++14'
 
 EXTERNALLIBS_DIR=${EXTERNAL_LIBS:-$(pwd)/externallibs}
 export EXTLIB_ENV_FILE=${EXTERNALLIBS_DIR}/external_env_file
