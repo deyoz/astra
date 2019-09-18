@@ -53,11 +53,7 @@ const std::string &TPrnFormsLayout::get(TDevOper::Enum op_type, const std::strin
         for(; not Qry.Eof; Qry.Next())
             items.get()[DevOperTypes().decode(Qry.FieldAsString("op_type"))][Qry.FieldAsString("param_name")] = Qry.FieldAsString("param_value");
     }
-    const auto &param_map = items->find(op_type);
-    if(param_map == items->end())
-        throw Exception("prn_forms_layout: op_type not found '%s'", DevOperTypes().encode(op_type).c_str());
-    const auto result = param_map->second.find(param_name);
-    if(result == param_map->second.end())
+    if((*items)[op_type][param_name].empty())
         throw Exception("prn_forms_layout: op_type '%s', param_name '%s' not found", DevOperTypes().encode(op_type).c_str(), param_name.c_str());
-    return result->second;
+    return (*items)[op_type][param_name];
 }
