@@ -133,7 +133,7 @@ public:
                const TDateTime depDateTime)    //это время вылета относительно пункта
     {
         setDepPort(port);
-        setArrPort(port); // why??
+        setArrPort(port); // потому что мы пока не работаем с маршрутом где аэропорт предыдущего прилета не совпадает с аэропортом следующего вылета
         setDepDateTime(depDateTime);
         setArrDateTime(arrDateTime);
     }
@@ -242,9 +242,9 @@ public:
                                    const TDateTime& adt)
     {
       m_stopsBeforeBorder.clear();
-      m_stopsBeforeBorder.emplace_back(upperc(dp), ASTRA::NoExists, ddt);
+      m_stopsBeforeBorder.emplace_back(dp, ASTRA::NoExists, ddt);
       m_stopsAfterBorder.clear();
-      m_stopsAfterBorder.emplace_back(upperc(ap), adt, ASTRA::NoExists);
+      m_stopsAfterBorder.emplace_back(ap, adt, ASTRA::NoExists);
     }
 };
 
