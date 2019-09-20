@@ -14,6 +14,7 @@
 #include "tlg/paxlst_request.h"
 #include <boost/scoped_ptr.hpp>
 #include "apis_utils.h"
+#include "apis_settings.h"
 
 #include "apis_edi_file.h"
 #include "apis_creator.h"
@@ -120,48 +121,6 @@ int FieldCount( string data_group, int version )
   return 0;
 }
 
-//-----------------------------------------------------------------------------------
-
-class EdiSessionHandler
-{
-  _edi_mes_head_* mhead = nullptr;
-  EDI_MSG_TYPE* pEType = nullptr;
-  EdiSessWrData* EdiSess = nullptr;
-public:
-  EdiSessionHandler()
-  {
-    mhead = new edi_mes_head;
-    memset ( mhead,0, sizeof ( edi_mes_head ) );
-    mhead->msg_type = PAXLST;
-
-    pEType =  GetEdiMsgTypeStrByType_ ( GetEdiTemplateMessages(), mhead->msg_type ) ;
-    if ( !pEType )
-    {
-        LogError ( STDLOG ) << "No types defined for type " << mhead->msg_type;
-        throw edilib::EdiExcept ( std::string ( "No types defined for type " ) +
-                                    boost::lexical_cast<std::string> ( mhead->msg_type ) );
-    }
-
-    mhead->msg_type_req = pEType->query_type;
-    mhead->answer_type  = pEType->answer_type;
-    mhead->msg_type_str = pEType;
-    strcpy ( mhead->code,       pEType->code );
-    strcpy ( mhead->unh_number, "11085B94E1F8FA" );
-
-    EdiSess = new AstraEdiSessWR("MOVGRG",
-                                 mhead,
-                                 Ticketing::RemoteSystemContext::IapiSystemContext::read());
-  }
-  ~EdiSessionHandler()
-  {
-    EdiSess->ediSession()->CommitEdiSession();
-    delete EdiSess;
-    delete mhead;
-  }
-};
-
-//-----------------------------------------------------------------------------------
-
 TAppsSets::TAppsSets(const std::string& airline, const std::string& country)
   : _airline(airline), _country(country)
 {
@@ -239,10 +198,26 @@ int TAppsSets::get_version()
   return 0;
 }
 
-int GetVersion(string airline, string country)
+int getVersionByCountries(const std::string& airline,
+                          const std::string& countryDep,
+                          const std::string& countryArv)
 {
-  TAppsSets sets(airline, country);
+  APIS::SettingsList settingsList;
+  settingsList.getByCountries(airline, countryDep, countryArv);
+  if (settingsList.formatExists(APPS_FORMAT_CHINA))
+    return APPS_VERSION_CHINA;
+
+  TAppsSets sets(airline, countryArv);
   return sets.get_version();
+}
+
+int getVersionByAirps(const std::string& airline,
+                      const std::string& airpDep,
+                      const std::string& airpArv)
+{
+  return getVersionByCountries(airline,
+                               getCountryByAirp(airpDep).code,
+                               getCountryByAirp(airpArv).code);
 }
 
 static std::string getH2HReceiver()
@@ -324,10 +299,11 @@ static void sendNewReq( const std::string& text, const int msg_id, const int poi
     saveAppsMessage(text, msg_id, point_id, version);
 }
 
-static void sendNewReq(const Paxlst::PaxlstInfo& paxlst, const int msg_id, const int point_id, const int version)
+static void sendNewReq(const Paxlst::PaxlstInfo& paxlst, const APIS::Settings& settings,
+                       const int msg_id, const int point_id, const int version)
 {
   using namespace edifact;
-  PaxlstRequest ediReq(PaxlstReqParams("", paxlst));
+  PaxlstRequest ediReq(PaxlstReqParams(settings, paxlst));
   ediReq.sendTlg();
   if (paxlst.type()==Paxlst::PaxlstInfo::IAPIFlightCloseOnBoard ||
       paxlst.type()==Paxlst::PaxlstInfo::IAPICancelFlight)
@@ -358,24 +334,6 @@ const char* getAPPSRotName()
   if ( VAR.empty() )
     VAR=getTCLParam( "APPS_ROT_NAME", NULL );
   return VAR.c_str();
-}
-
-const std::string getIAPIRemEdiAddr()
-{
-    static const std::string remEdiAddr = readStringFromTcl("IAPI_REM_EDI_ADDR", "NIAC");
-    return remEdiAddr;
-}
-
-const std::string getIAPIOurEdiAddr()
-{
-    static const std::string ourEdiAddr = readStringFromTcl("IAPI_OUR_EDI_ADDR", "NORDWIND");
-    return ourEdiAddr;
-}
-
-const std::string getIAPIEdiProfileName()
-{
-    static const std::string ediProfileName = readStringFromTcl("IAPI_EDI_PROFILE_NAME", "IAPI");
-    return ediProfileName;
 }
 
 bool checkAPPSSets( const int point_dep, const int point_arv, set<string>* pFormats )
@@ -1022,42 +980,42 @@ std::string TPaxAddData::msg() const
   return msg.str();
 }
 
-int GetVersionByCrsPaxId(const int pax_id)
-{
-  TQuery Qry(&OraSession);
-  Qry.SQLText="SELECT point_id_spp, crs_pax.pnr_id, airp_arv "
-              "FROM crs_pax, crs_pnr, tlg_binding "
-              "WHERE pax_id = :pax_id AND crs_pax.pnr_id = crs_pnr.pnr_id AND "
-              "      crs_pnr.point_id = tlg_binding.point_id_tlg";
-  Qry.CreateVariable("pax_id", otInteger, pax_id);
-  Qry.Execute();
-  if (Qry.Eof)
-    throw Exception("%s Qry.Eof", __func__);
-  int point_id = Qry.FieldAsInteger("point_id_spp");
-  string airp_arv = Qry.FieldAsString("airp_arv");
-  TTripInfo info;
-  if (not info.getByPointId(point_id))
-    throw Exception("%s getByPointId", __func__);
-  return GetVersion(info.airline, getCountryByAirp(airp_arv).code);
-}
+//int GetVersionByCrsPaxId(const int pax_id)
+//{
+//  TQuery Qry(&OraSession);
+//  Qry.SQLText="SELECT point_id_spp, crs_pax.pnr_id, airp_arv "
+//              "FROM crs_pax, crs_pnr, tlg_binding "
+//              "WHERE pax_id = :pax_id AND crs_pax.pnr_id = crs_pnr.pnr_id AND "
+//              "      crs_pnr.point_id = tlg_binding.point_id_tlg";
+//  Qry.CreateVariable("pax_id", otInteger, pax_id);
+//  Qry.Execute();
+//  if (Qry.Eof)
+//    throw Exception("%s Qry.Eof", __func__);
+//  int point_id = Qry.FieldAsInteger("point_id_spp");
+//  string airp_arv = Qry.FieldAsString("airp_arv");
+//  TTripInfo info;
+//  if (not info.getByPointId(point_id))
+//    throw Exception("%s getByPointId", __func__);
+//  return getVersionByAirps(info.airline, info.airp, airp_arv);
+//}
 
-int GetVersionByPaxId(const int pax_id)
-{
-  TQuery Qry( &OraSession );
-  Qry.SQLText="SELECT pax.grp_id, point_dep, airp_arv "
-              "FROM pax_grp, pax "
-              "WHERE pax_id = :pax_id AND pax_grp.grp_id = pax.grp_id";
-  Qry.CreateVariable( "pax_id", otInteger, pax_id );
-  Qry.Execute();
-  if(Qry.Eof)
-    return GetVersionByCrsPaxId(pax_id);
-  int point_dep = Qry.FieldAsInteger("point_dep");
-  string airp_arv = Qry.FieldAsString("airp_arv");
-  TTripInfo info;
-  if (not info.getByPointId(point_dep))
-    return GetVersionByCrsPaxId(pax_id);
-  return GetVersion(info.airline, getCountryByAirp(airp_arv).code);
-}
+//int GetVersionByPaxId(const int pax_id)
+//{
+//  TQuery Qry( &OraSession );
+//  Qry.SQLText="SELECT pax.grp_id, point_dep, airp_arv "
+//              "FROM pax_grp, pax "
+//              "WHERE pax_id = :pax_id AND pax_grp.grp_id = pax.grp_id";
+//  Qry.CreateVariable( "pax_id", otInteger, pax_id );
+//  Qry.Execute();
+//  if(Qry.Eof)
+//    return GetVersionByCrsPaxId(pax_id);
+//  int point_dep = Qry.FieldAsInteger("point_dep");
+//  string airp_arv = Qry.FieldAsString("airp_arv");
+//  TTripInfo info;
+//  if (not info.getByPointId(point_dep))
+//    return GetVersionByCrsPaxId(pax_id);
+//  return getVersionByAirps(info.airline, info.airp, airp_arv);
+//}
 
 void TPaxRequest::init(const int pax_id, Timing::Points &timing, const std::string& override_type , const int msg_id)
 {
@@ -1110,7 +1068,7 @@ bool TPaxRequest::getByPaxId( const int pax_id, Timing::Points& timing, const st
     throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
   }
   timing.start("getByPaxId version, header");
-  version = GetVersion(airline.code, getCountryByAirp( airp_arv ).code);
+  version = getVersionByAirps(info.airline, info.airp, airp_arv);
   timing.finish("getByPaxId version, header");
   timing.start("getByPaxId trans.init");
   trans.init( false, (Qry.FieldIsNULL("refuse"))?"CIRQ":"CICX", airline, version, msg_id );
@@ -1227,7 +1185,7 @@ bool TPaxRequest::getByCrsPaxId( const int pax_id, Timing::Points& timing, const
     throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
   }
   timing.start("getByCrsPaxId version, header");
-  version = GetVersion(airline.code, getCountryByAirp( airp_arv ).code);
+  version = getVersionByAirps(info.airline, info.airp, airp_arv);
   timing.finish("getByCrsPaxId version, header");
   timing.start("getByCrsPaxId trans.init");
   trans.init( true, Qry.FieldAsInteger("pr_del")?"CICX":"CIRQ", airline, version, msg_id );
@@ -1419,15 +1377,25 @@ TDateTime get_scd_local(const TDateTime& scd_utc, string airp_code)
     return result;
 }*/
 
-void TPaxRequest::InitPaxlstInfo(Paxlst::PaxlstInfo& paxlstInfo) const
+void TPaxRequest::InitPaxlstInfo(Paxlst::PaxlstInfo& paxlstInfo, APIS::SettingsList& settingsList) const
 {
-  const string country_china = "ñç"; // íéãúäé Ñãü äàíÄü
+  TAdvTripRoute route;
+  route.GetRouteBetween(m_point_id, m_airp_arv);
+  if(route.size()<2)
+    throw Exception("%s: route.size()=%zu (point_id=%d, airp_arv=%s)", __func__, route.size(), m_point_id, m_airp_arv.c_str());
+
+  settingsList.getByAirps(route.front().airline, route.front().airp, m_airp_arv);
+
+  for(const auto& i : settingsList)
+  {
+     const APIS::Settings settings=i.second;
+     if (settings.format()!=APPS_FORMAT_CHINA) continue;
 
   // 5.2 UNB: Interchange Header
-  paxlstInfo.setSenderName("NORDWIND"); // FIXME HARDCODE FOR TEST
-  paxlstInfo.setSenderCarrierCode("ZZ");
-  paxlstInfo.setRecipientName("NIAC");
-  paxlstInfo.setRecipientCarrierCode("ZZ");
+  paxlstInfo.setSenderName(settings.ediOwnAddr());
+  paxlstInfo.setSenderCarrierCode(settings.ediOwnAddrExt());
+  paxlstInfo.setRecipientName(settings.ediAddr());
+  paxlstInfo.setRecipientCarrierCode(settings.ediAddrExt());
   paxlstInfo.setIataCode("");
 
   // 5.3 UNG: Group Header
@@ -1454,11 +1422,6 @@ void TPaxRequest::InitPaxlstInfo(Paxlst::PaxlstInfo& paxlstInfo) const
   paxlstInfo.setPhone("12 34 56 78"); // FIXME HARDCODE FOR TEST
   paxlstInfo.setFax("98765432"); // FIXME HARDCODE FOR TEST
 
-  TAdvTripRoute route;
-  route.GetRouteBetween(m_point_id, m_airp_arv);
-  if(route.size()<2)
-    throw Exception("%s: route.size()=%zu (point_id=%d, airp_arv=%s)", __func__, route.size(), m_point_id, m_airp_arv.c_str());
-
   // 5.9 TDT: Details of Transport-GR.2
   paxlstInfo.setFlight(int_flt.flt_num);
   string airline_lat = (static_cast<const TAirlinesRow&>(base_tables.get("airlines").get_row("code", route.front().airline))).code_lat;
@@ -1470,7 +1433,7 @@ void TPaxRequest::InitPaxlstInfo(Paxlst::PaxlstInfo& paxlstInfo) const
   {
     std::string currCountry=getCountryByAirp(i.airp).code;
     if (priorCountry.empty() ||
-        (priorCountry==country_china) != (currCountry==country_china))
+        (priorCountry==settings.countryControl()) != (currCountry==settings.countryControl()))
       routeParts.emplace_back();
     Paxlst::FlightStops& flightStops = routeParts.back();
     flightStops.emplace_back(get_airp_code_lat(i.airp),
@@ -1486,6 +1449,12 @@ void TPaxRequest::InitPaxlstInfo(Paxlst::PaxlstInfo& paxlstInfo) const
     paxlstInfo.stopsBeforeBorder()=*(part++);
   if (part!=routeParts.end())
     paxlstInfo.stopsAfterBorder()=*part;
+
+  return;
+
+  }
+
+  throw Exception("%s: %s not found in settingsList", __func__, APPS_FORMAT_CHINA);
 }
 
 void TPaxRequest::InitPaxInfo(Paxlst::PassengerInfo& paxInfo) const
@@ -1588,7 +1557,8 @@ void TAPPSPaxCollector::AddPassenger(const int pax_id,
 
   if (first_pax)
   {
-    version = GetVersionByPaxId(pax_id);
+    version=APPS_VERSION_CHINA; //!!!vlad
+    //version = GetVersionByPaxId(pax_id);
     LogTrace(TRACE5) << "TAPPSPaxCollector: version='" << version << "'";
   }
   if (version == APPS_VERSION_CHINA)
@@ -1616,7 +1586,7 @@ void TAPPSPaxCollector::AddPassenger(const int pax_id,
         default:
           throw Exception( "TAPPSPaxCollector: Unsupported message type" );
       }
-      new_data.InitPaxlstInfo(*paxlstInfo);
+      new_data.InitPaxlstInfo(*paxlstInfo, settingsList);
       msg_id = new_data.get_msg_id();
 #ifdef XP_TESTING
       if(inTestMode()) {
@@ -1644,9 +1614,11 @@ void TAPPSPaxCollector::AddPassenger(const int pax_id,
 
 void TAPPSPaxCollector::Flush()
 {
-  if (version == APPS_VERSION_CHINA && paxlstInfo)
+  for(const auto& i : settingsList)
   {
-    sendNewReq(*paxlstInfo, msg_id, point_id, version);
+    const APIS::Settings& settings=i.second;
+    if (settings.format()==APPS_FORMAT_CHINA && paxlstInfo)
+      sendNewReq(*paxlstInfo, settings, msg_id, point_id, version);
   }
 }
 
@@ -1990,7 +1962,7 @@ bool TManifestRequest::init( const int point_id, const std::string& country_lat,
   const TAirlinesRow &airline = (const TAirlinesRow&)base_tables.get("airlines").get_row("code", info.airline);
   if (airline.code_lat.empty())
     throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
-  version = GetVersion(airline.code, country_code);
+  version = getVersionByCountries(info.airline, getCountryByAirp(info.airp).code, country_code);
   trans.init( false, "CIMR", airline, version );
   int_flt.init( point_id, "INM", version );
   mft_req.init( country_lat, version );

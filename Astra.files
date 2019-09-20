@@ -17,6 +17,8 @@ src/apis_creator.cc
 src/apis_creator.h
 src/apis_edi_file.cc
 src/apis_edi_file.h
+src/apis_settings.cc
+src/apis_settings.h
 src/apis_tools.cc
 src/apis_tools.h
 src/apis_utils.cc

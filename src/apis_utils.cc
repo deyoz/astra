@@ -221,13 +221,7 @@ void TCompleteAPICheckInfo::set(const int point_dep, const std::string& airp_arv
 
       is_inter=!(country_dep=="êî" && country_arv=="êî");
     }
-    catch(EBaseTableError) {};
-
-    // if(checkAPPSSets(point_dep, airp_arv))
-    // {
-    //   _apis_formats.insert("APPS_SITA");
-    //   is_inter=true;
-    // };
+    catch(EBaseTableError) {};   
 
     std::set<std::string> apps_formats;
     if (checkAPPSSetsByAirpArv(point_dep, airp_arv, &apps_formats))

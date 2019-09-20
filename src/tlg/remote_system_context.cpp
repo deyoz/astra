@@ -18,7 +18,6 @@
 #include "edi_utils.h"
 #include "astra_utils.h"
 #include "astra_consts.h"
-#include "apps_interaction.h" // getAPPSRotName TODO заменить потом на IAPI
 
 #include <serverlib/posthooks.h>
 #include <serverlib/cursctl.h>
@@ -661,17 +660,14 @@ IapiSystemContext::IapiSystemContext(const SystemContext& baseCnt)
 {
 }
 
-IapiSystemContext* IapiSystemContext::read()
+IapiSystemContext* IapiSystemContext::read(const APIS::Settings& settings)
 {
-    std::string remEdiAddr = getIAPIRemEdiAddr(),
-                ourEdiAddr = getIAPIOurEdiAddr(),
-                ediProfile = getIAPIEdiProfileName();
     SystemContextMaker mk;
     mk.setIda(Ticketing::SystemAddrs_t());
-    mk.setOurAddrEdifact(ourEdiAddr);
-    mk.setRemoteAddrEdifact(remEdiAddr);
-    mk.setEdifactProfileName(ediProfile);
-    mk.setCanonName(AstraEdifact::get_canon_name(remEdiAddr));
+    mk.setOurAddrEdifact(settings.ediOwnAddr());
+    mk.setRemoteAddrEdifact(settings.ediAddr());
+    mk.setEdifactProfileName("IAPI"); //!!!vlad
+    mk.setCanonName(AstraEdifact::get_canon_name(settings.ediAddr()));
     return new IapiSystemContext(mk.getSystemContext());
 }
 
@@ -679,8 +675,11 @@ SystemContext* IapiSystemContext::readByEdiAddrs(const std::string& source, cons
                                                  const std::string& dest,   const std::string& dest_ext,
                                                  bool throwNf)
 {
-    if(source == getIAPIRemEdiAddr() && dest == getIAPIOurEdiAddr()) {
-        return read();
+    APIS::SettingsList settingsList;
+    settingsList.getByAddrs(source, source_ext, dest, dest_ext);
+    if (!settingsList.empty())
+    {
+        return read(settingsList.begin()->second);
     } else {
         if(throwNf) {
             throw UnknownSystAddrs(source, dest);

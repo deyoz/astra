@@ -2,6 +2,7 @@
 
 #include "EdifactRequest.h"
 #include "apis_edi_file.h"
+#include "apis_settings.h"
 
 #include <memory>
 
@@ -9,9 +10,10 @@ namespace edifact {
 
 class PaxlstReqParams: public RequestParams
 {
+    APIS::Settings m_settings;
     Paxlst::PaxlstInfo m_paxlstInfo;
 public:
-    PaxlstReqParams(const std::string& airline,
+    PaxlstReqParams(const APIS::Settings& settings,
                     const Paxlst::PaxlstInfo& paxlstInfo);
 
     const Paxlst::PaxlstInfo& paxlst() const;

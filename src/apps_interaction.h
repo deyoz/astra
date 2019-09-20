@@ -12,6 +12,7 @@
 #include "trip_tasks.h"
 #include "counters.h"
 #include "apis_edi_file.h"
+#include "apis_settings.h"
 
 //const bool CHINA_IAPI = true;
 
@@ -53,13 +54,9 @@ void deleteAPPSAlarms( const int pax_id, const int point_id_spp );
 const char* getAPPSRotName();
 const char* getIAPIRotName();
 
-const std::string getIAPIRemEdiAddr();
-const std::string getIAPIOurEdiAddr();
-const std::string getIAPIEdiProfileName();
-
 int test_apps_tlg(int argc, char **argv);
 
-int GetVersionByPaxId(const int pax_id);
+//int GetVersionByPaxId(const int pax_id);
 
 struct TAppsSets
 {
@@ -288,7 +285,7 @@ public:
 //  std::string msg_china_iapi() const;
   Paxlst::PaxlstInfo toPaxlst() const;
 
-  void InitPaxlstInfo(Paxlst::PaxlstInfo&) const;
+  void InitPaxlstInfo(Paxlst::PaxlstInfo&, APIS::SettingsList&) const;
   void InitPaxInfo(Paxlst::PassengerInfo&) const;
 
   void sendReq(Timing::Points& timing) const;
@@ -314,6 +311,7 @@ class TAPPSPaxCollector
 //  std::vector<std::pair<int,int>> msg_ids;
   bool first_pax = true;
   std::unique_ptr<Paxlst::PaxlstInfo> paxlstInfo;
+  APIS::SettingsList settingsList;
 public:
   void AddPassenger(const int pax_id,
                     Timing::Points& timing,

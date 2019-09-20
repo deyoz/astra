@@ -33,7 +33,7 @@ const string apis_test_text =
 "select 'ESAPIS:ZZ' AS edi_addr, 'AIR EUROPA:UX' AS edi_own_addr, code AS format, '"
 + TRANSPORT_TYPE_FILE + "' AS transport_type, 'mvd_czech_edi' AS transport_params "
 "FROM apis_formats "
-"WHERE code<>'APPS_SITA' AND code<>'TEST' "
+"WHERE code<>'TEST' "
 "ORDER BY format";
 // https://stackoverflow.com/questions/3592357/string-concatenation
 
@@ -1437,21 +1437,6 @@ struct TAPISFormat_EDI_KR : public TEdiAPISFormat
   string mesRelNum() const { return "05B"; }
 };
 
-// TODO разобраться с этим форматом
-struct TAPISFormat_APPS_SITA : public TAPISFormat
-{
-  TAPISFormat_APPS_SITA()
-  {
-  }
-  long int required_fields(TPaxType pax, TAPIType api) const
-  {
-    if (pax == pass && api == apiDoc) return DOC_APPS_21_FIELDS;
-    if (pax == crew && api == apiDoc) return DOC_APPS_21_FIELDS;
-    return NO_FIELDS;
-  }
-  string unknown_gender() const { return ""; }
-};
-
 struct TAPISFormat_EDI_AZ : public TEdiAPISFormat
 {
   TAPISFormat_EDI_AZ()
@@ -1578,8 +1563,7 @@ inline TAPISFormat* SpawnAPISFormat(const string& fmt)
   if (fmt=="CSV_AE")      p = new TAPISFormat_CSV_AE; else
   if (fmt=="EDI_LT")      p = new TAPISFormat_EDI_LT; else
   if (fmt=="CSV_TH")      p = new TAPISFormat_CSV_TH; else
-  if (fmt=="EDI_KR")      p = new TAPISFormat_EDI_KR; else
-  if (fmt=="APPS_SITA")   p = new TAPISFormat_APPS_SITA; else // TODO remove
+  if (fmt=="EDI_KR")      p = new TAPISFormat_EDI_KR; else  
   if (fmt=="EDI_AZ")      p = new TAPISFormat_EDI_AZ; else
   if (fmt=="EDI_DE")      p = new TAPISFormat_EDI_DE; else
   if (fmt=="EDI_TR")      p = new TAPISFormat_EDI_TR; else

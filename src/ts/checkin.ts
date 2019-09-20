@@ -1146,6 +1146,7 @@ $(init_eds ûí UTET UTDC)
 $(PREPARE_FLIGHT_1PAX_1SEG ûí 103 ÑåÑ BJS REPIN IVAN)
 
 $(sql "update DESKS set VERSION='201707-0195750'")
+$(sql "insert into APIS_SETS(AIRLINE, COUNTRY_DEP, COUNTRY_ARV, COUNTRY_CONTROL, FORMAT, TRANSPORT_TYPE, TRANSPORT_PARAMS, EDI_ADDR, EDI_OWN_ADDR, ID, PR_DENIAL) values('ûí', NULL, 'ñç', 'ñç', 'IAPI_CN', '?', '?', 'NIAC:ZZ', 'NORDWIND:ZZ', id__seq.nextval, 0)")
 $(sql "insert into APPS_SETS(AIRLINE, APPS_COUNTRY, FLT_CLOSEOUT, FORMAT, ID, INBOUND, OUTBOUND, PR_DENIAL) values ('ûí', 'ñç', 1, 'IAPI_CN', id__seq.nextval, 1, 1, 0)")
 $(sql "insert into EDI_ADDRS(ADDR, CFG_ID, CANON_NAME) values ('NIAC', 0, 'MOWET')")
 $(sql "insert into EDIFACT_PROFILES (NAME, VERSION, SUB_VERSION, CTRL_AGENCY, SYNTAX_NAME, SYNTAX_VER) values ('IAPI', 'D', '05B', 'UN', 'UNOA', 4)")

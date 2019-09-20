@@ -13,13 +13,14 @@ namespace edifact {
 using namespace edilib;
 
 
-PaxlstReqParams::PaxlstReqParams(const std::string& airline,
+PaxlstReqParams::PaxlstReqParams(const APIS::Settings& settings,
                                  const Paxlst::PaxlstInfo& paxlstInfo)
-    : RequestParams(Ticketing::OrigOfRequest(airline),
+    : RequestParams(Ticketing::OrigOfRequest(""),
                     "", // ctxt
                     edifact::KickInfo(),
-                    airline,
+                    "",
                     Ticketing::FlightNum_t()),
+      m_settings(settings),
       m_paxlstInfo(paxlstInfo)
 {}
 
@@ -30,7 +31,7 @@ const Paxlst::PaxlstInfo& PaxlstReqParams::paxlst() const
 
 const Ticketing::RemoteSystemContext::SystemContext* PaxlstReqParams::readSysCont() const
 {
-    return Ticketing::RemoteSystemContext::IapiSystemContext::read();
+    return Ticketing::RemoteSystemContext::IapiSystemContext::read(m_settings);
 }
 
 //---------------------------------------------------------------------------------------
