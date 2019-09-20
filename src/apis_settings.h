@@ -13,6 +13,12 @@ class SettingsKey
     std::string m_countryControl;
     std::string m_format;
   public:
+    SettingsKey() {}
+    SettingsKey(const std::string& countryControl,
+                const std::string& format) :
+      m_countryControl(countryControl),
+      m_format(format) {}
+
     void clear()
     {
       m_countryControl.clear();
@@ -37,7 +43,20 @@ class Settings : public SettingsKey
     std::string m_transportType, m_transportParams;
   public:
     Settings() {}
+    Settings(const std::string& countryControl,
+             const std::string& format,
+             const std::string& ediAddrWithExt,
+             const std::string& ediOwnAddrWithExt,
+             const std::string& transportType,
+             const std::string& transportParams) :
+      SettingsKey(countryControl, format),
+      m_ediAddrWithExt(ediAddrWithExt),
+      m_ediOwnAddrWithExt(ediOwnAddrWithExt),
+      m_transportType(transportType),
+      m_transportParams(transportParams) {}
+
     Settings& fromDB(TQuery &Qry);
+    Settings& replaceFormat(TQuery &Qry);
 
     void clear()
     {
@@ -53,6 +72,8 @@ class Settings : public SettingsKey
     std::string ediOwnAddr() const;
     std::string ediOwnAddrExt() const;
 
+    const std::string& ediAddrWithExt() const { return m_ediAddrWithExt; }
+    const std::string& ediOwnAddrWithExt() const { return m_ediOwnAddrWithExt; }
     const std::string& transportType() const { return m_transportType; }
     const std::string& transportParams() const { return m_transportParams; }
 };
@@ -72,6 +93,9 @@ class SettingsList : public std::map<SettingsKey, Settings>
                     const std::string& ediAddrExt,
                     const std::string& ediOwnAddr,
                     const std::string& ediOwnAddrExt);
+    void getForTesting(const Settings& settingsPattern);
+
+
     bool formatExists(const std::string& format) const;
 };
 

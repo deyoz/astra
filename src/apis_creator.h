@@ -29,14 +29,6 @@ const string ENDL = "\r\n";
 const string TRANSPORT_TYPE_FILE = "FILE";
 const string TRANSPORT_TYPE_RABBIT_MQ = "RABBIT_MQ";
 
-const string apis_test_text =
-"select 'ESAPIS:ZZ' AS edi_addr, 'AIR EUROPA:UX' AS edi_own_addr, code AS format, '"
-+ TRANSPORT_TYPE_FILE + "' AS transport_type, 'mvd_czech_edi' AS transport_params "
-"FROM apis_formats "
-"WHERE code<>'TEST' "
-"ORDER BY format";
-// https://stackoverflow.com/questions/3592357/string-concatenation
-
 int apis_test_single(int argc, char **argv);
 
 bool create_apis_file(int point_id, const string& task_name);
@@ -1563,7 +1555,7 @@ inline TAPISFormat* SpawnAPISFormat(const string& fmt)
   if (fmt=="CSV_AE")      p = new TAPISFormat_CSV_AE; else
   if (fmt=="EDI_LT")      p = new TAPISFormat_EDI_LT; else
   if (fmt=="CSV_TH")      p = new TAPISFormat_CSV_TH; else
-  if (fmt=="EDI_KR")      p = new TAPISFormat_EDI_KR; else  
+  if (fmt=="EDI_KR")      p = new TAPISFormat_EDI_KR; else
   if (fmt=="EDI_AZ")      p = new TAPISFormat_EDI_AZ; else
   if (fmt=="EDI_DE")      p = new TAPISFormat_EDI_DE; else
   if (fmt=="EDI_TR")      p = new TAPISFormat_EDI_TR; else

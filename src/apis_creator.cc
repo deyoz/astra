@@ -6,6 +6,7 @@
 #include "franchise.h"
 #include "exch_checkin_result.h"
 #include "jms/jms.hpp"
+#include "apis_settings.h"
 
 #define NICKNAME "GRISHA"
 #include "serverlib/test.h"
@@ -90,20 +91,6 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
     "WHERE points.airp=airps.code AND airps.city=cities.code AND point_id=:point_id";
     RouteQry.DeclareVariable("point_id",otInteger);
 
-    TQuery ApisSetsQry(&OraSession);
-    ApisSetsQry.Clear();
-#if APIS_TEST_ALL_FORMATS
-      ApisSetsQry.SQLText = apis_test_text;
-#else
-      ApisSetsQry.SQLText=
-      "SELECT edi_addr,edi_own_addr,format, transport_type,transport_params "
-      "FROM apis_sets "
-      "WHERE airline=:airline AND country_dep=:country_dep AND country_arv=:country_arv AND pr_denial=0";
-      ApisSetsQry.CreateVariable("airline", otString, airline_code());
-      ApisSetsQry.CreateVariable("country_dep", otString, country_dep);
-      ApisSetsQry.DeclareVariable("country_arv", otString);
-#endif
-
     TQuery PaxQry(&OraSession);
     PaxQry.SQLText=
     // "SELECT pax.pax_id, pax.surname, pax.name, pax.pr_brd, pax.grp_id, pax.crew_type, "
@@ -175,12 +162,14 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
         continue;
 
       //получим информацию по настройке APIS
-#if !APIS_TEST_ALL_FORMATS
-      ApisSetsQry.SetVariable("country_arv", rd.country_arv_code);
+      APIS::SettingsList settingsList;
+#if APIS_TEST_ALL_FORMATS
+      APIS::Settings pattern("РФ", "", "ESAPIS:ZZ", "AIR EUROPA:UX", TRANSPORT_TYPE_FILE, "mvd_czech_edi");
+      settingsList.getForTesting(pattern);
+#else
+      settingsList.getByCountries(airline_code(), country_dep, rd.country_arv_code);
 #endif
-      ApisSetsQry.Execute();
-      if (ApisSetsQry.Eof)
-        continue;
+      if (settingsList.empty()) continue;
 
       rd.flt_no = flt_no;
       rd.suffix = suffix_lat;
@@ -237,18 +226,20 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
         rd.lstLegs.push_back(leg);
       }
 
-      for(; !ApisSetsQry.Eof; ApisSetsQry.Next())
+      for(const auto& i : settingsList)
       {
+        const APIS::Settings& settings=i.second;
+
         TApisSetsData sd;
-        sd.fmt = ApisSetsQry.FieldAsString("format");
+        sd.fmt = settings.format();
 
 #if APIS_TEST
         test_map->try_key.set(iRoute->point_id, sd.fmt);
 #endif
-        sd.edi_own_addr = ApisSetsQry.FieldAsString("edi_own_addr");
-        sd.edi_addr = ApisSetsQry.FieldAsString("edi_addr");
-        sd.transport_type = ApisSetsQry.FieldAsString("transport_type");
-        sd.transport_params = ApisSetsQry.FieldAsString("transport_params");
+        sd.edi_own_addr = settings.ediOwnAddrWithExt();
+        sd.edi_addr = settings.ediAddrWithExt();
+        sd.transport_type = settings.transportType();
+        sd.transport_params = settings.transportParams();
         rd.lstSetsData.push_back(sd);
       } // for ApisSetsQry
       if (rd.lstSetsData.empty())
@@ -1129,7 +1120,7 @@ void DumpDiff(  int point_id,
     f_old.close();
     f_new.close();
   }
-  catch (Exception e)
+  catch (const Exception& e)
   {
     LogTrace(TRACE5) << "ERROR write files: " << e.what();
     try { f_old.close(); } catch (...) { }

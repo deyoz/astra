@@ -24,6 +24,12 @@ Settings& Settings::fromDB(TQuery &Qry)
   return *this;
 }
 
+Settings& Settings::replaceFormat(TQuery &Qry)
+{
+  m_format=Qry.FieldAsString("format");
+  return *this;
+}
+
 std::string Settings::ediAddr() const
 {
   size_t pos=m_ediAddrWithExt.find(':');
@@ -93,6 +99,8 @@ void SettingsList::getByAddrs(const std::string& ediAddr,
                               const std::string& ediOwnAddr,
                               const std::string& ediOwnAddrExt)
 {
+  clear();
+
   TQuery ApisSetsQry(&OraSession);
   ApisSetsQry.SQLText=
     "SELECT apis_sets.* "
@@ -115,6 +123,19 @@ void SettingsList::getByAddrs(const std::string& ediAddr,
         (ediOwnAddrExt.empty() || settings.ediOwnAddrExt()==ediOwnAddrExt))
       add(settings);
   }
+}
+
+void SettingsList::getForTesting(const Settings& settingsPattern)
+{
+  clear();
+
+  Settings settings(settingsPattern);
+  TQuery ApisSetsQry(&OraSession);
+  ApisSetsQry.SQLText=
+    "SELECT code FROM apis_formats ORDER BY code";
+  ApisSetsQry.Execute();
+  for(; !ApisSetsQry.Eof; ApisSetsQry.Next())
+    add(settings.replaceFormat(ApisSetsQry));
 }
 
 bool SettingsList::formatExists(const std::string& format) const
