@@ -433,6 +433,9 @@ void TPrnTagStore::init_bp_tags()
     tag_list.insert(make_pair(TAG::VOUCHER_TEXT8,           TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
     tag_list.insert(make_pair(TAG::VOUCHER_TEXT9,           TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
     tag_list.insert(make_pair(TAG::VOUCHER_TEXT10,          TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
+
+    tag_list.insert(make_pair(TAG::EMD_NO,                  TTagListItem(&TPrnTagStore::EMD_NO)));
+    tag_list.insert(make_pair(TAG::EMD_COUPON,              TTagListItem(&TPrnTagStore::EMD_COUPON)));
 }
 
 void TPrnTagStore::tagsFromXML(xmlNodePtr tagsNode)
@@ -616,11 +619,11 @@ string TPrnTagStore::get_real_field(const std::string &name, size_t len, const s
         result = (this->*im->second.tag_funct)(TFieldParams(name, date_format, im->second.TagInfo, len, text));
         im->second.processed = true;
         im->second.english_only &= tag_lang.english_tag();
-    } catch(UserException E) {
+    } catch(UserException &E) {
         throw;
-    } catch(Exception E) {
+    } catch(Exception &E) {
         throw Exception("tag %s failed: %s", name.c_str(), E.what());
-    } catch(boost::bad_any_cast E) {
+    } catch(boost::bad_any_cast &E) {
         throw Exception("tag %s failed: %s", name.c_str(), E.what());
     }
     return result;
@@ -795,6 +798,8 @@ TPrnQryBuilder::TPrnQryBuilder(TQuery &aQry): Qry(aQry)
         "       pr_print = 0 and "
         "       desk=:desk and "
         "       (voucher = :voucher OR voucher IS NULL AND :voucher IS NULL) and "
+        "       (emd_no = :emd_no OR emd_no IS NULL AND :emd_no IS NULL) and "
+        "       (emd_coupon = :emd_coupon OR emd_coupon IS NULL AND :emd_coupon IS NULL) and "
         OP_TYPE_COND("op_type")"; "
         "   insert into confirm_print( "
         "       pax_id, "
@@ -932,6 +937,14 @@ void TPrnTagStore::confirm_print(bool pr_print, TDevOper::Enum op_type)
     prnQry.add_part("voucher",
             (tag_list[TAG::VOUCHER_CODE].TagInfo.empty() ? string() :
              boost::any_cast<string>(tag_list[TAG::VOUCHER_CODE].TagInfo)));
+
+    prnQry.add_part("emd_no",
+            (tag_list[TAG::EMD_NO].TagInfo.empty() ? string() :
+             boost::any_cast<string>(tag_list[TAG::EMD_NO].TagInfo)));
+
+    prnQry.add_part("emd_coupon",
+            (tag_list[TAG::EMD_COUPON].TagInfo.empty() ? NoExists :
+             boost::any_cast<int>(tag_list[TAG::EMD_COUPON].TagInfo)));
 
     Qry.SQLText = prnQry.text();
 
@@ -1365,7 +1378,7 @@ string TPrnTagStore::BCBP_V_5(TFieldParams fp)
             barcode.set_flight_number(BCBPSectionsEnums::to_string(pointInfo.flt_no), 0 );
         barcode.set_date_of_flight(UTCToLocal(pointInfo.operFlt.scd_out, AirpTZRegion(grpInfo.airp_dep)),0);
     }
-    catch(EConvertError e)
+    catch(EConvertError &e)
     {
     }
 
@@ -2553,10 +2566,10 @@ string TPrnTagStore::TRfiscDescr::get(const string &crs_cls, TBPServiceTypes::En
                     found_services.find(TBPServiceTypes::UP) != found_services.end() and
                     crs_cls == "Å")
                 and (
-                    (code == TBPServiceTypes::LG) and not tag_bi_rule.empty()
+                    ((code == TBPServiceTypes::LG) and not tag_bi_rule.empty())
                     or
-                    (code == TBPServiceTypes::TS_FT) and
-                    (crs_cls == "Å" or crs_cls == "è" or not tag_bi_rule.empty())
+                    ((code == TBPServiceTypes::TS_FT) and
+                    (crs_cls == "Å" or crs_cls == "è" or not tag_bi_rule.empty()))
                     )
           )
             return TBPServiceTypesDescr().encode(code);
@@ -2989,6 +3002,20 @@ string TPrnTagStore::BI_RULE(TFieldParams fp) {
         if(rule.exists() and rule.print_type == BIPrintRules::TPrintType::OnePlusOne)
                 result << "+1";
     }
+    return result.str();
+}
+
+string TPrnTagStore::EMD_NO(TFieldParams fp) {
+    string result;
+    if(!fp.TagInfo.empty())
+        result = boost::any_cast<string>(fp.TagInfo);
+    return result;
+}
+
+string TPrnTagStore::EMD_COUPON(TFieldParams fp) {
+    ostringstream result;
+    if(!fp.TagInfo.empty())
+        result << boost::any_cast<int>(fp.TagInfo);
     return result.str();
 }
 
