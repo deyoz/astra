@@ -234,13 +234,14 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
 
         // NAD
         viewNadElement( pMes, paxlst.getNadElem(*it) );
-        // ATT
-        viewAttElement( pMes, AttElem( "2", it->sex() ) );
-       // DTM
-        viewDtmElement( pMes, DtmElem( DtmElem::DateOfBirth, it->birthDate() ) );
 
         if (paxlst.type()!=PaxlstInfo::IAPIFlightCloseOnBoard)
         {
+           // ATT
+           viewAttElement( pMes, AttElem( "2", it->sex() ) );
+           // DTM
+           viewDtmElement( pMes, DtmElem( DtmElem::DateOfBirth, it->birthDate() ) );
+
           // GEI
           if (!it->procInfo().empty())
             viewGeiElement( pMes, GeiElem("4", it->procInfo()) );
