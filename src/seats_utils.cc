@@ -193,7 +193,7 @@ string GetSeatRangeView(const TSeatRanges &ranges, const string &format, bool pr
     {
       NormalizeSeatRange(iata_range);
     }
-    catch(EConvertError &)
+    catch(EConvertError)
     {
       if (find(not_iata_ranges.begin(),not_iata_ranges.end(),*r)==not_iata_ranges.end())
         not_iata_ranges.push_back(*r);

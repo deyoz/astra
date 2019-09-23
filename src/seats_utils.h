@@ -33,8 +33,8 @@ class TSeat
     TSeat& operator = ( const TSeat& seat )
     {
       if (this == &seat) return *this;
-      strncpy(this->row,seat.row,sizeof(this->row));
-      strncpy(this->line,seat.line,sizeof(this->line));
+      strncpy(this->row,seat.row,sizeof(seat.row));
+      strncpy(this->line,seat.line,sizeof(seat.line));
       return *this;
     };
 
