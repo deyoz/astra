@@ -126,4 +126,19 @@ void CusRequestHandler::makeAnAnswer()
     }
 }
 
+void CusRequestHandler::makeAnAnswerErr()
+{
+    viewBgmElement(pMesW(), BgmElem("312", ""));
+
+    PushEdiPointW(pMesW());
+
+    SetEdiSegGr(pMesW(), SegGrElement(4));
+    SetEdiPointToSegGrW(pMesW(), SegGrElement(4));
+
+    SetEdiFullSegment(pMesW(), SegmElement("ERP"), "1");
+    SetEdiFullSegment(pMesW(), SegmElement("ERC"), ediErrorCode());
+
+    PopEdiPointW(pMesW());
+}
+
 }//namespace TlgHandling

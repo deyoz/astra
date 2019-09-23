@@ -23,6 +23,7 @@ public:
     virtual void parse();
     virtual void handle();
     virtual void makeAnAnswer();
+    virtual void makeAnAnswerErr();
 
     virtual ~CusRequestHandler() {}
 };
