@@ -4360,10 +4360,10 @@ BitSet<TChangeLayerSeatsProps>
             ProgTrace( TRACE5, "rfisc=%s", rfisc.str().c_str() );
             propsSeatsFlags.setFlag(propRFISC);
           }
-        }                                                  
+        }
       }
       passTariffs.trace( TRACE5 );
-      if ( passTariffs.status() == TSeatTariffMap::stUseRFISC ) {
+      if ( salonList.getRFISCMode()/*passTariffs.status() == TSeatTariffMap::stUseRFISC*/ ) {
         SALONS2::TSelfCkinSalonTariff SelfCkinSalonTariff;
         SelfCkinSalonTariff.setTariffMap( point_id, passTariffs );
         seat->SetRFISC( point_id, passTariffs );
