@@ -117,6 +117,10 @@ namespace TAG {
     const std::string VOUCHER_TEXT9 = "VOUCHER_TEXT9";
     const std::string VOUCHER_TEXT10 = "VOUCHER_TEXT10";
 
+    // specific for EMDA
+    const std::string EMD_NO = "EMD_NO";
+    const std::string EMD_COUPON = "EMD_COUPON";
+
     // specific for bag tags
     const std::string AIRCODE = "AIRCODE";
     const std::string AIRLINE_NAME = "AIRLINE_NAME";
@@ -680,6 +684,10 @@ class TPrnTagStore {
         std::string VOUCHER_CODE(TFieldParams fp);
         std::string VOUCHER_TEXT(TFieldParams fp);
         std::string VOUCHER_TEXT_FREE(TFieldParams fp);
+
+        // specific for EMDA
+        std::string EMD_NO(TFieldParams fp);
+        std::string EMD_COUPON(TFieldParams fp);
 
         // specific for bag tags
         std::string AIRCODE(TFieldParams fp);
