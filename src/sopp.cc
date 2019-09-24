@@ -3354,7 +3354,7 @@ std::string TSOPPDest::toString() const
   return msg.str();
 }
 
-void flightCancel(int point_id)
+static void flightCancel(int point_id)
 {
   time_t time_start,time_end;
 
@@ -5522,7 +5522,7 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   // проверка на предмет того, что во всех пп стоит статус неактивен иначе ругаемся
     Qry.Clear();
     Qry.SQLText = "SELECT COUNT(*) c, point_dep FROM pax_grp WHERE point_dep IN "
-                  "( SELECT point_id FROM points WHERE move_id=:move_id ) AND pax_grp.status NOT IN ('E') "
+                  "( SELECT point_id FROM points WHERE move_id=:move_id ) "
                   "GROUP BY point_dep ";
     Qry.CreateVariable( "move_id", otInteger, move_id );
     Qry.Execute();
@@ -5587,6 +5587,7 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
         BitSet<TSOPPTripChange> FltChange;
         FltChange.setFlag( tsDelete );
       ChangeTrip( j->point_id, tr, *j, FltChange );  // рейс на вылет удален
+      flightCancel(j->point_id); //apis
     }
   }
 
