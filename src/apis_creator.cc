@@ -1,6 +1,5 @@
 #include "apis_creator.h"
 #include <boost/scoped_ptr.hpp>
-#include "apis.h"
 #include <fstream>
 #include "obrnosir.h"
 #include "franchise.h"
@@ -162,14 +161,13 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
         continue;
 
       //получим информацию по настройке APIS
-      APIS::SettingsList settingsList;
 #if APIS_TEST_ALL_FORMATS
       APIS::Settings pattern("РФ", "", "ESAPIS:ZZ", "AIR EUROPA:UX", TRANSPORT_TYPE_FILE, "mvd_czech_edi");
-      settingsList.getForTesting(pattern);
+      rd.lstSetsData.getForTesting(pattern);
 #else
-      settingsList.getByCountries(airline_code(), country_dep, rd.country_arv_code);
+      rd.lstSetsData.getByCountries(airline_code(), country_dep, rd.country_arv_code);
 #endif
-      if (settingsList.empty()) continue;
+      if (rd.lstSetsData.empty()) continue;
 
       rd.flt_no = flt_no;
       rd.suffix = suffix_lat;
@@ -225,25 +223,14 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
         leg.country_code = countryRow.code;
         rd.lstLegs.push_back(leg);
       }
-
-      for(const auto& i : settingsList)
+#if APIS_TEST
+      for(const auto& i : rd.lstSetsData)
       {
         const APIS::Settings& settings=i.second;
+        test_map->try_key.set(iRoute->point_id, settings.format());
 
-        TApisSetsData sd;
-        sd.fmt = settings.format();
-
-#if APIS_TEST
-        test_map->try_key.set(iRoute->point_id, sd.fmt);
+      }
 #endif
-        sd.edi_own_addr = settings.ediOwnAddrWithExt();
-        sd.edi_addr = settings.ediAddrWithExt();
-        sd.transport_type = settings.transportType();
-        sd.transport_params = settings.transportParams();
-        rd.lstSetsData.push_back(sd);
-      } // for ApisSetsQry
-      if (rd.lstSetsData.empty())
-        continue;
 
       PaxQry.SetVariable("point_arv",rd.route_point_id);
       PaxQry.Execute();
@@ -364,13 +351,14 @@ void CreateEdi( const TApisRouteData& route,
     paxlstInfo.settings().setViewUNGandUNE(format.viewUNGandUNE());
     if (format.rule(r_view_RFF_TN)) paxlstInfo.settings().set_view_RFF_TN(true);
 
-    list<TAirlineOfficeInfo> offices;
-    GetAirlineOfficeInfo(route.airline_code(), route.country_arv_code, route.airp_arv_code(), offices);
+    APIS::AirlineOfficeList offices;
+    offices.get(route.airline_code(), format.settings.countryControl());
     if (!offices.empty())
     {
-      paxlstInfo.setPartyName(offices.begin()->contact_name);
-      paxlstInfo.setPhone(format.ProcessPhoneFax(offices.begin()->phone));
-      paxlstInfo.setFax(format.ProcessPhoneFax(offices.begin()->fax));
+      const APIS::AirlineOfficeInfo& info=offices.front();
+      paxlstInfo.setPartyName(info.contactName());
+      paxlstInfo.setPhone(format.ProcessPhoneFax(info.phone()));
+      paxlstInfo.setFax(format.ProcessPhoneFax(info.fax()));
     }
 
     if (format.rule(r_notSetSenderRecipient))
@@ -379,20 +367,10 @@ void CreateEdi( const TApisRouteData& route,
     }
     else
     {
-      vector<string> strs;
-      vector<string>::const_iterator i;
-      SeparateString(format.edi_own_addr, ':', strs);
-      i=strs.begin();
-      if (i!=strs.end())
-        paxlstInfo.setSenderName(*i++);
-      if (i!=strs.end())
-        paxlstInfo.setSenderCarrierCode(*i++);
-      SeparateString(format.edi_addr, ':', strs);
-      i=strs.begin();
-      if (i!=strs.end())
-        paxlstInfo.setRecipientName(*i++);
-      if (i!=strs.end())
-        paxlstInfo.setRecipientCarrierCode(*i++);
+      paxlstInfo.setSenderName(format.settings.ediOwnAddr());
+      paxlstInfo.setSenderCarrierCode(format.settings.ediOwnAddrExt());
+      paxlstInfo.setRecipientName(format.settings.ediAddr());
+      paxlstInfo.setRecipientCarrierCode(format.settings.ediAddrExt());
     }
 
     ostringstream flight;
@@ -573,7 +551,7 @@ void CreateEdi( const TApisRouteData& route,
     string doc_type = iPax->doc_type_lat(); // throws
     string doc_no = iPax->doc.no;
 
-    if (!APIS::isValidDocType(format.fmt, iPax->status, doc_type))
+    if (!APIS::isValidDocType(format.settings.format(), iPax->status, doc_type))
       doc_type.clear();
 
     if (!doc_type.empty() && format.rule(r_processDocType))
@@ -768,7 +746,7 @@ bool CreateEdiFile2(  const TApisRouteData& route,
       TFileQueue::putFile(OWN_POINT_ADDR(), OWN_POINT_ADDR(),
           type, file_params, ConvertCodepage( text, "CP866", "UTF-8"));
       LEvntPrms params;
-      params << PrmSmpl<string>("fmt", format.fmt) << PrmElem<string>("country_dep", etCountry, route.country_dep)
+      params << PrmSmpl<string>("fmt", format.settings.format()) << PrmElem<string>("country_dep", etCountry, route.country_dep)
           << PrmElem<string>("airp_dep", etAirp, route.airp_dep_code())
           << PrmElem<string>("country_arv", etCountry, route.country_arv_code)
           << PrmElem<string>("airp_arv", etAirp, route.airp_arv_code());
@@ -825,7 +803,7 @@ void CreateTxt( const TApisRouteData& route,
     pdf.doc_type = iPax->doc_type_lat(); // throws
     pdf.doc_no = iPax->doc.no;
 
-    if (!APIS::isValidDocType(format.fmt, iPax->status, pdf.doc_type))
+    if (!APIS::isValidDocType(format.settings.format(), iPax->status, pdf.doc_type))
       pdf.doc_type.clear();
 
     if (!pdf.doc_type.empty() && format.rule(r_processDocType))
@@ -888,12 +866,12 @@ bool CreateApisFiles(const TApisDataset& dataset, TApisTestMap* test_map = nullp
   {
     for (list<TApisRouteData>::const_iterator iRoute = dataset.lstRouteData.begin(); iRoute != dataset.lstRouteData.end(); ++iRoute)
     {
-      for (list<TApisSetsData>::const_iterator iApis = iRoute->lstSetsData.begin(); iApis != iRoute->lstSetsData.end(); ++iApis)
+      for (APIS::SettingsList::const_iterator iApis = iRoute->lstSetsData.begin(); iApis != iRoute->lstSetsData.end(); ++iApis)
       {
 #if APIS_TEST
         test_map->try_key.set(iRoute->route_point_id, iApis->fmt);
 #endif
-        boost::scoped_ptr<const TAPISFormat> pFormat(SpawnAPISFormat(*iApis));
+        boost::scoped_ptr<const TAPISFormat> pFormat(SpawnAPISFormat(iApis->second));
         // https://stackoverflow.com/questions/6718538/does-boostscoped-ptr-violate-the-guideline-of-logical-constness
 
         if ((iRoute->task_name==ON_CLOSE_CHECKIN && !pFormat->rule(r_create_ON_CLOSE_CHECKIN)) ||
@@ -981,7 +959,7 @@ bool CreateApisFiles(const TApisDataset& dataset, TApisTestMap* test_map = nullp
         if (!files.empty())
         {
           bool apis_created = false;
-          if (pFormat->transport_type == TRANSPORT_TYPE_FILE)
+          if (pFormat->settings.transportType() == TRANSPORT_TYPE_FILE)
           {
             LogTrace(TRACE5) << __func__ << " TRANSPORT_TYPE_FILE, files.size=" << files.size();
             for(vector< pair<string, string> >::const_iterator iFile=files.begin();iFile!=files.end();++iFile)
@@ -1009,10 +987,10 @@ bool CreateApisFiles(const TApisDataset& dataset, TApisTestMap* test_map = nullp
             }
             apis_created = true;
           }
-          else if (pFormat->transport_type == TRANSPORT_TYPE_RABBIT_MQ)
+          else if (pFormat->settings.transportType() == TRANSPORT_TYPE_RABBIT_MQ)
           {
             LogTrace(TRACE5) << __func__ << " TRANSPORT_TYPE_RABBIT_MQ, files.size=" << files.size();
-            MQRABBIT_TRANSPORT::MQRabbitParams mq(pFormat->transport_params);
+            MQRABBIT_TRANSPORT::MQRabbitParams mq(pFormat->settings.transportParams());
             jms::connection cl( mq.addr );
             jms::text_queue queue = cl.create_text_queue( mq.queue );
             for (auto iFile : files)
@@ -1028,7 +1006,7 @@ bool CreateApisFiles(const TApisDataset& dataset, TApisTestMap* test_map = nullp
           if (apis_created)
           {
             LEvntPrms params;
-            params << PrmSmpl<string>("fmt", pFormat->fmt) << PrmElem<string>("country_dep", etCountry, iRoute->country_dep)
+            params << PrmSmpl<string>("fmt", pFormat->settings.format()) << PrmElem<string>("country_dep", etCountry, iRoute->country_dep)
                    << PrmElem<string>("airp_dep", etAirp, iRoute->airp_dep_code())
                    << PrmElem<string>("country_arv", etCountry, iRoute->country_arv_code)
                    << PrmElem<string>("airp_arv", etAirp, iRoute->airp_arv_code());
@@ -1350,3 +1328,53 @@ int apis_test(int argc, char **argv)
   return 1;
 }
 #endif
+
+void create_apis_nosir_help(const char *name)
+{
+  printf("  %-15.15s ", name);
+  puts("<points.point_id>  ");
+}
+
+int create_apis_nosir(int argc,char **argv)
+{
+  TQuery Qry(&OraSession);
+  int point_id=ASTRA::NoExists;
+  try
+  {
+    //проверяем параметры
+    if (argc<2) throw EConvertError("wrong parameters");
+    point_id = ToInt(argv[1]);
+    Qry.Clear();
+    Qry.SQLText="SELECT point_id FROM points WHERE point_id=:point_id";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.Execute();
+    if (Qry.Eof) throw EConvertError("point_id not found");
+  }
+  catch(EConvertError &E)
+  {
+    printf("Error: %s\n", E.what());
+    if (argc>0)
+    {
+      puts("Usage:");
+      create_apis_nosir_help(argv[0]);
+      puts("Example:");
+      printf("  %s 1234567\n",argv[0]);
+    };
+    return 1;
+  };
+
+  init_locale();
+  create_apis_file(point_id, (argc>=3)?argv[2]:"");
+
+  puts("create_apis successfully completed");
+
+  send_apis_tr();
+  return 0;
+}
+
+void create_apis_task(const TTripTaskKey &task)
+{
+  LogTrace(TRACE5) << __FUNCTION__ << ": " << task;
+  create_apis_file(task.point_id, task.params);
+}
+

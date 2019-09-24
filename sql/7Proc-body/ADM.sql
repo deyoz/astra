@@ -1409,6 +1409,7 @@ END check_apis_edi_addr;
 PROCEDURE check_apis_sets(vairline      IN apis_sets.airline%TYPE,
                           vcountry_dep  IN apis_sets.country_dep%TYPE,
                           vcountry_arv  IN apis_sets.country_arv%TYPE,
+                          vcountry_control IN apis_sets.country_control%TYPE,
                           vformat       IN apis_sets.format%TYPE,
                           vedi_addr     IN OUT apis_sets.edi_addr%TYPE,
                           vedi_own_addr IN OUT apis_sets.edi_own_addr%TYPE,
@@ -1418,38 +1419,35 @@ vaddr_part1 apis_sets.edi_addr%TYPE;
 vaddr_part2 apis_sets.edi_addr%TYPE;
 info	 adm.TCacheInfo;
 lparams   system.TLexemeParams;
-vcountry_regul_dep apis_sets.country_dep%TYPE;
-vcountry_regul_arv apis_sets.country_arv%TYPE;
+vcountry_regul_control apis_sets.country_control%TYPE;
+fmt_prefix apis_sets.format%TYPE;
 BEGIN
-  IF SUBSTR(vformat,1,3)='EDI' THEN
+  fmt_prefix:=NULL;
+  IF SUBSTR(vformat,1,4)='EDI_' THEN fmt_prefix:='EDI'; END IF;
+  IF SUBSTR(vformat,1,5)='IAPI_' THEN fmt_prefix:='IAPI'; END IF;
+
+  IF fmt_prefix IS NOT NULL THEN
     BEGIN
-      SELECT country_regul INTO vcountry_regul_dep
+      SELECT country_regul INTO vcountry_regul_control
       FROM apis_customs
-      WHERE country_depend=vcountry_dep;
+      WHERE country_depend=vcountry_control;
     EXCEPTION
       WHEN NO_DATA_FOUND THEN
-        vcountry_regul_dep:=vcountry_dep;
-    END;
-    BEGIN
-      SELECT country_regul INTO vcountry_regul_arv
-      FROM apis_customs
-      WHERE country_depend=vcountry_arv;
-    EXCEPTION
-      WHEN NO_DATA_FOUND THEN
-        vcountry_regul_arv:=vcountry_arv;
+        vcountry_regul_control:=vcountry_control;
     END;
 
-    IF 'ñç' IN (vcountry_regul_arv) THEN vedi_addr:='CNADAPIS:ZZ'; END IF;
-    IF 'àç' IN (vcountry_regul_arv) THEN vedi_addr:='NZCS'; END IF;
-    IF 'ûë' IN (vcountry_regul_dep, vcountry_regul_arv) THEN vedi_addr:='USCSAPIS:ZZ'; END IF;
-    IF 'ÉÅ' IN (vcountry_regul_arv) THEN vedi_addr:='UKBAOP:ZZ'; END IF;
+    IF 'ñç' IN (vcountry_regul_control) AND fmt_prefix='EDI' THEN vedi_addr:='CNADAPIS:ZZ'; END IF;
+    IF 'ñç' IN (vcountry_regul_control) AND fmt_prefix='IAPI' THEN vedi_addr:='NIAC'; END IF;
+    IF 'àç' IN (vcountry_regul_control) THEN vedi_addr:='NZCS'; END IF;
+    IF 'ûë' IN (vcountry_regul_control) THEN vedi_addr:='USCSAPIS:ZZ'; END IF;
+    IF 'ÉÅ' IN (vcountry_regul_control) THEN vedi_addr:='UKBAOP:ZZ'; END IF;
 
     IF vedi_addr IS NULL THEN
       BEGIN
         SELECT NVL(code_lat, NVL(code_iso, code))
         INTO vaddr_part1
         FROM countries
-        WHERE code=vcountry_arv;
+        WHERE code=vcountry_control;
         vedi_addr:=check_apis_edi_addr(vaddr_part1||'APIS:ZZ');
       EXCEPTION
         WHEN OTHERS THEN NULL;
@@ -3137,6 +3135,9 @@ PROCEDURE sync_BSM_options(vid              typeb_addrs.id%TYPE,
                            vtag_printer_id  typeb_addr_options.value%TYPE,
                            vpas_name_rp1745 typeb_addr_options.value%TYPE,
                            vactual_dep_date typeb_addr_options.value%TYPE,
+                           vbrd              typeb_addr_options.value%TYPE,
+                           vtrfer_in         typeb_addr_options.value%TYPE,
+                           vlong_flt_no      typeb_addr_options.value%TYPE,
                            vsetting_user    history_events.open_user%TYPE,
                            vstation         history_events.open_desk%TYPE)
 IS
@@ -3150,6 +3151,9 @@ BEGIN
                                 'TAG_PRINTER_ID',  vtag_printer_id,
                                 'PAS_NAME_RP1745', vpas_name_rp1745,
                                 'ACTUAL_DEP_DATE', vactual_dep_date,
+                                'BRD',             vbrd,
+                                'TRFER_IN',        vtrfer_in,
+                                'LONG_FLT_NO',     vlong_flt_no,
                                                    default_value) AS value
     FROM (SELECT * FROM typeb_addr_options WHERE typeb_addrs_id=vid) dest
          FULL OUTER JOIN
@@ -3183,8 +3187,7 @@ END sync_PNL_options;
 
 PROCEDURE modify_airline_offices(vid           airline_offices.id%TYPE,
                                  vairline      airline_offices.airline%TYPE,
-                                 vcountry      airline_offices.country%TYPE,
-                                 vairp         airline_offices.airp%TYPE,
+                                 vcountry_control airline_offices.country_control%TYPE,
                                  vcontact_name airline_offices.contact_name%TYPE,
                                  vphone        airline_offices.phone%TYPE,
                                  vfax          airline_offices.fax%TYPE,
@@ -3196,28 +3199,19 @@ IS
 i BINARY_INTEGER;
 vidh     airline_offices.id%TYPE;
 BEGIN
-  IF vairp IS NOT NULL THEN
-    SELECT COUNT(*)
-    INTO i
-    FROM airps, cities
-    WHERE airps.city=cities.code AND airps.code=vairp AND cities.country=vcountry;
-    IF i<=0 THEN
-      system.raise_user_exception('MSG.AIRP_DOES_NOT_MEET_COUNTRY');
-    END IF;
-  END IF;
   IF vto_apis<>0 THEN
     check_chars_in_name(vcontact_name, 1, ' -', 'AIRLINE_OFFICES', 'CONTACT_NAME', vlang);
     check_chars_in_name(vphone,        1, ' -', 'AIRLINE_OFFICES', 'PHONE',        vlang);
     check_chars_in_name(vfax,          1, ' -', 'AIRLINE_OFFICES', 'FAX',          vlang);
   END IF;
   IF vid IS NULL THEN
-    INSERT INTO airline_offices(id, airline, country, airp, contact_name, phone, fax, to_apis)
-    VALUES(id__seq.nextval, vairline, vcountry, vairp, vcontact_name, vphone, vfax, vto_apis)
+    INSERT INTO airline_offices(id, airline, country_control, contact_name, phone, fax, to_apis)
+    VALUES(id__seq.nextval, vairline, vcountry_control, vcontact_name, vphone, vfax, vto_apis)
     RETURNING id INTO vidh;
     hist.synchronize_history('airline_offices',vid,vsetting_user,vstation);
   ELSE
     UPDATE airline_offices
-    SET airline=vairline, country=vcountry, airp=vairp, contact_name=vcontact_name,
+    SET airline=vairline, country_control=vcountry_control, contact_name=vcontact_name,
         phone=vphone, fax=vfax, to_apis=vto_apis
     WHERE id=vid;
     hist.synchronize_history('airline_offices',vid,vsetting_user,vstation);

@@ -11,8 +11,6 @@ src/alarms.cc
 src/alarms.h
 src/aodb.cc
 src/aodb.h
-src/apis.cc
-src/apis.h
 src/apis_creator.cc
 src/apis_creator.h
 src/apis_edi_file.cc

@@ -41,7 +41,6 @@ astra_SOURCES = \
   access.cc \
   alarms.cc \
   aodb.cc \
-  apis.cc \
   apis_creator.cc \
   apis_edi_file.cc \
   apis_settings.cc \
@@ -245,7 +244,6 @@ noinst_HEADERS = \
   access.h \
   alarms.h \
   aodb.h \
-  apis.h \
   apis_creator.h \
   apis_edi_file.h \
   apis_settings.h \

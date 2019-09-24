@@ -1,6 +1,7 @@
 #ifndef _APIS_SETTINGS_H_
 #define _APIS_SETTINGS_H_
 
+#include <set>
 #include <string>
 #include "oralib.h"
 
@@ -99,8 +100,41 @@ class SettingsList : public std::map<SettingsKey, Settings>
     bool formatExists(const std::string& format) const;
 };
 
-}
+class AirlineOfficeInfo
+{
+  protected:
+    std::string m_contactName;
+    std::string m_phone;
+    std::string m_fax;
+  public:
+    AirlineOfficeInfo(const std::string& contactName,
+                      const std::string& phone,
+                      const std::string& fax) :
+      m_contactName(contactName),
+      m_phone(phone),
+      m_fax(fax) {}
 
+    const std::string& contactName() const { return m_contactName; }
+    const std::string& phone() const { return m_phone; }
+    const std::string& fax() const { return m_fax; }
+};
+
+class AirlineOfficeList : public std::list<AirlineOfficeInfo>
+{
+  public:
+    void get(const std::string& airline,
+             const std::string& countryControl);
+};
+
+const std::set<std::string> &customsUS();
+
+void GetCustomsDependCountries(const std::string &regul,
+                               std::set<std::string> &depend,
+                               TQuery &Qry);
+std::string GetCustomsRegulCountry(const std::string &depend,
+                                   TQuery &Qry);
+
+} //namespace APIS
 
 #endif
 

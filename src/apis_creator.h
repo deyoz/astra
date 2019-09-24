@@ -3,7 +3,6 @@
 
 #include <map>
 #include <string>
-//#include "apis.h"
 #include "astra_consts.h"
 #include "astra_misc.h"
 #include "astra_utils.h"
@@ -132,22 +131,6 @@ struct TApisTestMap : public map<apis_test_key, apis_test_value, apis_test_key_l
 };
 
 //---------------------------------------------------------------------------------------
-// from apis.cc TODO потом убрать все дубликаты
-
-class TAirlineOfficeInfo
-{
-  public:
-    string contact_name;
-    string phone;
-    string fax;
-};
-
-void GetAirlineOfficeInfo(const string &airline,
-                          const string &country,
-                          const string &airp,
-                          list<TAirlineOfficeInfo> &offices);
-
-//---------------------------------------------------------------------------------------
 
 struct TApisPaxData : public CheckIn::TSimplePaxItem
 {
@@ -192,15 +175,6 @@ struct TApisPaxData : public CheckIn::TSimplePaxItem
   }
 };
 
-struct TApisSetsData
-{
-  string fmt;
-  string edi_own_addr;
-  string edi_addr;
-  string transport_type;
-  string transport_params;
-};
-
 struct FlightlegDataset
 {
   string airp_code_lat;
@@ -230,7 +204,7 @@ struct TApisRouteData
   TDateTime scd_in_local;
   string airline_name;
   list<TApisPaxData> lstPaxData;
-  list<TApisSetsData> lstSetsData;
+  APIS::SettingsList lstSetsData;
   list<FlightlegDataset> lstLegs;
 
   // getters
@@ -335,8 +309,6 @@ struct TApisDataset
 };
 
 //---------------------------------------------------------------------------------------
-
-string NormalizeDocNo(const string& str, bool try_keep_only_digits); // apis.cc
 
 enum TApisRule
 {
@@ -462,11 +434,7 @@ struct TTxtDataFormatted
 struct TAPISFormat
 {
   enum TPaxType { pass, crew };
-  string fmt;
-  string edi_own_addr;
-  string edi_addr;
-  string transport_type;
-  string transport_params;
+  APIS::Settings settings;
   set<TApisRule> rules;
   TApisFileRule file_rule;
   TApisFormatType format_type;
@@ -484,7 +452,7 @@ struct TAPISFormat
 
   string dir() const
   {
-    return transport_type == TRANSPORT_TYPE_FILE ? transport_params : fmt + string("_dir_error");
+    return settings.transportType() == TRANSPORT_TYPE_FILE ? settings.transportParams() : settings.format() + string("_dir_error");
   }
 
   virtual void convert_pax_names(string& first_name, string& second_name) const {}
@@ -1567,18 +1535,20 @@ inline TAPISFormat* SpawnAPISFormat(const string& fmt)
   if (fmt=="IAPI_CN")     p = new TIAPIFormat_CN;
 
   if (p == nullptr) throw Exception("SpawnAPISFormat: unhandled format %s", fmt.c_str());
-  p->fmt = fmt;
+  p->settings=APIS::Settings("", fmt, "", "", "", "");
   return p;
 }
 
-inline TAPISFormat* SpawnAPISFormat(const TApisSetsData& sd)
+inline TAPISFormat* SpawnAPISFormat(const APIS::Settings& sd)
 {
-  TAPISFormat* p = SpawnAPISFormat(sd.fmt);
-  p->edi_own_addr = sd.edi_own_addr;
-  p->edi_addr = sd.edi_addr;
-  p->transport_type = sd.transport_type;
-  p->transport_params = sd.transport_params;
+  TAPISFormat* p = SpawnAPISFormat(sd.format());
+  p->settings=sd;
   return p;
 }
+
+void create_apis_task(const TTripTaskKey &task);
+
+void create_apis_nosir_help(const char *name);
+int create_apis_nosir(int argc,char **argv);
 
 #endif // APIS_CREATOR_H

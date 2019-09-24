@@ -33,7 +33,7 @@
 #include "flt_binding.h"
 #include "rozysk.h"
 #include "transfer.h"
-#include "apis.h"
+#include "apis_creator.h"
 #include "trip_tasks.h"
 #include "pers_weights.h"
 #include "qrys.h"
@@ -3354,6 +3354,25 @@ std::string TSOPPDest::toString() const
   return msg.str();
 }
 
+void flightCancel(int point_id)
+{
+  time_t time_start,time_end;
+
+  time_start=time(NULL);
+  try
+  {
+    create_apis_file(point_id, ON_FLIGHT_CANCEL);
+  }
+  catch(std::exception &E)
+  {
+    ProgError(STDLOG,"Takeoff.create_apis_file (point_id=%d): %s",point_id,E.what());
+  };
+  time_end=time(NULL);
+  if (time_end-time_start>1)
+    ProgTrace(TRACE5,"Attention! create_apis_file execute time: %ld secs, point_id=%d",
+                     time_end-time_start,point_id);
+}
+
 void beforeDestsWrite( int move_id, const TSOPPDests &newDests )
 {
   if ( move_id == ASTRA::NoExists ) {
@@ -3369,6 +3388,7 @@ void beforeDestsWrite( int move_id, const TSOPPDests &newDests )
     if ( newFlights.find( f.first ) == newFlights.end() ) {
       //в новом машруте нет рейса на вылет, который не отменен и не удален
       LogTrace(TRACE5) << __func__  << " flight dest cancel: " << f.second.toString();
+      flightCancel(f.first);
     }
   }
 }

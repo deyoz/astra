@@ -570,4 +570,6 @@ void CheckDocaHttp(const CheckIn::TPaxDocaItem &doc,
 
 std::string SubstrAfterLastSpace(const std::string& str);
 
+std::string NormalizeDocNo(const std::string& str, bool try_keep_only_digits);
+
 #endif // APIS_UTILS_H

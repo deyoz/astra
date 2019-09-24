@@ -37,7 +37,6 @@
 #include "pers_weights.h"
 #include "rozysk.h"
 #include "flt_binding.h"
-#include "apis.h"
 #include "qrys.h"
 #include "emdoc.h"
 #include "iatci.h"
@@ -81,6 +80,7 @@ using namespace ASTRA;
 using namespace BASIC::date_time;
 using namespace AstraLocale;
 using namespace AstraEdifact;
+using namespace EXCEPTIONS;
 using astra_api::xml_entities::ReqParams;
 using Ticketing::RemoteSystemContext::DcsSystemContext;
 

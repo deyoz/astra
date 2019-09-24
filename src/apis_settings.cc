@@ -145,4 +145,97 @@ bool SettingsList::formatExists(const std::string& format) const
   return false;
 }
 
+const char* APIS_PARTY_INFO()
+{
+  static string VAR;
+  if ( VAR.empty() )
+    VAR=getTCLParam("APIS_PARTY_INFO","");
+  return VAR.c_str();
 }
+
+void AirlineOfficeList::get(const std::string& airline,
+                            const std::string& countryControl)
+{
+  clear();
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT contact_name, phone, fax "
+    "FROM airline_offices "
+    "WHERE airline=:airline AND country_control=:country_control AND to_apis<>0";
+  Qry.CreateVariable("airline", otString, airline);
+  Qry.CreateVariable("country_control", otString, countryControl);
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+    emplace_back(Qry.FieldAsString("contact_name"),
+                 Qry.FieldAsString("phone"),
+                 Qry.FieldAsString("fax"));
+
+  vector<string> strs;
+  SeparateString(string(APIS_PARTY_INFO()), ':', strs);
+  if (!strs.empty())
+  {
+    string s1, s2, s3;
+    vector<string>::const_iterator i;
+    i=strs.begin();
+    if (i!=strs.end()) s1=(*i++);
+    if (i!=strs.end()) s2=(*i++);
+    if (i!=strs.end()) s3=(*i++);
+    emplace_back(s1, s2, s3);
+  };
+}
+
+const set<string> &customsUS()
+{
+  static bool init=false;
+  static set<string> depend;
+  if (!init)
+  {
+    TQuery Qry(&OraSession);
+    GetCustomsDependCountries("ž‘", depend, Qry);
+    init=true;
+  };
+  return depend;
+}
+
+void GetCustomsDependCountries(const string &regul,
+                               set<string> &depend,
+                               TQuery &Qry)
+{
+  depend.clear();
+  depend.insert(regul);
+  const char *sql =
+    "SELECT country_depend FROM apis_customs WHERE country_regul=:country_regul";
+  if (strcmp(Qry.SQLText.SQLText(),sql)!=0)
+  {
+    Qry.Clear();
+    Qry.SQLText=sql;
+    Qry.DeclareVariable("country_regul",otString);
+  };
+  Qry.SetVariable("country_regul", regul);
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+    depend.insert(Qry.FieldAsString("country_depend"));
+}
+
+string GetCustomsRegulCountry(const string &depend,
+                              TQuery &Qry)
+{
+  const char *sql =
+    "SELECT country_regul FROM apis_customs WHERE country_depend=:country_depend";
+  if (strcmp(Qry.SQLText.SQLText(),sql)!=0)
+  {
+    Qry.Clear();
+    Qry.SQLText=sql;
+    Qry.DeclareVariable("country_depend",otString);
+  };
+  Qry.SetVariable("country_depend", depend);
+  Qry.Execute();
+  if (!Qry.Eof)
+    return Qry.FieldAsString("country_regul");
+  else
+    return depend;
+}
+
+} //namespace APIS

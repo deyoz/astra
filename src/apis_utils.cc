@@ -221,7 +221,7 @@ void TCompleteAPICheckInfo::set(const int point_dep, const std::string& airp_arv
 
       is_inter=!(country_dep=="êî" && country_arv=="êî");
     }
-    catch(EBaseTableError) {};   
+    catch(EBaseTableError) {};
 
     std::set<std::string> apps_formats;
     if (checkAPPSSetsByAirpArv(point_dep, airp_arv, &apps_formats))
@@ -1808,6 +1808,29 @@ std::string SubstrAfterLastSpace(const std::string& str)
     return str.substr(found+1);
   else
     return str;
+}
+
+string NormalizeDocNo(const string& str, bool try_keep_only_digits)
+{
+  string result;
+  string max_num, curr_num;
+  for(string::const_iterator i=str.begin(); i!=str.end(); ++i)
+    if (IsDigitIsLetter(*i)) result+=*i;
+  if (try_keep_only_digits)
+  {
+    for(string::const_iterator i=result.begin(); i!=result.end(); ++i)
+    {
+      if (IsDigit(*i)) curr_num+=*i;
+      if (IsLetter(*i) && !curr_num.empty())
+      {
+        if (curr_num.size()>max_num.size()) max_num=curr_num;
+        curr_num.clear();
+      };
+    };
+    if (curr_num.size()>max_num.size()) max_num=curr_num;
+  };
+
+  return (max_num.size()<6)?result:max_num;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
