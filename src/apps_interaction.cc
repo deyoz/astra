@@ -1415,12 +1415,17 @@ void TPaxRequest::InitPaxlstInfo(Paxlst::PaxlstInfo& paxlstInfo, APIS::SettingsL
   rff_tn << trans.msg_id;
   paxlstInfo.settings().set_RFF_TN(rff_tn.str());
 
-  // 5.7 NAD: Name and Address ? Reporting Party-GR.1
-  paxlstInfo.setPartyName("TEST CONTACT"); // FIXME HARDCODE FOR TEST
-
-  // 5.8 COM: Communication Contact-GR.1
-  paxlstInfo.setPhone("12 34 56 78"); // FIXME HARDCODE FOR TEST
-  paxlstInfo.setFax("98765432"); // FIXME HARDCODE FOR TEST
+  APIS::AirlineOfficeList offices;
+  offices.get(route.front().airline, settings.countryControl());
+  if (!offices.empty())
+  {
+    const APIS::AirlineOfficeInfo& info=offices.front();
+    // 5.7 NAD: Name and Address ? Reporting Party-GR.1
+    paxlstInfo.setPartyName(info.contactName());
+    // 5.8 COM: Communication Contact-GR.1
+    paxlstInfo.setPhone(info.phone());    //HyphenToSpace???
+    paxlstInfo.setFax(info.fax());        //HyphenToSpace???
+  }
 
   // 5.9 TDT: Details of Transport-GR.2
   paxlstInfo.setFlight(int_flt.flt_num);
@@ -2503,7 +2508,7 @@ void TPaxReqAnswer::processAnswer(bool last_pax) const
   {
     actual.init( pax_id, timing );
   }
-  catch (AppsPaxNotFoundException)
+  catch (const AppsPaxNotFoundException&)
   {
     pax_not_found = true;
     ProgTrace(TRACE5, "Passenger has not been found");
