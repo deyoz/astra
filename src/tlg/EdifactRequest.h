@@ -54,8 +54,12 @@ public:
                    edi_msg_types_t msg_type,
                    const Ticketing::RemoteSystemContext::SystemContext* sysCont);
 
-
+    virtual void updateMesHead() {}
     virtual void collectMessage() = 0;
+
+    virtual bool needRemoteResults() const { return true; }
+    virtual bool needSaveEdiSessionContext() const { return true; }
+    virtual bool needConfigAgentToWait() const { return true; }
 
     virtual void sendTlg();
 

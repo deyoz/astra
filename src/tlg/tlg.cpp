@@ -14,6 +14,7 @@
 #include "tlg_source_typeb.h"
 #include "qrys.h"
 #include <serverlib/tcl_utils.h>
+#include <serverlib/str_utils.h>
 #include <serverlib/logger.h>
 #include <serverlib/testmode.h>
 #include <serverlib/TlgLogger.h>
@@ -323,7 +324,12 @@ std::string getTlgText2(const tlgnum_t& tnum)
 {
     tlgnum_t tlgNum(tnum); // to avoid compiler warning treated as error (used unitialized)
     const int tlg_id = boost::lexical_cast<int>(tlgNum.num);
-    return getTlgText(tlg_id);
+    std::string tlgText = getTlgText(tlg_id);
+    if(tlgText.find("BGM+132") != std::string::npos) {
+        ProgTrace(TRACE0, "Force replace message name from CUSRES to CUSUMS");
+        tlgText = StrUtils::replaceSubstrCopy(tlgText, "CUSRES", "CUSUMS");
+    }
+    return tlgText;
 }
 
 static void logTlgTypeA(const std::string& text)

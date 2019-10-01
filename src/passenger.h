@@ -136,12 +136,12 @@ class TPaxTknItem : public TPaxAPIItem, public TPaxRemBasic
     TAPIType apiType() const { return apiTkn; }
     bool validET() const { return rem=="TKNE" && !no.empty() && coupon!=ASTRA::NoExists; }
 
-    std::string no_str() const
+    std::string no_str(std::string separator = "/") const
     {
       std::ostringstream s;
       s << no;
       if (coupon!=ASTRA::NoExists)
-        s << "/" << coupon;
+        s << separator << coupon;
       return s.str();
     };
     std::string rem_code() const

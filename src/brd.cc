@@ -21,6 +21,7 @@
 #include "term_version.h"
 #include "events.h"
 #include "apps_interaction.h"
+#include "iapi_interaction.h"
 #include "baggage_calc.h"
 #include "sopp.h"
 #include "rfisc.h"
@@ -1329,7 +1330,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
             TPaxItem &pax=(pass==0?paxWithSeat:paxWithoutSeat);
             if (!pax.exists()) continue;
 
-            TCompleteAPICheckInfo check_info;
             CheckIn::TAPISItem apis;
             set<APIS::TAlarmType> alarms;
             bool document_alarm=false;
@@ -1354,15 +1354,23 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
         //============================ проверка APPS статуса пассажира ============================
         if (checkAPPSSets(point_id, point_arv)) {
-          TPaxRequest * apps_pax = new TPaxRequest();
+          std::unique_ptr<TPaxRequest> apps_pax(new TPaxRequest());
           for(int pass=0;pass<2;pass++)
           {
-            TPaxItem &pax=(pass==0?paxWithSeat:paxWithoutSeat);
+            const TPaxItem &pax=(pass==0?paxWithSeat:paxWithoutSeat);
             if (!pax.exists()) continue;
             apps_pax->fromDBByPaxId( pax.pax_id );
             if( apps_pax->getStatus() != "B" )
               throw AstraLocale::UserException("MSG.PASSENGER.APPS_PROBLEM");
           }
+        }
+
+        boost::optional<const TCompleteAPICheckInfo &> check_info=route_check_info.get(airp_arv);
+        if (check_info && IAPI::needCheckStatus(check_info.get()))
+        {
+          if ((paxWithSeat.exists()    && !IAPI::PassengerStatus::allowedToBoarding(paxWithSeat.pax_id)) ||
+              (paxWithoutSeat.exists() && !IAPI::PassengerStatus::allowedToBoarding(paxWithoutSeat.pax_id)))
+            throw AstraLocale::UserException("MSG.PASSENGER.APPS_PROBLEM");
         }
 
         if (!without_monitor)

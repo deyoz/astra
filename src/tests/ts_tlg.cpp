@@ -25,9 +25,10 @@ namespace tscript {
 
     void ExecuteTlg(const std::vector<tok::Param>& params)
     {
-        tok::ValidateParams(params, 1, 1, "frot h2h");
+        tok::ValidateParams(params, 1, 1, "frot charset h2h");
         const std::string tlg = tok::PositionalValues(params).at(0);
         const std::string frot = tok::GetValue(params, "frot");
+        const std::string chset = tok::GetValue(params, "charset");
         const std::string h2h_str = boost::algorithm::replace_all_copy(
                 tok::GetValue(params, "h2h"), "\\", "\r");
 
@@ -37,7 +38,7 @@ namespace tscript {
             tlg_info tlgi = {};
             tlgi.id       = saveTlg("LOOPB", "LOOPB", "OUTA", tlg);
             tlgi.sender   = "LOOPB";
-            tlgi.text     = edilib::ChangeEdiCharset(tlg, "IATA");
+            tlgi.text     = edilib::ChangeEdiCharset(tlg, chset.empty() ? "IATA" : chset);
 
             if(!h2h_str.empty()) {
                 hth::HthInfo hth = {};

@@ -33,7 +33,7 @@
 #include "flt_binding.h"
 #include "rozysk.h"
 #include "transfer.h"
-#include "apis.h"
+#include "apis_creator.h"
 #include "trip_tasks.h"
 #include "pers_weights.h"
 #include "qrys.h"
@@ -979,7 +979,7 @@ string internal_ReadData_N( TSOPPTrips &trips, TDateTime first_date, TDateTime n
     PointsQry.Execute();
     exec_time = (boost::posix_time::microsec_clock::universal_time() - mcsTime).total_microseconds();
   }
-  catch (EOracleError E) {
+  catch (EOracleError& E) {
     if ( arx && E.Code == 376 )
       throw AstraLocale::UserException("MSG.ONE_OF_DB_FILES_UNAVAILABLE.CALL_ADMIN");
     throw;
@@ -1386,7 +1386,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
     PointsQry.Execute();
     exec_time = (boost::posix_time::microsec_clock::universal_time() - mcsTime).total_microseconds();
   }
-  catch (EOracleError E) {
+  catch (EOracleError& E) {
     if ( arx && E.Code == 376 )
       throw AstraLocale::UserException("MSG.ONE_OF_DB_FILES_UNAVAILABLE.CALL_ADMIN");
     else
@@ -2166,12 +2166,12 @@ TDateTime Approached_ClientUTC( TDateTime f, string tz_region, bool pr_max )
       d = ClientToUTC( f, TReqInfo::Instance()->desk.tz_region );
       return d;
     }
-  catch( boost::local_time::ambiguous_result ) {
+  catch( boost::local_time::ambiguous_result& ) {
     tst();
     d1 = ClientToUTC( f, TReqInfo::Instance()->desk.tz_region, 0 );
     d2 = ClientToUTC( f, TReqInfo::Instance()->desk.tz_region, 1 );
   }
-  catch( boost::local_time::time_label_invalid ) {
+  catch( boost::local_time::time_label_invalid& ) {
     tst();
     d1 = ClientToUTC( f-1, TReqInfo::Instance()->desk.tz_region )+1;
     d2 = ClientToUTC( f+1, TReqInfo::Instance()->desk.tz_region )-1;
@@ -3415,6 +3415,102 @@ void check_trip_tasks( const TSOPPDests &dests )
   }
 }
 
+void getFlightOut( const TSOPPDests& dests, std::map<int,TSOPPDest> &flights )
+{
+  flights.clear();
+  TSOPPDests::const_reverse_iterator last = dests.rend();
+  for ( TSOPPDests::const_reverse_iterator rod=dests.rbegin(); rod!=dests.rend(); ++rod ) {
+    if ( rod->pr_del != 0 || last == dests.rend() ) {
+      if ( rod->pr_del == 0 && last == dests.rend() ) {
+        last = rod; // последний не отмененнный
+      }
+      continue;
+    }
+    if ( rod->pr_reg ) {
+      flights.insert( make_pair(rod->point_id, *rod) ); //все рейсы на вылет
+    }
+  }
+}
+
+std::string TSOPPDest::toString() const
+{
+  ostringstream msg;
+  msg << "point_id=" << point_id;
+  msg << ",part_key=" << part_key;
+  msg << ",modify=" << modify;
+  msg << ",point_num=" << point_num;
+  msg << ",airp=" << airp;
+  msg << ",airp_fmt=" << airp_fmt;
+  msg << ",first_point=" << first_point;
+  msg << ",airline=" << airline;
+  msg << ",airline_fmt=" << airline_fmt;
+  msg << ",flt_no=" << flt_no;
+  msg << ",suffix=" << suffix;
+  msg << ",suffix_fmt=" << suffix_fmt;
+  msg << ",craft=" << craft;
+  msg << ",craft_fmt=" << craft_fmt;
+  msg << ",bort=" << bort;
+  msg << ",commander=" << commander;
+  msg << ",cockpit=" << cockpit;
+  msg << ",cabin=" << cabin;
+  msg << ",scd_in=" << scd_in;
+  msg << ",est_in=" << est_in;
+  msg << ",act_in=" << act_in;
+  msg << ",scd_out=" << scd_out;
+  msg << ",est_out=" << est_out;
+  msg << ",act_out=" << act_out;
+  msg << ",triptype=" << triptype;
+  msg << ",litera=" << litera;
+  msg << ",park_in=" << park_in;
+  msg << ",park_out=" << park_out;
+  msg << ",remark=" << remark;
+  msg << ",pr_tranzit=" << pr_tranzit;
+  msg << ",pr_reg=" << pr_reg;
+  msg << ",pr_del=" << pr_del;
+  msg << ",tid=" << tid;
+  return msg.str();
+}
+
+static void flightCancel(int point_id)
+{
+  time_t time_start,time_end;
+
+  time_start=time(NULL);
+  try
+  {
+    create_apis_file(point_id, ON_FLIGHT_CANCEL);
+  }
+  catch(std::exception &E)
+  {
+    ProgError(STDLOG,"Takeoff.create_apis_file (point_id=%d): %s",point_id,E.what());
+  };
+  time_end=time(NULL);
+  if (time_end-time_start>1)
+    ProgTrace(TRACE5,"Attention! create_apis_file execute time: %ld secs, point_id=%d",
+                     time_end-time_start,point_id);
+}
+
+void beforeDestsWrite( int move_id, const TSOPPDests &newDests )
+{
+  if ( move_id == ASTRA::NoExists ) {
+    return;
+  }
+  TSOPPDests oldDests;
+  string ref;
+  internal_ReadDests( move_id, oldDests, ref, ASTRA::NoExists );
+  std::map<int,TSOPPDest> oldFlights, newFlights;
+  getFlightOut( oldDests, oldFlights ); // все рейсы которые были на вылет не отмененные
+  getFlightOut( newDests, newFlights ); // которые стали
+  for ( const auto &f : oldFlights ) {
+    if ( newFlights.find( f.first ) == newFlights.end() ) {
+      //в новом машруте нет рейса на вылет, который не отменен и не удален
+      LogTrace(TRACE5) << __func__  << " flight dest cancel: " << f.second.toString();
+      flightCancel(f.first);
+    }
+  }
+}
+
+
 void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &reference, bool canExcept,
                           xmlNodePtr resNode, TSoppWriteOwner owner )
 {
@@ -3719,6 +3815,9 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   }
 //  } //end move_id==NoExists
 
+
+  beforeDestsWrite(move_id, dests);
+
   Qry.Clear();
   bool insert = ( move_id == NoExists );
   if ( insert ) {
@@ -3790,13 +3889,13 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
       }
     }
     if ( id->pr_del != -1 ) {
-          if ( pr_begin ) {
-              pr_begin = false;
-          first_point = id->point_id;
-          if ( id->first_point != NoExists ) {
-            id->first_point = NoExists;
-            id->modify = true;
-          }
+      if ( pr_begin ) {
+        pr_begin = false;
+        first_point = id->point_id;
+        if ( id->first_point != NoExists ) {
+          id->first_point = NoExists;
+          id->modify = true;
+        }
       }
       else {
         if ( !id->pr_tranzit ) {
@@ -4771,7 +4870,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         try {
           d.scd_in = ClientToUTC( NodeAsDateTime( fnode ), region );
         }
-        catch( boost::local_time::ambiguous_result ) {
+        catch( boost::local_time::ambiguous_result& ) {
         //throw UserException( "Плановое время прибытия в пункте %s не определено однозначно", d.airp.c_str() );
           d.scd_in = ClientToUTC( NodeAsDateTime( fnode ) - 1 , region ) + 1;
         }
@@ -4784,7 +4883,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         try {
           d.est_in = ClientToUTC( NodeAsDateTime( fnode ), region );
         }
-        catch( boost::local_time::ambiguous_result ) {
+        catch( boost::local_time::ambiguous_result& ) {
           //throw UserException( "Расчетное время прибытия в пункте %s не определено однозначно", d.airp.c_str() );
           d.est_in = ClientToUTC( NodeAsDateTime( fnode ) - 1 , region ) + 1;
         }
@@ -4797,7 +4896,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         try {
           d.act_in = ClientToUTC( NodeAsDateTime( fnode ), region );
         }
-        catch( boost::local_time::ambiguous_result ) {
+        catch( boost::local_time::ambiguous_result& ) {
   //        throw UserException( "Фактическое время прибытия в пункте %s не определено однозначно", d.airp.c_str() );
           d.act_in = ClientToUTC( NodeAsDateTime( fnode ) - 1 , region ) + 1;
         }
@@ -4810,7 +4909,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         try {
           d.scd_out = ClientToUTC( NodeAsDateTime( fnode ), region );
         }
-        catch( boost::local_time::ambiguous_result ) {
+        catch( boost::local_time::ambiguous_result& ) {
           //throw UserException( "Плановое время вылета в пункте %s не определено однозначно", d.airp.c_str() );
           d.scd_out = ClientToUTC( NodeAsDateTime( fnode ) - 1 , region ) + 1;
         }
@@ -4823,7 +4922,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         try {
           d.est_out = ClientToUTC( NodeAsDateTime( fnode ), region );
         }
-        catch( boost::local_time::ambiguous_result ) {
+        catch( boost::local_time::ambiguous_result& ) {
           //throw UserException( "Расчетное время вылета в пункте %s не определено однозначно", d.airp.c_str() );
           d.est_out = ClientToUTC( NodeAsDateTime( fnode ) - 1 , region ) + 1;
         }
@@ -4836,7 +4935,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           try {
             d.act_out = ClientToUTC( NodeAsDateTime( fnode ), region );
           }
-          catch( boost::local_time::ambiguous_result ) {
+          catch( boost::local_time::ambiguous_result& ) {
             //throw UserException( "Фактическое время вылета в пункте %s не определено однозначно", d.airp.c_str() );
             d.act_out = ClientToUTC( NodeAsDateTime( fnode ) - 1 , region ) + 1;
           }
@@ -4860,7 +4959,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           try {
             delay.time = ClientToUTC( NodeAsDateTimeFast( "time", dnode ), region );
           }
-          catch( boost::local_time::ambiguous_result ) {
+          catch( boost::local_time::ambiguous_result& ) {
             //throw UserException( "Время задержки в пункте %s не определено однозначно", d.airp.c_str() );
             delay.time = ClientToUTC( NodeAsDateTimeFast( "time", dnode ) - 1 , region ) + 1;
           }
@@ -5417,7 +5516,7 @@ inline void setDestTime( xmlNodePtr timeNode, TDateTime &vtime, const string &re
       try {
         vtime = ClientToUTC( NodeAsDateTime( timeNode ), region );
         }
-    catch( boost::local_time::ambiguous_result ) {
+    catch( boost::local_time::ambiguous_result& ) {
       vtime = ClientToUTC( NodeAsDateTime( timeNode ) - 1, region ) + 1;
     }
     else
@@ -5571,7 +5670,7 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   // проверка на предмет того, что во всех пп стоит статус неактивен иначе ругаемся
     Qry.Clear();
     Qry.SQLText = "SELECT COUNT(*) c, point_dep FROM pax_grp WHERE point_dep IN "
-                  "( SELECT point_id FROM points WHERE move_id=:move_id ) AND pax_grp.status NOT IN ('E') "
+                  "( SELECT point_id FROM points WHERE move_id=:move_id ) "
                   "GROUP BY point_dep ";
     Qry.CreateVariable( "move_id", otInteger, move_id );
     Qry.Execute();
@@ -5636,6 +5735,7 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
         BitSet<TSOPPTripChange> FltChange;
         FltChange.setFlag( tsDelete );
       ChangeTrip( j->point_id, tr, *j, FltChange );  // рейс на вылет удален
+      flightCancel(j->point_id); //apis
     }
   }
 
@@ -6551,7 +6651,7 @@ const TTripSetList& TTripSetList::toXML(xmlNodePtr node) const
       else if (isInt(i->first))
         NewTextChild(node, setTypeStr(i->first).c_str(), (int)boost::any_cast<int>(i->second));
     }
-    catch(boost::bad_any_cast)
+    catch(boost::bad_any_cast&)
     {
       throwBadCastException(i->first, __FUNCTION__);
     };
@@ -6602,7 +6702,7 @@ const TTripSetList& TTripSetList::initDB(int point_id, int f, int c, int y) cons
       else if (isInt(*i))
         Qry.CreateVariable(setTypeStr(*i), otInteger, boost::any_cast<int>(defaultValue(*i)));
     }
-    catch(boost::bad_any_cast)
+    catch(boost::bad_any_cast&)
     {
       throwBadCastException(*i, __FUNCTION__);
     };
@@ -6749,7 +6849,7 @@ const TTripSetList& TTripSetList::toDB(int point_id) const
           break;
       };
     }
-    catch(boost::bad_any_cast)
+    catch(boost::bad_any_cast&)
     {
       throwBadCastException(i->first, __FUNCTION__);
     }
@@ -6833,12 +6933,12 @@ bool TTripSetListItemLess(const std::pair<TTripSetType, boost::any> &a, const st
   {
     return boost::any_cast<bool>(a.second)<boost::any_cast<bool>(b.second);
   }
-  catch(boost::bad_any_cast) {};
+  catch(boost::bad_any_cast&) {};
   try
   {
     return boost::any_cast<int>(a.second)<boost::any_cast<int>(b.second);
   }
-  catch(boost::bad_any_cast) {};
+  catch(boost::bad_any_cast&) {};
   return false;
 }
 

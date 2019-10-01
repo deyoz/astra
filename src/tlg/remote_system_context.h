@@ -19,6 +19,7 @@
 #include "CheckinBaseTypes.h"
 #include "EdifactProfile.h"
 #include "iatci_settings.h"
+#include "apis_settings.h"
 #include "basetables.h"
 
 #include <etick/lang.h>
@@ -339,6 +340,24 @@ namespace RemoteSystemContext
 
     private:
         static std::string getSelectSql();
+    };
+
+//---------------------------------------------------------------------------------------
+
+    /// @class IapiSystemContext
+    /// @brief Edifact-аналог apps
+    class IapiSystemContext : public SystemContext
+    {
+    public:
+        IapiSystemContext(const SystemContext& baseCnt);
+
+        static IapiSystemContext* read(const APIS::Settings& settings);
+
+        static SystemContext* readByEdiAddrs(const std::string& source, const std::string& source_ext,
+                                             const std::string& dest,   const std::string& dest_ext,
+                                             bool throwNf = true);
+
+        virtual ~IapiSystemContext() {}
     };
 
 //---------------------------------------------------------------------------------------

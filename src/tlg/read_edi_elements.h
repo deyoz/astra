@@ -108,6 +108,17 @@ boost::optional<edifact::AddElem> readEdiAdd(_EDI_REAL_MES_STRUCT_ *pMes);
 boost::optional<edifact::UapElem> readEdiUap(_EDI_REAL_MES_STRUCT_ *pMes);
 boost::optional<edifact::UsiElem> readEdiUsi(_EDI_REAL_MES_STRUCT_ *pMes);
 
+// APIS
+boost::optional<edifact::BgmElem> readEdiBgm(_EDI_REAL_MES_STRUCT_ *pMes);
+boost::optional<edifact::UngElem> readEdiUng(_EDI_REAL_MES_STRUCT_ *pMes);
+boost::optional<edifact::UneElem> readEdiUne(_EDI_REAL_MES_STRUCT_ *pMes);
+boost::optional<edifact::ErcElem> readEdiErc(_EDI_REAL_MES_STRUCT_ *pMes);
+boost::optional<edifact::FtxElem> readEdiFtx(_EDI_REAL_MES_STRUCT_ *pMes);
+boost::optional<edifact::RffElem> readEdiRff(_EDI_REAL_MES_STRUCT_ *pMes, unsigned n = 0);
+boost::optional<edifact::DtmElem> readEdiDtm(_EDI_REAL_MES_STRUCT_ *pMes, unsigned n = 0);
+boost::optional<edifact::LocElem> readEdiLoc(_EDI_REAL_MES_STRUCT_ *pMes, unsigned n = 0);
+boost::optional<edifact::ErpElem> readEdiErp(_EDI_REAL_MES_STRUCT_ *pMes, unsigned n = 0);
+
 } // namespace Ticketing
 } // namespace TickReader
 

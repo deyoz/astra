@@ -12,6 +12,7 @@
 #include "apis_edi_file.h"
 #include "exceptions.h"
 #include "tlg/view_edi_elements.h"
+#include "tlg/read_edi_elements.h"
 #include "config.h"
 #include "tlg/tlg.h"
 #include "astra_misc.h"
@@ -21,6 +22,7 @@
 #include <edilib/edi_func_cpp.h>
 #include <edilib/edi_astra_msg_types.h>
 #include <edilib/edi_sess.h>
+#include <serverlib/str_utils.h>
 
 #include <boost/lexical_cast.hpp>
 #include <boost/foreach.hpp>
@@ -140,12 +142,16 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
                                    getSeqFlag( partNum, partsCnt ) ) ) ;
 
     // BGM
-    viewBgmElement( pMes, BgmElem( paxlst.type()==PaxlstInfo::FlightPassengerManifest?"745":"250",
-                                   paxlst.docId() ) );
+    viewBgmElement( pMes, paxlst.getBgmElem() );
 
     // RFF
     if (paxlst.settings().view_RFF_TN())
-      viewRffElement( pMes, RffElem( "TN", createEdiInterchangeReference().substr(0,35) ), 0 );
+    {
+      std::string rff_tn =  (!paxlst.settings().RFF_TN().empty())?
+                            paxlst.settings().RFF_TN():
+                            createEdiInterchangeReference();
+      viewRffElement( pMes, RffElem( "TN", rff_tn.substr(0,35) ), 0 );
+    }
 
     if( !paxlst.partyName().empty() )
     {
@@ -168,36 +174,56 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
         PopEdiPointW( pMes );
     }
 
-    SetEdiSegGr( pMes, SegGrElement( 2, 0 ) );
-    PushEdiPointW( pMes );
-    SetEdiPointToSegGrW( pMes, SegGrElement( 2, 0 ) );
+    int segmGroup2Num=0;
+    boost::optional<FlightStop> priorFlightStop;
+    for(int pass=0; pass<2; pass++)
+    {
+      const FlightStops& flightStops=(pass==0?paxlst.stopsBeforeBorder():paxlst.stopsAfterBorder());
+      for(FlightStops::const_iterator i=flightStops.begin(); i!=flightStops.end(); ++i)
+      {
+        const FlightStop& currFlightStop=*i;
+        if (priorFlightStop)
+        {
+          SetEdiSegGr( pMes, SegGrElement( 2, segmGroup2Num ) );
+          PushEdiPointW( pMes );
+          SetEdiPointToSegGrW( pMes, SegGrElement( 2, segmGroup2Num++ ) );
 
-    // TDT
-    viewTdtElement( pMes, TdtElem( "20", paxlst.flight(), paxlst.carrier() ) );
-
-    SetEdiSegGr( pMes, SegGrElement( 3, 0 ) );
-    PushEdiPointW( pMes );
-    SetEdiPointToSegGrW( pMes, SegGrElement( 3, 0 ) );
-    // LOC departure
-    viewLocElement( pMes, LocElem( LocElem::Departure, paxlst.depPort() ) );
-    // DTM departure
-    viewDtmElement( pMes, DtmElem( DtmElem::Departure, paxlst.depDateTime(), "201" ) );
-    PopEdiPointW( pMes );
-
-
-    SetEdiSegGr( pMes, SegGrElement( 3, 1 ) );
-    PushEdiPointW( pMes );
-    SetEdiPointToSegGrW( pMes, SegGrElement( 3, 1 ) );
-    // LOC arrival
-    viewLocElement( pMes, LocElem( LocElem::Arrival, paxlst.arrPort() ) );
-    // DTM arrival
-    viewDtmElement( pMes, DtmElem( DtmElem::Arrival, paxlst.arrDateTime(), "201" ) );
-    PopEdiPointW( pMes );
-
-    PopEdiPointW( pMes );
+          // TDT
+          viewTdtElement( pMes, TdtElem( "20", paxlst.flight(), paxlst.carrier() ) );
 
 
-    PassengersList_t passList = paxlst.passengersList();
+          int segmGroup3Num=0;
+          SetEdiSegGr( pMes, SegGrElement( 3, segmGroup3Num ) );
+          PushEdiPointW( pMes );
+          SetEdiPointToSegGrW( pMes, SegGrElement( 3, segmGroup3Num++ ) );
+          // LOC departure
+          viewLocElement( pMes, LocElem( i==paxlst.stopsAfterBorder().begin()?LocElem::LastDepartureBeforeBorder:
+                                                                              LocElem::OtherDeparturesAndArrivals,
+                                         priorFlightStop.get().depPort() ) );
+          // DTM departure
+          if (priorFlightStop.get().depDateTime()!=ASTRA::NoExists)
+            viewDtmElement( pMes, DtmElem( DtmElem::Departure, priorFlightStop.get().depDateTime(), "201" ) );
+          PopEdiPointW( pMes );
+
+          SetEdiSegGr( pMes, SegGrElement( 3, segmGroup3Num ) );
+          PushEdiPointW( pMes );
+          SetEdiPointToSegGrW( pMes, SegGrElement( 3, segmGroup3Num++ ) );
+          // LOC arrival
+          viewLocElement( pMes, LocElem( i==paxlst.stopsAfterBorder().begin()?LocElem::FirstArrivalAfterBorder:
+                                                                              LocElem::OtherDeparturesAndArrivals,
+                                         currFlightStop.arrPort() ) );
+          // DTM arrival
+          if (currFlightStop.arrDateTime()!=ASTRA::NoExists)
+            viewDtmElement( pMes, DtmElem( DtmElem::Arrival, currFlightStop.arrDateTime(), "201" ) );
+          PopEdiPointW( pMes );
+
+          PopEdiPointW( pMes );
+        }
+        priorFlightStop=currFlightStop;
+      }
+    }
+
+    const PassengersList_t& passList = paxlst.passengersList();
     int segmGroupNum = 0;
     for( std::list< Paxlst::PassengerInfo >::const_iterator it = passList.begin();
            it != passList.end(); ++it, segmGroupNum++ )
@@ -208,91 +234,106 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
         SetEdiPointToSegGrW( pMes, SegGrElement( 4, segmGroupNum ) );
 
         // NAD
-        viewNadElement( pMes, NadElem( paxlst.type()==PaxlstInfo::FlightPassengerManifest?"FL":"FM",
-                                       it->surname(),
-                                       it->first_name(),
-                                       it->second_name(),
-                                       it->street(),
-                                       it->city(),
-                                       it->countrySubEntityCode(),
-                                       it->postalCode(),
-                                       it->destCountry() ) );
-        // ATT
-        viewAttElement( pMes, AttElem( "2", it->sex() ) );
-        // DTM
-        viewDtmElement( pMes, DtmElem( DtmElem::DateOfBirth, it->birthDate() ) );
+        viewNadElement( pMes, paxlst.getNadElem(*it) );
 
-        int meaNum = 0;
-        if( it->bagCount() != ASTRA::NoExists )
+        if (paxlst.type()!=PaxlstInfo::IAPIFlightCloseOnBoard)
         {
+           // ATT
+           viewAttElement( pMes, AttElem( "2", it->sex() ) );
+           // DTM
+           viewDtmElement( pMes, DtmElem( DtmElem::DateOfBirth, it->birthDate() ) );
+
+          // GEI
+          if (!it->procInfo().empty())
+            viewGeiElement( pMes, GeiElem("4", it->procInfo()) );
+
+          int meaNum = 0;
+          if( it->bagCount() != ASTRA::NoExists )
+          {
             // MEA
             viewMeaElement( pMes, MeaElem( MeaElem::BagCount, it->bagCount() ), meaNum++ );
-        }
-        if( it->bagWeight() != ASTRA::NoExists )
-        {
+          }
+          if( it->bagWeight() != ASTRA::NoExists )
+          {
             // MEA
             viewMeaElement( pMes, MeaElem( MeaElem::BagWeight, it->bagWeight() ), meaNum++ );
-        }
+          }
 
-        int ftxNum = 0;
-        for (auto tag = it->bagTags().begin(); tag != it->bagTags().end() && ftxNum < 99; ++tag, ++ftxNum)
-        {
-          // FTX
-          viewFtx2Element( pMes, Ftx2Elem("BAG", *tag, "1"), ftxNum);
-        }
+          int ftxNum = 0;
+          for (auto tag = it->bagTags().begin(); tag != it->bagTags().end() && ftxNum < 99; ++tag, ++ftxNum)
+          {
+            // FTX
+            viewFtx2Element( pMes, Ftx2Elem("BAG", *tag, "1"), ftxNum);
+          }
 
-        int locNum = 0;
-        if( !it->CBPPort().empty() )
-        {
+          int locNum = 0;
+          if( !it->CBPPort().empty() )
+          {
             // LOC
             viewLocElement( pMes, LocElem( LocElem::CustomsAndBorderProtection, it->CBPPort() ), locNum++ );
-        }
-        if( !it->depPort().empty() )
-        {
+          }
+          if( !it->depPort().empty() )
+          {
             // LOC
             viewLocElement( pMes, LocElem( LocElem::StartJourney, it->depPort() ), locNum++ );
-        }
-        if( !it->arrPort().empty() )
-        {
+          }
+          if( !it->arrPort().empty() )
+          {
             // LOC
             viewLocElement( pMes, LocElem( LocElem::FinishJourney, it->arrPort() ), locNum++ );
-        }
-        if( !it->residCountry().empty() )
-        {
+          }
+          if( !it->residCountry().empty() )
+          {
             // LOC
             viewLocElement( pMes, LocElem( LocElem::CountryOfResidence, it->residCountry() ), locNum++ );
-        }
-        if( !it->birthCountry().empty() )
-        {
+          }
+          if( !it->birthCountry().empty() )
+          {
             // LOC
             viewLocElement( pMes, LocElem( LocElem::CountryOfBirth,
                                            it->birthCountry(),
                                            it->birthCity(),
                                            it->birthRegion()), locNum++ );
-        }
+          }
 
-        if( !it->nationality().empty() )
-        {
+          if( !it->nationality().empty() )
+          {
             // NAT
             viewNatElement( pMes, NatElem( "2", it->nationality() ) );
+          }
         }
 
         int rffNum = 0;
-        if( !it->reservNum().empty() )
+        if( paxlst.type()==PaxlstInfo::IAPIClearPassengerRequest ||  //для IAPI выводим пустой элемент AVF
+            paxlst.type()==PaxlstInfo::IAPIChangePassengerData ||
+            !it->reservNum().empty() )
         {
             // RFF
             viewRffElement( pMes, RffElem( "AVF", it->reservNum() ), rffNum++ );
         }
-
-        for( vector< pair<int,string> >::const_iterator i = it->seats().begin(); i != it->seats().end(); i++ )
+        if( !it->paxRef().empty() )
         {
             // RFF
-            viewRffElement( pMes, RffElem( "SEA", IntToString( i->first ) + i->second ), rffNum++ );
+            viewRffElement( pMes, RffElem( "ABO", it->paxRef() ), rffNum++ );
         }
 
-        int seg5iter = 0;
-        if( !it->docType().empty() || !it->docNumber().empty() )
+        if (paxlst.type()!=PaxlstInfo::IAPIFlightCloseOnBoard)
         {
+          if( !it->ticketNumber().empty() )
+          {
+            // RFF
+            viewRffElement( pMes, RffElem( "YZY", it->ticketNumber() ), rffNum++ );
+          }
+
+          for( vector<pair<int,string>>::const_iterator i = it->seats().begin(); i != it->seats().end(); i++ )
+          {
+            // RFF
+            viewRffElement( pMes, RffElem( "SEA", IntToString( i->first ) + i->second ), rffNum++ );
+          }
+
+          int seg5iter = 0;
+          if( !it->docType().empty() || !it->docNumber().empty() )
+          {
             SetEdiSegGr( pMes, SegGrElement( 5, seg5iter ) );
             PushEdiPointW( pMes );
             SetEdiPointToSegGrW( pMes, SegGrElement( 5, seg5iter ) );
@@ -302,24 +343,24 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
 
             if( it->docExpirateDate() != ASTRA::NoExists )
             {
-                // DTM
-                viewDtmElement( pMes, DtmElem( DtmElem::DocExpireDate, it->docExpirateDate() ) );
+              // DTM
+              viewDtmElement( pMes, DtmElem( DtmElem::DocExpireDate, it->docExpirateDate() ) );
             }
 
 
             if( !it->docCountry().empty() )
             {
-                // LOC
-                viewLocElement( pMes, LocElem( LocElem::DocCountry, it->docCountry() ) );
+              // LOC
+              viewLocElement( pMes, LocElem( LocElem::DocCountry, it->docCountry() ) );
             }
 
             PopEdiPointW( pMes );
             ++seg5iter;
-        }
+          }
 
-        // ВИЗА
-        if( !it->docoType().empty() || !it->docoNumber().empty() )
-        {
+          // ВИЗА
+          if( !it->docoType().empty() || !it->docoNumber().empty() )
+          {
             SetEdiSegGr( pMes, SegGrElement( 5, seg5iter ) );
             PushEdiPointW( pMes );
             SetEdiPointToSegGrW( pMes, SegGrElement( 5, seg5iter ) );
@@ -327,24 +368,29 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
             // DOC
             viewDocElement( pMes, DocElem( it->docoType(), it->docoNumber(), paxlst.settings().respAgnCode() ) );
 
+            if( it->docoExpirateDate() != ASTRA::NoExists )
+            {
+              // DTM
+              viewDtmElement( pMes, DtmElem( DtmElem::DocExpireDate, it->docoExpirateDate() ) );
+            }
+
             if( !it->docoCountry().empty() )
             {
-                // LOC
-                viewLocElement( pMes, LocElem( LocElem::DocCountry, it->docoCountry() ) );
+              // LOC
+              viewLocElement( pMes, LocElem( LocElem::DocCountry, it->docoCountry() ) );
             }
 
             PopEdiPointW( pMes );
             ++seg5iter;
+          }
         }
 
         PopEdiPointW( pMes );
     }
 
     // CNT
-    viewCntElement( pMes, CntElem( paxlst.type()==PaxlstInfo::FlightPassengerManifest?
-                                     CntElem::PassengersTotal:
-                                     CntElem::CrewTotal,
-                                   totalCnt ) );
+    viewCntElement( pMes, paxlst.getCntElem(totalCnt) );
+
     if (paxlst.settings().viewUNGandUNE())
     {
       // UNE
@@ -393,6 +439,10 @@ static std::string createEdiPaxlstString( const PaxlstInfo& paxlst,
     strcpy( edih.our_ref, ediRef.c_str() );
     strcpy( edih.FseId, paxlst.settings().appRef().c_str() );
     strcpy( edih.unh_number, UnhNumber );
+//    strcpy( edih.unh_number,
+//            !paxlst.settings().unh_number().empty()?
+//             paxlst.settings().unh_number().c_str():
+//             UnhNumber );
     strcpy( edih.ver_num, VerNum );
     strcpy( edih.rel_num, paxlst.settings().mesRelNum().c_str() );
     strcpy( edih.cntrl_agn, CntrlAgn );
@@ -406,7 +456,8 @@ static std::string createEdiPaxlstString( const PaxlstInfo& paxlst,
         throw EXCEPTIONS::Exception( "pMes is null" );
 
     collectPaxlstMessage( pMes, paxlst, nowUtc, partNum, partsCnt, totalCnt );
-    return "UNA:+.? '\n" + ediMessageToStr( pMes );
+
+    return "UNA:+.? '\n" + StrUtils::replaceSubstrCopy(ediMessageToStr(pMes), "'", "'\n");
 }
 
 static void splitPaxlst( std::list< PaxlstInfo >& splitted,
@@ -428,7 +479,7 @@ static void splitPaxlst( std::list< PaxlstInfo >& splitted,
     }
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 void PaxlstInfo::addPassenger( const PassengerInfo& pass )
 {
@@ -469,8 +520,12 @@ std::vector< std::string > PaxlstInfo::toEdiStrings( unsigned maxPaxPerString ) 
 
 void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const int crew_num, const int version) const
 {
-  if ( ( ( m_type == FlightPassengerManifest ) && ( pax_num == 0 ) ) ||
-       ( ( m_type == FlightCrewManifest ) && ( crew_num == 0 ) ) )
+  if ( ( m_type == FlightPassengerManifest && pax_num == 0 )  ||
+       ( m_type == FlightCrewManifest && crew_num == 0 ) ||
+       ( m_type == IAPIClearPassengerRequest ) ||
+       ( m_type == IAPIChangePassengerData ) ||
+       ( m_type == IAPIFlightCloseOnBoard ) ||
+       ( m_type == IAPICancelFlight ) )
       return;
 
   // Make segment "Message"
@@ -534,20 +589,20 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
         NewTextChild(codeshareNode, "FlightNumber", i->second);
       }
     }
-    if (depDateTime() == ASTRA::NoExists)
-      throw Exception("ScheduledDepartureDateTime is empty");
-    NewTextChild(flightNode, "ScheduledDepartureDateTime",
-                 DateTimeToStr(depDateTime(), "yyyy-mm-dd'T'hh:nn:00"));
-    if (depPort().empty())
-      throw Exception("DepartureAirport is empty");
-    NewTextChild(flightNode, "DepartureAirport", depPort());
-    if (arrDateTime() == ASTRA::NoExists)
-      throw Exception("EstimatedArrivalDateTime is empty");
-    NewTextChild(flightNode, "EstimatedArrivalDateTime",
-                 DateTimeToStr(arrDateTime(), "yyyy-mm-dd'T'hh:nn:00"));
-    if (arrPort().empty())
-      throw Exception("ArrivalAirport is empty");
-    NewTextChild(flightNode, "ArrivalAirport", arrPort());
+//    if (depDateTime() == ASTRA::NoExists)  //!!!vlad
+//      throw Exception("ScheduledDepartureDateTime is empty");
+//    NewTextChild(flightNode, "ScheduledDepartureDateTime",
+//                 DateTimeToStr(depDateTime(), "yyyy-mm-dd'T'hh:nn:00"));
+//    if (depPort().empty())
+//      throw Exception("DepartureAirport is empty");
+//    NewTextChild(flightNode, "DepartureAirport", depPort());
+//    if (arrDateTime() == ASTRA::NoExists)
+//      throw Exception("EstimatedArrivalDateTime is empty");
+//    NewTextChild(flightNode, "EstimatedArrivalDateTime",
+//                 DateTimeToStr(arrDateTime(), "yyyy-mm-dd'T'hh:nn:00"));
+//    if (arrPort().empty())
+//      throw Exception("ArrivalAirport is empty");
+//    NewTextChild(flightNode, "ArrivalAirport", arrPort());
     xmlNodePtr FlightLegsNode = NewTextChild(flightNode, "FlightLegs");
     fltLegs().FlightLegstoXML(FlightLegsNode);
   }
@@ -662,16 +717,247 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
 
 void PaxlstInfo::checkInvariant() const
 {
-    if( passengersList().size() < 1 || passengersList().size() > 99999 )
+    if( passengersList().size() > 99999 )
         throw EXCEPTIONS::Exception( "Bad paxlst size!" );
 
     if( senderName().empty() )
         throw EXCEPTIONS::Exception( "Empty sender name!" );
+
+    if( stopsBeforeBorder().empty() ||
+        stopsAfterBorder().empty())
+        throw EXCEPTIONS::Exception( "Empty stopsBeforeBorder or stopsAfterBorder!" );
 }
+
+BgmElem PaxlstInfo::getBgmElem() const
+{
+  switch(m_type)
+  {
+    case FlightPassengerManifest:
+      return BgmElem("745", m_docId);
+    case FlightCrewManifest:
+      return BgmElem("250", m_docId);
+    case IAPIClearPassengerRequest:
+      return BgmElem("745","");
+    case IAPIChangePassengerData:
+      return BgmElem("745","CP");
+    case IAPIFlightCloseOnBoard:
+      return BgmElem("266","CLOB");
+    case IAPICancelFlight:
+      return BgmElem("266","XF");
+  }
+  throw EXCEPTIONS::Exception( "%s: Unsupported message type", __func__ );
+}
+
+CntElem PaxlstInfo::getCntElem(const int totalCnt) const
+{
+  switch(m_type)
+  {
+    case FlightPassengerManifest:
+    case IAPIClearPassengerRequest:
+    case IAPIChangePassengerData:
+    case IAPIFlightCloseOnBoard:
+    case IAPICancelFlight:
+      return CntElem(CntElem::PassengersTotal, totalCnt);
+    case FlightCrewManifest:
+      return CntElem(CntElem::CrewTotal, totalCnt);
+  }
+  throw EXCEPTIONS::Exception( "%s: Unsupported message type", __func__ );
+}
+
+NadElem PaxlstInfo::getNadElem(const Paxlst::PassengerInfo& pax) const
+{
+  switch(m_type)
+  {
+    case FlightPassengerManifest:
+    case FlightCrewManifest:
+    case IAPIClearPassengerRequest:
+    case IAPIChangePassengerData:
+      return NadElem(m_type==PaxlstInfo::FlightCrewManifest?"FM":"FL",
+                     pax.surname(),
+                     pax.first_name(),
+                     pax.second_name(),
+                     pax.street(),
+                     pax.city(),
+                     pax.countrySubEntityCode(),
+                     pax.postalCode(),
+                     pax.destCountry());
+    case IAPIFlightCloseOnBoard:
+      return NadElem("ZZZ", "");
+    case IAPICancelFlight: ; //там вообще нет элементов NAD для пассажира
+  }
+  throw EXCEPTIONS::Exception( "%s: Unsupported message type", __func__ );
+}
+
 }//namespace Paxlst
 
+/////////////////////////////////////////////////////////////////////////////////////////
 
-//-----------------------------------------------------------------------------
+namespace edifact {
+
+using namespace Ticketing::TickReader;
+using namespace edilib;
+
+void collectPAXLST(_EDI_REAL_MES_STRUCT_ *pMes, const Paxlst::PaxlstInfo& paxlst)
+{
+    Paxlst::collectPaxlstMessage(pMes, paxlst, NowUTC(), 1, 1, paxlst.passengersList().size());
+}
+
+//
+
+Cusres::Cusres(const BgmElem& bgm)
+    : m_bgm(bgm)
+{}
+
+
+Cusres::SegGr3::SegGr3(const RffElem& rff,
+                       const DtmElem& dtm1,
+                       const DtmElem& dtm2,
+                       const LocElem& loc1,
+                       const LocElem& loc2)
+    : m_rff(rff),
+      m_dtm1(dtm1),
+      m_dtm2(dtm2),
+      m_loc1(loc1),
+      m_loc2(loc2)
+{}
+
+Cusres::SegGr4::SegGr4(const ErpElem& erp,
+                       const ErcElem& erc)
+    : m_erp(erp),
+      m_erc(erc)
+{}
+
+Cusres readCUSRES(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    auto bgm = readEdiBgm(pMes);
+    ASSERT(bgm);
+
+    Cusres cusres(*bgm);
+
+    // UNG
+    cusres.m_ung = readEdiUng(pMes);
+    // RFF
+    cusres.m_rff = readEdiRff(pMes);
+
+    int numSg3 = GetNumSegGr(pMes, 3);
+    for(int currSg3 = 0; currSg3 < numSg3; ++currSg3)
+    {
+        EdiPointHolder sg3_holder(pMes);
+        SetEdiPointToSegGrG(pMes, SegGrElement(3, currSg3), "PROG_ERR");
+
+        // RFF
+        auto rff = readEdiRff(pMes);
+        ASSERT(rff);
+        // DTM
+        auto dtm1 = readEdiDtm(pMes, 0);
+        ASSERT(dtm1);
+        // DTM
+        auto dtm2 = readEdiDtm(pMes, 1);
+        ASSERT(dtm2);
+        // LOC
+        auto loc1 = readEdiLoc(pMes, 0);
+        ASSERT(loc1);
+        // LOC
+        auto loc2 = readEdiLoc(pMes, 1);
+        ASSERT(loc2);
+
+        cusres.m_vSegGr3.push_back(Cusres::SegGr3(*rff,
+                                                  *dtm1,
+                                                  *dtm2,
+                                                  *loc1,
+                                                  *loc2));
+    }
+
+    int numSg4 = GetNumSegGr(pMes, 4);
+    for(int currSg4 = 0; currSg4 < numSg4; ++currSg4)
+    {
+        EdiPointHolder sg4_holder(pMes);
+        SetEdiPointToSegGrG(pMes, SegGrElement(4, currSg4), "PROG_ERR");
+
+        // ERP
+        auto erp = readEdiErp(pMes);
+        ASSERT(erp);
+        // ERC
+        auto erc = readEdiErc(pMes);
+        ASSERT(erc);
+
+        Cusres::SegGr4 segGr4(*erp, *erc);
+        // RFF
+        if(auto rff0 = readEdiRff(pMes, 0)) {
+            segGr4.m_vRff.push_back(*rff0);
+        }
+
+        if(auto rff1 = readEdiRff(pMes, 1)) {
+            segGr4.m_vRff.push_back(*rff1);
+        }
+
+        if(auto rff2 = readEdiRff(pMes, 2)) {
+            segGr4.m_vRff.push_back(*rff2);
+        }
+
+        // FTX
+        segGr4.m_ftx = readEdiFtx(pMes);
+
+        cusres.m_vSegGr4.push_back(segGr4);
+    }
+
+    // UNE
+    cusres.m_une = readEdiUne(pMes);
+
+    return cusres;
+}
+
+Cusres readCUSRES(const std::string& ediText)
+{
+    int ret = ReadEdiMessage(ediText.c_str());
+    if(ret == EDI_MES_STRUCT_ERR){
+        throw EXCEPTIONS::Exception("Error in message structure: %s", EdiErrGetString());
+    } else if( ret == EDI_MES_NOT_FND){
+        throw EXCEPTIONS::Exception("No message found in template: %s", EdiErrGetString());
+    } else if( ret == EDI_MES_ERR) {
+        throw EXCEPTIONS::Exception("Edifact error ");
+    }
+
+    return readCUSRES(GetEdiMesStruct());
+}
+
+//---------------------------------------------------------------------------------------
+
+std::ostream& operator<<(std::ostream& os, const Cusres& cusres)
+{
+    os << "CUSRES:" << "\n";
+    os << cusres.m_bgm << "\n";
+    if(cusres.m_rff) {
+        os << *cusres.m_rff << "\n";
+    }
+    os << "Sg3:\n";
+    for(const Cusres::SegGr3& sg3: cusres.m_vSegGr3) {
+        os << sg3.m_rff << "\n"
+           << sg3.m_dtm1 << "\n"
+           << sg3.m_dtm2 << "\n"
+           << sg3.m_loc1 << "\n"
+           << sg3.m_loc2 << "\n";
+        os << "\n";
+    }
+    os << "\nSg4:\n";
+    for(const Cusres::SegGr4& sg4: cusres.m_vSegGr4) {
+        os << sg4.m_erp << "\n"
+           << sg4.m_erc << "\n";
+        for(const RffElem& rff: sg4.m_vRff) {
+            os << rff << "\n";
+        }
+
+        if(sg4.m_ftx) {
+            os << *sg4.m_ftx << "\n";
+        }
+        os << "\n";
+    }
+    return os;
+}
+
+}//namespace edifact
+
+/////////////////////////////////////////////////////////////////////////////////////////
 
 #ifdef XP_TESTING
 
@@ -695,6 +981,14 @@ namespace
     {
         Paxlst::PaxlstInfo paxlstInfo(Paxlst::PaxlstInfo::FlightPassengerManifest, "");
         paxlstInfo.settings().setViewUNGandUNE(true);
+
+        TDateTime depDate = ASTRA::NoExists;
+        StrToDateTime( "08.10.07 10:45:00", depDate ); //"0710081045"
+        TDateTime arrDate = ASTRA::NoExists;
+        StrToDateTime( "08.10.07 13:10:00", arrDate ); //"0710081310"
+
+        paxlstInfo.setCrossBorderFlightStops( "PRG", depDate,
+                                              "BCN", arrDate );
 
         paxlstInfo.setPartyName( "CDGkoAF" );
 
@@ -726,13 +1020,10 @@ namespace
         paxlstInfo.setIataCode( "OK688/071008/1310" );
 
         paxlstInfo.setFlight( "OK688" );
-        paxlstInfo.setDepPort( "PrG" );
         TDateTime depDate = ASTRA::NoExists, arrDate = ASTRA::NoExists;
         StrToDateTime( "08.10.07 10:45:00", depDate ); //"0710081045"
-        paxlstInfo.setDepDateTime( depDate );
-        paxlstInfo.setArrPort( "BCN" );
-        StrToDateTime( "08.10.07 13:10:00", arrDate ); //"0710081310"
-        paxlstInfo.setArrDateTime( arrDate );
+        StrToDateTime( "08.10.07 13:10:00", arrDate ); //"0710081310"        
+        paxlstInfo.setCrossBorderFlightStops( "PrG", depDate, "BCN", arrDate);
 
         Paxlst::PassengerInfo pass1;
         pass1.setSurname( "STRANSKY" );
@@ -804,15 +1095,15 @@ namespace
 
         paxlstInfo.setFlight( "OK688XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
 
-        paxlstInfo.setDepPort( "PRGXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         TDateTime depDate = ASTRA::NoExists;
         StrToDateTime( "08.10.07 10:45:00", depDate ); //"0710081045"
-        paxlstInfo.setDepDateTime( depDate );
-
-        paxlstInfo.setArrPort( "BCNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
         TDateTime arrDate = ASTRA::NoExists;
         StrToDateTime( "08.10.07 13:10:00", arrDate ); //"0710081310"
-        paxlstInfo.setArrDateTime( arrDate );
+
+        paxlstInfo.setCrossBorderFlightStops( "PRGXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+                                              depDate,
+                                              "BCNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+                                              arrDate );
 
 
         Paxlst::PassengerInfo pass1;
@@ -987,10 +1278,10 @@ START_TEST( test2 )
       "BGM+745'\n"
       "NAD+MS+++CDGKOAF'\n"
       "TDT+20'\n"
-      "LOC+125'\n"
-      "DTM+189::201'\n"
-      "LOC+87'\n"
-      "DTM+232::201'\n"
+      "LOC+125+PRG'\n"
+      "DTM+189:0710081045:201'\n"
+      "LOC+87+BCN'\n"
+      "DTM+232:0710081310:201'\n"
       "NAD+FL+++STRANSKY'\n"
       "ATT+2++M'\n"
       "DTM+329'\n"
@@ -1001,7 +1292,7 @@ START_TEST( test2 )
     // Сгенерированный текст
     LogTrace(TRACE5) << "\nText:\n" << text;
 
-    std::string chk( ts.check( text ) );
+    std::string chk( ts.show_mismatch( text ) );
     fail_unless( chk.empty(), "PAXLST mismatched %s", chk.c_str() );
 }
 END_TEST;
@@ -1056,7 +1347,7 @@ START_TEST( test3 )
     // Сгенерированный текст
     LogTrace(TRACE5) << "\nText:\n" << text;
 
-    std::string chk( ts.check( text ) );
+    std::string chk( ts.show_mismatch( text ) );
     fail_unless( chk.empty(), "PAXLST mismatched %s", chk.c_str() );
 }
 END_TEST;
@@ -1142,7 +1433,7 @@ START_TEST( test6 )
       "UNT+37+1'\n"
       "UNE+1+1'\n";
 
-    std::string chk( ts.check( tlgs.front() ) );
+    std::string chk( ts.show_mismatch( tlgs.front() ) );
     fail_unless( chk.empty(), "PAXLST mismatched %s", chk.c_str() );
 }
 END_TEST;
@@ -1188,7 +1479,7 @@ START_TEST( test7 )
           ts << "UNE+1+1'\n";;
 
         LogTrace(TRACE5) << "tlgs.part1:\n" << tlgs[ 0 ];
-        std::string chk( ts.check( tlgs[ 0 ] ) );
+        std::string chk( ts.show_mismatch( tlgs[ 0 ] ) );
         fail_unless( chk.empty(), "PAXLST part1 mismatched %s", chk.c_str() );
     }
 
@@ -1227,7 +1518,7 @@ START_TEST( test7 )
           "UNE+1+1'\n";
 
         LogTrace(TRACE5) << "tlg.part2:\n" << tlgs[ 1 ];
-        std::string chk( ts.check( tlgs[ 1 ] ) );
+        std::string chk( ts.show_mismatch( tlgs[ 1 ] ) );
         fail_unless( chk.empty(), "PAXLST part2 mismatched %s", chk.c_str() );
     }
 
@@ -1257,7 +1548,7 @@ START_TEST( test7 )
           "UNE+1+1'\n";
 
         LogTrace(TRACE5) << "tlg.part3:\n" << tlgs[ 2 ];
-        std::string chk( ts.check( tlgs[ 2 ] ) );
+        std::string chk( ts.show_mismatch( tlgs[ 2 ] ) );
         fail_unless( chk.empty(), "PAXLST part3 mismatched %s", chk.c_str() );
     }
 }
@@ -1315,7 +1606,7 @@ START_TEST( test8 )
       "UNT+37+1'\n"
       "UNE+1+1'\n";
 
-    std::string chk( ts.check( tlgs.front() ) );
+    std::string chk( ts.show_mismatch( tlgs.front() ) );
     fail_unless( chk.empty(), "PAXLST mismatched %s", chk.c_str() );
 }
 END_TEST;
@@ -1334,5 +1625,6 @@ TCASEREGISTER( init, tear_down)
     ADD_TEST( test8 );
 }
 TCASEFINISH;
+#undef SUITENAME
 
 #endif /*XP_TESTING*/

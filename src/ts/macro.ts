@@ -116,6 +116,54 @@ $(defmacro PREPARE_SEASON_SCD
 }
 ) # end-of-macro
 
+#########################################################################################
+
+$(defmacro TKCREQ_ET_COS
+    from
+    to
+    ediref
+    airl
+    tickno
+    cpnno
+    status
+    pult=xxxxxx
+    depp=ÑåÑ
+    arrp=èãä
+    fltno=103
+    subcls=Y
+    depd=$(ddmmyy)
+{UNB+SIRE:1+$(from)+$(to)+xxxxxx:xxxx+$(ediref)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(ediref)"
+MSG+:142"
+ORG+1H:åéÇ+++$(airl)+Y+::xx+$(pult)"
+EQN+1:TD"
+TKT+$(tickno):T"
+CPN+$(cpnno):$(status)"
+TVL+$(depd)+$(depp)+$(arrp)+$(airl)+$(fltno)++1"
+UNT+8+1"
+UNZ+1+$(ediref)0001"}
+) # end-of-macro TKCREQ_ET_COS
+
+#########################################################################################
+
+$(defmacro TKCRES_ET_COS
+    from
+    to
+    ediref
+    tickno
+    cpnno
+    status
+{UNB+SIRE:1+$(from)+$(to)+160408:0828+$(ediref)0001+++T"
+UNH+1+TKCRES:06:1:IA+$(ediref)"
+MSG+:142+3"
+EQN+1:TD"
+TKT+$(tickno):T::3"
+CPN+$(cpnno):$(status)::E"
+UNT+6+1"
+UNZ+1+$(ediref)0001"}
+) # end-of-macro TKCRES_ET_COS
+
+#########################################################################################
 
 $(defmacro INBOUND_PNL_1
     airl
@@ -526,6 +574,34 @@ Y059
 ENDPNL}
 ) #end-of-macro
 
+#########################################################################################
+
+$(defmacro PREPARE_FLIGHT_1PAX_1SEG
+    airl=ûí
+    flt=103
+    depp=ÑåÑ
+    arrp=èãä
+    surname=REPIN
+    name=IVAN
+{
+$(PREPARE_SEASON_SCD $(get_lat_code awk $(airl))
+                     $(get_lat_code aer $(depp))
+                     $(get_lat_code aer $(arrp))
+                     $(flt))
+$(create_spp $(ddmmyyyy +0))
+
+<<
+$(INBOUND_PNL_1 $(get_lat_code awk $(airl))
+                $(get_lat_code aer $(depp))
+                $(get_lat_code aer $(arrp))
+                $(flt)
+                $(surname) $(name))
+
+$(create_random_trip_comp $(get_dep_point_id $(depp) $(airl) 103 $(yymmdd +0)) ù)
+}) #end-of-macro PREPARE_FLIGHT_1PAX_1SEG
+
+#########################################################################################
+
 
 
 
@@ -862,6 +938,8 @@ $(defmacro SAVE_ET_DISP
     dcs_addr=UTDC
     ets_addr=UTET
     recloc=G4LK6W
+    depp=DME
+    arrp=LED
 {
 {<?xml version='1.0' encoding='CP866'?>
 <term>
@@ -892,7 +970,7 @@ RCI+$(airl):$(recloc):1"
 MON+B:20.00:USD+T:20.00:USD"
 FOP+CA:3"
 PTK+++$(ddmmyy)+++:US"
-ODI+DME+LED"
+ODI+$(depp)+$(arrp)"
 ORG+UT:MOW++IAH++A+US+D80D1BWO"
 EQN+1:TD"
 TXD+700+0.00:::US"
@@ -902,7 +980,7 @@ IFT+4:10+REFUNDABLE"
 IFT+4:39+HOUSTON+UNITED AIRLINES INC"
 TKT+$(tickno):T:1:3"
 CPN+1:I"
-TVL+$(ddmmyy):2205+DME+LED+$(airl)+103:Y+J"
+TVL+$(ddmmyy):2205+$(depp)+$(arrp)+$(airl)+103:Y+J"
 RPI++NS"
 PTS++YINF"
 UNT+19+1"

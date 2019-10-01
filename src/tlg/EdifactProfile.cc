@@ -44,7 +44,7 @@ unsigned           EdifactProfile::syntaxVer() const  { return m_data.m_syntaxVe
 std::string EdifactProfile::version() const
 {
     std::string vers = m_data.m_version;
-    if(vers.length() < 2) {
+    if(vers.length() < 2 && StrUtils::isStrAllDigit(vers)) {
         vers = StrUtils::LPad(vers, 2, '0');
     }
     return vers;

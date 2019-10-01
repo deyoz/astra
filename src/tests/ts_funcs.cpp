@@ -129,6 +129,22 @@ static std::string FP_lastRedisplay(const std::vector<std::string> &args)
     return getLastRedisplay();
 }
 
+static int LastAppsMsgId;
+
+void setLastAppsMsgId(int lastAppsMsgId)
+{
+    LastAppsMsgId = lastAppsMsgId;
+}
+int getLastAppsMsgID()
+{
+    return LastAppsMsgId;
+}
+
+static std::string FP_lastAppsMsgId(const std::vector<std::string> &args)
+{
+    return std::to_string(getLastAppsMsgID());
+}
+
 static std::string FP_req(const std::vector<tok::Param>& params)
 {
     std::queue<std::string>& outq = GetTestContext()->outq;
@@ -338,6 +354,24 @@ static std::string getNextTripPointId(int pointId)
                         pointId,
                         trtNotCurrent, trtNotCancelled);
     return (route.empty() ? "" : boost::lexical_cast<std::string>(route.front().point_id));
+}
+
+static int getMoveId(int pointId)
+{
+   OciCpp::CursCtl cur = make_curs(
+"select MOVE_ID from POINTS where POINT_ID=:point_id");
+
+   int move_id = 0;
+   cur.bind(":point_id", pointId)
+      .def(move_id).exfet();
+   return move_id;   
+}
+
+static std::string FP_get_move_id(const std::vector<std::string>& p)
+{
+    assert(p.size() > 0);
+    int move_id = getMoveId(std::atoi(p.at(0).c_str()));
+    return std::to_string(move_id);
 }
 
 static std::string FP_get_next_trip_point_id(const std::vector<std::string>& p)
@@ -583,6 +617,12 @@ static std::string FP_lastGeneratedPaxId(const std::vector<std::string>& par)
     return std::to_string(lgpid);
 }
 
+static std::string FP_substr(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() == 3);
+    return par.at(0).substr(std::atoi(par.at(1).c_str()), std::atoi(par.at(2).c_str()));
+}
+
 
 
 FP_REGISTER("<<", FP_tlg_in);
@@ -592,9 +632,11 @@ FP_REGISTER("last_edifact_ref", FP_last_edifact_ref);
 FP_REGISTER("last_point_id_spp", FP_last_point_id_spp);
 FP_REGISTER("get_next_trip_point_id", FP_get_next_trip_point_id);
 FP_REGISTER("get_dep_point_id", FP_get_dep_point_id);
+FP_REGISTER("get_move_id", FP_get_move_id);
 FP_REGISTER("init_jxt_pult", FP_init_jxt_pult);
 FP_REGISTER("init", FP_init);
 FP_REGISTER("lastRedisplay", FP_lastRedisplay);
+FP_REGISTER("lastAppsMsgId", FP_lastAppsMsgId);
 FP_REGISTER("init_eds",   FP_init_eds);
 FP_REGISTER("init_dcs",   FP_init_dcs);
 FP_REGISTER("create_spp", FP_create_spp);
@@ -610,5 +652,6 @@ FP_REGISTER("prepare_bp_printing", FP_prepare_bp_printing);
 FP_REGISTER("deny_ets_interactive", FP_deny_ets_interactive);
 FP_REGISTER("settcl", FP_settcl);
 FP_REGISTER("last_generated_pax_id", FP_lastGeneratedPaxId);
+FP_REGISTER("substr", FP_substr);
 
 #endif /* XP_TESTING */

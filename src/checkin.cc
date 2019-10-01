@@ -37,7 +37,6 @@
 #include "pers_weights.h"
 #include "rozysk.h"
 #include "flt_binding.h"
-#include "apis.h"
 #include "qrys.h"
 #include "emdoc.h"
 #include "iatci.h"
@@ -61,6 +60,7 @@
 #include "tlg/tlg_parser.h"
 #include "ckin_search.h"
 #include "rfisc_calc.h"
+#include "iapi_interaction.h"
 
 #include <jxtlib/jxt_cont.h>
 #include <serverlib/cursctl.h>
@@ -80,6 +80,7 @@ using namespace ASTRA;
 using namespace BASIC::date_time;
 using namespace AstraLocale;
 using namespace AstraEdifact;
+using namespace EXCEPTIONS;
 using astra_api::xml_entities::ReqParams;
 using Ticketing::RemoteSystemContext::DcsSystemContext;
 
@@ -4393,6 +4394,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   vector<CheckIn::TTransferItem>::const_iterator iTrfer;
   map<int, std::pair<TCkinSegFlts, TTrferSetsInfo> > trfer_segs;
   bool rollbackGuaranteedOnFirstSegment=false;
+  IAPI::RequestCollector iapiCollector;
 
   for(TSegList::iterator iSegListItem=segList.begin();
       segNode!=NULL && iSegListItem!=segList.end();
@@ -4504,12 +4506,14 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         }
       }
 
+      TCompleteAPICheckInfo checkInfo;
+      if (!pr_unaccomp &&
+          (first_segment || !notCheckAPI))
+        checkInfo.set(grp.point_dep, grp.airp_arv);
+
       //проверим номера документов и билетов, ремарки
       if (!pr_unaccomp)
       {
-        TCompleteAPICheckInfo checkInfo;
-        if (first_segment || !notCheckAPI)
-          checkInfo.set(grp.point_dep, grp.airp_arv);
         boost::optional<TRemGrp> forbiddenRemGrp;
         for(CheckIn::TPaxList::iterator p=paxs.begin(); p!=paxs.end(); ++p)
         {
@@ -5246,6 +5250,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   processPax( pax_id );
                 }
 
+                iapiCollector.addPassengerIfNeed(pax_id, grp.point_dep, grp.airp_arv, checkInfo);
+
                 // Запись в pax_events
                 if(pax.pr_brd)
                     TPaxEvent().toDB(pax_id, TPaxEventTypes::BRD);
@@ -5514,6 +5520,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 HandleAPPSRems(p->rems, override, is_forced);
                 processPax( pax.id, override, is_forced );
               }
+
+              iapiCollector.addPassengerIfNeed(pax.id, grp.point_dep, grp.airp_arv, checkInfo);
             }
             catch(CheckIn::UserException)
             {
@@ -6138,6 +6146,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         }
 
         timing.finish("utg_prl", grp.point_dep);
+
+        timing.start("iapiCollector", grp.point_dep);
+        iapiCollector.send();
+        timing.finish("iapiCollector", grp.point_dep);
       }
     }
     catch(UserException &e)

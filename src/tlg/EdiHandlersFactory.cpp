@@ -14,10 +14,12 @@
 #include "EtDispResponseHandler.h"
 #include "EtCosResponseHandler.h"
 #include "EtRacResponseHandler.h"
+
 // emd handlers
 #include "EmdDispResponseHandler.h"
 #include "EmdCosResponseHandler.h"
 #include "EmdSysUpdateResponseHandler.h"
+
 // iatci handlers
 #include "IatciCkiResponseHandler.h"
 #include "IatciCkuResponseHandler.h"
@@ -33,9 +35,15 @@
 #include "IatciBprRequestHandler.h"
 #include "IatciPlfRequestHandler.h"
 #include "IatciSmfRequestHandler.h"
+
 // control method
 #include "UacRequestHandler.h"
 #include "EtCosRequestHandler.h"
+
+// apis
+#include "CusResponseHandler.h"
+#include "CusRequestHandler.h"
+
 
 #include <edilib/edi_astra_msg_types.h>
 
@@ -60,23 +68,25 @@ TlgHandling::AstraEdiResponseHandler* EdiResHandlersFactory(EDI_REAL_MES_STRUCT 
     // здесь будут регистрироваться обработчики edifact-ответов
     using namespace TlgHandling;
 
-    // ET
+    // et
     __DECLARE_HANDLER__(EtDispResponseHandler,       TKCRES, "131");
     __DECLARE_HANDLER__(EtCosResponseHandler,        TKCRES, "142");
-        // control method
+    // control method
     __DECLARE_HANDLER__(EtRacResponseHandler,        TKCRES, "734")
     __DECLARE_HANDLER__(EtRacResponseHandler,        TKCRES, "751")
-    // EMD
+    // emd
     __DECLARE_HANDLER__(EmdDispResponseHandler,      TKCRES, "791");
     __DECLARE_HANDLER__(EmdCosResponseHandler,       TKCRES, "793");
     __DECLARE_HANDLER__(EmdSysUpdateResponseHandler, TKCRES, "794");
-    // IATCI
+    // iatci
     __DECLARE_HANDLER__(IatciCkiResponseHandler,     DCRCKA, "I");
     __DECLARE_HANDLER__(IatciCkuResponseHandler,     DCRCKA, "U");
     __DECLARE_HANDLER__(IatciCkxResponseHandler,     DCRCKA, "X");
     __DECLARE_HANDLER__(IatciBprResponseHandler,     DCRCKA, "B");
     __DECLARE_HANDLER__(IatciPlfResponseHandler,     DCRCKA, "P");
     __DECLARE_HANDLER__(IatciSmfResponseHandler,     DCRSMF, "S");
+    // iapi
+    __DECLARE_HANDLER__(CusResponseHandler,          CUSRES, "962");
 
     LogError(STDLOG) <<
             "There is no factory for message " << msgid <<
@@ -91,6 +101,7 @@ TlgHandling::AstraEdiRequestHandler* EdiReqHandlersFactory(EDI_REAL_MES_STRUCT *
 {
     // здесь будут регистрироваться обработчики edifact-запросов
     using namespace TlgHandling;
+    // iatci
     __DECLARE_HANDLER__(IatciCkiRequestHandler,     DCQCKI, "");
     __DECLARE_HANDLER__(IatciCkuRequestHandler,     DCQCKU, "");
     __DECLARE_HANDLER__(IatciCkxRequestHandler,     DCQCKX, "");
@@ -100,6 +111,8 @@ TlgHandling::AstraEdiRequestHandler* EdiReqHandlersFactory(EDI_REAL_MES_STRUCT *
     // control method
     __DECLARE_HANDLER__(UacRequestHandler,          TKCUAC, "733");
     __DECLARE_HANDLER__(CosRequestHandler,          TKCREQ, "142");
+    // iapi
+    __DECLARE_HANDLER__(CusRequestHandler,          CUSUMS, "132");
 
     LogError(STDLOG) <<
             "There is no factory for message " << msgid <<

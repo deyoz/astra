@@ -23,11 +23,15 @@
 #include "remarks.h"
 #include "apis_tools.h"
 #include "astra_misc.h"
+#include "tlg/edi_elements.h"
+
+#include <edilib/edi_types.h>
+
+struct _EDI_REAL_MES_STRUCT_;
+
+namespace Paxlst {
 
 using BASIC::date_time::TDateTime;
-
-namespace Paxlst
-{
 
 class GeneralInfo
 {
@@ -101,17 +105,10 @@ public:
     }
 };
 
-//-------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
-class FlightInfo
+class FlightStop
 {
-    std::string m_carrier;
-
-    // Carrier Code/Flight Number. For example: OK051
-    /* maxlen = 17 */
-    /* required = C */
-    std::string m_flight;
-
     // Flight departure Airport. Three-character IATA Code
     /* maxlen = 25 */
     /* required = C */
@@ -130,32 +127,16 @@ class FlightInfo
     /* required = C */
     TDateTime m_arrDateTime;
 
-    // Marketing flights
-    std::map<std::string, std::string> mktFlts;
-    // Flight legs
-    FlightLegs legs;
-
 public:
-    FlightInfo()
-        : m_depDateTime( ASTRA::NoExists ), m_arrDateTime( ASTRA::NoExists )
-    {}
-
-    // carrier
-    const std::string& carrier() const {
-        return m_carrier;
+    FlightStop(const std::string& port,
+               const TDateTime arrDateTime,    //это время прилета относительно пункта
+               const TDateTime depDateTime)    //это время вылета относительно пункта
+    {
+        setDepPort(port);
+        setArrPort(port); // потому что мы пока не работаем с маршрутом где аэропорт предыдущего прилета не совпадает с аэропортом следующего вылета
+        setDepDateTime(depDateTime);
+        setArrDateTime(arrDateTime);
     }
-    void setCarrier( const std::string& f ) {
-        m_carrier = upperc( f.substr( 0, 17 ) );
-    }
-
-    // flight
-    const std::string& flight() const {
-        return m_flight;
-    }
-    void setFlight( const std::string& f ) {
-        m_flight = upperc( f.substr( 0, 17 ) );
-    }
-
     // departure airport
     const std::string& depPort() const {
         return m_depPort;
@@ -187,6 +168,46 @@ public:
     const TDateTime& arrDateTime() const {
         return m_arrDateTime;
     }
+};
+
+class FlightStops : public std::vector<FlightStop> {};
+
+class FlightInfo
+{
+    std::string m_carrier;
+
+    // Carrier Code/Flight Number. For example: OK051
+    /* maxlen = 17 */
+    /* required = C */
+    std::string m_flight;
+
+    FlightStops m_stopsBeforeBorder;
+    FlightStops m_stopsAfterBorder;
+
+    // Marketing flights
+    std::map<std::string, std::string> mktFlts;
+    // Flight legs
+    FlightLegs legs;
+
+public:
+    FlightInfo() {}
+
+    // carrier
+    const std::string& carrier() const {
+        return m_carrier;
+    }
+    void setCarrier( const std::string& f ) {
+        m_carrier = upperc( f.substr( 0, 17 ) );
+    }
+
+    // flight
+    const std::string& flight() const {
+        return m_flight;
+    }
+    void setFlight( const std::string& f ) {
+        m_flight = upperc( f.substr( 0, 17 ) );
+    }
+
     // marketing flights
     void addMarkFlt( const std::string& airline, const std::string& flight ) {
         mktFlts.insert(std::pair<std::string, std::string>(airline, flight));
@@ -201,9 +222,33 @@ public:
     const FlightLegs& fltLegs() const {
         return legs;
     }
+
+    const FlightStops& stopsBeforeBorder() const {
+        return m_stopsBeforeBorder;
+    }
+    FlightStops& stopsBeforeBorder() {
+        return m_stopsBeforeBorder;
+    }
+    const FlightStops& stopsAfterBorder() const {
+        return m_stopsAfterBorder;
+    }
+    FlightStops& stopsAfterBorder() {
+        return m_stopsAfterBorder;
+    }
+
+    void setCrossBorderFlightStops(const std::string& dp,
+                                   const TDateTime& ddt,
+                                   const std::string& ap,
+                                   const TDateTime& adt)
+    {
+      m_stopsBeforeBorder.clear();
+      m_stopsBeforeBorder.emplace_back(dp, ASTRA::NoExists, ddt);
+      m_stopsAfterBorder.clear();
+      m_stopsAfterBorder.emplace_back(ap, adt, ASTRA::NoExists);
+    }
 };
 
-//-------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 class PartyInfo
 {
@@ -260,7 +305,7 @@ public:
     }
 };
 
-//-------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 class PassengerInfo
 {
@@ -357,15 +402,19 @@ class PassengerInfo
     int m_bagWeight;
     std::set<std::string> m_bagTags;
     std::set<CheckIn::TPaxFQTItem> pax_fqts;
+    std::string m_pax_ref;
+    std::string m_proc_info; // Processing Information
 
     std::string m_doco_type;
     std::string m_doco_no;
     std::string m_doco_applic_country;
+    TDateTime   m_docoExpirateDate = ASTRA::NoExists;
 
 public:
     PassengerInfo()
         : m_birthDate( ASTRA::NoExists ), m_docExpirateDate( ASTRA::NoExists ),
-          m_bagCount( ASTRA::NoExists ), m_bagWeight( ASTRA::NoExists )
+          m_bagCount( ASTRA::NoExists ), m_bagWeight( ASTRA::NoExists ),
+          m_docoExpirateDate( ASTRA::NoExists )
     {}
 
     // passenger's surname
@@ -605,6 +654,22 @@ public:
     void setFqts(std::set<CheckIn::TPaxFQTItem>& values) {
       pax_fqts = values;
     }
+    const std::string& paxRef() const
+    {
+      return m_pax_ref;
+    }
+    void setPaxRef( const std::string& s )
+    {
+      m_pax_ref = upperc( s.substr( 0, 35 ) );
+    }
+    const std::string& procInfo() const
+    {
+      return m_proc_info;
+    }
+    void setProcInfo( const std::string& s )
+    {
+      m_proc_info = upperc( s.substr( 0, 3 ) );
+    }
 
     // passenger's visa type
     const std::string& docoType() const
@@ -615,6 +680,7 @@ public:
     {
       m_doco_type = upperc( t.substr( 0, 3 ) );
     }
+
     // passenger's visa number
     const std::string& docoNumber() const
     {
@@ -624,6 +690,7 @@ public:
     {
       m_doco_no = upperc( dn.substr( 0, 35 ) );
     }
+
     // passenger's visa country
     const std::string& docoCountry() const
     {
@@ -634,10 +701,21 @@ public:
       m_doco_applic_country = upperc( dc.substr( 0, 25 ) );
     }
 
+    // passenger's visa expirate date
+    const TDateTime& docoExpirateDate() const
+    {
+        return m_docoExpirateDate;
+    }
+    void setDocoExpirateDate( const TDateTime& ded )
+    {
+        m_docoExpirateDate = ded;
+    }
+
+
 };
 typedef std::list< PassengerInfo > PassengersList_t;
 
-//-------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 class PaxlstSettings
 {
@@ -647,6 +725,8 @@ class PaxlstSettings
     std::string m_respAgnCode;
     bool m_viewUNGandUNE;
     bool m_view_RFF_TN = false;
+    std::string m_RFF_TN;
+    std::string m_unh_number;
 
 public:
     PaxlstSettings()
@@ -674,9 +754,15 @@ public:
 
     bool view_RFF_TN() const { return m_view_RFF_TN; }
     void set_view_RFF_TN( bool view_RFF_TN ) { m_view_RFF_TN = view_RFF_TN; }
+
+    const std::string& RFF_TN() const { return m_RFF_TN; }
+    void set_RFF_TN( const std::string& rff_tn ) { m_RFF_TN = rff_tn; }
+
+    const std::string& unh_number() const { return m_unh_number; }
+    void set_unh_number( const std::string& num ) { m_unh_number = num.substr(0, EDI_MESNUM_LEN); }
 };
 
-//-------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 class PaxlstInfo: public GeneralInfo, public PartyInfo, public FlightInfo
 {
@@ -684,7 +770,11 @@ public:
     enum PaxlstType
     {
         FlightPassengerManifest,
-        FlightCrewManifest
+        FlightCrewManifest,
+        IAPIClearPassengerRequest,
+        IAPIChangePassengerData,
+        IAPIFlightCloseOnBoard,
+        IAPICancelFlight
     };
 private:
     PaxlstType m_type;
@@ -711,12 +801,18 @@ public:
     std::string toEdiString() const;
     void toXMLFormat(xmlNodePtr emulApisNode, const int psg_num, const int crew_num, const int version) const;
     std::vector< std::string > toEdiStrings( unsigned maxPaxPerString ) const;
+    edifact::BgmElem getBgmElem() const;
+    edifact::CntElem getCntElem(const int totalCnt) const;
+    edifact::NadElem getNadElem(const Paxlst::PassengerInfo& pax) const;
+
+    bool passengersListMayBeEmpty() const { return m_type==IAPIFlightCloseOnBoard; }
+    bool passengersListAlwaysEmpty() const { return m_type==IAPICancelFlight; }
 
 protected:
     void checkInvariant() const;
 };
 
-//-------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 std::string createEdiPaxlstFileName( const std::string& carrierCode,
                                      const int& flightNumber,
@@ -731,6 +827,77 @@ std::string createEdiPaxlstFileName( const std::string& carrierCode,
 std::string createIataCode( const std::string& flight,
                             const TDateTime& destDateTime,
                             const std::string& destDateTimeFmt = "/yymmdd/hhnn" );
+
+
 }//namespace Paxlst
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+namespace edifact {
+
+void collectPAXLST(_EDI_REAL_MES_STRUCT_ *pMes, const Paxlst::PaxlstInfo& paxlst);
+
+//
+
+struct Cusres
+{
+    struct SegGr3
+    {
+        RffElem m_rff;
+        DtmElem m_dtm1;
+        DtmElem m_dtm2;
+        LocElem m_loc1;
+        LocElem m_loc2;
+
+        SegGr3(const RffElem& rff,
+               const DtmElem& dtm1,
+               const DtmElem& dtm2,
+               const LocElem& loc1,
+               const LocElem& loc2);
+    };
+
+    //---------------------------------
+
+    struct SegGr4
+    {
+        ErpElem                  m_erp;
+        ErcElem                  m_erc;
+        std::vector<RffElem>     m_vRff;
+        boost::optional<FtxElem> m_ftx;
+
+        SegGr4(const ErpElem& erp,
+               const ErcElem& erc);
+    };
+
+    //---------------------------------
+
+    BgmElem                  m_bgm;
+    boost::optional<UngElem> m_ung;
+    boost::optional<RffElem> m_rff;
+    boost::optional<UneElem> m_une;
+    std::vector<SegGr3>      m_vSegGr3;
+    std::vector<SegGr4>      m_vSegGr4;
+
+    Cusres(const BgmElem& bgm);
+};
+
+//---------------------------------------------------------------------------------------
+
+Cusres readCUSRES(_EDI_REAL_MES_STRUCT_ *pMes);
+Cusres readCUSRES(const std::string& ediText);
+
+//---------------------------------------------------------------------------------------
+
+std::ostream& operator<<(std::ostream& os, const Cusres& cusres);
+
+class CusresCallbacks
+{
+    public:
+        virtual ~CusresCallbacks() {}
+        virtual void onCusResponseHandle(TRACE_SIGNATURE, const Cusres& cusres) = 0;
+        virtual void onCusRequestHandle(TRACE_SIGNATURE, const Cusres& cusres) = 0;
+};
+
+}//namespace edifact
 
 #endif//_APIS_EDI_FILE_H_

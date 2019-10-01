@@ -11,10 +11,12 @@ src/alarms.cc
 src/alarms.h
 src/aodb.cc
 src/aodb.h
-src/apis.cc
-src/apis.h
+src/apis_creator.cc
+src/apis_creator.h
 src/apis_edi_file.cc
 src/apis_edi_file.h
+src/apis_settings.cc
+src/apis_settings.h
 src/apis_tools.cc
 src/apis_tools.h
 src/apis_utils.cc
@@ -143,6 +145,8 @@ src/http_io.cpp
 src/http_io.h
 src/http_main.cc
 src/http_main.h
+src/iapi_interaction.cc
+src/iapi_interaction.h
 src/images.cc
 src/images.h
 src/load_fr.cc
@@ -234,6 +238,10 @@ src/tlg/AgentWaitsForRemote.h
 src/tlg/CheckinBaseTypes.cpp
 src/tlg/CheckinBaseTypes.h
 src/tlg/CheckinBaseTypesOci.h
+src/tlg/CusResponseHandler.h
+src/tlg/CusResponseHandler.cpp
+src/tlg/CusRequestHandler.h
+src/tlg/CusRequestHandler.cpp
 src/tlg/EdiHandlersFactory.cpp
 src/tlg/EdiHandlersFactory.h
 src/tlg/EdiSessionTimeOut.cpp
