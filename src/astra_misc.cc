@@ -482,7 +482,7 @@ TDateTime DayMonthToDate(int day, int month, TDateTime base_date, TDateDirection
         try {
             EncodeDate(y, month, day, d);
         }
-        catch(EConvertError) { continue; };
+        catch(const EConvertError&) { continue; };
 
         if ((direction == dateBefore && d > base_date) || (direction == dateAfter && d < base_date))
             continue;
@@ -510,7 +510,7 @@ TDateTime DayToDate(int day, TDateTime base_date, bool back)
       {
         EncodeDate(iYear,iMonth,day,result);
       }
-      catch(EConvertError) {};
+      catch(const EConvertError&) {};
       if (iMonth==12)
       {
         iMonth=1;
@@ -529,7 +529,7 @@ TDateTime DayToDate(int day, TDateTime base_date, bool back)
       {
         EncodeDate(iYear,iMonth,day,result);
       }
-      catch(EConvertError) {};
+      catch(const EConvertError&) {};
       if (iMonth==1)
       {
         iMonth=12;
@@ -811,6 +811,19 @@ void TTripBase::GetRouteAfter(TDateTime part_key,
            true,route_type1,route_type2,Qry);
 };
 
+void TTripBase::GetRouteAfter(const TAdvTripInfo& fltInfo,
+                              TTripRouteType1 route_type1,
+                              TTripRouteType2 route_type2)
+{
+  TQuery Qry(&OraSession);
+  GetRoute(NoExists,
+           fltInfo.point_id,
+           fltInfo.point_num,
+           fltInfo.first_point,
+           fltInfo.pr_tranzit,
+           true,route_type1,route_type2,Qry);
+}
+
 void TTripBase::GetRouteBefore(TDateTime part_key,
                                 int point_id,
                                 int point_num,
@@ -821,6 +834,19 @@ void TTripBase::GetRouteBefore(TDateTime part_key,
 {
   TQuery Qry(&OraSession);
   GetRoute(part_key,point_id,point_num,first_point,pr_tranzit,
+           false,route_type1,route_type2,Qry);
+}
+
+void TTripBase::GetRouteBefore(const TAdvTripInfo& fltInfo,
+                               TTripRouteType1 route_type1,
+                               TTripRouteType2 route_type2)
+{
+  TQuery Qry(&OraSession);
+  GetRoute(NoExists,
+           fltInfo.point_id,
+           fltInfo.point_num,
+           fltInfo.first_point,
+           fltInfo.pr_tranzit,
            false,route_type1,route_type2,Qry);
 };
 
@@ -1956,7 +1982,7 @@ string GetRouteAfterStr(TDateTime part_key,
     {
       city=base_tables.get("airps").get_row("code",r->airp).AsString("city");
     }
-    catch (EBaseTableError) {};
+    catch (const EBaseTableError&) {};
 
     if (!city.empty())
       result << ElemIdToPrefferedElem(etCity, city, efmtNameLong, language, true)
@@ -2416,7 +2442,7 @@ void TInfantAdults::clear()
    temp_parent_id = NoExists;
 }
 
-void TAdvTripRoute::GetRouteBetween(int point_dep, const string& airp_arv)
+void TAdvTripRoute::getRouteBetween(int point_dep, const string& airp_arv)
 {
   clear();
   GetRouteAfter(NoExists, point_dep, trtWithCurrent, trtNotCancelled);

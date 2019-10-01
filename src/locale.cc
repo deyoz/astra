@@ -4,6 +4,7 @@
 #include "astra_pnr.h"
 #include "etick.h"
 #include "custom_alarms.h"
+#include "iapi_interaction.h"
 #include "tlg/tlg.h"
 #include "tlg/typeb_template_init.h"
 
@@ -126,6 +127,7 @@ int init_locale(void)
     init_rfisc_callbacks();
     init_ticket_callbacks();
     init_asvc_callbacks();
+    IAPI::init_callbacks();
     TlgLogger::setLogging();
     return 0;
 }

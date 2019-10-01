@@ -1406,7 +1406,7 @@ boost::optional<UapElem> readEdiUap(_EDI_REAL_MES_STRUCT_ *pMes)
     uap.m_surname      = GetDBFName(pMes, DataElement(3808), CompElement("C060"));
     uap.m_name         = GetDBFName(pMes, DataElement(3809), CompElement("C060"));
     uap.m_otherName    = GetDBFName(pMes, DataElement(9754), CompElement("C060"));
-    
+
     std::string birthDate  = GetDBFName(pMes, DataElement(9916), CompElement("C060"));
     if(!birthDate.empty()) {
         uap.m_birthDate = Dates::DateFromYYMMDD(birthDate,
@@ -1578,7 +1578,7 @@ boost::optional<FtxElem> readEdiFtx(_EDI_REAL_MES_STRUCT_ *pMes)
     }
 
     std::string subjectCode = GetDBFName(pMes, DataElement(4451), CompElement());
-    std::string freeText    = GetDBFName(pMes, DataElement(4440), CompElement("C108"));
+    std::string freeText    = GetDBFName(pMes, DataElement(4444), CompElement("C108"));
 
     return FtxElem(subjectCode, freeText);
 }

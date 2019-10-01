@@ -138,6 +138,18 @@ void SettingsList::getForTesting(const Settings& settingsPattern)
     add(settings.replaceFormat(ApisSetsQry));
 }
 
+void SettingsList::filterFormatsFromList(const std::set<std::string>& formats)
+{
+  for(SettingsList::iterator i=begin(); i!=end();)
+  {
+    const Settings& settings=i->second;
+    if (formats.find(settings.format())==formats.end())
+      i=erase(i);
+    else
+      ++i;
+  }
+}
+
 bool SettingsList::formatExists(const std::string& format) const
 {
   for(const auto& i : *this)

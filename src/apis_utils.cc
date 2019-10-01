@@ -199,32 +199,20 @@ void TCompleteAPICheckInfo::set(const int point_dep, const std::string& airp_arv
     bool is_inter=false;
     try
     {
-      string airline, country_dep, country_arv, city;
-      airline=fltInfo.airline;
-      city=base_tables.get("airps").get_row("code", fltInfo.airp ).AsString("city");
-      country_dep=base_tables.get("cities").get_row("code", city).AsString("country");
-      city=base_tables.get("airps").get_row("code", airp_arv ).AsString("city");
-      country_arv=base_tables.get("cities").get_row("code", city).AsString("country");
+      string country_dep=getCountryByAirp(fltInfo.airp).code;
+      string country_arv=getCountryByAirp(airp_arv).code;
 
-      TQuery Qry( &OraSession );
-      Qry.Clear();
-      Qry.SQLText=
-        "SELECT format FROM apis_sets "
-        "WHERE airline=:airline AND country_dep=:country_dep AND country_arv=:country_arv AND "
-        "      pr_denial=0";
-      Qry.CreateVariable("airline", otString, airline);
-      Qry.CreateVariable("country_dep", otString, country_dep);
-      Qry.CreateVariable("country_arv", otString, country_arv);
-      Qry.Execute();
-      for(;!Qry.Eof;Qry.Next())
-        _apis_formats.insert(Qry.FieldAsString("format"));
+      APIS::SettingsList settingsList;
+      settingsList.getByCountries(fltInfo.airline, country_dep, country_arv);
+      for(const auto& i : settingsList)
+        _apis_formats.insert(i.second.format());
 
       is_inter=!(country_dep=="êî" && country_arv=="êî");
     }
     catch(EBaseTableError) {};
 
     std::set<std::string> apps_formats;
-    if (checkAPPSSetsByAirpArv(point_dep, airp_arv, &apps_formats))
+    if (checkAPPSSets(point_dep, airp_arv, &apps_formats))
     {
       _apis_formats.insert(apps_formats.begin(), apps_formats.end());
       is_inter=true;
@@ -243,6 +231,7 @@ void TCompleteAPICheckInfo::set(const int point_dep, const std::string& airp_arv
           _pass.get(*api).required_fields |= pAPISFormat->required_fields(TAPISFormat::pass, *api);
           _crew.get(*api).required_fields |= pAPISFormat->required_fields(TAPISFormat::crew, *api);
         }
+        _pass.get(apiTkn).required_fields |= pAPISFormat->required_fields(TAPISFormat::pass, apiTkn);
       }
     }
     _extra_crew = _pass;

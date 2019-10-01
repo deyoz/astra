@@ -10,36 +10,25 @@
 #include "date_time.h"
 #include "qrys.h"
 #include "trip_tasks.h"
-#include "counters.h"
-#include "apis_edi_file.h"
-#include "apis_settings.h"
-
-//const bool CHINA_IAPI = true;
 
 const int NumSendAttempts = 5; // количество попыток до включения тревоги "Нет связи с APPS"
 const int MaxSendAttempts = 99; // максимальное количество попыток
 
 const std::string APPS_FORMAT_21 = "APPS_21";
 const std::string APPS_FORMAT_26 = "APPS_26";
-const std::string APPS_FORMAT_CHINA = "IAPI_CN"; // временное решение, потом перенести в таблицу APIS_SETS
-
 const int APPS_VERSION_21 = 21;
 const int APPS_VERSION_26 = 26;
 const int APPS_VERSION_27 = 27;
-const int APPS_VERSION_CHINA = 80; // временное решение, потом перенести в таблицу APIS_SETS
 
 enum APPSAction { NoAction, NeedUpdate, NeedNew, NeedCancel };
 
-void ProcessChinaCusres(const edifact::Cusres& cusres);
-int PaxIdFromCusres(const edifact::Cusres::SegGr4 &gr4);
-
-void processPax( const int pax_id, Timing::Points& timing, const std::string& override_type = "", const bool is_forced = false );
+void processPax( const int pax_id, const std::string& override_type = "", const bool is_forced = false );
 void APPSFlightCloseout( const int point_id );
 std::string getAnsText( const std::string& tlg );
 bool processReply( const std::string& source_raw );
-bool checkAPPSSets(const int point_dep, const int point_arv, std::set<std::string>* pFormats = nullptr );
-bool checkAPPSSetsByAirpArv( const int point_dep, const std::string& airp_arv, std::set<std::string>* pFormats = nullptr );
-bool checkAPPSSetsByAirpArv( const int point_dep, const std::string& airp_arv, bool& transit, std::set<std::string>* pFormats = nullptr );
+bool checkAPPSSets(const int point_dep, const int point_arv );
+bool checkAPPSSets( const int point_dep, const std::string& airp_arv, std::set<std::string>* pFormats = nullptr );
+bool checkAPPSSets( const int point_dep, const std::string& airp_arv, bool& transit, std::set<std::string>* pFormats = nullptr );
 bool checkTime( const int point_id );
 bool checkTime( const int point_id, TDateTime& start_time );
 std::string emulateAnswer( const std::string& request );
@@ -47,16 +36,13 @@ bool IsAPPSAnswText( const std::string& tlg_body );
 std::set<std::string> needFltCloseout( const std::set<std::string>& countries, const std::string airline );
 void sendAllAPPSInfo(const TTripTaskKey &task);
 void sendNewAPPSInfo(const TTripTaskKey &task);
-void reSendMsg( const int send_attempts, const std::string& msg_text, const int msg_id, const int version );
+void reSendMsg( const int send_attempts, const std::string& msg_text, const int msg_id );
 void deleteMsg( const int msg_id );
 void deleteAPPSData( const int pax_id );
 void deleteAPPSAlarms( const int pax_id, const int point_id_spp );
 const char* getAPPSRotName();
-const char* getIAPIRotName();
 
 int test_apps_tlg(int argc, char **argv);
-
-//int GetVersionByPaxId(const int pax_id);
 
 struct TAppsSets
 {
@@ -83,7 +69,7 @@ struct TTransData
   int version = 0;
 
   TTransData() : type( false ) {}
-  void init(const bool pre_ckin, const std::string& trans_code, const TAirlinesRow& airline, int ver, const int a_msg_id = ASTRA::NoExists );
+  void init( const bool pre_ckin, const std::string& trans_code, const TAirlinesRow& airline, int ver );
   bool operator == ( const TTransData& data ) const
   {
     return type == data.type &&
@@ -252,19 +238,12 @@ class TPaxRequest
   TPaxData pax;
   TPaxAddData pax_add;
   int version = 0;
-  int m_point_id = ASTRA::NoExists;
-  std::string m_airp_dep;
-  std::string m_airp_arv;
-  bool getByPaxId( const int pax_id, Timing::Points& timing, const std::string& override_type, const int msg_id = ASTRA::NoExists );
-  bool getByCrsPaxId( const int pax_id, Timing::Points& timing, const std::string& override_type, const int msg_id = ASTRA::NoExists );
-public:
+  bool getByPaxId( const int pax_id, const std::string& override_type );
+  bool getByCrsPaxId( const int pax_id, const std::string& override_type );
   void saveData() const;
-  int get_msg_id() const { return trans.msg_id; }
-  int get_point_id() const { return int_flt.point_id; }
-//  int get_version() const { return version; }
 
 public:
-  void init( const int pax_id, Timing::Points& timing, const std::string& override_type = "", const int msg_id = ASTRA::NoExists );
+  void init( const int pax_id, const std::string& override_type = "" );
   bool fromDBByPaxId( const int pax_id );
   bool fromDBByMsgId( const int msg_id );
   bool operator == (const TPaxRequest &c) const
@@ -282,43 +261,10 @@ public:
   APPSAction typeOfAction( const bool is_exists, const std::string& status,
                            const bool is_the_same, const bool is_forced ) const;
   std::string msg() const;
-//  std::string msg_china_iapi() const;
-  Paxlst::PaxlstInfo toPaxlst() const;
-
-  void InitPaxlstInfo(Paxlst::PaxlstInfo&, APIS::SettingsList&) const;
-  void InitPaxInfo(Paxlst::PassengerInfo&) const;
-
-  void sendReq(Timing::Points& timing) const;
+  void sendReq() const;
   std::string getStatus() const {
     return pax.status;
   }
-};
-
-class TAPPSPaxCollector
-{
-  public:
-      enum RequestType
-      {
-          APPSRequest,
-          IAPIClearPassengerRequest,
-          IAPIChangePassengerData,
-          IAPIFlightCloseOnBoard,
-          IAPICancelFlight
-      };
-
-  int version = 0;
-  int msg_id = ASTRA::NoExists, point_id = ASTRA::NoExists;
-//  std::vector<std::pair<int,int>> msg_ids;
-  bool first_pax = true;
-  std::unique_ptr<Paxlst::PaxlstInfo> paxlstInfo;
-  APIS::SettingsList settingsList;
-public:
-  void AddPassenger(const int pax_id,
-                    Timing::Points& timing,
-                    const RequestType requestType,
-                    const std::string& override_type = "",
-                    const bool is_forced = false);
-  void Flush();
 };
 
 class TManifestRequest
@@ -354,7 +300,6 @@ struct TAnsPaxData
                   error_code2(ASTRA::NoExists), error_code3(ASTRA::NoExists) {}
   std::string toString() const;
   void init( std::string source, int ver );
-  bool init_china_cusres(const edifact::Cusres::SegGr4& gr4, int ver);
 };
 
 struct TError
@@ -388,10 +333,9 @@ public:
   virtual void beforeProcessAnswer() const;
   virtual std::string toString() const;
   virtual void processErrors() const = 0;
-  virtual void processAnswer(bool=true) const = 0;
+  virtual void processAnswer() const = 0;
   virtual void logAnswer( const std::string& country, const int status_code,
                   const int error_code, const std::string& error_text ) const = 0;
-  bool init_china_cusres(const edifact::Cusres& cusres);
 };
 
 class TPaxReqAnswer : public TAPPSAns
@@ -405,11 +349,10 @@ public:
   virtual ~TPaxReqAnswer() {}
   virtual bool init( const std::string& code, const std::string& source );
   virtual void processErrors() const;
-  virtual void processAnswer(bool last_pax = true) const;
+  virtual void processAnswer() const;
   virtual std::string toString() const;
   virtual void logAnswer( const std::string& country, const int status_code,
                   const int error_code, const std::string& error_text ) const;
-  bool init_china_cusres(const edifact::Cusres& cusres, const edifact::Cusres::SegGr4& gr4);
 };
 
 class TMftAnswer : public TAPPSAns
@@ -425,7 +368,7 @@ public:
   virtual ~TMftAnswer() {}
   virtual bool init( const std::string& code, const std::string& source );
   virtual void processErrors() const;
-  virtual void processAnswer(bool=true) const;
+  virtual void processAnswer() const;
   virtual std::string toString() const;
   virtual void logAnswer( const std::string& country, const int status_code,
                   const int error_code, const std::string& error_text ) const;

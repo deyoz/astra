@@ -166,6 +166,8 @@ src/http_io.cpp
 src/http_io.h
 src/http_main.cc
 src/http_main.h
+src/iapi_interaction.cc
+src/iapi_interaction.h
 src/images.cc
 src/images.h
 src/kiosk/kiosk_config.cc

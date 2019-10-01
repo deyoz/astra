@@ -96,6 +96,7 @@ class SettingsList : public std::map<SettingsKey, Settings>
                     const std::string& ediOwnAddrExt);
     void getForTesting(const Settings& settingsPattern);
 
+    void filterFormatsFromList(const std::set<std::string>& formats);
 
     bool formatExists(const std::string& format) const;
 };

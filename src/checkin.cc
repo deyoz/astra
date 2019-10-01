@@ -61,6 +61,7 @@
 #include "ckin_search.h"
 #include "rfisc_calc.h"
 #include "service_eval.h"
+#include "iapi_interaction.h"
 
 #include <jxtlib/jxt_cont.h>
 #include <serverlib/cursctl.h>
@@ -4398,6 +4399,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   vector<CheckIn::TTransferItem>::const_iterator iTrfer;
   map<int, std::pair<TCkinSegFlts, TTrferSetsInfo> > trfer_segs;
   bool rollbackGuaranteedOnFirstSegment=false;
+  IAPI::RequestCollector iapiCollector;
 
   for(TSegList::iterator iSegListItem=segList.begin();
       segNode!=NULL && iSegListItem!=segList.end();
@@ -4509,12 +4511,14 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         }
       }
 
+      TCompleteAPICheckInfo checkInfo;
+      if (!pr_unaccomp &&
+          (first_segment || !notCheckAPI))
+        checkInfo.set(grp.point_dep, grp.airp_arv);
+
       //проверим номера документов и билетов, ремарки
       if (!pr_unaccomp)
       {
-        TCompleteAPICheckInfo checkInfo;
-        if (first_segment || !notCheckAPI)
-          checkInfo.set(grp.point_dep, grp.airp_arv);
         boost::optional<TRemGrp> forbiddenRemGrp;
         for(CheckIn::TPaxList::iterator p=paxs.begin(); p!=paxs.end(); ++p)
         {
@@ -5174,7 +5178,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           for(int k=0;k<=1;k++)
           {
             int pax_no=1;
-            TAPPSPaxCollector apps_collector;
             for(CheckIn::TPaxList::iterator p=paxs.begin(); p!=paxs.end(); ++p,pax_no++)
             {
               CheckIn::TPaxItem &pax=p->pax;
@@ -5248,10 +5251,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
                 if ( need_apps ) {
                   // Для новых пассадиров ремарки APPS не проверяем
-                  Timing::Points apps_timing("Timing::need_apps_1");
-//                  processPax( pax_id, apps_timing );
-                  apps_collector.AddPassenger(pax_id, apps_timing, TAPPSPaxCollector::IAPIClearPassengerRequest);
+                  processPax( pax_id );
                 }
+
+                iapiCollector.addPassengerIfNeed(pax_id, grp.point_dep, grp.airp_arv, checkInfo);
 
                 // Запись в pax_events
                 if(pax.pr_brd)
@@ -5270,7 +5273,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               }
 
             } // end for paxs
-            apps_collector.Flush();
           } //end for k
           CheckIn::AddPaxASVC(grp.id, true); //синхронизируем ASVC только при первой регистрации
           grp.SyncServiceAuto(fltInfo);
@@ -5435,7 +5437,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           LayerQry.DeclareVariable("pax_id",otInteger);
 
           int pax_no=1;
-          TAPPSPaxCollector apps_collector;
           for(CheckIn::TPaxList::const_iterator p=paxs.begin(); p!=paxs.end(); ++p,pax_no++)
           {
             const CheckIn::TPaxItem &pax=p->pax;
@@ -5520,10 +5521,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 string override;
                 bool is_forced = false;
                 HandleAPPSRems(p->rems, override, is_forced);
-                Timing::Points apps_timing("Timing::need_apps_2");
-//                processPax( pax.id, apps_timing, override, is_forced );
-                apps_collector.AddPassenger(pax.id, apps_timing, TAPPSPaxCollector::IAPIChangePassengerData, override, is_forced);
+                processPax( pax.id, override, is_forced );
               }
+
+              iapiCollector.addPassengerIfNeed(pax.id, grp.point_dep, grp.airp_arv, checkInfo);
             }
             catch(CheckIn::UserException)
             {
@@ -5534,7 +5535,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               throw CheckIn::UserException(e.getLexemaData(), grp.point_dep, pax.id);
             }
           }
-          apps_collector.Flush();
         }
 
         if (save_trfer)
@@ -6149,6 +6149,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         }
 
         timing.finish("utg_prl", grp.point_dep);
+
+        timing.start("iapiCollector", grp.point_dep);
+        iapiCollector.send();
+        timing.finish("iapiCollector", grp.point_dep);
       }
     }
     catch(UserException &e)

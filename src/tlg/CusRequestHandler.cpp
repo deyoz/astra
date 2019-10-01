@@ -1,6 +1,5 @@
 #include "CusRequestHandler.h"
 #include "apis_edi_file.h"
-#include "apps_interaction.h"
 #include "view_edi_elements.h"
 
 #include <edilib/edi_func_cpp.h>
@@ -40,7 +39,12 @@ void CusRequestHandler::parse()
 void CusRequestHandler::handle()
 {
     ASSERT(m_data);
-    ProcessChinaCusres(*m_data);
+    try {
+        callbacks<CusresCallbacks>()->onCusRequestHandle(TRACE5, *m_data);
+    } catch(...) {
+        CallbacksExceptionFilter(STDLOG);
+    }
+
 }
 
 static UngElem makeAnswerUng(const UngElem& ung)

@@ -243,6 +243,8 @@ const long int DOC_IAPI_CN_FIELDS=DOC_TYPE_FIELD|
 const long int DOCO_IAPI_CN_FIELDS=DOCO_TYPE_FIELD|
                                    DOCO_NO_FIELD;
 
+const long int TKN_IAPI_CN_FIELDS=TKN_TICKET_NO_FIELD;
+
 //==============================================================================
 
 const long int DOC_CSV_AE_FIELDS=DOC_TYPE_FIELD|

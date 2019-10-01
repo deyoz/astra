@@ -173,118 +173,161 @@ struct TApisPaxData : public CheckIn::TSimplePaxItem
 
     return doco_type_row.code_lat;
   }
+
+  std::string processingIndicator;
 };
 
-struct FlightlegDataset
-{
-  string airp_code_lat;
-  string airp_code;
-  TDateTime scd_in_local;
-  TDateTime scd_out_local;
-  string country_code_iso;
-  string country_code;
-};
+class TApisPaxDataList : public std::list<TApisPaxData> {};
 
 struct TApisRouteData
 {
-  int dataset_point_id;
-  int route_point_id;
+  TAdvTripInfo depInfo;
+  TAdvTripRoute paxLegs;
   string task_name;
-  bool final_apis;
-  string country_dep;
-  // -------
-  string country_arv_code;
-  string country_arv_code_lat;
   string country_regul_dep;
   string country_regul_arv;
   bool use_us_customs_tasks;
-  int flt_no;
-  string suffix;
-  TDateTime scd_out_local;
-  TDateTime scd_in_local;
-  string airline_name;
-  list<TApisPaxData> lstPaxData;
+  TApisPaxDataList lstPaxData;
   APIS::SettingsList lstSetsData;
-  list<FlightlegDataset> lstLegs;
+  TAdvTripRoute allLegs;
 
   // getters
 
-  string airline_code_qry;
-  const TAirlinesRow& airline() const
+  const TAdvTripRouteItem& arvInfo() const
   {
-    return (const TAirlinesRow&)base_tables.get("airlines").get_row("code",airline_code_qry);
+    return paxLegs.back();
   }
-  string airline_code() const
+
+  bool final_apis() const
   {
-    if (airline().code.empty())
-      throw Exception("airline.code empty (qry=%s)",airline_code_qry.c_str());
-    return airline().code;
+    return ( task_name==ON_TAKEOFF || task_name==ON_CLOSE_BOARDING ||
+             (task_name.empty() && depInfo.act_out_exists()) );
   }
+
+  TDateTime scd_out_dep_local() const
+  {
+    if (depInfo.scd_out==NoExists)
+      throw Exception("scd_out empty (airp_dep=%s)",depInfo.airp.c_str());
+    return UTCToLocal(depInfo.scd_out, AirpTZRegion(depInfo.airp));
+  }
+
+  TDateTime scd_in_arv_local() const
+  {
+    if (paxLegs.back().scd_in==NoExists)
+      throw Exception("scd_in empty (airp_arv=%s)",paxLegs.back().airp.c_str());
+    return UTCToLocal(paxLegs.back().scd_in, AirpTZRegion(paxLegs.back().airp));
+  }
+
+  const TAirlinesRow& airlineRow() const
+  {
+    return (const TAirlinesRow&)base_tables.get("airlines").get_row("code",depInfo.airline);
+  }
+
   string airline_code_lat() const
   {
-    if (airline().code_lat.empty())
-      throw Exception("airline.code_lat empty (code=%s)",airline_code().c_str());
-    return airline().code_lat;
+    if (airlineRow().code_lat.empty())
+      throw Exception("airline.code_lat empty (code=%s)",depInfo.airline.c_str());
+    return airlineRow().code_lat;
   }
   string airline_city() const
   {
-    if (airline().city.empty())
-      throw Exception("airline.city empty (code=%s)",airline_code().c_str());
-    return airline().city;
+    if (airlineRow().city.empty())
+      throw Exception("airline.city empty (code=%s)",depInfo.airline.c_str());
+    return airlineRow().city;
+  }
+  string airline_name_lat() const
+  {
+    if (!airlineRow().short_name_lat.empty())
+      return airlineRow().short_name_lat;
+    if (!airlineRow().name_lat.empty())
+      return airlineRow().name_lat;
+    return airlineRow().code_lat;
   }
 
-  string airp_dep_qry;
-  const TAirpsRow& airp_dep() const
+  int flt_no() const { return depInfo.flt_no; }
+
+  const TTripSuffixesRow& suffixRow() const
   {
-    return (const TAirpsRow&)base_tables.get("airps").get_row("code",airp_dep_qry);
+    return (const TTripSuffixesRow&)base_tables.get("trip_suffixes").get_row("code", depInfo.suffix);
   }
-  string airp_dep_code() const
+
+  string suffix_code_lat() const
   {
-    if (airp_dep().code.empty())
-      throw Exception("airp_dep.code empty (qry=%s)",airp_dep_qry.c_str());
-    return airp_dep().code;
+    if (depInfo.suffix.empty()) return "";
+    if (suffixRow().code_lat.empty())
+      throw Exception("suffix.code_lat empty (code=%s)",depInfo.suffix.c_str());
+    return suffixRow().code_lat;
   }
+
+  const TAirpsRow& airpDepRow() const
+  {
+    return (const TAirpsRow&)base_tables.get("airps").get_row("code",depInfo.airp);
+  }
+
   string airp_dep_code_lat() const
   {
-    if (airp_dep().code_lat.empty())
-      throw Exception("airp_dep.code_lat empty (code=%s)",airp_dep_code().c_str());
-    return airp_dep().code_lat;
+    if (airpDepRow().code_lat.empty())
+      throw Exception("airp_dep.code_lat empty (code=%s)",depInfo.airp.c_str());
+    return airpDepRow().code_lat;
   }
 
-  string airp_arv_qry;
-  const TAirpsRow& airp_arv() const
+  const TAirpsRow& airpArvRow() const
   {
-    return (const TAirpsRow&)base_tables.get("airps").get_row("code",airp_arv_qry);
+    return (const TAirpsRow&)base_tables.get("airps").get_row("code",paxLegs.back().airp);
   }
-  string airp_arv_code() const
-  {
-    if (airp_arv().code.empty())
-      throw Exception("airp_arv.code empty (qry=%s)",airp_arv_qry.c_str());
-    return airp_arv().code;
-  }
+
   string airp_arv_code_lat() const
   {
-    if (airp_arv().code_lat.empty())
-      throw Exception("airp_arv.code_lat empty (code=%s)",airp_arv_code().c_str());
-    return airp_arv().code_lat;
+    if (airpArvRow().code_lat.empty())
+      throw Exception("airp_arv.code_lat empty (code=%s)",paxLegs.back().airp.c_str());
+    return airpArvRow().code_lat;
   }
 
-  string airp_cbp_qry;
-  const TAirpsRow& airp_cbp() const
+  string airp_cbp;
+  const TAirpsRow& airpCBPRow() const
   {
-    return (const TAirpsRow&)base_tables.get("airps").get_row("code",airp_cbp_qry);
+    return (const TAirpsRow&)base_tables.get("airps").get_row("code",airp_cbp);
   }
-  string airp_cbp_code() const
-  {
-    if (airp_cbp().code.empty())
-      throw Exception("airp_cbp.code empty (qry=%s)",airp_cbp_qry.c_str());
-    return airp_cbp().code;
-  }
+
   string airp_cbp_code_lat() const
   {
-    if (airp_cbp().code_lat.empty())
-      throw Exception("airp_cbp.code_lat empty (code=%s)",airp_cbp_code().c_str());
-    return airp_cbp().code_lat;
+    if (airpCBPRow().code_lat.empty())
+      throw Exception("airp_cbp.code_lat empty (code=%s)",airp_cbp.c_str());
+    return airpCBPRow().code_lat;
+  }
+
+  string country_dep() const
+  {
+    return getCountryByAirp(depInfo.airp).code;
+  }
+
+  string country_arv() const
+  {
+    return getCountryByAirp(paxLegs.back().airp).code;
+  }
+
+  string country_arv_code_lat() const
+  {
+    TCountriesRow countryRow=getCountryByAirp(paxLegs.back().airp);
+    if (countryRow.code_lat.empty())
+      throw EXCEPTIONS::Exception("countryRow.code_lat empty (code=%s)",countryRow.code.c_str());
+    return countryRow.code_lat;
+  }
+
+  static string airp_code_lat(const std::string& airp)
+  {
+    string airp_code_lat=((const TAirpsRow&)base_tables.get("airps").get_row("code",airp)).code_lat;
+    if (airp_code_lat.empty())
+      throw EXCEPTIONS::Exception("airp.code_lat empty (code=%s)", airp.c_str());
+    return airp_code_lat;
+  }
+
+  static string country_code_iso(const std::string& airp)
+  {
+    string country_code_iso=getCountryByAirp(airp).code_iso;
+    if (country_code_iso.empty())
+      throw EXCEPTIONS::Exception("countryRow.code_iso empty (code=%s)",getCountryByAirp(airp).code.c_str());
+    return country_code_iso;
   }
 };
 
@@ -292,20 +335,6 @@ struct TApisDataset
 {
   bool FromDB(int point_id, const string& task_name, TApisTestMap* test_map = nullptr);
   list<TApisRouteData> lstRouteData;
-
-  // getters
-
-  string airline_code_qry;
-  const TAirlinesRow& airline() const
-  {
-    return (const TAirlinesRow&)base_tables.get("airlines").get_row("code",airline_code_qry);
-  }
-  string airline_code() const
-  {
-    if (airline().code.empty())
-      throw Exception("airline.code empty (qry=%s)",airline_code_qry.c_str());
-    return airline().code;
-  }
 };
 
 //---------------------------------------------------------------------------------------
@@ -319,7 +348,9 @@ enum TApisRule
   r_omitAirlineCode, // edi // tr // TODO переделать получше
   r_setCarrier, // edi // для всех edi?
   r_setFltLegs, // edi // tr
+  r_setPaxLegs, // edi
   r_view_RFF_TN,
+  r_setUnhNumber,
 
   // PassengerInfo
   r_notOmitCrew, // edi
@@ -485,6 +516,7 @@ struct TAPISFormat
   virtual string appRef() const { return "APIS"; }
   virtual string mesRelNum() const { return "02B"; }
   virtual string mesAssCode() const { return "IATA"; }
+  virtual string unhNumber() const { return "1"; }
   virtual string respAgnCode() const { return "111"; }
   virtual bool viewUNGandUNE() const { return false; }
 
@@ -550,15 +582,15 @@ protected:
   {
     ostringstream file_name;
     ostringstream f;
-    f << route.airline_code_lat() << route.flt_no << route.suffix;
+    f << route.airline_code_lat() << route.flt_no() << route.suffix_code_lat();
     file_name << dir()
               << "/"
               << route.airline_code_lat()
-              << (f.str().size()<6?string(6-f.str().size(),'0'):"") << route.flt_no << route.suffix
+              << (f.str().size()<6?string(6-f.str().size(),'0'):"") << route.flt_no() << route.suffix_code_lat()
                 //по стандарту поле не должно превышать 6 символов
               << route.airp_dep_code_lat()
               << route.airp_arv_code_lat()
-              << DateTimeToStr(route.scd_out_local,"yyyymmdd");
+              << DateTimeToStr(route.scd_out_dep_local(),"yyyymmdd");
     file_name << extension;
     return file_name.str();
   }
@@ -570,16 +602,16 @@ protected:
   {
     string tb_date, tb_time, tb_airp;
     // virtual apis_country()
-    getTBTripItem( route.dataset_point_id, route.route_point_id, apis_country(), tb_date, tb_time, tb_airp );
-    header << "*DIRECTION," << direction(route.country_dep) << ",,,,,,,,,,," << ENDL
+    getTBTripItem( route.depInfo.point_id, route.arvInfo().point_id, apis_country(), tb_date, tb_time, tb_airp );
+    header << "*DIRECTION," << direction(route.country_dep()) << ",,,,,,,,,,," << ENDL
             << "*FLIGHT," << route.airline_code_lat() << setw(3) << setfill('0')
-                          << route.flt_no << route.suffix << ",,,,,,,,,,," << ENDL
+                          << route.flt_no() << route.suffix_code_lat() << ",,,,,,,,,,," << ENDL
             << "*DEP PORT," << route.airp_dep_code_lat() << ",,,,,,,,,,," << ENDL
-            << "*DEP DATE," << DateTimeToStr(route.scd_out_local,"dd-mmm-yyyy", true) << ",,,,,,,,,,," << ENDL
-            << "*DEP TIME," << DateTimeToStr(route.scd_out_local,"hhnn") << ",,,,,,,,,,," << ENDL
+            << "*DEP DATE," << DateTimeToStr(route.scd_out_dep_local(),"dd-mmm-yyyy", true) << ",,,,,,,,,,," << ENDL
+            << "*DEP TIME," << DateTimeToStr(route.scd_out_dep_local(),"hhnn") << ",,,,,,,,,,," << ENDL
             << "*ARR PORT," << route.airp_arv_code_lat() << ",,,,,,,,,,," << ENDL
-            << "*ARR DATE," << DateTimeToStr(route.scd_in_local,"dd-mmm-yyyy", true) << ",,,,,,,,,,," << ENDL
-            << "*ARR TIME," << DateTimeToStr(route.scd_in_local,"hhnn") << ",,,,,,,,,,," << ENDL;
+            << "*ARR DATE," << DateTimeToStr(route.scd_in_arv_local(),"dd-mmm-yyyy", true) << ",,,,,,,,,,," << ENDL
+            << "*ARR TIME," << DateTimeToStr(route.scd_in_arv_local(),"hhnn") << ",,,,,,,,,,," << ENDL;
     header << "*TB PORT," << tb_airp << ",,,,,,,,,,," << ENDL;
     header << "*TB DATE," << tb_date << ",,,,,,,,,,," << ENDL
             << "*TB TIME," << tb_time << ",,,,,,,,,,," << ENDL;
@@ -690,12 +722,12 @@ struct TAPISFormat_CSV_CZ : public TTxtApisFormat
                               int count_overall) const
   {
     header << "csv;"
-      << route.airline_name << ";"
-      << route.airline_code_lat() << setw(3) << setfill('0') << route.flt_no << route.suffix << ";"
+      << route.airline_name_lat() << ";"
+      << route.airline_code_lat() << setw(3) << setfill('0') << route.flt_no() << route.suffix_code_lat() << ";"
       << route.airp_dep_code_lat() << ";"
-      << DateTimeToStr(route.scd_out_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
+      << DateTimeToStr(route.scd_out_dep_local(),"yyyy-mm-dd'T'hh:nn:00.0") << ";"
       << route.airp_arv_code_lat() << ";"
-      << DateTimeToStr(route.scd_in_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
+      << DateTimeToStr(route.scd_in_arv_local(),"yyyy-mm-dd'T'hh:nn:00.0") << ";"
       << count_overall << ";" << ENDL;
   }
 };
@@ -1017,9 +1049,9 @@ struct TAPISFormat_CSV_DE : public TTxtApisFormat // Германия
                               int count_overall) const
   {
     header << route.airline_code_lat() << ";"
-      << route.airline_code_lat() << setw(3) << setfill('0') << route.flt_no << ";"
-      << route.airp_dep_code_lat() << ";" << DateTimeToStr(route.scd_out_local,"yymmddhhnn") << ";"
-      << route.airp_arv_code_lat() << ";" << DateTimeToStr(route.scd_in_local,"yymmddhhnn") << ";"
+      << route.airline_code_lat() << setw(3) << setfill('0') << route.flt_no() << ";"
+      << route.airp_dep_code_lat() << ";" << DateTimeToStr(route.scd_out_dep_local(),"yymmddhhnn") << ";"
+      << route.airp_arv_code_lat() << ";" << DateTimeToStr(route.scd_in_arv_local(),"yymmddhhnn") << ";"
       << count_overall << ENDL;
   }
 
@@ -1091,8 +1123,8 @@ struct TAPISFormat_TXT_EE : public TTxtApisFormat
     ostringstream file_name;
     file_name << dir()
               << "/"
-              << "LL-" << route.airline_code_lat() << setw(3) << setfill('0') << route.flt_no << route.suffix
-              << "-" << DateTimeToStr(route.scd_in_local,"ddmmyyyy-hhnn") << "-S.TXT";
+              << "LL-" << route.airline_code_lat() << setw(3) << setfill('0') << route.flt_no() << route.suffix_code_lat()
+              << "-" << DateTimeToStr(route.scd_in_arv_local(),"ddmmyyyy-hhnn") << "-S.TXT";
     return file_name.str();
   }
   virtual void CreateHeaders( const TApisRouteData& route,
@@ -1107,7 +1139,7 @@ struct TAPISFormat_TXT_EE : public TTxtApisFormat
     if (airlineCountryRow.code_iso.empty())
       throw Exception("airlineCountryRow.code_iso empty (code=%s)",airlineCityRow.country.c_str());
     string airline_country = airlineCountryRow.code_iso;
-    header << "1$ " << route.airline_name << ENDL
+    header << "1$ " << route.airline_name_lat() << ENDL
               << "2$ " << ENDL
               << "3$ " << airline_country << ENDL
               << "4$ " << ENDL
@@ -1115,13 +1147,13 @@ struct TAPISFormat_TXT_EE : public TTxtApisFormat
               << "6$ " << ENDL
               << "7$ " << ENDL
               << "8$ " << ENDL
-              << "9$ " << DateTimeToStr(route.scd_in_local,"dd.mm.yy hh:nn") << ENDL
-              << "10$ " << (route.airp_arv_code()=="TLL"?"Tallinna Lennujaama piiripunkt":
-                          route.airp_arv_code()=="TAY"?"Tartu piiripunkt":
-                          route.airp_arv_code()=="URE"?"Kuressaare-2 piiripunkt":
-                          route.airp_arv_code()=="KDL"?"Kardla Lennujaama piiripunkt":"") << ENDL
+              << "9$ " << DateTimeToStr(route.scd_in_arv_local(),"dd.mm.yy hh:nn") << ENDL
+              << "10$ " << (route.airp_arv_code_lat()=="TLL"?"Tallinna Lennujaama piiripunkt":
+                            route.airp_arv_code_lat()=="TAY"?"Tartu piiripunkt":
+                            route.airp_arv_code_lat()=="URE"?"Kuressaare-2 piiripunkt":
+                            route.airp_arv_code_lat()=="KDL"?"Kardla Lennujaama piiripunkt":"") << ENDL
               << "11$ " << ENDL
-              << "1$ " << route.airline_code_lat() << setw(3) << setfill('0') << route.flt_no << route.suffix << ENDL
+              << "1$ " << route.airline_code_lat() << setw(3) << setfill('0') << route.flt_no() << route.suffix_code_lat() << ENDL
               << "2$ " << ENDL
               << "3$ " << count_overall << ENDL;
   }
@@ -1482,10 +1514,15 @@ struct TIAPIFormat_CN : public TIAPIFormat
 {
     TIAPIFormat_CN()
     {
+      add_rule(r_setUnhNumber);
+      add_rule(r_setPaxLegs);
       add_rule(r_view_RFF_TN); // новое поле
       add_rule(r_setCarrier);
       add_rule(r_setPaxReference);
       add_rule(r_create_ON_FLIGHT_CANCEL);
+      add_rule(r_convertPaxNames);
+      add_rule(r_setTicketNumber);
+      add_rule(r_doco);
       file_rule = r_file_rule_1;
     }
 
@@ -1493,14 +1530,22 @@ struct TIAPIFormat_CN : public TIAPIFormat
     {
       if (api == apiDoc) return DOC_IAPI_CN_FIELDS;
       if (api == apiDoco) return DOCO_IAPI_CN_FIELDS;
+      if (api == apiTkn) return TKN_IAPI_CN_FIELDS;
       return NO_FIELDS;
     }
+    string appRef() const { return "IAPI"; }
     string mesRelNum() const { return "05B"; }
+    string unhNumber() const { return "11085B94E1F8FA"; }
     Paxlst::PaxlstInfo::PaxlstType firstPaxlstType(const string& task_name) const
     {
       return task_name==ON_FLIGHT_CANCEL?
                Paxlst::PaxlstInfo::IAPICancelFlight:
                Paxlst::PaxlstInfo::IAPIFlightCloseOnBoard;
+    }
+    void convert_pax_names(string& first_name, string& second_name) const
+    {
+      ConvertPaxNamesConcat(first_name, second_name);
+      if (first_name.empty()) first_name="FNU";
     }
 };
 
@@ -1545,6 +1590,20 @@ inline TAPISFormat* SpawnAPISFormat(const APIS::Settings& sd)
   p->settings=sd;
   return p;
 }
+
+const std::set<std::string>& getIAPIFormats();
+
+typedef std::function<Paxlst::PaxlstInfo&(const TApisRouteData& route,
+                                          const TAPISFormat& format,
+                                          const TApisPaxData& pax,
+                                          Paxlst::PaxlstInfo& paxlst1,
+                                          Paxlst::PaxlstInfo& paxlst2)> GetPaxlstInfoHandler;
+
+void CreateEdi(const TApisRouteData& route,
+                const TAPISFormat& format,
+                Paxlst::PaxlstInfo& FPM,
+                Paxlst::PaxlstInfo& FCM,
+                const GetPaxlstInfoHandler &getPaxlstInfoHandler);
 
 void create_apis_task(const TTripTaskKey &task);
 

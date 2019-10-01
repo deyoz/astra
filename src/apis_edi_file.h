@@ -890,6 +890,14 @@ Cusres readCUSRES(const std::string& ediText);
 
 std::ostream& operator<<(std::ostream& os, const Cusres& cusres);
 
+class CusresCallbacks
+{
+    public:
+        virtual ~CusresCallbacks() {}
+        virtual void onCusResponseHandle(TRACE_SIGNATURE, const Cusres& cusres) = 0;
+        virtual void onCusRequestHandle(TRACE_SIGNATURE, const Cusres& cusres) = 0;
+};
+
 }//namespace edifact
 
 #endif//_APIS_EDI_FILE_H_

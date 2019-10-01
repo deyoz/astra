@@ -105,6 +105,7 @@ astra_SOURCES = \
   http_io.cpp \
   http_main.cc \
   httpClient.cc \
+  iapi_interaction.cc \
   images.cc \
   load_fr.cc \
   locale.cc \
@@ -309,6 +310,7 @@ noinst_HEADERS = \
   http_io.h \
   http_main.h \
   httpClient.h \
+  iapi_interaction.h \
   images.h \
   load_fr.h \
   libra.h \

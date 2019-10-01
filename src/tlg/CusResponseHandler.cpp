@@ -1,6 +1,5 @@
 #include "CusResponseHandler.h"
 #include "apis_edi_file.h"
-#include "apps_interaction.h"
 
 #define NICKNAME "ANTON"
 #define NICK_TRACE ANTON_TRACE
@@ -27,7 +26,11 @@ void CusResponseHandler::parse()
 void CusResponseHandler::handle()
 {
     ASSERT(m_data);
-    ProcessChinaCusres(*m_data);
+    try {
+        callbacks<CusresCallbacks>()->onCusRequestHandle(TRACE5, *m_data);
+    } catch(...) {
+        CallbacksExceptionFilter(STDLOG);
+    }
 }
 
 }//namespace TlgHandling

@@ -30,6 +30,7 @@
 #include "etick.h"
 #include "qrys.h"
 #include "points.h"
+#include "counters.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -7244,7 +7245,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
           CrsPnrInsQry.SetVariable("class",EncodeClass(iTotals->cl));
           bool is_need_apps = false;
           if ( point_id_spp != ASTRA::NoExists )
-            is_need_apps = checkAPPSSetsByAirpArv(point_id_spp, iTotals->dest);
+            is_need_apps = checkAPPSSets(point_id_spp, iTotals->dest);
           for(iPnrItem=iTotals->pnr.begin();iPnrItem!=iTotals->pnr.end();iPnrItem++)
           {
             TPnrItem& pnr=*iPnrItem;
