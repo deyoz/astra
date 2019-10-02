@@ -111,6 +111,12 @@ void sendCmdToHandler(const std::string& ediText)
             sendCmd("CMD_ITCI_RES_HANDLER","H");
             break;
         }
+        case CUSRES:
+        case CUSUMS:
+        {
+            sendCmd("CMD_IAPI_EDI_HANDLER","H");
+            break;
+        }
         default:
             sendCmd("CMD_EDI_HANDLER","H");
             break;
