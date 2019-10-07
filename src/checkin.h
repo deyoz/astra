@@ -231,7 +231,7 @@ public:
 //  static bool CheckAPPSRems(const std::multiset<CheckIn::TPaxRemItem> &rems, std::string& override, bool& is_forced);
 
   static void readTripCounters( int point_id, xmlNodePtr dataNode );
-  static void readTripData(int point_id, int first_point_id, xmlNodePtr dataNode);
+  static void readTripData(int point_id, xmlNodePtr dataNode);
   static void readTripSets( int point_id, xmlNodePtr dataNode );
   static void readTripSets( int point_id, const TTripInfo &fltInfo, xmlNodePtr tripSetsNode );
 

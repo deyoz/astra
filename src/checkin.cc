@@ -1866,7 +1866,7 @@ static bool readTripHeaderAndOther(int point_id, xmlNodePtr reqNode, xmlNodePtr 
   if (TripsInterface::readTripHeader( point_id, dataNode ))
   {
     CheckInInterface::readTripCounters( point_id, dataNode );
-    CheckInInterface::readTripData( point_id, point_id, dataNode );
+    CheckInInterface::readTripData( point_id, dataNode );
     CheckInInterface::readTripSets( point_id, dataNode );
     TripsInterface::PectabsResponse(point_id, reqNode, dataNode);
     return true;
@@ -4390,7 +4390,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   segNode=NodeAsNode("segments/segment",reqNode);
   int seg_no=1;
   bool first_segment=true;
-  bool notCheckAPI=false;
   vector<CheckIn::TTransferItem>::const_iterator iTrfer;
   map<int, std::pair<TCkinSegFlts, TTrferSetsInfo> > trfer_segs;
   bool rollbackGuaranteedOnFirstSegment=false;
@@ -4486,8 +4485,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       bool pr_mintrans_file=GetTripSets(tsMintransFile,fltInfo);
       bool pr_mixed_norms=GetTripSets(tsMixedNorms,fltInfo);
-      if (first_segment)
-        notCheckAPI=GetTripSets(tsAPISControlOnFirstSegOnly, fltInfo);
 
       bool addVIP=false;
       if (first_segment)
@@ -4507,8 +4504,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       }
 
       TCompleteAPICheckInfo checkInfo;
-      if (!pr_unaccomp &&
-          (first_segment || !notCheckAPI))
+      if (!pr_unaccomp)
         checkInfo.set(grp.point_dep, grp.airp_arv);
 
       //проверим номера документов и билетов, ремарки
@@ -6912,7 +6908,6 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
   set<string> pax_cats;
   vector<CheckIn::TTransferItem> segs;
   xmlNodePtr segsNode=NewTextChild(resNode,"segments");
-  int first_point_dep=NoExists;
   TBrands brands; //здесь, чтобы кэшировались запросы
   for(TCkinGrpIds::const_iterator grp_id=tckin_grp_ids.begin();grp_id!=tckin_grp_ids.end();grp_id++)
   {
@@ -6930,7 +6925,6 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
 
     if (grp_id==tckin_grp_ids.begin())
     {
-      first_point_dep=grp.point_dep;
       trfer_confirm=grp.trfer_confirm;
     }
 
@@ -6945,7 +6939,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
     xmlNodePtr segNode=NewTextChild(segsNode,"segment");
     xmlNodePtr operFltNode=NewTextChild(segNode,"tripheader");
     TripsInterface::readOperFltHeader( operFlt, operFltNode );
-    readTripData( grp.point_dep, first_point_dep, segNode );
+    readTripData( grp.point_dep, segNode );
 
     if (grp.cl.empty() && grp.status==psCrew)
       grp.cl=EncodeClass(Y);  //crew compatible
@@ -7808,7 +7802,7 @@ void CheckInInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
     NewTextChild(dataNode,"load_residue");
 }
 
-void CheckInInterface::readTripData(int point_id, int first_point_id, xmlNodePtr dataNode)
+void CheckInInterface::readTripData(int point_id, xmlNodePtr dataNode)
 {
   xmlNodePtr tripdataNode = NewTextChild( dataNode, "tripdata" );
   xmlNodePtr itemNode,node;
@@ -7858,17 +7852,8 @@ void CheckInInterface::readTripData(int point_id, int first_point_id, xmlNodePtr
                   << " (" << ElemIdToCodeNative(etAirp, airpsRow.code) << ")";
       NewTextChild( itemNode, "target_view", target_view.str() );
 
-      bool notCheckAPI=false;
-      if (point_id!=first_point_id)
-      {
-        TTripInfo firstOperFlt;
-        firstOperFlt.getByPointId(first_point_id);
-        notCheckAPI=GetTripSets(tsAPISControlOnFirstSegOnly, firstOperFlt);
-      };
-
       TCompleteAPICheckInfo checkInfo;
-      if (point_id==first_point_id || !notCheckAPI)
-        checkInfo.set(point_id, airpsRow.code);
+      checkInfo.set(point_id, airpsRow.code);
       checkInfo.toXML(NewTextChild(itemNode, "check_info"));
 
       airps.push_back(airpsRow.code);
@@ -8357,7 +8342,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
         {
           xmlNodePtr operFltNode=NewTextChild(seg2Node,"tripheader");
           TripsInterface::readOperFltHeader( currSeg.fltInfo, operFltNode );
-          readTripData( currSeg.point_dep, firstSeg.point_dep, seg2Node );
+          readTripData( currSeg.point_dep, seg2Node );
 
           NewTextChild( seg2Node, "point_dep", currSeg.point_dep);
           NewTextChild( seg2Node, "airp_dep", currSeg.airp_dep);
