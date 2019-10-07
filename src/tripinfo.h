@@ -153,7 +153,7 @@ public:
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 
   static void PectabsResponse(int point_id, xmlNodePtr reqNode, xmlNodePtr dataNode);
-  void GetSegInfo(xmlNodePtr reqNode, xmlNodePtr resNode, xmlNodePtr dataNode, bool first_point_id);
+  void GetSegInfo(xmlNodePtr reqNode, xmlNodePtr resNode, xmlNodePtr dataNode);
   static void readOperFltHeader( const TTripInfo &info, xmlNodePtr node );
   static bool readTripHeader( int point_id, xmlNodePtr dataNode );
   static void readGates(int point_id, std::vector<std::string> &gates);

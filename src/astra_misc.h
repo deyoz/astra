@@ -525,7 +525,6 @@ enum TTripSetType { /*не привязанные к рейсу*/
                     tsSyncMeridian=28,                  //Синхронизация с меридианом
                     tsNoEMDAutoBinding=31,              //Запрет автопривязки EMD
                     tsCheckPayOnTCkinSegs=32,           //Контроль оплаты только на сквозных сегментах
-                    tsAPISControlOnFirstSegOnly=33,     //Контроль данных APIS только на первом сегменте
                     tsAutoPTPrint=34,                   //Автоматическая печать посадочных
                     tsAutoPTPrintReseat=35,             //Автоматическая печать ПТ при изменении места
                     tsPrintFioPNL=36,                   //Печать в посадочном ФИО из бронирования (PNL)
