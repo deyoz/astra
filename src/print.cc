@@ -3161,6 +3161,42 @@ void dummy_emda(xmlNodePtr resNode)
     }
 }
 
+bool get_pr_print_emda(int pax_id, const string &emd_no, int emd_coupon)
+{
+    TCachedQuery Qry(
+            "SELECT pax_id FROM confirm_print WHERE "
+            "   pax_id=:pax_id and "
+            "   emd_no = :emd_no AND "
+            "   emd_coupon = :emd_coupon AND "
+            "   pr_print<>0 AND "
+            "   rownum=1 and "
+            "   op_type = :op_type ",
+            QParams()
+            << QParam("pax_id", otInteger, pax_id)
+            << QParam("emd_no", otString, emd_no)
+            << QParam("emd_coupon", otInteger, emd_coupon)
+            << QParam("op_type", otString, DevOperTypes().encode(TDevOper::PrnEMDA))
+            );
+    Qry.get().Execute();
+    return not Qry.get().Eof;
+}
+
+void fill_pr_print_emda(xmlNodePtr resNode)
+{
+    xmlNodePtr itemsNode = GetNode("items", resNode);
+    if(not itemsNode) return;
+    xmlNodePtr itemNode = GetNode("item", itemsNode);
+    if(not itemNode) return;
+    while(itemNode) {
+        xmlNodePtr currNode = itemNode->children;
+        int pax_id = NodeAsIntegerFast("pax_id", currNode);
+        string emd_no = NodeAsStringFast("emd_no", currNode);
+        int emd_coupon = NodeAsIntegerFast("emd_coupon", currNode);
+        NewTextChild(itemNode, "pr_print", get_pr_print_emda(pax_id, emd_no, emd_coupon));
+        itemNode = itemNode->next;
+    }
+}
+
 void PrintInterface::GetEMDAList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     int grp_id = NodeAsInteger("grp_id", reqNode);
@@ -3168,7 +3204,8 @@ void PrintInterface::GetEMDAList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     prices.fromContextDB(grp_id);
     prices.toXML(resNode);
     dummy_emda(resNode);
-    LogTrace(TRACE5) << GetXMLDocText(resNode->doc);
+    fill_pr_print_emda(resNode);
+    LogTrace(TRACE5) << GetXMLDocText(resNode->doc); // !!!
 }
 
 void PrintInterface::GetImg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
