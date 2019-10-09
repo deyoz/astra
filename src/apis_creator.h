@@ -353,6 +353,7 @@ enum TApisRule
   r_setUnhNumber,
 
   // PassengerInfo
+  r_omitPassengers,
   r_notOmitCrew, // edi
   r_setPrBrd, // edi // tr
   r_setGoShow, // edi // tr
@@ -398,6 +399,7 @@ enum TApisRule
 
   //  ВИЗА
   r_doco,
+  r_issueCountryInsteadApplicCountry,
 };
 
 enum TApisFileRule
@@ -449,7 +451,7 @@ struct TPaxDataFormatted
   bool doco_exists = false;
   string doco_type;
   string doco_no;
-  string doco_applic_country;
+  string doco_country;
 
   int count_current;
 };
@@ -472,7 +474,18 @@ struct TAPISFormat
   void add_rule(TApisRule r) { rules.insert(r); }
   bool rule(TApisRule r) const { return rules.count(r); }
   virtual long int required_fields(TPaxType, TAPIType) const = 0;
-  virtual bool CheckDocoIssueCountry(string issue_place) { return true; }
+  virtual bool CheckDocoIssueCountry(const string& issue_place)
+  {
+    if (rule(r_issueCountryInsteadApplicCountry))
+    {
+      if (issue_place.empty()) return true;
+      TElemFmt elem_fmt;
+      issuePlaceToPaxDocCountryId(issue_place, elem_fmt);
+      return elem_fmt != efmtUnknown;
+    }
+    else
+      return true;
+  }
 
   TAPISFormat()
   {
@@ -511,6 +524,7 @@ struct TAPISFormat
   virtual string process_doc_no(const string& no) const { return no; }
   virtual bool check_doc_type_no(const string& doc_type, const string& doc_no) const
   { return !doc_no.empty(); } // edi?
+  virtual string process_tkn_no(const CheckIn::TPaxTknItem& tkn) const { return tkn.no; }
 
   // TODO только для EDI
   virtual string appRef() const { return "APIS"; }
@@ -775,6 +789,14 @@ struct TAPISFormat_EDI_CN : public TEdiAPISFormat
   string ProcessPhoneFax(const string& s) const { return HyphenToSpace(s); }
 };
 
+struct TAPISFormat_EDI_CNCREW : public TAPISFormat_EDI_CN
+{
+  TAPISFormat_EDI_CNCREW() : TAPISFormat_EDI_CN()
+  {
+    add_rule(r_omitPassengers);
+  }
+};
+
 // основано на TAPISFormat_EDI_CN
 // -------------------------------------------------------------------------------------------------
 struct TAPISFormat_EDI_IN : public TEdiAPISFormat // Индия
@@ -1032,7 +1054,7 @@ struct TAPISFormat_CSV_DE : public TTxtApisFormat // Германия
         body << ";"
               << ipdf->doco_type << ";"
               << convert_char_view(ipdf->doco_no,true) << ";"
-              << ipdf->doco_applic_country;
+              << ipdf->doco_country;
       }
       body << ENDL;
     }
@@ -1521,7 +1543,7 @@ struct TAPPSVersion21 : public TAppsSitaFormat
     if (api == apiDoc) return DOC_APPS_21_FIELDS;
     return NO_FIELDS;
   }
-  bool CheckDocoIssueCountry(string issue_place)
+  bool CheckDocoIssueCountry(const string& issue_place)
   {
     return true; // для 21 версии не требуется
   }
@@ -1535,7 +1557,7 @@ struct TAPPSVersion26 : public TAppsSitaFormat
     if (api == apiDoco) return DOCO_APPS_26_FIELDS;
     return NO_FIELDS;
   }
-  bool CheckDocoIssueCountry(string issue_place);
+  bool CheckDocoIssueCountry(const string& issue_place);
 };
 
 struct TIAPIFormat_CN : public TIAPIFormat
@@ -1551,6 +1573,7 @@ struct TIAPIFormat_CN : public TIAPIFormat
       add_rule(r_convertPaxNames);
       add_rule(r_setTicketNumber);
       add_rule(r_doco);
+      add_rule(r_issueCountryInsteadApplicCountry);
       file_rule = r_file_rule_1;
     }
 
@@ -1574,6 +1597,10 @@ struct TIAPIFormat_CN : public TIAPIFormat
     {
       ConvertPaxNamesConcat(first_name, second_name);
       if (first_name.empty()) first_name="FNU";
+    }
+    string process_tkn_no(const CheckIn::TPaxTknItem& tkn) const
+    {
+      return tkn.no_str("C");
     }
 };
 
@@ -1606,7 +1633,8 @@ inline TAPISFormat* SpawnAPISFormat(const string& fmt)
   if (fmt=="APPS_21")     p = new TAPPSVersion21; else
   if (fmt=="APPS_26")     p = new TAPPSVersion26; else
 
-  if (fmt=="IAPI_CN")     p = new TIAPIFormat_CN;
+  if (fmt=="IAPI_CN")     p = new TIAPIFormat_CN; else
+  if (fmt=="EDI_CNCREW")  p = new TAPISFormat_EDI_CNCREW;
 
   if (p == nullptr) throw Exception("SpawnAPISFormat: unhandled format %s", fmt.c_str());
   p->settings=APIS::Settings("", fmt, "", "", "", "");

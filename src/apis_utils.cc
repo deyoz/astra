@@ -209,7 +209,7 @@ void TCompleteAPICheckInfo::set(const int point_dep, const std::string& airp_arv
 
       is_inter=!(country_dep=="êî" && country_arv=="êî");
     }
-    catch(EBaseTableError) {};
+    catch(const EBaseTableError&) {};
 
     std::set<std::string> apps_formats;
     if (checkAPPSSets(point_dep, airp_arv, &apps_formats))
@@ -1790,13 +1790,18 @@ CheckIn::TPaxDocaItem NormalizeDocaHttp(const CheckIn::TPaxDocaItem &doc, const 
   }
 }
 
-std::string SubstrAfterLastSpace(const std::string& str)
+static std::string SubstrAfterLastSpace(const std::string& str)
 {
   std::size_t found = str.rfind(' ');
   if (found != std::string::npos)
     return str.substr(found+1);
   else
     return str;
+}
+
+string issuePlaceToPaxDocCountryId(const string &elem, TElemFmt &fmt)
+{
+  return ElemToPaxDocCountryId(SubstrAfterLastSpace(elem), fmt);
 }
 
 string NormalizeDocNo(const string& str, bool try_keep_only_digits)

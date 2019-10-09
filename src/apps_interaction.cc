@@ -790,13 +790,12 @@ string IssuePlaceToCountry(const string& issue_place)
 {
   if (issue_place.empty())
     return issue_place;
-  string country = SubstrAfterLastSpace(issue_place);
   TElemFmt elem_fmt;
-  string country_id = ElemToPaxDocCountryId(upperc(country), elem_fmt);
-  if (elem_fmt != efmtUnknown)
-    return country_id;
-  else
+  string country_id=issuePlaceToPaxDocCountryId(issue_place, elem_fmt);
+  if (elem_fmt == efmtUnknown)
     throw Exception("IssuePlaceToCountry failed: issue_place=\"%s\"", issue_place.c_str());
+
+  return country_id;
 }
 
 void TPaxAddData::init( const int pax_id, const int ver )

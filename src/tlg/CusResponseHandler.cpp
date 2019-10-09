@@ -27,7 +27,7 @@ void CusResponseHandler::handle()
 {
     ASSERT(m_data);
     try {
-        callbacks<CusresCallbacks>()->onCusRequestHandle(TRACE5, *m_data);
+        callbacks<CusresCallbacks>()->onCusResponseHandle(TRACE5, *m_data);
     } catch(...) {
         CallbacksExceptionFilter(STDLOG);
     }

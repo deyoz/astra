@@ -1,5 +1,6 @@
 #include "iapi_interaction.h"
 #include "apis_creator.h"
+#include "tlg/remote_system_context.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/slogger.h"
@@ -189,7 +190,7 @@ bool PassengerStatus::allowedToBoarding(int paxId)
   Qry.CreateVariable("pax_id", otInteger, paxId);
   Qry.Execute();
   for(; !Qry.Eof; Qry.Next())
-    if (statusTypes().decode(Qry.FieldAsString("status"))!=OnBoard) return false;
+    if (!allowedToBoarding( statusTypes().decode(Qry.FieldAsString("status")) )) return false;
 
   return true;
 }
@@ -244,7 +245,7 @@ const PassengerStatus& PassengerStatus::updateByResponse(const std::string& msgI
 
   toDB(Qry);
   Qry.Execute();
-  if (Qry.RowsProcessed()>0) toLog();
+  if (Qry.RowsProcessed()>0) toLog(false);
 
   return *this;
 }
@@ -263,7 +264,7 @@ const PassengerStatus& PassengerStatus::updateByCusRequest(bool& notRequestedBef
   toDB(Qry);
   Qry.Execute();
   if (Qry.RowsProcessed()>0)
-    toLog();
+    toLog(true);
   else
     LogTrace(TRACE5) << __func__ << ": passenger not found (paxId=" << m_paxId << ", countryControl=" << m_countryControl << ")";
 
@@ -272,7 +273,7 @@ const PassengerStatus& PassengerStatus::updateByCusRequest(bool& notRequestedBef
   return *this;
 }
 
-void PassengerStatus::toLog() const
+void PassengerStatus::toLog(bool isRequest) const
 {
   if (m_paxId==ASTRA::NoExists) return;
 
@@ -283,15 +284,26 @@ void PassengerStatus::toLog() const
 
   TLogLocale msg;
   msg.ev_type=ASTRA::evtPax;
-  msg.lexema_id = "EVT.PASSENGER_DATA";
+  if (isRequest)
+    msg.lexema_id = allowedToBoarding(m_status)?"EVT.IAPI_REQUEST.BOARDING_PERMITTED":
+                                                "EVT.IAPI_REQUEST.BOARDING_NOT_PERMITTED";
+  else
+    msg.lexema_id = allowedToBoarding(m_status)?"EVT.IAPI_RESPONSE.BOARDING_PERMITTED":
+                                                "EVT.IAPI_RESPONSE.BOARDING_NOT_PERMITTED";
+
   msg.id1=grp.point_dep;
   msg.id2=pax.reg_no;
   msg.id3=pax.grp_id;
 
+  string statusStr=statusTypes().encode(m_status);
+  if (!statusStr.empty() && !m_freeText.empty()) statusStr+=" - ";
+  statusStr+=m_freeText;
+
   msg.prms.clearPrms();
   msg.prms << PrmSmpl<string>("pax_name", pax.full_name())
            << PrmElem<string>("pers_type", etPersType, EncodePerson(pax.pers_type))
-           << PrmSmpl<string>("param", m_freeText);
+           << PrmElem<string>("country", etCountry, m_countryControl)
+           << PrmSmpl<string>("status",  statusStr);
 
   TReqInfo::Instance()->LocaleToLog(msg);
 }
@@ -306,12 +318,13 @@ PassengerStatus::Level PassengerStatus::getStatusLevel(const edifact::Cusres::Se
     return UnknownLevel;
 }
 
-PassengerStatus::PassengerStatus(const edifact::Cusres::SegGr4& gr4)
+PassengerStatus::PassengerStatus(const edifact::Cusres::SegGr4& gr4,
+                                 const APIS::SettingsKey& settingsKey)
 {
   clear();
 
   m_paxId=getPaxId(gr4);
-  m_countryControl="ñç";
+  m_countryControl=settingsKey.countryControl();
   m_status=statusTypes().decode(gr4.m_erc.m_errorCode);
   if (gr4.m_ftx)
     m_freeText=gr4.m_ftx.get().m_freeText;
@@ -343,6 +356,20 @@ std::string PassengerStatusList::getMsgId(const edifact::Cusres& cusres)
 
 void PassengerStatusList::processCusres(const edifact::Cusres& cusres, bool isRequest)
 {
+  using namespace Ticketing::RemoteSystemContext;
+  const SystemContext& ctxt=SystemContext::Instance(STDLOG);
+
+  APIS::SettingsList settingsList;
+  settingsList.getByAddrs(ctxt.remoteAddrEdifact(),
+                          ctxt.remoteAddrEdifactExt(),
+                          ctxt.ourAddrEdifact(),
+                          ctxt.ourAddrEdifactExt());
+  if (settingsList.empty())
+  {
+    LogTrace(TRACE5) << "settingsList.empty()!";
+    return;
+  }
+
   PassengerStatusList statuses;
 
   string msgId=getMsgId(cusres);
@@ -353,7 +380,7 @@ void PassengerStatusList::processCusres(const edifact::Cusres& cusres, bool isRe
 
     if (level==PassengerStatus::UnknownLevel) continue;
 
-    PassengerStatus status(gr4);
+    PassengerStatus status(gr4, settingsList.begin()->first);
 
     if (level==PassengerStatus::HeaderLevel)
     {
