@@ -1506,12 +1506,14 @@ struct TAPISFormat_EDI_VN : public TEdiAPISFormat // ВЬЕТНАМ
   string mesRelNum() const { return "05B"; } // в соответствии с требованиями
 };
 
-// основано на TAPISFormat_EDI_VN, только без RFF+TN
-// -------------------------------------------------------------------------------------------------
-struct TAPISFormat_EDI_AE : public TEdiAPISFormat // ЭМИРАТЫ
+struct TAPISFormat_EDI_AE : public TEdiAPISFormat
 {
     TAPISFormat_EDI_AE()
     {
+      add_rule(r_setSeats);
+      add_rule(r_setBagCount);
+      add_rule(r_setBagWeight);
+      add_rule(r_setPaxReference);
       add_rule(r_convertPaxNames);
       add_rule(r_processDocNumber);
       add_rule(r_notOmitCrew);
