@@ -162,7 +162,7 @@ std::string AstraEdiSessWR::ourUnbAddrExt() const
 
 std::string AstraEdiSessWR::unbAddrExt() const
 {
-    return sysCont()->remoteAddrAirimpExt();
+    return sysCont()->remoteAddrEdifactExt();
 }
 
 std::string AstraEdiSessWR::ctrlAgency() const
@@ -394,7 +394,7 @@ int edifact::init_edifact()
     /*if(InitEdiCharSet(edi_chrset, sizeof(edi_chrset)/sizeof(edi_chrset[0]))){
         ProgError(STDLOG,"InitEdiCharSet() failed");
         return -3;
-    }*/   
+    }*/
 
     return 0;
 }

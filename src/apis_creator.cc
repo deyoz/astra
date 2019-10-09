@@ -377,6 +377,8 @@ void CreateEdi(const TApisRouteData& route,
 
     if (iPax->status==psCrew && !format.rule(r_notOmitCrew))
       continue;
+    if (iPax->status!=psCrew && format.rule(r_omitPassengers))
+      continue;
     if (iPax->status!=psCrew && !iPax->pr_brd && route.final_apis())
       continue;
     if (omit_incomplete_apis(route.depInfo.point_id, *iPax, format))
@@ -400,7 +402,7 @@ void CreateEdi(const TApisRouteData& route,
     }
 
     if (format.rule(r_setTicketNumber))
-      paxInfo.setTicketNumber(iPax->tkn.no_str("C"));
+      paxInfo.setTicketNumber(format.process_tkn_no(iPax->tkn));
 
     if (format.rule(r_setFqts))
     {
@@ -560,7 +562,13 @@ void CreateEdi(const TApisRouteData& route,
     {
       paxInfo.setDocoType(iPax->doco_type_lat());
       paxInfo.setDocoNumber(iPax->doco.get().no);
-      paxInfo.setDocoCountry(format.ConvertCountry(iPax->doco.get().applic_country));
+      if (format.rule(r_issueCountryInsteadApplicCountry))
+      {
+        TElemFmt fmt;
+        paxInfo.setDocoCountry(format.ConvertCountry(issuePlaceToPaxDocCountryId(iPax->doco.get().issue_place, fmt)));
+      }
+      else
+        paxInfo.setDocoCountry(format.ConvertCountry(iPax->doco.get().applic_country));
       if (iPax->doco.get().expiry_date!=NoExists)
         paxInfo.setDocoExpirateDate(iPax->doco.get().expiry_date);
 
@@ -657,6 +665,7 @@ bool CreateEdiFile2(  const TApisRouteData& route,
   int passengers_count = FPM.passengersList().size();
   int crew_count = FCM.passengersList().size();
   // сформируем файл
+  boost::optional<int> XML_TR_version;
   if ( format.rule(r_file_XML_TR) && ( passengers_count || crew_count ))
   {
     XMLDoc doc;
@@ -664,14 +673,13 @@ bool CreateEdiFile2(  const TApisRouteData& route,
     if (doc.docPtr()==NULL)
       throw EXCEPTIONS::Exception("CreateEdiFile2: CreateXMLDoc failed");
     xmlNodePtr apisNode=xmlDocGetRootElement(doc.docPtr());
-    int version = 0;
+    XML_TR_version = 0;
 #if !APIS_TEST
-    if (get_trip_apis_param(route.depInfo.point_id, "XML_TR", "version", version))
-      version++;
-    set_trip_apis_param(route.depInfo.point_id, "XML_TR", "version", version);
+    if (get_trip_apis_param(route.depInfo.point_id, "XML_TR", "version", XML_TR_version.get()))
+      XML_TR_version.get()++;
 #endif
-    FPM.toXMLFormat(apisNode, passengers_count, crew_count, version);
-    FCM.toXMLFormat(apisNode, passengers_count, crew_count, version);
+    FPM.toXMLFormat(apisNode, passengers_count, crew_count, XML_TR_version.get());
+    FCM.toXMLFormat(apisNode, passengers_count, crew_count, XML_TR_version.get());
     text = GetXMLDocText(doc.docPtr());
     type = APIS_TR;
   }
@@ -699,6 +707,10 @@ bool CreateEdiFile2(  const TApisRouteData& route,
              << PrmElem<string>("country_arv", etCountry, route.country_arv())
              << PrmElem<string>("airp_arv", etAirp, route.arvInfo().airp);
       TReqInfo::Instance()->LocaleToLog("EVT.APIS_CREATED", params, evtFlt, route.depInfo.point_id);
+
+      if (XML_TR_version)
+        set_trip_apis_param(route.depInfo.point_id, "XML_TR", "version", XML_TR_version.get());
+
       result = true;
     }
   }
@@ -718,6 +730,8 @@ void CreateTxt( const TApisRouteData& route,
         ++iPax)
   {
     if (iPax->status==psCrew && !format.rule(r_notOmitCrew))
+      continue;
+    if (iPax->status!=psCrew && format.rule(r_omitPassengers))
       continue;
     if (iPax->status!=psCrew && !iPax->pr_brd && route.final_apis())
       continue;
@@ -792,7 +806,13 @@ void CreateTxt( const TApisRouteData& route,
       pdf.doco_exists = iPax->doco != boost::none;
       pdf.doco_type = iPax->doco_type_lat(); // throws
       pdf.doco_no = iPax->doco.get().no;
-      pdf.doco_applic_country = format.ConvertCountry(iPax->doco.get().applic_country);
+      if (format.rule(r_issueCountryInsteadApplicCountry))
+      {
+        TElemFmt fmt;
+        pdf.doco_country = format.ConvertCountry(issuePlaceToPaxDocCountryId(iPax->doco.get().issue_place, fmt));
+      }
+      else
+        pdf.doco_country = format.ConvertCountry(iPax->doco.get().applic_country);
     }
 
     tdf.lstPaxData.push_back(pdf);
@@ -863,7 +883,7 @@ bool CreateApisFiles(const TApisDataset& dataset, TApisTestMap* test_map = nullp
                 CreateEdiFile1(*iRoute, *pFormat, FPM, FCM, files);
                 break;
               case r_file_rule_2:
-                result = CreateEdiFile2(*iRoute, *pFormat, FPM, FCM, text, type, file_params);
+                if (CreateEdiFile2(*iRoute, *pFormat, FPM, FCM, text, type, file_params)) result=true;
                 break;
               default:
                 break;
@@ -995,15 +1015,11 @@ bool create_apis_file(int point_id, const string& task_name)
 
 //---------------------------------------------------------------------------------------
 
-bool TAPPSVersion26::CheckDocoIssueCountry(string issue_place)
+bool TAPPSVersion26::CheckDocoIssueCountry(const string& issue_place)
 {
-  string country = SubstrAfterLastSpace(issue_place);
+  if (issue_place.empty()) return true;
   TElemFmt elem_fmt;
-  ElemToPaxDocCountryId(upperc(country), elem_fmt);
-  LogTrace(TRACE5) << "CheckDocoIssueCountry: "
-                   << "issue_place=\"" << issue_place << "\" "
-                   << "country=\"" << country << "\" "
-                   << "elem_fmt=" << elem_fmt;
+  issuePlaceToPaxDocCountryId(issue_place, elem_fmt);
   return elem_fmt != efmtUnknown;
 }
 

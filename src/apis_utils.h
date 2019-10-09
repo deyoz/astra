@@ -580,7 +580,7 @@ void CheckDocaHttp(const CheckIn::TPaxDocaItem &doc,
                const TCompleteAPICheckInfo &checkInfo,
                const std::string full_name);
 
-std::string SubstrAfterLastSpace(const std::string& str);
+std::string issuePlaceToPaxDocCountryId(const std::string &elem, TElemFmt &fmt);
 
 std::string NormalizeDocNo(const std::string& str, bool try_keep_only_digits);
 

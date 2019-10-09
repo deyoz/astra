@@ -26,6 +26,7 @@
 #include "tlg/edi_elements.h"
 
 #include <edilib/edi_types.h>
+#include <edilib/edi_request_handler.h>
 
 struct _EDI_REAL_MES_STRUCT_;
 
@@ -246,6 +247,25 @@ public:
       m_stopsAfterBorder.clear();
       m_stopsAfterBorder.emplace_back(ap, adt, ASTRA::NoExists);
     }
+
+    void getCrossBorderFlightStops(std::string& dp,
+                                   TDateTime& ddt,
+                                   std::string& ap,
+                                   TDateTime& adt) const
+    {
+      dp.clear();
+      ddt=ASTRA::NoExists;
+      ap.clear();
+      adt=ASTRA::NoExists;
+      if (m_stopsBeforeBorder.size()==1 &&
+          m_stopsAfterBorder.size()==1)
+      {
+        dp=m_stopsBeforeBorder.front().depPort();
+        ddt=m_stopsBeforeBorder.front().depDateTime();
+        ap=m_stopsAfterBorder.back().arrPort();
+        adt=m_stopsAfterBorder.back().arrDateTime();
+      }
+    }
 };
 
 //---------------------------------------------------------------------------------------
@@ -407,7 +427,7 @@ class PassengerInfo
 
     std::string m_doco_type;
     std::string m_doco_no;
-    std::string m_doco_applic_country;
+    std::string m_doco_country;
     TDateTime   m_docoExpirateDate = ASTRA::NoExists;
 
 public:
@@ -694,11 +714,11 @@ public:
     // passenger's visa country
     const std::string& docoCountry() const
     {
-      return m_doco_applic_country;
+      return m_doco_country;
     }
     void setDocoCountry( const std::string& dc )
     {
-      m_doco_applic_country = upperc( dc.substr( 0, 25 ) );
+      m_doco_country = upperc( dc.substr( 0, 25 ) );
     }
 
     // passenger's visa expirate date

@@ -589,20 +589,25 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
         NewTextChild(codeshareNode, "FlightNumber", i->second);
       }
     }
-//    if (depDateTime() == ASTRA::NoExists)  //!!!vlad
-//      throw Exception("ScheduledDepartureDateTime is empty");
-//    NewTextChild(flightNode, "ScheduledDepartureDateTime",
-//                 DateTimeToStr(depDateTime(), "yyyy-mm-dd'T'hh:nn:00"));
-//    if (depPort().empty())
-//      throw Exception("DepartureAirport is empty");
-//    NewTextChild(flightNode, "DepartureAirport", depPort());
-//    if (arrDateTime() == ASTRA::NoExists)
-//      throw Exception("EstimatedArrivalDateTime is empty");
-//    NewTextChild(flightNode, "EstimatedArrivalDateTime",
-//                 DateTimeToStr(arrDateTime(), "yyyy-mm-dd'T'hh:nn:00"));
-//    if (arrPort().empty())
-//      throw Exception("ArrivalAirport is empty");
-//    NewTextChild(flightNode, "ArrivalAirport", arrPort());
+
+    std::string depPort, arrPort;
+    TDateTime depDateTime, arrDateTime;
+    getCrossBorderFlightStops(depPort, depDateTime, arrPort, arrDateTime);
+
+    if (depDateTime == ASTRA::NoExists)
+      throw Exception("ScheduledDepartureDateTime is empty");
+    NewTextChild(flightNode, "ScheduledDepartureDateTime",
+                 DateTimeToStr(depDateTime, "yyyy-mm-dd'T'hh:nn:00"));
+    if (depPort.empty())
+      throw Exception("DepartureAirport is empty");
+    NewTextChild(flightNode, "DepartureAirport", depPort);
+    if (arrDateTime == ASTRA::NoExists)
+      throw Exception("EstimatedArrivalDateTime is empty");
+    NewTextChild(flightNode, "EstimatedArrivalDateTime",
+                 DateTimeToStr(arrDateTime, "yyyy-mm-dd'T'hh:nn:00"));
+    if (arrPort.empty())
+      throw Exception("ArrivalAirport is empty");
+    NewTextChild(flightNode, "ArrivalAirport", arrPort);
     xmlNodePtr FlightLegsNode = NewTextChild(flightNode, "FlightLegs");
     fltLegs().FlightLegstoXML(FlightLegsNode);
   }
@@ -1022,7 +1027,7 @@ namespace
         paxlstInfo.setFlight( "OK688" );
         TDateTime depDate = ASTRA::NoExists, arrDate = ASTRA::NoExists;
         StrToDateTime( "08.10.07 10:45:00", depDate ); //"0710081045"
-        StrToDateTime( "08.10.07 13:10:00", arrDate ); //"0710081310"        
+        StrToDateTime( "08.10.07 13:10:00", arrDate ); //"0710081310"
         paxlstInfo.setCrossBorderFlightStops( "PrG", depDate, "BCN", arrDate);
 
         Paxlst::PassengerInfo pass1;

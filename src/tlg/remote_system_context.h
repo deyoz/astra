@@ -176,16 +176,16 @@ namespace RemoteSystemContext
         static SystemContext defSelData(OciCpp::CursCtl& cur);
 
     public:
-        Ticketing::SystemAddrs_t ida() const           { return Ida;                  }
-        const std::string& airline() const             { return RemoteAirline;        }
-        const std::string& ourAddrEdifact() const      { return OurAddrEdifact;       }
-        const std::string& remoteAddrEdifact() const   { return RemoteAddrEdifact;    }
-        const std::string& ourAddrAirimp() const       { return OurAddrAirimp;        }
-        const std::string& ourAddrEdifactExt() const   { return OurAddrEdifactExt;    }
-        const std::string& remoteAddrAirimp() const    { return RemoteAddrAirimp;     }
-        const std::string& remoteAddrAirimpExt() const { return RemoteAddrEdifactExt; }
-        const std::string& edifactProfileName() const  { return EdifactProfileName;   }
-        const std::string& routerCanonName() const     { return CanonName;            }
+        Ticketing::SystemAddrs_t ida() const            { return Ida;                  }
+        const std::string& airline() const              { return RemoteAirline;        }
+        const std::string& ourAddrEdifact() const       { return OurAddrEdifact;       }
+        const std::string& remoteAddrEdifact() const    { return RemoteAddrEdifact;    }
+        const std::string& ourAddrAirimp() const        { return OurAddrAirimp;        }
+        const std::string& ourAddrEdifactExt() const    { return OurAddrEdifactExt;    }
+        const std::string& remoteAddrAirimp() const     { return RemoteAddrAirimp;     }
+        const std::string& remoteAddrEdifactExt() const { return RemoteAddrEdifactExt; }
+        const std::string& edifactProfileName() const   { return EdifactProfileName;   }
+        const std::string& routerCanonName() const      { return CanonName;            }
 
         edifact::EdifactProfile edifactProfile() const;
 

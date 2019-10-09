@@ -84,6 +84,7 @@ class PassengerStatus
     };
 
     static const StatusTypes& statusTypes() { return ASTRA::singletone<StatusTypes>(); }
+    static bool allowedToBoarding(Enum status) { return status==OnBoard; }
 
     int m_paxId;
     std::string m_countryControl;
@@ -101,7 +102,8 @@ class PassengerStatus
       m_freeText(""),
       m_pointId(pointId) {}
 
-    PassengerStatus(const edifact::Cusres::SegGr4& gr4);
+    PassengerStatus(const edifact::Cusres::SegGr4& gr4,
+                    const APIS::SettingsKey& settingsKey);
 
     void clear()
     {
@@ -131,7 +133,7 @@ class PassengerStatus
                                            bool& notRequestedBefore) const;
     const PassengerStatus& updateByResponse(const std::string& msgId) const;
     const PassengerStatus& updateByCusRequest(bool& notRequestedBefore) const;
-    void toLog() const;
+    void toLog(bool isRequest) const;
 
     static Level getStatusLevel(const edifact::Cusres::SegGr4& gr4);
     static int getPaxId(const edifact::Cusres::SegGr4& gr4);
