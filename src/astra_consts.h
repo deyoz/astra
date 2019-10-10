@@ -10,7 +10,6 @@
 #include "exceptions.h"
 
 #define APIS_TEST 0
-#define APIS_TEST_ALL_FORMATS 0
 
 namespace ASTRA
 {
