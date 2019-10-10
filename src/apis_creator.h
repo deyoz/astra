@@ -117,7 +117,7 @@ struct TApisTestMap : public map<apis_test_key, apis_test_value, apis_test_key_l
   bool exception = false;
   string str_exception;
   apis_test_key try_key;
-  string ToString()
+  string ToString() const
   {
     ostringstream s;
     s << "TEST_MAP;"
@@ -127,6 +127,10 @@ struct TApisTestMap : public map<apis_test_key, apis_test_value, apis_test_key_l
     for (const auto i : *this)
       s << i.first.ToString() << endl << i.second.ToString() << endl;
     return s.str();
+  }
+  bool isEmpty() const
+  {
+    return empty() && !exception && str_exception.empty();
   }
 };
 
