@@ -17,6 +17,9 @@
 #define MAX_PAX_PER_EDI_PART 15
 #define MAX_LEN_OF_EDI_PART 3000
 
+#define APIS_TEST_ALL_FORMATS 0
+#define APIS_TEST_IGNORE_EMPTY 1
+
 bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* test_map)
 {
   try
@@ -1143,21 +1146,40 @@ string TruncExceptionString(const string& s)
 
 //---------------------------------------------------------------------------------------
 
+//сравнивать командой diff -q apis_test_old/ apis_test/
 int apis_test_single(int argc, char **argv)
 {
+  TDateTime firstDate, lastDate;
+
+  if (!getDateRangeFromArgs(argc, argv, firstDate, lastDate)) return 1;
+
   if(edifact::init_edifact() < 0)
     throw EXCEPTIONS::Exception("'init_edifact' error!");
+
+  list<int> pointIds;
   TQuery PointIdQry(&OraSession);
   PointIdQry.SQLText=
-  "SELECT point_id FROM points WHERE airline IS NOT NULL AND PR_DEL=0 AND "
-  "SCD_OUT BETWEEN TO_DATE('07.11.18 00:00', 'DD.MM.YY HH24:MI') AND TO_DATE('08.11.18 00:00','DD.MM.YY HH24:MI')";
+    "SELECT point_id "
+    "FROM points "
+    "WHERE airline IS NOT NULL AND pr_del=0 AND "
+    "      scd_out>=:first_date AND scd_out<:last_date";
+  PointIdQry.CreateVariable("first_date", otDate, firstDate);
+  PointIdQry.CreateVariable("last_date", otDate, lastDate);
+  PointIdQry.Execute();
+  for(; !PointIdQry.Eof; PointIdQry.Next())
+    pointIds.push_back(PointIdQry.FieldAsInteger("point_id"));
+
+  const std::initializer_list<string> taskNames={BEFORE_TAKEOFF_30_US_CUSTOMS_ARRIVAL, BEFORE_TAKEOFF_60_US_CUSTOMS_ARRIVAL, ON_TAKEOFF, ON_CLOSE_CHECKIN, ON_CLOSE_BOARDING};
+
+  printf("%zu flights found\n", pointIds.size());
+  printf("%zu iterations expected\n", pointIds.size()*taskNames.size());
+
   int iteration = 0;
-  for (PointIdQry.Execute(); !PointIdQry.Eof; PointIdQry.Next())
+  for (int point_id : pointIds)
   {
-    int point_id = PointIdQry.FieldAsInteger("point_id");
-    for (string task_name : {BEFORE_TAKEOFF_30_US_CUSTOMS_ARRIVAL, BEFORE_TAKEOFF_60_US_CUSTOMS_ARRIVAL, ON_TAKEOFF, ON_CLOSE_CHECKIN, ON_CLOSE_BOARDING})
+    for (const string& task_name : taskNames)
     {
-      nosir_wait(iteration++, false, 2, 0);
+      nosir_wait(iteration++, false, 5, 0);
       LogTrace(TRACE5) << "TESTING APIS: point = " << point_id << " task = \"" << task_name << "\"";
 #if APIS_TEST
       // заполним map
@@ -1173,6 +1195,9 @@ int apis_test_single(int argc, char **argv)
         map_test.exception = true;
         map_test.str_exception = E.what();
       }
+#if APIS_TEST_IGNORE_EMPTY
+      if (map_test.isEmpty()) continue;
+#endif
       // запишем файл
       ofstream file_test;
       try
@@ -1185,7 +1210,7 @@ int apis_test_single(int argc, char **argv)
         file_test << map_test.ToString() << endl;
         file_test.close();
       }
-      catch (Exception e)
+      catch (const Exception& e)
       {
         LogTrace(TRACE5) << "ERROR write file: " << e.what();
         try { file_test.close(); } catch (...) { }
