@@ -24,6 +24,7 @@
 #include "serverlib/str_utils.h"
 #include <boost/regex.hpp>
 #include "docs/docs_common.h"
+#include "docs/docs_pax_list.h"
 
 #define NICKNAME "DEN"
 #include "serverlib/slogger.h"
@@ -6103,73 +6104,45 @@ void TLDMDests::get(TypeB::TDetailCreateInfo &info)
 
     cfg.get(info);
 
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "SELECT points.point_id AS point_arv, "
-        "       points.airp AS target, "
-        "       NVL(pax.rk_weight,0) AS rk_weight, "
-        "       NVL(pax.f,0) AS f, "
-        "       NVL(pax.c,0) AS c, "
-        "       NVL(pax.y,0) AS y, "
-        "       NVL(pax.adl,0) AS adl, "
-        "       NVL(pax.chd,0) AS chd, "
-        "       NVL(pax.inf,0) AS inf, "
-        "       NVL(pax.female,0) AS female, "
-        "       NVL(pax.male,0) AS male "
-        "FROM points, "
-        "     (SELECT point_arv, "
-        "             SUM(ckin.get_rkWeight2(pax_grp.grp_id, pax.pax_id, pax.bag_pool_num, rownum)) rk_weight, "
-        "             SUM(DECODE(nvl(pax.cabin_class, pax_grp.class),'',DECODE(seats,0,0,1),0)) AS f, "
-        "             SUM(DECODE(nvl(pax.cabin_class, pax_grp.class),'',DECODE(seats,0,0,1),0)) AS c, "
-        "             SUM(DECODE(nvl(pax.cabin_class, pax_grp.class),'',DECODE(seats,0,0,1),0)) AS y, "
-        "             SUM(DECODE(pers_type,'‚‡',1,0)) AS adl, "
-        "             SUM(DECODE(pers_type,'',1,0)) AS chd, "
-        "             SUM(DECODE(pers_type,'Œ',1,0)) AS inf, "
-        "             sum(decode(pers_type, '‚‡', decode(is_female, null, 0, 0, 0, 1), 0)) female, "
-        "             sum(decode(pers_type, '‚‡', decode(is_female, null, 1, 0, 1, 0), 0)) male "
-        "      FROM pax_grp,pax "
-        "      WHERE pax_grp.grp_id=pax.grp_id AND "
-        "            point_dep=:point_id AND "
-        "            pax_grp.status NOT IN ('E') AND "
-        "            pr_brd=1 "
-        "      GROUP BY point_arv) pax "
-        "WHERE points.point_id=pax.point_arv(+) AND "
-        "      first_point=:first_point AND point_num>:point_num AND pr_del=0 "
-        "ORDER BY points.point_num ";
-    Qry.CreateVariable("point_id", otInteger, info.point_id);
-    Qry.CreateVariable("point_num", otInteger, info.point_num);
-    Qry.CreateVariable("first_point", otInteger, info.pr_tranzit ? info.first_point : info.point_id);
-    Qry.Execute();
-    if(!Qry.Eof) {
-        int col_point_arv = Qry.FieldIndex("point_arv");
-        int col_target = Qry.FieldIndex("target");
-        int col_rk_weight = Qry.FieldIndex("rk_weight");
-        int col_f = Qry.FieldIndex("f");
-        int col_c = Qry.FieldIndex("c");
-        int col_y = Qry.FieldIndex("y");
-        int col_adl = Qry.FieldIndex("adl");
-        int col_chd = Qry.FieldIndex("chd");
-        int col_inf = Qry.FieldIndex("inf");
-        int col_female = Qry.FieldIndex("female");
-        int col_male = Qry.FieldIndex("male");
-        for(; !Qry.Eof; Qry.Next()) {
-            TLDMDest item;
-            item.point_arv = Qry.FieldAsInteger(col_point_arv);
+    REPORTS::TPaxList pax_list(info.point_id);
+    pax_list.options.flags.setFlag(REPORTS::oeRkWeight);
+    pax_list.options.pr_brd = boost::in_place(REPORTS::TBrdVal::bvTRUE);
+    pax_list.fromDB();
+    TTripRoute route;
+    if(not pax_list.empty() and route.GetRouteAfter(NoExists, info.point_id, trtNotCurrent, trtNotCancelled)) {
+        for(const auto &point_arv: route) {
+            items.emplace_back();
+            auto &item = items.back();
+            item.point_arv = point_arv.point_id;
+            item.target = point_arv.airp;
             item.bag.get(info, item.point_arv);
-            item.rk_weight = Qry.FieldAsInteger(col_rk_weight);
-            item.f = Qry.FieldAsInteger(col_f);
-            item.target = Qry.FieldAsString(col_target);
             item.excess.get(info.point_id, item.target);
             item.to_ramp.get(info.point_id, TToRampBag::rbBrd, item.target);
-            item.c = Qry.FieldAsInteger(col_c);
-            item.y = Qry.FieldAsInteger(col_y);
-            item.adl = Qry.FieldAsInteger(col_adl);
-            item.chd = Qry.FieldAsInteger(col_chd);
-            item.inf = Qry.FieldAsInteger(col_inf);
-            item.female = Qry.FieldAsInteger(col_female);
-            item.male = Qry.FieldAsInteger(col_male);
+
+            item.rk_weight = 0;
+            item.f = 0;
+            item.c = 0;
+            item.y = 0;
+            item.adl = 0;
+            item.chd = 0;
+            item.inf = 0;
+            item.female = 0;
+            item.male = 0;
+
+            for(const auto &pax: pax_list) {
+                if(pax->grp().point_arv == point_arv.point_id) {
+                    item.rk_weight += pax->rk_weight();
+                    item.f += pax->cl() == "" and pax->seats();
+                    item.c += pax->cl() == "" and pax->seats();
+                    item.y += pax->cl() == "" and pax->seats();
+                    item.adl += pax->simple.pers_type == TPerson::adult;
+                    item.chd += pax->simple.pers_type == TPerson::child;
+                    item.inf += pax->simple.pers_type == TPerson::baby;
+                    item.female += pax->simple.pers_type == TPerson::adult and pax->simple.gender == TGender::Female;
+                    item.male += pax->simple.pers_type == TPerson::adult and pax->simple.gender != TGender::Female;
+                }
+            }
             item.append(before_dests);
-            items.push_back(item);
         }
     }
 }
