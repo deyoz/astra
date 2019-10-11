@@ -132,7 +132,7 @@ void SettingsList::getForTesting(const Settings& settingsPattern)
   Settings settings(settingsPattern);
   TQuery ApisSetsQry(&OraSession);
   ApisSetsQry.SQLText=
-    "SELECT code FROM apis_formats ORDER BY code";
+    "SELECT code AS format FROM apis_formats ORDER BY code";
   ApisSetsQry.Execute();
   for(; !ApisSetsQry.Eof; ApisSetsQry.Next())
     add(settings.replaceFormat(ApisSetsQry));

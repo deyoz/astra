@@ -727,9 +727,9 @@ void PaxlstInfo::checkInvariant() const
     if( senderName().empty() )
         throw EXCEPTIONS::Exception( "Empty sender name!" );
 
-    if( stopsBeforeBorder().empty() ||
+    if( stopsBeforeBorder().empty() &&
         stopsAfterBorder().empty())
-        throw EXCEPTIONS::Exception( "Empty stopsBeforeBorder or stopsAfterBorder!" );
+        throw EXCEPTIONS::Exception( "Empty stopsBeforeBorder and stopsAfterBorder!" );
 }
 
 BgmElem PaxlstInfo::getBgmElem() const

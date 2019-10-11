@@ -49,8 +49,11 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
       }
     }
 
-    TAdvTripRoute routeAfter;
-    routeAfter.GetRouteAfter(fltInfo, trtWithCurrent, trtNotCancelled);
+    TAdvTripRoute routeAfterWithCurrent;
+    routeAfterWithCurrent.GetRouteAfter(fltInfo, trtWithCurrent, trtNotCancelled);
+    TAdvTripRoute routeAfterWithoutCurrent(routeAfterWithCurrent);
+    if (!routeAfterWithoutCurrent.empty() && routeAfterWithoutCurrent.begin()->point_id == point_id)
+      routeAfterWithoutCurrent.erase(routeAfterWithoutCurrent.begin());
 
     TQuery PaxQry(&OraSession);
     PaxQry.SQLText=
@@ -79,15 +82,15 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
 
     map<string /*country_regul_arv*/, string /*first airp_arv*/> CBPAirps;
 
-    for(TAdvTripRoute::const_iterator iRoute = routeAfter.begin(); iRoute != routeAfter.end(); iRoute++)
+    for(TAdvTripRoute::const_iterator iRoute = routeAfterWithCurrent.begin(); iRoute != routeAfterWithCurrent.end(); ++iRoute)
     {
-      if (iRoute == routeAfter.begin()) continue; //пропускаем пункт вылета
+      if (iRoute->point_id == point_id) continue; //пропускаем пункт вылета
 #if APIS_TEST
       test_map->try_key.set(iRoute->point_id, "");
 #endif
       TApisRouteData rd;
       rd.depInfo=fltInfo;
-      for(TAdvTripRoute::const_iterator i=routeAfter.begin(); i!=iRoute+1; ++i)
+      for(TAdvTripRoute::const_iterator i=routeAfterWithCurrent.begin(); i!=iRoute+1; ++i)
         rd.paxLegs.push_back(*i);
       rd.task_name = task_name;
       rd.country_regul_dep = APIS::GetCustomsRegulCountry(rd.country_dep(), CustomsQry);
@@ -127,7 +130,7 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
 
       //Flight legs
       rd.allLegs.GetRouteBefore(rd.depInfo, trtWithCurrent, trtNotCancelled);
-      rd.allLegs.insert(rd.allLegs.end(), routeAfter.begin(), routeAfter.end());
+      rd.allLegs.insert(rd.allLegs.end(), routeAfterWithoutCurrent.begin(), routeAfterWithoutCurrent.end());
 
 #if APIS_TEST
       for(const auto& i : rd.lstSetsData)
@@ -184,7 +187,7 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
       lstRouteData.push_back(rd);
     } // for TTripRoute
   } // try
-  catch(Exception &E)
+  catch(const Exception &E)
   {
     throw Exception("TApisCreator::FromDB: %s",E.what());
   }
@@ -849,7 +852,7 @@ bool CreateApisFiles(const TApisDataset& dataset, TApisTestMap* test_map = nullp
       for (APIS::SettingsList::const_iterator iApis = iRoute->lstSetsData.begin(); iApis != iRoute->lstSetsData.end(); ++iApis)
       {
 #if APIS_TEST
-        test_map->try_key.set(iRoute->route_point_id, iApis->fmt);
+        test_map->try_key.set(iRoute->arvInfo().point_id, iApis->second.format());
 #endif
         boost::scoped_ptr<const TAPISFormat> pFormat(SpawnAPISFormat(iApis->second));
         // https://stackoverflow.com/questions/6718538/does-boostscoped-ptr-violate-the-guideline-of-logical-constness
@@ -932,7 +935,7 @@ bool CreateApisFiles(const TApisDataset& dataset, TApisTestMap* test_map = nullp
             break;
         }
 #if APIS_TEST
-        apis_test_key key(iRoute->route_point_id, iApis->fmt);
+        apis_test_key key(iRoute->arvInfo().point_id, iApis->second.format());
         apis_test_value value(files, text, type, file_params);
         test_map->insert(make_pair(key, value));
 #else
