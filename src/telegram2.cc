@@ -6131,7 +6131,7 @@ void TLDMDests::get(TypeB::TDetailCreateInfo &info)
 
             for(const auto &pax: pax_list) {
                 if(pax->grp().point_arv == point_arv.point_id) {
-                    item.rk_weight += pax->rk_weight();
+                    item.rk_weight += pax->rk_weight(true);
                     item.f += pax->cl() == "" and pax->seats();
                     item.c += pax->cl() == "" and pax->seats();
                     item.y += pax->cl() == "" and pax->seats();

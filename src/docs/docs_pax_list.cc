@@ -322,12 +322,22 @@ int TPax::rk_amount() const
     return result;
 }
 
-int TPax::rk_weight() const
+int TPax::rk_weight(bool cbbg_weight) const
 {
     int result = baggage.rk_weight;
     for(const auto &cbbg: cbbg_list) {
-        if(cbbg.pax_info)
+        if(cbbg.pax_info) {
             result += cbbg.pax_info->baggage.rk_weight;
+            if(cbbg_weight) {
+                if(not pax_list.pwr) {
+                    pax_list.pwr = boost::in_place();
+                    pax_list.pwr->read(pax_list.point_id);
+                }
+                ClassesPersWeight cpw;
+                pax_list.pwr->weight(cbbg.pax_info->cl(), string(), cpw);
+                result += (cbbg.pax_info->simple.pers_type == TPerson::adult and cbbg.pax_info->simple.gender == TGender::Female ? cpw.female : cpw.male);
+            }
+        }
     }
     return result;
 }

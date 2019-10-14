@@ -4,6 +4,7 @@
 #include "passenger.h"
 #include "telegram.h"
 #include "docs_consts.h"
+#include "pers_weights.h"
 
 namespace REPORTS {
 
@@ -137,7 +138,7 @@ namespace REPORTS {
 
         const std::string &cl() const;
         int rk_amount() const;
-        int rk_weight() const;
+        int rk_weight(bool cbbg_weight = false) const;
         int bag_amount() const;
         int bag_weight() const;
         TBagKilos excess_wt() const;
@@ -200,6 +201,7 @@ namespace REPORTS {
 
         boost::optional<TTlgCompLayerList> complayers;
         boost::optional<TRemGrp> rem_grp;
+        boost::optional<PersWeightRules> pwr;
 
         std::map<int, boost::optional<CheckIn::TSimplePaxGrpItem>> grps;
 
