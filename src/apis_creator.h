@@ -140,8 +140,7 @@ struct TApisPaxData : public CheckIn::TSimplePaxItem
 {
   TPaxStatus status;
 
-  string airp_final_lat;
-  string airp_final_code;
+  string airp_arv, airp_arv_final;
 
   CheckIn::TPaxDocItem doc;
   boost::optional<CheckIn::TPaxDocoItem> doco;
@@ -153,6 +152,24 @@ struct TApisPaxData : public CheckIn::TSimplePaxItem
   int amount;
   int weight;
   set<string> tags;
+
+  string airp_arv_code_lat() const
+  {
+    const TAirpsRow& row = (const TAirpsRow&)base_tables.get("airps").get_row("code",airp_arv);
+    if (row.code_lat.empty())
+      throw Exception("airp_arv.code_lat empty (code=%s)",airp_arv);
+
+    return row.code_lat;
+  }
+
+  string airp_arv_final_code_lat() const
+  {
+    const TAirpsRow& row = (const TAirpsRow&)base_tables.get("airps").get_row("code",airp_arv_final);
+    if (row.code_lat.empty())
+      return airp_arv_code_lat();
+
+    return row.code_lat;
+  }
 
   string doc_type_lat() const
   {
@@ -194,8 +211,6 @@ struct TApisRouteData
   TApisPaxDataList lstPaxData;
   APIS::SettingsList lstSetsData;
   TAdvTripRoute allLegs;
-
-  // getters
 
   const TAdvTripRouteItem& arvInfo() const
   {
@@ -333,12 +348,17 @@ struct TApisRouteData
       throw EXCEPTIONS::Exception("countryRow.code_iso empty (code=%s)",getCountryByAirp(airp).code.c_str());
     return country_code_iso;
   }
+
+  bool moveFrom(const APIS::Settings& settings, TApisRouteData& data);
 };
 
 struct TApisDataset
 {
   bool FromDB(int point_id, const string& task_name, TApisTestMap* test_map = nullptr);
   list<TApisRouteData> lstRouteData;
+
+  bool equalSettingsFound(const APIS::Settings& settings) const;
+  bool mergeRouteData();
 };
 
 //---------------------------------------------------------------------------------------
@@ -447,8 +467,7 @@ struct TPaxDataFormatted
   string expiry_date;
   string birth_country;
   string trip_type;
-  string airp_final_lat;
-  string airp_final_code;
+  string airp_arv_final_code_lat;
   string airp_arv_code_lat;
   string airp_dep_code_lat;
 
@@ -1040,8 +1059,6 @@ struct TAPISFormat_CSV_DE : public TTxtApisFormat // Германия
           ipdf != tdf.lstPaxData.end();
           ++ipdf)
     {
-      if (ipdf->airp_final_lat.empty())
-        throw Exception("airp_final.code_lat empty (code=%s)",ipdf->airp_final_code.c_str());
       body << ipdf->doc_surname << ";"
             << ipdf->doc_first_name << ";"
             << ipdf->gender << ";"
@@ -1049,7 +1066,7 @@ struct TAPISFormat_CSV_DE : public TTxtApisFormat // Германия
             << ipdf->nationality << ";"
             << ipdf->airp_arv_code_lat << ";"
             << ipdf->airp_dep_code_lat << ";"
-            << ipdf->airp_final_lat << ";"
+            << ipdf->airp_arv_final_code_lat << ";"
             << ipdf->doc_type << ";"
             << convert_char_view(ipdf->doc_no,true) << ";"
             << ipdf->issue_country;
@@ -1577,6 +1594,7 @@ struct TIAPIFormat_CN : public TIAPIFormat
       add_rule(r_setPaxReference);
       add_rule(r_create_ON_FLIGHT_CANCEL);
       add_rule(r_convertPaxNames);
+      add_rule(r_processDocNumber);
       add_rule(r_setTicketNumber);
       add_rule(r_doco);
       add_rule(r_issueCountryInsteadApplicCountry);
@@ -1608,6 +1626,10 @@ struct TIAPIFormat_CN : public TIAPIFormat
     {
       return tkn.no_str("C");
     }
+    string unknown_gender() const { return "U"; }
+    string process_doc_no(const string& no) const { return NormalizeDocNo(no, false); }
+    string respAgnCode() const { return "ZZZ"; }
+    string ProcessPhoneFax(const string& s) const { return HyphenToSpace(s); }
 };
 
 //---------------------------------------------------------------------------------------

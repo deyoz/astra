@@ -157,6 +157,13 @@ bool SettingsList::formatExists(const std::string& format) const
   return false;
 }
 
+bool SettingsList::settingsExists(const Settings& settings) const
+{
+  APIS::SettingsList::const_iterator i=find(settings);
+  if (i!=end() && i->second==settings) return true;
+  return false;
+}
+
 const char* APIS_PARTY_INFO()
 {
   static string VAR;
