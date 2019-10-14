@@ -33,8 +33,19 @@ class SettingsKey
       return m_format<key.m_format;
     }
 
+    bool operator == (const SettingsKey &key) const
+    {
+      return m_countryControl==key.m_countryControl &&
+             m_format==key.m_format;
+    }
+
     const std::string& countryControl() const { return m_countryControl; }
     const std::string& format() const { return m_format; }
+
+    std::string traceStr() const
+    {
+      return m_countryControl + "+" + m_format;
+    }
 };
 
 class Settings : public SettingsKey
@@ -68,6 +79,15 @@ class Settings : public SettingsKey
       m_transportParams.clear();
     }
 
+    bool operator == (const Settings &item) const
+    {
+      return SettingsKey::operator ==(item) &&
+             m_ediAddrWithExt == m_ediAddrWithExt &&
+             m_ediOwnAddrWithExt == m_ediOwnAddrWithExt &&
+             m_transportType == m_transportType &&
+             m_transportParams == m_transportParams;
+    }
+
     std::string ediAddr() const;
     std::string ediAddrExt() const;
     std::string ediOwnAddr() const;
@@ -99,6 +119,7 @@ class SettingsList : public std::map<SettingsKey, Settings>
     void filterFormatsFromList(const std::set<std::string>& formats);
 
     bool formatExists(const std::string& format) const;
+    bool settingsExists(const Settings& settings) const;
 };
 
 class AirlineOfficeInfo

@@ -132,7 +132,7 @@ void SettingsList::getForTesting(const Settings& settingsPattern)
   Settings settings(settingsPattern);
   TQuery ApisSetsQry(&OraSession);
   ApisSetsQry.SQLText=
-    "SELECT code FROM apis_formats ORDER BY code";
+    "SELECT code AS format FROM apis_formats ORDER BY code";
   ApisSetsQry.Execute();
   for(; !ApisSetsQry.Eof; ApisSetsQry.Next())
     add(settings.replaceFormat(ApisSetsQry));
@@ -154,6 +154,13 @@ bool SettingsList::formatExists(const std::string& format) const
 {
   for(const auto& i : *this)
     if (i.second.format()==format) return true;
+  return false;
+}
+
+bool SettingsList::settingsExists(const Settings& settings) const
+{
+  APIS::SettingsList::const_iterator i=find(settings);
+  if (i!=end() && i->second==settings) return true;
   return false;
 }
 

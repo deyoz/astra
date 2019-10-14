@@ -49,8 +49,11 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
       }
     }
 
-    TAdvTripRoute routeAfter;
-    routeAfter.GetRouteAfter(fltInfo, trtWithCurrent, trtNotCancelled);
+    TAdvTripRoute routeAfterWithCurrent;
+    routeAfterWithCurrent.GetRouteAfter(fltInfo, trtWithCurrent, trtNotCancelled);
+    TAdvTripRoute routeAfterWithoutCurrent(routeAfterWithCurrent);
+    if (!routeAfterWithoutCurrent.empty() && routeAfterWithoutCurrent.begin()->point_id == point_id)
+      routeAfterWithoutCurrent.erase(routeAfterWithoutCurrent.begin());
 
     TQuery PaxQry(&OraSession);
     PaxQry.SQLText=
@@ -79,15 +82,15 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
 
     map<string /*country_regul_arv*/, string /*first airp_arv*/> CBPAirps;
 
-    for(TAdvTripRoute::const_iterator iRoute = routeAfter.begin(); iRoute != routeAfter.end(); iRoute++)
+    for(TAdvTripRoute::const_iterator iRoute = routeAfterWithCurrent.begin(); iRoute != routeAfterWithCurrent.end(); ++iRoute)
     {
-      if (iRoute == routeAfter.begin()) continue; //пропускаем пункт вылета
+      if (iRoute->point_id == point_id) continue; //пропускаем пункт вылета
 #if APIS_TEST
       test_map->try_key.set(iRoute->point_id, "");
 #endif
       TApisRouteData rd;
       rd.depInfo=fltInfo;
-      for(TAdvTripRoute::const_iterator i=routeAfter.begin(); i!=iRoute+1; ++i)
+      for(TAdvTripRoute::const_iterator i=routeAfterWithCurrent.begin(); i!=iRoute+1; ++i)
         rd.paxLegs.push_back(*i);
       rd.task_name = task_name;
       rd.country_regul_dep = APIS::GetCustomsRegulCountry(rd.country_dep(), CustomsQry);
@@ -127,7 +130,7 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
 
       //Flight legs
       rd.allLegs.GetRouteBefore(rd.depInfo, trtWithCurrent, trtNotCancelled);
-      rd.allLegs.insert(rd.allLegs.end(), routeAfter.begin(), routeAfter.end());
+      rd.allLegs.insert(rd.allLegs.end(), routeAfterWithoutCurrent.begin(), routeAfterWithoutCurrent.end());
 
 #if APIS_TEST
       for(const auto& i : rd.lstSetsData)
@@ -148,14 +151,9 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
 
         pax.status = DecodePaxStatus(PaxQry.FieldAsString("status"));
 
-        if (!PaxQry.FieldIsNULL("airp_final"))
-        {
-          const TAirpsRow& airp_final = (const TAirpsRow&)base_tables.get("airps").get_row("code",PaxQry.FieldAsString("airp_final"));
-          pax.airp_final_lat = airp_final.code_lat;
-          pax.airp_final_code = airp_final.code;
-        }
-        else
-          pax.airp_final_lat = rd.airp_arv_code_lat();
+        pax.airp_arv=rd.arvInfo().airp;
+        pax.airp_arv_final=PaxQry.FieldAsString("airp_final");
+        if (pax.airp_arv_final.empty()) pax.airp_arv_final=pax.airp_arv;
 
         LoadPaxDoc(pax.id, pax.doc);
         pax.doco = CheckIn::LoadPaxDoco(pax.id);
@@ -183,12 +181,89 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
       } // for PaxQry
       lstRouteData.push_back(rd);
     } // for TTripRoute
+
+    mergeRouteData();
   } // try
-  catch(Exception &E)
+  catch(const Exception &E)
   {
     throw Exception("TApisCreator::FromDB: %s",E.what());
   }
   return true;
+}
+
+bool TApisRouteData::moveFrom(const APIS::Settings& settings, TApisRouteData& data)
+{
+  if (!data.lstSetsData.settingsExists(settings)) return false;
+
+  if (depInfo.point_id==data.depInfo.point_id &&
+      task_name==data.task_name &&
+      lstSetsData.size()==1 && lstSetsData.begin()->second==settings)
+  {
+    LogTrace(TRACE5) << __func__ << ": " << settings.traceStr() << " "
+                     << data.airp_dep_code_lat() << "-" << data.airp_arv_code_lat()
+                     << " -> "
+                     << airp_dep_code_lat() << "-" << airp_arv_code_lat();
+
+    lstPaxData.insert(lstPaxData.end(), data.lstPaxData.begin(), data.lstPaxData.end());
+    data.lstSetsData.erase(settings);
+    return true;
+  }
+
+  return false;
+}
+
+bool TApisDataset::equalSettingsFound(const APIS::Settings& settings) const
+{
+  int count=0;
+  for(const TApisRouteData& data: lstRouteData)
+    if (data.lstSetsData.settingsExists(settings)) count++;
+  return count>1;
+}
+
+bool TApisDataset::mergeRouteData()
+{
+  list<TApisRouteData> lstRouteData2;
+
+  for(auto r=lstRouteData.rbegin(); r!=lstRouteData.rend(); ++r)
+    for(auto s=r->lstSetsData.begin(); s!=r->lstSetsData.end();)
+    {
+      bool removeCurrSettings=false;
+
+      const APIS::Settings& settings=s->second;
+      std::unique_ptr<const TAPISFormat> pFormat(SpawnAPISFormat(settings));
+
+      if (pFormat->rule(r_setPaxLegs) && equalSettingsFound(settings))
+      {
+        auto rNew=r;
+        if (r->lstSetsData.size()!=1)
+        {
+          //создаем новый TApisRouteData и помещаем в lstRouteData2
+          lstRouteData2.push_back(*r);
+          rNew=lstRouteData2.rbegin();
+          rNew->lstSetsData.clear();
+          rNew->lstSetsData.add(settings);
+          removeCurrSettings=true;
+
+          LogTrace(TRACE5) << __func__ << ": create new " << settings.traceStr() << " "
+                           << rNew->airp_dep_code_lat() << "-" << rNew->airp_arv_code_lat();
+        }
+
+        for(auto r2=r; r2!=lstRouteData.rend(); ++r2)
+        {
+          if (r2==r) continue;
+          rNew->moveFrom(settings, *r2);
+        }
+      }
+
+      if (removeCurrSettings)
+        s=r->lstSetsData.erase(s);
+      else
+        ++s;
+    }
+
+  lstRouteData.insert(lstRouteData.end(), lstRouteData2.begin(), lstRouteData2.end());
+
+  return false;
 }
 
 //---------------------------------------------------------------------------------------
@@ -481,7 +556,7 @@ void CreateEdi(const TApisRouteData& route,
       paxInfo.setCBPPort(route.airp_cbp_code_lat());
 
     paxInfo.setDepPort(route.airp_dep_code_lat());
-    paxInfo.setArrPort(route.airp_arv_code_lat());
+    paxInfo.setArrPort(iPax->airp_arv_code_lat());
     paxInfo.setNationality(format.ConvertCountry(iPax->doc.nationality));
 
     if (iPax->status!=psCrew)
@@ -794,11 +869,10 @@ void CreateTxt( const TApisRouteData& route,
         pdf.trip_type = getTripType(iPax->status, iPax->grp_id,
             format.direction(route.country_dep()), format.apis_country());
 
-    pdf.airp_final_lat = iPax->airp_final_lat;
-    pdf.airp_final_code = iPax->airp_final_code;
+    pdf.airp_arv_final_code_lat = iPax->airp_arv_final_code_lat();
 
     if (format.rule(r_airp_arv_code_lat))
-      pdf.airp_arv_code_lat = route.airp_arv_code_lat(); // throws
+      pdf.airp_arv_code_lat = iPax->airp_arv_code_lat(); // throws
 
     if (format.rule(r_airp_dep_code_lat))
       pdf.airp_dep_code_lat = route.airp_dep_code_lat(); // throws
@@ -849,7 +923,7 @@ bool CreateApisFiles(const TApisDataset& dataset, TApisTestMap* test_map = nullp
       for (APIS::SettingsList::const_iterator iApis = iRoute->lstSetsData.begin(); iApis != iRoute->lstSetsData.end(); ++iApis)
       {
 #if APIS_TEST
-        test_map->try_key.set(iRoute->route_point_id, iApis->fmt);
+        test_map->try_key.set(iRoute->arvInfo().point_id, iApis->second.format());
 #endif
         boost::scoped_ptr<const TAPISFormat> pFormat(SpawnAPISFormat(iApis->second));
         // https://stackoverflow.com/questions/6718538/does-boostscoped-ptr-violate-the-guideline-of-logical-constness
@@ -932,7 +1006,7 @@ bool CreateApisFiles(const TApisDataset& dataset, TApisTestMap* test_map = nullp
             break;
         }
 #if APIS_TEST
-        apis_test_key key(iRoute->route_point_id, iApis->fmt);
+        apis_test_key key(iRoute->arvInfo().point_id, iApis->second.format());
         apis_test_value value(files, text, type, file_params);
         test_map->insert(make_pair(key, value));
 #else

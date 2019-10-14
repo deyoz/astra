@@ -88,6 +88,8 @@ void RequestCollector::collectApisDataset()
       }
 
       pax.status=grp.status;
+      pax.airp_arv=rd.arvInfo().airp;
+      pax.airp_arv_final=pax.airp_arv;
       pax.processingIndicator=TReqInfo::Instance()->client_type==ctTerm?"173":"174";
 
       CheckIn::LoadPaxDoc(paxId, pax.doc);
