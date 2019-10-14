@@ -1533,16 +1533,16 @@ typedef BitSet<TCreateSalonProp> TCreateSalonPropFlags;
 struct TPointInRoute {
   int point_id;
   bool inRoute;
-  bool beforeDeparture;
-  TPointInRoute( int vpoint_id, bool vinRoute, bool vbeforeDeparture ) {
+  TPointDepNum depNum;
+  TPointInRoute( int vpoint_id, bool vinRoute, TPointDepNum vdepNum ) {
     point_id = vpoint_id;
     inRoute = vinRoute;
-    beforeDeparture = vbeforeDeparture;
+    depNum = vdepNum;
   }
   TPointInRoute() {
     point_id = ASTRA::NoExists;
     inRoute = false;
-    beforeDeparture = false;
+    depNum = pdCurrent;
   }
 };
 
