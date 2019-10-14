@@ -5349,7 +5349,7 @@ void TSalonList::WriteCompon( int &vcomp_id, const TComponSets &componSets, bool
 TPropsPoints::TPropsPoints( const FilterRoutesProperty &filterRoutes, int point_dep, int point_arv )
 {
   bool inRoute = true;
-  bool beforeDeparture = true;
+  TPointDepNum depNum = pdPrior;
   //!logProgTrace( TRACE5, "TPropsPoints: point_arv=%d", point_arv );
   for ( std::vector<TTripRouteItem>::const_iterator iroute=filterRoutes.begin();
         iroute!=filterRoutes.end(); ++iroute ) {
@@ -5357,9 +5357,12 @@ TPropsPoints::TPropsPoints( const FilterRoutesProperty &filterRoutes, int point_
       inRoute = false;
     }
     if ( iroute->point_id == point_dep ) {
-      beforeDeparture = false;
+      depNum = pdCurrent;
     }
-    push_back( TPointInRoute( iroute->point_id, inRoute, beforeDeparture ) );
+    push_back( TPointInRoute( iroute->point_id, inRoute, depNum ) );
+    if ( depNum == pdCurrent ) {
+      depNum = pdNext;
+    }
     //!logProgTrace( TRACE5, "TPropsPoints: points.push_back(%d,%d,%d)", iroute->point_id, inRoute, beforeDeparture );
   }
 }
@@ -5370,7 +5373,7 @@ bool TPropsPoints::getPropRoute( int point_id, TPointInRoute &point )
     if ( ipoint->point_id == point_id ) {
       point.point_id = ipoint->point_id;
       point.inRoute = ipoint->inRoute;
-      point.beforeDeparture = ipoint->beforeDeparture;
+      point.depNum = ipoint->depNum;
       return true;
     }
   }
@@ -5552,14 +5555,19 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &Salons,
             }
             //проверить приоритет слоя относительно нашей группы
             TPointDepNum currLayerDepNum;
-            if ( point.beforeDeparture ) {
-              tmp_layer.point_dep_num = pdPrior;
-              currLayerDepNum = pdNext;
+            if ( point.depNum == pdCurrent ) {
+              tmp_layer.point_dep_num = pdCurrent;
+              currLayerDepNum = pdCurrent;
             }
-            else {
-              tmp_layer.point_dep_num = pdNext;
-              currLayerDepNum = pdPrior;
-            }
+            else
+              if ( point.depNum == pdPrior ) {
+                tmp_layer.point_dep_num = pdPrior;
+                currLayerDepNum = pdNext;
+              }
+              else {
+                tmp_layer.point_dep_num = pdNext;
+                currLayerDepNum = pdPrior;
+              }
             for ( vector<TSeatLayer>::iterator icurrLayer=currLayers.begin(); //список слоев, которыми планируем разметить место
                   icurrLayer!=currLayers.end(); icurrLayer++ ) {
               icurrLayer->point_dep_num = currLayerDepNum;
