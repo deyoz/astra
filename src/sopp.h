@@ -111,6 +111,8 @@ struct TSOPPDest {
   int tid;
   std::string region;
   TSOPPDest(): cockpit(0), cabin(0) {}
+  std::string toString() const;
+  void fromDB( TQuery &Qry );
 };
 
 struct TSoppStage {
@@ -380,7 +382,7 @@ class TTripSetList : public std::map<TTripSetType, boost::any>
       {
         return boost::any_cast<T>(i->second);
       }
-      catch(boost::bad_any_cast)
+      catch(boost::bad_any_cast&)
       {
         throw EXCEPTIONS::Exception("TTripSetList::%s: setType=%d bad cast", __FUNCTION__, (int)setType);
       }

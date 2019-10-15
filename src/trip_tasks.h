@@ -19,6 +19,7 @@ const std::string BEFORE_TAKEOFF_70_US_CUSTOMS_ARRIVAL="BEFORE_TAKEOFF_70_US_CUS
 const std::string ON_CLOSE_CHECKIN="ON_CLOSE_CHECKIN";
 const std::string ON_CLOSE_BOARDING="ON_CLOSE_BOARDING";
 const std::string ON_TAKEOFF="ON_TAKEOFF";
+const std::string ON_FLIGHT_CANCEL="ON_FLIGHT_CANCEL";
 
 const std::string SYNC_NEW_CHKD="SYNC_NEW_CHKD";
 const std::string SYNC_ALL_CHKD="SYNC_ALL_CHKD";

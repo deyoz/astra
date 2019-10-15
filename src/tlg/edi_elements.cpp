@@ -1,4 +1,5 @@
 #include "edi_elements.h"
+#include "date_time.h"
 
 #include <etick/tick_data.h>
 #include <serverlib/dates.h>
@@ -11,6 +12,90 @@
 namespace edifact
 {
 
+DtmElem::DtmElem(DtmQualifier qualifier,
+                 const TDateTime& dateTime,
+                 const std::string& formatCode)
+    : m_qualifier(qualifier),
+      m_dateTime(dateTime),
+      m_formatCode(formatCode)
+{}
+
+DtmElem::DtmElem(const std::string& qualifier,
+                 const std::string& dateTime,
+                 const std::string& formatCode)
+{
+    m_qualifier = qualifierFromStr(qualifier);
+    BASIC::date_time::StrToDateTime(dateTime.c_str(), "yymmddhhnn", m_dateTime);
+    m_formatCode = formatCode;
+}
+
+DtmElem::DtmQualifier DtmElem::qualifierFromStr(const std::string& str)
+{
+    if(str == "36") {
+        return DtmElem::DtmQualifier::DocExpireDate;
+    } else if(str == "182") {
+        return DtmElem::DtmQualifier::DocIssueDate;
+    } else if(str == "189") {
+        return DtmElem::DtmQualifier::Departure;
+    } else if(str == "232") {
+        return DtmElem::DtmQualifier::Arrival;
+    } else if(str == "329") {
+        return DtmElem::DtmQualifier::DateOfBirth;
+    }
+
+    throw EXCEPTIONS::Exception("Unknown DTM qualifier str: '%s'", str.c_str());
+}
+
+//---------------------------------------------------------------------------------------
+
+LocElem::LocElem(LocQualifier locQualifier,
+                 const std::string& locName,
+                 const std::string& relatedLocation1,
+                 const std::string& relatedLocation2)
+    : m_qualifier(locQualifier),
+      m_location(locName),
+      m_relatedLocation1(relatedLocation1),
+      m_relatedLocation2(relatedLocation2)
+{}
+
+LocElem::LocElem(const std::string& qualifier,
+                 const std::string& location,
+                 const std::string& relatedLocation1,
+                 const std::string& relatedLocation2)
+{
+    m_qualifier        = qualifierFromStr(qualifier);
+    m_location         = location;
+    m_relatedLocation1 = relatedLocation1;
+    m_relatedLocation2 = relatedLocation2;
+}
+
+LocElem::LocQualifier LocElem::qualifierFromStr(const std::string& str)
+{
+    if(str == "22") {
+        return LocElem::LocQualifier::CustomsAndBorderProtection;
+    } else if(str == "87") {
+        return LocElem::LocQualifier::FirstArrivalAfterBorder;
+    } else if(str == "91") {
+        return LocElem::LocQualifier::DocCountry;
+    } else if(str == "92") {
+        return LocElem::LocQualifier::OtherDeparturesAndArrivals;
+    } else if(str == "125") {
+        return LocElem::LocQualifier::LastDepartureBeforeBorder;
+    } else if(str == "174") {
+        return LocElem::LocQualifier::CountryOfResidence;
+    } else if(str == "178") {
+        return LocElem::LocQualifier::StartJourney;
+    } else if(str == "179") {
+        return LocElem::LocQualifier::FinishJourney;
+    } else if(str == "180") {
+        return LocElem::LocQualifier::CountryOfBirth;
+    }
+
+    throw EXCEPTIONS::Exception("Unknown LOC qualifier str: '%s'", str.c_str());
+}
+
+//---------------------------------------------------------------------------------------
+
 RciElements RciElements::operator+( const RciElements &other ) const
 {
     RciElements res = *this;
@@ -20,7 +105,7 @@ RciElements RciElements::operator+( const RciElements &other ) const
     return res;
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 MonElements MonElements::operator+( const MonElements &other ) const
 {
@@ -30,7 +115,7 @@ MonElements MonElements::operator+( const MonElements &other ) const
     return res;
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 TxdElements TxdElements::operator +(const TxdElements &other) const
 {
@@ -40,7 +125,7 @@ TxdElements TxdElements::operator +(const TxdElements &other) const
     return res;
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 FopElements FopElements::operator +(const FopElements &other) const
 {
@@ -50,7 +135,7 @@ FopElements FopElements::operator +(const FopElements &other) const
     return res;
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 IftElements IftElements::operator +(const IftElements &other) const
 {
@@ -60,7 +145,7 @@ IftElements IftElements::operator +(const IftElements &other) const
     return res;
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 boost::optional<PapElem::PapDoc> PapElem::findVisa() const
 {
@@ -84,7 +169,7 @@ boost::optional<PapElem::PapDoc> PapElem::findDoc() const
     return boost::none;
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 std::ostream& operator<<(std::ostream &os, const TktElem &tkt)
 {
@@ -516,6 +601,69 @@ std::ostream& operator<<(std::ostream &os, const UsiElem &usi)
         os << "numeric of units qualifier: " << ssr.m_qualifier;
     }
 
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const BgmElem &bgm)
+{
+    os << "BGM: ";
+    os << "DocCode: " << bgm.m_docCode << "; "
+       << "DocId: " << bgm.m_docId;
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const RffElem &rff)
+{
+    os << "RFF: ";
+    os << "Qualifier: " << rff.m_qualifier << "; "
+       << "Ref: " << rff.m_ref;
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const DtmElem &dtm)
+{
+    os << "DTM: ";
+    os << "Qualifier: " << dtm.m_qualifier << "; "
+       << "Date/Time: " << (dtm.m_dateTime != ASTRA::NoExists ? BASIC::date_time::DateTimeToStr(dtm.m_dateTime).c_str() : "???") << "; "
+       << "Format: " << dtm.m_formatCode;
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const LocElem &loc)
+{
+    os << "LOC: ";
+    os << "Qualifier: " << loc.m_qualifier << "; "
+       << "Location: " << loc.m_location;
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const ErcElem &erc)
+{
+    os << "ERC: ";
+    os << "ErrorCode: " << erc.m_errorCode;
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const FtxElem &ftx)
+{
+    os << "FTX: ";
+    os << "Subject: " << ftx.m_subjectCode << "; "
+       << "FreeText: " << ftx.m_freeText;
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const ErpElem &erp)
+{
+    os << "ERP: ";
+    os << "Section: " << erp.m_msgSectionCode;
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const GeiElem &gei)
+{
+    os << "GEI: ";
+    os << "Qualifier: " << gei.m_qualifier << "; "
+       << "Indicator: " << gei.m_indicator;
     return os;
 }
 

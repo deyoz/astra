@@ -40,9 +40,9 @@ astra_SOURCES = \
   access.cc \
   alarms.cc \
   aodb.cc \
-  apis.cc \
   apis_creator.cc \
   apis_edi_file.cc \
+  apis_settings.cc \
   apis_tools.cc \
   apis_utils.cc \
   apps_interaction.cc \
@@ -103,6 +103,7 @@ astra_SOURCES = \
   http_io.cpp \
   http_main.cc \
   httpClient.cc \
+  iapi_interaction.cc \
   images.cc \
   load_fr.cc \
   locale.cc \
@@ -236,9 +237,9 @@ noinst_HEADERS = \
   access.h \
   alarms.h \
   aodb.h \
-  apis.h \
   apis_creator.h \
   apis_edi_file.h \
+  apis_settings.h \
   apis_tools.h \
   apps_interaction.h \
   arx_daily.h \
@@ -300,6 +301,7 @@ noinst_HEADERS = \
   http_io.h \
   http_main.h \
   httpClient.h \
+  iapi_interaction.h \
   images.h \
   load_fr.h \
   libra.h \

@@ -162,7 +162,7 @@ std::string AstraEdiSessWR::ourUnbAddrExt() const
 
 std::string AstraEdiSessWR::unbAddrExt() const
 {
-    return sysCont()->remoteAddrAirimpExt();
+    return sysCont()->remoteAddrEdifactExt();
 }
 
 std::string AstraEdiSessWR::ctrlAgency() const
@@ -394,7 +394,7 @@ int edifact::init_edifact()
     /*if(InitEdiCharSet(edi_chrset, sizeof(edi_chrset)/sizeof(edi_chrset[0]))){
         ProgError(STDLOG,"InitEdiCharSet() failed");
         return -3;
-    }*/   
+    }*/
 
     return 0;
 }
@@ -450,10 +450,17 @@ edilib::EdiRequestHandler *
                                                    const hth::HthInfo *hth,
                                                    const edilib::EdiSessRdData *sessionHandler) const
 {
-    const std::string func_code = edilib::GetDBFName(pMes,
-                                                     edilib::DataElement(1225), "",
-                                                     edilib::CompElement("C302"),
-                                                     edilib::SegmElement("MSG"));
+    std::string func_code = edilib::GetDBFName(pMes,
+                                               edilib::DataElement(1225), "",
+                                               edilib::CompElement("C302"),
+                                               edilib::SegmElement("MSG"));
+
+    if(msgid == CUSRES || msgid == CUSUMS) {
+        func_code = edilib::GetDBFName(pMes,
+                                       edilib::DataElement(1001), "",
+                                       edilib::CompElement("C002"),
+                                       edilib::SegmElement("BGM"));
+    }
 
     LogTrace(TRACE3) << "find request handler for msg " << msgid << " with func_code: " << func_code;
 
@@ -496,6 +503,13 @@ AstraEdiResponseHandler *
                                        edilib::CompElement(),
                                        edilib::SegmElement("RAD"),
                                        edilib::SegGrElement(1));
+    }
+
+    if(msgid == CUSRES) {
+        func_code = edilib::GetDBFName(pMes,
+                                       edilib::DataElement(1001), "",
+                                       edilib::CompElement("C002"),
+                                       edilib::SegmElement("BGM"));
     }
 
     LogTrace(TRACE3) << "find response handler for msg " << msgid << " with func_code: " << func_code;

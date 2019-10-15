@@ -15,10 +15,11 @@
 #include <stl_utils.h>
 
 
-namespace edifact
-{
+namespace edifact {
 
 using BASIC::date_time::TDateTime;
+
+
 ///@class UnbElem - Interchange Header --UNB
 struct UnbElem
 {
@@ -26,7 +27,7 @@ struct UnbElem
     std::string m_recipientCarrierCode;
 
     UnbElem(const std::string& senderCC,
-             const std::string& recipientCC)
+            const std::string& recipientCC)
         : m_senderCarrierCode(senderCC),
           m_recipientCarrierCode(recipientCC)
     {}
@@ -49,15 +50,15 @@ struct UngElem
     std::string m_msgRelNum;
 
     UngElem(const std::string& msgGroupName,
-             const std::string& senderName,
-             const std::string& senderCC,
-             const std::string& recipientName,
-             const std::string& recipientCC,
-             const TDateTime& prepareDt,
-             const std::string& groupRefNum,
-             const std::string& cntrlAgnCode,
-             const std::string& msgVerNum,
-             const std::string& msgRelNum)
+            const std::string& senderName,
+            const std::string& senderCC,
+            const std::string& recipientName,
+            const std::string& recipientCC,
+            const TDateTime& prepareDt,
+            const std::string& groupRefNum,
+            const std::string& cntrlAgnCode,
+            const std::string& msgVerNum,
+            const std::string& msgRelNum)
         : m_msgGroupName(msgGroupName),
           m_senderName(senderName),
           m_senderCarrierCode(senderCC),
@@ -92,12 +93,12 @@ struct UnhElem
     SeqFlag m_seqFlag;
 
     UnhElem(const std::string& msgTypeId,
-             const std::string& msgVerNum,
-             const std::string& msgRelNum,
-             const std::string& cntrlAgnCode,
-             const std::string& assAccCode,
-             unsigned seqNum,
-             SeqFlag seqFlag)
+            const std::string& msgVerNum,
+            const std::string& msgRelNum,
+            const std::string& cntrlAgnCode,
+            const std::string& assAccCode,
+            unsigned seqNum,
+            SeqFlag seqFlag)
         : m_msgTypeId(msgTypeId),
           m_msgVerNum(msgVerNum),
           m_msgRelNum(msgRelNum),
@@ -126,7 +127,7 @@ struct BgmElem
     std::string m_docId;
 
     BgmElem(const std::string& docCode,
-             const std::string& docId)
+            const std::string& docId)
         : m_docCode(docCode),
           m_docId(docId)
     {}
@@ -148,22 +149,20 @@ struct NadElem
     std::string m_country;
 
     NadElem(const std::string& funcCode,
-             const std::string& partyName
-          )
+            const std::string& partyName)
         : m_funcCode(funcCode),
           m_partyName(partyName)
     {}
 
     NadElem(const std::string& funcCode,
-             const std::string& partyName,
-             const std::string& partyName2,
-             const std::string& partyName3,
-             const std::string& street,
-             const std::string& city,
-             const std::string& countrySubEntityCode,
-             const std::string& postalCode,
-             const std::string& country
-          )
+            const std::string& partyName,
+            const std::string& partyName2,
+            const std::string& partyName3,
+            const std::string& street,
+            const std::string& city,
+            const std::string& countrySubEntityCode,
+            const std::string& postalCode,
+            const std::string& country)
         : m_funcCode(funcCode),
           m_partyName(partyName),
           m_partyName2(partyName2),
@@ -187,8 +186,8 @@ struct ComElem
     std::string m_email;
 
     ComElem(const std::string& phone,
-             const std::string& fax,
-             const std::string& email = "")
+            const std::string& fax,
+            const std::string& email = "")
         : m_phone(phone),
           m_fax(fax),
           m_email(email)
@@ -205,8 +204,8 @@ struct TdtElem
     std::string m_carrierId;
 
     TdtElem(const std::string& stageQualifier,
-             const std::string& journeyId,
-             const std::string& carrierId)
+            const std::string& journeyId,
+            const std::string& carrierId)
         : m_stageQuailifier(stageQualifier),
           m_journeyId(journeyId),
           m_carrierId(carrierId)
@@ -220,31 +219,33 @@ struct LocElem
 {
     enum LocQualifier
     {
-        Departure = 125,
-        Arrival = 87,
+        LastDepartureBeforeBorder = 125,
+        FirstArrivalAfterBorder = 87,
         CustomsAndBorderProtection = 22,
         StartJourney = 178,
         FinishJourney = 179,
         CountryOfResidence = 174,
         CountryOfBirth = 180,
-        DocCountry = 91
+        DocCountry = 91,
+        OtherDeparturesAndArrivals = 92,
     };
 
-    LocQualifier m_locQualifier;
-    std::string m_locName;
-    std::string m_relatedLocName1;
-    std::string m_relatedLocName2;
+    LocQualifier m_qualifier;
+    std::string  m_location;
+    std::string  m_relatedLocation1;
+    std::string  m_relatedLocation2;
 
-    LocElem(LocQualifier locQualifier,
-             const std::string& locName,
-             const std::string& relatedLocName1 = "",
-             const std::string& relatedLocName2 = ""
-          )
-        : m_locQualifier(locQualifier),
-          m_locName(locName),
-          m_relatedLocName1(relatedLocName1),
-          m_relatedLocName2(relatedLocName2)
-    {}
+    LocElem(LocQualifier qualifier,
+            const std::string& location,
+            const std::string& relatedLocation1 = "",
+            const std::string& relatedLocation2 = "");
+
+    LocElem(const std::string& qualifier,
+            const std::string& location,
+            const std::string& relatedLocation1 = "",
+            const std::string& relatedLocation2 = "");
+
+    static LocQualifier qualifierFromStr(const std::string& str);
 };
 
 //---------------------------------------------------------------------------------------
@@ -261,17 +262,19 @@ struct DtmElem
         DateOfBirth = 329
     };
 
-    DtmQualifier m_dtmQualifier;
-    TDateTime m_dateTime;
-    std::string m_formatCode;
+    DtmQualifier m_qualifier;
+    TDateTime    m_dateTime;
+    std::string  m_formatCode;
 
-    DtmElem(DtmQualifier dtmQualifier,
-             const TDateTime& dateTime,
-             const std::string& formatCode = "")
-        : m_dtmQualifier(dtmQualifier),
-          m_dateTime(dateTime),
-          m_formatCode(formatCode)
-    {}
+    DtmElem(DtmQualifier qualifier,
+            const TDateTime& dateTime,
+            const std::string& formatCode = "");
+
+    DtmElem(const std::string& qualifier,
+            const std::string& dateTime,
+            const std::string& formatCode);
+
+    static DtmQualifier qualifierFromStr(const std::string& str);
 };
 
 //---------------------------------------------------------------------------------------
@@ -283,7 +286,7 @@ struct AttElem
     std::string m_value;
 
     AttElem(const std::string& funcCode,
-             const std::string& value)
+            const std::string& value)
         : m_funcCode(funcCode),
           m_value(value)
     {}
@@ -303,18 +306,57 @@ struct MeaElem
     MeaQualifier m_meaQualifier;
     int m_mea;
 
-    MeaElem( const MeaQualifier meaQualifier,
-             const int mea)
+    MeaElem(const MeaQualifier meaQualifier,
+            const int mea)
         : m_meaQualifier(meaQualifier),
           m_mea(mea)
     {}
 
     static std::string meaQualifierToStr(MeaQualifier qualifier)
     {
-        if( qualifier == BagCount )
+        if(qualifier == BagCount)
             return "CT";
         return "WT";
     }
+};
+
+//---------------------------------------------------------------------------------------
+
+///@class FtxElem - Free Text --FTX
+struct FtxElem
+{
+    std::string m_subjectCode;
+    std::string m_freeText;
+
+    FtxElem(const std::string& subjectCode,
+            const std::string& freeText)
+        : m_subjectCode(subjectCode),
+          m_freeText(freeText)
+    {}
+};
+
+//---------------------------------------------------------------------------------------
+
+///@class ErpElem - Error point detailt --ERP
+struct ErpElem
+{
+    std::string m_msgSectionCode;
+
+    ErpElem(const std::string& msgSectionCode)
+        : m_msgSectionCode(msgSectionCode)
+    {}
+};
+
+//---------------------------------------------------------------------------------------
+
+///@class ErcElem - Application error information --ERC
+struct ErcElem
+{
+    std::string m_errorCode;
+
+    ErcElem(const std::string& errorCode)
+        : m_errorCode(errorCode)
+    {}
 };
 
 //---------------------------------------------------------------------------------------
@@ -326,10 +368,12 @@ struct Ftx2Elem
   std::string m_str1;
   std::string m_str2;
 
-  Ftx2Elem(const std::string &qualifier, const std::string &str1, const std::string &str2)
-    : m_qualifier(upperc(qualifier.substr(0, 3)))
-    , m_str1(upperc(str1.substr(0, 512)))
-    , m_str2(upperc(str2.substr(0, 512)))
+  Ftx2Elem(const std::string &qualifier,
+           const std::string &str1,
+           const std::string &str2)
+    : m_qualifier(upperc(qualifier.substr(0, 3))),
+      m_str1(upperc(str1.substr(0, 512))),
+      m_str2(upperc(str2.substr(0, 512)))
   {}
 };
 
@@ -353,12 +397,12 @@ struct NatElem
 ///@class RffElem - Reference --RFF
 struct RffElem
 {
-    std::string m_rffQualifier;
+    std::string m_qualifier;
     std::string m_ref;
 
     RffElem(const std::string& rffQualifier,
-             const std::string& ref)
-        : m_rffQualifier(rffQualifier),
+            const std::string& ref)
+        : m_qualifier(rffQualifier),
           m_ref(ref)
     {}
 };
@@ -374,9 +418,9 @@ struct DocElem
     std::string m_idCode;
 
     DocElem(const std::string& docCode,
-             const std::string& docNum,
-             const std::string& respAgnCode,
-             const std::string& idCode = "110")
+            const std::string& docNum,
+            const std::string& respAgnCode,
+            const std::string& idCode = "110")
         : m_docCode(docCode),
           m_docNum(docNum),
           m_respAgnCode(respAgnCode),
@@ -413,7 +457,7 @@ struct UneElem
     unsigned m_cntrlCnt;
 
     UneElem(const std::string& refNum,
-             unsigned cntrlCnt = 1)
+            unsigned cntrlCnt = 1)
         : m_refNum(refNum),
           m_cntrlCnt(cntrlCnt)
     {}
@@ -1093,6 +1137,21 @@ struct UsiElem
 
 //---------------------------------------------------------------------------------------
 
+///@class GeiElem - Processing indicator --GEI
+struct GeiElem
+{
+    std::string m_qualifier;
+    std::string m_indicator;
+
+    GeiElem(const std::string& qualifier,
+            const std::string& indicator)
+        : m_qualifier(qualifier),
+          m_indicator(indicator)
+    {}
+};
+
+//---------------------------------------------------------------------------------------
+
 std::ostream& operator<<(std::ostream &os, const LorElem &lor);
 std::ostream& operator<<(std::ostream &os, const FdqElem &fdq);
 std::ostream& operator<<(std::ostream &os, const PpdElem &ppd);
@@ -1119,6 +1178,14 @@ std::ostream& operator<<(std::ostream &os, const PapElem &pap);
 std::ostream& operator<<(std::ostream &os, const AddElem &add);
 std::ostream& operator<<(std::ostream &os, const UapElem &uap);
 std::ostream& operator<<(std::ostream &os, const UsiElem &usi);
+std::ostream& operator<<(std::ostream &os, const BgmElem &bgm);
+std::ostream& operator<<(std::ostream &os, const RffElem &rff);
+std::ostream& operator<<(std::ostream &os, const DtmElem &dtm);
+std::ostream& operator<<(std::ostream &os, const LocElem &loc);
+std::ostream& operator<<(std::ostream &os, const ErcElem &erc);
+std::ostream& operator<<(std::ostream &os, const FtxElem &ftx);
+std::ostream& operator<<(std::ostream &os, const ErpElem &erp);
+std::ostream& operator<<(std::ostream &os, const GeiElem &gei);
 
 }//namespace edifact
 

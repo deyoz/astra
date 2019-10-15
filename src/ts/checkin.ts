@@ -1212,3 +1212,240 @@ $(lastRedisplay)
 >> lines=auto
     <ets_error>è†··†¶®‡ êÖèàç àÇÄç ():
      éË®°™† Ø‡® ®ß¨•≠•≠®® ·‚†‚„·† Ì´. °®´•‚† 2981212121212/1: 401.
+
+
+
+%%
+### test 5 - iapi
+#########################################################################################
+
+$(init)
+$(init_jxt_pult åéÇêéå)
+$(login)
+$(init_eds ûí UTET UTDC)
+
+$(PREPARE_FLIGHT_1PAX_1SEG ûí 103 ÑåÑ BJS REPIN IVAN)
+
+$(sql "update DESKS set VERSION='201707-0195750'")
+$(sql "insert into APIS_SETS(AIRLINE, COUNTRY_DEP, COUNTRY_ARV, COUNTRY_CONTROL, FORMAT, TRANSPORT_TYPE, TRANSPORT_PARAMS, EDI_ADDR, EDI_OWN_ADDR, ID, PR_DENIAL) values('ûí', NULL, 'ñç', 'ñç', 'IAPI_CN', '?', '?', 'NIAC:ZZ', 'NORDWIND:ZZ', id__seq.nextval, 0)")
+$(sql "insert into AIRLINE_OFFICES(ID, AIRLINE, COUNTRY_CONTROL, CONTACT_NAME, PHONE, FAX, TO_APIS) values(id__seq.nextval, 'ûí', 'ñç', 'TEST CONTACT', '12 34 56 78', '98765432', 1)")
+$(sql "insert into EDI_ADDRS(ADDR, CFG_ID, CANON_NAME) values ('NIAC', 0, 'MOWET')")
+$(sql "insert into EDIFACT_PROFILES (NAME, VERSION, SUB_VERSION, CTRL_AGENCY, SYNTAX_NAME, SYNTAX_VER) values ('IAPI', 'D', '05B', 'UN', 'UNOA', 4)")
+$(sql "update ROT set H2H=1, H2H_REM_ADDR_NUM=1, H2H_ADDR='1HCNIAPIR', OUR_H2H_ADDR='1HCNIAPIQ'")
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set move_id $(get_move_id $(get point_dep)))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
+
+$(OPEN_CHECKIN $(get point_dep))
+
+$(sql "insert into TRIP_HALL (PR_MISC, TYPE, POINT_ID) values (1, 101, $(get point_dep))")
+
+$(SAVE_ET_DISP $(get point_dep) 2981212121212 REPIN IVAN ûí UTDC UTET G4LK6W DME BJS)
+
+
+!! err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <TCkinSavePax>
+      <agent_stat_period>3</agent_stat_period>
+      <transfer/>
+      <segments>
+        <segment>
+          <point_dep>$(get point_dep)</point_dep>
+          <point_arv>$(get point_arv)</point_arv>
+          <airp_dep>ÑåÑ</airp_dep>
+          <airp_arv>BJS</airp_arv>
+          <class>ù</class>
+          <status>K</status>
+          <wl_type/>
+          <mark_flight>
+            <airline>ûí</airline>
+            <flt_no>103</flt_no>
+            <suffix/>
+            <scd>$(date_format %d.%m.%Y) 00:00:00</scd>
+            <airp_dep>ÑåÑ</airp_dep>
+            <pr_mark_norms>0</pr_mark_norms>
+          </mark_flight>
+          <passengers>
+            <pax>
+              <pax_id>$(get pax_id)</pax_id>
+              <surname>REPIN</surname>
+              <name>IVAN</name>
+              <pers_type>Çá</pers_type>
+              <seat_no/>
+              <preseat_no/>
+              <seat_type/>
+              <seats>1</seats>
+              <ticket_no>2981212121212</ticket_no>
+              <coupon_no>1</coupon_no>
+              <ticket_rem>TKNE</ticket_rem>
+              <ticket_confirm>0</ticket_confirm>
+              <document>
+                <type>P</type>
+                <issue_country>RUS</issue_country>
+                <no>7774441110</no>
+                <nationality>RUS</nationality>
+                <birth_date>01.05.1976 00:00:00</birth_date>
+                <expiry_date>09.01.2021 00:00:00</expiry_date>
+                <gender>M</gender>
+                <surname>REPIN</surname>
+                <first_name>IVAN</first_name>
+              </document>
+              <doco>
+                <birth_place/>
+                <type>V</type>
+                <no>4538926</no>
+                <issue_place>RUS</issue_place>
+                <issue_date>09.01.2011 00:00:00</issue_date>
+                <expiry_date>09.01.2021 00:00:00</expiry_date>
+                <applic_country>CHN</applic_country>
+              </doco>
+              <addresses/>
+              <subclass>ù</subclass>
+              <bag_pool_num/>
+              <transfer/>
+              <rems>
+                <rem>
+                  <rem_code>FOID</rem_code>
+                  <rem_text>FOID PP7774441110</rem_text>
+                </rem>
+              </rems>
+              <fqt_rems/>
+              <norms/>
+            </pax>
+          </passengers>
+          <paid_bag_emd/>
+        </segment>
+      </segments>
+      <excess>0</excess>
+      <hall>1</hall>
+      <paid_bags>
+        <paid_bag>
+          <bag_type/>
+          <weight>0</weight>
+          <rate_id/>
+          <rate_trfer/>
+        </paid_bag>
+      </paid_bags>
+    </TCkinSavePax>
+  </query>
+</term>}
+
+
+$(set ediref_tktreq $(last_edifact_ref))
+
+
+
+
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get ediref_tktreq) ûí 2981212121212 1 BD xxxxxx ÑåÑ BJS)
+<<
+$(TKCRES_ET_COS UTET UTDC $(get ediref_tktreq) 2981212121212 1 BD)
+
+>> lines=auto
+    <kick req_ctxt_id...
+
+!!
+$(lastRedisplay)
+
+$(set ediref_paxlst $(last_edifact_ref))
+$(set tpr $(substr $(get ediref_paxlst) 6, 4))
+
+>>
+UNB+SIRE:4+NORDWIND:ZZ+NIAC:ZZ+xxxxxx:xxxx+$(get ediref_paxlst)0001++IAPI+O"
+UNG+PAXLST+NORDWIND:ZZ+NIAC:ZZ+xxxxxx:xxxx+1+UN+D:05B"
+UNH+11085B94E1F8FA+PAXLST:D:05B:UN:IATA+$(get ediref_paxlst)+01:F"
+BGM+745"
+RFF+TN...
+NAD+MS+++TEST CONTACT"
+COM+12 34 56 78:TE+98765432:FX"
+TDT+20+UT103+++UT"
+LOC+125+DME"
+DTM+189:xxxxxxxxxx:201"
+LOC+87+BJS"
+DTM+232:xxxxxxxxxx:201"
+NAD+FL+++REPIN:IVAN"
+ATT+2++M"
+DTM+329:760501"
+GEI+4+173"
+LOC+178+DME"
+LOC+179+BJS"
+NAT+2+RUS"
+RFF+AVF:xxxxxx"
+RFF+ABO...
+RFF+YZY:2981212121212C1"
+DOC+P:110:ZZZ+7774441110"
+DTM+36:210109"
+LOC+91+RUS"
+DOC+V:110:ZZZ+4538926"
+DTM+36:210109"
+LOC+91+RUS"
+CNT+42:1"
+UNT+28+11085B94E1F8FA"
+UNE+1+1"
+UNZ+1+$(get ediref_paxlst)0001"
+
+
+<< h2h=V.\VDLG.WA/E11HCNIAPIR/I11HCNIAPIQ/P$(get tpr)\VGYA\$() charset=UNOA
+UNB+SIRE:4+NIAC:ZZ+NORDWIND:ZZ+190819:0930+$(get ediref_paxlst)0001++IAPI"
+UNG+CUSRES+NIAC:ZZ+NORDWIND:ZZ+190819:0930+1+UN+D:05B"
+UNH+11085B94E1F8FA+CUSRES:D:05B:UN:IATA"
+BGM+962"
+RFF+TN:$(lastAppsMsgId)"
+RFF+AF:FV256"
+DTM+189:1908011800:201"
+DTM+232:1908012300:201"
+LOC+125+DME"
+LOC+87+BJS"
+ERP+2"
+RFF+AVF:0840Z6"
+RFF+ABO:$(get pax_id)"
+ERC+0Z"
+FTX+AAP+++OK TO BOARD"
+UNT+14+11085B94E1F8FA"
+UNE+1+1"
+UNZ+1+$(get ediref_paxlst)"
+
+
+!! err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='sopp' ver='1' opr='PIKE' screen='SOPP.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <WriteDests>
+      <data>
+        <move_id>$(get move_id)</move_id>
+        <canexcept>1</canexcept>
+        <reference/>
+        <dests>
+          <dest>
+            <modify/>
+            <point_id>$(get point_dep)</point_id>
+            <point_num>0</point_num>
+            <airp>ÑåÑ</airp>
+            <airline>ûí</airline>
+            <flt_no>103</flt_no>
+            <craft>735</craft>
+            <scd_out>$(date_format %d.%m.%Y) 14:00:00</scd_out>
+            <act_out>$(date_format %d.%m.%Y) 14:00:00</act_out>
+            <trip_type>Ø</trip_type>
+            <pr_tranzit>0</pr_tranzit>
+            <pr_reg>1</pr_reg>
+          </dest>
+          <dest>
+            <point_id>$(get point_arv)</point_id>
+            <point_num>1</point_num>
+            <first_point>$(get point_dep)</first_point>
+            <airp>BJS</airp>
+            <scd_in>$(date_format %d.%m.%Y) 18:00:00</scd_in>
+            <trip_type>Ø</trip_type>
+            <pr_tranzit>0</pr_tranzit>
+            <pr_reg>0</pr_reg>
+          </dest>
+        </dests>
+      </data>
+    </WriteDests>
+  </query>
+</term>}

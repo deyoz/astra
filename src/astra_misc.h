@@ -525,7 +525,6 @@ enum TTripSetType { /*не привязанные к рейсу*/
                     tsSyncMeridian=28,                  //Синхронизация с меридианом
                     tsNoEMDAutoBinding=31,              //Запрет автопривязки EMD
                     tsCheckPayOnTCkinSegs=32,           //Контроль оплаты только на сквозных сегментах
-                    tsAPISControlOnFirstSegOnly=33,     //Контроль данных APIS только на первом сегменте
                     tsAutoPTPrint=34,                   //Автоматическая печать посадочных
                     tsAutoPTPrintReseat=35,             //Автоматическая печать ПТ при изменении места
                     tsPrintFioPNL=36,                   //Печать в посадочном ФИО из бронирования (PNL)
@@ -642,6 +641,18 @@ struct TAdvTripRouteItem : TTripRouteItem
     suffix.clear();
     flt_num = ASTRA::NoExists;
   }
+  TDateTime scd_in_local() const
+  {
+    if (scd_in!=ASTRA::NoExists)
+      return BASIC::date_time::UTCToLocal(scd_in, AirpTZRegion(airp));
+    return ASTRA::NoExists;
+  }
+  TDateTime scd_out_local() const
+  {
+    if (scd_out!=ASTRA::NoExists)
+      return BASIC::date_time::UTCToLocal(scd_out, AirpTZRegion(airp));
+    return ASTRA::NoExists;
+  }
 };
 
 //несколько общих моментов для пользования функций работы с маршрутом:
@@ -689,6 +700,9 @@ public:
                      bool pr_tranzit,
                      TTripRouteType1 route_type1,
                      TTripRouteType2 route_type2);
+  void GetRouteAfter(const TAdvTripInfo& fltInfo,
+                     TTripRouteType1 route_type1,
+                     TTripRouteType2 route_type2);
   //маршрут до пункта point_id
   bool GetRouteBefore(TDateTime part_key,
                       int point_id,
@@ -699,6 +713,9 @@ public:
                       int point_num,
                       int first_point,
                       bool pr_tranzit,
+                      TTripRouteType1 route_type1,
+                      TTripRouteType2 route_type2);
+  void GetRouteBefore(const TAdvTripInfo& fltInfo,
                       TTripRouteType1 route_type1,
                       TTripRouteType2 route_type2);
   virtual ~TTripBase() {}
@@ -782,6 +799,7 @@ class TAdvTripRoute : public TTripBase, public std::vector<TAdvTripRouteItem>
                 TTripRouteType1 route_type1,
                 TTripRouteType2 route_type2);
   public:
+    void getRouteBetween(int point_dep, const std::string &airp_arv);
     virtual ~TAdvTripRoute() {}
 };
 

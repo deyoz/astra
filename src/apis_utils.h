@@ -230,6 +230,22 @@ const long int DOCO_APPS_26_FIELDS=DOCO_TYPE_FIELD|
 
 //==============================================================================
 
+const long int DOC_IAPI_CN_FIELDS=DOC_TYPE_FIELD|
+                                  DOC_ISSUE_COUNTRY_FIELD|
+                                  DOC_NO_FIELD|
+                                  DOC_EXPIRY_DATE_FIELD|
+                                  DOC_NATIONALITY_FIELD|
+                                  DOC_BIRTH_DATE_FIELD|
+                                  DOC_GENDER_FIELD|
+                                  DOC_SURNAME_FIELD;
+
+const long int DOCO_IAPI_CN_FIELDS=DOCO_TYPE_FIELD|
+                                   DOCO_NO_FIELD;
+
+const long int TKN_IAPI_CN_FIELDS=TKN_TICKET_NO_FIELD;
+
+//==============================================================================
+
 const long int DOC_CSV_AE_FIELDS=DOC_TYPE_FIELD|
                                  DOC_ISSUE_COUNTRY_FIELD|
                                  DOC_NO_FIELD|
@@ -553,6 +569,8 @@ void CheckDocaHttp(const CheckIn::TPaxDocaItem &doc,
                const TCompleteAPICheckInfo &checkInfo,
                const std::string full_name);
 
-std::string SubstrAfterLastSpace(const std::string& str);
+std::string issuePlaceToPaxDocCountryId(const std::string &elem, TElemFmt &fmt);
+
+std::string NormalizeDocNo(const std::string& str, bool try_keep_only_digits);
 
 #endif // APIS_UTILS_H

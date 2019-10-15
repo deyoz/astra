@@ -1,11 +1,11 @@
 #include "apis_creator.h"
 #include <boost/scoped_ptr.hpp>
-#include "apis.h"
 #include <fstream>
 #include "obrnosir.h"
 #include "franchise.h"
 #include "exch_checkin_result.h"
 #include "jms/jms.hpp"
+#include "apis_settings.h"
 
 #define NICKNAME "GRISHA"
 #include "serverlib/test.h"
@@ -28,23 +28,8 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
     if (test_map == nullptr)
       return false;
 #endif
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-    "SELECT airline, flt_no, suffix, airp, scd_out, act_out, "
-    "       point_num, first_point, pr_tranzit, "
-    "       country "
-    "FROM points,airps,cities "
-    "WHERE points.airp=airps.code AND airps.city=cities.code AND "
-    "      point_id=:point_id AND points.pr_del=0 AND points.pr_reg<>0 ";
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.Execute();
-    if (Qry.Eof)
-      return false;
-
-    string country_dep = Qry.FieldAsString("country");
-
-    int flt_no;
-    string suffix, suffix_lat;
+    TAdvTripInfo fltInfo;
+    if (!fltInfo.getByPointId(point_id, FlightProps(FlightProps::NotCancelled, FlightProps::WithCheckIn))) return false;
 
     // Франчайзинг
     Franchise::TProp franchise_prop;
@@ -52,64 +37,26 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
     {
       if (franchise_prop.val == Franchise::pvNo)
       {
-        airline_code_qry = franchise_prop.franchisee.airline;
-        flt_no = franchise_prop.franchisee.flt_no;
-        suffix = franchise_prop.franchisee.suffix;
+        fltInfo.airline = franchise_prop.franchisee.airline;
+        fltInfo.flt_no = franchise_prop.franchisee.flt_no;
+        fltInfo.suffix = franchise_prop.franchisee.suffix;
       }
       else /*if (franchise_prop.val == Franchise::pvYes)*/
       {
-        airline_code_qry = franchise_prop.oper.airline;
-        flt_no = franchise_prop.oper.flt_no;
-        suffix = franchise_prop.oper.suffix;
+        fltInfo.airline = franchise_prop.oper.airline;
+        fltInfo.flt_no = franchise_prop.oper.flt_no;
+        fltInfo.suffix = franchise_prop.oper.suffix;
       }
     }
-    else // не Франчайзинг
-    {
-      airline_code_qry = Qry.FieldAsString("airline");
-      flt_no = Qry.FieldAsInteger("flt_no");
-      if (!Qry.FieldIsNULL("suffix")) suffix = Qry.FieldAsString("suffix");
-    }
 
-    if (!suffix.empty())
-    {
-      const TTripSuffixesRow& suffixRow = (const TTripSuffixesRow&)base_tables.get("trip_suffixes").get_row("code", suffix);
-      if (suffixRow.code_lat.empty())
-        throw Exception("suffixRow.code_lat empty (code=%s)",suffixRow.code.c_str());
-      suffix_lat = suffixRow.code_lat;
-    }
-
-    TTripRoute route;
-    route.GetRouteAfter(NoExists,
-                        point_id,
-                        Qry.FieldAsInteger("point_num"),
-                        Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point"),
-                        Qry.FieldAsInteger("pr_tranzit")!=0,
-                        trtNotCurrent, trtNotCancelled);
-
-    TQuery RouteQry(&OraSession);
-    RouteQry.SQLText=
-    "SELECT airp,scd_in,scd_out,country "
-    "FROM points,airps,cities "
-    "WHERE points.airp=airps.code AND airps.city=cities.code AND point_id=:point_id";
-    RouteQry.DeclareVariable("point_id",otInteger);
-
-    TQuery ApisSetsQry(&OraSession);
-    ApisSetsQry.Clear();
-#if APIS_TEST_ALL_FORMATS
-      ApisSetsQry.SQLText = apis_test_text;
-#else
-      ApisSetsQry.SQLText=
-      "SELECT edi_addr,edi_own_addr,format, transport_type,transport_params "
-      "FROM apis_sets "
-      "WHERE airline=:airline AND country_dep=:country_dep AND country_arv=:country_arv AND pr_denial=0";
-      ApisSetsQry.CreateVariable("airline", otString, airline_code());
-      ApisSetsQry.CreateVariable("country_dep", otString, country_dep);
-      ApisSetsQry.DeclareVariable("country_arv", otString);
-#endif
+    TAdvTripRoute routeAfterWithCurrent;
+    routeAfterWithCurrent.GetRouteAfter(fltInfo, trtWithCurrent, trtNotCancelled);
+    TAdvTripRoute routeAfterWithoutCurrent(routeAfterWithCurrent);
+    if (!routeAfterWithoutCurrent.empty() && routeAfterWithoutCurrent.begin()->point_id == point_id)
+      routeAfterWithoutCurrent.erase(routeAfterWithoutCurrent.begin());
 
     TQuery PaxQry(&OraSession);
     PaxQry.SQLText=
-    // "SELECT pax.pax_id, pax.surname, pax.name, pax.pr_brd, pax.grp_id, pax.crew_type, "
     "SELECT pax.*, "
     "       tckin_segments.airp_arv AS airp_final, pax_grp.status, pers_type, ticket_no, "
     "       ckin.get_bagAmount2(pax.grp_id, pax.pax_id, pax.bag_pool_num) AS bag_amount, "
@@ -135,33 +82,23 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
 
     map<string /*country_regul_arv*/, string /*first airp_arv*/> CBPAirps;
 
-    for(TTripRoute::const_iterator iRoute = route.begin(); iRoute != route.end(); iRoute++)
+    for(TAdvTripRoute::const_iterator iRoute = routeAfterWithCurrent.begin(); iRoute != routeAfterWithCurrent.end(); ++iRoute)
     {
+      if (iRoute->point_id == point_id) continue; //пропускаем пункт вылета
 #if APIS_TEST
       test_map->try_key.set(iRoute->point_id, "");
 #endif
       TApisRouteData rd;
-      rd.dataset_point_id = point_id;
-      rd.route_point_id = iRoute->point_id;
+      rd.depInfo=fltInfo;
+      for(TAdvTripRoute::const_iterator i=routeAfterWithCurrent.begin(); i!=iRoute+1; ++i)
+        rd.paxLegs.push_back(*i);
       rd.task_name = task_name;
-      rd.airline_code_qry = airline_code_qry;
-      rd.country_dep = country_dep;
-
-      //получим информацию по пункту маршрута
-      RouteQry.SetVariable("point_id",rd.route_point_id);
-      RouteQry.Execute();
-      if (RouteQry.Eof)
-        continue;
-
-      const TCountriesRow& country_arv = (const TCountriesRow&)base_tables.get("countries").get_row("code",RouteQry.FieldAsString("country"));
-      rd.country_arv_code = country_arv.code;
-      rd.country_arv_code_lat = country_arv.code_lat;
-      rd.country_regul_dep = APIS::GetCustomsRegulCountry(rd.country_dep, CustomsQry);
-      rd.country_regul_arv = APIS::GetCustomsRegulCountry(rd.country_arv_code, CustomsQry);
+      rd.country_regul_dep = APIS::GetCustomsRegulCountry(rd.country_dep(), CustomsQry);
+      rd.country_regul_arv = APIS::GetCustomsRegulCountry(rd.country_arv(), CustomsQry);
       rd.use_us_customs_tasks = rd.country_regul_dep==US_CUSTOMS_CODE || rd.country_regul_arv==US_CUSTOMS_CODE;
       map<string, string>::iterator iCBPAirp = CBPAirps.find(rd.country_regul_arv);
       if (iCBPAirp==CBPAirps.end())
-        iCBPAirp=CBPAirps.insert(make_pair(rd.country_regul_arv, RouteQry.FieldAsString("airp"))).first;
+        iCBPAirp=CBPAirps.emplace(rd.country_regul_arv, rd.arvInfo().airp).first;
       if (iCBPAirp==CBPAirps.end())
         throw Exception("iCBPAirp==CBPAirps.end()");
 
@@ -171,90 +108,40 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
               (rd.task_name==BEFORE_TAKEOFF_30_US_CUSTOMS_ARRIVAL || rd.task_name==BEFORE_TAKEOFF_60_US_CUSTOMS_ARRIVAL ))
               ||
               (!rd.use_us_customs_tasks &&
-              (rd.task_name==ON_TAKEOFF || rd.task_name==ON_CLOSE_CHECKIN || rd.task_name==ON_CLOSE_BOARDING )) ))
+              (rd.task_name==ON_TAKEOFF ||
+               rd.task_name==ON_CLOSE_CHECKIN ||
+               rd.task_name==ON_CLOSE_BOARDING ||
+               rd.task_name==ON_FLIGHT_CANCEL)) ))
         continue;
 
       //получим информацию по настройке APIS
-#if !APIS_TEST_ALL_FORMATS
-      ApisSetsQry.SetVariable("country_arv", rd.country_arv_code);
+#if APIS_TEST_ALL_FORMATS
+      APIS::Settings pattern("РФ", "", "ESAPIS:ZZ", "AIR EUROPA:UX", TRANSPORT_TYPE_FILE, "mvd_czech_edi");
+      rd.lstSetsData.getForTesting(pattern);
+#else
+      rd.lstSetsData.getByCountries(rd.depInfo.airline, rd.country_dep(), rd.country_arv());
 #endif
-      ApisSetsQry.Execute();
-      if (ApisSetsQry.Eof)
-        continue;
+      if (rd.lstSetsData.empty()) continue;
 
-      rd.flt_no = flt_no;
-      rd.suffix = suffix_lat;
+      rd.scd_out_dep_local(); // специально вызываем чтобы свалиться в exception, если NoExists
+      rd.scd_in_arv_local();  // специально вызываем чтобы свалиться в exception, если NoExists
 
-      string tz_region;
-
-      rd.airp_dep_qry = Qry.FieldAsString("airp");
-      tz_region = AirpTZRegion(rd.airp_dep_code());
-      if (Qry.FieldIsNULL("scd_out"))
-        throw Exception("scd_out empty (airp_dep=%s)",rd.airp_dep_code().c_str());
-      rd.scd_out_local	= UTCToLocal(Qry.FieldAsDateTime("scd_out"), tz_region);
-
-      rd.final_apis = ( rd.task_name==ON_TAKEOFF || rd.task_name==ON_CLOSE_BOARDING ||
-                        (rd.task_name.empty() && !Qry.FieldIsNULL("act_out")) );
-
-      rd.airp_arv_qry = RouteQry.FieldAsString("airp");
-      tz_region = AirpTZRegion(rd.airp_arv_code());
-      if (RouteQry.FieldIsNULL("scd_in"))
-        throw Exception("scd_in empty (airp_arv=%s)",rd.airp_arv_code().c_str());
-      rd.scd_in_local = UTCToLocal(RouteQry.FieldAsDateTime("scd_in"),tz_region);
-
-      rd.airp_cbp_qry = iCBPAirp->second;
-
-      rd.airline_name = rd.airline().short_name_lat;
-      if (rd.airline_name.empty())
-        rd.airline_name = rd.airline().name_lat;
-      if (rd.airline_name.empty())
-        rd.airline_name = rd.airline_code_lat();
+      rd.airp_cbp = iCBPAirp->second;
 
       //Flight legs
-      TTripRoute legs_route, legs_tmp;
-      legs_route.GetRouteBefore(NoExists, rd.dataset_point_id, trtWithCurrent, trtNotCancelled);
-      legs_tmp.GetRouteAfter(NoExists, rd.dataset_point_id, trtNotCurrent, trtNotCancelled);
-      legs_route.insert(legs_route.end(), legs_tmp.begin(), legs_tmp.end());
-      for (TTripRoute::const_iterator r = legs_route.begin(); r != legs_route.end(); r++)
-      {
-        FlightlegDataset leg;
-        RouteQry.SetVariable("point_id",r->point_id);
-        RouteQry.Execute();
-        if (RouteQry.Eof)
-          continue;
-        const TAirpsRow& airp = (const TAirpsRow&)base_tables.get("airps").get_row("code",RouteQry.FieldAsString("airp"));
-        leg.airp_code_lat = airp.code_lat;
-        leg.airp_code = airp.code;
-        string tz_region = AirpTZRegion(airp.code);
-        leg.scd_in_local = leg.scd_out_local = ASTRA::NoExists;
-        if (!RouteQry.FieldIsNULL("scd_out"))
-          leg.scd_out_local	= UTCToLocal(RouteQry.FieldAsDateTime("scd_out"),tz_region);
-        if (!RouteQry.FieldIsNULL("scd_in"))
-          leg.scd_in_local = UTCToLocal(RouteQry.FieldAsDateTime("scd_in"),tz_region);
-        const TCountriesRow& countryRow = (const TCountriesRow&)base_tables.get("countries").get_row("code",RouteQry.FieldAsString("country"));
-        leg.country_code_iso = countryRow.code_iso;
-        leg.country_code = countryRow.code;
-        rd.lstLegs.push_back(leg);
-      }
-
-      for(; !ApisSetsQry.Eof; ApisSetsQry.Next())
-      {
-        TApisSetsData sd;
-        sd.fmt = ApisSetsQry.FieldAsString("format");
+      rd.allLegs.GetRouteBefore(rd.depInfo, trtWithCurrent, trtNotCancelled);
+      rd.allLegs.insert(rd.allLegs.end(), routeAfterWithoutCurrent.begin(), routeAfterWithoutCurrent.end());
 
 #if APIS_TEST
-        test_map->try_key.set(iRoute->point_id, sd.fmt);
-#endif
-        sd.edi_own_addr = ApisSetsQry.FieldAsString("edi_own_addr");
-        sd.edi_addr = ApisSetsQry.FieldAsString("edi_addr");
-        sd.transport_type = ApisSetsQry.FieldAsString("transport_type");
-        sd.transport_params = ApisSetsQry.FieldAsString("transport_params");
-        rd.lstSetsData.push_back(sd);
-      } // for ApisSetsQry
-      if (rd.lstSetsData.empty())
-        continue;
+      for(const auto& i : rd.lstSetsData)
+      {
+        const APIS::Settings& settings=i.second;
+        test_map->try_key.set(iRoute->point_id, settings.format());
 
-      PaxQry.SetVariable("point_arv",rd.route_point_id);
+      }
+#endif
+
+      PaxQry.SetVariable("point_arv",rd.arvInfo().point_id);
       PaxQry.Execute();
 
       for (;!PaxQry.Eof;PaxQry.Next())
@@ -264,16 +151,11 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
 
         pax.status = DecodePaxStatus(PaxQry.FieldAsString("status"));
 
-        if (!PaxQry.FieldIsNULL("airp_final"))
-        {
-          const TAirpsRow& airp_final = (const TAirpsRow&)base_tables.get("airps").get_row("code",PaxQry.FieldAsString("airp_final"));
-          pax.airp_final_lat = airp_final.code_lat;
-          pax.airp_final_code = airp_final.code;
-        }
-        else
-          pax.airp_final_lat = rd.airp_arv_code_lat();
+        pax.airp_arv=rd.arvInfo().airp;
+        pax.airp_arv_final=PaxQry.FieldAsString("airp_final");
+        if (pax.airp_arv_final.empty()) pax.airp_arv_final=pax.airp_arv;
 
-        LoadPaxDoc(pax.id, (CheckIn::TPaxDocItem&)pax.doc);
+        LoadPaxDoc(pax.id, pax.doc);
         pax.doco = CheckIn::LoadPaxDoco(pax.id);
         pax.docaD = CheckIn::LoadPaxDoca(pax.id, CheckIn::docaDestination);
         pax.docaR = CheckIn::LoadPaxDoca(pax.id, CheckIn::docaResidence);
@@ -299,12 +181,89 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
       } // for PaxQry
       lstRouteData.push_back(rd);
     } // for TTripRoute
+
+    mergeRouteData();
   } // try
-  catch(Exception &E)
+  catch(const Exception &E)
   {
     throw Exception("TApisCreator::FromDB: %s",E.what());
   }
   return true;
+}
+
+bool TApisRouteData::moveFrom(const APIS::Settings& settings, TApisRouteData& data)
+{
+  if (!data.lstSetsData.settingsExists(settings)) return false;
+
+  if (depInfo.point_id==data.depInfo.point_id &&
+      task_name==data.task_name &&
+      lstSetsData.size()==1 && lstSetsData.begin()->second==settings)
+  {
+    LogTrace(TRACE5) << __func__ << ": " << settings.traceStr() << " "
+                     << data.airp_dep_code_lat() << "-" << data.airp_arv_code_lat()
+                     << " -> "
+                     << airp_dep_code_lat() << "-" << airp_arv_code_lat();
+
+    lstPaxData.insert(lstPaxData.end(), data.lstPaxData.begin(), data.lstPaxData.end());
+    data.lstSetsData.erase(settings);
+    return true;
+  }
+
+  return false;
+}
+
+bool TApisDataset::equalSettingsFound(const APIS::Settings& settings) const
+{
+  int count=0;
+  for(const TApisRouteData& data: lstRouteData)
+    if (data.lstSetsData.settingsExists(settings)) count++;
+  return count>1;
+}
+
+bool TApisDataset::mergeRouteData()
+{
+  list<TApisRouteData> lstRouteData2;
+
+  for(auto r=lstRouteData.rbegin(); r!=lstRouteData.rend(); ++r)
+    for(auto s=r->lstSetsData.begin(); s!=r->lstSetsData.end();)
+    {
+      bool removeCurrSettings=false;
+
+      const APIS::Settings& settings=s->second;
+      std::unique_ptr<const TAPISFormat> pFormat(SpawnAPISFormat(settings));
+
+      if (pFormat->rule(r_setPaxLegs) && equalSettingsFound(settings))
+      {
+        auto rNew=r;
+        if (r->lstSetsData.size()!=1)
+        {
+          //создаем новый TApisRouteData и помещаем в lstRouteData2
+          lstRouteData2.push_back(*r);
+          rNew=lstRouteData2.rbegin();
+          rNew->lstSetsData.clear();
+          rNew->lstSetsData.add(settings);
+          removeCurrSettings=true;
+
+          LogTrace(TRACE5) << __func__ << ": create new " << settings.traceStr() << " "
+                           << rNew->airp_dep_code_lat() << "-" << rNew->airp_arv_code_lat();
+        }
+
+        for(auto r2=r; r2!=lstRouteData.rend(); ++r2)
+        {
+          if (r2==r) continue;
+          rNew->moveFrom(settings, *r2);
+        }
+      }
+
+      if (removeCurrSettings)
+        s=r->lstSetsData.erase(s);
+      else
+        ++s;
+    }
+
+  lstRouteData.insert(lstRouteData.end(), lstRouteData2.begin(), lstRouteData2.end());
+
+  return false;
 }
 
 //---------------------------------------------------------------------------------------
@@ -357,10 +316,49 @@ bool omit_incomplete_apis(int point_id, const TApisPaxData& pax, const TAPISForm
 
 //---------------------------------------------------------------------------------------
 
-void CreateEdi( const TApisRouteData& route,
-                const TAPISFormat& format,
-                Paxlst::PaxlstInfo& FPM,
-                Paxlst::PaxlstInfo& FCM)
+void createFlightStops( const TApisRouteData& route,
+                        const TAPISFormat& format,
+                        Paxlst::PaxlstInfo& paxlstInfo)
+{
+  if (format.rule(r_setPaxLegs))
+  {
+    std::string priorCountry;
+    vector<Paxlst::FlightStops> routeParts;
+    for(const TAdvTripRouteItem& i : route.paxLegs)
+    {
+      std::string currCountry=getCountryByAirp(i.airp).code;
+      if (priorCountry.empty() ||
+          (priorCountry==format.settings.countryControl()) != (currCountry==format.settings.countryControl()))
+        routeParts.emplace_back();
+      Paxlst::FlightStops& flightStops = routeParts.back();
+      flightStops.emplace_back(TApisRouteData::airp_code_lat(i.airp),
+                               i.scd_in_local(),
+                               i.scd_out_local());
+      priorCountry=currCountry;
+    }
+
+    paxlstInfo.stopsBeforeBorder().clear();
+    paxlstInfo.stopsAfterBorder().clear();
+    vector<Paxlst::FlightStops>::const_iterator part=routeParts.begin();
+    if (part!=routeParts.end())
+      paxlstInfo.stopsBeforeBorder()=*(part++);
+    if (part!=routeParts.end())
+      paxlstInfo.stopsAfterBorder()=*part;
+  }
+  else
+  {
+    paxlstInfo.setCrossBorderFlightStops(route.airp_dep_code_lat(),
+                                         route.scd_out_dep_local(),
+                                         route.airp_arv_code_lat(),
+                                         route.scd_in_arv_local());
+  }
+}
+
+void CreateEdi(const TApisRouteData& route,
+               const TAPISFormat& format,
+               Paxlst::PaxlstInfo& FPM,
+               Paxlst::PaxlstInfo& FCM,
+               const GetPaxlstInfoHandler& getPaxlstInfoHandler)
 {
   for(int pass=0; pass<2; pass++)
   {
@@ -370,16 +368,21 @@ void CreateEdi( const TApisRouteData& route,
     paxlstInfo.settings().setAppRef(format.appRef());
     paxlstInfo.settings().setMesRelNum(format.mesRelNum());
     paxlstInfo.settings().setMesAssCode(format.mesAssCode());
+    if (format.rule(r_setUnhNumber))
+      paxlstInfo.settings().set_unh_number(format.unhNumber());
     paxlstInfo.settings().setViewUNGandUNE(format.viewUNGandUNE());
+
+
     if (format.rule(r_view_RFF_TN)) paxlstInfo.settings().set_view_RFF_TN(true);
 
-    list<TAirlineOfficeInfo> offices;
-    GetAirlineOfficeInfo(route.airline_code(), route.country_arv_code, route.airp_arv_code(), offices);
+    APIS::AirlineOfficeList offices;
+    offices.get(route.depInfo.airline, format.settings.countryControl());
     if (!offices.empty())
     {
-      paxlstInfo.setPartyName(offices.begin()->contact_name);
-      paxlstInfo.setPhone(format.ProcessPhoneFax(offices.begin()->phone));
-      paxlstInfo.setFax(format.ProcessPhoneFax(offices.begin()->fax));
+      const APIS::AirlineOfficeInfo& info=offices.front();
+      paxlstInfo.setPartyName(info.contactName());
+      paxlstInfo.setPhone(format.ProcessPhoneFax(info.phone()));
+      paxlstInfo.setFax(format.ProcessPhoneFax(info.fax()));
     }
 
     if (format.rule(r_notSetSenderRecipient))
@@ -388,42 +391,32 @@ void CreateEdi( const TApisRouteData& route,
     }
     else
     {
-      vector<string> strs;
-      vector<string>::const_iterator i;
-      SeparateString(format.edi_own_addr, ':', strs);
-      i=strs.begin();
-      if (i!=strs.end())
-        paxlstInfo.setSenderName(*i++);
-      if (i!=strs.end())
-        paxlstInfo.setSenderCarrierCode(*i++);
-      SeparateString(format.edi_addr, ':', strs);
-      i=strs.begin();
-      if (i!=strs.end())
-        paxlstInfo.setRecipientName(*i++);
-      if (i!=strs.end())
-        paxlstInfo.setRecipientCarrierCode(*i++);
+      paxlstInfo.setSenderName(format.settings.ediOwnAddr());
+      paxlstInfo.setSenderCarrierCode(format.settings.ediOwnAddrExt());
+      paxlstInfo.setRecipientName(format.settings.ediAddr());
+      paxlstInfo.setRecipientCarrierCode(format.settings.ediAddrExt());
     }
 
     ostringstream flight;
     if (!format.rule(r_omitAirlineCode))
       flight << route.airline_code_lat();
-    flight << route.flt_no << route.suffix;
+    flight << route.flt_no() << route.suffix_code_lat();
     string iataCode;
     switch (format.IataCodeType())
     {
       case iata_code_UK:
         //"[flight][scd_in[yyyymmddhhnn]]"
-        iataCode=Paxlst::createIataCode(flight.str(), route.scd_in_local, "yyyymmddhhnn");
+        iataCode=Paxlst::createIataCode(flight.str(), route.scd_in_arv_local(), "yyyymmddhhnn");
         break;
       case iata_code_TR:
-        iataCode=Paxlst::createIataCode(route.airline_code_lat() + flight.str(), route.scd_in_local, "/yymmdd/hhnn");
+        iataCode=Paxlst::createIataCode(route.airline_code_lat() + flight.str(), route.scd_in_arv_local(), "/yymmdd/hhnn");
         break;
       case iata_code_DE:
-        iataCode=Paxlst::createIataCode(flight.str(), route.scd_in_local, "yymmddhhnnss");
+        iataCode=Paxlst::createIataCode(flight.str(), route.scd_in_arv_local(), "yymmddhhnnss");
         break;
       case iata_code_default:
       default:
-        iataCode=Paxlst::createIataCode(flight.str(), route.scd_in_local, "/yymmdd/hhnn");
+        iataCode=Paxlst::createIataCode(flight.str(), route.scd_in_arv_local(), "/yymmdd/hhnn");
         break;
     }
     // LogTrace(TRACE5) << "iataCode \"" << iataCode << "\" type " << format.IataCodeType();
@@ -433,38 +426,40 @@ void CreateEdi( const TApisRouteData& route,
       paxlstInfo.setCarrier(route.airline_code_lat());
 
     paxlstInfo.setFlight(flight.str());
-    paxlstInfo.setDepPort(route.airp_dep_code_lat());
-    paxlstInfo.setDepDateTime(route.scd_out_local);
-    paxlstInfo.setArrPort(route.airp_arv_code_lat());
-    paxlstInfo.setArrDateTime(route.scd_in_local);
+    createFlightStops(route, format, paxlstInfo);
 
     if (format.rule(r_setFltLegs))
     {
       FlightLegs legs;
-      for (list<FlightlegDataset>::const_iterator iLeg = route.lstLegs.begin(); iLeg != route.lstLegs.end(); ++iLeg)
+      for(const TAdvTripRouteItem& leg : route.allLegs)
       {
-        if (iLeg->airp_code_lat.empty())
-          throw EXCEPTIONS::Exception("airp.code_lat empty (code=%s)",iLeg->airp_code.c_str());
-        if (iLeg->country_code_iso.empty())
-          throw EXCEPTIONS::Exception("countryRow.code_iso empty (code=%s)",iLeg->country_code.c_str());
-        legs.push_back(FlightLeg(iLeg->airp_code_lat, iLeg->country_code_iso, iLeg->scd_in_local, iLeg->scd_out_local));
+        legs.emplace_back(TApisRouteData::airp_code_lat(leg.airp),
+                          TApisRouteData::country_code_iso(leg.airp),
+                          leg.scd_in_local(),
+                          leg.scd_out_local());
       }
       legs.FillLocQualifier();
       paxlstInfo.setFltLegs(legs);
     }
   } // for int pass
 
-  for ( list<TApisPaxData>::const_iterator iPax = route.lstPaxData.begin();
+  for ( TApisPaxDataList::const_iterator iPax = route.lstPaxData.begin();
         iPax != route.lstPaxData.end();
         ++iPax)
   {
+    Paxlst::PaxlstInfo& paxlstInfo=getPaxlstInfoHandler(route, format, *iPax, FPM, FCM);
+
+    if (paxlstInfo.passengersListAlwaysEmpty()) continue;
+
     Paxlst::PassengerInfo paxInfo;
 
     if (iPax->status==psCrew && !format.rule(r_notOmitCrew))
       continue;
-    if (iPax->status!=psCrew && !iPax->pr_brd && route.final_apis)
+    if (iPax->status!=psCrew && format.rule(r_omitPassengers))
       continue;
-    if (omit_incomplete_apis(route.dataset_point_id, *iPax, format))
+    if (iPax->status!=psCrew && !iPax->pr_brd && route.final_apis())
+      continue;
+    if (omit_incomplete_apis(route.depInfo.point_id, *iPax, format))
       continue;
 
     if (format.rule(r_setPrBrd))
@@ -485,7 +480,7 @@ void CreateEdi( const TApisRouteData& route,
     }
 
     if (format.rule(r_setTicketNumber))
-      paxInfo.setTicketNumber(iPax->tkn.no);
+      paxInfo.setTicketNumber(format.process_tkn_no(iPax->tkn));
 
     if (format.rule(r_setFqts))
     {
@@ -512,10 +507,8 @@ void CreateEdi( const TApisRouteData& route,
             throw Exception("mkt_suffix.code_lat empty (code=%s)",mkt_suffix.code.c_str());
           mkt_flt = mkt_flt + mkt_suffix.code_lat;
         }
-        if (iPax->status!=psCrew && (mkt_airline.code_lat != FPM.carrier() || mkt_flt != FPM.flight()))
-          FPM.addMarkFlt(mkt_airline.code_lat, mkt_flt);
-        else if (mkt_airline.code_lat != FCM.carrier() || mkt_flt != FCM.flight())
-          FCM.addMarkFlt(mkt_airline.code_lat, mkt_flt);
+        if (mkt_airline.code_lat != paxlstInfo.carrier() || mkt_flt != paxlstInfo.flight())
+          paxlstInfo.addMarkFlt(mkt_airline.code_lat, mkt_flt);
       }
     }
 
@@ -563,7 +556,7 @@ void CreateEdi( const TApisRouteData& route,
       paxInfo.setCBPPort(route.airp_cbp_code_lat());
 
     paxInfo.setDepPort(route.airp_dep_code_lat());
-    paxInfo.setArrPort(route.airp_arv_code_lat());
+    paxInfo.setArrPort(iPax->airp_arv_code_lat());
     paxInfo.setNationality(format.ConvertCountry(iPax->doc.nationality));
 
     if (iPax->status!=psCrew)
@@ -574,10 +567,13 @@ void CreateEdi( const TApisRouteData& route,
         paxInfo.setReservNum(convert_pnr_addr(pnr_addr, 1));
     }
 
+    if (format.rule(r_setPaxReference))
+      paxInfo.setPaxRef(IntToString(iPax->id));
+
     string doc_type = iPax->doc_type_lat(); // throws
     string doc_no = iPax->doc.no;
 
-    if (!APIS::isValidDocType(format.fmt, iPax->status, doc_type))
+    if (!APIS::isValidDocType(format.settings.format(), iPax->status, doc_type))
       doc_type.clear();
 
     if (!doc_type.empty() && format.rule(r_processDocType))
@@ -603,7 +599,7 @@ void CreateEdi( const TApisRouteData& route,
       {
         paxInfo.setStreet(iPax->docaD.get().address);
         paxInfo.setCity(iPax->docaD.get().city);
-        if (route.country_arv_code_lat!="US" || iPax->docaD.get().region.size()==2) //код штата для US
+        if (route.country_arv_code_lat()!="US" || iPax->docaD.get().region.size()==2) //код штата для US
           paxInfo.setCountrySubEntityCode(iPax->docaD.get().region);
         paxInfo.setPostalCode(iPax->docaD.get().postal_code);
         paxInfo.setDestCountry(format.ConvertCountry(iPax->docaD.get().country));
@@ -644,13 +640,21 @@ void CreateEdi( const TApisRouteData& route,
     {
       paxInfo.setDocoType(iPax->doco_type_lat());
       paxInfo.setDocoNumber(iPax->doco.get().no);
-      paxInfo.setDocoCountry(format.ConvertCountry(iPax->doco.get().applic_country));
+      if (format.rule(r_issueCountryInsteadApplicCountry))
+      {
+        TElemFmt fmt;
+        paxInfo.setDocoCountry(format.ConvertCountry(issuePlaceToPaxDocCountryId(iPax->doco.get().issue_place, fmt)));
+      }
+      else
+        paxInfo.setDocoCountry(format.ConvertCountry(iPax->doco.get().applic_country));
+      if (iPax->doco.get().expiry_date!=NoExists)
+        paxInfo.setDocoExpirateDate(iPax->doco.get().expiry_date);
+
     }
 
-    if (iPax->status != psCrew)
-      FPM.addPassenger(paxInfo);
-    else
-      FCM.addPassenger(paxInfo);
+    paxInfo.setProcInfo(iPax->processingIndicator);
+
+    paxlstInfo.addPassenger(paxInfo);
   } // for iPax
 }
 
@@ -672,7 +676,9 @@ void CreateEdiFile1(  const TApisRouteData& route,
           (route.task_name==BEFORE_TAKEOFF_60_US_CUSTOMS_ARRIVAL && pass!=0)))
       continue;
 
-    if (!paxlstInfo.passengersList().empty())
+    if (!paxlstInfo.passengersList().empty() ||
+        paxlstInfo.passengersListMayBeEmpty() ||
+        paxlstInfo.passengersListAlwaysEmpty())
     {
       vector<string> parts;
       string file_extension;
@@ -682,7 +688,8 @@ void CreateEdiFile1(  const TApisRouteData& route,
       else
         file_extension=(pass==0?"FPM":"FCM");
 
-      if (format.rule(r_fileSimplePush))
+      if (paxlstInfo.passengersList().empty() ||
+          format.rule(r_fileSimplePush))
         parts.push_back(paxlstInfo.toEdiString());
       else
       {
@@ -708,11 +715,11 @@ void CreateEdiFile1(  const TApisRouteData& route,
         file_name << format.dir()
                   << "/"
                   << Paxlst::createEdiPaxlstFileName( route.airline_code_lat(),
-                                                      route.flt_no,
-                                                      route.suffix,
+                                                      route.flt_no(),
+                                                      route.suffix_code_lat(),
                                                       route.airp_dep_code_lat(),
                                                       route.airp_arv_code_lat(),
-                                                      route.scd_out_local,
+                                                      route.scd_out_dep_local(),
                                                       file_extension,
                                                       part_num,
                                                       lst_type);
@@ -736,6 +743,7 @@ bool CreateEdiFile2(  const TApisRouteData& route,
   int passengers_count = FPM.passengersList().size();
   int crew_count = FCM.passengersList().size();
   // сформируем файл
+  boost::optional<int> XML_TR_version;
   if ( format.rule(r_file_XML_TR) && ( passengers_count || crew_count ))
   {
     XMLDoc doc;
@@ -743,14 +751,13 @@ bool CreateEdiFile2(  const TApisRouteData& route,
     if (doc.docPtr()==NULL)
       throw EXCEPTIONS::Exception("CreateEdiFile2: CreateXMLDoc failed");
     xmlNodePtr apisNode=xmlDocGetRootElement(doc.docPtr());
-    int version = 0;
+    XML_TR_version = 0;
 #if !APIS_TEST
-    if (get_trip_apis_param(route.dataset_point_id, "XML_TR", "version", version))
-      version++;
-    set_trip_apis_param(route.dataset_point_id, "XML_TR", "version", version);
+    if (get_trip_apis_param(route.depInfo.point_id, "XML_TR", "version", XML_TR_version.get()))
+      XML_TR_version.get()++;
 #endif
-    FPM.toXMLFormat(apisNode, passengers_count, crew_count, version);
-    FCM.toXMLFormat(apisNode, passengers_count, crew_count, version);
+    FPM.toXMLFormat(apisNode, passengers_count, crew_count, XML_TR_version.get());
+    FCM.toXMLFormat(apisNode, passengers_count, crew_count, XML_TR_version.get());
     text = GetXMLDocText(doc.docPtr());
     type = APIS_TR;
   }
@@ -763,20 +770,25 @@ bool CreateEdiFile2(  const TApisRouteData& route,
 #if !APIS_TEST
   if ( !text.empty() )
   {
-    TFileQueue::add_sets_params(route.airp_dep_code(), route.airline_code(), IntToString(route.flt_no),
+    TFileQueue::add_sets_params(route.depInfo.airp, route.depInfo.airline, IntToString(route.depInfo.flt_no),
         OWN_POINT_ADDR(), type, 1, file_params);
     if(not file_params.empty())
     {
-      file_params[ NS_PARAM_EVENT_ID1 ] = IntToString( route.dataset_point_id );
+      file_params[ NS_PARAM_EVENT_ID1 ] = IntToString( route.depInfo.point_id );
       file_params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtFlt );
       TFileQueue::putFile(OWN_POINT_ADDR(), OWN_POINT_ADDR(),
           type, file_params, ConvertCodepage( text, "CP866", "UTF-8"));
       LEvntPrms params;
-      params << PrmSmpl<string>("fmt", format.fmt) << PrmElem<string>("country_dep", etCountry, route.country_dep)
-          << PrmElem<string>("airp_dep", etAirp, route.airp_dep_code())
-          << PrmElem<string>("country_arv", etCountry, route.country_arv_code)
-          << PrmElem<string>("airp_arv", etAirp, route.airp_arv_code());
-      TReqInfo::Instance()->LocaleToLog("EVT.APIS_CREATED", params, evtFlt, route.dataset_point_id);
+      params << PrmSmpl<string>("fmt", format.settings.format())
+             << PrmElem<string>("country_dep", etCountry, route.country_dep())
+             << PrmElem<string>("airp_dep", etAirp, route.depInfo.airp)
+             << PrmElem<string>("country_arv", etCountry, route.country_arv())
+             << PrmElem<string>("airp_arv", etAirp, route.arvInfo().airp);
+      TReqInfo::Instance()->LocaleToLog("EVT.APIS_CREATED", params, evtFlt, route.depInfo.point_id);
+
+      if (XML_TR_version)
+        set_trip_apis_param(route.depInfo.point_id, "XML_TR", "version", XML_TR_version.get());
+
       result = true;
     }
   }
@@ -791,15 +803,17 @@ void CreateTxt( const TApisRouteData& route,
                 TTxtDataFormatted& tdf)
 {
   int count = 0;
-  for ( list<TApisPaxData>::const_iterator iPax = route.lstPaxData.begin();
+  for ( TApisPaxDataList::const_iterator iPax = route.lstPaxData.begin();
         iPax != route.lstPaxData.end();
         ++iPax)
   {
     if (iPax->status==psCrew && !format.rule(r_notOmitCrew))
       continue;
-    if (iPax->status!=psCrew && !iPax->pr_brd && route.final_apis)
+    if (iPax->status!=psCrew && format.rule(r_omitPassengers))
       continue;
-    if (omit_incomplete_apis(route.dataset_point_id, *iPax, format))
+    if (iPax->status!=psCrew && !iPax->pr_brd && route.final_apis())
+      continue;
+    if (omit_incomplete_apis(route.depInfo.point_id, *iPax, format))
       continue;
 
     TPaxDataFormatted pdf;
@@ -829,7 +843,7 @@ void CreateTxt( const TApisRouteData& route,
     pdf.doc_type = iPax->doc_type_lat(); // throws
     pdf.doc_no = iPax->doc.no;
 
-    if (!APIS::isValidDocType(format.fmt, iPax->status, pdf.doc_type))
+    if (!APIS::isValidDocType(format.settings.format(), iPax->status, pdf.doc_type))
       pdf.doc_type.clear();
 
     if (!pdf.doc_type.empty() && format.rule(r_processDocType))
@@ -853,13 +867,12 @@ void CreateTxt( const TApisRouteData& route,
     pdf.trip_type = "N";
     if (format.rule(r_trip_type))
         pdf.trip_type = getTripType(iPax->status, iPax->grp_id,
-            format.direction(route.country_dep), format.apis_country());
+            format.direction(route.country_dep()), format.apis_country());
 
-    pdf.airp_final_lat = iPax->airp_final_lat;
-    pdf.airp_final_code = iPax->airp_final_code;
+    pdf.airp_arv_final_code_lat = iPax->airp_arv_final_code_lat();
 
     if (format.rule(r_airp_arv_code_lat))
-      pdf.airp_arv_code_lat = route.airp_arv_code_lat(); // throws
+      pdf.airp_arv_code_lat = iPax->airp_arv_code_lat(); // throws
 
     if (format.rule(r_airp_dep_code_lat))
       pdf.airp_dep_code_lat = route.airp_dep_code_lat(); // throws
@@ -870,7 +883,13 @@ void CreateTxt( const TApisRouteData& route,
       pdf.doco_exists = iPax->doco != boost::none;
       pdf.doco_type = iPax->doco_type_lat(); // throws
       pdf.doco_no = iPax->doco.get().no;
-      pdf.doco_applic_country = format.ConvertCountry(iPax->doco.get().applic_country);
+      if (format.rule(r_issueCountryInsteadApplicCountry))
+      {
+        TElemFmt fmt;
+        pdf.doco_country = format.ConvertCountry(issuePlaceToPaxDocCountryId(iPax->doco.get().issue_place, fmt));
+      }
+      else
+        pdf.doco_country = format.ConvertCountry(iPax->doco.get().applic_country);
     }
 
     tdf.lstPaxData.push_back(pdf);
@@ -880,6 +899,15 @@ void CreateTxt( const TApisRouteData& route,
 }
 
 //---------------------------------------------------------------------------------------
+
+Paxlst::PaxlstInfo& getPaxlstInfo(const TApisRouteData& route,
+                                  const TAPISFormat& format,
+                                  const TApisPaxData& pax,
+                                  Paxlst::PaxlstInfo& FPM,
+                                  Paxlst::PaxlstInfo& FCM)
+{
+  return (pax.status != psCrew?FPM:FCM);
+}
 
 bool CreateApisFiles(const TApisDataset& dataset, TApisTestMap* test_map = nullptr)
 {
@@ -892,23 +920,25 @@ bool CreateApisFiles(const TApisDataset& dataset, TApisTestMap* test_map = nullp
   {
     for (list<TApisRouteData>::const_iterator iRoute = dataset.lstRouteData.begin(); iRoute != dataset.lstRouteData.end(); ++iRoute)
     {
-      for (list<TApisSetsData>::const_iterator iApis = iRoute->lstSetsData.begin(); iApis != iRoute->lstSetsData.end(); ++iApis)
+      for (APIS::SettingsList::const_iterator iApis = iRoute->lstSetsData.begin(); iApis != iRoute->lstSetsData.end(); ++iApis)
       {
 #if APIS_TEST
-        test_map->try_key.set(iRoute->route_point_id, iApis->fmt);
+        test_map->try_key.set(iRoute->arvInfo().point_id, iApis->second.format());
 #endif
-        boost::scoped_ptr<const TAPISFormat> pFormat(SpawnAPISFormat(*iApis));
+        boost::scoped_ptr<const TAPISFormat> pFormat(SpawnAPISFormat(iApis->second));
         // https://stackoverflow.com/questions/6718538/does-boostscoped-ptr-violate-the-guideline-of-logical-constness
 
         if ((iRoute->task_name==ON_CLOSE_CHECKIN && !pFormat->rule(r_create_ON_CLOSE_CHECKIN)) ||
             (iRoute->task_name==ON_CLOSE_BOARDING && !pFormat->rule(r_create_ON_CLOSE_BOARDING)) ||
+            (iRoute->task_name==ON_FLIGHT_CANCEL && !pFormat->rule(r_create_ON_FLIGHT_CANCEL)) ||
             (iRoute->task_name==ON_TAKEOFF && pFormat->rule(r_skip_ON_TAKEOFF)))
           continue;
 
-        string lst_type_extra = pFormat->lst_type_extra(iRoute->final_apis);
+        Paxlst::PaxlstInfo FPM(pFormat->firstPaxlstType(iRoute->task_name),
+                               pFormat->firstPaxlstTypeExtra(iRoute->task_name, iRoute->final_apis()));
 
-        Paxlst::PaxlstInfo FPM(Paxlst::PaxlstInfo::FlightPassengerManifest, lst_type_extra);
-        Paxlst::PaxlstInfo FCM(Paxlst::PaxlstInfo::FlightCrewManifest, lst_type_extra);
+        Paxlst::PaxlstInfo FCM(pFormat->secondPaxlstType(iRoute->task_name),
+                               pFormat->secondPaxlstTypeExtra(iRoute->task_name, iRoute->final_apis()));
 
         vector< pair<string, string> > files;
         string text, type;
@@ -922,14 +952,15 @@ bool CreateApisFiles(const TApisDataset& dataset, TApisTestMap* test_map = nullp
         switch (pFormat->format_type)
         {
           case t_format_edi:
-            CreateEdi(*iRoute, *pFormat, FPM, FCM);
+          case t_format_iapi:
+            CreateEdi(*iRoute, *pFormat, FPM, FCM, getPaxlstInfo);
             switch (pFormat->file_rule)
             {
               case r_file_rule_1:
                 CreateEdiFile1(*iRoute, *pFormat, FPM, FCM, files);
                 break;
               case r_file_rule_2:
-                result = CreateEdiFile2(*iRoute, *pFormat, FPM, FCM, text, type, file_params);
+                if (CreateEdiFile2(*iRoute, *pFormat, FPM, FCM, text, type, file_params)) result=true;
                 break;
               default:
                 break;
@@ -975,14 +1006,14 @@ bool CreateApisFiles(const TApisDataset& dataset, TApisTestMap* test_map = nullp
             break;
         }
 #if APIS_TEST
-        apis_test_key key(iRoute->route_point_id, iApis->fmt);
+        apis_test_key key(iRoute->arvInfo().point_id, iApis->second.format());
         apis_test_value value(files, text, type, file_params);
         test_map->insert(make_pair(key, value));
 #else
         if (!files.empty())
         {
           bool apis_created = false;
-          if (pFormat->transport_type == TRANSPORT_TYPE_FILE)
+          if (pFormat->settings.transportType() == TRANSPORT_TYPE_FILE)
           {
             LogTrace(TRACE5) << __func__ << " TRANSPORT_TYPE_FILE, files.size=" << files.size();
             for(vector< pair<string, string> >::const_iterator iFile=files.begin();iFile!=files.end();++iFile)
@@ -1010,10 +1041,10 @@ bool CreateApisFiles(const TApisDataset& dataset, TApisTestMap* test_map = nullp
             }
             apis_created = true;
           }
-          else if (pFormat->transport_type == TRANSPORT_TYPE_RABBIT_MQ)
+          else if (pFormat->settings.transportType() == TRANSPORT_TYPE_RABBIT_MQ)
           {
             LogTrace(TRACE5) << __func__ << " TRANSPORT_TYPE_RABBIT_MQ, files.size=" << files.size();
-            MQRABBIT_TRANSPORT::MQRabbitParams mq(pFormat->transport_params);
+            MQRABBIT_TRANSPORT::MQRabbitParams mq(pFormat->settings.transportParams());
             jms::connection cl( mq.addr );
             jms::text_queue queue = cl.create_text_queue( mq.queue );
             for (auto iFile : files)
@@ -1029,11 +1060,12 @@ bool CreateApisFiles(const TApisDataset& dataset, TApisTestMap* test_map = nullp
           if (apis_created)
           {
             LEvntPrms params;
-            params << PrmSmpl<string>("fmt", pFormat->fmt) << PrmElem<string>("country_dep", etCountry, iRoute->country_dep)
-                   << PrmElem<string>("airp_dep", etAirp, iRoute->airp_dep_code())
-                   << PrmElem<string>("country_arv", etCountry, iRoute->country_arv_code)
-                   << PrmElem<string>("airp_arv", etAirp, iRoute->airp_arv_code());
-            TReqInfo::Instance()->LocaleToLog("EVT.APIS_CREATED", params, evtFlt, iRoute->dataset_point_id);
+            params << PrmSmpl<string>("fmt", pFormat->settings.format())
+                   << PrmElem<string>("country_dep", etCountry, iRoute->country_dep())
+                   << PrmElem<string>("airp_dep", etAirp, iRoute->depInfo.airp)
+                   << PrmElem<string>("country_arv", etCountry, iRoute->country_arv())
+                   << PrmElem<string>("airp_arv", etAirp, iRoute->arvInfo().airp);
+            TReqInfo::Instance()->LocaleToLog("EVT.APIS_CREATED", params, evtFlt, iRoute->depInfo.point_id);
             result = true;
           }
         } // !files.empty
@@ -1060,15 +1092,11 @@ bool create_apis_file(int point_id, const string& task_name)
 
 //---------------------------------------------------------------------------------------
 
-bool TAPPSVersion26::CheckDocoIssueCountry(string issue_place)
+bool TAPPSVersion26::CheckDocoIssueCountry(const string& issue_place)
 {
-  string country = SubstrAfterLastSpace(issue_place);
+  if (issue_place.empty()) return true;
   TElemFmt elem_fmt;
-  ElemToPaxDocCountryId(upperc(country), elem_fmt);
-  LogTrace(TRACE5) << "CheckDocoIssueCountry: "
-                   << "issue_place=\"" << issue_place << "\" "
-                   << "country=\"" << country << "\" "
-                   << "elem_fmt=" << elem_fmt;
+  issuePlaceToPaxDocCountryId(issue_place, elem_fmt);
   return elem_fmt != efmtUnknown;
 }
 
@@ -1121,7 +1149,7 @@ void DumpDiff(  int point_id,
     f_old.close();
     f_new.close();
   }
-  catch (Exception e)
+  catch (const Exception& e)
   {
     LogTrace(TRACE5) << "ERROR write files: " << e.what();
     try { f_old.close(); } catch (...) { }
@@ -1373,3 +1401,61 @@ int apis_test(int argc, char **argv)
   return 1;
 }
 #endif
+
+const std::set<std::string>& getIAPIFormats()
+{
+  static set<string> formats;
+  if (formats.empty())
+    formats.insert("IAPI_CN");
+  return formats;
+}
+
+void create_apis_nosir_help(const char *name)
+{
+  printf("  %-15.15s ", name);
+  puts("<points.point_id>  ");
+}
+
+int create_apis_nosir(int argc,char **argv)
+{
+  TQuery Qry(&OraSession);
+  int point_id=ASTRA::NoExists;
+  try
+  {
+    //проверяем параметры
+    if (argc<2) throw EConvertError("wrong parameters");
+    point_id = ToInt(argv[1]);
+    Qry.Clear();
+    Qry.SQLText="SELECT point_id FROM points WHERE point_id=:point_id";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.Execute();
+    if (Qry.Eof) throw EConvertError("point_id not found");
+  }
+  catch(EConvertError &E)
+  {
+    printf("Error: %s\n", E.what());
+    if (argc>0)
+    {
+      puts("Usage:");
+      create_apis_nosir_help(argv[0]);
+      puts("Example:");
+      printf("  %s 1234567\n",argv[0]);
+    };
+    return 1;
+  };
+
+  init_locale();
+  create_apis_file(point_id, (argc>=3)?argv[2]:"");
+
+  puts("create_apis successfully completed");
+
+  send_apis_tr();
+  return 0;
+}
+
+void create_apis_task(const TTripTaskKey &task)
+{
+  LogTrace(TRACE5) << __FUNCTION__ << ": " << task;
+  create_apis_file(task.point_id, task.params);
+}
+

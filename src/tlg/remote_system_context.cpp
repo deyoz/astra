@@ -122,18 +122,20 @@ SystemContext SystemContext::readByEdiAddrs(const std::string &source, const std
                      << dest << "/" << dest_ext;
     std::unique_ptr<SystemContext> dcs(DcsSystemContext::readByEdiAddrs(source, source_ext, dest, dest_ext, false));
     std::unique_ptr<SystemContext> eds(EdsSystemContext::readByEdiAddrs(source, source_ext, dest, dest_ext, false));
-    if(!dcs && !eds) {
+    std::unique_ptr<SystemContext> iapi(IapiSystemContext::readByEdiAddrs(source, source_ext, dest, dest_ext, false));
+    if(!dcs && !eds && !iapi) {
         throw UnknownSystAddrs(source + "/" + source_ext,
                                dest + "/" + dest_ext);
     }
 
-    if(dcs && eds) {
+    if(dcs && eds && iapi) {
         throw EXCEPTIONS::ExceptionFmt() <<
-                "unknown system type (DCS or EDS?)";
+                "unknown system type (DCS or EDS or IAPI?)";
     }
 
-    if(dcs) return *dcs;
-    if(eds) return *eds;
+    if(dcs)  return *dcs;
+    if(eds)  return *eds;
+    if(iapi) return *iapi;
 
     throw EXCEPTIONS::ExceptionFmt() << "Can't be here";
 }
@@ -650,6 +652,43 @@ std::string DcsSystemContext::getSelectSql()
 "       decode(OWN_FLT_NO,null,0,1) as PRIORITY "
 "from DCS_ADDR_SET ";
 }
+
+//---------------------------------------------------------------------------------------
+
+IapiSystemContext::IapiSystemContext(const SystemContext& baseCnt)
+    : SystemContext(baseCnt)
+{
+}
+
+IapiSystemContext* IapiSystemContext::read(const APIS::Settings& settings)
+{
+    SystemContextMaker mk;
+    mk.setIda(Ticketing::SystemAddrs_t());
+    mk.setOurAddrEdifact(settings.ediOwnAddr());
+    mk.setRemoteAddrEdifact(settings.ediAddr());
+    mk.setEdifactProfileName("IAPI"); //!!!vlad
+    mk.setCanonName(AstraEdifact::get_canon_name(settings.ediAddr()));
+    return new IapiSystemContext(mk.getSystemContext());
+}
+
+SystemContext* IapiSystemContext::readByEdiAddrs(const std::string& source, const std::string& source_ext,
+                                                 const std::string& dest,   const std::string& dest_ext,
+                                                 bool throwNf)
+{
+    APIS::SettingsList settingsList;
+    settingsList.getByAddrs(source, source_ext, dest, dest_ext);
+    if (!settingsList.empty())
+    {
+        return read(settingsList.begin()->second);
+    } else {
+        if(throwNf) {
+            throw UnknownSystAddrs(source, dest);
+        }
+    }
+
+    return nullptr;
+}
+
 
 //---------------------------------------------------------------------------------------
 
