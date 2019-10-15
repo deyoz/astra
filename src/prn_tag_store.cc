@@ -1224,7 +1224,8 @@ void TPrnTagStore::TGrpInfo::Init(int agrp_id, int apax_id)
                 "   point_arv, "
                 "   airp_dep, "
                 "   airp_arv, "
-                "   hall "
+                "   hall, "
+                "   status "
                 "from "
                 "   pax_grp "
                 "where "
@@ -1237,6 +1238,7 @@ void TPrnTagStore::TGrpInfo::Init(int agrp_id, int apax_id)
             airp_arv = Qry.FieldAsString("airp_arv");
             point_dep = Qry.FieldAsInteger("point_dep");
             point_arv = Qry.FieldAsInteger("point_arv");
+            status = Qry.FieldAsString("status");
             if(not Qry.FieldIsNULL("hall"))
                 hall = Qry.FieldAsInteger("hall");
 
@@ -2674,10 +2676,10 @@ string TPrnTagStore::REG_NO(TFieldParams fp)
     else if(!fp.TagInfo.empty()) {
         regno = boost::any_cast<int>(fp.TagInfo);
     } else {
-        regno = paxInfo.reg_no;
+        regno = paxInfo.reg_no; // м.б. < 0 если экипаж, напр.
     }
 
-    if(regno != NoExists)
+    if(regno >= 0)
         result << setw(3) << setfill('0') << regno;
     return result.str();
 }
@@ -2815,6 +2817,7 @@ string TPrnTagStore::SURNAME(TFieldParams fp)
         else
             throw Exception("TPrnTagStore::SURNAME: unexpected TagInfo type");
     }
+    if(grpInfo.status == "E") result = "CREW " + result;
     return result.substr(0, fp.len > 8 ? fp.len : fp.len == 0 ? string::npos : 8);
 }
 

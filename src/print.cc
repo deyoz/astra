@@ -1197,6 +1197,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
     string SQLText =
         "SELECT "
         "  pax_grp.class, "
+        "  pax_grp.status, "
         "  bag_tags.tag_type, "
         "  bag_tags.no, "
         "  bag_tags.color, "
@@ -1246,7 +1247,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
     if(tag_key.no >= 0.0 && Qry.FieldIsNULL("printable")) //перепечатка специальной бирки
       throw AstraLocale::UserException("MSG.PRINTING_BAGTAG_PROHIBITED");
 
-    bool pr_unaccomp = Qry.FieldIsNULL("class");
+    bool pr_unaccomp = Qry.FieldIsNULL("class") and ((string)Qry.FieldAsString("status") != "E");
 
     vector<string> prn_forms;
     xmlNodePtr printBTNode = NewTextChild(dataNode, "printBT");
