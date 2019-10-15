@@ -64,11 +64,11 @@ void TPaxList::fromDB()
     if(options.flags.isFlag(oeBagAmount))
         SQLText += "   ,ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_amount ";
     if(options.flags.isFlag(oeBagWeight))
-        SQLText += "   ,ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_amount ";
+        SQLText += "   ,ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_weight ";
     if(options.flags.isFlag(oeRkAmount))
-        SQLText += "   ,ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_amount ";
+        SQLText += "   ,ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rk_amount ";
     if(options.flags.isFlag(oeRkWeight))
-        SQLText += "   ,ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_amount ";
+        SQLText += "   ,ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rk_weight ";
     if(options.flags.isFlag(oeExcess))
         SQLText +=
             "   ,NVL(ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse),0) AS excess_wt "
@@ -307,6 +307,11 @@ int TPax::bag_weight() const
     return result;
 }
 
+const string &TPax::cl() const
+{
+    return simple.cabin.cl.empty() ? grp().cl : simple.cabin.cl;
+}
+
 int TPax::rk_amount() const
 {
     int result = baggage.rk_amount;
@@ -317,12 +322,22 @@ int TPax::rk_amount() const
     return result;
 }
 
-int TPax::rk_weight() const
+int TPax::rk_weight(bool cbbg_weight) const
 {
     int result = baggage.rk_weight;
     for(const auto &cbbg: cbbg_list) {
-        if(cbbg.pax_info)
+        if(cbbg.pax_info) {
             result += cbbg.pax_info->baggage.rk_weight;
+            if(cbbg_weight) {
+                if(not pax_list.pwr) {
+                    pax_list.pwr = boost::in_place();
+                    pax_list.pwr->read(pax_list.point_id);
+                }
+                ClassesPersWeight cpw;
+                pax_list.pwr->weight(cbbg.pax_info->cl(), string(), cpw);
+                result += (cbbg.pax_info->simple.pers_type == TPerson::adult and cbbg.pax_info->simple.gender == TGender::Female ? cpw.female : cpw.male);
+            }
+        }
     }
     return result;
 }
@@ -401,4 +416,14 @@ bool REPORTS::pax_cmp(TPaxPtr pax1, TPaxPtr pax2)
             return pax1->_seat_no < pax2->_seat_no;
     }
     return pax1->simple.reg_no < pax2->simple.reg_no;
+}
+
+const CheckIn::TSimplePaxGrpItem &TPax::grp() const
+{
+    auto &result = pax_list.grps[simple.grp_id];
+    if(not result) {
+        result = boost::in_place();
+        result->getByGrpId(simple.grp_id);
+    }
+    return result.get();
 }
