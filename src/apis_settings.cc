@@ -72,8 +72,8 @@ void SettingsList::getByCountries(const std::string& airline,
     "        CASE WHEN country_dep IS NOT NULL THEN 1 ELSE 0 END) AS priority "
     "FROM apis_sets "
     "WHERE airline=:airline AND "
-    "      (country_dep IS NULL OR country_dep=:country_dep) AND "
-    "      (country_arv IS NULL OR country_arv=:country_arv) AND "
+    "      (country_dep IS NULL AND :country_dep<>:country_arv OR country_dep=:country_dep) AND "
+    "      (country_arv IS NULL AND :country_dep<>:country_arv OR country_arv=:country_arv) AND "
     "      country_control IN (country_dep, country_arv) AND "
     "      pr_denial=0 "
     "ORDER BY priority DESC";
