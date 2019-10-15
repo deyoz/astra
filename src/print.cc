@@ -968,7 +968,16 @@ void GetTripBPPectabs(int point_id, TDevOper::Enum op_type, const string &dev_mo
     Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
     Qry.CreateVariable("dev_model", otString, dev_model);
     Qry.CreateVariable("fmt_type", otString, fmt_type);
-    xmlNodePtr formNode=NewTextChild(node,"bp_forms");
+    string forms_tag;
+    switch(op_type) {
+        case TDevOper::PrnBP: forms_tag = "bp_forms"; break;
+        case TDevOper::PrnVO: forms_tag = "vo_forms"; break;
+        case TDevOper::PrnBI: forms_tag = "bi_forms"; break;
+        case TDevOper::PrnEMDA: forms_tag = "emda_forms"; break;
+        default: throw Exception("%s: unexpected oper type %s", __FUNCTION__, DevOperTypes().encode(op_type).c_str());
+    }
+
+    xmlNodePtr formNode=NewTextChild(node,forms_tag.c_str());
     for(vector<string>::const_iterator i=bp_types.begin();i!=bp_types.end();i++)
     {
       Qry.SetVariable("form_type", *i);

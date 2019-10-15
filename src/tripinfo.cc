@@ -807,6 +807,13 @@ void TripsInterface::PectabsResponse(int point_id, xmlNodePtr reqNode, xmlNodePt
       string fmt_type = NodeAsString("fmt_type", node);
       GetTripBPPectabs( point_id, TDevOper::PrnBI, dev_model, fmt_type, dataNode );
   };
+  node=GetNode( "tripEMDApectabs", reqNode );
+  if (node!=NULL)
+  {
+      string dev_model = NodeAsString("dev_model", node);
+      string fmt_type = NodeAsString("fmt_type", node);
+      GetTripBPPectabs( point_id, TDevOper::PrnEMDA, dev_model, fmt_type, dataNode );
+  };
 };
 
 void TripsInterface::GetSegInfo(xmlNodePtr reqNode, xmlNodePtr resNode, xmlNodePtr dataNode)
