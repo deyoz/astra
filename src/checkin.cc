@@ -1104,7 +1104,7 @@ void CheckInInterface::GetOnwardCrsTransfer(int id, bool isPnrId,
       local_scd=DayToDate(t->local_date,base_date,false); //локальная дата вылета
       trferItem.operFlt.scd_out=local_scd;
     }
-    catch(EXCEPTIONS::EConvertError &E) {}
+    catch(const EXCEPTIONS::EConvertError &E) {}
 
     if (*(t->airp_dep)!=0)
     {
@@ -1886,7 +1886,7 @@ void CheckInInterface::SearchPaxByDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     {
       doc.parse(NowUTC());
     }
-    catch(EConvertError &e)
+    catch(const EConvertError &e)
     {
       LogTrace(TRACE5) << ">>>>" << e.what();
       doc.bluntParsePNRUSDocNo();
@@ -2976,7 +2976,7 @@ bool CheckInInterface::ParseFQTRem(TypeB::TTlgParser &tlg, string &rem_text, Che
               const TAirlinesRow &row=(const TAirlinesRow&)(base_tables.get("airlines").get_row("code/code_lat",fqth.airline));
               strcpy(fqth.airline,row.code.c_str());
             }
-            catch (EBaseTableError)
+            catch (const EBaseTableError&)
             {
               throw UserException("MSG.AIRLINE.INVALID_INPUT_VALUE",
                                   LParams()<<LParam("airline", string(fqth.airline))); //WEB
@@ -2994,7 +2994,7 @@ bool CheckInInterface::ParseFQTRem(TypeB::TTlgParser &tlg, string &rem_text, Che
             break;
         }
       }
-      catch(std::exception)
+      catch(const std::exception&)
       {
         switch(k)
         {
@@ -3007,7 +3007,7 @@ bool CheckInInterface::ParseFQTRem(TypeB::TTlgParser &tlg, string &rem_text, Che
         }
       }
     }
-    catch(UserException &E)
+    catch(const UserException &E)
     {
       throw UserException("WRAP.REMARK_ERROR",
                           LParams()<<LParam("rem_code", string(fqth.rem_code))
@@ -4350,13 +4350,13 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                              segList,
                              inbound_group_bag);
         }
-        catch(UserException &e)
+        catch(const UserException &e)
         {
           AstraLocale::showErrorMessage(e.getLexemaData());
           throw UserException2();
         }
       }
-      catch(UserException2)
+      catch(const UserException2&)
       {
         XMLRequestCtxt *xmlRC = getXmlCtxt();
         if (xmlRC->resDoc==NULL) throw EXCEPTIONS::Exception("CheckInInterface::SavePax: xmlRC->resDoc=NULL;");
@@ -4464,8 +4464,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       set<int> nextTrferSegs;
 
-      TQuery PaxDocQry(&OraSession);
-      TQuery PaxDocoQry(&OraSession);
       TQuery PaxDocaQry(&OraSession);
 
       TQuery Qry(&OraSession);
@@ -4592,6 +4590,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             //билет
             if (pax.TknExists)
             {
+              p->tknModified=!pax.tkn.equalAttrs(priorPax.tkn);
+
               if (setList.value<bool>(tsRegWithoutTKNA) &&
                   pax.tkn.rem!="TKNE" &&
                   !pax.tkn.equalAttrs(priorPax.tkn))
@@ -4728,11 +4728,11 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             currSimplePaxList.push_back(pax);
 
           }
-          catch(CheckIn::UserException)
+          catch(const CheckIn::UserException&)
           {
             throw;
           }
-          catch(UserException &e)
+          catch(const UserException &e)
           {
             if (pax.id!=NoExists)
               throw CheckIn::UserException(e.getLexemaData(), grp.point_dep, pax.id);
@@ -4796,11 +4796,11 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 if (iPaxTrfer->subclass!=pax.getCabinSubclass())
                   throw UserException("MSG.CHECKIN.DIFFERENT_TCKIN_AND_TRFER_SUBCLASSES");
               }
-              catch(CheckIn::UserException)
+              catch(const CheckIn::UserException&)
               {
                 throw;
               }
-              catch(UserException &e)
+              catch(const UserException &e)
               {
                 if (pax.id!=NoExists)
                   throw CheckIn::UserException(e.getLexemaData(), grp.point_dep, pax.id);
@@ -5209,7 +5209,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 {
                   Qry.Execute();
                 }
-                catch(EOracleError E)
+                catch(const EOracleError& E)
                 {
                   if (E.Code==1)
                     throw UserException("MSG.PASSENGER.CHECKED.ALREADY_OTHER_DESK",
@@ -5229,8 +5229,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 }
 
                 //запись pax_doc
-                if (pax.DocExists) CheckIn::SavePaxDoc(pax_id,pax.doc,PaxDocQry);
-                if (pax.DocoExists) CheckIn::SavePaxDoco(pax_id,pax.doco,PaxDocoQry);
+                if (pax.DocExists) p->docModified=CheckIn::SavePaxDoc(pax_id,pax.doc);
+                if (pax.DocoExists) p->docoModified=CheckIn::SavePaxDoco(pax_id,pax.doco);
                 if (pax.DocaExists) CheckIn::SavePaxDoca(pax_id, pax.doca_map, PaxDocaQry);
 
                 if (save_trfer)
@@ -5256,11 +5256,11 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 if(pax.pr_brd)
                     TPaxEvent().toDB(pax_id, TPaxEventTypes::BRD);
               }
-              catch(CheckIn::UserException)
+              catch(const CheckIn::UserException&)
               {
                 throw;
               }
-              catch(UserException &e)
+              catch(const UserException &e)
               {
                 if (pax.id!=NoExists)
                   throw CheckIn::UserException(e.getLexemaData(), grp.point_dep, pax.id);
@@ -5433,7 +5433,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           LayerQry.DeclareVariable("pax_id",otInteger);
 
           int pax_no=1;
-          for(CheckIn::TPaxList::const_iterator p=paxs.begin(); p!=paxs.end(); ++p,pax_no++)
+          for(CheckIn::TPaxList::iterator p=paxs.begin(); p!=paxs.end(); ++p,pax_no++)
           {
             const CheckIn::TPaxItem &pax=p->pax;
             try
@@ -5461,8 +5461,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   throw UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
                                       LParams()<<LParam("surname",pax.full_name())); //WEB
                 //запись pax_doc
-                if (pax.DocExists) CheckIn::SavePaxDoc(pax.id,pax.doc,PaxDocQry);
-                if (pax.DocoExists) CheckIn::SavePaxDoco(pax.id,pax.doco,PaxDocoQry);
+                if (pax.DocExists) p->docModified=CheckIn::SavePaxDoc(pax.id,pax.doc);
+                if (pax.DocoExists) p->docoModified=CheckIn::SavePaxDoco(pax.id,pax.doco);
                 if (pax.DocaExists) CheckIn::SavePaxDoca(pax.id, pax.doca_map, PaxDocaQry);
 
                 if (reqInfo->client_type!=ctTerm && pax.refuse==refuseAgentError) //ctPNL???
@@ -5520,13 +5520,14 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 processPax( pax.id, override, is_forced );
               }
 
-              iapiCollector.addPassengerIfNeed(pax.id, grp.point_dep, grp.airp_arv, checkInfo);
+              if (p->tknModified || p->docModified || p->docoModified) //это условие должно зависеть от того, какие данные используются при формировнии IAPI (анализ rules), потом переделать
+                iapiCollector.addPassengerIfNeed(pax.id, grp.point_dep, grp.airp_arv, checkInfo);
             }
-            catch(CheckIn::UserException)
+            catch(const CheckIn::UserException&)
             {
               throw;
             }
-            catch(UserException &e)
+            catch(const UserException &e)
             {
               throw CheckIn::UserException(e.getLexemaData(), grp.point_dep, pax.id);
             }
@@ -5736,11 +5737,11 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                                   LParams()<<LParam("eticket",pax.tkn.no)
                                            <<LParam("coupon",IntToString(pax.tkn.coupon))); //WEB
           }
-          catch(CheckIn::UserException)
+          catch(const CheckIn::UserException&)
           {
             throw;
           }
-          catch(UserException &e)
+          catch(const UserException &e)
           {
             if (pax.id!=NoExists)
               throw CheckIn::UserException(e.getLexemaData(), grp.point_dep, pax.id);
@@ -5978,7 +5979,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               Set_AODB_overload_alarm( grp.point_dep, true );
             }
           }
-          catch(CheckIn::OverloadException &E)
+          catch(const CheckIn::OverloadException &E)
           {
             if (!new_checkin && reqInfo->client_type!=ctTerm && reqInfo->client_type!=ctPNL)
               //делаем специальную защиту в SavePax:
@@ -6151,7 +6152,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         timing.finish("iapiCollector", grp.point_dep);
       }
     }
-    catch(UserException &e)
+    catch(const UserException &e)
     {
       if (reqInfo->client_type==ctPNL) throw;
       if (reqInfo->client_type==ctTerm)
@@ -6169,10 +6170,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         //веб, киоски
         try
         {
-          dynamic_cast<CheckIn::UserException&>(e);
+          dynamic_cast<const CheckIn::UserException&>(e);
           throw; //это уже CheckIn::UserException - прокидываем дальше
         }
-        catch (bad_cast)
+        catch (const bad_cast&)
         {
           throw CheckIn::UserException(e.getLexemaData(), grp.point_dep);
         }
@@ -6256,7 +6257,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
     timing.finish("svc_payment_status");
   }
-  catch(SvcPaymentStatusNotApplicable &e)
+  catch(const SvcPaymentStatusNotApplicable &e)
   {
     LogTrace(TRACE5) << __FUNCTION__ << ": " << e.what();
   }
@@ -6687,11 +6688,11 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
             res.setAdditionalListId(tckin_grp_ids); //обязательно после rfiscsToDB и normsToDB
           }
         }
-        catch(UserException &e)
+        catch(const UserException &e)
         {
           throw;
         }
-        catch(std::exception &e)
+        catch(const std::exception &e)
         {
 #ifndef SVC_AVAILABILITY_SYNC_MODE
           if (data.needSync()) throw;
@@ -6955,7 +6956,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
       const TCitiesRow& citiesRow=(const TCitiesRow&)base_tables.get("cities").get_row("code",airpsRow.city);
       ReplaceTextChild( segNode, "city_arv", citiesRow.code );
     }
-    catch(EBaseTableError) {}
+    catch(const EBaseTableError&) {}
 
     CheckIn::TGroupBagItem group_bag;
     TGrpServiceListWithAuto svc;
@@ -7370,7 +7371,7 @@ void CheckInInterface::ParseTransfer(xmlNodePtr trferNode,
       local_scd=DayToDate(local_date,base_date,false); //локальная дата вылета
       seg.operFlt.scd_out=local_scd;
     }
-    catch(EXCEPTIONS::EConvertError &E)
+    catch(const EXCEPTIONS::EConvertError &E)
     {
       throw UserException("MSG.TRANSFER_FLIGHT.INVALID_LOCAL_DATE_DEP",
                           LParams()<<LParam("flight",flt.str()));
@@ -7860,7 +7861,7 @@ void CheckInInterface::readTripData(int point_id, xmlNodePtr dataNode)
 
       airps.push_back(airpsRow.code);
     }
-    catch(EBaseTableError) {}
+    catch(const EBaseTableError&) {}
   }
 
   TCFG cfg(point_id);
@@ -8357,7 +8358,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
             const TCitiesRow& citiesRow=(const TCitiesRow&)base_tables.get("cities").get_row("code",airpsRow.city);
             NewTextChild( seg2Node, "city_arv_code", citiesRow.code );
           }
-          catch(EBaseTableError) {}
+          catch(const EBaseTableError&) {}
         }
 
         //начитаем классы
@@ -8482,7 +8483,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
                 origCls.add(row.cl);
                 cabinCls.add(row.cl);
               }
-              catch(EBaseTableError) {}
+              catch(const EBaseTableError&) {}
             }
           }
           if (!cabinClassForAvailability.empty())
@@ -8583,7 +8584,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
               const TClassesRow& classesRow=(const TClassesRow&)base_tables.get("classes").get_row("code",origCls.getStrictlyOneClass());
               NewTextChild( seg2Node, "class_code", classesRow.code );
             }
-            catch(EBaseTableError) {}
+            catch(const EBaseTableError&) {}
           }
         }
         else
@@ -8722,7 +8723,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
               NewTextChild(airpNode, "airp_code", airpsRow.code);
               NewTextChild(airpNode, "city_code", airpsRow.city);
           }
-          catch(EBaseTableError) {}
+          catch(const EBaseTableError&) {}
 
           std::vector<TCkinPaxInfo> vPax = GetRequestPaxes(NodeAsNode("passengers",reqNode)->children, *f);
           xmlNodePtr tckinPaxesNode = NewTextChild(seg2Node, "tckin_passengers");
@@ -8734,7 +8735,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
             const TSubclsRow& row=(const TSubclsRow&)base_tables.get("subcls").get_row("code/code_lat",vPax.front().subclass);
             NewTextChild(seg2Node, "class_code", row.cl);
           }
-          catch(EBaseTableError) {}
+          catch(const EBaseTableError&) {}
       }
       else
       {

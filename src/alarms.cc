@@ -18,6 +18,7 @@
 #include "date_time.h"
 #include "counters.h"
 #include "custom_alarms.h"
+#include "apis_creator.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -366,39 +367,16 @@ bool check_conflict_trfer_alarm(int point_id)
 
 bool need_crew_checkin(const TAdvTripInfo &fltInfo)
 {
-  TBaseTable &baseairps = base_tables.get( "airps" );
-  TBaseTable &basecities = base_tables.get( "cities" );
-
-  string country_dep = ((const TCitiesRow&)basecities.get_row( "code", ((const TAirpsRow&)baseairps.get_row( "code", fltInfo.airp )).city)).country;
-
   TTripRoute route;
-  route.GetRouteAfter(NoExists,
-                      fltInfo.point_id,
-                      fltInfo.point_num,
-                      fltInfo.first_point,
-                      fltInfo.pr_tranzit,
-                      trtNotCurrent, trtNotCancelled);
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT format FROM apis_sets "
-    "WHERE airline=:airline AND "
-    "      country_dep=:country_dep AND country_arv=:country_arv AND "
-    "      format IN ('EDI_CN', 'EDI_IN', 'EDI_US', 'EDI_USBACK', 'EDI_UK', 'EDI_ES', 'EDI_KR', 'EDI_AZ') AND pr_denial=0 AND rownum<2";
-  Qry.CreateVariable("airline", otString, fltInfo.airline);
-  Qry.CreateVariable("country_dep", otString, country_dep);
-  Qry.DeclareVariable("country_arv", otString);
+  route.GetRouteAfter(fltInfo, trtNotCurrent, trtNotCancelled);
+  for(const TTripRouteItem& r : route)
+    if (!APIS::SettingsList()
+          .getByAirps(fltInfo.airline, fltInfo.airp, r.airp)
+          .filterFormatsFromList(getCrewFormats())
+          .empty()) return true;
 
-  TTripRoute::const_iterator r=route.begin();
-  for(; r!=route.end(); ++r)
-  {
-    string country_arv = ((const TCitiesRow&)basecities.get_row( "code", ((const TAirpsRow&)baseairps.get_row( "code", r->airp )).city)).country;
-    Qry.SetVariable("country_arv", country_arv);
-    Qry.Execute();
-    if (!Qry.Eof) break;
-  };
-  return (r!=route.end());
-};
+  return false;
+}
 
 void check_crew_alarms_task(const TTripTaskKey &task)
 {

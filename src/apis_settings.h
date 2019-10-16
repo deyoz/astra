@@ -8,6 +8,8 @@
 namespace APIS
 {
 
+const std::set<std::string>& allFormats();
+
 class SettingsKey
 {
   protected:
@@ -68,7 +70,7 @@ class Settings : public SettingsKey
       m_transportParams(transportParams) {}
 
     Settings& fromDB(TQuery &Qry);
-    Settings& replaceFormat(TQuery &Qry);
+    Settings& replaceFormat(const std::string& format);
 
     void clear()
     {
@@ -104,19 +106,19 @@ class SettingsList : public std::map<SettingsKey, Settings>
   public:
     void add(const Settings& settings);
 
-    void getByCountries(const std::string& airline,
-                        const std::string& countryDep,
-                        const std::string& countryArv);
-    void getByAirps(const std::string& airline,
-                    const std::string& airpDep,
-                    const std::string& airpArv);
-    void getByAddrs(const std::string& ediAddr,
-                    const std::string& ediAddrExt,
-                    const std::string& ediOwnAddr,
-                    const std::string& ediOwnAddrExt);
-    void getForTesting(const Settings& settingsPattern);
+    SettingsList& getByCountries(const std::string& airline,
+                                 const std::string& countryDep,
+                                 const std::string& countryArv);
+    SettingsList& getByAirps(const std::string& airline,
+                             const std::string& airpDep,
+                             const std::string& airpArv);
+    SettingsList& getByAddrs(const std::string& ediAddr,
+                             const std::string& ediAddrExt,
+                             const std::string& ediOwnAddr,
+                             const std::string& ediOwnAddrExt);
+    SettingsList& getForTesting(const Settings& settingsPattern);
 
-    void filterFormatsFromList(const std::set<std::string>& formats);
+    SettingsList& filterFormatsFromList(const std::set<std::string>& formats);
 
     bool formatExists(const std::string& format) const;
     bool settingsExists(const Settings& settings) const;
