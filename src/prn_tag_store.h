@@ -479,6 +479,7 @@ class TPrnTagStore {
             std::string airp_arv;
             int point_dep, point_arv;
             int hall;
+            std::string status;
             TPrPrint prPrintInfo;
             bool pr_print_fio_pnl;
             TGrpInfo():
