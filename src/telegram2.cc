@@ -7430,6 +7430,8 @@ void TSeatPlan::fill_seats(TypeB::TDetailCreateInfo &info, const T &inserter)
 {
     const TypeB::TLCIOptions &options = *info.optionsAs<TypeB::TLCIOptions>();
     for(map<int,TCheckinPaxSeats>::iterator im = checkinPaxsSeats.begin(); im != checkinPaxsSeats.end(); im++) {
+        CheckIn::TSimplePaxItem pax;
+        pax.getByPaxId(im->first);
         string xcr_type = getXCRType(im->first);
         // g stands for 'gender'; First iteration - seats for adult, second iteration - one seat for infant
         for(int g = 0; g <=1; g++) {
@@ -7447,12 +7449,16 @@ void TSeatPlan::fill_seats(TypeB::TDetailCreateInfo &info, const T &inserter)
                 string seat =
                     "." + is->denorm_view(info.is_lat() or info.pr_lat_seat);
                 if(options.version == "WB") {
-                    if(is == im->second.seats.begin())
-                        seat += "/" + gender;
-                    if(is != im->second.seats.begin())
-                        seat += "/B"; // так обозначаются доп. места (extra seats)
-                    else
-                        append_crew_type(seat, im->second.crew_type, xcr_type);
+                    if(pax.isCBBG())
+                        seat += "/B"; // так обозначаются CBBG (также, как и extra seats)
+                    else {
+                        if(is == im->second.seats.begin())
+                            seat += "/" + gender;
+                        if(is != im->second.seats.begin())
+                            seat += "/B"; // так обозначаются доп. места (extra seats)
+                        else
+                            append_crew_type(seat, im->second.crew_type, xcr_type);
+                    }
                 } else
                     seat += "/" + gender;
                 inserter.do_insert(seat, is->point_arv);
