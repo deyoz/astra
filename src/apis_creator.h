@@ -1604,7 +1604,7 @@ struct TIAPIFormat_CN : public TIAPIFormat
 
 //---------------------------------------------------------------------------------------
 
-inline TAPISFormat* SpawnAPISFormat(const string& fmt)
+inline TAPISFormat* SpawnAPISFormat(const string& fmt, bool throwIfUnhandled=true)
 {
   TAPISFormat* p = nullptr;
   if (fmt=="CSV_CZ")      p = new TAPISFormat_CSV_CZ; else
@@ -1633,8 +1633,10 @@ inline TAPISFormat* SpawnAPISFormat(const string& fmt)
   if (fmt=="IAPI_CN")     p = new TIAPIFormat_CN; else
   if (fmt=="EDI_CNCREW")  p = new TAPISFormat_EDI_CNCREW;
 
-  if (p == nullptr) throw Exception("SpawnAPISFormat: unhandled format %s", fmt.c_str());
-  p->settings=APIS::Settings("", fmt, "", "", "", "");
+  if (p != nullptr)
+    p->settings=APIS::Settings("", fmt, "", "", "", "");
+  else if (throwIfUnhandled)
+    throw Exception("SpawnAPISFormat: unhandled format %s", fmt.c_str());
   return p;
 }
 
@@ -1646,6 +1648,7 @@ inline TAPISFormat* SpawnAPISFormat(const APIS::Settings& sd)
 }
 
 const std::set<std::string>& getIAPIFormats();
+const std::set<std::string>& getCrewFormats();
 
 typedef std::function<Paxlst::PaxlstInfo&(const TApisRouteData& route,
                                           const TAPISFormat& format,

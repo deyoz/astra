@@ -724,6 +724,10 @@ class TPaxListItem
     boost::optional< std::list<WeightConcept::TPaxNormItem> > norms;
     xmlNodePtr node;
 
+    bool tknModified;
+    bool docModified;
+    bool docoModified;
+
     TPaxListItem() { clear(); }
     TPaxListItem(const TSimplePaxItem& _pax)
     {
@@ -742,6 +746,10 @@ class TPaxListItem
       fqts.clear();
       norms=boost::none;
       node=NULL;
+
+      tknModified=false;
+      docModified=false;
+      docoModified=false;
     }
 
     bool trferAttachable() const
@@ -931,8 +939,12 @@ bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc);
 bool LoadCrsPaxVisa(int pax_id, TPaxDocoItem &doc);
 bool LoadCrsPaxDoca(int pax_id, TDocaMap &doca_map);
 
-void SavePaxDoc(int pax_id, const TPaxDocItem &doc, TQuery& PaxDocQry);
-void SavePaxDoco(int pax_id, const TPaxDocoItem &doc, TQuery& PaxDocQry);
+bool SavePaxDoc(int pax_id,
+                const TPaxDocItem &doc,
+                boost::optional<TPaxDocItem> priorDoc=boost::none);
+bool SavePaxDoco(int pax_id,
+                 const TPaxDocoItem &doc,
+                 boost::optional<TPaxDocoItem> priorDoc=boost::none);
 void SavePaxDoca(int pax_id, const TDocaMap &doca_map, TQuery& PaxDocaQry);
 
 std::string PaxDocGenderNormalize(const std::string &pax_doc_gender);

@@ -809,6 +809,8 @@ void SaveAPIS(int point_id, int pax_id, int tid, xmlNodePtr reqNode)
     throw AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
 
   CheckIn::TAPISItem apis=prior_apis;
+  bool docModified=false;
+  bool docoModified=false;
   xmlNodePtr node2=reqNode->children;
   xmlNodePtr docNode;
   docNode=GetNodeFast("document",node2);
@@ -816,14 +818,14 @@ void SaveAPIS(int point_id, int pax_id, int tid, xmlNodePtr reqNode)
   {
     apis.doc.fromXML(docNode);
     HandleDoc(grp, pax, checkInfo, checkDate, apis.doc);
-    CheckIn::SavePaxDoc(pax_id, apis.doc, Qry);
+    docModified=CheckIn::SavePaxDoc(pax_id, apis.doc, prior_apis.doc);
   }
   docNode=GetNodeFast("doco",node2);
   if (docNode!=NULL)
   {
     apis.doco.fromXML(docNode);
     HandleDoco(grp, pax, checkInfo, checkDate, apis.doco);
-    CheckIn::SavePaxDoco(pax_id, apis.doco, Qry);
+    docoModified=CheckIn::SavePaxDoco(pax_id, apis.doco, prior_apis.doco);
   }
   xmlNodePtr docaNode=GetNodeFast("addresses",node2);
   if (docaNode!=NULL)
@@ -839,6 +841,13 @@ void SaveAPIS(int point_id, int pax_id, int tid, xmlNodePtr reqNode)
     HandleDoca(grp, pax, checkInfo, apis.doca_map);
     CheckIn::SavePaxDoca(pax_id, apis.doca_map, Qry);
   };
+
+  if (docModified || docoModified)
+  {
+    IAPI::RequestCollector iapiCollector;
+    iapiCollector.addPassengerIfNeed(pax_id, point_id, grp.airp_arv, checkInfo);
+    iapiCollector.send();
+  }
 
   if (apis_control)
   {

@@ -271,7 +271,7 @@ std::string paxDocCountryToWebXML(const std::string &code,
         result=lang?ElemIdToPrefferedElem(etCountry, result, efmtCodeNative, lang->get()):result;
       }
     }
-    catch (EBaseTableError) {};
+    catch (const EBaseTableError&) {};
     if (result.empty()) result=lang?ElemIdToPrefferedElem(etPaxDocCountry, code, efmtCodeNative, lang->get()):code;
   };
   return result;
@@ -1254,90 +1254,130 @@ bool LoadCrsPaxDoca(int pax_id, CheckIn::TDocaMap &doca_map)
   return false;
 };
 
-void SavePaxDoc(int pax_id, const TPaxDocItem &doc, TQuery& PaxDocQry)
+bool SavePaxDoc(int pax_id,
+                const TPaxDocItem &doc,
+                boost::optional<TPaxDocItem> priorDoc)
 {
-  const char* sql=
-        "BEGIN "
-        "  DELETE FROM pax_doc WHERE pax_id=:pax_id; "
-        "  IF :only_delete=0 THEN "
-        "    SELECT MAX(type_rcpt) INTO :type_rcpt "
-        "    FROM crs_pax_doc "
-        "    WHERE pax_id=:pax_id AND no=:no AND type_rcpt IS NOT NULL AND rownum<2; "
-        "    INSERT INTO pax_doc "
-        "      (pax_id,type,subtype,issue_country,no,nationality,birth_date,gender,expiry_date, "
-        "       surname,first_name,second_name,pr_multi,type_rcpt,scanned_attrs) "
-        "    VALUES "
-        "      (:pax_id,:type,:subtype,:issue_country,:no,:nationality,:birth_date,:gender,:expiry_date, "
-        "       :surname,:first_name,:second_name,:pr_multi,:type_rcpt,:scanned_attrs); "
-        "  END IF; "
-        "END;";
-  if (strcmp(PaxDocQry.SQLText.SQLText(),sql)!=0)
+  bool result=false;
+
+  if (!priorDoc)
   {
-    PaxDocQry.Clear();
-    PaxDocQry.SQLText=sql;
-    PaxDocQry.DeclareVariable("pax_id",otInteger);
-    PaxDocQry.DeclareVariable("type",otString);
-    PaxDocQry.DeclareVariable("subtype",otString);
-    PaxDocQry.DeclareVariable("issue_country",otString);
-    PaxDocQry.DeclareVariable("no",otString);
-    PaxDocQry.DeclareVariable("nationality",otString);
-    PaxDocQry.DeclareVariable("birth_date",otDate);
-    PaxDocQry.DeclareVariable("gender",otString);
-    PaxDocQry.DeclareVariable("expiry_date",otDate);
-    PaxDocQry.DeclareVariable("surname",otString);
-    PaxDocQry.DeclareVariable("first_name",otString);
-    PaxDocQry.DeclareVariable("second_name",otString);
-    PaxDocQry.DeclareVariable("pr_multi",otInteger);
-    PaxDocQry.DeclareVariable("type_rcpt",otString);
-    PaxDocQry.DeclareVariable("scanned_attrs",otInteger);
-    PaxDocQry.DeclareVariable("only_delete",otInteger);
-  };
+    priorDoc=boost::in_place();
+    LoadPaxDoc(pax_id, priorDoc.get());
+  }
 
-  doc.toDB(PaxDocQry);
-  PaxDocQry.SetVariable("pax_id",pax_id);
-  PaxDocQry.SetVariable("only_delete",(int)doc.empty());
-  PaxDocQry.Execute();
-};
+  bool deleteOld=!priorDoc.get().empty();
+  bool insertNew=!doc.empty();
 
-void SavePaxDoco(int pax_id, const TPaxDocoItem &doc, TQuery& PaxDocQry)
+  if ((deleteOld || insertNew) &&
+      !doc.equal(priorDoc.get()))
+  {
+    TCachedQuery Qry("BEGIN "
+                     "  IF :delete_old<>0 THEN "
+                     "    DELETE FROM pax_doc WHERE pax_id=:pax_id; "
+                     "  END IF; "
+                     "  IF :insert_new<>0 THEN "
+                     "    SELECT MAX(type_rcpt) INTO :type_rcpt "
+                     "    FROM crs_pax_doc "
+                     "    WHERE pax_id=:pax_id AND no=:no AND type_rcpt IS NOT NULL AND rownum<2; "
+                     "    INSERT INTO pax_doc "
+                     "      (pax_id,type,subtype,issue_country,no,nationality,birth_date,gender,expiry_date, "
+                     "       surname,first_name,second_name,pr_multi,type_rcpt,scanned_attrs) "
+                     "    VALUES "
+                     "      (:pax_id,:type,:subtype,:issue_country,:no,:nationality,:birth_date,:gender,:expiry_date, "
+                     "       :surname,:first_name,:second_name,:pr_multi,:type_rcpt,:scanned_attrs); "
+                     "  END IF; "
+                     "END;",
+                     QParams()
+                     << QParam("pax_id",otInteger)
+                     << QParam("type",otString)
+                     << QParam("subtype",otString)
+                     << QParam("issue_country",otString)
+                     << QParam("no",otString)
+                     << QParam("nationality",otString)
+                     << QParam("birth_date",otDate)
+                     << QParam("gender",otString)
+                     << QParam("expiry_date",otDate)
+                     << QParam("surname",otString)
+                     << QParam("first_name",otString)
+                     << QParam("second_name",otString)
+                     << QParam("pr_multi",otInteger)
+                     << QParam("type_rcpt",otString)
+                     << QParam("scanned_attrs",otInteger)
+                     << QParam("delete_old",otInteger)
+                     << QParam("insert_new",otInteger));
+
+    doc.toDB(Qry.get());
+    Qry.get().SetVariable("pax_id",pax_id);
+    Qry.get().SetVariable("delete_old",(int)deleteOld);
+    Qry.get().SetVariable("insert_new",(int)insertNew);
+    Qry.get().Execute();
+
+    result=true;
+  }
+
+  return result;
+}
+
+bool SavePaxDoco(int pax_id,
+                 const TPaxDocoItem &doc,
+                 boost::optional<TPaxDocoItem> priorDoc)
 {
-  const char* sql=
-        "BEGIN "
-        "  DELETE FROM pax_doco WHERE pax_id=:pax_id; "
-        "  IF :only_delete=0 THEN "
-        "    INSERT INTO pax_doco "
-        "      (pax_id,birth_place,type,subtype,no,issue_place,issue_date,expiry_date,applic_country,scanned_attrs) "
-        "    VALUES "
-        "      (:pax_id,:birth_place,:type,:subtype,:no,:issue_place,:issue_date,:expiry_date,:applic_country,:scanned_attrs); "
-        "  END IF; "
-        "END;";
-  if (strcmp(PaxDocQry.SQLText.SQLText(),sql)!=0)
-  {
-    PaxDocQry.Clear();
-    PaxDocQry.SQLText=sql;
-    PaxDocQry.DeclareVariable("pax_id",otInteger);
-    PaxDocQry.DeclareVariable("birth_place",otString);
-    PaxDocQry.DeclareVariable("type",otString);
-    PaxDocQry.DeclareVariable("subtype",otString);
-    PaxDocQry.DeclareVariable("no",otString);
-    PaxDocQry.DeclareVariable("issue_place",otString);
-    PaxDocQry.DeclareVariable("issue_date",otDate);
-    PaxDocQry.DeclareVariable("expiry_date",otDate);
-    PaxDocQry.DeclareVariable("applic_country",otString);
-    PaxDocQry.DeclareVariable("scanned_attrs",otInteger);
-    PaxDocQry.DeclareVariable("only_delete",otInteger);
-  };
+  bool result=false;
 
-  doc.toDB(PaxDocQry);
-  PaxDocQry.SetVariable("pax_id",pax_id);
-  PaxDocQry.SetVariable("only_delete",(int)doc.empty());
-  PaxDocQry.Execute();
+  if (!priorDoc)
+  {
+    priorDoc=boost::in_place();
+    LoadPaxDoco(pax_id, priorDoc.get());
+  }
+
+  bool deleteOld=!priorDoc.get().empty();
+  bool insertNew=!doc.empty();
+
+  if ((deleteOld || insertNew) &&
+      !doc.equal(priorDoc.get()))
+  {
+    TCachedQuery Qry("BEGIN "
+                     "  IF :delete_old<>0 THEN "
+                     "    DELETE FROM pax_doco WHERE pax_id=:pax_id; "
+                     "  END IF; "
+                     "  IF :insert_new<>0 THEN "
+                     "    INSERT INTO pax_doco "
+                     "      (pax_id,birth_place,type,subtype,no,issue_place,issue_date,expiry_date,applic_country,scanned_attrs) "
+                     "    VALUES "
+                     "      (:pax_id,:birth_place,:type,:subtype,:no,:issue_place,:issue_date,:expiry_date,:applic_country,:scanned_attrs); "
+                     "  END IF; "
+                     "END;",
+                     QParams()
+                     << QParam("pax_id",otInteger)
+                     << QParam("birth_place",otString)
+                     << QParam("type",otString)
+                     << QParam("subtype",otString)
+                     << QParam("no",otString)
+                     << QParam("issue_place",otString)
+                     << QParam("issue_date",otDate)
+                     << QParam("expiry_date",otDate)
+                     << QParam("applic_country",otString)
+                     << QParam("scanned_attrs",otInteger)
+                     << QParam("delete_old",otInteger)
+                     << QParam("insert_new",otInteger));
+
+    doc.toDB(Qry.get());
+    Qry.get().SetVariable("pax_id",pax_id);
+    Qry.get().SetVariable("delete_old",(int)deleteOld);
+    Qry.get().SetVariable("insert_new",(int)insertNew);
+    Qry.get().Execute();
+
+    result=true;
+  }
 
   TCachedQuery PaxQry("UPDATE pax SET doco_confirm=:doco_confirm WHERE pax_id=:pax_id",
                       QParams() << QParam("pax_id", otInteger, pax_id)
                                 << QParam("doco_confirm", otInteger, (int)doc.doco_confirm));
   PaxQry.get().Execute();
-};
+
+  return result;
+}
 
 void SavePaxDoca(int pax_id, const CheckIn::TDocaMap &doca_map, TQuery& PaxDocaQry)
 {

@@ -12,6 +12,25 @@ using namespace std;
 namespace APIS
 {
 
+const std::set<std::string>& allFormats()
+{
+  static boost::optional<std::set<std::string>> formats;
+
+  if (!formats)
+  {
+    formats=boost::in_place();
+
+    TQuery ApisSetsQry(&OraSession);
+    ApisSetsQry.SQLText=
+        "SELECT code AS format FROM apis_formats ORDER BY code";
+    ApisSetsQry.Execute();
+    for(; !ApisSetsQry.Eof; ApisSetsQry.Next())
+      formats.get().insert(ApisSetsQry.FieldAsString("format"));
+  }
+
+  return formats.get();
+}
+
 Settings& Settings::fromDB(TQuery &Qry)
 {
   clear();
@@ -24,9 +43,9 @@ Settings& Settings::fromDB(TQuery &Qry)
   return *this;
 }
 
-Settings& Settings::replaceFormat(TQuery &Qry)
+Settings& Settings::replaceFormat(const std::string& format)
 {
-  m_format=Qry.FieldAsString("format");
+  m_format=format;
   return *this;
 }
 
@@ -59,9 +78,9 @@ void SettingsList::add(const Settings& settings)
   emplace(settings, settings);
 }
 
-void SettingsList::getByCountries(const std::string& airline,
-                                  const std::string& countryDep,
-                                  const std::string& countryArv)
+SettingsList& SettingsList::getByCountries(const std::string& airline,
+                                           const std::string& countryDep,
+                                           const std::string& countryArv)
 {
   clear();
 
@@ -83,21 +102,25 @@ void SettingsList::getByCountries(const std::string& airline,
   ApisSetsQry.Execute();
   for(; !ApisSetsQry.Eof; ApisSetsQry.Next())
     add(Settings().fromDB(ApisSetsQry));
+
+  return *this;
 }
 
-void SettingsList::getByAirps(const std::string& airline,
-                              const std::string& airpDep,
-                              const std::string& airpArv)
+SettingsList& SettingsList::getByAirps(const std::string& airline,
+                                       const std::string& airpDep,
+                                       const std::string& airpArv)
 {
   getByCountries(airline,
                  getCountryByAirp(airpDep).code,
                  getCountryByAirp(airpArv).code);
+
+  return *this;
 }
 
-void SettingsList::getByAddrs(const std::string& ediAddr,
-                              const std::string& ediAddrExt,
-                              const std::string& ediOwnAddr,
-                              const std::string& ediOwnAddrExt)
+SettingsList& SettingsList::getByAddrs(const std::string& ediAddr,
+                                       const std::string& ediAddrExt,
+                                       const std::string& ediOwnAddr,
+                                       const std::string& ediOwnAddrExt)
 {
   clear();
 
@@ -123,22 +146,22 @@ void SettingsList::getByAddrs(const std::string& ediAddr,
         (ediOwnAddrExt.empty() || settings.ediOwnAddrExt()==ediOwnAddrExt))
       add(settings);
   }
+
+  return *this;
 }
 
-void SettingsList::getForTesting(const Settings& settingsPattern)
+SettingsList& SettingsList::getForTesting(const Settings& settingsPattern)
 {
   clear();
 
   Settings settings(settingsPattern);
-  TQuery ApisSetsQry(&OraSession);
-  ApisSetsQry.SQLText=
-    "SELECT code AS format FROM apis_formats ORDER BY code";
-  ApisSetsQry.Execute();
-  for(; !ApisSetsQry.Eof; ApisSetsQry.Next())
-    add(settings.replaceFormat(ApisSetsQry));
+  for(const auto& f : allFormats())
+    add(settings.replaceFormat(f));
+
+  return *this;
 }
 
-void SettingsList::filterFormatsFromList(const std::set<std::string>& formats)
+SettingsList& SettingsList::filterFormatsFromList(const std::set<std::string>& formats)
 {
   for(SettingsList::iterator i=begin(); i!=end();)
   {
@@ -148,6 +171,8 @@ void SettingsList::filterFormatsFromList(const std::set<std::string>& formats)
     else
       ++i;
   }
+
+  return *this;
 }
 
 bool SettingsList::formatExists(const std::string& format) const

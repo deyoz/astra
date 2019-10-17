@@ -81,6 +81,7 @@ void RequestCollector::collectApisDataset()
       TApisPaxData pax;
 
       if (!pax.getByPaxId(paxId)) continue;
+      if (!pax.refuse.empty()) continue;
 
       if (grp.id!=pax.grp_id)
       {

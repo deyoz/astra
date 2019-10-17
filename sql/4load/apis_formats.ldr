@@ -1,0 +1,35 @@
+LOAD DATA
+INFILE *
+INTO TABLE apis_formats
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,name
+,name_lat
+)
+BEGINDATA
+"EDI_UK"|"EDIFACT формат (Великобритания)"|"EDIFACT format (Great Britain)"
+"EDI_USBACK"|"EDIFACT формат (США). Для обратных рейсов"|"EDIFACT format (USA). For return flights"
+"EDI_ES"|"EDIFACT формат (Испания)"|"EDIFACT format (Spain)"
+"TXT_EE"|"Текстовый формат (Эстония)"|"Text format (Estonia)"
+"CSV_CZ"|"Текстовый формат CSV (Чехия)"|"CSV text format (Czech Republic)"
+"CSV_DE"|"Текстовый формат CSV (Германия)"|"CSV text format (Germany)"
+"EDI_CZ"|"EDIFACT формат (Чехия). Без разбиения на части! Без экипажа!"|"EDIFACT format (Czech Republic)"
+"EDI_CN"|"EDIFACT формат (Китай)"|"EDIFACT format (China)"
+"EDI_IN"|"EDIFACT формат c обработкой номера документа (Индия)"|"EDIFACT format (India)"
+"XML_TR"|"XML формат (Турция)"|"XML format (Turkish)"
+"EDI_US"|"EDIFACT формат (США)"|"EDIFACT format (USA)"
+"EDI_VN"|"EDIFACT формат (Вьетнам)"|"EDIFACT format (Vietnam)"
+"CSV_TH"|"Текстовый формат CSV (Тайланд)"|"CSV text format (Thailand)"
+"EDI_KR"|"EDIFACT формат (Корея)"|"EDIFACT format (Republic of Korea)"
+"EDI_CNCREW"|"EDIFACT формат (Китай). Только экипаж!"|"EDIFACT format (China). Crew only!"
+"CSV_AE"|"Текстовый формат CSV (Объединенные Арабские Эмираты)"|"CSV text format (United Arab Emirates)"
+"KILL_ME"|"Убийственный формат"|"Но если монитор без ошибок, то написано ладно"
+"EDI_DE"|"edi de test"|"edi de test"
+"EDI_LT"|"EDIFACT формат (Литва). Без разбиения на части, без экипажа!"|"EDIFACT format (Lithuania)"
+"EDI_TR"|"EDIFACT формат (Турция)"|"EDIFACT format (Turkish)"
+"IAPI_CN"|"IAPI формат (Китай)"|"IAPI format (China)"
+"EDI_AE"|"EDIFACT формат (Объединенные Арабские Эмираты)"|"EDIFACT format (United Arab Emirates)"
+"EDI_AZ"|"EDIFACT формат (Азербайджан)"|"EDIFACT format (Azerbaijan)"
