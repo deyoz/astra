@@ -1404,10 +1404,39 @@ int apis_test(int argc, char **argv)
 
 const std::set<std::string>& getIAPIFormats()
 {
-  static set<string> formats;
-  if (formats.empty())
-    formats.insert("IAPI_CN");
-  return formats;
+  static boost::optional<set<string>> formats;
+
+  if (!formats)
+  {
+    formats=boost::in_place();
+    for(const auto& f : APIS::allFormats())
+    {
+      std::unique_ptr<const TAPISFormat> pFormat(SpawnAPISFormat(f, false));
+      if (dynamic_cast<const TIAPIFormat*>(pFormat.get()))
+        formats.get().insert(f);
+    }
+  }
+
+  return formats.get();
+}
+
+const std::set<std::string>& getCrewFormats()
+{
+  static boost::optional<set<string>> formats;
+
+  if (!formats)
+  {
+    formats=boost::in_place();
+    for(const auto& f : APIS::allFormats())
+    {
+      std::unique_ptr<const TAPISFormat> pFormat(SpawnAPISFormat(f, false));
+      if (pFormat!=nullptr &&
+          pFormat->rule(r_notOmitCrew))
+        formats.get().insert(f);
+    }
+  }
+
+  return formats.get();
 }
 
 void create_apis_nosir_help(const char *name)
