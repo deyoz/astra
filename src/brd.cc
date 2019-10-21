@@ -1377,10 +1377,10 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           }
 
           boost::optional<const TCompleteAPICheckInfo &> check_info=route_check_info.get(airp_arv);
-          if (check_info && IAPI::needCheckStatus(check_info.get()))
+          if (check_info)
           {
-            if ((paxWithSeat.exists()    && !IAPI::PassengerStatus::allowedToBoarding(paxWithSeat.pax_id)) ||
-                (paxWithoutSeat.exists() && !IAPI::PassengerStatus::allowedToBoarding(paxWithoutSeat.pax_id)))
+            if ((paxWithSeat.exists()    && !IAPI::PassengerStatus::allowedToBoarding(paxWithSeat.pax_id, check_info.get())) ||
+                (paxWithoutSeat.exists() && !IAPI::PassengerStatus::allowedToBoarding(paxWithoutSeat.pax_id, check_info.get())))
               throw AstraLocale::UserException("MSG.PASSENGER.APPS_PROBLEM");
           }
         }

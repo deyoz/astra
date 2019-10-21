@@ -43,6 +43,9 @@ void checkAlarm(const TTripTaskKey &task)
     case Alarm::APPSProblem:
       check_apps_alarm(task.point_id);
       break;
+    case Alarm::IAPIProblem:
+      check_iapi_alarm(task.point_id);
+      break;
     default:
       throw Exception("Unsupported");
       break;
@@ -603,6 +606,15 @@ bool check_apps_alarm( int point_id )
   return apps_alarm;
 }
 
+bool check_iapi_alarm( int point_id )
+{
+  bool iapi_alarm=existsAlarmByPointId(point_id,
+                                       {Alarm::IAPINegativeDirective},
+                                       {paxCheckIn});
+  set_alarm( point_id, Alarm::IAPIProblem, iapi_alarm );
+  return iapi_alarm;
+}
+
 void TTripAlarm::check()
 {
   ProgTrace(TRACE5, "TTripAlarm::check: %s", traceStr().c_str());
@@ -618,6 +630,7 @@ void TTripAlarm::check()
       add_trip_task(id, AlarmTypes().encode(type), "");
       break;
     case Alarm::APPSProblem:
+    case Alarm::IAPIProblem:
       addTaskForCheckingAlarm(id, type);
       break;
     default:

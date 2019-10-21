@@ -4583,6 +4583,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             //проверка refusability для киосков и веба, а теперь и для терминала
             if (!new_checkin && pax.PaxUpdatesPending && !pax.refuse.empty())
             {
+              p->refused=priorPax.refuse.empty();
               boost::optional<std::string> unreg_denial = CheckRefusability(fltAdvInfo, pax.id);
               if (unreg_denial) throw UserException(*unreg_denial);
             }
@@ -5520,7 +5521,11 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 processPax( pax.id, override, is_forced );
               }
 
-              if (p->tknModified || p->docModified || p->docoModified) //это условие должно зависеть от того, какие данные используются при формировнии IAPI (анализ rules), потом переделать
+              if (p->refused)
+                IAPI::deleteAlarms(pax.id, grp.point_dep);
+              else if
+                 (p->tknModified || p->docModified || p->docoModified || //это условие должно зависеть от того, какие данные используются при формировнии IAPI (анализ rules), потом переделать
+                  IAPI::RequestCollector::resendNeeded(p->rems))
                 iapiCollector.addPassengerIfNeed(pax.id, grp.point_dep, grp.airp_arv, checkInfo);
             }
             catch(const CheckIn::UserException&)
