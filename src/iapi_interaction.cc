@@ -88,6 +88,8 @@ void RequestCollector::collectApisDataset()
         if (!grp.getByGrpId(pax.grp_id)) continue;
       }
 
+      if (grp.status==psCrew) continue;
+
       pax.status=grp.status;
       pax.airp_arv=rd.arvInfo().airp;
       pax.airp_arv_final=pax.airp_arv;
