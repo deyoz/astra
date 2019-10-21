@@ -116,6 +116,9 @@ void get_rfisc_stat(int point_id)
             "    pax_grp.airp_arv, "
             "    pax.pax_id, "
             "    pax.subclass, "
+            "    pax.ticket_no, "
+            "    pax.coupon_no, "
+            "    pax.reg_no, "
             "    bag2.rfisc, "
             "    bag2.num bag_num, "
             "    bag2.desk, "
@@ -165,6 +168,9 @@ void get_rfisc_stat(int point_id)
             "  trfer_scd, "
             "  point_num, "
             "  airp_arv, "
+            "  reg_no, "
+            "  ticket_no, "
+            "  coupon_no, "
             "  rfisc, "
             "  travel_time, "
             "  desk, "
@@ -185,6 +191,9 @@ void get_rfisc_stat(int point_id)
             "  :trfer_scd, "
             "  :point_num, "
             "  :airp_arv, "
+            "  :reg_no, "
+            "  :ticket_no, "
+            "  :coupon_no, "
             "  :rfisc, "
             "  :travel_time, "
             "  :desk, "
@@ -206,6 +215,9 @@ void get_rfisc_stat(int point_id)
             << QParam("trfer_scd", otDate)
             << QParam("point_num", otInteger)
             << QParam("airp_arv", otString)
+            << QParam("reg_no", otInteger)
+            << QParam("ticket_no", otString)
+            << QParam("coupon_no", otInteger)
             << QParam("rfisc", otString)
             << QParam("travel_time", otDate)
             << QParam("login", otString)
@@ -257,6 +269,9 @@ void get_rfisc_stat(int point_id)
         int col_airp_arv = bagQry.get().FieldIndex("airp_arv");
         int col_pax_id = bagQry.get().FieldIndex("pax_id");
         int col_subclass = bagQry.get().FieldIndex("subclass");
+        int col_reg_no = bagQry.get().FieldIndex("reg_no");
+        int col_ticket_no = bagQry.get().FieldIndex("ticket_no");
+        int col_coupon_no = bagQry.get().FieldIndex("coupon_no");
         int col_rfisc = bagQry.get().FieldIndex("rfisc");
         int col_bag_num = bagQry.get().FieldIndex("bag_num");
         int col_desk = bagQry.get().FieldIndex("desk");
@@ -282,6 +297,17 @@ void get_rfisc_stat(int point_id)
             insQry.get().SetVariable("trfer_airp_arv", bagQry.get().FieldAsString(col_trfer_airp_arv));
             insQry.get().SetVariable("point_num", bagQry.get().FieldAsInteger(col_point_num));
             insQry.get().SetVariable("airp_arv", bagQry.get().FieldAsString(col_airp_arv));
+
+            if(bagQry.get().FieldIsNULL(col_reg_no))
+                insQry.get().SetVariable("reg_no", FNull);
+            else
+                insQry.get().SetVariable("reg_no", bagQry.get().FieldAsInteger(col_reg_no));
+            insQry.get().SetVariable("ticket_no", bagQry.get().FieldAsString(col_ticket_no));
+            if(bagQry.get().FieldIsNULL(col_coupon_no))
+                insQry.get().SetVariable("coupon_no", FNull);
+            else
+                insQry.get().SetVariable("coupon_no", bagQry.get().FieldAsInteger(col_coupon_no));
+
             insQry.get().SetVariable("rfisc", bagQry.get().FieldAsString(col_rfisc));
             insQry.get().SetVariable("desk", bagQry.get().FieldAsString(col_desk));
 
@@ -681,6 +707,15 @@ string get_tag_no(double tag_no)
 
 void TRFISCStatRow::add_data(ostringstream &buf) const
 {
+    // ticket
+    buf << ticket_no;
+    if(coupon_no != NoExists)
+        buf << "/" << coupon_no;
+    buf << delim;
+    // reg_no
+    if(reg_no != NoExists)
+        buf << reg_no;
+    buf << delim;
     //RFISC
     buf << rfisc << delim;
     // Платн.
@@ -747,6 +782,8 @@ void TRFISCStatRow::add_data(ostringstream &buf) const
 void TRFISCStatRow::add_header(ostringstream &buf) const
 {
     buf
+        << getLocaleText("Билет") << delim
+        << getLocaleText("Рег №") << delim
         << getLocaleText("RFISC") << delim
         << getLocaleText("Платн.") << delim
         << getLocaleText("Опл.") << delim
@@ -783,31 +820,7 @@ void RunRFISCStat(
         << QParam("LastDate", otDate, params.LastDate);
     for(int pass = 0; pass <= 1; pass++) {
         string SQLText =
-            "select "
-            "   rfisc_stat.rfisc, "
-            "   rfisc_stat.point_id, "
-            "   rfisc_stat.point_num, "
-            "   rfisc_stat.pr_trfer, "
-            "   points.scd_out, "
-            "   points.airline, "
-            "   points.flt_no, "
-            "   points.suffix, "
-            "   points.airp, "
-            "   rfisc_stat.airp_arv, "
-            "   points.craft, "
-            "   rfisc_stat.travel_time, "
-            "   rfisc_stat.trfer_flt_no, "
-            "   rfisc_stat.trfer_suffix, "
-            "   rfisc_stat.trfer_airp_arv, "
-            "   rfisc_stat.desk, "
-            "   rfisc_stat.user_login, "
-            "   rfisc_stat.user_descr, "
-            "   rfisc_stat.time_create, "
-            "   rfisc_stat.tag_no, "
-            "   rfisc_stat.fqt_no, "
-            "   rfisc_stat.excess, "
-            "   rfisc_stat.paid "
-            "from ";
+            "select * from ";
         if(pass != 0) {
             SQLText +=
                 "   arx_points points, \n"
@@ -835,6 +848,9 @@ void RunRFISCStat(
 
         Qry.get().Execute();
         if(not Qry.get().Eof) {
+            int col_reg_no = Qry.get().GetFieldIndex("reg_no");
+            int col_ticket_no = Qry.get().GetFieldIndex("ticket_no");
+            int col_coupon_no = Qry.get().GetFieldIndex("coupon_no");
             int col_rfisc = Qry.get().GetFieldIndex("rfisc");
             int col_point_id = Qry.get().GetFieldIndex("point_id");
             int col_point_num = Qry.get().GetFieldIndex("point_num");
@@ -861,6 +877,11 @@ void RunRFISCStat(
             for(; not Qry.get().Eof; Qry.get().Next()) {
                 prn_airline.check(Qry.get().FieldAsString(col_airline));
                 TRFISCStatRow row;
+                if(not Qry.get().FieldIsNULL(col_reg_no))
+                    row.reg_no = Qry.get().FieldAsInteger(col_reg_no);
+                row.ticket_no = Qry.get().FieldAsString(col_ticket_no);
+                if(not Qry.get().FieldIsNULL(col_coupon_no))
+                    row.coupon_no = Qry.get().FieldAsInteger(col_coupon_no);
                 row.rfisc = Qry.get().FieldAsString(col_rfisc);
                 row.point_id = Qry.get().FieldAsInteger(col_point_id);
                 row.point_num = Qry.get().FieldAsInteger(col_point_num);
@@ -902,6 +923,14 @@ void createXMLRFISCStat(const TStatParams &params, const TRFISCStat &RFISCStat, 
 
     xmlNodePtr headerNode = NewTextChild(grdNode, "header");
     xmlNodePtr colNode;
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Билет"));
+    SetProp(colNode, "width", 100);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Рег №"));
+    SetProp(colNode, "width", 40);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortInteger);
     colNode = NewTextChild(headerNode, "col", "RFISC");
     SetProp(colNode, "width", 40);
     SetProp(colNode, "align", TAlignment::LeftJustify);
@@ -988,6 +1017,16 @@ void createXMLRFISCStat(const TStatParams &params, const TRFISCStat &RFISCStat, 
     ostringstream buf;
     for(TRFISCStat::iterator i = RFISCStat.begin(); i != RFISCStat.end(); i++) {
         rowNode = NewTextChild(rowsNode, "row");
+        // Билет
+        ostringstream ticket;
+        ticket << i->ticket_no;
+        if(i->coupon_no != NoExists) ticket << "/" << i->coupon_no;
+        NewTextChild(rowNode, "col", ticket.str());
+        // Рег №
+        if(i->reg_no == NoExists)
+            NewTextChild(rowNode, "col");
+        else
+            NewTextChild(rowNode, "col", i->reg_no);
         // RFISC
         NewTextChild(rowNode, "col", i->rfisc);
         // Признак платности багажа
@@ -1062,10 +1101,5 @@ void createXMLRFISCStat(const TStatParams &params, const TRFISCStat &RFISCStat, 
     NewTextChild(variablesNode, "stat_type", params.statType);
     NewTextChild(variablesNode, "stat_mode", getLocaleText("Багажные RFISC"));
     NewTextChild(variablesNode, "stat_type_caption", getLocaleText("Подробная"));
-
-    NewTextChild(variablesNode, "CAP.STAT.AGENT_INFO", getLocaleText("CAP.STAT.AGENT_INFO"));
-    NewTextChild(variablesNode, "CAP.STAT.BAG_INFO", getLocaleText("CAP.STAT.BAG_INFO"));
-    NewTextChild(variablesNode, "CAP.STAT.PAX_INFO", getLocaleText("CAP.STAT.PAX_INFO"));
-    NewTextChild(variablesNode, "CAP.STAT.FLT_INFO", getLocaleText("CAP.STAT.FLT_INFO"));
 }
 
