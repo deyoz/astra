@@ -203,29 +203,54 @@ void TRemGrp::Load(TRemEventType rem_set_type, const string &airline)
       insert(Qry.FieldAsString("rem_code"));
 }
 
+static void getAPPSRemCodes(const int pax_id, set<string>& remCodes)
+{
+  TQuery Qry( &OraSession );
+  Qry.CreateVariable( "pax_id", otInteger, pax_id );
+  Qry.SQLText = "SELECT status FROM apps_pax_data WHERE pax_id = :pax_id ORDER BY send_time DESC";
+  Qry.Execute();
+  if (!Qry.Eof)
+  {
+    string status = Qry.FieldAsString("status");
+    if( status == "B" )
+      remCodes.insert("SBIA");
+    else if( status == "P" )
+      remCodes.insert("SPIA");
+    else if( status == "X" )
+      remCodes.insert("SXIA");
+  }
+
+  Qry.SQLText = "SELECT status FROM iapi_pax_data WHERE pax_id = :pax_id";
+  Qry.Execute();
+  for(; !Qry.Eof; Qry.Next())
+  {
+    string status = Qry.FieldAsString("status");
+    if (status == "0Z")
+      remCodes.insert("SBIA");
+    else if (!status.empty())
+      remCodes.insert("SXIA");
+  }
+}
+
+
 CheckIn::TPaxRemItem getAPPSRem(const int pax_id, const std::string &lang )
 {
-  CheckIn::TPaxRemItem rem;
-  TQuery Qry( &OraSession );
-  Qry.SQLText = "SELECT * FROM "
-                "(SELECT status FROM apps_pax_data WHERE pax_id = :pax_id ORDER BY send_time DESC) "
-                "WHERE rownum = 1";
-  Qry.CreateVariable( "pax_id", otInteger, pax_id );
-  Qry.Execute();
+  set<string> remCodes;
+  getAPPSRemCodes(pax_id, remCodes);
 
-  if( Qry.Eof )
-    return rem;
+  if (!remCodes.empty())
+  {
+    for(const string& code : {"SXIA", "SPIA", "SBIA"})
+      if (remCodes.find(code)!=remCodes.end())
+      {
+        CheckIn::TPaxRemItem rem;
+        rem.code=code;
+        rem.text=ElemIdToPrefferedElem(etCkinRemType, rem.code, efmtNameLong, lang);
+        return rem;
+      }
+  }
 
-  string status = Qry.FieldAsString("status");
-  if( status == "B" )
-    rem.code = "SBIA";
-  else if( status == "P" )
-    rem.code = "SPIA";
-  else if( status == "X" )
-    rem.code = "SXIA";
-  if ( !rem.code.empty() )
-    rem.text=ElemIdToPrefferedElem(etCkinRemType, rem.code, efmtNameLong, lang);
-  return rem;
+  return CheckIn::TPaxRemItem();
 }
 
 string GetRemarkStr(const TRemGrp &rem_grp, const multiset<CheckIn::TPaxRemItem> &rems, const string &term)
@@ -347,7 +372,7 @@ int TPaxRemBasic::get_priority() const
   {
     priority=base_tables.get("CKIN_REM_TYPES").get_row("code",rem_code()).AsInteger("priority");
   }
-  catch (EBaseTableError) {};
+  catch (const EBaseTableError&) {};
   return priority;
 }
 

@@ -230,54 +230,60 @@ void AirlineOfficeList::get(const std::string& airline,
   };
 }
 
-const set<string> &customsUS()
+const map<string/*country_depend*/, string/*country_regul*/>& customs()
 {
-  static bool init=false;
-  static set<string> depend;
-  if (!init)
+  static boost::optional<map<string, string>> customsMapByDepend;
+
+  if (!customsMapByDepend)
   {
+    customsMapByDepend=boost::in_place();
+
     TQuery Qry(&OraSession);
-    GetCustomsDependCountries("ž‘", depend, Qry);
-    init=true;
-  };
-  return depend;
+    Qry.SQLText="SELECT country_depend, country_regul FROM apis_customs";
+    Qry.Execute();
+    for(;!Qry.Eof;Qry.Next())
+      customsMapByDepend.get().emplace(Qry.FieldAsString("country_depend"), Qry.FieldAsString("country_regul"));
+  }
+
+  return customsMapByDepend.get();
 }
 
-void GetCustomsDependCountries(const string &regul,
-                               set<string> &depend,
-                               TQuery &Qry)
+const set<string>& customsUS()
+{
+  static boost::optional<set<string>> countries;
+  if (!countries)
+  {
+    countries=boost::in_place();
+    getCustomsDependCountries("ž‘", countries.get());
+  }
+  return countries.get();
+}
+
+void getCustomsDependCountries(const string &regul, set<string> &depend)
 {
   depend.clear();
   depend.insert(regul);
-  const char *sql =
-    "SELECT country_depend FROM apis_customs WHERE country_regul=:country_regul";
-  if (strcmp(Qry.SQLText.SQLText(),sql)!=0)
+
+  static boost::optional<multimap<string, string>> customsMapByRegul;
+
+  if (!customsMapByRegul)
   {
-    Qry.Clear();
-    Qry.SQLText=sql;
-    Qry.DeclareVariable("country_regul",otString);
-  };
-  Qry.SetVariable("country_regul", regul);
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
-    depend.insert(Qry.FieldAsString("country_depend"));
+    customsMapByRegul=boost::in_place();
+
+    for(const auto& i : customs())
+      customsMapByRegul.get().emplace(i.second, i.first);
+  }
+
+  auto range=customsMapByRegul.get().equal_range(regul);
+  for(auto i=range.first; i!=range.second; ++i)
+    depend.insert(i->second);
 }
 
-string GetCustomsRegulCountry(const string &depend,
-                              TQuery &Qry)
+string getCustomsRegulCountry(const string &depend)
 {
-  const char *sql =
-    "SELECT country_regul FROM apis_customs WHERE country_depend=:country_depend";
-  if (strcmp(Qry.SQLText.SQLText(),sql)!=0)
-  {
-    Qry.Clear();
-    Qry.SQLText=sql;
-    Qry.DeclareVariable("country_depend",otString);
-  };
-  Qry.SetVariable("country_depend", depend);
-  Qry.Execute();
-  if (!Qry.Eof)
-    return Qry.FieldAsString("country_regul");
+  auto i=customs().find(depend);
+  if (i!=customs().end())
+    return i->second;
   else
     return depend;
 }

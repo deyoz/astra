@@ -151,12 +151,8 @@ class AirlineOfficeList : public std::list<AirlineOfficeInfo>
 };
 
 const std::set<std::string> &customsUS();
-
-void GetCustomsDependCountries(const std::string &regul,
-                               std::set<std::string> &depend,
-                               TQuery &Qry);
-std::string GetCustomsRegulCountry(const std::string &depend,
-                                   TQuery &Qry);
+void getCustomsDependCountries(const std::string &regul, std::set<std::string> &depend);
+std::string getCustomsRegulCountry(const std::string &depend);
 
 } //namespace APIS
 
