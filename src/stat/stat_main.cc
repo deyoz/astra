@@ -460,9 +460,6 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         case statDetail:
             get_compatible_report_form("DetailStat", reqNode, resNode);
             break;
-        case statRFISC:
-            get_compatible_report_form("RFISCStat", reqNode, resNode);
-            break;
         case statRem:
             get_compatible_report_form("RemStat", reqNode, resNode);
             break;
@@ -495,6 +492,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         case statPFSFull:
         case statPFSShort:
         case statTrferPax:
+        case statRFISC:
             get_compatible_report_form("stat", reqNode, resNode);
             break;
         default:
