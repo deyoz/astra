@@ -78,8 +78,6 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
     SeatsQry.CreateVariable("point_id",otInteger,point_id);
     SeatsQry.DeclareVariable("pax_id",otInteger);
 
-    TQuery CustomsQry(&OraSession);
-
     map<string /*country_regul_arv*/, string /*first airp_arv*/> CBPAirps;
 
     for(TAdvTripRoute::const_iterator iRoute = routeAfterWithCurrent.begin(); iRoute != routeAfterWithCurrent.end(); ++iRoute)
@@ -93,8 +91,8 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
       for(TAdvTripRoute::const_iterator i=routeAfterWithCurrent.begin(); i!=iRoute+1; ++i)
         rd.paxLegs.push_back(*i);
       rd.task_name = task_name;
-      rd.country_regul_dep = APIS::GetCustomsRegulCountry(rd.country_dep(), CustomsQry);
-      rd.country_regul_arv = APIS::GetCustomsRegulCountry(rd.country_arv(), CustomsQry);
+      rd.country_regul_dep = APIS::getCustomsRegulCountry(rd.country_dep());
+      rd.country_regul_arv = APIS::getCustomsRegulCountry(rd.country_arv());
       rd.use_us_customs_tasks = rd.country_regul_dep==US_CUSTOMS_CODE || rd.country_regul_arv==US_CUSTOMS_CODE;
       map<string, string>::iterator iCBPAirp = CBPAirps.find(rd.country_regul_arv);
       if (iCBPAirp==CBPAirps.end())
