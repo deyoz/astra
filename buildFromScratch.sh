@@ -225,8 +225,7 @@ function build_externallib() {
 	local libname=$1
 	local libpath=$EXTERNALLIBS_DIR/$libname
 
-    SIRENA_HOME=$PWD 
-    LDFLAGS="$(extLibLDFlag $libname) $LDFLAGS" ./bin/astra_update_and_build.sh $libname $libpath
+    SIRENA_HOME=$PWD LDFLAGS="$(extLibLDFlag $libname) $LDFLAGS" ./bin/astra_update_and_build.sh $libname $libpath
     checkresult build_$libname $?
 
     export PKG_CONFIG_PATH=$libpath/lib/pkgconfig:$PKG_CONFIG_PATH
