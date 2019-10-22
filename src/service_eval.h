@@ -26,6 +26,10 @@ public:
      AddEvent("filtered",evHandle);
      evHandle=JxtHandler<ServiceEvalInterface>::CreateHandler(&ServiceEvalInterface::Paid);
      AddEvent("paid",evHandle);
+     evHandle=JxtHandler<ServiceEvalInterface>::CreateHandler(&ServiceEvalInterface::PayDocParamsRequest);
+     AddEvent("PayDocParamsRequest",evHandle);
+     evHandle=JxtHandler<ServiceEvalInterface>::CreateHandler(&ServiceEvalInterface::PayDocParamsAnswer);
+     AddEvent("PayDocParamsAnswer",evHandle);
      addResponseHandler("check_in_get_pnr", response_check_in_get_pnr);
      addResponseHandler("order",response_order);
      addResponseHandler("svc_emd_issue_query",response_svc_emd_issue_query);
@@ -36,12 +40,15 @@ public:
   void Evaluation(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void Filtered(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void Paid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void PayDocParamsRequest(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void PayDocParamsAnswer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   static void response_check_in_get_pnr(const std::string& exchangeId, xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode);
   static void response_order(const std::string& exchangeId, xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode);
   static void response_svc_emd_issue_query(const std::string& exchangeId, xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode);
   static void response_svc_emd_issue_confirm(const std::string& exchangeId, xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode);
   static void continuePaidRequest( xmlNodePtr reqNode, xmlNodePtr resNode);
   static void backPaid(const std::string& exchangeId, xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode);
+  static void AfterPaid(xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
   virtual ~ServiceEvalInterface() {}
 
@@ -50,6 +57,7 @@ public:
 
 
 bool isPaymentAtDesk( int point_id );
+bool isPaymentAtDesk( int point_id, int &method_type );
 
 
 #endif /*_SERVICEEVAL_H_*/

@@ -27,8 +27,24 @@ using namespace ASTRA;
 
 void cacheBack();
 
+const int MANUAL_PAY_METHOD = 1;
+
 bool isPaymentAtDesk( int point_id )
 {
+  int method_type;
+  return isPaymentAtDesk( point_id, method_type );
+}
+
+bool isManualPayAtDest( int point_id )
+{
+  int method_type;
+  return ( isPaymentAtDesk( point_id,method_type) &&
+           method_type == MANUAL_PAY_METHOD );
+}
+
+bool isPaymentAtDesk( int point_id, int &method_type )
+{
+  method_type = ASTRA::NoExists;
   TTripInfo fltInfo;
   if (!fltInfo.getByPointId(point_id))
     throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
@@ -45,7 +61,11 @@ bool isPaymentAtDesk( int point_id )
      Qry.CreateVariable( "airline", otString, fltInfo.airline );
      Qry.CreateVariable( "airp_dep", otString, fltInfo.airp );
      Qry.Execute();
-     return ( !Qry.Eof && Qry.FieldAsInteger( "priority" ) != 0 );
+     bool res = ( !Qry.Eof && Qry.FieldAsInteger( "priority" ) != 0 );
+     if ( res ) {
+       method_type = Qry.FieldAsInteger( "method_type" );
+     }
+     return res;
   }
   return false;
 }
@@ -149,12 +169,25 @@ class Ticket {
     std::string svc_id;
     std::string ticket_cpn;
     std::string ticknum;
+    bool is_etick;
     void fromXML( xmlNodePtr node ) {
       pass_id = NodeAsString( "@pass_id", node );
       seg_id = NodeAsString( "@seg_id", node, "" ); // может быть пустой в случае подтверждения оплаты
       svc_id = NodeAsString( "@svc_id", node, "" ); // может быть пустой в случае запроса стоимости
       ticket_cpn = NodeAsString( "@ticket_cpn", node );
       ticknum = NodeAsString( "@ticknum", node );
+      is_etick = NodeAsBoolean( "@is_etick", node, false );
+    }
+    bool isEMD() const {
+      return !is_etick;
+    }
+    void clear(){
+      pass_id.clear();
+      seg_id.clear();
+      svc_id.clear();
+      ticket_cpn.clear();
+      ticknum.clear();
+      is_etick = true;
     }
 };
 
@@ -175,14 +208,26 @@ class Tickets: public std::vector<Ticket> {
       }
     }
     void get( const std::string &pass_id, const std::string &seg_id, Ticket &ticket ) {
+      ticket.clear();
       for ( const auto &p : *this ) {
         if ( p.pass_id == pass_id &&
-             p.seg_id == seg_id ) {
+             p.seg_id == seg_id &&
+             !p.isEMD() ) {
           ticket = p;
           return;
         }
       }
       throw EXCEPTIONS::Exception( "ticket not found, pass_id=" + pass_id + ",seg_id=" + seg_id );
+    }
+    bool get( const std::string& svc_id, Ticket &ticket ) {
+      ticket.clear();
+      for ( const auto &p : *this ) {
+        if ( p.svc_id == svc_id ) {
+           ticket = p;
+           return true;
+        }
+      }
+      return false;
     }
 };
 
@@ -318,9 +363,10 @@ class Order: public SvcEmdRegnum, public SvcEmdSvcsAns
           throw EXCEPTIONS::Exception( "Invalid data XML seg_id from svcs not equal seg_id from tickets, svcs.seg_id=" + svc.seg_id + ",tickets.seg_id=" + ticket.seg_id );
       }
       for ( auto &p : *this ) {
-        if ( std::string("HD") != p.status ) {
+        LogTrace(TRACE5) << p.pass_id << " " << p.status;
+/*  !!!      if ( std::string("HD") != p.status ) {
           continue;
-        }
+        }*/
         Ticket t;
         tickets.get( p.pass_id, p.seg_id, t );
         CheckIn::TSimplePaxList paxs_list;
@@ -330,8 +376,10 @@ class Order: public SvcEmdRegnum, public SvcEmdSvcsAns
           throw EXCEPTIONS::Exception( "Invalid data XML counpon no=" + t.ticket_cpn );
         }
         search(paxs_list, CheckIn::TPaxTknItem(t.ticknum,coupon));
+        LogTrace(TRACE5)<<paxs_list.size();
+
         if ( paxs_list.size() != 1 ) {
-           throw EXCEPTIONS::Exception( "Invalid data XML pax not found ticknum=" + t.ticknum + ",ticket_cpn=" + t.ticket_cpn );
+           throw AstraLocale::UserException("MSG.ETICK.ERROR.TICKET_NOT FOUND");
         }
         if ( paxs.find(p.pass_id) != paxs.end() ) {
           if ( paxs[p.pass_id] != paxs_list.begin()->id ) {
@@ -732,6 +780,13 @@ class SvcEmdIssueConfirmRes: public SWC::SWCExchange, public SvcEmdRegnum, publi
       agn = NodeAsString("agn",reqNode,"");
       SvcEmdSvcsAns::fromXML(reqNode);
       tickets.fromXML(reqNode);
+      for ( auto &s : *this ) {
+        Ticket t;
+        tickets.get( s.id, t );
+        s.ticket_cpn = t.ticket_cpn;
+        s.ticknum = t.ticknum;
+        LogTrace(TRACE5)<<"ticknum=" <<s.ticknum << "/" << s.ticket_cpn;
+      }
     }
     ~SvcEmdIssueConfirmRes(){}
 };
@@ -939,6 +994,7 @@ void ServiceEvalInterface::Evaluation(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 {
   LogTrace(TRACE5) << "ServiceEvalInterface::" << __func__;
   int grp_id=NodeAsInteger("grp_id",reqNode);
+  bool pr_reseat=NodeAsBoolean("pr_reseat",reqNode,false);
   CheckIn::TSimplePaxGrpItem grpItem;
   if ( !grpItem.getByGrpId(grp_id) ) {
     throw AstraLocale::UserException("MSG.PASSENGER.NOT_FOUND.REFRESH_DATA");
@@ -948,7 +1004,7 @@ void ServiceEvalInterface::Evaluation(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   }
   TPriceRFISCList prices;
   prices.fromContextDB(grp_id);
-  if (prices.notInit()) {
+  if (prices.notInit() || !pr_reseat ) {
     std::map<int,std::set<int>> params;
     CheckIn::TSimplePaxGrpItem grpItem;
     if ( !grpItem.getByGrpId(grp_id) ) {
@@ -962,12 +1018,10 @@ void ServiceEvalInterface::Evaluation(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     segsPaxs.fromDB(grp_id,grpItem.point_dep);
     segsPaxs.getPaxs(params);
     CheckInGetPNRReq req(params);
-    req.fromDB();
     Request( reqNode, getServiceName(), req );
   }
   else {
     OrderReq orderReq( prices.getSvcEmdRegnum(), prices.getSurname() );
-    orderReq.fromDB();
     tst();
     Request( reqNode, getServiceName(), orderReq );
   }
@@ -998,7 +1052,6 @@ void ServiceEvalInterface::response_check_in_get_pnr(const std::string& exchange
   prices.toContextDB(grp_id);
 
   OrderReq orderReq(res.getSvcEmdRegnum(), res.getSurname());
-  orderReq.fromDB();
   Request( reqNode, getServiceName(), orderReq );
   tst();
 }
@@ -1055,8 +1108,10 @@ void ServiceEvalInterface::Filtered(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
   if ( servicesNode == nullptr || servicesNode->children == nullptr ) {
     throw AstraLocale::UserException("MSG.EMD.NOT_SERVICES_CHOICE");
   }
-  TPriceRFISCList PriceRFISCList;
-  PriceRFISCList.fromXML(servicesNode);
+  TPriceRFISCList FilteredPriceRFISCList, PriceRFISCList;
+  FilteredPriceRFISCList.fromXML(servicesNode);
+  PriceRFISCList.fromContextDB(grp_id);
+  PriceRFISCList.synchFromSirena(FilteredPriceRFISCList,true);
   xmlNodePtr node = NewTextChild(resNode,"prices");
   NewTextChild(node,"grp_id",grp_id);
   PriceRFISCList.toXML(NewTextChild( node, "services" ));
@@ -1072,16 +1127,18 @@ void ServiceEvalInterface::backPaid(const std::string& exchangeId,xmlNodePtr req
   if ( externalSysResNode == nullptr ) { // откат
     prices.fromContextDB(grp_id);
     std::vector<std::string> svcs;
-    if ( prices.haveStatusDirect( TPriceRFISCList::STATUS_DIRECT_ISSUE_CONFIRM, svcs ) ) {
-      SvcEmdVoidReq req(prices.getSvcEmdRegnum(),SvcEmdSvcsReq(svcs));
-      req.fromDB();
-      Request( reqNode, getServiceName(), req );
-      inRequest = true;
-    }
-    if ( prices.haveStatusDirect( TPriceRFISCList::STATUS_DIRECT_ISSUE_ANSWER, svcs ) ) {
-      SvcEmdIssueCancelReq req(prices.getSvcEmdRegnum());
-      req.fromDB();
-      Request( reqNode, getServiceName(), req );
+    bool cancelRequest;
+    std::shared_ptr<SWC::SWCExchange> req;
+    if ( (cancelRequest=prices.haveStatusDirect( TPriceRFISCList::STATUS_DIRECT_ISSUE_ANSWER, svcs )) ||
+         prices.haveStatusDirect( TPriceRFISCList::STATUS_DIRECT_ISSUE_CONFIRM, svcs ) ) {
+      if (cancelRequest) {
+        req = std::make_shared<SvcEmdIssueCancelReq>(prices.getSvcEmdRegnum());
+      }
+      else {
+        req = make_shared<SvcEmdVoidReq>(prices.getSvcEmdRegnum(),SvcEmdSvcsReq(svcs));
+      }
+      req->fromDB();
+      Request( reqNode, getServiceName(), *req.get() );
       inRequest = true;
     }
     if ( inRequest ) {
@@ -1100,29 +1157,31 @@ void ServiceEvalInterface::backPaid(const std::string& exchangeId,xmlNodePtr req
       return;
     }
     prices.Lock(grp_id); //в разных обработчиках параллельные запросы???
-    try {
-      prices.fromContextDB(grp_id);
+    prices.fromContextDB(grp_id);
 
-      try {
-        LogTrace(TRACE5) << "parse " << res->exchangeId();
-        res->parseResponse(externalSysResNode);
-        if ( res->error() ) {
-          throw EXCEPTIONS::Exception("error_message=%s, error_code=%s", res->error_message,res->error_code);
-        }
-        tst();
+    try {
+      LogTrace(TRACE5) << "parse " << res->exchangeId();
+      res->parseResponse(externalSysResNode);
+      if ( res->error() ) {
+        throw EXCEPTIONS::Exception("error_message=%s, error_code=%s", res->error_message,res->error_code);
       }
-      catch(EXCEPTIONS::Exception &e) {
-        LogError(STDLOG) << e.what();
-      }
-      catch(...) {
-        LogError(STDLOG) << __func__ <<  " some error";
-      }
-      prices.setStatusDirect(res->exchangeId() == SvcEmdVoidRes::getExchangeId()?TPriceRFISCList::STATUS_DIRECT_ISSUE_CONFIRM:TPriceRFISCList::STATUS_DIRECT_ISSUE_ANSWER,TPriceRFISCList::STATUS_DIRECT_ORDER);
-      ASTRA::commit(); //!!!
+      tst();
+    }
+    catch(EXCEPTIONS::Exception &e) {
+      LogError(STDLOG) << e.what();
     }
     catch(...) {
-      prices.setStatusDirect(res->exchangeId() == SvcEmdVoidRes::getExchangeId()?TPriceRFISCList::STATUS_DIRECT_ISSUE_CONFIRM:TPriceRFISCList::STATUS_DIRECT_ISSUE_ANSWER,TPriceRFISCList::STATUS_DIRECT_ORDER);
-      ASTRA::commit(); //!!!
+      LogError(STDLOG) << __func__ <<  " some error";
+    }
+    prices.setStatusDirect(res->exchangeId() == SvcEmdVoidRes::getExchangeId()?TPriceRFISCList::STATUS_DIRECT_ISSUE_CONFIRM:TPriceRFISCList::STATUS_DIRECT_ISSUE_ANSWER,TPriceRFISCList::STATUS_DIRECT_ORDER);
+    prices.toContextDB(grp_id);
+    ASTRA::commit(); //!!!
+    std::vector<std::string> svcs;
+    if ( SvcEmdIssueCancelRes::getExchangeId() == exchangeId &&
+         prices.haveStatusDirect( TPriceRFISCList::STATUS_DIRECT_ISSUE_CONFIRM, svcs ) ) {
+      SvcEmdVoidReq req(prices.getSvcEmdRegnum(),SvcEmdSvcsReq(svcs));
+      Request( reqNode, getServiceName(), req );
+      return;
     }
   }
   //все откатили или нечего было откатывать
@@ -1184,6 +1243,47 @@ void ServiceEvalInterface::Paid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 //  backPaid(reqNode,NULL,resNode); // откат всех оплат, которые не завершилось
 }
 
+void ServiceEvalInterface::PayDocParamsRequest(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int point_id=NodeAsInteger("point_id",reqNode);
+  if ( !isManualPayAtDest( point_id ) ) {
+    return;
+  }
+  xmlNodePtr node = NewTextChild( resNode, "items" );
+  xmlNodePtr itemNode = NewTextChild( node, "item" );
+  NewTextChild( itemNode, "Caption", "Фиг знает что1" );
+  NewTextChild( itemNode, "MaxLength", 15 );
+  NewTextChild( itemNode, "CharCase", "UpperCase" );
+  NewTextChild( itemNode, "Width", 200 );
+  NewTextChild( itemNode, "Requred", 1 );
+  NewTextChild( itemNode, "Name", "Edit1" );
+
+  itemNode = NewTextChild( node, "item" );
+  NewTextChild( itemNode, "Caption", "Фиг знает что2" );
+  NewTextChild( itemNode, "MaxLength", 5 );
+  NewTextChild( itemNode, "CharCase", "LowerCase" );
+  NewTextChild( itemNode, "Width", 300 );
+  NewTextChild( itemNode, "Requred", 1 );
+  NewTextChild( itemNode, "Name", "Edit2" );
+
+  itemNode = NewTextChild( node, "item" );
+  NewTextChild( itemNode, "Caption", "Фиг знает что2" );
+  NewTextChild( itemNode, "MaxLength", 5 );
+  NewTextChild( itemNode, "CharCase", "LowerCase" );
+  NewTextChild( itemNode, "Width", 300 );
+  NewTextChild( itemNode, "Requred", 1 );
+  NewTextChild( itemNode, "Name", "Edit3" );
+
+}
+
+void ServiceEvalInterface::PayDocParamsAnswer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  tst();
+
+  //проверка и запись введенных данных по оплате
+}
+
+
 void ServiceEvalInterface::continuePaidRequest(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   LogTrace(TRACE5) << __func__;
@@ -1192,25 +1292,17 @@ void ServiceEvalInterface::continuePaidRequest(xmlNodePtr reqNode, xmlNodePtr re
   prices.fromContextDB(grp_id);
   std::vector<std::string> svcs;
   if ( !prices.getNextIssueQueryGrpEMD( svcs ) ) {
-    //EMD_REFRESH!!!
     prices.setStatusDirect(TPriceRFISCList::STATUS_DIRECT_ISSUE_CONFIRM,TPriceRFISCList::STATUS_DIRECT_PAID);
+    prices.toDB(grp_id);
     prices.SvcEmdPayDoc::clear();
     prices.SvcEmdCost::clear();
     prices.SvcEmdTimeout::clear();
     prices.toContextDB(grp_id);
-    tst();
     EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);
-    tst();
-    xmlNodePtr node = NewTextChild(resNode,"prices");
-    NewTextChild(node,"grp_id",grp_id);
-    prices.toXML(NewTextChild( node, "services" ));
-    tst();
-    AstraLocale::showMessage( "MSG.EMD.PAID_FINISHED" );
     return;
   }
   LogTrace(TRACE5) << "svcs.size=" << svcs.size();
   SvcEmdIssueReq req(prices.getSvcEmdRegnum(), prices.getSvcEmdPayDoc(), SvcEmdSvcsReq(svcs));
-  req.fromDB();
   tst();
   prices.toContextDB(grp_id);
   ASTRA::commit();
@@ -1218,12 +1310,22 @@ void ServiceEvalInterface::continuePaidRequest(xmlNodePtr reqNode, xmlNodePtr re
   tst();
 }
 
+void ServiceEvalInterface::AfterPaid(xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  LogTrace(TRACE5) << __func__;
+  int grp_id=NodeAsInteger("grp_id",reqNode);
+  TPriceRFISCList prices;
+  prices.fromContextDB(grp_id); //???
+  xmlNodePtr node = NewTextChild(resNode,"prices");
+  NewTextChild(node,"grp_id",grp_id);
+  prices.toXML(NewTextChild( node, "services" ));
+  AstraLocale::showMessage( "MSG.EMD.PAID_FINISHED" );
+}
+
 void ServiceEvalInterface::response_svc_emd_issue_query(const std::string& exchangeId,xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode)
 {
   SvcEmdIssueRes res;
-  /*if ( !isResponseHandler( res.exchangeId(), externalSysResNode ) ) {
-     return;
-  }*/
+
   try {
     LogTrace(TRACE5) << __func__;
     res.parseResponse(externalSysResNode);
@@ -1237,7 +1339,7 @@ void ServiceEvalInterface::response_svc_emd_issue_query(const std::string& excha
     prices.setStatusDirect(TPriceRFISCList::STATUS_DIRECT_ISSUE_QUERY,TPriceRFISCList::STATUS_DIRECT_ISSUE_ANSWER);
     prices.toContextDB(grp_id);
     SvcEmdIssueConfirmReq reqConfirm( SvcEmdRegnum(res.getRegnum()),  prices.getSvcEmdPayDoc(), res.getSvcEmdCost() );
-    reqConfirm.fromDB();
+
     ASTRA::commit(); //!!!
     Request( reqNode, getServiceName(), reqConfirm );
     tst();
@@ -1316,6 +1418,46 @@ void ServiceEvalInterface::BeforeResponseHandle(int reqCtxtId, xmlNodePtr& reqNo
    PAGE_NO NUMBER(9) NOT NULL,
    TIME DATETIME NOT NULL
  );
+
+ ALTER TABLE svc_prices
+       ADD  ( CONSTRAINT svc_prices__PK PRIMARY KEY (grp_id,page_no) ) ;
+
+
+CREATE INDEX svc_prices__AK ON svc_prices
+(
+       grp_id                         ASC
+);
+
+ALTER TABLE svc_prices
+       ADD  ( CONSTRAINT svc_prices__pax_grp__FK
+              FOREIGN KEY (grp_id)
+                             REFERENCES pax_grp ) ;
+
+
+DROP TABLE PAY_SERVICES;
+
+CREATE TABLE PAY_SERVICES (
+  GRP_ID NUMBER(9) NOT NULL,
+  PAX_ID NUMBER(9) NOT NULL,
+  TRANSFER_NUM NUMBER(1) NOT NULL,
+  RFISC VARCHAR2(15) NOT NULL,
+  SERVICE_TYPE VARCHAR2(1) NOT NULL,
+  AIRLINE VARCHAR2(3) NOT NULL,
+  NAME_VIEW VARCHAR2(100) NOT NULL,
+  NAME_VIEW_LAT VARCHAR2(100) NOT NULL,
+  LIST_ID NUMBER(9),
+  SVC_ID NUMBER(9) NOT NULL,
+  DOC_ID VARCHAR2(100) NOT NULL,
+  PASS_ID NUMBER(9) NOT NULL,
+  SEG_ID NUMBER(9) NOT NULL,
+  PRICE FLOAT NOT NULL,
+  CURRENCY VARCHAR2(3) NOT NULL,
+  TICKNUM VARCHAR2(15) NOT NULL,
+  TICKET_CPN VARCHAR2(1) NOT NULL,
+  TIME_PAID DATE NOT NULL
+);
+
+
 
  *
  */

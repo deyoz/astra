@@ -6277,6 +6277,7 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   xmlNodePtr node;
   int grp_id=NoExists;
   int point_id=NodeAsInteger("point_id",reqNode);
+  bool EMDRefresh=NodeAsBoolean("emd_refresh",reqNode,true);
   TQuery Qry(&OraSession);
   node = GetNode("grp_id",reqNode);
   if (node==NULL||NodeIsNULL(node))
@@ -6365,7 +6366,9 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   }
   else grp_id=NodeAsInteger(node);
 
-  EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);
+  if ( EMDRefresh ) {
+    EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);
+  }
 
   LoadPax(grp_id,reqNode,resNode,false);
 }

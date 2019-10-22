@@ -4,6 +4,7 @@
 #include <serverlib/slogger.h>
 #include "xml_unit.h"
 #include "oralib.h"
+#include "date_time.h"
 #include "serverlib/xml_stuff.h" // для xml_decode_nodelist
 #include "passenger.h"
 
@@ -18,6 +19,8 @@ void SvcFromSirena::fromContextXML(xmlNodePtr node) {
   name = NodeAsString( "name", node );
   price = NodeAsFloat( "price", node );
   currency = NodeAsString( "currency", node );
+  ticket_cpn = NodeAsString( "ticket_cpn", node, "" );
+  ticknum = NodeAsString( "ticknum", node, "" );
   status_svc = NodeAsString( "status_svc", node );
   status_direct = NodeAsString( "status_direct", node );
 }
@@ -27,6 +30,8 @@ void SvcFromSirena::fromXML(xmlNodePtr node) {
   svc_id = NodeAsString( "svc_id", node );
   price = NodeAsFloat( "price", node );
   currency = NodeAsString( "currency", node );
+  ticket_cpn = NodeAsString( "ticket_cpn", node, "" );
+  ticknum = NodeAsString( "ticknum", node, "" );
 }
 
 void SvcFromSirena::toContextXML(xmlNodePtr node) const {
@@ -37,6 +42,8 @@ void SvcFromSirena::toContextXML(xmlNodePtr node) const {
   NewTextChild( node, "name", name );
   NewTextChild( node, "price", price );
   NewTextChild( node, "currency", currency );
+  NewTextChild( node, "ticket_cpn", ticket_cpn );
+  NewTextChild( node, "ticknum", ticknum );
   NewTextChild( node, "status_svc", status_svc );
   NewTextChild( node, "status_direct", status_direct );
 }
@@ -45,12 +52,48 @@ void SvcFromSirena::toXML(xmlNodePtr node) const {
   NewTextChild( node, "svc_id", svc_id );
   NewTextChild( node, "price", price );
   NewTextChild( node, "currency", currency );
-  NewTextChild(node,"valid", price_valid());
+  NewTextChild( node, "ticket_cpn", ticket_cpn );
+  NewTextChild( node, "ticknum", ticknum );
+  NewTextChild(node,"valid", valid());
+}
+
+void SvcFromSirena::toDB( TQuery& Qry) const
+{
+  Qry.SetVariable("svc_id",svc_id);
+  Qry.SetVariable("doc_id",doc_id);
+  Qry.SetVariable("pass_id",pass_id);
+  Qry.SetVariable("seg_id",seg_id);
+  Qry.SetVariable("price",price);
+  Qry.SetVariable("currency",currency);
+  Qry.SetVariable("ticket_cpn",ticket_cpn);
+  Qry.SetVariable("ticknum",ticknum);
+}
+
+void SvcFromSirena::fromDB(TQuery& Qry,const std::string& lang)
+{
+  svc_id = Qry.FieldAsString("svc_id");
+  doc_id = Qry.FieldAsString("doc_id");
+  pass_id = Qry.FieldAsString("pass_id");
+  seg_id = Qry.FieldAsString("seg_id");
+  price = Qry.FieldAsFloat("price");
+  name = (lang==AstraLocale::LANG_EN?Qry.FieldAsString("name_view_lat"):Qry.FieldAsString("name_view"));
+  currency = Qry.FieldAsString("currency");
+  ticket_cpn = Qry.FieldAsString("ticket_cpn");
+  ticknum = Qry.FieldAsString("ticknum");
+  LogTrace(TRACE5) << toString();
+}
+
+bool SvcFromSirena::valid() const
+{
+  return price!=ASTRA::NoExists &&
+         price>=0.0 &&
+         !currency.empty() &&
+         status_direct != TPriceRFISCList::STATUS_DIRECT_PAID; //!!!
 }
 
 std::string SvcFromSirena::toString() const {
   std::ostringstream s;
-  s << "svc_id=" << svc_id << ",price=" << price << ",cuurency=" << currency << ",doc_id" << doc_id;
+  s << "svc_id=" << svc_id << ",price=" << price << ",cuurency=" << currency << ",doc_id=" << doc_id << ",ticknum="<<ticknum<<"/"<<ticket_cpn;
   return s.str();
 }
 
@@ -58,9 +101,8 @@ const TPriceServiceItem& TPriceServiceItem::toXML(xmlNodePtr node, const std::st
 {
   if (node==NULL) return *this;
   TPaxSegRFISCKey::toXML(node);
-  if ( std::string( NodeAsString( "name_view", node) ).empty() &&
-       !svcs.empty() ) {
-     ReplaceTextChild(node, "name_view", svcs.begin()->second.name ); //!!!
+  if ( std::string( NodeAsString( "name_view", node) ).empty() ) {
+    ReplaceTextChild(node, "name_view", name_view() ); //!!!
   }
   NewTextChild(node,"pax_name",pax_name);
   if ( svcs.find( svc_id ) == svcs.end() ) {
@@ -121,13 +163,42 @@ TPriceServiceItem& TPriceServiceItem::fromXML(xmlNodePtr node)
   return *this;
 }
 
-const TPriceServiceItem& TPriceServiceItem::toDB(TQuery &Qry) const
+std::string TPriceServiceItem::name_view(const std::string& lang) const
 {
+  std::string name = list_item?lowerc(list_item.get().name_view(lang)):"";
+  if ( name.empty() && !svcs.empty() ) {
+    name = svcs.begin()->second.name;
+  }
+  return name;
+}
+
+const TPriceServiceItem& TPriceServiceItem::toDB(TQuery &Qry, const std::string& svc_id) const
+{
+  Qry.SetVariable("name_view", name_view(AstraLocale::LANG_RU));
+  Qry.SetVariable("name_view_lat", name_view(AstraLocale::LANG_EN));
+  //Qry.SetVariable("list_id",(list_id==ASTRA::NoExists?FNull:list_id));
+  if ( svcs.find( svc_id ) == svcs.end() ) {
+    throw EXCEPTIONS::Exception( std::string("scvs not found svc_id") + svc_id );
+  }
+  SvcFromSirena svc = svcs.at(svc_id);
+  svc.toDB(Qry);
   return *this;
 }
 
-TPriceServiceItem& TPriceServiceItem::fromDB(TQuery &Qry)
+TPriceServiceItem& TPriceServiceItem::fromDB(TQuery &Qry, const std::string& lang)
 {
+  TPaxSegRFISCKey::fromDB(Qry);
+  SvcFromSirena svc;
+  svc.fromDB(Qry,lang);
+  int svc_id = 100000;
+  std::pair<std::map<std::string,SvcFromSirena>::iterator,bool> ret;
+  ret = svcs.insert(make_pair(svc.svc_id,svc)); //!!!здесь потеря
+  if ( ret.second == false ) { //один и тот же svc_id, но в разных PNR
+     svcs.insert(make_pair(IntToString(svc_id),svc)); //псевдо svc_id для печати Дена
+     svc_id++;
+  }
+  PaxsNames p;
+  pax_name = p.getPaxName(pax_id);
   return *this;
 }
 
@@ -334,6 +405,57 @@ void TPriceRFISCList::toContextDB(int grp_id,bool pr_only_del) const
   longToDB(Qry, "xml", value, true);
 }
 
+void TPriceRFISCList::toDB(int grp_id) const
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "INSERT INTO pay_services(grp_id,pax_id,transfer_num,rfisc,service_type,airline,name_view,name_view_lat,list_id,svc_id,doc_id,pass_id,seg_id,price,currency,ticknum,ticket_cpn,time_paid)"
+    "  VALUES(:grp_id,:pax_id,:transfer_num,:rfisc,:service_type,:airline,:name_view,:name_view_lat,:list_id,:svc_id,:doc_id,:pass_id,:seg_id,:price,:currency,:ticknum,:ticket_cpn,:time_paid)";
+  Qry.CreateVariable("grp_id",otInteger,grp_id);
+  Qry.DeclareVariable("pax_id",otInteger);
+  Qry.DeclareVariable("transfer_num",otInteger);
+  Qry.DeclareVariable("rfisc",otString);
+  Qry.DeclareVariable("service_type",otString);
+  Qry.DeclareVariable("airline",otString);
+  Qry.DeclareVariable("name_view",otString);
+  Qry.DeclareVariable("name_view_lat",otString);
+  Qry.DeclareVariable("list_id",otInteger);
+  Qry.DeclareVariable("svc_id",otInteger);
+  Qry.DeclareVariable("doc_id",otString);
+  Qry.DeclareVariable("pass_id",otInteger);
+  Qry.DeclareVariable("seg_id",otInteger);
+  Qry.DeclareVariable("price",otFloat);
+  Qry.DeclareVariable("currency",otString);
+  Qry.DeclareVariable("ticknum",otString);
+  Qry.DeclareVariable("ticket_cpn",otString);
+  Qry.CreateVariable("time_paid",otDate, BASIC::date_time::NowUTC());
+  for ( const auto &p : *this ) {
+    for ( const auto svc : p.second.svcs ) {
+      if ( svc.second.status_direct == STATUS_DIRECT_PAID ) {
+        p.first.toDB(Qry);
+        p.second.toDB(Qry,svc.first);
+        Qry.Execute();
+      }
+    }
+  }
+}
+
+void TPriceRFISCList::fromDB(int grp_id)
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+   "SELECT * FROM pay_services "
+   " WHERE grp_id=:grp_id";
+  Qry.CreateVariable("grp_id",otInteger,grp_id);
+  Qry.Execute();
+  for (; !Qry.Eof; Qry.Next() ) {
+    TPaxSegRFISCKey key;
+    key.fromDB(Qry);
+    (*this)[key].fromDB(Qry);
+    LogTrace(TRACE5) << (*this)[key].traceStr();
+  }
+}
+
 void TPriceRFISCList::fromContextXML(xmlNodePtr node)
 {
   clear();
@@ -415,14 +537,14 @@ void TPriceRFISCList::toXML(xmlNodePtr node) const
   xmlNodePtr node2 = NewTextChild(node,"items");
   for ( const auto &p : *this ) {
     for ( const auto &svc : p.second.svcs ) {
-      if ( svc.second.status_direct == TPriceRFISCList::STATUS_DIRECT_PAID ) {
+/*???      if ( svc.second.status_direct == TPriceRFISCList::STATUS_DIRECT_PAID ) {
         tst();
         continue;
       }
-      tst();
+      tst();*/
       xmlNodePtr n = NewTextChild( node2, "item" );
       p.second.toXML( n, svc.first );
-      if ( svc.second.price_valid() ) {
+      if ( svc.second.valid() ) {
         total += svc.second.price;
         if ( currency.empty() ) {
           currency = ElemIdToElemCtxt( ecCkin, etCurrency, svc.second.currency, efmtCodeNative );
@@ -465,30 +587,41 @@ void TPriceRFISCList::synchFromSirena(const SvcEmdSvcsAns& svcs)
     for ( auto& oitem : *this ) {
       if ( oitem.second.svcs.find( nsvc.id ) != oitem.second.svcs.end() ) {
         oitem.second.svcs[ nsvc.id ].status_svc = nsvc.status;
+        std::string ticket_cpn = nsvc.ticket_cpn.empty()?oitem.second.svcs[nsvc.id].ticket_cpn:nsvc.ticket_cpn;
+        std::string ticknum = nsvc.ticknum.empty()?oitem.second.svcs[nsvc.id].ticknum:nsvc.ticknum;
+        oitem.second.svcs[nsvc.id].ticket_cpn = ticket_cpn;
+        oitem.second.svcs[nsvc.id].ticknum = ticknum;
         break;
       }
     }
   }
 }
 
-bool TPriceRFISCList::synchFromSirena(const TPriceRFISCList& list)
+bool TPriceRFISCList::synchFromSirena(const TPriceRFISCList& list, bool only_delete)
 {
   bool res = true;
   //insert or update
-  for ( const auto& nitem : list ) {
-    TPriceRFISCList::iterator oitem;
-    if ( (oitem = find( nitem.first )) == end() ) { //new
-      insert( std::make_pair( nitem.first, nitem.second ) );
-    }
-    else { //update
-      for ( const auto& nsvc : nitem.second.svcs ) {
-        if ( oitem->second.svcs.find( nsvc.first ) == oitem->second.svcs.end() ) {
-          oitem->second.svcs.insert( std::make_pair(nsvc.first,nsvc.second));
-        }
-        else {
-          std::string status_direct = oitem->second.svcs[nsvc.first].status_direct;
-          oitem->second.svcs[nsvc.first] = nsvc.second;
-          oitem->second.svcs[nsvc.first].status_direct = status_direct;
+  if ( !only_delete ) {
+    for ( const auto& nitem : list ) {
+      TPriceRFISCList::iterator oitem;
+      if ( (oitem = find( nitem.first )) == end() ) { //new
+        insert( std::make_pair( nitem.first, nitem.second ) );
+      }
+      else { //update
+        for ( const auto& nsvc : nitem.second.svcs ) {
+          if ( oitem->second.svcs.find( nsvc.first ) == oitem->second.svcs.end() ) {
+            oitem->second.svcs.insert( std::make_pair(nsvc.first,nsvc.second));
+          }
+          else {
+            LogTrace(TRACE5) << nsvc.second.toString();
+            std::string status_direct = oitem->second.svcs[nsvc.first].status_direct;
+            std::string ticket_cpn = nsvc.second.ticket_cpn.empty()?oitem->second.svcs[nsvc.first].ticket_cpn:nsvc.second.ticket_cpn;
+            std::string ticknum = nsvc.second.ticknum.empty()?oitem->second.svcs[nsvc.first].ticknum:nsvc.second.ticknum;
+            oitem->second.svcs[nsvc.first] = nsvc.second;
+            oitem->second.svcs[nsvc.first].ticket_cpn = ticket_cpn;
+            oitem->second.svcs[nsvc.first].ticknum = ticknum;
+            oitem->second.svcs[nsvc.first].status_direct = status_direct;
+          }
         }
       }
     }
@@ -539,7 +672,7 @@ bool TPriceRFISCList::haveStatusDirect( const std::string& statusDirect, std::ve
   svcs.clear();
   for ( const auto& oitem : *this ) {
     for ( const auto& osvc : oitem.second.svcs ) {
-      if ( osvc.second.price_valid() &&
+      if ( osvc.second.valid() &&
            osvc.second.status_direct == statusDirect ) {
         svcs.push_back( osvc.first );
       }
@@ -567,6 +700,9 @@ bool TPriceRFISCList::getNextIssueQueryGrpEMD( std::vector<std::string> &svcs)
         break; //only one at step
       }
     }
+    if ( !svcs.empty() ) { //по одному
+      break;
+    }
   }
   return !svcs.empty();
 }
@@ -575,7 +711,7 @@ bool TPriceRFISCList::terminalChoiceAny()
 {
   for ( auto& nitem : *this ) { //filtered
     for ( const auto& nsvc : nitem.second.svcs ) {
-      if ( nsvc.second.price_valid() ) {
+      if ( nsvc.second.valid() ) {
         return true;
       }
     }
@@ -592,7 +728,7 @@ bool TPriceRFISCList::filterFromTerminal(const TPriceRFISCList& list)
       for ( const auto& nsvc : nitem.second.svcs ) {
         if ( oitem->second.svcs.find( nsvc.first ) != oitem->second.svcs.end() ) {
           LogTrace(TRACE5) << "svc_id=" << nsvc.first << " " << oitem->second.svcs[ nsvc.first ].status_direct;
-            if ( oitem->second.svcs[ nsvc.first ].price_valid() &&
+            if ( oitem->second.svcs[ nsvc.first ].valid() &&
                  oitem->second.svcs[ nsvc.first ].status_direct == TPriceRFISCList::STATUS_DIRECT_ORDER  ) {
               oitem->second.svcs[ nsvc.first ].status_direct = TPriceRFISCList::STATUS_DIRECT_SELECTED;
               res = true;

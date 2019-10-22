@@ -3200,8 +3200,8 @@ void fill_pr_print_emda(xmlNodePtr resNode)
     while(itemNode) {
         xmlNodePtr currNode = itemNode->children;
         int pax_id = NodeAsIntegerFast("pax_id", currNode);
-        string emd_no = NodeAsStringFast("emd_no", currNode);
-        int emd_coupon = NodeAsIntegerFast("emd_coupon", currNode);
+        string emd_no = NodeAsStringFast("ticknum", currNode);
+        int emd_coupon = NodeAsIntegerFast("ticket_cpn", currNode);
         NewTextChild(itemNode, "pr_print", get_pr_print_emda(pax_id, emd_no, emd_coupon));
         itemNode = itemNode->next;
     }
@@ -3211,9 +3211,9 @@ void PrintInterface::GetEMDAList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 {
     int grp_id = NodeAsInteger("grp_id", reqNode);
     TPriceRFISCList prices;
-    prices.fromContextDB(grp_id);
+    prices.fromDB(grp_id);
     prices.toXML(resNode);
-    dummy_emda(resNode);
+    //dummy_emda(resNode);
     fill_pr_print_emda(resNode);
     LogTrace(TRACE5) << GetXMLDocText(resNode->doc); // !!!
 }

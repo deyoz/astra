@@ -7,6 +7,7 @@
 #include "rfisc.h"
 #include "date_time.h"
 
+
 class SvcFromSirena
 {
   public:
@@ -19,6 +20,8 @@ class SvcFromSirena
     std::string name;
     float price;
     std::string currency;
+    std::string ticket_cpn;
+    std::string ticknum;
     BASIC::date_time::TDateTime time_change;
     SvcFromSirena() {
       clear();
@@ -33,13 +36,17 @@ class SvcFromSirena
       name.clear();
       price = ASTRA::NoExists;
       currency.clear();
+      ticket_cpn.clear();
+      ticknum.clear();
       time_change = ASTRA::NoExists;
     }
     void fromContextXML(xmlNodePtr node);
     void fromXML(xmlNodePtr node);
     void toContextXML(xmlNodePtr node) const;
     void toXML(xmlNodePtr node) const;
-    bool price_valid() const { return price!=ASTRA::NoExists && price>0.0 && !currency.empty(); }
+    void toDB(TQuery& Qry) const;
+    void fromDB(TQuery& Qry,const std::string& lang="");
+    bool valid() const;
     std::string toString() const;
 };
 
@@ -58,18 +65,21 @@ class TPriceServiceItem : public TPaxSegRFISCKey
       pax_name.clear();
       svcs.clear();
     }
+    std::string name_view(const std::string& lang="") const;
 
     const TPriceServiceItem& toXML(xmlNodePtr node, const std::string& svc_idx) const;
     const TPriceServiceItem& toContextXML(xmlNodePtr node) const;
     TPriceServiceItem& fromXML(xmlNodePtr node);
     TPriceServiceItem& fromContextXML(xmlNodePtr node);
-    const TPriceServiceItem& toDB(TQuery &Qry) const;
-    TPriceServiceItem& fromDB(TQuery &Qry);
+    const TPriceServiceItem& toDB(TQuery &Qry, const std::string& svc_id) const;
+    TPriceServiceItem& fromDB(TQuery &Qry,const std::string& lang="");
     std::string traceStr() const;
 };
 
 class SvcEmdPayDoc {
   private:
+  //formpay = IN - платежное поручение
+  //formpay=CA (латиницей) -  наличные
     std::string formpay;
     std::string type;
   public:
@@ -214,6 +224,8 @@ class SvcValue {
     std::string rfic;
     std::string rfisc;
     std::string seg_id;
+    std::string ticket_cpn;
+    std::string ticknum;
     std::string service_type;
     std::string status;
     void fromXML( xmlNodePtr node );
@@ -298,15 +310,16 @@ class TPriceRFISCList: public std::map<TPaxSegRFISCKey, TPriceServiceItem>, publ
     bool notInit() {
       return SvcEmdRegnum::empty();
     }
-    void fromDB(int grp_id);
     void Lock(int grp_id);
     void fromContextDB(int grp_id);
     void toContextDB(int grp_id, bool pr_only_del=false) const;
+    void toDB(int grp_id) const;
+    void fromDB(int grp_id);
     void fromXML(xmlNodePtr node);
     void fromContextXML(xmlNodePtr node);
     void toXML(xmlNodePtr node) const;
     void toContextXML(xmlNodePtr node, bool checkFormPay=true) const;
-    bool synchFromSirena(const TPriceRFISCList& list);
+    bool synchFromSirena(const TPriceRFISCList& list,bool only_delete=false);
     void synchFromSirena(const SvcEmdSvcsAns& svcs);
     bool filterFromTerminal(const TPriceRFISCList& list);
     void setStatusDirect( const std::string &from, const std::string &to );
