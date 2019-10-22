@@ -149,13 +149,13 @@ void BMConnection::onConnect( const boost::system::error_code& err )
   if( err.value() == 0 )
   {
     ProgTrace( TRACE0, "Connection %d: connected to SITA BagMessage on %s:%d (after wait for %ld ms)",
-               line_number, ip->host.c_str(), ip->port, cd.total_milliseconds() );
+               line_number, ip->host.c_str(), ip->port, (long)cd.total_milliseconds() );
     connected = BM_OP_READY;
   }
   else
   {
     ProgError( STDLOG, "Connection %d: Cannot connect to SITA BagMessage on %s:%d. error=%d(%s) wait=%ld ms", line_number,
-               ip->host.c_str(), ip->port, err.value(), err.message().c_str(), cd.total_milliseconds() );
+               ip->host.c_str(), ip->port, err.value(), err.message().c_str(), (long)cd.total_milliseconds() );
     resetAndSwitch();
   }
 }
@@ -188,7 +188,7 @@ bool BMConnection::makeMessage( BM_MESSAGE_TYPE type, string message_text, int m
   ProgTrace( TRACE5, "makeMessage()" );
   if( message_text.length() >= 0xFFFF )
   {
-    ProgError( STDLOG, "Too long text to send - %lu bytes", message_text.length() );
+    ProgError( STDLOG, "Too long text to send - %zu bytes", message_text.length() );
     return false;
   }
   header.appl_id = login;
@@ -244,8 +244,8 @@ void BMConnection::onWrite( const boost::system::error_code& error, std::size_t 
   writeStatus = BM_OP_NONE;
   if( error.value() == 0 )
   {
-    ProgTrace( TRACE5, "async_write() finished for connection %d. %lu bytes written, %ld ms spent",
-               line_number, n, cd.total_milliseconds() );
+    ProgTrace( TRACE5, "async_write() finished for connection %d. %zu bytes written, %ld ms spent",
+               line_number, n, (long)cd.total_milliseconds() );
     if( needSendAck > 0 ) // Стоит запрос на подтверждение сообщения - отослать вне очереди
     {
       sendMessage( ACK_MSG, "", needSendAck ); // подтвердить прием
@@ -254,8 +254,8 @@ void BMConnection::onWrite( const boost::system::error_code& error, std::size_t 
   }
   else
   { // Ошибки в передаче просто так не возникают. Скорее всего, проблемы со связью. И надо устанавливать ее заново.
-    ProgError( STDLOG, "async_write() finished with errors for connection %d. %lu bytes written, err=%d(%s). %ld ms spent ",
-               line_number, n, error.value(), error.message().c_str(), cd.total_milliseconds() );
+    ProgError( STDLOG, "async_write() finished with errors for connection %d. %zu bytes written, err=%d(%s). %ld ms spent ",
+               line_number, n, error.value(), error.message().c_str(), (long)cd.total_milliseconds() );
     reset();
   }
   if( waitForAck <= 0 )
@@ -319,7 +319,7 @@ void BMConnection::onRead( const boost::system::error_code& error, std::size_t n
 {
   if( error.value() == 0 && n == rheader.data_length )
   {
-    ProgTrace( TRACE5, "async_read() finished for connection %d. %lu bytes read", line_number, n );
+    ProgTrace( TRACE5, "async_read() finished for connection %d. %zu bytes read", line_number, n );
     if( rheader.type == ACK_DATA )
     {
       needSendAck = rheader.message_id_number;
@@ -342,7 +342,7 @@ void BMConnection::onRead( const boost::system::error_code& error, std::size_t n
   }
   else
   {
-    ProgError( STDLOG, "async_read() finished with errors for connection %d. %lu bytes read (%d expected), err=%d(%s)",
+    ProgError( STDLOG, "async_read() finished with errors for connection %d. %zu bytes read (%d expected), err=%d(%s)",
                line_number, n, rheader.data_length, error.value(), error.message().c_str() );
   }
 }
@@ -357,7 +357,7 @@ void BMConnection::checkInput()
     size_t size = read( socket, buffer(buf), transfer_exactly( BM_HEADER::SIZE ) );
 
     rheader.loadFrom( buf );
-    ProgTrace( TRACE5, "header received on connection %d: size=%lu, head: appl_id=%8.8s version=%d type=%d(%s) id=%d data_len=%d",
+    ProgTrace( TRACE5, "header received on connection %d: size=%zu, head: appl_id=%8.8s version=%d type=%d(%s) id=%d data_len=%d",
                line_number, size, rheader.appl_id.c_str(), rheader.version, rheader.type, messageTypes[ rheader.type ].c_str(),
                rheader.message_id_number, rheader.data_length );
     lastRecvTime = time( NULL );
@@ -376,7 +376,7 @@ void BMConnection::checkInput()
       {
         case LOGIN_ACCEPT:
           ProgTrace( TRACE5, "SITA BagMessage: login accepted for connection %d after %ld ms waiting",
-                     line_number, cd.total_milliseconds() );
+                     line_number, (long)cd.total_milliseconds() );
           loginStatus = BM_OP_READY;
           channelStart = 0;
           break;
@@ -386,7 +386,7 @@ void BMConnection::checkInput()
           break;
         case ACK_MSG:
           ProgTrace( TRACE5, "SITA BagMessage: receive ACK_MSG for message id=%d after %ld ms waiting",
-                     rheader.message_id_number, cd.total_milliseconds() );
+                     rheader.message_id_number, (long)cd.total_milliseconds() );
           if( (int)rheader.message_id_number == waitForAck )
           { // Подтверждена доставка сообщения - только теперь помечаем его как доставленное
             waitForAck = -1;
@@ -417,7 +417,7 @@ void BMConnection::checkInput()
           break;
         case NAK_MSG:
           ProgTrace( TRACE5, "SITA BagMessage: receive NAK_MSG for message id=%d after %ld ms waiting",
-                     rheader.message_id_number, cd.total_milliseconds() );
+                     rheader.message_id_number, (long)cd.total_milliseconds() );
           waitForAck = -1;
           doSendMessage();
           break;

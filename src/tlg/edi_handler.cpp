@@ -121,6 +121,11 @@ int main_edi_handler_tcl(int supervisorSocket, int argc, char *argv[])
     return base_edi_handler_tcl("CMD_EDI_HANDLER", argc, argv);
 }
 
+int main_iapi_edi_handler_tcl(int supervisorSocket, int argc, char *argv[])
+{
+    return base_edi_handler_tcl("CMD_IAPI_EDI_HANDLER", argc, argv);
+}
+
 int main_itci_req_handler_tcl(int supervisorSocket, int argc, char *argv[])
 {
     return base_edi_handler_tcl("CMD_ITCI_REQ_HANDLER", argc, argv);

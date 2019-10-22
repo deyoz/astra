@@ -21,7 +21,7 @@ CXXFLAGS="$EXTERNAL_CXXFLAGS $CXXFLAGS"
 
 WITH_PARAMS="--silent"
 if [ -n "$ORACLE_INSTANT" ]; then
-  WITH_PARAMS="--with-instant-client=yes --with-oracle-includes=$ORACLE_INSTANT/sdk/include --with-oracle-libraries=$ORACLE_INSTANT --with-oci-version=11G"
+    OI_PARAMS="--with-instant-client=yes --with-oracle-includes=$ORACLE_INSTANT/sdk/include --with-oracle-libraries=$ORACLE_INSTANT --with-oci-version=11G"
 elif [ -n "$ORACLE_LIB" ] && [ -n "$ORACLE_INCLUDE" ]; then
   WITH_PARAMS="--with-oracle-includes=$ORACLE_INCLUDE --with-oracle-libraries=$ORACLE_LIB --with-oci-version=12G"
 fi
@@ -53,5 +53,6 @@ for i in $@; do
     if [ -f $i/Makefile ] ; then
     	(cd $i && make distclean) || echo 'make distclean failed. Probably not configured before.'
     fi
-    (cd $i && ./Config -f $WITH_PARAMS --cache-file=$CONFIG_CACHE_FILE)  || exit 1
+    [[ $i == libjms ]] && OI_PARAMS='--without-oracle'
+    (cd $i && ./Config -f $WITH_PARAMS $OI_PARAMS --cache-file=$CONFIG_CACHE_FILE) || exit 1
 done

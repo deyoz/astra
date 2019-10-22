@@ -16,7 +16,6 @@
 #include <edilib/edi_user_func.h>
 #include <edilib/edi_tables.h>
 
-#include <boost/lexical_cast.hpp>
 #include <boost/optional/optional_io.hpp>
 
 #define NICKNAME "ANTON"
@@ -33,7 +32,7 @@ const tlgnum_t TlgToBePostponed::tlgNum() const
 
 int TlgToBePostponed::tlgnum() const
 {
-    return boost::lexical_cast<int>(m_tlgNum.num);
+    return std::stoi(m_tlgNum.num.get());
 }
 
 //-----------------------------------------------------------------------------
@@ -112,6 +111,12 @@ void sendCmdToHandler(const std::string& ediText)
             sendCmd("CMD_ITCI_RES_HANDLER","H");
             break;
         }
+        case CUSRES:
+        case CUSUMS:
+        {
+            sendCmd("CMD_IAPI_EDI_HANDLER","H");
+            break;
+        }
         default:
             sendCmd("CMD_EDI_HANDLER","H");
             break;
@@ -145,7 +150,7 @@ void PostponeEdiHandling::addToQueue(const tlgnum_t& tnum)
         //Ticketing::RemoteSystemContext::SystemContext::free();
 
         tlg_info tlgi = {};
-        tlgi.id = boost::lexical_cast<int>(tlg.tlgNum()->num);
+        tlgi.id = std::stoi(tlg.tlgNum()->num.get());
         tlgi.sender = tlg.fromRot();
         tlgi.text = tlg.text();
         handle_edi_tlg(tlgi);
@@ -172,7 +177,7 @@ void PostponeEdiHandling::postpone(const tlgnum_t& tnum, edilib::EdiSessionId_t 
 
 void PostponeEdiHandling::postpone(int tnum, edilib::EdiSessionId_t sessId)
 {
-    tlgnum_t tlgNum(boost::lexical_cast<std::string>(tnum));
+    tlgnum_t tlgNum(std::to_string(tnum));
     postpone(tlgNum, sessId);
 }
 
