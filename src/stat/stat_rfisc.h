@@ -6,6 +6,9 @@
 void get_rfisc_stat(int point_id);
 
 struct TRFISCStatRow:public TOrderStatItem {
+    int reg_no;
+    std::string ticket_no;
+    int coupon_no;
     std::string rfisc;
     int point_id;
     int point_num;
@@ -30,6 +33,8 @@ struct TRFISCStatRow:public TOrderStatItem {
     int paid;
 
     TRFISCStatRow():
+        reg_no(ASTRA::NoExists),
+        coupon_no(ASTRA::NoExists),
         point_id(ASTRA::NoExists),
         point_num(ASTRA::NoExists),
         pr_trfer(ASTRA::NoExists),
