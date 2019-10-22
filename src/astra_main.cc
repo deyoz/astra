@@ -89,6 +89,7 @@ class AstraApplication : public ServerFramework::ApplicationCallbacks
                 ->add("typeb_handler", "logairimp", main_typeb_handler_tcl)
                 ->add("typeb_parser", "logairimp", main_typeb_parser_tcl)
                 ->add("edi_handler", "logairimp", main_edi_handler_tcl)
+                ->add("iapi_handler", "logairimp", main_iapi_edi_handler_tcl)
                 ->add("itci_req_handler", "logairimp", main_itci_req_handler_tcl)
                 ->add("itci_res_handler", "logairimp", main_itci_res_handler_tcl)
                 ->add("aodb_handler", "logdaemon", main_aodb_handler_tcl)

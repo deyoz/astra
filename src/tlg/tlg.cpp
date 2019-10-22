@@ -109,12 +109,19 @@ void sendCmdEdiItciResHandler()
   sendCmd("CMD_ITCI_RES_HANDLER","H");
 }
 
+void sendCmdEdiIapiHandler()
+{
+  sendCmd("CMD_IAPI_EDI_HANDLER","H");
+}
+
 void sendCmdEdiHandler(TEdiTlgSubtype st)
 {
     if(st == stItciReq) {
         sendCmdEdiItciReqHandler();
     } else if(st == stItciRes) {
         sendCmdEdiItciResHandler();
+    } else if(st == stIapi) {
+        sendCmdEdiIapiHandler();
     } else {
         sendCmdEdiCommonHandler();
     }
@@ -126,6 +133,8 @@ void sendCmdEdiHandlerAtHook(TEdiTlgSubtype st)
         registerHookAfter(sendCmdEdiItciReqHandler);
     } else if(st == stItciRes) {
         registerHookAfter(sendCmdEdiItciResHandler);
+    } else if(st == stIapi) {
+        registerHookAfter(sendCmdEdiIapiHandler);
     } else {
         registerHookAfter(sendCmdEdiCommonHandler);
     }
@@ -155,6 +164,12 @@ TEdiTlgSubtype specifyEdiTlgSubtype(const std::string& ediText)
             ret = stItciRes;
             break;
         }
+        case CUSRES:
+        case CUSUMS:
+        {
+            ret = stIapi;
+            break;
+        }
         default:
             break;
         }
@@ -179,6 +194,11 @@ std::string getEdiTlgSubtypeName(TEdiTlgSubtype st)
     case stItciRes:
     {
         str = "itci_res";
+        break;
+    }
+    case stIapi:
+    {
+        str = "iapi";
         break;
     }
     case stCommon:

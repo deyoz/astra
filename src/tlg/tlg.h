@@ -52,6 +52,7 @@ int main_srv_tcl(int supervisorSocket, int argc, char *argv[]);
 int main_typeb_handler_tcl(int supervisorSocket, int argc, char *argv[]);
 int main_typeb_parser_tcl(int supervisorSocket, int argc, char *argv[]);
 int main_edi_handler_tcl(int supervisorSocket, int argc, char *argv[]);
+int main_iapi_edi_handler_tcl(int supervisorSocket, int argc, char *argv[]);
 int main_itci_req_handler_tcl(int supervisorSocket, int argc, char *argv[]);
 int main_itci_res_handler_tcl(int supervisorSocket, int argc, char *argv[]);
 int main_apps_handler_tcl(int supervisorSocket, int argc, char *argv[]);
@@ -65,7 +66,7 @@ int HANDLER_PROC_ATTEMPTS();
 
 enum TTlgQueuePriority { qpOutA=1, qpOutAStepByStep=4, qpOutB=3, qpOutApp=2 };
 
-enum TEdiTlgSubtype { stCommon, stItciReq, stItciRes };
+enum TEdiTlgSubtype { stCommon, stItciReq, stItciRes, stIapi };
 
 TEdiTlgSubtype specifyEdiTlgSubtype(const std::string& ediText);
 std::string getEdiTlgSubtypeName(TEdiTlgSubtype st);
