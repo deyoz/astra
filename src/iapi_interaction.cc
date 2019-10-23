@@ -249,11 +249,11 @@ bool PassengerStatus::allowedToBoarding(const int paxId, const TCompleteAPICheck
   return true;
 }
 
-bool PassengerStatus::allowedToPrintBP(const int paxId, const int pointDep, const std::string& airpArv)
+bool PassengerStatusInspector::allowedToPrintBP(const int paxId, const int grpId)
 {
-  TCompleteAPICheckInfo checkInfo;
-  checkInfo.set(pointDep, airpArv);
-  return allowedToBoarding(paxId, checkInfo);
+  if (PassengerStatus::allowedToBoarding(paxId)) return true; //специально вначале - оптимизируем обращения к БД (подавляющее большинство разрешено к посадке)
+
+  return (!needCheckStatus(get(paxId, grpId)));
 }
 
 const PassengerStatus& PassengerStatus::updateByRequest(const std::string& msgIdForClearPassengerRequest,

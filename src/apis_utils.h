@@ -397,6 +397,7 @@ class TCompleteAPICheckInfo
     TAPICheckInfoList _crew;
     TAPICheckInfoList _extra_crew;
     std::set<std::string> _apis_formats;
+    bool _pnrAddrRequired;
   public:
     TCompleteAPICheckInfo() { clear(); }
     TCompleteAPICheckInfo(const int point_dep, const std::string& airp_arv);
@@ -406,6 +407,7 @@ class TCompleteAPICheckInfo
       _crew.clear();
       _extra_crew.clear();
       _apis_formats.clear();
+      _pnrAddrRequired=false;
     }
     void set(const int point_dep, const std::string& airp_arv);
     // get
@@ -464,6 +466,7 @@ class TCompleteAPICheckInfo
     const TAPICheckInfoList& crew() const { return _crew; }
     const TAPICheckInfoList& extra_crew() const { return _extra_crew; }
     const std::set<std::string>& apis_formats() const { return _apis_formats; }
+    bool pnrAddrRequired() const { return _pnrAddrRequired; }
 
     static const std::set<TAPIType>& get_apis_doc_set()
     {
@@ -497,6 +500,33 @@ class TRouteAPICheckInfo : private std::map<std::string/*airp_arv*/, TCompleteAP
     bool apis_generation() const;
 
     boost::optional<const TCompleteAPICheckInfo&> get(const std::string &airp_arv) const;
+};
+
+class TAPISegment
+{
+  public:
+    int point_dep;
+    std::string airp_arv;
+
+    TAPISegment(const int pointDep, const std::string& airpArv) :
+      point_dep(pointDep), airp_arv(airpArv) {}
+
+    bool operator < (const TAPISegment &seg) const
+    {
+      if (point_dep!=seg.point_dep)
+        return point_dep < seg.point_dep;
+      return airp_arv < seg.airp_arv;
+    }
+};
+
+class TCompleteAPICheckInfoCache
+{
+  private:
+    std::map<int/*grp_id*/, CheckIn::TSimplePaxGrpItem> grps;
+    std::map<TAPISegment, TCompleteAPICheckInfo> checkInfoMap;
+
+  public:
+    const TCompleteAPICheckInfo& get(int paxId, int grpId=ASTRA::NoExists);
 };
 
 CheckIn::TPaxDocItem NormalizeDoc(const CheckIn::TPaxDocItem &doc);

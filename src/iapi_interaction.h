@@ -55,6 +55,8 @@ void deleteAlarms(const int pax_id, const int point_id_spp);
 
 class PassengerStatus
 {
+  friend class PassengerStatusInspector;
+
   public:
     enum Enum {OnBoard, NoBoard, Advisory, InsufficientData, Accepted, Exception, Unknown};
     enum Level {HeaderLevel, DetailLevel, UnknownLevel};
@@ -133,7 +135,6 @@ class PassengerStatus
     const PassengerStatus& toDB(TQuery &Qry) const;
 
     static bool allowedToBoarding(const int paxId, const TCompleteAPICheckInfo& checkInfo);
-    static bool allowedToPrintBP(const int paxId, const int pointDep, const std::string& airpArv);
     const PassengerStatus& updateByRequest(const std::string& msgIdForClearPassengerRequest,
                                            const std::string& msgIdForChangePassengerData,
                                            bool& notRequestedBefore) const;
@@ -143,6 +144,12 @@ class PassengerStatus
 
     static Level getStatusLevel(const edifact::Cusres::SegGr4& gr4);
     static int getPaxId(const edifact::Cusres::SegGr4& gr4);
+};
+
+class PassengerStatusInspector : public TCompleteAPICheckInfoCache
+{
+  public:
+    bool allowedToPrintBP(const int paxId, const int grpId=ASTRA::NoExists);
 };
 
 class PassengerStatusList : public std::set<PassengerStatus>

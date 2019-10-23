@@ -399,6 +399,7 @@ enum TApisRule
   r_setBirthCountry, // edi
   r_docaB_US, // edi
   r_setPaxReference, //edi
+  r_reservNumMandatory,
 
   // creation
   r_create_ON_CLOSE_CHECKIN,
@@ -1598,6 +1599,7 @@ struct TIAPIFormat_CN : public TIAPIFormat
       add_rule(r_setTicketNumber);
       add_rule(r_doco);
       add_rule(r_issueCountryInsteadApplicCountry);
+      add_rule(r_reservNumMandatory);
       file_rule = r_file_rule_1;
     }
 

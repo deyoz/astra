@@ -379,7 +379,7 @@ class TTripSetList : public std::map<TTripSetType, boost::any>
       {
         return boost::any_cast<T>(i->second);
       }
-      catch(boost::bad_any_cast&)
+      catch(const boost::bad_any_cast&)
       {
         throw EXCEPTIONS::Exception("TTripSetList::%s: setType=%d bad cast", __FUNCTION__, (int)setType);
       }
@@ -394,7 +394,7 @@ class TTripSetList : public std::map<TTripSetType, boost::any>
       {
         return boost::any_cast<T>(i->second);
       }
-      catch(boost::bad_any_cast)
+      catch(const boost::bad_any_cast&)
       {
         throw EXCEPTIONS::Exception("TTripSetList::%s: setType=%d bad cast", __FUNCTION__, (int)setType);
       }
