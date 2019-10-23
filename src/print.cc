@@ -1977,6 +1977,19 @@ void PrintInterface::BPPax::checkBPPrintAllowed(boost::optional<SEATPAX::paxSeat
     }
 }
 
+void checkBeforePrintBP(const PrintInterface::BPPax &pax, IAPI::PassengerStatusInspector &iapiInspector)
+{
+    if (!iapiInspector.allowedToPrintBP(pax.pax_id, pax.grp_id))
+        throw UserException("MSG.BP_PRINT_NOT_ALLOWED.APPS_PROBLEM");
+    DCSServiceApplying::throwIfNotAllowed( pax.pax_id, DCSService::Enum::PrintBPOnDesk );
+}
+
+void checkBeforePrintBP(const PrintInterface::BPPax &pax)
+{
+    IAPI::PassengerStatusInspector iapiInspector;
+    checkBeforePrintBP(pax, iapiInspector);
+}
+
 void PrintInterface::GetPrintDataBP(
                                     TDevOper::Enum op_type,
                                     BPParams &params,
@@ -1997,10 +2010,7 @@ void PrintInterface::GetPrintDataBP(
         if(iPax->pax_id!=NoExists) {
             iPax->checkBPPrintAllowed(paxSeats);
             try {
-                if (!iapiInspector.allowedToPrintBP(iPax->pax_id, iPax->grp_id))
-                  throw UserException("MSG.BP_PRINT_NOT_ALLOWED.APPS_PROBLEM");
-                DCSServiceApplying::throwIfNotAllowed( iPax->pax_id, DCSService::Enum::PrintBPOnDesk );
-
+                checkBeforePrintBP(*iPax, iapiInspector);
                 parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( op_type, iPax->grp_id, iPax->pax_id, iPax->from_scan_code, params.get_prn_params().pr_lat, params.get_client_data_node() ));
             } catch(UserException &E) {
                 if(not error) {

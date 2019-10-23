@@ -222,4 +222,7 @@ class PrintInterface: public JxtInterface
                 xmlNodePtr resNode);
 };
 
+void checkBeforePrintBP(const PrintInterface::BPPax &pax);
+
+
 #endif
