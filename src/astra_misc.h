@@ -535,6 +535,7 @@ enum TTripSetType { /*не привязанные к рейсу*/
                     tsNoCtrlDocsExtraCrew=42,           //Не контролировать ввод документов для доп. экипажа
                     tsETSControlMethod=43,              //Контрольный метод при обмене с СЭБом
                     tsNoRefuseIfBrd=44,                 //Запрет отмены регистрации если пассажир статус "посажен"
+                    tsRegWithoutNOREC=45,               //Запрет регистрации NOREC
                     tsBanAdultsWithBabyInOneZone=54,    //Запрет регистрации пассажиров с младецами в одном блоке мест
                     tsAdultsWithBabyInOneZoneWL=55,     //Регистрация на ЛО взрослого с ребенком, если нет больше блоков без младенцев
                     tsProcessInboundLDM=56,             //Обработка входных LDM

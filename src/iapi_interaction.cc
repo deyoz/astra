@@ -1,5 +1,6 @@
 #include "iapi_interaction.h"
 #include "apis_creator.h"
+#include "alarms.h"
 #include "tlg/remote_system_context.h"
 
 #define NICKNAME "VLAD"
@@ -26,6 +27,13 @@ std::string RequestCollector::getRequestId()
   std::ostringstream s;
   s << std::setw(7) << std::setfill('0') << Qry.FieldAsInteger("id");
   return s.str();
+}
+
+bool RequestCollector::resendNeeded(const CheckIn::PaxRems& rems)
+{
+  for(const CheckIn::TPaxRemItem& rem : rems)
+    if (rem.code=="RSIA") return true;
+  return false;
 }
 
 void RequestCollector::addPassengerIfNeed(const int pax_id,
@@ -161,6 +169,40 @@ void RequestCollector::send()
   }
 }
 
+void syncAlarms(const int point_id_spp)
+{
+  TTripAlarmHook::set(Alarm::IAPIProblem, point_id_spp);
+}
+
+static void addAlarm( const int pax_id,
+                      const std::initializer_list<Alarm::Enum>& alarms,
+                      const int point_id_spp )
+{
+  if (!addAlarmByPaxId(pax_id, alarms, {paxCheckIn})) return; //ничего не изменилось
+  syncAlarms(point_id_spp);
+}
+
+static void deleteAlarm( const int pax_id,
+                         const std::initializer_list<Alarm::Enum>& alarms,
+                         const int point_id_spp )
+{
+  if (!deleteAlarmByPaxId(pax_id, alarms, {paxCheckIn})) return; //ничего не изменилось
+  syncAlarms(point_id_spp);
+}
+
+void deleteAlarms(const int pax_id, const int point_id_spp)
+{
+  if (!deleteAlarmByPaxId(pax_id,
+                          {Alarm::IAPINegativeDirective},
+                          {paxCheckIn})) return; //ничего не изменилось
+
+  if (point_id_spp!=ASTRA::NoExists)
+    syncAlarms(point_id_spp);
+  else
+    LogError(STDLOG) << __func__ << ": point_id_spp==ASTRA::NoExists";
+}
+
+
 PassengerStatus& PassengerStatus::fromDB(TQuery &Qry)
 {
   clear();
@@ -188,7 +230,7 @@ const PassengerStatus& PassengerStatus::toDB(TQuery &Qry) const
   return *this;
 }
 
-bool PassengerStatus::allowedToBoarding(int paxId)
+bool PassengerStatus::allowedToBoarding(const int paxId)
 {
   TQuery Qry(&OraSession);
   Qry.SQLText="SELECT status FROM iapi_pax_data WHERE pax_id=:pax_id AND pr_del=0";
@@ -198,6 +240,20 @@ bool PassengerStatus::allowedToBoarding(int paxId)
     if (!allowedToBoarding( statusTypes().decode(Qry.FieldAsString("status")) )) return false;
 
   return true;
+}
+
+bool PassengerStatus::allowedToBoarding(const int paxId, const TCompleteAPICheckInfo& checkInfo)
+{
+  if (needCheckStatus(checkInfo))
+    return allowedToBoarding(paxId);
+  return true;
+}
+
+bool PassengerStatusInspector::allowedToPrintBP(const int paxId, const int grpId)
+{
+  if (PassengerStatus::allowedToBoarding(paxId)) return true; //специально вначале - оптимизируем обращения к БД (подавляющее большинство разрешено к посадке)
+
+  return (!needCheckStatus(get(paxId, grpId)));
 }
 
 const PassengerStatus& PassengerStatus::updateByRequest(const std::string& msgIdForClearPassengerRequest,
@@ -250,7 +306,7 @@ const PassengerStatus& PassengerStatus::updateByResponse(const std::string& msgI
 
   toDB(Qry);
   Qry.Execute();
-  if (Qry.RowsProcessed()>0) toLog(false);
+  if (Qry.RowsProcessed()>0) writeToLogAndCheckAlarm(false);
 
   return *this;
 }
@@ -269,7 +325,7 @@ const PassengerStatus& PassengerStatus::updateByCusRequest(bool& notRequestedBef
   toDB(Qry);
   Qry.Execute();
   if (Qry.RowsProcessed()>0)
-    toLog(true);
+    writeToLogAndCheckAlarm(true);
   else
     LogTrace(TRACE5) << __func__ << ": passenger not found (paxId=" << m_paxId << ", countryControl=" << m_countryControl << ")";
 
@@ -278,7 +334,7 @@ const PassengerStatus& PassengerStatus::updateByCusRequest(bool& notRequestedBef
   return *this;
 }
 
-void PassengerStatus::toLog(bool isRequest) const
+void PassengerStatus::writeToLogAndCheckAlarm(bool isRequest) const
 {
   if (m_paxId==ASTRA::NoExists) return;
 
@@ -311,6 +367,12 @@ void PassengerStatus::toLog(bool isRequest) const
            << PrmSmpl<string>("status",  statusStr);
 
   TReqInfo::Instance()->LocaleToLog(msg);
+
+  //тревоги
+  if (allowedToBoarding(m_paxId))
+    deleteAlarm(m_paxId, {Alarm::IAPINegativeDirective}, grp.point_dep);
+  else
+    addAlarm(m_paxId, {Alarm::IAPINegativeDirective}, grp.point_dep);
 }
 
 PassengerStatus::Level PassengerStatus::getStatusLevel(const edifact::Cusres::SegGr4& gr4)

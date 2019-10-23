@@ -44,6 +44,7 @@
 #include "counters.h"
 #include "baggage_tags.h"
 #include "comp_layers.h"
+#include "iapi_interaction.h"
 //#include "seat_map_converter.h"
 
 #define NICKNAME "DJEK"
@@ -2573,6 +2574,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
     check_unattached_trfer_alarm( i->first );
     check_conflict_trfer_alarm( i->first );
     check_apis_alarms( i->first );
+    IAPI::syncAlarms(i->first);
     recountBySubcls( i->first );
   };
 

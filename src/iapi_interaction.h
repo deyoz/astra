@@ -47,10 +47,16 @@ public:
                           const std::string& airp_arv,
                           const TCompleteAPICheckInfo& checkInfo);
   void send();
+  static bool resendNeeded(const CheckIn::PaxRems& rems);
 };
+
+void syncAlarms(const int point_id_spp);
+void deleteAlarms(const int pax_id, const int point_id_spp);
 
 class PassengerStatus
 {
+  friend class PassengerStatusInspector;
+
   public:
     enum Enum {OnBoard, NoBoard, Advisory, InsufficientData, Accepted, Exception, Unknown};
     enum Level {HeaderLevel, DetailLevel, UnknownLevel};
@@ -85,6 +91,7 @@ class PassengerStatus
 
     static const StatusTypes& statusTypes() { return ASTRA::singletone<StatusTypes>(); }
     static bool allowedToBoarding(Enum status) { return status==OnBoard; }
+    static bool allowedToBoarding(const int paxId);
 
     int m_paxId;
     std::string m_countryControl;
@@ -127,16 +134,22 @@ class PassengerStatus
     PassengerStatus& fromDB(TQuery &Qry);
     const PassengerStatus& toDB(TQuery &Qry) const;
 
-    static bool allowedToBoarding(int paxId);
+    static bool allowedToBoarding(const int paxId, const TCompleteAPICheckInfo& checkInfo);
     const PassengerStatus& updateByRequest(const std::string& msgIdForClearPassengerRequest,
                                            const std::string& msgIdForChangePassengerData,
                                            bool& notRequestedBefore) const;
     const PassengerStatus& updateByResponse(const std::string& msgId) const;
     const PassengerStatus& updateByCusRequest(bool& notRequestedBefore) const;
-    void toLog(bool isRequest) const;
+    void writeToLogAndCheckAlarm(bool isRequest) const;
 
     static Level getStatusLevel(const edifact::Cusres::SegGr4& gr4);
     static int getPaxId(const edifact::Cusres::SegGr4& gr4);
+};
+
+class PassengerStatusInspector : public TCompleteAPICheckInfoCache
+{
+  public:
+    bool allowedToPrintBP(const int paxId, const int grpId=ASTRA::NoExists);
 };
 
 class PassengerStatusList : public std::set<PassengerStatus>

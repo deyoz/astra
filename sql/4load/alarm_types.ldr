@@ -1,0 +1,49 @@
+LOAD DATA
+INFILE *
+INTO TABLE alarm_types
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,name
+,name_lat
+)
+BEGINDATA
+"TRFER_UNATTACHED"|"Непривязанный трансферный багаж"|"Unattached transfer baggage"
+"TRFER_IN_PAX_DUPLICATE"|"Дублирование пассажиров на входящих рейсах"|"Inbound flights data contain passengers' duplication"
+"TRFER_OUT_PAX_DUPLICATE"|"Дублирование пассажиров на отправляющемся рейсе"|"Outbound flight data contain passengers' duplication"
+"TRFER_IN_ROUTE_INCOMPLETE"|"Неполный маршрут входящего трансферного багажа"|"Inbound luggage in transfer incomplete route"
+"TRFER_IN_ROUTE_DIFFER"|"Различные маршруты входящего трансферного багажа"|"Inbound transfer luggage comes from different routes"
+"TRFER_OUT_ROUTE_DIFFER"|"Различные трансферные маршруты в регистрируемой группе"|"Different transfer routes for the passengers within checking-in group"
+"TRFER_IN_OUT_ROUTE_DIFFER"|"Несовпадение трансферных маршрутов входящего багажа и регистрируемой группы"|"Routes of inbound luggage and checking-in group differ"
+"TRFER_WEIGHT_NOT_DEFINED"|"Неизвестный вес трансферного багажа"|"Transfer luggage weight unknown"
+"APIS_MANUAL_INPUT"|"Данные APIS введены вручную"|"APIS data entered manually"
+"OVERLOAD"|"Перегрузка"|"Overload"
+"WAITLIST"|"Лист ожидания"|"Waiting list"
+"BRD"|"Посадка"|"Boarding"
+"SALON"|"Не назначен салон"|"Cabin not set"
+"ET_STATUS"|"Нет связи с СЭБ"|"Not connection to ETS"
+"DIFF_COMPS"|"Различие компоновок"|"Difference configurations"
+"SPEC_SERVICE"|"Спецобслуживание"|"Special service"
+"TLG_OUT"|"Выходные телеграммы"|"Outbound telegrams"
+"UNATTACHED_TRFER"|"Непривязанный трансферный багаж"|"Unattached transfer baggage"
+"CONFLICT_TRFER"|"Конфликт трансферного багажа"|"Transfer baggage conflict"
+"CREW_CHECKIN"|"Регистрация экипажа"|"Crew check-in"
+"CREW_NUMBER"|"Отсутствует кол-во экипажа"|"Number of the crew is absent"
+"CREW_DIFF"|"Различие экипажа"|"Discrepancy of the crew"
+"APIS_DIFFERS_FROM_BOOKING"|"Данные APIS отличаются от данных бронирования"|"APIS data differ from booking data"
+"APIS_INCOMPLETE"|"Неполные данные APIS"|"Incomplete APIS data"
+"UNBOUND_EMD"|"Багажные EMDA"|"Baggage EMDA"
+"TLG_IN"|"Входные телеграммы"|"Inbound telegrams"
+"APPS_CONFLICT"|"APPS: Данные отличаются от актуальных"|"APPS data differ from actual"
+"APPS_NEGATIVE_DIRECTIVE"|"APPS: Посадка пассажира запрещена"|"APPS: Negative government boarding directive"
+"APPS_ERROR"|"APPS: Статус пассажира не определен"|"APPS: Passenger status not defined"
+"APPS_PROBLEM"|"APPS: Проблемы прохождения пограничного контроля"|"APPS: The problems of border control"
+"APPS_OUTAGE"|"APPS: Нет связи"|"APPS outage"
+"SYNC_EMDS"|"Только для внутреннего использования"|"Internal use only"
+"SYNC_CABIN_CLASS"|"Только для внутреннего использования"|"Internal use only"
+"IAPI_NEGATIVE_DIRECTIVE"|"iAPI: Посадка пассажира запрещена"|"iAPI: Negative government boarding directive"
+"WB_DIFF_LAYOUT"|"Различие компоновок с WB"|"Aircraft configuration differ to WB"
+"WB_DIFF_SEATS"|"Различие мест с WB"|"Seat-map differ to WB"
+"IAPI_PROBLEM"|"iAPI: Проблемы прохождения пограничного контроля"|"iAPI: The problems of border control"
