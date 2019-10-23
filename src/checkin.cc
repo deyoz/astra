@@ -4545,7 +4545,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               }
             }
 
-            if (pax.id==NoExists && checkInfo.pnrAddrRequired())
+            if (grp.status!=psCrew && pax.id==NoExists && checkInfo.pnrAddrRequired())
               throw UserException("MSG.CHECKIN.NOREC_NOT_ALLOWED");
 
             if (pax.name.empty() && pr_mintrans_file)
