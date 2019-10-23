@@ -1534,7 +1534,7 @@ struct TAPISFormat_EDI_AE : public TEdiAPISFormat
     {
       add_rule(r_setSeats);
       add_rule(r_setBagCount);
-      add_rule(r_setBagWeight);
+      add_rule(r_bagTagSerials);
       add_rule(r_setPaxReference);
       add_rule(r_convertPaxNames);
       add_rule(r_processDocNumber);
