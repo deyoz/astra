@@ -37,6 +37,8 @@ class Alarm
       APPSConflict,
       APPSNegativeDirective,
       APPSError,
+      IAPIProblem,
+      IAPINegativeDirective,
       WBDifferLayout,
       WBDifferSeats,
 //ниже перечислены не настоящие тревоги, а флаги о необходимости что-то сделать с пассажиром
@@ -75,6 +77,8 @@ class Alarm
         {APPSConflict,           "APPS_CONFLICT"            },
         {APPSNegativeDirective,  "APPS_NEGATIVE_DIRECTIVE"  },
         {APPSError,              "APPS_ERROR"               },
+        {IAPIProblem,            "IAPI_PROBLEM"             },
+        {IAPINegativeDirective,  "IAPI_NEGATIVE_DIRECTIVE"  },
         {WBDifferLayout,         "WB_DIFF_LAYOUT"           },
         {WBDifferSeats,          "WB_DIFF_SEATS"            },
         {SyncEmds,               "SYNC_EMDS"                },
@@ -125,7 +129,7 @@ void check_crew_alarms_task(const TTripTaskKey &task);
 void check_apis_alarms(int point_id);
 void check_apis_alarms(int point_id, const std::set<Alarm::Enum> &checked_alarms);
 bool check_apps_alarm( int point_id );
-bool calc_apps_alarm( int point_id );
+bool check_iapi_alarm( int point_id );
 
 template<typename T>
 class TSomeonesAlarm

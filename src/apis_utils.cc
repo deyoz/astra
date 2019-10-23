@@ -232,6 +232,8 @@ void TCompleteAPICheckInfo::set(const int point_dep, const std::string& airp_arv
           _crew.get(*api).required_fields |= pAPISFormat->required_fields(TAPISFormat::crew, *api);
         }
         _pass.get(apiTkn).required_fields |= pAPISFormat->required_fields(TAPISFormat::pass, apiTkn);
+
+        if (pAPISFormat->rule(r_reservNumMandatory)) _pnrAddrRequired=true;
       }
     }
     _extra_crew = _pass;
@@ -242,6 +244,12 @@ void TCompleteAPICheckInfo::set(const int point_dep, const std::string& airp_arv
     if (GetTripSets(tsNoCtrlDocsExtraCrew, fltInfo))
       for (std::set<TAPIType>::const_iterator api = get_apis_doc_set().begin(); api != get_apis_doc_set().end(); ++api)
         _extra_crew.get(*api).required_fields = NO_FIELDS;
+
+    //проверим настройку "Запрет регистрации NOREC"
+    if (!_pnrAddrRequired)
+    {
+      if (GetTripSets(tsRegWithoutNOREC, fltInfo)) _pnrAddrRequired=true;
+    }
   };
 }
 
@@ -266,6 +274,34 @@ boost::optional<const TCompleteAPICheckInfo &> TRouteAPICheckInfo::get(const std
   TRouteAPICheckInfo::const_iterator i=find(airp_arv);
   if (i!=end()) return i->second;
   return boost::none;
+}
+
+const TCompleteAPICheckInfo& TCompleteAPICheckInfoCache::get(int paxId, int grpId)
+{
+  static TCompleteAPICheckInfo emptyCheckInfo;
+
+  if (grpId==ASTRA::NoExists)
+  {
+    CheckIn::TSimplePaxItem pax;
+    if (!pax.getByPaxId(paxId)) return emptyCheckInfo;
+    grpId=pax.grp_id;
+  }
+
+  CheckIn::TSimplePaxGrpItem& grp=grps[grpId];
+  if (grp.id==ASTRA::NoExists)
+  {
+    if (!grp.getByGrpId(grpId)) return emptyCheckInfo;
+  }
+
+  TAPISegment seg(grp.point_dep, grp.airp_arv);
+  auto i=checkInfoMap.find(seg);
+  if (i==checkInfoMap.end())
+  {
+    i=checkInfoMap.emplace(seg, TCompleteAPICheckInfo()).first;
+    i->second.set(seg.point_dep, seg.airp_arv);
+  }
+
+  return i->second;
 }
 
 void throwInvalidSymbol(const string &fieldname,

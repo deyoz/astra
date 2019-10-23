@@ -106,10 +106,14 @@ bool isReadonlyRem( const string &rem_code, const string &rem_text )
   return false;
 }
 
+const std::vector<std::string> appsStatusRem={"SXIA", "SPIA", "SBIA"}; //порядок важен
+const std::vector<std::string> appsOverrideRem={"RSIA", "OVRA", "OVRG"};
+
 static bool isAPPSRem( const std::string& rem )
 {
-  return ( rem == "RSIA" || rem == "SPIA" || rem == "SBIA" || rem == "SXIA" ||
-           rem == "OVRA" || rem == "OVRG" );
+  if (std::find(appsStatusRem.begin(), appsStatusRem.end(), rem)!=appsStatusRem.end()) return true;
+  if (std::find(appsOverrideRem.begin(), appsOverrideRem.end(), rem)!=appsOverrideRem.end()) return true;
+  return false;
 }
 
 void TRemGrp::Load(TRemEventType rem_set_type, int point_id)
@@ -232,7 +236,6 @@ static void getAPPSRemCodes(const int pax_id, set<string>& remCodes)
   }
 }
 
-
 CheckIn::TPaxRemItem getAPPSRem(const int pax_id, const std::string &lang )
 {
   set<string> remCodes;
@@ -240,7 +243,7 @@ CheckIn::TPaxRemItem getAPPSRem(const int pax_id, const std::string &lang )
 
   if (!remCodes.empty())
   {
-    for(const string& code : {"SXIA", "SPIA", "SBIA"})
+    for(const string& code : appsStatusRem)
       if (remCodes.find(code)!=remCodes.end())
       {
         CheckIn::TPaxRemItem rem;
@@ -259,11 +262,16 @@ string GetRemarkStr(const TRemGrp &rem_grp, const multiset<CheckIn::TPaxRemItem>
   for(multiset<CheckIn::TPaxRemItem>::const_iterator r=rems.begin();r!=rems.end();++r)
   {
     if (r->code.empty() || !rem_grp.exists(r->code)) continue;
-    if (!result.empty()) result+=term;
-    if ( r->code == "SBIA" || r->code == "SPIA" || r->code == "SXIA")
-      result+=r->text;
+    if (std::find(appsStatusRem.begin(), appsStatusRem.end(), r->code)!=appsStatusRem.end())
+    {
+      if (!result.empty()) result.insert(0, term);
+      result.insert(0, r->text);
+    }
     else
+    {
+      if (!result.empty()) result+=term;
       result+=r->code;
+    }
   };
   return result;
 }
@@ -320,9 +328,9 @@ void GetRemarks(int pax_id, const string &lang, std::multiset<CheckIn::TPaxRemIt
     Qry.get().Execute();
     for(;!Qry.get().Eof;Qry.get().Next())
       rems.insert(CheckIn::TPaxRemItem().fromDB(Qry.get()));
-    CheckIn::TPaxRemItem apps_satus_rem = getAPPSRem( pax_id, lang );
-    if ( !apps_satus_rem.empty() )
-     rems.insert( apps_satus_rem );
+    CheckIn::TPaxRemItem rem = getAPPSRem( pax_id, lang );
+    if ( !rem.empty() )
+     rems.insert( rem );
 }
 
 string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, const string &lang, const string &term)

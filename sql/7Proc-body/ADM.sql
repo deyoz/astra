@@ -1422,6 +1422,12 @@ lparams   system.TLexemeParams;
 vcountry_regul_control apis_sets.country_control%TYPE;
 fmt_prefix apis_sets.format%TYPE;
 BEGIN
+  IF vcountry_control IN (vcountry_dep, vcountry_arv) THEN
+    NULL;
+  ELSE
+    system.raise_user_exception('MSG.COUNTRY_DEP_OR_ARV_MUST_MATCH_COUNTRY_CONTROL');
+  END IF;
+
   fmt_prefix:=NULL;
   IF SUBSTR(vformat,1,4)='EDI_' THEN fmt_prefix:='EDI'; END IF;
   IF SUBSTR(vformat,1,5)='IAPI_' THEN fmt_prefix:='IAPI'; END IF;
@@ -1467,6 +1473,8 @@ BEGIN
         FROM airlines
         WHERE code=vairline;
         vedi_own_addr:=check_apis_edi_addr(vaddr_part1||':'||vaddr_part2);
+
+        IF 'ñç' IN (vcountry_regul_control) AND fmt_prefix='IAPI' THEN vedi_own_addr:=vaddr_part2; END IF;
       EXCEPTION
         WHEN OTHERS THEN
           info:=adm.get_cache_info('APIS_SETS');

@@ -727,6 +727,7 @@ class TPaxListItem
     bool tknModified;
     bool docModified;
     bool docoModified;
+    bool refused;
 
     TPaxListItem() { clear(); }
     TPaxListItem(const TSimplePaxItem& _pax)
@@ -750,6 +751,7 @@ class TPaxListItem
       tknModified=false;
       docModified=false;
       docoModified=false;
+      refused=false;
     }
 
     bool trferAttachable() const
