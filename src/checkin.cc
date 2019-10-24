@@ -9037,9 +9037,14 @@ void CheckInInterface::GetFQTTierLevel(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   CheckIn::TPaxFQTItem fqt;
   fqt.fromXML(NodeAsNode("fqt_rem", reqNode));
 
+  std::string surname=NodeAsString("surname", reqNode);
+  std::string name=NodeAsString("name", reqNode);
+  CheckIn::TPaxDocItem doc;
+  doc.fromXML(NodeAsNode("document", reqNode));
+
   SirenaExchange::TFFPInfoReq req;
   SirenaExchange::TFFPInfoRes res;
-  req.set(fqt.airline, fqt.no);
+  req.set(fqt.airline, fqt.no, surname, name, doc.birth_date);
 
   get_ffp_status(req, res);
 

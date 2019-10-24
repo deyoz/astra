@@ -20,6 +20,10 @@ const TFFPItem& TFFPItem::toXML(xmlNodePtr node, const OutputLang &lang) const
 
   xmlNodePtr ffpNode = NewTextChild(node, "ffp", card_number);
   SetProp(ffpNode, "company", airlineToPrefferedCode(company, lang));
+  SetProp(ffpNode, "surname", surname);
+  SetProp(ffpNode, "name", name); //обязательно передаем, даже если пустое имя, а иначе Сирена ругается
+  if (birth_date!=ASTRA::NoExists)
+    SetProp(ffpNode, "birthdate", DateTimeToStr(birth_date, "yyyy-mm-dd"));
 
   return *this;
 }
@@ -119,7 +123,7 @@ void get_ffp_status(const SirenaExchange::TFFPInfoReq &req, SirenaExchange::TFFP
   res.clear();
   try
   {
-    SendRequest(req, res);
+    SirenaExchange::SendRequest(req, res);
   }
   catch(Exception &e)
   {
@@ -135,7 +139,7 @@ void get_ffp_status(const SirenaExchange::TFFPInfoReq &req, SirenaExchange::TFFP
 int ffp(int argc,char **argv)
 {
   if (argc<1) return 1;
-  if (argc<3)
+  if (argc<4 || argc>6)
   {
     printf("Usage:\n");
     ffp_help(argv[0]);
@@ -146,8 +150,27 @@ int ffp(int argc,char **argv)
   TElemFmt company_fmt;
   string company = ElemToElemId( etAirline, argv[1], company_fmt );
   if (company.empty()) company=argv[1];
+  string card_number=argv[2];
+  string surname=argv[3];
+  string name;
+  TDateTime birth_date=ASTRA::NoExists;
 
-  req.set(company, argv[2]);
+  if (argc>4)
+  {
+    if (StrToDateTime(argv[argc-1], birth_date)==EOF)
+      birth_date=ASTRA::NoExists;
+
+    if (!(argc==5 && birth_date!=ASTRA::NoExists))
+      name=argv[4];
+    if (argc==6 && birth_date==ASTRA::NoExists)
+    {
+      printf("Usage:\n");
+      ffp_help(argv[0]);
+      return 1;
+    }
+  }
+
+  req.set(company, card_number, surname, name, birth_date);
   printf("TFFPInfoReq: \n%s\n", req.traceStr().c_str());
   get_ffp_status(req, res);
   printf("TFFPInfoRes: \n%s\n", res.traceStr().c_str());
@@ -157,7 +180,7 @@ int ffp(int argc,char **argv)
 void ffp_help(const char *name)
 {
   printf("  %-15.15s ", name);
-  puts("<company> <card_number>");
+  puts("<company> <card_number> <surname> [<name>] [<birth_date(dd.mm.yyyy)>]");
 };
 
 

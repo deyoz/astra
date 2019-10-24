@@ -2643,8 +2643,12 @@ void WebRequestsIface::CheckFFP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     SirenaExchange::TFFPInfoReq req;
     SirenaExchange::TFFPInfoRes res;
     xmlNodePtr resFfpNode = NewTextChild( ffpsNode, "ffp" );
-    NewTextChild( resFfpNode, "crs_pax_id", NodeAsIntegerFast( "crs_pax_id", node ) );
-    req.set(NodeAsStringFast( "airline", node ), NodeAsStringFast( "card_number", node ));
+    int pax_id=NodeAsIntegerFast( "crs_pax_id", node );
+
+    NewTextChild( resFfpNode, "crs_pax_id", pax_id );
+    req.set(NodeAsStringFast( "airline", node ),
+            NodeAsStringFast( "card_number", node ),
+            "", "", ASTRA::NoExists);
     bool pr_error = false;
     try {
       get_ffp_status(req, res);

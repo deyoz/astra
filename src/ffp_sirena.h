@@ -3,6 +3,8 @@
 
 #include "sirena_exchange.h"
 
+using namespace BASIC::date_time;
+
 namespace SirenaExchange
 {
 
@@ -18,22 +20,38 @@ class TFFPItem
 {
   public:
     std::string company, card_number;
+    std::string surname, name;
+    TDateTime birth_date;
     void clear()
     {
       company.clear();
       card_number.clear();
+      surname.clear();
+      name.clear();
+      birth_date=ASTRA::NoExists;
     }
-    void set(const std::string &_company, const std::string &_card_number)
+    void set(const std::string& _company,
+             const std::string& _card_number,
+             const std::string& _surname,
+             const std::string& _name,
+             const TDateTime& _birth_date)
     {
       company=_company;
       card_number=_card_number;
+      surname=_surname;
+      name=_name;
+      birth_date=_birth_date;
     }
     const TFFPItem& toXML(xmlNodePtr node, const AstraLocale::OutputLang &lang) const;
     TFFPItem& fromXML(xmlNodePtr node);
     std::string traceStr() const
     {
       std::ostringstream s;
-      s << "company='" << company << "' card_number='" << card_number << "'";
+      s << "company='" << company << "' "
+           "card_number='" << card_number << "' "
+           "surname='" << surname << "' "
+           "name='" << name << "' "
+           "birth_date='" << (birth_date==ASTRA::NoExists?"":DateTimeToStr(birth_date, "dd.mm.yyyy")) << "'";
       return s.str();
     }
 };
