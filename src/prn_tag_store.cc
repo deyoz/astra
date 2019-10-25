@@ -434,8 +434,14 @@ void TPrnTagStore::init_bp_tags()
     tag_list.insert(make_pair(TAG::VOUCHER_TEXT9,           TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
     tag_list.insert(make_pair(TAG::VOUCHER_TEXT10,          TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
 
+    // EMDA
     tag_list.insert(make_pair(TAG::EMD_NO,                  TTagListItem(&TPrnTagStore::EMD_NO)));
     tag_list.insert(make_pair(TAG::EMD_COUPON,              TTagListItem(&TPrnTagStore::EMD_COUPON)));
+    tag_list.insert(make_pair(TAG::EMD_RFIC,                TTagListItem(&TPrnTagStore::EMD_RFIC)));
+    tag_list.insert(make_pair(TAG::EMD_RFISC,               TTagListItem(&TPrnTagStore::EMD_RFISC)));
+    tag_list.insert(make_pair(TAG::EMD_RFISC_DESCR,         TTagListItem(&TPrnTagStore::EMD_RFISC_DESCR)));
+    tag_list.insert(make_pair(TAG::EMD_PRICE,               TTagListItem(&TPrnTagStore::EMD_PRICE)));
+    tag_list.insert(make_pair(TAG::EMD_CURRENCY,            TTagListItem(&TPrnTagStore::EMD_CURRENCY)));
 }
 
 void TPrnTagStore::tagsFromXML(xmlNodePtr tagsNode)
@@ -3014,6 +3020,149 @@ string TPrnTagStore::EMD_NO(TFieldParams fp) {
         result = boost::any_cast<string>(fp.TagInfo);
     return result;
 }
+
+bool TPrnTagStore::TEMDAInfo::find(TResult &res, TPriceRFISCList &prices, int pax_id, boost::any &emd_no, boost::any &emd_coupon, const string &lang)
+{
+    res.clear();
+
+    bool result = false;
+
+    if(emd_no.empty())
+        return result;
+
+    string _emd_no = boost::any_cast<string>(emd_no);
+
+    int _emd_coupon = NoExists;
+    if(not emd_coupon.empty())
+        _emd_coupon = boost::any_cast<int>(emd_coupon);
+
+    for ( const auto &p : prices ) {
+        for ( const auto &svc : p.second.svcs ) {
+            if(
+                    p.second.pax_id == pax_id and
+                    svc.second.ticknum == _emd_no and
+                    (svc.second.ticket_cpn.empty() ? NoExists : ToInt(svc.second.ticket_cpn)) == _emd_coupon
+              ) {
+                res.RFIC = p.second.service_type;
+                res.RFISC = p.second.RFISC;
+                if(not lang.empty())
+                    res.rfisc_descr = p.second.name_view(lang);
+                if(svc.second.valid()) {
+                    res.price = svc.second.price;
+                    res.currency = svc.second.currency;
+                }
+                result = true;
+                break;
+            }
+        }
+        if(result) break;
+    }
+    return result;
+}
+
+TPriceRFISCList &TPrnTagStore::TEMDAInfo::THolder::get(int grp_id)
+{
+    if(not prices) {
+        prices = boost::in_place();
+        prices->fromDB(grp_id);
+    }
+    return *prices;
+}
+
+string TPrnTagStore::TEMDAInfo::get_rfisc_descr(int grp_id, int pax_id, boost::any &emd_no, boost::any &emd_coupon, const string &lang)
+{
+    LogTrace(TRACE5) << "get_rfisc_descr lang: '" << lang << "'";
+    TPriceRFISCList &prices = holder.get(grp_id);
+    TResult res;
+    string result;
+    if(find(res, prices, pax_id, emd_no, emd_coupon, lang))
+        result = res.rfisc_descr;
+    return result;
+}
+
+float TPrnTagStore::TEMDAInfo::get_price(int grp_id, int pax_id, boost::any &emd_no, boost::any &emd_coupon)
+{
+    TPriceRFISCList &prices = holder.get(grp_id);
+    TResult res;
+    float result = NoExists;
+    if(find(res, prices, pax_id, emd_no, emd_coupon))
+        result = res.price;
+    return result;
+}
+
+string TPrnTagStore::TEMDAInfo::get_currency(int grp_id, int pax_id, boost::any &emd_no, boost::any &emd_coupon)
+{
+    TPriceRFISCList &prices = holder.get(grp_id);
+    TResult res;
+    string result;
+    if(find(res, prices, pax_id, emd_no, emd_coupon))
+        result = res.currency;
+    return result;
+}
+
+string TPrnTagStore::TEMDAInfo::get_rfic(int grp_id, int pax_id, boost::any &emd_no, boost::any &emd_coupon)
+{
+    TPriceRFISCList &prices = holder.get(grp_id);
+    TResult res;
+    string result;
+    if(find(res, prices, pax_id, emd_no, emd_coupon))
+        result = res.RFIC;
+    return result;
+}
+
+string TPrnTagStore::TEMDAInfo::get_rfisc(int grp_id, int pax_id, boost::any &emd_no, boost::any &emd_coupon)
+{
+    TPriceRFISCList &prices = holder.get(grp_id);
+    TResult res;
+    string result;
+    if(find(res, prices, pax_id, emd_no, emd_coupon))
+        result = res.RFISC;
+    return result;
+}
+
+string TPrnTagStore::EMD_RFIC(TFieldParams fp) {
+    return emdaInfo.get_rfic
+        (grpInfo.grp_id, paxInfo.pax_id, 
+         tag_list[TAG::EMD_NO].TagInfo,
+         tag_list[TAG::EMD_COUPON].TagInfo);
+};
+
+string TPrnTagStore::EMD_RFISC(TFieldParams fp) {
+    return emdaInfo.get_rfisc
+        (grpInfo.grp_id, paxInfo.pax_id, 
+         tag_list[TAG::EMD_NO].TagInfo,
+         tag_list[TAG::EMD_COUPON].TagInfo);
+};
+
+string TPrnTagStore::EMD_PRICE(TFieldParams fp) {
+    float price =
+        emdaInfo.get_price
+        (grpInfo.grp_id, paxInfo.pax_id, 
+         tag_list[TAG::EMD_NO].TagInfo,
+         tag_list[TAG::EMD_COUPON].TagInfo);
+    ostringstream result;
+    if(price != NoExists)
+        result << fixed << setprecision(2) << price;
+    return result.str();
+}
+
+string TPrnTagStore::EMD_CURRENCY(TFieldParams fp) {
+    return tag_lang.ElemIdToTagElem(
+            etCurrency,
+            emdaInfo.get_currency
+            (grpInfo.grp_id, paxInfo.pax_id, 
+             tag_list[TAG::EMD_NO].TagInfo,
+             tag_list[TAG::EMD_COUPON].TagInfo),
+            efmtCodeNative);
+}
+
+string TPrnTagStore::EMD_RFISC_DESCR(TFieldParams fp) {
+    return emdaInfo.get_rfisc_descr
+        (grpInfo.grp_id, paxInfo.pax_id, 
+         tag_list[TAG::EMD_NO].TagInfo,
+         tag_list[TAG::EMD_COUPON].TagInfo,
+         tag_lang.GetLang());
+};
 
 string TPrnTagStore::EMD_COUPON(TFieldParams fp) {
     ostringstream result;
