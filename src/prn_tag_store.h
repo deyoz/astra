@@ -617,13 +617,7 @@ class TPrnTagStore {
 
         struct TEMDAInfo {
             private:
-                struct THolder {
-                    private:
-                        boost::optional<TPriceRFISCList> prices;
-                    public:
-                        TPriceRFISCList &get(int grp_id);
-                };
-                THolder holder;
+                boost::optional<TPriceRFISCList> prices;
 
                 struct TResult {
                     std::string RFIC;
@@ -631,6 +625,7 @@ class TPrnTagStore {
                     std::string rfisc_descr;
                     std::string currency;
                     float price;
+                    bool pr_print;
                     void clear()
                     {
                         RFIC.clear();
@@ -638,17 +633,21 @@ class TPrnTagStore {
                         rfisc_descr.clear();
                         currency.clear();
                         price = ASTRA::NoExists;
+                        pr_print = false;
                     }
                 };
-
-                bool find(TResult &res, TPriceRFISCList &prices, int pax_id, boost::any &emd_no, boost::any &emd_coupon, const std::string &lang = "");
+                TResult res;
+                bool find(int pax_id, boost::any &emd_no, boost::any &emd_coupon, const std::string &lang);
             public:
-                float get_price(int grp_id, int pax_id, boost::any &emd_no, boost::any &emd_coupon);
-                std::string get_currency(int grp_id, int pax_id, boost::any &emd_no, boost::any &emd_coupon);
-                std::string get_rfic(int grp_id, int pax_id, boost::any &emd_no, boost::any &emd_coupon);
-                std::string get_rfisc(int grp_id, int pax_id, boost::any &emd_no, boost::any &emd_coupon);
-                std::string get_rfisc_descr(int grp_id, int pax_id, boost::any &emd_no, boost::any &emd_coupon, const std::string &lang);
+                void Init(int grp_id, int pax_id, boost::any &emd_no, boost::any &emd_coupon, const std::string &lang);
+                float get_price() { return res.price; }
+                std::string get_currency() { return res.currency; }
+                std::string get_rfic() { return res.RFIC; }
+                std::string get_rfisc() { return res.RFISC; }
+                std::string get_rfisc_descr() { return res.rfisc_descr; }
+                bool get_pr_print() { return res.pr_print; }
         };
+
         TEMDAInfo emdaInfo;
 
         std::string get_fmt_seat(std::string fmt, bool english_tag);
@@ -880,5 +879,7 @@ class TPrnTagStore {
         void get_pectab_tags(const std::string &form);
         void get_pectab_tags(const std::vector<std::string> &tags);
 };
+
+bool get_pr_print_emda(int pax_id, const std::string &emd_no, int emd_coupon);
 
 #endif

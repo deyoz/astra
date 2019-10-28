@@ -3186,26 +3186,6 @@ void dummy_emda(xmlNodePtr resNode)
     }
 }
 
-bool get_pr_print_emda(int pax_id, const string &emd_no, int emd_coupon)
-{
-    TCachedQuery Qry(
-            "SELECT pax_id FROM confirm_print WHERE "
-            "   pax_id=:pax_id and "
-            "   emd_no = :emd_no AND "
-            "   emd_coupon = :emd_coupon AND "
-            "   pr_print<>0 AND "
-            "   rownum=1 and "
-            "   op_type = :op_type ",
-            QParams()
-            << QParam("pax_id", otInteger, pax_id)
-            << QParam("emd_no", otString, emd_no)
-            << QParam("emd_coupon", otInteger, emd_coupon)
-            << QParam("op_type", otString, DevOperTypes().encode(TDevOper::PrnEMDA))
-            );
-    Qry.get().Execute();
-    return not Qry.get().Eof;
-}
-
 void fill_pr_print_emda(xmlNodePtr resNode)
 {
     xmlNodePtr itemsNode = GetNode("items", resNode);
