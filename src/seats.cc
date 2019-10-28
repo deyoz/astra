@@ -3455,6 +3455,13 @@ class AnomalisticConditionsPayment
               if ( !placeList->ValidPlace( FP ) )
                 break;
               SALONS2::TPlace *place = placeList->place( FP );
+              if ( CurrSalon->canAddOccupy( place ) || //место имеет слой не позволяющий его занять ИЛИ
+                   !place->layers.empty() && //у места есть слой принадлежащий другому пассажиру, но не занятый, а значит у нашего пассажира нет права на это место
+                   place->layers.begin()->pax_id != ASTRA::NoExists &&
+                   place->layers.begin()->pax_id != pass.paxId ) {
+                tst();
+                break;
+              }
               place->AddLayerToPlace( cltProtAfterPay, NowUTC(), pass.paxId, Salons->trip_id, pass.point_arv, BASIC_SALONS::TCompLayerTypes::Instance()->priority( cltProtAfterPay ) );
               if ( CurrSalon->canAddOccupy( place ) ) {
                 CurrSalon->AddOccupySeat( placeList->num, place->x, place->y );
