@@ -233,7 +233,11 @@ void TCompleteAPICheckInfo::set(const int point_dep, const std::string& airp_arv
         }
         _pass.get(apiTkn).required_fields |= pAPISFormat->required_fields(TAPISFormat::pass, apiTkn);
 
-        if (pAPISFormat->rule(r_reservNumMandatory)) _pnrAddrRequired=true;
+        if (pAPISFormat->rule(r_reservNumMandatory))
+        {
+          _pnrAddrRequired=true;
+          _norecNotAllowed=true;
+        }
       }
     }
     _extra_crew = _pass;
@@ -246,9 +250,9 @@ void TCompleteAPICheckInfo::set(const int point_dep, const std::string& airp_arv
         _extra_crew.get(*api).required_fields = NO_FIELDS;
 
     //проверим настройку "Запрет регистрации NOREC"
-    if (!_pnrAddrRequired)
+    if (!_norecNotAllowed)
     {
-      if (GetTripSets(tsRegWithoutNOREC, fltInfo)) _pnrAddrRequired=true;
+      if (GetTripSets(tsRegWithoutNOREC, fltInfo)) _norecNotAllowed=true;
     }
   };
 }
