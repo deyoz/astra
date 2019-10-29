@@ -385,6 +385,7 @@ class TCompleteAPICheckInfo
     TAPICheckInfoList _extra_crew;
     std::set<std::string> _apis_formats;
     bool _pnrAddrRequired;
+    bool _norecNotAllowed;
   public:
     TCompleteAPICheckInfo() { clear(); }
     TCompleteAPICheckInfo(const int point_dep, const std::string& airp_arv);
@@ -395,6 +396,7 @@ class TCompleteAPICheckInfo
       _extra_crew.clear();
       _apis_formats.clear();
       _pnrAddrRequired=false;
+      _norecNotAllowed=false;
     }
     void set(const int point_dep, const std::string& airp_arv);
     // get
@@ -454,6 +456,7 @@ class TCompleteAPICheckInfo
     const TAPICheckInfoList& extra_crew() const { return _extra_crew; }
     const std::set<std::string>& apis_formats() const { return _apis_formats; }
     bool pnrAddrRequired() const { return _pnrAddrRequired; }
+    bool norecNotAllowed() const { return _norecNotAllowed; }
 
     static const std::set<TAPIType>& get_apis_doc_set()
     {

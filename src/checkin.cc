@@ -4540,8 +4540,19 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               }
             }
 
-            if (grp.status!=psCrew && pax.id==NoExists && checkInfo.pnrAddrRequired())
-              throw UserException("MSG.CHECKIN.NOREC_NOT_ALLOWED");
+            if (new_checkin && grp.status!=psCrew)
+            {
+              if (pax.id!=NoExists && checkInfo.pnrAddrRequired())
+              {
+                if (TPnrAddrs().getByPaxId(pax.id).empty())
+                  throw UserException("MSG.CHECKIN.PNR_ADDR_REQUIRED");
+              }
+              if (pax.id==NoExists && checkInfo.norecNotAllowed())
+                throw UserException("MSG.CHECKIN.NOREC_NOT_ALLOWED");
+            }
+
+
+
 
             if (pax.name.empty() && pr_mintrans_file)
               throw UserException("MSG.CHECKIN.PASSENGERS_NAMES_NOT_SET");
