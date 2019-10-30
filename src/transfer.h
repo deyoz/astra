@@ -70,10 +70,18 @@ class TTransferItem
     bool equalSubclasses(const TTransferItem &item) const;
 };
 
+class TTransferList : public std::vector<TTransferItem>
+{
+  private:
+    enum CheckType {checkNone,checkFirstSeg,checkAllSeg};
+  public:
+    void load(int grp_id);
+    void check(int id, bool isGrpId, int seg_no) const;
+};
+
 void PaxTransferFromDB(int pax_id, std::list<TPaxTransferItem> &trfer);
 void PaxTransferToXML(const std::list<TPaxTransferItem> &trfer, xmlNodePtr paxNode);
-void PaxTransferToDB(int pax_id, int pax_no, const std::vector<CheckIn::TTransferItem> &trfer, int seg_no);
-void LoadTransfer(int grp_id, std::vector<TTransferItem> &trfer);
+void PaxTransferToDB(int pax_id, int pax_no, const CheckIn::TTransferList &trfer, int seg_no);
 
 }; //namespace CheckIn
 
@@ -254,9 +262,10 @@ enum TAlarmType { atUnattached,
                   atOutPaxDuplicate,
                   atInRouteIncomplete,
                   atInRouteDiffer,
-                  atOutRouteDiffer, //никогда не возникает на экране подтверждения входящего трансфера
+                  atOutRouteDiffer,     //никогда не возникает на экране подтверждения входящего трансфера
                   atInOutRouteDiffer,
                   atWeightNotDefined,
+                  atOutRouteWithErrors, //никогда не возникает на экране подтверждения входящего трансфера
                   atLength };
 
 typedef std::map<TGrpId, std::set<TAlarmType> > TAlarmTagMap;
@@ -445,7 +454,8 @@ enum TConflictReason { conflictInPaxDuplicate,
                        conflictInRouteDiffer,
                        conflictOutRouteDiffer,
                        conflictInOutRouteDiffer,
-                       conflictWeightNotDefined };
+                       conflictWeightNotDefined,
+                       conflictOutRouteWithErrors};
 
 bool isGlobalConflict(TConflictReason c);
 TrferList::TAlarmType GetConflictAlarm(TConflictReason c);
@@ -469,6 +479,26 @@ class TNewGrpInfo
     };
     void erase(const TGrpId &id);
     int calc_status(const TGrpId &id) const;
+};
+
+class ConflictReasons
+{
+  private:
+    std::set<TConflictReason> conflicts;
+    bool emptyInboundBaggage;
+  public:
+    void set(const TNewGrpInfo& info)
+    {
+      conflicts=info.conflicts;
+      emptyInboundBaggage=info.tag_map.empty();
+    }
+
+    bool isInboundBaggageConflict() const
+    {
+      return !conflicts.empty() && !emptyInboundBaggage;
+    }
+
+    void toLog(const TLogLocale &pattern) const;
 };
 
 
@@ -495,10 +525,6 @@ void GetNewGrpInfo(int point_id,
 
 void NewGrpInfoToGrpsView(const TNewGrpInfo &inbound_trfer,
                           std::vector<TrferList::TGrpViewItem> &grps);
-
-void conflictReasonsToLog(const std::set<TConflictReason> &conflicts,
-                          bool emptyInboundBaggage,
-                          TLogLocale &locale);
 
 }; //namespace InboundTrfer
 

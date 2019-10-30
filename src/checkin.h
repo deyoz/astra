@@ -192,16 +192,16 @@ public:
   static void ParseTransfer(xmlNodePtr trferNode,
                             xmlNodePtr paxNode,
                             const TSegInfo &firstSeg,
-                            std::vector<CheckIn::TTransferItem> &segs);
+                            CheckIn::TTransferList &segs);
   static void ParseTransfer(xmlNodePtr trferNode,
                             xmlNodePtr paxNode,
                             const std::string &airp_arv,
                             const TDateTime scd_out_local,
-                            std::vector<CheckIn::TTransferItem> &segs);
+                            CheckIn::TTransferList &segs);
 
-  static void SaveTransfer(int grp_id, const std::vector<CheckIn::TTransferItem> &trfer,
+  static void SaveTransfer(int grp_id, const CheckIn::TTransferList &trfer,
                            const std::map<int, std::pair<TCkinSegFlts, TTrferSetsInfo> > &trfer_segs,
-                           bool pr_unaccomp, int seg_no, TLogLocale& tlocale);
+                           int seg_no, TLogLocale& tlocale);
   static void SaveTCkinSegs(int grp_id,
                             xmlNodePtr segsNode,
                             const std::map<int,TSegInfo> &segs,
