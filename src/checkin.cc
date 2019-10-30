@@ -1218,7 +1218,7 @@ bool EqualCrsTransfer(const map<int, CheckIn::TTransferItem> &trfer1,
   return i1==trfer1.end() && i2==trfer2.end();
 }
 
-bool LoadUnconfirmedTransfer(const vector<CheckIn::TTransferItem> &segs, xmlNodePtr transferNode)
+bool LoadUnconfirmedTransfer(const CheckIn::TTransferList &segs, xmlNodePtr transferNode)
 {
   if (segs.empty() || transferNode==NULL) return false;
 
@@ -1277,7 +1277,7 @@ bool LoadUnconfirmedTransfer(const vector<CheckIn::TTransferItem> &segs, xmlNode
     map<int, CheckIn::TTransferItem> pax_trfer;
     //набираем вектор трансфера
     int seg_no=1;
-    for(vector<CheckIn::TTransferItem>::const_iterator s=segs.begin();s!=segs.end();++s,seg_no++)
+    for(CheckIn::TTransferList::const_iterator s=segs.begin();s!=segs.end();++s,seg_no++)
     {
       if (s==segs.begin()) continue; //первый сегмент отбрасываем
       CheckIn::TTransferItem trferItem=*s;
@@ -3663,7 +3663,7 @@ bool CompareGrpViewItem( const TrferList::TGrpViewItem &item1,
   return item1<item2;
 }
 
-void GetInboundTransferForTerm(const vector<CheckIn::TTransferItem> &trfer,
+void GetInboundTransferForTerm(const CheckIn::TTransferList &trfer,
                                TSegList &segList,
                                bool pr_unaccomp,
                                InboundTrfer::TNewGrpInfo &inbound_trfer)
@@ -3678,7 +3678,7 @@ void GetInboundTransferForTerm(const vector<CheckIn::TTransferItem> &trfer,
   inbound_trfer_grp_out.is_unaccomp=pr_unaccomp;
   //устанавливаем маршрут трансфера
   int seg_no=2;
-  for(vector<CheckIn::TTransferItem>::const_iterator t=trfer.begin(); t!=trfer.end(); ++t, seg_no++)
+  for(CheckIn::TTransferList::const_iterator t=trfer.begin(); t!=trfer.end(); ++t, seg_no++)
     inbound_trfer_grp_out.trfer.insert(make_pair(seg_no-1, *t));
 
   for(CheckIn::TPaxList::iterator p=segList.begin()->paxs.begin(); p!=segList.begin()->paxs.end(); ++p)
@@ -3715,10 +3715,28 @@ void GetInboundTransferForTerm(const vector<CheckIn::TTransferItem> &trfer,
                 inbound_trfer);
 }
 
-void GetInboundTransferForWeb(TSegList &segList,
+void checkTransferRouteForErrors(const TSegList &segList,
+                                 const CheckIn::TTransferList &inbound_trfer_route,
+                                 InboundTrfer::TNewGrpInfo &inbound_trfer)
+{
+  try
+  {
+    int seg_no=1;
+    for(TSegList::const_iterator iSegListItem=segList.begin();
+        iSegListItem!=segList.end();
+        seg_no++,++iSegListItem)
+      inbound_trfer_route.check(iSegListItem->flt.point_id, false, seg_no);
+  }
+  catch(const UserException&)
+  {
+    inbound_trfer.conflicts.insert(InboundTrfer::conflictOutRouteWithErrors);
+  }
+}
+
+void GetInboundTransferForWeb(const TSegList &segList,
                               bool pr_unaccomp,
                               InboundTrfer::TNewGrpInfo &inbound_trfer,
-                              vector<CheckIn::TTransferItem> &inbound_trfer_route)
+                              CheckIn::TTransferList &inbound_trfer_route)
 {
   inbound_trfer.clear();
   inbound_trfer_route.clear();
@@ -3861,6 +3879,8 @@ void GetInboundTransferForWeb(TSegList &segList,
         inbound_trfer_route.push_back(t1->second); //важно, что берем за основу inbound_trfer_grp_out с заполненными подклассами пассажиров
     }
   }
+
+  checkTransferRouteForErrors(segList, inbound_trfer_route, inbound_trfer);
 }
 
 void CheckBagWeightControl(const CheckIn::TBagItem &bag)
@@ -4150,7 +4170,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   bool new_checkin=false;
   bool save_trfer=false;
   bool need_apps=false;
-  vector<CheckIn::TTransferItem> trfer;
+  CheckIn::TTransferList trfer;
   for(bool first_segment=true;
       segNode!=NULL;
       segNode=segNode->next,first_segment=false)
@@ -4288,15 +4308,15 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   bool inbound_confirm=false;
 
   //проверим входящий трансфер только при первоначальной регистрации
-  set<InboundTrfer::TConflictReason> inbound_trfer_conflicts;
+  InboundTrfer::ConflictReasons trferConflicts;
   CheckIn::TGroupBagItem inbound_group_bag;
-  vector<CheckIn::TTransferItem> inbound_trfer_route;
 
   if (!segList.empty() && new_checkin &&
       reqInfo->isSelfCkinClientType() &&
       segList.begin()->grp.status!=psCrew)
   {
     InboundTrfer::TNewGrpInfo info;
+    CheckIn::TTransferList inbound_trfer_route;
     GetInboundTransferForWeb(segList,
                              pr_unaccomp,
                              info,
@@ -4309,7 +4329,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                          inbound_group_bag);
     }
 
-    inbound_trfer_conflicts=info.conflicts;
+    trferConflicts.set(info);
     if (save_trfer && info.conflicts.empty())
     {
       //привязка входящего трансфера для веб и киоск регистрации
@@ -4396,7 +4416,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   segNode=NodeAsNode("segments/segment",reqNode);
   int seg_no=1;
   bool first_segment=true;
-  vector<CheckIn::TTransferItem>::const_iterator iTrfer;
+  CheckIn::TTransferList::const_iterator iTrfer;
   map<int, std::pair<TCkinSegFlts, TTrferSetsInfo> > trfer_segs;
   bool rollbackGuaranteedOnFirstSegment=false;
   IAPI::RequestCollector iapiCollector;
@@ -4770,7 +4790,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           {
             map<int, CheckIn::TTransferItem> trfer_tmp;
             int trfer_num=1;
-            for(vector<CheckIn::TTransferItem>::const_iterator t=trfer.begin();t!=trfer.end();++t, trfer_num++)
+            for(CheckIn::TTransferList::const_iterator t=trfer.begin();t!=trfer.end();++t, trfer_num++)
               trfer_tmp[trfer_num]=*t;
             traceTrfer(TRACE5, "SavePax: trfer_tmp", trfer_tmp);
             GetTrferSets(fltInfo, grp.airp_arv, "", trfer_tmp, true, trfer_segs);
@@ -4780,7 +4800,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         else
         {
           //заполним trfer из базы
-          CheckIn::LoadTransfer(grp.id, trfer);
+          trfer.load(grp.id);
         }
         iTrfer=trfer.begin();
       }
@@ -5085,8 +5105,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           Qry.SetVariable("grp_id",NodeAsInteger("generated_grp_id",segNode));
         if (trfer_confirm) AfterSaveInfo.action=CheckIn::actionSvcAvailability;
         Qry.CreateVariable("trfer_confirm",otInteger,(int)trfer_confirm);
-        Qry.CreateVariable("trfer_conflict",otInteger,(int)(!inbound_trfer_conflicts.empty() &&
-                                                            !inbound_group_bag.empty() &&
+        Qry.CreateVariable("trfer_conflict",otInteger,(int)(trferConflicts.isInboundBaggageConflict() &&
                                                             reqInfo->client_type != ctTerm));  //зажигаем тревогу только для веба и киоска и только если есть входящий трансфер
         Qry.CreateVariable("inbound_confirm",otInteger,(int)inbound_confirm);
         if (reqInfo->client_type!=ctPNL && !reqInfo->api_mode)
@@ -5297,13 +5316,13 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         tlocale.id3=grp.id;
         if (save_trfer)
         {
-          SaveTransfer(grp.id,trfer,trfer_segs,pr_unaccomp,seg_no, tlocale);
+          SaveTransfer(grp.id, trfer, trfer_segs, seg_no, tlocale);
           if (!tlocale.lexema_id.empty()) reqInfo->LocaleToLog(tlocale);
         }
         std::vector<TSegInfo> iatciSegs = iatci::readIatciSegs(grp.id, ediResNode);
         SaveTCkinSegs(grp.id,reqNode,segs,seg_no, iatciSegs, tlocale);
         if (!tlocale.lexema_id.empty()) reqInfo->LocaleToLog(tlocale);
-        InboundTrfer::conflictReasonsToLog(inbound_trfer_conflicts, inbound_group_bag.empty(), tlocale);
+        trferConflicts.toLog(tlocale);
 
         timing.finish("CheckInPassengers", grp.point_dep);
       } //new_checkin
@@ -5561,7 +5580,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           tlocale.id1=grp.point_dep;
           tlocale.id2=NoExists;
           tlocale.id3=grp.id;
-          SaveTransfer(grp.id,trfer,trfer_segs,pr_unaccomp,seg_no, tlocale);
+          SaveTransfer(grp.id, trfer, trfer_segs, seg_no, tlocale);
           if (!tlocale.lexema_id.empty()) reqInfo->LocaleToLog(tlocale);
         }
 
@@ -6933,7 +6952,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
   bool trfer_confirm=true;
   string pax_cat_airline;
   set<string> pax_cats;
-  vector<CheckIn::TTransferItem> segs;
+  CheckIn::TTransferList segs;
   xmlNodePtr segsNode=NewTextChild(resNode,"segments");
   TBrands brands; //здесь, чтобы кэшировались запросы
   for(TCkinGrpIds::const_iterator grp_id=tckin_grp_ids.begin();grp_id!=tckin_grp_ids.end();grp_id++)
@@ -7332,7 +7351,7 @@ void CheckInInterface::SaveTCkinSegs(int grp_id,
 void CheckInInterface::ParseTransfer(xmlNodePtr trferNode,
                                      xmlNodePtr paxNode,
                                      const TSegInfo &firstSeg,
-                                     vector<CheckIn::TTransferItem> &segs)
+                                     CheckIn::TTransferList &segs)
 {
   TDateTime local_scd=UTCToLocal(firstSeg.fltInfo.scd_out,AirpTZRegion(firstSeg.fltInfo.airp));
 
@@ -7343,7 +7362,7 @@ void CheckInInterface::ParseTransfer(xmlNodePtr trferNode,
                                      xmlNodePtr paxNode,
                                      const string &airp_arv,
                                      const TDateTime scd_out_local,
-                                     vector<CheckIn::TTransferItem> &segs)
+                                     CheckIn::TTransferList &segs)
 {
   segs.clear();
   if (trferNode==NULL) return;
@@ -7435,7 +7454,7 @@ void CheckInInterface::ParseTransfer(xmlNodePtr trferNode,
   for(paxNode=paxNode->children;paxNode!=NULL;paxNode=paxNode->next)
   {
     xmlNodePtr paxTrferNode=NodeAsNode("transfer",paxNode)->children;
-    vector<CheckIn::TTransferItem>::iterator s=segs.begin();
+    CheckIn::TTransferList::iterator s=segs.begin();
     for(;s!=segs.end() && paxTrferNode!=NULL; s++,paxTrferNode=paxTrferNode->next)
     {
       s->pax.push_back(CheckIn::TPaxTransferItem());
@@ -7460,15 +7479,17 @@ void CheckInInterface::ParseTransfer(xmlNodePtr trferNode,
 }
 
 void CheckInInterface::SaveTransfer(int grp_id,
-                                      const vector<CheckIn::TTransferItem> &trfer,
+                                      const CheckIn::TTransferList &trfer,
                                       const map<int, pair<TCkinSegFlts, TTrferSetsInfo> > &trfer_segs,
-                                      bool pr_unaccomp, int seg_no, TLogLocale& tlocale)
+                                      int seg_no, TLogLocale& tlocale)
 {
   tlocale.lexema_id.clear();
   tlocale.prms.clearPrms();
 
+  trfer.check(grp_id, true, seg_no);
+
   map<int, pair<TCkinSegFlts, TTrferSetsInfo> >::const_iterator s=trfer_segs.find(seg_no);
-  vector<CheckIn::TTransferItem>::const_iterator firstTrfer=trfer.begin();
+  CheckIn::TTransferList::const_iterator firstTrfer=trfer.begin();
   for(;firstTrfer!=trfer.end()&&seg_no>1;firstTrfer++,seg_no--);
 
   TQuery TrferQry(&OraSession);
@@ -7488,53 +7509,6 @@ void CheckInInterface::SaveTransfer(int grp_id,
         return;
     }
     else return;
-  }
-
-  TrferQry.Clear();
-  TrferQry.SQLText=
-    "SELECT airline,flt_no,suffix,scd_out,airp,airp_arv, "
-    "       points.point_id,point_num,first_point,pr_tranzit "
-    "FROM points,pax_grp "
-    "WHERE points.point_id=pax_grp.point_dep AND grp_id=:grp_id AND points.pr_del>=0";
-  TrferQry.CreateVariable("grp_id",otInteger,grp_id);
-  TrferQry.Execute();
-  if (TrferQry.Eof) throw EXCEPTIONS::Exception("Passenger group not found (grp_id=%d)",grp_id);
-
-  string airline_in=TrferQry.FieldAsString("airline");
-
-  TAdvTripInfo fltInfo(TrferQry);
-
-  //проверка формирования трансфера в латинских телеграммах
-  enum TCheckType {checkNone,checkFirstSeg,checkAllSeg};
-
-  vector< pair<string,int> > tlgs;
-  vector< pair<string,int> >::iterator iTlgs;
-
-  tlgs.push_back( pair<string,int>("BTM",checkAllSeg) );
-  tlgs.push_back( pair<string,int>("BSM",checkAllSeg) );
-  tlgs.push_back( pair<string,int>("PRL",checkAllSeg) );
-  tlgs.push_back( pair<string,int>("PTM",checkFirstSeg) );
-  tlgs.push_back( pair<string,int>("PTMN",checkFirstSeg) );
-  tlgs.push_back( pair<string,int>("PSM",checkFirstSeg) );
-
-  int checkType=checkNone;
-
-  for(iTlgs=tlgs.begin();iTlgs!=tlgs.end();iTlgs++)
-  {
-    if (checkType==checkAllSeg) break;
-    if (iTlgs->second==checkNone ||
-        (iTlgs->second==checkFirstSeg && checkType==checkFirstSeg)) continue;
-
-    TypeB::TCreator creator(fltInfo);
-    creator << iTlgs->first;
-    vector<TypeB::TCreateInfo> createInfo;
-    creator.getInfo(createInfo);
-    vector<TypeB::TCreateInfo>::const_iterator i=createInfo.begin();
-    for(; i!=createInfo.end(); ++i)
-      if (i->get_options().is_lat) break;
-    if (i==createInfo.end()) continue;
-
-    checkType=iTlgs->second;
   }
 
   TrferQry.Clear();
@@ -7584,46 +7558,10 @@ void CheckInInterface::SaveTransfer(int grp_id,
   TrferQry.DeclareVariable("airp_arv_fmt",otInteger);
   TrferQry.DeclareVariable("pr_final",otInteger);
 
-  string strh;
   int trfer_num=1;
   PrmEnum route("route", "");
-  for(vector<CheckIn::TTransferItem>::const_iterator t=firstTrfer;t!=trfer.end();++t,trfer_num++)
+  for(CheckIn::TTransferList::const_iterator t=firstTrfer;t!=trfer.end();++t,trfer_num++)
   {
-    if (checkType==checkAllSeg ||
-        (checkType==checkFirstSeg && t==firstTrfer))
-    {
-      {
-        const TAirlinesRow& row=(const TAirlinesRow&)base_tables.get("airlines").get_row("code",t->operFlt.airline);
-        if (row.code_lat.empty())
-        {
-          strh=ElemIdToClientElem(etAirline, t->operFlt.airline, t->operFlt.airline_fmt);
-          throw UserException("MSG.TRANSFER_FLIGHT.LAT_AIRLINE_NOT_FOUND",
-                              LParams()<<LParam("airline",strh)
-                                       <<LParam("flight",t->flight_view));
-
-        }
-      }
-      {
-        const TAirpsRow& row=(const TAirpsRow&)base_tables.get("airps").get_row("code",t->operFlt.airp);
-        if (row.code_lat.empty())
-        {
-          strh=ElemIdToClientElem(etAirp, t->operFlt.airp, t->operFlt.airp_fmt);
-          throw UserException("MSG.TRANSFER_FLIGHT.LAT_AIRP_DEP_NOT_FOUND",
-                              LParams()<<LParam("airp",strh)
-                                       <<LParam("flight",t->flight_view));
-        }
-      }
-      {
-        const TAirpsRow& row=(const TAirpsRow&)base_tables.get("airps").get_row("code",t->airp_arv);
-        if (row.code_lat.empty())
-        {
-          strh=ElemIdToClientElem(etAirp, t->airp_arv, t->airp_arv_fmt);
-          throw UserException("MSG.TRANSFER_FLIGHT.LAT_AIRP_ARR_NOT_FOUND",
-                              LParams()<<LParam("airp",strh)
-                                       <<LParam("flight",t->flight_view));
-        }
-      }
-    }
     //проверим разрешено ли оформление трансфера
     if (s==trfer_segs.end())
       throw EXCEPTIONS::Exception("CheckInInterface::SaveTransfer: wrong trfer_segs");
@@ -7666,8 +7604,6 @@ void CheckInInterface::SaveTransfer(int grp_id,
     route.prms << PrmSmpl<string>("", " -> ") << PrmFlight("", t->operFlt.airline, t->operFlt.flt_no, t->operFlt.suffix)
                << PrmSmpl<string>("", "/") << PrmDate("", t->operFlt.scd_out,"dd") << PrmSmpl<string>("", ":")
                << PrmElem<string>("",  etAirp, t->operFlt.airp) << PrmSmpl<string>("", "-") << PrmElem<string>("", etAirp, t->airp_arv);
-
-    airline_in=t->operFlt.airline;
   }
   tlocale.prms << route;
 }
@@ -8140,7 +8076,7 @@ static void ParseTCkinSegmentItems(xmlNodePtr trferNode,
     }
 }
 
-static void CheckTransfer(const std::vector<CheckIn::TTransferItem>& trfer,
+static void CheckTransfer(const CheckIn::TTransferList& trfer,
                           const std::map<int, std::pair<TCkinSegFlts, TTrferSetsInfo> >& trfer_segs,
                           const std::vector< std::pair<TCkinSegmentItem, TTrferSetsInfo> >& tckin_segs)
 {
@@ -8253,7 +8189,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   string airline_in=firstSeg.fltInfo.airline;
 
   xmlNodePtr trferNode=NodeAsNode("transfer",reqNode);
-  vector<CheckIn::TTransferItem> trfer;
+  CheckIn::TTransferList trfer;
   map<int, pair<TCkinSegFlts, TTrferSetsInfo> > trfer_segs;
   ParseTransfer(trferNode,
                 NodeAsNode("passengers",reqNode),
@@ -8262,7 +8198,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   {
     map<int, CheckIn::TTransferItem> trfer_tmp;
     int trfer_num=1;
-    for(vector<CheckIn::TTransferItem>::const_iterator t=trfer.begin();t!=trfer.end();++t, trfer_num++)
+    for(CheckIn::TTransferList::const_iterator t=trfer.begin();t!=trfer.end();++t, trfer_num++)
       trfer_tmp[trfer_num]=*t;
     traceTrfer(TRACE5, "CheckTCkinRoute: trfer_tmp", trfer_tmp);
     GetTrferSets(firstSeg.fltInfo, firstSeg.airp_arv, "", trfer_tmp, false, trfer_segs);
@@ -8293,7 +8229,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   bool edi_seg_found = false;
 
   //цикл по стыковочным сегментам и по трансферным рейсам
-  vector<CheckIn::TTransferItem>::const_iterator f=trfer.begin();
+  CheckIn::TTransferList::const_iterator f=trfer.begin();
   for(s=segs.begin();s!=segs.end() && f!=trfer.end();s++,f++)
   {
     if (!s->first.conf_status) tckin_route_confirm=false;
