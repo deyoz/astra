@@ -79,6 +79,7 @@ enum TStatType {
     statServicesShort,
     statServicesDetail,
     statServicesFull,
+    statSalonFull,
     statNum
 };
 

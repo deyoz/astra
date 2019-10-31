@@ -26,6 +26,7 @@
 #include "stat_ha.h"
 #include "stat_reprint.h"
 #include "stat_services.h"
+#include "stat_salon.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -493,6 +494,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         case statPFSShort:
         case statTrferPax:
         case statRFISC:
+        case statSalonFull:
             get_compatible_report_form("stat", reqNode, resNode);
             break;
         default:
@@ -570,6 +572,13 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             TRFISCStat RFISCStat;
             RunRFISCStat(params, RFISCStat, airline);
             createXMLRFISCStat(params,RFISCStat, airline, resNode);
+        }
+        if(params.statType == statSalonFull)
+        {
+            TPrintAirline airline;
+            TSalonStat SalonStat;
+            RunSalonStat(params, SalonStat, airline);
+            createXMLSalonStat(params,SalonStat, airline, resNode);
         }
         if(params.statType == statRem)
         {

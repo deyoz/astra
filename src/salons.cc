@@ -27,6 +27,7 @@
 #include "counters.h"
 #include "crafts/CraftCaches.h"
 #include "seat_descript.h"
+#include "stat/stat_salon.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/slogger.h"
@@ -8652,6 +8653,7 @@ void salonChangesToText( int point_id,
             PrmEnum salon("salon", "");
             ReferPlaces( point_id, im->first, im->second.places, salon, pr_lat );
             params << salon;
+            to_stat_salon(point_id, salon, im->first);
           }
         }
     }
