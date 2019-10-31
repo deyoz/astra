@@ -14,6 +14,19 @@ using namespace AstraLocale;
 using namespace BASIC::date_time;
 using namespace std;
 using namespace ASTRA;
+using namespace EXCEPTIONS;
+
+string strip_op_type(const string &op_type)
+{
+    string result = op_type;
+    string prefix = result.substr(0, 4);
+    if(
+            prefix == "DEL_" or
+            prefix == "ADD_"
+      )
+        result.erase(0, 4);
+    return result;
+}
 
 void to_stat_salon(int point_id, const PrmEnum &msg, const string &op_type)
 {
@@ -42,7 +55,7 @@ void to_stat_salon(int point_id, const PrmEnum &msg, const string &op_type)
             << QParam("point_id", otInteger, point_id)
             << QParam("time", otDate, NowUTC())
             << QParam("login", otString, TReqInfo::Instance()->user.login)
-            << QParam("op_type", otString, op_type)
+            << QParam("op_type", otString, strip_op_type(op_type))
             << QParam("msg", otString)
             << QParam("lang", otString));
     for(int i = 0; i < 2; i++) {
@@ -76,6 +89,10 @@ void createXMLSalonStat(const TStatParams &params, const TSalonStat &SalonStat, 
     SetProp(colNode, "width", 85);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortDateTime);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Тип операции"));
+    SetProp(colNode, "width", 150);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Операция"));
     SetProp(colNode, "width", 200);
     SetProp(colNode, "align", TAlignment::LeftJustify);
@@ -98,6 +115,8 @@ void createXMLSalonStat(const TStatParams &params, const TSalonStat &SalonStat, 
         NewTextChild(rowNode, "col", row.login);
         // Время операции
         NewTextChild(rowNode, "col", DateTimeToStr(row.time, "dd.mm.yy hh:nn"));
+        // Тип операции
+        NewTextChild(rowNode, "col", getLocaleText(row.op_type));
         // Операция
         NewTextChild(rowNode, "col", row.msg);
     }
@@ -159,6 +178,10 @@ void RunSalonStat(
             SQLText += " points.part_key >= :FirstDate AND points.part_key < :LastDate + :arx_trip_date_range AND \n";
         if(pass == 2)
             SQLText += " points.part_key=arx_ext.part_key AND points.move_id=arx_ext.move_id AND \n";
+        if(not params.salon_op_type.empty()) {
+            SQLText += " stat_salon.op_type = :op_type and \n";
+            QryParams << QParam("op_type", otString, params.salon_op_type);
+        }
         SQLText +=
             "   stat_salon.scd_out >= :FirstDate AND stat_salon.scd_out < :LastDate and "
             "   stat_salon.lang = :lang ";
@@ -170,6 +193,7 @@ void RunSalonStat(
             int col_scd_out = Qry.get().FieldIndex("scd_out");
             int col_time = Qry.get().FieldIndex("time");
             int col_login = Qry.get().FieldIndex("login");
+            int col_op_type = Qry.get().FieldIndex("op_type");
             int col_msg = Qry.get().FieldIndex("msg");
             int col_airline = Qry.get().FieldIndex("airline");
             int col_flt_no = Qry.get().FieldIndex("flt_no");
@@ -180,6 +204,11 @@ void RunSalonStat(
                 row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
                 row.time = Qry.get().FieldAsDateTime(col_time);
                 row.login = Qry.get().FieldAsString(col_login);
+                row.op_type = Qry.get().FieldAsString(col_op_type);
+                try {
+                    row.op_type = SalonOpTypes().encode(row.op_type);
+                } catch(EConvertError &) {
+                }
                 row.msg = Qry.get().FieldAsString(col_msg);
                 row.airline = Qry.get().FieldAsString(col_airline);
                 row.flt_no = Qry.get().FieldAsInteger(col_flt_no);
@@ -198,3 +227,10 @@ void TSalonStatRow::add_header(ostringstream &buf) const
 void TSalonStatRow::add_data(ostringstream &buf) const
 {
 }
+
+const TSalonOpTypes &SalonOpTypes()
+{
+    static TSalonOpTypes opTypes;
+    return opTypes;
+}
+

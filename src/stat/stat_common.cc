@@ -67,6 +67,7 @@ void TStatParams::fromFileParams(map<string, string> &file_params)
     trfer_airp = file_params[PARAM_TRFER_AIRP];
     trfer_airline = file_params[PARAM_TRFER_AIRLINE];
     seg_category = TSegCategory().decode(file_params[PARAM_SEG_CATEGORY]);
+    salon_op_type = file_params[PARAM_SALON_OP_TYPE];
     seance = (TSeanceType)ToInt(file_params[PARAM_SEANCE_TYPE]);
     desk_city = file_params[PARAM_DESK_CITY];
     desk_lang = file_params[PARAM_DESK_LANG];
@@ -106,6 +107,7 @@ void TStatParams::toFileParams(map<string, string> &file_params) const
     file_params[PARAM_TRFER_AIRP] = trfer_airp;
     file_params[PARAM_TRFER_AIRLINE] = trfer_airline;
     file_params[PARAM_SEG_CATEGORY] = TSegCategory().encode(seg_category);
+    file_params[PARAM_SALON_OP_TYPE] = salon_op_type;
     file_params[PARAM_SEANCE_TYPE] = IntToString(seance);
     file_params[PARAM_DESK_CITY] = TReqInfo::Instance()->desk.city;
     file_params[PARAM_DESK_LANG] = TReqInfo::Instance()->desk.lang;
@@ -276,6 +278,7 @@ void TStatParams::get(xmlNodePtr reqNode)
     reg_type = NodeAsStringFast("reg_type", curNode, "");
     order = NodeAsStringFast("Order", curNode, 0) != 0;
     seg_category = TSegCategory().decode(NodeAsStringFast("SegCategory", curNode, ""));
+    salon_op_type = NodeAsStringFast("SalonOpType", curNode, "");
     TElemFmt fmt;
     trfer_airp = ElemToElemId(etAirp, NodeAsStringFast("trfer_airp", curNode, ""), fmt);
     trfer_airline = ElemToElemId(etAirline, NodeAsStringFast("trfer_airline", curNode, ""), fmt);

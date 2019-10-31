@@ -34,6 +34,7 @@ namespace STAT {
     static const std::string PARAM_TRFER_AIRP            = "trfer_airp";
     static const std::string PARAM_TRFER_AIRLINE         = "trfer_airline";
     static const std::string PARAM_SEG_CATEGORY          = "seg_category";
+    static const std::string PARAM_SALON_OP_TYPE         = "salon_op_type";
     static const std::string PARAM_AIRP_TERMINAL         = "airp_terminal";
     static const std::string PARAM_BI_HALL               = "bi_hall";
     static const std::string PARAM_LT                    = "LT";
@@ -157,6 +158,7 @@ struct TStatParams {
     bool skip_rows;
     bool pr_pacts;
     TSegCategories::Enum seg_category;
+    std::string salon_op_type;
     std::string trfer_airp;
     std::string trfer_airline;
     int airp_terminal;
