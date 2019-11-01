@@ -16,6 +16,10 @@ class TSalonOpType {
                 l.push_back(std::make_pair("LAYERSPROTECT",     "Резервирование"));
                 l.push_back(std::make_pair("LAYERSSMOKE",       "Место для курящих"));
                 l.push_back(std::make_pair("LAYERSUNCOMFORT",   "Неудобные места"));
+                l.push_back(std::make_pair("WEB_TARIFF",        "Web-тариф"));
+                l.push_back(std::make_pair("REMS",              "Ремарки"));
+                l.push_back(std::make_pair("RFISC",             "Разметка RFISC"));
+                l.push_back(std::make_pair("SEAT",              "Кресло"));
             }
             return l;
         }

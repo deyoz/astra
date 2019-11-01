@@ -25,6 +25,11 @@ string strip_op_type(const string &op_type)
             prefix == "ADD_"
       )
         result.erase(0, 4);
+
+    for(const auto i: TSalonOpType::pairs()) {
+        if(result.size() != i.first.size() and result.substr(0, i.first.size()) == i.first)
+            result = i.first;
+    }
     return result;
 }
 
