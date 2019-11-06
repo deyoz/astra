@@ -1275,6 +1275,12 @@ int findDepPointId(const std::string& depPort,
                    unsigned flNum,
                    const boost::gregorian::date& depDate)
 {
+    LogTrace(TRACE3) << __FUNCTION__ << " "
+                     << "depPort: " << depPort << "; "
+                     << "airline: " << airline << "; "
+                     << "flt: " << flNum << "; "
+                     << "depDate: " << depDate;
+
     TSearchFltInfo filter = MakeSearchFltFilter(depPort,
                                                 airline,
                                                 flNum,
