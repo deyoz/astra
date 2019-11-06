@@ -22,7 +22,7 @@ $(settcl SIRENA_PORT 8008)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-$(set pax_id $(get_single_pax_id $(get point_dep) …ˆ ˆ‚€))
+$(set pax_id $(get_pax_id $(get point_dep) …ˆ ˆ‚€))
 
 $(OPEN_CHECKIN $(get point_dep))
 
@@ -495,8 +495,8 @@ $(dump_table CRS_PAX)
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
 
-$(set pax1_id $(get_single_pax_id $(get point_dep) …ˆ ‚€‘ˆ‹ˆ‰))
-$(set pax2_id $(get_single_pax_id $(get point_dep) …ˆ€ €€))
+$(set pax1_id $(get_pax_id $(get point_dep) …ˆ ‚€‘ˆ‹ˆ‰))
+$(set pax2_id $(get_pax_id $(get point_dep) …ˆ€ €€))
 
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2981212121212 …ˆ ‚€‘ˆ‹ˆ‰)
@@ -832,7 +832,7 @@ $(KICK_IN)
             <name>€€</name>
             <pers_type>‚‡</pers_type>
             <crew_type/>
-            <seat_no>1B</seat_no>
+            <seat_no>...
             <seat_type/>
             <seats>1</seats>
             <refuse/>
@@ -912,7 +912,7 @@ $(settcl SIRENA_PORT 8008)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-$(set pax_id $(get_single_pax_id $(get point_dep) …ˆ ˆ‚€))
+$(set pax_id $(get_pax_id $(get point_dep) …ˆ ˆ‚€))
 
 $(OPEN_CHECKIN $(get point_dep))
 
@@ -1094,7 +1094,7 @@ $(sql "update DESKS set VERSION='201707-0195750'")
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-$(set pax_id $(get_single_pax_id $(get point_dep) …ˆ ˆ‚€))
+$(set pax_id $(get_pax_id $(get point_dep) …ˆ ˆ‚€))
 
 $(OPEN_CHECKIN $(get point_dep))
 
@@ -1240,7 +1240,7 @@ $(sql "update ROT set H2H=1, H2H_REM_ADDR_NUM=1, H2H_ADDR='1HCNIAPIR', OUR_H2H_A
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
 $(set move_id $(get_move_id $(get point_dep)))
-$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
+$(set pax_id $(get_pax_id $(get point_dep) REPIN IVAN))
 
 $(OPEN_CHECKIN $(get point_dep))
 

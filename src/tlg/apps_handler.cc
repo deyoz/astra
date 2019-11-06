@@ -19,6 +19,7 @@
 #include <serverlib/ourtime.h>
 #include <serverlib/TlgLogger.h>
 #include <edilib/edi_func_cpp.h>
+#include <libtlg/telegrams.h>
 
 #define NICKNAME "ANNA"
 #define NICKTRACE SYSTEM_TRACE
@@ -101,6 +102,33 @@ int main_apps_handler_tcl(int supervisorSocket, int argc, char *argv[])
   return 0;
 }
 
+void handle_apps_tlg(const tlg_info &tlg)
+{
+    hth::HthInfo h2h = {};
+    bool isH2h = false;
+
+    tlgnum_t tlgNum(std::to_string(tlg.id));
+    if (!telegrams::callbacks()->readHthInfo(tlgNum, h2h)) {
+        isH2h = true;
+    }
+
+    LogTlg() << "| TNUM: " << tlg.id
+             << " | GATEWAYNUM: " << tlg.tlgNumStr()
+             << " | DIR: " << "IAPP"
+             << " | ROUTER: " << tlg.sender
+             << " | TSTAMP: " << boost::posix_time::second_clock::local_time() << "\n"
+             << (isH2h ? hth::toStringOnTerm(h2h) + "\n" : "")
+             << appsTextAsHumanReadable(tlg.text);
+
+    if(!processReply(tlg.text))
+      ProgTrace(TRACE1, "Message was not processed!");
+    deleteTlg(tlg.id);
+    callPostHooksBefore();
+    ASTRA::commit();
+    callPostHooksAfter();
+    emptyHookTables();
+}
+
 bool handle_tlg(void)
 {
   bool queue_not_empty=false;
@@ -127,20 +155,24 @@ bool handle_tlg(void)
 
   count=0;
   TlgQry.Execute();
-  for(;!TlgQry.Eof && (count++)<PROC_COUNT(); TlgQry.Next(), ASTRA::rollback())
+  try
   {
-    int id = TlgQry.FieldAsInteger("id");
-    std::string text = getTlgText(id);
-    ProgTrace(TRACE5,"TLG_IN: <%s>", text.c_str());
-    if ( !processReply( text ) )
-      ProgTrace(TRACE5, "Message was not found");
-    deleteTlg(id);
-    callPostHooksBefore();
-    ASTRA::commit();
-    callPostHooksAfter();
-    emptyHookTables();
-  };
-  queue_not_empty=!TlgQry.Eof;
+      for(;!TlgQry.Eof && (count++)<PROC_COUNT(); TlgQry.Next(), ASTRA::rollback())
+      {
+          tlg_info tlgi = {};
+          tlgi.fromDB(TlgQry);
+
+          ProgTrace(TRACE5,"TLG_IN: <%s>", tlgi.text.c_str());
+
+          handle_apps_tlg(tlgi);
+      }
+      queue_not_empty=!TlgQry.Eof;
+  }
+  catch(...)
+  {
+      ProgError(STDLOG, "Unknown error");
+      throw;
+  }
   time_t time_end=time(NULL);
   if (time_end-time_start>1)
     ProgTrace(TRACE5,"Attention! handle_tlg execute time: %ld secs, count=%d",

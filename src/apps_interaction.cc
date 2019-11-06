@@ -357,6 +357,7 @@ bool checkTime( const int point_id, TDateTime& start_time )
 
 void deleteAPPSData( const int pax_id )
 {
+  ProgTrace(TRACE3, "%s for pax_id=%d", __func__, pax_id);
   TQuery Qry(&OraSession);
   Qry.SQLText = "DELETE FROM apps_pax_data WHERE pax_id = :pax_id";
   Qry.CreateVariable("pax_id", otString, pax_id);
@@ -1940,9 +1941,9 @@ void APPSFlightCloseout( const int point_id )
 
 bool IsAPPSAnswText(const std::string& tlg_body)
 {
-  return ( ( tlg_body.find( string("CIRS") + ":" ) != string::npos ) ||
-           ( tlg_body.find( string("CICC") + ":" ) != string::npos ) ||
-           ( tlg_body.find( string("CIMA") + ":" ) != string::npos ) );
+  return ( ( tlg_body.find( string("CIRS:") ) != string::npos ) ||
+           ( tlg_body.find( string("CICC:") ) != string::npos ) ||
+           ( tlg_body.find( string("CIMA:") ) != string::npos ) );
 }
 
 /*
@@ -2169,5 +2170,16 @@ int test_apps_tlg(int argc, char **argv)
   return 0;
 }
 
+std::string appsTextAsHumanReadable(const std::string& apps)
+{
+    std::string text = apps;
+    text = StrUtils::replaceSubstrCopy(text, "\x02", "");
+    text = StrUtils::replaceSubstrCopy(text, "\x03", "\n");
+    return text;
+}
 
-
+std::string humanReadableAsAppsText(const std::string& text)
+{
+    std::string apps = StrUtils::replaceSubstrCopy(text, "\n", "");
+    return "\x02" + apps + "\x03";
+}

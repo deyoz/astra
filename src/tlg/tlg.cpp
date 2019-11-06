@@ -12,6 +12,7 @@
 #include "astra_utils.h"
 #include "tlg_source_edifact.h"
 #include "tlg_source_typeb.h"
+#include "apps_interaction.h"
 #include "qrys.h"
 #include <serverlib/tcl_utils.h>
 #include <serverlib/str_utils.h>
@@ -352,40 +353,42 @@ std::string getTlgText2(const tlgnum_t& tnum)
     return tlgText;
 }
 
-static void logTlgTypeA(const std::string& text)
+static void LogTlgOutTypeA(const std::string& text)
 {
     LogTlg() << TlgHandling::TlgSourceEdifact(text).text2view();
 }
 
-static void logTlgTypeB(const std::string& text)
+static void LogTlgOutTypeB(const std::string& text)
 {
     LogTlg() << text;
 }
 
-static void logTlgTypeAPP(const std::string& text)
-{
-    LogTlg() << text;
+static void LogTlgOutTypeAPP(const std::string& text)
+{   
+    const size_t stxPos = text.find(0x02);
+    LogTlg() << StrUtils::replaceSubstrCopy(text.substr(0, stxPos), "\r", "\\") << "\n"
+             << appsTextAsHumanReadable(text.substr(stxPos + 1));
 }
 
-static void logTlg(const std::string& type, int tlgNum, const std::string& receiver, const std::string& text)
+static void LogTlgOut(const std::string& type, int tlgNum, const std::string& receiver, const std::string& text)
 {
-    if(type != "OUTA" && type != "OUTB" && type != "OAPP")
-        return;
-
     LogTlg() << "| TNUM: " << tlgNum
              << " | DIR: " << type
              << " | ROUTER: " << receiver
              << " | TSTAMP: " << boost::posix_time::second_clock::local_time();
 
-    if(type == "OUTA")
-        logTlgTypeA(text);
-    else if(type == "OUTB")
-        logTlgTypeB(text);
-    else
-        logTlgTypeAPP(text);
+    if(type == "OUTA") {
+        LogTlgOutTypeA(text);
+    } else if(type == "OUTB") {
+        LogTlgOutTypeB(text);
+    } else if(type == "OAPP") {
+        LogTlgOutTypeAPP(text);
+    } else {
+        LogTlg() << text;
+    }
 }
 
-static void logTlg(const TlgHandling::TlgSourceEdifact& tlg)
+static void LogTlgOut(const TlgHandling::TlgSourceEdifact& tlg)
 {
     LogTlg() << "| TNUM: " << *tlg.tlgNum()
              << " | DIR: " << "OUTA"
@@ -395,7 +398,7 @@ static void logTlg(const TlgHandling::TlgSourceEdifact& tlg)
              << tlg.text2view();
 }
 
-static void logTlg(const TlgHandling::TlgSourceTypeB& tlg)
+static void LogTlgOut(const TlgHandling::TlgSourceTypeB& tlg)
 {
     LogTlg() << "| TNUM: " << *tlg.tlgNum()
              << " | DIR: " << "OUTB"
@@ -513,7 +516,7 @@ int sendTlg(const char* receiver,
         // кладём тлг в очередь на отправку
         putTlg2OutQueue(receiver, sender, tp.Type, text, tp.Priority, tlg_num, ttl);
 
-        logTlg(tp.Type, tlg_num, receiver, text);
+        LogTlgOut(tp.Type, tlg_num, receiver, text);
 
         registerHookAfter(queuePriority==qpOutAStepByStep?
                             sendCmdTlgSndStepByStep:
@@ -542,7 +545,7 @@ void sendEdiTlg(TlgHandling::TlgSourceEdifact& tlg,
     {
         tlg.write(); // сохранение телеграммы
         putTlg2OutQueue(tlg, queuePriority, ttl);
-        logTlg(tlg);
+        LogTlgOut(tlg);
         registerHookAfter(queuePriority==qpOutAStepByStep?
                             sendCmdTlgSndStepByStep:
                             sendCmdTlgSnd);
@@ -565,7 +568,7 @@ void sendTpbTlg(TlgHandling::TlgSourceTypeB& tlg)
     {
         tlg.write(); // сохранение телеграммы
         putTlg2OutQueue(tlg, qpOutB, 0/*ttl*/);
-        logTlg(tlg);
+        LogTlgOut(tlg);
         registerHookAfter(sendCmdTlgSnd);
     }
     catch( std::exception &e)

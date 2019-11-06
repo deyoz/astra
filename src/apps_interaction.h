@@ -374,4 +374,7 @@ public:
                   const int error_code, const std::string& error_text ) const;
 };
 
+std::string appsTextAsHumanReadable(const std::string& apps);
+std::string humanReadableAsAppsText(const std::string& text);
+
 #endif // APPS_INTERACTION_H

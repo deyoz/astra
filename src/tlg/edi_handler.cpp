@@ -155,7 +155,7 @@ void handle_edi_tlg(const tlg_info &tlg)
 
     LogTlg() << "| TNUM: " << tlg.id
              << " | GATEWAYNUM: " << tlg.tlgNumStr()
-             << " | DIR: " << "IN"
+             << " | DIR: " << "INA"
              << " | ROUTER: " << tlg.sender
              << " | TSTAMP: " << boost::posix_time::second_clock::local_time()
              << (isTlgPostponed(tlg) ? " | POSTPONED" : "") << "\n"
