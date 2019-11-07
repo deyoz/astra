@@ -332,6 +332,11 @@ static std::vector<std::string> pointIdSppVector()
     while(!cur.fen()) {
         res.push_back(point_id_spp);
     }
+
+    if(res.empty()) {
+        throw EXCEPTIONS::Exception("Empty table: TLG_BINDING!");
+    }
+
     return res;
 }
 
