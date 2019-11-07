@@ -8497,6 +8497,23 @@ void fillMapChangesRFISCsSeats( int point_id,
   }
 }
 
+string strip_op_type(const string &op_type)
+{
+    string result = op_type;
+    string prefix = result.substr(0, 4);
+    if(
+            prefix == "DEL_" or
+            prefix == "ADD_"
+      )
+        result.erase(0, 4);
+
+    for(const auto i: TSalonOpType::pairs()) {
+        if(result.size() != i.first.size() and result.substr(0, i.first.size()) == i.first)
+            result = i.first;
+    }
+    return result;
+}
+
 //only new version TSalonList
 void salonChangesToText( int point_id,
                          const std::vector<TPlaceList*> &oldlist, bool oldpr_craft_lat,
@@ -8650,10 +8667,9 @@ void salonChangesToText( int point_id,
                 pr_lat = oldpr_craft_lat;
             else
                 pr_lat = newpr_craft_lat;
-            PrmEnum salon("salon", "");
+            PrmEnum salon("salon", "", strip_op_type(im->first));
             ReferPlaces( point_id, im->first, im->second.places, salon, pr_lat );
             params << salon;
-            to_stat_salon(point_id, salon, im->first);
           }
         }
     }
