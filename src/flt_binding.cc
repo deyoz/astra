@@ -670,8 +670,6 @@ std::pair<int, bool> TFltInfo::getPointId(TBindType bind_type) const
     sql +=
     "END; \n";
 
-  LogTrace(TRACE3) << "sql=" << sql;
-
   Qry.SQLText = sql;
   Qry.CreateVariable("airline", otString, airline);
   Qry.CreateVariable("flt_no", otInteger, (int)flt_no);
