@@ -254,7 +254,6 @@ void createXMLRemStat(const TStatParams &params, const TRemStat &RemStat, const 
 
     xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
     xmlNodePtr rowNode;
-    ostringstream buf;
     for(TRemStat::iterator i = RemStat.begin(); i != RemStat.end(); i++) {
         rowNode = NewTextChild(rowsNode, "row");
         // АП рег

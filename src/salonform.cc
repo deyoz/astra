@@ -693,7 +693,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                         salon_changes, cBase && comp_id != -2);
   TReqInfo::Instance()->LocaleToLog(lexema_id, params, evtFlt, trip_id);
   for (std::deque<LEvntPrm*>::const_iterator iter=salon_changes.begin(); iter != salon_changes.end(); iter++) {
-      TReqInfo::Instance()->LocaleToLog("EVT.SALON_CHANGES", LEvntPrms() << *(dynamic_cast<PrmEnum*>(*iter)), evtFlt, trip_id);
+      TReqInfo::Instance()->LocaleToLog("EVT.SALON_CHANGES", LEvntPrms() << *(dynamic_cast<PrmEnum*>(*iter)), evtFlt, (*iter)->get_sub_type(), trip_id);
   }
   // конец перечитки
   SALONS2::check_diffcomp_alarm( trip_id );

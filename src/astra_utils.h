@@ -51,6 +51,7 @@ struct TLogLocale {
     TDateTime ev_time;
     int ev_order;
     ASTRA::TEventType ev_type;
+    std::string sub_type;
     std::string lexema_id;
     LEvntPrms prms;
     int id1,id2,id3;
@@ -63,6 +64,7 @@ struct TLogLocale {
       ev_time=ASTRA::NoExists;
       ev_order=ASTRA::NoExists;
       ev_type=ASTRA::evtUnknown;
+      sub_type.clear();
       lexema_id.clear();
       prms.clearPrms();
       id1=ASTRA::NoExists;
@@ -469,6 +471,7 @@ class TReqInfo
     void Initialize( const std::string &city );
     void Initialize( TReqInfoInitData &InitData );
     void LocaleToLog(const std::string &vlexema, ASTRA::TEventType ev_type, int id1 = ASTRA::NoExists, int id2 = ASTRA::NoExists, int id3 = ASTRA::NoExists);
+    void LocaleToLog(const std::string &vlexema, const LEvntPrms &prms, ASTRA::TEventType ev_type, const std::string &sub_type, int id1 = ASTRA::NoExists, int id2 = ASTRA::NoExists, int id3 = ASTRA::NoExists);
     void LocaleToLog(const std::string &vlexema, const LEvntPrms &prms, ASTRA::TEventType ev_type, int id1 = ASTRA::NoExists, int id2 = ASTRA::NoExists, int id3 = ASTRA::NoExists);
     void LocaleToLog(TLogLocale &msg);
     void setPerform();
