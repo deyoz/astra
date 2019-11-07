@@ -5,6 +5,7 @@
 #include "astra_consts.h"
 #include "astra_elems.h"
 #include "rfisc.h"
+#include "sirena_exchange.h"
 #include "date_time.h"
 
 
@@ -198,6 +199,9 @@ class SvcEmdCost
     void setSvcEmdCost( const SvcEmdCost& _cost ) {
       SvcEmdCost::operator = (_cost);
     }
+    float getCost() {
+      return cost;
+    }
 };
 
 class SvcEmdSvcsReq
@@ -246,15 +250,25 @@ class SvcEmdSvcsAns: public std::vector<SvcValue>
     }
 };
 
+struct PointGrpPaxs
+{
+  int point_id;
+  int grp_id;
+  std::map<int,int> paxs; // first - crs_pax_id, second - pax_key_id - ид. пасс по сквозному маршруту взятому с первого сегмента
+  PointGrpPaxs(int vpoint_id,int vgrp_id) {
+    point_id = vpoint_id;
+    grp_id = vgrp_id;
+  }
+};
+
 class SegsPaxs
 {
   private:
-    std::map<int,int> segs; //seg_no,point_id
-    std::map<int,std::set<int>> items;
+    std::map<int,PointGrpPaxs> segs; //key=segno
   public:
     void fromDB(int grp_id, int point_dep);
-    void getPaxs(std::map<int,std::set<int>>& _items) {
-      _items = items;
+    void getPaxs(std::map<int,PointGrpPaxs>& _items) {
+      _items = segs;
     }
     bool checkTrferNum( int trfer_num ) {
       return ( segs.find(trfer_num) != segs.end() );
@@ -290,6 +304,7 @@ class TPriceRFISCList: public std::map<TPaxSegRFISCKey, TPriceServiceItem>, publ
   private:
     std::string surname;
     BASIC::date_time::TDateTime time_create;
+    std::string error_code, error_message;
   public:
     void clear() {
       SvcEmdRegnum::clear();
@@ -297,6 +312,9 @@ class TPriceRFISCList: public std::map<TPaxSegRFISCKey, TPriceServiceItem>, publ
       SvcEmdCost::clear();
       SvcEmdTimeout::clear();
       std::map<TPaxSegRFISCKey, TPriceServiceItem>::clear();
+      surname.clear();
+      error_code.clear();
+      error_message.clear();
     }
     void setSurname( const std::string& _surname ) {
       surname=_surname;
@@ -305,6 +323,17 @@ class TPriceRFISCList: public std::map<TPaxSegRFISCKey, TPriceServiceItem>, publ
       return surname;
     }
     void setServices( const TPaidRFISCList& list );
+    void setError( const SirenaExchange::TExchange& ex ) {
+      error_code = ex.error_code;
+      error_message = ex.error_message;
+    }
+    std::string getErrorMessage() {
+      return error_message;
+    }
+
+    std::string getErrorCode() {
+      return error_code;
+    }
 
     TPriceRFISCList();
     bool notInit() {

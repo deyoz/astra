@@ -16,6 +16,7 @@
 #include "term_version.h"
 #include "date_time.h"
 #include "serverlib/xml_stuff.h" // для xml_decode_nodelist
+//#include "sberbank.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/slogger.h"
@@ -112,7 +113,7 @@ class Passengers: public std::vector<Passenger> {
           return;
         }
       }
-      throw EXCEPTIONS::Exception( "passenger not found, id=" + id );
+      throw EXCEPTIONS::Exception( "passenger not found, id=%s", id );
     }
 };
 
@@ -141,12 +142,13 @@ class Segments: public std::vector<Segment> {
       if ( node != nullptr ) {
         node = node->children;
         int trfer_num = 0;
-        while ( node != nullptr &&
-                std::string("segment") == (const char*)node->name ) {
-          Segment s;
-          s.fromXML(node,trfer_num);
-          emplace_back(s);
-          trfer_num++;
+        while ( node != nullptr ) {
+          if ( std::string("segment") == (const char*)node->name ) {
+            Segment s;
+            s.fromXML(node,trfer_num);
+            emplace_back(s);
+            trfer_num++;
+          }
           node = node->next;
         }
       }
@@ -158,7 +160,7 @@ class Segments: public std::vector<Segment> {
           return;
         }
       }
-      throw EXCEPTIONS::Exception( "segment not found, id=" + id );
+      throw EXCEPTIONS::Exception( "segment not found, id=%s", id );
     }
 };
 
@@ -217,7 +219,7 @@ class Tickets: public std::vector<Ticket> {
           return;
         }
       }
-      throw EXCEPTIONS::Exception( "ticket not found, pass_id=" + pass_id + ",seg_id=" + seg_id );
+      throw EXCEPTIONS::Exception( "ticket not found, pass_id=%s, seg_id=%s", pass_id, seg_id );
     }
     bool get( const std::string& svc_id, Ticket &ticket ) {
       ticket.clear();
@@ -246,7 +248,7 @@ class Price {
     std::string validating_company;
     float total;
     void fromXML( xmlNodePtr node ) {
-      accode = NodeAsString( "@accode", node );
+      accode = NodeAsString( "@accode", node, "" );
       baggage = NodeAsString( "@baggage", node );
       code = NodeAsString( "@code", node );
       currency = NodeAsString( "@currency", node );
@@ -343,8 +345,8 @@ class Order: public SvcEmdRegnum, public SvcEmdSvcsAns
     }
     void toPrice( int grp_id, int point_dep, TPriceRFISCList &svcList ) {
       PaxsNames paxsNames;
-      SegsPaxs segPaxs;
-      segPaxs.fromDB(grp_id,point_dep);
+  //    SegsPaxs segPaxs;
+//      segPaxs.fromDB(grp_id,point_dep);
       for ( auto &p : prices ) {
         if ( p.svc_id.empty() ) { //тарфикация не задана - не смогли оценить
           continue;
@@ -354,13 +356,13 @@ class Order: public SvcEmdRegnum, public SvcEmdSvcsAns
         SvcEmdSvcsAns::getSvcValue( p.svc_id, svc );
         LogTrace(TRACE5) << "svc_id=" << svc.id << ",pass_id=" << svc.pass_id << ",seg_id=" << svc.seg_id;
         if ( svc.pass_id !=  p.passenger_id )
-          throw EXCEPTIONS::Exception( "Invalid data XML pass_id from passengers not equal pass_id from svcs, passengers.pass_id=" + p.passenger_id + ",svcs.pass_id=" + svc.pass_id );
+          throw EXCEPTIONS::Exception( "Invalid data XML pass_id from passengers not equal pass_id from svcs, passengers.pass_id=%s,svcs.pass_id=%s", p.passenger_id,svc.pass_id );
         Ticket ticket;
         tickets.get(svc.pass_id,svc.seg_id,ticket);
         if ( ticket.pass_id !=  p.passenger_id )
-          throw EXCEPTIONS::Exception( "Invalid data XML pass_id from passengers not equal pass_id from tickets, passengers.pass_id=" + p.passenger_id + ",tickets.pass_id=" + ticket.pass_id );
+          throw EXCEPTIONS::Exception( "Invalid data XML pass_id from passengers not equal pass_id from tickets, passengers.pass_id=%s,tickets.pass_id=%s", p.passenger_id, ticket.pass_id );
         if ( ticket.seg_id !=  svc.seg_id )
-          throw EXCEPTIONS::Exception( "Invalid data XML seg_id from svcs not equal seg_id from tickets, svcs.seg_id=" + svc.seg_id + ",tickets.seg_id=" + ticket.seg_id );
+          throw EXCEPTIONS::Exception( "Invalid data XML seg_id from svcs not equal seg_id from tickets, svcs.seg_id=%s,tickets.seg_id=%s", svc.seg_id, ticket.seg_id );
       }
       for ( auto &p : *this ) {
         LogTrace(TRACE5) << p.pass_id << " " << p.status;
@@ -370,21 +372,24 @@ class Order: public SvcEmdRegnum, public SvcEmdSvcsAns
         Ticket t;
         tickets.get( p.pass_id, p.seg_id, t );
         CheckIn::TSimplePaxList paxs_list;
-        CheckIn::Search search(paxCheckIn);
+        CheckIn::Search search(paxPnl);//!!!paxCheckIn);
         int coupon;
         if ( StrToInt(t.ticket_cpn.c_str(), coupon) == EOF ) {
-          throw EXCEPTIONS::Exception( "Invalid data XML counpon no=" + t.ticket_cpn );
+          throw EXCEPTIONS::Exception( "Invalid data XML counpon no=%s", t.ticket_cpn );
         }
         search(paxs_list, CheckIn::TPaxTknItem(t.ticknum,coupon));
-        LogTrace(TRACE5)<<paxs_list.size();
+        LogTrace(TRACE5)<<paxs_list.size() << ",ticknum=" <<t.ticknum<<",coupon="<<coupon;
 
         if ( paxs_list.size() != 1 ) {
            throw AstraLocale::UserException("MSG.ETICK.ERROR.TICKET_NOT FOUND");
         }
         if ( paxs.find(p.pass_id) != paxs.end() ) {
-          if ( paxs[p.pass_id] != paxs_list.begin()->id ) {
+          /*
+           * !!!
+           * if ( paxs[p.pass_id] != paxs_list.begin()->id ) {
+            LogTrace(TRACE5)<<p.pass_id<<"="<<paxs[p.pass_id]<<",paxs_list.begin()->id="<<paxs_list.begin()->id;
             throw EXCEPTIONS::Exception( "Invalid data XML astra pax_id not identical sirena pax_id" );
-          }
+          }*/
         }
         else {
           paxs.insert( make_pair(p.pass_id,paxs_list.begin()->id) );
@@ -392,9 +397,11 @@ class Order: public SvcEmdRegnum, public SvcEmdSvcsAns
         }
       }
       for ( auto &p : segments ) {
-        if ( !segPaxs.checkTrferNum(p.trfer_num) ) {
-          throw EXCEPTIONS::Exception( "Invalid data XML sirena trfer_num not found in astra routes, trfer_num=" + p.trfer_num );
-        }
+/*
+ * !!!        if ( !segPaxs.checkTrferNum(p.trfer_num) ) { //pfhtubcnhbhjdfyyst
+          throw EXCEPTIONS::Exception( "Invalid data XML sirena trfer_num not found in astra routes, trfer_num=%d", p.trfer_num );
+        }*/
+        LogTrace(TRACE5) << "id="<<p.id <<",trfer_num=" << p.trfer_num;
         trfer_nums[p.id] = p.trfer_num;
       }
       for ( auto &p : prices ) {
@@ -407,11 +414,11 @@ class Order: public SvcEmdRegnum, public SvcEmdSvcsAns
         SvcValue svc;
         SvcEmdSvcsAns::getSvcValue(p.svc_id,svc);
         if ( paxs.find(svc.pass_id) == paxs.end() ) {
-          throw EXCEPTIONS::Exception( "Invalid data XML astra pax_id not identical sirena pax_id=" + svc.pass_id );
+          throw EXCEPTIONS::Exception( "Invalid data XML astra pax_id not identical sirena pax_id=%s", svc.pass_id.c_str() );
         }
         key.pax_id = paxs[svc.pass_id];
         if ( trfer_nums.find(svc.seg_id) == trfer_nums.end() ) {
-          throw EXCEPTIONS::Exception( "Invalid data XML sirena seg_num not found in astra routes, seg_num=" + svc.seg_id );
+          throw EXCEPTIONS::Exception( "Invalid data XML sirena seg_num not found in astra routes, seg_num=%s", svc.seg_id.c_str() );
         }
         key.trfer_num = trfer_nums[svc.seg_id];
         key.RFISC = svc.rfisc;
@@ -472,7 +479,7 @@ class Order: public SvcEmdRegnum, public SvcEmdSvcsAns
 class CheckInGetPNRReq: public SWC::SWCExchange
 {
   private:
-    std::map<int,std::set<int>> params; // point_id,pax_id
+    std::map<int,PointGrpPaxs> params; // seg_no,pax_id
   public:
     virtual std::string exchangeId() const {
       return "check_in_get_pnr";
@@ -496,13 +503,15 @@ class CheckInGetPNRReq: public SWC::SWCExchange
       xmlNodePtr n = NewTextChild( node, exchangeId().c_str() );
       for ( const auto &sp : params ) {
         xmlNodePtr segNode = NewTextChild(n,"segment");
-        SetProp( segNode, "point_id", sp.first );
-        for ( const auto &p : sp.second ) {
-          SetProp( NewTextChild(segNode,"passenger"), "crs_pax_id", p );
+        SetProp( segNode, "point_id", sp.second.point_id );
+        for ( const auto &p : sp.second.paxs ) {
+          xmlNodePtr n = NewTextChild(segNode,"passenger");
+          SetProp( n, "crs_pax_id", p.first );
+          SetProp( n, "pax_key_id", p.second );
         }
       }
     }
-    CheckInGetPNRReq( const std::map<int,std::set<int>>& _params ) : params(_params) {}
+    CheckInGetPNRReq( const std::map<int,PointGrpPaxs>& _params ) : params(_params) {}
     ~CheckInGetPNRReq() {}
 };
 
@@ -785,7 +794,6 @@ class SvcEmdIssueConfirmRes: public SWC::SWCExchange, public SvcEmdRegnum, publi
         tickets.get( s.id, t );
         s.ticket_cpn = t.ticket_cpn;
         s.ticknum = t.ticknum;
-        LogTrace(TRACE5)<<"ticknum=" <<s.ticknum << "/" << s.ticket_cpn;
       }
     }
     ~SvcEmdIssueConfirmRes(){}
@@ -1005,7 +1013,7 @@ void ServiceEvalInterface::Evaluation(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   TPriceRFISCList prices;
   prices.fromContextDB(grp_id);
   if (prices.notInit() || !pr_reseat ) {
-    std::map<int,std::set<int>> params;
+    std::map<int,PointGrpPaxs> params;
     CheckIn::TSimplePaxGrpItem grpItem;
     if ( !grpItem.getByGrpId(grp_id) ) {
       tst();
@@ -1079,18 +1087,13 @@ void ServiceEvalInterface::response_order(const std::string& exchangeId,xmlNodeP
 
   TPriceRFISCList prices;
   prices.fromContextDB(grp_id);
-  tst();
   TPriceRFISCList list;
   res.toPrice(grp_id,grpItem.point_dep,list);
   prices.synchFromSirena(list);
-  tst();
   prices.toContextDB(grp_id);
-  tst();
   xmlNodePtr node = NewTextChild(resNode,"prices");
   NewTextChild(node,"grp_id",grp_id);
-  tst();
   prices.toXML(NewTextChild( node, "services" ));
-  tst();
 }
 
 void ServiceEvalInterface::Filtered(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1163,15 +1166,19 @@ void ServiceEvalInterface::backPaid(const std::string& exchangeId,xmlNodePtr req
       LogTrace(TRACE5) << "parse " << res->exchangeId();
       res->parseResponse(externalSysResNode);
       if ( res->error() ) {
-        throw EXCEPTIONS::Exception("error_message=%s, error_code=%s", res->error_message,res->error_code);
+        throw EXCEPTIONS::Exception("error_message=%s, error_code=%s", res->error_message.c_str(),res->error_code.c_str());
       }
       tst();
     }
     catch(EXCEPTIONS::Exception &e) {
       LogError(STDLOG) << e.what();
+      res->error_message = e.what(); //!!! зачем пользователю знать текст ошибки, наверное надо: Ошибка работы программы
+      prices.setError(*res);
     }
     catch(...) {
+      res->error_message = AstraLocale::getLocaleText( "MSG.SWC_CONNECT_ERROR" ); //???
       LogError(STDLOG) << __func__ <<  " some error";
+      prices.setError(*res);
     }
     prices.setStatusDirect(res->exchangeId() == SvcEmdVoidRes::getExchangeId()?TPriceRFISCList::STATUS_DIRECT_ISSUE_CONFIRM:TPriceRFISCList::STATUS_DIRECT_ISSUE_ANSWER,TPriceRFISCList::STATUS_DIRECT_ORDER);
     prices.toContextDB(grp_id);
@@ -1191,11 +1198,13 @@ void ServiceEvalInterface::backPaid(const std::string& exchangeId,xmlNodePtr req
        !prices.haveStatusDirect( TPriceRFISCList::STATUS_DIRECT_ISSUE_ANSWER ) ) {
     LogTrace(TRACE5) << __func__ << " rollback STATUS_DIRECT_ISSUE_CONFIRM and STATUS_DIRECT_ISSUE_ANSWER";
     prices.toContextDB(grp_id,true);
-    prices.fromContextDB(grp_id);
+    TPriceRFISCList prices1;
+    //prices.fromContextDB(grp_id);
     xmlNodePtr node = NewTextChild(resNode,"prices");
     NewTextChild(node,"grp_id",grp_id);
-    prices.toXML(NewTextChild( node, "services" ));
-    AstraLocale::showErrorMessage("MSG.EMD.PAID_ERROR_REFRESH_DATA");
+    prices1.toXML(NewTextChild( node, "services" )); //пустой запрос
+    AstraLocale::showErrorMessage("MSG.EMD.PAID_ERROR_REFRESH_DATA",
+                                  LParams() << LParam("error", prices.getErrorMessage()) << LParam("code",prices.getErrorCode()) );
   }
 }
 
@@ -1258,7 +1267,7 @@ void ServiceEvalInterface::PayDocParamsRequest(XMLRequestCtxt *ctxt, xmlNodePtr 
   NewTextChild( itemNode, "Requred", 1 );
   NewTextChild( itemNode, "Name", "Edit1" );
 
-  itemNode = NewTextChild( node, "item" );
+  /*itemNode = NewTextChild( node, "item" );
   NewTextChild( itemNode, "Caption", "Фиг знает что2" );
   NewTextChild( itemNode, "MaxLength", 5 );
   NewTextChild( itemNode, "CharCase", "LowerCase" );
@@ -1272,7 +1281,7 @@ void ServiceEvalInterface::PayDocParamsRequest(XMLRequestCtxt *ctxt, xmlNodePtr 
   NewTextChild( itemNode, "CharCase", "LowerCase" );
   NewTextChild( itemNode, "Width", 300 );
   NewTextChild( itemNode, "Requred", 1 );
-  NewTextChild( itemNode, "Name", "Edit3" );
+  NewTextChild( itemNode, "Name", "Edit3" );*/
 
 }
 
@@ -1295,7 +1304,7 @@ void ServiceEvalInterface::continuePaidRequest(xmlNodePtr reqNode, xmlNodePtr re
     prices.setStatusDirect(TPriceRFISCList::STATUS_DIRECT_ISSUE_CONFIRM,TPriceRFISCList::STATUS_DIRECT_PAID);
     prices.toDB(grp_id);
     prices.SvcEmdPayDoc::clear();
-    prices.SvcEmdCost::clear();
+    //prices.SvcEmdCost::clear();
     prices.SvcEmdTimeout::clear();
     prices.toContextDB(grp_id);
     EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);
@@ -1319,7 +1328,22 @@ void ServiceEvalInterface::AfterPaid(xmlNodePtr reqNode, xmlNodePtr resNode)
   xmlNodePtr node = NewTextChild(resNode,"prices");
   NewTextChild(node,"grp_id",grp_id);
   prices.toXML(NewTextChild( node, "services" ));
+  NewTextChild(resNode,"pr_print");
+  SetProp( NewTextChild(resNode,"POSExchange"), "key", grp_id );
+
   AstraLocale::showMessage( "MSG.EMD.PAID_FINISHED" );
+}
+
+void checkRequestErrorAndRollback( int grp_id, const SirenaExchange::TExchange& ex )
+{
+  if ( !ex.error() ) {
+    return;
+  }
+  TPriceRFISCList prices;
+  prices.fromContextDB(grp_id);
+  prices.setError(ex);
+  prices.toContextDB(grp_id);
+  throw EXCEPTIONS::Exception("rollback pay error_message=%s, error_code=%s", ex.error_message.c_str(),ex.error_code.c_str());
 }
 
 void ServiceEvalInterface::response_svc_emd_issue_query(const std::string& exchangeId,xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode)
@@ -1329,14 +1353,12 @@ void ServiceEvalInterface::response_svc_emd_issue_query(const std::string& excha
   try {
     LogTrace(TRACE5) << __func__;
     res.parseResponse(externalSysResNode);
-    if ( res.error() ) {
-      //res.errorToXML(resNode); // сообщение на экран
-      throw EXCEPTIONS::Exception("error_message=%s, error_code=%s", res.error_message,res.error_code);
-    }
     int grp_id=NodeAsInteger("grp_id",reqNode);
+    checkRequestErrorAndRollback( grp_id, res );
     TPriceRFISCList prices;
     prices.fromContextDB(grp_id);
     prices.setStatusDirect(TPriceRFISCList::STATUS_DIRECT_ISSUE_QUERY,TPriceRFISCList::STATUS_DIRECT_ISSUE_ANSWER);
+    prices.setSvcEmdCost( res.getSvcEmdCost() );
     prices.toContextDB(grp_id);
     SvcEmdIssueConfirmReq reqConfirm( SvcEmdRegnum(res.getRegnum()),  prices.getSvcEmdPayDoc(), res.getSvcEmdCost() );
 
@@ -1363,11 +1385,8 @@ void ServiceEvalInterface::response_svc_emd_issue_confirm(const std::string& exc
      return;
     }*/
     res.parseResponse(externalSysResNode);
-    if ( res.error() ) {
-      //res.errorToXML(resNode);
-      throw EXCEPTIONS::Exception("error_message=%s, error_code=%s", res.error_message,res.error_code);
-    }
     int grp_id=NodeAsInteger("grp_id",reqNode);
+    checkRequestErrorAndRollback( grp_id, res );
     TPriceRFISCList prices;
     prices.fromContextDB(grp_id);
     prices.synchFromSirena(res.getSvcEmdSvcsAns());
@@ -1399,6 +1418,45 @@ void ServiceEvalInterface::BeforeResponseHandle(int reqCtxtId, xmlNodePtr& reqNo
   exchangeId = NodeAsString( exchangeIdNode );
   RemoveNode(exchangeIdNode);
 }
+
+void ServiceEvalInterface::BeforePaid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  //NewTextChild(resNode,"POSExchange"); //!!!
+}
+
+void ServiceEvalInterface::AfterPaid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  tst();
+}
+
+void ServiceEvalInterface::exchange(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+/*  LogTrace(TRACE5) << reqNode->name;
+  sberbank s;
+  xmlNodePtr node = NewTextChild(resNode,"exchange");
+  std::string modeStr = NodeAsString( "mode", reqNode );
+  int grp_id = NodeAsInteger("@key",reqNode);
+  LogTrace(TRACE5) << "grp_id=" << grp_id << ",mode=" << modeStr;
+  if ( modeStr == "posProcess" ) {
+    LogTrace(TRACE5) << "pos finished : request=???";
+    NewTextChild(node,"mode","posStop");
+    return;
+  }
+  if ( modeStr == "posStart" ) {
+    TPriceRFISCList prices;
+    prices.fromContextDB(grp_id);
+    SvcEmdCost cost  = prices.getSvcEmdCost();
+    LogTrace(TRACE5) << "cost=" << cost.getCost();
+    node = NewTextChild(node,"commands");
+    node = NewTextChild(node,"command");
+    NewTextChild( node, "name", "pay" );
+    NewTextChild( node, "request", s.pay(cost.getCost()));
+    prices.SvcEmdCost::clear();
+    prices.toContextDB(grp_id);
+    return;
+  }*/
+}
+
 
 /*
  *

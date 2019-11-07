@@ -464,6 +464,8 @@ void TPriceRFISCList::fromContextXML(xmlNodePtr node)
   }
   SvcEmdRegnum::fromXML(node,SvcEmdRegnum::propStyle);
   surname = NodeAsString("surname",node);
+  error_code = NodeAsString("error_code",node,"");
+  error_message = NodeAsString("error_message",node,"");
   SvcEmdPayDoc::fromXML(node);
   SvcEmdCost::fromXML(node);
   SvcEmdTimeout::fromXML(node);
@@ -495,6 +497,12 @@ void TPriceRFISCList::toContextXML(xmlNodePtr node,bool checkFormPay) const
   }
   SvcEmdRegnum::toXML(node,SvcEmdRegnum::propStyle);
   NewTextChild(node, "surname", surname);
+  if ( !error_code.empty() ) {
+    NewTextChild(node, "error_code", error_code);
+  }
+  if ( !error_message.empty() ) {
+    NewTextChild(node, "error_message", error_message);
+  }
   SvcEmdPayDoc::toXML(node);
   SvcEmdCost::toXML(node);
   SvcEmdTimeout::toXML(node);
@@ -605,6 +613,7 @@ bool TPriceRFISCList::synchFromSirena(const TPriceRFISCList& list, bool only_del
     for ( const auto& nitem : list ) {
       TPriceRFISCList::iterator oitem;
       if ( (oitem = find( nitem.first )) == end() ) { //new
+        LogTrace(TRACE5) << "clear list_id AND view_name!!";
         insert( std::make_pair( nitem.first, nitem.second ) );
       }
       else { //update
@@ -693,16 +702,16 @@ bool TPriceRFISCList::getNextIssueQueryGrpEMD( std::vector<std::string> &svcs)
       if ( service_type == TServiceType::Enum::Unknown ) {
         service_type = oitem.second.service_type;
       }
-      if ( service_type == oitem.second.service_type ) {
+      //!!!if ( service_type == oitem.second.service_type ) {
         svcs.push_back( osvc.first );
         osvc.second.status_direct = TPriceRFISCList::STATUS_DIRECT_ISSUE_QUERY;
         LogTrace(TRACE5) << __func__ << " " << osvc.first;
-        break; //only one at step
-      }
+       //!!! break; //only one at step
+      //!!!}
     }
-    if ( !svcs.empty() ) { //по одному
+/*!!!    if ( !svcs.empty() ) { //по одному
       break;
-    }
+    }*/
   }
   return !svcs.empty();
 }
@@ -740,43 +749,83 @@ bool TPriceRFISCList::filterFromTerminal(const TPriceRFISCList& list)
   return res;
 }
 
+int getKeyPaxId( int pax_id, TQuery &Qry )
+{
+  Qry.SetVariable("pax_id",pax_id);
+  Qry.Execute();
+  int res = Qry.Eof?ASTRA::NoExists:Qry.FieldAsInteger("pax_id");
+  if (res ==ASTRA::NoExists) { //!!!
+    res = pax_id;
+  }
+  return res;
+}
+
 
 void SegsPaxs::fromDB(int grp_id, int point_dep)
 {
   segs.clear();
-  items.clear();
   TCkinRoute tckin_route;
   tckin_route.GetRouteAfter(grp_id, crtNotCurrent, crtOnlyDependent);
   int seg_no = 0;
-  LogTrace(TRACE5) << grp_id << "," << point_dep;
-  segs.insert(std::make_pair(seg_no,point_dep));
-  for ( auto p : tckin_route ) {
+  segs.insert(std::make_pair(seg_no,PointGrpPaxs(point_dep,grp_id)));
+  for ( auto p : tckin_route ) { //пробег по маршруту и группам
+    tst();
     seg_no++;
-    segs.insert(std::make_pair(seg_no,p.point_dep));
-    LogTrace(TRACE5) << seg_no << "=" << p.point_dep;
+    segs.insert(std::make_pair(seg_no,PointGrpPaxs(p.point_dep,p.grp_id)));
+    LogTrace(TRACE5) << seg_no << "=" << p.point_dep << ",grp_id=" << p.grp_id;
   }
-  TPaidRFISCList PaidRFISCList;
-  PaidRFISCList.fromDB(grp_id,true);
-  for ( auto item : PaidRFISCList ) {
-    if (!item.second.service_quantity_valid()) {
-      continue;
-    }
-    TPaidRFISCItem tmpItem=item.second;
-    TPaxSegRFISCKey p=item.first;
+  //начитка пассажиров
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT pax.ticket_no, pax.coupon_no, pax.ticket_rem, pax.ticket_confirm, "
+    "       pax.grp_id, pax.pax_id "
+    "FROM pax, tckin_pax_grp, "
+    "     (SELECT tckin_pax_grp.tckin_id, "
+    "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
+    "      FROM pax, tckin_pax_grp "
+    "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.pax_id=:pax_id) p "
+    "WHERE tckin_pax_grp.tckin_id=p.tckin_id AND "
+    "      pax.grp_id=tckin_pax_grp.grp_id AND "
+    "      tckin_pax_grp.first_reg_no-pax.reg_no=p.distance AND "
+    "      tckin_pax_grp.seg_no=1";
+  Qry.DeclareVariable("pax_id",otInteger);
+  for ( auto s=segs.begin(); s!=segs.end(); ) {
+    LogTrace(TRACE5) << s->first << "=(point_id=" << s->second.point_id << ",grp_id=" << s->second.grp_id << ")";
+    TPaidRFISCList PaidRFISCList;
+    PaidRFISCList.fromDB(s->second.grp_id,true);
+    for ( auto item : PaidRFISCList ) {
+      if (!item.second.service_quantity_valid()) {
+        continue;
+      }
+      TPaidRFISCItem tmpItem=item.second;
+      TPaxSegRFISCKey p=item.first;
+      if ( p.trfer_num != 0 ) { // используем только первый пункт, т.к. и так бежим по маршруту
+        LogTrace(TRACE5) << "p.trfer_num=" << p.trfer_num << ",point_id =" << s->second.point_id << ",pax_id=" << p.pax_id;
+        continue;
+      }
     //LogTrace(TRACE5)<<tmpItem.service_quantity<<tmpItem.need;
-    if (tmpItem.service_quantity>0 && // service_quantity - общее кол-во услуг
-        tmpItem.need != ASTRA::NoExists &&
-        tmpItem.need>0) // need - кол-во платить, paid -- paid - платные услуги
-      {
-        if ( segs.find( p.trfer_num ) == segs.end() ) {
-          throw AstraLocale::UserException("MSG.PASSENGER.NOT_FOUND.REFRESH_DATA"); //!!!
-        }
-        if ( items[ segs[p.trfer_num] ].find(p.pax_id) == items[ segs[p.trfer_num] ].end() ) {
-          items[ segs[p.trfer_num] ].insert(p.pax_id);
+      if (tmpItem.service_quantity>0 && // service_quantity - общее кол-во услуг
+          tmpItem.need != ASTRA::NoExists &&
+          tmpItem.need>0) // need - кол-во платить, paid -- paid - платные услуги
+        {
+          if ( segs.find( p.trfer_num ) == segs.end() ) {
+            throw AstraLocale::UserException("MSG.PASSENGER.NOT_FOUND.REFRESH_DATA"); //!!!
+          }
+          if ( s->second.paxs.find(p.pax_id) == s->second.paxs.end() ) {
+            s->second.paxs[ p.pax_id ] = getKeyPaxId( p.pax_id, Qry );
+            LogTrace(TRACE5) << "p.trfer_num=" << p.trfer_num << ",point_id =" << s->second.point_id << ",pax_id=" << p.pax_id;
+          }
         }
       }
-    }
-  if ( items.empty() ) {
+
+      if ( s->second.paxs.empty() ) {
+        segs.erase(s++);
+      }
+      else {
+        ++s;
+      }
+  }
+  if ( segs.empty() ) {
     throw AstraLocale::UserException("MSG.EMD.SERVICES_ALREADY_PAID");
   }
 }
