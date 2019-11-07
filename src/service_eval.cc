@@ -258,7 +258,7 @@ class Price {
       svc_id = NodeAsString( "@svc-id", node, "" ); // тарификация неизвестна
       ticket = NodeAsString( "@ticket", node );
       ticket_cpn = NodeAsString( "@ticket_cpn", node, "" );
-      validating_company = NodeAsString( "@validating_company", node );
+      validating_company = NodeAsString( "@validating_company", node, "" );
       total = NodeAsFloat( "total", node );
     }
 };
