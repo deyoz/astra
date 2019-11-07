@@ -37,8 +37,9 @@ class TSalonOpTypes: public ASTRA::PairList<std::string, std::string>
 
 const TSalonOpTypes &SalonOpTypes();
 
-struct TSalonStatRow:public TOrderStatItem {
+struct TSalonStatRow {
     int point_id;
+    int ev_order;
     TDateTime scd_out;
     TDateTime time;
     std::string login;
@@ -51,6 +52,7 @@ struct TSalonStatRow:public TOrderStatItem {
     void clear()
     {
         point_id = ASTRA::NoExists;
+        ev_order = ASTRA::NoExists;
         scd_out = ASTRA::NoExists;
         time = ASTRA::NoExists;
         login.clear();
@@ -67,9 +69,7 @@ struct TSalonStatRow:public TOrderStatItem {
     {
         if(point_id != val.point_id)
             return point_id < val.point_id;
-        if(time != val.time)
-            return time < val.time;
-        return login < val.login;
+        return ev_order < val.ev_order;
     }
 
     void add_header(std::ostringstream &buf) const;
@@ -78,14 +78,12 @@ struct TSalonStatRow:public TOrderStatItem {
 
 typedef std::multiset<TSalonStatRow> TSalonStat;
 
-template <class T>
 void RunSalonStat(
         const TStatParams &params,
-        T &SalonStat,
-        TPrintAirline &prn_airline
+        TSalonStat &SalonStat
         );
-void createXMLSalonStat(const TStatParams &params, const TSalonStat &SalonStat, const TPrintAirline &prn_airline, xmlNodePtr resNode);
+void createXMLSalonStat(const TStatParams &params, const TSalonStat &SalonStat, xmlNodePtr resNode);
 
-void to_stat_salon(int point_id, const PrmEnum &msg, const std::string &op_type);
+void RunSalonStatFile(const TStatParams &params, TOrderStatWriter &writer);
 
 #endif

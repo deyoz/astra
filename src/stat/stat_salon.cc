@@ -7,16 +7,13 @@
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
 
-template void RunSalonStat(TStatParams const&, TOrderStatWriter&, TPrintAirline&);
-template void RunSalonStat(TStatParams const&, TSalonStat&, TPrintAirline&);
-
 using namespace AstraLocale;
 using namespace BASIC::date_time;
 using namespace std;
 using namespace ASTRA;
 using namespace EXCEPTIONS;
 
-void createXMLSalonStat(const TStatParams &params, const TSalonStat &SalonStat, const TPrintAirline &prn_airline, xmlNodePtr resNode)
+void createXMLSalonStat(const TStatParams &params, const TSalonStat &SalonStat, xmlNodePtr resNode)
 {
     if(SalonStat.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
 
@@ -39,10 +36,6 @@ void createXMLSalonStat(const TStatParams &params, const TSalonStat &SalonStat, 
     SetProp(colNode, "width", 85);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortDateTime);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Тип операции"));
-    SetProp(colNode, "width", 150);
-    SetProp(colNode, "align", TAlignment::LeftJustify);
-    SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Операция"));
     SetProp(colNode, "width", 200);
     SetProp(colNode, "align", TAlignment::LeftJustify);
@@ -61,12 +54,10 @@ void createXMLSalonStat(const TStatParams &params, const TSalonStat &SalonStat, 
         NewTextChild(rowNode, "col", buf.str());
         // Дата вылета
         NewTextChild(rowNode, "col", DateTimeToStr(row.scd_out, "dd.mm.yy"));
-        // LOGIN
+        // Агент
         NewTextChild(rowNode, "col", row.login);
         // Время операции
         NewTextChild(rowNode, "col", DateTimeToStr(row.time, "dd.mm.yy hh:nn"));
-        // Тип операции
-        NewTextChild(rowNode, "col", getLocaleText(row.op_type));
         // Операция
         NewTextChild(rowNode, "col", row.msg);
     }
@@ -129,11 +120,9 @@ void get_points(const TStatParams &params, list<pair<TDateTime, TTripInfo>> &poi
     }
 }
 
-template <class T>
 void RunSalonStat(
         const TStatParams &params,
-        T &SalonStat,
-        TPrintAirline &prn_airline
+        TSalonStat &SalonStat
         )
 {
     list<pair<TDateTime, TTripInfo>> points;
@@ -176,6 +165,7 @@ void RunSalonStat(
 
         Qry->get().Execute();
         if(not Qry->get().Eof) {
+            int col_ev_order = Qry->get().FieldIndex("ev_order");
             int col_time = Qry->get().FieldIndex("time");
             int col_login = Qry->get().FieldIndex("ev_user");
             int col_op_type = Qry->get().FieldIndex("sub_type");
@@ -183,6 +173,7 @@ void RunSalonStat(
             for(; not Qry->get().Eof; Qry->get().Next()) {
                 TSalonStatRow row;
                 row.point_id = point.second.point_id;
+                row.ev_order = Qry->get().FieldAsInteger(col_ev_order);
                 row.scd_out = point.second.scd_out;
                 row.time = Qry->get().FieldAsDateTime(col_time);
                 row.login = Qry->get().FieldAsString(col_login);
@@ -202,17 +193,47 @@ void RunSalonStat(
     }
 }
 
-void TSalonStatRow::add_header(ostringstream &buf) const
-{
-}
-
-void TSalonStatRow::add_data(ostringstream &buf) const
-{
-}
-
 const TSalonOpTypes &SalonOpTypes()
 {
     static TSalonOpTypes opTypes;
     return opTypes;
 }
 
+struct TSalonStatCombo: public TOrderStatItem {
+    const TSalonStatRow &row;
+    TSalonStatCombo(const TSalonStatRow &row): row(row) {}
+    void add_header(ostringstream &buf) const;
+    void add_data(ostringstream &buf) const;
+};
+
+void TSalonStatCombo::add_header(ostringstream &buf) const
+{
+    buf
+        << getLocaleText("Рейс") << delim
+        << getLocaleText("Дата вылета") << delim
+        << getLocaleText("Агент") << delim
+        << getLocaleText("Время операции") << delim
+        << getLocaleText("Операция") << endl;
+}
+
+void TSalonStatCombo::add_data(ostringstream &buf) const
+{
+    ostringstream flt;
+    flt
+        << ElemIdToCodeNative(etAirline, row.airline)
+        << setw(3) << setfill('0') << row.flt_no << ElemIdToCodeNative(etSuffix, row.suffix);
+
+    buf
+        << flt.str() << delim
+        << DateTimeToStr(row.scd_out, "dd.mm.yy") << delim
+        << row.login << delim
+        << DateTimeToStr(row.time, "dd.mm.yy hh:nn") << delim
+        << row.msg << endl;
+}
+
+void RunSalonStatFile(const TStatParams &params, TOrderStatWriter &writer)
+{
+    TSalonStat stat;
+    RunSalonStat(params, stat);
+    for(const auto &row: stat) writer.insert(TSalonStatCombo(row));
+}

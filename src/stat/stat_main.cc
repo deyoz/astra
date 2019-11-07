@@ -247,6 +247,9 @@ void create_plain_files(
         case statServicesFull:
             RunServicesFullFile(params, order_writer);
             break;
+        case statSalonFull:
+            RunSalonStatFile(params, order_writer);
+            break;
         default:
             throw Exception("unsupported statType %d", params.statType);
     }
@@ -575,10 +578,9 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         }
         if(params.statType == statSalonFull)
         {
-            TPrintAirline airline;
             TSalonStat SalonStat;
-            RunSalonStat(params, SalonStat, airline);
-            createXMLSalonStat(params,SalonStat, airline, resNode);
+            RunSalonStat(params, SalonStat);
+            createXMLSalonStat(params,SalonStat, resNode);
         }
         if(params.statType == statRem)
         {
