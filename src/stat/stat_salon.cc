@@ -3,6 +3,7 @@
 #include "qrys.h"
 #include "report_common.h"
 #include "stat_utils.h"
+#include "salons.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -179,7 +180,7 @@ void RunSalonStat(
                 row.login = Qry->get().FieldAsString(col_login);
                 row.op_type = Qry->get().FieldAsString(col_op_type);
                 try {
-                    row.op_type = SalonOpTypes().encode(row.op_type);
+                    row.op_type = SALONS2::SalonOpTypes().encode(row.op_type);
                 } catch(EConvertError &) {
                 }
                 row.msg = Qry->get().FieldAsString(col_msg);
@@ -191,12 +192,6 @@ void RunSalonStat(
             }
         }
     }
-}
-
-const TSalonOpTypes &SalonOpTypes()
-{
-    static TSalonOpTypes opTypes;
-    return opTypes;
 }
 
 struct TSalonStatCombo: public TOrderStatItem {
