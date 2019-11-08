@@ -1,4 +1,4 @@
-create or replace PACKAGE BODY arch
+CREATE OR REPLACE PACKAGE BODY arch
 AS
 
 BULK_COLLECT_LIMIT CONSTANT INTEGER := 100;
@@ -423,9 +423,9 @@ BEGIN
     IF use_move_insert THEN
       FORALL i IN 1..rowids.COUNT
         INSERT INTO arx_events
-          (type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,part_key,part_num,lang)
+          (type,sub_type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,part_key,part_num,lang)
         SELECT
-           type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,vpart_key,part_num,lang
+           type,sub_type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,vpart_key,part_num,lang
         FROM events_bilingual
         WHERE rowid=rowids(i);
     END IF;
@@ -450,9 +450,9 @@ BEGIN
       IF use_insert THEN
         FORALL i IN 1..rowids.COUNT
           INSERT INTO arx_events
-            (type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,part_key,part_num,lang)
+            (type,sub_type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,part_key,part_num,lang)
           SELECT
-             type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,vpart_key,part_num,lang
+             type,sub_type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,vpart_key,part_num,lang
           FROM events_bilingual
           WHERE rowid=rowids(i);
       END IF;
@@ -1320,9 +1320,9 @@ BEGIN
         FETCH cur BULK COLLECT INTO rowids LIMIT BULK_COLLECT_LIMIT;
         FORALL i IN 1..rowids.COUNT
           INSERT INTO arx_events
-            (type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,part_key,part_num,lang)
+            (type,sub_type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,part_key,part_num,lang)
           SELECT
-             type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,time,part_num,lang
+             type,sub_type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,time,part_num,lang
           FROM events_bilingual
           WHERE rowid=rowids(i);
         FORALL i IN 1..rowids.COUNT
@@ -1332,9 +1332,9 @@ BEGIN
         FETCH cur BULK COLLECT INTO rowids LIMIT BULK_COLLECT_LIMIT;
         FORALL i IN 1..rowids.COUNT
           INSERT INTO arx_events
-            (type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,part_key,part_num,lang)
+            (type,sub_type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,part_key,part_num,lang)
           SELECT
-             type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,time,part_num,lang
+             type,sub_type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,time,part_num,lang
           FROM events_bilingual
           WHERE rowid=rowids(i);
         FORALL i IN 1..rowids.COUNT
