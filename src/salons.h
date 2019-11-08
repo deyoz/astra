@@ -20,42 +20,6 @@ using BASIC::date_time::TDateTime;
 namespace SALONS2
 {
 
-class TSalonOpType {
-    public:
-        static const std::list< std::pair<std::string, std::string> >& pairs()
-        {
-            static std::list< std::pair<std::string, std::string> > l;
-            if (l.empty())
-            {
-                l.push_back(std::make_pair("LAYERSDISABLE",     "Недоступные места"));
-                l.push_back(std::make_pair("LAYERSBLOCK_CENT",  "Блокировка центровки"));
-                l.push_back(std::make_pair("LAYERSPROTECT",     "Резервирование"));
-                l.push_back(std::make_pair("LAYERSSMOKE",       "Место для курящих"));
-                l.push_back(std::make_pair("LAYERSUNCOMFORT",   "Неудобные места"));
-                l.push_back(std::make_pair("WEB_TARIFF",        "Web-тариф"));
-                l.push_back(std::make_pair("REMS",              "Ремарки"));
-                l.push_back(std::make_pair("RFISC",             "Разметка RFISC"));
-                l.push_back(std::make_pair("SEAT",              "Кресло"));
-                l.push_back(std::make_pair("SALON",             "Компоновка"));
-            }
-            return l;
-        }
-
-        static std::string strip_op_type(const std::string &op_type);
-};
-
-class TSalonOpTypes: public ASTRA::PairList<std::string, std::string>
-{
-    private:
-        virtual std::string className() const { return "TSalonOpTypes"; }
-    public:
-        TSalonOpTypes() : ASTRA::PairList<std::string, std::string>(TSalonOpType::pairs(),
-                boost::none,
-                boost::none) {}
-};
-
-const TSalonOpTypes &SalonOpTypes();
-
 const std::string PARTITION_ELEM_TYPE = "П";
 const std::string ARMCHAIR_ELEM_TYPE = "К";
 const std::string ARMCHAIR_EMERGENCY_EXIT_TYPE = "А";

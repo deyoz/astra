@@ -1,6 +1,6 @@
 #!/bin/bash
 
-hosts=(beta astratest astraedu astra xp_trunk)
+hosts=(beta astratest astraedu astra)
 
 cd ~/NOSIR
 
