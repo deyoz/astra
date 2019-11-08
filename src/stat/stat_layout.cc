@@ -3,7 +3,7 @@
 #include "stat_common.h"
 #include "qrys.h"
 #include "term_version.h"
-#include "stat_salon.h"
+#include "salons.h"
 
 using namespace std;
 using namespace AstraLocale;
@@ -46,7 +46,7 @@ void TParamItem::toXML(xmlNodePtr resNode)
         xmlNodePtr CBoxItemNode = NewTextChild(dataNode, "item");
         NewTextChild(CBoxItemNode, "code");
         NewTextChild(CBoxItemNode, "caption");
-        for(const auto &i: TSalonOpType::pairs()) {
+        for(const auto &i: SALONS2::TSalonOpType::pairs()) {
             CBoxItemNode = NewTextChild(dataNode, "item");
             NewTextChild(CBoxItemNode, "code", i.first);
             NewTextChild(CBoxItemNode, "caption", getLocaleText(i.second));
