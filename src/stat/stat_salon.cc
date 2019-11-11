@@ -14,6 +14,11 @@ using namespace std;
 using namespace ASTRA;
 using namespace EXCEPTIONS;
 
+string append_UTC_caption(const string &val)
+{
+    return val + " (UTC)";
+}
+
 void createXMLSalonStat(const TStatParams &params, const TSalonStat &SalonStat, xmlNodePtr resNode)
 {
     if(SalonStat.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
@@ -25,16 +30,16 @@ void createXMLSalonStat(const TStatParams &params, const TSalonStat &SalonStat, 
     SetProp(colNode, "width", 75);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Дата вылета"));
-    SetProp(colNode, "width", 75);
+    colNode = NewTextChild(headerNode, "col", append_UTC_caption(getLocaleText("Дата вылета")));
+    SetProp(colNode, "width", 102);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortDate);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Агент"));
     SetProp(colNode, "width", 70);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Время операции"));
-    SetProp(colNode, "width", 85);
+    colNode = NewTextChild(headerNode, "col", append_UTC_caption(getLocaleText("Время операции")));
+    SetProp(colNode, "width", 116);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortDateTime);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Операция"));
@@ -205,9 +210,9 @@ void TSalonStatCombo::add_header(ostringstream &buf) const
 {
     buf
         << getLocaleText("Рейс") << delim
-        << getLocaleText("Дата вылета") << delim
+        << append_UTC_caption(getLocaleText("Дата вылета")) << delim
         << getLocaleText("Агент") << delim
-        << getLocaleText("Время операции") << delim
+        << append_UTC_caption(getLocaleText("Время операции")) << delim
         << getLocaleText("Операция") << endl;
 }
 
