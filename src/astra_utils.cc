@@ -631,6 +631,19 @@ void TReqInfo::LocaleToLog(const string &vlexema, TEventType ev_type, int id1, i
  LocaleToLog(msgh);
 }
 
+void TReqInfo::LocaleToLog(const string &vlexema, const LEvntPrms &prms, TEventType ev_type, const std::string &sub_type, int id1, int id2, int id3)
+{
+ TLogLocale msgh;
+ msgh.lexema_id = vlexema;
+ msgh.prms = prms;
+ msgh.ev_type = ev_type;
+ msgh.sub_type = sub_type;
+ msgh.id1 = id1;
+ msgh.id2 = id2;
+ msgh.id3 = id3;
+ LocaleToLog(msgh);
+}
+
 void TReqInfo::LocaleToLog(const string &vlexema, const LEvntPrms &prms, TEventType ev_type, int id1, int id2, int id3)
 {
  TLogLocale msgh;
@@ -674,6 +687,7 @@ void TLogLocale::toDB(const string &screen, const string &user_descr, const stri
 {
   QParams QryParams;
   QryParams << QParam("type", otString, EncodeEventType(ev_type))
+            << QParam("sub_type", otString, sub_type.substr(0, 100))
             << QParam("screen", otString, screen)
             << QParam("ev_user", otString, user_descr)
             << QParam("station", otString, desk_code)
@@ -704,8 +718,8 @@ void TLogLocale::toDB(const string &screen, const string &user_descr, const stri
         "    SELECT system.UTCSYSDATE, events__seq.nextval INTO :ev_time, :ev_order FROM dual; "
         "  END IF; "
         "  IF :part_num IS NULL THEN :part_num:=1; ELSE :part_num:=:part_num+1; END IF; "
-        "  INSERT INTO events_bilingual(type,time,ev_order,part_num,msg,screen,ev_user,station,id1,id2,id3,lang) "
-        "  VALUES(:type,:ev_time,:ev_order,:part_num,"
+        "  INSERT INTO events_bilingual(type,sub_type,time,ev_order,part_num,msg,screen,ev_user,station,id1,id2,id3,lang) "
+        "  VALUES(:type,:sub_type,:ev_time,:ev_order,:part_num,"
         "         :msg,:screen,:ev_user,:station,:id1,:id2,:id3,:lang); "
         "END;", QryParams);
 

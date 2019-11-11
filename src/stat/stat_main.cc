@@ -26,6 +26,7 @@
 #include "stat_ha.h"
 #include "stat_reprint.h"
 #include "stat_services.h"
+#include "stat_salon.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -245,6 +246,9 @@ void create_plain_files(
             break;
         case statServicesFull:
             RunServicesFullFile(params, order_writer);
+            break;
+        case statSalonFull:
+            RunSalonStatFile(params, order_writer);
             break;
         default:
             throw Exception("unsupported statType %d", params.statType);
@@ -493,6 +497,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         case statPFSShort:
         case statTrferPax:
         case statRFISC:
+        case statSalonFull:
             get_compatible_report_form("stat", reqNode, resNode);
             break;
         default:
@@ -570,6 +575,12 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             TRFISCStat RFISCStat;
             RunRFISCStat(params, RFISCStat, airline);
             createXMLRFISCStat(params,RFISCStat, airline, resNode);
+        }
+        if(params.statType == statSalonFull)
+        {
+            TSalonStat SalonStat;
+            RunSalonStat(params, SalonStat);
+            createXMLSalonStat(params,SalonStat, resNode);
         }
         if(params.statType == statRem)
         {

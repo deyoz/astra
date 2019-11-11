@@ -9,13 +9,17 @@
 using BASIC::date_time::TDateTime;
 
 class LEvntPrm {
+  private:
+    std::string sub_type;
   public:
     LEvntPrm() {}
+    LEvntPrm(const std::string &sub_type): sub_type(sub_type) {}
     virtual ~LEvntPrm() {}
     virtual std::string GetMsg (const std::string& lang) const = 0;
     virtual AstraLocale::LParam GetParam (const std::string& lang) const = 0;
     virtual LEvntPrm* MakeCopy () const = 0;
     virtual void ParamToXML(xmlNodePtr paramNode) const = 0;
+    std::string get_sub_type() const { return sub_type; }
 };
 
 template <typename T> class PrmElem;
@@ -158,11 +162,11 @@ class PrmEnum:public LEvntPrm {
     std::string separator;
   public:
     LEvntPrms prms;
-    PrmEnum(const std::string& name, const std::string& separator):
-        LEvntPrm(), name(name), separator(separator), prms() {}
+    PrmEnum(const std::string& name, const std::string& separator, const std::string &sub_type = ""):
+        LEvntPrm(sub_type), name(name), separator(separator), prms() {}
 
     PrmEnum(const PrmEnum& prmenum):
-        LEvntPrm(), name(prmenum.name), separator(prmenum.separator), prms(prmenum.prms) {}
+        LEvntPrm(prmenum.get_sub_type()), name(prmenum.name), separator(prmenum.separator), prms(prmenum.prms) {}
 
     virtual ~PrmEnum() {}
     virtual std::string GetMsg (const std::string& lang) const;

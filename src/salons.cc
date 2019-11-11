@@ -41,6 +41,24 @@ using namespace BASIC_SALONS;
 namespace SALONS2
 {
 
+std::string TSalonOpType::strip_op_type(const std::string &op_type)
+{
+    std::string result = op_type;
+    for(const auto i: pairs()) {
+        if(op_type.find(i.first) != std::string::npos) {
+            result = i.first;
+            break;
+        }
+    }
+    return result;
+}
+
+const TSalonOpTypes &SalonOpTypes()
+{
+    static TSalonOpTypes opTypes;
+    return opTypes;
+}
+
 bool selfckin_client() {
   return ( TReqInfo::Instance()->client_type == ctWeb ||
            TReqInfo::Instance()->client_type == ctKiosk ||
@@ -8481,7 +8499,7 @@ void salonChangesToText( int point_id,
                 pr_lat = oldpr_craft_lat;
             else
                 pr_lat = newpr_craft_lat;
-            PrmEnum salon("salon", "");
+            PrmEnum salon("salon", "", TSalonOpType::strip_op_type(im->first));
             ReferPlaces( point_id, im->first, im->second.places, salon, pr_lat );
             params << salon;
           }
