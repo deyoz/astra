@@ -9,9 +9,11 @@
 #include "counters.h"
 #include "franchise.h"
 
+#include <serverlib/testmode.h>
+
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
-#include "serverlib/slogger.h"
+#include <serverlib/slogger.h>
 
 using namespace ASTRA;
 using namespace BASIC::date_time;
@@ -635,9 +637,13 @@ void TFltInfo::dump() const
 std::pair<int, bool> TFltInfo::getPointId(TBindType bind_type) const
 {
   TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "DECLARE \n"
-    "  PRAGMA AUTONOMOUS_TRANSACTION; \n"
+  std::string sql =
+    "DECLARE \n";
+  if(!inTestMode()) {
+    sql +=
+    "  PRAGMA AUTONOMOUS_TRANSACTION; \n";
+  }
+    sql +=
     "  vbind_type tlg_bind_types.code%TYPE; \n"
     "BEGIN \n"
     "  :inserted:=0; \n"
@@ -654,9 +660,17 @@ std::pair<int, bool> TFltInfo::getPointId(TBindType bind_type) const
     "    INSERT INTO tlg_trips(point_id,airline,flt_no,suffix,scd,pr_utc,airp_dep,airp_arv,bind_type) \n"
     "    VALUES(:point_id,:airline,:flt_no,:suffix,:scd,:pr_utc,:airp_dep,:airp_arv,:bind_type); \n"
     "    :inserted:=1; \n"
-    "  END IF; \n"
-    "  COMMIT; \n"
-    "END; ";
+    "  END IF; \n";
+
+    if(!inTestMode()) {
+        sql +=
+    "  COMMIT; \n";
+    }
+
+    sql +=
+    "END; \n";
+
+  Qry.SQLText = sql;
   Qry.CreateVariable("airline", otString, airline);
   Qry.CreateVariable("flt_no", otInteger, (int)flt_no);
   Qry.CreateVariable("suffix", otString, suffix);

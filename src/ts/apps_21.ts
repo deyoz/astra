@@ -27,14 +27,15 @@ $(PREPARE_SEASON_SCD ’ ‘— • 298)
 $(make_spp)
 $(deny_ets_interactive ’ 298 ‘—)
 
+$(INB_PNL_UT AER PRG 298 $(ddmon +0 en))
+
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-$(set move_id $(get_move_id $(get point_dep)))
 
 $(combine_brd_wirth_reg $(get point_dep))
 $(auto_set_craft $(get point_dep))
 
-$(INB_PNL_UT AER PRG 298 $(ddmon +0 en))
+$(set move_id $(get_move_id $(get point_dep)))
 
 $(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
 
@@ -125,14 +126,14 @@ $(PREPARE_SEASON_SCD ’ ‘— • 298)
 $(make_spp)
 $(deny_ets_interactive ’ 298 ‘—)
 
+$(INB_PNL_UT AER PRG 298 $(ddmon +0 en))
+
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
 $(set move_id $(get_move_id $(get point_dep)))
 
 $(combine_brd_wirth_reg $(get point_dep))
 $(auto_set_craft $(get point_dep))
-
-$(INB_PNL_UT AER PRG 298 $(ddmon +0 en))
 
 $(run_trip_task send_apps $(get point_dep))
 

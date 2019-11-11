@@ -580,8 +580,7 @@ $(defmacro CHECK_TCKIN_ROUTE_GRP_2
 }) #end-of-macro
 
 
-
-$(defmacro SAVE_PAX
+$(defmacro SAVE_IATCI_PAX
     pax_id
     point_dep1
     point_arv1
@@ -1357,7 +1356,7 @@ $(defmacro REMOVE_ALL_BAGS
 }) #end-of-macro
 
 
-$(defmacro CANCEL_PAX_LOCAL
+$(defmacro CANCEL_IATCI_PAX
     pax_id
     grp_id
     tid
@@ -2073,10 +2072,10 @@ $(SAVE_ET_DISP $(get point_dep) 2986120030297)
 $(CHECK_SEARCH_PAX $(get point_dep) ž’ 103 „Œ„ ‹Š REPIN IVAN Š)
 $(CHECK_TCKIN_ROUTE_1 $(get point_dep) $(get point_arv) ‘7 1027 ‹Š ‘Ž— REPIN IVAN )
 $(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) ‘7 1027 ‹Š ‘Ž— REPIN IVAN )
-$(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
-                                                           ‘7 1027 ‹Š ‘Ž—
-                                                           REPIN IVAN
-                                                           2986120030297 )
+$(SAVE_IATCI_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
+                                                                 ‘7 1027 ‹Š ‘Ž—
+                                                                 REPIN IVAN
+                                                                 2986120030297 )
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
 $(KICK_IN_SILENT)
@@ -2390,10 +2389,10 @@ $(set pax_id $(get_pax_id $(get point_dep) REPIN IVAN))
 
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2986120030297)
-$(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
-                                                           ‘7 1027 ‹Š ‘Ž—
-                                                           REPIN IVAN
-                                                           2986120030297 ‚‡)
+$(SAVE_IATCI_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
+                                                                 ‘7 1027 ‹Š ‘Ž—
+                                                                 REPIN IVAN
+                                                                 2986120030297 ‚‡)
 
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
@@ -2434,7 +2433,7 @@ $(set grp_id $(get_single_grp_id $(get point_dep) REPIN IVAN))
 $(set tid $(get_single_tid $(get point_dep) REPIN IVAN))
 
 
-$(CANCEL_PAX_LOCAL $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv)
+$(CANCEL_IATCI_PAX $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv)
                    ž’ 103 „Œ„ ‹Š
                    ‘7 1027 ‹Š ‘Ž—
                    REPIN IVAN 2986120030297)
@@ -2469,8 +2468,6 @@ $(KICK_IN)
 
 %%
 #########################################################################################
-# ü3 à®á¬®âà ¨­ä®à¬ æ¨¨ ¯® ¯ áá ¦¨àã ¯® grp_id
-###
 
 
 %%
@@ -2520,10 +2517,10 @@ $(set pax_id $(get_pax_id $(get point_dep) REPIN IVAN))
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2986120030297)
 #$(CHECK_ADV_TRIPS_LIST $(get point_dep) ž’ 103 „Œ„)
-$(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
-                                                           ‘7 1027 ‹Š ‘Ž—
-                                                           REPIN IVAN
-                                                           2986120030297 ‚‡)
+$(SAVE_IATCI_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
+                                                                 ‘7 1027 ‹Š ‘Ž—
+                                                                 REPIN IVAN
+                                                                 2986120030297 ‚‡)
 
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
@@ -2588,10 +2585,10 @@ $(set pax_id $(get_pax_id $(get point_dep) REPIN IVAN))
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2986120030297)
 #$(CHECK_ADV_TRIPS_LIST $(get point_dep) ž’ 103 „Œ„)
-$(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
-                                                           ‘7 1027 ‹Š ‘Ž—
-                                                           REPIN IVAN
-                                                           2986120030297 ‚‡)
+$(SAVE_IATCI_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
+                                                                 ‘7 1027 ‹Š ‘Ž—
+                                                                 REPIN IVAN
+                                                                 2986120030297 ‚‡)
 
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
@@ -2637,7 +2634,7 @@ $(set grp_id $(get_single_grp_id $(get point_dep) REPIN IVAN))
 $(set tid $(get_single_tid $(get point_dep) REPIN IVAN))
 
 
-$(CANCEL_PAX_LOCAL $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv)
+$(CANCEL_IATCI_PAX $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv)
                    ž’ 103 „Œ„ ‹Š
                    ‘7 1027 ‹Š ‘Ž—
                    REPIN IVAN 2986120030297)
@@ -2692,10 +2689,10 @@ $(set pax_id $(get_pax_id $(get point_dep) REPIN IVAN))
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2986120030297)
 #$(CHECK_ADV_TRIPS_LIST $(get point_dep) ž’ 103 „Œ„)
-$(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
-                                                           ‘7 1027 ‹Š ‘Ž—
-                                                           REPIN IVAN
-                                                           2986120030297 ‚‡)
+$(SAVE_IATCI_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
+                                                                 ‘7 1027 ‹Š ‘Ž—
+                                                                 REPIN IVAN
+                                                                 2986120030297 ‚‡)
 
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
@@ -3152,10 +3149,10 @@ $(set pax_id $(get_pax_id $(get point_dep) REPIN IVAN))
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2986120030297)
 #$(CHECK_ADV_TRIPS_LIST $(get point_dep) ž’ 103 „Œ„)
-$(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
-                                                           ‘7 1027 ‹Š ‘Ž—
-                                                           REPIN IVAN
-                                                           2986120030297 ‚‡)
+$(SAVE_IATCI_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
+                                                                 ‘7 1027 ‹Š ‘Ž—
+                                                                 REPIN IVAN
+                                                                 2986120030297 ‚‡)
 
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
@@ -3237,10 +3234,10 @@ $(set pax_id $(get_pax_id $(get point_dep) REPIN IVAN))
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2986120030297)
 #$(CHECK_ADV_TRIPS_LIST $(get point_dep) ž’ 103 „Œ„)
-$(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
-                                                           ‘7 1027 ‹Š ‘Ž—
-                                                           REPIN IVAN
-                                                           2986120030297 ‚‡)
+$(SAVE_IATCI_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
+                                                                 ‘7 1027 ‹Š ‘Ž—
+                                                                 REPIN IVAN
+                                                                 2986120030297 ‚‡)
 
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
@@ -3416,10 +3413,10 @@ $(set pax_id $(get_pax_id $(get point_dep) REPIN IVAN))
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2986120030297)
 #$(CHECK_ADV_TRIPS_LIST $(get point_dep) ž’ 103 „Œ„)
-$(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
-                                                           ‘7 1027 ‹Š ‘Ž—
-                                                           REPIN IVAN
-                                                           2986120030297 ‚‡)
+$(SAVE_IATCI_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
+                                                                 ‘7 1027 ‹Š ‘Ž—
+                                                                 REPIN IVAN
+                                                                 2986120030297 ‚‡)
 
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
@@ -3484,10 +3481,10 @@ $(set pax_id $(get_pax_id $(get point_dep) REPIN IVAN))
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2986120030297)
 #$(CHECK_ADV_TRIPS_LIST $(get point_dep) ž’ 103 „Œ„)
-$(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
-                                                           ‘7 1027 ‹Š ‘Ž—
-                                                           REPIN IVAN
-                                                           2986120030297 ‚‡)
+$(SAVE_IATCI_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
+                                                                 ‘7 1027 ‹Š ‘Ž—
+                                                                 REPIN IVAN
+                                                                 2986120030297 ‚‡)
 
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
@@ -3657,10 +3654,10 @@ $(set pax_id $(get_pax_id $(get point_dep) REPIN IVAN))
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 2986120030297)
 #$(CHECK_ADV_TRIPS_LIST $(get point_dep) ž’ 103 „Œ„)
-$(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
-                                                           ‘7 1027 ‹Š ‘Ž—
-                                                           REPIN IVAN
-                                                           2986120030297 ‚‡)
+$(SAVE_IATCI_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
+                                                                 ‘7 1027 ‹Š ‘Ž—
+                                                                 REPIN IVAN
+                                                                 2986120030297 ‚‡)
 
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
@@ -4073,10 +4070,10 @@ $(OPEN_CHECKIN $(get point_dep))
 $(CHECK_SEARCH_PAX $(get point_dep) ž’ 103 „Œ„ ‹Š REPIN IVAN Š)
 $(CHECK_TCKIN_ROUTE_1 $(get point_dep) $(get point_arv) ‘7 1027 ‹Š ‘Ž— REPIN IVAN ‚‡)
 $(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) ‘7 1027 ‹Š ‘Ž— REPIN IVAN ‚‡)
-$(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
-                                                           ‘7 1027 ‹Š ‘Ž—
-                                                           REPIN IVAN
-                                                           2986120030297 ‚‡)
+$(SAVE_IATCI_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
+                                                                 ‘7 1027 ‹Š ‘Ž—
+                                                                 REPIN IVAN
+                                                                 2986120030297 ‚‡)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
@@ -4132,10 +4129,10 @@ $(SAVE_ET_DISP $(get point_dep) 2986120030297)
 $(CHECK_SEARCH_PAX $(get point_dep) ž’ 103 „Œ„ ‹Š REPIN IVAN Š)
 $(CHECK_TCKIN_ROUTE_1 $(get point_dep) $(get point_arv) ‘7 1027 ‹Š ‘Ž— REPIN IVAN ‚‡)
 $(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) ‘7 1027 ‹Š ‘Ž— REPIN IVAN ‚‡)
-$(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
-                                                           ‘7 1027 ‹Š ‘Ž—
-                                                           REPIN IVAN
-                                                           2986120030297 ‚‡)
+$(SAVE_IATCI_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
+                                                                 ‘7 1027 ‹Š ‘Ž—
+                                                                 REPIN IVAN
+                                                                 2986120030297 ‚‡)
 
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
@@ -4215,10 +4212,10 @@ $(SAVE_ET_DISP $(get point_dep) 2986120030297)
 $(CHECK_SEARCH_PAX $(get point_dep) ž’ 103 „Œ„ ‹Š REPIN IVAN Š)
 $(CHECK_TCKIN_ROUTE_1 $(get point_dep) $(get point_arv) ‘7 1027 ‹Š ‘Ž— REPIN IVAN ‚‡)
 $(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) ‘7 1027 ‹Š ‘Ž— REPIN IVAN ‚‡)
-$(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
-                                                           ‘7 1027 ‹Š ‘Ž—
-                                                           REPIN IVAN
-                                                           2986120030297 ‚‡)
+$(SAVE_IATCI_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
+                                                                 ‘7 1027 ‹Š ‘Ž—
+                                                                 REPIN IVAN
+                                                                 2986120030297 ‚‡)
 
 
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
@@ -4263,7 +4260,7 @@ $(set tid $(get_single_tid $(get point_dep) REPIN IVAN))
 
 # á­ ç «  â ©¬ ãâ
 
-$(CANCEL_PAX_LOCAL $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv)
+$(CANCEL_IATCI_PAX $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv)
                    ž’ 103 „Œ„ ‹Š
                    ‘7 1027 ‹Š ‘Ž—
                    REPIN IVAN 2986120030297)
@@ -4318,11 +4315,10 @@ ENDIFM
 
 # ¯®â®¬ ®è¨¡ª 
 
-$(CANCEL_PAX_LOCAL $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv)
+$(CANCEL_IATCI_PAX $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv)
                    ž’ 103 „Œ„ ‹Š
-                   ‘7 1027 ‹Š ‘Ž— 
+                   ‘7 1027 ‹Š ‘Ž—
                    REPIN IVAN 2986120030297)
-
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
@@ -4384,10 +4380,10 @@ $(SAVE_ET_DISP $(get point_dep) 2986120030297)
 $(CHECK_SEARCH_PAX $(get point_dep) ž’ 103 „Œ„ ‹Š REPIN IVAN Š)
 $(CHECK_TCKIN_ROUTE_1 $(get point_dep) $(get point_arv) ‘7 1027 ‹Š ‘Ž— REPIN IVAN ‚‡)
 $(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) ‘7 1027 ‹Š ‘Ž— REPIN IVAN ‚‡)
-$(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
-                                                           ‘7 1027 ‹Š ‘Ž—
-                                                           REPIN IVAN
-                                                           2986120030297 ‚‡)
+$(SAVE_IATCI_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
+                                                                 ‘7 1027 ‹Š ‘Ž—
+                                                                 REPIN IVAN
+                                                                 2986120030297 ‚‡)
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
 $(KICK_IN_SILENT)
@@ -5013,11 +5009,11 @@ $(KICK_IN_SILENT)
 
 
 # ®â¬¥­ï¥¬ à¥£¨áâà æ¨î ®¤­®£® ¨§ ¯ áá ¦¨à®¢
-$(CANCEL_PAX_LOCAL $(get pax_1_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv)
+
+$(CANCEL_IATCI_PAX $(get pax_1_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv)
                    ž’ 103 „Œ„ ‹Š
                    ‘7 1027 ‹Š ‘Ž—
                    REPIN IVAN 2982401841689)
-
 
 $(ETS_COS_EXCHANGE 2982401841689 1 I)
 
@@ -6175,10 +6171,10 @@ $(OPEN_CHECKIN $(get point_dep))
 $(CHECK_SEARCH_PAX $(get point_dep) ž’ 103 „Œ„ ‹Š REPIN IVAN Š)
 $(CHECK_TCKIN_ROUTE_1 $(get point_dep) $(get point_arv) ‘7 1027 ‹Š ‘Ž— REPIN IVAN ‚‡)
 $(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) ‘7 1027 ‹Š ‘Ž— REPIN IVAN ‚‡)
-$(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
-                                                           ‘7 1027 ‹Š ‘Ž—
-                                                           REPIN IVAN
-                                                           2986120030297 ‚‡)
+$(SAVE_IATCI_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
+                                                                 ‘7 1027 ‹Š ‘Ž—
+                                                                 REPIN IVAN
+                                                                 2986120030297 ‚‡)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
