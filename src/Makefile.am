@@ -95,6 +95,7 @@ astra_SOURCES = \
   events.cc \
   external_spp_synch.cc \
   exch_checkin_result.cpp \  
+  ExchangeIface.cc \
   ffp_sirena.cc \
   flt_binding.cc \
   flt_tasks_daemon.cc \
@@ -125,6 +126,7 @@ astra_SOURCES = \
   request_dup.cc \
   rfisc.cc \
   rfisc_calc.cc \
+  rfisc_price.cc \
   rfisc_sirena.cc \
   rozysk.cc \
   salonform.cc \
@@ -135,12 +137,14 @@ astra_SOURCES = \
   seats.cc \
   seat_descript.cc \
   seatPax.cc \
+  service_eval.cc \
   sirena_exchange.cc \
   sofi.cc \
   sopp.cc \
   spp_cek.cc \
   stages.cc \
   stat_doc_country.cc \
+  SWCExchangeIface.cc \
   qrys.cpp \
   telegram.cc \
   telegram2.cc \
@@ -293,6 +297,7 @@ noinst_HEADERS = \
   events.h \
   external_spp_synch.h \
   exch_checkin_result.h \  
+  ExchangeIface.h \
   ffp_sirena.h \
   flt_binding.h \
   file_queue.h \
@@ -322,6 +327,7 @@ noinst_HEADERS = \
   request_dup.h \
   rfisc.h \
   rfisc_calc.h \
+  rfisc_price.h \
   rfisc_sirena.h \
   rozysk.h \
   salonform.h \
@@ -332,11 +338,13 @@ noinst_HEADERS = \
   seats.h \
   seat_descript.h \
   seatPax.h \
+  service_eval.h \
   sirena_exchange.h \
   sofi.h \
   sopp.h \
   spp_cek.h \
   stages.h \
+  SWCExchangeIface.h \
   qrys.h \
   timer.h \
   transfer.h \

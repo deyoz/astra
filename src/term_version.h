@@ -27,9 +27,9 @@
 #define VO_EMDA_PECTAB_VERSION        "201908-0223745"
 
 #define TRANSIT_CRAFT_VERSION         "204000-0000000"
-#define EMDA_VERSION                  "202000-0000000"
-#define DOCO_CONFIRM_VERSION          "202000-0000000"
-#define LAYER_PROT_SELF_CKIN          "202000-0000000"
+#define EMDA_VERSION                  "204000-0000000"
+#define DOCO_CONFIRM_VERSION          "204000-0000000"
+#define LAYER_PROT_SELF_CKIN          "204000-0000000"
 
 
 #endif

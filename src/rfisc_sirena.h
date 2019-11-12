@@ -110,7 +110,7 @@ class TSegItem
         {
           markFlt.get().Init(dynamic_cast<const TGrpMktFlight&>(mktFlight));
         }
-        catch (std::bad_cast)
+        catch (std::bad_cast &)
         {
           markFlt.get().Init(dynamic_cast<const TMktFlight&>(mktFlight));
         };

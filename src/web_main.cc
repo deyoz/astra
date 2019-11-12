@@ -1165,7 +1165,7 @@ void IntLoadPnr( const TIdsPnrDataSegs &ids,
       }
       grpSegs.push_back(grp);
     }
-    catch(CheckIn::UserException)
+    catch(CheckIn::UserException &)
     {
       throw;
     }
@@ -1580,7 +1580,7 @@ static void VerifyPax(TWebPaxForSaveSegs &segs, const XMLDoc &emulDocHeader,
             s.paxForChng.checkUniquenessAndAdd(pax);
           }
         }
-        catch(CheckIn::UserException)
+        catch(CheckIn::UserException &)
         {
           throw;
         }
@@ -1602,7 +1602,7 @@ static void VerifyPax(TWebPaxForSaveSegs &segs, const XMLDoc &emulDocHeader,
       if (idsPnrData.containAtLeastOnePnrId())
         ids.push_back( idsPnrData );
     }
-    catch(CheckIn::UserException)
+    catch(CheckIn::UserException &)
     {
       throw;
     }
@@ -1636,7 +1636,7 @@ static void VerifyPax(TWebPaxForSaveSegs &segs, const XMLDoc &emulDocHeader,
 
           ++iPnrData;
         }
-        catch(CheckIn::UserException)
+        catch(CheckIn::UserException &)
         {
           throw;
         }
@@ -2028,10 +2028,7 @@ void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 
   ProgTrace(TRACE1,"WebRequestsIface::GetPrintDataBP");
   PrintInterface::BPParams params;
-  params.dev_model = NodeAsString("dev_model", reqNode);
-  params.fmt_type = NodeAsString("fmt_type", reqNode);
-  params.prnParams.get_prn_params(reqNode);
-  params.clientDataNode = NULL;
+  params.fromXML(reqNode);
 
   TReqInfo *reqInfo = TReqInfo::Instance();
   TQuery Qry(&OraSession);
@@ -2050,8 +2047,8 @@ void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   Qry.CreateVariable("desk", otString, reqInfo->desk.code);
   Qry.Execute();
   if(Qry.Eof) throw AstraLocale::UserException("MSG.BP_TYPE_NOT_ASSIGNED_FOR_DESK");
-  params.form_type = Qry.FieldAsString("bp_type");
-  ProgTrace(TRACE5, "bp_type: %s", params.form_type.c_str());
+  params.set_form_type(Qry.FieldAsString("bp_type"));
+  LogTrace(TRACE5) << "bp_type: " << params.get_form_type();
 
   CheckIn::UserException ue;
   vector<PrintInterface::BPPax> paxs;
@@ -2117,9 +2114,9 @@ void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   {
     xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
     NewTextChild(paxNode, "pax_id", iPax->pax_id==NoExists?getEmptyPaxId():iPax->pax_id);
-    if (!iPax->hex && params.prnParams.encoding!="UTF-8")
+    if (!iPax->hex && params.get_prn_params().encoding!="UTF-8")
     {
-      iPax->prn_form = ConvertCodepage(iPax->prn_form, "CP866", params.prnParams.encoding);
+      iPax->prn_form = ConvertCodepage(iPax->prn_form, "CP866", params.get_prn_params().encoding);
       StringToHex( string(iPax->prn_form), iPax->prn_form );
       iPax->hex=true;
     };

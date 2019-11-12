@@ -75,6 +75,9 @@ class PrintInterface: public JxtInterface
           std::string voucher;
           bool error;
 
+          std::string emd_no;
+          int emd_coupon;
+
           bool hex;
           BPPax()
           {
@@ -101,6 +104,8 @@ class PrintInterface: public JxtInterface
             from_scan_code = false;
             errors.clear();
             voucher.clear();
+            emd_no.clear();
+            emd_coupon = ASTRA::NoExists;
             error = false;
             hex=false;
           };
@@ -110,16 +115,26 @@ class PrintInterface: public JxtInterface
         };
 
         struct BPParams {
-          std::string dev_model;
-          std::string fmt_type;
-          std::string form_type;
-          TPrnParams prnParams;
-          xmlNodePtr clientDataNode;
-          bool isGraphics2D() { return fmt_type == "Graphics2D"; }
+            private:
+                std::string dev_model;
+                std::string fmt_type;
+                std::string form_type;
+                TPrnParams prnParams;
+                xmlNodePtr clientDataNode;
+            public:
+                bool isGraphics2D() { return fmt_type == "Graphics2D"; }
+                void fromXML(xmlNodePtr node);
+                const std::string &get_dev_model() const { return dev_model; }
+                const std::string &get_fmt_type() const { return fmt_type; }
+                const std::string &get_form_type() const { return form_type; }
+                const TPrnParams &get_prn_params() const { return prnParams; }
+                xmlNodePtr get_client_data_node() const { return clientDataNode; }
+                void set_form_type(const std::string &form_type) { this->form_type = form_type; }
         };
 
         PrintInterface(): JxtInterface("123", "print")
         {
+            AddEvent("GetPrintDataEMDA",  JXT_HANDLER(PrintInterface, GetPrintDataEMDA));
             AddEvent("GetPrintDataBP",    JXT_HANDLER(PrintInterface, GetPrintDataBP));
             AddEvent("GetGRPPrintDataBP", JXT_HANDLER(PrintInterface, GetPrintDataBP));
             AddEvent("GetGRPPrintData",   JXT_HANDLER(PrintInterface, GetPrintDataBP));
@@ -136,14 +151,18 @@ class PrintInterface: public JxtInterface
             AddEvent("refresh_prn_tests", JXT_HANDLER(PrintInterface, RefreshPrnTests));
             AddEvent("GetImg",            JXT_HANDLER(PrintInterface, GetImg));
 
+            AddEvent("GetEMDAList",       JXT_HANDLER(PrintInterface, GetEMDAList));
+
             AddEvent("print_bp", JXT_HANDLER(PrintInterface, print_bp));
             AddEvent("print_bp2", JXT_HANDLER(PrintInterface, print_bp2));
         }
 
+        void GetEMDAList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void GetImg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void print_bp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void print_bp2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+        void GetPrintDataEMDA(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void ReprintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);

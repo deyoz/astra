@@ -13,6 +13,7 @@
 #include "passenger.h"
 #include "bi_rules.h"
 #include "brands.h"
+#include "rfisc_price.h"
 
 using BASIC::date_time::TDateTime;
 
@@ -116,6 +117,15 @@ namespace TAG {
     const std::string VOUCHER_TEXT8 = "VOUCHER_TEXT8";
     const std::string VOUCHER_TEXT9 = "VOUCHER_TEXT9";
     const std::string VOUCHER_TEXT10 = "VOUCHER_TEXT10";
+
+    // specific for EMDA
+    const std::string EMD_NO = "EMD_NO";
+    const std::string EMD_COUPON = "EMD_COUPON";
+    const std::string EMD_RFIC = "EMD_RFIC";
+    const std::string EMD_RFISC = "EMD_RFISC";
+    const std::string EMD_RFISC_DESCR = "EMD_RFISC_DESCR";
+    const std::string EMD_PRICE = "EMD_PRICE";
+    const std::string EMD_CURRENCY = "EMD_CURRENCY";
 
     // specific for bag tags
     const std::string AIRCODE = "AIRCODE";
@@ -605,6 +615,41 @@ class TPrnTagStore {
         };
         TRStationInfo rstationInfo;
 
+        struct TEMDAInfo {
+            private:
+                boost::optional<TPriceRFISCList> prices;
+
+                struct TResult {
+                    std::string RFIC;
+                    std::string RFISC;
+                    std::string rfisc_descr;
+                    std::string currency;
+                    float price;
+                    bool pr_print;
+                    void clear()
+                    {
+                        RFIC.clear();
+                        RFISC.clear();
+                        rfisc_descr.clear();
+                        currency.clear();
+                        price = ASTRA::NoExists;
+                        pr_print = false;
+                    }
+                };
+                TResult res;
+                bool find(int pax_id, boost::any &emd_no, boost::any &emd_coupon, const std::string &lang);
+            public:
+                void Init(int grp_id, int pax_id, boost::any &emd_no, boost::any &emd_coupon, const std::string &lang);
+                float get_price() { return res.price; }
+                std::string get_currency() { return res.currency; }
+                std::string get_rfic() { return res.RFIC; }
+                std::string get_rfisc() { return res.RFISC; }
+                std::string get_rfisc_descr() { return res.rfisc_descr; }
+                bool get_pr_print() { return res.pr_print; }
+        };
+
+        TEMDAInfo emdaInfo;
+
         std::string get_fmt_seat(std::string fmt, bool english_tag);
         std::string BCBP_M_2(TFieldParams fp);
         std::string BCBP_V_5(TFieldParams fp);
@@ -681,6 +726,15 @@ class TPrnTagStore {
         std::string VOUCHER_CODE(TFieldParams fp);
         std::string VOUCHER_TEXT(TFieldParams fp);
         std::string VOUCHER_TEXT_FREE(TFieldParams fp);
+
+        // specific for EMDA
+        std::string EMD_NO(TFieldParams fp);
+        std::string EMD_COUPON(TFieldParams fp);
+        std::string EMD_RFIC(TFieldParams fp);
+        std::string EMD_RFISC(TFieldParams fp);
+        std::string EMD_RFISC_DESCR(TFieldParams fp);
+        std::string EMD_PRICE(TFieldParams fp);
+        std::string EMD_CURRENCY(TFieldParams fp);
 
         // specific for bag tags
         std::string AIRCODE(TFieldParams fp);
@@ -825,5 +879,7 @@ class TPrnTagStore {
         void get_pectab_tags(const std::string &form);
         void get_pectab_tags(const std::vector<std::string> &tags);
 };
+
+bool get_pr_print_emda(int pax_id, const std::string &emd_no, int emd_coupon);
 
 #endif

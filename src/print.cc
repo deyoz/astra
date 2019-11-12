@@ -29,6 +29,7 @@
 #include "tripinfo.h"
 #include "prn_forms_layout.h"
 #include "iapi_interaction.h"
+#include "rfisc_price.h"
 
 #define NICKNAME "DENIS"
 #include <serverlib/slogger.h>
@@ -968,7 +969,16 @@ void GetTripBPPectabs(int point_id, TDevOper::Enum op_type, const string &dev_mo
     Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
     Qry.CreateVariable("dev_model", otString, dev_model);
     Qry.CreateVariable("fmt_type", otString, fmt_type);
-    xmlNodePtr formNode=NewTextChild(node,"bp_forms");
+    string forms_tag;
+    switch(op_type) {
+        case TDevOper::PrnBP: forms_tag = "bp_forms"; break;
+        case TDevOper::PrnVO: forms_tag = "vo_forms"; break;
+        case TDevOper::PrnBI: forms_tag = "bi_forms"; break;
+        case TDevOper::PrnEMDA: forms_tag = "emda_forms"; break;
+        default: throw Exception("%s: unexpected oper type %s", __FUNCTION__, DevOperTypes().encode(op_type).c_str());
+    }
+
+    xmlNodePtr formNode=NewTextChild(node,forms_tag.c_str());
     for(vector<string>::const_iterator i=bp_types.begin();i!=bp_types.end();i++)
     {
       Qry.SetVariable("form_type", *i);
@@ -1163,7 +1173,7 @@ void big_test(PrintDataParser &parser, TDevOper::Enum op_type)
             << "connect_string: '" << connect_string << "'";
         try {
             parse_result = parser.parse(data);
-        } catch(Exception E) {
+        } catch(Exception &E) {
             out
                 << "parse failed: "
                 << idx.str()
@@ -1435,6 +1445,8 @@ void PrintInterface::ConfirmPrintBP(TDevOper::Enum op_type,
         "   pr_print = 0 AND "
         "   desk=:desk and "
         "   (voucher = :voucher OR voucher IS NULL AND :voucher IS NULL) and "
+        "   (emd_no = :emd_no OR emd_no IS NULL AND :emd_no IS NULL) and "
+        "   (emd_coupon = :emd_coupon OR emd_coupon IS NULL AND :emd_coupon IS NULL) and "
         OP_TYPE_COND("op_type")
         "  RETURNING seat_no INTO :seat_no; "
         "  :rows:=SQL%ROWCOUNT; "
@@ -1445,6 +1457,8 @@ void PrintInterface::ConfirmPrintBP(TDevOper::Enum op_type,
     Qry.DeclareVariable("pax_id", otInteger);
     Qry.DeclareVariable("time_print", otDate);
     Qry.DeclareVariable("voucher", otString);
+    Qry.DeclareVariable("emd_no", otString);
+    Qry.DeclareVariable("emd_coupon", otInteger);
     Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
     for (std::vector<BPPax>::const_iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
     {
@@ -1456,6 +1470,11 @@ void PrintInterface::ConfirmPrintBP(TDevOper::Enum op_type,
             Qry.SetVariable("pax_id", iPax->pax_id);
             Qry.SetVariable("time_print", iPax->time_print);
             Qry.SetVariable("voucher", iPax->voucher);
+            Qry.SetVariable("emd_no", iPax->emd_no);
+            if(iPax->emd_coupon == NoExists)
+                Qry.SetVariable("emd_coupon", FNull);
+            else
+                Qry.SetVariable("emd_coupon", iPax->emd_coupon);
             Qry.Execute();
             if (Qry.GetVariableAsInteger("rows")==0)
                 throw AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
@@ -1487,6 +1506,11 @@ void PrintInterface::ConfirmPrintBP(TDevOper::Enum op_type,
                     break;
                 case TDevOper::PrnBI:
                     lexeme = "EVT.PRINT_INVITATION";
+                    break;
+                case TDevOper::PrnEMDA:
+                    lexeme = "EVT.PRINT_EMDA";
+                    params << PrmSmpl<string>("emd_no", iPax->emd_no);
+                    params << PrmSmpl<int>("emd_coupon", iPax->emd_coupon);
                     break;
                 default:
                     throw Exception("%d: %d: unexpected dev oper type %d", op_type);
@@ -1546,6 +1570,8 @@ void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         // Св-во print_code на данный момент передается только при печати ваучера
         // в остальных случаях pax.voucher пустой.
         pax.voucher = getVoucherCode(GetNode("@print_code", curNode));
+        pax.emd_no = NodeAsString("@emd_no", curNode, "");
+        pax.emd_coupon = NodeAsInteger("@emd_coupon", curNode, NoExists);
 
         int id = NodeAsInteger("@id", curNode, NoExists);
         if(id != NoExists) {
@@ -1865,7 +1891,7 @@ void PrintInterface::check_pectab_availability(BPParams &params, TDevOper::Enum 
     Qry.Execute();
     if(Qry.Eof)
         throw AstraLocale::UserException(prn_forms_layout.msg_type_not_assigned(op_type));
-    params.form_type = Qry.FieldAsString("bp_type");
+    params.set_form_type(Qry.FieldAsString("bp_type"));
 }
 
 void PrintInterface::check_pectab_availability(BPParams &params, int grp_id, TDevOper::Enum op_type)
@@ -1908,19 +1934,19 @@ void PrintInterface::get_pectab(
         "   bp_models.fmt_type = :fmt_type and "
         "   bp_models.id = prn_form_vers.id and "
         "   bp_models.version = prn_form_vers.version ";
-    Qry.CreateVariable("form_type", otString, params.form_type);
+    Qry.CreateVariable("form_type", otString, params.get_form_type());
     Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
-    Qry.CreateVariable("dev_model", otString, params.dev_model);
-    Qry.CreateVariable("fmt_type", otString, params.fmt_type);
+    Qry.CreateVariable("dev_model", otString, params.get_dev_model());
+    Qry.CreateVariable("fmt_type", otString, params.get_fmt_type());
     Qry.Execute();
     if(Qry.Eof or
        Qry.FieldIsNULL("data") or
-       (Qry.FieldIsNULL( "form" ) and (DevFmtTypes().decode(params.fmt_type) == TDevFmt::BTP or
-                                     DevFmtTypes().decode(params.fmt_type) == TDevFmt::ATB))
+       (Qry.FieldIsNULL( "form" ) and (DevFmtTypes().decode(params.get_fmt_type()) == TDevFmt::BTP or
+                                     DevFmtTypes().decode(params.get_fmt_type()) == TDevFmt::ATB))
       )
         previewDeviceSets(true, prn_forms_layout.msg_unavail_for_device(op_type));
-    pectab = AdjustCR_LF::DoIt(params.fmt_type, Qry.FieldAsString("form"));
-    data = AdjustCR_LF::DoIt(params.fmt_type, Qry.FieldAsString("data"));
+    pectab = AdjustCR_LF::DoIt(params.get_fmt_type(), Qry.FieldAsString("form"));
+    data = AdjustCR_LF::DoIt(params.get_fmt_type(), Qry.FieldAsString("data"));
 }
 
 bool IsErrPax(const PrintInterface::BPPax &pax)
@@ -1985,7 +2011,7 @@ void PrintInterface::GetPrintDataBP(
             iPax->checkBPPrintAllowed(paxSeats);
             try {
                 checkBeforePrintBP(*iPax, iapiInspector);
-                parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( op_type, iPax->grp_id, iPax->pax_id, iPax->from_scan_code, params.prnParams.pr_lat, params.clientDataNode ));
+                parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( op_type, iPax->grp_id, iPax->pax_id, iPax->from_scan_code, params.get_prn_params().pr_lat, params.get_client_data_node() ));
             } catch(UserException &E) {
                 if(not error) {
                     TTripInfo fltInfo;
@@ -2032,11 +2058,11 @@ void PrintInterface::GetPrintDataBP(
 
         iPax->prn_form = parser->parse(data);
         iPax->hex=false;
-        if(DevFmtTypes().decode(params.fmt_type) == TDevFmt::EPSON) {
+        if(DevFmtTypes().decode(params.get_fmt_type()) == TDevFmt::EPSON) {
             to_esc::TConvertParams ConvertParams;
-            ConvertParams.init(params.dev_model);
+            ConvertParams.init(params.get_dev_model());
             ProgTrace(TRACE5, "prn_form: %s", iPax->prn_form.c_str());
-            to_esc::convert(iPax->prn_form, ConvertParams, params.prnParams);
+            to_esc::convert(iPax->prn_form, ConvertParams, params.get_prn_params());
             StringToHex( string(iPax->prn_form), iPax->prn_form );
             iPax->hex=true;
         }
@@ -2102,7 +2128,7 @@ bool PrintInterface::GetIatciPrintDataBP(xmlNodePtr reqNode,
                 boost::shared_ptr<PrintDataParser> parser;
                 parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(TDevOper::PrnBP, xmlSeg.seg_info.airp_dep,
                                                                                 xmlSeg.seg_info.airp_arv,
-                                                                                params.prnParams.pr_lat));
+                                                                                params.get_prn_params().pr_lat));
 
                 // билет/купон
                 std::ostringstream tickCpn;
@@ -2176,11 +2202,11 @@ bool PrintInterface::GetIatciPrintDataBP(xmlNodePtr reqNode,
                 pax.reg_no = xmlPax.reg_no; // Зачем?
                 pax.prn_form = parser->parse(data);
                 pax.hex = false;
-                if(DevFmtTypes().decode(params.fmt_type) == TDevFmt::EPSON) {
+                if(DevFmtTypes().decode(params.get_fmt_type()) == TDevFmt::EPSON) {
                     to_esc::TConvertParams ConvertParams;
-                    ConvertParams.init(params.dev_model);
+                    ConvertParams.init(params.get_dev_model());
                     ProgTrace(TRACE5, "iatci prn_form: %s", pax.prn_form.c_str());
-                    to_esc::convert(pax.prn_form, ConvertParams, params.prnParams);
+                    to_esc::convert(pax.prn_form, ConvertParams, params.get_prn_params());
                     StringToHex(string(pax.prn_form), pax.prn_form);
                     pax.hex = true;
                 }
@@ -2191,6 +2217,64 @@ bool PrintInterface::GetIatciPrintDataBP(xmlNodePtr reqNode,
     }
 
     return true;
+}
+
+void PrintInterface::GetPrintDataEMDA(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    xmlNodePtr currNode = reqNode->children;
+    int grp_id = NodeAsIntegerFast("grp_id", currNode);
+
+    BPParams params;
+    params.fromXML(reqNode);
+    check_pectab_availability(params, grp_id, TDevOper::PrnEMDA);
+
+    string data, pectab;
+    get_pectab(TDevOper::PrnEMDA, params, data, pectab);
+
+    xmlNodePtr paxListNode = GetNode("pax_list", reqNode);
+    if(not paxListNode) return;
+    xmlNodePtr itemNode = paxListNode->children;
+    if(not itemNode) return;
+
+    NewTextChild(resNode, "pectab", pectab);
+    xmlNodePtr listNode = NewTextChild(resNode, "passengers");
+
+    typedef map<int, boost::optional<PrintDataParser>> TPaxMap;
+    typedef map<int, TPaxMap> TGrpMap;
+
+    TGrpMap parser_map;
+
+    while(itemNode) {
+        currNode = itemNode->children;
+        int pax_id = NodeAsIntegerFast("pax_id", currNode);
+        string emd_no = NodeAsStringFast("emd_no", currNode);
+        int coupon_no = NodeAsIntegerFast("emd_coupon", currNode);
+
+        auto &parser = parser_map[grp_id][pax_id];
+        if(not parser)
+            parser = boost::in_place(TDevOper::PrnEMDA, grp_id, pax_id, false, params.get_prn_params().pr_lat, nullptr);
+        parser->pts.set_tag(TAG::EMD_NO, emd_no);
+        parser->pts.set_tag(TAG::EMD_COUPON, coupon_no);
+        string prn_form = parser->parse(data);
+        bool hex = false;
+        if(DevFmtTypes().decode(params.get_fmt_type()) == TDevFmt::EPSON) {
+            to_esc::TConvertParams ConvertParams;
+            ConvertParams.init(params.get_dev_model());
+            LogTrace(TRACE5) << "prn_form: " << prn_form;
+            to_esc::convert(prn_form, ConvertParams, params.get_prn_params());
+            StringToHex( string(prn_form), prn_form );
+            hex = true;
+        }
+        parser->pts.confirm_print(false, TDevOper::PrnEMDA);
+        xmlNodePtr paxNode = NewTextChild(listNode, "pax");
+        SetProp(paxNode, "pax_id", pax_id);
+        SetProp(paxNode, "emd_no", emd_no);
+        SetProp(paxNode, "emd_coupon", coupon_no);
+        SetProp(paxNode, "time_print", DateTimeToStr(parser->pts.get_time_print()));
+        SetProp(NewTextChild(paxNode, "prn_form", prn_form),"hex",hex);
+        itemNode = itemNode->next;
+    }
+    LogTrace(TRACE5) << GetXMLDocText(resNode->doc); // !!!
 }
 
 void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -2313,7 +2397,7 @@ void PrintInterface::GetPrintDataVO(
                 int grp_id = Qry.get().FieldAsInteger("grp_id");
                 int reg_no = Qry.get().FieldAsInteger("reg_no");
 
-                PrintDataParser parser(op_type, grp_id, pax->first, false, params.prnParams.pr_lat, params.clientDataNode);
+                PrintDataParser parser(op_type, grp_id, pax->first, false, params.get_prn_params().pr_lat, params.get_client_data_node());
 
                 parser.pts.set_tag(TAG::VOUCHER_CODE, v->first);
                 parser.pts.set_tag(TAG::VOUCHER_TEXT, v->first);
@@ -2321,11 +2405,11 @@ void PrintInterface::GetPrintDataVO(
 
                 string prn_form = parser.parse(data);
                 bool hex = false;
-                if(DevFmtTypes().decode(params.fmt_type) == TDevFmt::EPSON) {
+                if(DevFmtTypes().decode(params.get_fmt_type()) == TDevFmt::EPSON) {
                     to_esc::TConvertParams ConvertParams;
-                    ConvertParams.init(params.dev_model);
+                    ConvertParams.init(params.get_dev_model());
                     ProgTrace(TRACE5, "prn_form: %s", prn_form.c_str());
-                    to_esc::convert(prn_form, ConvertParams, params.prnParams);
+                    to_esc::convert(prn_form, ConvertParams, params.get_prn_params());
                     StringToHex( string(prn_form), prn_form );
                     LogTrace(TRACE5) << "after StringToHex prn_form: " << prn_form;
                     hex=true;
@@ -2415,7 +2499,7 @@ void PrintInterface::GetPrintDataVOUnregistered(
         info.getByPointId(point_id);
 
         PrintDataParser parser(TReqInfo::Instance()->desk.compatible(VO_EMDA_PECTAB_VERSION) ? TDevOper::PrnVO : TDevOper::PrnBP,
-                airp_dep, airp_arv, params.prnParams.pr_lat);
+                airp_dep, airp_arv, params.get_prn_params().pr_lat);
 
         TBCBPData bcbp;
         bcbp.cls         = "Э";
@@ -2483,7 +2567,7 @@ void PrintInterface::GetPrintDataVOUnregistered(
         parser.pts.set_tag(TAG::SUBCLS,        "");
         parser.pts.set_tag(TAG::TAGS,          ""); // TODO get it
 
-        parser.pts.tagsFromXML(params.clientDataNode);
+        parser.pts.tagsFromXML(params.get_client_data_node());
 
         QParams qryParams;
         qryParams
@@ -2549,11 +2633,11 @@ void PrintInterface::GetPrintDataVOUnregistered(
 
                 string prn_form = parser.parse(data);
                 bool hex = false;
-                if(DevFmtTypes().decode(params.fmt_type) == TDevFmt::EPSON) {
+                if(DevFmtTypes().decode(params.get_fmt_type()) == TDevFmt::EPSON) {
                     to_esc::TConvertParams ConvertParams;
-                    ConvertParams.init(params.dev_model);
+                    ConvertParams.init(params.get_dev_model());
                     ProgTrace(TRACE5, "prn_form: %s", prn_form.c_str());
-                    to_esc::convert(prn_form, ConvertParams, params.prnParams);
+                    to_esc::convert(prn_form, ConvertParams, params.get_prn_params());
                     StringToHex( string(prn_form), prn_form );
                     LogTrace(TRACE5) << "after StringToHex prn_form: " << prn_form;
                     hex=true;
@@ -2635,12 +2719,7 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
     TDevOper::Enum op_type = DevOperTypes().decode(NodeAsStringFast("op_type", currNode, DevOperTypes().encode(TDevOper::PrnBP).c_str()));
     xmlNodePtr vouchersNode = GetNodeFast("vouchers", currNode);
     xmlNodePtr VOPaxListNode = GetNode("pax_list", vouchersNode);
-    params.dev_model = NodeAsStringFast("dev_model", currNode);
-    params.fmt_type = NodeAsStringFast("fmt_type", currNode);
-    params.prnParams.get_prn_params(reqNode);
-    params.clientDataNode = NodeAsNodeFast("clientData", currNode);
-    if(params.dev_model.empty())
-      previewDeviceSets(false, "MSG.PRINTER_NOT_SPECIFIED");
+    params.fromXML(reqNode);
 
     if(VOPaxListNode or first_seg_grp_id == 0)
         return GetPrintDataVOUnregistered(params, op_type, reqNode, resNode);
@@ -2907,8 +2986,7 @@ void PrintInterface::print_bp2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
         TDevOper::Enum op_type = TDevOper::PrnBP;
         BPParams params;
-        params.dev_model = NodeAsString("dev_model", contentNode);
-        params.fmt_type = NodeAsString("fmt_type", contentNode);
+        params.fromXML(contentNode);
         check_pectab_availability(params, grp_id, op_type);
         string pectab, data;
         get_pectab(op_type, params, data, pectab);
@@ -3091,6 +3169,50 @@ void PrintInterface::RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     }
 }
 
+void dummy_emda(xmlNodePtr resNode)
+{
+    xmlNodePtr itemsNode = GetNode("items", resNode);
+    if(not itemsNode) return;
+    xmlNodePtr itemNode = GetNode("item", itemsNode);
+    if(not itemNode) return;
+    int i = 1;
+    while(itemNode) {
+        ostringstream buf;
+        buf << 298 << setw(12) << setfill('0') << i;
+        NewTextChild(itemNode, "emd_no", buf.str());
+        NewTextChild(itemNode, "emd_coupon", 1);
+        itemNode = itemNode->next;
+        i++;
+    }
+}
+
+void fill_pr_print_emda(xmlNodePtr resNode)
+{
+    xmlNodePtr itemsNode = GetNode("items", resNode);
+    if(not itemsNode) return;
+    xmlNodePtr itemNode = GetNode("item", itemsNode);
+    if(not itemNode) return;
+    while(itemNode) {
+        xmlNodePtr currNode = itemNode->children;
+        int pax_id = NodeAsIntegerFast("pax_id", currNode);
+        string emd_no = NodeAsStringFast("ticknum", currNode);
+        int emd_coupon = NodeAsIntegerFast("ticket_cpn", currNode);
+        NewTextChild(itemNode, "pr_print", get_pr_print_emda(pax_id, emd_no, emd_coupon));
+        itemNode = itemNode->next;
+    }
+}
+
+void PrintInterface::GetEMDAList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    int grp_id = NodeAsInteger("grp_id", reqNode);
+    TPriceRFISCList prices;
+    prices.fromDB(grp_id);
+    prices.toXML(resNode);
+    //dummy_emda(resNode);
+    fill_pr_print_emda(resNode);
+    LogTrace(TRACE5) << GetXMLDocText(resNode->doc); // !!!
+}
+
 void PrintInterface::GetImg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     string name = NodeAsString("name", reqNode);
@@ -3111,6 +3233,17 @@ void PrintInterface::GetImg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         throw Exception("image %s not found", name.c_str());
     xmlNodePtr kioskImgNode = NewTextChild(resNode, "kiosk_img");
     NewTextChild(kioskImgNode, "data", result);
+}
+
+void PrintInterface::BPParams::fromXML(xmlNodePtr node)
+{
+    xmlNodePtr currNode = node->children;
+    dev_model = NodeAsStringFast("dev_model", currNode);
+    fmt_type = NodeAsStringFast("fmt_type", currNode);
+    prnParams.get_prn_params(node);
+    clientDataNode = GetNodeFast("clientData", currNode);
+    if(dev_model.empty())
+      previewDeviceSets(false, "MSG.PRINTER_NOT_SPECIFIED");
 }
 
 void PrintInterface::GetTripVouchersSet(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

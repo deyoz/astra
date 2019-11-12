@@ -205,7 +205,7 @@ static std::string getIatciAddrType(const std::string& astraAddrType)
 }
 
 //---------------------------------------------------------------------------------------
- 
+
 const size_t IatciXmlDb::PageSize = 1000;
 
 void IatciXmlDb::add(int grpId, const std::string& xmlText)
@@ -739,12 +739,12 @@ boost::optional<iatci::ServiceDetails> makeService(const astra_api::astra_entiti
             }
         }
     }
-    
+
     if(pax.m_fqtRems) {
         if(!service) {
             service = iatci::ServiceDetails();
         }
-        
+
         for(const auto& rem: pax.m_fqtRems->m_lFqtRems) {
             service->addSsrFqtv(rem.m_remCode, rem.m_airline, rem.m_fqtNo);
         }
@@ -961,7 +961,7 @@ iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg,
 
     boost::gregorian::date scd_dep_date, scd_arr_date;
     boost::posix_time::time_duration scd_dep_time(boost::posix_time::not_a_date_time);
-    if(scd_local != ASTRA::NoExists) {       
+    if(scd_local != ASTRA::NoExists) {
         auto boost_ddt = DateTimeToBoost(scd_local);
         scd_dep_date = boost_ddt.date();
         if(!bad_scd_dep_time) {
@@ -1493,6 +1493,7 @@ static xmlNodePtr xmlViewIatciFlight(xmlNodePtr node, const iatci::FlightDetails
     NewTextChild(tripHeaderNode, "pr_auto_pt_print", 0);
     NewTextChild(tripHeaderNode, "pr_auto_pt_print_reseat", 0);
     NewTextChild(tripHeaderNode, "use_jmp", 0);
+    NewTextChild(tripHeaderNode, "pr_payment_at_desk", 0);
 
     xmlNodePtr tripDataNode = newChild(segNode, "tripdata");
     xmlNodePtr airpsNode = newChild(tripDataNode, "airps");
@@ -1680,7 +1681,7 @@ void xmlViewIatciPaxes_asisOrder(xmlNodePtr paxesNode,
                                  const std::list<dcrcka::PaxGroup>& paxGroups)
 {
     int currPax = 0;
-    for(const auto& pxg: paxGroups) {        
+    for(const auto& pxg: paxGroups) {
         xmlViewIatciPax(paxesNode,
                         pxg.pax(),
                         pxg.reserv(),

@@ -34,6 +34,7 @@
 #include "comp_props.h"
 #include "ckin_search.h"
 #include "payment_base.h"
+#include "service_eval.h"
 
 #include <serverlib/testmode.h>
 
@@ -806,6 +807,13 @@ void TripsInterface::PectabsResponse(int point_id, xmlNodePtr reqNode, xmlNodePt
       string fmt_type = NodeAsString("fmt_type", node);
       GetTripBPPectabs( point_id, TDevOper::PrnBI, dev_model, fmt_type, dataNode );
   };
+  node=GetNode( "tripEMDApectabs", reqNode );
+  if (node!=NULL)
+  {
+      string dev_model = NodeAsString("dev_model", node);
+      string fmt_type = NodeAsString("fmt_type", node);
+      GetTripBPPectabs( point_id, TDevOper::PrnEMDA, dev_model, fmt_type, dataNode );
+  };
 };
 
 void TripsInterface::GetSegInfo(xmlNodePtr reqNode, xmlNodePtr resNode, xmlNodePtr dataNode)
@@ -1120,6 +1128,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
         setList.fromDB(point_id);
         if (setList.empty()) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
         NewTextChild( node, "use_jmp", (int)setList.value<bool>(tsUseJmp) );
+        NewTextChild( node, "pr_payment_at_desk", (int)isPaymentAtDesk(point_id));
     };
   };
 
