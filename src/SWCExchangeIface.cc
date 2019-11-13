@@ -1,6 +1,11 @@
 #include "SWCExchangeIface.h"
 #include "xml_unit.h"
 
+#define NICKNAME "DJEK"
+#define NICKTRACE SYSTEM_TRACE
+#include <serverlib/slogger.h>
+
+
 namespace SWC
 {
 
@@ -51,7 +56,7 @@ class SWCClient : public ExchangeIterface::HTTPClient
 
 void SWCExchange::fromDB()
 {
-  clientId = 105;
+  clientId = 430;
   Authorization = "Authorization:Basic eG1sX2FzdHJhX0dSVF9VVDpXMFJ5M0VEQng0";
   Resource = "/swc-xml/site";
 }
@@ -112,6 +117,7 @@ void SWCExchange::errorFromXML(xmlNodePtr node)
 
   error_code=NodeAsString("@code", errNode, "");
   error_message=NodeAsString(errNode);
+  LogError(STDLOG) << error_code << "=" << error_message;
 }
 
 void SWCExchange::errorToXML(xmlNodePtr node) const

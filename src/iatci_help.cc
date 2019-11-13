@@ -1649,7 +1649,6 @@ static xmlNodePtr xmlViewIatciFlight(xmlNodePtr node, const iatci::FlightDetails
     NewTextChild(tripHeaderNode, "pr_auto_pt_print", 0);
     NewTextChild(tripHeaderNode, "pr_auto_pt_print_reseat", 0);
     NewTextChild(tripHeaderNode, "use_jmp", 0);
-    NewTextChild(tripHeaderNode, "pr_payment_at_desk", 0);
 
     xmlNodePtr tripDataNode = newChild(segNode, "tripdata");
     xmlNodePtr airpsNode = newChild(tripDataNode, "airps");

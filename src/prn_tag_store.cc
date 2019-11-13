@@ -3047,7 +3047,9 @@ bool TPrnTagStore::TEMDAInfo::find(int pax_id, boost::any &emd_no, boost::any &e
     res.pr_print = get_pr_print_emda(pax_id, _emd_no, _emd_coupon);
 
     for ( const auto &p : prices.get() ) {
-        for ( const auto &svc : p.second.svcs ) {
+        SVCS svcs;
+        p.second.getSVCS( svcs, TPriceServiceItem::EnumSVCS::only_for_pay );
+        for ( const auto &svc : svcs ) {
             if(
                     p.second.pax_id == pax_id and
                     svc.second.ticknum == _emd_no and
