@@ -6,6 +6,7 @@
 #include "term_version.h"
 #include "alarms.h"
 #include "qrys.h"
+#include "typeb_utils.h"
 
 #define NICKNAME "VLAD"
 #include <serverlib/slogger.h>
@@ -14,6 +15,7 @@ using namespace std;
 using namespace BASIC::date_time;
 using namespace ASTRA;
 using namespace EXCEPTIONS;
+using namespace AstraLocale;
 
 namespace CheckIn
 {
@@ -64,10 +66,12 @@ void PaxTransferToXML(const list<TPaxTransferItem> &trfer, xmlNodePtr paxNode)
   };
 };
 
-void PaxTransferToDB(int pax_id, int pax_no, const vector<CheckIn::TTransferItem> &trfer, int seg_no)
+void PaxTransferToDB(int pax_id, int pax_no, const CheckIn::TTransferList &trfer, int seg_no)
 {
-  vector<CheckIn::TTransferItem>::const_iterator firstTrfer=trfer.begin();
-  for(;firstTrfer!=trfer.end()&&seg_no>1;firstTrfer++,seg_no--);
+  int seg_no_tmp=seg_no;
+
+  CheckIn::TTransferList::const_iterator firstTrfer=trfer.begin();
+  for(;firstTrfer!=trfer.end()&&seg_no_tmp>1;firstTrfer++,seg_no_tmp--);
 
   TQuery TrferQry(&OraSession);
   TrferQry.Clear();
@@ -83,7 +87,7 @@ void PaxTransferToDB(int pax_id, int pax_no, const vector<CheckIn::TTransferItem
   TrferQry.DeclareVariable("subclass_fmt",otInteger);
 
   int trfer_num=1;
-  for(vector<CheckIn::TTransferItem>::const_iterator t=firstTrfer;t!=trfer.end();t++,trfer_num++)
+  for(CheckIn::TTransferList::const_iterator t=firstTrfer;t!=trfer.end();t++,trfer_num++)
   {
     const CheckIn::TPaxTransferItem &pax=t->pax.at(pax_no-1);
     TrferQry.SetVariable("transfer_num",trfer_num);
@@ -94,20 +98,112 @@ void PaxTransferToDB(int pax_id, int pax_no, const vector<CheckIn::TTransferItem
   TrferQry.Close();
 }
 
-void LoadTransfer(int grp_id, vector<TTransferItem> &trfer)
+void TTransferList::load(int grp_id)
 {
-  trfer.clear();
+  clear();
   TTrferRoute route;
   route.GetRoute(grp_id, trtNotFirstSeg);
   for(TTrferRoute::const_iterator r=route.begin(); r!=route.end(); ++r)
   {
-    trfer.push_back(TTransferItem());
-    TTransferItem &t=trfer.back();
+    emplace_back();
+    TTransferItem &t=back();
     t.operFlt=r->operFlt;
     t.airp_arv=r->airp_arv;
     t.airp_arv_fmt=r->airp_arv_fmt;
-  };
-};
+  }
+}
+
+void TTransferList::check(int id, bool isGrpId, int seg_no) const
+{
+  int seg_no_tmp=seg_no;
+
+  TTransferList::const_iterator firstTrfer=begin();
+  for(;firstTrfer!=end()&&seg_no_tmp>1;firstTrfer++,seg_no_tmp--);
+  if (firstTrfer==end()) return;
+
+  TAdvTripInfo fltInfo;
+  if (isGrpId)
+  {
+    if (!fltInfo.getByGrpId(id))
+      throw EXCEPTIONS::Exception("Passenger group not found (grp_id=%d)", id);
+  }
+  else
+  {
+    if (!fltInfo.getByPointId(id))
+      throw EXCEPTIONS::Exception("Flight not found (point_id=%d)", id);
+  }
+
+  vector< pair<string,int> > tlgs;
+  vector< pair<string,int> >::iterator iTlgs;
+
+  tlgs.push_back( pair<string,int>("BTM",checkAllSeg) );
+  tlgs.push_back( pair<string,int>("BSM",checkAllSeg) );
+  tlgs.push_back( pair<string,int>("PRL",checkAllSeg) );
+  tlgs.push_back( pair<string,int>("PTM",checkFirstSeg) );
+  tlgs.push_back( pair<string,int>("PTMN",checkFirstSeg) );
+  tlgs.push_back( pair<string,int>("PSM",checkFirstSeg) );
+
+  int checkType=checkNone;
+
+  for(iTlgs=tlgs.begin();iTlgs!=tlgs.end();iTlgs++)
+  {
+    if (checkType==checkAllSeg) break;
+    if (iTlgs->second==checkNone ||
+        (iTlgs->second==checkFirstSeg && checkType==checkFirstSeg)) continue;
+
+    TypeB::TCreator creator(fltInfo);
+    creator << iTlgs->first;
+    vector<TypeB::TCreateInfo> createInfo;
+    creator.getInfo(createInfo);
+    vector<TypeB::TCreateInfo>::const_iterator i=createInfo.begin();
+    for(; i!=createInfo.end(); ++i)
+      if (i->get_options().is_lat) break;
+    if (i==createInfo.end()) continue;
+
+    checkType=iTlgs->second;
+  }
+
+  string strh;
+  int trfer_num=1;
+  for(TTransferList::const_iterator t=firstTrfer;t!=end();++t,trfer_num++)
+  {
+    if (checkType==checkAllSeg ||
+        (checkType==checkFirstSeg && t==firstTrfer))
+    {
+      {
+        const TAirlinesRow& row=(const TAirlinesRow&)base_tables.get("airlines").get_row("code",t->operFlt.airline);
+        if (row.code_lat.empty())
+        {
+          strh=ElemIdToClientElem(etAirline, t->operFlt.airline, t->operFlt.airline_fmt);
+          throw UserException("MSG.TRANSFER_FLIGHT.LAT_AIRLINE_NOT_FOUND",
+                              LParams()<<LParam("airline",strh)
+                                       <<LParam("flight",t->flight_view));
+
+        }
+      }
+      {
+        const TAirpsRow& row=(const TAirpsRow&)base_tables.get("airps").get_row("code",t->operFlt.airp);
+        if (row.code_lat.empty())
+        {
+          strh=ElemIdToClientElem(etAirp, t->operFlt.airp, t->operFlt.airp_fmt);
+          throw UserException("MSG.TRANSFER_FLIGHT.LAT_AIRP_DEP_NOT_FOUND",
+                              LParams()<<LParam("airp",strh)
+                                       <<LParam("flight",t->flight_view));
+        }
+      }
+      {
+        const TAirpsRow& row=(const TAirpsRow&)base_tables.get("airps").get_row("code",t->airp_arv);
+        if (row.code_lat.empty())
+        {
+          strh=ElemIdToClientElem(etAirp, t->airp_arv, t->airp_arv_fmt);
+          throw UserException("MSG.TRANSFER_FLIGHT.LAT_AIRP_ARR_NOT_FOUND",
+                              LParams()<<LParam("airp",strh)
+                                       <<LParam("flight",t->flight_view));
+        }
+      }
+    }
+  }
+}
 
 } //namespace CheckIn
 
@@ -252,7 +348,7 @@ TGrpItem& TGrpItem::paxFromDB(TQuery &PaxQry, TQuery &RemQry, bool fromTlg)
               break;
             };
         }
-        catch(EBaseTableError)
+        catch(const EBaseTableError&)
         {
           subcl.clear();
           break;
@@ -958,7 +1054,7 @@ void GrpsToGrpsView(TTrferType type,
           const TSubclsRow &subclsRow=(const TSubclsRow&)base_tables.get("subcls").get_row("code",g->subcl);
           grp.subcl_priority=((const TClassesRow&)base_tables.get("classes").get_row("code",subclsRow.cl)).priority;
         }
-        catch(EBaseTableError){};
+        catch(const EBaseTableError&){};
       }
       else
       {
@@ -1733,6 +1829,9 @@ string GetConflictStr(const set<TConflictReason> &conflicts)
       case conflictWeightNotDefined:
         s << "WeightNotDefined; ";
         break;
+      case conflictOutRouteWithErrors:
+        s << "OutRouteWithErrors; ";
+        break;
     };
   };
   return s.str();
@@ -1742,20 +1841,22 @@ bool isGlobalConflict(TConflictReason c)
 {
    return c==conflictInRouteIncomplete ||
           c==conflictInRouteDiffer ||
-          c==conflictOutRouteDiffer;
+          c==conflictOutRouteDiffer ||
+          c==conflictOutRouteWithErrors;
 };
 
 TrferList::TAlarmType GetConflictAlarm(TConflictReason c)
 {
   switch(c)
   {
-    case conflictInPaxDuplicate:    return TrferList::atInPaxDuplicate;
-    case conflictOutPaxDuplicate:   return TrferList::atOutPaxDuplicate;
-    case conflictInRouteIncomplete: return TrferList::atInRouteIncomplete;
-    case conflictInRouteDiffer:     return TrferList::atInRouteDiffer;
-    case conflictOutRouteDiffer:    return TrferList::atOutRouteDiffer;
-    case conflictInOutRouteDiffer:  return TrferList::atInOutRouteDiffer;
-    case conflictWeightNotDefined:  return TrferList::atWeightNotDefined;
+    case conflictInPaxDuplicate:      return TrferList::atInPaxDuplicate;
+    case conflictOutPaxDuplicate:     return TrferList::atOutPaxDuplicate;
+    case conflictInRouteIncomplete:   return TrferList::atInRouteIncomplete;
+    case conflictInRouteDiffer:       return TrferList::atInRouteDiffer;
+    case conflictOutRouteDiffer:      return TrferList::atOutRouteDiffer;
+    case conflictInOutRouteDiffer:    return TrferList::atInOutRouteDiffer;
+    case conflictWeightNotDefined:    return TrferList::atWeightNotDefined;
+    case conflictOutRouteWithErrors:  return TrferList::atOutRouteWithErrors;
   };
   return TrferList::atLength;
 };
@@ -2002,11 +2103,10 @@ void NewGrpInfoToGrpsView(const TNewGrpInfo &inbound_trfer,
   TrferList::GrpsToGrpsView(TrferList::trferOutForCkin, true, grps_ckin, grps_tlg, alarms, grps);
 };
 
-void conflictReasonsToLog(const set<TConflictReason> &conflicts,
-                          bool emptyInboundBaggage,
-                          TLogLocale &tlocale)
+void ConflictReasons::toLog(const TLogLocale &pattern) const
 {
-  for(set<TConflictReason>::const_iterator c=conflicts.begin(); c!=conflicts.end(); ++c)
+  TLogLocale tlocale(pattern);
+  for(std::set<TConflictReason>::const_iterator c=conflicts.begin(); c!=conflicts.end(); ++c)
   {
     tlocale.lexema_id.clear();
     switch(*c)
@@ -2033,6 +2133,11 @@ void conflictReasonsToLog(const set<TConflictReason> &conflicts,
         break;
       case conflictWeightNotDefined:
         tlocale.lexema_id = "EVT.INBOUND_TRFER_CONFLICT_REASON.WEIGHT_NOT_DEFINED";
+        break;
+      case conflictOutRouteWithErrors:
+        tlocale.lexema_id = emptyInboundBaggage?
+                              "EVT.TRFER_CONFLICT_REASON.OUT_ROUTE_WITH_ERRORS":
+                              "EVT.INBOUND_TRFER_CONFLICT_REASON.OUT_ROUTE_WITH_ERRORS";
         break;
     };
     TReqInfo::Instance()->LocaleToLog(tlocale);

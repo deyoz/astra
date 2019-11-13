@@ -33,7 +33,7 @@ struct TGrpInfo {
     public:
         struct TGrpInfoItem {
             string cls;
-            vector<CheckIn::TTransferItem> trfer;
+            CheckIn::TTransferList trfer;
 
             struct TPrWeapon {
                 map<int, bool> items; // <bag_pool_num, pr_weapon>
@@ -92,7 +92,7 @@ TGrpInfo::TGrpInfoMap::iterator TGrpInfo::get(int grp_id)
         grp.getByGrpId(grp_id);
         TGrpInfoItem item;
         item.cls = grp.cl;
-        CheckIn::LoadTransfer(grp_id, item.trfer);
+        item.trfer.load(grp_id);
         item.pr_weapon.fromDB(grp, airline);
         pair<TGrpInfoMap::iterator, bool> ret = items.insert(make_pair(grp_id, item));
         result = ret.first;
@@ -111,10 +111,10 @@ struct TTrferInfo {
         airp_arv.clear();
     }
     TTrferInfo() { clear(); }
-    void get(int pax_id, const TTripRoute &route, const vector<CheckIn::TTransferItem> &trfer);
+    void get(int pax_id, const TTripRoute &route, const CheckIn::TTransferList &trfer);
 };
 
-void TTrferInfo::get(int pax_id, const TTripRoute &route, const vector<CheckIn::TTransferItem> &trfer)
+void TTrferInfo::get(int pax_id, const TTripRoute &route, const CheckIn::TTransferList &trfer)
 {
     map<int, CheckIn::TCkinPaxTknItem> tkns;
 

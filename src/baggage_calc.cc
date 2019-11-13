@@ -822,7 +822,7 @@ TAirlines::TAirlines(int grp_id, const std::string &airline, const std::string& 
     key.getListKeyByGrpId(grp_id, 0, boost::none, where);
     insert(key.airline);
   }
-  catch(EConvertError)
+  catch(const EConvertError&)
   {
     insert(airline);
   };
@@ -977,7 +977,7 @@ void RecalcPaidBagWide(const TAirlines &airlines,
 void GetWidePaxInfo(const TAirlines &airlines,
                     const map<int/*id*/, TEventsBagItem> &curr_bag,
                     const std::map<TPaxToLogInfoKey, TPaxToLogInfo> &prior_paxs,
-                    const std::vector<CheckIn::TTransferItem> &trfer,
+                    const CheckIn::TTransferList &trfer,
                     const CheckIn::TPaxGrpItem &grp,
                     const CheckIn::TPaxList &curr_paxs,
                     bool pr_unaccomp,
@@ -1179,7 +1179,7 @@ void RecalcPaidBagToDB(const TAirlines &airlines,
                        const map<int/*id*/, TEventsBagItem> &curr_bag,
                        const std::map<TPaxToLogInfoKey, TPaxToLogInfo> &prior_paxs,
                        const TNormFltInfo &flt,
-                       const std::vector<CheckIn::TTransferItem> &trfer,
+                       const CheckIn::TTransferList &trfer,
                        const CheckIn::TPaxGrpItem &grp,
                        const CheckIn::TPaxList &curr_paxs,
                        const TPaidBagList &prior_paid,
@@ -1369,9 +1369,9 @@ int test_norms(int argc,char **argv)
       TAirlines airlines(GetCurrSegBagAirline(grp.id)); //test_norms - checked!
 
       TGrpToLogInfo grpLogInfo;
-      std::vector<CheckIn::TTransferItem> trfer;
+      CheckIn::TTransferList trfer;
       GetGrpToLogInfo(grp.id, grpLogInfo);
-      CheckIn::LoadTransfer(grp.id, trfer);
+      trfer.load(grp.id);
 
       if (!test_paid)
       {
@@ -2194,7 +2194,7 @@ string GetBagRcptStr(int grp_id, int pax_id)
       {
         no_len=base_tables.get("form_types").get_row("code",Qry.FieldAsString("form_type")).AsInteger("no_len");
       }
-      catch(EBaseTableError) {};
+      catch(const EBaseTableError&) {};
       ostringstream no_str;
       no_str << fixed << setw(no_len) << setfill('0') << setprecision(0) << Qry.FieldAsFloat("no");
       rcpts.push_back(no_str.str());
