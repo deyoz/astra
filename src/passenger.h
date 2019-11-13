@@ -518,6 +518,7 @@ class TComplexClass
 
     const TComplexClass& toDB(TQuery &Qry, const std::string& fieldPrefix) const;
     TComplexClass& fromDB(TQuery &Qry, const std::string& fieldPrefix);
+    const TComplexClass& toXML(xmlNodePtr node, const std::string& fieldPrefix) const;
 };
 
 class TSimplePaxItem

@@ -1538,6 +1538,7 @@ static void CreateCrewResponse(int point_dep, const TInquiryGroupSummary &sum, x
     NewTextChild(node,"airp_arv",route.back().airp);
   NewTextChild(node,"subclass"," "); //crew compatible
   NewTextChild(node,"class",EncodeClass(Y)); //crew compatible
+  NewTextChild(node,"cabin_class",EncodeClass(Y)); //crew compatible
 
   list<CheckIn::TPaxItem> paxs;
   GetPaxNoRecResponse(sum, paxs);
