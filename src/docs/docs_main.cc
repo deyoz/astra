@@ -124,6 +124,9 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         case rtCRSUNREGTXT:
             CRSTXT(rpt_params, reqNode, resNode);
             break;
+        case rtBDOCSTXT:
+            BDOCSTXT(rpt_params, reqNode, resNode);
+            break;
         case rtEXAM:
         case rtNOREC:
         case rtGOSHO:
