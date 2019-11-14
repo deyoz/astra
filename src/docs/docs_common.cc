@@ -496,6 +496,16 @@ string vs_number(int number, bool pr_lat)
 
 void populate_doc_cap(xmlNodePtr variablesNode, string lang)
 {
+    NewTextChild(variablesNode, "doc_cap_pax", getLocaleText("Пассажир", lang));
+    NewTextChild(variablesNode, "doc_cap_issue_country", getLocaleText("Гос-во выдачи", lang));
+    NewTextChild(variablesNode, "doc_cap_number", getLocaleText("Номер", lang));
+    NewTextChild(variablesNode, "doc_cap_nation", getLocaleText("Граж.", lang));
+    NewTextChild(variablesNode, "doc_cap_birth", getLocaleText("CAP.PAX_DOC.BIRTH_DATE", lang));
+    NewTextChild(variablesNode, "doc_cap_sex", getLocaleText("Пол", lang));
+    NewTextChild(variablesNode, "doc_cap_expiry", getLocaleText("Оконч. действия", lang));
+    NewTextChild(variablesNode, "doc_cap_first_name", getLocaleText("Имя", lang));
+    NewTextChild(variablesNode, "doc_cap_second_name", getLocaleText("Отчество", lang));
+
     NewTextChild(variablesNode, "doc_cap_no", getLocaleText("№", lang));
     NewTextChild(variablesNode, "doc_cap_name", getLocaleText("Ф.И.О.", lang));
     NewTextChild(variablesNode, "doc_cap_surname", getLocaleText("Фамилия", lang));

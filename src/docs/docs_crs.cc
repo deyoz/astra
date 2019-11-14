@@ -77,7 +77,7 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
     TRemGrp rem_grp;
     if(rpt_params.rpt_type != rtBDOCS)
-      rem_grp.Load(retPNL_SEL, rpt_params.point_id);
+        rem_grp.Load(retPNL_SEL, rpt_params.point_id);
     for(; !Qry.Eof; Qry.Next()) {
         int pax_id=Qry.FieldAsInteger("pax_id");
         if(
@@ -148,13 +148,17 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     if(pr_unreg)
         NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.CRSUNREG",
                     LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang()));
-    else if(rpt_params.rpt_type == rtBDOCSTXT)
+    else if(
+            rpt_params.rpt_type == rtBDOCS or
+            rpt_params.rpt_type == rtBDOCSTXT
+           )
         NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.BDOCS",
                     LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang()));
     else
         NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.CRS",
                     LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang()));
     populate_doc_cap(variablesNode, rpt_params.GetLang());
+    NewTextChild(variablesNode, "doc_cap_bdocs", getLocaleText("Документ из DOCS", rpt_params.GetLang()));
 }
 
 void CRSTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -253,10 +257,7 @@ struct TTextGrid {
     private:
         size_t tab_width;
 
-        struct THeader: public list<pair<string, int>> {
-        };
-
-        THeader hdr;
+        list<pair<string, size_t>> hdr;
 
         struct TRow:public vector<string> {
             private:
@@ -267,10 +268,7 @@ struct TTextGrid {
             TRow(TTextGrid &grd): grd(grd) {}
         };
 
-        struct TGrid:public list<TRow> {
-        };
-
-        TGrid grid;
+        list<TRow> grid;
 
         bool check_fileds_empty(const map<int, vector<string>> &fields);
         void fill_grid(ostringstream &s, boost::optional<const TRow &> row = boost::none);
