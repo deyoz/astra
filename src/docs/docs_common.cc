@@ -33,7 +33,6 @@ void TRptParams::Init(xmlNodePtr node)
             // у этих отчетов нет текстового варианта
             // При формировании отчетов из-под DCP CUTE, передается тег text = 1
             // Хотя он visibl = false в терминале
-            rpt_type != rtBDOCS and
             rpt_type != rtLOADSHEET and
             rpt_type != rtNOTOC and
             rpt_type != rtLIR and
@@ -254,6 +253,7 @@ void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
     if(STAT::bad_client_img_version())
         NewTextChild(variablesNode, "doc_cap_test", " ");
     NewTextChild(variablesNode, "page_number_fmt", getLocaleText("CAP.PAGE_NUMBER_FMT", rpt_params.GetLang()));
+    NewTextChild(variablesNode, "landscape", rpt_params.rpt_type == rtBDOCSTXT ? 1 : 0);
 }
 
 string get_flight(xmlNodePtr variablesNode)
@@ -496,6 +496,16 @@ string vs_number(int number, bool pr_lat)
 
 void populate_doc_cap(xmlNodePtr variablesNode, string lang)
 {
+    NewTextChild(variablesNode, "doc_cap_pax", getLocaleText("Пассажир", lang));
+    NewTextChild(variablesNode, "doc_cap_issue_country", getLocaleText("Гос-во выдачи", lang));
+    NewTextChild(variablesNode, "doc_cap_number", getLocaleText("Номер", lang));
+    NewTextChild(variablesNode, "doc_cap_nation", getLocaleText("Граж.", lang));
+    NewTextChild(variablesNode, "doc_cap_birth", getLocaleText("CAP.PAX_DOC.BIRTH_DATE", lang));
+    NewTextChild(variablesNode, "doc_cap_sex", getLocaleText("Пол", lang));
+    NewTextChild(variablesNode, "doc_cap_expiry", getLocaleText("Оконч. действия", lang));
+    NewTextChild(variablesNode, "doc_cap_first_name", getLocaleText("Имя", lang));
+    NewTextChild(variablesNode, "doc_cap_second_name", getLocaleText("Отчество", lang));
+
     NewTextChild(variablesNode, "doc_cap_no", getLocaleText("№", lang));
     NewTextChild(variablesNode, "doc_cap_name", getLocaleText("Ф.И.О.", lang));
     NewTextChild(variablesNode, "doc_cap_surname", getLocaleText("Фамилия", lang));

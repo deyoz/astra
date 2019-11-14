@@ -50,6 +50,7 @@ const char *RptTypeS[] = {
     "GOSHO",
     "GOSHOTXT",
     "BDOCS",
+    "BDOCSTXT",
     "SPEC",
     "SPECTXT",
     "EMD",

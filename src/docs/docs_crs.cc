@@ -2,13 +2,17 @@
 #include "stat/stat_utils.h"
 #include "docs_utils.h"
 
+#define NICKNAME "DENIS"
+#include "serverlib/slogger.h"
+
 using namespace ASTRA;
 using namespace std;
 using namespace AstraLocale;
+using namespace EXCEPTIONS;
 
 void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    if(rpt_params.rpt_type == rtCRSTXT or rpt_params.rpt_type == rtCRSUNREGTXT)
+    if(rpt_params.rpt_type == rtCRSTXT or rpt_params.rpt_type == rtCRSUNREGTXT or rpt_params.rpt_type == rtBDOCSTXT)
         get_compatible_report_form("docTxt", reqNode, resNode);
     else
         get_compatible_report_form((rpt_params.rpt_type == rtBDOCS ? "bdocs" : "crs"), reqNode, resNode);
@@ -73,10 +77,13 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
     TRemGrp rem_grp;
     if(rpt_params.rpt_type != rtBDOCS)
-      rem_grp.Load(retPNL_SEL, rpt_params.point_id);
+        rem_grp.Load(retPNL_SEL, rpt_params.point_id);
     for(; !Qry.Eof; Qry.Next()) {
         int pax_id=Qry.FieldAsInteger("pax_id");
-        if(rpt_params.rpt_type == rtBDOCS) {
+        if(
+                rpt_params.rpt_type == rtBDOCS or
+                rpt_params.rpt_type == rtBDOCSTXT
+          ) {
             docsQry.SetVariable("pax_id", pax_id);
             docsQry.Execute();
             if (!docsQry.Eof)
@@ -141,10 +148,17 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     if(pr_unreg)
         NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.CRSUNREG",
                     LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang()));
+    else if(
+            rpt_params.rpt_type == rtBDOCS or
+            rpt_params.rpt_type == rtBDOCSTXT
+           )
+        NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.BDOCS",
+                    LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang()));
     else
         NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.CRS",
                     LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang()));
     populate_doc_cap(variablesNode, rpt_params.GetLang());
+    NewTextChild(variablesNode, "doc_cap_bdocs", getLocaleText("Документ из DOCS", rpt_params.GetLang()));
 }
 
 void CRSTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -239,3 +253,194 @@ void CRSTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     }
 }
 
+struct TTextGrid {
+    private:
+        size_t tab_width;
+
+        list<pair<string, size_t>> hdr;
+
+        struct TRow:public vector<string> {
+            private:
+                TTextGrid &grd;
+            public:
+            TRow &add(const string &data);
+            void toXML(xmlNodePtr rowNode);
+            TRow(TTextGrid &grd): grd(grd) {}
+        };
+
+        list<TRow> grid;
+
+        bool check_fileds_empty(const map<int, vector<string>> &fields);
+        void fill_grid(ostringstream &s, boost::optional<const TRow &> row = boost::none);
+
+    public:
+        void headerToXML(xmlNodePtr variablesNode);
+        void addCol(const string &caption, int length = NoExists);
+        TRow &addRow();
+        void trace();
+        void clear()
+        {
+            tab_width = 0;
+            hdr.clear();
+            grid.clear();
+        }
+        TTextGrid() { clear(); }
+};
+
+void TTextGrid::headerToXML(xmlNodePtr variablesNode)
+{
+    ostringstream s;
+    s << left;
+    fill_grid(s);
+    NewTextChild(variablesNode,"page_header_bottom",s.str());
+}
+
+void TTextGrid::TRow::toXML(xmlNodePtr rowNode)
+{
+    ostringstream s;
+    s << left;
+    grd.fill_grid(s, *this);
+    NewTextChild(rowNode,"str",s.str());
+}
+
+void TTextGrid::addCol(const string &caption, int length)
+{
+    if(length == NoExists)
+        length = caption.size() + 1;
+    tab_width += length;
+    hdr.push_back(make_pair(caption, length));
+}
+
+TTextGrid::TRow &TTextGrid::addRow()
+{
+    grid.emplace_back(TRow(*this));
+    return grid.back();
+}
+
+TTextGrid::TRow &TTextGrid::TRow::add(const string &data)
+{
+    push_back(data);
+    return *this;
+}
+
+bool TTextGrid::check_fileds_empty(const map<int, vector<string>> &fields)
+{
+    bool result = false;
+    for(const auto &i: fields)
+        if(not i.second.empty()) {
+            result = true;
+            break;
+        }
+    return result;
+}
+
+void TTextGrid::fill_grid(ostringstream &s, boost::optional<const TRow &> row)
+{
+    if(row and row->size() != hdr.size())
+        throw Exception("hdr not equal row: %d %d", row->size(), hdr.size());
+    map< int, vector<string> > fields;
+    int fields_idx = 0;
+    for(const auto i: hdr) {
+        const string &cell_data = (row ? (*row)[fields_idx] : i.first);
+        if(cell_data.size() >= i.second) {
+            vector<string> rows;
+            SeparateString(cell_data.c_str(), i.second - 1, rows);
+            fields[fields_idx++] = rows;
+        } else
+            fields[fields_idx++].push_back(cell_data);
+    }
+    int row_idx = 0;
+    do {
+        fields_idx = 0;
+        if(row_idx != 0) s << endl;
+        for(const auto &i: hdr) {
+            s << setw(i.second) << (fields[fields_idx].empty() ? "" : *(fields[fields_idx].begin()));
+            fields_idx++;
+        }
+        for(auto &i: fields)
+            if(not i.second.empty()) i.second.erase(i.second.begin());
+        row_idx++;
+    } while(check_fileds_empty(fields));
+}
+
+void TTextGrid::trace()
+{
+    LogTrace(TRACE5) << "TTextGrid::trace tab_width: " << tab_width;
+    ostringstream s;
+    s << left << endl;
+    fill_grid(s);
+    s << endl;
+    s << string(tab_width, '-') << endl;
+
+    for(const auto &i: grid) {
+        fill_grid(s, i);
+        s << endl;
+    }
+
+    LogTrace(TRACE5) << s.str();
+}
+
+void BDOCSTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    CRS(rpt_params, reqNode, resNode);
+
+    xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
+    xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
+    int page_width=130;
+    NewTextChild(variablesNode, "page_width", page_width);
+    NewTextChild(variablesNode, "test_server", STAT::bad_client_img_version() ? 2 : get_test_server());
+    if(STAT::bad_client_img_version())
+        NewTextChild(variablesNode, "doc_cap_test", " ");
+    NewTextChild(variablesNode, "test_str", get_test_str(page_width, rpt_params.GetLang()));
+    ostringstream s;
+    vector<string> rows;
+    string str;
+    SeparateString(NodeAsString("caption", variablesNode), page_width, rows);
+    s.str("");
+    for(vector<string>::iterator iv = rows.begin(); iv != rows.end(); iv++) {
+        if(iv != rows.begin())
+            s << endl;
+        s << right << setw(((page_width - iv->size()) / 2) + iv->size()) << *iv;
+    }
+    NewTextChild(variablesNode, "page_header_top", s.str());
+    s.str("");
+    NewTextChild(variablesNode, "page_footer_top",
+            getLocaleText("CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)), rpt_params.GetLang()));
+
+    TTextGrid tab;
+    tab.addCol(getLocaleText("Пассажир", rpt_params.GetLang()),                 28);
+    tab.addCol(getLocaleText("Тип", rpt_params.GetLang()),                      4);
+    tab.addCol(getLocaleText("Гос-во выдачи", rpt_params.GetLang()),            5);
+    tab.addCol(getLocaleText("Номер", rpt_params.GetLang()),                    11);
+    tab.addCol(getLocaleText("Граж.", rpt_params.GetLang()),                    6);
+    tab.addCol(getLocaleText("CAP.PAX_DOC.BIRTH_DATE", rpt_params.GetLang()),   11);
+    tab.addCol(getLocaleText("Пол", rpt_params.GetLang()),                      4);
+    tab.addCol(getLocaleText("Оконч. действия", rpt_params.GetLang()),          16);
+    tab.addCol(getLocaleText("Фамилия", rpt_params.GetLang()),                  15);
+    tab.addCol(getLocaleText("Имя", rpt_params.GetLang()),                      15);
+    tab.addCol(getLocaleText("Отчество", rpt_params.GetLang()),                 15);
+    tab.headerToXML(variablesNode);
+
+    xmlNodePtr dataSetNode = NodeAsNode("v_crs", dataSetsNode);
+    xmlNodeSetName(dataSetNode, "table");
+    xmlNodePtr rowNode=dataSetNode->children;
+
+    for(; rowNode != NULL; rowNode = rowNode->next)
+    {
+        auto &row = tab.addRow();
+        row
+            .add(NodeAsString("family", rowNode))
+            .add(NodeAsString("type", rowNode))
+            .add(NodeAsString("issue_country", rowNode))
+            .add(NodeAsString("no", rowNode))
+            .add(NodeAsString("nationality", rowNode))
+            .add(NodeAsString("birth_date", rowNode, ""))
+            .add(NodeAsString("gender", rowNode))
+            .add(NodeAsString("expiry_date", rowNode, ""))
+            .add(NodeAsString("surname", rowNode))
+            .add(NodeAsString("first_name", rowNode))
+            .add(NodeAsString("second_name", rowNode));
+        row.toXML(rowNode);
+    }
+    tab.trace();
+}
