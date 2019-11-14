@@ -85,7 +85,7 @@ class TFFPInfoRes : public TFFPInfoExchange, public TFFPItem
   protected:
     virtual bool isRequest() const { return false; }
   public:
-    std::string company, card_number, status;
+    std::string status;
     std::list<TFFPInfoNameItem> names;
     virtual void clear()
     {

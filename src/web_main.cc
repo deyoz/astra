@@ -2628,7 +2628,6 @@ void WebRequestsIface::GetCacheTable(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
 
 void WebRequestsIface::CheckFFP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  //а нужена ли проверка crs_pax_id? - пока не делаю!!!
   xmlNodePtr ffpsNode = GetNode( "ffps", reqNode );
   if ( ffpsNode == NULL ) {
     throw EXCEPTIONS::Exception( "tag 'ffps' not found" );
@@ -2640,31 +2639,43 @@ void WebRequestsIface::CheckFFP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   ffpsNode = NewTextChild( resNode, "ffps" );
   while ( reqffpNode!=NULL && string("ffp") == (const char*)reqffpNode->name ) {
     xmlNodePtr node = reqffpNode->children;
-    SirenaExchange::TFFPInfoReq req;
-    SirenaExchange::TFFPInfoRes res;
-    xmlNodePtr resFfpNode = NewTextChild( ffpsNode, "ffp" );
+
     int pax_id=NodeAsIntegerFast( "crs_pax_id", node );
 
+    TElemFmt fmt;
+    std::string airline = ElemToElemId( etAirline, NodeAsStringFast( "airline", node ), fmt );
+    if (fmt==efmtUnknown)
+      throw UserException("MSG.AIRLINE_CODE_NOT_FOUND", LParams() << LParam("airline", NodeAsStringFast( "airline", node )));
+
+    std::string card_number=NodeAsStringFast( "card_number", node );
+
+    CheckIn::Search search;
+    CheckIn::TSimplePaxList paxs;
+    search(paxs, WebSearch::PaxId(pax_id));
+    if (paxs.empty()) throw UserException( "MSG.PASSENGER.NOT_FOUND.REFRESH_DATA" );
+
+    const CheckIn::TSimplePaxItem& pax=paxs.front();
+    CheckIn::TPaxDocItem doc;
+    if (pax.grp_id==ASTRA::NoExists)
+      CheckIn::LoadCrsPaxDoc(pax.id, doc);
+    else
+      CheckIn::LoadPaxDoc(pax.id, doc);
+
+
+
+    SirenaExchange::TFFPInfoReq req;
+    SirenaExchange::TFFPInfoRes res;
+    req.set(airline, card_number, pax.surname, pax.name, doc.birth_date);
+
+    get_ffp_status(req, res);
+
+    //формируем секцию в ответе
+    xmlNodePtr resFfpNode = NewTextChild( ffpsNode, "ffp" );
     NewTextChild( resFfpNode, "crs_pax_id", pax_id );
-    req.set(NodeAsStringFast( "airline", node ),
-            NodeAsStringFast( "card_number", node ),
-            "", "", ASTRA::NoExists);
-    bool pr_error = false;
-    try {
-      get_ffp_status(req, res);
-      NewTextChild( resFfpNode, "error_message" );
-    }
-    catch( EXCEPTIONS::Exception &e ) {
-      pr_error = true;
-      NewTextChild( resFfpNode, "error_message", e.what() );
-    }
-    catch( ... ) {
-      pr_error = true;
-      NewTextChild( resFfpNode, "error_message", "Unknown error" );
-    }
-    NewTextChild( resFfpNode, "airline", pr_error?req.company:res.company );
-    NewTextChild( resFfpNode, "card_number", pr_error?req.card_number:res.card_number );
-    NewTextChild( resFfpNode, "tier_level", pr_error?"":res.status );
+    NewTextChild( resFfpNode, "airline", res.error()?req.company:res.company );
+    NewTextChild( resFfpNode, "card_number", res.error()?req.card_number:res.card_number );
+    NewTextChild( resFfpNode, "tier_level", res.status );
+    NewTextChild( resFfpNode, "error_message", res.error_message );
     reqffpNode = reqffpNode->next;
   }
 }

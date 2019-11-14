@@ -216,13 +216,35 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr fltParentNode, xmlNodePtr paxParentNo
   return *this;
 };
 
+bool PaxId::validForSearch() const
+{
+  return value!=ASTRA::NoExists;
+}
+
+void PaxId::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const
+{
+  switch(origin)
+  {
+    case paxCheckIn:
+      conditions.push_back("pax.pax_id = :pax_id");
+      break;
+    case paxPnl:
+      conditions.push_back("crs_pax.pax_id = :pax_id");
+      break;
+    case paxTest:
+      conditions.push_back("test_pax.id = :pax_id");
+      break;
+  }
+}
+
+void PaxId::addSQLParamsForSearch(QParams& params) const
+{
+  params << QParam("pax_id", otInteger, value);
+}
+
 bool SurnameFilter::validForSearch() const
 {
   return !surname.empty();
-}
-
-void SurnameFilter::addSQLTablesForSearch(const PaxOrigin& origin, std::list<std::string>& tables) const
-{
 }
 
 void SurnameFilter::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const

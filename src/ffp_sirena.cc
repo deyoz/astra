@@ -3,7 +3,7 @@
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "serverlib/test.h"
+#include <serverlib/slogger.h>
 
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
@@ -131,7 +131,7 @@ void get_ffp_status(const SirenaExchange::TFFPInfoReq &req, SirenaExchange::TFFP
         (res.error_code=="3" ||
          res.error_code=="4" ||
          res.error_code=="5" ||
-         res.error_code=="6")) throw UserException(res.error_message);
+         res.error_code=="6")) return;
     throw;
   }
 }

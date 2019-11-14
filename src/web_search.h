@@ -44,6 +44,19 @@ struct TTestPaxInfo
   void trace( TRACE_SIGNATURE ) const;
 };
 
+class PaxId
+{
+  private:
+    int value;
+  public:
+    explicit PaxId(int _value) : value(_value) {}
+
+    bool validForSearch() const;
+    void addSQLTablesForSearch(const PaxOrigin& origin, std::list<std::string>& tables) const {}
+    void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
+    void addSQLParamsForSearch(QParams& params) const;
+};
+
 class SurnameFilter
 {
   public:
@@ -57,7 +70,7 @@ class SurnameFilter
     }
 
     bool validForSearch() const;
-    void addSQLTablesForSearch(const PaxOrigin& origin, std::list<std::string>& tables) const;
+    void addSQLTablesForSearch(const PaxOrigin& origin, std::list<std::string>& tables) const {}
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
     void addSQLParamsForSearch(QParams& params) const;
 };

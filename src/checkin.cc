@@ -8994,6 +8994,18 @@ void CheckInInterface::GetFQTTierLevel(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   req.set(fqt.airline, fqt.no, surname, name, doc.birth_date);
 
   get_ffp_status(req, res);
+  if (res.error())
+  {
+    if (res.error_code=="6")
+    {
+      if (doc.birth_date!=ASTRA::NoExists)
+        throw UserException("MSG.TIER_LEVEL_NOT_RECEIVED");
+      else
+        throw UserException("MSG.TIER_LEVEL_NOT_RECEIVED.TRY_SPECIFY_BIRTH_DATE");
+    }
+    else
+      throw UserException(res.error_message);
+  }
 
   fqt.tier_level=res.status;
   fqt.tier_level_confirm=true;
