@@ -28,6 +28,7 @@
 #include "dcs_services.h"
 #include "tripinfo.h"
 #include "prn_forms_layout.h"
+#include "iapi_interaction.h"
 
 #define NICKNAME "DENIS"
 #include <serverlib/slogger.h>
@@ -1950,6 +1951,19 @@ void PrintInterface::BPPax::checkBPPrintAllowed(boost::optional<SEATPAX::paxSeat
     }
 }
 
+void checkBeforePrintBP(const PrintInterface::BPPax &pax, IAPI::PassengerStatusInspector &iapiInspector)
+{
+    if (!iapiInspector.allowedToPrintBP(pax.pax_id, pax.grp_id))
+        throw UserException("MSG.BP_PRINT_NOT_ALLOWED.APPS_PROBLEM");
+    DCSServiceApplying::throwIfNotAllowed( pax.pax_id, DCSService::Enum::PrintBPOnDesk );
+}
+
+void checkBeforePrintBP(const PrintInterface::BPPax &pax)
+{
+    IAPI::PassengerStatusInspector iapiInspector;
+    checkBeforePrintBP(pax, iapiInspector);
+}
+
 void PrintInterface::GetPrintDataBP(
                                     TDevOper::Enum op_type,
                                     BPParams &params,
@@ -1963,14 +1977,15 @@ void PrintInterface::GetPrintDataBP(
     error = boost::none;
 
     boost::optional<SEATPAX::paxSeats> paxSeats;
+    IAPI::PassengerStatusInspector iapiInspector;
     for (std::vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
 
         boost::shared_ptr<PrintDataParser> parser;
         if(iPax->pax_id!=NoExists) {
             iPax->checkBPPrintAllowed(paxSeats);
             try {
+                checkBeforePrintBP(*iPax, iapiInspector);
                 parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( op_type, iPax->grp_id, iPax->pax_id, iPax->from_scan_code, params.prnParams.pr_lat, params.clientDataNode ));
-                DCSServiceApplying::throwIfNotAllowed( iPax->pax_id, DCSService::Enum::PrintBPOnDesk );
             } catch(UserException &E) {
                 if(not error) {
                     TTripInfo fltInfo;
