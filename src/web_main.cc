@@ -39,6 +39,7 @@
 #include "astra_callbacks.h"
 #include "meridian.h"
 #include "brands.h"
+#include "ffp_sirena.h"
 #include "seats_utils.h"
 #include "rfisc_sirena.h"
 #include "web_exchange.h"
@@ -48,7 +49,7 @@
 
 
 #define NICKNAME "DJEK"
-#include <serverlib/slogger.h>
+#include "serverlib/slogger.h"
 
 using namespace std;
 using namespace ASTRA;
@@ -170,7 +171,7 @@ std::tuple<std::vector<uint8_t>, std::vector<uint8_t>> internet_main(const std::
     std::unique_ptr<char, void (*)(void*)> res_holder(res,free);
     ProgTrace(TRACE1,"newlen=%i",newlen);
 //    if(newlen < hlen)
-//        throw 
+//        throw
     return std::make_tuple(std::vector<uint8_t>(head,head+hlen), std::vector<uint8_t>(res+hlen,res+newlen));
   }
   catch(...)
@@ -2610,6 +2611,60 @@ void WebRequestsIface::GetCacheTable(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     }
   }
   NewTextChild( n, "tid", tid );
+}
+
+void WebRequestsIface::CheckFFP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  xmlNodePtr ffpsNode = GetNode( "ffps", reqNode );
+  if ( ffpsNode == NULL ) {
+    throw EXCEPTIONS::Exception( "tag 'ffps' not found" );
+  }
+  xmlNodePtr reqffpNode = ffpsNode->children;
+  if ( reqffpNode == NULL || string("ffp") != (const char*)reqffpNode->name ) {
+    throw EXCEPTIONS::Exception( "tag 'ffp' not found" );
+  }
+  ffpsNode = NewTextChild( resNode, "ffps" );
+  while ( reqffpNode!=NULL && string("ffp") == (const char*)reqffpNode->name ) {
+    xmlNodePtr node = reqffpNode->children;
+
+    int pax_id=NodeAsIntegerFast( "crs_pax_id", node );
+
+    TElemFmt fmt;
+    std::string airline = ElemToElemId( etAirline, NodeAsStringFast( "airline", node ), fmt );
+    if (fmt==efmtUnknown)
+      throw UserException("MSG.AIRLINE_CODE_NOT_FOUND", LParams() << LParam("airline", NodeAsStringFast( "airline", node )));
+
+    std::string card_number=NodeAsStringFast( "card_number", node );
+
+    CheckIn::Search search;
+    CheckIn::TSimplePaxList paxs;
+    search(paxs, WebSearch::PaxId(pax_id));
+    if (paxs.empty()) throw UserException( "MSG.PASSENGER.NOT_FOUND.REFRESH_DATA" );
+
+    const CheckIn::TSimplePaxItem& pax=paxs.front();
+    CheckIn::TPaxDocItem doc;
+    if (pax.grp_id==ASTRA::NoExists)
+      CheckIn::LoadCrsPaxDoc(pax.id, doc);
+    else
+      CheckIn::LoadPaxDoc(pax.id, doc);
+
+
+
+    SirenaExchange::TFFPInfoReq req;
+    SirenaExchange::TFFPInfoRes res;
+    req.set(airline, card_number, pax.surname, pax.name, doc.birth_date);
+
+    get_ffp_status(req, res);
+
+    //формируем секцию в ответе
+    xmlNodePtr resFfpNode = NewTextChild( ffpsNode, "ffp" );
+    NewTextChild( resFfpNode, "crs_pax_id", pax_id );
+    NewTextChild( resFfpNode, "airline", res.error()?req.company:res.company );
+    NewTextChild( resFfpNode, "card_number", res.error()?req.card_number:res.card_number );
+    NewTextChild( resFfpNode, "tier_level", res.status );
+    NewTextChild( resFfpNode, "error_message", res.error_message );
+    reqffpNode = reqffpNode->next;
+  }
 }
 
 void WebRequestsIface::ParseMessage(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
