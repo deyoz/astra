@@ -158,7 +158,19 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.CRS",
                     LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang()));
     populate_doc_cap(variablesNode, rpt_params.GetLang());
-    NewTextChild(variablesNode, "doc_cap_bdocs", getLocaleText("Документ из DOCS", rpt_params.GetLang()));
+    if(rpt_params.rpt_type == rtBDOCS) {
+        NewTextChild(variablesNode, "doc_cap_bdocs", getLocaleText("Документ из DOCS", rpt_params.GetLang()));
+        NewTextChild(variablesNode, "doc_cap_pax", getLocaleText("Пассажир", rpt_params.GetLang()));
+        NewTextChild(variablesNode, "doc_cap_issue_country", getLocaleText("Гос-во выдачи", rpt_params.GetLang()));
+        NewTextChild(variablesNode, "doc_cap_number", getLocaleText("Номер", rpt_params.GetLang()));
+        NewTextChild(variablesNode, "doc_cap_nation", getLocaleText("Граж.", rpt_params.GetLang()));
+        NewTextChild(variablesNode, "doc_cap_birth", getLocaleText("CAP.PAX_DOC.BIRTH_DATE", rpt_params.GetLang()));
+        NewTextChild(variablesNode, "doc_cap_sex", getLocaleText("Пол", rpt_params.GetLang()));
+        NewTextChild(variablesNode, "doc_cap_expiry", getLocaleText("Оконч. действия", rpt_params.GetLang()));
+        NewTextChild(variablesNode, "doc_cap_first_name", getLocaleText("Имя", rpt_params.GetLang()));
+        NewTextChild(variablesNode, "doc_cap_second_name", getLocaleText("Отчество", rpt_params.GetLang()));
+    }
+
 }
 
 void CRSTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -427,20 +439,20 @@ void BDOCSTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
     for(; rowNode != NULL; rowNode = rowNode->next)
     {
+        xmlNodePtr curNode = rowNode->children;
         auto &row = tab.addRow();
         row
-            .add(NodeAsString("family", rowNode))
-            .add(NodeAsString("type", rowNode))
-            .add(NodeAsString("issue_country", rowNode))
-            .add(NodeAsString("no", rowNode))
-            .add(NodeAsString("nationality", rowNode))
-            .add(NodeAsString("birth_date", rowNode, ""))
-            .add(NodeAsString("gender", rowNode))
-            .add(NodeAsString("expiry_date", rowNode, ""))
-            .add(NodeAsString("surname", rowNode))
-            .add(NodeAsString("first_name", rowNode))
-            .add(NodeAsString("second_name", rowNode));
+            .add(NodeAsStringFast("family", curNode))
+            .add(NodeAsStringFast("type", curNode, ""))
+            .add(NodeAsStringFast("issue_country", curNode, ""))
+            .add(NodeAsStringFast("no", curNode, ""))
+            .add(NodeAsStringFast("nationality", curNode, ""))
+            .add(NodeAsStringFast("birth_date", curNode, ""))
+            .add(NodeAsStringFast("gender", curNode, ""))
+            .add(NodeAsStringFast("expiry_date", curNode, ""))
+            .add(NodeAsStringFast("surname", curNode, ""))
+            .add(NodeAsStringFast("first_name", curNode, ""))
+            .add(NodeAsStringFast("second_name", curNode, ""));
         row.toXML(rowNode);
     }
-    tab.trace();
 }
