@@ -43,6 +43,7 @@ public:
      addResponseHandler("svc_emd_void",backPaid);
      addResponseHandler("svc_emd_issue_cancel",backPaid);
   }
+  static void RequestFromGrpId(xmlNodePtr reqNode, int point_id, SWC::SWCExchange& req);
   void Evaluation(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void Filtered(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   //void exchange(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
