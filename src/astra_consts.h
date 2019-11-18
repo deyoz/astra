@@ -153,6 +153,7 @@ enum TRptType {
     rtGOSHO,
     rtGOSHOTXT,
     rtBDOCS,
+    rtBDOCSTXT,
     rtSPEC,
     rtSPECTXT,
     rtEMD,

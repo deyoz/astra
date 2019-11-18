@@ -5,5 +5,6 @@
 
 void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode);
 void CRSTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode);
+void BDOCSTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode);
 
 #endif

@@ -33,7 +33,6 @@ void TRptParams::Init(xmlNodePtr node)
             // у этих отчетов нет текстового варианта
             // При формировании отчетов из-под DCP CUTE, передается тег text = 1
             // Хотя он visibl = false в терминале
-            rpt_type != rtBDOCS and
             rpt_type != rtLOADSHEET and
             rpt_type != rtNOTOC and
             rpt_type != rtLIR and
@@ -254,6 +253,7 @@ void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
     if(STAT::bad_client_img_version())
         NewTextChild(variablesNode, "doc_cap_test", " ");
     NewTextChild(variablesNode, "page_number_fmt", getLocaleText("CAP.PAGE_NUMBER_FMT", rpt_params.GetLang()));
+    NewTextChild(variablesNode, "landscape", rpt_params.rpt_type == rtBDOCSTXT ? 1 : 0);
 }
 
 string get_flight(xmlNodePtr variablesNode)
