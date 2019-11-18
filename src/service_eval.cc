@@ -1284,28 +1284,28 @@ void ServiceEvalInterface::PayDocParamsRequest(XMLRequestCtxt *ctxt, xmlNodePtr 
   }
   xmlNodePtr node = NewTextChild( resNode, "items" );
   xmlNodePtr itemNode = NewTextChild( node, "item" );
-  NewTextChild( itemNode, "Caption", "Фиг знает что1" );
-  NewTextChild( itemNode, "MaxLength", 15 );
+  NewTextChild( itemNode, "Caption", "Номер чека" );
+  NewTextChild( itemNode, "MaxLength", 10 );
   NewTextChild( itemNode, "CharCase", "UpperCase" );
-  NewTextChild( itemNode, "Width", 200 );
+  NewTextChild( itemNode, "Width", 120 );
   NewTextChild( itemNode, "Requred", 1 );
   NewTextChild( itemNode, "Name", "Edit1" );
 
-  /*itemNode = NewTextChild( node, "item" );
-  NewTextChild( itemNode, "Caption", "Фиг знает что2" );
-  NewTextChild( itemNode, "MaxLength", 5 );
-  NewTextChild( itemNode, "CharCase", "LowerCase" );
-  NewTextChild( itemNode, "Width", 300 );
+  itemNode = NewTextChild( node, "item" );
+  NewTextChild( itemNode, "Caption", "Номер смены" );
+  NewTextChild( itemNode, "MaxLength", 4 );
+  NewTextChild( itemNode, "CharCase", "UpperCase" );
+  NewTextChild( itemNode, "Width", 40 );
   NewTextChild( itemNode, "Requred", 1 );
   NewTextChild( itemNode, "Name", "Edit2" );
 
   itemNode = NewTextChild( node, "item" );
-  NewTextChild( itemNode, "Caption", "Фиг знает что2" );
-  NewTextChild( itemNode, "MaxLength", 5 );
-  NewTextChild( itemNode, "CharCase", "LowerCase" );
-  NewTextChild( itemNode, "Width", 300 );
+  NewTextChild( itemNode, "Caption", "Номер транзакции" );
+  NewTextChild( itemNode, "MaxLength", 10 );
+  NewTextChild( itemNode, "CharCase", "UpperCase" );
+  NewTextChild( itemNode, "Width", 120 );
   NewTextChild( itemNode, "Requred", 1 );
-  NewTextChild( itemNode, "Name", "Edit3" );*/
+  NewTextChild( itemNode, "Name", "Edit3" );
 
 }
 
@@ -1443,7 +1443,7 @@ void ServiceEvalInterface::BeforeResponseHandle(int reqCtxtId, xmlNodePtr& reqNo
   RemoveNode(exchangeIdNode);
 }
 
-void ServiceEvalInterface::BeforePaid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+/*void ServiceEvalInterface::BeforePaid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   //NewTextChild(resNode,"POSExchange"); //!!!
 }
@@ -1455,7 +1455,7 @@ void ServiceEvalInterface::AfterPaid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
 
 void ServiceEvalInterface::exchange(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-/*  LogTrace(TRACE5) << reqNode->name;
+  LogTrace(TRACE5) << reqNode->name;
   sberbank s;
   xmlNodePtr node = NewTextChild(resNode,"exchange");
   std::string modeStr = NodeAsString( "mode", reqNode );
@@ -1478,9 +1478,9 @@ void ServiceEvalInterface::exchange(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     prices.SvcEmdCost::clear();
     prices.toContextDB(grp_id);
     return;
-  }*/
+  }
 }
-
+*/
 
 /*
  *

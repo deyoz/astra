@@ -24,14 +24,14 @@ public:
      AddEvent("evaluation",evHandle);
      evHandle=JxtHandler<ServiceEvalInterface>::CreateHandler(&ServiceEvalInterface::Filtered);
      AddEvent("filtered",evHandle);
-     evHandle=JxtHandler<ServiceEvalInterface>::CreateHandler(&ServiceEvalInterface::exchange);
-     AddEvent("exchange",evHandle);
-     evHandle=JxtHandler<ServiceEvalInterface>::CreateHandler(&ServiceEvalInterface::BeforePaid);
-     AddEvent("before_paid",evHandle);
+     //evHandle=JxtHandler<ServiceEvalInterface>::CreateHandler(&ServiceEvalInterface::exchange);
+     //AddEvent("exchange",evHandle);
+     //evHandle=JxtHandler<ServiceEvalInterface>::CreateHandler(&ServiceEvalInterface::BeforePaid);
+     //AddEvent("before_paid",evHandle);
      evHandle=JxtHandler<ServiceEvalInterface>::CreateHandler(&ServiceEvalInterface::Paid);
      AddEvent("paid",evHandle);
-     evHandle=JxtHandler<ServiceEvalInterface>::CreateHandler(&ServiceEvalInterface::AfterPaid);
-     AddEvent("after_paid",evHandle);
+//     evHandle=JxtHandler<ServiceEvalInterface>::CreateHandler(&ServiceEvalInterface::AfterPaid);
+//     AddEvent("after_paid",evHandle);
      evHandle=JxtHandler<ServiceEvalInterface>::CreateHandler(&ServiceEvalInterface::PayDocParamsRequest);
      AddEvent("PayDocParamsRequest",evHandle);
      evHandle=JxtHandler<ServiceEvalInterface>::CreateHandler(&ServiceEvalInterface::PayDocParamsAnswer);
@@ -45,9 +45,9 @@ public:
   }
   void Evaluation(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void Filtered(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void exchange(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void BeforePaid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void AfterPaid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  //void exchange(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  //void BeforePaid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  //void AfterPaid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void Paid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void PayDocParamsRequest(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void PayDocParamsAnswer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);

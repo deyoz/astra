@@ -4,6 +4,7 @@
 #define NICKNAME "DJEK"
 #define NICKTRACE SYSTEM_TRACE
 #include <serverlib/slogger.h>
+#include <serverlib/str_utils.h>
 
 
 namespace SWC
@@ -57,8 +58,9 @@ class SWCClient : public ExchangeIterface::HTTPClient
 void SWCExchange::fromDB()
 {
   clientId = 430;
-  Authorization = "Authorization:Basic eG1sX2FzdHJhX0dSVF9VVDpXMFJ5M0VEQng0";
+  Authorization = "Authorization:Basic " + StrUtils::b64_encode( getTCLParam("SWC_CONNECT","") );
   Resource = "/swc-xml/site";
+  LogTrace(TRACE5) << __func__ << " " << Authorization << ",clientId=" << clientId << ", Resource=" <<Resource;
 }
 
 void SWCExchange::build(std::string &content) const
