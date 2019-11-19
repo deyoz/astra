@@ -1,6 +1,12 @@
 #include "SWCExchangeIface.h"
 #include "xml_unit.h"
 
+#define NICKNAME "DJEK"
+#define NICKTRACE SYSTEM_TRACE
+#include <serverlib/slogger.h>
+#include <serverlib/str_utils.h>
+
+
 namespace SWC
 {
 
@@ -48,12 +54,12 @@ class SWCClient : public ExchangeIterface::HTTPClient
     ~SWCClient(){}
 };
 
-
-void SWCExchange::fromDB()
+void SWCExchange::fromDB(int clientId)
 {
-  clientId = 105;
-  Authorization = "Authorization:Basic eG1sX2FzdHJhX0dSVF9VVDpXMFJ5M0VEQng0";
+  this->clientId = clientId;
+  Authorization = "Authorization:Basic " + StrUtils::b64_encode( getTCLParam("SWC_CONNECT","") );
   Resource = "/swc-xml/site";
+  LogTrace(TRACE5) << __func__ << " " << Authorization << ",clientId=" << clientId << ", Resource=" <<Resource;
 }
 
 void SWCExchange::build(std::string &content) const
@@ -121,9 +127,9 @@ void SWCExchange::errorToXML(xmlNodePtr node) const
   NewTextChild(n, "error", error_message + ",code=" + error_code );
 }
 
-void SWCExchangeIface::Request(xmlNodePtr reqNode, const std::string& ifaceName, SWCExchange& req)
+void SWCExchangeIface::Request(xmlNodePtr reqNode, int clientId, const std::string& ifaceName, SWCExchange& req)
 {
-  req.fromDB();
+  req.fromDB(clientId);
   SWCClient::ConnectProps props;
   props.fromDB();
   props.Authorization = req.getAuthorization();

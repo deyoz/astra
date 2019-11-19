@@ -71,7 +71,6 @@ bool isPaymentAtDesk( int point_id, int &method_type )
   return false;
 }
 
-
 class Passenger {
   public:
     std::string id;
@@ -998,6 +997,32 @@ class SvcEmdRefundConfirmRes: public SvcEmdCommonRes, public SvcEmdRegnum
 
 
 //-----------------------------------------------------------------------------------------------
+void ServiceEvalInterface::RequestFromGrpId(xmlNodePtr reqNode, int grp_id, SWC::SWCExchange& req)
+{
+  TTripInfo info;
+  if (!info.getByGrpId(grp_id))
+    throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
+  TQuery Qry( &OraSession );
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT client_id, pr_denial, "
+    "    DECODE(airline,NULL,0,8)+ "
+    "    DECODE(airp_dep,NULL,0,4) AS priority "
+    "FROM pay_clients "
+    "WHERE (airline IS NULL OR airline=:airline) AND "
+    "      (airp_dep IS NULL OR airp_dep=:airp_dep) "
+    "ORDER BY priority DESC";
+  Qry.CreateVariable("airline",otString,info.airline);
+  Qry.CreateVariable("airp_dep",otString,info.airp);
+  Qry.Execute();
+  if (Qry.Eof || Qry.FieldAsInteger("pr_denial")!=0) {
+    throw AstraLocale::UserException("MSG.CLIENT_ID.NOT_DEFINE");
+  }
+  Request( reqNode, Qry.FieldAsInteger("client_id"), getServiceName(), req );
+}
+
+
+
 void ServiceEvalInterface::Evaluation(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   LogTrace(TRACE5) << "ServiceEvalInterface::" << __func__;
@@ -1014,11 +1039,6 @@ void ServiceEvalInterface::Evaluation(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   prices.fromContextDB(grp_id);
   if (prices.notInit() || !pr_reseat ) {
     std::map<int,PointGrpPaxs> params;
-    CheckIn::TSimplePaxGrpItem grpItem;
-    if ( !grpItem.getByGrpId(grp_id) ) {
-      tst();
-      throw AstraLocale::UserException("MSG.PASSENGER.NOT_FOUND.REFRESH_DATA");
-    }
     if ( !isPaymentAtDesk(grpItem.point_dep) ) {
       throw AstraLocale::UserException("MSG.EMD.NOT_COST_SETS");
     }
@@ -1026,12 +1046,12 @@ void ServiceEvalInterface::Evaluation(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     segsPaxs.fromDB(grp_id,grpItem.point_dep);
     segsPaxs.getPaxs(params);
     CheckInGetPNRReq req(params);
-    Request( reqNode, getServiceName(), req );
+    RequestFromGrpId( reqNode, grp_id, req );
   }
   else {
     OrderReq orderReq( prices.getSvcEmdRegnum(), prices.getSurname() );
     tst();
-    Request( reqNode, getServiceName(), orderReq );
+    RequestFromGrpId( reqNode, grp_id, orderReq );
   }
 }
 
@@ -1060,7 +1080,7 @@ void ServiceEvalInterface::response_check_in_get_pnr(const std::string& exchange
   prices.toContextDB(grp_id);
 
   OrderReq orderReq(res.getSvcEmdRegnum(), res.getSurname());
-  Request( reqNode, getServiceName(), orderReq );
+  RequestFromGrpId( reqNode, grp_id, orderReq );
   tst();
 }
 
@@ -1140,8 +1160,8 @@ void ServiceEvalInterface::backPaid(const std::string& exchangeId,xmlNodePtr req
       else {
         req = make_shared<SvcEmdVoidReq>(prices.getSvcEmdRegnum(),SvcEmdSvcsReq(svcs));
       }
-      req->fromDB();
-      Request( reqNode, getServiceName(), *req.get() );
+      //???req->fromDB();
+      RequestFromGrpId( reqNode, grp_id, *req.get() );
       inRequest = true;
     }
     if ( inRequest ) {
@@ -1187,7 +1207,7 @@ void ServiceEvalInterface::backPaid(const std::string& exchangeId,xmlNodePtr req
     if ( SvcEmdIssueCancelRes::getExchangeId() == exchangeId &&
          prices.haveStatusDirect( TPriceRFISCList::STATUS_DIRECT_ISSUE_CONFIRM, svcs ) ) {
       SvcEmdVoidReq req(prices.getSvcEmdRegnum(),SvcEmdSvcsReq(svcs));
-      Request( reqNode, getServiceName(), req );
+      RequestFromGrpId( reqNode, grp_id, req );
       return;
     }
   }
@@ -1260,28 +1280,28 @@ void ServiceEvalInterface::PayDocParamsRequest(XMLRequestCtxt *ctxt, xmlNodePtr 
   }
   xmlNodePtr node = NewTextChild( resNode, "items" );
   xmlNodePtr itemNode = NewTextChild( node, "item" );
-  NewTextChild( itemNode, "Caption", "Фиг знает что1" );
-  NewTextChild( itemNode, "MaxLength", 15 );
+  NewTextChild( itemNode, "Caption", "Номер чека" );
+  NewTextChild( itemNode, "MaxLength", 10 );
   NewTextChild( itemNode, "CharCase", "UpperCase" );
-  NewTextChild( itemNode, "Width", 200 );
+  NewTextChild( itemNode, "Width", 120 );
   NewTextChild( itemNode, "Requred", 1 );
   NewTextChild( itemNode, "Name", "Edit1" );
 
-  /*itemNode = NewTextChild( node, "item" );
-  NewTextChild( itemNode, "Caption", "Фиг знает что2" );
-  NewTextChild( itemNode, "MaxLength", 5 );
-  NewTextChild( itemNode, "CharCase", "LowerCase" );
-  NewTextChild( itemNode, "Width", 300 );
+  itemNode = NewTextChild( node, "item" );
+  NewTextChild( itemNode, "Caption", "Номер смены" );
+  NewTextChild( itemNode, "MaxLength", 4 );
+  NewTextChild( itemNode, "CharCase", "UpperCase" );
+  NewTextChild( itemNode, "Width", 40 );
   NewTextChild( itemNode, "Requred", 1 );
   NewTextChild( itemNode, "Name", "Edit2" );
 
   itemNode = NewTextChild( node, "item" );
-  NewTextChild( itemNode, "Caption", "Фиг знает что2" );
-  NewTextChild( itemNode, "MaxLength", 5 );
-  NewTextChild( itemNode, "CharCase", "LowerCase" );
-  NewTextChild( itemNode, "Width", 300 );
+  NewTextChild( itemNode, "Caption", "Номер транзакции" );
+  NewTextChild( itemNode, "MaxLength", 10 );
+  NewTextChild( itemNode, "CharCase", "UpperCase" );
+  NewTextChild( itemNode, "Width", 120 );
   NewTextChild( itemNode, "Requred", 1 );
-  NewTextChild( itemNode, "Name", "Edit3" );*/
+  NewTextChild( itemNode, "Name", "Edit3" );
 
 }
 
@@ -1315,7 +1335,7 @@ void ServiceEvalInterface::continuePaidRequest(xmlNodePtr reqNode, xmlNodePtr re
   tst();
   prices.toContextDB(grp_id);
   ASTRA::commit();
-  Request( reqNode, getServiceName(), req );
+  RequestFromGrpId( reqNode, grp_id, req );
   tst();
 }
 
@@ -1363,7 +1383,7 @@ void ServiceEvalInterface::response_svc_emd_issue_query(const std::string& excha
     SvcEmdIssueConfirmReq reqConfirm( SvcEmdRegnum(res.getRegnum()),  prices.getSvcEmdPayDoc(), res.getSvcEmdCost() );
 
     ASTRA::commit(); //!!!
-    Request( reqNode, getServiceName(), reqConfirm );
+    RequestFromGrpId( reqNode, grp_id, reqConfirm );
     tst();
   }
   catch(EXCEPTIONS::Exception &e) {
@@ -1419,6 +1439,7 @@ void ServiceEvalInterface::BeforeResponseHandle(int reqCtxtId, xmlNodePtr& reqNo
   RemoveNode(exchangeIdNode);
 }
 
+/*
 void ServiceEvalInterface::BeforePaid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   //NewTextChild(resNode,"POSExchange"); //!!!
@@ -1431,7 +1452,7 @@ void ServiceEvalInterface::AfterPaid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
 
 void ServiceEvalInterface::exchange(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-/*  LogTrace(TRACE5) << reqNode->name;
+  LogTrace(TRACE5) << reqNode->name;
   sberbank s;
   xmlNodePtr node = NewTextChild(resNode,"exchange");
   std::string modeStr = NodeAsString( "mode", reqNode );
@@ -1454,9 +1475,9 @@ void ServiceEvalInterface::exchange(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     prices.SvcEmdCost::clear();
     prices.toContextDB(grp_id);
     return;
-  }*/
+  }
 }
-
+*/
 
 /*
  *
