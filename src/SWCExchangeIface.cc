@@ -118,6 +118,7 @@ void SWCExchange::errorFromXML(xmlNodePtr node)
 
   error_code=NodeAsString("@code", errNode, "");
   error_message=NodeAsString(errNode);
+  LogError(STDLOG) << error_code << "=" << error_message;
 }
 
 void SWCExchange::errorToXML(xmlNodePtr node) const

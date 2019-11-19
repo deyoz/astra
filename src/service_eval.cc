@@ -246,19 +246,24 @@ class Price {
     std::string ticket_cpn;
     std::string validating_company;
     float total;
+    bool is_bagnorm;
     void fromXML( xmlNodePtr node ) {
-      accode = NodeAsString( "@accode", node, "" );
-      baggage = NodeAsString( "@baggage", node );
+      is_bagnorm = ( std::string("is_bagnorm") == NodeAsString( "@reason", node, "") );
+      LogTrace(TRACE5) << "is_bagnorm=" << is_bagnorm;
+      if ( !is_bagnorm ) {
+        baggage = NodeAsString( "@baggage", node );
+        doc_id = NodeAsString( "@doc_id", node );
+        doc_type = NodeAsString( "@doc_type", node );
+      }
       code = NodeAsString( "@code", node );
-      currency = NodeAsString( "@currency", node );
-      doc_id = NodeAsString( "@doc_id", node );
-      doc_type = NodeAsString( "@doc_type", node );
-      passenger_id = NodeAsString( "@passenger-id", node );
-      svc_id = NodeAsString( "@svc-id", node, "" ); // тарификация неизвестна
-      ticket = NodeAsString( "@ticket", node );
+      accode = NodeAsString( "@accode", node, "" );
+      ticket = NodeAsString( "@ticket", node, "" );
       ticket_cpn = NodeAsString( "@ticket_cpn", node, "" );
       validating_company = NodeAsString( "@validating_company", node, "" );
-      total = NodeAsFloat( "total", node );
+      passenger_id = NodeAsString( "@passenger-id", node );
+      svc_id = NodeAsString( "@svc-id", node, "" ); // тарификация неизвестна
+      total = is_bagnorm?-1.0:NodeAsFloat( "total", node );
+      currency = is_bagnorm?std::string("РУБ"):NodeAsString( "@currency", node );
     }
 };
 
@@ -269,7 +274,8 @@ class Prices: public std::vector<Price> {
       if ( node != nullptr ) {
         node = node->children;
         while ( node != nullptr &&
-                std::string("price") == (const char*)node->name ) {
+                ((std::string("price") == (const char*)node->name )||
+                 (std::string("no_price") == (const char*)node->name )) ) {
           Price s;
           s.fromXML(node);
           emplace_back(s);
@@ -404,7 +410,7 @@ class Order: public SvcEmdRegnum, public SvcEmdSvcsAns
         trfer_nums[p.id] = p.trfer_num;
       }
       for ( auto &p : prices ) {
-        if ( p.svc_id.empty() ) { //тарфикация не задана - не смогли оценить
+        if ( p.svc_id.empty()/* || p.validating_company.empty()*/ ) { //тарфикация не задана - не смогли оценить !!!p.validating_company
           continue;
         }
         TPaxSegRFISCKey key;
@@ -437,10 +443,10 @@ class Order: public SvcEmdRegnum, public SvcEmdSvcsAns
         if ( svcList.find(key) == svcList.end() ) {
           svcList.emplace( key, price );
         }
-        svcList[key].svcs.emplace( svcSirena.svc_id, svcSirena );
-        for ( auto &l : svcList ) {
-          LogTrace(TRACE5) << l.second.traceStr();
-        }
+        svcList[key].addSVCS( svcSirena.svc_id, svcSirena );
+      }
+      for ( auto &l : svcList ) {
+        LogTrace(TRACE5) << l.second.traceStr();
       }
     }
 
@@ -1027,7 +1033,7 @@ void ServiceEvalInterface::Evaluation(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 {
   LogTrace(TRACE5) << "ServiceEvalInterface::" << __func__;
   int grp_id=NodeAsInteger("grp_id",reqNode);
-  bool pr_reseat=NodeAsBoolean("pr_reseat",reqNode,false);
+  bool pr_reset = (NodeAsInteger("pr_reset",reqNode,0) != 0);
   CheckIn::TSimplePaxGrpItem grpItem;
   if ( !grpItem.getByGrpId(grp_id) ) {
     throw AstraLocale::UserException("MSG.PASSENGER.NOT_FOUND.REFRESH_DATA");
@@ -1037,13 +1043,23 @@ void ServiceEvalInterface::Evaluation(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   }
   TPriceRFISCList prices;
   prices.fromContextDB(grp_id);
-  if (prices.notInit() || !pr_reseat ) {
+  if ( prices.notInit() || pr_reset ) {
     std::map<int,PointGrpPaxs> params;
     if ( !isPaymentAtDesk(grpItem.point_dep) ) {
       throw AstraLocale::UserException("MSG.EMD.NOT_COST_SETS");
     }
     SegsPaxs segsPaxs;
-    segsPaxs.fromDB(grp_id,grpItem.point_dep);
+    try {
+      segsPaxs.fromDB(grp_id,grpItem.point_dep);
+    }
+    catch( AstraLocale::UserException& ex ) {
+      if ( ex.getLexemaData().lexema_id == "MSG.EMD.SERVICES_ALREADY_PAID" &&
+           NodeAsInteger("pr_after_print",reqNode,0) != 0 ) {
+        NewTextChild(resNode, "finish");
+        return;
+      }
+      throw;
+    }
     segsPaxs.getPaxs(params);
     CheckInGetPNRReq req(params);
     RequestFromGrpId( reqNode, grp_id, req );
@@ -1114,6 +1130,14 @@ void ServiceEvalInterface::response_order(const std::string& exchangeId,xmlNodeP
   xmlNodePtr node = NewTextChild(resNode,"prices");
   NewTextChild(node,"grp_id",grp_id);
   prices.toXML(NewTextChild( node, "services" ));
+  if ( GetNode("prices/services/items/item",resNode) == nullptr ) { //а есть ли значения
+    tst();
+    if ( NodeAsInteger("pr_after_print",reqNode,0) != 0 ) {
+      NewTextChild(resNode, "finish");
+      return;
+    }
+    throw AstraLocale::UserException("MSG.EMD.SERVICES_ALREADY_PAID");
+  }
 }
 
 void ServiceEvalInterface::Filtered(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

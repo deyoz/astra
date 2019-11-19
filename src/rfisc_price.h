@@ -48,15 +48,25 @@ class SvcFromSirena
     void toDB(TQuery& Qry) const;
     void fromDB(TQuery& Qry,const std::string& lang="");
     bool valid() const;
+    bool only_for_cost() const;
     std::string toString() const;
 };
 
+typedef  std::map<std::string,SvcFromSirena> SVCS;
 
 class TPriceServiceItem : public TPaxSegRFISCKey
 {
   public:
     std::string pax_name;
-    std::map<std::string,SvcFromSirena> svcs; // std::string svc_id;
+  private:
+    SVCS svcs; // std::string svc_id;
+  public:
+     enum EnumSVCS
+    {
+      only_for_cost,
+      only_for_pay,
+      all
+    };
     TPriceServiceItem() { clear(); }
     TPriceServiceItem(const TPaxSegRFISCKey& _item, const std::string &_pax_name, std::map<std::string,SvcFromSirena> _svcs) :
       TPaxSegRFISCKey(_item), pax_name(_pax_name), svcs(_svcs) {}
@@ -67,6 +77,50 @@ class TPriceServiceItem : public TPaxSegRFISCKey
       svcs.clear();
     }
     std::string name_view(const std::string& lang="") const;
+
+    void addSVCS(const std::string &code, const SvcFromSirena &val ) {
+      svcs.emplace( code, val );
+    }
+    void eraseSVC(const std::string &code) {
+      svcs.erase(code);
+    }
+
+    bool findSVC( const std::string& code, SVCS::iterator& f ) {
+      f = svcs.find( code );
+      return ( f != svcs.end() );
+    }
+
+    void getSVCS( SVCS& _svcs, EnumSVCS style  ) const {
+      _svcs.clear();
+      for ( const auto svc : svcs ) {
+        switch( style ) {
+          case only_for_cost:
+            if ( !svc.second.only_for_cost() ) {
+              continue;
+            }
+            break;
+          case only_for_pay:
+            if ( svc.second.only_for_cost() ) {
+              continue;
+            }
+            break;
+          case all:
+            break;
+        }
+        _svcs.emplace( svc.first,svc.second );
+      }
+    }
+
+    void getSVCS1( SVCS& _svcs, const std::string &status_direct ) const {
+      _svcs.clear();
+      for ( const auto svc : svcs ) {
+        if ( svc.second.status_direct == status_direct ) {
+          _svcs.emplace( svc.first,svc.second );
+        }
+      }
+    }
+
+    void changeStatus( const std::string& from, const std::string& to );
 
     const TPriceServiceItem& toXML(xmlNodePtr node, const std::string& svc_idx) const;
     const TPriceServiceItem& toContextXML(xmlNodePtr node) const;
@@ -301,6 +355,7 @@ class TPriceRFISCList: public std::map<TPaxSegRFISCKey, TPriceServiceItem>, publ
    static const std::string STATUS_DIRECT_ISSUE_CONFIRM;
    static const std::string STATUS_DIRECT_REFUND;
    static const std::string STATUS_DIRECT_PAID;
+   static const std::string STATUS_DIRECT_ONLY_FOR_COST;
   private:
     std::string surname;
     BASIC::date_time::TDateTime time_create;

@@ -83,6 +83,11 @@ void SvcFromSirena::fromDB(TQuery& Qry,const std::string& lang)
   LogTrace(TRACE5) << toString();
 }
 
+bool SvcFromSirena::only_for_cost() const
+{
+  return price == -1.0;
+}
+
 bool SvcFromSirena::valid() const
 {
   return price!=ASTRA::NoExists &&
@@ -170,6 +175,15 @@ std::string TPriceServiceItem::name_view(const std::string& lang) const
     name = svcs.begin()->second.name;
   }
   return name;
+}
+
+void TPriceServiceItem::changeStatus( const std::string& from, const std::string& to ) {
+  for ( auto& osvc : svcs ) {
+    if ( osvc.second.status_direct == from ) {
+      LogTrace(TRACE5)<<"svc_id=" << osvc.first << " change direct status from " << osvc.second.status_direct << " to " << to;
+      osvc.second.status_direct = to;
+    }
+  }
 }
 
 const TPriceServiceItem& TPriceServiceItem::toDB(TQuery &Qry, const std::string& svc_id) const
@@ -430,12 +444,12 @@ void TPriceRFISCList::toDB(int grp_id) const
   Qry.DeclareVariable("ticket_cpn",otString);
   Qry.CreateVariable("time_paid",otDate, BASIC::date_time::NowUTC());
   for ( const auto &p : *this ) {
-    for ( const auto svc : p.second.svcs ) {
-      if ( svc.second.status_direct == STATUS_DIRECT_PAID ) {
-        p.first.toDB(Qry);
-        p.second.toDB(Qry,svc.first);
-        Qry.Execute();
-      }
+    SVCS svcs;
+    p.second.getSVCS1( svcs, STATUS_DIRECT_PAID );
+    for ( const auto svc : svcs ) {
+      p.first.toDB(Qry);
+      p.second.toDB(Qry,svc.first);
+      Qry.Execute();
     }
   }
 }
@@ -473,19 +487,14 @@ void TPriceRFISCList::fromContextXML(xmlNodePtr node)
   if ( node == nullptr || node->children == nullptr ) {
     return;
   }
-  tst();
   node = node->children;
-  tst();
   while ( node != nullptr &&
           std::string("item") == (const char*)node->name ) {
     TPriceServiceItem item;
-    tst();
     item.fromContextXML(node);
-    tst();
     insert( std::make_pair(item,item) );
     node = node->next;
   }
-  tst();
 }
 
 void TPriceRFISCList::toContextXML(xmlNodePtr node,bool checkFormPay) const
@@ -528,8 +537,9 @@ void TPriceRFISCList::fromXML(xmlNodePtr node)
     item.fromXML(node);
     auto p = find(item);
     if ( p != end() ) {
-      auto svc = item.svcs.begin();
-      p->second.svcs.emplace( svc->first, svc->second );
+      SVCS svcs;
+      item.getSVCS(svcs,TPriceServiceItem::EnumSVCS::all);
+      p->second.addSVCS( svcs.begin()->first, svcs.begin()->second );
     }
     else {
       insert( std::make_pair(item,item) );
@@ -544,12 +554,13 @@ void TPriceRFISCList::toXML(xmlNodePtr node) const
   std::string currency;
   xmlNodePtr node2 = NewTextChild(node,"items");
   for ( const auto &p : *this ) {
-    for ( const auto &svc : p.second.svcs ) {
-/*???      if ( svc.second.status_direct == TPriceRFISCList::STATUS_DIRECT_PAID ) {
-        tst();
+    SVCS svcs;
+    p.second.getSVCS(svcs,TPriceServiceItem::EnumSVCS::only_for_pay);
+    for ( const auto &svc : svcs ) {
+      if ( svc.second.status_svc == "HI" ) {
+        LogTrace(TRACE5) << svc.second.toString();
         continue;
       }
-      tst();*/
       xmlNodePtr n = NewTextChild( node2, "item" );
       p.second.toXML( n, svc.first );
       if ( svc.second.valid() ) {
@@ -593,12 +604,11 @@ void TPriceRFISCList::synchFromSirena(const SvcEmdSvcsAns& svcs)
 {
   for ( const auto& nsvc : svcs ) {
     for ( auto& oitem : *this ) {
-      if ( oitem.second.svcs.find( nsvc.id ) != oitem.second.svcs.end() ) {
-        oitem.second.svcs[ nsvc.id ].status_svc = nsvc.status;
-        std::string ticket_cpn = nsvc.ticket_cpn.empty()?oitem.second.svcs[nsvc.id].ticket_cpn:nsvc.ticket_cpn;
-        std::string ticknum = nsvc.ticknum.empty()?oitem.second.svcs[nsvc.id].ticknum:nsvc.ticknum;
-        oitem.second.svcs[nsvc.id].ticket_cpn = ticket_cpn;
-        oitem.second.svcs[nsvc.id].ticknum = ticknum;
+      SVCS::iterator f;
+      if ( oitem.second.findSVC( nsvc.id, f ) ) {
+        f->second.status_svc = nsvc.status;
+        f->second.ticket_cpn = nsvc.ticket_cpn.empty()?f->second.ticket_cpn:nsvc.ticket_cpn;
+        f->second.ticknum = nsvc.ticknum.empty()?f->second.ticknum:nsvc.ticknum;
         break;
       }
     }
@@ -617,19 +627,22 @@ bool TPriceRFISCList::synchFromSirena(const TPriceRFISCList& list, bool only_del
         insert( std::make_pair( nitem.first, nitem.second ) );
       }
       else { //update
-        for ( const auto& nsvc : nitem.second.svcs ) {
-          if ( oitem->second.svcs.find( nsvc.first ) == oitem->second.svcs.end() ) {
-            oitem->second.svcs.insert( std::make_pair(nsvc.first,nsvc.second));
+        SVCS svcs;
+        nitem.second.getSVCS(svcs,TPriceServiceItem::EnumSVCS::all);
+        for ( const auto& nsvc : svcs ) {
+          SVCS::iterator f;
+          if ( !oitem->second.findSVC( nsvc.first, f ) ) {
+            oitem->second.addSVCS( nsvc.first,nsvc.second );
           }
           else {
             LogTrace(TRACE5) << nsvc.second.toString();
-            std::string status_direct = oitem->second.svcs[nsvc.first].status_direct;
-            std::string ticket_cpn = nsvc.second.ticket_cpn.empty()?oitem->second.svcs[nsvc.first].ticket_cpn:nsvc.second.ticket_cpn;
-            std::string ticknum = nsvc.second.ticknum.empty()?oitem->second.svcs[nsvc.first].ticknum:nsvc.second.ticknum;
-            oitem->second.svcs[nsvc.first] = nsvc.second;
-            oitem->second.svcs[nsvc.first].ticket_cpn = ticket_cpn;
-            oitem->second.svcs[nsvc.first].ticknum = ticknum;
-            oitem->second.svcs[nsvc.first].status_direct = status_direct;
+            std::string status_direct = f->second.status_direct;
+            std::string ticket_cpn = nsvc.second.ticket_cpn.empty()?f->second.ticket_cpn:nsvc.second.ticket_cpn;
+            std::string ticknum = nsvc.second.ticknum.empty()?f->second.ticknum:nsvc.second.ticknum;
+            f->second = nsvc.second;
+            f->second.ticket_cpn = ticket_cpn;
+            f->second.ticknum = ticknum;
+            f->second.status_direct = status_direct;
           }
         }
       }
@@ -643,13 +656,14 @@ bool TPriceRFISCList::synchFromSirena(const TPriceRFISCList& list, bool only_del
       res = false;
     }
     else {
-      for ( auto osvc=oitem->second.svcs.begin(); osvc!=oitem->second.svcs.end(); ) {
-        if ( nitem->second.svcs.find(osvc->first) == nitem->second.svcs.end() ) {
-          oitem->second.svcs.erase(osvc++);
+      SVCS osvcs, nsvcs;
+      SVCS::iterator f;
+      oitem->second.getSVCS(osvcs,TPriceServiceItem::EnumSVCS::all);
+      nitem->second.getSVCS(nsvcs,TPriceServiceItem::EnumSVCS::all);
+      for ( const auto &osvc : osvcs ) {
+        if ( nsvcs.find(osvc.first)==nsvcs.end() ) {
+          oitem->second.eraseSVC(osvc.first);
           res = false;
-        }
-        else {
-          ++osvc;
         }
       }
       ++oitem;
@@ -661,12 +675,7 @@ bool TPriceRFISCList::synchFromSirena(const TPriceRFISCList& list, bool only_del
 void TPriceRFISCList::setStatusDirect( const std::string &from, const std::string &to )
 {
   for ( auto& oitem : *this ) {
-    for ( auto& osvc : oitem.second.svcs ) {
-      if ( osvc.second.status_direct == from ) {
-        LogTrace(TRACE5)<<"svc_id=" << osvc.first << " change direct status from " << osvc.second.status_direct << " to " << to;
-        osvc.second.status_direct = to;
-      }
-    }
+    oitem.second.changeStatus( from, to );
   }
 }
 
@@ -680,9 +689,10 @@ bool TPriceRFISCList::haveStatusDirect( const std::string& statusDirect, std::ve
 {
   svcs.clear();
   for ( const auto& oitem : *this ) {
-    for ( const auto& osvc : oitem.second.svcs ) {
-      if ( osvc.second.valid() &&
-           osvc.second.status_direct == statusDirect ) {
+    SVCS nsvcs;
+    oitem.second.getSVCS1( nsvcs, statusDirect );
+    for ( const auto& osvc : nsvcs ) {
+      if ( osvc.second.valid() ) {
         svcs.push_back( osvc.first );
       }
     }
@@ -692,11 +702,16 @@ bool TPriceRFISCList::haveStatusDirect( const std::string& statusDirect, std::ve
 
 bool TPriceRFISCList::getNextIssueQueryGrpEMD( std::vector<std::string> &svcs)
 {
+  bool res = false;
   svcs.clear();
   TServiceType::Enum service_type = TServiceType::Enum::Unknown;
   for ( auto& oitem : *this ) {
-    for ( auto& osvc : oitem.second.svcs ) {
-      if ( osvc.second.status_direct != TPriceRFISCList::STATUS_DIRECT_SELECTED ) {
+    SVCS osvcs;
+    oitem.second.getSVCS( osvcs, TPriceServiceItem::EnumSVCS::all);
+    for ( auto& osvc : osvcs ) {
+      res |= (osvc.second.status_direct == TPriceRFISCList::STATUS_DIRECT_SELECTED);
+      if ( osvc.second.status_direct != TPriceRFISCList::STATUS_DIRECT_SELECTED &&
+           !osvc.second.only_for_cost() ) {
         continue;
       }
       if ( service_type == TServiceType::Enum::Unknown ) {
@@ -704,7 +719,11 @@ bool TPriceRFISCList::getNextIssueQueryGrpEMD( std::vector<std::string> &svcs)
       }
       //!!!if ( service_type == oitem.second.service_type ) {
         svcs.push_back( osvc.first );
-        osvc.second.status_direct = TPriceRFISCList::STATUS_DIRECT_ISSUE_QUERY;
+        SVCS::iterator f;
+        if ( !oitem.second.findSVC( osvc.first, f ) ) {
+          throw EXCEPTIONS::Exception( "svc not found %s", osvc.first.c_str() );
+        }
+        f->second.status_direct = TPriceRFISCList::STATUS_DIRECT_ISSUE_QUERY;
         LogTrace(TRACE5) << __func__ << " " << osvc.first;
        //!!! break; //only one at step
       //!!!}
@@ -713,13 +732,18 @@ bool TPriceRFISCList::getNextIssueQueryGrpEMD( std::vector<std::string> &svcs)
       break;
     }*/
   }
+  if ( !res ) {
+    svcs.clear();
+  }
   return !svcs.empty();
 }
 
 bool TPriceRFISCList::terminalChoiceAny()
 {
   for ( auto& nitem : *this ) { //filtered
-    for ( const auto& nsvc : nitem.second.svcs ) {
+    SVCS svcs;
+    nitem.second.getSVCS( svcs, TPriceServiceItem::EnumSVCS::only_for_pay );
+    for ( const auto& nsvc : svcs ) {
       if ( nsvc.second.valid() ) {
         return true;
       }
@@ -734,12 +758,15 @@ bool TPriceRFISCList::filterFromTerminal(const TPriceRFISCList& list)
   for ( auto& nitem : list ) { //filtered
     TPriceRFISCList::iterator oitem;
     if ( (oitem = find( nitem.first )) != end() ) { //new
-      for ( const auto& nsvc : nitem.second.svcs ) {
-        if ( oitem->second.svcs.find( nsvc.first ) != oitem->second.svcs.end() ) {
-          LogTrace(TRACE5) << "svc_id=" << nsvc.first << " " << oitem->second.svcs[ nsvc.first ].status_direct;
-            if ( oitem->second.svcs[ nsvc.first ].valid() &&
-                 oitem->second.svcs[ nsvc.first ].status_direct == TPriceRFISCList::STATUS_DIRECT_ORDER  ) {
-              oitem->second.svcs[ nsvc.first ].status_direct = TPriceRFISCList::STATUS_DIRECT_SELECTED;
+      SVCS nsvcs;
+      nitem.second.getSVCS( nsvcs, TPriceServiceItem::EnumSVCS::only_for_pay );
+      for ( const auto& nsvc : nsvcs ) {
+        SVCS::iterator f;
+        if ( oitem->second.findSVC( nsvc.first, f ) ) {
+          LogTrace(TRACE5) << "svc_id=" << nsvc.first << " " << f->second.status_direct;
+            if ( f->second.valid() &&
+                 f->second.status_direct == TPriceRFISCList::STATUS_DIRECT_ORDER  ) {
+              f->second.status_direct = TPriceRFISCList::STATUS_DIRECT_SELECTED;
               res = true;
             }
         }
@@ -826,6 +853,7 @@ void SegsPaxs::fromDB(int grp_id, int point_dep)
       }
   }
   if ( segs.empty() ) {
+    tst();
     throw AstraLocale::UserException("MSG.EMD.SERVICES_ALREADY_PAID");
   }
 }
