@@ -98,9 +98,9 @@ public:
     virtual boost::optional<CurrencyData> findCurrencyData(const nsi::CurrencyId&) override;
 
     // заглушки
-    virtual boost::optional<OrganizationId> findOrganizationId(const EncString&) override;
-    virtual boost::optional<OrganizationData> findOrganizationData(const OrganizationId&) override;
-
+    std::set<GeozoneId> getGeozones(const CountryId&) override;
+    std::set<GeozoneId> getGeozones(const RegionId&) override;
+    std::set<GeozoneId> getGeozones(const CityId&) override;
 };
 //------------------------------------------------------------------------------------------
 
