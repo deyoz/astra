@@ -8,12 +8,31 @@
 #include "sirena_exchange.h"
 #include "date_time.h"
 
+struct PriceDoc
+{
+  std::string doc_id;
+  std::string doc_type;
+  bool unpoundable;
+  PriceDoc( const std::string& _doc_id, const std::string& _doc_type, bool _unpoundable) {
+    doc_id = _doc_id;
+    doc_type = _doc_type;
+    unpoundable = _unpoundable;
+  }
+  PriceDoc(){
+    clear();
+  }
+  void clear() {
+    doc_id.clear();
+    doc_type.clear();
+    unpoundable = false;
+  }
+};
 
 class SvcFromSirena
 {
   public:
     std::string svc_id;
-    std::string doc_id;
+    PriceDoc doc;
     std::string pass_id;
     std::string seg_id;
     std::string status_svc;
@@ -29,7 +48,7 @@ class SvcFromSirena
     }
     void clear() {
       svc_id.clear();
-      doc_id.clear();
+      doc.clear();
       pass_id.clear();
       seg_id.clear();
       status_svc.clear();
