@@ -54,13 +54,19 @@ bool isPaymentAtDesk( int point_id, int &method_type )
      Qry.SQLText =
        "SELECT method_type, "
        " DECODE(airline,:airline,100,NULL,50,0) + "
-       " DECODE(airp_dep,:airp_dep,100,NULL,50,0) AS priority "
+       " DECODE(airp_dep,:airp_dep,100,NULL,50,0)+ "
+       " DECODE(desk,:desk,1000,NULL,50,0) + "
+       " DECODE(desk_grp,:desk_grp,500,NULL,50,0) AS priority "
        " FROM pay_methods_set "
        " WHERE (airline=:airline OR airline IS NULL) AND "
-       "       (airp_dep=:airp_dep OR airp_dep IS NULL) "
+       "       (airp_dep=:airp_dep OR airp_dep IS NULL) AND "
+       "       (desk=:desk OR desk IS NULL) AND "
+       "       (desk_grp_id=:desk_grp_id OR desk_grp_id IS NULL) "
        "ORDER BY priority DESC";
      Qry.CreateVariable( "airline", otString, fltInfo.airline );
      Qry.CreateVariable( "airp_dep", otString, fltInfo.airp );
+     Qry.CreateVariable( "desk", otString, TReqInfo::Instance()->desk.code );
+     Qry.CreateVariable( "desk_grp_id", otInteger, TReqInfo::Instance()->desk.grp_id );
      Qry.Execute();
      bool res = ( !Qry.Eof && Qry.FieldAsInteger( "priority" ) != 0 );
      if ( res ) {
@@ -238,8 +244,7 @@ class Price {
     std::string baggage;
     std::string code;
     std::string currency;
-    std::string doc_id;
-    std::string doc_type;
+    PriceDoc doc;
     std::string passenger_id;
     std::string svc_id;
     std::string ticket;
@@ -252,8 +257,7 @@ class Price {
       LogTrace(TRACE5) << "is_bagnorm=" << is_bagnorm;
       if ( !is_bagnorm ) {
         baggage = NodeAsString( "@baggage", node );
-        doc_id = NodeAsString( "@doc_id", node );
-        doc_type = NodeAsString( "@doc_type", node );
+        doc = PriceDoc( NodeAsString( "@doc_id", node ), NodeAsString( "@doc_type", node ), NodeAsBoolean( "@unpoundable", NodeAsNode("fare",node), false ) );
       }
       code = NodeAsString( "@code", node );
       accode = NodeAsString( "@accode", node, "" );
@@ -283,13 +287,13 @@ class Prices: public std::vector<Price> {
         }
       }
     }
-    std::string getDocId(const std::string& svc_id) {
+    PriceDoc getDoc(const std::string& svc_id) {
       for ( const auto &p : *this ) {
         if ( p.svc_id == svc_id ) {
-          return p.doc_id;
+          return p.doc;
         }
       }
-      return "";
+      return PriceDoc("","",false);
     }
 };
 
@@ -430,7 +434,7 @@ class Order: public SvcEmdRegnum, public SvcEmdSvcsAns
         key.service_type = ServiceTypes().decode(svc.service_type);
         TPriceServiceItem price(key,paxsNames.getPaxName(key.pax_id),std::map<std::string,SvcFromSirena>());
         SvcFromSirena svcSirena;
-        svcSirena.doc_id = prices.getDocId(p.svc_id);
+        svcSirena.doc = prices.getDoc(p.svc_id);
         svcSirena.pass_id = svc.pass_id;
         svcSirena.price = p.total;
         svcSirena.currency =  ElemToElemId( etCurrency, p.currency, fmt );
@@ -485,6 +489,7 @@ class CheckInGetPNRReq: public SWC::SWCExchange
 {
   private:
     std::map<int,PointGrpPaxs> params; // seg_no,pax_id
+    int version;
   public:
     virtual std::string exchangeId() const {
       return "check_in_get_pnr";
@@ -507,16 +512,21 @@ class CheckInGetPNRReq: public SWC::SWCExchange
       }
       xmlNodePtr n = NewTextChild( node, exchangeId().c_str() );
       for ( const auto &sp : params ) {
-        xmlNodePtr segNode = NewTextChild(n,"segment");
-        SetProp( segNode, "point_id", sp.second.point_id );
-        for ( const auto &p : sp.second.paxs ) {
-          xmlNodePtr n = NewTextChild(segNode,"passenger");
-          SetProp( n, "crs_pax_id", p.first );
-          SetProp( n, "pax_key_id", p.second );
+        if ( version == 0 ) {
+          xmlNodePtr segNode = NewTextChild(n,"segment");
+          SetProp( segNode, "point_id", sp.second.point_id );
+          for ( const auto &p : sp.second.paxs ) {
+            xmlNodePtr n = NewTextChild(segNode,"passenger");
+            SetProp( n, "crs_pax_id", p.first );
+            SetProp( n, "pax_key_id", p.second );
+          }
+        }
+        else {
+          NewTextChild( n, "group_id", sp.second.grp_id );
         }
       }
     }
-    CheckInGetPNRReq( const std::map<int,PointGrpPaxs>& _params ) : params(_params) {}
+    CheckInGetPNRReq( const std::map<int,PointGrpPaxs>& _params, int _version=0 ) : params(_params), version(_version) {}
     ~CheckInGetPNRReq() {}
 };
 
@@ -1061,7 +1071,7 @@ void ServiceEvalInterface::Evaluation(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
       throw;
     }
     segsPaxs.getPaxs(params);
-    CheckInGetPNRReq req(params);
+    CheckInGetPNRReq req(params,1);
     RequestFromGrpId( reqNode, grp_id, req );
   }
   else {
@@ -1159,9 +1169,12 @@ void ServiceEvalInterface::Filtered(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
   FilteredPriceRFISCList.fromXML(servicesNode);
   PriceRFISCList.fromContextDB(grp_id);
   PriceRFISCList.synchFromSirena(FilteredPriceRFISCList,true);
+  tst();
   xmlNodePtr node = NewTextChild(resNode,"prices");
   NewTextChild(node,"grp_id",grp_id);
+  tst();
   PriceRFISCList.toXML(NewTextChild( node, "services" ));
+  tst();
 }
 
 void ServiceEvalInterface::backPaid(const std::string& exchangeId,xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode)
@@ -1285,7 +1298,7 @@ void ServiceEvalInterface::Paid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     throw EXCEPTIONS::Exception( "filtered cvs from terminal not found in prices context" );
   }
   tst();
-  prices.setSvcEmdPayDoc( SvcEmdPayDoc( "CA", "" ) );
+  prices.setSvcEmdPayDoc( SvcEmdPayDoc( "IN", "" ) );
   prices.toContextDB(grp_id);
   std::vector<std::string> svcs;
   prices.haveStatusDirect(TPriceRFISCList::STATUS_DIRECT_SELECTED,svcs);
@@ -1312,7 +1325,7 @@ void ServiceEvalInterface::PayDocParamsRequest(XMLRequestCtxt *ctxt, xmlNodePtr 
   NewTextChild( itemNode, "Name", "Edit1" );
 
   itemNode = NewTextChild( node, "item" );
-  NewTextChild( itemNode, "Caption", "Номер смены" );
+  NewTextChild( itemNode, "Caption", "Номер карты" );
   NewTextChild( itemNode, "MaxLength", 4 );
   NewTextChild( itemNode, "CharCase", "UpperCase" );
   NewTextChild( itemNode, "Width", 40 );
