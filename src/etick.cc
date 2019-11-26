@@ -35,6 +35,7 @@
 #include "brd.h"
 #include "astra_elems.h"
 #include "rfisc_calc.h"
+#include "service_eval.h"
 #include "AirportControl.h"
 #include "passenger.h"
 #include "ckin_search.h"
@@ -3452,6 +3453,7 @@ void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
     throw EXCEPTIONS::Exception("EMDAutoBoundInterface::KickHandler: context TERM_REQUEST termReqNode=NULL");
 
   string termReqName=(const char*)(termReqNode->name);
+  LogTrace(TRACE5)<<termReqName;
 
   xmlNodePtr ediResNode=NodeAsNode("/context",ediResCtxt.docPtr());
 
@@ -3502,6 +3504,25 @@ void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 
     BrdInterface::GetPax(termReqNode, resNode);
   }
+  if (termReqName=="paid")
+  {
+    EMDAutoBoundGrpId id(termReqNode);
+    TCkinGrpIds tckin_grp_ids;
+    int point_id=NoExists;
+    if (Lock(id, point_id, tckin_grp_ids, string(__FUNCTION__)+"("+termReqName+")"))
+    {
+      EMDTryBind(tckin_grp_ids, termReqNode, ediResNode);
+    };
+
+    if (isDoomedToWait())
+    {
+      AstraLocale::showErrorMessage("MSG.EDS_CONNECT_ERROR");
+      return;
+    };
+
+    ServiceEvalInterface::AfterPaid(termReqNode, resNode);
+  }
+
 }
 
 //---------------------------------------------------------------------------------------

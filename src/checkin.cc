@@ -61,6 +61,7 @@
 #include "ckin_search.h"
 #include "rfisc_calc.h"
 #include "iapi_interaction.h"
+#include "service_eval.h"
 
 #include <jxtlib/jxt_cont.h>
 #include <serverlib/cursctl.h>
@@ -6309,6 +6310,7 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   xmlNodePtr node;
   int grp_id=NoExists;
   int point_id=NodeAsInteger("point_id",reqNode);
+  bool EMDRefresh=NodeAsBoolean("emd_refresh",reqNode,true);
   TQuery Qry(&OraSession);
   node = GetNode("grp_id",reqNode);
   if (node==NULL||NodeIsNULL(node))
@@ -6397,7 +6399,9 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   }
   else grp_id=NodeAsInteger(node);
 
-  EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);
+  if ( EMDRefresh ) {
+    EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);
+  }
 
   LoadPax(grp_id,reqNode,resNode,false);
 }
@@ -7942,6 +7946,7 @@ void CheckInInterface::readTripSets( int point_id,
     NewTextChild( tripSetsNode, "pr_auto_pt_print", (int)GetTripSets(tsAutoPTPrint,fltInfo) );
     NewTextChild( tripSetsNode, "pr_auto_pt_print_reseat", (int)GetTripSets(tsAutoPTPrintReseat,fltInfo) );
     NewTextChild( tripSetsNode, "use_jmp", (int)setList.value<bool>(tsUseJmp) );
+    NewTextChild( tripSetsNode, "pr_payment_at_desk", isPaymentAtDesk(point_id) );
 }
 
 void CheckInInterface::GetTripCounters(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -8626,6 +8631,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
           NewTextChild(operFltNode, "pr_auto_pt_print", 0);   // TODO
           NewTextChild(operFltNode, "pr_auto_pt_print_reseat", 0); // TODO
           NewTextChild(operFltNode, "use_jmp", 0); // TODO
+          NewTextChild(operFltNode, "pr_payment_at_desk", 0);
 
           xmlNodePtr tripdataNode = NewTextChild(seg2Node, "tripdata");
           xmlNodePtr node = NewTextChild(tripdataNode, "airps");

@@ -36,6 +36,7 @@ const int FQT_INFO = 16;
 const int PNR_INFO = 32;
 const int RSTATION_INFO = 64;
 const int REM_INFO = 128;
+const int EMDA_INFO = 256;
 
 bool TTagLang::IsInter(const TTrferRoute &aroute, string &country)
 {
@@ -433,6 +434,15 @@ void TPrnTagStore::init_bp_tags()
     tag_list.insert(make_pair(TAG::VOUCHER_TEXT8,           TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
     tag_list.insert(make_pair(TAG::VOUCHER_TEXT9,           TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
     tag_list.insert(make_pair(TAG::VOUCHER_TEXT10,          TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
+
+    // EMDA
+    tag_list.insert(make_pair(TAG::EMD_NO,                  TTagListItem(&TPrnTagStore::EMD_NO, PAX_INFO|EMDA_INFO)));
+    tag_list.insert(make_pair(TAG::EMD_COUPON,              TTagListItem(&TPrnTagStore::EMD_COUPON, PAX_INFO|EMDA_INFO)));
+    tag_list.insert(make_pair(TAG::EMD_RFIC,                TTagListItem(&TPrnTagStore::EMD_RFIC, PAX_INFO|EMDA_INFO)));
+    tag_list.insert(make_pair(TAG::EMD_RFISC,               TTagListItem(&TPrnTagStore::EMD_RFISC, PAX_INFO|EMDA_INFO)));
+    tag_list.insert(make_pair(TAG::EMD_RFISC_DESCR,         TTagListItem(&TPrnTagStore::EMD_RFISC_DESCR, PAX_INFO|EMDA_INFO)));
+    tag_list.insert(make_pair(TAG::EMD_PRICE,               TTagListItem(&TPrnTagStore::EMD_PRICE, PAX_INFO|EMDA_INFO)));
+    tag_list.insert(make_pair(TAG::EMD_CURRENCY,            TTagListItem(&TPrnTagStore::EMD_CURRENCY, PAX_INFO|EMDA_INFO)));
 }
 
 void TPrnTagStore::tagsFromXML(xmlNodePtr tagsNode)
@@ -611,16 +621,18 @@ string TPrnTagStore::get_real_field(const std::string &name, size_t len, const s
         rstationInfo.Init();
     if((im->second.info_type & REM_INFO) == REM_INFO)
         remInfo.Init(grpInfo.point_dep);
+    if((im->second.info_type & EMDA_INFO) == EMDA_INFO)
+        emdaInfo.Init(grpInfo.grp_id, pax_id, tag_list[TAG::EMD_NO].TagInfo, tag_list[TAG::EMD_COUPON].TagInfo, tag_lang.GetLang());
     string result;
     try {
         result = (this->*im->second.tag_funct)(TFieldParams(name, date_format, im->second.TagInfo, len, text));
         im->second.processed = true;
         im->second.english_only &= tag_lang.english_tag();
-    } catch(UserException E) {
+    } catch(UserException &E) {
         throw;
-    } catch(Exception E) {
+    } catch(Exception &E) {
         throw Exception("tag %s failed: %s", name.c_str(), E.what());
-    } catch(boost::bad_any_cast E) {
+    } catch(boost::bad_any_cast &E) {
         throw Exception("tag %s failed: %s", name.c_str(), E.what());
     }
     return result;
@@ -795,6 +807,8 @@ TPrnQryBuilder::TPrnQryBuilder(TQuery &aQry): Qry(aQry)
         "       pr_print = 0 and "
         "       desk=:desk and "
         "       (voucher = :voucher OR voucher IS NULL AND :voucher IS NULL) and "
+        "       (emd_no = :emd_no OR emd_no IS NULL AND :emd_no IS NULL) and "
+        "       (emd_coupon = :emd_coupon OR emd_coupon IS NULL AND :emd_coupon IS NULL) and "
         OP_TYPE_COND("op_type")"; "
         "   insert into confirm_print( "
         "       pax_id, "
@@ -932,6 +946,14 @@ void TPrnTagStore::confirm_print(bool pr_print, TDevOper::Enum op_type)
     prnQry.add_part("voucher",
             (tag_list[TAG::VOUCHER_CODE].TagInfo.empty() ? string() :
              boost::any_cast<string>(tag_list[TAG::VOUCHER_CODE].TagInfo)));
+
+    prnQry.add_part("emd_no",
+            (tag_list[TAG::EMD_NO].TagInfo.empty() ? string() :
+             boost::any_cast<string>(tag_list[TAG::EMD_NO].TagInfo)));
+
+    prnQry.add_part("emd_coupon",
+            (tag_list[TAG::EMD_COUPON].TagInfo.empty() ? NoExists :
+             boost::any_cast<int>(tag_list[TAG::EMD_COUPON].TagInfo)));
 
     Qry.SQLText = prnQry.text();
 
@@ -1367,7 +1389,7 @@ string TPrnTagStore::BCBP_V_5(TFieldParams fp)
             barcode.set_flight_number(BCBPSectionsEnums::to_string(pointInfo.flt_no), 0 );
         barcode.set_date_of_flight(UTCToLocal(pointInfo.operFlt.scd_out, AirpTZRegion(grpInfo.airp_dep)),0);
     }
-    catch(EConvertError e)
+    catch(EConvertError &e)
     {
     }
 
@@ -2100,7 +2122,10 @@ string TPrnTagStore::DUPLICATE(TFieldParams fp)
     if(!fp.TagInfo.empty()) {
         pr_bp = boost::any_cast<int>(fp.TagInfo);
     } else {
-        pr_bp = paxInfo.pr_bp_print;
+        if(get_op_type() == TDevOper::PrnEMDA)
+            pr_bp = emdaInfo.get_pr_print();
+        else
+            pr_bp = paxInfo.pr_bp_print;
     }
     string result;
     if(pr_bp)
@@ -2555,10 +2580,10 @@ string TPrnTagStore::TRfiscDescr::get(const string &crs_cls, TBPServiceTypes::En
                     found_services.find(TBPServiceTypes::UP) != found_services.end() and
                     crs_cls == "Å")
                 and (
-                    (code == TBPServiceTypes::LG) and not tag_bi_rule.empty()
+                    ((code == TBPServiceTypes::LG) and not tag_bi_rule.empty())
                     or
-                    (code == TBPServiceTypes::TS_FT) and
-                    (crs_cls == "Å" or crs_cls == "è" or not tag_bi_rule.empty())
+                    ((code == TBPServiceTypes::TS_FT) and
+                    (crs_cls == "Å" or crs_cls == "è" or not tag_bi_rule.empty()))
                     )
           )
             return TBPServiceTypesDescr().encode(code);
@@ -2992,6 +3017,125 @@ string TPrnTagStore::BI_RULE(TFieldParams fp) {
         if(rule.exists() and rule.print_type == BIPrintRules::TPrintType::OnePlusOne)
                 result << "+1";
     }
+    return result.str();
+}
+
+void TPrnTagStore::TEMDAInfo::Init(int grp_id, int pax_id, boost::any &emd_no, boost::any &emd_coupon, const string &lang)
+{
+    if(not prices) {
+        prices = boost::in_place();
+        prices->fromDB(grp_id);
+    }
+    find(pax_id, emd_no, emd_coupon, lang);
+}
+
+bool TPrnTagStore::TEMDAInfo::find(int pax_id, boost::any &emd_no, boost::any &emd_coupon, const string &lang)
+{
+    res.clear();
+
+    bool result = false;
+
+    if(emd_no.empty())
+        return result;
+
+    string _emd_no = boost::any_cast<string>(emd_no);
+
+    int _emd_coupon = NoExists;
+    if(not emd_coupon.empty())
+        _emd_coupon = boost::any_cast<int>(emd_coupon);
+
+    res.pr_print = get_pr_print_emda(pax_id, _emd_no, _emd_coupon);
+
+    for ( const auto &p : prices.get() ) {
+        SVCS svcs;
+        p.second.getSVCS( svcs, TPriceServiceItem::EnumSVCS::only_for_pay );
+        for ( const auto &svc : svcs ) {
+            if(
+                    p.second.pax_id == pax_id and
+                    svc.second.ticknum == _emd_no and
+                    (svc.second.ticket_cpn.empty() ? NoExists : ToInt(svc.second.ticket_cpn)) == _emd_coupon
+              ) {
+                res.RFIC = ServiceTypes().encode(p.second.service_type);
+                res.RFISC = p.second.RFISC;
+                if(not lang.empty())
+                    res.rfisc_descr = p.second.name_view(lang);
+                if(svc.second.valid()) {
+                    res.price = svc.second.price;
+                    res.currency = svc.second.currency;
+                }
+                result = true;
+                break;
+            }
+        }
+        if(result) break;
+    }
+    return result;
+}
+
+string TPrnTagStore::EMD_RFIC(TFieldParams fp) {
+    string result;
+    if(!fp.TagInfo.empty()) {
+        result = boost::any_cast<string>(fp.TagInfo);
+    } else {
+        result = emdaInfo.get_rfic();
+    }
+    return result;
+};
+
+string TPrnTagStore::EMD_RFISC(TFieldParams fp) {
+    string result;
+    if(!fp.TagInfo.empty()) {
+        result = boost::any_cast<string>(fp.TagInfo);
+    } else {
+        result = emdaInfo.get_rfisc();
+    }
+    return result;
+};
+
+string TPrnTagStore::EMD_PRICE(TFieldParams fp) {
+    float price = NoExists;
+    if(!fp.TagInfo.empty()) {
+        price = boost::any_cast<float>(fp.TagInfo);
+    } else {
+        price = emdaInfo.get_price();
+    }
+    ostringstream result;
+    if(price != NoExists)
+        result << fixed << setprecision(2) << price;
+    return result.str();
+}
+
+string TPrnTagStore::EMD_CURRENCY(TFieldParams fp) {
+    string result;
+    if(!fp.TagInfo.empty()) {
+        result = boost::any_cast<string>(fp.TagInfo);
+    } else {
+        result = tag_lang.ElemIdToTagElem(etCurrency, emdaInfo.get_currency(), efmtCodeNative);
+    }
+    return result;
+}
+
+string TPrnTagStore::EMD_RFISC_DESCR(TFieldParams fp) {
+    string result;
+    if(!fp.TagInfo.empty()) {
+        result = boost::any_cast<string>(fp.TagInfo);
+    } else {
+        result = emdaInfo.get_rfisc_descr();
+    }
+    return result;
+};
+
+string TPrnTagStore::EMD_NO(TFieldParams fp) {
+    string result;
+    if(!fp.TagInfo.empty())
+        result = boost::any_cast<string>(fp.TagInfo);
+    return result;
+}
+
+string TPrnTagStore::EMD_COUPON(TFieldParams fp) {
+    ostringstream result;
+    if(!fp.TagInfo.empty())
+        result << boost::any_cast<int>(fp.TagInfo);
     return result.str();
 }
 
@@ -3749,3 +3893,24 @@ void TPrnTagStore::get_pectab_tags(const string &form)
         pectab_tags.push_back(upperc((*res)[1]));
 
 }
+
+bool get_pr_print_emda(int pax_id, const string &emd_no, int emd_coupon)
+{
+    TCachedQuery Qry(
+            "SELECT pax_id FROM confirm_print WHERE "
+            "   pax_id=:pax_id and "
+            "   emd_no = :emd_no AND "
+            "   nvl(emd_coupon, :emd_coupon) = :emd_coupon AND "
+            "   pr_print<>0 AND "
+            "   rownum=1 and "
+            "   op_type = :op_type ",
+            QParams()
+            << QParam("pax_id", otInteger, pax_id)
+            << QParam("emd_no", otString, emd_no)
+            << QParam("emd_coupon", otInteger, emd_coupon)
+            << QParam("op_type", otString, DevOperTypes().encode(TDevOper::PrnEMDA))
+            );
+    Qry.get().Execute();
+    return not Qry.get().Eof;
+}
+

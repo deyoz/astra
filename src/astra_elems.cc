@@ -111,6 +111,7 @@ const
                          {etPayType,               "etPayType",               "pay_types"},
                          {etPersType,              "etPersType",              "pers_types"},
                          {etProfiles,              "etProfiles",              ""},
+                         {etPayMethodType,         "etPayMethodsTypes",       "pay_methods_types"},
                          {etRateColor,             "etRateColor",             "rate_colors"},
                          {etRcptDocType,           "etRcptDocType",           "rcpt_doc_types"},
                          {etRefusalType,           "etRefusalType",           "refusal_types"},

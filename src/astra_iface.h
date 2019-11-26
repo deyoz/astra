@@ -12,3 +12,16 @@ public:
 
     virtual ~AstraJxtIface() {}
 };
+
+
+
+namespace func_equal {
+
+template<typename T, typename... U>
+size_t getAddress(std::function<T(U...)> f) {
+    typedef T(fnType)(U...);
+    fnType ** fnPointer = f.template target<fnType*>();
+    return (size_t) *fnPointer;
+}
+
+}

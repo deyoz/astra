@@ -1305,6 +1305,23 @@ class DCSServiceTypes: public TCodeBaseTable {
     }
 };
 
+class TPayMethodTypesRow: public TIdBaseTableRow {
+    public:
+    const char *get_row_name() const { return "TPayMethodTypesRow"; }
+};
+
+class TPayMethodTypes: public TIdBaseTable {
+  protected:
+    const char *get_table_name() { return "TPayMethodTypes"; }
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void Invalidate() {}
+  public:
+    TPayMethodTypes() {
+        Init( "pay_methods_types" );
+    }
+};
+
+
 class TBaseTables {
     private:
         typedef std::map<std::string, TBaseTable *> TTables;

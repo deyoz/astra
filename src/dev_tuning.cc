@@ -230,6 +230,10 @@ void DevTuningInterface::UpdateCopy(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     string form = NodeAsStringFast("form", node);
     string data = NodeAsStringFast("data", node);
     string descr = NodeAsStringFast("descr", node);
+    if(form.size() > 4000)
+        throw UserException("MSG.FORM_TOO_LONG");
+    if(data.size() > 4000)
+        throw UserException("MSG.FORM_DATA_TOO_LONG");
     TQuery Qry(&OraSession);
     if(*(const char*)reqNode->name == 'U') // Update
         Qry.SQLText =

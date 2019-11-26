@@ -1908,6 +1908,17 @@ void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TC
         }
     }
 
+    if (cache.code() == "PAY_CLIENTS") {
+        if (
+                row.status != usDeleted and
+                row.status != usUnmodified
+           ) {
+            int client_id = ToInt(cache.FieldValue("client_id", row));
+            if(client_id < 1 or client_id > 65535)
+                throw AstraLocale::UserException("MSG.WRONG_CLIENT_ID");
+        }
+    }
+
     if (cache.code() == "REM_TXT_SETS") {
         if (
                 row.status != usDeleted and

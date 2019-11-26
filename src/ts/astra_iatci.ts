@@ -254,6 +254,7 @@ $(defmacro CHECK_TCKIN_ROUTE_2
           <pr_auto_pt_print>0</pr_auto_pt_print>
           <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
           <use_jmp>0</use_jmp>
+          <pr_payment_at_desk>0</pr_payment_at_desk>
         </tripheader>
         <tripdata>
           <airps>
@@ -474,6 +475,7 @@ $(defmacro CHECK_TCKIN_ROUTE_GRP_2
           <pr_auto_pt_print>0</pr_auto_pt_print>
           <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
           <use_jmp>0</use_jmp>
+          <pr_payment_at_desk>0</pr_payment_at_desk>
         </tripheader>
         <tripdata>
           <airps>
@@ -813,8 +815,8 @@ $(defmacro SAVE_GRP
               </document>
               <doco/>
               <addresses/>
-              <subclass>ù</subclass>              
-              <bag_pool_num/>              
+              <subclass>ù</subclass>
+              <bag_pool_num/>
               <transfer>
                 <segment>
                   <subclass>L</subclass>
@@ -2128,6 +2130,7 @@ $(KICK_IN)
           <pr_auto_pt_print>0</pr_auto_pt_print>
           <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
           <use_jmp>0</use_jmp>
+          <pr_payment_at_desk>0</pr_payment_at_desk>
         </tripheader>
         <tripdata>
           <airps>
@@ -2303,6 +2306,7 @@ $(KICK_IN)
           <pr_auto_pt_print>0</pr_auto_pt_print>
           <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
           <use_jmp>0</use_jmp>
+          <pr_payment_at_desk>0</pr_payment_at_desk>
         </tripheader>
         <tripdata>
           <airps>
@@ -2784,6 +2788,7 @@ $(KICK_IN)
           <pr_auto_pt_print>0</pr_auto_pt_print>
           <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
           <use_jmp>0</use_jmp>
+          <pr_payment_at_desk>0</pr_payment_at_desk>
         </tripheader>
         <tripdata>
           <airps>
@@ -2969,6 +2974,7 @@ $(KICK_IN)
           <pr_auto_pt_print>0</pr_auto_pt_print>
           <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
           <use_jmp>0</use_jmp>
+          <pr_payment_at_desk>0</pr_payment_at_desk>
         </tripheader>
         <tripdata>
           <airps>
@@ -4524,6 +4530,7 @@ $(KICK_IN)
           <pr_auto_pt_print>0</pr_auto_pt_print>
           <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
           <use_jmp>0</use_jmp>
+          <pr_payment_at_desk>0</pr_payment_at_desk>
         </tripheader>
         <tripdata>
           <airps>
@@ -4787,6 +4794,7 @@ $(KICK_IN)
           <pr_auto_pt_print>0</pr_auto_pt_print>
           <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
           <use_jmp>0</use_jmp>
+          <pr_payment_at_desk>0</pr_payment_at_desk>
         </tripheader>
         <tripdata>
           <airps>
