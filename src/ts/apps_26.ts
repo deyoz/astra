@@ -45,7 +45,7 @@ $(CHECKIN_PAX_WITH_VISA $(get pax_id) $(get point_dep) $(get point_arv)
                         123134 UA 20.10.2019 20.10.2020 CZ)
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/110000/PRQ/34/1/P/UKR/UKR/FA144642//P//20250625////TUMALI/VALERII/19680416/M///N/N///////00011////////PAD/13/1/CZ/V//123134/UKR/20201020///////.*
+.*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PRQ/34/1/P/UKR/UKR/FA144642//P//20250625////TUMALI/VALERII/19680416/M///N/N///////00011////////PAD/13/1/CZ/V//123134/UKR/20201020///////.*
 
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
 CIRS:$(capture 1)/PRS/29/001/CZ/P/UKR/UKR/FA144642//P//20250625/////TUMALI/VALERII/19680416/M//8501/B/1////////
@@ -63,7 +63,7 @@ $(set tid $(get_single_tid $(get point_dep) TUMALI VALERII))
 $(CANCEL_PAX $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII 2986145115578 ВЗ)
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/110000/PCX/21/1/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/00011/.*
+.*CICX:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PCX/21/1/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/00011/.*
 
 
 # регистрация члена экипажа
@@ -74,7 +74,7 @@ $(CHECKIN_CREW_WITH_VISA $(get point_dep) $(get point_arv)
                          34534534 RUS 21.10.2019 21.10.2020 CZ)
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/110000/PRQ/34/1/C/RUS/RUS/2124134//P//20250515////VOLODIN/SEMEN/19780511/M///N/N///////00-11////////PAD/13/1/CZ/V//34534534/RUS/20201021///////.*
+.*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PRQ/34/1/C/RUS/RUS/2124134//P//20250515////VOLODIN/SEMEN/19780511/M///N/N///////00-11////////PAD/13/1/CZ/V//34534534/RUS/20201021///////.*
 
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
 CIRS:$(capture 1)/PRS/29/001/CZ/C/RUS/RUS/2124134//P//20250515////VOLODIN/SEMEN/19780511/M///8501/B/10/////////
@@ -89,7 +89,7 @@ $(set tid $(get_single_tid $(get point_dep) VOLODIN SEMEN))
 $(CANCEL_CHECKIN_CREW $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ VOLODIN SEMEN ВЗ)
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/110000/PCX/21/1/10/C/RUS/RUS/2124134//P/20250515////VOLODIN/SEMEN/19780511/M///N/N/00-11/.*
+.*CICX:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PCX/21/1/10/C/RUS/RUS/2124134//P/20250515////VOLODIN/SEMEN/19780511/M///N/N/00-11/.*
 
 
 # закрытие рейса. По настройке APPS должен уйти CIMR
@@ -190,9 +190,9 @@ $(CHECKIN_PAX_WITH_VISA_AND_DOCA $(get pax_id) $(get point_dep) $(get point_arv)
                                  213121 CZ 10.03.2019 10.03.2020 CZ)
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/110000/PCX/21/1/3/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
+.*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PCX/21/1/3/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/110000/PRQ/34/1/P/UKR/UKR/FA144642//P//20250625////TUMALI/VALERII/19680416/M///N/N///////00011////////PAD/13/1/CZ/V//213121/CZE/20200310/ADDRESS/CITY/REGION/112233.*
+.*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PRQ/34/1/P/UKR/UKR/FA144642//P//20250625////TUMALI/VALERII/19680416/M///N/N///////00011////////PAD/13/1/CZ/V//213121/CZE/20200310/ADDRESS/CITY/REGION/112233.*
 
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
 CIRS:$(capture 1)/PRS/29/001/CZ/P/UA/UA/FA144642//P//20250625/////TUMALI/VALERII/19680416/U//8509/X/////////
@@ -210,9 +210,9 @@ $(CHECKIN_PAX_WITH_VISA $(get pax_id) $(get point_dep) $(get point_arv)
                         56573563 CZ 10.03.2019 10.03.2020 CZ)
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/110000/PCX/21/1/2/P/RUS/RUS/9205589611//P/20251220////SELIVANOV/RUSLAN NAILYEVICH/19830923/M///N/N/.*
+.*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PCX/21/1/2/P/RUS/RUS/9205589611//P/20251220////SELIVANOV/RUSLAN NAILYEVICH/19830923/M///N/N/.*
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/110000/PRQ/34/1/P/UKR/UKR/12342131//P//20251220////SELIVANOV/RUSLAN NAILYEVICH/19830923/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PRQ/34/1/P/UKR/UKR/12342131//P//20251220////SELIVANOV/RUSLAN NAILYEVICH/19830923/M///N/N////.*
 
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
 CIRS:$(capture 1)/PRS/29/001/CZ/P/RU/RU/9205589611//P//20251220/////SELIVANOV/RUSLAN NAILYEVICH/19830923/M//8502/D/////////
@@ -242,10 +242,10 @@ $(run_trip_task send_apps $(get point_dep))
 # ранее по этому пассажиру!!!
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/110000/PCX/21/1/1/P/RUS/RUS/0319189298//P/20201008////KURGINSKAYA/ANNA GRIGOREVNA/19870602/F///N/N/.*
+.*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PCX/21/1/1/P/RUS/RUS/0319189298//P/20201008////KURGINSKAYA/ANNA GRIGOREVNA/19870602/F///N/N/.*
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/110000/PRQ/34/1/P/RUS/RUS/0319189297//P//20201008////KURGINSKAYA/ANNA GRIGOREVNA/19870602/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PRQ/34/1/P/RUS/RUS/0319189297//P//20201008////KURGINSKAYA/ANNA GRIGOREVNA/19870602/F///N/N////.*
 
 
 # закрытие рейса. По настройке APPS НЕ должен уходить CIMR

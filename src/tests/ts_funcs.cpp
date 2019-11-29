@@ -614,6 +614,25 @@ static std::string FP_setDeskVersion(const std::vector<std::string>& par)
     return "";
 }
 
+static std::string FP_setUserTime(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() == 1);
+    const std::string userTimeType = par.at(0);
+    LogTrace(TRACE3) << "set user time type: " << userTimeType;
+    if(userTimeType == "UTC") {
+        TReqInfo::Instance()->user.sets.time = ustTimeUTC;
+    } else if(userTimeType == "LocalDesk") {
+        TReqInfo::Instance()->user.sets.time = ustTimeLocalDesk;
+    } else if(userTimeType == "LocalAirp") {
+        TReqInfo::Instance()->user.sets.time = ustTimeLocalAirp;
+    } else {
+        throw EXCEPTIONS::Exception("Unknown user time type!");
+    }
+
+    return "";
+}
+
+
 static std::string FP_initApps(const std::vector<tok::Param>& par)
 {
     ASSERT(par.size() > 2);
@@ -723,6 +742,7 @@ FP_REGISTER("settcl", FP_settcl);
 FP_REGISTER("last_generated_pax_id", FP_lastGeneratedPaxId);
 FP_REGISTER("substr", FP_substr);
 FP_REGISTER("set_desk_version", FP_setDeskVersion);
+FP_REGISTER("set_user_time_type", FP_setUserTime);
 FP_REGISTER("init_apps", FP_initApps);
 FP_REGISTER("translit", FP_translit);
 FP_REGISTER("run_trip_task", FP_run_trip_task);
