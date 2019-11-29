@@ -81,6 +81,8 @@ $(defmacro PREPARE_SEASON_SCD
   arrp
   fltno
   craft=TU5
+  first_date=$(date_format %d.%m.%Y)
+  last_date=$(date_format %d.%m.%Y)
 {
 {<?xml version='1.0' encoding='CP866'?>
  <term>
@@ -93,10 +95,10 @@ $(defmacro PREPARE_SEASON_SCD
         <subrange>
           <modify>insert</modify>
           <move_id>-1</move_id>
-          <first>$(date_format %d.%m.%Y -1mon) 12:00:00</first>
-          <last>$(date_format %d.%m.%Y +1mon) 12:00:00</last>
+          <first>$(first_date) 00:00:00</first>
+          <last>$(last_date) 23:59:59</last>
           <days>1234567</days>
-          <dests  >
+          <dests>
             <dest>
               <cod>$(depp)</cod>
               <company>$(airl)</company>
@@ -109,7 +111,7 @@ $(defmacro PREPARE_SEASON_SCD
               <cod>$(arrp)</cod>
               <land>30.12.1899 12:00:00</land>
             </dest>
-          </dests  >
+          </dests>
         </subrange>
       </SubrangeList>
     </write>
@@ -1972,7 +1974,7 @@ $(defmacro CIRQ_61_UT_REQS_APPS_VERSION_21
     depd=$(yyyymmdd)
     arrd=$(yyyymmdd)
     dept=101500
-    arrt=110000
+    arrt=100000
 {
 
 >> lines=auto mode=regex
@@ -2292,7 +2294,7 @@ $(defmacro CIRQ_61_UT_REQS_APPS_VERSION_26
     depd=$(yyyymmdd)
     arrd=$(yyyymmdd)
     dept=101500
-    arrt=110000
+    arrt=100000
 {
 
 >> lines=auto mode=regex
