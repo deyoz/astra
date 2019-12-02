@@ -448,7 +448,7 @@ void TPriceRFISCList::toDB(int grp_id) const
   Qry.CreateVariable("time_paid",otDate, BASIC::date_time::NowUTC());
   for ( const auto &p : *this ) {
     SVCS svcs;
-    p.second.getSVCS1( svcs, STATUS_DIRECT_PAID );
+    p.second.getSVCS( svcs, STATUS_DIRECT_PAID );
     for ( const auto svc : svcs ) {
       p.first.toDB(Qry);
       p.second.toDB(Qry,svc.first);
@@ -623,12 +623,15 @@ bool TPriceRFISCList::synchFromSirena(const TPriceRFISCList& list, bool only_del
   bool res = true;
 
   std::set<std::string> svc_ids, doc_ids;
+  std::set<TServiceType::Enum> sevice_types;
 
   for ( const auto& nitem : list ) { //filter
+    sevice_types.insert( nitem.first.service_type );
+  //  LogTrace(TRACE5) << nitem.first.service_type;
     SVCS svcs;
     nitem.second.getSVCS(svcs,TPriceServiceItem::EnumSVCS::all);
     for ( const auto nsvc : svcs ) {
-      LogTrace(TRACE5) << nsvc.second.toString();
+    //  LogTrace(TRACE5) << nsvc.second.toString();
       svc_ids.insert( nsvc.first );
     }
   }
@@ -676,36 +679,30 @@ bool TPriceRFISCList::synchFromSirena(const TPriceRFISCList& list, bool only_del
   //delete
   for ( auto oitem=begin(); oitem!=end(); ) {
     TPriceRFISCList::const_iterator nitem;
-/*    if ( (nitem = list.find(oitem->first)) == list.end()) {
-      LogTrace(TRACE5) << oitem->second.traceStr();
+    SVCS osvcs, nsvcs;
+    oitem->second.getSVCS(osvcs,TPriceServiceItem::EnumSVCS::all);
+    if ( (nitem = list.find(oitem->first)) != list.end()) {
+      nitem->second.getSVCS(nsvcs,TPriceServiceItem::EnumSVCS::all);
+    }
+    for ( const auto &osvc : osvcs ) {
+      if ( nsvcs.find(osvc.first)==nsvcs.end() ) {
+        //LogTrace(TRACE5) << oitem->second.traceStr();
+        if ( doc_ids.find( osvc.second.doc.doc_id ) == doc_ids.end() &&
+             sevice_types.find( oitem->first.service_type ) == sevice_types.end() ) {
+          //LogTrace(TRACE5) << osvc.second.doc.doc_id;
+          oitem->second.eraseSVC(osvc.first);
+          res = false;
+        }
+//        LogTrace(TRACE5) << oitem->second.traceStr();
+      }
+    }
+    oitem->second.getSVCS(osvcs,TPriceServiceItem::EnumSVCS::all);
+    if ( osvcs.empty() ) {
       this->erase(oitem++);
       res = false;
     }
-    else {*/
-      SVCS osvcs, nsvcs;
-      oitem->second.getSVCS(osvcs,TPriceServiceItem::EnumSVCS::all);
-      if ( (nitem = list.find(oitem->first)) != list.end()) {
-        nitem->second.getSVCS(nsvcs,TPriceServiceItem::EnumSVCS::all);
-      }
-      for ( const auto &osvc : osvcs ) {
-        if ( nsvcs.find(osvc.first)==nsvcs.end() ) {
-          LogTrace(TRACE5) << oitem->second.traceStr();
-          if ( doc_ids.find( osvc.second.doc.doc_id ) == doc_ids.end() ) {
-            LogTrace(TRACE5) << osvc.second.doc.doc_id;
-            oitem->second.eraseSVC(osvc.first);
-            res = false;
-          }
-          LogTrace(TRACE5) << oitem->second.traceStr();
-        }
-      }
-      oitem->second.getSVCS(osvcs,TPriceServiceItem::EnumSVCS::all);
-      if ( osvcs.empty() ) {
-        this->erase(oitem++);
-        res = false;
-      }
-      else
-        ++oitem;
-    //}
+    else
+      ++oitem;
   }
   tst();
   return res;
@@ -729,7 +726,7 @@ bool TPriceRFISCList::haveStatusDirect( const std::string& statusDirect, std::ve
   svcs.clear();
   for ( const auto& oitem : *this ) {
     SVCS nsvcs;
-    oitem.second.getSVCS1( nsvcs, statusDirect );
+    oitem.second.getSVCS( nsvcs, statusDirect );
     for ( const auto& osvc : nsvcs ) {
       if ( osvc.second.valid() ) {
         svcs.push_back( osvc.first );
