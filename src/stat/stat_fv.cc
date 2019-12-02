@@ -256,7 +256,7 @@ void stat_fv_toXML(xmlNodePtr rootNode, int point_id)
             NewTextChild(PassengerNode, "PersonSurname", transliter(pax.surname, 1, true), "");
             NewTextChild(PassengerNode, "PersonName", transliter(pax.name, 1, true), "");
             NewTextChild(PassengerNode, "Sex", pax.is_female() == NoExists or not pax.is_female() ? "MR" : "MS");
-            NewTextChild(PassengerNode, "SeatNumber", pax.seat_no);
+            NewTextChild(PassengerNode, "SeatNumber", (pax.seat_no.empty() ? " " : pax.seat_no));
             auto grp_info = grp_info_map.get(pax.grp_id);
 
             TTrferInfo trfer_info;
