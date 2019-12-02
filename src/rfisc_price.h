@@ -130,7 +130,7 @@ class TPriceServiceItem : public TPaxSegRFISCKey
       }
     }
 
-    void getSVCS1( SVCS& _svcs, const std::string &status_direct ) const {
+    void getSVCS( SVCS& _svcs, const std::string &status_direct ) const {
       _svcs.clear();
       for ( const auto svc : svcs ) {
         if ( svc.second.status_direct == status_direct ) {

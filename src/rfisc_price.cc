@@ -448,7 +448,7 @@ void TPriceRFISCList::toDB(int grp_id) const
   Qry.CreateVariable("time_paid",otDate, BASIC::date_time::NowUTC());
   for ( const auto &p : *this ) {
     SVCS svcs;
-    p.second.getSVCS1( svcs, STATUS_DIRECT_PAID );
+    p.second.getSVCS( svcs, STATUS_DIRECT_PAID );
     for ( const auto svc : svcs ) {
       p.first.toDB(Qry);
       p.second.toDB(Qry,svc.first);
@@ -627,11 +627,11 @@ bool TPriceRFISCList::synchFromSirena(const TPriceRFISCList& list, bool only_del
 
   for ( const auto& nitem : list ) { //filter
     sevice_types.insert( nitem.first.service_type );
-    LogTrace(TRACE5) << nitem.first.service_type;
+  //  LogTrace(TRACE5) << nitem.first.service_type;
     SVCS svcs;
     nitem.second.getSVCS(svcs,TPriceServiceItem::EnumSVCS::all);
     for ( const auto nsvc : svcs ) {
-      LogTrace(TRACE5) << nsvc.second.toString();
+    //  LogTrace(TRACE5) << nsvc.second.toString();
       svc_ids.insert( nsvc.first );
     }
   }
@@ -686,14 +686,14 @@ bool TPriceRFISCList::synchFromSirena(const TPriceRFISCList& list, bool only_del
     }
     for ( const auto &osvc : osvcs ) {
       if ( nsvcs.find(osvc.first)==nsvcs.end() ) {
-        LogTrace(TRACE5) << oitem->second.traceStr();
+        //LogTrace(TRACE5) << oitem->second.traceStr();
         if ( doc_ids.find( osvc.second.doc.doc_id ) == doc_ids.end() &&
              sevice_types.find( oitem->first.service_type ) == sevice_types.end() ) {
-          LogTrace(TRACE5) << osvc.second.doc.doc_id;
+          //LogTrace(TRACE5) << osvc.second.doc.doc_id;
           oitem->second.eraseSVC(osvc.first);
           res = false;
         }
-        LogTrace(TRACE5) << oitem->second.traceStr();
+//        LogTrace(TRACE5) << oitem->second.traceStr();
       }
     }
     oitem->second.getSVCS(osvcs,TPriceServiceItem::EnumSVCS::all);
@@ -726,7 +726,7 @@ bool TPriceRFISCList::haveStatusDirect( const std::string& statusDirect, std::ve
   svcs.clear();
   for ( const auto& oitem : *this ) {
     SVCS nsvcs;
-    oitem.second.getSVCS1( nsvcs, statusDirect );
+    oitem.second.getSVCS( nsvcs, statusDirect );
     for ( const auto& osvc : nsvcs ) {
       if ( osvc.second.valid() ) {
         svcs.push_back( osvc.first );
