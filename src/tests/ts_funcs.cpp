@@ -13,6 +13,7 @@
 #include "salons.h"
 #include "date_time.h"
 #include "base_tables.h"
+#include "apps_interaction.h"
 #include "tlg/tlg.h"
 #include "tlg/remote_system_context.h"
 #include "tlg/edi_tlg.h"
@@ -21,7 +22,6 @@
 #include <fstream>
 #include <boost/regex.hpp>
 #include <boost/foreach.hpp>
-#include <boost/lexical_cast.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 #include <serverlib/tscript.h>
@@ -30,6 +30,7 @@
 #include <serverlib/cursctl.h>
 #include <serverlib/str_utils.h>
 #include <serverlib/tcl_utils.h>
+#include <serverlib/dates_io.h>
 #include <jxtlib/jxtlib.h>
 #include <jxtlib/utf2cp866.h>
 
@@ -294,17 +295,19 @@ static std::string FP_init_dcs(const std::vector<std::string> &p)
     return "";
 }
 
-std::string FP_create_spp(const std::vector<std::string> &p) {
+std::string FP_make_spp(const std::vector<std::string> &p)
+{
+    boost::gregorian::date d = boost::posix_time::second_clock::local_time().date();
 
-    assert(p.size() >= 1);
-    std::string fmt = "ddmmyyyy";
-    if(p.size() == 2) {
+    std::string fmt = "ddmmyy";
+    if(p.size() > 1) {
         fmt = p.at(1);
     }
+    if(p.size() > 0) {
+        d = HelpCpp::date_cast(p.at(0).c_str(), fmt.c_str());
+    }
 
-    BASIC::date_time::TDateTime dt;
-    BASIC::date_time::StrToDateTime(p.at(0).c_str(), fmt.c_str(), dt);
-    CreateSPP(dt);
+    CreateSPP(BASIC::date_time::BoostToDateTime(d));
 
     return "";
 }
@@ -329,6 +332,11 @@ static std::vector<std::string> pointIdSppVector()
     while(!cur.fen()) {
         res.push_back(point_id_spp);
     }
+
+    if(res.empty()) {
+        throw EXCEPTIONS::Exception("Empty table: TLG_BINDING!");
+    }
+
     return res;
 }
 
@@ -353,7 +361,7 @@ static std::string getNextTripPointId(int pointId)
     route.GetRouteAfter(ASTRA::NoExists,
                         pointId,
                         trtNotCurrent, trtNotCancelled);
-    return (route.empty() ? "" : boost::lexical_cast<std::string>(route.front().point_id));
+    return (route.empty() ? "" : std::to_string(route.front().point_id));
 }
 
 static int getMoveId(int pointId)
@@ -387,60 +395,18 @@ static std::string FP_get_dep_point_id(const std::vector<std::string>& p)
                                              p.at(1)/*airline*/,
                                              atoi(p.at(2).c_str()),/*flight num*/
                                              Dates::rrmmdd(p.at(3).c_str()));/*dep date*/
-    return boost::lexical_cast<std::string>(point_id);
+    return std::to_string(point_id);
 }
 
-static int getRandomBaseComponId(const std::string& cls)
+static std::string FP_autoSetCraft(const std::vector<std::string>& p)
 {
-    OciCpp::CursCtl cur = make_curs(
-"select CID from "
-"(select COMP_ID as CID, count(*) as CNT from COMP_ELEMS "
-"where CLASS=:cls and ELEM_TYPE in (select CODE from COMP_ELEM_TYPES where PR_SEAT=1) "
-"group by COMP_ID order by dbms_random.random) a "
-"where not exists (select 1 from COMP_ELEMS where COMP_ID=a.CID and CLASS<>:cls) "
-"and a.CNT > 1");
-
-    int comp_id = 0;
-    cur.bind(":cls", cls)
-       .def(comp_id).exfet();
-    if(cur.err() == NO_DATA_FOUND) {
-        comp_id = -1;
-    }
-
-    return comp_id;
-}
-
-static void createRandomTripCompForPointId(int point_id, const std::string& cls)
-{
-    int comp_id = getRandomBaseComponId(cls);
-    LogTrace(TRACE3) << "For class:" << cls << " our comp_id:" << comp_id;
-    assert(comp_id != -1);
-
-    OciCpp::CursCtl cur = make_curs(
-"insert into TRIP_COMP_ELEMS "
-"(POINT_ID, AGLE, CLASS, ELEM_TYPE, NOT_GOOD, NUM, PR_SMOKE, "
-"X, XNAME, XPRIOR, Y, YNAME, YPRIOR) "
-"select :point_id, AGLE, CLASS, ELEM_TYPE, NOT_GOOD, NUM, PR_SMOKE, "
-"X, XNAME, XPRIOR, Y, YNAME, YPRIOR "
-"from COMP_ELEMS where COMP_ID=:comp_id and CLASS=:cls");
-
-    cur.bind(":point_id", point_id)
-       .bind(":comp_id",  comp_id)
-       .bind(":cls",      cls)
-       .exec();
-    SALONS2::processSalonsCfg_TestMode(point_id, comp_id);
-}
-
-static std::string FP_create_random_trip_comp(const std::vector<std::string>& p)
-{
-    assert(p.size() == 2);
+    assert(p.size() == 1);
     int point_id = atoi(p.at(0).c_str());
-    std::string cls = p.at(1);
-    createRandomTripCompForPointId(point_id, cls);
+    SALONS2::AutoSetCraft(point_id);
     return "";
 }
 
-static std::string FP_getSinglePaxId(const std::vector<std::string>& p)
+static std::string FP_getPaxId(const std::vector<std::string>& p)
 {
     using namespace astra_api::xml_entities;
     assert(p.size() == 3);
@@ -465,7 +431,7 @@ static std::string FP_getSinglePaxId(const std::vector<std::string>& p)
     assert(!lPax.empty());
     const XmlPax& pax = lPax.front();
 
-    return boost::lexical_cast<std::string>(pax.pax_id);
+    return std::to_string(pax.pax_id);
 }
 
 static std::string FP_getSingleGrpId(const std::vector<std::string>& p)
@@ -481,7 +447,23 @@ static std::string FP_getSingleGrpId(const std::vector<std::string>& p)
 
     assert(!plRes.lPax.empty());
     const XmlPax& pax = lPax.front();
-    return boost::lexical_cast<std::string>(pax.grp_id);
+    return std::to_string(pax.grp_id);
+}
+
+static std::string FP_getSinglePaxId(const std::vector<std::string>& p)
+{
+    using namespace astra_api::xml_entities;
+    assert(p.size() == 3);
+    int pointDep = atoi(p.at(0).c_str());
+    std::string paxSurname = p.at(1);
+    std::string paxName = p.at(2);
+
+    PaxListXmlResult plRes = astra_api::AstraEngine::singletone().PaxList(pointDep);
+    std::list<XmlPax> lPax = plRes.applyNameFilter(paxSurname, paxName);
+
+    assert(!plRes.lPax.empty());
+    const XmlPax& pax = lPax.front();
+    return std::to_string(pax.pax_id);
 }
 
 static std::string FP_getSingleTid(const std::vector<std::string>& p)
@@ -500,7 +482,7 @@ static std::string FP_getSingleTid(const std::vector<std::string>& p)
     LoadPaxXmlResult lpRes = astra_api::AstraEngine::singletone().LoadPax(pointDep, pax.reg_no);
     assert(!lpRes.lSeg.empty());
     const XmlSegment& paxSeg = lpRes.lSeg.front();
-    return boost::lexical_cast<std::string>(paxSeg.seg_info.tid);
+    return std::to_string(paxSeg.seg_info.tid);
 }
 
 static std::string FP_getSinglePaxTid(const std::vector<std::string>& p)
@@ -520,7 +502,7 @@ static std::string FP_getSinglePaxTid(const std::vector<std::string>& p)
     lpRes.applyPaxFilter(PaxFilter(NameFilter(paxSurname, paxName), {}, {}));
     assert(!lpRes.lSeg.empty());
     const XmlSegment& paxSeg = lpRes.lSeg.front();
-    return boost::lexical_cast<std::string>(paxSeg.passengers.front().tid);
+    return std::to_string(paxSeg.passengers.front().tid);
 }
 
 static std::string FP_getPointTid(const std::vector<std::string>& p)
@@ -533,7 +515,7 @@ static std::string FP_getPointTid(const std::vector<std::string>& p)
     cur.def(tid)
        .bind(":point_id", pointId)
        .EXfet();
-    return boost::lexical_cast<std::string>(tid);
+    return std::to_string(tid);
 }
 
 static std::string FP_get_lat_code(const std::vector<std::string>& p)
@@ -623,6 +605,111 @@ static std::string FP_substr(const std::vector<std::string>& par)
     return par.at(0).substr(std::atoi(par.at(1).c_str()), std::atoi(par.at(2).c_str()));
 }
 
+static std::string FP_setDeskVersion(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() == 1);
+    make_curs("update DESKS set VERSION=:version")
+                .bind(":version", par.at(0))
+                .exec();
+    return "";
+}
+
+static std::string FP_setUserTime(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() == 1);
+    const std::string userTimeType = par.at(0);
+    LogTrace(TRACE3) << "set user time type: " << userTimeType;
+    if(userTimeType == "UTC") {
+        TReqInfo::Instance()->user.sets.time = ustTimeUTC;
+    } else if(userTimeType == "LocalDesk") {
+        TReqInfo::Instance()->user.sets.time = ustTimeLocalDesk;
+    } else if(userTimeType == "LocalAirp") {
+        TReqInfo::Instance()->user.sets.time = ustTimeLocalAirp;
+    } else {
+        throw EXCEPTIONS::Exception("Unknown user time type!");
+    }
+
+    return "";
+}
+
+
+static std::string FP_initApps(const std::vector<tok::Param>& par)
+{
+    ASSERT(par.size() > 2);
+    std::string airline = PositionalValues(par).at(0);
+    std::string country = PositionalValues(par).at(1);
+    std::string format  = PositionalValues(par).at(2);
+
+    bool inbound  = tok::GetValue(par, "inbound",  "true") == "true";
+    bool outbound = tok::GetValue(par, "outbound", "true") == "true";
+    bool closeout = tok::GetValue(par, "closeout", "true") == "true";
+    bool prdenial = tok::GetValue(par, "denial",   "false")== "true";
+
+    LogTrace(TRACE1) << "init_apps: "
+                     << "airline: "  << airline << "; "
+                     << "country: "  << country << "; "
+                     << "format: "   << format << "; "
+                     << "inbound: "  << inbound << "; "
+                     << "outbound: " << outbound << "; "
+                     << "closeout: " << closeout << "; "
+                     << "prdenial: " << prdenial;
+
+    make_curs(
+"delete from APPS_SETS where AIRLINE=:airline and APPS_COUNTRY=:country")
+            .bind(":airline", airline)
+            .bind(":country", country)
+            .exec();
+
+    make_curs(
+"insert into APPS_SETS(AIRLINE, APPS_COUNTRY, FORMAT, FLT_CLOSEOUT, INBOUND, OUTBOUND, PR_DENIAL, ID) "
+"values(:airline, :country, :format, :closeout, :inbound, :outbound, :prdenial, id__seq.nextval)")
+            .bind(":airline", airline)
+            .bind(":country", country)
+            .bind(":format",  format)
+            .bind(":closeout",closeout)
+            .bind(":inbound", inbound)
+            .bind(":outbound",outbound)
+            .bind(":prdenial",prdenial)
+            .exec();
+    return "";
+}
+
+static std::string FP_translit(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() == 1);
+    return StrUtils::translit(par.at(0));
+}
+
+static std::string FP_run_trip_task(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() == 2);
+    const std::string taskName = par.at(0);
+    int pointId = std::atoi(par.at(1).c_str());
+
+    LogTrace(TRACE3) << "Test run trip task " << taskName << " for point_id=" << pointId;
+
+    if(taskName == "send_apps") {
+        sendNewAPPSInfo(TTripTaskKey(pointId, "SEND_NEW_APPS_INFO", ""));
+    } if(taskName == "send_all_apps") {
+        sendAllAPPSInfo(TTripTaskKey(pointId, "SEND_ALL_APPS_INFO", ""));
+    }
+
+    return "";
+}
+
+static std::string FP_combineBrdWithReg(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() == 1);
+    int pointId = std::atoi(par.at(0).c_str());
+
+    make_curs(
+"insert into TRIP_HALL(PR_MISC, TYPE, POINT_ID) values (1, :ts_brd_with_reg, :point_id)")
+            .bind(":ts_brd_with_reg", (int)tsBrdWithReg)
+            .bind(":point_id", pointId)
+            .exec();
+
+    return "";
+}
 
 
 FP_REGISTER("<<", FP_tlg_in);
@@ -639,11 +726,12 @@ FP_REGISTER("lastRedisplay", FP_lastRedisplay);
 FP_REGISTER("lastAppsMsgId", FP_lastAppsMsgId);
 FP_REGISTER("init_eds",   FP_init_eds);
 FP_REGISTER("init_dcs",   FP_init_dcs);
-FP_REGISTER("create_spp", FP_create_spp);
+FP_REGISTER("make_spp", FP_make_spp);
 FP_REGISTER("run_daemon", FP_run_daemon);
-FP_REGISTER("create_random_trip_comp", FP_create_random_trip_comp);
-FP_REGISTER("get_single_pax_id", FP_getSinglePaxId);
+FP_REGISTER("auto_set_craft", FP_autoSetCraft);
+FP_REGISTER("get_pax_id", FP_getPaxId);
 FP_REGISTER("get_single_grp_id", FP_getSingleGrpId);
+FP_REGISTER("get_single_pax_id", FP_getSinglePaxId);
 FP_REGISTER("get_single_tid", FP_getSingleTid);
 FP_REGISTER("get_single_pax_tid",FP_getSinglePaxTid);
 FP_REGISTER("get_point_tid", FP_getPointTid);
@@ -653,5 +741,11 @@ FP_REGISTER("deny_ets_interactive", FP_deny_ets_interactive);
 FP_REGISTER("settcl", FP_settcl);
 FP_REGISTER("last_generated_pax_id", FP_lastGeneratedPaxId);
 FP_REGISTER("substr", FP_substr);
+FP_REGISTER("set_desk_version", FP_setDeskVersion);
+FP_REGISTER("set_user_time_type", FP_setUserTime);
+FP_REGISTER("init_apps", FP_initApps);
+FP_REGISTER("translit", FP_translit);
+FP_REGISTER("run_trip_task", FP_run_trip_task);
+FP_REGISTER("combine_brd_wirth_reg", FP_combineBrdWithReg);
 
 #endif /* XP_TESTING */

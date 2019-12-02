@@ -2,6 +2,7 @@
 #include "exceptions.h"
 #include "astra_utils.h"
 #include "xp_testing.h"
+#include "apps_interaction.h"
 
 #include <serverlib/tscript.h>
 #include <serverlib/EdiHelpManager.h>
@@ -14,6 +15,7 @@
 #ifdef XP_TESTING
 #include "tlg/edi_handler.h"
 #include "tlg/typeb_handler.h"
+#include "tlg/apps_handler.h"
 #include "tlg/tlg.h"
 
 #define NICKNAME "ROMAN"
@@ -36,7 +38,7 @@ namespace tscript {
         {
             // edifact
             tlg_info tlgi = {};
-            tlgi.id       = saveTlg("LOOPB", "LOOPB", "OUTA", tlg);
+            tlgi.id       = saveTlg("LOOPB", "LOOPB", "INA", tlg);
             tlgi.sender   = "LOOPB";
             tlgi.text     = edilib::ChangeEdiCharset(tlg, chset.empty() ? "IATA" : chset);
 
@@ -50,6 +52,15 @@ namespace tscript {
                 }
             }
             handle_edi_tlg(tlgi);
+        }
+        else if(IsAPPSAnswText(tlg))
+        {
+            tlg_info tlgi = {};
+            tlgi.id       = saveTlg("LOOPB", "LOOPB", "IAPP", tlg);
+            tlgi.sender   = "LOOPB";
+            tlgi.text     = "\x02" + StrUtils::replaceSubstrCopy(tlg, "\n", "\x03");
+
+            handle_apps_tlg(tlgi);
         }
         else
         {

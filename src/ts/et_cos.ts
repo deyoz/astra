@@ -3,97 +3,6 @@ include(ts/macro.ts)
 # meta: suite eticket
 
 
-$(defmacro CHECKIN_PAX
-    pax_id
-    point_dep
-    point_arv
-    airp_dep=ДМД
-    airp_arv=ПЛК
-    airl=ЮТ
-    flt=454
-    surname=REPIN
-    name=IVAN
-    tickno=2986120030297
-{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-    <TCkinSavePax>
-      <agent_stat_period>3</agent_stat_period>
-      <transfer/>
-      <segments>
-        <segment>
-          <point_dep>$(point_dep)</point_dep>
-          <point_arv>$(point_arv)</point_arv>
-          <airp_dep>$(airp_dep)</airp_dep>
-          <airp_arv>$(airp_arv)</airp_arv>
-          <class>Э</class>
-          <status>K</status>
-          <wl_type/>
-          <mark_flight>
-            <airline>$(airl)</airline>
-            <flt_no>$(flt)</flt_no>
-            <suffix/>
-            <scd>$(date_format %d.%m.%Y) 00:00:00</scd>
-            <airp_dep>$(airp_dep)</airp_dep>
-            <pr_mark_norms>0</pr_mark_norms>
-          </mark_flight>
-          <passengers>
-            <pax>
-              <pax_id>$(pax_id)</pax_id>
-              <surname>$(surname)</surname>
-              <name>$(name)</name>
-              <pers_type>ВЗ</pers_type>
-              <seat_no/>
-              <preseat_no/>
-              <seat_type/>
-              <seats>1</seats>
-              <ticket_no>$(tickno)</ticket_no>
-              <coupon_no>1</coupon_no>
-              <ticket_rem>TKNE</ticket_rem>
-              <ticket_confirm>0</ticket_confirm>
-              <document>
-                <type>P</type>
-                <issue_country>RUS</issue_country>
-                <no>7774441110</no>
-                <nationality>RUS</nationality>
-                <birth_date>01.05.1976 00:00:00</birth_date>
-                <gender>M</gender>
-                <surname>$(surname)</surname>
-                <first_name>$(name)</first_name>
-              </document>
-              <doco/>
-              <addresses/>
-              <subclass>Э</subclass>
-              <bag_pool_num/>
-              <transfer/>
-              <rems>
-                <rem>
-                  <rem_code>FOID</rem_code>
-                  <rem_text>FOID PP7774441110</rem_text>
-                </rem>
-              </rems>
-              <norms/>
-            </pax>
-          </passengers>
-          <paid_bag_emd/>
-        </segment>
-      </segments>
-      <excess>0</excess>
-      <hall>1</hall>
-      <paid_bags>
-        <paid_bag>
-          <bag_type/>
-          <weight>0</weight>
-          <rate_id/>
-          <rate_trfer/>
-        </paid_bag>
-      </paid_bags>
-    </TCkinSavePax>
-  </query>
-</term>}
-) #end-of-macro
-
-
 ### test 1 - успешная смена статуса
 #########################################################################################
 
@@ -106,13 +15,17 @@ $(PREPARE_FLIGHT_1 ЮТ 103 ДМД ПЛК REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
+$(set pax_id $(get_pax_id $(get point_dep) REPIN IVAN))
 
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep))
 
+
 !! err=ignore
-$(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv))
+$(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv)
+              ЮТ 454 ДМД ПЛК
+              REPIN IVAN 2986120030297 ВЗ
+              RUS 12312311 UKR 20.01.1976 10.10.2025 M)
 
 >>
 UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
@@ -156,13 +69,16 @@ $(PREPARE_FLIGHT_1 ЮТ 103 ДМД ПЛК REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
+$(set pax_id $(get_pax_id $(get point_dep) REPIN IVAN))
 
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep))
 
 !! err=ignore
-$(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv))
+$(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv)
+              ЮТ 454 ДМД ПЛК
+              REPIN IVAN 2986120030297 ВЗ
+              RUS 12123123 RUS 10.01.1970 20.10.2025 M)
 
 >>
 UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
@@ -206,13 +122,16 @@ $(PREPARE_FLIGHT_1 ЮТ 103 ДМД ПЛК REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
+$(set pax_id $(get_pax_id $(get point_dep) REPIN IVAN))
 
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep))
 
 !! err=ignore
-$(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv))
+$(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv)
+              ЮТ 454 ДМД ПЛК
+              REPIN IVAN 2986120030297 ВЗ
+              RUS 123123413 RUS 10.01.1980 10.10.2025 M)
 
 >>
 UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
@@ -247,14 +166,16 @@ $(PREPARE_FLIGHT_1 KAR 103 ДМД ПЛК REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
+$(set pax_id $(get_pax_id $(get point_dep) REPIN IVAN))
 
 $(OPEN_CHECKIN $(get point_dep))
 $(SAVE_ET_DISP $(get point_dep) 7706120030297 REPIN IVAN IK IKDC IKET)
 
 !! err=ignore
 $(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv)
-              ДМД ПЛК KAR 103 REPIN IVAN 7706120030297)
+              KAR 103 ДМД ПЛК
+              REPIN IVAN 7706120030297 ВЗ
+              RUS 12123123 RUS 10.01.1990 20.01.2025 M)
 
 >>
 UNB+SIRE:1+IKDC+IKET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"

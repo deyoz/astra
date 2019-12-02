@@ -1,3 +1,5 @@
+include(ts/pnl/pnl_ut_c7y56.ts)
+
 $(defmacro login
   user=PIKE
   passwd=PIKE
@@ -74,11 +76,13 @@ $(lastRedisplay)
 
 
 $(defmacro PREPARE_SEASON_SCD
-  airl=UT
-  depp=DME
-  arrp=AER
-  fltno=747
+  airl
+  depp
+  arrp
+  fltno
   craft=TU5
+  first_date=$(date_format %d.%m.%Y)
+  last_date=$(date_format %d.%m.%Y)
 {
 {<?xml version='1.0' encoding='CP866'?>
  <term>
@@ -91,10 +95,10 @@ $(defmacro PREPARE_SEASON_SCD
         <subrange>
           <modify>insert</modify>
           <move_id>-1</move_id>
-          <first>$(date_format %d.%m.%Y -1mon) 12:00:00</first>
-          <last>$(date_format %d.%m.%Y +1mon) 12:00:00</last>
+          <first>$(first_date) 00:00:00</first>
+          <last>$(last_date) 23:59:59</last>
           <days>1234567</days>
-          <dests  >
+          <dests>
             <dest>
               <cod>$(depp)</cod>
               <company>$(airl)</company>
@@ -107,7 +111,7 @@ $(defmacro PREPARE_SEASON_SCD
               <cod>$(arrp)</cod>
               <land>30.12.1899 12:00:00</land>
             </dest>
-          </dests  >
+          </dests>
         </subrange>
       </SubrangeList>
     </write>
@@ -183,15 +187,15 @@ AVAIL
 F060
 C060
 Y059
--LED000F
--LED000C
--LED001Y
+-$(arrp)000F
+-$(arrp)000C
+-$(arrp)001Y
 1$(surname)/$(name)
 .L/0840Z6/$(airl)
 .L/09T1B3/1H
--LED000K
--LED000M
--LED000U
+-$(arrp)000K
+-$(arrp)000M
+-$(arrp)000U
 ENDPNL}
 ) #end-of-macro
 
@@ -208,7 +212,7 @@ $(PREPARE_SEASON_SCD $(get_lat_code awk $(airl))
                      $(get_lat_code aer $(depp))
                      $(get_lat_code aer $(arrp))
                      $(flt))
-$(create_spp $(ddmmyyyy +0))
+$(make_spp)
 
 <<
 $(INBOUND_PNL_1 $(get_lat_code awk $(airl))
@@ -217,7 +221,7 @@ $(INBOUND_PNL_1 $(get_lat_code awk $(airl))
                 $(flt)
                 $(surname) $(name))
 
-$(create_random_trip_comp $(get_dep_point_id $(depp) $(airl) 103 $(yymmdd +0)) Э)
+$(auto_set_craft $(get_dep_point_id $(depp) $(airl) $(flt) $(yymmdd +0)))
 
 }) #end-of-macro
 
@@ -284,7 +288,7 @@ $(PREPARE_SEASON_SCD $(get_lat_code awk $(airl1))
                      $(get_lat_code aer $(depp1))
                      $(get_lat_code aer $(arrp1))
                      $(flt1))
-$(create_spp $(ddmmyyyy +0))
+$(make_spp)
 
 <<
 $(INBOUND_PNL_2 $(airl1) $(depp1) $(arrp1) $(flt1)
@@ -326,7 +330,7 @@ PTS++YINF"
 UNT+19+1"
 UNZ+1+$(last_edifact_ref)0001"
 
-$(create_random_trip_comp $(get_dep_point_id ДМД ЮТ 103 $(yymmdd +0)) Э)
+$(auto_set_craft $(get_dep_point_id $(depp1) $(airl1) $(flt1) $(yymmdd +0)))
 
 }) #end-of-macro
 
@@ -387,14 +391,14 @@ $(PREPARE_SEASON_SCD $(get_lat_code awk $(airl1))
                      $(get_lat_code aer $(depp1))
                      $(get_lat_code aer $(arrp1))
                      $(flt1))
-$(create_spp $(ddmmyyyy +0))
+$(make_spp)
 
 <<
 $(INBOUND_PNL_3 $(airl1) $(depp1) $(arrp1) $(flt1)
                 $(airl2) $(depp2) $(arrp2) $(flt2) $(surname) $(name)
                 $(tickno) $(cpnno))
 
-$(create_random_trip_comp $(get_dep_point_id $(depp1) $(airl1) $(flt1) $(yymmdd +0)) Э)
+$(auto_set_craft $(get_dep_point_id $(depp1) $(airl1) $(flt1) $(yymmdd +0)))
 
 }) #end-of-macro
 
@@ -447,21 +451,21 @@ $(set airl_lat $(get_lat_code awk $(airl)))
 $(set depp_lat $(get_lat_code aer $(depp)))
 $(set arrp_lat $(get_lat_code aer $(arrp)))
 
-$(PREPARE_SEASON_SCD $(get airl_lat)
-                     $(get depp_lat)
-                     $(get arrp_lat)
+$(PREPARE_SEASON_SCD $(airl)
+                     $(depp)
+                     $(arrp)
                      $(flt))
-$(create_spp $(ddmmyyyy +0))
+$(make_spp)
 
 <<
-$(INBOUND_PNL_4 $(get airl_lat)
-                $(get depp_lat)
-                $(get arrp_lat)
+$(INBOUND_PNL_4 $(airl)
+                $(depp)
+                $(arrp)
                 $(flt)
                 $(surname1) $(name1)
                 $(surname2) $(name2))
 
-$(create_random_trip_comp $(get_dep_point_id $(depp) $(airl) $(flt) $(yymmdd +0)) Э)
+$(auto_set_craft $(get_dep_point_id $(depp) $(airl) $(flt) $(yymmdd +0)))
 
 }) #end-of-macro
 
@@ -583,12 +587,13 @@ $(defmacro PREPARE_FLIGHT_1PAX_1SEG
     arrp=ПЛК
     surname=REPIN
     name=IVAN
+    cls=Э
 {
 $(PREPARE_SEASON_SCD $(get_lat_code awk $(airl))
                      $(get_lat_code aer $(depp))
                      $(get_lat_code aer $(arrp))
                      $(flt))
-$(create_spp $(ddmmyyyy +0))
+$(make_spp)
 
 <<
 $(INBOUND_PNL_1 $(get_lat_code awk $(airl))
@@ -597,13 +602,11 @@ $(INBOUND_PNL_1 $(get_lat_code awk $(airl))
                 $(flt)
                 $(surname) $(name))
 
-$(create_random_trip_comp $(get_dep_point_id $(depp) $(airl) 103 $(yymmdd +0)) Э)
+$(auto_set_craft $(get_dep_point_id $(depp) $(airl) $(flt) $(yymmdd +0)))
+
 }) #end-of-macro PREPARE_FLIGHT_1PAX_1SEG
 
 #########################################################################################
-
-
-
 
 $(defmacro PREPARE_FLIGHT_5
     airl1=ЮТ
@@ -627,7 +630,7 @@ $(PREPARE_SEASON_SCD $(get_lat_code awk $(airl1))
                      $(get_lat_code aer $(depp1))
                      $(get_lat_code aer $(arrp1))
                      $(flt1))
-$(create_spp $(ddmmyyyy +0))
+$(make_spp)
 
 <<
 $(INBOUND_PNL_5 $(airl1) $(depp1) $(arrp1) $(flt1)
@@ -635,7 +638,214 @@ $(INBOUND_PNL_5 $(airl1) $(depp1) $(arrp1) $(flt1)
                 $(surname1) $(name1) $(tickno1) $(cpnno1)
                 $(surname2) $(name2) $(tickno2) $(cpnno2))
 
-$(create_random_trip_comp $(get_dep_point_id $(depp1) $(airl1) $(flt1) $(yymmdd +0)) Э)
+$(auto_set_craft $(get_dep_point_id $(depp1) $(airl1) $(flt1) $(yymmdd +0)))
+
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 1)"
+MSG+:131"
+ORG+1H:МОВ+++ЮТ+Y+::xx+xxxxxx"
+TKT+$(tickno1)"
+UNT+5+1"
+UNZ+1+$(last_edifact_ref 1)0001"
+
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 0)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 0)"
+MSG+:131"
+ORG+1H:МОВ+++ЮТ+Y+::xx+xxxxxx"
+TKT+$(tickno2)"
+UNT+5+1"
+UNZ+1+$(last_edifact_ref 0)0001"
+
+<<
+UNB+SIRE:1+UTET+UTDC+091030:0529+$(last_edifact_ref)0001+++T"
+UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
+MSG+:131+3"
+TIF+$(surname1)+$(name1)"
+TAI+0162"
+RCI+UA:G4LK6W:1"
+MON+B:20.00:USD+T:20.00:USD"
+FOP+CA:3"
+PTK+++$(ddmmyy)+++:US"
+ODI+$(depp1)+$(arrp1)"
+ORG+UT:MOW++IAH++A+US+D80D1BWO"
+EQN+1:TD"
+TXD+700+0.00:::US"
+IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END"
+IFT+4:5+00001230161213"
+IFT+4:10+REFUNDABLE"
+IFT+4:39+HOUSTON+UNITED AIRLINES INC"
+TKT+$(tickno1):T:1:3"
+CPN+$(cpnno1):I"
+TVL+$(ddmmyy):2205+$(depp1)+$(arrp1)+$(airl1)+$(flt1):Y+J"
+RPI++NS"
+PTS++YINF"
+UNT+19+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+UTET+UTDC+091030:0529+$(last_edifact_ref)0001+++T"
+UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
+MSG+:131+3"
+TIF+$(surname2)+$(name2)"
+TAI+0162"
+RCI+UA:G4LK6W:1"
+MON+B:20.00:USD+T:20.00:USD"
+FOP+CA:3"
+PTK+++$(ddmmyy)+++:US"
+ODI+$(depp1)+$(arrp1)"
+ORG+UT:MOW++IAH++A+US+D80D1BWO"
+EQN+1:TD"
+TXD+700+0.00:::US"
+IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END"
+IFT+4:5+00001230161213"
+IFT+4:10+REFUNDABLE"
+IFT+4:39+HOUSTON+UNITED AIRLINES INC"
+TKT+$(tickno2):T:1:3"
+CPN+$(cpnno2):I"
+TVL+$(ddmmyy):2205+$(depp1)+$(arrp1)+$(airl1)+$(flt1):Y+J"
+RPI++NS"
+PTS++YINF"
+UNT+19+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+}) #end-of-macro
+
+#########################################################################################
+
+$(defmacro PREPARE_FLIGHT_2PAXES_1SEG
+    airl=ЮТ
+    flt=103
+    depp=ДМД
+    arrp=ПЛК
+    surname1=РЕПИН
+    name1=ИВАН
+    surname2=РЕПИНА
+    name2=АННА
+{
+
+$(set airl_lat $(get_lat_code awk $(airl)))
+$(set depp_lat $(get_lat_code aer $(depp)))
+$(set arrp_lat $(get_lat_code aer $(arrp)))
+
+$(PREPARE_SEASON_SCD $(get airl_lat)
+                     $(get depp_lat)
+                     $(get arrp_lat)
+                     $(flt))
+$(make_spp)
+
+<<
+$(PNL_2PAXES_1SEG $(get airl_lat)
+                  $(get depp_lat)
+                  $(get arrp_lat)
+                  $(flt)
+                  $(surname1) $(name1)
+                  $(surname2) $(name2))
+
+$(auto_set_craft $(get_dep_point_id $(depp) $(airl) $(flt) $(yymmdd +0)))
+
+}) #end-of-macro
+
+#########################################################################################
+
+$(defmacro PREPARE_FLIGHT_2PAXES_2SEGS_WITH_REMARKS
+    airl1=ЮТ
+    flt1=103
+    depp1=ДМД
+    arrp1=ПЛК
+    airl2=С7
+    flt2=1027
+    depp2=ПЛК
+    arrp2=СОЧ
+    surname=REPIN
+    name=IVAN
+    tickno=2982401841689
+    cpnno=1
+{
+$(PREPARE_SEASON_SCD $(get_lat_code awk $(airl1))
+                     $(get_lat_code aer $(depp1))
+                     $(get_lat_code aer $(arrp1))
+                     $(flt1))
+$(make_spp)
+
+<<
+$(PNL_1PAX_2SEGS $(airl1) $(depp1) $(arrp1) $(flt1)
+                 $(airl2) $(depp2) $(arrp2) $(flt2) $(surname) $(name)
+                 $(tickno) $(cpnno))
+
+$(auto_set_craft $(get_dep_point_id $(depp1) $(airl1) $(flt1) $(yymmdd +0)))
+
+}) #end-of-macro
+
+#########################################################################################
+
+$(defmacro PREPARE_FLIGHT_2PAXES_1SEG
+    airl=ЮТ
+    flt=103
+    depp=ДМД
+    arrp=ПЛК
+    surname1=РЕПИН
+    name1=ИВАН
+    surname2=РЕПИНА
+    name2=АННА
+{
+
+$(set airl_lat $(get_lat_code awk $(airl)))
+$(set depp_lat $(get_lat_code aer $(depp)))
+$(set arrp_lat $(get_lat_code aer $(arrp)))
+
+$(PREPARE_SEASON_SCD $(get airl_lat)
+                     $(get depp_lat)
+                     $(get arrp_lat)
+                     $(flt))
+$(make_spp)
+
+<<
+$(PNL_2PAXES_1SEG $(get airl_lat)
+                  $(get depp_lat)
+                  $(get arrp_lat)
+                  $(flt)
+                  $(surname1) $(name1)
+                  $(surname2) $(name2))
+
+$(auto_set_craft $(get_dep_point_id $(depp) $(airl) $(flt) $(yymmdd +0)))
+
+}) #end-of-macro
+
+#########################################################################################
+
+$(defmacro PREPARE_FLIGHT_2PAXES_2SEGS_WITH_REMARKS
+    airl1=ЮТ
+    flt1=103
+    depp1=ДМД
+    arrp1=ПЛК
+    airl2=С7
+    flt2=1027
+    depp2=ПЛК
+    arrp2=СОЧ
+    surname1=REPIN
+    name1=IVAN
+    tickno1=2982401841689
+    cpnno1=1
+    surname2=PETROV
+    name2=PETR
+    tickno2=2982401841612
+    cpnno2=1
+{
+$(PREPARE_SEASON_SCD $(get_lat_code awk $(airl1))
+                     $(get_lat_code aer $(depp1))
+                     $(get_lat_code aer $(arrp1))
+                     $(flt1))
+$(make_spp)
+
+<<
+$(INBOUND_PNL_5 $(airl1) $(depp1) $(arrp1) $(flt1)
+                $(airl2) $(depp2) $(arrp2) $(flt2)
+                $(surname1) $(name1) $(tickno1) $(cpnno1)
+                $(surname2) $(name2) $(tickno2) $(cpnno2))
+
+$(auto_set_craft $(get_dep_point_id $(depp1) $(airl1) $(flt1) $(yymmdd +0)))
 
 >>
 UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
@@ -733,7 +943,7 @@ $(PREPARE_SEASON_SCD $(get_lat_code awk $(airl1))
                      $(get_lat_code aer $(depp1))
                      $(get_lat_code aer $(arrp1))
                      $(flt1))
-$(create_spp $(ddmmyyyy +0))
+$(make_spp)
 
 <<
 $(INBOUND_PNL_6 $(airl1) $(depp1) $(arrp1) $(flt1)
@@ -741,7 +951,7 @@ $(INBOUND_PNL_6 $(airl1) $(depp1) $(arrp1) $(flt1)
                 $(surname) $(name) $(tickno) $(cpnno)
                 $(inftSurname) $(inftName) $(inftTickno) $(inftCouponno))
 
-$(create_random_trip_comp $(get_dep_point_id $(depp1) $(airl1) $(flt1) $(yymmdd +0)) Э)
+$(auto_set_craft $(get_dep_point_id $(depp1) $(airl1) $(flt1) $(yymmdd +0)))
 
 >>
 UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
@@ -988,5 +1198,1566 @@ UNZ+1+$(last_edifact_ref)0001"
 
 $(KICK_IN_SILENT)
 
-}
-) #end-of-macro
+}) #end-of-macro
+
+#########################################################################################
+
+$(defmacro CHECKIN_PAX
+    pax_id
+    point_dep
+    point_arv
+    airl
+    flt
+    airp_dep
+    airp_arv
+    surname
+    name
+    tickno
+    pers_type
+    doc_issue_country
+    doc_no
+    doc_nationality
+    doc_birth_date
+    doc_expiry_date
+    doc_gender
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <TCkinSavePax>
+      <agent_stat_period>3</agent_stat_period>
+      <transfer/>
+      <segments>
+        <segment>
+          <point_dep>$(point_dep)</point_dep>
+          <point_arv>$(point_arv)</point_arv>
+          <airp_dep>$(airp_dep)</airp_dep>
+          <airp_arv>$(airp_arv)</airp_arv>
+          <class>Э</class>
+          <status>K</status>
+          <wl_type/>
+          <mark_flight>
+            <airline>$(airl)</airline>
+            <flt_no>$(flt)</flt_no>
+            <suffix/>
+            <scd>$(date_format %d.%m.%Y +0) 00:00:00</scd>
+            <airp_dep>$(airp_dep)</airp_dep>
+            <pr_mark_norms>0</pr_mark_norms>
+          </mark_flight>
+          <passengers>
+            <pax>
+              <pax_id>$(pax_id)</pax_id>
+              <surname>$(surname)</surname>
+              <name>$(name)</name>
+              <pers_type>$(pers_type)</pers_type>
+              <seat_no/>
+              <preseat_no/>
+              <seat_type/>
+              <seats>1</seats>
+              <ticket_no>$(tickno)</ticket_no>
+              <coupon_no>1</coupon_no>
+              <ticket_rem>TKNE</ticket_rem>
+              <ticket_confirm>0</ticket_confirm>
+              <document>
+                <type>P</type>
+                <issue_country>$(doc_issue_country)</issue_country>
+                <no>$(doc_no)</no>
+                <nationality>$(doc_nationality)</nationality>
+                <birth_date>$(doc_birth_date) 00:00:00</birth_date>
+                <expiry_date>$(doc_expiry_date) 00:00:00</expiry_date>
+                <gender>$(doc_gender)</gender>
+                <surname>$(surname)</surname>
+                <first_name>$(name)</first_name>
+              </document>
+              <doco/>
+              <addresses/>
+              <subclass>Э</subclass>
+              <bag_pool_num/>
+              <transfer/>
+              <rems/>
+              <fqt_rems/>
+              <norms/>
+            </pax>
+          </passengers>
+          <paid_bag_emd/>
+        </segment>
+      </segments>
+      <excess>0</excess>
+      <hall>1</hall>
+      <paid_bags>
+        <paid_bag>
+          <bag_type/>
+          <weight>0</weight>
+          <rate_id/>
+          <rate_trfer/>
+        </paid_bag>
+      </paid_bags>
+    </TCkinSavePax>
+  </query>
+</term>}
+
+}) #end-of-macro CHECKIN_PAX
+
+#########################################################################################
+
+$(defmacro CHECKIN_PAX_WITH_VISA
+    pax_id
+    point_dep
+    point_arv
+    airl
+    flt
+    airp_dep
+    airp_arv
+    surname
+    name
+    tickno
+    pers_type
+    doc_issue_country
+    doc_no
+    doc_nationality
+    doc_birth_date
+    doc_expiry_date
+    doc_gender
+    visa_no
+    visa_issue_place
+    visa_issue_date
+    visa_expiry_date
+    visa_applic_country
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <TCkinSavePax>
+      <agent_stat_period>3</agent_stat_period>
+      <transfer/>
+      <segments>
+        <segment>
+          <point_dep>$(point_dep)</point_dep>
+          <point_arv>$(point_arv)</point_arv>
+          <airp_dep>$(airp_dep)</airp_dep>
+          <airp_arv>$(airp_arv)</airp_arv>
+          <class>Э</class>
+          <status>K</status>
+          <wl_type/>
+          <mark_flight>
+            <airline>$(airl)</airline>
+            <flt_no>$(flt)</flt_no>
+            <suffix/>
+            <scd>$(date_format %d.%m.%Y +0) 00:00:00</scd>
+            <airp_dep>$(airp_dep)</airp_dep>
+            <pr_mark_norms>0</pr_mark_norms>
+          </mark_flight>
+          <passengers>
+            <pax>
+              <pax_id>$(pax_id)</pax_id>
+              <surname>$(surname)</surname>
+              <name>$(name)</name>
+              <pers_type>$(pers_type)</pers_type>
+              <seat_no/>
+              <preseat_no/>
+              <seat_type/>
+              <seats>1</seats>
+              <ticket_no>$(tickno)</ticket_no>
+              <coupon_no>1</coupon_no>
+              <ticket_rem>TKNE</ticket_rem>
+              <ticket_confirm>0</ticket_confirm>
+              <document>
+                <type>P</type>
+                <issue_country>$(doc_issue_country)</issue_country>
+                <no>$(doc_no)</no>
+                <nationality>$(doc_nationality)</nationality>
+                <birth_date>$(doc_birth_date) 00:00:00</birth_date>
+                <expiry_date>$(doc_expiry_date) 00:00:00</expiry_date>
+                <gender>$(doc_gender)</gender>
+                <surname>$(surname)</surname>
+                <first_name>$(name)</first_name>
+              </document>
+              <doco>
+                <type>V</type>
+                <birth_place/>
+                <no>$(visa_no)</no>
+                <issue_place>$(visa_issue_place)</issue_place>
+                <issue_date>$(visa_issue_date) 00:00:00</issue_date>
+                <expiry_date>$(visa_expiry_date) 00:00:00</expiry_date>
+                <applic_country>$(visa_applic_country)</applic_country>
+              </doco>
+              <addresses/>
+              <subclass>Э</subclass>
+              <bag_pool_num/>
+              <transfer/>
+              <rems/>
+              <fqt_rems/>
+              <norms/>
+            </pax>
+          </passengers>
+          <paid_bag_emd/>
+        </segment>
+      </segments>
+      <excess>0</excess>
+      <hall>1</hall>
+      <paid_bags>
+        <paid_bag>
+          <bag_type/>
+          <weight>0</weight>
+          <rate_id/>
+          <rate_trfer/>
+        </paid_bag>
+      </paid_bags>
+    </TCkinSavePax>
+  </query>
+</term>}
+
+}) #end-of-macro CHECKIN_PAX_WITH_VISA
+
+#########################################################################################
+
+$(defmacro CHECKIN_PAX_WITH_VISA_AND_DOCA
+    pax_id
+    point_dep
+    point_arv
+    airl
+    flt
+    airp_dep
+    airp_arv
+    surname
+    name
+    tickno
+    pers_type
+    doc_issue_country
+    doc_no
+    doc_nationality
+    doc_birth_date
+    doc_expiry_date
+    doc_gender
+    visa_no
+    visa_issue_place
+    visa_issue_date
+    visa_expiry_date
+    visa_applic_country
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <TCkinSavePax>
+      <agent_stat_period>3</agent_stat_period>
+      <transfer/>
+      <segments>
+        <segment>
+          <point_dep>$(point_dep)</point_dep>
+          <point_arv>$(point_arv)</point_arv>
+          <airp_dep>$(airp_dep)</airp_dep>
+          <airp_arv>$(airp_arv)</airp_arv>
+          <class>Э</class>
+          <status>K</status>
+          <wl_type/>
+          <mark_flight>
+            <airline>$(airl)</airline>
+            <flt_no>$(flt)</flt_no>
+            <suffix/>
+            <scd>$(date_format %d.%m.%Y +0) 00:00:00</scd>
+            <airp_dep>$(airp_dep)</airp_dep>
+            <pr_mark_norms>0</pr_mark_norms>
+          </mark_flight>
+          <passengers>
+            <pax>
+              <pax_id>$(pax_id)</pax_id>
+              <surname>$(surname)</surname>
+              <name>$(name)</name>
+              <pers_type>$(pers_type)</pers_type>
+              <seat_no/>
+              <preseat_no/>
+              <seat_type/>
+              <seats>1</seats>
+              <ticket_no>$(tickno)</ticket_no>
+              <coupon_no>1</coupon_no>
+              <ticket_rem>TKNE</ticket_rem>
+              <ticket_confirm>0</ticket_confirm>
+              <document>
+                <type>P</type>
+                <issue_country>$(doc_issue_country)</issue_country>
+                <no>$(doc_no)</no>
+                <nationality>$(doc_nationality)</nationality>
+                <birth_date>$(doc_birth_date) 00:00:00</birth_date>
+                <expiry_date>$(doc_expiry_date) 00:00:00</expiry_date>
+                <gender>$(doc_gender)</gender>
+                <surname>$(surname)</surname>
+                <first_name>$(name)</first_name>
+              </document>
+              <doco>
+                <type>V</type>
+                <birth_place/>
+                <no>$(visa_no)</no>
+                <issue_place>$(visa_issue_place)</issue_place>
+                <issue_date>$(visa_issue_date) 00:00:00</issue_date>
+                <expiry_date>$(visa_expiry_date) 00:00:00</expiry_date>
+                <applic_country>$(visa_applic_country)</applic_country>
+              </doco>
+              <addresses>
+                <doca>
+                  <type>D</type>
+                  <country>USA</country>
+                  <region>REGION</region>
+                  <address>ADDRESS</address>
+                  <city>CITY</city>
+                  <postal_code>112233</postal_code>
+                </doca>
+                <doca>
+                  <type>R</type>
+                  <country>BLR</country>
+                  <region>RESIDENCE REGION</region>
+                  <address>RESIDENCE ADDRESS</address>
+                  <city>RESIDENCE CITY</city>
+                  <postal_code>001122</postal_code>
+                </doca>
+              </addresses>
+              <subclass>Э</subclass>
+              <bag_pool_num/>
+              <transfer/>
+              <rems/>
+              <fqt_rems/>
+              <norms/>
+            </pax>
+          </passengers>
+          <paid_bag_emd/>
+        </segment>
+      </segments>
+      <excess>0</excess>
+      <hall>1</hall>
+      <paid_bags>
+        <paid_bag>
+          <bag_type/>
+          <weight>0</weight>
+          <rate_id/>
+          <rate_trfer/>
+        </paid_bag>
+      </paid_bags>
+    </TCkinSavePax>
+  </query>
+</term>}
+
+}) #end-of-macro CHECKIN_PAX_WITH_VISA_AND_DOCA
+
+#########################################################################################
+
+$(defmacro CANCEL_PAX
+    pax_id
+    grp_id
+    tid
+    point_dep
+    point_arv
+    airl
+    flt
+    airp_dep
+    airp_arv
+    surname
+    name
+    tickno
+    pers_type
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <TCkinSavePax>
+      <agent_stat_period>3</agent_stat_period>
+      <transfer/>
+      <segments>
+        <segment>
+          <point_dep>$(point_dep)</point_dep>
+          <point_arv>$(point_arv)</point_arv>
+          <airp_dep>$(airp_dep)</airp_dep>
+          <airp_arv>$(airp_arv)</airp_arv>
+          <class>Э</class>
+          <grp_id>$(get grp_id)</grp_id>
+          <tid>$(tid)</tid>
+          <passengers>
+            <pax>
+              <pax_id>$(pax_id)</pax_id>
+              <surname>$(surname)</surname>
+              <name>$(name)</name>
+              <pers_type>$(pers_type)</pers_type>
+              <refuse>А</refuse>
+              <ticket_no>$(tickno)</ticket_no>
+              <coupon_no>1</coupon_no>
+              <ticket_rem>TKNE</ticket_rem>
+              <ticket_confirm>0</ticket_confirm>
+              <document/>
+              <transfer/>
+              <doco/>
+              <addresses/>
+              <subclass>Э</subclass>
+              <bag_pool_num/>
+              <tid>$(tid)</tid>
+            </pax>
+          </passengers>
+          <paid_bag_emd/>
+        </segment>
+      </segments>
+      <hall>1</hall>
+      <bag_refuse/>
+    </TCkinSavePax>
+  </query>
+</term>}
+
+}) #end-of-macro CANCEL_PAX
+
+#########################################################################################
+
+$(defmacro CHECKIN_CREW
+    point_dep
+    point_arv
+    airl
+    flt
+    airp_dep
+    airp_arv
+    surname
+    name
+    pers_type
+    doc_issue_country
+    doc_no
+    doc_nationality
+    doc_birthdate
+    doc_expdate
+    doc_gender
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <TCkinSavePax>
+      <agent_stat_period>1</agent_stat_period>
+      <transfer/>
+      <segments>
+        <segment>
+          <point_dep>$(point_dep)</point_dep>
+          <point_arv>$(point_arv)</point_arv>
+          <airp_dep>$(airp_dep)</airp_dep>
+          <airp_arv>$(airp_arv)</airp_arv>
+          <class>Э</class>
+          <status>E</status>
+          <wl_type/>
+          <mark_flight>
+            <airline>$(airl)</airline>
+            <flt_no>$(flt)</flt_no>
+            <suffix/>
+            <scd>$(date_format %d.%m.%Y +0) 00:00:00</scd>
+            <airp_dep>$(airp_dep)</airp_dep>
+            <pr_mark_norms>0</pr_mark_norms>
+          </mark_flight>
+          <passengers>
+            <pax>
+              <pax_id/>
+              <surname>$(surname)</surname>
+              <name>$(name)</name>
+              <pers_type>$(pers_type)</pers_type>
+              <seat_no/>
+              <preseat_no/>
+              <seat_type/>
+              <seats>1</seats>
+              <ticket_no>-</ticket_no>
+              <coupon_no/>
+              <ticket_rem>TKNA</ticket_rem>
+              <ticket_confirm>0</ticket_confirm>
+              <document>
+                <type>P</type>
+                <issue_country>$(doc_issue_country)</issue_country>
+                <no>$(doc_no)</no>
+                <nationality>$(doc_nationality)</nationality>
+                <birth_date>$(doc_birthdate) 00:00:00</birth_date>
+                <expiry_date>$(doc_expdate) 00:00:00</expiry_date>
+                <gender>$(doc_gender)</gender>
+                <surname>$(surname)</surname>
+                <first_name>$(name)</first_name>
+              </document>
+              <doco/>
+              <addresses/>
+              <subclass> </subclass>
+              <bag_pool_num/>
+              <transfer/>
+              <rems>
+                <rem>
+                  <rem_code>CREW</rem_code>
+                  <rem_text>CREW</rem_text>
+                </rem>
+              </rems>
+              <fqt_rems/>
+              <norms/>
+            </pax>
+          </passengers>
+          <service_payment/>
+          <paid_bag_emd/>
+        </segment>
+      </segments>
+      <hall>1</hall>
+      <paid_bags/>
+    </TCkinSavePax>
+  </query>
+</term>}
+
+}) #end-of-macro CHECKIN_CREW
+
+#########################################################################################
+
+$(defmacro CHECKIN_CREW_WITH_VISA
+    point_dep
+    point_arv
+    airl
+    flt
+    airp_dep
+    airp_arv
+    surname
+    name
+    pers_type
+    doc_issue_country
+    doc_no
+    doc_nationality
+    doc_birthdate
+    doc_expdate
+    doc_gender
+    visa_no
+    visa_issue_place
+    visa_issue_date
+    visa_expiry_date
+    visa_applic_country
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <TCkinSavePax>
+      <agent_stat_period>1</agent_stat_period>
+      <transfer/>
+      <segments>
+        <segment>
+          <point_dep>$(point_dep)</point_dep>
+          <point_arv>$(point_arv)</point_arv>
+          <airp_dep>$(airp_dep)</airp_dep>
+          <airp_arv>$(airp_arv)</airp_arv>
+          <class>Э</class>
+          <status>E</status>
+          <wl_type/>
+          <mark_flight>
+            <airline>$(airl)</airline>
+            <flt_no>$(flt)</flt_no>
+            <suffix/>
+            <scd>$(date_format %d.%m.%Y +0) 00:00:00</scd>
+            <airp_dep>$(airp_dep)</airp_dep>
+            <pr_mark_norms>0</pr_mark_norms>
+          </mark_flight>
+          <passengers>
+            <pax>
+              <pax_id/>
+              <surname>$(surname)</surname>
+              <name>$(name)</name>
+              <pers_type>$(pers_type)</pers_type>
+              <seat_no/>
+              <preseat_no/>
+              <seat_type/>
+              <seats>1</seats>
+              <ticket_no>-</ticket_no>
+              <coupon_no/>
+              <ticket_rem>TKNA</ticket_rem>
+              <ticket_confirm>0</ticket_confirm>
+              <document>
+                <type>P</type>
+                <issue_country>$(doc_issue_country)</issue_country>
+                <no>$(doc_no)</no>
+                <nationality>$(doc_nationality)</nationality>
+                <birth_date>$(doc_birthdate) 00:00:00</birth_date>
+                <expiry_date>$(doc_expdate) 00:00:00</expiry_date>
+                <gender>$(doc_gender)</gender>
+                <surname>$(surname)</surname>
+                <first_name>$(name)</first_name>
+              </document>
+              <doco>
+                <type>V</type>
+                <birth_place/>
+                <no>$(visa_no)</no>
+                <issue_place>$(visa_issue_place)</issue_place>
+                <issue_date>$(visa_issue_date) 00:00:00</issue_date>
+                <expiry_date>$(visa_expiry_date) 00:00:00</expiry_date>
+                <applic_country>$(visa_applic_country)</applic_country>
+              </doco>
+              <addresses/>
+              <subclass> </subclass>
+              <bag_pool_num/>
+              <transfer/>
+              <rems>
+                <rem>
+                  <rem_code>CREW</rem_code>
+                  <rem_text>CREW</rem_text>
+                </rem>
+              </rems>
+              <fqt_rems/>
+              <norms/>
+            </pax>
+          </passengers>
+          <service_payment/>
+          <paid_bag_emd/>
+        </segment>
+      </segments>
+      <hall>1</hall>
+      <paid_bags/>
+    </TCkinSavePax>
+  </query>
+</term>}
+
+}) #end-of-macro CHECKIN_CREW_WITH_VISA
+
+#########################################################################################
+
+$(defmacro CANCEL_CHECKIN_CREW
+    pax_id
+    grp_id
+    tid
+    point_dep
+    point_arv
+    airl
+    flt
+    airp_dep
+    airp_arv
+    surname
+    name
+    pers_type
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <TCkinSavePax>
+      <agent_stat_period>3</agent_stat_period>
+      <segments>
+        <segment>
+          <point_dep>$(point_dep)</point_dep>
+          <point_arv>$(point_arv)</point_arv>
+          <airp_dep>$(airp_dep)</airp_dep>
+          <airp_arv>$(airp_arv)</airp_arv>
+          <class>Э</class>
+          <grp_id>$(get grp_id)</grp_id>
+          <tid>$(tid)</tid>
+          <passengers>
+            <pax>
+              <pax_id>$(pax_id)</pax_id>
+              <surname>$(surname)</surname>
+              <name>$(name)</name>
+              <pers_type>$(pers_type)</pers_type>
+              <refuse>А</refuse>
+              <ticket_no>-</ticket_no>
+              <coupon_no/>
+              <ticket_rem>TKNA</ticket_rem>
+              <ticket_confirm>0</ticket_confirm>
+              <document/>
+              <doco/>
+              <addresses/>
+              <subclass> </subclass>
+              <bag_pool_num/>
+              <tid>$(tid)</tid>
+            </pax>
+          </passengers>
+          <service_payment/>
+        </segment>
+      </segments>
+      <hall>1</hall>
+      <bag_refuse/>
+    </TCkinSavePax>
+  </query>
+</term>}
+
+}) #end-of-macro CANCEL_CHECKIN_CREW
+
+#########################################################################################
+
+$(defmacro GET_EVENTS
+    point_id
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='Events' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+  <GetEvents>
+    <dev_model/>
+    <fmt_type/>
+    <prnParams/>
+    <point_id>$(point_id)</point_id>
+    <EventsTypes>
+      <type>РЕЙ</type>
+      <type>ГРФ</type>
+      <type>ПАС</type>
+      <type>ОПЛ</type>
+      <type>ТЛГ</type>
+    </EventsTypes>
+    <LoadForm/>
+  </GetEvents>
+  </query>
+</term>}
+
+}) #end-of-macro
+
+#########################################################################################
+
+$(defmacro WRITE_DESTS
+    point_dep
+    point_arv
+    move_id
+    airl
+    flt
+    depp
+    arrp
+    depd
+    dept
+    arrd
+    arrt
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='sopp' ver='1' opr='PIKE' screen='SOPP.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <WriteDests>
+      <data>
+        <move_id>$(get move_id)</move_id>
+        <canexcept>1</canexcept>
+        <reference/>
+        <dests>
+          <dest>
+            <modify/>
+            <point_id>$(get point_dep)</point_id>
+            <point_num>0</point_num>
+            <airp>$(depp)</airp>
+            <airline>$(airl)</airline>
+            <flt_no>$(flt)</flt_no>
+            <craft>735</craft>
+            <scd_out>$(depd) $(dept)</scd_out>
+            <act_out>$(depd) $(dept)</act_out>
+            <trip_type>п</trip_type>
+            <pr_tranzit>0</pr_tranzit>
+            <pr_reg>1</pr_reg>
+          </dest>
+          <dest>
+            <point_id>$(point_arv)</point_id>
+            <point_num>1</point_num>
+            <first_point>$(point_dep)</first_point>
+            <airp>$(arrp)</airp>
+            <scd_in>$(arrd) $(arrt)</scd_in>
+            <trip_type>п</trip_type>
+            <pr_tranzit>0</pr_tranzit>
+            <pr_reg>0</pr_reg>
+          </dest>
+        </dests>
+      </data>
+    </WriteDests>
+  </query>
+</term>}
+
+}) #end-of-macro WRITE_DESTS
+
+
+#########################################################################################
+
+$(defmacro ET_DISP_61_UT_REQS
+{
+
+# уходят дисплеи ЭБ пассажиров
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 60) ЮТ 2986145212943)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 59) ЮТ 2982425696898)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 58) ЮТ 2982425696897)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 57) ЮТ 2985085963078)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 56) ЮТ 2982425697797)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 55) ЮТ 2986145134261)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 54) ЮТ 2986145134264)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 53) ЮТ 2986145134262)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 52) ЮТ 2986145134263)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 51) ЮТ 2982409342779)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 50) ЮТ 2985523437721)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 49) ЮТ 2986145159105)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 48) ЮТ 2982425690987)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 47) ЮТ 2986145108674)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 46) ЮТ 2986145143701)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 45) ЮТ 2986145115578)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 44) ЮТ 2986145143703)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 43) ЮТ 2986145143704)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 42) ЮТ 2986145132546)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 41) ЮТ 2982425673353)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 40) ЮТ 2986145053217)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 39) ЮТ 2986145053218)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 38) ЮТ 2986145051632)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 37) ЮТ 2986145051633)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 36) ЮТ 2986145054209)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 35) ЮТ 2986145108615)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 34) ЮТ 2986145092420)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 33) ЮТ 2986145092419)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 32) ЮТ 2982409342340)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 31) ЮТ 2982425650976)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 30) ЮТ 2982425641071)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 29) ЮТ 2982425647848)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 28) ЮТ 2982425647542)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 27) ЮТ 2982425659617)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 26) ЮТ 2982425643104)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 25) ЮТ 2985588425342)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 24) ЮТ 2985588425343)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 23) ЮТ 2986013087180)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 22) ЮТ 2986144854221)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 21) ЮТ 2986144854225)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 20) ЮТ 2986144854224)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 19) ЮТ 2986144854222)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 18) ЮТ 2986144854220)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 17) ЮТ 2986144854223)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 16) ЮТ 2985587608896)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 15) ЮТ 2982425560779)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 14) ЮТ 2982425560781)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 13) ЮТ 2982425560780)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 12) ЮТ 2982425505291)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 11) ЮТ 2982425619341)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 10) ЮТ 2982425622093)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 9) ЮТ 2986144751885)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 8) ЮТ 2982425618100)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 7) ЮТ 2982425618101)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 6) ЮТ 2982425618102)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 5) ЮТ 2982425622116)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 4) ЮТ 2982425459968)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 3) ЮТ 2982425629499)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 2) ЮТ 2982425530429)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 1) ЮТ 2982425530428)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 0) ЮТ 2982425528249)
+
+}) #end-of-macro ET_DISP_61_UT_REQS
+
+#########################################################################################
+
+$(defmacro INB_PNL_UT
+    depp
+    arrp
+    fltno
+    depd
+    addr_to=MOWKK1H
+    addr_from=TJMRMUT
+{
+<<
+$(PNL_UT_C7Y56_PART1 $(depp) $(arrp) $(fltno) $(depd))
+<<
+$(PNL_UT_C7Y56_PART2 $(depp) $(arrp) $(fltno) $(depd))
+<<
+$(PNL_UT_C7Y56_PART3 $(depp) $(arrp) $(fltno) $(depd))
+<<
+$(PNL_UT_C7Y56_PART4 $(depp) $(arrp) $(fltno) $(depd))
+<<
+$(PNL_UT_C7Y56_PART5 $(depp) $(arrp) $(fltno) $(depd))
+<<
+$(PNL_UT_C7Y56_PART6 $(depp) $(arrp) $(fltno) $(depd))
+
+}) #end-of-macro INB_PNL_UT
+
+#########################################################################################
+
+$(defmacro INB_ADL_UT_DEL2PAXES
+    depp
+    arrp
+    fltno
+    depd
+    addr_to=MOWKK1H
+    addr_from=TJMRMUT
+{
+<<
+$(ADL_UT_C7Y56_DEL2PAXES $(depp) $(arrp) $(fltno) $(depd))
+
+}) #end-if-macro INB_ADL_UT_DEL2PAXES
+
+#########################################################################################
+
+$(defmacro INB_ADL_UT_CHG1PAX
+    depp
+    arrp
+    fltno
+    depd
+    addr_to=MOWKK1H
+    addr_from=TJMRMUT
+{
+<<
+$(ADL_UT_C7Y56_CHG1PAX $(depp) $(arrp) $(fltno) $(depd))
+
+}) #end-of-macro INB_ADL_UT_CHG1PAX
+
+#########################################################################################
+
+$(defmacro CIRQ_61_UT_REQS_APPS_VERSION_21
+    airl
+    fltno
+    depp
+    arrp
+    depd=$(yyyymmdd)
+    arrd=$(yyyymmdd)
+    dept=101500
+    arrt=100000
+{
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0305984920//P/20491009////VERGUNOV/VASILII LEONIDOVICH/19601104/M///N/N////.*
+
+$(set msg_id1 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/KAZ/KAZ/N11024936//P/20261004////ALIMOV/TALGAT/19960511/M///N/N////.*
+
+$(set msg_id2 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/KAZ/KAZ/N07298275//P/20210329////KHASSENOVA/ZULFIYA/19741106/F///N/N////.*
+
+$(set msg_id3 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/9205589611//P/20251220////SELIVANOV/RUSLAN NAILYEVICH/19830923/M///N/N////.*
+
+$(set msg_id4 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0317833785//P/20201009////RIAZANOVA/IRINA GENNADEVNA/19721003/F///N/N////.*
+
+$(set msg_id5 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0313361730//P/20241007////AKOPOV/ANDREI/19930621/M///N/N////.*
+
+$(set msg_id6 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/VAG594936//O/20241007////BABAKHANOVA/KIRA/20100405/F///N/N////.*
+
+$(set msg_id7 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0305555064//P/20241007////STIPIDI/ANGELINA/19820723/F///N/N////.*
+
+$(set msg_id8 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/VIAG519994//O/20241007////AKOPOVA/OLIVIIA/20190822/F///N/N////.*
+
+$(set msg_id9 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0306355301//P/20291005////KOBYLINSKIY/ALEKSEY/19861231/M///N/N////.*
+
+$(set msg_id10 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/////P/////OZ/OFER//U///N/N////.*
+
+$(set msg_id11 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0803963313//P/20241008////LUCHAK/OKSANA/19771022/F///N/N////.*
+
+$(set msg_id12 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0319189298//P/20201008////KURGINSKAYA/ANNA GRIGOREVNA/19870602/F///N/N////.*
+
+$(set msg_id13 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/652123387//P/20220110////BUMBURIDI/ODISSEI AFANASEVICH/19510514/M///N/N////.*
+
+$(set msg_id14 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0319350828//P/20201007////CHEKMAREV/KONSTANTIN ALEKSANDROVICH/19900317/M///N/N////.*
+
+$(set msg_id15 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N////.*
+
+$(set msg_id16 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0307611933//P/20201007////VASILIADI/KSENIYA VALEREVNA/19840913/F///N/N////.*
+
+$(set msg_id17 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/VАГ815247//O/20201007////CHEKMAREV/RONALD KONSTANTINOVICH/20180129/M///N/N////.*
+
+$(set msg_id18 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0305350198//P/20350626////ZAINULLINA/RAISA GRIGOREVNA/19590102/F///N/N////.*
+
+$(set msg_id19 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/4611296643//P/20201007////KOTLIAR/VLADIMIR NIKOLAEVICH/19660117/M///N/N////.*
+
+$(set msg_id20 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/6008404843//P/20491004////AGAFONOV/DENIS DMITRIEVICH/19881230/M///N/N////.*
+
+$(set msg_id21 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/4515495907//P/20491004////POLETAEVA/MARIIA DMITRIEVNA/19930807/F///N/N////.*
+
+$(set msg_id22 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/4503912696//P/20491004////ASTAFEV/DMITRII VLADIMIROVICH/19790707/M///N/N////.*
+
+$(set msg_id23 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/4510616333//P/20491004////TIKHOMIROVA/KRISTINA VALEREVNA/19870913/F///N/N////.*
+
+$(set msg_id24 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/4605592746//P/20491004////BALASHOV/SERGEI MIKHAILOVICH/19510831/M///N/N////.*
+
+$(set msg_id25 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/726713638//P/20231113////BUMBURIDI/EKATERINA SERGEEVNA/19520331/F///N/N////.*
+
+$(set msg_id26 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/728840142//P/20240523////MOKSOKHOEV/OLEG VIKTOROVICH/20110203/M///N/N////.*
+
+$(set msg_id27 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/715704423//P/20210810////MOKSOKHOEV/VICTOR SERGEEVICH/19810907/M///N/N////.*
+
+$(set msg_id28 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0305367719//P/20290930////RUBLEVA/MARINA/19801012/F///N/N////.*
+
+$(set msg_id29 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/714051483//P/20210412////KAPANOVA/SVETLANA VLADISLAVOVNA/19720824/F///N/N////.*
+
+$(set msg_id30 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0319013818//P/20380802////KRAVTSOVA/ELENA VLADIMIROVNA/19730627/F///N/N////.*
+
+$(set msg_id31 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/4606018370//P/20201004////KUZNETSOV/ILIA VLADIMIROVICH/19780804/M///N/N////.*
+
+$(set msg_id32 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0319404210//P/20201004////TAGIROV/SERGEI/19740906/M///N/N////.*
+
+$(set msg_id33 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/2512791944//P/20201005////CHETVERTKOV/EVGENII VLADIMIROVICH/19680207/M///N/N////.*
+
+$(set msg_id34 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0305453906//P/20201003////IARINENKO/MAKSIM ALEKSEEVICH/19790430/M///N/N////.*
+
+$(set msg_id35 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/4505137601//P/20380116////BUGAEV/PAVEL/19820202/M///N/N////.*
+
+$(set msg_id36 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0309013487//P/20380820////CHETVERIKOVA/JULIA/19791221/F///N/N////.*
+
+$(set msg_id37 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/ISR/ISR/33322514//P/20690919////FUKS/LIUDMILA/19900707/F///N/N////.*
+
+$(set msg_id38 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0312185128//P/20200928////KARUNA/ALBINA VALENTINOVNA/19670126/F///N/N////.*
+
+$(set msg_id39 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/IVАГ827949//O/20200928////KARUNA/EKATERINA SERGEEVNA/20140724/F///N/N////.*
+
+$(set msg_id40 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/IVАГ827950//O/20200928////KARUNA/ELIZAVETA SERGEEVNA/20140724/F///N/N////.*
+
+$(set msg_id41 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/IVАГ848869//O/20200928////KARUNA/SERGEY SERGEEVICH/20140724/M///N/N////.*
+
+$(set msg_id42 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0306152502//P/20200928////KARUNA/SERGEY VIKTOROVICH/19610101/M///N/N////.*
+
+$(set msg_id43 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/IVАГ848868//O/20200928////KARUNA/SOFIYA SERGEEVNA/20140724/F///N/N////.*
+
+$(set msg_id44 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0312220158//P/20290709////MAKEYAN/GEVORG SIMAVONOVICH/19921107/M///N/N////.*
+
+$(set msg_id45 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0314612597//P/20200925////AVIDZBA/DZHIKHAN/19580901/F///N/N////.*
+
+$(set msg_id46 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/IАБ083812//O/20200925////AVIDZBA/MARK/20141220/M///N/N////.*
+
+$(set msg_id47 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0315047607//P/20200925////MKELBA/SALIMA/19871228/F///N/N////.*
+
+$(set msg_id48 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0399187351//P/20380823////ATOMAS/NATALIA VALERIEVNA/19780423/F///N/N////.*
+
+$(set msg_id49 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0308968576//P/20201001////BARSUK/TATIANA/19631016/F///N/N////.*
+
+$(set msg_id50 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/4501742939//P/20201001////BURIAKOV/EVGENII EVGENEVICH/19750302/M///N/N////.*
+
+$(set msg_id51 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0304440901//P/20201011////DIKOVA/MARIIA SERGEEVNA/19821024/F///N/N////.*
+
+$(set msg_id52 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0310526187//P/20201001////DMITRIEVA/IULIIA ALEKSANDROVNA/19850823/F///N/N////.*
+
+$(set msg_id53 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/VАГ841650//O/20201001////CHARKOV/NIKOLAI GENNADEVICH/20180811/M///N/N////.*
+
+$(set msg_id54 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/VАГ568572//O/20201001////CHARKOV/MIKHAIL GENNADEVICH/20151121/M///N/N////.*
+
+$(set msg_id55 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0312089903//P/20201001////SAMOILENKO/IGOR ALEKSANDROVICH/19670619/M///N/N////.*
+
+$(set msg_id56 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/516703310//P/20221024////SERGIENKO/ALEKSANDR VIKTOROVICH/19860527/M///N/N////.*
+
+$(set msg_id57 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0317834955//P/20201002////STARODUBTSEVA/OLGA ANDREEVNA/19900111/F///N/N////.*
+
+$(set msg_id58 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/VАГ506585//O/20200922////KHARCHENKO/MARIIA SEMENOVNA/20150714/F///N/N////.*
+
+$(set msg_id59 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0315043239//P/20200922////KHARCHENKO/NATALIA ALEKSANDROVNA/19910412/F///N/N////.*
+
+$(set msg_id60 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0315042043//P/20200922////KHARCHENKO/SEMEN VIACHESLAVOVICH/19800525/M///N/N////.*
+
+$(set msg_id61 $(capture 1))
+
+}) #end-if-macro CIRQ_61_UT_REQS
+
+#########################################################################################
+
+$(defmacro CIRQ_61_UT_REQS_APPS_VERSION_26
+    airl
+    fltno
+    depp
+    arrp
+    depd=$(yyyymmdd)
+    arrd=$(yyyymmdd)
+    dept=101500
+    arrt=100000
+{
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0305984920//P//20491009////VERGUNOV/VASILII LEONIDOVICH/19601104/M///N/N////.*
+
+$(set msg_id1 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/KAZ/KAZ/N11024936//P//20261004////ALIMOV/TALGAT/19960511/M///N/N////.*
+
+$(set msg_id2 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/KAZ/KAZ/N07298275//P//20210329////KHASSENOVA/ZULFIYA/19741106/F///N/N////.*
+
+$(set msg_id3 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/9205589611//P//20251220////SELIVANOV/RUSLAN NAILYEVICH/19830923/M///N/N////.*
+
+$(set msg_id4 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0317833785//P//20201009////RIAZANOVA/IRINA GENNADEVNA/19721003/F///N/N////.*
+
+$(set msg_id5 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0313361730//P//20241007////AKOPOV/ANDREI/19930621/M///N/N////.*
+
+$(set msg_id6 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/VAG594936//O//20241007////BABAKHANOVA/KIRA/20100405/F///N/N////.*
+
+$(set msg_id7 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0305555064//P//20241007////STIPIDI/ANGELINA/19820723/F///N/N////.*
+
+$(set msg_id8 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/VIAG519994//O//20241007////AKOPOVA/OLIVIIA/20190822/F///N/N////.*
+
+$(set msg_id9 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0306355301//P//20291005////KOBYLINSKIY/ALEKSEY/19861231/M///N/N////.*
+
+$(set msg_id10 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/////P//////OZ/OFER//U///N/N////.*
+
+$(set msg_id11 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0803963313//P//20241008////LUCHAK/OKSANA/19771022/F///N/N////.*
+
+$(set msg_id12 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0319189298//P//20201008////KURGINSKAYA/ANNA GRIGOREVNA/19870602/F///N/N////.*
+
+$(set msg_id13 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/652123387//P//20220110////BUMBURIDI/ODISSEI AFANASEVICH/19510514/M///N/N////.*
+
+$(set msg_id14 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0319350828//P//20201007////CHEKMAREV/KONSTANTIN ALEKSANDROVICH/19900317/M///N/N////.*
+
+$(set msg_id15 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/UKR/UKR/FA144642//P//20250625////TUMALI/VALERII/19680416/M///N/N////.*
+
+$(set msg_id16 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0307611933//P//20201007////VASILIADI/KSENIYA VALEREVNA/19840913/F///N/N////.*
+
+$(set msg_id17 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/VАГ815247//O//20201007////CHEKMAREV/RONALD KONSTANTINOVICH/20180129/M///N/N////.*
+
+$(set msg_id18 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0305350198//P//20350626////ZAINULLINA/RAISA GRIGOREVNA/19590102/F///N/N////.*
+
+$(set msg_id19 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/4611296643//P//20201007////KOTLIAR/VLADIMIR NIKOLAEVICH/19660117/M///N/N////.*
+
+$(set msg_id20 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/6008404843//P//20491004////AGAFONOV/DENIS DMITRIEVICH/19881230/M///N/N////.*
+
+$(set msg_id21 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/4515495907//P//20491004////POLETAEVA/MARIIA DMITRIEVNA/19930807/F///N/N////.*
+
+$(set msg_id22 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/4503912696//P//20491004////ASTAFEV/DMITRII VLADIMIROVICH/19790707/M///N/N////.*
+
+$(set msg_id23 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/4510616333//P//20491004////TIKHOMIROVA/KRISTINA VALEREVNA/19870913/F///N/N////.*
+
+$(set msg_id24 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/4605592746//P//20491004////BALASHOV/SERGEI MIKHAILOVICH/19510831/M///N/N////.*
+
+$(set msg_id25 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/726713638//P//20231113////BUMBURIDI/EKATERINA SERGEEVNA/19520331/F///N/N////.*
+
+$(set msg_id26 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/728840142//P//20240523////MOKSOKHOEV/OLEG VIKTOROVICH/20110203/M///N/N////.*
+
+$(set msg_id27 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/715704423//P//20210810////MOKSOKHOEV/VICTOR SERGEEVICH/19810907/M///N/N////.*
+
+$(set msg_id28 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0305367719//P//20290930////RUBLEVA/MARINA/19801012/F///N/N////.*
+
+$(set msg_id29 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/714051483//P//20210412////KAPANOVA/SVETLANA VLADISLAVOVNA/19720824/F///N/N////.*
+
+$(set msg_id30 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0319013818//P//20380802////KRAVTSOVA/ELENA VLADIMIROVNA/19730627/F///N/N////.*
+
+$(set msg_id31 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/4606018370//P//20201004////KUZNETSOV/ILIA VLADIMIROVICH/19780804/M///N/N////.*
+
+$(set msg_id32 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0319404210//P//20201004////TAGIROV/SERGEI/19740906/M///N/N////.*
+
+$(set msg_id33 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/2512791944//P//20201005////CHETVERTKOV/EVGENII VLADIMIROVICH/19680207/M///N/N////.*
+
+$(set msg_id34 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0305453906//P//20201003////IARINENKO/MAKSIM ALEKSEEVICH/19790430/M///N/N////.*
+
+$(set msg_id35 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/4505137601//P//20380116////BUGAEV/PAVEL/19820202/M///N/N////.*
+
+$(set msg_id36 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0309013487//P//20380820////CHETVERIKOVA/JULIA/19791221/F///N/N////.*
+
+$(set msg_id37 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/ISR/ISR/33322514//P//20690919////FUKS/LIUDMILA/19900707/F///N/N////.*
+
+$(set msg_id38 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0312185128//P//20200928////KARUNA/ALBINA VALENTINOVNA/19670126/F///N/N////.*
+
+$(set msg_id39 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/IVАГ827949//O//20200928////KARUNA/EKATERINA SERGEEVNA/20140724/F///N/N////.*
+
+$(set msg_id40 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/IVАГ827950//O//20200928////KARUNA/ELIZAVETA SERGEEVNA/20140724/F///N/N////.*
+
+$(set msg_id41 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/IVАГ848869//O//20200928////KARUNA/SERGEY SERGEEVICH/20140724/M///N/N////.*
+
+$(set msg_id42 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0306152502//P//20200928////KARUNA/SERGEY VIKTOROVICH/19610101/M///N/N////.*
+
+$(set msg_id43 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/IVАГ848868//O//20200928////KARUNA/SOFIYA SERGEEVNA/20140724/F///N/N////.*
+
+$(set msg_id44 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0312220158//P//20290709////MAKEYAN/GEVORG SIMAVONOVICH/19921107/M///N/N////.*
+
+$(set msg_id45 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0314612597//P//20200925////AVIDZBA/DZHIKHAN/19580901/F///N/N////.*
+
+$(set msg_id46 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/IАБ083812//O//20200925////AVIDZBA/MARK/20141220/M///N/N////.*
+
+$(set msg_id47 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0315047607//P//20200925////MKELBA/SALIMA/19871228/F///N/N////.*
+
+$(set msg_id48 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0399187351//P//20380823////ATOMAS/NATALIA VALERIEVNA/19780423/F///N/N////.*
+
+$(set msg_id49 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0308968576//P//20201001////BARSUK/TATIANA/19631016/F///N/N////.*
+
+$(set msg_id50 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/4501742939//P//20201001////BURIAKOV/EVGENII EVGENEVICH/19750302/M///N/N////.*
+
+$(set msg_id51 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0304440901//P//20201011////DIKOVA/MARIIA SERGEEVNA/19821024/F///N/N////.*
+
+$(set msg_id52 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0310526187//P//20201001////DMITRIEVA/IULIIA ALEKSANDROVNA/19850823/F///N/N////.*
+
+$(set msg_id53 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/VАГ841650//O//20201001////CHARKOV/NIKOLAI GENNADEVICH/20180811/M///N/N////.*
+
+$(set msg_id54 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/VАГ568572//O//20201001////CHARKOV/MIKHAIL GENNADEVICH/20151121/M///N/N////.*
+
+$(set msg_id55 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0312089903//P//20201001////SAMOILENKO/IGOR ALEKSANDROVICH/19670619/M///N/N////.*
+
+$(set msg_id56 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/516703310//P//20221024////SERGIENKO/ALEKSANDR VIKTOROVICH/19860527/M///N/N////.*
+
+$(set msg_id57 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0317834955//P//20201002////STARODUBTSEVA/OLGA ANDREEVNA/19900111/F///N/N////.*
+
+$(set msg_id58 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/VАГ506585//O//20200922////KHARCHENKO/MARIIA SEMENOVNA/20150714/F///N/N////.*
+
+$(set msg_id59 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0315043239//P//20200922////KHARCHENKO/NATALIA ALEKSANDROVNA/19910412/F///N/N////.*
+
+$(set msg_id60 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0315042043//P//20200922////KHARCHENKO/SEMEN VIACHESLAVOVICH/19800525/M///N/N////.*
+
+$(set msg_id61 $(capture 1))
+
+}) #end-if-macro CIRQ_61_UT_REQS
