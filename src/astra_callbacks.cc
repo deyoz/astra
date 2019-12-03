@@ -52,6 +52,7 @@
 #include "libra.h"
 #include "self_ckin_log.h"
 #include "service_eval.h"
+#include "mob_payment.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -103,6 +104,7 @@ void AstraJxtCallbacks::InitInterfaces()
     new SelfCkinLogInterface();
 
     new AstraWeb::WebRequestsIface();
+    new MobilePaymentInterface();
     new LibraInterface();
 
     new HTTPRequestsIface();

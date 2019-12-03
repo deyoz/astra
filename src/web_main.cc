@@ -355,7 +355,7 @@ static void GetPNRsList(const WebSearch::TPNRFilter &filter,
   if (!(filter.test_paxs.empty() && !filter.from_scan_code)) return;
 
   CheckIn::TSimplePaxList paxs;
-  WebSearch::SurnameFilter surname(filter);
+  SurnameFilter surname(filter);
 
   CheckIn::Search search(WebSearch::TIMEOUT());
   if (!filter.ticket_no.empty())
@@ -2651,7 +2651,7 @@ void WebRequestsIface::CheckFFP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 
     CheckIn::Search search;
     CheckIn::TSimplePaxList paxs;
-    search(paxs, WebSearch::PaxId(pax_id));
+    search(paxs, PaxIdFilter(pax_id));
     if (paxs.empty()) throw UserException( "MSG.PASSENGER.NOT_FOUND.REFRESH_DATA" );
 
     const CheckIn::TSimplePaxItem& pax=paxs.front();

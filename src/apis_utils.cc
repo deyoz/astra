@@ -297,7 +297,7 @@ const TCompleteAPICheckInfo& TCompleteAPICheckInfoCache::get(int paxId, int grpI
     if (!grp.getByGrpId(grpId)) return emptyCheckInfo;
   }
 
-  TAPISegment seg(grp.point_dep, grp.airp_arv);
+  CheckIn::TPaxSegmentPair seg=grp.getSegmentPair();
   auto i=checkInfoMap.find(seg);
   if (i==checkInfoMap.end())
   {

@@ -5,6 +5,7 @@
 #include "oralib.h"
 #include "passenger.h"
 #include "qrys.h"
+#include "dev_utils.h"
 
 class PaxInfoForSearch
 {
@@ -108,6 +109,18 @@ class Search
 
     void getSQLProperties() {}
 
+    template <class Criterion, class ... Criterions>
+    bool finalPassengerCheck(const CheckIn::TSimplePaxItem& pax,
+                             const Criterion& criterion,
+                             const Criterions& ... criterions)
+    {
+      if (!criterion.finalPassengerCheck(pax)) return false;
+
+      return finalPassengerCheck(pax, criterions...);
+    }
+
+    bool finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) { return true; }
+
     std::string getSQLText() const;
 
     bool addPassengers(CheckIn::TSimplePaxList& paxs) const;
@@ -137,6 +150,9 @@ class Search
 
         if (!addPassengers(paxs)) incomplete=true;
       }
+
+      for(CheckIn::TSimplePaxList::iterator p=paxs.begin(); p!=paxs.end();)
+        if (finalPassengerCheck(*p, criterions...)) ++p; else p=paxs.erase(p);
     }
 
     bool timeoutIsReached() const { return incomplete; }
@@ -144,4 +160,134 @@ class Search
 
 } //namespace CheckIn
 
+class PaxIdFilter
+{
+  private:
+    int value;
+  public:
+    explicit PaxIdFilter(int _value) : value(_value) {}
+
+    bool validForSearch() const;
+    void addSQLTablesForSearch(const PaxOrigin& origin, std::list<std::string>& tables) const {}
+    void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
+    void addSQLParamsForSearch(QParams& params) const;
+    bool finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const { return true; }
+};
+
+class SurnameFilter
+{
+  public:
+    std::string surname;
+    bool checkSurnameEqualBeginning;
+
+    SurnameFilter() { clear(); }
+
+    void clear()
+    {
+      surname.clear();
+      checkSurnameEqualBeginning=false;
+    }
+
+    bool validForSearch() const;
+    void addSQLTablesForSearch(const PaxOrigin& origin, std::list<std::string>& tables) const {}
+    void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
+    void addSQLParamsForSearch(QParams& params) const;
+    bool finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const { return true; }
+};
+
+class FullnameFilter : public SurnameFilter
+{
+  public:
+    std::string name;
+    bool checkNameEqualBeginning;
+
+    static std::string firstName(const std::string& name);
+
+    FullnameFilter() { clear(); }
+
+    void clear()
+    {
+      SurnameFilter::clear();
+      name.clear();
+      checkNameEqualBeginning=false;
+    }
+
+    bool finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const;
+};
+
+class BarcodePaxFilter : public FullnameFilter
+{
+  public:
+    int reg_no;
+
+    BarcodePaxFilter() { clear(); }
+
+    void clear()
+    {
+      FullnameFilter::clear();
+      reg_no=ASTRA::NoExists;
+    }
+
+    void set(const BCBPUniqueSections& unique,
+             const BCBPRepeatedSections& repeated);
+
+    bool finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const;
+};
+
+class FlightFilter : public TTripInfo
+{
+  public:
+    TDateTime min_scd_out, max_scd_out;
+    std::string airp_arv;
+
+    FlightFilter() { clear(); }
+    FlightFilter(const TTripInfo& flt)
+    {
+      clear();
+      TTripInfo::operator = (flt);
+      if (flt_no==0) flt_no=ASTRA::NoExists;
+    }
+
+    void clear()
+    {
+      TTripInfo::Clear();
+      flt_no=ASTRA::NoExists;
+      min_scd_out=ASTRA::NoExists;
+      max_scd_out=ASTRA::NoExists;
+      airp_arv.clear();
+    }
+
+    bool validForSearch() const;
+    void addSQLTablesForSearch(const PaxOrigin& origin, std::list<std::string>& tables) const;
+    void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
+    void addSQLParamsForSearch(QParams& params) const;
+    bool finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const { return true; }
+};
+
+class BarcodeSegmentFilter
+{
+  public:
+    FlightFilter seg;
+    BarcodePaxFilter pax;
+    TPnrAddrInfo pnr;
+
+    BarcodeSegmentFilter() { clear(); }
+
+    void clear()
+    {
+      seg.clear();
+      pax.clear();
+      pnr.clear();
+    }
+
+    void set(const BCBPUniqueSections& unique,
+             const BCBPRepeatedSections& repeated);
+};
+
+class BarcodeFilter : public std::list<BarcodeSegmentFilter>
+{
+  public:
+    void set(const std::string &barcode);
+    void getPassengers(CheckIn::Search &search, CheckIn::TSimplePaxList& paxs, bool checkOnlyFullname) const;
+};
 

@@ -342,6 +342,7 @@ public:
 
 void ChangeACT_OUT( int point_id, TDateTime old_act, TDateTime act );
 void check_TrferExists( int point_id );
+void get_DesksGates( int point_id, std::string &ckin_desks, std::string &gates );
 void get_DesksGates( int point_id, tstations &stations );
 void check_DesksGates( int point_id );
 void IntReadTrips( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, long int &exec_time );

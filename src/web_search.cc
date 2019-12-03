@@ -216,66 +216,6 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr fltParentNode, xmlNodePtr paxParentNo
   return *this;
 };
 
-bool PaxId::validForSearch() const
-{
-  return value!=ASTRA::NoExists;
-}
-
-void PaxId::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const
-{
-  switch(origin)
-  {
-    case paxCheckIn:
-      conditions.push_back("pax.pax_id = :pax_id");
-      break;
-    case paxPnl:
-      conditions.push_back("crs_pax.pax_id = :pax_id");
-      break;
-    case paxTest:
-      conditions.push_back("test_pax.id = :pax_id");
-      break;
-  }
-}
-
-void PaxId::addSQLParamsForSearch(QParams& params) const
-{
-  params << QParam("pax_id", otInteger, value);
-}
-
-bool SurnameFilter::validForSearch() const
-{
-  return !surname.empty();
-}
-
-void SurnameFilter::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const
-{
-  std::string field_name;
-
-  switch(origin)
-  {
-    case paxCheckIn:
-      field_name="pax.surname";
-      break;
-    case paxPnl:
-      field_name="crs_pax.surname";
-      break;
-    case paxTest:
-      field_name="test_pax.surname";
-      break;
-  }
-  ostringstream sql;
-  sql << (checkSurnameEqualBeginning?"system.transliter_equal_begin(":
-                                     "system.transliter_equal(")
-      << field_name << ", :surname)<>0";
-
-  conditions.push_back(sql.str());
-}
-
-void SurnameFilter::addSQLParamsForSearch(QParams& params) const
-{
-  params << QParam("surname", otString, surname);
-}
-
 string TPNRFilter::getSurnameSQLFilter(const string &field_name, TQuery &Qry) const
 {
   ostringstream sql;

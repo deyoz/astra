@@ -1731,6 +1731,7 @@ TSimplePaxItem& TSimplePaxItem::fromDBCrs(TQuery &Qry, bool withTkn)
 {
   clear();
   id=Qry.FieldAsInteger("pax_id");
+  pnr_id=Qry.FieldAsInteger("pnr_id");
   surname=Qry.FieldAsString("surname");
   name=Qry.FieldAsString("name");
   if (isTest())

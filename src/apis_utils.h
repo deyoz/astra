@@ -505,28 +505,11 @@ class TRouteAPICheckInfo : private std::map<std::string/*airp_arv*/, TCompleteAP
     boost::optional<const TCompleteAPICheckInfo&> get(const std::string &airp_arv) const;
 };
 
-class TAPISegment
-{
-  public:
-    int point_dep;
-    std::string airp_arv;
-
-    TAPISegment(const int pointDep, const std::string& airpArv) :
-      point_dep(pointDep), airp_arv(airpArv) {}
-
-    bool operator < (const TAPISegment &seg) const
-    {
-      if (point_dep!=seg.point_dep)
-        return point_dep < seg.point_dep;
-      return airp_arv < seg.airp_arv;
-    }
-};
-
 class TCompleteAPICheckInfoCache
 {
   private:
     std::map<int/*grp_id*/, CheckIn::TSimplePaxGrpItem> grps;
-    std::map<TAPISegment, TCompleteAPICheckInfo> checkInfoMap;
+    std::map<CheckIn::TPaxSegmentPair, TCompleteAPICheckInfo> checkInfoMap;
 
   public:
     const TCompleteAPICheckInfo& get(int paxId, int grpId=ASTRA::NoExists);

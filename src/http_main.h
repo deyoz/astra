@@ -20,6 +20,7 @@ namespace AstraHTTP
 #define PRINT_JXT_INTERFACE_ID "print"
 #define ZAMAR_PAXCTL_JXT_INTERFACE_ID "ZamarPaxCtl"
 #define ZAMAR_SBDO_JXT_INTERFACE_ID "ZamarSBDO"
+#define MOBILE_PAYMENT_JXT_INTERFACE_ID "MobilePayment"
 
 struct HTTPClient;
 
@@ -124,6 +125,9 @@ struct HTTPClient
     jxt_interface["PassengerBaggageTagAdd"] =     JxtInfo(ZAMAR_SBDO_JXT_INTERFACE_ID,     ZamarPostProcessXMLAnswer);
     jxt_interface["PassengerBaggageTagConfirm"] = JxtInfo(ZAMAR_SBDO_JXT_INTERFACE_ID,     ZamarPostProcessXMLAnswer);
     jxt_interface["PassengerBaggageTagRevoke"] =  JxtInfo(ZAMAR_SBDO_JXT_INTERFACE_ID,     ZamarPostProcessXMLAnswer);
+    jxt_interface["search_passengers"] =    JxtInfo(MOBILE_PAYMENT_JXT_INTERFACE_ID,     nullptr);
+    jxt_interface["search_flights"] =       JxtInfo(MOBILE_PAYMENT_JXT_INTERFACE_ID,     nullptr);
+    jxt_interface["get_client_perms"] =     JxtInfo(MOBILE_PAYMENT_JXT_INTERFACE_ID,     nullptr);
   }
 };
 

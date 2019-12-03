@@ -355,6 +355,12 @@ class TTripInfo
       return true;
     }
 
+    bool match(const TAccess& access) const
+    {
+      return access.airlines().permitted(airline) &&
+             access.airps().permitted(airp);
+    }
+
     std::string flight_number(const boost::optional<AstraLocale::OutputLang>& lang = boost::none) const
     {
       std::ostringstream s;
@@ -648,12 +654,36 @@ struct TAdvTripRouteItem : TTripRouteItem
       return BASIC::date_time::UTCToLocal(scd_in, AirpTZRegion(airp));
     return ASTRA::NoExists;
   }
+  std::string scd_in_local(const std::string& fmt) const
+  {
+    if (scd_in==ASTRA::NoExists) return "";
+    return BASIC::date_time::DateTimeToStr(scd_in_local(), fmt);
+  }
   TDateTime scd_out_local() const
   {
     if (scd_out!=ASTRA::NoExists)
       return BASIC::date_time::UTCToLocal(scd_out, AirpTZRegion(airp));
     return ASTRA::NoExists;
   }
+  std::string scd_out_local(const std::string& fmt) const
+  {
+    if (scd_out==ASTRA::NoExists) return "";
+    return BASIC::date_time::DateTimeToStr(scd_out_local(), fmt);
+  }
+  std::string flight_number(const boost::optional<AstraLocale::OutputLang>& lang) const
+  {
+    if (flt_num==ASTRA::NoExists) return "";
+    std::ostringstream s;
+    s << std::setw(3) << std::setfill('0') << flt_num
+      << (lang? ElemIdToPrefferedElem(etSuffix, suffix, efmtCodeNative, lang->get()): suffix);
+    return s.str();
+  }
+  bool match(const TAccess& access) const
+  {
+    return access.airlines().permitted(airline) &&
+           access.airps().permitted(airp);
+  }
+
 };
 
 //несколько общих моментов для пользования функций работы с маршрутом:

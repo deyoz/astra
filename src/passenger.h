@@ -30,6 +30,8 @@ bool isEmptyPaxId(int id);
 namespace CheckIn
 {
 
+class TSimplePaxItem;
+
 class TPaxGrpCategory
 {
   public:
@@ -158,6 +160,7 @@ class TPaxTknItem : public TPaxAPIItem, public TPaxRemBasic
     void addSQLTablesForSearch(const PaxOrigin& origin, std::list<std::string>& tables) const;
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
     void addSQLParamsForSearch(QParams& params) const;
+    bool finalPassengerCheck(const TSimplePaxItem& pax) const { return true; }
 };
 
 bool LoadPaxTkn(int pax_id, TPaxTknItem &tkn);
@@ -301,6 +304,7 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic, public TPaxDocCompo
     void addSQLTablesForSearch(const PaxOrigin& origin, std::list<std::string>& tables) const;
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
     void addSQLParamsForSearch(QParams& params) const;
+    bool finalPassengerCheck(const TSimplePaxItem& pax) const { return true; }
 };
 
 class TScannedPaxDocItem : public TPaxDocItem
@@ -321,6 +325,7 @@ class TScannedPaxDocItem : public TPaxDocItem
     std::string getTrueNo() const;
 
     void addSQLParamsForSearch(QParams& params) const;
+    bool finalPassengerCheck(const TSimplePaxItem& pax) const { return true; }
 };
 
 const std::string DOCO_PSEUDO_TYPE="-";
@@ -521,11 +526,29 @@ class TComplexClass
     const TComplexClass& toXML(xmlNodePtr node, const std::string& fieldPrefix) const;
 };
 
+class TPaxSegmentPair
+{
+  public:
+    int point_dep;
+    std::string airp_arv;
+
+    TPaxSegmentPair(const int pointDep, const std::string& airpArv) :
+      point_dep(pointDep), airp_arv(airpArv) {}
+
+    bool operator < (const TPaxSegmentPair &seg) const
+    {
+      if (point_dep!=seg.point_dep)
+        return point_dep < seg.point_dep;
+      return airp_arv < seg.airp_arv;
+    }
+};
+
 class TSimplePaxItem
 {
   public:
     int id; //crs
     int grp_id;
+    int pnr_id; //crs
     std::string surname; //crs
     std::string name; //crs
     ASTRA::TPerson pers_type; //crs
@@ -554,6 +577,7 @@ class TSimplePaxItem
     {
       id=ASTRA::NoExists;
       grp_id=ASTRA::NoExists;
+      pnr_id=ASTRA::NoExists;
       surname.clear();
       name.clear();
       pers_type=ASTRA::NoPerson;
@@ -854,6 +878,11 @@ class TSimplePaxGrpItem
     bool allowToBagCheckIn() const { return trfer_confirm; }
 
     ASTRA::TCompLayerType getCheckInLayerType() const;
+
+    TPaxSegmentPair getSegmentPair() const
+    {
+      return TPaxSegmentPair(point_dep, airp_arv);
+    }
 };
 
 class TPaxGrpItem : public TSimplePaxGrpItem
@@ -1067,6 +1096,7 @@ class TPnrAddrInfo
     void addSQLTablesForSearch(const PaxOrigin& origin, std::list<std::string>& tables) const;
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
     void addSQLParamsForSearch(QParams& params) const;
+    bool finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const { return true; }
 };
 
 class TPnrAddrs : public std::vector<TPnrAddrInfo>

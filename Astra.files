@@ -181,6 +181,8 @@ src/maindcs.cc
 src/maindcs.h
 src/meridian.cc
 src/meridian.h
+src/mob_payment.cc
+src/mob_payment.h
 src/msg_queue.cc
 src/msg_queue.h
 src/obrnosir.cc

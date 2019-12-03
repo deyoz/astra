@@ -112,6 +112,7 @@ astra_SOURCES = \
   libra.cc \
   maindcs.cc \
   meridian.cc \
+  mob_payment.cc \
   msg_queue.cc \
   obrnosir.cc \
   passenger.cc \
@@ -316,6 +317,7 @@ noinst_HEADERS = \
   libra.h \
   maindcs.h \
   meridian.h \
+  mob_payment.h \
   msg_queue.h \
   obrnosir.h \
   passenger.h \
