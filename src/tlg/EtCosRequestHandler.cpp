@@ -120,14 +120,15 @@ void CosRequestHandler::handle()
     ASSERT(m_cosParams);
 
     try {
-        Ticketing::returnWcCoupon(SystemContext::Instance(STDLOG).airlineImpl()->ida(),
-                                  m_cosParams->m_tickNum,
+        Ticketing::returnWcCoupon(m_cosParams->m_tickNum,
                                   m_cosParams->m_cpnNum,
                                   true);
     } catch(const AirportControlCantBeReturned& e) {
         throw tick_soft_except(STDLOG, AstraErr::INV_COUPON_STATUS);
     } catch(const AirportControlNotFound& e) {
         throw tick_soft_except(STDLOG, AstraErr::INV_COUPON_STATUS);
+    } catch(const WcCouponNotFound& e) {
+        throw tick_soft_except(STDLOG, AstraErr::TICK_NO_MATCH);
     }
 }
 
@@ -137,20 +138,19 @@ void CosRequestHandler::makeAnAnswer()
     ASSERT(m_cosParams);
 
     boost::optional<WcCoupon> wcCpn;
-    wcCpn= Ticketing::readWcCoupon(SystemContext::Instance(STDLOG).airlineImpl()->ida(),
-                                   m_cosParams->m_tickNum,
-                                   m_cosParams->m_cpnNum);
-    ASSERT(wcCpn);
+    wcCpn = Ticketing::readWcCoupon(m_cosParams->m_tickNum,
+                                    m_cosParams->m_cpnNum);
+    if(wcCpn) {
+        PushEdiPointW(pMesW());
+        SetEdiSegGr(pMesW(), SegGrElement(1));
+        SetEdiPointToSegGrW(pMesW(), SegGrElement(1), "SegGr1 not found");
+        viewTktElement(pMesW(), makeTkt(wcCpn->tickNum()));
 
-    PushEdiPointW(pMesW());
-    SetEdiSegGr(pMesW(), SegGrElement(1));
-    SetEdiPointToSegGrW(pMesW(), SegGrElement(1), "SegGr1 not found");
-    viewTktElement(pMesW(), makeTkt(wcCpn->tickNum()));
-
-    PushEdiPointW(pMesW());
-    SetEdiSegGr(pMesW(), SegGrElement(2));
-    SetEdiPointToSegGrW(pMesW(), SegGrElement(2), "SegGr2 not found");
-    viewCpnElement(pMesW(), makeCpn(wcCpn->cpnNum(), wcCpn->status()));
+        PushEdiPointW(pMesW());
+        SetEdiSegGr(pMesW(), SegGrElement(2));
+        SetEdiPointToSegGrW(pMesW(), SegGrElement(2), "SegGr2 not found");
+        viewCpnElement(pMesW(), makeCpn(wcCpn->cpnNum(), wcCpn->status()));
+    }
 }
 
 void CosRequestHandler::saveErrorInfo(const Ticketing::ErrMsg_t& errCode,

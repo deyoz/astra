@@ -1041,13 +1041,13 @@ ResContrInfo readResContrInfo(EDI_REAL_MES_STRUCT* pMes)
             LogWarning(STDLOG) << "Invalid reservation control type [" << typeChr << "]";
     }
 
-    PopEdiPoint_wdG(pMes);
+        PopEdiPoint_wdG(pMes);
     }
 
     PopEdiPointG(pMes);
     PopEdiPointG(pMes);
 
-    return ResContrInfo(Recloc, OurAwk, AirRecloc, CrsRecloc, CrsAwk, DateOfIssue);
+    return ResContrInfo(Recloc, OurAwk, CrsAwk, AirRecloc, CrsRecloc, DateOfIssue);
 }
 
 Passenger readPassenger(EDI_REAL_MES_STRUCT* pMes)
