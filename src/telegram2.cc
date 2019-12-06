@@ -1984,6 +1984,7 @@ namespace PRL_SPACE {
         vector<TCOMStatsItem> items;
         TTotalPaxWeight total_pax_weight;
         void get(TypeB::TDetailCreateInfo &info);
+        void getPAD(TypeB::TDetailCreateInfo &info);
         void ToTlg(TypeB::TDetailCreateInfo &info, ostringstream &body);
     };
 
@@ -2105,8 +2106,31 @@ namespace PRL_SPACE {
                 << total_pax_weight.weight << TypeB::endl;
     }
 
+    void TCOMStats::getPAD(TypeB::TDetailCreateInfo &info)
+    {
+        REPORTS::TPaxList pax_list(info.point_id);
+        pax_list.options.flags.setFlag(REPORTS::oeRkWeight);
+        pax_list.options.pr_brd = boost::in_place(REPORTS::TBrdVal::bvTRUE);
+        pax_list.fromDB();
+        TTripRoute route;
+        if(not pax_list.empty() and route.GetRouteAfter(NoExists, info.point_id, trtNotCurrent, trtNotCancelled)) {
+            map<int, TCOMStatsItem> data;
+            for(const auto &pax: pax_list) {
+                auto &item = data[pax->grp().point_arv];
+                item.target = pax->grp().airp_arv;
+                item.f += pax->cl() == "è";
+                item.c += pax->cl() == "Å";
+                item.y += pax->cl() == "ù";
+            }
+
+        }
+    }
+
     void TCOMStats::get(TypeB::TDetailCreateInfo &info)
     {
+        const TypeB::TCOMOptions &options = *info.optionsAs<TypeB::TCOMOptions>();
+        if(options.version == "PAD") return getPAD(info);
+
         TQuery Qry(&OraSession);
         Qry.SQLText =
             "SELECT "
