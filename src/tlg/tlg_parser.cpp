@@ -7222,8 +7222,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
 
         int pnr_id;
         bool pr_sync_pnr;
-        set<int> et_display_pax_ids;
-        set<int> paxIdsForSyncASVC, paxIdsForSyncPD;
+        set<int> paxIdsModified, paxIdsForSyncASVC, paxIdsForSyncPD;
         PaxIdsForDeleteTlgSeatRanges paxIdsForDeleteTlgSeatRanges;
         PaxIdsForInsertTlgSeatRanges paxIdsForInsertTlgSeatRanges;
         bool chkd_exists=false;
@@ -7650,8 +7649,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                       SaveDOCARem(inf_id,iInfItem->doca);
                       SaveTKNRem(inf_id,iInfItem->tkn,ne.indicator!=None);
                       if (SaveCHKDRem(inf_id,iInfItem->chkd)) chkd_exists=true;
-                      et_display_pax_ids.insert(inf_id);
-                      TETickItem::syncOriginalSubclass(inf_id);
+                      paxIdsModified.insert(inf_id);
                       if (infClassChanged) onChangeClass(inf_id, iTotals->cl);
                     };
 
@@ -7665,8 +7663,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     SaveTKNRem(pax_id,paxItem.tkn,ne.indicator!=None);
                     SaveFQTRem(pax_id,paxItem.fqt,paxItem.fqt_extra);
                     if (SaveCHKDRem(pax_id,paxItem.chkd)) chkd_exists=true;
-                    et_display_pax_ids.insert(pax_id);
-                    TETickItem::syncOriginalSubclass(pax_id);
+                    paxIdsModified.insert(pax_id);
                     if (paxClassChanged) onChangeClass(pax_id, iTotals->cl);
 
                     if (!seatsBlockingPass) paxItem.seatsBlocking.toDB(pax_id);
@@ -7803,7 +7800,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
 
        if (!isPRL)
        {
-         TlgETDisplay(point_id, et_display_pax_ids, true);
+         TlgETDisplay(point_id, paxIdsModified, true);
          if (chkd_exists)
          {
            for(TAdvTripInfoList::const_iterator it = trips.begin(); it != trips.end(); it++)
@@ -7815,6 +7812,8 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
            if ( result || start_time != ASTRA::NoExists )
              add_trip_task( point_id_spp, SEND_NEW_APPS_INFO, "", start_time );
          }
+         for(int id : paxIdsModified)
+           TETickItem::syncOriginalSubclass(id);
        }
 
        bool lock=!paxIdsForDeleteTlgSeatRanges.empty() ||
