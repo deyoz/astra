@@ -1,0 +1,59 @@
+#!/bin/sh
+
+#------------------------------------------------
+
+CC=$LOCALCC
+CXX=$LOCALCXX
+LIBTIM_XPTEST="0"
+LIBTIM_SHARED="0"
+LIBTIM_CFLAGS=""
+LIBTIM_LFLAGS=""
+LIBTIM_LIBROOT="$LIBROOT"
+
+if [ "$XP_TESTING" ]; then
+    LIBTIM_XPTEST=1
+    LIBTIM_CFLAGS="$LIBTIM_CFLAGS -DXP_TESTING"
+fi
+
+if [ "$ENABLE_SHARED" ]; then
+    LIBTIM_SHARED=1
+fi
+
+LIBTIM_CFLAGS="$LIBTIM_CFLAGS $($LIBROOT/serverlib/serverlib-config --cxxflags)"
+LIBTIM_CFLAGS="$LIBTIM_CFLAGS $($LIBROOT/serverlib/dependlibs-config --cxxflags)"
+LIBTIM_CFLAGS="$LIBTIM_CFLAGS $(pkg-config libxml-2.0 --cflags)"
+LIBTIM_LFLAGS="$LIBTIM_LFLAGS -L$LIBROOT/serverlib/src/.libs -lserver"
+LIBTIM_LFLAGS="$LIBTIM_LFLAGS $($LIBROOT/serverlib/dependlibs-config --libs)"
+LIBTIM_LFLAGS="$LIBTIM_LFLAGS $(pkg-config libxml-2.0 --libs)"
+
+#------------------------------------------------
+
+mkdir -p $LIBTIM_LIBROOT/libtimatic/lib
+mkdir -p $LIBTIM_LIBROOT/libtimatic/lib/pkgconfig
+
+#------------------------------------------------
+
+cat > $LIBTIM_LIBROOT/libtimatic/lib/pkgconfig/timatic.pc << EOF
+prefix=$(pwd)
+includedir=\${prefix}/include
+libdir=\${prefix}/lib
+
+Name: Timatic
+Description: Library for interaction with Timatic
+Version: 1.0
+Cflags: -I\${includedir}
+Libs: -L\${libdir} -ltimatic
+Libs.private: -L$LIBROOT/serverlib/src/.libs -lserver $($LIBROOT/serverlib/dependlibs-config --libs) $(pkg-config libxml-2.0 --libs)
+EOF
+
+#------------------------------------------------
+
+cat > include.mk << EOF
+CC=$CC
+CXX=$CXX
+LIBTIM_XPTEST=$LIBTIM_XPTEST
+LIBTIM_SHARED=$LIBTIM_SHARED
+LIBTIM_CFLAGS=$LIBTIM_CFLAGS
+LIBTIM_LFLAGS=$LIBTIM_LFLAGS
+LIBTIM_LIBROOT=$LIBTIM_LIBROOT
+EOF

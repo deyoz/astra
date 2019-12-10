@@ -35,7 +35,7 @@ xp-tests: clean-xp-tests
 	grep "100%: Checks" xp-tests.log > /dev/null 2>&1
 
 
-AM_CXXFLAGS = $(TCLINCLUDE) @SERVERLIB_CXXFLAGS@
+AM_CXXFLAGS = $(TCLINCLUDE) @SERVERLIB_CXXFLAGS@ @LIBTIMATIC_CXXFLAGS@
 astra_SOURCES = \
   adm.cc \
   access.cc \
@@ -211,6 +211,7 @@ astra_LDADD = $(all_libraries) \
 	kiosk/libkiosk.a \
 	crafts/libcraft.a \
 	tests/libtests.a \
+	@LIBTIMATIC_LIBS@ \
 	@SHARED_LIBS@ @SHARED_DEPEND_LIBS@ \
 	@LIBTLG_LIBS@ \
 	@SERVERLIB_LIBS@ \

@@ -197,6 +197,9 @@ static void init_foreign_tests()
 {
     void init_edi_msg_tests();
     init_edi_msg_tests();
+
+    void initTimaticTests();
+    initTimaticTests();
 }
 
 int main(int argc,char **argv)
