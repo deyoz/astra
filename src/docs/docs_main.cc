@@ -148,8 +148,11 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         case rtLIR:
             WB_MSG(rpt_params, reqNode, resNode);
             break;
-        case rtANNUL_TAGS:
-            ANNUL_TAGS(rpt_params, reqNode, resNode);
+        case rtANNUL:
+            ANNUL(rpt_params, reqNode, resNode);
+            break;
+        case rtANNULTXT:
+            ANNULTXT(rpt_params, reqNode, resNode);
             break;
         case rtVOUCHERS:
             VOUCHERS(rpt_params, reqNode, resNode);
