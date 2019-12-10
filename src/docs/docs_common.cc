@@ -36,7 +36,6 @@ void TRptParams::Init(xmlNodePtr node)
             rpt_type != rtLOADSHEET and
             rpt_type != rtNOTOC and
             rpt_type != rtLIR and
-            rpt_type != rtANNUL_TAGS and
             rpt_type != rtVOUCHERS and
             rpt_type != rtKOMPLEKT
             )

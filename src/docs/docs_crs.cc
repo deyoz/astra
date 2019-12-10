@@ -1,6 +1,7 @@
 #include "docs_crs.h"
 #include "stat/stat_utils.h"
 #include "docs_utils.h"
+#include "docs_text_grid.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -263,133 +264,6 @@ void CRSTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
              );
         NewTextChild(rowNode,"str",s.str());
     }
-}
-
-struct TTextGrid {
-    private:
-        size_t tab_width;
-
-        list<pair<string, size_t>> hdr;
-
-        struct TRow:public vector<string> {
-            private:
-                TTextGrid &grd;
-            public:
-            TRow &add(const string &data);
-            void toXML(xmlNodePtr rowNode);
-            TRow(TTextGrid &grd): grd(grd) {}
-        };
-
-        list<TRow> grid;
-
-        bool check_fileds_empty(const map<int, vector<string>> &fields);
-        void fill_grid(ostringstream &s, boost::optional<const TRow &> row = boost::none);
-
-    public:
-        void headerToXML(xmlNodePtr variablesNode);
-        void addCol(const string &caption, int length = NoExists);
-        TRow &addRow();
-        void trace();
-        void clear()
-        {
-            tab_width = 0;
-            hdr.clear();
-            grid.clear();
-        }
-        TTextGrid() { clear(); }
-};
-
-void TTextGrid::headerToXML(xmlNodePtr variablesNode)
-{
-    ostringstream s;
-    s << left;
-    fill_grid(s);
-    NewTextChild(variablesNode,"page_header_bottom",s.str());
-}
-
-void TTextGrid::TRow::toXML(xmlNodePtr rowNode)
-{
-    ostringstream s;
-    s << left;
-    grd.fill_grid(s, *this);
-    NewTextChild(rowNode,"str",s.str());
-}
-
-void TTextGrid::addCol(const string &caption, int length)
-{
-    if(length == NoExists)
-        length = caption.size() + 1;
-    tab_width += length;
-    hdr.push_back(make_pair(caption, length));
-}
-
-TTextGrid::TRow &TTextGrid::addRow()
-{
-    grid.emplace_back(TRow(*this));
-    return grid.back();
-}
-
-TTextGrid::TRow &TTextGrid::TRow::add(const string &data)
-{
-    push_back(data);
-    return *this;
-}
-
-bool TTextGrid::check_fileds_empty(const map<int, vector<string>> &fields)
-{
-    bool result = false;
-    for(const auto &i: fields)
-        if(not i.second.empty()) {
-            result = true;
-            break;
-        }
-    return result;
-}
-
-void TTextGrid::fill_grid(ostringstream &s, boost::optional<const TRow &> row)
-{
-    if(row and row->size() != hdr.size())
-        throw Exception("hdr not equal row: %d %d", row->size(), hdr.size());
-    map< int, vector<string> > fields;
-    int fields_idx = 0;
-    for(const auto i: hdr) {
-        const string &cell_data = (row ? (*row)[fields_idx] : i.first);
-        if(cell_data.size() >= i.second) {
-            vector<string> rows;
-            SeparateString(cell_data.c_str(), i.second - 1, rows);
-            fields[fields_idx++] = rows;
-        } else
-            fields[fields_idx++].push_back(cell_data);
-    }
-    int row_idx = 0;
-    do {
-        fields_idx = 0;
-        if(row_idx != 0) s << endl;
-        for(const auto &i: hdr) {
-            s << setw(i.second) << (fields[fields_idx].empty() ? "" : *(fields[fields_idx].begin()));
-            fields_idx++;
-        }
-        for(auto &i: fields)
-            if(not i.second.empty()) i.second.erase(i.second.begin());
-        row_idx++;
-    } while(check_fileds_empty(fields));
-}
-
-void TTextGrid::trace()
-{
-    LogTrace(TRACE5) << "TTextGrid::trace tab_width: " << tab_width;
-    ostringstream s;
-    s << left << endl;
-    fill_grid(s);
-    s << endl;
-    s << string(tab_width, '-') << endl;
-
-    for(const auto &i: grid) {
-        fill_grid(s, i);
-        s << endl;
-    }
-
-    LogTrace(TRACE5) << s.str();
 }
 
 void BDOCSTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
