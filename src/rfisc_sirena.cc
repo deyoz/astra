@@ -552,11 +552,18 @@ void TSvcList::addFromCrs(const TNotCheckedReqPassengers &req_pnrs, int pnr_id, 
   addASVCs(pax_id, asvc);
 }
 
+bool deepTracing()
+{
+  const int developersDeskGrpId=1;
+  return TReqInfo::Instance()->desk.grp_id==developersDeskGrpId;
+}
+
 void TPaymentStatusReq::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return;
 
   SetProp(node, "show_free_carry_on_norm", "true");
+  SetProp(node, "set_pupil", deepTracing()?"true":"false", "false");
 
   TPaxSection::toXML(node);
   TSvcSection::toXML(node);
