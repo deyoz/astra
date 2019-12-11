@@ -161,6 +161,7 @@ class TPaxTknItem : public TPaxAPIItem, public TPaxRemBasic
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
     void addSQLParamsForSearch(QParams& params) const;
     bool finalPassengerCheck(const TSimplePaxItem& pax) const { return true; }
+    bool suitable(const TPaxTknItem& tkn) const;
 };
 
 bool LoadPaxTkn(int pax_id, TPaxTknItem &tkn);
@@ -305,6 +306,7 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic, public TPaxDocCompo
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
     void addSQLParamsForSearch(QParams& params) const;
     bool finalPassengerCheck(const TSimplePaxItem& pax) const { return true; }
+    bool suitable(const TPaxDocItem& doc) const;
 };
 
 class TScannedPaxDocItem : public TPaxDocItem
@@ -326,6 +328,7 @@ class TScannedPaxDocItem : public TPaxDocItem
 
     void addSQLParamsForSearch(QParams& params) const;
     bool finalPassengerCheck(const TSimplePaxItem& pax) const { return true; }
+    bool suitable(const TPaxDocItem& doc) const;
 };
 
 const std::string DOCO_PSEUDO_TYPE="-";
@@ -1044,6 +1047,8 @@ void PaxBrandsNormsToStream(const TTrferRoute &trfer, const CheckIn::TPaxItem &p
 
 std::string convert_pnr_addr(const std::string &value, bool pr_lat);
 
+class TPnrAddrs;
+
 class TPnrAddrInfo
 {
   public:
@@ -1097,6 +1102,8 @@ class TPnrAddrInfo
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
     void addSQLParamsForSearch(QParams& params) const;
     bool finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const { return true; }
+    bool suitable(const TPnrAddrInfo& pnr) const;
+    bool suitable(const TPnrAddrs& pnrs) const;
 };
 
 class TPnrAddrs : public std::vector<TPnrAddrInfo>

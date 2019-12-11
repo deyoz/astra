@@ -514,6 +514,13 @@ void SurnameFilter::addSQLParamsForSearch(QParams& params) const
   params << QParam("surname", otString, surname);
 }
 
+bool SurnameFilter::suitable(const CheckIn::TSimplePaxItem& pax) const
+{
+  return surname.empty() ||
+         checkSurnameEqualBeginning?transliter_equal_begin(pax.surname, surname):
+                                    transliter_equal      (pax.surname, surname);
+}
+
 std::string FullnameFilter::firstName(const std::string& name)
 {
   string result(name);
@@ -531,12 +538,26 @@ bool FullnameFilter::finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) con
                                  transliter_equal      (firstName(pax.name), firstName(name));
 }
 
+bool FullnameFilter::suitable(const CheckIn::TSimplePaxItem& pax) const
+{
+  return SurnameFilter::suitable(pax) &&
+         (name.empty() ||
+          checkNameEqualBeginning?transliter_equal_begin(firstName(pax.name), firstName(name)):
+                                  transliter_equal      (firstName(pax.name), firstName(name)));
+}
+
 bool BarcodePaxFilter::finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const
 {
   if (!FullnameFilter::finalPassengerCheck(pax)) return false;
 
   if (reg_no==ASTRA::NoExists) return true;
   return pax.reg_no==reg_no;
+}
+
+bool BarcodePaxFilter::suitable(const CheckIn::TSimplePaxItem& pax) const
+{
+  return FullnameFilter::suitable(pax) &&
+         (reg_no==ASTRA::NoExists || pax.reg_no==reg_no);
 }
 
 bool FlightFilter::validForSearch() const
@@ -609,14 +630,26 @@ void FlightFilter::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<
 
 void FlightFilter::addSQLParamsForSearch(QParams& params) const
 {
+  params << QParam("airp_dep", otString, airp);
+
   if (scd_out!=ASTRA::NoExists)
-    params << QParam("scd_out", otDate, scd_out);
+  {
+    if (scdOutIsLocal)
+      params << QParam("scd_out", otDate, LocalToUTC(scd_out, AirpTZRegion(airp)));
+    else
+      params << QParam("scd_out", otDate, scd_out);
+  }
   else
   {
-    params << QParam("min_scd_out", otDate, min_scd_out)
-           << QParam("max_scd_out", otDate, max_scd_out);
+    if (scdOutIsLocal)
+    {
+      params << QParam("min_scd_out", otDate, LocalToUTC(min_scd_out, AirpTZRegion(airp), BackwardWhenProblem))
+             << QParam("max_scd_out", otDate, LocalToUTC(max_scd_out, AirpTZRegion(airp), ForwardWhenProblem));
+    }
+    else
+      params << QParam("min_scd_out", otDate, min_scd_out)
+             << QParam("max_scd_out", otDate, max_scd_out);
   }
-  params << QParam("airp_dep", otString, airp);
 
   if (!airline.empty())
     params << QParam("airline", otString, airline);
@@ -628,6 +661,29 @@ void FlightFilter::addSQLParamsForSearch(QParams& params) const
   }
   if (!airp_arv.empty())
     params << QParam("airp_arv", otString, airp_arv);
+}
+
+bool FlightFilter::suitable(const TAdvTripRouteItem& departure,
+                            const TAdvTripRouteItem& arrival) const
+{
+  TDateTime departure_scd_out=scdOutIsLocal?departure.scd_out_local():departure.scd_out;
+
+  if (!airp.empty() && airp!=departure.airp) return false;
+
+  if (scd_out!=ASTRA::NoExists &&
+      (departure_scd_out==ASTRA::NoExists || scd_out!=departure_scd_out)) return false;
+
+  if (min_scd_out!=ASTRA::NoExists &&
+      (departure_scd_out==ASTRA::NoExists || min_scd_out>departure_scd_out)) return false;
+
+  if (max_scd_out!=ASTRA::NoExists &&
+      (departure_scd_out==ASTRA::NoExists || max_scd_out<=departure_scd_out)) return false;
+
+  if (!airline.empty() && airline!=departure.airline) return false;
+  if (flt_no!=ASTRA::NoExists && (flt_no!=departure.flt_num || suffix!=departure.suffix)) return false;
+  if (!airp_arv.empty() && airp_arv!=arrival.airp) return false;
+
+  return true;
 }
 
 void BarcodeSegmentFilter::set(const BCBPUniqueSections& unique,
@@ -689,8 +745,9 @@ void BarcodeSegmentFilter::set(const BCBPUniqueSections& unique,
     {
       JulianDate scd_out_local(julian_date, NowUTC(), JulianDate::TDirection::everywhere);
       scd_out_local.trace(__FUNCTION__);
-      seg.min_scd_out=LocalToUTC(scd_out_local.getDateTime(), AirpTZRegion(seg.airp));
-      seg.max_scd_out=LocalToUTC(scd_out_local.getDateTime()+1.0, AirpTZRegion(seg.airp));
+      seg.min_scd_out=scd_out_local.getDateTime();
+      seg.max_scd_out=scd_out_local.getDateTime()+1.0;
+      seg.scdOutIsLocal=true;
     }
     catch(const EXCEPTIONS::EConvertError&)
     {
@@ -727,5 +784,27 @@ void BarcodeFilter::getPassengers(CheckIn::Search& search, CheckIn::TSimplePaxLi
 
     if (search.timeoutIsReached()) return;
   }
+}
+
+bool BarcodeFilter::suitable(const TAdvTripRouteItem& departure,
+                             const TAdvTripRouteItem& arrival,
+                             const CheckIn::TSimplePaxItem& pax,
+                             const TPnrAddrs& pnrs,
+                             bool checkOnlyFullname) const
+{
+  for(const BarcodeSegmentFilter& filter : *this)
+  {
+    if (!filter.seg.suitable(departure, arrival)) continue;
+    if (checkOnlyFullname) {
+      if (!static_cast<const FullnameFilter&>(filter.pax).suitable(pax)) continue;
+    } else {
+      if (!filter.pax.suitable(pax)) continue;
+    }
+    if (!filter.pnr.suitable(pnrs)) continue;
+
+    return true;
+  }
+
+  return false;
 }
 

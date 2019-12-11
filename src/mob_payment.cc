@@ -2,6 +2,7 @@
 #include "astra_elem_utils.h"
 #include "sopp.h"
 #include "tripinfo.h"
+#include "rfisc_sirena.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/slogger.h"
@@ -29,11 +30,28 @@ static std::string getParam(const std::string& name, xmlNodePtr node)
   return NodeAsString(name.c_str(), node, "");
 }
 
+void Response::errorToXML(const std::exception& e, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  if (reqNode==nullptr || resNode==nullptr) throw;
+
+  xmlUnlinkNode(resNode->children);
+  xmlFreeNode(resNode->children);
+
+  xmlNodePtr errorNode=NewTextChild(NewTextChild(resNode, (const char*)reqNode->name), "error");
+  SetProp(errorNode, "code", 0);
+  SetProp(errorNode, "message", e.what());
+}
+
 SearchPassengersRequest::Depth& SearchPassengersRequest::Depth::fromXML(xmlNodePtr node)
 {
-  hours=NodeAsInteger("search_depth", node);
-  if (hours<1 || hours>48)
-    throw Exception("Wrong <search_depth>");
+  departure=elemIdFromXML(etAirp, "departure", node, cfErrorIfEmpty);
+
+  if (!getParam("search_depth", node).empty())
+  {
+    hours=NodeAsInteger("search_depth", node);
+    if (hours<1 || hours>48)
+      throw Exception("Wrong <search_depth>");
+  }
 
   string document_no=upperc(getParam("document_no", node));
   if (!document_no.empty())
@@ -49,47 +67,47 @@ SearchPassengersRequest::Depth& SearchPassengersRequest::Depth::fromXML(xmlNodeP
     pax.get().surname=lastname;
   }
 
-  if (!doc && !pax)
-    throw Exception("Empty <document_no> and <lastname>");
+  if (hours!=ASTRA::NoExists)
+  {
+    filter.min_scd_out=NowUTC();
+    filter.max_scd_out=filter.min_scd_out+hours/24.0;
+    filter.scdOutIsLocal=false;
+  }
+  filter.airp=departure;
 
   return *this;
-}
-
-FlightFilter SearchPassengersRequest::Depth::getFlightFilter() const
-{
-  FlightFilter flt;
-  flt.min_scd_out=NowUTC();
-  flt.max_scd_out=flt.min_scd_out+hours/24.0;
-  flt.airp=departure;
-  return flt;
 }
 
 SearchPassengersRequest::Segment& SearchPassengersRequest::Segment::fromXML(xmlNodePtr node)
 {
-  airline=elemIdFromXML(etAirline, "carrier", node, cfErrorIfEmpty);
-  auto flightNumber=flightNumberFromXML("flight_no", node, cfErrorIfEmpty);
-  if (flightNumber)
+  airp=elemIdFromXML(etAirp, "departure", node, cfErrorIfEmpty);
+
+  if (!getParam("carrier", node).empty())
+    airline=elemIdFromXML(etAirline, "carrier", node, cfErrorIfEmpty);
+  if (!getParam("flight_no", node).empty())
   {
-    flt_no=flightNumber.get().first;
-    suffix=flightNumber.get().second;
+    auto flightNumber=flightNumberFromXML("flight_no", node, cfErrorIfEmpty);
+    if (flightNumber)
+    {
+      flt_no=flightNumber.get().first;
+      suffix=flightNumber.get().second;
+    }
   }
-  departure_date_scd=dateFromXML("departure_date_scd", node, dateFmt, cfErrorIfEmpty);
+  if (!getParam("departure_date_scd", node).empty())
+    departure_date_scd=dateFromXML("departure_date_scd", node, dateFmt, cfErrorIfEmpty);
   if (!getParam("destination", node).empty())
     destination=elemIdFromXML(etAirp, "destination", node, cfErrorIfEmpty);
 
-  return *this;
-}
-
-FlightFilter SearchPassengersRequest::Segment::getFlightFilter() const
-{
-  FlightFilter flt(*this);
+  filter=FlightFilter(*this);
   if (departure_date_scd!=ASTRA::NoExists)
   {
-    flt.min_scd_out=LocalToUTC(departure_date_scd, AirpTZRegion(flt.airp));
-    flt.max_scd_out=LocalToUTC(departure_date_scd+1.0, AirpTZRegion(flt.airp));
+    filter.min_scd_out=departure_date_scd;
+    filter.max_scd_out=departure_date_scd+1.0;
+    filter.scdOutIsLocal=true;
   }
-  flt.airp_arv=destination;
-  return flt;
+  filter.airp_arv=destination;
+
+  return *this;
 }
 
 SearchPassengersRequest::Barcode& SearchPassengersRequest::Barcode::fromXML(xmlNodePtr node)
@@ -125,22 +143,21 @@ SearchPassengersRequest& SearchPassengersRequest::fromXML(xmlNodePtr node)
     tkn.get().no=ticket_no;
   }
 
-  if (!getParam("carrier", node).empty() &&
-      !getParam("flight_no", node).empty() &&
-      !getParam("departure_date_scd", node).empty())
+  if (!getParam("carrier", node).empty() ||
+      !getParam("flight_no", node).empty() ||
+      !getParam("departure_date_scd", node).empty() ||
+      !getParam("destination", node).empty())
   {
     oper=boost::in_place();
     oper.get().fromXML(node);
-    oper.get().airp=departure;
   }
 
-  if (!getParam("search_depth", node).empty() &&
-      (!getParam("document_no", node).empty() ||
-       !getParam("lastname", node).empty()))
+  if (!getParam("search_depth", node).empty() ||
+      !getParam("document_no", node).empty() ||
+      !getParam("lastname", node).empty())
   {
     depth=boost::in_place();
     depth.get().fromXML(node);
-    depth.get().departure=departure;
   }
 
   if (!getParam("barcode", node).empty())
@@ -169,9 +186,9 @@ SearchFlightsRequest& SearchFlightsRequest::fromXML(xmlNodePtr node)
 void Stages::set(int point_id)
 {
   TTripStages tripStages(point_id);
-  checkin =    tripStages.getStage( stCheckIn )==sOpenCheckIn?       Segment::Open:Segment::Close;
-  webCheckin = tripStages.getStage( stWEBCheckIn )==sOpenWEBCheckIn? Segment::Open:Segment::Close;
-  boarding =   tripStages.getStage( stBoarding )==sOpenBoarding?     Segment::Open:Segment::Close;
+  checkin =    tripStages.getStage( stCheckIn )    ==    sOpenCheckIn? Segment::Open:Segment::Close;
+  webCheckin = tripStages.getStage( stWEBCheckIn ) == sOpenWEBCheckIn? Segment::Open:Segment::Close;
+  boarding =   tripStages.getStage( stBoarding )   ==   sOpenBoarding? Segment::Open:Segment::Close;
 }
 
 const Stages& Stages::toXML(xmlNodePtr node) const
@@ -351,7 +368,7 @@ void SearchPassengersResponse::searchPassengers(const SearchPassengersRequest& r
   CheckIn::TSimplePaxList paxs;
 
   CheckIn::Search search(TIMEOUT());
-  if (req.barcode)
+  if (req.barcode && req.barcode.get().completeForSearch())
   {
     req.barcode.get().getBarcodeFilter().getPassengers(search, paxs, true);
   }
@@ -363,11 +380,11 @@ void SearchPassengersResponse::searchPassengers(const SearchPassengersRequest& r
   {
     search(paxs, req.pnr.get());
   }
-  else if (req.oper)
+  else if (req.oper && req.oper.get().completeForSearch())
   {
     search(paxs, req.oper.get().getFlightFilter());
   }
-  else if (req.depth)
+  else if (req.depth && req.depth.get().completeForSearch())
   {
     const SearchPassengersRequest::Depth& depth=req.depth.get();
     if (depth.doc)
@@ -379,6 +396,7 @@ void SearchPassengersResponse::searchPassengers(const SearchPassengersRequest& r
       search(paxs, depth.pax.get(), depth.getFlightFilter());
     }
   }
+  else throw Exception("Not enough parameters to search");
 
   if (search.timeoutIsReached())
   {
@@ -389,13 +407,53 @@ void SearchPassengersResponse::searchPassengers(const SearchPassengersRequest& r
   for(const CheckIn::TSimplePaxItem pax : paxs) add(pax, req.departure);
 }
 
-const SearchPassengersResponse& SearchPassengersResponse::toXML(xmlNodePtr node,
-                                                                const AstraLocale::OutputLang& lang) const
+bool SearchPassengersResponse::suitable(const Passenger& passenger,
+                                        const SearchPassengersRequest& req) const
+{
+  const Segment& segment=getSegment(passenger.segmentPair);
+  //штрихкод
+  if (req.barcode &&
+      !req.barcode.get().getBarcodeFilter().suitable(segment.departure,
+                                                     segment.arrival,
+                                                     passenger,
+                                                     passenger.pnrAddrs,
+                                                     true)) return false;
+  //билет
+  if (req.tkn && !req.tkn.get().suitable(passenger.tkn)) return false;
+  //номер PNR
+  if (req.pnr && !req.pnr.get().suitable(passenger.pnrAddrs)) return false;
+  //рейс
+  if (req.oper && !req.oper.get().getFlightFilter().suitable(segment.departure,
+                                                             segment.arrival))  return false;
+
+  if (req.depth)
+  {
+    const SearchPassengersRequest::Depth& depth=req.depth.get();
+    //рейсы
+    if (!depth.getFlightFilter().suitable(segment.departure,
+                                          segment.arrival))  return false;
+    //документ
+    if (depth.doc && !depth.doc.get().suitable(passenger.doc)) return false;
+    //фамилия
+    if (depth.pax && !depth.pax.get().suitable(passenger)) return false;
+  }
+
+  return true;
+}
+
+
+void SearchPassengersResponse::filterPassengers(const SearchPassengersRequest& req)
+{
+  for(auto p=passengers.begin(); p!=passengers.end();)
+    if (!suitable(*p, req)) p=passengers.erase(p); else ++p;
+}
+
+const SearchPassengersResponse& SearchPassengersResponse::toXML(xmlNodePtr node) const
 {
   if (node==nullptr) return *this;
 
   for(const Passenger& p : passengers)
-    p.toXML(NewTextChild(node, "passenger"), getSegment(p.segmentPair), lang);
+    p.toXML(NewTextChild(node, "passenger"), getSegment(p.segmentPair), outputLang);
 
   return *this;
 }
@@ -496,19 +554,17 @@ void SearchFlightsResponse::searchFlights(const SearchFlightsRequest& req)
   }
 }
 
-const SearchFlightsResponse& SearchFlightsResponse::toXML(xmlNodePtr node,
-                                                          const AstraLocale::OutputLang& lang) const
+const SearchFlightsResponse& SearchFlightsResponse::toXML(xmlNodePtr node) const
 {
   if (node==nullptr) return *this;
 
   for(const Flight& f : flights)
-    f.toXML(NewTextChild(node, "flight"), lang);
+    f.toXML(NewTextChild(node, "flight"), outputLang);
 
   return *this;
 }
 
-const GetClientPermsResponse& GetClientPermsResponse::toXML(xmlNodePtr node,
-                                                            const AstraLocale::OutputLang& lang) const
+const GetClientPermsResponse& GetClientPermsResponse::toXML(xmlNodePtr node) const
 {
   if (node==nullptr) return *this;
 
@@ -525,14 +581,14 @@ const GetClientPermsResponse& GetClientPermsResponse::toXML(xmlNodePtr node,
     if (!access.airps().totally_permitted())
     {
       for(const std::string& airp : access.airps().elems())
-        NewTextChild(pointsNode, "point", airpToPrefferedCode(airp, lang));
+        NewTextChild(pointsNode, "point", airpToPrefferedCode(airp, outputLang));
     }
 
     if (!access.airlines().totally_permitted())
     {
       xmlNodePtr carriersNode=NewTextChild(node, "carriers");
       for(const std::string& airline : access.airlines().elems())
-        NewTextChild(carriersNode, "carrier", airlineToPrefferedCode(airline, lang));
+        NewTextChild(carriersNode, "carrier", airlineToPrefferedCode(airline, outputLang));
     }
   }
 
@@ -543,28 +599,67 @@ const GetClientPermsResponse& GetClientPermsResponse::toXML(xmlNodePtr node,
 
 void MobilePaymentInterface::searchPassengers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  MobilePayment::SearchPassengersRequest req;
-  req.fromXML(reqNode);
+  try
+  {
+    MobilePayment::SearchPassengersRequest req;
+    req.fromXML(reqNode);
 
-  MobilePayment::SearchPassengersResponse res;
-  res.searchPassengers(req);
-  res.toXML(NewTextChild(resNode, (const char*)reqNode->name), AstraLocale::OutputLang("", {AstraLocale::OutputLang::OnlyTrueIataCodes}));
+    MobilePayment::SearchPassengersResponse res;
+    res.searchPassengers(req);
+    res.filterPassengers(req);
+    res.toXML(NewTextChild(resNode, (const char*)reqNode->name));
+  }
+  catch(const std::exception& e)
+  {
+    MobilePayment::Response::errorToXML(e, reqNode, resNode);
+  }
 }
 
 void MobilePaymentInterface::searchFlights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  MobilePayment::SearchFlightsRequest req;
-  req.fromXML(reqNode);
+  try
+  {
+    MobilePayment::SearchFlightsRequest req;
+    req.fromXML(reqNode);
 
-  MobilePayment::SearchFlightsResponse res;
-  res.searchFlights(req);
-  res.toXML(NewTextChild(resNode, (const char*)reqNode->name), AstraLocale::OutputLang("", {AstraLocale::OutputLang::OnlyTrueIataCodes}));
+    MobilePayment::SearchFlightsResponse res;
+    res.searchFlights(req);
+    res.toXML(NewTextChild(resNode, (const char*)reqNode->name));
+  }
+  catch(const std::exception& e)
+  {
+    MobilePayment::Response::errorToXML(e, reqNode, resNode);
+  }
 }
 
 void MobilePaymentInterface::getClientPerms(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  MobilePayment::GetClientPermsResponse res;
-  res.toXML(NewTextChild(resNode, (const char*)reqNode->name), AstraLocale::OutputLang("", {AstraLocale::OutputLang::OnlyTrueIataCodes}));
+  try
+  {
+    MobilePayment::GetClientPermsResponse res;
+    res.toXML(NewTextChild(resNode, (const char*)reqNode->name));
+  }
+  catch(const std::exception& e)
+  {
+    MobilePayment::Response::errorToXML(e, reqNode, resNode);
+  }
+}
+
+void MobilePaymentInterface::getPassengerInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  try
+  {
+    SirenaExchange::TEntityList entities;
+    entities.emplace(NodeAsInteger("pax_id", reqNode), 0);
+    SirenaExchange::TPseudoGroupInfoRes res;
+    SirenaExchange::fillPaxsSvcs(entities, res);
+    res.toXML(NewTextChild(resNode, (const char*)reqNode->name));
+  }
+  catch(const std::exception& e)
+  {
+    MobilePayment::Response::errorToXML(e, reqNode, resNode);
+  }
+
 }
 
 

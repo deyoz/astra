@@ -61,6 +61,37 @@ std::string HTTPClient::toString()
   return res;
 }
 
+std::string HTTPClient::getQueryTagPropsString() const
+{
+  auto i=jxt_interface.find(operation);
+  return " id='" + (i!=jxt_interface.end()?i->second.interface:"") + "' screen='AIR.EXE' opr='" + CP866toUTF8(client_info.opr) +"'";
+}
+
+std::pair<string::size_type, string::size_type> HTTPClient::findTag(const std::string& str,
+                                                                    string::size_type pos,
+                                                                    const std::string& tagName)
+{
+  string::size_type tagBegin, tagEnd;
+  do
+  {
+    tagBegin=string::npos;
+    tagEnd=string::npos;
+
+    tagBegin=str.find("<"+tagName, pos);
+    if (tagBegin!=string::npos)
+    {
+      tagEnd=str.find_first_of(" />", ++tagBegin);
+      if (tagEnd!=string::npos) pos=tagEnd; //для возможной следующей итерации поиска
+    }
+  }
+  while (!tagName.empty() &&
+         tagBegin!=string::npos &&
+         tagEnd!=string::npos &&
+         str.substr(tagBegin, tagEnd-tagBegin)!=tagName);
+
+  return make_pair(tagBegin, tagEnd);
+}
+
 void populate_client_from_uri(const string& uri, HTTPClient& client)
 {
     LogTrace(TRACE5) << "populate_client_from_uri incoming uri: '" << uri << "'";
@@ -218,15 +249,14 @@ void HTTPClient::toJXT( const ServerFramework::HTTP::request& req, std::string &
              body += content.c_str();
              body.insert(
                      pos + sss.length(),
-                     string("<term><query id=") + "'" + jxt_interface[operation].interface + "' screen='AIR.exe' opr='" + CP866toUTF8(client_info.opr) + "'>" +
+                     string("<term><query") + getQueryTagPropsString() + ">" +
                      http_header + "<content>\n" );
              body += string(" </content>\n") + "</" + operation + ">\n</query></term>";
          } else {
              body.insert(
                      pos + sss.length(),
-                     string("<term><query id=") + "'" + jxt_interface[operation].interface + "' screen='AIR.exe' opr='" + CP866toUTF8(client_info.opr) + "'>" +
-                     http_header +
-                     "<content/>\n" );
+                     string("<term><query") + getQueryTagPropsString() + ">" +
+                     http_header + "<content/>\n" );
              body += (string)"</" + operation + ">\n</query></term>";
              // screeneng chars such as ampersand, may be encountered in content (& -> &amp;)
              XMLDoc doc(body);
@@ -240,32 +270,32 @@ void HTTPClient::toJXT( const ServerFramework::HTTP::request& req, std::string &
   }
   else
   {
-      body += req.content.c_str();
-      string sss("<query");
-      string::size_type pos=req.content.find(sss);
-
-      if(pos!=string::npos)
+      body = req.content;
+      auto queryPos=findTag(body, 0, "query");
+      if (queryPos.first==string::npos ||
+          queryPos.second==string::npos)
       {
-        if ( req.content.find("<kick") == string::npos )
-        {
-          string::size_type pos1=req.content.find("<", pos+1) + 1;
-          string::size_type pos2=req.content.find(">", pos1);
-          operation = req.content.substr(pos1, pos2-pos1);
-
-          // а вдруг тег запроса пустой?:
-          // <term>
-          //   <query>
-          //     <kiosk_alias_locale/>
-          //   </query>
-          // </term>
-          if(operation.back() == '/') operation.pop_back();
-
-          body=body.substr(0,pos+sss.size())+" id='"+jxt_interface[operation].interface+"' screen='AIR.EXE' opr='"+ CP866toUTF8(client_info.opr) +"'"+body.substr(pos+sss.size());
-        }
+        ProgTrace(TRACE1,"Unable to find <query> tag!");
+        return;
       }
-      else
-          ProgTrace(TRACE1,"Unable to find <query> tag!");
 
+      auto operationPos=findTag(body, queryPos.second, "");
+      if (operationPos.first==string::npos ||
+          operationPos.second==string::npos)
+      {
+        ProgTrace(TRACE1,"Unable to find operation tag!");
+        return;
+      }
+
+      operation=body.substr(operationPos.first, operationPos.second-operationPos.first);
+
+      if (operation=="kick")
+      {
+        operation.clear();
+        return;
+      }
+
+      body.insert(queryPos.second, getQueryTagPropsString());
   }
 }
 
@@ -466,7 +496,7 @@ void TlgPostProcessXMLAnswer()
     }
 }
 
-void HTTPPostProcessXMLAnswer()
+void CrewPostProcessXMLAnswer()
 {
   ProgTrace(TRACE5, "%s started", __FUNCTION__);
 
@@ -502,13 +532,13 @@ void ZamarPostProcessXMLAnswer()
   ProgTrace(TRACE5, "%s started", __FUNCTION__);
 
   XMLRequestCtxt *xmlRC = getXmlCtxt();
-  xmlNodePtr resNode = NodeAsNode("/term/answer",xmlRC->resDoc);  
-  
+  xmlNodePtr resNode = NodeAsNode("/term/answer",xmlRC->resDoc);
+
 //  LogTrace(TRACE5) << __func__ << " GetXMLDocText: " << GetXMLDocText(xmlRC->resDoc);
 
   std::string error_code, error_message;
   xmlNodePtr errNode = AstraLocale::selectPriorityMessage(resNode, error_code, error_message);
-  
+
   NewTextChild( resNode, "queryType", NodeAsString("@queryType", resNode));
 
   if (errNode!=NULL)

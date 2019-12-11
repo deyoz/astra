@@ -2780,6 +2780,12 @@ void TPaxTknItem::addSQLParamsForSearch(QParams& params) const
     params << QParam("tkn_coupon", otInteger, coupon);
 }
 
+bool TPaxTknItem::suitable(const TPaxTknItem& tkn) const
+{
+  return (no.empty() || (no.size()==14?no.substr(0,13):no) == tkn.no) &&
+         (coupon==ASTRA::NoExists || coupon==tkn.coupon);
+}
+
 bool TPaxDocItem::validForSearch() const
 {
   return !no.empty();
@@ -2829,6 +2835,12 @@ void TPaxDocItem::addSQLParamsForSearch(QParams& params) const
     params << QParam("doc_birth_date", otDate, birth_date);
 }
 
+bool TPaxDocItem::suitable(const TPaxDocItem& doc) const
+{
+  return (no.empty() || no==doc.no) &&
+         (birth_date==ASTRA::NoExists || doc.birth_date==ASTRA::NoExists || birth_date==doc.birth_date);
+}
+
 std::string TScannedPaxDocItem::getTrueNo() const
 {
   if (isNationalRussianPassport() && no.size()==9 && !extra.empty())
@@ -2846,6 +2858,12 @@ void TScannedPaxDocItem::addSQLParamsForSearch(QParams& params) const
     LogTrace(TRACE5) << __FUNCTION__ << ": doc_birth_date=" << DateTimeToStr(birth_date);
     params << QParam("doc_birth_date", otDate, birth_date);
   }
+}
+
+bool TScannedPaxDocItem::suitable(const TPaxDocItem& doc) const
+{
+  return (no.empty() || getTrueNo()==doc.no) &&
+         (birth_date==ASTRA::NoExists || doc.birth_date==ASTRA::NoExists || birth_date==doc.birth_date);
 }
 
 bool TSimplePaxList::infantsMoreThanAdults() const
@@ -3067,6 +3085,19 @@ void TPnrAddrInfo::addSQLParamsForSearch(QParams& params) const
   transform(addr_lat.begin(), addr_lat.end(), addr_lat.begin(), toLatPnrChar);
   params << QParam("addr_rus", otString, addr_rus)
          << QParam("addr_lat", otString, addr_lat);
+}
+
+bool TPnrAddrInfo::suitable(const TPnrAddrInfo& pnr) const
+{
+  return addr.empty() || convert_pnr_addr(addr, true)==convert_pnr_addr(pnr.addr, true);
+}
+
+bool TPnrAddrInfo::suitable(const TPnrAddrs& pnrs) const
+{
+  if (addr.empty()) return true;
+  for(const TPnrAddrInfo& pnr : pnrs)
+    if (suitable(pnr)) return true;
+  return false;
 }
 
 const TPnrAddrs& TPnrAddrs::toXML(xmlNodePtr addrsParentNode) const

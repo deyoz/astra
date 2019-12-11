@@ -65,6 +65,8 @@ class TPNRFilter : public SurnameFilter
 
     TPNRFilter() { clear(); };
 
+    TPNRFilter(const BarcodeSegmentFilter& barcode);
+
     void clear()
     {
       SurnameFilter::clear();

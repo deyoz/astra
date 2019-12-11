@@ -10,30 +10,58 @@
 namespace MobilePayment
 {
 
+class Response
+{
+  public:
+    AstraLocale::OutputLang outputLang;
+
+    Response() : outputLang(AstraLocale::OutputLang("", {AstraLocale::OutputLang::OnlyTrueIataCodes})) {}
+    static void errorToXML(const std::exception& e, xmlNodePtr reqNode, xmlNodePtr resNode);
+};
+
 class SearchPassengersRequest
 {
   public:
 
     class Depth
     {
+      private:
+        FlightFilter filter;
       public:
         std::string departure;
-        int hours;
+        int hours=ASTRA::NoExists;
         boost::optional<CheckIn::TPaxDocItem> doc;
         boost::optional<SurnameFilter> pax;
 
         Depth& fromXML(xmlNodePtr node);
-        FlightFilter getFlightFilter() const;
+        const FlightFilter& getFlightFilter() const { return filter; };
+        bool completeForSearch() const
+        {
+          return !departure.empty() &&
+                 hours!=ASTRA::NoExists &&
+                 (doc || pax);
+        }
     };
 
     class Segment : public TTripInfo
     {
+      private:
+        FlightFilter filter;
       public:
         TDateTime departure_date_scd=ASTRA::NoExists;
         std::string destination;
 
+        Segment() { flt_no=ASTRA::NoExists; }
+
         Segment& fromXML(xmlNodePtr node);
-        FlightFilter getFlightFilter() const;
+        const FlightFilter& getFlightFilter() const { return filter; };
+        bool completeForSearch() const
+        {
+          return !airline.empty() &&
+                 flt_no!=ASTRA::NoExists &&
+                 departure_date_scd!=ASTRA::NoExists &&
+                 !airp.empty();
+        }
     };
 
     class Barcode : public std::string
@@ -43,6 +71,10 @@ class SearchPassengersRequest
       public:
         Barcode& fromXML(xmlNodePtr node);
         const BarcodeFilter& getBarcodeFilter() const { return filter; }
+        bool completeForSearch() const
+        {
+          return !filter.empty();
+        }
     };
 
     std::string departure;
@@ -118,6 +150,7 @@ class Passenger : public CheckIn::TSimplePaxItem
     const Passenger& toXML(xmlNodePtr node,
                            const Segment& segment,
                            const AstraLocale::OutputLang& lang) const;
+
     std::string categoryStr() const;
     std::string genderStr() const;
     std::string statusStr() const;
@@ -137,7 +170,7 @@ class SegmentCache
     };
 };
 
-class SearchPassengersResponse : public SegmentCache
+class SearchPassengersResponse : public SegmentCache, public Response
 {
   private:
 //    std::map<int/*pnr_id*/, TAdvTripInfoList> flts; !!!vlad ͺνθ¨
@@ -145,28 +178,28 @@ class SearchPassengersResponse : public SegmentCache
     std::list<Passenger> passengers;
     void add(const CheckIn::TSimplePaxItem& pax,
              const std::string& reqDeparture);
+    bool suitable(const Passenger& passenger,
+                  const SearchPassengersRequest& req) const;
   public:
     void searchPassengers(const SearchPassengersRequest& req);
-    const SearchPassengersResponse& toXML(xmlNodePtr node,
-                                          const AstraLocale::OutputLang& lang) const;
+    void filterPassengers(const SearchPassengersRequest& req);
+    const SearchPassengersResponse& toXML(xmlNodePtr node) const;
 };
 
-class SearchFlightsResponse
+class SearchFlightsResponse : public Response
 {
   private:
     std::list<Flight> flights;
     void add(const TAdvTripInfo& flt);
   public:
     void searchFlights(const SearchFlightsRequest& req);
-    const SearchFlightsResponse& toXML(xmlNodePtr node,
-                                       const AstraLocale::OutputLang& lang) const;
+    const SearchFlightsResponse& toXML(xmlNodePtr node) const;
 };
 
-class GetClientPermsResponse
+class GetClientPermsResponse : public Response
 {
   public:
-    const GetClientPermsResponse& toXML(xmlNodePtr node,
-                                        const AstraLocale::OutputLang& lang) const;
+    const GetClientPermsResponse& toXML(xmlNodePtr node) const;
 };
 
 } //namespace MobilePayment
@@ -179,9 +212,11 @@ class MobilePaymentInterface: public JxtInterface
             AddEvent("search_passengers",    JXT_HANDLER(MobilePaymentInterface, searchPassengers));
             AddEvent("search_flights",       JXT_HANDLER(MobilePaymentInterface, searchFlights));
             AddEvent("get_client_perms",     JXT_HANDLER(MobilePaymentInterface, getClientPerms));
+            AddEvent("get_passenger_info",   JXT_HANDLER(MobilePaymentInterface, getPassengerInfo));
         }
 
         void searchPassengers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void searchFlights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void getClientPerms(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+        void getPassengerInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };

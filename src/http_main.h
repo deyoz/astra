@@ -24,7 +24,7 @@ namespace AstraHTTP
 
 struct HTTPClient;
 
-void HTTPPostProcessXMLAnswer();
+void CrewPostProcessXMLAnswer();
 void TlgPostProcessXMLAnswer();
 void ZamarPostProcessXMLAnswer();
 
@@ -83,7 +83,13 @@ struct HTTPClient
   std::string uri_path;
   std::map<std::string, JxtInfo> jxt_interface;
   httpParams uri_params;
+
   std::string toString();
+  std::string getQueryTagPropsString() const;
+  static std::pair<std::string::size_type, std::string::size_type>
+    findTag(const std::string& str,
+            std::string::size_type pos,
+            const std::string& tagName);
   void toJXT( const ServerFramework::HTTP::request& req, std::string &header, std::string &body );
   ServerFramework::HTTP::reply& fromJXT( std::string res, ServerFramework::HTTP::reply& rep );
   HTTPClient() {
@@ -91,7 +97,7 @@ struct HTTPClient
     jxt_interface["SaveSPP"] =              JxtInfo(SPP_SYNCH_JXT_INTERFACE_ID,     NULL);
     jxt_interface["SaveUFASPP"] =           JxtInfo(SPP_SYNCH_JXT_INTERFACE_ID,     NULL);
     jxt_interface["SaveSinhronSPP"] =       JxtInfo(SPP_SYNCH_JXT_INTERFACE_ID,     NULL);
-    jxt_interface["CREWCHECKIN"] =          JxtInfo(CHECKIN_JXT_INTERFACE_ID,       HTTPPostProcessXMLAnswer);
+    jxt_interface["CREWCHECKIN"] =          JxtInfo(CHECKIN_JXT_INTERFACE_ID,       CrewPostProcessXMLAnswer);
     jxt_interface["tlg_srv"] =              JxtInfo(TELEGRAM_JXT_INTERFACE_ID,      TlgPostProcessXMLAnswer);
     jxt_interface["kick"] =                 JxtInfo(TELEGRAM_JXT_INTERFACE_ID,      TlgPostProcessXMLAnswer);
     jxt_interface["kuf_file"] =             JxtInfo(TELEGRAM_JXT_INTERFACE_ID,      NULL);
@@ -128,6 +134,7 @@ struct HTTPClient
     jxt_interface["search_passengers"] =    JxtInfo(MOBILE_PAYMENT_JXT_INTERFACE_ID,     nullptr);
     jxt_interface["search_flights"] =       JxtInfo(MOBILE_PAYMENT_JXT_INTERFACE_ID,     nullptr);
     jxt_interface["get_client_perms"] =     JxtInfo(MOBILE_PAYMENT_JXT_INTERFACE_ID,     nullptr);
+    jxt_interface["get_passenger_info"] =   JxtInfo(MOBILE_PAYMENT_JXT_INTERFACE_ID,     nullptr);
   }
 };
 

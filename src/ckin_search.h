@@ -193,6 +193,7 @@ class SurnameFilter
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
     void addSQLParamsForSearch(QParams& params) const;
     bool finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const { return true; }
+    bool suitable(const CheckIn::TSimplePaxItem& pax) const;
 };
 
 class FullnameFilter : public SurnameFilter
@@ -213,6 +214,7 @@ class FullnameFilter : public SurnameFilter
     }
 
     bool finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const;
+    bool suitable(const CheckIn::TSimplePaxItem& pax) const;
 };
 
 class BarcodePaxFilter : public FullnameFilter
@@ -232,12 +234,14 @@ class BarcodePaxFilter : public FullnameFilter
              const BCBPRepeatedSections& repeated);
 
     bool finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const;
+    bool suitable(const CheckIn::TSimplePaxItem& pax) const;
 };
 
 class FlightFilter : public TTripInfo
 {
   public:
     TDateTime min_scd_out, max_scd_out;
+    bool scdOutIsLocal;
     std::string airp_arv;
 
     FlightFilter() { clear(); }
@@ -254,6 +258,7 @@ class FlightFilter : public TTripInfo
       flt_no=ASTRA::NoExists;
       min_scd_out=ASTRA::NoExists;
       max_scd_out=ASTRA::NoExists;
+      scdOutIsLocal=false;
       airp_arv.clear();
     }
 
@@ -262,6 +267,8 @@ class FlightFilter : public TTripInfo
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
     void addSQLParamsForSearch(QParams& params) const;
     bool finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const { return true; }
+    bool suitable(const TAdvTripRouteItem& departure,
+                  const TAdvTripRouteItem& arrival) const;
 };
 
 class BarcodeSegmentFilter
@@ -289,5 +296,10 @@ class BarcodeFilter : public std::list<BarcodeSegmentFilter>
   public:
     void set(const std::string &barcode);
     void getPassengers(CheckIn::Search &search, CheckIn::TSimplePaxList& paxs, bool checkOnlyFullname) const;
+    bool suitable(const TAdvTripRouteItem& departure,
+                  const TAdvTripRouteItem& arrival,
+                  const CheckIn::TSimplePaxItem& pax,
+                  const TPnrAddrs& pnrs,
+                  bool checkOnlyFullname) const;
 };
 

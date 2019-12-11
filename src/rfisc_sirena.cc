@@ -1,6 +1,7 @@
 #include "rfisc_sirena.h"
 #include "baggage_calc.h"
 #include "payment_base.h"
+#include "astra_elem_utils.h"
 #include <regex>
 
 #define NICKNAME "VLAD"
@@ -165,12 +166,12 @@ TSvcItem& TSvcItem::fromSirenaXML(xmlNodePtr node)
     {
       status=ServiceStatuses().decode(xml_status);
     }
-    catch(EConvertError)
+    catch(const EConvertError&)
     {
       throw Exception("Wrong @payment_status='%s'", xml_status.c_str());
     };
   }
-  catch(Exception &e)
+  catch(const Exception &e)
   {
     throw Exception("TSvcItem::fromSirenaXML: %s", e.what());
   };
@@ -283,7 +284,7 @@ void TAvailabilityRes::fromXML(xmlNodePtr node)
     };
     if (empty()) throw Exception("empty()");
   }
-  catch(Exception &e)
+  catch(const Exception &e)
   {
     throw Exception("TAvailabilityRes::fromXML: %s", e.what());
   };
@@ -596,7 +597,7 @@ void TPaymentStatusRes::fromXML(xmlNodePtr node)
     if (svcs.empty()) throw Exception("svcs.empty()");
     //if (norms.empty()) throw Exception("norms.empty()"); а надо ли?
   }
-  catch(Exception &e)
+  catch(const Exception &e)
   {
     throw Exception("TPaymentStatusRes::fromXML: %s", e.what());
   };
@@ -636,42 +637,17 @@ void TPassengersReq::fromXML(xmlNodePtr node)
     string str;
     if (node==NULL) throw Exception("node not defined");
 
-    str = NodeAsString("company", node);
-    if (str.empty()) throw Exception("Empty <company>");
-    airline = ElemToElemId( etAirline, str, airline_fmt );
-    if (airline_fmt==efmtUnknown) throw Exception("Unknown <company> '%s'", str.c_str());
-
-    string flight=NodeAsString("flight", node);
-    str=flight;
-    if (str.empty()) throw Exception("Empty <flight>");
-    if (IsLetter(*str.rbegin()))
+    airline = elemIdFromXML(etAirline, "company", node, cfErrorIfEmpty);
+    auto flight = flightNumberFromXML("flight", node, cfErrorIfEmpty);
+    if (flight)
     {
-      suffix=string(1,*str.rbegin());
-      str.erase(str.size()-1);
-      if (str.empty()) throw Exception("Empty flight number <flight> '%s'", flight.c_str());
-    };
-
-    if ( StrToInt( str.c_str(), flt_no ) == EOF ||
-         flt_no > 99999 || flt_no <= 0 ) throw Exception("Wrong flight number <flight> '%s'", flight.c_str());
-
-    str=suffix;
-    if (!str.empty())
-    {
-      suffix = ElemToElemId( etSuffix, str, suffix_fmt );
-      if (suffix_fmt==efmtUnknown) throw Exception("Unknown flight suffix <flight> '%s'", flight.c_str());
-    };
-
-    str=NodeAsString("departure_date", node);
-    if (str.empty()) throw Exception("Empty <departure_date>");
-    if ( StrToDateTime(str.c_str(), "yyyy-mm-dd", scd_out) == EOF )
-      throw Exception("Wrong <departure_date> '%s'", str.c_str());
-
-    str=NodeAsString("departure", node);
-    if (str.empty()) throw Exception("Empty <departure>");
-    airp = ElemToElemId( etAirp, str, airp_fmt );
-    if (airp_fmt==efmtUnknown) throw Exception("Unknown <departure> '%s'", str.c_str());
+      flt_no=flight.get().first;
+      suffix=flight.get().second;
+    }
+    scd_out = dateFromXML("departure_date", node, "yyyy-mm-dd", cfErrorIfEmpty);
+    airp = elemIdFromXML(etAirp, "departure", node, cfErrorIfEmpty);
   }
-  catch(Exception &e)
+  catch(const Exception &e)
   {
     throw Exception("TPassengersReq::fromXML: %s", e.what());
   };
@@ -696,7 +672,7 @@ void TGroupInfoReq::fromXML(xmlNodePtr node)
     if (pnr_addr.size()>20) throw Exception("Wrong <regnum> '%s'", pnr_addr.c_str());
     grp_id = NodeAsInteger( "group_id", node );
   }
-  catch(Exception &e)
+  catch(const Exception &e)
   {
     throw Exception("TGroupInfoReq::fromXML: %s", e.what());
   };
@@ -733,7 +709,7 @@ void TPseudoGroupInfoReq::fromXML(xmlNodePtr node)
     };
     if (entities.empty()) throw Exception("entities.empty()");
   }
-  catch(Exception &e)
+  catch(const Exception &e)
   {
     throw Exception("TPseudoGroupInfoReq::fromXML: %s", e.what());
   };
@@ -790,7 +766,7 @@ void SvcSirenaInterface::procRequestsFromSirena(XMLRequestCtxt *ctxt, xmlNodePtr
     }
     else throw Exception("%s: Unknown request <%s>", __FUNCTION__, exchangeId.c_str());
   }
-  catch(std::exception &e)
+  catch(const std::exception &e)
   {
     if (resNode->children!=NULL)
     {
@@ -922,7 +898,7 @@ int verifyHTTP(int argc,char **argv)
 //    res.build(resText);
 //    printf("%s\n", resText.c_str());
 //  }
-//  catch(std::exception &e)
+//  catch(const std::exception &e)
 //  {
 //    printf("%s\n", e.what());
 //  }
@@ -948,7 +924,7 @@ int verifyHTTP(int argc,char **argv)
 //    res.build(resText);
 //    printf("%s\n", resText.c_str());
 //  }
-//  catch(std::exception &e)
+//  catch(const std::exception &e)
 //  {
 //    printf("%s\n", e.what());
 //  }
@@ -988,7 +964,7 @@ int verifyHTTP(int argc,char **argv)
     res.build(resText);
     printf("%s\n", resText.c_str());
   }
-  catch(std::exception &e)
+  catch(const std::exception &e)
   {
     printf("%s\n", e.what());
   }
@@ -1300,7 +1276,7 @@ void SvcSirenaInterface::KickHandler(XMLRequestCtxt *ctxt,
           answerResDoc = ASTRA::createXmlDoc2(answerStr);
           LogTrace(TRACE5) << "HTTP Response for [" << pult << "], text:\n" << XMLTreeToText(answerResDoc.docPtr());
         }
-        catch(std::exception &e)
+        catch(const std::exception &e)
         {
           LogError(STDLOG) << "ASTRA::createXmlDoc2(answerStr) error";
           answerResDoc = ASTRA::createXmlDoc2(DefaultAnswer);
