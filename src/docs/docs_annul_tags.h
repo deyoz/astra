@@ -3,6 +3,7 @@
 
 #include "docs_common.h"
 
-void ANNUL_TAGS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode);
+void ANNUL(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode);
+void ANNULTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode);
 
 #endif
