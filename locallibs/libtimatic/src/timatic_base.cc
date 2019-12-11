@@ -32,6 +32,7 @@ MessageType::MessageType(const xmlNodePtr node)
 //-----------------------------------------------
 
 ParameterType::ParameterType(const xmlNodePtr node)
+    : mandatory(false)
 {
     for (xmlNodePtr child = node->children; child; child = child->next) {
         if (xCmpNames(child, "parameterName"))
@@ -301,16 +302,16 @@ DataSection getDataSection(const std::string &val)
     return DataSection::All;
 }
 
-Sufficient getSufficient(const std::string &val)
+SufficientDocumentation getSufficientDocumentation(const std::string &val)
 {
     if (val == "Yes" || val == "yes")
-        return Sufficient::Yes;
+        return SufficientDocumentation::Yes;
     else if (val == "Conditional" || val == "conditional")
-        return Sufficient::Conditional;
+        return SufficientDocumentation::Conditional;
     else if (val == "No" || val == "no")
-        return Sufficient::No;
+        return SufficientDocumentation::No;
 
-    return Sufficient::No;
+    return SufficientDocumentation::No;
 }
 
 ParagraphType getParagraphType(const std::string &val)

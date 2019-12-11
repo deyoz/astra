@@ -119,7 +119,7 @@ DocumentCountryInfo::DocumentCountryInfo(const xmlNodePtr node)
         else if (xCmpNames(child, "commonTransit"))
             commonTransit_ = xGetStr(child);
         else if (xCmpNames(child, "sufficientDocumentation"))
-            sufficientDocumentation_ = getSufficient(xGetStr(child));
+            sufficientDocumentation_ = getSufficientDocumentation(xGetStr(child));
         else if (xCmpNames(child, "message"))
             message_ = MessageType(child);
         else if (xCmpNames(child, "sectionInformation"))
@@ -130,11 +130,11 @@ DocumentCountryInfo::DocumentCountryInfo(const xmlNodePtr node)
 //-----------------------------------------------
 
 DocumentCheckResp::DocumentCheckResp(const xmlNodePtr node)
-    : sufficientDocumentation_(Sufficient::No)
+    : sufficientDocumentation_(SufficientDocumentation::No)
 {
     for (xmlNodePtr child = node->children; child; child = child->next) {
         if (xCmpNames(child, "sufficientDocumentation"))
-            sufficientDocumentation_ = getSufficient(xGetStr(child));
+            sufficientDocumentation_ = getSufficientDocumentation(xGetStr(child));
          else if (xCmpNames(child, "documentCountryInformation"))
             documentCountryInfo_.emplace_back(child);
     }
@@ -161,8 +161,10 @@ ParamResults::ParamResults(const xmlNodePtr node)
         } else if (xCmpNames(child, "section")) {
             section_ = getDataSection(xGetStr(child));
         } else if (xCmpNames(child, "parameterList")) {
-            for (xmlNodePtr child2 = child->children; child2; child2 = child2->next)
-                parameterList_.emplace_back(child2);
+            for (xmlNodePtr child2 = child->children; child2; child2 = child2->next) {
+                if (xCmpNames(child2, "parameter"))
+                    parameterList_.emplace_back(child2);
+            }
         }
     }
 }
@@ -286,7 +288,7 @@ VisaResp::VisaResp(const xmlNodePtr node)
 {
     for (xmlNodePtr child = node->children; child; child = child->next) {
         if (xCmpNames(child, "visaResults"))
-            visaResults_.emplace_back(child);
+            visaResults_ = VisaResults(child);
     }
 }
 

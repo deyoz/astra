@@ -146,7 +146,7 @@ enum class Visa {
 
 //-----------------------------------------------
 
-enum class Sufficient {
+enum class SufficientDocumentation {
     No,
     Conditional,
     Yes
@@ -272,7 +272,7 @@ std::string toString(const GroupName &val);
 //-----------------------------------------------
 
 DataSection getDataSection(const std::string &val);
-Sufficient getSufficient(const std::string &val);
+SufficientDocumentation getSufficientDocumentation(const std::string &val);
 ParagraphType getParagraphType(const std::string &val);
 boost::posix_time::ptime getPTime(const std::string &val);
 

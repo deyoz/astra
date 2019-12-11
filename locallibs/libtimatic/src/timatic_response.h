@@ -147,7 +147,7 @@ public:
     const std::string &countryCode() const { return countryCode_; }
     const std::string &countryName() const { return countryName_; }
     const Optional<std::string> &commonTransit() const { return commonTransit_; }
-    const Optional<Sufficient> &sufficientDocumentation() const { return sufficientDocumentation_; }
+    const Optional<SufficientDocumentation> &sufficientDocumentation() const { return sufficientDocumentation_; }
     const Optional<MessageType> &message() const { return message_; }
     const std::vector<DocumentSection> &sectionInformation() const { return sectionInformation_; }
 
@@ -155,7 +155,7 @@ private:
     std::string countryCode_;
     std::string countryName_;
     Optional<std::string> commonTransit_;
-    Optional<Sufficient> sufficientDocumentation_;
+    Optional<SufficientDocumentation> sufficientDocumentation_;
     Optional<MessageType> message_;
     std::vector<DocumentSection> sectionInformation_;
 };
@@ -165,11 +165,11 @@ private:
 class DocumentCheckResp {
 public:
     DocumentCheckResp(const xmlNodePtr node);
-    Sufficient sufficientDocumentation() const { return sufficientDocumentation_; }
+    SufficientDocumentation sufficientDocumentation() const { return sufficientDocumentation_; }
     const std::vector<DocumentCountryInfo> &documentCountryInfo() const { return documentCountryInfo_; }
 
 private:
-    Sufficient sufficientDocumentation_;
+    SufficientDocumentation sufficientDocumentation_;
     std::vector<DocumentCountryInfo> documentCountryInfo_;
 };
 
@@ -305,10 +305,10 @@ public:
     static const char  *cname() { return "visaResponse"; }
 
     VisaResp(const xmlNodePtr node);
-    const std::vector<VisaResults> &visaResults() const { return visaResults_; }
+    const Optional<VisaResults> &visaResults() const { return visaResults_; }
 
 private:
-    std::vector<VisaResults> visaResults_;
+    Optional<VisaResults> visaResults_;
 };
 
 } // Timatic

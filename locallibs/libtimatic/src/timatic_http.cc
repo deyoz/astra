@@ -107,7 +107,7 @@ static int getHttpCode(const std::string &header)
 static std::string getJsessionID(const std::string &header)
 {
     static const std::string scookie = "Set-Cookie:";
-    static const std::string jcookie = "JSESSION=";
+    static const std::string jcookie = "JSESSIONID=";
 
     size_t pos = header.find(scookie);
     if (pos != header.npos) {

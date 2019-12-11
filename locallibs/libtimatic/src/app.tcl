@@ -1,9 +1,9 @@
-set WHERE_SERVERLIB ../../serverlib
+set WHERE_TCL ../../../src
 
 #------------------------------------------------
 
-if { [ file exists $WHERE_SERVERLIB/local_before.tcl ] } {
-    source $WHERE_SERVERLIB/local_before.tcl
+if { [ file exists $WHERE_TCL/local_before.tcl ] } {
+    source $WHERE_TCL/local_before.tcl
 }
 
 #------------------------------------------------
@@ -28,8 +28,8 @@ set monitor2(TCP_LOG) 1
 
 #------------------------------------------------
 
-if { [ file exists $WHERE_SERVERLIB/local_after.tcl ] } {
-    source $WHERE_SERVERLIB/local_after.tcl
+if { [ file exists $WHERE_TCL/local_after.tcl ] } {
+    source $WHERE_TCL/local_after.tcl
 }
 
 #------------------------------------------------
