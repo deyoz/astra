@@ -262,7 +262,7 @@ $(http_forecast content=$(get_svc_payment_status_invalid_resp))
 
 >> lines=auto
 <query>
-  <svc_payment_status show_free_carry_on_norm=\"true\">
+  <svc_payment_status show_free_carry_on_norm=\"true\" set_pupil=\"true\">
     <passenger id=\"...\" surname=\"…ˆ\" name=\"ˆ‚€\" category=\"ADT\" birthdate=\"1976-05-01\" sex=\"male\">
       <document number=\"7774441110\" country=\"RUS\"/>
       <segment id=\"0\" company=\"UT\" flight=\"103\" operating_company=\"UT\" operating_flight=\"103\" departure=\"DME\" arrival=\"LED\" departure_time=\"xxxx-xx-xxTxx:xx:xx\" arrival_time=\"xxxx-xx-xxTxx:xx:xx\" equipment=\"xxx\" subclass=\"Y\">
@@ -401,7 +401,7 @@ $(http_forecast content=$(get_svc_payment_status_resp))
 
 >> lines=auto
 <query>
-  <svc_payment_status show_free_carry_on_norm=\"true\">
+  <svc_payment_status show_free_carry_on_norm=\"true\" set_pupil=\"true\">
     <passenger id=\"...\" surname=\"…ˆ\" name=\"ˆ‚€\" category=\"ADT\" birthdate=\"1976-05-01\" sex=\"male\">
       <document number=\"7774441110\" country=\"RUS\"/>
       <segment id=\"0\" company=\"UT\" flight=\"103\" operating_company=\"UT\" operating_flight=\"103\" departure=\"DME\" arrival=\"LED\" departure_time=\"xxxx-xx-xxTxx:xx:xx\" arrival_time=\"xxxx-xx-xxTxx:xx:xx\" equipment=\"xxx\" subclass=\"Y\">
