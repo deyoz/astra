@@ -213,7 +213,7 @@ bool Service::ready() const
 {
 #ifdef XP_TESTING
     return true;
-#elif
+#else
     if (time(nullptr) < session_.expires)
         return true;
     else
