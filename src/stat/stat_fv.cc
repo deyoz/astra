@@ -171,6 +171,8 @@ void get_trfer_info(
         ) {
 }
 
+bool not_isalnum(char c) { return not isalnum(c); }
+
 void stat_fv_toXML(xmlNodePtr rootNode, int point_id)
 {
     TReqInfo::Instance()->desk.lang = AstraLocale::LANG_EN;
@@ -192,6 +194,8 @@ void stat_fv_toXML(xmlNodePtr rootNode, int point_id)
     route.GetRouteAfter(NoExists, info.point_id, trtNotCurrent, trtNotCancelled);
     NewTextChild(flightInfoNode, "ArrivalAirportIATACode", ElemIdToCodeNative(etAirp, route.begin()->airp));
     NewTextChild(flightInfoNode, "AirlineIATACode", ElemIdToCodeNative(etAirline, info.airline));
+    // борт должен содержать только буквы и цифры, остальное удалим
+    info.bort.erase(remove_if(info.bort.begin(), info.bort.end(), not_isalnum), info.bort.end());
     if(not info.bort.empty())
         NewTextChild(flightInfoNode, "AirplaneRegNumber", info.bort);
 
@@ -256,7 +260,8 @@ void stat_fv_toXML(xmlNodePtr rootNode, int point_id)
             NewTextChild(PassengerNode, "PersonSurname", transliter(pax.surname, 1, true), "");
             NewTextChild(PassengerNode, "PersonName", transliter(pax.name, 1, true), "");
             NewTextChild(PassengerNode, "Sex", pax.is_female() == NoExists or not pax.is_female() ? "MR" : "MS");
-            NewTextChild(PassengerNode, "SeatNumber", (pax.seat_no.empty() ? " " : pax.seat_no));
+            if(not pax.seat_no.empty())
+                NewTextChild(PassengerNode, "SeatNumber", pax.seat_no);
             auto grp_info = grp_info_map.get(pax.grp_id);
 
             TTrferInfo trfer_info;
