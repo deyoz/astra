@@ -4,6 +4,7 @@
 
 #define NICKNAME "TIMATIC"
 #include <serverlib/slogger.h>
+#include <serverlib/str_utils.h>
 
 namespace Timatic {
 
@@ -75,7 +76,7 @@ void Request::validate() const
 std::string Request::content(const Session &session) const
 {
     validate();
-    return payload(session);
+    return StrUtils::rtrim(payload(session));
 }
 
 std::string Request::payload(const Session &) const
@@ -118,7 +119,7 @@ std::string CheckNameReq::payload(const Session &session) const
     auto workNode = getWorkNode(doc, "processLogin", "checkNameRequest");
     if (workNode)
         fill(workNode);
-    return xDumpDoc(doc, true);
+    return xDumpDoc(doc);
 }
 
 void CheckNameReq::fill(xmlNodePtr node) const
@@ -150,7 +151,7 @@ std::string LoginReq::payload(const Session &session) const
     auto workNode = getWorkNode(doc, "processLogin", "loginRequest");
     if (workNode)
         fill(workNode);
-    return xDumpDoc(doc, true);
+    return xDumpDoc(doc);
 }
 
 void LoginReq::fill(xmlNodePtr node) const
@@ -267,7 +268,7 @@ std::string DocumentReq::payload(const Session &session) const
     auto workNode = getWorkNode(doc, "processRequest", "documentRequest");
     if (workNode)
         fill(workNode);
-    return xDumpDoc(doc, true);
+    return xDumpDoc(doc);
 }
 
 void DocumentReq::fill(xmlNodePtr node) const
@@ -394,7 +395,7 @@ std::string ParamReq::payload(const Session &session) const
     auto workNode = getWorkNode(doc, "processRequest", "paramRequest");
     if (workNode)
         fill(workNode);
-    return xDumpDoc(doc, true);
+    return xDumpDoc(doc);
 }
 
 void ParamReq::fill(xmlNodePtr node) const
@@ -437,7 +438,7 @@ std::string ParamValuesReq::payload(const Session &session) const
     auto workNode = getWorkNode(doc, "processRequest", "paramValuesRequest");
     if (workNode)
         fill(workNode);
-    return xDumpDoc(doc, true);
+    return xDumpDoc(doc);
 }
 
 void ParamValuesReq::fill(xmlNodePtr node) const
@@ -488,7 +489,7 @@ std::string CountryReq::payload(const Session &session) const
     auto workNode = getWorkNode(doc, "processRequest", "countryRequest");
     if (workNode)
         fill(workNode);
-    return xDumpDoc(doc, true);
+    return xDumpDoc(doc);
 }
 
 void CountryReq::fill(xmlNodePtr node) const
@@ -534,7 +535,7 @@ std::string VisaReq::payload(const Session &session) const
     auto workNode = getWorkNode(doc, "processRequest", "visaRequest");
     if (workNode)
         fill(workNode);
-    return xDumpDoc(doc, true);
+    return xDumpDoc(doc);
 }
 
 void VisaReq::fill(xmlNodePtr node) const

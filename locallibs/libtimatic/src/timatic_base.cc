@@ -2,8 +2,10 @@
 #include "timatic_exception.h"
 #include "timatic_xml.h"
 
+#include <serverlib/dates.h>
 #define NICKNAME "TIMATIC"
 #include <serverlib/slogger.h>
+#include <serverlib/str_utils.h>
 
 namespace Timatic {
 
@@ -337,14 +339,64 @@ ParagraphType getParagraphType(const std::string &val)
     return ParagraphType::Information;
 }
 
+//-----------------------------------------------
+
+boost::posix_time::ptime getPTime(const std::string &val) try
+{
+    static constexpr size_t datePartSize = 10;
+
+    if (val.empty())
+        return boost::posix_time::ptime();
+
+    std::string dateStr;
+    std::string timeTzStr;
+    boost::date_time::split(val, 'T', dateStr, timeTzStr);
+    if (timeTzStr.empty()) {
+        if (val.size() > datePartSize) {
+            dateStr = val.substr(0, datePartSize);
+            timeTzStr = StrUtils::replaceSubstrCopy(val.substr(datePartSize), " ", "");
+        } else {
+            return boost::posix_time::ptime();
+        }
+    }
+
+    const boost::posix_time::ptime::date_type date = boost::date_time::parse_date<boost::posix_time::ptime::date_type>(dateStr);
+    boost::char_separator<char> sep("-+Z", "-+Z", boost::keep_empty_tokens);
+    boost::tokenizer<boost::char_separator<char>> tokens(timeTzStr, sep);
+    const std::vector<std::string> arr(tokens.begin(), tokens.end());
+
+    if (arr.empty())
+        return boost::posix_time::ptime();
+
+    boost::posix_time::ptime p(date, boost::date_time::parse_delimited_time_duration<boost::posix_time::time_duration>(arr[0]));
+
+    // Due to the Timatic Application servers being hosted in London all dates and times are GMT.
+    // The offset should be used if local times are required.
+    if (arr.size() == 1)
+        return p;
+
+    if (arr.size() != 3)
+        return boost::posix_time::ptime();
+
+    if (arr[1] == "+")
+        p -= boost::date_time::parse_delimited_time_duration<boost::posix_time::time_duration>(arr[2]);
+    else if (arr[1] == "-")
+        p += boost::date_time::parse_delimited_time_duration<boost::posix_time::time_duration>(arr[2]);
+
+    return p;
+
+} catch (const std::exception &) {
+    return boost::posix_time::ptime();
+}
+
+/*
+// TODO: need Boost 1.63
 boost::posix_time::ptime getPTime(const std::string &val)
 {
     if (!val.empty())
-        // TODO: why do we still use Boost 1.57 ???
-        //return boost::posix_time::from_iso_extended_string(val);
-        return boost::posix_time::not_a_date_time;
-
+        return boost::posix_time::from_iso_extended_string(val);
     return boost::posix_time::not_a_date_time;
 }
+*/
 
 } // Timatic

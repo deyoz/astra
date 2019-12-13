@@ -119,7 +119,7 @@ public:
     DocumentReq();
     void validate() const override;
 
-    // setters
+    // getters
     // mandatory (must be set)
     DataSection section() const { return section_; }
     const std::string &destinationCode() const { return destinationCode_; }
@@ -151,7 +151,7 @@ public:
     const Optional<std::string> &secondaryDocumentType() const { return secondaryDocumentType_; }
     const std::vector<std::string> &countriesVisited() const { return countriesVisited_; }
 
-    // getters
+    // setters
     // mandatory
     void section(const DataSection val) { section_ = val; }
     void destinationCode(const std::string &val) { destinationCode_ = val; }

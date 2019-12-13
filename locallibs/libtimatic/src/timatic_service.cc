@@ -312,6 +312,30 @@ START_TEST(timatic_example)
 }
 END_TEST
 
+START_TEST(timatic_doc_req)
+{
+    using namespace Timatic;
+
+    const std::string expected =
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+            "<env:Envelope xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"><env:Header><m:sessionID xmlns:m=\"http://www.opentravel.org/OTA/2003/05/beta\" actor=\"http://schemas.xmlsoap.org/soap/actor/next\" mustUnderstand=\"0\">176314e7:16eb7dcfef6:-7bf3</m:sessionID></env:Header><env:Body><m:processRequest xmlns:m=\"http://www.opentravel.org/OTA/2003/05/beta\"><documentRequest><requestID>3</requestID><subRequestID>ec81d2080f1ac94d14f9ba4d9fce</subRequestID><section>Passport,Visa</section><destinationCode>GB</destinationCode><nationalityCode>RU</nationalityCode><documentType>Passport</documentType><documentGroup>N</documentGroup></documentRequest></m:processRequest></env:Body></env:Envelope>";
+
+    Session sess;
+    sess.sessionID = "176314e7:16eb7dcfef6:-7bf3";
+
+    DocumentReq req;
+    req.requestID(3);
+    req.subRequestID("ec81d2080f1ac94d14f9ba4d9fce");
+    req.section(DataSection::PassportVisa);
+    req.destinationCode("GB");
+    req.nationalityCode("RU");
+    req.documentType("Passport");
+    req.documentGroup("N");
+
+    ck_assert_str_eq(expected, req.content(sess));
+}
+END_TEST
+
 START_TEST(timatic_doc_resp)
 {
     using namespace Timatic;
@@ -1101,14 +1125,43 @@ START_TEST(timatic_visa_resp)
 }
 END_TEST
 
+START_TEST(timatic_datetime)
+{
+    using namespace Timatic;
+    using namespace boost;
+
+    const std::string val01 = "2019-12-12T17:30:01";
+    const auto dt01 = getPTime(val01);
+    const auto dt11 = posix_time::ptime(gregorian::date(2019, 12, 12), posix_time::time_duration(17, 30, 1));
+    fail_unless(dt01 == dt11);
+
+    const std::string val02 = "2019-12-12T17:30:01.5";
+    const auto dt02 = getPTime(val02);
+    const auto dt12 = posix_time::ptime(gregorian::date(2019, 12, 12), posix_time::time_duration(17, 30, 1, 500000));
+    fail_unless(dt02 == dt12);
+
+    const std::string val03 = "2019-12-12T17:30:01+03:00";
+    const auto dt03 = getPTime(val03);
+    const auto dt13 = posix_time::ptime(gregorian::date(2019, 12, 12), posix_time::time_duration(14, 30, 1));
+    fail_unless(dt03 == dt13);
+
+    const std::string val04 = "2019-12-12T17:30:01Z";
+    const auto dt04 = getPTime(val04);
+    const auto dt14 = posix_time::ptime(gregorian::date(2019, 12, 12), posix_time::time_duration(17, 30, 1));
+    fail_unless(dt04 == dt14);
+}
+END_TEST
+
 #define SUITENAME "timatic_connect"
 TCASEREGISTER(testInitTimatic, testShutDBConnection)
     ADD_TEST(timatic_example)
+    ADD_TEST(timatic_doc_req)
     ADD_TEST(timatic_doc_resp)
     ADD_TEST(timatic_param_list_resp)
     ADD_TEST(timatic_param_values_resp)
     ADD_TEST(timatic_country_resp)
     ADD_TEST(timatic_visa_resp)
+    ADD_TEST(timatic_datetime)
 TCASEFINISH
 #undef SUITENAME
 
