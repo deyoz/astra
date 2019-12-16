@@ -188,8 +188,6 @@ HTTPClient getHTTPClient(const request& req)
   return client;
 }
 
-bool isCR(char c) { return c == '\r'; }
-
 void HTTPClient::toJXT( const ServerFramework::HTTP::request& req, std::string &header, std::string &body )
 {
   header.clear();
@@ -236,7 +234,7 @@ void HTTPClient::toJXT( const ServerFramework::HTTP::request& req, std::string &
            content.erase( 0, 3 );
 
          // remove any #13
-         content.erase(remove_if(content.begin(), content.end(), isCR), content.end());
+         content.erase(remove_if(content.begin(), content.end(), [](char c){return c == '\r';}), content.end());
 
          bool is_xml = true;
          try {

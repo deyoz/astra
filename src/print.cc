@@ -1949,11 +1949,6 @@ void PrintInterface::get_pectab(
     data = AdjustCR_LF::DoIt(params.get_fmt_type(), Qry.FieldAsString("data"));
 }
 
-bool IsErrPax(const PrintInterface::BPPax &pax)
-{
-    return pax.error;
-}
-
 void PrintInterface::BPPax::checkBPPrintAllowed()
 {
     boost::optional<SEATPAX::paxSeats> paxSeats;
@@ -2072,7 +2067,7 @@ void PrintInterface::GetPrintDataBP(
             parser->pts.save_foreign_scan();
         iPax->time_print=parser->pts.get_time_print();
     }
-    paxs.erase(remove_if(paxs.begin(), paxs.end(), IsErrPax), paxs.end());
+    paxs.erase(remove_if(paxs.begin(), paxs.end(), [](const PrintInterface::BPPax &pax){ return pax.error; }), paxs.end());
 }
 
 static TBCBPData makeIatciTBCBPData(const astra_api::xml_entities::XmlSegment& seg,
