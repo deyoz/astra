@@ -4104,11 +4104,58 @@ void SyncPRSA( const string &airline_oper,
                             reqInfo->desk.code);
 }
 
+bool setRFISCQuestion(xmlNodePtr reqNode, xmlNodePtr resNode,
+                      int point_id,TSeatsType seat_type,
+                      const BitSet<TChangeLayerProcFlag> &procFlags,
+                       TCompLayerType layer_type )
+{
+  bool reset=false;
+  std::set<TCompLayerType> checkinLayers { cltGoShow, cltTranzit, cltCheckin, cltTCheckin };
+  if ( TReqInfo::Instance()->client_type == ctTerm &&
+       seat_type == SEATS2::stReseat && //пересадка
+        !procFlags.isFlag( procWaitList ) && //  не ругаемся, если пересадка идет с ЛО
+        reqNode != nullptr &&
+        resNode != nullptr &&
+        checkinLayers.find( layer_type ) != checkinLayers.end() ) { // уже зарегистрированного
+      TTripInfo fltInfo;
+      if (!fltInfo.getByPointId(point_id))
+        throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
+      if ( GetTripSets(tsReseatOnRFISC,fltInfo) ) {
+        if (TReqInfo::Instance()->desk.compatible(RESEAT_QUESTION_VERSION) ) {
+          tst();
+          xmlNodePtr dataNode = GetNode( "data", resNode );
+          if (GetNode("confirmations/msg1",reqNode)==NULL) {
+            tst();
+            if ( dataNode == nullptr ) {
+              dataNode =  NewTextChild(resNode,"data");
+            }
+            xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
+            NewTextChild(confirmNode,"reset",(int)reset);
+            NewTextChild(confirmNode,"type","msg1");
+            NewTextChild(confirmNode,"dialogMode","");
+            ostringstream msg;
+            msg << getLocaleText("MSG.PASSENGER.RESEAT_TO_RFISC") << endl
+                << getLocaleText("QST.CONTINUE_RESEAT");
+            NewTextChild(confirmNode,"message",msg.str());
+            tst();
+            return true;
+          }
+          else
+           if ( NodeAsInteger("confirmations/msg1",reqNode) == 7 ) {
+             throw UserException("MSG.PASSENGER.RESEAT_BREAK");
+          }
+        }
+      }
+    }
+  return false;
+}
+
 BitSet<TChangeLayerSeatsProps>
      ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int time_limit, int point_id, int pax_id, int &tid,
                   string first_xname, string first_yname, TSeatsType seat_type,
                   const BitSet<TChangeLayerProcFlag> &procFlags,
-                  const std::string& whence )
+                  const std::string& whence,
+                  xmlNodePtr reqNode, xmlNodePtr resNode )
 {
   BitSet<TChangeLayerSeatsProps> propsSeatsFlags;
   propsSeatsFlags.clearFlags();
@@ -4366,6 +4413,10 @@ BitSet<TChangeLayerSeatsProps>
           if ( !rfisc.empty() ) {
             ProgTrace( TRACE5, "rfisc=%s", rfisc.str().c_str() );
             propsSeatsFlags.setFlag(propRFISC);
+            if ( setRFISCQuestion(reqNode,resNode,point_id, seat_type,procFlags, layer_type ) ) {
+              propsSeatsFlags.setFlag(propRFISCQuestion);
+              return propsSeatsFlags;
+            }
           }
         }
       }

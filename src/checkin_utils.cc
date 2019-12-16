@@ -164,7 +164,7 @@ void syncCabinClass(const TTripTaskKey &task)
                          cltUnknown,
                          NoExists,
                          change_layer_flags,
-                         0, NoExists, NULL,
+                         0, NoExists, NULL, NULL,
                          __func__);
       };
 
@@ -1182,7 +1182,7 @@ void CreateEmulDocs(const TWebPaxForSaveSegs &segs,
                            NoExists,
                            BitSet<SEATS2::TChangeLayerFlags>(),
                            0, NoExists,
-                           NULL,
+                           NULL, NULL,
                            __func__ );
         };
       }

@@ -373,7 +373,7 @@ void SalonFormInterface::RefreshPaxSalons(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
 
     }
   }
-  catch( AstraLocale::UserException ue ) {
+  catch( AstraLocale::UserException& ue ) {
     AstraLocale::showErrorMessage( ue.getLexemaData() );
     ncomp_crc = 0;
   }
@@ -530,7 +530,7 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   try {
     salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), filterClass, tariff_pax_id );
   }
-  catch( AstraLocale::UserException ue ) {
+  catch( AstraLocale::UserException& ue ) {
     AstraLocale::showErrorMessage( ue.getLexemaData() );
   }
   salonList.Build( NewTextChild( dataNode, "salons" ) );
@@ -1011,7 +1011,7 @@ void getSeat_no( int pax_id, bool pr_pnl, const string &format, string &seat_no,
             try {
               slayer_type = ((const TGrpStatusTypesRow&)grp_status_types.get_row("code",grp_status)).layer_type;
             }
-            catch(EBaseTableError){};
+            catch(EBaseTableError&){};
         }
         else
             slayer_type = SQry.GetVariableAsString( "layer_type" );
@@ -1027,7 +1027,7 @@ BitSet<SEATS2::TChangeLayerSeatsProps>
                       int time_limit,
                       const BitSet<TChangeLayerFlags> &flags,
                       int comp_crc, int tariff_pax_id,
-                      xmlNodePtr resNode,
+                      xmlNodePtr reqNode, xmlNodePtr resNode,
                       const std::string& whence  )
 {
    BitSet<TChangeLayerSeatsProps> propsSeatsFlags;
@@ -1085,7 +1085,6 @@ BitSet<SEATS2::TChangeLayerSeatsProps>
 
   salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), "", pax_id );
   //!!!  для слоев предварительной рассадки point_arv = NoExists!!!
-
   // если место у пассажира имеет предварительную рассадку для этого пассажира, и мы еще не спрашивали, то спросить!
   if ( seat_type != SEATS2::stDropseat && !flags.isFlag( flWaitList ) && flags.isFlag( flQuestionReseat ) ) {
     // возможны следующие варианты:
@@ -1159,9 +1158,12 @@ BitSet<SEATS2::TChangeLayerSeatsProps>
     procFlags.setFlag( procSyncCabinClass );
   }
   try {
-    propsSeatsFlags = SEATS2::ChangeLayer( salonList, layer_type, time_limit, point_id, pax_id, tid, xname, yname, seat_type, procFlags, whence );
+    propsSeatsFlags = SEATS2::ChangeLayer( salonList, layer_type, time_limit, point_id, pax_id, tid, xname, yname, seat_type, procFlags, whence, reqNode, resNode );
     if ( TReqInfo::Instance()->client_type != ctTerm || resNode == NULL )
         return propsSeatsFlags; // web-регистрация
+    if ( propsSeatsFlags.isFlag(propRFISCQuestion) ) {
+      return propsSeatsFlags;
+    }
     salonList.JumpToLeg( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ) );
     int ncomp_crc = CRC32_Comp( point_id );
     if ( (comp_crc != 0 && ncomp_crc != 0 && comp_crc != ncomp_crc) ) { //update
@@ -1214,7 +1216,7 @@ BitSet<SEATS2::TChangeLayerSeatsProps>
       }
     }
   }
-  catch( UserException ue ) {
+  catch( UserException& ue ) {
     tst();
     if ( (TReqInfo::Instance()->client_type != ctTerm &&
           ue.getLexemaData().lexema_id != "MSG.SALONS.CHANGE_CONFIGURE_CRAFT_ALL_DATA_REFRESH") || resNode == NULL )
@@ -1250,6 +1252,51 @@ BitSet<SEATS2::TChangeLayerSeatsProps>
   }
   return propsSeatsFlags;
 }
+
+
+void ConditionsForReseat(xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+
+  class CompleteWithError {};
+  bool reset=false;
+  tst();
+  try {
+    xmlNodePtr dataNode = nullptr;
+    for(int pass=1;pass<=1;pass++)
+    {
+      switch(pass)
+      {
+        case 1: if (GetNode("confirmations/msg1",reqNode)==NULL)
+                {
+                  tst();
+                  if ( dataNode == nullptr ) {
+                    dataNode =  NewTextChild(resNode,"data");
+                  }
+                  xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
+                  NewTextChild(confirmNode,"reset",(int)reset);
+                  NewTextChild(confirmNode,"type","msg1");
+                  NewTextChild(confirmNode,"dialogMode","");
+                  ostringstream msg;
+                  msg << getLocaleText("MSG.PASSENGER.RESEAT_TO_RFISC") << endl
+                      << getLocaleText("QST.CONTINUE_RESEAT");
+                  NewTextChild(confirmNode,"message",msg.str());
+                  tst();
+                  throw CompleteWithError();
+                 }
+                else
+                  if ( NodeAsInteger("confirmations/msg1",reqNode) != 7 ) {
+                    throw UserException("MSG.PASSENGER.RESEAT_BREAK");
+                  }
+
+                 break;
+      }
+    }
+  }
+  catch( CompleteWithError &er ) {
+    return;
+  }
+}
+
 
 static void ChangeIatciSeats(xmlNodePtr reqNode)
 {
@@ -1330,7 +1377,7 @@ void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType sea
                    NoExists,
                    change_layer_flags,
                    comp_crc, tariff_pax_id,
-                   resNode,
+                   reqNode, resNode,
                    __func__ );
 }
 
@@ -1366,7 +1413,7 @@ void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr req
   TSalonChanges seats;
 
   try {
-    SEATS2::ChangeLayer( salonList, cltProtCkin, NoExists, point_id, pax_id, tid, "", "", SEATS2::stDropseat, BitSet<TChangeLayerProcFlag>(), __func__ );
+    SEATS2::ChangeLayer( salonList, cltProtCkin, NoExists, point_id, pax_id, tid, "", "", SEATS2::stDropseat, BitSet<TChangeLayerProcFlag>(), __func__, NULL, NULL );
     if ( pr_update_salons ) {
       if ( tariff_pax_id != ASTRA::NoExists ) {
         salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), "", tariff_pax_id );
@@ -1391,7 +1438,7 @@ void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr req
       SALONS2::BuildSalonChanges( dataNode, point_id, seats, false, pax_lists );
     }
   }
-  catch( UserException ue ) {
+  catch( UserException& ue ) {
     if ( TReqInfo::Instance()->client_type != ctTerm &&
          ue.getLexemaData().lexema_id != "MSG.SALONS.CHANGE_CONFIGURE_CRAFT_ALL_DATA_REFRESH"  )
         throw; // web-регистрация
@@ -1543,7 +1590,7 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
       componPropCodes::Instance()->buildSections( comp_id, TReqInfo::Instance()->desk.lang, dataNode, TAdjustmentRows().get( salonList ) );
     }
   }
-  catch( UserException ue ) {
+  catch( UserException& ue ) {
     if ( TReqInfo::Instance()->client_type != ctTerm )
         throw; // web-регистрация
     if ( dataNode ) { // удаление всей инфы, т.к. случилась ошибка
