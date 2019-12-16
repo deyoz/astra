@@ -2508,6 +2508,26 @@ class TBrdBSMCreator : public TCreator
     };
 };
 
+class TCloseWEBCheckInCreator : public TCreator
+{
+  public:
+    TCloseWEBCheckInCreator(int point_id) : TCreator(point_id, TCreatePoint(sCloseWEBCheckIn, 0))
+    {
+      *this << "PRL";
+    };
+
+    virtual bool validInfo(const TCreateInfo &info) const {
+        if (!TCreator::validInfo(info)) return false;
+
+        if (info.optionsIs<TPRLOptions>())
+        {
+          if (info.optionsAs<TPRLOptions>()->create_point!="CLOSE_WEB") return false;
+        };
+
+        return true;
+    };
+};
+
 class TCloseCheckInCreator : public TCreator
 {
   public:
