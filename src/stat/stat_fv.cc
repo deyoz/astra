@@ -171,8 +171,6 @@ void get_trfer_info(
         ) {
 }
 
-bool not_isalnum(char c) { return not isalnum(c); }
-
 void stat_fv_toXML(xmlNodePtr rootNode, int point_id)
 {
     TReqInfo::Instance()->desk.lang = AstraLocale::LANG_EN;
@@ -195,7 +193,9 @@ void stat_fv_toXML(xmlNodePtr rootNode, int point_id)
     NewTextChild(flightInfoNode, "ArrivalAirportIATACode", ElemIdToCodeNative(etAirp, route.begin()->airp));
     NewTextChild(flightInfoNode, "AirlineIATACode", ElemIdToCodeNative(etAirline, info.airline));
     // борт должен содержать только буквы и цифры, остальное удалим
-    info.bort.erase(remove_if(info.bort.begin(), info.bort.end(), not_isalnum), info.bort.end());
+    info.bort.erase(
+            remove_if(info.bort.begin(), info.bort.end(), [](char c){ return not isalnum(c); }),
+            info.bort.end());
     if(not info.bort.empty())
         NewTextChild(flightInfoNode, "AirplaneRegNumber", info.bort);
 
