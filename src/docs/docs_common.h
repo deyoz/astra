@@ -38,6 +38,7 @@ struct TRptParams {
         std::string GetLang() const;
         std::string dup_lang() { return GetLang()==AstraLocale::LANG_EN ? AstraLocale::LANG_RU : GetLang(); }; // lang for duplicated captions
         void Init(xmlNodePtr node);
+        void trace(TRACE_SIGNATURE) const;
         TRptParams(std::string lang) {
             req_lang = lang;
         };

@@ -822,3 +822,12 @@ void t_rpt_bm_bag_name::init(const string &airp, const string &airline, bool pr_
     }
 }
 
+void TRptParams::trace(TRACE_SIGNATURE) const
+{
+    LogTrace(TRACE_PARAMS) << "--- TRptParams::trace ---";
+    for(const auto &i: rems) {
+        ostringstream s;
+        copy(i.second.begin(), i.second.end(), ostream_iterator<string>(s, " "));
+        LogTrace(TRACE_PARAMS) << "rems[" << i.first << "] = " << s.str();
+    }
+}
