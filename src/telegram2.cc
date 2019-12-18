@@ -1891,8 +1891,13 @@ namespace PRL_SPACE {
         int c;
         int y;
         int adult;
+        int male;
+        int female;
         int child;
         int baby;
+        int f_pad;
+        int c_pad;
+        int y_pad;
         int f_child;
         int f_baby;
         int c_child;
@@ -1911,14 +1916,23 @@ namespace PRL_SPACE {
         int f_add_pax;
         int c_add_pax;
         int y_add_pax;
+        int male_extra_crew;
+        int female_extra_crew;
+        int male_dead_head_crew;
+        int female_dead_head_crew;
         TCOMStatsItem()
         {
             f = 0;
             c = 0;
             y = 0;
             adult = 0;
+            male = 0;
+            female = 0;
             child = 0;
             baby = 0;
+            f_pad = 0;
+            c_pad = 0;
+            y_pad = 0;
             f_child = 0;
             f_baby = 0;
             c_child = 0;
@@ -1937,6 +1951,10 @@ namespace PRL_SPACE {
             f_add_pax = 0;
             c_add_pax = 0;
             y_add_pax = 0;
+            male_extra_crew = 0;
+            female_extra_crew = 0;
+            male_dead_head_crew = 0;
+            female_dead_head_crew = 0;
         }
     };
 
@@ -1983,12 +2001,14 @@ namespace PRL_SPACE {
         vector<TCOMStatsItem> items;
         TTotalPaxWeight total_pax_weight;
         void get(TypeB::TDetailCreateInfo &info);
+        void getPAD(TypeB::TDetailCreateInfo &info);
         void ToTlg(TypeB::TDetailCreateInfo &info, ostringstream &body);
     };
 
     void TCOMStats::ToTlg(TypeB::TDetailCreateInfo &info, ostringstream &body)
     {
         const TypeB::TCOMOptions &options = *info.optionsAs<TypeB::TCOMOptions>();
+
         TCOMStatsItem sum;
         sum.target = "TTL";
         for(vector<TCOMStatsItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
@@ -2020,6 +2040,30 @@ namespace PRL_SPACE {
                     << iv->f_bag_weight << '/'
                     << iv->c_bag_weight << '/'
                     << iv->y_bag_weight << TypeB::endl;
+            else if(options.version == "PAD")
+                body
+                    << iv->target                   << ' '
+                    << iv->male                     << '/'
+                    << iv->female                   << '/'
+                    << iv->child                    << '/'
+                    << iv->baby                     << ' '
+                    << iv->bag_amount               << '/'
+                    << iv->bag_weight               << '/'
+                    << iv->rk_weight                << ' '
+                    << iv->f                        << '/'
+                    << iv->c                        << '/'
+                    << iv->y                        << ' '
+                    << iv->f_pad                    << '/'
+                    << iv->c_pad                    << '/'
+                    << iv->y_pad                    << ' '
+                    << iv->male_extra_crew          << '/'
+                    << iv->female_extra_crew        << ' '
+                    << iv->male_dead_head_crew      << '/'
+                    << iv->female_dead_head_crew    << ' '
+                    << iv->f_add_pax                << '/'
+                    << iv->c_add_pax                << '/'
+                    << iv->y_add_pax
+                    << TypeB::endl;
             else
                 body
                     << iv->target       << ' '
@@ -2058,37 +2102,73 @@ namespace PRL_SPACE {
             sum.f_bag_weight += iv->f_bag_weight;
             sum.c_bag_weight += iv->c_bag_weight;
             sum.y_bag_weight += iv->y_bag_weight;
+            sum.male += iv->male;
+            sum.female += iv->female;
+            sum.f_pad += iv->f_pad;
+            sum.c_pad += iv->c_pad;
+            sum.y_pad += iv->y_pad;
+            sum.male_extra_crew += iv->male_extra_crew;
+            sum.female_extra_crew += iv->female_extra_crew;
+            sum.male_dead_head_crew += iv->male_dead_head_crew;
+            sum.female_dead_head_crew += iv->female_dead_head_crew;
         }
-        if(info.get_tlg_type() == "COM")
-            body
-                << sum.target       << ' '
-                << sum.adult        << '/'
-                << sum.child        << '/'
-                << sum.baby         << ' '
-                << sum.bag_amount   << '/'
-                << sum.bag_weight   << '/'
-                << sum.rk_weight    << ' '
-                << sum.f            << '/'
-                << sum.c            << '/'
-                << sum.y            << ' '
-                << "0/0/0 0 0 "
-                << sum.f_add_pax    << '/'
-                << sum.c_add_pax    << '/'
-                << sum.y_add_pax    << ' '
-                << "0 " << total_pax_weight.weight << ' '
-                << sum.f_child      << '/'
-                << sum.c_child      << '/'
-                << sum.y_child      << ' '
-                << sum.f_baby       << '/'
-                << sum.c_baby       << '/'
-                << sum.y_baby       << ' '
-                << sum.f_rk_weight  << '/'
-                << sum.c_rk_weight  << '/'
-                << sum.y_rk_weight  << ' '
-                << sum.f_bag_weight << '/'
-                << sum.c_bag_weight << '/'
-                << sum.y_bag_weight << TypeB::endl;
-        else
+        if(info.get_tlg_type() == "COM") {
+            if(options.version == "PAD")
+                body
+                    << sum.target                   << ' '
+                    << sum.male                     << '/'
+                    << sum.female                   << '/'
+                    << sum.child                    << '/'
+                    << sum.baby                     << ' '
+                    << sum.bag_amount               << '/'
+                    << sum.bag_weight               << '/'
+                    << sum.rk_weight                << ' '
+                    << sum.f                        << '/'
+                    << sum.c                        << '/'
+                    << sum.y                        << ' '
+                    << sum.f_pad                    << '/'
+                    << sum.c_pad                    << '/'
+                    << sum.y_pad                    << ' '
+                    << sum.male_extra_crew          << '/'
+                    << sum.female_extra_crew        << ' '
+                    << sum.male_dead_head_crew      << '/'
+                    << sum.female_dead_head_crew    << ' '
+                    << sum.f_add_pax                << '/'
+                    << sum.c_add_pax                << '/'
+                    << sum.y_add_pax                << ' '
+                    << '0'                          << ' '
+                    << total_pax_weight.weight
+                    << TypeB::endl;
+            else
+                body
+                    << sum.target       << ' '
+                    << sum.adult        << '/'
+                    << sum.child        << '/'
+                    << sum.baby         << ' '
+                    << sum.bag_amount   << '/'
+                    << sum.bag_weight   << '/'
+                    << sum.rk_weight    << ' '
+                    << sum.f            << '/'
+                    << sum.c            << '/'
+                    << sum.y            << ' '
+                    << "0/0/0 0 0 "
+                    << sum.f_add_pax    << '/'
+                    << sum.c_add_pax    << '/'
+                    << sum.y_add_pax    << ' '
+                    << "0 " << total_pax_weight.weight << ' '
+                    << sum.f_child      << '/'
+                    << sum.c_child      << '/'
+                    << sum.y_child      << ' '
+                    << sum.f_baby       << '/'
+                    << sum.c_baby       << '/'
+                    << sum.y_baby       << ' '
+                    << sum.f_rk_weight  << '/'
+                    << sum.c_rk_weight  << '/'
+                    << sum.y_rk_weight  << ' '
+                    << sum.f_bag_weight << '/'
+                    << sum.c_bag_weight << '/'
+                    << sum.y_bag_weight << TypeB::endl;
+        } else
             body
                 << sum.target       << ' '
                 << sum.adult        << '/'
@@ -2104,8 +2184,74 @@ namespace PRL_SPACE {
                 << total_pax_weight.weight << TypeB::endl;
     }
 
+    void TCOMStats::getPAD(TypeB::TDetailCreateInfo &info)
+    {
+        REPORTS::TPaxList pax_list(info.point_id);
+        pax_list.options.flags.setFlag(REPORTS::oeRkWeight);
+        pax_list.options.flags.setFlag(REPORTS::oeBagAmount);
+        pax_list.options.flags.setFlag(REPORTS::oeBagWeight);
+        pax_list.options.pr_brd = boost::in_place(REPORTS::TBrdVal::bvTRUE);
+        pax_list.fromDB();
+        TTripRoute route;
+        if(not pax_list.empty() and route.GetRouteAfter(NoExists, info.point_id, trtNotCurrent, trtNotCancelled)) {
+            map<int, TCOMStatsItem> data;
+            for(const auto &pax: pax_list) {
+                auto &item = data[pax->grp().point_arv];
+                item.target = info.TlgElemIdToElem(etAirp, pax->grp().airp_arv);
+
+                bool male = pax->simple.pers_type == TPerson::adult and pax->simple.gender != TGender::Female;
+                bool female = pax->simple.pers_type == TPerson::adult and pax->simple.gender == TGender::Female;
+                bool is_f = pax->cl() == "";
+                bool is_c = pax->cl() == "";
+                bool is_y = pax->cl() == "";
+
+                if(
+                        not pax->simple.is_jmp and
+                        pax->simple.crew_type != TCrewType::ExtraCrew
+                  ) {
+                    item.adult += pax->simple.pers_type == TPerson::adult;
+                    item.male += male;
+                    item.female += female;
+                    item.child += pax->simple.pers_type == TPerson::child;
+                    item.baby += pax->simple.pers_type == TPerson::baby;
+                }
+
+                item.bag_amount += pax->bag_amount();
+                item.bag_weight += pax->bag_weight();
+                item.rk_weight += pax->rk_weight();
+
+                item.f += is_f;
+                item.c += is_c;
+                item.y += is_y;
+
+                item.f_pad = is_f and pax->grp().status == psGoshow;
+                item.c_pad = is_c and pax->grp().status == psGoshow;
+                item.y_pad = is_y and pax->grp().status == psGoshow;
+
+                item.male_extra_crew += male and pax->simple.crew_type == TCrewType::ExtraCrew;
+                item.female_extra_crew += female and pax->simple.crew_type == TCrewType::ExtraCrew;
+
+                item.male_dead_head_crew += male and pax->simple.crew_type == TCrewType::DeadHeadCrew;
+                item.female_dead_head_crew += female and pax->simple.crew_type == TCrewType::DeadHeadCrew;
+
+                item.f_add_pax += is_f and (pax->seats() > 1);
+                item.c_add_pax += is_c and (pax->seats() > 1);
+                item.y_add_pax += is_y and (pax->seats() > 1);
+            }
+            total_pax_weight.get(info);
+            for(const auto &point_arv: route) {
+                auto i = data.find(point_arv.point_id);
+                if(i != data.end())
+                    items.push_back(data[point_arv.point_id]);
+            }
+        }
+    }
+
     void TCOMStats::get(TypeB::TDetailCreateInfo &info)
     {
+        const TypeB::TCOMOptions &options = *info.optionsAs<TypeB::TCOMOptions>();
+        if(options.version == "PAD") return getPAD(info);
+
         TQuery Qry(&OraSession);
         Qry.SQLText =
             "SELECT "
