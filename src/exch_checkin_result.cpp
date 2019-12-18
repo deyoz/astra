@@ -180,6 +180,8 @@ namespace EXCH_CHECKIN_RESULT
     TDateTime est_out;
     TDateTime act_out;
     std::string airp_arv;
+    std::string craft;
+    std::string bort;
     TCkinClients CkinClients;
     TAdvTripRoute route;
     std::string region;
@@ -629,6 +631,8 @@ namespace EXCH_CHECKIN_RESULT
     if ( !FltQry.Eof ) {
       est_out = FltQry.FieldIsNULL( "est_out" )?ASTRA::NoExists:FltQry.FieldAsDateTime( "est_out" );
       act_out = FltQry.FieldIsNULL( "act_out" )?ASTRA::NoExists:FltQry.FieldAsDateTime( "act_out" );
+      craft = FltQry.FieldAsString( "craft" );
+      bort = FltQry.FieldAsString( "bort" );
     }
     std::vector<TAdvTripRouteItem>::const_iterator iarr_route = route.begin();
     iarr_route++;
@@ -657,6 +661,12 @@ namespace EXCH_CHECKIN_RESULT
       NewTextChild( flightNode, "suffix", route.front().suffix );
     }
     NewTextChild( flightNode, "scd_out", DateTimeToStr( ASTRA::date_time::UTCToClient( route.front().scd_out, region ), "dd.mm.yyyy hh:nn" ) );
+    if ( !craft.empty() ) {
+      NewTextChild( flightNode, "craft", craft );
+    }
+    if ( !bort.empty() ) {
+      NewTextChild( flightNode, "bort", bort );
+    }
     if ( est_out != ASTRA::NoExists ) {
       NewTextChild( flightNode, "est_out", DateTimeToStr( ASTRA::date_time::UTCToClient( est_out, region ), "dd.mm.yyyy hh:nn" ) );
     }
@@ -1039,7 +1049,7 @@ namespace EXCH_CHECKIN_RESULT
     TDateTime max_time = ASTRA::NoExists;
     TQuery FltQry(&OraSession);
     FltQry.SQLText =
-      "SELECT airline,flt_no,suffix,airp,act_in,est_in,scd_in,scd_out,est_out,act_out FROM points WHERE point_id=:point_id";
+      "SELECT airline,flt_no,suffix,airp,craft,bort,act_in,est_in,scd_in,scd_out,est_out,act_out FROM points WHERE point_id=:point_id";
     FltQry.DeclareVariable( "point_id", otInteger );
     tst();
     for ( ;!changeFlightsQry.Eof && flight_count<=MQRABBIT_TRANSPORT::MAX_SEND_FLIGHTS; changeFlightsQry.Next() ) {
