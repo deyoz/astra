@@ -771,6 +771,7 @@ void exec_stage( int point_id, int stage_id )
            break;
     case sCloseWEBCheckIn:
            /*закрытие WEB-регистрации*/
+           CloseWEBCheckIn( point_id );
          break;
     case sCloseKIOSKCheckIn:
            /*закрытие KIOSK-регистрации*/
@@ -992,6 +993,20 @@ void OpenWEBCheckIn( int point_id )
   {
     ProgError(STDLOG,"OpenWEBCheckIn.TlgETDisplay (point_id=%d): %s",point_id,E.what());
   };
+}
+
+void CloseWEBCheckIn( int point_id )
+{
+    try
+    {
+        vector<TypeB::TCreateInfo> createInfo;
+        TypeB::TCloseWEBCheckInCreator(point_id).getInfo(createInfo);
+        TelegramInterface::SendTlg(createInfo);
+    }
+    catch(std::exception &E)
+    {
+        ProgError(STDLOG,"CloseWEBCheckIn.SendTlg (point_id=%d): %s",point_id,E.what());
+    };
 }
 
 void CloseCheckIn( int point_id )
