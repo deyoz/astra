@@ -807,6 +807,9 @@ void MobilePaymentInterface::getPassengerInfo(XMLRequestCtxt *ctxt, xmlNodePtr r
 
 }
 
+namespace ASTRA
+{
+
 template<> const Segment& SegmentCache::add(const CheckIn::TPaxSegmentPair& segmentPair) const
 {
   TAdvTripRoute route;
@@ -834,4 +837,4 @@ template<> std::string SegmentCache::traceTitle()
   return "SegmentCache";
 }
 
-
+} //namespace ASTRA

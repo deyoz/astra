@@ -427,9 +427,9 @@ void http_main(reply& rep, const request& req)
       body = string( res + header.size(), newlen - header.size() );
       client.fromJXT( body, rep );
     }
-    catch(Exception &e)
+    catch(std::exception &e)
     {
-      ProgError(STDLOG, "%s: Exception: %s", __FUNCTION__, e.what());
+      ProgError(STDLOG, "%s: exception: %s", __FUNCTION__, e.what());
       throw;
     }
     catch(...)
