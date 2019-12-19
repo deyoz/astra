@@ -78,7 +78,7 @@ class Search
     boost::posix_time::ptime startTime;
 
     PaxOrigin origin;
-    std::list<std::string> tables;
+    std::set<std::string> tables;
     std::list<std::string> conditions;
     QParams params;
     mutable std::set<int> foundPaxIds;
@@ -101,7 +101,7 @@ class Search
       {
         criterion.addSQLTablesForSearch(origin, tables);
         criterion.addSQLConditionsForSearch(origin, conditions);
-        criterion.addSQLParamsForSearch(params);
+        criterion.addSQLParamsForSearch(origin, params);
       }
 
       getSQLProperties(criterions...);
@@ -168,9 +168,9 @@ class PaxIdFilter
     explicit PaxIdFilter(int _value) : value(_value) {}
 
     bool validForSearch() const;
-    void addSQLTablesForSearch(const PaxOrigin& origin, std::list<std::string>& tables) const {}
+    void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const {}
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
-    void addSQLParamsForSearch(QParams& params) const;
+    void addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const;
     bool finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const { return true; }
 };
 
@@ -189,18 +189,21 @@ class SurnameFilter
     }
 
     bool validForSearch() const;
-    void addSQLTablesForSearch(const PaxOrigin& origin, std::list<std::string>& tables) const {}
+    void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const {}
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
-    void addSQLParamsForSearch(QParams& params) const;
+    void addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const;
     bool finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const { return true; }
     bool suitable(const CheckIn::TSimplePaxItem& pax) const;
 };
 
 class FullnameFilter : public SurnameFilter
 {
+  private:
+    std::string transformName(const std::string& name) const;
   public:
     std::string name;
     bool checkNameEqualBeginning;
+    bool checkFirstNameOnly;
 
     static std::string firstName(const std::string& name);
 
@@ -211,6 +214,7 @@ class FullnameFilter : public SurnameFilter
       SurnameFilter::clear();
       name.clear();
       checkNameEqualBeginning=false;
+      checkFirstNameOnly=false;
     }
 
     bool finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const;
@@ -228,11 +232,45 @@ class BarcodePaxFilter : public FullnameFilter
     {
       FullnameFilter::clear();
       reg_no=ASTRA::NoExists;
+      checkFirstNameOnly=true;
     }
 
     void set(const BCBPUniqueSections& unique,
              const BCBPRepeatedSections& repeated);
 
+    bool finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const;
+    bool suitable(const CheckIn::TSimplePaxItem& pax) const;
+};
+
+class TCkinPaxFilter : public FullnameFilter
+{
+  public:
+    std::string subclass;
+    ASTRA::TPerson pers_type;
+    int seats;
+
+    TCkinPaxFilter(const CheckIn::TSimplePaxItem& pax)
+    {
+      clear();
+      surname=pax.surname;
+      name=pax.name;
+      subclass=pax.getCabinSubclass();
+      pers_type=pax.pers_type;
+      seats=pax.seats;
+    }
+
+    void clear()
+    {
+      FullnameFilter::clear();
+      subclass.clear();
+      pers_type=ASTRA::NoPerson;
+      seats=ASTRA::NoExists;
+    }
+
+    bool validForSearch() const;
+    void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const;
+    void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
+    void addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const;
     bool finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const;
     bool suitable(const CheckIn::TSimplePaxItem& pax) const;
 };
@@ -262,10 +300,12 @@ class FlightFilter : public TTripInfo
       airp_arv.clear();
     }
 
+    void setLocalDate(TDateTime localDate);
+
     bool validForSearch() const;
-    void addSQLTablesForSearch(const PaxOrigin& origin, std::list<std::string>& tables) const;
+    void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const;
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
-    void addSQLParamsForSearch(QParams& params) const;
+    void addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const;
     bool finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const { return true; }
     bool suitable(const TAdvTripRouteItem& departure,
                   const TAdvTripRouteItem& arrival) const;

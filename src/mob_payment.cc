@@ -2,7 +2,7 @@
 #include "astra_elem_utils.h"
 #include "sopp.h"
 #include "tripinfo.h"
-#include "rfisc_sirena.h"
+#include "checkin.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/slogger.h"
@@ -10,6 +10,7 @@
 using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC::date_time;
+using namespace MobilePayment;
 
 namespace MobilePayment
 {
@@ -99,12 +100,7 @@ SearchPassengersRequest::Segment& SearchPassengersRequest::Segment::fromXML(xmlN
     destination=elemIdFromXML(etAirp, "destination", node, cfErrorIfEmpty);
 
   filter=FlightFilter(*this);
-  if (departure_date_scd!=ASTRA::NoExists)
-  {
-    filter.min_scd_out=departure_date_scd;
-    filter.max_scd_out=departure_date_scd+1.0;
-    filter.scdOutIsLocal=true;
-  }
+  filter.setLocalDate(departure_date_scd);
   filter.airp_arv=destination;
 
   return *this;
@@ -277,31 +273,6 @@ std::string Passenger::statusStr() const
   return grp_id!=ASTRA::NoExists?"checked":"not_checked";
 }
 
-const Segment& SegmentCache::getSegment(const CheckIn::TPaxSegmentPair& segmentPair) const
-{
-  auto i=segments.find(segmentPair);
-  if (i!=segments.end()) return i->second;
-
-  TAdvTripRoute route;
-  route.getRouteBetween(segmentPair.point_dep, segmentPair.airp_arv);
-
-  if (route.size()<2)
-  {
-    LogTrace(TRACE5) << "segmentPair(" << segmentPair.point_dep << ", " << segmentPair.airp_arv << "): route.size()=" << route.size();
-    throw NotFound();
-  }
-
-  Segment& segment=segments.emplace(segmentPair, Segment()).first->second;
-
-  segment.departure=*(route.begin());
-  segment.arrival=*(route.rbegin());
-
-  if (segment.departure.act_out==ASTRA::NoExists)
-    segment.setStages(segment.departure.point_id);
-
-  return segment;
-}
-
 void SearchPassengersResponse::add(const CheckIn::TSimplePaxItem& pax,
                                    const std::string& reqDeparture)
 {
@@ -310,14 +281,13 @@ void SearchPassengersResponse::add(const CheckIn::TSimplePaxItem& pax,
 
   try
   {
-    if (pax.grp_id==ASTRA::NoExists)
+    if (pax.origin()==paxPnl)
     {
       //незарегистрированные пассажиры
       CheckIn::TSimplePnrItem pnr;
-      pnr.getByPaxId(pax.id);
+      if (!pnr.getByPaxId(pax.id)) return;
 
-      TAdvTripInfoList flts;
-      getTripsByCRSPnrId(pnr.id, flts);
+      const TAdvTripInfoList& flts=PnrFlightsCache::get(pnr.id);
 
       if (flts.size()!=1)
       {
@@ -330,7 +300,7 @@ void SearchPassengersResponse::add(const CheckIn::TSimplePaxItem& pax,
       if (flt.airp!=reqDeparture) return;
 
       CheckIn::TPaxSegmentPair segmentPair(flt.point_id, pnr.airp_arv);
-      const Segment& segment=getSegment(segmentPair);
+      const Segment& segment=SegmentCache::get(segmentPair);
       if (!segment.departure.match(TReqInfo::Instance()->user.access)) return;
 
       Passenger& passenger=*(passengers.emplace(passengers.end(), pax, segmentPair));
@@ -339,16 +309,15 @@ void SearchPassengersResponse::add(const CheckIn::TSimplePaxItem& pax,
       passenger.pnrAddrs.getByPnrIdFast(pnr.id);
 
     }
-    else
+    else if (pax.origin()==paxCheckIn)
     {
       //зарегистрированные пассажиры
-      CheckIn::TPaxGrpItem grp;
-      if (!grp.getByGrpId(pax.grp_id)) return;
+      const CheckIn::TSimplePaxGrpItem& grp=PaxGrpCache::get(pax.grp_id);
 
       if (grp.airp_dep!=reqDeparture) return;
 
       CheckIn::TPaxSegmentPair segmentPair=grp.getSegmentPair();
-      const Segment& segment=getSegment(segmentPair);
+      const Segment& segment=SegmentCache::get(segmentPair);
       if (!segment.departure.match(TReqInfo::Instance()->user.access)) return;
 
       Passenger& passenger=*(passengers.emplace(passengers.end(), pax, segmentPair));
@@ -357,10 +326,46 @@ void SearchPassengersResponse::add(const CheckIn::TSimplePaxItem& pax,
     }
 
   }
-  catch(const SegmentCache::NotFound&)
+  catch(const SegmentCache::NotFound&)    { return; }
+  catch(const PnrFlightsCache::NotFound&) { return; }
+  catch(const PaxGrpCache::NotFound&)     { return; }
+}
+
+boost::optional<std::pair<TAdvTripInfo, std::string>> GetPassengerInfoResponse::getSegmentInfo(const CheckIn::TSimplePaxItem& pax)
+{
+  if (pax.id==ASTRA::NoExists) return boost::none;
+  if (!pax.refuse.empty()) return boost::none;
+
+  if (pax.origin()==paxPnl)
   {
-    return;
+    //незарегистрированные пассажиры
+    CheckIn::TSimplePnrItem pnr;
+    if (!pnr.getByPaxId(pax.id)) return boost::none;
+
+    TAdvTripInfoList flts;
+    getTripsByCRSPnrId(pnr.id, flts);
+
+    if (flts.size()!=1)
+    {
+      LogTrace(TRACE5) << "flts.size()=" << flts.size() << " (pnr.id=" << pnr.id << ")";
+      return boost::none;
+    }
+
+    return make_pair(flts.front(), pnr.airp_arv);
   }
+  else if (pax.origin()==paxCheckIn)
+  {
+    //зарегистрированные пассажиры
+    CheckIn::TSimplePaxGrpItem grp;
+    if (!grp.getByGrpId(pax.grp_id)) return boost::none;
+
+    TAdvTripInfo flt;
+    if (!flt.getByPointId(grp.point_dep)) return boost::none;
+
+    return make_pair(flt, grp.airp_arv);
+  }
+
+  return boost::none;
 }
 
 void SearchPassengersResponse::searchPassengers(const SearchPassengersRequest& req)
@@ -410,7 +415,7 @@ void SearchPassengersResponse::searchPassengers(const SearchPassengersRequest& r
 bool SearchPassengersResponse::suitable(const Passenger& passenger,
                                         const SearchPassengersRequest& req) const
 {
-  const Segment& segment=getSegment(passenger.segmentPair);
+  const Segment& segment=SegmentCache::get(passenger.segmentPair);
   //штрихкод
   if (req.barcode &&
       !req.barcode.get().getBarcodeFilter().suitable(segment.departure,
@@ -453,7 +458,7 @@ const SearchPassengersResponse& SearchPassengersResponse::toXML(xmlNodePtr node)
   if (node==nullptr) return *this;
 
   for(const Passenger& p : passengers)
-    p.toXML(NewTextChild(node, "passenger"), getSegment(p.segmentPair), outputLang);
+    p.toXML(NewTextChild(node, "passenger"), SegmentCache::get(p.segmentPair), outputLang);
 
   return *this;
 }
@@ -506,10 +511,20 @@ void SearchFlightsResponse::searchFlights(const SearchFlightsRequest& req)
 {
   if (req.departure.empty()) return;
 
-  TDateTime min_out=req.departure_datetime==ASTRA::NoExists?
-                      NowUTC():
-                      LocalToUTC(req.departure_datetime, AirpTZRegion(req.departure));
-  TDateTime max_out=min_out+req.depth_hours/24.0;
+  TDateTime min_out, max_out;
+  bool isLocalRange;
+  if (req.departure_datetime==ASTRA::NoExists)
+  {
+    min_out=NowUTC();
+    max_out=min_out+req.depth_hours/24.0;
+    isLocalRange=false;
+  }
+  else
+  {
+    min_out=req.departure_datetime;
+    max_out=min_out+req.depth_hours/24.0;
+    isLocalRange=true;
+  }
 
   if (max_out-min_out<=0.0 || max_out-min_out>2.0) return;
 
@@ -527,9 +542,23 @@ void SearchFlightsResponse::searchFlights(const SearchFlightsRequest& req)
 
   params.pr_cancel=false;
   params.pr_takeoff=true;
-  params.first_date=min_out;
-  params.last_date=max_out;
+  if (isLocalRange)
+  {
+    modf(LocalToUTC(min_out, AirpTZRegion(req.departure), BackwardWhenProblem), &params.first_date);   //только границы диапазона, округленные до дня, из-за триггера для points.time_out
+    modf(LocalToUTC(max_out, AirpTZRegion(req.departure), ForwardWhenProblem)+1.0, &params.last_date); //только границы диапазона, округленные до дня, из-за триггера для points.time_out
+  }
+  else
+  {
+    modf(min_out, &params.first_date);   //только границы диапазона, округленные до дня, из-за триггера для points.time_out
+    modf(max_out+1.0, &params.last_date);//только границы диапазона, округленные до дня, из-за триггера для points.time_out
+  }
   params.includeScdIntoDateRange=true;
+
+  LogTrace(TRACE5) << " min_out=" << DateTimeToStr(min_out, "dd.mm.yyyy hh:nn:ss")
+                   << " max_out=" << DateTimeToStr(max_out, "dd.mm.yyyy hh:nn:ss")
+                   << " isLocalRange=" << isLocalRange;
+  LogTrace(TRACE5) << " first_date=" << DateTimeToStr(params.first_date, "dd.mm.yyyy hh:nn:ss")
+                   << " last_date=" << DateTimeToStr(params.last_date, "dd.mm.yyyy hh:nn:ss");
 
   TQuery Qry(&OraSession);
   setSQLTripList(Qry, params);
@@ -549,6 +578,18 @@ void SearchFlightsResponse::searchFlights(const SearchFlightsRequest& req)
       LogError(STDLOG) << "strange situation: !flt.match(TReqInfo::Instance()->user.access)";
       continue;
     }
+
+    TDateTime scd_out=flt.scd_out;
+    TDateTime time_out=flt.act_est_scd_out();
+    if (isLocalRange)
+    {
+      if ( scd_out!=ASTRA::NoExists)  scd_out=UTCToLocal( scd_out, AirpTZRegion(flt.airp));
+      if (time_out!=ASTRA::NoExists) time_out=UTCToLocal(time_out, AirpTZRegion(flt.airp));
+    }
+
+    if (!( scd_out!=ASTRA::NoExists &&  scd_out>=min_out &&  scd_out<=max_out) &&
+        !(time_out!=ASTRA::NoExists && time_out>=min_out && time_out<=max_out))
+      continue;
 
     add(flt);
   }
@@ -595,23 +636,129 @@ const GetClientPermsResponse& GetClientPermsResponse::toXML(xmlNodePtr node) con
   return *this;
 }
 
+class SegKeys : public map<int, Sirena::TPaxSegKey>
+{
+  public:
+    void add(TRACE_SIGNATURE, const Sirena::TPaxSegKey& key)
+    {
+      emplace(key.trfer_num, key);
+      LogTrace(TRACE_PARAMS) << "SegKeys: add(" << key.pax_id << ", " << key.trfer_num << ")";
+    }
+
+    void traceDuplicates(TRACE_SIGNATURE, const CheckIn::TSimplePaxList& paxs, int trfer_num)
+    {
+      for(const CheckIn::TSimplePaxItem& pax : paxs)
+        LogTrace(TRACE_PARAMS) << "SegKeys: duplicate (" << pax.id << ", " << trfer_num << ")";
+    }
+};
+
+void GetPassengerInfoResponse::prepareEntities(int paxId)
+{
+  CheckIn::TSimplePaxList paxs;
+  CheckIn::Search()(paxs, PaxIdFilter(paxId));
+  if (paxs.empty())
+  {
+    LogTrace(TRACE5) << __func__ << ": return - paxs.empty()";
+    return;
+  }
+
+  const CheckIn::TSimplePaxItem pax=paxs.front();
+
+  SegKeys segKeys;
+  segKeys.add(TRACE5, Sirena::TPaxSegKey(pax.id, 0));
+
+  auto segmentInfo=getSegmentInfo(pax);
+  if (!segmentInfo)
+  {
+    LogTrace(TRACE5) << __func__ << ": return - !segmentInfo";
+    return;
+  }
+  if (!segmentInfo.get().first.match(TReqInfo::Instance()->user.access))
+  {
+    LogTrace(TRACE5) << __func__ << ": return - !segmentInfo.get().first.match";
+    return;
+  }
+
+  if (pax.origin()==paxCheckIn)
+  {
+    map<int, CheckIn::TSimplePaxItem> tckinPaxs;
+    GetTCkinPassengers(pax.id, tckinPaxs);
+    int segShift=ASTRA::NoExists;
+    for(const auto& p : tckinPaxs)
+    {
+      if (p.second.id==pax.id) segShift=p.first;
+      if (segShift!=ASTRA::NoExists)
+        segKeys.add(TRACE5, Sirena::TPaxSegKey(p.second.id, p.first-segShift));
+    }
+  }
+
+  map<int, CheckIn::TTransferItem> trfer;
+  CheckInInterface::GetOnwardCrsTransfer(pax.id, false, segmentInfo.get().first, segmentInfo.get().second, trfer);
+
+  CheckIn::Search search;
+  TCkinPaxFilter paxFilter(pax);
+  for(const auto& t : trfer)
+  {
+    if (segKeys.find(t.first)!=segKeys.end()) continue; //уже считали информацию на основе зарегистрированного сквозняка
+
+    const CheckIn::TTransferItem& item=t.second;
+    FlightFilter fltFilter(item.operFlt);
+    fltFilter.setLocalDate(item.operFlt.scd_out);
+    fltFilter.airp_arv=item.airp_arv;
+    paxFilter.subclass=item.subclass;
+
+    search(paxs, fltFilter, paxFilter);
+
+    if (paxs.size()!=1)
+    {
+      segKeys.traceDuplicates(TRACE5, paxs, t.first);
+      continue;
+    }
+
+    segKeys.add(TRACE5, Sirena::TPaxSegKey(paxs.front().id, t.first));
+  }
+
+  int trfer_num=0;
+  for(const auto& k : segKeys)
+  {
+    if (trfer_num!=k.second.trfer_num) break;
+    entities.emplace(k.second, pax.id);
+    trfer_num++;
+  }
+}
+
+const GetPassengerInfoResponse& GetPassengerInfoResponse::toXML(xmlNodePtr node) const
+{
+  if (node==nullptr) return *this;
+
+  SirenaExchange::TPseudoGroupInfoRes res;
+  SirenaExchange::fillPaxsSvcs(entities, res);
+  res.mergePaxSections();
+  res.toXML(node);
+
+  return *this;
+}
+
 } //namespace MobilePayment
 
 void MobilePaymentInterface::searchPassengers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   try
   {
-    MobilePayment::SearchPassengersRequest req;
+    SearchPassengersRequest req;
     req.fromXML(reqNode);
 
-    MobilePayment::SearchPassengersResponse res;
+    SearchPassengersResponse res;
     res.searchPassengers(req);
     res.filterPassengers(req);
     res.toXML(NewTextChild(resNode, (const char*)reqNode->name));
+//    LogTrace(TRACE5) << static_cast<const SegmentCache&>(res).traceTotals();
+//    LogTrace(TRACE5) << static_cast<const PnrFlightsCache&>(res).traceTotals();
+//    LogTrace(TRACE5) << static_cast<const PaxGrpCache&>(res).traceTotals();
   }
   catch(const std::exception& e)
   {
-    MobilePayment::Response::errorToXML(e, reqNode, resNode);
+    Response::errorToXML(e, reqNode, resNode);
   }
 }
 
@@ -619,16 +766,16 @@ void MobilePaymentInterface::searchFlights(XMLRequestCtxt *ctxt, xmlNodePtr reqN
 {
   try
   {
-    MobilePayment::SearchFlightsRequest req;
+    SearchFlightsRequest req;
     req.fromXML(reqNode);
 
-    MobilePayment::SearchFlightsResponse res;
+    SearchFlightsResponse res;
     res.searchFlights(req);
     res.toXML(NewTextChild(resNode, (const char*)reqNode->name));
   }
   catch(const std::exception& e)
   {
-    MobilePayment::Response::errorToXML(e, reqNode, resNode);
+    Response::errorToXML(e, reqNode, resNode);
   }
 }
 
@@ -636,12 +783,12 @@ void MobilePaymentInterface::getClientPerms(XMLRequestCtxt *ctxt, xmlNodePtr req
 {
   try
   {
-    MobilePayment::GetClientPermsResponse res;
+    GetClientPermsResponse res;
     res.toXML(NewTextChild(resNode, (const char*)reqNode->name));
   }
   catch(const std::exception& e)
   {
-    MobilePayment::Response::errorToXML(e, reqNode, resNode);
+    Response::errorToXML(e, reqNode, resNode);
   }
 }
 
@@ -649,17 +796,42 @@ void MobilePaymentInterface::getPassengerInfo(XMLRequestCtxt *ctxt, xmlNodePtr r
 {
   try
   {
-    SirenaExchange::TEntityList entities;
-    entities.emplace(NodeAsInteger("pax_id", reqNode), 0);
-    SirenaExchange::TPseudoGroupInfoRes res;
-    SirenaExchange::fillPaxsSvcs(entities, res);
+    GetPassengerInfoResponse res;
+    res.prepareEntities(NodeAsInteger("pax_id", reqNode));
     res.toXML(NewTextChild(resNode, (const char*)reqNode->name));
   }
   catch(const std::exception& e)
   {
-    MobilePayment::Response::errorToXML(e, reqNode, resNode);
+    Response::errorToXML(e, reqNode, resNode);
   }
 
+}
+
+template<> const Segment& SegmentCache::add(const CheckIn::TPaxSegmentPair& segmentPair) const
+{
+  TAdvTripRoute route;
+  route.getRouteBetween(segmentPair.point_dep, segmentPair.airp_arv);
+
+  if (route.size()<2)
+  {
+    LogTrace(TRACE5) << "segmentPair(" << segmentPair.point_dep << ", " << segmentPair.airp_arv << "): route.size()=" << route.size();
+    throw NotFound();
+  }
+
+  Segment& segment=items.emplace(segmentPair, Segment()).first->second;
+
+  segment.departure=*(route.begin());
+  segment.arrival=*(route.rbegin());
+
+  if (segment.departure.act_out==ASTRA::NoExists)
+    segment.setStages(segment.departure.point_id);
+
+  return segment;
+}
+
+template<> std::string SegmentCache::traceTitle()
+{
+  return "SegmentCache";
 }
 
 

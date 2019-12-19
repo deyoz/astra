@@ -475,7 +475,7 @@ void PaxIdFilter::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<s
   }
 }
 
-void PaxIdFilter::addSQLParamsForSearch(QParams& params) const
+void PaxIdFilter::addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const
 {
   params << QParam("pax_id", otInteger, value);
 }
@@ -509,7 +509,7 @@ void SurnameFilter::addSQLConditionsForSearch(const PaxOrigin& origin, std::list
   conditions.push_back(sql.str());
 }
 
-void SurnameFilter::addSQLParamsForSearch(QParams& params) const
+void SurnameFilter::addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const
 {
   params << QParam("surname", otString, surname);
 }
@@ -529,21 +529,26 @@ std::string FullnameFilter::firstName(const std::string& name)
   return result;
 }
 
+std::string FullnameFilter::transformName(const std::string& name) const
+{
+  return checkFirstNameOnly?firstName(name):name;
+}
+
 bool FullnameFilter::finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const
 {
   if (!SurnameFilter::finalPassengerCheck(pax)) return false;
 
   //здесь проверяем имя
-  return checkNameEqualBeginning?transliter_equal_begin(firstName(pax.name), firstName(name)):
-                                 transliter_equal      (firstName(pax.name), firstName(name));
+  return checkNameEqualBeginning?transliter_equal_begin(transformName(pax.name), transformName(name)):
+                                 transliter_equal      (transformName(pax.name), transformName(name));
 }
 
 bool FullnameFilter::suitable(const CheckIn::TSimplePaxItem& pax) const
 {
   return SurnameFilter::suitable(pax) &&
          (name.empty() ||
-          checkNameEqualBeginning?transliter_equal_begin(firstName(pax.name), firstName(name)):
-                                  transliter_equal      (firstName(pax.name), firstName(name)));
+          checkNameEqualBeginning?transliter_equal_begin(transformName(pax.name), transformName(name)):
+                                  transliter_equal      (transformName(pax.name), transformName(name)));
 }
 
 bool BarcodePaxFilter::finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const
@@ -560,6 +565,95 @@ bool BarcodePaxFilter::suitable(const CheckIn::TSimplePaxItem& pax) const
          (reg_no==ASTRA::NoExists || pax.reg_no==reg_no);
 }
 
+bool TCkinPaxFilter::validForSearch() const
+{
+  return FullnameFilter::validForSearch() &&
+         !subclass.empty();
+}
+
+void TCkinPaxFilter::addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const
+{
+  FullnameFilter::addSQLTablesForSearch(origin, tables);
+
+  switch(origin)
+  {
+    case paxCheckIn:
+      tables.insert("pax_grp");
+      break;
+    case paxPnl:
+      break;
+    case paxTest:
+      break;
+  }
+}
+
+void TCkinPaxFilter::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const
+{
+  FullnameFilter::addSQLConditionsForSearch(origin, conditions);
+
+  switch(origin)
+  {
+    case paxCheckIn:
+      conditions.push_back("pax_grp.grp_id=pax.grp_id");
+      conditions.push_back("NVL(pax.cabin_subclass, pax.subclass)=:subclass");
+      conditions.push_back("pax_grp.status IN (:checkin_status, :tcheckin_status)");
+      break;
+    case paxPnl:
+      conditions.push_back("crs_pnr.subclass=:subclass");
+      conditions.push_back("(crs_pnr.status IS NULL OR crs_pnr.status NOT IN ('DG2','RG2','ID2','WL'))");
+      break;
+    case paxTest:
+      break;
+  }
+}
+
+void TCkinPaxFilter::addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const
+{
+  FullnameFilter::addSQLParamsForSearch(origin, params);
+
+  params << QParam("subclass", otString, subclass);
+
+  switch(origin)
+  {
+    case paxCheckIn:
+      params << QParam("checkin_status", otString, EncodePaxStatus(ASTRA::psCheckin))
+             << QParam("tcheckin_status", otString, EncodePaxStatus(ASTRA::psTCheckin));
+      break;
+    case paxPnl:
+      break;
+    case paxTest:
+      break;
+  }
+}
+
+bool TCkinPaxFilter::finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const
+{
+  if (!FullnameFilter::finalPassengerCheck(pax)) return false;
+
+  return (pax.pers_type!=NoPerson && pers_type!=NoPerson && pax.pers_type==pers_type) &&
+         (pax.seats!=NoExists && seats!=NoExists && (pax.seats>0)==(seats>0));
+}
+
+bool TCkinPaxFilter::suitable(const CheckIn::TSimplePaxItem& pax) const
+{
+  return FullnameFilter::suitable(pax) &&
+         (pers_type==NoPerson || pax.pers_type==pers_type) &&
+         (seats==NoExists || (pax.seats!=NoExists && (pax.seats>0)==(seats>0)));
+
+  return true;
+}
+
+void FlightFilter::setLocalDate(TDateTime localDate)
+{
+  if (localDate==NoExists) return;
+
+  modf(localDate, &localDate);
+  scd_out=ASTRA::NoExists;
+  min_scd_out=localDate;
+  max_scd_out=localDate+1.0;
+  scdOutIsLocal=true;
+}
+
 bool FlightFilter::validForSearch() const
 {
   if (airp.empty()) return false;
@@ -572,16 +666,16 @@ bool FlightFilter::validForSearch() const
            max_scd_out-min_scd_out<=2.0;
 }
 
-void FlightFilter::addSQLTablesForSearch(const PaxOrigin& origin, std::list<std::string>& tables) const
+void FlightFilter::addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const
 {
-  tables.push_back("points");
+  tables.insert("points");
   switch(origin)
   {
     case paxCheckIn:
-      tables.push_back("pax_grp");
+      tables.insert("pax_grp");
       break;
     case paxPnl:
-      tables.push_back("tlg_binding");
+      tables.insert("tlg_binding");
       break;
     case paxTest:
       break;
@@ -628,7 +722,7 @@ void FlightFilter::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<
   }
 }
 
-void FlightFilter::addSQLParamsForSearch(QParams& params) const
+void FlightFilter::addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const
 {
   params << QParam("airp_dep", otString, airp);
 

@@ -199,11 +199,14 @@ void TPaxSection::toXML(xmlNodePtr node) const
     display.toSirenaXML(node);
 }
 
-void TPaxSection::updateSeg(const Sirena::TPaxSegKey &key)
+void TPaxSection::updateSeg(const Sirena::TPaxSegKey &key, const int idForMerge)
 {
   for(list<TPaxItem>::iterator p=paxs.begin(); p!=paxs.end(); ++p)
   {
     if (p->id!=key.pax_id) continue;
+
+    p->idForMerge=idForMerge;
+
     if (p->segs.empty() || p->segs.begin()->first==key.trfer_num) continue;
 
     int trfer_num=key.trfer_num;
@@ -472,6 +475,7 @@ void TSvcList::addChecked(const TCheckedReqPassengers &req_grps, int grp_id, int
   payment.fromDB(grp_id);
   for(const TGrpServiceItem& svc : svcs)
   {
+    if (!req_grps.pax_included(grp_id, svc.pax_id)) continue;
     for(int j=svc.service_quantity; j>0; j--)
     {
       if (statusList.deleteIfFound(TPaidRFISCStatus(svc, TServiceStatus::Free)))
@@ -486,6 +490,8 @@ void TSvcList::addChecked(const TCheckedReqPassengers &req_grps, int grp_id, int
   svcsAuto.fromDB(grp_id, true, !req_grps.include_refused);
   for(const TGrpServiceAutoItem& svcAuto : svcsAuto)
     for(TGrpServiceItem& svc : svcs)
+    {
+      if (!req_grps.pax_included(grp_id, svc.pax_id)) continue;
       if (svc.similar(svcAuto))
       {
         for(int j=svcAuto.service_quantity; j>0; j--)
@@ -495,16 +501,12 @@ void TSvcList::addChecked(const TCheckedReqPassengers &req_grps, int grp_id, int
         }
         break;
       }
+    }
 
   //отфильтруем ненужные
   for(TSvcList::iterator i=begin(); i!=end();)
   {
     if (req_grps.only_first_segment && i->trfer_num!=0)
-    {
-      i=erase(i);
-      continue;
-    }
-    if (!req_grps.pax_included(grp_id, i->pax_id))
     {
       i=erase(i);
       continue;
@@ -712,7 +714,7 @@ void TPseudoGroupInfoReq::fromXML(xmlNodePtr node)
       if (nodeName!="entity") continue;
       Sirena::TPaxSegKey key;
       key.fromSirenaXML(node);
-      entities.insert(key);
+      entities.emplace(key, ASTRA::NoExists);
     };
     if (entities.empty()) throw Exception("entities.empty()");
   }
@@ -728,6 +730,45 @@ void TPseudoGroupInfoRes::toXML(xmlNodePtr node) const
 
   TPaxSection::toXML(node);
   TSvcSection::toXML(node);
+}
+
+void TPseudoGroupInfoRes::mergePaxSections()
+{
+  paxs.sort(compareForMerge);
+  auto iPriorPax=paxs.end();
+  for(auto iCurrPax=paxs.begin(); iCurrPax!=paxs.end();)
+  {
+    if (iCurrPax->idForMerge==ASTRA::NoExists)
+    {
+      ++iCurrPax;
+      continue;
+    }
+    if (iPriorPax==paxs.end() ||
+        iPriorPax->idForMerge!=iCurrPax->idForMerge)
+      iPriorPax=iCurrPax++;
+    else
+    {
+      for(const auto& s : iCurrPax->segs)
+      {
+        iPriorPax->segs.erase(s.first);
+        iPriorPax->segs.insert(s);
+        for(TSvcItem& svc : svcs)
+          if (svc.pax_id==iCurrPax->id && svc.trfer_num==s.first)
+            svc.pax_id=iPriorPax->id;
+      }
+      iCurrPax=paxs.erase(iCurrPax);
+    }
+  }
+}
+
+bool TPseudoGroupInfoRes::compareForMerge(const TPaxItem& pax1, const TPaxItem& pax2)
+{
+  if (pax1.idForMerge!=pax2.idForMerge)
+    return pax1.idForMerge<pax2.idForMerge;
+  if (pax1.segs.empty() || pax2.segs.empty())
+    return pax1.segs.empty()<pax2.segs.empty();
+  else
+    return pax1.segs.begin()->first<pax2.segs.begin()->first;
 }
 
 } //namespace SirenaExchange

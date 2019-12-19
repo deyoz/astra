@@ -4,6 +4,7 @@
 #include "passenger.h"
 #include "astra_misc.h"
 #include "ckin_search.h"
+#include "rfisc_sirena.h"
 
 #include "jxtlib/JxtInterface.h"
 
@@ -156,25 +157,14 @@ class Passenger : public CheckIn::TSimplePaxItem
     std::string statusStr() const;
 };
 
-class SegmentCache
+typedef ASTRA::Cache<CheckIn::TPaxSegmentPair, Segment> SegmentCache;
+
+class SearchPassengersResponse : public Response,
+                                 public SegmentCache,
+                                 public PnrFlightsCache,
+                                 public PaxGrpCache
 {
   private:
-    mutable std::map<CheckIn::TPaxSegmentPair, Segment> segments;
-  public:
-    const Segment& getSegment(const CheckIn::TPaxSegmentPair& segmentPair) const;
-
-    class NotFound : public EXCEPTIONS::Exception
-    {
-      public:
-        NotFound() : EXCEPTIONS::Exception("SegmentCache: not found") {}
-    };
-};
-
-class SearchPassengersResponse : public SegmentCache, public Response
-{
-  private:
-//    std::map<int/*pnr_id*/, TAdvTripInfoList> flts; !!!vlad ͺνθ¨
-//    std::map<int/*grp_id*/, CheckIn::TSimplePaxGrpItem> grps;
     std::list<Passenger> passengers;
     void add(const CheckIn::TSimplePaxItem& pax,
              const std::string& reqDeparture);
@@ -200,6 +190,17 @@ class GetClientPermsResponse : public Response
 {
   public:
     const GetClientPermsResponse& toXML(xmlNodePtr node) const;
+};
+
+class GetPassengerInfoResponse : public Response
+{
+  private:
+    SirenaExchange::TEntityList entities;
+  public:
+    void prepareEntities(int paxId);
+    const GetPassengerInfoResponse& toXML(xmlNodePtr node) const;
+
+    static boost::optional<std::pair<TAdvTripInfo, std::string>> getSegmentInfo(const CheckIn::TSimplePaxItem& pax);
 };
 
 } //namespace MobilePayment

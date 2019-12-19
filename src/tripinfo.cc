@@ -142,13 +142,7 @@ void setSQLTripList( TQuery &Qry, const TTripListSQLFilter &filter )
         Qry.CreateVariable("last_date", otDate, params.last_date);
       }
       else
-      {
-        if (params.includeScdIntoDateRange)
-          sql << "WHERE (points.time_out=:first_date OR points.scd_out=:first_date) ";
-
-        else
-          sql << "WHERE points.time_out=:first_date ";
-      }
+        sql << "WHERE points.time_out=:first_date ";
       Qry.CreateVariable("first_date", otDate, params.first_date);
     };
 

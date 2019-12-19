@@ -85,7 +85,7 @@ class TSimpleMktFlight
     std::string flight_number(const boost::optional<AstraLocale::OutputLang>& lang = boost::none) const
     {
       std::ostringstream s;
-      s << flt_no;
+      s << std::setw(3) << std::setfill('0') << flt_no;
       s << (lang? ElemIdToElem(etSuffix, suffix, efmtCodeInter, lang->get()): suffix);
       return s.str();
     }
@@ -364,7 +364,7 @@ class TTripInfo
     std::string flight_number(const boost::optional<AstraLocale::OutputLang>& lang = boost::none) const
     {
       std::ostringstream s;
-      s << flt_no;
+      s << std::setw(3) << std::setfill('0') << flt_no;
       s << (lang? ElemIdToElem(etSuffix, suffix, efmtCodeInter, lang->get()): suffix);
       return s.str();
     }
@@ -445,6 +445,7 @@ class TAdvTripInfo : public TTripInfo
 };
 
 typedef std::list<TAdvTripInfo> TAdvTripInfoList;
+typedef ASTRA::Cache<int/*pnr_id*/, TAdvTripInfoList> PnrFlightsCache;
 
 void getPointIdsSppByPointIdTlg(const int point_id_tlg, std::set<int>& point_ids_spp);
 void getTripsByPointIdTlg(const int point_id_tlg, TAdvTripInfoList &trips);
