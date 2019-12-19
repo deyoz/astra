@@ -3228,16 +3228,20 @@ std::string TPnrAddrs::getByPaxId(int pax_id, string &airline)
     return "";
 };
 
+namespace ASTRA
+{
+
 template<> const CheckIn::TSimplePaxGrpItem& PaxGrpCache::add(const int& grpId) const
 {
-  CheckIn::TSimplePaxGrpItem& grp=items.emplace(grpId, CheckIn::TSimplePaxGrpItem()).first->second;
-
+  CheckIn::TSimplePaxGrpItem grp;
   if (!grp.getByGrpId(grpId)) throw NotFound();
 
-  return grp;
+  return items.emplace(grpId, grp).first->second;
 }
 
 template<> std::string PaxGrpCache::traceTitle()
 {
   return "PaxGrpCache";
 }
+
+} //namespace ASTRA
