@@ -2788,6 +2788,22 @@ void set_seats_option(TPassSeats &seats, const TSeatRanges &seatRanges, int poin
     if(seats.empty()) seats.insert(TSeat());
 }
 
+int LCI_ACT_TIMEOUT()
+{
+  static int VAR=NoExists;
+  if (VAR==NoExists)
+    VAR=getTCLParam("LCI_ACT_TIMEOUT",NoExists,NoExists,2);
+  return VAR;
+};
+
+int LCI_EST_TIMEOUT()
+{
+  static int VAR=NoExists;
+  if (VAR==NoExists)
+    VAR=getTCLParam("LCI_EST_TIMEOUT",NoExists,NoExists,48);
+  return VAR;
+};
+
 string TLCIContent::answer()
 {
     string result;
@@ -2806,6 +2822,20 @@ string TLCIContent::answer()
                 Qry.FieldAsInteger( "point_id_spp" );
         }
         int point_id_spp = nd.get();
+
+        TTripInfo flt;
+        flt.getByPointId(point_id_spp);
+        TDateTime dep_time;
+        int timeout;
+        if(flt.act_out_exists()) {
+            dep_time = flt.act_est_scd_out();
+            timeout = LCI_ACT_TIMEOUT();
+        } else {
+            dep_time = flt.est_scd_out();
+            timeout = LCI_EST_TIMEOUT();
+        }
+        if((time_receive - dep_time) > timeout / 24.)
+            throw ETlgError(tlgeNotMonitorYesAlarm, "Flight has departed");
 
         TSeatRanges ranges_tmp, seatRanges;
 
