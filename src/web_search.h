@@ -7,6 +7,7 @@
 #include "stages.h"
 #include "dev_utils.h"
 #include "rbd.h"
+#include "ckin_search.h"
 #include <boost/optional.hpp>
 
 namespace WebSearch
@@ -44,37 +45,6 @@ struct TTestPaxInfo
   void trace( TRACE_SIGNATURE ) const;
 };
 
-class PaxId
-{
-  private:
-    int value;
-  public:
-    explicit PaxId(int _value) : value(_value) {}
-
-    bool validForSearch() const;
-    void addSQLTablesForSearch(const PaxOrigin& origin, std::list<std::string>& tables) const {}
-    void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
-    void addSQLParamsForSearch(QParams& params) const;
-};
-
-class SurnameFilter
-{
-  public:
-    std::string surname;
-    bool checkSurnameEqualBeginning;
-
-    void clear()
-    {
-      surname.clear();
-      checkSurnameEqualBeginning=false;
-    }
-
-    bool validForSearch() const;
-    void addSQLTablesForSearch(const PaxOrigin& origin, std::list<std::string>& tables) const {}
-    void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
-    void addSQLParamsForSearch(QParams& params) const;
-};
-
 struct TFlightInfo;
 
 class TPNRFilter : public SurnameFilter
@@ -94,6 +64,8 @@ class TPNRFilter : public SurnameFilter
     std::string airp_dep, airp_arv;
 
     TPNRFilter() { clear(); };
+
+    TPNRFilter(const BarcodeSegmentFilter& barcode);
 
     void clear()
     {

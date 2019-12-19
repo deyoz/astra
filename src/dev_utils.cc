@@ -412,15 +412,15 @@ void BCBPSections::get(const std::string &bcbp,
                        bool only_mandatory)
 {
   sections.clear();
-  if (bcbp.empty()) throw Exception("%s: empty bcbp", __FUNCTION__);
+  if (bcbp.empty()) throw Exception("BCBPSections::get: empty bcbp");
 
   if (bcbp_begin_idx==string::npos || bcbp.size()-bcbp_begin_idx<1)
-    throw Exception("%s: wrong bcbp_begin_idx", __FUNCTION__);
+    throw Exception("BCBPSections::get: wrong bcbp_begin_idx");
   if (bcbp[bcbp_begin_idx]!='M')
     throw EConvertError("unknown item 1 <Format Code>");
 
   if (bcbp_end_idx!=string::npos && bcbp.size()<bcbp_end_idx)
-    throw Exception("%s: wrong bcbp_end_idx", __FUNCTION__);
+    throw Exception("BCBPSections::get: wrong bcbp_end_idx");
 
   sections.unique.mandatory=substr(bcbp, bcbp_begin_idx, 23,
                                    EConvertError("invalid size of mandatory unique section"));

@@ -216,66 +216,6 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr fltParentNode, xmlNodePtr paxParentNo
   return *this;
 };
 
-bool PaxId::validForSearch() const
-{
-  return value!=ASTRA::NoExists;
-}
-
-void PaxId::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const
-{
-  switch(origin)
-  {
-    case paxCheckIn:
-      conditions.push_back("pax.pax_id = :pax_id");
-      break;
-    case paxPnl:
-      conditions.push_back("crs_pax.pax_id = :pax_id");
-      break;
-    case paxTest:
-      conditions.push_back("test_pax.id = :pax_id");
-      break;
-  }
-}
-
-void PaxId::addSQLParamsForSearch(QParams& params) const
-{
-  params << QParam("pax_id", otInteger, value);
-}
-
-bool SurnameFilter::validForSearch() const
-{
-  return !surname.empty();
-}
-
-void SurnameFilter::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const
-{
-  std::string field_name;
-
-  switch(origin)
-  {
-    case paxCheckIn:
-      field_name="pax.surname";
-      break;
-    case paxPnl:
-      field_name="crs_pax.surname";
-      break;
-    case paxTest:
-      field_name="test_pax.surname";
-      break;
-  }
-  ostringstream sql;
-  sql << (checkSurnameEqualBeginning?"system.transliter_equal_begin(":
-                                     "system.transliter_equal(")
-      << field_name << ", :surname)<>0";
-
-  conditions.push_back(sql.str());
-}
-
-void SurnameFilter::addSQLParamsForSearch(QParams& params) const
-{
-  params << QParam("surname", otString, surname);
-}
-
 string TPNRFilter::getSurnameSQLFilter(const string &field_name, TQuery &Qry) const
 {
   ostringstream sql;
@@ -482,80 +422,37 @@ TPNRFilters& TPNRFilters::getBCBPSections(const std::string &bcbp, BCBPSections 
   return *this;
 }
 
+TPNRFilter::TPNRFilter(const BarcodeSegmentFilter& barcode)
+{
+  clear();
+
+  from_scan_code=true;
+  surname=barcode.pax.surname;
+  name=FullnameFilter::firstName(barcode.pax.name);
+  checkSurnameEqualBeginning=barcode.pax.checkSurnameEqualBeginning;
+  checkNameEqualBeginning=barcode.pax.checkNameEqualBeginning;
+  pnr_addr_normal=convert_pnr_addr(barcode.pnr.addr, true);
+  airp_dep=barcode.seg.airp;
+  airp_arv=barcode.seg.airp_arv;
+  airlines.insert(barcode.seg.airline);
+  flt_no=barcode.seg.flt_no;
+  suffix=barcode.seg.suffix;
+  MergeSortedRanges(barcode.seg.scdOutIsLocal?scd_out_local_ranges:scd_out_utc_ranges,
+                    make_pair(barcode.seg.min_scd_out, barcode.seg.max_scd_out));
+  reg_no=barcode.pax.reg_no;
+}
+
 TPNRFilters& TPNRFilters::fromBCBPSections(const BCBPSections &sections)
 {
   clear();
   try
   {
-    TElemFmt fmt;
-
-    //фамилия/имя пассажира
-    pair<string, string> name_pair=sections.unique.passengerName();
-
-    for(vector<BCBPRepeatedSections>::const_iterator s=sections.repeated.begin(); s!=sections.repeated.end(); ++s)
+    for(const BCBPRepeatedSections& repeated : sections.repeated)
     {
-      TPNRFilter filter;
+      BarcodeSegmentFilter barcodeSeg;
+      barcodeSeg.set(sections.unique, repeated);
 
-      filter.from_scan_code=true;
-      filter.surname=name_pair.first;
-      filter.name=name_pair.second;
-
-      if (filter.surname.size()+filter.name.size()+1 >= 20)
-      {
-        filter.checkSurnameEqualBeginning=true;
-        if (!filter.name.empty())
-          filter.checkNameEqualBeginning=true;
-      };
-      filter.name.erase(find(filter.name.begin(), filter.name.end(), ' '), filter.name.end()); //оставляем часть до пробела
-
-      //номер PNR
-      const BCBPRepeatedSections &repeated=*s;
-      filter.pnr_addr_normal=convert_pnr_addr(repeated.operatingCarrierPNRCode(), true);
-
-      //аэропорт вылета, а надо бы еще и город анализировать!!!
-      filter.airp_dep = ElemToElemId( etAirp, repeated.fromCityAirpCode() , fmt );
-      if (fmt==efmtUnknown)
-        throw EXCEPTIONS::EConvertError("unknown item 26 <From City Airport Code> %s", repeated.fromCityAirpCode().c_str());
-
-      //аэропорт прилета, а надо бы еще и город анализировать!!!
-      filter.airp_arv = ElemToElemId( etAirp, repeated.toCityAirpCode(), fmt );
-      if (fmt==efmtUnknown)
-        throw EXCEPTIONS::EConvertError("unknown item 38 <To City Airport Code> %s", repeated.toCityAirpCode().c_str());
-
-      //авиакомпания
-      string airline = ElemToElemId( etAirline, repeated.operatingCarrierDesignator(), fmt );
-      if (fmt==efmtUnknown)
-        throw EXCEPTIONS::EConvertError("unknown item 42 <Operating carrier Designator> %s", repeated.operatingCarrierDesignator().c_str());
-      filter.airlines.insert(airline);
-
-      //номер рейса + суффих
-      pair<int, string> flt_no_pair=repeated.flightNumber();
-      if (!flt_no_pair.second.empty())
-      {
-        filter.suffix = ElemToElemId( etSuffix, flt_no_pair.second, fmt );
-        if (fmt==efmtUnknown)
-          throw EXCEPTIONS::EConvertError("unknown item 43 <Flight Number> suffix %s", flt_no_pair.second.c_str());
-      };
-
-      filter.flt_no=flt_no_pair.first;
-
-      //дата рейса (julian format)
-      int julian_date=repeated.dateOfFlight();
-      try
-      {
-        JulianDate scd_out_local(julian_date, NowUTC(), JulianDate::everywhere);
-        scd_out_local.trace(__FUNCTION__);
-        MergeSortedRanges(filter.scd_out_local_ranges, make_pair(scd_out_local.getDateTime(), scd_out_local.getDateTime()+1.0));
-      }
-      catch(EXCEPTIONS::EConvertError)
-      {
-        throw EXCEPTIONS::EConvertError("unknown item 46 <Date of Flight (Julian Date)> %d", julian_date);
-      };
-
-      //рег. номер
-      filter.reg_no=repeated.checkinSeqNumber().first;
-
-      segs.push_back(filter);
+      segs.emplace_back(barcodeSeg);
     };
   }
   catch(EXCEPTIONS::EConvertError &e)
@@ -1050,7 +947,7 @@ bool TPNRSegInfo::fromTestPax(int point_id, const TTripRoute &route, const TTest
   {
     orig_cls=((const TSubclsRow&)base_tables.get( "subcls" ).get_row( "code", pax.subcls, true )).cl;
   }
-  catch(EBaseTableError)
+  catch(const EBaseTableError&)
   {
     return false;
   };

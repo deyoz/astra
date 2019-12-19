@@ -30,6 +30,8 @@ bool isEmptyPaxId(int id);
 namespace CheckIn
 {
 
+class TSimplePaxItem;
+
 class TPaxGrpCategory
 {
   public:
@@ -155,9 +157,11 @@ class TPaxTknItem : public TPaxAPIItem, public TPaxRemBasic
     int checkedInETCount() const;
 
     bool validForSearch() const;
-    void addSQLTablesForSearch(const PaxOrigin& origin, std::list<std::string>& tables) const;
+    void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const;
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
-    void addSQLParamsForSearch(QParams& params) const;
+    void addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const;
+    bool finalPassengerCheck(const TSimplePaxItem& pax) const { return true; }
+    bool suitable(const TPaxTknItem& tkn) const;
 };
 
 bool LoadPaxTkn(int pax_id, TPaxTknItem &tkn);
@@ -298,9 +302,11 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic, public TPaxDocCompo
     std::string getSurnameWithInitials() const;
 
     bool validForSearch() const;
-    void addSQLTablesForSearch(const PaxOrigin& origin, std::list<std::string>& tables) const;
+    void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const;
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
-    void addSQLParamsForSearch(QParams& params) const;
+    void addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const;
+    bool finalPassengerCheck(const TSimplePaxItem& pax) const { return true; }
+    bool suitable(const TPaxDocItem& doc) const;
 };
 
 class TScannedPaxDocItem : public TPaxDocItem
@@ -320,7 +326,9 @@ class TScannedPaxDocItem : public TPaxDocItem
     TScannedPaxDocItem& fromXML(xmlNodePtr node);
     std::string getTrueNo() const;
 
-    void addSQLParamsForSearch(QParams& params) const;
+    void addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const;
+    bool finalPassengerCheck(const TSimplePaxItem& pax) const { return true; }
+    bool suitable(const TPaxDocItem& doc) const;
 };
 
 const std::string DOCO_PSEUDO_TYPE="-";
@@ -521,11 +529,29 @@ class TComplexClass
     const TComplexClass& toXML(xmlNodePtr node, const std::string& fieldPrefix) const;
 };
 
+class TPaxSegmentPair
+{
+  public:
+    int point_dep;
+    std::string airp_arv;
+
+    TPaxSegmentPair(const int pointDep, const std::string& airpArv) :
+      point_dep(pointDep), airp_arv(airpArv) {}
+
+    bool operator < (const TPaxSegmentPair &seg) const
+    {
+      if (point_dep!=seg.point_dep)
+        return point_dep < seg.point_dep;
+      return airp_arv < seg.airp_arv;
+    }
+};
+
 class TSimplePaxItem
 {
   public:
     int id; //crs
     int grp_id;
+    int pnr_id; //crs
     std::string surname; //crs
     std::string name; //crs
     ASTRA::TPerson pers_type; //crs
@@ -554,6 +580,7 @@ class TSimplePaxItem
     {
       id=ASTRA::NoExists;
       grp_id=ASTRA::NoExists;
+      pnr_id=ASTRA::NoExists;
       surname.clear();
       name.clear();
       pers_type=ASTRA::NoPerson;
@@ -625,6 +652,16 @@ class TSimplePaxItem
     boost::optional<WeightConcept::TNormItem> getRegularNorm() const;
     void getBaggageListForSBDO(TRFISCListWithProps &list) const;
     void getBaggageListForSBDO(TBagTypeList& list) const;
+
+    PaxOrigin origin() const
+    {
+      if (isTest())
+        return paxTest;
+      else if (grp_id==ASTRA::NoExists)
+        return paxPnl;
+      else
+        return paxCheckIn;
+    }
 };
 
 template <class T>
@@ -854,6 +891,11 @@ class TSimplePaxGrpItem
     bool allowToBagCheckIn() const { return trfer_confirm; }
 
     ASTRA::TCompLayerType getCheckInLayerType() const;
+
+    TPaxSegmentPair getSegmentPair() const
+    {
+      return TPaxSegmentPair(point_dep, airp_arv);
+    }
 };
 
 class TPaxGrpItem : public TSimplePaxGrpItem
@@ -996,6 +1038,7 @@ class TCkinPaxTknItem : public TPaxTknItem
     TCkinPaxTknItem& fromDB(TQuery &Qry);
 };
 
+void GetTCkinPassengers(int pax_id, std::map<int, TSimplePaxItem> &paxs);
 void GetTCkinTickets(int pax_id, std::map<int, TCkinPaxTknItem> &tkns);
 void GetTCkinTicketsBefore(int pax_id, std::map<int, TCkinPaxTknItem> &tkns);
 void GetTCkinTicketsAfter(int pax_id, std::map<int, TCkinPaxTknItem> &tkns);
@@ -1014,6 +1057,8 @@ void PaxBrandsNormsToStream(const TTrferRoute &trfer, const CheckIn::TPaxItem &p
 } //namespace Sirena
 
 std::string convert_pnr_addr(const std::string &value, bool pr_lat);
+
+class TPnrAddrs;
 
 class TPnrAddrInfo
 {
@@ -1064,9 +1109,12 @@ class TPnrAddrInfo
                               const boost::optional<AstraLocale::OutputLang>& lang=boost::none) const;
 
     bool validForSearch() const;
-    void addSQLTablesForSearch(const PaxOrigin& origin, std::list<std::string>& tables) const;
+    void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const;
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
-    void addSQLParamsForSearch(QParams& params) const;
+    void addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const;
+    bool finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const { return true; }
+    bool suitable(const TPnrAddrInfo& pnr) const;
+    bool suitable(const TPnrAddrs& pnrs) const;
 };
 
 class TPnrAddrs : public std::vector<TPnrAddrInfo>
@@ -1124,6 +1172,8 @@ class TPnrAddrs : public std::vector<TPnrAddrInfo>
       return s.str();
     }
 };
+
+typedef ASTRA::Cache<int/*grp_id*/, CheckIn::TSimplePaxGrpItem> PaxGrpCache;
 
 #endif
 

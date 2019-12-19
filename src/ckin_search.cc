@@ -454,4 +454,451 @@ bool Search::timeIsUp() const
 
 } //namespace CheckIn
 
+bool PaxIdFilter::validForSearch() const
+{
+  return value!=ASTRA::NoExists;
+}
+
+void PaxIdFilter::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const
+{
+  switch(origin)
+  {
+    case paxCheckIn:
+      conditions.push_back("pax.pax_id = :pax_id");
+      break;
+    case paxPnl:
+      conditions.push_back("crs_pax.pax_id = :pax_id");
+      break;
+    case paxTest:
+      conditions.push_back("test_pax.id = :pax_id");
+      break;
+  }
+}
+
+void PaxIdFilter::addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const
+{
+  params << QParam("pax_id", otInteger, value);
+}
+
+bool SurnameFilter::validForSearch() const
+{
+  return !surname.empty();
+}
+
+void SurnameFilter::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const
+{
+  std::string field_name;
+
+  switch(origin)
+  {
+    case paxCheckIn:
+      field_name="pax.surname";
+      break;
+    case paxPnl:
+      field_name="crs_pax.surname";
+      break;
+    case paxTest:
+      field_name="test_pax.surname";
+      break;
+  }
+  ostringstream sql;
+  sql << (checkSurnameEqualBeginning?"system.transliter_equal_begin(":
+                                     "system.transliter_equal(")
+      << field_name << ", :surname)<>0";
+
+  conditions.push_back(sql.str());
+}
+
+void SurnameFilter::addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const
+{
+  params << QParam("surname", otString, surname);
+}
+
+bool SurnameFilter::suitable(const CheckIn::TSimplePaxItem& pax) const
+{
+  return surname.empty() ||
+         checkSurnameEqualBeginning?transliter_equal_begin(pax.surname, surname):
+                                    transliter_equal      (pax.surname, surname);
+}
+
+std::string FullnameFilter::firstName(const std::string& name)
+{
+  string result(name);
+  result.erase(find(result.begin(), result.end(), ' '), result.end());
+
+  return result;
+}
+
+std::string FullnameFilter::transformName(const std::string& name) const
+{
+  return checkFirstNameOnly?firstName(name):name;
+}
+
+bool FullnameFilter::finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const
+{
+  if (!SurnameFilter::finalPassengerCheck(pax)) return false;
+
+  //здесь проверяем имя
+  return checkNameEqualBeginning?transliter_equal_begin(transformName(pax.name), transformName(name)):
+                                 transliter_equal      (transformName(pax.name), transformName(name));
+}
+
+bool FullnameFilter::suitable(const CheckIn::TSimplePaxItem& pax) const
+{
+  return SurnameFilter::suitable(pax) &&
+         (name.empty() ||
+          checkNameEqualBeginning?transliter_equal_begin(transformName(pax.name), transformName(name)):
+                                  transliter_equal      (transformName(pax.name), transformName(name)));
+}
+
+bool BarcodePaxFilter::finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const
+{
+  if (!FullnameFilter::finalPassengerCheck(pax)) return false;
+
+  if (reg_no==ASTRA::NoExists) return true;
+  return pax.reg_no==reg_no;
+}
+
+bool BarcodePaxFilter::suitable(const CheckIn::TSimplePaxItem& pax) const
+{
+  return FullnameFilter::suitable(pax) &&
+         (reg_no==ASTRA::NoExists || pax.reg_no==reg_no);
+}
+
+bool TCkinPaxFilter::validForSearch() const
+{
+  return FullnameFilter::validForSearch() &&
+         !subclass.empty();
+}
+
+void TCkinPaxFilter::addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const
+{
+  FullnameFilter::addSQLTablesForSearch(origin, tables);
+
+  switch(origin)
+  {
+    case paxCheckIn:
+      tables.insert("pax_grp");
+      break;
+    case paxPnl:
+      break;
+    case paxTest:
+      break;
+  }
+}
+
+void TCkinPaxFilter::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const
+{
+  FullnameFilter::addSQLConditionsForSearch(origin, conditions);
+
+  switch(origin)
+  {
+    case paxCheckIn:
+      conditions.push_back("pax_grp.grp_id=pax.grp_id");
+      conditions.push_back("NVL(pax.cabin_subclass, pax.subclass)=:subclass");
+      conditions.push_back("pax_grp.status IN (:checkin_status, :tcheckin_status)");
+      break;
+    case paxPnl:
+      conditions.push_back("crs_pnr.subclass=:subclass");
+      conditions.push_back("(crs_pnr.status IS NULL OR crs_pnr.status NOT IN ('DG2','RG2','ID2','WL'))");
+      break;
+    case paxTest:
+      break;
+  }
+}
+
+void TCkinPaxFilter::addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const
+{
+  FullnameFilter::addSQLParamsForSearch(origin, params);
+
+  params << QParam("subclass", otString, subclass);
+
+  switch(origin)
+  {
+    case paxCheckIn:
+      params << QParam("checkin_status", otString, EncodePaxStatus(ASTRA::psCheckin))
+             << QParam("tcheckin_status", otString, EncodePaxStatus(ASTRA::psTCheckin));
+      break;
+    case paxPnl:
+      break;
+    case paxTest:
+      break;
+  }
+}
+
+bool TCkinPaxFilter::finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const
+{
+  if (!FullnameFilter::finalPassengerCheck(pax)) return false;
+
+  return (pax.pers_type!=NoPerson && pers_type!=NoPerson && pax.pers_type==pers_type) &&
+         (pax.seats!=NoExists && seats!=NoExists && (pax.seats>0)==(seats>0));
+}
+
+bool TCkinPaxFilter::suitable(const CheckIn::TSimplePaxItem& pax) const
+{
+  return FullnameFilter::suitable(pax) &&
+         (pers_type==NoPerson || pax.pers_type==pers_type) &&
+         (seats==NoExists || (pax.seats!=NoExists && (pax.seats>0)==(seats>0)));
+
+  return true;
+}
+
+void FlightFilter::setLocalDate(TDateTime localDate)
+{
+  if (localDate==NoExists) return;
+
+  modf(localDate, &localDate);
+  scd_out=ASTRA::NoExists;
+  min_scd_out=localDate;
+  max_scd_out=localDate+1.0;
+  scdOutIsLocal=true;
+}
+
+bool FlightFilter::validForSearch() const
+{
+  if (airp.empty()) return false;
+  if (scd_out!=ASTRA::NoExists)
+    return true;
+  else
+    return min_scd_out!=ASTRA::NoExists &&
+           max_scd_out!=ASTRA::NoExists &&
+           min_scd_out<max_scd_out &&
+           max_scd_out-min_scd_out<=2.0;
+}
+
+void FlightFilter::addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const
+{
+  tables.insert("points");
+  switch(origin)
+  {
+    case paxCheckIn:
+      tables.insert("pax_grp");
+      break;
+    case paxPnl:
+      tables.insert("tlg_binding");
+      break;
+    case paxTest:
+      break;
+  }
+}
+
+void FlightFilter::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const
+{
+  if (scd_out!=ASTRA::NoExists)
+    conditions.push_back("points.scd_out=:scd_out");
+  else
+  {
+    conditions.push_back("points.scd_out>=:min_scd_out");
+    conditions.push_back("points.scd_out<:max_scd_out");
+  }
+  conditions.push_back("points.airp=:airp_dep");
+  if (!airline.empty())
+    conditions.push_back("points.airline=:airline");
+  if (flt_no!=ASTRA::NoExists)
+  {
+    conditions.push_back("points.flt_no=:flt_no");
+    if (!suffix.empty())
+      conditions.push_back("points.suffix=:suffix");
+    else
+      conditions.push_back("points.suffix IS NULL");
+  }
+
+  switch(origin)
+  {
+    case paxCheckIn:
+      conditions.push_back("points.point_id=pax_grp.point_dep");
+      conditions.push_back("pax_grp.grp_id=pax.grp_id");
+      if (!airp_arv.empty())
+        conditions.push_back("pax_grp.airp_arv=:airp_arv");
+      break;
+    case paxPnl:
+      conditions.push_back("points.point_id=tlg_binding.point_id_spp");
+      conditions.push_back("tlg_binding.point_id_tlg=crs_pnr.point_id");
+      if (!airp_arv.empty())
+        conditions.push_back("crs_pnr.airp_arv=:airp_arv");
+      break;
+    case paxTest:
+      break;
+  }
+}
+
+void FlightFilter::addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const
+{
+  params << QParam("airp_dep", otString, airp);
+
+  if (scd_out!=ASTRA::NoExists)
+  {
+    if (scdOutIsLocal)
+      params << QParam("scd_out", otDate, LocalToUTC(scd_out, AirpTZRegion(airp)));
+    else
+      params << QParam("scd_out", otDate, scd_out);
+  }
+  else
+  {
+    if (scdOutIsLocal)
+    {
+      params << QParam("min_scd_out", otDate, LocalToUTC(min_scd_out, AirpTZRegion(airp), BackwardWhenProblem))
+             << QParam("max_scd_out", otDate, LocalToUTC(max_scd_out, AirpTZRegion(airp), ForwardWhenProblem));
+    }
+    else
+      params << QParam("min_scd_out", otDate, min_scd_out)
+             << QParam("max_scd_out", otDate, max_scd_out);
+  }
+
+  if (!airline.empty())
+    params << QParam("airline", otString, airline);
+  if (flt_no!=ASTRA::NoExists)
+  {
+    params << QParam("flt_no", otInteger, flt_no);
+    if (!suffix.empty())
+      params << QParam("suffix", otString, suffix);
+  }
+  if (!airp_arv.empty())
+    params << QParam("airp_arv", otString, airp_arv);
+}
+
+bool FlightFilter::suitable(const TAdvTripRouteItem& departure,
+                            const TAdvTripRouteItem& arrival) const
+{
+  TDateTime departure_scd_out=scdOutIsLocal?departure.scd_out_local():departure.scd_out;
+
+  if (!airp.empty() && airp!=departure.airp) return false;
+
+  if (scd_out!=ASTRA::NoExists &&
+      (departure_scd_out==ASTRA::NoExists || scd_out!=departure_scd_out)) return false;
+
+  if (min_scd_out!=ASTRA::NoExists &&
+      (departure_scd_out==ASTRA::NoExists || min_scd_out>departure_scd_out)) return false;
+
+  if (max_scd_out!=ASTRA::NoExists &&
+      (departure_scd_out==ASTRA::NoExists || max_scd_out<=departure_scd_out)) return false;
+
+  if (!airline.empty() && airline!=departure.airline) return false;
+  if (flt_no!=ASTRA::NoExists && (flt_no!=departure.flt_num || suffix!=departure.suffix)) return false;
+  if (!airp_arv.empty() && airp_arv!=arrival.airp) return false;
+
+  return true;
+}
+
+void BarcodeSegmentFilter::set(const BCBPUniqueSections& unique,
+                               const BCBPRepeatedSections& repeated)
+{
+  clear();
+
+  try
+  {
+    //фамилия/имя пассажира
+    pair<string, string> name_pair=unique.passengerName();
+
+    pax.surname=name_pair.first;
+    pax.name=name_pair.second;
+
+    if (pax.surname.size()+pax.name.size()+1 >= 20)
+    {
+      pax.checkSurnameEqualBeginning=true;
+      if (!pax.name.empty())
+        pax.checkNameEqualBeginning=true;
+    };
+
+    //рег. номер
+    pax.reg_no=repeated.checkinSeqNumber().first;
+
+    //номер PNR
+    pnr.addr=repeated.operatingCarrierPNRCode();
+
+    TElemFmt fmt;
+    //аэропорт вылета, а надо бы еще и город анализировать!!!
+    seg.airp = ElemToElemId( etAirp, repeated.fromCityAirpCode() , fmt );
+    if (fmt==efmtUnknown)
+      throw EXCEPTIONS::EConvertError("unknown item 26 <From City Airport Code> %s", repeated.fromCityAirpCode().c_str());
+
+    //аэропорт прилета, а надо бы еще и город анализировать!!!
+    seg.airp_arv = ElemToElemId( etAirp, repeated.toCityAirpCode(), fmt );
+    if (fmt==efmtUnknown)
+      throw EXCEPTIONS::EConvertError("unknown item 38 <To City Airport Code> %s", repeated.toCityAirpCode().c_str());
+
+    //авиакомпания
+    seg.airline = ElemToElemId( etAirline, repeated.operatingCarrierDesignator(), fmt );
+    if (fmt==efmtUnknown)
+      throw EXCEPTIONS::EConvertError("unknown item 42 <Operating carrier Designator> %s", repeated.operatingCarrierDesignator().c_str());
+
+    //номер рейса + суффикс
+    pair<int, string> flt_no_pair=repeated.flightNumber();
+    if (!flt_no_pair.second.empty())
+    {
+      seg.suffix = ElemToElemId( etSuffix, flt_no_pair.second, fmt );
+      if (fmt==efmtUnknown)
+        throw EXCEPTIONS::EConvertError("unknown item 43 <Flight Number> suffix %s", flt_no_pair.second.c_str());
+    };
+
+    seg.flt_no=flt_no_pair.first;
+
+    //дата рейса (julian format)
+    int julian_date=repeated.dateOfFlight();
+    try
+    {
+      JulianDate scd_out_local(julian_date, NowUTC(), JulianDate::TDirection::everywhere);
+      scd_out_local.trace(__FUNCTION__);
+      seg.min_scd_out=scd_out_local.getDateTime();
+      seg.max_scd_out=scd_out_local.getDateTime()+1.0;
+      seg.scdOutIsLocal=true;
+    }
+    catch(const EXCEPTIONS::EConvertError&)
+    {
+      throw EXCEPTIONS::EConvertError("unknown item 46 <Date of Flight (Julian Date)> %d", julian_date);
+    };
+  }
+  catch(const EXCEPTIONS::EConvertError&)
+  {
+    clear();
+    throw;
+  }
+}
+
+void BarcodeFilter::set(const std::string &barcode)
+{
+  clear();
+  BCBPSections sections;
+  BCBPSections::get(barcode, 0, barcode.size(), sections, false);
+  for(const BCBPRepeatedSections& repeated : sections.repeated)
+    emplace(end())->set(sections.unique, repeated);
+}
+
+void BarcodeFilter::getPassengers(CheckIn::Search& search, CheckIn::TSimplePaxList& paxs, bool checkOnlyFullname) const
+{
+  paxs.clear();
+  for(const BarcodeSegmentFilter& filter : *this)
+  {
+    CheckIn::TSimplePaxList paxsOnSegment;
+    if (checkOnlyFullname)
+      search(paxsOnSegment, filter.seg, static_cast<const FullnameFilter&>(filter.pax), filter.pnr);
+    else
+      search(paxsOnSegment, filter.seg, filter.pax, filter.pnr);
+    paxs.insert(paxs.end(), paxsOnSegment.begin(), paxsOnSegment.end());
+
+    if (search.timeoutIsReached()) return;
+  }
+}
+
+bool BarcodeFilter::suitable(const TAdvTripRouteItem& departure,
+                             const TAdvTripRouteItem& arrival,
+                             const CheckIn::TSimplePaxItem& pax,
+                             const TPnrAddrs& pnrs,
+                             bool checkOnlyFullname) const
+{
+  for(const BarcodeSegmentFilter& filter : *this)
+  {
+    if (!filter.seg.suitable(departure, arrival)) continue;
+    if (checkOnlyFullname) {
+      if (!static_cast<const FullnameFilter&>(filter.pax).suitable(pax)) continue;
+    } else {
+      if (!filter.pax.suitable(pax)) continue;
+    }
+    if (!filter.pnr.suitable(pnrs)) continue;
+
+    return true;
+  }
+
+  return false;
+}
 

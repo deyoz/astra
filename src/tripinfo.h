@@ -95,7 +95,7 @@ class TTripListSQLFilter
     bool pr_cancel;
     bool pr_takeoff;
     std::pair<std::string, std::string> station; //название пульта, режим работы
-    bool use_arrival_permit;
+    bool use_arrival_permit=false;
     virtual void set(void);
     virtual ~TTripListSQLFilter() {};
 };
@@ -104,9 +104,10 @@ class TTripListSQLParams: public TTripListSQLFilter
 {
   public:
     TDateTime first_date, last_date;
-    int flt_no;
+    int flt_no=ASTRA::NoExists;
     std::string suffix;
-    int check_point_id;
+    int check_point_id=ASTRA::NoExists;
+    bool includeScdIntoDateRange=false;
 };
 
 class TTripInfoSQLParams: public TTripListSQLFilter
@@ -115,6 +116,8 @@ class TTripInfoSQLParams: public TTripListSQLFilter
     int point_id;
     virtual void set(void);
 };
+
+void setSQLTripList( TQuery &Qry, const TTripListSQLFilter &filter );
 
 const std::string CREW_CLASS_ID=" ";
 const std::string CREW_CLASS_VIEW=" ";

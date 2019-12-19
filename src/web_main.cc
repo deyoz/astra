@@ -355,7 +355,7 @@ static void GetPNRsList(const WebSearch::TPNRFilter &filter,
   if (!(filter.test_paxs.empty() && !filter.from_scan_code)) return;
 
   CheckIn::TSimplePaxList paxs;
-  WebSearch::SurnameFilter surname(filter);
+  SurnameFilter surname(filter);
 
   CheckIn::Search search(WebSearch::TIMEOUT());
   if (!filter.ticket_no.empty())
@@ -2651,7 +2651,7 @@ void WebRequestsIface::CheckFFP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 
     CheckIn::Search search;
     CheckIn::TSimplePaxList paxs;
-    search(paxs, WebSearch::PaxId(pax_id));
+    search(paxs, PaxIdFilter(pax_id));
     if (paxs.empty()) throw UserException( "MSG.PASSENGER.NOT_FOUND.REFRESH_DATA" );
 
     const CheckIn::TSimplePaxItem& pax=paxs.front();
@@ -3465,7 +3465,7 @@ void fillPaxsSvcs(const TEntityList &entities, TExchange &exch)
   Qry.DeclareVariable("pax_id", otInteger);
   for(TEntityList::const_iterator i=entities.begin(); i!=entities.end(); ++i)
   {
-    const Sirena::TPaxSegKey &entity=*i;
+    const Sirena::TPaxSegKey &entity=i->first;
     ProgTrace(TRACE5, "%s: entity.pax_id=%d, entity.trfer_num=%d", __FUNCTION__, entity.pax_id, entity.trfer_num);
 
     Qry.SetVariable("pax_id", entity.pax_id);
@@ -3490,8 +3490,8 @@ void fillPaxsSvcs(const TEntityList &entities, TExchange &exch)
   TSvcSection *svcSection=dynamic_cast<TSvcSection*>(&exch);
   for(TEntityList::const_iterator i=entities.begin(); i!=entities.end(); ++i)
   {
-    if (paxSection) paxSection->updateSeg(*i);
-    if (svcSection) svcSection->updateSeg(*i);
+    if (paxSection) paxSection->updateSeg(i->first, i->second);
+    if (svcSection) svcSection->updateSeg(i->first);
   };
 }
 

@@ -790,4 +790,44 @@ inline T* callbacks()
 
 void CallbacksExceptionFilter(STDLOG_SIGNATURE);
 
+namespace ASTRA
+{
+
+template <typename KeyT, typename ItemT>
+class Cache
+{
+  private:
+    mutable int totalGet=0;
+    mutable int totalAdd=0;
+    mutable std::map<KeyT, ItemT> items;
+  public:
+    static std::string traceTitle();
+    const ItemT& add(const KeyT& key) const;
+    const ItemT& get(const KeyT& key) const
+    {
+      totalGet++;
+
+      auto i=items.find(key);
+      if (i!=items.end()) return i->second;
+
+      totalAdd++;
+
+      return add(key);
+    }
+    std::string traceTotals() const
+    {
+      std::ostringstream s;
+      s << traceTitle() << " total: get - " << totalGet << ", add - " << totalAdd;
+      return s.str();
+    }
+
+    class NotFound : public EXCEPTIONS::Exception
+    {
+      public:
+        NotFound() : EXCEPTIONS::Exception("%s: not found", traceTitle().c_str()) {}
+    };
+};
+
+} //namespace ASTRA
+
 #endif /*_ASTRA_UTILS_H_*/

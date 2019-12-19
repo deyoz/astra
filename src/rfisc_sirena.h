@@ -180,6 +180,7 @@ class TPaxItem
 {
   public:
     int id;
+    int idForMerge;
     std::string surname, name;
     ASTRA::TPerson pers_type;
     int seats;
@@ -213,6 +214,7 @@ class TPaxItem
     void clear()
     {
       id=ASTRA::NoExists;
+      idForMerge=ASTRA::NoExists;
       surname.clear();
       name.clear();
       pers_type=ASTRA::NoPerson;
@@ -333,7 +335,7 @@ class TPaxSection
       paxs.clear();
     }
     void toXML(xmlNodePtr node) const;
-    void updateSeg(const Sirena::TPaxSegKey &key);
+    void updateSeg(const Sirena::TPaxSegKey &key, const int idForMerge);
 };
 
 class TSvcList : public std::list<TSvcItem>
@@ -566,7 +568,7 @@ class TGroupInfoRes : public TGroupInfo, public TPaxSection, public TSvcSection
     virtual void toXML(xmlNodePtr node) const;
 };
 
-typedef std::set<Sirena::TPaxSegKey> TEntityList;
+typedef std::map<Sirena::TPaxSegKey, int> TEntityList;
 
 class TPseudoGroupInfoReq : public TPseudoGroupInfo
 {
@@ -599,6 +601,8 @@ class TPseudoGroupInfoRes : public TPseudoGroupInfo, public TPaxSection, public 
       TSvcSection::clear();
     }
     virtual void toXML(xmlNodePtr node) const;
+    void mergePaxSections();
+    static bool compareForMerge(const TPaxItem& pax1, const TPaxItem& pax2);
 };
 
 void SendRequest(const TExchange &request, TExchange &response,

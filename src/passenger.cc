@@ -1731,6 +1731,7 @@ TSimplePaxItem& TSimplePaxItem::fromDBCrs(TQuery &Qry, bool withTkn)
 {
   clear();
   id=Qry.FieldAsInteger("pax_id");
+  pnr_id=Qry.FieldAsInteger("pnr_id");
   surname=Qry.FieldAsString("surname");
   name=Qry.FieldAsString("name");
   if (isTest())
@@ -2621,15 +2622,15 @@ TCkinPaxTknItem& TCkinPaxTknItem::fromDB(TQuery &Qry)
   return *this;
 }
 
-void GetTCkinTickets(int pax_id, map<int, TCkinPaxTknItem> &tkns)
+template<class T>
+void getTCkinInfo(int pax_id, map<int, T> &tkns)
 {
   tkns.clear();
 
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
-    "SELECT pax.ticket_no, pax.coupon_no, pax.ticket_rem, pax.ticket_confirm, "
-    "       pax.grp_id, pax.pax_id, tckin_pax_grp.seg_no "
+    "SELECT pax.*, tckin_pax_grp.seg_no "
     "FROM pax, tckin_pax_grp, "
     "     (SELECT tckin_pax_grp.tckin_id, "
     "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
@@ -2641,7 +2642,17 @@ void GetTCkinTickets(int pax_id, map<int, TCkinPaxTknItem> &tkns)
   Qry.CreateVariable("pax_id", otInteger, pax_id);
   Qry.Execute();
   for(; !Qry.Eof; Qry.Next())
-    tkns.insert(make_pair(Qry.FieldAsInteger("seg_no"), TCkinPaxTknItem().fromDB(Qry)));
+    tkns.insert(make_pair(Qry.FieldAsInteger("seg_no"), T().fromDB(Qry)));
+}
+
+void GetTCkinPassengers(int pax_id, map<int, TSimplePaxItem> &paxs)
+{
+  return getTCkinInfo(pax_id, paxs);
+}
+
+void GetTCkinTickets(int pax_id, map<int, TCkinPaxTknItem> &tkns)
+{
+  return getTCkinInfo(pax_id, tkns);
 }
 
 // Ф-я возвращает непрерывный список сегментов до или после pax_id, в зав-ти от after_current
@@ -2726,14 +2737,14 @@ bool TPaxTknItem::validForSearch() const
   return !no.empty();
 }
 
-void TPaxTknItem::addSQLTablesForSearch(const PaxOrigin& origin, std::list<std::string>& tables) const
+void TPaxTknItem::addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const
 {
   switch(origin)
   {
     case paxCheckIn:
       break;
     case paxPnl:
-      tables.push_back("crs_pax_tkn");
+      tables.insert("crs_pax_tkn");
       break;
     case paxTest:
       break;
@@ -2770,7 +2781,7 @@ void TPaxTknItem::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<s
   }
 }
 
-void TPaxTknItem::addSQLParamsForSearch(QParams& params) const
+void TPaxTknItem::addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const
 {
   params << QParam("tkn_no", otString, no);
   if (no.size()==14)
@@ -2779,20 +2790,26 @@ void TPaxTknItem::addSQLParamsForSearch(QParams& params) const
     params << QParam("tkn_coupon", otInteger, coupon);
 }
 
+bool TPaxTknItem::suitable(const TPaxTknItem& tkn) const
+{
+  return (no.empty() || (no.size()==14?no.substr(0,13):no) == tkn.no) &&
+         (coupon==ASTRA::NoExists || coupon==tkn.coupon);
+}
+
 bool TPaxDocItem::validForSearch() const
 {
   return !no.empty();
 }
 
-void TPaxDocItem::addSQLTablesForSearch(const PaxOrigin& origin, std::list<std::string>& tables) const
+void TPaxDocItem::addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const
 {
   switch(origin)
   {
     case paxCheckIn:
-      tables.push_back("pax_doc");
+      tables.insert("pax_doc");
       break;
     case paxPnl:
-      tables.push_back("crs_pax_doc");
+      tables.insert("crs_pax_doc");
       break;
     case paxTest:
       break;
@@ -2821,11 +2838,17 @@ void TPaxDocItem::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<s
   }
 }
 
-void TPaxDocItem::addSQLParamsForSearch(QParams& params) const
+void TPaxDocItem::addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const
 {
   params << QParam("doc_no", otString, no);
   if (birth_date!=ASTRA::NoExists)
     params << QParam("doc_birth_date", otDate, birth_date);
+}
+
+bool TPaxDocItem::suitable(const TPaxDocItem& doc) const
+{
+  return (no.empty() || no==doc.no) &&
+         (birth_date==ASTRA::NoExists || doc.birth_date==ASTRA::NoExists || birth_date==doc.birth_date);
 }
 
 std::string TScannedPaxDocItem::getTrueNo() const
@@ -2836,7 +2859,7 @@ std::string TScannedPaxDocItem::getTrueNo() const
   return no;
 }
 
-void TScannedPaxDocItem::addSQLParamsForSearch(QParams& params) const
+void TScannedPaxDocItem::addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const
 {
   LogTrace(TRACE5) << __FUNCTION__ << ": doc_no=" << getTrueNo();
   params << QParam("doc_no", otString, getTrueNo());
@@ -2845,6 +2868,12 @@ void TScannedPaxDocItem::addSQLParamsForSearch(QParams& params) const
     LogTrace(TRACE5) << __FUNCTION__ << ": doc_birth_date=" << DateTimeToStr(birth_date);
     params << QParam("doc_birth_date", otDate, birth_date);
   }
+}
+
+bool TScannedPaxDocItem::suitable(const TPaxDocItem& doc) const
+{
+  return (no.empty() || getTrueNo()==doc.no) &&
+         (birth_date==ASTRA::NoExists || doc.birth_date==ASTRA::NoExists || birth_date==doc.birth_date);
 }
 
 bool TSimplePaxList::infantsMoreThanAdults() const
@@ -3020,17 +3049,17 @@ bool TPnrAddrInfo::validForSearch() const
   return !addr.empty();
 }
 
-void TPnrAddrInfo::addSQLTablesForSearch(const PaxOrigin& origin, std::list<std::string>& tables) const
+void TPnrAddrInfo::addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const
 {
   switch(origin)
   {
     case paxCheckIn:
-      tables.push_back("crs_pax");
-      tables.push_back("crs_pnr");
-      tables.push_back("pnr_addrs");
+      tables.insert("crs_pax");
+      tables.insert("crs_pnr");
+      tables.insert("pnr_addrs");
       break;
     case paxPnl:
-      tables.push_back("pnr_addrs");
+      tables.insert("pnr_addrs");
       break;
     case paxTest:
       break;
@@ -3059,13 +3088,26 @@ void TPnrAddrInfo::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<
   }
 }
 
-void TPnrAddrInfo::addSQLParamsForSearch(QParams& params) const
+void TPnrAddrInfo::addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const
 {
   std::string addr_rus(addr), addr_lat(addr);
   transform(addr_rus.begin(), addr_rus.end(), addr_rus.begin(), toRusPnrChar);
   transform(addr_lat.begin(), addr_lat.end(), addr_lat.begin(), toLatPnrChar);
   params << QParam("addr_rus", otString, addr_rus)
          << QParam("addr_lat", otString, addr_lat);
+}
+
+bool TPnrAddrInfo::suitable(const TPnrAddrInfo& pnr) const
+{
+  return addr.empty() || convert_pnr_addr(addr, true)==convert_pnr_addr(pnr.addr, true);
+}
+
+bool TPnrAddrInfo::suitable(const TPnrAddrs& pnrs) const
+{
+  if (addr.empty()) return true;
+  for(const TPnrAddrInfo& pnr : pnrs)
+    if (suitable(pnr)) return true;
+  return false;
 }
 
 const TPnrAddrs& TPnrAddrs::toXML(xmlNodePtr addrsParentNode) const
@@ -3185,3 +3227,17 @@ std::string TPnrAddrs::getByPaxId(int pax_id, string &airline)
   else
     return "";
 };
+
+template<> const CheckIn::TSimplePaxGrpItem& PaxGrpCache::add(const int& grpId) const
+{
+  CheckIn::TSimplePaxGrpItem& grp=items.emplace(grpId, CheckIn::TSimplePaxGrpItem()).first->second;
+
+  if (!grp.getByGrpId(grpId)) throw NotFound();
+
+  return grp;
+}
+
+template<> std::string PaxGrpCache::traceTitle()
+{
+  return "PaxGrpCache";
+}
