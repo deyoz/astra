@@ -14,6 +14,7 @@
 using namespace std;
 using namespace AstraLocale;
 using namespace BASIC::date_time;
+using namespace EXCEPTIONS;
 
 string airl_fromXML(xmlNodePtr node, TCheckFieldFromXML check_type, const string &trace_info, const string &system_name)
 {
@@ -170,3 +171,71 @@ TDateTime date_fromXML(string str)
     };
     return date;
 }
+
+std::string elemIdFromXML(TElemType type, const std::string &node_name, xmlNodePtr node, TCheckFieldFromXML check_type)
+{
+  string result;
+  string str=NodeAsString(node_name.c_str(), node);
+  if (str.empty())
+  {
+    if (check_type==cfErrorIfEmpty)
+      throw Exception("Empty <%s>", node_name.c_str());
+    return result;
+  }
+  TElemFmt fmt;
+  result = ElemToElemId( type, str, fmt );
+  if (fmt==efmtUnknown) throw Exception("Unknown <%s> '%s'", node_name.c_str(), str.c_str());
+  return result;
+}
+
+boost::optional<std::pair<int, std::string>> flightNumberFromXML(const std::string &node_name, xmlNodePtr node, TCheckFieldFromXML check_type)
+{
+  int flt_no=ASTRA::NoExists;
+  string suffix;
+  string flight=NodeAsString(node_name.c_str(), node);
+  string str=flight;
+  if (str.empty())
+  {
+    if (check_type==cfErrorIfEmpty)
+      throw Exception("Empty <%s>", node_name.c_str());
+    return boost::none;
+  }
+  if (IsLetter(*str.rbegin()))
+  {
+    suffix=string(1,*str.rbegin());
+    str.erase(str.size()-1);
+    if (str.empty()) throw Exception("Empty flight number <%s> '%s'", node_name.c_str(), flight.c_str());
+  };
+
+  if ( StrToInt( str.c_str(), flt_no ) == EOF ||
+       flt_no > 99999 || flt_no <= 0 ) throw Exception("Wrong flight number <%s> '%s'", node_name.c_str(), flight.c_str());
+
+  str=suffix;
+  if (!str.empty())
+  {
+    TElemFmt fmt;
+    suffix = ElemToElemId( etSuffix, str, fmt );
+    if (fmt==efmtUnknown) throw Exception("Unknown flight suffix <%s> '%s'", node_name.c_str(), flight.c_str());
+  };
+
+  return make_pair(flt_no, suffix);
+}
+
+TDateTime dateFromXML(const std::string &node_name, xmlNodePtr node, const std::string &fmt, TCheckFieldFromXML check_type)
+{
+  string str=NodeAsString(node_name.c_str(), node);
+  if (str.empty())
+  {
+    if (check_type==cfErrorIfEmpty)
+      throw Exception("Empty <%s>", node_name.c_str());
+    return ASTRA::NoExists;
+  }
+  TDateTime result=ASTRA::NoExists;
+  if ( StrToDateTime(str.c_str(), fmt.c_str(), result) == EOF )
+    throw Exception("Wrong <%s> '%s'", node_name.c_str(), str.c_str());
+
+  return result;
+}
+
+
+

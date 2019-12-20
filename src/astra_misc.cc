@@ -152,6 +152,25 @@ void getTripsByCRSPnrId(const int pnr_id, TAdvTripInfoList &trips)
   getTripsByPointIdTlg(Qry.get().FieldAsInteger("point_id"), trips);
 }
 
+namespace ASTRA
+{
+
+template<> const TAdvTripInfoList& PnrFlightsCache::add(const int& pnrId) const
+{
+  TAdvTripInfoList& flts=items.emplace(pnrId, TAdvTripInfoList()).first->second;
+
+  getTripsByCRSPnrId(pnrId, flts);
+
+  return flts;
+}
+
+template<> std::string PnrFlightsCache::traceTitle()
+{
+  return "PnrFlightsCache";
+}
+
+} //namespace ASTRA
+
 void getTripsByCRSPaxId(const int pax_id, TAdvTripInfoList &trips)
 {
   trips.clear();

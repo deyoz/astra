@@ -119,9 +119,8 @@ void setSQLTripList( TQuery &Qry, const TTripListSQLFilter &filter )
     const TTripListSQLParams &params=dynamic_cast<const TTripListSQLParams&>(filter);
 
     sql <<
-      "SELECT " + TTripInfo::selectedFields("points") + ", "
-      "       points.move_id, "
-      "       points.point_num "
+      "SELECT " + TAdvTripInfo::selectedFields("points") + ", "
+      "       points.move_id \n"
       "FROM points ";
     if (!params.station.first.empty() && !params.station.second.empty())
       sql << ",trip_stations ";
@@ -134,15 +133,18 @@ void setSQLTripList( TQuery &Qry, const TTripListSQLFilter &filter )
     {
       if (params.first_date!=params.last_date)
       {
-        sql << "WHERE points.time_out BETWEEN :first_date AND :last_date ";
+        if (params.includeScdIntoDateRange)
+          sql << "WHERE (points.time_out BETWEEN :first_date AND :last_date OR "
+                 "       points.scd_out BETWEEN :first_date AND :last_date) ";
+        else
+          sql << "WHERE points.time_out BETWEEN :first_date AND :last_date ";
+
         Qry.CreateVariable("last_date", otDate, params.last_date);
       }
       else
         sql << "WHERE points.time_out=:first_date ";
       Qry.CreateVariable("first_date", otDate, params.first_date);
     };
-
-    sql << "AND points.pr_reg<>0 ";
 
     if (params.flt_no!=NoExists)
     {
@@ -168,7 +170,7 @@ void setSQLTripList( TQuery &Qry, const TTripListSQLFilter &filter )
       "       points.remark, "
       "       ckin.tranzitable(points.point_id) AS tranzitable, "
       "       ckin.get_pr_tranzit(points.point_id) AS pr_tranzit, "
-      "       points.first_point "
+      "       points.first_point \n"
       "FROM points ";
     if (!params.station.first.empty() && !params.station.second.empty())
       sql << ",trip_stations ";
