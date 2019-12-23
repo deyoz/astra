@@ -2331,7 +2331,7 @@ static void changeLayer(const ProtLayerRequest::SegList& segListReq,
                                    change_layer_flags,
                                    0,
                                    NoExists,
-                                   NULL,
+                                   NULL, NULL,
                                    __func__ );
                 }
               }

@@ -81,7 +81,7 @@ BitSet<SEATS2::TChangeLayerSeatsProps>
                       int time_limit,
                       const BitSet<SEATS2::TChangeLayerFlags> &flags,
                       int comp_crc, int tariff_pax_id,
-                      xmlNodePtr resNode,
+                      xmlNodePtr reqNode, xmlNodePtr resNode,
                       const std::string& whence );
 void trace( int pax_id, int grp_id, int parent_pax_id, int crs_pax_id, const std::string &pers_type, int seats );
 template <class T1>
