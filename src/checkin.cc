@@ -1960,7 +1960,7 @@ void CheckInInterface::SearchPaxByDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 
   if (found.pax.grp_id!=ASTRA::NoExists)
   {
-    LoadPax(found.pax.grp_id, reqNode, resNode, false);
+    LoadPaxByGrpId(found.pax.grp_id, reqNode, resNode, false);
     return;
   }
 
@@ -3434,7 +3434,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
             }
 
             if (resNode!=nullptr)
-              LoadPax(grp_id, reqNode, resNode, true);
+              LoadPaxByGrpId(grp_id, reqNode, resNode, true);
         }
     }
     return result;
@@ -6306,11 +6306,44 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   return true;
 }
 
+void CheckInInterface::tryChangeFlight(const CheckIn::TSimplePaxGrpItem& grp,
+                                       xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  const int term_point_id=NodeAsInteger("point_id",reqNode);
+  if (grp.point_dep!=term_point_id)
+  {
+    if (GetNode("data", resNode)!=nullptr) return; //уже есть рейс
+
+    xmlNodePtr dataNode=NewTextChild( resNode, "data" );
+    NewTextChild( dataNode, "point_id", grp.point_dep );
+    if (!readTripHeaderAndOther( grp.point_dep, reqNode, dataNode ))
+    {
+      string msg;
+      TTripInfo info;
+      if (info.getByPointId(grp.point_dep))
+      {
+        if (!grp.is_unaccomp())
+          msg=getLocaleText("MSG.PASSENGER.FROM_FLIGHT", LParams() << LParam("flt", GetTripName(info,ecCkin)));
+        else
+          msg=getLocaleText("MSG.BAGGAGE.FROM_FLIGHT", LParams() << LParam("flt", GetTripName(info,ecCkin)));
+      }
+      else
+      {
+        if (!grp.is_unaccomp())
+          msg=getLocaleText("MSG.PASSENGER.FROM_OTHER_FLIGHT");
+        else
+          msg=getLocaleText("MSG.BAGGAGE.FROM_OTHER_FLIGHT");
+      }
+      throw AstraLocale::UserException(msg);
+    }
+  }
+}
+
 void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   xmlNodePtr node;
   int grp_id=NoExists;
-  int point_id=NodeAsInteger("point_id",reqNode);
+  int term_point_id=NodeAsInteger("point_id",reqNode);
   bool EMDRefresh=NodeAsBoolean("emd_refresh",reqNode,true);
   TQuery Qry(&OraSession);
   node = GetNode("grp_id",reqNode);
@@ -6330,43 +6363,12 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       }
       else pax_id=NodeAsInteger(node);
 
-      Qry.Clear();
-      Qry.SQLText=
-        "SELECT pax_grp.grp_id,point_dep,class FROM pax_grp,pax "
-        "WHERE pax_grp.grp_id=pax.grp_id AND pax_id=:pax_id";
-      Qry.CreateVariable("pax_id",otInteger,pax_id);
-      Qry.Execute();
-      if (Qry.Eof)
+      CheckIn::TSimplePaxGrpItem grp;
+      if (!grp.getByPaxId(pax_id))
         throw UserException("MSG.PASSENGER.NOT_CHECKIN");
-      grp_id=Qry.FieldAsInteger("grp_id");
-      bool pr_unaccomp=Qry.FieldIsNULL("class");
-      int point_dep=Qry.FieldAsInteger("point_dep");
-      if (point_dep!=point_id)
-      {
-        point_id=point_dep;
-        xmlNodePtr dataNode=NewTextChild( resNode, "data" );
-        NewTextChild( dataNode, "point_id", point_id );
-        if (!readTripHeaderAndOther( point_id, reqNode, dataNode ))
-        {
-          string msg;
-          TTripInfo info;
-          if (info.getByPointId(point_id))
-          {
-            if (!pr_unaccomp)
-              msg=getLocaleText("MSG.PASSENGER.FROM_FLIGHT", LParams() << LParam("flt", GetTripName(info,ecCkin)));
-            else
-              msg=getLocaleText("MSG.BAGGAGE.FROM_FLIGHT", LParams() << LParam("flt", GetTripName(info,ecCkin)));
-          }
-          else
-          {
-            if (!pr_unaccomp)
-              msg=getLocaleText("MSG.PASSENGER.FROM_OTHER_FLIGHT");
-            else
-              msg=getLocaleText("MSG.BAGGAGE.FROM_OTHER_FLIGHT");
-          }
-          throw AstraLocale::UserException(msg);
-        }
-      }
+      grp_id=grp.id;
+
+      tryChangeFlight(grp, reqNode, resNode);
     }
     else
     {
@@ -6376,7 +6378,7 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         "SELECT pax_grp.grp_id, pax.seats FROM pax_grp,pax "
         "WHERE pax_grp.grp_id=pax.grp_id AND "
         "      point_dep=:point_id AND reg_no=:reg_no ";
-      Qry.CreateVariable("point_id",otInteger,point_id);
+      Qry.CreateVariable("point_id",otInteger,term_point_id);
       Qry.CreateVariable("reg_no",otInteger,reg_no);
       Qry.Execute();
       if (Qry.Eof) throw UserException(1,"MSG.CHECKIN.REG_NO_NOT_FOUND");
@@ -6386,11 +6388,11 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       for(;!Qry.Eof;Qry.Next())
       {
         if (grp_id!=Qry.FieldAsInteger("grp_id"))
-          throw EXCEPTIONS::Exception("Duplicate reg_no (point_id=%d reg_no=%d)",point_id,reg_no);
+          throw EXCEPTIONS::Exception("Duplicate reg_no (point_id=%d reg_no=%d)",term_point_id,reg_no);
         int seats=Qry.FieldAsInteger("seats");
         if ((seats>0 && exists_with_seat) ||
             (seats<=0 && exists_without_seat))
-          throw EXCEPTIONS::Exception("Duplicate reg_no (point_id=%d reg_no=%d)",point_id,reg_no);
+          throw EXCEPTIONS::Exception("Duplicate reg_no (point_id=%d reg_no=%d)",term_point_id,reg_no);
         if (seats>0)
           exists_with_seat=true;
         else
@@ -6404,7 +6406,7 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);
   }
 
-  LoadPax(grp_id,reqNode,resNode,false);
+  LoadPaxByGrpId(grp_id,reqNode,resNode,false);
 }
 
 void AddPaxCategory(const CheckIn::TPaxItem &pax, set<string> &cats)
@@ -6938,7 +6940,7 @@ void CheckInInterface::LoadIatciPax(xmlNodePtr reqNode, xmlNodePtr resNode, int 
     }
 }
 
-void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNode, bool afterSavePax)
+void CheckInInterface::LoadPaxByGrpId(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNode, bool afterSavePax)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
 
@@ -6981,6 +6983,9 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
     seg.operFlt=operFlt;
     seg.grp_id=grp.id;
     seg.airp_arv=grp.airp_arv;
+
+    if (grp_id==tckin_grp_ids.begin() && !afterSavePax && !reqInfo->api_mode)
+      tryChangeFlight(grp, reqNode, resNode);
 
     xmlNodePtr segNode=NewTextChild(segsNode,"segment");
     xmlNodePtr operFltNode=NewTextChild(segNode,"tripheader");

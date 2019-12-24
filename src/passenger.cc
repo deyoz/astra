@@ -2446,6 +2446,18 @@ bool TSimplePaxGrpItem::getByGrpId(int grp_id)
   return true;
 }
 
+bool TSimplePaxGrpItem::getByPaxId(int pax_id)
+{
+  clear();
+  TCachedQuery Qry("SELECT pax_grp.* FROM pax_grp, pax WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=:pax_id",
+                   QParams() << QParam("pax_id", otInteger, pax_id));
+  Qry.get().Execute();
+  if (Qry.get().Eof) return false;
+  fromDB(Qry.get());
+  return true;
+}
+
+
 ASTRA::TCompLayerType TSimplePaxGrpItem::getCheckInLayerType() const
 {
   return DecodeCompLayerType(getBaseTable(etGrpStatusType).get_row("code", EncodePaxStatus(status)).AsString("layer_type").c_str());

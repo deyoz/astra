@@ -218,7 +218,9 @@ public:
   static void SaveTagPacks(xmlNodePtr node);
 
   static void AfterSaveAction(CheckIn::TAfterSaveInfoData& data);
-  static void LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNode, bool afterSavePax);
+  static void tryChangeFlight(const CheckIn::TSimplePaxGrpItem& grp,
+                              xmlNodePtr reqNode, xmlNodePtr resNode);
+  static void LoadPaxByGrpId(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNode, bool afterSavePax);
   static void LoadPax(xmlNodePtr reqNode, xmlNodePtr resNode);
   static void LoadIatciPax(xmlNodePtr reqNode, xmlNodePtr resNode, int grpId, bool needSync);
   static void PaxRemToXML(xmlNodePtr paxNode);
