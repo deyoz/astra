@@ -887,6 +887,7 @@ class TSimplePaxGrpItem
     const TSimplePaxGrpItem& toXML(xmlNodePtr node) const;
     const TSimplePaxGrpItem& toEmulXML(xmlNodePtr emulReqNode, xmlNodePtr emulSegNode) const;
     bool getByGrpId(int grp_id);
+    bool getByPaxId(int pax_id);
 
     bool allowToBagCheckIn() const { return trfer_confirm; }
 
