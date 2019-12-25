@@ -2287,7 +2287,6 @@ namespace PRL_SPACE {
             item.pad = 0;
             for(const auto &pax: pax_list)
                 if(cfg_item.cls == pax->cl()) {
-                    LogTrace(TRACE5) << pax->simple.full_name() << ": " << pax->seats();
                     item.av -= pax->seats();
                     item.pad += pax->grp().status == psGoshow;
                 }
