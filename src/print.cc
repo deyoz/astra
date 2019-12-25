@@ -2676,10 +2676,10 @@ void check_client_gate(xmlNodePtr reqNode)
         string gate = NodeAsStringFast("gate", curNode, "");
         if(not gate.empty()) {
             TTripInfo flt;
-            if(pax_id != NoExists)
-                flt.getByPaxId(pax_id);
-            else
+            if(grp_id != NoExists)
                 flt.getByGrpId(grp_id);
+            else
+                flt.getByPaxId(pax_id);
             std::vector<std::string> gates;
             TripsInterface::readGates(flt.point_id, gates);
             vector<string>::const_iterator flt_gate = gates.begin();
