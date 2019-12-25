@@ -2001,8 +2001,7 @@ namespace PRL_SPACE {
     struct TCOMStats {
         vector<TCOMStatsItem> items;
         TTotalPaxWeight total_pax_weight;
-        void get(TypeB::TDetailCreateInfo &info);
-        void getPAD(TypeB::TDetailCreateInfo &info);
+        void get(const REPORTS::TPaxList &pax_list, TypeB::TDetailCreateInfo &info);
         void ToTlg(TypeB::TDetailCreateInfo &info, ostringstream &body);
     };
 
@@ -2185,14 +2184,9 @@ namespace PRL_SPACE {
                 << total_pax_weight.weight << TypeB::endl;
     }
 
-    void TCOMStats::getPAD(TypeB::TDetailCreateInfo &info)
+    void TCOMStats::get(const REPORTS::TPaxList &pax_list, TypeB::TDetailCreateInfo &info)
     {
-        REPORTS::TPaxList pax_list(info.point_id);
-        pax_list.options.flags.setFlag(REPORTS::oeRkWeight);
-        pax_list.options.flags.setFlag(REPORTS::oeBagAmount);
-        pax_list.options.flags.setFlag(REPORTS::oeBagWeight);
-        pax_list.options.pr_brd = boost::in_place(REPORTS::TBrdVal::bvTRUE);
-        pax_list.fromDB();
+        const TypeB::TCOMOptions &options = *info.optionsAs<TypeB::TCOMOptions>();
         TTripRoute route;
         if(not pax_list.empty() and route.GetRouteAfter(NoExists, info.point_id, trtNotCurrent, trtNotCancelled)) {
             map<int, TCOMStatsItem> data;
@@ -2208,26 +2202,41 @@ namespace PRL_SPACE {
 
                 if(
                         not pax->simple.is_jmp and
-                        pax->simple.crew_type != TCrewType::ExtraCrew
+                        (options.version != "PAD" or
+                         pax->simple.crew_type != TCrewType::ExtraCrew)
                   ) {
                     item.adult += pax->simple.pers_type == TPerson::adult;
                     item.male += male;
                     item.female += female;
                     item.child += pax->simple.pers_type == TPerson::child;
                     item.baby += pax->simple.pers_type == TPerson::baby;
+
+                    item.f_child += is_f and pax->simple.pers_type == TPerson::child;
+                    item.f_baby += is_f and pax->simple.pers_type == TPerson::baby;
+                    item.c_child += is_c and pax->simple.pers_type == TPerson::child;
+                    item.c_baby += is_c and pax->simple.pers_type == TPerson::baby;
+                    item.y_child += is_y and pax->simple.pers_type == TPerson::child;
+                    item.y_baby += is_y and pax->simple.pers_type == TPerson::baby;
+
+                    item.f += is_f;
+                    item.c += is_c;
+                    item.y += is_y;
                 }
 
                 item.bag_amount += pax->bag_amount();
                 item.bag_weight += pax->bag_weight();
                 item.rk_weight += pax->rk_weight();
 
-                item.f += is_f;
-                item.c += is_c;
-                item.y += is_y;
+                item.f_bag_weight += (is_f ? pax->bag_weight() : 0);
+                item.f_rk_weight += (is_f ? pax->rk_weight() : 0);
+                item.c_bag_weight += (is_c ? pax->bag_weight() : 0);
+                item.c_rk_weight += (is_c ? pax->rk_weight() : 0);
+                item.y_bag_weight += (is_y ? pax->bag_weight() : 0);
+                item.y_rk_weight += (is_y ? pax->rk_weight() : 0);
 
-                item.f_pad = is_f and pax->grp().status == psGoshow;
-                item.c_pad = is_c and pax->grp().status == psGoshow;
-                item.y_pad = is_y and pax->grp().status == psGoshow;
+                item.f_pad += is_f and pax->grp().status == psGoshow;
+                item.c_pad += is_c and pax->grp().status == psGoshow;
+                item.y_pad += is_y and pax->grp().status == psGoshow;
 
                 item.male_extra_crew += male and pax->simple.crew_type == TCrewType::ExtraCrew;
                 item.female_extra_crew += female and pax->simple.crew_type == TCrewType::ExtraCrew;
@@ -2248,189 +2257,52 @@ namespace PRL_SPACE {
         }
     }
 
-    void TCOMStats::get(TypeB::TDetailCreateInfo &info)
-    {
-        const TypeB::TCOMOptions &options = *info.optionsAs<TypeB::TCOMOptions>();
-        if(options.version == "PAD") return getPAD(info);
-
-        TQuery Qry(&OraSession);
-        Qry.SQLText =
-            "SELECT "
-            "   points.airp target, "
-            "   NVL(f, 0) f, "
-            "   NVL(c, 0) c, "
-            "   NVL(y, 0) y, "
-            "   NVL(adult, 0) adult, "
-            "   NVL(child, 0) child, "
-            "   NVL(baby, 0) baby, "
-            "   NVL(f_child, 0) f_child, "
-            "   NVL(f_baby, 0) f_baby, "
-            "   NVL(c_child, 0) c_child, "
-            "   NVL(c_baby, 0) c_baby, "
-            "   NVL(y_child, 0) y_child, "
-            "   NVL(y_baby, 0) y_baby, "
-            "   NVL(bag_amount, 0) bag_amount, "
-            "   NVL(bag_weight, 0) bag_weight, "
-            "   NVL(rk_weight, 0) rk_weight, "
-            "   NVL(f_bag_weight, 0) f_bag_weight, "
-            "   NVL(f_rk_weight, 0) f_rk_weight, "
-            "   NVL(c_bag_weight, 0) c_bag_weight, "
-            "   NVL(c_rk_weight, 0) c_rk_weight, "
-            "   NVL(y_bag_weight, 0) y_bag_weight, "
-            "   NVL(y_rk_weight, 0) y_rk_weight, "
-            "   NVL(f_add_pax, 0) f_add_pax, "
-            "   NVL(c_add_pax, 0) c_add_pax, "
-            "   NVL(y_add_pax, 0) y_add_pax "
-            "FROM "
-            "   points, "
-            "   ( "
-            "SELECT "
-            "   pax_grp.point_arv, "
-            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class), 'è', DECODE(seats,0,0,1), 0)) f, "
-            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class), 'Å', DECODE(seats,0,0,1), 0)) c, "
-            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class), 'ù', DECODE(seats,0,0,1), 0)) y, "
-            "   SUM(DECODE(pax.pers_type, 'Çá', 1, 0)) adult, "
-            "   SUM(DECODE(pax.pers_type, 'êÅ', 1, 0)) child, "
-            "   SUM(DECODE(pax.pers_type, 'êå', 1, 0)) baby, "
-            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class)||pax.pers_type, 'èêÅ', 1, 0)) f_child, "
-            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class)||pax.pers_type, 'èêå', 1, 0)) f_baby, "
-            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class)||pax.pers_type, 'ÅêÅ', 1, 0)) c_child, "
-            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class)||pax.pers_type, 'Åêå', 1, 0)) c_baby, "
-            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class)||pax.pers_type, 'ùêÅ', 1, 0)) y_child, "
-            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class)||pax.pers_type, 'ùêå', 1, 0)) y_baby, "
-            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class), 'è', decode(SIGN(1-pax.seats), -1, 1, 0), 0)) f_add_pax, "
-            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class), 'Å', decode(SIGN(1-pax.seats), -1, 1, 0), 0)) c_add_pax, "
-            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class), 'ù', decode(SIGN(1-pax.seats), -1, 1, 0), 0)) y_add_pax "
-            "FROM "
-            "   pax, pax_grp "
-            "WHERE "
-            "   pax_grp.point_dep = :point_id AND "
-            "   (pax.crew_type is null or pax.crew_type <> :xcr) and "
-            "   pax_grp.status NOT IN ('E') AND "
-            "   pax_grp.grp_id = pax.grp_id AND "
-            "   salons.is_waitlist(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,rownum)=0 AND "
-            "   pax.refuse IS NULL "
-            "GROUP BY "
-            "   pax_grp.point_arv "
-            "   ) a, "
-            "   ( "
-            "SELECT "
-            "   pax_grp.point_arv, "
-            "   SUM(DECODE(bag2.pr_cabin, 0, amount, 0)) bag_amount, "
-            "   SUM(DECODE(bag2.pr_cabin, 0, weight, 0)) bag_weight, "
-            "   SUM(DECODE(bag2.pr_cabin, 0, 0, weight)) rk_weight, "
-            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class)||bag2.pr_cabin, 'è0', weight, 0)) f_bag_weight, "
-            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class)||bag2.pr_cabin, 'è1', weight, 0)) f_rk_weight, "
-            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class)||bag2.pr_cabin, 'Å0', weight, 0)) c_bag_weight, "
-            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class)||bag2.pr_cabin, 'Å1', weight, 0)) c_rk_weight, "
-            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class)||bag2.pr_cabin, 'ù0', weight, 0)) y_bag_weight, "
-            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class)||bag2.pr_cabin, 'ù1', weight, 0)) y_rk_weight "
-            "FROM "
-            "   pax_grp, bag2, pax "
-            "WHERE "
-            "   pax_grp.grp_id = pax.grp_id(+) and "
-            "   bag2.bag_pool_num = pax.bag_pool_num(+) and "
-            "   (pax.crew_type is null or pax.crew_type <> :xcr) and "
-            "   pax_grp.point_dep = :point_id AND "
-            "   pax_grp.status NOT IN ('E') AND "
-            "   pax_grp.grp_id = bag2.grp_id AND "
-            "   ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse) = 0 "
-            "GROUP BY "
-            "   pax_grp.point_arv "
-            "   ) b "
-            "WHERE "
-            "   points.point_id = a.point_arv(+) AND "
-            "   points.point_id = b.point_arv(+) AND "
-            "   first_point=:first_point AND point_num>:point_num AND pr_del=0 "
-            "ORDER BY "
-            "   point_num ";
-        Qry.CreateVariable("point_id", otInteger, info.point_id);
-        Qry.CreateVariable("first_point", otInteger, info.pr_tranzit ? info.first_point : info.point_id);
-        Qry.CreateVariable("point_num", otInteger, info.point_num);
-        Qry.CreateVariable("xcr", otString, TCrewTypes().encode(TCrewType::ExtraCrew));
-        Qry.Execute();
-        if(!Qry.Eof) {
-            int col_target = Qry.FieldIndex("target");
-            int col_f = Qry.FieldIndex("f");
-            int col_c = Qry.FieldIndex("c");
-            int col_y = Qry.FieldIndex("y");
-            int col_adult = Qry.FieldIndex("adult");
-            int col_child = Qry.FieldIndex("child");
-            int col_baby = Qry.FieldIndex("baby");
-            int col_f_child = Qry.FieldIndex("f_child");
-            int col_f_baby = Qry.FieldIndex("f_baby");
-            int col_c_child = Qry.FieldIndex("c_child");
-            int col_c_baby = Qry.FieldIndex("c_baby");
-            int col_y_child = Qry.FieldIndex("y_child");
-            int col_y_baby = Qry.FieldIndex("y_baby");
-            int col_bag_amount = Qry.FieldIndex("bag_amount");
-            int col_bag_weight = Qry.FieldIndex("bag_weight");
-            int col_rk_weight = Qry.FieldIndex("rk_weight");
-            int col_f_bag_weight = Qry.FieldIndex("f_bag_weight");
-            int col_f_rk_weight = Qry.FieldIndex("f_rk_weight");
-            int col_c_bag_weight = Qry.FieldIndex("c_bag_weight");
-            int col_c_rk_weight = Qry.FieldIndex("c_rk_weight");
-            int col_y_bag_weight = Qry.FieldIndex("y_bag_weight");
-            int col_y_rk_weight = Qry.FieldIndex("y_rk_weight");
-            int col_f_add_pax = Qry.FieldIndex("f_add_pax");
-            int col_c_add_pax = Qry.FieldIndex("c_add_pax");
-            int col_y_add_pax = Qry.FieldIndex("y_add_pax");
-            for(; !Qry.Eof; Qry.Next()) {
-                TCOMStatsItem item;
-                item.target = info.TlgElemIdToElem(etAirp, Qry.FieldAsString(col_target));
-                item.f = Qry.FieldAsInteger(col_f);
-                item.c = Qry.FieldAsInteger(col_c);
-                item.y = Qry.FieldAsInteger(col_y);
-                item.adult = Qry.FieldAsInteger(col_adult);
-                item.child = Qry.FieldAsInteger(col_child);
-                item.baby = Qry.FieldAsInteger(col_baby);
-                item.f_child = Qry.FieldAsInteger(col_f_child);
-                item.f_baby = Qry.FieldAsInteger(col_f_baby);
-                item.c_child = Qry.FieldAsInteger(col_c_child);
-                item.c_baby = Qry.FieldAsInteger(col_c_baby);
-                item.y_child = Qry.FieldAsInteger(col_y_child);
-                item.y_baby = Qry.FieldAsInteger(col_y_baby);
-                item.bag_amount = Qry.FieldAsInteger(col_bag_amount);
-                item.bag_weight = Qry.FieldAsInteger(col_bag_weight);
-                item.rk_weight = Qry.FieldAsInteger(col_rk_weight);
-                item.f_bag_weight = Qry.FieldAsInteger(col_f_bag_weight);
-                item.f_rk_weight = Qry.FieldAsInteger(col_f_rk_weight);
-                item.c_bag_weight = Qry.FieldAsInteger(col_c_bag_weight);
-                item.c_rk_weight = Qry.FieldAsInteger(col_c_rk_weight);
-                item.y_bag_weight = Qry.FieldAsInteger(col_y_bag_weight);
-                item.y_rk_weight = Qry.FieldAsInteger(col_y_rk_weight);
-                item.f_add_pax = Qry.FieldAsInteger(col_f_add_pax);
-                item.c_add_pax = Qry.FieldAsInteger(col_c_add_pax);
-                item.y_add_pax = Qry.FieldAsInteger(col_y_add_pax);
-                items.push_back(item);
-            }
-        }
-        total_pax_weight.get(info);
-    }
-
     struct TCOMClassesItem {
         string cls;
         int cfg;
         int av;
+        int pad;
         TCOMClassesItem() {
             cfg = NoExists;
             av = NoExists;
+            pad = NoExists;
         }
     };
 
     struct TCOMClasses {
         vector<TCOMClassesItem> items;
+        void getByStats(const REPORTS::TPaxList &pax_list, TypeB::TDetailCreateInfo &info);
         void get(TypeB::TDetailCreateInfo &info);
         void ToTlg(TypeB::TDetailCreateInfo &info, ostringstream &body);
     };
 
+    void TCOMClasses::getByStats(const REPORTS::TPaxList &pax_list, TypeB::TDetailCreateInfo &info)
+    {
+        TCFG cfg(info.point_id);
+        for(const auto &cfg_item: cfg)
+        {
+            TCOMClassesItem item;
+            item.cls = info.TlgElemIdToElem(etSubcls, cfg_item.cls);
+            item.cfg = cfg_item.cfg;
+            item.av = item.cfg;
+            item.pad = 0;
+            for(const auto &pax: pax_list)
+                if(cfg_item.cls == pax->cl()) {
+                    LogTrace(TRACE5) << pax->simple.full_name() << ": " << pax->seats();
+                    item.av -= pax->seats();
+                    item.pad += pax->grp().status == psGoshow;
+                }
+            items.push_back(item);
+        }
+    }
+
     void TCOMClasses::ToTlg(TypeB::TDetailCreateInfo &info, ostringstream &body)
     {
         ostringstream classes, av, padc;
-        for(vector<TCOMClassesItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
-            classes << iv->cls << iv->cfg;
-            av << iv->cls << iv->av;
-            padc << iv->cls << '0';
+        for(const auto &iv: items) {
+            classes << iv.cls << iv.cfg;
+            av << iv.cls << iv.av;
+            padc << iv.cls << iv.pad;
         }
         body
             << "ARN/" << info.bort
@@ -2446,10 +2318,12 @@ namespace PRL_SPACE {
         QParams QryParams;
         QryParams
             << QParam("point_id", otInteger, info.point_id)
-            << QParam("class", otString);
+            << QParam("class", otString)
+            << QParam("gosho", otString, EncodePaxStatus(psGoshow));
         TCachedQuery Qry(
                 "SELECT "
-                "   SUM(pax.seats) seats "
+                "   SUM(pax.seats) seats, "
+                "   sum(decode(pax_grp.status, :gosho, 1, 0)) pad "
                 "FROM "
                 "   pax_grp, "
                 "   pax "
@@ -2468,6 +2342,7 @@ namespace PRL_SPACE {
             item.cls = info.TlgElemIdToElem(etSubcls, iv->cls);
             item.cfg = iv->cfg;
             item.av = (Qry.get().Eof ? iv->cfg : iv->cfg - Qry.get().FieldAsInteger("seats"));
+            item.pad = (Qry.get().Eof ? 0 : Qry.get().FieldAsInteger("pad"));
             items.push_back(item);
         }
     }
@@ -2555,8 +2430,17 @@ int COM(TypeB::TDetailCreateInfo &info)
         TCOMClasses classes;
         TCOMZones zones;
         TCOMStats stats;
-        classes.get(info);
-        stats.get(info);
+
+        REPORTS::TPaxList pax_list(info.point_id);
+        pax_list.options.flags.setFlag(REPORTS::oeRkWeight);
+        pax_list.options.flags.setFlag(REPORTS::oeBagAmount);
+        pax_list.options.flags.setFlag(REPORTS::oeBagWeight);
+        pax_list.options.pr_brd = boost::in_place(REPORTS::TBrdVal::bvTRUE);
+        pax_list.options.wait_list = boost::in_place(false);
+        pax_list.fromDB();
+
+        classes.getByStats(pax_list, info);
+        stats.get(pax_list, info);
         classes.ToTlg(info, body);
         if(info.get_tlg_type() == "COM") {
             zones.get(info);

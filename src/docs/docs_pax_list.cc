@@ -93,6 +93,8 @@ void TPaxList::fromDB()
                 break;
         }
     }
+    if(options.wait_list)
+        SQLText += (string)"and salons.is_waitlist(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,rownum)"  + (options.wait_list.get() ? "<>" : "=") + "0 ";
     TCachedQuery Qry(SQLText, QryParams);
     Qry.get().Execute();
     fromDB(Qry.get());
