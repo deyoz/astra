@@ -2434,7 +2434,6 @@ int COM(TypeB::TDetailCreateInfo &info)
         pax_list.options.flags.setFlag(REPORTS::oeRkWeight);
         pax_list.options.flags.setFlag(REPORTS::oeBagAmount);
         pax_list.options.flags.setFlag(REPORTS::oeBagWeight);
-        pax_list.options.pr_brd = boost::in_place(REPORTS::TBrdVal::bvTRUE);
         pax_list.options.wait_list = boost::in_place(false);
         pax_list.fromDB();
 
