@@ -771,6 +771,6 @@ FP_REGISTER("set_user_time_type", FP_setUserTime);
 FP_REGISTER("init_apps", FP_initApps);
 FP_REGISTER("translit", FP_translit);
 FP_REGISTER("run_trip_task", FP_run_trip_task);
-FP_REGISTER("combine_brd_wirth_reg", FP_combineBrdWithReg);
+FP_REGISTER("combine_brd_with_reg", FP_combineBrdWithReg);
 
 #endif /* XP_TESTING */

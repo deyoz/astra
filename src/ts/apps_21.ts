@@ -32,7 +32,7 @@ $(INB_PNL_UT AER PRG 298 $(ddmon +0 en))
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
 
-$(combine_brd_wirth_reg $(get point_dep))
+$(combine_brd_with_reg $(get point_dep))
 $(auto_set_craft $(get point_dep))
 
 $(set move_id $(get_move_id $(get point_dep)))
@@ -132,7 +132,7 @@ $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
 $(set move_id $(get_move_id $(get point_dep)))
 
-$(combine_brd_wirth_reg $(get point_dep))
+$(combine_brd_with_reg $(get point_dep))
 $(auto_set_craft $(get point_dep))
 
 $(run_trip_task send_apps $(get point_dep))
@@ -283,3 +283,101 @@ $(run_trip_task send_all_apps $(get point_dep))
 
 # уходят CIRQ-запросы
 $(CIRQ_61_UT_REQS_APPS_VERSION_21 UT 298 AER PRG)
+
+
+
+%%
+#########################################################################################
+
+###
+#   Тест №4
+#
+#   Описание: пассажиров: 61,
+#             интерактив: вкл
+#            версия apps: 21
+#
+#   APPS-запрос на посадку ОДНОГО пассажира уходит во время регистрации
+#   APPS-запрос на отмену ОДНОГО пассажира уходит при отмене регистрации
+###
+#########################################################################################
+
+$(settcl APPS_H2H_ADDR APTXS)
+$(settcl APPS_ROT_NAME APPGT)
+
+$(init_jxt_pult МОВРОМ)
+$(set_desk_version 201707-0195750)
+$(login)
+$(init_eds ЮТ UTET UTDC)
+
+$(init_apps ЮТ ЦЗ APPS_21 closeout=true)
+
+$(PREPARE_SEASON_SCD ЮТ СОЧ ПРХ 298)
+$(make_spp)
+
+
+$(INB_PNL_UT AER PRG 298 $(ddmon +0 en))
+
+$(ET_DISP_61_UT_REQS)
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+
+# $(combine_brd_with_reg $(get point_dep))
+$(auto_set_craft $(get point_dep))
+
+$(set move_id $(get_move_id $(get point_dep)))
+
+$(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
+
+$(SAVE_ET_DISP $(get point_dep) 2986145115578 TUMALI VALERII ЮТ UTDC UTET G4LK6W AER PRG)
+
+!! err=ignore
+$(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII 2986145115578 ВЗ UA FA144642 UA 16.04.1968 25.06.2025 M)
+
+>>
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref) ЮТ 2986145115578 1 CK xxxxxx СОЧ ПРХ 298)
+<<
+$(TKCRES_ET_COS UTET UTDC $(last_edifact_ref) 2986145115578 1 CK)
+
+
+>> lines=auto
+    <kick req_ctxt_id...
+
+!!
+$(lastRedisplay)
+
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PRQ/22/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N////.*
+
+
+<< h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
+CIRS:$(capture 1)/PRS/27/001/CZ/P/UKR/UKR/FA144642//P//20250625////TUMALI/VALERII/19680416/M//8501/B/1////////
+
+!! capture=on
+$(GET_EVENTS $(get point_dep))
+
+>> lines=auto
+        <msg>Запрос на посадкудля пассажира TUMALI. Результатдля страны ЦЗ: Посадка разрешена.</msg>
+
+$(set grp_id $(get_single_grp_id $(get point_dep) TUMALI VALERII))
+$(set tid $(get_single_tid $(get point_dep) TUMALI VALERII))
+
+!! err=ignore
+$(CANCEL_PAX $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII 2986145115578 ВЗ)
+
+>>
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref) ЮТ 2986145115578 1 I xxxxxx СОЧ ПРХ 298)
+<<
+$(TKCRES_ET_COS UTET UTDC $(last_edifact_ref) 2986145115578 1 I)
+
+
+>> lines=auto
+    <kick req_ctxt_id...
+
+!!
+$(lastRedisplay)
+
+>> lines=auto mode=regex
+.*CICX:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PCX/20/1/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
+

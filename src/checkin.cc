@@ -4075,6 +4075,43 @@ static bool rollbackBeforeSvcAvailability(const CheckIn::TAfterSaveInfo& info,
                                           const CheckIn::TSimplePaxGrpItem& grp,
                                           const bool& isNewCheckIn);
 
+
+// TODO перенести это в файл apps_interaction.h
+namespace APPS {
+    class AppsCollector
+    {
+    public:
+        struct PaxItem
+        {
+            int         pax_id;
+            std::string override;
+            bool        is_forced;
+        };
+
+        void addPaxItem(int pax_id,
+                        const std::string& override = "",
+                        bool is_forced = false)
+        {
+            LogTrace(TRACE3) << __func__ << " "
+                             << pax_id << "; "
+                             << override << "; "
+                             << is_forced;
+            m_paxItems.push_back({ pax_id, override, is_forced });
+        }
+
+        void send()
+        {
+            for(const PaxItem& paxItem: m_paxItems) {
+                processPax(paxItem.pax_id, paxItem.override, paxItem.is_forced);
+            }
+        }
+
+    private:
+        std::vector<PaxItem> m_paxItems;
+    };
+}//namespace APPS
+
+
 //процедура должна возвращать true только в том случае если произведена реальная регистрация
 bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                                TChangeStatusList &ChangeStatusInfo,
@@ -4420,6 +4457,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   map<int, std::pair<TCkinSegFlts, TTrferSetsInfo> > trfer_segs;
   bool rollbackGuaranteedOnFirstSegment=false;
   IAPI::RequestCollector iapiCollector;
+  APPS::AppsCollector    appsCollector;
 
   for(TSegList::iterator iSegListItem=segList.begin();
       segNode!=NULL && iSegListItem!=segList.end();
@@ -5280,9 +5318,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   CheckIn::SavePaxFQT(pax_id, p->fqts);
                 }
 
-                if ( need_apps ) {
-                  // Для новых пассадиров ремарки APPS не проверяем
-                  processPax( pax_id );
+                if (need_apps) {
+                    // Для новых пассажиров ремарки APPS не проверяем
+                    appsCollector.addPaxItem(pax_id);
                 }
 
                 iapiCollector.addPassengerIfNeed(pax_id, grp.point_dep, grp.airp_arv, checkInfo);
@@ -5548,11 +5586,11 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 CheckIn::SavePaxFQT(pax.id, p->fqts);
               }
 
-              if ( need_apps ) {
-                string override;
-                bool is_forced = false;
-                HandleAPPSRems(p->rems, override, is_forced);
-                processPax( pax.id, override, is_forced );
+              if (need_apps) {
+                  std::string override;
+                  bool is_forced = false;
+                  HandleAPPSRems(p->rems, override, is_forced);
+                  appsCollector.addPaxItem(pax.id, override, is_forced);
               }
 
               if (p->refused)
@@ -5963,6 +6001,17 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       timing.start("check_grp", grp.point_dep);
 
+      if(!rollbackGuaranteed)
+      {
+          timing.start("appsCollector", grp.point_dep);
+          appsCollector.send();
+          timing.finish("appsCollector", grp.point_dep);
+
+          timing.start("iapiCollector", grp.point_dep);
+          iapiCollector.send();
+          timing.finish("iapiCollector", grp.point_dep);
+      }
+
       Qry.Clear();
       Qry.SQLText=
         "BEGIN "
@@ -6185,10 +6234,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         }
 
         timing.finish("utg_prl", grp.point_dep);
-
-        timing.start("iapiCollector", grp.point_dep);
-        iapiCollector.send();
-        timing.finish("iapiCollector", grp.point_dep);
       }
     }
     catch(const UserException &e)

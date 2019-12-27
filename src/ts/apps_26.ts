@@ -33,7 +33,7 @@ $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
 $(set move_id $(get_move_id $(get point_dep)))
 
-$(combine_brd_wirth_reg $(get point_dep))
+$(combine_brd_with_reg $(get point_dep))
 $(auto_set_craft $(get point_dep))
 
 $(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
@@ -137,7 +137,7 @@ $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
 $(set move_id $(get_move_id $(get point_dep)))
 
-$(combine_brd_wirth_reg $(get point_dep))
+$(combine_brd_with_reg $(get point_dep))
 $(auto_set_craft $(get point_dep))
 
 $(run_trip_task send_apps $(get point_dep))
