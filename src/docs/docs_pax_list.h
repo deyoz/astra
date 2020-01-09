@@ -38,6 +38,7 @@ namespace REPORTS {
         boost::optional<TSimpleMktFlight> mkt_flt;
         boost::optional<TRemEventType> rem_event_type;
         boost::optional<TBrdVal> pr_brd;
+        boost::optional<bool> wait_list;
         TSortType sort;
         TPaxListFlags flags;
         void clear()
@@ -46,6 +47,7 @@ namespace REPORTS {
             mkt_flt = boost::none;
             rem_event_type = boost::none;
             pr_brd = boost::none;
+            wait_list = boost::none;
             sort = stRegNo;
             flags.clearFlags();
         }
