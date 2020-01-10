@@ -245,7 +245,7 @@ void TSeatTariffMap::get_rfisc_colors_internal(const std::string &airline_oper)
   else static_cast<TSeatTariffMapType&>(*this)=iRFISColors->second;
 }
 
-void TSeatTariffMap::get(const TAdvTripInfo &operFlt, const TTripInfo &markFlt, const CheckIn::TPaxTknItem &tkn)
+void TSeatTariffMap::get(const TAdvTripInfo &operFlt, const TSimpleMktFlight &markFlt, const CheckIn::TPaxTknItem &tkn)
 {
   clear();
 
@@ -357,7 +357,7 @@ void TSeatTariffMap::get(const int point_id_oper,
     throw EXCEPTIONS::Exception("TSeatTariffMap::get: iOper==oper_flts.end()!");
 
   _potential_queries++;
-  std::map<int/*point_id_mark*/, TTripInfo>::const_iterator iMark=mark_flts.find(point_id_mark);
+  std::map<int/*point_id_mark*/, TSimpleMktFlight>::const_iterator iMark=mark_flts.find(point_id_mark);
   if (iMark==mark_flts.end())
   {
     _real_queries++;
@@ -367,9 +367,7 @@ void TSeatTariffMap::get(const int point_id_oper,
       _status=stNotFound;
       return;
     }
-    TTripInfo markFlt;
-    markFlt.Init(grpMarkFlt);
-    iMark=mark_flts.insert(make_pair(point_id_mark, markFlt)).first;
+    iMark=mark_flts.emplace(point_id_mark, grpMarkFlt).first;
   }
   if (iMark==mark_flts.end())
     throw EXCEPTIONS::Exception("TSeatTariffMap::get: iMark==mark_flts.end()!");
@@ -4344,15 +4342,13 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
       else {
         TAdvTripInfo operFlt;
         operFlt.getByPointId( filterRoutesSets.point_dep );
-        TMktFlight flight;
-        flight.getByCrsPaxId( tariff_pax_id );
-        ProgTrace( TRACE5, "tariff_pax_id=%d, flight.empty()=%d", tariff_pax_id, flight.empty() );
-        if ( !flight.empty() ) {
-          TTripInfo markFlt;
-          markFlt.airline = flight.airline;
+        TMktFlight mktFlight;
+        mktFlight.getByCrsPaxId( tariff_pax_id );
+        ProgTrace( TRACE5, "tariff_pax_id=%d, flight.empty()=%d", tariff_pax_id, mktFlight.empty() );
+        if ( !mktFlight.empty() ) {
           CheckIn::TPaxTknItem tkn;
           CheckIn::LoadCrsPaxTkn( tariff_pax_id, tkn);
-          tariffMap.get( operFlt, markFlt, tkn );
+          tariffMap.get( operFlt, mktFlight, tkn );
           paxTariff = (tariffMap.status() == TSeatTariffMap::stUseRFISC);
         }
       }

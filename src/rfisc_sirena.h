@@ -65,7 +65,7 @@ class TSegItem
     int id;
     TTripInfo operFlt;
     bool scd_out_contain_time;
-    boost::optional<TTripInfo> markFlt;
+    boost::optional<TSimpleMktFlight> markFlt;
     std::string airp_arv;
     TDateTime scd_in;
     bool scd_in_contain_time;
@@ -103,18 +103,7 @@ class TSegItem
         scd_in_contain_time=true;
       };
       markFlt=boost::none;
-      if (!mktFlight.empty())
-      {
-        markFlt=TTripInfo();
-        try
-        {
-          markFlt.get().Init(dynamic_cast<const TGrpMktFlight&>(mktFlight));
-        }
-        catch (std::bad_cast &)
-        {
-          markFlt.get().Init(dynamic_cast<const TMktFlight&>(mktFlight));
-        };
-      };
+      if (!mktFlight.empty()) markFlt=mktFlight;
     }
 
     void clear()
@@ -129,7 +118,6 @@ class TSegItem
     }
 
     const TSegItem& toSirenaXML(xmlNodePtr node, const AstraLocale::OutputLang &lang) const;
-    static std::string flight(const TTripInfo &flt, const AstraLocale::OutputLang &lang);
 };
 
 class TPaxSection;

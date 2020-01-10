@@ -1,5 +1,4 @@
-#ifndef PNR_INFORM_H
-#define PNR_INFORM_H
+#pragma once
 
 #include "astra_consts.h"
 #include "passenger.h"
@@ -19,13 +18,15 @@ struct TSegListItem
 namespace CheckIn
 {
 
+void grpMktFlightFromXML(xmlNodePtr node, TGrpMktFlight& grpMktFlight);
+
 void setComplexClassGrp(const TFlightRbd& rbds, TComplexClass& complex);
 
 void syncCabinClass(const TTripTaskKey &task);
 
 void seatingWhenNewCheckIn(const TSegListItem& seg,
                            const TAdvTripInfo& fltAdvInfo,
-                           const TTripInfo& markFltInfo);
+                           const TSimpleMktFlight& markFltInfo);
 
 class OverloadException: public AstraLocale::UserException
 {
@@ -599,4 +600,5 @@ void createEmulDocForSBDO(int pax_id,
                           const boost::optional<CheckIn::TSimpleBagItem>& bag,
                           xmlNodePtr emulChngNode);
 
-#endif // PNR_INFORM_H
+
+

@@ -531,13 +531,18 @@ void ZamarPostProcessXMLAnswer()
 
   XMLRequestCtxt *xmlRC = getXmlCtxt();
   xmlNodePtr resNode = NodeAsNode("/term/answer",xmlRC->resDoc);
+  xmlNodePtr reqNode = NodeAsNode("/term/query",xmlRC->reqDoc);
 
 //  LogTrace(TRACE5) << __func__ << " GetXMLDocText: " << GetXMLDocText(xmlRC->resDoc);
 
   std::string error_code, error_message;
   xmlNodePtr errNode = AstraLocale::selectPriorityMessage(resNode, error_code, error_message);
 
-  NewTextChild( resNode, "queryType", NodeAsString("@queryType", resNode));
+  if (reqNode!=nullptr && reqNode->children!=nullptr)
+  {
+    NewTextChild( resNode, "queryType", (const char*)reqNode->children->name );
+    SetProp( resNode, "queryType", (const char*)reqNode->children->name );
+  }
 
   if (errNode!=NULL)
   {

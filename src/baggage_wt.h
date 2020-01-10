@@ -240,6 +240,7 @@ class TNormItem
   TNormItem& fromDB(TQuery &Qry);
   std::string str(const std::string& lang) const;
   void GetNorms(PrmEnum& prmenum) const;
+  bool getByNormId(int normId);
 };
 
 class TPaxNormItem
@@ -327,6 +328,7 @@ class TPaidBagItem : public TBagTypeKey
   const std::string& bag_type333() const { return bag_type; } //!!!vlad
   int priority() const;
   std::string bag_type_view(const std::string& lang="") const;
+  bool paid_positive() const { return weight>0; }
 };
 
 class TPaidBagList : public std::list<TPaidBagItem>
@@ -334,6 +336,7 @@ class TPaidBagList : public std::list<TPaidBagItem>
   public:
     void getAllListKeys(int grp_id, bool is_unaccomp);
     void getAllListItems(int grp_id, bool is_unaccomp);
+    bool becamePaid(const TPaidBagList& paidBefore) const;
 };
 
 void PaidBagFromXML(xmlNodePtr paidbagNode,
