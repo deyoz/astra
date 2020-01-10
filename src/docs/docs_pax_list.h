@@ -39,6 +39,7 @@ namespace REPORTS {
         boost::optional<TRemEventType> rem_event_type;
         boost::optional<TBrdVal> pr_brd;
         boost::optional<bool> wait_list;
+        bool not_refused;
         TSortType sort;
         TPaxListFlags flags;
         void clear()
@@ -48,6 +49,7 @@ namespace REPORTS {
             rem_event_type = boost::none;
             pr_brd = boost::none;
             wait_list = boost::none;
+            not_refused = false;
             sort = stRegNo;
             flags.clearFlags();
         }

@@ -78,6 +78,9 @@ void TPaxList::fromDB()
         "   pax_grp.point_dep = :point_id and "
         "   pax_grp.grp_id = pax.grp_id and "
         "   pax_grp.status not in ('E') ";
+    if(options.not_refused)
+        SQLText += " and pax.refuse IS NULL ";
+
     if(options.pr_brd) {
         switch(options.pr_brd.get().val) {
             case TBrdVal::bvNULL:

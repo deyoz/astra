@@ -2435,6 +2435,7 @@ int COM(TypeB::TDetailCreateInfo &info)
         pax_list.options.flags.setFlag(REPORTS::oeBagAmount);
         pax_list.options.flags.setFlag(REPORTS::oeBagWeight);
         pax_list.options.wait_list = boost::in_place(false);
+        pax_list.options.not_refused = true;
         pax_list.fromDB();
 
         classes.getByStats(pax_list, info);
