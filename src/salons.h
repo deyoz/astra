@@ -397,7 +397,7 @@ class TSeatTariffMap : public TSeatTariffMapType
     int _potential_queries, _real_queries;
     TStatus _status;
     std::map<int/*point_id_oper*/, TAdvTripInfo> oper_flts;
-    std::map<int/*point_id_mark*/, TTripInfo> mark_flts;
+    std::map<int/*point_id_mark*/, TSimpleMktFlight> mark_flts;
     std::map<std::string/*airline_oper*/, TSeatTariffMapType> rfisc_colors;
     std::map<int/*point_id_oper*/, TSeatTariffMapType > tariff_map; //для stNotRFISC
 
@@ -406,7 +406,7 @@ class TSeatTariffMap : public TSeatTariffMapType
   public:
     TSeatTariffMap() : _potential_queries(0), _real_queries(0) { clear(); }
     //скорее всего будет использоваться перед первоначальной регистрацией:
-    void get(const TAdvTripInfo &operFlt, const TTripInfo &markFlt, const CheckIn::TPaxTknItem &tkn);
+    void get(const TAdvTripInfo &operFlt, const TSimpleMktFlight &markFlt, const CheckIn::TPaxTknItem &tkn);
     //если пассажир зарегистрирован и мы хотим абсолютно минимизировать запросы к БД:
     void get(const int point_id_oper,
              const int point_id_mark,

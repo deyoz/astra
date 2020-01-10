@@ -5,7 +5,7 @@
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "serverlib/test.h"
+#include <serverlib/slogger.h>
 
 using namespace std;
 using namespace AstraLocale;
@@ -676,6 +676,16 @@ TNormItem& TNormItem::fromDB(TQuery &Qry)
   return *this;
 };
 
+bool TNormItem::getByNormId(int normId)
+{
+  TCachedQuery NormQry("SELECT norm_type, amount, weight, per_unit FROM bag_norms WHERE id=:id",
+                       QParams() << QParam("id", otInteger, normId));
+  NormQry.get().Execute();
+  if (NormQry.get().Eof) return false;
+  fromDB(NormQry.get());
+  return true;
+}
+
 std::string TNormItem::str(const std::string& lang) const
 {
   if (empty()) return "";
@@ -1067,6 +1077,27 @@ void TPaidBagList::getAllListItems(int grp_id, bool is_unaccomp)
       i->getListItemUnaccomp(grp_id, 0, boost::none, "TPaidBagList");
     else
       i->getListItemByGrpId(grp_id, 0, boost::none, "TPaidBagList");
+}
+
+bool TPaidBagList::becamePaid(const TPaidBagList& paidBefore) const
+{
+  LogTrace(TRACE5) << __func__;
+
+  std::map<TBagTypeKey, TPaidBagItem> prior, curr;
+  for_each(this->cbegin(), this->cend(),
+           [&curr](const TPaidBagItem& item){ curr.emplace(item, item); });
+  for_each(paidBefore.cbegin(), paidBefore.cend(),
+           [&prior](const TPaidBagItem& item){ prior.emplace(item, item); });
+
+  for(const auto& a : curr)
+    if (a.second.paid_positive())
+    {
+      auto b=prior.find(a.first);
+      if (b==prior.end()) return true;
+      if (a.second.weight>b->second.weight) return true;
+    }
+
+  return false;
 }
 
 void PaidBagFromXML(xmlNodePtr paidbagNode,

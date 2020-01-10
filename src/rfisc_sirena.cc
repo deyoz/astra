@@ -30,10 +30,10 @@ const TSegItem& TSegItem::toSirenaXML(xmlNodePtr node, const OutputLang &lang) c
   if (markFlt)
   {
     SetProp(node, "company", airlineToPrefferedCode(markFlt.get().airline, lang));
-    SetProp(node, "flight", flight(markFlt.get(), lang));
+    SetProp(node, "flight", markFlt.get().flight_number(lang));
   };
   SetProp(node, "operating_company", airlineToPrefferedCode(operFlt.airline, lang));
-  SetProp(node, "operating_flight", flight(operFlt, lang));
+  SetProp(node, "operating_flight", operFlt.flight_number(lang));
   SetProp(node, "departure", airpToPrefferedCode(operFlt.airp, lang));
   SetProp(node, "arrival", airpToPrefferedCode(airp_arv, lang));
   if (operFlt.scd_out!=ASTRA::NoExists)
@@ -83,14 +83,6 @@ const TPaxSegItem& TPaxSegItem::toSirenaXML(xmlNodePtr node, const OutputLang &l
     SetProp(NewTextChild(node, "ffp", i->no), "company", airlineToPrefferedCode(i->airline, lang));
 
   return *this;
-}
-
-std::string TSegItem::flight(const TTripInfo &flt, const OutputLang &lang)
-{
-  ostringstream s;
-  s << setw(3) << setfill('0') << flt.flt_no
-    << ElemIdToPrefferedElem(etSuffix, flt.suffix, efmtCodeNative, lang.get());
-  return s.str();
 }
 
 const TPaxItem& TPaxItem::toSirenaXML(xmlNodePtr node, const OutputLang &lang) const

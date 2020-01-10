@@ -4302,13 +4302,11 @@ BitSet<TChangeLayerSeatsProps>
     }
     else {
       ProgTrace( TRACE5, "pax_id=%d", pax_id );
-      TMktFlight flight;
-      flight.getByCrsPaxId( pax_id );
-      TTripInfo markFlt;
-      markFlt.airline = flight.airline;
+      TMktFlight mktFlight;
+      mktFlight.getByCrsPaxId( pax_id );
       CheckIn::TPaxTknItem tkn;
       CheckIn::LoadCrsPaxTkn( pax_id, tkn);
-      passTariffs.get( operFlt, markFlt, tkn );
+      passTariffs.get( operFlt, mktFlight, tkn );
     }
     TQuery QrySeatRules( &OraSession );
     QrySeatRules.SQLText =

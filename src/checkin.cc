@@ -4450,10 +4450,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     TGrpToLogInfo &grpInfoBefore=AfterSaveInfo.segs.back().grpInfoBefore;
     TGrpToLogInfo &grpInfoAfter=AfterSaveInfo.segs.back().grpInfoAfter;
     CheckIn::TGrpEMDProps &handmadeEMDDiff=AfterSaveInfo.handmadeEMDDiff;
-    TTripInfo markFltInfo=fltInfo;
-    markFltInfo.scd_out=UTCToLocal(markFltInfo.scd_out,AirpTZRegion(markFltInfo.airp));
-    modf(markFltInfo.scd_out,&markFltInfo.scd_out);
-    bool pr_mark_norms=false;
+    TGrpMktFlight grpMktFlight=fltInfo.grpMktFlight();
 
     if ( need_apps ) {
       TAdvTripRoute route;
@@ -4504,7 +4501,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA"); //WEB
 
       bool pr_mintrans_file=GetTripSets(tsMintransFile,fltInfo);
-      bool pr_mixed_norms=GetTripSets(tsMixedNorms,fltInfo);
 
       bool addVIP=false;
       if (first_segment)
@@ -4899,56 +4895,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           }
 
           if (grp.status!=psCrew)
-          {
             //запишем коммерческий рейс
-            xmlNodePtr markFltNode=GetNode("mark_flight",segNode);
-            if (markFltNode!=NULL)
-            {
-              TGrpMktFlight mktFlight;
-              mktFlight.fromXML(markFltNode);
-              markFltInfo.Init(mktFlight);
-              pr_mark_norms=mktFlight.pr_mark_norms;
-              //получим локальную дату выполнения фактического рейса
-              TDateTime scd_local=UTCToLocal(fltInfo.scd_out,AirpTZRegion(fltInfo.airp));
-              modf(scd_local,&scd_local);
-
-              ostringstream flt;
-              flt << markFltInfo.airline
-                  << setw(3) << setfill('0') << markFltInfo.flt_no
-                  << markFltInfo.suffix;
-              if (markFltInfo.scd_out!=scd_local)
-                flt << "/" << DateTimeToStr(markFltInfo.scd_out,"dd");
-              if (markFltInfo.airp!=fltInfo.airp)
-                flt << "/" << markFltInfo.airp;
-
-              string str;
-              TElemFmt fmt;
-
-              str=ElemToElemId(etAirline,markFltInfo.airline,fmt);
-              if (fmt==efmtUnknown)
-                throw UserException("MSG.COMMERCIAL_FLIGHT.AIRLINE.UNKNOWN_CODE",
-                                    LParams()<<LParam("airline",markFltInfo.airline)
-                                             <<LParam("flight", flt.str()));  //WEB
-              markFltInfo.airline=str;
-
-              if (!markFltInfo.suffix.empty())
-              {
-                str=ElemToElemId(etSuffix,markFltInfo.suffix,fmt);
-                if (fmt==efmtUnknown)
-                  throw UserException("MSG.COMMERCIAL_FLIGHT.SUFFIX.INVALID",
-                                      LParams()<<LParam("suffix",markFltInfo.suffix)
-                                               <<LParam("flight",flt.str())); //WEB
-                markFltInfo.suffix=str;
-              }
-
-              str=ElemToElemId(etAirp,markFltInfo.airp,fmt);
-              if (fmt==efmtUnknown)
-                throw UserException("MSG.COMMERCIAL_FLIGHT.UNKNOWN_AIRP",
-                                    LParams()<<LParam("airp",markFltInfo.airp)
-                                             <<LParam("flight",flt.str())); //WEB
-              markFltInfo.airp=str;
-            }
-          }
+            CheckIn::grpMktFlightFromXML(GetNode("mark_flight",segNode), grpMktFlight);
 
           timing.finish("CheckCounters", grp.point_dep);
 
@@ -5053,18 +5001,18 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           "BEGIN "
           "  FOR pass IN 1..2 LOOP "
           "    BEGIN "
-          "      SELECT point_id INTO :point_id_mark FROM mark_trips "
-          "      WHERE scd=:scd_mark AND airline=:airline_mark AND flt_no=:flt_no_mark AND airp_dep=:airp_dep_mark AND "
-          "            (suffix IS NULL AND :suffix_mark IS NULL OR suffix=:suffix_mark) FOR UPDATE; "
+          "      SELECT point_id INTO :mark_point_id FROM mark_trips "
+          "      WHERE scd=:mark_scd AND airline=:mark_airline AND flt_no=:mark_flt_no AND airp_dep=:mark_airp_dep AND "
+          "            (suffix IS NULL AND :mark_suffix IS NULL OR suffix=:mark_suffix) FOR UPDATE; "
           "      EXIT; "
           "    EXCEPTION "
           "      WHEN NO_DATA_FOUND THEN "
-          "        IF :point_id_mark IS NULL OR pass=2 THEN "
-          "          SELECT cycle_id__seq.nextval INTO :point_id_mark FROM dual; "
+          "        IF :mark_point_id IS NULL OR pass=2 THEN "
+          "          SELECT cycle_id__seq.nextval INTO :mark_point_id FROM dual; "
           "        END IF; "
           "        BEGIN "
           "          INSERT INTO mark_trips(point_id,airline,flt_no,suffix,scd,airp_dep) "
-          "          VALUES (:point_id_mark,:airline_mark,:flt_no_mark,:suffix_mark,:scd_mark,:airp_dep_mark); "
+          "          VALUES (:mark_point_id,:mark_airline,:mark_flt_no,:mark_suffix,:mark_scd,:mark_airp_dep); "
           "          EXIT; "
           "        EXCEPTION "
           "          WHEN DUP_VAL_ON_INDEX THEN "
@@ -5080,7 +5028,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           "    point_id_mark,pr_mark_norms,trfer_conflict,inbound_confirm,tid) "
           "  VALUES(:grp_id,:point_dep,:point_arv,:airp_dep,:airp_arv,:class, "
           "    :status,0,0,:hall,0,:trfer_confirm,:user_id,:desk,:time_create,:client_type, "
-          "    :point_id_mark,:pr_mark_norms,:trfer_conflict,:inbound_confirm,cycle_tid__seq.nextval); "
+          "    :mark_point_id,:pr_mark_norms,:trfer_conflict,:inbound_confirm,cycle_tid__seq.nextval); "
           "  IF :seg_no IS NOT NULL THEN "
           "    IF :seg_no=1 THEN :tckin_id:=:grp_id; END IF; "
           "    INSERT INTO tckin_pax_grp(tckin_id,seg_no,grp_id,first_reg_no,pr_depend) "
@@ -5124,17 +5072,11 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         else
           Qry.CreateVariable("first_reg_no",otInteger,FNull);
 
-        if (IsMarkEqualOper(fltInfo, markFltInfo))
-          Qry.CreateVariable("point_id_mark",otInteger,grp.point_dep);
+        if (grpMktFlight.equalFlight(fltInfo.grpMktFlight()))
+          Qry.CreateVariable("mark_point_id",otInteger,grp.point_dep);
         else
-          Qry.CreateVariable("point_id_mark",otInteger,FNull);
-        Qry.CreateVariable("airline_mark",otString,markFltInfo.airline);
-        Qry.CreateVariable("flt_no_mark",otInteger,markFltInfo.flt_no);
-        Qry.CreateVariable("suffix_mark",otString,markFltInfo.suffix);
-        Qry.CreateVariable("scd_mark",otDate,markFltInfo.scd_out);
-        Qry.CreateVariable("airp_dep_mark",otString,markFltInfo.airp);
-        Qry.CreateVariable("pr_mark_norms",otInteger,(int)pr_mark_norms);
-
+          Qry.CreateVariable("mark_point_id",otInteger,FNull);
+        grpMktFlight.toDB(Qry);
         Qry.Execute();
         grp.id=Qry.GetVariableAsInteger("grp_id");
         if (first_segment && !Qry.VariableIsNULL("tckin_id"))
@@ -5391,23 +5333,13 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         if (Qry.RowsProcessed()<=0)
           throw UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA"); //WEB
 
+        //читаем коммерческий рейс
+        if (!grpMktFlight.getByGrpId(grp.id))
+          throw Exception("%s: !grpMktFlight.getByGrpId(%d)", __func__, grp.id);
+
+
         if (!pr_unaccomp)
         {
-          //читаем коммерческий рейс
-          Qry.Clear();
-          Qry.SQLText=
-            "SELECT mark_trips.airline,mark_trips.flt_no,mark_trips.suffix, "
-            "       mark_trips.scd AS scd_out,mark_trips.airp_dep AS airp,pr_mark_norms "
-            "FROM pax_grp,mark_trips "
-            "WHERE pax_grp.point_id_mark=mark_trips.point_id AND pax_grp.grp_id=:grp_id";
-          Qry.CreateVariable("grp_id",otInteger,grp.id);
-          Qry.Execute();
-          if (!Qry.Eof)
-          {
-            markFltInfo.Init(Qry);
-            pr_mark_norms=Qry.FieldAsInteger("pr_mark_norms")!=0;
-          }
-
           TQuery PaxQry(&OraSession);
           PaxQry.Clear();
           ostringstream sql;
@@ -5652,18 +5584,15 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
           if (grp.wt)
           {
-            if (reqInfo->client_type==ASTRA::ctTerm)
+            if (TReqInfo::Instance()->client_type==ctTerm ||
+                isTagConfirmRequestSBDO(reqNode) ||
+                isTagRevokeRequestSBDO(reqNode))
             {
               //расчет и запись норм и платного багажа
               //возможно надо перерасчитывать при изменениях нв вебе, если, например, удаляется пассажир ???
-              WeightConcept::TNormFltInfo normFltInfo;
-              normFltInfo.point_id=grp.point_dep;
-              normFltInfo.airline_mark=markFltInfo.airline;
-              normFltInfo.flt_no_mark=markFltInfo.flt_no;
-              normFltInfo.use_mark_flt=pr_mark_norms;
-              normFltInfo.use_mixed_norms=pr_mixed_norms;
+              WeightConcept::TNormFltInfo normFltInfo(fltInfo, grpMktFlight);
               WeightConcept::TAirlines airlines(grp.id,
-                                                pr_mark_norms?markFltInfo.airline:fltInfo.airline,
+                                                grpMktFlight.pr_mark_norms?grpMktFlight.airline:fltInfo.airline,
                                                 "RecalcPaidBagToDB");
               map<int/*id*/, TEventsBagItem> curr_bag;
               GetBagToLogInfo(grp.id, curr_bag);
@@ -5672,6 +5601,13 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               WeightConcept::TPaidBagList result_paid;
               WeightConcept::RecalcPaidBagToDB(airlines, grpInfoBefore.bag, curr_bag, grpInfoBefore.pax, normFltInfo, trfer, grp, paxs, prior_paid, pr_unaccomp, true, result_paid);
               CheckIn::TryCleanServicePayment(result_paid, paymentBefore, grp.payment);
+
+              if (isTagConfirmRequestSBDO(reqNode) ||
+                  isTagRevokeRequestSBDO(reqNode))
+              {
+                if (result_paid.becamePaid(prior_paid))
+                  throw UserException("MSG.SBDO.SERVICES_BECAME_PAID");
+              }
             }
           }
 
@@ -5932,7 +5868,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         if (new_checkin && !pr_unaccomp && wl_type.empty() && grp.status!=psCrew)
         {
           timing.start("SeatsPassengers", grp.point_dep);
-          CheckIn::seatingWhenNewCheckIn(*iSegListItem, fltAdvInfo, markFltInfo);
+          CheckIn::seatingWhenNewCheckIn(*iSegListItem, fltAdvInfo, grpMktFlight);
           timing.finish("SeatsPassengers", grp.point_dep);
         }
       }
