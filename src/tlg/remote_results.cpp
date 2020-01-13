@@ -1,16 +1,8 @@
-/*
-*  C++ Implementation: RemoteResults
-*
-* Description: remote request results
-*
-*
-* Author: Kovalev Roman <rom@sirena2000.ru>, (C) 2008
-*
-*/
 #include "remote_results.h"
 #include "exceptions.h"
 #include "astra_dates_oci.h"
-#include <serverlib/cursctl.h>
+
+#include <serverlib/oci8cursor.h>
 #include <serverlib/EdiHelpManager.h>
 #include <serverlib/query_runner.h>
 #include <serverlib/int_parameters_oci.h>
@@ -26,94 +18,117 @@ const char *edifact::RemoteStatusElem::ElemName = "Remote action status";
 
 DESCRIBE_CODE_SET(edifact::RemoteStatusElem)
 {
-    addElem( VTypes,
-             RemoteStatusElem(RemoteStatus::CommonError,
-             "CE",
-             "Error in remote host", "Ошибка обработки в удаленном хосте"));
-    addElem( VTypes,
-             RemoteStatusElem(RemoteStatus::Contrl,
-             "CL",
-             "Communication error (CONTRL)",  "Ошибка связи (CONTRL)"));
-    addElem( VTypes,
-             RemoteStatusElem(RemoteStatus::Timeout,
-             "TO",
-             "Time out",  "Time out"));
-    addElem( VTypes,
-             RemoteStatusElem(RemoteStatus::Success,
-             "SS",
-             "Success",  "Успешно"));
-    addElem( VTypes,
-             RemoteStatusElem(RemoteStatus::RequestSent,
-             "RS",
-             "Request was sent",  "Запрос обрабатывается удаленным хостом"));
+    addElem(VTypes,
+            RemoteStatusElem(RemoteStatus::CommonError,
+                             "CE",
+                             "Error in remote host",
+                             "Ошибка обработки в удаленном хосте"));
+    addElem(VTypes,
+            RemoteStatusElem(RemoteStatus::Contrl,
+                             "CL",
+                             "Communication error (CONTRL)",
+                             "Ошибка связи (CONTRL)"));
+    addElem(VTypes,
+            RemoteStatusElem(RemoteStatus::Timeout,
+                             "TO",
+                             "Time out",
+                             "Time out"));
+    addElem(VTypes,
+            RemoteStatusElem(RemoteStatus::Success,
+                             "SS",
+                             "Success",
+                             "Успешно"));
+    addElem(VTypes,
+            RemoteStatusElem(RemoteStatus::RequestSent,
+                             "RS",
+                             "Request was sent",
+                             "Запрос обрабатывается удаленным хостом"));
 }
 
+/////////////////////////////////////////////////////////////////////////////////////////
 
-namespace edifact
-{
+namespace edifact {
+
 using namespace OciCpp;
-
-namespace
-{
-    const std::string select =
-            "select INTMSGID, PULT, STATUS, DATE_CR, EDISESSION_ID, REMOTE_ID, "
-            "REMARK, EDIERRCODE, TLG_TEXT from REMOTE_RESULTS";
-}
 
 struct defsupport
 {
     std::string MsgId;
     std::string Pult;
     std::string Status;
-    edilib::EdiSessionId_t EdiSession;
-    Ticketing::SystemAddrs_t  RemoteSystem;
     std::string Remark;
     std::string EdiErrCode;
-    oracle_datetime odt;
-    std::string TlgSource;
+    Dates::DateTime_t DateCr;
+    RemoteResults::RawData_t RawData;
+    edilib::EdiSessionId_t::base_type   EdiSession;
+    Ticketing::SystemAddrs_t::base_type RemoteSystem;
 
     RemoteResults make()
-    {
-        using namespace Dates;
+    {       
         RemoteResults rr;
-        rr.DateCr = from_oracle_time(odt);
-        rr.Status = RemoteStatus(Status);
-        rr.MsgId = MsgId;
-        rr.Pult = Pult;
-        rr.EdiSession = EdiSession;
-        rr.RemoteSystem = RemoteSystem;
-        rr.Remark = Remark;
-        rr.EdiErrCode = EdiErrCode;
-        rr.TlgSource = TlgSource;
-
+        rr.DateCr       = DateCr;
+        rr.Status       = RemoteStatus(Status);
+        rr.MsgId        = MsgId;
+        rr.Pult         = Pult;
+        rr.EdiSession   = edilib::EdiSessionId_t(EdiSession);
+        rr.RemoteSystem = Ticketing::SystemAddrs_t(RemoteSystem);
+        rr.Remark       = Remark;
+        rr.EdiErrCode   = EdiErrCode;
+        rr.TlgSource    = RawData;
         return rr;
     }
 };
 
-inline void OciDef(CursCtl &ctl, defsupport &def)
+/////////////////////////////////////////////////////////////////////////////////////////
+
+namespace
 {
-    ctl.
-            defNull(def.MsgId, "").
-            defNull(def.Pult, "").
-            def(def.Status).
-            def(def.odt).
-            def(def.EdiSession).
-            def(def.RemoteSystem).
-            defNull(def.Remark, "").
-            defNull(def.EdiErrCode, "").
-            defNull(def.TlgSource, "");
+
+const std::string select =
+        "select INTMSGID, PULT, STATUS, DATE_CR, EDISESSION_ID, REMOTE_ID, "
+        "REMARK, EDIERRCODE, RAWDATA from REMOTE_RESULTS";
+
+inline void OciDef(Curs8Ctl &cur, defsupport &def)
+{
+    cur
+            .def(def.MsgId)
+            .def(def.Pult)
+            .def(def.Status)
+            .def(def.DateCr)
+            .def(def.EdiSession)
+            .def(def.RemoteSystem)
+            .def(def.Remark)
+            .def(def.EdiErrCode)
+            .defBlob(def.RawData);
 }
+
+} //namespace
+
+/////////////////////////////////////////////////////////////////////////////////////////
 
 RemoteResults::RemoteResults(const std::string &msgId,
                              const std::string &pult,
                              const edilib::EdiSessionId_t &edisess,
                              const Ticketing::SystemAddrs_t &remoteId)
     : MsgId(msgId),
-           Pult(pult),
-           EdiSession(edisess),
-           Status(RemoteStatus::RequestSent),
-           RemoteSystem(remoteId)
+      Pult(pult),
+      EdiSession(edisess),
+      Status(RemoteStatus::RequestSent),
+      RemoteSystem(remoteId)
+{}
+
+std::string RemoteResults::tlgSource() const
 {
+    if(TlgSource.empty()) {
+        return std::string();
+    }
+    return std::string(TlgSource.data(), TlgSource.size());
+}
+
+void RemoteResults::setTlgSource(const std::string &tlg)
+{
+    TlgSource.resize(tlg.length());
+    memcpy(&TlgSource[0], tlg.c_str(), tlg.length());
 }
 
 void RemoteResults::add(const std::string &msgId,
@@ -134,24 +149,26 @@ void RemoteResults::readDb(/*const std::string &pult,*/ std::list<RemoteResults>
 {
     defsupport defs;
 
-    CursCtl cur = make_curs((select + " where INTMSGID=:INTID").c_str());
+    Oci8Session os(STDLOG, mainSession());
+    Curs8Ctl cur(STDLOG,
+                 select + " where INTMSGID=:INTID", &os);
 
-    cur.
-            stb().
-            bind(":INTID", ServerFramework::getQueryRunner().getEdiHelpManager().msgId().asString());
+    auto msgId = ServerFramework::getQueryRunner().getEdiHelpManager().msgId();
+    cur
+            .bind(":INTID", msgId.asString());
     OciDef(cur, defs);
     cur.exec();
 
-    while(!cur.fen())
-    {
+    while(!cur.fen()) {
         lres.push_back(defs.make());
     }
 
     if(!lres.empty())
     {
-        make_curs("delete from REMOTE_RESULTS where INTMSGID=:INTID").
-                bind(":INTID", ServerFramework::getQueryRunner().getEdiHelpManager().msgId().asString()).
-                exec();
+        Curs8Ctl(STDLOG,
+                 "delete from REMOTE_RESULTS where INTMSGID=:INTID", &os)
+                .bind(":INTID", msgId.asString())
+                .exec();
     }
 }
 /*
@@ -178,59 +195,60 @@ pRemoteResults RemoteResults::readSingle(/*const std::string &pult*/)
 pRemoteResults RemoteResults::readDb(const edilib::EdiSessionId_t &Id)
 {
     defsupport defs;
-    CursCtl cur = make_curs((select + " where EDISESSION_ID = :SID").c_str());
+    Oci8Session os(STDLOG, mainSession());
+    Curs8Ctl cur(STDLOG,
+                 select + " where EDISESSION_ID = :SID", &os);
 
-    cur.
-            bind(":SID", Id);
+    cur
+            .bind(":SID", Id.get());
 
     OciDef(cur, defs);
     cur.EXfet();
 
-    if(cur.err() == NO_DATA_FOUND)
-    {
+    if(cur.rowcount() == 0) {
         return pRemoteResults();
-    }
-    else
-    {
+    } else {
         return pRemoteResults(new RemoteResults(defs.make()));
     }
 }
 
 void RemoteResults::writeDb()
 {
-    CursCtl cur = make_curs("insert into REMOTE_RESULTS "
-                            "(INTMSGID, PULT, STATUS, DATE_CR, EDISESSION_ID, REMOTE_ID) "
-                            "values "
-                            "(:INTMSGID, :PULT, :STATUS, :LOCAL_TIME, :EDISESSION_ID, :REMOTE_ID)");
+    Oci8Session os(STDLOG, mainSession());
+    Curs8Ctl cur(STDLOG,
+            "insert into REMOTE_RESULTS "
+            "(INTMSGID, PULT, STATUS, DATE_CR, EDISESSION_ID, REMOTE_ID) "
+            "values "
+            "(:INTMSGID, :PULT, :STATUS, :LOCAL_TIME, :EDISESSION_ID, :REMOTE_ID)", &os);
 
-    cur.
-            stb().
-            bind(":INTMSGID", msgId()).
-            bind(":PULT", pult()).
-            bind(":STATUS", status()->code()).
-            bind(":LOCAL_TIME", OciCpp::to_oracle_datetime(Dates::second_clock::local_time())).
-            bind(":EDISESSION_ID", ediSession()).
-            bind(":REMOTE_ID", remoteSystem()).
-            exec();
+    cur
+            .bind(":INTMSGID",      msgId())
+            .bind(":PULT",          pult())
+            .bind(":STATUS",        status()->code())
+            .bind(":LOCAL_TIME",    Dates::second_clock::local_time())
+            .bind(":EDISESSION_ID", ediSession().get())
+            .bind(":REMOTE_ID",     remoteSystem().get())
+            .exec();
 }
 
 void RemoteResults::updateDb() const
 {
-    CursCtl cur = make_curs(
+    Oci8Session os(STDLOG, mainSession());
+    Curs8Ctl cur(STDLOG,
             "update REMOTE_RESULTS set "
             "EDIERRCODE = :EDIERRCODE,"
             "STATUS = :STATUS,"
             "REMARK = :REMARK,"
-            "TLG_TEXT = :TEXT "
-            "where EDISESSION_ID = :EDISESSION_ID");
+            "RAWDATA = :RAWDATA "
+            "where EDISESSION_ID = :EDISESSION_ID", &os);
 
-    cur.
-            bind(":EDIERRCODE", ediErrCode()).
-            bind(":STATUS", status()->code()).
-            bind(":REMARK", remark()).
-            bind(":TEXT",   tlgSource()).
-            bind(":EDISESSION_ID", ediSession()).
-            exec();
+    cur
+            .bind(":EDIERRCODE",    ediErrCode())
+            .bind(":STATUS",        status()->code())
+            .bind(":REMARK",        remark())
+            .bindBlob(":RAWDATA",   rawData())
+            .bind(":EDISESSION_ID", ediSession().get())
+            .exec();
 }
 
 /*
@@ -240,11 +258,10 @@ void RemoteResults::removeOld() const
 {
     CursCtl cur = make_curs("delete from REMOTE_RESULTS where INTMSGID <> :INTID "
             "and PULT = :PULT");
-    cur.
-            stb().
-            bind(":INTID", ServerFramework::getQueryRunner().getEdiHelpManager().msgId().asString()).
-            bind(":PULT",  pult()).
-            exec();
+    cur
+            .bind(":INTID", ServerFramework::getQueryRunner().getEdiHelpManager().msgId().asString())
+            .bind(":PULT",  pult())
+            .exec();
 
     LogTrace(TRACE3) << __FUNCTION__ << ": " << cur.rowcount() << " rows deleted.";
 }
@@ -252,22 +269,26 @@ void RemoteResults::removeOld() const
 
 void RemoteResults::deleteDb(const edilib::EdiSessionId_t &Id)
 {
-  CursCtl cur = make_curs("delete from REMOTE_RESULTS where EDISESSION_ID = :SID");
-  cur.
-          stb().
-          bind(":SID", Id).
-          exec();
+    Oci8Session os(STDLOG, mainSession());
+    Curs8Ctl cur(STDLOG,
+                 "delete from REMOTE_RESULTS where EDISESSION_ID = :SID", &os);
+    cur
+          .bind(":SID", Id.get())
+          .exec();
 
-  LogTrace(TRACE3) << __FUNCTION__ << ": " << cur.rowcount() << " rows deleted.";
+    LogTrace(TRACE3) << __FUNCTION__ << ": " << cur.rowcount() << " rows deleted.";
 }
 
 void RemoteResults::cleanOldRecords(const int min_ago)
 {
     using namespace Dates;
     LogTrace(TRACE3) << __FUNCTION__;
-    const ptime amin_ago = second_clock::local_time() - seconds(60*min_ago);
-    make_curs("delete from REMOTE_RESULTS where DATE_CR < :min_ago")
-            .bind(":min_ago", OciCpp::to_oracle_datetime(amin_ago))
+    const auto amin_ago = second_clock::local_time() - seconds(60*min_ago);
+    Oci8Session os(STDLOG, mainSession());
+    Curs8Ctl cur(STDLOG,
+                 "delete from REMOTE_RESULTS where DATE_CR < :min_ago", &os);
+    cur
+            .bind(":min_ago", amin_ago)
             .exec();
 }
 
@@ -289,4 +310,4 @@ std::ostream & operator <<(std::ostream & os, const RemoteResults & rr)
     return os;
 }
 
-}//namespace Ticketing
+}//namespace edifact

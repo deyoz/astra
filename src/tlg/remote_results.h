@@ -1,24 +1,15 @@
-//
-// C++ Interface: RemoteResults
-//
-// Description: remote request results
-//
-//
-// Author: Kovalev Roman <rom@sirena2000.ru>, (C) 2008
-//
-//
-#ifndef _REMOTERESULTS_H_
-#define _REMOTERESULTS_H_
-#include <list>
-#include <iosfwd>
-#include <edilib/EdiSessionId_t.h>
-#include <serverlib/base_code_set.h>
-#include <boost/shared_ptr.hpp>
+#pragma once
+
 #include "astra_dates.h"
 #include "CheckinBaseTypes.h"
 
-namespace edifact
-{
+#include <edilib/EdiSessionId_t.h>
+#include <serverlib/base_code_set.h>
+
+#include <boost/shared_ptr.hpp>
+
+
+namespace edifact {
 
 class RemoteStatusElem : public BaseTypeElem<int>
 {
@@ -50,8 +41,8 @@ public:
         RequestSent,
     };
 
-    RemoteStatus(Status_t t):TypeElemHolder(t){}
-    RemoteStatus(const std::string &status):TypeElemHolder(status){};
+    RemoteStatus(Status_t t): TypeElemHolder(t) {}
+    RemoteStatus(const std::string &status): TypeElemHolder(status) {}
 
 };
 
@@ -67,6 +58,8 @@ private:
                   const edilib::EdiSessionId_t &edisess,
                   const Ticketing::SystemAddrs_t &remoteId);
 public:
+    typedef std::vector<char> RawData_t;
+
     /**
      * @brief add record
      * @param pult
@@ -106,7 +99,14 @@ public:
      * @brief tlg source
      * @return
      */
-    const std::string &tlgSource() const { return TlgSource; }
+    std::string tlgSource() const;
+    void setTlgSource(const std::string &tlg);
+
+    /**
+     * @brief rawData
+     * @return
+     */
+    const RawData_t &rawData() const { return TlgSource; }
 
     /**
      * @brief edifact session id
@@ -160,10 +160,6 @@ public:
     {
         Remark = rem.substr(0,140);
     }
-    void setTlgSource(const std::string &tlg)
-    {
-        TlgSource = tlg;
-    }
     void setStatus(const RemoteStatus &st)
     {
         Status = st;
@@ -174,7 +170,7 @@ private:
     std::string Pult;
     std::string EdiErrCode;
     std::string Remark;
-    std::string TlgSource;
+    RawData_t   TlgSource;
     edilib::EdiSessionId_t EdiSession;
     Dates::DateTime_t DateCr;
     RemoteStatus Status;
@@ -183,6 +179,4 @@ private:
 
 std::ostream & operator << (std::ostream& os, const RemoteResults &r);
 
-}
-
-#endif /*_REMOTERESULTS_H_*/
+} // namespace edifact
