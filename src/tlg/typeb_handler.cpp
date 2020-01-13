@@ -1181,11 +1181,14 @@ void get_tlg_info(
         const string &tlg_text,
         string &tlg_type,
         string &airline,
-        string &airp)
+        string &airp,
+        set<int> &_spp_point_ids
+        )
 {
     tlg_type.clear();
     airline.clear();
     airp.clear();
+    _spp_point_ids.clear();
     TypeB::TTlgPartsText parts;
     TypeB::THeadingInfo *HeadingInfo = NULL;
     TypeB::TFlightsForBind bind_flts;
@@ -1214,6 +1217,11 @@ void get_tlg_info(
             case tcLCI:
                 {
                     TLCIHeadingInfo &info = *(dynamic_cast<TLCIHeadingInfo*>(HeadingInfo));
+
+                    vector<int> spp_point_ids;
+                    TTlgBinding(false).bind_flt(info.flt_info.toFltInfo(),btFirstSeg,spp_point_ids);
+                    _spp_point_ids.insert(spp_point_ids.begin(), spp_point_ids.end()); // remove duplicates
+
                     airline = info.flt_info.flt.airline.c_str();
                     airp = info.flt_info.airp;
                     break;

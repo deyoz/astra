@@ -116,7 +116,7 @@ class TFltBinding
     virtual TSearchFltInfoPtr get_search_params() { return TSearchFltInfoPtr(); }
 
   public:
-    void bind_flt(TFltInfo &flt, TBindType bind_type, std::vector<int> &spp_point_ids);
+    void bind_flt(const TFltInfo &flt, TBindType bind_type, std::vector<int> &spp_point_ids);
     bool bind_flt(int point_id);
     void bind_flt_oper(const std::vector<TTripInfo> &operFlts);
     void bind_flt(const std::vector<TTripInfo> &flts, bool use_scd_utc);
