@@ -2883,6 +2883,7 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
       if ( ddddNode ) {
         stations.clear();
+        flags.clear();
         ddddNode = ddddNode->children;
         while ( ddddNode ) {
           xmlNodePtr x = GetNode( "@mode", ddddNode );
