@@ -1245,7 +1245,7 @@ void TripsInterface::readGates(int point_id, vector<string> &gates)
         "      trip_stations.point_id=:point_id AND "
         "      trip_stations.work_mode=:work_mode ";
     Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.CreateVariable("work_mode",otString,"è");
+    Qry.CreateVariable("work_mode",otString,GATE_WORK_MODE);
     Qry.Execute();
     for(;!Qry.Eof;Qry.Next())
         gates.push_back(Qry.FieldAsString("gate_name"));

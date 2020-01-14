@@ -4,12 +4,15 @@
 #include <libxml/tree.h>
 #include <string>
 #include <vector>
+#include <iostream>
+#include "xml_unit.h"
 #include "jxtlib/JxtInterface.h"
 #include "date_time.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "astra_misc.h"
 #include "alarms.h"
+
 
 using BASIC::date_time::TDateTime;
 
@@ -125,16 +128,118 @@ struct TSoppStage {
   bool pr_permit;
 };
 
+const static std::string GATE_WORK_MODE = "П";
+const static std::string TERM_WORK_MODE = "Р";
+
 struct TSOPPStation {
   std::string name;
-  std::string desk;
   std::string work_mode;
   bool pr_main;
+  bool pr_del;
   TSOPPStation() {
+    clear();
+  }
+  TSOPPStation( const std::string &vname, const std::string &vwork_mode ) {
+    clear();
+    name = vname;
+    work_mode = vwork_mode;
+  }
+  TSOPPStation( const std::string &vname,
+                const std::string &vwork_mode,
+                bool vpr_main ) {
+    clear();
+    name = vname;
+    work_mode = vwork_mode;
+    pr_main = vpr_main;
+  }
+  void clear() {
+    name.clear();
+    work_mode.clear();
     pr_main = false;
-  };
+    pr_del = false;
+  }
+  bool operator < ( const TSOPPStation& station ) const {
+    if ( name < station.name )
+      return true;
+    else
+      if ( work_mode < station.work_mode )
+        return true;
+      else
+        return pr_del < station.pr_del;
+  }
+  bool operator == ( const TSOPPStation& station ) const {
+    return ( name == station.name ) &&
+           ( work_mode == station.work_mode ) &&
+           ( pr_main == station.pr_main ) &&
+           ( pr_del == station.pr_del );
+  }
+  static bool isTerm( const std::string& work_mode ) {
+    return work_mode == TERM_WORK_MODE;
+  }
+  static bool isGate( const std::string& work_mode ) {
+    return work_mode == GATE_WORK_MODE;
+  }
+  bool isTerm( ) const {
+    return isTerm( work_mode );
+  }
+  bool isGate() const {
+    return  isGate( work_mode );
+  }
 };
-typedef std::vector<TSOPPStation> tstations;
+
+
+class tstations:public std::vector<TSOPPStation>
+{
+  public:
+  enum toDbMode { dbStandart = 0, // перезаписываем только изменения
+                  dbRewriteAll, //перезаписываем все
+                  dbWriteReceiveChanged //приходят только измеенения
+                };
+  enum toDBModeRewriteAll {
+                  dbRewriteAll_Delete_Terms,
+                  dbRewriteAll_Delete_Gates
+                           };
+  static void fromString( const std::string& value, const std::string& work_mode, tstations &stations ) {
+    std::istringstream iss(value);
+    std::vector<std::string> tokens{std::istream_iterator<std::string>{iss},
+                                    std::istream_iterator<std::string>{}};
+    for ( const auto &t : tokens ) {
+      stations.emplace_back( TSOPPStation(t,work_mode) );
+    }
+  }
+  static std::string& toString( const tstations &stations, const std::string& work_mode, std::string &res ) {
+    res.clear();
+    for ( const auto &t : stations ) {
+      if ( t.work_mode != work_mode ) {
+        continue;
+      }
+      if ( !res.empty() ) {
+        res += " ";
+      }
+      res += t.name;
+    }
+    return res;
+  }
+  void toXML( xmlNodePtr node ) const {
+    xmlNodePtr n = empty()?nullptr:NewTextChild( node, "stations" );
+    for ( const auto &st : *this  ) {
+      SetProp( NewTextChild( n, "station", st.name ), "work_mode", st.work_mode );
+    }
+  }
+  void fromDB( int point_id, const std::string& work_mode = "" );
+  void fromDBGates( int point_id ) {
+    fromDB( point_id, GATE_WORK_MODE );
+  }
+
+  void toDB( const std::string &whereabouts, int point_id, toDbMode mode, const BitSet<toDBModeRewriteAll> &flags = BitSet<toDBModeRewriteAll>() );
+  std::string toString() {
+    std::string res = TERM_WORK_MODE + ": ", val;
+    res += toString( *this, TERM_WORK_MODE, val );
+    res += ", " + GATE_WORK_MODE + ": ";
+    res += toString( *this, GATE_WORK_MODE, val );
+    return res;
+  }
+};
 
 enum TTrferType { trferIn, trferOut, trferCkin };
 typedef std::vector<TSOPPDest> TSOPPDests;

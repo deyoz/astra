@@ -104,15 +104,15 @@ void GetFlightInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
         findMove_id, point_id  ) )
      throw UserException( "MSG.FLIGHT.NOT_FOUND" );
 
-    TFlightStations stations;
-    stations.Load( point_id );
-    TFlightStages stages;
-    stages.Load( point_id );
-    TCkinClients CkinClients;
- TTripStages::ReadCkinClients( point_id, CkinClients );
-    xmlNodePtr flightNode = NewTextChild( resNode, "trip" );
-    airline += str_flt_no + suffix;
-    SetProp( flightNode, "flightNumber", airline );
+  tstations stations;
+  stations.fromDB( point_id );
+  TFlightStages stages;
+  stages.Load( point_id );
+  TCkinClients CkinClients;
+  TTripStages::ReadCkinClients( point_id, CkinClients );
+  xmlNodePtr flightNode = NewTextChild( resNode, "trip" );
+  airline += str_flt_no + suffix;
+  SetProp( flightNode, "flightNumber", airline );
   SetProp( flightNode, "date", DateTimeToStr( UTCToClient( scd_out, region ), "dd.mm.yyyy hh:nn" ) );
   SetProp( flightNode, "departureAirport", airp_dep );
   node = NewTextChild( flightNode, "stages" );
@@ -125,14 +125,7 @@ void GetFlightInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
   CreateXMLStage( CkinClients, sCloseWEBCheckIn, stages.GetStage( sCloseWEBCheckIn ), node, region );
   CreateXMLStage( CkinClients, sOpenKIOSKCheckIn, stages.GetStage( sOpenKIOSKCheckIn ), node, region );
   CreateXMLStage( CkinClients, sCloseKIOSKCheckIn, stages.GetStage( sCloseKIOSKCheckIn ), node, region );
-  tstations sts;
-  stations.Get( sts );
-  xmlNodePtr node1 = NULL;
-  for ( tstations::iterator i=sts.begin(); i!=sts.end(); i++ ) {
-    if ( node1 == NULL )
-      node1 = NewTextChild( flightNode, "stations" );
-    SetProp( NewTextChild( node1, "station", i->name ), "work_mode", i->work_mode );
-  }
+  stations.toXML(flightNode);
 }
 
 /*

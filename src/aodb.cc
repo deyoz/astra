@@ -158,11 +158,9 @@ struct AODB_Flight {
     int pr_del; //1
     vector<AODB_Dest> dests;
     tstations stations;
-    tstations del_stations;
     string invalid_field;
     void clear() {
       stations.clear();
-      del_stations.clear();
       dests.clear();
       invalid_field.clear();
       rec_no = ASTRA::NoExists;
@@ -369,8 +367,8 @@ string GetTermInfo( TQuery &Qry, int pax_id, int reg_no, bool pr_tcheckin, const
     else    // стойка
       if ( string(Qry.FieldAsString( "airp" )) == airp_dep ) {
         term = Qry.FieldAsString( "station" );
-        if ( !term.empty() && ( ( work_mode == "Р" && term[0] == 'R' ) ||
-                                ( work_mode == "П" && term[0] == 'G' ) ) )
+        if ( !term.empty() && ( ( TSOPPStation::isTerm( work_mode ) && term[0] == 'R' ) ||
+                                ( TSOPPStation::isGate( work_mode ) && term[0] == 'G' ) ) )
           term = term.substr( 1, term.length() - 1 );
       }
       else
@@ -689,13 +687,13 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
                            Qry.FieldAsInteger( "reg_no" ),
                            pr_tcheckin,
                            Qry.FieldAsString( "client_type" ),
-                           "Р", airp_dep, length_time_value ); // стойка рег.
+                           TERM_WORK_MODE, airp_dep, length_time_value ); // стойка рег.
       end_checkin_time = record.str().size();
       record<<GetTermInfo( TimeQry, Qry.FieldAsInteger( "pax_id" ),
                            Qry.FieldAsInteger( "reg_no" ),
                            pr_tcheckin,
                            Qry.FieldAsString( "client_type" ),
-                           "П", airp_dep, length_time_value ); // выход на посадку
+                           GATE_WORK_MODE, airp_dep, length_time_value ); // выход на посадку
       end_brd_time = record.str().size();
       if ( Qry.FieldIsNULL( "refuse" ) )
         record<<setw(1)<<0<<";";
@@ -1199,6 +1197,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
       if ( !dest_mode ) {
         int old_i = i;
         try {
+          station.clear();
           station.work_mode = tmp;
           i++;
           tmp = linestr.substr( i, 4 );
@@ -1210,12 +1209,8 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
           int pr_del;
           if ( tmp.empty() || StrToInt( tmp.c_str(), pr_del ) == EOF || pr_del < 0 || pr_del > 1 )
             throw Exception( "Ошибка формата признака удаления стойки, значение=%s", tmp.c_str() );
-          if ( pr_del ) {
-            fl.del_stations.push_back( station );
-          }
-          else {
-            fl.stations.push_back( station );
-          }
+          station.pr_del = ( pr_del != 0 );
+          fl.stations.emplace_back( station );
         }
         catch( Exception &e ) {
           i = old_i + 1 + 4;
@@ -1631,83 +1626,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
       }
     }
     err++;
-    // обновление стоек регистрации и выходов на поcадку
-    TFlightStations fltStations;
-    fltStations.Load(point_id);
-    for ( tstations::iterator istation=fl.stations.begin(); istation!=fl.stations.end(); istation++ ) {
-      fltStations.Add( *istation );
-    }
-    for ( tstations::iterator istation=fl.del_stations.begin(); istation!=fl.del_stations.end(); istation++ ) {
-      fltStations.Delete( *istation );
-    }
-    fltStations.Save(point_id);
-/*    Qry.Clear();
-    Qry.SQLText =
-        "BEGIN "
-        " :pr_change := 0; "
-        " IF :pr_del != 0 THEN "
-        "   DELETE trip_stations	WHERE point_id=:point_id AND desk=:desk AND work_mode=:work_mode; "
-        "   :pr_change := 1; "
-        " ELSE "
-        "  UPDATE trip_stations SET desk=desk WHERE point_id=:point_id AND desk=:desk AND work_mode=:work_mode; "
-        "  IF SQL%NOTFOUND THEN "
-        "   INSERT INTO trip_stations(point_id,desk,work_mode,pr_main) "
-        "    VALUES(:point_id,:desk,:work_mode,0); "
-        "   :pr_change := 1; "
-        "  END IF; "
-        " END IF; "
-        "END;";
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.DeclareVariable( "pr_del", otInteger );
-    Qry.DeclareVariable( "desk", otString );
-    Qry.DeclareVariable( "work_mode", otString );
-    Qry.DeclareVariable( "pr_change", otInteger );
-    //ProgTrace( TRACE5, "fl.terms.size()=%zu, point_id=%d", fl.terms.size(), point_id );
-    string reg, reg_del, brd, brd_del;
-    bool pr_change_reg = false, pr_change_brd = false;
-    for ( tstations::iterator it=fl.terms.begin(); it!=fl.terms.end(); it++ ) {
-      Qry.SetVariable( "desk", it->desk );
-      Qry.SetVariable( "work_mode", it->type );
-      Qry.SetVariable( "pr_del", it->pr_del );
-      //ProgTrace( TRACE5, "desk=%s, work_mode=%s, pr_del=%d", it->name.c_str(), it->type.c_str(), it->pr_del );
-      err++;
-      Qry.Execute();
-      err++;
-      if ( it->type == "Р" )
-        pr_change_reg = pr_change_reg || Qry.GetVariableAsInteger( "pr_change" );
-      else
-        pr_change_brd = pr_change_brd || Qry.GetVariableAsInteger( "pr_change" );
-      if ( it->pr_del )
-        if ( it->type == "Р" )
-          reg_del = reg_del + " " + it->name;
-        else
-          brd_del = brd_del + " " + it->name;
-      else
-        if ( it->type == "Р" )
-          reg = reg + " " + it->name;
-        else
-          brd = brd + " " + it->name;
-    }
-    if ( pr_change_reg ) {
-      if ( !reg_del.empty() )
-        reqInfo->LocaleToLog("EVT.DELETE_DESK", LEvntPrms() << PrmSmpl<std::string>("names", reg_del),
-                             evtDisp, move_id, point_id);
-      if ( !reg.empty() )
-        reqInfo->LocaleToLog("EVT.ASSIGNE_DESK", LEvntPrms() << PrmSmpl<std::string>("desk", reg),
-                             evtDisp, move_id, point_id);
-    }
-    if ( pr_change_brd ) {
-      if ( !brd_del.empty() )
-        reqInfo->LocaleToLog("EVT.DELETE_GATE_ON_FLIGHT", LEvntPrms() << PrmSmpl<std::string>("gate", brd_del),
-                             evtDisp, move_id, point_id);
-      if ( !brd.empty() )
-        reqInfo->LocaleToLog("EVT.ASSIGNE_GATE_ON_FLIGHT", LEvntPrms() << PrmSmpl<std::string>("gate", brd),
-                             evtDisp, move_id, point_id);
-    }
-    if ( pr_change_reg ||
-         pr_change_brd ) {
-      check_DesksGates( point_id );
-    }*/
+    fl.stations.toDB( "aodb", point_id, tstations::dbWriteReceiveChanged ); //только изменения передаем
 
     AODB_POINTS::bindingAODBFlt( point_addr, point_id, fl.id );
     err++;

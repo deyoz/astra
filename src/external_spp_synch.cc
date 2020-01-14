@@ -71,10 +71,10 @@ void TParseFlight::add_scd( const std::string &value ) {
   try {
       scd = LocalToUTC( scd, own_region );
     }
-    catch( boost::local_time::ambiguous_result ) {
+    catch( boost::local_time::ambiguous_result& ) {
         throw Exception( "Плановое время выполнения рейса определено не однозначно" );
   }
-  catch( boost::local_time::time_label_invalid ) {
+  catch( boost::local_time::time_label_invalid& ) {
     throw Exception( "Плановое время выполнения рейса не существует" );
   }
 }
@@ -91,10 +91,10 @@ void TParseFlight::add_est( const std::string &value ) {
   try {
       est = LocalToUTC( est, own_region );
     }
-    catch( boost::local_time::ambiguous_result ) {
+    catch( boost::local_time::ambiguous_result& ) {
         throw Exception( "Расчетное время выполнения рейса определено не однозначно" );
   }
-  catch( boost::local_time::time_label_invalid ) {
+  catch( boost::local_time::time_label_invalid& ) {
     throw Exception( "Расчетное время выполнения рейса не существует" );
   }
 }
@@ -701,7 +701,7 @@ void parse_saveFlights( int range_hours, xmlNodePtr reqNode, xmlNodePtr resNode 
     flightNode = flightNode->next;
     flight_number++;
   }
-  ProgTrace( TRACE5, "flight count=%d", flight_number );
+  ProgTrace( TRACE5, "flight count=%d", flight_number-1 );
   //if ( flight_number >= )
   while ( node != NULL && (string)"flight" == (const char*)node->name ) {
     TPointDests dests;
@@ -958,7 +958,7 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, DestsTagsNoExists &tags, co
       std::string work_mode = NodeAsString( propNode );
       try {
         TSOPPStation station = checkerFlt.checkStation( airp, terminal, name, work_mode, TCheckerFlt::etNormal, Qry );
-        dest.stations.Add( station );
+        dest.stations.emplace_back( station );
       }
       catch( EConvertError &e ) {
         warning += string(" ;") + e.what();
@@ -1398,8 +1398,7 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, c
       DestsTagsNoExists::const_iterator iownTags = tags.find( owndest->airp );
       if ( iownTags != tags.end() &&
            !iownTags->second.stations ) {
-        tst();
-        d.stations.Save( owndest->point_id );
+        d.stations.toDB( "external_spp_synch", owndest->point_id, tstations::dbStandart );
       }
       //max_commerce
       d.max_commerce.Save( owndest->point_id );
