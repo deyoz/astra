@@ -866,7 +866,7 @@ void tstations::fromDB( int point_id, const std::string& work_mode )
     "       stations.work_mode=trip_stations.work_mode ";
   if ( !work_mode.empty() ) {
     sql += " AND trip_stations.work_mode=:work_mode";
-    Qry.CreateVariable( "work_mode", otInteger, work_mode );
+    Qry.CreateVariable( "work_mode", otString, work_mode );
   }
   Qry.SQLText = sql;
   Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -892,23 +892,26 @@ void tstations::toDB( const std::string& whereabouts, int point_id, toDbMode mod
       TSOPPStation sst(s.name,s.work_mode);
       t = find(dbStations.begin(),dbStations.end(),sst);
       if ( s.pr_del ) {
+        LogTrace(TRACE5) << "delete " << s.name;
         if ( t != dbStations.end() ) {
+          LogTrace(TRACE5) << "deleted " << t->name;
           currStations.erase(t);
         }
       }
       else {
         if ( t == dbStations.end() ) {
+          LogTrace(TRACE5) << "added " << sst.name;
           currStations.emplace_back(sst);
         }
       }
     }
     *this = currStations;
+    LogTrace(TRACE5) << toString();
   }
 
   dbStations = algo::sort(dbStations);
   tstations currStations = algo::sort(*this);
   //удаляем дубликаты
-  LogTrace(TRACE5) << currStations.size() << currStations.toString();
   currStations.erase( std::unique(currStations.begin(), currStations.end()), currStations.end() );
   LogTrace(TRACE5) << currStations.size() << currStations.toString();
   tstations chStations;

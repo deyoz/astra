@@ -331,9 +331,7 @@ TSOPPStation TCheckerFlt::checkStation( const std::string airp, int terminal,
   Qry.CreateVariable( "work_mode", otString, station.work_mode );
   Qry.CreateVariable( "code", otString, station.name );
   Qry.CreateVariable( "terminal", otInteger, terminal );
-  tst();
   Qry.Execute();
-  tst();
   string term_name;
   if ( !Qry.RowCount() && mode != etNormal ) {
     if ( TSOPPStation::isGate( station.work_mode ) )

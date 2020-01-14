@@ -233,7 +233,8 @@ class tstations:public std::vector<TSOPPStation>
 
   void toDB( const std::string &whereabouts, int point_id, toDbMode mode, const BitSet<toDBModeRewriteAll> &flags = BitSet<toDBModeRewriteAll>() );
   std::string toString() {
-    std::string res = TERM_WORK_MODE + ": ", val;
+    std::string res = TERM_WORK_MODE + ": ";
+    std::string val;
     res += toString( *this, TERM_WORK_MODE, val );
     res += ", " + GATE_WORK_MODE + ": ";
     res += toString( *this, GATE_WORK_MODE, val );
