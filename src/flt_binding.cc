@@ -154,7 +154,7 @@ bool TFltBinding::bind_check(TQuery &Qry, int point_id_spp)
   return bind_flt_or_bind_check(Qry, point_id_spp);
 };
 
-void TFltBinding::bind_flt(TFltInfo &flt, TBindType bind_type, vector<int> &spp_point_ids)
+void TFltBinding::bind_flt(const TFltInfo &flt, TBindType bind_type, vector<int> &spp_point_ids)
 {
   spp_point_ids.clear();
   if (!flt.pr_utc && *flt.airp_dep==0) return;
