@@ -246,57 +246,6 @@ class TFlightStages {
     }
 };
 
-class TFlightStations {
-  private:
-    tstations stations;
-    bool intequal( const tstations &oldstations, const tstations &newstations, std::string work_mode ) {
-      for ( tstations::const_iterator istation=oldstations.begin(); istation!=oldstations.end(); istation++ ) {
-        if ( !work_mode.empty() && istation->work_mode != work_mode )
-          continue;
-        tstations::const_iterator jstation=newstations.begin();
-        for ( ; jstation!=newstations.end(); jstation++ ) {
-          if ( istation->work_mode == jstation->work_mode &&
-               istation->name == jstation->name &&
-               istation->pr_main == jstation->pr_main )
-            break;
-        }
-        if ( jstation == newstations.end() )
-          return false;
-      }
-      return true;
-    }
-  public:
-    void Load( int point_id );
-    void Save( int point_id );
-    void Add( TSOPPStation &station ) {
-      stations.push_back( station );
-    }
-    void Delete( TSOPPStation &station ) {
-      for ( tstations::iterator istation=stations.begin(); istation!=stations.end(); istation++ ) {
-        if ( istation->name == station.name ) {
-          stations.erase( istation );
-          break;
-        }
-      }
-    }
-    void clear() {
-      stations.clear();
-    }
-
-    bool equal( const TFlightStations &flightStations, std::string work_mode ) {
-      return ( intequal( stations, flightStations.stations, work_mode ) &&
-               intequal( flightStations.stations, stations, work_mode ) );
-    }
-    bool equal( const TFlightStations &flightStations ) {
-      std::string work_mode;
-      return ( intequal( stations, flightStations.stations, work_mode ) &&
-               intequal( flightStations.stations, stations, work_mode ) );
-    }
-    void Get( tstations &vstations ) {
-      vstations = stations;
-    }
-};
-
 struct TElemStruct {
   std::string code;
   TElemFmt fmt;
@@ -401,7 +350,7 @@ public:
   TDateTime stage_scd, stage_est; //для расчета задержки шага тех. графика
   TFlightCargos cargos;
   TFlightMaxCommerce max_commerce;
-  TFlightStations stations;
+  tstations stations;
   std::string key;
   std::string toLog() {
    std::ostringstream buf;
