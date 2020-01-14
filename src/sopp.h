@@ -159,13 +159,11 @@ struct TSOPPStation {
     pr_del = false;
   }
   bool operator < ( const TSOPPStation& station ) const {
-    if ( name < station.name )
-      return true;
-    else
-      if ( work_mode < station.work_mode )
-        return true;
-      else
-        return pr_del < station.pr_del;
+    if ( name != station.name )
+      return name < station.name;
+    if ( work_mode != station.work_mode )
+      return work_mode < station.work_mode;
+    return pr_del < station.pr_del;
   }
   bool operator == ( const TSOPPStation& station ) const {
     return ( name == station.name ) &&
@@ -207,8 +205,15 @@ class tstations:public std::vector<TSOPPStation>
       stations.emplace_back( TSOPPStation(t,work_mode) );
     }
   }
-  static std::string& toString( const tstations &stations, const std::string& work_mode, std::string &res ) {
-    res.clear();
+  std::string toString() {
+    std::string res = TERM_WORK_MODE + ": ";
+    res += toString( *this, TERM_WORK_MODE );
+    res += ", " + GATE_WORK_MODE + ": ";
+    res += toString( *this, GATE_WORK_MODE );
+    return res;
+  }
+  static std::string toString( const tstations &stations, const std::string& work_mode ) {
+    std::string res;
     for ( const auto &t : stations ) {
       if ( t.work_mode != work_mode ) {
         continue;
@@ -232,14 +237,6 @@ class tstations:public std::vector<TSOPPStation>
   }
 
   void toDB( const std::string &whereabouts, int point_id, toDbMode mode, const BitSet<toDBModeRewriteAll> &flags = BitSet<toDBModeRewriteAll>() );
-  std::string toString() {
-    std::string res = TERM_WORK_MODE + ": ";
-    std::string val;
-    res += toString( *this, TERM_WORK_MODE, val );
-    res += ", " + GATE_WORK_MODE + ": ";
-    res += toString( *this, GATE_WORK_MODE, val );
-    return res;
-  }
 };
 
 enum TTrferType { trferIn, trferOut, trferCkin };

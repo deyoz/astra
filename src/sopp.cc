@@ -882,6 +882,9 @@ void tstations::fromDB( int point_id, const std::string& work_mode )
 void tstations::toDB( const std::string& whereabouts, int point_id, toDbMode mode, const BitSet<toDBModeRewriteAll> &flags  )
 {
   LogTrace(TRACE5) << __func__ << ",whereabouts=" << whereabouts << ",point_id=" << point_id << ",mode=" << (mode==dbStandart?"dbStandart":mode==dbRewriteAll?"dbRewriteAll":"dbWriteReceiveChanged");
+  if ( mode==dbRewriteAll ) {
+    LogTrace(TRACE5) << "dbRewriteAll_Delete_Terms=" << flags.isFlag(dbRewriteAll_Delete_Terms) << ",dbRewriteAll_Delete_Gates=" << flags.isFlag(dbRewriteAll_Delete_Gates);
+  }
   TQuery Qry(&OraSession);
   tstations dbStations;
   dbStations.fromDB(point_id);
@@ -890,30 +893,28 @@ void tstations::toDB( const std::string& whereabouts, int point_id, toDbMode mod
     for ( const auto& s : *this ) {
       tstations::const_iterator t;
       TSOPPStation sst(s.name,s.work_mode);
-      t = find(dbStations.begin(),dbStations.end(),sst);
+      t = find(currStations.begin(),currStations.end(),sst);
       if ( s.pr_del ) {
-        LogTrace(TRACE5) << "delete " << s.name;
-        if ( t != dbStations.end() ) {
-          LogTrace(TRACE5) << "deleted " << t->name;
+        if ( t != currStations.end() ) {
           currStations.erase(t);
+          LogTrace(TRACE5) << "deleted " << t->name;
         }
       }
       else {
-        if ( t == dbStations.end() ) {
-          LogTrace(TRACE5) << "added " << sst.name;
+        if ( t == currStations.end() ) {
           currStations.emplace_back(sst);
+          LogTrace(TRACE5) << "added " << sst.name;
         }
       }
     }
     *this = currStations;
-    LogTrace(TRACE5) << toString();
   }
 
   dbStations = algo::sort(dbStations);
   tstations currStations = algo::sort(*this);
   //удаляем дубликаты
   currStations.erase( std::unique(currStations.begin(), currStations.end()), currStations.end() );
-  LogTrace(TRACE5) << currStations.size() << currStations.toString();
+  LogTrace(TRACE5) << currStations.toString();
   tstations chStations;
   bool changes = false;
   std::set_difference( dbStations.begin(), dbStations.end(), currStations.begin(), currStations.end(), back_inserter(chStations) ); // dbStations - curr -  в БД есть, а в новом варианте нет
@@ -930,16 +931,20 @@ void tstations::toDB( const std::string& whereabouts, int point_id, toDbMode mod
   PrmEnum del_gates_prmenum("names", ",");
   {
     for ( const auto st : chStations ) {
-      LogTrace(TRACE5) << "delete " << st.name;
-      Qry.SetVariable( "name", st.name );
-      Qry.SetVariable( "work_mode", st.work_mode );
-      if ( st.isTerm() ) {
-        del_terms_prmenum.prms << PrmSmpl<std::string>("", st.name);
+      if ( mode != toDbMode::dbRewriteAll ||
+           (flags.isFlag(toDBModeRewriteAll::dbRewriteAll_Delete_Terms) && st.isTerm()) || //пришла инфа по стойкам - стойки или пусто, значит все удалено - удалем, иначе ничего не делаем
+           (flags.isFlag(toDBModeRewriteAll::dbRewriteAll_Delete_Gates) && st.isGate()) ) {
+        LogTrace(TRACE5) << "delete " << st.name;
+        Qry.SetVariable( "name", st.name );
+        Qry.SetVariable( "work_mode", st.work_mode );
+        Qry.Execute();
+        if ( st.isTerm() ) {
+          del_terms_prmenum.prms << PrmSmpl<std::string>("", st.name);
+        }
+        else {
+          del_gates_prmenum.prms << PrmSmpl<std::string>("", st.name);
+        }
       }
-      else {
-        del_gates_prmenum.prms << PrmSmpl<std::string>("", st.name);
-      }
-      Qry.Execute();
     }
     if ( mode != toDbMode::dbRewriteAll ) {
       if ( !del_terms_prmenum.prms.empty() ) {
@@ -5955,28 +5960,10 @@ bool trip_calc_data( int point_id, BitSet<TTrip_Calc_Data> &whatcalc,
   string new_gates;
   Qry.Clear();
   if ( pr_empty || whatcalc.isFlag( tDesksGates ) ) {
-    Qry.SQLText =
-      "SELECT stations.name,stations.work_mode FROM stations,trip_stations "
-      " WHERE point_id=:point_id AND stations.desk=trip_stations.desk AND stations.work_mode=trip_stations.work_mode "
-      " ORDER BY stations.work_mode,stations.name";
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.Execute();
-    int col_name = Qry.FieldIndex( "name" );
-    int col_work_mode = Qry.FieldIndex( "work_mode" );
-
-    while ( !Qry.Eof ) {
-      if ( string( "Р" ) == Qry.FieldAsString( col_work_mode ) ) {
-        if ( !new_ckin_desks.empty() )
-          new_ckin_desks += " ";
-        new_ckin_desks += Qry.FieldAsString( col_name );
-      }
-      else {
-        if ( !new_gates.empty() )
-          new_gates += " ";
-        new_gates += Qry.FieldAsString( col_name );
-      }
-      Qry.Next();
-    }
+    tstations stations;
+    stations.fromDB(point_id);
+    new_ckin_desks = tstations::toString(stations,TERM_WORK_MODE);
+    new_gates = tstations::toString(stations,GATE_WORK_MODE);
   }
   if ( pr_empty || whatcalc.isFlag( tTrferExists ) ) {
     new_trfer_exists = TrferList::trferCkinExists( point_id, Qry );
