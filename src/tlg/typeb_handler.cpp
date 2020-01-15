@@ -1177,18 +1177,57 @@ bool parse_tlg(const string &handler_id)
   return queue_not_empty;
 }
 
+int LCI_ACT_TIMEOUT()
+{
+  static int VAR=NoExists;
+  if (VAR==NoExists)
+    VAR=getTCLParam("LCI_ACT_TIMEOUT",NoExists,NoExists,2);
+  return VAR;
+};
+
+int LCI_EST_TIMEOUT()
+{
+  static int VAR=NoExists;
+  if (VAR==NoExists)
+    VAR=getTCLParam("LCI_EST_TIMEOUT",NoExists,NoExists,48);
+  return VAR;
+};
+
+void check_timeouts(const set<int> &spp_point_ids)
+{
+    if(spp_point_ids.empty())
+        throw TypeB::ETlgError(TypeB::tlgeNotMonitorYesAlarm, "Flight not found");
+    map<int, TTripInfo> trips;
+    TDateTime time_receive = NowUTC();
+    TNearestDate nd(time_receive);
+    for(const auto &i: spp_point_ids) {
+        trips[i].getByPointId(i);
+        nd.sorted_points[trips[i].est_scd_out()] = i;
+    }
+    int point_id_spp = nd.get();
+    TDateTime dep_time;
+    int timeout;
+    if(trips[point_id_spp].act_out_exists()) {
+        dep_time = trips[point_id_spp].act_est_scd_out();
+        timeout = LCI_ACT_TIMEOUT();
+    } else {
+        dep_time = trips[point_id_spp].est_scd_out();
+        timeout = LCI_EST_TIMEOUT();
+    }
+    if((time_receive - dep_time) > timeout / 24.)
+        throw TypeB::ETlgError(TypeB::tlgeNotMonitorYesAlarm, "Flight has departed");
+}
+
 void get_tlg_info(
         const string &tlg_text,
         string &tlg_type,
         string &airline,
-        string &airp,
-        set<int> &_spp_point_ids
+        string &airp
         )
 {
     tlg_type.clear();
     airline.clear();
     airp.clear();
-    _spp_point_ids.clear();
     TypeB::TTlgPartsText parts;
     TypeB::THeadingInfo *HeadingInfo = NULL;
     TypeB::TFlightsForBind bind_flts;
@@ -1220,7 +1259,8 @@ void get_tlg_info(
 
                     vector<int> spp_point_ids;
                     TTlgBinding(false).bind_flt(info.flt_info.toFltInfo(),btFirstSeg,spp_point_ids);
-                    _spp_point_ids.insert(spp_point_ids.begin(), spp_point_ids.end()); // remove duplicates
+                    set<int> _spp_point_ids(spp_point_ids.begin(), spp_point_ids.end()); // remove duplicates
+                    check_timeouts(_spp_point_ids);
 
                     airline = info.flt_info.flt.airline.c_str();
                     airp = info.flt_info.airp;
