@@ -185,7 +185,7 @@ namespace EXCH_CHECKIN_RESULT
     TCkinClients CkinClients;
     TAdvTripRoute route;
     std::string region;
-    TFlightStations stations;
+    tstations stations;
     TFlightStages stages;
     TFlightDelays delays;
     FlightData( const TAdvTripRoute &vroute ) {
@@ -622,7 +622,7 @@ namespace EXCH_CHECKIN_RESULT
   }
 
   void FlightData::fromDB( TQuery &FltQry ) {
-    stations.Load( route.front().point_id );
+    stations.fromDB( route.front().point_id );
     stages.Load( route.front().point_id );
     delays.Load( route.front().point_id );
     TTripStages::ReadCkinClients( route.front().point_id, CkinClients );
@@ -710,14 +710,7 @@ namespace EXCH_CHECKIN_RESULT
       CreateXMLStage( CkinClients, sOpenKIOSKCheckIn, stages.GetStage( sOpenKIOSKCheckIn ), node, region );
       CreateXMLStage( CkinClients, sCloseKIOSKCheckIn, stages.GetStage( sCloseKIOSKCheckIn ), node, region );
     }
-    tstations sts;
-    stations.Get( sts );
-    xmlNodePtr node1 = NULL;
-    for ( tstations::iterator i=sts.begin(); i!=sts.end(); i++ ) {
-      if ( node1 == NULL )
-        node1 = NewTextChild( flightNode, "stations" );
-      SetProp( NewTextChild( node1, "station", i->name ), "work_mode", i->work_mode );
-    }
+    stations.toXML(flightNode);
   }
 
   void PaxData::toXML( xmlNodePtr paxNode )
