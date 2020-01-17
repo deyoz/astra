@@ -127,6 +127,7 @@ namespace REPORTS {
                 excess_pc.empty();
         }
         void fromDB(TQuery &Qry);
+        void trace(TRACE_SIGNATURE);
     };
 
     struct TPaxList;

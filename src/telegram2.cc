@@ -2188,8 +2188,9 @@ namespace PRL_SPACE {
     {
         const TypeB::TCOMOptions &options = *info.optionsAs<TypeB::TCOMOptions>();
         TTripRoute route;
-        if(not pax_list.empty() and route.GetRouteAfter(NoExists, info.point_id, trtNotCurrent, trtNotCancelled)) {
-            map<int, TCOMStatsItem> data;
+        route.GetRouteAfter(NoExists, info.point_id, trtNotCurrent, trtNotCancelled);
+        map<int, TCOMStatsItem> data;
+        if(not pax_list.empty()) {
             for(const auto &pax: pax_list) {
                 auto &item = data[pax->grp().point_arv];
                 item.target = info.TlgElemIdToElem(etAirp, pax->grp().airp_arv);
@@ -2249,10 +2250,15 @@ namespace PRL_SPACE {
                 item.y_add_pax += is_y and (pax->seats() > 1);
             }
             total_pax_weight.get(info);
-            for(const auto &point_arv: route) {
-                auto i = data.find(point_arv.point_id);
-                if(i != data.end())
-                    items.push_back(data[point_arv.point_id]);
+        }
+        for(const auto &point_arv: route) {
+            auto i = data.find(point_arv.point_id);
+            if(i != data.end())
+                items.push_back(data[point_arv.point_id]);
+            else {
+                TCOMStatsItem item;
+                item.target = info.TlgElemIdToElem(etAirp, point_arv.airp);
+                items.push_back(item);
             }
         }
     }
