@@ -60,15 +60,16 @@ void TPaxList::fromDB()
     QryParams << QParam("point_id", otInteger, point_id);
     string SQLText =
         "select "
+        "   nvl2(pax.grp_id, NULL, pax_grp.grp_id) empty_pax_grp_id, "
         "   pax.* ";
     if(options.flags.isFlag(oeBagAmount))
-        SQLText += "   ,ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_amount ";
+        SQLText += "   ,ckin.get_bagAmount2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_amount ";
     if(options.flags.isFlag(oeBagWeight))
-        SQLText += "   ,ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_weight ";
+        SQLText += "   ,ckin.get_bagWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_weight ";
     if(options.flags.isFlag(oeRkAmount))
-        SQLText += "   ,ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rk_amount ";
+        SQLText += "   ,ckin.get_rkAmount2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rk_amount ";
     if(options.flags.isFlag(oeRkWeight))
-        SQLText += "   ,ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rk_weight ";
+        SQLText += "   ,ckin.get_rkWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rk_weight ";
     if(options.flags.isFlag(oeExcess))
         SQLText +=
             "   ,NVL(ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse),0) AS excess_wt "
@@ -76,7 +77,7 @@ void TPaxList::fromDB()
     SQLText +=
         "from pax_grp, pax where "
         "   pax_grp.point_dep = :point_id and "
-        "   pax_grp.grp_id = pax.grp_id and "
+        "   pax_grp.grp_id = pax.grp_id(+) and "
         "   pax_grp.status not in ('E') ";
     if(options.not_refused)
         SQLText += " and pax.refuse IS NULL ";
@@ -125,6 +126,18 @@ void TPaxList::fromDB(TQuery &Qry)
     }
 }
 
+void TBaggage::trace(TRACE_SIGNATURE)
+{
+    LogTrace(TRACE_PARAMS) << "---TBaggage::trace---";
+    LogTrace(TRACE_PARAMS) << "rk_amount: " << rk_amount;
+    LogTrace(TRACE_PARAMS) << "rk_weight: " << rk_weight;
+    LogTrace(TRACE_PARAMS) << "amount: " << amount;
+    LogTrace(TRACE_PARAMS) << "weight: " << weight;
+    LogTrace(TRACE_PARAMS) << "excess_wt: " << excess_wt.view(AstraLocale::OutputLang());
+    LogTrace(TRACE_PARAMS) << "excess_pc: " << excess_pc.view(AstraLocale::OutputLang());
+    LogTrace(TRACE_PARAMS) << "---------------------";
+}
+
 void TPax::trace(TRACE_SIGNATURE)
 {
     LogTrace(TRACE_PARAMS) << "reg_no: " << simple.reg_no;
@@ -160,7 +173,11 @@ int FieldAsInteger(TQuery &Qry, const string &name)
 
 void TPax::fromDB(TQuery &Qry)
 {
-    simple.fromDB(Qry);
+    int empty_pax_grp_id = FieldAsInteger(Qry, "empty_pax_grp_id");
+    if(empty_pax_grp_id > 0)
+        simple.grp_id = empty_pax_grp_id;
+    else
+        simple.fromDB(Qry);
     if(not simple.isCBBG())
         cbbg_list.fromDB(simple.id);
 
@@ -189,6 +206,7 @@ void TPax::fromDB(TQuery &Qry)
 
     user_descr = FieldAsString(Qry, "user_descr");
     baggage.fromDB(Qry);
+    baggage.trace(TRACE5);
     if(pax_list.options.flags.isFlag(oeTags) and simple.bag_pool_num != NoExists)
         GetTagsByPool(simple.grp_id, simple.bag_pool_num, _tags, true);
     if(pax_list.rem_grp)
