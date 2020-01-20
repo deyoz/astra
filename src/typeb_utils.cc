@@ -4,6 +4,7 @@
 #include "astra_locale.h"
 #include "misc.h"
 #include "qrys.h"
+#include <boost/regex.hpp>
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -73,6 +74,20 @@ void TErrLst::unpack(TypeB::TDraftPart &draft, bool heading_visible, bool ending
     unpack(draft.ending, ending_visible);
 }
 
+bool check_err_tag(const string::iterator &iv)
+{
+    // Проверим, что после < идет тег ошибки
+    // т.к. в тексте могут встречаться символы <, не относящиеся к ошибке:
+    // .R/CKIN OTKAZ OT OPLATI MESTA< PREGNEE ZANZTO< ZAMENA
+    bool result = false;
+    if(string(iv + 1, iv + 1 + ERR_TAG_NAME.size()) == ERR_TAG_NAME) {
+        string::iterator i = iv + 1 + ERR_TAG_NAME.size();
+        for(; IsDigit(*i); i++) ;
+        result = *i == '>';
+    }
+    return result;
+}
+
 void TErrLst::pack(string &body, bool visible)
 {
     vector<TParseInfo> parse_info_lst;
@@ -92,7 +107,7 @@ void TErrLst::pack(string &body, bool visible)
     for(string::iterator iv = body.begin(); iv != body.end(); iv++) {
         switch(mode) {
             case mStart:
-                if(*iv == '<')
+                if(*iv == '<' and check_err_tag(iv))
                     mode = mBeginTag;
                 else
                     parse_info.pos++;
@@ -116,7 +131,7 @@ void TErrLst::pack(string &body, bool visible)
                 } else if(IsDigit(*iv))
                     err_no.append(1, *iv);
                 else
-                    throw Exception("TErrLst::pack wrong err_no");
+                    throw Exception("TErrLst::pack wrong err_no '%s;, err_tag: '%s'", err_no.c_str(), err_tag.c_str());
                 break;
             case mErrData:
                 if(*iv == '<') {
@@ -353,16 +368,13 @@ void TErrLst::pack(TypeB::TDraftPart &part, bool heading_visible, bool ending_vi
     pack(part.ending, ending_visible);
 }
 
-void TErrLst::fetch_err(set<int> &txt_errs, string body)
+void TErrLst::fetch_err(set<int> &txt_errs, const string &body)
 {
-    size_t idx = body.find("<" + ERR_TAG_NAME);
-    while(idx != string::npos) {
-        size_t end_idx = body.find('>', idx);
-        size_t start_i = idx + ERR_TAG_NAME.size() + 1;
-        txt_errs.insert(ToInt(body.substr(start_i, end_idx - start_i)));
-        body.erase(0, end_idx + 1);
-        idx = body.find("<" + ERR_TAG_NAME);
-    }
+    static const boost::regex e("<" + ERR_TAG_NAME + "(\\d+)>");
+    boost::sregex_iterator res(body.begin(),body.end(),e);
+    boost::sregex_iterator end;
+    for(; res != end; ++res)
+        txt_errs.insert(ToInt((*res)[1]));
 }
 
 void TErrLst::fix(vector<TDraftPart> &parts)

@@ -2204,7 +2204,7 @@ struct TErrLst:std::map<int, TTypeBOutErrMsg> {
         void dump();
         void toDB(int tlg_id);
         void fix(std::vector<TDraftPart> &parts);
-        void fetch_err(std::set<int> &txt_errs, std::string body);
+        void fetch_err(std::set<int> &txt_errs, const std::string &body);
 
         void pack(TypeB::TDraftPart &part, bool heading_visible, bool ending_visible);
         void pack(std::string &val, bool visible = true);
