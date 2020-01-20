@@ -1810,14 +1810,14 @@ bool createFidsDataFiles( int point_id, const std::string &point_addr, TFileData
   tst();
   try {
     xmlNodePtr node = doc->children;
-      TFlightStations stations;
-      stations.Load( point_id );
-      TFlightStages stages;
-      stages.Load( point_id );
-      TCkinClients CkinClients;
-      TTripStages::ReadCkinClients( point_id, CkinClients );
-      xmlNodePtr flightNode = NewTextChild( node, "trip" );
-      SetProp( flightNode, "flightNumber", airline+IntToString(flt_no)+suffix );
+    tstations stations;
+    stations.fromDB( point_id );
+    TFlightStages stages;
+    stages.Load( point_id );
+    TCkinClients CkinClients;
+    TTripStages::ReadCkinClients( point_id, CkinClients );
+    xmlNodePtr flightNode = NewTextChild( node, "trip" );
+    SetProp( flightNode, "flightNumber", airline+IntToString(flt_no)+suffix );
     SetProp( flightNode, "scd_date", DateTimeToStr( UTCToClient( scd_out, region ), "dd.mm.yyyy hh:nn" ) );
     if ( !Qry.FieldIsNULL( "est_out" ) ) {
       SetProp( flightNode, "est_date", DateTimeToStr( UTCToClient( Qry.FieldAsDateTime( "est_out" ), region ), "dd.mm.yyyy hh:nn" ) );
@@ -1833,14 +1833,7 @@ bool createFidsDataFiles( int point_id, const std::string &point_addr, TFileData
     CreateXMLStage( CkinClients, sCloseWEBCheckIn, stages.GetStage( sCloseWEBCheckIn ), node, region );
     CreateXMLStage( CkinClients, sOpenKIOSKCheckIn, stages.GetStage( sOpenKIOSKCheckIn ), node, region );
     CreateXMLStage( CkinClients, sCloseKIOSKCheckIn, stages.GetStage( sCloseKIOSKCheckIn ), node, region );
-    tstations sts;
-    stations.Get( sts );
-    xmlNodePtr node1 = NULL;
-    for ( tstations::iterator i=sts.begin(); i!=sts.end(); i++ ) {
-      if ( node1 == NULL )
-        node1 = NewTextChild( flightNode, "stations" );
-      SetProp( NewTextChild( node1, "station", i->name ), "work_mode", i->work_mode );
-    }
+    stations.toXML(flightNode);
     //данные регистрации
     record = XMLTreeToText( doc ).c_str();
 //    ProgTrace( TRACE5, "sync_checkin_data: point_id=%d, prior_record=%s", point_id, prior_record.c_str() );

@@ -36,6 +36,7 @@
 #include "payment_base.h"
 #include "service_eval.h"
 
+#include <serverlib/algo.h>
 #include <serverlib/testmode.h>
 
 #define NICKNAME "VLAD"
@@ -157,7 +158,7 @@ void setSQLTripList( TQuery &Qry, const TTripListSQLFilter &filter )
       Qry.CreateVariable("suffix", otString, params.suffix);
     };
   }
-  catch(bad_cast)
+  catch(bad_cast&)
   {
     const TTripInfoSQLParams &params=dynamic_cast<const TTripInfoSQLParams&>(filter);
 
@@ -1236,19 +1237,9 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
 
 void TripsInterface::readGates(int point_id, vector<string> &gates)
 {
-    TQuery Qry( &OraSession );
-    Qry.SQLText =
-        "SELECT name AS gate_name "
-        "FROM stations,trip_stations "
-        "WHERE stations.desk=trip_stations.desk AND "
-        "      stations.work_mode=trip_stations.work_mode AND "
-        "      trip_stations.point_id=:point_id AND "
-        "      trip_stations.work_mode=:work_mode ";
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.CreateVariable("work_mode",otString,"è");
-    Qry.Execute();
-    for(;!Qry.Eof;Qry.Next())
-        gates.push_back(Qry.FieldAsString("gate_name"));
+  tstations stations;
+  stations.fromDB( point_id, GATE_WORK_MODE );
+  gates = algo::transform<std::vector>(stations, [](const TSOPPStation &n) { return n.name; });
 }
 
 void TripsInterface::readHalls( std::string airp_dep, std::string work_mode, xmlNodePtr dataNode)
@@ -2235,7 +2226,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
           {
             i->class_priority=getBaseTable(etClass).get_row("code",i->class_id,true).AsInteger("priority");
           }
-          catch(EBaseTableError) { throw; };
+          catch(EBaseTableError&) { throw; };
         }
         else
         {
@@ -2254,7 +2245,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
           {
             i->cls_grp_priority=getBaseTable(etClsGrp).get_row("id",i->cls_grp_id,true).AsInteger("priority");
           }
-          catch(EBaseTableError) { throw; };
+          catch(EBaseTableError&) { throw; };
         }
         else
         {
@@ -2352,7 +2343,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
         {
           i->client_type_priority=getBaseTable(etClientType).get_row("code",i->client_type_id,true).AsInteger("priority");
         }
-        catch(EBaseTableError) { throw; };
+        catch(EBaseTableError&) { throw; };
       };
       if (!i->grp_status_id.empty())
       {
@@ -2361,7 +2352,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
         {
           i->grp_status_priority=getBaseTable(etGrpStatusType).get_row("code",i->grp_status_id,true).AsInteger("priority");
         }
-        catch(EBaseTableError) { throw; };
+        catch(EBaseTableError&) { throw; };
       };
     };
   }
@@ -2506,7 +2497,6 @@ void PaxLoadtoXML(
 
     map<string, pair<int, int> >::const_iterator bag_info_i = bag_info.begin();
     map<string,int>::const_iterator paxRemCounters_i = paxRemCounters.begin();
-    map<string, pair<int, int> >::const_iterator bags_i = bags.begin();
 
     vector<vector<string> > result;
     for(size_t i = 0; i < rowcount; i++) {
@@ -3048,7 +3038,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
         const TAirpsRow &row=(const TAirpsRow&)(base_tables.get("airps").get_row("code/code_lat",Qry.FieldAsString( col_airp_arv_final )));
         NewTextChild( node, "last_target", ElemIdToCodeNative(etAirp,row.code));
       }
-      catch(EBaseTableError)
+      catch(EBaseTableError&)
       {
         NewTextChild( node, "last_target", Qry.FieldAsString( col_airp_arv_final ));
       };

@@ -1955,26 +1955,13 @@ void GetBPPaxFromScanCode(const string &scanCode, PrintInterface::BPPax &pax)
 
 string GetBPGate(int point_id)
 {
-  string gate;
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-    Qry.SQLText =
-    "SELECT stations.name FROM stations,trip_stations "
-    " WHERE point_id=:point_id AND "
-    "       stations.desk=trip_stations.desk AND "
-    "       stations.work_mode=trip_stations.work_mode AND "
-    "       stations.work_mode=:work_mode";
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.CreateVariable( "work_mode", otString, "è" );
-    Qry.Execute();
-    if ( !Qry.Eof ) {
-        gate = Qry.FieldAsString( "name" );
-        Qry.Next();
-        if ( !Qry.Eof )
-      gate.clear();
-    };
-    return gate;
-};
+  tstations stations;
+  stations.fromDBGates( point_id );
+  if ( stations.size() == 1 ) {
+    return stations.front().name;
+  }
+  return "";
+}
 
 void WebRequestsIface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
