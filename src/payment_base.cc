@@ -794,14 +794,20 @@ void TPaidRFISCAndServicePaymentListWithAuto::fromDB(int grp_id)
       const TPaidRFISCStatus& rfisc=i.first;
       for(CheckIn::TServicePaymentListWithAuto::iterator iPayment=payment.begin(); iPayment!=payment.end(); ++iPayment)
       {
-        if (iPayment->pc &&
+        if (
+            iPayment->service_quantity > 0 &&
+            iPayment->pc &&
             ((!unboundPaymentPass && iPayment->pax_id!=ASTRA::NoExists && iPayment->pax_id==rfisc.pax_id) ||
              (unboundPaymentPass && iPayment->pax_id==ASTRA::NoExists)) &&
             iPayment->trfer_num==rfisc.trfer_num &&
             iPayment->pc->key()==rfisc.key())
         {
+          // Есть проблема со счетчиком услуг
+          // Каждой следующей привязанной услуге будет присваиваться документ оплаты
+          // с service_quantity на 1 меньше, чем в предыдущей
           i.second=*iPayment;
-          payment.erase(iPayment);
+          if((--iPayment->service_quantity) == 0)
+              payment.erase(iPayment);
           break;
         }
       }
