@@ -93,7 +93,8 @@ Port_impl::Port_impl(IdaType ida)
 {
     ida_ = ida;
     OciCpp::CursCtl c = make_curs(
-            "SELECT RTRIM(CODE), RTRIM(CODE_LAT), RTRIM(NAME), RTRIM(NAME_LAT), PR_DEL "
+            "SELECT RTRIM(CODE), RTRIM(CODE_LAT), RTRIM(NAME), RTRIM(NAME_LAT), "
+            "RTRIM(CODE_ICAO), RTRIM(CODE_ICAO_LAT), PR_DEL "
             "FROM AIRPS WHERE ID=:ida");
     c.autoNull()
      .bind(":ida", ida)
@@ -101,6 +102,8 @@ Port_impl::Port_impl(IdaType ida)
      .defNull(lcode_, "")
      .def(rname_)
      .defNull(lname_, "")
+     .defNull(codeIcao_, "")
+     .defNull(lcodeIcao_, "")
      .defNull(closed_, 0)
      .EXfet();
 }
@@ -118,7 +121,7 @@ Company_impl::Company_impl(IdaType ida)
     ida_ = ida;
     OciCpp::CursCtl c = make_curs(
             "SELECT RTRIM(CODE), RTRIM(CODE_LAT), RTRIM(NAME), RTRIM(NAME_LAT), "
-            "AIRCODE, PR_DEL "
+            "RTRIM(CODE_ICAO), RTRIM(CODE_ICAO_LAT), AIRCODE, PR_DEL "
             "FROM AIRLINES WHERE ID=:ida");
     c.autoNull()
      .bind(":ida", ida)
@@ -126,6 +129,8 @@ Company_impl::Company_impl(IdaType ida)
      .defNull(lcode_, "")
      .def(rname_)
      .defNull(lname_, "")
+     .defNull(codeIcao_, "")
+     .defNull(lcodeIcao_, "")
      .defNull(accode_, "")
      .defNull(closed_, 0)
      .EXfet();

@@ -123,52 +123,45 @@ protected:
 public:
     static T const * GetInstanceCode(const char * code, const char *sql)
     {
-          typename T::IdaType ida;
-          if(!CommonData<typename T::IdaType>::GetInstanceCode_help(sql, code, ida))
-          {
-              return 0;
-          }
-          return new T(ida);
-//        typename std::set<cache_elem,cache_elem_comp>::iterator i=
-//                std::find_if(cache.begin(),cache.end(),
-//                        compCommonDataCode<T>(code,Loki::TypeInfo(typeid(T))));
-//        if(i==cache.end())
-//        {
-//            typename T::IdaType ida;
-//            if(!CommonData<typename T::IdaType>::GetInstanceCode_help(sql, code, ida))
-//            {
-//                return 0;
-//            }
-//            std::shared_ptr<T> ptr(new T(ida));
-//            if(!ptr->initialized())
-//                abort();
-//            cacheIt(typeid(T),ptr);
-//            return ptr.get();
-//        }
-//        return i->second.get();
+        typename std::set<cache_elem,cache_elem_comp>::iterator i=
+                std::find_if(cache.begin(),cache.end(),
+                        compCommonDataCode<T>(code,Loki::TypeInfo(typeid(T))));
+        if(i==cache.end())
+        {
+            typename T::IdaType ida;
+            if(!CommonData<typename T::IdaType>::GetInstanceCode_help(sql, code, ida))
+            {
+                return 0;
+            }
+            std::shared_ptr<T> ptr(new T(ida));
+            if(!ptr->initialized())
+                abort();
+            cacheIt(typeid(T),ptr);
+            return ptr.get();
+        }
+        return i->second.get();
     }
 
     static T const * GetInstance(typename T::IdaType ida)
     {
-        return new T(ida);
-//        typename std::set<cache_elem,cache_elem_comp>::iterator i=
-//                std::find_if(cache.begin(),cache.end(),
-//                        compCommonDataIda<T>(ida,Loki::TypeInfo(typeid(T))));
-//        if(i==cache.end()){
-//            std::shared_ptr<T> ptr(new T(ida));
-//            if(ptr->initialized())
-//            {
-//                cacheIt(typeid(T),ptr);
-//                return ptr.get();
-//            }
-//            else
-//                return 0;
-//        }
-//        T const *ret=dynamic_cast<T const *> (i->second.get());
-//        if(ret==0) {
-//            abort();
-//        }
-//        return ret;
+        typename std::set<cache_elem,cache_elem_comp>::iterator i=
+                std::find_if(cache.begin(),cache.end(),
+                        compCommonDataIda<T>(ida,Loki::TypeInfo(typeid(T))));
+        if(i==cache.end()){
+            std::shared_ptr<T> ptr(new T(ida));
+            if(ptr->initialized())
+            {
+                cacheIt(typeid(T),ptr);
+                return ptr.get();
+            }
+            else
+                return 0;
+        }
+        T const *ret=dynamic_cast<T const *> (i->second.get());
+        if(ret==0) {
+            abort();
+        }
+        return ret;
     }
 
     static void clearCache()
@@ -277,7 +270,7 @@ typedef enum {
 
 template <typename T> class IdaHolder {
     typename T::IdaType ida_;
-    boost::shared_ptr<const T> cache;
+    const T *cache;
     bool m_noClose;
     bool m_throwNoData;
     struct boolean {int i;};
@@ -297,7 +290,7 @@ public:
                        ReadClose_t close = YesClose)
             :ida_(), m_noClose(close == NoClose), m_throwNoData(thr == YesThrowND)
     {
-        cache.reset(CacheData<T>::GetInstance(p));
+        cache = CacheData<T>::GetInstance(p);
         if(cache)
         {
             if(cache->closed() && m_noClose)
@@ -324,7 +317,7 @@ public:
               m_noClose(close == NoClose),
               m_throwNoData(thr == YesThrowND)
     {
-        cache.reset(T::GetInstance(p.c_str()));
+        cache = T::GetInstance(p.c_str());
         if(cache)
         {
             if(cache->closed() && m_noClose)
@@ -358,8 +351,7 @@ public:
             typename T::NoSuchThing thing;
             throw EXCEPTIONS::Exception("IdaHolder for " + thing.thingName() +  ": Use of uninitialized value");
         }
-        return cache.get();
-        //return cache;
+        return cache;
     }
     /**
     * проверка на инициированность
@@ -390,6 +382,8 @@ public:
 
 class Port_impl: public CommonData <Ticketing::Port_t>
 {
+    std::string codeIcao_;
+    std::string lcodeIcao_;
 public:
     typedef noSuchPort NoSuchThing;
     typedef Ticketing::Port_t IdaType;
@@ -402,13 +396,17 @@ class Company_impl: public CommonData <Ticketing::Airline_t>
 {
 private:
     std::string accode_;
+    std::string codeIcao_;
+    std::string lcodeIcao_;
 public:
     typedef noSuchCompany NoSuchThing;
     typedef Ticketing::Airline_t IdaType;
     explicit Company_impl(IdaType ida);
     static const Company_impl *GetInstance(const char *code);
 
-    const std::string& accode() const { return accode_; }
+    const std::string&    accode() const { return accode_; }
+    const std::string&  codeIcao() const { return codeIcao_; }
+    const std::string& lcodeIcao() const { return lcodeIcao_; }
 };
 
 
