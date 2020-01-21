@@ -14,17 +14,19 @@
 namespace BaseTables {
 
 struct PortExceptionConf{
-    static char  const * const thing;
+    static char const * const thing;
 };
 struct CityExceptionConf{
-    static char const * const  thing;
+    static char const * const thing;
 };
-
 struct RouterExceptionConf {
-    static char const * const  thing;
+    static char const * const thing;
 };
 struct CompanyExceptionConf {
-    static char const * const  thing;
+    static char const * const thing;
+};
+struct CountryExceptionConf {
+    static char const * const thing;
 };
 
 
@@ -56,10 +58,11 @@ public:
     virtual ~noSuchThing()throw() {}
 };
 
-typedef noSuchThing<PortExceptionConf> noSuchPort;
-typedef noSuchThing<CityExceptionConf> noSuchCity;
-typedef noSuchThing<RouterExceptionConf> noSuchRouter;
+typedef noSuchThing<PortExceptionConf>    noSuchPort;
+typedef noSuchThing<CityExceptionConf>    noSuchCity;
+typedef noSuchThing<RouterExceptionConf>  noSuchRouter;
 typedef noSuchThing<CompanyExceptionConf> noSuchCompany;
+typedef noSuchThing<CountryExceptionConf> noSuchCountry;
 
 
 template <typename T>    class IdaHolder ;
@@ -370,25 +373,56 @@ public:
 };
 
 
+class Country_impl;
+class City_impl;
+class Port_impl;
+class Company_impl;
+class Router_impl;
+
+typedef IdaHolder<Country_impl> Country;
+typedef IdaHolder<City_impl>    City;
+typedef IdaHolder<Port_impl>    Port;
+typedef IdaHolder<Company_impl> Company;
+typedef IdaHolder<Router_impl>  Router;
+
+
+class Country_impl: public CommonData <Ticketing::Country_t>
+{
+    std::string codeIso_;
+public:
+    typedef noSuchCountry NoSuchThing;
+    typedef Ticketing::Country_t IdaType;
+    explicit Country_impl(IdaType ida);
+    static const Country_impl* GetInstance(const char* code);
+    const std::string& codeIso() const { return codeIso_; }
+};
+
+
 class City_impl: public CommonData <Ticketing::City_t>
 {
+    std::string country_;
+    std::string tzRegion_;
 public:
     typedef noSuchCity NoSuchThing;
     typedef Ticketing::City_t IdaType;
-    explicit City_impl(IdaType Ida);
+    explicit City_impl(IdaType ida);
     static const City_impl* GetInstance(const char* code);
+    Country country() const { return Country(country_); }
+    const std::string& tzRegion() const { return tzRegion_; }
 };
 
 
 class Port_impl: public CommonData <Ticketing::Port_t>
 {
+    std::string city_;
     std::string codeIcao_;
     std::string lcodeIcao_;
 public:
     typedef noSuchPort NoSuchThing;
     typedef Ticketing::Port_t IdaType;
-    explicit Port_impl(IdaType Ida);
+    explicit Port_impl(IdaType ida);
     static const Port_impl* GetInstance(const char* code);
+    City city() const { return City(city_); }
 };
 
 
@@ -472,12 +506,5 @@ public:
      */
     bool loopback() const { return Loopback_; }
 };
-
-
-typedef IdaHolder<City_impl> City;
-typedef IdaHolder<Port_impl> Port;
-typedef IdaHolder<Company_impl> Company;
-typedef IdaHolder<Router_impl> Router;
-
 
 }//namespace BaseTables

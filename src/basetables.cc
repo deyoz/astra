@@ -10,10 +10,11 @@
 
 namespace BaseTables {
 
-char const* const PortExceptionConf::thing="port";
-char const* const CityExceptionConf::thing="city";
-char const* const RouterExceptionConf::thing="router";
+char const* const PortExceptionConf::thing   ="port";
+char const* const CityExceptionConf::thing   ="city";
 char const* const CompanyExceptionConf::thing="company";
+char const* const CountryExceptionConf::thing="country";
+char const* const RouterExceptionConf::thing ="router";
 
 
 #define __INIT_BT_TAB__(T) \
@@ -61,15 +62,42 @@ template<> bool CommonData<T::IdaType>::GetInstanceCode_help(\
 __INIT_BT_TAB__(City_impl);
 __INIT_BT_TAB__(Port_impl);
 __INIT_BT_TAB__(Company_impl);
+__INIT_BT_TAB__(Country_impl);
 
 __INIT_ROT_TAB__ (Router_impl);
 
+
+Country_impl::Country_impl(IdaType ida)
+{
+    ida_ = ida;
+    OciCpp::CursCtl c = make_curs(
+            "SELECT RTRIM(CODE), RTRIM(CODE_LAT), RTRIM(NAME), RTRIM(NAME_LAT), "
+            "RTRIM(CODE_ISO), PR_DEL "
+            "FROM COUNTRIES WHERE ID=:ida");
+    c.autoNull()
+     .bind(":ida", ida)
+     .def(rcode_)
+     .defNull(lcode_, "")
+     .def(rname_)
+     .defNull(lname_, "")
+     .defNull(codeIso_, "")
+     .defNull(closed_, 0)
+     .EXfet();
+}
+
+const Country_impl* Country_impl::GetInstance(const char* code)
+{
+    return CacheData<Country_impl>::GetInstanceCode (code,
+            "SELECT ID FROM COUNTRIES "
+            "WHERE PR_DEL=0 AND (CODE=:code OR CODE_LAT=:code)");
+}
 
 City_impl::City_impl(IdaType ida)
 {
     ida_ = ida;
     OciCpp::CursCtl c = make_curs(
-            "SELECT RTRIM(CODE), RTRIM(CODE_LAT), RTRIM(NAME), RTRIM(NAME_LAT), PR_DEL "
+            "SELECT RTRIM(CODE), RTRIM(CODE_LAT), RTRIM(NAME), RTRIM(NAME_LAT), "
+            "TZ_REGION, COUNTRY, PR_DEL "
             "FROM CITIES WHERE ID=:ida");
     c.autoNull()
      .bind(":ida", ida)
@@ -77,6 +105,8 @@ City_impl::City_impl(IdaType ida)
      .defNull(lcode_, "")
      .def(rname_)
      .defNull(lname_, "")
+     .defNull(tzRegion_, "")
+     .def(country_)
      .defNull(closed_, 0)
      .EXfet();
 }
@@ -94,7 +124,7 @@ Port_impl::Port_impl(IdaType ida)
     ida_ = ida;
     OciCpp::CursCtl c = make_curs(
             "SELECT RTRIM(CODE), RTRIM(CODE_LAT), RTRIM(NAME), RTRIM(NAME_LAT), "
-            "RTRIM(CODE_ICAO), RTRIM(CODE_ICAO_LAT), PR_DEL "
+            "RTRIM(CODE_ICAO), RTRIM(CODE_ICAO_LAT), CITY, PR_DEL "
             "FROM AIRPS WHERE ID=:ida");
     c.autoNull()
      .bind(":ida", ida)
@@ -104,6 +134,7 @@ Port_impl::Port_impl(IdaType ida)
      .defNull(lname_, "")
      .defNull(codeIcao_, "")
      .defNull(lcodeIcao_, "")
+     .def(city_)
      .defNull(closed_, 0)
      .EXfet();
 }
