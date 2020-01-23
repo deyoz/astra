@@ -15,10 +15,16 @@
 #include "apis_utils.h"
 
 #include <serverlib/str_utils.h>
+#include <serverlib/tcl_utils.h>
+#include <serverlib/cursctl.h>
+#include <serverlib/dump_table.h>
 
-#define NICKNAME "ANNA"
+#define NICKNAME "FELIX"
 #define NICKTRACE SYSTEM_TRACE
 #include <serverlib/slogger.h>
+#include <serverlib/dates_oci.h>
+#include <serverlib/dates_io.h>
+#include "ckin_search.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -54,2120 +60,2366 @@ using namespace ASTRA;
 
 // static const std::string APPSFormat = "APPS_FMT";
 
+namespace APPS {
 class AppsPaxNotFoundException : public std::exception {} ;
+
+class APPSMessage
+{
+public:
+    APPSMessage(const AppsSettings & settings, PaxRequest request)
+        : settings(settings), request(std::move(request))
+    {}
+    void send() const{
+        request.sendReqAndSave(settings);
+    }
+private:
+    AppsSettings settings;
+    PaxRequest request;
+};
+
 
 // версия спецификации документа
 enum ESpecVer { SPEC_6_76, SPEC_6_83 };
-
-ESpecVer GetSpecVer(int msg_ver)
-{
-  if (msg_ver == APPS_VERSION_21)
-    return SPEC_6_76;
-  else
-    return SPEC_6_83;
-}
 
 const int pax_seq_num = 1;
 
 static const int MaxCirqPaxNum = 5;
 static const int MaxCicxPaxNum = 10;
 
-enum { None, Origin, Dest, Both };
+const std::string APPS_FORMAT_21 = "APPS_21";
+const std::string APPS_FORMAT_26 = "APPS_26";
+const int APPS_VERSION_21 = 21;
+const int APPS_VERSION_26 = 26;
+const int APPS_VERSION_27 = 27;
 
-int FieldCount( string data_group, int version )
+const std::string AppsPaxDataReadQuery = "select PAX_ID, APPS_PAX_ID, STATUS, PAX_CREW, "
+                                         " NATIONALITY, ISSUING_STATE, PASSPORT, CHECK_CHAR, DOC_TYPE, DOC_SUBTYPE, EXPIRY_DATE, "
+                                         " SUP_CHECK_CHAR, SUP_DOC_TYPE, SUP_PASSPORT, FAMILY_NAME, GIVEN_NAMES, "
+                                         " DATE_OF_BIRTH, SEX, BIRTH_COUNTRY, IS_ENDORSEE, TRANSFER_AT_ORGN, "
+                                         " TRANSFER_AT_DEST, PNR_SOURCE, PNR_LOCATOR, PASS_REF, "
+                                         " PRE_CKIN, "
+                                         " POINT_ID, FLT_NUM, DEP_PORT, DEP_DATE, ARV_PORT, ARV_DATE, "
+                                         " CKIN_FLT_NUM, CKIN_PORT, CKIN_POINT_ID,"
+                                         " COUNTRY_FOR_DATA, DOCO_TYPE, DOCO_NO, COUNTRY_ISSUANCE, DOCO_EXPIRY_DATE, "
+                                         " NUM_STREET, CITY, STATE, POSTAL_CODE, REDRESS_NUMBER, TRAVELLER_NUMBER "
+                                         "from APPS_PAX_DATA ";
+
+// Работа с версионностью
+int fieldCount(std::string data_group, int version);
+ESpecVer getSpecVer(int msg_ver);
+static int versionByFormat(const std::string& fmt);
+ASTRA::TGender::Enum femaleToGender(int is_female);
+
+static boost::optional<PaxRequest> paxRequestFromDb(OciCpp::CursCtl & cur);
+
+// Получение APPS настроек
+bool checkAPPSSets(int pax_id);
+static bool isAPPSCountry(const std::string& country, const std::string& airline);
+static std::set<AppsSettings> getAppsSets(const std::string& airline, const std::string & airp_dep, const std::string & airp_arv);
+static std::set<AppsSettings> getAppsSets(int point_id, const std::string & airp_arv);
+std::set<AppsSettings> getAppsSets(OciCpp::CursCtl & cur, int pax_id);
+std::set<AppsSettings> getAppsSetsByPaxId(int pax_id);
+std::set<AppsSettings> getAppsSetsByCrsPaxId(int pax_id);
+std::set<std::string> needFltCloseout(const std::set<std::string>& countries, const string &airline);
+
+// Обработка трансферных пассажиров
+std::map<int, CheckIn::TTransferItem> getCrsTransferMap(const int pax_id);
+TransferFlag getTransferFlagFromTransit(int point_id, const std::string& airp_arv);
+TransferFlag getPaxTransferFlag(int point_id, int pax_grp_id, const std::string& airp_dep, const std::string& airp_arv, const string &airl);
+TransferFlag getCrsTransferFlag(const map<int, CheckIn::TTransferItem> & trfer, int point_id, const std::string& airp_arv, const string &airl);
+bool isPointTransferDestination(int pax_grp_id, const std::string& airp_arv, const std::string& airline_code);
+bool isPointTransferOrigin(int pax_grp_id, const std::string& airp_dep, const std::string& airline_code);
+
+// Работа с полями APPS_PAX_DATA
+void saveAppsStatus(const std::string& status, const std::string& apps_pax_id, const int msg_id);
+void deleteAPPSData(const std::string & field, const int value);
+void updateAppsCicxMsgId(int msg_id, const std::string& apps_pax_id);
+
+// Работа с тревогами
+static void syncAPPSAlarms(const int pax_id, const int point_id_spp);
+static void addAPPSAlarm(const int pax_id, const std::initializer_list<Alarm::Enum>& alarms, const int point_id_spp=ASTRA::NoExists);
+static void deleteAPPSAlarm(const int pax_id, const std::initializer_list<Alarm::Enum>& alarms, const int point_id_spp=ASTRA::NoExists);
+void deleteAPPSAlarms(const int pax_id, const int point_id_spp);
+
+/* Утилиты для заполнения данных PaxRequest и др.*/
+// TransactionData
+static int getIdent();
+static std::string getUserId(const std::string &airl);
+static std::string makeHeader(const std::string& airl, int msgId);
+static std::string getH2HReceiver();
+static std::string getH2HTpr(int msgId);
+
+// FlightData
+void checkRouteSuffix(const TAdvTripRoute &route);
+TAdvTripRoute getRoute(const int point_id);
+int getCkinPointId(int grp_id);
+// PaxData
+std::string outDocType(int version, const std::string &doc_type);
+ASTRA::TTrickyGender::Enum getTrickyGender(const std::string &pers_type, ASTRA::TGender::Enum gender);
+// PaxAddData
+std::string issuePlaceToCountry(const std::string& issue_place);
+// Общие
+boost::optional<TTripInfo> getPointInfo(const int point_dep);
+/***********************************************************/
+
+
+// Маппинг данных из константного запроса AppsReqQuery
+void defPaxAdd(PaxAddData &res, OciCpp::CursCtl & cur);
+void defPax(PaxData & res, OciCpp::CursCtl & cur);
+void defIntFlight(FlightData& res, OciCpp::CursCtl & cur);
+void defTrans(TransactionData &res, OciCpp::CursCtl & cur);
+void defCkinFlight(FlightData &res, OciCpp::CursCtl & cur);
+
+// Отправка APPS сообщений
+void updateCrsNeedApps(int pax_id);
+void sendAppsMessages(const int pax_id, const std::set<AppsSettings> &apps_settings,
+                         PaxRequest::RequestType reqType, const std::string& override_type, const bool is_forced=false);
+static void sendNewReq(const std::string& text, const std::string & router);
+static void saveAppsMsg(const std::string& text, const int msg_id, const int point_id, int version);
+bool isAlreadyCheckedIn(const int pax_id);
+static void sendAPPSInfo(const int point_id, const int point_id_tlg);
+
+
+void processCrsPax(const int pax_id, const std::string& override_type)
 {
-  // независимые от версии
-  if (data_group == "CHK") return 2;
-  if (data_group == "INT") return 8;
-  if (data_group == "INM") return 3;
-  if (data_group == "MRQ") return 3;
-  if (data_group == "PCC") return 26;
-  if (data_group == "EXO") return 4;
-  if (data_group == "EXD") return 4;
-  if (data_group == "MAK") return 4;
-  // зависимые от версии
-  if (version == APPS_VERSION_21)
-  {
-    if (data_group == "PRQ") return 22;
-    if (data_group == "PCX") return 20;
-    if (data_group == "PRS") return 27;
-    if (data_group == "PAD") return 0;
-  }
-  if (version == APPS_VERSION_26)
-  {
-    if (data_group == "PRQ") return 34;
-    if (data_group == "PCX") return 21; // NOTE в спецификации нет версии 26 для этой группы данных
-    if (data_group == "PRS") return 29;
-    if (data_group == "PAD") return 13;
-  }
-  throw Exception("unsupported field count, version: %d, data group: %s", version, data_group.c_str());
-  return 0;
+    ProgTrace(TRACE5, "processCrsPax: %d", pax_id);
+    const auto settings = getAppsSetsByCrsPaxId(pax_id);
+    if(!settings.empty() && !isAlreadyCheckedIn(pax_id)){
+        sendAppsMessages(pax_id, settings, PaxRequest::Crs, override_type);
+    }
 }
 
-TAppsSets::TAppsSets(const std::string& airline, const std::string& country)
-  : _airline(airline), _country(country)
+void processPax(const int pax_id, const std::string& override_type, const bool is_forced)
 {
+    ProgTrace(TRACE5, "processPax: %d", pax_id);
+    const auto settings = getAppsSetsByPaxId(pax_id);
+    if(!getAppsSetsByPaxId(pax_id).empty()){
+        sendAppsMessages(pax_id, settings, PaxRequest::Pax, override_type, is_forced);
+    }
 }
 
-void TAppsSets::init_qry(TQuery& AppsSetsQry, const std::string& select_string)
+void sendAppsMessages(const int pax_id, const std::set<AppsSettings> & apps_settings,
+                      PaxRequest::RequestType reqType, const std::string& override_type,
+                      const bool is_forced)
 {
-  AppsSetsQry.Clear();
-  AppsSetsQry.SQLText =
-  string("SELECT ") + select_string + string(" ") +
-  string("FROM apps_sets ") +
-  string("WHERE airline=:airline AND apps_country=:apps_country AND pr_denial=0");
-  AppsSetsQry.CreateVariable( "airline", otString, _airline );
-  AppsSetsQry.CreateVariable( "apps_country", otString, _country );
+    std::vector<APPSMessage> messages;
+    LogTrace(TRACE5) << __FUNCTION__ <<" pax_id: "<<pax_id;
+    for(const auto & country_settings : apps_settings)
+    {
+        boost::optional<PaxRequest> new_pax = PaxRequest::createFromDB(reqType, pax_id, override_type);
+        if(!new_pax) {
+            continue;
+        }
+        LogTrace(TRACE5) << __FUNCTION__ << " new_pax trans_code: " << new_pax->getTrans().code;
+        boost::optional<PaxRequest> actual_pax = PaxRequest::fromDBByPaxId(pax_id);
+
+        bool is_exists = actual_pax.is_initialized();
+        bool is_the_same = (actual_pax == new_pax);
+        bool needNew=false, needCancel=false, needUpdate=false;
+        const std::string status = (is_exists) ? actual_pax->getStatus() : "";
+        needNew = new_pax->isNeedNew(is_exists, status, is_the_same, is_forced);
+        new_pax->ifNeedDeleteAlarms(is_exists, status);
+        if(is_exists) {
+            needCancel = new_pax->isNeedCancel(status);
+            needUpdate = new_pax->isNeedUpdate(status, is_the_same);
+            new_pax->ifNeedDeleteApps(status);
+            new_pax->ifOutOfSyncSendAlarm(status, is_the_same);
+        }
+        LogTrace(TRACE5)<<__FUNCTION__
+                        <<" is_exists: "    << is_exists  <<" is_the_same: "<< is_the_same
+                        <<" is_the_cancel: "<< (is_exists && actual_pax->getTrans().code=="CICX")
+                        <<" status: "       << status    <<" needNew: "<< needNew
+                        <<" needCancel: "   << needCancel <<" needUpdate: "<<needUpdate;
+
+        if(needCancel || needUpdate) {
+             messages.push_back(APPSMessage{country_settings, actual_pax.get()});
+        }
+        if(needNew || needUpdate) {
+            messages.push_back(APPSMessage{country_settings, new_pax.get()});
+        }
+    }
+    LogTrace(TRACE5) << __FUNCTION__ << " Messages size: " << messages.size();
+    for(const auto & msg : messages) {
+        msg.send();
+    }
 }
 
-bool TAppsSets::get_country()
+void checkRouteSuffix(const TAdvTripRoute &route)
 {
-  TQuery AppsSetsQry( &OraSession );
-  init_qry(AppsSetsQry, "apps_country");
-  AppsSetsQry.Execute();
-  if (AppsSetsQry.Eof)
-    return false;
-  else
-    return true;
+    if (!route.front().suffix.empty()) {
+        const TTripSuffixesRow &suffixRow = (const TTripSuffixesRow&)base_tables.get("trip_suffixes").get_row("code", route.front().suffix);
+        if (suffixRow.code_lat.empty()) {
+            throw Exception("suffixRow.code_lat empty (code=%s)",suffixRow.code.c_str());
+        }
+    }
 }
 
-bool TAppsSets::get_inbound_outbound(int& inbound, int& outbound)
+TAdvTripRoute getRoute(const int point_id)
 {
-  TQuery AppsSetsQry( &OraSession );
-  init_qry(AppsSetsQry, "inbound, outbound");
-  AppsSetsQry.Execute();
-  if (AppsSetsQry.Eof)
-    return false;
-  else
-  {
-    inbound = AppsSetsQry.FieldAsInteger("inbound");
-    outbound = AppsSetsQry.FieldAsInteger("outbound");
-    return true;
-  }
+    TAdvTripRoute route, tmp;
+    route.GetRouteBefore(NoExists, point_id, trtWithCurrent, trtNotCancelled);
+    tmp.GetRouteAfter(NoExists, point_id, trtNotCurrent, trtNotCancelled);
+    route.insert(route.end(), tmp.begin(), tmp.end());
+
+    if(route.empty()) {
+        throw Exception("Empty route, point_id %d", point_id);
+    }
+    checkRouteSuffix(route);
+    return route;
 }
 
-bool TAppsSets::get_flt_closeout(int& flt_closeout)
+std::ostream& operator << (std::ostream& os, const TransferFlag& trfer)
 {
-  TQuery AppsSetsQry( &OraSession );
-  init_qry(AppsSetsQry, "flt_closeout");
-  AppsSetsQry.Execute();
-  if (AppsSetsQry.Eof)
-    return false;
-  else
-  {
-    flt_closeout = AppsSetsQry.FieldAsInteger("flt_closeout");
-    return true;
-  }
+    return os << static_cast<int>(trfer);
 }
 
-std::string TAppsSets::get_format()
+ESpecVer getSpecVer(int msg_ver)
 {
-  TQuery AppsSetsQry( &OraSession );
-  init_qry(AppsSetsQry, "format");
-  AppsSetsQry.Execute();
-  if (AppsSetsQry.Eof || AppsSetsQry.FieldIsNULL("format"))
-    return APPS_FORMAT_21;
-  else
-    return AppsSetsQry.FieldAsString("format");
+    if (msg_ver == APPS_VERSION_21) {
+        return SPEC_6_76;
+    } else {
+        return SPEC_6_83;
+    }
 }
 
-int TAppsSets::get_version()
+int fieldCount(std::string data_group, int version)
 {
-  string fmt = get_format();
-  if (fmt == APPS_FORMAT_21) return APPS_VERSION_21;
-  if (fmt == APPS_FORMAT_26) return APPS_VERSION_26;
-  throw Exception("cannot get version, format %s", fmt.c_str());
-  return 0;
+    // независимые от версии
+    if (data_group == "CHK") return 2;
+    if (data_group == "INT") return 8;
+    if (data_group == "INM") return 3;
+    if (data_group == "MRQ") return 3;
+    if (data_group == "PCC") return 26;
+    if (data_group == "EXO") return 4;
+    if (data_group == "EXD") return 4;
+    if (data_group == "MAK") return 4;
+    // зависимые от версии
+    if (version == APPS_VERSION_21)
+    {
+        if (data_group == "PRQ") return 22;
+        if (data_group == "PCX") return 20;
+        if (data_group == "PRS") return 27;
+        if (data_group == "PAD") return 0;
+    }
+    if (version == APPS_VERSION_26)
+    {
+        if (data_group == "PRQ") return 34;
+        if (data_group == "PCX") return 21; // NOTE в спецификации нет версии 26 для этой группы данных
+        if (data_group == "PRS") return 29;
+        if (data_group == "PAD") return 13;
+    }
+    throw Exception("unsupported field count, version: %d, data group: %s", version, data_group.c_str());
+    return 0;
 }
 
-int GetVersion(string airline, string country)
+int versionByFormat(const std::string& fmt)
 {
-  TAppsSets sets(airline, country);
-  return sets.get_version();
+    if (fmt == APPS_FORMAT_21) {
+        return APPS_VERSION_21;
+    }
+    if (fmt == APPS_FORMAT_26) {
+        return APPS_VERSION_26;
+    }
+    throw Exception("cannot get version, format %s", fmt.c_str());
 }
 
-static std::string getH2HReceiver()
+int AppsSettings::version() const
 {
-  static string VAR;
-  if ( VAR.empty() )
-    VAR=getTCLParam( "APPS_H2H_ADDR", NULL );
-  return VAR;
+    return versionByFormat(format);
 }
 
-static std::string getH2HTpr(int msgId)
+std::string getH2HReceiver()
+{
+    static std::string var = readStringFromTcl("APPS_H2H_ADDR");
+    return var;
+}
+
+std::string getH2HTpr(int msgId)
 {
     const size_t TprLen = 4;
-
     std::string res = StrUtils::ToBase36Lpad(msgId, TprLen);
-    if(res.length() > TprLen)
+    if(res.length() > TprLen) {
         res = res.substr(res.length() - TprLen, TprLen);
+    }
     return res;
 }
 
-static std::string makeHeader( const std::string& airline, int msgId )
+std::string makeHeader(const std::string& airl, int msgId)
 {
-  return string( "V.\rVHLG.WA/E5" + string(OWN_CANON_NAME()) + "/I5" + getH2HReceiver() + "/P" + getH2HTpr(msgId) + "\rVGZ.\rV" + airline + "/MOW/////////RU\r" );
+    return std::string("V.\rVHLG.WA/E5" + std::string(OWN_CANON_NAME()) + "/I5" +
+                       getH2HReceiver() + "/P" + getH2HTpr(msgId) + "\rVGZ.\rV" +
+                       BaseTables::Company(airl)->lcode() + "/MOW/////////RU\r");
 }
 
-static std::string getUserId( const TAirlinesRow &airline )
+std::string getUserId(const std::string &airl)
 {
-  string user_id;
-  if ( !airline.code_lat.empty() && !airline.code_icao_lat.empty() )
-   user_id = airline.code_lat + airline.code_icao_lat + "1";
-  else user_id = "AST1H";
-  return user_id;
+    std::string user_id;
+    BaseTables::Company comp(airl);
+    if (!comp->lcode().empty() && !comp->lcodeIcao().empty()) {
+        user_id =  comp->lcode() + comp->lcodeIcao() + "1";
+    }
+    else user_id = "AST1H";
+    return user_id;
 }
 
-static int getIdent()
+int getIdent()
 {
-  TQuery Qry(&OraSession);
-  Qry.SQLText = "SELECT apps_msg_id__seq.nextval vid FROM dual";
-  Qry.Execute();
-  return Qry.FieldAsInteger("vid");
+    int vid = 0;
+    auto cur = make_curs(
+"select APPS_MSG_ID__SEQ.NEXTVAL VID from DUAL");
+    cur
+       .def(vid)
+       .EXfet();
+    return vid;
 }
 
-static bool isAPPSCountry( const std::string& country, const std::string& airline )
+bool isAPPSCountry(const std::string& country, const std::string& airline)
 {
-  TAppsSets sets(airline, country);
-  return sets.get_country();
+    boost::optional<AppsSettings> sets = AppsSettings::readSettings(airline, country);
+    return bool(sets);
 }
 
-static void sendNewReq( const std::string& text, const int msg_id, const int point_id, int version )
+// Параметр router передается для будущих изменений
+void sendNewReq(const std::string& text, const string &router)
 {
-  // отправим телеграмму
-  sendTlg( getAPPSRotName(), OWN_CANON_NAME(), qpOutApp, 20, text,
-          ASTRA::NoExists, ASTRA::NoExists );
+    // отправим телеграмму
+    sendTlg(router.c_str(), OWN_CANON_NAME(), qpOutApp, 20, text,
+            ASTRA::NoExists, ASTRA::NoExists);
+    sendCmd("CMD_APPS_HANDLER","H");
+    ProgTrace(TRACE5, "New APPS request generated: %s", text.c_str());
+}
 
-//  sendCmd("CMD_APPS_ANSWER_EMUL","H");
-  sendCmd("CMD_APPS_HANDLER","H");
-
-  ProgTrace(TRACE5, "New APPS request generated: %s", text.c_str());
-
-  // сохраним информацию о сообщении
-  TQuery Qry( &OraSession );
-  Qry.SQLText = "INSERT INTO apps_messages(msg_id, msg_text, send_attempts, send_time, point_id, version) "
-                "VALUES (:msg_id, :msg_text, :send_attempts, :send_time, :point_id, :version)";
-  Qry.CreateVariable("msg_id", otString, msg_id);
-  Qry.CreateVariable("send_time", otDate, NowUTC());
-  Qry.CreateVariable("msg_text", otString, text);
-  Qry.CreateVariable("send_attempts", otInteger, 1);
-  Qry.CreateVariable("point_id", otInteger, point_id);
-  Qry.CreateVariable("version", otInteger, version);
-  Qry.Execute();
+void saveAppsMsg(const std::string& text, const int msg_id, const int point_id, int version)
+{
+    // сохраним информацию о сообщении
+    auto cur = make_curs(
+               "insert into APPS_MESSAGES(MSG_ID, MSG_TEXT, SEND_ATTEMPTS, SEND_TIME, POINT_ID, VERSION) "
+               "values (:msg_id, :msg_text, :send_attempts, :send_time, :point_id, :version)");
+    cur
+            .bind(":msg_id",msg_id)
+            .bind(":msg_text",text)
+            .bind(":send_attempts",1)
+            .bind(":send_time",Dates::second_clock::universal_time()) // тоже самое DateTimeToBoost(NowUTC())
+            .bind(":point_id",point_id)
+            .bind(":version",version)
+            .exec();
 }
 
 const char* getAPPSRotName()
 {
-  static string VAR;
-  if ( VAR.empty() )
-    VAR=getTCLParam( "APPS_ROT_NAME", NULL );
-  return VAR.c_str();
+    static std::string var = readStringFromTcl("APPS_ROT_NAME");
+    return var.c_str();
 }
 
-bool checkAPPSSets( const int point_dep, const int point_arv )
+ASTRA::TGender::Enum femaleToGender(int is_female)
 {
-  bool result = false;
-  TAdvTripRoute route;
-  route.GetRouteAfter(NoExists, point_dep, trtWithCurrent, trtNotCancelled);
-
-  for ( TAdvTripRoute::const_iterator r = route.begin(); r != route.end(); r++ )
-  {
-    TAppsSets sets(route.front().airline, getCountryByAirp( r->airp ).code);
-    int inbound, outbound;
-    bool not_eof = sets.get_inbound_outbound(inbound, outbound);
-    if (not_eof &&
-      !( r->point_id == point_dep && !outbound ) &&
-      !( r->point_id == point_arv && !inbound ) )
-      result = true;
-    if ( r->point_id == point_arv )
-      return result;
-  }
-  ProgTrace( TRACE5, "Point %d was not found in the flight route !!!", point_arv );
-  return false;
+  return bool(is_female) ? ASTRA::TGender::Female : ASTRA::TGender::Male;
 }
 
-bool checkAPPSSets( const int point_dep, const std::string& airp_arv, set<string>* pFormats )
+bool checkAPPSSets(const int point_dep, const int point_arv)
 {
-  bool transit;
-  return checkAPPSSets( point_dep, airp_arv, transit, pFormats );
-}
-
-bool checkAPPSSets( const int point_dep, const std::string& airp_arv, bool& transit, set<string>* pFormats )
-{
-  bool result = false;
-  transit = false;
-  TAdvTripRoute route;
-  route.GetRouteAfter(NoExists, point_dep, trtWithCurrent, trtNotCancelled);
-
-  if ( route.empty() )
-  {
-    //нормальныя ситуация, когда маршрут полностью отменен
-    ProgTrace( TRACE5, "Empty route!!! (point_dep=%d)", point_dep );
-    return false;
-  }
-
-  for ( TAdvTripRoute::const_iterator r = route.begin(); r != route.end(); r++ )
-  {
-    TAppsSets sets(route.front().airline, getCountryByAirp( r->airp ).code);
-    int inbound, outbound;
-    bool not_eof = sets.get_inbound_outbound(inbound, outbound);
-    if (not_eof)
-    {
-      if ( r->airp != airp_arv && r->point_id != point_dep )
-        transit = true;
-      else if ( !( r->airp == airp_arv && !inbound ) &&
-                !( r->point_id == point_dep && !outbound ) )
-      {
-        if (pFormats!=nullptr) pFormats->insert(sets.get_format());
-        result = true;
-      }
+    LogTrace(TRACE3) << __FUNCTION__<<" point_dep: "<< point_dep << " airp_arv: " << point_arv;
+    bool result = false;
+    TAdvTripRoute route;
+    bool foundRoute = route.GetRouteAfter(NoExists, point_dep, trtWithCurrent, trtNotCancelled);
+    if(!foundRoute || route.empty()) {
+        LogTrace(TRACE0)<<__FUNCTION__<<" Not found route! point_id: " << point_dep;
+        return false;
     }
-    if ( r->airp == airp_arv )
-      return result;
-  }
-  ProgTrace( TRACE5, "Airport %s was not found in the flight route !!! (point_dep=%d)", airp_arv.c_str(), point_dep );
-  return false;
-}
-
-bool checkTime( const int point_id )
-{
-  TDateTime start_time = ASTRA::NoExists;
-  return checkTime( point_id, start_time );
-}
-
-bool checkTime( const int point_id, TDateTime& start_time )
-{
-  start_time = ASTRA::NoExists;
-  TDateTime now = NowUTC();
-  TTripInfo trip;
-  if (not trip.getByPointId(point_id))
-  {
-    ProgTrace(TRACE5, "getByPointId returned false, point_id=%d", point_id);
-    return false;
-  }
-  // The APP System only allows transactions on [- 2 days] TODAY [+ 10 days].
-  if ( ( now - trip.scd_out ) > 2 )
-    return false;
-  if ( ( trip.scd_out - now ) > 10 ) {
-    start_time = trip.scd_out - 10;
-    return false;
-  }
-  return true;
-}
-
-void deleteAPPSData( const int pax_id )
-{
-  ProgTrace(TRACE3, "%s for pax_id=%d", __func__, pax_id);
-  TQuery Qry(&OraSession);
-  Qry.SQLText = "DELETE FROM apps_pax_data WHERE pax_id = :pax_id";
-  Qry.CreateVariable("pax_id", otString, pax_id);
-  Qry.Execute();
-}
-
-static void syncAPPSAlarms(const int pax_id, const int point_id_spp)
-{
-  if (point_id_spp!=ASTRA::NoExists)
-    TTripAlarmHook::set(Alarm::APPSProblem, point_id_spp);
-  else
-  {
-    if (pax_id!=ASTRA::NoExists)
+    const std::string airline = route.front().airline;
+    for (const auto &r : route)
     {
-      TPaxAlarmHook::set(Alarm::APPSProblem, pax_id);
-      TCrsPaxAlarmHook::set(Alarm::APPSProblem, pax_id);
+        boost::optional<AppsSettings> sets = AppsSettings::readSettings(airline, getCountryByAirp(r.airp).code);
+        if(sets){
+            if((r.point_id != point_arv || sets->getInbound()) &&
+               (r.point_id != point_dep || sets->getOutbound()))
+                result = true;
+        }
+        if (r.point_id == point_arv) {
+            LogTrace(TRACE3) <<__FUNCTION__<< " finish";
+            return result;
+        }
     }
-  }
+    ProgTrace(TRACE5, "Point %d was not found in the flight route !!!", point_arv);
+    return false;
 }
 
-static void addAPPSAlarm( const int pax_id,
-                          const std::initializer_list<Alarm::Enum>& alarms,
-                          const int point_id_spp=ASTRA::NoExists )
+
+bool checkAPPSSets(const int point_dep, const std::string& airp_arv, std::set<std::string>* pFormats)
 {
-  if (!addAlarmByPaxId(pax_id, alarms, {paxCheckIn, paxPnl})) return; //ничего не изменилось
-  syncAPPSAlarms(pax_id, point_id_spp);
+    bool transit;
+    return checkAPPSSets(point_dep, airp_arv, transit, pFormats);
 }
 
-static void deleteAPPSAlarm( const int pax_id,
-                             const std::initializer_list<Alarm::Enum>& alarms,
-                             const int point_id_spp=ASTRA::NoExists )
+bool checkAPPSSets(const int point_dep, const std::string& airp_arv, bool& transit, std::set<std::string>* pFormats)
 {
-  if (!deleteAlarmByPaxId(pax_id, alarms, {paxCheckIn, paxPnl})) return; //ничего не изменилось
-  syncAPPSAlarms(pax_id, point_id_spp);
+    LogTrace(TRACE3) << __FUNCTION__<<" point_dep: "<< point_dep << " airp_arv: " << airp_arv;
+    bool result = false;
+    transit = false;
+    TAdvTripRoute route;  
+    bool foundRoute = route.GetRouteAfter(NoExists, point_dep, trtWithCurrent, trtNotCancelled);
+    if(!foundRoute || route.empty()) {
+        LogTrace(TRACE0)<<__FUNCTION__<<" Not founded route! point_id: " << point_dep;
+        return false;
+    }
+    const std::string airline = route.front().airline;
+
+    for (const auto &r : route)
+    {
+        boost::optional<AppsSettings> sets = AppsSettings::readSettings(airline, getCountryByAirp(r.airp).code);
+        if(sets){
+            if (r.airp != airp_arv && r.point_id != point_dep) {
+                transit = true;
+            }
+            else if ((r.airp != airp_arv || sets->getInbound()) &&
+                     (r.point_id != point_dep || sets->getOutbound()))
+            {
+                if (pFormats!=nullptr) {
+                    pFormats->insert(sets->getFormat());
+                }
+                result = true;
+            }
+        }
+        if (r.airp == airp_arv) {
+            LogTrace(TRACE3) << __FUNCTION__<< " finish";
+            return result;
+        }
+    }
+    ProgTrace(TRACE5, "Airport %s was not found in the flight route !!! (point_dep=%d)", airp_arv.c_str(), point_dep);
+    return false;
 }
 
-void deleteAPPSAlarms( const int pax_id, const int point_id_spp )
+bool checkTime(const int point_id)
 {
-  if (!deleteAlarmByPaxId(pax_id,
-                          {Alarm::APPSNegativeDirective,
-                           Alarm::APPSError,
-                           Alarm::APPSConflict},
-                          {paxCheckIn, paxPnl})) return; //ничего не изменилось
-
-  if (point_id_spp!=ASTRA::NoExists)
-    syncAPPSAlarms(pax_id, point_id_spp);
-  else
-    LogError(STDLOG) << __func__ << ": point_id_spp==ASTRA::NoExists";
+    TDateTime start_time = ASTRA::NoExists;
+    return checkTime(point_id, start_time);
 }
 
-void TTransData::init(const bool pre_ckin, const std::string& trans_code,
-                      const TAirlinesRow& airline, int ver)
+bool checkTime(const int point_id, TDateTime& start_time)
 {
-  code = trans_code;
-  msg_id = getIdent();
-  user_id = getUserId(airline);
-  type = pre_ckin;
-  version = ver;
-  header = makeHeader(airline.code_lat, msg_id);
+    start_time = ASTRA::NoExists;
+    TDateTime now = NowUTC();
+    auto point_info = getPointInfo(point_id);
+    if(!point_info) {
+        return false;
+    }
+    // The APP System only allows transactions on [- 2 days] TODAY [+ 10 days].
+    if ((now - point_info->scd_out) > 2)
+        return false;
+    if ((point_info->scd_out - now) > 10) {
+        start_time = point_info->scd_out - 10;
+        return false;
+    }
+    return true;
 }
 
-void TTransData::check_data() const
+std::string issuePlaceToCountry(const std::string& issue_place)
 {
-  if (code != "CIRQ" && code != "CICX" && code != "CIMR")
-    throw Exception("Incorrect transacion code");
-  if (user_id.empty() || user_id.size() > 6)
-    throw Exception("Incorrect User ID");
+    if (issue_place.empty()) {
+        return issue_place;
+    }
+    TElemFmt elem_fmt;
+    std::string country_id = issuePlaceToPaxDocCountryId(issue_place, elem_fmt);
+    if (elem_fmt == efmtUnknown)
+        throw Exception("IssuePlaceToCountry failed: issue_place=\"%s\"", issue_place.c_str());
+
+    return country_id;
 }
 
-std::string TTransData::msg() const // TODO уточнить зависимость от версии
+void deleteAPPSData(const std::string & field,  const int value)
 {
-  check_data();
-  std::ostringstream msg;
-  /* 1 */ msg << code << ':';
-  /* 2 */ msg << msg_id << '/';
-  /* 3 */ msg << user_id << '/';
-  if (code == "CIRQ" || code == "CICX")
-  {
-    /* 4 */ msg << "N" << '/';
-    /* 5 */ msg << ( type ? "P" : "" ) << '/';
-    /* 6 */ msg << version;
-  }
-  else if (code == "CIMR")
-  {
-    /* 4 */ msg << version;
-  }
-  return msg.str();
+    LogTrace(TRACE5)<<__FUNCTION__<<" field: "<<field << " value: "<<value;
+    auto cur = make_curs(
+               "delete from APPS_PAX_DATA where "+field+ "= :val");
+    cur.bind(":val", value).exec();
 }
 
-void TFlightData::init( const int id, const std::string& flt_type, int ver )
+void syncAPPSAlarms(const int pax_id, const int point_id_spp)
 {
-  ProgTrace( TRACE5, "TFlightData::init: %d", id );
-  if ( id == ASTRA::NoExists )
-    return;
-  point_id = id;
-  type = flt_type;
-  TAdvTripRoute route, tmp;
-  route.GetRouteBefore(NoExists, point_id, trtWithCurrent, trtNotCancelled);
-  tmp.GetRouteAfter(NoExists, point_id, trtNotCurrent, trtNotCancelled);
-  route.insert(route.end(), tmp.begin(), tmp.end());
-
-  if( route.empty() )
-    throw Exception( "Empty route, point_id %d", point_id );
-
-  const TAirlinesRow &airline = (const TAirlinesRow&)base_tables.get("airlines").get_row("code", route.front().airline);
-  if (airline.code_lat.empty()) throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
-  string suffix;
-  if (!route.front().suffix.empty()) {
-    const TTripSuffixesRow &suffixRow = (const TTripSuffixesRow&)base_tables.get("trip_suffixes").get_row("code", route.front().suffix);
-    if (suffixRow.code_lat.empty()) throw Exception("suffixRow.code_lat empty (code=%s)",suffixRow.code.c_str());
-    suffix=suffixRow.code_lat;
-  }
-  ostringstream trip;
-  trip << airline.code_lat
-       << setw(3) << setfill('0') << route.front().flt_num
-       << route.front().suffix;
-
-  flt_num = trip.str();
-
-  const TAirpsRow &airp_dep = (const TAirpsRow&)base_tables.get("airps").get_row("code", route.front().airp);
-  if (airp_dep.code_lat.empty()) throw Exception("airp_dep.code_lat empty (code=%s)",airp_dep.code.c_str());
-  port = airp_dep.code_lat;
-
-  if( type != "CHK" && route.front().scd_out != ASTRA::NoExists )
-    date = UTCToLocal( route.front().scd_out, CityTZRegion(airp_dep.city) );
-
-  if( type == "INT" ) {
-  const TAirpsRow &airp_arv = (const TAirpsRow&)base_tables.get("airps").get_row("code", route.back().airp);
-  if (airp_arv.code_lat.empty()) throw Exception("airp_arv.code_lat empty (code=%s)",airp_arv.code.c_str());
-  arv_port = airp_arv.code_lat;
-
-  if( route.back().scd_in != ASTRA::NoExists )
-    arv_date = UTCToLocal( route.back().scd_in, CityTZRegion( airp_arv.city ) );
-  }
-  version = ver;
+    if (point_id_spp!=ASTRA::NoExists) {
+        TTripAlarmHook::set(Alarm::APPSProblem, point_id_spp);
+    }
+    else {
+        if (pax_id!=ASTRA::NoExists) {
+            TPaxAlarmHook::set(Alarm::APPSProblem, pax_id);
+            TCrsPaxAlarmHook::set(Alarm::APPSProblem, pax_id);
+        }
+    }
 }
 
-void TFlightData::init( const int id, const std::string& flt_type, const std::string&  num, const std::string& airp, const std::string& arv_airp,
-           TDateTime dep, TDateTime arv, int ver )
+void addAPPSAlarm(const int pax_id,
+                  const std::initializer_list<Alarm::Enum>& alarms,
+                  const int point_id_spp)
 {
-  point_id = id;
-  type = flt_type;
-  flt_num = num;
-  port = airp;
-  arv_port = arv_airp;
-  date = dep;
-  arv_date = arv;
-  version = ver;
+    LogTrace(TRACE5)<<__FUNCTION__<<" pax_id: "<< pax_id;
+    if (addAlarmByPaxId(pax_id, alarms, {paxCheckIn, paxPnl})) {
+        syncAPPSAlarms(pax_id, point_id_spp);
+    }
 }
 
-void TFlightData::check_data() const
+void deleteAPPSAlarm(const int pax_id,
+                     const std::initializer_list<Alarm::Enum>& alarms,
+                     const int point_id_spp)
 {
-  if( type != "CHK" && type != "INM" && type != "INT" )
-    throw Exception( "Incorrect type of flight: %s", type.c_str() );
-  if ( flt_num.empty() || flt_num.size() > 8 )
-    throw Exception(" Incorrect flt_num: %s", flt_num.c_str() );
-  if ( port.empty() || port.size() > 5 )
-    throw Exception( "Incorrect airport: %s", port.c_str() );
-  if ( type != "CHK" && date == ASTRA::NoExists )
-    throw Exception( "Date empty" );
-  if ( type == "INT" ) {
-    if ( arv_port.empty() || arv_port.size() > 5 )
-      throw Exception( "Incorrect arrival airport: %s", arv_port.c_str() );
-    if ( arv_date == ASTRA::NoExists )
-      throw Exception( "Arrival date empty" );
-  }
+    LogTrace(TRACE5)<<__FUNCTION__<<" pax_id: "<< pax_id;
+    if (deleteAlarmByPaxId(pax_id, alarms, {paxCheckIn, paxPnl})) {
+        syncAPPSAlarms(pax_id, point_id_spp);
+    }
 }
 
-std::string TFlightData::msg() const
+void deleteAPPSAlarms(const int pax_id, const int point_id_spp)
 {
-  check_data();
-  std::ostringstream msg;
-  /* 1  */ msg << type << '/';
-  /* 2  */ msg << FieldCount(type, version) << '/';
-  if (type == "CHK")
-  {
-    /* 3  */ msg << port << '/';
-    /* 4  */ msg << flt_num;
-  }
-  else if ( type == "INT" )
-  {
-    /* 3  */ msg << "S" << '/';
-    /* 4  */ msg << flt_num << '/';
-    /* 5  */ msg << port << '/';
-    /* 6  */ msg << arv_port << '/';
-    /* 7  */ msg << DateTimeToStr( date, "yyyymmdd" ) << '/';
-    /* 8  */ msg << DateTimeToStr( date, "hhnnss" ) << '/';
-    /* 9  */ msg << DateTimeToStr( arv_date, "yyyymmdd" ) << '/';
-    /* 10 */ msg << DateTimeToStr( arv_date, "hhnnss" );
-  }
-  else if ( type == "INM" )
-  {
-    /* 3  */ msg << flt_num << '/';
-    /* 4  */ msg << port << '/';
-    /* 5  */ msg << DateTimeToStr( date, "yyyymmdd" );
-  }
-  return msg.str();
+    LogTrace(TRACE5)<<__FUNCTION__<<" pax_id: "<<pax_id;
+    if (deleteAlarmByPaxId(
+                pax_id,
+                {Alarm::APPSNegativeDirective, Alarm::APPSError,Alarm::APPSConflict},
+                {paxCheckIn, paxPnl}))
+    {
+        if (point_id_spp!=ASTRA::NoExists) {
+            syncAPPSAlarms(pax_id, point_id_spp);
+        }
+        else {
+            LogError(STDLOG) << __FUNCTION__ << ": point_id_spp==ASTRA::NoExists";
+        }
+    }
 }
 
-void TPaxData::init( const int pax_ident, const std::string& surname, const std::string name,
-                     const bool is_crew, const int transfer, const std::string& override_type,
-                     const int reg_no, const ASTRA::TTrickyGender::Enum tricky_gender, int ver )
+void AppsCollector::addPaxItem(int pax_id, const std::string &override, bool is_forced)
 {
-  pax_id = pax_ident;
-  CheckIn::TPaxDocItem doc;
-  if ( !CheckIn::LoadPaxDoc( pax_ident, doc ) )
-    CheckIn::LoadCrsPaxDoc( pax_ident, doc );
-  pax_crew = is_crew?"C":"P";
-  nationality = doc.nationality;
-  issuing_state = doc.issue_country;
-  passport = doc.no.substr(0, 14);
-  switch (GetSpecVer(ver))
-  {
-  case SPEC_6_76:
-    doc_type = (doc.type == "P" || doc.type.empty())?"P":"O";
-    break;
-  case SPEC_6_83:
-    if (doc.type == "P" || doc.type == "I")
-      doc_type = doc.type;
-    else if (doc.type.empty())
-      doc_type = "P";
-    else
-      doc_type = "O";
-    break;
-  default:
-    throw Exception( "Unknown specification version" );
-    break;
-  }
-  doc_subtype = doc.subtype;
-  if ( doc.expiry_date != ASTRA::NoExists )
-    expiry_date = DateTimeToStr( doc.expiry_date, "yyyymmdd" );
-  if( !doc.surname.empty() ) {
-    family_name = transliter(doc.surname, 1, 1);
-    if (!doc.first_name.empty())
-      given_names = doc.first_name;
-    if (!given_names.empty() && !doc.second_name.empty())
-      given_names = given_names + " " + doc.second_name;
-    given_names = given_names.substr(0, 40);
-    given_names = transliter(given_names, 1, 1);
-  }
-  else {
-    family_name = surname;
-    family_name = transliter(family_name, 1, 1);
-    if(!name.empty())
-      given_names = (transliter(name, 1, 1));
-  }
-  if ( doc.birth_date != ASTRA::NoExists )
-    birth_date = DateTimeToStr( doc.birth_date, "yyyymmdd" );
-  sex = (doc.gender == "M" || doc.gender == "F")?doc.gender:"U";
-  trfer_at_origin = (transfer == Origin || transfer == Both)?"Y":"N";
-  trfer_at_dest = (transfer == Dest || transfer == Both)?"Y":"N";
-  if(!override_type.empty())
-    override_codes = override_type;
-  // passenger reference
-  int seq_num = (reg_no == ASTRA::NoExists) ? 0 : reg_no;
-  int pass_desc;
-  switch (tricky_gender)
-  {
+    LogTrace(TRACE3) << __FUNCTION__ << " "
+                     << pax_id << "; "
+                     << override << "; "
+                     << is_forced;
+    m_paxItems.push_back({ pax_id, override, is_forced });
+}
+
+void AppsCollector::send()
+{
+    for(const PaxItem& paxItem: m_paxItems) {
+        APPS::processPax(paxItem.pax_id, paxItem.override, paxItem.is_forced);
+    }
+}
+
+boost::optional<AppsSettings> AppsSettings::readSettings(const std::string& airline,
+                                                         const std::string& country)
+{
+    LogTrace(TRACE5)<<__FUNCTION__<< "Airline: "<<airline << " country: "<<country;
+    AppsSettings settings = {};
+    auto cur = make_curs(
+               "select FORMAT, ID, FLT_CLOSEOUT, INBOUND, OUTBOUND, PR_DENIAL, AIRLINE, APPS_COUNTRY "
+               "from APPS_SETS "
+               "where AIRLINE=:airline and APPS_COUNTRY=:country and PR_DENIAL=0");
+    cur
+            .def(settings.format)
+            .def(settings.id)
+            .def(settings.flt_closeout)
+            .def(settings.inbound)
+            .def(settings.outbound)
+            .def(settings.denial)
+            .def(settings.airline)
+            .def(settings.country)
+            .bind(":airline", airline)
+            .bind(":country", country)
+            .EXfet();
+    if(cur.err() == NO_DATA_FOUND) {
+        return boost::none;
+    }
+
+    settings.setRouter(std::string(getAPPSRotName()));
+    return settings;
+}
+
+TransactionData& TransactionData::init(const std::string& trans_code, const std::string& airline)
+{
+    LogTrace(TRACE5)<<__FUNCTION__<< " code="<<trans_code;
+    code = trans_code;
+    msg_id = getIdent();
+    user_id = getUserId(airline);
+    header = makeHeader(airline, msg_id);
+    return *this;
+}
+
+void TransactionData::validateData() const
+{
+    if (code != "CIRQ" && code != "CICX" && code != "CIMR")
+        throw Exception("Incorrect transacion code");
+    if (user_id.empty() || user_id.size() > 6)
+        throw Exception("Incorrect User ID");
+}
+
+std::string TransactionData::msg(int version) const
+{
+    validateData();
+    std::ostringstream msg;
+    /* 1 */ msg << code << ':';
+    /* 2 */ msg << msg_id << '/';
+    /* 3 */ msg << user_id << '/';
+    if (code == "CIRQ" || code == "CICX")
+    {
+        /* 4 */ msg << "N" << '/';
+        /* 5 */ msg << (type ? "P" : "") << '/';
+        /* 6 */ msg << version;
+    }
+    else if (code == "CIMR")
+    {
+        /* 4 */ msg << version;
+    }
+    return msg.str();
+}
+
+
+FlightData &FlightData::init(const std::string &flt_type)
+{
+    setType(flt_type);
+    auto route = getRoute(point_id);
+    setFltNum(route.front().airline, route);
+    setDepPortAndDate(route);
+    setArvPortAndDate(route);
+    return *this;
+}
+
+FlightData& FlightData::setFltNum(const std::string &airline, const TAdvTripRoute &route)
+{
+    std::ostringstream trip;
+    trip << BaseTables::Company(airline)->lcode()
+         << setw(3) << setfill('0') << route.front().flt_num
+         << route.front().suffix;
+
+    flt_num = trip.str();
+    return *this;
+}
+
+FlightData& FlightData::setDepPortAndDate(const TAdvTripRoute &route)
+{
+    ASSERT(!route.empty());
+    LogTrace(TRACE5)<<__FUNCTION__;
+    BaseTables::Port port(route.front().airp);
+    dep_port = port->lcode();
+
+    if (dep_port.empty()) {
+        throw Exception("airp_dep.code_lat empty (code=%s)",dep_port.c_str());
+    }
+    if(type != "CHK" && route.front().scd_out != ASTRA::NoExists) {
+        dep_date = DateTimeToBoost(UTCToLocal(route.front().scd_out, port->city()->tzRegion()));
+    }
+    return *this;
+}
+
+FlightData& FlightData::setArvPortAndDate(const TAdvTripRoute &route)
+{
+    ASSERT(!route.empty());
+    LogTrace(TRACE5)<<__FUNCTION__;
+    if(type == "INT") {
+        BaseTables::Port port(route.back().airp);
+        arv_port = port->lcode();
+        if (arv_port.empty()) {
+            throw Exception("arv_port empty (code=%s)",arv_port.c_str());
+        }
+        if(route.back().scd_in != ASTRA::NoExists) {
+            arv_date = DateTimeToBoost(UTCToLocal(route.back().scd_in, port->city()->tzRegion()));
+        }
+    }
+    return *this;
+}
+
+FlightData& FlightData::init(const int point_id, const std::string& flt_type)
+{
+    ProgTrace(TRACE5, "TFlightData::init: %d", point_id);
+    if (point_id == ASTRA::NoExists) {
+        return *this;
+    }
+    this->point_id = point_id;
+    return init(flt_type);
+}
+
+void FlightData::validateData() const
+{
+    if(type != "CHK" && type != "INM" && type != "INT")
+        throw Exception("Incorrect type of flight: %s", type.c_str());
+    if (flt_num.empty() || flt_num.size() > 8)
+        throw Exception(" Incorrect flt_num: %s", flt_num.c_str());
+    if (dep_port.empty() || dep_port.size() > 5)
+        throw Exception("Incorrect airport: %s", dep_port.c_str());
+    if (type != "CHK" && dep_date.is_not_a_date_time())
+        throw Exception("Date empty");
+    if (type == "INT") {
+        if (arv_port.empty() || arv_port.size() > 5)
+            throw Exception("Incorrect arrival airport: %s", arv_port.c_str());
+        if (arv_date.is_not_a_date_time())
+            throw Exception("Arrival date empty");
+    }
+}
+
+std::string FlightData::msg(int version) const
+{
+    validateData();
+    std::ostringstream msg;
+    /* 1  */ msg << type << '/';
+    /* 2  */ msg << fieldCount(type, version) << '/';
+    if (type == "CHK")
+    {
+        /* 3  */ msg << dep_port << '/';
+        /* 4  */ msg << flt_num;
+    }
+    else if (type == "INT")
+    {
+        /* 3  */ msg << "S" << '/';
+        /* 4  */ msg << flt_num << '/';
+        /* 5  */ msg << dep_port << '/';
+        /* 6  */ msg << arv_port << '/';
+        /* 7  */ msg << HelpCpp::string_cast(dep_date, "%Y%m%d") << '/';
+        /* 8  */ msg << HelpCpp::string_cast(dep_date, "%H%M%S") << '/';
+        /* 9  */ msg << HelpCpp::string_cast(arv_date, "%Y%m%d") << '/';
+        /* 10 */ msg << HelpCpp::string_cast(arv_date, "%H%M%S");
+    }
+    else if (type == "INM")
+    {
+        /* 3  */ msg << flt_num << '/';
+        /* 4  */ msg << dep_port << '/';
+        /* 5  */ msg << HelpCpp::string_cast(dep_date, "%Y%m%d");
+    }
+    return msg.str();
+}
+
+std::string outDocType(int version, const std::string &doc_type){
+    std::string type;
+    switch (getSpecVer(version))
+    {
+    case SPEC_6_76:
+        type = (doc_type == "P" || doc_type.empty())?"P":"O";
+        break;
+    case SPEC_6_83:
+        if (doc_type == "P" || doc_type == "I")
+            type = doc_type;
+        else if (doc_type.empty())
+            type = "P";
+        else
+            type = "O";
+        break;
+    default:
+        throw Exception("Unknown specification version");
+        break;
+    }
+    return type;
+}
+
+static CheckIn::TPaxDocItem loadPaxDoc(int pax_id)
+{
+    CheckIn::TPaxDocItem doc;
+    if (!CheckIn::LoadPaxDoc(pax_id, doc))
+        CheckIn::LoadCrsPaxDoc(pax_id, doc);
+    return doc;
+}
+
+void PaxData::init(const int pax_id, const std::string& surname, const std::string& name,
+                   const bool is_crew, const std::string& override_type,
+                   const int reg_no, const ASTRA::TTrickyGender::Enum tricky_gender,
+                   TransferFlag transfer)
+{
+    LogTrace(TRACE5)<<__FUNCTION__;
+    const CheckIn::TPaxDocItem doc = loadPaxDoc(pax_id);
+    setPaxId(pax_id);
+    setTypeOfPax(is_crew);
+    setDocInfo(doc);
+    setNames(doc, surname, name);
+    setTransfer(transfer);
+    setOverrideType(override_type);
+    setPassReference(tricky_gender, reg_no);
+}
+
+void PaxData::setOverrideType(const std::string& override_type)
+{
+    if(!override_type.empty()) {
+        override_codes = override_type;
+    }
+}
+
+void PaxData::setTypeOfPax(const bool is_crew)
+{
+    pax_crew = is_crew?"C":"P";
+}
+
+void PaxData::setTransfer(TransferFlag trfer)
+{
+    LogTrace(TRACE5)<<__FUNCTION__<<" Transfer = "<<trfer;
+    trfer_at_origin = (trfer == TransferFlag::Origin || trfer == TransferFlag::Both) ? "Y" : "N";
+    trfer_at_dest = (trfer == TransferFlag::Dest || trfer == TransferFlag::Both) ? "Y" : "N";
+}
+
+void PaxData::setDocInfo(const CheckIn::TPaxDocItem& doc)
+{
+    nationality = doc.nationality;
+    issuing_state = doc.issue_country;
+    passport = doc.no.substr(0, 14);
+
+    doc_type = doc.type;
+    doc_subtype = doc.subtype;
+    if (doc.expiry_date != ASTRA::NoExists) {
+        expiry_date = DateTimeToStr(doc.expiry_date, "yyyymmdd");
+    }
+    if (doc.birth_date != ASTRA::NoExists) {
+        birth_date = DateTimeToStr(doc.birth_date, "yyyymmdd");
+    }
+    sex = (doc.gender == "M" || doc.gender == "F") ? doc.gender : "U";
+}
+
+void PaxData::setNames(const CheckIn::TPaxDocItem& doc, const std::string& surname, const string &name)
+{
+    if(!doc.surname.empty()) {
+        family_name = transliter(doc.surname, 1, 1);
+        if (!doc.first_name.empty()) {
+            given_names = doc.first_name;
+        }
+        if (!given_names.empty() && !doc.second_name.empty()) {
+            given_names = given_names + " " + doc.second_name;
+        }
+        given_names = given_names.substr(0, 40);
+        given_names = transliter(given_names, 1, 1);
+    }
+    else {
+        family_name = surname;
+        family_name = transliter(family_name, 1, 1);
+        if(!name.empty()) {
+            given_names = (transliter(name, 1, 1));
+        }
+    }
+}
+
+void PaxData::setPassReference(const ASTRA::TTrickyGender::Enum tricky_gender,
+                               const int reg_no)
+{
+    int seq_num = (reg_no == ASTRA::NoExists) ? 0 : reg_no;
+    int pass_desc;
+    switch (tricky_gender)
+    {
     case ASTRA::TTrickyGender::Male:    pass_desc = 1; break;
     case ASTRA::TTrickyGender::Female:  pass_desc = 2; break;
     case ASTRA::TTrickyGender::Child:   pass_desc = 3; break;
     case ASTRA::TTrickyGender::Infant:  pass_desc = 4; break;
-    default: pass_desc = 8; break;
-  }
-  ostringstream ref;
-  ref << setfill('0') << setw(4) << seq_num << pass_desc;
-  reference = ref.str();
-  version = ver;
-}
-
-void TPaxData::init( TQuery &Qry, int ver )
-{
-  pax_id = Qry.FieldAsInteger("pax_id");
-  if (!Qry.FieldIsNULL("apps_pax_id"))
-    apps_pax_id = Qry.FieldAsString("apps_pax_id");
-  pax_crew = Qry.FieldAsString("pax_crew");
-  nationality = Qry.FieldAsString("nationality");
-  issuing_state = Qry.FieldAsString("issuing_state");
-  passport = Qry.FieldAsString("passport");
-  if (!Qry.FieldIsNULL("check_char"))
-    check_char = Qry.FieldAsString("check_char");
-  doc_type = Qry.FieldAsString("doc_type");
-  doc_subtype = Qry.FieldAsString("doc_subtype");
-  expiry_date = Qry.FieldAsString("expiry_date");
-  if (!Qry.FieldIsNULL("sup_doc_type"))
-    sup_doc_type = Qry.FieldAsString("sup_doc_type");
-  if (!Qry.FieldIsNULL("sup_passport"))
-    sup_passport = Qry.FieldAsString("sup_passport");
-  if (!Qry.FieldIsNULL("sup_check_char"))
-    sup_check_char = Qry.FieldAsString("sup_check_char");
-  family_name = Qry.FieldAsString("family_name");
-  if (!Qry.FieldIsNULL("given_names"))
-    given_names = Qry.FieldAsString("given_names");
-  birth_date = Qry.FieldAsString("date_of_birth");
-  sex = Qry.FieldAsString("sex");
-  if (!Qry.FieldIsNULL("birth_country"))
-    birth_country = Qry.FieldAsString("birth_country");
-  if (!Qry.FieldIsNULL("is_endorsee"))
-    endorsee = Qry.FieldAsString("is_endorsee");
-  if (!Qry.FieldIsNULL("transfer_at_orgn"))
-    trfer_at_origin = Qry.FieldAsString("transfer_at_orgn");
-  if (!Qry.FieldIsNULL("transfer_at_dest"))
-    trfer_at_dest = Qry.FieldAsString("transfer_at_dest");
-  if (!Qry.FieldIsNULL("pnr_source"))
-    pnr_source = Qry.FieldAsString("pnr_source");
-  if (!Qry.FieldIsNULL("pnr_locator"))
-    pnr_locator = Qry.FieldAsString("pnr_locator");
-  if (!Qry.FieldIsNULL("status"))
-    status = Qry.FieldAsString("status");
-  if (!Qry.FieldIsNULL("pass_ref"))
-    reference = Qry.FieldAsString("pass_ref");
-  version = ver;
-}
-
-void TPaxData::check_data() const
-{
-  if ( pax_id == ASTRA::NoExists )
-    throw Exception( "Empty pax_id" );
-  if ( pax_crew != "C" && pax_crew != "P" )
-    throw Exception( "Incorrect pax_crew %s", pax_crew.c_str() );
-  if( passport.size() > 14)
-    throw Exception( "Passport number too long: %s", passport.c_str() );
-  if( !doc_type.empty() && doc_type != "P" && doc_type != "O" && doc_type != "N" && doc_type != "I" )
-    throw Exception( "Incorrect doc_type: %s", doc_type.c_str() );
-  if( family_name.empty() || family_name.size() > 40 )
-    throw Exception( "Incorrect family_name: %s", family_name.c_str() );
-  if( given_names.size() > 40 )
-    throw Exception( "given_names too long: %s", given_names.c_str() );
-  if( !sex.empty() && sex != "M" && sex != "F" && sex != "U" && sex != "X" )
-    throw Exception( "Incorrect gender: %s", sex.c_str() );
-  if( !endorsee.empty() && endorsee != "S" )
-    throw Exception( "Incorrect endorsee: %s", endorsee.c_str() );
-  if (reference.size() > 5)
-    throw Exception( "reference too long: %s", reference.c_str() );
-}
-
-std::string TPaxData::msg() const
-{
-  check_data();
-  std::ostringstream msg;
-  string data_group;
-  if (apps_pax_id.empty())
-  {
-    /* PRQ */
-    data_group = "PRQ";
-    /* 1  */ msg << data_group << '/';
-    /* 2  */ msg << FieldCount(data_group, version) << '/';
-    /* 3  */ msg << pax_seq_num << '/';
-    /* 4  */ msg << pax_crew << '/';
-    /* 5  */ msg << nationality << '/';
-    /* 6  */ msg << issuing_state << '/';
-    /* 7  */ msg << passport << '/';
-    /* 8  */ msg << check_char << '/';
-    /* 9  */ msg << doc_type << '/';
-    if (version >= APPS_VERSION_26)
-    {
-      /* 10 */ msg << doc_subtype << '/';
+    default:                            pass_desc = 8; break;
     }
-    /* 11 */ msg << expiry_date << '/';
-    /* 12 */ // reserved for version 27
-    /* 13 */ msg << sup_doc_type << '/';
-    /* 14 */ msg << sup_passport << '/';
-    /* 15 */ msg << sup_check_char << '/';
-    /* 16 */ msg << family_name << '/';
-    /* 17 */ msg << (given_names.empty() ? "-" : given_names) << '/';
-    /* 18 */ msg << birth_date << '/';
-    /* 19 */ msg << sex << '/';
-    /* 20 */ msg << birth_country << '/';
-    /* 21 */ msg << endorsee << '/';
-    /* 22 */ msg << trfer_at_origin << '/';
-    /* 23 */ msg << trfer_at_dest << '/';
-    /* 24 */ msg << override_codes << '/';
-    /* 25 */ msg << pnr_source << '/';
-    /* 26 */ msg << pnr_locator;
-    if (version >= APPS_VERSION_26)
+    std::ostringstream ref;
+    ref << setfill('0') << setw(4) << seq_num << pass_desc;
+    reference = ref.str();
+}
+
+bool PaxData::operator ==(const PaxData &data) const
+{
+    return  pax_id           == data.pax_id          &&
+            pax_crew         == data.pax_crew        &&
+            nationality      == data.nationality     &&
+            issuing_state    == data.issuing_state   &&
+            passport         == data.passport        &&
+            check_char       == data.check_char      &&
+            expiry_date      == data.expiry_date     &&
+            sup_check_char   == data.sup_check_char  &&
+            sup_doc_type     == data.sup_doc_type    &&
+            sup_passport     == data.sup_passport    &&
+            family_name      == data.family_name     &&
+            given_names      == data.given_names     &&
+            birth_date       == data.birth_date      &&
+            sex              == data.sex             &&
+            birth_country    == data.birth_country   &&
+            endorsee         == data.endorsee        &&
+            trfer_at_origin  == data.trfer_at_origin &&
+            trfer_at_dest    == data.trfer_at_dest   &&
+            pnr_source       == data.pnr_source      &&
+            pnr_locator      == data.pnr_locator     &&
+            reference        == data.reference;
+}
+
+void PaxData::validateData() const
+{
+    if (pax_id == ASTRA::NoExists)
+        throw Exception("Empty pax_id");
+    if (pax_crew != "C" && pax_crew != "P")
+        throw Exception("Incorrect pax_crew %s", pax_crew.c_str());
+    if(passport.size() > 14)
+        throw Exception("Passport number too long: %s", passport.c_str());
+    if(!doc_type.empty() && doc_type != "P" && doc_type != "O" && doc_type != "N" && doc_type != "I")
+        //!!!!throw Exception("Incorrect doc_type: %s", doc_type.c_str());
+        LogTrace(TRACE5)<<__FUNCTION__<<" doc_type member = "<<doc_type;
+    if(family_name.empty() || family_name.size() > 40)
+        throw Exception("Incorrect family_name: %s", family_name.c_str());
+    if(given_names.size() > 40)
+        throw Exception("given_names too long: %s", given_names.c_str());
+    if(!sex.empty() && sex != "M" && sex != "F" && sex != "U" && sex != "X")
+        throw Exception("Incorrect gender: %s", sex.c_str());
+    if(!endorsee.empty() && endorsee != "S")
+        throw Exception("Incorrect endorsee: %s", endorsee.c_str());
+    if (reference.size() > 5)
+        throw Exception("reference too long: %s", reference.c_str());
+}
+
+std::string PaxData::msg(int version) const
+{
+    validateData();
+    std::ostringstream msg;
+    std::string data_group;
+    if (apps_pax_id.empty())
     {
-      msg << '/';
-      /* 27 */ msg << '/';
-      /* 28 */ msg << '/';
-      /* 29 */ msg << '/';
-      /* 30 */ msg << reference;
+        /* PRQ */
+        data_group = "PRQ";
+        /* 1  */ msg << data_group << '/';
+        /* 2  */ msg << fieldCount(data_group, version) << '/';
+        /* 3  */ msg << pax_seq_num << '/';
+        /* 4  */ msg << pax_crew << '/';
+        /* 5  */ msg << nationality << '/';
+        /* 6  */ msg << issuing_state << '/';
+        /* 7  */ msg << passport << '/';
+        /* 8  */ msg << check_char << '/';
+        /* 9  */ msg << outDocType(version, doc_type) << '/';
+        if (version >= APPS_VERSION_26)
+        {
+            /* 10 */ msg << doc_subtype << '/';
+        }
+        /* 11 */ msg << expiry_date << '/';
+        /* 12 */ // reserved for version 27
+        /* 13 */ msg << sup_doc_type << '/';
+        /* 14 */ msg << sup_passport << '/';
+        /* 15 */ msg << sup_check_char << '/';
+        /* 16 */ msg << family_name << '/';
+        /* 17 */ msg << (given_names.empty() ? "-" : given_names) << '/';
+        /* 18 */ msg << birth_date << '/';
+        /* 19 */ msg << sex << '/';
+        /* 20 */ msg << birth_country << '/';
+        /* 21 */ msg << endorsee << '/';
+        /* 22 */ msg << trfer_at_origin << '/';
+        /* 23 */ msg << trfer_at_dest << '/';
+        /* 24 */ msg << override_codes << '/';
+        /* 25 */ msg << pnr_source << '/';
+        /* 26 */ msg << pnr_locator;
+        if (version >= APPS_VERSION_26)
+        {
+            msg << '/';
+            /* 27 */ msg << '/';
+            /* 28 */ msg << '/';
+            /* 29 */ msg << '/';
+            /* 30 */ msg << reference;
+        }
+        if (version >= APPS_VERSION_26)
+        {
+            msg << '/';
+            /* 31 */ msg << '/';
+            /* 32 */ msg << '/';
+            /* 33 */ msg << '/';
+            /* 34 */ msg << '/';
+            /* 35 */ msg << '/';
+            /* 36 */ msg << '/';
+            /* 37 */ msg << "";
+        }
     }
-    if (version >= APPS_VERSION_26)
+    else
     {
-      msg << '/';
-      /* 31 */ msg << '/';
-      /* 32 */ msg << '/';
-      /* 33 */ msg << '/';
-      /* 34 */ msg << '/';
-      /* 35 */ msg << '/';
-      /* 36 */ msg << '/';
-      /* 37 */ msg << "";
+        /* PCX */
+        data_group = "PCX";
+        /* 1  */ msg << data_group << '/';
+        /* 2  */ msg << fieldCount(data_group, version) << '/';
+        /* 3  */ msg << pax_seq_num << '/';
+        /* 4  */ msg << apps_pax_id << '/';
+        /* 5  */ msg << pax_crew << '/';
+        /* 6  */ msg << nationality << '/';
+        /* 7  */ msg << issuing_state << '/';
+        /* 8  */ msg << passport << '/';
+        /* 9  */ msg << check_char << '/';
+        /* 10 */ msg << doc_type << '/';
+        /* 11 */ msg << expiry_date << '/';
+        /* 12 */ msg << sup_doc_type << '/';
+        /* 13 */ msg << sup_passport << '/';
+        /* 14 */ msg << sup_check_char << '/';
+        /* 15 */ msg << family_name << '/';
+        /* 16 */ msg << (given_names.empty() ? "-" : given_names) << '/';
+        /* 17 */ msg << birth_date << '/';
+        /* 18 */ msg << sex << '/';
+        /* 19 */ msg << birth_country << '/';
+        /* 20 */ msg << endorsee << '/';
+        /* 21 */ msg << trfer_at_origin << '/';
+        /* 22 */ msg << trfer_at_dest;
+        if (version >= APPS_VERSION_26)
+        {
+            msg << '/';
+            /* 23 */ msg << reference;
+        }
     }
-  }
-  else
-  {
-    /* PCX */
-    data_group = "PCX";
-    /* 1  */ msg << data_group << '/';
-    /* 2  */ msg << FieldCount(data_group, version) << '/';
-    /* 3  */ msg << pax_seq_num << '/';
-    /* 4  */ msg << apps_pax_id << '/';
-    /* 5  */ msg << pax_crew << '/';
-    /* 6  */ msg << nationality << '/';
-    /* 7  */ msg << issuing_state << '/';
-    /* 8  */ msg << passport << '/';
-    /* 9  */ msg << check_char << '/';
-    /* 10 */ msg << doc_type << '/';
-    /* 11 */ msg << expiry_date << '/';
-    /* 12 */ msg << sup_doc_type << '/';
-    /* 13 */ msg << sup_passport << '/';
-    /* 14 */ msg << sup_check_char << '/';
-    /* 15 */ msg << family_name << '/';
-    /* 16 */ msg << (given_names.empty() ? "-" : given_names) << '/';
-    /* 17 */ msg << birth_date << '/';
-    /* 18 */ msg << sex << '/';
-    /* 19 */ msg << birth_country << '/';
-    /* 20 */ msg << endorsee << '/';
-    /* 21 */ msg << trfer_at_origin << '/';
-    /* 22 */ msg << trfer_at_dest;
-    if (version >= APPS_VERSION_26)
+    return msg.str();
+}
+
+
+
+boost::optional<PaxAddData> PaxAddData::createByPaxId(int pax_id)
+{
+    PaxAddData data;
+    CheckIn::TPaxDocoItem doco;
+    if (!CheckIn::LoadPaxDoco(pax_id, doco))
     {
-      msg << '/';
-      /* 23 */ msg << reference;
+        return boost::none;
     }
-  }
-  return msg.str();
+    data.init(pax_id, doco);
+    return data;
 }
 
-string IssuePlaceToCountry(const string& issue_place)
+boost::optional<PaxAddData> PaxAddData::createByCrsPaxId(int pax_id)
 {
-  if (issue_place.empty())
-    return issue_place;
-  TElemFmt elem_fmt;
-  string country_id=issuePlaceToPaxDocCountryId(issue_place, elem_fmt);
-  if (elem_fmt == efmtUnknown)
-    throw Exception("IssuePlaceToCountry failed: issue_place=\"%s\"", issue_place.c_str());
-
-  return country_id;
+    PaxAddData data;
+    CheckIn::TPaxDocoItem doco;
+    if (!CheckIn::LoadCrsPaxVisa(pax_id, doco))
+    {
+        return boost::none;
+    }
+    data.init(pax_id, doco);
+    return data;
 }
 
-void TPaxAddData::init( const int pax_id, const int ver )
+void PaxAddData::init(const int pax_id, const CheckIn::TPaxDocoItem &doco)
 {
-  ProgTrace(TRACE5, "TPaxAddData::init: %d", pax_id);
-  version = ver;
+    ProgTrace(TRACE5, "TPaxAddData::init: %d", pax_id);
+    CheckIn::TPaxDocaItem docaD;
+    if (!CheckIn::LoadPaxDoca(pax_id, CheckIn::docaDestination, docaD))
+    {
+        CheckIn::TDocaMap doca_map;
+        CheckIn::LoadCrsPaxDoca(pax_id, doca_map);
+        docaD = doca_map[apiDocaD];
+    }
 
-  CheckIn::TPaxDocoItem doco;
-  if ( !CheckIn::LoadPaxDoco( pax_id, doco ) )
-    CheckIn::LoadCrsPaxVisa( pax_id, doco );
+    if (!doco.applic_country.empty())
+    {
+        //ToDo
+        //BaseTables::Country country_code
+        std::string country_code = ((const TPaxDocCountriesRow&)base_tables.get("pax_doc_countries").get_row("code", doco.applic_country)).country;
+        country_for_data = country_code.empty() ? "" : BaseTables::Country(country_code)->lcode();
+    }
+    doco_type = doco.type;
+    doco_no = doco.no.substr(0, 20); // в БД doco.no VARCHAR2(25 BYTE)
+    country_issuance = issuePlaceToCountry(doco.issue_place);
 
-  CheckIn::TPaxDocaItem docaD;
-  if ( !CheckIn::LoadPaxDoca( pax_id, CheckIn::docaDestination, docaD ) )
-  {
-    CheckIn::TDocaMap doca_map;
-    CheckIn::LoadCrsPaxDoca( pax_id, doca_map );
-    docaD = doca_map[apiDocaD];
-  }
+    if (doco.expiry_date != ASTRA::NoExists) {
+        doco_expiry_date = DateTimeToStr(doco.expiry_date, "yyyymmdd");
+    }
 
-  if (!doco.applic_country.empty())
-  {
-    string country_code = ((const TPaxDocCountriesRow&)base_tables.get("pax_doc_countries").get_row("code", doco.applic_country)).country;
-    country_for_data = country_code.empty() ? "" : ((const TCountriesRow&)base_tables.get("countries").get_row("code", country_code)).code_lat;
-  }
-  doco_type = doco.type;
-  doco_no = doco.no.substr(0, 20); // в БД doco.no VARCHAR2(25 BYTE)
-  country_issuance = IssuePlaceToCountry(doco.issue_place);
+    num_street = docaD.address;
+    city = docaD.city;
+    state = docaD.region.substr(0, 20); // уточнить
+    postal_code = docaD.postal_code;
 
-  if (doco.expiry_date != ASTRA::NoExists)
-    doco_expiry_date = DateTimeToStr( doco.expiry_date, "yyyymmdd" );
-
-  num_street = docaD.address;
-  city = docaD.city;
-  state = docaD.region.substr(0, 20); // уточнить
-  postal_code = docaD.postal_code;
-
-  redress_number = "";
-  traveller_number = "";
+    redress_number = "";
+    traveller_number = "";
 }
 
-void TPaxAddData::init( TQuery &Qry, int ver )
+void PaxAddData::validateData() const
 {
-  country_for_data = Qry.FieldAsString("country_for_data");
-  doco_type = Qry.FieldAsString("doco_type");
-  doco_no = Qry.FieldAsString("doco_no");
-  country_issuance = IssuePlaceToCountry(Qry.FieldAsString("country_issuance"));
-  doco_expiry_date = Qry.FieldAsString("doco_expiry_date");
-  num_street = Qry.FieldAsString("num_street");
-  city = Qry.FieldAsString("city");
-  state = Qry.FieldAsString("state");
-  postal_code = Qry.FieldAsString("postal_code");
-  redress_number = Qry.FieldAsString("redress_number");
-  traveller_number = Qry.FieldAsString("traveller_number");
-  version = ver;
+    if (country_for_data.size() > 2)
+        throw Exception("country_for_data too long: %s", country_for_data.c_str());
+    if (doco_type.size() > 2)
+        throw Exception("doco_type too long: %s", doco_type.c_str());
+    if (doco_no.size() > 20)
+        throw Exception("doco_no too long: %s", doco_no.c_str());
+    if (country_issuance.size() > 3)
+        throw Exception("country_issuance too long: %s", country_issuance.c_str());
+    if (doco_expiry_date.size() > 8)
+        throw Exception("doco_expiry_date too long: %s", doco_expiry_date.c_str());
+    if (num_street.size() > 60)
+        throw Exception("num_street too long: %s", num_street.c_str());
+    if (city.size() > 60)
+        throw Exception("city too long: %s", city.c_str());
+    if (state.size() > 20)
+        throw Exception("state too long: %s", state.c_str());
+    if (postal_code.size() > 20)
+        throw Exception("postal_code too long: %s", postal_code.c_str());
+    if (redress_number.size() > 13)
+        throw Exception("redress_number too long: %s", redress_number.c_str());
+    if (traveller_number.size() > 25)
+        throw Exception("traveller_number too long: %s", traveller_number.c_str());
 }
 
-void TPaxAddData::check_data() const
+std::string PaxAddData::msg(int version) const
 {
-  if (country_for_data.size() > 2)
-    throw Exception( "country_for_data too long: %s", country_for_data.c_str() );
-  if (doco_type.size() > 2)
-    throw Exception( "doco_type too long: %s", doco_type.c_str() );
-  if (doco_no.size() > 20)
-    throw Exception( "doco_no too long: %s", doco_no.c_str() );
-  if (country_issuance.size() > 3)
-    throw Exception( "country_issuance too long: %s", country_issuance.c_str() );
-  if (doco_expiry_date.size() > 8)
-    throw Exception( "doco_expiry_date too long: %s", doco_expiry_date.c_str() );
-  if (num_street.size() > 60)
-    throw Exception( "num_street too long: %s", num_street.c_str() );
-  if (city.size() > 60)
-    throw Exception( "city too long: %s", city.c_str() );
-  if (state.size() > 20)
-    throw Exception( "state too long: %s", state.c_str() );
-  if (postal_code.size() > 20)
-    throw Exception( "postal_code too long: %s", postal_code.c_str() );
-  if (redress_number.size() > 13)
-    throw Exception( "redress_number too long: %s", redress_number.c_str() );
-  if (traveller_number.size() > 25)
-    throw Exception( "traveller_number too long: %s", traveller_number.c_str() );
+    validateData();
+    std::ostringstream msg;
+    /* 1  */ msg << "PAD" << '/';
+    /* 2  */ msg << fieldCount("PAD", version) << '/';
+    /* 3  */ msg << pax_seq_num << '/'; // Passenger Sequence Number
+    /* 4  */ msg << country_for_data << '/';
+    /* 5  */ msg << doco_type << '/';
+    /* 6  */ msg << '/'; // subtype пока не используется
+    /* 7  */ msg << doco_no << '/';
+    /* 8  */ msg << country_issuance << '/';
+    /* 9  */ msg << doco_expiry_date << '/';
+    /* 10 */ // reserved for version 27
+    /* 11 */ msg << num_street << '/';
+    /* 12 */ msg << city << '/';
+    /* 13 */ msg << state << '/';
+    /* 14 */ msg << postal_code << '/';
+    /* 15 */ msg << redress_number << '/';
+    /* 16 */ msg << traveller_number;
+    return msg.str();
 }
 
-std::string TPaxAddData::msg() const
+boost::optional<TTripInfo> getPointInfo(const int point_dep)
 {
-  check_data();
-  std::ostringstream msg;
-  /* 1  */ msg << "PAD" << '/';
-  /* 2  */ msg << FieldCount("PAD", version) << '/';
-  /* 3  */ msg << pax_seq_num << '/'; // Passenger Sequence Number
-  /* 4  */ msg << country_for_data << '/';
-  /* 5  */ msg << doco_type << '/';
-  /* 6  */ msg << '/'; // subtype пока не используется
-  /* 7  */ msg << doco_no << '/';
-  /* 8  */ msg << country_issuance << '/';
-  /* 9  */ msg << doco_expiry_date << '/';
-  /* 10 */ // reserved for version 27
-  /* 11 */ msg << num_street << '/';
-  /* 12 */ msg << city << '/';
-  /* 13 */ msg << state << '/';
-  /* 14 */ msg << postal_code << '/';
-  /* 15 */ msg << redress_number << '/';
-  /* 16 */ msg << traveller_number;
-  return msg.str();
+    TTripInfo point_info;
+    if (!point_info.getByPointId(point_dep)) {
+        ProgTrace(TRACE5, "fromAirline : getByPointId returned false, point_id=%d", point_dep);
+        return boost::none;
+    }
+    return point_info;
 }
 
-void TPaxRequest::init( const int pax_id, const std::string& override_type )
+bool PaxRequest::isNeedCancel(const std::string& status) const
 {
-  if ( !getByPaxId( pax_id, override_type ) )
-    getByCrsPaxId( pax_id, override_type );
+    return status=="B" && (trans.code=="CICX");
 }
 
-bool TPaxRequest::getByPaxId( const int pax_id, const std::string& override_type )
+bool PaxRequest::isNeedUpdate(const std::string& status, bool is_the_same) const
 {
-  ProgTrace( TRACE5, "TPaxRequest::getByPaxId: %d", pax_id );
-  TQuery Qry( &OraSession );
-  Qry.SQLText="SELECT surname, name, pax.grp_id, status, point_dep, refuse, airp_dep, airp_arv "
-              ", pers_type, is_female, reg_no "
-              "FROM pax_grp, pax "
-              "WHERE pax_id = :pax_id AND pax_grp.grp_id = pax.grp_id";
-  Qry.CreateVariable( "pax_id", otInteger, pax_id );
-  Qry.Execute();
+    return status=="B" && !is_the_same && (trans.code!="CICX");
+}
 
-  if(Qry.Eof)
-    return false;
+bool PaxRequest::isNeedNew(const bool is_exists, const std::string& status, bool is_the_same, bool is_forced) const
+{
+    return trans.code!="CICX" && (!is_exists || (is_exists && status=="P" && (!is_the_same || is_forced)));
+}
 
-  int point_dep = Qry.FieldAsInteger("point_dep");
-  string airp_arv = Qry.FieldAsString("airp_arv");
+void PaxRequest::ifNeedDeleteAlarms(const bool is_exists, const std::string& status) const
+{
+    if(trans.code=="CICX" && (!is_exists || !status.empty())) {
+        deleteAPPSAlarms(pax.pax_id,  int_flt.point_id);
+    }
+}
 
-  TTripInfo info;
-  if (not info.getByPointId( point_dep ))
-  {
-    ProgTrace(TRACE5, "getByPointId returned false, point_id=%d, pax_id=%d", point_dep, pax_id);
-    return false;
-  }
+void PaxRequest::ifOutOfSyncSendAlarm(const std::string& status, const bool is_the_same) const
+{
+    if(status.empty() && !is_the_same) {
+        addAPPSAlarm(pax.pax_id, {Alarm::APPSConflict}, int_flt.point_id);
+    }
+}
 
-  const TAirlinesRow &airline = (const TAirlinesRow&)base_tables.get("airlines").get_row("code", info.airline);
-  if (airline.code_lat.empty())
-    throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
-  version = GetVersion(airline.code, getCountryByAirp( airp_arv ).code);
-  trans.init( false, (Qry.FieldIsNULL("refuse"))?"CIRQ":"CICX", airline, version );
-  int_flt.init( point_dep, "INT", version );
+void PaxRequest::ifNeedDeleteApps(const std::string& status) const
+{
+    if(trans.code=="CICX" && status!="B") {
+        deleteAPPSData("PAX_ID", pax.pax_id);
+    }
+}
 
-  /* Проверим транзит. В случае транзита через страну-участницу APPS, выставим
+bool isAlreadyCheckedIn(const int pax_id)
+{
+    auto cur = make_curs(
+               "select 1 from PAX where PAX_ID=:pax_id and REFUSE is null");
+    cur
+        .bind(":pax_id", pax_id)
+        .exfet();
+    return cur.err() != NO_DATA_FOUND;
+}
+
+void PaxRequest::sendReqAndSave(const AppsSettings &settings) const
+{
+    int version = settings.version();
+    savePaxRequest(version);
+    sendNewReq(msg(version), settings.getRouter());
+    saveAppsMsg(msg(version), trans.msg_id, int_flt.point_id, version);
+}
+
+std::set<AppsSettings> getAppsSets(const std::string& airline, const std::string & airp_dep,
+                                   const std::string & airp_arv)
+{
+    LogTrace(TRACE5) << __FUNCTION__ << " Airline: " << airline << " airp_dep: "
+                     << airp_dep << " airp_arv: " << airp_arv;
+    std::set<AppsSettings> res;
+    if(auto set_dep = AppsSettings::readSettings(airline, getCountryByAirp(airp_dep).code)) {
+        if(set_dep.get().getOutbound()) {
+            res.insert(set_dep.get());
+        }
+    }
+    if(auto set_arv = AppsSettings::readSettings(airline, getCountryByAirp(airp_arv).code)) {
+        if(set_arv.get().getInbound()) {
+            res.insert(set_arv.get());
+        }
+    }
+    return res;
+}
+
+std::set<AppsSettings> appsSetsByInboundOutbound(int point_id, const std::string & airp_arv)
+{
+    auto info = getPointInfo(point_id);
+    if(!info) {
+        return {};
+    }
+
+    LogTrace(TRACE5)<<__FUNCTION__ << " Airline: " << info->airline << " airp_dep: "
+                    << info->airp << " airp_arv: " << airp_arv;
+    std::set<AppsSettings> res;
+    if(auto set_dep = AppsSettings::readSettings(info->airline, getCountryByAirp(info->airp).code)) {
+        if(set_dep.get().getOutbound()) {
+            res.insert(set_dep.get());
+        }
+    }
+    if(auto set_arv = AppsSettings::readSettings(info->airline, getCountryByAirp(airp_arv).code)) {
+        if(set_arv.get().getInbound()) {
+            res.insert(set_arv.get());
+        }
+    }
+    return res;
+    //return getAppsSets(info->airline, info->airp, airp_arv);
+}
+
+std::set<AppsSettings> getAppsSets(OciCpp::CursCtl & cur, int pax_id)
+{
+    int point_id = ASTRA::NoExists;
+    std::string airp_arv;
+    cur.def(point_id)
+       .def(airp_arv)
+       .bind(":pax_id",pax_id)
+       .exfet();
+    if(cur.err() == NO_DATA_FOUND) {
+        return {};
+    }
+    return appsSetsByInboundOutbound(point_id, airp_arv);
+}
+
+std::set<AppsSettings> getAppsSetsByPaxId(int pax_id)
+{
+    auto cur = make_curs(
+               "select POINT_DEP, AIRP_ARV "
+               "from PAX_GRP, PAX "
+               "where PAX_ID=:pax_id and PAX_GRP.GRP_ID=PAX.GRP_ID");
+    return getAppsSets(cur, pax_id);
+}
+
+std::set<AppsSettings> getAppsSetsByCrsPaxId(int pax_id)
+{
+    auto cur = make_curs(
+               "select POINT_ID_SPP, AIRP_ARV "
+               "from CRS_PAX, CRS_PNR, TLG_BINDING "
+               "where PAX_ID=:pax_id and CRS_PAX.PNR_ID = CRS_PNR.PNR_ID "
+               "and CRS_PNR.POINT_ID = TLG_BINDING.POINT_ID_TLG");
+    return getAppsSets(cur,pax_id);
+}
+
+void defPaxAdd(PaxAddData &res, OciCpp::CursCtl & cur)
+{
+    cur
+        .defNull(res.country_for_data,"")
+        .defNull(res.doco_type,"")
+        .defNull(res.doco_no,"")
+        .defNull(res.country_issuance,"")
+        .defNull(res.doco_expiry_date,"")
+        .defNull(res.num_street,"")
+        .defNull(res.city,"")
+        .defNull(res.state,"")
+        .defNull(res.postal_code,"")
+        .defNull(res.redress_number,"")
+        .defNull(res.traveller_number,"");
+}
+
+void defPax(PaxData & res, OciCpp::CursCtl & cur)
+{
+    cur
+        .def    (res.pax_id)
+        .defNull(res.apps_pax_id,"")
+        .defNull(res.status,"")
+        .def    (res.pax_crew)
+        .defNull(res.nationality,"")
+        .defNull(res.issuing_state,"")
+        .defNull(res.passport,"")
+        .defNull(res.check_char,"")
+        .defNull(res.doc_type,"")
+        .defNull(res.doc_subtype,"")
+        .defNull(res.expiry_date,"")
+        .defNull(res.sup_check_char,"")
+        .defNull(res.sup_doc_type,"")
+        .defNull(res.sup_passport,"")
+        .def    (res.family_name)
+        .defNull(res.given_names,"")
+        .defNull(res.birth_date,"")
+        .defNull(res.sex,"")
+        .defNull(res.birth_country,"")
+        .defNull(res.endorsee,"")
+        .defNull(res.trfer_at_origin,"")
+        .defNull(res.trfer_at_dest,"")
+        .defNull(res.pnr_source,"")
+        .defNull(res.pnr_locator,"")
+        .defNull(res.reference,"");
+}
+void defIntFlight(FlightData& res, OciCpp::CursCtl & cur)
+{
+    cur
+        .def(res.point_id)
+        .def(res.flt_num)
+        .def(res.dep_port)
+        .def(res.dep_date)
+        .def(res.arv_port)
+        .def(res.arv_date);
+}
+
+void defTrans(TransactionData &res, OciCpp::CursCtl & cur)
+{
+    cur
+        .def(res.type);    //pre_ckin
+}
+
+void defCkinFlight(FlightData &res, OciCpp::CursCtl & cur)
+{
+    cur
+        .defNull(res.flt_num,"")
+        .defNull(res.dep_port,"")
+        .defNull(res.point_id, ASTRA::NoExists);
+}
+
+static boost::optional<PaxRequest> paxRequestFromDb(OciCpp::CursCtl & cur)
+{
+    PaxData pax;
+    TransactionData trs;
+    FlightData intFlight;
+    FlightData ckinFlight;
+    PaxAddData paxAddData;
+
+    defPax(pax, cur);
+    defTrans(trs, cur);
+    defIntFlight(intFlight, cur);
+    defCkinFlight(ckinFlight, cur);
+    defPaxAdd(paxAddData, cur);
+
+    cur.EXfet();
+    if(cur.err() == NO_DATA_FOUND){
+        return boost::none;
+    }
+    auto point_info = getPointInfo(intFlight.point_id);
+    if(!point_info) {
+        return boost::none;
+    }
+
+    trs.init("CICX", point_info->airline);
+    intFlight.init(intFlight.point_id, "INT");
+    ckinFlight.init(ckinFlight.point_id, "CHK");
+    boost::optional<PaxAddData> pax_add;
+    if(!paxAddData.country_for_data.empty()) {
+        pax_add = paxAddData;
+    }
+
+    return PaxRequest(trs, intFlight, ckinFlight, pax, pax_add);
+}
+
+boost::optional<PaxRequest> PaxRequest::fromDBByPaxId(const int pax_id)
+{
+    LogTrace(TRACE3) << __FUNCTION__ << " by pax_id:" << pax_id;
+    auto cur = make_curs(
+               AppsPaxDataReadQuery + "where PAX_ID = :pax_id");
+    cur.bind(":pax_id",pax_id);
+    return paxRequestFromDb(cur);
+}
+
+boost::optional<PaxRequest> PaxRequest::fromDBByMsgId(const int msg_id)
+{
+    LogTrace(TRACE3) << __FUNCTION__ << " by msg_id:" << msg_id;
+    auto cur = make_curs(
+               AppsPaxDataReadQuery + "where CIRQ_MSG_ID = :msg_id");
+    cur.bind(":msg_id",msg_id);
+    return paxRequestFromDb(cur);
+}
+
+ASTRA::TTrickyGender::Enum getTrickyGender(const std::string &pers_type, ASTRA::TGender::Enum gender)
+{
+    return CheckIn::TSimplePaxItem::getTrickyGender(DecodePerson(pers_type.c_str()), gender);
+}
+
+int getCkinPointId(int grp_id)
+{
+    TCkinRoute tckin_route;
+    bool found = tckin_route.GetRouteBefore(grp_id, crtNotCurrent, crtIgnoreDependent);
+    if(!found || tckin_route.empty()) {
+        return ASTRA::NoExists;
+    }
+    return tckin_route.front().point_dep;
+}
+
+boost::optional<PaxRequest> PaxRequest::createByPaxId(const int pax_id, const std::string& override_type)
+{
+    LogTrace(TRACE5)<<__FUNCTION__<<" pax_id: "<<pax_id;
+    auto cur = make_curs(
+                "select SURNAME, NAME, PAX.GRP_ID, STATUS, POINT_DEP, REFUSE, AIRP_DEP, AIRP_ARV "
+                ", PERS_TYPE, IS_FEMALE, REG_NO "
+                "from PAX_GRP, PAX "
+                "where PAX_ID = :pax_id and PAX_GRP.GRP_ID = PAX.GRP_ID");
+    MetaInfo info = {};
+    std::string status, refuse;
+    int point_dep = 0, reg_no = 0, is_female = 0;
+    const int NullFemale = -1;
+    cur
+        .def(info.surname)
+        .def(info.name)
+        .def(info.grp_id)
+        .def(status)
+        .def(point_dep)
+        .defNull(refuse,"")
+        .def(info.airp_dep)
+        .def(info.airp_arv)
+        .def(info.pers_type)
+        .defNull(is_female, NullFemale)
+        .def(reg_no)
+        .bind(":pax_id", pax_id)
+        .EXfet();
+    if(cur.err() == NO_DATA_FOUND) {
+        return boost::none;
+    }
+    boost::optional<TTripInfo> point_info = getPointInfo(point_dep);
+    if(!point_info) {
+        return boost::none;
+    }
+    ASTRA::TGender::Enum gender =
+            (is_female == NullFemale) ? ASTRA::TGender::Unknown
+                                      : femaleToGender(is_female);
+    return createByFields(PaxRequest::Pax, pax_id, point_dep, info, false, status, !refuse.empty(),
+                          gender, override_type, point_info->airline, reg_no);
+}
+
+boost::optional<PaxRequest> PaxRequest::createByFields(
+        const PaxRequest::RequestType reqType, const int pax_id, const int point_id,
+        const MetaInfo& info, bool pre_checkin, const std::string& status,
+        const bool need_del, ASTRA::TGender::Enum gender, const std::string& override_type,
+        const std::string& airline, int reg_no)
+{
+    PaxData pax;
+    TransactionData trs;
+    FlightData intFlight;
+    FlightData ckinFlight;
+
+    trs.init(need_del ? "CICX":"CIRQ", airline).setPreCheckin(pre_checkin);
+    intFlight.init(point_id, "INT");
+    ckinFlight.init(getCkinPointId(info.grp_id), "CHK");
+    // заполним информацию о пассажире
+    auto tricky_gender = getTrickyGender(info.pers_type, gender);
+    bool isCrew = false;
+    if(reqType==PaxRequest::Pax) {
+        TPaxStatus pax_status = DecodePaxStatus(status.c_str());
+        isCrew = pax_status==psCrew;
+    }
+    TransferFlag trfer_flg;
+    if(reqType==PaxRequest::Pax) {
+        trfer_flg = getPaxTransferFlag(point_id, info.grp_id, info.airp_dep, info.airp_arv, airline);
+    } else {
+        trfer_flg = getCrsTransferFlag(getCrsTransferMap(pax_id), point_id, info.airp_arv, airline);
+    }
+    pax.init(pax_id, info.surname, info.name, isCrew, override_type, reg_no, tricky_gender, trfer_flg);
+    return PaxRequest(trs, intFlight, ckinFlight, pax, reqType==Pax ? PaxAddData::createByPaxId(pax_id)
+                                                                    : PaxAddData::createByCrsPaxId(pax_id));
+}
+
+boost::optional<PaxRequest> PaxRequest::createByCrsPaxId(const int pax_id, const std::string& override_type)
+{
+    ProgTrace(TRACE5, "TPaxRequest::createByCrsPaxId: %d", pax_id);
+    MetaInfo info;
+    int pr_del = 0, point_id = 0;
+    auto cur = make_curs(
+               "select SURNAME, NAME, POINT_ID_SPP, PR_DEL, AIRP_ARV "
+               ", PERS_TYPE "
+               "from CRS_PAX, CRS_PNR, TLG_BINDING "
+               "where PAX_ID = :pax_id and CRS_PAX.PNR_ID = CRS_PNR.PNR_ID and "
+               "      CRS_PNR.POINT_ID = TLG_BINDING.POINT_ID_TLG");
+    cur
+        .def(info.surname)
+        .defNull(info.name,"")
+        .def(point_id)
+        .def(pr_del)
+        .def(info.airp_arv)
+        .def(info.pers_type)
+        .bind(":pax_id", pax_id)
+        .EXfet();
+    if(cur.err() == NO_DATA_FOUND) {
+        return boost::none;
+    }
+    auto point_info = getPointInfo(point_id);
+    if(!point_info) {
+        throw Exception("Not point info");
+    }
+    return createByFields(PaxRequest::Crs, pax_id, point_id, info, true, "", pr_del,
+                          ASTRA::TGender::Unknown, override_type, point_info->airline);
+}
+
+boost::optional<PaxRequest> PaxRequest::createFromDB(RequestType type, const int pax_id,
+                                                     const std::string& override_type)
+{
+    switch (type) {
+    case RequestType::Pax:
+        return PaxRequest::createByPaxId(pax_id, override_type);
+    case RequestType::Crs:
+        return PaxRequest::createByCrsPaxId(pax_id, override_type);
+    default:
+        throw Exception("Invalid RequestType: %d ", static_cast<int>(type));
+    }
+}
+
+TransferFlag getTransferFlagFromTransit(int point_id, const std::string& airp_arv)
+{
+    /* Проверим транзит. В случае транзита через страну-участницу APPS, выставим
      флаг "transfer at destination". Это противоречит тому, что написано в
      спецификации, однако при проведении сертификации SITA потребовала именно
      так обрабатывать транзитные рейсы. */
-  bool transit;
-  checkAPPSSets( point_dep, airp_arv, transit );
+    bool transit;
+    checkAPPSSets(point_id, airp_arv, transit);
+    return transit ? TransferFlag::Dest : TransferFlag::None;
+}
 
-  int transfer = transit?Dest:None;
+TransferFlag getCrsTransferFlag(const map<int, CheckIn::TTransferItem> & trfer, int point_id,
+                                const std::string& airp_arv, const std::string& airl)
+{
+    LogTrace(TRACE5)<<__FUNCTION__<<"point_id: "<<point_id<<" airp_arv: "<<airp_arv;
+    TransferFlag transfer = getTransferFlagFromTransit(point_id, airp_arv);
+    if (!trfer.empty() && !trfer.at(1).airp_arv.empty()) {
+        // сквозная регистрация
+        std::string country_arv = getCountryByAirp(airp_arv).code;
+        if (isAPPSCountry(country_arv, BaseTables::Company(airl)->rcode()) &&
+                (getCountryByAirp(trfer.at(1).airp_arv).code != country_arv))
+        {
+            transfer = TransferFlag::Dest; // исходящий трансфер
+        }
+    }
+    return transfer;
+}
 
-  TCkinRoute tckin_route;
-  int grp_id = Qry.FieldAsInteger("grp_id");
+TransferFlag getPaxTransferFlag(int point_id, int pax_grp_id, const std::string& airp_dep,
+                       const std::string& airp_arv, const std::string& airl)
+{
+    LogTrace(TRACE5) << __FUNCTION__ << "point_id: " << point_id << " pax_grp_id: "
+                     << pax_grp_id << " airp_dep: " << airp_dep << " airp_arv: " <<airp_arv;
+    TransferFlag transfer = getTransferFlagFromTransit(point_id, airp_arv);
+    const std::string airline = BaseTables::Company(airl)->rcode();
+    if(isPointTransferDestination(pax_grp_id, airp_arv, airline)) {
+        transfer = TransferFlag::Dest;
+    }
 
-  // проверим исходящий трансфер
-  TCkinRouteItem next;
-  TCkinRoute().GetNextSeg(grp_id, crtIgnoreDependent, next );
-  if ( !next.airp_arv.empty() )
-  {
-    string country_arv = getCountryByAirp( airp_arv ).code;
-    if ( isAPPSCountry( country_arv, airline.code ) &&
-       ( getCountryByAirp( next.airp_arv ).code != country_arv ) )
-      transfer = Dest;
-  }
-  tckin_route.GetRouteBefore( grp_id, crtNotCurrent, crtIgnoreDependent );
-  if ( !tckin_route.empty() )
-  {
-    ckin_flt.init( tckin_route.front().point_dep, "CHK", version );
-    TCkinRouteItem prior;
-    // проверим входящий трансфер
-    prior = tckin_route.back();
-    if ( !prior.airp_dep.empty() )
+    if(isPointTransferOrigin(pax_grp_id, airp_dep, airline)) {
+        transfer = ((transfer == TransferFlag::Dest) ? TransferFlag::Both : TransferFlag::Origin);
+    }
+    return transfer;
+}
+
+bool isPointTransferDestination(int pax_grp_id, const std::string& airp_arv,
+                                const std::string& airline_code)
+{
+
+    LogTrace(TRACE5) << __FUNCTION__ << " airp_arv: " << airp_arv << " airl_code: "
+                     << airline_code << " pax_grp_id: " << pax_grp_id;
+    TCkinRouteItem next;
+    bool findSeg = TCkinRoute().GetNextSeg(pax_grp_id, crtIgnoreDependent, next);
+    if(!findSeg) {
+        LogTrace(TRACE5) << "Not found next segment";
+        return false;
+    }
+    if (!next.airp_arv.empty())
     {
-      string country_dep = getCountryByAirp(Qry.FieldAsString("airp_dep")).code;
-      if ( isAPPSCountry( country_dep, airline.code ) &&
-         ( getCountryByAirp(prior.airp_dep).code != country_dep ) )
-        transfer = ( ( transfer == Dest ) ? Both : Origin );
+        std::string country_arv = getCountryByAirp(airp_arv).code;
+        if (isAPPSCountry(country_arv, airline_code) &&
+             (getCountryByAirp(next.airp_arv).code != country_arv))
+        {
+            return true;
+        }
     }
-  }
-  // заполним информацию о пассажире
-  string name = (!Qry.FieldIsNULL("name"))?Qry.FieldAsString("name"):"";
-  TPaxStatus pax_status = DecodePaxStatus(Qry.FieldAsString("status"));
-  ASTRA::TTrickyGender::Enum tricky_gender = CheckIn::TSimplePaxItem::getTrickyGender(
-    DecodePerson(Qry.FieldAsString("pers_type")), CheckIn::TSimplePaxItem::genderFromDB(Qry) );
-  pax.init( pax_id, Qry.FieldAsString("surname"), name, (pax_status==psCrew), transfer, override_type,
-    Qry.FieldAsInteger("reg_no"), tricky_gender, version );
-  if(version >= APPS_VERSION_26)
-    pax_add.init(pax_id, version);
-  return true;
-}
-
-bool TPaxRequest::getByCrsPaxId( const int pax_id, const std::string& override_type )
-{
-  ProgTrace(TRACE5, "TPaxRequest::getByCrsPaxId: %d", pax_id);
-  TQuery Qry(&OraSession);
-  Qry.SQLText="SELECT surname, name, point_id_spp, crs_pax.pnr_id, pr_del, airp_arv "
-              ", pers_type "
-              "FROM crs_pax, crs_pnr, tlg_binding "
-              "WHERE pax_id = :pax_id AND crs_pax.pnr_id = crs_pnr.pnr_id AND "
-              "      crs_pnr.point_id = tlg_binding.point_id_tlg";
-  Qry.CreateVariable("pax_id", otInteger, pax_id);
-  Qry.Execute();
-
-  if ( Qry.Eof )
-    throw AppsPaxNotFoundException();
-
-  int point_id = Qry.FieldAsInteger("point_id_spp");
-  string airp_arv = Qry.FieldAsString("airp_arv");
-  TTripInfo info;
-  if (not info.getByPointId( point_id ))
-    throw Exception("getByPointId returned false, point_id=%d, pax_id=%d (getByCrsPaxId)", point_id, pax_id);
-
-  const TAirlinesRow &airline = (const TAirlinesRow&)base_tables.get("airlines").get_row("code", info.airline);
-  if (airline.code_lat.empty())
-    throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
-  version = GetVersion(airline.code, getCountryByAirp( airp_arv ).code);
-  trans.init( true, Qry.FieldAsInteger("pr_del")?"CICX":"CIRQ", airline, version );
-  int_flt.init( point_id, "INT", version );
-
-  map<int, CheckIn::TTransferItem> trfer;
-  CheckInInterface::GetOnwardCrsTransfer(Qry.FieldAsInteger("pnr_id"), true, info, airp_arv, trfer);
-
-  /* Проверим транзит. В случае транзита через страну-участницу APPS, выставим
-     флаг "transfer at destination". Это противоречит тому, что написано в
-     спецификации, однако при проведении сертификации SITA потребовала именно
-     так обрабатывать транзитные рейсы. */
-  bool transit;
-  checkAPPSSets( point_id, airp_arv, transit );
-
-  int transfer = transit?Dest:None;
-
-  if ( !trfer.empty() && !trfer[1].airp_arv.empty() )
-  {
-    // сквозная регистрация
-    string country_arv = getCountryByAirp(airp_arv).code;
-    if ( isAPPSCountry( country_arv, airline.code ) &&
-       ( getCountryByAirp( trfer[1].airp_arv ).code != country_arv ) )
-      transfer = Dest; // исходящий трансфер
-  }
-  // заполним информацию о пассажире
-  string name = (!Qry.FieldIsNULL("name"))?Qry.FieldAsString("name"):"";
-  ASTRA::TTrickyGender::Enum tricky_gender = CheckIn::TSimplePaxItem::getTrickyGender(
-    DecodePerson(Qry.FieldAsString("pers_type")), TGender::Unknown );
-  pax.init( pax_id, Qry.FieldAsString("surname"), name, false, transfer, override_type,
-    ASTRA::NoExists, tricky_gender, version );
-  if(version >= APPS_VERSION_26)
-    pax_add.init(pax_id, version);
-  return true;
-}
-
-bool TPaxRequest::fromDBByPaxId( const int pax_id )
-{
-  ProgTrace(TRACE5, "TPaxRequest::fromDBByPaxId: %d", pax_id);
-  // попытаемся найти пассажира среди отправленных
-  TQuery Qry( &OraSession );
-  Qry.SQLText = "SELECT * FROM "
-                "(SELECT pax_id, apps_pax_id, status, pax_crew, "
-                "        nationality, issuing_state, passport, check_char, doc_type, doc_subtype, expiry_date, "
-                "        sup_check_char, sup_doc_type, sup_passport, family_name, given_names, "
-                "        date_of_birth, sex, birth_country, is_endorsee, transfer_at_orgn, "
-                "        transfer_at_dest, pnr_source, pnr_locator, send_time, pre_ckin, "
-                "        flt_num, dep_port, dep_date, arv_port, arv_date, ckin_flt_num, ckin_port, "
-                "        point_id, ckin_point_id, pass_ref, version, "
-                " country_for_data, doco_type, doco_no, country_issuance, doco_expiry_date, "
-                " num_street, city, state, postal_code, redress_number, traveller_number "
-                "FROM apps_pax_data "
-                "WHERE pax_id = :pax_id "
-                "ORDER BY send_time DESC) "
-                "WHERE rownum = 1"; // TODO
-  Qry.CreateVariable( "pax_id", otInteger, pax_id );
-  Qry.Execute();
-
-  if(Qry.Eof)
     return false;
-
-  int point_id = Qry.FieldAsInteger("point_id");
-  version = Qry.FieldIsNULL("version")? APPS_VERSION_21: Qry.FieldAsInteger("version");
-  TTripInfo info;
-  if (not info.getByPointId( point_id ))
-  {
-    ProgTrace(TRACE5, "getByPointId returned false, point_id=%d, pax_id=%d", point_id, pax_id);
-    return false; // или удалить пакса?
-  }
-  const TAirlinesRow &airline = (const TAirlinesRow&)base_tables.get("airlines").get_row("code", info.airline);
-  if ( airline.code_lat.empty() )
-    throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
-  trans.init( Qry.FieldAsInteger("pre_ckin"), "CICX", airline, version );
-  int_flt.init( point_id, "INT", Qry.FieldAsString("flt_num"), Qry.FieldAsString("dep_port"),
-                Qry.FieldAsString("arv_port"), Qry.FieldAsDateTime("dep_date"), Qry.FieldAsDateTime("arv_date"), version );
-  if ( !Qry.FieldIsNULL("ckin_point_id") )
-    ckin_flt.init( Qry.FieldAsInteger("ckin_point_id"), "CHK", Qry.FieldAsString("ckin_flt_num"),
-                   Qry.FieldAsString("ckin_port"), "", ASTRA::NoExists, ASTRA::NoExists, version );
-  pax.init( Qry, version );
-  if(version >= APPS_VERSION_26)
-    pax_add.init(Qry, version);
-  return true;
 }
 
-bool TPaxRequest::fromDBByMsgId( const int msg_id )
+bool isPointTransferOrigin(int pax_grp_id, const std::string& airp_dep,
+                           const std::string& airline_code)
 {
-  ProgTrace(TRACE5, "TPaxRequest::fromDBByMsgId: %d", msg_id);
-  // попытаемся найти пассажира среди отправленных
-  TQuery Qry( &OraSession );
-  Qry.SQLText = "SELECT pax_id, apps_pax_id, status, pax_crew, "
-                "       nationality, issuing_state, passport, check_char, doc_type, doc_subtype, expiry_date, "
-                "       sup_check_char, sup_doc_type, sup_passport, family_name, given_names, "
-                "       date_of_birth, sex, birth_country, is_endorsee, transfer_at_orgn, "
-                "       transfer_at_dest, pnr_source, pnr_locator, send_time, pre_ckin, "
-                "       flt_num, dep_port, dep_date, arv_port, arv_date, ckin_flt_num, ckin_port, "
-                "       point_id, ckin_point_id, pass_ref, version, "
-                " country_for_data, doco_type, doco_no, country_issuance, doco_expiry_date, "
-                " num_street, city, state, postal_code, redress_number, traveller_number "
-                "FROM apps_pax_data "
-                "WHERE cirq_msg_id = :msg_id";
-
-  Qry.CreateVariable( "msg_id", otInteger, msg_id );
-  Qry.Execute();
-
-  if(Qry.Eof)
-    return false;
-
-  int point_id = Qry.FieldAsInteger("point_id");
-  version = Qry.FieldIsNULL("version")? APPS_VERSION_21: Qry.FieldAsInteger("version");
-  TTripInfo info;
-  if (not info.getByPointId( point_id ))
-  {
-    ProgTrace(TRACE5, "getByPointId returned false, point_id=%d, msg_id=%d", point_id, msg_id);
-    return false;
-  }
-  const TAirlinesRow &airline = (const TAirlinesRow&)base_tables.get("airlines").get_row("code", info.airline);
-  if (airline.code_lat.empty())
-    throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
-  trans.init( Qry.FieldAsInteger("pre_ckin"), "CICX", airline, version );
-  int_flt.init( point_id, "INT", Qry.FieldAsString("flt_num"), Qry.FieldAsString("dep_port"),
-                Qry.FieldAsString("arv_port"), Qry.FieldAsDateTime("dep_date"), Qry.FieldAsDateTime("arv_date"), version );
-  if ( !Qry.FieldIsNULL("ckin_point_id") )
-    ckin_flt.init( Qry.FieldAsInteger("ckin_point_id"), "CHK", Qry.FieldAsString("ckin_flt_num"),
-                   Qry.FieldAsString("ckin_port"), "", ASTRA::NoExists, ASTRA::NoExists, version );
-  pax.init( Qry, version );
-  if(version >= APPS_VERSION_26)
-    pax_add.init(Qry, version);
-  return true;
-}
-
-std::string TPaxRequest::msg() const
-{
-  std::ostringstream msg;
-  msg << trans.msg() << "/";
-  if ( trans.code == "CIRQ" && ckin_flt.point_id != ASTRA::NoExists )
-  {
-    msg << ckin_flt.msg() << "/";
-  }
-  msg << int_flt.msg() << "/";
-  msg << pax.msg() << "/";
-  if ( trans.code == "CIRQ" && version >= APPS_VERSION_26 && !pax_add.country_for_data.empty() )
-  {
-    msg << pax_add.msg() << "/";
-  }
-  return string(trans.header + "\x02" + msg.str() + "\x03");
-}
-
-void TPaxRequest::saveData() const
-{
-  TQuery Qry(&OraSession);
-
-  if( trans.code == "CICX" )
-  {
-    Qry.SQLText = "UPDATE apps_pax_data SET cicx_msg_id = :cicx_msg_id "
-                  "WHERE apps_pax_id = :apps_pax_id";
-    Qry.CreateVariable("cicx_msg_id", otInteger, trans.msg_id);
-    Qry.CreateVariable("apps_pax_id", otString, pax.apps_pax_id);
-    Qry.Execute();
-
-    return;
-  }
-
-  Qry.SQLText = "INSERT INTO apps_pax_data (pax_id, cirq_msg_id, pax_crew, nationality, issuing_state, "
-                "                       passport, check_char, doc_type, doc_subtype, expiry_date, sup_check_char, "
-                "                       sup_doc_type, sup_passport, family_name, given_names, "
-                "                       date_of_birth, sex, birth_country, is_endorsee, transfer_at_orgn, "
-                "                       transfer_at_dest, pnr_source, pnr_locator, send_time, pre_ckin, "
-                "                       flt_num, dep_port, dep_date, arv_port, arv_date, ckin_flt_num, ckin_port, "
-                "                       point_id, ckin_point_id, pass_ref, version, "
-                "     country_for_data, doco_type, doco_no, country_issuance, doco_expiry_date, "
-                "     num_street, city, state, postal_code, redress_number, traveller_number ) "
-                "VALUES (:pax_id, :cirq_msg_id, :pax_crew, :nationality, :issuing_state, :passport, "
-                "        :check_char, :doc_type, :doc_subtype, :expiry_date, :sup_check_char, :sup_doc_type, :sup_passport, "
-                "        :family_name, :given_names, :date_of_birth, :sex, :birth_country, :is_endorsee, "
-                "        :transfer_at_orgn, :transfer_at_dest, :pnr_source, :pnr_locator, :send_time, :pre_ckin, "
-                "        :flt_num, :dep_port, :dep_date, :arv_port, :arv_date, :ckin_flt_num, :ckin_port, "
-                "        :point_id, :ckin_point_id, :pass_ref, :version, "
-                "     :country_for_data, :doco_type, :doco_no, :country_issuance, :doco_expiry_date, "
-                "     :num_street, :city, :state, :postal_code, :redress_number, :traveller_number )";
-
-  Qry.CreateVariable("cirq_msg_id", otInteger, trans.msg_id);
-  Qry.CreateVariable("pax_id", otInteger, pax.pax_id);
-  Qry.CreateVariable("pax_crew", otString, pax.pax_crew);
-  Qry.CreateVariable("nationality", otString, pax.nationality);
-  Qry.CreateVariable("issuing_state", otString, pax.issuing_state);
-  Qry.CreateVariable("passport", otString, pax.passport);
-  Qry.CreateVariable("check_char", otString, pax.check_char);
-  Qry.CreateVariable("doc_type", otString, pax.doc_type);
-  Qry.CreateVariable("doc_subtype", otString, pax.doc_subtype);
-  Qry.CreateVariable("expiry_date", otString, pax.expiry_date);
-  Qry.CreateVariable("sup_check_char", otString, pax.sup_check_char);
-  Qry.CreateVariable("sup_doc_type", otString, pax.sup_doc_type);
-  Qry.CreateVariable("sup_passport", otString, pax.sup_passport);
-  Qry.CreateVariable("family_name", otString, pax.family_name);
-  Qry.CreateVariable("given_names", otString, pax.given_names);
-  Qry.CreateVariable("date_of_birth", otString, pax.birth_date);
-  Qry.CreateVariable("sex", otString, pax.sex);
-  Qry.CreateVariable("birth_country", otString, pax.birth_country);
-  Qry.CreateVariable("is_endorsee", otString, pax.endorsee);
-  Qry.CreateVariable("transfer_at_orgn", otString, pax.trfer_at_origin);
-  Qry.CreateVariable("transfer_at_dest", otString, pax.trfer_at_dest);
-  Qry.CreateVariable("pnr_source", otString, pax.pnr_source);
-  Qry.CreateVariable("pnr_locator", otString, pax.pnr_locator);
-  Qry.CreateVariable("send_time", otDate, NowUTC());
-  Qry.CreateVariable("pre_ckin", otInteger, trans.type);
-  Qry.CreateVariable("flt_num", otString, int_flt.flt_num);
-  Qry.CreateVariable("dep_port", otString, int_flt.port);
-  Qry.CreateVariable("dep_date", otDate, int_flt.date);
-  Qry.CreateVariable("arv_port", otString, int_flt.arv_port);
-  Qry.CreateVariable("arv_date", otDate, int_flt.arv_date);
-  Qry.CreateVariable("ckin_flt_num", otString, ckin_flt.flt_num);
-  Qry.CreateVariable("ckin_port", otString, ckin_flt.port);
-  Qry.CreateVariable("point_id", otInteger, int_flt.point_id);
-  if( ckin_flt.point_id != ASTRA::NoExists )
-    Qry.CreateVariable("ckin_point_id", otInteger, ckin_flt.point_id);
-  else
-    Qry.CreateVariable("ckin_point_id", otInteger, FNull);
-  Qry.CreateVariable("pass_ref", otString, pax.reference);
-  Qry.CreateVariable("version", otInteger, version);
-  Qry.CreateVariable("country_for_data", otString, pax_add.country_for_data);
-  Qry.CreateVariable("doco_type", otString, pax_add.doco_type);
-  Qry.CreateVariable("doco_no", otString, pax_add.doco_no);
-  Qry.CreateVariable("country_issuance", otString, pax_add.country_issuance);
-  Qry.CreateVariable("doco_expiry_date", otString, pax_add.doco_expiry_date);
-  Qry.CreateVariable("num_street", otString, pax_add.num_street);
-  Qry.CreateVariable("city", otString, pax_add.city);
-  Qry.CreateVariable("state", otString, pax_add.state);
-  Qry.CreateVariable("postal_code", otString, pax_add.postal_code);
-  Qry.CreateVariable("redress_number", otString, pax_add.redress_number);
-  Qry.CreateVariable("traveller_number", otString, pax_add.traveller_number);
-  Qry.Execute();
-}
-
-APPSAction TPaxRequest::typeOfAction( const bool is_exists, const std::string& status,
-                                      const bool is_the_same, const bool is_forced) const
-{
-  bool is_cancel = (trans.code == "CICX");
-
-  if( !is_exists ) {
-    if ( is_cancel ) {
-      deleteAPPSAlarms( pax.pax_id,  int_flt.point_id );
-      return NoAction;
+    TCkinRouteItem prev;
+    TCkinRoute().GetPriorSeg(pax_grp_id, crtIgnoreDependent, prev);
+    if (!prev.airp_dep.empty()) {
+        std::string country_dep = getCountryByAirp(airp_dep).code;
+        if (isAPPSCountry(country_dep, airline_code) &&
+             (getCountryByAirp(prev.airp_dep).code != country_dep))
+        {
+            return true;
+        }
     }
-    return NeedNew;
-  }
-
-  if ( !status.empty() && is_cancel ) {
-    deleteAPPSAlarms( pax.pax_id, int_flt.point_id );
-    if ( status != "B" ) {
-      deleteAPPSData( pax.pax_id );
-      return NoAction;
-    }
-    else
-      return NeedCancel;
-  }
-
-  if ( !status.empty() && !is_the_same ) {
-    if(status == "P")
-      return NeedNew;
-    else if( status == "X" )
-      return NoAction;
-    else if( status == "B" )
-      return NeedUpdate;
-    else
-      throw Exception("Unknown status");
-  }
-  else if ( !status.empty() && is_the_same ) {
-    if ( status == "P" && is_forced )
-      return NeedNew;
-    else
-      return NoAction;
-  }
-  else if ( status.empty() && is_the_same ) {
-    return NoAction;
-  }
-  else {
-    // рассинхронизация
-    addAPPSAlarm(pax.pax_id, {Alarm::APPSConflict}, int_flt.point_id);
-    return NoAction;
-  }
-}
-
-void TPaxRequest::sendReq() const
-{
-  saveData();
-  sendNewReq( msg(), trans.msg_id, int_flt.point_id, version );
-}
-
-void TMftData::check_data() const
-{
-  if (country.empty())
-    throw Exception("Empty country");
-  if (mft_pax != "C")
-    throw Exception("Incorrect mft_pax");
-  if (mft_crew != "C")
-    throw Exception("Incorrect mft_crew");
-}
-
-std::string TMftData::msg() const
-{
-  check_data();
-  std::ostringstream msg;
-  /* 1 */ msg << "MRQ" << '/';
-  /* 2 */ msg << FieldCount("MRQ", version) << '/';
-  /* 3 */ msg << country << '/';
-  /* 4 */ msg << mft_pax << '/';
-  /* 5 */ msg << mft_crew;
-  return msg.str();
-}
-
-bool TManifestRequest::init( const int point_id, const std::string& country_lat, const std::string& country_code )
-{
-  ProgTrace(TRACE5, "TManifestRequest::init: %d", point_id);
-  TTripInfo info;
-  if (not info.getByPointId( point_id ))
-  {
-    ProgTrace(TRACE5, "getByPointId returned false, point_id=%d", point_id);
     return false;
-  }
-  const TAirlinesRow &airline = (const TAirlinesRow&)base_tables.get("airlines").get_row("code", info.airline);
-  if (airline.code_lat.empty())
-    throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
-  version = GetVersion(airline.code, country_code);
-  trans.init( false, "CIMR", airline, version );
-  int_flt.init( point_id, "INM", version );
-  mft_req.init( country_lat, version );
-  return true;
 }
 
-std::string TManifestRequest::msg() const
+std::map<int, CheckIn::TTransferItem> getCrsTransferMap(const int pax_id)
 {
-  string msg  = trans.msg() + "/"
-              + int_flt.msg() + "/"
-              + mft_req.msg() + "/";
-  return string(trans.header + "\x02" + msg + "\x03");
-}
-
-void TManifestRequest::sendReq() const
-{
-  sendNewReq( msg(), trans.msg_id, int_flt.point_id, version );
-}
-
-// APPS ANSWER ---------------------------------------------------------
-
-static int getInt( const std::string& val )
-{
-  if ( val.empty() ) return ASTRA::NoExists;
-  return ToInt( val );
-}
-
-void TAnsPaxData::init( std::string source, int ver )
-{
-  version = ver;
-  /* PRS PCC */
-  vector<string> tmp;
-  boost::split( tmp, source, boost::is_any_of( "/" ) );
-
-  string grp_id = tmp[0]; /* 1 */
-  if ( grp_id != "PRS" && grp_id != "PCC" )
-    throw Exception( "Incorrect grp_id: %s", grp_id.c_str() );
-
-  int field_count = getInt(tmp[1]); /* 2 */
-  if ( ( grp_id == "PRS" && field_count != FieldCount("PRS", version) ) ||
-       ( grp_id == "PCC" && field_count != FieldCount("PCC", version) ) )
-    throw Exception( "Incorrect field_count: %d", field_count );
-
-  int seq_num = getInt(tmp[2]); /* 3 */
-  if( seq_num != pax_seq_num ) // Passenger Sequence Number
-    throw Exception( "Incorrect seq_num: %d", seq_num );
-
-  country = tmp[3]; /* 4 */
-
-  if ( grp_id == "PRS" )
-  {
-    /* PRS */
-    int i = 22; // начальная позиция итератора (поле 23)
-    if (version < APPS_VERSION_27) --i;
-    if (version < APPS_VERSION_26) --i;
-    code = getInt(tmp[i++]);         /* 23 */
-    status = *(tmp[i++].begin());    /* 24 */
-    apps_pax_id = tmp[i++];          /* 25 */
-    error_code1 = getInt(tmp[i++]);  /* 26 */
-    error_text1 = tmp[i++];          /* 27 */
-    error_code2 = getInt(tmp[i++]);  /* 28 */
-    error_text2 = tmp[i++];          /* 29 */
-    error_code3 = getInt(tmp[i++]);  /* 30 */
-    error_text3 = tmp[i];            /* 31 */
-  }
-  else
-  {
-    /* PCC */
-    int i = 20; // начальная позиция итератора (поле 21)
-    if (tmp.size() == 29) ++i; // workaround for incorrect data (excess field)
-    code = getInt(tmp[i++]);         /* 21 */
-    status = *(tmp[i++].begin());    /* 22 */
-    error_code1 = getInt(tmp[i++]);  /* 23 */
-    error_text1 = tmp[i++];          /* 24 */
-    error_code2 = getInt(tmp[i++]);  /* 25 */
-    error_text2 = tmp[i++];          /* 26 */
-    error_code3 = getInt(tmp[i++]);  /* 27 */
-    error_text3 = tmp[i];            /* 28 */
-  }
-}
-
-std::string TAnsPaxData::toString() const
-{
-  std::ostringstream res;
-  res << "country: " << country << std::endl << "code: " << code
-      << std::endl << "status: " << status << std::endl;
-  if(!apps_pax_id.empty()) res << "apps_pax_id: " << apps_pax_id << std::endl;
-  if(error_code1 != ASTRA::NoExists) res << "error_code1: " << error_code1 << std::endl;
-  if(!error_text1.empty()) res << "error_text1: " << error_text1 << std::endl;
-  if(error_code2 != ASTRA::NoExists) res << "error_code2: " << error_code2 << std::endl;
-  if(!error_text2.empty()) res << "error_text2: " << error_text2 << std::endl;
-  if(error_code3 != ASTRA::NoExists) res << "error_code3: " << error_code3 << std::endl;
-  if(!error_text3.empty()) res << "error_text3: " << error_text3 << std::endl;
-  return res.str();
-}
-
-void TAPPSAns::getLogParams( LEvntPrms& params, const std::string& country, const int status_code,
-                const int error_code, const std::string& error_text ) const
-{
-  params << PrmLexema( "req_type", "MSG.APPS_" + code );
-
-  if ( !country.empty() ) {
-    TElemFmt fmt;
-    string apps_country = ElemToElemId(etCountry,country,fmt);
-    if ( fmt == efmtUnknown )
-      throw EConvertError("Unknown format");
-    PrmLexema lexema("country", "MSG.APPS_COUNTRY");
-    lexema.prms << PrmElem<string>("country", etCountry, apps_country);
-    params << lexema;
-  }
-  else
-    params << PrmSmpl<string>("country", "");
-
-  if ( status_code != ASTRA::NoExists ) {
-    // нужно как-то различать Timeout и Error condition. Для обоих status_code 0000
-    if ( status_code == 0 )
-      params << PrmLexema( "result", ( error_code != ASTRA::NoExists )?"MSG.APPS_STATUS_1111":"MSG.APPS_STATUS_2222" );
-    else
-      params << PrmLexema( "result", "MSG.APPS_STATUS_" + IntToString(status_code) );
-  }
-  else
-    params << PrmSmpl<string>( "result", "" );
-
-  if ( error_code != ASTRA::NoExists ) {
-    string id = string( "MSG.APPS_" ) + IntToString(error_code);
-    if ( AstraLocale::getLocaleText( id, AstraLocale::LANG_RU ) != id &&
-         AstraLocale::getLocaleText( id, AstraLocale::LANG_EN ) != id ) {
-      params << PrmLexema( "error", id );
+    LogTrace(TRACE5) << __FUNCTION__ << " pax_id: " << pax_id;
+    int pnr_id = 0, point_id = 0;
+    std::string airp_arv;
+    auto cur = make_curs(
+               "select POINT_ID_SPP, CRS_PAX.PNR_ID, AIRP_ARV "
+               ", PERS_TYPE "
+               "from CRS_PAX, CRS_PNR, TLG_BINDING "
+               "where PAX_ID = :pax_id and CRS_PAX.PNR_ID = CRS_PNR.PNR_ID and "
+               "      CRS_PNR.POINT_ID = TLG_BINDING.POINT_ID_TLG");
+    cur
+        .def(point_id)
+        .def(pnr_id)
+        .def(airp_arv)
+        .bind(":pax_id", pax_id)
+        .EXfet();
+    if(cur.err() == NO_DATA_FOUND) {
+        return {};
     }
-    else
-      params << PrmSmpl<string>( "error", error_text );
-  }
-  else
-    params << PrmSmpl<string>( "error", "" );
+    map<int, CheckIn::TTransferItem> trfer;
+    CheckInInterface::GetOnwardCrsTransfer(pnr_id, true, *getPointInfo(point_id), airp_arv, trfer);
+    return trfer;
 }
 
-bool TAPPSAns::init( const std::string& trans_type, const std::string& source )
+std::vector<std::string> statusesFromDb(const int pax_id)
 {
-  vector<string> tmp;
-  boost::split( tmp, source, boost::is_any_of( "/" ) );
-  vector<string>::const_iterator it = tmp.begin();
-  code = trans_type;
-  msg_id = getInt( *(it++) );
+    std::vector<std::string> res;
+    auto cur = make_curs(
+               "select STATUS from APPS_PAX_DATA "
+               "where PAX_ID = :pax_id");
+    std::string status;
+    cur
+        .defNull(status,"").bind(":pax_id",pax_id).exec();
 
-  TQuery Qry(&OraSession);
-  Qry.SQLText="SELECT send_attempts, msg_text, point_id, version "
-              "FROM apps_messages "
-              "WHERE msg_id = :msg_id";
-  Qry.CreateVariable("msg_id", otInteger, msg_id);
-  Qry.Execute();
+    while(!cur.fen()) {
+        res.emplace_back(status);
+    }
+    return res;
+}
 
-  if(Qry.Eof)
-    return false;
+bool PaxRequest::operator==(const PaxRequest &c) const
+{
+    return  trans == c.trans       &&
+            ckin_flt == c.ckin_flt &&
+            int_flt == c.int_flt   &&
+            pax == c.pax;
+}
 
-  point_id = Qry.FieldAsInteger("point_id");
-  msg_text = Qry.FieldAsString("msg_text");
-  send_attempts = Qry.FieldAsInteger("send_attempts");
-  version = Qry.FieldIsNULL("version")? APPS_VERSION_21: Qry.FieldAsInteger("version");
+std::string PaxRequest::msg(int version) const
+{
+    std::ostringstream msg;
+    msg << trans.msg(version) << "/";
+    if (trans.code == "CIRQ" && ckin_flt.point_id != ASTRA::NoExists) {
+        msg << ckin_flt.msg(version) << "/";
+    }
+    msg << int_flt.msg(version) << "/";
+    msg << pax.msg(version) << "/";
+    if(version >= APPS_VERSION_26 && trans.code == "CIRQ" && pax_add) {
+        msg << pax_add->msg(version) << "/";
+    }
+    return std::string(trans.header + "\x02" + msg.str() + "\x03");
+}
 
-  if( *(it++) == "ERR" )
-  {
-    size_t fld_count = getInt( *(it++) );
-    if ( fld_count != ( tmp.size() - 3) )
-      throw Exception( "Incorrect fld_count: %d", fld_count );
-    while(it < tmp.end())
+void updateAppsCicxMsgId(int msg_id, const std::string& apps_pax_id)
+{
+    auto cur = make_curs(
+               "update APPS_PAX_DATA set CICX_MSG_ID = :cicx_msg_id "
+               "where APPS_PAX_ID = :apps_pax_id");
+    cur
+        .bind(":cicx_msg_id",msg_id)
+        .bind(":apps_pax_id",apps_pax_id)
+        .exec();
+}
+
+void PaxRequest::savePaxRequest(int version) const
+{
+    if(trans.code == "CICX") {
+        updateAppsCicxMsgId(trans.msg_id, pax.apps_pax_id);
+        return;
+    }
+    short null = -1, nnull = 0;
+    auto cur = make_curs(
+               "INSERT INTO apps_pax_data "
+               "(pax_id, cirq_msg_id, pax_crew, nationality, issuing_state, "
+               " passport, check_char, doc_type, doc_subtype, expiry_date, sup_check_char, "
+               " sup_doc_type, sup_passport, family_name, given_names, "
+               " date_of_birth, sex, birth_country, is_endorsee, transfer_at_orgn, "
+               " transfer_at_dest, pnr_source, pnr_locator, send_time, pre_ckin, "
+               " flt_num, dep_port, dep_date, arv_port, arv_date, ckin_flt_num, ckin_port, "
+               " point_id, ckin_point_id, pass_ref, version, "
+               " country_for_data, doco_type, doco_no, country_issuance, doco_expiry_date, "
+               " num_street, city, state, postal_code, redress_number, traveller_number) "
+               "VALUES (:pax_id, :cirq_msg_id, :pax_crew, :nationality, :issuing_state, :passport, "
+               "        :check_char, :doc_type, :doc_subtype, :expiry_date, :sup_check_char, :sup_doc_type, :sup_passport, "
+               "        :family_name, :given_names, :date_of_birth, :sex, :birth_country, :is_endorsee, "
+               "        :transfer_at_orgn, :transfer_at_dest, :pnr_source, :pnr_locator, :send_time, :pre_ckin, "
+               "        :flt_num, :dep_port, :dep_date, :arv_port, :arv_date, :ckin_flt_num, :ckin_port, "
+               "        :point_id, :ckin_point_id, :pass_ref, :version, "
+               "        :country_for_data, :doco_type, :doco_no, :country_issuance, :doco_expiry_date, "
+               "        :num_street, :city, :state, :postal_code, :redress_number, :traveller_number)");
+    cur
+        .bind(":cirq_msg_id",      trans.msg_id)
+        .bind(":pax_id",           pax.pax_id)
+        .bind(":pax_crew",         pax.pax_crew)
+        .bind(":nationality",      pax.nationality)
+        .bind(":issuing_state",    pax.issuing_state)
+        .bind(":passport",         pax.passport)
+        .bind(":check_char",       pax.check_char)
+        .bind(":doc_type",         pax.doc_type)
+        .bind(":doc_subtype",      pax.doc_subtype)
+        .bind(":expiry_date",      pax.expiry_date)
+        .bind(":sup_check_char",   pax.sup_check_char)
+        .bind(":sup_doc_type",     pax.sup_doc_type)
+        .bind(":sup_passport",     pax.sup_passport)
+        .bind(":family_name",      pax.family_name)
+        .bind(":given_names",      pax.given_names)
+        .bind(":date_of_birth",    pax.birth_date)
+        .bind(":sex",              pax.sex)
+        .bind(":birth_country",    pax.birth_country)
+        .bind(":is_endorsee",      pax.endorsee)
+        .bind(":transfer_at_orgn", pax.trfer_at_origin)
+        .bind(":transfer_at_dest", pax.trfer_at_dest)
+        .bind(":pnr_source",       pax.pnr_source)
+        .bind(":pnr_locator",      pax.pnr_locator)
+        .bind(":send_time",        Dates::second_clock::universal_time())
+        .bind(":pre_ckin",         trans.type)
+        .bind(":flt_num",          int_flt.flt_num)
+        .bind(":dep_port",         int_flt.dep_port)
+        .bind(":dep_date"    ,     int_flt.dep_date)
+        .bind(":arv_port"    ,     int_flt.arv_port)
+        .bind(":arv_date"    ,     int_flt.arv_date)
+        .bind(":ckin_flt_num",     ckin_flt.flt_num)
+        .bind(":ckin_port"   ,     ckin_flt.dep_port)
+        .bind(":point_id"    ,     int_flt.point_id)
+        .bind(":ckin_point_id",    ckin_flt.point_id, ckin_flt.point_id != ASTRA::NoExists ? &nnull : &null)
+        .bind(":pass_ref",         pax.reference)
+        .bind(":version",          version)
+        .bind(":country_for_data", pax_add ? pax_add->country_for_data : "")
+        .bind(":doco_type",        pax_add ? pax_add->doco_type : "")
+        .bind(":doco_no",          pax_add ? pax_add->doco_no : "")
+        .bind(":country_issuance", pax_add ? pax_add->country_issuance : "")
+        .bind(":doco_expiry_date", pax_add ? pax_add->doco_expiry_date : "")
+        .bind(":num_street",       pax_add ? pax_add->num_street : "")
+        .bind(":city",             pax_add ? pax_add->city : "")
+        .bind(":state",            pax_add ? pax_add->state : "")
+        .bind(":postal_code",      pax_add ? pax_add->postal_code : "")
+        .bind(":redress_number",   pax_add ? pax_add->redress_number : "")
+        .bind(":traveller_number", pax_add ? pax_add->traveller_number : "")
+        .exec();
+}
+
+void ManifestData::validateData() const
+{
+    if (country.empty()) {
+        throw Exception("Empty country");
+    }
+    if (mft_pax != "C") {
+        throw Exception("Incorrect mft_pax");
+    }
+    if (mft_crew != "C") {
+        throw Exception("Incorrect mft_crew");
+    }
+}
+
+std::string ManifestData::msg(int version) const
+{
+    validateData();
+    std::ostringstream msg;
+    /* 1 */ msg << "MRQ" << '/';
+    /* 2 */ msg << fieldCount("MRQ", version) << '/';
+    /* 3 */ msg << country << '/';
+    /* 4 */ msg << mft_pax << '/';
+    /* 5 */ msg << mft_crew;
+    return msg.str();
+}
+
+bool ManifestRequest::init(const int point_id, const std::string& country_lat)
+{  
+    boost::optional<TTripInfo> point_info = getPointInfo(point_id);
+    if(!point_info) {
+        return false;
+    }
+    trans.init("CIMR", point_info->airline).setPreCheckin(false);
+    int_flt.init(point_id, "INM");
+    mft_req.init(country_lat);
+    return true;
+}
+
+std::string ManifestRequest::msg(int version) const
+{
+    std::string msg  = trans.msg(version)   + "/"
+                     + int_flt.msg(version) + "/"
+                     + mft_req.msg(version) + "/";
+    return std::string(trans.header + "\x02" + msg + "\x03");
+}
+
+void ManifestRequest::sendReqAndSave(const AppsSettings &settings) const
+{
+    sendNewReq(msg(settings.version()), settings.getRouter());
+    saveAppsMsg(msg(settings.version()), trans.msg_id, int_flt.point_id, settings.version());
+}
+
+static int getInt(const std::string& val)
+{
+    if (val.empty()) {
+        return ASTRA::NoExists;
+    }
+    return ToInt(val);
+}
+
+void AnsPaxData::init(std::string source, int ver)
+{
+    version = ver;
+    /* PRS PCC */
+    std::vector<std::string> tmp;
+    boost::split(tmp, source, boost::is_any_of("/"));
+
+    std::string grp_id = tmp[0]; /* 1 */
+    if (grp_id != "PRS" && grp_id != "PCC") {
+        throw Exception("Incorrect grp_id: %s", grp_id.c_str());
+    }
+
+    int field_count = getInt(tmp[1]); /* 2 */
+    if ((grp_id == "PRS" && field_count != fieldCount("PRS", version)) ||
+         (grp_id == "PCC" && field_count != fieldCount("PCC", version)))
     {
-      TError error;
-      error.country = *(it++);
-      error.error_code = getInt(*(it++));
-      error.error_text = *(it++);
-      errors.push_back(error);
-    }
-  }
-  return true;
-}
-
-std::string TAPPSAns::toString() const
-{
-  std::ostringstream res;
-  res << "code: " << code << std::endl << "msg_id: " << msg_id << std::endl
-      << "point_id: " << point_id << std::endl << "msg_text: " << msg_text << std::endl
-      << "send_attempts: " << send_attempts << std::endl;
-  for ( vector<TError>::const_iterator it = errors.begin(); it < errors.end(); it++ ) {
-    res << "country: " << it->country << std::endl << "error_code: " << it->error_code << std::endl
-        << "error_text: " << it->error_text << std::endl;
-  }
-  return res.str();
-}
-
-void TAPPSAns::beforeProcessAnswer() const
-{
-  TFlights flightsForLock;
-  flightsForLock.Get( point_id, ftTranzit );
-  flightsForLock.Lock(__FUNCTION__);
-
-  // выключим тревогу "Нет связи с APPS"
-  set_alarm( point_id, Alarm::APPSOutage, false );
-}
-
-bool TAPPSAns::CheckIfNeedResend() const
-{
-  bool need_resend = false;
-  for(std::vector<TError>::const_iterator it = errors.begin(); it < errors.end(); it ++) {
-    if ( it->error_code == 6102 || it->error_code == 6900 || it->error_code == 6979 || it->error_code == 5057) {
-      // ... Try again later
-      need_resend = true;
-    }
-  }
-  // Если нужно отправить повторно, не удаляем сообщение из apps_messages, чтобы resend_tlg его нашел
-  if ( !need_resend )
-    deleteMsg( msg_id );
-  return need_resend;
-}
-
-bool TPaxReqAnswer::init( const std::string& code, const std::string& source )
-{
-  if( !TAPPSAns::init( code, source ) )
-    return false;
-
-  // попытаемся найти пассажира среди отправленных
-  TQuery Qry( &OraSession );
-  ostringstream sql;
-  sql << "SELECT pax_id, family_name "
-         "FROM apps_pax_data ";
-  if ( code == "CIRS" )
-    sql << "WHERE cirq_msg_id = :msg_id";
-  else
-    sql << "WHERE cicx_msg_id = :msg_id";
-  Qry.SQLText = sql.str();
-  Qry.CreateVariable( "msg_id", otInteger, msg_id );
-  Qry.Execute();
-
-  if(Qry.Eof)
-    return false;
-
-  pax_id = Qry.FieldAsInteger( "pax_id" );
-  family_name = Qry.FieldAsString( "family_name" );
-
-  string delim = (code == "CIRS")?"PRS":"PCC";
-  delim = string("/") + delim + string("/");
-  std::size_t pos1 = source.find( delim );
-  while ( pos1 != string::npos )
-  {
-    std::size_t pos2 = source.find( delim, pos1 + delim.size() );
-    TAnsPaxData data;
-    data.init( source.substr( pos1 + 1, pos2 - pos1 ), version );
-    passengers.push_back( data );
-    pos1 = pos2;
-  }
-  return true;
-}
-
-std::string TPaxReqAnswer::toString() const
-{
-  std::ostringstream res;
-  res << TAPPSAns::toString()
-      << "pax_id: " << pax_id << std::endl << "family_name: " << family_name << std::endl;
-  for (std::vector<TAnsPaxData>::const_iterator it = passengers.begin(); it != passengers.end(); it++)
-    res << it->toString();
-  return res.str();
-}
-
-void TPaxReqAnswer::processErrors() const
-{
-  if( errors.empty() )
-    return;
-
-  // Сообщение не обработано системой. Разберем ошибки.
-  for(std::vector<TError>::const_iterator it = errors.begin(); it < errors.end(); it ++)
-    logAnswer( it->country, ASTRA::NoExists, it->error_code, it->error_text );
-
-  if( /*!CheckIfNeedResend() &&*/ code == "CIRS" ) {
-    addAPPSAlarm(pax_id, {Alarm::APPSConflict}); // рассинхронизация
-    // удаляем apps_pax_data cirq_msg_id
-    TQuery Qry( &OraSession );
-    Qry.SQLText = "DELETE FROM apps_pax_data WHERE cirq_msg_id = :cirq_msg_id ";
-    Qry.CreateVariable( "cirq_msg_id", otInteger, msg_id );
-    Qry.Execute();
-  }
-  deleteMsg( msg_id );
-}
-
-void TPaxReqAnswer::processAnswer() const
-{
-  if ( passengers.empty() )
-    return;
-
-  // Сообщение обработано системой. Каждому пассажиру присвоен статус.
-  bool result = true;
-  string status = "B";
-  string apps_pax_id;
-  for ( vector<TAnsPaxData>::const_iterator it = passengers.begin(); it < passengers.end(); it++ ) {
-    // запишем в журнал операций присланный статус
-    logAnswer( it->country, it->code, it->error_code1, it->error_text1 );
-    if ( it->error_code2 != ASTRA::NoExists ) {
-      logAnswer( it->country, it->code, it->error_code2, it->error_text2 );
-    }
-    if ( it->error_code3 != ASTRA::NoExists )
-      logAnswer( it->country, it->code, it->error_code3, it->error_text3 );
-
-    if ( code == "CICC" ) {
-      // Ответ на отмену
-      // Определим статус пассажира. true - отменен или не найден, false - ошибка.
-      if( it->status == "E" || it->status == "T")
-        result = false;
-      continue;
+        throw Exception("Incorrect field_count: %d", field_count);
     }
 
-    // Ответ на запрос статуса
-    if ( it != passengers.begin() ) {
-      if ( apps_pax_id != it->apps_pax_id )
-        throw Exception( "apps_pax_id is not the same" );
+    int seq_num = getInt(tmp[2]); /* 3 */
+    if(seq_num != pax_seq_num) { // Passenger Sequence Number
+        throw Exception("Incorrect seq_num: %d", seq_num);
+    }
+
+    country = tmp[3]; /* 4 */
+
+    if (grp_id == "PRS")
+    {
+        /* PRS */
+        int i = 22; // начальная позиция итератора (поле 23)
+        if (version < APPS_VERSION_27) --i;
+        if (version < APPS_VERSION_26) --i;
+        code = getInt(tmp[i++]);         /* 23 */
+        status = *(tmp[i++].begin());    /* 24 */
+        apps_pax_id = tmp[i++];          /* 25 */
+        error_code1 = getInt(tmp[i++]);  /* 26 */
+        error_text1 = tmp[i++];          /* 27 */
+        error_code2 = getInt(tmp[i++]);  /* 28 */
+        error_text2 = tmp[i++];          /* 29 */
+        error_code3 = getInt(tmp[i++]);  /* 30 */
+        error_text3 = tmp[i];            /* 31 */
     }
     else
-       apps_pax_id = it->apps_pax_id;
-    // включим тревоги
-    if (it->status == "D" || it->status == "X") {
-      addAPPSAlarm(pax_id, {Alarm::APPSNegativeDirective});
+    {
+        /* PCC */
+        int i = 20; // начальная позиция итератора (поле 21)
+        if (tmp.size() == 29) ++i; // workaround for incorrect data (excess field)
+        code = getInt(tmp[i++]);         /* 21 */
+        status = *(tmp[i++].begin());    /* 22 */
+        error_code1 = getInt(tmp[i++]);  /* 23 */
+        error_text1 = tmp[i++];          /* 24 */
+        error_code2 = getInt(tmp[i++]);  /* 25 */
+        error_text2 = tmp[i++];          /* 26 */
+        error_code3 = getInt(tmp[i++]);  /* 27 */
+        error_text3 = tmp[i];            /* 28 */
     }
-    else if (it->status == "U" || it->status == "I" || it->status == "T" || it->status == "E") {
-      addAPPSAlarm(pax_id, {Alarm::APPSError});
+}
+
+std::string AnsPaxData::toString() const
+{
+    std::ostringstream res;
+    res << "country: " << country << std::endl << "code: " << code
+        << std::endl << "status: " << status << std::endl;
+    if(!apps_pax_id.empty()) res << "apps_pax_id: " << apps_pax_id << std::endl;
+    if(error_code1 != ASTRA::NoExists) res << "error_code1: " << error_code1 << std::endl;
+    if(!error_text1.empty()) res << "error_text1: " << error_text1 << std::endl;
+    if(error_code2 != ASTRA::NoExists) res << "error_code2: " << error_code2 << std::endl;
+    if(!error_text2.empty()) res << "error_text2: " << error_text2 << std::endl;
+    if(error_code3 != ASTRA::NoExists) res << "error_code3: " << error_code3 << std::endl;
+    if(!error_text3.empty()) res << "error_text3: " << error_text3 << std::endl;
+    return res.str();
+}
+
+void APPSAnswer::getLogParams(LEvntPrms& params, const std::string& country, const int status_code,
+                             const int error_code, const std::string& error_text) const
+{
+    params << PrmLexema("req_type", "MSG.APPS_" + code);
+
+    if (!country.empty()) {
+        TElemFmt fmt;
+        std::string apps_country = ElemToElemId(etCountry,country,fmt);
+        if (fmt == efmtUnknown) {
+            throw EConvertError("Unknown format");
+        }
+        PrmLexema lexema("country", "MSG.APPS_COUNTRY");
+        lexema.prms << PrmElem<std::string>("country", etCountry, apps_country);
+        params << lexema;
+    } else {
+        params << PrmSmpl<std::string>("country", "");
     }
-    /* Каждая страна участник APPS присылает свой статус пассажира, т.е.
+
+    if (status_code != ASTRA::NoExists) {
+        // нужно как-то различать Timeout и Error condition. Для обоих status_code 0000
+        if (status_code == 0)
+            params << PrmLexema("result", (error_code != ASTRA::NoExists)?
+                                     "MSG.APPS_STATUS_1111":"MSG.APPS_STATUS_2222");
+        else {
+            params << PrmLexema("result", "MSG.APPS_STATUS_" + IntToString(status_code));
+        }
+    } else {
+        params << PrmSmpl<string>("result", "");
+    }
+    if (error_code != ASTRA::NoExists) {
+        std::string id = std::string("MSG.APPS_") + IntToString(error_code);
+        if (AstraLocale::getLocaleText(id, AstraLocale::LANG_RU) != id &&
+             AstraLocale::getLocaleText(id, AstraLocale::LANG_EN) != id) {
+            params << PrmLexema("error", id);
+        }
+        else {
+            params << PrmSmpl<string>("error", error_text);
+        }
+    }
+    else {
+        params << PrmSmpl<string>("error", "");
+    }
+}
+
+bool APPSAnswer::init(const std::string& trans_type, const std::string& source)
+{
+    vector<std::string> tmp;
+    boost::split(tmp, source, boost::is_any_of("/"));
+    vector<std::string>::const_iterator it = tmp.begin();
+    code = trans_type;
+    msg_id = getInt(*(it++));
+
+    auto cur = make_curs(
+                "SELECT send_attempts, msg_text, point_id, version "
+                "FROM apps_messages "
+                "WHERE msg_id = :msg_id");
+    cur
+       .def(send_attempts)
+       .def(msg_text)
+       .def(point_id)
+       .def(version)
+       .bind(":msg_id",msg_id)
+       .EXfet();
+    if(cur.err() == NO_DATA_FOUND) {
+        return false;
+    }
+
+    if(*(it++) == "ERR")
+    {
+        LogTrace(TRACE5)<<__FUNCTION__<< " Answer INIT ERR";
+        size_t fld_count = getInt(*(it++));
+        if (fld_count != (tmp.size() - 3)) {
+            throw Exception("Incorrect fld_count: %d", fld_count);
+        }
+        while(it < tmp.end()) {
+            Error error;
+            error.country = *(it++);
+            error.error_code = getInt(*(it++));
+            error.error_text = *(it++);
+            errors.push_back(error);
+        }
+    }
+    return true;
+}
+
+std::string APPSAnswer::toString() const
+{
+    std::ostringstream res;
+    res << "code: " << code << std::endl << "msg_id: " << msg_id << std::endl
+        << "point_id: " << point_id << std::endl << "msg_text: " << msg_text << std::endl
+        << "send_attempts: " << send_attempts << std::endl;
+    for (const auto & err: errors) {
+        res << "country: " << err.country << std::endl << "error_code: " << err.error_code
+            << std::endl << "error_text: " << err.error_text << std::endl;
+    }
+    return res.str();
+}
+
+void APPSAnswer::beforeProcessAnswer() const
+{
+    TFlights flightsForLock;
+    flightsForLock.Get(point_id, ftTranzit);
+    flightsForLock.Lock(__FUNCTION__);
+
+    // выключим тревогу "Нет связи с APPS"
+    set_alarm(point_id, Alarm::APPSOutage, false);
+}
+
+bool APPSAnswer::checkIfNeedResend() const
+{
+    bool need_resend = false;
+    for(const auto & err: errors) {
+        if (err.error_code == 6102 || err.error_code == 6900 || err.error_code == 6979
+                || err.error_code == 5057) {
+            // ... Try again later
+            need_resend = true;
+        }
+    }
+    // Если нужно отправить повторно, не удаляем сообщение из apps_messages, чтобы resend_tlg его нашел
+    if (!need_resend) {
+        deleteMsg(msg_id);
+    }
+    return need_resend;
+}
+
+bool PaxReqAnswer::init(const std::string& code, const std::string& source)
+{
+    if(!APPSAnswer::init(code, source)) {
+        return false;
+    }
+    // попытаемся найти пассажира среди отправленных
+
+    std::ostringstream sql;
+    sql << "select PAX_ID, VERSION, FAMILY_NAME "
+           "from APPS_PAX_DATA ";
+    if (code == "CIRS") {
+        sql << "where CIRQ_MSG_ID = :msg_id";
+    } else {
+        sql << "where CICX_MSG_ID = :msg_id";
+    }
+    auto cur = make_curs(sql.str());
+    cur
+       .def(pax_id)
+       .def(version)
+       .def(family_name)
+       .bind(":msg_id",msg_id)
+       .EXfet();
+    if(cur.err() == NO_DATA_FOUND) {
+        return false;
+    }
+
+    std::string delim = (code == "CIRS") ? "PRS" : "PCC";
+    delim = std::string("/") + delim + std::string("/");
+    std::size_t pos1 = source.find(delim);
+    while (pos1 != std::string::npos) {
+        std::size_t pos2 = source.find(delim, pos1 + delim.size());
+        AnsPaxData data;
+        data.init(source.substr(pos1 + 1, pos2 - pos1), version);
+        passengers.push_back(data);
+        pos1 = pos2;
+    }
+    return true;
+}
+
+std::string PaxReqAnswer::toString() const
+{
+    std::ostringstream res;
+    res << APPSAnswer::toString()
+        << "pax_id: " << pax_id << std::endl << "family_name: " << family_name << std::endl;
+    for (const auto & pax : passengers) {
+        res << pax.toString();
+    }
+    return res.str();
+}
+
+void PaxReqAnswer::processErrors() const
+{
+    if(errors.empty()) {
+        LogTrace(TRACE5)<<__FUNCTION__<< " errors empty";
+        return;
+    }
+
+    // Сообщение не обработано системой. Разберем ошибки.
+    for(const auto & err : errors) {
+        logAnswer(err.country, ASTRA::NoExists, err.error_code, err.error_text);
+    }
+
+    if(/*!CheckIfNeedResend() &&*/ code == "CIRS") {
+        LogTrace(TRACE5)<<__FUNCTION__<<" if code = CIRS";
+        addAPPSAlarm(pax_id, {Alarm::APPSConflict}); // рассинхронизация
+        // удаляем apps_pax_data cirq_msg_id
+        deleteAPPSData("CIRQ_MSG_ID", msg_id);
+        deleteMsg(msg_id);
+    }
+}
+
+void saveAppsStatus(const std::string& status, const std::string& apps_pax_id, const int msg_id)
+{
+    auto cur = make_curs(
+               "update APPS_PAX_DATA set STATUS = :status, APPS_PAX_ID = :apps_pax_id "
+               "where CIRQ_MSG_ID = :cirq_msg_id");
+    cur.bind(":status",status)
+       .bind(":apps_pax_id",apps_pax_id)
+       .bind(":cirq_msg_id", msg_id)
+       .exec();
+}
+
+void PaxReqAnswer::processAnswer() const
+{
+    if (passengers.empty()) {
+        return;
+    }
+
+    // Сообщение обработано системой. Каждому пассажиру присвоен статус.
+    bool result = true;
+    std::string status = "B";
+    std::string apps_pax_id;
+    for (const auto& pax : passengers)
+    {
+        // запишем в журнал операций присланный статус
+        logAnswer(pax.country, pax.code, pax.error_code1, pax.error_text1);
+        if (pax.error_code2 != ASTRA::NoExists) {
+            logAnswer(pax.country, pax.code, pax.error_code2, pax.error_text2);
+        }
+        if (pax.error_code3 != ASTRA::NoExists) {
+            logAnswer(pax.country, pax.code, pax.error_code3, pax.error_text3);
+        }
+        if (code == "CICC") {
+            // Ответ на отмену
+            // Определим статус пассажира. true - отменен или не найден, false - ошибка.
+            if(pax.status == "E" || pax.status == "T") {
+                result = false;
+            }
+            continue;
+        }
+
+        // Ответ на запрос статуса
+        if (&pax != &passengers[0]) {
+            LogTrace(TRACE5)<<__FUNCTION__<<" ответ на запрос статуса";
+            if (apps_pax_id != pax.apps_pax_id)
+                throw Exception("apps_pax_id is not the same");
+        } else {
+            apps_pax_id = pax.apps_pax_id;
+        }
+        // включим тревоги
+        if (pax.status == "D" || pax.status == "X") {
+            addAPPSAlarm(pax_id, {Alarm::APPSNegativeDirective});
+            LogTrace(TRACE5)<< __FUNCTION__<< " включим тревоги статус=D||X";
+        }
+        else if (pax.status == "U" || pax.status == "I" || pax.status == "T" || pax.status == "E") {
+            addAPPSAlarm(pax_id, {Alarm::APPSError});
+            LogTrace(TRACE5)<<__FUNCTION__<<" включим тревоги статус=U||I||T||E";
+        }
+        /* Каждая страна участник APPS присылает свой статус пассажира, т.е.
      * один пассажир может иметь несколько статусов. Получим по каждому пассажиру
      * обобщенный статус для записи в apps_pax_data. Если все "B" -> "B", если хотя бы
      * один "X" -> "X", если хотябы один "U","I","T" или "E" -> "P" (Problem) */
-    if ( status == "B" && it->status != "B" )
-      status = (it->status == "B" || it->status == "X")?it->status:"P";
-    else if (status == "P" && it->status == "X")
-      status = "X";
-  }
-  TQuery Qry(&OraSession);
-  if ( code == "CICC" ) {
-    if( result ) {
-    // Пассажир отменен. Удалим его из apps_pax_data
-    Qry.Clear();
-    Qry.SQLText = "BEGIN "
-                  "SELECT send_time, pax_id INTO :send_time, :pax_id FROM apps_pax_data "
-                  "WHERE cicx_msg_id = :cicx_msg_id; "
-                  "DELETE FROM apps_pax_data WHERE send_time <= :send_time AND pax_id =:pax_id; "
-                  "END;";
-    Qry.CreateVariable( "cicx_msg_id", otInteger, msg_id );
-    Qry.CreateVariable( "send_time", otDate, FNull );
-    Qry.CreateVariable( "pax_id", otInteger, FNull );
-    Qry.Execute();
+        if (status == "B" && pax.status != "B") {
+            status = (pax.status == "X") ? pax.status : "P";
+        }
+        else if (status == "P" && pax.status == "X") {
+            status = "X";
+        }
     }
-    deleteMsg( msg_id );
-    return;
-  }
 
-  // сохраним полученный статус
-  Qry.Clear();
-  Qry.SQLText = "UPDATE apps_pax_data SET status = :status, apps_pax_id = :apps_pax_id "
-                "WHERE cirq_msg_id = :cirq_msg_id";
-  Qry.CreateVariable("cirq_msg_id", otInteger, msg_id );
-  Qry.CreateVariable("status", otString, status);
-  Qry.CreateVariable("apps_pax_id", otString, apps_pax_id);
-  Qry.Execute();
+    if (code == "CICC") {
+        if(result) {
+            // Пассажир отменен. Удалим его из apps_pax_data
+            deleteAPPSData("CICX_MSG_ID", msg_id);
+        }
+        deleteMsg(msg_id);
+        return;
+    }
+    // сохраним полученный статус
+    saveAppsStatus(status, apps_pax_id, msg_id);
 
-  // погасим тревоги
-  if ( status == "B" ) {
-    deleteAPPSAlarm(pax_id, {Alarm::APPSNegativeDirective, Alarm::APPSError});
-  }
-  // проверим, нужно ли гасить тревогу "рассинхронизация"
-  TPaxRequest actual;
-  TPaxRequest received;
-  bool pax_not_found = false;
-  try
-  {
-    actual.init( pax_id );
-  }
-  catch (AppsPaxNotFoundException)
-  {
-    pax_not_found = true;
-    ProgTrace(TRACE5, "Passenger has not been found");
-  }
-  if (!pax_not_found)
-    received.fromDBByMsgId( msg_id );
-  if ( pax_not_found || received == actual )
-  {
-    deleteAPPSAlarm(pax_id, {Alarm::APPSConflict});
-  }
-  deleteMsg( msg_id );
+    // погасим тревоги
+    if (status == "B") {
+        LogTrace(TRACE5)<<__FUNCTION__<<" погасим тревоги";
+        deleteAPPSAlarm(pax_id, {Alarm::APPSNegativeDirective, Alarm::APPSError});
+    }
+    // проверим, нужно ли гасить тревогу "рассинхронизация"
+    boost::optional<PaxRequest> actual;
+    boost::optional<PaxRequest> received;
+    actual = isAlreadyCheckedIn(pax_id) ? PaxRequest::createFromDB(PaxRequest::Pax, pax_id)
+                                        : PaxRequest::createFromDB(PaxRequest::Crs, pax_id);
+    if(!actual) {
+        ProgTrace(TRACE5, "Pax has not been found");
+    }
+    else {
+        LogTrace(TRACE5)<<__FUNCTION__<<" Pax found";
+        received = PaxRequest::fromDBByMsgId(msg_id);
+    }
+    if (!actual || received == actual) {
+        deleteAPPSAlarm(pax_id, {Alarm::APPSConflict});
+    }
+    deleteMsg(msg_id);
 }
 
-void TPaxReqAnswer::logAnswer( const std::string& country, const int status_code,
-                const int error_code, const std::string& error_text ) const
+std::set<std::string> needFltCloseout(const std::set<std::string>& countries, const std::string& airline)
 {
-  LEvntPrms params;
-  getLogParams( params, country, status_code, error_code, error_text );
-  PrmLexema lexema( "passenger", "MSG.APPS_PASSENGER" );
-  lexema.prms << PrmSmpl<string>( "passenger", family_name );
-  params << lexema;
-
-  CheckIn::TSimplePaxItem pax;
-  if (pax.getByPaxId(pax_id))
-    TReqInfo::Instance()->LocaleToLog( "MSG.APPS_RESP", params, evtPax, point_id, pax.reg_no );
-}
-
-void TMftAnswer::logAnswer( const std::string& country, const int status_code,
-                const int error_code, const std::string& error_text ) const
-{
-  LEvntPrms params;
-  getLogParams( params, country, status_code, error_code, error_text );
-  params << PrmSmpl<string>("passenger", "");
-  TReqInfo::Instance()->LocaleToLog( "MSG.APPS_RESP", params, evtFlt, point_id );
-}
-
-bool TMftAnswer::init( const std::string& code, const std::string& source )
-{
-  if( !TAPPSAns::init( code, source) )
-    return false;
-
-  size_t pos = source.find("MAK");
-
-  if ( pos != string::npos )
-  {
-    vector<string> tmp;
-    string text = source.substr( pos );
-    boost::split( tmp, text, boost::is_any_of( "/" ) );
-    int fld_count = getInt(tmp[1]); /* 2 */
-    if ( fld_count != FieldCount("MAK", version) )
-      throw Exception( "Incorrect fld_count: %d", fld_count );
-
-    country = tmp[2]; /* 3 */
-    resp_code = getInt(tmp[3]); /* 4 */
-    error_code = getInt(tmp[4]); /* 5 */
-    error_text = tmp[5]; /* 6 */
-  }
-  return true;
-}
-
-void TMftAnswer::processErrors() const
-{
-  if(errors.empty())
-    return;
-
-  // Сообщение не обработано системой. Разберем ошибки.
-  for(std::vector<TError>::const_iterator it = errors.begin(); it < errors.end(); it ++)
-    logAnswer( it->country, ASTRA::NoExists, it->error_code, it->error_text );
-  // CheckIfNeedResend();
-  deleteMsg( msg_id );
-}
-
-void TMftAnswer::processAnswer() const
-{
-  if( resp_code == ASTRA::NoExists  )
-    return;
-
-  // Сообщение обработано системой. Залогируем ответ и удалим сообщение из apps_messages.
-  logAnswer( country, resp_code, error_code, error_text );
-  deleteMsg( msg_id );
-}
-
-std::string TMftAnswer::toString() const
-{
-  std::ostringstream res;
-  res << TAPPSAns::toString()
-      << "country: " << country << std::endl << "resp_code: " << resp_code << std::endl
-      << "error_code: " << error_code << std::endl << "error_text: " << error_text << std::endl;
-  return res.str();
-}
-
-std::string getAnsText( const std::string& tlg )
-{
-  string::size_type pos1 = tlg.find("\x02");
-  string::size_type pos2 = tlg.find("\x03");
-  if ( pos1 == std::string::npos )
-    throw Exception( "Wrong answer format" );
-  return tlg.substr( pos1 + 1, pos2 - pos1 - 1 );
-}
-
-bool processReply( const std::string& source_raw )
-{
-  try
-  {
-    string source = getAnsText(source_raw);
-
-    if(source.empty())
-      throw Exception("Answer is empty");
-
-    string code = source.substr(0, 4);
-    string answer = source.substr(5, source.size() - 6); // отрезаем код транзакции и замыкающий '/' (XXXX:text_to_parse/)
-    boost::scoped_ptr<TAPPSAns> res;
-    if ( code == "CIRS" || code == "CICC" )
-      res.reset( new TPaxReqAnswer() );
-    else if ( code == "CIMA" )
-      res.reset( new TMftAnswer() );
-    else
-      throw Exception( std::string( "Unknown transaction code: " + code ) );
-
-    if (!res->init( code, answer ))
-      return false;
-    ProgTrace( TRACE5, "Result: %s", res->toString().c_str() );
-    res->beforeProcessAnswer();
-    res->processErrors();
-    res->processAnswer();
-    return true;
-  }
-  catch(EOracleError &E)
-  {
-    ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
-  }
-  catch(std::exception &E)
-  {
-    ProgError(STDLOG,"std::exception: %s",E.what());
-  }
-  catch(...)
-  {
-    ProgError(STDLOG, "Unknown exception");
-  }
-  return false;
-}
-
-void processPax( const int pax_id, const std::string& override_type, const bool is_forced )
-{
-  ProgTrace( TRACE5, "processPax: %d", pax_id );
-  TPaxRequest new_data;
-  new_data.init( pax_id, override_type );
-  TPaxRequest actual_data;
-  bool is_exists = actual_data.fromDBByPaxId( pax_id );
-  APPSAction action = new_data.typeOfAction( is_exists, actual_data.getStatus(),
-                                             ( new_data == actual_data ), is_forced );
-  if (action == NoAction)
-    return;
-  if ( action == NeedCancel || action == NeedUpdate )
-    actual_data.sendReq();
-  if ( action == NeedUpdate || action == NeedNew )
-    new_data.sendReq();
-}
-
-std::set<std::string> needFltCloseout( const std::set<std::string>& countries, const std::string airline )
-{
-  set<string> countries_need_req;
-
-  if(countries.size() > 1)
-  {
-    // не отправляем для местных рейсов
-    for (set<string>::const_iterator it = countries.begin(); it != countries.end(); it++)
+    std::set<std::string> countries_need_req;
+    if(countries.size() > 1)
     {
-      TAppsSets sets(airline, *it);
-      int flt_closeout;
-      bool not_eof = sets.get_flt_closeout(flt_closeout);
-      if (not_eof && flt_closeout)
-        countries_need_req.insert(*it);
+        for (const auto &country : countries)
+        {
+            boost::optional<AppsSettings> sets = AppsSettings::readSettings(airline, country);
+            if(sets && sets->getFltCloseout()) {
+                countries_need_req.insert(country);
+            }
+        }
     }
-  }
-  return countries_need_req;
+    return countries_need_req;
 }
 
-void APPSFlightCloseout( const int point_id )
+void appsFlightCloseout(const int point_id)
 {
-  ProgTrace(TRACE5, "APPSFlightCloseout: point_id = %d", point_id);
-  if ( !checkTime( point_id ) )
-    return;
+    ProgTrace(TRACE5, "appsFlightCloseout: point_id = %d", point_id);
+    if (!checkTime(point_id)) {
+        return;
+    }
 
-  TAdvTripRoute route;
-  route.GetRouteAfter( NoExists, point_id, trtWithCurrent, trtNotCancelled );
-  if ( route.empty() )  {
-    return;
-  }
-  TAdvTripRoute::const_iterator r=route.begin();
-  set<string> countries;
-  countries.insert( getCountryByAirp(r->airp).code );
-  for(r++; r!=route.end(); r++)
-  {
-    // определим, нужно ли отправлять данные
-    if( !checkAPPSSets( point_id, r->point_id ) )
-      continue;
-    countries.insert( getCountryByAirp(r->airp).code );
-
-    /* Определим, есть ли пассажиры не прошедшие посадку,
+    TAdvTripRoute route;
+    route.GetRouteAfter(NoExists, point_id, trtWithCurrent, trtNotCancelled);
+    if (route.empty()) {
+        return;
+    }
+    TAdvTripRoute::const_iterator r = route.begin();
+    std::set<std::string> countries;
+    countries.insert(getCountryByAirp(r->airp).code);
+    for(r++; r!=route.end(); r++)
+    {
+        // определим, нужно ли отправлять данные
+        if(!checkAPPSSets(point_id, r->point_id)) {
+            continue;
+        }
+        string country = getCountryByAirp(r->airp).code;
+        countries.insert(country);
+        boost::optional<AppsSettings> settings = AppsSettings::readSettings(route.front().airline, country);
+        if(!settings) {
+            continue;
+        }
+        /* Определим, есть ли пассажиры не прошедшие посадку,
      * информация о которых была отправлена в SITA.
      * Для таких пассажиров нужно послать отмену */
-    TQuery Qry(&OraSession);
-    Qry.Clear();
-    Qry.SQLText="SELECT cirq_msg_id, pax_grp.status "
-                "FROM pax_grp, pax, apps_pax_data "
-                "WHERE pax_grp.grp_id=pax.grp_id AND apps_pax_data.pax_id = pax.pax_id AND "
-                "      pax_grp.point_dep=:point_dep AND pax_grp.point_arv=:point_arv AND "
-                "      (pax.name IS NULL OR pax.name<>'CBBG') AND "
-                "      pr_brd=0 AND apps_pax_data.status = 'B'  and pax_crew != 'C'";
-    Qry.CreateVariable("point_dep", otInteger, point_id);
-    Qry.CreateVariable("point_arv", otInteger, r->point_id);
-    Qry.Execute();
-
-    for( ; !Qry.Eof; Qry.Next() )
+        auto cur = make_curs(
+                   "SELECT cirq_msg_id, pax_grp.status "
+                   "FROM pax_grp, pax, apps_pax_data "
+                   "WHERE pax_grp.grp_id=pax.grp_id AND apps_pax_data.pax_id = pax.pax_id AND "
+                   "pax_grp.point_dep=:point_dep AND pax_grp.point_arv=:point_arv AND "
+                   "(pax.name IS NULL OR pax.name<>'CBBG') AND "
+                   "pr_brd=0 AND apps_pax_data.status = 'B'  and pax_crew != 'C'");
+        int cirq_msg_id;
+        std::string pax_grp_status;
+        cur
+            .def(cirq_msg_id)
+            .def(pax_grp_status)
+            .bind(":point_dep",point_id)
+            .bind(":point_arv",r->point_id)
+            .exec();
+        while(!cur.fen()) {
+            boost::optional<PaxRequest> pax = PaxRequest::fromDBByMsgId(cirq_msg_id);
+            if(pax && pax->getStatus() != "B") {
+                continue; // CICX request has already been send
+            }
+            pax->sendReqAndSave(*settings);
+        }
+    }
+    for(const auto& country : needFltCloseout(countries, route.front().airline))
     {
-      TPaxRequest pax;
-      pax.fromDBByMsgId( Qry.FieldAsInteger("cirq_msg_id") );
-      if( pax.getStatus() != "B" )
-        continue; // CICX request has already been send
-      pax.sendReq();
+        std::string country_lat = ((const TCountriesRow&)base_tables.get("countries").get_row("code",country)).code_lat;
+        ManifestRequest close_flt;
+        boost::optional<AppsSettings> settings = AppsSettings::readSettings(route.front().airline, country);
+        if (close_flt.init(point_id, country_lat) && settings) {
+            close_flt.sendReqAndSave(*settings);
+        }
     }
-  }
-  set<string> countries_need_req = needFltCloseout( countries, route.front().airline );
-  for( set<string>::const_iterator it = countries_need_req.begin(); it != countries_need_req.end(); it++ )
-  {
-    string country_lat = ((const TCountriesRow&)base_tables.get("countries").get_row("code",*it)).code_lat;
-    TManifestRequest close_flt;
-    if (close_flt.init( point_id, country_lat, *it ))
-      close_flt.sendReq();
-  }
 }
 
-bool IsAPPSAnswText(const std::string& tlg_body)
+bool isAPPSAnswText(const std::string& tlg_body)
 {
-  return ( ( tlg_body.find( string("CIRS:") ) != string::npos ) ||
-           ( tlg_body.find( string("CICC:") ) != string::npos ) ||
-           ( tlg_body.find( string("CIMA:") ) != string::npos ) );
+    return ((tlg_body.find(std::string("CIRS:")) != std::string::npos) ||
+            (tlg_body.find(std::string("CICC:")) != std::string::npos) ||
+            (tlg_body.find(std::string("CIMA:")) != std::string::npos));
 }
 
-/*
-static std::string requestResStr()
+
+std::string emulateAnswer(const std::string& request)
 {
-  switch(std::time(0) % 10) {
-    case 0:
-      return string("/0000/T////////");
-    case 1:
-      return string("/0000/E//6033/INVALID PASSPORT NUMBER FORMAT/6062/TRAVEL DOCUMENT TYPE INVALID/6000/VALIDATION ERROR ? UNKNOWN FIELD/");
-    case 2:
-      return string("/8502/D////////");
-    case 3:
-      return string("/8507/U////////");
-    case 4:
-      return string("/8509/X////////");
-    default:
-      return (string("/8501/B/") + IntToString( getIdent() ) + string("///////"));
-  }
+    return "";
 }
 
-static std::string cancelResStr()
+void reSendMsg(const int send_attempts, const std::string& msg_text, const int msg_id)
 {
-  switch(std::time(0) % 10) {
-    case 0:
-      return string("/0000/T///////");
-    case 1:
-      return string("/0000/E//6033/INVALID PASSPORT NUMBER FORMAT////");
-    case 2:
-      return string("/8506/N///////");
-    default:
-      return string("/8505/C///////");
-  }
+    sendTlg(getAPPSRotName(), OWN_CANON_NAME(), qpOutApp, 20, msg_text,
+             ASTRA::NoExists, ASTRA::NoExists);
+
+    //  sendCmd("CMD_APPS_ANSWER_EMUL","H");
+    sendCmd("CMD_APPS_HANDLER","H");
+
+    auto cur = make_curs(
+               "update APPS_MESSAGES "
+               "set SEND_ATTEMPTS = :send_attempts, SEND_TIME = :send_time "
+               "where MSG_ID = :msg_id ");
+    cur
+        .bind(":send_attempts", send_attempts+1)
+        .bind(":send_time", Dates::second_clock::universal_time())
+        .bind(":msg_id", msg_id)
+        .exec();
+    ProgTrace(TRACE5, "Message id=%d was re-sent. Send attempts: %d", msg_id, send_attempts);
 }
-*/
 
-// РЕФАКТОРИНГ ФУНКЦИИ НЕ ПРОИЗВОДИЛСЯ
-// ВЕРСИИ ВЫШЕ 21 БУДУТ РАБОТАТЬ НЕКОРРЕКТНО
-std::string emulateAnswer( const std::string& request )
+void deleteMsg(const int msg_id)
 {
-  ostringstream answer;
-  /*
-  string code = request.substr(0, ReqTypeCirq.size());
+    auto cur = make_curs(
+               "delete from APPS_MESSAGES where MSG_ID = :msg_id ");
+    cur
+        .bind(":msg_id", msg_id)
+        .exec();
+}
 
-  boost::regex pattern("(?<=:).*?(?=/)");
-  boost::smatch result;
-  if (!boost::regex_search(request, result, pattern))
-    throw EXCEPTIONS::Exception( "emulateAnswer: msg_id oot found" );
-  string msg_id = result[0];
+void sendAPPSInfo(const int point_id, const int point_id_tlg)
+{
+    ProgTrace(TRACE5, "sendAPPSInfo: point_id %d, point_id_tlg: %d", point_id, point_id_tlg);
+    auto cur = make_curs(
+               "select PAX_ID, AIRP_ARV from CRS_PNR, CRS_PAX "
+               "where CRS_PNR.PNR_ID=CRS_PAX.PNR_ID and POINT_ID=:point_id_tlg");
+    std::string airp_arv;
+    int pax_id;
+    cur.def(pax_id).def(airp_arv).bind(":point_id_tlg", point_id_tlg).exec();
 
-  string ans_type;
-  if(code == ReqTypeCirq) {
-    ans_type = AnsTypeCirs;
-  }
-  else if (code == ReqTypeCicx) {
-    ans_type = AnsTypeCicc;
-  }
-  else if (code == ReqTypeCimr) {
-    ans_type = AnsTypeCima;
-  }
-  else
-    throw EXCEPTIONS::Exception( std::string( "emulateAnswer: unknown transaction code: " + code ) );
+    TFlights flightsForLock;
+    flightsForLock.Get(point_id, ftTranzit);
+    flightsForLock.Lock(__FUNCTION__);
 
-  answer << ans_type << ":" << msg_id << "/";
-
-  int val = std::time(0) % 10;
-  if (val == 0)
-    return ""; // no answer
-  if (val == 1)
-    return answer.str() + string("ERR/3/AE/6999/AP ERROR: PL-SQL FAILED/");
-  if (val == 2)
-    return answer.str() + string("ERR/3//5057/NO RESPONSE FROM ETA-APP SYSTEM. PLEASE TRY AGAIN LATER.");
-
-  if ( code == ReqTypeCirq || code == ReqTypeCicx) {
-
-    std::pair<std::string, int> ans_info = (code == ReqTypeCirq)?PaxAnsPrs:PaxAnsPcc;
-    std::pair<std::string, int> req_info = (code == ReqTypeCirq)?PaxReqPrq:PaxReqPcx;
-    string num_cut = (code == ReqTypeCirq)?"5":"2";
-
-    string str = string("(?<=") + req_info.first + string("/") +
-                 IntToString(req_info.second) + string("/).*?((?=(/[^/]*){" +
-                 num_cut + "}/") + req_info.first +
-                 string(")|(?=(/[^/]*){" + num_cut + "}/$))");
-    boost::regex regex(str);
-
-    const int subs[] = {0};
-    boost::sregex_token_iterator i(request.begin(), request.end(), regex, subs);
-    boost::sregex_token_iterator j;
-    if (i == j)
-      throw EXCEPTIONS::Exception( "emulateAnswer: passengers were not found" );
-    while(i != j) {
-      string pax(*i++);
-
-      string seq_num = pax.substr( 0, pax.find( "/" ) );
-      size_t pos = (code == ReqTypeCirq)?0:pax.find("/");
-      string pax_info = pax.substr( pax.find( "/", pos + 1 ) + 1 );
-      answer << ans_info.first << "/" << ans_info.second << "/" << seq_num << "/AE/" << pax_info;
-      if (ans_type == AnsTypeCirs)
-        answer << requestResStr();
-      else
-        answer << cancelResStr();
+    while(!cur.fen()) {
+         if (checkAPPSSets(point_id, airp_arv)) {
+             processCrsPax(pax_id);
+         }
     }
-  }
-  else {
-    answer << MftAnsMak.first << "/" << MftAnsMak.second << "/AE/";
-    if ( val == 3 || val == 4 )
-      answer << "8701/5593/INTERNATIONAL FLIGHT NOT IN AIRLINE SCHEDULES/";
-    else
-      answer << "8700///";
-  }
-  */
-  return answer.str();
-}
-
-void reSendMsg( const int send_attempts, const std::string& msg_text, const int msg_id )
-{
-  sendTlg( getAPPSRotName(), OWN_CANON_NAME(), qpOutApp, 20, msg_text,
-          ASTRA::NoExists, ASTRA::NoExists );
-
-//  sendCmd("CMD_APPS_ANSWER_EMUL","H");
-  sendCmd("CMD_APPS_HANDLER","H");
-
-  TQuery Qry(&OraSession);
-  Qry.SQLText = "UPDATE apps_messages "
-                "SET send_attempts = :send_attempts, send_time = :send_time "
-                "WHERE msg_id = :msg_id ";
-  Qry.CreateVariable("msg_id", otInteger, msg_id);
-  Qry.CreateVariable("send_attempts", otInteger, send_attempts + 1);
-  Qry.CreateVariable("send_time", otDate, NowUTC());
-  Qry.Execute();
-  ProgTrace(TRACE5, "Message id=%d was re-sent. Send attempts: %d", msg_id, send_attempts);
-}
-
-void deleteMsg( const int msg_id )
-{
-  TQuery Qry(&OraSession);
-  Qry.SQLText = "DELETE FROM apps_messages "
-                "WHERE msg_id = :msg_id ";
-  Qry.CreateVariable("msg_id", otInteger, msg_id);
-  Qry.Execute();
-}
-
-static void sendAPPSInfo( const int point_id, const int point_id_tlg )
-{
-  ProgTrace( TRACE5, "sendAPPSInfo: point_id %d, point_id_tlg: %d", point_id, point_id_tlg );
-  TQuery Qry( &OraSession );
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT pax_id, airp_arv FROM crs_pnr, crs_pax "
-    "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND point_id=:point_id_tlg";
-  Qry.CreateVariable( "point_id_tlg", otInteger, point_id_tlg );
-  Qry.Execute();
-
-  TFlights flightsForLock;
-  flightsForLock.Get( point_id, ftTranzit );
-  flightsForLock.Lock(__FUNCTION__);
-
-  for ( ; !Qry.Eof; Qry.Next() )
-    if ( checkAPPSSets( point_id, Qry.FieldAsString( "airp_arv" ) ) )
-      processPax( Qry.FieldAsInteger( "pax_id" ) );
 }
 
 void sendAllAPPSInfo(const TTripTaskKey &task)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT point_id_tlg "
-    "FROM tlg_binding, points "
-    "WHERE tlg_binding.point_id_spp=points.point_id AND "
-    "      point_id_spp=:point_id_spp AND "
-    "      points.pr_del=0 AND points.pr_reg<>0";
-  Qry.CreateVariable("point_id_spp", otInteger, task.point_id);
-  Qry.Execute();
-
-  for( ; !Qry.Eof; Qry.Next() )
-    sendAPPSInfo( task.point_id, Qry.FieldAsInteger("point_id_tlg") );
+    LogTrace(TRACE5)<<__FUNCTION__;
+    auto cur = make_curs(
+               "select POINT_ID_TLG "
+               "from TLG_BINDING, POINTS "
+               "where TLG_BINDING.POINT_ID_SPP=POINTS.POINT_ID and "
+               "   POINT_ID_SPP=:point_id_spp and "
+               "   POINTS.PR_DEL=0 AND POINTS.PR_REG<>0");
+    int point_id_tlg;
+    cur.def(point_id_tlg).bind(":point_id_spp", task.point_id).exec();
+    while(!cur.fen()){
+        sendAPPSInfo(task.point_id, point_id_tlg);
+    }
 }
 
 void sendNewAPPSInfo(const TTripTaskKey &task)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText ="SELECT pax_id "
-               "FROM crs_pax, crs_pnr, tlg_binding "
-               "WHERE need_apps <> 0 AND point_id_spp = :point_id_spp AND "
-               "      crs_pax.pnr_id = crs_pnr.pnr_id AND "
-               "      crs_pnr.point_id = tlg_binding.point_id_tlg";
-  Qry.CreateVariable("point_id_spp", otInteger, task.point_id);
-  Qry.Execute();
+    auto cur = make_curs(
+               "select PAX_ID "
+               "from CRS_PAX, CRS_PNR, TLG_BINDING "
+               "where NEED_APPS <> 0 and POINT_ID_SPP = :point_id_spp and "
+               "   CRS_PAX.PNR_ID = CRS_PNR.PNR_ID and "
+               "   CRS_PNR.POINT_ID = TLG_BINDING.POINT_ID_TLG");
+    int pax_id;
+    cur.def(pax_id).bind(":point_id_spp", task.point_id).exec();
 
-  TFlights flightsForLock;
-  flightsForLock.Get( task.point_id, ftTranzit );
-  flightsForLock.Lock(__FUNCTION__);
+    TFlights flightsForLock;
+    flightsForLock.Get(task.point_id, ftTranzit);
+    flightsForLock.Lock(__FUNCTION__);
 
-  for( ; !Qry.Eof; Qry.Next() ) {
-    int pax_id = Qry.FieldAsInteger( "pax_id" );
-    processPax( pax_id );
-
-    TCachedQuery Qry( "UPDATE crs_pax SET need_apps=0 WHERE pax_id=:pax_id",
-                      QParams() << QParam( "pax_id", otInteger, pax_id ) );
-    Qry.get().Execute();
-  }
+    while(!cur.fen()){
+        processCrsPax(pax_id);
+        updateCrsNeedApps(pax_id);
+    }
 }
 
-int test_apps_tlg(int argc, char **argv)
+void updateCrsNeedApps(int pax_id)
 {
-  for (string text :
-  {
-    /* correct */
-    "VDCICC:6225330/PCC/26/001/AE/P/RUS/RUS/715961901//P/20210830////KRASNOBORODKIN/DMITRY/19860613/M///8505/C///////",
-    /* correct with excess field */
-    "VDCICC:6225330/PCC/26/001/AE/P/RUS/RUS/715961901//P//20210830////KRASNOBORODKIN/DMITRY/19860613/M///8505/C///////",
-    /* incorrect */
-    "VDZZZZ:6225330/PCC/26/001/AE/P/RUS/RUS/715961901//P//20210830////KRASNOBORODKIN/DMITRY/19860613/M///8505/C///////",
-    "VDCICC:6225330/ZZZ/26/001/AE/P/RUS/RUS/715961901//P//20210830////KRASNOBORODKIN/DMITRY/19860613/M///8505/C///////",
-    "VDCICC:6225330/PCC/99/001/AE/P/RUS/RUS/715961901//P//20210830////KRASNOBORODKIN/DMITRY/19860613/M///8505/C///////",
-  })
-  {
-    int tlg_num = saveTlg(OWN_CANON_NAME(), "zzzzz", "IAPP", text);
-    putTlg2OutQueue_wrap(OWN_CANON_NAME(), "zzzzz", "IAPP", text, 0, tlg_num, 0);
-    sendCmd("CMD_APPS_HANDLER", "H");
-  }
-  return 0;
+    auto cache_cur = make_curs(
+                     "UPDATE crs_pax SET need_apps=0 WHERE pax_id=:val");
+    cache_cur.bind(":val",pax_id);
+    cache_cur.exec();
+}
+
+int testAppsTlg(int argc, char **argv)
+{
+    for (std::string text : {
+         /* correct */
+         "VDCICC:6225330/PCC/26/001/AE/P/RUS/RUS/715961901//P/20210830////KRASNOBORODKIN/DMITRY/19860613/M///8505/C///////",
+         /* correct with excess field */
+         "VDCICC:6225330/PCC/26/001/AE/P/RUS/RUS/715961901//P//20210830////KRASNOBORODKIN/DMITRY/19860613/M///8505/C///////",
+         /* incorrect */
+         "VDZZZZ:6225330/PCC/26/001/AE/P/RUS/RUS/715961901//P//20210830////KRASNOBORODKIN/DMITRY/19860613/M///8505/C///////",
+         "VDCICC:6225330/ZZZ/26/001/AE/P/RUS/RUS/715961901//P//20210830////KRASNOBORODKIN/DMITRY/19860613/M///8505/C///////",
+         "VDCICC:6225330/PCC/99/001/AE/P/RUS/RUS/715961901//P//20210830////KRASNOBORODKIN/DMITRY/19860613/M///8505/C///////",})
+    {
+        int tlg_num = saveTlg(OWN_CANON_NAME(), "zzzzz", "IAPP", text);
+        putTlg2OutQueue_wrap(OWN_CANON_NAME(), "zzzzz", "IAPP", text, 0, tlg_num, 0);
+        sendCmd("CMD_APPS_HANDLER", "H");
+    }
+    return 0;
 }
 
 std::string appsTextAsHumanReadable(const std::string& apps)
@@ -2178,8 +2430,138 @@ std::string appsTextAsHumanReadable(const std::string& apps)
     return text;
 }
 
-std::string humanReadableAsAppsText(const std::string& text)
+void PaxReqAnswer::logAnswer(const std::string& country, const int status_code,
+                             const int error_code, const std::string& error_text) const
 {
-    std::string apps = StrUtils::replaceSubstrCopy(text, "\n", "");
-    return "\x02" + apps + "\x03";
+    LEvntPrms params;
+    getLogParams(params, country, status_code, error_code, error_text);
+    PrmLexema lexema("passenger", "MSG.APPS_PASSENGER");
+    lexema.prms << PrmSmpl<std::string>("passenger", family_name);
+    params << lexema;
+
+    CheckIn::TSimplePaxItem pax;
+    if (pax.getByPaxId(pax_id)) {
+        TReqInfo::Instance()->LocaleToLog("MSG.APPS_RESP", params, evtPax, point_id, pax.reg_no);
+    }
 }
+
+void ManifestAnswer::logAnswer(const std::string& country, const int status_code,
+                               const int error_code, const std::string& error_text) const
+{
+    LEvntPrms params;
+    getLogParams(params, country, status_code, error_code, error_text);
+    params << PrmSmpl<std::string>("passenger", "");
+    TReqInfo::Instance()->LocaleToLog("MSG.APPS_RESP", params, evtFlt, point_id);
+}
+
+bool ManifestAnswer::init(const std::string& code, const std::string& source)
+{
+    if(!APPSAnswer::init(code, source)) {
+        return false;
+    }
+    size_t pos = source.find("MAK");
+    if (pos != string::npos)
+    {
+        vector<std::string> tmp;
+        std::string text = source.substr(pos);
+        boost::split(tmp, text, boost::is_any_of("/"));
+        int fld_count = getInt(tmp[1]); /* 2 */
+        if (fld_count != fieldCount("MAK", version)) {
+            throw Exception("Incorrect fld_count: %d", fld_count);
+        }
+        country = tmp[2]; /* 3 */
+        resp_code = getInt(tmp[3]); /* 4 */
+        error_code = getInt(tmp[4]); /* 5 */
+        error_text = tmp[5]; /* 6 */
+    }
+    return true;
+}
+
+void ManifestAnswer::processErrors() const
+{
+    if(errors.empty()) {
+        return;
+    }
+    for(const auto & err : errors) {
+        logAnswer(err.country, ASTRA::NoExists, err.error_code, err.error_text);
+    }
+    // CheckIfNeedResend();
+    deleteMsg(msg_id);
+}
+
+void ManifestAnswer::processAnswer() const
+{
+    if(resp_code == ASTRA::NoExists) {
+        return;
+    }
+    // Сообщение обработано системой. Залогируем ответ и удалим сообщение из apps_messages.
+    logAnswer(country, resp_code, error_code, error_text);
+    deleteMsg(msg_id);
+}
+
+std::string ManifestAnswer::toString() const
+{
+    std::ostringstream res;
+    res << APPSAnswer::toString()
+        << "country: " << country << std::endl << "resp_code: " << resp_code << std::endl
+        << "error_code: " << error_code << std::endl << "error_text: " << error_text << std::endl;
+    return res.str();
+}
+
+std::string getAnsText(const std::string& tlg)
+{
+    std::string::size_type pos1 = tlg.find("\x02");
+    std::string::size_type pos2 = tlg.find("\x03");
+    if (pos1 == std::string::npos) {
+        throw Exception("Wrong answer format");
+    }
+    return tlg.substr(pos1 + 1, pos2 - pos1 - 1);
+}
+
+bool processReply(const std::string& source_raw)
+{
+    LogTrace(TRACE5)<<__FUNCTION__ << " source_raw: " << source_raw;
+    try
+    {
+        std::string source = getAnsText(source_raw);
+        if(source.empty()) {
+            throw Exception("Answer is empty");
+        }
+        std::string code = source.substr(0, 4);
+        std::string answer = source.substr(5, source.size() - 6); // отрезаем код транзакции и замыкающий '/' (XXXX:text_to_parse/)
+        boost::scoped_ptr<APPSAnswer> res;
+        if (code == "CIRS" || code == "CICC") {
+            res.reset(new PaxReqAnswer());
+        }
+        else if (code == "CIMA") {
+            res.reset(new ManifestAnswer());
+        }
+        else {
+            throw Exception(std::string("Unknown transaction code: " + code));
+        }
+
+        if (!res->init(code, answer)) {
+            return false;
+        }
+        ProgTrace(TRACE5, "Result: %s", res->toString().c_str());
+        res->beforeProcessAnswer();
+        res->processErrors();
+        res->processAnswer();
+        return true;
+    }
+    catch(EOracleError &E)
+    {
+        ProgError(STDLOG,"EOracleError %d: %s", E.Code,E.what());
+    }
+    catch(std::exception &E)
+    {
+        ProgError(STDLOG,"std::exception: %s", E.what());
+    }
+    catch(...)
+    {
+        ProgError(STDLOG, "Unknown exception");
+    }
+    return false;
+}
+
+} //namespace APPS

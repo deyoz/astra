@@ -29,6 +29,7 @@
 #include "pax_events.h"
 #include "custom_alarms.h"
 #include "telegram.h"
+#include <serverlib/algo.h>
 
 #define NICKNAME "VLAD"
 #include "serverlib/slogger.h"
@@ -1364,15 +1365,15 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         //============================ проверка APPS и IAPI статуса пассажира ============================
         if (set_mark)
         {
-          if (checkAPPSSets(point_id, point_arv)) {
-            std::unique_ptr<TPaxRequest> apps_pax(new TPaxRequest());
+          if (APPS::checkAPPSSets(point_id, point_arv)) {
             for(int pass=0;pass<2;pass++)
             {
               const TPaxItem &pax=(pass==0?paxWithSeat:paxWithoutSeat);
               if (!pax.exists()) continue;
-              apps_pax->fromDBByPaxId( pax.pax_id );
-              if( apps_pax->getStatus() != "B" )
-                throw AstraLocale::UserException("MSG.PASSENGER.APPS_PROBLEM");
+              auto statuses = APPS::statusesFromDb(pax.pax_id);
+              if (algo::any_of(statuses, [](auto & st){return st!="B";})) {
+                  throw AstraLocale::UserException("MSG.PASSENGER.APPS_PROBLEM");
+              }
             }
           }
 

@@ -4076,40 +4076,15 @@ static bool rollbackBeforeSvcAvailability(const CheckIn::TAfterSaveInfo& info,
                                           const bool& isNewCheckIn);
 
 
-// TODO перенести это в файл apps_interaction.h
-namespace APPS {
-    class AppsCollector
-    {
-    public:
-        struct PaxItem
-        {
-            int         pax_id;
-            std::string override;
-            bool        is_forced;
-        };
-
-        void addPaxItem(int pax_id,
-                        const std::string& override = "",
-                        bool is_forced = false)
-        {
-            LogTrace(TRACE3) << __func__ << " "
-                             << pax_id << "; "
-                             << override << "; "
-                             << is_forced;
-            m_paxItems.push_back({ pax_id, override, is_forced });
-        }
-
-        void send()
-        {
-            for(const PaxItem& paxItem: m_paxItems) {
-                processPax(paxItem.pax_id, paxItem.override, paxItem.is_forced);
-            }
-        }
-
-    private:
-        std::vector<PaxItem> m_paxItems;
-    };
-}//namespace APPS
+static void doCheckGrp(int grp_id)
+{
+    auto cur = make_curs(
+        "BEGIN "
+        "  ckin.check_grp(:grp_id); "
+        "END;");
+    cur.bind(":grp_id", grp_id);
+    cur.exec();
+}
 
 
 //процедура должна возвращать true только в том случае если произведена реальная регистрация
@@ -4281,7 +4256,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     if (new_checkin)
       segList.back().setCabinClassAndSubclass();
 
-    if (!pr_unaccomp && checkAPPSSets(segList.back().grp.point_dep, segList.back().grp.point_arv))
+    if (!pr_unaccomp && APPS::checkAPPSSets(segList.back().grp.point_dep, segList.back().grp.point_arv))
         need_apps = true;
   }
 
@@ -4459,6 +4434,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   IAPI::RequestCollector iapiCollector;
   APPS::AppsCollector    appsCollector;
 
+  vector<int> segs_grp_ids;
   for(TSegList::iterator iSegListItem=segList.begin();
       segNode!=NULL && iSegListItem!=segList.end();
       segNode=segNode->next,seg_no++,++iSegListItem,first_segment=false)
@@ -5937,25 +5913,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       timing.start("check_grp", grp.point_dep);
 
-      if(!rollbackGuaranteed)
-      {
-          timing.start("appsCollector", grp.point_dep);
-          appsCollector.send();
-          timing.finish("appsCollector", grp.point_dep);
-
-          timing.start("iapiCollector", grp.point_dep);
-          iapiCollector.send();
-          timing.finish("iapiCollector", grp.point_dep);
-      }
-
-      Qry.Clear();
-      Qry.SQLText=
-        "BEGIN "
-        "  ckin.check_grp(:grp_id); "
-        "END;";
-      Qry.CreateVariable("grp_id",otInteger,grp.id);
-      Qry.Execute();
-      Qry.Close();
+      segs_grp_ids.push_back(grp.id);
+      // раньше здесь был вызов doCheckGrp(grp.id);
 
       timing.finish("check_grp", grp.point_dep);
 
@@ -6201,6 +6160,18 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     }
 
   } //цикл по сегментам
+
+  bool rollbackGuaranteed = (needSyncEdsEts(ediResNode) && !ChangeStatusInfo.empty()) ||
+                            rollbackGuaranteedOnFirstSegment;
+  if(!rollbackGuaranteed)
+  {
+      appsCollector.send();
+      iapiCollector.send();
+  }
+
+  for(auto grp_id: segs_grp_ids) {
+      doCheckGrp(grp_id);
+  }
 
   timing.start("svc_auto");
 

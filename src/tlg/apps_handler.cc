@@ -118,9 +118,9 @@ void handle_apps_tlg(const tlg_info &tlg)
              << " | ROUTER: " << tlg.sender
              << " | TSTAMP: " << boost::posix_time::second_clock::local_time() << "\n"
              << (isH2h ? hth::toStringOnTerm(h2h) + "\n" : "")
-             << appsTextAsHumanReadable(tlg.text);
+             << APPS::appsTextAsHumanReadable(tlg.text);
 
-    if(!processReply(tlg.text))
+    if(!APPS::processReply(tlg.text))
       ProgTrace(TRACE1, "Message was not processed!");
     deleteTlg(tlg.id);
     callPostHooksBefore();
@@ -198,10 +198,10 @@ void resend_tlg(void)
     bool apps_down = get_alarm(point_id, Alarm::APPSOutage);
     TDateTime send_time = Qry.FieldAsDateTime("send_time");
     int msg_id = Qry.FieldAsInteger("msg_id");
-    if (!checkTime(point_id) || send_attempts == MaxSendAttempts) {
+    if (!APPS::checkTime(point_id) || send_attempts == APPS::MaxSendAttempts) {
       /* More than 2 days has passed after flight scheduled departure time or max value of send attempts has been reached.
          It is useless to continue send. */
-      deleteMsg(msg_id);
+      APPS::deleteMsg(msg_id);
     }
     // maximum time to wait for a response from APPS is 4 sec
     TDateTime now = NowUTC();
@@ -209,12 +209,12 @@ void resend_tlg(void)
     if (now - send_time < ttw_sec/(24.0*60.0*60.0)) {
       continue;
     }
-    if( ( send_attempts >= NumSendAttempts ) && !apps_down ) {
+    if( ( send_attempts >= APPS::NumSendAttempts ) && !apps_down ) {
       // включим тревогу "Нет связи с APPS"
       set_alarm(point_id, Alarm::APPSOutage, true);
     }
     ProgTrace(TRACE5, "resend_tlg: elapsed time %s", DateTimeToStr( (NowUTC() - send_time), "hh:nn:ss" ).c_str());
-    reSendMsg(send_attempts, Qry.FieldAsString("msg_text"), msg_id);
+    APPS::reSendMsg(send_attempts, Qry.FieldAsString("msg_text"), msg_id);
     callPostHooksBefore();
     ASTRA::commit();
     callPostHooksAfter();

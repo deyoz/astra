@@ -22,6 +22,7 @@
 #include <serverlib/test.h>
 
 using namespace std;
+using namespace APPS;
 
 static int WAIT_INTERVAL()       //миллисекунды
 {
@@ -113,7 +114,7 @@ bool handle_tlg(void)
       "WHERE tlg_queue.receiver=:receiver AND "
       "      tlg_queue.type='OAPP' "
       "ORDER BY tlg_queue.time,tlg_queue.id";
-    TlgQry.CreateVariable( "receiver", otString, getAPPSRotName() );
+    TlgQry.CreateVariable( "receiver", otString, APPS::getAPPSRotName() );
   };
 
   int count;
@@ -133,7 +134,7 @@ bool handle_tlg(void)
 
         if (!answer.empty()) {
           // отправим телеграмму
-          sendTlg(OWN_CANON_NAME(), getAPPSRotName(), qpOutB, 20, answer,
+          sendTlg(OWN_CANON_NAME(), APPS::getAPPSRotName(), qpOutB, 20, answer,
                   ASTRA::NoExists, ASTRA::NoExists);
 
           sendCmd("CMD_APPS_HANDLER","H");

@@ -1141,6 +1141,169 @@ $(defmacro CHECKIN_PAX
 
 #########################################################################################
 
+#########################################################################################
+
+$(defmacro CHECKIN_PAX_TRANSFER
+    pax_id
+    point_dep
+    point_arv
+    airl
+    flt
+    airp_dep
+    airp_arv
+    surname
+    name
+    tickno
+    pax_id2
+    point_dep2
+    point_arv2
+    airl2
+    flt2
+    airp_dep2
+    airp_arv2
+    surname2
+    name2
+    pers_type
+    doc_issue_country
+    doc_no
+    doc_nationality
+    doc_birth_date
+    doc_expiry_date
+    doc_gender
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <TCkinSavePax>
+      <agent_stat_period>3</agent_stat_period>
+      <transfer/>
+      <segments>
+        <segment>
+          <point_dep>$(point_dep)</point_dep>
+          <point_arv>$(point_arv)</point_arv>
+          <airp_dep>$(airp_dep)</airp_dep>
+          <airp_arv>$(airp_arv)</airp_arv>
+          <class>Э</class>
+          <status>K</status>
+          <wl_type/>
+          <mark_flight>
+            <airline>$(airl)</airline>
+            <flt_no>$(flt)</flt_no>
+            <suffix/>
+            <scd>$(date_format %d.%m.%Y +0) 00:00:00</scd>
+            <airp_dep>$(airp_dep)</airp_dep>
+            <pr_mark_norms>0</pr_mark_norms>
+          </mark_flight>
+          <passengers>
+            <pax>
+              <pax_id>$(pax_id)</pax_id>
+              <surname>$(surname)</surname>
+              <name>$(name)</name>
+              <pers_type>$(pers_type)</pers_type>
+              <seat_no/>
+              <preseat_no/>
+              <seat_type/>
+              <seats>1</seats>
+              <ticket_no>$(tickno)</ticket_no>
+              <coupon_no>1</coupon_no>
+              <ticket_rem>TKNE</ticket_rem>
+              <ticket_confirm>0</ticket_confirm>
+              <document>
+                <type>P</type>
+                <issue_country>$(doc_issue_country)</issue_country>
+                <no>$(doc_no)</no>
+                <nationality>$(doc_nationality)</nationality>
+                <birth_date>$(doc_birth_date) 00:00:00</birth_date>
+                <expiry_date>$(doc_expiry_date) 00:00:00</expiry_date>
+                <gender>$(doc_gender)</gender>
+                <surname>$(surname)</surname>
+                <first_name>$(name)</first_name>
+              </document>
+              <doco/>
+              <addresses/>
+              <subclass>Э</subclass>
+              <bag_pool_num/>
+              <transfer/>
+              <rems/>
+              <fqt_rems/>
+              <norms/>
+            </pax>
+          </passengers>
+          <paid_bag_emd/>
+        </segment>
+
+        <segment>
+          <point_dep>$(point_dep2)</point_dep>
+          <point_arv>$(point_arv2)</point_arv>
+          <airp_dep>$(airp_dep2)</airp_dep>
+          <airp_arv>$(airp_arv2)</airp_arv>
+          <class>Э</class>
+          <status>K</status>
+          <wl_type/>
+          <mark_flight>
+            <airline>$(airl2)</airline>
+            <flt_no>$(flt2)</flt_no>
+            <suffix/>
+            <scd>$(date_format %d.%m.%Y +0) 00:00:00</scd>
+            <airp_dep>$(airp_dep2)</airp_dep>
+            <pr_mark_norms>0</pr_mark_norms>
+          </mark_flight>
+          <passengers>
+            <pax>
+              <pax_id>$(pax_id2)</pax_id>
+              <surname>$(surname2)</surname>
+              <name>$(name2)</name>
+              <pers_type>$(pers_type)</pers_type>
+              <seat_no/>
+              <preseat_no/>
+              <seat_type/>
+              <seats>1</seats>
+              <ticket_no>$(tickno)</ticket_no>
+              <coupon_no>2</coupon_no>
+              <ticket_rem>TKNE</ticket_rem>
+              <ticket_confirm>0</ticket_confirm>
+              <document>
+                <type>P</type>
+                <issue_country>$(doc_issue_country)</issue_country>
+                <no>$(doc_no)</no>
+                <nationality>$(doc_nationality)</nationality>
+                <birth_date>$(doc_birth_date) 00:00:00</birth_date>
+                <expiry_date>$(doc_expiry_date) 00:00:00</expiry_date>
+                <gender>$(doc_gender)</gender>
+                <surname>$(surname2)</surname>
+                <first_name>$(name2)</first_name>
+              </document>
+              <doco/>
+              <addresses/>
+              <subclass>Э</subclass>
+              <bag_pool_num/>
+              <transfer/>
+              <rems/>
+              <fqt_rems/>
+              <norms/>
+            </pax>
+          </passengers>
+          <paid_bag_emd/>
+        </segment>
+
+      </segments>
+      <excess>0</excess>
+      <hall>1</hall>
+      <paid_bags>
+        <paid_bag>
+          <bag_type/>
+          <weight>0</weight>
+          <rate_id/>
+          <rate_trfer/>
+        </paid_bag>
+      </paid_bags>
+    </TCkinSavePax>
+  </query>
+</term>}
+
+}) #end-of-macro CHECKIN_PAX_TRANSFER
+
+#########################################################################################
+
 $(defmacro CHECKIN_PAX_WITH_VISA
     pax_id
     point_dep
@@ -1375,6 +1538,91 @@ $(defmacro CHECKIN_PAX_WITH_VISA_AND_DOCA
 </term>}
 
 }) #end-of-macro CHECKIN_PAX_WITH_VISA_AND_DOCA
+
+#########################################################################################
+
+$(defmacro UPDATE_PAX_PASSPORT
+    pax_id
+    grp_id
+    tid
+    point_dep
+    point_arv
+    airl
+    flt
+    airp_dep
+    airp_arv
+    surname
+    name
+    tickno
+    pers_type
+    doc_issue_country
+    doc_no
+    doc_nationality
+    doc_birth_date
+    doc_expiry_date
+    doc_gender
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <TCkinSavePax>
+      <agent_stat_period>3</agent_stat_period>
+      <transfer/>
+      <segments>
+        <segment>
+          <point_dep>$(point_dep)</point_dep>
+          <point_arv>$(point_arv)</point_arv>
+          <airp_dep>$(airp_dep)</airp_dep>
+          <airp_arv>$(airp_arv)</airp_arv>
+          <class>Э</class>
+          <grp_id>$(grp_id)</grp_id>
+          <tid>$(tid)</tid>
+          <passengers>
+            <pax>
+              <pax_id>$(pax_id)</pax_id>
+              <surname>$(surname)</surname>
+              <name>$(name)</name>
+              <pers_type>$(pers_type)</pers_type>
+              <refuse/>
+              <ticket_no>$(tickno)</ticket_no>
+              <coupon_no>1</coupon_no>
+              <ticket_rem>TKNE</ticket_rem>
+              <ticket_confirm>1</ticket_confirm>
+              <seat_no/>
+              <seat_type/>
+              <seats>1</seats>
+              <document>
+                <type>P</type>
+                <issue_country>$(doc_issue_country)</issue_country>
+                <no>$(doc_no)</no>
+                <nationality>$(doc_nationality)</nationality>
+                <birth_date>$(doc_birth_date) 00:00:00</birth_date>
+                <expiry_date>$(doc_expiry_date) 00:00:00</expiry_date>
+                <gender>$(doc_gender)</gender>
+                <surname>$(surname)</surname>
+                <first_name>$(name)</first_name>
+              </document>
+              <doco/>
+              <addresses/>
+              <subclass>Э</subclass>
+              <bag_pool_num/>
+              <transfer/>
+              <rems/>
+              <fqt_rems/>
+              <norms/>
+              <tid>$(tid)</tid>
+            </pax>
+          </passengers>
+          <paid_bag_emd/>
+        </segment>
+      </segments>
+      <excess>0</excess>
+      <hall>1</hall>
+      <bag_refuse/>
+    </TCkinSavePax>
+  </query>
+</term>}
+
+}) #end-of-macro UPDATE_PAX_PASSPORT
 
 #########################################################################################
 
@@ -1936,6 +2184,49 @@ $(PNL_UT_C7Y56_PART6 $(depp) $(arrp) $(fltno) $(depd))
 
 #########################################################################################
 
+#########################################################################################
+
+$(defmacro INB_PNL_UT_TRANSFER1
+    depp
+    arrp
+    fltno
+    depd
+    addr_to=MOWKK1H
+    addr_from=TJMRMUT
+{
+<<
+$(PNL_UT_C7Y56_PART1_TRANSFER $(depp) $(arrp) $(fltno) $(depd))
+
+}) #end-of-macro INB_PNL_UT_TRANSFER1
+
+$(defmacro INB_PNL_UT_TRANSFER2
+    depp
+    arrp
+    fltno
+    depd
+    addr_to=MOWKK1H
+    addr_from=TJMRMUT
+{
+<<
+$(PNL_UT_C7Y56_PART2_TRANSFER $(depp) $(arrp) $(fltno) $(depd))
+
+}) #end-of-macro INB_PNL_UT_TRANSFER2
+
+$(defmacro INB_PNL_UT_TRANSFER3
+    depp
+    arrp
+    fltno
+    depd
+    addr_to=MOWKK1H
+    addr_from=TJMRMUT
+{
+<<
+$(PNL_UT_C7Y56_PART3_TRANSFER $(depp) $(arrp) $(fltno) $(depd))
+
+}) #end-of-macro INB_PNL_UT_TRANSFER3
+
+#########################################################################################
+
 $(defmacro INB_ADL_UT_DEL2PAXES
     depp
     arrp
@@ -1963,6 +2254,36 @@ $(defmacro INB_ADL_UT_CHG1PAX
 $(ADL_UT_C7Y56_CHG1PAX $(depp) $(arrp) $(fltno) $(depd))
 
 }) #end-of-macro INB_ADL_UT_CHG1PAX
+
+#####################################################################################
+
+$(defmacro CIRQ_3_UT_REQS_APPS_VERSION_21_TRANSFER
+    airl
+    fltno
+    depp
+    arrp
+    depd=$(yyyymmdd)
+    arrd=$(yyyymmdd)
+    dept=101500
+    arrt=100000
+{
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/KAZ/KAZ/N11024936//P/20261004////ALIMOV/TALGAT/19960511/M///N/N////.*
+
+$(set msg_id2 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0306355301//P/20291005////KOBYLINSKIY/ALEKSEY/19861231/M///N/N////.*
+
+$(set msg_id10 $(capture 1))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/////P/////OZ/OFER//U///N/Y////.*
+
+$(set msg_id11 $(capture 1))
+
+}) #end-if-macro CIRQ_3_UT_REQS_APPS_VERSION_21_TRANSFER
 
 #########################################################################################
 
@@ -2285,16 +2606,160 @@ $(set msg_id61 $(capture 1))
 }) #end-if-macro CIRQ_61_UT_REQS
 
 #########################################################################################
+$(defmacro CIRQ_21
+    pre_checkin=""
+    airl
+    fltno
+    depp
+    arrp
+    depd
+    dept
+    arrd
+    arrt
+    paxorcrew
+    nat
+    ctr_code_icao
+    psprt_id
+    doctype
+    doc_exp
+    #supp_doc_type not used
+    #supp_doc_id not used
+    #supp_doc_char not used
+    family
+    name
+    birth
+    sex
+    trsfr_at_org
+    trsfr_at_dest
+    chk=""
+    ctry_birth=""
+    holder=""
+    psprt_char=""
+    ov_codes=""
+    pnr_src=""
+    pnr_loc=""
+{
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/$(pre_checkin)/21/$(chk)INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/$(paxorcrew)/$(nat)/$(ctr_code_icao)/$(psprt_id)/$(psprt_char)/$(doctype)/$(doc_exp)////$(family)/$(name)/$(birth)/$(sex)/$(ctry_birth)/$(holder)/$(trsfr_at_org)/$(trsfr_at_dest)/$(ov_codes)/$(pnr_src)/$(pnr_loc)/.*
+
+$(set cirq_msg_id $(capture 1))
+
+})  #end-if-macro CIRQ_21
+#$(chk)/$(chk_num_fds)/$(chk_port)/$(chk_flt)
+
+#########################################################################################
+$(defmacro CIRQ_26
+    airl
+    fltno
+    depp
+    arrp
+    depd
+    dept
+    arrd
+    arrt
+    paxorcrew
+    nat
+    ctr_code_icao
+    psprt_id
+    doctype
+    doc_exp
+    #supp_doc_type not used
+    #supp_doc_id not used
+    #supp_doc_char not used
+    family
+    name
+    birth
+    sex
+    trsfr_at_org
+    trsfr_at_dest
+    pass_ref
+    ctr_code_iata
+    add_doc_type
+    add_doc_nmb
+    add_ctr_code
+    add_doc_exp_date
+    add_doc_subtype=""
+    doc_subtype=""
+    data_ver=""
+    home_addr=""
+    home_city=""
+    home_state=""
+    home_postal=""
+    birth_city=""
+    birth_state=""
+    airp_beg_code=""
+    airp_dest_code=""
+    ov_codes=""
+    pnr_sr=""
+    pnr_loc=""
+    ctry_birth=""
+    ctry_of_res=""
+    holder=""
+    psprt_char=""
+    address=""
+    city=""
+    state=""
+    postal=""
+    redress=""
+    travel_nmb=""
+{
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)\
+/PRQ/34/1/$(paxorcrew)/$(nat)/$(ctr_code_icao)/$(psprt_id)/$(psprt_char)/$(doctype)/$(doc_subtype)/$(doc_exp)////$(family)/$(name)/$(birth)/$(sex)/$(ctry_birth)/$(holder)/$(trsfr_at_org)/$(trsfr_at_dest)/$(ov_codes)/$(pnr_sr)/$(pnr_loc)/$(ctry_of_res)/$(airp_beg_code)/$(airp_dest_code)/$(pass_ref)/$(data_ver)/$(home_addr)/$(home_city)/$(home_state)/$(home_postal)/$(birth_city)/$(birth_state)\
+/PAD/13/1/$(ctr_code_iata)/$(add_doc_type)/$(add_doc_subtype)/$(add_doc_nmb)/$(add_ctr_code)/$(add_doc_exp_date)/$(address)/$(city)/$(state)/$(postal)/$(redress)/$(travel_nmb).*
+
+$(set cirq_msg_id $(capture 1))
+
+})  #end-if-macro CIRQ_26
+#########################################################################################
+
+#########################################################################################
+$(defmacro CICX_21
+    pre_checkin
+    airl
+    fltno
+    depp
+    arrp
+    depd
+    dept
+    arrd
+    arrt
+    exp_pass_id
+    pax_or_crew
+    nat
+    ctr_code_icao
+    psprt_id
+    doctype
+    doc_exp
+    #supp_doc_type not used
+    #supp_doc_id not used
+    #supp_doc_char not used
+    family
+    name
+    birth
+    sex
+    trsfr_at_org
+    trsfr_at_dest
+    ctry_birth=""
+    holder=""
+    psprt_char=""
+{
+>> lines=auto mode=regex
+.*CICX:([0-9]+)/UTUTA1/N/$(pre_checkin)/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PCX/20/1/$(exp_pass_id)/$(pax_or_crew)/$(nat)/$(ctr_code_icao)/$(psprt_id)/$(psprt_char)/$(doctype)/$(doc_exp)////$(family)/$(name)/$(birth)/$(sex)/$(ctry_birth)/$(holder)/$(trsfr_at_org)/$(trsfr_at_dest)/.*
+
+$(set cicx_msg_id $(capture 1))
+
+})  #end-if-macro CICX_21
 
 $(defmacro CIRQ_61_UT_REQS_APPS_VERSION_26
     airl
     fltno
     depp
     arrp
-    depd=$(yyyymmdd)
-    arrd=$(yyyymmdd)
-    dept=101500
-    arrt=100000
+    depd
+    arrd
+    dept
+    arrt
 {
 
 >> lines=auto mode=regex
