@@ -33,7 +33,8 @@ if [ -z "$LOCALCXX" ]; then
         CXX="ccache $CXX"
         CC="ccache $CC"
     fi
-    export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${ORACLE_HOME}/lib"
+    [ -n ${ORACLE_HOME:+x} ] && export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${ORACLE_HOME}/lib"
+    [ -n ${ORACLE_INSTANT:+x} ] && export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${ORACLE_INSTANT}"
 
     export LOCALCC=${CC}
     export LOCALCXX=${CXX}
