@@ -75,6 +75,7 @@ public:
     bool getInbound()        const { return inbound;      }
     bool getOutbound()       const { return outbound;     }
     bool getDenial()         const { return denial;       }
+    bool getPreCheckin()     const { return pre_checkin;  }
     bool operator < (const AppsSettings& rhs) const
     {
         return this->id < rhs.id;
@@ -94,6 +95,7 @@ private:
     bool inbound;
     bool outbound;
     bool denial;
+    bool pre_checkin;
 };
 
 class TransactionData

@@ -665,19 +665,21 @@ static std::string FP_initApps(const std::vector<tok::Param>& par)
     std::string country = PositionalValues(par).at(1);
     std::string format  = PositionalValues(par).at(2);
 
-    bool inbound  = tok::GetValue(par, "inbound",  "true") == "true";
-    bool outbound = tok::GetValue(par, "outbound", "true") == "true";
-    bool closeout = tok::GetValue(par, "closeout", "true") == "true";
-    bool prdenial = tok::GetValue(par, "denial",   "false")== "true";
-
+    bool inbound    = tok::GetValue(par, "inbound",  "true")    == "true";
+    bool outbound   = tok::GetValue(par, "outbound", "true")    == "true";
+    bool closeout   = tok::GetValue(par, "closeout", "true")    == "true";
+    bool prdenial   = tok::GetValue(par, "denial",   "false")   == "true";
+    bool precheckin = tok::GetValue(par, "pre_checkin", "true")  == "true";
     LogTrace(TRACE1) << "init_apps: "
-                     << "airline: "  << airline << "; "
-                     << "country: "  << country << "; "
-                     << "format: "   << format << "; "
-                     << "inbound: "  << inbound << "; "
-                     << "outbound: " << outbound << "; "
-                     << "closeout: " << closeout << "; "
-                     << "prdenial: " << prdenial;
+                     << "airline: "    << airline    << "; "
+                     << "country: "    << country    << "; "
+                     << "format: "     << format     << "; "
+                     << "inbound: "    << inbound    << "; "
+                     << "outbound: "   << outbound   << "; "
+                     << "closeout: "   << closeout   << "; "
+                     << "prdenial: "   << prdenial   << "; "
+                     << "precheckin: " << precheckin << "; ";
+
 
     make_curs(
 "delete from APPS_SETS where AIRLINE=:airline and APPS_COUNTRY=:country")
@@ -686,8 +688,8 @@ static std::string FP_initApps(const std::vector<tok::Param>& par)
             .exec();
 
     make_curs(
-"insert into APPS_SETS(AIRLINE, APPS_COUNTRY, FORMAT, FLT_CLOSEOUT, INBOUND, OUTBOUND, PR_DENIAL, ID) "
-"values(:airline, :country, :format, :closeout, :inbound, :outbound, :prdenial, id__seq.nextval)")
+"insert into APPS_SETS(AIRLINE, APPS_COUNTRY, FORMAT, FLT_CLOSEOUT, INBOUND, OUTBOUND, PR_DENIAL, PRE_CHECKIN, ID) "
+"values(:airline, :country, :format, :closeout, :inbound, :outbound, :prdenial, :precheckin, id__seq.nextval)")
             .bind(":airline", airline)
             .bind(":country", country)
             .bind(":format",  format)
@@ -695,6 +697,7 @@ static std::string FP_initApps(const std::vector<tok::Param>& par)
             .bind(":inbound", inbound)
             .bind(":outbound",outbound)
             .bind(":prdenial",prdenial)
+            .bind(":precheckin", precheckin)
             .exec();
     return "";
 }

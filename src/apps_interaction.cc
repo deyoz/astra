@@ -18,6 +18,7 @@
 #include <serverlib/tcl_utils.h>
 #include <serverlib/cursctl.h>
 #include <serverlib/dump_table.h>
+#include <serverlib/algo.h>
 
 #define NICKNAME "FELIX"
 #define NICKTRACE SYSTEM_TRACE
@@ -25,6 +26,7 @@
 #include <serverlib/dates_oci.h>
 #include <serverlib/dates_io.h>
 #include "ckin_search.h"
+#include <functional>
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -104,13 +106,13 @@ const std::string AppsPaxDataReadQuery = "select PAX_ID, APPS_PAX_ID, STATUS, PA
                                          " NUM_STREET, CITY, STATE, POSTAL_CODE, REDRESS_NUMBER, TRAVELLER_NUMBER "
                                          "from APPS_PAX_DATA ";
 
+
+
 // Работа с версионностью
 int fieldCount(std::string data_group, int version);
 ESpecVer getSpecVer(int msg_ver);
 static int versionByFormat(const std::string& fmt);
 ASTRA::TGender::Enum femaleToGender(int is_female);
-
-static boost::optional<PaxRequest> paxRequestFromDb(OciCpp::CursCtl & cur);
 
 // Получение APPS настроек
 bool checkAPPSSets(int pax_id);
@@ -120,6 +122,8 @@ static std::set<AppsSettings> getAppsSets(int point_id, const std::string & airp
 std::set<AppsSettings> getAppsSets(OciCpp::CursCtl & cur, int pax_id);
 std::set<AppsSettings> getAppsSetsByPaxId(int pax_id);
 std::set<AppsSettings> getAppsSetsByCrsPaxId(int pax_id);
+std::set<AppsSettings> filterByPreCheckin(const std::set<AppsSettings> & sets);
+std::set<AppsSettings> filterByInboundOutbound(const std::set<AppsSettings> &sets);
 std::set<std::string> needFltCloseout(const std::set<std::string>& countries, const string &airline);
 
 // Обработка трансферных пассажиров
@@ -178,12 +182,14 @@ static void sendNewReq(const std::string& text, const std::string & router);
 static void saveAppsMsg(const std::string& text, const int msg_id, const int point_id, int version);
 bool isAlreadyCheckedIn(const int pax_id);
 static void sendAPPSInfo(const int point_id, const int point_id_tlg);
-
+static boost::optional<PaxRequest> paxRequestFromDb(OciCpp::CursCtl & cur);
 
 void processCrsPax(const int pax_id, const std::string& override_type)
 {
     ProgTrace(TRACE5, "processCrsPax: %d", pax_id);
-    const auto settings = getAppsSetsByCrsPaxId(pax_id);
+    auto settings = getAppsSetsByCrsPaxId(pax_id);
+    settings = filterByInboundOutbound(settings);
+    settings = filterByPreCheckin(settings);
     if(!settings.empty() && !isAlreadyCheckedIn(pax_id)){
         sendAppsMessages(pax_id, settings, PaxRequest::Crs, override_type);
     }
@@ -192,7 +198,8 @@ void processCrsPax(const int pax_id, const std::string& override_type)
 void processPax(const int pax_id, const std::string& override_type, const bool is_forced)
 {
     ProgTrace(TRACE5, "processPax: %d", pax_id);
-    const auto settings = getAppsSetsByPaxId(pax_id);
+    auto settings = getAppsSetsByPaxId(pax_id);
+    settings = filterByInboundOutbound(settings);
     if(!getAppsSetsByPaxId(pax_id).empty()){
         sendAppsMessages(pax_id, settings, PaxRequest::Pax, override_type, is_forced);
     }
@@ -606,7 +613,8 @@ boost::optional<AppsSettings> AppsSettings::readSettings(const std::string& airl
     LogTrace(TRACE5)<<__FUNCTION__<< "Airline: "<<airline << " country: "<<country;
     AppsSettings settings = {};
     auto cur = make_curs(
-               "select FORMAT, ID, FLT_CLOSEOUT, INBOUND, OUTBOUND, PR_DENIAL, AIRLINE, APPS_COUNTRY "
+               "select FORMAT, ID, FLT_CLOSEOUT, INBOUND, OUTBOUND, PR_DENIAL, AIRLINE, "
+               "APPS_COUNTRY, PRE_CHECKIN "
                "from APPS_SETS "
                "where AIRLINE=:airline and APPS_COUNTRY=:country and PR_DENIAL=0");
     cur
@@ -618,6 +626,7 @@ boost::optional<AppsSettings> AppsSettings::readSettings(const std::string& airl
             .def(settings.denial)
             .def(settings.airline)
             .def(settings.country)
+            .def(settings.pre_checkin)
             .bind(":airline", airline)
             .bind(":country", country)
             .EXfet();
@@ -1218,47 +1227,54 @@ void PaxRequest::sendReqAndSave(const AppsSettings &settings) const
     saveAppsMsg(msg(version), trans.msg_id, int_flt.point_id, version);
 }
 
-std::set<AppsSettings> getAppsSets(const std::string& airline, const std::string & airp_dep,
-                                   const std::string & airp_arv)
-{
-    LogTrace(TRACE5) << __FUNCTION__ << " Airline: " << airline << " airp_dep: "
-                     << airp_dep << " airp_arv: " << airp_arv;
-    std::set<AppsSettings> res;
-    if(auto set_dep = AppsSettings::readSettings(airline, getCountryByAirp(airp_dep).code)) {
-        if(set_dep.get().getOutbound()) {
-            res.insert(set_dep.get());
-        }
-    }
-    if(auto set_arv = AppsSettings::readSettings(airline, getCountryByAirp(airp_arv).code)) {
-        if(set_arv.get().getInbound()) {
-            res.insert(set_arv.get());
-        }
-    }
-    return res;
-}
-
-std::set<AppsSettings> appsSetsByInboundOutbound(int point_id, const std::string & airp_arv)
+std::set<AppsSettings> appsSetsForSegment(const int point_id, const std::string & airp_arv)
 {
     auto info = getPointInfo(point_id);
     if(!info) {
         return {};
     }
 
-    LogTrace(TRACE5)<<__FUNCTION__ << " Airline: " << info->airline << " airp_dep: "
-                    << info->airp << " airp_arv: " << airp_arv;
+    LogTrace(TRACE5) << __FUNCTION__ << " Airline: " << info->airline << " airp_dep: "
+                     << info->airp << " airp_arv: " << airp_arv;
     std::set<AppsSettings> res;
     if(auto set_dep = AppsSettings::readSettings(info->airline, getCountryByAirp(info->airp).code)) {
-        if(set_dep.get().getOutbound()) {
-            res.insert(set_dep.get());
-        }
+        res.insert(set_dep.get());
     }
     if(auto set_arv = AppsSettings::readSettings(info->airline, getCountryByAirp(airp_arv).code)) {
-        if(set_arv.get().getInbound()) {
-            res.insert(set_arv.get());
-        }
+        res.insert(set_arv.get());
     }
     return res;
-    //return getAppsSets(info->airline, info->airp, airp_arv);
+}
+
+std::set<AppsSettings> filterByPreCheckin(const std::set<AppsSettings> & sets)
+{
+    return algo::filter(sets, [&](auto set)
+    {
+        if(set.getPreCheckin()) {
+            return true;
+        } else {
+            LogTrace(TRACE3) << "Filtered by precheckin flag";
+            return false;
+        }
+    });
+}
+
+std::set<AppsSettings> filterByInboundOutbound(const std::set<AppsSettings> & sets)
+{
+    return algo::filter(sets, [&](auto set)
+    {
+        if(set.getInbound() || set.getOutbound()) {
+            return true;
+        } else {
+            if(!set.getInbound()) {
+                LogTrace(TRACE3) << "Filtered by inbound";
+            }
+            if(!set.getOutbound()) {
+                LogTrace(TRACE3) << "Filtered by outbound";
+            }
+            return false;
+        }
+    });
 }
 
 std::set<AppsSettings> getAppsSets(OciCpp::CursCtl & cur, int pax_id)
@@ -1272,7 +1288,7 @@ std::set<AppsSettings> getAppsSets(OciCpp::CursCtl & cur, int pax_id)
     if(cur.err() == NO_DATA_FOUND) {
         return {};
     }
-    return appsSetsByInboundOutbound(point_id, airp_arv);
+    return appsSetsForSegment(point_id, airp_arv);
 }
 
 std::set<AppsSettings> getAppsSetsByPaxId(int pax_id)
@@ -2286,7 +2302,7 @@ void appsFlightCloseout(const int point_id)
     }
     for(const auto& country : needFltCloseout(countries, route.front().airline))
     {
-        std::string country_lat = ((const TCountriesRow&)base_tables.get("countries").get_row("code",country)).code_lat;
+        std::string country_lat = BaseTables::Country(country)->lcode();
         ManifestRequest close_flt;
         boost::optional<AppsSettings> settings = AppsSettings::readSettings(route.front().airline, country);
         if (close_flt.init(point_id, country_lat) && settings) {
