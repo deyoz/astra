@@ -957,7 +957,7 @@ void CreatePSE( const string &desk, bool pr_grp, int password_len, TPKCS &pkcs )
         throw Exception( "Can't create dir=" + string( PSEpath + "/" + IntToString(i) ) + ", error=" + IntToString( errno ) );
   PSEpath += "/" + IntToString(i);
   ProgTrace( TRACE5, "CreatePKCS: PSEpath=%s", PSEpath.c_str() );
-  SetRandInitCallbackFun((void *)init_rand_callback1);
+  SetRandInitCallbackFun(init_rand_callback1);
   GetError( "PKCS7Init", PKCS7Init( 0, 0 ) );
   try {
     string file_key = PSEpath + "/pkey.key";
@@ -1098,7 +1098,7 @@ void CryptInterface::CryptValidateServerKey(XMLRequestCtxt *ctxt, xmlNodePtr req
   PSEpath += "/" + IntToString(i);
   ProgTrace( TRACE5, "CryptValidateServerKey: PSEpath=%s", PSEpath.c_str() );
   pkcs.key_filename = PSEpath + "/" + pkcs.key_filename;
-  SetRandInitCallbackFun((void *)init_rand_callback1);
+  SetRandInitCallbackFun(init_rand_callback1);
   GetError( "PKCS7Init", PKCS7Init( 0, 0 ) );
   try {
     try {
