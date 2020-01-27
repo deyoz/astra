@@ -27,5 +27,7 @@ fi;
 
 WITH_PARAMS="$WITH_PARAMS --with-xml-prefix=$LIBXML2 --with-check=$LIBCHECK"
 
+[ -n $ORACLE_INSTANT ] && export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${ORACLE_INSTANT}"
+
 pwd
-autoreconf --force --install && ./configure --silent CC="$CC" CXX="$CXX" CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" $tcl_flag $WITH_PARAMS $shared_mode $@
+autoreconf --force --install && ./configure --silent --enable-silent-rules CC="$CC" CXX="$CXX" CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" $tcl_flag $WITH_PARAMS $shared_mode $@

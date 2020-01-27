@@ -25,7 +25,7 @@ ftp=ftp://storage.komtex/externallibs_astra
 pkg_tgz=$(uab_pkg_tarball)
 pkg_uri=$ftp/$pkg_tgz
 
-if [ -z "$LOUD" ] ; then quiet='--no-verbose' ; fi
+if [ -z "${LOUD:-}" ] ; then quiet='--no-verbose' ; fi
 if ! wget --timestamping $quiet --directory-prefix=$prefix $pkg_uri ; then
     stat $prefix/$pkg_tgz > /dev/null
 fi

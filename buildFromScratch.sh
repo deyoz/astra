@@ -1,12 +1,12 @@
 #!/bin/bash
-
+set -x
 export BUILD_TESTS=${BUILD_TESTS:? BUILD_TESTS not set}
 export ENABLE_SHARED=${ENABLE_SHARED:? ENABLE_SHARED not set}
 export ASTRA_HOME=$(pwd)
 export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:$(pwd)/pkgconfig"
 export MAKE_J=${MAKE_J:-`grep -c ^processor /proc/cpuinfo`}
 export LOAD_A=${LOAD_A:-`grep -c ^processor /proc/cpuinfo`}
-#export PLATFORM='m32'
+export PLATFORM='m64'
 export CPP_STD_VERSION='c++14'
 
 EXTERNALLIBS_DIR=${EXTERNAL_LIBS:-$(pwd)/externallibs}
@@ -17,7 +17,8 @@ LIST_EXTLIB="icu libxml2 libxslt boost check pion amqpcpp"
 
 LOCALLIBS_DIR=${LOCAL_LIBS:-$(pwd)/locallibs}
 
-source ./toolchain/env
+source ./toolchain/utils
+##source ./toolchain/env
 
 export CFLAGS="$ASTRA_FLAGS $CFLAGS"
 export CXXFLAGS="$ASTRA_FLAGS $CXXFLAGS"
@@ -59,7 +60,7 @@ function getOracleRPATH() {
 
 if [[ -n "$WITH_MESPRO" ]] ; then
     MESPRO_HOME="$EXTERNALLIBS_DIR/mespro"
-
+    [ -d $MESPRO_HOME ] || exit 13
     export MESPRO_CFLAGS="-DUSE_MESPRO -I$MESPRO_HOME/include"
     export MESPRO_CXXFLAGS="-DUSE_MESPRO -I$MESPRO_HOME/include"
 	export MESPRO_LDFLAGS="-L$MESPRO_HOME -lmesprox"
@@ -97,7 +98,7 @@ export OPTIMIZE_FLAGS=$(termOptimization);
 
 function defineGCCRelevantFlags()
 {
-	GCC_VERSION=$(getGCCVersionInt)
+	GCC_VERSION=831 ## $(getGCCVersionInt)
     
 	if [[ "$GCC_VERSION" -lt 403 ]] ; then
 		USE_CPP_STD='c++98'
