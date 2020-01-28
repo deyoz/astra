@@ -1,4 +1,4 @@
-CREATE OR REPLACE PACKAGE BODY arch
+create or replace PACKAGE BODY arch
 AS
 
 BULK_COLLECT_LIMIT CONSTANT INTEGER := 100;
@@ -1053,9 +1053,11 @@ BEGIN
       IF use_insert THEN
         FORALL i IN 1..rowids.COUNT
           INSERT INTO arx_grp_norms
-            (grp_id,bag_type,norm_id,norm_trfer,handmade,part_key)
+            (grp_id, bag_type, norm_id, norm_trfer, handmade,
+             list_id, bag_type_str, airline, part_key)
           SELECT
-             grp_id,bag_type,norm_id,norm_trfer,handmade,vpart_key
+             grp_id, bag_type, norm_id, norm_trfer, handmade,
+             list_id, bag_type_str, airline, vpart_key
           FROM grp_norms
           WHERE rowid=rowids(i);
       END IF;
@@ -1070,9 +1072,11 @@ BEGIN
         IF use_insert THEN
           FORALL i IN 1..rowids.COUNT
             INSERT INTO arx_pax_norms
-              (pax_id,bag_type,norm_id,norm_trfer,handmade,part_key)
+              (pax_id, bag_type, norm_id, norm_trfer, handmade,
+               list_id, bag_type_str, airline, part_key)
             SELECT
-               pax_id,bag_type,norm_id,norm_trfer,handmade,vpart_key
+               pax_id, bag_type, norm_id, norm_trfer, handmade,
+               list_id, bag_type_str, airline, vpart_key
             FROM pax_norms
             WHERE rowid=rowids(i);
         END IF;
@@ -1460,10 +1464,10 @@ BEGIN
         FORALL i IN 1..rowids.COUNT
           INSERT INTO arx_bag_norms
             (id,airline,pr_trfer,city_dep,city_arv,pax_cat,subclass,class,flt_no,craft,trip_type,
-             first_date,last_date,bag_type,amount,weight,per_unit,norm_type,extra,pr_del,tid,part_key)
+             first_date,last_date,bag_type,amount,weight,per_unit,norm_type,extra,pr_del,direct_action,tid,part_key)
           SELECT
              id,airline,pr_trfer,city_dep,city_arv,pax_cat,subclass,class,flt_no,craft,trip_type,
-             first_date,last_date,bag_type,amount,weight,per_unit,norm_type,extra,pr_del,tid,last_date
+             first_date,last_date,bag_type,amount,weight,per_unit,norm_type,extra,pr_del,direct_action,tid,last_date
           FROM bag_norms
           WHERE rowid=rowids(i);
         FORALL i IN 1..rowids.COUNT
