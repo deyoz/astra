@@ -416,6 +416,7 @@ void GetBagEMDDisassocList(const int point_id,
   {
     CheckIn::TPaxASVCItem asvc;
     asvc.fromDB(Qry);
+    if (asvc.isEmdS()) continue;
     std::set<ASTRA::TRcptServiceType> service_types;
     asvc.rcpt_service_types(service_types);
     if (service_types.find(ASTRA::rstExcess)==service_types.end() &&
