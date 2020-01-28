@@ -4213,7 +4213,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     {
       xmlNodePtr paxNode=NodeAsNode("passengers",segNode)->children;
       for(; paxNode!=NULL; paxNode=paxNode->next)
-        paxs.push_back(CheckIn::TPaxListItem().fromXML(paxNode));
+        paxs.push_back(CheckIn::TPaxListItem().fromXML(paxNode, grp.trfer_confirm));
     }
 
     map<int,TSegInfo>::const_iterator s=segs.find(grp.point_dep);
@@ -6911,7 +6911,7 @@ void CheckInInterface::LoadPaxByGrpId(int grp_id, xmlNodePtr reqNode, xmlNodePtr
   TBrands brands; //здесь, чтобы кэшировались запросы
   for(TCkinGrpIds::const_iterator grp_id=tckin_grp_ids.begin();grp_id!=tckin_grp_ids.end();grp_id++)
   {
-    list<WeightConcept::TBagNormInfo> all_norms;
+    WeightConcept::AllPaxNormContainer all_norms;
     ostringstream norms_view;
     string used_norms_airline_mark;
 
@@ -7015,8 +7015,12 @@ void CheckInInterface::LoadPaxByGrpId(int grp_id, xmlNodePtr reqNode, xmlNodePtr
         {
           TETickItem etickItem;
           etickItem.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
-          brands.get(operFlt.airline, etickItem);
-          string s=lowerc(etickItem.bag_norm_view()) + " " + brands.getSingleBrand().name(AstraLocale::OutputLang());
+          string s=lowerc(etickItem.bag_norm_view());
+          if (grp.pc)
+          {
+            brands.get(operFlt.airline, etickItem);
+            s += " " + brands.getSingleBrand().name(AstraLocale::OutputLang());
+          }
           NewTextChild(paxNode, "ticket_bag_norm", TrimString(s), "");
         }
         NewTextChild(paxNode,"pr_norec",(int)PaxQry.FieldIsNULL("crs_pax_id"));
@@ -7037,7 +7041,7 @@ void CheckInInterface::LoadPaxByGrpId(int grp_id, xmlNodePtr reqNode, xmlNodePtr
         {
           if (grp.wt)
           {
-            list< pair<WeightConcept::TPaxNormItem, WeightConcept::TNormItem> > norms;
+            WeightConcept::TPaxNormComplexContainer norms;
             WeightConcept::PaxNormsFromDB(NoExists, pax.id, norms);
             WeightConcept::NormsToXML(norms, paxNode);
             if (pax.refuse.empty())
@@ -7061,7 +7065,7 @@ void CheckInInterface::LoadPaxByGrpId(int grp_id, xmlNodePtr reqNode, xmlNodePtr
         TPaxServiceLists().toXML(grp.id, true, tckin_grp_ids.size(), NewTextChild(segNode, "service_lists"));
         if (grp.wt)
         {
-          list< pair<WeightConcept::TPaxNormItem, WeightConcept::TNormItem> > norms;
+          WeightConcept::TPaxNormComplexContainer norms;
           WeightConcept::GrpNormsFromDB(NoExists, grp.id, norms);
           WeightConcept::NormsToXML(norms, segNode);
           all_norms.insert(all_norms.end(), norms.begin(), norms.end());
