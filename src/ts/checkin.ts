@@ -715,7 +715,7 @@ $(KICK_IN)
         <bag_types_id>...
         <piece_concept>0</piece_concept>
         <tid>...
-        <show_ticket_norms>0</show_ticket_norms>
+        <show_ticket_norms>1</show_ticket_norms>
         <show_wt_norms>1</show_wt_norms>
         <city_arv>ëèí</city_arv>
         <mark_flight>
