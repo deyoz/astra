@@ -7,9 +7,11 @@ RUN apt update \
     && wget https://download.oracle.com/otn_software/linux/instantclient/195000/oracle-instantclient19.5-sqlplus-19.5.0.0.0-1.x86_64.rpm \
     && wget https://download.oracle.com/otn_software/linux/instantclient/195000/oracle-instantclient19.5-basic-19.5.0.0.0-1.x86_64.rpm \
     && wget https://download.oracle.com/otn_software/linux/instantclient/195000/oracle-instantclient19.5-devel-19.5.0.0.0-1.x86_64.rpm \
+    && wget https://download.oracle.com/otn_software/linux/instantclient/195000/oracle-instantclient19.5-tools-19.5.0.0.0-1.x86_64.rpm \
     && alien -i oracle-instantclient19.5-basic-19.5.0.0.0-1.x86_64.rpm \
     && alien -i oracle-instantclient19.5-sqlplus-19.5.0.0.0-1.x86_64.rpm \
-    && alien -i oracle-instantclient19.5-devel-19.5.0.0.0-1.x86_64.rpm
+    && alien -i oracle-instantclient19.5-devel-19.5.0.0.0-1.x86_64.rpm \
+    && alien -i oracle-instantclient19.5-tools-19.5.0.0.0-1.x86_64.rpm
 ENV BUILD_TESTS=1 \
 	ENABLE_SHARED=1 \
 	CPP_STD_VERSION=c++14 \
@@ -36,4 +38,8 @@ COPY . /opt/astra/
 
 RUN echo "nameserver 10.1.9.138" > /etc/resolv.conf \
     && echo "search komtex sirena-travel.ru" >> /etc/resolv.conf \
-    && ./buildFromScratch.sh astra/astra 
+    && ./buildFromScratch.sh astra_docker/astra@oracle1.komtex/build --build_external_libs --configlibs --buildlibs --configastra --buildastra --createtcl
+
+RUN echo "nameserver 10.1.9.138" > /etc/resolv.conf \
+    && echo "search komtex sirena-travel.ru" >> /etc/resolv.conf \
+    && SYSPAROL=system/nonstop@oracle1.komtex/build ./buildFromScratch.sh astra_docker/astra@oracle1.komtex/build --createdb --runtests
