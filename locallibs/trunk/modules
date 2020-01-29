@@ -1,0 +1,18 @@
+LIB1=sirena_queue.o helpcpp.o text_codec.o monitor_ctl.o \
+     logger.o ocilocal.o dbms_output.o savepoint.o \
+     timestat.o shmserv_hash.o shmclnt.o  md5.o hash-btree.o \
+     posthooks.o sirenaproc.o cutils.o cache.o \
+     simplelog.o checkunit.o \
+     slogger.o query_runner.o \
+     xp_test_utils.o daemon_kicker.o ourtime.o \
+     EdiHelpManager.o ehelpsig.o str_utils.o optional.o \
+     oci8.o int_parameters.o exception.o addr2line.o timer.o dates.o \
+     daemon_task.o new_daemon.o daemon_event.o local_tcp_event.o TlgLogger.o \
+     memmap.o profiler.o \
+     object.o queue.o queue_proc.o tclmon.o signal.o testmode.o \
+     logwriter.o lwriter.o log_queue.o syslog.o monitor.o mes.o device.o \
+     netbuf.o crypting.o aio_util.o potok.o tcl_utils.o internal_msgid.o \
+     guarantee_write.o mespro_crypt.o memcached_api.o string_cast.o \
+     simple_task.o cc_censure.o msglog.o deffered_exec.o base32.o string_switch.o
+
+MODULES=$(LIB1)

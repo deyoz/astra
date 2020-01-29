@@ -1,0 +1,28 @@
+#!/bin/sh
+if [ ! -s oracle.mk ] ; then
+    rm -f oracle.mk ;
+    OS=`uname | tr "a-z" "A-Z"` ;
+    if echo $OS | grep SCO >/dev/null ; then
+        file=sco-7.mk;
+    elif echo $OS | grep DC-OS >/dev/null ; then
+        file=nile-7.mk;
+    elif echo $OS | grep UNIXWARE >/dev/null ; then
+        file=unixware.mk;
+    elif echo $OS | grep DYNIX >/dev/null ; then
+        file=dynix.mk;
+    elif echo $OS | grep AIX >/dev/null ; then
+        file=aix-9i.mk;
+    elif echo $OS | grep LINUX >/dev/null ; then
+        if [ -n "$ORACLE_INSTANT" ]; then
+            file=linux-instant.mk;
+        else
+            file=linux-9i.mk;
+        fi;
+    fi;
+    echo file "$file";
+    if [ ! -f $file ]; then
+        file=`find $HOME -name $file -follow -print|head -1`
+    fi
+    ln -sf "$file" oracle.mk;
+fi
+

@@ -1,0 +1,26 @@
+#!/bin/sh
+
+DIRNAME="$(dirname $0)"
+if [ "DIRNAME" = "" ] ; then
+   DIRNAME=$(dirname $(which $0))
+fi
+DIRNAME=$(cd $DIRNAME && pwd)
+
+. $DIRNAME/serverlibconfig
+
+if [ "$1" = --cflags ] ; then
+   echo -I$DIRNAME/include $SERVERLIB_CFLAGS $ALLWARN -g \
+        $ORACLE_INCLUDE $TCLINCLUDE $WITH_ZLIB $WITH_CRYPTLIB $MESPRO_FLAGS $OTHERDEF $HAS_AIO $MEMCACHED_PATH
+elif  [ "$1" = --libs ] ; then
+   echo $ORACLE_LIBS $TCL_SYS_LIB $LDZLIB $LDCRYPT $MESPRO_LD_PARAMS $LIBSOCK $LIBAIO $MEMCACHED_LIBS -rdynamic -ldl $BOOST_LIBS \
+        `(cd $DIRNAME && grep "libserver.so" makefile > /dev/null && echo "-L$DIRNAME -lserver" || echo "$DIRNAME/serverlib.a")`
+elif [ "$1" = --tclsh ] ; then
+    echo $TCLSH
+elif [ "$1" = --boost-cflags ] ; then
+    echo $BOOST_INCLUDE
+elif [ "$1" = --boost-suffix ] ; then
+    echo $BOOST_SUFFIX
+else 
+   echo "Usage: $(basename $0)  (--cflags|--libs|--tclsh|--boost-cflags|--boost-suffix)"
+   exit 1
+fi
