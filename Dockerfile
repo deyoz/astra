@@ -1,7 +1,7 @@
 FROM ubuntu:18.04
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt update \
-    && apt install -yqq gcc g++ alien wget subversion libtool libssl-dev tcl8.6-dev tcl pkg-config gettext libpq-dev distcc python2.7 \
+    && apt install -yqq gcc g++ build-essential alien wget subversion libtool libssl-dev tcl8.6-dev tcl pkg-config gettext joe libpq-dev distcc python2.7 \
                         python cmake libpng-dev libaio1 libaio-dev libtool-bin \
                         libxml2-dev postgresql-client \
     && wget https://download.oracle.com/otn_software/linux/instantclient/195000/oracle-instantclient19.5-sqlplus-19.5.0.0.0-1.x86_64.rpm \
@@ -14,11 +14,14 @@ RUN apt update \
     && alien -i oracle-instantclient19.5-tools-19.5.0.0.0-1.x86_64.rpm
 ENV BUILD_TESTS=1 \
 	ENABLE_SHARED=1 \
+	BUILD_TESTS=1 \
 	CPP_STD_VERSION=c++14 \
         XP_NO_RECHECK=1 \
+        XP_LIST_EXCLUDE=SqlUtil,Serverlib,httpsrv,httpsrv_ext,ssim \
         PLATFORM=m64 \
         MY_LOCAL_CFLAGS="-g2 -O0" \
         LOCALCFLAGS="-I /usr/include/oracle/19.5/client64" \
+        NLS_LANG=AMERICAN_CIS.RU8PC866 \
         ORACLE_HOME=/usr/lib/oracle/19.5/client64 \
         LD_LIBRARY_PATH=/usr/lib/oracle/19.5/client64/lib \
         LOCALCC=gcc-7 LOCALCXX=g++-7 \
