@@ -1,0 +1,25 @@
+#!/bin/sh -e
+
+CC=${LOCALCC:-gcc}
+CXX=${LOCALCXX:-g++}
+CFLAGS=$LOCALCFLAGS
+
+if [ "$1" = "-f" ] ; then
+     echo "skip -f option"
+     shift
+fi
+if [ "$1" = "-shared" ] ; then
+     shift
+     shared_mode="--enable-shared --disable-static"
+fi
+
+
+eticklib_xp_flags=''
+if [ "$XP_TESTING" ]; then
+    eticklib_xp_flags='--enable-xp-testing'
+fi
+
+set -x
+pwd
+autoreconf --force --install && ./configure --silent CFLAGS="$CFLAGS" CXXFLAGS="$CFLAGS" CC="$CC" CXX="$CXX" $eticklib_xp_flags $WITH_BOOST $shared_mode $@
+
