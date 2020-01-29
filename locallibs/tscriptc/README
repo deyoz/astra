@@ -1,0 +1,6 @@
+-== tscript compiler ==-
+
+Can generate transformed and highlighted source code
+or assemler code for simple stack machine (with -c option).
+See --help for more details.
+
