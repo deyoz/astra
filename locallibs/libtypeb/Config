@@ -1,0 +1,27 @@
+#!/bin/sh 
+
+if [ "$LOCALCC" = "" ] ; then
+	LOCALCC=gcc
+fi
+
+if [ "$LOCALCXX" = "" ] ; then
+	LOCALCXX=g++
+fi
+
+CC=$LOCALCC
+CXX=$LOCALCXX
+CFLAGS=$LOCALCFLAGS
+
+if [ "$1" = "-f" ] ; then
+     echo "skip -f option"
+     shift
+fi
+if [ "$1" = "-shared" ] ; then
+     shift 
+     shared_mode="--enable-shared --disable-static"
+fi
+
+echo libtypeb
+autoreconf --force --install && ./configure --silent CFLAGS="$CFLAGS" CXXFLAGS="$CFLAGS" CC="$CC" CXX="$CXX" $WITH_BOOST $shared_mode $@
+#--with-boost="$BOOST_ROOT" $@
+
