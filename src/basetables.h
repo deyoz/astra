@@ -126,45 +126,52 @@ protected:
 public:
     static T const * GetInstanceCode(const char * code, const char *sql)
     {
-        typename std::set<cache_elem,cache_elem_comp>::iterator i=
-                std::find_if(cache.begin(),cache.end(),
-                        compCommonDataCode<T>(code,Loki::TypeInfo(typeid(T))));
-        if(i==cache.end())
+        typename T::IdaType ida;
+        if(!CommonData<typename T::IdaType>::GetInstanceCode_help(sql, code, ida))
         {
-            typename T::IdaType ida;
-            if(!CommonData<typename T::IdaType>::GetInstanceCode_help(sql, code, ida))
-            {
-                return 0;
-            }
-            std::shared_ptr<T> ptr(new T(ida));
-            if(!ptr->initialized())
-                abort();
-            cacheIt(typeid(T),ptr);
-            return ptr.get();
+            return 0;
         }
-        return i->second.get();
+        return new T(ida);
+//        typename std::set<cache_elem,cache_elem_comp>::iterator i=
+//                std::find_if(cache.begin(),cache.end(),
+//                        compCommonDataCode<T>(code,Loki::TypeInfo(typeid(T))));
+//        if(i==cache.end())
+//        {
+//            typename T::IdaType ida;
+//            if(!CommonData<typename T::IdaType>::GetInstanceCode_help(sql, code, ida))
+//            {
+//                return 0;
+//            }
+//            std::shared_ptr<T> ptr(new T(ida));
+//            if(!ptr->initialized())
+//                abort();
+//            cacheIt(typeid(T),ptr);
+//            return ptr.get();
+//        }
+//        return i->second.get();
     }
 
     static T const * GetInstance(typename T::IdaType ida)
     {
-        typename std::set<cache_elem,cache_elem_comp>::iterator i=
-                std::find_if(cache.begin(),cache.end(),
-                        compCommonDataIda<T>(ida,Loki::TypeInfo(typeid(T))));
-        if(i==cache.end()){
-            std::shared_ptr<T> ptr(new T(ida));
-            if(ptr->initialized())
-            {
-                cacheIt(typeid(T),ptr);
-                return ptr.get();
-            }
-            else
-                return 0;
-        }
-        T const *ret=dynamic_cast<T const *> (i->second.get());
-        if(ret==0) {
-            abort();
-        }
-        return ret;
+//        typename std::set<cache_elem,cache_elem_comp>::iterator i=
+//                std::find_if(cache.begin(),cache.end(),
+//                        compCommonDataIda<T>(ida,Loki::TypeInfo(typeid(T))));
+//        if(i==cache.end()){
+//            std::shared_ptr<T> ptr(new T(ida));
+//            if(ptr->initialized())
+//            {
+//                cacheIt(typeid(T),ptr);
+//                return ptr.get();
+//            }
+//            else
+//                return 0;
+//        }
+//        T const *ret=dynamic_cast<T const *> (i->second.get());
+//        if(ret==0) {
+//            abort();
+//        }
+//        return ret;
+        return new T(ida);
     }
 
     static void clearCache()
