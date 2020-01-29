@@ -1,0 +1,21 @@
+#!/bin/sh
+
+DIRNAME="$(dirname $0)"
+if [ "DIRNAME" = "" ] ; then
+    DIRNAME=$(dirname $(which $0))
+fi
+
+DIRNAME=$(cd $DIRNAME && pwd)
+
+. $DIRNAME/sharedconfig
+
+#if [ "$1" = --cxxflags ] ; then
+#    echo $SERVERLIB_CXXFLAGS
+#elif [ "$1" = --cflags ] ; then
+#    echo $SERVERLIB_CFLAGS
+if  [ "$1" = --ldflags ] ; then
+    echo $SHARED_LDFLAGS
+else 
+   echo "Usage: $(basename $0) (--ldflags)"
+   exit 1
+fi

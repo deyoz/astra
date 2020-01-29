@@ -1,0 +1,116 @@
+ERR_SQE
+€ ƒ€›
+
+ERR_INV_COM
+…‚…€ €„€
+
+ERR_NO_FWD
+…’ ‚……„
+
+ERR_NO_BCK       
+…’ €‡€„
+
+ ERR_CARD_EMP
+€’’…€ “‘’€
+
+            ERR_REQ_OUT_SEQ
+‡€‘ …“…‘’…
+
+ERR_NOT_FOUND
+‡€‘ … €‰„…€
+
+ERR_CHANGE_FIRST
+‘€—€‹€   %s ‚…‘’… ‡……
+
+ERR_TOO_LONG_VAL
+„‹€ ‹ ‹… „“‘’‰
+
+ERR_TABLE_EXISTS
+              ’ ΅«¨ζ  α β ª¨¬ ¨¬¥­¥¬ γ¦¥ αγι¥αβΆγβ!
+
+ERR_INCORRECT_COLNAME
+¥ª®ΰΰ¥ª­®¥ ¨¬ο ―®«ο!
+
+ERR_CHAIN_LINK
+€: –…—€ ‘‘›‹ - €’’…‘  €‡€’—€
+
+ERR_WRNG_VAL
+‚‚…„… …‚…… ‡€—……
+
+ERR_NO_FILTER
+‚‚…„’… ”‹’ „‹ ‘€
+
+ERR_NO_SUCH_IFACE
+¥β α®®βΆ¥βαβΆγξι¥£® ¨­β¥ΰδ¥©α !
+
+ERR_BAD_TAB_NAME
+¥ª®ΰΰ¥ªβ­®¥ ¨¬ο β ΅«¨ζλ!
+
+ERR_NULL_FIELD_NAME
+¥β ­ §Ά ­¨ο γ ®¤­®£® ¨§ ―®«¥©!
+
+ERR_BAD_FIELD_LEN
+“ ®¤­®£® ¨§ ―®«¥© ­¥ª®ΰΰ¥ªβ­® § ¤ ­  ¤«¨­ !
+
+ERR_UN_KEY
+‡€‘ ‘ ’€ ‹— “†… ‘“™…‘’‚“…’
+
+ERR_AUTH_FIRST
+……„ €—€‹ €’› …•„ ‡€…ƒ‘’‚€’‘ ‚ ‘‘’……
+
+ERR_WRONG_LOGIN
+…‚…›… /€‹
+
+ERR_PRECIS_SRC
+…„‡€—›‰ ‘  ‹-‘‘›‹…
+
+ERR_CANNOT_SRC
+…‹‡ ‘€’  ‹,  ’“ ‚…„…’‘ ›‘’›‰ ‘
+
+ERR_ALREADY_DEL
+‡€‘ “†… “„€‹…€
+
+ERR_NOTH_TO_UPD
+€’’…€ “‘’€ - ‘€—€‹€ ‘‡„€‰’… ‡€‘
+
+ERR_BAD_GROUP_NAME
+…ª®ΰΰ¥ª­®¥ ¨¬ο £ΰγ――λ!
+
+ERR_COL_NOT_LINKED
+‹… … ‚‹…’‘ ‘‘›‹‰ - …‹‡ ‘€’  „…’”€’“
+
+ERR_KILLED_WIN
+“ ‘…‚…€ …’ ”€–  €’‚ … !
+
+ERR_TOO_MANY_WINS
+’›’ €‘€‹… ‹—…‘’‚  !
+
+ERR_ALREADY_REGISTERED
+‚› “†… ‡€…ƒ‘’‚€› ‚ ‘‘’……
+
+ERR_WIN_OUT_OF_RANGE
+‹“—…€ ”€–  … ‘ …„“‘’› …
+
+ERR_UNKNOWN_PULT
+‘…‚… … ……’ ”€–  ‚€… “‹’…
+
+ERR_TRY_LATER
+‡€‘ “†… …„€’“…’‘ - “‰’… ‡†…
+
+ERR_NO_SUCH
+‚›€ “‘’€
+
+ERR_NO_CARD
+…’ '’€‰ ‡€‘
+
+ERR_ACCESS_DENIED
+¥β ¤®αβγ― !
+
+ERR_CARD_BAD_FIRM
+¥Ά¥ΰ­® γª § ­  δ¨ΰ¬ 
+
+ERR_CARD_BAD_PASSWD
+‚ ¬ § ―ΰ¥ι¥­® ¬¥­οβμ ― ΰ®«μ
+
+ERR_NO_DATA
+¥β ¤ ­­λε!
