@@ -1,0 +1,16 @@
+#!/bin/sh
+
+DIRNAME="$(dirname $0)"
+if [ "DIRNAME" = "" ] ; then
+    DIRNAME=$(dirname $(which $0))
+fi
+DIRNAME=$(cd $DIRNAME && pwd)
+
+if [ "$1" = --cflags ] ; then
+    echo -I$DIRNAME/include
+elif  [ "$1" = --libs ] ; then
+    echo $DIRNAME/src/.libs/libjxt.a
+else 
+    echo "Usage: $(basename $0)  (--cflags|--libs|--ldflags)"
+    exit 1
+fi
