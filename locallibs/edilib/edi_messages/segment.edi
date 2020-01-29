@@ -1,0 +1,794 @@
+# File for inserting segment structure 
+# Segment:  segment_name "Text about this segment "    
+#      Pos  Composite  M/C R          
+# DE:  Pos  Data_Elem  M/C R          
+
+###############################################
+Segment: UNH "Message header"
+DE:	0010 0062 M 1
+	0020 S009 M 1
+DE:	0030 0068 C 1
+	0040 S010 C 1
+
+Segment: UNT "Message trailer"
+DE:	0010 0074 M 1
+DE:	0020 0062 M 1 
+###############################################
+
+Segment: ORG "Originator of Request Details"
+	0010 C336 C 1
+	0020 C300 C 1
+	0030 C328 C 1
+	0040 C336 C 1
+DE:	0050 9972 C 1
+	0060 C354 C 1
+DE:	0070 9904 C 1
+DE:	0080 3148 C 1
+DE:	0090 3039 C 1
+
+Segment: MSG "Message action details"
+	0010 C302 C 1
+DE:	0020 4343 C 1
+
+Segment: ABI "Additional business sourse infomation"
+	0010 C337 M 1
+	0020 C300 C 1
+	0030 C328 C 1
+DE:	0040 3207 C 1
+DE:	0050 9906 C 1
+
+Segment: RCI "Reservation control information"
+	0010 C330 C 9
+
+Segment: LTS "Long text string"
+DE:	0010 9990 M 1
+
+Segment: QTY "Quantity"
+	0010 C186 M 9
+
+Segment: RAD "Response analysis details"
+DE:	0010 9868 M 1
+DE:	0020 9869 M 1
+
+Segment: REF "Reference information"
+	0010 C653 C 99
+
+Segment: RNG "Range details"
+DE:	0010 6167 C 1
+	0020 C280 C 5
+
+Segment: ROD "Row details"
+DE:	0010 9830 M 1
+	0020 C049 C 1
+	0030 C051 C 12
+
+Segment: RPI "Related product information"
+DE:	0010 6060 C 1
+DE:	0020 4405 C 10
+
+Segment: SAC "Source and action information"
+DE:	0010 1245 C 1
+DE:	0020 3225 C 1
+DE:	0030 4405 C 1
+
+Segment: SDT "Selection details"
+	0010 C660 M 99
+
+Segment: SRP "Seat request parameters"
+	0010 C344 C 1
+	0020 C047 C 1
+DE:	0030 7365 C 1
+DE: 0040 1154 C 1
+DE:	0050 4440 C 1
+
+Segment: SSR "Special requirements details"
+	0010 C334 M 1
+	0020 C332 C 999
+
+Segment: TBI "Traveller booking information"
+	0010 C687 C 1
+	0020 C330 C 9
+DE:	0030 9752 C 1
+DE:	0040 9753 C 1
+
+Segment: TIF "Traveller information"
+	0010 C322 M 1
+	0020 C324 C 99
+
+Segment: TRA "Transport identifier"
+	0010 C306 M 1
+	0020 C308 C 99
+
+Segment: TRF "Traffic restriction details"
+	0010 C338 C 5
+
+Segment: TVL "Travel product information"
+	0010 C310 C 1
+	0020 C328 C 1
+	0030 C328 C 1
+	0040 C306 C 1
+	0050 C308 C 1
+	0060 C309 C 1
+DE:	0070 1082 C 1
+DE:	0080 7365 C 1
+	0090 C311 C 1
+
+Segment: WAD "Warning information"
+	0010 C055 M 100
+
+
+# Mihalina .........
+
+
+###############################################
+Segment: AAI "Accommodation Allocation Information"
+        0010 C997 M 20
+
+Segment: APD "Additional Production Details"
+        0010 C314 C 1
+        0020 C348 C 1
+	0025 C348 C 1
+        0030 C317 C 1
+        0040 C318 C 1
+        0050 C320 C 1
+        0051 C320 C 1
+        0052 C320 C 1
+        0053 C320 C 7
+
+Segment: BPS "Boarding Pass Supplemental Information  Details"
+DE:	0010 2804 C 1
+	0020 C348 C 1
+	0025 C348 C 1
+DE:	0030 9853 C 1
+DE:     0040 9855 C 1
+DE:     0050 9851 C 1
+        0060 C042 C 1
+DE:     0070 9872 C 1
+DE:     0080 4440 C 1
+
+Segment: CBD "Cabin Details"
+        0010 C342 M 1
+        0020 C052 M 1
+DE:     0030 9863 C 1
+        0040 C053 C 1
+DE:     0050 9883 C 1
+        0060 C058 C 1
+        0070 C054 C 12
+
+Segment: CBF "Cabin Facilities"
+DE:    0010 9976 M 1
+       0020 C340 M 9
+
+Segment: CLT "Clear/Terminate Information"
+DE:     0010 1229 M 1
+DE:     0020 1225 C 1
+DE:     0030 1225 C 1
+DE:     0040 4440 C 1
+
+Segment: CNX "Connection Details"
+        0010 C312 M 2
+
+Segment: DAT "Date and Time Information"
+        0010 C688 C 99
+
+Segment: DCD "Device Control Details"
+DE:     0010 9906 C 1
+        0020 C206 C 1
+DE:     0030 1245 C 1
+DE:     0040 1050 C 1
+DE:     0050 9997 C 1
+DE:     0060 9988 C 1
+
+Segment: EBD "Exess Baggage Details"
+        0010 C674 C 1
+        0020 C675 C 3
+        0030 C358 C 99
+
+Segment: EQI "Equipment Information"
+        0010 C048 C 1
+        0011 C048 C 1
+        0012 C048 C 1
+        0013 C048 C 1
+        0014 C048 C 1
+DE:     0020 8179 C 1
+        0030 C361 C 1
+DE:     0040 4440 C 1
+
+Segment: EQN "Number of Units"
+        0010 C523 M 9
+
+Segment: ERC "Application Error Information"
+        0010 C901 M 1
+
+################################################################
+Segment: ERD "Error Information"
+        0010 C056 M 10
+
+
+Segment: FTI "Frequent Traveller Information"
+        0010 C326 M 9
+
+Segment: IFT "Interactive Free Text"
+        0010 C346 C 1
+DE:     0020 4440 C 99
+
+Segment: MPD "Message Processing Details"
+        0010 C676 C 1
+        0020 C677 C 3
+
+Segment: ODI "Origin and Destination Details"
+DE:     0010 3225 C 1
+DE:     0020 3225 C 1
+
+Segment: PDI "Product Information"
+DE:     0010 9970 C 1
+        0020 C304 C 26
+
+Segment: PRT "Terminal/Time Information"
+        0010 C517 M 1
+        0020 C362 C 2
+        0030 C366 C 2
+
+Segment: DUM "Dummy segment"
+DE:	0010 9970 C 1
+
+Segment: MAP "Message/application/product information"
+	0010 C654 C 1
+DE:	0020 9906 C 1
+	0030 C655 C 9
+
+Segment: UNB "Batch message header"
+    0010 S001 M 1
+	0020 S002 M 1
+	0030 S003 M 1
+	0040 S004 M 1
+DE:	0050 0020 M 1
+	0060 S005 C 1
+DE:	0070 0026 C 1
+DE:	0080 0029 C 1
+DE:	0085 0031 C 1
+DE: 0087 0032 C 1
+DE:	0090 0035 C 1
+	
+Segment: UNZ "Interchange Trailer"
+DE:     0010 0036 M 1
+DE:     0030 0020 M 1
+
+Segment: UCI "Interchange response"
+DE:	0010 0020 M 1
+	0020 S002 M 1
+	0030 S003 C 1
+DE:	0040 0083 M 1
+DE:	0050 0085 C 1
+DE: 	0060 0013 C 1
+	0070 S011 C 1
+
+Segment: UCM "Message response"
+DE: 	0010 0062 M 1
+	0020 S009 M 1
+DE:	0030 0083 M 1
+DE:	0040 0085 C 1
+DE:	0050 0013 C 1
+	0060 S011 C 1
+
+Segment: TAI "Ticketing agent information"
+DE:	0010 9996 C 1
+	0020 C642 C 5
+
+Segment: MON "Monetary information"
+	0010 C663 M 20
+
+Segment: PTK "Pricing/ticketing details"
+	0010 C664 C 1
+DE:	0015 5379 C 1
+	0020 C310 C 1
+	0030 C306 C 1
+	0040 C665 C 1
+	0050 C666 C 2
+DE:	0050 7402 C 1
+DE:	0060 5004 C 1	
+
+Segment: FOP "Form of payment"
+	0010 C641 M 99
+
+Segment: ATI "Tour information"
+	0010 C993 C 1
+
+Segment: TXD "Tax details"
+DE:	0010 5305 C 1
+	0020 C668 M 99
+
+Segment: CRI "Consumer reference information"
+	0010 C967 M 20
+
+Segment: TKT "Ticket number details"
+	0010 C667 M 1
+DE:	0020 4405 C 1
+
+Segment: CPN "Coupon information"
+	0010 C640 M 1
+	0020 C640 C 3
+
+Segment: DID "Document information details"
+	0010 C350 M 1
+	0020 C355 C 10
+
+Segment: PTS "Pricing/Ticketing subsequent"
+DE:	0010 7140 C 1
+	0020 C643 C 1
+DE:	0030 5004 C 1
+DE:	0040 5387 C 1
+DE:	0050 4183 C 1
+DE:	0060 4183 C 1
+DE:	0070 5305 C 2
+	0080 C643 C 9
+
+
+Segment: TBD "Traveller baggage details"
+DE:	0010 4405 C 1
+	0020 C675 M 1
+	0030 C675 C 1
+	0040 C686 C 1
+	0050 C358 C 99
+
+
+Segment: BGM "Begining of message"
+    0010 C002 C 1
+    0020 C106 C 1
+DE: 0030 1225 C 1
+DE: 0040 4343 C 1
+
+
+Segment: NAD "Name and address"
+DE: 0010 3035 M 1
+    0020 C082 C 1
+    0030 U058 C 1
+    0040 C080 C 1
+    0050 U059 C 1
+DE: 0060 3164 C 1
+    0070 C819 C 1
+DE: 0080 3251 C 1
+DE: 0090 3207 C 1
+
+
+Segment: COM "Communication contact"
+    0010 C076 M 3
+
+
+Segment: TDT "Details of transport"
+DE: 0010 8051 M 1
+DE: 0020 8028 C 1
+    0030 C220 C 1
+    0040 C228 C 1
+    0050 C040 C 1
+DE: 0060 8101 C 1
+    0070 C401 C 1
+    0080 C222 C 1
+DE: 0090 8281 C 1
+
+
+Segment: LOC "Place/location identification"
+DE: 0010 3227 M 1
+    0020 C517 C 1
+    0030 C519 C 1
+    0040 C553 C 1
+DE: 0050 5479 C 1
+
+
+Segment: DTM "Date/time/period"
+    0010 C507 M 1
+
+
+Segment: ATT "Attribute"
+DE: 0010 9017 M 1
+    0020 C955 C 1
+    0030 C956 C 5
+
+
+Segment: NAT "Nationality"
+DE: 0010 3493 M 1
+    0020 U042 C 1
+
+
+Segment: RFF "Reference"
+    0010 C506 M 1
+
+
+Segment: DOC "Document/message details"
+    0010 C002 M 1
+    0020 C503 C 1
+DE: 0030 3153 C 1
+DE: 0040 1220 C 1
+DE: 0050 1218 C 1
+
+
+Segment: CNT "Control total"
+    0010 C270 M 1
+
+
+Segment: UNG "Group header"
+DE: 0010 0038 C 1
+    0020 S006 C 1
+    0030 S007 C 1
+    0040 S004 C 1
+DE: 0050 0048 M 1
+DE: 0060 0051 C 1
+    0070 S008 C 1
+DE: 0080 0058 C 1
+
+
+Segment: UNE "Group trailer"
+DE: 0010 0060 M 1
+DE: 0020 0048 M 1
+
+
+Segment: TRT "Traveller related text"
+    0010 C323 C 99
+
+
+Segment: FAR "Fare information"
+DE: 0010 6353 C 1
+DE: 0020 6060 C 1
+    0030 C662 C 1
+DE: 0040 7402 C 1
+    0050 C644 C 1
+DE: 0060 5242 C 9
+
+
+Segment: CVR "Conversion rate"
+    0010 C661 M 1
+    0020 C661 C 19
+
+
+Segment: TII "Traveller itinerary information"
+DE: 0010 7140 C 1
+DE: 0020 9753 C 1
+    0030 C310 C 1
+DE: 0040 8335 C 1
+DE: 0050 9992 C 1
+    0060 C309 C 1
+DE: 0070 3225 C 15
+
+
+Segment: PMT "Payment information"
+    0010 C977 C 1
+    0020 C978 C 10
+
+
+Segment: ASD "Service details"
+    0010 C959 M 1
+    0020 C959 C 8
+
+
+Segment: DIS "Discount information"
+    0010 C998 M 1
+    0020 C998 C 19
+
+
+Segment: VEH "Vehicle"
+DE: 0010 8053 C 1
+    0020 C991 C 1
+    0030 C211 C 1
+DE: 0040 6314 C 1
+    0050 C992 C 1
+DE: 0060 9944 C 1
+
+
+Segment: SPI "Specific data information"
+0010 C658 M 1
+0020 C659 C 99
+
+
+Segment: ITM "Item number"
+0010 C212 M 1
+0020 C212 C 98
+
+
+Segment: STD "Specific traveller details"
+0010 C684 C 99
+
+
+Segment: FCC "Fare calculation code details"
+DE: 0010 5237 C 1
+DE: 0020 5004 C 1
+DE: 0030 3225 C 1
+DE: 0040 3225 C 1
+DE: 0050 5482 C 1
+
+
+Segment: TFF "Tariff information"
+0010 C982 C 1
+0020 C983 C 1
+0030 C984 C 1
+
+
+Segment: CMN "Commission infomation"
+0010 C957 M 1
+0020 C957 C 8
+
+
+Segment: FQU "Fare qualifier details"
+DE: 0010 8335 C 1
+    0020 C647 C 1
+    0030 C662 C 1
+    0040 C646 C 1
+    0050 C648 C 9
+
+
+Segment: LOR "Location/originator details"
+0010 C059 C 1
+0020 C012 C 1
+
+
+Segment: DMC "Default message characteristics"
+DE: 0010 9813 C 1
+DE: 0020 6801 C 1
+DE: 0030 9815 C 1
+DE: 0040 6350 C 1
+
+
+Segment: CHD "Cascading host details"
+    0010 C059 C 1
+    0020 C013 C 1
+    0030 C014 C 1
+DE: 0040 2281 C 1
+DE: 0050 3215 C 1
+DE: 0060 3259 C 1
+DE: 0070 9856 C 1
+DE: 0080 9802 C 1
+    0090 C696 C 9
+    
+    
+Segment: DVC "Device characteristics"
+DE: 0010 9817 C 1
+DE: 0020 9818 C 1
+
+
+Segment: FDQ "Flight details query"
+    0010 C013 M 1
+    0020 C014 M 1
+DE: 0030 2281 M 1
+DE: 0040 3215 M 1
+DE: 0050 3259 M 1
+DE: 0060 9856 C 1
+    0070 C015 C 1
+    0080 C016 C 1
+DE: 0090 2281 C 1
+DE: 0100 2107 C 1
+DE: 0110 3215 C 1
+DE: 0120 3259 C 1
+DE: 0130 3803 C 1
+DE: 0140 9857 C 1
+    0150 C310 C 2
+    
+    
+Segment: PPD "Passenger personal details"
+DE: 0010 3808 M 1
+    0020 C017 M 1
+    0030 C692 C 1
+DE: 0040 3809 C 1
+    0050 C018 C 1
+    0060 C690 C 1
+    0070 C021 C 1
+DE: 0080 9867 C 1
+DE: 0090 6803 C 1
+    0100 C691 C 1
+
+    
+Segment: PRD "Passenger reservation details"
+    0010 C023 M 1
+DE: 0020 9822 C 1
+    0030 C020 C 1
+DE: 0040 9823 C 1
+DE: 0050 9823 C 1
+    0060 C022 C 1
+DE: 0070 9811 C 1
+
+
+Segment: PSD "Passenger seat request details"
+    0010 C024 C 1
+DE: 0020 9809 C 1
+    0030 C025 C 1
+    0040 C026 C 1
+    
+    
+Segment: PBD "Passenger baggage information"
+    0010 C027 M 1
+    0020 C028 C 1
+    0030 C686 C 1
+    0040 C029 C 99
+
+
+Segment: PSI "Passenger service information"
+DE: 0010 9838 C 1
+    0020 C030 C 99
+    
+
+Segment: BTI "Bagtag information"
+    0010 C029 M 1
+    0020 C693 C 9
+    
+    
+Segment: PAP "Passenger api information"
+    0010 C060 C 1
+    0020 C701 C 1
+    0030 C700 C 9
+    
+    
+Segment: ADD "Address infomation"
+    0010 C031 C 1
+    0020 C032 M 1
+    0030 C032 C 8
+    
+
+Segment: UIF "Update inbound flight details"
+    0010 C015 C 1
+    0020 C016 C 1
+DE: 0030 2281 C 1
+DE: 0040 2107 C 1
+DE: 0050 3215 C 1
+DE: 0060 3259 C 1
+DE: 0070 3803 C 1
+DE: 0080 9857 C 1
+
+
+Segment: UPD "Update personal details"
+DE: 0010 9858 M 1
+DE: 0020 3808 C 1
+DE: 0030 9884 C 1
+DE: 0040 3809 C 1
+    0050 C018 C 1
+    0060 C690 C 1
+DE: 0070 6803 C 1
+
+
+Segment: URD "Update reservations details"
+    0010 C023 C 1
+DE: 0020 9822 C 1
+DE: 0030 9823 C 1
+DE: 0040 9811 C 1
+
+
+Segment: USD "Update seat request details"
+    0010 C024 C 1
+DE: 0020 9809 C 1
+    0030 C025 C 1
+DE: 0040 3215 C 1
+DE: 0050 3259 C 1
+    0060 C034 C 1
+    
+    
+Segment: UBD "Update baggage details"
+    0010 C035 C 1
+    0020 C036 C 1
+    0030 C694 C 1
+    0040 C037 C 99
+    
+    
+Segment: USI "Update service information"
+    0010 C039 C 1
+    0020 C038 C 99
+    
+    
+Segment: UTI "Update bagtag information"
+    0010 C037 M 1
+    0020 C695 C 9
+    
+    
+Segment: UAP "Update API information"
+    0010 C031 C 1
+    0020 C060 C 1
+    0030 C701 C 1
+    0040 C700 C 9
+    
+    
+Segment: CRD "Cancel request details"
+DE: 0010 9859 C 1
+DE: 0020 4440 C 1
+DE: 0030 9860 C 1
+
+
+Segment: FDR "Flight details response"
+    0010 C013 M 1
+    0020 C014 M 1
+DE: 0030 2281 M 1
+DE: 0040 3215 M 1
+DE: 0050 3259 M 1
+DE: 0060 2107 C 1
+DE: 0070 9856 C 1
+DE: 0080 9857 C 1
+    0090 C041 C 1
+    0100 C310 C 3
+    
+    
+Segment: FSD "Flight segment details"
+DE: 0010 2804 C 1
+DE: 0020 3801 C 1
+DE: 0030 9870 C 1
+DE: 0040 9853 C 1
+    0050 C042 C 1
+DE: 0060 9872 C 1
+DE: 0070 4440 C 1
+DE: 0080 9869 C 99
+
+
+Segment: EQD "Equipment information"
+    0010 C048 C 5
+DE: 0020 7800 C 1
+DE: 0030 9866 C 1
+DE: 0040 4440 C 1
+DE: 0050 3127 C 1
+DE: 0060 4440 C 1
+
+
+Segment: PFD "Passenger flight details"
+    0010 C043 M 1
+    0020 C044 C 1
+    0030 C045 C 1
+DE: 0040 9850 C 1
+DE: 0050 9855 C 1
+DE: 0060 9851 C 1
+    0070 C043 C 8
+    0080 C044 C 8
+    
+    
+Segment: PCD "Passenger connecting details"
+    0010 C013 M 1
+    0020 C014 M 1
+DE: 0030 2281 M 1
+DE: 0040 3259 M 1
+DE: 0050 3215 C 1
+DE: 0060 9800 C 1
+DE: 0070 9822 C 1
+DE: 0080 2107 C 1
+
+
+Segment: SPD "Select personal details"
+    0010 C046 C 1
+    0020 C043 C 1
+    0030 C692 C 1
+    0040 C690 C 1
+    0050 C045 C 1
+DE: 0060 9823 C 1
+DE: 0070 9823 C 1
+    0080 C022 C 1
+    0090 C057 C 1
+DE: 0100 9811 C 1
+    0110 C691 C 1
+
+
+Segment: MEA "Measurements"
+DE: 0010 6311 M 1
+    0020 C502 C 1
+    0030 C174 C 1
+DE: 0040 7383 C 1
+
+
+Segment: FTX "Free text"
+DE: 0010 4451 M 1
+DE: 0020 4453 C 1
+    0030 C107 C 1
+    0040 C108 C 1
+DE: 0050 3453 C 1
+DE: 0060 4447 C 1
+
+
+Segment: ERP "Error point details"
+DE: 0010 1049 M 1
+
+
+Segment: GEI "Processing information"
+DE: 0010 9649 M 1
+DE: 0020 7365 M 1
+
+
+Segment: POC "Point of commencement"
+DE: 0010 3225 M 1
+DE: 0020 9916 C 1
+DE: 0030 9918 C 1
+
+Segment: ASG "Additional Services Group"
+DE: 0010 7081 C 1
+DE: 0020 7009 C 1
+DE: 0030 1131 C 1
+DE: 0040 7077 C 1
