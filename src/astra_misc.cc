@@ -2284,8 +2284,7 @@ void SearchFlt(const TSearchFltInfo &filter, list<TAdvTripInfo> &flts)
             << QParam("suffix", otString, filter.suffix)
             << QParam("airp_dep", otString, filter.airp_dep)
             << (filter.scd_out!=NoExists?QParam("scd", otDate, filter.scd_out):
-                                         QParam("scd", otDate, FNull))
-            << QParam("only_with_reg", otInteger, (int)filter.only_with_reg);
+                                         QParam("scd", otDate, FNull));
 
   ostringstream sql;
   sql <<
@@ -2306,7 +2305,7 @@ void SearchFlt(const TSearchFltInfo &filter, list<TAdvTripInfo> &flts)
       "      or act_out >= TO_DATE(:scd)-1 AND act_out < TO_DATE(:scd)+2 \n ";
     sql <<
       "      ) AND \n"
-      "      pr_del>=0 AND (:only_with_reg=0 OR pr_reg<>0) \n";
+      "      pr_del>=0 \n";
   }
   else
   {
@@ -2323,7 +2322,7 @@ void SearchFlt(const TSearchFltInfo &filter, list<TAdvTripInfo> &flts)
       "      or act_out >= TO_DATE(:scd) AND act_out < TO_DATE(:scd)+1 \n";
     sql <<
       "      ) AND \n"
-      "      pr_del>=0 AND (:only_with_reg=0 OR pr_reg<>0) \n";
+      "      pr_del>=0 \n";
   };
 
   sql << " " << filter.additional_where;
@@ -2332,6 +2331,7 @@ void SearchFlt(const TSearchFltInfo &filter, list<TAdvTripInfo> &flts)
   PointsQry.get().Execute();
   for(;!PointsQry.get().Eof;PointsQry.get().Next())
   {
+    if (!TAdvTripInfo::match(PointsQry.get(), filter.flightProps)) continue;
     TAdvTripInfo flt(PointsQry.get());
     if (!filter.scd_out_in_utc)
     {

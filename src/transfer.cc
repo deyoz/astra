@@ -738,7 +738,6 @@ void TrferFromDB(TTrferType type,
       filter.airp_dep=flt1.airp;
       filter.scd_out=flt1.scd_out;
       filter.scd_out_in_utc=false;
-      filter.only_with_reg=false;
       filter.additional_where=
         " AND EXISTS(SELECT pax_grp.point_dep "
         "            FROM pax_grp "

@@ -243,14 +243,13 @@ class TTripInfo
       if (Qry.GetFieldIndex("point_id")>=0)
           point_id = Qry.FieldAsInteger("point_id");
     };
-  protected:
-    bool match(TQuery &Qry, const FlightProps& props) const
+  public:
+    static bool match(TQuery &Qry, const FlightProps& props)
     {
       if (props.cancellation()==FlightProps::NotCancelled && Qry.FieldAsInteger("pr_del")!=0) return false;
       if (props.checkin_ability()==FlightProps::WithCheckIn && Qry.FieldAsInteger("pr_reg")==0) return false;
       return true;
     }
-  public:
     static std::string selectedFields(const std::string& table_name="")
     {
       std::string prefix=table_name+(table_name.empty()?"":".");
@@ -1171,7 +1170,7 @@ class TSearchFltInfo
     int flt_no;
     TDateTime scd_out;
     bool scd_out_in_utc;
-    bool only_with_reg;
+    FlightProps flightProps;
     std::string additional_where;
 
     TDepDateFlags dep_date_flags;
@@ -1183,7 +1182,6 @@ class TSearchFltInfo
       flt_no=ASTRA::NoExists;
       scd_out=ASTRA::NoExists;;
       scd_out_in_utc=false;
-      only_with_reg=false;
     };
 
     virtual ~TSearchFltInfo() {}

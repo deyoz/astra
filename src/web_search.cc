@@ -2469,7 +2469,6 @@ bool SearchPaxByScanData(const std::string& bcbp,
     searchInfo.airp_dep=filter.airp_dep;
     searchInfo.scd_out=filter.scd_out_local_ranges.begin()->first;
     searchInfo.scd_out_in_utc=false;
-    searchInfo.only_with_reg=false;
     if (filter.reg_no==NoExists)
       throw EXCEPTIONS::EConvertError("filter.reg_no==NoExists");
 

@@ -7982,7 +7982,7 @@ void CheckInInterface::GetTCkinFlights(const TTripInfo &operFlt,
         filter.airp_dep=t->second.operFlt.airp;
         filter.scd_out=t->second.operFlt.scd_out;
         filter.scd_out_in_utc=false;
-        filter.only_with_reg=true;
+        filter.flightProps = FlightProps(FlightProps::WithCancelled, FlightProps::WithCheckIn);
 
         //ищем рейс в СПП
         list<TAdvTripInfo> flts;
@@ -8763,7 +8763,7 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     filter.airp_dep = airp_fromXML(NodeAsNode("AIRP_DEP", flightNode), cfErrorIfEmpty, __FUNCTION__, "MERIDIAN");
     filter.scd_out = scd_out_fromXML(NodeAsString("SCD", flightNode), "dd.mm.yyyy");
     filter.scd_out_in_utc = false;
-    filter.only_with_reg = true;
+    filter.flightProps = FlightProps(FlightProps::WithCancelled, FlightProps::WithCheckIn);
 
     TDateTime checkDate = UTCToLocal(NowUTC(), AirpTZRegion(filter.airp_dep)); // for HTTP
 

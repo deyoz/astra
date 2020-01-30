@@ -1063,7 +1063,7 @@ public:
      filter.suffix = flt.suffix;
      filter.dep_date_flags.setFlag(ddtEST);
      filter.scd_out_in_utc = true;
-     filter.only_with_reg = true;
+     filter.flightProps = FlightProps(FlightProps::WithCancelled, FlightProps::WithCheckIn);
      double f, l;
      modf( flt.scd_out - range_hours/24.0, &f );
      modf( flt.scd_out + range_hours/24.0, &l );
