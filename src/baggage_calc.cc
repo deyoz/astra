@@ -7,6 +7,7 @@
 #include "term_version.h"
 #include "baggage_wt.h"
 #include "etick.h"
+#include "obrnosir.h"
 #include <serverlib/algo.h>
 
 #define NICKNAME "VLAD"
@@ -246,7 +247,7 @@ boost::optional<TBagNormWideInfo> TBagNormWideInfo::getDirectActionNorm(const TN
                    "      (amount IS NULL AND :amount IS NULL OR amount=:amount) AND "
                    "      (per_unit IS NULL AND :per_unit IS NULL OR per_unit=:per_unit) "
                    "ORDER BY id",
-                   QParams() << QParam("direct_action", otInteger, (bool)true)
+                   QParams() << QParam("direct_action", otInteger, (int)true)
                              << QParam("norm_type", otString)
                              << QParam("amount", otInteger)
                              << QParam("weight", otInteger)
@@ -955,37 +956,49 @@ const std::string TAirlines::single() const
   return *begin();
 }
 
-void ConvertNormsList(const TAirlines &airlines,
+void convertNormsList(const TAirlines &airlines,
                       const TBagList &bag,
-                      const boost::optional< std::list<TPaxNormItem> > &norms,
+                      const std::list<TPaxNormItem> &norms,
+                      const bool isCurrent,
                       TPaxNormMap &result)
 {
   result.clear();
-  if (!norms) return;
 
   TSimpleBagMap not_trfer_bag_simple;
   PrepareSimpleBag(bag, psbtOnlyNotTrfer, psbtRefusedAndNotRefused, not_trfer_bag_simple);
   //всегда добавляем обычный багаж
   not_trfer_bag_simple.emplace(RegularBagType(airlines.single()), std::list<TSimpleBagItem>());
 
-  for(const TPaxNormItem& n : norms.get())
+  for(const TPaxNormItem& n : norms)
   {
-    if (not_trfer_bag_simple.find(n)==not_trfer_bag_simple.end()) continue; //отфильтровываем нормы
+    if (isCurrent &&
+        not_trfer_bag_simple.find(n)==not_trfer_bag_simple.end()) continue; //отфильтровываем нормы
 
     if (!result.emplace(n, n).second)
       throw Exception("%s: %s already exists in result!", __FUNCTION__, n.key().str(LANG_EN));
   };
 }
 
-void ConvertNormsList(const TAirlines &airlines,
-                      const TBagList &bag,
-                      const WeightConcept::TPaxNormComplexContainer &norms,
-                      TPaxNormMap &result)
+void convertCurrentNormsList(const TAirlines &airlines,
+                             const TBagList &bag,
+                             const boost::optional< std::list<TPaxNormItem> > &norms,
+                             TPaxNormMap &result)
+{
+  result.clear();
+  if (!norms) return;
+
+  convertNormsList(airlines, bag, norms.get(), true, result);
+}
+
+void convertPriorNormsList(const TAirlines &airlines,
+                           const TBagList &bag,
+                           const WeightConcept::TPaxNormComplexContainer &norms,
+                           TPaxNormMap &result)
 {
 
   const std::list<TPaxNormItem> tmp_norms=algo::transform<std::list>(norms,
                                                                      [](const TPaxNormItem& n) { return n; });
-  ConvertNormsList(airlines, bag, tmp_norms, result);
+  convertNormsList(airlines, bag, tmp_norms, false, result);
 }
 
 void SyncHandmadeProp(const TPaxNormMap &src,
@@ -1130,7 +1143,7 @@ void GetWidePaxInfo(const TAirlines &airlines,
         pax.subcl=pCurr.pax.subcl;
         pax.tkn=pCurr.pax.tkn;
         pax.refused=!pCurr.pax.refuse.empty();
-        ConvertNormsList(airlines, curr_bag, pCurr.norms, pax.curr_norms);
+        convertCurrentNormsList(airlines, curr_bag, pCurr.norms, pax.curr_norms);
 
         int pax_id=pCurr.getExistingPaxIdOrSwear();
         if (!paxs.emplace(pax_id, pax).second)
@@ -1154,7 +1167,7 @@ void GetWidePaxInfo(const TAirlines &airlines,
         pax.subcl=pPrior.subcl;
         pax.tkn=pPrior.tkn;
         pax.refused=!pPrior.refuse.empty();
-        ConvertNormsList(airlines, curr_bag, pPrior.norms, pax.prior_norms);
+        convertPriorNormsList(airlines, curr_bag, pPrior.norms, pax.prior_norms);
 
         CheckIn::TPaxList::const_iterator pCurr=curr_paxs.begin();
         for(; pCurr!=curr_paxs.end(); ++pCurr)
@@ -1174,7 +1187,7 @@ void GetWidePaxInfo(const TAirlines &airlines,
             pax.tkn=pCurr->pax.tkn;
             pax.refused=!pCurr->pax.refuse.empty();
           };
-          ConvertNormsList(airlines, curr_bag, pCurr->norms, pax.curr_norms);
+          convertCurrentNormsList(airlines, curr_bag, pCurr->norms, pax.curr_norms);
 
           if (!paxs.emplace(pCurr->pax.id, pax).second)
             throw Exception("%s: pCurr->pax.id=%s already exists in paxs!", __FUNCTION__, pCurr->pax.id);
@@ -1199,14 +1212,14 @@ void GetWidePaxInfo(const TAirlines &airlines,
     pax.final_target=final_target;
     pax.cl=grp.cl;
     pax.refused=!grp.bag_refuse.empty();
-    ConvertNormsList(airlines, curr_bag, grp.norms, pax.curr_norms);
+    convertCurrentNormsList(airlines, curr_bag, grp.norms, pax.curr_norms);
     if (!prior_paxs.empty())
     {
       //запись изменений несопровождаемого багажа
       if (prior_paxs.size()!=1)
         throw Exception("%s: prior_paxs.size()!=1!", __FUNCTION__);
 
-      ConvertNormsList(airlines, curr_bag, prior_paxs.begin()->second.norms, pax.prior_norms);
+      convertPriorNormsList(airlines, curr_bag, prior_paxs.begin()->second.norms, pax.prior_norms);
     };
     paxs.emplace(grp.id, pax);
     if (use_traces) ProgTrace(TRACE5, "%s: unaccomp:%s", __FUNCTION__, pax.traceStr().c_str());
@@ -1435,6 +1448,8 @@ void RecalcPaidBagToDB(const TAirlines &airlines,
 //  point_id NUMBER(9) NOT NULL
 //);
 
+//CREATE UNIQUE INDEX drop_test_norm_processed__IDX ON drop_test_norm_processed(point_id);
+
 //CREATE TABLE drop_test_norm_errors
 //(
 //    point_id NUMBER(9) NOT NULL,
@@ -1448,9 +1463,56 @@ void RecalcPaidBagToDB(const TAirlines &airlines,
 
 int test_norms(int argc,char **argv)
 {
-  bool test_paid=false;
-  if (argc>=2 && strcmp(argv[1], "paid")==0)
-    test_paid=true;
+  TDateTime firstDate, lastDate;
+
+  if (!getDateRangeFromArgs(argc, argv, firstDate, lastDate)) return 1;
+
+  enum TestType {TestAllNorms, TestMarkNorms, TestUnaccompNorms, TestPaid};
+
+  TestType testType=TestAllNorms;
+  if (argc>=4)
+  {
+    if (strcmp(argv[3], "mark")==0)  testType=TestMarkNorms;
+    if (strcmp(argv[3], "unacc")==0) testType=TestUnaccompNorms;
+    if (strcmp(argv[3], "paid")==0)  testType=TestPaid;
+  }
+
+  //читаем рейсы
+  TAdvTripInfoList flts;
+  {
+    ostringstream sql;
+    sql << "SELECT " << TAdvTripInfo::selectedFields()
+        << "FROM points "
+           "WHERE scd_out>=:first_date AND scd_out<:last_date "
+           "      AND EXISTS(SELECT 1 FROM pax_grp "
+           "                 WHERE pax_grp.point_dep=points.point_id AND "
+           "                       pax_grp.trfer_confirm<>0 AND pax_grp.piece_concept=0 AND rownum<2) "
+           "      AND NOT EXISTS(SELECT 1 FROM drop_test_norm_processed "
+           "                     WHERE drop_test_norm_processed.point_id=points.point_id) ";
+    if (testType==TestMarkNorms)
+      sql << " AND EXISTS(SELECT 1 FROM pax_grp "
+             "            WHERE pax_grp.point_dep=points.point_id AND "
+             "                  pax_grp.point_id_mark<>pax_grp.point_dep AND pax_grp.pr_mark_norms<>0 AND rownum<2) ";
+    if (testType==TestUnaccompNorms)
+      sql << " AND EXISTS(SELECT 1 FROM pax_grp "
+             "            WHERE pax_grp.point_dep=points.point_id AND "
+             "                  pax_grp.class IS NULL AND pax_grp.status<>'E' AND rownum<2) ";
+
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText=sql.str().c_str();
+    Qry.CreateVariable("first_date", otDate, firstDate);
+    Qry.CreateVariable("last_date", otDate, lastDate);
+    Qry.Execute();
+
+    for(; !Qry.Eof; Qry.Next())
+    {
+      if (!TAdvTripInfo::match(Qry, FlightProps(FlightProps::NotCancelled, FlightProps::WithCheckIn))) continue;
+      flts.emplace_back(Qry);
+    }
+  }
+
+  std::cout << "Total " << flts.size() << " flights" << std::endl << std::flush;
 
   TReqInfo::Instance()->Initialize("МОВ");
   TReqInfo::Instance()->desk.lang=LANG_EN;
@@ -1459,94 +1521,111 @@ int test_norms(int argc,char **argv)
   TQuery GrpQry(&OraSession);
   GrpQry.Clear();
   ostringstream sql;
-  sql << "SELECT point_id, grp_id, airp_arv, class, status, bag_refuse, client_type, "
-         "       mark_trips.airline, mark_trips.flt_no, pr_mark_norms "
+  sql << "SELECT pax_grp.*, "
+         "       mark_trips.airline AS mark_airline, "
+         "       mark_trips.flt_no AS mark_flt_no, "
+         "       mark_trips.suffix AS mark_suffix,  "
+         "       mark_trips.scd AS mark_scd, "
+         "       mark_trips.airp_dep AS mark_airp_dep "
          "FROM pax_grp, mark_trips "
-         "WHERE pax_grp.point_id_mark=mark_trips.point_id AND point_dep=:point_id ";
-  if (test_paid)
-    sql << "      AND EXISTS(SELECT * FROM bag2 WHERE grp_id=pax_grp.grp_id AND rownum<2) ";
-  sql << "ORDER BY mark_trips.airline, mark_trips.flt_no, pr_mark_norms";
+         "WHERE pax_grp.point_id_mark=mark_trips.point_id AND point_dep=:point_id AND "
+         "      pax_grp.trfer_confirm<>0 AND pax_grp.piece_concept=0 ";
+  if (testType==TestMarkNorms)
+    sql << "      AND pax_grp.point_id_mark<>pax_grp.point_dep AND pax_grp.pr_mark_norms<>0 ";
+  if (testType==TestUnaccompNorms)
+    sql << "      AND pax_grp.class IS NULL AND pax_grp.status<>'E' ";
+  if (testType==TestPaid)
+    sql << "      AND EXISTS(SELECT 1 FROM bag2 WHERE grp_id=pax_grp.grp_id AND rownum<2) ";
+  sql << "ORDER BY mark_trips.airline, mark_trips.flt_no, pax_grp.pr_mark_norms";
 
   GrpQry.SQLText=sql.str().c_str();
   GrpQry.DeclareVariable("point_id", otInteger);
 
-  TQuery Qry(&OraSession);
+  TQuery ProcessedQry(&OraSession);
+  ProcessedQry.Clear();
+  ProcessedQry.SQLText="DECLARE "
+                       "  PRAGMA AUTONOMOUS_TRANSACTION; "
+                       "BEGIN "
+                       "  INSERT INTO drop_test_norm_processed(point_id) VALUES(:point_id); "
+                       "  COMMIT; "
+                       "END; ";
+  ProcessedQry.DeclareVariable("point_id", otInteger);
 
-  set<int> processed_point_ids;
-  Qry.Clear();
-  Qry.SQLText="SELECT point_id FROM drop_test_norm_processed";
-  Qry.Execute();
-  for(; !Qry.Eof; Qry.Next()) processed_point_ids.insert(Qry.FieldAsInteger("point_id"));
+  TQuery DeleteErrorsQry(&OraSession);
+  DeleteErrorsQry.Clear();
+  DeleteErrorsQry.SQLText="DECLARE "
+                          "  PRAGMA AUTONOMOUS_TRANSACTION; "
+                          "BEGIN "
+                          "  DELETE FROM drop_test_norm_errors WHERE point_id=:point_id; "
+                          "  COMMIT; "
+                          "END; ";
+  DeleteErrorsQry.DeclareVariable("point_id", otInteger);
 
-  TQuery Qry2(&OraSession);
-  Qry2.Clear();
-  Qry2.SQLText="INSERT INTO drop_test_norm_processed(point_id) VALUES(:point_id)";
-  Qry2.DeclareVariable("point_id", otInteger);
+  TQuery InsertErrorsQry(&OraSession);
+  InsertErrorsQry.Clear();
+  InsertErrorsQry.SQLText="DECLARE "
+                          "  PRAGMA AUTONOMOUS_TRANSACTION; "
+                          "BEGIN "
+                          "  INSERT INTO drop_test_norm_errors(point_id, grp_id, pax_id, error, trace) "
+                          "  VALUES(:point_id, :grp_id, :pax_id, :error, :trace)"
+                          "  COMMIT; "
+                          "END; ";
+  InsertErrorsQry.DeclareVariable("point_id", otInteger);
+  InsertErrorsQry.DeclareVariable("grp_id", otInteger);
+  InsertErrorsQry.DeclareVariable("pax_id", otInteger);
+  InsertErrorsQry.DeclareVariable("error", otString);
+  InsertErrorsQry.DeclareVariable("trace", otString);
 
-  TQuery Qry3(&OraSession);
-  Qry3.Clear();
-  Qry3.SQLText="DELETE FROM drop_test_norm_errors WHERE point_id=:point_id";
-  Qry3.DeclareVariable("point_id", otInteger);
-
-  TQuery Qry4(&OraSession);
-  Qry4.Clear();
-  Qry4.SQLText="INSERT INTO drop_test_norm_errors(point_id, grp_id, pax_id, error, trace) "
-               "VALUES(:point_id, :grp_id, :pax_id, :error, :trace)";
-  Qry4.DeclareVariable("point_id", otInteger);
-  Qry4.DeclareVariable("grp_id", otInteger);
-  Qry4.DeclareVariable("pax_id", otInteger);
-  Qry4.DeclareVariable("error", otString);
-  Qry4.DeclareVariable("trace", otString);
-
-  TQuery Qry5(&OraSession);
-  Qry5.Clear();
-  Qry5.SQLText=
+  TQuery EventsQry(&OraSession);
+  EventsQry.Clear();
+  EventsQry.SQLText=
     "SELECT msg FROM events_bilingual "
     "WHERE lang='RU' AND type='ПАС' AND id1=:point_id AND id3=:grp_id AND "
     "      msg like '%мест/вес/опл%' "
     "ORDER BY time DESC, ev_order DESC";
-  Qry5.DeclareVariable("point_id", otInteger);
-  Qry5.DeclareVariable("grp_id", otInteger);
+  EventsQry.DeclareVariable("point_id", otInteger);
+  EventsQry.DeclareVariable("grp_id", otInteger);
 
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT point_id, airline, flt_no, suffix, airp, scd_out "
-    "FROM points "
-    "WHERE scd_out>=TO_DATE('02.02.17','DD.MM.YY') AND scd_out<TO_DATE('16.02.17','DD.MM.YY') AND pr_reg=1";
-  Qry.Execute();
+
   list<TBagNormWideInfo> trip_bag_norms;
   TNormFltInfo prior;
-  int count=0;
+  int flightsProcessed=0;
+  int groupsProcessed=0;
   int incomplete_norms_count=0;
   int complete_norms_count=0;
-  for(; !Qry.Eof; Qry.Next())
+  for(const TAdvTripInfo& fltInfo : flts)
   {
-    TNormFltInfo flt;
-    flt.point_id=Qry.FieldAsInteger("point_id");
+    ++flightsProcessed;
 
-    if (processed_point_ids.find(flt.point_id)!=processed_point_ids.end()) continue;
-
-    TTripInfo fltInfo(Qry);
-
-    flt.use_mixed_norms=GetTripSets(tsMixedNorms,fltInfo);
-
-    GrpQry.SetVariable("point_id", flt.point_id);
+    GrpQry.SetVariable("point_id", fltInfo.point_id);
     GrpQry.Execute();
     if (GrpQry.Eof)
     {
-      Qry2.SetVariable("point_id", flt.point_id);
-      Qry2.Execute();
-      OraSession.Commit();
+      ProcessedQry.SetVariable("point_id", fltInfo.point_id);
+      ProcessedQry.Execute();
       continue;
     };
-    Qry3.SetVariable("point_id", flt.point_id);
-    Qry3.Execute();
+    DeleteErrorsQry.SetVariable("point_id", fltInfo.point_id);
+    DeleteErrorsQry.Execute();
     bool error_exists=false;
     for(; !GrpQry.Eof; GrpQry.Next())
     {
-      flt.use_mark_flt=GrpQry.FieldAsInteger("pr_mark_norms")!=0;
-      flt.airline_mark=GrpQry.FieldAsString("airline");
-      flt.flt_no_mark=GrpQry.FieldAsInteger("flt_no");
+      nosir_wait(flightsProcessed, false, 5, 0);
+
+      CheckIn::TPaxGrpItem grp;
+      static_cast<CheckIn::TSimplePaxGrpItem&>(grp).fromDB(GrpQry);
+
+      if (!(grp.trfer_confirm && !grp.baggage_pc)) continue;
+
+      ++groupsProcessed;
+
+      TGrpMktFlight grpMktFlight;
+      grpMktFlight.fromDB(GrpQry);
+
+      TAirlines airlines(grp.id, fltInfo, grpMktFlight, __func__);
+
+      TNormFltInfo flt(fltInfo, grpMktFlight);
+
       if (!(prior==flt))
       {
         LoadTripBagNorms(flt, trip_bag_norms);
@@ -1554,21 +1633,13 @@ int test_norms(int argc,char **argv)
         prior=flt;
       };
 
-      CheckIn::TPaxGrpItem grp;
-      grp.id=GrpQry.FieldAsInteger("grp_id");
-      grp.airp_arv=GrpQry.FieldAsString("airp_arv");
-      grp.cl=GrpQry.FieldAsString("class");
-      grp.status=DecodePaxStatus(GrpQry.FieldAsString("status"));
-      grp.bag_refuse=GrpQry.FieldAsInteger("bag_refuse")!=0?refuseAgentError:"";
-      //TClientType client_type=DecodeClientType(GrpQry.FieldAsString("client_type"));
-      TAirlines airlines(GetCurrSegBagAirline(grp.id)); //test_norms - checked!
-
       TGrpToLogInfo grpLogInfo;
-      CheckIn::TTransferList trfer;
       GetGrpToLogInfo(grp.id, grpLogInfo);
+
+      CheckIn::TTransferList trfer;
       trfer.load(grp.id);
 
-      if (!test_paid)
+      if (testType!=TestPaid)
       {
         TSimpleBagMap not_trfer_bag_simple;
         PrepareSimpleBag(TBagList(grpLogInfo.bag), psbtOnlyNotTrfer, psbtRefusedAndNotRefused, not_trfer_bag_simple);
@@ -1620,12 +1691,13 @@ int test_norms(int argc,char **argv)
             for(; i1!=pax.prior_norms.end() && i2!=pax.result_norms.end(); ++i1, ++i2)
             {
               if (!(i1->first==i2->first) ||
-                  !(i1->second.key()==i2->second.key()) ||
-                  i1->second.norm_id!=i2->second.norm_id) break;
+                  !(i1->second.key()==i2->second.key())) break;
+              if (pass==1 && i1->second.handmade && i1->second.handmade.get()) continue; //изначально нормы изенены вручную
+              if (i1->second.norm_id!=i2->second.norm_id) break;
             };
             if (i1==pax.prior_norms.end() && i2==pax.result_norms.end()) continue;
 
-            if (/*client_type!=ctTerm &&*/ not_trfer_bag_simple.size()==1 && not_trfer_bag_simple.begin()->first==RegularBagType(airlines.single()) &&
+            if (/*client_type!=ctTerm &&*/ not_trfer_bag_simple.size()==1 && not_trfer_bag_simple.begin()->first.isRegular() &&
                 pax.prior_norms.empty() && pax.result_norms.size()==1 && pax.result_norms.begin()->first.isRegular()) continue;
 
             if (error_ids.find(p->first)!=error_ids.end()) continue;
@@ -1642,15 +1714,15 @@ int test_norms(int argc,char **argv)
             ProgError(STDLOG, "%s: %s", __FUNCTION__, error.str().c_str());
             ProgError(STDLOG, "%s: %s", __FUNCTION__, trace.str().c_str());
 
-            Qry4.SetVariable("point_id", flt.point_id);
-            Qry4.SetVariable("grp_id", grp.id);
+            InsertErrorsQry.SetVariable("point_id", flt.point_id);
+            InsertErrorsQry.SetVariable("grp_id", grp.id);
             if (!grp.is_unaccomp())
-              Qry4.SetVariable("pax_id", p->first);
+              InsertErrorsQry.SetVariable("pax_id", p->first);
             else
-              Qry4.SetVariable("pax_id", FNull);
-            Qry4.SetVariable("error", error.str());
-            Qry4.SetVariable("trace", trace.str());
-            Qry4.Execute();
+              InsertErrorsQry.SetVariable("pax_id", FNull);
+            InsertErrorsQry.SetVariable("error", error.str());
+            InsertErrorsQry.SetVariable("trace", trace.str());
+            InsertErrorsQry.Execute();
           }
         }
       }
@@ -1699,14 +1771,14 @@ int test_norms(int argc,char **argv)
 
             if (sorted_prior_paid!=sorted_calc_paid)
             {
-              Qry5.SetVariable("point_id", flt.point_id);
-              Qry5.SetVariable("grp_id", grp.id);
-              Qry5.Execute();
+              EventsQry.SetVariable("point_id", flt.point_id);
+              EventsQry.SetVariable("grp_id", grp.id);
+              EventsQry.Execute();
               string msg;
               bool print_error=false;
-              if (!Qry5.Eof)
+              if (!EventsQry.Eof)
               {
-                msg=Qry5.FieldAsString("msg");
+                msg=EventsQry.FieldAsString("msg");
                 for(TPaidBagWideMap::const_iterator i=paid_wide.begin(); i!=paid_wide.end(); ++i)
                 {
                   ostringstream s;
@@ -1740,30 +1812,28 @@ int test_norms(int argc,char **argv)
                 ProgError(STDLOG, "%s: %s", __FUNCTION__, error.str().c_str());
                 ProgError(STDLOG, "%s: %s", __FUNCTION__, trace.str().c_str());
 
-                Qry4.SetVariable("point_id", flt.point_id);
-                Qry4.SetVariable("grp_id", grp.id);
-                Qry4.SetVariable("pax_id", FNull);
-                Qry4.SetVariable("error", error.str());
-                Qry4.SetVariable("trace", trace.str());
-                Qry4.Execute();
+                InsertErrorsQry.SetVariable("point_id", flt.point_id);
+                InsertErrorsQry.SetVariable("grp_id", grp.id);
+                InsertErrorsQry.SetVariable("pax_id", FNull);
+                InsertErrorsQry.SetVariable("error", error.str());
+                InsertErrorsQry.SetVariable("trace", trace.str());
+                InsertErrorsQry.Execute();
               };
             }
           }
           else incomplete_norms_count++;
         };
       };
-      OraSession.Commit();
       ProgTrace(TRACE5, "%s: completed norms: %d; uncompleted norms: %d", __FUNCTION__, complete_norms_count, incomplete_norms_count);
     }
     if (!error_exists)
     {
-      Qry2.SetVariable("point_id", flt.point_id);
-      Qry2.Execute();
+      ProcessedQry.SetVariable("point_id", fltInfo.point_id);
+      ProcessedQry.Execute();
     };
-    OraSession.Commit();
-    count++;
   }
-  ProgTrace(TRACE5, "%s: %d flights processed", __FUNCTION__, count);
+  std::cout << "Total " << groupsProcessed << " groups processed" << std::endl << std::flush;
+  ProgTrace(TRACE5, "%s: %d flights processed", __FUNCTION__, flightsProcessed);
   return 1;
 }
 
