@@ -1567,7 +1567,7 @@ int test_norms(int argc,char **argv)
                           "  PRAGMA AUTONOMOUS_TRANSACTION; "
                           "BEGIN "
                           "  INSERT INTO drop_test_norm_errors(point_id, grp_id, pax_id, error, trace) "
-                          "  VALUES(:point_id, :grp_id, :pax_id, :error, :trace)"
+                          "  VALUES(:point_id, :grp_id, :pax_id, :error, :trace); "
                           "  COMMIT; "
                           "END; ";
   InsertErrorsQry.DeclareVariable("point_id", otInteger);
