@@ -247,7 +247,7 @@ boost::optional<TBagNormWideInfo> TBagNormWideInfo::getDirectActionNorm(const TN
                    "      (amount IS NULL AND :amount IS NULL OR amount=:amount) AND "
                    "      (per_unit IS NULL AND :per_unit IS NULL OR per_unit=:per_unit) "
                    "ORDER BY id",
-                   QParams() << QParam("direct_action", otInteger, (bool)true)
+                   QParams() << QParam("direct_action", otInteger, (int)true)
                              << QParam("norm_type", otString)
                              << QParam("amount", otInteger)
                              << QParam("weight", otInteger)
@@ -1567,7 +1567,7 @@ int test_norms(int argc,char **argv)
                           "  PRAGMA AUTONOMOUS_TRANSACTION; "
                           "BEGIN "
                           "  INSERT INTO drop_test_norm_errors(point_id, grp_id, pax_id, error, trace) "
-                          "  VALUES(:point_id, :grp_id, :pax_id, :error, :trace)"
+                          "  VALUES(:point_id, :grp_id, :pax_id, :error, :trace); "
                           "  COMMIT; "
                           "END; ";
   InsertErrorsQry.DeclareVariable("point_id", otInteger);

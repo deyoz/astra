@@ -117,8 +117,7 @@ class TPaxInfo
         << "target=" << target << ", "
         << "final_target=" << final_target << ", "
         << "subcl=" << subcl << ", "
-        << "cl=" << cl <<", "
-        << "tkn=" << tkn.logStr();
+        << "cl=" << cl;
       return s.str();
     }
 
