@@ -676,19 +676,38 @@ TNormItem& TNormItem::fromDB(TQuery &Qry)
   return *this;
 };
 
-bool TNormItem::getByNormId(int normId)
+const TNormItem& TNormItem::toDB(TQuery &Qry) const
 {
-  TCachedQuery NormQry("SELECT norm_type, amount, weight, per_unit FROM bag_norms WHERE id=:id",
+  Qry.SetVariable("norm_type", EncodeBagNormType(norm_type));
+  amount!=ASTRA::NoExists?Qry.SetVariable("amount", amount):
+                          Qry.SetVariable("amount", FNull);
+  weight!=ASTRA::NoExists?Qry.SetVariable("weight", weight):
+                          Qry.SetVariable("weight", FNull);
+  per_unit!=ASTRA::NoExists?Qry.SetVariable("per_unit", per_unit):
+                            Qry.SetVariable("per_unit", FNull);
+  return *this;
+}
+
+bool TNormItem::getByNormId(int normId, bool& isDirectActionNorm)
+{
+  isDirectActionNorm=false;
+  TCachedQuery NormQry("SELECT norm_type, amount, weight, per_unit, direct_action FROM bag_norms WHERE id=:id",
                        QParams() << QParam("id", otInteger, normId));
   NormQry.get().Execute();
   if (NormQry.get().Eof) return false;
   fromDB(NormQry.get());
+  isDirectActionNorm=NormQry.get().FieldAsInteger("direct_action")!=0;
   return true;
+}
+
+bool TNormItem::getByNormId(int normId)
+{
+  bool isDirectActionNorm;
+  return getByNormId(normId, isDirectActionNorm);
 }
 
 std::string TNormItem::str(const std::string& lang) const
 {
-  if (empty()) return "";
   ostringstream result;
   result << ElemIdToPrefferedElem(etBagNormType, EncodeBagNormType(norm_type), efmtCodeNative, lang);
   if (weight!=ASTRA::NoExists)
@@ -712,7 +731,11 @@ std::string TNormItem::str(const std::string& lang) const
 
 void TNormItem::GetNorms(PrmEnum& prmenum) const
 {
-  if (empty()) return;
+  if (isUnknown())
+  {
+     prmenum.prms << PrmBool("", false);
+     return;
+  }
 
   prmenum.prms << PrmElem<string>("", etBagNormType, EncodeBagNormType(norm_type), efmtCodeNative);
 
@@ -737,7 +760,7 @@ void TNormItem::GetNorms(PrmEnum& prmenum) const
 const TPaxNormItem& TPaxNormItem::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;
-  NewTextChild(node,"bag_type",bag_type222);
+  TBagTypeKey::toXML(node);
   if (norm_id!=ASTRA::NoExists)
   {
     NewTextChild(node,"norm_id",norm_id);
@@ -755,8 +778,8 @@ TPaxNormItem& TPaxNormItem::fromXML(xmlNodePtr node)
 {
   clear();
   if (node==NULL) return *this;
+  TBagTypeKey::fromXMLcompatible(node);
   xmlNodePtr node2=node->children;
-  bag_type222=BagTypeFromXML(NodeAsStringFast("bag_type",node2));
   if (!NodeIsNULLFast("norm_id",node2))
   {
     norm_id=NodeAsIntegerFast("norm_id",node2);
@@ -767,7 +790,7 @@ TPaxNormItem& TPaxNormItem::fromXML(xmlNodePtr node)
 
 const TPaxNormItem& TPaxNormItem::toDB(TQuery &Qry) const
 {
-  BagTypeToDB(Qry, bag_type222, "TPaxNormItem::toDB");
+  TBagTypeKey::toDBcompatible(Qry, "TPaxNormItem::toDB");
   if (norm_id!=ASTRA::NoExists)
   {
     Qry.SetVariable("norm_id",norm_id);
@@ -778,43 +801,54 @@ const TPaxNormItem& TPaxNormItem::toDB(TQuery &Qry) const
     Qry.SetVariable("norm_id",FNull);
     Qry.SetVariable("norm_trfer",FNull);
   };
-  if (handmade!=ASTRA::NoExists)
-    Qry.SetVariable("handmade",handmade);
-  else
-    Qry.SetVariable("handmade",FNull);
+  if (!handmade)
+    throw Exception("TPaxNormItem::toDB: !handmade");
+  Qry.SetVariable("handmade",(int)handmade.get());
   return *this;
 };
 
 TPaxNormItem& TPaxNormItem::fromDB(TQuery &Qry)
 {
   clear();
-  bag_type222=BagTypeFromDB(Qry);
+  TBagTypeKey::fromDBcompatible(Qry);
   if (!Qry.FieldIsNULL("norm_id"))
   {
     norm_id=Qry.FieldAsInteger("norm_id");
     norm_trfer=Qry.FieldAsInteger("norm_trfer")!=0;
   };
-  handmade=(int)(Qry.FieldAsInteger("handmade")!=0);
+  handmade=Qry.FieldAsInteger("handmade")!=0;
   return *this;
 };
 
-bool PaxNormsFromDB(TDateTime part_key, int pax_id, list< pair<TPaxNormItem, TNormItem> > &norms)
+std::ostream& operator<<(std::ostream& os, const TPaxNormItem& item)
+{
+  os << item.key().str(LANG_EN) << ": ";
+  if (item.norm_id!=ASTRA::NoExists)
+    os << item.norm_id << " (" << (item.norm_trfer?"trfer":"not trfer") << ")";
+  else
+    os << "-";
+  os << "/" << (item.handmade?(item.handmade.get()?"hand":"auto"):"?");
+
+  return os;
+}
+
+bool PaxNormsFromDB(TDateTime part_key, int pax_id, TPaxNormComplexContainer &norms)
 {
   norms.clear();
   const char* sql=
-      "SELECT pax_norms.bag_type, pax_norms.norm_id, pax_norms.norm_trfer, pax_norms.handmade, "
+      "SELECT pax_norms.*, "
       "       bag_norms.norm_type, bag_norms.amount, bag_norms.weight, bag_norms.per_unit "
       "FROM pax_norms,bag_norms "
       "WHERE pax_norms.norm_id=bag_norms.id(+) AND pax_norms.pax_id=:pax_id ";
   const char* sql_arx=
-      "SELECT arx_pax_norms.bag_type, arx_pax_norms.norm_id, arx_pax_norms.norm_trfer, arx_pax_norms.handmade, "
+      "SELECT arx_pax_norms.*, "
       "       bag_norms.norm_type, bag_norms.amount, bag_norms.weight, bag_norms.per_unit "
       "FROM arx_pax_norms,bag_norms "
       "WHERE arx_pax_norms.norm_id=bag_norms.id(+) AND "
       "      arx_pax_norms.part_key=:part_key AND "
       "      arx_pax_norms.pax_id=:pax_id "
       "UNION "
-      "SELECT arx_pax_norms.bag_type, arx_pax_norms.norm_id, arx_pax_norms.norm_trfer, arx_pax_norms.handmade, "
+      "SELECT arx_pax_norms.*, "
       "       arx_bag_norms.norm_type, arx_bag_norms.amount, arx_bag_norms.weight, arx_bag_norms.per_unit "
       "FROM arx_pax_norms,arx_bag_norms "
       "WHERE arx_pax_norms.norm_id=arx_bag_norms.id(+) AND "
@@ -832,32 +866,43 @@ bool PaxNormsFromDB(TDateTime part_key, int pax_id, list< pair<TPaxNormItem, TNo
   QryParams << QParam("pax_id", otInteger, pax_id);
   TCachedQuery NormQry(result_sql, QryParams);
   NormQry.get().Execute();
-  for(;!NormQry.get().Eof;NormQry.get().Next())
+
+  //!!!потом удалить, когда станет pax_norms.airline NOT NULL
+  if (part_key==ASTRA::NoExists)
   {
-    norms.push_back( make_pair(TPaxNormItem().fromDB(NormQry.get()),
-                               TNormItem().fromDB(NormQry.get())) );
-  };
+    for(; !NormQry.get().Eof; NormQry.get().Next())
+    {
+      TPaxNormComplex n;
+      n.fromDB(NormQry.get());
+      n.getListKeyByPaxId(pax_id, 0, boost::none, __func__);
+      norms.insert(n);
+    }
+  }
+  else
+  //^^^потом удалить, когда станет pax_norms.airline NOT NULL
+    for(; !NormQry.get().Eof; NormQry.get().Next())
+      norms.emplace(NormQry.get());
 
   return !norms.empty();
-};
+}
 
-bool GrpNormsFromDB(TDateTime part_key, int grp_id, list< pair<TPaxNormItem, TNormItem> > &norms)
+bool GrpNormsFromDB(TDateTime part_key, int grp_id, TPaxNormComplexContainer &norms)
 {
   norms.clear();
   const char* sql=
-      "SELECT grp_norms.bag_type, grp_norms.norm_id, grp_norms.norm_trfer, grp_norms.handmade, "
+      "SELECT grp_norms.*, "
       "       bag_norms.norm_type, bag_norms.amount, bag_norms.weight, bag_norms.per_unit "
       "FROM grp_norms,bag_norms "
       "WHERE grp_norms.norm_id=bag_norms.id(+) AND grp_norms.grp_id=:grp_id ";
   const char* sql_arx=
-      "SELECT arx_grp_norms.bag_type, arx_grp_norms.norm_id, arx_grp_norms.norm_trfer, arx_grp_norms.handmade, "
+      "SELECT arx_grp_norms.*, "
       "       bag_norms.norm_type, bag_norms.amount, bag_norms.weight, bag_norms.per_unit "
       "FROM arx_grp_norms,bag_norms "
       "WHERE arx_grp_norms.norm_id=bag_norms.id(+) AND "
       "      arx_grp_norms.part_key=:part_key AND "
       "      arx_grp_norms.grp_id=:grp_id "
       "UNION "
-      "SELECT arx_grp_norms.bag_type, arx_grp_norms.norm_id, arx_grp_norms.norm_trfer, arx_grp_norms.handmade, "
+      "SELECT arx_grp_norms.*, "
       "       arx_bag_norms.norm_type, arx_bag_norms.amount, arx_bag_norms.weight, arx_bag_norms.per_unit "
       "FROM arx_grp_norms,arx_bag_norms "
       "WHERE arx_grp_norms.norm_id=arx_bag_norms.id(+) AND "
@@ -875,82 +920,90 @@ bool GrpNormsFromDB(TDateTime part_key, int grp_id, list< pair<TPaxNormItem, TNo
   QryParams << QParam("grp_id", otInteger, grp_id);
   TCachedQuery NormQry(result_sql, QryParams);
   NormQry.get().Execute();
-  for(;!NormQry.get().Eof;NormQry.get().Next())
+  //!!!потом удалить, когда станет grp_norms.airline NOT NULL
+  if (part_key==ASTRA::NoExists)
   {
-    norms.push_back( make_pair(TPaxNormItem().fromDB(NormQry.get()),
-                               TNormItem().fromDB(NormQry.get())) );
-  };
+    for(; !NormQry.get().Eof; NormQry.get().Next())
+    {
+      TPaxNormComplex n;
+      n.fromDB(NormQry.get());
+      n.getListKeyUnaccomp(grp_id, 0, boost::none, __func__);
+      norms.insert(n);
+    }
+  }
+  else
+  //^^^потом удалить, когда станет grp_norms.airline NOT NULL
+    for(; !NormQry.get().Eof; NormQry.get().Next())
+      norms.emplace(NormQry.get());
 
   return !norms.empty();
 };
 
-void NormsToXML(const list< pair<TPaxNormItem, TNormItem> > &norms, xmlNodePtr node)
+void NormsToXML(const TPaxNormComplexContainer &norms, xmlNodePtr node)
 {
   if (node==NULL) return;
 
   xmlNodePtr normsNode=NewTextChild(node,"norms");
-  for(list< pair<TPaxNormItem, TNormItem> >::const_iterator i=norms.begin();i!=norms.end();++i)
-  {
-    xmlNodePtr normNode=NewTextChild(normsNode,"norm");
-    i->first.toXML(normNode);
-    i->second.toXML(normNode);
-  };
-};
+  for(const TPaxNormComplex& n : norms)
+    n.toXML(NewTextChild(normsNode,"norm"));
+}
 
-void PaxNormsToDB(int pax_id, const boost::optional< list<TPaxNormItem> > &norms)
+void PaxNormsToDB(int pax_id, const boost::optional< TPaxNormItemContainer > &norms)
 {
   if (!norms) return;
+
+  LogTrace(TRACE5) << __func__ << ": pax_id=" << pax_id;
+
   TQuery NormQry(&OraSession);
   NormQry.Clear();
   NormQry.SQLText="DELETE FROM pax_norms WHERE pax_id=:pax_id";
   NormQry.CreateVariable("pax_id",otInteger,pax_id);
   NormQry.Execute();
   NormQry.SQLText=
-    "INSERT INTO pax_norms(pax_id,bag_type,norm_id,norm_trfer,handmade) "
-    "VALUES(:pax_id,:bag_type,:norm_id,:norm_trfer,:handmade)";
+    "INSERT INTO pax_norms(pax_id, list_id, bag_type, bag_type_str, airline, norm_id, norm_trfer, handmade) "
+    "VALUES(:pax_id, :list_id, :bag_type, :bag_type_str, :airline, :norm_id, :norm_trfer, :handmade)";
+  NormQry.DeclareVariable("list_id",otInteger);
   NormQry.DeclareVariable("bag_type",otInteger);
+  NormQry.DeclareVariable("bag_type_str",otString);
+  NormQry.DeclareVariable("airline",otString);
   NormQry.DeclareVariable("norm_id",otInteger);
   NormQry.DeclareVariable("norm_trfer",otInteger);
   NormQry.DeclareVariable("handmade",otInteger);
-  for(list<TPaxNormItem>::const_iterator n=norms.get().begin(); n!=norms.get().end(); ++n)
+  for(TPaxNormItem n : norms.get())
   {
-    n->toDB(NormQry);
+    n.getListItemByPaxId(pax_id, 0, boost::none, __func__);
+    n.toDB(NormQry);
     NormQry.Execute();
-  };
-};
+  }
+}
 
-void GrpNormsToDB(int grp_id, const boost::optional< list<TPaxNormItem> > &norms)
+void GrpNormsToDB(int grp_id, const boost::optional< TPaxNormItemContainer > &norms)
 {
   if (!norms) return;
+
+  LogTrace(TRACE5) << __func__ << ": grp_id=" << grp_id;
+
   TQuery NormQry(&OraSession);
   NormQry.Clear();
   NormQry.SQLText="DELETE FROM grp_norms WHERE grp_id=:grp_id";
   NormQry.CreateVariable("grp_id",otInteger,grp_id);
   NormQry.Execute();
   NormQry.SQLText=
-    "INSERT INTO grp_norms(grp_id,bag_type,norm_id,norm_trfer,handmade) "
-    "VALUES(:grp_id,:bag_type,:norm_id,:norm_trfer,:handmade)";
+    "INSERT INTO grp_norms(grp_id, list_id, bag_type, bag_type_str, airline, norm_id, norm_trfer, handmade) "
+    "VALUES(:grp_id, :list_id, :bag_type, :bag_type_str, :airline, :norm_id, :norm_trfer, :handmade)";
+  NormQry.DeclareVariable("list_id",otInteger);
   NormQry.DeclareVariable("bag_type",otInteger);
+  NormQry.DeclareVariable("bag_type_str",otString);
+  NormQry.DeclareVariable("airline",otString);
   NormQry.DeclareVariable("norm_id",otInteger);
   NormQry.DeclareVariable("norm_trfer",otInteger);
   NormQry.DeclareVariable("handmade",otInteger);
-  for(list<TPaxNormItem>::const_iterator n=norms.get().begin(); n!=norms.get().end(); ++n)
+  for(TPaxNormItem n : norms.get())
   {
-    n->toDB(NormQry);
+    n.getListItemUnaccomp(grp_id, 0, boost::none, __func__);
+    n.toDB(NormQry);
     NormQry.Execute();
-  };
-};
-
-void ConvertNormsList(const std::list< std::pair<TPaxNormItem, TNormItem> > &norms,
-                      std::map<std::string, TNormItem> &result)
-{
-  result.clear();
-  std::list< std::pair<WeightConcept::TPaxNormItem, WeightConcept::TNormItem> >::const_iterator i=norms.begin();
-  for(; i!=norms.end(); ++i)
-  {
-    if (i->second.empty()) continue;
-    result.insert(make_pair(i->first.bag_type222, i->second));
-  };
+  }
 }
 
 const TPaidBagItem& TPaidBagItem::toXML(xmlNodePtr node) const
@@ -1008,8 +1061,8 @@ const TPaidBagItem& TPaidBagItem::toDB(TQuery &Qry) const
     Qry.SetVariable("rate_id",FNull);
     Qry.SetVariable("rate_trfer",FNull);
   };
-  if (handmade!=ASTRA::NoExists)
-    Qry.SetVariable("handmade",handmade);
+  if (handmade)
+    Qry.SetVariable("handmade",(int)handmade.get());
   else
     Qry.SetVariable("handmade",FNull);
   return *this;
@@ -1028,7 +1081,7 @@ TPaidBagItem& TPaidBagItem::fromDB(TQuery &Qry)
     rate_cur=Qry.FieldAsString("rate_cur");
     rate_trfer=Qry.FieldAsInteger("rate_trfer")!=0;
   };
-  handmade=(int)(Qry.FieldAsInteger("handmade")!=0);
+  handmade=Qry.FieldAsInteger("handmade")!=0;
   return *this;
 };
 
@@ -1059,6 +1112,18 @@ std::string TPaidBagItem::bag_type_view(const std::string& lang) const
     result << list_item.get().name_view(lang);
   };
   return result.str();
+}
+
+std::ostream& operator<<(std::ostream& os, const TPaidBagItem& item)
+{
+  os << item.key().str(LANG_EN) << ": " << item.weight;
+  if (item.rate_id!=ASTRA::NoExists)
+    os << "/" << item.rate_id;
+  else
+    os << "/-";
+  os << "/" << (item.handmade?(item.handmade.get()?"hand":"auto"):"?");
+
+  return os;
 }
 
 void TPaidBagList::getAllListKeys(int grp_id, bool is_unaccomp)

@@ -514,7 +514,7 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
                                            TBagKilos(Qry.FieldAsInteger("excess_wt"))).getDeprecatedInt();
     stat.viewTag = string(Qry.FieldAsString("tags")).substr(0,100);
     pair<TDateTime, TDateTime> times(NoExists, NoExists);
-    std::list< std::pair<WeightConcept::TPaxNormItem, WeightConcept::TNormItem> > norms;
+    WeightConcept::TPaxNormComplexContainer norms;
     if (stat.pax_id!=NoExists)
     {
       stat.viewUncheckin = ElemIdToNameLong(etRefusalType, Qry.FieldAsString("refuse")).substr(0,50);
@@ -544,16 +544,14 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
 
     if (!piece_concept)
     {
-      std::map< string/*bag_type_view*/, WeightConcept::TNormItem> norms_normal;
-      WeightConcept::ConvertNormsList(norms, norms_normal);
-      std::map< string/*bag_type_view*/, WeightConcept::TNormItem>::const_iterator n=norms_normal.begin();
-      for(;n!=norms_normal.end();++n)
+      for(const WeightConcept::TPaxNormComplex& n : norms)
       {
-        if (n!=norms_normal.begin()) stat.viewBagNorms += ", ";
-        if (!n->first.empty())
-          stat.viewBagNorms += n->first + ": ";
-        stat.viewBagNorms += n->second.str(AstraLocale::LANG_RU);
-      };
+        if (n.normNotExists()) continue;
+        if (!stat.viewBagNorms.empty()) stat.viewBagNorms += ", ";
+        if (!n.bag_type.empty())
+          stat.viewBagNorms += n.bag_type + ": ";
+        stat.viewBagNorms += n.normStr(AstraLocale::LANG_RU);
+      }
     };
 
     TPaidToLogInfo paidInfo;

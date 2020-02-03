@@ -170,9 +170,12 @@ class TPaxToLogInfoKey
     };
 };
 
+
 class TPaxToLogInfo
 {
   public:
+    typedef std::map<TBagTypeListKey, std::pair<WeightConcept::TNormItem, bool/*handmade*/> > TNormItemMap;
+
     std::string airp_arv, orig_cl, cabin_cl, status;
     bool pr_mark_norms;
     std::string surname, name, pers_type, refuse, subcl, seat_no, agent_seat_no;
@@ -183,8 +186,8 @@ class TPaxToLogInfo
     CheckIn::TAPISItem apis;
     int bag_amount, bag_weight, rk_amount, rk_weight;
     std::string tags;
-    std::list< std::pair<WeightConcept::TPaxNormItem, WeightConcept::TNormItem> > norms;
-    std::map< std::string/*bag_type_view*/, WeightConcept::TNormItem> norms_normal;
+    WeightConcept::TPaxNormComplexContainer norms;
+    TNormItemMap norms_normal;
     CheckIn::PaxRems rems;
     std::set<CheckIn::TPaxFQTItem> fqts;
     TPaidToLogInfo paid;
