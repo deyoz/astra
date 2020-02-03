@@ -2953,7 +2953,10 @@ void transformKickRequest(xmlNodePtr termReqNode, xmlNodePtr kickReqNode)
 
   if (kickReqNode==nullptr) return;
 
-  if (isWebCheckinRequest(termReqNode))
+  if (isWebCheckinRequest(termReqNode) ||
+      isTagAddRequestSBDO(termReqNode) ||
+      isTagConfirmRequestSBDO(termReqNode) ||
+      isTagRevokeRequestSBDO(termReqNode))
   {
     string termReqName=(const char*)(termReqNode->name);
     xmlNodePtr node = NodeAsNode("/term/query",kickReqNode->doc);

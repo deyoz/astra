@@ -22,6 +22,13 @@ class TFltInfo
     int flt_no_mark;
     bool use_mark_flt;
     TFltInfo() { clear(); }
+    TFltInfo(const int point_dep,
+             const TGrpMktFlight& grpMktFlight) :
+      point_id(point_dep),
+      airline_mark(grpMktFlight.airline),
+      flt_no_mark(grpMktFlight.flt_no),
+      use_mark_flt(grpMktFlight.pr_mark_norms) {}
+
     void clear()
     {
       point_id=ASTRA::NoExists;
@@ -35,7 +42,7 @@ class TFltInfo
           airline_mark==info.airline_mark &&
           flt_no_mark==info.flt_no_mark &&
           use_mark_flt==info.use_mark_flt;
-    };
+    }
     std::string traceStr() const
     {
       std::ostringstream s;
@@ -52,8 +59,16 @@ class TNormFltInfo : public TFltInfo
   public:
     bool use_mixed_norms;
     TNormFltInfo() { clear(); }
+    TNormFltInfo(const TTripInfo& operFlight,
+                 const TGrpMktFlight& grpMktFlight) :
+      TFltInfo(operFlight.point_id, grpMktFlight)
+    {
+      use_mixed_norms=GetTripSets(tsMixedNorms, operFlight);
+    }
+
     void clear()
     {
+      TFltInfo::clear();
       use_mixed_norms=false;
     }
     bool operator == (const TNormFltInfo &info) const
@@ -130,13 +145,43 @@ class TBagNormInfo : public TPaxNormItem, public TNormItem
     int priority() const;
 };
 
+class TBagInfo : public CheckIn::TSimpleBagItem
+{
+  public:
+    bool is_trfer;
+    bool refused;
+
+    TBagInfo(const CheckIn::TSimpleBagItem& bag,
+             bool is_trfer_,
+             bool refused_) :
+      CheckIn::TSimpleBagItem(bag),
+      is_trfer(is_trfer_),
+      refused(refused_) {}
+};
+
+class TBagList : public std::list<TBagInfo>
+{
+  public:
+    TBagList(const std::map<int/*id*/, TEventsBagItem>& bag)
+    {
+      for(const auto& b : bag)
+        emplace_back(b.second, b.second.is_trfer, b.second.refused);
+    }
+};
+
 class TAirlines : public std::set<std::string>
 {
   public:
     TAirlines(const std::string &airline);
     TAirlines(int grp_id, const std::string &airline, const std::string& where);
+    TAirlines(int grp_id,
+              const TTripInfo& operFlight,
+              const TGrpMktFlight& grpMktFlight,
+              const std::string& where) :
+      TAirlines(grp_id,
+                grpMktFlight.pr_mark_norms?grpMktFlight.airline:operFlight.airline,
+                where) {}
     const std::string single() const;
-
 };
 
 void CheckOrGetPaxBagNorm(const TNormFltInfo &flt,
@@ -147,7 +192,7 @@ void CheckOrGetPaxBagNorm(const TNormFltInfo &flt,
                           TBagNormInfo &result);
 
 void CalcPaidBagView(const TAirlines &airlines,
-                     const std::map<int/*id*/, TEventsBagItem> &bag,
+                     const TBagList &bag,
                      const std::list<TBagNormInfo> &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
                      const TPaidBagList &paid,
                      const CheckIn::TServicePaymentListWithAuto &payment,
@@ -160,8 +205,8 @@ void PaidBagViewToXML(const TPaidBagViewMap &paid_view,
                       xmlNodePtr node);
 
 void RecalcPaidBagToDB(const TAirlines &airlines,
-                       const std::map<int/*id*/, TEventsBagItem> &prior_bag, //TEventsBagItem а не CheckIn::TBagItem потому что есть refused
-                       const std::map<int/*id*/, TEventsBagItem> &curr_bag,
+                       const TBagList &prior_bag,
+                       const TBagList &curr_bag,
                        const std::map<TPaxToLogInfoKey, TPaxToLogInfo> &prior_paxs,
                        const TNormFltInfo &flt,
                        const CheckIn::TTransferList &trfer,
@@ -172,6 +217,12 @@ void RecalcPaidBagToDB(const TAirlines &airlines,
                        bool use_traces,
                        TPaidBagList &result_paid);
 
+void RecalcPaidBag(const TTripInfo& flt,
+                   const CheckIn::TSimplePaxGrpItem& grp,
+                   const std::list< std::pair<int, CheckIn::TSimpleBagItem> >& additionalBaggage,
+                   const TPaidBagList& prior_paid,
+                   TPaidBagList &result_paid);
+
 int test_norms(int argc,char **argv);
 
 std::string GetBagRcptStr(int grp_id, int pax_id);
@@ -180,6 +231,9 @@ bool BagPaymentCompleted(int grp_id, int *value_bag_count=NULL);
 std::string GetBagAirline(const TTripInfo &operFlt, const TTripInfo &markFlt, bool is_local_scd_out);
 
 boost::optional<TBagTotals> getBagAllowance(const CheckIn::TSimplePaxItem& pax);
+boost::optional<TBagTotals> calcBagAllowance(const CheckIn::TSimplePaxItem& pax,
+                                             const CheckIn::TSimplePaxGrpItem& grp,
+                                             const TTripInfo& flt);
 
 } //namespace WeightConcept
 

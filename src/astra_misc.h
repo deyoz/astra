@@ -65,11 +65,11 @@ class TSimpleMktFlight
              suffix.empty();
     }
 
-    bool operator == (const TSimpleMktFlight &s) const
+    bool operator == (const TSimpleMktFlight &flt) const
     {
-      return airline == s.airline &&
-             flt_no == s.flt_no &&
-             suffix == s.suffix;
+      return airline == flt.airline &&
+             flt_no == flt.flt_no &&
+             suffix == flt.suffix;
     }
 
     void operator = (const TSimpleMktFlight &flt)
@@ -86,7 +86,7 @@ class TSimpleMktFlight
     {
       std::ostringstream s;
       s << std::setw(3) << std::setfill('0') << flt_no;
-      s << (lang? ElemIdToElem(etSuffix, suffix, efmtCodeInter, lang->get()): suffix);
+      s << (lang? ElemIdToElem(etSuffix, suffix, efmtCodeNative, lang->get()): suffix);
       return s.str();
     }
     virtual ~TSimpleMktFlight() {}
@@ -170,6 +170,12 @@ class TGrpMktFlight : public TSimpleMktFlight
              airp_dep.empty() &&
              pr_mark_norms==false;
     }
+    bool equalFlight(const TGrpMktFlight& flt) const
+    {
+      return TSimpleMktFlight::operator == (flt) &&
+             scd_date_local == flt.scd_date_local &&
+             airp_dep == flt.airp_dep;
+    }
 
     const TGrpMktFlight& toXML(xmlNodePtr node) const;
     TGrpMktFlight& fromXML(xmlNodePtr node);
@@ -237,24 +243,6 @@ class TTripInfo
       if (Qry.GetFieldIndex("point_id")>=0)
           point_id = Qry.FieldAsInteger("point_id");
     };
-    void init( const TGrpMktFlight &flt )
-    {
-      init();
-      airline=flt.airline;
-      flt_no=flt.flt_no;
-      suffix=flt.suffix;
-      scd_out=flt.scd_date_local;
-      airp=flt.airp_dep;
-    }
-    void init( const TMktFlight &flt )
-    {
-      init();
-      airline=flt.airline;
-      flt_no=flt.flt_no;
-      suffix=flt.suffix;
-      scd_out=flt.scd_date_local;
-      airp=flt.airp_dep;
-    }
   protected:
     bool match(TQuery &Qry, const FlightProps& props) const
     {
@@ -311,14 +299,7 @@ class TTripInfo
     {
       init(Qry);
     };
-    virtual void Init( const TGrpMktFlight &flt )
-    {
-      init(flt);
-    };
-    virtual void Init( const TMktFlight &flt )
-    {
-      init(flt);
-    };
+  public:
     virtual bool getByPointId ( const TDateTime part_key,
                                 const int point_id,
                                 const FlightProps& props = FlightProps() );
@@ -365,9 +346,11 @@ class TTripInfo
     {
       std::ostringstream s;
       s << std::setw(3) << std::setfill('0') << flt_no;
-      s << (lang? ElemIdToElem(etSuffix, suffix, efmtCodeInter, lang->get()): suffix);
+      s << (lang? ElemIdToElem(etSuffix, suffix, efmtCodeNative, lang->get()): suffix);
       return s.str();
     }
+
+    TGrpMktFlight grpMktFlight() const;
 };
 
 std::string flight_view(int grp_id, int seg_no); //начиная с 1
@@ -1034,8 +1017,7 @@ void GetMktFlights(const TTripInfo &operFltInfo, std::vector<TTripInfo> &markFlt
 
 //важно! время вылета scd_out у operFlt должно быть в UTC
 //       время вылета в markFltInfo передается локальное относительно airp
-std::string GetMktFlightStr( const TTripInfo &operFlt, const TTripInfo &markFlt, bool &equal);
-bool IsMarkEqualOper( const TTripInfo &operFlt, const TTripInfo &markFlt );
+std::string GetMktFlightStr( const TTripInfo &operFlt, const TTripInfo &markFlt, bool &equal);  //!!!vlad переделать
 
 void GetCrsList(int point_id, std::vector<std::string> &crs);
 bool IsRouteInter(int point_dep, int point_arv, std::string &country);

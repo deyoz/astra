@@ -35,7 +35,7 @@ class SearchPassengersRequest
         boost::optional<SurnameFilter> pax;
 
         Depth& fromXML(xmlNodePtr node);
-        const FlightFilter& getFlightFilter() const { return filter; };
+        const FlightFilter& getFlightFilter() const { return filter; }
         bool completeForSearch() const
         {
           return !departure.empty() &&
@@ -55,7 +55,7 @@ class SearchPassengersRequest
         Segment() { flt_no=ASTRA::NoExists; }
 
         Segment& fromXML(xmlNodePtr node);
-        const FlightFilter& getFlightFilter() const { return filter; };
+        const FlightFilter& getFlightFilter() const { return filter; }
         bool completeForSearch() const
         {
           return !airline.empty() &&

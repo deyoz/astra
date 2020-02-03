@@ -274,6 +274,22 @@ std::string TTripInfo::flight_view(TElemContext ctxt, bool showScdOut, bool show
   return s.str();
 }
 
+TGrpMktFlight TTripInfo::grpMktFlight() const
+{
+  TGrpMktFlight result;
+  result.airline=airline;
+  result.flt_no=flt_no;
+  result.suffix=suffix;
+  if (scd_out!=ASTRA::NoExists)
+  {
+    result.scd_date_local=UTCToLocal(scd_out,AirpTZRegion(airp));
+    modf(result.scd_date_local,&result.scd_date_local);
+  }
+  result.airp_dep=airp;
+  result.pr_mark_norms=false;
+  return result;
+}
+
 string GetTripDate( const TTripInfo &info, const string &separator, const bool advanced_trip_list )
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
@@ -1903,19 +1919,6 @@ string GetMktFlightStr( const TTripInfo &operFlt, const TTripInfo &markFlt, bool
   if (operFlt.airp!=markFlt.airp)
     trip << " " << ElemIdToCodeNative(etAirp, markFlt.airp);
   return trip.str();
-}
-
-bool IsMarkEqualOper( const TTripInfo &operFlt, const TTripInfo &markFlt )
-{
-  TDateTime scd_local_oper=UTCToLocal(operFlt.scd_out, AirpTZRegion(operFlt.airp));
-  modf(scd_local_oper,&scd_local_oper);
-  TDateTime scd_local_mark=markFlt.scd_out;
-  modf(scd_local_mark,&scd_local_mark);
-  return operFlt.airline==markFlt.airline &&
-         operFlt.flt_no==markFlt.flt_no &&
-         operFlt.suffix==markFlt.suffix &&
-         scd_local_oper==scd_local_mark &&
-         operFlt.airp==markFlt.airp;
 }
 
 void GetCrsList(int point_id, std::vector<std::string> &crs)

@@ -34,6 +34,50 @@ void TSegListItem::setCabinClassAndSubclass()
 namespace CheckIn
 {
 
+void grpMktFlightFromXML(xmlNodePtr node, TGrpMktFlight& grpMktFlight)  //важно: переданный grpMktFlight содержит данные оперирующего рейса
+{
+  if (node==nullptr) return; //важно: не меняем grpMktFlight!
+
+  TGrpMktFlight markFltInfo;
+  markFltInfo.fromXML(node);
+
+  ostringstream flt;
+  flt << markFltInfo.airline << markFltInfo.flight_number();
+  if (markFltInfo.scd_date_local!=grpMktFlight.scd_date_local)
+    flt << "/" << DateTimeToStr(markFltInfo.scd_date_local,"dd");
+  if (markFltInfo.airp_dep!=grpMktFlight.airp_dep)
+    flt << "/" << markFltInfo.airp_dep;
+
+  string str;
+  TElemFmt fmt;
+
+  str=ElemToElemId(etAirline,markFltInfo.airline,fmt);
+  if (fmt==efmtUnknown)
+    throw AstraLocale::UserException("MSG.COMMERCIAL_FLIGHT.AIRLINE.UNKNOWN_CODE",
+                                     LParams()<<LParam("airline",markFltInfo.airline)
+                                              <<LParam("flight", flt.str()));  //WEB
+  markFltInfo.airline=str;
+
+  if (!markFltInfo.suffix.empty())
+  {
+    str=ElemToElemId(etSuffix,markFltInfo.suffix,fmt);
+    if (fmt==efmtUnknown)
+      throw AstraLocale::UserException("MSG.COMMERCIAL_FLIGHT.SUFFIX.INVALID",
+                                       LParams()<<LParam("suffix",markFltInfo.suffix)
+                                                <<LParam("flight",flt.str())); //WEB
+    markFltInfo.suffix=str;
+  }
+
+  str=ElemToElemId(etAirp,markFltInfo.airp_dep,fmt);
+  if (fmt==efmtUnknown)
+    throw AstraLocale::UserException("MSG.COMMERCIAL_FLIGHT.UNKNOWN_AIRP",
+                                     LParams()<<LParam("airp",markFltInfo.airp_dep)
+                                              <<LParam("flight",flt.str())); //WEB
+  markFltInfo.airp_dep=str;
+
+  grpMktFlight=markFltInfo; //важно: только если все хорошо меняем grpMktFlight!
+}
+
 void setComplexClassGrp(const TFlightRbd& rbds, TComplexClass& complex)
 {
   boost::optional<TSubclassGroup> pax_subclass_grp=rbds.getSubclassGroup(complex.subcl, complex.cl);
@@ -47,7 +91,7 @@ class SeatingGroup
 {
   public:
     TSegListItem seg;
-    TTripInfo markFltInfo;
+    TGrpMktFlight grpMktFlight;
 };
 
 class SeatingGroups : public std::map<int/*grp_id*/, SeatingGroup>
@@ -75,7 +119,7 @@ void SeatingGroups::add(const TSimplePaxItem& pax)
     iGroup=emplace(pax.grp_id, SeatingGroup()).first;
     iGroup->second.seg.flt=fltInfo;
     static_cast<TSimplePaxGrpItem&>(iGroup->second.seg.grp)=grp;
-    iGroup->second.markFltInfo.Init(grpMktFlight);
+    iGroup->second.grpMktFlight=grpMktFlight;
   }
 
   if (iGroup==end()) return;
@@ -176,12 +220,12 @@ void syncCabinClass(const TTripTaskKey &task)
       if (pax.hasCabinSeatNumber())
         seatingGroups.add(pax);
     }
-    catch(AstraLocale::UserException &e)
+    catch(const AstraLocale::UserException &e)
     {
       spSyncCabinClass.rollback();
       syncCabinClassErrorToLog(fltInfo.point_id, pax, e);
     }
-    catch(std::exception &e)
+    catch(const std::exception &e)
     {
       spSyncCabinClass.rollback();
       LogError(STDLOG) << __func__ << " error (pax_id=" << paxId << "): " << e.what();
@@ -199,20 +243,20 @@ void syncCabinClass(const TTripTaskKey &task)
       //надо ли здесь проверить счетчики - CheckCounters?
       seatingWhenNewCheckIn(seatingGroup.seg,
                             fltInfo,
-                            seatingGroup.markFltInfo);
+                            seatingGroup.grpMktFlight);
       for(TPaxListItem& i : g.second.seg.paxs)
       {
         i.pax.seat_no=i.pax.getSeatNo("seats");
         newCabinClassMsgToLog(fltInfo.point_id, i.pax);
       }
     }
-    catch(AstraLocale::UserException &e)
+    catch(const AstraLocale::UserException &e)
     {
       spSyncCabinClass.rollback();
       for(const TPaxListItem& i : seatingGroup.seg.paxs)
         syncCabinClassErrorToLog(fltInfo.point_id, i.pax, e);
     }
-    catch(std::exception &e)
+    catch(const std::exception &e)
     {
       spSyncCabinClass.rollback();
       for(const TPaxListItem& i : seatingGroup.seg.paxs)
@@ -226,7 +270,7 @@ void syncCabinClass(const TTripTaskKey &task)
 
 void seatingWhenNewCheckIn(const TSegListItem& seg,
                            const TAdvTripInfo& fltAdvInfo,
-                           const TTripInfo& markFltInfo)
+                           const TSimpleMktFlight& markFltInfo)
 {
   const TTripInfo& fltInfo=seg.flt;
   const CheckIn::TSimplePaxGrpItem& grp=seg.grp;
@@ -343,11 +387,11 @@ void seatingWhenNewCheckIn(const TSegListItem& seg,
 
         SEATS2::Passengers.Add(salonList,pas);
       }
-      catch(CheckIn::UserException)
+      catch(const CheckIn::UserException&)
       {
         throw;
       }
-      catch(AstraLocale::UserException &e)
+      catch(const AstraLocale::UserException &e)
       {
         throw CheckIn::UserException(e.getLexemaData(), grp.point_dep, pax_id);
       }
@@ -454,11 +498,11 @@ void seatingWhenNewCheckIn(const TSegListItem& seg,
             if ( change_agent_seat_no || change_preseat_no )
                     AstraLocale::showErrorMessage("MSG.SEATS.PART_REQUIRED_PLACES_NOT_AVAIL");
       }
-      catch(CheckIn::UserException)
+      catch(const CheckIn::UserException&)
       {
         throw;
       }
-      catch(AstraLocale::UserException &e)
+      catch(const AstraLocale::UserException &e)
       {
         throw CheckIn::UserException(e.getLexemaData(), grp.point_dep, pax_id);
       }
@@ -724,7 +768,7 @@ void TWebAPISItem::set(const CheckIn::TPaxAPIItem& item)
         throw EXCEPTIONS::Exception("TWebAPISItem::set: wrong type=%d", type);
     }
   }
-  catch(bad_cast)
+  catch(const bad_cast&)
   {
     throw EXCEPTIONS::Exception("TWebAPISItem::set: wrong item for type=%d", type);
   }
@@ -1254,11 +1298,11 @@ void CreateEmulDocs(const TWebPaxForSaveSegs &segs,
           CreateEmulRems(paxNode, rems, fqts);
       };
     }
-    catch(CheckIn::UserException)
+    catch(const CheckIn::UserException&)
     {
       throw;
     }
-    catch(UserException &e)
+    catch(const UserException &e)
     {
       throw CheckIn::UserException(e.getLexemaData(), currSeg.point_id, currPaxForChng.paxId());
     }
@@ -1387,20 +1431,20 @@ void CreateEmulDocs(const TWebPaxForSaveSegs &segs,
 
         NewTextChild(paxNode, "dont_check_payment", (int)currPaxForCkin.dont_check_payment, (int)false);
       }
-      catch(CheckIn::UserException)
+      catch(const CheckIn::UserException&)
       {
         throw;
       }
-      catch(UserException &e)
+      catch(const UserException &e)
       {
         throw CheckIn::UserException(e.getLexemaData(), currSeg.point_id, currPaxForCkin.paxId());
       };
     }
-    catch(CheckIn::UserException)
+    catch(const CheckIn::UserException&)
     {
       throw;
     }
-    catch(UserException &e)
+    catch(const UserException &e)
     {
       throw CheckIn::UserException(e.getLexemaData(), currSeg.point_id);
     };

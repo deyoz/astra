@@ -2,9 +2,7 @@
 #include "qrys.h"
 #include "exceptions.h"
 #include "astra_locale.h"
-#include "events.h"
 #include "transfer.h"
-#include "events.h"
 #include "astra_misc.h"
 #include "term_version.h"
 #include "baggage_wt.h"
@@ -607,32 +605,32 @@ typedef std::map< TBagTypeListKey, TPaidBagCalcItem > TPaidBagCalcMap;
 
 //декларация расчета багажа - на выходе TPaidBagCalcItem - самая нижняя процедура
 void CalcPaidBagBase(const TAirlines &airlines,
-                     const std::map<int, TEventsBagItem> &bag,
+                     const TBagList &bag,
                      const std::list<TBagNormInfo> &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
                      TPaidBagCalcMap &paid);
 
 enum TPrepareSimpleBagType1 { psbtOnlyTrfer, psbtOnlyNotTrfer, psbtTrferAndNotTrfer };
 enum TPrepareSimpleBagType2 { psbtOnlyRefused, psbtOnlyNotRefused, psbtRefusedAndNotRefused };
 
-void PrepareSimpleBag(const std::map<int/*id*/, TEventsBagItem> &bag,
+void PrepareSimpleBag(const TBagList &bag,
                       const TPrepareSimpleBagType1 trfer_type,
                       const TPrepareSimpleBagType2 refused_type,
                       TSimpleBagMap &bag_simple)
 {
   bag_simple.clear();
-  for(std::map<int/*id*/, TEventsBagItem>::const_iterator b=bag.begin(); b!=bag.end(); ++b)
+  for(const TBagInfo& b : bag)
   {
-    if ((refused_type==psbtOnlyRefused && !b->second.refused) ||
-        (refused_type==psbtOnlyNotRefused && b->second.refused)) continue;
-    if ((trfer_type==psbtOnlyTrfer && !b->second.is_trfer) ||
-        (trfer_type==psbtOnlyNotTrfer && b->second.is_trfer)) continue;
-    if (!b->second.wt) continue;
-    const TBagTypeListKey& key=b->second.wt.get().key();
+    if ((refused_type==psbtOnlyRefused && !b.refused) ||
+        (refused_type==psbtOnlyNotRefused && b.refused)) continue;
+    if ((trfer_type==psbtOnlyTrfer && !b.is_trfer) ||
+        (trfer_type==psbtOnlyNotTrfer && b.is_trfer)) continue;
+    if (!b.wt) continue;
+    const TBagTypeListKey& key=b.wt.get().key();
     TSimpleBagMap::iterator i=bag_simple.find(key);
     if (i==bag_simple.end())
       i=bag_simple.insert(make_pair(key, std::list<TSimpleBagItem>())).first;
     if (i==bag_simple.end()) throw Exception("%s: i==bag_simple.end()", __FUNCTION__);
-    i->second.push_back(TSimpleBagItem(key, b->second.amount, b->second.weight));
+    i->second.push_back(TSimpleBagItem(key, b.amount, b.weight));
   };
 };
 
@@ -797,9 +795,10 @@ class TWidePaxInfo : public TPaxInfo
     std::string traceStr() const
     {
       std::ostringstream s;
-      s << TPaxInfo::traceStr() << ", "
-           "refused=" << (refused?"true":"false") << ", "
-           "only_category=" << (only_category()?"true":"false");
+      s << std::boolalpha <<
+           TPaxInfo::traceStr() << ", "
+           "refused=" << refused << ", "
+           "only_category=" << only_category();
       s << endl
         << "prior_norms: " << NormsTraceStr(prior_norms) << endl
         << "curr_norms: " << NormsTraceStr(curr_norms) << endl
@@ -836,7 +835,7 @@ const std::string TAirlines::single() const
 }
 
 void ConvertNormsList(const TAirlines &airlines,
-                      const std::map<int/*id*/, TEventsBagItem> &bag,
+                      const TBagList &bag,
                       const boost::optional< std::list<TPaxNormItem> > &norms,
                       TPaxNormMap &result)
 {
@@ -883,8 +882,8 @@ void SyncHandmadeProp(const TPaxNormMap &src,
 //перерасчет багажа - на выходе TPaidBagWideItem
 //используется в RecalcPaidBagToDB
 void RecalcPaidBagWide(const TAirlines &airlines,
-                       const std::map<int/*id*/, TEventsBagItem> &prior_bag,
-                       const std::map<int/*id*/, TEventsBagItem> &curr_bag,
+                       const TBagList &prior_bag,
+                       const TBagList &curr_bag,
                        const std::list<TBagNormInfo> &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
                        const TPaidBagList &prior_paid,
                        const TPaidBagList &curr_paid,
@@ -975,7 +974,7 @@ void RecalcPaidBagWide(const TAirlines &airlines,
 //формируем массив TWidePaxInfo для дальнейшего вызова CheckOrGetWidePaxNorms
 //используется в test_norms и RecalcPaidBagToDB
 void GetWidePaxInfo(const TAirlines &airlines,
-                    const map<int/*id*/, TEventsBagItem> &curr_bag,
+                    const TBagList &curr_bag,
                     const std::map<TPaxToLogInfoKey, TPaxToLogInfo> &prior_paxs,
                     const CheckIn::TTransferList &trfer,
                     const CheckIn::TPaxGrpItem &grp,
@@ -1008,8 +1007,7 @@ void GetWidePaxInfo(const TAirlines &airlines,
         pax.refused=!pCurr->pax.refuse.empty();
         ConvertNormsList(airlines, curr_bag, pCurr->norms, pax.curr_norms);
 
-        int pax_id=(pCurr->pax.id==NoExists?pCurr->generated_pax_id:pCurr->pax.id);
-        if (pax_id==NoExists) throw Exception("%s: pax_id==NoExists!", __FUNCTION__);
+        int pax_id=pCurr->getExistingPaxIdOrSwear();
         if (!paxs.insert(make_pair(pax_id, pax)).second)
           throw Exception("%s: pax_id=%s already exists in paxs!", __FUNCTION__, pax_id);
         if (use_traces) ProgTrace(TRACE5, "%s: pax:%s", __FUNCTION__, pax.traceStr().c_str());
@@ -1099,7 +1097,7 @@ void GetWidePaxInfo(const TAirlines &airlines,
 //используется в test_norms и RecalcpaidBagToDB
 void CheckOrGetWidePaxNorms(const TAirlines &airlines,
                             const list<TBagNormWideInfo> &trip_bag_norms,
-                            const map<int/*id*/, TEventsBagItem> &curr_bag,
+                            const TBagList &curr_bag,
                             const TNormFltInfo &flt,
                             bool pr_unaccomp,
                             bool use_traces,
@@ -1172,11 +1170,142 @@ void CheckOrGetWidePaxNorms(const TAirlines &airlines,
   };
 }
 
+static void normsToDB(bool pr_unaccomp,
+                      const map<int/*pax_id*/, TWidePaxInfo>& paxs)
+{
+  for(map<int/*pax_id*/, TWidePaxInfo>::const_iterator p=paxs.begin(); p!=paxs.end(); ++p)
+  {
+    const TWidePaxInfo &pax=p->second;
+    if (pax.prior_norms==pax.result_norms) continue;//не было изменения норм у пассжира
+
+    std::list<TPaxNormItem> norms;
+    ConvertNormsList(pax.result_norms, norms);
+    if (!pr_unaccomp)
+      PaxNormsToDB(p->first, norms);
+    else
+      GrpNormsToDB(p->first, norms);
+  }
+}
+
+static void RecalcPaidBag(const TAirlines &airlines,
+                          const TBagList &prior_bag,
+                          const TBagList &curr_bag,
+                          const std::map<TPaxToLogInfoKey, TPaxToLogInfo> &prior_paxs,
+                          const TNormFltInfo &flt,
+                          const CheckIn::TTransferList &trfer,
+                          const CheckIn::TPaxGrpItem &grp,
+                          const CheckIn::TPaxList &curr_paxs,
+                          const TPaidBagList &prior_paid,
+                          bool pr_unaccomp,
+                          bool use_traces,
+                          map<int/*pax_id*/, TWidePaxInfo>& wide_paxs,
+                          TPaidBagList &result_paid)
+{
+  wide_paxs.clear();
+  result_paid.clear();
+
+  if (use_traces) ProgTrace(TRACE5, "%s: flt:%s", __FUNCTION__, flt.traceStr().c_str());
+
+  GetWidePaxInfo(airlines, curr_bag, prior_paxs, trfer, grp, curr_paxs, pr_unaccomp, use_traces, wide_paxs);
+
+  //расчет/проверка багажных норм
+  list<TBagNormWideInfo> trip_bag_norms;
+  LoadTripBagNorms(flt, trip_bag_norms);
+
+  std::list<TBagNormInfo> all_norms;
+  CheckOrGetWidePaxNorms(airlines, trip_bag_norms, curr_bag, flt, pr_unaccomp, use_traces, wide_paxs, all_norms);
+
+  //собственно расчет платного багажа
+  TPaidBagWideMap paid_wide;
+  RecalcPaidBagWide(airlines, prior_bag, curr_bag, all_norms, prior_paid, grp.paid?grp.paid.get():TPaidBagList(), paid_wide);
+
+  for(TPaidBagWideMap::const_iterator i=paid_wide.begin(); i!=paid_wide.end(); ++i)
+  {
+    const TPaidBagWideItem &item=i->second;
+    if (item.weight==NoExists)
+    {
+      if (!item.isRegularBagType())
+        throw UserException("MSG.PAID_BAG.UNKNOWN_PAID_WEIGHT_BAG_TYPE",
+                            LParams() << LParam("bagtype", item.key().str()));
+      else
+        throw UserException("MSG.PAID_BAG.UNKNOWN_PAID_WEIGHT_ORDINARY");
+    }
+    result_paid.push_back(item);
+  }
+}
+
+static void RecalcPaidBag(const TTripInfo& flt,
+                          const CheckIn::TSimplePaxGrpItem& grp,
+                          const boost::optional< std::list< std::pair<int, CheckIn::TSimpleBagItem> > >& additionalBaggage,
+                          const TPaidBagList& prior_paid,
+                          map<int/*pax_id*/, TWidePaxInfo>& wide_paxs,
+                          TPaidBagList &result_paid)
+{
+  wide_paxs.clear();
+  result_paid.clear();
+
+  TGrpMktFlight grpMktFlight;
+  if (!grpMktFlight.getByGrpId(grp.id))
+    grpMktFlight=flt.grpMktFlight();
+
+  TAirlines airlines(grp.id, flt, grpMktFlight, __func__);
+
+  TGrpToLogInfo grpInfoBefore;
+  GetGrpToLogInfo(grp.id, grpInfoBefore);
+  TBagList prior_bag(grpInfoBefore.bag);
+  TBagList curr_bag=prior_bag;
+  if (additionalBaggage)
+  {
+    for(const auto& b : additionalBaggage.get())
+      curr_bag.emplace_back(b.second, false, false);
+  }
+
+  CheckIn::TTransferList trfer;
+  trfer.load(grp.id);
+
+  CheckIn::TPaxGrpItem grpItem;
+  static_cast<CheckIn::TSimplePaxGrpItem&>(grpItem)=grp;
+
+  RecalcPaidBag(airlines,
+                prior_bag,
+                curr_bag,
+                grpInfoBefore.pax,
+                TNormFltInfo(flt, grpMktFlight),
+                trfer,
+                grpItem,
+                CheckIn::TPaxList(),
+                prior_paid,
+                grp.is_unaccomp(),
+                true,
+                wide_paxs,
+                result_paid);
+}
+
+void RecalcPaidBag(const TTripInfo& flt,
+                   const CheckIn::TSimplePaxGrpItem& grp,
+                   const std::list< std::pair<int, CheckIn::TSimpleBagItem> >& additionalBaggage,
+                   const TPaidBagList& prior_paid,
+                   TPaidBagList &result_paid)
+{
+  map<int/*pax_id*/, TWidePaxInfo> wide_paxs;
+  RecalcPaidBag(flt, grp, additionalBaggage, prior_paid, wide_paxs, result_paid);
+}
+
+void RecalcPaidBag(const TTripInfo& flt,
+                   const CheckIn::TSimplePaxGrpItem& grp,
+                   map<int/*pax_id*/, TWidePaxInfo>& wide_paxs)
+{
+  TPaidBagList prior_paid, result_paid;
+  PaidBagFromDB(NoExists, grp.id, prior_paid);
+
+  RecalcPaidBag(flt, grp, boost::none, prior_paid, wide_paxs, result_paid);
+}
+
 //перерасчет багажа с валидацией норм и записью в таблицы grp_norms, pax_norms и paid_bag
 //применяется при записи изменений по группе пассажиров (SavePax)
 void RecalcPaidBagToDB(const TAirlines &airlines,
-                       const map<int/*id*/, TEventsBagItem> &prior_bag, //TEventsBagItem а не CheckIn::TBagItem потому что есть refused
-                       const map<int/*id*/, TEventsBagItem> &curr_bag,
+                       const TBagList &prior_bag,
+                       const TBagList &curr_bag,
                        const std::map<TPaxToLogInfoKey, TPaxToLogInfo> &prior_paxs,
                        const TNormFltInfo &flt,
                        const CheckIn::TTransferList &trfer,
@@ -1187,53 +1316,13 @@ void RecalcPaidBagToDB(const TAirlines &airlines,
                        bool use_traces,
                        TPaidBagList &result_paid)
 {
-   result_paid.clear();
+  map<int/*pax_id*/, TWidePaxInfo> wide_paxs;
 
-   if (use_traces) ProgTrace(TRACE5, "%s: flt:%s", __FUNCTION__, flt.traceStr().c_str());
+  RecalcPaidBag(airlines, prior_bag, curr_bag, prior_paxs, flt, trfer, grp, curr_paxs, prior_paid, pr_unaccomp, use_traces, wide_paxs, result_paid);
 
-   map<int/*pax_id*/, TWidePaxInfo> paxs;
-   GetWidePaxInfo(airlines, curr_bag, prior_paxs, trfer, grp, curr_paxs, pr_unaccomp, use_traces, paxs);
-
-   //расчет/проверка багажных норм
-   list<TBagNormWideInfo> trip_bag_norms;
-   LoadTripBagNorms(flt, trip_bag_norms);
-
-   std::list<TBagNormInfo> all_norms;
-   CheckOrGetWidePaxNorms(airlines, trip_bag_norms, curr_bag, flt, pr_unaccomp, use_traces, paxs, all_norms);
-
-   //собственно расчет платного багажа
-   TPaidBagWideMap paid_wide;
-   RecalcPaidBagWide(airlines, prior_bag, curr_bag, all_norms, prior_paid, grp.paid?grp.paid.get():TPaidBagList(), paid_wide);
-
-   for(TPaidBagWideMap::const_iterator i=paid_wide.begin(); i!=paid_wide.end(); ++i)
-   {
-     const TPaidBagWideItem &item=i->second;
-     if (item.weight==NoExists)
-     {
-       if (!item.isRegularBagType())
-         throw UserException("MSG.PAID_BAG.UNKNOWN_PAID_WEIGHT_BAG_TYPE",
-                             LParams() << LParam("bagtype", item.key().str()));
-       else
-         throw UserException("MSG.PAID_BAG.UNKNOWN_PAID_WEIGHT_ORDINARY");
-     }
-     result_paid.push_back(item);
-   };
-
-   PaidBagToDB(grp.id, pr_unaccomp, result_paid);
-
-   for(map<int/*pax_id*/, TWidePaxInfo>::const_iterator p=paxs.begin(); p!=paxs.end(); ++p)
-   {
-     const TWidePaxInfo &pax=p->second;
-     if (pax.prior_norms==pax.result_norms) continue;//не было изменения норм у пассжира
-
-     std::list<TPaxNormItem> norms;
-     ConvertNormsList(pax.result_norms, norms);
-     if (!pr_unaccomp)
-       PaxNormsToDB(p->first, norms);
-     else
-       GrpNormsToDB(p->first, norms);
-   }
-};
+  PaidBagToDB(grp.id, pr_unaccomp, result_paid);
+  normsToDB(pr_unaccomp, wide_paxs);
+}
 
 //CREATE TABLE drop_test_norm_processed
 //(
@@ -1376,13 +1465,13 @@ int test_norms(int argc,char **argv)
       if (!test_paid)
       {
         TSimpleBagMap not_trfer_bag_simple;
-        PrepareSimpleBag(grpLogInfo.bag, psbtOnlyNotTrfer, psbtRefusedAndNotRefused, not_trfer_bag_simple);
+        PrepareSimpleBag(TBagList(grpLogInfo.bag), psbtOnlyNotTrfer, psbtRefusedAndNotRefused, not_trfer_bag_simple);
         //всегда добавляем обычный багаж
         not_trfer_bag_simple.insert(make_pair(RegularBagType(airlines.single()), std::list<TSimpleBagItem>()));
 
 
         map<int/*pax_id*/, TWidePaxInfo> paxs;
-        GetWidePaxInfo(airlines, grpLogInfo.bag, grpLogInfo.pax, trfer, grp, CheckIn::TPaxList(), grp.is_unaccomp(), false, paxs);
+        GetWidePaxInfo(airlines, TBagList(grpLogInfo.bag), grpLogInfo.pax, trfer, grp, CheckIn::TPaxList(), grp.is_unaccomp(), false, paxs);
 
         map<int/*pax_id*/, TWidePaxInfo> tmp_paxs=paxs;
         for(map<int/*pax_id*/, TWidePaxInfo>::iterator p=tmp_paxs.begin(); p!=tmp_paxs.end(); ++p)
@@ -1398,7 +1487,7 @@ int test_norms(int argc,char **argv)
           //1 проход проверяет что все нормы которые привязаны на реальном сервере разрешены новым алгоритмом
           //2 проход проверяет что все нормы которые привязаны на реальном сервере автоматически рассчитываются новым алгоритмом
 
-          CheckOrGetWidePaxNorms(airlines, trip_bag_norms, grpLogInfo.bag, flt, grp.is_unaccomp(), false, (pass==0?paxs:tmp_paxs), all_norms);
+          CheckOrGetWidePaxNorms(airlines, trip_bag_norms, TBagList(grpLogInfo.bag), flt, grp.is_unaccomp(), false, (pass==0?paxs:tmp_paxs), all_norms);
 
           if (pass==1)
           {
@@ -1462,7 +1551,7 @@ int test_norms(int argc,char **argv)
       else
       {
         TSimpleBagMap bag_simple;
-        PrepareSimpleBag(grpLogInfo.bag, psbtOnlyNotTrfer, psbtOnlyNotRefused, bag_simple);
+        PrepareSimpleBag(TBagList(grpLogInfo.bag), psbtOnlyNotTrfer, psbtOnlyNotRefused, bag_simple);
         if (!bag_simple.empty())
         {
           TPaidBagList prior_paid;
@@ -1493,7 +1582,7 @@ int test_norms(int argc,char **argv)
           {
             complete_norms_count++;
             TPaidBagWideMap paid_wide;
-            RecalcPaidBagWide(airlines, grpLogInfo.bag, grpLogInfo.bag, all_norms, prior_paid, TPaidBagList(), paid_wide, true);
+            RecalcPaidBagWide(airlines, TBagList(grpLogInfo.bag), TBagList(grpLogInfo.bag), all_norms, prior_paid, TPaidBagList(), paid_wide, true);
 
             TPaidBagMap sorted_prior_paid;
             TPaidBagMap sorted_calc_paid;
@@ -1575,7 +1664,7 @@ int test_norms(int argc,char **argv)
 //расчет багажа - на выходе TPaidBagWideItem
 //используется в PaidBagViewToXML
 void CalcPaidBagWide(const TAirlines &airlines,
-                     const std::map<int/*id*/, TEventsBagItem> &bag,
+                     const TBagList &bag,
                      const std::list<TBagNormInfo> &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
                      const TPaidBagList &paid,
                      TPaidBagWideMap &paid_wide)
@@ -1608,7 +1697,7 @@ void CalcPaidBagWide(const TAirlines &airlines,
   TracePaidBagWide(paid_wide, __FUNCTION__);
 }
 
-void CalcTrferBagWide(const std::map<int/*id*/, TEventsBagItem> &bag,
+void CalcTrferBagWide(const TBagList &bag,
                       TPaidBagWideMap &paid_wide)
 {
   paid_wide.clear();
@@ -1633,7 +1722,7 @@ void CalcTrferBagWide(const std::map<int/*id*/, TEventsBagItem> &bag,
 
 //расчет багажа - на выходе TPaidBagCalcItem - самая нижняя процедура
 void CalcPaidBagBase(const TAirlines &airlines,
-                     const std::map<int/*id*/, TEventsBagItem> &bag,
+                     const TBagList &bag,
                      const std::list<TBagNormInfo> &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
                      TPaidBagCalcMap &paid)
 {
@@ -2075,7 +2164,7 @@ void CalcPaidBagBase(const TAirlines &airlines,
 }
 
 void CalcPaidBagView(const TAirlines &airlines,
-                     const std::map<int/*id*/, TEventsBagItem> &bag,
+                     const TBagList &bag,
                      const std::list<TBagNormInfo> &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
                      const TPaidBagList &paid,
                      const CheckIn::TServicePaymentListWithAuto &payment,
@@ -2111,11 +2200,11 @@ void CalcPaidBagView(const TAirlines &airlines,
       if (item.list_id==ASTRA::NoExists)
       {
         //установим list_id и list_item на основе bag
-        for(std::map<int/*id*/, TEventsBagItem>::const_iterator b=bag.begin(); b!=bag.end(); ++b)
-          if (b->second.is_trfer==is_trfer && b->second.wt && b->second.wt.get().key()==item.key())
+        for(const TBagInfo& b : bag)
+          if (b.is_trfer==is_trfer && b.wt && b.wt.get().key()==item.key())
           {
-            item.list_id=b->second.wt.get().list_id;
-            item.list_item=b->second.wt.get().list_item;
+            item.list_id=b.wt.get().list_id;
+            item.list_item=b.wt.get().list_item;
             break;
           }
       };
@@ -2386,6 +2475,30 @@ boost::optional<TBagTotals> getBagAllowance(const CheckIn::TSimplePaxItem& pax)
     return TBagTotals( norm.amount, norm.weight );
 
   return TBagTotals(ASTRA::NoExists, 0);
+}
+
+boost::optional<TBagTotals> calcBagAllowance(const CheckIn::TSimplePaxItem& pax,
+                                             const CheckIn::TSimplePaxGrpItem& grp,
+                                             const TTripInfo& flt)
+{
+  map<int/*pax_id*/, TWidePaxInfo> paxs;
+  TPaidBagList paid;
+  RecalcPaidBag(flt, grp, paxs);
+
+  const auto p=paxs.find(pax.id);
+  if (p==paxs.end()) return boost::none;
+
+  const auto n=p->second.result_norms.find(REGULAR_BAG_TYPE);
+  if (n==p->second.result_norms.end()) return boost::none;
+
+  TNormItem norm;
+  norm.getByNormId(n->second.norm_id);
+
+  if (norm.norm_type==bntFreeExcess ||
+      norm.norm_type==bntFreePaid)
+    return TBagTotals( norm.amount, norm.weight );
+
+  return boost::none;
 }
 
 } //namespace WeightConcept
