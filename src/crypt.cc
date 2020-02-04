@@ -144,13 +144,13 @@ size_t form_crypt_error(char* res, size_t res_len, const char* head, size_t hlen
 #ifdef USE_MESPRO
 void GetError( const string &func_name, int err )
 {
-	if ( err == 0 ) return;
-	ProgTrace( TRACE5, "GetError: func_name=%s, err=%d", func_name.c_str(), err );
-	AstraLocale::LexemaData lexema;
-	switch( err ) {
-		case 2: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_2"; break;
-		case 3: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_3"; break;
-		case 4: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_4"; break;
+        if ( err == 0 ) return;
+        ProgTrace( TRACE5, "GetError: func_name=%s, err=%d", func_name.c_str(), err );
+        AstraLocale::LexemaData lexema;
+        switch( err ) {
+                case 2: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_2"; break;
+                case 3: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_3"; break;
+                case 4: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_4"; break;
     case 5: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_5";	break;
                 case 6: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_6"; break;
                 case 7: lexema.lexema_id = "MSG.MESSAGEPRO.ERROR_7"; break;
@@ -258,9 +258,9 @@ void GetError( const string &func_name, int err )
 
 static int init_rand_callback1(int c, int step, int from, char *userdata)
 {
-	char cc[64];
-	sprintf(cc,"%c",c);
-	return *cc;
+        char cc[64];
+        sprintf(cc,"%c",c);
+        return *cc;
 }
 #endif //USE_MESPRO
 
@@ -291,8 +291,8 @@ bool GetCryptGrp( TQuery &Qry, const std::string &desk, int &grp_id, bool &pr_gr
 //2. pr_grp - определяет какой сертификат изпользовать (для пульта или групповой)
 bool GetClientCertificate( TQuery &Qry, int grp_id, bool pr_grp, const std::string &desk, std::string &certificate, int &pkcs_id )
 {
-	pkcs_id = -1;
-	certificate.clear();
+        pkcs_id = -1;
+        certificate.clear();
     Qry.Clear();
   Qry.SQLText =
     "SELECT pkcs_id, desk, certificate, pr_denial, first_date, last_date, SYSDATE now FROM crypt_term_cert "
@@ -371,7 +371,7 @@ void getMesProParams(const char *head, int hlen, int *error, MPCryptParams &para
   TQuery Qry(&OraSession);
   int grp_id;
   bool pr_grp;
-
+  tst();
   if ( !GetCryptGrp( Qry, desk, grp_id, pr_grp ) ) { //пульт не может работать в режиме шифрования, а пришло зашифрованное сообщение
     *error=WRONG_TERM_CRYPT_MODE;
     return;
@@ -515,27 +515,27 @@ void IntGetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr res
 // это первый запрос с клиента или запрос после ошибки работы шифрования
 void CryptInterface::GetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-	IntGetCertificates(ctxt, reqNode, resNode);
+        IntGetCertificates(ctxt, reqNode, resNode);
 }
 
 struct TCertRequest {
-	string FileKey;
-	string Country;
-	string Algo;
-	int KeyLength;
-	string StateOrProvince;
-	string Localite;
-	string Organization;
-	string OrganizationalUnit;
-	string Title;
-	string CommonName;
-	string EmailAddress;
+        string FileKey;
+        string Country;
+        string Algo;
+        int KeyLength;
+        string StateOrProvince;
+        string Localite;
+        string Organization;
+        string OrganizationalUnit;
+        string Title;
+        string CommonName;
+        string EmailAddress;
 };
 
 void GetCertRequestInfo( const string &desk, bool pr_grp, TCertRequest &req )
 {
-	ProgTrace( TRACE5, "GetCertRequestInfo, desk=%s, pr_grp=%d", desk.c_str(), pr_grp );
-	TQuery Qry(&OraSession);
+        ProgTrace( TRACE5, "GetCertRequestInfo, desk=%s, pr_grp=%d", desk.c_str(), pr_grp );
+        TQuery Qry(&OraSession);
   Qry.SQLText = "SELECT system.UTCSYSDATE udate FROM dual";
   Qry.Execute();
   TDateTime udate = Qry.FieldAsDateTime( "udate" );
@@ -561,7 +561,7 @@ void GetCertRequestInfo( const string &desk, bool pr_grp, TCertRequest &req )
   Qry.CreateVariable( "desk", otString, desk );
   Qry.Execute();
         if ( Qry.Eof )
-                throw AstraLocale::UserException( "MSG.MESSAGEPRO.NO_DATA_FOR_CERT_QRY" );
+          throw AstraLocale::UserException( "MSG.MESSAGEPRO.NO_DATA_FOR_CERT_QRY" );
         req.FileKey = "astra"+DateTimeToStr( udate, "ddmmyyhhnn" );
         req.Country =	Qry.FieldAsString( "country" );
         req.Algo = Qry.FieldAsString( "key_algo" );
@@ -687,19 +687,19 @@ void IntPutRequestCertificate( const string &request, const string &desk, bool p
 
 void CryptInterface::PutRequestCertificate(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-	bool pr_grp = GetNode( "pr_grp", reqNode );
-	string request = NodeAsString( "request_certificate", reqNode );
-	IntPutRequestCertificate( request, TReqInfo::Instance()->desk.code, pr_grp, NoExists );
+        bool pr_grp = GetNode( "pr_grp", reqNode );
+        string request = NodeAsString( "request_certificate", reqNode );
+        IntPutRequestCertificate( request, TReqInfo::Instance()->desk.code, pr_grp, NoExists );
 }
 
 struct TSearchData {
-	int id;
-	string desk;
-	string grp;
-	string data;
-	TDateTime first_date;
-	TDateTime last_date;
-	int pr_denial;
+        int id;
+        string desk;
+        string grp;
+        string data;
+        TDateTime first_date;
+        TDateTime last_date;
+        int pr_denial;
 };
 
 void CryptInterface::GetRequestsCertificate(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -781,25 +781,25 @@ struct TRequest {
 TDateTime ConvertCertificateDate( char *certificate_date )
 {
 
-	TDateTime d;
-	int res = StrToDateTime( upperc(certificate_date).c_str(), "dd.mm.yyyy hh:nn:ss", d, true );
-	if ( res == EOF )
-		throw Exception( "Invalid Certificate date=%s", certificate_date );
-	return d;
+        TDateTime d;
+        int res = StrToDateTime( upperc(certificate_date).c_str(), "dd.mm.yyyy hh:nn:ss", d, true );
+        if ( res == EOF )
+                throw Exception( "Invalid Certificate date=%s", certificate_date );
+        return d;
 }
 
 #ifdef USE_MESPRO
 
 struct TPSEFile {
-	string filename;
-	string data;
+        string filename;
+        string data;
 };
 
 struct TPKCS {
-	string key_filename;
-	string password;
-	string cert_filename;
-	vector<TPSEFile> pse_files;
+        string key_filename;
+        string password;
+        string cert_filename;
+        vector<TPSEFile> pse_files;
 };
 
 void DeletePSE( const string &PSEpath, const string &file_key, const string &file_req )
@@ -814,13 +814,13 @@ void DeletePSE( const string &PSEpath, const string &file_key, const string &fil
 
 void readPSEFile( const string &filename, const string &name, TPSEFile &pse_file )
 {
-	ifstream f;
-	f.open( filename.c_str() );
-	if ( !f.is_open() ) throw Exception( "Can't open file '%s'", filename.c_str() );
-	ostringstream tmpstream;
-	try {
-		tmpstream << f.rdbuf();
-	}
+        ifstream f;
+        f.open( filename.c_str() );
+        if ( !f.is_open() ) throw Exception( "Can't open file '%s'", filename.c_str() );
+        ostringstream tmpstream;
+        try {
+                tmpstream << f.rdbuf();
+        }
   catch( ... ) {
     try { f.close(); } catch( ... ) { };
     throw;
@@ -918,9 +918,9 @@ void WritePSEFiles( const TPKCS &pkcs, const string &desk, bool pr_grp )
 
 string getPassword( )
 {
-	string strtable( "A1B2C3D4E5F6G7H8I9J0KLMNOP1Q2R3S4T5U6V7W8X9Y0Z" );
-	string pswd;
-	srand( randt );
+        string strtable( "A1B2C3D4E5F6G7H8I9J0KLMNOP1Q2R3S4T5U6V7W8X9Y0Z" );
+        string pswd;
+        srand( randt );
   while ( pswd.size() < PASSWORD_LENGTH ) {
                 randt = rand();
                 unsigned int idx = 1 + (int)( strtable.size() * ( randt / ( RAND_MAX + 1.0 ) ) );
@@ -938,17 +938,17 @@ string getPassword( )
 
 void CreatePSE( const string &desk, bool pr_grp, int password_len, TPKCS &pkcs )
 {
-	pkcs.pse_files.clear();
-	tst();
-	ValidateCertificateRequest( desk, pr_grp );
-	ValidatePKCSData( desk, pr_grp ); //нельзя создавать несколько PKCS для одного пульта или группы пультов
-	TCertRequest req;
-	GetCertRequestInfo( desk, pr_grp, req );
-	tst();
-	pkcs.key_filename = req.FileKey + ".key";
-	pkcs.cert_filename = req.FileKey + ".pem";
-	pkcs.password = getPassword( );
-	string PSEpath = readStringFromTcl( "MESPRO_PSE_PATH", "./crypt" );
+        pkcs.pse_files.clear();
+        tst();
+        ValidateCertificateRequest( desk, pr_grp );
+        ValidatePKCSData( desk, pr_grp ); //нельзя создавать несколько PKCS для одного пульта или группы пультов
+        TCertRequest req;
+        GetCertRequestInfo( desk, pr_grp, req );
+        tst();
+        pkcs.key_filename = req.FileKey + ".key";
+        pkcs.cert_filename = req.FileKey + ".pem";
+        pkcs.password = getPassword( );
+        string PSEpath = readStringFromTcl( "MESPRO_PSE_PATH", "./crypt" );
   PSEpath += "/pses";
   mkdir( PSEpath.c_str(), 0777 );
   int i = 1;
@@ -957,13 +957,13 @@ void CreatePSE( const string &desk, bool pr_grp, int password_len, TPKCS &pkcs )
         throw Exception( "Can't create dir=" + string( PSEpath + "/" + IntToString(i) ) + ", error=" + IntToString( errno ) );
   PSEpath += "/" + IntToString(i);
   ProgTrace( TRACE5, "CreatePKCS: PSEpath=%s", PSEpath.c_str() );
-  SetRandInitCallbackFun((void *)init_rand_callback1);
+  SetRandInitCallbackFun(&init_rand_callback1);
   GetError( "PKCS7Init", PKCS7Init( 0, 0 ) );
   try {
     string file_key = PSEpath + "/pkey.key";
     string file_req = PSEpath + "/request.req";
           if ( req.Algo.empty() )
-            GetError( "SetNewKeysAlgorithm", SetNewKeysAlgorithm( (char*)"ECR3410" ) );
+            GetError( "SetNewKeysAlgorithm", SetNewKeysAlgorithm( (char*)MP_KEY_ALG_NAME_GOST_2012_256 ) );//(char*)"ECR3410" ) );
           else
                 GetError( "SetNewKeysAlgorithm", SetNewKeysAlgorithm( (char*)req.Algo.c_str() ) );
           GetError( "SetCertificateRequestFlags", SetCertificateRequestFlags( CERT_REQ_DONT_PRINT_TEXT ) );
@@ -1016,11 +1016,11 @@ void CreatePSE( const string &desk, bool pr_grp, int password_len, TPKCS &pkcs )
 
 void CryptInterface::CryptValidateServerKey(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-	//пришло подтверждение авторизации - удаление из БД всей информации по PSE
-	int pkcs_id = NodeAsInteger( "pkcs_id", reqNode );
-	ProgTrace( TRACE5, "CryptValidateServerKey, pkcs_id=%d", pkcs_id );
-	TQuery Qry(&OraSession);
-	//!!! изменение пароля на новый
+        //пришло подтверждение авторизации - удаление из БД всей информации по PSE
+        int pkcs_id = NodeAsInteger( "pkcs_id", reqNode );
+        ProgTrace( TRACE5, "CryptValidateServerKey, pkcs_id=%d", pkcs_id );
+        TQuery Qry(&OraSession);
+        //!!! изменение пароля на новый
   Qry.Clear();
   Qry.SQLText =
     "SELECT name, data FROM crypt_files "
@@ -1063,7 +1063,9 @@ void CryptInterface::CryptValidateServerKey(XMLRequestCtxt *ctxt, xmlNodePtr req
     if ( algo.empty() )
       throw Exception( "Ошибка программы" );
     pr_GOST = ( algo == string( "ECR3410" ) ||
-                algo == string( "R3410" ) );
+                algo == string( "R3410" ) ||
+                algo == MP_HASH_ALG_NAME_GOST_2012_256 ||
+                algo == MP_HASH_ALG_NAME_GOST_2012_512 );
     ProgTrace( TRACE5, "pr_GOST=%d, algo=%s", pr_GOST, algo.c_str() );
   }
   catch(...) {
@@ -1098,7 +1100,7 @@ void CryptInterface::CryptValidateServerKey(XMLRequestCtxt *ctxt, xmlNodePtr req
   PSEpath += "/" + IntToString(i);
   ProgTrace( TRACE5, "CryptValidateServerKey: PSEpath=%s", PSEpath.c_str() );
   pkcs.key_filename = PSEpath + "/" + pkcs.key_filename;
-  SetRandInitCallbackFun((void *)init_rand_callback1);
+  SetRandInitCallbackFun(&init_rand_callback1);
   GetError( "PKCS7Init", PKCS7Init( 0, 0 ) );
   try {
     try {
@@ -1156,8 +1158,8 @@ void CryptInterface::CryptValidateServerKey(XMLRequestCtxt *ctxt, xmlNodePtr req
 
 void CryptInterface::RequestPSE(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-	TPKCS pkcs;
-	bool pr_grp = GetNode( "pr_grp", reqNode );
+        TPKCS pkcs;
+        bool pr_grp = GetNode( "pr_grp", reqNode );
   ProgTrace( TRACE5, "IntRequestCertificateData: pr_grp=%d", pr_grp );
   CreatePSE( NodeAsString( "desk", reqNode ), pr_grp, PASSWORD_LENGTH, pkcs );
   AstraLocale::showMessage( "MSG.MESSAGE_PRO.KEY_AND_REQUEST_OK" );
@@ -1167,12 +1169,12 @@ void CryptInterface::RequestPSE(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 
 void CryptInterface::SetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-	tst();
+        tst();
 #ifdef USE_MESPRO
-	xmlNodePtr node = GetNode( "certificates", reqNode );
-	if ( !node )
-		return;
-	GetError( "PKCS7Init", PKCS7Init( 0, 0 ) );
+        xmlNodePtr node = GetNode( "certificates", reqNode );
+        if ( !node )
+                return;
+        GetError( "PKCS7Init", PKCS7Init( 0, 0 ) );
   TQuery Qry(&OraSession);
   Qry.SQLText =
     "SELECT id, request FROM crypt_term_req";
