@@ -25,6 +25,9 @@ enum class TransferFlag
     Both
 };
 
+template<typename T>
+using Opt = boost::optional<T>;
+
 std::ostream& operator << (std::ostream& os, const TransferFlag& trfer);
 void processPax(const int pax_id, const std::string& override_type = "", const bool is_forced = false);
 void processCrsPax(const int pax_id, const std::string& override_type = "");
@@ -64,7 +67,7 @@ private:
 class AppsSettings
 {
 public:
-    static boost::optional<AppsSettings> readSettings(const std::string& airline, const std::string& country);
+    static Opt<AppsSettings> readSettings(const std::string& airline, const std::string& country);
     int version() const;
     std::string getAirline() const { return airline;      }
     std::string getCountry() const { return country;      }
@@ -132,7 +135,7 @@ public:
 
     FlightData() : point_id(ASTRA::NoExists){}
     FlightData& init(const std::string& flt_type);
-    FlightData& init(const int point_id, const std::string& type);
+    FlightData& init(const CheckIn::TPaxSegmentPair &flt, const std::string& type);
     bool operator == (const FlightData& data) const
     {
     return type == data.type &&
@@ -144,8 +147,8 @@ public:
     }
     void validateData() const;
     std::string msg(int version) const;
-    FlightData& setType(const std::string& type)              {this->type     = type;     return *this;}
-    FlightData& setFltNum(const std::string &flt_num)         {this->flt_num  = flt_num;  return *this;}
+    FlightData& setType(const std::string& type)      {this->type     = type;     return *this;}
+    FlightData& setFltNum(const std::string &flt_num) {this->flt_num  = flt_num;  return *this;}
     FlightData& setFltNum(const std::string &airline, const TAdvTripRoute &route);
     FlightData& setDepPortAndDate(const TAdvTripRoute &route);
     FlightData& setArvPortAndDate(const TAdvTripRoute &route);
@@ -196,7 +199,7 @@ public:
     }
     void setTypeOfPax(const bool is_crew);
     void setDocInfo(const CheckIn::TPaxDocItem& doc);
-    void setTransfer(TransferFlag trfer);
+    void setTransfer(const TransferFlag trfer);
     void setOverrideType(const std::string& override_type);
     bool operator == (const PaxData& data) const;
     void validateData() const;
@@ -220,8 +223,8 @@ public:
     std::string traveller_number; // Known Traveller Number // 14 // omit
 
     //friend void initFromDb(PaxAddData &res, OciCpp::CursCtl &cur);
-    static boost::optional<PaxAddData> createByPaxId(int pax_id);
-    static boost::optional<PaxAddData> createByCrsPaxId(int pax_id);
+    static Opt<PaxAddData> createByPaxId(const int pax_id);
+    static Opt<PaxAddData> createByCrsPaxId(const int pax_id);
     void init(const int pax_id, const CheckIn::TPaxDocoItem &doco);
     bool operator == (const PaxAddData& d) const
     {
@@ -286,15 +289,15 @@ public:
     }
 
     PaxRequest(TransactionData trs, FlightData inflight, FlightData ckinflight,
-             PaxData pax, boost::optional<PaxAddData> paxadd)
+             PaxData pax, Opt<PaxAddData> paxadd)
              : trans(trs), int_flt(inflight), ckin_flt(ckinflight), pax(pax), pax_add(paxadd)
     {
     }
 
     friend void defFromDB(PaxRequest &res, OciCpp::CursCtl & cur);
-    static boost::optional<PaxRequest> createFromDB(RequestType type, const int pax_id, const std::string& override_type="");
-    static boost::optional<PaxRequest> fromDBByPaxId(const int pax_id);
-    static boost::optional<PaxRequest> fromDBByMsgId(const int msg_id);
+    static Opt<PaxRequest> createFromDB(RequestType type, const int pax_id, const std::string& override_type="");
+    static Opt<PaxRequest> fromDBByPaxId(const int pax_id);
+    static Opt<PaxRequest> fromDBByMsgId(const int msg_id);
 
     bool operator == (const PaxRequest &c) const;
     bool operator != (const PaxRequest &c) const
@@ -325,12 +328,12 @@ private:
     FlightData int_flt;
     FlightData ckin_flt;
     PaxData pax;
-    boost::optional<PaxAddData> pax_add;
+    Opt<PaxAddData> pax_add;
     MetaInfo meta_info;
     void savePaxRequest(int version) const;
-    static boost::optional<PaxRequest> createByPaxId(const int pax_id, const std::string& override_type);
-    static boost::optional<PaxRequest> createByCrsPaxId(const int pax_id, const std::string& override_type);
-    static boost::optional<PaxRequest> createByFields(const RequestType reqType, const int pax_id, const int point_id,
+    static Opt<PaxRequest> createByPaxId(const int pax_id, const std::string& override_type);
+    static Opt<PaxRequest> createByCrsPaxId(const int pax_id, const std::string& override_type);
+    static Opt<PaxRequest> createByFields(const RequestType reqType, const int pax_id, const int point_id,
                                                       const MetaInfo& info, bool pre_checkin, const std::string &status,
                                                       const bool need_del, ASTRA::TGender::Enum gender, const std::string& override_type,
                                                       const std::string &airline, int reg_no=ASTRA::NoExists);
@@ -343,7 +346,7 @@ private:
     FlightData int_flt;
     ManifestData mft_req;
 public:
-    bool init(const int point_id, const std::string& country_lat);
+    bool init(const CheckIn::TPaxSegmentPair& flt, const std::string& country_lat);
     std::string msg(int version) const;
     void sendReqAndSave(const AppsSettings &settings) const;
 };

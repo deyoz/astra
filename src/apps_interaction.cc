@@ -106,7 +106,22 @@ const std::string AppsPaxDataReadQuery = "select PAX_ID, APPS_PAX_ID, STATUS, PA
                                          " NUM_STREET, CITY, STATE, POSTAL_CODE, REDRESS_NUMBER, TRAVELLER_NUMBER "
                                          "from APPS_PAX_DATA ";
 
-
+// Получение сегментов полета и полного пути для пассажиров
+// для трансферов и транзитов как при PNL так и после регистрации
+std::vector<CheckIn::TPaxSegmentPair> paxRouteSegments(const int pax_id);
+std::vector<CheckIn::TPaxSegmentPair> crsRouteSegments(const int pax_id);
+TAdvTripInfo routeInfoFromTrfr(const CheckIn::TTransferItem& seg);
+std::vector<int> segPoints(const CheckIn::TPaxSegmentPair & flight);
+std::vector<std::string> segAirps(const CheckIn::TPaxSegmentPair & flight);
+std::vector<std::string> routeAirps(const int pax_id, PaxRequest::RequestType reqType);
+std::vector<int> routePoints(const int pax_id, PaxRequest::RequestType reqType);
+Opt<CheckIn::TPaxSegmentPair> paxSegment(const int pax_id);
+Opt<CheckIn::TPaxSegmentPair> crsSegment(const int pax_id);
+Opt<CheckIn::TPaxSegmentPair> ckinSegment(const int grp_id);
+Opt<CheckIn::TPaxSegmentPair> buildSegment(OciCpp::CursCtl & cur, const int pax_id);
+TAdvTripRoute getTransitRoute(const CheckIn::TPaxSegmentPair& flight);
+template <typename Container>
+void traceContainer(const Container& cont, const std::string& hint);
 
 // Работа с версионностью
 int fieldCount(std::string data_group, int version);
@@ -117,9 +132,7 @@ ASTRA::TGender::Enum femaleToGender(int is_female);
 // Получение APPS настроек
 bool checkAPPSSets(int pax_id);
 static bool isAPPSCountry(const std::string& country, const std::string& airline);
-static std::set<AppsSettings> getAppsSets(const std::string& airline, const std::string & airp_dep, const std::string & airp_arv);
-static std::set<AppsSettings> getAppsSets(int point_id, const std::string & airp_arv);
-std::set<AppsSettings> getAppsSets(OciCpp::CursCtl & cur, int pax_id);
+std::set<AppsSettings> appsSetsForSegment(const Opt<CheckIn::TPaxSegmentPair> &flt);
 std::set<AppsSettings> getAppsSetsByPaxId(int pax_id);
 std::set<AppsSettings> getAppsSetsByCrsPaxId(int pax_id);
 std::set<AppsSettings> filterByPreCheckin(const std::set<AppsSettings> & sets);
@@ -131,8 +144,8 @@ std::map<int, CheckIn::TTransferItem> getCrsTransferMap(const int pax_id);
 TransferFlag getTransferFlagFromTransit(int point_id, const std::string& airp_arv);
 TransferFlag getPaxTransferFlag(int point_id, int pax_grp_id, const std::string& airp_dep, const std::string& airp_arv, const string &airl);
 TransferFlag getCrsTransferFlag(const map<int, CheckIn::TTransferItem> & trfer, int point_id, const std::string& airp_arv, const string &airl);
-bool isPointTransferDestination(int pax_grp_id, const std::string& airp_arv, const std::string& airline_code);
-bool isPointTransferOrigin(int pax_grp_id, const std::string& airp_dep, const std::string& airline_code);
+bool isPointTransferDestination(const int pax_grp_id, const std::string& airp_arv);
+bool isPointTransferOrigin(const int pax_grp_id, const std::string& airp_dep);
 
 // Работа с полями APPS_PAX_DATA
 void saveAppsStatus(const std::string& status, const std::string& apps_pax_id, const int msg_id);
@@ -155,15 +168,16 @@ static std::string getH2HTpr(int msgId);
 
 // FlightData
 void checkRouteSuffix(const TAdvTripRoute &route);
-TAdvTripRoute getRoute(const int point_id);
-int getCkinPointId(int grp_id);
+TAdvTripRoute getTransitRoute(const CheckIn::TPaxSegmentPair& flight);
+
 // PaxData
 std::string outDocType(int version, const std::string &doc_type);
 ASTRA::TTrickyGender::Enum getTrickyGender(const std::string &pers_type, ASTRA::TGender::Enum gender);
 // PaxAddData
 std::string issuePlaceToCountry(const std::string& issue_place);
 // Общие
-boost::optional<TTripInfo> getPointInfo(const int point_dep);
+Opt<TTripInfo> getPointInfo(const int point_dep);
+static Opt<PaxRequest> paxRequestFromDb(OciCpp::CursCtl & cur);
 /***********************************************************/
 
 
@@ -174,6 +188,7 @@ void defIntFlight(FlightData& res, OciCpp::CursCtl & cur);
 void defTrans(TransactionData &res, OciCpp::CursCtl & cur);
 void defCkinFlight(FlightData &res, OciCpp::CursCtl & cur);
 
+
 // Отправка APPS сообщений
 void updateCrsNeedApps(int pax_id);
 void sendAppsMessages(const int pax_id, const std::set<AppsSettings> &apps_settings,
@@ -182,7 +197,15 @@ static void sendNewReq(const std::string& text, const std::string & router);
 static void saveAppsMsg(const std::string& text, const int msg_id, const int point_id, int version);
 bool isAlreadyCheckedIn(const int pax_id);
 static void sendAPPSInfo(const int point_id, const int point_id_tlg);
-static boost::optional<PaxRequest> paxRequestFromDb(OciCpp::CursCtl & cur);
+
+template <typename Container>
+void traceContainer(const Container& cont, const std::string& hint)
+{
+    LogTrace(TRACE5) << __FUNCTION__ << " " << hint << " size: " << cont.size();
+    for(const auto & item : cont) {
+        LogTrace(TRACE5) << item << " ";
+    }
+}
 
 void processCrsPax(const int pax_id, const std::string& override_type)
 {
@@ -213,12 +236,12 @@ void sendAppsMessages(const int pax_id, const std::set<AppsSettings> & apps_sett
     LogTrace(TRACE5) << __FUNCTION__ <<" pax_id: "<<pax_id;
     for(const auto & country_settings : apps_settings)
     {
-        boost::optional<PaxRequest> new_pax = PaxRequest::createFromDB(reqType, pax_id, override_type);
+        Opt<PaxRequest> new_pax = PaxRequest::createFromDB(reqType, pax_id, override_type);
         if(!new_pax) {
             continue;
         }
-        LogTrace(TRACE5) << __FUNCTION__ << " new_pax trans_code: " << new_pax->getTrans().code;
-        boost::optional<PaxRequest> actual_pax = PaxRequest::fromDBByPaxId(pax_id);
+        //LogTrace(TRACE5) << __FUNCTION__ << " new_pax trans_code: " << new_pax->getTrans().code;
+        Opt<PaxRequest> actual_pax = PaxRequest::fromDBByPaxId(pax_id);
 
         bool is_exists = actual_pax.is_initialized();
         bool is_the_same = (actual_pax == new_pax);
@@ -232,11 +255,11 @@ void sendAppsMessages(const int pax_id, const std::set<AppsSettings> & apps_sett
             new_pax->ifNeedDeleteApps(status);
             new_pax->ifOutOfSyncSendAlarm(status, is_the_same);
         }
-        LogTrace(TRACE5)<<__FUNCTION__
-                        <<" is_exists: "    << is_exists  <<" is_the_same: "<< is_the_same
-                        <<" is_the_cancel: "<< (is_exists && actual_pax->getTrans().code=="CICX")
-                        <<" status: "       << status    <<" needNew: "<< needNew
-                        <<" needCancel: "   << needCancel <<" needUpdate: "<<needUpdate;
+//        LogTrace(TRACE5)<<__FUNCTION__
+//                        <<" is_exists: "    << is_exists  <<" is_the_same: "<< is_the_same
+//                        <<" is_the_cancel: "<< (is_exists && actual_pax->getTrans().code=="CICX")
+//                        <<" status: "       << status    <<" needNew: "<< needNew
+//                        <<" needCancel: "   << needCancel <<" needUpdate: "<<needUpdate;
 
         if(needCancel || needUpdate) {
              messages.push_back(APPSMessage{country_settings, actual_pax.get()});
@@ -245,7 +268,7 @@ void sendAppsMessages(const int pax_id, const std::set<AppsSettings> & apps_sett
             messages.push_back(APPSMessage{country_settings, new_pax.get()});
         }
     }
-    LogTrace(TRACE5) << __FUNCTION__ << " Messages size: " << messages.size();
+    //LogTrace(TRACE5) << __FUNCTION__ << " Messages size: " << messages.size();
     for(const auto & msg : messages) {
         msg.send();
     }
@@ -253,26 +276,12 @@ void sendAppsMessages(const int pax_id, const std::set<AppsSettings> & apps_sett
 
 void checkRouteSuffix(const TAdvTripRoute &route)
 {
-    if (!route.front().suffix.empty()) {
-        const TTripSuffixesRow &suffixRow = (const TTripSuffixesRow&)base_tables.get("trip_suffixes").get_row("code", route.front().suffix);
+    if (!route.front().suffix_out.empty()) {
+        const TTripSuffixesRow &suffixRow = (const TTripSuffixesRow&)base_tables.get("trip_suffixes").get_row("code", route.front().suffix_out);
         if (suffixRow.code_lat.empty()) {
             throw Exception("suffixRow.code_lat empty (code=%s)",suffixRow.code.c_str());
         }
     }
-}
-
-TAdvTripRoute getRoute(const int point_id)
-{
-    TAdvTripRoute route, tmp;
-    route.GetRouteBefore(NoExists, point_id, trtWithCurrent, trtNotCancelled);
-    tmp.GetRouteAfter(NoExists, point_id, trtNotCurrent, trtNotCancelled);
-    route.insert(route.end(), tmp.begin(), tmp.end());
-
-    if(route.empty()) {
-        throw Exception("Empty route, point_id %d", point_id);
-    }
-    checkRouteSuffix(route);
-    return route;
 }
 
 std::ostream& operator << (std::ostream& os, const TransferFlag& trfer)
@@ -382,7 +391,7 @@ int getIdent()
 
 bool isAPPSCountry(const std::string& country, const std::string& airline)
 {
-    boost::optional<AppsSettings> sets = AppsSettings::readSettings(airline, country);
+    Opt<AppsSettings> sets = AppsSettings::readSettings(airline, country);
     return bool(sets);
 }
 
@@ -420,7 +429,153 @@ const char* getAPPSRotName()
 
 ASTRA::TGender::Enum femaleToGender(int is_female)
 {
-  return bool(is_female) ? ASTRA::TGender::Female : ASTRA::TGender::Male;
+    return bool(is_female) ? ASTRA::TGender::Female : ASTRA::TGender::Male;
+}
+
+
+Opt<CheckIn::TPaxSegmentPair> buildSegment(OciCpp::CursCtl & cur, const int pax_id)
+{
+    int point_id;
+    std::string airp_arv;
+    cur.def(point_id)
+       .def(airp_arv)
+       .bind(":pax_id",pax_id)
+       .exfet();
+    if(cur.err() == NO_DATA_FOUND) {
+        return boost::none;
+    }
+    return CheckIn::TPaxSegmentPair{point_id, airp_arv};
+}
+
+Opt<CheckIn::TPaxSegmentPair> paxSegment(const int pax_id)
+{
+    auto cur = make_curs(
+               "select POINT_DEP, AIRP_ARV "
+               "from PAX_GRP, PAX "
+               "where PAX_ID=:pax_id and PAX_GRP.GRP_ID=PAX.GRP_ID");
+    return buildSegment(cur, pax_id);
+}
+
+Opt<CheckIn::TPaxSegmentPair> crsSegment(const int pax_id)
+{
+    auto cur = make_curs(
+               "select POINT_ID_SPP, AIRP_ARV "
+               "from CRS_PAX, CRS_PNR, TLG_BINDING "
+               "where PAX_ID=:pax_id and CRS_PAX.PNR_ID = CRS_PNR.PNR_ID "
+               "and CRS_PNR.POINT_ID = TLG_BINDING.POINT_ID_TLG");
+    return buildSegment(cur, pax_id);
+}
+
+Opt<CheckIn::TPaxSegmentPair> ckinSegment(const int grp_id)
+{
+    TCkinRoute tckin_route;
+    bool found = tckin_route.GetRouteBefore(grp_id, crtNotCurrent, crtIgnoreDependent);
+    if(!found || tckin_route.empty()) {
+        return boost::none;
+    }
+    LogTrace(TRACE5) << __FUNCTION__ << " tckin_route.front.airp_arv: " << tckin_route.front().airp_arv;
+    return CheckIn::TPaxSegmentPair{tckin_route.front().point_dep, tckin_route.front().airp_arv};
+}
+
+TAdvTripRoute getTransitRoute(const CheckIn::TPaxSegmentPair& flight)
+{
+    TAdvTripRoute route;
+    LogTrace(TRACE5)<< __FUNCTION__ << " point: " << flight.point_dep << " airp_arv: "<< flight.airp_arv;
+    route.getRouteBetween(flight.point_dep, flight.airp_arv);
+    if(route.empty()) {
+        throw Exception("Empty route, point_id %d", flight.point_dep);
+    }
+    checkRouteSuffix(route);
+    return route;
+}
+
+std::vector<std::string> segAirps(const CheckIn::TPaxSegmentPair & flight)
+{
+    std::vector<std::string> res;
+    TAdvTripRoute route = getTransitRoute(flight);
+    for(const auto item : route) {
+        res.push_back(item.airp);
+    }
+    return res;
+}
+
+std::vector<int> segPoints(const CheckIn::TPaxSegmentPair & flight)
+{
+    std::vector<int> res;
+    TAdvTripRoute route = getTransitRoute(flight);
+    for(const auto item : route) {
+        res.push_back(item.point_id);
+    }
+    return res;
+}
+
+TAdvTripInfo routeInfoFromTrfr(const CheckIn::TTransferItem& seg)
+{
+    TSearchFltInfo searchFilter = CheckIn::createSearchFlt(seg);
+    std::list<TAdvTripInfo> flt;
+    SearchFlt(searchFilter, flt);
+    if(flt.empty() || flt.size() > 1) {
+        LogTrace(TRACE5) << __FUNCTION__ << " Search filter error: ";
+        throw Exception("Search error");
+    }
+    return flt.front();
+}
+
+std::vector<CheckIn::TPaxSegmentPair> paxRouteSegments(const int pax_id)
+{
+    TCkinRoute tCkinRoute;
+    bool get = tCkinRoute.GetRoute(pax_id);
+    if(!get) {
+        Opt<CheckIn::TPaxSegmentPair> singleFlight = paxSegment(pax_id);
+        if(!singleFlight){
+            LogTrace(TRACE5) << __FUNCTION__ << " not found any route for pax: " << pax_id;
+            return {};
+        } else {
+            return {*singleFlight};
+        }
+    }
+    std::vector<CheckIn::TPaxSegmentPair> res;
+    for(const TCkinRouteItem& seg : tCkinRoute) {
+        res.emplace_back(seg.point_dep, seg.airp_arv);
+    }
+    return res;
+}
+
+std::vector<CheckIn::TPaxSegmentPair> crsRouteSegments(const int pax_id)
+{
+    std::vector<CheckIn::TPaxSegmentPair> res;
+    auto crs_route_map = getCrsTransferMap(pax_id);
+    for(const auto& pair : crs_route_map) {
+        const CheckIn::TTransferItem& seg = pair.second;
+        auto info = routeInfoFromTrfr(seg);
+        res.emplace_back(info.point_id, seg.airp_arv);
+    }
+    return res;
+}
+
+std::vector<int> routePoints(const int pax_id, PaxRequest::RequestType reqType)
+{
+    std::vector<CheckIn::TPaxSegmentPair> route =
+            (reqType == PaxRequest::Pax) ? paxRouteSegments(pax_id) : crsRouteSegments(pax_id);
+    std::vector<int> res;
+    for(const auto& seg : route) {
+        std::vector<int> transitRoute = segPoints(seg);
+        algo::append(res, transitRoute);
+    }
+    return res;
+}
+
+std::vector<std::string> routeAirps(const int pax_id, PaxRequest::RequestType reqType)
+{
+
+    std::vector<CheckIn::TPaxSegmentPair> route =
+            (reqType == PaxRequest::Pax) ? paxRouteSegments(pax_id) : crsRouteSegments(pax_id);
+    std::vector<std::string> res;
+    for(const auto& seg : route) {
+        std::vector<std::string> transitRoute = segAirps(seg);
+        algo::append(res, transitRoute);
+    }
+    return res;
 }
 
 bool checkAPPSSets(const int point_dep, const int point_arv)
@@ -433,10 +588,10 @@ bool checkAPPSSets(const int point_dep, const int point_arv)
         LogTrace(TRACE0)<<__FUNCTION__<<" Not found route! point_id: " << point_dep;
         return false;
     }
-    const std::string airline = route.front().airline;
+    const std::string airline = route.front().airline_out;
     for (const auto &r : route)
     {
-        boost::optional<AppsSettings> sets = AppsSettings::readSettings(airline, getCountryByAirp(r.airp).code);
+        Opt<AppsSettings> sets = AppsSettings::readSettings(airline, getCountryByAirp(r.airp).code);
         if(sets){
             if((r.point_id != point_arv || sets->getInbound()) &&
                (r.point_id != point_dep || sets->getOutbound()))
@@ -469,11 +624,11 @@ bool checkAPPSSets(const int point_dep, const std::string& airp_arv, bool& trans
         LogTrace(TRACE0)<<__FUNCTION__<<" Not founded route! point_id: " << point_dep;
         return false;
     }
-    const std::string airline = route.front().airline;
+    const std::string airline = route.front().airline_out;
 
     for (const auto &r : route)
     {
-        boost::optional<AppsSettings> sets = AppsSettings::readSettings(airline, getCountryByAirp(r.airp).code);
+        Opt<AppsSettings> sets = AppsSettings::readSettings(airline, getCountryByAirp(r.airp).code);
         if(sets){
             if (r.airp != airp_arv && r.point_id != point_dep) {
                 transit = true;
@@ -527,15 +682,15 @@ std::string issuePlaceToCountry(const std::string& issue_place)
     }
     TElemFmt elem_fmt;
     std::string country_id = issuePlaceToPaxDocCountryId(issue_place, elem_fmt);
-    if (elem_fmt == efmtUnknown)
+    if (elem_fmt == efmtUnknown) {
         throw Exception("IssuePlaceToCountry failed: issue_place=\"%s\"", issue_place.c_str());
-
+    }
     return country_id;
 }
 
 void deleteAPPSData(const std::string & field,  const int value)
 {
-    LogTrace(TRACE5)<<__FUNCTION__<<" field: "<<field << " value: "<<value;
+    LogTrace(TRACE5) << __FUNCTION__ << " field: " << field << " value: " << value;
     auto cur = make_curs(
                "delete from APPS_PAX_DATA where "+field+ "= :val");
     cur.bind(":val", value).exec();
@@ -607,8 +762,8 @@ void AppsCollector::send()
     }
 }
 
-boost::optional<AppsSettings> AppsSettings::readSettings(const std::string& airline,
-                                                         const std::string& country)
+Opt<AppsSettings> AppsSettings::readSettings(const std::string& airline,
+                                             const std::string& country)
 {
     LogTrace(TRACE5)<<__FUNCTION__<< "Airline: "<<airline << " country: "<<country;
     AppsSettings settings = {};
@@ -640,7 +795,7 @@ boost::optional<AppsSettings> AppsSettings::readSettings(const std::string& airl
 
 TransactionData& TransactionData::init(const std::string& trans_code, const std::string& airline)
 {
-    LogTrace(TRACE5)<<__FUNCTION__<< " code="<<trans_code;
+    LogTrace(TRACE5) << __FUNCTION__ << " code=" << trans_code;
     code = trans_code;
     msg_id = getIdent();
     user_id = getUserId(airline);
@@ -650,10 +805,12 @@ TransactionData& TransactionData::init(const std::string& trans_code, const std:
 
 void TransactionData::validateData() const
 {
-    if (code != "CIRQ" && code != "CICX" && code != "CIMR")
+    if (code != "CIRQ" && code != "CICX" && code != "CIMR") {
         throw Exception("Incorrect transacion code");
-    if (user_id.empty() || user_id.size() > 6)
+    }
+    if (user_id.empty() || user_id.size() > 6) {
         throw Exception("Incorrect User ID");
+    }
 }
 
 std::string TransactionData::msg(int version) const
@@ -676,12 +833,22 @@ std::string TransactionData::msg(int version) const
     return msg.str();
 }
 
+FlightData& FlightData::init(const CheckIn::TPaxSegmentPair & flt, const std::string& flt_type)
+{
+    ProgTrace(TRACE5, "TFlightData::init: %d %s", flt.point_dep, flt.airp_arv.c_str());
+//    if (flt.point_id == ASTRA::NoExists) {
+//        return *this;
+//    }
+    this->point_id = flt.point_dep;
+    this->arv_port = flt.airp_arv;
+    return init(flt_type);
+}
 
 FlightData &FlightData::init(const std::string &flt_type)
 {
     setType(flt_type);
-    auto route = getRoute(point_id);
-    setFltNum(route.front().airline, route);
+    auto route = getTransitRoute(CheckIn::TPaxSegmentPair{point_id, arv_port});
+    setFltNum(route.front().airline_out, route);
     setDepPortAndDate(route);
     setArvPortAndDate(route);
     return *this;
@@ -691,8 +858,8 @@ FlightData& FlightData::setFltNum(const std::string &airline, const TAdvTripRout
 {
     std::ostringstream trip;
     trip << BaseTables::Company(airline)->lcode()
-         << setw(3) << setfill('0') << route.front().flt_num
-         << route.front().suffix;
+         << setw(3) << setfill('0') << route.front().flt_num_out
+         << route.front().suffix_out;
 
     flt_num = trip.str();
     return *this;
@@ -706,7 +873,7 @@ FlightData& FlightData::setDepPortAndDate(const TAdvTripRoute &route)
     dep_port = port->lcode();
 
     if (dep_port.empty()) {
-        throw Exception("airp_dep.code_lat empty (code=%s)",dep_port.c_str());
+        throw Exception("airp_dep.code_lat empty (code=%s)", dep_port.c_str());
     }
     if(type != "CHK" && route.front().scd_out != ASTRA::NoExists) {
         dep_date = DateTimeToBoost(UTCToLocal(route.front().scd_out, port->city()->tzRegion()));
@@ -731,15 +898,7 @@ FlightData& FlightData::setArvPortAndDate(const TAdvTripRoute &route)
     return *this;
 }
 
-FlightData& FlightData::init(const int point_id, const std::string& flt_type)
-{
-    ProgTrace(TRACE5, "TFlightData::init: %d", point_id);
-    if (point_id == ASTRA::NoExists) {
-        return *this;
-    }
-    this->point_id = point_id;
-    return init(flt_type);
-}
+
 
 void FlightData::validateData() const
 {
@@ -790,7 +949,8 @@ std::string FlightData::msg(int version) const
     return msg.str();
 }
 
-std::string outDocType(int version, const std::string &doc_type){
+std::string outDocType(int version, const std::string &doc_type)
+{
     std::string type;
     switch (getSpecVer(version))
     {
@@ -825,7 +985,7 @@ void PaxData::init(const int pax_id, const std::string& surname, const std::stri
                    const int reg_no, const ASTRA::TTrickyGender::Enum tricky_gender,
                    TransferFlag transfer)
 {
-    LogTrace(TRACE5)<<__FUNCTION__;
+    LogTrace(TRACE5) << __FUNCTION__ << " pax_id: " << pax_id << " surname: " << surname;
     const CheckIn::TPaxDocItem doc = loadPaxDoc(pax_id);
     setPaxId(pax_id);
     setTypeOfPax(is_crew);
@@ -845,12 +1005,12 @@ void PaxData::setOverrideType(const std::string& override_type)
 
 void PaxData::setTypeOfPax(const bool is_crew)
 {
-    pax_crew = is_crew?"C":"P";
+    pax_crew = is_crew ? "C" : "P";
 }
 
-void PaxData::setTransfer(TransferFlag trfer)
+void PaxData::setTransfer(const TransferFlag trfer)
 {
-    LogTrace(TRACE5)<<__FUNCTION__<<" Transfer = "<<trfer;
+    LogTrace(TRACE5) << __FUNCTION__ << " Transfer = " << trfer;
     trfer_at_origin = (trfer == TransferFlag::Origin || trfer == TransferFlag::Both) ? "Y" : "N";
     trfer_at_dest = (trfer == TransferFlag::Dest || trfer == TransferFlag::Both) ? "Y" : "N";
 }
@@ -1053,9 +1213,7 @@ std::string PaxData::msg(int version) const
     return msg.str();
 }
 
-
-
-boost::optional<PaxAddData> PaxAddData::createByPaxId(int pax_id)
+Opt<PaxAddData> PaxAddData::createByPaxId(const int pax_id)
 {
     PaxAddData data;
     CheckIn::TPaxDocoItem doco;
@@ -1067,7 +1225,7 @@ boost::optional<PaxAddData> PaxAddData::createByPaxId(int pax_id)
     return data;
 }
 
-boost::optional<PaxAddData> PaxAddData::createByCrsPaxId(int pax_id)
+Opt<PaxAddData> PaxAddData::createByCrsPaxId(const int pax_id)
 {
     PaxAddData data;
     CheckIn::TPaxDocoItem doco;
@@ -1163,7 +1321,7 @@ std::string PaxAddData::msg(int version) const
     return msg.str();
 }
 
-boost::optional<TTripInfo> getPointInfo(const int point_dep)
+Opt<TTripInfo> getPointInfo(const int point_dep)
 {
     TTripInfo point_info;
     if (!point_info.getByPointId(point_dep)) {
@@ -1227,20 +1385,20 @@ void PaxRequest::sendReqAndSave(const AppsSettings &settings) const
     saveAppsMsg(msg(version), trans.msg_id, int_flt.point_id, version);
 }
 
-std::set<AppsSettings> appsSetsForSegment(const int point_id, const std::string & airp_arv)
+std::set<AppsSettings> appsSetsForSegment(CheckIn::TPaxSegmentPair & flt)
 {
-    auto info = getPointInfo(point_id);
+    auto info = getPointInfo(flt.point_dep);
     if(!info) {
         return {};
     }
 
-    LogTrace(TRACE5) << __FUNCTION__ << " Airline: " << info->airline << " airp_dep: "
-                     << info->airp << " airp_arv: " << airp_arv;
+//    LogTrace(TRACE5) << __FUNCTION__ << " Airline: " << info->airline << " airp_dep: "
+//                     << info->airp << " airp_arv: " << flt.airp_arv;
     std::set<AppsSettings> res;
     if(auto set_dep = AppsSettings::readSettings(info->airline, getCountryByAirp(info->airp).code)) {
         res.insert(set_dep.get());
     }
-    if(auto set_arv = AppsSettings::readSettings(info->airline, getCountryByAirp(airp_arv).code)) {
+    if(auto set_arv = AppsSettings::readSettings(info->airline, getCountryByAirp(flt.airp_arv).code)) {
         res.insert(set_arv.get());
     }
     return res;
@@ -1277,37 +1435,22 @@ std::set<AppsSettings> filterByInboundOutbound(const std::set<AppsSettings> & se
     });
 }
 
-std::set<AppsSettings> getAppsSets(OciCpp::CursCtl & cur, int pax_id)
-{
-    int point_id = ASTRA::NoExists;
-    std::string airp_arv;
-    cur.def(point_id)
-       .def(airp_arv)
-       .bind(":pax_id",pax_id)
-       .exfet();
-    if(cur.err() == NO_DATA_FOUND) {
-        return {};
-    }
-    return appsSetsForSegment(point_id, airp_arv);
-}
-
 std::set<AppsSettings> getAppsSetsByPaxId(int pax_id)
 {
-    auto cur = make_curs(
-               "select POINT_DEP, AIRP_ARV "
-               "from PAX_GRP, PAX "
-               "where PAX_ID=:pax_id and PAX_GRP.GRP_ID=PAX.GRP_ID");
-    return getAppsSets(cur, pax_id);
+    auto seg = paxSegment(pax_id);
+    if(!seg) {
+        return {};
+    }
+    return appsSetsForSegment(*seg);
 }
 
 std::set<AppsSettings> getAppsSetsByCrsPaxId(int pax_id)
 {
-    auto cur = make_curs(
-               "select POINT_ID_SPP, AIRP_ARV "
-               "from CRS_PAX, CRS_PNR, TLG_BINDING "
-               "where PAX_ID=:pax_id and CRS_PAX.PNR_ID = CRS_PNR.PNR_ID "
-               "and CRS_PNR.POINT_ID = TLG_BINDING.POINT_ID_TLG");
-    return getAppsSets(cur,pax_id);
+    auto seg = crsSegment(pax_id);
+    if(!seg) {
+        return {};
+    }
+    return appsSetsForSegment(*seg);
 }
 
 void defPaxAdd(PaxAddData &res, OciCpp::CursCtl & cur)
@@ -1380,7 +1523,7 @@ void defCkinFlight(FlightData &res, OciCpp::CursCtl & cur)
         .defNull(res.point_id, ASTRA::NoExists);
 }
 
-static boost::optional<PaxRequest> paxRequestFromDb(OciCpp::CursCtl & cur)
+static Opt<PaxRequest> paxRequestFromDb(OciCpp::CursCtl & cur)
 {
     PaxData pax;
     TransactionData trs;
@@ -1404,9 +1547,21 @@ static boost::optional<PaxRequest> paxRequestFromDb(OciCpp::CursCtl & cur)
     }
 
     trs.init("CICX", point_info->airline);
-    intFlight.init(intFlight.point_id, "INT");
-    ckinFlight.init(ckinFlight.point_id, "CHK");
-    boost::optional<PaxAddData> pax_add;
+    LogTrace(TRACE5) << __FUNCTION__ << " Port " << intFlight.arv_port;
+
+    std::string int_arv_port, ckin_arv_port;
+    ASSERT(intFlight.point_id != ASTRA::NoExists);
+    BaseTables::Port int_port(intFlight.arv_port);
+    int_arv_port = int_port->rcode();
+    intFlight.init(CheckIn::TPaxSegmentPair{intFlight.point_id, int_arv_port},  "INT");
+
+    if(ckinFlight.point_id != ASTRA::NoExists) {
+        BaseTables::Port ckin_port(ckinFlight.arv_port);
+        ckin_arv_port = ckin_port->rcode();
+        ckinFlight.init(CheckIn::TPaxSegmentPair{ckinFlight.point_id, ckin_arv_port}, "CHK");
+    }
+
+    Opt<PaxAddData> pax_add;
     if(!paxAddData.country_for_data.empty()) {
         pax_add = paxAddData;
     }
@@ -1414,7 +1569,7 @@ static boost::optional<PaxRequest> paxRequestFromDb(OciCpp::CursCtl & cur)
     return PaxRequest(trs, intFlight, ckinFlight, pax, pax_add);
 }
 
-boost::optional<PaxRequest> PaxRequest::fromDBByPaxId(const int pax_id)
+Opt<PaxRequest> PaxRequest::fromDBByPaxId(const int pax_id)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " by pax_id:" << pax_id;
     auto cur = make_curs(
@@ -1423,7 +1578,7 @@ boost::optional<PaxRequest> PaxRequest::fromDBByPaxId(const int pax_id)
     return paxRequestFromDb(cur);
 }
 
-boost::optional<PaxRequest> PaxRequest::fromDBByMsgId(const int msg_id)
+Opt<PaxRequest> PaxRequest::fromDBByMsgId(const int msg_id)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " by msg_id:" << msg_id;
     auto cur = make_curs(
@@ -1437,17 +1592,7 @@ ASTRA::TTrickyGender::Enum getTrickyGender(const std::string &pers_type, ASTRA::
     return CheckIn::TSimplePaxItem::getTrickyGender(DecodePerson(pers_type.c_str()), gender);
 }
 
-int getCkinPointId(int grp_id)
-{
-    TCkinRoute tckin_route;
-    bool found = tckin_route.GetRouteBefore(grp_id, crtNotCurrent, crtIgnoreDependent);
-    if(!found || tckin_route.empty()) {
-        return ASTRA::NoExists;
-    }
-    return tckin_route.front().point_dep;
-}
-
-boost::optional<PaxRequest> PaxRequest::createByPaxId(const int pax_id, const std::string& override_type)
+Opt<PaxRequest> PaxRequest::createByPaxId(const int pax_id, const std::string& override_type)
 {
     LogTrace(TRACE5)<<__FUNCTION__<<" pax_id: "<<pax_id;
     auto cur = make_curs(
@@ -1476,7 +1621,7 @@ boost::optional<PaxRequest> PaxRequest::createByPaxId(const int pax_id, const st
     if(cur.err() == NO_DATA_FOUND) {
         return boost::none;
     }
-    boost::optional<TTripInfo> point_info = getPointInfo(point_dep);
+    Opt<TTripInfo> point_info = getPointInfo(point_dep);
     if(!point_info) {
         return boost::none;
     }
@@ -1487,7 +1632,7 @@ boost::optional<PaxRequest> PaxRequest::createByPaxId(const int pax_id, const st
                           gender, override_type, point_info->airline, reg_no);
 }
 
-boost::optional<PaxRequest> PaxRequest::createByFields(
+Opt<PaxRequest> PaxRequest::createByFields(
         const PaxRequest::RequestType reqType, const int pax_id, const int point_id,
         const MetaInfo& info, bool pre_checkin, const std::string& status,
         const bool need_del, ASTRA::TGender::Enum gender, const std::string& override_type,
@@ -1499,8 +1644,11 @@ boost::optional<PaxRequest> PaxRequest::createByFields(
     FlightData ckinFlight;
 
     trs.init(need_del ? "CICX":"CIRQ", airline).setPreCheckin(pre_checkin);
-    intFlight.init(point_id, "INT");
-    ckinFlight.init(getCkinPointId(info.grp_id), "CHK");
+    intFlight.init(CheckIn::TPaxSegmentPair{point_id, info.airp_arv}, "INT");
+    Opt<CheckIn::TPaxSegmentPair> ckinSeg = ckinSegment(info.grp_id);
+    if(ckinSeg){
+        ckinFlight.init(*ckinSeg, "CHK");
+    }
     // заполним информацию о пассажире
     auto tricky_gender = getTrickyGender(info.pers_type, gender);
     bool isCrew = false;
@@ -1519,7 +1667,7 @@ boost::optional<PaxRequest> PaxRequest::createByFields(
                                                                     : PaxAddData::createByCrsPaxId(pax_id));
 }
 
-boost::optional<PaxRequest> PaxRequest::createByCrsPaxId(const int pax_id, const std::string& override_type)
+Opt<PaxRequest> PaxRequest::createByCrsPaxId(const int pax_id, const std::string& override_type)
 {
     ProgTrace(TRACE5, "TPaxRequest::createByCrsPaxId: %d", pax_id);
     MetaInfo info;
@@ -1550,8 +1698,8 @@ boost::optional<PaxRequest> PaxRequest::createByCrsPaxId(const int pax_id, const
                           ASTRA::TGender::Unknown, override_type, point_info->airline);
 }
 
-boost::optional<PaxRequest> PaxRequest::createFromDB(RequestType type, const int pax_id,
-                                                     const std::string& override_type)
+Opt<PaxRequest> PaxRequest::createFromDB(RequestType type, const int pax_id,
+                                         const std::string& override_type)
 {
     switch (type) {
     case RequestType::Pax:
@@ -1577,7 +1725,7 @@ TransferFlag getTransferFlagFromTransit(int point_id, const std::string& airp_ar
 TransferFlag getCrsTransferFlag(const map<int, CheckIn::TTransferItem> & trfer, int point_id,
                                 const std::string& airp_arv, const std::string& airl)
 {
-    LogTrace(TRACE5)<<__FUNCTION__<<"point_id: "<<point_id<<" airp_arv: "<<airp_arv;
+    LogTrace(TRACE5) << __FUNCTION__ << "point_id: " << point_id << " airp_arv: " << airp_arv;
     TransferFlag transfer = getTransferFlagFromTransit(point_id, airp_arv);
     if (!trfer.empty() && !trfer.at(1).airp_arv.empty()) {
         // сквозная регистрация
@@ -1597,51 +1745,44 @@ TransferFlag getPaxTransferFlag(int point_id, int pax_grp_id, const std::string&
     LogTrace(TRACE5) << __FUNCTION__ << "point_id: " << point_id << " pax_grp_id: "
                      << pax_grp_id << " airp_dep: " << airp_dep << " airp_arv: " <<airp_arv;
     TransferFlag transfer = getTransferFlagFromTransit(point_id, airp_arv);
-    const std::string airline = BaseTables::Company(airl)->rcode();
-    if(isPointTransferDestination(pax_grp_id, airp_arv, airline)) {
+    if(isPointTransferDestination(pax_grp_id, airp_arv)) {
         transfer = TransferFlag::Dest;
     }
 
-    if(isPointTransferOrigin(pax_grp_id, airp_dep, airline)) {
+    if(isPointTransferOrigin(pax_grp_id, airp_dep)) {
         transfer = ((transfer == TransferFlag::Dest) ? TransferFlag::Both : TransferFlag::Origin);
     }
     return transfer;
 }
 
-bool isPointTransferDestination(int pax_grp_id, const std::string& airp_arv,
-                                const std::string& airline_code)
+bool isPointTransferDestination(const int pax_grp_id, const std::string& airp_arv)
 {
-
-    LogTrace(TRACE5) << __FUNCTION__ << " airp_arv: " << airp_arv << " airl_code: "
-                     << airline_code << " pax_grp_id: " << pax_grp_id;
     TCkinRouteItem next;
     bool findSeg = TCkinRoute().GetNextSeg(pax_grp_id, crtIgnoreDependent, next);
     if(!findSeg) {
         LogTrace(TRACE5) << "Not found next segment";
         return false;
     }
-    if (!next.airp_arv.empty())
-    {
+    if (!next.airp_arv.empty()) {
         std::string country_arv = getCountryByAirp(airp_arv).code;
-        if (isAPPSCountry(country_arv, airline_code) &&
-             (getCountryByAirp(next.airp_arv).code != country_arv))
-        {
+        if (getCountryByAirp(next.airp_arv).code != country_arv) {
             return true;
         }
     }
     return false;
 }
 
-bool isPointTransferOrigin(int pax_grp_id, const std::string& airp_dep,
-                           const std::string& airline_code)
+bool isPointTransferOrigin(const int pax_grp_id, const std::string& airp_dep)
 {
     TCkinRouteItem prev;
-    TCkinRoute().GetPriorSeg(pax_grp_id, crtIgnoreDependent, prev);
+    bool findSeg = TCkinRoute().GetPriorSeg(pax_grp_id, crtIgnoreDependent, prev);
+    if(!findSeg) {
+        LogTrace(TRACE5) << "Not found prev segment";
+        return false;
+    }
     if (!prev.airp_dep.empty()) {
         std::string country_dep = getCountryByAirp(airp_dep).code;
-        if (isAPPSCountry(country_dep, airline_code) &&
-             (getCountryByAirp(prev.airp_dep).code != country_dep))
-        {
+        if (getCountryByAirp(prev.airp_dep).code != country_dep) {
             return true;
         }
     }
@@ -1666,6 +1807,7 @@ std::map<int, CheckIn::TTransferItem> getCrsTransferMap(const int pax_id)
         .bind(":pax_id", pax_id)
         .EXfet();
     if(cur.err() == NO_DATA_FOUND) {
+        LogTrace(TRACE5) << __FUNCTION__ << " No data found";
         return {};
     }
     map<int, CheckIn::TTransferItem> trfer;
@@ -1825,14 +1967,14 @@ std::string ManifestData::msg(int version) const
     return msg.str();
 }
 
-bool ManifestRequest::init(const int point_id, const std::string& country_lat)
+bool ManifestRequest::init(const CheckIn::TPaxSegmentPair& flt, const std::string& country_lat)
 {  
-    boost::optional<TTripInfo> point_info = getPointInfo(point_id);
+    Opt<TTripInfo> point_info = getPointInfo(flt.point_dep);
     if(!point_info) {
         return false;
     }
     trans.init("CIMR", point_info->airline).setPreCheckin(false);
-    int_flt.init(point_id, "INM");
+    int_flt.init(flt, "INM");
     mft_req.init(country_lat);
     return true;
 }
@@ -2214,8 +2356,8 @@ void PaxReqAnswer::processAnswer() const
         deleteAPPSAlarm(pax_id, {Alarm::APPSNegativeDirective, Alarm::APPSError});
     }
     // проверим, нужно ли гасить тревогу "рассинхронизация"
-    boost::optional<PaxRequest> actual;
-    boost::optional<PaxRequest> received;
+    Opt<PaxRequest> actual;
+    Opt<PaxRequest> received;
     actual = isAlreadyCheckedIn(pax_id) ? PaxRequest::createFromDB(PaxRequest::Pax, pax_id)
                                         : PaxRequest::createFromDB(PaxRequest::Crs, pax_id);
     if(!actual) {
@@ -2238,7 +2380,7 @@ std::set<std::string> needFltCloseout(const std::set<std::string>& countries, co
     {
         for (const auto &country : countries)
         {
-            boost::optional<AppsSettings> sets = AppsSettings::readSettings(airline, country);
+            Opt<AppsSettings> sets = AppsSettings::readSettings(airline, country);
             if(sets && sets->getFltCloseout()) {
                 countries_need_req.insert(country);
             }
@@ -2270,7 +2412,7 @@ void appsFlightCloseout(const int point_id)
         }
         string country = getCountryByAirp(r->airp).code;
         countries.insert(country);
-        boost::optional<AppsSettings> settings = AppsSettings::readSettings(route.front().airline, country);
+        Opt<AppsSettings> settings = AppsSettings::readSettings(route.front().airline_out, country);
         if(!settings) {
             continue;
         }
@@ -2293,19 +2435,19 @@ void appsFlightCloseout(const int point_id)
             .bind(":point_arv",r->point_id)
             .exec();
         while(!cur.fen()) {
-            boost::optional<PaxRequest> pax = PaxRequest::fromDBByMsgId(cirq_msg_id);
+            Opt<PaxRequest> pax = PaxRequest::fromDBByMsgId(cirq_msg_id);
             if(pax && pax->getStatus() != "B") {
                 continue; // CICX request has already been send
             }
             pax->sendReqAndSave(*settings);
         }
     }
-    for(const auto& country : needFltCloseout(countries, route.front().airline))
+    for(const auto& country : needFltCloseout(countries, route.front().airline_out))
     {
         std::string country_lat = BaseTables::Country(country)->lcode();
         ManifestRequest close_flt;
-        boost::optional<AppsSettings> settings = AppsSettings::readSettings(route.front().airline, country);
-        if (close_flt.init(point_id, country_lat) && settings) {
+        Opt<AppsSettings> settings = AppsSettings::readSettings(route.front().airline_out, country);
+        if (close_flt.init(CheckIn::TPaxSegmentPair{point_id, route.back().airp}, country_lat) && settings) {
             close_flt.sendReqAndSave(*settings);
         }
     }

@@ -1133,7 +1133,7 @@ $(deny_ets_interactive ЮТ 450 АМС)
 # $(dump_table CRS_PAX fields="pax_id, surname, name, pnr_id, pr_del ")
 # $(dump_table CRS_PNR fields="pnr_id, airp_arv, system, point_id ")
 # $(dump_table TLG_BINDING)
-# (dump_table POINTS fields="point_id, airline, flt_no, airp, scd_out, suffix")
+# $(dump_table POINTS fields="point_id, airline, flt_no, airp, scd_out, suffix")
 
 $(run_trip_task send_apps $(get point_dep_UT_298))
 
@@ -1200,7 +1200,7 @@ $(set msg_id13 $(capture 1))
 #             интерактив: выкл
 #            версия apps: 21
 #
-#   2 APPS-запроса на посадку ОДНОГО трансферного пассажира уходит во время Сквозной регистрации
+#   APPS-запросы на посадку ОДНОГО трансферного пассажира уходит во время Сквозной регистрации
 ###
 #########################################################################################
 
@@ -1225,42 +1225,54 @@ $(deny_ets_interactive ЮТ 298 СОЧ)
 $(deny_ets_interactive ЮТ 190 ПРХ)
 $(deny_ets_interactive ЮТ 450 АМС)
 
-# $(INB_PNL_UT_TRANSFER3 AMS LHR 450 $(ddmon +0 en))
+$(INB_PNL_UT_TRANSFER3 AMS LHR 450 $(ddmon +0 en))
 $(INB_PNL_UT_TRANSFER2 PRG AMS 190 $(ddmon +0 en))
 $(INB_PNL_UT_TRANSFER1 AER PRG 298 $(ddmon +0 en))
 
-$(set point_dep_UT_298 $(last_point_id_spp 1))
-$(set point_dep_UT_190 $(last_point_id_spp 0))
-# $(set point_dep_UT_450 $(last_point_id_spp 0))
+$(set point_dep_UT_298 $(last_point_id_spp 2))
+$(set point_dep_UT_190 $(last_point_id_spp 1))
+$(set point_dep_UT_450 $(last_point_id_spp 0))
 
 $(set point_arv_UT_298 $(get_next_trip_point_id $(get point_dep_UT_298)))
 $(set point_arv_UT_190 $(get_next_trip_point_id $(get point_dep_UT_190)))
-# $(set point_arv_UT_450 $(get_next_trip_point_id $(get point_dep_UT_450)))
+$(set point_arv_UT_450 $(get_next_trip_point_id $(get point_dep_UT_450)))
 
 # $(combine_brd_with_reg $(get point_dep))
 $(auto_set_craft $(get point_dep_UT_298))
 $(auto_set_craft $(get point_dep_UT_190))
+$(auto_set_craft $(get point_dep_UT_450))
 
 # $(set move_id $(get_move_id $(get point_dep)))
 
 $(set pax_id1 $(get_pax_id $(get point_dep_UT_298) OZ OFER))
 $(set pax_id2 $(get_pax_id $(get point_dep_UT_190) OZ OFER))
+$(set pax_id3 $(get_pax_id $(get point_dep_UT_450) OZ OFER))
 
 !!
 $(CHECKIN_PAX_TRANSFER $(get pax_id1) $(get point_dep_UT_298) $(get point_arv_UT_298) ЮТ 298 СОЧ ПРХ OZ OFER 2985523437721
                        $(get pax_id2) $(get point_dep_UT_190) $(get point_arv_UT_190) ЮТ 190 ПРХ АМС OZ OFER
+                       $(get pax_id3) $(get point_dep_UT_450) $(get point_arv_UT_450) ЮТ 450 АМС ЛХР OZ OFER
                        ВЗ UA 32427293 UA 16.04.1968 25.06.2025 M)
+
 
 # отправка apps для рейса 298 в чехию , флаг трансфера Y в DEST.
 $(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 100000
 P UKR UKR 32427293 P 20250625 OZ OFER 19680416 M N Y)
 
-# отправка apps для рейса 190 в чехию , флаг трансфера Y в ORIG.
+# отправка apps для рейса 190 в чехию , флаг трансфера Y в DEST и ORIG.
 $(CIRQ_21 "" UT 190 PRG AMS $(yyyymmdd) 081500 $(yyyymmdd) 100000
+P UKR UKR 32427293 P 20250625 OZ OFER 19680416 M Y Y "CHK/2/AER/UT298/")
+
+# отправка apps для рейса 190 в голландию , флаг трансфера Y в DEST и ORIG.
+$(CIRQ_21 "" UT 190 PRG AMS $(yyyymmdd) 081500 $(yyyymmdd) 100000
+P UKR UKR 32427293 P 20250625 OZ OFER 19680416 M Y Y "CHK/2/AER/UT298/")
+
+# отправка apps для рейса 450 в голландию , флаг трансфера Y ORIG.
+$(CIRQ_21 "" UT 450 AMS LHR $(yyyymmdd) 081500 $(yyyymmdd) 090000
 P UKR UKR 32427293 P 20250625 OZ OFER 19680416 M Y N "CHK/2/AER/UT298/")
 
-# отправка apps для рейса 190 в голландию , флаг трансфера Y в ORIG.
-$(CIRQ_21 "" UT 190 PRG AMS $(yyyymmdd) 081500 $(yyyymmdd) 100000
+# отправка apps для рейса 450 в англию , флаг трансфера Y в ORIG.
+$(CIRQ_21 "" UT 450 AMS LHR $(yyyymmdd) 081500 $(yyyymmdd) 090000
 P UKR UKR 32427293 P 20250625 OZ OFER 19680416 M Y N "CHK/2/AER/UT298/")
 
 # << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
@@ -1536,82 +1548,82 @@ $(auto_set_craft $(get point_dep))
 $(run_trip_task send_apps $(get point_dep))
 
 
-# %%
-# ########################################################################
-# ###
-# #   Тест №19
-# #
-# #   Описание: пассажиров: 61,
-# #             интерактив: выкл
-# #            версия apps: 21
-# #
-# #   APPS-запрос на посадку ОДНОГО пассажира Трансферный рейс
-# ###
-# #########################################################################################
+%%
+########################################################################
+###
+#   Тест №19
 #
-# $(settcl APPS_H2H_ADDR APTXS)
-# $(settcl APPS_ROT_NAME APPGT)
+#   Описание: пассажиров: 61,
+#             интерактив: выкл
+#            версия apps: 21
 #
-# $(init_jxt_pult МОВРОМ)
-# $(set_desk_version 201707-0195750)
-# $(login)
-#
-# $(init_apps ЮТ ЦЗ APPS_21 closeout=true inbound=true outbound=false)
-#
-# $(PREPARE_SEASON_SCD_TRANSIT ЮТ СОЧ ВНК ПРХ 298) //сочи внуково прага
-# $(make_spp)
-# $(deny_ets_interactive ЮТ 298 СОЧ)
-#
-# $(INB_PNL_UT AER PRG 298 $(ddmon +0 en))
-#
-# $(set point_dep $(last_point_id_spp))
-# $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-#
-# $(combine_brd_with_reg $(get point_dep))
-# $(auto_set_craft $(get point_dep))
-#
-# $(set move_id $(get_move_id $(get point_dep)))
-#
-# $(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
-#
-# !!
-# $(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII 2986145115578 ВЗ UA FA144642 UA 16.04.1968 25.06.2025 M)
-#
-# $(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 150000
-# P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N N)
-#
-# $(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 150000
-# P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N N)
-#
-# << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
-# CIRS:$(capture 1)/PRS/27/001/CZ/P/UKR/UKR/FA144642//P//20250625////TUMALI/VALERII/19680416/M//8501/B/1/////////
-#
-# !! capture=on
-# $(GET_EVENTS $(get point_dep))
-#
-# >> lines=auto
-#         <msg>Запрос на посадкудля пассажира TUMALI. Результатдля страны ЦЗ: Посадка разрешена.</msg>
-#
-# $(set grp_id $(get_single_grp_id $(get point_dep) TUMALI VALERII))
-# $(set tid $(get_single_tid $(get point_dep) TUMALI VALERII))
-#
-# !!
-# $(CANCEL_PAX $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII 2986145115578 ВЗ)
-#
-#
-# >> lines=auto mode=regex
-# .*CICX:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PCX/20/1/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
-#
-#
-# # закрытие рейса. По настройке APPS должен уйти CIMR
-#
-# !! err=ignore
-# $(WRITE_DESTS $(get point_dep) $(get point_arv) $(get move_id) ЮТ 298 СОЧ ПРХ
-#               $(date_format %d.%m.%Y) 10:15:00
-#               $(date_format %d.%m.%Y) 11:00:00)
-#
-# >> lines=auto mode=regex
-# .*CIMR:([0-9]+)/UTUTA1/21/INM/3/UT298/AER/$(yyyymmdd)/MRQ/3/CZ/C/C/.*
+#   APPS-запрос на посадку ОДНОГО пассажира Транзитный рейс
+###
+#########################################################################################
+
+$(settcl APPS_H2H_ADDR APTXS)
+$(settcl APPS_ROT_NAME APPGT)
+
+$(init_jxt_pult МОВРОМ)
+$(set_desk_version 201707-0195750)
+$(login)
+
+$(init_apps ЮТ ЦЗ APPS_21 closeout=true inbound=true outbound=false)
+
+
+$(PREPARE_SEASON_SCD_TRANSIT ЮТ СОЧ ВНК ПРХ 298) #сочи внуково прага
+$(make_spp)
+$(deny_ets_interactive ЮТ 298 СОЧ)
+
+$(INB_PNL_UT AER PRG 298 $(ddmon +0 en))
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get_next_trip_point_id $(get point_dep))))
+
+$(combine_brd_with_reg $(get point_dep))
+$(auto_set_craft $(get point_dep))
+
+$(set move_id $(get_move_id $(get point_dep)))
+
+$(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
+
+#$(dump_table POINTS fields="point_id, airline, flt_no, airp, scd_out, suffix")
+
+!!
+$(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII 2986145115578 ВЗ UA FA144642 UA 16.04.1968 25.06.2025 M)
+
+$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 130000
+P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N N)
+
+<< h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
+CIRS:$(capture 1)/PRS/27/001/CZ/P/UKR/UKR/FA144642//P//20250625////TUMALI/VALERII/19680416/M//8501/B/1/////////
+
+!! capture=on
+$(GET_EVENTS $(get point_dep))
+
+>> lines=auto
+        <msg>Запрос на посадкудля пассажира TUMALI. Результатдля страны ЦЗ: Посадка разрешена.</msg>
+
+$(set grp_id $(get_single_grp_id $(get point_dep) TUMALI VALERII))
+$(set tid $(get_single_tid $(get point_dep) TUMALI VALERII))
+
+!!
+$(CANCEL_PAX $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII 2986145115578 ВЗ)
+
+
+>> lines=auto mode=regex
+.*CICX:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/130000/PCX/20/1/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
+
+
+# закрытие рейса. По настройке APPS должен уйти CIMR
+
+!! err=ignore
+$(WRITE_DESTS $(get point_dep) $(get point_arv) $(get move_id) ЮТ 298 СОЧ ПРХ
+              $(date_format %d.%m.%Y) 10:15:00
+              $(date_format %d.%m.%Y) 11:00:00)
+
+>> lines=auto mode=regex
+.*CIMR:([0-9]+)/UTUTA1/21/INM/3/UT298/AER/$(yyyymmdd)/MRQ/3/CZ/C/C/.*
 
 
 

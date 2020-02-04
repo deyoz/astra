@@ -1056,6 +1056,7 @@ void CheckInInterface::GetTrferSets(const TTripInfo &operFlt,
   }
 }
 
+// trferItem.operFlt.point_id остается не проинициализированным
 void CheckInInterface::GetOnwardCrsTransfer(int id, bool isPnrId,
                                             const TTripInfo &operFlt,
                                             const string &oper_airp_arv,
@@ -1127,6 +1128,7 @@ void CheckInInterface::GetOnwardCrsTransfer(int id, bool isPnrId,
     if (trferItem.subclass_fmt==efmtUnknown)
       trferItem.subclass=t->subcl;
 
+    LogTrace(TRACE5) << __FUNCTION__ << " trferItem point_id: "<< trferItem.operFlt.point_id;
     trfer[t->num]=trferItem;
 
     prior_transfer_num=t->num;

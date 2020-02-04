@@ -18,12 +18,15 @@
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/slogger.h"
 #include "apis_utils.h"
+#include <serverlib/cursctl.h>
 
 using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
 using namespace std;
 using namespace ASTRA;
 using namespace ASTRA::date_time;
+
+static boost::optional<int> getGrpIdByPaxId(const int pax_id);
 
 bool TTripInfo::getByPointId ( const TDateTime part_key,
                                const int point_id,
@@ -726,11 +729,11 @@ void TAdvTripRoute::GetRoute(TDateTime part_key,
     item.airp=Qry.FieldAsString("airp");
     item.pr_cancel=Qry.FieldAsInteger("pr_del")!=0;
     if (!Qry.FieldIsNULL("airline"))
-      item.airline=Qry.FieldAsString("airline");
+      item.airline_out=Qry.FieldAsString("airline");
     if (!Qry.FieldIsNULL("suffix"))
-      item.suffix=Qry.FieldAsString("suffix");
+      item.suffix_out=Qry.FieldAsString("suffix");
     if (!Qry.FieldIsNULL("flt_no"))
-      item.flt_num=Qry.FieldAsInteger("flt_no");
+      item.flt_num_out=Qry.FieldAsInteger("flt_no");
     if (!Qry.FieldIsNULL("scd_in"))
       item.scd_in=Qry.FieldAsDateTime("scd_in");
     if (!Qry.FieldIsNULL("scd_out"))
@@ -1155,6 +1158,66 @@ void TCkinRoute::GetRoute(int tckin_id,
     if (!after_current) reverse(begin(),end());
   };
 };
+
+boost::optional<int> getGrpIdByPaxId(const int pax_id)
+{
+    LogTrace(TRACE5) << __FUNCTION__ << " pax_id : "<<pax_id;
+    int grp_id;
+    auto cur = make_curs(
+               "select PAX.GRP_ID from PAX, PAX_GRP "
+               "where PAX_ID=:pax_id AND PAX.GRP_ID=PAX_GRP.GRP_ID ");
+    cur
+        .def(grp_id)
+        .bind(":pax_id", pax_id)
+        .EXfet();
+    if(cur.err() == NO_DATA_FOUND) {
+        LogTrace(TRACE5) << __FUNCTION__ << " pax_id: " << pax_id << " NO DATA FOUND ";
+        return boost::none;
+    }
+    return grp_id;
+}
+
+bool TCkinRoute::GetRoute(int pax_id)
+{
+    auto grp_id = getGrpIdByPaxId(pax_id);
+    if(!grp_id) {
+        return false;
+    }
+    clear();
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText="SELECT tckin_id FROM tckin_pax_grp WHERE grp_id=:grp_id";
+    Qry.CreateVariable("grp_id", otInteger, *grp_id);
+    Qry.Execute();
+    if (Qry.Eof) {
+        return false;
+    }
+    int tckin_id = Qry.FieldAsInteger("tckin_id");
+    ostringstream sql;
+    sql << "SELECT " + TTripInfo::selectedFields("points") + ", "
+         "       pax_grp.grp_id, pax_grp.point_dep, pax_grp.point_arv, "
+         "       pax_grp.airp_dep, pax_grp.airp_arv, "
+         "       tckin_pax_grp.seg_no, tckin_pax_grp.pr_depend "
+         "FROM points, pax_grp, tckin_pax_grp "
+         "WHERE points.point_id=pax_grp.point_dep AND "
+         "      pax_grp.grp_id=tckin_pax_grp.grp_id AND "
+         "      tckin_pax_grp.tckin_id=:tckin_id ORDER BY seg_no ASC";
+
+    Qry.Clear();
+    Qry.SQLText= sql.str().c_str();
+    Qry.CreateVariable("tckin_id",otInteger,tckin_id);
+    Qry.Execute();
+    if (Qry.Eof) {
+        return false;
+    }
+    for(; !Qry.Eof; Qry.Next())
+    {
+        TCkinRouteItem item;
+        item.fromDB(Qry);
+        push_back(item);
+    };
+    return true;
+}
 
 bool TCkinRoute::GetRoute(int grp_id,
                           bool after_current,
@@ -2466,13 +2529,18 @@ void TInfantAdults::clear()
 
 void TAdvTripRoute::getRouteBetween(int point_dep, const string& airp_arv)
 {
-  clear();
-  GetRouteAfter(NoExists, point_dep, trtWithCurrent, trtNotCancelled);
-  TAdvTripRoute::iterator i=begin();
-  for(; i!=end(); ++i)
-    if (i->airp==airp_arv) break;
-  if (i!=end())
-    erase(++i, end());
-  else
-   clear();
+    clear();
+    GetRouteAfter(NoExists, point_dep, trtWithCurrent, trtNotCancelled);
+    TAdvTripRoute::iterator i=begin();
+    for(; i!=end(); ++i) {
+        if (i->airp==airp_arv) {
+            break;
+        }
+    }
+    if (i!=end()) {
+        erase(++i, end());
+    }
+    else {
+        clear();
+    }
 }

@@ -121,6 +121,63 @@ $(defmacro PREPARE_SEASON_SCD
 
 #########################################################################################
 
+#########################################################################################
+
+$(defmacro PREPARE_SEASON_SCD_TRANSIT
+  airl
+  depp
+  arrpTransit
+  arrp
+  fltno
+  craft=TU5
+  first_date=$(date_format %d.%m.%Y)
+  last_date=$(date_format %d.%m.%Y)
+{
+{<?xml version='1.0' encoding='CP866'?>
+ <term>
+  <query handle='0' id='season' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <write>
+      <filter>
+        <season>2</season>
+      </filter>
+      <SubrangeList>
+        <subrange>
+          <modify>insert</modify>
+          <move_id>-1</move_id>
+          <first>$(first_date) 00:00:00</first>
+          <last>$(last_date) 23:59:59</last>
+          <days>1234567</days>
+          <dests>
+            <dest>
+              <cod>$(depp)</cod>
+              <company>$(airl)</company>
+              <trip>$(fltno)</trip>
+              <bc>$(craft)</bc>
+              <takeoff>30.12.1899 10:15:00</takeoff>
+              <y>-1</y>
+            </dest>
+            <dest>
+              <cod>$(arrpTransit)</cod>
+              <company>$(airl)</company>
+              <trip>$(fltno)</trip>
+              <bc>$(craft)</bc>
+              <land>30.12.1899 12:00:00</land>
+              <takeoff>30.12.1899 13:15:00</takeoff>
+            </dest>
+            <dest>
+              <cod>$(arrp)</cod>
+              <land>30.12.1899 15:00:00</land>
+            </dest>
+          </dests>
+        </subrange>
+      </SubrangeList>
+    </write>
+  </query>
+</term>}
+}) # end-of-macro PREPARE_SEASON_SCD_TRANSIT
+
+#########################################################################################
+
 $(defmacro TKCREQ_ET_DISP
     from
     to
@@ -1163,6 +1220,15 @@ $(defmacro CHECKIN_PAX_TRANSFER
     airp_arv2
     surname2
     name2
+    pax_id3
+    point_dep3
+    point_arv3
+    airl3
+    flt3
+    airp_dep3
+    airp_arv3
+    surname3
+    name3
     pers_type
     doc_issue_country
     doc_no
@@ -1271,6 +1337,60 @@ $(defmacro CHECKIN_PAX_TRANSFER
                 <gender>$(doc_gender)</gender>
                 <surname>$(surname2)</surname>
                 <first_name>$(name2)</first_name>
+              </document>
+              <doco/>
+              <addresses/>
+              <subclass>Э</subclass>
+              <bag_pool_num/>
+              <transfer/>
+              <rems/>
+              <fqt_rems/>
+              <norms/>
+            </pax>
+          </passengers>
+          <paid_bag_emd/>
+        </segment>
+
+        <segment>
+          <point_dep>$(point_dep3)</point_dep>
+          <point_arv>$(point_arv3)</point_arv>
+          <airp_dep>$(airp_dep3)</airp_dep>
+          <airp_arv>$(airp_arv3)</airp_arv>
+          <class>Э</class>
+          <status>K</status>
+          <wl_type/>
+          <mark_flight>
+            <airline>$(airl3)</airline>
+            <flt_no>$(flt3)</flt_no>
+            <suffix/>
+            <scd>$(date_format %d.%m.%Y +0) 00:00:00</scd>
+            <airp_dep>$(airp_dep3)</airp_dep>
+            <pr_mark_norms>0</pr_mark_norms>
+          </mark_flight>
+          <passengers>
+            <pax>
+              <pax_id>$(pax_id3)</pax_id>
+              <surname>$(surname3)</surname>
+              <name>$(name3)</name>
+              <pers_type>$(pers_type)</pers_type>
+              <seat_no/>
+              <preseat_no/>
+              <seat_type/>
+              <seats>1</seats>
+              <ticket_no>$(tickno)</ticket_no>
+              <coupon_no>3</coupon_no>
+              <ticket_rem>TKNE</ticket_rem>
+              <ticket_confirm>0</ticket_confirm>
+              <document>
+                <type>P</type>
+                <issue_country>$(doc_issue_country)</issue_country>
+                <no>$(doc_no)</no>
+                <nationality>$(doc_nationality)</nationality>
+                <birth_date>$(doc_birth_date) 00:00:00</birth_date>
+                <expiry_date>$(doc_expiry_date) 00:00:00</expiry_date>
+                <gender>$(doc_gender)</gender>
+                <surname>$(surname3)</surname>
+                <first_name>$(name3)</first_name>
               </document>
               <doco/>
               <addresses/>
@@ -2183,7 +2303,6 @@ $(PNL_UT_C7Y56_PART6 $(depp) $(arrp) $(fltno) $(depd))
 }) #end-of-macro INB_PNL_UT
 
 #########################################################################################
-
 #########################################################################################
 
 $(defmacro INB_PNL_UT_TRANSFER1
@@ -2199,6 +2318,10 @@ $(PNL_UT_C7Y56_PART1_TRANSFER $(depp) $(arrp) $(fltno) $(depd))
 
 }) #end-of-macro INB_PNL_UT_TRANSFER1
 
+
+#########################################################################################
+#########################################################################################
+
 $(defmacro INB_PNL_UT_TRANSFER2
     depp
     arrp
@@ -2211,6 +2334,9 @@ $(defmacro INB_PNL_UT_TRANSFER2
 $(PNL_UT_C7Y56_PART2_TRANSFER $(depp) $(arrp) $(fltno) $(depd))
 
 }) #end-of-macro INB_PNL_UT_TRANSFER2
+
+#########################################################################################
+#########################################################################################
 
 $(defmacro INB_PNL_UT_TRANSFER3
     depp
@@ -2225,6 +2351,7 @@ $(PNL_UT_C7Y56_PART3_TRANSFER $(depp) $(arrp) $(fltno) $(depd))
 
 }) #end-of-macro INB_PNL_UT_TRANSFER3
 
+#########################################################################################
 #########################################################################################
 
 $(defmacro INB_ADL_UT_DEL2PAXES

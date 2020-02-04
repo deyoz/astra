@@ -208,7 +208,7 @@ const Segment& Segment::toXML(xmlNodePtr node,
 {
   if (node==nullptr) return *this;
 
-  SetProp(node, "carrier", airlineToPrefferedCode(departure.airline, lang));
+  SetProp(node, "carrier", airlineToPrefferedCode(departure.airline_out, lang));
   SetProp(node, "flight_no", departure.flight_number(lang));
   SetProp(node, "departure", airpToPrefferedCode(departure.airp, lang));
   SetProp(node, "destination", airpToPrefferedCode(arrival.airp, lang));
@@ -699,13 +699,11 @@ void GetPassengerInfoResponse::prepareEntities(int paxId)
   TCkinPaxFilter paxFilter(pax);
   for(const auto& t : trfer)
   {
-    if (segKeys.find(t.first)!=segKeys.end()) continue; //уже считали информацию на основе зарегистрированного сквозняка
+    if (segKeys.find(t.first) != segKeys.end()) continue; //уже считали информацию на основе зарегистрированного сквозняка
 
-    const CheckIn::TTransferItem& item=t.second;
-    FlightFilter fltFilter(item.operFlt);
-    fltFilter.setLocalDate(item.operFlt.scd_out);
-    fltFilter.airp_arv=item.airp_arv;
-    paxFilter.subclass=item.subclass;
+    const CheckIn::TTransferItem& item = t.second;
+    FlightFilter fltFilter = createFlightFlt(item);
+    paxFilter.subclass = item.subclass;
 
     search(paxs, fltFilter, paxFilter);
 

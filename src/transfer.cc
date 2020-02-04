@@ -205,6 +205,19 @@ void TTransferList::check(int id, bool isGrpId, int seg_no) const
   }
 }
 
+TSearchFltInfo createSearchFlt(const CheckIn::TTransferItem &item)
+{
+    TSearchFltInfo filter;
+    filter.airline  = item.operFlt.airline;
+    filter.suffix   = item.operFlt.suffix;
+    filter.airp_dep = item.operFlt.airp;
+    filter.flt_no   = item.operFlt.flt_no;
+    filter.scd_out  = item.operFlt.scd_out;
+    filter.scd_out_in_utc  = false; //локальное время порта
+    filter.flightProps     = FlightProps(FlightProps::NotCancelled, FlightProps::WithCheckIn);
+    return filter;
+}
+
 } //namespace CheckIn
 
 namespace TrferList

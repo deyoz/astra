@@ -643,15 +643,22 @@ bool TCkinPaxFilter::suitable(const CheckIn::TSimplePaxItem& pax) const
   return true;
 }
 
+FlightFilter createFlightFlt(const TTransferItem &item) {
+    FlightFilter fltFilter(item.operFlt);
+    fltFilter.setLocalDate(item.operFlt.scd_out);
+    fltFilter.airp_arv = item.airp_arv;
+    return fltFilter;
+}
+
 void FlightFilter::setLocalDate(TDateTime localDate)
 {
-  if (localDate==NoExists) return;
+    if (localDate==NoExists) return;
 
-  modf(localDate, &localDate);
-  scd_out=ASTRA::NoExists;
-  min_scd_out=localDate;
-  max_scd_out=localDate+1.0;
-  scdOutIsLocal=true;
+    modf(localDate, &localDate);
+    scd_out=ASTRA::NoExists;
+    min_scd_out=localDate;
+    max_scd_out=localDate+1.0;
+    scdOutIsLocal=true;
 }
 
 bool FlightFilter::validForSearch() const
@@ -773,8 +780,8 @@ bool FlightFilter::suitable(const TAdvTripRouteItem& departure,
   if (max_scd_out!=ASTRA::NoExists &&
       (departure_scd_out==ASTRA::NoExists || max_scd_out<=departure_scd_out)) return false;
 
-  if (!airline.empty() && airline!=departure.airline) return false;
-  if (flt_no!=ASTRA::NoExists && (flt_no!=departure.flt_num || suffix!=departure.suffix)) return false;
+  if (!airline.empty() && airline!=departure.airline_out) return false;
+  if (flt_no!=ASTRA::NoExists && (flt_no!=departure.flt_num_out || suffix!=departure.suffix_out)) return false;
   if (!airp_arv.empty() && airp_arv!=arrival.airp) return false;
 
   return true;

@@ -283,6 +283,7 @@ class FlightFilter : public TTripInfo
     std::string airp_arv;
 
     FlightFilter() { clear(); }
+
     FlightFilter(const TTripInfo& flt)
     {
       clear();
@@ -310,6 +311,8 @@ class FlightFilter : public TTripInfo
     bool suitable(const TAdvTripRouteItem& departure,
                   const TAdvTripRouteItem& arrival) const;
 };
+
+FlightFilter createFlightFlt(const CheckIn::TTransferItem &item);
 
 class BarcodeSegmentFilter
 {
