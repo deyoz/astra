@@ -664,8 +664,6 @@ namespace EXCH_CHECKIN_RESULT
       NewTextChild( flightNode, "suffix", route.front().suffix_out );
     }
     NewTextChild( flightNode, "scd_out", DateTimeToStr( ASTRA::date_time::UTCToClient( route.front().scd_out, region ), "dd.mm.yyyy hh:nn" ) );
-    LogTrace(TRACE5) << DateTimeToStr( ASTRA::date_time::UTCToClient( route.front().scd_out, region ), "dd.mm.yyyy hh:nn" );
-    LogTrace(TRACE5) << DateTimeToStr( route.front().scd_out, "dd.mm.yyyy hh:nn" );
     if ( !craft.empty() ) {
       NewTextChild( flightNode, "craft", craft );
     }
@@ -1143,7 +1141,6 @@ namespace MQRABBIT_TRANSPORT {
     if ( (it = params.find( MQRABBIT_TRANSPORT::PARAM_NAME_ACTIONCODE )) != params.end() ) {
       request.actionCode = it->second;
       if ( request.isAction( EXCH_CHECKIN_RESULT::Request::LocalTime ) ) {
-        tst();
         TReqInfo::Instance()->user.sets.time = ustTimeLocalAirp;
       }
     }
@@ -1234,7 +1231,6 @@ namespace MQRABBIT_TRANSPORT {
     if ( (it = params.find( MQRABBIT_TRANSPORT::PARAM_NAME_ACTIONCODE )) != params.end() ) {
       request.actionCode = it->second;
       if ( request.isAction( EXCH_CHECKIN_RESULT::Request::LocalTime ) ) {
-        tst();
         TReqInfo::Instance()->user.sets.time = ustTimeLocalAirp;
       }
     }
