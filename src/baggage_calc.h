@@ -43,6 +43,16 @@ class TFltInfo
           flt_no_mark==info.flt_no_mark &&
           use_mark_flt==info.use_mark_flt;
     }
+    bool operator < (const TFltInfo &info) const
+    {
+      if (point_id!=info.point_id)
+        return point_id<info.point_id;
+      if (airline_mark!=info.airline_mark)
+        return airline_mark<info.airline_mark;
+      if (flt_no_mark!=info.flt_no_mark)
+        return flt_no_mark<info.flt_no_mark;
+      return use_mark_flt<info.use_mark_flt;
+    }
     std::string traceStr() const
     {
       std::ostringstream s;
