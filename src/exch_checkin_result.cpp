@@ -1293,7 +1293,7 @@ namespace MQRABBIT_TRANSPORT {
   {
     LogTrace(TRACE5) << "exch_Checkin_or_Flights_result_handler started, handler_id=" << handler_id << ",task=" << task;
     TReqInfo::Instance()->clear();
-    TReqInfo::Instance()->user.sets.time = ustTimeUTC;
+    TReqInfo::Instance()->user.sets.time = ustTimeLocalAirp;
     emptyHookTables();
     TDateTime nowUTC=NowUTC();
 
