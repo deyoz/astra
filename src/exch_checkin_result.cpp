@@ -136,7 +136,8 @@ namespace EXCH_CHECKIN_RESULT
     {
       ServicePayment,
       Docs,
-      Baggage
+      Baggage,
+      LocalTime,
     };
     std::string Sender;
     std::string actionCode;
@@ -165,6 +166,8 @@ namespace EXCH_CHECKIN_RESULT
           return ( actionCode.find("D") != std::string::npos );
         case Baggage:
           return ( actionCode.find("B") != std::string::npos );
+        case LocalTime:
+          return ( actionCode.find("L") != std::string::npos );
         default:
           return false;
 
@@ -1137,6 +1140,9 @@ namespace MQRABBIT_TRANSPORT {
     std::map<std::string,std::string>::const_iterator it;
     if ( (it = params.find( MQRABBIT_TRANSPORT::PARAM_NAME_ACTIONCODE )) != params.end() ) {
       request.actionCode = it->second;
+      if ( request.isAction( EXCH_CHECKIN_RESULT::Request::LocalTime ) ) {
+        TReqInfo::Instance()->user.sets.time = ustTimeLocalAirp;
+      }
     }
     try {
       //emptyHookTables();
@@ -1220,6 +1226,13 @@ namespace MQRABBIT_TRANSPORT {
          p.queue.empty() ) {
       LogTrace(TRACE5) << "addr is empty";
       return;
+    }
+    std::map<std::string,std::string>::const_iterator it;
+    if ( (it = params.find( MQRABBIT_TRANSPORT::PARAM_NAME_ACTIONCODE )) != params.end() ) {
+      request.actionCode = it->second;
+      if ( request.isAction( EXCH_CHECKIN_RESULT::Request::LocalTime ) ) {
+        TReqInfo::Instance()->user.sets.time = ustTimeLocalAirp;
+      }
     }
     try {
       EXCH_CHECKIN_RESULT::changeFlights chFlights;
