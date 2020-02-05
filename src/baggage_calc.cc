@@ -85,12 +85,16 @@ class Calculator
                          const boost::optional<TPaxNormItem> &paxNorm,
                          boost::optional<TPaxNormComplex> &result) const;
   public: //спрятать, если переносить все вычисление в этот класс
-    void CheckOrGetPaxBagNorm(const TNormFltInfo& flt,
+    void checkOrGetPaxBagNorm(const TNormFltInfo& flt,
                               const TPaxInfo &pax,
                               const bool only_category,
                               const TBagTypeListKey &bagTypeKey,
                               const boost::optional<TPaxNormItem> &paxNorm,
                               boost::optional<TPaxNormComplex> &result) const;
+    void clearFlightBagNorms() const
+    {
+      flightBagNorms.clear();
+    }
   public:
     static const Calculator& instance()
     {
@@ -450,37 +454,19 @@ bool Calculator::getPaxEtickNorm(const TPaxInfo &pax,
     if (!(paxNorm.get().key()==bagTypeKey))
       throw Exception("%s: paxNorm.get().key()!=bagTypeKey", __func__);
 
-    TNormItem norm;
-    bool isDirectActionNorm;
-    if (paxNorm.get().normNotExists())
-    {
-      //считаем что отсутствующая норма прямого действия, если она не введена вручную
-      isDirectActionNorm=!paxNorm.get().isManuallyDeleted();
-    }
-    else
-    {
-      try
-      {
-        norm=directActionNorms.get(paxNorm.get().norm_id);
-        isDirectActionNorm=true;
-      }
-      catch(const DirectActionNormCache::NotFound&)
-      {
-        isDirectActionNorm=false;
-      }
-    }
+    if (paxNorm.get().handmade && paxNorm.get().handmade.get()) return false; //норма введена вручную, проверяем стандартным механизмом среди flightBagNorms
 
-    if (etickNorm.get()==norm)
+    try
     {
-      //по сути нормы совпадают с нормами в билете
-      if (!isDirectActionNorm) return false; //проверяем стандартным механизмом среди flightBagNorms
-      result=boost::in_place(paxNorm.get(), norm);
+      //норма была рассчитана автоматически
+      TNormItem norm;
+      if (!paxNorm.get().normNotExists())
+        norm=directActionNorms.get(paxNorm.get().norm_id);
+      if (etickNorm.get()==norm)
+        result=boost::in_place(paxNorm.get(), norm);
     }
-    else
-    {
-      //по сути нормы не совпадают с нормами в билете
-      if (!isDirectActionNorm) return false; //проверяем стандартным механизмом среди flightBagNorms - это при разрешении выбора нормы агентом
-    }
+    catch(const DirectActionNormCache::NotFound&) {}
+
     return true;
   }
 
@@ -504,7 +490,7 @@ bool Calculator::getPaxEtickNorm(const TPaxInfo &pax,
   return true;
 }
 
-void Calculator::CheckOrGetPaxBagNorm(const TNormFltInfo& flt,
+void Calculator::checkOrGetPaxBagNorm(const TNormFltInfo& flt,
                                       const TPaxInfo &pax,
                                       const bool only_category,
                                       const TBagTypeListKey &bagTypeKey,
@@ -513,7 +499,10 @@ void Calculator::CheckOrGetPaxBagNorm(const TNormFltInfo& flt,
 {
   result=boost::none;
 
-  if (getPaxEtickNorm(pax, bagTypeKey, paxNorm, result)) return;
+  if (flt.use_etick_norms)
+  {
+    if (getPaxEtickNorm(pax, bagTypeKey, paxNorm, result)) return;
+  }
 
   if (paxNorm)
   {
@@ -1358,7 +1347,7 @@ void CheckOrGetWidePaxNorms(const TAirlines &airlines,
           if (!paxNorm) continue;
         }
 
-        Calculator::instance().CheckOrGetPaxBagNorm(flt, pax, pax.only_category(), key, paxNorm, result);
+        Calculator::instance().checkOrGetPaxBagNorm(flt, pax, pax.only_category(), key, paxNorm, result);
       }
 
       if (!result)
@@ -1394,22 +1383,23 @@ static void normsToDB(bool pr_unaccomp,
   }
 }
 
-static void RecalcPaidBag(const TAirlines &airlines,
-                          const TBagList &prior_bag,
-                          const TBagList &curr_bag,
-                          const std::map<TPaxToLogInfoKey, TPaxToLogInfo> &prior_paxs,
-                          const TNormFltInfo &flt,
-                          const CheckIn::TTransferList &trfer,
-                          const CheckIn::TPaxGrpItem &grp,
-                          const CheckIn::TPaxList &curr_paxs,
-                          const TPaidBagList &prior_paid,
-                          bool pr_unaccomp,
-                          bool use_traces,
-                          map<int/*pax_id*/, TWidePaxInfo>& wide_paxs,
-                          TPaidBagList &result_paid)
+static void baseRecalcPaidBag(const TAirlines &airlines,
+                              const TBagList &prior_bag,
+                              const TBagList &curr_bag,
+                              const std::map<TPaxToLogInfoKey, TPaxToLogInfo> &prior_paxs,
+                              const TNormFltInfo &flt,
+                              const CheckIn::TTransferList &trfer,
+                              const CheckIn::TPaxGrpItem &grp,
+                              const CheckIn::TPaxList &curr_paxs,
+                              const TPaidBagList &prior_paid,
+                              bool pr_unaccomp,
+                              bool use_traces,
+                              map<int/*pax_id*/, TWidePaxInfo>& wide_paxs,
+                              TPaidBagList &result_paid)
 {
   wide_paxs.clear();
   result_paid.clear();
+  Calculator::instance().clearFlightBagNorms();
 
   if (use_traces) ProgTrace(TRACE5, "%s: flt:%s", __FUNCTION__, flt.traceStr().c_str());
 
@@ -1469,19 +1459,19 @@ static void RecalcPaidBag(const TTripInfo& flt,
   CheckIn::TPaxGrpItem grpItem;
   static_cast<CheckIn::TSimplePaxGrpItem&>(grpItem)=grp;
 
-  RecalcPaidBag(airlines,
-                prior_bag,
-                curr_bag,
-                grpInfoBefore.pax,
-                TNormFltInfo(flt, grpMktFlight),
-                trfer,
-                grpItem,
-                CheckIn::TPaxList(),
-                prior_paid,
-                grp.is_unaccomp(),
-                true,
-                wide_paxs,
-                result_paid);
+  baseRecalcPaidBag(airlines,
+                    prior_bag,
+                    curr_bag,
+                    grpInfoBefore.pax,
+                    TNormFltInfo(flt, grpMktFlight),
+                    trfer,
+                    grpItem,
+                    CheckIn::TPaxList(),
+                    prior_paid,
+                    grp.is_unaccomp(),
+                    true,
+                    wide_paxs,
+                    result_paid);
 }
 
 void RecalcPaidBag(const TTripInfo& flt,
@@ -1522,7 +1512,7 @@ void RecalcPaidBagToDB(const TAirlines &airlines,
 {
   map<int/*pax_id*/, TWidePaxInfo> wide_paxs;
 
-  RecalcPaidBag(airlines, prior_bag, curr_bag, prior_paxs, flt, trfer, grp, curr_paxs, prior_paid, pr_unaccomp, use_traces, wide_paxs, result_paid);
+  baseRecalcPaidBag(airlines, prior_bag, curr_bag, prior_paxs, flt, trfer, grp, curr_paxs, prior_paid, pr_unaccomp, use_traces, wide_paxs, result_paid);
 
   PaidBagToDB(grp.id, pr_unaccomp, result_paid);
   normsToDB(pr_unaccomp, wide_paxs);

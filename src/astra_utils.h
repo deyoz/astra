@@ -820,6 +820,12 @@ class Cache
       s << traceTitle() << " total: get - " << totalGet << ", add - " << totalAdd;
       return s.str();
     }
+    void clear()
+    {
+      totalGet=0;
+      totalAdd=0;
+      items.clear();
+    }
 
     class NotFound : public EXCEPTIONS::Exception
     {
