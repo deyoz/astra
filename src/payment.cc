@@ -583,7 +583,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                                                           mktFlight.pr_mark_norms?mktFlight.airline:operFlt.airline,
                                                           "CalcPaidBagView"),
                                  tmp_bag,
-                                 WeightConcept::AllPaxNormContainer(),
+                                 list<WeightConcept::TBagNormInfo>(),
                                  paid,
                                  CheckIn::TServicePaymentListWithAuto(),
                                  "",
@@ -1090,7 +1090,7 @@ int PaymentInterface::PutReceiptToDB(const TBagReceipt &rcpt, int point_id, int 
   {
     Qry.Execute();
   }
-  catch(const EOracleError& E)
+  catch(EOracleError E)
   {
     if (E.Code==1)
       throw AstraLocale::UserException("MSG.RECEIPT_BLANK_NO_ALREADY_USED", LParams() << LParam("no", rcpt.no));
@@ -1281,7 +1281,7 @@ double PaymentInterface::GetNextNo(const string &form_type, double no)
       else result=no;
     };
   }
-  catch(const EBaseTableError&) {};
+  catch(EBaseTableError) {};
   return result;
 };
 
@@ -1296,7 +1296,7 @@ string GetKitPrevNoStr(const vector<TBagReceiptKitItem> &items)
     {
       no_len=base_tables.get("form_types").get_row("code",i->form_type).AsInteger("no_len");
     }
-    catch(const EBaseTableError&) {};
+    catch(EBaseTableError) {};
     ostringstream no_str;
     no_str << fixed << setw(no_len) << setfill('0') << setprecision(0) << i->no;
     rcpts.push_back(no_str.str());

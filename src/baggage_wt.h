@@ -7,15 +7,6 @@
 #include "oralib.h"
 #include "baggage_base.h"
 
-namespace WeightConcept
-{
-
-const std::string REGULAR_BAG_TYPE_IN_DB=" ";
-const std::string REGULAR_BAG_TYPE="";
-const std::string REGULAR_BAG_NAME="Обычный багаж или р/кладь";
-
-}
-
 class TBagTypeListKey
 {
   public:
@@ -56,7 +47,6 @@ class TBagTypeListKey
     TBagTypeListKey& fromDB(TQuery &Qry);
     const TBagTypeListKey& key() const { return *this; }
     void key(const TBagTypeListKey& _key) { *this=_key; }
-    bool isRegular() const { return bag_type==WeightConcept::REGULAR_BAG_TYPE; }
 };
 
 class TBagTypeListItem : public TBagTypeListKey
@@ -208,6 +198,10 @@ class TBagTypeList : public TBagTypeListMap
 namespace WeightConcept
 {
 
+const std::string REGULAR_BAG_TYPE_IN_DB=" ";
+const std::string REGULAR_BAG_TYPE="";
+const std::string REGULAR_BAG_NAME="Обычный багаж или р/кладь";
+
 TBagTypeListKey RegularBagType(const std::string &airline);
 
 class TNormItem
@@ -220,145 +214,79 @@ class TNormItem
   TNormItem()
   {
     clear();
-  }
+  };
   void clear()
   {
     norm_type=ASTRA::bntUnknown;
     amount=ASTRA::NoExists;
     weight=ASTRA::NoExists;
     per_unit=ASTRA::NoExists;
-  }
+  };
   bool operator == (const TNormItem &item) const
   {
     return norm_type == item.norm_type &&
            amount == item.amount &&
            weight == item.weight &&
            per_unit == item.per_unit;
-  }
-  bool isUnknown() const
+  };
+  bool empty() const
   {
-    return norm_type==ASTRA::bntUnknown;
-  }
+    return norm_type==ASTRA::bntUnknown &&
+           amount==ASTRA::NoExists &&
+           weight==ASTRA::NoExists &&
+           per_unit==ASTRA::NoExists;
+  };
   const TNormItem& toXML(xmlNodePtr node) const;
   TNormItem& fromDB(TQuery &Qry);
-  const TNormItem& toDB(TQuery &Qry) const;
   std::string str(const std::string& lang) const;
   void GetNorms(PrmEnum& prmenum) const;
-  bool getByNormId(int normId, bool& isDirectActionNorm);
   bool getByNormId(int normId);
 };
 
-class TPaxNormItem : public TBagTypeKey
+class TPaxNormItem
 {
   public:
+    std::string bag_type222;
     int norm_id;
     bool norm_trfer;
-    boost::optional<bool> handmade;
+    int handmade;
   TPaxNormItem()
   {
     clear();
-  }
-  TPaxNormItem(const TBagTypeListKey& key_)
-  {
-    clear();
-    key(key_);
-    handmade=false;
-  }
-  TPaxNormItem(const TBagTypeListKey& key_, const int norm_id_, const bool norm_trfer_)
-  {
-    clear();
-    key(key_);
-    norm_id=norm_id_;
-    norm_trfer=norm_trfer_;
-    handmade=false;
-  }
-
+  };
   void clear()
   {
-    TBagTypeKey::clear();
+    bag_type222.clear();
     norm_id=ASTRA::NoExists;
     norm_trfer=false;
-    handmade=boost::none;
-  }
-  bool operator ==(const TPaxNormItem &item) const
+    handmade=ASTRA::NoExists;
+  };
+  bool empty() const
   {
-    return TBagTypeKey::operator ==(item) &&
-           norm_id==item.norm_id &&
-           norm_trfer==item.norm_trfer &&
-           handmade==item.handmade;
-  }
-  bool equal(const TPaxNormItem &item) const
+    return bag_type222.empty() &&
+           norm_id==ASTRA::NoExists &&
+           norm_trfer==false;
+  };
+  bool operator == (const TPaxNormItem &item) const
   {
-    return TBagTypeListKey::operator ==(item) &&
+    return bag_type222==item.bag_type222 &&
            norm_id==item.norm_id &&
            norm_trfer==item.norm_trfer;
-  }
+  };
   const TPaxNormItem& toXML(xmlNodePtr node) const;
   TPaxNormItem& fromXML(xmlNodePtr node);
   const TPaxNormItem& toDB(TQuery &Qry) const;
   TPaxNormItem& fromDB(TQuery &Qry);
-
-  bool normNotExists() const
-  {
-    return norm_id==ASTRA::NoExists;
-  }
-
-  bool isManuallyDeleted() const
-  {
-    return norm_id==ASTRA::NoExists && handmade && handmade.get();
-  }
+  bool isRegularBagType() const { return bag_type222==REGULAR_BAG_TYPE; }
 };
 
-std::ostream& operator<<(std::ostream& os, const TPaxNormItem&);
-
-class TPaxNormComplex : public TPaxNormItem, public TNormItem
-{
-  public:
-    TPaxNormComplex():
-      TPaxNormItem(),
-      TNormItem() {}
-    TPaxNormComplex(const TPaxNormItem& paxNormItem, const TNormItem& normItem):
-      TPaxNormItem(paxNormItem),
-      TNormItem(normItem) {}
-    TPaxNormComplex(TQuery &Qry)
-    {
-      fromDB(Qry);
-    }
-
-    void clear()
-    {
-      TPaxNormItem::clear();
-      TNormItem::clear();
-    }
-
-    TPaxNormComplex& fromDB(TQuery &Qry)
-    {
-      TPaxNormItem::fromDB(Qry);
-      TNormItem::fromDB(Qry);
-      return *this;
-    }
-
-    const TPaxNormComplex& toXML(xmlNodePtr node) const
-    {
-      TPaxNormItem::toXML(node);
-      TNormItem::toXML(node);
-      return *this;
-    }
-
-    std::string normStr(const std::string& lang) const
-    {
-      return TNormItem::str(lang);
-    }
-};
-
-typedef std::set<TPaxNormComplex> TPaxNormComplexContainer;
-typedef std::set<TPaxNormItem> TPaxNormItemContainer;
-
-bool PaxNormsFromDB(TDateTime part_key, int pax_id, TPaxNormComplexContainer &norms);
-bool GrpNormsFromDB(TDateTime part_key, int grp_id, TPaxNormComplexContainer &norms);
-void NormsToXML(const TPaxNormComplexContainer &norms, xmlNodePtr node);
-void PaxNormsToDB(int pax_id, const boost::optional< TPaxNormItemContainer > &norms);
-void GrpNormsToDB(int grp_id, const boost::optional< TPaxNormItemContainer > &norms);
+bool PaxNormsFromDB(TDateTime part_key, int pax_id, std::list< std::pair<TPaxNormItem, TNormItem> > &norms);
+bool GrpNormsFromDB(TDateTime part_key, int grp_id, std::list< std::pair<TPaxNormItem, TNormItem> > &norms);
+void NormsToXML(const std::list< std::pair<TPaxNormItem, TNormItem> > &norms, xmlNodePtr node);
+void PaxNormsToDB(int pax_id, const boost::optional< std::list<TPaxNormItem> > &norms);
+void GrpNormsToDB(int grp_id, const boost::optional< std::list<TPaxNormItem> > &norms);
+void ConvertNormsList(const std::list< std::pair<TPaxNormItem, TNormItem> > &norms,
+                      std::map< std::string/*bag_type_view*/, TNormItem> &result);
 
 class TPaidBagItem : public TBagTypeKey
 {
@@ -368,7 +296,7 @@ class TPaidBagItem : public TBagTypeKey
     double rate;
     std::string rate_cur;
     bool rate_trfer;
-    boost::optional<bool> handmade;
+    int handmade;
   TPaidBagItem()
   {
     clear();
@@ -381,7 +309,7 @@ class TPaidBagItem : public TBagTypeKey
     rate=ASTRA::NoExists;
     rate_cur.clear();
     rate_trfer=false;
-    handmade=boost::none;
+    handmade=ASTRA::NoExists;
   };
   bool operator == (const TPaidBagItem &item) const
   {
@@ -396,12 +324,12 @@ class TPaidBagItem : public TBagTypeKey
   TPaidBagItem& fromXML(xmlNodePtr node);
   const TPaidBagItem& toDB(TQuery &Qry) const;
   TPaidBagItem& fromDB(TQuery &Qry);
+  bool isRegularBagType() const { return bag_type==REGULAR_BAG_TYPE; }
+  const std::string& bag_type333() const { return bag_type; } //!!!vlad
   int priority() const;
   std::string bag_type_view(const std::string& lang="") const;
   bool paid_positive() const { return weight>0; }
 };
-
-std::ostream& operator<<(std::ostream& os, const TPaidBagItem&);
 
 class TPaidBagList : public std::list<TPaidBagItem>
 {

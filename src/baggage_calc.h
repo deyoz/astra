@@ -93,7 +93,6 @@ class TPaxInfo
     std::string final_target;
     std::string subcl;
     std::string cl;
-    CheckIn::TPaxTknItem tkn;
     TPaxInfo() { clear(); }
     void clear()
     {
@@ -102,7 +101,6 @@ class TPaxInfo
       final_target.clear();
       subcl.clear();
       cl.clear();
-      tkn.clear();
     }
     std::string traceStr() const
     {
@@ -120,8 +118,31 @@ class TPaxInfo
         << "cl=" << cl;
       return s.str();
     }
+};
 
-    boost::optional<TNormItem> etickNormFromDB() const;
+class TBagNormInfo : public TPaxNormItem, public TNormItem
+{
+  public:
+    static const int min_priority=100;
+    TBagNormInfo():
+      TPaxNormItem(),
+      TNormItem() {}
+    TBagNormInfo(const std::pair<TPaxNormItem, TNormItem> &norm):
+      TPaxNormItem(norm.first),
+      TNormItem(norm.second) {}
+    void clear()
+    {
+      TPaxNormItem::clear();
+      TNormItem::clear();
+    }
+
+    bool empty() const
+    {
+      return TPaxNormItem::empty() &&
+             TNormItem::empty();
+    }
+
+    int priority() const;
 };
 
 class TBagInfo : public CheckIn::TSimpleBagItem
@@ -163,11 +184,16 @@ class TAirlines : public std::set<std::string>
     const std::string single() const;
 };
 
-typedef std::list<TPaxNormComplex> AllPaxNormContainer;
+void CheckOrGetPaxBagNorm(const TNormFltInfo &flt,
+                          const TPaxInfo &pax,
+                          const bool only_category,
+                          const std::string &bag_type,
+                          const TPaxNormItem &norm,
+                          TBagNormInfo &result);
 
 void CalcPaidBagView(const TAirlines &airlines,
                      const TBagList &bag,
-                     const AllPaxNormContainer &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
+                     const std::list<TBagNormInfo> &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
                      const TPaidBagList &paid,
                      const CheckIn::TServicePaymentListWithAuto &payment,
                      const std::string &used_airline_mark,
@@ -194,8 +220,8 @@ void RecalcPaidBagToDB(const TAirlines &airlines,
 void RecalcPaidBag(const TTripInfo& flt,
                    const CheckIn::TSimplePaxGrpItem& grp,
                    const std::list< std::pair<int, CheckIn::TSimpleBagItem> >& additionalBaggage,
-                   TPaidBagList& prior_paid,
-                   TPaidBagList& result_paid);
+                   const TPaidBagList& prior_paid,
+                   TPaidBagList &result_paid);
 
 int test_norms(int argc,char **argv);
 

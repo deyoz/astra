@@ -361,6 +361,10 @@ struct TPNRInfo
 {
   std::map< int/*num*/, TPNRSegInfo > segs;
   std::set<TPaxInfo> paxs;
+  //дополнительно
+  int bag_norm;
+  TPNRInfo():
+    bag_norm(ASTRA::NoExists) {};
 
   void add(const TPaxInfo &pax);
   bool fromDBadditional(const TFlightInfo &flt, const TDestInfo &dest);

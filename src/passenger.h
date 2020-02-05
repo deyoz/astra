@@ -649,7 +649,7 @@ class TSimplePaxItem
     std::string getSeatNo(const std::string& fmt) const;
 
     bool getBaggageInHoldTotals(TBagTotals& totals) const;
-    boost::optional<WeightConcept::TPaxNormComplex> getRegularNorm() const;
+    boost::optional<WeightConcept::TNormItem> getRegularNorm() const;
     void getBaggageListForSBDO(TRFISCListWithProps &list) const;
     void getBaggageListForSBDO(TBagTypeList& list) const;
 
@@ -799,7 +799,7 @@ class TPaxListItem
           pax.refuse!=ASTRA::refuseAgentError;
     }
 
-    TPaxListItem& fromXML(xmlNodePtr paxNode, bool trfer_confirm);
+    TPaxListItem& fromXML(xmlNodePtr paxNode);
 
     void addFQT(const CheckIn::TPaxFQTItem &fqt);
     void checkFQTTierLevel();

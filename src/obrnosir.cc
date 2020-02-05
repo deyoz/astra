@@ -243,7 +243,7 @@ bool getDateRangeFromArgs(int argc, char **argv,
   firstDate=ASTRA::NoExists;
   lastDate=ASTRA::NoExists;
 
-  if(argc < 3) {
+  if(argc != 3) {
       cout << "usage: " << argv[0] << " yyyymmdd yyyymmdd" << endl;
       return false;
   }

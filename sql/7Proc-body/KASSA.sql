@@ -79,7 +79,7 @@ BEGIN
          first_date,bag_type,amount,weight,per_unit,norm_type,extra
   INTO   r.id,r.airline,r.pr_trfer,r.city_dep,r.city_arv,r.pax_cat,r.subclass,r.class,r.flt_no,r.craft,r.trip_type,
          r.first_date,r.bag_type,r.amount,r.weight,r.per_unit,r.norm_type,r.extra
-  FROM bag_norms WHERE id=vid AND pr_del=0 AND direct_action=0 FOR UPDATE;
+  FROM bag_norms WHERE id=vid AND pr_del=0 FOR UPDATE;
   add_bag_norm(r.id,r.airline,r.pr_trfer,r.city_dep,r.city_arv,r.pax_cat,r.subclass,r.class,r.flt_no,r.craft,r.trip_type,
                r.first_date,vlast_date,r.bag_type,r.amount,r.weight,r.per_unit,r.norm_type,r.extra,vtid,
                vsetting_user, vstation);
@@ -160,7 +160,7 @@ tidh    bag_norms.tid%TYPE;
 BEGIN
   now:=system.UTCSYSDATE;
   SELECT first_date,last_date INTO vfirst_date,vlast_date FROM bag_norms
-  WHERE id=vid AND pr_del=0 AND direct_action=0 FOR UPDATE;
+  WHERE id=vid AND pr_del=0 FOR UPDATE;
   IF vtid IS NULL THEN SELECT tid__seq.nextval INTO tidh FROM dual; ELSE tidh:=vtid; END IF;
   IF vlast_date IS NULL OR vlast_date>now THEN
     IF vfirst_date<now THEN
@@ -277,7 +277,7 @@ PROCEDURE copy_basic_bag_norm(vairline         bag_norms.airline%TYPE,
 IS
 CURSOR cur IS
   SELECT id,first_date,last_date FROM bag_norms
-  WHERE airline=vairline AND pr_del=0 AND direct_action=0 FOR UPDATE;
+  WHERE airline=vairline AND pr_del=0 FOR UPDATE;
 curRow  cur%ROWTYPE;
 now             DATE;
 tidh    bag_norms.tid%TYPE;
@@ -298,11 +298,11 @@ BEGIN
   END LOOP;
   SELECT id__seq.nextval INTO vid FROM dual;
   INSERT INTO bag_norms(id,airline,pr_trfer,city_dep,city_arv,pax_cat,subclass,class,flt_no,craft,trip_type,
-         first_date,last_date,bag_type,amount,weight,per_unit,norm_type,extra,pr_del,direct_action,tid)
+         first_date,last_date,bag_type,amount,weight,per_unit,norm_type,extra,pr_del,tid)
   SELECT vid,vairline,pr_trfer,city_dep,city_arv,pax_cat,subclass,class,flt_no,craft,trip_type,
          DECODE(SIGN(now-first_date),1,now,first_date),last_date,
-         bag_type,amount,weight,per_unit,norm_type,extra,pr_del,direct_action,tidh
-  FROM bag_norms WHERE airline IS NULL AND pr_del=0 AND direct_action=0 AND (last_date IS NULL OR last_date>now);
+         bag_type,amount,weight,per_unit,norm_type,extra,pr_del,tidh
+  FROM bag_norms WHERE airline IS NULL AND pr_del=0 AND (last_date IS NULL OR last_date>now);
   hist.synchronize_history('bag_norms',vid,vsetting_user,vstation);
 END copy_basic_bag_norm;
 
@@ -454,7 +454,7 @@ CURSOR cur IS
         (bag_type IS NULL AND vbag_type IS NULL OR bag_type=vbag_type) AND
         ( last_date IS NULL OR last_date>first) AND
         ( last IS NULL OR last>first_date) AND
-        pr_del=0 AND direct_action=0
+        pr_del=0
   FOR UPDATE;
 curRow  cur%ROWTYPE;
 idh     bag_norms.id%TYPE;
@@ -482,9 +482,9 @@ BEGIN
         ELSE
           SELECT id__seq.nextval INTO idh FROM dual;
           INSERT INTO bag_norms(id,airline,pr_trfer,city_dep,city_arv,pax_cat,subclass,class,flt_no,craft,trip_type,
-                                first_date,last_date,bag_type,amount,weight,per_unit,norm_type,extra,pr_del,direct_action,tid)
+                                first_date,last_date,bag_type,amount,weight,per_unit,norm_type,extra,pr_del,tid)
           SELECT idh,airline,pr_trfer,city_dep,city_arv,pax_cat,subclass,class,flt_no,craft,trip_type,
-                 curRow.first_date,first,bag_type,amount,weight,per_unit,norm_type,extra,0,0,tidh
+                 curRow.first_date,first,bag_type,amount,weight,per_unit,norm_type,extra,0,tidh
           FROM bag_norms WHERE id=curRow.id;
           hist.synchronize_history('bag_norms',idh,vsetting_user,vstation);
           idh:=NULL;
@@ -500,9 +500,9 @@ BEGIN
         ELSE
           SELECT id__seq.nextval INTO idh FROM dual;
           INSERT INTO bag_norms(id,airline,pr_trfer,city_dep,city_arv,pax_cat,subclass,class,flt_no,craft,trip_type,
-                                first_date,last_date,bag_type,amount,weight,per_unit,norm_type,extra,pr_del,direct_action,tid)
+                                first_date,last_date,bag_type,amount,weight,per_unit,norm_type,extra,pr_del,tid)
           SELECT idh,airline,pr_trfer,city_dep,city_arv,pax_cat,subclass,class,flt_no,craft,trip_type,
-                 last,curRow.last_date,bag_type,amount,weight,per_unit,norm_type,extra,0,0,tidh
+                 last,curRow.last_date,bag_type,amount,weight,per_unit,norm_type,extra,0,tidh
           FROM bag_norms WHERE id=curRow.id;
           hist.synchronize_history('bag_norms',idh,vsetting_user,vstation);
           idh:=NULL;
@@ -520,9 +520,9 @@ BEGIN
       /*новый отрезок [first,last) */
       SELECT id__seq.nextval INTO vid FROM dual;
       INSERT INTO bag_norms(id,airline,pr_trfer,city_dep,city_arv,pax_cat,subclass,class,flt_no,craft,trip_type,
-                            first_date,last_date,bag_type,amount,weight,per_unit,norm_type,extra,pr_del,direct_action,tid)
+                            first_date,last_date,bag_type,amount,weight,per_unit,norm_type,extra,pr_del,tid)
       VALUES(vid,vairline,vpr_trfer,vcity_dep,vcity_arv,vpax_cat,vsubclass,vclass,vflt_no,vcraft,vtrip_type,
-             first,last,vbag_type,vamount,vweight,vper_unit,vnorm_type,vextra,0,0,tidh);
+             first,last,vbag_type,vamount,vweight,vper_unit,vnorm_type,vextra,0,tidh);
       hist.synchronize_history('bag_norms',vid,vsetting_user,vstation);
     END IF;
   ELSE

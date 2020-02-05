@@ -1002,12 +1002,13 @@ static void CheckWeightConceptAllowance(const CheckIn::TSimplePaxItem& pax,
 {
   list< pair<int/*pax_id*/, CheckIn::TSimpleBagItem> > additionalBaggage;
   getAdditionalBagItems(pax, bag, additionalBaggage);
-  if (any_of(additionalBaggage.cbegin(),
-             additionalBaggage.cend(),
+  if (any_of(additionalBaggage.begin(),
+             additionalBaggage.end(),
              [](const auto& b){ return !b.second.wt; }))
     ZamarException(STR_INTERNAL_ERROR, "!b.second.wt", __func__);
 
   WeightConcept::TPaidBagList paidBefore, paidAfter;
+  PaidBagFromDB(NoExists, grp.id, paidBefore);
   WeightConcept::RecalcPaidBag(flt, grp, additionalBaggage, paidBefore, paidAfter);
   if (paidAfter.becamePaid(paidBefore))
     ZamarException(STR_SERVICES_BECAME_PAID, "", __func__);

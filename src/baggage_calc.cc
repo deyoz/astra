@@ -7,8 +7,6 @@
 #include "term_version.h"
 #include "baggage_wt.h"
 #include "etick.h"
-#include "obrnosir.h"
-#include <serverlib/algo.h>
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -18,33 +16,9 @@ using namespace std;
 using namespace ASTRA;
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
-using namespace BASIC::date_time;
 
 namespace WeightConcept
 {
-
-boost::optional<TNormItem> TPaxInfo::etickNormFromDB() const
-{
-  if (!tkn.validET()) return boost::none;
-
-  TETickItem etick;
-  if (etick.fromDB(tkn.no, tkn.coupon, TETickItem::Display, false).empty()) return boost::none;
-
-  if (etick.bag_norm_unit.get()!=Ticketing::Baggage::WeightKilo &&
-      etick.bag_norm_unit.get()!=Ticketing::Baggage::Nil) return boost::none;
-
-  TNormItem etickNorm;
-
-  if (etick.bag_norm!=ASTRA::NoExists && etick.bag_norm>0)
-  {
-    //норма известна и она не нулевая
-    etickNorm.norm_type=bntFreeExcess;
-    etickNorm.weight=etick.bag_norm;
-    etickNorm.per_unit=false;
-  }
-
-  return etickNorm;
-}
 
 class TBagNormFieldAmounts
 {
@@ -62,25 +36,14 @@ class TBagNormFilterSets
 {
   public:
     bool use_basic, is_trfer, only_category, check;
-    TBagTypeListKey bagTypeKey;
+    std::string bag_type;
     TBagNormFilterSets() : use_basic(false),
                            is_trfer(false),
                            only_category(false),
                            check(false) {}
 };
 
-class TNormWithPriorityInfo : public TNormItem
-{
-  public:
-    TNormWithPriorityInfo(const TNormItem& norm) : TNormItem(norm) {}
-    TNormWithPriorityInfo() {}
-    virtual ~TNormWithPriorityInfo() {}
-    virtual bool isRegularBagType() const = 0;
-
-    int getPriority() const;
-};
-
-int TNormWithPriorityInfo::getPriority() const
+int TBagNormInfo::priority() const
 {
   if (amount==NoExists &&
       weight==NoExists &&
@@ -154,13 +117,10 @@ int TNormWithPriorityInfo::getPriority() const
   return NoExists;
 }
 
-class TSuitableBagNormInfo;
-
-class TBagNormWideInfo : public TNormWithPriorityInfo
+class TBagNormWideInfo : public TBagNormInfo
 {
   public:
-    std::string bag_type222;
-    int norm_id;
+    static const int dissimilarity_cost=0;
     std::string airline, city_arv, pax_cat, subcl, cl, craft;
     int pr_trfer, flt_no;
     TBagNormWideInfo()
@@ -170,9 +130,7 @@ class TBagNormWideInfo : public TNormWithPriorityInfo
 
     void clear()
     {
-      TNormWithPriorityInfo::clear();
-      bag_type222.clear();
-      norm_id=ASTRA::NoExists;
+      TBagNormInfo::clear();
       airline.clear();
       city_arv.clear();
       pax_cat.clear();
@@ -184,27 +142,31 @@ class TBagNormWideInfo : public TNormWithPriorityInfo
     }
 
     TBagNormWideInfo& fromDB(TQuery &Qry);
-    boost::optional<TSuitableBagNormInfo> getSuitableBagNorm(const TPaxInfo &pax,
-                                                             const TBagNormFilterSets &filter,
-                                                             const TBagNormFieldAmounts &field_amounts) const;
-    static void addDirectActionNorm(const TNormItem& norm);
-    static boost::optional<TBagNormWideInfo> getDirectActionNorm(const TNormItem& norm);
+    int similarity_cost(const TPaxInfo &pax, const TBagNormFilterSets &filter, const TBagNormFieldAmounts &field_amounts) const;
 
     static const set<string>& strictly_limited_cats()
     {
-      static set<string> cats = {"CHC", "CHD", "INA", "INF"};
-      return cats;
+      static boost::optional< set<string> > cats;
+      if (!cats)
+      {
+        cats=set<string>();
+        cats.get().insert("CHC");
+        cats.get().insert("CHD");
+        cats.get().insert("INA");
+        cats.get().insert("INF");
+      };
+      return cats.get();
     }
-
-    bool isRegularBagType() const { return bag_type222==REGULAR_BAG_TYPE; }
 };
 
 TBagNormWideInfo& TBagNormWideInfo::fromDB(TQuery &Qry)
 {
   clear();
-  TNormWithPriorityInfo::fromDB(Qry);
   bag_type222=Qry.FieldAsString("bag_type");
   norm_id=Qry.FieldAsInteger("id");
+  //norm_trfer не заполняется на данном этапе!
+  //handmade не заполняется на данном этапе!
+  TNormItem::fromDB(Qry);
   airline=Qry.FieldAsString("airline");
   city_arv=Qry.FieldAsString("city_arv");
   pax_cat=Qry.FieldAsString("pax_cat");
@@ -218,112 +180,70 @@ TBagNormWideInfo& TBagNormWideInfo::fromDB(TQuery &Qry)
   return *this;
 }
 
-
-void TBagNormWideInfo::addDirectActionNorm(const TNormItem& norm)
+int TBagNormWideInfo::similarity_cost(const TPaxInfo &pax, const TBagNormFilterSets &filter, const TBagNormFieldAmounts &field_amounts) const
 {
-  static TDateTime firstDate=NoExists;
-  if (firstDate==NoExists) StrToDateTime("01.01.2020", "dd.mm.yyyy", firstDate);
-
-  TCachedQuery Qry("INSERT INTO bag_norms(id, first_date, norm_type, amount, weight, per_unit, pr_del, direct_action, tid ) "
-                   "VALUES(id__seq.nextval, :first_date, :norm_type, :amount, :weight, :per_unit, 0, 1, tid__seq.nextval)",
-                   QParams() << QParam("first_date", otDate, firstDate)
-                             << QParam("norm_type", otString)
-                             << QParam("amount", otInteger)
-                             << QParam("weight", otInteger)
-                             << QParam("per_unit", otInteger));
-  norm.toDB(Qry.get());
-  Qry.get().Execute();
-}
-
-boost::optional<TBagNormWideInfo> TBagNormWideInfo::getDirectActionNorm(const TNormItem& norm)
-{
-  if (norm.weight==NoExists)
-    throw Exception("%s: norm.weight==NoExists", __func__);
-
-  TCachedQuery Qry("SELECT * FROM bag_norms "
-                   "WHERE direct_action=:direct_action AND "
-                   "      norm_type=:norm_type AND "
-                   "      weight=:weight AND "
-                   "      (amount IS NULL AND :amount IS NULL OR amount=:amount) AND "
-                   "      (per_unit IS NULL AND :per_unit IS NULL OR per_unit=:per_unit) "
-                   "ORDER BY id",
-                   QParams() << QParam("direct_action", otInteger, (int)true)
-                             << QParam("norm_type", otString)
-                             << QParam("amount", otInteger)
-                             << QParam("weight", otInteger)
-                             << QParam("per_unit", otInteger));
-  norm.toDB(Qry.get());
-  Qry.get().Execute();
-  if (Qry.get().Eof) return boost::none;
-
-  return TBagNormWideInfo().fromDB(Qry.get());
-}
-
-class TSuitableBagNormInfo : public TBagNormWideInfo
-{
-  public:
-    int similarity_cost, priority;
-
-    TSuitableBagNormInfo(const TBagNormWideInfo& norm_,
-                         const int similarity_cost_) :
-      TBagNormWideInfo(norm_),
-      similarity_cost(similarity_cost_),
-      priority(norm_.getPriority()) {}
-
-    bool operator < (const TSuitableBagNormInfo &norm) const
-    {
-      if (similarity_cost!=norm.similarity_cost)
-        return similarity_cost<norm.similarity_cost;
-      if (priority!=norm.priority)
-        return priority>norm.priority;
-      return (amount!=NoExists && amount>=0?amount:1)*(weight!=NoExists && weight>=0?weight:1)<
-             (norm.amount!=NoExists && norm.amount>=0?norm.amount:1)*(norm.weight!=NoExists && norm.weight>=0?norm.weight:1);
-    }
-};
-
-boost::optional<TSuitableBagNormInfo> TBagNormWideInfo::getSuitableBagNorm(const TPaxInfo &pax, const TBagNormFilterSets &filter, const TBagNormFieldAmounts &field_amounts) const
-{
-  int cost=0;
-  if (filter.bagTypeKey.bag_type!=bag_type222) return boost::none;
+  int result=0;
+  if (filter.bag_type!=bag_type222) return NoExists;
 
   if ((filter.use_basic && !airline.empty()) ||
-      (!filter.use_basic && airline.empty())) return boost::none;
+      (!filter.use_basic && airline.empty())) return NoExists;
 
-  if ((filter.is_trfer?pax.final_target:pax.target).empty()) return boost::none;
-  if (pr_trfer!=NoExists && (filter.is_trfer?pr_trfer==0:pr_trfer!=0)) return boost::none;
+  if ((filter.is_trfer?pax.final_target:pax.target).empty()) return NoExists;
+  if (pr_trfer!=NoExists && (filter.is_trfer?pr_trfer==0:pr_trfer!=0)) return NoExists;
   if (!city_arv.empty())
   {
-    if ((filter.is_trfer?pax.final_target:pax.target)!=city_arv) return boost::none;
-    cost+=field_amounts.city_arv;
+    if ((filter.is_trfer?pax.final_target:pax.target)!=city_arv) return NoExists;
+    result+=field_amounts.city_arv;
   };
 
-  if (filter.only_category && pax.pax_cats.find(pax_cat)==pax.pax_cats.end()) return boost::none;
+  if (filter.only_category && pax.pax_cats.find(pax_cat)==pax.pax_cats.end()) return NoExists;
   if (!pax_cat.empty() &&
       (!filter.check || !pax.pax_cats.empty() || strictly_limited_cats().find(pax_cat)!=strictly_limited_cats().end()))
   {
-    if (pax.pax_cats.find(pax_cat)==pax.pax_cats.end()) return boost::none;
-    cost+=field_amounts.pax_cat;
+    if (pax.pax_cats.find(pax_cat)==pax.pax_cats.end()) return NoExists;
+    result+=field_amounts.pax_cat;
   };
   if (!subcl.empty())
   {
-    if (pax.subcl!=subcl) return boost::none;
-    cost+=field_amounts.subcl;
+    if (pax.subcl!=subcl) return NoExists;
+    result+=field_amounts.subcl;
   };
   if (!cl.empty())
   {
-    if (pax.cl!=cl) return boost::none;
-    cost+=field_amounts.cl;
+    if (pax.cl!=cl) return NoExists;
+    result+=field_amounts.cl;
   };
   if (flt_no!=NoExists)
-    cost+=field_amounts.flt_no;
+    result+=field_amounts.flt_no;
   if (!craft.empty())
-    cost+=field_amounts.craft;
-
-  TSuitableBagNormInfo result(*this, cost);
-  if (result.priority==NoExists) return boost::none; //норма введена неправильно
+    result+=field_amounts.craft;
 
   return result;
 }
+
+
+class TPaxBagNormTmp
+{
+  public:
+    int similarity_cost, priority;
+    TBagNormInfo norm;
+
+    TPaxBagNormTmp()
+    {
+      similarity_cost=TBagNormWideInfo::dissimilarity_cost;
+      priority=TBagNormInfo::min_priority;
+    }
+
+    bool operator < (const TPaxBagNormTmp &n) const
+    {
+      if (similarity_cost!=n.similarity_cost)
+        return similarity_cost<n.similarity_cost;
+      if (priority!=n.priority)
+        return priority>n.priority;
+      return (norm.amount!=NoExists && norm.amount>=0?norm.amount:1)*(norm.weight!=NoExists && norm.weight>=0?norm.weight:1)<
+             (n.norm.amount!=NoExists && n.norm.amount>=0?n.norm.amount:1)*(n.norm.weight!=NoExists && n.norm.weight>=0?n.norm.weight:1);
+    }
+};
 
 void LoadTripBagNorms(const TFltInfo &flt,
                       list<TBagNormWideInfo> &trip_bag_norms)
@@ -350,113 +270,43 @@ void LoadTripBagNorms(const TFltInfo &flt,
     trip_bag_norms.push_back(TBagNormWideInfo().fromDB(Qry.get()));
 }
 
-//результат функции означает надо ли далее получать result стандартным механизмом среди trip_bag_norms
-//true: result валидный - в trip_bag_norms не лезем
-bool getPaxEtickNorm(const TPaxInfo &pax,
-                     const TBagTypeListKey &bagTypeKey,
-                     const boost::optional<TPaxNormItem> &paxNorm,
-                     boost::optional<TPaxNormComplex> &result)
-{
-  result=boost::none;
-
-  if (!bagTypeKey.isRegular()) return false;
-
-  boost::optional<TNormItem> etickNorm=pax.etickNormFromDB();
-  if (!etickNorm) return false;
-
-  if (paxNorm)
-  {
-    if (!(paxNorm.get().key()==bagTypeKey))
-      throw Exception("%s: paxNorm.get().key()!=bagTypeKey", __func__);
-
-    TNormItem norm;
-    bool isDirectActionNorm;
-    if (paxNorm.get().normNotExists())
-    {
-      //считаем что отсутствующая норма прямого действия, если она не введена вручную
-      isDirectActionNorm=!paxNorm.get().isManuallyDeleted();
-    }
-    else
-    {
-      if (!norm.getByNormId(paxNorm.get().norm_id, isDirectActionNorm)) return true;
-    }
-
-    if (etickNorm.get()==norm)
-    {
-      //по сути нормы совпадают с нормами в билете
-      if (!isDirectActionNorm) return false; //проверяем стандартным механизмом среди trip_bag_norms
-      result=boost::in_place(paxNorm.get(), norm);
-    }
-    else
-    {
-      //по сути нормы не совпадают с нормами в билете
-      if (!isDirectActionNorm) return false; //проверяем стандартным механизмом среди trip_bag_norms - это при разрешении выбора нормы агентом
-    }
-    return true;
-  }
-
-  if (!etickNorm.get().isUnknown())
-  {
-    boost::optional<TBagNormWideInfo> bagNorm;
-    bagNorm=TBagNormWideInfo::getDirectActionNorm(etickNorm.get());
-    if (!bagNorm)
-    {
-      TBagNormWideInfo::addDirectActionNorm(etickNorm.get());
-      bagNorm=TBagNormWideInfo::getDirectActionNorm(etickNorm.get());
-    }
-
-    if (bagNorm)
-    {
-      TPaxNormItem newPaxNorm(bagTypeKey, bagNorm.get().norm_id, false);
-      result=boost::in_place(newPaxNorm, bagNorm.get());
-    }
-  }
-
-  return true;
-}
-
 void CheckOrGetPaxBagNorm(const list<TBagNormWideInfo> &trip_bag_norms,
                           const TPaxInfo &pax,
                           const bool use_mixed_norms,
                           const bool only_category,
-                          const TBagTypeListKey &bagTypeKey,
-                          const boost::optional<TPaxNormItem> &paxNorm,
-                          boost::optional<TPaxNormComplex> &result)
+                          const std::string &bag_type,
+                          const TPaxNormItem &norm,
+                          TBagNormInfo &result)
 {
-  result=boost::none;
-
-  if (getPaxEtickNorm(pax, bagTypeKey, paxNorm, result)) return;
-
-  if (paxNorm)
-  {
-    if (!(paxNorm.get().key()==bagTypeKey))
-      throw Exception("%s: paxNorm.get().key()!=bagTypeKey", __func__);
-    if (paxNorm.get().isManuallyDeleted())
-    {
-      result=boost::in_place(paxNorm.get(), TNormItem());
-      return;
-    }
-  }
-
+  result.clear();
   TBagNormFieldAmounts field_amounts;
   TBagNormFilterSets filter;
-  filter.use_basic=algo::none_of(trip_bag_norms, [](const TBagNormWideInfo& n) { return !n.airline.empty(); });
+  filter.use_basic=true;
   filter.only_category=only_category;
+  for(list<TBagNormWideInfo>::const_iterator n=trip_bag_norms.begin(); n!=trip_bag_norms.end(); ++n)
+   if (!n->airline.empty())
+   {
+     filter.use_basic=false; //есть хотя бы одна
+     break;
+   };
 
-  boost::optional<TSuitableBagNormInfo> curr, max;
-  filter.bagTypeKey=bagTypeKey;
+  TPaxBagNormTmp curr, max;
+  filter.bag_type=bag_type;
   filter.is_trfer=!pax.final_target.empty();
   for(;;filter.is_trfer=false)
   {
-    for(const TBagNormWideInfo& norm : trip_bag_norms)
+    for(list<TBagNormWideInfo>::const_iterator n=trip_bag_norms.begin(); n!=trip_bag_norms.end(); ++n)
     {
-      filter.check=(paxNorm &&
-                    paxNorm.get().bag_type==norm.bag_type222 &&
-                    paxNorm.get().norm_id==norm.norm_id &&
-                    paxNorm.get().norm_trfer==filter.is_trfer);
+      filter.check=(!norm.empty() &&
+                    norm.bag_type222==n->bag_type222 &&
+                    norm.norm_id==n->norm_id &&
+                    norm.norm_trfer==filter.is_trfer);
 
-      curr=norm.getSuitableBagNorm(pax, filter, field_amounts);
-      if (!curr) continue;
+      curr.similarity_cost=n->similarity_cost(pax, filter, field_amounts);
+      if (curr.similarity_cost==NoExists) continue; //норма ну никак не подходит
+      curr.priority=n->priority();
+      if (curr.priority==NoExists) continue; //норма введена неправильно
+      curr.norm=*n;
 
       if (filter.check)
       {
@@ -465,39 +315,41 @@ void CheckOrGetPaxBagNorm(const list<TBagNormWideInfo> &trip_bag_norms,
         break;
       }
 
-      if (!max || max.get()<curr.get()) max=curr;
+      if (max.norm.empty() || max<curr) max=curr;
     }
     if (!filter.is_trfer) break;
-    if (max || !use_mixed_norms) break; //выходим если мы подцепили трансферную норму
+    if (!max.norm.empty() || !use_mixed_norms) break; //выходим если мы подцепили трансферную норму
     //или мы ее не подцепили, но запрещено использовать в случае оформления трансфера нетрансферные нормы
   };
 
-  if (max)
+  if (!max.norm.empty())
   {
-    TPaxNormItem newPaxNorm(bagTypeKey, max.get().norm_id, filter.is_trfer);
-    if (paxNorm)
-    {
-      if (newPaxNorm.equal(paxNorm.get()))
-        result=boost::in_place(paxNorm.get(), max.get()); //это чтобы сохранить признак handmade из paxNorm
-    }
-    else
-      result=boost::in_place(newPaxNorm, max.get());
+    result=max.norm;
+    result.norm_trfer=filter.is_trfer;
   };
+}
+
+void CheckOrGetPaxBagNorm(const TNormFltInfo &flt,
+                          const TPaxInfo &pax,
+                          const bool only_category,
+                          const std::string &bag_type,
+                          const TPaxNormItem &norm,
+                          TBagNormInfo &result)
+{
+  list<TBagNormWideInfo> trip_bag_norms;
+  LoadTripBagNorms(flt, trip_bag_norms);
+  CheckOrGetPaxBagNorm(trip_bag_norms, pax, flt.use_mixed_norms, only_category, bag_type, norm, result);
 }
 
 enum TNormsTrferType { nttNone, nttNotTransfer, nttTransfer, nttMixed };
 
-class TNormWideItem : public TNormWithPriorityInfo
+class TNormWideItem : public TNormItem
 {
   public:
-    bool isRegular;
     int priority;
-    TNormWideItem(const TPaxNormComplex &norm):
-      TNormWithPriorityInfo(norm),
-      isRegular(norm.bag_type==REGULAR_BAG_TYPE),
-      priority(ASTRA::NoExists)
+    TNormWideItem(const TBagNormInfo &norm) : TNormItem(norm)
     {
-      priority=getPriority();
+      priority=norm.priority();
     }
     bool operator < (const TNormWideItem &item) const
     {
@@ -505,11 +357,10 @@ class TNormWideItem : public TNormWithPriorityInfo
         return priority>item.priority;
       return weight>item.weight;
     }
-    bool tryAddNorm(const TNormWideItem &norm);
-    bool isRegularBagType() const { return isRegular; }
+    bool TryAddNorm(const TNormWideItem &norm);
 };
 
-bool TNormWideItem::tryAddNorm(const TNormWideItem &norm)
+bool TNormWideItem::TryAddNorm(const TNormWideItem &norm)
 {
   if (priority==NoExists ||
       norm.priority==NoExists ||
@@ -605,21 +456,19 @@ class TPaidBagWideItem : public TPaidBagItem
       norms_trfer=nttNone;
       weight_calc=0;
     }
-    bool addNorm(const TPaxNormComplex &norm);
+    bool AddNorm(const TBagNormInfo &norm);
     std::string total_view() const;
     std::string paid_calc_view() const;
     std::string norms_view(const bool is_trfer,
                            const std::string& airline_mark,
                            const std::string& lang="") const;
     std::string norms_trfer_view(const std::string& lang="") const;
-
-    bool isRegularBagType() const { return bag_type==REGULAR_BAG_TYPE; }
 };
 
-bool TPaidBagWideItem::addNorm(const TPaxNormComplex &norm)
+bool TPaidBagWideItem::AddNorm(const TBagNormInfo &norm)
 {
-  if (!(key()==norm.key())) return false;
-  if (norm.normNotExists()) return false;
+  if (bag_type333()!=norm.bag_type222) return false;
+  if (norm.norm_type==bntUnknown) return false;
   TNormWideItem new_norm(norm);
   if (new_norm.priority==NoExists) return false;
   //считаем norms_trfer
@@ -633,7 +482,7 @@ bool TPaidBagWideItem::addNorm(const TPaxNormComplex &norm)
   //ищем подобие в norms
   list< TNormWideItem >::iterator n=norms.begin();
   for(; n!=norms.end(); ++n)
-    if (n->tryAddNorm(new_norm)) break;
+    if (n->TryAddNorm(new_norm)) break;
   if (n==norms.end())
     //не нашли с чем суммировать норму - добавляем в конец
     norms.push_back(new_norm);
@@ -714,16 +563,16 @@ class TPaidBagCalcItem : public TPaidBagWideItem
         bag_weight+=b->weight;
       };
       norm_per_unit=false;
-      norm_ordinary=!isRegular();
+      norm_ordinary=!isRegularBagType();
     }
-    bool addNorm(const TPaxNormComplex &norm);
+    bool AddNorm(const TBagNormInfo &norm);
 };
 
-bool TPaidBagCalcItem::addNorm(const TPaxNormComplex &norm)
+bool TPaidBagCalcItem::AddNorm(const TBagNormInfo &norm)
 {
   bool first_addition=norms.empty();
 
-  if (!TPaidBagWideItem::addNorm(norm)) return false;
+  if (!TPaidBagWideItem::AddNorm(norm)) return false;
 
   if ((norm.amount!=NoExists && norm.amount>0 &&
        norm.weight!=NoExists && norm.weight>0 &&
@@ -749,7 +598,7 @@ bool TPaidBagCalcItem::addNorm(const TPaxNormComplex &norm)
 }
 
 typedef std::map< TBagTypeListKey, std::list<TSimpleBagItem> > TSimpleBagMap;
-typedef std::map< TBagTypeListKey, TPaxNormItem > TPaxNormMap;
+typedef std::map< std::string/*bag_type*/, TPaxNormItem > TPaxNormMap;
 typedef std::map< TBagTypeListKey, TPaidBagItem > TPaidBagMap;
 typedef std::map< TBagTypeListKey, TPaidBagWideItem > TPaidBagWideMap;
 typedef std::map< TBagTypeListKey, TPaidBagCalcItem > TPaidBagCalcMap;
@@ -757,7 +606,7 @@ typedef std::map< TBagTypeListKey, TPaidBagCalcItem > TPaidBagCalcMap;
 //декларация расчета багажа - на выходе TPaidBagCalcItem - самая нижняя процедура
 void CalcPaidBagBase(const TAirlines &airlines,
                      const TBagList &bag,
-                     const AllPaxNormContainer &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
+                     const std::list<TBagNormInfo> &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
                      TPaidBagCalcMap &paid);
 
 enum TPrepareSimpleBagType1 { psbtOnlyTrfer, psbtOnlyNotTrfer, psbtTrferAndNotTrfer };
@@ -815,34 +664,63 @@ void TracePaidBagWide(const TPaidBagWideMap &paid, const string &where)
     s.str("");
     s << "weight_calc=" << (item.weight_calc==NoExists?"NoExists":IntToString(item.weight_calc)) << " "
       << "weight=" << (item.weight==NoExists?"NoExists":IntToString(item.weight)) << " "
-      << "handmade=" << (!item.handmade?"NoExists":IntToString(item.handmade.get()));
+      << "handmade=" << (item.handmade==NoExists?"NoExists":IntToString(item.handmade));
     ProgTrace(TRACE5, "%s: %s", where.c_str(), s.str().c_str());
   }
 }
 
-std::ostream& operator<<(std::ostream& os, const TPaxNormMap& norms)
+string NormsTraceStr(const std::list<TBagNormInfo> &norms)
 {
-  std::for_each(norms.cbegin(), norms.cend(), [&os](const auto& n) { os << n.second << "; "; });
-
-  return os;
-}
-
-std::ostream& operator<<(std::ostream& os, const TPaidBagMap &paid)
-{
-  std::for_each(paid.cbegin(), paid.cend(), [&os](const auto& p) { os << p.second << "; "; });
-
-  return os;
-}
-
-std::ostream& operator<<(std::ostream& os, const AllPaxNormContainer &norms)
-{
-  for(const TPaxNormComplex& n : norms)
+  ostringstream s;
+  for(list<TBagNormInfo>::const_iterator n=norms.begin(); n!=norms.end(); ++n)
   {
-    if (n.normNotExists()) continue;
-    os << n.normStr(LANG_EN) << "; ";
+    if (n!=norms.begin()) s << "; ";
+    s << n->str(AstraLocale::LANG_EN);
   }
+  return s.str();
+}
 
-  return os;
+string NormsTraceStr(const TPaxNormMap &norms)
+{
+  ostringstream s;
+  for(TPaxNormMap::const_iterator n=norms.begin(); n!=norms.end(); ++n)
+  {
+    if (n!=norms.begin()) s << "; ";
+    if (!n->second.bag_type222.empty())
+      s << n->second.bag_type222;
+    else
+      s << "--";
+    s << ": ";
+    if (n->second.norm_id!=ASTRA::NoExists)
+      s << n->second.norm_id;
+    else
+      s << "NULL";
+    s << "/" << (int)n->second.norm_trfer;
+    if (n->second.handmade!=0 && n->second.handmade!=NoExists)
+      s << "/hand";
+    if (n->second.handmade==0)
+      s << "/auto";
+  }
+  return s.str();
+}
+
+string PaidTraceStr(const TPaidBagMap &paid)
+{
+  ostringstream s;
+  for(TPaidBagMap::const_iterator p=paid.begin(); p!=paid.end(); ++p)
+  {
+    if (p!=paid.begin()) s << "; ";
+    s << p->second.key().str(LANG_EN) << ": " << p->second.weight;
+    if (p->second.rate_id!=ASTRA::NoExists)
+      s << "/" << p->second.rate_id;
+    else
+      s << "/NULL";
+    if (p->second.handmade!=0 && p->second.handmade!=NoExists)
+      s << "/hand";
+    if (p->second.handmade==0)
+      s << "/auto";
+  }
+  return s.str();
 }
 
 class TWidePaxInfo : public TPaxInfo
@@ -922,9 +800,9 @@ class TWidePaxInfo : public TPaxInfo
            "refused=" << refused << ", "
            "only_category=" << only_category();
       s << endl
-        << "prior_norms: " << prior_norms << endl
-        << "curr_norms: " << curr_norms << endl
-        << "result_norms: " << result_norms;
+        << "prior_norms: " << NormsTraceStr(prior_norms) << endl
+        << "curr_norms: " << NormsTraceStr(curr_norms) << endl
+        << "result_norms: " << NormsTraceStr(result_norms);
       return s.str();
     }
 };
@@ -956,49 +834,34 @@ const std::string TAirlines::single() const
   return *begin();
 }
 
-void convertNormsList(const TAirlines &airlines,
+void ConvertNormsList(const TAirlines &airlines,
                       const TBagList &bag,
-                      const std::list<TPaxNormItem> &norms,
-                      const bool isCurrent,
+                      const boost::optional< std::list<TPaxNormItem> > &norms,
                       TPaxNormMap &result)
-{
-  result.clear();
-
-  TSimpleBagMap not_trfer_bag_simple;
-  PrepareSimpleBag(bag, psbtOnlyNotTrfer, psbtRefusedAndNotRefused, not_trfer_bag_simple);
-  //всегда добавляем обычный багаж
-  not_trfer_bag_simple.emplace(RegularBagType(airlines.single()), std::list<TSimpleBagItem>());
-
-  for(const TPaxNormItem& n : norms)
-  {
-    if (isCurrent &&
-        not_trfer_bag_simple.find(n)==not_trfer_bag_simple.end()) continue; //отфильтровываем нормы
-
-    if (!result.emplace(n, n).second)
-      throw Exception("%s: %s already exists in result!", __FUNCTION__, n.key().str(LANG_EN));
-  };
-}
-
-void convertCurrentNormsList(const TAirlines &airlines,
-                             const TBagList &bag,
-                             const boost::optional< std::list<TPaxNormItem> > &norms,
-                             TPaxNormMap &result)
 {
   result.clear();
   if (!norms) return;
 
-  convertNormsList(airlines, bag, norms.get(), true, result);
+  TSimpleBagMap not_trfer_bag_simple;
+  PrepareSimpleBag(bag, psbtOnlyNotTrfer, psbtRefusedAndNotRefused, not_trfer_bag_simple);
+  //всегда добавляем обычный багаж
+  not_trfer_bag_simple.insert(make_pair(RegularBagType(airlines.single()), std::list<TSimpleBagItem>()));
+
+  for(std::list<TPaxNormItem>::const_iterator n=norms.get().begin(); n!=norms.get().end(); ++n)
+  {
+    if (not_trfer_bag_simple.find(TBagTypeListKey(n->bag_type222, airlines.single()))==not_trfer_bag_simple.end()) continue; //отфильтровываем нормы
+
+    if (!result.insert(make_pair(n->bag_type222, *n)).second) //!!!vlad
+      throw Exception("%s: n->bag_type='%s' already exists in result!", __FUNCTION__, n->bag_type222.c_str());
+  };
 }
 
-void convertPriorNormsList(const TAirlines &airlines,
-                           const TBagList &bag,
-                           const WeightConcept::TPaxNormComplexContainer &norms,
-                           TPaxNormMap &result)
+void ConvertNormsList(const TPaxNormMap &norms,
+                      std::list<TPaxNormItem> &result)
 {
-
-  const std::list<TPaxNormItem> tmp_norms=algo::transform<std::list>(norms,
-                                                                     [](const TPaxNormItem& n) { return n; });
-  convertNormsList(airlines, bag, tmp_norms, false, result);
+  result.clear();
+  for(TPaxNormMap::const_iterator n=norms.begin(); n!=norms.end(); ++n)
+    result.push_back(n->second);
 }
 
 void SyncHandmadeProp(const TPaxNormMap &src,
@@ -1007,12 +870,12 @@ void SyncHandmadeProp(const TPaxNormMap &src,
 {
   for(TPaxNormMap::iterator i=dest.begin(); i!=dest.end(); ++i)
   {
-    if (i->second.handmade) continue;
+    if (i->second.handmade!=NoExists) continue;
     TPaxNormMap::const_iterator j=src.find(i->first);
-    if (j!=src.end() && i->second.equal(j->second))
+    if (j!=src.end() && i->second==j->second)
       i->second.handmade=j->second.handmade;
     else
-      i->second.handmade=nvl;
+      i->second.handmade=(int)nvl;
   }
 }
 
@@ -1021,7 +884,7 @@ void SyncHandmadeProp(const TPaxNormMap &src,
 void RecalcPaidBagWide(const TAirlines &airlines,
                        const TBagList &prior_bag,
                        const TBagList &curr_bag,
-                       const AllPaxNormContainer &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
+                       const std::list<TBagNormInfo> &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
                        const TPaidBagList &prior_paid,
                        const TPaidBagList &curr_paid,
                        TPaidBagWideMap &paid_wide,
@@ -1045,8 +908,8 @@ void RecalcPaidBagWide(const TAirlines &airlines,
     for(TPaidBagCalcMap::iterator i=paid_calc.begin(); i!=paid_calc.end(); ++i)
     {
       TPaidBagCalcItem &item=i->second;
-      if ((pass==0 && item.isRegular()) ||
-          (pass!=0 && !item.isRegular())) continue; //обычный багаж всегда в последней итерации
+      if ((pass==0 && item.isRegularBagType()) ||
+          (pass!=0 && !item.isRegularBagType())) continue; //обычный багаж всегда в последней итерации
 
       multiset<TSimpleBagItem> prior_bag_sorted;
       TSimpleBagMap::const_iterator iPriorBag=prior_bag_simple.find(item);
@@ -1094,7 +957,7 @@ void RecalcPaidBagWide(const TAirlines &airlines,
           for(list<TSimpleBagItem>::const_iterator b=added_bag.begin(); b!=added_bag.end(); ++b)
             if (b->amount>1)
             {
-              if (!item.isRegular())
+              if (!item.isRegularBagType())
                 throw UserException("MSG.LUGGAGE.EACH_SEAT_SHOULD_WEIGHTED_SEPARATELY",
                                     LParams() << LParam("bagtype", item.key().str()));
               else
@@ -1133,20 +996,19 @@ void GetWidePaxInfo(const TAirlines &airlines,
     if (prior_paxs.empty())
     {
       //новая регистрация
-      for(const CheckIn::TPaxListItem& pCurr : curr_paxs)
+      for(CheckIn::TPaxList::const_iterator pCurr=curr_paxs.begin(); pCurr!=curr_paxs.end(); ++pCurr)
       {
         TWidePaxInfo pax;
         pax.target=target;
         pax.final_target=final_target;
-        pax.setCategory(true, pCurr, TPaxToLogInfo());
+        pax.setCategory(true, *pCurr, TPaxToLogInfo());
         pax.cl=grp.status!=psCrew?grp.cl:EncodeClass(Y);
-        pax.subcl=pCurr.pax.subcl;
-        pax.tkn=pCurr.pax.tkn;
-        pax.refused=!pCurr.pax.refuse.empty();
-        convertCurrentNormsList(airlines, curr_bag, pCurr.norms, pax.curr_norms);
+        pax.subcl=pCurr->pax.subcl;
+        pax.refused=!pCurr->pax.refuse.empty();
+        ConvertNormsList(airlines, curr_bag, pCurr->norms, pax.curr_norms);
 
-        int pax_id=pCurr.getExistingPaxIdOrSwear();
-        if (!paxs.emplace(pax_id, pax).second)
+        int pax_id=pCurr->getExistingPaxIdOrSwear();
+        if (!paxs.insert(make_pair(pax_id, pax)).second)
           throw Exception("%s: pax_id=%s already exists in paxs!", __FUNCTION__, pax_id);
         if (use_traces) ProgTrace(TRACE5, "%s: pax:%s", __FUNCTION__, pax.traceStr().c_str());
       };
@@ -1154,42 +1016,41 @@ void GetWidePaxInfo(const TAirlines &airlines,
     else
     {
       //запись изменений
-      for(const auto& i : prior_paxs)
+      for(map<TPaxToLogInfoKey, TPaxToLogInfo>::const_iterator pPrior=prior_paxs.begin(); pPrior!=prior_paxs.end(); ++pPrior)
       {
-        const TPaxToLogInfo& pPrior=i.second;
-        int paxIdPrior=i.first.pax_id;
-
         TWidePaxInfo pax;
         pax.target=target;
         pax.final_target=final_target;
-        pax.setCategory(false, CheckIn::TPaxListItem(), pPrior);
-        pax.cl=grp.status!=psCrew?pPrior.orig_cl:EncodeClass(Y);
-        pax.subcl=pPrior.subcl;
-        pax.tkn=pPrior.tkn;
-        pax.refused=!pPrior.refuse.empty();
-        convertPriorNormsList(airlines, curr_bag, pPrior.norms, pax.prior_norms);
+        pax.setCategory(false, CheckIn::TPaxListItem(), pPrior->second);
+        pax.cl=grp.status!=psCrew?pPrior->second.orig_cl:EncodeClass(Y);
+        pax.subcl=pPrior->second.subcl;
+        pax.refused=!pPrior->second.refuse.empty();
+        std::list<TPaxNormItem> tmp_norms;
+        for(std::list< std::pair<TPaxNormItem, TNormItem> >::const_iterator n=pPrior->second.norms.begin();
+                                                                                              n!=pPrior->second.norms.end(); ++n)
+          tmp_norms.push_back(n->first);
+        ConvertNormsList(airlines, curr_bag, tmp_norms, pax.prior_norms);
 
         CheckIn::TPaxList::const_iterator pCurr=curr_paxs.begin();
         for(; pCurr!=curr_paxs.end(); ++pCurr)
         {
           if (pCurr->pax.id==NoExists) throw Exception("%s: pCurr->pax.id==NoExists!", __FUNCTION__);
           if (pCurr->pax.tid==NoExists) throw Exception("%s: pCurr->pax.tid==NoExists!", __FUNCTION__);
-          if (pCurr->pax.id==paxIdPrior) break;
+          if (pCurr->pax.id==pPrior->first.pax_id) break;
         }
         if (pCurr!=curr_paxs.end())
         {
           //пассажир менялся
           if (pCurr->pax.PaxUpdatesPending)
           {
-            pax.setCategory(false, *pCurr, pPrior);
+            pax.setCategory(false, *pCurr, pPrior->second);
             pax.cl=grp.status!=psCrew?grp.cl:EncodeClass(Y);
             pax.subcl=pCurr->pax.subcl;
-            pax.tkn=pCurr->pax.tkn;
             pax.refused=!pCurr->pax.refuse.empty();
           };
-          convertCurrentNormsList(airlines, curr_bag, pCurr->norms, pax.curr_norms);
+          ConvertNormsList(airlines, curr_bag, pCurr->norms, pax.curr_norms);
 
-          if (!paxs.emplace(pCurr->pax.id, pax).second)
+          if (!paxs.insert(make_pair(pCurr->pax.id, pax)).second)
             throw Exception("%s: pCurr->pax.id=%s already exists in paxs!", __FUNCTION__, pCurr->pax.id);
           if (use_traces) ProgTrace(TRACE5, "%s: pax:%s", __FUNCTION__, pax.traceStr().c_str());
 
@@ -1197,8 +1058,8 @@ void GetWidePaxInfo(const TAirlines &airlines,
         else
         {
           //пассажир не менялся
-          if (!paxs.emplace(paxIdPrior, pax).second)
-            throw Exception("%s: paxIdPrior=%s already exists in paxs!", __FUNCTION__, pCurr->pax.id);
+          if (!paxs.insert(make_pair(pPrior->first.pax_id, pax)).second)
+            throw Exception("%s: pPrior->first.pax_id=%s already exists in paxs!", __FUNCTION__, pCurr->pax.id);
           if (use_traces) ProgTrace(TRACE5, "%s: pax:%s", __FUNCTION__, pax.traceStr().c_str());
         }
       };
@@ -1212,16 +1073,20 @@ void GetWidePaxInfo(const TAirlines &airlines,
     pax.final_target=final_target;
     pax.cl=grp.cl;
     pax.refused=!grp.bag_refuse.empty();
-    convertCurrentNormsList(airlines, curr_bag, grp.norms, pax.curr_norms);
+    ConvertNormsList(airlines, curr_bag, grp.norms, pax.curr_norms);
     if (!prior_paxs.empty())
     {
       //запись изменений несопровождаемого багажа
       if (prior_paxs.size()!=1)
         throw Exception("%s: prior_paxs.size()!=1!", __FUNCTION__);
 
-      convertPriorNormsList(airlines, curr_bag, prior_paxs.begin()->second.norms, pax.prior_norms);
+      std::list<TPaxNormItem> tmp_norms;
+      for(std::list< std::pair<TPaxNormItem, TNormItem> >::const_iterator n=prior_paxs.begin()->second.norms.begin();
+                                                                                            n!=prior_paxs.begin()->second.norms.end(); ++n)
+        tmp_norms.push_back(n->first);
+      ConvertNormsList(airlines, curr_bag, tmp_norms, pax.prior_norms);
     };
-    paxs.emplace(grp.id, pax);
+    paxs.insert(make_pair(grp.id, pax));
     if (use_traces) ProgTrace(TRACE5, "%s: unaccomp:%s", __FUNCTION__, pax.traceStr().c_str());
   };
 }
@@ -1237,14 +1102,14 @@ void CheckOrGetWidePaxNorms(const TAirlines &airlines,
                             bool pr_unaccomp,
                             bool use_traces,
                             map<int/*pax_id*/, TWidePaxInfo> &paxs,
-                            AllPaxNormContainer &all_norms)
+                            list<TBagNormInfo> &all_norms)
 {
   all_norms.clear();
 
   TSimpleBagMap not_trfer_bag_simple;
   PrepareSimpleBag(curr_bag, psbtOnlyNotTrfer, psbtRefusedAndNotRefused, not_trfer_bag_simple);
   //всегда добавляем обычный багаж
-  not_trfer_bag_simple.emplace(RegularBagType(airlines.single()), std::list<TSimpleBagItem>());
+  not_trfer_bag_simple.insert(make_pair(RegularBagType(airlines.single()), std::list<TSimpleBagItem>()));
 
   for(map<int/*pax_id*/, TWidePaxInfo>::iterator p=paxs.begin(); p!=paxs.end(); ++p)
   {
@@ -1254,30 +1119,46 @@ void CheckOrGetWidePaxNorms(const TAirlines &airlines,
 
     for(TSimpleBagMap::const_iterator i=not_trfer_bag_simple.begin(); i!=not_trfer_bag_simple.end(); ++i)
     {
+      TBagNormInfo result;
       const TBagTypeListKey& key=i->first;
-
-      boost::optional<TPaxNormComplex> result;
-      for(int pass=1; pass<=3 && !result; pass++)
+      try
       {
-        //1 проход: нормы с терминала
-        //2 проход: старые нормы
-        //3 проход: наиболее подходящая норма
-        boost::optional<TPaxNormItem> paxNorm;
-        if (pass==1 || pass==2)
+        for(int pass=0; pass<2; pass++)
         {
-          paxNorm=algo::find_opt<boost::optional>(pass==1?pax.curr_norms:pax.prior_norms, key);
-          if (!paxNorm) continue;
-        }
-
-        CheckOrGetPaxBagNorm(trip_bag_norms, pax, flt.use_mixed_norms, pax.only_category(), key, paxNorm, result);
+          //1 проход: новые нормы
+          //2 проход: старые нормы
+          TPaxNormMap &norms=pass==0?pax.curr_norms:pax.prior_norms;
+          TPaxNormMap::const_iterator n=norms.find(key.bag_type); //!!!vlad
+          if (n!=norms.end())
+          {
+            if (n->second.norm_id==NoExists && n->second.handmade!=NoExists && n->second.handmade!=0)
+            {
+              result.handmade=n->second.handmade;
+              throw 1;  //вручную удаленная норма
+            }
+            if (n->second.norm_id!=NoExists)
+            {
+              CheckOrGetPaxBagNorm(trip_bag_norms, pax, flt.use_mixed_norms, pax.only_category(), key.bag_type, n->second, result); //!!!vlad
+              if (!result.empty() && n->second==result)
+              {
+                result.handmade=n->second.handmade;
+                throw 1;
+              };
+            };
+          };
+        };
+        //3 проход: отсутствующие нормы
+        CheckOrGetPaxBagNorm(trip_bag_norms, pax, flt.use_mixed_norms, pax.only_category(), key.bag_type, TBagNormInfo(), result);
       }
+      catch(int) {};
 
-      if (!result)
-        result=boost::in_place(key, TNormItem());
-      pax.result_norms.emplace(result.get(), result.get());
+      if (result.empty()) result.bag_type222=key.bag_type;
+      pax.result_norms.insert(make_pair(key.bag_type, result));
       //здесь имеем сформированный result
-      if (!pax.refused) all_norms.push_back(result.get()); //добавляем нормы неразрегистрированных пассажиров
+      if (!pax.refused) all_norms.push_back(result); //добавляем нормы неразрегистрированных пассажиров
     };
+
+    SyncHandmadeProp(TPaxNormMap(), false, pax.result_norms);
 
     if (use_traces)
     {
@@ -1297,7 +1178,8 @@ static void normsToDB(bool pr_unaccomp,
     const TWidePaxInfo &pax=p->second;
     if (pax.prior_norms==pax.result_norms) continue;//не было изменения норм у пассжира
 
-    TPaxNormItemContainer norms=algo::transform<TPaxNormItemContainer>(pax.result_norms, [](const auto& n) { return n.second; });
+    std::list<TPaxNormItem> norms;
+    ConvertNormsList(pax.result_norms, norms);
     if (!pr_unaccomp)
       PaxNormsToDB(p->first, norms);
     else
@@ -1330,7 +1212,7 @@ static void RecalcPaidBag(const TAirlines &airlines,
   list<TBagNormWideInfo> trip_bag_norms;
   LoadTripBagNorms(flt, trip_bag_norms);
 
-  AllPaxNormContainer all_norms;
+  std::list<TBagNormInfo> all_norms;
   CheckOrGetWidePaxNorms(airlines, trip_bag_norms, curr_bag, flt, pr_unaccomp, use_traces, wide_paxs, all_norms);
 
   //собственно расчет платного багажа
@@ -1342,7 +1224,7 @@ static void RecalcPaidBag(const TAirlines &airlines,
     const TPaidBagWideItem &item=i->second;
     if (item.weight==NoExists)
     {
-      if (!item.isRegular())
+      if (!item.isRegularBagType())
         throw UserException("MSG.PAID_BAG.UNKNOWN_PAID_WEIGHT_BAG_TYPE",
                             LParams() << LParam("bagtype", item.key().str()));
       else
@@ -1402,10 +1284,9 @@ static void RecalcPaidBag(const TTripInfo& flt,
 void RecalcPaidBag(const TTripInfo& flt,
                    const CheckIn::TSimplePaxGrpItem& grp,
                    const std::list< std::pair<int, CheckIn::TSimpleBagItem> >& additionalBaggage,
-                   TPaidBagList& prior_paid,
-                   TPaidBagList& result_paid)
+                   const TPaidBagList& prior_paid,
+                   TPaidBagList &result_paid)
 {
-  PaidBagFromDB(NoExists, grp.id, prior_paid);
   map<int/*pax_id*/, TWidePaxInfo> wide_paxs;
   RecalcPaidBag(flt, grp, additionalBaggage, prior_paid, wide_paxs, result_paid);
 }
@@ -1448,8 +1329,6 @@ void RecalcPaidBagToDB(const TAirlines &airlines,
 //  point_id NUMBER(9) NOT NULL
 //);
 
-//CREATE UNIQUE INDEX drop_test_norm_processed__IDX ON drop_test_norm_processed(point_id);
-
 //CREATE TABLE drop_test_norm_errors
 //(
 //    point_id NUMBER(9) NOT NULL,
@@ -1463,56 +1342,9 @@ void RecalcPaidBagToDB(const TAirlines &airlines,
 
 int test_norms(int argc,char **argv)
 {
-  TDateTime firstDate, lastDate;
-
-  if (!getDateRangeFromArgs(argc, argv, firstDate, lastDate)) return 1;
-
-  enum TestType {TestAllNorms, TestMarkNorms, TestUnaccompNorms, TestPaid};
-
-  TestType testType=TestAllNorms;
-  if (argc>=4)
-  {
-    if (strcmp(argv[3], "mark")==0)  testType=TestMarkNorms;
-    if (strcmp(argv[3], "unacc")==0) testType=TestUnaccompNorms;
-    if (strcmp(argv[3], "paid")==0)  testType=TestPaid;
-  }
-
-  //читаем рейсы
-  TAdvTripInfoList flts;
-  {
-    ostringstream sql;
-    sql << "SELECT " << TAdvTripInfo::selectedFields()
-        << "FROM points "
-           "WHERE scd_out>=:first_date AND scd_out<:last_date "
-           "      AND EXISTS(SELECT 1 FROM pax_grp "
-           "                 WHERE pax_grp.point_dep=points.point_id AND "
-           "                       pax_grp.trfer_confirm<>0 AND pax_grp.piece_concept=0 AND rownum<2) "
-           "      AND NOT EXISTS(SELECT 1 FROM drop_test_norm_processed "
-           "                     WHERE drop_test_norm_processed.point_id=points.point_id) ";
-    if (testType==TestMarkNorms)
-      sql << " AND EXISTS(SELECT 1 FROM pax_grp "
-             "            WHERE pax_grp.point_dep=points.point_id AND "
-             "                  pax_grp.point_id_mark<>pax_grp.point_dep AND pax_grp.pr_mark_norms<>0 AND rownum<2) ";
-    if (testType==TestUnaccompNorms)
-      sql << " AND EXISTS(SELECT 1 FROM pax_grp "
-             "            WHERE pax_grp.point_dep=points.point_id AND "
-             "                  pax_grp.class IS NULL AND pax_grp.status<>'E' AND rownum<2) ";
-
-    TQuery Qry(&OraSession);
-    Qry.Clear();
-    Qry.SQLText=sql.str().c_str();
-    Qry.CreateVariable("first_date", otDate, firstDate);
-    Qry.CreateVariable("last_date", otDate, lastDate);
-    Qry.Execute();
-
-    for(; !Qry.Eof; Qry.Next())
-    {
-      if (!TAdvTripInfo::match(Qry, FlightProps(FlightProps::NotCancelled, FlightProps::WithCheckIn))) continue;
-      flts.emplace_back(Qry);
-    }
-  }
-
-  std::cout << "Total " << flts.size() << " flights" << std::endl << std::flush;
+  bool test_paid=false;
+  if (argc>=2 && strcmp(argv[1], "paid")==0)
+    test_paid=true;
 
   TReqInfo::Instance()->Initialize("МОВ");
   TReqInfo::Instance()->desk.lang=LANG_EN;
@@ -1521,111 +1353,94 @@ int test_norms(int argc,char **argv)
   TQuery GrpQry(&OraSession);
   GrpQry.Clear();
   ostringstream sql;
-  sql << "SELECT pax_grp.*, "
-         "       mark_trips.airline AS mark_airline, "
-         "       mark_trips.flt_no AS mark_flt_no, "
-         "       mark_trips.suffix AS mark_suffix,  "
-         "       mark_trips.scd AS mark_scd, "
-         "       mark_trips.airp_dep AS mark_airp_dep "
+  sql << "SELECT point_id, grp_id, airp_arv, class, status, bag_refuse, client_type, "
+         "       mark_trips.airline, mark_trips.flt_no, pr_mark_norms "
          "FROM pax_grp, mark_trips "
-         "WHERE pax_grp.point_id_mark=mark_trips.point_id AND point_dep=:point_id AND "
-         "      pax_grp.trfer_confirm<>0 AND pax_grp.piece_concept=0 ";
-  if (testType==TestMarkNorms)
-    sql << "      AND pax_grp.point_id_mark<>pax_grp.point_dep AND pax_grp.pr_mark_norms<>0 ";
-  if (testType==TestUnaccompNorms)
-    sql << "      AND pax_grp.class IS NULL AND pax_grp.status<>'E' ";
-  if (testType==TestPaid)
-    sql << "      AND EXISTS(SELECT 1 FROM bag2 WHERE grp_id=pax_grp.grp_id AND rownum<2) ";
-  sql << "ORDER BY mark_trips.airline, mark_trips.flt_no, pax_grp.pr_mark_norms";
+         "WHERE pax_grp.point_id_mark=mark_trips.point_id AND point_dep=:point_id ";
+  if (test_paid)
+    sql << "      AND EXISTS(SELECT * FROM bag2 WHERE grp_id=pax_grp.grp_id AND rownum<2) ";
+  sql << "ORDER BY mark_trips.airline, mark_trips.flt_no, pr_mark_norms";
 
   GrpQry.SQLText=sql.str().c_str();
   GrpQry.DeclareVariable("point_id", otInteger);
 
-  TQuery ProcessedQry(&OraSession);
-  ProcessedQry.Clear();
-  ProcessedQry.SQLText="DECLARE "
-                       "  PRAGMA AUTONOMOUS_TRANSACTION; "
-                       "BEGIN "
-                       "  INSERT INTO drop_test_norm_processed(point_id) VALUES(:point_id); "
-                       "  COMMIT; "
-                       "END; ";
-  ProcessedQry.DeclareVariable("point_id", otInteger);
+  TQuery Qry(&OraSession);
 
-  TQuery DeleteErrorsQry(&OraSession);
-  DeleteErrorsQry.Clear();
-  DeleteErrorsQry.SQLText="DECLARE "
-                          "  PRAGMA AUTONOMOUS_TRANSACTION; "
-                          "BEGIN "
-                          "  DELETE FROM drop_test_norm_errors WHERE point_id=:point_id; "
-                          "  COMMIT; "
-                          "END; ";
-  DeleteErrorsQry.DeclareVariable("point_id", otInteger);
+  set<int> processed_point_ids;
+  Qry.Clear();
+  Qry.SQLText="SELECT point_id FROM drop_test_norm_processed";
+  Qry.Execute();
+  for(; !Qry.Eof; Qry.Next()) processed_point_ids.insert(Qry.FieldAsInteger("point_id"));
 
-  TQuery InsertErrorsQry(&OraSession);
-  InsertErrorsQry.Clear();
-  InsertErrorsQry.SQLText="DECLARE "
-                          "  PRAGMA AUTONOMOUS_TRANSACTION; "
-                          "BEGIN "
-                          "  INSERT INTO drop_test_norm_errors(point_id, grp_id, pax_id, error, trace) "
-                          "  VALUES(:point_id, :grp_id, :pax_id, :error, :trace); "
-                          "  COMMIT; "
-                          "END; ";
-  InsertErrorsQry.DeclareVariable("point_id", otInteger);
-  InsertErrorsQry.DeclareVariable("grp_id", otInteger);
-  InsertErrorsQry.DeclareVariable("pax_id", otInteger);
-  InsertErrorsQry.DeclareVariable("error", otString);
-  InsertErrorsQry.DeclareVariable("trace", otString);
+  TQuery Qry2(&OraSession);
+  Qry2.Clear();
+  Qry2.SQLText="INSERT INTO drop_test_norm_processed(point_id) VALUES(:point_id)";
+  Qry2.DeclareVariable("point_id", otInteger);
 
-  TQuery EventsQry(&OraSession);
-  EventsQry.Clear();
-  EventsQry.SQLText=
+  TQuery Qry3(&OraSession);
+  Qry3.Clear();
+  Qry3.SQLText="DELETE FROM drop_test_norm_errors WHERE point_id=:point_id";
+  Qry3.DeclareVariable("point_id", otInteger);
+
+  TQuery Qry4(&OraSession);
+  Qry4.Clear();
+  Qry4.SQLText="INSERT INTO drop_test_norm_errors(point_id, grp_id, pax_id, error, trace) "
+               "VALUES(:point_id, :grp_id, :pax_id, :error, :trace)";
+  Qry4.DeclareVariable("point_id", otInteger);
+  Qry4.DeclareVariable("grp_id", otInteger);
+  Qry4.DeclareVariable("pax_id", otInteger);
+  Qry4.DeclareVariable("error", otString);
+  Qry4.DeclareVariable("trace", otString);
+
+  TQuery Qry5(&OraSession);
+  Qry5.Clear();
+  Qry5.SQLText=
     "SELECT msg FROM events_bilingual "
     "WHERE lang='RU' AND type='ПАС' AND id1=:point_id AND id3=:grp_id AND "
     "      msg like '%мест/вес/опл%' "
     "ORDER BY time DESC, ev_order DESC";
-  EventsQry.DeclareVariable("point_id", otInteger);
-  EventsQry.DeclareVariable("grp_id", otInteger);
+  Qry5.DeclareVariable("point_id", otInteger);
+  Qry5.DeclareVariable("grp_id", otInteger);
 
-
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT point_id, airline, flt_no, suffix, airp, scd_out "
+    "FROM points "
+    "WHERE scd_out>=TO_DATE('02.02.17','DD.MM.YY') AND scd_out<TO_DATE('16.02.17','DD.MM.YY') AND pr_reg=1";
+  Qry.Execute();
   list<TBagNormWideInfo> trip_bag_norms;
   TNormFltInfo prior;
-  int flightsProcessed=0;
-  int groupsProcessed=0;
+  int count=0;
   int incomplete_norms_count=0;
   int complete_norms_count=0;
-  for(const TAdvTripInfo& fltInfo : flts)
+  for(; !Qry.Eof; Qry.Next())
   {
-    ++flightsProcessed;
+    TNormFltInfo flt;
+    flt.point_id=Qry.FieldAsInteger("point_id");
 
-    GrpQry.SetVariable("point_id", fltInfo.point_id);
+    if (processed_point_ids.find(flt.point_id)!=processed_point_ids.end()) continue;
+
+    TTripInfo fltInfo(Qry);
+
+    flt.use_mixed_norms=GetTripSets(tsMixedNorms,fltInfo);
+
+    GrpQry.SetVariable("point_id", flt.point_id);
     GrpQry.Execute();
     if (GrpQry.Eof)
     {
-      ProcessedQry.SetVariable("point_id", fltInfo.point_id);
-      ProcessedQry.Execute();
+      Qry2.SetVariable("point_id", flt.point_id);
+      Qry2.Execute();
+      OraSession.Commit();
       continue;
     };
-    DeleteErrorsQry.SetVariable("point_id", fltInfo.point_id);
-    DeleteErrorsQry.Execute();
+    Qry3.SetVariable("point_id", flt.point_id);
+    Qry3.Execute();
     bool error_exists=false;
     for(; !GrpQry.Eof; GrpQry.Next())
     {
-      nosir_wait(flightsProcessed, false, 5, 0);
-
-      CheckIn::TPaxGrpItem grp;
-      static_cast<CheckIn::TSimplePaxGrpItem&>(grp).fromDB(GrpQry);
-
-      if (!(grp.trfer_confirm && !grp.baggage_pc)) continue;
-
-      ++groupsProcessed;
-
-      TGrpMktFlight grpMktFlight;
-      grpMktFlight.fromDB(GrpQry);
-
-      TAirlines airlines(grp.id, fltInfo, grpMktFlight, __func__);
-
-      TNormFltInfo flt(fltInfo, grpMktFlight);
-
+      flt.use_mark_flt=GrpQry.FieldAsInteger("pr_mark_norms")!=0;
+      flt.airline_mark=GrpQry.FieldAsString("airline");
+      flt.flt_no_mark=GrpQry.FieldAsInteger("flt_no");
       if (!(prior==flt))
       {
         LoadTripBagNorms(flt, trip_bag_norms);
@@ -1633,13 +1448,21 @@ int test_norms(int argc,char **argv)
         prior=flt;
       };
 
-      TGrpToLogInfo grpLogInfo;
-      GetGrpToLogInfo(grp.id, grpLogInfo);
+      CheckIn::TPaxGrpItem grp;
+      grp.id=GrpQry.FieldAsInteger("grp_id");
+      grp.airp_arv=GrpQry.FieldAsString("airp_arv");
+      grp.cl=GrpQry.FieldAsString("class");
+      grp.status=DecodePaxStatus(GrpQry.FieldAsString("status"));
+      grp.bag_refuse=GrpQry.FieldAsInteger("bag_refuse")!=0?refuseAgentError:"";
+      //TClientType client_type=DecodeClientType(GrpQry.FieldAsString("client_type"));
+      TAirlines airlines(GetCurrSegBagAirline(grp.id)); //test_norms - checked!
 
+      TGrpToLogInfo grpLogInfo;
       CheckIn::TTransferList trfer;
+      GetGrpToLogInfo(grp.id, grpLogInfo);
       trfer.load(grp.id);
 
-      if (testType!=TestPaid)
+      if (!test_paid)
       {
         TSimpleBagMap not_trfer_bag_simple;
         PrepareSimpleBag(TBagList(grpLogInfo.bag), psbtOnlyNotTrfer, psbtRefusedAndNotRefused, not_trfer_bag_simple);
@@ -1658,7 +1481,7 @@ int test_norms(int argc,char **argv)
         };
 
         set<int> error_ids;
-        AllPaxNormContainer all_norms;
+        list<TBagNormInfo> all_norms;
         for(int pass=0; pass<2; pass++)
         {
           //1 проход проверяет что все нормы которые привязаны на реальном сервере разрешены новым алгоритмом
@@ -1690,15 +1513,14 @@ int test_norms(int argc,char **argv)
             TPaxNormMap::const_iterator i2=pax.result_norms.begin();
             for(; i1!=pax.prior_norms.end() && i2!=pax.result_norms.end(); ++i1, ++i2)
             {
-              if (!(i1->first==i2->first) ||
-                  !(i1->second.key()==i2->second.key())) break;
-              if (pass==1 && i1->second.handmade && i1->second.handmade.get()) continue; //изначально нормы изенены вручную
-              if (i1->second.norm_id!=i2->second.norm_id) break;
+              if (i1->first!=i2->first ||
+                  i1->second.bag_type222!=i2->second.bag_type222 ||
+                  i1->second.norm_id!=i2->second.norm_id) break;
             };
             if (i1==pax.prior_norms.end() && i2==pax.result_norms.end()) continue;
 
-            if (/*client_type!=ctTerm &&*/ not_trfer_bag_simple.size()==1 && not_trfer_bag_simple.begin()->first.isRegular() &&
-                pax.prior_norms.empty() && pax.result_norms.size()==1 && pax.result_norms.begin()->first.isRegular()) continue;
+            if (/*client_type!=ctTerm &&*/ not_trfer_bag_simple.size()==1 && not_trfer_bag_simple.begin()->first==RegularBagType(airlines.single()) &&
+                pax.prior_norms.empty() && pax.result_norms.size()==1 && pax.result_norms.begin()->first==REGULAR_BAG_TYPE) continue;
 
             if (error_ids.find(p->first)!=error_ids.end()) continue;
 
@@ -1714,15 +1536,15 @@ int test_norms(int argc,char **argv)
             ProgError(STDLOG, "%s: %s", __FUNCTION__, error.str().c_str());
             ProgError(STDLOG, "%s: %s", __FUNCTION__, trace.str().c_str());
 
-            InsertErrorsQry.SetVariable("point_id", flt.point_id);
-            InsertErrorsQry.SetVariable("grp_id", grp.id);
+            Qry4.SetVariable("point_id", flt.point_id);
+            Qry4.SetVariable("grp_id", grp.id);
             if (!grp.is_unaccomp())
-              InsertErrorsQry.SetVariable("pax_id", p->first);
+              Qry4.SetVariable("pax_id", p->first);
             else
-              InsertErrorsQry.SetVariable("pax_id", FNull);
-            InsertErrorsQry.SetVariable("error", error.str());
-            InsertErrorsQry.SetVariable("trace", trace.str());
-            InsertErrorsQry.Execute();
+              Qry4.SetVariable("pax_id", FNull);
+            Qry4.SetVariable("error", error.str());
+            Qry4.SetVariable("trace", trace.str());
+            Qry4.Execute();
           }
         }
       }
@@ -1736,19 +1558,19 @@ int test_norms(int argc,char **argv)
           PaidBagFromDB(NoExists, grp.id, prior_paid);
 
           bool norms_incomplete=false;
-          AllPaxNormContainer all_norms;
+          std::list<TBagNormInfo> all_norms;
           for(std::map<TPaxToLogInfoKey, TPaxToLogInfo>::const_iterator p=grpLogInfo.pax.begin(); p!=grpLogInfo.pax.end(); ++p)
           {
             if (!p->second.refuse.empty()) continue;
             TPaxNormMap norms_map;
-            for(const TPaxNormComplex& n : p->second.norms)
+            for(list< pair<TPaxNormItem, TNormItem> >::const_iterator n=p->second.norms.begin(); n!=p->second.norms.end(); ++n)
             {
-              norms_map.emplace(n, n);
-              all_norms.push_back(n);
+              norms_map.insert(make_pair(n->first.bag_type222,n->first));
+              all_norms.push_back(TBagNormInfo(*n));
             };
             TSimpleBagMap::const_iterator b=bag_simple.begin();
             for(; b!=bag_simple.end(); ++b)
-              if (norms_map.find(b->first)==norms_map.end())
+              if (norms_map.find(b->first.bag_type)==norms_map.end())
               {
                 norms_incomplete=true;
                 break;
@@ -1771,14 +1593,14 @@ int test_norms(int argc,char **argv)
 
             if (sorted_prior_paid!=sorted_calc_paid)
             {
-              EventsQry.SetVariable("point_id", flt.point_id);
-              EventsQry.SetVariable("grp_id", grp.id);
-              EventsQry.Execute();
+              Qry5.SetVariable("point_id", flt.point_id);
+              Qry5.SetVariable("grp_id", grp.id);
+              Qry5.Execute();
               string msg;
               bool print_error=false;
-              if (!EventsQry.Eof)
+              if (!Qry5.Eof)
               {
-                msg=EventsQry.FieldAsString("msg");
+                msg=Qry5.FieldAsString("msg");
                 for(TPaidBagWideMap::const_iterator i=paid_wide.begin(); i!=paid_wide.end(); ++i)
                 {
                   ostringstream s;
@@ -1807,33 +1629,35 @@ int test_norms(int argc,char **argv)
                 ostringstream error;
                 ostringstream trace;
                 error << "different paid flight=" << GetTripName(fltInfo, ecNone, true, false ).c_str();
-                trace << "prior_paid: " << sorted_prior_paid << endl
-                      << "calc_paid: " << sorted_calc_paid;
+                trace << "prior_paid: " << PaidTraceStr(sorted_prior_paid) << endl
+                      << "calc_paid: " << PaidTraceStr(sorted_calc_paid);
                 ProgError(STDLOG, "%s: %s", __FUNCTION__, error.str().c_str());
                 ProgError(STDLOG, "%s: %s", __FUNCTION__, trace.str().c_str());
 
-                InsertErrorsQry.SetVariable("point_id", flt.point_id);
-                InsertErrorsQry.SetVariable("grp_id", grp.id);
-                InsertErrorsQry.SetVariable("pax_id", FNull);
-                InsertErrorsQry.SetVariable("error", error.str());
-                InsertErrorsQry.SetVariable("trace", trace.str());
-                InsertErrorsQry.Execute();
+                Qry4.SetVariable("point_id", flt.point_id);
+                Qry4.SetVariable("grp_id", grp.id);
+                Qry4.SetVariable("pax_id", FNull);
+                Qry4.SetVariable("error", error.str());
+                Qry4.SetVariable("trace", trace.str());
+                Qry4.Execute();
               };
             }
           }
           else incomplete_norms_count++;
         };
       };
+      OraSession.Commit();
       ProgTrace(TRACE5, "%s: completed norms: %d; uncompleted norms: %d", __FUNCTION__, complete_norms_count, incomplete_norms_count);
     }
     if (!error_exists)
     {
-      ProcessedQry.SetVariable("point_id", fltInfo.point_id);
-      ProcessedQry.Execute();
+      Qry2.SetVariable("point_id", flt.point_id);
+      Qry2.Execute();
     };
+    OraSession.Commit();
+    count++;
   }
-  std::cout << "Total " << groupsProcessed << " groups processed" << std::endl << std::flush;
-  ProgTrace(TRACE5, "%s: %d flights processed", __FUNCTION__, flightsProcessed);
+  ProgTrace(TRACE5, "%s: %d flights processed", __FUNCTION__, count);
   return 1;
 }
 
@@ -1841,7 +1665,7 @@ int test_norms(int argc,char **argv)
 //используется в PaidBagViewToXML
 void CalcPaidBagWide(const TAirlines &airlines,
                      const TBagList &bag,
-                     const AllPaxNormContainer &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
+                     const std::list<TBagNormInfo> &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
                      const TPaidBagList &paid,
                      TPaidBagWideMap &paid_wide)
 {
@@ -1869,7 +1693,7 @@ void CalcPaidBagWide(const TAirlines &airlines,
       };
   };
 
-  LogTrace(TRACE5) << __func__ <<  ": " << norms;
+  ProgTrace(TRACE5, "%s: %s", __FUNCTION__, NormsTraceStr(norms).c_str());
   TracePaidBagWide(paid_wide, __FUNCTION__);
 }
 
@@ -1899,7 +1723,7 @@ void CalcTrferBagWide(const TBagList &bag,
 //расчет багажа - на выходе TPaidBagCalcItem - самая нижняя процедура
 void CalcPaidBagBase(const TAirlines &airlines,
                      const TBagList &bag,
-                     const AllPaxNormContainer &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
+                     const std::list<TBagNormInfo> &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
                      TPaidBagCalcMap &paid)
 {
   //в платный багаж не попадает привязанный к разрегистрированным пассажирам
@@ -1917,11 +1741,11 @@ void CalcPaidBagBase(const TAirlines &airlines,
     paid.insert(make_pair(regularKey, TPaidBagCalcItem(regularKey, std::list<TSimpleBagItem>())));
 
   //сложим все нормы:
-  for(const TPaxNormComplex& n : norms)
+  for(list<TBagNormInfo>::const_iterator k=norms.begin(); k!=norms.end(); ++k)
   {
-    TPaidBagCalcMap::iterator i=paid.find(n);
+    TPaidBagCalcMap::iterator i=paid.find(TBagTypeListKey(k->bag_type222, airlines.single()));
     if (i==paid.end()) continue;
-    i->second.addNorm(n);
+    i->second.AddNorm(*k);
   };
 
   bool ordinaryUnknown=false;
@@ -1933,8 +1757,8 @@ void CalcPaidBagBase(const TAirlines &airlines,
     for(TPaidBagCalcMap::iterator i=paid.begin(); i!=paid.end(); ++i)
     {
       TPaidBagCalcItem &item=i->second;
-      if ((pass==0 && item.isRegular()) ||
-          (pass!=0 && !item.isRegular())) continue; //обычный багаж всегда в последней итерации
+      if ((pass==0 && item.isRegularBagType()) ||
+          (pass!=0 && !item.isRegularBagType())) continue; //обычный багаж всегда в последней итерации
 
       if (item.isRegularBagType() && ordinaryUnknown) item.weight_calc=NoExists;
       else
@@ -2341,7 +2165,7 @@ void CalcPaidBagBase(const TAirlines &airlines,
 
 void CalcPaidBagView(const TAirlines &airlines,
                      const TBagList &bag,
-                     const AllPaxNormContainer &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
+                     const std::list<TBagNormInfo> &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
                      const TPaidBagList &paid,
                      const CheckIn::TServicePaymentListWithAuto &payment,
                      const std::string &used_airline_mark,
@@ -2641,7 +2465,7 @@ std::string GetBagAirline(const TTripInfo &operFlt, const TTripInfo &markFlt, bo
 
 boost::optional<TBagTotals> getBagAllowance(const CheckIn::TSimplePaxItem& pax)
 {
-  boost::optional<TPaxNormComplex> res=pax.getRegularNorm();
+  boost::optional<TNormItem> res=pax.getRegularNorm();
   if (!res) return boost::none;
 
   const TNormItem& norm=res.get();
@@ -2664,12 +2488,11 @@ boost::optional<TBagTotals> calcBagAllowance(const CheckIn::TSimplePaxItem& pax,
   const auto p=paxs.find(pax.id);
   if (p==paxs.end()) return boost::none;
 
-  const auto n=algo::find_opt_if<boost::optional>(p->second.result_norms,
-                                                  [](const auto& n) { return n.second.isRegular(); });
-  if (!n || n.get().second.normNotExists()) return boost::none;
+  const auto n=p->second.result_norms.find(REGULAR_BAG_TYPE);
+  if (n==p->second.result_norms.end()) return boost::none;
 
   TNormItem norm;
-  norm.getByNormId(n.get().second.norm_id);
+  norm.getByNormId(n->second.norm_id);
 
   if (norm.norm_type==bntFreeExcess ||
       norm.norm_type==bntFreePaid)

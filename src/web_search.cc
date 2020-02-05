@@ -1503,6 +1503,32 @@ bool TPNRInfo::fromDBadditional(const TFlightInfo &flt, const TDestInfo &dest)
     throw EXCEPTIONS::Exception("TPNRInfo::fromDBadditional: empty segs");
   checkPnrData(flt, dest, segs.begin()->second, "TPNRInfo::fromDBadditional");
 
+  TTripInfo pnrMarkFlt;
+  segs.begin()->second.getMarkFlt(flt, pnrMarkFlt);
+  TCodeShareSets codeshareSets;
+  codeshareSets.get(flt.oper,pnrMarkFlt);
+
+  bag_norm = NoExists; //ничего не выводим в качестве нормы
+  if (!TTripSetList().fromDB(flt.oper.point_id).value(tsPieceConcept, true)) //не разрешаем расчет по кол-ву мест
+  {
+    WeightConcept::TNormFltInfo fltInfo;
+    fltInfo.point_id=flt.oper.point_id;
+    fltInfo.use_mark_flt=codeshareSets.pr_mark_norms;
+    fltInfo.airline_mark=pnrMarkFlt.airline;
+    fltInfo.flt_no_mark=pnrMarkFlt.flt_no;
+    fltInfo.use_mixed_norms=GetTripSets(tsMixedNorms,flt.oper);
+    WeightConcept::TPaxInfo paxInfo;
+    paxInfo.target=dest.city_arv;
+    paxInfo.final_target=""; //трансфер пока не анализируем
+    paxInfo.subcl=segs.begin()->second.orig_subcls;
+    paxInfo.cl=segs.begin()->second.orig_cls;
+
+    WeightConcept::TBagNormInfo norm;
+    WeightConcept::CheckOrGetPaxBagNorm(fltInfo, paxInfo, false, WeightConcept::REGULAR_BAG_TYPE, WeightConcept::TPaxNormItem(), norm); //обычный багаж
+    if (!norm.empty())
+      bag_norm=norm.weight;
+  };
+
   return true;
 };
 
@@ -1545,7 +1571,8 @@ void TPNRInfo::toXML(xmlNodePtr node, XMLStyle xmlStyle) const
 
   if (xmlStyle!=xmlSearchFltMulti)
   {
-    NewTextChild(node, "bag_norm"); //для совместимости с ранними версиями протокола
+    bag_norm==NoExists?NewTextChild(node, "bag_norm"):
+                       NewTextChild(node, "bag_norm", bag_norm);
   }
   else
   {

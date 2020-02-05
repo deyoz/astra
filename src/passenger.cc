@@ -12,7 +12,6 @@
 #include "astra_elem_utils.h"
 #include "apis_utils.h"
 #include "base_tables.h"
-#include <serverlib/algo.h>
 
 #include <regex>
 
@@ -1979,15 +1978,16 @@ bool TSimplePaxItem::getBaggageInHoldTotals(TBagTotals& totals) const
   return !Qry.get().Eof;
 }
 
-boost::optional<WeightConcept::TPaxNormComplex> TSimplePaxItem::getRegularNorm() const
+boost::optional<WeightConcept::TNormItem> TSimplePaxItem::getRegularNorm() const
 {
-  using namespace WeightConcept;
-
   if (id==ASTRA::NoExists) return boost::none;
 
-  TPaxNormComplexContainer norms;
+  std::list< std::pair<WeightConcept::TPaxNormItem, WeightConcept::TNormItem> > norms;
   PaxNormsFromDB(ASTRA::NoExists, id, norms);
-  return algo::find_opt_if<boost::optional>(norms, [](const TPaxNormComplex& n) { return n.isRegular(); });
+  for(const auto& norm : norms)
+    if (norm.first.isRegularBagType()) return norm.second;
+
+  return boost::none;
 }
 
 template<class T>
@@ -2062,7 +2062,7 @@ const TAPISItem& TAPISItem::toXML(xmlNodePtr node) const
   return *this;
 };
 
-TPaxListItem& TPaxListItem::fromXML(xmlNodePtr paxNode, bool trfer_confirm)
+TPaxListItem& TPaxListItem::fromXML(xmlNodePtr paxNode)
 {
   TReqInfo *reqInfo=TReqInfo::Instance();
 
@@ -2096,20 +2096,14 @@ TPaxListItem& TPaxListItem::fromXML(xmlNodePtr paxNode, bool trfer_confirm)
       checkFQTTierLevel();
     };
   };
-
-  if (trfer_confirm)
+  //нормы
+  xmlNodePtr normNode=GetNodeFast("norms",node2);
+  if (normNode!=NULL)
   {
-    //нормы
-    xmlNodePtr normNode=GetNodeFast("norms",node2);
-    if (normNode!=NULL)
-    {
-      norms=boost::in_place();
-      for(normNode=normNode->children; normNode!=NULL; normNode=normNode->next)
-        norms.get().push_back(WeightConcept::TPaxNormItem().fromXML(normNode));
-      for(WeightConcept::TPaxNormItem& n : norms.get())
-        n.getListKeyByPaxId(pax.id, 0, boost::none, "TPaxListItem::fromXML");
-    }
-  }
+    norms=list<WeightConcept::TPaxNormItem>();
+    for(normNode=normNode->children; normNode!=NULL; normNode=normNode->next)
+      norms.get().push_back(WeightConcept::TPaxNormItem().fromXML(normNode));
+  };
 
   return *this;
 };
@@ -2297,7 +2291,7 @@ const TPaxGrpItem& TPaxGrpItem::toXML(xmlNodePtr node) const
   TSimplePaxGrpItem::toXML(node);
 
   xmlNodePtr grpNode=node;
-  NewTextChild(grpNode, "show_ticket_norms", (int)true);
+  NewTextChild(grpNode, "show_ticket_norms", (int)pc);
   NewTextChild(grpNode, "show_wt_norms", (int)wt);
   return *this;
 };
@@ -2325,18 +2319,13 @@ bool TPaxGrpItem::fromXML(xmlNodePtr node)
   if (id==ASTRA::NoExists)
     status=DecodePaxStatus(NodeAsStringFast("status",node2));
 
-  if (trfer_confirm)
+  xmlNodePtr normNode=GetNodeFast("norms",node2);
+  if (normNode!=NULL)
   {
-    xmlNodePtr normNode=GetNodeFast("norms",node2);
-    if (normNode!=NULL)
-    {
-      norms=boost::in_place();
-      for(normNode=normNode->children; normNode!=NULL; normNode=normNode->next)
-        norms.get().push_back(WeightConcept::TPaxNormItem().fromXML(normNode));
-      for(WeightConcept::TPaxNormItem& n : norms.get())
-        n.getListKeyUnaccomp(grp_id, 0, boost::none, "TPaxGrpItem::fromXML");
-    }
-  }
+    norms=list<WeightConcept::TPaxNormItem>();
+    for(normNode=normNode->children; normNode!=NULL; normNode=normNode->next)
+      norms.get().push_back(WeightConcept::TPaxNormItem().fromXML(normNode));
+  };
   return true;
 };
 

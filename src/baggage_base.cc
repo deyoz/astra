@@ -251,7 +251,7 @@ TSimplePaxNormItem &TSimplePaxNormItem::fromSirenaXML(xmlNodePtr node)
     {
       concept=BagConcepts().decode(str);
     }
-    catch(const EConvertError&)
+    catch(EConvertError)
     {
       throw Exception("Unknown @type='%s'", str.c_str());
     };

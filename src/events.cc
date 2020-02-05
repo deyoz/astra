@@ -12,10 +12,9 @@
 #include "stat/stat_main.h"
 #include "sopp.h"
 #include "qrys.h"
-#include <serverlib/algo.h>
 
 #define NICKNAME "DJEK"
-#include <serverlib/slogger.h>
+#include "serverlib/test.h"
 
 using namespace std;
 using namespace BASIC::date_time;
@@ -251,16 +250,14 @@ void TPaxToLogInfo::getNorm(PrmEnum& param) const
     param.prms << PrmBool("", false);
     return;
   }
-  TNormItemMap::const_iterator n=norms_normal.begin();
+  std::map< std::string/*bag_type_view*/, WeightConcept::TNormItem>::const_iterator n=norms_normal.begin();
   for(;n!=norms_normal.end();++n)
   {
     if (n!=norms_normal.begin()) param.prms << PrmSmpl<string>("", ", ");
-    if (!n->first.bag_type.empty()) {
-      param.prms << PrmSmpl<string>("", n->first.bag_type+": ");
+    if (!n->first.empty()) {
+      param.prms << PrmSmpl<string>("", n->first+": ");
     }
-    n->second.first.GetNorms(param);
-    if (n->second.second)
-      param.prms << PrmSmpl<string>("","(") << PrmLexema("", "EVT.MANUAL_ABBR") << PrmSmpl<string>("",")");
+    n->second.GetNorms(param);
   };
 };
 
@@ -287,7 +284,7 @@ void TPaidToLogInfo::add(const CheckIn::TBagItem &item)
 void TPaidToLogInfo::add(const WeightConcept::TPaidBagItem& item)
 {
   TEventsSumBagKey key;
-  key.bag_type_view=item.bag_type;
+  key.bag_type_view=item.bag_type333();
   key.is_trfer=false;
   std::map<TEventsSumBagKey, TEventsSumBagItem>::iterator i=bag.find(key);
   if (i==bag.end())
@@ -550,11 +547,7 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
           WeightConcept::PaxNormsFromDB(NoExists, paxInfoKey.pax_id, paxInfo.norms);
         else
           WeightConcept::GrpNormsFromDB(NoExists, grp_id, paxInfo.norms);
-        for(const WeightConcept::TPaxNormComplex& n : paxInfo.norms)
-        {
-          if (n.normNotExists() && !n.isManuallyDeleted()) continue;
-          paxInfo.norms_normal.emplace(n, make_pair(n, n.handmade && n.handmade.get()));
-        }
+        WeightConcept::ConvertNormsList(paxInfo.norms, paxInfo.norms_normal);
       };
     };
 
@@ -1440,7 +1433,7 @@ bool GetAutoWeighing(int point_id, const string &work_mode)
         reqInfo->LocaleToLog("EVT.SET_LUGGAGE_AUTO_WEIGHTING_CONTROL",
                              LEvntPrms() << PrmSmpl<std::string>("desk", reqInfo->desk.code), ASTRA::evtFlt, point_id);
     }
-    catch(const EOracleError& E)
+    catch(EOracleError E)
     {
       if (E.Code!=1) throw;
     };
