@@ -536,6 +536,7 @@ enum TTripSetType { /*не привязанные к рейсу*/
                     tsShowTakeoffPassNotBrd=71,         //Выводить сообщение в СОПП о том, что есть не посаженные пассажира при проставлении факта вылета
                     tsDeniedBoardingJMP=80,             //Запрет посадки пассажиров JMP
                     tsChangeETStatusWhileBoarding=81,   //Изменение статуса ЭБ при посадке
+                    tsNotUseBagNormFromET=82,           //Не применять весовую норму из ЭБ
                     tsPayAtDesk=90,                     //Оплата на стойке регистрации
                     tsReseatOnRFISC=93,                 //сообщение при пересадке пассажира на место с разметкой RFISC
 
