@@ -156,7 +156,6 @@ void RunAnnulBTStat(
             QryParams << QParam("flt_no", otInteger, params.flt_no);
         }
         TCachedQuery Qry(SQLText, QryParams);
-        LogTrace(TRACE5) << Qry.get().SQLText.SQLText();
         Qry.get().Execute();
         if(not Qry.get().Eof) {
             int col_part_key = Qry.get().FieldIndex("part_key");
@@ -414,24 +413,24 @@ void createXMLAnnulBTStat(
 void TAnnulBTStatCombo::add_header(ostringstream &buf) const
 {
     buf
-        << "АК" << delim
-        << "АП" << delim
-        << "Рейс" << delim
-        << "Агент" << delim
-        << "Пассажир" << delim
-        << "№№ баг. бирок" << delim
-        << "От" << delim
-        << "До" << delim
-        << "БГ мест" << delim
-        << "БГ вес" << delim
-        << "Тип багажа/RFISC" << delim
-        << "Дата выпуска" << delim
-        << "Время выпуска" << delim
-        << "Дата удаления" << delim
-        << "Время удаления" << delim
-        << "Трфр" << delim
-        << "Рейс" << delim
-        << "Дата" << endl;
+        << getLocaleText("АК") << delim
+        << getLocaleText("АП") << delim
+        << getLocaleText("Рейс") << delim
+        << getLocaleText("Агент") << delim
+        << getLocaleText("Пассажир") << delim
+        << getLocaleText("№№ баг. бирок") << delim
+        << getLocaleText("От") << delim
+        << getLocaleText("До") << delim
+        << getLocaleText("БГ мест") << delim
+        << getLocaleText("БГ вес") << delim
+        << getLocaleText("Тип багажа/RFISC") << delim
+        << getLocaleText("Дата выпуска") << delim
+        << getLocaleText("Время выпуска") << delim
+        << getLocaleText("Дата удаления") << delim
+        << getLocaleText("Время удаления") << delim
+        << getLocaleText("Трфр") << delim
+        << getLocaleText("Рейс") << delim
+        << getLocaleText("Дата") << endl;
 }
 
 void TAnnulBTStatCombo::add_data(ostringstream &buf) const
@@ -446,7 +445,7 @@ void TAnnulBTStatCombo::add_data(ostringstream &buf) const
             << ElemIdToCodeNative(etSuffix, data.suffix);
     buf <<  oss1.str() << delim
         // Агент
-        <<  data.agent << delim
+        <<  transliter(data.agent, 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU) << delim
         // Пассажир
         <<  transliter(data.full_name, 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU) << delim
         // №№ баг. бирок
@@ -504,7 +503,7 @@ void TAnnulBTStatCombo::add_data(ostringstream &buf) const
 void RunAnnulBTStatFile(const TStatParams &params, TOrderStatWriter &writer, TPrintAirline &prn_airline)
 {
     TAnnulBTStat AnnulBTStat;
-    RunAnnulBTStat(params, AnnulBTStat, prn_airline, true);
+    RunAnnulBTStat(params, AnnulBTStat, prn_airline);
     for (std::list<TAnnulBTStatRow>::const_iterator i = AnnulBTStat.rows.begin(); i != AnnulBTStat.rows.end(); ++i)
         writer.insert(TAnnulBTStatCombo(*i));
 }

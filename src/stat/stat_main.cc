@@ -606,7 +606,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         {
             TPrintAirline airline;
             TAnnulBTStat AnnulBTStat;
-            RunAnnulBTStat(params, AnnulBTStat, airline, false);
+            RunAnnulBTStat(params, AnnulBTStat, airline);
             createXMLAnnulBTStat(params, AnnulBTStat, airline, resNode);
         }
         if(params.statType == statPFSFull)
