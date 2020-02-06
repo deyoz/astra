@@ -445,7 +445,7 @@ void TAnnulBTStatCombo::add_data(ostringstream &buf) const
             << ElemIdToCodeNative(etSuffix, data.suffix);
     buf <<  oss1.str() << delim
         // Агент
-        <<  transliter(data.agent, 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU) << delim
+        <<  data.agent << delim
         // Пассажир
         <<  transliter(data.full_name, 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU) << delim
         // №№ баг. бирок
