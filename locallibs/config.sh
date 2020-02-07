@@ -20,9 +20,9 @@ EOF
 CXXFLAGS="$EXTERNAL_CXXFLAGS $CXXFLAGS"
 
 if [ -n "$ORACLE_INSTANT" ]; then
-    WITH_ORACLE_PARAMS="--with-instant-client=yes --with-oracle-includes=$ORACLE_INSTANT/sdk/include --with-oracle-libraries=$ORACLE_INSTANT --with-oci-version=11G"
+    WITH_ORACLE_PARAMS="--with-instant-client=yes --with-oracle-includes=$ORACLE_INSTANT/sdk/include --with-oracle-libraries=$ORACLE_INSTANT --with-oci-version=${ORACLE_OCI_VERSION:-12G}"
 elif [ -n "$ORACLE_LIB" ] && [ -n "$ORACLE_INCLUDE" ]; then
-    WITH_ORACLE_PARAMS="--with-oracle-includes=$ORACLE_INCLUDE --with-oracle-libraries=$ORACLE_LIB --with-oci-version=12G"
+    WITH_ORACLE_PARAMS="--with-oracle-includes=$ORACLE_INCLUDE --with-oracle-libraries=$ORACLE_LIB --with-oci-version=${ORACLE_OCI_VERSION:-12G}"
 fi
 
 WITH_PARAMS="--silent"
