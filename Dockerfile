@@ -23,7 +23,7 @@ ENV BUILD_TESTS=1 \
         LOCALCFLAGS="-I /usr/include/oracle/19.5/client64" \
         NLS_LANG=AMERICAN_CIS.RU8PC866 \
         ORACLE_HOME=/usr/lib/oracle/19.5/client64 \
-        ORACLE_OCI_VERSION=12G
+        ORACLE_OCI_VERSION=12G \
         LD_LIBRARY_PATH=/usr/lib/oracle/19.5/client64/lib \
         LOCALCC=gcc-7 LOCALCXX=g++-7 \
         PG_HOST=${PG_HOST:-localhost} \ 
