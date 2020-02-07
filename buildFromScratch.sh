@@ -35,6 +35,8 @@ if which ccache; then
     if [ -z "$CCACHE_DIR" ]; then
         export CCACHE_DIR="/tmp/$(pwd | tr \/ _)"
     fi
+    [ -n ${ORACLE_HOME:+x} ] && export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${ORACLE_HOME}/lib"
+    [ -n ${ORACLE_INSTANT:+x} ] && export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${ORACLE_INSTANT}"
 
     CXX="ccache $CXX"
     CC="ccache $CC"
