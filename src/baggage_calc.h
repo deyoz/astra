@@ -43,6 +43,16 @@ class TFltInfo
           flt_no_mark==info.flt_no_mark &&
           use_mark_flt==info.use_mark_flt;
     }
+    bool operator < (const TFltInfo &info) const
+    {
+      if (point_id!=info.point_id)
+        return point_id<info.point_id;
+      if (airline_mark!=info.airline_mark)
+        return airline_mark<info.airline_mark;
+      if (flt_no_mark!=info.flt_no_mark)
+        return flt_no_mark<info.flt_no_mark;
+      return use_mark_flt<info.use_mark_flt;
+    }
     std::string traceStr() const
     {
       std::ostringstream s;
@@ -58,29 +68,35 @@ class TNormFltInfo : public TFltInfo
 {
   public:
     bool use_mixed_norms;
+    bool use_etick_norms;
     TNormFltInfo() { clear(); }
     TNormFltInfo(const TTripInfo& operFlight,
                  const TGrpMktFlight& grpMktFlight) :
       TFltInfo(operFlight.point_id, grpMktFlight)
     {
       use_mixed_norms=GetTripSets(tsMixedNorms, operFlight);
+      use_etick_norms=!GetTripSets(tsNotUseBagNormFromET, operFlight);
     }
 
     void clear()
     {
       TFltInfo::clear();
       use_mixed_norms=false;
+      use_etick_norms=true;
     }
     bool operator == (const TNormFltInfo &info) const
     {
       return TFltInfo::operator ==(info) &&
-          use_mixed_norms==info.use_mixed_norms;
+             use_mixed_norms==info.use_mixed_norms &&
+             use_etick_norms==info.use_etick_norms;
     }
     std::string traceStr() const
     {
       std::ostringstream s;
-      s << TFltInfo::traceStr() << ", "
-        << "use_mixed_norms=" << (use_mixed_norms?"true":"false");
+      s << std::boolalpha
+        << TFltInfo::traceStr()
+        << ", use_mixed_norms=" << use_mixed_norms
+        << ", use_etick_norms=" << use_etick_norms;
       return s.str();
     }
 };
