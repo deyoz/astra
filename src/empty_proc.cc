@@ -189,7 +189,7 @@ int season_to_schedules(int argc,char **argv)
   try {
 //    ConvertSeason( first_date, last_date );
   }
-  catch(EXCEPTIONS::Exception e){
+  catch(const EXCEPTIONS::Exception& e){
     ProgError( STDLOG,"EXCEPTIONS::Exception, what=%s", e.what() );
   }
   catch(...){
@@ -1734,12 +1734,12 @@ int pc_wt_stat(int argc,char **argv)
       if (!piece_concept)
       {
         int pax_id=Qry.FieldAsInteger("pax_id");
-        list< pair<WeightConcept::TPaxNormItem, WeightConcept::TNormItem> > norms;
+        WeightConcept::TPaxNormComplexContainer norms;
         WeightConcept::PaxNormsFromDB(NoExists, pax_id, norms);
-        for(list< pair<WeightConcept::TPaxNormItem, WeightConcept::TNormItem> >::const_iterator n=norms.begin(); n!=norms.end(); ++n)
+        for(const WeightConcept::TPaxNormComplex& n : norms)
         {
-          if (n->first.bag_type222!=WeightConcept::REGULAR_BAG_TYPE) continue;
-          pax_norm_view=n->second.str(AstraLocale::LANG_RU);
+          if (!n.isRegular()) continue;
+          pax_norm_view=n.normStr(AstraLocale::LANG_RU);
           break;
         };
 
