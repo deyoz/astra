@@ -73,69 +73,152 @@ struct httpParams:public std::map<std::string,std::string,ci_less>
   }
 };
 
+namespace EXCHANGE_TYPE {
+    static const std::string CREWCHECKIN    = "CREWCHECKIN";
+    static const std::string KIOSK_SERVER   = "KIOSK_SERVER";
+    static const std::string KIOSK          = "KIOSK";
+    static const std::string KUFSTAT        = "KUFSTAT";
+    static const std::string SBDO           = "SBDO";
+    static const std::string PAX_CTL        = "PAX_CTL";
+    static const std::string SINHRONSVO     = "SINHRONSVO";
+    static const std::string SPPUFA         = "SPPUFA";
+    static const std::string STSTAT         = "STSTAT";
+    static const std::string TLG_SRV        = "TLG_SRV";
+    static const std::string PIECE_CONCEPT  = "PIECE_CONCEPT";
+    static const std::string MOBILE_PAYMENT = "MOBILE_PAYMENT";
+    static const std::string HTML           = "HTML";
+}
+
 struct HTTPClient
 {
-  InetClient client_info;
-  std::string operation;
-  bool jxt_format;
-  std::string user_name;
-  std::string password;
-  std::string uri_path;
-  std::map<std::string, JxtInfo> jxt_interface;
-  httpParams uri_params;
+    private:
+        typedef std::map<std::string, JxtInfo> TOperationMap;
+        typedef std::map<std::string, TOperationMap> TExchangeTypeMap;
 
-  std::string toString();
-  std::string getQueryTagPropsString() const;
-  static std::pair<std::string::size_type, std::string::size_type>
-    findTag(const std::string& str,
-            std::string::size_type pos,
-            const std::string& tagName);
-  void toJXT( const ServerFramework::HTTP::request& req, std::string &header, std::string &body );
-  ServerFramework::HTTP::reply& fromJXT( std::string res, ServerFramework::HTTP::reply& rep );
-  HTTPClient() {
-    jxt_format = false;
-    jxt_interface["SaveSPP"] =              JxtInfo(SPP_SYNCH_JXT_INTERFACE_ID,     NULL);
-    jxt_interface["SaveUFASPP"] =           JxtInfo(SPP_SYNCH_JXT_INTERFACE_ID,     NULL);
-    jxt_interface["SaveSinhronSPP"] =       JxtInfo(SPP_SYNCH_JXT_INTERFACE_ID,     NULL);
-    jxt_interface["CREWCHECKIN"] =          JxtInfo(CHECKIN_JXT_INTERFACE_ID,       CrewPostProcessXMLAnswer);
-    jxt_interface["tlg_srv"] =              JxtInfo(TELEGRAM_JXT_INTERFACE_ID,      TlgPostProcessXMLAnswer);
-    jxt_interface["kick"] =                 JxtInfo(TELEGRAM_JXT_INTERFACE_ID,      TlgPostProcessXMLAnswer);
-    jxt_interface["kuf_file"] =             JxtInfo(TELEGRAM_JXT_INTERFACE_ID,      NULL);
-    jxt_interface["kuf_stat"] =             JxtInfo(TELEGRAM_JXT_INTERFACE_ID,      NULL);
-    jxt_interface["kuf_stat_flts"] =        JxtInfo(TELEGRAM_JXT_INTERFACE_ID,      NULL);
+        const TExchangeTypeMap jxt_interface {
+            {EXCHANGE_TYPE::CREWCHECKIN,
+                {
+                    {"CREWCHECKIN", JxtInfo(CHECKIN_JXT_INTERFACE_ID,   CrewPostProcessXMLAnswer)}
+                }
+            },{EXCHANGE_TYPE::KIOSK_SERVER,
+                {
+                    {"EventToServer", JxtInfo(KIOSK_REQUEST_JXT_INTERFACE_ID, NULL)},
+                    {"PingKiosk",     JxtInfo(KIOSK_REQUEST_JXT_INTERFACE_ID, NULL)}
+                }
+            },{EXCHANGE_TYPE::KIOSK,
+                {
+                    {"ViewCraftKiosk",  JxtInfo(KIOSK_REQUEST_JXT_INTERFACE_ID, NULL)},
+                    {"AppParamsKiosk",  JxtInfo(KIOSK_CONFIG_JXT_INTERFACE_ID,  NULL)},
+                    {"AppAliasesKiosk", JxtInfo(KIOSK_CONFIG_JXT_INTERFACE_ID,  NULL)}
+                }
+            },{EXCHANGE_TYPE::KUFSTAT,
+                {
+                    {"get_resource",  JxtInfo(HTML_JXT_INTERFACE_ID,      NULL)},
+                    {"kuf_file",      JxtInfo(TELEGRAM_JXT_INTERFACE_ID,  NULL)},
+                    {"kuf_stat_flts", JxtInfo(TELEGRAM_JXT_INTERFACE_ID,  NULL)},
+                    {"kuf_stat",      JxtInfo(TELEGRAM_JXT_INTERFACE_ID,  NULL)}
+                }
+            },{EXCHANGE_TYPE::SBDO,
+                {
+                    {"PassengerSearchSBDO",           JxtInfo(ZAMAR_SBDO_JXT_INTERFACE_ID,     ZamarPostProcessXMLAnswer)},
+                    {"PassengerBaggageTagAdd",        JxtInfo(ZAMAR_SBDO_JXT_INTERFACE_ID,     ZamarPostProcessXMLAnswer)},
+                    {"PassengerBaggageTagConfirm",    JxtInfo(ZAMAR_SBDO_JXT_INTERFACE_ID,     ZamarPostProcessXMLAnswer)},
+                    {"PassengerBaggageTagRevoke",     JxtInfo(ZAMAR_SBDO_JXT_INTERFACE_ID,     ZamarPostProcessXMLAnswer)}
+                }
+            },{EXCHANGE_TYPE::PAX_CTL,
+                {
+                    {"PassengerSearchPaxCtl",         JxtInfo(ZAMAR_PAXCTL_JXT_INTERFACE_ID,   ZamarPostProcessXMLAnswer)}
+                }
+            },{EXCHANGE_TYPE::SINHRONSVO,
+                {
+                    {"SaveSinhronSPP", JxtInfo(SPP_SYNCH_JXT_INTERFACE_ID, NULL)}
+                }
+            },{EXCHANGE_TYPE::PIECE_CONCEPT,
+                {
+                    {"piece_concept", JxtInfo(SVC_SIRENA_JXT_INTERFACE_ID,    NULL)}
+                }
+            },{EXCHANGE_TYPE::SPPUFA,
+                {
+                    {"SaveUFASPP", JxtInfo(SPP_SYNCH_JXT_INTERFACE_ID, NULL)}
+                }
+            },{EXCHANGE_TYPE::STSTAT,
+                {
+                    {"stat_srv", JxtInfo(STAT_JXT_INTERFACE_ID, NULL)}
+                }
+            },{EXCHANGE_TYPE::TLG_SRV,
+                {
+                    {"tlg_srv", JxtInfo(TELEGRAM_JXT_INTERFACE_ID,  TlgPostProcessXMLAnswer)},
+                    {"kick",    JxtInfo(TELEGRAM_JXT_INTERFACE_ID,  TlgPostProcessXMLAnswer)}
+                }
+            },{EXCHANGE_TYPE::MOBILE_PAYMENT,
+                {
+                    {"search_passengers",   JxtInfo(MOBILE_PAYMENT_JXT_INTERFACE_ID, nullptr)},
+                    {"search_flights",      JxtInfo(MOBILE_PAYMENT_JXT_INTERFACE_ID, nullptr)},
+                    {"get_client_perms",    JxtInfo(MOBILE_PAYMENT_JXT_INTERFACE_ID, nullptr)},
+                    {"get_passenger_info",  JxtInfo(MOBILE_PAYMENT_JXT_INTERFACE_ID, nullptr)}
+                }
+            },{EXCHANGE_TYPE::HTML,
+                {
+                    {"GetBPTags", JxtInfo(WEB_JXT_IFACE_ID,                 NULL)},
+                    // Запрос с одинаковым названием, но в разных классах
+                    // данная мэпа не подходит для такого случая
+                    // т.к. затирается обработчик
+                    // {"GetPrintDataBP", JxtInfo(PRINT_JXT_INTERFACE_ID,      NULL)},
+                    {"GetPrintDataBP", JxtInfo(WEB_JXT_IFACE_ID,            NULL)},
+                    {"GetGRPPrintDataBP", JxtInfo(PRINT_JXT_INTERFACE_ID,   NULL)},
+                    {"GetGRPPrintData", JxtInfo(PRINT_JXT_INTERFACE_ID,     NULL)},
+                    {"GetImg", JxtInfo(PRINT_JXT_INTERFACE_ID,              NULL)},
+                    {"GetPrintData", JxtInfo(PRINT_JXT_INTERFACE_ID,        NULL)},
+                    {"get_resource", JxtInfo(HTML_JXT_INTERFACE_ID,         NULL)},
+                    {"print_bp", JxtInfo(PRINT_JXT_INTERFACE_ID,            NULL)},
+                    {"print_bp2", JxtInfo(PRINT_JXT_INTERFACE_ID,           NULL)}
+                    // Не используются ?
+                    // {"SaveSPP", JxtInfo(SPP_SYNCH_JXT_INTERFACE_ID,         NULL)}
+                    // {"SearchFlt", JxtInfo(WEB_JXT_IFACE_ID,                 NULL)}
+                }
+            }
+        };
 
-    jxt_interface["PingKiosk"] =            JxtInfo(KIOSK_REQUEST_JXT_INTERFACE_ID, NULL);
-    jxt_interface["EventToServer"] =        JxtInfo(KIOSK_REQUEST_JXT_INTERFACE_ID, NULL);
-    jxt_interface["ViewCraftKiosk"] =       JxtInfo(KIOSK_REQUEST_JXT_INTERFACE_ID, NULL);
-    jxt_interface["AppParamsKiosk"] =       JxtInfo(KIOSK_CONFIG_JXT_INTERFACE_ID, NULL);
-    jxt_interface["AppAliasesKiosk"] =       JxtInfo(KIOSK_CONFIG_JXT_INTERFACE_ID, NULL);
+        InetClient client_info;
+        std::string operation;
+        bool jxt_format;
+        std::string exchange_type;
+        std::string user_name;
+        std::string password;
+        std::string uri_path;
+        httpParams uri_params;
 
-    jxt_interface["stat_srv"] =             JxtInfo(STAT_JXT_INTERFACE_ID,          NULL);
-    jxt_interface["piece_concept"] =        JxtInfo(SVC_SIRENA_JXT_INTERFACE_ID,    NULL);
-    jxt_interface["GetGRPPrintData"] =      JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
-    // Запрос с одинаковым названием, но в разных классах
-    // данная мэпа не подходит для такого случая
-    // т.к. затирается обработчик
-    // jxt_interface["GetPrintDataBP"] =       JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
-    jxt_interface["GetPrintDataBP"] =       JxtInfo(WEB_JXT_IFACE_ID,               NULL);
-    jxt_interface["SearchFlt"] =            JxtInfo(WEB_JXT_IFACE_ID,               NULL);
-    jxt_interface["GetBPTags"] =            JxtInfo(WEB_JXT_IFACE_ID,               NULL);
-    jxt_interface["GetGRPPrintDataBP"] =    JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
-    jxt_interface["GetPrintData"] =         JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
-    jxt_interface["GetImg"] =               JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
-    jxt_interface["get_resource"] =         JxtInfo(HTML_JXT_INTERFACE_ID,          NULL);
-    jxt_interface["print_bp"] =             JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
-    jxt_interface["print_bp2"] =            JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
-    jxt_interface["PassengerSearchPaxCtl"] =      JxtInfo(ZAMAR_PAXCTL_JXT_INTERFACE_ID,   ZamarPostProcessXMLAnswer);
-    jxt_interface["PassengerSearchSBDO"] =        JxtInfo(ZAMAR_SBDO_JXT_INTERFACE_ID,     ZamarPostProcessXMLAnswer);
-    jxt_interface["PassengerBaggageTagAdd"] =     JxtInfo(ZAMAR_SBDO_JXT_INTERFACE_ID,     ZamarPostProcessXMLAnswer);
-    jxt_interface["PassengerBaggageTagConfirm"] = JxtInfo(ZAMAR_SBDO_JXT_INTERFACE_ID,     ZamarPostProcessXMLAnswer);
-    jxt_interface["PassengerBaggageTagRevoke"] =  JxtInfo(ZAMAR_SBDO_JXT_INTERFACE_ID,     ZamarPostProcessXMLAnswer);
-    jxt_interface["search_passengers"] =    JxtInfo(MOBILE_PAYMENT_JXT_INTERFACE_ID,     nullptr);
-    jxt_interface["search_flights"] =       JxtInfo(MOBILE_PAYMENT_JXT_INTERFACE_ID,     nullptr);
-    jxt_interface["get_client_perms"] =     JxtInfo(MOBILE_PAYMENT_JXT_INTERFACE_ID,     nullptr);
-    jxt_interface["get_passenger_info"] =   JxtInfo(MOBILE_PAYMENT_JXT_INTERFACE_ID,     nullptr);
-  }
+        boost::optional<const JxtInfo &> get_jxt_info() const;
+        std::string getQueryTagPropsString() const;
+        static std::pair<std::string::size_type, std::string::size_type>
+            findTag(const std::string& str,
+                    std::string::size_type pos,
+                    const std::string& tagName);
+        void populate_client_from_uri(const std::string& uri);
+    public:
+        void clear()
+        {
+            client_info.clear();
+            operation.clear();
+            jxt_format = false;
+            exchange_type.clear();
+            user_name.clear();
+            password.clear();
+            uri_path.clear();
+            uri_params.clear();
+        }
+
+        HTTPClient() { clear(); }
+
+        void get(const ServerFramework::HTTP::request &req);
+        void InitLogTime() const;
+
+
+        std::string toString() const;
+        bool toJXT( const ServerFramework::HTTP::request& req, std::string &header, std::string &body );
+        ServerFramework::HTTP::reply& fromJXT( std::string res, ServerFramework::HTTP::reply& rep );
+        JxtInfo::TPostProc get_post_proc() const;
+
 };
 
 HTTPClient getHTTPClient(const ServerFramework::HTTP::request& req);
