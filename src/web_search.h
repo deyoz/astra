@@ -318,7 +318,7 @@ struct TPNRSegInfo : public TPNRSegId
   bool setIfSuitable(const TPNRFilter &filter,
                      const TAdvTripInfo& flt,
                      const CheckIn::TSimplePaxItem& pax);
-  bool fromTestPax(int point_id, const TTripRoute &route, const TTestPaxInfo &pax);
+  bool fromTestPax(int point_id, const TTripRoute &route, const std::string& airp_arv, const TTestPaxInfo &pax);
   void getMarkFlt(const TFlightInfo &flt, TTripInfo &mark) const;
   void toXML(xmlNodePtr node, XMLStyle xmlStyle) const;
 

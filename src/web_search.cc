@@ -79,6 +79,8 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr fltParentNode, xmlNodePtr paxParentNo
 
   flt_no = flt_no_fromXML(NodeAsStringFast("flt_no", node2, ""), cfNothingIfEmpty);
   suffix = suffix_fromXML(NodeAsStringFast("suffix", node2, ""));
+  airp_dep = airp_fromXML(NodeAsStringFast("airp_dep", node2, ""), cfNothingIfEmpty, __FUNCTION__, "airp_dep");
+  airp_arv = airp_fromXML(NodeAsStringFast("airp_arv", node2, ""), cfNothingIfEmpty, __FUNCTION__, "airp_arv");
 
   for(int pass=0; pass<3; pass++)
   {
@@ -934,14 +936,15 @@ std::string TPNRSegId::traceStr() const
   return s.str();
 }
 
-bool TPNRSegInfo::fromTestPax(int point_id, const TTripRoute &route, const TTestPaxInfo &pax)
+bool TPNRSegInfo::fromTestPax(int point_id, const TTripRoute &route, const std::string& airp_arv, const TTestPaxInfo &pax)
 {
   clear();
-  TTripRoute::const_iterator r=route.begin();
-  if (r==route.end()) return false;
+  boost::optional<TTripRouteItem> arv=airp_arv.empty()?route.getFirstAirp():
+                                                       route.findFirstAirp(airp_arv);
+  if (!arv) return false;
 
   point_dep=point_id;
-  point_arv=r->point_id;
+  point_arv=arv.get().point_id;
   pnr_id=pax.pax_id;
   try
   {
@@ -2135,11 +2138,7 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, bool ignore_reg_no)
     for(map< TFlightInfo, map<int, string> >::const_iterator iFlt=flights.begin(); iFlt!=flights.end(); ++iFlt)
     {
       TTripRoute route;
-      route.GetRouteAfter( NoExists,
-                           iFlt->first.oper.point_id,
-                           iFlt->first.oper.point_num,
-                           iFlt->first.oper.first_point,
-                           iFlt->first.oper.pr_tranzit,
+      route.GetRouteAfter( iFlt->first.oper,
                            trtNotCurrent,
                            trtNotCancelled );
 
@@ -2186,7 +2185,7 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, bool ignore_reg_no)
           };
 
           TPNRSegInfo seg;
-          if (!seg.fromTestPax(iFlt->first.oper.point_id, route, *p)) continue;
+          if (!seg.fromTestPax(iFlt->first.oper.point_id, route, filter.airp_arv, *p)) continue;
           TPaxInfo pax;
           if (!pax.fromTestPax(*p)) continue;
           PNRs.add(iFlt->first, seg, pax, true);
