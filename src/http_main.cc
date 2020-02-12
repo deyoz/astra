@@ -51,7 +51,7 @@ const std::string PASSWORD = "password";
 
 using namespace ServerFramework::HTTP;
 
-std::string HTTPClient::toString()
+std::string HTTPClient::toString() const
 {
   string res = "client_id: " + client_info.client_id + "," +
                "pult=" + client_info.pult + "," +
@@ -61,8 +61,11 @@ std::string HTTPClient::toString()
 
 std::string HTTPClient::getQueryTagPropsString() const
 {
-  auto i=jxt_interface.find(operation);
-  return " id='" + (i!=jxt_interface.end()?i->second.interface:"") + "' screen='AIR.EXE' opr='" + CP866toUTF8(client_info.opr) +"'";
+    string interface;
+    string opr = client_info.opr;
+    auto jxt_info = get_jxt_info();
+    if(jxt_info) interface = jxt_info->interface;
+    return " id='" + interface + "' screen='AIR.EXE' opr='" + CP866toUTF8(opr) +"'";
 }
 
 std::pair<string::size_type, string::size_type> HTTPClient::findTag(const std::string& str,
@@ -90,12 +93,12 @@ std::pair<string::size_type, string::size_type> HTTPClient::findTag(const std::s
   return make_pair(tagBegin, tagEnd);
 }
 
-void populate_client_from_uri(const string& uri, HTTPClient& client)
+void HTTPClient::populate_client_from_uri(const string& uri)
 {
     LogTrace(TRACE5) << "populate_client_from_uri incoming uri: '" << uri << "'";
-    if(client.uri_path.empty())
-        client.uri_path = uri.substr( 0, uri.find("?") );
-    ProgTrace( TRACE5, "%s: client.uri_path = %s", __FUNCTION__, client.uri_path.c_str() );
+    if(uri_path.empty())
+        uri_path = uri.substr( 0, uri.find("?") );
+    ProgTrace( TRACE5, "%s: client.uri_path = %s", __FUNCTION__, uri_path.c_str() );
     // after "?"
     std::string query = uri.substr( uri.find("?") + 1 );
     ProgTrace( TRACE5, "%s: query = %s", __FUNCTION__, query.c_str() );
@@ -107,85 +110,85 @@ void populate_client_from_uri(const string& uri, HTTPClient& client)
         std::vector<std::string> part_vec;
         boost::split(part_vec, *i_part, boost::is_any_of("="));
         if ( part_vec.size() == 2 and !part_vec[0].empty() and !part_vec[1].empty() ) {
-            client.uri_params[part_vec[0]] = part_vec[1];
+            uri_params[part_vec[0]] = part_vec[1];
         }
     }
-    if(not client.uri_params[CLIENT_ID].empty()) {
-        client.client_info = getInetClient(client.uri_params[CLIENT_ID]);
-        client.operation = client.uri_params[OPERATION];
-        if(client.operation.empty())
-            client.operation = "get_resource";
-        client.user_name = client.uri_params[LOGIN];
-        client.password = client.uri_params[PASSWORD];
+    if(not uri_params[CLIENT_ID].empty()) {
+        client_info = getInetClient(uri_params[CLIENT_ID]);
+        operation = uri_params[OPERATION];
+        if(operation.empty())
+            operation = "get_resource";
+        user_name = uri_params[LOGIN];
+        password = uri_params[PASSWORD];
     }
 }
 
-HTTPClient getHTTPClient(const request& req)
+void HTTPClient::get(const request& req)
 {
-  HTTPClient client;
   httpParams p; // без учета регистра
   p << req.headers;
   ProgTrace( TRACE5, "%s: %s", __FUNCTION__, p.trace().c_str() );
   if ( p.find( CLIENT_ID ) != p.end() ) {
-    client.client_info = getInetClient( p[CLIENT_ID] );
+    client_info = getInetClient( p[CLIENT_ID] );
   }
   if ( p.find( OPERATION ) != p.end() ) {
-    client.operation =  p[OPERATION];
+    operation =  p[OPERATION];
   }
   if ( p.find( AUTHORIZATION ) != p.end() && p[ AUTHORIZATION ].length() > 6 ) {
     string Authorization = p[ AUTHORIZATION ].substr( 6 );
     Authorization = StrUtils::b64_decode( Authorization );
     if ( Authorization.find( ":" ) != std::string::npos ) {
-      client.user_name = Authorization.substr( 0, Authorization.find( ":" ) );
-      client.password = Authorization.substr( Authorization.find( ":" ) + 1 );
+      user_name = Authorization.substr( 0, Authorization.find( ":" ) );
+      password = Authorization.substr( Authorization.find( ":" ) + 1 );
     }
   }
-  if (client.client_info.client_id.empty())
+  if (client_info.client_id.empty())
   {
     // Не удалось заполнить client из http headers
     // Пробуем из uri
     ProgTrace( TRACE5, "%s: empty client_id, trying to populate HTTPClient from URI", __FUNCTION__ );
-    populate_client_from_uri(req.uri, client);
-    if (client.client_info.client_id.empty()) {
+    populate_client_from_uri(req.uri);
+    if (client_info.client_id.empty()) {
         // Из uri не получилось
         // Пробуем из http header-а Referer
         if ( p.find( REFERER ) != p.end() ) {
-          populate_client_from_uri(p[REFERER], client);
+          populate_client_from_uri(p[REFERER]);
         }
     }
   }
-  if (client.client_info.client_id.empty()) { //запрос от киоска?
+  if (client_info.client_id.empty()) { //запрос от киоска?
      if ( p.find(KIOSKID) != p.end() ) {
         client.client_info = getInetClientByKioskId( p[KIOSKID] );
      }
   }
 
 
-  if (client.client_info.client_id.empty()) ProgError(STDLOG, "%s: empty client_id", __FUNCTION__);
+  if (client_info.client_id.empty()) ProgError(STDLOG, "%s: empty client_id", __FUNCTION__);
 
   TQuery Qry(&OraSession);
   Qry.SQLText =
-    "SELECT http_user, http_pswd "
+    "SELECT http_user, http_pswd, exchange_type "
     "FROM http_clients "
     "WHERE id=:client_id";
-  Qry.CreateVariable( "client_id", otString, client.client_info.client_id );
+  Qry.CreateVariable( "client_id", otString, client_info.client_id );
   Qry.Execute();
+  if(not Qry.Eof)
+      exchange_type = Qry.FieldAsString("exchange_type");
   if (Qry.Eof ||
-      client.user_name != Qry.FieldAsString( "http_user" ) ||
-      client.password != Qry.FieldAsString( "http_pswd" ))
+      user_name != Qry.FieldAsString( "http_user" ) ||
+      password != Qry.FieldAsString( "http_pswd" ))
   {
-  //ProgTrace(TRACE5, "%s=%s, %s=%s", client.user_name.c_str(), Qry.FieldAsString( "http_user" ), client.password.c_str(), Qry.FieldAsString( "http_pswd" ) );
-      client.client_info.opr.clear();
+  //ProgTrace(TRACE5, "%s=%s, %s=%s", user_name.c_str(), Qry.FieldAsString( "http_user" ), password.c_str(), Qry.FieldAsString( "http_pswd" ) );
+      client_info.opr.clear();
       ProgError(STDLOG, "%s: wrong authorization (client_id=%s)",
                 __FUNCTION__,
-                client.client_info.client_id.c_str());
+                client_info.client_id.c_str());
   }
-  if (client.operation.empty()) client.jxt_format = true;
-  ProgTrace( TRACE5, "%s: %s", __FUNCTION__, client.toString().c_str() );
-  return client;
+  jxt_format = operation.empty();
+  ProgTrace( TRACE5, "%s: %s", __FUNCTION__, toString().c_str() );
 }
 
-void HTTPClient::toJXT( const ServerFramework::HTTP::request& req, std::string &header, std::string &body )
+bool HTTPClient::toJXT( const ServerFramework::HTTP::request& req, std::string &header, std::string &body )
 {
   header.clear();
   body.clear();
@@ -253,7 +256,7 @@ void HTTPClient::toJXT( const ServerFramework::HTTP::request& req, std::string &
                      string("<term><query") + getQueryTagPropsString() + ">" +
                      http_header + "<content/>\n" );
              body += (string)"</" + operation + ">\n</query></term>";
-             // screeneng chars such as ampersand, may be encountered in content (& -> &amp;)
+             // screening chars such as ampersand, may be encountered in content (& -> &amp;)
              XMLDoc doc(body);
              if(not doc.docPtr())
                  throw Exception("toJXT wrong content");
@@ -271,7 +274,7 @@ void HTTPClient::toJXT( const ServerFramework::HTTP::request& req, std::string &
           queryPos.second==string::npos)
       {
         ProgTrace(TRACE1,"Unable to find <query> tag!");
-        return;
+        return true;
       }
 
       auto operationPos=findTag(body, queryPos.second, "");
@@ -279,7 +282,7 @@ void HTTPClient::toJXT( const ServerFramework::HTTP::request& req, std::string &
           operationPos.second==string::npos)
       {
         ProgTrace(TRACE1,"Unable to find operation tag!");
-        return;
+        return true;
       }
 
       operation=body.substr(operationPos.first, operationPos.second-operationPos.first);
@@ -287,11 +290,12 @@ void HTTPClient::toJXT( const ServerFramework::HTTP::request& req, std::string &
       if (operation=="kick")
       {
         operation.clear();
-        return;
+        return true;
       }
 
       body.insert(queryPos.second, getQueryTagPropsString());
   }
+  return get_jxt_info();
 }
 
 bool get_b64_prop(const string &val)
@@ -398,56 +402,65 @@ void save_http_client_headers(const request &req)
 
 void http_main(reply& rep, const request& req)
 {
-  try
-  {
     try
     {
-      HTTPClient client = getHTTPClient( req );
-      save_http_client_headers(req);
+        try
+        {
+            HTTPClient client;
+            client.get(req);
+            save_http_client_headers(req);
 
-      InitLogTime(client.client_info.pult.c_str());
+            client.InitLogTime();
 
-      char *res = 0;
-      int len = 0;
-      static ServerFramework::ApplicationCallbacks *ac=
-               ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks();
+            char *res = 0;
+            int len = 0;
+            static ServerFramework::ApplicationCallbacks *ac=
+                ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks();
 
-      string header, body;
-      client.toJXT( req, header, body );
-      ProgTrace( TRACE5, "body.size()=%zu, header.size()=%zu, len=%d", body.size(), header.size(), len );
-      /*!!!*/ProgTrace( TRACE5, "body=%s", body.c_str() );
+            string header, body;
+            if(client.toJXT( req, header, body )) {
+                ProgTrace( TRACE5, "body.size()=%zu, header.size()=%zu, len=%d", body.size(), header.size(), len );
+                /*!!!*/ProgTrace( TRACE5, "body=%s", body.c_str() );
 
-      AstraJxtCallbacks* astra_cb_ptr = dynamic_cast<AstraJxtCallbacks*>(jxtlib::JXTLib::Instance()->GetCallbacks());
-      astra_cb_ptr->SetPostProcessXMLAnswerCallback(client.jxt_interface[client.operation].post_proc);
+                AstraJxtCallbacks* astra_cb_ptr = dynamic_cast<AstraJxtCallbacks*>(jxtlib::JXTLib::Instance()->GetCallbacks());
+                astra_cb_ptr->SetPostProcessXMLAnswerCallback(client.get_post_proc());
 
-      int newlen=ac->jxt_proc((const char *)body.data(),body.size(),(const char *)header.data(),header.size(), &res, len);
-      ProgTrace( TRACE5, "newlen=%d, len=%d, header.size()=%zu", newlen, len, header.size() );
-      body = string( res + header.size(), newlen - header.size() );
-      client.fromJXT( body, rep );
-    }
-    catch(std::exception &e)
-    {
-      ProgError(STDLOG, "%s: exception: %s", __FUNCTION__, e.what());
-      throw;
+                int newlen=ac->jxt_proc((const char *)body.data(),body.size(),(const char *)header.data(),header.size(), &res, len);
+                ProgTrace( TRACE5, "newlen=%d, len=%d, header.size()=%zu", newlen, len, header.size() );
+                body = string( res + header.size(), newlen - header.size() );
+                client.fromJXT( body, rep );
+            } else {
+                rep.status = reply::forbidden;
+                rep.headers.resize(2);
+                rep.headers[0].name = "Content-Length";
+                rep.content = "FORBIDDEN!";
+                rep.headers[0].value = boost::lexical_cast<std::string>(rep.content.size());
+                rep.headers[1].name = "Content-Type";
+            }
+        }
+        catch(std::exception &e)
+        {
+            ProgError(STDLOG, "%s: exception: %s", __FUNCTION__, e.what());
+            throw;
+        }
+        catch(...)
+        {
+            ProgError(STDLOG, "%s: Unknown error", __FUNCTION__);
+            throw;
+        }
     }
     catch(...)
     {
-      ProgError(STDLOG, "%s: Unknown error", __FUNCTION__);
-      throw;
+        rep.status = reply::internal_server_error;
+        rep.headers.resize(2);
+        rep.headers[0].name = "Content-Length";
+        rep.content = "SERVER ERROR! CONTACT WITH DEVELOPERS";
+        rep.headers[0].value = boost::lexical_cast<std::string>(rep.content.size());
+        rep.headers[1].name = "Content-Type";
     }
-  }
-  catch(...)
-  {
-    rep.status = reply::internal_server_error;
-    rep.headers.resize(2);
-    rep.headers[0].name = "Content-Length";
-    rep.content = "SERVER ERROR! CONTACT WITH DEVELOPERS";
-    rep.headers[0].value = boost::lexical_cast<std::string>(rep.content.size());
-    rep.headers[1].name = "Content-Type";
-  }
-  LogTrace(TRACE5) << "http_main: finished uri = " << req.uri;
-  InitLogTime(NULL);
-  return;
+    LogTrace(TRACE5) << "http_main: finished uri = " << req.uri;
+    InitLogTime(NULL);
+    return;
 }
 
 void TlgPostProcessXMLAnswer()
@@ -533,6 +546,47 @@ void ZamarPostProcessXMLAnswer()
     };
     xmlFreeNode(errNode);
   }
+}
+
+boost::optional<const JxtInfo &> HTTPClient::get_jxt_info() const
+{
+    boost::optional<const JxtInfo &> result;
+    try {
+        result = jxt_interface.at(exchange_type).at(operation);
+    } catch(out_of_range &) {
+    }
+
+    // delete this block after testing
+    if(not result) {
+        LogTrace(TRACE5) << "HTTP FORBIDDEN: [" << exchange_type << "][" << operation << "] for " << client_info.client_id;
+        for(const auto &i_exchange_type: jxt_interface) {
+            for(const auto &i_operation: i_exchange_type.second)
+                if(i_operation.first == operation) {
+                    result = i_operation.second;
+                    break;
+                }
+            if(result) break;
+        }
+        if(not result) {
+            static const JxtInfo JxtInfoDummy;
+            result = JxtInfoDummy;
+        }
+    }
+
+    return result;
+}
+
+void HTTPClient::InitLogTime() const
+{
+    ::InitLogTime(client_info.pult.c_str());
+}
+
+JxtInfo::TPostProc HTTPClient::get_post_proc() const
+{
+    JxtInfo::TPostProc result = nullptr;
+    auto jxt_info = get_jxt_info();
+    if(jxt_info) result = jxt_info->post_proc;
+    return result;
 }
 
 } //end namespace AstraHTTP
