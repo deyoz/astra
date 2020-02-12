@@ -19,6 +19,7 @@
 #include "counters.h"
 #include "custom_alarms.h"
 #include "apis_creator.h"
+#include "apps_interaction.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -37,19 +38,22 @@ const AlarmTypesList &AlarmTypes()
 
 void checkAlarm(const TTripTaskKey &task)
 {
-  Alarm::Enum alarm=AlarmTypes().decode(task.params);
-  switch(alarm)
-  {
+    Alarm::Enum alarm=AlarmTypes().decode(task.params);
+    switch(alarm)
+    {
     case Alarm::APPSProblem:
-      check_apps_alarm(task.point_id);
-      break;
+        check_apps_alarm(task.point_id);
+        break;
     case Alarm::IAPIProblem:
-      check_iapi_alarm(task.point_id);
-      break;
+        check_iapi_alarm(task.point_id);
+        break;
+    case Alarm::APPSNotScdInTime:
+        check_apps_scd_alarm(task.point_id);
+        break;
     default:
       throw Exception("Unsupported");
       break;
-  }
+    }
 }
 
 void addTaskForCheckingAlarm(int point_id, Alarm::Enum alarm)
@@ -113,8 +117,10 @@ bool get_alarm( int point_id, Alarm::Enum alarm_type )
     return !Qry.Eof;
 }
 
+//set or delete
 void set_alarm( int point_id, Alarm::Enum alarm_type, bool alarm_value )
 {
+    LogTrace(TRACE5) << "point_id: " << point_id << " alarm_type: " << alarm_type << " alarm: " << (bool)(alarm_value);
     TQuery Qry(&OraSession);
     if(alarm_value)
         Qry.SQLText = "insert into trip_alarms(point_id, alarm_type) values(:point_id, :alarm_type)";
@@ -587,7 +593,7 @@ void check_apis_alarms(int point_id, const set<Alarm::Enum> &checked_alarms)
 
 };
 
-void check_unbound_emd_alarm( int point_id )
+void check_unbound_emd_alarm(int point_id)
 {
   bool emd_alarm = false;
   if ( CheckStageACT(point_id, sCloseCheckIn) )
@@ -597,22 +603,30 @@ void check_unbound_emd_alarm( int point_id )
 
 bool check_apps_alarm( int point_id )
 {
-  bool apps_alarm=existsAlarmByPointId(point_id,
+  bool apps_alarm = existsAlarmByPointId(point_id,
                                        {Alarm::APPSNegativeDirective,
                                         Alarm::APPSError,
                                         Alarm::APPSConflict},
                                        {paxCheckIn, paxPnl});
-  set_alarm( point_id, Alarm::APPSProblem, apps_alarm );
+  set_alarm(point_id, Alarm::APPSProblem, apps_alarm);
   return apps_alarm;
 }
 
-bool check_iapi_alarm( int point_id )
+bool check_iapi_alarm(int point_id)
 {
-  bool iapi_alarm=existsAlarmByPointId(point_id,
+  bool iapi_alarm = existsAlarmByPointId(point_id,
                                        {Alarm::IAPINegativeDirective},
                                        {paxCheckIn});
-  set_alarm( point_id, Alarm::IAPIProblem, iapi_alarm );
+  set_alarm(point_id, Alarm::IAPIProblem, iapi_alarm);
   return iapi_alarm;
+}
+
+bool check_apps_scd_alarm(int point_id)
+{
+    LogTrace(TRACE5) << __FUNCTION__ << " id: "<< point_id;
+    bool not_scd_time = APPS::checkNeedAlarmScdIn(point_id);
+    set_alarm(point_id, Alarm::APPSNotScdInTime, not_scd_time);
+    return not_scd_time;
 }
 
 void TTripAlarm::check()
@@ -631,6 +645,7 @@ void TTripAlarm::check()
       break;
     case Alarm::APPSProblem:
     case Alarm::IAPIProblem:
+    case Alarm::APPSNotScdInTime:
       addTaskForCheckingAlarm(id, type);
       break;
     default:
@@ -671,18 +686,24 @@ template <> void Simple<TTripAlarm>::run()
 
 template <> void Simple<TGrpAlarm>::run()
 {
-  p.check();
+    p.check();
 }
 
 template <> void Simple<TPaxAlarm>::run()
 {
-  p.check();
+    p.check();
 }
 }
 
 void TTripAlarmHook::set(Alarm::Enum _type, const int& _id)
 {
-  sethBefore(TSomeonesAlarmHook<TTripAlarm>(TTripAlarm(_type, _id)));
+    sethBefore(TSomeonesAlarmHook<TTripAlarm>(TTripAlarm(_type, _id)));
+}
+
+void TTripAlarmHook::setAlways(Alarm::Enum _type, const int& _id)
+{
+    LogTrace(TRACE5) << __FUNCTION__ << " id: "<< _id << " " <<_type;
+    sethAlways(TSomeonesAlarmHook<TTripAlarm>(TTripAlarm(_type, _id)));
 }
 
 void TGrpAlarmHook::set(Alarm::Enum _type, const int& _id)

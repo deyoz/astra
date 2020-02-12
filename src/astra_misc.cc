@@ -28,6 +28,78 @@ using namespace ASTRA::date_time;
 
 static boost::optional<int> getGrpIdByPaxId(const int pax_id);
 
+boost::optional<TTripInfo> getPointInfo(const int point_dep)
+{
+    LogTrace(TRACE5) << __FUNCTION__ << " point_dep: " << point_dep;
+    TTripInfo point_info;
+    if (!point_info.getByPointId(point_dep)) {
+        return boost::none;
+    }
+    return point_info;
+}
+
+void checkRouteSuffix(const TAdvTripRoute &route)
+{
+    if (!route.front().suffix_out.empty()) {
+        const TTripSuffixesRow &suffixRow = (const TTripSuffixesRow&)base_tables.get("trip_suffixes").get_row("code", route.front().suffix_out);
+        if (suffixRow.code_lat.empty()) {
+            throw Exception("suffixRow.code_lat empty (code=%s)",suffixRow.code.c_str());
+        }
+    }
+}
+
+TAdvTripRoute getTransitRoute(const TPaxSegmentPair& flight)
+{
+    TAdvTripRoute route;
+    LogTrace(TRACE5)<< __FUNCTION__ << " point: " << flight.point_dep << " airp_arv: "<< flight.airp_arv;
+    if(flight.airp_arv.empty()) {
+        route.GetRouteAfter(NoExists, flight.point_dep, trtWithCurrent, trtNotCancelled);
+    } else {
+        route.getRouteBetween(flight.point_dep, flight.airp_arv);
+    }
+    if(route.empty()) {
+        throw Exception("Empty route, point_id %d", flight.point_dep);
+    }
+    checkRouteSuffix(route);
+    return route;
+}
+
+std::vector<TPaxSegmentPair> transitSegs(const TAdvTripRoute& route)
+{
+    std::vector<TPaxSegmentPair> res;
+    if(route.size() < 2) {
+        LogTrace(TRACE5) << " Route can't be processed! Size TAdvTripRoute < 2";
+        return res;
+    }
+    int point_dep = route.front().point_id;
+    for(size_t i = 1; i < route.size(); i++) {
+        std::string airp_arv = route[i].airp;
+        res.emplace_back(point_dep, airp_arv);
+        point_dep = route[i].point_id;
+    }
+    return res;
+}
+
+std::vector<std::string> segAirps(const TPaxSegmentPair & flight)
+{
+    std::vector<std::string> res;
+    TAdvTripRoute route = getTransitRoute(flight);
+    for(const auto &item : route) {
+        res.push_back(item.airp);
+    }
+    return res;
+}
+
+std::vector<int> segPoints(const TPaxSegmentPair & flight)
+{
+    std::vector<int> res;
+    TAdvTripRoute route = getTransitRoute(flight);
+    for(const auto &item : route) {
+        res.push_back(item.point_id);
+    }
+    return res;
+}
+
 bool TTripInfo::getByPointId ( const TDateTime part_key,
                                const int point_id,
                                const FlightProps &props )

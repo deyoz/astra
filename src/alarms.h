@@ -37,6 +37,7 @@ class Alarm
       APPSConflict,
       APPSNegativeDirective,
       APPSError,
+      APPSNotScdInTime,
       IAPIProblem,
       IAPINegativeDirective,
       WBDifferLayout,
@@ -77,6 +78,7 @@ class Alarm
         {APPSConflict,           "APPS_CONFLICT"            },
         {APPSNegativeDirective,  "APPS_NEGATIVE_DIRECTIVE"  },
         {APPSError,              "APPS_ERROR"               },
+        {APPSNotScdInTime,       "APPS_NOT_SCD_IN_TIME"     },
         {IAPIProblem,            "IAPI_PROBLEM"             },
         {IAPINegativeDirective,  "IAPI_NEGATIVE_DIRECTIVE"  },
         {WBDifferLayout,         "WB_DIFF_LAYOUT"           },
@@ -128,8 +130,9 @@ void check_crew_alarms(int point_id);
 void check_crew_alarms_task(const TTripTaskKey &task);
 void check_apis_alarms(int point_id);
 void check_apis_alarms(int point_id, const std::set<Alarm::Enum> &checked_alarms);
-bool check_apps_alarm( int point_id );
-bool check_iapi_alarm( int point_id );
+bool check_apps_alarm(int point_id);
+bool check_iapi_alarm(int point_id);
+bool check_apps_scd_alarm(int point_id);
 
 template<typename T>
 class TSomeonesAlarm
@@ -184,6 +187,7 @@ class TTripAlarmHook : public TSomeonesAlarmHook<TTripAlarm>
 {
   public:
     static void set(Alarm::Enum _type, const int& _id);
+    static void setAlways(Alarm::Enum _type, const int& _id);
 };
 
 class TGrpAlarmHook : public TSomeonesAlarmHook<TGrpAlarm>

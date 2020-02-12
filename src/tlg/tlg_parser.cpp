@@ -7243,8 +7243,9 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
           CrsPnrInsQry.SetVariable("subclass",iTotals->subcl);
           CrsPnrInsQry.SetVariable("class",EncodeClass(iTotals->cl));
           bool is_need_apps = false;
-          if ( point_id_spp != ASTRA::NoExists )
-            is_need_apps = APPS::checkAPPSSets(point_id_spp, iTotals->dest);
+          if (point_id_spp != ASTRA::NoExists) {
+            is_need_apps = APPS::checkAPPSSets(point_id_spp, std::string(iTotals->dest));
+          }
           for(iPnrItem=iTotals->pnr.begin();iPnrItem!=iTotals->pnr.end();iPnrItem++)
           {
             TPnrItem& pnr=*iPnrItem;

@@ -1568,10 +1568,10 @@ $(init_jxt_pult МОВРОМ)
 $(set_desk_version 201707-0195750)
 $(login)
 
-$(init_apps ЮТ ЦЗ APPS_21 closeout=true inbound=true outbound=false)
+$(init_apps ЮТ ЦЗ APPS_21 closeout=true inbound=true outbound=true)
+$(init_apps ЮТ НЛ APPS_21 closeout=false inbound=false outbound=false)
 
-
-$(PREPARE_SEASON_SCD_TRANSIT ЮТ СОЧ ВНК ПРХ 298) #сочи внуково прага
+$(PREPARE_SEASON_SCD_TRANSIT ЮТ СОЧ АМС ПРХ 298) #сочи внуково прага
 $(make_spp)
 $(deny_ets_interactive ЮТ 298 СОЧ)
 
@@ -1592,8 +1592,10 @@ $(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
 !!
 $(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII 2986145115578 ВЗ UA FA144642 UA 16.04.1968 25.06.2025 M)
 
+### По сертификации SITA потребовала выставлять трансферный флаг DEST в транзитных рейсах
+
 $(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 130000
-P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N N)
+P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N Y)
 
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
 CIRS:$(capture 1)/PRS/27/001/CZ/P/UKR/UKR/FA144642//P//20250625////TUMALI/VALERII/19680416/M//8501/B/1/////////
@@ -1611,9 +1613,8 @@ $(set tid $(get_single_tid $(get point_dep) TUMALI VALERII))
 $(CANCEL_PAX $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII 2986145115578 ВЗ)
 
 
->> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/130000/PCX/20/1/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
-
+$(CICX_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 130000
+          1 P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N Y)
 
 # закрытие рейса. По настройке APPS должен уйти CIMR
 
@@ -1625,7 +1626,93 @@ $(WRITE_DESTS $(get point_dep) $(get point_arv) $(get move_id) ЮТ 298 СОЧ ПРХ
 >> lines=auto mode=regex
 .*CIMR:([0-9]+)/UTUTA1/21/INM/3/UT298/AER/$(yyyymmdd)/MRQ/3/CZ/C/C/.*
 
+%%
+#########################################################################################
+###
+#   Тест №20
+#
+#   Описание: пассажиров: 61,
+#             интерактив: выкл
+#            версия apps: 21
+#
+#   Выставляется Alarm APPS_NOT_SCD_IN_TIME если не рейс не заведено время прилета
+###
+#########################################################################################
 
+$(settcl APPS_H2H_ADDR APTXS)
+$(settcl APPS_ROT_NAME APPGT)
+
+$(init_jxt_pult МОВРОМ)
+$(set_desk_version 201707-0195750)
+$(login)
+
+$(init_apps ЮТ ЦЗ APPS_21 closeout=true inbound=true outbound=true)
+
+$(PREPARE_SEASON_SCD_WITHOUT_ARRIVE_TIME ЮТ СОЧ ПРХ 298)
+$(make_spp)
+$(deny_ets_interactive ЮТ 298 СОЧ)
+
+$(INB_PNL_UT AER PRG 298 $(ddmon +0 en))
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+
+$(combine_brd_with_reg $(get point_dep))
+$(auto_set_craft $(get point_dep))
+
+$(set move_id $(get_move_id $(get point_dep)))
+
+$(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
+
+$(run_trip_task send_apps $(get point_dep))
+$(run_trip_task check_trip_alarms $(get point_dep))
+
+# Проверяем есть ли в базе Алармы для пассажира. Должен быть APPS_NOT_SCD_IN_TIME
+??
+$(check_trip_alarms $(get point_dep))
+>>
+APPS_NOT_SCD_IN_TIME
+$()
+
+#################################
+
+%%
+#########################################################################################
+
+###
+#   Тест №21
+#
+#   Описание: пассажиров: 61,
+#             интерактив: выкл
+#            версия apps: 21
+#
+#   APPS-запросы не уходят потому что рейс не международный
+#
+###
+
+$(settcl APPS_H2H_ADDR APTXS)
+$(settcl APPS_ROT_NAME APPGT)
+
+$(init_jxt_pult МОВРОМ)
+$(set_desk_version 201707-0195750)
+$(login)
+
+$(init_apps ЮТ РФ APPS_21 closeout=false inbound=true outbound=true)
+
+$(PREPARE_SEASON_SCD ЮТ СОЧ ВНК 298)
+$(make_spp)
+$(deny_ets_interactive ЮТ 298 СОЧ)
+
+$(INB_PNL_UT AER VKO 298 $(ddmon +0 en))
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set move_id $(get_move_id $(get point_dep)))
+
+$(combine_brd_with_reg $(get point_dep))
+$(auto_set_craft $(get point_dep))
+
+$(run_trip_task send_apps $(get point_dep))
 
 
 

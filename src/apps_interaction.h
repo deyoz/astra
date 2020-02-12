@@ -35,8 +35,8 @@ std::vector<std::string> statusesFromDb(const int pax_id);
 void appsFlightCloseout(const int point_id);
 bool processReply(const std::string& source_raw);
 bool checkAPPSSets(const int point_dep, const int point_arv);
-bool checkAPPSSets(const int point_dep, const std::string& airp_arv, std::set<std::string>* pFormats = nullptr);
-bool checkAPPSSets(const int point_dep, const std::string& airp_arv, bool& transit, std::set<std::string>* pFormats = nullptr);
+bool checkAPPSSets(const int point_dep, const std::string& airp_arv);
+bool checkAPPSFormats(const int point_dep, const std::string& airp_arv, std::set<std::string> &pFormats);
 bool checkTime(const int point_id);
 bool checkTime(const int point_id, TDateTime& start_time);
 bool isAPPSAnswText(const std::string& tlg_body);
@@ -47,6 +47,7 @@ void deleteMsg(const int msg_id);
 const char* getAPPSRotName();
 std::string appsTextAsHumanReadable(const std::string& apps);
 std::string emulateAnswer(const std::string& request);
+bool checkNeedAlarmScdIn(const int point_id);
 
 class AppsCollector
 {
@@ -135,7 +136,7 @@ public:
 
     FlightData() : point_id(ASTRA::NoExists){}
     FlightData& init(const std::string& flt_type);
-    FlightData& init(const CheckIn::TPaxSegmentPair &flt, const std::string& type);
+    FlightData& init(const TPaxSegmentPair &flt, const std::string& type);
     bool operator == (const FlightData& data) const
     {
     return type == data.type &&
@@ -275,7 +276,17 @@ public:
     int seats;
 };
 
-class PaxRequest
+class IRequest
+{
+public:
+    virtual void save(const int version) const = 0;
+    virtual std::string msg(const int version) const = 0;
+    virtual int getMsgId() const = 0;
+    virtual int getPointId() const = 0;
+    virtual ~IRequest(){}
+};
+
+class PaxRequest : public IRequest
 {
 public:
     enum RequestType{
@@ -283,18 +294,12 @@ public:
     Pax
     };
 
-    std::string getStatus() const
-    {
-        return pax.status;
-    }
-
     PaxRequest(TransactionData trs, FlightData inflight, FlightData ckinflight,
              PaxData pax, Opt<PaxAddData> paxadd)
              : trans(trs), int_flt(inflight), ckin_flt(ckinflight), pax(pax), pax_add(paxadd)
     {
     }
 
-    friend void defFromDB(PaxRequest &res, OciCpp::CursCtl & cur);
     static Opt<PaxRequest> createFromDB(RequestType type, const int pax_id, const std::string& override_type="");
     static Opt<PaxRequest> fromDBByPaxId(const int pax_id);
     static Opt<PaxRequest> fromDBByMsgId(const int msg_id);
@@ -302,7 +307,7 @@ public:
     bool operator == (const PaxRequest &c) const;
     bool operator != (const PaxRequest &c) const
     {
-    return !(*this == c);
+        return !(*this == c);
     }
     bool isNeedCancel(const std::string& status) const;
     bool isNeedUpdate(const std::string& status, bool is_the_same) const;
@@ -311,16 +316,34 @@ public:
     void ifOutOfSyncSendAlarm(const std::string& status, const bool is_the_same) const;
     void ifNeedDeleteApps(const std::string& status) const;
 
-    std::string msg(int version) const;
-    void sendReqAndSave(const AppsSettings & settings) const;
+    void save(const int version) const override;
+    std::string msg(const int version) const override;
+    int getMsgId() const override
+    {
+        return getTrans().msg_id;
+    }
+    int getPointId() const override
+    {
+        return getIntFlt().point_id;
+    }
+
+    const FlightData& getIntFlt() const
+    {
+        return int_flt;
+    }
     const TransactionData& getTrans() const
     {
-      return trans;
+        return trans;
     }
     const PaxData& getPax() const
     {
-      return pax;
+        return pax;
     }
+    const std::string getStatus() const
+    {
+        return pax.status;
+    }
+
 
 private:
     PaxRequest() = default;
@@ -330,25 +353,42 @@ private:
     PaxData pax;
     Opt<PaxAddData> pax_add;
     MetaInfo meta_info;
-    void savePaxRequest(int version) const;
     static Opt<PaxRequest> createByPaxId(const int pax_id, const std::string& override_type);
     static Opt<PaxRequest> createByCrsPaxId(const int pax_id, const std::string& override_type);
-    static Opt<PaxRequest> createByFields(const RequestType reqType, const int pax_id, const int point_id,
-                                                      const MetaInfo& info, bool pre_checkin, const std::string &status,
-                                                      const bool need_del, ASTRA::TGender::Enum gender, const std::string& override_type,
-                                                      const std::string &airline, int reg_no=ASTRA::NoExists);
+    static Opt<PaxRequest> createByFields(const RequestType reqType, const int pax_id,
+                                          const int point_id, const MetaInfo& info,
+                                          bool pre_checkin, const std::string &status,
+                                          const bool need_del, ASTRA::TGender::Enum gender,
+                                          const std::string& override_type,
+                                          const std::string &airline, int reg_no=ASTRA::NoExists);
 };
 
-class ManifestRequest
+class ManifestRequest : public IRequest
 {
 private:
     TransactionData trans;
     FlightData int_flt;
     ManifestData mft_req;
 public:
-    bool init(const CheckIn::TPaxSegmentPair& flt, const std::string& country_lat);
-    std::string msg(int version) const;
-    void sendReqAndSave(const AppsSettings &settings) const;
+    int getMsgId() const override
+    {
+        return getTrans().msg_id;
+    }
+    int getPointId() const override
+    {
+        return getIntFlt().point_id;
+    }
+    const FlightData& getIntFlt() const
+    {
+        return int_flt;
+    }
+    const TransactionData& getTrans() const
+    {
+        return trans;
+    }
+    bool init(const TPaxSegmentPair& flt, const std::string& country_lat);
+    void save(const int version) const override {}
+    std::string msg(const int version) const override;
 };
 
 class AnsPaxData

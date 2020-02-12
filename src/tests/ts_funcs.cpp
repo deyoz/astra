@@ -717,12 +717,18 @@ static std::string FP_run_trip_task(const std::vector<std::string>& par)
 
     LogTrace(TRACE3) << "Test run trip task " << taskName << " for point_id=" << pointId;
 
-    if(taskName == "send_apps") {
-        APPS::sendNewAPPSInfo(TTripTaskKey(pointId, "SEND_NEW_APPS_INFO", ""));
-    } if(taskName == "send_all_apps") {
-        APPS::sendAllAPPSInfo(TTripTaskKey(pointId, "SEND_ALL_APPS_INFO", ""));
+    try{
+        if(taskName == "send_apps") {
+            APPS::sendNewAPPSInfo(TTripTaskKey(pointId, "SEND_NEW_APPS_INFO", ""));
+        } else if(taskName == "send_all_apps") {
+            APPS::sendAllAPPSInfo(TTripTaskKey(pointId, "SEND_ALL_APPS_INFO", ""));
+        } else if(taskName == "check_trip_alarms") {
+            checkAlarm(TTripTaskKey(pointId, "CHECK_ALARM" , "APPS_NOT_SCD_IN_TIME"));
+        }
     }
-
+    catch(EXCEPTIONS::Exception &E) {
+        LogTrace(TRACE5) << " Continue testing after throw: " << E.what();
+    }
     return "";
 }
 
@@ -764,6 +770,30 @@ static std::string formatPaxAlarms(const std::vector<std::string>& alarms)
     return oss.str();
 }
 
+static std::vector<string> getTripAlarms(const std::string& table_name, int point_id)
+{
+    std::string alarm;
+    auto cur = make_curs(
+               "select ALARM_TYPE from "+table_name+" where POINT_ID=:point_id");
+    cur.def(alarm)
+            .bind(":point_id", point_id)
+            .exec();
+    std::vector<std::string> res;
+    while(!cur.fen()) {
+        res.push_back(alarm);
+    }
+    return res;
+}
+
+static std::string formatTripAlarms(const std::vector<std::string>& alarms)
+{
+    std::ostringstream oss;
+    for(const auto & alarm : alarms){
+        oss << alarm << '\n';
+    }
+    return oss.str();
+}
+
 static std::string FP_checkPaxAlarms(const std::vector<std::string>& par)
 {
     ASSERT(par.size() == 1);
@@ -776,6 +806,13 @@ static std::string FP_checkCrsPaxAlarms(const std::vector<std::string>& par)
     ASSERT(par.size() == 1);
     int pax_id = std::stoi(par.at(0));
     return formatPaxAlarms(getPaxAlarms("CRS_PAX_ALARMS", pax_id));
+}
+
+static std::string FP_checkTripAlarms(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() == 1);
+    int point_id = std::stoi(par.at(0));
+    return formatTripAlarms(getTripAlarms("TRIP_ALARMS", point_id));
 }
 
 
@@ -818,4 +855,5 @@ FP_REGISTER("run_trip_task", FP_run_trip_task);
 FP_REGISTER("combine_brd_with_reg", FP_combineBrdWithReg);
 FP_REGISTER("check_pax_alarms", FP_checkPaxAlarms);
 FP_REGISTER("check_crs_pax_alarms", FP_checkCrsPaxAlarms);
+FP_REGISTER("check_trip_alarms", FP_checkTripAlarms);
 #endif /* XP_TESTING */

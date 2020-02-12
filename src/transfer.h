@@ -12,6 +12,11 @@
 
 namespace CheckIn
 {
+class TPaxTransferItem;
+class TTransferItem;
+class TTransferList;
+
+TAdvTripInfo routeInfoFromTrfr(const CheckIn::TTransferItem& seg);
 
 class TPaxTransferItem
 {

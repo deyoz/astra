@@ -218,6 +218,18 @@ TSearchFltInfo createSearchFlt(const CheckIn::TTransferItem &item)
     return filter;
 }
 
+TAdvTripInfo routeInfoFromTrfr(const CheckIn::TTransferItem& seg)
+{
+    TSearchFltInfo searchFilter = CheckIn::createSearchFlt(seg);
+    std::list<TAdvTripInfo> flt;
+    SearchFlt(searchFilter, flt);
+    if(flt.empty() || flt.size() > 1) {
+        LogTrace(TRACE5) << __FUNCTION__ << " Search filter error: ";
+        throw Exception("Search error");
+    }
+    return flt.front();
+}
+
 } //namespace CheckIn
 
 namespace TrferList

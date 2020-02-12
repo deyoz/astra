@@ -178,6 +178,53 @@ $(defmacro PREPARE_SEASON_SCD_TRANSIT
 
 #########################################################################################
 
+#########################################################################################
+
+$(defmacro PREPARE_SEASON_SCD_WITHOUT_ARRIVE_TIME
+  airl
+  depp
+  arrp
+  fltno
+  craft=TU5
+  first_date=$(date_format %d.%m.%Y)
+  last_date=$(date_format %d.%m.%Y)
+{
+{<?xml version='1.0' encoding='CP866'?>
+ <term>
+  <query handle='0' id='season' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <write>
+      <filter>
+        <season>2</season>
+      </filter>
+      <SubrangeList>
+        <subrange>
+          <modify>insert</modify>
+          <move_id>-1</move_id>
+          <first>$(first_date) 00:00:00</first>
+          <last>$(last_date) 23:59:59</last>
+          <days>1234567</days>
+          <dests>
+            <dest>
+              <cod>$(depp)</cod>
+              <company>$(airl)</company>
+              <trip>$(fltno)</trip>
+              <bc>$(craft)</bc>
+              <takeoff>30.12.1899 10:15:00</takeoff>
+              <y>-1</y>
+            </dest>
+            <dest>
+              <cod>$(arrp)</cod>
+            </dest>
+          </dests>
+        </subrange>
+      </SubrangeList>
+    </write>
+  </query>
+</term>}
+}) # end-of-macro PREPARE_SEASON_SCD_WITHOUT_ARRIVE_TIME
+
+#########################################################################################
+
 $(defmacro TKCREQ_ET_DISP
     from
     to

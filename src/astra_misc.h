@@ -16,6 +16,33 @@
 
 using BASIC::date_time::TDateTime;
 
+class TPaxSegmentPair;
+class TTripInfo;
+class TAdvTripRoute;
+
+boost::optional<TTripInfo> getPointInfo(const int point_dep);
+std::vector<std::string> segAirps(const TPaxSegmentPair & flight);
+std::vector<int> segPoints(const TPaxSegmentPair & flight);
+TAdvTripRoute getTransitRoute(const TPaxSegmentPair& flight);
+std::vector<TPaxSegmentPair> transitSegs(const TAdvTripRoute& route);
+
+class TPaxSegmentPair
+{
+  public:
+    int point_dep;
+    std::string airp_arv;
+
+    TPaxSegmentPair(const int pointDep, const std::string& airpArv) :
+      point_dep(pointDep), airp_arv(airpArv) {}
+
+    bool operator < (const TPaxSegmentPair &seg) const
+    {
+      if (point_dep!=seg.point_dep)
+        return point_dep < seg.point_dep;
+      return airp_arv < seg.airp_arv;
+    }
+};
+
 class FlightProps
 {
   public:

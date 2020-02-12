@@ -509,7 +509,7 @@ class TCompleteAPICheckInfoCache
 {
   private:
     std::map<int/*grp_id*/, CheckIn::TSimplePaxGrpItem> grps;
-    std::map<CheckIn::TPaxSegmentPair, TCompleteAPICheckInfo> checkInfoMap;
+    std::map<TPaxSegmentPair, TCompleteAPICheckInfo> checkInfoMap;
 
   public:
     const TCompleteAPICheckInfo& get(int paxId, int grpId=ASTRA::NoExists);

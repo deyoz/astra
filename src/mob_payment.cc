@@ -299,7 +299,7 @@ void SearchPassengersResponse::add(const CheckIn::TSimplePaxItem& pax,
 
       if (flt.airp!=reqDeparture) return;
 
-      CheckIn::TPaxSegmentPair segmentPair(flt.point_id, pnr.airp_arv);
+      TPaxSegmentPair segmentPair(flt.point_id, pnr.airp_arv);
       const Segment& segment=SegmentCache::get(segmentPair);
       if (!segment.departure.match(TReqInfo::Instance()->user.access)) return;
 
@@ -316,7 +316,7 @@ void SearchPassengersResponse::add(const CheckIn::TSimplePaxItem& pax,
 
       if (grp.airp_dep!=reqDeparture) return;
 
-      CheckIn::TPaxSegmentPair segmentPair=grp.getSegmentPair();
+      TPaxSegmentPair segmentPair=grp.getSegmentPair();
       const Segment& segment=SegmentCache::get(segmentPair);
       if (!segment.departure.match(TReqInfo::Instance()->user.access)) return;
 
@@ -808,7 +808,7 @@ void MobilePaymentInterface::getPassengerInfo(XMLRequestCtxt *ctxt, xmlNodePtr r
 namespace ASTRA
 {
 
-template<> const Segment& SegmentCache::add(const CheckIn::TPaxSegmentPair& segmentPair) const
+template<> const Segment& SegmentCache::add(const TPaxSegmentPair& segmentPair) const
 {
   TAdvTripRoute route;
   route.getRouteBetween(segmentPair.point_dep, segmentPair.airp_arv);

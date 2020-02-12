@@ -31,6 +31,14 @@ namespace CheckIn
 {
 
 class TSimplePaxItem;
+boost::optional<TPaxSegmentPair> paxSegment(const int pax_id);
+boost::optional<TPaxSegmentPair> crsSegment(const int pax_id);
+boost::optional<TPaxSegmentPair> ckinSegment(const int grp_id);
+//std::map<int, CheckIn::TTransferItem> getCrsTransferMap(const int pax_id);
+//std::vector<TPaxSegmentPair> paxRouteSegments(const int pax_id);
+//std::vector<TPaxSegmentPair> crsRouteSegments(const int pax_id);
+//std::vector<int> routePoints(const int pax_id, PaxOrigin checkinType);
+//std::vector<std::string> routeAirps(const int pax_id, PaxOrigin checkinType);
 
 class TPaxGrpCategory
 {
@@ -529,22 +537,7 @@ class TComplexClass
     const TComplexClass& toXML(xmlNodePtr node, const std::string& fieldPrefix) const;
 };
 
-class TPaxSegmentPair
-{
-  public:
-    int point_dep;
-    std::string airp_arv;
 
-    TPaxSegmentPair(const int pointDep, const std::string& airpArv) :
-      point_dep(pointDep), airp_arv(airpArv) {}
-
-    bool operator < (const TPaxSegmentPair &seg) const
-    {
-      if (point_dep!=seg.point_dep)
-        return point_dep < seg.point_dep;
-      return airp_arv < seg.airp_arv;
-    }
-};
 
 class TSimplePaxItem
 {

@@ -70,6 +70,7 @@
 #include <serverlib/testmode.h>
 #include <serverlib/dump_table.h>
 #include <etick/tick_data.h>
+#include <serverlib/algo.h>
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -1135,6 +1136,91 @@ void CheckInInterface::GetOnwardCrsTransfer(int id, bool isPnrId,
     prior_airp_arv=trferItem.airp_arv;
     prior_airp_arv_fmt=trferItem.airp_arv_fmt;
   }
+}
+
+std::vector<TPaxSegmentPair> CheckInInterface::paxRouteSegments(const int pax_id)
+{
+    TCkinRoute tCkinRoute;
+    bool get = tCkinRoute.GetRoute(pax_id);
+    if(!get) {
+        boost::optional<TPaxSegmentPair> singleFlight = CheckIn::paxSegment(pax_id);
+        if(!singleFlight){
+            LogTrace(TRACE5) << __FUNCTION__ << " Not found any route for pax: " << pax_id;
+            return {};
+        } else {
+            return {*singleFlight};
+        }
+    }
+    std::vector<TPaxSegmentPair> res;
+    for(const TCkinRouteItem& seg : tCkinRoute) {
+        res.emplace_back(seg.point_dep, seg.airp_arv);
+    }
+    return res;
+}
+
+std::vector<TPaxSegmentPair> CheckInInterface::crsRouteSegments(const int pax_id)
+{
+    std::vector<TPaxSegmentPair> res;
+    auto crs_route_map = CheckInInterface::getCrsTransferMap(pax_id);
+    for(const auto& pair : crs_route_map) {
+        const CheckIn::TTransferItem& seg = pair.second;
+        auto info = CheckIn::routeInfoFromTrfr(seg);
+        res.emplace_back(info.point_id, seg.airp_arv);
+    }
+    return res;
+}
+
+std::vector<int> CheckInInterface::routePoints(const int pax_id, PaxOrigin checkinType)
+{
+    std::vector<TPaxSegmentPair> route =
+            (checkinType == PaxOrigin::paxCheckIn) ? paxRouteSegments(pax_id)
+                                                   : crsRouteSegments(pax_id);
+    std::vector<int> res;
+    for(const auto& seg : route) {
+        std::vector<int> transitRoute = segPoints(seg);
+        algo::append(res, transitRoute);
+    }
+    return res;
+}
+
+std::vector<std::string> CheckInInterface::routeAirps(const int pax_id, PaxOrigin checkinType)
+{
+    std::vector<TPaxSegmentPair> route =
+            (checkinType == PaxOrigin::paxCheckIn) ? paxRouteSegments(pax_id)
+                                                   : crsRouteSegments(pax_id);
+    std::vector<std::string> res;
+    for(const auto& seg : route) {
+        std::vector<std::string> transitRoute = segAirps(seg);
+        algo::append(res, transitRoute);
+    }
+    return res;
+}
+
+//Чтение пока только Onward, только последующие трансферы
+std::map<int, CheckIn::TTransferItem> CheckInInterface::getCrsTransferMap(const int pax_id)
+{
+    LogTrace(TRACE5) << __FUNCTION__ << " pax_id: " << pax_id;
+    int pnr_id = 0, point_id = 0;
+    std::string airp_arv;
+    auto cur = make_curs(
+               "select POINT_ID_SPP, CRS_PAX.PNR_ID, AIRP_ARV "
+               ", PERS_TYPE "
+               "from CRS_PAX, CRS_PNR, TLG_BINDING "
+               "where PAX_ID = :pax_id and CRS_PAX.PNR_ID = CRS_PNR.PNR_ID and "
+               "      CRS_PNR.POINT_ID = TLG_BINDING.POINT_ID_TLG");
+    cur
+        .def(point_id)
+        .def(pnr_id)
+        .def(airp_arv)
+        .bind(":pax_id", pax_id)
+        .EXfet();
+    if(cur.err() == NO_DATA_FOUND) {
+        LogTrace(TRACE5) << __FUNCTION__ << " No data found";
+        return {};
+    }
+    map<int, CheckIn::TTransferItem> trfer;
+    CheckInInterface::GetOnwardCrsTransfer(pnr_id, true, *getPointInfo(point_id), airp_arv, trfer);
+    return trfer;
 }
 
 void CheckInInterface::LoadOnwardCrsTransfer(const map<int, CheckIn::TTransferItem> &trfer,

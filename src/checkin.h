@@ -248,6 +248,12 @@ public:
   static void LoadOnwardCrsTransfer(const std::map<int, std::pair<CheckIn::TTransferItem, TTrferSetsInfo> > &trfer,
                                     xmlNodePtr trferNode);
 
+  static std::vector<TPaxSegmentPair> paxRouteSegments(const int pax_id);
+  static std::vector<TPaxSegmentPair> crsRouteSegments(const int pax_id);
+  static std::vector<int> routePoints(const int pax_id, PaxOrigin checkinType);
+  static std::vector<std::string> routeAirps(const int pax_id, PaxOrigin checkinType);
+  static std::map<int, CheckIn::TTransferItem> getCrsTransferMap(const int pax_id);
+
   static void GetTrferSets(const TTripInfo &operFlt,
                            const std::string &oper_airp_arv,
                            const std::string &tlg_airp_dep,

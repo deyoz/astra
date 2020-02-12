@@ -212,7 +212,7 @@ void TCompleteAPICheckInfo::set(const int point_dep, const std::string& airp_arv
     catch(const EBaseTableError&) {};
 
     std::set<std::string> apps_formats;
-    if (APPS::checkAPPSSets(point_dep, airp_arv, &apps_formats))
+    if (APPS::checkAPPSFormats(point_dep, airp_arv, apps_formats))
     {
       _apis_formats.insert(apps_formats.begin(), apps_formats.end());
       is_inter=true;
@@ -297,7 +297,7 @@ const TCompleteAPICheckInfo& TCompleteAPICheckInfoCache::get(int paxId, int grpI
     if (!grp.getByGrpId(grpId)) return emptyCheckInfo;
   }
 
-  CheckIn::TPaxSegmentPair seg=grp.getSegmentPair();
+  TPaxSegmentPair seg=grp.getSegmentPair();
   auto i=checkInfoMap.find(seg);
   if (i==checkInfoMap.end())
   {
