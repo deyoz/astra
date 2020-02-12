@@ -14,7 +14,6 @@
 #include "astra_misc.h"
 #include "astra_api.h"
 #include "base_tables.h"
-#include "convert.h"
 #include "tripinfo.h"
 #include "aodb.h"
 #include "salons.h"
@@ -427,6 +426,7 @@ void ParseInquiryStr(const string &query, const TPaxStatus status, TInquiryGroup
             state=10;
             break;
           }
+          [[fallthrough]];
         case 11:
           if (IsLetter(c) || c==' ')
           {
@@ -2227,7 +2227,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       case psTransit: PaxQry.CreateVariable( "ps_transit", otString, EncodePaxStatus(ASTRA::psTransit) );
                       break;
        case psGoshow: PaxQry.CreateVariable( "ps_goshow", otString, EncodePaxStatus(ASTRA::psGoshow) );
-                      //break не надо!
+                      [[fallthrough]];
              default: PaxQry.CreateVariable( "ps_ok", otString, EncodePaxStatus(ASTRA::psCheckin) );
     }
     PaxQry.CreateVariable("seats",otInteger,sum.nPaxWithPlace);

@@ -9,7 +9,6 @@
 #include "oralib.h"
 #include "salons.h"
 #include "comp_layers.h"
-#include "convert.h"
 #include "seats_utils.h"
 #include "images.h"
 #include "serverlib/str_utils.h"
@@ -25,6 +24,7 @@
 #include "remarks.h"
 #include "dcs_services.h"
 #include "seat_descript.h"
+#include "seat_number.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -1256,6 +1256,7 @@ int TSeatPlaces::FindPlaces_From( SALONS2::TPoint FP, int foundCount, TSeatStep 
             return Result;
         }
         if ( CanUseRems == sNotUseDenial ) break;
+        //[[fallthrough]]; //раскомментарить, если поведение без break допустимо, либо исправить ошибку
       case sNotUse:
          for( vector<SALONS2::TRem>::const_iterator prem=place->rems.begin(); prem!=place->rems.end(); prem++ ) {
 //           ProgTrace( TRACE5, "sNotUse: Result=%d, FP.x=%d, FP.y=%d, rem=%s", Result, FP.x, FP.y, prem->rem.c_str() );
@@ -1749,10 +1750,10 @@ TSeatPlace &TSeatPlaces::GetEqualSeatPlace( TPassenger &pass )
     ispPlaceName_lat.clear();
     ispPlaceName_rus.clear();
     SALONS2::TPlaceList *placeList = isp->placeList;
-    ispPlaceName_lat = denorm_iata_row( placeList->GetYsName( isp->Pos.y ) );
+    ispPlaceName_lat = SeatNumber::tryDenormalizeRow( placeList->GetYsName( isp->Pos.y ) );
     ispPlaceName_rus = ispPlaceName_lat;
-    ispPlaceName_lat += denorm_iata_line( placeList->GetXsName( isp->Pos.x ), 1 );
-    ispPlaceName_rus += denorm_iata_line( placeList->GetXsName( isp->Pos.x ), 0 );
+    ispPlaceName_lat += SeatNumber::tryDenormalizeLine( placeList->GetXsName( isp->Pos.x ), 1 );
+    ispPlaceName_rus += SeatNumber::tryDenormalizeLine( placeList->GetXsName( isp->Pos.x ), 0 );
     int EqualQ = 0;
     if ( (int)isp->oldPlaces.size() == pass.countPlace )
       EqualQ = pass.countPlace*10000; //??? always true!
@@ -3016,7 +3017,7 @@ void SeatsPassengers( SALONS2::TSalonList &salonList,
       }
       return;
     }
-    catch( UserException ue ) {
+    catch(const UserException& ue ) {
       ProgTrace( TRACE5, "UserException.what()=%s", ue.getLexemaData().lexema_id.c_str() );
       if ( ue.getLexemaData().lexema_id == string( "MSG.SEATS.NOT_AVAIL_AUTO_SEATS" ) ||
            ue.getLexemaData().lexema_id == string( "MSG.SEATS.NOT_AVAIL_AUTO_SEATS.BABY_ZONES" )) {
@@ -3456,9 +3457,9 @@ class AnomalisticConditionsPayment
                 break;
               SALONS2::TPlace *place = placeList->place( FP );
               if ( CurrSalon->canAddOccupy( place ) || //место имеет слой не позволяющий его занять ИЛИ
-                   !place->layers.empty() && //у места есть слой принадлежащий другому пассажиру, но не занятый, а значит у нашего пассажира нет права на это место
-                   place->layers.begin()->pax_id != ASTRA::NoExists &&
-                   place->layers.begin()->pax_id != pass.paxId ) {
+                   (!place->layers.empty() && //у места есть слой принадлежащий другому пассажиру, но не занятый, а значит у нашего пассажира нет права на это место
+                    place->layers.begin()->pax_id != ASTRA::NoExists &&
+                    place->layers.begin()->pax_id != pass.paxId) ) {
                 tst();
                 break;
               }
@@ -4172,8 +4173,8 @@ BitSet<TChangeLayerSeatsProps>
   UseLayers[ cltPNLAfterPay ] = false;
   UseLayers[ cltProtSelfCkin ] = false;
     //CanUse_PS = false; //!!!
-  first_xname = norm_iata_line( first_xname );
-  first_yname = norm_iata_line( first_yname );
+  first_xname = SeatNumber::tryNormalizeLine( first_xname );
+  first_yname = SeatNumber::tryNormalizeRow( first_yname );
   LogTrace( TRACE5 ) << ((salonList.getRFISCMode() == rTariff)?string(""):string("RFISC Mode ")) << "layer=" << EncodeCompLayerType( layer_type )
               << ",point_id=" << point_id << ",pax_id=" << pax_id << ",first_xname=" << first_xname << ",first_yname=" << first_yname;
   TQuery Qry( &OraSession );
@@ -4219,6 +4220,7 @@ BitSet<TChangeLayerSeatsProps>
              procFlags.isFlag( procPaySeatSet ) ) {
           break;
         }
+        //[[fallthrough]]; //раскомментарить, если поведение без break допустимо, либо исправить ошибку
     default:
         ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
         throw UserException( "MSG.SEATS.SET_LAYER_NOT_AVAIL" );

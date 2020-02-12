@@ -8,7 +8,6 @@
 #include "tlg/ucm_parser.h"
 #include "astra_utils.h"
 #include "stl_utils.h"
-#include "convert.h"
 #include "salonform.h"
 #include "astra_consts.h"
 #include "passenger.h"
@@ -25,6 +24,7 @@
 #include <boost/regex.hpp>
 #include "docs/docs_common.h"
 #include "docs/docs_pax_list.h"
+#include "seat_number.h"
 
 #define NICKNAME "DEN"
 #include "serverlib/slogger.h"
@@ -4025,7 +4025,7 @@ void TSeatRectList::vert_pack()
             TSeatRectList::iterator cur = i_split->begin() + 1;
             while(true) {
                 TSeatRectList::iterator prev = cur - 1;
-                if(cur != i_split->end() and prev_iata_line(cur->line1) == norm_iata_line(prev->line1)) {
+                if(cur != i_split->end() and SeatNumber::prevIataLineOrEmptiness(cur->line1) == SeatNumber::tryNormalizeLine(prev->line1)) {
                     if (
                             prev->row1 == cur->row1 and
                             prev->row2 == cur->row2
@@ -4084,7 +4084,7 @@ void TSeatRectList::pack()
             TSeatRectList::iterator cur = i_split->begin() + 1;
             while(true) {
                 TSeatRectList::iterator prev = cur - 1;
-                if(cur != i_split->end() and prev_iata_row(cur->row1) == norm_iata_row(prev->row1)) {
+                if(cur != i_split->end() and SeatNumber::normalizePrevIataRowOrException(cur->row1) == SeatNumber::tryNormalizeRow(prev->row1)) {
                     if (
                             prev->line1 == cur->line1 and
                             prev->line2 == cur->line2
@@ -4174,7 +4174,7 @@ string TSeatRect::str()
         if(line1 == line2)
             result = row1 + line1;
         else {
-            if(line1 == prev_iata_line(line2))
+            if(line1 == SeatNumber::prevIataLineOrEmptiness(line2))
                 result = row1 + line1 + line2;
             else
                 result = row1 + line1 + "-" + line2;
@@ -4205,10 +4205,10 @@ void TTlgSeatList::add_seats(int pax_id, std::vector<TTlgCompLayer> &complayers)
 
 void TTlgSeatList::add_seat(int point_id, string xname, string yname)
 {
-    if(is_iata_row(yname) && is_iata_line(xname)) {
+    if(SeatNumber::isIataRow(yname) && SeatNumber::isIataLine(xname)) {
         TTlgPlace place;
-        place.xname = norm_iata_line(xname);
-        place.yname = norm_iata_row(yname);
+        place.xname = SeatNumber::tryNormalizeLine(xname);
+        place.yname = SeatNumber::tryNormalizeRow(yname);
         place.point_arv = point_id;
         comp[place.yname][place.xname] = place;
     }
@@ -4240,7 +4240,7 @@ vector<string>  TTlgSeatList::get_seat_vector(bool pr_lat) const
     for(t_tlg_comp::const_iterator ay = comp.begin(); ay != comp.end(); ay++) {
         const t_tlg_row &row = ay->second;
         for(t_tlg_row::const_iterator ax = row.begin(); ax != row.end(); ax++)
-            result.push_back(denorm_iata_row(ay->first) + denorm_iata_line(ax->first, pr_lat));
+            result.push_back(SeatNumber::tryDenormalizeRow(ay->first) + SeatNumber::tryDenormalizeLine(ax->first, pr_lat));
     }
     return result;
 }
@@ -4251,7 +4251,7 @@ string  TTlgSeatList::get_seat_one(bool pr_lat) const
     if(!comp.empty()) {
         t_tlg_comp::const_iterator ay = comp.begin();
         t_tlg_row::const_iterator ax = ay->second.begin();
-        result = denorm_iata_row(ay->first) + denorm_iata_line(ax->first, pr_lat);
+        result = SeatNumber::tryDenormalizeRow(ay->first) + SeatNumber::tryDenormalizeLine(ax->first, pr_lat);
     }
     return result;
 }
@@ -4288,9 +4288,9 @@ void TTlgSeatList::get_seat_list(map<int, string> &list, bool pr_lat)
         TSeatRectList *SeatRectList = NULL;
         TSeatListContext *cur_ctxt = NULL;
         t_tlg_row &row = ay->second;
-        if(min_col.empty() or less_iata_line(row.begin()->first, min_col))
+        if(min_col.empty() or SeatNumber::lessIataLine(row.begin()->first, min_col))
             min_col = row.begin()->first;
-        if(max_col.empty() or not less_iata_line(row.rbegin()->first, max_col))
+        if(max_col.empty() or not SeatNumber::lessIataLine(row.rbegin()->first, max_col))
             max_col = row.rbegin()->first;
         for(t_tlg_row::iterator ax = row.begin(); ax != row.end(); ax++) {
             cur_ctxt = &ctxt[ax->second.point_arv];
@@ -4301,7 +4301,7 @@ void TTlgSeatList::get_seat_list(map<int, string> &list, bool pr_lat)
                 *first_xname = ax->first;
                 *last_xname = *first_xname;
             } else {
-                if(prev_iata_line(ax->first) == *last_xname)
+                if(SeatNumber::prevIataLineOrEmptiness(ax->first) == *last_xname)
                     *last_xname = ax->first;
                 else {
                     cur_ctxt->seat_to_str(*SeatRectList, ax->second.yname, *first_xname, *last_xname, pr_lat);
@@ -4342,7 +4342,7 @@ void TTlgSeatList::get_seat_list(map<int, string> &list, bool pr_lat)
                     *first_xname = col_pos->second.yname;
                     *last_xname = *first_xname;
                 } else {
-                    if(prev_iata_row(col_pos->second.yname) == *last_xname)
+                    if(SeatNumber::normalizePrevIataRowOrException(col_pos->second.yname) == *last_xname)
                         *last_xname = col_pos->second.yname;
                     else {
                         cur_ctxt->vert_seat_to_str(*SeatRectList, col_pos->first, *first_xname, *last_xname, pr_lat);
@@ -4364,7 +4364,7 @@ void TTlgSeatList::get_seat_list(map<int, string> &list, bool pr_lat)
         }
         if(i_col == max_col)
             break;
-        i_col = next_iata_line(i_col);
+        i_col = SeatNumber::nextIataLineOrEmptiness(i_col);
     }
     map<int, TSeatRectList>::iterator i_hrz = hrz_list.begin();
     map<int, TSeatRectList>::iterator i_vert = vert_list.begin();
@@ -4386,9 +4386,10 @@ void TTlgSeatList::get_seat_list(map<int, string> &list, bool pr_lat)
 
 void TSeatListContext::vert_seat_to_str(TSeatRectList &SeatRectList, string yname, string first_xname, string last_xname, bool pr_lat)
 {
-    yname = denorm_iata_line(yname, pr_lat);
-    first_xname = denorm_iata_row(first_xname);  //!!!vlad denorm_iata_row и xname - странное сочетание
-    last_xname = denorm_iata_row(last_xname);    //!!!vlad denorm_iata_row и xname - странное сочетание
+    //смысл x и y перепутан. хорошо бы переименовать yname->xname, first_xname->first_yname, last_xname->last_yname
+    yname = SeatNumber::tryDenormalizeLine(yname, pr_lat);
+    first_xname = SeatNumber::tryDenormalizeRow(first_xname);
+    last_xname = SeatNumber::tryDenormalizeRow(last_xname);
     TSeatRect rect;
     rect.row1 = first_xname;
     rect.line1 = yname;
@@ -4402,9 +4403,9 @@ void TSeatListContext::vert_seat_to_str(TSeatRectList &SeatRectList, string ynam
 
 void TSeatListContext::seat_to_str(TSeatRectList &SeatRectList, string yname, string first_xname, string last_xname, bool pr_lat)
 {
-    yname = denorm_iata_row(yname);
-    first_xname = denorm_iata_line(first_xname, pr_lat);
-    last_xname = denorm_iata_line(last_xname, pr_lat);
+    yname = SeatNumber::tryDenormalizeRow(yname);
+    first_xname = SeatNumber::tryDenormalizeLine(first_xname, pr_lat);
+    last_xname = SeatNumber::tryDenormalizeLine(last_xname, pr_lat);
     TSeatRect rect;
     rect.row1 = yname;
     rect.row2 = yname;
@@ -9441,7 +9442,7 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
       const TTypeBTypesRow& row = (const TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",createInfo.get_tlg_type()));
       tlgTypeInfo=row;
     }
-    catch(EBaseTableError)
+    catch(const EBaseTableError&)
     {
       throw AstraLocale::UserException("MSG.TLG.TYPE_WRONG_SPECIFIED");
     };

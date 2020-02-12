@@ -14,7 +14,6 @@
 #include "salons.h"
 #include "seats.h"
 #include "seats_utils.h"
-#include "convert.h"
 #include "iatci.h"
 #include "iatci_help.h"
 #include "astra_misc.h"
@@ -23,6 +22,7 @@
 #include "alarms.h"
 #include "comp_props.h"
 #include "serverlib/str_utils.h"
+#include "seat_number.h"
 
 #define NICKNAME "DJEK"
 #include <serverlib/slogger.h>
@@ -1056,8 +1056,8 @@ BitSet<SEATS2::TChangeLayerSeatsProps>
   TTripInfo fltInfo( Qry );
 
   if ( seat_type != SEATS2::stDropseat ) {
-    xname = norm_iata_line( xname );
-    yname = norm_iata_row( yname );
+    xname = SeatNumber::tryNormalizeLine( xname );
+    yname = SeatNumber::tryNormalizeRow( yname );
   }
   Qry.Clear();
   Qry.SQLText =

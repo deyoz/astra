@@ -79,7 +79,6 @@ astra_SOURCES = \
   ckin_search.cc \
   code_convert.cc \
   comp_layers.cc \
-  convert.cc \
   counters.cc \
   comp_props.cpp \
   crypt.cc \
@@ -139,6 +138,7 @@ astra_SOURCES = \
   seats_utils.cc \
   seats.cc \
   seat_descript.cc \
+  seat_number.cc \
   seatPax.cc \
   service_eval.cc \
   sirena_exchange.cc \
@@ -287,7 +287,6 @@ noinst_HEADERS = \
   ckin_search.h \
   code_convert.h \
   comp_layers.h \
-  convert.h \
   counters.h \
   comp_props.h \
   crypt.h \
@@ -345,6 +344,7 @@ noinst_HEADERS = \
   seats_utils.h \
   seats.h \
   seat_descript.h \
+  seat_number.h \
   seatPax.h \
   service_eval.h \
   sirena_exchange.h \

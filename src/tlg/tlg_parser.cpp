@@ -16,7 +16,6 @@
 #include "oralib.h"
 #include "misc.h"
 #include "tlg.h"
-#include "convert.h"
 #include "seats_utils.h"
 #include "salons.h"
 #include "memory_manager.h"
@@ -121,9 +120,10 @@ const char* TTlgParser::GetLexeme(const char* p)
   if (len>(int)sizeof(lex)-1)
     throw ETlgError("Too long lexeme");
   lex[len]=0;
-  strncpy(lex,p,len);
   if (len==0) return NULL;
-  else return p+len;
+
+  strncpy(lex,p,len);
+  return p+len;
 };
 
 const char* TTlgParser::GetSlashedLexeme(const char* p)
@@ -181,9 +181,10 @@ const char* TTlgParser::GetNameElement(const char* p, bool trimRight) //до перво
   if (len>(int)sizeof(lex)-1)
     throw ETlgError("Too long lexeme");
   lex[len]=0;
-  strncpy(lex,p,len);
   if (len==0) return NULL;
-  else return p+len;
+
+  strncpy(lex,p,len);
+  return p+len;
 };
 
 const char* TTlgParser::GetToEOLLexeme(const char* p)
@@ -197,9 +198,10 @@ const char* TTlgParser::GetToEOLLexeme(const char* p)
   if (len>(int)sizeof(lex)-1)
     throw ETlgError("Too long lexeme");
   lex[len]=0;
-  strncpy(lex,p,len);
   if (len==0) return NULL;
-  else return p+len;
+
+  strncpy(lex,p,len);
+  return p+len;
 };
 
 const char* GetTlgElementName(TTlgElement e)
@@ -247,7 +249,7 @@ char* GetAirline(char* airline, bool with_icao, bool throwIfUnknown)
   {
     return TlgElemToElemId(etAirline,airline,airline,with_icao);
   }
-  catch (EBaseTableError)
+  catch (const EBaseTableError&)
   {
     if (throwIfUnknown)
       throw ETlgError("Unknown airline code '%s'", airline);
@@ -261,7 +263,7 @@ char* GetAirp(char* airp, bool with_icao=false, bool throwIfUnknown=true)
   {
     return TlgElemToElemId(etAirp,airp,airp,with_icao);
   }
-  catch (EBaseTableError)
+  catch (const EBaseTableError&)
   {
     if (throwIfUnknown)
       throw ETlgError("Unknown airport code '%s'", airp);
@@ -277,7 +279,7 @@ TClass GetClass(const char* subcl)
     TlgElemToElemId(etSubcls,subcl,subclh);
     return DecodeClass(getBaseTable(etSubcls).get_row("code",subclh).AsString("cl").c_str());
   }
-  catch (EBaseTableError)
+  catch (const EBaseTableError&)
   {
     throw ETlgError("Unknown subclass '%s'", subcl);
   };
@@ -289,7 +291,7 @@ char* GetSubcl(char* subcl, bool throwIfUnknown=true)
   {
     return TlgElemToElemId(etSubcls,subcl,subcl);
   }
-  catch (EBaseTableError)
+  catch (const EBaseTableError&)
   {
     if (throwIfUnknown)
       throw ETlgError("Unknown subclass '%s'", subcl);
@@ -309,7 +311,7 @@ char GetSuffix(char &suffix, bool throwIfUnknown)
       TlgElemToElemId(etSuffix,suffixh,suffixh);
       suffix=suffixh[0];
     }
-    catch (EBaseTableError)
+    catch (const EBaseTableError&)
     {
       if (throwIfUnknown)
         throw ETlgError("Unknown flight number suffix '%c'", suffix);
@@ -326,7 +328,7 @@ void GetPaxDocCountry(const char* elem, char* id)
     {
       TlgElemToElemId(etPaxDocCountry,elem,id);
     }
-    catch (EBaseTableError)
+    catch (const EBaseTableError&)
     {
       char country[3];
       TlgElemToElemId(etCountry,elem,country);
@@ -334,7 +336,7 @@ void GetPaxDocCountry(const char* elem, char* id)
       strcpy(id,getBaseTable(etPaxDocCountry).get_row("country",country).AsString("code").c_str());
     };
   }
-  catch (EBaseTableError)
+  catch (const EBaseTableError&)
   {
     throw ETlgError("Unknown country code '%s'", elem);
   };
@@ -533,7 +535,7 @@ char ParseBSMElement(const char *p, TTlgParser &tlg, TBSMInfo* &data, TMemoryMan
             {
               flt.scd = DayMonthToDate(day, monthAsNum(month), Now(), dateEverywhere);
             }
-            catch(EConvertError)
+            catch(const EConvertError&)
             {
               throw ETlgError("Can't convert flight date");
             };
@@ -633,7 +635,7 @@ char ParseBSMElement(const char *p, TTlgParser &tlg, TBSMInfo* &data, TMemoryMan
       };
       return (*id);
     }
-    catch (ETlgError E)
+    catch (const ETlgError& E)
     {
       switch (*id)
       {
@@ -734,7 +736,7 @@ TTlgPartInfo ParseBSMHeading(TTlgPartInfo heading, TBSMHeadingInfo &info, TMemor
     }
     while ((line_p=tlg.NextLine(line_p))!=NULL);
   }
-  catch(ETlgError E)
+  catch(const ETlgError& E)
   {
     throwTlgError(E.what(), heading, line_p);
   };
@@ -986,7 +988,7 @@ void ParseBTMContent(TTlgPartInfo body, const TBSMHeadingInfo& info, TBtmContent
         throw ETlgError("Wrong final element");
     };
   }
-  catch (ETlgError E)
+  catch (const ETlgError& E)
   {
     throwTlgError(E.what(), body, line_p);
   };
@@ -1038,7 +1040,7 @@ TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, TDCSHeadingInfo &info, TFligh
               info.flt.scd = DayMonthToDate(day, monthAsNum(month), Now(), dateEverywhere);
               info.flt.pr_utc=false;
             }
-            catch(EConvertError)
+            catch(const EConvertError&)
             {
               throw ETlgError("Can't convert local date");
             };
@@ -1105,7 +1107,7 @@ TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, TDCSHeadingInfo &info, TFligh
     }
     while ((line_p=tlg.NextLine(line_p))!=NULL);
   }
-  catch(ETlgError E)
+  catch(const ETlgError& E)
   {
     throwTlgError(E.what(), heading, line_p);
   };
@@ -1228,7 +1230,7 @@ void ParseAHMFltInfo(TTlgPartInfo body, const TAHMHeadingInfo &info, TFltInfo& f
       default:;
     };
   }
-  catch(ETlgError E)
+  catch(const ETlgError& E)
   {
     //вывести ошибку+номер строки
     throwTlgError(E.what(), body, line_p);
@@ -1330,12 +1332,12 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading,
                     EncodeTime(hour,min,sec,time_create);
                     infoh.time_create=day_create+time_create;
                   }
-                  catch(EConvertError)
+                  catch(const EConvertError&)
                   {
                     throw ETlgError("Can't convert creation time");
                   };
                 }
-                catch(ETlgError) {};
+                catch(const ETlgError&) {};
               };
               p=tlg.GetLexeme(p);
             };
@@ -1409,7 +1411,7 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading,
       mem.create(info, STDLOG);
     };
   }
-  catch(ETlgError E)
+  catch(const ETlgError& E)
   {
     mem.destroy(info, STDLOG);
     if (info!=NULL) delete info;
@@ -1463,7 +1465,7 @@ void ParseDCSEnding(TTlgPartInfo ending, THeadingInfo &headingInfo, TEndingInfo 
     }
     else throw ETlgError("Wrong end of message");
   }
-  catch(ETlgError E)
+  catch(const ETlgError& E)
   {
     throwTlgError(E.what(), ending, ending.p);
   };
@@ -1500,7 +1502,7 @@ void ParseAHMEnding(TTlgPartInfo ending, TEndingInfo& info)
       if (tlg.GetLexeme(p)!=NULL) throw ETlgError("Unknown lexeme");
     };
   }
-  catch(ETlgError E)
+  catch(const ETlgError& E)
   {
     throwTlgError(E.what(), ending, ending.p);
   };
@@ -1588,6 +1590,7 @@ void ParseSOMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TSOMContent& con)
           if (lexh[0]=='-')
           {
             e=SeatsByDestination;
+            [[fallthrough]];
           }
           else throw ETlgError("Seats by destination expected");
         case SeatsByDestination:
@@ -1633,7 +1636,7 @@ void ParseSOMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TSOMContent& con)
               iSeats->ranges.insert(iSeats->ranges.end(),ranges.begin(),ranges.end());
               usePriorContext=true;
             }
-            catch(EConvertError)
+            catch(const EConvertError&)
             {
               //диапазон не разобрался
               if (lexh[0]=='-')
@@ -1657,7 +1660,7 @@ void ParseSOMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TSOMContent& con)
     }
     while ((line_p=tlg.NextLine(line_p))!=NULL);
   }
-  catch (ETlgError E)
+  catch (const ETlgError& E)
   {
     throwTlgError(E.what(), body, line_p);
   };
@@ -1750,7 +1753,7 @@ void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con)
                 {
                   EncodeDate(year,mon,day,flt.scd);
                 }
-                catch(EConvertError)
+                catch(const EConvertError&)
                 {
                   throw ETlgError("Can't convert connecting flight date");
                 };
@@ -1859,7 +1862,7 @@ void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con)
     }
     while ((line_p=tlg.NextLine(line_p))!=NULL);
   }
-  catch (ETlgError E)
+  catch (const ETlgError& E)
   {
     throwTlgError(E.what(), body, line_p);
   };
@@ -1967,6 +1970,7 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
             break;
           };
           e=Configuration;
+          [[fallthrough]];
         case Configuration:
           if (strncmp(tlg.lex,"CFG/",4)==0)
           {
@@ -2015,6 +2019,7 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
             break;
           };
           e=ClassCodes;
+          [[fallthrough]];
         case ClassCodes:
           if (strcmp(tlg.lex,"RBD")==0)
           {
@@ -2040,6 +2045,7 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
           else
           e=SpaceAvailableElement;
           e_part=1;
+          [[fallthrough]];
         case SpaceAvailableElement:
           if (e_part==1)
           {
@@ -2131,6 +2137,7 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
             };
           e=TranzitElement;
           e_part=1;
+          [[fallthrough]];
         case TranzitElement:
           if (e_part==1)
           {
@@ -2206,6 +2213,7 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
             };
           e=TotalsByDestination;
           e_part=1;
+          [[fallthrough]];
         case TotalsByDestination:
           if (NILpossible && strcmp(tlg.lex,"NIL")==0)
           {
@@ -2363,6 +2371,7 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
             e_part=3;
             break;
           };
+          [[fallthrough]];
         case EndOfMessage:
           {
             throw ETlgError("Unknown lexeme");
@@ -2441,7 +2450,7 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
       };
     };
   }
-  catch (ETlgError E)
+  catch (const ETlgError& E)
   {
     throwTlgError(E.what(), body, line_p);
   };
@@ -2774,7 +2783,7 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
                                     (Transfer.date_variation==ASTRA::NoExists?"":IntToString(Transfer.date_variation).c_str()),
                                     (Transfer.status[0]==0?"":Transfer.status));
                 }
-                catch(ETlgError)
+                catch(const ETlgError&)
                 {
                   ProgTrace(TRACE5, "%-30s: ETlgError!", s.str().c_str());
                 };
@@ -3064,7 +3073,7 @@ void BindRemarks(TTlgParser &tlg, TNameElement &ne)
         ParseNameElement(strh.c_str(),names,epOptional);
         if (!names.empty()&&*(names.begin())==ne.surname) break; //нашли
       }
-      catch(ETlgError &E) {};
+      catch(const ETlgError &E) {};
 
       if (pos!=0)
         pos=iRemItem->text.find_last_of('-',pos-1);
@@ -3194,7 +3203,7 @@ void BindDetailRem(TRemItem &remItem, bool isGrpRem, TPaxItem &paxItem,
         };
         break;
       }
-      catch(std::bad_cast) {};
+      catch(const std::bad_cast&) {};
       paxItem.inf.begin()->rem.push_back(remItem);
       remItem.text.clear();
     };
@@ -3216,7 +3225,7 @@ void BindDetailRem(TRemItem &remItem, bool isGrpRem, TPaxItem &paxItem,
       };
       break;
     }
-    catch(std::bad_cast) {};
+    catch(const std::bad_cast&) {};
     if (isGrpRem)
     {
       paxItem.rem.push_back(remItem);
@@ -4389,7 +4398,7 @@ bool ParseSEATRem(TTlgParser &tlg, const string &rem_text, TSeatRanges &seats)
         seats.insert(seats.end(),ranges.begin(),ranges.end());
         usePriorContext=true;
       }
-      catch(EConvertError)
+      catch(const EConvertError&)
       {
         //диапазон не разобрался - ну и хрен с ним
         usePriorContext=false;
@@ -4440,7 +4449,7 @@ bool ParseCHDRem(TTlgParser &tlg, const string &rem_text, vector<TChdItem> &chd)
       {
         ParseNameElement(tlg.lex,names,epNone);
       }
-      catch(ETlgError &E)
+      catch(const ETlgError &E)
       {
         continue;
       };
@@ -4504,7 +4513,7 @@ bool ParseINFRem(TTlgParser &tlg, const string &rem_text, TInfList &inf)
       {
         ParseNameElement(tlg.lex,names,epNone);
       }
-      catch(ETlgError &E)
+      catch(const ETlgError &E)
       {
         continue;
       };
@@ -4641,7 +4650,7 @@ bool ParseDOCSRem(TTlgParser &tlg, TDateTime scd_local, const string &rem_text, 
             break;
         }
       }
-      catch(exception &E)
+      catch(const exception &E)
       {
         switch(k)
         {
@@ -4684,7 +4693,7 @@ bool ParseDOCSRem(TTlgParser &tlg, TDateTime scd_local, const string &rem_text, 
         };
       };
     }
-    catch(ETlgError &E)
+    catch(const ETlgError &E)
     {
       ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",doc.rem_code,E.what(),rem_text.c_str());
     };
@@ -4755,7 +4764,7 @@ bool ParseDOCSRem(TTlgParser &tlg, TDateTime scd_local, const string &rem_text, 
             break;
         }
       }
-      catch(exception &E)
+      catch(const exception &E)
       {
         switch(k)
         {
@@ -4786,7 +4795,7 @@ bool ParseDOCSRem(TTlgParser &tlg, TDateTime scd_local, const string &rem_text, 
         };
       };
     }
-    catch(ETlgError &E)
+    catch(const ETlgError &E)
     {
       ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",doc.rem_code,E.what(),rem_text.c_str());
     };
@@ -4871,7 +4880,7 @@ bool ParseDOCORem(TTlgParser &tlg, TDateTime scd_local, const string &rem_text, 
             break;
         }
       }
-      catch(exception &E)
+      catch(const exception &E)
       {
         switch(k)
         {
@@ -4902,7 +4911,7 @@ bool ParseDOCORem(TTlgParser &tlg, TDateTime scd_local, const string &rem_text, 
         };
       };
     }
-    catch(ETlgError &E)
+    catch(const ETlgError &E)
     {
       ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",doc.rem_code,E.what(),rem_text.c_str());
     };
@@ -4998,7 +5007,7 @@ bool ParseDOCARem(TTlgParser &tlg, const string &rem_text, TDocaItem &doca)
             break;
         }
       }
-      catch(exception &E)
+      catch(const exception &E)
       {
         switch(k)
         {
@@ -5029,7 +5038,7 @@ bool ParseDOCARem(TTlgParser &tlg, const string &rem_text, TDocaItem &doca)
         };
       };
     }
-    catch(ETlgError &E)
+    catch(const ETlgError &E)
     {
       ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",doca.rem_code,E.what(),rem_text.c_str());
     };
@@ -5084,7 +5093,7 @@ bool ParseCHKDRem(TTlgParser &tlg, const string &rem_text, TCHKDItem &chkd)
             break;
         }
       }
-      catch(exception &E)
+      catch(const exception &E)
       {
         switch(k)
         {
@@ -5100,7 +5109,7 @@ bool ParseCHKDRem(TTlgParser &tlg, const string &rem_text, TCHKDItem &chkd)
         };
       };
     }
-    catch(ETlgError &E)
+    catch(const ETlgError &E)
     {
       ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",chkd.rem_code,E.what(),rem_text.c_str());
     };
@@ -5176,7 +5185,7 @@ bool ParseASVCRem(TTlgParser &tlg, const string &rem_text, TASVCItem &asvc)
             break;
         }
       }
-      catch(exception &E)
+      catch(const exception &E)
       {
         switch(k)
         {
@@ -5206,7 +5215,7 @@ bool ParseASVCRem(TTlgParser &tlg, const string &rem_text, TASVCItem &asvc)
         };
       };
     }
-    catch(ETlgError &E)
+    catch(const ETlgError &E)
     {
       ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",asvc.rem_code,E.what(),rem_text.c_str());
     };
@@ -5251,7 +5260,7 @@ bool ParseSeatBlockingRem(TTlgParser &tlg, const string &rem_text, TSeatBlocking
           break;
       }
     }
-    catch(exception &E)
+    catch(const exception &E)
     {
       switch(k)
       {
@@ -5262,7 +5271,7 @@ bool ParseSeatBlockingRem(TTlgParser &tlg, const string &rem_text, TSeatBlocking
       };
     };
   }
-  catch(ETlgError &E)
+  catch(const ETlgError &E)
   {
     ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",rem.rem_code,E.what(),rem_text.c_str());
   };
@@ -5321,7 +5330,7 @@ bool ParseOTHS_DOCSRem(TTlgParser &tlg, const string &rem_text, TDocExtraItem &d
             break;
         }
       }
-      catch(exception &E)
+      catch(const exception &E)
       {
         switch(k)
         {
@@ -5337,7 +5346,7 @@ bool ParseOTHS_DOCSRem(TTlgParser &tlg, const string &rem_text, TDocExtraItem &d
         };
       };
     }
-    catch(ETlgError &E)
+    catch(const ETlgError &E)
     {
       ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",rem_code,E.what(),rem_text.c_str());
     };
@@ -5394,7 +5403,7 @@ bool ParseOTHS_FQTSTATUSRem(TTlgParser &tlg, const string &rem_text, TFQTExtraIt
             break;
         }
       }
-      catch(exception &E)
+      catch(const exception &E)
       {
         switch(k)
         {
@@ -5407,7 +5416,7 @@ bool ParseOTHS_FQTSTATUSRem(TTlgParser &tlg, const string &rem_text, TFQTExtraIt
         };
       };
     }
-    catch(ETlgError &E)
+    catch(const ETlgError &E)
     {
       ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",rem_code,E.what(),rem_text.c_str());
     };
@@ -5471,7 +5480,7 @@ bool ParseTKNRem(TTlgParser &tlg, const string &rem_text, TTKNItem &tkn)
             break;
         };
       }
-      catch(exception &E)
+      catch(const exception &E)
       {
         switch(k)
         {
@@ -5488,7 +5497,7 @@ bool ParseTKNRem(TTlgParser &tlg, const string &rem_text, TTKNItem &tkn)
         };
       };
     }
-    catch(ETlgError &E)
+    catch(const ETlgError &E)
     {
       ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",tkn.rem_code,E.what(),rem_text.c_str());
       return false;
@@ -5550,7 +5559,7 @@ bool ParseFQTRem(TTlgParser &tlg, const string &rem_text, TFQTItem &fqt)
             break;
         };
       }
-      catch(exception &E)
+      catch(const exception &E)
       {
         switch(k)
         {
@@ -5564,7 +5573,7 @@ bool ParseFQTRem(TTlgParser &tlg, const string &rem_text, TFQTItem &fqt)
 
       };
     }
-    catch(ETlgError &E)
+    catch(const ETlgError &E)
     {
       ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",fqt.rem_code,E.what(),rem_text.c_str());
       return false;
@@ -5642,7 +5651,7 @@ void GetParts(const char* tlg_p, TTlgPartsText &text, THeadingInfo* &info, TFlig
     }
     while ((line_p=tlg.NextLine(line_p))!=NULL);
   }
-  catch(ETlgError E)
+  catch(const ETlgError& E)
   {
     if (E.error_line()==NoExists)
       throwTlgError(E.what(), parts.addr, line_p);
@@ -6785,7 +6794,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
   {
     Qry.Execute();
   }
-  catch(EOracleError &E)
+  catch(const EOracleError &E)
   {
     if (E.Code!=1) throw;
   };
@@ -6798,7 +6807,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
   {
     Qry.Execute();
   }
-  catch(EOracleError &E)
+  catch(const EOracleError &E)
   {
     if (E.Code!=1) throw;
   };
@@ -6862,7 +6871,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
       {
         Qry.Execute();
       }
-      catch(EOracleError &E)
+      catch(const EOracleError &E)
       {
         if (E.Code!=1) throw;
       };

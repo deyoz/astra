@@ -8,10 +8,10 @@
 #include "astra_misc.h"
 #include "basetables.h"
 #include "date_time.h"
-#include "convert.h"
 #include "tripinfo.h"
 #include "tlg/edi_msg.h"
 #include "tlg/remote_system_context.h"
+#include "seat_number.h"
 
 #include <serverlib/dates_io.h>
 #include <serverlib/dates_oci.h>
@@ -1384,7 +1384,7 @@ std::string normSeatNum(const std::string& seatNum)
     std::string row(seatNum.begin(), --seatNum.end());
 
     std::ostringstream norm;
-    norm << norm_iata_row(row) << norm_iata_line(std::string(1, letter));
+    norm << SeatNumber::tryNormalizeRow(row) << SeatNumber::tryNormalizeLine(std::string(1, letter));
     return norm.str();
 }
 
@@ -1395,7 +1395,7 @@ std::string normSeatLetter(const std::string& seatLetter)
         throw EXCEPTIONS::Exception("invalid seat letter: %s", seatLetter.c_str());
     }
 
-    return norm_iata_line(seatLetter);
+    return SeatNumber::tryNormalizeLine(seatLetter);
 }
 
 //---------------------------------------------------------------------------------------
@@ -1413,7 +1413,7 @@ std::string denormSeatNum(const std::string& seatNum)
     std::string row(seatNum.begin(), --seatNum.end());
 
     std::ostringstream denorm;
-    denorm << denorm_iata_row(row) << denorm_iata_line(std::string(1, letter), true);
+    denorm << SeatNumber::tryDenormalizeRow(row) << SeatNumber::tryDenormalizeLine(std::string(1, letter), true);
     return denorm.str();
 }
 
