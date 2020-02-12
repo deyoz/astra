@@ -8,7 +8,6 @@
 #include <serverlib/loki/LokiTypeInfo.h>
 
 #include <typeinfo>
-#include <boost/shared_ptr.hpp>
 
 
 namespace BaseTables {

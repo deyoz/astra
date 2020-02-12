@@ -178,7 +178,7 @@ static std::list<dcrcka::Result> loadDeferredData(tlgnum_t postponeTlgNum)
     return {};
 }
 
-static void saveRemoteCkiResults(int grpId, xmlNodePtr reqNode,
+static void saveRemoteCkiResults(const GrpId_t& grpId, xmlNodePtr reqNode,
                                  const std::list<iatci::dcrcka::Result>& lRes)
 {
     if(lRes.empty()) return;
@@ -193,7 +193,7 @@ static void saveRemoteCkiResults(int grpId, xmlNodePtr reqNode,
     iatci::saveCkiGrp(grpId, reqNode, iatciResNode);
 }
 
-static void saveRemoteCkxResults(int grpId, const std::list<iatci::dcrcka::Result>& lRes,
+static void saveRemoteCkxResults(const GrpId_t& grpId, const std::list<iatci::dcrcka::Result>& lRes,
                                  xmlNodePtr reqNode)
 {
     if(lRes.empty()) return;
@@ -209,7 +209,8 @@ static void saveRemoteCkxResults(int grpId, const std::list<iatci::dcrcka::Resul
     iatci::saveCkxGrp(grpId, reqNode, iatciResNode);
 }
 
-static void saveRemoteCkuResults(int grpId, const std::list<iatci::dcrcka::Result>& lRes,
+static void saveRemoteCkuResults(const GrpId_t& grpId,
+                                 const std::list<iatci::dcrcka::Result>& lRes,
                                  xmlNodePtr reqNode)
 {
     if(lRes.empty()) return;

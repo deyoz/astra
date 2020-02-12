@@ -1,6 +1,7 @@
 #pragma once
 
 #include "astra_msg.h"
+#include "astra_types.h"
 
 #include <jxtlib/JxtInterface.h>
 
@@ -47,7 +48,7 @@ public:
     static void ReprintRequest(xmlNodePtr reqNode);
 
     // Passenger List Function Interchange
-    static void PasslistRequest(xmlNodePtr reqNode, int grpId);
+    static void PasslistRequest(xmlNodePtr reqNode, const GrpId_t& grpId);
 
     // Seat Map Function Interchange
     static void SeatmapRequest(xmlNodePtr reqNode);
@@ -57,55 +58,61 @@ protected:
     // Kick
     void KickHandler(XMLRequestCtxt* ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
-    static void KickHandler_onSuccess(int ctxtId, xmlNodePtr initialReqNode,
+    static void KickHandler_onSuccess(const ReqCtxtId_t& ctxtId,
+                                      xmlNodePtr initialReqNode,
                                       xmlNodePtr resNode,
                                       const std::list<iatci::dcrcka::Result>& lRes);
-    static void KickHandler_onFailure(int ctxtId, xmlNodePtr initialReqNode,
+    static void KickHandler_onFailure(const ReqCtxtId_t& ctxtId,
+                                      xmlNodePtr initialReqNode,
                                       xmlNodePtr resNode,
                                       const std::list<iatci::dcrcka::Result>& lRes,
                                       const Ticketing::AstraMsg_t& errCode);
-    static void KickHandler_onTimeout(int ctxtId, xmlNodePtr initialReqNode, xmlNodePtr resNode);
+    static void KickHandler_onTimeout(const ReqCtxtId_t& ctxtId,
+                                      xmlNodePtr initialReqNode,
+                                      xmlNodePtr resNode);
 
     // IFM
     static void FallbackMessage(xmlNodePtr initialReqNode);
 
 public:
     // Kick handlers
-    static void CheckinKickHandler(int ctxtId, xmlNodePtr initialReqNode,
+    static void CheckinKickHandler(const ReqCtxtId_t& ctxtId, xmlNodePtr initialReqNode,
                                    xmlNodePtr resNode, const std::list<iatci::dcrcka::Result>& lRes);
-    static void UpdateKickHandler(int ctxtId, xmlNodePtr initialReqNode,
+    static void UpdateKickHandler(const ReqCtxtId_t& ctxtId, xmlNodePtr initialReqNode,
                                   xmlNodePtr resNode, const std::list<iatci::dcrcka::Result>& lRes);
-    static void CancelKickHandler(int ctxtId, xmlNodePtr initialReqNode,
+    static void CancelKickHandler(const ReqCtxtId_t& ctxtId, xmlNodePtr initialReqNode,
                                   xmlNodePtr resNode, const std::list<iatci::dcrcka::Result>& lRes);
-    static void ReprintKickHandler(int ctxtId, xmlNodePtr initialReqNode,
+    static void ReprintKickHandler(const ReqCtxtId_t& ctxtId, xmlNodePtr initialReqNode,
                                    xmlNodePtr resNode, const std::list<iatci::dcrcka::Result>& lRes);
-    static void PasslistKickHandler(int ctxtId, xmlNodePtr initialReqNode,
+    static void PasslistKickHandler(const ReqCtxtId_t& ctxtId, xmlNodePtr initialReqNode,
                                     xmlNodePtr resNode, const std::list<iatci::dcrcka::Result>& lRes);
-    static void SeatmapKickHandler(int ctxtId, xmlNodePtr initialReqNode,
+    static void SeatmapKickHandler(const ReqCtxtId_t& ctxtId, xmlNodePtr initialReqNode,
                                    xmlNodePtr resNode, const std::list<iatci::dcrcka::Result>& lRes);
-    static void SeatmapForPassengerKickHandler(int ctxtId, xmlNodePtr initialReqNode,
+    static void SeatmapForPassengerKickHandler(const ReqCtxtId_t& ctxtId, xmlNodePtr initialReqNode,
                                                xmlNodePtr resNode, const std::list<iatci::dcrcka::Result>& lRes);
 
 private:
-    static void DoKickAction(int ctxtId, xmlNodePtr reqNode, xmlNodePtr resNode,
+    static void DoKickAction(const ReqCtxtId_t& ctxtId,
+                             xmlNodePtr reqNode, xmlNodePtr resNode,
                              const std::list<iatci::dcrcka::Result>& lRes,
                              RequestType reqType,
                              KickAction act);
 
     static int GetReqCtxtId(xmlNodePtr kickReqNode);
 
-    static void RollbackChangeOfStatus(xmlNodePtr initialReqNode, int ctxtId);
+    static void RollbackChangeOfStatus(xmlNodePtr initialReqNode,
+                                       const ReqCtxtId_t& ctxtId);
 };
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
 namespace iatci {
 
-int getCkxGrpId(xmlNodePtr reqNode);
-int getCkuGrpId(xmlNodePtr reqNode);
+GrpId_t getCkxGrpId(xmlNodePtr reqNode);
+GrpId_t getCkuGrpId(xmlNodePtr reqNode);
 
-void saveCkiGrp(int grpId, xmlNodePtr reqNode, xmlNodePtr iatciResNode);
-void saveCkuGrp(int grpId, xmlNodePtr reqNode, xmlNodePtr iatciResNode);
-void saveCkxGrp(int grpId, xmlNodePtr reqNode, xmlNodePtr iatciResNode);
+void saveCkiGrp(const GrpId_t& grpId, xmlNodePtr reqNode, xmlNodePtr iatciResNode);
+void saveCkuGrp(const GrpId_t& grpId, xmlNodePtr reqNode, xmlNodePtr iatciResNode);
+void saveCkxGrp(const GrpId_t& grpId, xmlNodePtr reqNode, xmlNodePtr iatciResNode);
 
 }//namespace iatci

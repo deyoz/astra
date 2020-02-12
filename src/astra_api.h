@@ -1,5 +1,6 @@
 #pragma once
 
+#include "astra_types.h"
 #include "astra_consts.h"
 #include "iatci_types.h"
 #include "date_time.h"
@@ -1405,7 +1406,7 @@ class AstraEngine
 private:
     mutable XMLDoc m_reqDoc;
     mutable XMLDoc m_resDoc;
-    int 	   m_userId;
+    int            m_userId;
 
 protected:
     int             getUserId() const;
@@ -1418,29 +1419,32 @@ protected:
     AstraEngine();
 
     void CheckTCkinRoute(xmlNodePtr reqNode, xmlNodePtr resNode,
-                         int pointDep, const xml_entities::XmlTrip& paxTrip);
+                         const PointId_t& pointDep,
+                         const xml_entities::XmlTrip& paxTrip);
 
 public:
     static AstraEngine& singletone();
 
     // просмотр списка зарегистрированных пассажиров на рейсе
-    xml_entities::PaxListXmlResult PaxList(int depPointId);
+    xml_entities::PaxListXmlResult PaxList(const PointId_t& depPointId);
 
     // поиск зарегистрированного пассажира по регистрационному номеру
-    xml_entities::LoadPaxXmlResult LoadPax(int depPointId, int paxRegNo);
+    xml_entities::LoadPaxXmlResult LoadPax(const PointId_t& depPointId,
+                                           const RegNo_t& paxRegNo);
 
-    xml_entities::LoadPaxXmlResult LoadGrp(int depPointId, int grpId);
+    xml_entities::LoadPaxXmlResult LoadGrp(const PointId_t& depPointId,
+                                           const GrpId_t& grpId);
 
     // поиск НЕзарегистрированного пассажира на рейсе
-    xml_entities::SearchPaxXmlResult SearchCheckInPax(int depPointId,
-                                                      const std::string& paxSurname,
-                                                      const std::string& paxName);
+    xml_entities::SearchPaxXmlResult SearchCheckInPax(const PointId_t& depPointId,
+                                                      const Surname_t& paxSurname,
+                                                      const Name_t& paxName);
 
     // проверка возможности сквозной регистрации
-    xml_entities::CheckTCkinRoute1XmlResult CheckTCkinRoute1(int pointDep,
+    xml_entities::CheckTCkinRoute1XmlResult CheckTCkinRoute1(const PointId_t& pointDep,
                                                              const xml_entities::XmlTrip& paxTrip);
 
-    xml_entities::CheckTCkinRoute2XmlResult CheckTCkinRoute2(int pointDep,
+    xml_entities::CheckTCkinRoute2XmlResult CheckTCkinRoute2(const PointId_t& pointDep,
                                                              const xml_entities::XmlTrip& paxTrip);
 
     // сохранение информации о пассажире(ах)
@@ -1458,15 +1462,17 @@ public:
     xml_entities::LoadPaxXmlResult SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode);
 
     // изменение места
-    void ReseatPax(int pointDep, const xml_entities::XmlPax& pax,
+    void ReseatPax(const PointId_t& pointDep,
+                   const xml_entities::XmlPax& pax,
                    boost::optional<xml_entities::XmlHostDetails> hostDetails);
+
     xml_entities::LoadPaxXmlResult Reseat(const xml_entities::XmlSegment& paxSeg);
 
     // расширенный поиск рейса на дату
     xml_entities::GetAdvTripListXmlResult GetAdvTripList(const boost::gregorian::date& depDate);
 
     // просмотр карты мест рейса
-    xml_entities::GetSeatmapXmlResult GetSeatmap(int depPointId);
+    xml_entities::GetSeatmapXmlResult GetSeatmap(const PointId_t& depPointId);
 };
 
 //---------------------------------------------------------------------------------------
@@ -1475,40 +1481,42 @@ public:
  * Найти Id вылетного пойнта
  * @return Id или tick_soft_except
 */
-int findDepPointId(const std::string& depPort,
-                   const std::string& airline,
-                   unsigned flNum,
-                   const boost::gregorian::date& depDate);
+PointId_t findDepPointId(const std::string& depPort,
+                         const std::string& airline,
+                         unsigned flNum,
+                         const boost::gregorian::date& depDate);
 
-int findDepPointId(const std::string& depPort,
-                   const std::string& airline,
-                   const Ticketing::FlightNum_t& flNum,
-                   const boost::gregorian::date& depDate);
+PointId_t findDepPointId(const std::string& depPort,
+                         const std::string& airline,
+                         const Ticketing::FlightNum_t& flNum,
+                         const boost::gregorian::date& depDate);
 
 /**
  * Найти Id прилетного пойнта
  * @return Id или 0(если не найден)
 */
-int findArvPointId(int pointDep,
-                   const std::string& arvPort);
+PointId_t findArvPointId(const PointId_t& pointDep,
+                         const std::string& arvPort);
 
 /**
  * Найти grp_id для вылетного пойнта и регистрационного номера пассажира
  * @return GrpId или 0(если не найден)
 */
-int findGrpIdByRegNo(int pointDep, int regNo);
+GrpId_t findGrpIdByRegNo(const PointId_t& pointDep,
+                         const RegNo_t& regNo);
 
 /**
  * Найти grp_id для вылетного пойнта и идентификатора пассажира
  * @return GrpId или 0(если не найден)
 */
-int findGrpIdByPaxId(int pointDep, int paxId);
+GrpId_t findGrpIdByPaxId(const PointId_t& pointDep,
+                         const PaxId_t& paxId);
 
 //---------------------------------------------------------------------------------------
 
 struct IatciCheckinResult
 {
-    int                   m_grpId;
+    GrpId_t               m_grpId;
     iatci::dcrcka::Result m_iatciResult;
 };
 

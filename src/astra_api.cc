@@ -17,6 +17,7 @@
 #include <serverlib/dates_io.h>
 #include <serverlib/str_utils.h>
 #include <serverlib/algo.h>
+#include <serverlib/rip_oci.h>
 #include <jxtlib/jxt_cont.h>
 #include <jxtlib/jxt_cont_impl.h>
 #include <etick/exceptions.h>
@@ -388,14 +389,14 @@ AstraEngine& AstraEngine::singletone()
     return inst;
 }
 
-PaxListXmlResult AstraEngine::PaxList(int pointId)
+PaxListXmlResult AstraEngine::PaxList(const PointId_t& pointId)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " by point_id=" << pointId;
     xmlNodePtr reqNode = getQueryNode(),
                resNode = getAnswerNode();
 
     xmlNodePtr paxListNode = NewTextChild(reqNode, "PaxList");
-    NewTextChild(paxListNode, "point_id", pointId);
+    NewTextChild(paxListNode, "point_id", pointId.get());
 
     initReqInfo();
 
@@ -405,7 +406,8 @@ PaxListXmlResult AstraEngine::PaxList(int pointId)
     return PaxListXmlResult(resNode);
 }
 
-LoadPaxXmlResult AstraEngine::LoadPax(int pointId, int paxRegNo)
+LoadPaxXmlResult AstraEngine::LoadPax(const PointId_t& pointId,
+                                      const RegNo_t& paxRegNo)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " by point_id=" << pointId
                                      << " and reg_no=" << paxRegNo;
@@ -413,8 +415,8 @@ LoadPaxXmlResult AstraEngine::LoadPax(int pointId, int paxRegNo)
                resNode = getAnswerNode();
 
     xmlNodePtr loadPaxNode = NewTextChild(reqNode, "TCkinLoadPax");
-    NewTextChild(loadPaxNode, "point_id", pointId);
-    NewTextChild(loadPaxNode, "reg_no", paxRegNo);
+    NewTextChild(loadPaxNode, "point_id", pointId.get());
+    NewTextChild(loadPaxNode, "reg_no", paxRegNo.get());
 
     initReqInfo();
 
@@ -424,7 +426,8 @@ LoadPaxXmlResult AstraEngine::LoadPax(int pointId, int paxRegNo)
     return LoadPaxXmlResult(resNode);
 }
 
-xml_entities::LoadPaxXmlResult AstraEngine::LoadGrp(int pointId, int grpId)
+xml_entities::LoadPaxXmlResult AstraEngine::LoadGrp(const PointId_t& pointId,
+                                                    const GrpId_t& grpId)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " by point_id=" << pointId
                                      << " and grp_id=" << grpId;
@@ -432,8 +435,8 @@ xml_entities::LoadPaxXmlResult AstraEngine::LoadGrp(int pointId, int grpId)
                resNode = getAnswerNode();
 
     xmlNodePtr loadPaxNode = NewTextChild(reqNode, "TCkinLoadPax");
-    NewTextChild(loadPaxNode, "point_id", pointId);
-    NewTextChild(loadPaxNode, "grp_id", grpId);
+    NewTextChild(loadPaxNode, "point_id", pointId.get());
+    NewTextChild(loadPaxNode, "grp_id", grpId.get());
 
     initReqInfo();
 
@@ -443,17 +446,17 @@ xml_entities::LoadPaxXmlResult AstraEngine::LoadGrp(int pointId, int grpId)
     return LoadPaxXmlResult(resNode);
 }
 
-SearchPaxXmlResult AstraEngine::SearchCheckInPax(int pointDep,
-                                                 const std::string& paxSurname,
-                                                 const std::string& paxName)
+SearchPaxXmlResult AstraEngine::SearchCheckInPax(const PointId_t& pointDep,
+                                                 const Surname_t& paxSurname,
+                                                 const Name_t& paxName)
 {
     xmlNodePtr reqNode = getQueryNode(),
                resNode = getAnswerNode();
 
-    std::string query = paxSurname + " " + paxName;
+    std::string query = paxSurname.get() + " " + paxName.get();
 
     xmlNodePtr searchPaxNode = NewTextChild(reqNode, "SearchPax");
-    NewTextChild(searchPaxNode, "point_dep", pointDep);
+    NewTextChild(searchPaxNode, "point_dep", pointDep.get());
     NewTextChild(searchPaxNode, "pax_status", "K"); // "K" - CheckIn status
     NewTextChild(searchPaxNode, "query", query);
 
@@ -466,13 +469,14 @@ SearchPaxXmlResult AstraEngine::SearchCheckInPax(int pointDep,
 }
 
 void AstraEngine::CheckTCkinRoute(xmlNodePtr reqNode, xmlNodePtr resNode,
-                                  int pointDep, const xml_entities::XmlTrip& paxTrip)
+                                  const PointId_t& pointDep,
+                                  const xml_entities::XmlTrip& paxTrip)
 {
     const XmlPnr& pnr = paxTrip.pnr();
 
     xmlNodePtr checkTCkinRouteNode = NewTextChild(reqNode, "CheckTCkinRoute");
-    NewTextChild(checkTCkinRouteNode, "point_dep", pointDep);
-    NewTextChild(checkTCkinRouteNode, "point_arv", findArvPointId(pointDep, pnr.airp_arv));
+    NewTextChild(checkTCkinRouteNode, "point_dep", pointDep.get());
+    NewTextChild(checkTCkinRouteNode, "point_arv", findArvPointId(pointDep, pnr.airp_arv).get());
     NewTextChild(checkTCkinRouteNode, "airp_dep",  paxTrip.airp_dep);
     NewTextChild(checkTCkinRouteNode, "airp_arv",  pnr.airp_arv);
     NewTextChild(checkTCkinRouteNode, "class",     pnr.cls);
@@ -500,7 +504,7 @@ void AstraEngine::CheckTCkinRoute(xmlNodePtr reqNode, xmlNodePtr resNode,
     LogTrace(TRACE3) << "CheckTCkinRoute answer:\n" << XMLTreeToText(resNode->doc);
 }
 
-CheckTCkinRoute1XmlResult AstraEngine::CheckTCkinRoute1(int pointDep,
+CheckTCkinRoute1XmlResult AstraEngine::CheckTCkinRoute1(const PointId_t& pointDep,
                                                         const XmlTrip& paxTrip)
 {
     xmlNodePtr reqNode = getQueryNode(),
@@ -510,7 +514,7 @@ CheckTCkinRoute1XmlResult AstraEngine::CheckTCkinRoute1(int pointDep,
     return CheckTCkinRoute1XmlResult(resNode);
 }
 
-CheckTCkinRoute2XmlResult AstraEngine::CheckTCkinRoute2(int pointDep,
+CheckTCkinRoute2XmlResult AstraEngine::CheckTCkinRoute2(const PointId_t& pointDep,
                                                         const XmlTrip& paxTrip)
 {
     xmlNodePtr reqNode = getQueryNode(),
@@ -632,7 +636,8 @@ LoadPaxXmlResult AstraEngine::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode)
     return LoadPaxXmlResult(resNode);
 }
 
-void AstraEngine::ReseatPax(int pointDep, const xml_entities::XmlPax& pax,
+void AstraEngine::ReseatPax(const PointId_t& pointDep,
+                            const xml_entities::XmlPax& pax,
                             boost::optional<xml_entities::XmlHostDetails> hostDetails)
 {
     xmlNodePtr reqNode = getQueryNode(),
@@ -640,7 +645,7 @@ void AstraEngine::ReseatPax(int pointDep, const xml_entities::XmlPax& pax,
 
     iatci::Seat seat = iatci::Seat::fromStr(pax.seat_no);
     xmlNodePtr reseatNode = NewTextChild(reqNode, "Reseat");
-    NewTextChild(reseatNode, "trip_id",         pointDep);
+    NewTextChild(reseatNode, "trip_id",         pointDep.get());
     NewTextChild(reseatNode, "pax_id",          pax.pax_id);
     NewTextChild(reseatNode, "xname",           seat.col());
     NewTextChild(reseatNode, "yname",           seat.row());
@@ -662,10 +667,13 @@ LoadPaxXmlResult AstraEngine::Reseat(const xml_entities::XmlSegment& paxSeg)
     ASSERT(!paxSeg.passengers.empty());
     for(const xml_entities::XmlPax& pax: paxSeg.passengers) {
         if(pax.toPax().isInfant()) continue;
-        ReseatPax(paxSeg.seg_info.point_dep, pax, paxSeg.host_details);
+        ReseatPax(PointId_t(paxSeg.seg_info.point_dep),
+                  pax,
+                  paxSeg.host_details);
     }
 
-    return LoadPax(paxSeg.seg_info.point_dep, paxSeg.firstNonInfant().reg_no);
+    return LoadPax(PointId_t(paxSeg.seg_info.point_dep),
+                   RegNo_t(paxSeg.firstNonInfant().reg_no));
 }
 
 
@@ -691,13 +699,13 @@ GetAdvTripListXmlResult AstraEngine::GetAdvTripList(const boost::gregorian::date
     return GetAdvTripListXmlResult(resNode);
 }
 
-GetSeatmapXmlResult AstraEngine::GetSeatmap(int depPointId)
+GetSeatmapXmlResult AstraEngine::GetSeatmap(const PointId_t& depPointId)
 {
     xmlNodePtr reqNode = getQueryNode(),
                resNode = getAnswerNode();
 
     xmlNodePtr showNode = NewTextChild(reqNode, "Show");
-    NewTextChild(showNode, "trip_id", depPointId);
+    NewTextChild(showNode, "trip_id", depPointId.get());
 
     initReqInfo();
 
@@ -937,13 +945,15 @@ static PaxFilter getSearchPaxFilter(const iatci::PaxDetails& pax,
     return PaxFilter(nmf, tnf, idf);
 }
 
-static bool PaxAlreadyCheckedIn(int pointDep, const PaxFilter& filter)
+static bool PaxAlreadyCheckedIn(const PointId_t& pointDep,
+                                const PaxFilter& filter)
 {
     PaxListXmlResult paxListXmlRes = AstraEngine::singletone().PaxList(pointDep);
     return !paxListXmlRes.applyFilters(filter).empty();
 }
 
-static LoadPaxXmlResult LoadPax__(int pointDep, const iatci::PaxDetails& pax,
+static LoadPaxXmlResult LoadPax__(const PointId_t& pointDep,
+                                  const iatci::PaxDetails& pax,
                                   bool loadWholeGrp = false)
 {
     PaxListXmlResult paxListXmlRes = AstraEngine::singletone().PaxList(pointDep);
@@ -967,7 +977,8 @@ static LoadPaxXmlResult LoadPax__(int pointDep, const iatci::PaxDetails& pax,
     ASSERT(wantedPax.reg_no != ASTRA::NoExists);
 
     LoadPaxXmlResult loadPaxXmlRes =
-                AstraEngine::singletone().LoadPax(pointDep, wantedPax.reg_no);
+                AstraEngine::singletone().LoadPax(pointDep,
+                                                  RegNo_t(wantedPax.reg_no));
 
     if(!loadWholeGrp) {
         loadPaxXmlRes.applyPaxFilter(filter);
@@ -976,7 +987,8 @@ static LoadPaxXmlResult LoadPax__(int pointDep, const iatci::PaxDetails& pax,
     return loadPaxXmlRes;
 }
 
-static LoadPaxXmlResult LoadGrp__(int pointDep, int grpId)
+static LoadPaxXmlResult LoadGrp__(const PointId_t& pointDep,
+                                  const GrpId_t& grpId)
 {
     LoadPaxXmlResult loadPaxXmlRes =
                 AstraEngine::singletone().LoadGrp(pointDep, grpId);
@@ -1270,10 +1282,10 @@ static void applySeatUpdate(XmlPax& pax, const iatci::UpdateSeatDetails& updSeat
 
 //---------------------------------------------------------------------------------------
 
-int findDepPointId(const std::string& depPort,
-                   const std::string& airline,
-                   unsigned flNum,
-                   const boost::gregorian::date& depDate)
+PointId_t findDepPointId(const std::string& depPort,
+                         const std::string& airline,
+                         unsigned flNum,
+                         const boost::gregorian::date& depDate)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " "
                      << "depPort: " << depPort << "; "
@@ -1291,16 +1303,16 @@ int findDepPointId(const std::string& depPort,
     LogTrace(TRACE3) << "Found " << lFlts.size() << " flights";
 
     if(!lFlts.empty()) {
-        return lFlts.front().point_id;
+        return PointId_t(lFlts.front().point_id);
     }
 
     throw tick_soft_except(STDLOG, AstraErr::INV_FLIGHT_DATE);
 }
 
-int findDepPointId(const std::string& depPort,
-                   const std::string& airline,
-                   const Ticketing::FlightNum_t& flNum,
-                   const boost::gregorian::date& depDate)
+PointId_t findDepPointId(const std::string& depPort,
+                         const std::string& airline,
+                         const Ticketing::FlightNum_t& flNum,
+                         const boost::gregorian::date& depDate)
 {
     return findDepPointId(depPort,
                           airline,
@@ -1308,10 +1320,11 @@ int findDepPointId(const std::string& depPort,
                           depDate);
 }
 
-int findArvPointId(int pointDep, const std::string& arvPort)
+PointId_t findArvPointId(const PointId_t& pointDep,
+                         const std::string& arvPort)
 {
     FlightPoints flPoints;
-    flPoints.Get(pointDep);
+    flPoints.Get(pointDep.get());
     int pointArv = 0;
     // найдём point_id прибытия на сегменте
     for(FlightPoints::const_iterator it = flPoints.begin();
@@ -1325,10 +1338,11 @@ int findArvPointId(int pointDep, const std::string& arvPort)
             break;
         }
     }
-    return pointArv;
+    return PointId_t(pointArv);
 }
 
-int findGrpIdByRegNo(int pointDep, int regNo)
+GrpId_t findGrpIdByRegNo(const PointId_t& pointDep,
+                         const RegNo_t& regNo)
 {
     OciCpp::CursCtl cur = make_curs(
 "select PAX_GRP.GRP_ID from PAX, PAX_GRP "
@@ -1337,7 +1351,7 @@ int findGrpIdByRegNo(int pointDep, int regNo)
 "and PAX.REG_NO = :regno "
 "and PAX.REFUSE is null "
 "and PAX_GRP.STATUS not in ('E')");
-    int grpId = 0;
+    GrpId_t::base_type grpId = 0;
     cur.def(grpId)
        .bind(":point_dep", pointDep)
        .bind(":regno",     regNo)
@@ -1346,10 +1360,11 @@ int findGrpIdByRegNo(int pointDep, int regNo)
     LogTrace(TRACE3) << "grp_id:" << grpId << " "
                      << "found by point_dep:" << pointDep << " and "
                      << "reg_no:" << regNo;
-    return grpId;
+    return GrpId_t(grpId);
 }
 
-int findGrpIdByPaxId(int pointDep, int paxId)
+GrpId_t findGrpIdByPaxId(const PointId_t& pointDep,
+                         const PaxId_t& paxId)
 {
     OciCpp::CursCtl cur = make_curs(
 "select PAX_GRP.GRP_ID from PAX, PAX_GRP "
@@ -1358,16 +1373,16 @@ int findGrpIdByPaxId(int pointDep, int paxId)
 "and PAX.PAX_ID = :pax_id "
 "and PAX.REFUSE is null "
 "and PAX_GRP.STATUS not in ('E')");
-    int grpId = 0;
+    GrpId_t::base_type grpId = 0;
     cur.def(grpId)
        .bind(":point_dep", pointDep)
-       .bind(":pax_id",   paxId)
+       .bind(":pax_id",    paxId)
        .EXfet();
 
     LogTrace(TRACE3) << "grp_id:" << grpId << " "
                      << "found by point_dep:" << pointDep << " and "
                      << "pax_id:" << paxId;
-    return grpId;
+    return GrpId_t(grpId);
 }
 
 IatciCheckinResult checkinIatciPaxes(xmlNodePtr reqNode, xmlNodePtr ediResNode)
@@ -1381,7 +1396,7 @@ IatciCheckinResult checkinIatciPaxes(xmlNodePtr reqNode, xmlNodePtr ediResNode)
         // не смогли зарегистрировать
         throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "Unable to checkin pax");
     }
-    int grpId = loadPaxXmlRes.lSeg.front().seg_info.grp_id;
+    GrpId_t grpId(loadPaxXmlRes.lSeg.front().seg_info.grp_id);
     iatci::dcrcka::Result iatciRes = loadPaxXmlRes.toIatciFirst(iatci::dcrcka::Result::Checkin);
     return IatciCheckinResult{ grpId, iatciRes };
 }
@@ -1501,7 +1516,7 @@ static XmlPax applyFilter(const XmlPnr& pnr, const PaxFilter& filter)
     return paxesFiltered.front();
 }
 
-static void handleIatciCkiPax(int pointDep,
+static void handleIatciCkiPax(const PointId_t& pointDep,
                               boost::optional<XmlTripHeader>& tripHeader,
                               XmlSegment& paxSeg,
                               boost::optional<XmlSegment>& nextTrferSeg,
@@ -1514,8 +1529,8 @@ static void handleIatciCkiPax(int pointDep,
                               const boost::optional<iatci::VisaDetails>& visa,
                               const boost::optional<iatci::BaggageDetails>& baggage)
 {
-    const std::string PaxSurname = pax.surname();
-    const std::string PaxName    = pax.name();
+    const Surname_t PaxSurname(pax.surname());
+    const Name_t    PaxName(pax.name());
     LogTrace(TRACE3) << "handle pax: " << PaxSurname << "/" << PaxName;
 
     auto filter = getSearchPaxFilter(pax, service);
@@ -1539,8 +1554,8 @@ static void handleIatciCkiPax(int pointDep,
         paxSeg.seg_info.airp_arv  = pnr.airp_arv;
         paxSeg.seg_info.cls       = pnr.cls;
         paxSeg.seg_info.status    = "K"; // CheckIn status
-        paxSeg.seg_info.point_dep = pointDep;
-        paxSeg.seg_info.point_arv = findArvPointId(pointDep, pnr.airp_arv);
+        paxSeg.seg_info.point_dep = pointDep.get();
+        paxSeg.seg_info.point_arv = findArvPointId(pointDep, pnr.airp_arv).get();
 
         paxSeg.mark_flight = makeMarkFlight(trip);
     }
@@ -1548,9 +1563,9 @@ static void handleIatciCkiPax(int pointDep,
     if(!pnr.trfer_segments.empty()) {
         XmlTrip tripWithOneTrferSeg = cloneTripWithOneTrferSeg(trip);
 
-        auto pnrs = tripWithOneTrferSeg.filterPnrs(PaxSurname, PaxName);
+        auto pnrs = tripWithOneTrferSeg.filterPnrs(PaxSurname.get(), PaxName.get());
         if(!pnrs.empty()) {
-            auto paxes = pnrs.front().filterPaxes(PaxSurname, PaxName);
+            auto paxes = pnrs.front().filterPaxes(PaxSurname.get(), PaxName.get());
             if(!paxes.empty()) {
                 XmlTrferSegment& firstTrferSeg = tripWithOneTrferSeg.pnr().trfer_segments.front();
 
@@ -1609,17 +1624,18 @@ iatci::dcrcka::Result checkinIatciPaxes(const iatci::CkiParams& ckiParams)
     LogTrace(TRACE3) << __FUNCTION__;
 
     const iatci::FlightDetails& outbFlt = ckiParams.fltGroup().outboundFlight();
-    int pointDep = astra_api::findDepPointId(outbFlt.depPort(),
-                                             outbFlt.airline(),
-                                             outbFlt.flightNum(),
-                                             outbFlt.depDate());
+    PointId_t pointDep = astra_api::findDepPointId(outbFlt.depPort(),
+                                                   outbFlt.airline(),
+                                                   outbFlt.flightNum(),
+                                                   outbFlt.depDate());
 
     boost::optional<XmlTripHeader> tripHeader;
     XmlSegment paxSeg;
     boost::optional<XmlSegment> nextTrferSeg;
     const auto& paxGroups = ckiParams.fltGroup().paxGroups();
     for(const auto& paxGroup: paxGroups) {
-        handleIatciCkiPax(pointDep, tripHeader, paxSeg, nextTrferSeg,
+        handleIatciCkiPax(pointDep,
+                          tripHeader, paxSeg, nextTrferSeg,
                           paxGroup.pax(),
                           paxGroup.seat(),
                           paxGroup.reserv(),
@@ -1758,7 +1774,7 @@ static boost::optional<XmlBagTags> makeBagTags(const XmlBagTags& oldBagTags,
     return ret;
 }
 
-static boost::optional<iatci::PaxDetails> findInfant(int pointDep,
+static boost::optional<iatci::PaxDetails> findInfant(const PointId_t& pointDep,
                                                      const iatci::PaxDetails& pax)
 {
     // ищем инфанта, привязанного к пассажиру
@@ -1783,7 +1799,7 @@ static boost::optional<iatci::PaxDetails> findInfant(int pointDep,
     return boost::none;
 }
 
-static void handleIatciCkuPax(int pointDep,
+static void handleIatciCkuPax(const PointId_t& pointDep,
                               bool& needMakeSeg,
                               XmlSegment& paxSeg,
                               std::list<XmlSegment>& trferSegs,
@@ -2076,10 +2092,10 @@ iatci::dcrcka::Result updateIatciPaxes(const iatci::CkuParams& ckuParams)
     LogTrace(TRACE3) << __FUNCTION__;
 
     const iatci::FlightDetails& outbFlt = ckuParams.fltGroup().outboundFlight();
-    int pointDep = astra_api::findDepPointId(outbFlt.depPort(),
-                                             outbFlt.airline(),
-                                             outbFlt.flightNum(),
-                                             outbFlt.depDate());
+    PointId_t pointDep = astra_api::findDepPointId(outbFlt.depPort(),
+                                                   outbFlt.airline(),
+                                                   outbFlt.flightNum(),
+                                                   outbFlt.depDate());
 
     const auto& paxGroups = ckuParams.fltGroup().paxGroups();
     ASSERT(!paxGroups.empty());
@@ -2188,7 +2204,7 @@ iatci::dcrcka::Result updateIatciPaxes(const iatci::CkuParams& ckuParams)
 
 IatciCheckinResult updateIatciPaxes(xmlNodePtr reqNode, xmlNodePtr ediResNode)
 {
-    int grpId = iatci::getCkuGrpId(reqNode);
+    GrpId_t grpId(iatci::getCkuGrpId(reqNode));
     bool reseat = (findNodeR(reqNode, "Reseat") != NULL);
     if(!reseat) {
         LoadPaxXmlResult loadPaxXmlRes = AstraEngine::singletone().SavePax(reqNode, ediResNode);
@@ -2199,14 +2215,15 @@ IatciCheckinResult updateIatciPaxes(xmlNodePtr reqNode, xmlNodePtr ediResNode)
  
     // Необходимо достать "наш" сегмент, чтобы сформировать ответ.
     // Не смог придумать ничего, кроме как взять его из дисплея группы
-    LoadPaxXmlResult loadPaxXmlRes = AstraEngine::singletone().LoadGrp(0/*fake pointId*/, grpId);
+    LoadPaxXmlResult loadPaxXmlRes = AstraEngine::singletone().LoadGrp(PointId_t(0)/*fake pointId*/,
+                                                                       grpId);
     ASSERT(!loadPaxXmlRes.lSeg.empty());
 
     return IatciCheckinResult{ grpId,
                                loadPaxXmlRes.toIatciFirst(iatci::dcrcka::Result::Update) };
 }
 
-static void handleIatciCkxPax(int pointDep,
+static void handleIatciCkxPax(const PointId_t& pointDep,
                               bool& needMakeSeg,
                               XmlSegment& paxSeg,
                               std::list<XmlSegment>& trferSegs,
@@ -2254,10 +2271,10 @@ iatci::dcrcka::Result cancelCheckinIatciPaxes(const iatci::CkxParams& ckxParams)
     LogTrace(TRACE3) << __FUNCTION__;
 
     const iatci::FlightDetails& outbFlt = ckxParams.fltGroup().outboundFlight();
-    int pointDep = astra_api::findDepPointId(outbFlt.depPort(),
-                                             outbFlt.airline(),
-                                             outbFlt.flightNum(),
-                                             outbFlt.depDate());
+    PointId_t pointDep = astra_api::findDepPointId(outbFlt.depPort(),
+                                                   outbFlt.airline(),
+                                                   outbFlt.flightNum(),
+                                                   outbFlt.depDate());
 
     XmlSegment paxSeg;
     std::list<XmlSegment> trferSegs;
@@ -2310,16 +2327,16 @@ IatciCheckinResult cancelCheckinIatciPax(xmlNodePtr reqNode, xmlNodePtr ediResNo
         throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "Ets exchange error");
     }
 
-    int grpId = iatci::getCkxGrpId(reqNode);
+    GrpId_t grpId(iatci::getCkxGrpId(reqNode));
 
-     LoadPaxXmlResult loadPaxXmlRes = AstraEngine::singletone().SavePax(reqNode, ediResNode);
-     if(!loadPaxXmlRes.lSeg.empty()) {
-         return IatciCheckinResult{ grpId,
-                                   loadPaxXmlRes.toIatciFirst(iatci::dcrcka::Result::Cancel) };
-     }
-
+    LoadPaxXmlResult loadPaxXmlRes = AstraEngine::singletone().SavePax(reqNode, ediResNode);
+    if(!loadPaxXmlRes.lSeg.empty()) {
      return IatciCheckinResult{ grpId,
-                                LoadPaxXmlResult(reqNode).toIatciFirst(iatci::dcrcka::Result::Cancel) };
+                               loadPaxXmlRes.toIatciFirst(iatci::dcrcka::Result::Cancel) };
+    }
+
+    return IatciCheckinResult{ grpId,
+                               LoadPaxXmlResult(reqNode).toIatciFirst(iatci::dcrcka::Result::Cancel) };
 }
  
 
@@ -2345,10 +2362,10 @@ iatci::dcrcka::Result fillSeatmap(const iatci::SmfParams& smfParams)
                      << "flight["   << outbFlt.flightNum() << "]; "
                      << "dep_date[" << outbFlt.depDate() << "]; ";
 
-    int pointDep = astra_api::findDepPointId(outbFlt.depPort(),
-                                             outbFlt.airline(),
-                                             outbFlt.flightNum().get(),
-                                             outbFlt.depDate());
+    PointId_t pointDep = astra_api::findDepPointId(outbFlt.depPort(),
+                                                   outbFlt.airline(),
+                                                   outbFlt.flightNum().get(),
+                                                   outbFlt.depDate());
 
     LogTrace(TRACE3) << "seatmap point id: " << pointDep;
 
@@ -2356,7 +2373,7 @@ iatci::dcrcka::Result fillSeatmap(const iatci::SmfParams& smfParams)
     return seatmapXmlRes.toIatci(outbFlt);
 }
 
-static void handleIatciBprPax(int pointDep,
+static void handleIatciBprPax(const PointId_t& pointDep,
                               bool& needMakeSeg,
                               XmlSegment& paxSeg,
                               const iatci::PaxDetails& pax)
@@ -2386,10 +2403,10 @@ iatci::dcrcka::Result printBoardingPass(const iatci::BprParams& bprParams)
     LogTrace(TRACE3) << __FUNCTION__;
 
     const iatci::FlightDetails& outbFlt = bprParams.fltGroup().outboundFlight();
-    int pointDep = astra_api::findDepPointId(outbFlt.depPort(),
-                                             outbFlt.airline(),
-                                             outbFlt.flightNum(),
-                                             outbFlt.depDate());
+    PointId_t pointDep = astra_api::findDepPointId(outbFlt.depPort(),
+                                                   outbFlt.airline(),
+                                                   outbFlt.flightNum(),
+                                                   outbFlt.depDate());
 
     XmlSegment paxSeg;
     bool first = true;
@@ -2414,7 +2431,8 @@ iatci::dcrcka::Result printBoardingPass(const iatci::BprParams& bprParams)
 
     savePrintBP(paxSeg.seg_info.grp_id, paxSeg.passengers);
 
-    LoadPaxXmlResult loadGrpXmlRes = LoadGrp__(pointDep, paxSeg.seg_info.grp_id);
+    LoadPaxXmlResult loadGrpXmlRes = LoadGrp__(pointDep,
+                                               GrpId_t(paxSeg.seg_info.grp_id));
     if(loadGrpXmlRes.lSeg.empty()) {
         throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "Unable to load grp");
     }

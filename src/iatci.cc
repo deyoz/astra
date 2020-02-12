@@ -51,15 +51,16 @@ namespace
         XMLDoc m_doc;
         xmlNodePtr m_node;
     public:
-        EdiResCtxtWrapper(int ctxtId, const std::string& from)
+        EdiResCtxtWrapper(const ReqCtxtId_t& ctxtId, const std::string& from)
         {
             read(ctxtId, from);
         }
 
-        EdiResCtxtWrapper(int ctxtId, xmlNodePtr addCtxtNode, const std::string& tagName,
+        EdiResCtxtWrapper(const ReqCtxtId_t& ctxtId,
+                          xmlNodePtr addCtxtNode, const std::string& tagName,
                           const std::string& from)
         {
-            AstraEdifact::addToEdiResponseCtxt(ctxtId, addCtxtNode, tagName);
+            AstraEdifact::addToEdiResponseCtxt(ctxtId.get(), addCtxtNode, tagName);
             read(ctxtId, from);
         }
 
@@ -74,9 +75,9 @@ namespace
         }
 
     protected:
-        void read(int ctxtId, const std::string& from)
+        void read(const ReqCtxtId_t& ctxtId, const std::string& from)
         {
-            AstraEdifact::getEdiResponseCtxt(ctxtId, true, from, m_doc, false);
+            AstraEdifact::getEdiResponseCtxt(ctxtId.get(), true, from, m_doc, false);
             if(m_doc.docPtr() != NULL) {
                 m_node = NodeAsNode("/context", m_doc.docPtr());
             }
@@ -90,9 +91,9 @@ namespace
         XMLDoc m_doc;
         xmlNodePtr m_node;
     public:
-        TermReqCtxtWrapper(int ctxtId, bool clear, const std::string& from)
+        TermReqCtxtWrapper(const ReqCtxtId_t& ctxtId, bool clear, const std::string& from)
         {
-            AstraEdifact::getTermRequestCtxt(ctxtId, clear, from, m_doc);
+            AstraEdifact::getTermRequestCtxt(ctxtId.get(), clear, from, m_doc);
             m_node = NodeAsNode("/term/query", m_doc.docPtr())->children;
         }
 
@@ -931,16 +932,16 @@ static int getGrpId(xmlNodePtr reqNode, xmlNodePtr resNode, IatciInterface::Requ
             } else {
                 xmlNodePtr pointIdNode = findNodeR(reqNode, "point_id");
                 ASSERT((pointIdNode != NULL && !isempty(pointIdNode)));
-                int pointId = NodeAsInteger(pointIdNode);
+                PointId_t pointId(NodeAsInteger(pointIdNode));
                 xmlNodePtr regNoNode = findNodeR(reqNode, "reg_no");
                 if(regNoNode != NULL && !isempty(regNoNode)) {
-                    int regNo = NodeAsInteger(regNoNode);
-                    grpId = astra_api::findGrpIdByRegNo(pointId, regNo);
+                    RegNo_t regNo(NodeAsInteger(regNoNode));
+                    grpId = astra_api::findGrpIdByRegNo(pointId, regNo).get();
                 } else {
                     xmlNodePtr paxIdNode = findNodeR(reqNode, "pax_id");
                     if(paxIdNode != NULL && !isempty(paxIdNode)) {
-                        int paxId = NodeAsInteger(paxIdNode);
-                        grpId = astra_api::findGrpIdByPaxId(pointId, paxId);
+                        PaxId_t paxId(NodeAsInteger(paxIdNode));
+                        grpId = astra_api::findGrpIdByPaxId(pointId, paxId).get();
                     }
                 }
             }
@@ -2461,7 +2462,8 @@ void IatciInterface::ReprintRequest(xmlNodePtr reqNode)
                             kickInfo);
 }
 
-void IatciInterface::PasslistRequest(xmlNodePtr reqNode, int grpId)
+void IatciInterface::PasslistRequest(xmlNodePtr reqNode,
+                                     const GrpId_t& grpId)
 {
     // TODO
 }
@@ -2475,7 +2477,7 @@ void IatciInterface::SeatmapRequest(xmlNodePtr reqNode)
                             kickInfo);
 }
 
-void IatciInterface::CheckinKickHandler(int ctxtId,
+void IatciInterface::CheckinKickHandler(const ReqCtxtId_t& ctxtId,
                                         xmlNodePtr initialReqNode,
                                         xmlNodePtr resNode,
                                         const std::list<Result>& lRes)
@@ -2485,7 +2487,7 @@ void IatciInterface::CheckinKickHandler(int ctxtId,
     FuncOut(CheckinKickHandler);
 }
 
-void IatciInterface::UpdateKickHandler(int ctxtId,
+void IatciInterface::UpdateKickHandler(const ReqCtxtId_t& ctxtId,
                                        xmlNodePtr initialReqNode,
                                        xmlNodePtr resNode,
                                        const std::list<Result>& lRes)
@@ -2496,7 +2498,7 @@ void IatciInterface::UpdateKickHandler(int ctxtId,
     FuncOut(UpdateKickHandler);
 }
 
-void IatciInterface::CancelKickHandler(int ctxtId,
+void IatciInterface::CancelKickHandler(const ReqCtxtId_t& ctxtId,
                                        xmlNodePtr initialReqNode,
                                        xmlNodePtr resNode,
                                        const std::list<Result>& lRes)
@@ -2506,7 +2508,7 @@ void IatciInterface::CancelKickHandler(int ctxtId,
     FuncOut(CancelKickHandler);
 }
 
-void IatciInterface::ReprintKickHandler(int ctxtId,
+void IatciInterface::ReprintKickHandler(const ReqCtxtId_t& ctxtId,
                                         xmlNodePtr initialReqNode,
                                         xmlNodePtr resNode,
                                         const std::list<Result>& lRes)
@@ -2516,7 +2518,7 @@ void IatciInterface::ReprintKickHandler(int ctxtId,
     FuncOut(ReprintKickHandler);
 }
 
-void IatciInterface::PasslistKickHandler(int ctxtId,
+void IatciInterface::PasslistKickHandler(const ReqCtxtId_t& ctxtId,
                                          xmlNodePtr initialReqNode,
                                          xmlNodePtr resNode,
                                          const std::list<Result>& lRes)
@@ -2526,7 +2528,7 @@ void IatciInterface::PasslistKickHandler(int ctxtId,
     FuncOut(PasslistKickHandler);
 }
 
-void IatciInterface::SeatmapKickHandler(int ctxtId,
+void IatciInterface::SeatmapKickHandler(const ReqCtxtId_t& ctxtId,
                                         xmlNodePtr initialReqNode,
                                         xmlNodePtr resNode,
                                         const std::list<Result>& lRes)
@@ -2545,7 +2547,7 @@ void IatciInterface::SeatmapKickHandler(int ctxtId,
     FuncOut(SeatmapKickHandler);
 }
 
-void IatciInterface::SeatmapForPassengerKickHandler(int ctxtId,
+void IatciInterface::SeatmapForPassengerKickHandler(const ReqCtxtId_t& ctxtId,
                                                     xmlNodePtr initialReqNode,
                                                     xmlNodePtr resNode,
                                                     const std::list<Result>& lRes)
@@ -2566,7 +2568,7 @@ void IatciInterface::KickHandler(XMLRequestCtxt* ctxt,
     {
         LogTrace(TRACE3) << *remRes;
 
-        int reqCtxtId = GetReqCtxtId(reqNode);
+        ReqCtxtId_t reqCtxtId(GetReqCtxtId(reqNode));
         TermReqCtxtWrapper termReqCtxt(reqCtxtId, true, "IatciInterface::KickHandler");
         if(remRes->status() == RemoteStatus::Timeout)
         {
@@ -2631,7 +2633,7 @@ void IatciInterface::FallbackMessage(xmlNodePtr initialReqNode)
     }
 }
 
-void IatciInterface::KickHandler_onTimeout(int ctxtId,
+void IatciInterface::KickHandler_onTimeout(const ReqCtxtId_t& ctxtId,
                                            xmlNodePtr initialReqNode,
                                            xmlNodePtr resNode)
 {
@@ -2642,7 +2644,7 @@ void IatciInterface::KickHandler_onTimeout(int ctxtId,
     FuncOut(KickHandler_onTimeout);
 }
 
-void IatciInterface::KickHandler_onSuccess(int ctxtId,
+void IatciInterface::KickHandler_onSuccess(const ReqCtxtId_t& ctxtId,
                                            xmlNodePtr initialReqNode,
                                            xmlNodePtr resNode,
                                            const std::list<Result>& lRes)
@@ -2676,7 +2678,7 @@ void IatciInterface::KickHandler_onSuccess(int ctxtId,
     FuncOut(KickHandler_onSuccess);
 }
 
-void IatciInterface::KickHandler_onFailure(int ctxtId,
+void IatciInterface::KickHandler_onFailure(const ReqCtxtId_t& ctxtId,
                                            xmlNodePtr initialReqNode,
                                            xmlNodePtr resNode,
                                            const std::list<Result>& lRes,
@@ -2781,7 +2783,7 @@ static void normalizeIatciPaxDocs(xmlNodePtr iatciResNode,
     }
 }
 
-void IatciInterface::DoKickAction(int ctxtId,
+void IatciInterface::DoKickAction(const ReqCtxtId_t& ctxtId,
                                   xmlNodePtr reqNode,
                                   xmlNodePtr resNode,
                                   const std::list<Result>& lRes,
@@ -2870,7 +2872,8 @@ void IatciInterface::DoKickAction(int ctxtId,
     FuncOut(DoKickAction);
 }
 
-void IatciInterface::RollbackChangeOfStatus(xmlNodePtr initialReqNode, int ctxtId)
+void IatciInterface::RollbackChangeOfStatus(xmlNodePtr initialReqNode,
+                                            const ReqCtxtId_t& ctxtId)
 {
     if(!isCheckinRequest(initialReqNode)) {
         return;
@@ -2887,34 +2890,34 @@ void IatciInterface::RollbackChangeOfStatus(xmlNodePtr initialReqNode, int ctxtI
 
 namespace iatci {
 
-int getCkxGrpId(xmlNodePtr reqNode)
+GrpId_t getCkxGrpId(xmlNodePtr reqNode)
 {
-    return getGrpId(reqNode, NULL, IatciInterface::Ckx);
+    return GrpId_t(getGrpId(reqNode, NULL, IatciInterface::Ckx));
 }
 
-int getCkuGrpId(xmlNodePtr reqNode)
+GrpId_t getCkuGrpId(xmlNodePtr reqNode)
 {
-    return getGrpId(reqNode, NULL, IatciInterface::Cku);
+    return GrpId_t(getGrpId(reqNode, NULL, IatciInterface::Cku));
 }
 
-void saveCkiGrp(int grpId, xmlNodePtr reqNode, xmlNodePtr iatciResNode)
+void saveCkiGrp(const GrpId_t& grpId, xmlNodePtr reqNode, xmlNodePtr iatciResNode)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId:" << grpId;
-    MagicUpdate(iatciResNode, grpId, IatciInterface::Cki);
-    SaveIatciCkiXmlRes(iatciResNode, grpId);
+    MagicUpdate(iatciResNode, grpId.get(), IatciInterface::Cki);
+    SaveIatciCkiXmlRes(iatciResNode, grpId.get());
 }
 
-void saveCkuGrp(int grpId, xmlNodePtr reqNode, xmlNodePtr iatciResNode)
+void saveCkuGrp(const GrpId_t& grpId, xmlNodePtr reqNode, xmlNodePtr iatciResNode)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId:" << grpId;
-    UpdateIatciGrp(grpId, IatciInterface::Cku, iatciResNode, reqNode);
+    UpdateIatciGrp(grpId.get(), IatciInterface::Cku, iatciResNode, reqNode);
 }
 
-void saveCkxGrp(int grpId, xmlNodePtr reqNode, xmlNodePtr iatciResNode)
+void saveCkxGrp(const GrpId_t& grpId, xmlNodePtr reqNode, xmlNodePtr iatciResNode)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId:" << grpId;
-    MagicUpdate(iatciResNode, grpId, IatciInterface::Ckx);
-    SaveIatciCkxXmlRes(iatciResNode, grpId);
+    MagicUpdate(iatciResNode, grpId.get(), IatciInterface::Ckx);
+    SaveIatciCkxXmlRes(iatciResNode, grpId.get());
 }
 
 }//namespace iatci

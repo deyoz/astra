@@ -405,4 +405,5 @@ noinst_HEADERS = \
   custom_alarms.h \
   nosir_create_tlg.h \
   prn_forms_layout.h \
-  zamar_dsm.h
+  zamar_dsm.h \
+  astra_types.h

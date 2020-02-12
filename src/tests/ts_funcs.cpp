@@ -4,7 +4,7 @@
 
 #ifdef XP_TESTING
 
-#include "xml_unit.h"
+#include "astra_types.h"
 #include "astra_main.h"
 #include "astra_misc.h"
 #include "astra_api.h"
@@ -12,8 +12,8 @@
 #include "season.h"
 #include "salons.h"
 #include "date_time.h"
-#include "base_tables.h"
 #include "apps_interaction.h"
+#include "xml_unit.h"
 #include "tlg/tlg.h"
 #include "tlg/remote_system_context.h"
 #include "tlg/edi_tlg.h"
@@ -32,6 +32,7 @@
 #include <serverlib/str_utils.h>
 #include <serverlib/tcl_utils.h>
 #include <serverlib/dates_io.h>
+#include <serverlib/rip_oci.h>
 #include <jxtlib/jxtlib.h>
 #include <jxtlib/utf2cp866.h>
 
@@ -392,11 +393,11 @@ static std::string FP_get_next_trip_point_id(const std::vector<std::string>& p)
 static std::string FP_get_dep_point_id(const std::vector<std::string>& p)
 {
     assert(p.size() == 4);
-    int point_id = astra_api::findDepPointId(p.at(0)/*airport*/,
-                                             p.at(1)/*airline*/,
-                                             std::stoi(p.at(2)),/*flight num*/
-                                             Dates::rrmmdd(p.at(3).c_str()));/*dep date*/
-    return std::to_string(point_id);
+    PointId_t point_id = astra_api::findDepPointId(p.at(0)/*airport*/,
+                                                   p.at(1)/*airline*/,
+                                                   std::stoi(p.at(2)),/*flight num*/
+                                                   Dates::rrmmdd(p.at(3).c_str()));/*dep date*/
+    return std::to_string(point_id.get());
 }
 
 static std::string FP_autoSetCraft(const std::vector<std::string>& p)
@@ -411,24 +412,24 @@ static std::string FP_getPaxId(const std::vector<std::string>& p)
 {
     using namespace astra_api::xml_entities;
     assert(p.size() == 3);
-    int pointDep = std::stoi(p.at(0));
-    std::string paxSurname = p.at(1);
-    std::string paxName = p.at(2);
+    PointId_t pointDep(std::stoi(p.at(0)));
+    Surname_t paxSurname(p.at(1));
+    Name_t paxName(p.at(2));
 
     SearchPaxXmlResult spRes =
             astra_api::AstraEngine::singletone().SearchCheckInPax(pointDep,
                                                                   paxSurname,
                                                                   paxName);
 
-    std::list<XmlTrip> lTrip = spRes.filterTrips(paxSurname, paxName);
+    std::list<XmlTrip> lTrip = spRes.filterTrips(paxSurname.get(), paxName.get());
     assert(!lTrip.empty());
     const XmlTrip& frontTrip = lTrip.front();
 
-    std::list<XmlPnr> lPnr = frontTrip.filterPnrs(paxSurname, paxName);
+    std::list<XmlPnr> lPnr = frontTrip.filterPnrs(paxSurname.get(), paxName.get());
     assert(!lPnr.empty());
     const XmlPnr& frontPnr = lPnr.front();
 
-    std::list<XmlPax> lPax = frontPnr.filterPaxes(paxSurname, paxName);
+    std::list<XmlPax> lPax = frontPnr.filterPaxes(paxSurname.get(), paxName.get());
     assert(!lPax.empty());
     const XmlPax& pax = lPax.front();
 
@@ -439,7 +440,7 @@ static std::string FP_getSingleGrpId(const std::vector<std::string>& p)
 {
     using namespace astra_api::xml_entities;
     assert(p.size() == 3);
-    int pointDep = std::stoi(p.at(0));
+    PointId_t pointDep(std::stoi(p.at(0)));
     std::string paxSurname = p.at(1);
     std::string paxName = p.at(2);
 
@@ -455,7 +456,7 @@ static std::string FP_getSinglePaxId(const std::vector<std::string>& p)
 {
     using namespace astra_api::xml_entities;
     assert(p.size() == 3);
-    int pointDep = std::stoi(p.at(0));
+    PointId_t pointDep(std::stoi(p.at(0)));
     std::string paxSurname = p.at(1);
     std::string paxName = p.at(2);
 
@@ -471,7 +472,7 @@ static std::string FP_getSingleTid(const std::vector<std::string>& p)
 {
     using namespace astra_api::xml_entities;
     assert(p.size() == 3);
-    int pointDep = std::stoi(p.at(0));
+    PointId_t pointDep(std::stoi(p.at(0)));
     std::string paxSurname = p.at(1);
     std::string paxName = p.at(2);
 
@@ -480,7 +481,7 @@ static std::string FP_getSingleTid(const std::vector<std::string>& p)
     assert(!plRes.lPax.empty());
     const XmlPax& pax = lPax.front();
     assert(pax.reg_no != ASTRA::NoExists);
-    LoadPaxXmlResult lpRes = astra_api::AstraEngine::singletone().LoadPax(pointDep, pax.reg_no);
+    LoadPaxXmlResult lpRes = astra_api::AstraEngine::singletone().LoadPax(pointDep, RegNo_t(pax.reg_no));
     assert(!lpRes.lSeg.empty());
     const XmlSegment& paxSeg = lpRes.lSeg.front();
     return std::to_string(paxSeg.seg_info.tid);
@@ -490,7 +491,7 @@ static std::string FP_getSinglePaxTid(const std::vector<std::string>& p)
 {
     using namespace astra_api::xml_entities;
     assert(p.size() == 3);
-    int pointDep = std::stoi(p.at(0));
+    PointId_t pointDep(std::stoi(p.at(0)));
     std::string paxSurname = p.at(1);
     std::string paxName = p.at(2);
 
@@ -499,7 +500,7 @@ static std::string FP_getSinglePaxTid(const std::vector<std::string>& p)
     assert(!plRes.lPax.empty());
     const XmlPax& pax = lPax.front();
     assert(pax.reg_no != ASTRA::NoExists);
-    LoadPaxXmlResult lpRes = astra_api::AstraEngine::singletone().LoadPax(pointDep, pax.reg_no);
+    LoadPaxXmlResult lpRes = astra_api::AstraEngine::singletone().LoadPax(pointDep, RegNo_t(pax.reg_no));
     lpRes.applyPaxFilter(PaxFilter(NameFilter(paxSurname, paxName), {}, {}));
     assert(!lpRes.lSeg.empty());
     const XmlSegment& paxSeg = lpRes.lSeg.front();
@@ -509,7 +510,7 @@ static std::string FP_getSinglePaxTid(const std::vector<std::string>& p)
 static std::string FP_getIatciTabId(const std::vector<std::string>& p)
 {
     assert(p.size() == 2);
-    int grpId = std::stoi(p.at(0));
+    GrpId_t grpId(std::stoi(p.at(0)));
     unsigned tabInd = std::stoi(p.at(1));
     int id;
 
@@ -523,7 +524,7 @@ static std::string FP_getIatciTabId(const std::vector<std::string>& p)
             .EXfet();
 
     if(cur.err() == NO_DATA_FOUND) {
-        throw EXCEPTIONS::Exception("Iatci tab not found by grp_id=" + std::to_string(grpId)
+        throw EXCEPTIONS::Exception("Iatci tab not found by grp_id=" + std::to_string(grpId.get())
                                     + " and tab_ind=" + std::to_string(tabInd));
     }
 
@@ -549,11 +550,11 @@ static std::string FP_get_lat_code(const std::vector<std::string>& p)
     std::string table = p.at(0),
                  code = p.at(1);
     if(table == "awk") {
-        return ((const TAirlinesRow&)base_tables.get("airlines").get_row("code", code)).code_lat;
+        return BaseTables::Company(code)->lcode();
     } else if(table == "sfe") {
-        return ((const TCitiesRow&)base_tables.get("cities").get_row("code", code)).code_lat;
+        return BaseTables::City(code)->lcode();
     } else if(table == "aer") {
-        return ((const TAirpsRow&)base_tables.get("airps").get_row("code", code)).code_lat;
+        return BaseTables::Port(code)->lcode();
     } else {
         return "";
     }
@@ -712,7 +713,7 @@ static std::string FP_run_trip_task(const std::vector<std::string>& par)
 {
     ASSERT(par.size() == 2);
     const std::string taskName = par.at(0);
-    int pointId = std::stoi(par.at(1));
+    PointId_t pointId(std::stoi(par.at(1)));
 
     LogTrace(TRACE3) << "Test run trip task " << taskName << " for point_id=" << pointId;
 
