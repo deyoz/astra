@@ -158,7 +158,7 @@ void HTTPClient::get(const request& req)
   }
   if (client_info.client_id.empty()) { //запрос от киоска?
      if ( p.find(KIOSKID) != p.end() ) {
-        client.client_info = getInetClientByKioskId( p[KIOSKID] );
+        client_info = getInetClientByKioskId( p[KIOSKID] );
      }
   }
 
