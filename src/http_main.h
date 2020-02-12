@@ -221,7 +221,6 @@ struct HTTPClient
 
 };
 
-HTTPClient getHTTPClient(const ServerFramework::HTTP::request& req);
 void http_main(ServerFramework::HTTP::reply& rep, const ServerFramework::HTTP::request& req);
 
 } //end namespace
