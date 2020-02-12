@@ -4,11 +4,14 @@
 #include <serverlib/rip_validators.h>
 
 
-DECL_RIP(PointId_t,   int);
-DECL_RIP(GrpId_t,     int);
-DECL_RIP(PaxId_t,     int);
-DECL_RIP(PnrId_t,     int);
-DECL_RIP(ReqCtxtId_t, int);
+DECL_RIP(PointId_t,    int);
+DECL_RIP(PointIdTlg_t, int);
+DECL_RIP(GrpId_t,      int);
+DECL_RIP(PaxId_t,      int);
+DECL_RIP(PnrId_t,      int);
+DECL_RIP(ReqCtxtId_t,  int);
+DECL_RIP(MoveId_t,     int);
+DECL_RIP(RouteIdScd_t, int);
 
 DECL_RIP_RANGED(RegNo_t, int, -999, 999);
 
