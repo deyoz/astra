@@ -14,41 +14,30 @@ class TSeat
     TSeat()
     {
       Clear();
-    };
-    TSeat(const std::string &row, const std::string &line)
-    {
-      strncpy(this->row,row.c_str(),sizeof(this->row));
-      strncpy(this->line,line.c_str(),sizeof(this->line));
-    };
+    }
+    TSeat(const std::string &row_, const std::string &line_);
+
     void Clear()
     {
       *row=0;
       *line=0;
-    };
+    }
     bool Empty() const
     {
       return *row==0 || *line==0;
-    };
-
-    TSeat& operator = ( const TSeat& seat )
-    {
-      if (this == &seat) return *this;
-      strncpy(this->row,seat.row,sizeof(this->row));
-      strncpy(this->line,seat.line,sizeof(this->line));
-      return *this;
-    };
+    }
 
     bool operator == ( const TSeat& seat ) const
     {
       return strcmp(row,seat.row)==0 &&
              strcmp(line,seat.line)==0;
-    };
+    }
 
     bool operator != ( const TSeat& seat ) const
     {
       return !(strcmp(row,seat.row)==0 &&
                strcmp(line,seat.line)==0);
-    };
+    }
 
     bool operator < ( const TSeat& seat ) const
     {
@@ -57,9 +46,10 @@ class TSeat
       if (res==0)
         res=strcmp(line,seat.line);
       return res<0;
-    };
+    }
 
     std::string denorm_view(bool is_lat) const;
+    std::string toString() const;
 };
 
 class TSeatRange : public std::pair<TSeat,TSeat>

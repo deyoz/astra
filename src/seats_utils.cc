@@ -1,10 +1,10 @@
 #include <stdlib.h>
 #include "seats_utils.h"
 #include "exceptions.h"
-#include "convert.h"
 #include "stl_utils.h"
 #include "astra_consts.h"
 #include "misc.h"
+#include "seat_number.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -13,9 +13,25 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace ASTRA;
 
+TSeat::TSeat(const std::string &row_, const std::string &line_)
+{
+  if (row_.size()>=sizeof(row))
+    throw Exception("%s: wrong row '%s'", __func__, row_.c_str());
+  if (line_.size()>=sizeof(line))
+    throw Exception("%s: wrong line '%s'", __func__, line_.c_str());
+
+  strcpy(row, row_.c_str());
+  strcpy(line,line_.c_str());
+}
+
+std::string TSeat::toString() const
+{
+  return string(row) + string(line);
+}
+
 std::string TSeat::denorm_view(bool is_lat) const
 {
-  return denorm_iata_row( row ) + denorm_iata_line( line, is_lat );
+  return SeatNumber::tryDenormalizeRow( row ) + SeatNumber::tryDenormalizeLine( line, is_lat );
 }
 
 bool TSeatRanges::contains(const TSeat &seat) const
@@ -47,17 +63,18 @@ std::string TSeatRanges::traceStr() const
 
 void NormalizeSeat(TSeat &seat)
 {
-  if (!is_iata_row(seat.row)) throw EConvertError("NormalizeSeat: non-IATA row '%s'",seat.row);
-  if (!is_iata_line(seat.line)) throw EConvertError("NormalizeSeat: non-IATA line '%s'",seat.line);
+  boost::optional<string> row = SeatNumber::normalizeIataRow(seat.row);
+  if (!row) throw EConvertError("%s: non-IATA row '%s'", __func__, seat.row);
+  boost::optional<char> line = SeatNumber::normalizeIataLine(seat.line);
+  if (!line) throw EConvertError("%s: non-IATA line '%s'", __func__, seat.line);
 
-  strncpy(seat.row,norm_iata_row(seat.row).c_str(),sizeof(seat.row));
-  strncpy(seat.line,norm_iata_line(seat.line).c_str(),sizeof(seat.line));
+  if (row.get().empty() || row.get().size()>=sizeof(seat.row))
+    throw EConvertError("%s: error in procedure SeatNumber::normalizeIataRow", __func__);
 
-  if (strnlen(seat.row,sizeof(seat.row)) >= sizeof(seat.row))
-    throw EConvertError("NormalizeSeat: error in procedure norm_iata_row");
-  if (strnlen(seat.line,sizeof(seat.line)) >= sizeof(seat.line))
-    throw EConvertError("NormalizeSeat: error in procedure norm_iata_line");
-};
+  seat.line[0]=line.get();
+  seat.line[1]=0;
+  strcpy(seat.row, row.get().c_str());
+}
 
 void NormalizeSeatRange(TSeatRange &range)
 {
@@ -67,88 +84,105 @@ void NormalizeSeatRange(TSeatRange &range)
 
 bool NextNormSeatRow(TSeat &seat)
 {
-  int i;
-  if (StrToInt(seat.row,i)==EOF)
-    throw EConvertError("NextNormSeatRow: error in procedure norm_iata_row");
-  if (i==199) return false;
-  if (i==99) i=101; else i++;
-  strncpy(seat.row,norm_iata_row(IntToString(i)).c_str(),sizeof(seat.row));
-  if (strnlen(seat.row,sizeof(seat.row)) >= sizeof(seat.row))
-    throw EConvertError("NextNormSeatRow: error in procedure norm_iata_row");
+  boost::optional<string> row=SeatNumber::normalizeNextIataRow(seat.row);
+  if (!row)
+  {
+    if (!SeatNumber::isIataRow(seat.row))
+      throw EConvertError("%s: non-IATA row '%s'", __func__, seat.row);
+    return false;
+  }
+
+  if (row.get().empty() || row.get().size()>=sizeof(seat.row))
+    throw EConvertError("%s: error in procedure SeatNumber::normalizeNextIataRow", __func__);
+
+  strcpy(seat.row, row.get().c_str());
   return true;
-};
+}
 
 bool PriorNormSeatRow(TSeat &seat)
 {
-  int i;
-  if (StrToInt(seat.row,i)==EOF)
-    throw EConvertError("PriorNormSeatRow: error in procedure norm_iata_row");
-  if (i==1) return false;
-  if (i==101) i=99; else i--;
-  strncpy(seat.row,norm_iata_row(IntToString(i)).c_str(),sizeof(seat.row));
-  if (strnlen(seat.row,sizeof(seat.row)) >= sizeof(seat.row))
-    throw EConvertError("PriorNormSeatRow: error in procedure norm_iata_row");
+  boost::optional<string> row=SeatNumber::normalizePrevIataRow(seat.row);
+  if (!row)
+  {
+    if (!SeatNumber::isIataRow(seat.row))
+      throw EConvertError("%s: non-IATA row '%s'", __func__, seat.row);
+    return false;
+  }
+
+  if (row.get().empty() || row.get().size()>=sizeof(seat.row))
+    throw EConvertError("%s: error in procedure SeatNumber::normalizePrevIataRow", __func__);
+
+  strcpy(seat.row, row.get().c_str());
   return true;
-};
+}
 
 TSeat& FirstNormSeatRow(TSeat &seat)
 {
-  strncpy(seat.row,norm_iata_row(IntToString(1)).c_str(),sizeof(seat.row));
-  if (strnlen(seat.row,sizeof(seat.row)) >= sizeof(seat.row))
-    throw EConvertError("FirstNormSeatRow: error in procedure norm_iata_row");
+  const boost::optional<string>& row=SeatNumber::normalizeFirstIataRow();
+  if (!row || row.get().empty() || row.get().size()>=sizeof(seat.row))
+    throw EConvertError("%s: error in procedure SeatNumber::normalizeFirstIataRow", __func__);
+  strcpy(seat.row, row.get().c_str());
   return seat;
-};
+}
 
 TSeat& LastNormSeatRow(TSeat &seat)
 {
-  strncpy(seat.row,norm_iata_row(IntToString(199)).c_str(),sizeof(seat.row));
-  if (strnlen(seat.row,sizeof(seat.row)) >= sizeof(seat.row))
-    throw EConvertError("LastNormSeatRow: error in procedure norm_iata_row");
+  const boost::optional<string>& row=SeatNumber::normalizeLastIataRow();
+  if (!row || row.get().empty() || row.get().size()>=sizeof(seat.row))
+    throw EConvertError("%s: error in procedure SeatNumber::normalizeFirstIataRow", __func__);
+  strcpy(seat.row, row.get().c_str());
   return seat;
-};
-
+}
 
 bool NextNormSeatLine(TSeat &seat)
 {
-  const char *p;
-  if ((p=strchr(lat_seat,seat.line[0]))==NULL)
-    throw EConvertError("NextNormSeatLine: error in procedure norm_iata_line");
-  p++;
-  if (*p==0) return false;
-  seat.line[0]=*p;
+  boost::optional<char> line=SeatNumber::normalizeNextIataLine(seat.line);
+  if (!line)
+  {
+    if (!SeatNumber::isIataLine(seat.line))
+      throw EConvertError("%s: non-IATA line '%s'", __func__, seat.line);
+    return false;
+  }
+
+  seat.line[0]=line.get();
   seat.line[1]=0;
   return true;
-};
+}
 
 bool PriorNormSeatLine(TSeat &seat)
 {
-  const char *p;
-  if ((p=strchr(lat_seat,seat.line[0]))==NULL)
-    throw EConvertError("PriorNormSeatLine: error in procedure norm_iata_line");
-  if (p==lat_seat) return false;
-  p--;
-  seat.line[0]=*p;
+  boost::optional<char> line=SeatNumber::normalizePrevIataLine(seat.line);
+  if (!line)
+  {
+    if (!SeatNumber::isIataLine(seat.line))
+      throw EConvertError("%s: non-IATA line '%s'", __func__, seat.line);
+    return false;
+  }
+
+  seat.line[0]=line.get();
   seat.line[1]=0;
   return true;
-};
+}
 
 TSeat& FirstNormSeatLine(TSeat &seat)
 {
-  if (strlen(lat_seat)<=0)
-    throw EConvertError("FirstNormSeatLine: lat_seat is empty!");
-  seat.line[0]=lat_seat[0];
+  const boost::optional<char>& line=SeatNumber::normalizeFirstIataLine();
+  if (!line)
+    throw EConvertError("%s: error in procedure SeatNumber::normalizeFirstIataLine", __func__);
+  seat.line[0]=line.get();
   seat.line[1]=0;
   return seat;
-};
+}
 
 TSeat& LastNormSeatLine(TSeat &seat)
 {
-  if (strlen(lat_seat)<=0)
-    throw EConvertError("LastNormSeatLine: lat_seat is empty!");
-  seat.line[0]=lat_seat[strlen(lat_seat)-1];
+  const boost::optional<char>& line=SeatNumber::normalizeLastIataLine();
+  if (!line)
+    throw EConvertError("%s: error in procedure SeatNumber::normalizeLastIataLine", __func__);
+  seat.line[0]=line.get();
   seat.line[1]=0;
   return seat;
-};
+}
 
 bool NextNormSeat(TSeat &seat)
 {
@@ -227,8 +261,8 @@ string GetSeatRangeView(const TSeatRanges &ranges, const string &format, bool pr
       if (fmt=="list") res << " "; else break;
     };
 
-    res << denorm_iata_row( s->row, add_ch )
-        << denorm_iata_line( s->line, pr_lat );
+    res << SeatNumber::tryDenormalizeRow( s->row, add_ch )
+        << SeatNumber::tryDenormalizeLine( s->line, pr_lat );
     add_ch = boost::none;
   };
   for(TSeatRanges::const_iterator r=not_iata_ranges.begin(); r!=not_iata_ranges.end(); r++)

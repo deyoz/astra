@@ -2,7 +2,6 @@
 #include "astra_consts.h"
 #include "basetables.h"
 #include "iatci_help.h"
-#include "convert.h"
 #include "environ.h"
 
 #include <edilib/edi_func_cpp.h>

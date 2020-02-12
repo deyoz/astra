@@ -98,7 +98,8 @@ class componPropCodes {
   private:
     std::map<std::string,CodeNames> codes;
     std::map<std::string,LexemaType> lexemas;
-    void validateCode( const std::string &code, const auto &container  ) {
+    template<class T>
+    void validateCode( const std::string &code, const T &container  ) {
       if ( container.find( code ) == container.end() ) {
         throw EXCEPTIONS::Exception( "Invalid compon property type %s", code.c_str() );
       }

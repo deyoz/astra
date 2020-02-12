@@ -19,7 +19,6 @@
 #include "docs/docs_common.h"
 #include "stat/stat_main.h"
 #include "print.h"
-#include "convert.h"
 #include "term_version.h"
 #include "salons.h"
 #include "salonform.h"

@@ -94,8 +94,6 @@ src/ckin_search.cc
 src/ckin_search.h
 src/comp_layers.cc
 src/comp_layers.h
-src/convert.cc
-src/convert.h
 src/counters.cc
 src/counters.h
 src/crypt.cc
@@ -208,6 +206,8 @@ src/salons2.cc
 src/salons2.h
 src/season.cc
 src/season.h
+src/seat_number.cc
+src/seat_number.h
 src/seats.cc
 src/seats.h
 src/seats_utils.cc

@@ -13,7 +13,6 @@
 #include "oralib.h"
 #include "seats.h"
 #include "images.h"
-#include "convert.h"
 #include "astra_misc.h"
 #include "astra_locale.h"
 #include "base_tables.h"
@@ -27,6 +26,7 @@
 #include "counters.h"
 #include "crafts/CraftCaches.h"
 #include "seat_descript.h"
+#include "seat_number.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/slogger.h"
@@ -1534,8 +1534,8 @@ xmlNodePtr TPlace::Build( xmlNodePtr node, int point_dep, bool pr_lat_seat,
      NewTextChild( node, "agle", agle );
    }
    NewTextChild( node, "class", clname );
-   NewTextChild( node, "xname", denorm_iata_line( xname, pr_lat_seat ) );
-   NewTextChild( node, "yname", denorm_iata_row( yname ) );
+   NewTextChild( node, "xname", SeatNumber::tryDenormalizeLine( xname, pr_lat_seat ) );
+   NewTextChild( node, "yname", SeatNumber::tryDenormalizeRow( yname ) );
    return node;
 }
 
@@ -1815,8 +1815,8 @@ xmlNodePtr TPlace::Build( xmlNodePtr node, bool pr_lat_seat, bool pr_update ) co
      NewTextChild( node, "agle", agle );
    }
    NewTextChild( node, "class", clname );
-   NewTextChild( node, "xname", denorm_iata_line( xname, pr_lat_seat ) );
-   NewTextChild( node, "yname", denorm_iata_row( yname ) );
+   NewTextChild( node, "xname", SeatNumber::tryDenormalizeLine( xname, pr_lat_seat ) );
+   NewTextChild( node, "yname", SeatNumber::tryDenormalizeRow( yname ) );
    return node;
 }
 
@@ -4587,8 +4587,8 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
           lat_count++;
         }
         }
-      place.xname = norm_iata_line( place.xname );
-      place.yname = norm_iata_row( NodeAsStringFast( "yname", node ) );
+      place.xname = SeatNumber::tryNormalizeLine( place.xname );
+      place.yname = SeatNumber::tryNormalizeRow( NodeAsStringFast( "yname", node ) );
 
       xmlNodePtr n1, n2;
       bool pr_disable_layer = false;
@@ -6551,7 +6551,7 @@ bool TPlaceList::GetisPlaceXY( string placeName, TPoint &p )
     seat_no.clear();
   for( vector<string>::iterator ix=xs.begin(); ix!=xs.end(); ix++ )
     for ( vector<string>::iterator iy=ys.begin(); iy!=ys.end(); iy++ ) {
-        salon_seat_no = denorm_iata_row(*iy) + denorm_iata_line(*ix,false);
+        salon_seat_no = SeatNumber::tryDenormalizeRow(*iy) + SeatNumber::tryDenormalizeLine(*ix,false);
         //ProgTrace( TRACE5, "GetisPlaceXY: salon_seat_no=|%s|, seat_no=|%s|, %d, %d", salon_seat_no.c_str(), seat_no.c_str(), salon_seat_no.back(), seat_no.back() );
       if ( placeName == salon_seat_no ||
            ( !seat_no.empty() && seat_no == salon_seat_no ) ) {
@@ -6570,14 +6570,14 @@ void TPlaceList::Add( TPlace &pl )
   if ( pl.x >= prior_max_x )
     xs.resize( pl.x + 1, "" );
   if ( !pl.xname.empty() ) {
-    if ( xs[ pl.x ].empty() || is_iata_line( pl.xname ) ) {
+    if ( xs[ pl.x ].empty() || SeatNumber::isIataLine( pl.xname ) ) {
       xs[ pl.x ] = pl.xname;
     }
   }
   if ( pl.y >= prior_max_y )
     ys.resize( pl.y + 1, "" );
   if ( !pl.yname.empty() ) {
-    if ( ys[ pl.y ].empty() || is_iata_row( pl.yname ) ) {
+    if ( ys[ pl.y ].empty() || SeatNumber::isIataRow( pl.yname ) ) {
       ys[ pl.y ] = pl.yname;
     }
   }
@@ -8006,15 +8006,15 @@ void getStrSeats( const RowsRef &rows, PrmEnum &params, bool pr_lat )
           for ( string::const_iterator sp=prior_isr->second.xnames.begin(); sp!=prior_isr->second.xnames.end(); sp++ ) {
             if ( max_lines.find( *sp ) == string::npos ) {
               max_lines += *sp;
-              denorm_max_lines += denorm_iata_line( string(1,*sp), pr_lat );
+              denorm_max_lines += SeatNumber::tryDenormalizeLine( string(1,*sp), pr_lat );
             }
           }
           if ( i == 0 ) {
-            str += denorm_iata_row( first_isr->second.yname );
+            str += SeatNumber::tryDenormalizeRow( first_isr->second.yname );
               if ( prior_isr->first != first_isr->first )
-                str += "-" + denorm_iata_row( prior_isr->second.yname );
+                str += "-" + SeatNumber::tryDenormalizeRow( prior_isr->second.yname );
               for ( string::const_iterator sp=first_isr->second.xnames.begin(); sp!=first_isr->second.xnames.end(); sp++ ) {
-              str += denorm_iata_line( string(1,*sp), pr_lat );
+              str += SeatNumber::tryDenormalizeLine( string(1,*sp), pr_lat );
             }
             var1_size += str.size();
             strs1.push_back( TStringRef(str,false) );
@@ -8024,9 +8024,9 @@ void getStrSeats( const RowsRef &rows, PrmEnum &params, bool pr_lat )
           else
             if ( isr == rows.end() ) {
                 if ( first_isr->first != prior_isr->first )
-                  str = denorm_iata_row( first_isr->second.yname ) + "-" + denorm_iata_row( prior_isr->second.yname );
+                  str = SeatNumber::tryDenormalizeRow( first_isr->second.yname ) + "-" + SeatNumber::tryDenormalizeRow( prior_isr->second.yname );
                 else
-                    str = denorm_iata_row( first_isr->second.yname );
+                    str = SeatNumber::tryDenormalizeRow( first_isr->second.yname );
                 str += denorm_max_lines;
                 // пишем те места, кот нет
                 string minus_lines;
@@ -8034,10 +8034,10 @@ void getStrSeats( const RowsRef &rows, PrmEnum &params, bool pr_lat )
                     minus_lines.clear();
                     for ( string::iterator sp=max_lines.begin(); sp!=max_lines.end(); sp++ ) {
                         if ( isr->second.xnames.find( *sp ) == string::npos )
-                            minus_lines += denorm_iata_line( string(1,*sp), pr_lat );
+                            minus_lines += SeatNumber::tryDenormalizeLine( string(1,*sp), pr_lat );
                     }
                     if ( !minus_lines.empty() ) {
-                        str += " -" + denorm_iata_row( isr->second.yname ) + minus_lines;
+                        str += " -" + SeatNumber::tryDenormalizeRow( isr->second.yname ) + minus_lines;
                     }
                 }
                 var2_size += str.size();
