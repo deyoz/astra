@@ -5,6 +5,10 @@ export CPP_STD_VERSION=c++14
 export ENABLE_SHARED=1
 export BUILD_TESTS=0
 export MAKE_J=4
+export PLATFORM=m64
+export EMBEDDED_RPATH=1
+export WITH_MESPRO=0
+
 #./buildFromScratch.sh xren --build_external_libs --configlibs --buildlibs --configastra --buildastra
 ./buildFromScratch.sh xren --configlibs --buildlibs --configastra --buildastra
 #./buildFromScratch.sh xren --configastra --buildastra
