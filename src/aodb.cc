@@ -1242,6 +1242,8 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
     TFndFlts pflts;
     int move_id, point_id;
     bool pr_insert = !findFlt( fl.airline.code, fl.flt_no, fl.suffix.code, local_scd_out, airp, false, pflts );
+    bool isSCDINEmptyN = false;
+    bool isSCDINEmptyO = false;
     TTripInfo info;
     info.airline =  fl.airline.code;
     info.airp = airp;
@@ -1292,6 +1294,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
     else
       time_in_delay = NoExists;
     if ( pr_insert ) { // insert
+      isSCDINEmptyN = true;
       Qry.Clear();
       Qry.SQLText =
           "BEGIN "\
@@ -1441,7 +1444,15 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
       BitSet<TUseDestData> FUseData;
       FUseData.clearFlags();
       dest.Load( point_id, FUseData );
-
+      TPointDests dests;
+      dests.Load(move_id,BitSet<TUseDestData>());
+      for ( const auto &d : dests.items ) {
+        if ( d.point_id != dests.items.front().point_id &&
+             d.scd_in == ASTRA::NoExists ) {
+          isSCDINEmptyO = true;
+          isSCDINEmptyN = true;
+        }
+      }
       TFlights  flights;
       flights.Get( point_id, ftAll );
       flights.Lock(__FUNCTION__);
@@ -1637,6 +1648,17 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
       ChangeACT_OUT( point_id, old_act, fl.act );
     }
     on_change_trip( CALL_POINT, point_id, ChangeTrip::AODBParseFlight );
+    if ( !((!isSCDINEmptyN && !isSCDINEmptyO) ||
+           (pr_insert && !isSCDINEmptyN)) ) {
+      LogTrace(TRACE5) << "isSCDINEmptyN=" << isSCDINEmptyN << ",isSCDINEmptyO=" << isSCDINEmptyO << "insert=" << pr_insert;
+      TPointDests dests;
+      dests.Load(move_id,BitSet<TUseDestData>());
+      std::set<int> points_scd_ins;
+      for ( const auto &d : dests.items ) {
+        points_scd_ins.insert( d.point_id );
+      }
+      changeSCDIN_AtDests( points_scd_ins );
+    }
   }
   catch(EOracleError &E)
   {

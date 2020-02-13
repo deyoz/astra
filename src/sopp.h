@@ -532,5 +532,7 @@ void SetFlightFact(int point_id, TDateTime utc_act_out);
 void getTripVouchers( int point_id, std::set<std::string> &trip_vouchers );
 void ChangeBortFromLDM(const std::string &bort, int point_id);
 
+void changeSCDIN_AtDests( const std::set<int>& points_scd_ins );
+
 #endif /*_SOPP_H_*/
 
