@@ -53,6 +53,7 @@
 #include "self_ckin_log.h"
 #include "service_eval.h"
 #include "mob_payment.h"
+#include "cuws.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -63,6 +64,7 @@ using namespace jxtlib;
 void AstraJxtCallbacks::InitInterfaces()
 {
     ProgTrace(TRACE3, "AstraJxtCallbacks::InitInterfaces");
+    new CUWSInterface();
     new SysReqInterface();
     new MainDCSInterface();
     new AdmInterface();
