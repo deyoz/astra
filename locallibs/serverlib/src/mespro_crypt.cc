@@ -31,7 +31,7 @@ bool initMesProCrypting(MPCryptParams &params)
   if(!CryptingInitialized)
   {
     ProgTrace( TRACE5, "mespro init" );
-    SetRandInitCallbackFun((void *)init_rand_callback);
+    SetRandInitCallbackFun(init_rand_callback);
     int err=PKCS7Init(0,0);
     if(err)
     {

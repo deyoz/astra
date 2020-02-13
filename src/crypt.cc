@@ -640,32 +640,32 @@ void IntRequestCertificateData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   TCertRequest req;
   GetCertRequestInfo( TReqInfo::Instance()->desk.code, pr_grp, req );
-        xmlNodePtr node = NewTextChild( resNode, "RequestCertificateData" );
-        NewTextChild( node, "server_id", SERVER_ID() );
-        NewTextChild( node, "FileKey", req.FileKey );
+  xmlNodePtr node = NewTextChild( resNode, "RequestCertificateData" );
+  NewTextChild( node, "server_id", SERVER_ID() );
+  NewTextChild( node, "FileKey", req.FileKey );
   NewTextChild( node, "Country", req.Country );
-        if ( !req.Algo.empty() )
-          NewTextChild( node, "Algo", req.Algo );
-        if ( req.KeyLength > 0 )
-          NewTextChild( node, "KeyLength", req.KeyLength );
+  if ( !req.Algo.empty() )
+    NewTextChild( node, "Algo", req.Algo );
+   if ( req.KeyLength > 0 )
+     NewTextChild( node, "KeyLength", req.KeyLength );
   if ( !req.StateOrProvince.empty() )
     NewTextChild( node, "StateOrProvince", req.StateOrProvince );
   if ( !req.Localite.empty() )
-        NewTextChild( node, "Localite", req.Localite );
+    NewTextChild( node, "Localite", req.Localite );
   if ( !req.Organization.empty() )
-        NewTextChild( node, "Organization", req.Organization );
+    NewTextChild( node, "Organization", req.Organization );
   if ( !req.OrganizationalUnit.empty() )
-        NewTextChild( node, "OrganizationalUnit", req.OrganizationalUnit );
+    NewTextChild( node, "OrganizationalUnit", req.OrganizationalUnit );
   if ( !req.Title.empty() )
-        NewTextChild( node, "Title", req.Title );
-        NewTextChild( node, "CommonName", req.CommonName );
+    NewTextChild( node, "Title", req.Title );
+  NewTextChild( node, "CommonName", req.CommonName );
   if ( !req.EmailAddress.empty() )
-        NewTextChild( node, "EmailAddress", req.EmailAddress );
+    NewTextChild( node, "EmailAddress", req.EmailAddress );
 }
 
 void CryptInterface::RequestCertificateData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-        IntRequestCertificateData(ctxt, reqNode, resNode);
+  IntRequestCertificateData(ctxt, reqNode, resNode);
 }
 
 void IntPutRequestCertificate( const string &request, const string &desk, bool pr_grp, int pkcs_id )
@@ -957,7 +957,7 @@ void CreatePSE( const string &desk, bool pr_grp, int password_len, TPKCS &pkcs )
         throw Exception( "Can't create dir=" + string( PSEpath + "/" + IntToString(i) ) + ", error=" + IntToString( errno ) );
   PSEpath += "/" + IntToString(i);
   ProgTrace( TRACE5, "CreatePKCS: PSEpath=%s", PSEpath.c_str() );
-  SetRandInitCallbackFun(&init_rand_callback1);
+  SetRandInitCallbackFun(init_rand_callback1);
   GetError( "PKCS7Init", PKCS7Init( 0, 0 ) );
   try {
     string file_key = PSEpath + "/pkey.key";
@@ -1100,7 +1100,7 @@ void CryptInterface::CryptValidateServerKey(XMLRequestCtxt *ctxt, xmlNodePtr req
   PSEpath += "/" + IntToString(i);
   ProgTrace( TRACE5, "CryptValidateServerKey: PSEpath=%s", PSEpath.c_str() );
   pkcs.key_filename = PSEpath + "/" + pkcs.key_filename;
-  SetRandInitCallbackFun(&init_rand_callback1);
+  SetRandInitCallbackFun(init_rand_callback1);
   GetError( "PKCS7Init", PKCS7Init( 0, 0 ) );
   try {
     try {
