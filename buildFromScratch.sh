@@ -75,10 +75,9 @@ EXTERNALLIBS_DIR=${SIRENA_EXTERNALS:-$(pwd)/externallibs}
 
 if [[ -n "$WITH_MESPRO" ]] ; then
     MESPRO_HOME="$EXTERNALLIBS_DIR/mespro"
-    echo "export DJEK_MESPRO_HOME=$MESPRO_HOME"
     export MESPRO_CFLAGS="-DUSE_MESPRO -I$MESPRO_HOME/include"
     export MESPRO_CXXFLAGS="-DUSE_MESPRO -I$MESPRO_HOME/include"
-    export MESPRO_LDFLAGS="-L$MESPRO_HOME -llibmesprox.so.0"
+    export MESPRO_LDFLAGS="-L$MESPRO_HOME -lmesprox"
                     
     if [[ -n $EMBEDDED_RPATH ]] ; then
          MESPRO_LDFLAGS="$MESPRO_LDFLAGS -Wl,-rpath=$MESPRO_HOME"
