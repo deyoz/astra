@@ -5,6 +5,7 @@
 #include <map>
 #include "serverlib/http_parser.h"
 #include "web_main.h"
+#include "cuws_main.h"
 
 namespace AstraHTTP
 {
@@ -87,6 +88,7 @@ namespace EXCHANGE_TYPE {
     static const std::string PIECE_CONCEPT  = "PIECE_CONCEPT";
     static const std::string MOBILE_PAYMENT = "MOBILE_PAYMENT";
     static const std::string HTML           = "HTML";
+    static const std::string CUWS           = "CUWS";
 }
 
 struct HTTPClient
@@ -96,7 +98,11 @@ struct HTTPClient
         typedef std::map<std::string, TOperationMap> TExchangeTypeMap;
 
         const TExchangeTypeMap jxt_interface {
-            {EXCHANGE_TYPE::CREWCHECKIN,
+            {EXCHANGE_TYPE::CUWS,
+                {
+                    {"CUWS", JxtInfo(CUWS_JXT_IFACE_ID, nullptr)}
+                }
+            },{EXCHANGE_TYPE::CREWCHECKIN,
                 {
                     {"CREWCHECKIN", JxtInfo(CHECKIN_JXT_INTERFACE_ID,   CrewPostProcessXMLAnswer)}
                 }

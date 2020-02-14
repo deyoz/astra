@@ -21,6 +21,7 @@
 #include "astra_callbacks.h"
 #include "xml_unit.h"
 #include "qrys.h"
+#include "http_consts.h"
 
 using namespace EXCEPTIONS;
 
@@ -38,17 +39,6 @@ using namespace std;
 
 namespace AstraHTTP
 {
-
-const std::string CLIENT_ID = "CLIENT-ID";
-const std::string OPERATION = "OPERATION";
-const std::string HOST = "Host";
-const std::string AUTHORIZATION = "Authorization";
-const std::string REFERER = "Referer";
-const std::string KIOSKID = "kioskId";
-const std::string KIOSK_APPLICATION_NAME = "applicationName";
-
-const std::string LOGIN = "login";
-const std::string PASSWORD = "password";
 
 using namespace ServerFramework::HTTP;
 
@@ -110,6 +100,8 @@ void HTTPClient::populate_client_from_uri(const string& uri)
         ProgTrace( TRACE5, "%s: %s", __FUNCTION__, i_part->c_str() );
         std::vector<std::string> part_vec;
         boost::split(part_vec, *i_part, boost::is_any_of("="));
+        if ( part_vec.size() == 1 and !part_vec[0].empty())
+            uri_params[part_vec[0]];
         if ( part_vec.size() == 2 and !part_vec[0].empty() and !part_vec[1].empty() ) {
             uri_params[part_vec[0]] = part_vec[1];
         }
@@ -176,6 +168,8 @@ void HTTPClient::get(const request& req)
   Qry.Execute();
   if(not Qry.Eof)
       exchange_type = Qry.FieldAsString("exchange_type");
+  if(exchange_type == EXCHANGE_TYPE::CUWS)
+      operation = exchange_type;
   if (Qry.Eof ||
       user_name != Qry.FieldAsString( "http_user" ) ||
       password != Qry.FieldAsString( "http_pswd" ))
@@ -404,6 +398,7 @@ void save_http_client_headers(const request &req)
 
 void http_main(reply& rep, const request& req)
 {
+    LogTrace(TRACE5) << "HTTP REQUEST: '" << req.to_string();
     try
     {
         try
