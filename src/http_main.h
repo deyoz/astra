@@ -5,7 +5,7 @@
 #include <map>
 #include "serverlib/http_parser.h"
 #include "web_main.h"
-#include "cuws.h"
+#include "cuws_main.h"
 
 namespace AstraHTTP
 {

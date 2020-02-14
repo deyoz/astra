@@ -201,7 +201,8 @@ astra_SOURCES = \
   custom_alarms.cc \
   nosir_create_tlg.cc \
   prn_forms_layout.cc \
-  cuws.cc \
+  cuws_main.cc \
+  cuws_handlers.cc \
   zamar_dsm.cpp
 
 
@@ -406,7 +407,8 @@ noinst_HEADERS = \
   custom_alarms.h \
   nosir_create_tlg.h \
   prn_forms_layout.h \
-  cuws.h \
+  cuws_main.h \
+  cuws_handlers.h \
   http_consts.h \
   zamar_dsm.h \
   astra_types.h

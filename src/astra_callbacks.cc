@@ -53,7 +53,7 @@
 #include "self_ckin_log.h"
 #include "service_eval.h"
 #include "mob_payment.h"
-#include "cuws.h"
+#include "cuws_main.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
