@@ -14,6 +14,8 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
 
+namespace CUWS {
+
 void Search_Bags_By_BCBP(xmlNodePtr actionNode, xmlNodePtr resNode);
 
 typedef void (*TCUWSHandler)(xmlNodePtr, xmlNodePtr);
@@ -82,28 +84,31 @@ void CUWSDispatcher(xmlNodePtr reqNode, xmlNodePtr resNode)
     i->second(actionNode, resNode);
 }
 
+} //end namespace CUWS
+
 void CUWSInterface::CUWS(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     try {
         map<string, string> header;
         map<string, string> get_params;
-        params_from_xml(reqNode, "header", header);
-        params_from_xml(reqNode, "get_params", get_params);
+        CUWS::params_from_xml(reqNode, "header", header);
+        CUWS::params_from_xml(reqNode, "get_params", get_params);
 
         if(get_params.find("wsdl") != get_params.end()) {
-            CUWSwsdl(
+            CUWS::CUWSwsdl(
                     resNode,
                     NodeAsString(AstraHTTP::URI_PATH.c_str(), reqNode),
                     header[AstraHTTP::HOST],
                     get_params[AstraHTTP::CLIENT_ID]);
         } else {
-            CUWSDispatcher(reqNode, resNode);
+            CUWS::CUWSDispatcher(reqNode, resNode);
         }
     } catch(Exception &E) {
         ProgError(STDLOG, "%s: %s", __FUNCTION__, E.what());
-        CUWSInternalServerError(resNode);
+        CUWS::CUWSInternalServerError(resNode);
     } catch(...) {
         ProgError(STDLOG, "%s: unknown error", __FUNCTION__);
-        CUWSInternalServerError(resNode);
+        CUWS::CUWSInternalServerError(resNode);
     }
 }
+
