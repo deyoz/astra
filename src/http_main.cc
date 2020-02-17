@@ -572,24 +572,6 @@ boost::optional<const JxtInfo &> HTTPClient::get_jxt_info() const
         result = jxt_interface.at(exchange_type).at(operation);
     } catch(out_of_range &) {
     }
-
-    // delete this block after testing
-    if(not result) {
-        LogTrace(TRACE5) << "HTTP FORBIDDEN: [" << exchange_type << "][" << operation << "] for " << client_info.client_id;
-        for(const auto &i_exchange_type: jxt_interface) {
-            for(const auto &i_operation: i_exchange_type.second)
-                if(i_operation.first == operation) {
-                    result = i_operation.second;
-                    break;
-                }
-            if(result) break;
-        }
-        if(not result) {
-            static const JxtInfo JxtInfoDummy;
-            result = JxtInfoDummy;
-        }
-    }
-
     return result;
 }
 
