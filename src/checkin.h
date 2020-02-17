@@ -9,6 +9,7 @@
 #include "astra_ticket.h"
 #include "astra_locale.h"
 #include "astra_consts.h"
+#include "astra_types.h"
 #include "rfisc_sirena.h"
 #include "astra_misc.h"
 #include "oralib.h"
@@ -222,7 +223,7 @@ public:
                               xmlNodePtr reqNode, xmlNodePtr resNode);
   static void LoadPaxByGrpId(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNode, bool afterSavePax);
   static void LoadPax(xmlNodePtr reqNode, xmlNodePtr resNode);
-  static void LoadIatciPax(xmlNodePtr reqNode, xmlNodePtr resNode, int grpId, bool needSync);
+  static void LoadIatciPax(xmlNodePtr reqNode, xmlNodePtr resNode, const GrpId_t& grpId, bool needSync);
   static void PaxRemToXML(xmlNodePtr paxNode);
   static void BuildTransfer(const TTrferRoute &trfer, TTrferRouteType route_type, xmlNodePtr transferNode);
   static void BuildTCkinSegments(int grp_id, xmlNodePtr tckinNode);

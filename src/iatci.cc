@@ -22,6 +22,7 @@
 #include "tlg/edi_msg.h"
 
 #include <serverlib/dates_oci.h>
+#include <serverlib/rip_oci.h>
 #include <serverlib/cursctl.h>
 #include <serverlib/savepoint.h>
 #include <serverlib/dump_table.h>
@@ -463,20 +464,20 @@ namespace
 
     struct PointsPair
     {
-        int m_pointDep;
-        int m_pointArv;
+        PointId_t m_pointDep;
+        PointId_t m_pointArv;
 
-        PointsPair(int pointDep, int pointArv)
+        PointsPair(const PointId_t& pointDep, const PointId_t& pointArv)
             : m_pointDep(pointDep),
               m_pointArv(pointArv)
         {}
 
-        static PointsPair readByGrpId(int grpId)
+        static PointsPair readByGrpId(const GrpId_t& grpId)
         {
             LogTrace(TRACE5) << "Enter to " << __FUNCTION__ << " by grpId " << grpId;
 
-            int pointDep = ASTRA::NoExists,
-                pointArv = ASTRA::NoExists;
+            GrpId_t::base_type pointDep = ASTRA::NoExists,
+                               pointArv = ASTRA::NoExists;
             OciCpp::CursCtl cur = make_curs(
                     "select POINT_DEP, POINT_ARV from PAX_GRP where GRP_ID=:grp_id");
             cur.bind(":grp_id", grpId)
@@ -488,7 +489,8 @@ namespace
                 throw EXCEPTIONS::Exception("Group %d not found", grpId);
             }
 
-            return PointsPair(pointDep, pointArv);
+            return PointsPair(PointId_t(pointDep),
+                              PointId_t(pointArv));
         }
     };
 
@@ -514,7 +516,7 @@ namespace
               m_airport(airport)
         {}
 
-        static PointInfo readByPointId(int pointId)
+        static PointInfo readByPointId(const PointId_t& pointId)
         {
             LogTrace(TRACE5) << "Enter to " << __FUNCTION__ << " by pointId " << pointId;
 
@@ -840,7 +842,8 @@ static std::string getOldSeat(xmlNodePtr reqNode)
     ASSERT(tripIdNode != NULL && !NodeIsNULL(tripIdNode));
     int magicId = NodeAsInteger(tripIdNode);
     iatci::MagicTab magicTab = iatci::MagicTab::fromNeg(magicId);
-    XMLDoc oldXmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(magicTab.grpId()));
+    GrpId_t grpId(magicTab.grpId());
+    XMLDoc oldXmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(grpId));
     XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
     const XmlCheckInTab& oldIatciTab = oldIatciTabs.tabs().at(magicTab.tabInd() - 1);
     ASSERT(!oldIatciTab.lPax().empty());
@@ -849,39 +852,40 @@ static std::string getOldSeat(xmlNodePtr reqNode)
     return oldSeat;
 }
 
-static PointsPair readPointsPair(int grpId)
+static PointsPair readPointsPair(const GrpId_t& grpId)
 {
     TCkinRoute tckinRoute;
-    if(tckinRoute.GetRouteAfter(grpId, crtWithCurrent, crtIgnoreDependent)) {
+    if(tckinRoute.GetRouteAfter(grpId.get(), crtWithCurrent, crtIgnoreDependent)) {
         // если на стороне Астры делалась локальная(не iatci) сквозная регистрация
         ASSERT(!tckinRoute.empty());
-        return PointsPair(tckinRoute.back().point_dep,
-                          tckinRoute.back().point_arv);
+        return PointsPair(PointId_t(tckinRoute.back().point_dep),
+                          PointId_t(tckinRoute.back().point_arv));
     } else {
         // если один единственный сегмент
         return PointsPair::readByGrpId(grpId);
     }
 }
 
-static PointInfo readDepPointInfo(int grpId)
+static PointInfo readDepPointInfo(const GrpId_t& grpId)
 {
     return PointInfo::readByPointId(readPointsPair(grpId).m_pointDep);
 }
 
-static iatci::OriginatorDetails makeOrg(int grpId)
+static iatci::OriginatorDetails makeOrg(const GrpId_t& grpId)
 {
     PointInfo pointInfo = readDepPointInfo(grpId);
     return iatci::OriginatorDetails(pointInfo.m_airline,
                                     pointInfo.m_airport);
 }
 
-static iatci::OriginatorDetails makeCascadeOrg(int grpId)
+static iatci::OriginatorDetails makeCascadeOrg(const GrpId_t& grpId)
 {
     PointInfo pointInfo = readDepPointInfo(grpId);
     return iatci::OriginatorDetails(pointInfo.m_airline);
 }
 
-static iatci::FlightDetails makeOwnFlight(int pointDep, int pointArv)
+static iatci::FlightDetails makeOwnFlight(const PointId_t& pointDep,
+                                          const PointId_t& pointArv)
 {
     PointInfo depPointInfo = PointInfo::readByPointId(pointDep);
     PointInfo arvPointInfo = PointInfo::readByPointId(pointArv);
@@ -892,7 +896,7 @@ static iatci::FlightDetails makeOwnFlight(int pointDep, int pointArv)
                                 depPointInfo.m_scdOut);
 }
 
-static iatci::FlightDetails makeOwnFlight(int grpId)
+static iatci::FlightDetails makeOwnFlight(const GrpId_t& grpId)
 {
     PointsPair pointsPair = readPointsPair(grpId);
     return makeOwnFlight(pointsPair.m_pointDep,
@@ -908,20 +912,20 @@ static std::string getIatciRequestContext(const edifact::KickInfo& kickInfo = ed
     return XMLTreeToText(xmlCtxt.docPtr());
 }
 
-static int getGrpId(xmlNodePtr reqNode, xmlNodePtr resNode, IatciInterface::RequestType reqType)
+static GrpId_t getGrpId(xmlNodePtr reqNode, xmlNodePtr resNode, IatciInterface::RequestType reqType)
 {
-    int grpId = 0;
+    boost::optional<GrpId_t> grpId;
     if(reqType == IatciInterface::Cki || reqType == IatciInterface::Ckx) {
         // при первичной регистрации grp_id появляется в ответном xml, при отмене - в запросе
         xmlNodePtr node = (reqType == IatciInterface::Cki ? resNode : reqNode);
         XmlCheckInTabs ownTabs(findNodeR(node, "segments"));
         ASSERT(!ownTabs.empty());
-        grpId = ownTabs.tabs().back().seg().m_grpId;
+        grpId = GrpId_t(ownTabs.tabs().back().xmlSeg().seg_info.grp_id);
     } else {
         // в остальных случаях grp_id уже содержится в запросе, либо её можно найти
         xmlNodePtr grpIdNode = findNodeR(reqNode, "grp_id");
-        if(grpIdNode != NULL && !isempty(grpIdNode)) {
-            grpId = NodeAsInteger(grpIdNode);
+        if(grpIdNode != NULL && !isempty(grpIdNode)) {            
+            grpId = GrpId_t{NodeAsInteger(grpIdNode)};
         } else {
             xmlNodePtr tripIdNode = findNodeR(reqNode, "trip_id");
             if(tripIdNode != NULL && !isempty(tripIdNode)) {
@@ -936,23 +940,24 @@ static int getGrpId(xmlNodePtr reqNode, xmlNodePtr resNode, IatciInterface::Requ
                 xmlNodePtr regNoNode = findNodeR(reqNode, "reg_no");
                 if(regNoNode != NULL && !isempty(regNoNode)) {
                     RegNo_t regNo(NodeAsInteger(regNoNode));
-                    grpId = astra_api::findGrpIdByRegNo(pointId, regNo).get();
+                    grpId = astra_api::findGrpIdByRegNo(pointId, regNo);
                 } else {
                     xmlNodePtr paxIdNode = findNodeR(reqNode, "pax_id");
                     if(paxIdNode != NULL && !isempty(paxIdNode)) {
                         PaxId_t paxId(NodeAsInteger(paxIdNode));
-                        grpId = astra_api::findGrpIdByPaxId(pointId, paxId).get();
+                        grpId = astra_api::findGrpIdByPaxId(pointId, paxId);
                     }
                 }
             }
         }
 
-        grpId = iatci::getLastTCkinGrpId(grpId);
+        ASSERT(grpId);
+        grpId = iatci::getLastTCkinGrpId(*grpId);
     }
 
-    LogTrace(TRACE3) << "grpId: " << grpId;
-    ASSERT(grpId > 0);
-    return grpId;
+    //LogTrace(TRACE3) << "grpId: " << grpId;
+    ASSERT(grpId && (*grpId).get() > 0);
+    return *grpId;
 }
 
 
@@ -960,8 +965,7 @@ static void specialPlfErrorHandler(xmlNodePtr reqNode, const Ticketing::AstraMsg
 {
     LogTrace(TRACE3) << __FUNCTION__ << " called for err:" << errCode;
     if(errCode == Ticketing::AstraErr::PAX_SURNAME_NOT_CHECKED_IN) {
-        int grpId = getGrpId(reqNode, NULL, IatciInterface::Plf);
-        ASSERT(grpId > 0);
+        GrpId_t grpId = getGrpId(reqNode, NULL, IatciInterface::Plf);
         if(!iatci::IatciXmlDb::load(grpId).empty()) {
             LogWarning(STDLOG) << "Group " << grpId << " marked as checked-in at our side but not checked-in at iatci-partner side. Drop iatci information...";
             iatci::IatciXmlDb::del(grpId);
@@ -1302,7 +1306,8 @@ static iatci::CkiParams getCkiParams(xmlNodePtr reqNode)
                             cascade,
                             message,
                             iatci::dcqcki::FlightGroup(iatci::makeFlight(firstEdiTab.seg()),
-                                                       makeOwnFlight(lastOwnSeg.m_pointDep, lastOwnSeg.m_pointArv),
+                                                       makeOwnFlight(PointId_t(lastOwnSeg.m_pointDep),
+                                                                     PointId_t(lastOwnSeg.m_pointArv)),
                                                        lPaxGrp));
 }
 
@@ -1498,7 +1503,7 @@ static iatci::CkxParams getCkxParams(xmlNodePtr reqNode)
 {
     bool inApiMode = TReqInfo::Instance()->api_mode;
 
-    int ownGrpId = getGrpId(reqNode, NULL, IatciInterface::Ckx);
+    GrpId_t ownGrpId(getGrpId(reqNode, NULL, IatciInterface::Ckx));
     XMLDoc xmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
 
     XmlCheckInTabs oldIatciTabs(findNodeR(xmlDoc.docPtr()->children, "segments"));
@@ -1605,7 +1610,7 @@ static iatci::CkuParams getSeatUpdateParams(xmlNodePtr reqNode)
                      << "; tabInd: " << magicTab.tabInd()
                      << "; paxId: " << paxId;
 
-    int ownGrpId = magicTab.grpId();
+    GrpId_t ownGrpId(magicTab.grpId());
     XMLDoc oldXmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
 
     XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
@@ -1667,7 +1672,7 @@ static bool ediTabsContainsDestination(const XmlCheckInTabs& tabs, const std::st
 {
     LogTrace(TRACE3) << "check destination for " << dest;
     for(const auto tab: tabs.ediTabs()) {
-        if(BaseTables::Port(tab.seg().m_airpArv)->ida() == BaseTables::Port(dest)->ida()) {
+        if(BaseTables::Port(tab.xmlSeg().seg_info.airp_arv)->ida() == BaseTables::Port(dest)->ida()) {
             return true;
         }
     }
@@ -1679,7 +1684,7 @@ static boost::optional<iatci::CkuParams> getUpdateBaggageParams(xmlNodePtr reqNo
 {
     bool inApiMode = TReqInfo::Instance()->api_mode;
 
-    int ownGrpId = getGrpId(reqNode, NULL, IatciInterface::Cku);
+    GrpId_t ownGrpId(getGrpId(reqNode, NULL, IatciInterface::Cku));
     XMLDoc oldXmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
 
     XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
@@ -1902,7 +1907,7 @@ static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
 
     bool inApiMode = TReqInfo::Instance()->api_mode;
 
-    int ownGrpId = getGrpId(reqNode, NULL, IatciInterface::Cku);
+    GrpId_t ownGrpId(getGrpId(reqNode, NULL, IatciInterface::Cku));
     XMLDoc oldXmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
 
     XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
@@ -2045,7 +2050,7 @@ static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
 
 static iatci::BprParams getBprParams(xmlNodePtr reqNode)
 {
-    int ownGrpId = NodeAsInteger("grp_id", reqNode);
+    GrpId_t ownGrpId(NodeAsInteger("grp_id", reqNode));
     XMLDoc oldXmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
     XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
     ASSERT(!oldIatciTabs.tabs().empty());
@@ -2085,7 +2090,8 @@ static iatci::SmfParams getSmfParams(int magicId)
     }
 
     iatci::MagicTab magicTab = iatci::MagicTab::fromNeg(magicId);
-    XMLDoc oldXmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(magicTab.grpId()));
+    GrpId_t grpId(magicTab.grpId());
+    XMLDoc oldXmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(grpId));
     XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
     const XmlCheckInTab& oldIatciTab = oldIatciTabs.tabs().at(magicTab.tabInd() - 1);
 
@@ -2111,7 +2117,7 @@ static iatci::SmfParams getSmfParams(xmlNodePtr reqNode)
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-static void MagicUpdate(xmlNodePtr resNode, int grpId, IatciInterface::RequestType reqType)
+static void MagicUpdate(xmlNodePtr resNode, const GrpId_t& grpId, IatciInterface::RequestType reqType)
 {
     xmlNodePtr segsNode = findNodeR(resNode, "segments");
     unsigned segInd = 0;
@@ -2132,19 +2138,19 @@ static void MagicUpdate(xmlNodePtr resNode, int grpId, IatciInterface::RequestTy
     }
 }
 
-static void SaveIatciCkiXmlRes(xmlNodePtr iatciResNode, int grpId)
+static void SaveIatciCkiXmlRes(xmlNodePtr iatciResNode, const GrpId_t& grpId)
 {
     LogTrace(TRACE3) << __FUNCTION__;
     iatci::IatciXmlDb::add(grpId, XMLTreeToText(iatciResNode->doc));
 }
 
-static void SaveIatciCkuPlfBprXmlRes(xmlNodePtr iatciResNode, int grpId)
+static void SaveIatciCkuPlfBprXmlRes(xmlNodePtr iatciResNode, const GrpId_t& grpId)
 {
     LogTrace(TRACE3) << __FUNCTION__;
     iatci::IatciXmlDb::upd(grpId, XMLTreeToText(iatciResNode->doc));
 }
 
-static void SaveIatciCkxXmlRes(xmlNodePtr iatciResNode, int grpId)
+static void SaveIatciCkxXmlRes(xmlNodePtr iatciResNode, const GrpId_t& grpId)
 {
     LogTrace(TRACE3) << __FUNCTION__;
 
@@ -2190,7 +2196,8 @@ static void SaveIatciCkxXmlRes(xmlNodePtr iatciResNode, int grpId)
     }
 }
 
-static void SaveIatciXmlResByReqType(xmlNodePtr iatciResNode, int grpId,
+static void SaveIatciXmlResByReqType(xmlNodePtr iatciResNode,
+                                     const GrpId_t& grpId,
                                      IatciInterface::RequestType reqType)
 {
     switch(reqType)
@@ -2214,7 +2221,7 @@ static void SaveIatciXmlResByReqType(xmlNodePtr iatciResNode, int grpId,
     }
 }
 
-static void SaveIatciGrp(int grpId, IatciInterface::RequestType reqType, xmlNodePtr ediResNode)
+static void SaveIatciGrp(const GrpId_t& grpId, IatciInterface::RequestType reqType, xmlNodePtr ediResNode)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId:" << grpId;
     xmlNodePtr iatciResNode = NodeAsNode("/iatci_result", ediResNode);
@@ -2222,7 +2229,7 @@ static void SaveIatciGrp(int grpId, IatciInterface::RequestType reqType, xmlNode
     SaveIatciXmlResByReqType(iatciResNode, grpId, reqType);
 }
 
-static void UpdateIatciGrp(int grpId, IatciInterface::RequestType reqType,
+static void UpdateIatciGrp(const GrpId_t& grpId, IatciInterface::RequestType reqType,
                            xmlNodePtr ediResNode, xmlNodePtr termReqNode)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId:" << grpId;
@@ -2390,7 +2397,7 @@ bool IatciInterface::MayNeedSendIatci(xmlNodePtr reqNode)
     if(tabs.empty()) return false;
     if(tabs.containsEdiTab()) return true;
 
-    return IatciXmlDb::exists(tabs.tabs().back().seg().m_grpId);
+    return IatciXmlDb::exists(GrpId_t(tabs.tabs().back().xmlSeg().seg_info.grp_id));
 }
 
 bool IatciInterface::InitialRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode)
@@ -2568,7 +2575,7 @@ void IatciInterface::KickHandler(XMLRequestCtxt* ctxt,
     {
         LogTrace(TRACE3) << *remRes;
 
-        ReqCtxtId_t reqCtxtId(GetReqCtxtId(reqNode));
+        ReqCtxtId_t reqCtxtId = GetReqCtxtId(reqNode);
         TermReqCtxtWrapper termReqCtxt(reqCtxtId, true, "IatciInterface::KickHandler");
         if(remRes->status() == RemoteStatus::Timeout)
         {
@@ -2729,10 +2736,10 @@ void IatciInterface::KickHandler_onFailure(const ReqCtxtId_t& ctxtId,
     FuncOut(KickHandler_onFailure);
 }
 
-int IatciInterface::GetReqCtxtId(xmlNodePtr kickReqNode)
+ReqCtxtId_t IatciInterface::GetReqCtxtId(xmlNodePtr kickReqNode)
 {
     ASSERT(GetNode("@req_ctxt_id", kickReqNode) != NULL);
-    return NodeAsInteger("@req_ctxt_id", kickReqNode);
+    return ReqCtxtId_t(NodeAsInteger("@req_ctxt_id", kickReqNode));
 }
 
 static std::list<Ticketing::TicketNum_t> getTickNumsOnFirstSeg(xmlNodePtr node)
@@ -2754,7 +2761,7 @@ static IatciViewXmlParams getIatciViewXmlParams(xmlNodePtr node)
     return IatciViewXmlParams(tickNumOrder);
 }
 
-static IatciViewXmlParams getIatciViewXmlParams(int grpId)
+static IatciViewXmlParams getIatciViewXmlParams(const GrpId_t& grpId)
 {
     XMLDoc oldXml = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(grpId));
     return getIatciViewXmlParams(oldXml.docPtr()->children);
@@ -2810,7 +2817,7 @@ void IatciInterface::DoKickAction(const ReqCtxtId_t& ctxtId,
         }
 
         ASSERT(CheckInInterface::SavePax(reqNode, ediResCtxt.node(), resNode));
-        int grpId = getGrpId(reqNode, resNode, reqType);
+        GrpId_t grpId = getGrpId(reqNode, resNode, reqType);
 
         if(reqType == Ckx) {
             // ответ на отмену, не содержащий данных, дополним информацией о пассажирах
@@ -2840,7 +2847,7 @@ void IatciInterface::DoKickAction(const ReqCtxtId_t& ctxtId,
                                  << "Confirmed: " << confirmedSeat;
             }
         }
-        int grpId = getGrpId(reqNode, resNode, reqType);
+        GrpId_t grpId = getGrpId(reqNode, resNode, reqType);
         ReqParams(reqNode).setStrParam("old_seat", getOldSeat(reqNode));        
         UpdateIatciGrp(grpId, reqType, iatciResNode, reqNode);
         SeatmapRequest(reqNode); // перепосылаем карту мест, чтобы сформировать ответ на смену места
@@ -2849,7 +2856,7 @@ void IatciInterface::DoKickAction(const ReqCtxtId_t& ctxtId,
 
     case ActLoadPax:
     {
-        int grpId = getGrpId(reqNode, resNode, reqType);
+        GrpId_t grpId = getGrpId(reqNode, resNode, reqType);
         iatci::iatci2xml(segmentsNode, lRes, getIatciViewXmlParams(grpId));
         SaveIatciGrp(grpId, reqType, iatciResNode);
         CheckInInterface::LoadPax(reqNode, resNode);
@@ -2858,7 +2865,7 @@ void IatciInterface::DoKickAction(const ReqCtxtId_t& ctxtId,
 
     case ActReprint:
     {
-        int grpId = getGrpId(reqNode, resNode, reqType);
+        GrpId_t grpId = getGrpId(reqNode, resNode, reqType);
         iatci::iatci2xml(segmentsNode, lRes, getIatciViewXmlParams(grpId));
         SaveIatciGrp(grpId, reqType, iatciResNode);
         PrintInterface::GetPrintDataBP(reqNode, resNode);
@@ -2903,21 +2910,21 @@ GrpId_t getCkuGrpId(xmlNodePtr reqNode)
 void saveCkiGrp(const GrpId_t& grpId, xmlNodePtr reqNode, xmlNodePtr iatciResNode)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId:" << grpId;
-    MagicUpdate(iatciResNode, grpId.get(), IatciInterface::Cki);
-    SaveIatciCkiXmlRes(iatciResNode, grpId.get());
+    MagicUpdate(iatciResNode, grpId, IatciInterface::Cki);
+    SaveIatciCkiXmlRes(iatciResNode, grpId);
 }
 
 void saveCkuGrp(const GrpId_t& grpId, xmlNodePtr reqNode, xmlNodePtr iatciResNode)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId:" << grpId;
-    UpdateIatciGrp(grpId.get(), IatciInterface::Cku, iatciResNode, reqNode);
+    UpdateIatciGrp(grpId, IatciInterface::Cku, iatciResNode, reqNode);
 }
 
 void saveCkxGrp(const GrpId_t& grpId, xmlNodePtr reqNode, xmlNodePtr iatciResNode)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId:" << grpId;
-    MagicUpdate(iatciResNode, grpId.get(), IatciInterface::Ckx);
-    SaveIatciCkxXmlRes(iatciResNode, grpId.get());
+    MagicUpdate(iatciResNode, grpId, IatciInterface::Ckx);
+    SaveIatciCkxXmlRes(iatciResNode, grpId);
 }
 
 }//namespace iatci

@@ -8,6 +8,7 @@
 
 #include <serverlib/exception.h>
 #include <serverlib/cursctl.h>
+#include <serverlib/rip_oci.h>
 #include <etick/exceptions.h>
 
 #include <ostream>
@@ -29,7 +30,7 @@ MagicTab MagicTab::fromNeg(int gt)
         return *mt;
     }
 
-    return MagicTab(val, 1); // если вкладки нет в БД, то tabInd всегда равен 1
+    return MagicTab(GrpId_t(val), 1); // если вкладки нет в БД, то tabInd всегда равен 1
 }
 
 int MagicTab::toNeg() const
@@ -70,10 +71,10 @@ boost::optional<MagicTab> MagicTab::readById(int id)
         return boost::none;
     }
 
-    return MagicTab(grpId, tabInd);
+    return MagicTab(GrpId_t(grpId), tabInd);
 }
 
-int MagicTab::read(int grpId, unsigned tabInd)
+int MagicTab::read(const GrpId_t& grpId, unsigned tabInd)
 {
     OciCpp::CursCtl cur = make_curs(
 "select ID from IATCI_TABS where GRP_ID=:grp_id and TAB_IND=:tab_ind");

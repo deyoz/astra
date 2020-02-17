@@ -209,26 +209,26 @@ static std::string getIatciAddrType(const std::string& astraAddrType)
 
 const size_t IatciXmlDb::PageSize = 1000;
 
-void IatciXmlDb::add(int grpId, const std::string& xmlText)
+void IatciXmlDb::add(const GrpId_t& grpId, const std::string& xmlText)
 {
     LogTrace(TRACE5) << "Enter to " << __FUNCTION__ << "; grpId=" << grpId;
     saveXml(grpId, xmlText);
 }
 
-void IatciXmlDb::del(int grpId)
+void IatciXmlDb::del(const GrpId_t& grpId)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId=" << grpId;
     delXml(grpId);
 }
 
-void IatciXmlDb::upd(int grpId, const std::string& xmlText)
+void IatciXmlDb::upd(const GrpId_t& grpId, const std::string& xmlText)
 {
     LogTrace(TRACE5) << "Enter to " << __FUNCTION__ << "; grpId=" << grpId;
     delXml(grpId);
     saveXml(grpId, xmlText);
 }
 
-void IatciXmlDb::saveXml(int grpId, const std::string& xmlText)
+void IatciXmlDb::saveXml(const GrpId_t& grpId, const std::string& xmlText)
 {
     LogTrace(TRACE5) << "Enter to " << __FUNCTION__ << "; grpId=" << grpId
                      << "; xmlText size=" << xmlText.size()
@@ -252,7 +252,7 @@ void IatciXmlDb::saveXml(int grpId, const std::string& xmlText)
     }
 }
 
-void IatciXmlDb::delXml(int grpId)
+void IatciXmlDb::delXml(const GrpId_t& grpId)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId=" << grpId;
     OciCpp::CursCtl cur = make_curs(
@@ -261,7 +261,7 @@ void IatciXmlDb::delXml(int grpId)
        .exec();
 }
 
-std::string IatciXmlDb::load(int grpId)
+std::string IatciXmlDb::load(const GrpId_t& grpId)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId=" << grpId;
     std::string res, page;
@@ -278,7 +278,7 @@ std::string IatciXmlDb::load(int grpId)
     return res;
 }
 
-bool IatciXmlDb::exists(int grpId)
+bool IatciXmlDb::exists(const GrpId_t& grpId)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId=" << grpId;
     OciCpp::CursCtl cur = make_curs(
@@ -669,22 +669,22 @@ iatci::PaxDetails makeRespPax(const astra_api::astra_entities::PaxInfo& pax,
 
 iatci::FlightDetails makeFlight(const astra_api::astra_entities::SegmentInfo& seg)
 {
-    return iatci::FlightDetails(BaseTables::Company(seg.m_markFlight.m_airline)->rcode(),
+    return iatci::FlightDetails(BaseTables::Company(seg.m_markFlight.m_airline.get())->rcode(),
                                 Ticketing::FlightNum_t(seg.m_markFlight.m_flightNum),
-                                BaseTables::Port(seg.m_airpDep)->rcode(),
-                                BaseTables::Port(seg.m_airpArv)->rcode(),
+                                BaseTables::Port(seg.m_airpDep.get())->rcode(),
+                                BaseTables::Port(seg.m_airpArv.get())->rcode(),
                                 seg.m_markFlight.m_scdDepDate);
 }
 
 iatci::OriginatorDetails makeOrg(const astra_api::astra_entities::SegmentInfo& seg)
 {
-    return iatci::OriginatorDetails(BaseTables::Company(seg.m_markFlight.m_airline)->rcode(),
-                                    BaseTables::Port(seg.m_markFlight.m_airpDep)->rcode());
+    return iatci::OriginatorDetails(BaseTables::Company(seg.m_markFlight.m_airline.get())->rcode(),
+                                    BaseTables::Port(seg.m_markFlight.m_airpDep.get())->rcode());
 }
 
 iatci::OriginatorDetails makeCascadeOrg(const astra_api::astra_entities::SegmentInfo& seg)
 {
-    return iatci::OriginatorDetails(BaseTables::Company(seg.m_markFlight.m_airline)->rcode());
+    return iatci::OriginatorDetails(BaseTables::Company(seg.m_markFlight.m_airline.get())->rcode());
 }
 
 boost::optional<iatci::ReservationDetails> makeReserv(const astra_api::astra_entities::PaxInfo& pax)
@@ -2071,12 +2071,12 @@ DcsSystemContext* readDcs(const iatci::FlightDetails& outbFlt,
 
 //---------------------------------------------------------------------------------------
 
-int getLastTCkinGrpId(int grpId)
+GrpId_t getLastTCkinGrpId(const GrpId_t& grpId)
 {
     TCkinRoute tckinRoute;
-    if(tckinRoute.GetRouteAfter(grpId, crtWithCurrent, crtIgnoreDependent)) {
+    if(tckinRoute.GetRouteAfter(grpId.get(), crtWithCurrent, crtIgnoreDependent)) {
         ASSERT(!tckinRoute.empty());
-        return tckinRoute.back().grp_id;
+        return GrpId_t(tckinRoute.back().grp_id);
     } else {
         return grpId;
     }

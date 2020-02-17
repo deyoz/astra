@@ -2,6 +2,7 @@
 
 #include "tlg/CheckinBaseTypes.h"
 #include "ticket_types.h"
+#include "astra_types.h"
 
 #include <etick/etick_msg_types.h>
 #include <etick/tick_data.h>
@@ -23,15 +24,15 @@ struct Result;
 
 class MagicTab
 {
-    int m_grpId;
+    GrpId_t  m_grpId;
     unsigned m_tabInd;
 
 public:
-    MagicTab(int grpId, unsigned tabInd)
+    MagicTab(const GrpId_t& grpId, unsigned tabInd)
         : m_grpId(grpId), m_tabInd(tabInd)
     {}
 
-    int grpId() const { return m_grpId; }
+    const GrpId_t& grpId() const { return m_grpId; }
     unsigned tabInd() const { return m_tabInd; }
 
     int toNeg() const;
@@ -40,7 +41,7 @@ public:
 
 protected:
     static boost::optional<MagicTab> readById(int id);
-    static int read(int grpId, unsigned tabInd);
+    static int read(const GrpId_t& grpId, unsigned tabInd);
     static int genNextTabId();
 };
 

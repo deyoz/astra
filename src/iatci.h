@@ -98,7 +98,7 @@ private:
                              RequestType reqType,
                              KickAction act);
 
-    static int GetReqCtxtId(xmlNodePtr kickReqNode);
+    static ReqCtxtId_t GetReqCtxtId(xmlNodePtr kickReqNode);
 
     static void RollbackChangeOfStatus(xmlNodePtr initialReqNode,
                                        const ReqCtxtId_t& ctxtId);

@@ -42,15 +42,15 @@ class IatciXmlDb
 {
 public:
     static const size_t PageSize;
-    static void add(int grpId, const std::string& xmlText);
-    static void del(int grpId);
-    static void upd(int grpId, const std::string& xmlText);
-    static std::string load(int grpId);
-    static bool exists(int grpId);
+    static void add(const GrpId_t& grpId, const std::string& xmlText);
+    static void del(const GrpId_t& grpId);
+    static void upd(const GrpId_t& grpId, const std::string& xmlText);
+    static std::string load(const GrpId_t& grpId);
+    static bool exists(const GrpId_t& grpId);
 
 private:
-    static void saveXml(int grpId, const std::string& xmlText);
-    static void delXml(int grpId);
+    static void saveXml(const GrpId_t& grpId, const std::string& xmlText);
+    static void delXml(const GrpId_t& grpId);
 };
 
 //---------------------------------------------------------------------------------------
@@ -231,7 +231,7 @@ Ticketing::RemoteSystemContext::DcsSystemContext* readDcs(const iatci::FlightDet
 
 //---------------------------------------------------------------------------------------
 
-int getLastTCkinGrpId(int grpId);
+GrpId_t getLastTCkinGrpId(const GrpId_t& grpId);
 
 //---------------------------------------------------------------------------------------
 

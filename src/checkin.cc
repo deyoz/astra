@@ -3286,10 +3286,10 @@ static xmlNodePtr findIatciSegNode(xmlNodePtr reqNode)
     return result;
 }
 
-static boost::optional<TGrpMktFlight> LoadIatciMktFlight(int grpId)
+static boost::optional<TGrpMktFlight> LoadIatciMktFlight(const GrpId_t& grpId)
 {
     using namespace astra_api::xml_entities;
-    ASSERT(grpId > 0);
+    ASSERT(grpId.get() > 0);
     std::string xmlData = iatci::IatciXmlDb::load(grpId);
     if(!xmlData.empty())
     {
@@ -3329,7 +3329,7 @@ static void transformSavePaxRequestByIatci(xmlNodePtr reqNode)
     }
 }
 
-static void transformSavePaxRequestByIatci(xmlNodePtr reqNode, int grpId)
+static void transformSavePaxRequestByIatci(xmlNodePtr reqNode, const GrpId_t& grpId)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << " grpId=" << grpId;
 
@@ -3498,7 +3498,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
 
             // снимем флаг необходимости посылки iatci-запроса
             ReqParams(reqNode).setBoolParam("may_need_send_iatci", false);
-            transformSavePaxRequestByIatci(reqNode, AfterSaveInfoList.front().segs.back().grp_id);
+            GrpId_t grpId(AfterSaveInfoList.front().segs.back().grp_id);
+            transformSavePaxRequestByIatci(reqNode, grpId);
             // выставим флаг факта посылки iatci-запроса. Может быть изменён в false,
             // если update не затронет edifact-вкладки
             ReqParams(reqNode).setBoolParam("was_sent_iatci", willSentIatci);
@@ -6950,7 +6951,8 @@ static void CloneServiceLists(xmlNodePtr segsNode, int numToClone)
     }
 }
 
-void CheckInInterface::LoadIatciPax(xmlNodePtr reqNode, xmlNodePtr resNode, int grpId, bool needSync)
+void CheckInInterface::LoadIatciPax(xmlNodePtr reqNode, xmlNodePtr resNode,
+                                    const GrpId_t& grpId, bool needSync)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " grpId:" << grpId << "; needSync:" << needSync;
 
@@ -7234,7 +7236,8 @@ void CheckInInterface::LoadPaxByGrpId(int grp_id, xmlNodePtr reqNode, xmlNodePtr
   {
       bool afterKick = ReqParams(reqNode).getBoolParam("after_kick", false);
       bool needSync = !afterKick && !reqInfo->api_mode && !afterSavePax;
-      LoadIatciPax(reqNode, resNode, tckin_grp_ids.back(), needSync);
+      GrpId_t grpId(tckin_grp_ids.back());
+      LoadIatciPax(reqNode, resNode, grpId, needSync);
   }
 }
 

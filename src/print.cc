@@ -6,6 +6,7 @@
 #include "stl_utils.h"
 #include "astra_utils.h"
 #include "astra_api.h"
+#include "astra_types.h"
 #include "iatci_help.h"
 #include "iatci.h"
 #include "misc.h"
@@ -2104,7 +2105,7 @@ bool PrintInterface::GetIatciPrintDataBP(xmlNodePtr reqNode,
 
     LogTrace(TRACE3) << __FUNCTION__ << " for grpId: " << grpId;
 
-    std::string loaded = iatci::IatciXmlDb::load(grpId);
+    std::string loaded = iatci::IatciXmlDb::load(GrpId_t(grpId));
     if(!loaded.empty())
     {
         if(!ReqParams(reqNode).getBoolParam("after_kick", false)) {

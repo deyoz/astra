@@ -26,37 +26,36 @@ namespace astra_entities {
 
 struct MarketingInfo
 {
-    std::string            m_airline;
+    AirlineCode_t          m_airline;
     unsigned               m_flightNum;
     std::string            m_flightSuffix;
     boost::gregorian::date m_scdDepDate;
-    std::string            m_airpDep;
+    AirportCode_t          m_airpDep;
 
-    MarketingInfo(const std::string& airline,
+    MarketingInfo(const AirlineCode_t& airline,
                   unsigned flightNum,
                   const std::string& flightSuffix,
                   const boost::gregorian::date& scdDepDate,
-                  const std::string& airpDep);
+                  const AirportCode_t& airpDep);
 };
 
 //---------------------------------------------------------------------------------------
 
 struct SegmentInfo
 {
-    int           m_grpId;
-    int           m_pointDep;
-    int           m_pointArv;
-    std::string   m_airpDep;
-    std::string   m_airpArv;
-    std::string   m_cls;
+    GrpId_t       m_grpId;
+    PointId_t     m_pointDep;
+    PointId_t     m_pointArv;
+    AirportCode_t m_airpDep;
+    AirportCode_t m_airpArv;
+    //Class_t       m_cls;
     MarketingInfo m_markFlight;
 
-    SegmentInfo(int grpId,
-                int pointDep,
-                int pointArv,
-                const std::string& airpDep,
-                const std::string& airpArv,
-                const std::string& cls,
+    SegmentInfo(const GrpId_t& grpId,
+                const PointId_t& pointDep,
+                const PointId_t& pointArv,
+                const AirportCode_t& airpDep,
+                const AirportCode_t& airpArv,
                 const MarketingInfo& markFlight);
 };
 

@@ -2551,12 +2551,12 @@ astra_entities::FqtRemarks XmlFqtRems::toFqtRems() const
 
 astra_entities::MarketingInfo XmlMarkFlight::toMarkFlight() const
 {
-    return astra_entities::MarketingInfo(airline,
+    return astra_entities::MarketingInfo(AirlineCode_t(airline),
                                          flt_no,
                                          suffix,
                                          scd != ASTRA::NoExists ? DateTimeToBoost(scd).date()
                                                                 : boost::gregorian::date(),
-                                         airp_dep);
+                                         AirportCode_t(airp_dep));
 }
 
 //---------------------------------------------------------------------------------------
@@ -2670,12 +2670,11 @@ astra_entities::PaxInfo XmlPax::toPax() const
 
 astra_entities::SegmentInfo XmlSegment::toSeg() const
 {
-    return astra_entities::SegmentInfo(seg_info.grp_id,
-                                       seg_info.point_dep,
-                                       seg_info.point_arv,
-                                       seg_info.airp_dep,
-                                       seg_info.airp_arv,
-                                       seg_info.cls,
+    return astra_entities::SegmentInfo(GrpId_t(seg_info.grp_id),
+                                       PointId_t(seg_info.point_dep),
+                                       PointId_t(seg_info.point_arv),
+                                       AirportCode_t(seg_info.airp_dep),
+                                       AirportCode_t(seg_info.airp_arv),
                                        mark_flight.toMarkFlight());
 }
 
@@ -4757,11 +4756,11 @@ iatci::dcrcka::Result GetSeatmapXmlResult::toIatci(const iatci::FlightDetails& o
 
 namespace astra_entities {
 
-MarketingInfo::MarketingInfo(const std::string& airline,
+MarketingInfo::MarketingInfo(const AirlineCode_t& airline,
                              unsigned flightNum,
                              const std::string& flightSuffix,
                              const boost::gregorian::date& scdDepDate,
-                             const std::string& airpDep)
+                             const AirportCode_t& airpDep)
     : m_airline(airline),
       m_flightNum(flightNum),
       m_flightSuffix(flightSuffix),
@@ -4771,19 +4770,17 @@ MarketingInfo::MarketingInfo(const std::string& airline,
 
 //---------------------------------------------------------------------------------------
 
-SegmentInfo::SegmentInfo(int grpId,
-                         int pointDep,
-                         int pointArv,
-                         const std::string& airpDep,
-                         const std::string& airpArv,
-                         const std::string& cls,
+SegmentInfo::SegmentInfo(const GrpId_t& grpId,
+                         const PointId_t& pointDep,
+                         const PointId_t& pointArv,
+                         const AirportCode_t& airpDep,
+                         const AirportCode_t& airpArv,
                          const MarketingInfo& markFlight)
     : m_grpId(grpId),
       m_pointDep(pointDep),
       m_pointArv(pointArv),
       m_airpDep(airpDep),
       m_airpArv(airpArv),
-      m_cls(cls),
       m_markFlight(markFlight)
 {}
 
