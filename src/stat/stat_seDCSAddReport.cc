@@ -80,7 +80,9 @@ int nosir_seDCSAddReport(int argc, char **argv)
                 "where "
                 "    pax_grp.point_dep = :point_id and "
                 "    pax.grp_id = pax_grp.grp_id and "
+                "    pax_grp.status not in ('E') and "
                 "    bag2.grp_id(+) = pax_grp.grp_id and "
+                "    bag2.bag_pool_num(+) = pax.bag_pool_num and "
                 "    bag2.num(+) = 1 ",
                 QParams() << QParam("point_id", otInteger)
                 ),
