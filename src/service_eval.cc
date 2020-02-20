@@ -443,6 +443,15 @@ class Order: public SvcEmdRegnum, public SvcEmdSvcsAns
         svcSirena.status_svc = svc.status;
         svcSirena.status_direct = TPriceRFISCList::STATUS_DIRECT_ORDER;
         svcSirena.svc_id = p.svc_id;
+
+        SvcValue svcVal;
+        SvcEmdSvcsAns::getSvcValue( p.svc_id, svcVal );
+        Ticket t;
+        tickets.get( svcVal.pass_id, svcVal.seg_id, t );
+        svcSirena.ticknum = t.ticknum;
+        svcSirena.ticket_cpn = t.ticket_cpn;
+        LogTrace(TRACE5) << "svc_id=" << svcSirena.svc_id << ",ticket=" << svcSirena.ticknum << "/" << svcSirena.ticket_cpn;
+
         svcSirena.time_change = BASIC::date_time::NowUTC();
         if ( svcList.find(key) == svcList.end() ) {
           svcList.emplace( key, price );
