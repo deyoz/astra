@@ -17,6 +17,7 @@
 #include "exceptions.h"
 #include "edi_utils.h"
 #include "astra_utils.h"
+#include "astra_types.h"
 #include "astra_consts.h"
 
 #include <serverlib/posthooks.h>
@@ -655,6 +656,14 @@ std::string DcsSystemContext::getSelectSql()
 
 //---------------------------------------------------------------------------------------
 
+static std::string getEdiProfileByApisSettings(const APIS::Settings& settings)
+{
+    CountryCode_t controlCountry(settings.countryControl());
+    // здесь можно в зависимости от страны/формата указать нужный профиль edifact
+    // например, IAPI_CN, IAPI_USA
+    return "IAPI";
+}
+
 IapiSystemContext::IapiSystemContext(const SystemContext& baseCnt)
     : SystemContext(baseCnt)
 {
@@ -663,10 +672,9 @@ IapiSystemContext::IapiSystemContext(const SystemContext& baseCnt)
 IapiSystemContext* IapiSystemContext::read(const APIS::Settings& settings)
 {
     SystemContextMaker mk;
-    mk.setIda(Ticketing::SystemAddrs_t());
     mk.setOurAddrEdifact(settings.ediOwnAddr());
     mk.setRemoteAddrEdifact(settings.ediAddr());
-    mk.setEdifactProfileName("IAPI"); //!!!vlad
+    mk.setEdifactProfileName(getEdiProfileByApisSettings(settings));
     mk.setCanonName(AstraEdifact::get_canon_name(settings.ediAddr()));
     return new IapiSystemContext(mk.getSystemContext());
 }
