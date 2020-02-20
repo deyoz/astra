@@ -1334,6 +1334,7 @@ namespace MQRABBIT_TRANSPORT {
           tst();
           putMQRabbitFlights( request, params );
         }
+        TReqInfo::Instance()->user.sets.time = ustTimeUTC;
         request.clear();
         request.Sender = Qry.FieldAsString( "point_addr" );
         params.clear();
@@ -1354,14 +1355,14 @@ namespace MQRABBIT_TRANSPORT {
       }
     }
     if ( !request.Sender.empty() ) {
-     if ( std::string( task ) == "paxs" ) {
+      if ( std::string( task ) == "paxs" ) {
         tst();
         putMQRabbitPaxs( request, params );
-     }
-     else {
-       tst();
-       putMQRabbitFlights( request, params );
-     }
+      }
+      else {
+        tst();
+        putMQRabbitFlights( request, params );
+      }
       request.clear();
     }
 
