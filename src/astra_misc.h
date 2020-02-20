@@ -13,6 +13,7 @@
 #include "astra_locale.h"
 #include "stages.h"
 #include "xml_unit.h"
+#include "astra_types.h"
 
 using BASIC::date_time::TDateTime;
 
@@ -20,7 +21,7 @@ class TPaxSegmentPair;
 class TTripInfo;
 class TAdvTripRoute;
 
-boost::optional<TTripInfo> getPointInfo(const int point_dep);
+boost::optional<TTripInfo> getPointInfo(const PointId_t point_dep);
 std::vector<std::string> segAirps(const TPaxSegmentPair & flight);
 std::vector<int> segPoints(const TPaxSegmentPair & flight);
 TAdvTripRoute getTransitRoute(const TPaxSegmentPair& flight);

@@ -13,6 +13,7 @@
 #include "salons.h"
 #include "date_time.h"
 #include "apps_interaction.h"
+#include "alarms.h"
 #include "xml_unit.h"
 #include "tlg/tlg.h"
 #include "tlg/remote_system_context.h"

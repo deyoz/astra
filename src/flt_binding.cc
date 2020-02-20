@@ -8,6 +8,7 @@
 #include "etick.h"
 #include "counters.h"
 #include "franchise.h"
+#include "checkin.h"
 
 #include <serverlib/testmode.h>
 
@@ -58,7 +59,7 @@ void TFltBinding::unbind_flt(int point_id, int point_id_spp)
 
 void TTlgBinding::after_bind_or_unbind_flt(int point_id_tlg, int point_id_spp, bool unbind)
 {
-  crs_recount(point_id_tlg,point_id_spp,unbind?false:check_comp);
+  crs_recount(point_id_tlg,point_id_spp,unbind ? false:check_comp);
   TPointIdsForCheck point_ids_spp;
   SyncTripCompLayers(point_id_tlg, point_id_spp, point_ids_spp);
   check_layer_change(point_ids_spp, __FUNCTION__);
@@ -66,9 +67,10 @@ void TTlgBinding::after_bind_or_unbind_flt(int point_id_tlg, int point_id_spp, b
   if (!unbind) {
     add_trip_task(point_id_spp, SYNC_ALL_CHKD, "");
     TDateTime start_time;
-    bool result = APPS::checkTime( point_id_spp, start_time );
-    if ( result || start_time != ASTRA::NoExists )
-      add_trip_task( point_id_spp, SEND_ALL_APPS_INFO, "", start_time );
+    bool result = APPS::checkTime(PointId_t(point_id_spp), start_time);
+    if (result || start_time != ASTRA::NoExists) {
+        add_trip_task(point_id_spp, SEND_ALL_APPS_INFO, "", start_time);
+    }
     TlgETDisplay(point_id_tlg, point_id_spp, false);
   }
   check_tlg_in_alarm(point_id_tlg, point_id_spp);

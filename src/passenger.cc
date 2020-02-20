@@ -64,13 +64,13 @@ bool isEmptyPaxId(int id)
 namespace CheckIn
 {
 
-boost::optional<TPaxSegmentPair> buildSegment(OciCpp::CursCtl & cur, const int pax_id)
+boost::optional<TPaxSegmentPair> buildSegment(OciCpp::CursCtl & cur, const PaxId_t pax_id)
 {
     int point_id;
     std::string airp_arv;
     cur.def(point_id)
        .def(airp_arv)
-       .bind(":pax_id",pax_id)
+       .bind(":pax_id",pax_id.get())
        .exfet();
     if(cur.err() == NO_DATA_FOUND) {
         return boost::none;
@@ -78,7 +78,7 @@ boost::optional<TPaxSegmentPair> buildSegment(OciCpp::CursCtl & cur, const int p
     return TPaxSegmentPair{point_id, airp_arv};
 }
 
-boost::optional<TPaxSegmentPair> paxSegment(const int pax_id)
+boost::optional<TPaxSegmentPair> paxSegment(const PaxId_t &pax_id)
 {
     auto cur = make_curs(
                "select POINT_DEP, AIRP_ARV "
@@ -87,7 +87,7 @@ boost::optional<TPaxSegmentPair> paxSegment(const int pax_id)
     return buildSegment(cur, pax_id);
 }
 
-boost::optional<TPaxSegmentPair> crsSegment(const int pax_id)
+boost::optional<TPaxSegmentPair> crsSegment(const PaxId_t& pax_id)
 {
     auto cur = make_curs(
                "select POINT_ID_SPP, AIRP_ARV "
@@ -97,73 +97,15 @@ boost::optional<TPaxSegmentPair> crsSegment(const int pax_id)
     return buildSegment(cur, pax_id);
 }
 
-boost::optional<TPaxSegmentPair> ckinSegment(const int grp_id)
+boost::optional<TPaxSegmentPair> ckinSegment(const GrpId_t& grp_id)
 {
     TCkinRoute tckin_route;
-    bool found = tckin_route.GetRouteBefore(grp_id, crtNotCurrent, crtIgnoreDependent);
+    bool found = tckin_route.GetRouteBefore(grp_id.get(), crtNotCurrent, crtIgnoreDependent);
     if(!found || tckin_route.empty()) {
         return boost::none;
     }
     return TPaxSegmentPair{tckin_route.front().point_dep, tckin_route.front().airp_arv};
 }
-
-//std::vector<TPaxSegmentPair> paxRouteSegments(const int pax_id)
-//{
-//    TCkinRoute tCkinRoute;
-//    bool get = tCkinRoute.GetRoute(pax_id);
-//    if(!get) {
-//        boost::optional<TPaxSegmentPair> singleFlight = paxSegment(pax_id);
-//        if(!singleFlight){
-//            LogTrace(TRACE5) << __FUNCTION__ << " Not found any route for pax: " << pax_id;
-//            return {};
-//        } else {
-//            return {*singleFlight};
-//        }
-//    }
-//    std::vector<TPaxSegmentPair> res;
-//    for(const TCkinRouteItem& seg : tCkinRoute) {
-//        res.emplace_back(seg.point_dep, seg.airp_arv);
-//    }
-//    return res;
-//}
-
-//std::vector<TPaxSegmentPair> crsRouteSegments(const int pax_id)
-//{
-//    std::vector<TPaxSegmentPair> res;
-//    auto crs_route_map = CheckInInterface::getCrsTransferMap(pax_id);
-//    for(const auto& pair : crs_route_map) {
-//        const CheckIn::TTransferItem& seg = pair.second;
-//        auto info = routeInfoFromTrfr(seg);
-//        res.emplace_back(info.point_id, seg.airp_arv);
-//    }
-//    return res;
-//}
-
-//std::vector<int> routePoints(const int pax_id, PaxOrigin checkinType)
-//{
-//    std::vector<TPaxSegmentPair> route =
-//            (checkinType == PaxOrigin::paxCheckIn) ? CheckIn::paxRouteSegments(pax_id)
-//                                                   : CheckIn::crsRouteSegments(pax_id);
-//    std::vector<int> res;
-//    for(const auto& seg : route) {
-//        std::vector<int> transitRoute = segPoints(seg);
-//        algo::append(res, transitRoute);
-//    }
-//    return res;
-//}
-
-//std::vector<std::string> routeAirps(const int pax_id, PaxOrigin checkinType)
-//{
-//    std::vector<TPaxSegmentPair> route =
-//            (checkinType == PaxOrigin::paxCheckIn) ? CheckIn::paxRouteSegments(pax_id)
-//                                                   : CheckIn::crsRouteSegments(pax_id);
-//    std::vector<std::string> res;
-//    for(const auto& seg : route) {
-//        std::vector<std::string> transitRoute = segAirps(seg);
-//        algo::append(res, transitRoute);
-//    }
-//    return res;
-//}
 
 const TPaxGrpCategoriesView& PaxGrpCategories()
 {

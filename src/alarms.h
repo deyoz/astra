@@ -132,7 +132,7 @@ void check_apis_alarms(int point_id);
 void check_apis_alarms(int point_id, const std::set<Alarm::Enum> &checked_alarms);
 bool check_apps_alarm(int point_id);
 bool check_iapi_alarm(int point_id);
-bool check_apps_scd_alarm(int point_id);
+bool check_apps_scd_alarm(const PointId_t& point_id);
 
 template<typename T>
 class TSomeonesAlarm

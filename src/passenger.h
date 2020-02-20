@@ -11,6 +11,7 @@
 #include <boost/optional.hpp>
 #include "date_time.h"
 #include "qrys.h"
+#include "astra_types.h"
 
 using BASIC::date_time::TDateTime;
 
@@ -31,14 +32,9 @@ namespace CheckIn
 {
 
 class TSimplePaxItem;
-boost::optional<TPaxSegmentPair> paxSegment(const int pax_id);
-boost::optional<TPaxSegmentPair> crsSegment(const int pax_id);
-boost::optional<TPaxSegmentPair> ckinSegment(const int grp_id);
-//std::map<int, CheckIn::TTransferItem> getCrsTransferMap(const int pax_id);
-//std::vector<TPaxSegmentPair> paxRouteSegments(const int pax_id);
-//std::vector<TPaxSegmentPair> crsRouteSegments(const int pax_id);
-//std::vector<int> routePoints(const int pax_id, PaxOrigin checkinType);
-//std::vector<std::string> routeAirps(const int pax_id, PaxOrigin checkinType);
+boost::optional<TPaxSegmentPair> paxSegment(const PaxId_t& pax_id);
+boost::optional<TPaxSegmentPair> crsSegment(const PaxId_t& pax_id);
+boost::optional<TPaxSegmentPair> ckinSegment(const GrpId_t& grp_id);
 
 class TPaxGrpCategory
 {

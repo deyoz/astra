@@ -1138,14 +1138,14 @@ void CheckInInterface::GetOnwardCrsTransfer(int id, bool isPnrId,
   }
 }
 
-std::vector<TPaxSegmentPair> CheckInInterface::paxRouteSegments(const int pax_id)
+std::vector<TPaxSegmentPair> CheckInInterface::paxRouteSegments(const PaxId_t pax_id)
 {
     TCkinRoute tCkinRoute;
-    bool get = tCkinRoute.GetRoute(pax_id);
+    bool get = tCkinRoute.GetRoute(pax_id.get());
     if(!get) {
         boost::optional<TPaxSegmentPair> singleFlight = CheckIn::paxSegment(pax_id);
         if(!singleFlight){
-            LogTrace(TRACE5) << __FUNCTION__ << " Not found any route for pax: " << pax_id;
+            LogTrace(TRACE5) << __FUNCTION__ << " Not found any route for pax: " << pax_id.get();
             return {};
         } else {
             return {*singleFlight};
@@ -1158,7 +1158,7 @@ std::vector<TPaxSegmentPair> CheckInInterface::paxRouteSegments(const int pax_id
     return res;
 }
 
-std::vector<TPaxSegmentPair> CheckInInterface::crsRouteSegments(const int pax_id)
+std::vector<TPaxSegmentPair> CheckInInterface::crsRouteSegments(const PaxId_t pax_id)
 {
     std::vector<TPaxSegmentPair> res;
     auto crs_route_map = CheckInInterface::getCrsTransferMap(pax_id);
@@ -1170,7 +1170,7 @@ std::vector<TPaxSegmentPair> CheckInInterface::crsRouteSegments(const int pax_id
     return res;
 }
 
-std::vector<int> CheckInInterface::routePoints(const int pax_id, PaxOrigin checkinType)
+std::vector<int> CheckInInterface::routePoints(const PaxId_t pax_id, PaxOrigin checkinType)
 {
     std::vector<TPaxSegmentPair> route =
             (checkinType == PaxOrigin::paxCheckIn) ? paxRouteSegments(pax_id)
@@ -1183,7 +1183,7 @@ std::vector<int> CheckInInterface::routePoints(const int pax_id, PaxOrigin check
     return res;
 }
 
-std::vector<std::string> CheckInInterface::routeAirps(const int pax_id, PaxOrigin checkinType)
+std::vector<std::string> CheckInInterface::routeAirps(const PaxId_t pax_id, PaxOrigin checkinType)
 {
     std::vector<TPaxSegmentPair> route =
             (checkinType == PaxOrigin::paxCheckIn) ? paxRouteSegments(pax_id)
@@ -1197,9 +1197,8 @@ std::vector<std::string> CheckInInterface::routeAirps(const int pax_id, PaxOrigi
 }
 
 //Чтение пока только Onward, только последующие трансферы
-std::map<int, CheckIn::TTransferItem> CheckInInterface::getCrsTransferMap(const int pax_id)
+std::map<int, CheckIn::TTransferItem> CheckInInterface::getCrsTransferMap(const PaxId_t pax_id)
 {
-    LogTrace(TRACE5) << __FUNCTION__ << " pax_id: " << pax_id;
     int pnr_id = 0, point_id = 0;
     std::string airp_arv;
     auto cur = make_curs(
@@ -1212,14 +1211,14 @@ std::map<int, CheckIn::TTransferItem> CheckInInterface::getCrsTransferMap(const 
         .def(point_id)
         .def(pnr_id)
         .def(airp_arv)
-        .bind(":pax_id", pax_id)
+        .bind(":pax_id", pax_id.get())
         .EXfet();
     if(cur.err() == NO_DATA_FOUND) {
         LogTrace(TRACE5) << __FUNCTION__ << " No data found";
         return {};
     }
     map<int, CheckIn::TTransferItem> trfer;
-    CheckInInterface::GetOnwardCrsTransfer(pnr_id, true, *getPointInfo(point_id), airp_arv, trfer);
+    CheckInInterface::GetOnwardCrsTransfer(pnr_id, true, *getPointInfo(PointId_t(point_id)), airp_arv, trfer);
     return trfer;
 }
 
@@ -4345,7 +4344,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     if (new_checkin)
       segList.back().setCabinClassAndSubclass();
 
-    if (!pr_unaccomp && APPS::checkAPPSSets(segList.back().grp.point_dep, segList.back().grp.point_arv))
+    if (!pr_unaccomp && APPS::checkAPPSSets(PointId_t(segList.back().grp.point_dep),
+                                            PointId_t(segList.back().grp.point_arv)))
         need_apps = true;
   }
 
@@ -5327,7 +5327,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
                 if (need_apps) {
                     // Для новых пассажиров ремарки APPS не проверяем
-                    appsCollector.addPaxItem(pax_id);
+                    appsCollector.addPaxItem(PaxId_t(pax_id));
                 }
 
                 iapiCollector.addPassengerIfNeed(pax_id, grp.point_dep, grp.airp_arv, checkInfo);
@@ -5587,7 +5587,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   std::string override;
                   bool is_forced = false;
                   HandleAPPSRems(p->rems, override, is_forced);
-                  appsCollector.addPaxItem(pax.id, override, is_forced);
+                  appsCollector.addPaxItem(PaxId_t(pax.id), override, is_forced);
               }
 
               if (p->refused)

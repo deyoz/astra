@@ -198,7 +198,7 @@ void resend_tlg(void)
     bool apps_down = get_alarm(point_id, Alarm::APPSOutage);
     TDateTime send_time = Qry.FieldAsDateTime("send_time");
     int msg_id = Qry.FieldAsInteger("msg_id");
-    if (!APPS::checkTime(point_id) || send_attempts == APPS::MaxSendAttempts) {
+    if (!APPS::checkTime(PointId_t(point_id)) || send_attempts == APPS::MaxSendAttempts) {
       /* More than 2 days has passed after flight scheduled departure time or max value of send attempts has been reached.
          It is useless to continue send. */
       APPS::deleteMsg(msg_id);

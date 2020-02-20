@@ -212,7 +212,7 @@ void TCompleteAPICheckInfo::set(const int point_dep, const std::string& airp_arv
     catch(const EBaseTableError&) {};
 
     std::set<std::string> apps_formats;
-    if (APPS::checkAPPSFormats(point_dep, airp_arv, apps_formats))
+    if (APPS::checkAPPSFormats(PointId_t(point_dep), AirportCode_t(airp_arv), apps_formats))
     {
       _apis_formats.insert(apps_formats.begin(), apps_formats.end());
       is_inter=true;

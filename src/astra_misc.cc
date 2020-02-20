@@ -27,11 +27,11 @@ using namespace ASTRA::date_time;
 
 static boost::optional<int> getGrpIdByPaxId(const int pax_id);
 
-boost::optional<TTripInfo> getPointInfo(const int point_dep)
+boost::optional<TTripInfo> getPointInfo(const PointId_t point_dep)
 {
-    LogTrace(TRACE5) << __FUNCTION__ << " point_dep: " << point_dep;
+    LogTrace(TRACE5) << __FUNCTION__ << " point_dep: " << point_dep.get();
     TTripInfo point_info;
-    if (!point_info.getByPointId(point_dep)) {
+    if (!point_info.getByPointId(point_dep.get())) {
         return boost::none;
     }
     return point_info;
@@ -52,6 +52,7 @@ TAdvTripRoute getTransitRoute(const TPaxSegmentPair& flight)
     TAdvTripRoute route;
     LogTrace(TRACE5)<< __FUNCTION__ << " point: " << flight.point_dep << " airp_arv: "<< flight.airp_arv;
     if(flight.airp_arv.empty()) {
+        tst();
         route.GetRouteAfter(NoExists, flight.point_dep, trtWithCurrent, trtNotCancelled);
     } else {
         route.getRouteBetween(flight.point_dep, flight.airp_arv);

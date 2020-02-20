@@ -1365,12 +1365,12 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         //============================ проверка APPS и IAPI статуса пассажира ============================
         if (set_mark)
         {
-          if (APPS::checkAPPSSets(point_id, point_arv)) {
+          if (APPS::checkAPPSSets(PointId_t(point_id), PointId_t(point_arv))) {
             for(int pass=0;pass<2;pass++)
             {
               const TPaxItem &pax=(pass==0?paxWithSeat:paxWithoutSeat);
               if (!pax.exists()) continue;
-              auto statuses = APPS::statusesFromDb(pax.pax_id);
+              auto statuses = APPS::statusesFromDb(PaxId_t(pax.pax_id));
               if (algo::any_of(statuses, [](auto & st){return st!="B";})) {
                   throw AstraLocale::UserException("MSG.PASSENGER.APPS_PROBLEM");
               }

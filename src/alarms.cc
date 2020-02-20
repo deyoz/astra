@@ -48,7 +48,7 @@ void checkAlarm(const TTripTaskKey &task)
         check_iapi_alarm(task.point_id);
         break;
     case Alarm::APPSNotScdInTime:
-        check_apps_scd_alarm(task.point_id);
+        check_apps_scd_alarm(PointId_t(task.point_id));
         break;
     default:
       throw Exception("Unsupported");
@@ -621,11 +621,10 @@ bool check_iapi_alarm(int point_id)
   return iapi_alarm;
 }
 
-bool check_apps_scd_alarm(int point_id)
+bool check_apps_scd_alarm(const PointId_t &point_id)
 {
-    LogTrace(TRACE5) << __FUNCTION__ << " id: "<< point_id;
     bool not_scd_time = APPS::checkNeedAlarmScdIn(point_id);
-    set_alarm(point_id, Alarm::APPSNotScdInTime, not_scd_time);
+    set_alarm(point_id.get(), Alarm::APPSNotScdInTime, not_scd_time);
     return not_scd_time;
 }
 
