@@ -251,11 +251,15 @@ class Price {
     std::string ticket_cpn;
     std::string validating_company;
     float total;
-    bool is_bagnorm;
+    std::string is_reason;
+    bool is_bagnorm() {
+      return ( std::string("is_bagnorm") == is_reason );
+    }
+
     void fromXML( xmlNodePtr node ) {
-      is_bagnorm = ( std::string("is_bagnorm") == NodeAsString( "@reason", node, "") );
-      LogTrace(TRACE5) << "is_bagnorm=" << is_bagnorm;
-      if ( !is_bagnorm ) {
+      is_reason = NodeAsString( "@reason", node, "");
+      LogTrace(TRACE5) << "is_reason=" << is_reason;
+      if ( is_reason.empty() ) {
         baggage = NodeAsString( "@baggage", node );
         doc = PriceDoc( NodeAsString( "@doc_id", node ), NodeAsString( "@doc_type", node ), NodeAsBoolean( "@unpoundable", NodeAsNode("fare",node), false ) );
       }
@@ -266,8 +270,8 @@ class Price {
       validating_company = NodeAsString( "@validating_company", node, "" );
       passenger_id = NodeAsString( "@passenger-id", node );
       svc_id = NodeAsString( "@svc-id", node, "" ); // тарификация неизвестна
-      total = is_bagnorm?-1.0:NodeAsFloat( "total", node );
-      currency = is_bagnorm?std::string("РУБ"):NodeAsString( "@currency", node );
+      total = is_bagnorm()?-1.0:NodeAsFloat( "total", node );
+      currency = !is_reason.empty()?std::string("РУБ"):NodeAsString( "@currency", node );
     }
 };
 
@@ -386,6 +390,7 @@ class Order: public SvcEmdRegnum, public SvcEmdSvcsAns
         if ( StrToInt(t.ticket_cpn.c_str(), coupon) == EOF ) {
           throw EXCEPTIONS::Exception( "Invalid data XML counpon no=%s", t.ticket_cpn );
         }
+        tst();
         search(paxs_list, CheckIn::TPaxTknItem(t.ticknum,coupon));
         LogTrace(TRACE5)<<paxs_list.size() << ",ticknum=" <<t.ticknum<<",coupon="<<coupon;
 
@@ -413,6 +418,7 @@ class Order: public SvcEmdRegnum, public SvcEmdSvcsAns
         LogTrace(TRACE5) << "id="<<p.id <<",trfer_num=" << p.trfer_num;
         trfer_nums[p.id] = p.trfer_num;
       }
+      tst();
       for ( auto &p : prices ) {
         if ( p.svc_id.empty()/* || p.validating_company.empty()*/ ) { //тарфикация не задана - не смогли оценить !!!p.validating_company
           continue;
@@ -425,6 +431,7 @@ class Order: public SvcEmdRegnum, public SvcEmdSvcsAns
         if ( paxs.find(svc.pass_id) == paxs.end() ) {
           throw EXCEPTIONS::Exception( "Invalid data XML astra pax_id not identical sirena pax_id=%s", svc.pass_id.c_str() );
         }
+        tst();
         key.pax_id = paxs[svc.pass_id];
         if ( trfer_nums.find(svc.seg_id) == trfer_nums.end() ) {
           throw EXCEPTIONS::Exception( "Invalid data XML sirena seg_num not found in astra routes, seg_num=%s", svc.seg_id.c_str() );
@@ -447,7 +454,9 @@ class Order: public SvcEmdRegnum, public SvcEmdSvcsAns
         SvcValue svcVal;
         SvcEmdSvcsAns::getSvcValue( p.svc_id, svcVal );
         Ticket t;
+        tst();
         tickets.get( svcVal.pass_id, svcVal.seg_id, t );
+        tst();
         svcSirena.ticknum = t.ticknum;
         svcSirena.ticket_cpn = t.ticket_cpn;
         LogTrace(TRACE5) << "svc_id=" << svcSirena.svc_id << ",ticket=" << svcSirena.ticknum << "/" << svcSirena.ticket_cpn;
