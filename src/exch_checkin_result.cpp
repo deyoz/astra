@@ -1143,6 +1143,9 @@ namespace MQRABBIT_TRANSPORT {
       if ( request.isAction( EXCH_CHECKIN_RESULT::Request::LocalTime ) ) {
         TReqInfo::Instance()->user.sets.time = ustTimeLocalAirp;
       }
+      else {
+        TReqInfo::Instance()->user.sets.time = ustTimeUTC;
+      }
     }
     try {
       //emptyHookTables();
@@ -1232,6 +1235,9 @@ namespace MQRABBIT_TRANSPORT {
       request.actionCode = it->second;
       if ( request.isAction( EXCH_CHECKIN_RESULT::Request::LocalTime ) ) {
         TReqInfo::Instance()->user.sets.time = ustTimeLocalAirp;
+      }
+      else {
+        TReqInfo::Instance()->user.sets.time = ustTimeUTC;
       }
     }
     try {
@@ -1334,7 +1340,6 @@ namespace MQRABBIT_TRANSPORT {
           tst();
           putMQRabbitFlights( request, params );
         }
-        TReqInfo::Instance()->user.sets.time = ustTimeUTC;
         request.clear();
         request.Sender = Qry.FieldAsString( "point_addr" );
         params.clear();
