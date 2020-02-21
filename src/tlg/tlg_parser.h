@@ -322,6 +322,12 @@ class TDetailRemAncestor
     {
       return strcmp(rem_status, "HK")==0;
     }
+
+    bool infIndicatorExists() const
+    {
+      return pr_inf;
+    }
+
   protected:
     void Clear()
     {
@@ -619,6 +625,15 @@ class TRemItem
     }
 };
 
+class PassengerSystemId
+{
+  public:
+    std::string uniqueReference;
+    bool infantIndicator=false;
+
+    bool infIndicatorExists() const { return infantIndicator; }
+};
+
 class TPDRemItem : public TRemItem
 {
   public:
@@ -636,32 +651,65 @@ class TPDRemItem : public TRemItem
 
 typedef std::pair<std::string,std::string> TChdItem;
 
-class TInfItem
+class PersonAncestor
 {
   public:
-    std::string surname,name;
-    long age;
     std::vector<TRemItem> rem;
     std::vector<TDocItem> doc;
+    std::map<std::string/*no*/, TDocExtraItem> doc_extra;
     std::vector<TDocoItem> doco;
     std::vector<TDocaItem> doca;
     std::vector<TTKNItem> tkn;
     std::vector<TCHKDItem> chkd;
+    boost::optional<PassengerSystemId> systemId;
+
+    void add(const TRemItem& item)  { rem.push_back(item); }
+    void add(const TDocItem& item)  { doc.push_back(item); }
+    void add(const TDocoItem& item) { doco.push_back(item); }
+    void add(const TDocaItem& item) { doca.push_back(item); }
+    void add(const TTKNItem& item)  { tkn.push_back(item); }
+    void add(const TCHKDItem& item) { chkd.push_back(item); }
+    void add(const PassengerSystemId& id);
+
+    std::string uniqueReference() const { return systemId?systemId.get().uniqueReference:""; }
+
+    void clear()
+    {
+      rem.clear();
+      doc.clear();
+      doc_extra.clear();
+      doco.clear();
+      doca.clear();
+      tkn.clear();
+      chkd.clear();
+    }
+};
+
+class TInfItem : public PersonAncestor
+{
+  public:
+    std::string surname,name;
+    long age;
     TInfItem()
     {
       Clear();
     }
     void Clear()
     {
+      PersonAncestor::clear();
       surname.clear();
       name.clear();
       age=0;
-      doc.clear();
-      tkn.clear();
     }
     bool Empty() const
     {
       return surname.empty() && name.empty();
+    }
+
+    using PersonAncestor::add;
+    void add(const TASVCItem& item)
+    {
+      throw EXCEPTIONS::Exception("TInfItem::add(TASVCItem) not applicable");
     }
 };
 
@@ -687,7 +735,7 @@ class TSeatsBlockingList : public std::vector<TSeatsBlockingItem>
 class TNameElement;
 class TTlgParser;
 
-class TPaxItem
+class TPaxItem : public PersonAncestor
 {
   public:
     std::string name;
@@ -696,25 +744,22 @@ class TPaxItem
     TSeatRanges seatRanges;
     TSeat seat; //это место, назначенное разборщиком на основе tlg_comp_layers
     char seat_rem[5];
-    std::vector<TRemItem> rem;
     TInfList inf;
-    std::vector<TDocItem> doc;
-    std::map<std::string/*no*/, TDocExtraItem> doc_extra;
-    std::vector<TDocoItem> doco;
-    std::vector<TDocaItem> doca;
-    std::vector<TTKNItem> tkn;
     std::vector<TFQTItem> fqt;
     std::set<TFQTExtraItem> fqt_extra;
-    std::vector<TCHKDItem> chkd;
     std::vector<TASVCItem> asvc;
     TSeatsBlockingList seatsBlocking;
     std::list<TSeatBlockingRem> seatBlockingRemList;
+    std::vector<PassengerSystemId> systemIds;
     TPaxItem()
     {
       pers_type=ASTRA::adult;
       seats=1;
       *seat_rem=0;
     }
+    using PersonAncestor::add;
+    void add(const TASVCItem& item) { asvc.push_back(item); }
+
     bool emdRequired(const std::string& ssr_code) const;
     void removeNotConfimedSSRs();
     bool isSeatBlocking() const { return isSeatBlockingRem(name); }
@@ -878,6 +923,9 @@ class TNameElement
     void setNotUsedSeat(TSeatRanges& seats, TPaxItem& paxItem, bool moveSeat) const;
     bool isSpecial() const { return surname=="ZZ"; }
     void fillSeatBlockingRemList(TTlgParser &tlg);
+    typedef std::vector<TPaxItem>::iterator PaxItemsIterator;
+    bool parsePassengerIDs(std::string& paxLevelElement, std::set<PaxItemsIterator>& applicablePaxItems);
+    void bindSystemIds();
 };
 
 class TPnrAddrItem

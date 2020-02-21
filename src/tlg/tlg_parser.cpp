@@ -104,6 +104,8 @@ bool ParseSEATRem(TTlgParser &tlg, const string &rem_text, TSeatRanges &seats);
 bool ParseTKNRem(TTlgParser &tlg, const string &rem_text, TTKNItem &tkn);
 bool ParseFQTRem(TTlgParser &tlg, const string &rem_text, TFQTItem &fqt);
 
+void parseAndBindSystemId(TTlgParser &tlg, TNameElement &ne, const string &paxLevelElement);
+
 const char* TTlgParser::NextLine(const char* p)
 {
   if (p==NULL) return NULL;
@@ -2442,10 +2444,11 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
           airline_mark=pnr_airline_mark;
         };
 
-        for(vector<TNameElement>::iterator i=iPnrItem->ne.begin();i!=iPnrItem->ne.end();++i)
+        for(TNameElement& ne : iPnrItem->ne)
         {
-          ParseRemarks(seat_rem_priority,tlg,info,*iPnrItem,*i);
-          i->removeNotConfimedSSRs();
+          ParseRemarks(seat_rem_priority,tlg,info,*iPnrItem,ne);
+          ne.removeNotConfimedSSRs();
+          ne.bindSystemIds();
         };
       };
     };
@@ -2941,6 +2944,10 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
     pr_bag_info=true;
     return;
   };
+  if (strcmp(lexh,"U")==0)
+  {
+    parseAndBindSystemId(tlg, ne, tlg.lex+3);
+  }
 };
 
 void ParseNameElement(const char* p, vector<string> &names, TElemPresence num_presence)
@@ -3017,17 +3024,85 @@ string OnlyAlphaInLexeme(string lex)
   return lex;
 };
 
+
+bool TNameElement::parsePassengerIDs(std::string& paxLevelElement, std::set<PaxItemsIterator>& applicablePaxItems)
+{
+  applicablePaxItems.clear();
+  if (paxLevelElement.empty()) return false;
+  //ищем ссылку на пассажира до совпадения фамилий
+  vector<string> names;
+  string::size_type pos=paxLevelElement.find_last_of('-');
+  while(pos!=string::npos)
+  {
+    try
+    {
+      ParseNameElement(paxLevelElement.substr(pos+1).c_str(), names, epOptional);
+      if (!names.empty() && names.front()==surname) break; //нашли
+    }
+    catch(const ETlgError &E) {};
+
+    if (pos!=0)
+      pos=paxLevelElement.find_last_of('-',pos-1);
+    else
+      pos=string::npos;
+  }
+
+  if (pos!=string::npos)
+  {
+    //нашли ссылку на пассажира
+    for(vector<string>::const_iterator i=names.begin();i!=names.end();++i)
+    {
+      if (i==names.begin()) continue;  //пропускаем surname
+
+      int k=0;
+      for(;k<=1;k++)
+      {
+        PaxItemsIterator iPaxItem=pax.begin();
+        for(; iPaxItem!=pax.end(); ++iPaxItem)
+        {
+          if ((k==0&&iPaxItem->name!=*i)||
+              (k!=0&&OnlyAlphaInLexeme(iPaxItem->name)!=OnlyAlphaInLexeme(*i))) continue;
+          if (applicablePaxItems.insert(iPaxItem).second) break;
+        };
+        if (iPaxItem!=pax.end()) break;
+      };
+      if (k>1)
+      {
+        //не нашли name в ne
+        applicablePaxItems.clear();
+        return false;
+      }
+    }
+
+    paxLevelElement.erase(pos); //убрать окончание ремарки после -
+    return true;
+  }
+  else
+  {
+    //не нашли ссылку на пассажира
+    if (pax.size()==1)
+      applicablePaxItems.insert(pax.begin());
+    else
+      if (containsSinglePassenger())
+      {
+        for(PaxItemsIterator iPaxItem=pax.begin(); iPaxItem!=pax.end();++iPaxItem)
+          if (!iPaxItem->isSeatBlocking())
+          {
+            applicablePaxItems.insert(iPaxItem);
+            break;
+          }
+      }
+    return !applicablePaxItems.empty();
+  }
+}
+
 void BindRemarks(TTlgParser &tlg, TNameElement &ne)
 {
   char c;
-  int res,k;
-  string::size_type pos;
-  bool pr_parse;
-  string strh;
+  int res;
   char rem_code[7],numh[4];
   int num;
   vector<TRemItem>::iterator iRemItem;
-  vector<TPaxItem>::iterator iPaxItem;
 
   for(iRemItem=ne.rem.begin();iRemItem!=ne.rem.end();++iRemItem)
   {
@@ -3054,120 +3129,14 @@ void BindRemarks(TTlgParser &tlg, TNameElement &ne)
         strcmp(rem_code,"VIP")==0) strcpy(iRemItem->code,rem_code);
   };
   //попробовать привязать ремарки к конкретным пассажирам
-  for(iRemItem=ne.rem.begin();iRemItem!=ne.rem.end();)
+  set<TNameElement::PaxItemsIterator> paxItems;
+  for(iRemItem=ne.rem.begin(); iRemItem!=ne.rem.end();)
   {
-    if (iRemItem->text.empty())
+    if (ne.parsePassengerIDs(iRemItem->text, paxItems))
     {
-      ++iRemItem;
-      continue;
-    };
-
-    //ищем ссылку на пассажира до совпадения фамилий
-    vector<string> names;
-    pos=iRemItem->text.find_last_of('-');
-    while(pos!=string::npos)
-    {
-      strh=iRemItem->text.substr(pos+1);
-      try
-      {
-        ParseNameElement(strh.c_str(),names,epOptional);
-        if (!names.empty()&&*(names.begin())==ne.surname) break; //нашли
-      }
-      catch(const ETlgError &E) {};
-
-      if (pos!=0)
-        pos=iRemItem->text.find_last_of('-',pos-1);
-      else
-        pos=string::npos;
-    };
-
-    pr_parse=false;
-    if (pos!=string::npos)
-    {
-      pr_parse=true;
-      for(vector<string>::iterator i=names.begin();i!=names.end();++i)
-      {
-        if (i!=names.begin())
-        {
-          for(k=0;k<=1;k++)
-          {
-            for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();++iPaxItem)
-            {
-              if ((k==0&&iPaxItem->name!=*i)||
-                  (k!=0&&OnlyAlphaInLexeme(iPaxItem->name)!=OnlyAlphaInLexeme(*i))) continue;
-              if (iPaxItem->rem.empty())
-              {
-                iPaxItem->rem.push_back(TRemItem());
-                break;
-              }
-              else
-              {
-                TRemItem& RemItem=iPaxItem->rem.back();
-                if (RemItem.text.empty()) continue;
-                else
-                {
-                  iPaxItem->rem.push_back(TRemItem());
-                  break;
-                };
-              };
-            };
-            if (iPaxItem!=ne.pax.end()) break;
-          };
-          if (k>1&&iPaxItem==ne.pax.end())
-          {
-            pr_parse=false;
-            break;
-          };
-        };
-      };
-
-      if (pr_parse) iRemItem->text.erase(pos); //убрать окончание ремарки после -
-    }
-    else
-    {
-      //не нашли ссылку на пассажира
-      iPaxItem=ne.pax.end();
-      if (ne.pax.size()==1)
-        iPaxItem=ne.pax.begin();
-      else
-        if (ne.containsSinglePassenger())
-        {
-          for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();++iPaxItem)
-            if (!iPaxItem->isSeatBlocking()) break;
-        }
-
-      if (iPaxItem==ne.pax.end())
-      {
-        ++iRemItem;
-        continue;
-      };
-
-      iPaxItem=ne.pax.begin();
-      if (iPaxItem->rem.empty() ||
-          !iPaxItem->rem.back().text.empty())
-      {
-        iPaxItem->rem.push_back(TRemItem());
-      };
-      pr_parse=true;
-    };
-
-    for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();++iPaxItem)
-    {
-      if (iPaxItem->rem.empty()) continue;
-      TRemItem& RemItem=iPaxItem->rem.back();
-      if (RemItem.text.empty())
-      {
-        if (pr_parse)
-        {
-          RemItem.text=iRemItem->text;
-          strcpy(RemItem.code,iRemItem->code);
-        }
-        else
-          iPaxItem->rem.pop_back();
-      };
-    };
-    if (pr_parse)
+      for(const auto& i : paxItems) i->rem.push_back(*iRemItem);
       iRemItem=ne.rem.erase(iRemItem);
+    }
     else
       ++iRemItem;
   };
@@ -3181,59 +3150,45 @@ bool ParseASVCRem(TTlgParser &tlg, const string &rem_text, TASVCItem &asvc);
 bool ParseOTHS_DOCSRem(TTlgParser &tlg, const string &rem_text, TDocExtraItem &doc);
 bool ParseOTHS_FQTSTATUSRem(TTlgParser &tlg, const string &rem_text, TFQTExtraItem &fqt);
 bool ParseSeatBlockingRem(TTlgParser &tlg, const string &rem_text, TSeatBlockingRem &rem);
-void BindDetailRem(TRemItem &remItem, bool isGrpRem, TPaxItem &paxItem,
-                   const TDetailRemAncestor &item)
+
+void bindSystemId(const PassengerSystemId& item, TPaxItem& paxItem)
 {
-  if (item.pr_inf)
+  if (item.infIndicatorExists())
   {
     if (paxItem.inf.size()==1)
     {
-      for(int pass=0; pass<6 ;pass++)
-      try
-      {
-        switch(pass)
-        {
-          case 0: paxItem.inf.begin()->doc.push_back(dynamic_cast<const TDocItem&>(item)); break;
-          case 1: paxItem.inf.begin()->doco.push_back(dynamic_cast<const TDocoItem&>(item)); break;
-          case 2: paxItem.inf.begin()->doca.push_back(dynamic_cast<const TDocaItem&>(item)); break;
-          case 3: paxItem.inf.begin()->tkn.push_back(dynamic_cast<const TTKNItem&>(item)); break;
-          case 4: paxItem.inf.begin()->chkd.push_back(dynamic_cast<const TCHKDItem&>(item)); break;
-          case 5: break;
-          default: return;
-        };
-        break;
-      }
-      catch(const std::bad_cast&) {};
-      paxItem.inf.begin()->rem.push_back(remItem);
-      remItem.text.clear();
-    };
+      paxItem.inf.front().add(item);
+    }
   }
   else
   {
-    for(int pass=0; pass<6 ;pass++)
-    try
+    paxItem.add(item);
+  }
+}
+
+template<class ItemT>
+void BindDetailRem(TRemItem &remItem, bool isGrpRem, TPaxItem &paxItem,
+                   const ItemT &item)
+{
+  if (item.infIndicatorExists())
+  {
+    if (paxItem.inf.size()==1)
     {
-      switch(pass)
-      {
-        case 0: paxItem.doc.push_back(dynamic_cast<const TDocItem&>(item)); break;
-        case 1: paxItem.doco.push_back(dynamic_cast<const TDocoItem&>(item)); break;
-        case 2: paxItem.doca.push_back(dynamic_cast<const TDocaItem&>(item)); break;
-        case 3: paxItem.tkn.push_back(dynamic_cast<const TTKNItem&>(item)); break;
-        case 4: paxItem.chkd.push_back(dynamic_cast<const TCHKDItem&>(item)); break;
-        case 5: paxItem.asvc.push_back(dynamic_cast<const TASVCItem&>(item)); break;
-        default: return;
-      };
-      break;
+      paxItem.inf.front().add(item);
+      paxItem.inf.front().add(remItem);
+      remItem.text.clear();
     }
-    catch(const std::bad_cast&) {};
+  }
+  else
+  {
+    paxItem.add(item);
     if (isGrpRem)
     {
-      paxItem.rem.push_back(remItem);
+      paxItem.add(remItem);
       remItem.text.clear();
     };
-  };
-
-};
+  }
+}
 
 void TInfList::removeIfExistsIn(const TInfList &infs)
 {
@@ -3974,7 +3929,6 @@ void TPaxItem::fillSeatBlockingRemList(TTlgParser &tlg)
     TSeatBlockingRem seatBlockingRem;
     if (ParseSeatBlockingRem(tlg,remItem.text,seatBlockingRem))
       seatBlockingRemList.push_back(seatBlockingRem);
-
   }
 }
 
@@ -3982,6 +3936,13 @@ bool TPaxItem::dontSaveToDB(const TNameElement& ne) const
 {
   return (ne.surname=="NONAMES" && name.empty()) ||
          (ne.isSpecial() && name=="NONAMES");
+}
+
+void TNameElement::bindSystemIds()
+{
+  for(TPaxItem& p : pax)
+    for(const PassengerSystemId& systemId : p.systemIds)
+      bindSystemId(systemId, p);
 }
 
 void TNameElement::fillSeatBlockingRemList(TTlgParser &tlg)
@@ -5047,6 +5008,91 @@ bool ParseDOCARem(TTlgParser &tlg, const string &rem_text, TDocaItem &doca)
 
   return false;
 };
+
+PassengerSystemId parseSystemId(TTlgParser &tlg, const string &paxLevelElement)
+{
+  PassengerSystemId result;
+
+  char c;
+  int res,k;
+
+  const char *p=paxLevelElement.c_str();
+
+  for(k=0;k<=1;k++)
+  try
+  {
+    try
+    {
+      p=tlg.GetSlashedLexeme(p);
+      if (p==NULL && k>=1) break;
+      if (p==NULL) throw ETlgError("Lexeme not found");
+      if (*tlg.lex==0) continue;
+      c=0;
+      switch(k)
+      {
+        case 0:
+          res=sscanf(tlg.lex,"%25[A-Z0-9]%c",lexh,&c);
+          if (c!=0||res!=1) throw ETlgError("Wrong format");
+          result.uniqueReference=lexh;
+          break;
+        case 1:
+          res=sscanf(tlg.lex,"%1[I]%c",lexh,&c);
+          if (c!=0||res!=1||strcmp(lexh,"I")!=0) throw ETlgError("Wrong format");
+          result.infantIndicator=true;
+          break;
+      }
+    }
+    catch(const exception &E)
+    {
+      switch(k)
+      {
+        case 0:
+          throw ETlgError("unique reference: %s",E.what());
+        case 1:
+          throw ETlgError("infant indicator: %s",E.what());
+      };
+    };
+  }
+  catch(const ETlgError &E)
+  {
+    //ProgTrace(TRACE0,"Critical .U/ error: %s (%s)",E.what(),paxLevelElement.c_str());
+    throw;
+  };
+
+  return result;
+}
+
+void parseAndBindSystemId(TTlgParser &tlg, TNameElement &ne, const string &paxLevelElement)
+{
+  try
+  {
+    string systemId(paxLevelElement);
+    //попробовать привязать ремарки к конкретным пассажирам
+    if (!systemId.empty())
+    {
+      set<TNameElement::PaxItemsIterator> paxItems;
+      ne.parsePassengerIDs(systemId, paxItems);
+      if (paxItems.size()!=1)
+        throw ETlgError("Must relate strictly to one passenger");
+      (*paxItems.begin())->systemIds.push_back(parseSystemId(tlg, systemId));
+    }
+    else parseSystemId(tlg, systemId);
+  }
+  catch(const ETlgError &e)
+  {
+    throw ETlgError(".U/ error: %s", e.what());
+  }
+}
+
+void PersonAncestor::add(const PassengerSystemId& id)
+{
+  if (systemId)
+  {
+    if (systemId.get().uniqueReference!=id.uniqueReference)
+      throw ETlgError("Duplicate unique reference .U/%s", id.uniqueReference.c_str());
+  }
+  else systemId=id;
+}
 
 bool ParseCHKDRem(TTlgParser &tlg, const string &rem_text, TCHKDItem &chkd)
 {
@@ -7153,12 +7199,15 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
           "  ELSE "
           "    UPDATE crs_pax "
           "    SET pnr_id=:pnr_id, pers_type= :pers_type, seat_xname= :seat_xname, seat_yname= :seat_yname, seat_rem= :seat_rem, "
-          "        seat_type= :seat_type, seats=:seats, bag_pool= :bag_pool, pr_del= :pr_del, last_op= :last_op, tid=cycle_tid__seq.currval,need_apps=:need_apps "
+          "        seat_type= :seat_type, seats=:seats, bag_pool= :bag_pool, pr_del= :pr_del, last_op= :last_op, tid=cycle_tid__seq.currval, "
+          "        need_apps=:need_apps, unique_reference=:unique_reference "
           "    WHERE pax_id=:pax_id; "
           "    IF SQL%FOUND THEN RETURN; END IF; "
           "  END IF; "
-          "  INSERT INTO crs_pax(pax_id,pnr_id,surname,name,pers_type,seat_xname,seat_yname,seat_rem,seat_type,seats,bag_pool,sync_chkd,pr_del,last_op,tid,need_apps,orig_subclass,orig_class) "
-          "  SELECT :pax_id,:pnr_id,:surname,:name,:pers_type,:seat_xname,:seat_yname,:seat_rem,:seat_type,:seats,:bag_pool,0,:pr_del,:last_op,cycle_tid__seq.currval,:need_apps,subclass,class "
+          "  INSERT INTO crs_pax(pax_id,pnr_id,surname,name,pers_type,seat_xname,seat_yname,seat_rem, "
+          "    seat_type,seats,bag_pool,sync_chkd,pr_del,last_op,tid,need_apps,unique_reference,orig_subclass,orig_class) "
+          "  SELECT :pax_id,:pnr_id,:surname,:name,:pers_type,:seat_xname,:seat_yname,:seat_rem,:seat_type, "
+          "    :seats,:bag_pool,0,:pr_del,:last_op,cycle_tid__seq.currval,:need_apps,:unique_reference,subclass,class "
           "  FROM crs_pnr WHERE pnr_id=:pnr_id; "
           "END;";
         CrsPaxInsQry.DeclareVariable("pax_id",otInteger);
@@ -7175,6 +7224,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         CrsPaxInsQry.DeclareVariable("pr_del",otInteger);
         CrsPaxInsQry.DeclareVariable("last_op",otDate);
         CrsPaxInsQry.DeclareVariable("need_apps",otInteger);
+        CrsPaxInsQry.DeclareVariable("unique_reference",otString);
 
         TQuery CrsInfInsQry(&OraSession);
         CrsInfInsQry.Clear();
@@ -7530,6 +7580,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                   }
                   else
                     CrsPaxInsQry.SetVariable("need_apps",0);
+                  CrsPaxInsQry.SetVariable("unique_reference", paxItem.uniqueReference());
                   CrsPaxInsQry.Execute();
                   pax_id=CrsPaxInsQry.GetVariableAsInteger("pax_id");
                   if (!seatsBlockingPass) seatsBlockingPaxId=pax_id;
@@ -7644,6 +7695,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                         CrsPaxInsQry.SetVariable("pax_id",inf_id);
                       CrsPaxInsQry.SetVariable("surname",iInfItem->surname);
                       CrsPaxInsQry.SetVariable("name",iInfItem->name);
+                      CrsPaxInsQry.SetVariable("unique_reference", iInfItem->uniqueReference());
                       CrsPaxInsQry.Execute();
                       inf_id=CrsPaxInsQry.GetVariableAsInteger("pax_id");
                       CrsInfInsQry.SetVariable("inf_id",inf_id);
