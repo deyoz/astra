@@ -72,16 +72,14 @@ int nosir_seDCSAddReport(int argc, char **argv)
                 "select "
                 "    pax_grp.client_type, "
                 "    pax.pers_type, "
-                "    nvl2(bag2.grp_id, 1, 0) pr_bag "
+                "    pax.bag_pool_num pr_bag "
                 "from "
                 "    pax_grp, "
-                "    pax, "
-                "    bag2 "
+                "    pax "
                 "where "
                 "    pax_grp.point_dep = :point_id and "
                 "    pax.grp_id = pax_grp.grp_id and "
-                "    bag2.grp_id(+) = pax_grp.grp_id and "
-                "    bag2.num(+) = 1 ",
+                "    pax_grp.status not in ('E') ",
                 QParams() << QParam("point_id", otInteger)
                 ),
         delim(adelim)
@@ -106,7 +104,7 @@ int nosir_seDCSAddReport(int argc, char **argv)
                 for(; not fltQry.get().Eof; fltQry.get().Next()) {
                     bool pr_adult = DecodePerson(fltQry.get().FieldAsString(col_pers_type)) == adult;
                     bool pr_web = DecodeClientType(fltQry.get().FieldAsString(col_client_type)) != ctTerm;
-                    bool pr_bag = fltQry.get().FieldAsInteger(col_pr_bag) != 0;
+                    bool pr_bag = not fltQry.get().FieldIsNULL(col_pr_bag);
                     data[point_id][pr_adult][pr_web][pr_bag]++;
                 }
             }
