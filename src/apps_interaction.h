@@ -11,6 +11,8 @@ namespace APPS {
 const int NumSendAttempts = 5; // количество попыток до включения тревоги "Нет связи с APPS"
 const int MaxSendAttempts = 99; // максимальное количество попыток
 
+DECL_RIP(AppsSettingsId_t, int);
+
 enum class TransferFlag
 {
     None,
@@ -28,7 +30,8 @@ void appsFlightCloseout(const PointId_t& point_id);
 bool processReply(const std::string& source_raw);
 bool checkAPPSSets(const PointId_t& point_dep, const PointId_t& point_arv);
 bool checkAPPSSets(const PointId_t& point_dep, const AirportCode_t& airp_arv);
-bool checkAPPSFormats(const PointId_t &point_dep, const AirportCode_t& airp_arv, std::set<std::string>& pFormats);
+bool checkAPPSFormats(const PointId_t &point_dep, const AirportCode_t& airp_arv,
+                      std::set<std::string>& pFormats);
 bool checkTime(const PointId_t& point_id);
 bool checkTime(const PointId_t& point_id, TDateTime& start_time);
 bool isAPPSAnswText(const std::string& tlg_body);

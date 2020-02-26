@@ -80,6 +80,7 @@ $(defmacro PREPARE_SEASON_SCD
   depp
   arrp
   fltno
+  moveid=-1
   craft=TU5
   first_date=$(date_format %d.%m.%Y)
   last_date=$(date_format %d.%m.%Y)
@@ -94,7 +95,7 @@ $(defmacro PREPARE_SEASON_SCD
       <SubrangeList>
         <subrange>
           <modify>insert</modify>
-          <move_id>-1</move_id>
+          <move_id>$(moveid)</move_id>
           <first>$(first_date) 00:00:00</first>
           <last>$(last_date) 23:59:59</last>
           <days>1234567</days>
@@ -129,6 +130,7 @@ $(defmacro PREPARE_SEASON_SCD_TRANSIT
   arrpTransit
   arrp
   fltno
+  moveid=-1
   craft=TU5
   first_date=$(date_format %d.%m.%Y)
   last_date=$(date_format %d.%m.%Y)
@@ -143,7 +145,7 @@ $(defmacro PREPARE_SEASON_SCD_TRANSIT
       <SubrangeList>
         <subrange>
           <modify>insert</modify>
-          <move_id>-1</move_id>
+          <move_id>$(moveid)</move_id>
           <first>$(first_date) 00:00:00</first>
           <last>$(last_date) 23:59:59</last>
           <days>1234567</days>
@@ -185,6 +187,7 @@ $(defmacro PREPARE_SEASON_SCD_WITHOUT_ARRIVE_TIME
   depp
   arrp
   fltno
+  moveid=-1
   craft=TU5
   first_date=$(date_format %d.%m.%Y)
   last_date=$(date_format %d.%m.%Y)
@@ -199,7 +202,7 @@ $(defmacro PREPARE_SEASON_SCD_WITHOUT_ARRIVE_TIME
       <SubrangeList>
         <subrange>
           <modify>insert</modify>
-          <move_id>-1</move_id>
+          <move_id>$(moveid)</move_id>
           <first>$(first_date) 00:00:00</first>
           <last>$(last_date) 23:59:59</last>
           <days>1234567</days>
@@ -224,6 +227,59 @@ $(defmacro PREPARE_SEASON_SCD_WITHOUT_ARRIVE_TIME
 }) # end-of-macro PREPARE_SEASON_SCD_WITHOUT_ARRIVE_TIME
 
 #########################################################################################
+
+$(defmacro UPDATE_SPP_FLIGHT
+  point_id
+  point_arv
+  airl
+  depp
+  arrp
+  fltno
+  moveid=-1
+  craft=TU5
+  first_date=$(date_format %d.%m.%Y)
+  last_date=$(date_format %d.%m.%Y)
+{
+{<?xml version='1.0' encoding='CP866'?>
+  <term>
+  <query handle='0' id='sopp' ver='1' opr='PIKE' screen='SOPP.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <WriteDests>
+      <data>
+        <move_id>$(moveid)</move_id>
+        <canexcept>1</canexcept>
+        <reference/>
+        <dests>
+          <dest>
+            <point_id>$(point_id)</point_id>
+            <point_num>0</point_num>
+            <airp>$(depp)</airp>
+            <airline>$(airl)</airline>
+            <flt_no>$(fltno)</flt_no>
+            <craft>$(craft)</craft>
+            <scd_out>20.02.2020 12:00:00</scd_out>
+            <trip_type>¯</trip_type>
+            <pr_tranzit>0</pr_tranzit>
+            <pr_reg>1</pr_reg>
+          </dest>
+          <dest>
+            <modify/>
+            <point_id>$(point_arv)</point_id>
+            <point_num>1</point_num>
+            <first_point>$(point_id)</first_point>
+            <airp>$(arrp)</airp>
+            <scd_in>20.02.2020 15:00:00</scd_in>
+            <trip_type>¯</trip_type>
+            <pr_tranzit>0</pr_tranzit>
+            <pr_reg>0</pr_reg>
+          </dest>
+        </dests>
+      </data>
+    </WriteDests>
+  </query>
+</term>}
+})
+
+###################################################################################
 
 $(defmacro TKCREQ_ET_DISP
     from

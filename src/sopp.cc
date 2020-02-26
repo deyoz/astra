@@ -4721,8 +4721,8 @@ void changeSCDIN_AtDests( const std::set<int>& points_scd_ins )
 { //”…‹ˆŠ‘
   try {
     for ( const auto &p : points_scd_ins ) {
-      LogTrace(TRACE5) << p;
-      //TTripAlarmHook::set(Alarm::APPSNotScdInTime, p.point_id);
+      LogTrace(TRACE5) << __FUNCTION__ << " point: " << p;
+      TTripAlarmHook::set(Alarm::APPSNotScdInTime, p);
     }
   }
   catch(...) {

@@ -1635,7 +1635,7 @@ $(WRITE_DESTS $(get point_dep) $(get point_arv) $(get move_id) ЮТ 298 СОЧ ПРХ
 #             интерактив: выкл
 #            версия apps: 21
 #
-#   Выставляется Alarm APPS_NOT_SCD_IN_TIME если не рейс не заведено время прилета
+#   Выставляется Alarm APPS_NOT_SCD_IN_TIME если на рейс не заведено время прилета
 ###
 #########################################################################################
 
@@ -1672,6 +1672,17 @@ $(run_trip_task check_trip_alarms $(get point_dep))
 $(check_trip_alarms $(get point_dep))
 >>
 APPS_NOT_SCD_IN_TIME
+$()
+
+# Добавили дату, только для суточного плана полета
+$(UPDATE_SPP_FLIGHT $(get point_dep) $(get point_arv) ЮТ СОЧ ПРХ 298 $(get move_id))
+
+$(run_trip_task check_trip_alarms $(get point_dep))
+
+# Проверяем есть ли в базе Алармы для пассажира. Должен быть APPS_NOT_SCD_IN_TIME
+??
+$(check_trip_alarms $(get point_dep))
+>>
 $()
 
 #################################

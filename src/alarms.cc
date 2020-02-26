@@ -120,7 +120,7 @@ bool get_alarm( int point_id, Alarm::Enum alarm_type )
 //set or delete
 void set_alarm( int point_id, Alarm::Enum alarm_type, bool alarm_value )
 {
-    LogTrace(TRACE5) << "point_id: " << point_id << " alarm_type: " << alarm_type << " alarm: " << (bool)(alarm_value);
+    LogTrace(TRACE5) << __FUNCTION__ <<  "point_id: " << point_id << " alarm_type: " << alarm_type << " alarm: " << (bool)(alarm_value);
     TQuery Qry(&OraSession);
     if(alarm_value)
         Qry.SQLText = "insert into trip_alarms(point_id, alarm_type) values(:point_id, :alarm_type)";
@@ -623,7 +623,9 @@ bool check_iapi_alarm(int point_id)
 
 bool check_apps_scd_alarm(const PointId_t &point_id)
 {
+    LogTrace(TRACE5) << __FUNCTION__;
     bool not_scd_time = APPS::checkNeedAlarmScdIn(point_id);
+    LogTrace(TRACE5) << " scd_time = " << not_scd_time;
     set_alarm(point_id.get(), Alarm::APPSNotScdInTime, not_scd_time);
     return not_scd_time;
 }

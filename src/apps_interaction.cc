@@ -98,14 +98,19 @@ const int APPS_VERSION_26 = 26;
 const int APPS_VERSION_27 = 27;
 
 class AppsSettings;
-class ManifestRequest;
-class PaxRequest;
 class TransactionData;
 class FlightData;
 class PaxData;
 class PaxAddData;
 class AppsDataMapper;
 class CheckInInfo;
+class APPSMessage;
+class IRequest;
+class PaxRequest;
+class ManifestRequest;
+class APPSAnswer;
+class PaxReqAnswer;
+class ManifestAnswer;
 
 const std::string AppsPaxDataReadQuery = "select PAX_ID, APPS_PAX_ID, STATUS, PAX_CREW, "
                                          " NATIONALITY, ISSUING_STATE, PASSPORT, CHECK_CHAR, DOC_TYPE, DOC_SUBTYPE, EXPIRY_DATE, "
@@ -214,36 +219,57 @@ void sendAppsMessages(const PaxId_t &pax_id, const std::set<AppsSettings> &apps_
 bool isAlreadyCheckedIn(const PaxId_t &pax_id);
 static void sendAPPSInfo(const PointId_t &point_id, const PointIdTlg_t &point_id_tlg);
 
+// Обработка ответов
+std::vector<Error> getAnswerErrors(const std::string& source);
+std::string getAnsText(const std::string& tlg);
+std::unique_ptr<APPSAnswer> createAnswer(const std::string& code, const std::string& answer);
+std::unique_ptr<PaxReqAnswer> createPaxReqAnswer(const std::string& code, const std::string& source);
+std::unique_ptr<ManifestAnswer> createManifestAnswer(const std::string& code, const std::string& source);
+
 class AppsSettings
 {
 public:
     static Opt<AppsSettings> readSettings(const AirlineCode_t& airline, const CountryCode_t& country);
+    static Opt<AppsSettings> readSettings(const AppsSettingsId_t & id);
     int version() const;
-    std::string getAirline() const { return airline;      }
-    std::string getCountry() const { return country;      }
-    std::string getFormat()  const { return format;       }
-    std::string getRouter()  const { return router;       }
-    int  getId()             const { return id;           }
-    bool getFltCloseout()    const { return flt_closeout; }
-    bool getInbound()        const { return inbound;      }
-    bool getOutbound()       const { return outbound;     }
-    bool getDenial()         const { return denial;       }
-    bool getPreCheckin()     const { return pre_checkin;  }
+    AirlineCode_t getAirline()  const { return airline;      }
+    CountryCode_t getCountry()  const { return country;      }
+    std::string getFormat()     const { return format;       }
+    std::string getRouter()     const { return router;       }
+    AppsSettingsId_t  getId()   const { return id;           }
+    bool getFltCloseout()       const { return flt_closeout; }
+    bool getInbound()           const { return inbound;      }
+    bool getOutbound()          const { return outbound;     }
+    bool getDenial()            const { return denial;       }
+    bool getPreCheckin()        const { return pre_checkin;  }
     bool operator < (const AppsSettings& rhs) const
     {
-        return this->id < rhs.id;
+        return this->id.get() < rhs.id.get();
     }
     void setRouter(std::string router)
     {
         this->router = router;
     }
+    AppsSettings(AirlineCode_t airl, CountryCode_t country, std::string format, std::string router,
+                 AppsSettingsId_t id, bool flt_closeout, bool inbound, bool outbound, bool denial,
+                 bool pre_checkin):
+        airline(airl),
+        country(country),
+        format(format),
+        router(router),
+        id(id),
+        flt_closeout(flt_closeout),
+        inbound(inbound),
+        outbound(outbound),
+        denial(denial),
+        pre_checkin(pre_checkin)
+    {}
 private:
-    AppsSettings() = default;
-    std::string airline;
-    std::string country;
+    AirlineCode_t airline;
+    CountryCode_t country;
     std::string format;
     std::string router;  //for future
-    int id;
+    AppsSettingsId_t id;
     bool flt_closeout;
     bool inbound;
     bool outbound;
@@ -348,10 +374,8 @@ public:
     std::string redress_number; // Passenger Redress Number // 13 // omit
     std::string traveller_number; // Known Traveller Number // 14 // omit
 
-    //friend void initFromDb(PaxAddData &res, OciCpp::CursCtl &cur);
     static Opt<PaxAddData> createByPaxId(const PaxId_t pax_id);
     static Opt<PaxAddData> createByCrsPaxId(const PaxId_t pax_id);
-    //void init(const PaxId_t pax_id, const CheckIn::TPaxDocoItem &doco);
     bool operator == (const PaxAddData& d) const
     {
       return
@@ -386,7 +410,7 @@ public:
 class IRequest
 {
 public:
-    virtual void save(const int version) const = 0;
+    virtual void save(const int version) const {}
     virtual std::string msg(const int version) const = 0;
     virtual int getMsgId() const = 0;
     virtual PointId_t getPointId() const = 0;
@@ -488,7 +512,6 @@ public:
     ManifestRequest(const TransactionData &trs, const FlightData & flt, const ManifestData & mft) :
         trans(trs), int_flt(flt), mft_req(mft) {}
     ManifestRequest(const TPaxSegmentPair& flt, const std::string& country_lat);
-    void save(const int version) const override {}
     std::string msg(const int version) const override;
 };
 
@@ -526,24 +549,121 @@ public:
     Error() : error_code(ASTRA::NoExists) {}
 };
 
+class APPSMessage
+{
+public:
+    APPSMessage(const AppsSettings & settings, unique_ptr<IRequest> request)
+        : settings_id(settings.getId()),
+          point_id(request->getPointId()),
+          msg(request->msg(settings.version())),
+          msg_id(request->getMsgId()),
+          send_time(Dates::second_clock::universal_time()),
+          req(move(request))
+    {}
+    APPSMessage(const AppsSettingsId_t& settings_id, const PointId_t& point_id, std::string msg,
+                int msg_id, int send_attempts, Dates::DateTime_t send_time):
+        settings_id(settings_id),
+        point_id(point_id),
+        msg(msg),
+        msg_id(msg_id),
+        send_attempts(send_attempts),
+        send_time(send_time)
+    {}
+    static Opt<APPSMessage> readAppsMsg(const int msg_id);
+    APPSMessage(const APPSMessage & msg)           = delete;
+    APPSMessage& operator=(const APPSMessage &msg) = delete;
+    APPSMessage(APPSMessage && other)              = default;
+    APPSMessage & operator = (APPSMessage &&msg)   = default;
+
+    void send()
+    {
+        // отправим телеграмму
+        Opt<AppsSettings> settings = AppsSettings::readSettings(settings_id);
+        if(!settings) {
+            throw Exception("Cant read Apps Settings from this id: "+settings_id.get());
+        }
+        send_attempts++;
+        //Установка текущего времени отправления сообщения
+        send_time = Dates::second_clock::universal_time();
+        sendTlg(settings->getRouter().c_str(), OWN_CANON_NAME(), qpOutApp, 20, getMsg(),
+                ASTRA::NoExists, ASTRA::NoExists);
+        sendCmd("CMD_APPS_HANDLER","H");
+        ProgTrace(TRACE5, "New APPS request generated: %s", getMsg().c_str());
+    }
+
+    void save() const
+    {
+        req->save(getVersion());
+        saveAppsMsg(getMsg(), msg_id, send_attempts, point_id, settings_id);
+    }
+    void saveAppsMsg(const std::string& text, const int msg_id, int send_attempts,
+                     const PointId_t &point_id, const AppsSettingsId_t &id) const;
+
+    AppsSettingsId_t getSettingsId() const
+    {
+        return settings_id;
+    }
+    std::string getMsg() const
+    {
+        return msg;
+    }
+    int getMsgId() const
+    {
+        return msg_id;
+    }
+    PointId_t getPointId() const
+    {
+        return point_id;
+    }
+    int getSendAttempts() const
+    {
+        return send_attempts;
+    }
+    Dates::DateTime_t getSendTime() const
+    {
+        return send_time;
+    }
+    void setMsgId(const int id)
+    {
+        msg_id = id;
+    }
+    int getVersion() const
+    {
+        Opt<AppsSettings> settings = AppsSettings::readSettings(settings_id);
+        if(!settings){
+            throw Exception("Cant read Apps Settings from this id: "+settings_id.get());
+        }
+        return settings->version();
+    }
+
+private:
+    AppsSettingsId_t settings_id;
+    PointId_t point_id;
+    std::string msg;
+    int msg_id;
+    int send_attempts = 0;
+    Dates::DateTime_t send_time;
+    std::unique_ptr<IRequest> req;
+};
+
 class APPSAnswer
 {
 protected:
     std::string code;
-    int msg_id;
-    int send_attempts;
-    std::string msg_text;
-    int point_id;
     std::vector<Error> errors; // Error (repeating). Conditional
-    int version = 0;
-
+    APPSMessage msg;
     bool checkIfNeedResend() const;
     virtual void getLogParams(LEvntPrms& params, const std::string& country, const int status_code,
                   const int error_code, const std::string& error_text) const;
+    APPSAnswer(std::string code, const std::string& source, APPSMessage msg) :
+        code(code), msg(move(msg))
+    {
+        readAnswerErrors(source);
+    }
+    void readAnswerErrors(const std::string& source);
+
 public:
-    APPSAnswer() : send_attempts(ASTRA::NoExists), point_id(ASTRA::NoExists) {}
     virtual ~APPSAnswer() {}
-    virtual bool init(const std::string& code, const std::string& source);
     virtual void beforeProcessAnswer() const;
     virtual std::string toString() const;
     virtual void processErrors() const = 0;
@@ -556,14 +676,18 @@ class PaxReqAnswer : public APPSAnswer
 {
 private:
     PaxId_t pax_id;
-    int version;
     std::string family_name;
     // PassengerData. Applicable to "CIRS" and "CIСС". Conditional (required if ERR data group is not present)
     std::vector<AnsPaxData> passengers;
 public:
-    PaxReqAnswer() : APPSAnswer(), pax_id(ASTRA::NoExists), version(0) {}
     virtual ~PaxReqAnswer() {}
-    virtual bool init(const std::string& code, const std::string& source);
+    PaxReqAnswer(const std::string& code, const std::string& source, APPSMessage msg,
+                 PaxId_t pax_id, std::string family_name, std::vector<AnsPaxData> passengers):
+        APPSAnswer(code, source, move(msg)),
+        pax_id(pax_id),
+        family_name(family_name),
+        passengers(move(passengers))
+    {}
     virtual void processErrors() const;
     virtual void processAnswer() const;
     virtual std::string toString() const;
@@ -581,9 +705,16 @@ private:
   std::string error_text; // Conditional (on error condition)
 
 public:
-  ManifestAnswer() : APPSAnswer(), resp_code(ASTRA::NoExists), error_code(ASTRA::NoExists) {}
+  ManifestAnswer(const std::string& code, const std::string& source, APPSMessage msg,
+               std::string country, int resp_code, int error_code, const std::string& error_text):
+      APPSAnswer(code, source, move(msg)),
+      country(country),
+      resp_code(resp_code),
+      error_code(error_code),
+      error_text(error_text)
+  {}
+
   virtual ~ManifestAnswer() {}
-  virtual bool init(const std::string& code, const std::string& source);
   virtual void processErrors() const;
   virtual void processAnswer() const;
   virtual std::string toString() const;
@@ -767,71 +898,49 @@ private:
     }
 };
 
-class APPSMessage
+
+
+Opt<APPSMessage> APPSMessage::readAppsMsg(const int msg_id)
 {
-public:
-    APPSMessage(const AppsSettings & settings, unique_ptr<IRequest> req)
-        : settings(settings), request(move(req)), point_id(request->getPointId()),
-          msg(request->msg(settings.version())), msg_id(request->getMsgId())
-    {
-    }
-    APPSMessage(const APPSMessage & msg)           = delete;
-    APPSMessage& operator=(const APPSMessage &msg) = delete;
-    APPSMessage(APPSMessage && other)              = default;
-    APPSMessage & operator = (APPSMessage &&msg)   = default;
+    int settings_id;
+    int point_id;
+    std::string msg_text;
+    int send_attempts;
+    Dates::DateTime_t send_time;
 
-    void send() const
-    {
-        // отправим телеграмму
-        sendTlg(settings.getRouter().c_str(), OWN_CANON_NAME(), qpOutApp, 20, getMsg(),
-                ASTRA::NoExists, ASTRA::NoExists);
-        sendCmd("CMD_APPS_HANDLER","H");
-        ProgTrace(TRACE5, "New APPS request generated: %s", getMsg().c_str());
+    auto cur = make_curs(
+                "select SEND_ATTEMPTS, SEND_TIME, MSG_TEXT, POINT_ID, SETTINGS_ID "
+                "from APPS_MESSAGES "
+                "where MSG_ID=:msg_id");
+    cur
+       .def(send_attempts)
+       .def(send_time)
+       .def(msg_text)
+       .def(point_id)
+       .def(settings_id)
+       .bind(":msg_id", msg_id)
+       .EXfet();
+    if(cur.err() == NO_DATA_FOUND) {
+        return boost::none;
     }
+    return APPSMessage(AppsSettingsId_t(settings_id), PointId_t(point_id), msg_text, msg_id,
+                       send_attempts, send_time);
+}
 
-    void save() const
-    {
-        request->save(settings.version());
-        saveAppsMsg(getMsg(), msg_id, point_id, settings.version());
-    }
-    void saveAppsMsg(const std::string& text, const int msg_id,
-                     const PointId_t point_id, const int version) const;
-
-    std::string getMsg() const
-    {
-        return msg;
-    }
-    int getMsgId() const
-    {
-        return msg_id;
-    }
-    void setMsgId(const int id)
-    {
-        msg_id = id;
-    }
-
-private:
-    AppsSettings settings;
-    unique_ptr<IRequest> request;
-    PointId_t point_id;
-    std::string msg;
-    int msg_id;
-};
-
-void APPSMessage::saveAppsMsg(const std::string& text, const int msg_id,
-                              const PointId_t point_id, const int version) const
+void APPSMessage::saveAppsMsg(const std::string& text, const int msg_id, int send_attempts,
+                              const PointId_t& point_id, const AppsSettingsId_t& id) const
 {
     // сохраним информацию о сообщении
     auto cur = make_curs(
-               "insert into APPS_MESSAGES(MSG_ID, MSG_TEXT, SEND_ATTEMPTS, SEND_TIME, POINT_ID, VERSION) "
-               "values (:msg_id, :msg_text, :send_attempts, :send_time, :point_id, :version)");
+               "insert into APPS_MESSAGES(MSG_ID, MSG_TEXT, SEND_ATTEMPTS, SEND_TIME, POINT_ID, SETTINGS_ID) "
+               "values (:msg_id, :msg_text, :send_attempts, :send_time, :point_id, :settings_id)");
     cur
-            .bind(":msg_id",msg_id)
-            .bind(":msg_text",text)
-            .bind(":send_attempts",1)
-            .bind(":send_time",Dates::second_clock::universal_time()) // тоже самое DateTimeToBoost(NowUTC())
-            .bind(":point_id",point_id.get())
-            .bind(":version",version)
+            .bind(":msg_id", msg_id)
+            .bind(":msg_text", text)
+            .bind(":send_attempts", send_attempts)
+            .bind(":send_time", Dates::second_clock::universal_time()) // тоже самое DateTimeToBoost(NowUTC())
+            .bind(":point_id", point_id.get())
+            .bind(":settings_id", id.get())
             .exec();
 }
 
@@ -862,6 +971,7 @@ void sendAppsMessages(const PaxId_t& pax_id, const std::set<AppsSettings> & apps
 {
     std::vector<APPSMessage> messages;
     LogTrace(TRACE5) << __FUNCTION__ << " pax_id: " << pax_id.get();
+    LogTrace(TRACE5) << __FUNCTION__ << " settings size: " << apps_settings.size();
     for(const auto & country_settings : apps_settings)
     {
         Opt<PaxRequest> new_pax = PaxRequest::createFromDB(reqType, pax_id, override_type);
@@ -882,20 +992,23 @@ void sendAppsMessages(const PaxId_t& pax_id, const std::set<AppsSettings> & apps
             new_pax->ifNeedDeleteApps(status);
             new_pax->ifOutOfSyncSendAlarm(status, is_the_same);
         }
-//        LogTrace(TRACE5)<<__FUNCTION__
-//                        <<" is_exists: "    << is_exists  <<" is_the_same: "<< is_the_same
-//                        <<" is_the_cancel: "<< (is_exists && actual_pax->getTrans().code=="CICX")
-//                        <<" status: "       << status    <<" needNew: "<< needNew
-//                        <<" needCancel: "   << needCancel <<" needUpdate: "<<needUpdate;
+        LogTrace(TRACE5)<<__FUNCTION__
+                        <<" is_exists: "    << is_exists  <<" is_the_same: "<< is_the_same
+                        <<" is_the_cancel: "<< (is_exists && actual_pax->getTrans().code=="CICX")
+                        <<" status: "       << status    <<" needNew: "<< needNew
+                        <<" needCancel: "   << needCancel <<" needUpdate: "<<needUpdate;
 
         if(needCancel || needUpdate) {
+             //actual_pax->save(country_settings.version());
              messages.emplace_back(country_settings, make_unique<PaxRequest>(actual_pax.get()));
         }
         if(needNew || needUpdate) {
+            //new_pax->save(country_settings.version());
             messages.emplace_back(country_settings, make_unique<PaxRequest>(new_pax.get()));
         }
     }
-    for(const auto & msg : messages) {
+    LogTrace(TRACE5) << __FUNCTION__ << "msg size: "<< messages.size();
+    for(auto & msg : messages) {
         msg.send();
         msg.save();
     }
@@ -1027,6 +1140,10 @@ bool isTransit(const TAdvTripRoute & route)
 bool checkAPPSFormats(const PointId_t& point_dep, const AirportCode_t& airp_arv, std::set<std::string>& pFormats)
 {
     TAdvTripRoute route = getTransitRoute(TPaxSegmentPair{point_dep.get(), airp_arv.get()});
+    if(!isInternationalFlight(AirportCode_t(route.front().airp), AirportCode_t(route.back().airp)))
+    {
+        return false;
+    }
     auto sets = appsSetsForRoute(route);
     for(const auto& set: sets) {
         pFormats.insert(set.getFormat());
@@ -1034,30 +1151,46 @@ bool checkAPPSFormats(const PointId_t& point_dep, const AirportCode_t& airp_arv,
     return !sets.empty();
 }
 
-template <typename Func>
-bool checkAppsOnRouteWithPredicate(const TAdvTripRoute & route, Func func)
+bool checkNeedAlarmScdIn(const PointId_t& point_id)
 {
+    //check int flight
+    auto route = getTransitRoute(TPaxSegmentPair{point_id.get(), ""});
+    if(route.size() <= 1) {
+        LogTrace(TRACE5) << __FUNCTION__ << " size == 1";
+        return false;
+    }
+    //Проверка проводится только для пункта вылета прилета, то есть если
+    // летим РОС-ЧЕХИЯ-РОС одним рейсом, то рейс будет не международный
+    if(!isInternationalFlight(AirportCode_t(route.front().airp), AirportCode_t(route.back().airp)))
+    {
+        return false;
+    }
     for(auto it = begin(route); it != prev(end(route)); it++) {
-        if(!appsSetsForSegment(*it, *next(it)).empty() && func(*it)) {
+        //LogTrace(TRACE5) << __FUNCTION__ << " scd_in = NOExists " <<  bool(next(it)->scd_in==ASTRA::NoExists);
+        if(!appsSetsForSegment(*it, *next(it)).empty() && next(it)->scd_in == ASTRA::NoExists) {
             return true;
         }
     }
     return false;
 }
 
-bool checkNeedAlarmScdIn(const PointId_t& point_id)
-{
-    return checkAppsOnRouteWithPredicate(getTransitRoute(TPaxSegmentPair{point_id.get(), ""}),
-                        [](const TAdvTripRouteItem & r){return r.scd_in == ASTRA::NoExists;});
-}
-
 bool checkAPPSSets(const PointId_t& point_dep, const AirportCode_t& airp_arv)
 {
-    TAdvTripRoute route = getTransitRoute(TPaxSegmentPair{point_dep.get(), airp_arv.get()});
+    TPaxSegmentPair seg{point_dep.get(), airp_arv.get()};
+    if(!isInternationalFlight(seg))
+    {
+        return false;
+    }
+    TAdvTripRoute route = getTransitRoute(seg);
     if(route.size() < 2) {
         return false;
     }
-    return checkAppsOnRouteWithPredicate(route, [](auto &r){return true;});
+    for(auto it = begin(route); it != prev(end(route)); it++) {
+        if(!appsSetsForSegment(*it, *next(it)).empty()) {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool checkAPPSSets(const PointId_t& point_dep, const PointId_t& point_arv)
@@ -1184,32 +1317,74 @@ void AppsCollector::send()
 Opt<AppsSettings> AppsSettings::readSettings(const AirlineCode_t& airline,
                                              const CountryCode_t& country)
 {
-    LogTrace(TRACE5)<<__FUNCTION__<< "Airline: "<<airline << " country: "<<country;
-    AppsSettings settings = {};
+    LogTrace(TRACE5) << __FUNCTION__ << "Airline: " << airline << " country: " << country;
+    std::string format;
+    int id;
+    bool flt_closeout;
+    bool inbound;
+    bool outbound;
+    bool denial;
+    bool pre_checkin;
+
     auto cur = make_curs(
-               "select FORMAT, ID, FLT_CLOSEOUT, INBOUND, OUTBOUND, PR_DENIAL, AIRLINE, "
-               "APPS_COUNTRY, PRE_CHECKIN "
+               "select FORMAT, ID, FLT_CLOSEOUT, INBOUND, OUTBOUND, PR_DENIAL, PRE_CHECKIN "
                "from APPS_SETS "
                "where AIRLINE=:airline and APPS_COUNTRY=:country and PR_DENIAL=0");
     cur
-            .def(settings.format)
-            .def(settings.id)
-            .def(settings.flt_closeout)
-            .def(settings.inbound)
-            .def(settings.outbound)
-            .def(settings.denial)
-            .def(settings.airline)
-            .def(settings.country)
-            .def(settings.pre_checkin)
+            .def(format)
+            .def(id)
+            .def(flt_closeout)
+            .def(inbound)
+            .def(outbound)
+            .def(denial)
+            .def(pre_checkin)
             .bind(":airline", airline.get())
             .bind(":country", country.get())
             .EXfet();
     if(cur.err() == NO_DATA_FOUND) {
         return boost::none;
     }
+    //Router получаем только , если настрйоки заведены
+    std::string router(getAPPSRotName());
+    return AppsSettings{airline, country, format, router, AppsSettingsId_t(id),
+            flt_closeout, inbound, outbound, denial, pre_checkin};
+}
 
-    settings.setRouter(std::string(getAPPSRotName()));
-    return settings;
+Opt<AppsSettings> AppsSettings::readSettings(const AppsSettingsId_t & id)
+{
+    LogTrace(TRACE5) << __FUNCTION__ << " Id: " << id;
+    std::string airline;
+    std::string country;
+    std::string format;
+    bool flt_closeout;
+    bool inbound;
+    bool outbound;
+    bool denial;
+    bool pre_checkin;
+
+    auto cur = make_curs(
+               "select FORMAT, FLT_CLOSEOUT, INBOUND, OUTBOUND, PR_DENIAL, AIRLINE, "
+               "APPS_COUNTRY, PRE_CHECKIN "
+               "from APPS_SETS "
+               "where ID=:id and PR_DENIAL=0");
+    cur
+            .def(format)
+            .def(flt_closeout)
+            .def(inbound)
+            .def(outbound)
+            .def(denial)
+            .def(airline)
+            .def(country)
+            .def(pre_checkin)
+            .bind(":id", id.get())
+            .EXfet();
+    if(cur.err() == NO_DATA_FOUND) {
+        return boost::none;
+    }
+    //Router получаем только , если настрйоки заведены
+    std::string router(getAPPSRotName());
+    return AppsSettings{AirlineCode_t(airline), CountryCode_t(country), format, router, id,
+                        flt_closeout, inbound, outbound, denial, pre_checkin};
 }
 
 void TransactionData::validateData() const
@@ -1889,6 +2064,7 @@ static Opt<PaxRequest> paxRequestFromDb(OciCpp::CursCtl & cur)
     AppsDataMapper appsMapper(cur);
     if(!appsMapper.execute())
     {
+        LogTrace(TRACE5) << __FUNCTION__ << " Apps mapper can't execute ";
         return boost::none;
     }
     PaxData pax                = appsMapper.loadPaxData();
@@ -2028,7 +2204,7 @@ Opt<PaxRequest> PaxRequest::createByFields(const RequestType reqType, const PaxI
 
 Opt<PaxRequest> PaxRequest::createByCrsPaxId(const PaxId_t pax_id, const std::string& override_type)
 {
-    ProgTrace(TRACE5, "TPaxRequest::createByCrsPaxId: %d", pax_id.get());
+    LogTrace(TRACE5) << __FUNCTION__<< " pax_id: " << pax_id.get();
     bool pr_del;
     CheckInInfo info;
     auto cur = make_curs(
@@ -2185,7 +2361,7 @@ std::string PaxRequest::msg(const int version) const
 
 void updateAppsCicxMsgId(int msg_id, const std::string& apps_pax_id)
 {
-    LogTrace(TRACE5) << " msg_id: " << msg_id << " apps_pax_id: " << apps_pax_id;
+    LogTrace(TRACE5) << __FUNCTION__ <<  " msg_id: " << msg_id << " apps_pax_id: " << apps_pax_id;
     auto cur = make_curs(
                "update APPS_PAX_DATA set CICX_MSG_ID = :cicx_msg_id "
                "where APPS_PAX_ID = :apps_pax_id");
@@ -2432,29 +2608,11 @@ void APPSAnswer::getLogParams(LEvntPrms& params, const std::string& country, con
     }
 }
 
-bool APPSAnswer::init(const std::string& trans_type, const std::string& source)
+void APPSAnswer::readAnswerErrors(const std::string& source)
 {
     vector<std::string> tmp;
     boost::split(tmp, source, boost::is_any_of("/"));
-    vector<std::string>::const_iterator it = tmp.begin();
-    code = trans_type;
-    msg_id = getInt(*(it++));
-
-    auto cur = make_curs(
-                "SELECT send_attempts, msg_text, point_id, version "
-                "FROM apps_messages "
-                "WHERE msg_id = :msg_id");
-    cur
-       .def(send_attempts)
-       .def(msg_text)
-       .def(point_id)
-       .def(version)
-       .bind(":msg_id",msg_id)
-       .EXfet();
-    if(cur.err() == NO_DATA_FOUND) {
-        return false;
-    }
-
+    auto it = next(tmp.begin());
     if(*(it++) == "ERR")
     {
         LogTrace(TRACE5)<<__FUNCTION__<< " Answer INIT ERR";
@@ -2470,15 +2628,21 @@ bool APPSAnswer::init(const std::string& trans_type, const std::string& source)
             errors.push_back(error);
         }
     }
-    return true;
+}
+
+Opt<APPSMessage> readAnswerMsg(const std::string &source)
+{
+    vector<std::string> tmp;
+    boost::split(tmp, source, boost::is_any_of("/"));
+    return APPSMessage::readAppsMsg(getInt(tmp.front()));
 }
 
 std::string APPSAnswer::toString() const
 {
     std::ostringstream res;
-    res << "code: " << code << std::endl << "msg_id: " << msg_id << std::endl
-        << "point_id: " << point_id << std::endl << "msg_text: " << msg_text << std::endl
-        << "send_attempts: " << send_attempts << std::endl;
+    res << "code: " << code << std::endl << "msg_id: " << msg.getMsgId() << std::endl
+        << "point_id: " << msg.getPointId() << std::endl << "msg_text: " << msg.getMsg() << std::endl
+        << "send_attempts: " << msg.getSendAttempts() << std::endl;
     for (const auto & err: errors) {
         res << "country: " << err.country << std::endl << "error_code: " << err.error_code
             << std::endl << "error_text: " << err.error_text << std::endl;
@@ -2489,11 +2653,11 @@ std::string APPSAnswer::toString() const
 void APPSAnswer::beforeProcessAnswer() const
 {
     TFlights flightsForLock;
-    flightsForLock.Get(point_id, ftTranzit);
+    flightsForLock.Get(msg.getPointId().get(), ftTranzit);
     flightsForLock.Lock(__FUNCTION__);
 
     // выключим тревогу "Нет связи с APPS"
-    set_alarm(point_id, Alarm::APPSOutage, false);
+    set_alarm(msg.getPointId().get(), Alarm::APPSOutage, false);
 }
 
 bool APPSAnswer::checkIfNeedResend() const
@@ -2508,17 +2672,73 @@ bool APPSAnswer::checkIfNeedResend() const
     }
     // Если нужно отправить повторно, не удаляем сообщение из apps_messages, чтобы resend_tlg его нашел
     if (!need_resend) {
-        deleteMsg(msg_id);
+        deleteMsg(msg.getMsgId());
     }
     return need_resend;
 }
 
-bool PaxReqAnswer::init(const std::string& code, const std::string& source)
+std::unique_ptr<APPSAnswer> createAnswer(const std::string& code, const std::string& answer)
 {
-    if(!APPSAnswer::init(code, source)) {
-        return false;
+    if (code == "CIRS" || code == "CICC") {
+        return createPaxReqAnswer(code, answer);
     }
-    // попытаемся найти пассажира среди отправленных
+    else if (code == "CIMA") {
+        return createManifestAnswer(code, answer);
+    }
+    else {
+        throw Exception(std::string("Unknown transaction code: " + code));
+    }
+    return nullptr;
+}
+
+bool processReply(const std::string& source_raw)
+{
+    try
+    {
+        std::string source = getAnsText(source_raw);
+        if(source.empty()) {
+            throw Exception("Answer is empty");
+        }
+        std::string code = source.substr(0, 4);
+        std::string answer = source.substr(5, source.size() - 6); // отрезаем код транзакции и замыкающий '/' (XXXX:text_to_parse/)
+
+        auto res = createAnswer(code, answer);
+        if(!res){
+            return false;
+        }
+        ProgTrace(TRACE5, "Result: %s", res->toString().c_str());
+        res->beforeProcessAnswer();
+        res->processErrors();
+        res->processAnswer();
+        return true;
+    }
+    catch(EOracleError &E)
+    {
+        ProgError(STDLOG,"EOracleError %d: %s", E.Code,E.what());
+    }
+    catch(std::exception &E)
+    {
+        ProgError(STDLOG,"std::exception: %s", E.what());
+    }
+    catch(...)
+    {
+        ProgError(STDLOG, "Unknown exception");
+    }
+    return false;
+}
+
+std::unique_ptr<PaxReqAnswer> createPaxReqAnswer(const std::string& code, const std::string& source)
+{
+    Opt<APPSMessage> msg = readAnswerMsg(source);
+    if(!msg){
+        return nullptr;
+    }
+
+    int pax_id;
+    int version;
+    std::string family_name;
+    // PassengerData. Applicable to "CIRS" and "CIСС". Conditional (required if ERR data group is not present)
+    std::vector<AnsPaxData> passengers;
 
     std::ostringstream sql;
     sql << "select PAX_ID, VERSION, FAMILY_NAME "
@@ -2528,18 +2748,18 @@ bool PaxReqAnswer::init(const std::string& code, const std::string& source)
     } else {
         sql << "where CICX_MSG_ID = :msg_id";
     }
-    int px_id;
+    //int px_id;
     auto cur = make_curs(sql.str());
     cur
-       .def(px_id)
+       .def(pax_id)
        .def(version)
        .def(family_name)
-       .bind(":msg_id",msg_id)
+       .bind(":msg_id", msg->getMsgId())
        .EXfet();
     if(cur.err() == NO_DATA_FOUND) {
-        return false;
+        return nullptr;
     }
-    pax_id = PaxId_t(px_id);
+    //pax_id = PaxId_t(px_id);
 
     std::string delim = (code == "CIRS") ? "PRS" : "PCC";
     delim = std::string("/") + delim + std::string("/");
@@ -2551,14 +2771,41 @@ bool PaxReqAnswer::init(const std::string& code, const std::string& source)
         passengers.push_back(data);
         pos1 = pos2;
     }
-    return true;
+    return make_unique<PaxReqAnswer>(code, source, move(*msg), PaxId_t(pax_id), family_name, passengers);
+    //return true;
+}
+
+std::unique_ptr<ManifestAnswer> createManifestAnswer(const std::string& code, const std::string& source)
+{
+    Opt<APPSMessage> msg = readAnswerMsg(source);
+    if(!msg){
+        return nullptr;
+    }
+
+    size_t pos = source.find("MAK");
+    if (pos != string::npos)
+    {
+        vector<std::string> tmp;
+        std::string text = source.substr(pos);
+        boost::split(tmp, text, boost::is_any_of("/"));
+        int fld_count = getInt(tmp[1]); /* 2 */
+        if (fld_count != fieldCount("MAK", msg->getVersion())) {
+            throw Exception("Incorrect fld_count: %d", fld_count);
+        }
+        std::string country = tmp[2]; /* 3 */
+        int resp_code  = getInt(tmp[3]); /* 4 */
+        int error_code = getInt(tmp[4]); /* 5 */
+        std::string error_text = tmp[5]; /* 6 */
+        return make_unique<ManifestAnswer>(code, source, move(*msg), country, resp_code, error_code, error_text);
+    }
+    return nullptr;
 }
 
 std::string PaxReqAnswer::toString() const
 {
     std::ostringstream res;
     res << APPSAnswer::toString()
-        << "pax_id: " << pax_id << std::endl << "family_name: " << family_name << std::endl;
+        << "pax_id: " << pax_id.get() << std::endl << "family_name: " << family_name << std::endl;
     for (const auto & pax : passengers) {
         res << pax.toString();
     }
@@ -2581,8 +2828,8 @@ void PaxReqAnswer::processErrors() const
         LogTrace(TRACE5) << __FUNCTION__ << " if code = CIRS";
         addAPPSAlarm(pax_id, {Alarm::APPSConflict}); // рассинхронизация
         // удаляем apps_pax_data cirq_msg_id
-        deleteAPPSData("CIRQ_MSG_ID", msg_id);
-        deleteMsg(msg_id);
+        deleteAPPSData("CIRQ_MSG_ID", msg.getMsgId());
+        deleteMsg(msg.getMsgId());
     }
 }
 
@@ -2592,7 +2839,7 @@ void saveAppsStatus(const std::string& status, const std::string& apps_pax_id, c
                "update APPS_PAX_DATA set STATUS = :status, APPS_PAX_ID = :apps_pax_id "
                "where CIRQ_MSG_ID = :cirq_msg_id");
     cur.bind(":status",status)
-       .bind(":apps_pax_id",apps_pax_id)
+       .bind(":apps_pax_id", apps_pax_id)
        .bind(":cirq_msg_id", msg_id)
        .exec();
 }
@@ -2658,13 +2905,13 @@ void PaxReqAnswer::processAnswer() const
     if (code == "CICC") {
         if(result) {
             // Пассажир отменен. Удалим его из apps_pax_data
-            deleteAPPSData("CICX_MSG_ID", msg_id);
+            deleteAPPSData("CICX_MSG_ID", msg.getMsgId());
         }
-        deleteMsg(msg_id);
+        deleteMsg(msg.getMsgId());
         return;
     }
     // сохраним полученный статус
-    saveAppsStatus(status, apps_pax_id, msg_id);
+    saveAppsStatus(status, apps_pax_id, msg.getMsgId());
 
     // погасим тревоги
     if (status == "B") {
@@ -2681,12 +2928,12 @@ void PaxReqAnswer::processAnswer() const
     }
     else {
         LogTrace(TRACE5) << __FUNCTION__ << " Pax found";
-        received = PaxRequest::fromDBByMsgId(msg_id);
+        received = PaxRequest::fromDBByMsgId(msg.getMsgId());
     }
     if (!actual || received == actual) {
         deleteAPPSAlarm(pax_id, {Alarm::APPSConflict});
     }
-    deleteMsg(msg_id);
+    deleteMsg(msg.getMsgId());
 }
 
 std::set<std::string> needFltCloseout(const std::set<std::string>& countries, const AirlineCode_t& airline)
@@ -2758,6 +3005,7 @@ void appsFlightCloseout(const PointId_t& point_id)
             }
             if(pax) {
                 APPSMessage msg(*settings, make_unique<PaxRequest>(pax.get()));
+                //pax->save(settings->version());
                 msg.send();
                 msg.save();
             }
@@ -2773,6 +3021,7 @@ void appsFlightCloseout(const PointId_t& point_id)
                     TPaxSegmentPair{point_id.get(), route.back().airp}, country_lat);
         if (close_flt && settings) {
             APPSMessage msg(*settings, make_unique<ManifestRequest>(*close_flt));
+            //close_flt->save(settings->version());
             msg.send();
             msg.save();
         }
@@ -2936,7 +3185,7 @@ void PaxReqAnswer::logAnswer(const std::string& country, const int status_code,
 
     CheckIn::TSimplePaxItem pax;
     if (pax.getByPaxId(pax_id.get())) {
-        TReqInfo::Instance()->LocaleToLog("MSG.APPS_RESP", params, evtPax, point_id, pax.reg_no);
+        TReqInfo::Instance()->LocaleToLog("MSG.APPS_RESP", params, evtPax, msg.getPointId().get(), pax.reg_no);
     }
 }
 
@@ -2946,30 +3195,7 @@ void ManifestAnswer::logAnswer(const std::string& country, const int status_code
     LEvntPrms params;
     getLogParams(params, country, status_code, error_code, error_text);
     params << PrmSmpl<std::string>("passenger", "");
-    TReqInfo::Instance()->LocaleToLog("MSG.APPS_RESP", params, evtFlt, point_id);
-}
-
-bool ManifestAnswer::init(const std::string& code, const std::string& source)
-{
-    if(!APPSAnswer::init(code, source)) {
-        return false;
-    }
-    size_t pos = source.find("MAK");
-    if (pos != string::npos)
-    {
-        vector<std::string> tmp;
-        std::string text = source.substr(pos);
-        boost::split(tmp, text, boost::is_any_of("/"));
-        int fld_count = getInt(tmp[1]); /* 2 */
-        if (fld_count != fieldCount("MAK", version)) {
-            throw Exception("Incorrect fld_count: %d", fld_count);
-        }
-        country = tmp[2]; /* 3 */
-        resp_code = getInt(tmp[3]); /* 4 */
-        error_code = getInt(tmp[4]); /* 5 */
-        error_text = tmp[5]; /* 6 */
-    }
-    return true;
+    TReqInfo::Instance()->LocaleToLog("MSG.APPS_RESP", params, evtFlt, msg.getPointId().get());
 }
 
 void ManifestAnswer::processErrors() const
@@ -2981,7 +3207,7 @@ void ManifestAnswer::processErrors() const
         logAnswer(err.country, ASTRA::NoExists, err.error_code, err.error_text);
     }
     // CheckIfNeedResend();
-    deleteMsg(msg_id);
+    deleteMsg(msg.getMsgId());
 }
 
 void ManifestAnswer::processAnswer() const
@@ -2991,7 +3217,7 @@ void ManifestAnswer::processAnswer() const
     }
     // Сообщение обработано системой. Залогируем ответ и удалим сообщение из apps_messages.
     logAnswer(country, resp_code, error_code, error_text);
-    deleteMsg(msg_id);
+    deleteMsg(msg.getMsgId());
 }
 
 std::string ManifestAnswer::toString() const
@@ -3013,49 +3239,6 @@ std::string getAnsText(const std::string& tlg)
     return tlg.substr(pos1 + 1, pos2 - pos1 - 1);
 }
 
-bool processReply(const std::string& source_raw)
-{
-    try
-    {
-        std::string source = getAnsText(source_raw);
-        if(source.empty()) {
-            throw Exception("Answer is empty");
-        }
-        std::string code = source.substr(0, 4);
-        std::string answer = source.substr(5, source.size() - 6); // отрезаем код транзакции и замыкающий '/' (XXXX:text_to_parse/)
-        boost::scoped_ptr<APPSAnswer> res;
-        if (code == "CIRS" || code == "CICC") {
-            res.reset(new PaxReqAnswer());
-        }
-        else if (code == "CIMA") {
-            res.reset(new ManifestAnswer());
-        }
-        else {
-            throw Exception(std::string("Unknown transaction code: " + code));
-        }
 
-        if (!res->init(code, answer)) {
-            return false;
-        }
-        ProgTrace(TRACE5, "Result: %s", res->toString().c_str());
-        res->beforeProcessAnswer();
-        res->processErrors();
-        res->processAnswer();
-        return true;
-    }
-    catch(EOracleError &E)
-    {
-        ProgError(STDLOG,"EOracleError %d: %s", E.Code,E.what());
-    }
-    catch(std::exception &E)
-    {
-        ProgError(STDLOG,"std::exception: %s", E.what());
-    }
-    catch(...)
-    {
-        ProgError(STDLOG, "Unknown exception");
-    }
-    return false;
-}
 
 } //namespace APPS

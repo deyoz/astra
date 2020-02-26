@@ -29,7 +29,6 @@ static boost::optional<int> getGrpIdByPaxId(const int pax_id);
 
 boost::optional<TTripInfo> getPointInfo(const PointId_t point_dep)
 {
-    LogTrace(TRACE5) << __FUNCTION__ << " point_dep: " << point_dep.get();
     TTripInfo point_info;
     if (!point_info.getByPointId(point_dep.get())) {
         return boost::none;
@@ -40,7 +39,8 @@ boost::optional<TTripInfo> getPointInfo(const PointId_t point_dep)
 void checkRouteSuffix(const TAdvTripRoute &route)
 {
     if (!route.front().suffix_out.empty()) {
-        const TTripSuffixesRow &suffixRow = (const TTripSuffixesRow&)base_tables.get("trip_suffixes").get_row("code", route.front().suffix_out);
+        const TTripSuffixesRow &suffixRow = (const TTripSuffixesRow&)base_tables.get("trip_suffixes").
+                get_row("code", route.front().suffix_out);
         if (suffixRow.code_lat.empty()) {
             throw Exception("suffixRow.code_lat empty (code=%s)",suffixRow.code.c_str());
         }
@@ -52,7 +52,6 @@ TAdvTripRoute getTransitRoute(const TPaxSegmentPair& flight)
     TAdvTripRoute route;
     LogTrace(TRACE5)<< __FUNCTION__ << " point: " << flight.point_dep << " airp_arv: "<< flight.airp_arv;
     if(flight.airp_arv.empty()) {
-        tst();
         route.GetRouteAfter(NoExists, flight.point_dep, trtWithCurrent, trtNotCancelled);
     } else {
         route.getRouteBetween(flight.point_dep, flight.airp_arv);
@@ -64,7 +63,7 @@ TAdvTripRoute getTransitRoute(const TPaxSegmentPair& flight)
     return route;
 }
 
-std::vector<TPaxSegmentPair> transitSegs(const TAdvTripRoute& route)
+std::vector<TPaxSegmentPair> transitLegs(const TAdvTripRoute& route)
 {
     std::vector<TPaxSegmentPair> res;
     if(route.size() < 2) {
@@ -1233,7 +1232,6 @@ void TCkinRoute::GetRoute(int tckin_id,
 
 boost::optional<int> getGrpIdByPaxId(const int pax_id)
 {
-    LogTrace(TRACE5) << __FUNCTION__ << " pax_id : "<<pax_id;
     int grp_id;
     auto cur = make_curs(
                "select PAX.GRP_ID from PAX, PAX_GRP "
