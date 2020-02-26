@@ -2,7 +2,7 @@ $(init)
 $(init_jxt_pult åéÇêéå)
 
 $(sql "insert into APIS_SETS(AIRLINE, COUNTRY_DEP, COUNTRY_ARV, COUNTRY_CONTROL, FORMAT, TRANSPORT_TYPE, TRANSPORT_PARAMS, EDI_ADDR, EDI_OWN_ADDR, ID, PR_DENIAL) values('??', 'ñç', NULL, 'ñç', 'IAPI_CN', '?', '?', 'NIAC', 'NORDWIND', id__seq.nextval, 0)")
-$(sql "insert into EDI_ADDRS(ADDR, CFG_ID, CANON_NAME) values ('NIAC', 0, 'MOWET')")
+$(sql "insert into EDI_ADDRS(ADDR, CANON_NAME) values ('NIAC', 'MOWET')")
 $(sql "insert into EDIFACT_PROFILES (NAME, VERSION, SUB_VERSION, CTRL_AGENCY, SYNTAX_NAME, SYNTAX_VER) values ('IAPI', 'D', '05B', 'UN', 'UNOA', 4)")
 $(sql "update ROT set H2H=1, H2H_REM_ADDR_NUM=1, H2H_ADDR='1HCNIAPIR', OUR_H2H_ADDR='1HCNIAPIQ'")
 
