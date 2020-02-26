@@ -1125,6 +1125,7 @@ namespace MQRABBIT_TRANSPORT {
 
   void putMQRabbitPaxs( EXCH_CHECKIN_RESULT::Request &request, const std::map<std::string,std::string> &params )
   {
+    TReqInfo::Instance()->user.sets.time = ustTimeUTC;
     std::map<std::string,std::string>::const_iterator iparam = params.find( MQRABBIT_TRANSPORT::PARAM_NAME_ADDR );
     if ( iparam == params.end() ||
          iparam->second.empty() ) {
@@ -1142,9 +1143,6 @@ namespace MQRABBIT_TRANSPORT {
       request.actionCode = it->second;
       if ( request.isAction( EXCH_CHECKIN_RESULT::Request::LocalTime ) ) {
         TReqInfo::Instance()->user.sets.time = ustTimeLocalAirp;
-      }
-      else {
-        TReqInfo::Instance()->user.sets.time = ustTimeUTC;
       }
     }
     try {
@@ -1218,6 +1216,7 @@ namespace MQRABBIT_TRANSPORT {
 
   void putMQRabbitFlights( EXCH_CHECKIN_RESULT::Request &request, const std::map<std::string,std::string> &params )
   {
+    TReqInfo::Instance()->user.sets.time = ustTimeUTC;
     std::map<std::string,std::string>::const_iterator iparam = params.find( MQRABBIT_TRANSPORT::PARAM_NAME_ADDR );
     if ( iparam == params.end() ||
          iparam->second.empty() ) {
@@ -1235,9 +1234,6 @@ namespace MQRABBIT_TRANSPORT {
       request.actionCode = it->second;
       if ( request.isAction( EXCH_CHECKIN_RESULT::Request::LocalTime ) ) {
         TReqInfo::Instance()->user.sets.time = ustTimeLocalAirp;
-      }
-      else {
-        TReqInfo::Instance()->user.sets.time = ustTimeUTC;
       }
     }
     try {
