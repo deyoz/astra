@@ -43,6 +43,7 @@
 void tests_init() {}
 
 void runEdiTimer_4testsOnly();
+static std::vector<string> getFlightTasks(const std::string& table_name, const PointId_t &point_id);
 
 using namespace xp_testing::tscript;
 
@@ -302,7 +303,7 @@ std::string FP_make_spp(const std::vector<std::string> &p)
 {
     boost::gregorian::date d = boost::posix_time::second_clock::local_time().date();
 
-    std::string fmt = "ddmmyy";
+    std::string fmt = "%d%m%y";
     if(p.size() > 1) {
         fmt = p.at(1);
     }
@@ -327,7 +328,7 @@ static std::vector<std::string> pointIdSppVector()
 {
     std::vector<std::string> res;
     std::string point_id_spp;
-    OciCpp::CursCtl cur = make_curs("select POINT_ID_SPP from TLG_BINDING order by POINT_ID_TLG");
+    OciCpp::CursCtl cur = make_curs("select POINT_ID_SPP from TLG_BINDING order by POINT_ID_TLG desc");
 
     cur.
         def(point_id_spp).
@@ -712,9 +713,31 @@ static std::string FP_translit(const std::vector<std::string>& par)
 
 static std::string FP_run_trip_task(const std::vector<std::string>& par)
 {
-    ASSERT(par.size() == 2);
+    ASSERT(par.size() <= 3);
     const std::string taskName = par.at(0);
     PointId_t pointId(std::stoi(par.at(1)));
+    std::string checkPresenceOfTheTask = "check";
+    if(par.size() == 3)  {
+        checkPresenceOfTheTask = par.at(2);
+    }
+    if(checkPresenceOfTheTask == "check") {
+        auto tasks = getFlightTasks("TRIP_TASKS", pointId);
+        std::string nameOfTask;
+        if(taskName == "send_apps") {
+            nameOfTask = "SEND_NEW_APPS_INFO";
+        } else if(taskName == "send_all_apps") {
+            nameOfTask = "SEND_ALL_APPS_INFO";
+        } else if(taskName == "check_trip_alarms") {
+            nameOfTask = "CHECK_ALARM";
+        } else {
+            LogTrace(TRACE3) << __FUNCTION__ << " Unknown task: " << taskName;
+            ASSERT(false);
+        }
+        if(find(tasks.begin(), tasks.end(), nameOfTask) == tasks.end()) {
+            LogTrace(TRACE3) << __FUNCTION__ << " Not find task: " << nameOfTask;
+            ASSERT(false);
+        }
+    }
 
     LogTrace(TRACE3) << "Test run trip task " << taskName << " for point_id=" << pointId;
 
@@ -786,6 +809,21 @@ static std::vector<string> getTripAlarms(const std::string& table_name, int poin
     return res;
 }
 
+static std::vector<string> getFlightTasks(const std::string& table_name, const PointId_t& point_id)
+{
+    std::string task;
+    auto cur = make_curs(
+               "select NAME from "+table_name+" where POINT_ID=:point_id order by ID");
+    cur.def(task)
+            .bind(":point_id", point_id)
+            .exec();
+    std::vector<std::string> res;
+    while(!cur.fen()) {
+        res.push_back(task);
+    }
+    return res;
+}
+
 static std::string formatTripAlarms(const std::vector<std::string>& alarms)
 {
     std::ostringstream oss;
@@ -816,6 +854,12 @@ static std::string FP_checkTripAlarms(const std::vector<std::string>& par)
     return formatTripAlarms(getTripAlarms("TRIP_ALARMS", point_id));
 }
 
+static std::string FP_checkFlightTasks(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() == 1);
+    PointId_t point_id(std::stoi(par.at(0)));
+    return formatTripAlarms(getFlightTasks("TRIP_TASKS", point_id));
+}
 
 
 FP_REGISTER("<<", FP_tlg_in);
@@ -857,4 +901,5 @@ FP_REGISTER("combine_brd_with_reg", FP_combineBrdWithReg);
 FP_REGISTER("check_pax_alarms", FP_checkPaxAlarms);
 FP_REGISTER("check_crs_pax_alarms", FP_checkCrsPaxAlarms);
 FP_REGISTER("check_trip_alarms", FP_checkTripAlarms);
+FP_REGISTER("check_flight_tasks", FP_checkFlightTasks);
 #endif /* XP_TESTING */

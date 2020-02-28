@@ -393,7 +393,14 @@ $(set move_id $(get_move_id $(get point_dep)))
 $(combine_brd_with_reg $(get point_dep))
 $(auto_set_craft $(get point_dep))
 
-$(run_trip_task send_apps $(get point_dep))
+??
+$(check_flight_tasks $(get point_dep))
+>>
+EMD_REFRESH
+SYNC_ALL_CHKD
+$()
+
+$(run_trip_task send_apps $(get point_dep) "uncheck")
 
 # уходят CIRQ-запросы
 # $(CIRQ_61_UT_REQS_APPS_VERSION_21 UT 298 AER PRG)
@@ -476,14 +483,29 @@ $(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ SEL
 # приходит ADL с удалением двух пассажиров
 $(INB_ADL_UT_DEL2PAXES AER PRG 298 $(ddmon +0 en))
 
+??
+$(check_flight_tasks $(get point_dep))
+>>
+EMD_REFRESH
+SYNC_ALL_CHKD
+$()
+
+
 # должна пойти отмена, но не уходит - ОШИБКА ??
-$(run_trip_task send_apps $(get point_dep))
+$(run_trip_task send_apps $(get point_dep) "uncheck")
 
 
 # приходит ADL с изменением данных по одному пассажиру
 $(INB_ADL_UT_CHG1PAX AER PRG 298 $(ddmon +0 en))
 
-$(run_trip_task send_apps $(get point_dep))
+??
+$(check_flight_tasks $(get point_dep))
+>>
+EMD_REFRESH
+SYNC_ALL_CHKD
+$()
+
+$(run_trip_task send_apps $(get point_dep) "uncheck")
 
 # уходит пара CICX/CIRQ, но ТОЛЬКО при условии получения ответа
 # ранее по этому пассажиру!!!
@@ -537,7 +559,7 @@ $(set point_arv $(get_next_trip_point_id $(get point_dep)))
 
 $(auto_set_craft $(get point_dep))
 
-$(run_trip_task send_all_apps $(get point_dep))
+$(run_trip_task send_all_apps $(get point_dep) "uncheck")
 
 # уходят CIRQ-запросы
 # $(CIRQ_61_UT_REQS_APPS_VERSION_21 UT 298 AER PRG)
@@ -1121,9 +1143,9 @@ $(INB_PNL_UT_TRANSFER2 PRG AMS 190 $(ddmon +0 en))
 $(INB_PNL_UT_TRANSFER1 AER PRG 298 $(ddmon +0 en))
 
 
-$(set point_dep_UT_298 $(last_point_id_spp 2))
+$(set point_dep_UT_298 $(last_point_id_spp 0))
 $(set point_dep_UT_190 $(last_point_id_spp 1))
-$(set point_dep_UT_450 $(last_point_id_spp 0))
+$(set point_dep_UT_450 $(last_point_id_spp 2))
 
 $(deny_ets_interactive ЮТ 298 СОЧ)
 $(deny_ets_interactive ЮТ 190 ПРХ)
@@ -1229,9 +1251,9 @@ $(INB_PNL_UT_TRANSFER3 AMS LHR 450 $(ddmon +0 en))
 $(INB_PNL_UT_TRANSFER2 PRG AMS 190 $(ddmon +0 en))
 $(INB_PNL_UT_TRANSFER1 AER PRG 298 $(ddmon +0 en))
 
-$(set point_dep_UT_298 $(last_point_id_spp 2))
+$(set point_dep_UT_298 $(last_point_id_spp 0))
 $(set point_dep_UT_190 $(last_point_id_spp 1))
-$(set point_dep_UT_450 $(last_point_id_spp 0))
+$(set point_dep_UT_450 $(last_point_id_spp 2))
 
 $(set point_arv_UT_298 $(get_next_trip_point_id $(get point_dep_UT_298)))
 $(set point_arv_UT_190 $(get_next_trip_point_id $(get point_dep_UT_190)))
@@ -1679,7 +1701,7 @@ $(UPDATE_SPP_FLIGHT $(get point_dep) $(get point_arv) ЮТ СОЧ ПРХ 298 $(get move_
 
 $(run_trip_task check_trip_alarms $(get point_dep))
 
-# Проверяем есть ли в базе Алармы для пассажира. Должен быть APPS_NOT_SCD_IN_TIME
+# Проверяем есть ли в базе Алармы для пассажира. Не должен быть APPS_NOT_SCD_IN_TIME
 ??
 $(check_trip_alarms $(get point_dep))
 >>
@@ -1723,9 +1745,187 @@ $(set move_id $(get_move_id $(get point_dep)))
 $(combine_brd_with_reg $(get point_dep))
 $(auto_set_craft $(get point_dep))
 
-$(run_trip_task send_apps $(get point_dep))
+$(run_trip_task send_apps $(get point_dep) "uncheck")
 
 
+%%
+#########################################################################################
+###
+#   Тест №22
+#
+#   Описание: пассажиров: 61,
+#             интерактив: выкл
+#            версия apps: 21
+#
+#   Задача не должна выставляться, если  дата pnl не удовлетворяет условию ( data-2 < now - data)
+#   Если дата пришедешего полета в будущем , то задача всегда выставляется
+###
+#########################################################################################
+
+$(settcl APPS_H2H_ADDR APTXS)
+$(settcl APPS_ROT_NAME APPGT)
+
+$(init_jxt_pult МОВРОМ)
+$(set_desk_version 201707-0195750)
+$(login)
+
+################################################################################
+#Заводим настройки для стран обоих рейсов
+
+$(init_apps ЮТ ЦЗ APPS_21 closeout=false inbound=true outbound=true)
+$(init_apps ЮТ НЛ APPS_21 closeout=false inbound=true outbound=true)
+
+#Проверка даты.
+#Сначала завели рейс потом пришел PNL , SEND_NEW_APPS_INFO(tlg)
+
+$(PREPARE_SEASON_SCD ЮТ АМС ПРХ 300 -1 TU5 $(date_format %d.%m.%Y -12) $(date_format %d.%m.%Y +12))
+$(make_spp $(ddmmyy -2))
+$(deny_ets_interactive ЮТ 300 АМС)
+
+$(INB_PNL_UT AMS PRG 300 $(ddmon -2 en))
+$(set point_dep $(last_point_id_spp))
+
+
+# Проверяем есть ли в базе задачи для полета. Не должен быть
+??
+$(check_flight_tasks $(get point_dep))
+>>
+EMD_REFRESH
+SYNC_ALL_CHKD
+$()
+
+$(INB_PNL_UT PRG AMS 100 $(ddmon -1 en))
+
+$(PREPARE_SEASON_SCD ЮТ ПРХ АМС 100 -1 TU5 $(date_format %d.%m.%Y -12) $(date_format %d.%m.%Y +12))
+$(make_spp $(ddmmyy -1))
+$(deny_ets_interactive ЮТ 100 АМС)
+
+$(set point_dep $(last_point_id_spp))
+
+# Проверяем есть ли в базе задачи для полета. Не должен быть
+??
+$(check_flight_tasks $(get point_dep))
+>>
+SYNC_ALL_CHKD
+SEND_ALL_APPS_INFO
+EMD_REFRESH
+$()
+
+
+$(PREPARE_SEASON_SCD ЮТ ПРХ АМС 200 -1 TU5 $(date_format %d.%m.%Y -12) $(date_format %d.%m.%Y +12))
+$(make_spp $(ddmmyy +11))
+$(deny_ets_interactive ЮТ 200 АМС)
+
+$(INB_PNL_UT PRG AMS 200 $(ddmon +11 en))
+
+$(set point_dep $(last_point_id_spp))
+
+# Проверяем есть ли в базе задачи для полета. Не должен быть
+??
+$(check_flight_tasks $(get point_dep))
+>>
+EMD_REFRESH
+SYNC_ALL_CHKD
+SEND_ALL_APPS_INFO
+SEND_NEW_APPS_INFO
+$()
+
+%%
+#########################################################################################
+###
+#   Тест №23
+#
+#   Описание: пассажиров: 61,
+#             интерактив: выкл
+#            версия apps: 21
+#
+#   Добавляется задача SEND_ALL_APPS_INFO, когда заведены настройки, и не добавляется, когда не заведены
+#   Не добавляется задача SEND_NEW_APPS_INFO, когда не заведены APPS настройки
+###
+#########################################################################################
+
+$(settcl APPS_H2H_ADDR APTXS)
+$(settcl APPS_ROT_NAME APPGT)
+
+$(init_jxt_pult МОВРОМ)
+$(set_desk_version 201707-0195750)
+$(login)
+
+
+# Настроек нету
+# $(init_apps ЮТ ЦЗ APPS_21 closeout=true inbound=true outbound=true)
+
+#П ривязка рейса по ранее заведенному PNL, SEND_ALL_APPS_INFO(flt_binding)
+
+$(INB_PNL_UT AER PRG 298 $(ddmon +0 en))
+$(PREPARE_SEASON_SCD ЮТ СОЧ ПРХ 298)
+$(make_spp)
+$(deny_ets_interactive ЮТ 298 СОЧ)
+
+$(set point_dep $(last_point_id_spp))
+
+# Проверяем есть ли в базе задачи для полета. НЕ должен быть SEND_ALL_APPS_INFO
+??
+$(check_flight_tasks $(get point_dep))
+>>
+SYNC_ALL_CHKD
+EMD_REFRESH
+$()
+
+#Сначала завели рейс потом пришел PNL , SEND_NEW_APPS_INFO(tlg)
+$(PREPARE_SEASON_SCD ЮТ ПРХ АМС 190)
+$(make_spp)
+$(deny_ets_interactive ЮТ 190 ПРХ)
+
+$(INB_PNL_UT PRG AMS 190 $(ddmon +0 en))
+
+$(set point_dep $(last_point_id_spp))
+
+# Проверяем есть ли в базе задачи для полета. НЕ должен быть SEND_NEW_APPS_INFO
+??
+$(check_flight_tasks $(get point_dep))
+>>
+EMD_REFRESH
+SYNC_ALL_CHKD
+$()
+
+# Заводим настройки
+$(init_apps ЮТ ЦЗ APPS_21 closeout=false inbound=true outbound=true)
+$(init_apps ЮТ НЛ APPS_21 closeout=false inbound=true outbound=true)
+
+#Привязка рейса по ранее заведенному PNL, SEND_ALL_APPS_INFO(flt_binding)
+$(INB_PNL_UT AER AMS 100 $(ddmon +0 en))
+$(PREPARE_SEASON_SCD ЮТ СОЧ АМС 100)
+
+$(make_spp)
+$(deny_ets_interactive ЮТ 100 СОЧ)
+
+$(set point_dep $(last_point_id_spp))
+
+# Проверяем есть ли в базе задачи для полета. Должен быть SEND_ALL_APPS_INFO
+??
+$(check_flight_tasks $(get point_dep))
+>> lines=auto
+SEND_ALL_APPS_INFO
+
+
+#Сначала завели рейс потом пришел PNL , SEND_NEW_APPS_INFO(tlg)
+$(PREPARE_SEASON_SCD ЮТ АМС ПРХ 200)
+$(make_spp)
+$(deny_ets_interactive ЮТ 200 АМС)
+
+$(INB_PNL_UT AMS PRG 200 $(ddmon +0 en))
+
+$(set point_dep $(last_point_id_spp))
+
+# Проверяем есть ли в базе задачи для полета. Должен быть SEND_NEW_APPS_INFO
+??
+$(check_flight_tasks $(get point_dep))
+>> lines=auto
+SEND_ALL_APPS_INFO
+SEND_NEW_APPS_INFO
+
+#################################
 
 
 

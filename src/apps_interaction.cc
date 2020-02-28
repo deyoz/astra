@@ -1,4 +1,5 @@
 #include <boost/algorithm/string.hpp>
+#include <functional>
 #include <ctime>
 #include <deque>
 #include <boost/regex.hpp>
@@ -14,20 +15,23 @@
 #include <boost/scoped_ptr.hpp>
 #include "apis_utils.h"
 #include "checkin.h"
+#include "ckin_search.h"
 
 #include <serverlib/str_utils.h>
 #include <serverlib/tcl_utils.h>
 #include <serverlib/cursctl.h>
 #include <serverlib/dump_table.h>
 #include <serverlib/algo.h>
+#include <serverlib/rip_oci.h>
+#include <serverlib/dates_oci.h>
+#include <serverlib/dates_io.h>
 
 #define NICKNAME "FELIX"
 #define NICKTRACE SYSTEM_TRACE
 #include <serverlib/slogger.h>
-#include <serverlib/dates_oci.h>
-#include <serverlib/dates_io.h>
-#include "ckin_search.h"
-#include <functional>
+
+
+
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -141,6 +145,7 @@ static int versionByFormat(const std::string& fmt);
 ASTRA::TGender::Enum femaleToGender(int is_female);
 
 //Получение APPS настроек
+bool checkAPPSSegment(const TPaxSegmentPair & seg);
 std::set<AppsSettings> appsSetsForSegment(const TPaxSegmentPair &flt);
 std::set<AppsSettings> appsSetsForSegment(const TAdvTripRouteItem& dep, const TAdvTripRouteItem& arv);
 Opt<AppsSettings> appsSets(const AirlineCode_t& airline, const CountryCode_t& country);
@@ -218,7 +223,7 @@ void sendAppsMessages(const PaxId_t &pax_id, const std::set<AppsSettings> &apps_
                       const bool is_forced=false);
 bool isAlreadyCheckedIn(const PaxId_t &pax_id);
 static void sendAPPSInfo(const PointId_t &point_id, const PointIdTlg_t &point_id_tlg);
-
+bool checkTime(const PointId_t& point_id, TDateTime& start_time);
 // Обработка ответов
 std::vector<Error> getAnswerErrors(const std::string& source);
 std::string getAnsText(const std::string& tlg);
@@ -1139,6 +1144,7 @@ bool isTransit(const TAdvTripRoute & route)
 
 bool checkAPPSFormats(const PointId_t& point_dep, const AirportCode_t& airp_arv, std::set<std::string>& pFormats)
 {
+    LogTrace(TRACE5) << __FUNCTION__ << " point_id: " << point_dep << " airp_arv: " << airp_arv;
     TAdvTripRoute route = getTransitRoute(TPaxSegmentPair{point_dep.get(), airp_arv.get()});
     if(!isInternationalFlight(AirportCode_t(route.front().airp), AirportCode_t(route.back().airp)))
     {
@@ -1154,9 +1160,10 @@ bool checkAPPSFormats(const PointId_t& point_dep, const AirportCode_t& airp_arv,
 bool checkNeedAlarmScdIn(const PointId_t& point_id)
 {
     //check int flight
+    LogTrace(TRACE5) << __FUNCTION__ << " point_id: " << point_id;
     auto route = getTransitRoute(TPaxSegmentPair{point_id.get(), ""});
-    if(route.size() <= 1) {
-        LogTrace(TRACE5) << __FUNCTION__ << " size == 1";
+    if(route.size() < 2) {
+        LogTrace(TRACE5) << __FUNCTION__ << " rotue size < 2";
         return false;
     }
     //Проверка проводится только для пункта вылета прилета, то есть если
@@ -1174,15 +1181,19 @@ bool checkNeedAlarmScdIn(const PointId_t& point_id)
     return false;
 }
 
-bool checkAPPSSets(const PointId_t& point_dep, const AirportCode_t& airp_arv)
+bool checkAPPSSegment(const TPaxSegmentPair & seg)
 {
-    TPaxSegmentPair seg{point_dep.get(), airp_arv.get()};
-    if(!isInternationalFlight(seg))
-    {
-        return false;
-    }
     TAdvTripRoute route = getTransitRoute(seg);
     if(route.size() < 2) {
+        LogTrace(TRACE5) << __FUNCTION__ << " route size < 2";
+        return false;
+    }
+    // Так как в seg airp может быть пустой строкой,
+    // мы не можем передать в AirportCode_t пустую строку, то используем функцию
+    // isInternationalFlight(airp,airp), а не (seg)
+    if(!isInternationalFlight(AirportCode_t(route.front().airp), AirportCode_t(route.back().airp)))
+    {
+        LogTrace(TRACE5) << __FUNCTION__ << " not international flight";
         return false;
     }
     for(auto it = begin(route); it != prev(end(route)); it++) {
@@ -1193,14 +1204,23 @@ bool checkAPPSSets(const PointId_t& point_dep, const AirportCode_t& airp_arv)
     return false;
 }
 
+bool checkAPPSSets(const PointId_t& point_dep)
+{
+    return checkAPPSSegment(TPaxSegmentPair{point_dep.get(), ""});
+}
+
+bool checkAPPSSets(const PointId_t& point_dep, const AirportCode_t& airp_arv)
+{
+    return checkAPPSSegment(TPaxSegmentPair{point_dep.get(), airp_arv.get()});
+}
+
 bool checkAPPSSets(const PointId_t& point_dep, const PointId_t& point_arv)
 {
     auto point_info = getPointInfo(point_arv);
     if(!point_info) {
         return false;
     }
-    std::string airp_arv = point_info->airp;
-    return checkAPPSSets(point_dep, AirportCode_t(airp_arv));
+    return checkAPPSSegment(TPaxSegmentPair{point_dep.get(), point_info->airp});
 }
 
 bool checkTime(const PointId_t& point_id)
@@ -1218,8 +1238,9 @@ bool checkTime(const PointId_t& point_id, TDateTime& start_time)
         return false;
     }
     // The APP System only allows transactions on [- 2 days] TODAY [+ 10 days].
-    if ((now - point_info->scd_out) > 2)
+    if ((now - point_info->scd_out) > 2) {
         return false;
+    }
     if ((point_info->scd_out - now) > 10) {
         start_time = point_info->scd_out - 10;
         return false;
@@ -1317,7 +1338,7 @@ void AppsCollector::send()
 Opt<AppsSettings> AppsSettings::readSettings(const AirlineCode_t& airline,
                                              const CountryCode_t& country)
 {
-    LogTrace(TRACE5) << __FUNCTION__ << "Airline: " << airline << " country: " << country;
+    LogTrace(TRACE5) << __FUNCTION__ << " Airline: " << airline << " country: " << country;
     std::string format;
     int id;
     bool flt_closeout;
@@ -1338,14 +1359,16 @@ Opt<AppsSettings> AppsSettings::readSettings(const AirlineCode_t& airline,
             .def(outbound)
             .def(denial)
             .def(pre_checkin)
-            .bind(":airline", airline.get())
-            .bind(":country", country.get())
+            .bind(":airline", airline)
+            .bind(":country", country)
             .EXfet();
     if(cur.err() == NO_DATA_FOUND) {
+        LogTrace(TRACE5) <<  __FUNCTION__ << " NO DATA FOUND ";
         return boost::none;
     }
     //Router получаем только , если настрйоки заведены
     std::string router(getAPPSRotName());
+    //LogTrace(TRACE5) << __FUNCTION__ << " inbound: " << inbound << " outbound: "<< outbound;
     return AppsSettings{airline, country, format, router, AppsSettingsId_t(id),
             flt_closeout, inbound, outbound, denial, pre_checkin};
 }
@@ -1379,6 +1402,7 @@ Opt<AppsSettings> AppsSettings::readSettings(const AppsSettingsId_t & id)
             .bind(":id", id.get())
             .EXfet();
     if(cur.err() == NO_DATA_FOUND) {
+        LogTrace(TRACE5) <<  __FUNCTION__ << " NO DATA FOUND ";
         return boost::none;
     }
     //Router получаем только , если настрйоки заведены
@@ -1427,6 +1451,7 @@ TransactionData createTransactionData(const std::string& trans_code, bool pre_ch
 
 FlightData createFlightData(const TPaxSegmentPair &flt, const string &type)
 {
+    LogTrace(TRACE5) << __FUNCTION__ << " point_id: " << flt.point_dep << " airp_arv: " << flt.airp_arv;
     auto route = getTransitRoute(flt);
     ASSERT(!route.empty());
     BaseTables::Port portDep(route.front().airp);
@@ -1970,17 +1995,13 @@ std::set<AppsSettings> appsSetsForSegment(const TAdvTripRouteItem& dep, const TA
 {
     const std::string airline = dep.airline_out;
     std::set<AppsSettings> res;
-    if(auto set_dep = AppsSettings::readSettings(AirlineCode_t(airline),
-                                                 CountryCode_t(getCountryByAirp(dep.airp).code))) {
-        if(set_dep->getOutbound()) {
-            res.insert(*set_dep);
-        }
+    auto set_dep = AppsSettings::readSettings(AirlineCode_t(airline), CountryCode_t(getCountryByAirp(dep.airp).code));
+    if(set_dep && set_dep->getOutbound()) {
+        res.insert(*set_dep);
     }
-    if(auto set_arv = AppsSettings::readSettings(AirlineCode_t(airline),
-                                                 CountryCode_t(getCountryByAirp(arv.airp).code))) {
-        if(set_arv->getInbound()) {
-            res.insert(*set_arv);
-        }
+    auto set_arv = AppsSettings::readSettings(AirlineCode_t(airline), CountryCode_t(getCountryByAirp(arv.airp).code));
+    if(set_arv && set_arv->getInbound()) {
+        res.insert(*set_arv);
     }
     return res;
 }
@@ -2257,6 +2278,7 @@ TransferFlag getTransferFlagFromTransit(const PointId_t& point_id, const Airport
      спецификации, однако при проведении сертификации SITA потребовала именно
      так обрабатывать транзитные рейсы. */
 
+    LogTrace(TRACE5) << __FUNCTION__ << " point_id: " << point_id << " airp_arv: " << airp_arv;
     TAdvTripRoute route = getTransitRoute(TPaxSegmentPair(point_id.get(), airp_arv.get()));
     bool transit = isTransit(route);
     return transit ? TransferFlag::Dest : TransferFlag::None;
@@ -3081,6 +3103,32 @@ void deleteMsg(const int msg_id)
         .exec();
 }
 
+
+void ifNeedAddTaskSendApps(const PointId_t& point_id, const std::string &task_name)
+{
+    if(task_name != SEND_NEW_APPS_INFO && task_name != SEND_ALL_APPS_INFO) {
+        throw Exception("Unknown task_name");
+        return;
+    }
+    if(task_name == SEND_ALL_APPS_INFO) {
+        if(!checkAPPSSets(point_id)) {
+            LogTrace(TRACE5) << __FUNCTION__ << " Not apps settings ";
+            return;
+        }
+    }
+    TDateTime start_time;
+    bool result = APPS::checkTime(point_id, start_time);
+    if(!result) {
+        LogTrace(TRACE5) << __FUNCTION__ << " Not checked time: ";
+    }
+    if (result || start_time != ASTRA::NoExists) {
+        add_trip_task(point_id.get(), task_name, "", start_time);
+    }
+//    else {
+//        LogTrace(TRACE5) << __FUNCTION__ << " not add task start_time == astra::noexists";
+//    }
+}
+
 void sendAPPSInfo(const PointId_t& point_id, const PointIdTlg_t& point_id_tlg)
 {
     ProgTrace(TRACE5, "sendAPPSInfo: point_id %d, point_id_tlg: %d", point_id.get(), point_id_tlg.get());
@@ -3113,7 +3161,7 @@ void sendAllAPPSInfo(const TTripTaskKey &task)
                "   POINTS.PR_DEL=0 AND POINTS.PR_REG<>0");
     int point_id_tlg;
     cur.def(point_id_tlg).bind(":point_id_spp", task.point_id).exec();
-    while(!cur.fen()){
+    while(!cur.fen()) {
         sendAPPSInfo(PointId_t(task.point_id), PointIdTlg_t(point_id_tlg));
     }
 }

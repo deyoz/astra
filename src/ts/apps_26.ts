@@ -446,7 +446,7 @@ $(set move_id $(get_move_id $(get point_dep)))
 $(combine_brd_with_reg $(get point_dep))
 $(auto_set_craft $(get point_dep))
 
-$(run_trip_task send_apps $(get point_dep))
+$(run_trip_task send_apps $(get point_dep) "uncheck")
 
 # уходят CIRQ-запросы
 # $(CIRQ_61_UT_REQS_APPS_VERSION_26 UT 298 PRG AER)
@@ -536,13 +536,13 @@ $(CHECKIN_PAX_WITH_VISA $(get pax_id) $(get point_dep) $(get point_arv)
 $(INB_ADL_UT_DEL2PAXES PRG AER 298 $(ddmon +0 en))
 
 # должна пойти отмена, но не уходит - ОШИБКА ??
-$(run_trip_task send_apps $(get point_dep))
+$(run_trip_task send_apps $(get point_dep) "uncheck")
 
 
 # приходит ADL с изменением данных по одному пассажиру
 $(INB_ADL_UT_CHG1PAX PRG AER 298 $(ddmon +0 en))
 
-$(run_trip_task send_apps $(get point_dep))
+$(run_trip_task send_apps $(get point_dep) "uncheck")
 
 # уходит пара CICX/CIRQ, но ТОЛЬКО при условии получения ответа
 # ранее по этому пассажиру!!!
@@ -596,7 +596,7 @@ $(set point_arv $(get_next_trip_point_id $(get point_dep)))
 
 $(auto_set_craft $(get point_dep))
 
-$(run_trip_task send_all_apps $(get point_dep))
+$(run_trip_task send_all_apps $(get point_dep) "uncheck")
 
 # уходят CIRQ-запросы
 # $(CIRQ_61_UT_REQS_APPS_VERSION_26 UT 298 PRG AER)

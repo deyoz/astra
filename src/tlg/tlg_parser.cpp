@@ -7303,7 +7303,9 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
           CrsPnrInsQry.SetVariable("class",EncodeClass(iTotals->cl));
           bool is_need_apps = false;
           if (point_id_spp != ASTRA::NoExists) {
-            is_need_apps = APPS::checkAPPSSets(PointId_t(point_id_spp), AirportCode_t(std::string(iTotals->dest)));
+            //Вычисление need_apps для total dests
+            is_need_apps = APPS::checkAPPSSets(PointId_t(point_id_spp),
+                                               AirportCode_t(std::string(iTotals->dest)));
           }
           for(iPnrItem=iTotals->pnr.begin();iPnrItem!=iTotals->pnr.end();iPnrItem++)
           {
@@ -7864,10 +7866,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
              add_trip_task((*it).point_id, SYNC_NEW_CHKD, "");
          };
          if(apps_pax_exists) {
-           TDateTime start_time;
-           bool result = APPS::checkTime(PointId_t(point_id_spp), start_time );
-           if ( result || start_time != ASTRA::NoExists )
-             add_trip_task( point_id_spp, SEND_NEW_APPS_INFO, "", start_time );
+             APPS::ifNeedAddTaskSendApps(PointId_t(point_id_spp), SEND_NEW_APPS_INFO);
          }
          for(int id : paxIdsModified)
            TETickItem::syncOriginalSubclass(id);
