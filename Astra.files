@@ -151,6 +151,8 @@ src/external_spp_synch.cc
 src/external_spp_synch.h
 src/exch_checkin_result.cpp
 src/exch_checkin_result.h
+src/ExchangeIface.cc
+src/ExchangeIface.h
 src/ffp_sirena.cc
 src/ffp_sirena.h
 src/file_queue.cc
@@ -183,6 +185,8 @@ src/mob_payment.cc
 src/mob_payment.h
 src/msg_queue.cc
 src/msg_queue.h
+src/MPSExchangeIface.cc
+src/MPSExchangeIface.h
 src/obrnosir.cc
 src/obrnosir.h
 src/passenger.cc
@@ -241,6 +245,8 @@ src/self_ckin_log.cc
 src/self_ckin_log.h
 src/sirena_exchange.cc
 src/sirena_exchange.h
+src/SWCExchange.cc
+src/SWCExchange.h
 src/sofi.cc
 src/sofi.h
 src/sopp.cc

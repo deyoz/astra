@@ -52,6 +52,7 @@
 #include "libra.h"
 #include "self_ckin_log.h"
 #include "service_eval.h"
+#include "MPSExchangeIface.h"
 #include "mob_payment.h"
 #include "cuws_main.h"
 
@@ -86,6 +87,7 @@ void AstraJxtCallbacks::InitInterfaces()
     new EventsInterface();
     new SalonsInterface();
     new ServiceEvalInterface();
+    new MPS::MPSExchangeIface();
     new CentInterface();
     new PrepRegInterface();
     new SoppInterface();
