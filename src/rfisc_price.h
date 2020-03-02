@@ -240,6 +240,10 @@ class SvcEmdRegnum
     void setSvcEmdRegnum( const SvcEmdRegnum& _regnum ) {
       SvcEmdRegnum::operator = (_regnum);
     }
+    std::string getRegnum() {
+      return regnum;
+    }
+
     std::string toString() {
       return regnum;
     }
@@ -249,12 +253,12 @@ class SvcEmdRegnum
 class SvcEmdCost
 {
   private:
-    float cost;
+    std::string cost;
     std::string currency;
     TElemFmt fmt;
   public:
     void clear() {
-       cost = ASTRA::NoExists;
+       cost.clear();
        currency.clear();
        fmt = efmtUnknown;
     }
@@ -263,8 +267,8 @@ class SvcEmdCost
     SvcEmdCost() {
       clear();
     }
-    SvcEmdCost(float _cost, const std::string _currency, TElemFmt _fmt ):cost(_cost),currency(_currency),fmt(_fmt){}
-    SvcEmdCost(float _cost, const std::string _currency ):cost(_cost),currency(_currency), fmt(efmtUnknown){}
+    SvcEmdCost(std::string& _cost, const std::string _currency, TElemFmt _fmt ):cost(_cost),currency(_currency),fmt(_fmt){}
+    SvcEmdCost(std::string& _cost, const std::string _currency ):cost(_cost),currency(_currency), fmt(efmtUnknown){}
     SvcEmdCost getSvcEmdCost() const {
       SvcEmdCost _cost = *this;
       return _cost;
@@ -272,8 +276,11 @@ class SvcEmdCost
     void setSvcEmdCost( const SvcEmdCost& _cost ) {
       SvcEmdCost::operator = (_cost);
     }
-    float getCost() {
+    std::string getCost() {
       return cost;
+    }
+    std::string getCurrency() {
+      return currency;
     }
 };
 
@@ -430,6 +437,8 @@ class TPriceRFISCList: public std::map<TPaxSegRFISCKey, TPriceServiceItem>, publ
     bool haveStatusDirect( const std::string& statusDirect );
     bool getNextIssueQueryGrpEMD( std::vector<std::string> &svcs);
     bool terminalChoiceAny();
+    float getTotalCost();
+    std::string getTotalCurrency();
 };
 
 

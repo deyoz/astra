@@ -111,6 +111,7 @@ astra_SOURCES = \
   maindcs.cc \
   meridian.cc \
   mob_payment.cc \
+  MPSExchangeIface.cc \
   obrnosir.cc \
   passenger.cc \
   payment.cc \
@@ -315,6 +316,7 @@ noinst_HEADERS = \
   maindcs.h \
   meridian.h \
   mob_payment.h \
+  MPSExchangeIface.h \  
   obrnosir.h \
   passenger.h \
   payment.h \

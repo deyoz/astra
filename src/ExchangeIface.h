@@ -43,12 +43,12 @@ class ExchangeIface : public JxtInterface
 {
   private:
     std::map<std::string,ExchangeResponseHandler> resHandlers;
-    void handleResponse(const std::string& exchangeId, xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode) const;
     static bool equal(const ExchangeResponseHandler& handler1,
                       const ExchangeResponseHandler& handler2);
   protected:
     std::string domainName;
     bool addResponseHandler( const std::string& funcName, const ExchangeResponseHandler&);
+    void handleResponse(const std::string& exchangeId, xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode) const;
     virtual void BeforeRequest(xmlNodePtr& reqNode, xmlNodePtr externalSysResNode, const SirenaExchange::TExchange& req) = 0;
     virtual void BeforeResponseHandle(int reqCtxtId, xmlNodePtr& reqNode, xmlNodePtr& ResNode, std::string& exchangeId ) = 0;
   public:
@@ -59,7 +59,7 @@ class ExchangeIface : public JxtInterface
       AddEvent("kick", JXT_HANDLER(ExchangeIface, KickHandler));
     }
 
-    void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+    virtual void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
     virtual ~ExchangeIface() {}
 };
 

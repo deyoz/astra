@@ -69,6 +69,5 @@ public:
 bool isPaymentAtDesk( int point_id );
 bool isPaymentAtDesk( int point_id, int &method_type );
 
-
 #endif /*_SERVICEEVAL_H_*/
 

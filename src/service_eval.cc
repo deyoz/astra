@@ -17,6 +17,8 @@
 #include "date_time.h"
 #include "serverlib/xml_stuff.h" // для xml_decode_nodelist
 //#include "sberbank.h"
+#include "MPSExchangeIface.h"
+#include "etick/tick_data.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/slogger.h"
@@ -29,6 +31,7 @@ using namespace ASTRA;
 void cacheBack();
 
 const int MANUAL_PAY_METHOD = 1;
+const int MPS_PAY_METHOD = 2;
 
 bool isPaymentAtDesk( int point_id )
 {
@@ -42,6 +45,14 @@ bool isManualPayAtDest( int point_id )
   return ( isPaymentAtDesk( point_id,method_type) &&
            method_type == MANUAL_PAY_METHOD );
 }
+
+bool iMPSPayAtDest( int point_id )
+{
+  int method_type;
+  return ( isPaymentAtDesk( point_id,method_type) &&
+           method_type == MPS_PAY_METHOD );
+}
+
 
 bool isPaymentAtDesk( int point_id, int &method_type )
 {
@@ -256,7 +267,7 @@ class Price {
       is_bagnorm = ( std::string("is_bagnorm") == NodeAsString( "@reason", node, "") );
       LogTrace(TRACE5) << "is_bagnorm=" << is_bagnorm;
       if ( !is_bagnorm ) {
-        baggage = NodeAsString( "@baggage", node );
+        baggage = NodeAsString( "@baggage", node, "" );
         doc = PriceDoc( NodeAsString( "@doc_id", node ), NodeAsString( "@doc_type", node ), NodeAsBoolean( "@unpoundable", NodeAsNode("fare",node), false ) );
       }
       code = NodeAsString( "@code", node );
@@ -1107,7 +1118,6 @@ void ServiceEvalInterface::response_check_in_get_pnr(const std::string& exchange
 
   OrderReq orderReq(res.getSvcEmdRegnum(), res.getSurname());
   RequestFromGrpId( reqNode, grp_id, orderReq );
-  tst();
 }
 
 void ServiceEvalInterface::response_order(const std::string& exchangeId,xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode)
@@ -1305,7 +1315,50 @@ void ServiceEvalInterface::Paid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   if ( svcs.empty() ) {
     throw AstraLocale::UserException("MSG.EMD.NOT_SERVICES_CHOICE");
   }
-  continuePaidRequest(reqNode, resNode);
+
+  if ( iMPSPayAtDest( grpItem.point_dep ) ) {
+    tst();
+    MPS::RegisterMethod registerMethod;
+    MPS::OrderID orderId;
+    orderId.SetShop_Id(555);
+    orderId.SetNumber(registerMethod.getUniqueNumber());
+    registerMethod.setOrder( orderId );
+    //prices.getSvcEmdRegnum(), prices.getSvcEmdPayDoc(), SvcEmdSvcsReq(svcs)
+
+    MPS::Amount cost("cost");
+
+    cost.SetAmount( Ticketing::TaxAmount::Amount( FloatToString(prices.getTotalCost()) ) ); //!!!!
+    cost.SetCurrency( prices.getTotalCurrency() );
+    registerMethod.setCost( cost );
+
+  /*MPS::CustomerInfo customer;
+  customer.Setemail( "djek@sirena2000.ru" );
+  customer.Setname( "DJEK" );
+  customer.Setphone( "+79030000000" );
+  registerMethod.setCustomer( customer );*/
+
+    MPS::OrderFull orderFull;
+    MPS::OrderItemArray sales( "sales" );
+    MPS::OrderItem orderItem;
+    orderItem.setNumber( prices.getRegnum() );
+    orderItem.setTypename( "svc" );
+    orderItem.setHost( "sirena" );
+    MPS::Amount amount("amount");
+    amount.SetCurrency( prices.getTotalCurrency() );
+    amount.SetAmount( Ticketing::TaxAmount::Amount(FloatToString(prices.getTotalCost())) ); //!!!
+    orderItem.setAmount( amount );
+    sales.addItem( orderItem );
+    orderFull.setSales( sales );
+
+    registerMethod.setDescription( orderFull );
+
+    registerMethod.request( reqNode );
+    tst();
+  }
+  else {
+    continuePaidRequest(reqNode, resNode);
+    tst();
+  }
 //  backPaid(reqNode,NULL,resNode); // откат всех оплат, которые не завершилось
 }
 
