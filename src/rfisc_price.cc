@@ -293,18 +293,14 @@ void SvcEmdRegnum::toXML(xmlNodePtr node,SvcEmdRegnum::Enum style) const {
 
 void SvcEmdCost::fromXML(xmlNodePtr node) {
   clear();
-  cost = NodeAsFloat( "cost",node,ASTRA::NoExists);
-  if ( cost != ASTRA::NoExists ) {
+  cost = NodeAsString( "cost",node,"");
+  if ( cost.empty() ) {
     currency = ElemToElemId( etCurrency, NodeAsString( "cost/@curr",node), fmt );
   }
 }
 
 void SvcEmdCost::toXML(xmlNodePtr node) const {
-  if ( cost != ASTRA::NoExists ) {
-    std::stringstream stream;
-    stream << std::fixed << std::setprecision(2) << cost;
-    SetProp(NewTextChild(node,"cost",stream.str()),"curr",currency); //ElemIdToElem
-  }
+  SetProp(NewTextChild(node,"cost",cost),"curr",currency); //ElemIdToElem
 }
 
 void SvcEmdSvcsReq::toXML(xmlNodePtr node) const
@@ -787,6 +783,37 @@ bool TPriceRFISCList::terminalChoiceAny()
   }
   return false;
 }
+
+float TPriceRFISCList::getTotalCost()
+{
+  float res = 0.0;
+  for ( auto& nitem : *this ) { //filtered
+    SVCS svcs;
+    nitem.second.getSVCS( svcs, TPriceServiceItem::EnumSVCS::only_for_pay );
+    for ( const auto& nsvc : svcs ) {
+      if ( nsvc.second.valid() ) {
+        res += nsvc.second.price;
+      }
+    }
+  }
+  return res;
+}
+
+std::string TPriceRFISCList::getTotalCurrency()
+{
+  for ( auto& nitem : *this ) { //filtered
+    SVCS svcs;
+    nitem.second.getSVCS( svcs, TPriceServiceItem::EnumSVCS::only_for_pay );
+    for ( const auto& nsvc : svcs ) {
+      if ( nsvc.second.valid() &&
+           !nsvc.second.currency.empty() ) {
+        return nsvc.second.currency;
+      }
+    }
+  }
+  return std::string("");
+}
+
 
 bool TPriceRFISCList::filterFromTerminal(const TPriceRFISCList& list)
 {
