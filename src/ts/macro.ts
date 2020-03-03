@@ -122,8 +122,6 @@ $(defmacro PREPARE_SEASON_SCD
 
 #########################################################################################
 
-#########################################################################################
-
 $(defmacro PREPARE_SEASON_SCD_TRANSIT
   airl
   depp
@@ -177,8 +175,6 @@ $(defmacro PREPARE_SEASON_SCD_TRANSIT
   </query>
 </term>}
 }) # end-of-macro PREPARE_SEASON_SCD_TRANSIT
-
-#########################################################################################
 
 #########################################################################################
 
@@ -696,7 +692,7 @@ Y059
 .RN/-1$(surname)/$(name)
 .R/FOID PPZB400522509-1$(surname)/$(name)
 .R/INFT HK1 01JAN17 $(inftSurname)/$(inftName)-1$(surname)/$(name)
-.R/DOCS HK1/P/RUS/1234566/RUS/01JAN17/MI/01JAN20/$(inftSurname)/$(inftName)_
+.R/DOCS HK1/P/RUS/1234566/RUS/01JAN17/MI/01JAN20/$(inftSurname)/$(inftName)
 -LED000K
 -LED000M
 -LED000U
@@ -1298,8 +1294,6 @@ $(defmacro CHECKIN_PAX
 </term>}
 
 }) #end-of-macro CHECKIN_PAX
-
-#########################################################################################
 
 #########################################################################################
 
@@ -2406,7 +2400,6 @@ $(PNL_UT_C7Y56_PART6 $(depp) $(arrp) $(fltno) $(depd))
 }) #end-of-macro INB_PNL_UT
 
 #########################################################################################
-#########################################################################################
 
 $(defmacro INB_PNL_UT_TRANSFER1
     depp
@@ -2417,12 +2410,11 @@ $(defmacro INB_PNL_UT_TRANSFER1
     addr_from=TJMRMUT
 {
 <<
-$(PNL_UT_C7Y56_PART1_TRANSFER $(depp) $(arrp) $(fltno) $(depd))
+$(PNL_UT_C7Y56_TRANSFER1 $(depp) $(arrp) $(fltno) $(depd))
 
 }) #end-of-macro INB_PNL_UT_TRANSFER1
 
 
-#########################################################################################
 #########################################################################################
 
 $(defmacro INB_PNL_UT_TRANSFER2
@@ -2434,11 +2426,10 @@ $(defmacro INB_PNL_UT_TRANSFER2
     addr_from=TJMRMUT
 {
 <<
-$(PNL_UT_C7Y56_PART2_TRANSFER $(depp) $(arrp) $(fltno) $(depd))
+$(PNL_UT_C7Y56_TRANSFER2 $(depp) $(arrp) $(fltno) $(depd))
 
 }) #end-of-macro INB_PNL_UT_TRANSFER2
 
-#########################################################################################
 #########################################################################################
 
 $(defmacro INB_PNL_UT_TRANSFER3
@@ -2450,11 +2441,10 @@ $(defmacro INB_PNL_UT_TRANSFER3
     addr_from=TJMRMUT
 {
 <<
-$(PNL_UT_C7Y56_PART3_TRANSFER $(depp) $(arrp) $(fltno) $(depd))
+$(PNL_UT_C7Y56_TRANSFER3 $(depp) $(arrp) $(fltno) $(depd))
 
 }) #end-of-macro INB_PNL_UT_TRANSFER3
 
-#########################################################################################
 #########################################################################################
 
 $(defmacro INB_ADL_UT_DEL2PAXES
@@ -2485,7 +2475,7 @@ $(ADL_UT_C7Y56_CHG1PAX $(depp) $(arrp) $(fltno) $(depd))
 
 }) #end-of-macro INB_ADL_UT_CHG1PAX
 
-#####################################################################################
+#########################################################################################
 
 $(defmacro CIRQ_3_UT_REQS_APPS_VERSION_21_TRANSFER
     airl
@@ -2836,6 +2826,7 @@ $(set msg_id61 $(capture 1))
 }) #end-if-macro CIRQ_61_UT_REQS
 
 #########################################################################################
+
 $(defmacro CIRQ_21
     pre_checkin=""
     airl
@@ -2941,9 +2932,9 @@ $(defmacro CIRQ_26
 $(set cirq_msg_id $(capture 1))
 
 })  #end-if-macro CIRQ_26
-#########################################################################################
 
 #########################################################################################
+
 $(defmacro CICX_21
     pre_checkin
     airl

@@ -1,4 +1,4 @@
-$(defmacro PNL_UT_C7Y56_PART1_TRANSFER
+$(defmacro PNL_UT_C7Y56_TRANSFER1
     depp=AER
     arrp=PRG
     fltno=298
@@ -83,9 +83,11 @@ Y014
 # .R/PSPT HK1 P9205589611/RU/23SEP83/SELIVANOV/RUSLAN/M
 # .R/FOID PPP9205589611
 ENDPNL}
-) #end-of-macro PNL_UT_C7Y56_PART1_TRANSFER
+) #end-of-macro PNL_UT_C7Y56_TRANSFER1
 
-$(defmacro PNL_UT_C7Y56_PART2_TRANSFER
+#########################################################################################
+
+$(defmacro PNL_UT_C7Y56_TRANSFER2
     depp=AER
     arrp=PRG
     fltno=298
@@ -142,9 +144,11 @@ Y014
 .R/TKNE HK1 2985523437721/1
 .R/FOID HK1 PP32427293
 ENDPNL}
-) #end-of-macro PNL_UT_C7Y56_PART2_TRANSFER
+) #end-of-macro PNL_UT_C7Y56_TRANSFER2
 
-$(defmacro PNL_UT_C7Y56_PART3_TRANSFER
+#########################################################################################
+
+$(defmacro PNL_UT_C7Y56_TRANSFER3
     depp=AER
     arrp=PRG
     fltno=298
@@ -200,8 +204,9 @@ Y014
 .R/TKNE HK1 2985523437721/1
 .R/FOID HK1 PP32427293
 ENDPNL}
-) #end-of-macro PNL_UT_C7Y56_PART3_TRANSFER
+) #end-of-macro PNL_UT_C7Y56_TRANSFER3
 
+#########################################################################################
 
 $(defmacro PNL_UT_C7Y56_CHECKIN
     depp=AER
@@ -260,6 +265,8 @@ Y014
 .R/FOID HK1 PP32427293
 ENDPNL}
 ) #end-of-macro PNL_UT_C7Y56_CHECKIN
+
+#########################################################################################
 
 $(defmacro PNL_UT_C7Y56_PART1
     depp=AER
@@ -368,6 +375,8 @@ Y014
 .R/INFT HK1 22AUG19 AKOPOVA/OLIVIIA
 .R/TKNE HK1 2986145134262/2
 .R/TKNE HK1 INF2986145134263/2
+.U/2222-STIPIDI/ANGELINA
+.U/3333/I-STIPIDI/ANGELINA
 .R/DOCS HK1/P/RU/0305555064/RU/23JUL82/F/07OCT24/STIPIDI
 .RN//ANGELINA
 .R/PSPT HK1 0305555064/RU/23JUL82/STIPIDI/ANGELINA/F
@@ -937,7 +946,6 @@ DEL
 -$(arrp)000F
 ENDADL}
 ) #end-of-macro ADL_UT_C7Y56_DEL2PAXES
-
 
 #########################################################################################
 

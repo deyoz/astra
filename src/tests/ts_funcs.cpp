@@ -324,17 +324,31 @@ static std::string FP_run_daemon(const std::vector<std::string> &params) {
     return "";
 }
 
-static std::vector<std::string> pointIdSppVector()
-{
-    std::vector<std::string> res;
-    std::string point_id_spp;
-    OciCpp::CursCtl cur = make_curs("select POINT_ID_SPP from TLG_BINDING order by POINT_ID_TLG desc");
+namespace {
 
-    cur.
-        def(point_id_spp).
-        exec();
+struct PointsPair
+{
+    PointId_t    pointIdSpp;
+    PointIdTlg_t pointIdTlg;
+};
+
+}//namespace
+
+static std::vector<PointsPair> pointsPairVector()
+{
+    std::vector<PointsPair> res;
+    PointId_t::base_type point_id_spp;
+    PointIdTlg_t::base_type point_id_tlg;
+    OciCpp::CursCtl cur = make_curs(
+"select POINT_ID_SPP, POINT_ID_TLG from TLG_BINDING order by POINT_ID_TLG desc");
+
+    cur
+            .def(point_id_spp)
+            .def(point_id_tlg)
+            .exec();
     while(!cur.fen()) {
-        res.push_back(point_id_spp);
+        res.push_back({PointId_t(point_id_spp),
+                       PointIdTlg_t(point_id_tlg)});
     }
 
     if(res.empty()) {
@@ -346,8 +360,11 @@ static std::vector<std::string> pointIdSppVector()
 
 static std::string lastPointIdSpp(size_t pos)
 {
-    std::vector<std::string> res = pointIdSppVector();
-    return (res.empty() || (res.size() - 1) < pos) ? "" : res.at(pos);
+    auto res = pointsPairVector();
+    if((res.empty() || (res.size() - 1) < pos)) {
+        return "";
+    }
+    return std::to_string(res.at(pos).pointIdSpp.get());
 }
 
 static std::string FP_last_point_id_spp(const std::vector<std::string>& p)
@@ -356,6 +373,24 @@ static std::string FP_last_point_id_spp(const std::vector<std::string>& p)
         return lastPointIdSpp(std::stoi(p.at(0)));
     } else {
         return lastPointIdSpp(0);
+    }
+}
+
+static std::string lastPointIdTlg(size_t pos)
+{
+    auto res = pointsPairVector();
+    if((res.empty() || (res.size() - 1) < pos)) {
+        return "";
+    }
+    return std::to_string(res.at(pos).pointIdTlg.get());
+}
+
+static std::string FP_last_point_id_tlg(const std::vector<std::string>& p)
+{
+    if (p.size() > 0) {
+        return lastPointIdTlg(std::stoi(p.at(0)));
+    } else {
+        return lastPointIdTlg(0);
     }
 }
 
@@ -507,6 +542,33 @@ static std::string FP_getSinglePaxTid(const std::vector<std::string>& p)
     assert(!lpRes.lSeg.empty());
     const XmlSegment& paxSeg = lpRes.lSeg.front();
     return std::to_string(paxSeg.passengers.front().tid);
+}
+
+static std::string FP_getCrsPaxUniqRef(const std::vector<std::string>& p)
+{
+    assert(p.size() == 3);
+    PointIdTlg_t pointDep(std::stoi(p.at(0)));
+    Surname_t surname(p.at(1));
+    Name_t name(p.at(2));
+
+    LogTrace(TRACE3) << __FUNCTION__ << " by "
+                     << pointDep << "/"
+                     << surname << "/" << name;
+
+    std::string uniqRef;
+    auto cur = make_curs(
+"select UNIQUE_REFERENCE from CRS_PAX, CRS_PNR "
+"where CRS_PAX.PNR_ID=CRS_PNR.PNR_ID "
+"and CRS_PAX.SURNAME=:surname and CRS_PAX.NAME=:name "
+"and CRS_PNR.POINT_ID=:point_dep");
+    cur
+            .defNull(uniqRef, "")
+            .bind(":point_dep", pointDep)
+            .bind(":surname",   surname)
+            .bind(":name",      name)
+            .EXfet();
+
+    return uniqRef;
 }
 
 static std::string FP_getIatciTabId(const std::vector<std::string>& p)
@@ -854,6 +916,13 @@ static std::string FP_checkTripAlarms(const std::vector<std::string>& par)
     return formatTripAlarms(getTripAlarms("TRIP_ALARMS", point_id));
 }
 
+static std::string FP_descTest(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() == 1);
+    std::cout << "Test #" << par.at(0) << std::endl;
+    return "";
+}
+
 static std::string FP_checkFlightTasks(const std::vector<std::string>& par)
 {
     ASSERT(par.size() == 1);
@@ -867,6 +936,7 @@ FP_REGISTER("!!", FP_req);
 FP_REGISTER("astra_hello", FP_astra_hello);
 FP_REGISTER("last_edifact_ref", FP_last_edifact_ref);
 FP_REGISTER("last_point_id_spp", FP_last_point_id_spp);
+FP_REGISTER("last_point_id_tlg", FP_last_point_id_tlg);
 FP_REGISTER("get_next_trip_point_id", FP_get_next_trip_point_id);
 FP_REGISTER("get_dep_point_id", FP_get_dep_point_id);
 FP_REGISTER("get_move_id", FP_get_move_id);
@@ -884,6 +954,7 @@ FP_REGISTER("get_single_grp_id", FP_getSingleGrpId);
 FP_REGISTER("get_single_pax_id", FP_getSinglePaxId);
 FP_REGISTER("get_single_tid", FP_getSingleTid);
 FP_REGISTER("get_single_pax_tid",FP_getSinglePaxTid);
+FP_REGISTER("get_crs_pax_unique_ref", FP_getCrsPaxUniqRef);
 FP_REGISTER("get_iatci_tab_id", FP_getIatciTabId);
 FP_REGISTER("get_point_tid", FP_getPointTid);
 FP_REGISTER("get_lat_code", FP_get_lat_code);
@@ -901,5 +972,7 @@ FP_REGISTER("combine_brd_with_reg", FP_combineBrdWithReg);
 FP_REGISTER("check_pax_alarms", FP_checkPaxAlarms);
 FP_REGISTER("check_crs_pax_alarms", FP_checkCrsPaxAlarms);
 FP_REGISTER("check_trip_alarms", FP_checkTripAlarms);
+FP_REGISTER("desc_test", FP_descTest);
 FP_REGISTER("check_flight_tasks", FP_checkFlightTasks);
+
 #endif /* XP_TESTING */
