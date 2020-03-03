@@ -41,9 +41,11 @@ class MPSClient : public ExchangeIterface::HTTPClient
         clear();
         addr = getTCLParam("MPS_ENDPOINT","");
         size_t fnd_b = addr.find(":");
+        int vport;
         if ( fnd_b != std::string::npos &&
-             StrToInt( addr.substr( fnd_b+1 ).c_str(), port ) != EOF ) {
+             StrToInt( addr.substr( fnd_b+1 ).c_str(), vport ) != EOF ) {
           addr.erase( addr.begin() + fnd_b, addr.end() );
+          port = vport;
         }
         else {
           port = 80;
