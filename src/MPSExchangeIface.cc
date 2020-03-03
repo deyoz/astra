@@ -39,15 +39,22 @@ class MPSClient : public ExchangeIterface::HTTPClient
       }
       void fromDB( ) {
         clear();
-        addr = "127.0.0.1";
-        port = 8081;
+        addr = getTCLParam("MPS_ENDPOINT","");
+        size_t fnd_b = addr.find(":");
+        if ( fnd_b != std::string::npos &&
+             StrToInt( addr.substr( fnd_b+1 ).c_str(), port ) != EOF ) {
+          addr.erase( addr.begin() + fnd_b, addr.end() );
+        }
+        else {
+          port = 80;
+        }
         timeout = 15000;
       }
     };
     virtual std::string makeHttpPostRequest( const std::string& postbody) const {
       std::stringstream os; //+//not use POST http:// + // + " HTTP/1.1\r\n"
       os << "POST " << resource << " HTTP/1.1\r\n";
-      os << "Host: " << m_addr.host << ":8081\r\n";
+      os << "Host: " << m_addr.host << ":" << m_addr.port << "\r\n";
       os << "Content-Type: application/x-www-form-urlencoded\r\n";
       os << authorization << "\r\n";
       os << "Accept: */*" << "\r\n";
