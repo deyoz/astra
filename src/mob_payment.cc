@@ -450,7 +450,10 @@ bool SearchPassengersResponse::suitable(const Passenger& passenger,
 void SearchPassengersResponse::filterPassengers(const SearchPassengersRequest& req)
 {
   for(auto p=passengers.begin(); p!=passengers.end();)
-    if (!suitable(*p, req)) p=passengers.erase(p); else ++p;
+    if (!suitable(*p, req) || !p->tkn.validET())
+      p=passengers.erase(p);
+    else
+      ++p;
 }
 
 const SearchPassengersResponse& SearchPassengersResponse::toXML(xmlNodePtr node) const
