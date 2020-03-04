@@ -21,7 +21,13 @@ void Search_Bags_By_BCBP(xmlNodePtr actionNode, xmlNodePtr resNode);
 typedef void (*TCUWSHandler)(xmlNodePtr, xmlNodePtr);
 typedef map<string, TCUWSHandler> TCUWSHandlerList;
 static const TCUWSHandlerList handler_list {
-    {"Search_Bags_By_BCBP", Search_Bags_By_BCBP}
+    {"Get_EligibleBagLegs_By_TagNum",                       Get_EligibleBagLegs_By_TagNum},
+    {"Search_Bags_By_BCBP",                                 Search_Bags_By_BCBP},
+    {"Search_Bags_By_PassengerDetails",                     Search_Bags_By_PassengerDetails},
+    {"Search_FreeBagAllowanceOffer_By_BagType_PaxDetails",  Search_FreeBagAllowanceOffer_By_BagType_PaxDetails},
+    {"Search_FreeBagAllowanceOffer_By_BagType_BCBP",        Search_FreeBagAllowanceOffer_By_BagType_BCBP},
+    {"Set_Bag_as_Active",                                   Set_Bag_as_Active},
+    {"Set_BagDetails_In_BagInfo",                           Set_BagDetails_In_BagInfo},
 };
 
 void dump_content(xmlNodePtr contentNode)
@@ -33,11 +39,6 @@ void dump_content(xmlNodePtr contentNode)
         dump_content(curNode);
         curNode = curNode->next;
     }
-}
-
-void CUWSSuccess(xmlNodePtr resNode)
-{
-    to_content(resNode, "/cuws_success.xml");
 }
 
 void CUWSInternalServerError(xmlNodePtr resNode)
