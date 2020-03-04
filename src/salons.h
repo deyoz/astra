@@ -270,23 +270,12 @@ struct TRFISC {
 };
 
 struct TExtRFISC: public TRFISC {
-  bool pr_prot_ckin;
+  bool pr_prot_ckin=false;
+  boost::optional<int> brand_priority;
   void clear() {
     TRFISC::clear();
     pr_prot_ckin = false;
-  }
-  TExtRFISC() {
-    TRFISC();
-    pr_prot_ckin = false;
-  }
-
-  TExtRFISC(const std::string &color,
-           const double &rate,
-           const std::string &currency_id,
-           const std::string &code,
-           bool pr_prot_ckin ) {
-     TRFISC(color,rate,currency_id,code);
-     this->pr_prot_ckin = pr_prot_ckin;
+    brand_priority = boost::none;
   }
 };
 
@@ -294,7 +283,6 @@ struct TSeatTariff {
     std::string color;
     double rate;
     std::string currency_id;
-    //std::string RFISC;
     TSeatTariff()
     {
       clear();
@@ -313,7 +301,6 @@ struct TSeatTariff {
       color.clear();
       rate = 0.0;
       currency_id.clear();
-      //RFISC.clear();
     }
     bool empty() const
     {
