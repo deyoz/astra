@@ -195,9 +195,11 @@ void TSeatTariffMap::get(TQuery &Qry, const std::string &traceDetail)
     rfisc.currency_id=Qry.FieldAsString("rate_cur");
     rfisc.code=Qry.FieldAsString("rfisc");
     rfisc.pr_prot_ckin=Qry.FieldAsInteger("pr_prot_ckin");
+    if (Qry.GetFieldIndex("brand_priority")>=0)
+      rfisc.brand_priority=Qry.FieldAsInteger("brand_priority");
 
     pair<TSeatTariffMapType::iterator, bool> i=insert(make_pair(rfisc.color, rfisc));
-    if (!i.second && rfisc!=i.first->second)
+    if (!i.second && rfisc!=i.first->second && rfisc.brand_priority==i.first->second.brand_priority)
     {
       ProgError(STDLOG, "TSeatTariffMap::get: color=%s duplicated (%s)", rfisc.color.c_str(), traceDetail.c_str());
       trace(TRACE5);
@@ -277,7 +279,8 @@ void TSeatTariffMap::get(const TAdvTripInfo &operFlt, const TSimpleMktFlight &ma
     _potential_queries++;
     _real_queries++;
     TCachedQuery Qry(
-      "SELECT rfisc_comp_props.rate_color, rfisc_comp_props.pr_prot_ckin, rfisc_rates.rate, rfisc_rates.rate_cur, rfisc_rates.rfisc "
+      "SELECT rfisc_comp_props.rate_color, rfisc_comp_props.pr_prot_ckin, rfisc_rates.rate, rfisc_rates.rate_cur, rfisc_rates.rfisc, "
+      "       LENGTH(:fare_basis)-REGEXP_COUNT(brand_fares.fare_basis, '[^*]') AS brand_priority "
       "FROM brand_fares, rfisc_rates, rfisc_comp_props "
       "WHERE brand_fares.airline=rfisc_rates.airline AND "
       "      brand_fares.brand=rfisc_rates.brand AND "
@@ -289,7 +292,7 @@ void TSeatTariffMap::get(const TAdvTripInfo &operFlt, const TSimpleMktFlight &ma
       "      :fare_basis LIKE REPLACE(brand_fares.fare_basis,'*','%') AND "
       "      :issue_date>=brand_fares.sale_first_date AND "
       "      (brand_fares.sale_last_date IS NULL OR :issue_date<brand_fares.sale_last_date) "
-      "ORDER BY LENGTH(:fare_basis)-REGEXP_COUNT(brand_fares.fare_basis, '[^*]') ",
+      "ORDER BY brand_priority",
       QParams() << QParam("airline", otString, operFlt.airline)
                 << QParam("fare_basis", otString, etick.fare_basis)
                 << QParam("issue_date", otDate, etick.issue_date)
@@ -4336,7 +4339,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
       if ( SALONS2::Checkin( tariff_pax_id ) ) {
         tariffMap.get( tariff_pax_id );
         paxTariff = ( tariffMap.status() == TSeatTariffMap::stUseRFISC );
-        ProgTrace( TRACE5, "RFISC CMode=%d, paxTariff=%d, tariff_pax_id=%d", RFISCMode, paxTariff, tariff_pax_id );
+        ProgTrace( TRACE5, "RFISCMode=%d, paxTariff=%d, tariff_pax_id=%d", RFISCMode, paxTariff, tariff_pax_id );
         tariffMap.trace(TRACE5);
       }
       else {
