@@ -125,7 +125,7 @@ const std::string AppsPaxDataReadQuery = "select PAX_ID, APPS_PAX_ID, STATUS, PA
                                          " POINT_ID, FLT_NUM, DEP_PORT, DEP_DATE, ARV_PORT, ARV_DATE, "
                                          " CKIN_FLT_NUM, CKIN_PORT, CKIN_POINT_ID,"
                                          " COUNTRY_FOR_DATA, DOCO_TYPE, DOCO_NO, COUNTRY_ISSUANCE, DOCO_EXPIRY_DATE, "
-                                         " NUM_STREET, CITY, STATE, POSTAL_CODE, REDRESS_NUMBER, TRAVELLER_NUMBER "
+                                         " NUM_STREET, CITY, STATE, POSTAL_CODE, REDRESS_NUMBER, TRAVELLER_NUMBER, SETTINGS_ID "
                                          "from APPS_PAX_DATA ";
 
 
@@ -415,7 +415,7 @@ public:
 class IRequest
 {
 public:
-    virtual void save(const int version) const {}
+    virtual void save() const {}
     virtual std::string msg(const int version) const = 0;
     virtual int getMsgId() const = 0;
     virtual PointId_t getPointId() const = 0;
@@ -426,14 +426,14 @@ class PaxRequest : public IRequest
 {
 public:
     PaxRequest(TransactionData trs, FlightData inflight, Opt<FlightData> ckinflight,
-             PaxData pax, Opt<PaxAddData> paxadd)
-             : trans(trs), int_flt(inflight), ckin_flt(ckinflight), pax(pax), pax_add(paxadd)
+             PaxData pax, Opt<PaxAddData> paxadd, const AppsSettingsId_t& id = AppsSettingsId_t(ASTRA::NoExists))
+             : trans(trs), int_flt(inflight), ckin_flt(ckinflight), pax(pax), pax_add(paxadd), settings_id(id)
     {
     }
 
-    static Opt<PaxRequest> createFromDB(RequestType type, const PaxId_t pax_id,
-                                        const std::string& override_type="");
-    static Opt<PaxRequest> fromDBByPaxId(const PaxId_t pax_id);
+    static Opt<PaxRequest> createFromDB(RequestType type, const PaxId_t &pax_id,
+                                        const AppsSettingsId_t &settings_id, const std::string& override_type="");
+    static Opt<PaxRequest> fromDBByPaxId(const PaxId_t &pax_id, const AppsSettingsId_t &settings_id);
     static Opt<PaxRequest> fromDBByMsgId(const int msg_id);
 
     bool operator == (const PaxRequest &c) const;
@@ -448,7 +448,7 @@ public:
     void ifOutOfSyncSendAlarm(const std::string& status, const bool is_the_same) const;
     void ifNeedDeleteApps(const std::string& status) const;
 
-    void save(const int version) const override;
+    void save() const override;
     std::string msg(const int version) const override;
     int getMsgId() const override
     {
@@ -477,15 +477,17 @@ public:
     }
 
 private:
-    PaxRequest() = default;
     TransactionData trans;
     FlightData int_flt;
     Opt<FlightData> ckin_flt;
     PaxData pax;
     Opt<PaxAddData> pax_add;
-    static Opt<PaxRequest> createByPaxId(const PaxId_t pax_id, const std::string& override_type);
-    static Opt<PaxRequest> createByCrsPaxId(const PaxId_t pax_id, const std::string& override_type);
-    static Opt<PaxRequest> createByFields(const RequestType reqType, const PaxId_t pax_id,
+    AppsSettingsId_t settings_id;
+    static Opt<PaxRequest> createByPaxId(const PaxId_t pax_id, const AppsSettingsId_t &settings_id,
+                                         const std::string& override_type);
+    static Opt<PaxRequest> createByCrsPaxId(const PaxId_t pax_id, const AppsSettingsId_t &id,
+                                            const std::string& override_type);
+    static Opt<PaxRequest> createByFields(const RequestType reqType, const PaxId_t pax_id, const AppsSettingsId_t &settings_id,
                                           const APPS::CheckInInfo &info, bool pre_checkin,
                                           ASTRA::TGender::Enum gender, const std::string& override_type,
                                           const AirlineCode_t &airline, bool need_del, Opt<RegNo_t> reg_no);
@@ -598,7 +600,7 @@ public:
 
     void save() const
     {
-        req->save(getVersion());
+        req->save();
         saveAppsMsg(getMsg(), msg_id, send_attempts, point_id, settings_id);
     }
     void saveAppsMsg(const std::string& text, const int msg_id, int send_attempts,
@@ -782,6 +784,11 @@ public:
                 traveller_number};
     }
 
+    AppsSettingsId_t loadSettingsId()
+    {
+        return AppsSettingsId_t(settings_id);
+    }
+
 
 private:
     OciCpp::CursCtl &cur;
@@ -842,6 +849,8 @@ private:
     std::string postal_code; // Address: Postal Code // 12
     std::string redress_number; // Passenger Redress Number // 13 // omit
     std::string traveller_number; // Known Traveller Number // 14 // omit
+    //SettingsId
+    int settings_id;
 
     void define()
     {
@@ -899,7 +908,9 @@ private:
             .defNull(state,"")
             .defNull(postal_code,"")
             .defNull(redress_number,"")
-            .defNull(traveller_number,"");
+            .defNull(traveller_number,"")
+            //SettingsId
+            .defNull(settings_id, ASTRA::NoExists);
     }
 };
 
@@ -953,7 +964,7 @@ void processCrsPax(const PaxId_t& pax_id, const std::string& override_type)
 {
     ProgTrace(TRACE5, "processCrsPax: %d", pax_id.get());
     auto settings = getAppsSetsByCrsPaxId(pax_id);
-    settings = filterByInboundOutbound(settings);
+    //settings = filterByInboundOutbound(settings);
     settings = filterByPreCheckin(settings);
     if(!settings.empty() && !isAlreadyCheckedIn(pax_id)) {
         sendAppsMessages(pax_id, settings, Crs, override_type);
@@ -975,16 +986,17 @@ void sendAppsMessages(const PaxId_t& pax_id, const std::set<AppsSettings> & apps
                       const bool is_forced)
 {
     std::vector<APPSMessage> messages;
-    LogTrace(TRACE5) << __FUNCTION__ << " pax_id: " << pax_id.get();
-    LogTrace(TRACE5) << __FUNCTION__ << " settings size: " << apps_settings.size();
+    LogTrace(TRACE5) << __FUNCTION__ << " pax_id: " << pax_id
+                     << " settings size: " << apps_settings.size();
     for(const auto & country_settings : apps_settings)
     {
-        Opt<PaxRequest> new_pax = PaxRequest::createFromDB(reqType, pax_id, override_type);
+        Opt<PaxRequest> new_pax = PaxRequest::createFromDB(reqType, pax_id,
+                                                           country_settings.getId(), override_type);
         if(!new_pax) {
             continue;
         }
         //LogTrace(TRACE5) << __FUNCTION__ << " new_pax trans_code: " << new_pax->getTrans().code;
-        Opt<PaxRequest> actual_pax = PaxRequest::fromDBByPaxId(pax_id);
+        Opt<PaxRequest> actual_pax = PaxRequest::fromDBByPaxId(pax_id, country_settings.getId());
         bool is_exists = actual_pax.is_initialized();
         bool is_the_same = (actual_pax == new_pax);
         bool needNew=false, needCancel=false, needUpdate=false;
@@ -997,11 +1009,11 @@ void sendAppsMessages(const PaxId_t& pax_id, const std::set<AppsSettings> & apps
             new_pax->ifNeedDeleteApps(status);
             new_pax->ifOutOfSyncSendAlarm(status, is_the_same);
         }
-        LogTrace(TRACE5)<<__FUNCTION__
-                        <<" is_exists: "    << is_exists  <<" is_the_same: "<< is_the_same
-                        <<" is_the_cancel: "<< (is_exists && actual_pax->getTrans().code=="CICX")
-                        <<" status: "       << status    <<" needNew: "<< needNew
-                        <<" needCancel: "   << needCancel <<" needUpdate: "<<needUpdate;
+//        LogTrace(TRACE5)<<__FUNCTION__
+//                        <<" is_exists: "    << is_exists  <<" is_the_same: "<< is_the_same
+//                        <<" is_the_cancel: "<< (is_exists && actual_pax->getTrans().code=="CICX")
+//                        <<" status: "       << status    <<" needNew: "<< needNew
+//                        <<" needCancel: "   << needCancel <<" needUpdate: "<<needUpdate;
 
         if(needCancel || needUpdate) {
              //actual_pax->save(country_settings.version());
@@ -1012,7 +1024,6 @@ void sendAppsMessages(const PaxId_t& pax_id, const std::set<AppsSettings> & apps
             messages.emplace_back(country_settings, make_unique<PaxRequest>(new_pax.get()));
         }
     }
-    LogTrace(TRACE5) << __FUNCTION__ << "msg size: "<< messages.size();
     for(auto & msg : messages) {
         msg.send();
         msg.save();
@@ -1286,7 +1297,7 @@ void addAPPSAlarm(const PaxId_t& pax_id,
                   const std::initializer_list<Alarm::Enum>& alarms,
                   const PointId_t& point_id_spp)
 {
-    LogTrace(TRACE5) << __FUNCTION__ << " pax_id: " << pax_id.get();
+    LogTrace(TRACE5) << __FUNCTION__ << " pax_id: " << pax_id;
     if (addAlarmByPaxId(pax_id.get(), alarms, {paxCheckIn, paxPnl})) {
         syncAPPSAlarms(pax_id, point_id_spp);
     }
@@ -1296,7 +1307,7 @@ void deleteAPPSAlarm(const PaxId_t pax_id,
                      const std::initializer_list<Alarm::Enum>& alarms,
                      const PointId_t point_id_spp)
 {
-    LogTrace(TRACE5) << __FUNCTION__ << " pax_id: " << pax_id.get();
+    LogTrace(TRACE5) << __FUNCTION__ << " pax_id: " << pax_id;
     if (deleteAlarmByPaxId(pax_id.get(), alarms, {paxCheckIn, paxPnl})) {
         syncAPPSAlarms(pax_id, point_id_spp);
     }
@@ -1304,7 +1315,7 @@ void deleteAPPSAlarm(const PaxId_t pax_id,
 
 void deleteAPPSAlarms(const PaxId_t& pax_id, const PointId_t& point_id_spp)
 {
-    LogTrace(TRACE5) << __FUNCTION__ << " pax_id: " << pax_id.get();
+    LogTrace(TRACE5) << __FUNCTION__ << " pax_id: " << pax_id;
     if (deleteAlarmByPaxId(
                 pax_id.get(),
                 {Alarm::APPSNegativeDirective, Alarm::APPSError,Alarm::APPSConflict},
@@ -1322,7 +1333,7 @@ void deleteAPPSAlarms(const PaxId_t& pax_id, const PointId_t& point_id_spp)
 void AppsCollector::addPaxItem(const PaxId_t &pax_id, const std::string &override, bool is_forced)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " "
-                     << pax_id.get() << "; "
+                     << pax_id << "; "
                      << override << "; "
                      << is_forced;
     m_paxItems.push_back({ pax_id, override, is_forced });
@@ -2088,24 +2099,26 @@ static Opt<PaxRequest> paxRequestFromDb(OciCpp::CursCtl & cur)
         LogTrace(TRACE5) << __FUNCTION__ << " Apps mapper can't execute ";
         return boost::none;
     }
-    PaxData pax                = appsMapper.loadPaxData();
-    TransactionData trs        = appsMapper.loadTrans();
-    FlightData intFlight       = appsMapper.loadIntFlight();
-    Opt<FlightData> ckinFlight = appsMapper.loadCkinFlight();
-    Opt<PaxAddData> paxAdd     = appsMapper.loadPaxAddData();
+    PaxData pax                  = appsMapper.loadPaxData();
+    TransactionData trs          = appsMapper.loadTrans();
+    FlightData intFlight         = appsMapper.loadIntFlight();
+    Opt<FlightData> ckinFlight   = appsMapper.loadCkinFlight();
+    Opt<PaxAddData> paxAdd       = appsMapper.loadPaxAddData();
+    AppsSettingsId_t settings_id = appsMapper.loadSettingsId();
     auto point_info = getPointInfo(intFlight.point_id);
     if(!point_info) {
         return boost::none;
     }
-    return PaxRequest(trs, intFlight, ckinFlight, pax, paxAdd);
+    return PaxRequest(trs, intFlight, ckinFlight, pax, paxAdd, settings_id);
 }
 
-Opt<PaxRequest> PaxRequest::fromDBByPaxId(const PaxId_t pax_id)
+Opt<PaxRequest> PaxRequest::fromDBByPaxId(const PaxId_t& pax_id, const AppsSettingsId_t& settings_id)
 {
-    LogTrace(TRACE3) << __FUNCTION__ << " by pax_id:" << pax_id.get();
+    LogTrace(TRACE3) << __FUNCTION__ << " by pax_id:" << pax_id;
     auto cur = make_curs(
-               AppsPaxDataReadQuery + "where PAX_ID = :pax_id");
-    cur.bind(":pax_id", pax_id.get());
+               AppsPaxDataReadQuery + "where PAX_ID = :pax_id and SETTINGS_ID = :settings_id");
+    cur.bind(":pax_id", pax_id)
+       .bind(":settings_id", settings_id);
     return paxRequestFromDb(cur);
 }
 
@@ -2153,9 +2166,10 @@ public:
     int seats = 0;
 };
 
-Opt<PaxRequest> PaxRequest::createByPaxId(const PaxId_t pax_id, const std::string& override_type)
+Opt<PaxRequest> PaxRequest::createByPaxId(const PaxId_t pax_id, const AppsSettingsId_t &settings_id,
+                                          const std::string& override_type)
 {
-    LogTrace(TRACE5) << __FUNCTION__<< " pax_id: " << pax_id.get();
+    LogTrace(TRACE5) << __FUNCTION__<< " pax_id: " << pax_id;
     auto cur = make_curs(
                 "select POINT_DEP, STATUS, SURNAME, NAME, PAX.GRP_ID,  AIRP_DEP, AIRP_ARV "
                 ", PERS_TYPE, IS_FEMALE, REG_NO, REFUSE "
@@ -2191,11 +2205,12 @@ Opt<PaxRequest> PaxRequest::createByPaxId(const PaxId_t pax_id, const std::strin
     }
     ASTRA::TGender::Enum gender = (info.is_female == NullFemale) ? ASTRA::TGender::Unknown
                                                                  : femaleToGender(info.is_female);
-    return createByFields(Pax, pax_id, info, false, gender, override_type,
+    return createByFields(Pax, pax_id, settings_id, info, false, gender, override_type,
                AirlineCode_t(point_info->airline), !refuse.empty(), Opt<RegNo_t>(RegNo_t(reg_no)));
 }
 
 Opt<PaxRequest> PaxRequest::createByFields(const RequestType reqType, const PaxId_t pax_id,
+                                           const AppsSettingsId_t &settings_id,
                                            const CheckInInfo& info, bool pre_checkin,
                                            ASTRA::TGender::Enum gender, const std::string& override_type,
                                            const AirlineCode_t& airline, bool need_del, Opt<RegNo_t> reg_no)
@@ -2219,13 +2234,15 @@ Opt<PaxRequest> PaxRequest::createByFields(const RequestType reqType, const PaxI
     Opt<FlightData> ckinFlight = createCkinFlightData(GrpId_t(info.grp_id));
     PaxData pax = createPaxData(pax_id, Surname_t(info.surname), Name_t(info.name), isCrew, override_type,
              reg_no, tricky_gender, trfer_flg);
-    return PaxRequest(trs, intFlight, ckinFlight, pax, reqType==Pax ? PaxAddData::createByPaxId(pax_id)
-                                                                    : PaxAddData::createByCrsPaxId(pax_id));
+    return PaxRequest(trs, intFlight, ckinFlight, pax,
+                      reqType==Pax ? PaxAddData::createByPaxId(pax_id) : PaxAddData::createByCrsPaxId(pax_id),
+                      settings_id);
 }
 
-Opt<PaxRequest> PaxRequest::createByCrsPaxId(const PaxId_t pax_id, const std::string& override_type)
+Opt<PaxRequest> PaxRequest::createByCrsPaxId(const PaxId_t pax_id, const AppsSettingsId_t &settings_id,
+                                             const std::string& override_type)
 {
-    LogTrace(TRACE5) << __FUNCTION__<< " pax_id: " << pax_id.get();
+    LogTrace(TRACE5) << __FUNCTION__<< " pax_id: " << pax_id;
     bool pr_del;
     CheckInInfo info;
     auto cur = make_curs(
@@ -2254,18 +2271,18 @@ Opt<PaxRequest> PaxRequest::createByCrsPaxId(const PaxId_t pax_id, const std::st
     {
         return boost::none;
     }
-    return createByFields(Crs, pax_id, info, true, ASTRA::TGender::Unknown,
+    return createByFields(Crs, pax_id, settings_id, info, true, ASTRA::TGender::Unknown,
                           override_type, AirlineCode_t(point_info->airline), pr_del, boost::none);
 }
 
-Opt<PaxRequest> PaxRequest::createFromDB(RequestType type, const PaxId_t pax_id,
-                                         const std::string& override_type)
+Opt<PaxRequest> PaxRequest::createFromDB(RequestType type, const PaxId_t& pax_id,
+                                         const AppsSettingsId_t& settings_id, const std::string& override_type)
 {
     switch (type) {
     case RequestType::Pax:
-        return PaxRequest::createByPaxId(pax_id, override_type);
+        return PaxRequest::createByPaxId(pax_id, settings_id, override_type);
     case RequestType::Crs:
-        return PaxRequest::createByCrsPaxId(pax_id, override_type);
+        return PaxRequest::createByCrsPaxId(pax_id, settings_id, override_type);
     default:
         throw Exception("Invalid RequestType: %d ", static_cast<int>(type));
     }
@@ -2393,7 +2410,7 @@ void updateAppsCicxMsgId(int msg_id, const std::string& apps_pax_id)
         .exec();
 }
 
-void PaxRequest::save(const int version) const
+void PaxRequest::save() const
 {
     if(trans.code == "CICX") {
         updateAppsCicxMsgId(trans.msg_id, pax.apps_pax_id);
@@ -2408,21 +2425,21 @@ void PaxRequest::save(const int version) const
                " date_of_birth, sex, birth_country, is_endorsee, transfer_at_orgn, "
                " transfer_at_dest, pnr_source, pnr_locator, send_time, pre_ckin, "
                " flt_num, dep_port, dep_date, arv_port, arv_date, ckin_flt_num, ckin_port, "
-               " point_id, ckin_point_id, pass_ref, version, "
+               " point_id, ckin_point_id, pass_ref, "
                " country_for_data, doco_type, doco_no, country_issuance, doco_expiry_date, "
-               " num_street, city, state, postal_code, redress_number, traveller_number) "
+               " num_street, city, state, postal_code, redress_number, traveller_number, settings_id) "
                "VALUES (:pax_id, :airline, :cirq_msg_id, :pax_crew, :nationality, :issuing_state, :passport, "
                "        :check_char, :doc_type, :doc_subtype, :expiry_date, :sup_check_char, :sup_doc_type, :sup_passport, "
                "        :family_name, :given_names, :date_of_birth, :sex, :birth_country, :is_endorsee, "
                "        :transfer_at_orgn, :transfer_at_dest, :pnr_source, :pnr_locator, :send_time, :pre_ckin, "
                "        :flt_num, :dep_port, :dep_date, :arv_port, :arv_date, :ckin_flt_num, :ckin_port, "
-               "        :point_id, :ckin_point_id, :pass_ref, :version, "
+               "        :point_id, :ckin_point_id, :pass_ref, "
                "        :country_for_data, :doco_type, :doco_no, :country_issuance, :doco_expiry_date, "
-               "        :num_street, :city, :state, :postal_code, :redress_number, :traveller_number)");
+               "        :num_street, :city, :state, :postal_code, :redress_number, :traveller_number, :settings_id)");
     cur
         .bind(":cirq_msg_id",      trans.msg_id)
-        .bind(":airline",          trans.airline.get())
-        .bind(":pax_id",           pax.pax_id.get())
+        .bind(":airline",          trans.airline)
+        .bind(":pax_id",           pax.pax_id)
         .bind(":pax_crew",         pax.pax_crew)
         .bind(":nationality",      pax.nationality)
         .bind(":issuing_state",    pax.issuing_state)
@@ -2447,16 +2464,15 @@ void PaxRequest::save(const int version) const
         .bind(":send_time",        Dates::second_clock::universal_time())
         .bind(":pre_ckin",         trans.type)
         .bind(":flt_num",          int_flt.flt_num)
-        .bind(":dep_port",         int_flt.dep_port.get())
+        .bind(":dep_port",         int_flt.dep_port)
         .bind(":dep_date"    ,     int_flt.dep_date)
-        .bind(":arv_port"    ,     int_flt.arv_port.get())
+        .bind(":arv_port"    ,     int_flt.arv_port)
         .bind(":arv_date"    ,     int_flt.arv_date)
         .bind(":ckin_flt_num",     ckin_flt ? ckin_flt->flt_num : "")
         .bind(":ckin_port"   ,     ckin_flt ? ckin_flt->dep_port.get() : "")
-        .bind(":point_id"    ,     int_flt.point_id.get())
+        .bind(":point_id"    ,     int_flt.point_id)
         .bind(":ckin_point_id",    ckin_flt ? ckin_flt->point_id.get() : 0, ckin_flt ? &nnull : &null) //третий параметр определяет бинд в null
         .bind(":pass_ref",         pax.reference)
-        .bind(":version",          version)
         .bind(":country_for_data", pax_add ? pax_add->country_for_data : "")
         .bind(":doco_type",        pax_add ? pax_add->doco_type : "")
         .bind(":doco_no",          pax_add ? pax_add->doco_no : "")
@@ -2468,6 +2484,7 @@ void PaxRequest::save(const int version) const
         .bind(":postal_code",      pax_add ? pax_add->postal_code : "")
         .bind(":redress_number",   pax_add ? pax_add->redress_number : "")
         .bind(":traveller_number", pax_add ? pax_add->traveller_number : "")
+        .bind(":settings_id",      settings_id)
         .exec();
 }
 
@@ -2756,45 +2773,41 @@ std::unique_ptr<PaxReqAnswer> createPaxReqAnswer(const std::string& code, const 
         return nullptr;
     }
 
-    int pax_id;
-    int version;
-    std::string family_name;
+
     // PassengerData. Applicable to "CIRS" and "CIСС". Conditional (required if ERR data group is not present)
     std::vector<AnsPaxData> passengers;
 
     std::ostringstream sql;
-    sql << "select PAX_ID, VERSION, FAMILY_NAME "
+    sql << "select PAX_ID, FAMILY_NAME "
            "from APPS_PAX_DATA ";
     if (code == "CIRS") {
         sql << "where CIRQ_MSG_ID = :msg_id";
     } else {
         sql << "where CICX_MSG_ID = :msg_id";
     }
-    //int px_id;
+    int pax_id = 0;
+    std::string family_name;
     auto cur = make_curs(sql.str());
     cur
        .def(pax_id)
-       .def(version)
        .def(family_name)
        .bind(":msg_id", msg->getMsgId())
        .EXfet();
     if(cur.err() == NO_DATA_FOUND) {
         return nullptr;
     }
-    //pax_id = PaxId_t(px_id);
-
+    //LogTrace(TRACE5) << __FUNCTION__ << " version: " << msg->getVersion() << " msg_id: " << msg->getMsgId();
     std::string delim = (code == "CIRS") ? "PRS" : "PCC";
     delim = std::string("/") + delim + std::string("/");
     std::size_t pos1 = source.find(delim);
     while (pos1 != std::string::npos) {
         std::size_t pos2 = source.find(delim, pos1 + delim.size());
         AnsPaxData data;
-        data.init(source.substr(pos1 + 1, pos2 - pos1), version);
+        data.init(source.substr(pos1 + 1, pos2 - pos1),  msg->getVersion());
         passengers.push_back(data);
         pos1 = pos2;
     }
     return make_unique<PaxReqAnswer>(code, source, move(*msg), PaxId_t(pax_id), family_name, passengers);
-    //return true;
 }
 
 std::unique_ptr<ManifestAnswer> createManifestAnswer(const std::string& code, const std::string& source)
@@ -2943,8 +2956,8 @@ void PaxReqAnswer::processAnswer() const
     // проверим, нужно ли гасить тревогу "рассинхронизация"
     Opt<PaxRequest> actual;
     Opt<PaxRequest> received;
-    actual = isAlreadyCheckedIn(pax_id) ? PaxRequest::createFromDB(Pax, pax_id)
-                                        : PaxRequest::createFromDB(Crs, pax_id);
+    actual = isAlreadyCheckedIn(pax_id) ? PaxRequest::createFromDB(Pax, pax_id, msg.getSettingsId())
+                                        : PaxRequest::createFromDB(Crs, pax_id, msg.getSettingsId());
     if(!actual) {
         ProgTrace(TRACE5, "Pax has not been found");
     }

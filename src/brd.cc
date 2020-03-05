@@ -848,6 +848,10 @@ void SaveAPIS(int point_id, int pax_id, int tid, xmlNodePtr reqNode)
     IAPI::RequestCollector iapiCollector;
     iapiCollector.addPassengerIfNeed(pax_id, point_id, grp.airp_arv, checkInfo);
     iapiCollector.send();
+
+    APPS::AppsCollector appsCollector;
+    appsCollector.addPaxItem(PaxId_t(pax_id));
+    appsCollector.send();
   }
 
   if (apis_control)

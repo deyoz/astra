@@ -651,9 +651,115 @@ $(CIRQ_26 UT 298 PRG AER $(yyyymmdd) 081500 $(yyyymmdd) 120000
         P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N N
         00011 CZ V 123134 UKR 20201020)
 
+$(set msg_id1 $(capture 1))
+
 $(CIRQ_21 "" UT 298 PRG AER $(yyyymmdd) 081500 $(yyyymmdd) 120000
         P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N N)
 
+$(set msg_id2 $(capture 1))
 
-# << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
-# CIRS:$(capture 1)/PRS/29/001/CZ/P/UKR/UKR/FA144642//P//20250625/////TUMALI/VALERII/19680416/M//8501/B/1////////
+# ответ по пассажиру TUMALI VALERII
+<< h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
+CIRS:$(get msg_id1)/PRS/29/001/CZ/P/UKR/UKR/FA144642//P//20250625/////TUMALI/VALERII/19680416/M//8501/B/1////////
+
+<< h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
+CIRS:$(get msg_id2)/PRS/27/001/CZ/P/UA/UA/FA144642//P//20250625////TUMALI/VALERII/19680416/M//8501/B/2////////
+
+$(set grp_id $(get_single_grp_id $(get point_dep) TUMALI VALERII))
+$(set tid $(get_single_tid $(get point_dep) TUMALI VALERII))
+
+!!
+$(CANCEL_PAX $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv) ЮТ 298 ПРХ СОЧ TUMALI VALERII 2986145115578 ВЗ)
+
+>> lines=auto mode=regex
+.*CICX:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PCX/21/1/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/00011.*
+
+>> lines=auto mode=regex
+.*CICX:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PCX/20/1/2/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
+
+%%
+##############################################################################################
+###
+#   Тест №8
+#
+#   Описание: пассажиров: 61,
+#             интерактив: выкл
+#            версия apps: 21
+#
+#   Посылка запросов в момент изменений информации по пассажиру на посадке
+#   Должен посылаться APPS запрос на изменение
+###
+#########################################################################################
+
+$(settcl APPS_H2H_ADDR APTXS)
+$(settcl APPS_ROT_NAME APPGT)
+
+$(init_jxt_pult МОВРОМ)
+$(set_desk_version 201707-0195750)
+$(login)
+
+$(init_apps ЮТ ЦЗ APPS_26 closeout=true inbound=true outbound=true)
+$(init_apps ЮТ РФ APPS_21 closeout=true inbound=true outbound=true)
+
+$(PREPARE_SEASON_SCD ЮТ ПРХ СОЧ 298)
+$(make_spp)
+$(deny_ets_interactive ЮТ 298 ПРХ)
+
+$(INB_PNL_UT PRG AER 298 $(ddmon +0 en))
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set move_id $(get_move_id $(get point_dep)))
+
+$(combine_brd_with_reg $(get point_dep))
+$(auto_set_craft $(get point_dep))
+
+$(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
+
+
+
+!!
+$(CHECKIN_PAX_WITH_VISA $(get pax_id) $(get point_dep) $(get point_arv)
+                        ЮТ 298 ПРХ СОЧ TUMALI VALERII 2986145115578 ВЗ
+                        UA FA144642 UA 16.04.1968 25.06.2025 M
+                        123134 UA 20.10.2019 20.10.2020 CZ)
+
+$(CIRQ_26 UT 298 PRG AER $(yyyymmdd) 081500 $(yyyymmdd) 120000
+        P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N N
+        00011 CZ V 123134 UKR 20201020)
+
+$(set msg_id1 $(capture 1))
+
+$(CIRQ_21 "" UT 298 PRG AER $(yyyymmdd) 081500 $(yyyymmdd) 120000
+        P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N N)
+
+$(set msg_id2 $(capture 1))
+
+# ответ по пассажиру TUMALI VALERII
+<< h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
+CIRS:$(get msg_id1)/PRS/29/001/CZ/P/UKR/UKR/FA144642//P//20250625/////TUMALI/VALERII/19680416/M//8501/B/1////////
+
+<< h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
+CIRS:$(get msg_id2)/PRS/27/001/CZ/P/UA/UA/FA144642//P//20250625////TUMALI/VALERII/19680416/M//8501/B/2////////
+
+$(set tid $(get_single_tid $(get point_dep) TUMALI VALERII))
+
+
+# измененение по пассажиру FA144642 -> FA144643
+
+!!
+$(UPDATE_PAX_ON_BOARDING $(get pax_id) $(get point_dep) $(get tid) RUS FA144643 UA 16.04.1968 25.06.2025 M TUMALI VALERII 123134 UA 20.10.2019 20.10.2020 CZ)
+
+>> lines=auto mode=regex
+.*CICX:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PCX/21/1/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/00011/.*
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PRQ/34/1/P/UKR/RUS/FA144643//P//20250625////TUMALI/VALERII/19680416/M///N/N///////00011////////PAD/13/1/CZ/V//123134/UKR/20201020///////.*.*
+
+>> lines=auto mode=regex
+.*CICX:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PCX/20/1/2/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PRQ/22/1/P/UKR/RUS/FA144643//P/20250625////TUMALI/VALERII/19680416/M///N/N////.*
+
+#####################################################################

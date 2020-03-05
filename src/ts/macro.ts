@@ -1843,6 +1843,60 @@ $(defmacro UPDATE_PAX_PASSPORT
 
 #########################################################################################
 
+$(defmacro UPDATE_PAX_ON_BOARDING
+    pax_id
+    point_dep
+    tid
+    doc_issue_country
+    doc_no
+    nationality
+    doc_birth_date
+    doc_expiry_date
+    gender
+    surname
+    name
+    visa_no=""
+    visa_issue_place=""
+    visa_issue_date=""
+    visa_expiry_date=""
+    visa_applic_country=""
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='brd' ver='1' opr='PIKE' screen='BRDBUS.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+  <SavePaxAPIS>
+        <point_id>$(point_dep)</point_id>
+        <pax_id>$(pax_id)</pax_id>
+        <tid>$(tid)</tid>
+        <apis>
+          <document>
+            <type>P</type>
+            <issue_country>$(doc_issue_country)</issue_country>
+            <no>$(doc_no)</no>
+            <nationality>$(nationality)</nationality>
+            <birth_date>$(doc_birth_date) 00:00:00</birth_date>
+            <expiry_date>$(doc_expiry_date) 00:00:00</expiry_date>
+            <gender>$(gender)</gender>
+            <surname>$(surname)</surname>
+            <first_name>$(name)</first_name>
+          </document>
+          <doco>
+            <type>V</type>
+            <no>$(visa_no)</no>
+            <issue_place>$(visa_issue_place)</issue_place>
+            <issue_date>$(visa_issue_date)</issue_date>
+            <expiry_date>$(visa_expiry_date)</expiry_date>
+            <applic_country>$(visa_applic_country)</applic_country>
+            <birth_place/>
+          </doco>
+        </apis>
+      </SavePaxAPIS>
+    </query>
+  </term>}
+
+}) #end-of-macro UPDATE_PAX_ON_BOARDING
+
+#########################################################################################
+
 $(defmacro CANCEL_PAX
     pax_id
     grp_id

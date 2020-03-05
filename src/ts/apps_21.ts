@@ -366,7 +366,7 @@ $(WRITE_DESTS $(get point_dep) $(get point_arv) $(get move_id) ЮТ 298 СОЧ ПРХ
 #             интерактив: выкл
 #            версия apps: 21
 #
-#   не проходят APPS-запросы на посадку пассажиров уходят в момент прихода PNL.
+#   не проходят APPS-запросы на посадку пассажиров в момент прихода PNL.
 #   При регистрации запросы уже не уходят
 #
 ###
@@ -535,7 +535,7 @@ $(WRITE_DESTS $(get point_dep) $(get point_arv) $(get move_id) ЮТ 298 СОЧ ПРХ
 #             интерактив: выкл
 #            версия apps: 21
 #
-#   не приходят APPS-запросы на посадку пассажиров уходят при привязке рейса
+#   не уходят APPS-запросы на посадку пассажиров при привязке рейса
 #
 ###
 
@@ -1156,6 +1156,7 @@ $(deny_ets_interactive ЮТ 450 АМС)
 # $(dump_table CRS_PNR fields="pnr_id, airp_arv, system, point_id ")
 # $(dump_table TLG_BINDING)
 # $(dump_table POINTS fields="point_id, airline, flt_no, airp, scd_out, suffix")
+# $(dump_table APPS_PAX_DATA fields="pax_id, apps_pax_id, given_names, cirq_msg_id, cicx_msg_id, version, point_id")
 
 $(run_trip_task send_apps $(get point_dep_UT_298))
 
@@ -1927,6 +1928,65 @@ SEND_NEW_APPS_INFO
 
 #################################
 
+%%
+###
+#   Тест №24
+#
+#   Описание: пассажиров: 61,
+#             интерактив: выкл
+#            версия apps: 21
+#
+#   Посылка запросов в момент изменений информации по пассажиру на посадке
+#   Должен посылаться APPS запрос на изменение
+###
+#########################################################################################
 
+$(settcl APPS_H2H_ADDR APTXS)
+$(settcl APPS_ROT_NAME APPGT)
 
+$(init_jxt_pult МОВРОМ)
+$(set_desk_version 201707-0195750)
+$(login)
+
+$(init_apps ЮТ ЦЗ APPS_21 closeout=true inbound=true outbound=true)
+
+$(PREPARE_SEASON_SCD ЮТ СОЧ ПРХ 298)
+$(make_spp)
+$(deny_ets_interactive ЮТ 298 СОЧ)
+
+$(INB_PNL_UT AER PRG 298 $(ddmon +0 en))
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+
+$(combine_brd_with_reg $(get point_dep))
+$(auto_set_craft $(get point_dep))
+
+$(set move_id $(get_move_id $(get point_dep)))
+$(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
+
+!!
+$(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII 2986145115578 ВЗ UA FA144642 UA 16.04.1968 25.06.2025 M)
+
+$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 100000
+P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N N)
+
+$(set tid $(get_single_tid $(get point_dep) TUMALI VALERII))
+
+# ответ по пассажиру TUMALI VALERII
+
+<< h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
+CIRS:$(capture 1)/PRS/27/001/CZ/P/UA/UA/FA144642//P//20250625////TUMALI/VALERII/19680416/M//8501/B/3////////
+
+# измененение по пассажиру FA144642 -> FA144643
+!!
+$(UPDATE_PAX_ON_BOARDING $(get pax_id) $(get point_dep) $(get tid) RUS FA144643 UA 16.04.1968 25.06.2025 M TUMALI VALERII)
+
+>> lines=auto mode=regex
+.*CICX:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PCX/20/1/3/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PRQ/22/1/P/UKR/RUS/FA144643//P/20250625////TUMALI/VALERII/19680416/M///N/N////.*
+
+#####################################################################
 
