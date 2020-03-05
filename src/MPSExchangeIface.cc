@@ -13,6 +13,7 @@
 #include "edi_utils.h"
 #include "rfisc_price.h"
 #include "etick/tick_data.h"
+#include "etick.h"
 
 namespace MPS
 {
@@ -438,9 +439,22 @@ void MPSExchangeIface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     }
 }
 
+void SetMPSReuqestsStatus( int grp_id, const std::string& status, const std::string& new_status, const std::string& order_id )
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "UPDATE mps_requests SET status=:new_status WHERE order_id=:order_id AND request_type=:request_type AND grp_id=:grp_id AND status=:status AND page_no=1";
+  Qry.CreateVariable( "grp_id", otInteger, grp_id );
+  Qry.CreateVariable( "request_type", otString, "request" );
+  Qry.CreateVariable( "status", otString, status );
+  Qry.CreateVariable( "new_status", otString, new_status );
+  Qry.CreateVariable( "order_id", otString, order_id );
+  Qry.Execute();
+}
 
 void MPSExchangeIface::response_RegisterResult(const std::string& exchangeId, xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode)
 {
+  LogTrace(TRACE5) << "exchangeId=" << exchangeId;
   RegisterResult res;
   if ( externalSysResNode == nullptr ||
        externalSysResNode->children == nullptr ) {
@@ -451,26 +465,11 @@ void MPSExchangeIface::response_RegisterResult(const std::string& exchangeId, xm
   if ( !grpItem.getByGrpId(grp_id) ) {
     throw AstraLocale::UserException("MSG.PASSENGER.NOT_FOUND.REFRESH_DATA");
   }
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "SELECT order_id FROM mps_requests WHERE grp_id=:grp_id AND request_type=:request_type AND status=:status";
-  Qry.CreateVariable( "grp_id", otInteger, grp_id );
-  Qry.CreateVariable( "request_type", otString, "request" );
-  Qry.CreateVariable( "status", otString, "send" );
-  Qry.Execute();
-  if ( Qry.Eof ) {
-    throw EXCEPTIONS::Exception("MPSExchange::response_RegisterResult: request grp_id=%d not found", grp_id);
-  }
-  std::string order_id = Qry.FieldAsString( "order_id" );
-  Qry.SQLText =
-    "UPDATE mps_requests SET status=:status WHERE grp_id=:grp_id AND request_type=:request_type AND status='send' ";
-  Qry.CreateVariable( "grp_id", otInteger, grp_id );
-  Qry.CreateVariable( "request_type", otString, "request" );
-  Qry.CreateVariable( "status", otString, "receive" );
-  Qry.Execute();
-
-  LogTrace(TRACE5) << __func__ << " " << order_id;
-  XMLMPS_ToDB( grp_id, "answer", order_id, XMLTreeToText( externalSysResNode->doc ), "" );
+  TPriceRFISCList prices;
+  prices.fromContextDB(grp_id);
+  SetMPSReuqestsStatus( grp_id, "send", "receive",  prices.getMPSOrderId() );
+  LogTrace(TRACE5) << __func__ << " " << prices.getMPSOrderId();
+  XMLMPS_ToDB( grp_id, "answer", prices.getMPSOrderId(), XMLTreeToText( externalSysResNode->doc ), "" );
 
   res.parseResponse(externalSysResNode);
   if ( res.error() ) {
@@ -480,8 +479,6 @@ void MPSExchangeIface::response_RegisterResult(const std::string& exchangeId, xm
   }
   else {
     tst();
-    TPriceRFISCList prices;
-    prices.fromContextDB(grp_id);
     AstraLocale::showMessage("MSG.MPS_PAYMENT");
     TLogLocale tlocale;
     tlocale.lexema_id = "EVT.MPS_DO_PAYMENT";
@@ -489,39 +486,24 @@ void MPSExchangeIface::response_RegisterResult(const std::string& exchangeId, xm
     tlocale.id1 = grpItem.point_dep;
     tlocale.id2 = ASTRA::NoExists;
     tlocale.id3 = grp_id;
-    LogTrace(TRACE5) << grp_id << "," << grpItem.point_dep <<',' << prices.getRegnum() << "," << order_id;
+    LogTrace(TRACE5) << grp_id << "," << grpItem.point_dep <<',' << prices.getRegnum() << "," << prices.getMPSOrderId();
     tlocale.prms << PrmSmpl<std::string>("pnr", prices.getRegnum())
-                        << PrmSmpl<std::string>("order_id", order_id )
+                        << PrmSmpl<std::string>("order_id", prices.getMPSOrderId() )
                         << PrmSmpl<std::string>("cost", Ticketing::TaxAmount::Amount(FloatToString(prices.getTotalCost())).amStr(Ticketing::CutZeroFraction(true)) )
                         << PrmSmpl<std::string>("currency", prices.getTotalCurrency() );
     TReqInfo::Instance()->LocaleToLog( tlocale );
+    NewTextChild( resNode, "pr_wait_paid", 1 );
   };
-}
-
-void MPSExchangeIface::CheckPaid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-  tst();
-  //mps_requests
-  int grp_id = NodeAsInteger("grp_id",reqNode);
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "SELECT order_id, status FROM mps_requests WHERE grp_id=:grp_id AND request_type=:request_type AND status IN(:status1,:status2)";
-  Qry.CreateVariable( "grp_id", otInteger, grp_id );
-  Qry.CreateVariable( "request_type", otString, "request" );
-  Qry.CreateVariable( "status1", otString, "answer" );
-  Qry.CreateVariable( "status2", otString, "error" );
-  Qry.Execute();
-  if ( !Qry.Eof ) {
-    if ( std::string( "error" ) == Qry.FieldAsString( "status") )
-      NewTextChild( reqNode, "paid_error" );
-    else
-      NewTextChild( reqNode, "paid_finish" );
-  }
 }
 
 void MPSExchangeIface::StopPaid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  NewTextChild( reqNode, "paid_finish" );
+  int grp_id = NodeAsInteger("grp_id",reqNode);
+  TPriceRFISCList prices;
+  prices.fromContextDB(grp_id);
+  SetMPSReuqestsStatus( grp_id, "send", "error",  prices.getMPSOrderId() );
+  SetMPSReuqestsStatus( grp_id, "receive", "error",  prices.getMPSOrderId() );
+  NewTextChild( resNode, "paid_finish" );
 }
 
 void parseMPS_PUSH_Events( xmlNodePtr node )

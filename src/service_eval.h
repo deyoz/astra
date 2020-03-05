@@ -30,6 +30,8 @@ public:
      //AddEvent("before_paid",evHandle);
      evHandle=JxtHandler<ServiceEvalInterface>::CreateHandler(&ServiceEvalInterface::Paid);
      AddEvent("paid",evHandle);
+     evHandle=JxtHandler<ServiceEvalInterface>::CreateHandler(&ServiceEvalInterface::CheckPaid);
+     AddEvent("check_paid",evHandle);
 //     evHandle=JxtHandler<ServiceEvalInterface>::CreateHandler(&ServiceEvalInterface::AfterPaid);
 //     AddEvent("after_paid",evHandle);
      evHandle=JxtHandler<ServiceEvalInterface>::CreateHandler(&ServiceEvalInterface::PayDocParamsRequest);
@@ -50,6 +52,7 @@ public:
   //void BeforePaid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   //void AfterPaid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void Paid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void CheckPaid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void PayDocParamsRequest(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void PayDocParamsAnswer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   static void response_check_in_get_pnr(const std::string& exchangeId, xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode);

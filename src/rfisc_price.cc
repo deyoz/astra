@@ -477,6 +477,7 @@ void TPriceRFISCList::fromContextXML(xmlNodePtr node)
   }
   SvcEmdRegnum::fromXML(node,SvcEmdRegnum::propStyle);
   surname = NodeAsString("surname",node);
+  mps_order_id = NodeAsString("mps_order_id",node,"");
   error_code = NodeAsString("error_code",node,"");
   error_message = NodeAsString("error_message",node,"");
   SvcEmdPayDoc::fromXML(node);
@@ -505,6 +506,9 @@ void TPriceRFISCList::toContextXML(xmlNodePtr node,bool checkFormPay) const
   }
   SvcEmdRegnum::toXML(node,SvcEmdRegnum::propStyle);
   NewTextChild(node, "surname", surname);
+  if ( !mps_order_id.empty() ) {
+    NewTextChild(node, "mps_order_id", mps_order_id);
+  }
   if ( !error_code.empty() ) {
     NewTextChild(node, "error_code", error_code);
   }

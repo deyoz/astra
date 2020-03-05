@@ -75,7 +75,7 @@ class SimpleSoapObjectOpt: public SimpleSoapObject {
     void setObject( const T& Avalue ) {
       Fvalue.emplace( Avalue );
     }
-    boost::optional<T> getObject() {
+    boost::optional<T> getObject() const {
       return Fvalue;
     }
     virtual bool isEmpty() const {
@@ -417,7 +417,7 @@ class PostEntryArray:public SimpleSoapArrayObject<PostEntry> {
 
 class RegisterResult: public MPSExchange {
   public:
-    virtual std::string exchangeId() const { return std::string("");}
+    virtual std::string exchangeId() const { return std::string("RegisterResult");}
     virtual void clear() {}
     virtual bool isRequest() const {
       return false;
@@ -434,7 +434,7 @@ class RegisterMethod:public SimpleSoapObject, public MPSExchange {
   public:
     RegisterMethod( ):SimpleSoapObject( "register" ), Forder( "order" ), Fcost( "cost" ), Fcustomer( "customer" ), Fdescription( "description" ), Fpostdata( "postdata" ) {}
     virtual ~RegisterMethod(){}
-    virtual std::string exchangeId() const { return SimpleSoapObject::getObjectName();}
+    virtual std::string exchangeId() const { return "RegisterMethod";}
     virtual bool isRequest() const {
       return true;
     }
@@ -444,7 +444,7 @@ class RegisterMethod:public SimpleSoapObject, public MPSExchange {
     void setOrder( const OrderID& Aorder ) {
       Forder.setObject( Aorder );
     }
-    std::string getOrderId() {
+    std::string getOrderId() const {
       boost::optional<OrderID> Value = Forder.getObject();
       if ( Value ) {
         return Value.get().getNumber();
@@ -483,11 +483,9 @@ public:
   MPSExchangeIface() : ExchangeIterface::ExchangeIface(getServiceName()) {
     domainName = "ASTRA-MPS";
     Handler *evHandle;
-    evHandle=JxtHandler<MPSExchangeIface>::CreateHandler(&MPSExchangeIface::CheckPaid);
-    AddEvent("check_paid",evHandle);
     evHandle=JxtHandler<MPSExchangeIface>::CreateHandler(&MPSExchangeIface::StopPaid);
     AddEvent("stop_paid",evHandle);
-    addResponseHandler("register", response_RegisterResult);
+    addResponseHandler("RegisterMethod", response_RegisterResult);
     AddEvent("mps_register", JXT_HANDLER(MPSExchangeIface, KickHandler));
   }
   void CheckPaid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -500,7 +498,7 @@ public:
 
 
 class PushEvents: public MPSExchange {
-  virtual std::string exchangeId() const { return std::string("");}
+  virtual std::string exchangeId() const { return std::string("PushEvents");}
   virtual void clear() {}
   virtual bool isRequest() const {
     return false;
