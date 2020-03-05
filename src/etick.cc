@@ -3508,7 +3508,8 @@ void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 
     BrdInterface::GetPax(termReqNode, resNode);
   }
-  if (termReqName=="paid")
+  if (termReqName=="paid" ||
+      termReqName=="check_paid")
   {
     EMDAutoBoundGrpId id(termReqNode);
     TCkinGrpIds tckin_grp_ids;
