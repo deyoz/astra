@@ -1317,7 +1317,6 @@ void ServiceEvalInterface::Paid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   }
   tst();
   prices.setSvcEmdPayDoc( SvcEmdPayDoc( "IN", "" ) );
-  prices.toContextDB(grp_id);
   std::vector<std::string> svcs;
   prices.haveStatusDirect(TPriceRFISCList::STATUS_DIRECT_SELECTED,svcs);
   if ( svcs.empty() ) {
@@ -1361,13 +1360,51 @@ void ServiceEvalInterface::Paid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     registerMethod.setDescription( orderFull );
 
     registerMethod.request( reqNode );
+    prices.setMPSOrderId( registerMethod.getOrderId() );
+    prices.toContextDB(grp_id);
     tst();
   }
   else {
+    prices.toContextDB(grp_id);
     continuePaidRequest(reqNode, resNode);
     tst();
   }
 //  backPaid(reqNode,NULL,resNode); // откат всех оплат, которые не завершилось
+}
+
+void ServiceEvalInterface::CheckPaid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  //mps_requests
+  int grp_id = NodeAsInteger("grp_id",reqNode);
+  TPriceRFISCList prices;
+  prices.fromContextDB(grp_id);
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT status FROM mps_requests WHERE grp_id=:grp_id AND request_type=:request_type AND status IN(:status1,:status2) AND order_id=:order_id AND page_no=1";
+  Qry.CreateVariable( "grp_id", otInteger, grp_id );
+  Qry.CreateVariable( "request_type", otString, "request" );
+  Qry.CreateVariable( "status1", otString, "answer" );
+  Qry.CreateVariable( "status2", otString, "error" );
+  Qry.CreateVariable( "order_id", otString, prices.getMPSOrderId() );
+  LogTrace(TRACE5) << "grp_id=" << grp_id <<",mps_order_id=" << prices.getMPSOrderId();
+  Qry.Execute();
+  if ( !Qry.Eof ) {
+    tst();
+    if ( std::string( "error" ) == Qry.FieldAsString( "status") )
+      NewTextChild( resNode, "paid_error", "Ощибка:)" ); //!!! отправить текст ошибки, полученный при PUSH
+    else {
+      NewTextChild( resNode, "paid_finish" );
+      prices.setStatusDirect(TPriceRFISCList::STATUS_DIRECT_ORDER,TPriceRFISCList::STATUS_DIRECT_PAID); //!!!
+      prices.setStatusDirect(TPriceRFISCList::STATUS_DIRECT_SELECTED,TPriceRFISCList::STATUS_DIRECT_PAID); //!!!
+      prices.toDB(grp_id);
+      prices.SvcEmdPayDoc::clear();
+      //prices.SvcEmdCost::clear();
+      prices.SvcEmdTimeout::clear();
+      prices.toContextDB(grp_id);
+      EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);
+      return;
+    }
+  }
 }
 
 void ServiceEvalInterface::PayDocParamsRequest(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1447,6 +1484,7 @@ void ServiceEvalInterface::AfterPaid(xmlNodePtr reqNode, xmlNodePtr resNode)
   NewTextChild(node,"grp_id",grp_id);
   prices.toXML(NewTextChild( node, "services" ));
   NewTextChild(resNode,"pr_print");
+  NewTextChild( resNode, "paid_finish" ); //for MPS
   SetProp( NewTextChild(resNode,"POSExchange"), "key", grp_id );
 
   AstraLocale::showMessage( "MSG.EMD.PAID_FINISHED" );

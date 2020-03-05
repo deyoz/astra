@@ -385,6 +385,7 @@ class TPriceRFISCList: public std::map<TPaxSegRFISCKey, TPriceServiceItem>, publ
   private:
     std::string surname;
     BASIC::date_time::TDateTime time_create;
+    std::string mps_order_id;
     std::string error_code, error_message;
   public:
     void clear() {
@@ -394,6 +395,7 @@ class TPriceRFISCList: public std::map<TPaxSegRFISCKey, TPriceServiceItem>, publ
       SvcEmdTimeout::clear();
       std::map<TPaxSegRFISCKey, TPriceServiceItem>::clear();
       surname.clear();
+      mps_order_id.clear();
       error_code.clear();
       error_message.clear();
     }
@@ -402,6 +404,12 @@ class TPriceRFISCList: public std::map<TPaxSegRFISCKey, TPriceServiceItem>, publ
     }
     std::string getSurname() {
       return surname;
+    }
+    void setMPSOrderId( const std::string& _mps_order_id ) {
+      mps_order_id = _mps_order_id;
+    }
+    std::string getMPSOrderId() {
+      return mps_order_id;
     }
     void setServices( const TPaidRFISCList& list );
     void setError( const SirenaExchange::TExchange& ex ) {
