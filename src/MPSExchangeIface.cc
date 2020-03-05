@@ -11,6 +11,8 @@
 #include "astra_locale.h"
 #include "ExchangeIface.h"
 #include "edi_utils.h"
+#include "rfisc_price.h"
+#include "etick/tick_data.h"
 
 namespace MPS
 {
@@ -191,7 +193,7 @@ void Amount::SetCurrency( const std::string &Acurrency ) {
 }
 
 void Amount::toXML( xmlNodePtr node ) const {
-  NewTextChild( node, "amount", Famount.amStr() );
+  NewTextChild( node, "amount", Famount.amStr(Ticketing::CutZeroFraction(true)) );
   NewTextChild( node, "currency", Fcurrency );
 }
 
@@ -346,7 +348,7 @@ void RegisterMethod::request( xmlNodePtr reqNode )
 {
   int grp_id = NodeAsInteger("grp_id",reqNode);
   toDB( grp_id, "request" );
-  MPS::MPSExchangeIface::Request( reqNode, 555, MPSExchangeIface::getServiceName(), *this );
+  MPS::MPSExchangeIface::Request( reqNode, 101, MPSExchangeIface::getServiceName(), *this );
 }
 
 void MPSExchangeIface::BeforeRequest(xmlNodePtr& reqNode, xmlNodePtr externalSysResNode, const SirenaExchange::TExchange& req)
@@ -445,6 +447,10 @@ void MPSExchangeIface::response_RegisterResult(const std::string& exchangeId, xm
     throw AstraLocale::UserException("MSG.MPS_CONNECT_ERROR");
   }
   int grp_id = NodeAsInteger("grp_id",reqNode);
+  CheckIn::TSimplePaxGrpItem grpItem;
+  if ( !grpItem.getByGrpId(grp_id) ) {
+    throw AstraLocale::UserException("MSG.PASSENGER.NOT_FOUND.REFRESH_DATA");
+  }
   TQuery Qry(&OraSession);
   Qry.SQLText =
     "SELECT order_id FROM mps_requests WHERE grp_id=:grp_id AND request_type=:request_type AND status=:status";
@@ -473,8 +479,23 @@ void MPSExchangeIface::response_RegisterResult(const std::string& exchangeId, xm
                                       << AstraLocale::LParam("message",res.error_message) );
   }
   else {
+    tst();
+    TPriceRFISCList prices;
+    prices.fromContextDB(grp_id);
     AstraLocale::showMessage("MSG.MPS_PAYMENT");
-  }
+    TLogLocale tlocale;
+    tlocale.lexema_id = "EVT.MPS_DO_PAYMENT";
+    tlocale.ev_type=ASTRA::evtPax;
+    tlocale.id1 = grpItem.point_dep;
+    tlocale.id2 = ASTRA::NoExists;
+    tlocale.id3 = grp_id;
+    LogTrace(TRACE5) << grp_id << "," << grpItem.point_dep <<',' << prices.getRegnum() << "," << order_id;
+    tlocale.prms << PrmSmpl<std::string>("pnr", prices.getRegnum())
+                        << PrmSmpl<std::string>("order_id", order_id )
+                        << PrmSmpl<std::string>("cost", Ticketing::TaxAmount::Amount(FloatToString(prices.getTotalCost())).amStr(Ticketing::CutZeroFraction(true)) )
+                        << PrmSmpl<std::string>("currency", prices.getTotalCurrency() );
+    TReqInfo::Instance()->LocaleToLog( tlocale );
+  };
 }
 
 void MPSExchangeIface::CheckPaid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

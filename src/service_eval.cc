@@ -1176,6 +1176,14 @@ void ServiceEvalInterface::response_order(const std::string& exchangeId,xmlNodeP
     }
     throw AstraLocale::UserException("MSG.EMD.SERVICES_ALREADY_PAID");
   }
+  TLogLocale tlocale;
+  tlocale.lexema_id = "EVT.SWC_ORDER";
+  tlocale.ev_type=ASTRA::evtPax;
+  tlocale.id1 = grpItem.point_dep;
+  tlocale.id2 = ASTRA::NoExists;
+  tlocale.id3 = grp_id;
+  tlocale.prms << PrmSmpl<std::string>("pnr", prices.getRegnum());
+  TReqInfo::Instance()->LocaleToLog( tlocale );
 }
 
 void ServiceEvalInterface::Filtered(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
