@@ -88,6 +88,8 @@ src/cent.cc
 src/cent.h
 src/checkin.cc
 src/checkin.h
+src/checkin_segments.cc
+src/checkin_segments.h
 src/checkin_utils.cc
 src/checkin_utils.h
 src/ckin_search.cc
@@ -159,6 +161,8 @@ src/file_queue.cc
 src/file_queue.h
 src/flt_binding.cc
 src/flt_binding.h
+src/flt_settings.cc
+src/flt_settings.h
 src/flt_tasks_daemon.cc
 src/httpClient.cc
 src/httpClient.h
@@ -191,6 +195,8 @@ src/obrnosir.cc
 src/obrnosir.h
 src/passenger.cc
 src/passenger.h
+src/passenger_callbacks.cc
+src/passenger_callbacks.h
 src/payment.cc
 src/payment.h
 src/payment_base.cc
@@ -354,6 +360,8 @@ src/tlg/tlg_source_edifact.h
 src/tlg/tlg_types.cpp
 src/tlg/tlg_types.h
 src/tlg/typeb_handler.cpp
+src/tlg/typeb_remarks.cc
+src/tlg/typeb_remarks.h
 src/tlg/view_edi_elements.cpp
 src/tlg/view_edi_elements.h
 src/transfer.cc

@@ -277,7 +277,8 @@ static bool get_seating_details(xmlNodePtr reqNode, xmlNodePtr resNode)
 
   xmlNodePtr wNode = NewTextChild( resNode, "baggage" );
   for ( const auto& destW : weights ) {
-    xmlNodePtr n1 = NewTextChild( wNode, "dest", destW.first );
+    xmlNodePtr n1 = NewTextChild( wNode, "dest" );
+    SetProp( n1, "val", destW.first );
     for ( const auto &classW : destW.second ) {
       xmlNodePtr classNode = NewTextChild( n1, "class", classW.first );
       if ( classW.second.amount ) {
