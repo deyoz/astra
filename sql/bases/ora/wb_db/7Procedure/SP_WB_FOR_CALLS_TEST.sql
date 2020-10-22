@@ -1,0 +1,6 @@
+create or replace PROCEDURE SP_WB_FOR_CALLS_TEST(cXML_in IN clob, cXML_out OUT CLOB)
+AS
+BEGIN
+    SP_WB_REF_GET_AIRPORTS(cXML_in, cXML_out);
+END SP_WB_FOR_CALLS_TEST;
+/

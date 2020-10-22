@@ -1,0 +1,15 @@
+create or replace FUNCTION WB_CLEAR_XML
+(INPUT_STRING clob)
+RETURN clob
+is
+OUTPUT_STRING clob;
+begin
+    OUTPUT_STRING:=REPLACE(INPUT_STRING, '&', '&amp;');
+    OUTPUT_STRING:=REPLACE(OUTPUT_STRING, '<', '&lt;');
+    OUTPUT_STRING:=REPLACE(OUTPUT_STRING, '>', '&gt;');
+    OUTPUT_STRING:=REPLACE(OUTPUT_STRING, '''', '&#039;');
+    OUTPUT_STRING:=REPLACE(OUTPUT_STRING, '"', '&quot;');
+
+    RETURN OUTPUT_STRING;
+  end;
+/

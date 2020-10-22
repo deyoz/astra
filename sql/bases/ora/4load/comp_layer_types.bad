@@ -1,0 +1,7 @@
+"PROT_APAY"|"Резервирование после оплаты (WEB)"|42|0|"$00FFFF80"|"framework"|0|"Reservation after payment (WEB)"
+"PNL_APAY"|"Резервирование после оплаты (PNL/ADL)"|43|0|"$00FFFF80"|"framework"|0|"Reservation after payment (PNL/ADL)"
+"PROT_BPAY"|"Резервирование перед оплатой (WEB)"|47|0|"$00FFFF80"|"framework"|0|"Reservation before payment (WEB)"
+"PNL_BPAY"|"Резервирование перед оплатой (PNL/ADL)"|48|0|"$00FFFF80"|"framework"|0|"Reservation before payment (PNL/ADL)"
+"TRANZIT"|"Рассадка при регистрации (транзит)"|15|0|"$00800000"||1|"Checking-in seating chart (transit)"
+"GOSHOW"|"Рассадка при регистрации (подсадка)"|21|0|"$00FF8000"||1|"Checking-in seating chart (GOSHOW)"
+"TCHECKIN"|"Рассадка при сквозной регистрации"|19|0|"$00FF8000"||1|"One-time checking-in seating chart"

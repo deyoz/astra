@@ -1,0 +1,10 @@
+10|"АЯТ"|"Подготовка к регистрации"|"Preparation for check-in"|1
+20|"АЯТ"|"Открытие регистрации"|"Check-in opening"|2
+30|"АЯТ"|"Закрытие регистрации"|"Check-in closing"|3
+40|"АЯТ"|"Готовность ВС к посадке"|"Aircraft readiness for landing"|4
+50|"АЯТ"|"Окончание посадки (оформление документации)"|"Boarding (doc. processing) completion"|5
+70|"АЯТ"|"Уборка трапа"|"Airstairs removal"|6
+10|"ДМД"|"Подготовка к регистрации"|"Preparation for check-in"|7
+10|"РЩН"|"назначение стоек регистрации"|"designation of check-in counters"|8
+70|"СОЧ"|"отгон трапа"|"airstairs driving away"|9
+10|"СУР"|"лапвапвап55555"|"укп55п5вап"|10

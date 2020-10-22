@@ -1,0 +1,1 @@
+create unique index DEFERRED_ASTRA_CALLS__PK on DEFERRED_ASTRA_CALLS(ID);

@@ -1,0 +1,51 @@
+40466|1|"seg 1"||"aircode:         '[<aircode(40,,)>]'
+40466|2|"seg 2"||"aircode:         '[<aircode(40,,)>]'
+40470|0|"big test"||"0,10,0,bulkybt:         '[<bulkybt(40,,)>]'
+37857|1|"english str_seat_no"||"42,19,0,[<reg_no(3,,)>]
+37912|1|"rus + aliase"||"^XA
+38273|1|"overflow check"||"1
+40465|0|"big test"||"0,20,0,bcbp_m_2:        '[<bcbp_m_2(,,,E)>]'
+40465|1|"coord adjust"||"0,10,0,bcbp_m_2:        '[<bcbp_m_2(,,,E)>]'
+40466|0|"seg 0"||"aircode:         '[<aircode(40,,)>]'
+42086|0|"Inserted by prnc"|"Q1680,10
+42087|0|"seat_no"||"0,10,0,[<seat_no(,,,E)>]
+40465|3|"redmine #10836"||"0,10,0,rk_amount:       '[<rk_amount(40,,)>]'
+42087|1|"seat_no"||"0,10,0,[<seat_no(,,,E)>]
+39346|0|"Inserted by prnc"||"^XA
+39351|0|"Inserted by prnc"||"N
+37912|2|"tst"||"^XA
+37912|3|"tst"||"^XA
+39349|0|"Inserted by prnc"||"N
+39350|0|"Inserted by prnc"||"
+40465|2|"redmine #9441, #9457"||"0,10,0,bcbp_m_2:        '[<bcbp_m_2(,,,E)>]'
+38006|2|"barcode refactoring"||"L
+37847|1|"Inserted by prnc"||"
+37874|1|"rus"||"L
+39344|0|"Inserted by prnc"||"^XA
+39345|0|"Inserted by prnc"||"^XA
+38007|0|"Inserted by prnc"||"L
+38008|0|"Inserted by prnc"||"L
+37950|1|"reverse"||"N
+38272|0|"Inserted by prnc"||"143,12,0,[<issue_place1(15,C,)>]
+38003|0|"Inserted by prnc"||"
+38004|0|"Inserted by prnc"||"
+38005|0|"Inserted by prnc"||"
+38006|0|"Inserted by prnc"||"L
+38273|0|"Inserted by prnc"||"1
+38274|0|"Inserted by prnc"||"0,3,0,[<pax_doc(36,,)>]
+38275|0|"Inserted by prnc"||"0,3,0,[<pax_doc(36,,)>]
+38276|0|"Inserted by prnc"||"1
+38277|0|"Inserted by prnc"||"1
+38006|1|"rus"||"L
+37985|0|"Inserted by prnc"||"^XA
+37986|0|"Inserted by prnc"||"^XA
+37987|0|"Inserted by prnc"||"^XA
+39336|0|"Inserted by prnc"||"L
+39338|0|"Inserted by prnc"||"^XA
+39339|0|"Inserted by prnc"||"N
+39341|0|"Inserted by prnc"||"N
+39343|0|"Inserted by prnc"||"^XA
+37982|0|"Inserted by prnc"||"N
+37983|0|"Inserted by prnc"||"N
+37984|0|"Inserted by prnc"||"N
+37952|0|"Inserted by prnc"||"N

@@ -1,0 +1,8 @@
+"MSG.COLLECT_STAT_INFO"|"RU"|"Заказанный отчет будет доступен для просмотра в разделе
+"MSG.COLLECT_STAT_INFO"|"EN"|"The requested report will be available in ""Orders / F2"".
+"MSG.STAT_ORDERS.MAX_ORDERS_SIZE_EXCEEDED"|"RU"|"Размер отчетов превысил максимально допустимый ([max%s]).
+"MSG.STAT_ORDERS.MAX_ORDERS_SIZE_EXCEEDED"|"EN"|"Reports size exceeded maximum allowed of [max%s].
+"MSG.STAT_ORDERS.IS_RUNNING"|"RU"|"Заказанный ранее отчет находится в обработке.
+"MSG.STAT_ORDERS.IS_RUNNING"|"EN"|"An order created earlier is currently running.
+"MSG.STAT_ORDERS.ORDERS_MAX_TOTAL_SIZE_EXCEEDED"|"RU"|"Недостаточно памяти для создания отчета.
+"MSG.STAT_ORDERS.ORDERS_MAX_TOTAL_SIZE_EXCEEDED"|"EN"|"Not enough memory for creating the report.
