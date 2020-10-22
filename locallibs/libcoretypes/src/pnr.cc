@@ -697,6 +697,7 @@ const SsrCode& SsrCode::GRPS() { static const ct::SsrCode code("GRPS"); return c
 const SsrCode& SsrCode::INFT() { static const ct::SsrCode code("INFT"); return code; }
 const SsrCode& SsrCode::MEDA() { static const ct::SsrCode code("MEDA"); return code; }
 const SsrCode& SsrCode::NRSB() { static const ct::SsrCode code("NRSB"); return code; }
+const SsrCode& SsrCode::NSST() { static const ct::SsrCode code("NSST"); return code; }
 const SsrCode& SsrCode::OTHS() { static const ct::SsrCode code("OTHS"); return code; }
 const SsrCode& SsrCode::PCTC() { static const ct::SsrCode code("PCTC"); return code; }
 const SsrCode& SsrCode::RLOC() { static const ct::SsrCode code("RLOC"); return code; }

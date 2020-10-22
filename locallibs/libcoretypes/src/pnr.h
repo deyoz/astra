@@ -292,6 +292,7 @@ public:
     static const SsrCode& INFT();
     static const SsrCode& MEDA();
     static const SsrCode& NRSB();
+    static const SsrCode& NSST();
     static const SsrCode& OTHS();
     static const SsrCode& PCTC();
     static const SsrCode& RLOC();
