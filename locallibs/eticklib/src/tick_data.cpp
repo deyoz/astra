@@ -490,6 +490,7 @@ DESCRIBE_CODE_SET( Ticketing::TaxCategoryElem ) {
     ADD_ELEMENT(Current,         "702", "Current");
     ADD_ELEMENT(CarrierFee,      "710", "Applies to carrier fee");
     ADD_ELEMENT(TaxOnCarrierFee, "711", "Applies to tax on carrier fee");
+    ADD_ELEMENT(Exempt,          "E",   "Tax exempt");
 }
 
 namespace Ticketing {

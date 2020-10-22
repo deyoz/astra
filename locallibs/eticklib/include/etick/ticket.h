@@ -1674,7 +1674,7 @@ class BasePnr
     std::list <FormOfPaymentT> lFop; // Форма оплаты
     std::list <FreeTextInfoT> lIft; // Свободный текст
     CommonTicketData CTicketData;
-
+/*
     struct accumulateCCFop : public
             std::unary_function<std::list<FormOfPaymentT>, FormOfPaymentT>
     {
@@ -1687,7 +1687,7 @@ class BasePnr
             return lfop;
         }
     };
-
+*/
     struct collect_tick
     {
         TickStatAction::TickStatAction_t tact;
@@ -1870,7 +1870,7 @@ public:
             return false;
         }
     }
-
+/*
     // Возвр ФОП с кредитной картой
     virtual const FormOfPaymentT &ccFOP() const
     {
@@ -1886,9 +1886,9 @@ public:
         } else if(lFop.size() == 0) {
             throw TickExceptions::tick_fatal_except(MY_STDLOG, EtErr::WRONG_CC, "There are not any FOPs with CC");
         }
-        return lFop.front();
+        return lFop.front();  // returns dangling reference
     }
-
+*/
     /**
      * @brief Sets a new Org for the Pnr image
      * @param theVal
