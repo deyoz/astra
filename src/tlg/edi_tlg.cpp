@@ -788,3 +788,10 @@ Ticketing::Pnr readPnr(const Ticketing::EdiPnr& ediPnr)
     }
 }
 
+std::string EdiPnr::ediTextWithCharset(const std::string& charset) const
+{
+    if(edilib::GetEdiCharset(m_ediText) == charset) {
+        return m_ediText;
+    }
+    return edilib::ChangeEdiCharset(m_ediText, charset);
+}
