@@ -171,7 +171,7 @@ void close_handle(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     }
   }
   // Если закрыли последнее окно, откроем окно со списком задач
-  if(getNumberOfHandles(getXmlCtxt()->pult.c_str())==0)
+  if(getNumberOfHandles()==0)
 		JxtInterfaceMng::Instance()->OnEvent("", "init_main", ctxt, reqNode, resNode);
 //		JxtInterfaceMng::OnEvent("", "init_main", ctxt, reqNode, resNode);
   else

@@ -3,21 +3,18 @@
 
 #ifdef __cplusplus
 
-#include <exception>
-#include <stdexcept>
 #include <string>
-#include <algorithm>
-#include <functional>
-#include <map>
+#include <memory>
 #include <libxml/tree.h>
 
+#include "gettext.h"
 #include <serverlib/exception.h>
 
 
 class XMLRequestCtxt;
 class AccessException;
-
 class JxtGlobalInterface;
+
 namespace jxtlib
 {
 
@@ -38,7 +35,7 @@ class jxtlib_custom_exception : public jxtlib_exception
   }
 };
 
-class E_throw_xmlerr : public jxtlib::jxtlib_custom_exception
+class E_throw_xmlerr : public jxtlib_custom_exception
 {
   public:
     E_throw_xmlerr(const char *tag, const char *fmt, ...);
@@ -62,14 +59,10 @@ class JXTLibCallbacks
                    char **res, int len);
 
   virtual JxtGlobalInterface * CreateGlobalInterface();
-  virtual void Force2Register()
-  {}
-  virtual void InitInterfaces()
-  {}
-  virtual bool AlreadyLogged()
-  { return true;  }
-  virtual void BlockPult()
-  {}
+  virtual void Force2Register() {}
+  virtual void InitInterfaces() {}
+  virtual bool AlreadyLogged() { return true;  }
+  virtual void BlockPult() {}
 
   /*
    *    returns pointer to XMLRequestCtxt class if reset is false,
@@ -91,19 +84,7 @@ class JXTLibCallbacks
   virtual void quitWindow();
   virtual void Logout();
   virtual void startTask();
-  virtual void fillJxtBgndJobsList()
-  {
-  }
-  // moved out because of Oci
-  //virtual void getIfaceLinks(xmlNodePtr resNode, const std::string &iface_id);
-  //virtual long lib_getXmlDataVer(const std::string &type, const std::string &id);
-  //virtual long lib_getDataVer(const std::string &data_id);
-  //virtual void updateJxtData(const char *id, long term_ver, xmlNodePtr resNode);
-  //virtual void insertXmlData(const std::string &type, const std::string &id,
-  //                           const std::string &data);
-  //virtual std::string getXmlData(const std::string &type,
-  //                               const std::string &type, long ver);
-
+  virtual void fillJxtBgndJobsList() { }
 };
 
 
@@ -128,39 +109,23 @@ struct XmlDataDesc
 
 class JXTLib
 {
-  private:
-      struct greater_str_n {
-          bool operator() (std::string const& a, std::string const& b) const noexcept {
-              auto const min_len = std::min(a.size(), b.size());
-              return a.compare(0, min_len, b) < 0;
-          }
-      };
-  std::map<std::string, XmlDataDesc *, greater_str_n> data_impls;
-    JXTLibCallbacks *jxt_lc;
-    JXTLib()
-    {
-      jxt_lc=new JXTLibCallbacks();
-      data_impls.clear();
-    }
+    struct Impl;
+    std::unique_ptr<Impl> pimpl;
+    JXTLib();
   public:
     static JXTLib *Instance();
-    JXTLibCallbacks *GetCallbacks()
-    {
-      return jxt_lc;
+    JXTLibCallbacks *GetCallbacks();
+    void SetCallbacks(std::unique_ptr<JXTLibCallbacks>);
+    JXTLib* addDataImpl(std::unique_ptr<XmlDataDesc>);
+    template<typename... Args> JXTLib* addDataImpl(Args&&... args) {
+        return addDataImpl(std::make_unique<XmlDataDesc>(std::forward<Args>(args)...));
     }
-    void SetCallbacks(JXTLibCallbacks *jxt_lc_)
-    {
-      delete jxt_lc;
-      jxt_lc=jxt_lc_;
-    }
-    JXTLib *addDataImpl(XmlDataDesc *xdd);
     const XmlDataDesc *getDataImpl(const std::string &data_id);
 };
 
 } // namespace jxtlib
 
 
-#include "gettext.h"
 namespace loclib
 {
 
@@ -169,18 +134,9 @@ class LocaleLibCallbacks
   public:
     LocaleLibCallbacks();
     virtual ~LocaleLibCallbacks() {}
-    virtual int getErrorMessageId()
-    {
-      return 2;
-    }
-    virtual int getMessageId()
-    {
-      return 1;
-    }
-    virtual int getUnknownMessageId()
-    {
-      return 0;
-    }
+    virtual int getErrorMessageId() { return 2; }
+    virtual int getMessageId() { return 1; }
+    virtual int getUnknownMessageId() { return 0; }
     virtual int getCurrLang();
     virtual void prepare_localization_map(LocalizationMap &lm,
                                           bool search_for_dups);

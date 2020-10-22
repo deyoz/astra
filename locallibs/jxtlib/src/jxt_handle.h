@@ -93,12 +93,10 @@ inline int getHandleNumByIface(const char *iface)
   return JxtHandles::getJxtHandleNumByIface(iface?iface:"");
 }
 
-inline int getNumberOfHandles(const char *pult=0)
+inline int getNumberOfHandles()
 {
   return JxtHandles::numberOfOpenJxtHandles();
 }
-/* Замечание: значение параметра pult не важно, параметр оставлен только   */
-/* для совместимости с существующим кодом.                                 */
 
 #endif /* __cplusplus */
 

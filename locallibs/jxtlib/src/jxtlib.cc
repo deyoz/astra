@@ -57,10 +57,8 @@ JXTLibCallbacks::JXTLibCallbacks()
 
 JXTLib *JXTLib::Instance()
 {
-  static JXTLib *instance=0;
-  if(!instance)
-    instance=new JXTLib;
-  return instance;
+  static JXTLib instance;
+  return &instance;
 }
 
 namespace
@@ -325,20 +323,46 @@ void JXTLibCallbacks::HandleAccessException(xmlNodePtr resNode, const AccessExce
     addXmlMessageBoxFmt(resNode, e.what());
 }
 
+struct JXTLib::Impl
+{
+      struct greater_str_n {
+          bool operator() (std::string const& a, std::string const& b) const noexcept {
+              auto const min_len = std::min(a.size(), b.size());
+              return a.compare(0, min_len, b) < 0;
+          }
+      };
+
+    std::map<std::string, std::unique_ptr<XmlDataDesc>, greater_str_n> data_impls;
+    std::unique_ptr<JXTLibCallbacks> jxt_lc;
+
+    Impl() : jxt_lc(std::make_unique<JXTLibCallbacks>()) {}
+};
+
+JXTLib::JXTLib() : pimpl(std::make_unique<Impl>()) {}
+
 const XmlDataDesc *JXTLib::getDataImpl(const std::string &data_id)
 {
-    auto const pos = data_impls.find(data_id);
-    if(pos == data_impls.end())
+    auto const pos = pimpl->data_impls.find(data_id);
+    if(pos == pimpl->data_impls.end())
         return nullptr;
-    return pos->second;
+    return pos->second.get();
 }
 
-JXTLib *JXTLib::addDataImpl(XmlDataDesc *xdd)
+JXTLib *JXTLib::addDataImpl(std::unique_ptr<XmlDataDesc> xdd)
 {
-  data_impls[xdd->data_id]=xdd;
-  return this;
+    pimpl->data_impls[xdd->data_id] = std::move(xdd);
+    return this;
 }
 
+JXTLibCallbacks * JXTLib::GetCallbacks()
+{
+    return pimpl->jxt_lc.get();
+}
+
+void JXTLib::SetCallbacks(std::unique_ptr<JXTLibCallbacks> p)
+{
+    pimpl->jxt_lc.swap(p);
+}
 
 } // namespace jxtlib
 

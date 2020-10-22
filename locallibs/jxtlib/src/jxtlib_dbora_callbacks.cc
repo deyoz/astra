@@ -135,7 +135,7 @@ void JxtlibDbOraCallbacks::insertIfaceLinks(const std::string &id, const std::ve
      bind(":LINK_TYPE",link_type).
      bind(":VERSION",version).
      bind(":LANG", lang);
-  for(const auto ilink: ilinks)
+  for(const auto& ilink: ilinks)
   {
     link_name=ilink.id;
     link_type=ilink.type;

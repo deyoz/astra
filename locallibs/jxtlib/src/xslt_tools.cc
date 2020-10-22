@@ -20,14 +20,15 @@
 #include <libxslt/xsltInternals.h>
 #include <libxslt/transform.h>
 #include <libxslt/xsltutils.h>
+#include <libxslt/xsltutils.h>
 
 #include "xml_cpp.h"
 
-xmlDocPtr applyXSLT(xmlDocPtr xmlDoc, xmlDocPtr xslDoc, const char **params)
+xmlDocPtr applyXSLT(xmlDocPtr xmlDoc, const char* xsl, const char **params)
 {
-  if (!xslDoc || !xmlDoc)
+  if (!xsl || !xmlDoc)
   {
-    return NULL;
+     return NULL;
   }
   struct GlobalsHolder {
       GlobalsHolder() {
@@ -38,19 +39,15 @@ xmlDocPtr applyXSLT(xmlDocPtr xmlDoc, xmlDocPtr xslDoc, const char **params)
           xsltCleanupGlobals();
       }
   } globals_holder;
+  auto xslDoc = xmlParseMemory(xsl, strlen(xsl));
+  if (!xslDoc)
+  {
+    return NULL;
+  }
   auto cur = xsltParseStylesheetDoc(xslDoc);
   auto res = xsltApplyStylesheet(cur, xmlDoc, params);
+  xsltFreeStylesheet(cur);
   return res;
-}
-
-xmlDocPtr applyXSLT(xmlDocPtr xmlDoc, const char* xsl, const char **params)
-{
-  if (!xsl)
-  { 
-     return NULL;
-  }
-  auto xslDoc = xml_parse_memory(xsl);
-  return applyXSLT(xmlDoc, xslDoc.get(), params);
 }
 
 xmlDocPtr applyXSLT(const char* xml, const char* xsl, const char **params) 

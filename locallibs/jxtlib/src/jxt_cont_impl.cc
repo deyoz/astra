@@ -224,7 +224,7 @@ START_TEST(testSavedRemove)
     JxtCont *jxtcont=getJxtContHandler()->currContext();
     jxtcont->write("VASIA","lalala")->write("PETIA","bugaga")->write("MASHA","hihihi");
     JxtContext::JxtContHolder::Instance()->finalize(); // Сохраняем значение
-    commit_base(); // Коммит базы
+    //commit_base(); // Коммит базы
 
     JxtContext::JxtContHolder::Instance()->setHandler(new JxtContext::JxtContHandlerSir(TEST_PUL));
     jxtcont=getJxtContHandler()->currContext();
@@ -232,7 +232,7 @@ START_TEST(testSavedRemove)
     jxtcont->remove("PETIA"); // remove read value
     jxtcont->remove("VASIA"); // remove unread value
     JxtContext::JxtContHolder::Instance()->finalize(); // Сохраняем данные
-    commit_base(); // Коммит базы
+    //commit_base(); // Коммит базы
 
     string name,val,sess_id;
 #ifdef ENABLE_PG_TESTS

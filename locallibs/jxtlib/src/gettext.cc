@@ -78,11 +78,6 @@ std::string getLocalText(const std::string &key, int lang)
     }
 }
 
-const char *getLocalCText(const std::string &key, int lang)
-{
-    return getLocalText(key, lang).c_str();
-}
-
 const char *getLocalizedText(const char *key_str, ...)
 {
   va_list ap;

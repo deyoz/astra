@@ -27,6 +27,6 @@ inline Language currLang()
 
 // Локализирует текст из псевдо языка (наприм. из "EtsErr::PROG_ERR")
 std::string getLocalText(const std::string &key, int lang=getCurrLang());
-const char *getLocalCText(const std::string &key, int lang=getCurrLang());
+
 #endif /* __cplusplus */
 #endif /* __GETTEXT_H__ */

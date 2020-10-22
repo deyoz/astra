@@ -726,7 +726,7 @@ void createIfaceLinksForIface(XMLRequestCtxt *ctxt, xmlNodePtr resNode,
 
   xmlNodePtr linkNode=NULL;
   vector<IfaceLinks> ilinks_to_insert;
-  for(const auto ilink: ilinks)
+  for(auto&& ilink: ilinks)
   {
     ilinks_to_insert.push_back(ilink);
     if(ilink.type=="ipart")
@@ -1094,7 +1094,7 @@ void updateJxtData(const char *id, long term_ver, xmlNodePtr resNode)
     const auto reltabList = JxtlibDbCallbacks::instance()->getRelTabcolTab(id);
     /* счетчик кол-ва полей */
     col_num=0;
-    for(const auto reltab: reltabList)
+    for(auto&& reltab : reltabList)
     {
       if(reltab.key == 1)
       {
@@ -1267,9 +1267,9 @@ void insertXmlData(const std::string &type, const std::string &id,
   if(type=="interface")
   {
     // Удалим все iface_links и добавим их для ipart'ов
-    xmlDocPtr iDoc=0;
     xmlKeepBlanksDefault(0);
-    if((iDoc=xmlParseMemory(data.c_str(),data.size()))==NULL)
+    auto iDoc = xml_parse_memory(data);
+    if(not iDoc)
     {
       ProgError(STDLOG,"Xml for %s %s must contain errors!",type.c_str(),
                 id.c_str());

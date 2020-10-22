@@ -19,7 +19,7 @@
 using namespace JxtContext;
 using namespace std;
 
-int setCurContext(const char *term, int handle)
+int setCurContext(const char * /*term*/, int handle)
 {
   getJxtContHandler()->setCurrentContext(handle);
   return 0;
@@ -59,8 +59,7 @@ extern "C" int writeContext(const char *name, const char *value)
 {
   if(!name)
   {
-    ProgTrace(TRACE1,"name='%s'",name);
-    throw JxtContException("writeContext");
+    throw JxtContException("writeContext: name is nullptr");
   }
   if(!value)
     getJxtContHandler()->currContext()->remove(name);
@@ -78,8 +77,7 @@ extern "C" int writeContextInt(const char *name, int value)
 {
   if(!name)
   {
-    ProgTrace(TRACE1,"name='%s', value='%i'",name,value);
-    throw JxtContException("writeContext");
+    throw JxtContException("writeContext: name is nullptr");
   }
   getJxtContHandler()->currContext()->write(name,value);
   return 0;
@@ -109,8 +107,7 @@ extern "C" int writeSysContext(const char *name, const char *value)
 {
   if(!name || !value)
   {
-    ProgTrace(TRACE1,"name='%s', value='%s'",name,value);
-    throw JxtContException("writeContext");
+    throw JxtContException("writeContext: name or value is nullptr");
   }
   getJxtContHandler()->sysContext()->write(name,value);
   return 0;
@@ -120,8 +117,7 @@ extern "C" int writeSysContextInt(const char *name, int value)
 {
   if(!name)
   {
-    ProgTrace(TRACE1,"name='%s', value='%i'",name,value);
-    throw JxtContException("writeContext");
+    throw JxtContException("writeContext: name is nullptr");
   }
   getJxtContHandler()->currContext()->write(name,value);
   return 0;
