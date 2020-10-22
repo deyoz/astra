@@ -4,6 +4,7 @@
 #ifdef __cplusplus
 #include <boost/lexical_cast.hpp>
 #include "edi_user_func.h"
+#include "edi_func.h"
 
 #include <string>
 #include <stdarg.h>
@@ -952,6 +953,17 @@ inline EDI_REAL_MES_STRUCT *ReadEdifactMessage(const char *msg)
 		throw Exception("Program error in ReadEdiMes()");
 	}
 	return GetEdiMesStruct();
+}
+
+inline string GetEdiCharset(const string& sourceText)
+{
+    const char *chsname=GetCharSetNameFromText(sourceText.c_str(), sourceText.length(), 0);
+    if(chsname)
+    {
+        return std::string(chsname, EDI_CHSET_LEN);
+    }
+
+    throw Exception("Error: While getting charset from source: "+sourceText.substr(0, 15));
 }
 
 inline string ChangeEdiCharset(const string& sourceText, const string& charSet)
