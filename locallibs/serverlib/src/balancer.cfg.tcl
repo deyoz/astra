@@ -7,6 +7,11 @@ set logbalancer(SOCKET_SHM) $SOCKDIR/logbalancer-socket-shm
 set logbalancer(FILE) balancer.log
 set logbalancer(LEVEL) 19
 
+set logtlg(SOCKET) $SOCKDIR/logtlg-socket
+set logtlg(SOCKET_SHM) $SOCKDIR/logtlg-socket-shm
+set logtlg(FILE) msgdump.log
+set logtlg(LEVEL) 19
+
 set monitor1(TCP_HOST) 0.0.0.0
 set monitor1(TCP_LOG) 1
 set monitor1(TCP_PORT) 7701

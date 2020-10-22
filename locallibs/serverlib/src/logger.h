@@ -54,6 +54,7 @@ enum TRACE_CODES
  DAG_TRACE,
  ALEROM_TRACE,
  VLAD_TRACE,
+ FELIX_TRACE
 };
 
 int getRealTraceLev(int level);

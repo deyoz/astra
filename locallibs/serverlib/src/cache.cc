@@ -58,18 +58,18 @@ void cache_statistic_print(int Level, const char *nickname,const char *filename,
 
 void message_print(const char *key_name,const char *data_name, std::string&& mess)
 {
-  LogTrace(TRACE5)<<key_name<<"/"<<data_name<<": "<<mess;
+  LogTrace(get_stat_log_level(),NICKNAME,__FILE__, __LINE__)<<key_name<<"/"<<data_name<<": "<<mess;
 }
 
 void message_print(const char *key_name,const char *data_name,const char *mess)
 {
-  LogTrace(TRACE5)<<key_name<<"/"<<data_name<<": "<<mess;
+  ProgTrace(get_stat_log_level(),NICKNAME,__FILE__, __LINE__, "%s/%s: %s", key_name, data_name, mess);
 }
 
 
 void lifetime_Request::register2clear(void (*p)(void))
 {
-  registerHookAlways(p); 
+  registerHookAlways(p);
 }
 
 }// namespace Cache

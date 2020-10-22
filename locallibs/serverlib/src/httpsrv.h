@@ -70,6 +70,10 @@ protected:
     ReqCorrelationData() {}
 };
 
+enum class CustomAuth {
+    None,
+    NTLM
+};
 
 struct HttpReq {
     ReqCorrelationData correlation;
@@ -79,6 +83,7 @@ struct HttpReq {
     std::string text; /* HTTP текст запроса, включая HTTP заголовки */
     std::vector<boost::posix_time::ptime> deadlines; /* Время наступления таймаутов для каждой попытки */
     CustomData customData;
+    CustomAuth customAuth;
     boost::optional<ClientAuth> clientAuth;
     std::string peresprosReq;
     UseSSLFlag useSSL;
@@ -93,6 +98,7 @@ struct HttpReq {
             const std::string& text,
             const std::vector<boost::posix_time::ptime>& deadlines,
             const CustomData& customData,
+            const CustomAuth& customAuth,
             const boost::optional<ClientAuth>& clientAuth,
             const std::string& peresprosReq,
             const UseSSLFlag& useSSL,
@@ -108,6 +114,7 @@ enum CommErrCode {
     COMMERR_RESOLVE,
     COMMERR_CONNECT,
     COMMERR_HANDSHAKE,
+    COMMERR_AUTHENTICATE,
     COMMERR_WRITE,
     COMMERR_READ_HEADERS,
     COMMERR_READ_CHUNK_HEADER,
@@ -150,6 +157,7 @@ struct HttpResp {
  */
 class DoHttpRequest {
 public:
+    DoHttpRequest(Domain domain, HostAndPort hostAndPort, std::string reqText);
     DoHttpRequest(std::string const& host, unsigned port, std::string reqText);
     DoHttpRequest(
             Pult pult,
@@ -168,6 +176,7 @@ public:
         std::string reqText);
     /* Необязательные параметры */
     DoHttpRequest& setCustomData(const CustomData& customData);
+    DoHttpRequest& setCustomAuth(const CustomAuth& customAuth);
     DoHttpRequest& setClientAuth(const ClientAuth& clientAuth);
     DoHttpRequest& setMaxTryCount(unsigned maxTryCount); /* Максимальное число попыток перепосылки запроса */
     DoHttpRequest& setTimeout(const boost::posix_time::time_duration& timeout); /* Для каждой попытки */
@@ -191,6 +200,7 @@ private:
     const HostAndPort hostAndPort_;
     const std::string reqText_;
     CustomData customData_;
+    CustomAuth customAuth_;
     boost::optional<ClientAuth> clientAuth_;
     boost::posix_time::time_duration timeout_; /* default = 15 */
     std::string peresprosReq_;
@@ -212,6 +222,7 @@ struct HasNotSentAQueryBefore : public ServerFramework::Exception
 /* Получив переспрос, obrzap читает ответы из сокета демона */
 std::vector<HttpResp> FetchHttpResponses(Pult pult, const Domain& domain, bool waitAll = true, bool throw_on_hasntsent = false, bool fetchAllResponses = true);
 std::vector<HttpResp> FetchHttpResponses(const ServerFramework::InternalMsgId& MsgId, const Domain& domain, bool waitAll = true, bool throw_on_hasntsent = false);
+std::vector<HttpResp> FetchHttpResponses(const Domain& domain, bool waitAll = true, bool throw_on_hasntsent = false);
 std::vector<HttpResp> FetchHttpResponses(CorrelationID cid, const Domain& domain, bool waitAll = true, bool throw_on_hasntsent = false);
 std::vector<HttpResp> FetchHttpResponses(bool waitAll = true, bool throw_on_hasntsent = false);
 
@@ -222,6 +233,7 @@ struct HttpPayload {
     std::string text;
 };
 boost::optional<HttpPayload> HttpResponsePayload(const std::string& httpResponse);
+std::pair<unsigned, unsigned> status_and_offset(std::string const& txt);
 
 enum CheckHttpFlags
 {

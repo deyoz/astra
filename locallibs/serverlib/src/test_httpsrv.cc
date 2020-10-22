@@ -1051,6 +1051,63 @@ START_TEST(Check_Perespros)
 
 } END_TEST;
 
+START_TEST(Check_NTLM_Normal)
+{
+    static const char *PORT = "1337";
+
+    if (fork() == 0) {
+        execl("ntlmapp", "ntlmapp", PORT, "normal", nullptr);
+        return;
+    }
+
+    using namespace httpsrv;
+    const Domain domain("NTLM");
+
+    const char* HTTPREQ =
+    "GET /FareSearch?requestParameters=[{'Route':['MCX-BGY'],'BeginDate':'2020-05-29','EndDate':'2020-05-29','AdultCount':3,'ChildCount':1,'InfantCount':1,'CurrencyCode':'RUB','APIVersion':4.6}]&clientId=sirena_R4QK0QXOKSU4BMC HTTP/1.0\r\n"
+    "Host: 127.0.0.1\r\n"
+    "Accept: */*\r\n\r\n";
+
+    DoHttpRequest req(domain, HostAndPort("127.0.0.1", std::stol(PORT)), HTTPREQ);
+    req.setSSL(UseSSLFlag(false));
+    req.setCustomAuth(CustomAuth::NTLM);
+    req();
+
+    auto resps = FetchHttpResponses(domain);
+    fail_unless(resps.size() == 1);
+    fail_unless(resps[0].text.find("HTTP/1.1 200 OK") != std::string::npos);
+}
+END_TEST
+
+START_TEST(Check_NTLM_Timeout)
+{
+    static const char *PORT = "1337";
+
+    if (fork() == 0) {
+        execl("ntlmapp", "ntlmapp", PORT, "timeout", nullptr);
+        return;
+    }
+
+    using namespace httpsrv;
+    const Domain domain("NTLM");
+
+    const char* HTTPREQ =
+    "GET /FareSearch?requestParameters=[{'Route':['MCX-BGY'],'BeginDate':'2020-05-29','EndDate':'2020-05-29','AdultCount':3,'ChildCount':1,'InfantCount':1,'CurrencyCode':'RUB','APIVersion':4.6}]&clientId=sirena_R4QK0QXOKSU4BMC HTTP/1.0\r\n"
+    "Host: 127.0.0.1\r\n"
+    "Accept: */*\r\n\r\n";
+
+    DoHttpRequest req(domain, HostAndPort("127.0.0.1", std::stol(PORT)), HTTPREQ);
+    req.setSSL(UseSSLFlag(false));
+    req.setCustomAuth(CustomAuth::NTLM);
+    req();
+
+    auto resps = FetchHttpResponses(domain);
+    fail_unless(resps.size() == 1);
+    fail_unless(resps[0].text.find("HTTP/1.0 504 Internal Server Error") != std::string::npos);
+    fail_unless(resps[0].text.find("timeout") != std::string::npos);
+}
+END_TEST
+
 START_TEST(Check_AezhSchedule)
 {
     const char* HTTPREQ =
@@ -1155,6 +1212,32 @@ START_TEST(Check_TimeoutWithRetries)
 }
 END_TEST;
 
+START_TEST(Check_NTLM_SSL)
+{
+    using namespace httpsrv;
+    const Domain domain("NTLM");
+
+    const char* HTTPREQ =
+    "GET /FareSearch?requestParameters=[{'Route':['MCX-BGY'],'BeginDate':'2020-05-29','EndDate':'2020-05-29','AdultCount':3,'ChildCount':1,'InfantCount':1,'CurrencyCode':'RUB','APIVersion':4.6}]&clientId=sirena_R4QK0QXOKSU4BMC HTTP/1.0\r\n"
+    "Host: testfares4x.pobeda.aero\r\n"
+    "Accept: */*\r\n\r\n";
+
+    make_curs("insert into httpca(domain, cert) values(:domain, :cert)")
+        .bind(":domain", domain.str())
+        .bind(":cert", CA_certs.back())
+        .exec();
+
+    DoHttpRequest req(domain, HostAndPort("testfares4x.pobeda.aero", 443), HTTPREQ);
+    req.setSSL(UseSSLFlag(true));
+    req.setCustomAuth(CustomAuth::NTLM);
+    req();
+
+    const auto resps = FetchHttpResponses(domain);
+    fail_unless(resps.size() == 1);
+    fail_unless(resps[0].text.find("HTTP/1.1 200 OK") != std::string::npos);
+}
+END_TEST
+
 namespace {
 void start()
 {
@@ -1171,7 +1254,6 @@ void test_shutdown()
     make_curs("delete from EDI_HELP where PULT = :pult").bind(":pult", pult.str()).exec();
     commitInTestMode();
 }
-
 }//anonymous ns
 
 #define SUITENAME "httpsrv"
@@ -1181,6 +1263,8 @@ TCASEREGISTER(start, test_shutdown)
     ADD_TEST(Check_HTTPS_NoAuth);
     ADD_TEST(Check_HTTPS_Auth);
     ADD_TEST(Check_Timeouts);
+//    ADD_TEST(Check_NTLM_Normal);
+//    ADD_TEST(Check_NTLM_Timeout);
 TCASEFINISH
 #undef SUITENAME
 
@@ -1189,8 +1273,10 @@ TCASEREGISTER(start, test_shutdown)
     ADD_TEST(Check_AezhSchedule);
     ADD_TEST(Check_Timeout);
     ADD_TEST(Check_TimeoutWithRetries);
+    ADD_TEST(Check_NTLM_SSL);
 TCASEFINISH
 #undef SUITENAME 
 } //anonymous ns
+
 #endif /* #ifdef XP_TESTING */
 #endif /*ENABLE_PG_TESTS*/

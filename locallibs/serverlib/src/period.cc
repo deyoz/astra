@@ -23,6 +23,10 @@ Period::Period() : biweekly(false) {}
 Period::Period(const boost::gregorian::date& d1, const boost::gregorian::date& d2, const std::string& fr)
     : start(d1), end(d2), biweekly(false), freq(fr) {}
 
+Period::Period(const boost::gregorian::date& dt)
+    : start(dt), end(dt), biweekly(false), freq(dt, dt)
+{}
+
 boost::optional<Period> Period::create(
         const boost::gregorian::date& d1, const boost::gregorian::date& d2,
         const Freq & fr, bool biw

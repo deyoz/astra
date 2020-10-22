@@ -16,6 +16,7 @@ namespace dbcpp { template <typename C> class BaseRow; }
 
 namespace PgCpp
 {
+const short* nullInd(bool isNull = true) noexcept;
 
 class CursCtl;
 class Session;
@@ -54,6 +55,9 @@ SessionDescriptor getAutoCommitSession(const std::string&);
 
 void commit();
 void rollback();
+void makeSavepoint(const std::string& name);
+void rollbackSavepoint(const std::string& name);
+void resetSavepoint(const std::string& name);
 #ifdef XP_TESTING
 void commitInTestMode();
 void rollbackInTestMode();
@@ -116,6 +120,8 @@ struct BindArg
 };
 
 enum class PgOid : PgOid_t { // values from pg_type.h
+    Float4 = 700,
+    Float8 = 701,
     Int8 = 20,
     Boolean = 16,
     ByteArray = 17,
@@ -138,6 +144,30 @@ enum class PgOid : PgOid_t { // values from pg_type.h
 template<typename T>
 struct PgTraits
 {
+};
+
+template<>
+struct PgTraits<float>
+{
+    static const PgOid oid = PgOid::Float4;
+    static const int format = 1;
+
+    static int length(float) { return sizeof(float); }
+    static bool setNull(char* value);
+    static void fillBindData(std::vector<char>& dst, float v);
+    static bool setValue(char* value, const char* data, int);
+};
+
+template<>
+struct PgTraits<double>
+{
+    static const PgOid oid = PgOid::Float8;
+    static const int format = 1;
+
+    static int length(double) { return sizeof(double); }
+    static bool setNull(char* value);
+    static void fillBindData(std::vector<char>& dst, double v);
+    static bool setValue(char* value, const char* data, int);
 };
 
 template<>
@@ -620,11 +650,6 @@ CursCtl make_curs_autonomous_(const char* n, const char* f, int l, SessionDescri
 CursCtl make_curs_autonomous_(const char* n, const char* f, int l, SessionDescriptor, const std::string& sql);
 CursCtl make_curs_nocache_(const char* n, const char* f, int l, SessionDescriptor, const char* sql);
 CursCtl make_curs_nocache_(const char* n, const char* f, int l, SessionDescriptor, const std::string& sql);
-
-#ifdef XP_TESTING
-void makeSavepoint(const std::string& name);
-void rollbackSavepoint(const std::string& name);
-#endif //XP_TESTING
 
 bool copyDataFrom(Session& sess, const std::string& sql, const char* data, size_t size);
 

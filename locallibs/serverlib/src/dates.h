@@ -149,6 +149,7 @@ bool ptime_to_undelimited_string(const boost::posix_time::ptime& t, char* out);
 boost::posix_time::ptime ptime_from_undelimited_string(const char* input);
 boost::posix_time::ptime ptime_from_undelimited_string(const std::string& input);
 boost::posix_time::time_duration hh24mi(const std::string& s);
+boost::posix_time::time_duration hh24miss(const std::string& s);
 boost::posix_time::time_duration duration_from_string(const std::string&);
 boost::posix_time::ptime time_from_iso_string(const std::string&);
 
@@ -438,10 +439,6 @@ std::string durationToHHMM(const boost::posix_time::time_duration& dur);
 int YYYYfromYY(int yy);
 int YYYYfromYY(const char *yy);
 std::string normalizeDate(const std::string &date);
-
-/* 2 функции, вычисляющие смещение врем.зоны tz отн. GMT (в минутах). */
-int GmtDiffCityZone(const char *rrmmdd_date,const char *short_time,const char *tz);
-int GmtDiffCityZone(const char *rrmmddhhmiss_date,const char *tz);
 
 unsigned short day_of_week_ru(const boost::gregorian::date& d);
 unsigned short day_of_week_ru(const boost::posix_time::ptime& t);

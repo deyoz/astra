@@ -357,7 +357,7 @@ int makeSignalSocket( const std::string & name )
  *
  * */
 
-void tcl_mode_sleep2(int sigdesc,int s2,int *first,int mseconds,
+static void tcl_mode_sleep2(int sigdesc,int s2,int *first,int mseconds,
         void(*pf)(int ,char *),int addsock,int *result)
 {
     struct pollfd pfd[3];

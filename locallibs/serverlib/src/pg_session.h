@@ -35,8 +35,7 @@ public:
     void commitInTestMode();
     void rollbackInTestMode();
     CursorCache& getCursorCache();
-    int getSavepointCounter() const;
-    void increaseSavepointCounter();
+    int spCounter_;
 #endif // XP_TESTING
 private:
     Session(const char*);
@@ -45,9 +44,6 @@ private:
     PgConn conn_;
     SessionDescriptor sd_;
     CursorCache cursCache_;
-#ifdef XP_TESTING
-    int spCnt_;
-#endif // XP_TESTING
 
     friend class details::SessionManager;
     friend class CursCtl;

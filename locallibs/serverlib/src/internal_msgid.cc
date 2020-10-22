@@ -14,15 +14,11 @@ InternalMsgId::InternalMsgId(const std::array<uint32_t,3>& msgid) : MsgId(msgid)
 
 InternalMsgId::InternalMsgId(uint32_t m1, uint32_t m2, uint32_t m3) : MsgId{m1,m2,m3} {}
 
-const std::string& InternalMsgId::asString() const
+std::string InternalMsgId::asString() const
 {
-    if(AsString.empty())
-    {
-        char buf[25];
-        sprintf(buf, "%8.08x%8.08x%8.08x", MsgId[0], MsgId[1], MsgId[2]);
-        AsString = buf;
-    }
-    return AsString;
+    char buf[25];
+    sprintf(buf, "%8.08x%8.08x%8.08x", MsgId[0], MsgId[1], MsgId[2]);
+    return std::string(buf, 24);
 }
 
 InternalMsgId InternalMsgId::fromString(const std::string& s)
@@ -33,14 +29,11 @@ InternalMsgId InternalMsgId::fromString(const std::string& s)
     return InternalMsgId(id);
 }
 
-const std::string& InternalMsgId::sepString() const
+std::string InternalMsgId::sepString() const
 {
-    if(OldStyleStting.empty()) {
-        char str[100];
-        sprintf(str, "%d %d %d", MsgId[0], MsgId[1], MsgId[2]);
-        OldStyleStting = str;
-    }
-    return OldStyleStting;
+    char str[100];
+    sprintf(str, "%d %d %d", MsgId[0], MsgId[1], MsgId[2]);
+    return str;
 }
 
 const std::array<uint32_t,3>& InternalMsgId::id() const

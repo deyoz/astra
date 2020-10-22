@@ -16,6 +16,7 @@
 #include "monitor.h"
 #include "string_cast.h"
 #include "helpcpp.h"
+#include "logrange.h"
 
 #define NICKNAME "KONST"
 #include "slogger.h"
@@ -67,19 +68,28 @@ class SemHolder
     : private comtech::noncopyable
 {
 public:
-    explicit SemHolder(const int key) {
+    explicit SemHolder(const int key)
+        : id_ { -1 }, size_ { SemHolder::values.size() }
+    {
+        if (0 == size_) {
+            return;
+        }
+
         const int flag = 0777;
 
-        id_ = semget(key, 1, flag | IPC_CREAT | IPC_EXCL);
+        id_ = semget(key, size_, flag | IPC_CREAT | IPC_EXCL);
         if (id_ < 0) {
-            id_ = semget(key, 1, flag);
+            id_ = semget(key, size_, flag);
             if (id_ < 0) {
                 throw std::runtime_error("Can't get semaphore for write context size");
             }
         }
 
-        const short initValue[1] = {1};
-        semctl(id_, 1, SETALL, initValue);
+        semctl(id_, 0, SETALL, SemHolder::values.data());
+    }
+
+    static void setValues(const std::vector< short >& v) {
+        SemHolder::values = v;
     }
 
     ~SemHolder() {
@@ -97,10 +107,15 @@ private:
     }
 
 private:
+    static std::vector< short > values;
+
+private:
     int id_;
+    const std::size_t size_;
 };
 /*****************************************************************/
 static const int NPROC = 500;
+std::vector< short > SemHolder::values { };
 
 typedef ProcS ProcessTable[NPROC];
 
@@ -578,7 +593,36 @@ int tcl_monitor_timeout_reset(ClientData cl, Tcl_Interp* interp, int objc, Tcl_O
         return TCL_OK;
     }
 
-    Tcl_AppendResult(interp, "Wrong arguments count, must be - monitor_timeout_reset <new timeout value>", nullptr);
+    Tcl_AppendResult(interp, "Wrong arguments count, must be - monitor_timeout_reset < pid > < new timeout value >", nullptr);
+
+    return TCL_ERROR;
+}
+/*****************************************************************/
+int tcl_init_semaphore(ClientData cl, Tcl_Interp* interp, int objc, Tcl_Obj* CONST objv[])
+{
+    Tcl_ResetResult(interp);
+    if (2 == objc) {
+        int objc;
+        if (TCL_OK != Tcl_ListObjLength(interp, objv[ 1 ], &objc)) {
+            LogTrace(TRACE1) << "Get length of list failed: " << Tcl_GetString(Tcl_GetObjResult(interp));
+            return TCL_ERROR;
+        }
+
+        std::vector< short > values { };
+        for (int i = 0; i < objc; ++i) {
+            Tcl_Obj* obj = nullptr;
+            Tcl_ListObjIndex(interp, objv[ 1 ], i, &obj);
+            values.emplace_back(static_cast< short >(readIntFromTcl(obj)));
+        }
+
+        SemHolder::setValues(values);
+
+        LogTrace(TRACE1) << "Semaphore was initialized using values " << LogRange(std::cbegin(values), std::cend(values));
+
+        return TCL_OK;
+    }
+
+    Tcl_AppendResult(interp, "Wrong arguments count, must be - init_semaphore [ list < value > ]", nullptr);
 
     return TCL_ERROR;
 }
@@ -626,6 +670,11 @@ int tcl_init(Tcl_Interp* interp)
         return -1;
     }
     if ( !Tcl_CreateObjCommand(interp, "monitor_timeout_reset", tcl_monitor_timeout_reset, nullptr, 0) ) {
+        fprintf( stderr, "%s\n", Tcl_GetString(Tcl_GetObjResult(interp)) );
+
+        return -1;
+    }
+    if ( !Tcl_CreateObjCommand(interp, "init_semaphore", tcl_init_semaphore, nullptr, 0) ) {
         fprintf( stderr, "%s\n", Tcl_GetString(Tcl_GetObjResult(interp)) );
 
         return -1;
@@ -1069,7 +1118,7 @@ int watch_main(int argc,
         return 1;
     }
     csaHolder.reset(new CsaHolder(readIntFromTcl("CSA_KEY")));
-    semHolder.reset(new SemHolder(readIntFromTcl("SEM_KEY", SEMAPHORE_KEY)));
+    semHolder.reset(new SemHolder(semaphoreKey()));
 
     watch(getTclInterpretator());
 
@@ -1350,7 +1399,7 @@ static int stop_old(int handlersCount, const std::string& startLine, Tcl_Interp*
     Tcl_Obj* processNumObj;
     int prNum;
     _Message_ mes;
-    mes.set_mes_text("exit", 4);
+    mes.set_mes_text(SOFT_RESTART_CMD.c_str(), SOFT_RESTART_CMD.size());
     mes.set_mes_cmd(TCLCMD_PROCCMD);
 
     for(int i = 0; i < handlersCount; ++i) {
@@ -2453,7 +2502,7 @@ static int restartHandlers(Tcl_Interp* interp)
                 && (ISNSET_BIT(pr->proc_flag, PROC_FL_DISPATCHER))
                 && (ISNSET_BIT(pr->proc_flag, PROC_FL_MAIN))) {
             _Message_ mes;
-            mes.set_mes_text("exit", 4);
+            mes.set_mes_text(SOFT_RESTART_CMD.c_str(), SOFT_RESTART_CMD.size());
             mes.set_mes_cmd(TCLCMD_PROCCMD);
             put_message_to_que(mes, *pr);
             set_action_process(interp, *pr, A_FORCED_RESTART);

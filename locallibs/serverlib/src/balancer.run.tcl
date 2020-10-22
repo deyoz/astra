@@ -62,22 +62,35 @@ proc app_init {} {
 
     if { ! $::USE_RSYSLOG } {
         create_dispatcher 1 [ list logger logbalancer $::SOCKDIR/logger-signal-balancer ] 0
+        create_dispatcher 1 [ list logger logtlg $::SOCKDIR/logger-signal-logtlg ] 0
     }
+
+    set workers_count 0
+    set total_count 0
 
     foreach g $::BALANCER_GROUPS {
         upvar #0 $g grp
         if { [ info exists grp(NUMBER_OF_LISTENERS) ] } {
-            for { set n 1 } { $n <= $grp(NUMBER_OF_LISTENERS) } { incr n } {
+            set wc $grp(NUMBER_OF_LISTENERS)
+
+            for { set n 1 } { $n <= $wc } { incr n } {
                 create_dispatcher 1 [ list balancer $g $n ] 1
             }
 
+            set workers_count [ expr { $workers_count + $wc } ]
+            set total_count [ expr { $total_count + $wc } ]
+
             if { [ info exists grp(ENABLE_CLIENTS_STATS) ] && $grp(ENABLE_CLIENTS_STATS) } {
                 create_dispatcher 1 [ list balancer_clients_stats $g ] 2
+                incr total_count
             }
+
         } else {
             create_dispatcher 1 [ list balancer $g ] 1
         }
     }
+
+    init_semaphore [ list $workers_count $total_count ]
 }
 
 set f [open $::env(PIDFILE) w 0600]

@@ -4,6 +4,7 @@
 /*pragma cplusplus*/
 #include <string>
 #include <set>
+#include <array>
 #include <typeinfo>
 #include <algorithm>
 
@@ -70,7 +71,17 @@ template <> void Simple<ReqDefPar * >::run()
    p=0;
 }
 
-enum which { AFTER,BEFORE,ALWAYS,ROLLBACK,COMMIT, BASETABLES, AFTER_TEXT_PROC_OK };
+enum which {
+    AFTER = 0,
+    BEFORE,
+    ALWAYS,
+    ROLLBACK,
+    COMMIT,
+    BASETABLES,
+    AFTER_TEXT_PROC_OK,
+
+    CountOfHookTypes
+};
 
 inline const char* which2str(int w)
 {
@@ -83,46 +94,17 @@ inline const char* which2str(int w)
           w == AFTER_TEXT_PROC_OK ? "AFTER_TEXT_PROC_OK" : "\?\?\?");
 }
 
-using std::set;
-set <HookHolder> *hbefore=0;
-set <HookHolder> *hafter=0;
-set <HookHolder> *halways=0;
-set <HookHolder> *hrollb=0;
-set <HookHolder> *hcommit=0;
-set <HookHolder> *basetables_cache=0;
-set <HookHolder> *hafterTextProcOk=0;
+using AllHooks = std::array<std::set<HookHolder>, CountOfHookTypes>;
 
-set <HookHolder> &getHook(which w)
+static AllHooks& getAllHooks()
 {
-    set <HookHolder> ** s = NULL;
-    switch (w)
-    {
-        case AFTER:
-            s=&hafter;
-            break;
-        case BEFORE:
-            s=&hbefore;
-            break;
-        case ALWAYS:
-            s=&halways;
-            break;
-        case ROLLBACK:
-            s=&hrollb;
-            break;
-        case COMMIT:
-            s=&hcommit;
-            break;
-        case BASETABLES:
-            s=&basetables_cache;
-            break;
-        case AFTER_TEXT_PROC_OK:
-            s=&hafterTextProcOk;
-            break;
-    }
-    if(*s==0){
-        *s=new set<HookHolder>;
-    }
-    return **s;
+    static AllHooks hooks = {};
+    return hooks;
+}
+
+static std::set<HookHolder>& getHook(which w)
+{
+    return getAllHooks().at(w);
 }
 
 void seth(const BaseHook& p, which w)
@@ -164,11 +146,15 @@ void sethCleanCache(const BaseHook& p)
 
 void callPostHooks(which w)
 {
-    set<HookHolder>& s = getHook(w);
-    if (!s.empty()) {
-        ProgTrace(TRACE5, "%s %s(%d) size=%zd",
-                __FUNCTION__, which2str(w), w, s.size());
-        std::for_each(s.begin(), s.end(), [](auto&hook){hook.run();});
+    std::set<HookHolder>& s = getHook(w);
+    if (s.empty()) {
+        return;
+    }
+
+    ProgTrace(TRACE5, "%s %s(%d) size=%zd", __FUNCTION__, which2str(w), w, s.size());
+
+    for (const HookHolder& h : s) {
+        h.run();
     }
 }
 

@@ -68,8 +68,7 @@ std::string makePidKey(const std::string& key_in)
 std::vector<std::string> makePidKeys(const std::vector<std::string>& keys_in)
 {
 #ifdef HAVE_MEMCACHED
-    return algo::transform(keys_in,
-                           [](const std::string& key_in) { return makePidKey(key_in); });
+    return algo::transform(keys_in, makePidKey);
 #else
     return keys_in;
 #endif
@@ -680,7 +679,7 @@ void MCacheTag::setKey(const std::string& k)
 
 std::string MCacheTag::getKey() const
 {
-    return makeFullKey(std::string(key, strlen(key)));
+    return makeFullKey(key);
 }
 
 bool MCacheTag::isValid() const
@@ -691,37 +690,17 @@ bool MCacheTag::isValid() const
 
 //---------------------------------------------------------------------------------------
 
-bool MCacheMetaData::addTag(const MCacheTag& tag)
-{
-    if((m_tagsCount <= MaxTagsCount - 1))
-    {
-        if(!tag.isValid()) {
-            return false;
-        }
-
-        m_tags[m_tagsCount++] = tag;
-        return true;
-    }
-
-    LogError(STDLOG) << "too many tags: " << m_tagsCount + 1;
-    return false;
-}
-
 std::vector<std::string> MCacheMetaData::tagsKeys() const
 {
-    std::vector<std::string> res;
-    for(unsigned i = 0; i < m_tagsCount; ++i) {
-        res.push_back(m_tags[i].getKey());
-    }
-    return res;
+    return algo::transform(m_tags, &MCacheTag::getKey);
 }
 
 uint64_t MCacheMetaData::getTagVersion(const std::string& tagKey) const
 {
-    for(unsigned i = 0; i < m_tagsCount; ++i)
+    for(auto& tag : m_tags)
     {
-        if(m_tags[i].getKey() == tagKey) {
-            return m_tags[i].getVersion();
+        if(tag.getKey() == tagKey) {
+            return tag.getVersion();
         }
     }
     return 0;
@@ -786,7 +765,7 @@ bool MCacheCheck::check(const std::string& key,
         return false;
     }
 
-    if(!metaData.m_tagsCount) {
+    if(metaData.m_tags.empty()) {
         return true;
     }
 
@@ -815,10 +794,10 @@ bool MCacheCheck::check(const std::string& key,
         tagsCount++;
     }
 
-    if(tagsCount != metaData.m_tagsCount)
+    if(tagsCount != metaData.m_tags.size())
     {
         LogTrace(TRACE1) << "tags counts are not equal (" << tagsCount << ","
-                         << metaData.m_tagsCount << ") for key: " << tagKey;
+                         << metaData.m_tags.size() << ") for key: " << tagKey;
         return false;
     }
 
@@ -875,7 +854,6 @@ MCacheObject::MCacheObject(const std::string& key, MCache* mcache)
     : m_key(key), m_data(0), m_dataLen(0),
       m_mcache(mcache), m_isActual(false), m_isValid(true)
 {
-    memset(&m_metaData, 0, sizeof(m_metaData));
 }
 
 MCacheObject::MCacheObject(const std::string& key,
@@ -887,41 +865,34 @@ MCacheObject::MCacheObject(const std::string& key,
     : m_key(key), m_data(data), m_dataLen(len),
       m_mcache(mcache), m_isActual(false), m_isValid(true)
 {
-    memset(&m_metaData, 0, sizeof(m_metaData));
-    for(unsigned i = 0; i < tagsCount; ++i)
-    {
-        if(!m_metaData.addTag(tags[i]))
-        {
-            m_isValid = false;
-            break;
-        }
-    }
+    m_metaData.m_tags.reserve(tagsCount);
+    std::copy_if(tags, tags+tagsCount, std::back_inserter(m_metaData.m_tags), std::mem_fn(&MCacheTag::isValid));
 }
 
 const char* MCacheObject::rawData(size_t& len) const
 {
 #ifdef HAVE_MEMCACHED
-    size_t metaDataLen = sizeof(m_metaData);
-    const char* metaData = (const char*)&m_metaData;
-    if((!metaData) || (metaDataLen > MaxBuffSize))
-    {
-        LogWarning(STDLOG) << "Invalid meta data of cache with key '" << key() << "'";
-        return 0;
-    }
     char* buff = getBuff();
     if(!buff)
     {
         LogWarning(STDLOG) << "Invalid buffer";
         return 0;
     }
-    memcpy(buff, metaData, metaDataLen);
-
+    uint32_t meta_tag = m_metaData.m_tags.size();
+    size_t metaDataLen = sizeof(meta_tag) + sizeof(MCacheTag) * m_metaData.m_tags.size();
+    if(metaDataLen > MaxBuffSize)
+    {
+        LogWarning(STDLOG) << "Invalid meta data of cache with key '" << key() << "'";
+        return 0;
+    }
     if((!m_data) || (metaDataLen + m_dataLen > MaxBuffSize))
     {
         LogWarning(STDLOG) << "Invalid data of cache with key '" << key() << "'";
         return 0;
     }
-    
+
+    memcpy(buff, &meta_tag, sizeof(meta_tag));
+    memcpy(buff + sizeof(meta_tag), m_metaData.m_tags.data(), metaDataLen - sizeof(meta_tag));
     memcpy(buff + metaDataLen, m_data, m_dataLen);
     len = m_dataLen + metaDataLen;
     return buff;
@@ -967,10 +938,8 @@ bool MCacheObject::writeToCache(time_t expiration, bool manualLock)
 
 bool MCacheObject::checkTagsVersions() const
 {
-    for(unsigned i = 0; i < metaData().m_tagsCount; ++i)
+    for(auto& tag :  metaData().m_tags)
     {
-        const MCacheTag& tag = metaData().m_tags[i];
-
         if(tag.getVersion())
         {
             uint64_t oldVersion = tag.getVersion();
@@ -997,8 +966,8 @@ bool MCacheObject::write_(time_t expiration)
         return false;
     }
 
-    for(unsigned i = 0; i < metaData().m_tagsCount; ++i) {
-        MCacheCheck::setTagVersion(metaData().m_tags[i], m_mcache, expiration);
+    for(auto& tag : metaData().m_tags) {
+        MCacheCheck::setTagVersion(tag, m_mcache, expiration);
     }
 
     size_t len = 0;
@@ -1028,7 +997,7 @@ bool MCacheObject::readFromCache()
         return false;
     }
 
-    if(len > MaxBuffSize || len < sizeof(MCacheMetaData))
+    if(len > MaxBuffSize || len < sizeof(uint32_t))
     {
         LogWarning(STDLOG) << "Invalid data has been read for key '" << key() << "'";
         return false;
@@ -1044,9 +1013,16 @@ bool MCacheObject::readFromCache()
     memcpy(buff, data, len);
     free(data);
 
-    m_metaData = *(MCacheMetaData*)buff;
-    m_data = buff + sizeof(m_metaData);
-    m_dataLen = len - sizeof(m_metaData);
+    uint32_t meta_tag;
+    memcpy(&meta_tag, buff, sizeof(meta_tag));
+    m_metaData.m_tags.resize(meta_tag);
+
+    memcpy(m_metaData.m_tags.data(), buff + sizeof(meta_tag),
+           m_metaData.m_tags.size() * sizeof(MCacheTag));
+
+    size_t metaDataLen = sizeof(meta_tag) + m_metaData.m_tags.size() * sizeof(MCacheTag);
+    m_data = buff + metaDataLen;
+    m_dataLen = len - metaDataLen;
     m_isActual = MCacheCheck::check(key(), m_metaData, m_mcache);
 
     return true;

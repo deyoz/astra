@@ -39,22 +39,8 @@ void UtfUpperCase( std::string& InOutStr )
 
 void UpperCase( std::string& InOutStr )
 {
-    size_t  RusLen=strlen(RusSml);
-
-    for( size_t i=0; i<InOutStr.size(); i++)
-    {
-        void *ptr;
-
-        if (InOutStr[i]>='a' && InOutStr[i]<='z')
-        {
-            InOutStr[i]=toupper(InOutStr[i]);
-            continue;
-        };
-        if ((unsigned)InOutStr[i]<='\177')
-            continue;
-        if ((ptr=memchr(RusSml,InOutStr[i],RusLen))!=NULL)
-            InOutStr[i]=RusBig[(char*)ptr-RusSml];
-    };
+    for(char& c : InOutStr)
+        c = StrUtils::tup(c);
 }
 
 void LowerCase( std::string& InOutStr )
@@ -188,18 +174,14 @@ std::string StringTrim(std::string tmp)
     return tmp;
 }
 
-void StringRTrim(string *str)
+void StringRTrim(std::string *str)
 {
-    int i = str->size() - 1;
-    for(; i>=0 && ISSPACE((*str)[i]); i--);
-    str->erase(i + 1);
+    str->erase(str->find_last_not_of(" \t") + 1); // "\f\n\r\v"
 }
 
-void StringLTrim(string *str)
+void StringLTrim(std::string *str)
 {
-    string::size_type i=0;
-    for(; i<str->size() && ISSPACE((*str)[i]); i++);
-    str->erase(0, i);
+    str->erase(0, str->find_first_not_of(" \t")); // "\f\n\r\v"
 }
 
 void StringTrim(string *str)
@@ -429,8 +411,6 @@ string b64_decode(const std::string &in)
   return b64_decode(in.c_str(),in.length());
 }
 
-namespace
-{
 unsigned char tup(unsigned char c)
 {
   if(c>=(unsigned char)'а' && c<=(unsigned char)'п')      return c-32;
@@ -446,8 +426,6 @@ unsigned char tlo(unsigned char c)
   else if(c==(unsigned char)'Ё')                          return 'ё';
   else                                                    return tolower(c);
 }
-
-} // anonymous namespace
 
 bool IsUpperChar(unsigned char c)
 {
@@ -821,73 +799,6 @@ std::string url_encode(const std::string &value)
   return escaped.str();
 }
 
-static const char* trtab_pre_22520[256] = {
-             "",     "\x01",     "\x02",     "\x03",
-         "\x04",     "\x05",     "\x06",     "\x07",
-         "\x08",     "\x09",     "\x0a",     "\x0b",
-         "\x0c",     "\x0d",     "\x0e",     "\x0f",
-         "\x10",     "\x11",     "\x12",     "\x13",
-         "\x14",     "\x15",     "\x16",     "\x17",
-         "\x18",     "\x19",     "\x1a",     "\x1b",
-         "\x1c",     "\x1d",     "\x1e",     "\x1f",
-         "\x20",     "\x21",     "\x22",     "\x23",
-         "\x24",     "\x25",     "\x26",     "\x27",
-         "\x28",     "\x29",     "\x2a",     "\x2b",
-         "\x2c",     "\x2d",     "\x2e",     "\x2f",
-         "\x30",     "\x31",     "\x32",     "\x33",
-         "\x34",     "\x35",     "\x36",     "\x37",
-         "\x38",     "\x39",     "\x3a",     "\x3b",
-         "\x3c",     "\x3d",     "\x3e",     "\x3f",
-         "\x40",     "\x41",     "\x42",     "\x43",
-         "\x44",     "\x45",     "\x46",     "\x47",
-         "\x48",     "\x49",     "\x4a",     "\x4b",
-         "\x4c",     "\x4d",     "\x4e",     "\x4f",
-         "\x50",     "\x51",     "\x52",     "\x53",
-         "\x54",     "\x55",     "\x56",     "\x57",
-         "\x58",     "\x59",     "\x5a",     "\x5b",
-         "\x5c",     "\x5d",     "\x5e",     "\x5f",
-         "\x60",     "\x61",     "\x62",     "\x63",
-         "\x64",     "\x65",     "\x66",     "\x67",
-         "\x68",     "\x69",     "\x6a",     "\x6b",
-         "\x6c",     "\x6d",     "\x6e",     "\x6f",
-         "\x70",     "\x71",     "\x72",     "\x73",
-         "\x74",     "\x75",     "\x76",     "\x77",
-         "\x78",     "\x79",     "\x7a",     "\x7b",
-         "\x7c",     "\x7d",     "\x7e",     "\x7f",
-         "\x41",     "\x42",     "\x56",     "\x47",
-         "\x44",     "\x45", "\x5a\x48",     "\x5a",
-         "\x49",     "\x59",     "\x4b",     "\x4c",
-         "\x4d",     "\x4e",     "\x4f",     "\x50",
-         "\x52",     "\x53",     "\x54",     "\x55",
-         "\x46", "\x4b\x48", "\x54\x53", "\x43\x48",
-     "\x53\x48", "\x53\x48",         "",     "\x59",
-             "",     "\x45", "\x59\x55", "\x59\x41",
-         "\x61",     "\x62",     "\x76",     "\x67",
-         "\x64",     "\x65", "\x7a\x68",     "\x7a",
-         "\x69",     "\x79",     "\x6b",     "\x6c",
-         "\x6d",     "\x6e",     "\x6f",     "\x70",
-         "\xb0",     "\xb1",     "\xb2",     "\xb3",
-         "\xb4",     "\xb5",     "\xb6",     "\xb7",
-         "\xb8",     "\xb9",     "\xba",     "\xbb",
-         "\xbc",     "\xbd",     "\xbe",     "\xbf",
-         "\xc0",     "\xc1",     "\xc2",     "\xc3",
-         "\xc4",     "\xc5",     "\xc6",     "\xc7",
-         "\xc8",     "\xc9",     "\xca",     "\xcb",
-         "\xcc",     "\xcd",     "\xce",     "\xcf",
-         "\xd0",     "\xd1",     "\xd2",     "\xd3",
-         "\xd4",     "\xd5",     "\xd6",     "\xd7",
-         "\xd8",     "\xd9",     "\xda",     "\xdb",
-         "\xdc",     "\xdd",     "\xde",     "\xdf",
-         "\x72",     "\x73",     "\x74",     "\x75",
-         "\x66", "\x6b\x68", "\x74\x73", "\x63\x68",
-     "\x73\x68", "\x73\x68",         "",     "\x79",
-             "",     "\x65", "\x79\x75", "\x79\x61",
-     "\x59\x4f", "\x79\x6f",     "\xf2",     "\xf3",
-         "\xf4",     "\xf5",     "\xf6",     "\xf7",
-         "\xf8",     "\xf9",     "\xfa",     "\xfb",
-         "\xfc",     "\xfd",     "\xfe",     "\xff"
-};
-
 /* Индексом в массиве является код символа (CP866) */
 static const char* trtab[256] = {
              "",     "\x01",     "\x02",     "\x03",
@@ -956,20 +867,14 @@ static const char* trtab[256] = {
          "\xfc",     "\xfd",     "\xfe",     "\xff"
 };
 
-std::string translit(const std::string& str, bool useOldRules)
+std::string translit(const std::string& str)
 {
     std::string result;
     // Оставим запас в несколько символов, т.к. длина строки может увеличиться при транслитерации
     result.reserve(str.size() + 10);
 
-    if (useOldRules) {
-        for (std::string::const_iterator c = str.begin(); c != str.end(); ++c)
-            result += trtab_pre_22520[(unsigned char)*c];
-    }
-    else {
-        for (std::string::const_iterator c = str.begin(); c != str.end(); ++c)
-            result += trtab[(unsigned char)*c];
-    }
+    for (std::string::const_iterator c = str.begin(); c != str.end(); ++c)
+        result += trtab[(unsigned char)*c];
 
     return result;
 }
@@ -992,22 +897,8 @@ char *safe_strcpy(char *dest, size_t dest_size, const char *src)
 
 char *UpperCaseN(char *InOutStr, const size_t InOutLen)
 {
-    const size_t RusLen=strlen(RusSml);
-
     for(size_t i=0; i<InOutLen; i++)
-    {
-        void *ptr;
-
-        if (InOutStr[i]>='a' && InOutStr[i]<='z')
-        {
-            InOutStr[i]=toupper(InOutStr[i]);
-            continue;
-        };
-        if ((unsigned)InOutStr[i]<='\177')
-            continue;
-        if ((ptr=memchr(RusSml,InOutStr[i],RusLen))!=NULL)
-            InOutStr[i]=RusBig[(char*)ptr-RusSml];
-    };
+        InOutStr[i] = StrUtils::tup(InOutStr[i]);
     return InOutStr;
 }
 
@@ -1128,68 +1019,6 @@ int atoinNVL(const char *str_in, int n, int NVL)
 {
     std::string tmp(str_in,n);
     return atoiNVL(tmp.c_str(),NVL);
-}
-
-int getDate(const char *xmldate, char *rrmmdd)
-{
-    struct tm *tim;
-    char date[13];
-    int len=strlen(xmldate);
-    if(len<4 || len>15)
-        return 1;
-
-    /* дата, которую нам присылает xml-терминал, отличается от time_t большей */
-    /* точностью - в ней указаны миллисекунды. Мы их отрезаем. */
-    strncpy(date,xmldate,len-3);
-    date[len-3]='\0';
-    errno = 0;    /* To distinguish success/failure after call */      
-    
-    int i=0;
-    if (!checkedAtoi(date, i ))
-        return 1;      /* символы, что указывает на наличие неверных данных */
-
-    time_t t=i;
-    tim=localtime(&t); /* эта функция заполняет структуру tm */
-    /* tm_year - количество годов, начиная с 1900 */
-    /* tm_mon - номер месяца (от 0 до 11) */
-    /* tm_day - номер дня месяца (от 1 до 31) */
-    if(!tim)
-        return 1;
-    sprintf(rrmmdd,"%02d%02d%02d",tim->tm_year%100,tim->tm_mon+1,tim->tm_mday);
-
-    return 0;
-}
-
-int setDate(const char *rrmmdd, char *xmldate)
-{
-    struct tm tim;
-    time_t t;
-    char buf[3];
-    int q;
-
-    ProgTrace(TRACE1,"rrmmdd='%s'",rrmmdd);
-    if(!rrmmdd)
-        return 1;
-
-    sprintf(buf,"%2.2s",rrmmdd);
-    q=atoi(buf);
-    tim.tm_year=(q<50)?100+q:q;
-
-    sprintf(buf,"%2.2s",rrmmdd+2);
-    tim.tm_mon=atoi(buf)-1;
-
-    sprintf(buf,"%2.2s",rrmmdd+4);
-    tim.tm_mday=atoi(buf);
-    ProgTrace(TRACE1,"rr=%i,mm=%i,dd=%i",tim.tm_year,tim.tm_mon,tim.tm_mday);
-
-    tim.tm_sec=tim.tm_min=tim.tm_hour=0;
-    t=mktime(&tim);
-    if( t == -1 )
-        ProgError(STDLOG, "mktime() failed!");
-    ProgTrace(TRACE1,"rrmmdd='%s', t=%li",rrmmdd,t);
-
-    sprintf(xmldate,"%li000",t);
-    return 0;
 }
 
 char *rtrim(char *str_in) /* str_in must be 0-terminated */

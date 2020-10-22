@@ -45,6 +45,7 @@ namespace DbCpp
         virtual DbType getType() const = 0;
         virtual void commit()          = 0;
         virtual void rollback()        = 0;
+        virtual bool setSessionType(DbSessionType type, bool no_throw=false) = 0;
 
         virtual std::string getConnectString() const = 0;
 
@@ -80,6 +81,7 @@ namespace DbCpp
         virtual DbType getType() const override { return DbType::Oracle; }
         virtual void commit() override;
         virtual void rollback() override;
+        virtual bool setSessionType(DbSessionType type, bool no_throw=false) override { return true; };
         virtual std::string getConnectString() const override;
         virtual CopyResult copyDataFrom(const std::string& sql, const char* data,
                                         size_t size) override;
@@ -119,6 +121,7 @@ namespace DbCpp
         virtual DbType getType() const override { return DbType::Postgres; }
         virtual void commit() override;
         virtual void rollback() override;
+        bool setSessionType(DbSessionType type, bool no_throw=false) override;
 #ifdef XP_TESTING
         void rollbackInTestMode();
 #endif // XP_TESTING
@@ -128,13 +131,19 @@ namespace DbCpp
         virtual CopyResult copyDataFrom(const std::string& sql, const char* data,
                                         size_t size) override;
 
-    private:
-        PgCpp::CursCtl createPgCursor(const char* n, const char* f, int l, const char* sql,
-                                      bool cacheit);
         void activateSession();
 
+        PgCpp::CursCtl createPgCursor(const char* n, const char* f, int l, const char* sql,
+                                      bool cacheit);
+        PgCpp::CursCtl createPgCursor(const char* n, const char* f, int l, const std::string& sql,
+                                      bool cacheit);
+    private:
         DbSessionType mType;
         bool mIsActive;
+#ifdef XP_TESTING
+        DbSessionType mType_test;
+        bool mIsActive_test;
+#endif // XP_TESTING
         std::string mConnectString;
         std::shared_ptr<PgCpp::Session> mSession;
     };
@@ -144,6 +153,11 @@ namespace DbCpp
     PgSession& mainPgSession(const char* nick, const char* file, int line);
     PgSession* mainPgSessionPtr(const char* nick, const char* file, int line,
                                 bool createIfNotExist = true);
+    PgSession& mainPgReadOnlySession(const char* nick, const char* file, int line);
+    PgSession* mainPgReadOnlySessionPtr(const char* nick, const char* file, int line,
+                                bool createIfNotExist = true);
 
-} // DbCpp
+    
+} // namespace DbCpp
+
 #endif // ENABLE_PG

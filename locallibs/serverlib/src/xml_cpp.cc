@@ -37,16 +37,16 @@ std::string xml_dump(const XmlDoc& d, bool indent)
 
 size_t num_nodes(const XmlDoc& d, const char* path)
 {
-  if(const xmlNodePtr root = xmlDocGetRootElement(d.get()))
-      return num_nodes(root, path);
-  return 0;
+    if(const xmlNodePtr root = xmlDocGetRootElement(d.get()))
+        return num_nodes(root, path);
+    return 0;
 }
 
 xmlNodePtr find_node(const XmlDoc& d, const char* path)
 {
-  if(const xmlNodePtr root = xmlDocGetRootElement(d.get()))
-      return find_node(root, path);
-  return 0;
+    if(const xmlNodePtr root = xmlDocGetRootElement(d.get()))
+        return find_node(root, path);
+    return 0;
 }
 
 XPathResult find_xpath(const XmlDoc& d, const char* path)
@@ -98,12 +98,12 @@ bool has_prop(const xmlNodePtr node, const char* prop_name, const char* prop_val
   return false;
 }
 
-size_t num_nodes(const xmlNodePtr node, const char* path) 
+size_t num_nodes(const xmlNodePtr node, const char* path)
 {
-  XPathResult result = find_xpath(node, path);
+    XPathResult result = find_xpath(node, path);
 
-  if(not result.empty())
-    return result->nodesetval->nodeNr;
+    if(not result.empty())
+        return result->nodesetval->nodeNr;
 
-  return 0;
+    return 0;
 }

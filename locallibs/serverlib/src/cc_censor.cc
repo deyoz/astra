@@ -1,6 +1,8 @@
 #include <regex.h>
 #include <regex>
 
+#include "loki/Singleton.h"
+
 #include "cc_censor.h"
 #include "str_utils.h"
 #include "isdigit.h"
@@ -18,25 +20,46 @@ static bool is_luhn_valid(const char* in, size_t len);
 // !!!!!!!!!!!!!!!!!
 // DO NOT USE LogTrace, ProgTrace, tst, TST or any other trace funcs in this function
 // !!!!!!!!!!!!!!!!!
-bool censure(char *buff)
+
+class Regex
 {
-    static regex_t* reg_ = nullptr;
-    if(!reg_) {
-        reg_ = new regex_t();
-        regcomp(reg_,
-            "(4[0-9]{15}"      // visa
-            "|5[1-5][0-9]{14}" // master card
-            "|50[0-9]{13,17}" // maestro
-            "|5[6-9][0-9]{13,17}" // maestro
-            "|6[0-9]{14,18}"    // maestro
-            "|3[47][0-9]{13}"  // american expr
+public:
+    Regex()
+        : re_ { }
+    {
+        regcomp(&re_,
+            "("
+            "4[0-9]{15}"           // visa
+            "|5[1-5][0-9]{14}"     // master card
+            "|50[0-9]{13,17}"      // maestro
+            "|5[6-9][0-9]{13,17}"  // maestro
+            "|6[0-9]{14,18}"       // maestro
+            "|3[47][0-9]{13}"      // american expr
+            "|35[0-9]{14}"         // jcb
+            "|2[0-9]{15}"          // mir
             ")", REG_EXTENDED);
     }
+    ~Regex() {
+        regfree(&re_);
+    }
 
+    regex_t* get() {
+        return &re_;
+    }
+
+private:
+    regex_t re_;
+
+};
+
+using RegexHolder = Loki::SingletonHolder< Regex, Loki::CreateUsingNew, Loki::PhoenixSingleton, Loki::SingleThreaded >;
+
+bool censure(char *buff)
+{
     bool mask_applied = false;
     int lmp = 0; /*last match pos*/
     regmatch_t pmatch[1];
-    while(!regexec(reg_, buff + lmp, 1, pmatch, 0))
+    while(!regexec(RegexHolder::Instance().get(), buff + lmp, 1, pmatch, 0))
     {
         char* cc_num = buff + lmp + pmatch[0].rm_so;
         const size_t cc_len = pmatch[0].rm_eo - pmatch[0].rm_so;
@@ -67,11 +90,11 @@ static bool is_digit(char c)
 }
 
 /*
-1. –¶–∏—Ñ—Ä—ã –ø—Ä–æ–≤–µ—Ä—è–µ–º–æ–π –ø–æ—Å–ª–µ–¥–æ–≤–∞—Ç–µ–ª—å–Ω–æ—Å—Ç–∏ –Ω—É–º–µ—Ä—É—é—Ç—Å—è —Å–ø—Ä–∞–≤–∞ –Ω–∞–ª–µ–≤–æ.
-2. –¶–∏—Ñ—Ä—ã, –æ–∫–∞–∑–∞–≤—à–∏–µ—Å—è –Ω–∞ –Ω–µ—á—ë—Ç–Ω—ã—Ö –º–µ—Å—Ç–∞—Ö, –æ—Å—Ç–∞—é—Ç—Å—è –±–µ–∑ –∏–∑–º–µ–Ω–µ–Ω–∏–π.
-3. –¶–∏—Ñ—Ä—ã, —Å—Ç–æ—è—â–∏–µ –Ω–∞ —á—ë—Ç–Ω—ã—Ö –º–µ—Å—Ç–∞—Ö, —É–º–Ω–æ–∂–∞—é—Ç—Å—è –Ω–∞ 2.
-4. –ï—Å–ª–∏ –≤ —Ä–µ–∑—É–ª—å—Ç–∞—Ç–µ —Ç–∞–∫–æ–≥–æ —É–º–Ω–æ–∂–µ–Ω–∏—è –≤–æ–∑–Ω–∏–∫–∞–µ—Ç —á–∏—Å–ª–æ –±–æ–ª—å—à–µ 9, –æ–Ω–æ –∑–∞–º–µ–Ω—è–µ—Ç—Å—è —Å—É–º–º–æ–π —Ü–∏—Ñ—Ä –ø–æ–ª—É—á–∏–≤—à–µ–≥–æ—Å—è –ø—Ä–æ–∏–∑–≤–µ–¥–µ–Ω–∏—è ‚Äî –æ–¥–Ω–æ–∑–Ω–∞—á–Ω—ã–º —á–∏—Å–ª–æ–º, —Ç–æ –µ—Å—Ç—å —Ü–∏—Ñ—Ä–æ–π.
-5. –í—Å–µ –ø–æ–ª—É—á–µ–Ω–Ω—ã–µ –≤ —Ä–µ–∑—É–ª—å—Ç–∞—Ç–µ –ø—Ä–µ–æ–±—Ä–∞–∑–æ–≤–∞–Ω–∏—è —Ü–∏—Ñ—Ä—ã —Å–∫–ª–∞–¥—ã–≤–∞—é—Ç—Å—è. –ï—Å–ª–∏ —Å—É–º–º–∞ –∫—Ä–∞—Ç–Ω–∞ 10, —Ç–æ –∏—Å—Ö–æ–¥–Ω—ã–µ –¥–∞–Ω–Ω—ã–µ –≤–µ—Ä–Ω—ã.
+1. ñ®‰‡Î Ø‡Æ¢•‡Ô•¨Æ© ØÆ·´•§Æ¢†‚•´Ï≠Æ·‚® ≠„¨•‡„Ó‚·Ô ·Ø‡†¢† ≠†´•¢Æ.
+2. ñ®‰‡Î, Æ™†ß†¢Ë®•·Ô ≠† ≠•ÁÒ‚≠ÎÂ ¨•·‚†Â, Æ·‚†Ó‚·Ô °•ß ®ß¨•≠•≠®©.
+3. ñ®‰‡Î, ·‚ÆÔÈ®• ≠† ÁÒ‚≠ÎÂ ¨•·‚†Â, „¨≠Æ¶†Ó‚·Ô ≠† 2.
+4. Ö·´® ¢ ‡•ß„´Ï‚†‚• ‚†™Æ£Æ „¨≠Æ¶•≠®Ô ¢Æß≠®™†•‚ Á®·´Æ °Æ´ÏË• 9, Æ≠Æ ß†¨•≠Ô•‚·Ô ·„¨¨Æ© Ê®‰‡ ØÆ´„Á®¢Ë•£Æ·Ô Ø‡Æ®ß¢•§•≠®Ô - Æ§≠Æß≠†Á≠Î¨ Á®·´Æ¨, ‚Æ •·‚Ï Ê®‰‡Æ©.
+5. Ç·• ØÆ´„Á•≠≠Î• ¢ ‡•ß„´Ï‚†‚• Ø‡•Æ°‡†ßÆ¢†≠®Ô Ê®‰‡Î ·™´†§Î¢†Ó‚·Ô. Ö·´® ·„¨¨† ™‡†‚≠† 10, ‚Æ ®·ÂÆ§≠Î• §†≠≠Î• ¢•‡≠Î.
 */
 
 static bool is_luhn_valid(const char* in, size_t len)

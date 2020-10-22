@@ -15,8 +15,9 @@ namespace tok {
         std::string name; /* Может быть пустым */
         std::string value; /* Может быть пустым */
 
-        Param() {}
-        Param(const std::string& name, const std::string& value): name(name), value(value) {}
+        explicit Param() = default;
+        Param(std::string _name, std::string _value)
+            : name(std::move(_name)), value(std::move(_value)) {}
     };
 
     std::string GetValue(

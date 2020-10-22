@@ -50,8 +50,9 @@ public:
     bool get(char*& value, size_t& len, const std::string& key);
     bool get(const std::string& key);
 
-    template<class T> std::enable_if_t<std::is_pod<T>::value, bool> get(T& res, const std::string& key)
+    template<class T> bool get(T& res, const std::string& key)
     {
+        static_assert(std::is_trivially_copyable<T>::value, "must be a trivially_copyable type");
         std::vector<char> vec;
         bool ret = get(vec, key);
         if(ret && !vec.empty())
@@ -66,8 +67,9 @@ public:
     bool fetch(std::vector<char>& res, std::string& key);
     bool fetch(char*& value, size_t& len, std::string& key);
 
-    template<class T> std::enable_if_t<std::is_pod<T>::value, bool> fetch(T& res, std::string& key)
+    template<class T> bool fetch(T& res, std::string& key)
     {
+        static_assert(std::is_trivially_copyable<T>::value, "must be a trivially_copyable type");
         std::vector<char> vec;
         bool ret = fetch(vec, key);
         if(ret && !vec.empty())
@@ -85,10 +87,11 @@ public:
     bool set(const std::string& key, const char* value, size_t len,
              time_t expiration = 0, uint32_t flags = 0);
 
-    template<class T> std::enable_if_t<std::is_pod<T>::value, bool>
+    template<class T> bool
         set(const std::string& key, const T& value,
              time_t expiration = 0, uint32_t flags = 0)
     {
+        static_assert(std::is_trivially_copyable<T>::value, "must be a trivially_copyable type");
         std::vector<char> vec(sizeof(T));
         memcpy(&vec[ 0 ], &value, sizeof(T));
         return set(key, vec, expiration);
@@ -99,10 +102,11 @@ public:
     bool add(const std::string& key, const std::string& value,
              time_t expiration = 0, uint32_t flags = 0);
 
-    template<class T> std::enable_if_t<std::is_pod<T>::value, bool>
+    template<class T> bool
         add(const std::string& key, const T& value,
              time_t expiration = 0, uint32_t flags = 0)
     {
+        static_assert(std::is_trivially_copyable<T>::value, "must be a trivially_copyable type");
         std::vector<char> vec(sizeof(T));
         memcpy(&vec[ 0 ], &value, sizeof(T));
         return add(key, vec);
@@ -161,11 +165,8 @@ struct MCacheTag
 **/
 struct MCacheMetaData
 {
-    static const unsigned MaxTagsCount = 4;
-    unsigned m_tagsCount;
-    MCacheTag m_tags[MaxTagsCount];
+    std::vector<MCacheTag> m_tags;
 
-    bool addTag(const MCacheTag& tag);
     std::vector<std::string> tagsKeys() const;
     uint64_t getTagVersion(const std::string& tagKey) const;
 };
@@ -380,10 +381,11 @@ public:
      * @param in manualLock - флаг ручной блокировки
      * @return true - успех, false - ошибка
      */
-    template<class T> std::enable_if_t<std::is_pod<T>::value, bool>
+    template<class T> bool
         writeToCachePOD(const std::string& key, const T& value,
                          bool manualLock) const
     {
+        static_assert(std::is_trivially_copyable<T>::value, "must be a trivially_copyable type");
         return writeToCachePOD(key, value, manualLock, m_expiration);
     }
 
@@ -395,10 +397,11 @@ public:
      * @param in expiration - время жизни кэша
      * @return true - успех, false - ошибка
      */
-    template<class T> std::enable_if_t<std::is_pod<T>::value, bool>
+    template<class T> bool
         writeToCachePOD(const std::string& key, const T& value,
                          bool manualLock, time_t expiration) const
     {
+        static_assert(std::is_trivially_copyable<T>::value, "must be a trivially_copyable type");
         MCacheObject cacheObject(key,
                                  reinterpret_cast<const char*>(&value),
                                  sizeof(value),
@@ -406,10 +409,11 @@ public:
         return cacheObject.writeToCache(expiration, manualLock);
     }
 
-    template<class T> std::enable_if_t<std::is_trivially_copyable<T>::value, bool>
+    template<class T> bool
         writeToCache(const std::string& key, const std::vector<T>& v,
                          bool manualLock, time_t expiration) const
     {
+        static_assert(std::is_trivially_copyable<T>::value, "must be a trivially_copyable type");
         MCacheObject cacheObject(key,
                                  reinterpret_cast<const char*>(v.data()),
                                  v.size() * sizeof(T),
@@ -478,11 +482,12 @@ public:
      * @return true - успех, false - ошибка
      */
     // только для POD-типов!
-    template<class T> typename std::enable_if<std::is_pod<T>::value, bool>::type
+    template<class T> bool
         writeToCachePOD(const std::string& key, const T& value,
                          const MCacheTag* tags, unsigned tagsCount,
                          bool manualLock) const
     {
+        static_assert(std::is_trivially_copyable<T>::value, "must be a trivially_copyable type");
         return writeToCachePOD(key, value, tags,  tagsCount, manualLock, m_expiration);
     }
 
@@ -496,11 +501,12 @@ public:
      * @param in expiration - время жизни кэша
      * @return true - успех, false - ошибка
      */
-    template<class T> std::enable_if_t<std::is_pod<T>::value, bool>
+    template<class T> bool
         writeToCachePOD(const std::string& key, const T& value,
                          const MCacheTag* tags, unsigned tagsCount,
                          bool manualLock, time_t expiration) const
     {
+        static_assert(std::is_trivially_copyable<T>::value, "must be a trivially_copyable type");
         MCacheObject cacheObject(key, (const char*)&value, sizeof(value), m_mcache,
                                  tags, tagsCount);
         return cacheObject.writeToCache(expiration, manualLock);
@@ -558,9 +564,9 @@ public:
      * @param in key - ключ, по которому читаются данные из кэша
      * @return true - успех, false - ошибка
      */
-    template<class T> std::enable_if_t<std::is_trivially_copyable<T>::value, bool>
-        readFromCachePOD(T& value, const std::string& key) const
+    template<class T> bool readFromCachePOD(T& value, const std::string& key) const
     {
+        static_assert(std::is_trivially_copyable<T>::value, "must be a trivially_copyable type");
         MCacheObject cacheObject(key, m_mcache);
         if(!cacheObject.readFromCache())
             return false;
@@ -572,9 +578,9 @@ public:
         return true;
     }
 
-    template<class T> std::enable_if_t<std::is_trivially_copyable<T>::value, bool>
-        readFromCacheVector(std::vector<T>& v, const std::string& key) const
+    template<class T> bool readFromCacheVector(std::vector<T>& v, const std::string& key) const
     {
+        static_assert(std::is_trivially_copyable<T>::value, "must be a trivially_copyable type");
         MCacheObject cacheObject(key, m_mcache);
         if(!cacheObject.readFromCache())
             return false;
@@ -607,8 +613,9 @@ public:
     bool readFromCacheRaw(char*& value, size_t& len, const std::string& key) const;
 
     template <typename T> using UP = std::unique_ptr<T,decltype(&free)>;
-    template <typename T> std::enable_if_t<std::is_pod<T>::value, UP<T>> readFromCacheRaw(const std::string& key) const
+    template <typename T> UP<T> readFromCacheRaw(const std::string& key) const
     {
+        static_assert(std::is_trivially_copyable<T>::value, "must be a trivially_copyable type");
         size_t len = 0;
         char* p = nullptr;
         if(not readFromCacheRaw(p, len, key))
@@ -621,8 +628,9 @@ public:
         return UP<T>(reinterpret_cast<T*>(p), free);
     }
 
-    template <typename T> std::enable_if_t<std::is_pod<T>::value, UP<T>> readFromCache(const std::string& key) const
+    template <typename T> UP<T> readFromCache(const std::string& key) const
     {
+        static_assert(std::is_trivially_copyable<T>::value, "must be a trivially_copyable type");
         size_t len = 0;
         char* p = nullptr;
         if(not readFromCache(p, len, key))

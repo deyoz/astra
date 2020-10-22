@@ -21,7 +21,7 @@
 #define NICKNAME "KONST"
 #include "test.h"
 
-const int SEMAPHORE_KEY = 65536 + 65535;
+const std::string SOFT_RESTART_CMD { "exit" };
 
 pid_t Pid_p;
 int main_tests();
@@ -66,6 +66,11 @@ static time_t getProcStartTime()
 void setProcStartTime(const time_t t)
 {
     start_time = t;
+}
+/*****************************************************************/
+int semaphoreKey()
+{
+    return readIntFromTcl("SEM_KEY", 65536 + 65535);
 }
 /*****************************************************************/
 static int getMonitorSilenceTimeout()

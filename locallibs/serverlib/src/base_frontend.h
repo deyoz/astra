@@ -12,7 +12,7 @@
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/asio/ssl/context.hpp>
 #include <boost/optional/optional.hpp>
-#include <boost/date_time/posix_time/conversion.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 #include "blev.h"
 #include "msg_const.h"
@@ -22,6 +22,7 @@
 
 #define NICKNAME "MIXA"
 #include "slogger.h"
+#include "TlgLogger.h"
 
 namespace Dispatcher {
 
@@ -295,9 +296,16 @@ class BaseTcpFrontend
             LogTrace(TRACE7) << __FUNCTION__ << ": " << socket_.native_handle();
 
             if (!e) {
-                LogTrace(TRACE1) << "Answer to client id: " << queue_.front().clientId()
-                                 << " message id: " << queue_.front().messageId()
-                                 << " was sent.";
+                if (D::proxy()) {
+                    LogTlg() << "Answer to client id: " << queue_.front().clientId()
+                             << " message id: " << queue_.front().messageId()
+                             << " was sent.";
+                } else {
+                    LogTrace(TRACE1) << "Answer to client id: " << queue_.front().clientId()
+                                     << " message id: " << queue_.front().messageId()
+                                     << " was sent.";
+                }
+
                 queue_.pop();
                 if (!live_) {
                     LogTrace(TRACE1) << __FUNCTION__ << ": connection_id: " << this << " already shutdown";
@@ -467,7 +475,7 @@ public:
         return blev_->client_id(head.data());
     }
     //-----------------------------------------------------------------------
-    uint16_t messageIdFromHeader(const std::vector<uint8_t>& head) {
+    uint32_t messageIdFromHeader(const std::vector<uint8_t>& head) {
         return blev_->message_id(head.data());
     }
     //-----------------------------------------------------------------------
@@ -686,11 +694,19 @@ void BaseTcpFrontend<D>::handleReadHead(
     if (!e) {
         conn->shrinkPeer();
 
-        LogTrace(TRACE1) << __FUNCTION__ << ": Received request header: {"
-                         << " client_id: " << blev_->client_id(startHead)
-                         << ", message_id: " << blev_->message_id(startHead)
-                         << ", remote endpoint: " << conn->peer()
-                         << " }";
+        if (D::proxy()) {
+            LogTlg() << __FUNCTION__ << ": Received request header: {"
+                     << " client_id: " << blev_->client_id(startHead)
+                     << ", message_id: " << blev_->message_id(startHead)
+                     << ", remote endpoint: " << conn->peer()
+                     << " }";
+        } else {
+            LogTrace(TRACE1) << __FUNCTION__ << ": Received request header: {"
+                             << " client_id: " << blev_->client_id(startHead)
+                             << ", message_id: " << blev_->message_id(startHead)
+                             << ", remote endpoint: " << conn->peer()
+                             << " }";
+        }
 
         const uint32_t dataSize = blev_->blen(startHead);
         if ((1024 * 1024 * 32) < dataSize) {
@@ -739,20 +755,22 @@ static void traceHeader(const std::set<uint16_t>& traceableClientIds, const std:
     }
 
     const uint16_t clientId = ntohs(*reinterpret_cast<const uint16_t*>(head.data() + CLIENT_ID_OFFSET));
-    const time_t creationTime = ntohl(*reinterpret_cast<const uint32_t*>(head.data() + CREATION_TIME_OFFSET));
 
     if (!traceableClientIds.count(clientId)) {
         return;
     }
 
-    LogTrace(TRACE1) << beginning << "{"
-                     << " data lenght: " << ntohl(*reinterpret_cast<const uint32_t*>(head.data()))
-                     << ", creation time: " << creationTime << " (" << boost::posix_time::from_time_t(creationTime) << ")"
-                     << ", message id: " << ntohl(*reinterpret_cast<const uint32_t*>(head.data() + MESSAGE_ID_OFFSET))
-                     << ", client id: " << clientId
-                     << ", flag bytes: " << TraceFlags { head[ FIRST_FLAG_OFFSET ], head[ SECOND_FLAG_OFFSET ] }
-                     << ", sym key id: " << ntohl(*reinterpret_cast<const uint32_t*>(head.data() + SYM_KEY_ID_OFFSET))
-                     << " }";
+    const time_t creationTime = ntohl(*reinterpret_cast<const uint32_t*>(head.data() + CREATION_TIME_OFFSET));
+    const auto creationTimeAsString { boost::posix_time::to_iso_extended_string(boost::posix_time::from_time_t(creationTime)) };
+
+    LogTlg() << beginning << "{"
+             << " data lenght: " << ntohl(*reinterpret_cast<const uint32_t*>(head.data()))
+             << ", creation time: " << creationTime << " (" <<  creationTimeAsString << ")"
+             << ", message id: " << ntohl(*reinterpret_cast<const uint32_t*>(head.data() + MESSAGE_ID_OFFSET))
+             << ", client id: " << clientId
+             << ", flag bytes: " << TraceFlags { head[ FIRST_FLAG_OFFSET ], head[ SECOND_FLAG_OFFSET ] }
+             << ", sym key id: " << ntohl(*reinterpret_cast<const uint32_t*>(head.data() + SYM_KEY_ID_OFFSET))
+             << " }";
 }
 //-----------------------------------------------------------------------
 template<typename D>
@@ -820,7 +838,9 @@ void BaseTcpFrontend<D>::sendAnswer(
 {
     LogTrace(TRACE7) << __FUNCTION__ << ": " << conn;
 
-    traceHeader(traceableClientIds_, answer, "Sent answer header: ");
+    if (D::proxy()) {
+        traceHeader(traceableClientIds_, answer, "Sending response header: ");
+    }
 
     connectionsSet_.afterHandle(conn);
 

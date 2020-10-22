@@ -37,16 +37,15 @@ public:
         Exception(const std::string& msg) : ServerFramework::Exception(msg) {
             SIRENA_ABORT_OPT("PARINT");
         }
-        virtual ~Exception() throw () {}
     };
     typedef traits_t traits_type;
     typedef base_t base_type;
 public:
-    BaseIntParam() : val_(std::numeric_limits<base_t>::max()) {}
-    explicit BaseIntParam(const base_t& val) : val_(val) {}
+    constexpr BaseIntParam() : val_(std::numeric_limits<base_t>::max()) {}
+    constexpr explicit BaseIntParam(const base_t& val) : val_(val) {}
     const base_t& get() const {
         check_init();
-        return val_; 
+        return val_;
     }
     const char* name() const { return traits_t().name_; }
     bool valid() const noexcept { return is_init(); }
@@ -258,7 +257,6 @@ public:
         Exception(const std::string& msg) : ServerFramework::Exception(msg) {
             SIRENA_ABORT_OPT("PARINT");
         }
-        virtual ~Exception() throw () {}
     };
     typedef traits_t traits_type;
     typedef std::string base_type;

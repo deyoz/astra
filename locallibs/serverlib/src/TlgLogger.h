@@ -27,11 +27,13 @@ public:
         return *this;
     }
 
-    static void setLogging(const char* fileName = "tlg.log");
+    static void setLogging(const char* fileName = "tlg.log", const bool writeToRegularLog = true);
 private:
     void flush();
 
     static std::unique_ptr<LogWriter> lw_;
+    static bool writeToRegularLog_;
+
     std::stringstream stream_;
 };
 

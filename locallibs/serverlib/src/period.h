@@ -18,6 +18,7 @@ struct Period
     Period(const boost::gregorian::date& d1, const boost::gregorian::date& d2, const Freq & fr) : 
             start(d1), end(d2), biweekly(false), freq(fr) {}
     Period(const boost::gregorian::date& d1, const boost::gregorian::date& d2, const std::string& fr = "1234567");
+    explicit Period(const boost::gregorian::date&);
     static boost::optional<Period> create(const boost::gregorian::date & d1, const boost::gregorian::date & d2,
                                             const Freq & freq, bool biweekly);
     bool empty() const;

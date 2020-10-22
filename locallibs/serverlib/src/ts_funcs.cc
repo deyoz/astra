@@ -260,12 +260,15 @@ static std::string FP_write_file(const std::vector<std::string>& p)
 static std::string FP_sql(const std::vector<tok::Param>& params)
 {
     ASSERT(params.size() > 0);
-    std::string session;
+    std::string session, pgKey;
     bool output = false;
     for (size_t i = 0; i < params.size(); ++i) {
         if (params[i].name == "session") {
             ASSERT(session.empty() == true);
             session = params[i].value;
+        }
+        if (params[i].name == "pg") {
+            pgKey = params[i].value;
         }
         if (params[i].name == "output" && params[i].value == "on")
             output = true;
@@ -275,14 +278,20 @@ static std::string FP_sql(const std::vector<tok::Param>& params)
         if (params[i].name.empty()) {
             int rowcount = 0;
             LogTrace(TRACE3) << "exec SQL: " << params[i].value;
-            if (session.empty()) {
-                OciCpp::CursCtl cur = make_curs(params[i].value);
+            if (!pgKey.empty() && !(pgKey = readStringFromTcl(pgKey, "")).empty()) {
+                auto cur = make_pg_curs(PgCpp::getManagedSession(pgKey), params[i].value);
                 cur.exec();
                 rowcount = cur.rowcount();
             } else {
-                OciCpp::CursCtl cur = OciCpp::getSession(session).createCursor(STDLOG, params[i].value);
-                cur.exec();
-                rowcount = cur.rowcount();
+                if (session.empty()) {
+                    OciCpp::CursCtl cur = make_curs(params[i].value);
+                    cur.exec();
+                    rowcount = cur.rowcount();
+                } else {
+                    OciCpp::CursCtl cur = OciCpp::getSession(session).createCursor(STDLOG, params[i].value);
+                    cur.exec();
+                    rowcount = cur.rowcount();
+                }
             }
             os << "\n" << rowcount << " rows processed";
         }

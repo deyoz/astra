@@ -25,8 +25,9 @@
 bool isNosir();
 
 std::unique_ptr<LogWriter> TlgLogger::lw_;
+bool TlgLogger::writeToRegularLog_ { true };
 
-void TlgLogger::setLogging(const char* fileName)
+void TlgLogger::setLogging(const char* fileName, const bool writeToRegularLog)
 {
     if(readIntFromTcl("USE_RSYSLOG", 0)) {
         std::string addr(readStringFromTcl("RSYSLOG_HOST"));
@@ -44,6 +45,8 @@ void TlgLogger::setLogging(const char* fileName)
         }
         lw_ = makeLogger(LOGGER_SYSTEM_LOGGER, Tcl_GetString(o), tclmonCurrentProcessName());
     }
+
+    writeToRegularLog_ = writeToRegularLog;
 }
 
 void TlgLogger::flush()
@@ -56,6 +59,9 @@ void TlgLogger::flush()
 
 TlgLogger::~TlgLogger()
 {
-    LogTrace(0, "TLGLOG", "===", 0) << stream_.str();
+    if (writeToRegularLog_) {
+        LogTrace(0, "TLGLOG", "===", 0) << stream_.str();
+    }
+
     flush();
 }

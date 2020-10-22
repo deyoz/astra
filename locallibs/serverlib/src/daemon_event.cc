@@ -160,8 +160,8 @@ void runTaskSirena(const DaemonTaskPtr& pTask, const boost::posix_time::ptime& n
         int err = ::runTask_(pTask, static_cast<const char*>(NULL), 0, now, "TestEvent", catchException);
         if(err != expectedErr)
             throw comtech::Exception(STDLOG, __FUNCTION__,
-                    "excpected err = " + HelpCpp::string_cast(expectedErr) +
-                    " got err: " + HelpCpp::string_cast(err));
+                    "excpected err = " + std::to_string(expectedErr) +
+                    " got err: " + std::to_string(err));
     } while (pTask->doNeedRepeat());
 }
 

@@ -5,14 +5,12 @@
 #include <stdint.h>
 
 #include "oci_selector.h"
-#include "string_cast.h"
 #include "ociexception.h"
 #include "oracle_connection_param.h"
 #include "ocilocal.h"
 #include "oci_types.h"
 #include "oci_default_ptr_t.h"
 #include "simplelog.h"
-#include "optional.h"
 #include "oci_selector_char.h"
 #include "commit_rollback.h"
 

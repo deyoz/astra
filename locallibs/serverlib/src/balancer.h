@@ -6,6 +6,7 @@
 #include <unordered_map>
 
 #include "msg_const.h"
+#include "balancer_locks.h"
 #include "balancer_client_stats.h"
 
 #define NICKNAME "MIXA"
@@ -236,26 +237,26 @@ public:
         LocalStats(LocalStats&& ) = delete;
         LocalStats& operator=(LocalStats&& ) = delete;
 
-        virtual ~LocalStats() override;
+        ~LocalStats() override;
 
-        virtual void nodeStats(const size_t id, const uint32_t qs, const uint32_t wt) override;
+        void nodeStats(const size_t id, const uint32_t qs, const uint32_t wt) override;
 
-        virtual void accountRequest(const uint16_t clientId) override;
-        virtual void accountReply(const uint16_t clientId, const uint32_t wt) override;
+        void accountRequest(const uint16_t clientId) override;
+        void accountReply(const uint16_t clientId, const uint32_t wt) override;
 
-        virtual void inc(const size_t id) override;
+        void inc(const size_t id) override;
 
-        virtual bool less(const size_t lhs, const size_t rhs) const override;
+        bool less(const size_t lhs, const size_t rhs) const override;
 
-        virtual size_t id(const size_t id) const override;
+        size_t id(const size_t id) const override;
 
-        virtual uint32_t queueSize(const size_t id) const override;
+        uint32_t queueSize(const size_t id) const override;
 
-        virtual size_t size() const override;
+        size_t size() const override;
 
-        virtual void finalized() override;
+        void finalized() override;
 
-        virtual bool shared() override { return false; }
+        bool shared() override { return false; }
 
     private:
         std::vector<NodeStats> stats_;
@@ -264,26 +265,6 @@ public:
     class SharedStats
         : public Stats
     {
-        class Lock
-        {
-            enum class State { UNLOCKED = 0, SHARED, EXCLUSIVE };
-
-        public:
-            explicit Lock(const std::string& name);
-            ~Lock();
-
-            bool try_to_unique_lock();
-            void unique_lock();
-            void shared_lock();
-
-            void unlock();
-
-        private:
-            int fd_;
-            State state_;
-            const std::string name_;
-        };
-
         class NodeStats
         {
         public:
@@ -315,8 +296,7 @@ public:
         };
 
     public:
-        SharedStats(boost::asio::io_service& ios, const std::string& shm, const std::string& lock,
-                    const std::string& barrier, const size_t count);
+        SharedStats(boost::asio::io_service& ios, const std::string& shm, const std::string& lock, const size_t count);
 
         SharedStats(const SharedStats& ) = delete;
         SharedStats& operator=(const SharedStats& ) = delete;
@@ -324,26 +304,26 @@ public:
         SharedStats(SharedStats&& ) = delete;
         SharedStats& operator=(SharedStats&& ) = delete;
 
-        virtual ~SharedStats() override;
+        ~SharedStats() override;
 
-        virtual void nodeStats(const size_t id, const uint32_t qs, const uint32_t wt) override;
+        void nodeStats(const size_t id, const uint32_t qs, const uint32_t wt) override;
 
-        virtual void accountRequest(const uint16_t clientId) override;
-        virtual void accountReply(const uint16_t clientId, const uint32_t wt) override;
+        void accountRequest(const uint16_t clientId) override;
+        void accountReply(const uint16_t clientId, const uint32_t wt) override;
 
-        virtual void inc(const size_t id) override;
+        void inc(const size_t id) override;
 
-        virtual bool less(const size_t lhs, const size_t rhs) const override;
+        bool less(const size_t lhs, const size_t rhs) const override;
 
-        virtual size_t id(const size_t id) const override;
+        size_t id(const size_t id) const override;
 
-        virtual uint32_t queueSize(const size_t id) const override;
+        uint32_t queueSize(const size_t id) const override;
 
-        virtual size_t size() const override;
+        size_t size() const override;
 
-        virtual void finalized() override;
+        void finalized() override;
 
-        virtual bool shared() override { return true; }
+        bool shared() override { return true; }
 
     private:
         boost::asio::io_service& ios_;
@@ -351,7 +331,7 @@ public:
         ClientIdStats* clientIdsStats_;
         const size_t count_;
         std::unique_ptr< Lock > shmLock_;
-        std::shared_ptr< Lock > barrier_;
+        std::unique_ptr< Barrier > barrier_;
     };
 
     class NodesGroups;
@@ -382,7 +362,7 @@ public:
             virtual bool remove(const size_t id) = 0;
             virtual void stash(const size_t id) = 0;
 
-            virtual size_t min() const = 0;
+            virtual size_t min() = 0;
             virtual size_t max() const = 0;
 
             virtual bool empty() const = 0;
@@ -394,16 +374,16 @@ public:
         public:
             SingleIndex(Stats& s);
 
-            virtual ~SingleIndex();
+            ~SingleIndex() override;
 
-            virtual void emplace(const size_t id);
-            virtual bool remove(const size_t id);
-            virtual void stash(const size_t id);
+            void emplace(const size_t id) override;
+            bool remove(const size_t id) override;
+            void stash(const size_t id) override;
 
-            virtual size_t min() const;
-            virtual size_t max() const;
+            size_t min() override;
+            size_t max() const override;
 
-            virtual bool empty() const;
+            bool empty() const override;
 
         private:
             std::set< size_t, IndexCmp > index_;
@@ -415,20 +395,20 @@ public:
         public:
             SharedIndex(Stats& s);
 
-            virtual ~SharedIndex();
+            ~SharedIndex() override;
 
-            virtual void emplace(const size_t id);
-            virtual bool remove(const size_t id);
-            virtual void stash(const size_t id);
+            void emplace(const size_t id) override;
+            bool remove(const size_t id) override;
+            void stash(const size_t id) override;
 
-            virtual size_t min() const;
-            virtual size_t max() const;
+            size_t min() override;
+            size_t max() const override;
 
-            virtual bool empty() const;
+            bool empty() const override;
 
         private:
             Stats& stats_;
-            std::vector< size_t > index_;
+            std::list< size_t > index_;
         };
 
     public:
@@ -474,7 +454,7 @@ public:
         void monitorNotify(const char* const action);
 
     private:
-        static constexpr unsigned CLEAN_TIMEOUT = 16u;
+        static constexpr long CLEAN_TIMEOUT = 16l;
 
     private:
         Stats& stats_;
@@ -495,6 +475,8 @@ public:
         ~NodesGroups();
 
         std::shared_ptr<Connection> get(const uint16_t clientId);
+
+        void release();
 
         void finalized();
 
@@ -542,6 +524,8 @@ public:
     }
     //-----------------------------------------------------------------------
     static void ratio(const unsigned k1, const unsigned k2);
+    //-----------------------------------------------------------------------
+    void release();
     //-----------------------------------------------------------------------
     void reconfigure();
     //-----------------------------------------------------------------------

@@ -169,7 +169,9 @@ bool EdiHelpManager::copyEdiHelpWithNewEdisession(const InternalMsgId& intmsgid,
     if(auto ediHelp = EdiHelpDbCallbacks::instance()->select_one(intmsgid, session_id))
     {
         ediHelp->session_id = new_session_id;
-        EdiHelpDbCallbacks::instance()->create_db(*ediHelp, true, true /* autonomous transaction */);
+        EdiHelpDbCallbacks::instance()->create_db(*ediHelp,
+                                                  false /* clear other intmsgids */,
+                                                  true /* autonomous transaction */);
         return true;
     }
     tst();
@@ -288,7 +290,6 @@ void imitate_confirm_notify_oraside_for_bloody_httpsrv(const ServerFramework::In
 void EdiHelpManager::confirm_notify(const char *pult, int session_id)
 {
     confirm_notify_oraside(pult, session_id);
-    return;
 }
 
 void EdiHelpManager::confirm_notify(const InternalMsgId& msgid, int session_id)

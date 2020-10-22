@@ -1,4 +1,5 @@
 #include <sys/mman.h>
+#include <sys/sem.h>
 
 #include <boost/optional.hpp>
 #include <boost/asio.hpp>
@@ -55,28 +56,230 @@ unsigned Balancer<T>::k1_;
 template<typename T>
 unsigned Balancer<T>::k2_;
 
-static int tcl_read_config_nop(ClientData cl, Tcl_Interp* interp, int objc, Tcl_Obj* CONST objv[]);
 static int tcl_read_config(ClientData cl, Tcl_Interp* interp, int objc, Tcl_Obj* CONST objv[]);
+
+template< typename T >
+static T random(T b, T e)
+{
+    static boost::random::mt19937 gen(std::time(0));
+    static boost::random::uniform_int_distribution< T > distribution(b, e);
+
+    return distribution(gen);
+}
+
+static std::string lockName(const std::string& grp)
+{
+    return readStringFromTcl(grp + "(LOCK_NAME)", grp);
+}
+
+static std::string fixSharedName(std::string name)
+{
+    if (!name.empty()) {
+        const char slash = '/';
+        if (slash != name.front()) {
+            name.insert(0, 1, slash);
+        }
+
+        std::replace(std::begin(name) + 1, std::end(name), slash, '_');
+    }
+
+    return name;
+}
 
 static std::string sharedMemoryName()
 {
-    auto shm = readStringFromTcl(current_group2() + "(SHARED_MEMORY_NAME)", "/balancer.shm");
-    if (!shm.empty()) {
-        const char slash = '/';
-        if (slash != shm.front()) {
-            shm.insert(0, 1, slash);
-        }
+    return fixSharedName("/shm." + lockName(current_group2()));
+}
 
-        std::replace(std::begin(shm) + 1, std::end(shm), slash, '_');
-    }
-
-    return shm;
+static std::string lockFileName()
+{
+    return lockName(current_group2() + ".lock");
 }
 
 static bool enableClientStats()
 {
     static const bool enable = readIntFromTcl(current_group2() + "(ENABLE_CLIENTS_STATS)", 0);
     return enable;
+}
+
+Lock::Lock(const std::string& name)
+    : fd_ { -1 }, state_ { State::UNLOCKED }, name_ { name }
+{
+    fd_ = open(name_.c_str(), O_RDWR | O_CREAT, S_IWUSR | S_IRUSR);
+    assert(-1 != fd_);
+
+    LogTrace(TRACE1) << "File " << name_ << " has been opened: " << fd_;
+}
+
+Lock::~Lock()
+{
+    unlock();
+    close(fd_);
+}
+
+bool Lock::try_to_unique_lock()
+{
+    if (State::EXCLUSIVE == state_) {
+        LogError(STDLOG) << "Double attempt to obtain exclusive lock on " << fd_ << " (" << name_ << ") will be skipped.";
+        return true;
+    }
+
+    struct flock fl { };
+
+    fl.l_type = F_WRLCK;
+    fl.l_whence = SEEK_SET;
+    fl.l_start = 0;
+    fl.l_len = 0;
+
+    const bool res  = (-1 != fcntl(fd_, F_SETLK, &fl));
+
+    LogTrace(TRACE1) << "File '" << name_ << "' (fd " << fd_ << ")"
+                     << (res ? " has been locked" : " has not been locked") << " in exclusive mode.";
+
+    state_ = res ? State::EXCLUSIVE : state_;
+
+    return State::EXCLUSIVE == state_;
+}
+
+void Lock::unique_lock()
+{
+    if (State::EXCLUSIVE == state_) {
+        LogError(STDLOG) << "Double attempt to obtain exclusive lock on " << fd_ << " (" << name_ << ") will be skipped.";
+        return;
+    }
+
+    struct flock fl { };
+
+    fl.l_type = F_WRLCK;
+    fl.l_whence = SEEK_SET;
+    fl.l_start = 0;
+    fl.l_len = 0;
+
+    int res = -1;
+    while (-1 == (res = fcntl(fd_, F_SETLKW, &fl)) && (EINTR == errno))
+        ;
+
+    assert(-1 != res);
+
+    state_ = State::EXCLUSIVE;
+
+    LogTrace(TRACE1) << "File '" << name_ << "' (fd " << fd_ << ") has been locked in exclusive mode.";
+}
+
+void Lock::shared_lock()
+{
+    if (State::SHARED == state_) {
+        LogError(STDLOG) << "Double attempt to obtain shared lock on " << fd_ << " (" << name_ << ") will be skipped.";
+        return;
+    }
+
+    struct flock fl { };
+
+    fl.l_type = F_RDLCK;
+    fl.l_whence = SEEK_SET;
+    fl.l_start = 0;
+    fl.l_len = 0;
+
+    int res = -1;
+    while (-1 == (res = fcntl(fd_, F_SETLKW, &fl)) && (EINTR == errno))
+        ;
+
+    assert(-1 != res);
+
+    state_ = State::SHARED;
+
+    LogTrace(TRACE1) << "File '" << name_ << "' (fd " << fd_ << ") has been locked in shared mode.";
+}
+
+void Lock::unlock()
+{
+    if (State::UNLOCKED == state_) {
+        LogError(STDLOG) << "Double attempt to release unlocked lock on " << fd_ << " (" << name_ << ") will be skipped.";
+        return;
+    }
+
+    if (State::UNLOCKED != state_) {
+        struct flock fl { };
+
+        fl.l_type = F_UNLCK;
+        fl.l_whence = SEEK_SET;
+        fl.l_start = 0;
+        fl.l_len = 0;
+
+        assert(-1 != fcntl(fd_, F_SETLK, &fl));
+
+        state_ = State::UNLOCKED;
+
+        LogTrace(TRACE1) << "File '" << name_ << "' (fd " << fd_ << ") has been unlocked.";
+    }
+}
+
+Barrier::Barrier(const int key)
+    : id_ { semget(key, 2, 0777) }
+{
+    assert(!(id_ < 0));
+}
+
+Barrier::~Barrier()
+{ }
+
+int Barrier::value(const unsigned short num) const
+{
+    return semctl(id_, num, GETVAL);
+}
+
+bool Barrier::post(const unsigned short num)
+{
+    struct sembuf pv { .sem_num = num, .sem_op = +1, .sem_flg = SEM_UNDO };
+
+    int res = -1;
+    while ((res = semop(id_, &pv, 1)) && EINTR == errno)
+        ;
+
+    if (0 != res) {
+        LogTrace(TRACE1) << "Failed to increase counter (" << num << "): " << strerror(errno);
+        return false;
+    }
+
+    LogTrace(TRACE1) << "Successful counter increment (" << num << ").";
+
+    return true;
+}
+
+bool Barrier::wait(const unsigned short num)
+{
+    struct sembuf pv { .sem_num = num, .sem_op = -1, .sem_flg = SEM_UNDO };
+
+    int res = -1;
+    while ((res = semop(id_, &pv, 1)) && EINTR == errno)
+        ;
+
+    if (0 != res) {
+        LogTrace(TRACE1) << "Failed to decrease counter (" << num << "): " << strerror(errno);
+        return false;
+    }
+
+    LogTrace(TRACE1) << "Successful counter decrement (" << num << ").";
+
+    return true;
+}
+
+bool Barrier::wait_all(const unsigned short num)
+{
+    struct sembuf pv { .sem_num = num, .sem_op = 0, .sem_flg = 0 };
+
+    int res = -1;
+    while ((res = semop(id_, &pv, 1)) && EINTR == errno)
+        ;
+
+    if (0 != res) {
+        LogTrace(TRACE1) << "Failed to wait-for-zero (" << num << "): " << strerror(errno);
+        return false;
+    }
+
+    LogTrace(TRACE1) << "Successful wait-for-zero (" << num << ").";
+
+    return true;
 }
 
 template<typename T>
@@ -160,12 +363,13 @@ void Balancer<T>::Connection::write(const typename T::KeyType& ccid /*client con
 template<typename T>
 void Balancer<T>::Connection::wait(void (Balancer<T>::Connection::*f)()) {
     static constexpr long ML_SECOND = 1024;
-    static boost::random::mt19937 gen(std::time(0));
-    //Количество милисекунд, в течение которых процесс "не проснется"
-    static boost::random::uniform_int_distribution<long> distribution(ML_SECOND / 2, ML_SECOND);
 
     auto timer = std::make_shared<boost::asio::deadline_timer>(service_);
-    timer->expires_from_now(boost::posix_time::milliseconds(distribution(gen)));
+
+    //Количество милисекунд, в течение которых процесс "не проснется"
+    const boost::posix_time::milliseconds timeout { random< long >(ML_SECOND / 2, ML_SECOND) };
+
+    timer->expires_from_now(timeout);
     timer->async_wait([this, timer, f](const boost::system::error_code& ec) { (this->*f)(); });
 }
 
@@ -295,11 +499,11 @@ void Balancer<T>::Connection::handleReadStat(const boost::system::error_code& e)
                 const uint16_t clientIdFromHeader { frontend_.clientIdFromHeader(*buf) };
                 const uint32_t msgIdFromHeader { frontend_.messageIdFromHeader(*buf) };
 
-                LogTrace(TRACE1) << "Received answer header: {"
-                                 << " client connection id: " << ccid_
-                                 << ", client id: " << clientIdFromHeader
-                                 << ", message id: " << msgIdFromHeader
-                                 << " }";
+                LogTlg() << "Received answer header: {"
+                         << " client connection id: " << ccid_
+                         << ", client id: " << clientIdFromHeader
+                         << ", message id: " << msgIdFromHeader
+                         << " }";
 
                 auto i = waitClientIds_.find(ccid_);
                 if (std::end(waitClientIds_) != i) {
@@ -365,10 +569,10 @@ void Balancer<T>::Connection::handleWrite(const boost::system::error_code& e) {
         }
 */
 
-        LogTrace(TRACE1) << "Request from client id: " << queue_.front().clientId()
-                         << " with message id: " << queue_.front().messageId()
-                         << " was sent to node '" << node_.name() << "' from group '" << node_.group()
-                         << "' using client connection id '" << queue_.front().ccid() << "'.";
+        LogTlg() << "Request from client id: " << queue_.front().clientId()
+                 << " with message id: " << queue_.front().messageId()
+                 << " was sent to node '" << node_.name() << "' from group '" << node_.group()
+                 << "' using client connection id '" << queue_.front().ccid() << "'.";
 
         const auto now = boost::posix_time::microsec_clock::local_time();
         const auto res = waitClientIds_.emplace(queue_.front().ccid(),
@@ -620,124 +824,6 @@ void Balancer<T>::LocalStats::finalized()
 { }
 
 template<typename T>
-Balancer<T>::SharedStats::Lock::Lock(const std::string& name)
-    : fd_ { -1 }, state_ { State::UNLOCKED }, name_ { name }
-{
-    fd_ = open(name.c_str(), O_RDWR | O_CREAT, S_IWUSR | S_IRUSR);
-    assert(-1 != fd_);
-
-    LogTrace(TRACE1) << "File " << name << " has been opened: " << fd_;
-}
-
-template<typename T>
-Balancer<T>::SharedStats::Lock::~Lock()
-{
-    unlock();
-    close(fd_);
-}
-
-template<typename T>
-bool Balancer<T>::SharedStats::Lock::try_to_unique_lock()
-{
-    if (State::EXCLUSIVE == state_) {
-        LogError(STDLOG) << "Double attempt to obtain exclusive lock on " << fd_ << " (" << name_ << ") will be skipped.";
-        return true;
-    }
-
-    struct flock fl { };
-
-    fl.l_type = F_WRLCK;
-    fl.l_whence = SEEK_SET;
-    fl.l_start = 0;
-    fl.l_len = 0;
-
-    const bool res  = (-1 != fcntl(fd_, F_SETLK, &fl));
-
-    LogTrace(TRACE1) << "File '" << name_ << "' (fd " << fd_ << ")"
-                     << (res ? " has been locked" : " has not been locked") << " in exclusive mode.";
-
-    state_ = res ? State::EXCLUSIVE : state_;
-
-    return State::EXCLUSIVE == state_;
-}
-
-template<typename T>
-void Balancer<T>::SharedStats::Lock::unique_lock()
-{
-    if (State::EXCLUSIVE == state_) {
-        LogError(STDLOG) << "Double attempt to obtain exclusive lock on " << fd_ << " (" << name_ << ") will be skipped.";
-        return;
-    }
-
-    struct flock fl { };
-
-    fl.l_type = F_WRLCK;
-    fl.l_whence = SEEK_SET;
-    fl.l_start = 0;
-    fl.l_len = 0;
-
-    int res = -1;
-    while (-1 == (res = fcntl(fd_, F_SETLKW, &fl)) && (EINTR == errno))
-        ;
-
-    assert(-1 != res);
-
-    state_ = State::EXCLUSIVE;
-
-    LogTrace(TRACE1) << "File '" << name_ << "' (fd " << fd_ << ") has been locked in exclusive mode.";
-}
-
-template<typename T>
-void Balancer<T>::SharedStats::Lock::shared_lock()
-{
-    if (State::SHARED == state_) {
-        LogError(STDLOG) << "Double attempt to obtain shared lock on " << fd_ << " (" << name_ << ") will be skipped.";
-        return;
-    }
-
-    struct flock fl { };
-
-    fl.l_type = F_RDLCK;
-    fl.l_whence = SEEK_SET;
-    fl.l_start = 0;
-    fl.l_len = 0;
-
-    int res = -1;
-    while (-1 == (res = fcntl(fd_, F_SETLKW, &fl)) && (EINTR == errno))
-        ;
-
-    assert(-1 != res);
-
-    state_ = State::SHARED;
-
-    LogTrace(TRACE1) << "File '" << name_ << "' (fd " << fd_ << ") has been locked in shared mode.";
-}
-
-template<typename T>
-void Balancer<T>::SharedStats::Lock::unlock()
-{
-    if (State::UNLOCKED == state_) {
-        LogError(STDLOG) << "Double attempt to release unlocked lock on " << fd_ << " (" << name_ << ") will be skipped.";
-        return;
-    }
-
-    if (State::UNLOCKED != state_) {
-        struct flock fl { };
-
-        fl.l_type = F_UNLCK;
-        fl.l_whence = SEEK_SET;
-        fl.l_start = 0;
-        fl.l_len = 0;
-
-        assert(-1 != fcntl(fd_, F_SETLK, &fl));
-
-        state_ = State::UNLOCKED;
-
-        LogTrace(TRACE1) << "File '" << name_ << "' (fd " << fd_ << ") has been unlocked.";
-    }
-}
-
-template<typename T>
 Balancer<T>::SharedStats::NodeStats::NodeStats(const size_t id)
     : id_{ id }, stats_{ uint64_t { 0 } }
 { }
@@ -791,10 +877,18 @@ int64_t Balancer<T>::SharedStats::NodeStats::rank() const
 
 template<typename T>
 Balancer<T>::SharedStats::SharedStats(boost::asio::io_service& ios, const std::string& shm,
-                                      const std::string& lock, const std::string& barrier, const size_t count)
+                                      const std::string& lock, const size_t count)
     : Stats { }, ios_ { ios }, stats_ { nullptr }, clientIdsStats_ { nullptr }, count_ { count },
-      shmLock_ { std::make_unique< Lock >(lock) }, barrier_ { std::make_shared< Lock >(barrier) }
+      shmLock_ { std::make_unique< Lock >(lock) }, barrier_ { std::make_unique< Barrier >(semaphoreKey()) }
 {
+    LogTrace(TRACE1) << "value of barrier counter (0): " << barrier_->value(0);
+
+    barrier_->wait(0);
+
+    barrier_->wait_all(0);
+
+    LogTrace(TRACE1) << "Out of barrier (0).";
+
     int fd = -1;
 
     const size_t nodesStatsLength = sizeof(NodeStats[ count_ ]);
@@ -846,14 +940,9 @@ Balancer<T>::SharedStats::SharedStats(boost::asio::io_service& ios, const std::s
         stats_ = reinterpret_cast< NodeStats* >(m + clientIdsStatsSize);
     }
 
-    static const auto timeout = boost::posix_time::seconds { readIntFromTcl("BARRIER_LOCK_TIMEOUT", 8) };
+    LogTrace(TRACE1) << "value of semaphore (1) counter: " << barrier_->value(1);
 
-    auto b = barrier_;
-    auto timer = std::make_shared< boost::asio::deadline_timer >(ios_);
-    timer->expires_from_now(timeout);
-    timer->async_wait([ timer, b ](const boost::system::error_code& ec) {
-        b->shared_lock();
-    });
+    barrier_->wait(1);
 
     LogTrace(TRACE1) << "shmem fd: " << fd;
 
@@ -935,12 +1024,15 @@ size_t Balancer<T>::SharedStats::size() const
 template<typename T>
 void Balancer<T>::SharedStats::finalized()
 {
-    shmLock_.reset(); // Release shared lock & close descriptor of lock file ('Advisory record locking' - man fcntl).
+    barrier_->post(0); // workers
+    barrier_->post(1); // over all
 
-    barrier_->unlock();
-    barrier_->unique_lock(); // Wait for unique lock (Wait for other processes)
+    // Wait for barrier post in other processes
 
-    barrier_.reset(); // Release lock & close descriptor of lock file ('Advisory record locking' - man fcntl).
+    shmLock_->unlock();
+    shmLock_->unique_lock(); // Wait for unique lock (Wait for other processes)
+
+    shmLock_.reset(); // Release lock & close descriptor of lock file ('Advisory record locking' - man fcntl).
 }
 
 template<typename T>
@@ -981,7 +1073,7 @@ void Balancer<T>::NodeSet::SingleIndex::stash(const size_t id)
 }
 
 template<typename T>
-size_t Balancer<T>::NodeSet::SingleIndex::min() const
+size_t Balancer<T>::NodeSet::SingleIndex::min()
 {
     assert(!index_.empty());
 
@@ -1032,11 +1124,14 @@ void Balancer<T>::NodeSet::SharedIndex::stash(const size_t id)
 }
 
 template<typename T>
-size_t Balancer<T>::NodeSet::SharedIndex::min() const
+size_t Balancer<T>::NodeSet::SharedIndex::min()
 {
     assert(!index_.empty());
 
-    return *std::min_element(std::cbegin(index_), std::cend(index_), IndexCmp { stats_ });
+    auto minIt = std::min_element(std::begin(index_), std::end(index_), IndexCmp { stats_ });
+    index_.splice(std::end(index_), index_, minIt);
+
+    return *minIt; // minIt is still valid
 }
 
 template<typename T>
@@ -1242,7 +1337,7 @@ void Balancer<T>::NodesGroups::emplace(boost::asio::io_service& ios, const std::
     }
 
     auto timer = std::make_shared<boost::asio::deadline_timer>(ios);
-    timer->expires_from_now(boost::posix_time::seconds(Balancer<T>::NodeSet::CLEAN_TIMEOUT));
+    timer->expires_from_now(boost::posix_time::seconds(random< long >(0l, Balancer<T>::NodeSet::CLEAN_TIMEOUT)));
     timer->async_wait(boost::bind(&handleShakeUpTimer<T>, timer, std::weak_ptr<NodeSet>(groups_.back()), name, boost::asio::placeholders::error));
 }
 
@@ -1320,10 +1415,10 @@ Balancer<T>::NodesGroups::NodesGroups(boost::asio::io_service& ios, T& f)
     }
 
     if (1 < listenersCount) {
-        auto shm = sharedMemoryName();
-        const auto ln = readStringFromTcl(current_group2() + "(LOCK_NAME)", "balancer");
+        const auto shm { sharedMemoryName() };
+        const auto ln { lockFileName() };
 
-        stats_ = std::make_unique< SharedStats >(ios, shm, ln + ".lock", ln + ".guard", global.size()); // MUST BE before NodeSet construct.
+        stats_ = std::make_unique< SharedStats >(ios, shm, ln, global.size()); // MUST BE before NodeSet construction.
     } else {
         stats_ = std::make_unique<LocalStats>(global.size()); // The same as above.
     }
@@ -1351,6 +1446,12 @@ std::shared_ptr<typename Balancer<T>::Connection> Balancer<T>::NodesGroups::get(
     assert(!groups_.empty());
 
     return groups_.front()->get();
+}
+
+template<typename T>
+void Balancer<T>::NodesGroups::release()
+{
+    stats_->finalized();
 }
 
 template<typename T>
@@ -1398,31 +1499,19 @@ void Balancer<T>::ratio(const unsigned k1, const unsigned k2)
 }
 
 template<typename T>
+void Balancer<T>::release()
+{
+    if (nodesGroups_) {
+        LogTrace(TRACE0) << __FUNCTION__ << ": nodes groups " << nodesGroups_.get() << " will be released.";
+
+        nodesGroups_->release();
+    }
+}
+
+template<typename T>
 void Balancer<T>::reconfigure()
 {
     LogTrace(TRACE0) << __FUNCTION__ << ": balancer " << this << " will be reconfigured.";
-    if (!Tcl_CreateObjCommand(getTclInterpretator(), "read_config",
-                               balancer::tcl_read_config_nop, static_cast<ClientData>(this), 0)) {
-        LogError(STDLOG) << "create read_config command failed: "
-                         << Tcl_GetString(Tcl_GetObjResult(getTclInterpretator()));
-        assert(false && "Create Tcl command failed.");
-    }
-
-    auto balancer = this;
-    auto timer = std::make_shared< boost::asio::deadline_timer >(service_);
-    timer->expires_from_now(boost::posix_time::seconds(10)); // TODO BARRIER_LOCK_TIMEOUT
-    timer->async_wait([ timer, balancer ](const boost::system::error_code& ec) {
-        if (ec) {
-            LogTrace(TRACE0) << __FUNCTION__ << " error: " << ec;
-        }
-
-        if (!Tcl_CreateObjCommand(getTclInterpretator(), "read_config",
-                                   balancer::tcl_read_config, static_cast<ClientData>(balancer), 0)) {
-            LogError(STDLOG) << "create read_config command failed: "
-                             << Tcl_GetString(Tcl_GetObjResult(getTclInterpretator()));
-            assert(false && "Create Tcl command failed.");
-        }
-    });
 
     if (nodesGroups_) {
         LogTrace(TRACE0) << __FUNCTION__ << ": nodes groups " << nodesGroups_.get() << " will be finalized.";
@@ -1523,7 +1612,7 @@ ClientStatsFrontend::ClientStatsFrontend(
 
 static int tcl_client_stats_assistant_read_config(ClientData cl, Tcl_Interp* interp, int objc, Tcl_Obj* CONST objv[])
 {
-    ClientStatsAssistant< ClientStatsFrontend >* const assistant = reinterpret_cast<ClientStatsAssistant< ClientStatsFrontend >* >(cl);
+    ClientStatsAssistant< ClientStatsFrontend >* const assistant = reinterpret_cast< ClientStatsAssistant< ClientStatsFrontend >* >(cl);
     if (!assistant) {
         LogError(STDLOG) << "Invalid client data";
 
@@ -1542,15 +1631,10 @@ ClientStatsAssistant< T >::ClientStatsAssistant(
         const std::string& addr,
         const unsigned short port)
     : service_ { io_s }, timer_ { io_s }, frontend_ { io_s, headType, addr, port, *this },
-      stats_ { nullptr }, dump_ { }, begin_ { boost::posix_time::microsec_clock::universal_time() }
+      stats_ { nullptr }, dump_ { }, begin_ { boost::posix_time::microsec_clock::universal_time() },
+      shmLock_ { std::make_unique< Lock >(lockFileName()) }, barrier_ { std::make_unique< Barrier >(semaphoreKey()) }
 {
     init();
-}
-
-static int nop(ClientData cl, Tcl_Interp* interp, int objc, Tcl_Obj* CONST objv[])
-{
-    LogError(STDLOG) << "'read_config' unavailable. Try later.";
-    return TCL_OK;
 }
 
 template< typename T >
@@ -1606,11 +1690,27 @@ void ClientStatsAssistant< T >::takeRequest(
 }
 
 template< typename T >
+void ClientStatsAssistant< T >::release()
+{
+    LogTrace(TRACE1) << __FUNCTION__;
+
+    timer_.cancel();
+
+    barrier_->post(1);
+
+    shmLock_->unlock();
+    shmLock_->unique_lock();
+    shmLock_->unlock();
+
+    unmap();
+}
+
+template< typename T >
 void ClientStatsAssistant< T >::reconfigure()
 {
     LogTrace(TRACE1) << __FUNCTION__;
 
-    unmap();
+    release();
     init();
 }
 
@@ -1646,47 +1746,38 @@ void ClientStatsAssistant< T >::init()
 {
     LogTrace(TRACE1) << __FUNCTION__;
 
-    if (!Tcl_CreateObjCommand(getTclInterpretator(), "read_config",
-                               balancer::nop, nullptr, 0)) {
-        LogError(STDLOG) << "create read_config command failed: "
-                         << Tcl_GetString(Tcl_GetObjResult(getTclInterpretator()));
+    LogTrace(TRACE1) << "value of semaphore (1) counter: " << barrier_->value(1);
 
-        assert(false && "Create Tcl command failed.");
-    }
+    barrier_->wait(1);
 
-    timer_.expires_from_now(boost::posix_time::seconds(4));
-    timer_.async_wait([ this ](const boost::system::error_code& ec) {
-        LogTrace(TRACE1) << "ClientStatsAssistant< T >::init: " << this << " shared memory opening.";
+    LogTrace(TRACE1) << "value of semaphore (1) counter: " << barrier_->value(1);
 
-        const int fd = shm_open(sharedMemoryName().c_str(), O_RDWR, 00600);
+    barrier_->wait_all(1);
 
-        assert(0 < fd);
+    shmLock_->shared_lock();
 
-        const size_t clientIdsStatsSize = sizeof(ClientIdStats[ ClientIdStats::CLIENT_IDS_COUNT ]);
-        stats_ = reinterpret_cast< ClientIdStats* >(mmap(nullptr, clientIdsStatsSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
+    LogTrace(TRACE1) << "ClientStatsAssistant< T >::init: " << this << " shared memory opening.";
 
-        LogTrace(TRACE1) << "shmem address: " << stats_;
+    const int fd = shm_open(sharedMemoryName().c_str(), O_RDWR, 00600);
 
-        assert(MAP_FAILED != stats_);
+    assert(0 < fd);
 
-        LogTrace(TRACE1) << "shmem fd: " << fd;
+    const size_t clientIdsStatsSize = sizeof(ClientIdStats[ ClientIdStats::CLIENT_IDS_COUNT ]);
+    stats_ = reinterpret_cast< ClientIdStats* >(mmap(nullptr, clientIdsStatsSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
 
-        close(fd);
+    LogTrace(TRACE1) << "shmem address: " << stats_;
 
-        resetTimer();
-        timer_.async_wait(std::bind(&ClientStatsAssistant< T >::handleTimer, this, std::placeholders::_1));
+    assert(MAP_FAILED != stats_);
 
-        if (!Tcl_CreateObjCommand(getTclInterpretator(), "read_config",
-                                   balancer::tcl_client_stats_assistant_read_config, static_cast< ClientData >(this), 0)) {
-            LogError(STDLOG) << "create read_config command failed: "
-                             << Tcl_GetString(Tcl_GetObjResult(getTclInterpretator()));
+    LogTrace(TRACE1) << "shmem fd: " << fd;
 
-            assert(false && "Create Tcl command failed.");
-        }
+    close(fd);
 
-        dump_.clear();
-        begin_ = boost::posix_time::microsec_clock::universal_time();
-    });
+    resetTimer();
+    timer_.async_wait(std::bind(&ClientStatsAssistant< T >::handleTimer, this, std::placeholders::_1));
+
+    dump_.clear();
+    begin_ = boost::posix_time::microsec_clock::universal_time();
 }
 
 template< typename T >
@@ -1743,12 +1834,6 @@ static int tcl_set_ratio(ClientData cl, Tcl_Interp* interp, int objc, Tcl_Obj* C
 
     LogError(STDLOG) << "The balancer ratio new value: (" << k1 << ',' << k2 << ')';
 
-    return TCL_OK;
-}
-
-static int tcl_read_config_nop(ClientData cl, Tcl_Interp* interp, int objc, Tcl_Obj* CONST objv[])
-{
-    LogError(STDLOG) << "'read_config' unavailable now. Try later.";
     return TCL_OK;
 }
 
@@ -1820,6 +1905,13 @@ static int tcl_disable_trace(ClientData cl, Tcl_Interp* interp, int objc, Tcl_Ob
 
 static int createCommand(Balancer<balancer::BalancerFrontend>* const balancer)
 {
+    if (!Tcl_CreateObjCommand(getTclInterpretator(), "read_config",
+                               balancer::tcl_read_config, static_cast< ClientData >(balancer), 0)) {
+        LogError(STDLOG) << "create read_config command failed: "
+                         << Tcl_GetString(Tcl_GetObjResult(getTclInterpretator()));
+        return TCL_ERROR;
+    }
+
     if (!Tcl_CreateObjCommand(getTclInterpretator(), "set_ratio",
                                balancer::tcl_set_ratio, static_cast<ClientData>(0), 0)) {
         LogError(STDLOG) << "create set_ratio command failed: "
@@ -1844,6 +1936,32 @@ static int createCommand(Balancer<balancer::BalancerFrontend>* const balancer)
     return TCL_OK;
 }
 
+template< typename B >
+class BalancerControlPipeEvent
+    : public ServerFramework::ControlPipeEvent
+{
+public:
+    BalancerControlPipeEvent(B& b)
+        : ServerFramework::ControlPipeEvent { }, balancer_ { b }
+    { }
+
+    ~BalancerControlPipeEvent() override
+    { }
+
+    void handleControlMsg(const char* buff, size_t buff_sz) override
+    {
+        std::string cmd { buff, buff_sz };
+        if (SOFT_RESTART_CMD == cmd) {
+            balancer_.release();
+        }
+
+        ServerFramework::ControlPipeEvent::handleControlMsg(buff, buff_sz);
+    }
+
+private:
+    B& balancer_;
+};
+
 int main_balancer(int cp /*control pipe descriptor*/, int argc, char* argv[])
 {
     ASSERT(1 < argc);
@@ -1853,15 +1971,11 @@ int main_balancer(int cp /*control pipe descriptor*/, int argc, char* argv[])
     const std::string grp(argv[1]);
     set_cur_grp_string(grp.c_str());
 
-    ServerFramework::ControlPipeEvent ev;
-
-    if (0 != cp) {
-        ev.init();
-    }
+    TlgLogger::setLogging("msgdump.log", false);
 
     const auto traceableClientIds = tcl_utils::readListOfIntsFromTcl<uint16_t>(grp + "(TRACEABLE_CLIENT_IDS)");
 
-    Balancer<balancer::BalancerFrontend> balancer(
+    Balancer< balancer::BalancerFrontend > balancer(
             ServerFramework::system_ios::Instance(),
             readIntFromTcl(grp + "(HEADTYPE)"),
             readStringFromTcl(grp + "(IP_ADDRESS)", "0.0.0.0"),
@@ -1879,6 +1993,10 @@ int main_balancer(int cp /*control pipe descriptor*/, int argc, char* argv[])
 
     tcl_read_config(&balancer, getTclInterpretator(), 0, static_cast<Tcl_Obj* CONST*>(0));
 
+    BalancerControlPipeEvent< Balancer< balancer::BalancerFrontend > > ev(balancer);
+
+    ev.init();
+
     return balancer.run();
 }
 
@@ -1891,18 +2009,24 @@ int main_balancer_clients_stats(int cp /*control pipe descriptor*/, int argc, ch
     const std::string grp(argv[1]);
     set_cur_grp_string(grp.c_str());
 
-    ServerFramework::ControlPipeEvent ev;
-
-    if (0 != cp) {
-        ev.init();
-    }
-
     ClientStatsAssistant< ClientStatsFrontend > assistant(
             ServerFramework::system_ios::Instance(),
             readIntFromTcl(grp + "(HEADTYPE_STATS)"),
             readStringFromTcl(grp + "(IP_ADDRESS_STATS)", "0.0.0.0"),
             readIntFromTcl(grp + "(PORT_STATS)")
     );
+
+    if (!Tcl_CreateObjCommand(getTclInterpretator(), "read_config",
+                               balancer::tcl_client_stats_assistant_read_config, static_cast< ClientData >(&assistant), 0)) {
+        LogError(STDLOG) << "create read_config command failed: "
+                         << Tcl_GetString(Tcl_GetObjResult(getTclInterpretator()));
+
+        return TCL_ERROR;
+    }
+
+    BalancerControlPipeEvent< ClientStatsAssistant< ClientStatsFrontend > > ev(assistant);
+
+    ev.init();
 
     return assistant.run();
 }

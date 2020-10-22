@@ -30,6 +30,8 @@
 #include "http_parser.h"
 #include "httpsrv.h"
 #include "helpcpp.h"
+#include "dates_io.h"
+#include "xml_stuff.h"
 
 #define NICKNAME "KONST"
 #include "slogger.h"
@@ -130,15 +132,44 @@ int HandleControlMsg(const char *msg, size_t len)
     return 0;
 }
 
-std::vector<uint8_t> getMsgForQueueFullWSAns(int err_code)
+std::string getInetAnsParams(const uint8_t *head, const size_t &hlen)
 {
-    constexpr char h[] = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<sirena><answer><error code='";
-    constexpr char f[] = "'>Please retry in 15 seconds</error></answer></sirena>";
+  int ext_msgid=0;
+  if(hlen>13)
+  {
+    memcpy(&ext_msgid, head+9, 4);
+    ext_msgid=ntohl(ext_msgid);
+  }
+
+  short client_id=0;
+  if(hlen>47)
+  {
+    memcpy(&client_id, head+45, 2);
+    client_id=ntohs(client_id);
+  }
+
+  std::string instance=readStringFromTcl("INSTANCE_NAME", "NIN");
+
+  std::string res;
+  res+=" client_id=\""+std::to_string(client_id)+"\"";
+  res+=" msgid=\""+std::to_string(ext_msgid)+"\"";
+  res+=" time=\""+HelpCpp::string_cast(boost::posix_time::second_clock::local_time(), "%H:%M:%S %d.%m.%Y")+"\"";
+  res+=" instance=\""+CP866toUTF8(instance)+"\"";
+  return res;
+}
+
+std::vector<uint8_t> getMsgForQueueFullWSAns(int err_code, const std::string &ansDetails)
+{
+    constexpr char h1[] = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<sirena><answer";
+    constexpr char h2[] = "><error code='";
+    constexpr char f[]  = "'>Please retry in 15 seconds</error></answer></sirena>";
     const std::string e = std::to_string(err_code);
-    std::vector<uint8_t> r(sizeof(h)-1 + e.size() + sizeof(f)-1);
-    std::copy(h, h+sizeof(h)-1, r.data());
-    std::copy(e.begin(), e.end(), r.data()+sizeof(h)-1);
-    std::copy(f, f+sizeof(f)-1, r.data()+sizeof(h)-1+e.size());
+    std::vector<uint8_t> r(sizeof(h1)-1 + ansDetails.size() + sizeof(h2)-1 + e.size() + sizeof(f)-1);
+    std::copy(h1, h1+sizeof(h1)-1, r.data());
+    std::copy(ansDetails.begin(), ansDetails.end(), r.data()+sizeof(h1)-1);
+    std::copy(h2, h2+sizeof(h2)-1, r.data()+sizeof(h1)-1+ansDetails.size());
+    std::copy(e.begin(), e.end(), r.data()+sizeof(h1)-1+ansDetails.size()+sizeof(h2)-1);
+    std::copy(f, f+sizeof(f)-1, r.data()+sizeof(h1)-1+ansDetails.size()+sizeof(h2)-1+e.size());
     return r;
 }
 
@@ -146,7 +177,7 @@ void createQueueFullWSAns(std::vector<uint8_t>& head, std::vector<uint8_t>& data
 {
     ProgTrace(TRACE5,"%s:: err_code=%i, head.size=%zu", __FUNCTION__, err_code, head.size());
 
-    data = getMsgForQueueFullWSAns(err_code);
+    data = getMsgForQueueFullWSAns(err_code,getInetAnsParams(&head[0],head.size()));
     const int newlen = htonl(data.size());
 
     memcpy(head.data() + 1, &newlen, sizeof(newlen));
@@ -851,8 +882,8 @@ size_t ApplicationCallbacks::form_crypt_error(char* res, size_t res_len, const c
 
       newlen = snprintf(res+hlen, res_len-hlen,
                         "<?xml version='1.0' encoding='UTF-8'?>\n"
-                        "<sirena><answer><error code='-1' crypt_error='%i'>%i %s</error></answer></sirena>",
-                        error, error, err_text);
+                        "<sirena><answer%s><error code='-1' crypt_error='%i'>%i %s</error></answer></sirena>",
+                        getInetAnsParams((const uint8_t *)head,hlen).c_str(), error, error, err_text);
       res[byte] &= ~MSG_TEXT;
   }
   else

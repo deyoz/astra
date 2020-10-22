@@ -23,6 +23,29 @@ namespace PgCpp
 
 namespace DbCpp
 {
+    std::ostream & operator << (std::ostream& os, const DbSessionType x)
+    {
+      os << 
+      (
+      (x)==DbSessionType::Managed   ?"DbSessionType::Managed":
+      (x)==DbSessionType::Autonomous?"DbSessionType::Autonomous":
+                                     "DbSessionType::???"
+      );
+      
+      return os;
+    }
+    std::ostream & operator << (std::ostream& os, const DbType x)
+    {
+      os << 
+      (
+      (x)==DbType::Oracle  ?"DbType::Oracle":
+      (x)==DbType::Postgres?"DbType::Postgres":
+                            "DbType::???"
+      );
+      
+      return os;
+    }
+
     OraSession::OraSession(const char* n, const char* f, int l, const std::string& connStr)
         : mSession(new OciCpp::OciSession(n, f, l, connStr))
         , mReleaseOnDestruction(false)
@@ -135,6 +158,10 @@ namespace DbCpp
                          DbSessionType type)
         : mType(type)
         , mIsActive(false)
+#ifdef XP_TESTING
+        , mType_test(mType)
+        , mIsActive_test(mIsActive)
+#endif // XP_TESTING
         , mConnectString(connStr)
         , mSession(PgCpp::Session::create(connStr.c_str()))
     {
@@ -143,11 +170,18 @@ namespace DbCpp
             beginManagedTransaction(STDLOG, *mSession);
             mIsActive = true;
         }
+#ifdef XP_TESTING
+        //LogTrace(TRACE0) << "Create (tests) of type=" << mType_test << " mIsActive_test=" << mIsActive_test <<" mSession="<<mSession<< " mConnectString="<<mConnectString<<" this="<<this;
+#endif // XP_TESTING
     }
 
     PgSession::PgSession(const std::string& connStr, DbSessionType type)
         : mType(type)
         , mIsActive(false)
+#ifdef XP_TESTING
+        , mType_test(mType)
+        , mIsActive_test(mIsActive)
+#endif // XP_TESTING
         , mConnectString(connStr)
         , mSession(PgCpp::Session::create(connStr.c_str()))
     {
@@ -156,11 +190,18 @@ namespace DbCpp
             beginManagedTransaction(STDLOG, *mSession);
             mIsActive = true;
         }
+#ifdef XP_TESTING
+        //LogTrace(TRACE0) << "Create (tests) of type=" << mType_test << " mIsActive_test=" << mIsActive_test <<" mSession="<<mSession<< " mConnectString="<<mConnectString<<" this="<<this;
+#endif // XP_TESTING
     }
 
     PgSession::PgSession(const char* connStr, DbSessionType type)
         : mType(type)
         , mIsActive(false)
+#ifdef XP_TESTING
+        , mType_test(mType)
+        , mIsActive_test(mIsActive)
+#endif // XP_TESTING
         , mConnectString(connStr)
         , mSession(PgCpp::Session::create(connStr))
     {
@@ -169,6 +210,9 @@ namespace DbCpp
             beginManagedTransaction(STDLOG, *mSession);
             mIsActive = true;
         }
+#ifdef XP_TESTING
+        //LogTrace(TRACE0) << "Create (tests) of type=" << mType_test << " mIsActive_test=" << mIsActive_test <<" mSession="<<mSession<< " mConnectString="<<mConnectString<<" this="<<this;
+#endif // XP_TESTING
     }
 
     PgSession::~PgSession() {}
@@ -210,23 +254,98 @@ namespace DbCpp
             return mSession->createCursorNoCache(n, f, l, sql);
         }
     }
+    PgCpp::CursCtl PgSession::createPgCursor(const char* n, const char* f, int l, const std::string& sql,
+                                             bool cacheit)
+    {
+        if (cacheit)
+        {
+            return mSession->createCursor(n, f, l, sql);
+        } else
+        {
+            return mSession->createCursorNoCache(n, f, l, sql);
+        }
+    }
 
     void PgSession::commit()
     {
+        //LogTrace(TRACE5) << "commit mIsActive=" << mIsActive << " mSession="<<mSession<<" mConnectString="<<mConnectString<<" this="<<this;
         if (mIsActive)
         {
             mSession->commit();
         }
         mIsActive = false;
+#ifdef XP_TESTING
+        mIsActive_test=mIsActive;
+#endif // XP_TESTING
     }
 
     void PgSession::rollback()
     {
+        //LogTrace(TRACE5) << "rollback mIsActive=" << mIsActive << " mSession="<<mSession<<" mConnectString="<<mConnectString<<" this="<<this;
         if (mIsActive)
         {
             mSession->rollback();
         }
         mIsActive = false;
+#ifdef XP_TESTING
+        mIsActive_test=mIsActive;
+#endif // XP_TESTING
+    }
+
+    bool PgSession::setSessionType(DbSessionType type, bool no_throw)
+    {
+//        if (mType != type) 
+//          LogTrace(TRACE5) << "Changing session of type '" << mType << "' to type '" << type << "' mConnectString="<<mConnectString<<" this="<<this;
+#ifdef XP_TESTING
+        if (inTestMode())
+        {
+            if (mType_test != type) 
+              LogTrace(TRACE5) << "Changing session (tests) of type '" << mType_test << "' to type '" << type << "'";
+            if (mType_test != type && mIsActive_test)
+            {
+              LogTrace(TRACE0)<<__func__
+                << "Cannot change session type to 'Autonomous' during active "
+                << "'Managed' transaction";
+              if(no_throw) 
+              {
+                return false;
+              }
+              else
+              {
+                throw comtech::Exception(STDLOG, __func__,
+                                         "Cannot change session type to 'Autonomous' during active "
+                                         "'Managed' transaction");
+              }        
+            }
+        }
+        mType_test=type;
+#endif // XP_TESTING
+
+        if (mType == type)
+        {
+            return true;
+        }
+        if (!inTestMode())
+        {
+            if (mIsActive)
+            {
+              if(no_throw) 
+              {
+//                LogTrace(TRACE0)<<__func__
+//                  << "Cannot change session type to 'Autonomous' during active "
+//                  << "'Managed' transaction";
+                return false;
+              }
+              else
+              {
+                throw comtech::Exception(STDLOG, __func__,
+                                         "Cannot change session type to 'Autonomous' during active "
+                                         "'Managed' transaction");
+              }        
+            }
+            mType = type;
+        }
+        return true;
     }
 
 #ifdef XP_TESTING
@@ -238,6 +357,8 @@ namespace DbCpp
             beginManagedTransaction(STDLOG, *mSession);
             mIsActive = true;
         }
+        mIsActive_test=false;
+        //LogTrace(TRACE5) << "mIsActive_test=" << mIsActive_test<< " mConnectString="<<mConnectString<<" this="<<this;
     }
 #endif // XP_TESTING
 
@@ -302,7 +423,15 @@ namespace DbCpp
                 beginManagedTransaction(STDLOG, *mSession);
             }
             mIsActive = true;
+
         }
+#ifdef XP_TESTING
+        if (mType_test == DbSessionType::Managed)
+        {
+            //LogTrace(TRACE5) << "mIsActive_test=" << mIsActive_test<< " mConnectString="<<mConnectString<<" this="<<this;
+            mIsActive_test=true;
+        }
+#endif // XP_TESTING
     }
 
     static std::unique_ptr<OraSession> mainSessPtr;
@@ -320,37 +449,20 @@ namespace DbCpp
     {
         void operator()(PgSession* session) const
         {
-#ifdef XP_TESTING
-            if (inTestMode())
-            {
-                session->rollbackInTestMode();
-            } else
-#endif // XP_TESTING
-            {
-                session->rollback();
-            }
+            session->rollback();
             delete session;
         }
     };
+    
     static std::unique_ptr<PgSession, RollbackOnDestruction> mainPgSessPtr;
     static bool mainPgSessionReaded = false;
-    PgSession& mainPgSession(STDLOG_SIGNATURE)
-    {
-        PgSession* ptr = mainPgSessionPtr(STDLOG_VARIABLE);
-        if (!ptr)
-        {
-            throw comtech::Exception(STDLOG_VARIABLE, __func__,
-                                     "Failed to create main PostgreSQL session");
-        }
-        return *ptr;
-    }
-    PgSession* mainPgSessionPtr(STDLOG_SIGNATURE, bool createIfNotExist)
+
+    static PgSession* mainPgSessionPtrCommon(STDLOG_SIGNATURE, bool createIfNotExist)
     {
         if (!mainPgSessionReaded && createIfNotExist)
         {
             mainPgSessionReaded = true;
-            LogTrace(TRACE1) << "mainPgSessionPtr() called from " << nick << ":" << file << ":"
-                             << line;
+            LogTrace(TRACE1) << "mainPgSessionPtr() called from " << nick << ":" << file << ":" << line;
             std::string connectString = readStringFromTcl("PG_CONNECT_STRING", "");
             if (!connectString.empty())
             {
@@ -362,5 +474,58 @@ namespace DbCpp
         }
         return mainPgSessPtr.get();
     }
+
+
+    
+    PgSession* mainPgSessionPtr(STDLOG_SIGNATURE, bool createIfNotExist)
+    {
+        PgSession* ptr = mainPgSessionPtrCommon(STDLOG_VARIABLE,createIfNotExist);
+        // переведём сессию в режим managed на всякий случай
+        if (ptr)
+        {
+#if 1
+          mainPgSessPtr->setSessionType(DbSessionType::Managed, true/*no_throw*/);
+          mainPgSessPtr->activateSession();
+#endif /* 0 */            
+        }
+        return ptr;
+    }
+
+    PgSession& mainPgSession(STDLOG_SIGNATURE)
+    {
+        PgSession* ptr = mainPgSessionPtr(STDLOG_VARIABLE);
+        if (!ptr)
+        {
+            throw comtech::Exception(STDLOG_VARIABLE, __func__,
+                                     "Failed to create main PostgreSQL session");
+        }
+        return *ptr;
+    }
+
+#if 1    
+    PgSession* mainPgReadOnlySessionPtr(STDLOG_SIGNATURE, bool createIfNotExist)
+    {
+        PgSession* ptr = mainPgSessionPtrCommon(STDLOG_VARIABLE,createIfNotExist);
+        if (ptr)
+        {
+          // если сессия неактивна, сделаем её автономной.
+          // если активна - она останется managed
+          ptr->setSessionType(DbSessionType::Autonomous, true/*no_throw*/);
+        }
+        return ptr;
+    }
+    
+    PgSession& mainPgReadOnlySession(STDLOG_SIGNATURE)
+    {
+        PgSession* ptr = mainPgReadOnlySessionPtr(STDLOG_VARIABLE);
+        if (!ptr)
+        {
+            throw comtech::Exception(STDLOG_VARIABLE, __func__,
+                                     "Failed to create main PostgreSQL session");
+        }
+        return *ptr;
+    }
+#endif /* 0 */
+    
 }
 #endif // ENABLE_PG

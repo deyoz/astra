@@ -162,7 +162,7 @@ const char* tclmonFullProcessName();
 #endif /* __MAIN12345 */
 
 extern pid_t Pid_p;
-extern const int SEMAPHORE_KEY;
+extern const std::string SOFT_RESTART_CMD;
 
 const char *getUnknownProcessName();
 
@@ -182,6 +182,8 @@ int HandleControlMsg(const char* msg, size_t len);
 }
 
 int set_sig (void (*p) (int), int sig);
+
+int semaphoreKey();
 
 #endif /* __cplusplus */
 

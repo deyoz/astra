@@ -67,7 +67,6 @@ int isXmlBatch(void);
 void set_msg_type_and_timeout(int flag, unsigned  char timeout);
 void set_timeout(unsigned  char timeout);
 void tcl_mode_sleep(int socket,int s2,int *first,int seconds, void(*)(int len,char*));
-void tcl_mode_sleep2(int socket,int s2,int *first,int seconds, void(*)(int len,char*),int addsock,int *result);
 void term3(int);
 void under_gdb();
 int our_signal(int sig, void(*f)(int),sigset_t sigs);

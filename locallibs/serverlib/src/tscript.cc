@@ -95,7 +95,7 @@ namespace xp_testing { namespace tscript {
     {
         _Callbacks = callbacks;
     }
-    
+
     std::shared_ptr<TestContext> GetTestContext()
     {
         return _TestContext;
@@ -138,7 +138,7 @@ namespace xp_testing { namespace tscript {
         env.noCatch = NoCatch();
         VmExecModule(env, callFunctor, test.module);
         LogTrace(TRACE5) << __FUNCTION__ << ": " << env.stack.size() << " values on stack";
-       
+
         if (env.noCatch)
             CheckEmpty(context.outq);
         else
@@ -149,20 +149,26 @@ namespace xp_testing { namespace tscript {
                 throw;
             }
     }
-    static void CleanUpAfterTest()
+    struct SetupTeardown
     {
-        _Callbacks->afterTest();
-        _TestContext.reset();
-        if(memcache::callbacksInitialized()) {
-            memcache::callbacks()->flushAll();
+        explicit SetupTeardown() {
+            _TestContext.reset(new TestContext);
+            _Callbacks->beforeTest();
         }
-    }
+        ~SetupTeardown() {
+            _Callbacks->afterTest();
+            _TestContext.reset();
+            if(memcache::callbacksInitialized()) {
+                memcache::callbacks()->flushAll();
+            }
+        }
+    };
     void RunTest(const Test& test)
     {
         assert(!_TestContext);
         assert(_Callbacks);
-        _TestContext.reset(new TestContext);
-        _Callbacks->beforeTest();
+        SetupTeardown env_keeper;
+
         if (NoCatch())
             RunTest_Internal(*_TestContext, test);
         else
@@ -170,12 +176,10 @@ namespace xp_testing { namespace tscript {
                 RunTest_Internal(*_TestContext, test);
             } catch (const SkipTest& e) {
                 LogTrace(TRACE0) << "Skip test";
-            } catch (const std::runtime_error& e) {
-                LogTrace(TRACE0) << e.what();
-                CleanUpAfterTest();
-                throw;
+            //} catch (const std::runtime_error& e) {
+            //    LogTrace(TRACE0) << e.what();
+            //    throw;
             }
-        CleanUpAfterTest();
     }
 
     void RunAllTests(const std::string& fileName)

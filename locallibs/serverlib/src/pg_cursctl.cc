@@ -14,6 +14,7 @@
 #include "tcl_utils.h"
 #include "testmode.h"
 #include "logopt.h"
+#include "pg_locks.h"
 
 #define NICKNAME "NONSTOP"
 #include "slogger.h"
@@ -23,6 +24,24 @@
 
 namespace PgCpp
 {
+
+const short* nullInd(bool isNull) noexcept
+{
+    static const short null = -1;
+    static const short notNull = 0;
+    return &(isNull ? null : notNull);
+}
+
+LockTimeout::LockTimeout(SessionDescriptor psd, size_t timeout_ms)
+    : psd_(psd)
+{
+    make_pg_curs_nocache(psd_, "SET lock_timeout = " + std::to_string(timeout_ms)).exec();
+}
+
+LockTimeout::~LockTimeout()
+{
+    make_pg_curs_nocache(psd_, "SET lock_timeout = 0").exec();
+}
 
 namespace details
 {
@@ -265,6 +284,7 @@ public:
     virtual void onInitTransaction(SessionDescriptor, PGconn*) = 0;
     virtual void onCommit(SessionDescriptor, Session&) = 0;
     virtual void onRollback(SessionDescriptor, Session&) = 0;
+    virtual void setInitialSavepoints(SessionDescriptor, const std::list<std::string>& savepoints) = 0;
 #ifdef XP_TESTING
     virtual void onCommitInTestMode(SessionDescriptor, Session&) = 0;
     virtual void onRollbackInTestMode(SessionDescriptor, Session&) = 0;
@@ -349,9 +369,7 @@ static void beginManagedTransaction(PGconn* conn, SessionDescriptor sd)
             checkPgErr(STDLOG, sd, beginManagedTransaction(conn));
             transactions.insert(sd);
         }
-        sd->sess->increaseSavepointCounter();
-        checkPgErr(STDLOG, sd, PQexec(PG_CONN(conn), ("SAVEPOINT "
-                        + currentSavepoint(sd->sess->getSavepointCounter())).c_str()));
+        checkPgErr(STDLOG, sd, PQexec(PG_CONN(conn), ("SAVEPOINT " + currentSavepoint(++sd->sess->spCounter_)).c_str()));
     } else {
         checkPgErr(STDLOG, sd, beginManagedTransaction(conn));
     }
@@ -368,9 +386,7 @@ static void beginReadOnlyTransaction(PGconn* conn, SessionDescriptor sd)
             checkPgErr(STDLOG, sd, beginReadOnlyTransaction(conn));
             transactions.insert(sd);
         }
-        sd->sess->increaseSavepointCounter();
-        checkPgErr(STDLOG, sd, PQexec(PG_CONN(conn), ("SAVEPOINT "
-                        + currentSavepoint(sd->sess->getSavepointCounter())).c_str()));
+        checkPgErr(STDLOG, sd, PQexec(PG_CONN(conn), ("SAVEPOINT " + currentSavepoint(++sd->sess->spCounter_)).c_str()));
     } else {
         checkPgErr(STDLOG, sd, beginReadOnlyTransaction(conn));
     }
@@ -414,20 +430,41 @@ public:
                 { b.onRollback(sd, sess); });
     }
 
-#ifdef XP_TESTING
     void makeSavepoint(const std::string& name);
     void rollbackSavepoint(const std::string& name);
+    void resetSavepoint(const std::string& name);
+
+#ifdef XP_TESTING
+    void finishTransactionInTestMode(const std::function<void (SessionBehaviour&, SessionDescriptor, Session&)>& f) {
+        auto now = Dates::currentDateTime();
+        for (auto& sd : sessions_) {
+            if (!sd.active && transactions.count(sd.sess->sd_) == 0) {
+                disconnectUnused(sd, now);
+                continue;
+            }
+            if (sd.sess) {
+                if (!isQueryInProgress(*sd.sess)) {
+                    sd.active = false;
+                    f(getSessionBehaviour(&sd), sd.sess->sd_, *sd.sess);
+                    transactions.erase(sd.sess->sd_);
+                } else if (sd.type == SessionType::Managed) {
+                    LogError(STDLOG) << "skipping commit/rollback for managed session " << &sd;
+                }
+            }
+        }
+        globalSavepoints_.clear();
+    }
 
     void commitInTestMode() {
-        finishTransaction([](SessionBehaviour& b, SessionDescriptor sd, Session& sess)
-                { b.onCommitInTestMode(sd, sess); });
+        finishTransactionInTestMode([](SessionBehaviour& b, SessionDescriptor sd, Session& sess) {
+            b.onCommitInTestMode(sd, sess);
+        });
     }
 
     void rollbackInTestMode() {
-        finishTransaction([](SessionBehaviour& b, SessionDescriptor sd, Session& sess)
-                {
-                b.onRollbackInTestMode(sd, sess);
-                });
+        finishTransactionInTestMode([](SessionBehaviour& b, SessionDescriptor sd, Session& sess) {
+            b.onRollbackInTestMode(sd, sess);
+        });
     }
 #endif // XP_TESTING
 
@@ -448,8 +485,7 @@ private:
                 { return &p == sd; });
     }
 
-    template<typename Fun>
-    void finishTransaction(Fun f) {
+    void finishTransaction(const std::function<void (SessionBehaviour&, SessionDescriptor, Session&)>& f) {
         auto now = Dates::currentDateTime();
         for (auto& sd : sessions_) {
             if (!sd.active) {
@@ -465,6 +501,7 @@ private:
                 }
             }
         }
+        globalSavepoints_.clear();
     }
 
     void disconnectUnused(SessionDescription& sd, const boost::posix_time::ptime& now) {
@@ -487,7 +524,81 @@ private:
     // no need to use b-tree search because of small size
     std::list<SessionDescription> sessions_;
     boost::posix_time::time_duration maxIdleTime_;
+    std::list<std::string> globalSavepoints_;
 };
+
+template<typename T>
+T reverseValue(const char *data)
+{
+    T result;
+    char *dest = (char *)&result;
+    for(size_t i=0; i<sizeof(T); i++)
+    {
+        dest[i] = data[sizeof(T)-i-1];
+    }
+    return result;
+}
+
+template<typename T>
+T htont(T src)
+{
+#   if __FLOAT_WORD_ORDER__ == __ORDER_LITTLE_ENDIAN__
+        return reverseValue<T>((char *)&src);
+#   else
+        return src;
+#   endif
+}
+
+bool PgTraits<float>::setNull(char* value)
+{
+    float* v = reinterpret_cast<float*>(value);
+    *v = 0;
+    return true;
+}
+
+void PgTraits<float>::fillBindData(std::vector<char>& dst, float v)
+{
+    dst.resize(sizeof(v));
+    v = htont(v);
+    memcpy(dst.data(), &v, sizeof(v));
+}
+
+bool PgTraits<float>::setValue(char* value, const char* data, int)
+{
+    float* v = reinterpret_cast<float*>(value);
+    char* endptr = nullptr;
+    *v = strtof(data, &endptr);
+    if (endptr && *endptr != 0) {
+        return false;
+    }
+    return true;
+}
+
+bool PgTraits<double>::setNull(char* value)
+{
+    double* v = reinterpret_cast<double*>(value);
+    *v = 0;
+    return true;
+}
+
+void PgTraits<double>::fillBindData(std::vector<char>& dst, double v)
+{
+    dst.resize(sizeof(v));
+    v = htont(v);
+    memcpy(dst.data(), &v, sizeof(v));
+}
+
+bool PgTraits<double>::setValue(char* value, const char* data, int)
+{
+    double* v = reinterpret_cast<double*>(value);
+    char* endptr = nullptr;
+    *v = strtod(data, &endptr);
+    if (endptr && *endptr != 0) {
+        return false;
+    }
+    return true;
+}
+
 
 bool PgTraits<int>::setNull(char* value)
 {
@@ -704,7 +815,7 @@ bool PgTraits<boost::posix_time::ptime>::setValue(char* value, const char* data,
         if (n == 7) {
             const char* dotPos = strchr(data, '.');
             auto fsecLen = strcspn(dotPos, "+-") - 1;
-            fsec *= pow(10, 3 - fsecLen);
+            fsec *= pow(10, static_cast<int>(3 - fsecLen));
         } else if (n == 6) {
             fsec = 0;
         } else {
@@ -958,6 +1069,7 @@ void SessionManager::activateSession(SessionDescriptor sd)
     if (!it->active) {
         getSessionBehaviour(sd).onInitTransaction(sd, PG_CONN(it->sess->conn_));
         it->active = true;
+        getSessionBehaviour(sd).setInitialSavepoints(sd, globalSavepoints_);
     }
 }
 
@@ -1045,25 +1157,41 @@ Session& SessionManager::getAutoCommitSession(SessionDescriptor sd)
     return getSession(connStr, AutoCommit);
 }
 
-#ifdef XP_TESTING
 void SessionManager::makeSavepoint(const std::string& name)
 {
     for (SessionDescription& sd : sessions_) {
         if (sd.sess && sd.type == SessionType::Managed) {
+            LogTrace(TRACE1) << "savepoint " << name << " d=" << sd.sess->sd_;
             make_pg_curs(sd.sess->sd_, "SAVEPOINT " + name).exec();
         }
     }
+    globalSavepoints_.push_back(name);
 }
 
 void SessionManager::rollbackSavepoint(const std::string& name)
 {
     for (SessionDescription& sd : sessions_) {
         if (sd.sess && sd.type == SessionType::Managed) {
-            make_pg_curs(sd.sess->sd_, "ROLLBACK TO SAVEPOINT " + name).exec();
+            LogTrace(TRACE1) << "rollback to savepoint " << name << " d=" << sd.sess->sd_;
+            checkPgErr(STDLOG, sd.sess->sd_, PQexec(PG_CONN(sd.sess->conn_), ("ROLLBACK TO SAVEPOINT " + name).c_str()));
         }
     }
+    const auto rit = std::find(globalSavepoints_.crbegin(), globalSavepoints_.crend(), name);
+    if (rit != globalSavepoints_.crend()) {
+        globalSavepoints_.erase(--rit.base(), globalSavepoints_.cend());
+    }
 }
-#endif //XP_TESTING
+
+void SessionManager::resetSavepoint(const std::string& name)
+{
+    for (SessionDescription& sd : sessions_) {
+        if (sd.sess && sd.type == SessionType::Managed) {
+            LogTrace(TRACE1) << "reset savepoint " << name << " d=" << sd.sess->sd_;
+            make_pg_curs(sd.sess->sd_, "SAVEPOINT " + name).exec();
+        }
+    }
+    globalSavepoints_.push_back(name);
+}
 
 class ManagedSessionBehaviour : public SessionBehaviour
 {
@@ -1077,6 +1205,12 @@ public:
     }
     void onRollback(SessionDescriptor sd, Session& sess) override {
         sess.rollback();
+    }
+    void setInitialSavepoints(SessionDescriptor sd, const std::list<std::string>& savepoints) override {
+        for (const auto& sp: savepoints) {
+            LogTrace(TRACE1) << "savepoint " << sp << " for new transaction d=" << sd;
+            make_pg_curs(sd, "SAVEPOINT " + sp).exec();
+        }
     }
 #ifdef XP_TESTING
     void onCommitInTestMode(SessionDescriptor sd, Session& sess) override {
@@ -1107,6 +1241,7 @@ public:
     void onRollback(SessionDescriptor sd, Session& sess) override {
         sess.rollback();
     }
+    void setInitialSavepoints(SessionDescriptor, const std::list<std::string>&) override {}
 #ifdef XP_TESTING
     void onCommitInTestMode(SessionDescriptor sd, Session& sess) override {
         sess.commitInTestMode();
@@ -1129,6 +1264,7 @@ public:
     void onInitTransaction(SessionDescriptor, PGconn*) override {}
     void onCommit(SessionDescriptor, Session&) override {}
     void onRollback(SessionDescriptor, Session&) override {}
+    void setInitialSavepoints(SessionDescriptor, const std::list<std::string>&) override {}
 #ifdef XP_TESTING
     void onCommitInTestMode(SessionDescriptor, Session&) override {}
     void onRollbackInTestMode(SessionDescriptor, Session&) override {}
@@ -1219,6 +1355,21 @@ void commit()
 void rollback()
 {
     SessionManager::instance().rollback();
+}
+
+void makeSavepoint(const std::string& name)
+{
+    SessionManager::instance().makeSavepoint(name);
+}
+
+void rollbackSavepoint(const std::string& name)
+{
+    SessionManager::instance().rollbackSavepoint(name);
+}
+
+void resetSavepoint(const std::string& name)
+{
+    SessionManager::instance().resetSavepoint(name);
 }
 
 #ifdef XP_TESTING
@@ -1318,7 +1469,7 @@ Session::Session(const char* connStr)
     : sd_(0)
 {
 #ifdef XP_TESTING
-    spCnt_ = 0;
+    spCounter_ = 0;
 #endif // XP_TESTING
     conn_ = connect(connStr, false);
 }
@@ -1393,31 +1544,37 @@ std::shared_ptr<PgExecutor> Session::cursData(const std::string& sql, bool cache
     return res;
 }
 
-#ifdef XP_TESTING
+
 void Session::commit()
 {
+#ifdef XP_TESTING
     if (inTestMode()) {
-        increaseSavepointCounter();
-        LogTrace(TRACE5) << "commit session " << sd_ << " SAVEPOINT " << currentSavepoint(getSavepointCounter());
-        checkPgErr(STDLOG, sd_, PQexec(PG_CONN(conn_), ("SAVEPOINT " + currentSavepoint(getSavepointCounter())).c_str()));
+        ++spCounter_;
+        LogTrace(TRACE5) << "commit session " << sd_ << " SAVEPOINT " << currentSavepoint(spCounter_);
+        checkPgErr(STDLOG, sd_, PQexec(PG_CONN(conn_), ("SAVEPOINT " + currentSavepoint(spCounter_)).c_str()));
         return;
     }
+#endif //XP_TESTING
     LogTrace(TRACE1) << "commit session " << sd_;
     checkPgErr(STDLOG, sd_, PQexec(PG_CONN(conn_), "COMMIT"));
 }
 
 void Session::rollback()
 {
+#ifdef XP_TESTING
     if (inTestMode()) {
-        LogTrace(TRACE5) << "rollback session " << sd_ << " TO SAVEPOINT " << currentSavepoint(getSavepointCounter());
-        ASSERT(0 != getSavepointCounter() && "rollback to savepoint without savepoint")
-        checkPgErr(STDLOG, sd_, PQexec(PG_CONN(conn_), ("ROLLBACK TO SAVEPOINT " + currentSavepoint(getSavepointCounter())).c_str()));
+        auto const&& sp_name = currentSavepoint(spCounter_);
+        ProgTrace(TRACE5, "rollback session %p TO SAVEPOINT %s", sd_, sp_name.c_str());
+        ASSERT(0 != spCounter_ && "rollback to savepoint without savepoint")
+        checkPgErr(STDLOG, sd_, PQexec(PG_CONN(conn_), ("ROLLBACK TO SAVEPOINT " + sp_name).c_str()));
         return;
     }
+#endif //XP_TESTING
     LogTrace(TRACE1) << "rollback session " << sd_;
     checkPgErr(STDLOG, sd_, PQexec(PG_CONN(conn_), "ROLLBACK"));
 }
 
+#ifdef XP_TESTING
 void Session::commitInTestMode()
 {
     checkPgErr(STDLOG, sd_, PQexec(PG_CONN(conn_), "COMMIT"));
@@ -1431,31 +1588,6 @@ void Session::rollbackInTestMode()
 CursorCache& Session::getCursorCache()
 {
     return cursCache_;
-}
-
-int Session::getSavepointCounter() const
-{
-    return spCnt_;
-}
-
-void Session::increaseSavepointCounter()
-{
-    spCnt_++;
-}
-
-
-#else // XP_TESTING
-
-void Session::commit()
-{
-    LogTrace(TRACE1) << "commit session " << sd_;
-    checkPgErr(STDLOG, sd_, PQexec(PG_CONN(conn_), "COMMIT"));
-}
-
-void Session::rollback()
-{
-    LogTrace(TRACE1) << "rollback session " << sd_;
-    checkPgErr(STDLOG, sd_, PQexec(PG_CONN(conn_), "ROLLBACK"));
 }
 #endif // XP_TESTING
 
@@ -1698,7 +1830,13 @@ PgResult CursCtl::execSql()
     }
 
     if (!noThrowErrors_.empty()) {
-        LogTrace(TRACE5) << sess_->sd_ << " savepoint before bad query: expected errors " << LogCont(" ", noThrowErrors_);
+#ifdef XP_TESTING
+        LogTrace(TRACE7) << sess_->sd_ << " savepoint before bad query"
+            " [" << exectr_->sql << "]"
+            ": expected errors " << LogCont(" ", noThrowErrors_);
+#else
+        LogTrace(TRACE7) << sess_->sd_ << " savepoint before bad query: expected errors " << LogCont(" ", noThrowErrors_);
+#endif
         SessionManager::instance().getSessionBehaviour(sess_->sd_)
             .onBeforeBadQuery(sess_->sd_, PG_CONN(sess_->conn()));
     }
@@ -1786,6 +1924,11 @@ int CursCtl::fen()
     if (erc_) {
         return erc_;
     }
+    if (!fetcher_) {
+        erc_ = ResultCode::Fatal;
+        handleError(*this, sess_->sd_, erc_, "fetch is not available (forgot to call exec?)");
+        return erc_;
+    }
     PGresult* res = fetcher_->getResult();
     if (res == nullptr) {
         erc_ = NoDataFound;
@@ -1834,7 +1977,7 @@ int CursCtl::fen()
         if (!d.setValue(d.value, value, len)) {
             erc_ = ResultCode::FetchFail;
             char errText[50] = {};
-            sprintf(errText, "setValue failed at [%d,%d] is NULL", currRow, i);
+            sprintf(errText, "setValue failed at [%d,%d]", currRow, i);
             handleError(*this, sess_->sd_, erc_, errText);
             return erc_;
         }
@@ -1907,18 +2050,6 @@ CursCtl make_curs_nocache_(const char* n, const char* f, int l, SessionDescripto
     return SessionManager::instance().getSession(sd).createCursorNoCache(n, f, l, sql);
 }
 
-#ifdef XP_TESTING
-void makeSavepoint(const std::string& name)
-{
-    SessionManager::instance().makeSavepoint(name);
-}
-
-void rollbackSavepoint(const std::string& name)
-{
-    SessionManager::instance().rollbackSavepoint(name);
-}
-#endif //XP_TESTING
-
 } // PgCpp
 
 #ifdef XP_TESTING
@@ -1957,6 +2088,7 @@ void setupReadOnly()
 {
     sd = PgCpp::getReadOnlySession(getTestConnectString());
 }
+
 
 START_TEST(test_readonly)
 {
@@ -2321,6 +2453,16 @@ START_TEST(test_datetime)
     make_curs("select timestamp '1984-02-26 06:20:58.43'").def(t2).EXfet();
     CHECK_EQUAL_STRINGS(Dates::ptime_to_undelimited_string(t2), "19840226062058");
 
+    // microseconds in timestamp rounded to milliseconds
+    make_curs("select timestamp '2020-04-15 15:51:28.049890+0'").def(t2).EXfet();
+    CHECK_EQUAL_STRINGS(to_iso_string(t2), "20200415T155128.049000");
+    make_curs("select timestamp '2020-04-15 15:51:28.004985'").def(t2).EXfet();
+    CHECK_EQUAL_STRINGS(to_iso_string(t2), "20200415T155128.004000");
+    make_curs("select timestamp '2020-04-15 15:51:28.00498'").def(t2).EXfet();
+    CHECK_EQUAL_STRINGS(to_iso_string(t2), "20200415T155128.004000");
+    make_curs("select timestamp '2020-04-15 15:51:28.1049'").def(t2).EXfet();
+    CHECK_EQUAL_STRINGS(to_iso_string(t2), "20200415T155128.104000");
+    
     make_curs("set time zone -7").exec();
     make_curs("select to_timestamp('26/02/1984 06:20:58.43', 'DD/MM/YYYY HH24:MI:SS.MS')")
         .def(t2).EXfet();
@@ -2871,7 +3013,7 @@ START_TEST(test_bind_int_after_long_int)
   make_pg_curs_autonomous(sd, "INSERT INTO TEST_BIND_INT (FLD1) VALUES(999);").exec();
   std::string query="SELECT COUNT(*) FROM TEST_BIND_INT WHERE FLD1=:FLD";
     
-  {// Создаём кэшированный курсор, bind-им переменную long long int 
+  {// make cached cursor and bind long long int
     long long int fld=999;
     
     int tmp=0;
@@ -2883,8 +3025,7 @@ START_TEST(test_bind_int_after_long_int)
     fail_unless(tmp == 1, "tmp=%d expected 1", tmp);
   }
 
-  { // переоткрываем закэшированный курсор, и bind-им переменную int
-    // В результате выполнения exec()  получаем ошибку "insufficient data left in message"
+  { //reuse cached cursor and bind int
     int fld=999;
         
     int tmp=0;
@@ -2892,7 +3033,6 @@ START_TEST(test_bind_int_after_long_int)
     cr.bind(":FLD",fld);
     cr.def(tmp);
     cr.exec();
-    // До сюда мы уже не дойдём (((
     cr.fen();
     fail_unless(tmp == 1, "tmp=%d expected 1", tmp);
   }

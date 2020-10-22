@@ -80,8 +80,8 @@ const char* get_connect_string()
 
 void split_connect_string(const std::string & connect_string, oracle_connection_param& params)
 {
-    std::string::size_type posSlash = connect_string.find("/"); 
-    std::string::size_type posDog = connect_string.find("@"); 
+    std::string::size_type posSlash = connect_string.find("/");
+    std::string::size_type posDog = connect_string.find("@");
 
     if (posSlash == std::string::npos) {
         ProgError(STDLOG, "Invalid connect string: '%s'", connect_string.c_str());
@@ -285,7 +285,7 @@ void ocierror(Lda_Def *LDa, int rc, int fc, int off,int line , const char *sqlt,
     {
       int beg=off>40?off-40:0;
       int sep=off>40?39:off;
-      
+
       Logger::getTracer().ProgTrace(getTraceLev(TRACE1),nick,file,line,"Query: %s",std::string(sqlt).substr(beg,80).c_str());
       Logger::getTracer().ProgTrace(getTraceLev(TRACE1),nick,file,line,"       %s",(std::string(sep,'-')+"^"+std::string(40,'-')).c_str());
     }
@@ -326,13 +326,13 @@ void validateStr(const char* str)
 static cda_text * getStaticCursor(const char *str, Lda_Def* ld, const OciCpp::OciSession& session)
 {
 #ifdef XP_TESTING
-    if (inTestMode()) 
+    if (inTestMode())
     {
         validateStr(str);
     }
 #endif
     cda_text *Cursor = (cda_text*) malloc(sizeof(Cursor[0]));
-    if (!Cursor) 
+    if (!Cursor)
     {
         abort();
     }
@@ -477,8 +477,8 @@ Limitations:
       switch(cda_err(Cur))
       {
         case CERR_EXACT:
-  	case NO_DATA_FOUND:
-  	case 0:
+        case NO_DATA_FOUND:
+        case 0:
           tst();
           line_buf_len+=blsize;
           if ((signed)iterp>=0)
@@ -739,11 +739,11 @@ static void innerCloseCurs_7(const cda_text* crs )
     assert(crs);
     assert(crs->sqltext);
     auto it = allSessions.find(crs->ld);
-    if (it != allSessions.end()) 
+    if (it != allSessions.end())
     {
         it->second->removeFromCache(crs->sqltext);
-    } 
-    else 
+    }
+    else
     {
         Logger::getTracer().ProgError(STDLOG, "close cursor, but session not found: %s", crs->sqltext);
     }
@@ -810,10 +810,10 @@ class OracleData
     virtual ~OracleData() {}
     virtual std::string error_text() const=0;
     virtual std::string error_text2() const =0;
-    virtual int err() const=0;
-    virtual int err8() const { return 0; }
+    virtual int err() const noexcept =0;
+    virtual int err8() const noexcept { return 0; }
     virtual    int rowcount() =0;
-    virtual    char const * sqltext() const =0;
+    virtual    char const * sqltext() const noexcept =0;
     virtual    void setErrCode(int code) =0;
     void save_vector_sizes( BindList_t const &bind_bufs,DefList_t const & sel_bufs)
     {
@@ -833,11 +833,11 @@ class OracleData
 
     virtual     int mOfen( int count)=0;
 
-    virtual     comtech::optional<size_t> field_size(size_t n) = 0;
+    virtual     std::optional<size_t> field_size(size_t n) = 0;
     virtual     int definps( int n, char *Ptr,  int type_size, int type, indicator *ind, unsigned short *bufcurlen,
             ub2 *rcode,int data_skip, int skip,int curlen)=0;
 
-    virtual    int bindps(char const * plh, int plh_len, 
+    virtual    int bindps(char const * plh, int plh_len,
             char *Ptr, int ptr_size, int size3, int type, indicator *ind,
             int skip, unsigned short *bufcurlen, int size4, ub2* rcode, ub4 maxarrlen,ub4 * curarrlen) =0;
     virtual bool is_8_select() const { return false; }
@@ -990,7 +990,7 @@ void SetSessionId(std::string const & sessid,OCIEnv *envhp,OCISvcCtx *svchp, OCI
         sleep(30);
         abort();
     }
-    err=OCIStmtExecute(svchp,stmthp,errhp,1,0,0,0,OCI_COMMIT_ON_SUCCESS); 
+    err=OCIStmtExecute(svchp,stmthp,errhp,1,0,0,0,OCI_COMMIT_ON_SUCCESS);
     if(checkerr8(STDLOG,err,errhp,connectString)){
         sleep(30);
         abort();
@@ -1012,56 +1012,56 @@ template <class Query> cda_text* _newCursor(OciSession &sess, Query&& query);
 class Oracle7Data : public OracleData  {
     template<class Query> friend cda_text* _newCursor(OciSession &sess, Query&& query);
     cda_text *c;
-    
+
     public:
     Oracle7Data (OciSession* s, cda_text *t);
-    std::string error_text() const
+    std::string error_text() const override
     {
         return OciCpp::error(c);
     }
-    std::string error_text2() const
+    std::string error_text2() const override
     {
         return OciCpp::error2(c);
     }
-    int err() const;
-    int rowcount() 
+    int err() const noexcept override;
+    int rowcount() override
     {
         return rpc(c);
     }
-    char const * sqltext() const {
+    char const * sqltext() const noexcept override {
         return c->sqltext;
     }
-    void setErrCode(int code) {
+    void setErrCode(int code) override {
         c->curs.rc = code;
     }
-    int exec() {
+    int exec() override {
         return Oexec(c);
     }
-    void error(const char* nick, const char* file, int line);
-     void close();
-     int mOexfet(int count){
+    void error(const char* nick, const char* file, int line)override ;
+     void close()override ;
+     int mOexfet(int count)override {
          return Oexfet(c, count);
      }
      int mOEXfet( int count)
-     {
+     override {
          return OEXfet(c, count);
      }
 
-     int mOfen( int count){
-         return Ofen(c, count); 
+     int mOfen( int count) override {
+         return Ofen(c, count);
      }
 
-     comtech::optional<size_t> field_size(size_t n);
+     std::optional<size_t> field_size(size_t n) override;
      int definps( int n, char *Ptr,  int type_size, int type, indicator *ind, unsigned short *bufcurlen,
-             ub2 *rcode,int data_skip, int skip,int curlen){
-         return odefinps(&c->curs, 1, n, (ub1*)Ptr, 
-                type_size, type, 0, ind, 
+             ub2 *rcode,int data_skip, int skip,int curlen)override {
+         return odefinps(&c->curs, 1, n, (ub1*)Ptr,
+                type_size, type, 0, ind,
                 (text*)0, 0, 0, bufcurlen, rcode, data_skip,
                 skip, curlen, 0);
      }
-    int bindps(char const * plh, int plh_len, 
+    int bindps(char const * plh, int plh_len,
                  char *Ptr, int ptr_size, int size3, int type, indicator *ind,
-                 int skip, unsigned short *bufcurlen, int size4, ub2* rcode, ub4 maxarrlen,ub4 * curarrlen) {
+                 int skip, unsigned short *bufcurlen, int size4, ub2* rcode, ub4 maxarrlen,ub4 * curarrlen) override {
         return Lbindps3(c, plh, plh_len, Ptr, ptr_size, size3, type, ind, skip, bufcurlen, size4,
                 rcode, (int)sizeof(ub2),maxarrlen,curarrlen);
     }
@@ -1093,7 +1093,7 @@ class Oracle8Data : public OracleData
 {
     std::string sql_text;
     OCIStmt* stmthp = nullptr;
-    int errcode = 0;
+    mutable int errcode = 0;
     mutable char err_buf[8192];
     std::vector<sb4> sizes;
     bool select = false;
@@ -1110,10 +1110,10 @@ class Oracle8Data : public OracleData
     std::string error(int *err) const;
     std::string error_text() const override;
     std::string error_text2() const override;
-    int err() const override;
-    int err8() const override { return err(); }
+    int err() const noexcept override;
+    int err8() const noexcept override { return err(); }
     int rowcount() override ;
-    char const * sqltext() const override ;
+    char const * sqltext() const noexcept override ;
     void setErrCode(int code) override ;
     int exec() override ;
     void error( const char* nick, const char* file , int line) override;
@@ -1121,7 +1121,7 @@ class Oracle8Data : public OracleData
     int mOexfet(int count) override;
     int mOEXfet(int count) override;
     int mOfen( int count) override;
-    comtech::optional<size_t> field_size(size_t n) override;
+    std::optional<size_t> field_size(size_t n) override;
     int definps( int n, char *Ptr,  int type_size, int type, indicator *ind, unsigned short *bufcurlen,
             ub2 *rcode,int data_skip, int skip,int curlen) override;
     int bindps(char const * plh, int plh_len,
@@ -1163,7 +1163,7 @@ void Oracle8Data::exec_prepare(int n){
     }
     OCIDefine *defp;
     static char tmp[10] = { 0 };
-    checkError(STDLOG, OCIDefineByPos ( stmthp, 
+    checkError(STDLOG, OCIDefineByPos ( stmthp,
                 &defp, sess()->native_.errhp, 1, tmp, 9, SQLT_STR,
                 0, 0,0, OCI_DEFAULT ));
 }
@@ -1227,13 +1227,13 @@ std::string Oracle8Data::error_text2() const
 {
     return err_buf;
 }
-int Oracle8Data::err() const
+int Oracle8Data::err() const noexcept
 {
     if(errcode == CERR_NOT_CONNECTED or errcode == CERR_NOT_LOGGED_ON)
         sess()->setDead();
     return errcode;
 }
-int Oracle8Data::rowcount() 
+int Oracle8Data::rowcount()
 {
     ub4 rows=0;
 #ifdef XP_TESTING
@@ -1248,11 +1248,11 @@ int Oracle8Data::rowcount()
     errcode=saved_error;
     return rows;
 }
-char const * Oracle8Data::sqltext() const 
+char const * Oracle8Data::sqltext() const noexcept
 {
     return sql_text.c_str();
 }
-void Oracle8Data::setErrCode(int code) 
+void Oracle8Data::setErrCode(int code)
 {
     errcode = code;
     snprintf(err_buf, sizeof err_buf, "error code manually set to %i\n", code);
@@ -1294,7 +1294,7 @@ int Oracle8Data::exec()
 int Oracle8Data::mOfen( int count)
 {
    sword res=OCIStmtFetch2 ( stmthp,
-                      sess()->native_.errhp, 
+                      sess()->native_.errhp,
                       count,
                       OCI_FETCH_NEXT, 0,
                       OCI_DEFAULT );
@@ -1305,7 +1305,7 @@ int Oracle8Data::mOfen( int count)
     return 0;
 }
 
-comtech::optional<size_t> Oracle8Data::field_size(size_t n)
+std::optional<size_t> Oracle8Data::field_size(size_t n)
 {
     //Logger::getTracer().ProgTrace(TRACE1, "%s : n=%zu, select=%s first=%s", __FUNCTION__, n, select ? "true" : "false", first ? "true" : "false");
     if(select){
@@ -1331,11 +1331,9 @@ comtech::optional<size_t> Oracle8Data::field_size(size_t n)
             }
             OCIDescriptorFree((void*)mypard, OCI_DTYPE_PARAM);
         }
-
         return sz;
-
     }
-    return comtech::optional<size_t>();
+    return {};
 }
 
 int Oracle8Data::definps( int n, char *Ptr,  int type_size, int type, indicator *ind, unsigned short *bufcurlen,
@@ -1347,26 +1345,26 @@ int Oracle8Data::definps( int n, char *Ptr,  int type_size, int type, indicator 
     }
 
     OCIDefine *defp;
-    checkError(STDLOG, OCIDefineByPos ( stmthp, 
-                &defp, sess()->native_.errhp, n, Ptr, type_size, type, 
+    checkError(STDLOG, OCIDefineByPos ( stmthp,
+                &defp, sess()->native_.errhp, n, Ptr, type_size, type,
                 ind, bufcurlen, rcode, OCI_DEFAULT ));
 
 
     checkError(STDLOG,OCIDefineArrayOfStruct ( defp,
                 sess()->native_.errhp,
-                data_skip, 
-                skip, 
+                data_skip,
+                skip,
                 data_skip,
                 sizeof(ub2)));
 
     return 0;
 }
-int Oracle8Data::bindps(char const * plh, int plh_len, 
+int Oracle8Data::bindps(char const * plh, int plh_len,
         char *Ptr, int ptr_size, int size3, int type, indicator *ind,
         int skip, unsigned short *bufcurlen, int size4, ub2* rcode, ub4 maxarrlen,ub4 * curarrlen) {
 
     OCIBind       *bindpp=0;
-    checkError(STDLOG,OCIBindByName ( stmthp, 
+    checkError(STDLOG,OCIBindByName ( stmthp,
                  &bindpp,
                  sess()->native_.errhp,
                  (OraText const *)plh,plh_len,
@@ -1377,13 +1375,13 @@ int Oracle8Data::bindps(char const * plh, int plh_len,
                  bufcurlen,
                  rcode,
                  maxarrlen,
-                 curarrlen, 
+                 curarrlen,
                  OCI_DEFAULT ));
 
     checkError(STDLOG,OCIBindArrayOfStruct ( bindpp,
                 sess()->native_.errhp,
-                size3, 
-                skip, 
+                size3,
+                skip,
                 size3,
                 sizeof(ub2)));
     return 0;
@@ -1448,7 +1446,7 @@ void setClientInfo(OCIEnv *envhp, OCIError *errhp, OCISvcCtx *svchp,
         sleep(30);
         abort();
     }
-    err=OCIStmtExecute(svchp,stmthp,errhp,1,0,0,0,OCI_COMMIT_ON_SUCCESS); 
+    err=OCIStmtExecute(svchp,stmthp,errhp,1,0,0,0,OCI_COMMIT_ON_SUCCESS);
     if(checkerr8(STDLOG,err,errhp,connectString)){
         sleep(30);
         abort();
@@ -1522,7 +1520,7 @@ bool OciSession::is_alive() const
 
 bool oci8_set_cache_size(OCISvcCtx *svchp,OCIError *errhp)
 {
-  // Increase cache size (ora - 20 by default, we need more)  
+  // Increase cache size (ora - 20 by default, we need more)
   int need_cache_size=2000;
   int cache_size=0;
   bool res=true;
@@ -1534,13 +1532,13 @@ bool oci8_set_cache_size(OCISvcCtx *svchp,OCIError *errhp)
   }
   if (res && need_cache_size>cache_size)
   {
-    LogTrace(TRACE5)<<"cache_size="<<cache_size;  
+    LogTrace(TRACE5)<<"cache_size="<<cache_size;
     if((status = OCIAttrSet(svchp, OCI_HTYPE_SVCCTX, &need_cache_size, 0, OCI_ATTR_STMTCACHESIZE, errhp)))
     {
         LogError(STDLOG)<<"Ошибка установки атрибута";
         res=false;
     }
-  } 
+  }
   return res;
 }
 
@@ -1560,17 +1558,17 @@ void OciSession::init()
         ociexception e(getError());
         free_handlers();
         throw e;
-    } 
+    }
     if (!oci8_set_cache_size(native_.svchp,native_.errhp))
     {
         LogError(STDLOG) << "[" << getConnectString() << "] " << getError() << " (oci8_set_cache_size)";
         ociexception e(getError());
         free_handlers();
         throw e;
-    } 
-    
+    }
+
     cache_=new CursorCache;
-    
+
     std::string sessid(tclmonFullProcessName());
     size_t lpos=sessid.find_last_not_of("0123456789");
     if(lpos!=std::string::npos){
@@ -1629,7 +1627,7 @@ void OciSession::set7()
     if(abort7){
         abort();
     }
-    if (mode_ != 7) 
+    if (mode_ != 7)
     {
         mode_ = 7;
         if (OCISvcCtxToLda(native_.svchp, native_.errhp, lda_))
@@ -1642,7 +1640,7 @@ void OciSession::set7()
 
 void OciSession::set8()
 {
-    if (mode_ != 8) 
+    if (mode_ != 8)
     {
         mode_ = 8;
         allSessions.erase(lda_);
@@ -1658,11 +1656,11 @@ void OciSession::logoff()
     /*
     return;
     set7();
-    if (orol(lda_)) 
+    if (orol(lda_))
     {
         lda_error(lda_);
-    } 
-    else 
+    }
+    else
     {
         set8();
         OCILogoff(native_.svchp, native_.errhp);
@@ -1677,7 +1675,7 @@ void OciSession::commit()
     }
 
 #ifdef XP_TESTING
-    if (inTestMode()) 
+    if (inTestMode())
     {
         const char* sql = "SAVEPOINT SP_XP_TESTING";
         LogTrace(TRACE3) << sql << " for " << getConnectString();
@@ -1709,7 +1707,7 @@ void OciSession::commitInTestMode()
      sword res=OCITransCommit ( native_.svchp,
                        native_.errhp,
                        OCI_DEFAULT );
-    if (res!=OCI_SUCCESS && res!=OCI_SUCCESS_WITH_INFO) 
+    if (res!=OCI_SUCCESS && res!=OCI_SUCCESS_WITH_INFO)
     {
         throw comtech::Exception("commit failed");
     }
@@ -1721,12 +1719,12 @@ void OciSession::rollback()
         set8();
     }
 #ifdef XP_TESTING
-    if (inTestMode()) 
+    if (inTestMode())
     {
         const char* sql = "ROLLBACK TO SAVEPOINT SP_XP_TESTING";
         LogTrace(TRACE3) << sql << " for " << getConnectString();
         auto odata = cdaCursor(sql,false);
-        if (odata->exec()) 
+        if (odata->exec())
         {
             LogError (STDLOG) << odata->error_text()<<"\n" << sql;
             fprintf(stderr, "ROLLBACK TO SAVEPOINT SP_XP_TESTING failed\n");
@@ -1786,7 +1784,7 @@ std::shared_ptr<OracleData> OciSession::cdaCursor(std::string sql, bool cacheit)
 std::shared_ptr<OracleData> OciSession::cdaCursor(const char* sql, bool cacheit)
 {
     auto odata = cacheit ? cache_->find(sql) : std::shared_ptr<OracleData>();
-    if (!odata) 
+    if (!odata)
     {
         if (mode_==7)
         {
@@ -2027,7 +2025,7 @@ static bool keepCursor(int err)
     return false;
 }
 
-static void severeErrorHandler(CursCtl *curs, 
+static void severeErrorHandler(CursCtl *curs,
         const char* nick, const char* file, int line,
         const std::vector<int>& noThrowErrList)
 {
@@ -2046,9 +2044,9 @@ static void severeErrorHandler(CursCtl *curs,
     }
 
 
-    if (!findInt(noThrowErrList, curs->err())) 
+    if (!findInt(noThrowErrList, curs->err()))
     {
-        if (curs->err() == CERR_DEADLOCK) 
+        if (curs->err() == CERR_DEADLOCK)
         {
             LogError(STDLOG) << "Deadlock: " << curs->error_text();
             curs->error(nick, file, line);
@@ -2174,7 +2172,7 @@ void CursCtl::exec(const char*)
     exec_end();
     if (expected_rows != -1)
     {
-        if (expected_rows != rowcount()) 
+        if (expected_rows != rowcount())
         {
             std::stringstream msg;
             msg << "expected " << expected_rows << " rows, fetched " << rowcount();
@@ -2229,8 +2227,8 @@ CursCtl::CursCtl(OCI8T, std::string sqls, const char* nick_, const char* file_, 
 
 Oracle7Data::Oracle7Data (OciSession* sess_, cda_text *t) : OracleData(sess_), c(t)
 {
-    if (!t) 
-      abort(); 
+    if (!t)
+      abort();
 }
 
 Oracle7Data::~Oracle7Data()
@@ -2239,16 +2237,16 @@ Oracle7Data::~Oracle7Data()
     free(const_cast<char*>(c->sqltext));
     free(c);
 }
-void Oracle7Data::close() 
+void Oracle7Data::close()
 {
      int last_error = cda_err(c);
      ocan(&c->curs);
-     if (!keepCursor(last_error))  
+     if (!keepCursor(last_error))
      {
          innerCloseCurs_7(c);
      }
 }
-int Oracle7Data::err() const
+int Oracle7Data::err() const noexcept
 {
     const int errcode = cda_err(c);
     if(errcode == CERR_NOT_CONNECTED or errcode == CERR_NOT_LOGGED_ON)
@@ -2261,7 +2259,7 @@ void Oracle7Data::error(const char* nick, const char* file, int line)
     OciCpp::error(c,*sess(),nick,file,line);
 }
 
-comtech::optional<size_t> Oracle7Data::field_size(size_t n)
+std::optional<size_t> Oracle7Data::field_size(size_t n)
 {
     sb4 dbsize = 0;
     sb4 dpsize = 0;
@@ -2270,7 +2268,7 @@ comtech::optional<size_t> Oracle7Data::field_size(size_t n)
     auto res = odescr(&c->curs, n, &dbsize, &dbtype, nullptr, nullptr, &dpsize, nullptr, nullptr, nullptr);
     //Logger::getTracer().ProgTrace(TRACE1, "%s : n=%zu, dbsize=%i dpsize=%i dbtype=%hi res=%i", __FUNCTION__, n, dbsize, dpsize, dbtype, res);
     if(res)
-       return comtech::optional<size_t>();
+         return {};
     return std::max(dbsize, dpsize);
 }
 
@@ -2309,7 +2307,7 @@ int CursCtl::exfet(unsigned count, const char* p)
     */
     oracledata->mOexfet( count);
     int last_error = err();
-    if (last_error) 
+    if (last_error)
     {
         severeErrorHandler(this,  nick, file, line, noThrowErrList);
     }
@@ -2470,7 +2468,7 @@ template struct buf_struct<unsigned>;
 template struct buf_struct<const char *>;
 template<> void buf_struct<unsigned>::operator() (sel_data<unsigned> &buf)
 {
-    if (c.isDebug()) 
+    if (c.isDebug())
     {
         Logger::getTracer().ProgTrace(TRACE1, "buf_struct<int>::operator(%i) %s", buf.plh, c.ex_id().c_str());
     }
@@ -2485,19 +2483,19 @@ template<> void buf_struct<unsigned>::operator() (sel_data<unsigned> &buf)
             buf.ind=&(buf.indv[0]);
             skip = sizeof(indicator);
         }
-        else 
+        else
         {
             buf.ind=&buf.indic;
         }
     }
-    if (c.isDebug()) 
+    if (c.isDebug())
     {
         Logger::getTracer().ProgTrace(TRACE1, " buf.ind is %p skip=%d", buf.ind, skip);
     }
     int data_skip = 0;
     if (buf.data_type == External::string)
     {
-        if (c.isDebug()) 
+        if (c.isDebug())
         {
             Logger::getTracer().ProgTrace(TRACE1, " before c.oracledata->field_size: data_skip=", data_skip);
         }
@@ -2530,7 +2528,7 @@ template<> void buf_struct<unsigned>::operator() (sel_data<unsigned> &buf)
         data_skip = buf.type_size;
     }
     int curlen = (buf.curlen == 0 ? 0 : std::max(c.data_skipsize, int(sizeof(sb4))));
-    if (c.isDebug()) 
+    if (c.isDebug())
     {
         Logger::getTracer().ProgTrace(TRACE1, " data_skip=%d curlen=%d", data_skip, curlen);
         Logger::getTracer().ProgTrace(TRACE1, " Ldefin(pos=%d)", buf.plh);
@@ -2612,12 +2610,12 @@ std::string helpstring(const OciCpp::BindList_t &bufs, const OciCpp::DefList_t& 
     {
         std::stringstream os;
         os << "oracle error =" << err << "\n"
-                << "oracle error message: " << text << 
+                << "oracle error message: " << text <<
                 (main_text.empty() ? "" : "other text: " + main_text);
         return os.str();
     }
 
-    std::string make_help_str(const std::string& msg, const std::string& err_text, 
+    std::string make_help_str(const std::string& msg, const std::string& err_text,
             const std::string& query, int err)
     {
         std::ostringstream ost;
@@ -2670,9 +2668,9 @@ template <> void buf_struct<const char *>::operator() (sel_data<const char *> &b
     if(buf.maxarrlen!=0){
         buf.rcode.resize(buf.maxarrlen);
     }
-    if (c.oracledata->bindps( buf.plh, buf.plh_len, 
+    if (c.oracledata->bindps( buf.plh, buf.plh_len,
                  Ptr, ptr_size, std::max(c.data_skipsize, ptr_size), buf.type, local_indic,//buf.ind,
-                 skip, 
+                 skip,
                  buf.curlen, (buf.curlen == 0) ? 0 : std::max(c.data_skipsize, int(sizeof(sb4))),
                  &buf.rcode[0], buf.maxarrlen,buf.curarrlen))
     {
@@ -2738,14 +2736,14 @@ void CursCtl::exec_start()
     }
     rpc_local = 0;
     rows_now = 0;
-    if (isDebug()) 
+    if (isDebug())
     {
         Logger::getTracer().ProgTrace(TRACE1, "CursCtl::exec_start %s", ex_id().c_str());
         Logger::getTracer().ProgTrace(TRACE1, "CursCtl::bind_bufs size %d", bind_bufs.size());
     }
     oracledata->save_vector_sizes(bind_bufs,sel_bufs);
     std::for_each(bind_bufs.begin(),bind_bufs.end(), buf_struct<const char* >(*this));
-    if (isDebug()) 
+    if (isDebug())
     {
         Logger::getTracer().ProgTrace(TRACE1, "CursCtl::def_bufs size %d\n%s",
                 sel_bufs.size(), helpstring(bind_bufs, sel_bufs).c_str());
@@ -2837,7 +2835,7 @@ CopyTable::CopyTable(OciSession& sess, const std::string& table1, const std::str
         fd.indp=&indbuf[counter];
         buflen+=fd.alloc_len;
         ++counter;
-        fd.bindvar=":V"+std::to_string(counter); 
+        fd.bindvar=":V"+std::to_string(counter);
     }
 
 }
@@ -2846,7 +2844,7 @@ std::string CopyTable::buildSelectList ()
     std::string sep(" ");
     std::string result("SELECT");
     for(Fdesc &fd:  fields_){
-        result+=(sep+fd.col_name); 
+        result+=(sep+fd.col_name);
         sep=", ";
     }
     return result;
@@ -2862,13 +2860,13 @@ std::string CopyTable::buildInsert ()
     std::string result2(" VALUES (");
     int counter=1;
     for(Fdesc const &fd:  fields_){
-        result1+=(sep+fd.col_name); 
-        result2+=(sep+":V"+std::to_string(counter)); 
+        result1+=(sep+fd.col_name);
+        result2+=(sep+":V"+std::to_string(counter));
         sep=", ";
         ++counter;
     }
     for(FdescMore const &fd:  moreFields_){
-        result1+=(sep+fd.col_name); 
+        result1+=(sep+fd.col_name);
         result2+=sep+fd.bindvar();
         sep=", ";
     }
@@ -2876,7 +2874,7 @@ std::string CopyTable::buildInsert ()
 }
 void CopyTable::exec(int loglevel, const char* nick, const char* file, int line)
 {
-#define STDLOGX   nick,file,line 
+#define STDLOGX   nick,file,line
     OciCpp::CursCtl sel_curs=sess_.createCursor(STDLOGX,select_query);
     OciCpp::CursCtl ins_cur(make_curs(insert_query));
     ins_cur.unstb();
@@ -2925,7 +2923,7 @@ DumpTable& DumpTable::order(const std::string& ord)
     return *this;
 }
 
-  
+
 class DumpTableOut
 {
   public:
@@ -2934,7 +2932,7 @@ class DumpTableOut
 };
 
 namespace {
- 
+
 class DumpTableOutLogger : public DumpTableOut
 {
   private:
@@ -3012,7 +3010,7 @@ void DumpTable::exec(DumpTableOut const& out)
         out.print(str.str());
         count++;
     }
-    out.print("------------------- END " + table_ + " DUMP COUNT=" 
+    out.print("------------------- END " + table_ + " DUMP COUNT="
       + HelpCpp:: string_cast(count) + " -------------------");
 }
 
@@ -3293,7 +3291,7 @@ START_TEST(cursor_cache_distruct1)
 
     OciCpp::mainSession().set7();
     OciCpp::mainSession().set8();
-    
+
     make_curs("declare i number ;begin select 1 into i from dual;end;").exec();
     OciCpp::mainSession().set7();
     fail_unless(getCursorCache().size()==2, "bad cache size !=0");
@@ -3303,29 +3301,29 @@ START_TEST(cursor_cache_distruct1)
       const char *ptr1=s.c_str();
       cda_text *c1=newCursor(OciCpp::mainSession(), ptr1);
       fail_unless(c1!=0,"cursor is null");
-      
+
       s[7]='2'; // "select 21 from dual";
       const char *ptr2=s.c_str();
       fail_unless(ptr1==ptr2, "pointers is different");
-      
+
       cda_text *c2=newCursor(OciCpp::mainSession(), ptr2);
       fail_unless(c1!=c2,"cursor is same");
     }
-    
+
     //{
       //std::string s("select 12 from dual");
       //const char *ptr1=s.c_str();
       //cda_text *c1=newCursor(ptr1,false);
       //fail_unless(c1!=0,"cursor is null");
-      
+
       //s[7]='2'; // "select 22 from dual";
       //const char *ptr2=s.c_str();
       //fail_unless(ptr1==ptr2,"pointers is different");
-      
+
       //cda_text *c2=newCursor(ptr2,false);
       //fail_unless(c1==c2,"cursor is different");
     //}
-    
+
     // getCursorCache() internal buffer invalidated
 }
 END_TEST
@@ -3337,11 +3335,11 @@ START_TEST(cursor_cache_distruct2)
     const char *ptr1=s.c_str();
     cda_text *c1=newCursor(OciCpp::mainSession(), ptr1);
     fail_unless(c1!=0,"cursor is null");
-    
+
     s[7]='2'; // "select 23 from dual";
     const char *ptr2=s.c_str();
     fail_unless(ptr1==ptr2,"pointers is different");
-    
+
     cda_text *c2=newCursor(OciCpp::mainSession(), ptr2);
     fail_unless(c1!=c2,"cursor is same");
 }
@@ -4814,7 +4812,7 @@ START_TEST(test_cursorNoCache)
             make_curs_no_cache(str.str()).def(tmp).EXfet();
         }
         fail_unless(getCursorCache().size() == 1+i, "bad cursor cache: %d", getCursorCache().size());
-        
+
         stringstream str2;
         str2 << "select nvl(" << i << ", 1) from dual";
         {
@@ -4845,7 +4843,7 @@ START_TEST(test_isgooderr)
         make_curs("select 2 from dual where 1=2").def(tmp).EXfet();
         make_curs("select 2 from dual where 1=1").def(tmp).EXfet();
         fail_unless(getCursorCache().size() == 3, "bad cursor cache: %d", getCursorCache().size());
-        
+
         try {
             // when bad error cursor must be removed from cache
             stringstream str2;
@@ -5163,7 +5161,7 @@ START_TEST(test_split_connect_string)
         std::string login;
         std::string password;
         std::string server;
-    };    
+    };
 
     TParseConnectStringStruct vec [] = {
         {"sirena/orient", "sirena", "orient" , ""},
@@ -5253,7 +5251,7 @@ START_TEST(test_cache_sql_error)
         make_curs(sql1).def(val).EXfet();
         ProgTrace(TRACE5, "val=%d", val);
         fail_unless(val == 1, "val=%d but must be 1", val);
-        
+
         const char* sql2 = "select val from TEST_CHECK_SQL_ERROR2";
         try {
             make_curs(sql2).def(val).EXfet();
@@ -5264,7 +5262,7 @@ START_TEST(test_cache_sql_error)
         }
 
         make_curs("create table TEST_CHECK_SQL_ERROR2 (VAL NUMBER)").exec();
-        
+
         if (make_curs(sql2).def(val).EXfet() != NO_DATA_FOUND)
             fail_unless(0,"must parse and exec and return NO_DATA_FOUND");
 
@@ -5375,18 +5373,18 @@ START_TEST(test_session_error_mem_leak)
       break;
     }
     connect_string+="a";
-  }  
-  
+  }
+
   // Make fail connects
   for(int i=0; i<200; ++i)
   {
-    try { 
+    try {
       OciSession a(STDLOG, connect_string);
     } catch (OciCpp::ociexception const &e) { }
   }
 
   size_t mem_after= size_of_allocated_mem();
-  
+
   // ASM:
   //with err:  capacity_before=3191000 capacity_after=3119500 leak=71500   on 1000 connects
   //with err:  capacity_before=3191100 capacity_after=2519600 leak=671500  on 10000 connects
@@ -5422,19 +5420,19 @@ START_TEST(test_session_destroy_mem_leak)
 
   size_t mem_after= size_of_allocated_mem();
 
-  // ASM:  
+  // ASM:
   //with err:  capacity_before=3191200 capacity_after=3177400 leak=13800 Kb on 100 connects
   //fixed:     capacity_before=3191100 capacity_after=3190000 leak=1100 Kb  on 50 connects
   //fixed:     capacity_before=3191000 capacity_after=3189700 leak=1300 Kb  on 75 connects
   //fixed:     capacity_before=3191100 capacity_after=3189800 leak=1300 Kb  on 100 connects
-  
+
   // Box:
   //with err:  capacity_before=2939600 capacity_after=2819300 leak=120300 Kb on 125 connects
   //fixed:     capacity_before=2939700 capacity_after=2869300 leak=70400 Kb on 125 connects
-  
+
   LogTrace(TRACE5) <<"mem_before=" <<mem_before <<" mem_after=" <<mem_after
       <<" leak=" <<(mem_after <= mem_before ? 0 : mem_after - mem_before) <<" Kb";
-    
+
   fail_unless(mem_after <= mem_before || mem_after - mem_before < 6000 /*Kb*/, "memory leak detected");
 }END_TEST
 
@@ -5488,7 +5486,7 @@ START_TEST(test_dump_table)
         DumpTable("test_check_dump_table").addFld("VALUE2").where("VALUE1 = 1234").exec(TRACE5);
         DumpTable("TEST_CHECK_DUMP_TABLE").order("VALUE1").exec(TRACE5);
         DumpTable("TEST_CHECK_DUMP_TABLE").addFld("value1,value2").exec(TRACE5);
-        
+
         make_curs("DROP TABLE TEST_CHECK_DUMP_TABLE").noThrowError(CERR_TABLE_NOT_EXISTS).exec();
     } catch (...) {
         make_curs("DROP TABLE TEST_CHECK_DUMP_TABLE").noThrowError(CERR_TABLE_NOT_EXISTS).exec();
@@ -5636,10 +5634,10 @@ START_TEST(test_raw8_read_oci)
       ub2 alen=0;
       ub2 rcode=0;
       int status;
-      OCIBind  *bnd1p = (OCIBind *) 0;             
+      OCIBind  *bnd1p = (OCIBind *) 0;
       if ((status = OCIBindByName(stmthp, &bnd1p, native.errhp, (text *) ":raw1",
                  5 , (dvoid *) buf,
-                 sizeof(buf)-1, SQLT_BIN, 
+                 sizeof(buf)-1, SQLT_BIN,
                  (ub2 *)&ind, &alen, &rcode,  0,  0, OCI_DEFAULT)) )
       {
           fail_unless(0,"bind") ;
@@ -5661,7 +5659,7 @@ START_TEST(test_raw8_read)
     ub2 len=0;
     sb2 ind=0;
 
-    
+
       char const * sql="begin  :raw1:=utl_raw.cast_to_raw('hello'); end;";
     OciCpp::CursCtl(sql).bindFull(":raw1",buf,sizeof(buf)-1,&ind,&len,SQLT_BIN).exec();
       fail_unless(memcmp(buf,"hello",5)==0);
@@ -5725,7 +5723,7 @@ START_TEST(test_max_open_cursors)
   {
     char sql[200];
     sprintf(sql,"SELECT %i FROM DUAL",i);
-    try 
+    try
     {
       sqls.push_back(sql);
       make_curs(sql).exec();
@@ -5759,7 +5757,7 @@ START_TEST(test_bindArray1)
                 "ind binary_integer;\n"
                 "begin\n"
                 "int_var1:=:arr1;\n"
-                "int_var2:=int_var1;\n" 
+                "int_var2:=int_var1;\n"
                 ":arr2:=int_var2;\n"
 
                 "end;\n";
@@ -5889,7 +5887,7 @@ START_TEST(test_bindArray4)
                 "ind binary_integer;\n"
                 "begin\n"
                 "char_var1:=:arr1;\n"
-                "char_var2:=char_var1;\n" 
+                "char_var2:=char_var1;\n"
                 ":arr2:=char_var2;\n"
 
                 "end;\n";
@@ -6001,7 +5999,7 @@ tst();
  }
  }
 }
-END_TEST 
+END_TEST
 /*
 START_TEST(testCopyTable)
 {
@@ -6054,9 +6052,9 @@ START_TEST(test_bind_int_after_long_int)
   make_curs("INSERT INTO TEST_BIND_INT(FLD1) VALUES (999)").exec();
   std::string query="SELECT COUNT(*) FROM TEST_BIND_INT WHERE FLD1=:FLD";
 
-  {// Создаём кэшированный курсор, bind-им переменную long long int 
+  {// Создаём кэшированный курсор, bind-им переменную long long int
     long long int fld=999;
-      
+
     int tmp=0;
     CursCtl cr = make_curs(query);
     cr.bind(":FLD",fld);
@@ -6064,11 +6062,11 @@ START_TEST(test_bind_int_after_long_int)
     cr.exec();
     cr.fen();
     fail_unless(tmp == 1, "tmp=%d expected 1", tmp);
-  }        
-  
+  }
+
   {// переоткрываем закэшированный курсор, и bind-им переменную int
     int fld=999;
-    
+
     int tmp=0;
     CursCtl cr = make_curs(query);
     cr.bind(":FLD",fld);
@@ -6076,8 +6074,8 @@ START_TEST(test_bind_int_after_long_int)
     cr.exec();
     cr.fen();
     fail_unless(tmp == 1, "tmp=%d expected 1", tmp);
-  }        
-  
+  }
+
   commit();
 
 }
@@ -6087,22 +6085,22 @@ START_TEST(test_unstb_vector_dates)
 {
     boost::posix_time::ptime v1=Dates::ptime();
     boost::posix_time::ptime v2=boost::posix_time::second_clock::local_time();
-    
+
     std::vector<boost::posix_time::ptime> vv = { v2, v1, v2 };
 
    boost::posix_time::ptime v_res;
    OciCpp::CursCtl cr = make_curs("select :ddd from dual");
    cr.unstb().defNull(v_res,Dates::ptime());
-   
+
    boost::posix_time::ptime r;
    cr.bind(":ddd",r);
 
-   for(size_t i=0, iz=vv.size(); i<iz; i++) 
+   for(size_t i=0, iz=vv.size(); i<iz; i++)
    {
      r = vv[i];
      cr.exec();
      cr.fen();
-     
+
      fail_unless(vv[i] == v_res, "vv[%zu] (%s) != v_res (%s)", i, HelpCpp::string_cast(vv[i]).c_str(), HelpCpp::string_cast(v_res).c_str());
    }
 }

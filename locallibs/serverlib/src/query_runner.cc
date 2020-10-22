@@ -266,17 +266,11 @@ void ApplicationCallbacks::connect_db()
 int ApplicationCallbacks::commit_db()
 {
     commit();
-#ifdef ENABLE_PG
-    PgCpp::commit();
-#endif//ENABLE_PG
     return 0;
 }
 int ApplicationCallbacks::rollback_db()
 {
     rollback();
-#ifdef ENABLE_PG
-    PgCpp::rollback();
-#endif//ENABLE_PG
     return 0;
 }
 

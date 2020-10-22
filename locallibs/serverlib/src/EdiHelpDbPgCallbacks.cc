@@ -108,6 +108,32 @@ static std::list<EdiHelp> select_all_(PgCpp::SessionDescriptor sd,
     return result;
 }
 
+static std::list<EdiHelp> select_all_(PgCpp::SessionDescriptor sd,
+                                      const InternalMsgId &msgid, bool for_update)
+{
+    EdiHelp ediHelp;
+    PgEdiHelpSelector selector(ediHelp);
+    std::string cond = "where INTMSGID = :intmsgid order by TIMEOUT ";
+    if(for_update)
+        cond += "for update ";
+    selector.setCondition(cond);
+    PgCpp::CursCtl cur = make_pg_curs(sd, selector.query().c_str());
+    cur
+            .stb()
+            .bind(":intmsgid", msgid.asString());
+    selector.def(cur);
+    cur.exec();
+
+    std::list<EdiHelp> result;
+
+    while (!selector.fen(cur)) {
+        result.push_back(ediHelp);
+    }
+
+    return result;
+}
+
+
 static void delete_edihelp(PgCpp::SessionDescriptor sd, const char *pult, int session_id)
 {
     auto cur = make_pg_curs(sd, "delete from edi_help where pult = :pult and session_id = :session_id");
@@ -129,6 +155,17 @@ static void delete_edihelp(PgCpp::SessionDescriptor sd, const char *pult, const 
     cur.bind(":pult", pult).bind(":intmsgid", msgid.asString()).exec();
     if(cur.rowcount() != 1)
         LogError(STDLOG) << cur.rowcount() << " rows deleted for pult: " << pult << " msgid: " << msgid.asString();
+}
+
+static void delete_edihelp(PgCpp::SessionDescriptor sd, const InternalMsgId &msgid, int session_id)
+{
+    auto cur = make_pg_curs(sd, "delete from edi_help where intmsgid = :intmsgid and session_id = :session_id");
+    cur.stb()
+       .bind(":intmsgid", msgid.asString())
+       .bind(":session_id", session_id)
+       .exec();
+    if(cur.rowcount() != 1)
+        LogError(STDLOG) << cur.rowcount() << " rows deleted for intmsgid: " << msgid.asString() << " session_id: " << session_id;
 }
 
 static unsigned leftover_edihelp(PgCpp::SessionDescriptor sd, const InternalMsgId &msgid)
@@ -177,7 +214,29 @@ boost::optional<ConfirmInfo> EdiHelpDbPgCallbacks::confirm_notify_oraside(
         const InternalMsgId& msgid, int session_id, const std::string &instance_name) const
 {
     LogTrace(TRACE3) << __FUNCTION__ << '(' << msgid << ", " << session_id << ')';
-    throw comtech::Exception("not implemented");
+
+    const auto ledihelp = select_all_(sd, msgid, true /* for update */);
+    boost::optional<EdiHelp> found;
+    ConfirmInfo ci = {};
+
+    for(auto &&eh: ledihelp)
+    {
+        if(eh.session_id == session_id) {
+            found = eh;
+            delete_edihelp(sd, msgid, session_id);
+            break;
+        }
+    }
+    if(found) {
+        ci.leftover = leftover_edihelp(sd, InternalMsgId(found->id));
+        ci.instanceName = found->instance;
+        ci.signalTxt = found->txt;
+        ci.address = found->address;
+        ci.id = found->id;
+        return ci;
+    } else {
+        return boost::none;
+    }
 }
 
 boost::optional<EdiHelp> EdiHelpDbPgCallbacks::select_one(const InternalMsgId& msgid, int session_id) const

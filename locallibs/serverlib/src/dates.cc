@@ -821,47 +821,20 @@ std::string ptime_to_undelimited_string(const boost::posix_time::ptime& p)
 
 std::string hh24mi(const boost::posix_time::time_duration& t, bool delimiter)
 {
-    if (t.is_not_a_date_time()) return string();
-    char buf[] = "00000000:00";
-    bool isNegative = false;
-    long hours = t.hours();
-    long minutes = t.minutes();
-    if (hours < 0) {
-        hours = abs(hours);
-        isNegative  = true;
-    }
-    if (minutes < 0) {
-        minutes = abs(minutes);
-        isNegative = true;
-    }
-    std::sprintf(buf,"%s%.2li%s%2.2ld", (isNegative ? "-" : ""), hours%10000000, (delimiter ? ":" : ""), minutes%100);
-    return buf;
+    auto s = hh24miss(t, delimiter);
+    if(not s.empty())
+        s.resize(s.size() - 2 - delimiter);
+    return s;
 }
 
 std::string hh24miss(const boost::posix_time::time_duration& t, bool delimiter)
 {
     if (t.is_not_a_date_time()) return string();
-    char buf[] = "00000000:00:00";
-    bool isNegative = false;
-    long hours = t.hours();
-    long minutes = t.minutes();
-    long seconds = t.seconds();
-    if (hours < 0) {
-        hours = abs(hours);
-        isNegative  = true;
-    }
-    if (minutes < 0) {
-        minutes = abs(minutes);
-        isNegative = true;
-    }
-    if (seconds < 0) {
-        seconds = abs(seconds);
-        isNegative = true;
-    }
-    std::sprintf(buf,"%s%.2li%s%2.2ld%s%2.2ld", (isNegative ? "-" : ""), hours%10000000,
-            (delimiter ? ":" : ""), minutes%100,
-            (delimiter ? ":" : ""), seconds%100);
-    return buf;
+    auto s = delimiter ? to_simple_string(t) : to_iso_string(t);
+    auto p = s.find_first_of(".,");
+    if(p != s.npos)
+        s.erase(p, s.npos);
+    return s;
 }
 
 boost::posix_time::time_duration hh24mi(const std::string& s)
@@ -872,6 +845,16 @@ boost::posix_time::time_duration hh24mi(const std::string& s)
       return boost::posix_time::not_a_date_time;
   else
       return Dates::duration_from_string(s.substr(0,2)+":"+s.substr(2));
+}
+
+boost::posix_time::time_duration hh24miss(const std::string& s)
+{
+  if(s.find(':') != std::string::npos)
+      return Dates::duration_from_string(s);
+  else if(s.length()!=6)
+      return boost::posix_time::not_a_date_time;
+  else
+      return Dates::duration_from_string(s.substr(0,2)+":"+s.substr(2,2)+":"+s.substr(4));
 }
 
 boost::gregorian::date currentDate()
@@ -1962,38 +1945,6 @@ int CompleteDate1(char *out, struct tm *ptm,int day,int mon)
 
 
 
-int GmtDiffCityZone(const char *rrmmdd_date,const char *short_time,const char *tz)
-{
- char fullfd[D_LONG_DATE+1];
- sprintf(fullfd,"  %.*s%4.4s00",D_SHORT_DATE,rrmmdd_date,short_time);
-
- if (strncmp("50",fullfd+2,2)>0)
-   strncpy(fullfd,"20",2);
- else
-   strncpy(fullfd,"19",2);
-
-  int delta=( LocalTime(fullfd).setZone(tz).getLocalTime()
-            -LocalTime(fullfd).getLocalTime())/60;
- LogTrace(TRACE5)<<"fulldate="<<fullfd<<" tz="<<tz<<" diff="<<delta;
- return delta;
-}
-
-int GmtDiffCityZone(const char *rrmmddhhmiss_date,const char *tz)
-{
- char fullfd[D_LONG_DATE+1];
- strcpy(fullfd,"  "); strcat(fullfd,rrmmddhhmiss_date);
-
- if (strncmp("50",fullfd+2,2)>0)
-   strncpy(fullfd,"20",2);
- else
-   strncpy(fullfd,"19",2);
-
- int delta=( LocalTime(fullfd).setZone(tz).getLocalTime()
-            -LocalTime(fullfd).getLocalTime())/60;
- LogTrace(TRACE5)<<"fulldate="<<fullfd<<" tz="<<tz<<" diff="<<delta;
- return delta;
-}
-
 int YYYYfromYY(int yy)
 {
     if (yy < 0 || yy > 99) {
@@ -2831,8 +2782,7 @@ START_TEST(check_hhmi)
 {
 #define CHECK_HH24MI(hh_, mi_, str) { \
     boost::posix_time::time_duration td(hh_, mi_, 7, 9); \
-    const std::string s(Dates::hh24mi(td)); \
-    fail_unless(str == s, "[%s] != [%s]", str, s.c_str()); \
+    ck_assert_str_eq(Dates::hh24mi(td), str); \
 }
     CHECK_HH24MI(1, 4, "01:04");
     CHECK_HH24MI(-1, 4, "-01:04");

@@ -23,7 +23,9 @@ std::list<TextDiffLine> TextDiff(
 
     /* lines numbered from 1 */
     for (size_t row = 1; row <= newLines.size(); ++row)
-        for (size_t col = 1; col <= oldLines.size(); ++col) {
+    {
+        for (size_t col = 1; col <= oldLines.size(); ++col) 
+        {
             const std::string& newLine = newLines.at(row - 1);
             const std::string& oldLine = oldLines.at(col - 1);
 
@@ -37,6 +39,7 @@ std::list<TextDiffLine> TextDiff(
             } else
                 elem.lcsLen = u.lcsLen > l.lcsLen ? u.lcsLen : l.lcsLen;
         }
+    }
 
     /* backtrack with diff generation */
     std::list<TextDiffLine> diff;

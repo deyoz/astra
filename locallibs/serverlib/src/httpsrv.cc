@@ -6,6 +6,7 @@
 #include <list>
 #include <set>
 #include <iomanip>
+#include <fstream>
 #include <algorithm>
 #include <iterator>
 #include <cassert>
@@ -34,6 +35,7 @@
 #include "logger.h"
 #include "ourtime.h"
 #include "cursctl.h"
+#include "pg_cursctl.h"
 #include "testmode.h"
 #include "posthooks.h"
 #include "daemon_kicker.h"
@@ -49,6 +51,7 @@
 #include "noncopyable.h"
 #include "xml_tools.h"
 #include "http_logs_callbacks.h"
+#include "ntlm_service.h"
 
 static const char* const HTTPSRV_CMD_TCLVAR = "HTTPSRV_CMD"; /* Сокет для пинков */
 static size_t MAX_CONN_POOL_SIZE = 4096;
@@ -139,6 +142,7 @@ HttpReq::HttpReq(const ReqCorrelationData& correlation,
         const std::string& text,
         const std::vector<boost::posix_time::ptime>& deadlines,
         const CustomData& customData,
+        const CustomAuth& customAuth,
         const boost::optional<ClientAuth>& clientAuth,
         const std::string& peresprosReq,
         const UseSSLFlag& useSSL,
@@ -152,6 +156,7 @@ HttpReq::HttpReq(const ReqCorrelationData& correlation,
     text(text),
     deadlines(deadlines),
     customData(customData),
+    customAuth(customAuth),
     clientAuth(clientAuth),
     peresprosReq(peresprosReq),
     useSSL(useSSL),
@@ -256,10 +261,11 @@ static void Commit()
 {
     if (!inTestMode() || _ForTests.need_real_commit) {
         callPostHooksBefore();
-        if (inTestMode())
+        if (inTestMode()) {
             commitInTestMode();
-        else
-            make_curs("COMMIT").exec();
+        } else {
+            commit();
+        }
         callPostHooksAfter();
         emptyHookTables();
     }
@@ -385,6 +391,7 @@ void save_construct_data(Archive& ar, const HttpReq* p, const unsigned int versi
     ar << p->text;
     ar << p->deadlines;
     ar << p->customData;
+    ar << p->customAuth;
     const ClientAuth* clientAuth = p->clientAuth ? &(*p->clientAuth) : NULL;
     ar << clientAuth;
     ar << p->peresprosReq;
@@ -405,6 +412,7 @@ void load_construct_data(Archive& ar, HttpReq* p, const unsigned int version)
     std::string text;
     std::vector<boost::posix_time::ptime> deadlines;
     CustomData customData;
+    CustomAuth customAuth = CustomAuth::None;
     ClientAuth* clientAuth = NULL;
     std::string peresprosReq;
     int useSSL = 0;
@@ -421,6 +429,7 @@ void load_construct_data(Archive& ar, HttpReq* p, const unsigned int version)
     ar >> text;
     ar >> deadlines;
     ar >> customData;
+    ar >> customAuth;
     ar >> clientAuth;
     std::unique_ptr<ClientAuth> clientAuth_free(clientAuth);
     ar >> peresprosReq;
@@ -437,6 +446,7 @@ void load_construct_data(Archive& ar, HttpReq* p, const unsigned int version)
             text,
             deadlines,
             customData,
+            customAuth,
             clientAuth ? *clientAuth : boost::optional<ClientAuth>(),
             peresprosReq,
             UseSSLFlag(useSSL),
@@ -957,7 +967,7 @@ public:
 #ifdef WITH_ZLIB
                     std::vector<uint8_t> res;
                     if(int err = Zlib::decompress(std::vector<uint8_t>(resp_.content.begin(), resp_.content.end()), res, Zlib::GZip))
-                        throw ServerFramework::Exception(STDLOG, __FUNCTION__, "Zlib::decompress failed with "+HelpCpp::string_cast(err));
+                        throw ServerFramework::Exception(STDLOG, __FUNCTION__, "Zlib::decompress failed with "+std::to_string(err));
                     httpResponse.append(res.begin(), res.end());
 #endif
                 }
@@ -1239,6 +1249,27 @@ private:
                 LogError(STDLOG) << __FUNCTION__ << ": " << this << ": " << err.message() << ": " << LogReq(req_);
                 setErrorState(COMMERR_HANDSHAKE, err);
             }
+        } else if (state_ == BUSY) {
+            LogTrace(TRACE5) << __FUNCTION__ << ": " << this << ": OK";
+            if (req_.customAuth == CustomAuth::NTLM) {
+                httpsrv::ntlm::authenticate(
+                            stream_,
+                            std::bind(&HttpsConn::onAuthenticateComplete, shared_from_this(), std::placeholders::_1 /*error*/));
+            } else {
+                boost::asio::async_write(
+                            stream_,
+                            boost::asio::buffer(req_.text),
+                            std::bind(&HttpsConn::onWriteComplete, shared_from_this(), std::placeholders::_1 /*error*/));
+            }
+        } else
+            LogTrace(TRACE5) << __FUNCTION__ << ": " << this << ": state changed to " << state_;
+    }
+
+    void onAuthenticateComplete(const boost::system::error_code& err)
+    {
+        if (err) {
+            LogError(STDLOG) << __FUNCTION__ << ": " << this << ": " << err.message() << ": " << LogReq(req_);
+            setErrorState(COMMERR_AUTHENTICATE, err);
         } else if (state_ == BUSY) {
             LogTrace(TRACE5) << __FUNCTION__ << ": " << this << ": OK";
             boost::asio::async_write(
@@ -1965,6 +1996,7 @@ private:
         const HttpConnPtr_t& conn)
     {
         LogTrace(TRACE1) << __FUNCTION__ << ": " << domain << ", " << corr;
+
         const auto self = shared_from_this();
         const auto callback =
             [this, self, corr, domain, waitAll](const auto& conn) {
@@ -2181,6 +2213,13 @@ DoHttpRequest::DoHttpRequest(std::string const& host, unsigned port, std::string
 }
 
 
+DoHttpRequest::DoHttpRequest(Domain domain, HostAndPort hostAndPort, std::string reqText)
+    : DoHttpRequest(ServerFramework::getQueryRunner().getEdiHelpManager().msgId(),
+                    std::move(domain), std::move(hostAndPort), std::move(reqText))
+{
+}
+
+
 DoHttpRequest::DoHttpRequest(
         ServerFramework::InternalMsgId MsgId,
         Domain domain,
@@ -2217,6 +2256,7 @@ DoHttpRequest::DoHttpRequest(
     domain_(std::move(domain)),
     hostAndPort_(std::move(hostAndPort)),
     reqText_(std::move(reqText)),
+    customAuth_(CustomAuth::None),
     timeout_(boost::posix_time::seconds(15)),
     maxTryCount_(1),
     useSSL_(true),
@@ -2229,6 +2269,12 @@ DoHttpRequest::DoHttpRequest(
 DoHttpRequest& DoHttpRequest::setCustomData(const CustomData& customData)
 {
     customData_ = customData;
+    return *this;
+}
+
+DoHttpRequest& DoHttpRequest::setCustomAuth(const CustomAuth& customAuth)
+{
+    customAuth_ = customAuth;
     return *this;
 }
 
@@ -2472,6 +2518,7 @@ int64_t DoHttpRequest::operator()()
             reqText_,
             GenerateDeadlines(now, timeout_, maxTryCount_),
             customData_,
+            customAuth_,
             clientAuth_,
             peresprosReq_,
             useSSL_,
@@ -2605,6 +2652,11 @@ std::vector<HttpResp> FetchHttpResponses(Pult pult, const Domain& domain, bool w
     return FetchHttpResponses(corr, domain, waitAll,throw_on_hasntsent, fetchAllResponses);
 }
 
+std::vector<HttpResp> FetchHttpResponses(const Domain& domain, bool waitAll, bool throw_on_hasntsent)
+{
+    return FetchHttpResponses(ServerFramework::getQueryRunner().getEdiHelpManager().msgId(), domain, waitAll,throw_on_hasntsent);
+}
+
 std::vector<HttpResp> FetchHttpResponses(const ServerFramework::InternalMsgId& MsgId, const Domain& domain, bool waitAll, bool throw_on_hasntsent)
 {
     //only array field transferred
@@ -2677,6 +2729,19 @@ boost::optional<HttpPayload> HttpResponsePayload(const std::string& httpResponse
         what[2]
     };
     return payload;
+}
+
+std::pair<unsigned, unsigned> status_and_offset(std::string const& txt)
+{
+    if(txt.compare(0, 4, "HTTP") != 0)
+        return {};
+    size_t first_space = txt.find(' ');
+    if(first_space == txt.npos)
+        return {};
+    size_t second_space = txt.find_first_of(" \r", first_space+1);
+    size_t rnrn = txt.find("\r\n\r\n", second_space);
+    return { std::stoi(txt.substr(first_space+1, second_space-first_space-1)),
+             rnrn == txt.npos ? txt.size() : rnrn + 4 };
 }
 
 HasNotSentAQueryBefore::HasNotSentAQueryBefore() : ServerFramework::Exception("httpsrv::HasNotSentAQueryBefore") {}
@@ -2817,8 +2882,16 @@ static std::string FP_utf8(const std::vector<std::string>& args)
 
 static std::string FP_http_forecast(const std::vector<tok::Param>& args)
 {
-    tok::ValidateParams(args, 0, 0, "content headers");
-    const std::string httpContent = tok::GetValue(args, "content", "");
+    tok::ValidateParams(args, 0, 0, "content headers file");
+    std::string httpContent;
+    if(std::none_of(args.begin(), args.end(), [](auto&a){ return a.name == "content"; }))
+    {
+        auto const fname = tok::GetValue_ThrowUndefined(args, "file");
+        std::ifstream f(fname.c_str());
+        httpContent.assign((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    }
+    else
+        httpContent = tok::GetValue(args, "content", "");
     std::string httpHeaders = tok::GetValue(args, "headers", "");
     if (httpHeaders.empty())
         httpHeaders = httpsrv::xp_testing::MakeDefaultHttpsHeaders(httpContent.size());

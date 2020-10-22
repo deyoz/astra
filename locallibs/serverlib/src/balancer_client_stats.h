@@ -4,6 +4,8 @@
 
 #include "daemon_impl.h"
 
+#include "balancer_locks.h"
+
 namespace balancer {
 
 class ClientIdStats
@@ -98,6 +100,8 @@ public:
             std::vector<uint8_t>& data,
             WHAT_DROP_IF_QUEUE_FULL whatDropIfQueueFull);
     //-----------------------------------------------------------------------
+    void release();
+    //-----------------------------------------------------------------------
     void reconfigure();
     //-----------------------------------------------------------------------
     int run() {
@@ -121,6 +125,8 @@ private:
     ClientIdStats* stats_;
     std::string dump_;
     boost::posix_time::ptime begin_;
+    std::unique_ptr< Lock > shmLock_;
+    std::unique_ptr< Barrier > barrier_;
 };
 
 } // namespace balancer

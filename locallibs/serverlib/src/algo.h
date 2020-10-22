@@ -17,6 +17,7 @@
 #include <utility>
 #include <type_traits>
 #include <algorithm>
+#include <functional>
 
 namespace algo {
 namespace details {
@@ -204,6 +205,18 @@ inline OutputContainer transform(const InputContainer& in, UnaryFunction&& func)
     std::transform(std::begin(in), std::end(in), output_iterator, std::forward<UnaryFunction>(func));
     return result;
 }
+
+template< template<typename...> typename OutputContainer, typename InputContainer, typename UnaryFunction >
+inline auto transform(const InputContainer& in, UnaryFunction func)
+{
+    using std::begin;
+    using OutputContainer_ = OutputContainer<std::decay_t<decltype(std::invoke(func, *begin(in)))>>;
+    OutputContainer_ result;
+    auto output_iterator = details::reserve_or_resize(result, in);
+    std::transform(std::begin(in), std::end(in), output_iterator, [&](auto&& i){ return std::invoke(func, i); });
+    return result;
+}
+
 } // namespace details
 
 // explicitly specified output container with explicitly specified value type
@@ -231,11 +244,9 @@ template<
     typename InputContainer,
     typename UnaryFunction
     >
-inline auto transform(const InputContainer& in, UnaryFunction&& func)
-    -> OutputContainer<decltype(func(*std::begin(in)))>
+inline auto transform(const InputContainer& in, UnaryFunction func)
 {
-    using OutputContainer_ = OutputContainer<decltype(func(*std::begin(in)))>;
-    return details::transform<OutputContainer_>(in, std::forward<UnaryFunction>(func));
+    return details::transform<OutputContainer, InputContainer, UnaryFunction>(in, func);
 }
 
 // output container = input container (with deduced output value type)
@@ -244,11 +255,9 @@ template<
     typename InputElement,
     typename UnaryFunction
     >
-inline auto transform(const InputContainer<InputElement>& in, UnaryFunction&& func)
-    -> InputContainer<decltype(func(*std::begin(in)))>
+inline auto transform(const InputContainer<InputElement>& in, UnaryFunction func)
 {
-    using OutputContainer = InputContainer<decltype(func(*std::begin(in)))>;
-    return details::transform<OutputContainer>(in, std::forward<UnaryFunction>(func));
+    return details::transform<InputContainer, InputContainer<InputElement>, UnaryFunction>(in, func);
 }
 
 // overload for initializer_list
@@ -258,10 +267,8 @@ template<
     typename UnaryFunction
     >
 inline auto transform(const std::initializer_list<InputElement>& in, UnaryFunction&& func)
-    -> OutputContainer<decltype(func(*std::begin(in)))>
 {
-    using OutputContainer_ = OutputContainer<decltype(func(*std::begin(in)))>;
-    return details::transform<OutputContainer_>(in, std::forward<UnaryFunction>(func));
+    return details::transform<OutputContainer, std::initializer_list<InputElement>, UnaryFunction>(in, func);
 }
 
 /*******************************************************************************
@@ -381,19 +388,19 @@ inline T accumulate(const Container& container, T init, BinaryOperation&& op)
     return init;
 }
 
-template <class Iterator, class UnaryOperation, class BinaryOperation>
+template <typename Iterator, typename UnaryOperation, typename BinaryOperation>
 auto lfold(Iterator it, Iterator end, UnaryOperation&& mutation, BinaryOperation&& crossover)
-    -> decltype(mutation(*it))
+    -> std::invoke_result_t<UnaryOperation, typename Iterator::value_type> // [[ expects : it < end ]]
 {
     if(it == end)
         return {};
-    auto init = mutation(*it);
+    auto init = std::invoke(mutation, *it);
     for(++it; it != end; ++it)
-        init = crossover(std::move(init), mutation(*it));
+        init = crossover(std::move(init), std::invoke(mutation, *it));
     return init;
 }
 
-template <class Container, class UnaryOperation, class BinaryOperation>
+template <typename Container, typename UnaryOperation, typename BinaryOperation>
 auto lfold(Container const& c, UnaryOperation&& mutation, BinaryOperation&& crossover)
 {
     return lfold(begin(c), end(c), std::forward<UnaryOperation>(mutation), std::forward<BinaryOperation>(crossover));

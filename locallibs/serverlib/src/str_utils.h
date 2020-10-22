@@ -4,6 +4,7 @@
 #ifdef __cplusplus
 
 #include <stdio.h>
+#include <string.h>
 #include <string>
 #include <vector>
 #include <stdint.h>
@@ -15,6 +16,9 @@
 
 namespace StrUtils
 {
+unsigned char tup(unsigned char c);
+unsigned char tlo(unsigned char c);
+
 bool IsUpperChar(unsigned char c);
 bool IsLowerChar(unsigned char c);
 bool IsUpper(const std::string &s);
@@ -129,7 +133,7 @@ private:
 
 std::string url_encode(const std::string &value);
 
-std::string translit(const std::string& str, bool useOldRules = false);
+std::string translit(const std::string& str);
 
 } // namespace StrUtils
 
@@ -153,9 +157,6 @@ extern "C"
     int atoinNVL(const char *str_in, int n, int NVL);
 
     int atoiChar(const char c);
-
-    int getDate(const char *xmldate, char *rrmmdd);
-    int setDate(const char *rrmmdd, char *xmldate);
 
     char *rtrim(char *str_in); /* str_in must be 0-terminated */
     char *ltrim(char *str_in); /* str_in must be 0-terminated */
@@ -226,7 +227,7 @@ T & split_string(T & res, const std::string &s, SP c, KeepEmptyTokens allow_empt
     return res;
 }
 template <template <typename...> class OutputContainer = std::vector, typename SP>
-auto split_string(const std::string &s, SP c)
+[[nodiscard]] auto split_string(const std::string &s, SP c)
 {
     OutputContainer<std::string> res;
     split_string(res,s,c,KeepEmptyTokens::False);
@@ -234,16 +235,16 @@ auto split_string(const std::string &s, SP c)
 }
 
 template <typename T, typename SP>
-T split_string(const std::string &s, SP c, KeepEmptyTokens allow_empty_tokens = KeepEmptyTokens::True)
+[[nodiscard]] T split_string(const std::string &s, SP c, KeepEmptyTokens allow_empty_tokens = KeepEmptyTokens::True)
 {
     T res;
     split_string<T>(res,s,c,allow_empty_tokens);
     return res;
 }
 
-std::string StringRTrim(std::string str);
-std::string StringLTrim(std::string str);
-std::string StringTrim(std::string str);
+[[nodiscard]] std::string StringRTrim(std::string str);
+[[nodiscard]] std::string StringLTrim(std::string str);
+[[nodiscard]] std::string StringTrim(std::string str);
 
 std::string StringLTrimCh(const std::string &str, const char ch);
 
@@ -253,7 +254,7 @@ void StringRTrim(std::string *str);
 void StringLTrim(std::string *str);
 void StringTrim(std::string *str);
 
-std::string remove_escapes(std::string str);
+[[nodiscard]] std::string remove_escapes(std::string str);
 
 std::string b64_encode(const char *in, int in_len); // закодировать в base64
 std::string b64_encode(const std::string &in); // закодировать в base64
@@ -394,6 +395,12 @@ template <typename C> typename std::enable_if<std::is_same<typename C::value_typ
     return join(_d, container);
 }
 
+template <size_t N> void cpy(std::string const& src, char (&dst)[N])
+{
+    size_t z = src.copy(dst, N-1);
+    dst[z] = '\0';
+}
+
 } // namespace StrUtils
 
 
@@ -407,6 +414,12 @@ inline char *safe_strcpy(char *dest, size_t dest_size, const std::string &src)
 template <size_t N> void safe_strcpy(char (&dst)[N], const std::string &src, size_t up_to = std::string::npos)
 {
     if(N>0) { dst[ src.copy(dst, std::min(up_to, N-1)) ] = '\0'; }
+}
+
+//Same as upper,but with 2 argumets
+template <size_t N,size_t M> void safe_strcpy(char (&dst)[N], const char (&src)[M])
+{
+    if(N>0 && M>0) { auto l=std::min(N,M)-1;   strncpy(dst,src,l); dst[l]='\0'; }
 }
 
 #endif /* __cplusplus */

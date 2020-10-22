@@ -101,7 +101,7 @@ std::string EmailMsgDbOraCallbacks::saveMsg(const std::string& txt, const std::s
       .bindOut(":id",id).bind(":current_date_time",current_date_time);
     c.EXfet(OCI_COMMIT_ON_SUCCESS);
 
-    return HelpCpp::string_cast(id);
+    return std::to_string(id);
 }
 void EmailMsgDbOraCallbacks::markMsgForSend(const std::string &id) const
 {

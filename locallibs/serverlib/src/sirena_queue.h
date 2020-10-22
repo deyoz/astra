@@ -38,7 +38,8 @@ size_t getParamsByteByGrp(int grp);
 bool willSuspend(int flags); // returns true if saved_flag!=0 or saved_timeout!=0 (не соответствует реализации)
 
 // готовит текст (без заголовка) сообщения о переполнении очереди
-std::vector<uint8_t> getMsgForQueueFullWSAns(int err_code);
+std::vector<uint8_t> getMsgForQueueFullWSAns(int err_code, const std::string &ansDetails);
+std::string getInetAnsParams(const uint8_t *head, const size_t &hlen);
 
 // готовит полный текст (с заголовком) сообщения о переполнении очереди
 void createQueueFullWSAns(std::vector<uint8_t>& head, std::vector<uint8_t>& data, int err_code = -1);
