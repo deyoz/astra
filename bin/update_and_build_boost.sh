@@ -48,11 +48,7 @@ glibcxxdebug=''
 if [ -n "$python_include_path" ]; then
     cxxflags="$cxxflags cxxflags='$python_include_path'"
 fi
-if [ "$CPP_STD_VERSION" = "c++11" ]; then
-    cxxflags="$cxxflags cxxflags=-std=c++11 cxxflags=-DBOOST_NO_CXX11_SCOPED_ENUMS cxxflags=-DBOOST_NO_CXX11_EXPLICIT_CONVERSION_OPERATORS"
-elif [ "$CPP_STD_VERSION" = "c++14" ]; then
-    cxxflags="$cxxflags cxxflags=-std=c++14" # cxxflags=-DBOOST_NO_CXX11_SCOPED_ENUMS"
-fi
+[ -n "$CPP_STD_VERSION" ] && cxxflags="$cxxflags cxxflags=-std=$CPP_STD_VERSION"
 if [ "${SIRENA_USE_LIBCXX:-}" = "1" ]; then
     cxxflags="$cxxflags cxxflags=-stdlib=libc++ linkflags=-stdlib=libc++"
 fi
