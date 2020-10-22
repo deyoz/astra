@@ -3,7 +3,7 @@
 #include "apps_interaction.h"
 #include "httpClient.h"
 #include "astra_service.h"
-#include "sopp.h"
+#include "flt_settings.h"
 #include <boost/scoped_ptr.hpp>
 
 #include "apis_creator.h"
@@ -166,19 +166,19 @@ TAPICheckInfo& TAPICheckInfoList::get(TAPIType apiType)
   return const_cast<TAPICheckInfo&>(static_cast<const TAPICheckInfoList&>(*this).get(apiType));
 }
 
-TCompleteAPICheckInfo::TCompleteAPICheckInfo(const int point_dep, const std::string& airp_arv)
+TCompleteAPICheckInfo::TCompleteAPICheckInfo(const TPaxSegmentPair& paxSegment)
 {
-  set(point_dep, airp_arv);
+  set(paxSegment);
 }
 
-void TCompleteAPICheckInfo::set(const int point_dep, const std::string& airp_arv)
+void TCompleteAPICheckInfo::set(const TPaxSegmentPair& paxSegment)
 {
   clear();
   TTripInfo fltInfo;
-  if (fltInfo.getByPointId(point_dep))
+  if (fltInfo.getByPointId(paxSegment.point_dep))
   {
     TTripSetList setList;
-    setList.fromDB(point_dep);
+    setList.fromDB(paxSegment.point_dep);
 
     if (setList.value(tsRegWithTkn, false))
       _pass.get(apiTkn).required_fields|=TKN_TICKET_NO_FIELD;
@@ -200,7 +200,7 @@ void TCompleteAPICheckInfo::set(const int point_dep, const std::string& airp_arv
     try
     {
       string country_dep=getCountryByAirp(fltInfo.airp).code;
-      string country_arv=getCountryByAirp(airp_arv).code;
+      string country_arv=getCountryByAirp(paxSegment.airp_arv).code;
 
       APIS::SettingsList settingsList;
       settingsList.getByCountries(fltInfo.airline, country_dep, country_arv);
@@ -212,7 +212,8 @@ void TCompleteAPICheckInfo::set(const int point_dep, const std::string& airp_arv
     catch(const EBaseTableError&) {};
 
     std::set<std::string> apps_formats;
-    if (APPS::checkAPPSFormats(PointId_t(point_dep), AirportCode_t(airp_arv), apps_formats))
+    if (APPS::checkAPPSFormats(PointId_t(paxSegment.point_dep), AirportCode_t(paxSegment.airp_arv),
+                               &apps_formats))
     {
       _apis_formats.insert(apps_formats.begin(), apps_formats.end());
       is_inter=true;
@@ -263,7 +264,7 @@ TRouteAPICheckInfo::TRouteAPICheckInfo(const int point_id)
   TTripRoute route;
   route.GetRouteAfter(NoExists,point_id,trtNotCurrent,trtNotCancelled);
   for(TTripRoute::iterator r = route.begin(); r != route.end(); ++r)
-    insert( make_pair(r->airp, TCompleteAPICheckInfo(point_id, r->airp)));
+    emplace( r->airp, TCompleteAPICheckInfo(TPaxSegmentPair(point_id, r->airp)));
 }
 
 bool TRouteAPICheckInfo::apis_generation() const
@@ -280,32 +281,33 @@ boost::optional<const TCompleteAPICheckInfo &> TRouteAPICheckInfo::get(const std
   return boost::none;
 }
 
-const TCompleteAPICheckInfo& TCompleteAPICheckInfoCache::get(int paxId, int grpId)
+APICheckInfoForPassenger::~APICheckInfoForPassenger()
+{
+//  LogTrace(TRACE5) << grps.traceTotals();
+//  LogTrace(TRACE5) << checkInfo.traceTotals();
+}
+
+const TCompleteAPICheckInfo& APICheckInfoForPassenger::get(const PaxId_t& paxId, const boost::optional<GrpId_t>& grpId)
 {
   static TCompleteAPICheckInfo emptyCheckInfo;
 
-  if (grpId==ASTRA::NoExists)
+  try
   {
-    CheckIn::TSimplePaxItem pax;
-    if (!pax.getByPaxId(paxId)) return emptyCheckInfo;
-    grpId=pax.grp_id;
-  }
+    boost::optional<GrpId_t> grpId_(grpId);
 
-  CheckIn::TSimplePaxGrpItem& grp=grps[grpId];
-  if (grp.id==ASTRA::NoExists)
-  {
-    if (!grp.getByGrpId(grpId)) return emptyCheckInfo;
-  }
+    if (!grpId_)
+    {
+      CheckIn::TSimplePaxItem pax;
+      if (!pax.getByPaxId(paxId.get())) return emptyCheckInfo;
+      grpId_=GrpId_t(pax.grp_id);
+    }
 
-  TPaxSegmentPair seg=grp.getSegmentPair();
-  auto i=checkInfoMap.find(seg);
-  if (i==checkInfoMap.end())
-  {
-    i=checkInfoMap.emplace(seg, TCompleteAPICheckInfo()).first;
-    i->second.set(seg.point_dep, seg.airp_arv);
-  }
+    const CheckIn::TSimplePaxGrpItem& grp=grps.get(grpId_.get().get());
 
-  return i->second;
+    return checkInfo.get(grp.getSegmentPair());
+  }
+  catch(const CompleteAPICheckInfoCache::NotFound&) { return emptyCheckInfo; }
+  catch(const PaxGrpCache::NotFound&)               { return emptyCheckInfo; }
 }
 
 void throwInvalidSymbol(const string &fieldname,
@@ -1868,3 +1870,24 @@ string NormalizeDocNo(const string& str, bool try_keep_only_digits)
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+namespace ASTRA
+{
+
+template<> const TCompleteAPICheckInfo& CompleteAPICheckInfoCache::add(const TPaxSegmentPair& segmentPair) const
+{
+  TCompleteAPICheckInfo& info=items.emplace(segmentPair, TCompleteAPICheckInfo()).first->second;
+
+  info.set(segmentPair);
+
+  return info;
+}
+
+template<> std::string CompleteAPICheckInfoCache::traceTitle()
+{
+  return "CompleteAPICheckInfoCache";
+}
+
+} //namespace ASTRA
+

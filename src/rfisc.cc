@@ -2,6 +2,7 @@
 #include <boost/crc.hpp>
 #include "qrys.h"
 #include "term_version.h"
+#include "base_callbacks.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -1083,7 +1084,7 @@ void TPaxServiceLists::toDB(bool is_unaccomp) const
   }
 }
 
-void TPaxServiceLists::toXML(int id, bool is_unaccomp, int tckin_seg_count, xmlNodePtr node)
+void TPaxServiceLists::toXML(int id, bool is_unaccomp, int tckin_seg_count, const TCkinRoute& ckinRouteAfter, xmlNodePtr node)
 {
   if (node==NULL) return;
   fromDB(id, is_unaccomp);
@@ -1092,6 +1093,22 @@ void TPaxServiceLists::toXML(int id, bool is_unaccomp, int tckin_seg_count, xmlN
     if (i->trfer_num>=tckin_seg_count) continue; //не передаем дополнительные сегменты трансфера
     i->toXML(NewTextChild(node, "service_list"));
   };
+
+  if (!TReqInfo::Instance()->desk.compatible(NON_STRICT_BAG_CHECK_VERSION) && !ckinRouteAfter.empty())
+  {
+    if (algo::all_of(*this, [](const TPaxServiceListsItem& item) { return item.trfer_num==0; } ) &&
+        algo::all_of(ckinRouteAfter, [](const TCkinRouteItem& item) { return item.transit_num!=0; } ))
+    {
+      for(const TPaxServiceListsItem& i : *this)
+      {
+        if (i.category!=TServiceCategory::BaggageInHold) continue;
+
+        TPaxServiceListsItem item(i);
+        for(item.trfer_num=1; item.trfer_num<=(int)ckinRouteAfter.size(); item.trfer_num++)
+          item.toXML(NewTextChild(node, "service_list"));
+      }
+    }
+  }
 }
 
 const TPaxSegRFISCKey& TPaxSegRFISCKey::toSirenaXML(xmlNodePtr node, const OutputLang &lang) const
@@ -1619,24 +1636,8 @@ void TGrpServiceList::copyDB(int grp_id_src, int grp_id_dest)
     "       pax_services.rfisc, "
     "       pax_services.service_type, "
     "       pax_services.airline, "
-    "       pax_services.service_quantity "
-    "FROM pax_services, "
-    "     (SELECT pax.pax_id, "
-    "             tckin_pax_grp.tckin_id, "
-    "             tckin_pax_grp.seg_no, "
-    "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
-    "      FROM pax, tckin_pax_grp "
-    "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_src) src, "
-    "     (SELECT pax.pax_id, "
-    "             tckin_pax_grp.tckin_id, "
-    "             tckin_pax_grp.seg_no, "
-    "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
-    "      FROM pax, tckin_pax_grp "
-    "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_dest) dest "
-    "WHERE src.tckin_id=dest.tckin_id AND "
-    "      src.distance=dest.distance AND "
-    "      pax_services.pax_id=src.pax_id AND "
-    "      pax_services.transfer_num+src.seg_no-dest.seg_no>=0 ",
+    "       pax_services.service_quantity " +
+    TCkinRoute::copySubselectSQL("pax_services", {}, true),
     QParams() << QParam("grp_id_src", otInteger, grp_id_src)
               << QParam("grp_id_dest", otInteger, grp_id_dest));
   Qry.get().Execute();
@@ -1656,24 +1657,8 @@ void TGrpServiceAutoList::copyDB(int grp_id_src, int grp_id_dest, bool not_clear
     "       pax_services_auto.service_name, "
     "       pax_services_auto.emd_type, "
     "       pax_services_auto.emd_no, "
-    "       pax_services_auto.emd_coupon "
-    "FROM pax_services_auto, "
-    "     (SELECT pax.pax_id, "
-    "             tckin_pax_grp.tckin_id, "
-    "             tckin_pax_grp.seg_no, "
-    "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
-    "      FROM pax, tckin_pax_grp "
-    "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_src) src, "
-    "     (SELECT pax.pax_id, "
-    "             tckin_pax_grp.tckin_id, "
-    "             tckin_pax_grp.seg_no, "
-    "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
-    "      FROM pax, tckin_pax_grp "
-    "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_dest) dest "
-    "WHERE src.tckin_id=dest.tckin_id AND "
-    "      src.distance=dest.distance AND "
-    "      pax_services_auto.pax_id=src.pax_id AND "
-    "      pax_services_auto.transfer_num+src.seg_no-dest.seg_no>=0 ",
+    "       pax_services_auto.emd_coupon " +
+    TCkinRoute::copySubselectSQL("pax_services_auto", {}, true),
     QParams() << QParam("grp_id_src", otInteger, grp_id_src)
               << QParam("grp_id_dest", otInteger, grp_id_dest));
   Qry.get().Execute();
@@ -1855,24 +1840,8 @@ void TPaidRFISCList::copyDB(int grp_id_src, int grp_id_dest)
     "       paid_rfisc.airline, "
     "       paid_rfisc.service_quantity, "
     "       paid_rfisc.paid, "
-    "       paid_rfisc.need "
-    "FROM paid_rfisc, "
-    "     (SELECT pax.pax_id, "
-    "             tckin_pax_grp.tckin_id, "
-    "             tckin_pax_grp.seg_no, "
-    "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
-    "      FROM pax, tckin_pax_grp "
-    "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_src) src, "
-    "     (SELECT pax.pax_id, "
-    "             tckin_pax_grp.tckin_id, "
-    "             tckin_pax_grp.seg_no, "
-    "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
-    "      FROM pax, tckin_pax_grp "
-    "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_dest) dest "
-    "WHERE src.tckin_id=dest.tckin_id AND "
-    "      src.distance=dest.distance AND "
-    "      paid_rfisc.pax_id=src.pax_id AND "
-    "      paid_rfisc.transfer_num+src.seg_no-dest.seg_no>=0 ",
+    "       paid_rfisc.need " +
+    TCkinRoute::copySubselectSQL("paid_rfisc", {}, true),
     QParams() << QParam("grp_id_src", otInteger, grp_id_src)
               << QParam("grp_id_dest", otInteger, grp_id_dest));
   Qry.get().Execute();
@@ -1958,7 +1927,7 @@ void TGrpServiceList::addTrueBagInfo(const TGrpServiceItem& item)
     RFISCKey.getListItemByPaxId(item.pax_id, item.trfer_num, item.list_item.get().category, __FUNCTION__);
     break;
   }
-  catch(EConvertError) {}
+  catch(const EConvertError&) {}
 
   if (item.list_item &&
       item.list_item.get().isBaggageOrCarryOn() &&

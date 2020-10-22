@@ -12,14 +12,15 @@
 #include "tripinfo.h"
 #include "docs/docs_common.h"
 #include "stat/stat_utils.h"
-#include "salons.h"
-#include "sopp.h"
+#include "crafts/ComponCreator.h"
 #include "points.h"
 #include "term_version.h"
 #include "trip_tasks.h"
+#include "flt_settings.h"
 
 #define NICKNAME "DJEK"
-#include "serverlib/test.h"
+#include <serverlib/slogger.h>
+#include <serverlib/cursctl.h>
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -428,141 +429,74 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
                                         << PrmSmpl<int>("tranzit", tranzit), evtFlt, point_id );
       node = node->next;
     };
-    SALONS2::AutoSetCraft( point_id );
+    ComponCreator::AutoSetCraft( point_id );
   };
 
   node = GetNode( "trip_sets", reqNode );
   if ( node != NULL )
   {
-    Qry.Clear();
-    Qry.SQLText =
-      "SELECT point_num,pr_tranzit,first_point, "
-      "       ckin.tranzitable(point_id) AS tranzitable "
-      "FROM points WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";// FOR UPDATE ";
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.Execute();
-    if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
-
-    TQuery SetsQry( &OraSession );
-    SetsQry.Clear();
-    SetsQry.SQLText =
-      "SELECT pr_tranz_reg,pr_block_trzt "
-      "FROM trip_sets WHERE point_id=:point_id";
-    SetsQry.CreateVariable("point_id",otInteger,point_id);
-    SetsQry.Execute();
-    if (SetsQry.Eof) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
-
-    bool new_pr_tranzit,          old_pr_tranzit,
-         new_pr_tranz_reg,        old_pr_tranz_reg,
-         new_pr_block_trzt,		  old_pr_block_trzt;
-
-    old_pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
-    old_pr_tranz_reg=SetsQry.FieldAsInteger("pr_tranz_reg")!=0;
-    old_pr_block_trzt=SetsQry.FieldAsInteger("pr_block_trzt")!=0;
-    new_pr_tranzit=NodeAsInteger("pr_tranzit",node)!=0;
-    new_pr_tranz_reg=NodeAsInteger("pr_tranz_reg",node)!=0;
-    new_pr_block_trzt=NodeAsInteger("pr_block_trzt",node,1)!=0;
+    TAdvTripInfo flt;
+    if (!flt.getByPointId(point_id, FlightProps(FlightProps::NotCancelled,
+                                                FlightProps::WithCheckIn)))
+      throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
+    bool transitable=flt.transitable();
+    bool new_pr_tranzit=NodeAsInteger("pr_tranzit",node)!=0;
 
     TTripSetList oldSetList, newSetList;
     oldSetList.fromDB(point_id);
     if (oldSetList.empty()) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
 
-    newSetList.fromXML(node);
-    newSetList.append(oldSetList);
+    newSetList.fromXML(node, new_pr_tranzit, oldSetList);
 
     vector<int> check_waitlist_alarms, check_diffcomp_alarms;
-    bool pr_isTranzitSalons = false;
-    if (old_pr_tranzit!=new_pr_tranzit ||
-        old_pr_tranz_reg!=new_pr_tranz_reg ||
-        old_pr_block_trzt!=new_pr_block_trzt ||
-        oldSetList.value<bool>(tsFreeSeating)!=newSetList.value<bool>(tsFreeSeating)) {
-      pr_isTranzitSalons = true;
-    }
+    bool pr_isTranzitSalons = (flt.pr_tranzit!=new_pr_tranzit ||
+                               oldSetList.value<bool>(tsTransitReg)      != newSetList.value<bool>(tsTransitReg) ||
+                               oldSetList.value<bool>(tsTransitBlocking) != newSetList.value<bool>(tsTransitBlocking) ||
+                               oldSetList.value<bool>(tsFreeSeating)     != newSetList.value<bool>(tsFreeSeating));
 
-    if (old_pr_tranzit!=new_pr_tranzit ||
-        old_pr_tranz_reg!=new_pr_tranz_reg ||
-        old_pr_block_trzt!=new_pr_block_trzt)
+    if (flt.pr_tranzit!=new_pr_tranzit ||
+        oldSetList.value<bool>(tsTransitReg)!=newSetList.value<bool>(tsTransitReg) ||
+        oldSetList.value<bool>(tsTransitBlocking)!=newSetList.value<bool>(tsTransitBlocking))
     {
-      if (Qry.FieldAsInteger("tranzitable")!=0) //является ли пункт промежуточным в маршруте
+      if (transitable)
       {
-        //рейс tranzitable
-        bool pr_tranz_reg,pr_block_trzt;
-        if (new_pr_tranzit)
-          pr_tranz_reg=new_pr_tranz_reg;
-        else
-          pr_tranz_reg=false;
-        if (new_pr_tranzit)
-          pr_block_trzt=new_pr_block_trzt && !pr_tranz_reg;
-        else
-          pr_block_trzt=false;
-        if ( pr_tranz_reg!=old_pr_tranz_reg && !pr_tranz_reg ) { // отмена перерегистрации транзита
-            TQuery DelQry( &OraSession );
-            DelQry.SQLText =
+        if (oldSetList.value<bool>(tsTransitReg) && !newSetList.value<bool>(tsTransitReg)) // отмена перерегистрации транзита
+        {
+          TQuery DelQry( &OraSession );
+          DelQry.SQLText =
               "SELECT grp_id  FROM pax_grp,points "
               " WHERE points.point_id=:point_id AND "
               "       point_dep=:point_id AND pax_grp.status NOT IN ('E') AND "
-            "       bag_refuse=0 AND status=:status AND rownum<2 ";
-            DelQry.CreateVariable( "point_id", otInteger, point_id );
-            DelQry.CreateVariable( "status", otString, EncodePaxStatus( psTransit ) );
-            DelQry.Execute();
-            if ( !DelQry.Eof ) {
-                ProgTrace( TRACE5, "question=%d", question );
-                if ( question ) {
-                    xmlNodePtr dataNode = NewTextChild( resNode, "data" );
-                    NewTextChild( dataNode, "question", getLocaleText("QST.TRANZIT_RECHECKIN_CAUTION.CANCEL") );
-                    return;
-              }
-              map<int,TAdvTripInfo> segs; // набор рейсов
+              "       bag_refuse=0 AND status=:status AND rownum<2 ";
+          DelQry.CreateVariable( "point_id", otInteger, point_id );
+          DelQry.CreateVariable( "status", otString, EncodePaxStatus( psTransit ) );
+          DelQry.Execute();
+          if ( !DelQry.Eof ) {
+            ProgTrace( TRACE5, "question=%d", question );
+            if ( question ) {
+              xmlNodePtr dataNode = NewTextChild( resNode, "data" );
+              NewTextChild( dataNode, "question", getLocaleText("QST.TRANZIT_RECHECKIN_CAUTION.CANCEL") );
+              return;
+            }
+            map<int,TAdvTripInfo> segs; // набор рейсов
             TDeletePaxFilter filter;
             filter.status=EncodePaxStatus( psTransit );
-              DeletePassengers( point_id, filter, segs );
-              DeletePassengersAnswer( segs, resNode );
-            }
+            DeletePassengers( point_id, filter, segs );
+            DeletePassengersAnswer( segs, resNode );
+          }
         }
-        //есть ли транзитные пассажиры pax_grp.status='T'
 
-        int first_point=Qry.FieldAsInteger("first_point");
-        int point_num=Qry.FieldAsInteger("point_num");
-        if (old_pr_tranzit != new_pr_tranzit)
-        {
-          set_pr_tranzit(point_id, point_num, first_point, new_pr_tranzit);
-        };
-        Qry.Clear();
-        Qry.SQLText=
-          "UPDATE trip_sets SET pr_tranz_reg=:pr_tranz_reg,pr_block_trzt=:pr_block_trzt"
-          " WHERE point_id=:point_id";
-        Qry.CreateVariable("pr_tranz_reg",otInteger,(int)pr_tranz_reg);
-        Qry.CreateVariable("pr_block_trzt",otInteger,(int)pr_block_trzt);
-        Qry.CreateVariable("point_id",otInteger,point_id);
-        Qry.Execute();
-
-        if (old_pr_tranzit!=new_pr_tranzit ||
-            old_pr_tranz_reg!=new_pr_tranz_reg ||
-            old_pr_block_trzt!=new_pr_block_trzt) {
-          TLogLocale tlocale;
-          tlocale.lexema_id = "EVT.SET_MODE";
-          if ( !pr_tranz_reg ) tlocale.prms << PrmLexema("trans_reg", "EVT.WITHOUT_TRANS_REG");
-          tlocale.prms << PrmLexema("trans_reg", "EVT.TRANS_REG");
-          if ( !pr_block_trzt ) tlocale.prms << PrmLexema("block_trans", "EVT.WITHOUT_BLOCK_TRANS");
-          tlocale.prms << PrmLexema("block_trans", "EVT.WITHOUT_BLOCK_TRANS");
-          if ( !new_pr_tranzit )
-            tlocale.prms << PrmLexema("trans", "EVT.NON_TRANS_FLIGHT");
-          else
-            tlocale.prms << PrmLexema("trans", "EVT.TRANS_FLIGHT");
-          tlocale.ev_type=evtFlt;
-          tlocale.id1=point_id;
-          TReqInfo::Instance()->LocaleToLog(tlocale);
-        }
+        updateTransitIfNeeded(flt, new_pr_tranzit);
 
         check_diffcomp_alarms.push_back( point_id );
         if ( !pr_isTranzitSalons ) {
           check_waitlist_alarms.push_back( point_id );
         }
-      };
+      }
       if ( pr_isTranzitSalons ) {
         check_waitlist_alarms.push_back( point_id );
       }
-    };
+    }
 
     if (oldSetList.value<bool>(tsUseJmp)!=newSetList.value<bool>(tsUseJmp) ||
         oldSetList.value<int>(tsJmpCfg)!=newSetList.value<int>(tsJmpCfg))
@@ -588,7 +522,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
 
     for ( vector<int>::iterator ipoint_id=check_diffcomp_alarms.begin();
           ipoint_id!=check_diffcomp_alarms.end(); ipoint_id++ ) {
-      SALONS2::check_diffcomp_alarm( *ipoint_id );
+      ComponCreator::check_diffcomp_alarm( *ipoint_id );
     }
     if ( !check_waitlist_alarms.empty() ) {
       if ( pr_isTranzitSalons ) {
@@ -624,10 +558,9 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
 void PrepRegInterface::ViewCRSList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int point_id = NodeAsInteger( "point_id", reqNode );
-  ProgTrace(TRACE5, "PrepRegInterface::ViewPNL, point_id=%d", point_id );
   //TReqInfo::Instance()->user.check_access( amRead );
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
-  viewCRSList( point_id, dataNode );
+  viewCRSList( point_id, {}, dataNode );
   get_compatible_report_form("PNLPaxList", reqNode, resNode);
   xmlNodePtr formDataNode = STAT::set_variables(resNode);
   TRptParams rpt_params(TReqInfo::Instance()->desk.lang);
@@ -641,7 +574,161 @@ void PrepRegInterface::ViewCRSList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
               ));
 }
 
-
-void PrepRegInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+static bool updateCrsCabinClass(const CheckIn::TSimplePaxItem& pax,
+                                const PointId_t& pointId,
+                                xmlNodePtr reqNode)
 {
-};
+  xmlNodePtr valueNode=GetNode("class/@edit_value", reqNode);
+  if (valueNode==nullptr) return false;
+
+  if (!TReqInfo::Instance()->user.access.rights().permitted(196))
+    throw UserException("MSG.NO_ACCESS");
+
+  std::string cabinClass;
+  std::string value=NodeAsString(valueNode);
+  TrimString(value);
+  if (!value.empty())
+  {
+    TElemFmt fmt;
+    cabinClass=ElemToElemId(etClass, value, fmt);
+    if (cabinClass.empty())
+      throw UserException("MSG.TABLE.INVALID_FIELD_VALUE",
+                          LParams() << LParam("fieldname", getLocaleText("CAP.PNL_EDIT_FORM.CABIN_CLASS")));
+  }
+
+  auto upd=make_curs("UPDATE crs_pax "
+                     "SET cabin_class=:cabin_class "
+                     "WHERE pax_id=:pax_id AND pr_del=0");
+
+  upd.bind(":cabin_class", cabinClass)
+     .bind(":pax_id", pax.id)
+     .exec();
+
+  if (upd.rowcount()>0)
+  {
+    if (!cabinClass.empty())
+      TReqInfo::Instance()->LocaleToLog("EVT.PRELIMINARY_ASSIGNED_CABIN_CLASS",
+                                        LEvntPrms() << PrmSmpl<string>("pax_name", pax.full_name())
+                                                    << PrmElem<string>("type", etPersType, EncodePerson(pax.pers_type))
+                                                    << PrmElem<string>("cls", etClass, cabinClass),
+                                        evtPax,
+                                        pointId.get());
+    else
+      TReqInfo::Instance()->LocaleToLog("EVT.CANCEL_PRELIMINARY_ASSIGNED_CABIN_CLASS",
+                                        LEvntPrms() << PrmSmpl<string>("pax_name", pax.full_name())
+                                                    << PrmElem<string>("type", etPersType, EncodePerson(pax.pers_type)),
+                                        evtPax,
+                                        pointId.get());
+  }
+
+  return true;
+}
+
+static bool updateCrsBagNorm(const CheckIn::TSimplePaxItem& pax,
+                             const PointId_t& pointId,
+                             xmlNodePtr reqNode)
+{
+  xmlNodePtr valueNode=GetNode("bag_norm/@edit_value", reqNode);
+  if (valueNode==nullptr) return false;
+
+  if (!TReqInfo::Instance()->user.access.rights().permitted(195))
+    throw UserException("MSG.NO_ACCESS");
+
+  boost::optional<TBagKilos> bagNorm;
+  std::string value=NodeAsString(valueNode);
+  TrimString(value);
+  if (!value.empty())
+  {
+    int quantity;
+    if (StrToInt(value.c_str(), quantity)==EOF)
+      throw UserException("MSG.TABLE.INVALID_FIELD_VALUE",
+                          LParams() << LParam("fieldname", getLocaleText("CAP.PNL_EDIT_FORM.BAG_NORM")));
+    bagNorm=boost::in_place(quantity);
+  }
+
+  if (bagNorm)
+  {
+    CheckIn::TPaxTknItem tkn;
+    CheckIn::LoadCrsPaxTkn(pax.id, tkn);
+    if (tkn.validET())
+    {
+      TETickItem etick;
+      etick.fromDB(tkn.no, tkn.coupon, TETickItem::Display, false);
+      if (etick.bagNorm && etick.bagNorm.get().getUnit()==Ticketing::Baggage::NumPieces)
+        throw UserException("MSG.PAX_HAS_BAG_NORM_FOR_PIECE_CONCEPT.CHANGE_DENIED");
+    }
+  }
+
+  auto upd=make_curs("UPDATE crs_pax "
+                     "SET bag_norm=:bag_norm, bag_norm_unit=:bag_norm_unit "
+                     "WHERE pax_id=:pax_id AND pr_del=0");
+
+  if (bagNorm)
+  {
+    upd.bind(":bag_norm", bagNorm.get().getQuantity())
+       .bind(":bag_norm_unit", TBagUnit(bagNorm.get().getUnit()).get_db_form())
+       .bind(":pax_id", pax.id)
+       .exec();
+
+    if (upd.rowcount()>0)
+    {
+      PrmEnum norm("norm", "");
+      norm.prms << PrmSmpl<int>("", bagNorm.get().getQuantity())
+                << PrmLexema("", TBagUnit(bagNorm.get().getUnit()).get_events_form());
+      TReqInfo::Instance()->LocaleToLog("EVT.PRELIMINARY_ASSIGNED_BAG_NORM",
+                                        LEvntPrms() << PrmSmpl<string>("pax_name", pax.full_name())
+                                                    << PrmElem<string>("type", etPersType, EncodePerson(pax.pers_type))
+                                                    << norm,
+                                        evtPax,
+                                        pointId.get());
+    }
+  }
+  else
+  {
+    upd.bind(":bag_norm", "")
+       .bind(":bag_norm_unit", "")
+       .bind(":pax_id", pax.id)
+       .exec();
+
+    if (upd.rowcount()>0)
+    {
+      TReqInfo::Instance()->LocaleToLog("EVT.CANCEL_PRELIMINARY_ASSIGNED_BAG_NORM",
+                                        LEvntPrms() << PrmSmpl<string>("pax_name", pax.full_name())
+                                                    << PrmElem<string>("type", etPersType, EncodePerson(pax.pers_type)),
+                                        evtPax,
+                                        pointId.get());
+    }
+  }
+
+  return true;
+}
+
+void PrepRegInterface::UpdateCRSList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  PointId_t pointId(NodeAsInteger("point_id", reqNode));
+  PaxId_t paxId(NodeAsInteger("pax_id", reqNode));
+
+  CheckIn::Search search;
+  CheckIn::TSimplePaxList paxs;
+  search(paxs, PaxIdFilter(paxId));
+  if (paxs.empty()) throw UserException("MSG.PASSENGER.NOT_FOUND.REFRESH_DATA");
+
+  const CheckIn::TSimplePaxItem& pax=paxs.front();
+  if (pax.origin()==paxCheckIn) throw UserException("MSG.PAX_ALREADY_CHECKED_IN.CHANGE_DENIED");
+
+  bool changesApplied=false;
+  if (updateCrsBagNorm(pax, pointId, reqNode)) changesApplied=true;
+  if (updateCrsCabinClass(pax, pointId, reqNode)) changesApplied=true;
+
+  xmlNodePtr dataNode = NewTextChild( resNode, "data" );
+  if (changesApplied)
+  {
+    viewCRSList( pointId.get(), paxId, dataNode );
+    AstraLocale::showMessage( "MSG.CHANGED_DATA_COMMIT" );
+  }
+  else
+  {
+    NewTextChild( dataNode, "tlg_trips" );
+  }
+}
+

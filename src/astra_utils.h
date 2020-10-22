@@ -18,6 +18,7 @@
 #include "jxtlib/JxtInterface.h"
 #include "jxtlib/jxt_xml_cont.h"
 #include <libtlg/tlgnum.h>
+#include "astra_types.h"
 
 using BASIC::date_time::TDateTime;
 
@@ -155,7 +156,24 @@ std::string GetSQLEnum(const T &values)
     return " ("+res.str()+") ";
   else
     return "";
-};
+}
+
+template <class T>
+std::string getSQLEnum(const T &values)
+{
+  std::ostringstream res;
+  bool first_iteration=true;
+  for(typename T::const_iterator i=values.begin();i!=values.end();++i)
+  {
+    if (!first_iteration) res << ", ";
+    res << "'" << *i << "'";
+    first_iteration=false;
+  };
+  if (!first_iteration)
+    return " ("+res.str()+") ";
+  else
+    return "";
+}
 
 template<typename T>
 class TAccessElems
@@ -557,6 +575,7 @@ const std::string& CityTZRegion(std::string city, bool with_exception=true);
 std::string DeskCity(std::string desk, bool with_exception=true);
 
 TCountriesRow getCountryByAirp( const std::string& airp);
+CountryCode_t getCountryByAirp(const AirportCode_t& airp);
 
 class SysReqInterface : public JxtInterface
 {
@@ -744,51 +763,6 @@ std::string getDocMonth(int month, bool pr_lat);
 std::string getDocMonth(TDateTime claim_date, bool pr_lat);
 
 bool isDoomedToWait();
-
-template <class T>
-class CallbacksSingleton
-{
-    private:
-        T* m_cb;
-
-    protected:
-        CallbacksSingleton()
-        {
-            m_cb = nullptr;
-        }
-
-    public:
-        static CallbacksSingleton* Instance()
-        {
-            static CallbacksSingleton* inst = nullptr;
-            if(!inst) {
-                inst = new CallbacksSingleton;
-            }
-            return inst;
-        }
-        T* getCallbacks()
-        {
-            if(m_cb) {
-                return m_cb;
-            }
-            throw std::logic_error("PaxRemCallbacks not initialized");
-        }
-        void setCallbacks(T* cb)
-        {
-            if(m_cb) {
-                delete m_cb;
-            }
-            m_cb = cb;
-        }
-};
-
-template <class T>
-inline T* callbacks()
-{
-    return CallbacksSingleton<T>::Instance()->getCallbacks();
-}
-
-void CallbacksExceptionFilter(STDLOG_SIGNATURE);
 
 namespace ASTRA
 {

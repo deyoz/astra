@@ -101,7 +101,7 @@ protected:
     struct cache_elem_comp: public std::binary_function<const cache_elem &,
             const cache_elem & , bool >
     {
-        bool operator()(const cache_elem &a, const cache_elem &b)
+        bool operator()(const cache_elem &a, const cache_elem &b) const
         {
             if(a.first==b.first )
                 return a.second->ida()<b.second->ida();
@@ -131,6 +131,7 @@ public:
             return 0;
         }
         return new T(ida);
+
 //        typename std::set<cache_elem,cache_elem_comp>::iterator i=
 //                std::find_if(cache.begin(),cache.end(),
 //                        compCommonDataCode<T>(code,Loki::TypeInfo(typeid(T))));
@@ -152,6 +153,8 @@ public:
 
     static T const * GetInstance(typename T::IdaType ida)
     {
+        return new T(ida);
+
 //        typename std::set<cache_elem,cache_elem_comp>::iterator i=
 //                std::find_if(cache.begin(),cache.end(),
 //                        compCommonDataIda<T>(ida,Loki::TypeInfo(typeid(T))));
@@ -170,7 +173,6 @@ public:
 //            abort();
 //        }
 //        return ret;
-        return new T(ida);
     }
 
     static void clearCache()

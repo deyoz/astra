@@ -10,7 +10,7 @@
 #include "docs/docs_common.h"
 #include "aodb.h"
 #include "stat/stat_main.h"
-#include "sopp.h"
+#include "flt_settings.h"
 #include "qrys.h"
 #include <serverlib/algo.h>
 

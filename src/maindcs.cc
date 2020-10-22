@@ -1394,7 +1394,10 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         // добавляем немного привелегий юзеру
         Qry.Clear();
         Qry.SQLText =
-          "INSERT INTO user_roles VALUES(1, 1, :user_id)";
+          "BEGIN\n"
+          "  DELETE from user_roles;\n"
+          "  INSERT INTO user_roles VALUES(1, 1, :user_id);\n"
+          "END; ";
         Qry.CreateVariable("user_id", otInteger, reqInfo->user.user_id);
         Qry.Execute();
     }

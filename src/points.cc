@@ -13,14 +13,15 @@
 #include "base_tables.h"
 #include "docs/docs_common.h"
 #include "stat/stat_main.h"
-#include "salons.h"
+#include "crafts/ComponCreator.h"
 #include "seats.h"
-#include "sopp.h"
 #include "aodb.h"
 #include "misc.h"
 #include "term_version.h"
 #include "trip_tasks.h"
 #include "code_convert.h"
+#include "flt_settings.h"
+#include "crafts/ComponCreator.h"
 
 #include "serverlib/perfom.h"
 
@@ -1715,8 +1716,9 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
 
   if ( this->events.isFlag( teInitComps ) ) {
     TReqInfo::Instance()->LocaleToLog( "EVT.SALONS.ASSIGNE_LAYOUT", evtDisp, move_id, this->key.point_id );
-    SALONS2::TFindSetCraft res = SALONS2::AutoSetCraft( this->key.point_id );
-    if ( res != SALONS2::rsComp_Found && res != SALONS2::rsComp_NoChanges ) {
+    ComponCreator::ComponSetter::TStatus status = ComponCreator::AutoSetCraft( this->key.point_id );
+    if ( status != ComponCreator::ComponSetter::Created &&
+         status != ComponCreator::ComponSetter::NoChanges ) {
       if ( this->key.pr_reg &&
            ( this->key.events.isFlag( dmChangeAirline ) ||
              this->key.events.isFlag( dmChangeFltNo ) ||
@@ -1741,8 +1743,8 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
        this->events.isFlag( teSetCraftTakeoff ) ||
        this->events.isFlag( teChangeBortTakeoff ) ||
        this->events.isFlag( teSetBortTakeoff ) ) {
-    SALONS2::check_diffcomp_alarm( this->key.point_id );
-    SALONS2:: check_waitlist_alarm_on_tranzit_routes( this->key.point_id, __FUNCTION__ );
+    ComponCreator::check_diffcomp_alarm( this->key.point_id );
+    SALONS2::check_waitlist_alarm_on_tranzit_routes( this->key.point_id, __FUNCTION__ );
   }
   if ( this->events.isFlag( teSetACTIN ) ||
        this->events.isFlag( teChangeACTIN ) ) {
@@ -2906,6 +2908,12 @@ void FlightPoints::Get( int vpoint_dep )
              vpoint_dep, point_dep, point_arv );
 };
 
+void TFlights::Get( const std::set<PointId_t> &pointIds, TFlightType flightType )
+{
+  vector<int> tmp = algo::transform<std::vector>(pointIds, [](const PointId_t& pointId) { return pointId.get(); });
+  Get(tmp, flightType);
+}
+
 void TFlights::Get( const std::set<int> &point_ids, TFlightType flightType )
 {
   vector<int> tmp(point_ids.begin(), point_ids.end());
@@ -2968,10 +2976,10 @@ void TFlights::GetForTCkinRouteDependent(const int grp_id, const TFlightType fli
   tckin_grp_ids.clear();
 
   TCkinRoute route;
-  route.GetRouteBefore(grp_id, crtNotCurrent, crtOnlyDependent);
-  TCkinRoute routeAfter;
-  routeAfter.GetRouteAfter(grp_id, crtWithCurrent, crtOnlyDependent);
-  route.insert(route.end(), routeAfter.begin(), routeAfter.end());
+  route.getRoute(GrpId_t(grp_id),
+                 TCkinRoute::WithCurrent,
+                 TCkinRoute::OnlyDependent,
+                 TCkinRoute::WithoutTransit);
 
   if (!route.empty())
   {

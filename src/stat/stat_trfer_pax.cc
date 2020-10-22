@@ -515,7 +515,7 @@ void createXMLTrferPaxStat(
 string segListFromDB(int tckin_id)
 {
     TCachedQuery Qry(
-            "select grp_id from tckin_pax_grp where tckin_id = :tckin_id order by seg_no",
+            "select grp_id from tckin_pax_grp where tckin_id = :tckin_id AND tckin_pax_grp.transit_num=0 order by seg_no",
             QParams() << QParam("tckin_id", otInteger, tckin_id));
     Qry.get().Execute();
     ostringstream result;
@@ -589,8 +589,9 @@ void get_trfer_pax_stat(int point_id)
             "    pax "
             "where "
             "    pax_grp.point_dep = :point_id and "
-            "    pax_grp.grp_id = tckin_pax_grp.grp_id and "
-            "    tckin_pax_grp.seg_no = 1 and "
+            "    pax.refuse is null and "
+            "    pax_grp.grp_id = tckin_pax_grp.grp_id and  "
+            "    tckin_pax_grp.seg_no = 1 and tckin_pax_grp.transit_num=0 AND "
             "    pax_grp.grp_id = pax.grp_id ",
             QParams() << QParam("point_id", otInteger, point_id));
     selQry.get().Execute();

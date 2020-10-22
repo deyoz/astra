@@ -17,9 +17,7 @@ include(ts/macro.ts)
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult МОВРОМ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
 
 $(init_apps ЮТ ЦЗ APPS_21 closeout=true inbound=true outbound=false)
 
@@ -42,7 +40,7 @@ $(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
 !!
 $(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII 2986145115578 ВЗ UA FA144642 UA 16.04.1968 25.06.2025 M)
 
-$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 100000
+$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
 P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N N)
 
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
@@ -62,14 +60,14 @@ $(CANCEL_PAX $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point
 
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PCX/20/1/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
+.*CICX:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PCX/20/1/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
 
 # регистрация члена экипажа
 
 $(CHECKIN_CREW $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ VOLODIN SEMEN ВЗ RUS 2124134 RUS 11.05.1978 15.05.2025 M)
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PRQ/22/1/C/RUS/RUS/2124134//P/20250515////VOLODIN/SEMEN/19780511/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PRQ/22/1/C/RUS/RUS/2124134//P/20250515////VOLODIN/SEMEN/19780511/M///N/N////.*
 
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
 CIRS:$(capture 1)/PRS/27/001/CZ/C/RUS/RUS/2124134//P/20250515////VOLODIN/SEMEN/19780511/M///8501/B/10////////
@@ -84,7 +82,7 @@ $(set tid $(get_single_tid $(get point_dep) VOLODIN SEMEN))
 $(CANCEL_CHECKIN_CREW $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ VOLODIN SEMEN ВЗ)
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PCX/20/1/10/C/RUS/RUS/2124134//P/20250515////VOLODIN/SEMEN/19780511/M///N/N/.*
+.*CICX:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PCX/20/1/10/C/RUS/RUS/2124134//P/20250515////VOLODIN/SEMEN/19780511/M///N/N/.*
 
 
 # закрытие рейса. По настройке APPS должен уйти CIMR
@@ -115,9 +113,7 @@ $(WRITE_DESTS $(get point_dep) $(get point_arv) $(get move_id) ЮТ 298 СОЧ ПРХ
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult МОВРОМ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
 
 $(init_apps ЮТ ЦЗ APPS_21 closeout=false inbound=true outbound=false)
 
@@ -138,7 +134,6 @@ $(run_trip_task send_apps $(get point_dep))
 
 # уходят CIRQ-запросы
 $(CIRQ_61_UT_REQS_APPS_VERSION_21 UT 298 AER PRG)
-
 # Эмулируем приход нескольких apps-ответов:
 
 # по пассажиру KURGINSKAYA/ANNA GRIGOREVNA
@@ -178,12 +173,12 @@ CIRS:$(get msg_id38)/PRS/27/001/CZ/////////////////8502/D////////
 $(set pax_id_TUMALI $(get_pax_id $(get point_dep) TUMALI VALERII))
 
 !!
-$(CHECKIN_PAX $(get pax_id_TUMALI) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII 2986145115578 ВЗ UA FA144642 UA 16.04.1968 25.06.2025 M)
+$(CHECKIN_PAX $(get pax_id_TUMALI) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII 2986145115578 ВЗ UA FA144642 UA 16.04.1968 $(date_format %d.%m.%Y +1y) M)
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PCX/20/1/3/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
+.*CICX:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PCX/20/1/3/P/UKR/UKR/FA144642//P/$(yyyymmdd +1y)////TUMALI/VALERII/19680416/M///N/N/.*
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PRQ/22/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PRQ/22/1/P/UKR/UKR/FA144642//P/$(yyyymmdd +1y)////TUMALI/VALERII/19680416/M///N/N////.*
 
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
 CIRS:$(capture 1)/PRS/27/001/CZ/P/UA/UA/FA144642//P//20250625////TUMALI/VALERII/19680416/U//8509/X/////////
@@ -195,12 +190,12 @@ CIRS:$(capture 1)/PRS/27/001/CZ/P/UA/UA/FA144642//P//20250625////TUMALI/VALERII/
 $(set pax_id_SELIVANOV $(get_pax_id $(get point_dep) SELIVANOV "RUSLAN NAILYEVICH MR"))
 
 !!
-$(CHECKIN_PAX $(get pax_id_SELIVANOV) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ SELIVANOV "RUSLAN NAILYEVICH" 2985085963078 ВЗ UA 12342131 UA 23.09.1983 20.12.2025 M)
+$(CHECKIN_PAX $(get pax_id_SELIVANOV) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ SELIVANOV "RUSLAN NAILYEVICH" 2985085963078 ВЗ UA 12342131 UA 23.09.1983 $(date_format %d.%m.%Y +1y) M)
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PCX/20/1/2/P/RUS/RUS/9205589611//P/20251220////SELIVANOV/RUSLAN NAILYEVICH/19830923/M///N/N/.*
+.*CICX:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PCX/20/1/2/P/RUS/RUS/9205589611//P/$(yyyymmdd +1y)////SELIVANOV/RUSLAN NAILYEVICH/19830923/M///N/N/.*
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PRQ/22/1/P/UKR/UKR/12342131//P/20251220////SELIVANOV/RUSLAN NAILYEVICH/19830923/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PRQ/22/1/P/UKR/UKR/12342131//P/$(yyyymmdd +1y)////SELIVANOV/RUSLAN NAILYEVICH/19830923/M///N/N////.*
 
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
 CIRS:$(capture 1)/PRS/27/001/CZ/P/RU/RU/9205589611//P//20251220////SELIVANOV/RUSLAN NAILYEVICH/19830923/M//8502/D/////////
@@ -219,10 +214,10 @@ $(INB_ADL_UT_DEL2PAXES AER PRG 298 $(ddmon +0 en))
 $(run_trip_task send_apps $(get point_dep))
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PCX/20/1/4/P/KAZ/KAZ/N11024936//P/20261004////ALIMOV/TALGAT/19960511/M///N/N/.*
+.*CICX:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PCX/20/1/4/P/KAZ/KAZ/N11024936//P/$(yyyymmdd +1y)////ALIMOV/TALGAT/19960511/M///N/N/.*
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PCX/20/1/5/P/KAZ/KAZ/N07298275//P/20210329////KHASSENOVA/ZULFIYA/19741106/F///N/N/.*
+.*CICX:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PCX/20/1/5/P/KAZ/KAZ/N07298275//P/$(yyyymmdd +1y)////KHASSENOVA/ZULFIYA/19741106/F///N/N/.*
 
 # приходит ADL с изменением данных по одному пассажиру
 $(INB_ADL_UT_CHG1PAX AER PRG 298 $(ddmon +0 en))
@@ -234,10 +229,10 @@ $(run_trip_task send_apps $(get point_dep))
 # ранее по этому пассажиру!!!
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PCX/20/1/1/P/RUS/RUS/0319189298//P/20201008////KURGINSKAYA/ANNA GRIGOREVNA/19870602/F///N/N/.*
+.*CICX:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PCX/20/1/1/P/RUS/RUS/0319189298//P/$(yyyymmdd +1y)////KURGINSKAYA/ANNA GRIGOREVNA/19870602/F///N/N/.*
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PRQ/22/1/P/RUS/RUS/0319189297//P/20201008////KURGINSKAYA/ANNA GRIGOREVNA/19870602/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PRQ/22/1/P/RUS/RUS/0319189297//P/$(yyyymmdd +1y)////KURGINSKAYA/ANNA GRIGOREVNA/19870602/F///N/N////.*
 
 
 # закрытие рейса. По настройке APPS НЕ должен уходить CIMR
@@ -265,9 +260,7 @@ $(WRITE_DESTS $(get point_dep) $(get point_arv) $(get move_id) ЮТ 298 СОЧ ПРХ
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult МОВРОМ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
 
 $(init_apps ЮТ ЦЗ APPS_21 inbound=true outbound=false)
 
@@ -305,9 +298,7 @@ $(CIRQ_61_UT_REQS_APPS_VERSION_21 UT 298 AER PRG)
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult МОВРОМ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
 
 $(init_apps ЮТ ЦЗ APPS_21 closeout=true inbound=false outbound=false)
 
@@ -374,9 +365,7 @@ $(WRITE_DESTS $(get point_dep) $(get point_arv) $(get move_id) ЮТ 298 СОЧ ПРХ
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult МОВРОМ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
 
 $(init_apps ЮТ ЦЗ APPS_21 closeout=false inbound=false outbound=false)
 
@@ -488,6 +477,7 @@ $(check_flight_tasks $(get point_dep))
 >>
 EMD_REFRESH
 SYNC_ALL_CHKD
+CHECK_ALARM
 $()
 
 
@@ -503,6 +493,7 @@ $(check_flight_tasks $(get point_dep))
 >>
 EMD_REFRESH
 SYNC_ALL_CHKD
+CHECK_ALARM
 $()
 
 $(run_trip_task send_apps $(get point_dep) "uncheck")
@@ -542,9 +533,7 @@ $(WRITE_DESTS $(get point_dep) $(get point_arv) $(get move_id) ЮТ 298 СОЧ ПРХ
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult МОВРОМ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
 
 $(init_apps ЮТ ЦЗ APPS_21 inbound=false outbound=false)
 
@@ -581,9 +570,7 @@ $(run_trip_task send_all_apps $(get point_dep) "uncheck")
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult МОВРОМ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
 
 $(init_apps ЮТ ЦЗ APPS_21 closeout=true inbound=true outbound=false)
 
@@ -610,7 +597,7 @@ $(set pax_id_MYPASSENGER $(get_pax_id $(get point_dep) TUMALI VALERII))
 !!
 $(CHECKIN_PAX $(get pax_id_MYPASSENGER) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII 2986145115578 ВЗ UA FA144642 UA 16.04.1968 25.06.2025 M)
 
-$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 100000
+$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
           P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N N)
 
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
@@ -637,7 +624,7 @@ $(CANCEL_PAX $(get pax_id_MYPASSENGER) $(get grp_id) $(get tid) $(get point_dep)
 
 # Не пойдет CICX APPS
 # >> lines=auto mode=regex
-# .*CICX:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PCX/20/1/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
+# .*CICX:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PCX/20/1/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
 
 # Проверяем есть ли в базе алармы для пассжира. Не должно быть ничего после удаления
 ??
@@ -665,9 +652,7 @@ $()
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult МОВРОМ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
 
 $(init_apps ЮТ ЦЗ APPS_21 closeout=true inbound=true outbound=false)
 
@@ -694,7 +679,7 @@ $(set pax_id_MYPASSENGER $(get_pax_id $(get point_dep) TUMALI VALERII))
 !!
 $(CHECKIN_PAX $(get pax_id_MYPASSENGER) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII 2986145115578 ВЗ UA FA144642 UA 16.04.1968 25.06.2025 M)
 
-$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 100000
+$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
           P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N N)
 
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
@@ -721,7 +706,7 @@ $(CANCEL_PAX $(get pax_id_MYPASSENGER) $(get grp_id) $(get tid) $(get point_dep)
 
 # Не пойдет CICX APPS
 #>> lines=auto mode=regex
-#.*CICX:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PCX/20/1/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
+#.*CICX:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PCX/20/1/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
 
 # Проверяем есть ли в базе алармы для пассжира. Не должно быть ничего после удаления во втором case
 ??
@@ -750,9 +735,7 @@ $()
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult МОВРОМ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
 
 $(init_apps ЮТ ЦЗ APPS_21 closeout=true inbound=true outbound=false)
 
@@ -779,7 +762,7 @@ $(set pax_id_MYPASSENGER $(get_pax_id $(get point_dep) TUMALI VALERII))
 !!
 $(CHECKIN_PAX $(get pax_id_MYPASSENGER) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII 2986145115578 ВЗ UA FA144642 UA 16.04.1968 25.06.2025 M)
 
-$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 100000
+$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
           P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N N)
 
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
@@ -804,7 +787,7 @@ $(set tid $(get_single_tid $(get point_dep) TUMALI VALERII))
 $(CANCEL_PAX $(get pax_id_MYPASSENGER) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII 2986145115578 ВЗ)
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PCX/20/1/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
+.*CICX:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PCX/20/1/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
 
 # Проверяем есть ли в базе алармы для пассжира. Не должно быть ничего после удаления во втором case
 ??
@@ -825,16 +808,13 @@ $()
 #
 #   После PNL CIRQ получаем два ответа со статусами B и P
 #   В случае B - Update(CICX,CIRQ) в случае P(U,E,T..)- New(CIRQ)
-#   Это третий кейс для функции typeOfAction проверка update
 ###
 #########################################################################################
 
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult МОВРОМ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
 
 $(init_apps ЮТ ЦЗ APPS_21 closeout=true inbound=true outbound=false)
 
@@ -857,7 +837,6 @@ $(CIRQ_61_UT_REQS_APPS_VERSION_21 UT 298 AER PRG)
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
 CIRS:$(get msg_id16)/PRS/27/001/CZ/P/UKR/UKR/FA144642//P//20250625////TUMALI/VALERII/19680416/M//8501/B/1/////////
 
-
 $(set pax_id_MYPASSENGER $(get_pax_id $(get point_dep) TUMALI VALERII))
 
 # Меняем паспорт чтобы is_the_same был false.Хотя в этом случае он итак false, потому что поле pre_checkin после PNL
@@ -865,20 +844,19 @@ $(set pax_id_MYPASSENGER $(get_pax_id $(get point_dep) TUMALI VALERII))
 $(CHECKIN_PAX $(get pax_id_MYPASSENGER) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII 2986145115578 ВЗ UA FA144500 UA 16.04.1968 25.06.2025 M)
 
 #отмена идет с флагом precheckin P потому что предыдущий CIRQ был отправлен при обработке PNL
-$(CICX_21 P UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 100000
-          1 P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N N)
+$(CICX_21 P UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
+          1 P UKR UKR FA144642 P $(yyyymmdd +1y) TUMALI VALERII 19680416 M N N)
 $(set cicx_msg_id $(capture 1))
 
-$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 100000
+$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
           P UKR UKR FA144500 P 20250625 TUMALI VALERII 19680416 M N N)
 $(set cirq_msg_id $(capture 1))
 
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
-CICC:$(get cicx_msg_id)/PCC/26/001/CZ/P/UKR/UKR/FA144642//P//20250625////TUMALI/VALERII/19680416/M//8505/C///////
+CICC:$(get cicx_msg_id)/PCC/26/001/CZ/P/UKR/UKR/FA144642//P//$(yyyymmdd +1y)////TUMALI/VALERII/19680416/M//8505/C///////
 
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
-CIRS:$(get cirq_msg_id)/PRS/27/001/CZ/P/UKR/UKR/FA144500//P//20250625////TUMALI/VALERII/19680416/M//8507/U/1/////////
-
+CIRS:$(get cirq_msg_id)/PRS/27/001/CZ/P/UKR/UKR/FA144500//P//$(yyyymmdd +1y)////TUMALI/VALERII/19680416/M//8507/U/1/////////
 
 $(set grp_id $(get_single_grp_id $(get point_dep) TUMALI VALERII))
 $(set pax_id $(get_single_pax_id $(get point_dep) TUMALI VALERII))
@@ -887,7 +865,7 @@ $(set tid    $(get_single_tid    $(get point_dep) TUMALI VALERII))
 !!
 $(UPDATE_PAX_PASSPORT $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII 2986145115578 ВЗ UA FA144777 UA 16.04.1968 25.06.2025 M)
 
-$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 100000
+$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
           P UKR UKR FA144777 P 20250625 TUMALI VALERII 19680416 M N N)
 
 
@@ -908,9 +886,7 @@ $(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 100000
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult МОВРОМ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
 
 $(init_apps ЮТ ЦЗ APPS_21 closeout=true inbound=true outbound=false)
 
@@ -979,9 +955,7 @@ $()
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult МОВРОМ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
 
 $(init_apps ЮТ ЦЗ APPS_21 closeout=false inbound=true outbound=false)
 
@@ -1016,10 +990,10 @@ CIRS:$(get msg_id3)/PRS/27/001/CZ/P/KZ/KZ/N07298275//P//20210329////KHASSENOVA/Z
 !!
 $(CHECKIN_PAX $(get pax_id_ALIMOV) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ ALIMOV TALGAT 2982425696898 ВЗ KZ N11024936 KZ 11.05.1996 04.10.2026 M)
 
-$(CICX_21 P UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 100000
-        1 P KAZ KAZ N11024936 P 20261004 ALIMOV TALGAT 19960511 M N N)
+$(CICX_21 P UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
+        1 P KAZ KAZ N11024936 P $(yyyymmdd +1y) ALIMOV TALGAT 19960511 M N N)
 
-$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 100000 P KAZ KAZ N11024936
+$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000 P KAZ KAZ N11024936
         P 20261004 ALIMOV TALGAT 19960511 M N N)
 
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
@@ -1036,7 +1010,7 @@ $(INB_ADL_UT_DEL2PAXES AER PRG 298 $(ddmon +0 en))
 $(run_trip_task send_apps $(get point_dep))
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PCX/20/1/5/P/KAZ/KAZ/N07298275//P/20210329////KHASSENOVA/ZULFIYA/19741106/F///N/N/.*
+.*CICX:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PCX/20/1/5/P/KAZ/KAZ/N07298275//P/$(yyyymmdd +1y)////KHASSENOVA/ZULFIYA/19741106/F///N/N/.*
 
 
 %%
@@ -1058,9 +1032,7 @@ $(run_trip_task send_apps $(get point_dep))
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult МОВРОМ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
 
 $(init_apps ЮТ ЦЗ APPS_21 closeout=false inbound=true outbound=false)
 
@@ -1096,10 +1068,10 @@ $(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUM
 
 # CICX не отправляется
 #>> lines=auto mode=regex
-#.*CICX:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PCX/20/1/3/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
+#.*CICX:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PCX/20/1/3/P/UKR/UKR/FA144642//P/$(yyyymmdd +1y)////TUMALI/VALERII/19680416/M///N/N/.*
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PRQ/22/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PRQ/22/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N////.*
 
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
 CIRS:$(capture 1)/PRS/27/001/CZ/P/UA/UA/FA144642//P//20250625////TUMALI/VALERII/19680416/U//8509/X/////////
@@ -1124,9 +1096,7 @@ CIRS:$(capture 1)/PRS/27/001/CZ/P/UA/UA/FA144642//P//20250625////TUMALI/VALERII/
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult МОВРОМ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
 
 $(init_apps ЮТ ЦЗ APPS_21 closeout=false inbound=true outbound=true)
 $(init_apps ЮТ НЛ APPS_21 closeout=false inbound=true outbound=true)
@@ -1164,35 +1134,36 @@ $(run_trip_task send_apps $(get point_dep_UT_298))
 # $(CIRQ_3_UT_REQS_APPS_VERSION_21_TRANSFER UT 298 AER PRG)
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PRQ/22/1/P/KAZ/KAZ/N11024936//P/20261004////ALIMOV/TALGAT/19960511/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PRQ/22/1/P/KAZ/KAZ/N11024936//P/20261004////ALIMOV/TALGAT/19960511/M///N/N////.*
 
 $(set msg_id2 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PRQ/22/1/P/RUS/RUS/0306355301//P/20291005////KOBYLINSKIY/ALEKSEY/19861231/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PRQ/22/1/P/RUS/RUS/0306355301//P/20291005////KOBYLINSKIY/ALEKSEY/19861231/M///N/N////.*
 
 $(set msg_id10 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PRQ/22/1/P/////P/////OZ/OFER//U///N/Y////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PRQ/22/1/P/////P/////OZ/OFER//U///N/Y////.*
 
 $(set msg_id11 $(capture 1))
 
+#$(dump_table APPS_PAX_DATA fields="pax_id, apps_pax_id, cirq_msg_id, cicx_msg_id, family_name")
 
 $(run_trip_task send_apps $(get point_dep_UT_190))
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT190/PRG/AMS/$(yyyymmdd)/081500/$(yyyymmdd)/100000/PRQ/22/1/P/////P/////OZ/OFER//U///N/Y////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT190/PRG/AMS/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PRQ/22/1/P/////P/////OZ/OFER//U///N/Y////.*
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT190/PRG/AMS/$(yyyymmdd)/081500/$(yyyymmdd)/100000/PRQ/22/1/P/////P/////OZ/OFER//U///N/Y////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT190/PRG/AMS/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PRQ/22/1/P/////P/////OZ/OFER//U///N/Y////.*
 
 $(run_trip_task send_apps $(get point_dep_UT_450))
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT450/AMS/LHR/$(yyyymmdd)/081500/$(yyyymmdd)/090000/PRQ/22/1/P/////P/////OZ/OFER//U///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT450/AMS/LHR/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/0[0-9]?0000/PRQ/22/1/P/////P/////OZ/OFER//U///N/N////.*
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT450/AMS/LHR/$(yyyymmdd)/081500/$(yyyymmdd)/090000/PRQ/22/1/P/////P/////OZ/OFER//U///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT450/AMS/LHR/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/0[0-9]?0000/PRQ/22/1/P/////P/////OZ/OFER//U///N/N////.*
 
 # >> lines=auto mode=regex
-#.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PRQ/22/1/P/RUS/RUS/9205589611//P/20251220////SELIVANOV/RUSLAN NAILYEVICH/19830923/M///N/Y////.*
+#.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/1[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PRQ/22/1/P/RUS/RUS/9205589611//P/20251220////SELIVANOV/RUSLAN NAILYEVICH/19830923/M///N/Y////.*
 
 $(set msg_id13 $(capture 1))
 
@@ -1230,9 +1201,7 @@ $(set msg_id13 $(capture 1))
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult МОВРОМ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
 
 $(init_apps ЮТ ЦЗ APPS_21 closeout=false inbound=true outbound=true)
 $(init_apps ЮТ НЛ APPS_21 closeout=false inbound=true outbound=true)
@@ -1279,23 +1248,23 @@ $(CHECKIN_PAX_TRANSFER $(get pax_id1) $(get point_dep_UT_298) $(get point_arv_UT
 
 
 # отправка apps для рейса 298 в чехию , флаг трансфера Y в DEST.
-$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 100000
+$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
 P UKR UKR 32427293 P 20250625 OZ OFER 19680416 M N Y)
 
 # отправка apps для рейса 190 в чехию , флаг трансфера Y в DEST и ORIG.
-$(CIRQ_21 "" UT 190 PRG AMS $(yyyymmdd) 081500 $(yyyymmdd) 100000
+$(CIRQ_21 "" UT 190 PRG AMS $(yyyymmdd) 0[0-9]?1500 $(yyyymmdd) 1[0-9]?0000
 P UKR UKR 32427293 P 20250625 OZ OFER 19680416 M Y Y "CHK/2/AER/UT298/")
 
 # отправка apps для рейса 190 в голландию , флаг трансфера Y в DEST и ORIG.
-$(CIRQ_21 "" UT 190 PRG AMS $(yyyymmdd) 081500 $(yyyymmdd) 100000
+$(CIRQ_21 "" UT 190 PRG AMS $(yyyymmdd) 0[0-9]?1500 $(yyyymmdd) 1[0-9]?0000
 P UKR UKR 32427293 P 20250625 OZ OFER 19680416 M Y Y "CHK/2/AER/UT298/")
 
 # отправка apps для рейса 450 в голландию , флаг трансфера Y ORIG.
-$(CIRQ_21 "" UT 450 AMS LHR $(yyyymmdd) 081500 $(yyyymmdd) 090000
+$(CIRQ_21 "" UT 450 AMS LHR $(yyyymmdd) 0[0-9]?1500 $(yyyymmdd) 090000
 P UKR UKR 32427293 P 20250625 OZ OFER 19680416 M Y N "CHK/2/AER/UT298/")
 
 # отправка apps для рейса 450 в англию , флаг трансфера Y в ORIG.
-$(CIRQ_21 "" UT 450 AMS LHR $(yyyymmdd) 081500 $(yyyymmdd) 090000
+$(CIRQ_21 "" UT 450 AMS LHR $(yyyymmdd) 0[0-9]?1500 $(yyyymmdd) 090000
 P UKR UKR 32427293 P 20250625 OZ OFER 19680416 M Y N "CHK/2/AER/UT298/")
 
 # << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
@@ -1316,7 +1285,7 @@ P UKR UKR 32427293 P 20250625 OZ OFER 19680416 M Y N "CHK/2/AER/UT298/")
 
 
 # >> lines=auto mode=regex
-# .*CICX:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PCX/20/1/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
+# .*CICX:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/1[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PCX/20/1/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
 
 
 
@@ -1330,17 +1299,14 @@ P UKR UKR 32427293 P 20250625 OZ OFER 19680416 M Y N "CHK/2/AER/UT298/")
 #             интерактив: вкл(Идут дополнительно запросы в сэб)
 #            версия apps: 21
 #
-#   APPS-запрос на посадку ОДНОГО пассажира уходит во время регистрации
-#   APPS-запрос на отмену ОДНОГО пассажира уходит при отмене регистрации
 ###
 #########################################################################################
 
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult МОВРОМ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
+
 $(init_eds ЮТ UTET UTDC)
 
 $(init_apps ЮТ ЦЗ APPS_21 closeout=true)
@@ -1382,7 +1348,7 @@ $(lastRedisplay)
 
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PRQ/22/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PRQ/22/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N////.*
 
 
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
@@ -1413,7 +1379,7 @@ $(TKCRES_ET_COS UTET UTDC $(last_edifact_ref) 2986145115578 1 I)
 $(lastRedisplay)
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PCX/20/1/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
+.*CICX:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PCX/20/1/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
 
 
 %%
@@ -1432,9 +1398,7 @@ $(lastRedisplay)
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult МОВРОМ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
 
 $(init_apps ЮТ ЦЗ APPS_21 closeout=true inbound=true outbound=false )
 
@@ -1457,13 +1421,14 @@ $(set move_id $(get_move_id $(get point_dep)))
 $(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
 $(set pax_id_ALIMOV $(get_pax_id $(get point_dep) ALIMOV TALGAT))
 $(set pax_id_ANNA $(get_pax_id $(get point_dep) KURGINSKAYA "ANNA GRIGOREVNA"))
+$(set pax_id_SELIVANOV $(get_pax_id $(get point_dep) SELIVANOV "RUSLAN NAILYEVICH MR"))
 
 ##----------------------------------------------------------------------------------
 # Первый пассажир зареган, поэтому по нему при отмене рейса отправится CICX
 !!
 $(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII 2986145115578 ВЗ UA FA144642 UA 16.04.1968 25.06.2025 M)
 
-$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 100000
+$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
 P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N N)
 
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
@@ -1475,7 +1440,7 @@ CIRS:$(capture 1)/PRS/27/001/CZ/P/UKR/UKR/FA144642//P//20250625////TUMALI/VALERI
 !!
 $(CHECKIN_PAX $(get pax_id_ALIMOV) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ ALIMOV TALGAT 2982425696898 ВЗ KZ N11024936 KZ 11.05.1996 04.10.2026 M)
 
-$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 100000
+$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
 P KAZ KAZ N11024936 P 20261004 ALIMOV TALGAT 19960511 M N N)
 
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
@@ -1488,7 +1453,7 @@ CIRS:$(capture 1)/PRS/27/001/CZ/P/KAZ/KAZ/N11024936//P//20261004////ALIMOV/TALGA
 !!
 $(CHECKIN_PAX $(get pax_id_ANNA) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ KURGINSKAYA "ANNA GRIGOREVNA" 2982425690987 ВЗ UA 12342131 UA 23.09.1983 20.12.2025 M)
 
-$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 100000
+$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
 P UKR UKR 12342131 P 20251220 KURGINSKAYA "ANNA GRIGOREVNA" 19830923 M N N)
 
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
@@ -1501,13 +1466,43 @@ $(set tid $(get_single_tid $(get point_dep) KURGINSKAYA "ANNA GRIGOREVNA"))
 $(CANCEL_PAX $(get pax_id_ANNA) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv)
     ЮТ 298 СОЧ ПРХ KURGINSKAYA "ANNA GRIGOREVNA" 2982425690987 ВЗ)
 
-$(CICX_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 100000
+$(CICX_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
        3 P UKR UKR 12342131 P 20251220 KURGINSKAYA "ANNA GRIGOREVNA" 19830923 M N N)
 
 
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
 CICC:$(capture 1)/PCC/26/001/CZ/P/UKR/UKR/12342131//P//20251220////KURGINSKAYA/ANNA GRIGOREVNA/19830923/M//8506/D///////
 
+#-----------------------------------------------------------------------------------------
+
+# 4 Пассажир зареган по нему пришел ответ, потом апдейтим его же, по нему приходит ответ 2 раз
+# В таблице APPS_PAX_DATA должно быть две записи по 1му пассажиру
+# По ним должна отправиться отмена?
+
+!!
+$(CHECKIN_PAX $(get pax_id_SELIVANOV) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ SELIVANOV "RUSLAN NAILYEVICH" 2985085963078 ВЗ RU 9205589611 RU 23.09.1983 20.12.2025 M)
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PRQ/22/1/P/RUS/RUS/9205589611//P/20251220////SELIVANOV/RUSLAN NAILYEVICH/19830923/M///N/N////.*
+
+<< h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
+CIRS:$(capture 1)/PRS/27/001/CZ/P/RU/RU/9205589611//P//20251220////SELIVANOV/RUSLAN NAILYEVICH/19830923/M//8501/B/3////////
+
+$(set grp_id $(get_single_grp_id $(get point_dep) SELIVANOV "RUSLAN NAILYEVICH"))
+$(set tid    $(get_single_tid    $(get point_dep) SELIVANOV "RUSLAN NAILYEVICH"))
+
+
+# изменили документ
+!!
+$(UPDATE_PAX_PASSPORT $(get pax_id_SELIVANOV) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ SELIVANOV "RUSLAN NAILYEVICH" 2985085963078 ВЗ UA FA144777 UA 16.04.1968 25.06.2025 M)
+
+>> lines=auto mode=regex
+.*CICX:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PCX/20/1/3/P/RUS/RUS/9205589611//P/20251220////SELIVANOV/RUSLAN NAILYEVICH/19830923/M///N/N/.*
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PRQ/22/1/P/UKR/UKR/FA144777//P/20250625////SELIVANOV/RUSLAN NAILYEVICH/19680416/M///N/N////.*
+
+<< h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
+CIRS:$(capture 1)/PRS/27/001/CZ/P/UKR/UKR/FA144777//P//20250625////SELIVANOV/RUSLAN NAILYEVICH/19680416/M//8501/B/4////////
 
 #---------------------------------------------------------------------------------------
 
@@ -1524,9 +1519,12 @@ $(WRITE_DESTS $(get point_dep) $(get point_arv) $(get move_id) ЮТ 298 СОЧ ПРХ
               $(date_format %d.%m.%Y) 10:15:00
               $(date_format %d.%m.%Y) 11:00:00)
 
-# Отправляется отмена непосаженного пассажира
-$(CICX_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 100000
+# Отправляется отмена непосаженных пассажира
+$(CICX_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
        1 P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N N)
+
+$(CICX_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
+        4 P UKR UKR FA144777 P 20250625 SELIVANOV "RUSLAN NAILYEVICH" 19680416 M N N)
 
 >> lines=auto mode=regex
 .*CIMR:([0-9]+)/UTUTA1/21/INM/3/UT298/AER/$(yyyymmdd)/MRQ/3/CZ/C/C/.*
@@ -1549,9 +1547,7 @@ $(CICX_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 100000
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult МОВРОМ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
 
 $(init_apps ЮТ ЦЗ APPS_21 closeout=false inbound=true outbound=false pre_checkin=false)
 
@@ -1587,9 +1583,7 @@ $(run_trip_task send_apps $(get point_dep))
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult МОВРОМ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
 
 $(init_apps ЮТ ЦЗ APPS_21 closeout=true inbound=true outbound=true)
 $(init_apps ЮТ НЛ APPS_21 closeout=false inbound=false outbound=false)
@@ -1617,7 +1611,7 @@ $(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUM
 
 ### По сертификации SITA потребовала выставлять трансферный флаг DEST в транзитных рейсах
 
-$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 130000
+$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 1[0-9]?1500 $(yyyymmdd) 1[0-9]?0000
 P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N Y)
 
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
@@ -1636,7 +1630,7 @@ $(set tid $(get_single_tid $(get point_dep) TUMALI VALERII))
 $(CANCEL_PAX $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII 2986145115578 ВЗ)
 
 
-$(CICX_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 130000
+$(CICX_21 "" UT 298 AER PRG $(yyyymmdd) 1[0-9]?1500 $(yyyymmdd) 1[0-9]?0000
           1 P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N Y)
 
 # закрытие рейса. По настройке APPS должен уйти CIMR
@@ -1665,9 +1659,7 @@ $(WRITE_DESTS $(get point_dep) $(get point_arv) $(get move_id) ЮТ 298 СОЧ ПРХ
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult МОВРОМ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
 
 $(init_apps ЮТ ЦЗ APPS_21 closeout=true inbound=true outbound=true)
 
@@ -1727,9 +1719,7 @@ $()
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult МОВРОМ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
 
 $(init_apps ЮТ РФ APPS_21 closeout=false inbound=true outbound=true)
 
@@ -1758,7 +1748,7 @@ $(run_trip_task send_apps $(get point_dep) "uncheck")
 #             интерактив: выкл
 #            версия apps: 21
 #
-#   Задача не должна выставляться, если  дата pnl не удовлетворяет условию ( data-2 < now - data)
+#   Задача не должна выставляться, если  дата pnl не удовлетворяет условию ( now - data > 2)
 #   Если дата пришедешего полета в будущем , то задача всегда выставляется
 ###
 #########################################################################################
@@ -1766,9 +1756,7 @@ $(run_trip_task send_apps $(get point_dep) "uncheck")
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult МОВРОМ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
 
 ################################################################################
 #Заводим настройки для стран обоих рейсов
@@ -1787,7 +1775,7 @@ $(INB_PNL_UT AMS PRG 300 $(ddmon -2 en))
 $(set point_dep $(last_point_id_spp))
 
 
-# Проверяем есть ли в базе задачи для полета. Не должен быть
+# Проверяем есть ли в базе задачи для полета. Не должны быть
 ??
 $(check_flight_tasks $(get point_dep))
 >>
@@ -1803,7 +1791,7 @@ $(deny_ets_interactive ЮТ 100 АМС)
 
 $(set point_dep $(last_point_id_spp))
 
-# Проверяем есть ли в базе задачи для полета. Не должен быть
+# Проверяем есть ли в базе задачи для полета.
 ??
 $(check_flight_tasks $(get point_dep))
 >>
@@ -1821,7 +1809,7 @@ $(INB_PNL_UT PRG AMS 200 $(ddmon +11 en))
 
 $(set point_dep $(last_point_id_spp))
 
-# Проверяем есть ли в базе задачи для полета. Не должен быть
+# Проверяем есть ли в базе задачи для полета.
 ??
 $(check_flight_tasks $(get point_dep))
 >>
@@ -1848,10 +1836,7 @@ $()
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult МОВРОМ)
-$(set_desk_version 201707-0195750)
-$(login)
-
+$(init_term)
 
 # Настроек нету
 # $(init_apps ЮТ ЦЗ APPS_21 closeout=true inbound=true outbound=true)
@@ -1944,9 +1929,7 @@ SEND_NEW_APPS_INFO
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult МОВРОМ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
 
 $(init_apps ЮТ ЦЗ APPS_21 closeout=true inbound=true outbound=true)
 
@@ -1968,7 +1951,7 @@ $(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
 !!
 $(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII 2986145115578 ВЗ UA FA144642 UA 16.04.1968 25.06.2025 M)
 
-$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 100000
+$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
 P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N N)
 
 $(set tid $(get_single_tid $(get point_dep) TUMALI VALERII))
@@ -1983,10 +1966,169 @@ CIRS:$(capture 1)/PRS/27/001/CZ/P/UA/UA/FA144642//P//20250625////TUMALI/VALERII/
 $(UPDATE_PAX_ON_BOARDING $(get pax_id) $(get point_dep) $(get tid) RUS FA144643 UA 16.04.1968 25.06.2025 M TUMALI VALERII)
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PCX/20/1/3/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
+.*CICX:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PCX/20/1/3/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/100000/PRQ/22/1/P/UKR/RUS/FA144643//P/20250625////TUMALI/VALERII/19680416/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PRQ/22/1/P/UKR/RUS/FA144643//P/20250625////TUMALI/VALERII/19680416/M///N/N////.*
 
 #####################################################################
+
+#################################
+
+%%
+###
+#   Тест №25
+#
+#   Описание: пассажиров: 61,
+#             интерактив: выкл
+#            версия apps: 21
+#
+#   Проверка перепосылки сообщения
+###
+#########################################################################################
+
+$(settcl APPS_H2H_ADDR APTXS)
+$(settcl APPS_ROT_NAME APPGT)
+
+$(init_term)
+
+$(init_apps ЮТ ЦЗ APPS_21 closeout=true inbound=true outbound=true)
+
+$(PREPARE_SEASON_SCD ЮТ СОЧ ПРХ 298)
+$(make_spp)
+$(deny_ets_interactive ЮТ 298 СОЧ)
+
+$(INB_PNL_UT AER PRG 298 $(ddmon +0 en))
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+
+$(combine_brd_with_reg $(get point_dep))
+$(auto_set_craft $(get point_dep))
+
+$(set move_id $(get_move_id $(get point_dep)))
+$(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
+
+!!
+$(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII 2986145115578 ВЗ UA FA144642 UA 16.04.1968 25.06.2025 M)
+
+$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
+P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N N)
+
+$(set msg_id1 $(capture 1))
+$(set tid $(get_single_tid $(get point_dep) TUMALI VALERII))
+
+# Не должна произойти перепосылка потому что прошло менее 10 секунд без ответа
+$(update_msg $(get msg_id1) 5 2)
+$(resend)
+
+# Должна произойти перепосылка потому что прошло более 10 секунд без ответа
+$(update_msg $(get msg_id1) 15 2)
+$(resend)
+
+$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
+P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N N)
+
+#Должна происходить перепосылка и выставляется ALARM::APPSOutage , потому что количество отправок равно 5
+$(update_msg $(get msg_id1) 20 6)
+$(resend)
+
+
+$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
+P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N N)
+
+??
+$(check_trip_alarms $(get point_dep))
+>>
+APPS_OUTAGE
+$()
+
+#Не должна происходить перепосылка , потому что количество отправок равно 99
+$(update_msg $(get msg_id1) 30 99)
+$(resend)
+
+#####################################################################
+%%
+###
+#   Тест №26
+#
+#   Описание: пассажиров: 61,
+#             интерактив: выкл
+#            версия apps: 21
+#
+#   APPS-запрос на посадку ОДНОГО пассажира уходит во время регистрации
+#   APPS-запрос перепосылается для того же пассажира, когда есть ремарка OVRG
+###
+#########################################################################################
+
+$(settcl APPS_H2H_ADDR APTXS)
+$(settcl APPS_ROT_NAME APPGT)
+
+$(init_term)
+
+$(init_apps ЮТ ЦЗ APPS_21 closeout=true inbound=true outbound=false)
+
+$(PREPARE_SEASON_SCD ЮТ СОЧ ПРХ 298)
+$(make_spp)
+$(deny_ets_interactive ЮТ 298 СОЧ)
+
+$(INB_PNL_UT AER PRG 298 $(ddmon +0 en))
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+
+$(combine_brd_with_reg $(get point_dep))
+$(auto_set_craft $(get point_dep))
+
+$(set move_id $(get_move_id $(get point_dep)))
+
+$(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
+
+!!
+$(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII 2986145115578 ВЗ UA FA144642 UA 16.04.1968 25.06.2025 M)
+
+$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
+P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N N)
+
+<< h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
+CIRS:$(capture 1)/PRS/27/001/CZ/P/UKR/UKR/FA144642//P//20250625////TUMALI/VALERII/19680416/M//8507/U/1/////////
+
+$(set grp_id $(get_single_grp_id $(get point_dep) TUMALI VALERII))
+$(set pax_id $(get_single_pax_id $(get point_dep) TUMALI VALERII))
+$(set tid    $(get_single_tid    $(get point_dep) TUMALI VALERII))
+
+#Апдейт пассажира с измененными данными , ответ со статусом U
+!!
+$(UPDATE_PAX_PASSPORT $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII 2986145115578 ВЗ UA FA144777 UA 16.04.1968 25.06.2025 M)
+
+$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
+          P UKR UKR FA144777 P 20250625 TUMALI VALERII 19680416 M N N)
+
+<< h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
+CIRS:$(capture 1)/PRS/27/001/CZ/P/UKR/UKR/FA144777//P//20250625////TUMALI/VALERII/19680416/M//8507/U/1/////////
+
+$(set tid    $(get_single_tid    $(get point_dep) TUMALI VALERII))
+
+#Принудительная перепосылка apps по тому же пассажиру , ответ со статусом B
+!!
+$(UPDATE_PAX_REM $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII OVRG "OVRG AE")
+
+$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
+          P UKR UKR FA144777 P 20250625 TUMALI VALERII 19680416 M N N "" GAE)
+
+<< h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
+CIRS:$(capture 1)/PRS/27/001/CZ/P/UKR/UKR/FA144777//P//20250625////TUMALI/VALERII/19680416/M//8501/B/1/////////
+
+$(set tid    $(get_single_tid    $(get point_dep) TUMALI VALERII))
+
+#Принудительная перепосылка apps по тому же  пассажиру и изменением ремарки
+!!
+$(UPDATE_PAX_REM $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII OVRA "OVRA AE")
+
+
+$(CICX_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
+          1 P UKR UKR FA144777 P 20250625 TUMALI VALERII 19680416 M N N)
+
+$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
+          P UKR UKR FA144777 P 20250625 TUMALI VALERII 19680416 M N N "" AAE)
 

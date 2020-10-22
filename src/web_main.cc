@@ -19,7 +19,6 @@
 #include "comp_props.h"
 #include "passenger.h"
 #include "remarks.h"
-#include "sopp.h"
 #include "points.h"
 #include "stages.h"
 #include "astra_service.h"
@@ -45,7 +44,8 @@
 #include "ckin_search.h"
 #include "web_craft.h"
 #include "seatPax.h"
-
+#include "flt_settings.h"
+#include "baggage_calc.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/slogger.h"
@@ -710,10 +710,24 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
 struct TWebGrp {
   WebSearch::TFlightInfo flt;
+  boost::optional<CheckIn::Segment> segment;
+  bool transitBortChangingExists=false;
   TCompleteAPICheckInfo checkInfo;
   vector<TWebPax> paxs;
 
   TWebGrp(const WebSearch::TFlightInfo& _flt) : flt(_flt) {}
+
+  void fromDBadditional(const AirportCode_t& airpArv)
+  {
+    TPaxSegmentPair segmentPair(flt.oper.point_id, airpArv.get());
+    segment=CheckIn::Segment::fromDB(segmentPair.pointDep(),
+                                     AirportCode_t(flt.oper.airp),
+                                     {},
+                                     segmentPair.airpArv());
+    if (segment)
+      transitBortChangingExists=segment.get().transitBortChangingExists();
+    checkInfo.set(segmentPair);
+  }
 
   bool moreThanOnePersonWithSeat() const
   {
@@ -850,10 +864,11 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
           "       DECODE(pax.pax_id,NULL,crs_pax.seats,pax.seats) AS seats, "
           "       CASE WHEN pax.pax_id IS NULL THEN "+CheckIn::TSimplePaxItem::origClassFromCrsSQL()+" ELSE pax_grp.class END AS class, "
           "       CASE WHEN pax.pax_id IS NULL THEN "+CheckIn::TSimplePaxItem::origSubclassFromCrsSQL()+" ELSE pax.subclass END AS subclass, "
-          "       CASE WHEN pax.pax_id IS NULL THEN crs_pnr.class ELSE NVL(pax.cabin_class, pax_grp.class) END AS cabin_class, "
-          "       CASE WHEN pax.pax_id IS NULL THEN crs_pnr.subclass ELSE NVL(pax.cabin_subclass, pax.subclass) END AS cabin_subclass, "
+          "       CASE WHEN pax.pax_id IS NULL THEN "+CheckIn::TSimplePaxItem::cabinClassFromCrsSQL()+" ELSE NVL(pax.cabin_class, pax_grp.class) END AS cabin_class, "
+          "       CASE WHEN pax.pax_id IS NULL THEN "+CheckIn::TSimplePaxItem::cabinSubclassFromCrsSQL()+" ELSE NVL(pax.cabin_subclass, pax.subclass) END AS cabin_subclass, "
           "       DECODE(pax.pax_id,NULL,crs_pnr.airp_arv,pax_grp.airp_arv) AS airp_arv, "
           "       crs_pnr.status AS pnr_status, "
+          "       crs_pax.bag_norm AS crs_bag_norm, crs_pax.bag_norm_unit AS crs_bag_norm_unit, "
           "       crs_pnr.tid AS crs_pnr_tid, "
           "       crs_pax.tid AS crs_pax_tid, "
           "       pax_grp.tid AS pax_grp_tid, "
@@ -875,11 +890,12 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
       SeatQry.SetVariable("crs_row", 1);
       if (!Qry.Eof)
       {
+        fromDBadditional(AirportCode_t(Qry.FieldAsString("airp_arv")));
+
         TPnrAddrs pnr_addrs;
         pnr_addrs.getByPnrIdFast(pnr_id);
         TBrands brands; //здесь, чтобы кэшировались запросы
         boost::optional<TRemGrp> forbiddenRemGrp; //здесь чтобы кэшировалась TRemGrp.Load
-        checkInfo.set(flt.oper.point_id, Qry.FieldAsString("airp_arv"));
         for(;!Qry.Eof;Qry.Next())
         {
           TWebPax pax;
@@ -988,10 +1004,13 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
               pax.agent_checkin_reasons.insert("et_not_displayed");
             if (forbiddenRemExists(flt.oper, pax.rems_and_asvc, forbiddenRemGrp))
               pax.agent_checkin_reasons.insert("forbidden_rem_code");
+            if (transitBortChangingExists)
+              pax.agent_checkin_reasons.insert("transit_bort_changing");
 
             if (!pax.agent_checkin_reasons.empty())
               pax.checkin_status = "agent_checkin";
           }
+          pax.bagNorm=trueBagNorm(CheckIn::TSimplePaxItem::getCrsBagNorm<string>(Qry, "crs_bag_norm", "crs_bag_norm_unit"), pax.etick);
           pax.crs_pnr_tid = Qry.FieldAsInteger( "crs_pnr_tid" );
           pax.crs_pax_tid = Qry.FieldAsInteger( "crs_pax_tid" );
           if ( !Qry.FieldIsNULL( "pax_grp_tid" ) )
@@ -1272,14 +1291,14 @@ void TWebPax::toXML(xmlNodePtr paxParentNode, const TRemGrp& outputRemGrp) const
 
   brand.toWebXML( NewTextChild( paxNode, "brand" ), AstraLocale::OutputLang() );
 
-  if (!etick.empty())
+  if (bagNorm)
   {
-    if (etick.bag_norm==ASTRA::NoExists || etick.bag_norm==0)
-      NewTextChild( paxNode, "bag_norm", 0 );
-    else
-      SetProp(NewTextChild( paxNode, "bag_norm", etick.bag_norm ), "unit", etick.bag_norm_unit.get_db_form() );
+    xmlNodePtr bagNormNode=NewTextChild(paxNode, "bag_norm", bagNorm.get().getQuantity());
+    if (!bagNorm.get().zero())
+      SetProp(bagNormNode, "unit", TBagUnit(bagNorm.get().getUnit()).get_db_form());
   }
-  else NewTextChild( paxNode, "bag_norm" );
+  else
+    NewTextChild( paxNode, "bag_norm" );
 
   xmlNodePtr remsNode=nullptr;
   for(const CheckIn::TPaxRemItem& r : rems_and_asvc)
@@ -1391,9 +1410,9 @@ bool CreateEmulCkinDocForCHKD(int crs_pax_id,
     "SELECT crs_pnr.pnr_id, "
     "       crs_pnr.airp_arv, "+
     CheckIn::TSimplePaxItem::origSubclassFromCrsSQL()+" AS subclass, "+
-    CheckIn::TSimplePaxItem::origClassFromCrsSQL()+" AS class, "
-    "       crs_pnr.subclass AS cabin_subclass, "
-    "       crs_pnr.class AS cabin_class, "
+    CheckIn::TSimplePaxItem::origClassFromCrsSQL()+" AS class, "+
+    CheckIn::TSimplePaxItem::cabinSubclassFromCrsSQL()+" AS cabin_subclass, "+
+    CheckIn::TSimplePaxItem::cabinClassFromCrsSQL()+" AS cabin_class, "+
     "       NULL AS cabin_class_grp, "
     "       crs_pnr.status, "
     "       crs_pax.pax_id, "
@@ -1553,7 +1572,7 @@ static void VerifyPax(TWebPaxForSaveSegs &segs, const XMLDoc &emulDocHeader,
 
             if (!paxFromReq.refuse)
             {
-              //если <refuse>1</refuse>, то ничего не делаем с пассажтром
+              //если <refuse>1</refuse>, то ничего не делаем с пассажиром
               if (!is_valid_pnr_status(pax.status) ||
                   !is_valid_pax_status(s.point_id, pax.paxId()))
                 throw UserException("MSG.PASSENGER.CHECKIN_DENIAL");
@@ -1651,6 +1670,7 @@ static void VerifyPax(TWebPaxForSaveSegs &segs, const XMLDoc &emulDocHeader,
 
   if (!(is_test && is_test.get()))
   {
+    changeSeatsAndUpdateTids(segs);
     CreateEmulDocs(segs, multiPnrDataSegs, emulDocHeader, emulCkinDoc);
     CreateEmulDocs(segs, emulDocHeader, emulChngDocs);
   }
@@ -2626,7 +2646,7 @@ void WebRequestsIface::CheckFFP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   while ( reqffpNode!=NULL && string("ffp") == (const char*)reqffpNode->name ) {
     xmlNodePtr node = reqffpNode->children;
 
-    int pax_id=NodeAsIntegerFast( "crs_pax_id", node );
+    PaxId_t paxId(NodeAsIntegerFast( "crs_pax_id", node ));
 
     TElemFmt fmt;
     std::string airline = ElemToElemId( etAirline, NodeAsStringFast( "airline", node ), fmt );
@@ -2637,17 +2657,15 @@ void WebRequestsIface::CheckFFP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 
     CheckIn::Search search;
     CheckIn::TSimplePaxList paxs;
-    search(paxs, PaxIdFilter(pax_id));
+    search(paxs, PaxIdFilter(paxId));
     if (paxs.empty()) throw UserException( "MSG.PASSENGER.NOT_FOUND.REFRESH_DATA" );
 
     const CheckIn::TSimplePaxItem& pax=paxs.front();
     CheckIn::TPaxDocItem doc;
-    if (pax.grp_id==ASTRA::NoExists)
+    if (pax.origin()==paxPnl)
       CheckIn::LoadCrsPaxDoc(pax.id, doc);
     else
       CheckIn::LoadPaxDoc(pax.id, doc);
-
-
 
     SirenaExchange::TFFPInfoReq req;
     SirenaExchange::TFFPInfoRes res;
@@ -2657,7 +2675,7 @@ void WebRequestsIface::CheckFFP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 
     //формируем секцию в ответе
     xmlNodePtr resFfpNode = NewTextChild( ffpsNode, "ffp" );
-    NewTextChild( resFfpNode, "crs_pax_id", pax_id );
+    NewTextChild( resFfpNode, "crs_pax_id", paxId.get() );
     NewTextChild( resFfpNode, "airline", res.error()?req.company:res.company );
     NewTextChild( resFfpNode, "card_number", res.error()?req.card_number:res.card_number );
     NewTextChild( resFfpNode, "tier_level", res.status );
@@ -3430,7 +3448,7 @@ void fillPaxsSvcs(const TNotCheckedReqPassengers &req_pnrs, TExchange &exch)
       mktFlight.getByCrsPaxId(pax.id);
       reqSeg.set(0, operFlt.get(), airp_arv, mktFlight, operFlt.get().get_scd_in(airp_arv));
       reqSeg.subcl=mktFlight.subcls;
-      reqSeg.set(pax.tkn, paxSection);
+      reqSeg.setTicket(pax.tkn, paxSection);
       CheckIn::LoadPaxFQT(pax.id, reqSeg.fqts);
       reqSeg.pnrAddrs.getByPaxIdFast(pax.id);
 
@@ -3446,6 +3464,8 @@ void fillPaxsSvcs(const TNotCheckedReqPassengers &req_pnrs, TExchange &exch)
       paxs_ref.insert(paxs_ref.end(), paxs.begin(), paxs.end());
     }
   }
+
+  if (paxSection) paxSection->addMissingTickets();
 }
 
 void fillPaxsSvcs(const TEntityList &entities, TExchange &exch)

@@ -81,6 +81,7 @@ enum TStatType {
     statServicesDetail,
     statServicesFull,
     statSalonFull,
+    statZamarFull,
     statNum
 };
 

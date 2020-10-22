@@ -384,11 +384,8 @@ bool handle_tlg(void)
 
 void parse_and_handle_tpb_tlg(const tlg_info &tlg)
 {
-    tst();
     handle_tpb_tlg(tlg);
-    tst();
     parse_tlg(all_other_handler_id);
-    tst();
 }
 
 void handle_tpb_tlg(const tlg_info &tlg)
@@ -526,14 +523,11 @@ void handle_tpb_tlg(const tlg_info &tlg)
       if (parts.heading.size()>100) throw ETlgError("Header too long");
       if (parts.ending.size()>20) throw ETlgError("End of message too long");
 
-
       TTlgPartInfo part;
       part.p=parts.heading.c_str();
       part.EOL_count=CalcEOLCount(parts.addr.c_str());
       part.offset=parts.addr.size();
-      LogTrace(TRACE5) << "before ParseHeading: " << parts.heading;
       ParseHeading(part,HeadingInfo,bind_flts,mem);
-      LogTrace(TRACE5) << "after ParseHeading: " << parts.heading;
 
       part.p=parts.ending.c_str();
       part.EOL_count+=CalcEOLCount(parts.heading.c_str());
@@ -1253,6 +1247,13 @@ void get_tlg_info(
 
         switch (HeadingInfo->tlg_cat)
         {
+            case tcDCS:
+                {
+                    TDCSHeadingInfo &info = *(dynamic_cast<TDCSHeadingInfo*>(HeadingInfo));
+                    airline = info.flt.airline;
+                    airp = info.flt.airp_dep;
+                    break;
+                }
             case tcLCI:
                 {
                     TLCIHeadingInfo &info = *(dynamic_cast<TLCIHeadingInfo*>(HeadingInfo));

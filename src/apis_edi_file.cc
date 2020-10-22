@@ -966,6 +966,9 @@ std::ostream& operator<<(std::ostream& os, const Cusres& cusres)
 #ifdef XP_TESTING
 
 #include "xp_testing.h"
+#include "pg_session.h"
+
+#include <edilib/edilib_dbpg_callbacks.h>
 
 using namespace xp_testing;
 
@@ -973,13 +976,11 @@ namespace
 {
     void init()
     {
-        ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()->connect_db();
+        edilib::EdilibDbCallbacks::setEdilibDbCallbacks(new edilib::EdilibPgCallbacks(PgCpp::getPgManaged()));
         edifact::init_edifact();
     }
 
-    void tear_down()
-    {
-    }
+    void tear_down() {}
 
     Paxlst::PaxlstInfo makePaxlst1()
     {
@@ -1617,7 +1618,7 @@ END_TEST;
 
 
 #define SUITENAME "apis_file"
-TCASEREGISTER( init, tear_down)
+TCASEREGISTER( init, tear_down )
 {
     ADD_TEST( test1 );
     ADD_TEST( test2 );

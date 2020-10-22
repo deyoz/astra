@@ -23,6 +23,19 @@ class HtmlInterface: public JxtInterface
 
 // response HTTP params
 
+namespace HTTP_HDR {
+    const std::string IF_NONE_MATCH                 = "If-None-Match";
+    const std::string IF_MODIFIED_SINCE             = "If-Modified-Since";
+    const std::string LAST_MODIFIED                 = "Last-Modified";
+    const std::string ETAG                          = "ETag";
+    const std::string DATE                          = "Date";
+    const std::string CONTENT_LENGTH                = "Content-Length";
+    const std::string CONTENT_TYPE                  = "Content-Type";
+    const std::string ACCESS_CONTROL_ALLOW_ORIGIN   = "Access-Control-Allow-Origin";
+    const std::string ACCESS_CONTROL_ALLOW_HEADERS  = "Access-Control-Allow-Headers";
+    const std::string CACHE_CONTROL                 = "Cache-Control";
+};
+
 struct TResHTTPParams {
     static const std::string NAME;
     ServerFramework::HTTP::reply::status_type status;
@@ -35,5 +48,7 @@ struct TResHTTPParams {
 
 std::string html_get_param(const std::string &tag_name, xmlNodePtr reqNode);
 std::string html_header_param(const std::string &tag_name, xmlNodePtr reqNode);
+
+std::string getResource(const std::string &file_path);
 
 #endif

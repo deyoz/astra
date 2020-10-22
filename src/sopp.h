@@ -450,83 +450,8 @@ void get_DesksGates( int point_id, tstations &stations );
 void check_DesksGates( int point_id );
 void IntReadTrips( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, long int &exec_time );
 
-bool TTripSetListItemLess(const std::pair<TTripSetType, boost::any> &a, const std::pair<TTripSetType, boost::any> &b);
-
-class TTripSetList : public std::map<TTripSetType, boost::any>
-{
-  private:
-    std::set<TTripSetType> _setTypes;
-    std::string setTypeStr(const TTripSetType setType) const;
-  public:
-    TTripSetList();
-    const std::set<TTripSetType>& setTypes();
-    const TTripSetList& toXML(xmlNodePtr node) const;
-    TTripSetList& fromXML(xmlNodePtr node);
-    const TTripSetList& initDB(int point_id, int f, int c, int y) const;
-    const TTripSetList& toDB(int point_id) const;
-    TTripSetList& fromDB(int point_id);
-    TTripSetList& fromDB(const TTripInfo &info);
-    void append(const TTripSetList &list);
-
-    void throwBadCastException(const TTripSetType setType, const std::string &where) const
-    {
-      throw EXCEPTIONS::Exception("%s: setType=%d bad cast", where.c_str(), (int)setType);
-    }
-
-    template<typename T>
-    T value(const TTripSetType setType) const
-    {
-      TTripSetList::const_iterator i=find(setType);
-      if (i==end())
-        throw EXCEPTIONS::Exception("TTripSetList::%s: setType=%d not found", __FUNCTION__, (int)setType);
-      try
-      {
-        return boost::any_cast<T>(i->second);
-      }
-      catch(const boost::bad_any_cast&)
-      {
-        throw EXCEPTIONS::Exception("TTripSetList::%s: setType=%d bad cast", __FUNCTION__, (int)setType);
-      }
-    }
-
-    template<typename T>
-    T value(const TTripSetType setType, const T &defValue) const
-    {
-      TTripSetList::const_iterator i=find(setType);
-      if (i==end()) return defValue;
-      try
-      {
-        return boost::any_cast<T>(i->second);
-      }
-      catch(const boost::bad_any_cast&)
-      {
-        throw EXCEPTIONS::Exception("TTripSetList::%s: setType=%d bad cast", __FUNCTION__, (int)setType);
-      }
-    }
-
-    bool isInt(const TTripSetType setType) const
-    {
-      return setType==tsJmpCfg;
-    }
-    bool isBool(const TTripSetType setType) const
-    {
-      return !isInt(setType);
-    }
-    boost::any defaultValue(const TTripSetType setType) const
-    {
-      if (isBool(setType))
-        return DefaultTripSets(setType);
-      else if (isInt(setType))
-        return (int)0;
-      else
-        return boost::any();
-    }
-
-
-};
-
 void set_flight_sets(int point_id, int f=0, int c=0, int y=0);
-void set_pr_tranzit(int point_id, int point_num, int first_point, bool new_pr_tranzit);
+void updateTransitIfNeeded(const TAdvTripInfo& flt, bool new_pr_tranzit);
 
 void SetFlightFact(int point_id, TDateTime utc_act_out);
 void getTripVouchers( int point_id, std::set<std::string> &trip_vouchers );

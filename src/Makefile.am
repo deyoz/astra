@@ -48,6 +48,7 @@ astra_SOURCES = \
   apis_utils.cc \
   apps_interaction.cc \
   arx_daily.cc \
+  arx_daily_pg.cpp \
   astra_callbacks.cc \
   astra_consts.cc \
   astra_context.cc \
@@ -75,6 +76,7 @@ astra_SOURCES = \
   cache.cc \
   cent.cc \
   checkin.cc \
+  checkin_segments.cc \
   checkin_utils.cc \
   ckin_search.cc \
   code_convert.cc \
@@ -98,6 +100,7 @@ astra_SOURCES = \
   ExchangeIface.cc \
   ffp_sirena.cc \
   flt_binding.cc \
+  flt_settings.cc \
   flt_tasks_daemon.cc \
   file_queue.cc \
   hist.cc \
@@ -116,6 +119,8 @@ astra_SOURCES = \
   MPSExchangeIface.cc \
   obrnosir.cc \
   passenger.cc \
+  passenger_callbacks.cc \
+  pax_calc_data.cc \
   payment.cc \
   payment_base.cc \
   pers_weights.cc \
@@ -204,7 +209,17 @@ astra_SOURCES = \
   prn_forms_layout.cc \
   cuws_main.cc \
   cuws_handlers.cc \
-  zamar_dsm.cpp
+  timatic.cc \
+  timatic_request.cc \
+  timatic_response.cc \
+  timatic_exchange.cc \
+  zamar_dsm.cpp \
+  pg_session.cc \
+  base_callbacks.cpp \
+  dbo.cpp \
+  dbostructures.cpp \
+  astra_calls.cc \
+  wb_messages.cc
 
 
 astra_LDADD = $(all_libraries) \
@@ -256,6 +271,7 @@ noinst_HEADERS = \
   apis_tools.h \
   apps_interaction.h \
   arx_daily.h \
+  arx_daily_pg.h \
   astra_callbacks.h \
   astra_consts.h \
   astra_context.h \
@@ -286,6 +302,7 @@ noinst_HEADERS = \
   cache.h \
   cent.h \
   checkin.h \
+  checkin_segments.h \
   checkin_utils.h \
   ckin_search.h \
   code_convert.h \
@@ -308,6 +325,7 @@ noinst_HEADERS = \
   ExchangeIface.h \
   ffp_sirena.h \
   flt_binding.h \
+  flt_settings.h \
   file_queue.h \
   hist.h \
   hist_interface.h \
@@ -325,6 +343,8 @@ noinst_HEADERS = \
   MPSExchangeIface.h \  
   obrnosir.h \
   passenger.h \
+  passenger_callbacks.h \
+  pax_calc_data.h \
   payment.h \
   payment_base.h \
   pers_weights.h \
@@ -412,5 +432,15 @@ noinst_HEADERS = \
   cuws_main.h \
   cuws_handlers.h \
   http_consts.h \
+  timatic.h \
+  timatic_request.h \
+  timatic_response.h \
+  timatic_exchange.h \
   zamar_dsm.h \
-  astra_types.h
+  astra_types.h \
+  pg_session.h \
+  base_callbacks.h \
+  dbo.h \
+  dbostructures.h \
+  astra_calls.h \
+  wb_messages.h

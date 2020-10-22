@@ -4,26 +4,12 @@
 #include "brands.h"
 #include "checkin.h"
 #include "alarms.h"
+#include "base_callbacks.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
 
 using namespace std;
-
-class TicketCustomAlarmCallbacks: public TicketCallbacks
-{
-    public:
-        virtual void onChangeTicket(TRACE_SIGNATURE, int grp_id)
-        {
-            LogTrace(TRACE_PARAMS) << __func__ << " started; grp_id: " << grp_id;
-            TGrpAlarmHook::set(Alarm::SyncCustomAlarms, grp_id);
-        }
-};
-
-void init_ticket_callbacks()
-{
-    CallbacksSingleton<TicketCallbacks>::Instance()->setCallbacks(new TicketCustomAlarmCallbacks);
-}
 
 class RFISCCustomAlarmCallbacks: public RFISCCallbacks
 {
@@ -39,37 +25,6 @@ void init_rfisc_callbacks()
 {
     CallbacksSingleton<RFISCCallbacks>::Instance()->setCallbacks(new RFISCCustomAlarmCallbacks);
 }
-
-class PaxASVCCustomAlarmCallbacks: public PaxASVCCallbacks
-{
-    public:
-        virtual void onSyncPaxASVC(TRACE_SIGNATURE, int pax_id)
-        {
-            LogTrace(TRACE_PARAMS) << __func__ << " started, pax_id: " << pax_id;
-            TPaxAlarmHook::set(Alarm::SyncCustomAlarms, pax_id);
-        }
-};
-
-void init_asvc_callbacks()
-{
-    CallbacksSingleton<PaxASVCCallbacks>::Instance()->setCallbacks(new PaxASVCCustomAlarmCallbacks);
-}
-
-class PaxFQTCallbacks: public PaxRemCallbacks
-{
-    public:
-        virtual void afterPaxFQTChange(TRACE_SIGNATURE, int pax_id)
-        {
-            LogTrace(TRACE_PARAMS) << __func__ << " started, pax_id: " << pax_id;
-            TPaxAlarmHook::set(Alarm::SyncCustomAlarms, pax_id);
-        }
-};
-
-void init_fqt_callbacks()
-{
-    CallbacksSingleton<PaxRemCallbacks>::Instance()->setCallbacks(new PaxFQTCallbacks);
-}
-
 
 size_t TCustomAlarms::TSets::TRow::cost() const
 {

@@ -22,14 +22,6 @@ namespace fs = boost::filesystem;
 
 const bool LOCAL_DEBUG = true;
 
-namespace HTTP_HDR {
-    const string IF_NONE_MATCH = "If-None-Match";
-    const string IF_MODIFIED_SINCE = "If-Modified-Since";
-    const string LAST_MODIFIED = "Last-Modified";
-    const string ETAG = "ETag";
-    const string DATE = "Date";
-};
-
 void html_db_usage(string name, string what)
 {
     cout    << "Error: " << what << endl
@@ -155,18 +147,18 @@ int html_from_db(int argc, char **argv)
     return 0;
 }
 
-struct THTMLResurce {
+struct THTMLResource {
     string name;
     string etag;
     TDateTime last_modified;
     string data;
     void Clear();
-    THTMLResurce() { Clear(); }
+    THTMLResource() { Clear(); }
     void get(const string &aname);
     string get_last_modified();
 };
 
-string THTMLResurce::get_last_modified()
+string THTMLResource::get_last_modified()
 {
     TCachedQuery Qry("select to_char(:last_modified, 'Dy, dd Mon yyyy hh24:mm:ss', 'NLS_DATE_LANGUAGE = American')||' GMT' from dual",
             QParams() << QParam("last_modified", otDate, last_modified));
@@ -174,7 +166,7 @@ string THTMLResurce::get_last_modified()
     return Qry.get().FieldAsString(0);
 }
 
-void THTMLResurce::Clear()
+void THTMLResource::Clear()
 {
     name.clear();
     etag.clear();
@@ -182,7 +174,7 @@ void THTMLResurce::Clear()
     data.clear();
 }
 
-void THTMLResurce::get(const string &aname)
+void THTMLResource::get(const string &aname)
 {
     Clear();
     TCachedQuery Qry(
@@ -206,6 +198,13 @@ void THTMLResurce::get(const string &aname)
             data += Qry.get().FieldAsString("text");
         }
     }
+}
+
+string getResource(const string &file_path)
+{
+    THTMLResource html_resource;
+    html_resource.get(file_path);
+    return html_resource.data;
 }
 
 const string TResHTTPParams::NAME = "res_http_params";
@@ -256,7 +255,7 @@ void HtmlInterface::get_resource(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     LogTrace(TRACE5) << "get_resource uri_path: " << uri_path;
 
     TResHTTPParams rhp;
-    THTMLResurce html_resource;
+    THTMLResource html_resource;
     html_resource.get(uri_path);
     xmlNodePtr contentNode = NewTextChild(resNode, "content");
     if(not html_resource.data.empty()) {

@@ -31,6 +31,8 @@ using namespace TypeB;
 #include <serverlib/lwriter.h>
 #include <boost/scoped_ptr.hpp>
 
+using namespace nsi;
+
 //------------------------------------------------------------------------------------------
 ssim::ScdPeriods ScdPeriodsFromDb( const ct::Flight& flt, const Period& prd );
 //------------------------------------------------------------------------------------------

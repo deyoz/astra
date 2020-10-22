@@ -2,8 +2,8 @@ include(ts/macro.ts)
 
 # meta: suite eticket
 
-$(init_jxt_pult Œ‚Œ)
-$(login)
+$(init_term)
+
 $(init_eds ’ UTET UTDC)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ’ 103 „Œ„ ‹Š REPIN IVAN)
@@ -92,8 +92,8 @@ $(lastRedisplay)
 %%
 ###############################################################################
 
-$(init_jxt_pult Œ‚Œ)
-$(login)
+$(init_term)
+
 $(init_eds ’ UTET UTDC)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ’ 103 „Œ„ ‹Š REPIN IVAN)
@@ -166,8 +166,8 @@ $(KICK_IN_SILENT)
 %%
 #########################################################################################
 
-$(init_jxt_pult Œ‚Œ)
-$(login)
+$(init_term)
+
 $(init_eds ’ UTET UTDC)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ’ 103 „Œ„ ‹Š REPIN IVAN)
@@ -232,8 +232,8 @@ $(KICK_IN)
 %%
 #########################################################################################
 
-$(init_jxt_pult Œ‚Œ)
-$(login)
+$(init_term)
+
 $(init_eds ’ UTET UTDC)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ’ 103 „Œ„ ‹Š REPIN IVAN)

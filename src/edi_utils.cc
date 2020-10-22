@@ -5,6 +5,8 @@
 #include "misc.h"
 #include "date_time.h"
 #include "astra_context.h"
+#include "flt_settings.h"
+#include "pg_session.h"
 #include "tlg/tlg.h"
 #include "tlg/remote_results.h"
 #include "tlg/request_params.h"
@@ -17,6 +19,7 @@
 #include <serverlib/xml_stuff.h>
 #include <serverlib/testmode.h>
 #include <serverlib/internal_msgid.h>
+#include <serverlib/EdiHelpDbCallbacks.h>
 #include <edilib/EdiSessionTimeOut.h>
 #include <edilib/edi_session.h>
 #include <edilib/edilib_db_callbacks.h>
@@ -346,79 +349,110 @@ std::string get_canon_name(const std::string& edi_addr)
   }
   return Qry.FieldAsString("canon_name");
 }
-void copy_notify_levb(const int src_edi_sess_id,
-                      const int dest_edi_sess_id,
-                      const bool err_if_not_found)
+void copy_notify_levb(const std::string& msgid,
+                      int session_id,
+                      int new_session_id,
+                      bool err_if_not_found)
 {
-  ProgTrace(TRACE2,"copy_notify_levb: called with src_edi_sess_id=%d dest_edi_sess_id=%d",
-                   src_edi_sess_id, dest_edi_sess_id);
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "INSERT INTO edi_help(address, date1, intmsgid, pult, text, timeout, session_id, instance) "
-    "SELECT address, date1, intmsgid, pult, text, timeout, :dest_sess_id, instance "
-    "FROM edi_help "
-    "WHERE session_id=:src_sess_id";
-  Qry.CreateVariable("src_sess_id", otInteger, src_edi_sess_id);
-  Qry.CreateVariable("dest_sess_id", otInteger, dest_edi_sess_id);
-  Qry.Execute();
-  if (Qry.RowsProcessed()==0)
-  {
-    if (err_if_not_found)
-      throw EXCEPTIONS::Exception("copy_notify_levb: nothing in edi_help for session_id=%d", src_edi_sess_id);
-  };
+    using namespace ServerFramework;
+    ProgTrace(TRACE2,"copy_notify_levb: called with intmsgid=%s src_edi_sess_id=%d dest_edi_sess_id=%d",
+                     msgid.c_str(), session_id, new_session_id);
+    ASSERT(!msgid.empty());
+    bool copied = EdiHelpManager::copyEdiHelpWithNewEdisession(InternalMsgId::fromString(msgid),
+                                                               session_id,
+                                                               new_session_id);
+    if(!copied && err_if_not_found) {
+        throw EXCEPTIONS::Exception("copy_notify_levb: nothing in edi_help for session_id=%d", session_id);
+    }
+
+//  auto cur = get_pg_curs(
+//"insert into EDI_HELP(ADDRESS, DATE1, INTMSGID, PULT, TEXT, TIMEOUT, SESSION_ID, INSTANCE) "
+//"select ADDRESS, DATE1, INTMSGID, PULT, TEXT, TIMEOUT, :dest_sess_id, INSTANCE "
+//"from EDI_HELP "
+//"where SESSION_ID=:src_sess_id");
+
+//  cur.bind(":src_sess_id",  src_edi_sess_id)
+//     .bind(":dest_sess_id", dest_edi_sess_id)
+//     .exec();
+//  if(cur.rowcount() == 0) {
+//      if(err_if_not_found) {
+//          throw EXCEPTIONS::Exception("copy_notify_levb: nothing in edi_help for session_id=%d", src_edi_sess_id);
+//      }
+//  }
+
+//  TQuery Qry(&OraSession);
+//  Qry.Clear();
+//  Qry.SQLText=
+//    "INSERT INTO edi_help(address, date1, intmsgid, pult, text, timeout, session_id, instance) "
+//    "SELECT address, date1, intmsgid, pult, text, timeout, :dest_sess_id, instance "
+//    "FROM edi_help "
+//    "WHERE session_id=:src_sess_id";
+//  Qry.CreateVariable("src_sess_id", otInteger, src_edi_sess_id);
+//  Qry.CreateVariable("dest_sess_id", otInteger, dest_edi_sess_id);
+//  Qry.Execute();
+//  if (Qry.RowsProcessed()==0)
+//  {
+//    if (err_if_not_found)
+//      throw EXCEPTIONS::Exception("copy_notify_levb: nothing in edi_help for session_id=%d", src_edi_sess_id);
+//  }
 }
 
-void confirm_notify_levb(int edi_sess_id, bool err_if_not_found)
+void confirm_notify_levb(const std::string& msgid, int session_id)
 {
-  ProgTrace(TRACE2,"confirm_notify_levb: called with edi_sess_id=%d",edi_sess_id);
+    using namespace ServerFramework;
+    ProgTrace(TRACE2,"confirm_notify_levb: called with msgid=%s session_id=%d",
+              msgid.c_str(), session_id);
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "BEGIN "
-    "  DELETE FROM edi_help WHERE session_id=:id AND rownum<2 "
-    "    RETURNING address,text,RAWTOHEX(intmsgid) INTO :address,:text,:intmsgid; "
-    "  SELECT COUNT(*) INTO :remained FROM edi_help "
-    "    WHERE intmsgid=HEXTORAW(:intmsgid) AND rownum<2; "
-    "END;";
+    ASSERT(!msgid.empty());
+    EdiHelpManager::confirm_notify(InternalMsgId::fromString(msgid), session_id);
 
-  Qry.CreateVariable("id",otString,edi_sess_id);
-  Qry.CreateVariable("intmsgid",otString,FNull);
-  Qry.CreateVariable("address",otString,FNull);
-  Qry.CreateVariable("text",otString,FNull);
-  Qry.CreateVariable("remained",otInteger,FNull);
-  Qry.Execute();
-  if (Qry.VariableIsNULL("intmsgid"))
-  {
-    if (err_if_not_found)
-      throw EXCEPTIONS::Exception("confirm_notify_levb: nothing in edi_help for session_id=%d", edi_sess_id);
-    return;
-  };
-  string hex_msg_id=Qry.GetVariableAsString("intmsgid");
-  if (Qry.GetVariableAsInteger("remained")==0)
-  {
-    string txt=Qry.GetVariableAsString("text");
-    string str_msg_id;
-    if (!HexToString(hex_msg_id,str_msg_id) || str_msg_id.size()!=sizeof(int)*3)
-      throw EXCEPTIONS::Exception("confirm_notify_levb: wrong intmsgid=%s", hex_msg_id.c_str());
-    ProgTrace(TRACE2,"confirm_notify_levb: prepare signal %s",txt.c_str());
-    std::array<uint32_t,3> a;
-    memcpy(&a, str_msg_id.c_str(), 12);
-    sethAfter(EdiHelpSignal(ServerFramework::InternalMsgId(a),
-                            Qry.GetVariableAsString("address"),
-                            txt.c_str()));
-#ifdef XP_TESTING
-    if(inTestMode()) {
-        ServerFramework::setRedisplay(txt);
-    }
-#endif /* XP_TESTING */
-  }
-  else
-  {
-    ProgTrace(TRACE2,"confirm_notify_levb: more records in edi_help for intmsgid=%s", hex_msg_id.c_str());
-  };
-};
+
+//  TQuery Qry(&OraSession);
+//  Qry.Clear();
+//  Qry.SQLText=
+//    "BEGIN "
+//    "  DELETE FROM edi_help WHERE session_id=:id AND rownum<2 "
+//    "    RETURNING address,text,RAWTOHEX(intmsgid) INTO :address,:text,:intmsgid; "
+//    "  SELECT COUNT(*) INTO :remained FROM edi_help "
+//    "    WHERE intmsgid=HEXTORAW(:intmsgid) AND rownum<2; "
+//    "END;";
+
+//  Qry.CreateVariable("id",otString,session_id);
+//  Qry.CreateVariable("intmsgid",otString,FNull);
+//  Qry.CreateVariable("address",otString,FNull);
+//  Qry.CreateVariable("text",otString,FNull);
+//  Qry.CreateVariable("remained",otInteger,FNull);
+//  Qry.Execute();
+//  if (Qry.VariableIsNULL("intmsgid"))
+//  {
+//    if (err_if_not_found)
+//      throw EXCEPTIONS::Exception("confirm_notify_levb: nothing in edi_help for session_id=%d", session_id);
+//    return;
+//  }
+//  string hex_msg_id=Qry.GetVariableAsString("intmsgid");
+//  if (Qry.GetVariableAsInteger("remained")==0)
+//  {
+//    string txt=Qry.GetVariableAsString("text");
+//    string str_msg_id;
+//    if (!HexToString(hex_msg_id,str_msg_id) || str_msg_id.size()!=sizeof(int)*3)
+//      throw EXCEPTIONS::Exception("confirm_notify_levb: wrong intmsgid=%s", hex_msg_id.c_str());
+//    ProgTrace(TRACE2,"confirm_notify_levb: prepare signal %s",txt.c_str());
+//    std::array<uint32_t,3> a;
+//    memcpy(&a, str_msg_id.c_str(), 12);
+//    sethAfter(EdiHelpSignal(ServerFramework::InternalMsgId(a),
+//                            Qry.GetVariableAsString("address"),
+//                            txt.c_str()));
+//#ifdef XP_TESTING
+//    if(inTestMode()) {
+//        ServerFramework::setRedisplay(txt);
+//    }
+//#endif /* XP_TESTING */
+//  }
+//  else
+//  {
+//    ProgTrace(TRACE2,"confirm_notify_levb: more records in edi_help for intmsgid=%s", hex_msg_id.c_str());
+//  }
+}
 
 static std::string transformKickIfHttp(const std::string& kickText)
 {
@@ -885,23 +919,33 @@ bool isWebCheckinRequest(xmlNodePtr reqNode)
          strcmp((const char*)reqNode->name, "SavePax") == 0;
 }
 
+bool isTagCUWS(xmlNodePtr reqNode)
+{
+    return reqNode!=nullptr &&
+        TReqInfo::Instance()->client_type==ctHTTP &&
+        GetNode("/term/query/CUWS", reqNode->doc)!=nullptr;
+}
+
 bool isTagAddRequestSBDO(xmlNodePtr reqNode)
 {
   return reqNode!=nullptr &&
          TReqInfo::Instance()->client_type==ctHTTP &&
-         GetNode("/term/query/PassengerBaggageTagAdd", reqNode->doc)!=nullptr;
+         (GetNode("/term/query/PassengerBaggageTagAdd", reqNode->doc)!=nullptr or
+          (reqNode->parent and (string)"Issue_TagNumber" == (const char *)reqNode->parent->name));
 }
 
 bool isTagConfirmRequestSBDO(xmlNodePtr reqNode)
 {
   return reqNode!=nullptr &&
          TReqInfo::Instance()->client_type==ctHTTP &&
-         GetNode("/term/query/PassengerBaggageTagConfirm", reqNode->doc)!=nullptr;
+         (GetNode("/term/query/PassengerBaggageTagConfirm", reqNode->doc)!=nullptr or
+          (reqNode->parent and (string)"Set_Bag_as_Active" == (const char *)reqNode->parent->name));
 }
 
 bool isTagRevokeRequestSBDO(xmlNodePtr reqNode)
 {
   return reqNode!=nullptr &&
          TReqInfo::Instance()->client_type==ctHTTP &&
-         GetNode("/term/query/PassengerBaggageTagRevoke", reqNode->doc)!=nullptr;
+         (GetNode("/term/query/PassengerBaggageTagRevoke", reqNode->doc)!=nullptr or
+          (reqNode->parent and (string)"Set_Bag_as_Inactive" == (const char *)reqNode->parent->name));
 }

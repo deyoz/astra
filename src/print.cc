@@ -22,7 +22,6 @@
 #include "emdoc.h"
 #include "serverlib/str_utils.h"
 #include "qrys.h"
-#include "sopp.h"
 #include "points.h"
 #include "telegram.h"
 #include "cr_lf.h"
@@ -31,6 +30,9 @@
 #include "prn_forms_layout.h"
 #include "rfisc_price.h"
 #include "iapi_interaction.h"
+#include "MPSExchangeIface.h"
+#include "service_eval.h"
+#include "flt_settings.h"
 
 #define NICKNAME "DENIS"
 #include <serverlib/slogger.h>
@@ -1977,7 +1979,7 @@ void checkBeforePrintBP(const PrintInterface::BPPax &pax, IAPI::PassengerStatusI
 {
     if (!iapiInspector.allowedToPrintBP(pax.pax_id, pax.grp_id))
         throw UserException("MSG.BP_PRINT_NOT_ALLOWED.APPS_PROBLEM");
-    DCSServiceApplying::throwIfNotAllowed( pax.pax_id, DCSService::Enum::PrintBPOnDesk );
+    DCSServiceApplying::throwIfNotAllowed( pax.pax_id, DCSAction::Enum::PrintBPOnDesk );
 }
 
 void checkBeforePrintBP(const PrintInterface::BPPax &pax)
@@ -2747,15 +2749,16 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
     std::vector<BPPax> paxs;
     Qry.Clear();
     if ( pax_id == NoExists ) { // печать всех или только тех, у которых не подтверждена распечатка
-        vector<int> grps;
+        TCkinGrpIds grps;
         TCkinRoute cr;
-        cr.GetRouteAfter(first_seg_grp_id, crtWithCurrent, crtOnlyDependent);
+        cr.getRouteAfter(GrpId_t(first_seg_grp_id),
+                         TCkinRoute::WithCurrent,
+                         TCkinRoute::OnlyDependent,
+                         TCkinRoute::WithTransit);
         if (!cr.empty())
-        {
-          for(vector<TCkinRouteItem>::iterator iv = cr.begin(); iv != cr.end(); iv++)
-              grps.push_back(iv->grp_id);
-        }
-        else grps.push_back(first_seg_grp_id);
+          cr.get(grps);
+        else
+          grps.push_back(first_seg_grp_id);
 
         Qry.Clear();
         if ( pr_all )
@@ -2782,7 +2785,7 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
             Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
         }
         Qry.DeclareVariable( "grp_id", otInteger );
-        for( vector<int>::iterator igrp=grps.begin(); igrp!=grps.end(); igrp++ ) {
+        for( TCkinGrpIds::const_iterator igrp=grps.begin(); igrp!=grps.end(); ++igrp ) {
             Qry.SetVariable( "grp_id", *igrp );
             Qry.Execute();
 
@@ -3196,7 +3199,7 @@ void fill_pr_print_emda(xmlNodePtr resNode)
     }
 }
 
-void PrintInterface::GetEMDAList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void PrintInterface::GetEMDAList(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     int grp_id = NodeAsInteger("grp_id", reqNode);
     TPriceRFISCList prices;
@@ -3204,7 +3207,12 @@ void PrintInterface::GetEMDAList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     prices.toXML(resNode);
     //dummy_emda(resNode);
     fill_pr_print_emda(resNode);
-    LogTrace(TRACE5) << GetXMLDocText(resNode->doc); // !!!
+    //LogTrace(TRACE5) << GetXMLDocText(resNode->doc); // !!!
+}
+
+void PrintInterface::GetEMDAList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    GetEMDAList( reqNode, resNode );
 }
 
 void PrintInterface::GetImg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

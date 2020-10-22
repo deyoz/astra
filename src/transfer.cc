@@ -205,6 +205,127 @@ void TTransferList::check(int id, bool isGrpId, int seg_no) const
   }
 }
 
+void TTransferList::parseSegments(xmlNodePtr trferNode,
+                                  const AirportCode_t& airpArv,
+                                  const TDateTime scd_out_local)
+{
+  clear();
+  if (trferNode==nullptr) return;
+
+  int trfer_num=1;
+  string strh;
+  string prior_airp_arv_id=airpArv.get();
+  TDateTime local_scd=scd_out_local;
+  for(xmlNodePtr node=trferNode->children;node!=nullptr;node=node->next,trfer_num++)
+  {
+    xmlNodePtr node2=node->children;
+
+    ostringstream flt;
+    flt << NodeAsStringFast("airline",node2)
+        << setw(3) << setfill('0') << NodeAsIntegerFast("flt_no",node2)
+        << NodeAsStringFast("suffix",node2) << "/"
+        << setw(2) << setfill('0') << NodeAsIntegerFast("local_date",node2);
+
+    CheckIn::TTransferItem seg;
+
+    //авиакомпания
+    strh=NodeAsStringFast("airline",node2);
+    seg.operFlt.airline=ElemToElemId(etAirline,strh,seg.operFlt.airline_fmt);
+    if (seg.operFlt.airline_fmt==efmtUnknown)
+      throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_AIRLINE",
+                          LParams()<<LParam("airline",strh)
+                                   <<LParam("flight",flt.str()));
+
+    //номер рейса
+    seg.operFlt.flt_no=NodeAsIntegerFast("flt_no",node2);
+
+    //суффикс
+    if (!NodeIsNULLFast("suffix",node2))
+    {
+      strh=NodeAsStringFast("suffix",node2);
+      seg.operFlt.suffix=ElemToElemId(etSuffix,strh,seg.operFlt.suffix_fmt);
+      if (seg.operFlt.suffix_fmt==efmtUnknown)
+        throw UserException("MSG.TRANSFER_FLIGHT.INVALID_SUFFIX",
+                            LParams()<<LParam("suffix",strh)
+                                     <<LParam("flight",flt.str()));
+    }
+
+
+    int local_date=NodeAsIntegerFast("local_date",node2);
+    try
+    {
+      TDateTime base_date=local_scd-1; //патамушта можем из Японии лететь в Америку во вчерашний день
+      local_scd=DayToDate(local_date,base_date,false); //локальная дата вылета
+      seg.operFlt.scd_out=local_scd;
+    }
+    catch(const EXCEPTIONS::EConvertError &E)
+    {
+      throw UserException("MSG.TRANSFER_FLIGHT.INVALID_LOCAL_DATE_DEP",
+                          LParams()<<LParam("flight",flt.str()));
+    }
+
+    //аэропорт вылета
+    if (GetNodeFast("airp_dep",node2)!=nullptr)  //задан а/п вылета
+    {
+      strh=NodeAsStringFast("airp_dep",node2);
+      seg.operFlt.airp=ElemToElemId(etAirp,strh,seg.operFlt.airp_fmt);
+      if (seg.operFlt.airp_fmt==efmtUnknown)
+        throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_AIRP_DEP",
+                            LParams()<<LParam("airp",strh)
+                                     <<LParam("flight",flt.str()));
+    }
+    else
+      seg.operFlt.airp=prior_airp_arv_id;
+
+    //аэропорт прилета
+    strh=NodeAsStringFast("airp_arv",node2);
+    seg.airp_arv=ElemToElemId(etAirp,strh,seg.airp_arv_fmt);
+    if (seg.airp_arv_fmt==efmtUnknown)
+      throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_AIRP_ARR",
+                          LParams()<<LParam("airp",strh)
+                                   <<LParam("flight",flt.str()));
+
+    seg.flight_view=flt.str();
+
+
+    prior_airp_arv_id=seg.airp_arv;
+
+    push_back(seg);
+  }
+}
+
+void TTransferList::parseSubclasses(xmlNodePtr paxNode)
+{
+  if (paxNode==nullptr) return;
+
+  //трансферные подклассы пассажиров
+  for(paxNode=paxNode->children;paxNode!=nullptr;paxNode=paxNode->next)
+  {
+    xmlNodePtr paxTrferNode=NodeAsNode("transfer",paxNode)->children;
+    CheckIn::TTransferList::iterator s=begin();
+    for(;s!=end() && paxTrferNode!=nullptr; s++,paxTrferNode=paxTrferNode->next)
+    {
+      s->pax.push_back(CheckIn::TPaxTransferItem());
+      CheckIn::TPaxTransferItem &pax=s->pax.back();
+
+      string strh=NodeAsString("subclass",paxTrferNode);
+      if (strh.empty())
+        throw UserException("MSG.TRANSFER_FLIGHT.SUBCLASS_NOT_SET",
+                            LParams()<<LParam("flight",s->flight_view));
+      pax.subclass=ElemToElemId(etSubcls,strh,pax.subclass_fmt);
+      if (pax.subclass_fmt==efmtUnknown)
+        throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_SUBCLASS",
+                            LParams()<<LParam("subclass",strh)
+                                     <<LParam("flight",s->flight_view));
+    }
+    if (s!=end() || paxTrferNode!=nullptr)
+    {
+      //плохая ситуация: кол-во трансферных подклассов пассажира не совпадает с кол-вом трансферных сегментов
+      throw EXCEPTIONS::Exception("ParseTransfer: Different number of transfer subclasses and transfer segments");
+    }
+  }
+}
+
 TSearchFltInfo createSearchFlt(const CheckIn::TTransferItem &item)
 {
     TSearchFltInfo filter;
@@ -231,6 +352,12 @@ TAdvTripInfo routeInfoFromTrfr(const CheckIn::TTransferItem& seg)
 }
 
 } //namespace CheckIn
+
+std::ostream& operator << (std::ostream& os, const TrferList::Alarm alarm)
+{
+  os << std::underlying_type<TrferList::Alarm>::type(alarm);
+  return os;
+}
 
 namespace TrferList
 {
@@ -528,10 +655,10 @@ void TrferFromDB(TTrferType type,
   if (type==tckinInbound)
   {
     //Стыковочные рейсы, которыми прибывают пассажиры рейса (данные на основе сквозной регистрации)
-    sql << "      tckin_pax_grp.tckin_id, tckin_pax_grp.seg_no, \n"
+    sql << "      tckin_pax_grp.tckin_id, tckin_pax_grp.grp_num, \n"
            "      pax_grp.point_dep AS point_id, pax_grp.airp_arv \n"
            "FROM pax_grp, tckin_pax_grp, bag2, pax \n"
-           "WHERE pax_grp.grp_id=tckin_pax_grp.grp_id AND \n"
+           "WHERE pax_grp.grp_id=tckin_pax_grp.grp_id AND tckin_pax_grp.transit_num=0 AND \n"
            "      pax_grp.grp_id=bag2.grp_id(+) AND \n"
            "      pax_grp.grp_id=pax.grp_id(+) AND \n"
 //           "      DECODE(pax.grp_id, NULL, 1, pax.bag_pool_num)=DECODE(pax.grp_id, NULL, 1, bag2.bag_pool_num(+)) AND \n"
@@ -552,7 +679,7 @@ void TrferFromDB(TTrferType type,
   };
   if (type==tckinInbound)
   {
-    sql << "         tckin_pax_grp.tckin_id, tckin_pax_grp.seg_no, \n"
+    sql << "         tckin_pax_grp.tckin_id, tckin_pax_grp.grp_num, \n"
         << "         pax_grp.airp_arv \n";
   };
   Qry.SQLText=sql.str().c_str();
@@ -612,14 +739,14 @@ void TrferFromDB(TTrferType type,
     TGrpItem grp;
     if (type==tckinInbound)
     {
-      TCkinRouteItem inboundSeg;
-      TCkinRoute().GetPriorSeg(Qry.FieldAsInteger("tckin_id"),
-                               Qry.FieldAsInteger("seg_no"),
-                               crtIgnoreDependent, inboundSeg);
-      if (inboundSeg.grp_id==NoExists) continue;
+      auto inboundGrp=TCkinRoute::getPriorGrp(Qry.FieldAsInteger("tckin_id"),
+                                              Qry.FieldAsInteger("grp_num"),
+                                              TCkinRoute::IgnoreDependence,
+                                              TCkinRoute::WithoutTransit);
+      if (!inboundGrp) continue;
 
       TTripRouteItem priorAirp;
-      TTripRoute().GetPriorAirp(NoExists,inboundSeg.point_arv,trtNotCancelled,priorAirp);
+      TTripRoute().GetPriorAirp(NoExists,inboundGrp.get().point_arv,trtNotCancelled,priorAirp);
       if (priorAirp.point_id==NoExists) continue;
       grp.point_id=priorAirp.point_id;
     }
@@ -828,25 +955,6 @@ void TrferFromDB(TTrferType type,
   //ProgTrace(TRACE5, "grps_tlg.size()=%zu", grps_tlg.size());
 }
 
-const char *AlarmTypeS[] = {
-    "TRFER_UNATTACHED",
-    "TRFER_IN_PAX_DUPLICATE",
-    "TRFER_OUT_PAX_DUPLICATE",
-    "TRFER_IN_ROUTE_INCOMPLETE",
-    "TRFER_IN_ROUTE_DIFFER",
-    "TRFER_OUT_ROUTE_DIFFER",
-    "TRFER_IN_OUT_ROUTE_DIFFER",
-    "TRFER_WEIGHT_NOT_DEFINED"
-};
-
-string EncodeAlarmType(const TAlarmType alarm )
-{
-    if(alarm < 0 or alarm >= atLength)
-        throw Exception("InboundTrfer::EncodeAlarmType: wrong alarm type %d", alarm);
-    return AlarmTypeS[ alarm ];
-};
-
-
 void TrferToXML(TTrferType type,
                 const vector<TGrpViewItem> &grps,
                 xmlNodePtr trferNode)
@@ -936,12 +1044,12 @@ void TrferToXML(TTrferType type,
           if (!iGrp->alarms.empty())
           {
             if (iGrp->alarms.size()==1)
-              NewTextChild(rangeNode, "alarm", EncodeAlarmType(*(iGrp->alarms.begin())));
+              NewTextChild(rangeNode, "alarm", AlarmTypes::instance().encode(*(iGrp->alarms.begin())));
             else
             {
               xmlNodePtr alarmsNode=NewTextChild(rangeNode, "alarms");
-              for(set<TAlarmType>::const_iterator a=iGrp->alarms.begin(); a!=iGrp->alarms.end(); ++a)
-                NewTextChild(alarmsNode, "alarm", EncodeAlarmType(*a));
+              for(set<Alarm>::const_iterator a=iGrp->alarms.begin(); a!=iGrp->alarms.end(); ++a)
+                NewTextChild(alarmsNode, "alarm", AlarmTypes::instance().encode(*a));
             };
           };
         };
@@ -1131,8 +1239,8 @@ void TrferToXML(TTrferType type,
 
     if (!unattached_grps.empty())
     {
-      set<TAlarmType> unattached_alarm;
-      unattached_alarm.insert(atUnattached);
+      set<Alarm> unattached_alarm;
+      unattached_alarm.insert(Alarm::Unattached);
       for(int from_tlg=0; from_tlg<2; from_tlg++)
       {
         vector<TGrpItem>::const_iterator iGrp=from_tlg?grps_tlg.begin():grps_ckin.begin();
@@ -1825,65 +1933,70 @@ void LoadPaxLists(int point_id,
   };
 };
 
-string GetConflictStr(const set<TConflictReason> &conflicts)
+string GetConflictStr(const set<ConflictReason> &conflicts)
 {
   ostringstream s;
-  for(set<TConflictReason>::const_iterator c=conflicts.begin(); c!=conflicts.end(); ++c)
+  for(set<ConflictReason>::const_iterator c=conflicts.begin(); c!=conflicts.end(); ++c)
   {
     switch(*c)
     {
-      case conflictInPaxDuplicate:
+      case ConflictReason::InPaxDuplicate:
         s << "InPaxDuplicate; ";
         break;
-      case conflictOutPaxDuplicate:
+      case ConflictReason::OutPaxDuplicate:
         s << "OutPaxDuplicate; ";
         break;
-      case conflictInRouteIncomplete:
+      case ConflictReason::InRouteIncomplete:
         s << "InRouteIncomplete; ";
         break;
-      case conflictInRouteDiffer:
+      case ConflictReason::InRouteDiffer:
         s << "InRouteDiffer; ";
         break;
-      case conflictOutRouteDiffer:
+      case ConflictReason::OutRouteDiffer:
         s << "OutRouteDiffer; ";
         break;
-      case conflictInOutRouteDiffer:
+      case ConflictReason::InOutRouteDiffer:
         s << "InOutRouteDiffer; ";
         break;
-      case conflictWeightNotDefined:
+      case ConflictReason::WeightNotDefined:
         s << "WeightNotDefined; ";
         break;
-      case conflictOutRouteWithErrors:
+      case ConflictReason::OutRouteWithErrors:
         s << "OutRouteWithErrors; ";
+        break;
+      case ConflictReason::OutRouteTruncated:
+        s << "OutRouteTruncated; ";
         break;
     };
   };
   return s.str();
 };
 
-bool isGlobalConflict(TConflictReason c)
+bool isGlobalConflict(ConflictReason c)
 {
-   return c==conflictInRouteIncomplete ||
-          c==conflictInRouteDiffer ||
-          c==conflictOutRouteDiffer ||
-          c==conflictOutRouteWithErrors;
+   return c==ConflictReason::InRouteIncomplete ||
+          c==ConflictReason::InRouteDiffer ||
+          c==ConflictReason::OutRouteDiffer ||
+          c==ConflictReason::OutRouteWithErrors ||
+          c==ConflictReason::OutRouteTruncated;
 };
 
-TrferList::TAlarmType GetConflictAlarm(TConflictReason c)
+TrferList::Alarm GetConflictAlarm(ConflictReason c)
 {
   switch(c)
   {
-    case conflictInPaxDuplicate:      return TrferList::atInPaxDuplicate;
-    case conflictOutPaxDuplicate:     return TrferList::atOutPaxDuplicate;
-    case conflictInRouteIncomplete:   return TrferList::atInRouteIncomplete;
-    case conflictInRouteDiffer:       return TrferList::atInRouteDiffer;
-    case conflictOutRouteDiffer:      return TrferList::atOutRouteDiffer;
-    case conflictInOutRouteDiffer:    return TrferList::atInOutRouteDiffer;
-    case conflictWeightNotDefined:    return TrferList::atWeightNotDefined;
-    case conflictOutRouteWithErrors:  return TrferList::atOutRouteWithErrors;
-  };
-  return TrferList::atLength;
-};
+    case ConflictReason::InPaxDuplicate:      return TrferList::Alarm::InPaxDuplicate;
+    case ConflictReason::OutPaxDuplicate:     return TrferList::Alarm::OutPaxDuplicate;
+    case ConflictReason::InRouteIncomplete:   return TrferList::Alarm::InRouteIncomplete;
+    case ConflictReason::InRouteDiffer:       return TrferList::Alarm::InRouteDiffer;
+    case ConflictReason::InOutRouteDiffer:    return TrferList::Alarm::InOutRouteDiffer;
+    case ConflictReason::WeightNotDefined:    return TrferList::Alarm::WeightNotDefined;
+    case ConflictReason::OutRouteDiffer:      throw Exception("%s: OutRouteDiffer not supported", __func__);
+    case ConflictReason::OutRouteWithErrors:  throw Exception("%s: OutRouteWithErrors not supported", __func__);
+    case ConflictReason::OutRouteTruncated:   throw Exception("%s: OutRouteTruncated not supported", __func__);
+  }
+  throw Exception("%s: strange situation!", __func__);
+}
 
 
 void TNewGrpInfo::erase(const TGrpId &id)
@@ -1899,7 +2012,7 @@ int TNewGrpInfo::calc_status(const TGrpId &id) const
   if (g==tag_map.end()) return NoExists;
   if (!g->second.second.empty()) return NoExists;
 
-  for(set<TConflictReason>::const_iterator c=conflicts.begin();
+  for(set<ConflictReason>::const_iterator c=conflicts.begin();
                                            c!=conflicts.end(); ++c)
   {
     if (isGlobalConflict(*c)) return NoExists;
@@ -1959,7 +2072,7 @@ void GetNewGrpInfo(int point_id,
               for(map<int, CheckIn::TTransferItem>::const_iterator t=grp_in.trfer.begin(); t!=grp_in.trfer.end(); ++t, num++)
                 if (t->first!=num)
                 {
-                  info.conflicts.insert(conflictInRouteIncomplete);
+                  info.conflicts.insert(ConflictReason::InRouteIncomplete);
                   break;
                 };
             };
@@ -1967,27 +2080,27 @@ void GetNewGrpInfo(int point_id,
             if (iTagMap==info.tag_map.end())
             {
               //добавим в tag_map TGrpItem
-              iTagMap=info.tag_map.insert( make_pair(grp_in_id, make_pair(*g, set<TConflictReason>()) ) ).first;
+              iTagMap=info.tag_map.insert( make_pair(grp_in_id, make_pair(*g, set<ConflictReason>()) ) ).first;
               if (iTagMap==info.tag_map.end())
                 throw Exception("%s: iTagMap==info.tag_map.end()", __FUNCTION__);
               if (!grp_in.similarTrfer(grp_out, false) ||
                   grp_in.trfer.size()>grp_out.trfer.size())
               {
                 //несовпадение дальнейших трансферных маршрутов
-                iTagMap->second.second.insert(conflictInOutRouteDiffer);
-                info.conflicts.insert(conflictInOutRouteDiffer);
+                iTagMap->second.second.insert(ConflictReason::InOutRouteDiffer);
+                info.conflicts.insert(ConflictReason::InOutRouteDiffer);
               };
               int bag_weight=CalcWeightInKilos(g->bag_weight, g->weight_unit);
               if (bag_weight==NoExists || bag_weight<=0)
               {
                 //не задан вес багажа или нет бирок
-                iTagMap->second.second.insert(conflictWeightNotDefined);
-                info.conflicts.insert(conflictWeightNotDefined);
+                iTagMap->second.second.insert(ConflictReason::WeightNotDefined);
+                info.conflicts.insert(ConflictReason::WeightNotDefined);
               };
               if (!grp_in.equalTrfer(first_grp_in))
               {
                 //несовпадение дальнейших трансферных маршрутов 2-х НДТБ
-                info.conflicts.insert(conflictInRouteDiffer);
+                info.conflicts.insert(ConflictReason::InRouteDiffer);
               };
               if (!paxListsInit)
               {
@@ -2002,8 +2115,8 @@ void GetNewGrpInfo(int point_id,
                   if (p1->equalRate(*p2)>=6) //6 - полное совпадение фамилии и имени
                   {
                     //есть пассажиры с такой фамилией и именем среди уже зарегистрированных
-                    iTagMap->second.second.insert(conflictOutPaxDuplicate);
-                    info.conflicts.insert(conflictOutPaxDuplicate);
+                    iTagMap->second.second.insert(ConflictReason::OutPaxDuplicate);
+                    info.conflicts.insert(ConflictReason::OutPaxDuplicate);
                     break;
                   };
                 if (p2!=paxs_ckin.end()) break;
@@ -2014,8 +2127,8 @@ void GetNewGrpInfo(int point_id,
                   if (p1->equalRate(*p2)>=6) //6 - полное совпадение фамилии и имени
                   {
                     //есть пассажиры с такой фамилией и именем среди забронированных
-                    iTagMap->second.second.insert(conflictOutPaxDuplicate);
-                    info.conflicts.insert(conflictOutPaxDuplicate);
+                    iTagMap->second.second.insert(ConflictReason::OutPaxDuplicate);
+                    info.conflicts.insert(ConflictReason::OutPaxDuplicate);
                     break;
                   };
                 };
@@ -2043,15 +2156,15 @@ void GetNewGrpInfo(int point_id,
                   TNewGrpTagMap::iterator iTagMap2=info.tag_map.find(*iGrpId);
                   if (iTagMap2==info.tag_map.end())
                     throw Exception("%s: iTagMap2==info.tag_map.end()", __FUNCTION__);
-                  iTagMap2->second.second.insert(conflictInPaxDuplicate);
+                  iTagMap2->second.second.insert(ConflictReason::InPaxDuplicate);
                 };
               }
               else
               {
                 //нужно включить тревогу у текущего
-                iTagMap->second.second.insert(conflictInPaxDuplicate);
+                iTagMap->second.second.insert(ConflictReason::InPaxDuplicate);
               };
-              info.conflicts.insert(conflictInPaxDuplicate);
+              info.conflicts.insert(ConflictReason::InPaxDuplicate);
             };
           };
         };
@@ -2092,8 +2205,8 @@ void GetNewGrpInfo(int point_id,
 void NewGrpInfoToGrpsView(const TNewGrpInfo &inbound_trfer,
                           vector<TrferList::TGrpViewItem> &grps)
 {
-  set<TrferList::TAlarmType> global_alarms;
-  for(set<TConflictReason>::const_iterator c=inbound_trfer.conflicts.begin();
+  set<TrferList::Alarm> global_alarms;
+  for(set<ConflictReason>::const_iterator c=inbound_trfer.conflicts.begin();
                                            c!=inbound_trfer.conflicts.end(); ++c)
   {
     if (isGlobalConflict(*c))
@@ -2114,9 +2227,9 @@ void NewGrpInfoToGrpsView(const TNewGrpInfo &inbound_trfer,
       grps_tlg.push_back(grpItem);
     if (!global_alarms.empty() || !g->second.second.empty())
     {
-      TrferList::TAlarmTagMap::iterator a=alarms.insert(make_pair(grpId, set<TrferList::TAlarmType>())).first;
+      TrferList::TAlarmTagMap::iterator a=alarms.insert(make_pair(grpId, set<TrferList::Alarm>())).first;
       a->second.insert(global_alarms.begin(), global_alarms.end());
-      for(set<TConflictReason>::const_iterator c=g->second.second.begin();
+      for(set<ConflictReason>::const_iterator c=g->second.second.begin();
                                                c!=g->second.second.end(); ++c)
       {
         a->second.insert(GetConflictAlarm(*c));
@@ -2130,38 +2243,41 @@ void NewGrpInfoToGrpsView(const TNewGrpInfo &inbound_trfer,
 void ConflictReasons::toLog(const TLogLocale &pattern) const
 {
   TLogLocale tlocale(pattern);
-  for(std::set<TConflictReason>::const_iterator c=conflicts.begin(); c!=conflicts.end(); ++c)
+  for(std::set<ConflictReason>::const_iterator c=conflicts.begin(); c!=conflicts.end(); ++c)
   {
     tlocale.lexema_id.clear();
     switch(*c)
     {
-      case conflictInPaxDuplicate:
+      case ConflictReason::InPaxDuplicate:
         tlocale.lexema_id = "EVT.INBOUND_TRFER_CONFLICT_REASON.IN_PAX_DUPLICATE";
         break;
-      case conflictOutPaxDuplicate:
+      case ConflictReason::OutPaxDuplicate:
         tlocale.lexema_id = "EVT.INBOUND_TRFER_CONFLICT_REASON.OUT_PAX_DUPLICATE";
         break;
-      case conflictInRouteIncomplete:
+      case ConflictReason::InRouteIncomplete:
         tlocale.lexema_id = "EVT.INBOUND_TRFER_CONFLICT_REASON.IN_ROUTE_INCOMPLETE";
         break;
-      case conflictInRouteDiffer:
+      case ConflictReason::InRouteDiffer:
         tlocale.lexema_id = "EVT.INBOUND_TRFER_CONFLICT_REASON.IN_ROUTE_DIFFER";
         break;
-      case conflictOutRouteDiffer:
+      case ConflictReason::OutRouteDiffer:
         tlocale.lexema_id = emptyInboundBaggage?
                               "EVT.TRFER_CONFLICT_REASON.OUT_ROUTE_DIFFER":
                               "EVT.INBOUND_TRFER_CONFLICT_REASON.OUT_ROUTE_DIFFER";
         break;
-      case conflictInOutRouteDiffer:
+      case ConflictReason::InOutRouteDiffer:
         tlocale.lexema_id = "EVT.INBOUND_TRFER_CONFLICT_REASON.IN_OUT_ROUTE_DIFFER";
         break;
-      case conflictWeightNotDefined:
+      case ConflictReason::WeightNotDefined:
         tlocale.lexema_id = "EVT.INBOUND_TRFER_CONFLICT_REASON.WEIGHT_NOT_DEFINED";
         break;
-      case conflictOutRouteWithErrors:
+      case ConflictReason::OutRouteWithErrors:
         tlocale.lexema_id = emptyInboundBaggage?
                               "EVT.TRFER_CONFLICT_REASON.OUT_ROUTE_WITH_ERRORS":
                               "EVT.INBOUND_TRFER_CONFLICT_REASON.OUT_ROUTE_WITH_ERRORS";
+        break;
+      case ConflictReason::OutRouteTruncated:
+        tlocale.lexema_id = "EVT.TRFER_CONFLICT_REASON.OUT_ROUTE_TRUNCATED";
         break;
     };
     TReqInfo::Instance()->LocaleToLog(tlocale);

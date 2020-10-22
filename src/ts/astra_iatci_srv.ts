@@ -17,9 +17,9 @@ $(TKCRES_ET_COS UTET UTDC $(last_edifact_ref) $(tickno) $(cpnno) $(status))
 
 #########################################################################################
 # ό1
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+
+$(init_term 201509-0173355)
+
 $(init_eds ’ UTET UTDC)
 $(init_dcs ‘7 DCS1 DCS2)
 
@@ -63,14 +63,12 @@ UNZ+1+ASTRA000660001"
 #########################################################################################
 # ό2
 
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+$(init_term 201509-0173355)
+
 $(init_eds ’ UTET UTDC)
 $(init_dcs ‘7 DCS1 DCS2)
 
 $(PREPARE_FLIGHT_1PAX_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
-
 
 # § ―ΰ®α ª €αβΰ¥
 <<
@@ -92,7 +90,7 @@ $(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref) ’ 2982401841689 1 CK)
 
 
 # ν¬γ«οζ¨ο β ©¬ γβ  ®βΆ¥β  ‘
-$(sql {update EDISESSION_TIMEOUTS set time_out = sysdate - 1})
+$(pg_sql {update EDISESSION_TIMEOUTS set time_out = current_timestamp - interval '1 hour'})
 $(run_daemon edi_timeout)
 
 
@@ -228,9 +226,8 @@ UNZ+1+ASTRA000670001"
 #########################################################################################
 # ό3
 
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+$(init_term 201509-0173355)
+
 $(init_eds ’ UTET UTDC)
 $(init_dcs ‘7 DCS1 DCS2)
 
@@ -323,15 +320,14 @@ UNZ+1+ASTRA000710001"
 %%
 #########################################################################################
 # ό4
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+
+$(init_term 201509-0173355)
+
 $(init_eds ’ UTET UTDC)
 $(init_dcs ‘7 DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
 $(PREPARE_FLIGHT_1PAX_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
-
 
 # § ―ΰ®α ª €αβΰ¥
 <<
@@ -430,9 +426,9 @@ UNZ+1+ASTRA000660001"
 %%
 #########################################################################################
 # ό5
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+
+$(init_term 201509-0173355)
+
 $(init_eds ’ UTET UTDC)
 $(init_dcs ‘7 DCS1 DCS2)
 
@@ -461,9 +457,9 @@ UNZ+1+ASTRA000660001"
 %%
 #########################################################################################
 # ό6
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+
+$(init_term 201509-0173355)
+
 $(init_eds ’ UTET UTDC)
 $(init_dcs ‘7 DCS1 DCS2)
 
@@ -523,9 +519,8 @@ UNZ+1+ASTRA000660001"
 #########################################################################################
 # ό7
 
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+$(init_term 201509-0173355)
+
 $(init_eds ’ UTET UTDC)
 $(init_dcs ‘7 DCS1 DCS2)
 
@@ -593,9 +588,8 @@ UNZ+1+ASTRA000660001"
 #########################################################################################
 # ό8 «¥Άλ© § ―ΰ®α
 
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+$(init_term 201509-0173355)
+
 $(init_eds ’ UTET UTDC)
 $(init_dcs ‘7 DCS1 DCS2)
 
@@ -638,10 +632,8 @@ ENDIFM
 #########################################################################################
 # ό9 host to host
 
+$(init_term 201509-0173355)
 
-$(init)
-$(init_jxt_pult ‚)
-$(login)
 $(init_dcs “6 U6 UT)
 
 
@@ -668,15 +660,14 @@ UNZ+1+1"
 %%
 #########################################################################################
 # ό10
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+
+$(init_term 201509-0173355)
+
 $(init_eds ’ UTET UTDC)
 $(init_dcs ‘7 DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
 $(PREPARE_FLIGHT_1PAX_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
-
 
 # § ―ΰ®α ª €αβΰ¥
 <<
@@ -728,9 +719,9 @@ $(ETS_COS_EXCHANGE 2982401841689 1 I)
 %%
 #########################################################################################
 # ό11
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+
+$(init_term 201509-0173355)
+
 $(init_eds ’ UTET UTDC)
 $(init_dcs ‘7 DCS1 DCS2)
 
@@ -766,7 +757,7 @@ $(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref 0) ’ 2982401841689 1 CK)
 $(TKCRES_ET_COS UTET UTDC $(last_edifact_ref) 2982401841689 1 CK)
 
 
-$(sql {update EDISESSION_TIMEOUTS set time_out = sysdate - 1})
+$(pg_sql {update EDISESSION_TIMEOUTS set time_out = current_timestamp - interval '1 hour'})
 $(run_daemon edi_timeout)
 
 # ®ª β γα―¥θ­®© α¬¥­λ αβ βγα 
@@ -787,9 +778,9 @@ UNZ+1+ASTRA000660001"
 %%
 #########################################################################################
 # ό12
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+
+$(init_term 201509-0173355)
+
 $(init_eds ’ UTET UTDC)
 $(init_dcs ‘7 DCS1 DCS2)
 
@@ -834,9 +825,9 @@ UNZ+1+ASTRA000660001"
 %%
 #########################################################################################
 # ό13
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+
+$(init_term 201509-0173355)
+
 $(init_eds ’ UTET UTDC)
 $(init_dcs ‘7 DCS1 DCS2)
 
@@ -894,9 +885,9 @@ UNZ+1+ASTRA000660001"
 %%
 #########################################################################################
 # ό14
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+
+$(init_term 201509-0173355)
+
 $(init_eds ’ UTET UTDC)
 $(init_dcs ‘7 DCS1 DCS2)
 
@@ -933,7 +924,7 @@ $(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref 0) ’ 2982401841689 1 CK)
 
 # ­¥ ―®«γη¨«¨ ­¨ ®¤­®£® ®βΆ¥β  ®β ‘
 
-$(sql {update EDISESSION_TIMEOUTS set time_out = sysdate - 1})
+$(pg_sql {update EDISESSION_TIMEOUTS set time_out = current_timestamp - interval '1 hour'})
 $(run_daemon edi_timeout)
 
 
@@ -950,9 +941,9 @@ UNZ+1+ASTRA000660001"
 %%
 #########################################################################################
 # ό15
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+
+$(init_term 201509-0173355)
+
 $(init_eds ’ UTET UTDC)
 $(init_dcs ‘7 DCS1 DCS2)
 
@@ -1066,7 +1057,7 @@ $(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref 0) ’ 2982401841689 1 I)
 
 # ­¥ ―®«γη¨«¨ ­¨ ®¤­®£® ®βΆ¥β  ®β ‘
 
-$(sql {update EDISESSION_TIMEOUTS set time_out = sysdate - 1})
+$(pg_sql {update EDISESSION_TIMEOUTS set time_out = current_timestamp - interval '1 hour'})
 $(run_daemon edi_timeout)
 
 >>
@@ -1165,9 +1156,9 @@ UNZ+1+ASTRA000680001"
 %%
 #########################################################################################
 # ό16
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+
+$(init_term 201509-0173355)
+
 $(init_eds ’ UTET UTDC)
 $(init_dcs ‘7 DCS1 DCS2)
 
@@ -1282,9 +1273,9 @@ UNZ+1+ASTRA000660001"
 %%
 #########################################################################################
 # ό17
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+
+$(init_term 201509-0173355)
+
 $(init_eds ’ UTET UTDC)
 $(init_dcs ‘7 DCS1 DCS2)
 
@@ -1387,9 +1378,9 @@ UNZ+1+ASTRA000680001"
 %%
 #########################################################################################
 # ό18
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+
+$(init_term 201509-0173355)
+
 $(init_eds ’ UTET UTDC)
 $(init_dcs ‘7 DCS1 DCS2)
 
@@ -1435,9 +1426,9 @@ UNZ+1+ASTRA000660001"
 %%
 #########################################################################################
 # ό19
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+
+$(init_term 201509-0173355)
+
 $(init_eds ’ UTET UTDC)
 $(init_dcs ‘7 DCS1 DCS2)
 
@@ -1601,9 +1592,9 @@ UNZ+1+ASTRA000680001"
 %%
 #########################################################################################
 # ό20
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+
+$(init_term 201509-0173355)
+
 $(init_eds ’ UTET UTDC)
 $(init_dcs ‘7 DCS1 DCS2)
 
@@ -1769,9 +1760,9 @@ UNZ+1+ASTRA000660001"
 %%
 #########################################################################################
 # ό21
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+
+$(init_term 201509-0173355)
+
 $(init_eds ’ UTET UTDC)
 $(init_dcs ‘7 DCS1 DCS2)
 
@@ -1945,9 +1936,9 @@ UNZ+1+ASTRA000660001"
 %%
 #########################################################################################
 # ό22
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+
+$(init_term 201509-0173355)
+
 $(init_eds ’ UTET UTDC)
 $(init_dcs ‘7 DCS1 DCS2)
 
@@ -1989,9 +1980,9 @@ UNZ+1+ASTRA000660001"
 %%
 #########################################################################################
 # ό23
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+
+$(init_term 201509-0173355)
+
 $(init_eds ’ UTET UTDC)
 $(init_dcs ‘7 DCS1 DCS2)
 
@@ -2017,9 +2008,9 @@ UNZ+1+ASTRA000660001"
 %%
 #########################################################################################
 # 24
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+
+$(init_term 201509-0173355)
+
 $(init_eds ’ UTET UTDC)
 $(init_dcs ‘7 DCS1 DCS2)
 
@@ -2153,9 +2144,9 @@ UNZ+1+ASTRA000660001"
 %%
 #########################################################################################
 # 25
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+
+$(init_term 201509-0173355)
+
 $(init_eds ’ UTET UTDC)
 $(init_dcs ‘7 DCS1 DCS2)
 
@@ -2350,9 +2341,9 @@ UNZ+1+ASTRA000660001"
 %%
 #########################################################################################
 # 26
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+
+$(init_term 201509-0173355)
+
 $(init_eds ’ UTET UTDC)
 $(init_dcs ‘7 DCS1 DCS2)
 
@@ -2514,9 +2505,9 @@ UNZ+1+ASTRA000660001"
 %%
 #########################################################################################
 # ό27
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+
+$(init_term 201509-0173355)
+
 $(init_eds ’ UTET UTDC)
 $(init_dcs ‘7 DCS1 DCS2)
 
@@ -2580,9 +2571,9 @@ UNZ+1+ASTRA000660001"
 %%
 #########################################################################################
 # ό28
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+
+$(init_term 201509-0173355)
+
 $(init_eds ’ UTET UTDC)
 $(init_dcs ‘7 DCS1 DCS2)
 
@@ -2676,9 +2667,9 @@ UNZ+1+FFCE00069A0001"
 %%
 #########################################################################################
 # ό29
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+
+$(init_term 201509-0173355)
+
 $(init_eds ’ UTET UTDC)
 $(init_dcs ‘7 DCS1 DCS2)
 
@@ -2745,16 +2736,11 @@ UNZ+1+ASTRA000660001"
 #########################################################################################
 # ό30
 
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+$(init_term 201509-0173355)
 
 $(init_eds ’ UTET UTDC)
-
 $(init_dcs ‘7 DCS_S7 DCS_UT)
-
 $(init_dcs ‘“ DCS_SU DCS_UT)
-
 
 $(PREPARE_SEASON_SCD ’ „„ ‹ 101)
 $(make_spp)
@@ -2835,7 +2821,7 @@ UNZ+1+$(last_edifact_ref)0001"
 
 
 # ν¬γ«οζ¨ο β ©¬ γβ  ®βΆ¥β  DCS
-$(sql {update EDISESSION_TIMEOUTS set time_out = sysdate - 1})
+$(pg_sql {update EDISESSION_TIMEOUTS set time_out = current_timestamp - interval '1 hour'})
 $(run_daemon edi_timeout)
 
 
@@ -2865,16 +2851,11 @@ UNZ+1+ASTRA000660001"
 #########################################################################################
 # ό31
 
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+$(init_term 201509-0173355)
 
 $(init_eds ’ UTET UTDC)
-
 $(init_dcs ‘7 DCS_S7 DCS_UT)
-
 $(init_dcs ‘“ DCS_SU DCS_UT)
-
 
 $(PREPARE_SEASON_SCD ’ „„ ‹ 101)
 $(make_spp)
@@ -2991,16 +2972,11 @@ UNZ+1+ASTRA000660001"
 #########################################################################################
 # ό32
 
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+$(init_term 201509-0173355)
 
 $(init_eds ’ UTET UTDC)
-
 $(init_dcs ‘7 DCS_S7 DCS_UT)
-
 $(init_dcs ‘“ DCS_SU DCS_UT)
-
 
 $(PREPARE_SEASON_SCD ’ „„ ‹ 101)
 $(make_spp)

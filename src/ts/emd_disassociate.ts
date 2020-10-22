@@ -2,8 +2,8 @@ include(ts/macro.ts)
 
 #meta: suite emd
 
-$(init_jxt_pult Œ‚Œ)
-$(login)
+$(init_term)
+
 $(init_eds ’ UTET UTDC)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ’ 103 „Œ„ ‹Š REPIN IVAN)
@@ -53,8 +53,8 @@ $(lastRedisplay)
 %%
 ###################################################################################################
 
-$(init_jxt_pult Œ‚Œ)
-$(login)
+$(init_term)
+
 $(init_eds ’ UTET UTDC)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ’ 103 „Œ„ ‹Š REPIN IVAN)
@@ -84,7 +84,7 @@ CPN+1:::::::1::703"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
 
-$(sql {update EDISESSION_TIMEOUTS set time_out = sysdate - 1})
+$(pg_sql {update EDISESSION_TIMEOUTS set time_out = current_timestamp - interval '1 hour'})
 $(run_daemon edi_timeout)
 
 >> lines=auto
@@ -100,8 +100,8 @@ $(lastRedisplay)
 %%
 ###################################################################################################
 
-$(init_jxt_pult Œ‚Œ)
-$(login)
+$(init_term)
+
 $(init_eds ’ UTET UTDC)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ’ 103 „Œ„ ‹Š REPIN IVAN)

@@ -6,9 +6,8 @@ include(ts/macro.ts)
 ### test 1 - γα―¥θ­ ο α¬¥­  αβ βγα 
 #########################################################################################
 
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+$(init_term)
+
 $(init_eds ’ UTET UTDC)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ’ 103 „„ ‹ REPIN IVAN)
@@ -60,9 +59,8 @@ $(KICK_IN)
 ### test 2 - ®θ¨΅ª  Ά ®βΆ¥β¥ ­  COS-req
 #########################################################################################
 
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+$(init_term)
+
 $(init_eds ’ UTET UTDC)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ’ 103 „„ ‹ REPIN IVAN)
@@ -113,9 +111,8 @@ $(KICK_IN)
 ### test 3 - β ©¬ γβ ­  COS-req
 #########################################################################################
 
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+$(init_term)
+
 $(init_eds ’ UTET UTDC)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ’ 103 „„ ‹ REPIN IVAN)
@@ -146,7 +143,7 @@ UNT+8+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 
-$(sql {update EDISESSION_TIMEOUTS set time_out = sysdate - 1})
+$(pg_sql {update EDISESSION_TIMEOUTS set time_out = current_timestamp - interval '1 hour'})
 $(run_daemon edi_timeout)
 
 >> lines=auto
@@ -157,9 +154,8 @@ $(run_daemon edi_timeout)
 ### test 4 - KAR!!!
 #########################################################################################
 
-$(init)
-$(init_jxt_pult ‚)
-$(login)
+$(init_term)
+
 $(init_eds KAR IKET IKDC translit)
 
 $(PREPARE_FLIGHT_1PAX_1SEG KAR 103 „„ ‹ REPIN IVAN)

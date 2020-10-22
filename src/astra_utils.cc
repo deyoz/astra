@@ -1,3 +1,4 @@
+#include "config.h"
 #include "astra_utils.h"
 #include "oralib.h"
 #include "astra_locale.h"
@@ -12,7 +13,6 @@
 #include "dev_consts.h"
 #include "dev_utils.h"
 
-
 #include <serverlib/tcl_utils.h>
 #include <serverlib/monitor_ctl.h>
 #include <serverlib/sirena_queue.h>
@@ -22,6 +22,8 @@
 #include <serverlib/dump_table.h>
 #include <serverlib/EdiHelpManager.h>
 #include <serverlib/query_runner.h>
+#include <serverlib/algo.h>
+#include <serverlib/pg_cursctl.h>
 #include <jxtlib/JxtInterface.h>
 #include <jxtlib/jxt_cont.h>
 #include <jxtlib/xml_stuff.h>
@@ -40,6 +42,18 @@ using namespace EXCEPTIONS;
 using namespace boost::local_time;
 using namespace boost::posix_time;
 using namespace AstraLocale;
+
+#ifdef XP_TESTING
+namespace xp_testing {
+    bool isWebRequest(const std::string& login)
+    {
+        static const std::vector<std::string> WebLogins { "KIOSK2" };
+        LogTrace(TRACE3) << __func__ << " called for login: " << login;
+        return algo::contains(WebLogins, login);
+    }
+}//namespace xp_testing
+#endif//XP_TESTING
+
 
 string AlignString(string str, int len, string align)
 {
@@ -262,6 +276,11 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   user.user_type = (TUserType)Qry.FieldAsInteger( "type" );
   user.login = Qry.FieldAsString( "login" );
 
+#ifdef XP_TESTING
+      if(inTestMode()) {
+          InitData.pr_web = xp_testing::isWebRequest(user.login);
+      }
+#endif//XP_TESTING
 
   Qry.Clear();
   Qry.SQLText =
@@ -1563,6 +1582,11 @@ TCountriesRow getCountryByAirp( const std::string& airp)
   return ((const TCountriesRow&)base_tables.get("countries").get_row("code",cityRow.country));
 }
 
+CountryCode_t getCountryByAirp(const AirportCode_t& airp)
+{
+  return CountryCode_t(getCountryByAirp(airp.get()).code);
+}
+
 class TTranslitLetter
 {
   public:
@@ -1775,6 +1799,9 @@ void dumpTable(const std::string& table,
 static void commitInTestMode_()
 {
     make_curs("SAVEPOINT SP_XP_TESTING").exec();
+    PgCpp::makeSavepoint("sp_xp_testing");
+    //PgCpp::commitInTestMode();
+
     /*
     LogTrace(TRACE3) << sql;
     std::shared_ptr <OciCpp::OracleData> odata;
@@ -1789,6 +1816,9 @@ static void commitInTestMode_()
 static void rollbackInTestMode_()
 {
     make_curs("ROLLBACK TO SAVEPOINT SP_XP_TESTING").exec();
+    PgCpp::rollbackSavepoint("sp_xp_testing");
+    //PgCpp::rollbackInTestMode();
+
     /*LogTrace(TRACE3) << sql;
     std::shared_ptr <OciCpp::OracleData> odata;
     odata = OciCpp::mainSession().cdaCursor(sql,false);
@@ -1807,6 +1837,7 @@ void commit()
         commitInTestMode_();
     } else {
         OraSession.Commit();
+        PgCpp::commit();
     }
 }
 
@@ -1817,6 +1848,7 @@ void rollback()
         rollbackInTestMode_();
     } else {
         OraSession.Rollback();
+        PgCpp::rollback();
     }
 }
 
@@ -2080,15 +2112,4 @@ string getDocMonth(TDateTime claim_date, bool pr_lat)
 bool isDoomedToWait()
 {
     return ServerFramework::getQueryRunner().getEdiHelpManager().mustWait();
-}
-
-void CallbacksExceptionFilter(STDLOG_SIGNATURE)
-{
-    try {
-        throw;
-    } catch(const std::exception &E) {
-        LogError(STDLOG_VARIABLE) << __FUNCTION__ << ": something wrong: " << E.what();
-    } catch(...) {
-        LogError(STDLOG_VARIABLE) << __FUNCTION__ << ": something wrong";
-    }
 }

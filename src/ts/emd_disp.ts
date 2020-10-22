@@ -2,8 +2,8 @@ include(ts/macro.ts)
 
 #meta: suite emd
 
-$(init_jxt_pult МОВРОМ)
-$(login)
+$(init_term)
+
 $(init_eds ЮТ UTET UTDC)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ЮТ 103 ДМД ПЛК REPIN IVAN)
@@ -142,9 +142,8 @@ $(lastRedisplay)
 %%
 ###############################################################################
 
+$(init_term)
 
-$(init_jxt_pult МОВРОМ)
-$(login)
 $(init_eds ЮТ UTET UTDC)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ЮТ 103 ДМД ПЛК REPIN IVAN)
@@ -161,7 +160,7 @@ UNT+5+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 
-$(sql {update EDISESSION_TIMEOUTS set time_out = sysdate - 1})
+$(pg_sql {update EDISESSION_TIMEOUTS set time_out = current_timestamp - interval '1 hour'})
 $(run_daemon edi_timeout)
 
 # пришёл пинок от обработчика таймаута edifact
@@ -175,8 +174,8 @@ $(run_daemon edi_timeout)
 %%
 #########################################################################################
 
-$(init_jxt_pult МОВРОМ)
-$(login)
+$(init_term)
+
 $(init_eds ЮТ UTET UTDC)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ЮТ 103 ДМД ПЛК REPIN IVAN)
@@ -280,8 +279,8 @@ $(lastRedisplay)
 %%
 #########################################################################################
 
-$(init_jxt_pult МОВРОМ)
-$(login)
+$(init_term)
+
 $(init_eds ЮТ UTET UTDC)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ЮТ 103 ДМД ПЛК REPIN IVAN)

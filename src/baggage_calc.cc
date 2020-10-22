@@ -6,7 +6,6 @@
 #include "astra_misc.h"
 #include "term_version.h"
 #include "baggage_wt.h"
-#include "etick.h"
 #include "obrnosir.h"
 #include <serverlib/algo.h>
 
@@ -80,10 +79,11 @@ class Calculator
   private:
     mutable DirectActionNormCache directActionNorms;
     mutable FlightBagNormCache flightBagNorms;
-    bool getPaxEtickNorm(const TPaxInfo &pax,
-                         const TBagTypeListKey &bagTypeKey,
-                         const boost::optional<TPaxNormItem> &paxNorm,
-                         boost::optional<TPaxNormComplex> &result) const;
+    bool getPaxCrsOrEtickNorm(const TPaxInfo &pax,
+                              const TBagTypeListKey &bagTypeKey,
+                              const boost::optional<TPaxNormItem> &paxNorm,
+                              const bool useEtickNormsSetting,
+                              boost::optional<TPaxNormComplex> &result) const;
   public: //спрятать, если переносить все вычисление в этот класс
     void checkOrGetPaxBagNorm(const TNormFltInfo& flt,
                               const TPaxInfo &pax,
@@ -108,27 +108,23 @@ class Calculator
     }
 };
 
-boost::optional<TNormItem> TPaxInfo::etickNormFromDB() const
+boost::optional<TBagQuantity> TPaxInfo::crsNormFromDB() const
+{
+  if (!paxId) return boost::none;
+
+  return CheckIn::TSimplePaxItem::getCrsBagNorm(paxId.get());
+}
+
+boost::optional<TBagQuantity> TPaxInfo::etickNormFromDB() const
 {
   if (!tkn.validET()) return boost::none;
 
   TETickItem etick;
   if (etick.fromDB(tkn.no, tkn.coupon, TETickItem::Display, false).empty()) return boost::none;
 
-  if (etick.bag_norm_unit.get()!=Ticketing::Baggage::WeightKilo &&
-      etick.bag_norm_unit.get()!=Ticketing::Baggage::Nil) return boost::none;
+  if (!etick.bagNorm) return TBagQuantity(0, TBagUnit());
 
-  TNormItem etickNorm;
-
-  if (etick.bag_norm!=ASTRA::NoExists && etick.bag_norm>0)
-  {
-    //норма известна и она не нулевая
-    etickNorm.norm_type=bntFreeExcess;
-    etickNorm.weight=etick.bag_norm;
-    etickNorm.per_unit=false;
-  }
-
-  return etickNorm;
+  return etick.bagNorm;
 }
 
 class TBagNormFieldAmounts
@@ -437,17 +433,20 @@ void loadBagNorms(const TFltInfo &flt,
 
 //результат функции означает надо ли далее получать result стандартным механизмом среди flightBagNorms
 //true: result валидный - в flightBagNorms не лезем
-bool Calculator::getPaxEtickNorm(const TPaxInfo &pax,
-                                 const TBagTypeListKey &bagTypeKey,
-                                 const boost::optional<TPaxNormItem> &paxNorm,
-                                 boost::optional<TPaxNormComplex> &result) const
+bool Calculator::getPaxCrsOrEtickNorm(const TPaxInfo &pax,
+                                      const TBagTypeListKey &bagTypeKey,
+                                      const boost::optional<TPaxNormItem> &paxNorm,
+                                      const bool useEtickNormsSetting,
+                                      boost::optional<TPaxNormComplex> &result) const
 {
   result=boost::none;
 
   if (!bagTypeKey.isRegular()) return false;
 
-  boost::optional<TNormItem> etickNorm=pax.etickNormFromDB();
-  if (!etickNorm) return false;
+  boost::optional<TNormItem> crsOrEtickNorm=TNormItem::create(pax.crsNormFromDB());
+  if (!crsOrEtickNorm && useEtickNormsSetting)
+    crsOrEtickNorm=TNormItem::create(pax.etickNormFromDB());
+  if (!crsOrEtickNorm) return false;
 
   if (paxNorm)
   {
@@ -462,7 +461,7 @@ bool Calculator::getPaxEtickNorm(const TPaxInfo &pax,
       TNormItem norm;
       if (!paxNorm.get().normNotExists())
         norm=directActionNorms.get(paxNorm.get().norm_id);
-      if (etickNorm.get()==norm)
+      if (crsOrEtickNorm.get()==norm)
         result=boost::in_place(paxNorm.get(), norm);
     }
     catch(const DirectActionNormCache::NotFound&) {}
@@ -470,14 +469,14 @@ bool Calculator::getPaxEtickNorm(const TPaxInfo &pax,
     return true;
   }
 
-  if (!etickNorm.get().isUnknown())
+  if (!crsOrEtickNorm.get().isUnknown())
   {
     boost::optional<BagNormInfo> bagNorm;
-    bagNorm=BagNormInfo::getDirectActionNorm(etickNorm.get());
+    bagNorm=BagNormInfo::getDirectActionNorm(crsOrEtickNorm.get());
     if (!bagNorm)
     {
-      BagNormInfo::addDirectActionNorm(etickNorm.get());
-      bagNorm=BagNormInfo::getDirectActionNorm(etickNorm.get());
+      BagNormInfo::addDirectActionNorm(crsOrEtickNorm.get());
+      bagNorm=BagNormInfo::getDirectActionNorm(crsOrEtickNorm.get());
     }
 
     if (bagNorm)
@@ -499,10 +498,7 @@ void Calculator::checkOrGetPaxBagNorm(const TNormFltInfo& flt,
 {
   result=boost::none;
 
-  if (flt.use_etick_norms)
-  {
-    if (getPaxEtickNorm(pax, bagTypeKey, paxNorm, result)) return;
-  }
+  if (getPaxCrsOrEtickNorm(pax, bagTypeKey, paxNorm, flt.use_etick_norms, result)) return;
 
   if (paxNorm)
   {
@@ -1221,12 +1217,12 @@ void GetWidePaxInfo(const TAirlines &airlines,
         pax.cl=grp.status!=psCrew?grp.cl:EncodeClass(Y);
         pax.subcl=pCurr.pax.subcl;
         pax.tkn=pCurr.pax.tkn;
+        pax.paxId=boost::in_place(pCurr.getExistingPaxIdOrSwear());
         pax.refused=!pCurr.pax.refuse.empty();
         convertCurrentNormsList(airlines, curr_bag, pCurr.norms, pax.curr_norms);
 
-        int pax_id=pCurr.getExistingPaxIdOrSwear();
-        if (!paxs.emplace(pax_id, pax).second)
-          throw Exception("%s: pax_id=%s already exists in paxs!", __FUNCTION__, pax_id);
+        if (!paxs.emplace(pax.paxId.get().get(), pax).second)
+          throw Exception("%s: pax_id=%s already exists in paxs!", __FUNCTION__, pax.paxId.get().get());
         if (use_traces) ProgTrace(TRACE5, "%s: pax:%s", __FUNCTION__, pax.traceStr().c_str());
       };
     }
@@ -1245,6 +1241,7 @@ void GetWidePaxInfo(const TAirlines &airlines,
         pax.cl=grp.status!=psCrew?pPrior.orig_cl:EncodeClass(Y);
         pax.subcl=pPrior.subcl;
         pax.tkn=pPrior.tkn;
+        pax.paxId=boost::in_place(paxIdPrior);
         pax.refused=!pPrior.refuse.empty();
         convertPriorNormsList(airlines, curr_bag, pPrior.norms, pax.prior_norms);
 
@@ -1264,22 +1261,14 @@ void GetWidePaxInfo(const TAirlines &airlines,
             pax.cl=grp.status!=psCrew?grp.cl:EncodeClass(Y);
             pax.subcl=pCurr->pax.subcl;
             pax.tkn=pCurr->pax.tkn;
+            pax.paxId=boost::in_place(pCurr->pax.id);
             pax.refused=!pCurr->pax.refuse.empty();
           };
           convertCurrentNormsList(airlines, curr_bag, pCurr->norms, pax.curr_norms);
-
-          if (!paxs.emplace(pCurr->pax.id, pax).second)
-            throw Exception("%s: pCurr->pax.id=%s already exists in paxs!", __FUNCTION__, pCurr->pax.id);
-          if (use_traces) ProgTrace(TRACE5, "%s: pax:%s", __FUNCTION__, pax.traceStr().c_str());
-
         }
-        else
-        {
-          //пассажир не менялся
-          if (!paxs.emplace(paxIdPrior, pax).second)
-            throw Exception("%s: paxIdPrior=%s already exists in paxs!", __FUNCTION__, pCurr->pax.id);
-          if (use_traces) ProgTrace(TRACE5, "%s: pax:%s", __FUNCTION__, pax.traceStr().c_str());
-        }
+        if (!paxs.emplace(pax.paxId.get().get(), pax).second)
+          throw Exception("%s: pax_id=%s already exists in paxs!", __FUNCTION__, pax.paxId.get().get());
+        if (use_traces) ProgTrace(TRACE5, "%s: pax:%s", __FUNCTION__, pax.traceStr().c_str());
       };
     };
   }
@@ -2705,7 +2694,7 @@ std::string GetBagAirline(const TTripInfo &operFlt, const TTripInfo &markFlt, bo
   return codeshareSets.pr_mark_norms?markFlt.airline:operFlt.airline;
 }
 
-boost::optional<TBagTotals> getBagAllowance(const CheckIn::TSimplePaxItem& pax)
+boost::optional<BagAllowance> getBagAllowance(const CheckIn::TSimplePaxItem& pax)
 {
   boost::optional<TPaxNormComplex> res=pax.getRegularNorm();
   if (!res) return boost::none;
@@ -2714,14 +2703,14 @@ boost::optional<TBagTotals> getBagAllowance(const CheckIn::TSimplePaxItem& pax)
 
   if (norm.norm_type==bntFreeExcess ||
       norm.norm_type==bntFreePaid)
-    return TBagTotals( norm.amount, norm.weight );
+    return BagAllowance(norm);
 
-  return TBagTotals(ASTRA::NoExists, 0);
+  return BagAllowance();
 }
 
-boost::optional<TBagTotals> calcBagAllowance(const CheckIn::TSimplePaxItem& pax,
-                                             const CheckIn::TSimplePaxGrpItem& grp,
-                                             const TTripInfo& flt)
+boost::optional<BagAllowance> calcBagAllowance(const CheckIn::TSimplePaxItem& pax,
+                                               const CheckIn::TSimplePaxGrpItem& grp,
+                                               const TTripInfo& flt)
 {
   map<int/*pax_id*/, TWidePaxInfo> paxs;
   TPaidBagList paid;
@@ -2739,9 +2728,9 @@ boost::optional<TBagTotals> calcBagAllowance(const CheckIn::TSimplePaxItem& pax,
 
   if (norm.norm_type==bntFreeExcess ||
       norm.norm_type==bntFreePaid)
-    return TBagTotals( norm.amount, norm.weight );
+    return BagAllowance(norm);
 
-  return boost::none;
+  return BagAllowance();
 }
 
 } //namespace WeightConcept
@@ -2765,20 +2754,15 @@ string GetBagRcptStr(int grp_id, int pax_id)
   return "";
 }
 
-boost::optional<TBagTotals> getBagAllowance(const CheckIn::TSimplePaxItem& pax)
+boost::optional<BagAllowance> getBagAllowance(const CheckIn::TSimplePaxItem& pax)
 {
   if (!pax.tkn.validET()) return boost::none;
 
   TETickItem etick;
   etick.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
+  if (!etick.bagNorm) return boost::none;
 
-  if (etick.empty()) return boost::none;
-
-  if (etick.bag_norm_unit.get()==Ticketing::Baggage::NumPieces &&
-      !(etick.bag_norm==ASTRA::NoExists || etick.bag_norm==0))
-    return TBagTotals(etick.bag_norm, ASTRA::NoExists);
-
-  return TBagTotals(0, ASTRA::NoExists);
+  return BagAllowance(etick.bagNorm.get());
 }
 
 } //namespace PieceConcept
@@ -2807,5 +2791,32 @@ string GetBagRcptStr(const vector<string> &rcpts)
   return result.str();
 }
 
+boost::optional<TBagQuantity> trueBagNorm(const boost::optional<TBagQuantity>& crsBagNorm,
+                                          const TETickItem& etick)
+{
+  if (etick.bagNorm && etick.bagNorm.get().getUnit()==Ticketing::Baggage::NumPieces)
+    return etick.bagNorm;
+
+  if (crsBagNorm)
+    return crsBagNorm;
+
+  return etick.bagNorm;
+}
+
+
+std::string trueBagNormView(const boost::optional<TBagQuantity>& crsBagNorm,
+                            const TETickItem& etick,
+                            const AstraLocale::OutputLang &lang)
+{
+  //эта процедура не основывается на trueBagNorm, потому что etick.bagNormView может вернуть дополнительное состояние "нет"
+  //это состояние означает что в дисплее ЭБ норма не указана никак
+  if (etick.bagNorm && etick.bagNorm.get().getUnit()==Ticketing::Baggage::NumPieces)
+    return etick.bagNormView(lang);
+
+  if (crsBagNorm)
+    return crsBagNorm.get().view(lang);
+
+  return etick.bagNormView(lang);
+}
 
 

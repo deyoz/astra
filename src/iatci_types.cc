@@ -5,10 +5,13 @@
 #include "date_time.h"
 #include "astra_locale_adv.h"
 #include "astra_msg.h"
+#include "pg_session.h"
 
 #include <serverlib/exception.h>
 #include <serverlib/cursctl.h>
 #include <serverlib/rip_oci.h>
+#include <serverlib/pg_rip.h>
+#include <serverlib/pg_seq.h>
 #include <etick/exceptions.h>
 
 #include <ostream>
@@ -38,8 +41,8 @@ int MagicTab::toNeg() const
     int id = read(m_grpId, m_tabInd);
     if(!id) {
         id = genNextTabId();
-        OciCpp::CursCtl cur = make_curs(
-    "insert into IATCI_TABS(ID, GRP_ID, TAB_IND) values (:id, :grp_id, :tab_ind)");
+        auto cur = get_pg_curs(
+"insert into IATCI_TABS(ID, GRP_ID, TAB_IND) values (:id, :grp_id, :tab_ind)");
 
         cur
                 .bind(":id",      id)
@@ -55,18 +58,17 @@ int MagicTab::toNeg() const
 
 boost::optional<MagicTab> MagicTab::readById(int id)
 {
-    OciCpp::CursCtl cur = make_curs(
+    auto cur = get_pg_curs(
 "select GRP_ID, TAB_IND from IATCI_TABS where ID=:id");
 
     int grpId;
     unsigned tabInd;
-
     cur
             .bind(":id", id)
             .def(grpId)
             .def(tabInd)
             .EXfet();
-    if(cur.err() == NO_DATA_FOUND) {
+    if(cur.err() == PgCpp::NoDataFound) {
         LogTrace(TRACE1) << "Iatci tab " << id << " not found in DB!";
         return boost::none;
     }
@@ -76,17 +78,16 @@ boost::optional<MagicTab> MagicTab::readById(int id)
 
 int MagicTab::read(const GrpId_t& grpId, unsigned tabInd)
 {
-    OciCpp::CursCtl cur = make_curs(
+    auto cur = get_pg_curs(
 "select ID from IATCI_TABS where GRP_ID=:grp_id and TAB_IND=:tab_ind");
 
     int id = 0;
-
     cur
             .bind(":grp_id", grpId)
             .bind(":tab_ind",tabInd)
             .def(id)
             .EXfet();
-    if(cur.err() == NO_DATA_FOUND) {
+    if(cur.err() == PgCpp::NoDataFound) {
         LogTrace(TRACE1) << "Iatci tab " << grpId << "," << tabInd << " not found in DB!";
         return 0;
     }
@@ -96,12 +97,7 @@ int MagicTab::read(const GrpId_t& grpId, unsigned tabInd)
 
 int MagicTab::genNextTabId()
 {
-    int id = 0;
-    OciCpp::CursCtl cur = make_curs(
-"select IATCI_TABS_SEQ.nextval from dual");
-    cur.def(id).EXfet();
-
-    return id;
+    return PgCpp::Sequence(PgCpp::getPgManaged(), "IATCI_TABS_SEQ").nextval<int>(STDLOG);
 }
 
 //---------------------------------------------------------------------------------------

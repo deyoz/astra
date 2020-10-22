@@ -1975,13 +1975,10 @@ $(defmacro UPDATE_PAX_REMS_WITH_LONG
 # №1 первичная регистрация
 ###
 
+$(init_term 201509-0173355)
 
-$(init)
-$(init_jxt_pult МОВРОМ)
-$(login)
 $(init_dcs С7 TA OA)
 $(init_eds ЮТ UTET UTDC)
-
 
 $(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
 
@@ -2298,12 +2295,10 @@ $(KICK_IN)
 # №2 Отмена регистрации
 ###
 
-$(init)
-$(init_jxt_pult МОВРОМ)
-$(login)
+$(init_term 201509-0173355)
+
 $(init_dcs С7 TA OA)
 $(init_eds ЮТ UTET UTDC)
-
 
 $(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
 
@@ -2395,12 +2390,10 @@ $(KICK_IN)
 # №3 Регистрация нескольких "чужих" сегментов
 ###
 
-$(init)
-$(init_jxt_pult МОВРОМ)
-$(login)
+$(init_term 201509-0173355)
+
 $(init_dcs С7 TA OA)
 $(init_eds ЮТ UTET UTDC)
-
 
 $(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
 
@@ -2919,13 +2912,10 @@ $(KICK_IN)
 # №8 Ошибка на CKI
 ###
 
+$(init_term 201509-0173355)
 
-$(init)
-$(init_jxt_pult МОВРОМ)
-$(login)
 $(init_dcs С7 TA OA)
 $(init_eds ЮТ UTET UTDC)
-
 
 $(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
 
@@ -2988,12 +2978,10 @@ $(ETS_COS_EXCHANGE 2986120030297 1 I SYSTEM)
 ###
 
 
-$(init)
-$(init_jxt_pult МОВРОМ)
-$(login)
+$(init_term 201509-0173355)
+
 $(init_dcs С7 TA OA IFM1 IFM2)
 $(init_eds ЮТ UTET UTDC)
-
 
 $(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
 
@@ -3092,12 +3080,10 @@ UNZ+1+$(last_edifact_ref)0001"
 # №10 Обновление данных регистрации (Документ)
 ###
 
-$(init)
-$(init_jxt_pult МОВРОМ)
-$(login)
+$(init_term 201509-0173355)
+
 $(init_dcs С7 TA OA)
 $(init_eds ЮТ UTET UTDC)
-
 
 $(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
 
@@ -3555,13 +3541,10 @@ $(UPDATE_PAX_DOC $(get point_dep) $(get point_arv) ДМД ПЛК
 # №11 Обновление данных регистрации без IATCI
 ###
 
+$(init_term 201509-0173355)
 
-$(init)
-$(init_jxt_pult МОВРОМ)
-$(login)
 $(init_dcs С7 TA OA)
 $(init_eds ЮТ UTET UTDC)
-
 
 $(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
 
@@ -3641,9 +3624,8 @@ $(UPDATE_PAX_DOC_NON_IATCI $(get point_dep) $(get point_arv) ДМД ПЛК
 # №12 Обновление данных регистрации (Ремарки)
 ###
 
-$(init)
-$(init_jxt_pult МОВРОМ)
-$(login)
+$(init_term 201509-0173355)
+
 $(init_dcs С7 TA OA)
 $(init_eds ЮТ UTET UTDC)
 
@@ -3820,9 +3802,8 @@ $(KICK_IN)
 # №13 Обновление данных регистрации (Ремарки длинные)
 ###
 
-$(init)
-$(init_jxt_pult МОВРОМ)
-$(login)
+$(init_term 201509-0173355)
+
 $(init_dcs С7 TA OA)
 $(init_eds ЮТ UTET UTDC)
 
@@ -3887,12 +3868,10 @@ $(UPDATE_PAX_REMS_WITH_LONG $(get point_dep) $(get point_arv) ДМД ПЛК
 # №14 Печать ПТ
 ###
 
-$(init)
-$(init_jxt_pult МОВРОМ)
-$(login)
+$(init_term 201509-0173355)
+
 $(init_dcs С7 TA OA)
 $(init_eds ЮТ UTET UTDC)
-
 
 $(prepare_bp_printing ЮТ 103 ДМД)
 $(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
@@ -4060,12 +4039,10 @@ $(KICK_IN)
 # №15 Карта мест
 ###
 
-$(init)
-$(init_jxt_pult МОВРОМ)
-$(login)
+$(init_term 201509-0173355)
+
 $(init_dcs С7 TA OA)
 $(init_eds ЮТ UTET UTDC)
-
 
 $(prepare_bp_printing ЮТ 103 ДМД)
 $(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
@@ -4443,12 +4420,10 @@ $(KICK_IN)
 # №16 Карта мест до регистрации
 ###
 
-$(init)
-$(init_jxt_pult МОВРОМ)
-$(login)
+$(init_term 201509-0173355)
+
 $(init_dcs С7 TA OA)
 $(init_eds ЮТ UTET UTDC)
-
 
 $(prepare_bp_printing ЮТ 103 ДМД)
 $(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
@@ -4478,13 +4453,10 @@ $(SAVE_ET_DISP $(get point_dep) 2986120030297)
 # №17 Ошибка в ответ на регистрацию и работа без интерактива
 ###
 
+$(init_term 201509-0173355)
 
-$(init)
-$(init_jxt_pult МОВРОМ)
-$(login)
 $(init_dcs С7 TA OA)
 $(init_eds ЮТ UTET UTDC)
-
 
 $(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
 
@@ -4538,13 +4510,10 @@ $(lastRedisplay)
 # №18 Таймаут на регистрацию - должен пойти IFM/del
 ###
 
+$(init_term 201509-0173355)
 
-$(init)
-$(init_jxt_pult МОВРОМ)
-$(login)
 $(init_dcs С7 TA OA REMIFM OURIFM)
 $(init_eds ЮТ UTET UTDC)
-
 
 $(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
 
@@ -4579,7 +4548,7 @@ PSI++FOID::::::FOID PP7774441110+FQTV:S7:7788990011"
 UNT+9+1"
 UNZ+1+$(last_edifact_ref)0001"
 
-$(sql {update EDISESSION_TIMEOUTS set time_out = sysdate - 1})
+$(pg_sql {update EDISESSION_TIMEOUTS set time_out = current_timestamp - interval '1 hour'})
 $(run_daemon edi_timeout)
 
 >> lines=auto
@@ -4612,13 +4581,10 @@ ENDIFM
 # №19 Таймаут и ошибка на отмену регистрации - должен пойти IFM/del
 ###
 
+$(init_term 201509-0173355)
 
-$(init)
-$(init_jxt_pult МОВРОМ)
-$(login)
 $(init_dcs С7 TA OA REMIFM OURIFM)
 $(init_eds ЮТ UTET UTDC)
-
 
 $(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
 
@@ -4698,7 +4664,7 @@ UNT+5+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 
-$(sql {update EDISESSION_TIMEOUTS set time_out = sysdate - 1})
+$(pg_sql {update EDISESSION_TIMEOUTS set time_out = current_timestamp - interval '1 hour'})
 $(run_daemon edi_timeout)
 
 >> lines=auto
@@ -4773,13 +4739,10 @@ ENDIFM
 # №20 первичная регистрация с ошибкой со статусом N
 ###
 
+$(init_term 201509-0173355)
 
-$(init)
-$(init_jxt_pult МОВРОМ)
-$(login)
 $(init_dcs С7 TA OA)
 $(init_eds ЮТ UTET UTDC)
-
 
 $(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
 
@@ -4840,9 +4803,8 @@ $(ETS_COS_EXCHANGE 2986120030297 1 I SYSTEM)
 # №21 первичная регистрация группы из двух пассажиров
 ###
 
-$(init)
-$(init_jxt_pult МОВРОМ)
-$(login)
+$(init_term 201509-0173355)
+
 $(init_dcs С7 TA OA)
 $(init_eds ЮТ UTET UTDC)
 
@@ -5357,8 +5319,6 @@ $(set tid $(get_single_tid $(get point_dep) REPIN IVAN))
 $(set tab_id $(get_iatci_tab_id $(get grp_id) 1))
 
 
-$(dump_table GRP_IATCI_XML)
-
 # пересадим пассажира PETROV PETR
 
 !! err=ignore
@@ -5459,9 +5419,8 @@ $(KICK_IN_SILENT)
 # №22 младенец и багаж
 ###
 
-$(init)
-$(init_jxt_pult МОВРОМ)
-$(login)
+$(init_term 201509-0173355)
+
 $(init_dcs С7 TA OA)
 $(init_eds ЮТ UTET UTDC)
 
@@ -6565,10 +6524,8 @@ UNZ+1+$(last_edifact_ref)0001"
 # №23 DCRCKA без TKNE
 ###
 
+$(init_term 201509-0173355)
 
-$(init)
-$(init_jxt_pult МОВРОМ)
-$(login)
 $(init_dcs С7 TA OA)
 $(init_eds ЮТ UTET UTDC)
 

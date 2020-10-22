@@ -11,9 +11,7 @@ include(ts/macro.ts)
 
 $(desc_test 1)
 
-$(init)
-$(init_jxt_pult Œ‚Œ)
-$(login)
+$(init_term)
 
 $(PREPARE_SEASON_SCD ’ ˜Œ JFK 245)
 $(make_spp)

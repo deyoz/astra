@@ -28,6 +28,7 @@ class Alarm
       CrewCheckin,
       CrewNumber,
       CrewDiff,
+      APISControl,
       APISDiffersFromBooking,
       APISIncomplete,
       APISManualInput,
@@ -46,7 +47,9 @@ class Alarm
 //относятся только к тревогам пассажиров, а не рейсов
       SyncEmds,
       SyncCabinClass,
-      SyncCustomAlarms
+      SyncCustomAlarms,
+      SyncIAPI,
+      SyncAPPS
     };
 
     typedef std::list< std::pair<Enum, std::string> > TPairs;
@@ -69,6 +72,7 @@ class Alarm
         {CrewCheckin,            "CREW_CHECKIN"             },
         {CrewNumber,             "CREW_NUMBER"              },
         {CrewDiff,               "CREW_DIFF"                },
+        {APISControl,            "APIS_CONTROL"             },  //только для вызова хука и вычисления сразу трех тревог APIS
         {APISDiffersFromBooking, "APIS_DIFFERS_FROM_BOOKING"},
         {APISIncomplete,         "APIS_INCOMPLETE"          },
         {APISManualInput,        "APIS_MANUAL_INPUT"        },
@@ -86,6 +90,8 @@ class Alarm
         {SyncEmds,               "SYNC_EMDS"                },
         {SyncCabinClass,         "SYNC_CABIN_CLASS"         },
         {SyncCustomAlarms,       "SYNC_CUSTOM_ALARMS"       },
+        {SyncIAPI,               "SYNC_IAPI"                },
+        {SyncAPPS,               "SYNC_APPS"                },
        };
       return l;
     }
@@ -221,6 +227,8 @@ bool existsAlarmByPointId(const int pointId,
                           const std::initializer_list<Alarm::Enum>& alarms,
                           const std::initializer_list<PaxOrigin>& origins);
 void getAlarmByPointId(const int pointId, const Alarm::Enum alarmType, std::set<int>& paxIds);
+std::set<PaxId_t> getAlarmByPointId(const PointId_t& pointId, const Alarm::Enum alarmType,
+                                    const PaxOrigin origin);
 
 #endif
 

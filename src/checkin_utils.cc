@@ -13,6 +13,7 @@
 #define NICKNAME "ANNA"
 #include <serverlib/slogger.h>
 #include <serverlib/savepoint.h>
+#include <serverlib/algo.h>
 
 using namespace std;
 using namespace ASTRA;
@@ -20,15 +21,53 @@ using namespace AstraLocale;
 using namespace BASIC::date_time;
 using namespace SALONS2;
 
-void TSegListItem::setCabinClassAndSubclass()
+void TSegListItem::setCabinClassAndSubclass(bool isTransitGrp)
 {
+  boost::optional<TCFG> cfg;
   for(CheckIn::TPaxListItem& p : paxs)
   {
     CheckIn::TSimplePaxItem& pax=p.pax;
-    pax.cabin=pax.getCrsClass(true);
-    if (pax.cabin.cl.empty()) pax.cabin.cl=grp.cl;
-    if (pax.cabin.subcl.empty()) pax.cabin.subcl=pax.subcl;
+    boost::optional<CheckIn::TComplexClass> crsClass;
+    if (isTransitGrp)
+    {
+      if (p.originalCrsPaxId)
+      {
+        crsClass=CheckIn::TSimplePaxItem::getCrsClass(p.originalCrsPaxId.get(), true);
+        if (crsClass)
+        {
+          if (!cfg) cfg=boost::in_place(flt.point_id);
+          if (algo::none_of(cfg.get(), [&crsClass](const TCFGItem& item) { return item.cls==crsClass.get().cl && item.cfg>0; }))
+            crsClass=boost::none;
+        }
+      }
+    }
+    else
+    {
+      if (pax.id!=NoExists)
+        crsClass=CheckIn::TSimplePaxItem::getCrsClass(PaxId_t(pax.id), true);
+    }
+
+    if (crsClass)
+      pax.cabin=crsClass.get();
+    else
+    {
+      pax.cabin.cl=grp.cl;
+      pax.cabin.subcl=pax.subcl;
+    }
   }
+}
+
+bool TSegList::needCopyBaggage(const GrpId_t& grpId, const size_t trferSize) const
+{
+  size_t trferNum=0;
+  for(const_iterator i=begin(); i!=end(); ++i)
+  {
+    if (i!=begin() && i->grp.status!=psTransit) trferNum++;
+    if (i->grp.id==grpId.get())
+      return (i!=begin() && trferNum<=trferSize);
+  }
+  //не нашли grpId;
+  return false;
 }
 
 namespace CheckIn
@@ -194,8 +233,8 @@ void syncCabinClass(const TTripTaskKey &task)
 
     try
     {
-      TComplexClass actualCabin=pax.getCrsClass(false);
-      if (actualCabin.cl.empty() || pax.cabin.cl==actualCabin.cl) continue;
+      boost::optional<TComplexClass> actualCabin=CheckIn::TSimplePaxItem::getCrsClass(PaxId_t(pax.id), false);
+      if (!actualCabin) continue;
 
       if (pax.hasCabinSeatNumber())
       {
@@ -212,8 +251,8 @@ void syncCabinClass(const TTripTaskKey &task)
                          __func__);
       };
 
-      setComplexClassGrp(rbds, actualCabin);
-      pax.cabin=actualCabin;
+      setComplexClassGrp(rbds, actualCabin.get());
+      pax.cabin=actualCabin.get();
       if (!pax.cabinClassToDB())
         throw EXCEPTIONS::Exception("strange situation - !pax.cabinClassToDB()");
 
@@ -324,6 +363,9 @@ void seatingWhenNewCheckIn(const TSegListItem& seg,
   SALONS2::TSalonList salonList(true);
   salonList.ReadFlight( SALONS2::TFilterRoutesSets( grp.point_dep, grp.point_arv ), "", ASTRA::NoExists );
   //заполним массив для рассадки
+  TRemGrp remGrp;
+  remGrp.Load(retFORBIDDEN_FREE_SEAT,grp.point_dep);
+
   for(int k=0;k<=1;k++)
   {
     for(CheckIn::TPaxList::const_iterator p=paxs.begin(); p!=paxs.end(); ++p)
@@ -355,19 +397,19 @@ void seatingWhenNewCheckIn(const TSegListItem& seg,
               r->code=="UMNR" ||
               r->code=="WCHS" ||
               r->code=="MEDA") flagCHIN=true;
-          pas.add_rem(r->code);
+          pas.add_rem(r->code,remGrp);
         }
         string pass_rem;
-        if ( subcls_rems.IsSubClsRem( pax.getCabinSubclass(), pass_rem ) )  pas.add_rem(pass_rem);
+        if ( subcls_rems.IsSubClsRem( pax.getCabinSubclass(), pass_rem ) )  pas.add_rem(pass_rem,remGrp);
         if ( AdultsWithBaby( pax_id, InfItems ) ) {
           flagCHIN = true;
           flagINFT = true;
         }
         if ( flagCHIN ) {
-          pas.add_rem("CHIN");
+          pas.add_rem("CHIN",remGrp);
         }
         if ( flagINFT ) {
-          pas.add_rem("INFT");
+          pas.add_rem("INFT",remGrp);
         }
 
         //здесь набираем
@@ -377,7 +419,7 @@ void seatingWhenNewCheckIn(const TSegListItem& seg,
           SelfCkinSalonTariff.setTariffMap( grp.point_dep, tariffMap );
         }
         else {
-          tariffMap.get(fltAdvInfo, markFltInfo, pax.tkn);
+          tariffMap.get(fltAdvInfo, markFltInfo, pax.tkn,grp.airp_arv);
         }
         pas.tariffs=tariffMap;
         pas.tariffStatus = tariffMap.status();
@@ -403,7 +445,7 @@ void seatingWhenNewCheckIn(const TSegListItem& seg,
   boost::posix_time::ptime mst1 = boost::posix_time::microsec_clock::local_time();
   //рассадка
   SALONS2::TAutoSeats autoSeats;
-  SEATS2::SeatsPassengers( salonList, algo, TReqInfo::Instance()->client_type, SEATS2::Passengers, autoSeats );
+  SEATS2::SeatsPassengers( salonList, algo, TReqInfo::Instance()->client_type, SEATS2::Passengers, autoSeats, remGrp );
   bool pr_do_check_wait_list_alarm = salonList.check_waitlist_alarm_on_tranzit_routes( autoSeats );
   //!!! иногда True - возможна рассадка на забронированные места, когда
   // есть право на регистрацию, статус рейса окончание, есть право сажать на чужие заброн. места
@@ -1056,7 +1098,7 @@ void CreateEmulRems(xmlNodePtr paxNode, const multiset<CheckIn::TPaxRemItem> &re
   xmlNodePtr remsNode=NewTextChild(paxNode,"rems");
   for(multiset<CheckIn::TPaxRemItem>::const_iterator r=rems.begin(); r!=rems.end(); ++r)
   {
-    if (isDisabledRem(r->code, r->text)) continue;
+    if (isDisabledRem(*r)) continue;
     r->toXML(remsNode);
   }
 
@@ -1192,17 +1234,14 @@ void CopyEmulXMLDoc(const XMLDoc &srcDoc, XMLDoc &destDoc)
     CopyNode(destNode, srcNode, true); //копируем полностью XML
 }
 
-void CreateEmulDocs(const TWebPaxForSaveSegs &segs,
-                    const XMLDoc &emulDocHeader,
-                    map<int,XMLDoc> &emulChngDocs)
+void changeSeatsAndUpdateTids(TWebPaxForSaveSegs &segs)
 {
-  for(const TWebPaxForSaveSeg& currSeg : segs)
-    for(const TWebPaxForChng& currPaxForChng : currSeg.paxForChng)
+  for(TWebPaxForSaveSeg& currSeg : segs)
+    for(TWebPaxForChng& currPaxForChng : currSeg.paxForChng)
     try
     {
       const TWebPaxFromReq& currPaxFromReq=currSeg.paxFromReq.get(currPaxForChng.paxId(), __FUNCTION__);
 
-      int pax_tid=currPaxForChng.pax_tid;
       //пассажир зарегистрирован
       if (!currPaxFromReq.refuse &&!currPaxFromReq.seat_no.empty() && currPaxForChng.seats > 0)
       {
@@ -1219,7 +1258,7 @@ void CreateEmulDocs(const TWebPaxForSaveSegs &segs,
         {
           IntChangeSeatsN( currPaxForChng.point_dep,
                            currPaxForChng.paxId(),
-                           pax_tid,
+                           currPaxForChng.pax_tid,
                            curr_xname, curr_yname,
                            SEATS2::stReseat,
                            cltUnknown,
@@ -1228,8 +1267,30 @@ void CreateEmulDocs(const TWebPaxForSaveSegs &segs,
                            0, NoExists,
                            NULL, NULL,
                            __func__ );
+          static_cast<CheckIn::TSimplePaxItem&>(currPaxForChng).tid=currPaxForChng.pax_tid;
         };
       }
+    }
+    catch(const CheckIn::UserException&)
+    {
+      throw;
+    }
+    catch(const UserException &e)
+    {
+      throw CheckIn::UserException(e.getLexemaData(), currSeg.point_id, currPaxForChng.paxId());
+    }
+
+}
+
+void CreateEmulDocs(const TWebPaxForSaveSegs &segs,
+                    const XMLDoc &emulDocHeader,
+                    map<int,XMLDoc> &emulChngDocs)
+{
+  for(const TWebPaxForSaveSeg& currSeg : segs)
+    for(const TWebPaxForChng& currPaxForChng : currSeg.paxForChng)
+    try
+    {
+      const TWebPaxFromReq& currPaxFromReq=currSeg.paxFromReq.get(currPaxForChng.paxId(), __FUNCTION__);
 
       bool DocUpdatesPending=false;
       if (currPaxForChng.apis.isPresent(apiDoc)) //тег <document> пришел
@@ -1410,9 +1471,7 @@ void CreateEmulDocs(const TWebPaxForSaveSegs &segs,
         currPaxForCkin.tkn.toXML(paxNode);
         currPaxForCkin.apis.doc.toXML(paxNode);
         currPaxForCkin.apis.doco.toXML(paxNode);
-        xmlNodePtr docaNode=NewTextChild(paxNode, "addresses");
-        for(const auto& d : currPaxForCkin.apis.doca_map)
-          d.second.toXML(docaNode);
+        currPaxForCkin.apis.doca_map.toXML(paxNode);
 
         NewTextChild(paxNode,"subclass",currPaxForCkin.subcl);
         NewTextChild(paxNode,"transfer"); //пустой тег - трансфера нет
@@ -1495,7 +1554,10 @@ void createEmulDocForSBDO(int pax_id,
   list<CheckIn::TSimplePaxGrpItem> grps;
 
   TCkinRoute route;
-  route.GetRouteAfter(pax.grp_id, crtWithCurrent, crtOnlyDependent);
+  route.getRouteAfter(GrpId_t(pax.grp_id),
+                      TCkinRoute::WithCurrent,
+                      TCkinRoute::OnlyDependent,
+                      TCkinRoute::WithoutTransit);
 
   if (!route.empty())
   {

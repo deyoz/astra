@@ -445,8 +445,9 @@ bool Pax::fromDB()
   Qry.Clear();
   if (!isTestPaxId(id))
     Qry.SQLText=
-        "SELECT crs_pnr.pnr_id, crs_pnr.status AS pnr_status, "
-        "       crs_pnr.subclass, crs_pnr.class, "
+        "SELECT crs_pnr.pnr_id, crs_pnr.status AS pnr_status, " +
+        CheckIn::TSimplePaxItem::cabinSubclassFromCrsSQL() + " AS cabin_subclass, " +
+        CheckIn::TSimplePaxItem::cabinClassFromCrsSQL() + " AS cabin_class, " +
         "       crs_pax.seats, "
         "       crs_pnr.tid AS crs_pnr_tid, "
         "       crs_pax.tid AS crs_pax_tid, "
@@ -473,8 +474,8 @@ bool Pax::fromDB()
   seats=Qry.FieldAsInteger("seats");
   pnr_id=Qry.FieldAsInteger("pnr_id");
   pnr_status=Qry.FieldAsString("pnr_status");
-  pnr_cabin_class=Qry.FieldAsString("class");
-  pnr_cabin_subclass=Qry.FieldAsString("subclass");
+  pnr_cabin_class=Qry.FieldAsString("cabin_class");
+  pnr_cabin_subclass=Qry.FieldAsString("cabin_subclass");
 
   return true;
 }

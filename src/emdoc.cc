@@ -155,7 +155,7 @@ string GetSQL(const TListType ltype)
            "             pax.pax_id, \n"
            "             tckin_pax_grp.seg_no \n"
            "      FROM pax, tckin_pax_grp \n"
-           "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND \n";
+           "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND tckin_pax_grp.transit_num=0 AND \n";
     if (ltype==asvcByGrpIdWithEMD ||
         ltype==asvcByGrpIdWithoutEMD)
       sql << "      pax.grp_id=:id \n";
@@ -165,7 +165,7 @@ string GetSQL(const TListType ltype)
     sql << "     ) p \n"
            "WHERE tckin_pax_grp.tckin_id=p.tckin_id AND \n"
            "      pax.grp_id=tckin_pax_grp.grp_id AND \n"
-           "      tckin_pax_grp.first_reg_no-pax.reg_no=p.distance AND \n"
+           "      tckin_pax_grp.first_reg_no-pax.reg_no=p.distance AND tckin_pax_grp.transit_num=0 AND \n"
            "      pax.pax_id=c.pax_id AND \n";
     if (ltype==asvcByGrpIdWithEMD ||
         ltype==asvcByPaxIdWithEMD)

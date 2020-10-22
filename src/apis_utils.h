@@ -401,7 +401,7 @@ class TCompleteAPICheckInfo
     bool _norecNotAllowed;
   public:
     TCompleteAPICheckInfo() { clear(); }
-    TCompleteAPICheckInfo(const int point_dep, const std::string& airp_arv);
+    TCompleteAPICheckInfo(const TPaxSegmentPair& paxSegment);
     void clear()
     {
       _pass.clear();
@@ -411,7 +411,7 @@ class TCompleteAPICheckInfo
       _pnrAddrRequired=false;
       _norecNotAllowed=false;
     }
-    void set(const int point_dep, const std::string& airp_arv);
+    void set(const TPaxSegmentPair& paxSegment);
     // get
     inline const TAPICheckInfoList& get(ASTRA::TPaxTypeExt pax_ext) const
     {
@@ -505,14 +505,16 @@ class TRouteAPICheckInfo : private std::map<std::string/*airp_arv*/, TCompleteAP
     boost::optional<const TCompleteAPICheckInfo&> get(const std::string &airp_arv) const;
 };
 
-class TCompleteAPICheckInfoCache
+typedef ASTRA::Cache<TPaxSegmentPair, TCompleteAPICheckInfo> CompleteAPICheckInfoCache;
+
+class APICheckInfoForPassenger
 {
   private:
-    std::map<int/*grp_id*/, CheckIn::TSimplePaxGrpItem> grps;
-    std::map<TPaxSegmentPair, TCompleteAPICheckInfo> checkInfoMap;
-
+    PaxGrpCache grps;
+    CompleteAPICheckInfoCache checkInfo;
   public:
-    const TCompleteAPICheckInfo& get(int paxId, int grpId=ASTRA::NoExists);
+    const TCompleteAPICheckInfo& get(const PaxId_t& paxId, const boost::optional<GrpId_t>& grpId);
+    ~APICheckInfoForPassenger();
 };
 
 CheckIn::TPaxDocItem NormalizeDoc(const CheckIn::TPaxDocItem &doc);

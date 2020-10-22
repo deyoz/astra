@@ -7,12 +7,11 @@
 * Author: Kovalev Roman <rom@sirena2000.ru>, (C) 2008
 *
 */
-
-
 #include "tlg/EdiSessionTimeOut.h"
 #include "tlg/postpone_edifact.h"
 #include "exceptions.h"
 #include "astra_main.h" // init_locale()
+#include "config.h"
 
 #include <tclmon/tclmon.h>
 #include <serverlib/new_daemon.h>
@@ -92,15 +91,15 @@ void run_edi_timeout_handler()
 }
 }
 
-void runEdiTimer_4testsOnly()
-{
-    //Environment::HandlerType ht = Environment::Environ::Instance().handlerType();
-    //Environment::Environ::setHandlerType(Environment::Daemon);
+#ifdef XP_TESTING
+namespace xp_testing {
+    void runEdiTimer_4testsOnly()
+    {
+        run_edi_timeout_handler();
+    }
+}//namespace xp_testing
+#endif//XP_TESTING
 
-    run_edi_timeout_handler();
-
-    //Environment::Environ::setHandlerType(ht);
-}
 
 int EdifactTimeOutsHandler::run(const boost::posix_time::ptime &)
 {

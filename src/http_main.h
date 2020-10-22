@@ -22,6 +22,7 @@ namespace AstraHTTP
 #define ZAMAR_PAXCTL_JXT_INTERFACE_ID "ZamarPaxCtl"
 #define ZAMAR_SBDO_JXT_INTERFACE_ID "ZamarSBDO"
 #define MOBILE_PAYMENT_JXT_INTERFACE_ID "MobilePayment"
+#define MPS_PAYMENT_JXT_INTERFACE_ID "service_eval_mps"
 
 struct HTTPClient;
 
@@ -89,6 +90,7 @@ namespace EXCHANGE_TYPE {
     static const std::string MOBILE_PAYMENT = "MOBILE_PAYMENT";
     static const std::string HTML           = "HTML";
     static const std::string CUWS           = "CUWS";
+    static const std::string MPS            = "MPS";
 }
 
 struct HTTPClient
@@ -182,7 +184,11 @@ struct HTTPClient
                     // {"SaveSPP", JxtInfo(SPP_SYNCH_JXT_INTERFACE_ID,         NULL)}
                     // {"SearchFlt", JxtInfo(WEB_JXT_IFACE_ID,                 NULL)}
                 }
-            }
+            },{EXCHANGE_TYPE::MPS,
+                {
+                    {"notify", JxtInfo(MPS_PAYMENT_JXT_INTERFACE_ID,  NULL)}
+                }
+              }
         };
 
         InetClient client_info;

@@ -46,6 +46,17 @@ class TTripTaskKey
     TTripTaskKey(const PointId_t& _point_id, const std::string& _name, const std::string& _params) :
       point_id(_point_id.get()), name(_name), params(_params) {}
     TTripTaskKey(TQuery &Qry) { fromDB(Qry); }
+
+    bool operator < (const TTripTaskKey &task) const
+    {
+      if (point_id!=task.point_id)
+        return point_id<task.point_id;
+      if (name!=task.name)
+        return name<task.name;
+      return params<task.params;
+    }
+
+
     const TTripTaskKey& toDB(TQuery &Qry) const;
     TTripTaskKey& fromDB(TQuery &Qry);
     std::string traceStr() const;

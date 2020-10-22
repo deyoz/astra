@@ -4,7 +4,6 @@
 #include "date_time.h"
 #include "etick/tick_data.h"
 
-
 namespace MPS
 {
 
@@ -29,6 +28,7 @@ class MPSExchange: public SirenaExchange::TExchange
     std::string getResource() {
       return Resource;
     }
+    virtual std::string methodName() const = 0;
     void fromDB(int clientId);
     virtual void build(std::string &content) const;
     virtual void errorFromXML(xmlNodePtr node);
@@ -117,6 +117,9 @@ class TXSDateTime:public SimpleSoapObject {
     TXSDateTime( const std::string& Aname ):SimpleSoapObject( Aname ) {}
     virtual ~TXSDateTime() {}
     void toXML( xmlNodePtr node ) const;
+    void setTime( const BASIC::date_time::TDateTime& value ) {
+      Ftimelimit = value;
+    }
 };
 
 class OrderID:public SimpleSoapObject {
@@ -130,7 +133,7 @@ class OrderID:public SimpleSoapObject {
     void SetNumber( const std::string& Anumber ) {
       Fnumber = Anumber;
     }
-    std::string getNumber() {
+    std::string getNumber() const {
       return Fnumber;
     }
     OrderID():SimpleSoapObject( "order" ) {
@@ -139,6 +142,7 @@ class OrderID:public SimpleSoapObject {
     }
     virtual ~OrderID() {}
     void toXML( xmlNodePtr node ) const;
+    void fromXML( xmlNodePtr node );
 };
 
 class Amount:public SimpleSoapObject {
@@ -153,6 +157,7 @@ class Amount:public SimpleSoapObject {
     Amount(const std::string& Name):SimpleSoapObject( Name ) {}
     virtual ~Amount() {}
     void toXML( xmlNodePtr node ) const;
+    void fromXML( xmlNodePtr node );
 };
 
 class CustomerInfo:public SimpleSoapObject {
@@ -415,6 +420,107 @@ class PostEntryArray:public SimpleSoapArrayObject<PostEntry> {
     virtual ~PostEntryArray(){}
 };
 
+class Error: public SimpleSoapObject {
+  private:
+    std::string Fcategory;
+    std::string Fcode;
+  public:
+    bool isOk() {
+      return Fcode == "ok";
+    }
+    void fromXML( xmlNodePtr node );
+    Error():SimpleSoapObject( "error" ) {
+      Fcategory.clear();
+      Fcode.clear();
+    }
+    std::string toString() {
+      std::string s = "category:"+ Fcategory + " code:" + Fcode;
+      return s;
+    }
+    virtual ~Error() {}
+};
+
+struct PaySVC {
+    std::string rfisc;
+    std::string rfic;
+    std::string service_type;
+    std::string pass_id;
+    std::string seg_id;
+    std::string name;
+    std::string emd_type;
+    std::string emd_number;
+    std::string emd_coupon;
+    std::string emd_status;
+    void clear() {
+      rfisc.clear();
+      rfic.clear();
+      service_type.clear();
+      pass_id.clear();
+      seg_id.clear();
+      name.clear();
+      emd_type.clear();
+      emd_number.clear();
+      emd_status.clear ();
+    }
+    void fromXML( xmlNodePtr node );
+    std::string toString() const {
+       std::ostringstream buf;
+       buf << "rfisc=" << rfisc
+           << " rfic=" << rfic
+           << " service_type=" << service_type
+           << " pass_id=" << pass_id
+           << " seg_id=" << seg_id
+           << " name=" << name
+           << " emd_type=" << emd_type
+           << " emd_number=" << emd_number
+           << " emd_coupon=" << emd_coupon
+           << " emd_status=" << emd_status;
+      return buf.str();
+    }
+};
+
+struct PayItem {
+  std::string id;
+  std::string ptype; //<type>svc</type>
+  std::string owner; // <owner>sirena</owner>
+  std::string pay_id; // <rrn>015609428207</rrn>
+  std::string order; //number>049GCN</number>
+  std::string total; //<total>1490.00</total>
+  void fromXML( xmlNodePtr );
+};
+
+class NotifyPushEvent: public OrderID, Error {
+  private:
+    std::string FStatus;
+    std::string FOrder;
+    std::vector<PayItem> items;
+    std::map<std::string, Amount> amounts;
+    std::map<std::string, std::vector<PaySVC>> svcs;
+    std::map<std::string, std::string> passes;
+    std::map<std::string, std::string> segs;
+  public:
+    enum EnumParse
+    {
+      onlyStatus,
+      Total
+    };
+    bool isGood() {
+      return FStatus == "acknowledged";
+    }
+    void fromStr( const std::string& notifyXML, EnumParse parseMode = Total );
+    void fromXML( xmlNodePtr node, EnumParse parseMode = Total );
+    std::string GetError() {
+       std::string s = "ERROR " + Error::toString() + " Status=" + FStatus;
+       return s;
+    }
+    void getSVCS( std::vector<PaySVC>& vsvcs ) const;
+    std::string getOrder() const{
+      return FOrder;
+    }
+
+    NotifyPushEvent() {}
+};
+
 class RegisterResult: public MPSExchange {
   public:
     virtual std::string exchangeId() const { return std::string("RegisterResult");}
@@ -422,25 +528,25 @@ class RegisterResult: public MPSExchange {
     virtual bool isRequest() const {
       return false;
     }
+    virtual std::string methodName() const {
+      return "registerResponse";
+    }
 };
 
-class RegisterMethod:public SimpleSoapObject, public MPSExchange {
-  private:
+class SimpleMethod: public SimpleSoapObject, public MPSExchange {
+  protected:
     SimpleSoapObjectOpt<OrderID> Forder;
-    SimpleSoapObjectOpt<Amount> Fcost;
-    SimpleSoapObjectOpt<CustomerInfo> Fcustomer;
-    SimpleSoapObjectOpt<OrderFull> Fdescription;
-    PostEntryArray Fpostdata;
   public:
-    RegisterMethod( ):SimpleSoapObject( "register" ), Forder( "order" ), Fcost( "cost" ), Fcustomer( "customer" ), Fdescription( "description" ), Fpostdata( "postdata" ) {}
-    virtual ~RegisterMethod(){}
-    virtual std::string exchangeId() const { return "RegisterMethod";}
+    SimpleMethod( ):SimpleSoapObject( methodName() ), Forder( "order" ) {}
+    virtual ~SimpleMethod(){}
+    virtual std::string methodName() const {
+      return "simple";
+    }
     virtual bool isRequest() const {
       return true;
     }
     virtual void clear() {}
-    void toXML( xmlNodePtr node ) const;
-    void trace( xmlNodePtr node );
+    std::string getUniqueNumber() const;
     void setOrder( const OrderID& Aorder ) {
       Forder.setObject( Aorder );
     }
@@ -451,6 +557,27 @@ class RegisterMethod:public SimpleSoapObject, public MPSExchange {
       }
       return "";
     }
+    void request( xmlNodePtr reqNode );
+    void toDB( int grp_id );
+    void trace( xmlNodePtr node );
+};
+
+
+class RegisterMethod: public SimpleMethod {
+  private:
+    SimpleSoapObjectOpt<Amount> Fcost;
+    SimpleSoapObjectOpt<CustomerInfo> Fcustomer;
+    SimpleSoapObjectOpt<OrderFull> Fdescription;
+    PostEntryArray Fpostdata;
+  public:
+    RegisterMethod( ):SimpleMethod(), Fcost( "cost" ), Fcustomer( "customer" ), Fdescription( "description" ), Fpostdata( "postdata" ) {}
+    virtual ~RegisterMethod(){}
+    virtual std::string methodName() const {
+      return "register";
+    }
+    virtual std::string exchangeId() const { return "RegisterMethod";}
+    void toXML( xmlNodePtr node ) const;
+    //void trace( xmlNodePtr node );
     void setCost( const Amount& Aamount ) {
       Fcost.setObject( Aamount );
     }
@@ -463,10 +590,156 @@ class RegisterMethod:public SimpleSoapObject, public MPSExchange {
     void setPostEntryArray( const PostEntryArray& Apostdata ) {
       Fpostdata = Apostdata;
     }
-    std::string getUniqueNumber() const;
+    std::string getRegnumFromXML( xmlNodePtr node );
+};
 
-    void request( xmlNodePtr reqNode );
-    void toDB( int grp_id, const std::string& request_type );
+class CancelMethod:public SimpleMethod {
+  public:
+    CancelMethod( ):SimpleMethod() {}
+    virtual ~CancelMethod(){}
+    virtual std::string methodName() const {
+      return "cancel";
+    }
+    virtual std::string exchangeId() const { return "CancelMethod";}
+    void toXML( xmlNodePtr node ) const;
+};
+
+class CancelResult: public MPSExchange {
+  public:
+    virtual std::string exchangeId() const { return std::string("CancelResult");}
+    virtual void clear() {}
+    virtual bool isRequest() const {
+      return false;
+    }
+    virtual std::string methodName() const {
+      return "cancelResponse";
+    }
+};
+struct NotifyEvent {
+  std::string method;
+  std::string order_id;
+  std::string xml;
+};
+
+typedef std::vector<NotifyEvent> NotifyEvents;
+
+class DBExchanger
+{
+  public:
+    enum EnumStatus
+    {
+      stSend,
+      stProcessed,
+      //stError, // относится только к типа request
+      stNotify, // относится только к типа request
+      stComplete, // относится только к типа notify
+      stAny
+    };
+    std::string EncodeStatus( const EnumStatus& status );
+    EnumStatus DecodeStatus( const std::string& status );
+    enum EnumRequestType
+    {
+      rtRequest,
+      rtAnswer,
+      rtNotify
+    };
+    std::string EncodeRequestType( const EnumRequestType& request_type );
+    EnumRequestType DecodeRequestType( const std::string& request_type );
+  private:
+    std::string ForderId;
+    std::string Fmethod;
+    void toDB( int grp_id, const EnumRequestType& msg_type, const std::string& xml, const EnumStatus& status );
+    std::string getFirstProcessedMethod();
+  public:
+    void changeStatus( const EnumRequestType& msg_type, const EnumStatus& status );
+    void getNotifyEvents( int grp_id, NotifyEvents& events );
+    int getRequestGrpId();
+    void request( int grp_id, const std::string& xml );
+    void answer( int grp_id, const std::string& xml );
+    void notifyError( const std::string& xml );
+    void notifyOk( const std::string& xml, const EnumStatus& status );
+    bool check_msg( EnumStatus& currStatus, std::string& xml, const EnumRequestType& msg_type, const EnumStatus& status );
+    bool check_msg( std::string& xml, const EnumRequestType& msg_type, const EnumStatus& status );
+    void stopWaitNotify();
+    bool alreadyRequest();
+    DBExchanger( ){}
+    DBExchanger( const std::string& method, const std::string& orderId ):ForderId(orderId),Fmethod(method) {}
+    DBExchanger( const std::string& orderId ):ForderId(orderId) {
+      Fmethod = getFirstProcessedMethod();
+    }
+};
+
+struct TermPos {
+  int id;
+  std::string name;
+  std::string address;
+  std::string serial;
+  std::string vendor;
+  bool inUse;
+  void toXML( xmlNodePtr node ) const;
+};
+
+class PosAssignator
+{
+private:
+  static const int TIME_OUT = 10; //minutes
+private:
+  std::vector<TermPos> termPoses;
+  int FPosId;
+  std::string FAirline;
+  std::string FAirp;
+public:
+  void clear() {
+    FPosId = ASTRA::NoExists;
+    FAirline.clear();
+    FAirp.clear();
+    termPoses.clear();
+  }
+  PosAssignator() {
+    clear();
+  }
+  void fromDB( int point_id );
+  void toXML(  xmlNodePtr node );
+  void AssignPos( int pos_id );
+  void ReleasePos( );
+  static void checkTimeout();
+  bool inUse( );
+  bool isEmpty() {
+    return termPoses.empty();
+  }
+  int getPosId() {
+    return FPosId;
+  }
+};
+
+
+class PosClient
+{
+private:
+  int sirena_id;
+  int mps_shopid;
+  std::string vendor;
+  std::string serial;
+public:
+  void clear() {
+    sirena_id = ASTRA::NoExists;
+    mps_shopid = ASTRA::NoExists;
+    vendor.clear();
+    serial.clear();
+  }
+  void fromDB( int posId );
+  int getShopId() {
+    return mps_shopid;
+  }
+  int getSirenaId() {
+    return sirena_id;
+  }
+  std::string getVendor() {
+    return vendor;
+  }
+  std::string getSerial() {
+    return serial;
+  }
 };
 
 class MPSExchangeIface: public ExchangeIterface::ExchangeIface
@@ -483,30 +756,24 @@ public:
   MPSExchangeIface() : ExchangeIterface::ExchangeIface(getServiceName()) {
     domainName = "ASTRA-MPS";
     Handler *evHandle;
-    evHandle=JxtHandler<MPSExchangeIface>::CreateHandler(&MPSExchangeIface::StopPaid);
-    AddEvent("stop_paid",evHandle);
+    evHandle=JxtHandler<MPSExchangeIface>::CreateHandler(&MPSExchangeIface::NotifyPushEvents);
+    AddEvent("notify",evHandle);
     addResponseHandler("RegisterMethod", response_RegisterResult);
+    addResponseHandler("CancelMethod", response_CancelResult);
     AddEvent("mps_register", JXT_HANDLER(MPSExchangeIface, KickHandler));
+    //RegisterNotifyParseTest();
   }
+  //void RegisterNotifyParseTest();
   void CheckPaid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void StopPaid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void NotifyPushEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   static void response_RegisterResult(const std::string& exchangeId, xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode);
-  //static bool isResponseHandler( const std::string& name, xmlNodePtr node );
+  static void response_CancelResult(const std::string& exchangeId, xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode);
   virtual ~MPSExchangeIface(){}
 };
 
+int TIMELIMIT_SEC();
 
-class PushEvents: public MPSExchange {
-  virtual std::string exchangeId() const { return std::string("PushEvents");}
-  virtual void clear() {}
-  virtual bool isRequest() const {
-    return false;
-  }
-  virtual void parseResponse(xmlNodePtr node);
-};
-
-void parseMPS_PUSH_Events( xmlNodePtr node );
 }
-
 #endif // MPSEXCHANGEIFACE_H

@@ -10,7 +10,7 @@ const char * OperModeS[] =
     {"CUSE", "CUTE", "MUSE", "RESA", "STAND"};
 
 const char * EventTypeS[] =
-    {"‘…‡","„ˆ‘","…‰","ƒ”","‡„—","€‘","‹","ŠŒ","’‹ƒ","„‘’","‘ˆ‘","Š„","„","—’","!","?"};
+    {"‘…‡","„ˆ‘","…‰","ƒ”","‡„—","’ˆŒ","€‘","‹","ŠŒ","’‹ƒ","„‘’","‘ˆ‘","Š„","„","—’","!","?"};
 
 const char* TClassS[] = {"","","",""};
 
@@ -66,6 +66,7 @@ const char *RptTypeS[] = {
     "RESEAT",
     "RESEATTXT",
     "KOMPLEKT",
+    "COM",
     "?"
 };
 
@@ -101,3 +102,5 @@ std::string ASTRA::TPaxTypeExt::ToString() const
     oss << "TPaxTypeExt: _pax_status=" << ASTRA::TPaxStatusS[_pax_status] << "; _crew_type=" << CrewTypes().encode(_crew_type) << ";";
     return oss.str();
 }
+
+const DCSActionsContainer& dcsActions() { return ASTRA::singletone<DCSActionsContainer>(); }

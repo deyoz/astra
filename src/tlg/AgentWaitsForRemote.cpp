@@ -45,7 +45,7 @@ static void ConfigAgentToWaitJxt(const std::string& pult,
   LogTrace(TRACE3) << "ConfigAgentToWait for pult " << pult;
 
   if (kickInfo.parentSessId!=ASTRA::NoExists) {
-    copy_notify_levb(kickInfo.parentSessId, sida.get(), true);
+    copy_notify_levb(kickInfo.msgId, kickInfo.parentSessId, sida.get(), true);
   } else {
     ServerFramework::getQueryRunner().
         getEdiHelpManager().
@@ -92,7 +92,7 @@ void MeetAgentExpectations(const edifact::RemoteResults & res)
     if (!res.isSystemPult())  //!!!vlad msgId?
     {
         LogTrace(TRACE3) << "confirm_notify_levb for edisession: " << res.ediSession();
-        confirm_notify_levb(res.ediSession().get(), true);
+        confirm_notify_levb(res.msgId(), res.ediSession().get());
     }
 
     boost::optional<TTripTaskKey> task=PostponeTripTaskHandling::deleteWaiting(res.ediSession());

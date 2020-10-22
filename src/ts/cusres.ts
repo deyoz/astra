@@ -1,5 +1,6 @@
-$(init)
-$(init_jxt_pult åéÇêéå)
+include(ts/macro.ts)
+
+$(init_term)
 
 $(sql "insert into APIS_SETS(AIRLINE, COUNTRY_DEP, COUNTRY_ARV, COUNTRY_CONTROL, FORMAT, TRANSPORT_TYPE, TRANSPORT_PARAMS, EDI_ADDR, EDI_OWN_ADDR, ID, PR_DENIAL) values('??', 'ñç', NULL, 'ñç', 'IAPI_CN', '?', '?', 'NIAC', 'NORDWIND', id__seq.nextval, 0)")
 $(sql "insert into EDI_ADDRS(ADDR, CANON_NAME) values ('NIAC', 'MOWET')")

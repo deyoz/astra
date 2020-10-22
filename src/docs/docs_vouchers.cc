@@ -154,6 +154,7 @@ const TVouchers &TVouchers::fromDB(int point_id)
 
 const TVouchers &TVouchers::fromDB(int point_id, int grp_id)
 {
+    tst();
     clear();
     this->point_id = point_id;
     string SQLText =
@@ -201,12 +202,14 @@ const TVouchers &TVouchers::fromDB(int point_id, int grp_id)
         "    confirm_print.voucher ";
     TCachedQuery Qry(SQLText, QParams() << QParam("id", otInteger, (grp_id == NoExists ? point_id : grp_id)));
     items.add(Qry.get(), false);
+    tst();
     if(grp_id == NoExists) {
+        tst();
         TCachedQuery delVoQry("select * from del_vo where point_id = :point_id",
                 QParams() << QParam("point_id", otInteger, point_id));
         delVoQry.get().Execute();
         items.add(delVoQry.get(), true);
-
+    tst();
         TCachedQuery unregQry(
                 "select "
                 "   surname||' '||name AS full_name, "

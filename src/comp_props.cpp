@@ -19,6 +19,8 @@
 #include "tlg/tlg_parser.h" // only for convert_salons
 #include "term_version.h"
 #include "alarms.h"
+#include "flt_settings.h"
+
 #include "serverlib/str_utils.h"
 
 #define NICKNAME "DJEK"
@@ -144,14 +146,21 @@ simpleProps& simpleProps::parse( xmlNodePtr sectionsNode ) {
 simpleProps& simpleProps::parse_check_write( xmlNodePtr sectionNode, int comp_id ) {
   if ( sectionNode ) {
     parse( sectionNode );
-    if ( !TReqInfo::Instance()->desk.compatible( SALON_SECTION_VERSION ) &&
-         SALONS2::haveConstructiveCompon( comp_id, rComponSalons ) ) {
+    bool isLibraComps = ComponCreator::LibraComps::isLibraComps(comp_id, ComponCreator::LibraComps::ctComp);
+    if ( (!TReqInfo::Instance()->desk.compatible( SALON_SECTION_VERSION ) &&
+          SALONS2::haveConstructiveCompon( comp_id, rComponSalons )) ||
+          isLibraComps ) {
       simpleProps osection(SECTION);
       osection.read(comp_id);
       sort( osection.begin(), osection.end(), less_than_SimpleProp() );
       sort( begin(), end(), less_than_SimpleProp() );
       if ( !this->empty() && osection != *this ) {
-        throw UserException( "MSG.CHANGE_SECTION_NOT_AVAILABLE_UPDATE_TERM" );
+        if ( isLibraComps ) {
+          throw UserException( "MSG.CHANGE_SECTION_NOT_AVAILABLE_LIBRA_COMPS" );
+        }
+        else {
+          throw UserException( "MSG.CHANGE_SECTION_NOT_AVAILABLE_UPDATE_TERM" );
+        }
       }
     }
     write( comp_id );
@@ -236,7 +245,7 @@ void checkBuildSections( int point_id, int comp_id, xmlNodePtr dataNode, const a
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   TTripInfo info( Qry );
-  if ( GetTripSets( tsCraftNoChangeSections, info ) ) {
+  if ( SALONS2::isComponSeatsNoChanges( info ) ) {
     componPropCodes::Instance()->buildSections( comp_id, TReqInfo::Instance()->desk.lang, dataNode, rows, buildEmptySection );
   }
 }

@@ -10,7 +10,7 @@
 #include "astra_service.h"
 #include "astra_date_time.h"
 #include "apis_creator.h"
-#include "salons.h"
+#include "crafts/ComponCreator.h"
 #include "term_version.h"
 #include "comp_layers.h"
 #include "alarms.h"
@@ -340,7 +340,7 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
       try {
         i->second.est = ClientToUTC( i->second.est, region );
       }
-      catch( boost::local_time::ambiguous_result ) {
+      catch( const boost::local_time::ambiguous_result& ) {
          throw AstraLocale::UserException( "MSG.STAGE.EST_TIME_NOT_EXACTLY_DEFINED_FOR_AIRP",
                  LParams() << LParam("stage", TStagesRules::Instance()->stage_name_view( i->first, airp ))
                            << LParam("airp", ElemIdToCodeNative(etAirp,airp)));
@@ -350,7 +350,7 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
       try {
         i->second.act = ClientToUTC( i->second.act, region );
       }
-      catch( boost::local_time::ambiguous_result ) {
+      catch( const boost::local_time::ambiguous_result& ) {
          throw AstraLocale::UserException( "MSG.STAGE.ACT_TIME_NOT_EXACTLY_DEFINED_FOR_AIRP",
                  LParams() << LParam("stage", TStagesRules::Instance()->stage_name_view( i->first, airp ))
                            << LParam("airp", ElemIdToCodeNative(etAirp,airp)));
@@ -803,7 +803,8 @@ void astra_timer( TDateTime utcdate )
    "WHERE points.point_id = trip_stages.point_id AND "
    "      points.act_out IS NULL AND "
    "      points.pr_del = 0 AND "
-   "      trip_stages.time_auto_not_act <= :now "
+   "      trip_stages.time_auto_not_act <= :now AND "
+   "      trip_stages.time_auto_not_act >= :now - 3 "
    " ORDER BY trip_stages.point_id, trip_stages.stage_id ";
   Qry.CreateVariable( "now", otDate, utcdate );
   TQuery QExecStage(&OraSession);
@@ -963,8 +964,10 @@ void SetCraft( int point_id, TStage stage )
   string craft = Qry.FieldAsString( "craft" );
   if ( (stage == sPrepCheckIn && (!Qry.FieldIsNULL( "bort" ) || string( "‘Ž—" ) != Qry.FieldAsString( "airp" ))) ||
        (stage == sOpenCheckIn && string( "‘Ž—" ) == Qry.FieldAsString( "airp" )) ) {
-    SALONS2::TFindSetCraft res = SALONS2::AutoSetCraft( point_id );
-    if ( res != SALONS2::rsComp_Found && res != SALONS2::rsComp_NoChanges ) {
+    ComponCreator::ComponSetter componSetter( point_id );
+    ComponCreator::ComponSetter::TStatus status = componSetter.AutoSetCraft( true );
+    if ( status != ComponCreator::ComponSetter::Created &&
+         status != ComponCreator::ComponSetter::NoChanges ) {
         TReqInfo::Instance()->LocaleToLog("EVT.LAYOUT_NOT_FOUND", LEvntPrms()
                                           << PrmElem<std::string>("craft", etCraft, craft), evtFlt, point_id );
     }
@@ -978,9 +981,8 @@ void PrepCheckIn( int point_id )
 
 void OpenCheckIn( int point_id )
 {
-    tst();
-    SetCraft( point_id, sOpenCheckIn );
-  SALONS2::setManualCompChg( point_id );
+  SetCraft( point_id, sOpenCheckIn );
+  ComponCreator::setManualCompChg( point_id );
 }
 
 void OpenWEBCheckIn( int point_id )

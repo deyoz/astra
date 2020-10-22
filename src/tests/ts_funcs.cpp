@@ -7,17 +7,25 @@
 #include "astra_types.h"
 #include "astra_main.h"
 #include "astra_misc.h"
+#include "flt_settings.h"
 #include "astra_api.h"
 #include "checkin.h"
 #include "season.h"
-#include "salons.h"
+#include "crafts/ComponCreator.h"
 #include "date_time.h"
 #include "apps_interaction.h"
 #include "alarms.h"
 #include "xml_unit.h"
+#include "pg_session.h"
+#include "stat/stat_main.h"
 #include "tlg/tlg.h"
 #include "tlg/remote_system_context.h"
 #include "tlg/edi_tlg.h"
+#include "tlg/apps_handler.h"
+#include "arx_daily.h"
+#include "arx_daily_pg.h"
+#include "dbo.h"
+#include "dbostructures.h"
 
 #include <queue>
 #include <fstream>
@@ -30,10 +38,12 @@
 #include <serverlib/exception.h>
 #include <serverlib/func_placeholders.h>
 #include <serverlib/cursctl.h>
+#include <serverlib/dates_oci.h>
 #include <serverlib/str_utils.h>
 #include <serverlib/tcl_utils.h>
 #include <serverlib/dates_io.h>
 #include <serverlib/rip_oci.h>
+#include <serverlib/pg_rip.h>
 #include <jxtlib/jxtlib.h>
 #include <jxtlib/utf2cp866.h>
 
@@ -42,9 +52,15 @@
 
 void tests_init() {}
 
-void runEdiTimer_4testsOnly();
+namespace xp_testing {
+    void runEdiTimer_4testsOnly();
+    void runAstraCallsHandler_4testsOnly();
+    void runAstraCallsCleaner_4testsOnly();
+}//namespace xp_testing
+
 static std::vector<string> getFlightTasks(const std::string& table_name, const PointId_t &point_id);
 
+using namespace xp_testing;
 using namespace xp_testing::tscript;
 
 static std::string executeAstraRequest(const std::string &request,
@@ -193,15 +209,18 @@ static std::string FP_init(const std::vector<std::string> &args)
 static std::vector<std::string> edifactOurrefVector()
 {
     std::vector<std::string> refs;
-    std::string ref;
-    OciCpp::CursCtl cur = make_curs("select OURREF from EDISESSION order by LAST_ACCESS desc, IDA desc");
 
-    cur.
-        def(ref).
-        exec();
+    std::string ref;
+    auto cur = get_pg_curs("select ourcarf from edisession order by last_access desc, ida desc");
+    cur
+            .def(ref)
+            .exec();
+    size_t pos = 0;
     while(!cur.fen()) {
+        LogTrace(TRACE3) << "ref[" << pos++ << "]=" << ref;
         refs.push_back(ref);
     }
+
     return refs;
 }
 
@@ -320,6 +339,10 @@ static std::string FP_run_daemon(const std::vector<std::string> &params) {
     assert(params.size() > 0);
     if(params.at(0) == "edi_timeout") {
         runEdiTimer_4testsOnly();
+    } else if(params.at(0) == "astra_calls_handler") {
+        runAstraCallsHandler_4testsOnly();
+    } else if(params.at(0) == "astra_calls_cleaner") {
+        runAstraCallsCleaner_4testsOnly();
     }
     return "";
 }
@@ -441,7 +464,7 @@ static std::string FP_autoSetCraft(const std::vector<std::string>& p)
 {
     assert(p.size() == 1);
     int point_id = std::stoi(p.at(0));
-    SALONS2::AutoSetCraft(point_id);
+    ComponCreator::AutoSetCraft( point_id );
     return "";
 }
 
@@ -453,11 +476,12 @@ static std::string FP_getPaxId(const std::vector<std::string>& p)
     Surname_t paxSurname(p.at(1));
     Name_t paxName(p.at(2));
 
+    LogTrace(TRACE5) << __FUNCTION__;
     SearchPaxXmlResult spRes =
             astra_api::AstraEngine::singletone().SearchCheckInPax(pointDep,
                                                                   paxSurname,
                                                                   paxName);
-
+    LogTrace(TRACE5) << __FUNCTION__;
     std::list<XmlTrip> lTrip = spRes.filterTrips(paxSurname.get(), paxName.get());
     assert(!lTrip.empty());
     const XmlTrip& frontTrip = lTrip.front();
@@ -469,7 +493,7 @@ static std::string FP_getPaxId(const std::vector<std::string>& p)
     std::list<XmlPax> lPax = frontPnr.filterPaxes(paxSurname.get(), paxName.get());
     assert(!lPax.empty());
     const XmlPax& pax = lPax.front();
-
+    LogTrace(TRACE5) << __FUNCTION__;
     return std::to_string(pax.pax_id);
 }
 
@@ -578,7 +602,7 @@ static std::string FP_getIatciTabId(const std::vector<std::string>& p)
     unsigned tabInd = std::stoi(p.at(1));
     int id;
 
-    OciCpp::CursCtl cur = make_curs(
+    auto cur = get_pg_curs(
 "select ID from IATCI_TABS where GRP_ID=:grp_id and TAB_IND=:tab_ind");
 
     cur
@@ -587,7 +611,7 @@ static std::string FP_getIatciTabId(const std::vector<std::string>& p)
             .bind(":tab_ind",tabInd)
             .EXfet();
 
-    if(cur.err() == NO_DATA_FOUND) {
+    if(cur.err() == PgCpp::NoDataFound) {
         throw EXCEPTIONS::Exception("Iatci tab not found by grp_id=" + std::to_string(grpId.get())
                                     + " and tab_ind=" + std::to_string(tabInd));
     }
@@ -697,10 +721,21 @@ static std::string FP_substr(const std::vector<std::string>& par)
 
 static std::string FP_setDeskVersion(const std::vector<std::string>& par)
 {
-    ASSERT(par.size() == 1);
-    make_curs("update DESKS set VERSION=:version")
-                .bind(":version", par.at(0))
-                .exec();
+    ASSERT(par.size() > 0);
+    std::string sql = "update DESKS set VERSION=:version";
+    if(par.size() > 1) {
+        sql += " where CODE=:code";
+    }
+
+    auto cur = make_curs(sql);
+    cur.bind(":version", par.at(0));
+
+    if(par.size() > 1) {
+        cur.bind(":code", par.at(1));
+    }
+
+    cur.exec();
+
     return "";
 }
 
@@ -773,6 +808,26 @@ static std::string FP_translit(const std::vector<std::string>& par)
     return StrUtils::translit(par.at(0));
 }
 
+void checkPresenceTask(const PointId_t& pointId, const std::string & taskName)
+{
+    auto tasks = getFlightTasks("TRIP_TASKS", pointId);
+    std::string nameOfTask;
+    if(taskName == "send_apps") {
+        nameOfTask = "SEND_NEW_APPS_INFO";
+    } else if(taskName == "send_all_apps") {
+        nameOfTask = "SEND_ALL_APPS_INFO";
+    } else if(taskName == "check_trip_alarms") {
+        nameOfTask = "CHECK_ALARM";
+    } else {
+        LogTrace(TRACE3) << __FUNCTION__ << " Unknown task: " << taskName;
+        ASSERT(false);
+    }
+    if(find(tasks.begin(), tasks.end(), nameOfTask) == tasks.end()) {
+        LogTrace(TRACE3) << __FUNCTION__ << " Not find task: " << nameOfTask;
+        ASSERT(false);
+    }
+}
+
 static std::string FP_run_trip_task(const std::vector<std::string>& par)
 {
     ASSERT(par.size() <= 3);
@@ -783,31 +838,14 @@ static std::string FP_run_trip_task(const std::vector<std::string>& par)
         checkPresenceOfTheTask = par.at(2);
     }
     if(checkPresenceOfTheTask == "check") {
-        auto tasks = getFlightTasks("TRIP_TASKS", pointId);
-        std::string nameOfTask;
-        if(taskName == "send_apps") {
-            nameOfTask = "SEND_NEW_APPS_INFO";
-        } else if(taskName == "send_all_apps") {
-            nameOfTask = "SEND_ALL_APPS_INFO";
-        } else if(taskName == "check_trip_alarms") {
-            nameOfTask = "CHECK_ALARM";
-        } else {
-            LogTrace(TRACE3) << __FUNCTION__ << " Unknown task: " << taskName;
-            ASSERT(false);
-        }
-        if(find(tasks.begin(), tasks.end(), nameOfTask) == tasks.end()) {
-            LogTrace(TRACE3) << __FUNCTION__ << " Not find task: " << nameOfTask;
-            ASSERT(false);
-        }
+        checkPresenceTask(pointId, taskName);
     }
-
-    LogTrace(TRACE3) << "Test run trip task " << taskName << " for point_id=" << pointId;
 
     try{
         if(taskName == "send_apps") {
-            APPS::sendNewAPPSInfo(TTripTaskKey(pointId, "SEND_NEW_APPS_INFO", ""));
+            APPS::sendNewInfo(TTripTaskKey(pointId, "SEND_NEW_APPS_INFO", ""));
         } else if(taskName == "send_all_apps") {
-            APPS::sendAllAPPSInfo(TTripTaskKey(pointId, "SEND_ALL_APPS_INFO", ""));
+            APPS::sendAllInfo(TTripTaskKey(pointId, "SEND_ALL_APPS_INFO", ""));
         } else if(taskName == "check_trip_alarms") {
             checkAlarm(TTripTaskKey(pointId, "CHECK_ALARM" , "APPS_NOT_SCD_IN_TIME"));
         }
@@ -815,6 +853,142 @@ static std::string FP_run_trip_task(const std::vector<std::string>& par)
     catch(EXCEPTIONS::Exception &E) {
         LogTrace(TRACE5) << " Continue testing after throw: " << E.what();
     }
+    return "";
+}
+
+void updateAppsMsg(int msg_id, Dates::DateTime_t send_time, int send_attempts)
+{
+    LogTrace(TRACE5) << __FUNCTION__ << " send_time: " << send_time << " send_attempts:" << send_attempts;
+    auto cur = get_pg_curs(
+               "update APPS_MESSAGES "
+               "set SEND_ATTEMPTS = :send_attempts, SEND_TIME = :send_time "
+               "where MSG_ID = :msg_id ");
+    cur
+        .bind(":send_attempts", send_attempts)
+        .bind(":send_time", send_time)
+        .bind(":msg_id", msg_id)
+        .exec();
+}
+
+static std::string FP_runUpdateMsg(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() == 3);
+    int msg_id = std::stoi(par.at(0));
+    int send_time_after = std::stoi(par.at(1));
+    int send_attempts = std::stoi(par.at(2));
+    Dates::DateTime_t send_time = Dates::second_clock::universal_time() - seconds(send_time_after);
+
+    LogTrace(TRACE5) << __FUNCTION__ << " time: " << HelpCpp::string_cast(send_time, "%H%M%S");
+    updateAppsMsg(msg_id, send_time, send_attempts);
+    return "";
+}
+
+static std::string FP_runResendTlg(const std::vector<std::string>& par)
+{
+    resend_tlg();
+    return "";
+}
+
+static std::string FP_dumpAppsData(const std::vector<std::string>& par)
+{
+    APPS::dumpAppsPaxData();
+    return "";
+}
+
+static std::string FP_dumpAppsMessages(const std::vector<std::string>& par)
+{
+    APPS::dumpAppsMsg();
+    return "";
+}
+
+static std::string FP_dump_pg_table(const std::vector<tok::Param>& params)
+{
+    ASSERT(params.size() > 0);
+    std::string tableName = params[0].value;
+    std::string fields, where, order;
+    bool display = false;
+
+    for (size_t i = 1; i < params.size(); ++i) {
+        if (params[i].name == "fields") {
+            fields = params[i].value;
+        } else if (params[i].name == "where") {
+            where = params[i].value;
+        } else if (params[i].name == "order") {
+            order = params[i].value;
+        } else if (params[i].name == "display") {
+            if (params[i].value == "on") {
+                display = true;
+            }
+        }
+    }
+    std::string resultQuery;
+    if(!where.empty()) {
+        resultQuery += " where " + where;
+    }
+    if(!order.empty()) {
+        resultQuery += " order by " + order;
+    }
+
+    std::vector<std::string> fieldTokens;
+    StrUtils::split_string(fieldTokens, fields);
+    for(auto & tok : fieldTokens) {
+        StrUtils::StringTrim(&tok);
+    }
+    auto &session = dbo::Session::getInstance();
+    session.connectPostgres();
+    session.dump(tableName, fieldTokens, resultQuery);
+    return "";
+}
+
+static std::string FP_agent_stat_equal(const std::vector<tok::Param>& params)
+{
+    std::vector<dbo::ARX_AGENT_STAT> ora_arx_agents_stat = dbo::readOraArxAgentsStat();
+    auto &session = dbo::Session::getInstance();
+
+    session.connectPostgres();
+    std::vector<dbo::ARX_AGENT_STAT> pg_arx_agents_stats = session.query<dbo::ARX_AGENT_STAT>();
+    ASSERT(ora_arx_agents_stat == pg_arx_agents_stats);
+    return "";
+}
+
+static std::string FP_tables_equal(const std::vector<tok::Param>& params)
+{
+    ASSERT(params.size() > 0);
+    std::string tableName = params[0].value;
+    std::string fields, where, order;
+    bool display = false;
+
+    for (size_t i = 1; i < params.size(); ++i) {
+        if (params[i].name == "fields") {
+            fields = params[i].value;
+        } else if (params[i].name == "where") {
+            where = params[i].value;
+        } else if (params[i].name == "order") {
+            order = params[i].value;
+        } else if (params[i].name == "display") {
+            if (params[i].value == "on") {
+                display = true;
+            }
+        }
+    }
+    std::string resultQuery;
+    if(!where.empty()) {
+        resultQuery += " where " + where;
+    }
+    if(!order.empty()) {
+        resultQuery += " order by " + order;
+    }
+    auto &session = dbo::Session::getInstance();
+    session.connectPostgres();
+    std::string postgresDump = session.dump(tableName, {}, resultQuery);
+    session.connectOracle();
+    std::string oracleDump =  session.dump(tableName, {}, resultQuery);
+//    LogTrace(TRACE5) << __FUNCTION__ << " :" << postgresDump;
+//    LogTrace(TRACE5) << __FUNCTION__ << " :" << oracleDump;
+    if(oracleDump != postgresDump) {
+        ProgTrace(TRACE5,"tables %s are not equal",tableName.c_str());
+    }
+    ASSERT(oracleDump == postgresDump);
     return "";
 }
 
@@ -931,6 +1105,77 @@ static std::string FP_checkFlightTasks(const std::vector<std::string>& par)
 }
 
 
+static std::string FP_runUpdateCoupon(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() == 3);
+    int status = std::stoi(par.at(0));
+    std::string ticknum = par.at(1);
+    int num = std::stoi(par.at(2));
+    auto cur = get_pg_curs("UPDATE WC_COUPON set STATUS = :status "
+                           "where TICKNUM = :ticknum and NUM = :num");
+    cur
+       .bind(":status", status)
+       .bind(":ticknum", ticknum)
+       .bind(":num", num)
+       .exec();
+    return "";
+}
+
+static std::string FP_runArchStep(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() <= 2);
+    int step = 1;
+    //boost::gregorian::date d = boost::posix_time::second_clock::local_time().date();
+    //std::string fmt = "%d%m%y";
+    Dates::DateTime_t date = HelpCpp::time_cast(par.at(0).c_str(), "%d%m%y");
+    if(par.size() == 2) {
+        step = std::stoi(par.at(1));
+    }
+
+    //TDateTime utcdate = BASIC::date_time::BoostToDateTime(d);
+    //LogTrace(TRACE5) << __FUNCTION__ << " time: " << DateTimeToStr( utcdate, "DD.MM.YYYY" ); //HelpCpp::string_cast(send_time, "%H%M%S");
+
+    bool resultPg = PG_ARX::test_arx_daily(date, step);
+    bool result = test_arx_daily(BoostToDateTime(date), step);
+    return "";
+}
+
+static std::string FP_runArch(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() == 1);
+    //boost::gregorian::date d = boost::posix_time::second_clock::local_time().date();
+    //std::string fmt = "%d%m%y";
+    Dates::DateTime_t date = HelpCpp::time_cast(par.at(0).c_str(), "%d%m%y");
+
+    //TDateTime utcdate = BASIC::date_time::BoostToDateTime(d);
+    //LogTrace(TRACE5) << __FUNCTION__ << " time: " << DateTimeToStr( utcdate, "DD.MM.YYYY" ); //HelpCpp::string_cast(send_time, "%H%M%S");
+
+    bool resultPg = PG_ARX::arx_daily(date);
+    bool result = arx_daily(BoostToDateTime(date));
+    return "";
+}
+
+static std::string FP_collectFlightStat(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() == 1);
+    PointId_t point_id(std::stoi(par.at(0)));
+    get_flight_stat(point_id.get(), true);
+    return "";
+}
+
+std::string FP_pg_sql(const std::vector<std::string> &args)
+{
+    assert(args.size() > 0);
+    std::string sqlStr;
+    for(const std::string& str: args) {
+        sqlStr += str;
+    }
+    LogTrace(TRACE3) << "exec SQL: " << sqlStr;
+    get_pg_curs(sqlStr).exec();
+    return "";
+}
+
+
 FP_REGISTER("<<", FP_tlg_in);
 FP_REGISTER("!!", FP_req);
 FP_REGISTER("astra_hello", FP_astra_hello);
@@ -974,5 +1219,17 @@ FP_REGISTER("check_crs_pax_alarms", FP_checkCrsPaxAlarms);
 FP_REGISTER("check_trip_alarms", FP_checkTripAlarms);
 FP_REGISTER("desc_test", FP_descTest);
 FP_REGISTER("check_flight_tasks", FP_checkFlightTasks);
+FP_REGISTER("update_msg", FP_runUpdateMsg);
+FP_REGISTER("resend", FP_runResendTlg);
+FP_REGISTER("dump_apps_pax_data", FP_dumpAppsData);
+FP_REGISTER("dump_apps_messages", FP_dumpAppsMessages);
+FP_REGISTER("update_pg_coupon", FP_runUpdateCoupon);
+FP_REGISTER("run_arch_step", FP_runArchStep);
+FP_REGISTER("run_arch", FP_runArch);
+FP_REGISTER("dump_pg_table", FP_dump_pg_table);
+FP_REGISTER("are_tables_equal", FP_tables_equal);
+FP_REGISTER("are_agent_stat_equal", FP_agent_stat_equal);
+FP_REGISTER("collect_flight_stat", FP_collectFlightStat);
+FP_REGISTER("pg_sql", FP_pg_sql);
 
 #endif /* XP_TESTING */

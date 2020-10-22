@@ -132,7 +132,7 @@ void set_trip_apis_param(const int point_id, const std::string& format, const st
   {
     Qry.Execute();
   }
-  catch(EOracleError E)
+  catch(const EOracleError& E)
   {
     if (E.Code!=1) throw;
   };
@@ -169,7 +169,7 @@ void getTBTripItem(const int point_dep, const int point_arv, const std::string& 
   }
 
   if ( !airp.empty() && date_time!=ASTRA::NoExists ) {
-    TAirpsRow airp_row = (TAirpsRow&)base_tables.get("airps").get_row("code",airp);
+    const TAirpsRow& airp_row = (const TAirpsRow&)base_tables.get("airps").get_row("code",airp);
     TDateTime date_time_local = UTCToLocal(date_time,AirpTZRegion(airp_row.code));
     tb_date = DateTimeToStr(date_time_local,"dd.mm.yyyy");
     tb_time = DateTimeToStr(date_time_local,"hh:nn");
@@ -184,16 +184,18 @@ std::string getTripType( ASTRA::TPaxStatus status, const int grp_id, const std::
 
   if (direction == "O") {
     // проверим входящий трансфер
-    TCkinRouteItem prior;
-    TCkinRoute().GetPriorSeg(grp_id, crtIgnoreDependent, prior );
-    if ( !prior.airp_dep.empty() && getCountryByAirp( prior.airp_dep ).code_lat != apis_country )
+    auto prior=TCkinRoute::getPriorGrp(GrpId_t(grp_id),
+                                       TCkinRoute::IgnoreDependence,
+                                       TCkinRoute::WithoutTransit);
+    if ( prior && getCountryByAirp( prior.get().airp_dep ).code_lat != apis_country )
       return "X";
   }
   else {
     // проверим исходящий трансфер
-    TCkinRouteItem next;
-    TCkinRoute().GetNextSeg(grp_id, crtIgnoreDependent, next );
-    if ( !next.airp_arv.empty() && getCountryByAirp( next.airp_arv ).code_lat != apis_country )
+    auto next=TCkinRoute::getNextGrp(GrpId_t(grp_id),
+                                     TCkinRoute::IgnoreDependence,
+                                     TCkinRoute::WithoutTransit);
+    if ( next && getCountryByAirp( next.get().airp_arv ).code_lat != apis_country )
       return "X";
   }
   return "N";

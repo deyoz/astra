@@ -2,8 +2,8 @@ include(ts/macro.ts)
 
 # meta: suite eticket
 
-$(init_jxt_pult ŒŽ‚ŽŒ)
-$(login)
+$(init_term)
+
 $(init_eds ž’ UTET UTDC)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ž’ 103 „Œ„ ‹Š REPIN IVAN)
@@ -208,8 +208,8 @@ EMD$(sharp)2982121212132: $()
 %%
 # test 2 - â®«ìª® 
 
-$(init_jxt_pult ŒŽ‚ŽŒ)
-$(login)
+$(init_term)
+
 $(init_eds ž’ UTET UTDC)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ž’ 103 „Œ„ ‹Š REPIN IVAN)
@@ -262,8 +262,8 @@ $(KICK_IN)
 %%
 # test 3 - â ©¬ ãâ ­  íâ ¯¥ ¤¨á¯«¥ï 
 
-$(init_jxt_pult ŒŽ‚ŽŒ)
-$(login)
+$(init_term)
+
 $(init_eds ž’ UTET UTDC)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ž’ 103 „Œ„ ‹Š REPIN IVAN)
@@ -280,7 +280,7 @@ UNT+5+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 
-$(sql {update EDISESSION_TIMEOUTS set time_out = sysdate - 1})
+$(pg_sql {update EDISESSION_TIMEOUTS set time_out = current_timestamp - interval '1 hour'})
 $(run_daemon edi_timeout)
 
 >> lines=auto
@@ -299,9 +299,8 @@ $(lastRedisplay)
 %%
 # test 4 - â ©¬ ãâ ­  íâ ¯¥ ¤¨á¯«¥ï Œ„
 
+$(init_term)
 
-$(init_jxt_pult ŒŽ‚ŽŒ)
-$(login)
 $(init_eds ž’ UTET UTDC)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ž’ 103 „Œ„ ‹Š REPIN IVAN)
@@ -405,7 +404,7 @@ UNT+32+1"
 UNZ+1+$(last_edifact_ref 1)0001"
 
 
-$(sql {update EDISESSION_TIMEOUTS set time_out = sysdate - 1})
+$(pg_sql {update EDISESSION_TIMEOUTS set time_out = current_timestamp - interval '1 hour'})
 $(run_daemon edi_timeout)
 
 >> lines=auto
@@ -424,15 +423,13 @@ $(lastRedisplay)
 %%
 # test 5 - ¡¨«¥â ­¥ ­ ©¤¥­
 
+$(init_term)
 
-$(init_jxt_pult ŒŽ‚ŽŒ)
-$(login)
 $(init_eds ž’ UTET UTDC)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ž’ 103 „Œ„ ‹Š REPIN IVAN)
 
 $(EMD_TEXT_VIEW $(last_point_id_spp) 2982348111616)
-
 
 >>
 UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"

@@ -1,6 +1,8 @@
 #include "recloc.h"
 
 #include <serverlib/cursctl.h>
+#include <serverlib/pg_cursctl.h>
+#include "pg_session.h"
 
 #include <string>
 #include <math.h>
@@ -35,7 +37,7 @@ inline std::string GenerateRecloc_(pnr_seq_t seq)
 std::string GenerateRecloc()
 {
     pnr_seq_t seq;
-    OciCpp::CursCtl pnrCur = make_curs("select RL_SEQ.NEXTVAL from DUAL");
+    PgCpp::CursCtl pnrCur = get_pg_curs("select nextval('RL_SEQ')");
     pnrCur.def(seq).EXfet();
     return GenerateRecloc_(seq);
 }

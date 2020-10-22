@@ -22,6 +22,7 @@
 #include "file_queue.h"
 #include "telegram.h"
 #include "arx_daily.h"
+#include "arx_daily_pg.h"
 #include "base_tables.h"
 #include "stl_utils.h"
 #include "basel_aero.h"
@@ -155,7 +156,12 @@ void exec_tasks( const char *proc_name, int argc, char *argv[] )
         else
         if ( name == "sync_mvd" ) sync_mvd();
         else
-        if ( name == "arx_daily" ) Result = arx_daily( utcdate );
+        if ( name == "arx_daily" ) {
+            if(PG_ARX::ARX_PG_ENABLE()) {
+                Result = PG_ARX::arx_daily(DateTimeToBoost(utcdate));
+            }
+            Result = arx_daily( utcdate );
+        }
         else
         if ( name == "sync_aodb" ) sync_aodb( );
         else

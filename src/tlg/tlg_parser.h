@@ -11,6 +11,8 @@
 #include "seats_utils.h"
 #include "memory_manager.h"
 #include "flt_binding.h"
+#include "astra_types.h"
+#include "typeb_remarks.h"
 
 using BASIC::date_time::TDateTime;
 
@@ -287,344 +289,6 @@ typedef struct
   std::vector<TSeatsItem> seats;
 } TRouteItem;
 
-class TDocExtraItem
-{
-  public:
-    char type_rcpt[4],no[16];
-    TDocExtraItem()
-    {
-      Clear();
-    };
-    void Clear()
-    {
-      *type_rcpt=0;
-      *no=0;
-    };
-    bool Empty() const
-    {
-      return  *type_rcpt==0 &&
-              *no==0;
-    };
-};
-
-class TDetailRemAncestor
-{
-  public:
-    char rem_code[6],rem_status[3];
-    bool pr_inf;
-    TDetailRemAncestor()
-    {
-      Clear();
-    };
-    virtual ~TDetailRemAncestor() {};
-
-    bool isHKReservationsStatus() const
-    {
-      return strcmp(rem_status, "HK")==0;
-    }
-
-    bool infIndicatorExists() const
-    {
-      return pr_inf;
-    }
-
-  protected:
-    void Clear()
-    {
-      *rem_code=0;
-      *rem_status=0;
-      pr_inf=false;
-    };
-    bool Empty() const
-    {
-      return pr_inf==false;
-    };
-    bool operator == (const TDetailRemAncestor &item) const
-    {
-      return strcmp(rem_code, item.rem_code)==0 &&
-             strcmp(rem_status, item.rem_status)==0 &&
-             pr_inf==item.pr_inf;
-    }
-};
-
-class TDocItem : public TDetailRemAncestor
-{
-  public:
-    char type[3],issue_country[4],no[16];
-    char nationality[4],gender[3];
-    TDateTime birth_date,expiry_date;
-    std::string surname,first_name,second_name;
-    bool pr_multi;
-    TDocItem()
-    {
-      Clear();
-    };
-    void Clear()
-    {
-      TDetailRemAncestor::Clear();
-      *type=0;
-      *issue_country=0;
-      *no=0;
-      *nationality=0;
-      *gender=0;
-      birth_date=ASTRA::NoExists;
-      expiry_date=ASTRA::NoExists;
-      surname.clear();
-      first_name.clear();
-      second_name.clear();
-      pr_multi=false;
-    };
-    bool Empty() const
-    {
-      return TDetailRemAncestor::Empty() &&
-             *type==0 &&
-             *issue_country==0 &&
-             *no==0 &&
-             *nationality==0 &&
-             *gender==0 &&
-             birth_date==ASTRA::NoExists &&
-             expiry_date==ASTRA::NoExists &&
-             surname.empty() &&
-             first_name.empty() &&
-             second_name.empty() &&
-             pr_multi==false;
-    };
-};
-
-class TDocoItem : public TDetailRemAncestor
-{
-  public:
-    char type[3],no[26],applic_country[4];
-    TDateTime issue_date;
-    std::string birth_place, issue_place;
-    TDocoItem()
-    {
-      Clear();
-    };
-    void Clear()
-    {
-      TDetailRemAncestor::Clear();
-      *type=0;
-      *no=0;
-      *applic_country=0;
-      issue_date=ASTRA::NoExists;
-      birth_place.clear();
-      issue_place.clear();
-    };
-    bool Empty() const
-    {
-      return TDetailRemAncestor::Empty() &&
-             *type==0 &&
-             *no==0 &&
-             *applic_country==0 &&
-             issue_date==ASTRA::NoExists &&
-             birth_place.empty() &&
-             issue_place.empty();
-    };
-};
-
-class TDocaItem : public TDetailRemAncestor
-{
-  public:
-    char type[2],country[4];
-    std::string address, city, region, postal_code;
-    TDocaItem()
-    {
-      Clear();
-    };
-    void Clear()
-    {
-      TDetailRemAncestor::Clear();
-      *type=0;
-      *country=0;
-      address.clear();
-      city.clear();
-      region.clear();
-      postal_code.clear();
-    };
-    bool Empty() const
-    {
-      return TDetailRemAncestor::Empty() &&
-             *type==0 &&
-             *country==0 &&
-             address.empty() &&
-             city.empty() &&
-             region.empty() &&
-             postal_code.empty();
-    };
-};
-
-class TTKNItem : public TDetailRemAncestor
-{
-  public:
-    char ticket_no[16];
-    int coupon_no;
-    TTKNItem()
-    {
-      Clear();
-    }
-    void Clear()
-    {
-      TDetailRemAncestor::Clear();
-      *ticket_no=0;
-      coupon_no=0;
-    }
-    void toDB(TQuery &Qry) const;
-};
-
-class TFQTItem
-{
-  public:
-    char rem_code[6],airline[4],no[26];
-    std::string extra;
-    TFQTItem()
-    {
-      Clear();
-    };
-    void Clear()
-    {
-      *rem_code=0;
-      *airline=0;
-      *no=0;
-      extra.clear();
-    };
-    bool operator < (const TFQTItem &item) const
-    {
-      int res;
-      res=strcmp(no, item.no);
-      if (res!=0) return res<0;
-      res=strcmp(airline, item.airline);
-      return res<0;
-    }
-};
-
-class TFQTExtraItem
-{
-  public:
-    std::string tier_level;
-    TFQTExtraItem()
-    {
-      Clear();
-    }
-    void Clear()
-    {
-      tier_level.clear();
-    }
-    bool Empty() const
-    {
-      return tier_level.empty();
-    }
-    bool operator < (const TFQTExtraItem &item) const
-    {
-      return tier_level<item.tier_level;
-    }
-};
-
-class TCHKDItem : public TDetailRemAncestor
-{
-  public:
-    long int reg_no;
-    TCHKDItem()
-    {
-      Clear();
-    };
-    void Clear()
-    {
-      TDetailRemAncestor::Clear();
-      reg_no=ASTRA::NoExists;
-    };
-    bool Empty() const
-    {
-      return TDetailRemAncestor::Empty() &&
-             reg_no==ASTRA::NoExists;
-    };
-};
-
-class TASVCItem : public TDetailRemAncestor
-{
-  public:
-    char RFIC[2], RFISC[16], ssr_code[5], service_name[31];
-    int service_quantity;
-    char emd_type[2], emd_no[14];
-    int emd_coupon;
-    TASVCItem()
-    {
-      Clear();
-    };
-    void Clear()
-    {
-      TDetailRemAncestor::Clear();
-      *RFIC=0;
-      *RFISC=0;
-      service_quantity=ASTRA::NoExists;
-      *ssr_code=0;
-      *service_name=0;
-      *emd_type=0;
-      *emd_no=0;
-      emd_coupon=ASTRA::NoExists;
-    };
-    bool Empty() const
-    {
-      return TDetailRemAncestor::Empty() &&
-             *RFIC==0 &&
-             *RFISC==0 &&
-             service_quantity==ASTRA::NoExists &&
-             *ssr_code==0 &&
-             *service_name==0 &&
-             *emd_type==0 &&
-             *emd_no==0 &&
-             emd_coupon==ASTRA::NoExists;
-    };
-    bool emdRequired() const
-    {
-      return strncmp(rem_status, "HD", 2)==0;
-    }
-
-    bool operator == (const TASVCItem &item) const
-    {
-      return TDetailRemAncestor::operator ==(item) &&
-             strcmp(RFIC, item.RFIC)==0 &&
-             strcmp(RFISC, item.RFISC)==0 &&
-             service_quantity==item.service_quantity &&
-             strcmp(ssr_code, item.ssr_code)==0 &&
-             strcmp(service_name, item.service_name)==0 &&
-             strcmp(emd_type, item.emd_type)==0 &&
-             strcmp(emd_no, item.emd_no)==0 &&
-             emd_coupon==item.emd_coupon;
-    }
-};
-
-class TSeatBlockingRem : public TDetailRemAncestor
-{
-  public:
-    int numberOfSeats;
-    TSeatBlockingRem() { clear(); }
-    void clear()
-    {
-      TDetailRemAncestor::Clear();
-      numberOfSeats=0;
-    }
-    bool isSTCR() const
-    {
-      return strcmp(rem_code, "STCR")==0;
-    }
-};
-
-class TRemItem
-{
-  public:
-    std::string text;
-    char code[6];
-    TRemItem()
-    {
-      *code=0;
-    }
-    bool isPDRem() const
-    {
-      return strlen(code)==4 && strncmp(code, "PD", 2)==0;
-    }
-};
-
 class PassengerSystemId
 {
   public:
@@ -632,21 +296,6 @@ class PassengerSystemId
     bool infantIndicator=false;
 
     bool infIndicatorExists() const { return infantIndicator; }
-};
-
-class TPDRemItem : public TRemItem
-{
-  public:
-    TPDRemItem(const TRemItem &item) : TRemItem(item) {}
-    TPDRemItem() : TRemItem() {}
-    bool operator < (const TPDRemItem &item) const
-    {
-      return text<item.text;
-    }
-    bool operator == (const TPDRemItem &item) const
-    {
-      return text==item.text;
-    }
 };
 
 typedef std::pair<std::string,std::string> TChdItem;
@@ -767,7 +416,7 @@ class TPaxItem : public PersonAncestor
     void bindSeatsBlocking(const TNameElement& ne,
                            const std::string& remCode,
                            TSeatsBlockingList& srcSeatsBlocking);
-    void setSomeDataForSeatsBlocking(const int& paxId, const TNameElement& ne);
+    void setSomeDataForSeatsBlocking(const boost::optional<PaxId_t>& paxId, const TNameElement& ne);
     void setSomeDataForSeatsBlocking(const TNameElement& ne);
     void getTknNumbers(std::list<std::string>& result) const;
     void moveTknWithNumber(const std::string& no, std::vector<TTKNItem>& dest);
@@ -775,8 +424,9 @@ class TPaxItem : public PersonAncestor
     bool dontSaveToDB(const TNameElement& ne) const;
 
     static bool isSeatBlockingRem(const std::string &rem_code);
-    static int getNotUsedSeatBlockingId(const int& paxId);
-    static void getAndLockSeatBlockingIds(const int& paxId, std::set<int>& seatIds);
+    static boost::optional<PaxId_t> getNotUsedSeatBlockingId(const PaxId_t& paxId);
+    static std::map<PaxId_t, TSeatsBlockingItem> getAndLockSeatBlockingItems(const PaxId_t& paxId);
+    static std::set<PaxId_t> getAndLockInfantIds(const PaxId_t &paxId);
 };
 
 class TSeatsBlockingItem : public TPaxItem
@@ -1216,16 +866,7 @@ namespace regex {
     static const std::string full_stop = "\\.";
 }
 
-
 } //namespace TypeB
-
-class PaxASVCCallbacks
-{
-    public:
-        virtual ~PaxASVCCallbacks() {}
-        virtual void onSyncPaxASVC(TRACE_SIGNATURE, int pax_id) = 0;
-
-};
 
 #endif
 

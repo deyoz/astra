@@ -5,43 +5,11 @@
 #include "astra_consts.h"
 #include <set>
 
-class DCSService
-{
-  public:
-    enum Enum
-    {
-      PrintBPOnDesk,
-      ChangeSeatOnDesk
-    };
-
-    static const std::list< std::pair<Enum, std::string> >& pairs()
-    {
-      static std::list< std::pair<Enum, std::string> > l =
-      {
-        {PrintBPOnDesk,    "PRINT_BP_ON_DESK"},
-        {ChangeSeatOnDesk, "CHG_SEAT_ON_DESK"}
-      };
-      return l;
-    }
-};
-
-class DCSServices : public ASTRA::PairList<DCSService::Enum, std::string>
-{
-  private:
-    virtual std::string className() const { return "DCSServices"; }
-  public:
-    DCSServices() : ASTRA::PairList<DCSService::Enum, std::string>(DCSService::pairs(),
-                                                                   boost::none,
-                                                                   boost::none) {}
-};
-
-const DCSServices& dcsServices();
-
 class DCSServiceApplyingParams
 {
   public:
     std::string airline;
-    DCSService::Enum dcs_service;
+    DCSAction::Enum dcs_action;
     std::string brand_airline;
     std::string brand_code;
     std::string fqt_airline;
@@ -56,8 +24,8 @@ class DCSServiceApplying
   private:
     static void addRequiredRFISCs(const DCSServiceApplyingParams& params, RFISCsSet& rfiscs);
   public:
-    static bool isAllowed(int pax_id, DCSService::Enum dcsService, RFISCsSet& reqRFISCs);
-    static void throwIfNotAllowed(int pax_id, DCSService::Enum dcsService);
+    static bool isAllowed(int pax_id, DCSAction::Enum dcsAction, RFISCsSet& reqRFISCs);
+    static void throwIfNotAllowed(int pax_id, DCSAction::Enum dcsAction);
 };
 
 

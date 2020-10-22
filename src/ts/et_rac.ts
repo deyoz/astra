@@ -2,8 +2,8 @@ include(ts/macro.ts)
 
 # meta: suite eticket
 
-$(init_jxt_pult МОВРОМ)
-$(login)
+$(init_term)
+
 $(init_eds ЮТ UTET UTDC translit)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ЮТ 103 ДМД ПЛК REPIN IVAN)
@@ -94,8 +94,9 @@ UNZ+1+$(last_edifact_ref)0001"
 
 
 # считаем купон зарегистрированным - контроль вернуть не сможем
-$(sql "update wc_coupon set status=8")
+# $(sql "update wc_coupon set status=8")
 
+$(update_pg_coupon 8 2982348111616 1)
 
 # забирают контроль обратно - не отдадим
 <<
@@ -109,6 +110,7 @@ CPN+1:701"
 UNT+7+1"
 UNZ+1+FFD507DE140001"
 
+
 >>
 UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+FFD507DE140001+++T"
 UNH+1+TKCRES:96:2:IA+FFD507DE14"
@@ -117,12 +119,11 @@ ERC+396"
 UNT+4+1"
 UNZ+1+FFD507DE140001"
 
-$(dump_table AIRPORT_CONTROLS)
-
 
 # считаем контроль открытым - контроль вернём
-$(sql "update wc_coupon set status=1")
+# $(sql "update wc_coupon set status=1")
 
+$(update_pg_coupon 1 2982348111616 1)
 
 # забирают контроль обратно - отдадим
 <<
@@ -152,9 +153,8 @@ UNZ+1+FFD507DE140001"
 # Забирают Flown у нас
 #
 
+$(init_term)
 
-$(init_jxt_pult МОВРОМ)
-$(login)
 $(init_eds ЮТ UTET UTDC translit)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ЮТ 103 ДМД ПЛК REPIN IVAN)
@@ -204,7 +204,9 @@ UNZ+1+$(last_edifact_ref)0001"
 
 
 # делаем купон Flown - контроль вернём контроль
-$(sql "update wc_coupon set status=10")
+#$(sql "update wc_coupon set status=10")
+
+$(update_pg_coupon 10 2982348111616 1)
 
 <<
 UNB+SIRE:1+UTET+UTDC+170703:1027+FFD507DE140001+++O"

@@ -77,6 +77,7 @@ class BMConnection
     static const int NUMLINES = 2;
   // Настройки, прочитанные извне при запуске
     int line_number;            // Порядковый номер соединения в системе
+    std::string canon_name;
     BM_HOST ip_addr[NUMLINES];  // Адреса для линий связи - основной и резервный (резервнЫЕ?)
     std::string login;          // Логин в системе SITA BagMessage
     std::string password;       // Пароль там же
@@ -121,10 +122,10 @@ class BMConnection
   public:
     BMConnection( int i, boost::asio::io_service& io );
     ~BMConnection();
-    void run();          // Сделать что-то в рабочем цикле
+    void run(const std::string &name);         // Сделать что-то в рабочем цикле
   private:
     bool isInit() { return configured; };      // Проверить, что конфигурация прочитана
-    void init();                               // Прочитать конфигурацию и сохранить в объекте
+    void init(const std::string &name);        // Прочитать конфигурацию и сохранить в объекте
     void reset();                              // Сбросить все внутренние статусы в исходное состояние
     void resetAndSwitch();                     // Сбросить все внутренние статусы в исходное состояние и переключиться на другой канал
     void connect();                            // Подключиться к серверу

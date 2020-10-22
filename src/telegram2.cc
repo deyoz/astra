@@ -25,6 +25,8 @@
 #include "docs/docs_common.h"
 #include "docs/docs_pax_list.h"
 #include "seat_number.h"
+#include "flt_settings.h"
+#include "wb_messages.h"
 
 #define NICKNAME "DEN"
 #include "serverlib/slogger.h"
@@ -103,97 +105,7 @@ string getDefaultSex()
     return "M";
 }
 
-/*void getPaxsSeatsTranzitSalons( int point_dep, std::map<int,TCheckinPaxSeats> &checkinPaxsSeats )
-{
-  ProgTrace(TRACE5, "getPaxsSeatsTranzitSalons: old salons");
-  checkinPaxsSeats.clear();
-  SALONS2::TSalonList salonList;
-  salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_dep, ASTRA::NoExists ), "" );
-  std::set<ASTRA::TCompLayerType> search_layers;
-  for ( int ilayer=0; ilayer<(int)cltTypeNum; ilayer++ ) {
-    ASTRA::TCompLayerType layer_type = (ASTRA::TCompLayerType)ilayer;
-    BASIC_SALONS::TCompLayerType layer_elem;
-    if ( BASIC_SALONS::TCompLayerTypes::Instance()->getElem( layer_type, layer_elem ) &&
-         layer_elem.getOccupy() ) {
-      search_layers.insert( layer_type );
-    }
-  }
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "SELECT NVL(pax_doc.gender,:sex) as gender "
-    " FROM pax_doc "
-    " WHERE pax_id=:pax_id";
-  Qry.DeclareVariable( "pax_id", otInteger );
-  Qry.CreateVariable( "sex", otString, getDefaultSex() );
-  TSalonPassengers passengers;
-  SALONS2::TGetPassFlags flags;
-  flags.setFlag( SALONS2::gpPassenger );
-  flags.setFlag( SALONS2::gpWaitList ); //!!!
-  salonList.getPassengers( passengers, flags );
-  SALONS2::TSalonPassengers::iterator pass_dep = passengers.find( point_dep );
-  if ( pass_dep == passengers.end() ) {
-    return;
-  }
-  //point_arv
-  for ( SALONS2::TIntArvSalonPassengers::iterator iroute=pass_dep->second.begin(); iroute!=pass_dep->second.end(); iroute++ ) {
-    //class
-    for ( TIntClassSalonPassengers::iterator iclass=iroute->second.begin();
-          iclass!=iroute->second.end(); iclass++ ) {
-      //grp_status
-      for ( TIntStatusSalonPassengers::iterator igrp_layer=iclass->second.begin();
-            igrp_layer!=iclass->second.end(); igrp_layer++ ) {
-        //pass.grp+reg_no
-        for ( std::set<TSalonPax,ComparePassenger>::iterator ipass=igrp_layer->second.begin(); ipass!=igrp_layer->second.end(); ipass++ ) {
-          if ( ipass->layers.empty() ) {
-            continue;
-          }
-          for ( TLayersPax::const_iterator ilayer=ipass->layers.begin(); ilayer!=ipass->layers.end(); ilayer++ ) {
-            if ( search_layers.find( ilayer->first.layer_type ) == search_layers.end() ||
-                 ilayer->second.waitListReason.layerStatus != layerValid ) {
-              continue;
-            }
-            TCheckinPaxSeats checkinPaxSeats;
-            switch( ipass->pers_type ) {
-              case ASTRA::adult:
-                Qry.SetVariable( "pax_id", ipass->pax_id );
-                Qry.Execute();
-                if ( Qry.Eof ) {
-                  checkinPaxSeats.gender = getDefaultSex();
-                }
-                else {
-                  checkinPaxSeats.gender = (string(Qry.FieldAsString( "gender" )).substr(0,1) == "F" ? "F" : "M");
-                }
-                break;
-              case ASTRA::child:
-                checkinPaxSeats.gender = "C";
-                break;
-              case ASTRA::baby:
-                checkinPaxSeats.gender = "I";
-                break;
-              default:
-                break;
-            }
-            TTlgCompLayer compLayer;
-            compLayer.pax_id = ilayer->first.getPaxId();
-              compLayer.point_dep = ilayer->first.point_dep;
-              compLayer.point_arv = ilayer->first.point_arv;
-              compLayer.layer_type = ilayer->first.layer_type;
-              for ( std::set<TPlace*,CompareSeats>::iterator iseat=ilayer->second.seats.begin();
-                  iseat!=ilayer->second.seats.end(); iseat++ ) {
-              compLayer.xname = (*iseat)->xname;
-                compLayer.yname = (*iseat)->yname;
-                checkinPaxSeats.seats.insert( compLayer );
-            }
-            checkinPaxsSeats.insert( make_pair( ipass->pax_id, checkinPaxSeats ) );
-              break;
-          }
-        }
-      }
-    }
-  }
-} */
-
-void getSalonPaxsSeats( int point_dep, std::map<int,TCheckinPaxSeats> &checkinPaxsSeats )
+void getSalonPaxsSeats( int point_dep, std::map<int,TCheckinPaxSeats> &checkinPaxsSeats, bool pr_tranzit )
 {
   checkinPaxsSeats.clear();
   std::set<ASTRA::TCompLayerType> search_layers;
@@ -206,13 +118,13 @@ void getSalonPaxsSeats( int point_dep, std::map<int,TCheckinPaxSeats> &checkinPa
     }
   }
 
-//  if ( SALONS2::isTranzitSalons( point_dep ) ) {     //!!!удалить при установке без новых салонов
     SALONS2::TSalonList salonList;
     salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_dep, ASTRA::NoExists ),
                           "", NoExists );
-    TSalonPassengers passengers;
     SALONS2::TGetPassFlags flags;
     flags.setFlag( SALONS2::gpPassenger ); //только пассажиров с местами
+    if(pr_tranzit)
+        flags.setFlag( SALONS2::gpTranzits ); // транзитники?
     TSectionInfo sectionInfo;
     salonList.getSectionInfo( sectionInfo, flags );
     TLayersSeats layerSeats;
@@ -226,7 +138,7 @@ void getSalonPaxsSeats( int point_dep, std::map<int,TCheckinPaxSeats> &checkinPa
         continue;
       }
       if ( paxs.find( ilayer->first.getPaxId() ) == paxs.end() ) {
-        ProgError( STDLOG, "telegram2::getSalonPaxsSeats: pax_id=%d not found", ilayer->first.getPaxId() );
+        ProgError( STDLOG, "getSalonPaxsSeats: pax_id=%d not found", ilayer->first.getPaxId() );
       }
       tst();
       string gender;
@@ -257,101 +169,17 @@ void getSalonPaxsSeats( int point_dep, std::map<int,TCheckinPaxSeats> &checkinPa
             iseat!=ilayer->second.end(); iseat++ ) {
         TTlgCompLayer compLayer;
         compLayer.pax_id = ilayer->first.getPaxId();
-          compLayer.point_dep = ilayer->first.point_dep;
-          compLayer.point_arv = ilayer->first.point_arv;
-          compLayer.layer_type = ilayer->first.layer_type;
-          compLayer.xname = iseat->line;
-          compLayer.yname = iseat->row;
+        compLayer.point_dep = ilayer->first.point_dep;
+        compLayer.point_arv = ilayer->first.point_arv;
+        compLayer.layer_type = ilayer->first.layer_type;
+        compLayer.xname = iseat->line;
+        compLayer.yname = iseat->row;
         checkinPaxsSeats[ ilayer->first.getPaxId() ].gender = gender;
         checkinPaxsSeats[ ilayer->first.getPaxId() ].pr_infant = paxs[ ilayer->first.getPaxId() ].pr_infant;
         checkinPaxsSeats[ ilayer->first.getPaxId() ].crew_type = paxs[ ilayer->first.getPaxId() ].crew_type;
         checkinPaxsSeats[ ilayer->first.getPaxId() ].seats.insert( compLayer );
       }
     }
-
-/*    TSeatsPaxs seatsPaxs;
-    sectionInfo.GetSalonPaxs( seatsPaxs );
-    for ( TSeatsPaxs::const_iterator ipax=seatsPaxs.begin();
-          ipax!=seatsPaxs.end(); ipax++ ) {
-      TCheckinPaxSeats checkinPaxSeats;
-
-      if ( ipax->)
-
-      if ( ipax.getnder checkinPaxSeats )
-      TTlgCompLayer compLayer;
-      compLayer.pax_id = iseat->layers.begin()->pax_id;
-        compLayer.point_dep = iseat->layers.begin()->point_dep;
-        compLayer.point_arv = iseat->layers.begin()->point_arv;
-        compLayer.layer_type = iseat->layers.begin()->layer_type;
-        compLayer.xname = iseat->xname;
-        compLayer.yname = iseat->yname;
-      checkinPaxsSeats[ iseat->layers.begin()->pax_id ].seats.insert( compLayer );
-    }
-    return;
-  //}
-  ProgTrace(TRACE5, "getSalonPaxsSeats: old salons");
-  set<ASTRA::TCompLayerType> occupies;
-  TQuery Qry(&OraSession);
-  Qry.SQLText = "SELECT code FROM comp_layer_types WHERE PR_OCCUPY<>0";
-  Qry.Execute();
-  for ( ;!Qry.Eof; Qry.Next() ) {
-    occupies.insert( DecodeCompLayerType( Qry.FieldAsString( "code" ) ) );
-  }
-  SALONS2::TSalons Salons( point_dep, SALONS2::rTripSalons );
-  Salons.Read();
-  Qry.Clear();
-  Qry.SQLText =
-      "SELECT pax.pax_id,pax.reg_no,pax_grp.grp_id,"
-       "      pax_grp.class,pax.refuse,"
-       "       pax.pers_type, "
-       "       NVL(pax_doc.gender,:sex) as gender, "
-       "       pax.seats seats "
-       " FROM pax_grp, pax, pax_doc "
-       " WHERE pax_grp.grp_id=pax.grp_id AND "
-       "       pax_grp.point_dep=:point_id AND "
-     "       pax_grp.status NOT IN ('E') AND "
-       "       pax.wl_type IS NULL AND "
-       "       pax.seats > 0 AND "
-       "       salons.is_waitlist(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,rownum)=0 AND "
-       "       pax.pax_id=pax_doc.pax_id(+) ";
-  Qry.CreateVariable( "point_id", otInteger, point_dep );
-  Qry.CreateVariable( "sex", otString, getDefaultSex() );
-  Qry.Execute();
-  for ( ; not Qry.Eof; Qry.Next() ) {
-    TCheckinPaxSeats checkinPaxSeats;
-    TPerson person_type = DecodePerson( Qry.FieldAsString( "pers_type" ) );
-    switch( person_type ) {
-      case ASTRA::adult:
-        checkinPaxSeats.gender = (string(Qry.FieldAsString( "gender" )).substr(0,1) == "F" ? "F" : "M");
-        break;
-      case ASTRA::child:
-        checkinPaxSeats.gender = "C";
-        break;
-      case ASTRA::baby:
-        checkinPaxSeats.gender = "I";
-        break;
-      default:
-        break;
-    }
-    checkinPaxsSeats.insert( make_pair( Qry.FieldAsInteger( "pax_id" ), checkinPaxSeats ) );
-  }
-  for ( vector<TPlaceList*>::iterator isalonList=Salons.placelists.begin(); isalonList!=Salons.placelists.end(); isalonList++) { // пробег по салонам
-    for ( IPlace iseat=(*isalonList)->places.begin(); iseat!=(*isalonList)->places.end(); iseat++ ) { // пробег по местам в салоне
-      if ( iseat->layers.empty() ||
-           occupies.find( iseat->layers.begin()->layer_type ) == occupies.end() ||
-           checkinPaxsSeats.find( iseat->layers.begin()->pax_id ) == checkinPaxsSeats.end() ) {
-        continue;
-      }
-      TTlgCompLayer compLayer;
-      compLayer.pax_id = iseat->layers.begin()->pax_id;
-        compLayer.point_dep = iseat->layers.begin()->point_dep;
-        compLayer.point_arv = iseat->layers.begin()->point_arv;
-        compLayer.layer_type = iseat->layers.begin()->layer_type;
-        compLayer.xname = iseat->xname;
-        compLayer.yname = iseat->yname;
-      checkinPaxsSeats[ iseat->layers.begin()->pax_id ].seats.insert( compLayer );
-    }
-  }*/
 }
 
 void getSalonLayers( int point_id,
@@ -433,178 +261,8 @@ void getSalonLayers(const TypeB::TDetailCreateInfo &info,
                  info.pr_tranzit,
                  complayers,
                  pr_blocked);
-};
-
-
-//!!!удалить при установке без новых салонов
-/*void ReadTranzitSalons( int point_id,
-                        int point_num,
-                        int first_point,
-                        bool pr_tranzit,
-                        vector<TTlgCompLayer> &complayers,
-                        bool pr_blocked )
-{
-  complayers.clear();
-  SALONS2::TSalonList salonList;
-  salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ), SALONS2::rfTranzitVersion, "" );
-  std::set<ASTRA::TCompLayerType> search_layers;
-  for ( int ilayer=0; ilayer<(int)cltTypeNum; ilayer++ ) {
-    ASTRA::TCompLayerType layer_type = (ASTRA::TCompLayerType)ilayer;
-    BASIC_SALONS::TCompLayerType layer_elem;
-    if ( (pr_blocked && layer_type == cltBlockCent) ||
-         (!pr_blocked &&
-            BASIC_SALONS::TCompLayerTypes::Instance()->getElem( layer_type, layer_elem ) &&
-            layer_elem.getOccupy()) ) {
-      search_layers.insert( layer_type );
-    }
-  }
-  TTlgCompLayer comp_layer;
-  int next_point_arv = ASTRA::NoExists;
-  for ( TSalonList::iterator isalonList=salonList.begin();
-        isalonList!=salonList.end(); isalonList++ ) {
-    std::map<int, std::set<SALONS2::TSeatLayer,SALONS2::SeatLayerCompare>,classcomp > layers;
-    for ( TPlaces::iterator iseat=(*isalonList)->places.begin();
-          iseat!=(*isalonList)->places.end(); iseat++ ) {
-      iseat->GetLayers( layers, glAll );
-       std::map<int, std::set<SALONS2::TSeatLayer,SALONS2::SeatLayerCompare>,classcomp >::iterator ilayers = layers.find( point_id );
-      if ( ilayers == layers.end() ) {
-        continue;
-      }
-      for ( std::set<SALONS2::TSeatLayer,SALONS2::SeatLayerCompare>::iterator ilayer=ilayers->second.begin();
-            ilayer!=ilayers->second.end(); ilayer++ ) {
-        if ( search_layers.find( ilayer->layer_type ) != search_layers.end() ) { //надо добавить
-          comp_layer.pax_id = ilayer->getPaxId();
-          comp_layer.point_dep = ilayer->point_dep;
-          if ( comp_layer.point_dep == ASTRA::NoExists ) {
-            comp_layer.point_dep = ilayer->point_id;
-          }
-          comp_layer.point_arv = ilayer->point_arv;
-          if ( comp_layer.point_arv == ASTRA::NoExists ) { //до след. пункта
-            if ( next_point_arv == ASTRA::NoExists ) {
-              TTripRoute route;
-              TTripRouteItem next_airp;
-              route.GetNextAirp(NoExists,
-                                point_id,
-                                point_num,
-                                first_point,
-                                pr_tranzit,
-                                trtNotCancelled,
-                                next_airp);
-              if ( next_airp.point_id == NoExists )
-                throw Exception( "ReadSalons: inext_airp.point_id not found, point_dep="+IntToString( point_id ) );
-              next_point_arv = next_airp.point_id;
-            }
-            comp_layer.point_arv = next_point_arv;
-          }
-          comp_layer.layer_type = ilayer->layer_type;
-          comp_layer.xname = iseat->xname;
-          comp_layer.yname = iseat->yname;
-          complayers.push_back( comp_layer );
-        }
-      }
-    }
-  }
-  // сортировка по yname, xname
-  sort( complayers.begin(), complayers.end(), CompareCompLayers );
 }
 
-void ReadSalons(const TypeB::TDetailCreateInfo &info,
-                vector<TTlgCompLayer> &complayers,
-                bool pr_blocked)
-{
-  ReadSalons(info.point_id,
-             info.point_num,
-             info.first_point,
-             info.pr_tranzit,
-             complayers,
-             pr_blocked);
-};
-
-
-
-void ReadSalons(int point_id,
-                int point_num,
-                int first_point,
-                bool pr_tranzit,
-                vector<TTlgCompLayer> &complayers,
-                bool pr_blocked)
-{
-    complayers.clear();
-    if ( SALONS2::isTranzitSalons( point_id ) ) { //!!!удалить при установке без новых салонов
-      ReadTranzitSalons( point_id, //!!!удалить при установке без новых салонов - ReadTranzitSalons
-                         point_num,
-                         first_point,
-                         pr_tranzit,
-                         complayers,
-                         pr_blocked );
-      return;
-    }
-    vector<ASTRA::TCompLayerType> layers;
-    if(pr_blocked)
-        layers.push_back(cltBlockCent);
-    else {
-        TQuery Qry(&OraSession);
-        Qry.SQLText = "SELECT code FROM comp_layer_types WHERE PR_OCCUPY<>0";
-        Qry.Execute();
-        while ( !Qry.Eof ) {
-            layers.push_back( DecodeCompLayerType( Qry.FieldAsString( "code" ) ) );
-            Qry.Next();
-        }
-    }
-    TTlgCompLayer comp_layer;
-    int next_point_arv = -1;
-
-    SALONS2::TSalons Salons( point_id, SALONS2::rTripSalons );
-    Salons.Read();
-    for ( vector<TPlaceList*>::iterator ipl=Salons.placelists.begin(); ipl!=Salons.placelists.end(); ipl++ ) { // пробег по салонам
-        for ( IPlace ip=(*ipl)->places.begin(); ip!=(*ipl)->places.end(); ip++ ) { // пробег по местам в салоне
-            bool pr_break = false;
-            for ( vector<ASTRA::TCompLayerType>::iterator ilayer=layers.begin(); ilayer!=layers.end(); ilayer++ ) { // пробег по слоям where pr_occupy<>0
-                for ( vector<TPlaceLayer>::iterator il=ip->layers.begin(); il!=ip->layers.end(); il++ ) { // пробег по слоям места
-                    if ( il->layer_type == *ilayer ) { // нашли нужный слой
-                        if ( il->point_dep == NoExists )
-                            comp_layer.point_dep = point_id;
-                        else
-                            comp_layer.point_dep = il->point_dep;
-                        if ( il->point_arv == NoExists )  {
-                            if ( next_point_arv == -1 ) {
-                                TTripRoute route;
-                                TTripRouteItem next_airp;
-                                route.GetNextAirp(NoExists,
-                                                  point_id,
-                                                  point_num,
-                                                  first_point,
-                                                  pr_tranzit,
-                                                  trtNotCancelled,
-                                                  next_airp);
-
-                                if ( next_airp.point_id == NoExists )
-                                    throw Exception( "ReadSalons: inext_airp.point_id not found, point_dep="+IntToString( point_id ) );
-                                else
-                                    next_point_arv = next_airp.point_id;
-                            }
-                            comp_layer.point_arv = next_point_arv;
-                        }
-                        else
-                            comp_layer.point_arv = il->point_arv;
-                        comp_layer.layer_type = il->layer_type;
-                        comp_layer.xname = ip->xname;
-                        comp_layer.yname = ip->yname;
-                        comp_layer.pax_id = il->pax_id;
-                        complayers.push_back( comp_layer );
-                        pr_break = true;
-                        break;
-                    }
-                }
-                if ( pr_break ) // закончили бежать по слоям места
-                    break;
-            }
-        }
-    }
-    // сортировка по yname, xname
-    sort( complayers.begin(), complayers.end(), CompareCompLayers );
-}
-*/
 struct TTlgDraft {
     private:
         TypeB::TDetailCreateInfo &tlg_info;
@@ -1695,10 +1353,11 @@ namespace PRL_SPACE {
         Qry.get().Execute();
         for(; !Qry.get().Eof; Qry.get().Next())
         {
-          TRemCategory cat=getRemCategory(Qry.get().FieldAsString("rem_code"),
-                                          Qry.get().FieldAsString("rem"));
+          CheckIn::TPaxRemItem rem;
+          rem.fromDB(Qry.get());
+          TRemCategory cat=getRemCategory(rem);
           if (isDisabledRemCategory(cat)) continue;
-          items.push_back(transliter(Qry.get().FieldAsString("rem"), 1, info.is_lat()));
+          items.push_back(transliter(rem.text, 1, info.is_lat()));
         };
 
         bool inf_indicator=false; //сюда попадают только люди не infant и ремарки выводим только для этих людей
@@ -3440,7 +3099,7 @@ void TSSR::get(const TRemGrp &ssr_rem_grp, int pax_id)
   for(multiset<CheckIn::TPaxRemItem>::const_iterator r=rems.begin(); r!=rems.end(); ++r)
   {
     if(not ssr_rem_grp.exists(r->code)) continue;
-    TRemCategory cat=getRemCategory(r->code, r->text);
+    TRemCategory cat=getRemCategory(*r);
     if (cat!=remFQT && isDisabledRemCategory(cat)) continue;
     TSSRItem item;
     item.code=r->code;
@@ -5527,15 +5186,17 @@ void TDestList<T>::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 }
 
 struct TLDMBag {;
-    int baggage, cargo, mail;
+    int bag_amount, baggage, cargo, mail;
     void get(TypeB::TDetailCreateInfo &info, int point_arv);
     TLDMBag():
+        bag_amount(0),
         baggage(0),
         cargo(0),
         mail(0)
     {};
     TLDMBag &operator += (const TLDMBag &item)
     {
+        bag_amount += item.bag_amount;
         baggage += item.baggage;
         cargo += item.cargo;
         mail += item.mail;
@@ -5728,7 +5389,8 @@ void TLDMBag::get(TypeB::TDetailCreateInfo &info, int point_arv)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "SELECT NVL(SUM(weight),0) AS weight "
+        "SELECT NVL(SUM(weight),0) AS weight, "
+        "       NVL(SUM(amount),0) AS amount "
         "FROM pax_grp,bag2 "
         "WHERE pax_grp.grp_id=bag2.grp_id AND "
         "      pax_grp.point_dep=:point_id AND "
@@ -5739,7 +5401,10 @@ void TLDMBag::get(TypeB::TDetailCreateInfo &info, int point_arv)
     Qry.CreateVariable("point_arv", otInteger, point_arv);
     Qry.CreateVariable("point_id", otInteger, info.point_id);
     Qry.Execute();
-    baggage = Qry.FieldAsInteger("weight");
+    if(not Qry.Eof) {
+        bag_amount = Qry.FieldAsInteger("amount");
+        baggage = Qry.FieldAsInteger("weight");
+    }
     Qry.SQLText =
         "SELECT cargo,mail "
         "FROM trip_load "
@@ -5959,6 +5624,7 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
     const TypeB::TLDMOptions &options = *info.optionsAs<TypeB::TLDMOptions>();
 
     vector<string> si;
+    vector<string> si_trzt;
     for(vector<TLDMDest>::iterator iv = items.begin(); iv != items.end(); iv++) {
         row.str("");
         row
@@ -6023,15 +5689,29 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
                 << " E " << iv->excess.kilos.getQuantity();
             body.push_back(buf.str());
         }
+        if(options.version == "AMADEUS") {
+            if(si_trzt.empty())
+                si_trzt.push_back("SI");
+            row.str("");
+            row
+                << info.TlgElemIdToElem(etAirp, iv->target) << " "
+                << "C " << setw(7) << right << iv->bag.cargo << " "
+                << "M " << setw(7) << right << iv->bag.mail << " "
+                << "B " << setw(5) << right << iv->bag.bag_amount << "/"
+                << setw(7) << right << iv->bag.baggage << " "
+                << "O" << setw(8) << 0 << " "
+                << "T" << setw(8) << 0;
+            si_trzt.push_back(row.str());
+        }
     }
     if(options.version == "28ed")
         body.insert(body.end(), si.begin(), si.end());
-    if(options.version == "CEK" and options.exb) {
+    if((options.version == "CEK" or options.version == "AMADEUS") and options.exb) {
         row.str("");
         row << "SI: EXB" << excess_sum.kilos.getQuantity() << KG;
         body.push_back(row.str());
     }
-    if(options.version == "CEK" and info.airp_dep != "ЧЛБ") {
+    if(options.version != "AMADEUS" and options.version == "CEK" and info.airp_dep != "ЧЛБ") {
         row.str("");
         row << "SI: B";
         if(baggage_sum > 0)
@@ -6055,6 +5735,8 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
             row << to_ramp_sum.by_flight().first << "/" << to_ramp_sum.by_flight().second << KG;
         body.push_back(row.str());
     }
+    if(options.version == "AMADEUS")
+        body.insert(body.end(), si_trzt.begin(), si_trzt.end());
     //    body.push_back("SI: TRANSFER BAG CPT 0 NS 0");
 }
 
@@ -6145,7 +5827,7 @@ void TLDMDests::get(TypeB::TDetailCreateInfo &info)
     pax_list.options.pr_brd = boost::in_place(REPORTS::TBrdVal::bvTRUE);
     pax_list.fromDB();
     TTripRoute route;
-    if(not pax_list.empty() and route.GetRouteAfter(NoExists, info.point_id, trtNotCurrent, trtNotCancelled)) {
+    if(route.GetRouteAfter(NoExists, info.point_id, trtNotCurrent, trtNotCancelled)) {
         for(const auto &point_arv: route) {
             items.emplace_back();
             auto &item = items.back();
@@ -7438,7 +7120,7 @@ void TSeatPlan::get(TypeB::TDetailCreateInfo &info)
             throw UserException("MSG.SALONS.FREE_SEATING");
         if(isEmptySalons(info.point_id))
             throw UserException("MSG.FLIGHT_WO_CRAFT_CONFIGURE");
-        getSalonPaxsSeats(info.point_id, checkinPaxsSeats);
+        getSalonPaxsSeats(info.point_id, checkinPaxsSeats, true);
     }
 }
 
@@ -9604,6 +9286,11 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
         tlg_id = create_tlg(createInfo, NoExists, tlgTypeInfo, true);
     } catch(AstraLocale::UserException &E) {
         throw AstraLocale::UserException( "MSG.TLG.CREATE_ERROR", LParams() << LParam("what", getLocaleText(E.getLexemaData())));
+    } catch(Exception &E) {
+        if(tlgTypeInfo.basic_type == "->>")
+            throw AstraLocale::UserException("MSG.TLG.MANUAL_FWD_FORBIDDEN");
+        else
+            throw;
     }
 
     if (tlg_id != NoExists)
@@ -9684,73 +9371,7 @@ void TelegramInterface::kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
 
 namespace WBMessages {
 
-    class TMsgType {
-        public:
-            enum Enum {
-                mtLOADSHEET,
-                mtNOTOC,
-                mtLIR,
-                None
-            };
-
-            static const std::list< std::pair<Enum, std::string> >& pairs()
-            {
-                static std::list< std::pair<Enum, std::string> > l;
-                if (l.empty())
-                {
-                    l.push_back(std::make_pair(mtLOADSHEET, "LOADSHEET"));
-                    l.push_back(std::make_pair(mtNOTOC,     "NOTOC"));
-                    l.push_back(std::make_pair(mtLIR,       "LIR"));
-                }
-                return l;
-            }
-
-    };
-
-    class TMsgTypes : public ASTRA::PairList<TMsgType::Enum, std::string>
-    {
-        private:
-            virtual std::string className() const { return "TMsgTypes"; }
-        public:
-            TMsgTypes() : ASTRA::PairList<TMsgType::Enum, std::string>(TMsgType::pairs(),
-                    boost::none,
-                    boost::none) {}
-    };
-
-    const TMsgTypes& MsgTypes()
-    {
-      static TMsgTypes msgTypes;
-      return msgTypes;
-    }
-
-    void toDB(int point_id, TMsgType::Enum msg_type, const string &content) {
-        TCachedQuery Qry(
-                "begin "
-                "   insert into wb_msg(id, msg_type, point_id, time_receive) values "
-                "      (cycle_id__seq.nextval, :msg_type, :point_id, system.utcsysdate) "
-                "      returning id into :id; "
-                "end; ",
-                QParams()
-                << QParam("point_id", otInteger, point_id)
-                << QParam("msg_type", otString, MsgTypes().encode(msg_type))
-                << QParam("id", otInteger)
-                );
-        Qry.get().Execute();
-        int id = Qry.get().GetVariableAsInteger("id");
-        TCachedQuery txtQry(
-                "INSERT INTO wb_msg_text(id, page_no, text) VALUES(:id, :page_no, :text)",
-                QParams()
-                << QParam("id", otInteger, id)
-                << QParam("page_no", otInteger)
-                << QParam("text", otString)
-                );
-        longToDB(txtQry.get(), "text", content);
-        TReqInfo::Instance()->LocaleToLog("EVT.WB.PRINT",
-                LEvntPrms() << PrmSmpl<string>("msg_type", MsgTypes().encode(msg_type)),
-                evtFlt, point_id);
-    }
-
-    void parse_print_message(const string &in_content)
+    static void parse_print_message(const string &in_content)
     {
         vector<string> lines;
         boost::split(lines, in_content, boost::is_any_of("\n"));
@@ -9812,7 +9433,8 @@ namespace WBMessages {
         }
     }
 
-}
+}//namespace WBMessages
+
 
 void TelegramInterface::tlg_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -10523,18 +10145,18 @@ namespace CKIN_REPORT {
         return result;
     }
 
-    string RouteItemToStr(const TCkinRouteItem &route_item)
+    string RouteItemToStr(const boost::optional<TCkinRouteItem>& route_item)
     {
         ostringstream result;
-        if(route_item.point_dep != NoExists) {
+        if(route_item) {
 
             TCachedQuery grpQry("select * from pax_grp where grp_id = :grp_id",
-                    QParams() << QParam("grp_id", otInteger, route_item.grp_id));
+                    QParams() << QParam("grp_id", otInteger, route_item.get().grp_id));
             grpQry.get().Execute();
             string cls = CheckIn::TSimplePaxGrpItem().fromDB(grpQry.get()).cl;
 
             TTripInfo trip_info;
-            trip_info.getByPointId(route_item.point_dep);
+            trip_info.getByPointId(route_item.get().point_dep);
             TElemFmt fmt;
             result
                 << ElemToElemId(etAirline, trip_info.airline, fmt, LANG_EN)
@@ -10602,7 +10224,7 @@ namespace CKIN_REPORT {
         if(pax_list.empty()) return;
 
         map<int,TCheckinPaxSeats> checkinPaxsSeats;
-        getSalonPaxsSeats(point_id, checkinPaxsSeats);
+        getSalonPaxsSeats(point_id, checkinPaxsSeats, false);
 
         TInfants inf;
         {
@@ -10684,11 +10306,14 @@ namespace CKIN_REPORT {
 
             NewTextChild(itemNode, "tknm");
 
-            TCkinRouteItem route_item;
-            TCkinRoute().GetNextSeg(iPax->grp_id, crtIgnoreDependent, route_item);
-            NewTextChild(itemNode, "outbound", RouteItemToStr(route_item));
-            TCkinRoute().GetPriorSeg(iPax->grp_id, crtIgnoreDependent, route_item);
-            NewTextChild(itemNode, "inbound", RouteItemToStr(route_item));
+            auto outbound=TCkinRoute::getNextGrp(GrpId_t(iPax->grp_id),
+                                                 TCkinRoute::IgnoreDependence,
+                                                 TCkinRoute::WithoutTransit);
+            auto inbound=TCkinRoute::getPriorGrp(GrpId_t(iPax->grp_id),
+                                                 TCkinRoute::IgnoreDependence,
+                                                 TCkinRoute::WithoutTransit);
+            NewTextChild(itemNode, "outbound", RouteItemToStr(outbound));
+            NewTextChild(itemNode, "inbound", RouteItemToStr(inbound));
 
             NewTextChild(itemNode, "z");
 

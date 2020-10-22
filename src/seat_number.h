@@ -24,6 +24,7 @@ class SeatNumber
     static bool isIataLine(const std::string& line);
     static bool isIataRow(const std::string& row);
 
+    static boost::optional<bool> isLatinIataLine(const std::string& line);
     static boost::optional<char> normalizeIataLine(const std::string& line);
     static std::string tryDenormalizeLine(const std::string& line, const bool toLatin);
     static std::string tryNormalizeLine(const std::string& line);
@@ -43,6 +44,8 @@ class SeatNumber
     static const boost::optional<std::string>& normalizeFirstIataRow();
     static const boost::optional<std::string>& normalizeLastIataRow();
     static std::string normalizePrevIataRowOrException(const std::string& row);
+
+    static std::string stupidlyChangeEncoding(const std::string& seatNumber);
 };
 
 

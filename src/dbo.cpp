@@ -1,0 +1,112 @@
+#include "dbo.h"
+
+#define NICKNAME "FELIX"
+#define NICKTRACE FELIX_TRACE
+#include <serverlib/slogger.h>
+
+using namespace std;
+
+namespace dbo
+{
+
+std::vector<string> MappingInfo::columns() const
+{
+    std::vector<string> res;
+    for(const auto & f: m_fields) {
+        res.push_back(f.name());
+    }
+    return res;
+}
+
+std::string MappingInfo::columnsStr(const std::string& table) const
+{
+    std::vector<string> cols = columns();
+    std::string result;
+    for(const auto & col: cols) {
+        if(!result.empty()) {
+            result += ",";
+        }
+        if(!table.empty()) {
+            result += table+"."+col;
+        } else {
+            result += col;
+        }
+    }
+    return result;
+}
+
+std::string MappingInfo::insertColumns() const
+{
+    std::stringstream st;
+    st << "INSERT INTO " << tableName() << "(" << columnsStr() << ")" << " VALUES (";
+
+    std::string result;
+    for(const auto & col: columns()) {
+        if(!result.empty()) {
+            result += ",";
+        }
+        result += ":" + col;
+    }
+    st << result << ")";
+    return st.str();
+}
+
+std::string MappingInfo::stringColumns(const vector<std::string>& fields) const
+{
+    std::string result;
+    vector<std::string> get_fields = fields;
+    if (get_fields.empty()) {
+        get_fields = columns();
+    }
+    for(const std::string & field: get_fields) {
+        std::optional<FieldInfo> optField = algo::find_opt_if<std::optional>(m_fields,
+                      [&field](const FieldInfo & f) { return f.name() == str_tolower(field);} );
+        if(!optField) {
+            throw EXCEPTIONS::Exception(" Not such field :" + field);
+        }
+        FieldInfo &f = *optField;
+        if(!result.empty()) {
+            result += ',';
+        }
+        if (f.type()== typeid(Dates::DateTime_t)) {
+            result += "TO_CHAR(" + f.name() + ",'DD.MM.YYYY')";
+        } else {
+            result += f.name();
+        }
+    }
+    return  result;
+}
+
+
+
+string Session::dump(const string &tableName, const vector<string> &tokens, const string &query)
+{
+    std::string result_query;
+    std::string tblName = str_tolower(tableName);
+    shared_ptr<MappingInfo> mapInfo = getMapping(tblName);
+    if(!mapInfo) {
+        throw EXCEPTIONS::Exception("Unknown tablename: " + tblName);
+    }
+
+    int size = tokens.empty() ? mapInfo->columnsCount() : tokens.size();
+    result_query = "select " + mapInfo->stringColumns(tokens);
+    result_query += " from " + tableName + " " + query;
+
+    std::string DB;
+    if(db == CurrentDb::Postgres) {
+        DB = " Posgres ";
+    } else {
+        DB = " Oracle ";
+    }
+    LogTrace1 << "---------------- " << tableName << DB << " DUMP ----------------------";
+    LogTrace1 << result_query;
+    PgCpp::CursCtl pg_cur = get_pg_curs(result_query);
+    OciCpp::CursCtl or_cur = make_curs(result_query);
+    Cursor cur = createCursor(pg_cur, or_cur);
+    std::string dump = cur.dump(size);
+    LogTrace1 << dump;
+    return dump;
+}
+
+}
+

@@ -336,6 +336,7 @@ class TGroupBagItem
     static bool completeXMLForIatci(int grp_id, xmlNodePtr bagtagNode, xmlNodePtr firstSegNode);
     static bool tagNumberUsedInGroup(int pax_id, const TBagTagNumber& tag, int& tagOwner/*pax_id*/);
     static void checkTagUniquenessOnFlight(int grp_id);
+    static void copyDB(const GrpId_t& src, const GrpId_t& dest);
 };
 
 bool unknownTagTypeOnFlight(int point_id);

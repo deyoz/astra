@@ -354,9 +354,9 @@ struct TApisRouteData
 
 struct TApisDataset
 {
-  bool FromDB(int point_id, const string& task_name, TApisTestMap* test_map = nullptr);
   list<TApisRouteData> lstRouteData;
-
+  void clear() { lstRouteData.clear(); }
+  bool FromDB(int point_id, const string& task_name, TApisTestMap* test_map = nullptr);
   bool equalSettingsFound(const APIS::Settings& settings) const;
   bool mergeRouteData();
 };
@@ -1281,6 +1281,7 @@ struct TAPISFormat_CSV_AE : public TTxtApisFormat
   {
     add_rule(r_convertPaxNames);
     add_rule(r_processDocType);
+    add_rule(r_processDocNumber);
     add_rule(r_notOmitCrew);
     add_rule(r_birth_date);
     add_rule(r_expiry_date);
@@ -1303,7 +1304,8 @@ struct TAPISFormat_CSV_AE : public TTxtApisFormat
     if (doc_type!="P") return "O";
     else return doc_type;
   }
-  string apis_country() const { return "AE"; }
+  string process_doc_no(const string& no) const { return NormalizeDocNo(no, false); }
+  string apis_country() const { return "€…"; }
   string DateTimeFormat() const { return "dd-mmm-yyyy"; }
   void CreateTxtBodies( const TTxtDataFormatted& tdf,
                         ostringstream& body,
@@ -1400,7 +1402,7 @@ struct TAPISFormat_CSV_TH : public TTxtApisFormat
     if (doc_type!="P") return "O";
     else return doc_type;
   }
-  string apis_country() const { return "TH"; }
+  string apis_country() const { return "’•"; }
   string DateTimeFormat() const { return "dd-mmm-yyyy"; }
   void CreateTxtBodies( const TTxtDataFormatted& tdf,
                         ostringstream& body,

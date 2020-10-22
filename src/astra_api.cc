@@ -10,6 +10,7 @@
 #include "tripinfo.h"
 #include "salonform.h"
 #include "iatci_help.h"
+#include "tlg/CheckinBaseTypesOci.h"
 
 #include <serverlib/cursctl.h>
 #include <serverlib/xml_tools.h>
@@ -2043,9 +2044,9 @@ static void copyBagPoolNums(const XmlSegment& paxSeg, std::list<XmlSegment>& trf
 
 //---------------------------------------------------------------------------------------
 
-static BaseTables::Company awkByAccode(const std::string& accode)
+static const BaseTables::Company awkByAccode(const std::string& accode)
 {
-    int awk_ida;
+    Ticketing::Airline_t awk_ida;
     OciCpp::CursCtl cur = make_curs(
 "select ID from AIRLINES where AIRCODE=:accode and PR_DEL=0");
     cur.def(awk_ida)
@@ -2053,7 +2054,8 @@ static BaseTables::Company awkByAccode(const std::string& accode)
        .EXfet();
 
     ASSERT(cur.err() != NO_DATA_FOUND);
-    return BaseTables::Company(Ticketing::Airline_t(awk_ida));
+    const BaseTables::Company awk(awk_ida);
+    return awk;
 }
 
 //---------------------------------------------------------------------------------------

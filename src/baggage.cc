@@ -6,6 +6,7 @@
 #include "astra_misc.h"
 #include "qrys.h"
 #include "baggage_tags.h"
+#include <serverlib/cursctl.h>
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -1139,7 +1140,53 @@ void TGroupBagItem::toDB(int grp_id) const
     tags.toDB(grp_id);
     checkTagUniquenessOnFlight(grp_id);
   }
-};
+}
+
+void TGroupBagItem::copyDB(const GrpId_t& src, const GrpId_t& dest)
+{
+  auto cur=make_curs("BEGIN "
+                     "  DELETE FROM value_bag WHERE grp_id=:grp_id_dest; "
+                     "  DELETE FROM unaccomp_bag_info WHERE grp_id=:grp_id_dest; "
+                     "  DELETE FROM bag2 WHERE grp_id=:grp_id_dest; "
+                     "  DELETE FROM paid_bag WHERE grp_id=:grp_id_dest; "
+                     "  DELETE FROM bag_tags WHERE grp_id=:grp_id_dest; "
+                     "  INSERT INTO value_bag(grp_id,num,value,value_cur,tax_id,tax,tax_trfer) "
+                     "  SELECT :grp_id_dest ,num,value,value_cur,NULL,NULL,NULL "
+                     "  FROM value_bag WHERE grp_id=:grp_id_src; "
+                     "  INSERT INTO bag2(grp_id,num,id,bag_type,rfisc,pr_cabin,amount,weight,value_bag_num, "
+                     "    pr_liab_limit,to_ramp,using_scales,bag_pool_num,hall,user_id,desk,time_create,is_trfer,handmade,"
+                     "    list_id, bag_type_str, service_type, airline) "
+                     "  SELECT :grp_id_dest,num,id,bag_type,rfisc,pr_cabin,amount,weight,value_bag_num, "
+                     "    pr_liab_limit,0,using_scales,bag_pool_num,hall,user_id,desk,time_create,1,0, "
+                     "    list_id, bag_type_str, service_type, airline "
+                     "  FROM bag2 WHERE grp_id=:grp_id_src; "
+                     "  INSERT INTO bag_tags(grp_id,num,tag_type,no,color,bag_num,pr_print) "
+                     "  SELECT :grp_id_dest,num,tag_type,no,color,bag_num,pr_print "
+                     "  FROM bag_tags WHERE grp_id=:grp_id_src; "
+                     "  INSERT INTO unaccomp_bag_info(grp_id,num,original_tag_no,surname,name,airline,flt_no,suffix,scd) "
+                     "  SELECT :grp_id_dest,num,original_tag_no,surname,name,airline,flt_no,suffix,scd "
+                     "  FROM unaccomp_bag_info WHERE grp_id=:grp_id_src; "
+                     "  MERGE INTO pax "
+                     "  USING "
+                     "  ( "
+                     "  SELECT pax1.bag_pool_num, pax2.pax_id "
+                     "  FROM pax pax1, tckin_pax_grp tckin_pax_grp1, "
+                     "       pax pax2, tckin_pax_grp tckin_pax_grp2 "
+                     "  WHERE pax1.grp_id=tckin_pax_grp1.grp_id AND "
+                     "        pax2.grp_id=tckin_pax_grp2.grp_id AND "
+                     "        tckin_pax_grp1.first_reg_no-pax1.reg_no=tckin_pax_grp2.first_reg_no-pax2.reg_no AND "
+                     "        tckin_pax_grp1.grp_id=:grp_id_src AND "
+                     "        tckin_pax_grp2.grp_id=:grp_id_dest "
+                     "  ) src "
+                     "  ON (pax.pax_id=src.pax_id) "
+                     "  WHEN MATCHED THEN "
+                     "  UPDATE SET pax.bag_pool_num=src.bag_pool_num, "
+                     "             pax.tid=DECODE(pax.bag_pool_num, src.bag_pool_num, pax.tid, cycle_tid__seq.currval); "
+                     "END; ");
+  cur.bind(":grp_id_src", src.get())
+     .bind(":grp_id_dest", dest.get())
+     .exec();
+}
 
 void TGroupBagItem::checkTagUniquenessOnFlight(int grp_id)
 {

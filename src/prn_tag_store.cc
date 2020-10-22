@@ -12,6 +12,7 @@
 #include "qrys.h"
 #include "seats_utils.h"
 #include "franchise.h"
+#include "flt_settings.h"
 #include <serverlib/str_utils.h>
 #include <serverlib/testmode.h>
 #include <boost/algorithm/string/split.hpp>
@@ -1498,7 +1499,14 @@ string TBCBPData::toString(const TTagLang &tag_lang)
         result << tag_lang.ElemIdToTagElem(etClass, cls, efmtCodeNative);
 
     // Seat Number
-    result << setw(4) << right << seat_no;
+    TTripInfo flt;
+    flt.airline = airline;
+    flt.flt_no = flt_no;
+    flt.airp = airp_dep;
+    string _seat_no = seat_no;
+    if(seat_no.empty() and DecodePerson(pers_type.c_str()) == baby and GetTripSets(tsBCBPInf, flt))
+        _seat_no = "INF ";
+    result << setw(4) << right << _seat_no;
     // Check-In Sequence Number
     result
         << right << setw(4) <<  setfill('0') << reg_no
@@ -3059,7 +3067,7 @@ bool TPrnTagStore::TEMDAInfo::find(int pax_id, boost::any &emd_no, boost::any &e
                 res.RFISC = p.second.RFISC;
                 if(not lang.empty())
                     res.rfisc_descr = p.second.name_view(lang);
-                if(svc.second.valid()) {
+                if(svc.second.clientValid()) {
                     res.price = svc.second.price;
                     res.currency = svc.second.currency;
                 }

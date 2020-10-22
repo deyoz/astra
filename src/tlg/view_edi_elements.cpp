@@ -317,21 +317,39 @@ void viewItin(EDI_REAL_MES_STRUCT *pMes, const Ticketing::Itin &itin, int num)
     SetEdiFullSegment(pMes, SegmElement("TVL"), tvl.str());
 }
 
+static std::string getDepPortCode(const Ticketing::Itin &itin, bool translit)
+{
+    if(itin.specDepPoint()) {
+        return itin.specDepPoint().get();
+    }
+
+    BaseTables::Port depPort(itin.depPointCode());
+    return translit ? depPort->lcode() : depPort->rcode();
+}
+
+static std::string getArrPortCode(const Ticketing::Itin &itin, bool translit)
+{
+    if(itin.specArrPoint()) {
+        return itin.specArrPoint().get();
+    }
+
+    BaseTables::Port arrPort(itin.arrPointCode());
+    return translit ? arrPort->lcode() : arrPort->rcode();
+}
+
 void viewItin2(EDI_REAL_MES_STRUCT *pMes, const Ticketing::Itin &itin,
                bool translit, int num)
 {
     std::ostringstream tvl;
 
-    BaseTables::Port depPort(itin.depPointCode()),
-                     arrPort(itin.arrPointCode());
     BaseTables::Company airl(itin.airCode());
 
     tvl << (itin.date1().is_special()?"":
             HelpCpp::string_cast(itin.date1(), "%d%m%y"))
             << ":" << (itin.time1().is_special()?"":
             HelpCpp::string_cast(itin.time1(), "%H%M")) << "+" <<
-            (translit ? depPort->lcode() : depPort->rcode()) << "+" <<
-            (translit ? arrPort->lcode() : arrPort->rcode()) << "+" <<
+            getDepPortCode(itin, translit) << "+" <<
+            getArrPortCode(itin, translit) << "+" <<
             (translit ? airl->lcode() : airl->rcode());
     if(!itin.airCodeOper().empty()) {
         BaseTables::Company operAirl(itin.airCodeOper());
@@ -431,7 +449,7 @@ void viewOrgElement(_EDI_REAL_MES_STRUCT_* pMes, const Ticketing::OrigOfRequest&
     org << elem.pprNumber() << "++";
     org << (translit ? airl->lcode() : airl->rcode()) << "+";
     org << elem.type() << "+::";
-    org << elem.langStr() << "+" << (translit ? StrUtils::translit(elem.pult(), false) : elem.pult());
+    org << elem.langStr() << "+" << (translit ? StrUtils::translit(elem.pult()) : elem.pult());
     SetEdiFullSegment(pMes, SegmElement("ORG"), org.str());
 }
 

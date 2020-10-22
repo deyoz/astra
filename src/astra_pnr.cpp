@@ -6,6 +6,11 @@
 #include "AirportControl.h"
 #include "basetables.h"
 #include "tlg/CheckinBaseTypesOci.h"
+#include "base_callbacks.h"
+
+#include "pg_session.h"
+#include <serverlib/pg_cursctl.h>
+#include <serverlib/pg_rip.h>
 
 #include <serverlib/cursctl.h>
 #include <serverlib/dates_oci.h>
@@ -46,12 +51,16 @@ static void saveCouponWc(const std::string& recloc,
                      << cpn.ticknum() << "/"
                      << cpn.couponInfo().num();
 
-    make_curs(
-"begin "
-"delete from WC_COUPON where TICKNUM=:ticknum and NUM=:num; "
+    get_pg_curs(
+"delete from WC_COUPON where TICKNUM=:ticknum and NUM=:num;")
+            .stb()
+            .bind(":ticknum",       cpn.ticknum())
+            .bind(":num",           cpn.couponInfo().num())
+            .exec();
+
+    get_pg_curs(
 "insert into WC_COUPON(RECLOC, TICKNUM, NUM, STATUS) "
-"values (:recloc, :ticknum, :num, :status);"
-"end;")
+"values (:recloc, :ticknum, :num, :status);")
             .stb()
             .bind(":recloc",        recloc)
             .bind(":ticknum",       cpn.ticknum())
@@ -93,7 +102,7 @@ static void updateCouponWc(const Ticketing::TicketNum_t& ticknum,
                      << cpnnum << "/"
                      << status;
 
-    make_curs(
+    get_pg_curs(
 "update WC_COUPON set STATUS=:status "
 "where TICKNUM=:ticknum and "
 "NUM=:cpnnum")
@@ -115,12 +124,14 @@ static void saveTicketWc(const std::string& recloc,
         saveCouponWc(recloc, cpn);
     }
 
-    make_curs(
-"begin "
-"delete from WC_TICKET where TICKNUM=:ticknum; "
+    get_pg_curs(
+"delete from WC_TICKET where TICKNUM=:ticknum; ")
+            .bind(":ticknum", ticket.ticknumt().get())
+            .exec();
+
+    get_pg_curs(
 "insert into WC_TICKET(RECLOC, TICKNUM) "
-"values (:recloc, :ticknum); "
-"end;")
+"values (:recloc, :ticknum); ")
             .bind(":recloc",  recloc)
             .bind(":ticknum", ticket.ticknumt().get())
             .exec();
@@ -144,7 +155,7 @@ static void savePnrEdifact(const std::string& recloc,
         LogTrace(TRACE3) << "pageNo=" << pageNo << "; page=" << page;
         itb = ite;
 
-        make_curs(
+        get_pg_curs(
 "insert into WC_PNR(RECLOC, PAGE_NO, TLG_TEXT, TLG_TYPE, DATE_CR) "
 "values (:recloc, :page_no, :edi_text, :edi_type, :date_cr)")
         .bind(":recloc",   recloc)
@@ -231,7 +242,8 @@ void loadWcEdiPnr(const std::string& recloc, boost::optional<EdiPnr>& ediPnr)
 
     std::string res, page;
     int tlgType = 0;
-    OciCpp::CursCtl cur = make_curs(
+
+    PgCpp::CursCtl cur = get_pg_curs(
 "select TLG_TEXT, TLG_TYPE from WC_PNR where RECLOC=:recloc "
 "order by PAGE_NO");
     cur.bind(":recloc", recloc)
@@ -308,7 +320,7 @@ boost::optional<WcPnr> loadWcPnrWithActualStatuses(const Ticketing::TicketNum_t&
 
 boost::optional<WcTicket> readWcTicket(const Ticketing::TicketNum_t& tickNum)
 {
-    OciCpp::CursCtl cur = make_curs(
+    PgCpp::CursCtl cur = get_pg_curs(
 "select RECLOC "
 "from WC_TICKET "
 "where TICKNUM=:ticknum");
@@ -320,7 +332,7 @@ boost::optional<WcTicket> readWcTicket(const Ticketing::TicketNum_t& tickNum)
             .bind(":ticknum", tickNum.get())
             .EXfet();
 
-    if(cur.err() == NO_DATA_FOUND) {
+    if(cur.err() == PgCpp::NoDataFound) {
         return boost::none;
     }
 
@@ -330,7 +342,7 @@ boost::optional<WcTicket> readWcTicket(const Ticketing::TicketNum_t& tickNum)
 boost::optional<WcCoupon> readWcCoupon(const Ticketing::TicketNum_t& tickNum,
                                        const Ticketing::CouponNum_t& cpnNum)
 {
-    OciCpp::CursCtl cur = make_curs(
+    PgCpp::CursCtl cur = get_pg_curs(
 "select RECLOC, STATUS "
 "from WC_COUPON "
 "where TICKNUM=:ticknum and NUM=:cpnnum");
@@ -345,7 +357,7 @@ boost::optional<WcCoupon> readWcCoupon(const Ticketing::TicketNum_t& tickNum,
             .bind(":cpnnum",  cpnNum.get())
             .EXfet();
 
-    if(cur.err() == NO_DATA_FOUND) {
+    if(cur.err() == PgCpp::NoDataFound) {
         return boost::none;
     }
 
@@ -356,7 +368,7 @@ WcCoupon readWcCouponByRl(const std::string& recloc,
                           const Ticketing::TicketNum_t& tickNum,
                           const Ticketing::CouponNum_t& cpnNum)
 {
-    OciCpp::CursCtl cur = make_curs(
+    PgCpp::CursCtl cur = get_pg_curs(
 "select STATUS "
 "from WC_COUPON "
 "where RECLOC=:recloc and TICKNUM=:ticknum and NUM=:cpnnum");
@@ -370,7 +382,7 @@ WcCoupon readWcCouponByRl(const std::string& recloc,
             .bind(":cpnnum",  cpnNum.get())
             .EXfet();
 
-    if(cur.err() == NO_DATA_FOUND) {
+    if(cur.err() == PgCpp::NoDataFound) {
         throw WcCouponNotFound(recloc, tickNum, cpnNum);
     }
 

@@ -12,7 +12,13 @@ struct TSegListItem
   CheckIn::TPaxGrpItem grp;
   CheckIn::TPaxList paxs;
 
-  void setCabinClassAndSubclass();
+  void setCabinClassAndSubclass(bool isTransitGrp);
+};
+
+class TSegList : public std::list<TSegListItem>
+{
+  public:
+    bool needCopyBaggage(const GrpId_t& grpId, const size_t trferSize) const;
 };
 
 namespace CheckIn
@@ -422,9 +428,9 @@ class TWebPaxForCkin : public CheckIn::TSimplePnrItem, public CheckIn::TSimplePa
           "SELECT crs_pnr.pnr_id, "
           "       crs_pnr.airp_arv, "+
           CheckIn::TSimplePaxItem::origSubclassFromCrsSQL()+" AS subclass, "+
-          CheckIn::TSimplePaxItem::origClassFromCrsSQL()+" AS class, "
-          "       crs_pnr.subclass AS cabin_subclass, "
-          "       crs_pnr.class AS cabin_class, "
+          CheckIn::TSimplePaxItem::origClassFromCrsSQL()+" AS class, "+
+          CheckIn::TSimplePaxItem::cabinSubclassFromCrsSQL()+" AS cabin_subclass, "+
+          CheckIn::TSimplePaxItem::cabinClassFromCrsSQL()+" AS cabin_class, "+
           "       NULL AS cabin_class_grp, "
           "       crs_pnr.status, "
           "       crs_pax.pax_id, "
@@ -592,6 +598,7 @@ void CreateEmulDocs(const TWebPaxForSaveSegs &segs,
 void CreateEmulDocs(const TWebPaxForSaveSegs &segs,
                     const XMLDoc &emulDocHeader,
                     std::map<int,XMLDoc> &emulChngDocs);
+void changeSeatsAndUpdateTids(TWebPaxForSaveSegs &segs);
 
 void tryGenerateBagTags(xmlNodePtr reqNode);
 

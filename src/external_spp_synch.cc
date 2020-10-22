@@ -2,6 +2,7 @@
 #include "exceptions.h"
 #include "points.h"
 #include "aodb.h"
+#include "flt_settings.h"
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/algorithm/string/split.hpp>

@@ -89,8 +89,8 @@ TTripTasks::TTripTasks()
     items.emplace(STAT_FV, stat_fv);
     items.emplace(EMD_TRY_BIND, emd_try_bind_task);
     items.emplace(EMD_SYS_UPDATE, emd_sys_update);
-    items.emplace(SEND_NEW_APPS_INFO, APPS::sendNewAPPSInfo);
-    items.emplace(SEND_ALL_APPS_INFO, APPS::sendAllAPPSInfo);
+    items.emplace(SEND_NEW_APPS_INFO, APPS::sendNewInfo);
+    items.emplace(SEND_ALL_APPS_INFO, APPS::sendAllInfo);
     items.emplace(CREATE_APIS, create_apis_task);
     items.emplace(CHECK_CREW_ALARMS, check_crew_alarms_task);
     TSyncTlgOutMng::Instance()->add_tasks(items);

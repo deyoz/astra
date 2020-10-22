@@ -5,6 +5,7 @@
 #include "apis_creator.h"
 #include "apis_edi_file.h"
 #include "tlg/paxlst_request.h"
+#include "astra_types.h"
 
 namespace IAPI
 {
@@ -13,27 +14,9 @@ bool needCheckStatus(const TCompleteAPICheckInfo& checkInfo);
 
 class RequestCollector
 {
-  class PaxIdsKey
-  {
-    public:
-      int point_dep;
-      std::string airp_arv;
+  class PaxIds : public std::set<PaxId_t> {};
 
-      PaxIdsKey(const int pointDep, const std::string& airpArv) :
-        point_dep(pointDep),
-        airp_arv(airpArv) {}
-
-      bool operator < (const PaxIdsKey &key) const
-      {
-        if (point_dep!=key.point_dep)
-          return point_dep<key.point_dep;
-        return airp_arv<key.airp_arv;
-      }
-  };
-
-  class PaxIds : public std::set<int> {};
-
-  std::map<PaxIdsKey, PaxIds> groupedPassengers;
+  std::map<TPaxSegmentPair, PaxIds> groupedPassengers;
   TApisDataset apisDataset;
   std::list<edifact::PaxlstReqParams> requestParamsList;
 
@@ -42,9 +25,9 @@ protected:
   void collectRequestParamsList();
   static std::string getRequestId();
 public:
-  void addPassengerIfNeed(const int pax_id,
-                          const int point_dep,
-                          const std::string& airp_arv,
+  void clear();
+  void addPassengerIfNeed(const PaxId_t& paxId,
+                          const TPaxSegmentPair& paxSegment,
                           const TCompleteAPICheckInfo& checkInfo);
   void send();
   static bool resendNeeded(const CheckIn::PaxRems& rems);
@@ -146,10 +129,10 @@ class PassengerStatus
     static int getPaxId(const edifact::Cusres::SegGr4& gr4);
 };
 
-class PassengerStatusInspector : public TCompleteAPICheckInfoCache
+class PassengerStatusInspector : public APICheckInfoForPassenger
 {
   public:
-    bool allowedToPrintBP(const int paxId, const int grpId=ASTRA::NoExists);
+    bool allowedToPrintBP(const int pax_id, const int grp_id=ASTRA::NoExists);
 };
 
 class PassengerStatusList : public std::set<PassengerStatus>

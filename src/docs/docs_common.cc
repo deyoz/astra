@@ -28,6 +28,12 @@ void TRptParams::Init(xmlNodePtr node)
     text = NodeAsIntegerFast("text", node, NoExists);
     pr_trfer = NodeAsIntegerFast("pr_trfer", node, 0) != 0;
     pr_brd = NodeAsIntegerFast("pr_brd", node, 0) != 0;
+
+    if (TReqInfo::Instance()->desk.compatible(TRZT_AUTOREG_VERSION))
+        trzt_autoreg = (TrztAutoreg)NodeAsIntegerFast("trzt_autoreg", node, 0);
+    else
+        trzt_autoreg = TrztAutoreg::ExceptAuto;
+
     sort = (TSortType)NodeAsIntegerFast("sort", node, 0);
     if(text != NoExists and text != 0 and
             // у этих отчетов нет текстового варианта
@@ -37,6 +43,7 @@ void TRptParams::Init(xmlNodePtr node)
             rpt_type != rtNOTOC and
             rpt_type != rtLIR and
             rpt_type != rtVOUCHERS and
+            rpt_type != rtCOM and
             rpt_type != rtKOMPLEKT
             )
         rpt_type = TRptType((int)rpt_type + 1);
@@ -77,7 +84,7 @@ void TRptParams::Init(xmlNodePtr node)
         {
             string rem = NodeAsString(currNode);
             rem_grps.insert(((const TCkinRemTypesRow&)base_rems.get_row("code", rem)).grp_id);
-            TRemCategory cat=getRemCategory(rem, "");
+            TRemCategory cat=getRemCategory(CheckIn::TPaxRemItem(rem, ""));
             rems[cat].push_back(NodeAsString(currNode));
         };
     }
@@ -95,7 +102,7 @@ void TRptParams::Init(xmlNodePtr node)
                 Qry.get().Execute();
                 for(; not Qry.get().Eof; Qry.get().Next()) {
                     string rem = Qry.get().FieldAsString("code");
-                    TRemCategory cat=getRemCategory(rem, "");
+                    TRemCategory cat=getRemCategory(CheckIn::TPaxRemItem(rem, ""));
                     rems[cat].push_back(rem);
                 }
             }

@@ -2,6 +2,10 @@
 #include "basetables.h"
 #include "tlg/CheckinBaseTypesOci.h"
 
+#include "pg_session.h"
+#include <serverlib/pg_cursctl.h>
+#include <serverlib/pg_rip.h>
+
 #include <serverlib/cursctl.h>
 #include <serverlib/dates_oci.h>
 
@@ -124,7 +128,7 @@ AirportControl* AirportControl::readDb(const Ticketing::TicketNum_t& tickNum,
     LogTrace(TRACE3) << __FUNCTION__ << " by "
                      << tickNum << "/" << cpnNum;
 
-    OciCpp::CursCtl cur = make_curs(
+    PgCpp::CursCtl cur = get_pg_curs(
 "select TICKNUM, CPNNUM, DATE_CR, RECLOC "
 "from AIRPORT_CONTROLS "
 "where TICKNUM=:tnum and CPNNUM=:cnum");
@@ -143,7 +147,7 @@ AirportControl* AirportControl::readDb(const Ticketing::TicketNum_t& tickNum,
             .def(rRecloc)
             .EXfet();
 
-    if(cur.err() == NO_DATA_FOUND)
+    if(cur.err() == PgCpp::NoDataFound)
     {
         if(throwNf) {
             throw AirportControlNotFound(tickNum, cpnNum);
@@ -165,19 +169,19 @@ void AirportControl::writeDb(const AirportControl& ac)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " " << ac;
 
-    OciCpp::CursCtl cur = make_curs(
+    PgCpp::CursCtl cur = get_pg_curs(
 "insert into AIRPORT_CONTROLS(TICKNUM, CPNNUM, DATE_CR, RECLOC) "
 "values (:tnum, :cnum, :date_cr, :rl)");
 
     cur.
-            noThrowError(CERR_U_CONSTRAINT).
+            noThrowError(PgCpp::ConstraintFail).      //CERR_U_CONSTRAINT
             bind(":tnum",    ac.ticknum().get()).
             bind(":cnum",    ac.cpnnum().get()).
             bind(":date_cr", Dates::second_clock::local_time()).
             bind(":rl",      ac.recloc()).
             exec();
 
-    if(cur.err() == CERR_U_CONSTRAINT)
+    if(cur.err() == PgCpp::ConstraintFail)
     {
         throw AirportControlExists();
     }
@@ -188,7 +192,7 @@ void AirportControl::deleteDb(const AirportControl& ac)
     LogTrace(TRACE3) << __FUNCTION__ << " by "
                      << ac.ticknum() << "/" << ac.cpnnum();
 
-    OciCpp::CursCtl cur = make_curs(
+    PgCpp::CursCtl cur = get_pg_curs(
 "delete from AIRPORT_CONTROLS "
 "where TICKNUM=:tnum and CPNNUM=:cnum");
 

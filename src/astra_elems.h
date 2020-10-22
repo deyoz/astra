@@ -33,7 +33,7 @@ enum TElemType {
                  etCraft,                    //тип ВС (воздушное судно)
                  etCurrency,                 //коды валют
                  etCustomAlarmType,          //пользовательские тревоги
-                 etDCSServiceType,           //типы услуг в Астре
+                 etDCSAction,                //действие в Астре
                  etDelayType,                //коды задержек рейсов
                  etDeskGrp,                  //группы пультов
                  etDevFmtType,               //форматы устройств
@@ -99,6 +99,7 @@ enum TElemFmt {efmtUnknown=-1,
 
 const char* EncodeElemContext(const TElemContext ctxt);
 const char* EncodeElemType(const TElemType type);
+TElemType DecodeElemType(const char *type);
 const char* EncodeElemFmt(const TElemFmt type);
 
 std::string ElemToElemId(TElemType type, const std::string &elem, TElemFmt &fmt, const std::string &lang, bool with_deleted=false);

@@ -50,14 +50,27 @@ class PairList
       }
     }
   public:
+    PairList(const std::initializer_list< std::pair<T1, T2> > &pairs,
+             const boost::optional<T1>& unk1,
+             const boost::optional<T2>& unk2)
+    {
+      for(const auto& i : pairs)
+      {
+        map1.emplace(i.first, i.second);
+        map2.emplace(i.second, i.first);
+      }
+      unknown1=unk1;
+      unknown2=unk2;
+    }
+
     PairList(const std::list< std::pair<T1, T2> > &pairs,
              const boost::optional<T1>& unk1,
              const boost::optional<T2>& unk2)
     {
-      for(typename std::list< std::pair<T1, T2> >::const_iterator i=pairs.begin(); i!=pairs.end(); ++i)
+      for(const auto& i : pairs)
       {
-        map1.insert(make_pair(i->first, i->second));
-        map2.insert(make_pair(i->second, i->first));
+        map1.emplace(i.first, i.second);
+        map2.emplace(i.second, i.first);
       }
       unknown1=unk1;
       unknown2=unk2;
@@ -88,7 +101,7 @@ extern const char* ClientTypeS[ctTypeNum];
 enum TOperMode { omCUSE, omCUTE, omMUSE, omRESA, omSTAND, omTypeNum };
 extern const char* OperModeS[omTypeNum];
 
-enum TEventType {evtSeason,evtDisp,evtFlt,evtGraph,evtFltTask,evtPax,evtPay,evtComp,evtTlg,
+enum TEventType {evtSeason,evtDisp,evtFlt,evtGraph,evtFltTask,evtTimatic,evtPax,evtPay,evtComp,evtTlg,
                  evtAccess,evtSystem,evtCodif,evtPeriod,evtPrn,evtProgError,evtUnknown,evtTypeNum};
 extern const char* EventTypeS[evtTypeNum];
 
@@ -111,9 +124,6 @@ const std::string NoDays = ".......";
 const std::string AllDays = "1234567";
 
 enum tmodify { fnochange, fchange, finsert, fdelete };
-
-const char rus_seat[]="ÄÅÇÉÑÖÜáàäãåçéèêëíìîïñóòô";
-const char lat_seat[]="ABCDEFGHJKLMNOPQRSTUVWXYZ";
 
 enum TCompLayerType { cltBlockCent, cltTranzit, cltCheckin, cltTCheckin, cltGoShow, cltBlockTrzt, cltSOMTrzt, cltPRLTrzt,
                       cltProtBeforePay, cltProtAfterPay, cltPNLBeforePay, cltPNLAfterPay, cltProtSelfCkin,
@@ -169,6 +179,7 @@ enum TRptType {
     rtRESEAT,
     rtRESEATTXT,
     rtKOMPLEKT,
+    rtCOM,
     rtUnknown,
     rtTypeNum
 };
@@ -309,6 +320,8 @@ enum TIdType {idFlt, idGrp, idPax};
 
 };
 
+enum PaxOrigin { paxCheckIn, paxPnl, paxTest };
+
 const ASTRA::TCrewTypes& CrewTypes();
 const ASTRA::TTlgTrickyGenders& TlgTrickyGenders();
 const ASTRA::TDocTrickyGenders& DocTrickyGenders();
@@ -318,6 +331,38 @@ const std::string ACCESS_DENIED = "Access denied";
 
 // TODO: get rid of this outrageous define
 #define OP_TYPE_COND(COL) "nvl(" COL", :op_type) = :op_type" // c++11 standard requires space before identifier: ..." COL"...
+
+class DCSAction
+{
+  public:
+    enum Enum
+    {
+      PrintBPOnDesk,
+      ChangeSeatOnDesk
+    };
+
+    static const std::list< std::pair<Enum, std::string> >& pairs()
+    {
+      static std::list< std::pair<Enum, std::string> > l =
+      {
+        {PrintBPOnDesk,    "PRINT_BP_ON_DESK"},
+        {ChangeSeatOnDesk, "CHG_SEAT_ON_DESK"}
+      };
+      return l;
+    }
+};
+
+class DCSActionsContainer : public ASTRA::PairList<DCSAction::Enum, std::string>
+{
+  private:
+    virtual std::string className() const { return "DCSActions"; }
+  public:
+    DCSActionsContainer() : ASTRA::PairList<DCSAction::Enum, std::string>(DCSAction::pairs(),
+                                                                          boost::none,
+                                                                          boost::none) {}
+};
+
+const DCSActionsContainer& dcsActions();
 
 class TAlignment
 {

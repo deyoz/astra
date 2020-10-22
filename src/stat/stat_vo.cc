@@ -377,12 +377,14 @@ void RunVOShortFile(const TStatParams &params, TOrderStatWriter &writer)
 
 void get_stat_vo(int point_id)
 {
+    tst();
     TCachedQuery delQry("delete from stat_vo where point_id = :point_id", QParams() << QParam("point_id", otInteger, point_id));
     delQry.get().Execute();
-
+    tst();
+    tst();
     TVouchers vouchers;
     vouchers.fromDB(point_id);
-
+    tst();
     if(not vouchers.items.empty()) {
         TTripInfo flt;
         flt.getByPointId(point_id);
@@ -390,7 +392,7 @@ void get_stat_vo(int point_id)
         map<string, int> stat;
         for(const auto &i: vouchers.items)
             stat[i.first.voucher] += i.second;
-
+    tst();
         TCachedQuery insQry(
                 "insert into stat_vo ( "
                 "   point_id, "
@@ -409,9 +411,11 @@ void get_stat_vo(int point_id)
                 << QParam("scd_out", otDate, flt.scd_out)
                 << QParam("amount", otInteger));
         for(const auto &i: stat) {
+            tst();
             insQry.get().SetVariable("voucher", i.first);
             insQry.get().SetVariable("amount", i.second);
             insQry.get().Execute();
         }
+        tst();
     }
 }

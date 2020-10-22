@@ -5,6 +5,7 @@
 #include <set>
 #include "astra_types.h"
 #include "trip_tasks.h"
+#include "astra_dates.h"
 
 namespace APPS {
 
@@ -24,6 +25,9 @@ enum class TransferFlag
 template<typename T>
 using Opt = boost::optional<T>;
 
+void dumpAppsPaxData();
+void dumpAppsMsg();
+
 std::ostream& operator << (std::ostream& os, const TransferFlag& trfer);
 std::vector<std::string> statusesFromDb(const PaxId_t& pax_id);
 void appsFlightCloseout(const PointId_t& point_id);
@@ -32,10 +36,11 @@ bool checkAPPSSets(const PointId_t& point_dep);
 bool checkAPPSSets(const PointId_t& point_dep, const PointId_t& point_arv);
 bool checkAPPSSets(const PointId_t& point_dep, const AirportCode_t& airp_arv);
 bool checkAPPSFormats(const PointId_t &point_dep, const AirportCode_t& airp_arv,
-                      std::set<std::string>& pFormats);
+                      std::set<std::string> *pFormats);
 bool isAPPSAnswText(const std::string& tlg_body);
-void reSendMsg(const int send_attempts, const std::string& msg_text, const int msg_id);
-void deleteMsg(const int msg_id);
+void reSendMsg(int msg_id);
+void deleteMsg(int msg_id);
+Opt<PointId_t> pointIdByMsgId(int msg_id);
 const char* getAPPSRotName();
 std::string appsTextAsHumanReadable(const std::string& apps);
 std::string emulateAnswer(const std::string& request);
@@ -43,8 +48,10 @@ bool checkNeedAlarmScdIn(const PointId_t& point_id);
 
 void ifNeedAddTaskSendApps(const PointId_t& point_id, const std::string &task_name);
 bool checkTime(const PointId_t& point_id);
-void sendAllAPPSInfo(const TTripTaskKey& task);
-void sendNewAPPSInfo(const TTripTaskKey& task);
+void sendAllInfo(const TTripTaskKey& task);
+void sendNewInfo(const TTripTaskKey& task);
+
+void init_callbacks();
 
 class AppsCollector
 {
@@ -61,6 +68,7 @@ public:
 private:
     std::vector<PaxItem> m_paxItems;
 };
+
 
 } //namespace APPS
 

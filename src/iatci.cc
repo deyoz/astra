@@ -307,7 +307,7 @@ namespace
                 m_remChange = remChng;
             }
         }
-        
+
         // ремарки fqt
         std::list<astra_entities::FqtRemark> lOldFqtRems;
         if(oldPax.m_fqtRems) {
@@ -321,7 +321,7 @@ namespace
                 m_fqtRemChange = fqtRemChng;
             }
         }
-            
+
         // персональная информация
         if(oldPax.m_surname != newPax.m_surname || oldPax.m_name != newPax.m_name)
         {
@@ -563,7 +563,7 @@ namespace
         void updatePaxSeat(const iatci::UpdateSeatDetails& updSeat);
 
         xmlNodePtr iatciNode() const { return m_iatciNode; }
-        
+
         bool tryUpdatePaxDoc(const iatci::PaxDetails& pax);
         bool tryUpdatePaxVisa(const iatci::PaxDetails& pax);
         bool tryUpdatePaxAddresses(const iatci::PaxDetails& pax);
@@ -656,7 +656,7 @@ namespace
 
         updateSeatNode(tripId, paxId, updSeat.seat());
     }
-    
+
     bool IatciUpdater::tryUpdatePaxDoc(const iatci::PaxDetails& pax)
     {
         xmlNodePtr reqSegsNode = findNodeR(m_reqNode, m_reqRootSegsNodeName);
@@ -673,7 +673,7 @@ namespace
             updatePaxDoc(pax);
             return true;
         }
-        
+
         return false;
     }
 
@@ -855,7 +855,10 @@ static std::string getOldSeat(xmlNodePtr reqNode)
 static PointsPair readPointsPair(const GrpId_t& grpId)
 {
     TCkinRoute tckinRoute;
-    if(tckinRoute.GetRouteAfter(grpId.get(), crtWithCurrent, crtIgnoreDependent)) {
+    if(tckinRoute.getRouteAfter(grpId,
+                                TCkinRoute::WithCurrent,
+                                TCkinRoute::IgnoreDependence,
+                                TCkinRoute::WithoutTransit)) {
         // если на стороне Астры делалась локальная(не iatci) сквозная регистрация
         ASSERT(!tckinRoute.empty());
         return PointsPair(PointId_t(tckinRoute.back().point_dep),
@@ -924,7 +927,7 @@ static GrpId_t getGrpId(xmlNodePtr reqNode, xmlNodePtr resNode, IatciInterface::
     } else {
         // в остальных случаях grp_id уже содержится в запросе, либо её можно найти
         xmlNodePtr grpIdNode = findNodeR(reqNode, "grp_id");
-        if(grpIdNode != NULL && !isempty(grpIdNode)) {            
+        if(grpIdNode != NULL && !isempty(grpIdNode)) {
             grpId = GrpId_t{NodeAsInteger(grpIdNode)};
         } else {
             xmlNodePtr tripIdNode = findNodeR(reqNode, "trip_id");
@@ -1141,9 +1144,9 @@ static edifact::KickInfo getIatciKickInfo(xmlNodePtr reqNode, xmlNodePtr ediResN
         if(ediResNode != NULL) {
             AstraEdifact::addToEdiResponseCtxt(termReqCtxtId, ediResNode->children, "");
         } else {
-      	    xmlNodePtr ediResCtxtNode;
-      	    XMLDoc ediResCtxt("context", ediResCtxtNode, __FUNCTION__);
-      	    AstraEdifact::addToEdiResponseCtxt(termReqCtxtId, ediResCtxtNode->children, "");
+            xmlNodePtr ediResCtxtNode;
+            XMLDoc ediResCtxt("context", ediResCtxtNode, __FUNCTION__);
+            AstraEdifact::addToEdiResponseCtxt(termReqCtxtId, ediResCtxtNode->children, "");
         }
         return AstraEdifact::createKickInfo(termReqCtxtId, "IactiInterface");
     }
@@ -1688,7 +1691,7 @@ static boost::optional<iatci::CkuParams> getUpdateBaggageParams(xmlNodePtr reqNo
     XMLDoc oldXmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
 
     XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
-    xmlNodePtr iatciSegsNode = findNodeR(reqNode, "iatci_segments");    
+    xmlNodePtr iatciSegsNode = findNodeR(reqNode, "iatci_segments");
 
     boost::optional<XmlCheckInTabs> reqIatciTabs; // must be!
     if(iatciSegsNode) {
@@ -1796,7 +1799,7 @@ static boost::optional<iatci::CkuParams> getUpdateBaggageParams(xmlNodePtr reqNo
         }
 
         astra_api::astra_entities::BagPool total(poolNum),
-                                       handTotal(poolNum);       
+                                       handTotal(poolNum);
 
         if(poolNumInft) {
             ASSERT(algo::contains(bagPoolNums, poolNumInft));
@@ -2208,7 +2211,7 @@ static void SaveIatciXmlResByReqType(xmlNodePtr iatciResNode,
 
     case IatciInterface::Cku:
     case IatciInterface::Plf:
-    case IatciInterface::Bpr:        
+    case IatciInterface::Bpr:
         SaveIatciCkuPlfBprXmlRes(iatciResNode, grpId);
         break;
 
@@ -2510,7 +2513,7 @@ void IatciInterface::CancelKickHandler(const ReqCtxtId_t& ctxtId,
                                        xmlNodePtr resNode,
                                        const std::list<Result>& lRes)
 {
-    FuncIn(CancelKickHandler);    
+    FuncIn(CancelKickHandler);
     DoKickAction(ctxtId, initialReqNode, resNode, lRes, Ckx, ActSavePax);
     FuncOut(CancelKickHandler);
 }
@@ -2601,10 +2604,10 @@ void IatciInterface::KickHandler(XMLRequestCtxt* ctxt,
 
 void IatciInterface::FallbackMessage(xmlNodePtr initialReqNode)
 {
-    if(isCheckinRequest(initialReqNode)) 
+    if(isCheckinRequest(initialReqNode))
     {
         RequestType reqType = ClassifyCheckInRequest(initialReqNode);
-        switch(reqType) 
+        switch(reqType)
         {
         case Cki:
         {
@@ -2613,14 +2616,14 @@ void IatciInterface::FallbackMessage(xmlNodePtr initialReqNode)
                                       ckiParams.fltGroup().inboundFlight()),
                            IfmAction(IfmAction::Del),
                            IfmPaxes(ckiParams.fltGroup().paxGroups()));
-            ifm.send();    
+            ifm.send();
         }
         break;
 
         case Cku:
         {
             ; // TODO
-        }   
+        }
         break;
 
         case Ckx:
@@ -2630,8 +2633,8 @@ void IatciInterface::FallbackMessage(xmlNodePtr initialReqNode)
                                       ckxParams.fltGroup().inboundFlight()),
                            IfmAction(IfmAction::Del),
                            IfmPaxes(ckxParams.fltGroup().paxGroups()));
-            ifm.send();                            
-        } 
+            ifm.send();
+        }
         break;
 
         default:
@@ -2701,7 +2704,7 @@ void IatciInterface::KickHandler_onFailure(const ReqCtxtId_t& ctxtId,
         RollbackChangeOfStatus(initialReqNode, ctxtId);
     }
     break;
-    
+
     case Result::Cancel:
     {
         RollbackChangeOfStatus(initialReqNode, ctxtId);
@@ -2798,7 +2801,7 @@ void IatciInterface::DoKickAction(const ReqCtxtId_t& ctxtId,
                                   KickAction act)
 {
     FuncIn(DoKickAction);
-    ReqParams(reqNode).setBoolParam("after_kick", true);        
+    ReqParams(reqNode).setBoolParam("after_kick", true);
 
     XMLDoc iatciResCtxt = ASTRA::createXmlDoc("<iatci_result/>");
     xmlNodePtr iatciResNode = NodeAsNode(std::string("/iatci_result").c_str(), iatciResCtxt.docPtr());
@@ -2848,7 +2851,7 @@ void IatciInterface::DoKickAction(const ReqCtxtId_t& ctxtId,
             }
         }
         GrpId_t grpId = getGrpId(reqNode, resNode, reqType);
-        ReqParams(reqNode).setStrParam("old_seat", getOldSeat(reqNode));        
+        ReqParams(reqNode).setStrParam("old_seat", getOldSeat(reqNode));
         UpdateIatciGrp(grpId, reqType, iatciResNode, reqNode);
         SeatmapRequest(reqNode); // перепосылаем карту мест, чтобы сформировать ответ на смену места
     }

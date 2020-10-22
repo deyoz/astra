@@ -375,7 +375,7 @@ const TTripSetList& TCounters::fltSettings()
 {
   if (!_fltSettings)
   {
-    _fltSettings=TTripSetList();
+    _fltSettings=boost::in_place();
     _fltSettings.get().fromDB(flt().point_id);
   }
   return _fltSettings.get();

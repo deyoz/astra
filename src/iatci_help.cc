@@ -9,9 +9,10 @@
 #include "basetables.h"
 #include "date_time.h"
 #include "tripinfo.h"
+#include "seat_number.h"
+#include "pg_session.h"
 #include "tlg/edi_msg.h"
 #include "tlg/remote_system_context.h"
-#include "seat_number.h"
 
 #include <serverlib/dates_io.h>
 #include <serverlib/dates_oci.h>
@@ -21,6 +22,7 @@
 #include <serverlib/int_parameters_oci.h>
 #include <serverlib/rip_oci.h>
 #include <serverlib/algo.h>
+#include <serverlib/pg_rip.h>
 
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/archive/text_oarchive.hpp>
@@ -242,7 +244,7 @@ void IatciXmlDb::saveXml(const GrpId_t& grpId, const std::string& xmlText)
         LogTrace(TRACE3) << "pageNo=" << pageNo << "; page=" << page;
         itb = ite;
 
-        make_curs(
+        get_pg_curs(
 "insert into GRP_IATCI_XML(GRP_ID, PAGE_NO, XML_TEXT) "
 "values (:grp_id, :page_no, :xml_text)")
         .bind(":grp_id", grpId)
@@ -255,7 +257,7 @@ void IatciXmlDb::saveXml(const GrpId_t& grpId, const std::string& xmlText)
 void IatciXmlDb::delXml(const GrpId_t& grpId)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId=" << grpId;
-    OciCpp::CursCtl cur = make_curs(
+    auto cur = get_pg_curs(
 "delete from GRP_IATCI_XML where GRP_ID=:grp_id");
     cur.bind(":grp_id", grpId)
        .exec();
@@ -265,7 +267,7 @@ std::string IatciXmlDb::load(const GrpId_t& grpId)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId=" << grpId;
     std::string res, page;
-    OciCpp::CursCtl cur = make_curs(
+    auto cur = get_pg_curs(
 "select XML_TEXT from GRP_IATCI_XML where GRP_ID=:grp_id "
 "order by PAGE_NO");
     cur.bind(":grp_id", grpId)
@@ -281,12 +283,12 @@ std::string IatciXmlDb::load(const GrpId_t& grpId)
 bool IatciXmlDb::exists(const GrpId_t& grpId)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId=" << grpId;
-    OciCpp::CursCtl cur = make_curs(
+    auto cur = get_pg_curs(
 "select 1 from GRP_IATCI_XML where GRP_ID=:grp_id");
     cur.bind(":grp_id", grpId)
        .exfet();
 
-    return cur.err() != NO_DATA_FOUND;
+    return cur.err() != PgCpp::NoDataFound;
 }
 
 //---------------------------------------------------------------------------------------
@@ -1261,7 +1263,8 @@ boost::optional<DefferedIatciData> loadDeferredCkiData(tlgnum_t msgId)
 "returning DATA1, DATA2, DATA3, DATA4, DATA5 "
 "into :data1, :data2, :data3, :data4, :data5; \n"
 "end;");
-    cur.bind(":msg_id", msgId.num)
+    cur.autoNull()
+       .bind(":msg_id", msgId.num)
        .bindOutNull(":data1", data[0], "")
        .bindOutNull(":data2", data[1], "")
        .bindOutNull(":data3", data[2], "")
@@ -1269,7 +1272,7 @@ boost::optional<DefferedIatciData> loadDeferredCkiData(tlgnum_t msgId)
        .bindOutNull(":data5", data[4], "")
        .exec();
 
-    std::string serialized(std::string(data[0]) + data[1] + data[2] + data[3] + data[5]);
+    std::string serialized(std::string(data[0]) + data[1] + data[2] + data[3] + data[4]);
     if(serialized.empty()) {
         tst();
         return boost::none;
@@ -2074,7 +2077,10 @@ DcsSystemContext* readDcs(const iatci::FlightDetails& outbFlt,
 GrpId_t getLastTCkinGrpId(const GrpId_t& grpId)
 {
     TCkinRoute tckinRoute;
-    if(tckinRoute.GetRouteAfter(grpId.get(), crtWithCurrent, crtIgnoreDependent)) {
+    if(tckinRoute.getRouteAfter(grpId,
+                                TCkinRoute::WithCurrent,
+                                TCkinRoute::IgnoreDependence,
+                                TCkinRoute::WithoutTransit)) {
         ASSERT(!tckinRoute.empty());
         return GrpId_t(tckinRoute.back().grp_id);
     } else {

@@ -7,13 +7,15 @@
 
 using BASIC::date_time::TDateTime;
 
-int ARX_MIN_DAYS();
-int ARX_MAX_DAYS();
+int ARX_DAYS();
 int ARX_DURATION();
 int ARX_SLEEP();
 int ARX_MAX_ROWS();
 
-bool arx_daily( TDateTime utcdate );
+bool arx_daily(TDateTime utcdate);
+#ifdef XP_TESTING
+bool test_arx_daily(TDateTime utcdate, int step);
+#endif
 
 class TArxMove
 {

@@ -8,9 +8,8 @@ include(ts/macro.ts)
 ### bp_types, bp_models, prn_form_vers, prn_tag_props  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ###
 
-$(init)
-$(init_jxt_pult Œ‚Œ)
-$(login)
+$(init_term 201509-0173355)
+
 $(init_eds ’ UTET UTDC)
 
 $(prepare_bp_printing ’ 103 „Œ„)

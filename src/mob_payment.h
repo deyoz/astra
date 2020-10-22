@@ -197,7 +197,7 @@ class GetPassengerInfoResponse : public Response
   private:
     SirenaExchange::TEntityList entities;
   public:
-    void prepareEntities(int paxId);
+    void prepareEntities(const PaxId_t& paxId);
     const GetPassengerInfoResponse& toXML(xmlNodePtr node) const;
 
     static boost::optional<std::pair<TAdvTripInfo, std::string>> getSegmentInfo(const CheckIn::TSimplePaxItem& pax);

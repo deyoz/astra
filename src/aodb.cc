@@ -31,6 +31,7 @@ alter table aodb_bag add pr_cabin NUMBER(1) NOT NULL;
 #include "stages.h"
 #include "tripinfo.h"
 #include "salons.h"
+#include "crafts/ComponCreator.h"
 #include "sopp.h"
 #include "points.h"
 #include "serverlib/helpcpp.h"
@@ -680,9 +681,10 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
       //		record<<setw(1)<<0; // трансатлантический багаж :)
       // стойка рег. + время рег. + выход на посадку + время прохода на посадку
       // определение сквозняка
-      TCkinRouteItem item;
-      TCkinRoute().GetPriorSeg( Qry.FieldAsInteger( "grp_id" ), crtIgnoreDependent, item );
-      bool pr_tcheckin = ( item.grp_id != NoExists );
+      auto item=TCkinRoute::getPriorGrp( GrpId_t(Qry.FieldAsInteger( "grp_id" )),
+                                         TCkinRoute::IgnoreDependence,
+                                         TCkinRoute::WithoutTransit );
+      bool pr_tcheckin = item;
       record<<GetTermInfo( TimeQry, Qry.FieldAsInteger( "pax_id" ),
                            Qry.FieldAsInteger( "reg_no" ),
                            pr_tcheckin,
@@ -882,7 +884,14 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
   PQry.Clear();
   if ( pr_unaccomp )
     PQry.SQLText =
-        " DELETE aodb_unaccomp WHERE grp_id=:pax_id AND point_addr=:point_addr AND point_id=:point_id ";
+        "BEGIN "
+        " DELETE aodb_unaccomp WHERE grp_id=:pax_id AND point_addr=:point_addr AND point_id=:point_id; "
+        " UPDATE aodb_points SET rec_no_unaccomp=rec_no_unaccomp WHERE point_id=:point_id AND point_addr=:point_addr; "
+        "  IF SQL%NOTFOUND THEN "
+        "    INSERT INTO aodb_points(point_id,point_addr,aodb_point_id,rec_no_flt,rec_no_pax,rec_no_bag,rec_no_unaccomp,pr_del) "
+        "      VALUES(:point_id,:point_addr,NULL,-1,0,-1,-1,0); "
+        "  END IF; "
+        "END; ";
   else
     PQry.SQLText =
         "BEGIN "
@@ -1497,7 +1506,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
       Qry.Execute();
       err++;
       if ( change_comp ) {
-        SALONS2::AutoSetCraft( point_id );
+        ComponCreator::AutoSetCraft( point_id );
       }
       bool old_ignore_auto = ( old_act != NoExists || dest.pr_del != 0 );
       bool new_ignore_auto = ( fl.act != NoExists || dest.pr_del != 0 );
@@ -1519,7 +1528,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
       err++;
       check_overload_alarm( point_id );
     } // end update
-    SALONS2::check_diffcomp_alarm( point_id );
+    ComponCreator::check_diffcomp_alarm( point_id );
     SALONS2::check_waitlist_alarm_on_tranzit_routes( point_id, __FUNCTION__ );
     if ( old_est != fl.est ) {
       if ( fl.est != NoExists ) {

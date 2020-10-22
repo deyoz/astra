@@ -11,6 +11,7 @@
 #include "rfisc_price.h"
 #include "checkin.h"
 #include "ckin_search.h"
+#include "print.h"
 #include "SWCExchangeIface.h"
 #include "astra_context.h"
 #include "term_version.h"
@@ -19,6 +20,7 @@
 //#include "sberbank.h"
 #include "MPSExchangeIface.h"
 #include "etick/tick_data.h"
+#include "flt_settings.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/slogger.h"
@@ -237,6 +239,18 @@ class Tickets: public std::vector<Ticket> {
       }
       throw EXCEPTIONS::Exception( "ticket not found, pass_id=%s, seg_id=%s", pass_id, seg_id );
     }
+    bool getEMD( const std::string& svc_id, Ticket &ticket ) {
+      ticket.clear();
+      for ( const auto &p : *this ) {
+        if ( p.svc_id == svc_id &&
+             p.isEMD() ) {
+          ticket = p;
+          return true;
+        }
+      }
+      return false;
+    }
+
     bool get( const std::string& svc_id, Ticket &ticket ) {
       ticket.clear();
       for ( const auto &p : *this ) {
@@ -369,8 +383,6 @@ class Order: public SvcEmdRegnum, public SvcEmdSvcsAns
     }
     void toPrice( int grp_id, int point_dep, TPriceRFISCList &svcList ) {
       PaxsNames paxsNames;
-  //    SegsPaxs segPaxs;
-//      segPaxs.fromDB(grp_id,point_dep);
       for ( auto &p : prices ) {
         if ( p.svc_id.empty() ) { //тарфикация не задана - не смогли оценить
           continue;
@@ -401,7 +413,6 @@ class Order: public SvcEmdRegnum, public SvcEmdSvcsAns
         if ( StrToInt(t.ticket_cpn.c_str(), coupon) == EOF ) {
           throw EXCEPTIONS::Exception( "Invalid data XML counpon no=%s", t.ticket_cpn );
         }
-        tst();
         search(paxs_list, CheckIn::TPaxTknItem(t.ticknum,coupon));
         LogTrace(TRACE5)<<paxs_list.size() << ",ticknum=" <<t.ticknum<<",coupon="<<coupon;
 
@@ -450,7 +461,7 @@ class Order: public SvcEmdRegnum, public SvcEmdSvcsAns
         key.trfer_num = trfer_nums[svc.seg_id];
         key.RFISC = svc.rfisc;
         key.service_type = ServiceTypes().decode(svc.service_type);
-        TPriceServiceItem price(key,paxsNames.getPaxName(key.pax_id),std::map<std::string,SvcFromSirena>());
+        TPriceServiceItem price(key,paxsNames.getPaxName(key.pax_id),SVCS());
         SvcFromSirena svcSirena;
         svcSirena.doc = prices.getDoc(p.svc_id);
         svcSirena.pass_id = svc.pass_id;
@@ -460,23 +471,27 @@ class Order: public SvcEmdRegnum, public SvcEmdSvcsAns
         svcSirena.name = svc.name;
         svcSirena.status_svc = svc.status;
         svcSirena.status_direct = TPriceRFISCList::STATUS_DIRECT_ORDER;
-        svcSirena.svc_id = p.svc_id;
+        svcSirena.svcKey.svcId = p.svc_id;
+        svcSirena.svcKey.orderId = this->getRegnum();
 
         SvcValue svcVal;
         SvcEmdSvcsAns::getSvcValue( p.svc_id, svcVal );
         Ticket t;
         tst();
-        tickets.get( svcVal.pass_id, svcVal.seg_id, t );
+        tickets.getEMD( p.svc_id, t );
+       /* if ( !tickets.getEMD( p.svc_id, t ) ) {
+          tickets.get( svcVal.pass_id, svcVal.seg_id, t );
+        }!!!*/
         tst();
         svcSirena.ticknum = t.ticknum;
         svcSirena.ticket_cpn = t.ticket_cpn;
-        LogTrace(TRACE5) << "svc_id=" << svcSirena.svc_id << ",ticket=" << svcSirena.ticknum << "/" << svcSirena.ticket_cpn;
+        LogTrace(TRACE5) << "svc_id=" << svcSirena.svcKey.svcId << ",ticket=" << svcSirena.ticknum << "/" << svcSirena.ticket_cpn;
 
         svcSirena.time_change = BASIC::date_time::NowUTC();
         if ( svcList.find(key) == svcList.end() ) {
           svcList.emplace( key, price );
         }
-        svcList[key].addSVCS( svcSirena.svc_id, svcSirena );
+        svcList[key].addSVCS( svcSirena.svcKey, svcSirena );
       }
       for ( auto &l : svcList ) {
         LogTrace(TRACE5) << l.second.traceStr();
@@ -1042,31 +1057,37 @@ class SvcEmdRefundConfirmRes: public SvcEmdCommonRes, public SvcEmdRegnum
 
 
 //-----------------------------------------------------------------------------------------------
-void ServiceEvalInterface::RequestFromGrpId(xmlNodePtr reqNode, int grp_id, SWC::SWCExchange& req)
+void ServiceEvalInterface::RequestFromGrpId(xmlNodePtr reqNode, int grp_id, SWC::SWCExchange& req, int client_id)
 {
-  TTripInfo info;
-  if (!info.getByGrpId(grp_id))
-    throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
-  TQuery Qry( &OraSession );
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT client_id, pr_denial, "
-    "    DECODE(airline,NULL,0,8)+ "
-    "    DECODE(airp_dep,NULL,0,4) AS priority "
-    "FROM pay_clients "
-    "WHERE (airline IS NULL OR airline=:airline) AND "
-    "      (airp_dep IS NULL OR airp_dep=:airp_dep) "
-    "ORDER BY priority DESC";
-  Qry.CreateVariable("airline",otString,info.airline);
-  Qry.CreateVariable("airp_dep",otString,info.airp);
-  Qry.Execute();
-  if (Qry.Eof || Qry.FieldAsInteger("pr_denial")!=0) {
+  if ( client_id == ASTRA::NoExists ) {
+    TTripInfo info;
+    if (!info.getByGrpId(grp_id))
+      throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
+    TQuery Qry( &OraSession );
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT client_id, pr_denial, "
+      "    DECODE(airline,NULL,0,8)+ "
+      "    DECODE(airp_dep,NULL,0,4) AS priority "
+      "FROM pay_clients "
+      "WHERE (airline IS NULL OR airline=:airline) AND "
+      "      (airp_dep IS NULL OR airp_dep=:airp_dep) "
+      "ORDER BY priority DESC";
+    Qry.CreateVariable("airline",otString,info.airline);
+    Qry.CreateVariable("airp_dep",otString,info.airp);
+    Qry.Execute();
+    for (;!Qry.Eof;Qry.Next()) {
+      if ( Qry.FieldAsInteger("pr_denial") == 0 ) {
+        client_id =  Qry.FieldAsInteger("client_id");
+        break;
+      }
+    }
+  }
+  if ( client_id == ASTRA::NoExists ) {
     throw AstraLocale::UserException("MSG.CLIENT_ID.NOT_DEFINE");
   }
-  Request( reqNode, Qry.FieldAsInteger("client_id"), getServiceName(), req );
+  Request( reqNode, client_id, getServiceName(), req );
 }
-
-
 
 void ServiceEvalInterface::Evaluation(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -1080,13 +1101,42 @@ void ServiceEvalInterface::Evaluation(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   if ( !isPaymentAtDesk(grpItem.point_dep) ) {
     throw AstraLocale::UserException("MSG.EMD.NOT_EVALUATION_SETS");
   }
+  //check process pay
   TPriceRFISCList prices;
   prices.fromContextDB(grp_id);
+  if ( iMPSPayAtDest( grpItem.point_dep ) ) {
+    if ( !TReqInfo::Instance()->desk.compatible( MPS_POS_PAY ) ) {
+      throw AstraLocale::UserException("MSG.TERMINAL_NOT_MPS_POS_PAY");
+    }
+    prices.setPosId( NodeAsInteger( "pos_id", reqNode, ASTRA::NoExists ) );
+    MPS::PosClient client;
+    //check timeout or denial
+    client.fromDB( prices.getPosId() );
+  }
+  else {
+    prices.setPosId( ASTRA::NoExists );
+  }
+  if ( !prices.getMPSOrderId().empty() ) {
+    tst();
+    MPS::DBExchanger dbChanger( prices.getMPSOrderId() );
+    std::string xml;
+    if ( !dbChanger.check_msg( xml, MPS::DBExchanger::rtRequest, MPS::DBExchanger::stComplete ) ) {
+      tst();
+      AstraLocale::showErrorMessage("MSG.EMD.PAYMENT_IN_PROCESS_WAIT_AND_TRY_AGAIN");
+      return;
+    }
+  }
+
   if ( prices.notInit() || pr_reset ) {
+    tst();
+    int pos_id = prices.getPosId();
+    prices.clear();
+    prices.setPosId( pos_id );
     std::map<int,PointGrpPaxs> params;
     if ( !isPaymentAtDesk(grpItem.point_dep) ) {
       throw AstraLocale::UserException("MSG.EMD.NOT_COST_SETS");
     }
+    LogTrace(TRACE5) << "grp_id=" << grp_id << ",point_dep=" << grpItem.point_dep;
     SegsPaxs segsPaxs;
     try {
       segsPaxs.fromDB(grp_id,grpItem.point_dep);
@@ -1094,19 +1144,19 @@ void ServiceEvalInterface::Evaluation(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     catch( AstraLocale::UserException& ex ) {
       if ( ex.getLexemaData().lexema_id == "MSG.EMD.SERVICES_ALREADY_PAID" &&
            NodeAsInteger("pr_after_print",reqNode,0) != 0 ) {
-        NewTextChild(resNode, "finish");
+        SetProp( NewTextChild(resNode, "finish"), "result", "ok" );
         return;
       }
       throw;
     }
     segsPaxs.getPaxs(params);
     CheckInGetPNRReq req(params,1);
-    RequestFromGrpId( reqNode, grp_id, req );
+    RequestFromGrpId( reqNode, grp_id, req, getSWCClientFromPOS( prices.getPosId() ) );
+    prices.toContextDB( grp_id );
   }
   else {
-    OrderReq orderReq( prices.getSvcEmdRegnum(), prices.getSurname() );
-    tst();
-    RequestFromGrpId( reqNode, grp_id, orderReq );
+    SendOrderReq( reqNode, grp_id, prices.getSvcEmdRegnum(),
+                  prices.getSurname(), getSWCClientFromPOS( prices.getPosId() ) );
   }
 }
 
@@ -1133,12 +1183,11 @@ void ServiceEvalInterface::response_check_in_get_pnr(const std::string& exchange
   prices.setSurname(res.getSurname());
   prices.setServices(PaidRFISCList);
   prices.toContextDB(grp_id);
-
-  OrderReq orderReq(res.getSvcEmdRegnum(), res.getSurname());
-  RequestFromGrpId( reqNode, grp_id, orderReq );
+  SendOrderReq( reqNode, grp_id, prices.getSvcEmdRegnum(),
+                prices.getSurname(), getSWCClientFromPOS( prices.getPosId() ) );
 }
 
-void ServiceEvalInterface::response_order(const std::string& exchangeId,xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode)
+void ServiceEvalInterface::response_order(const std::string& exchangeId, xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode)
 {
   OrderRes res;
   if ( res.isEmptyAnswer(externalSysResNode)) {
@@ -1164,14 +1213,37 @@ void ServiceEvalInterface::response_order(const std::string& exchangeId,xmlNodeP
   TPriceRFISCList list;
   res.toPrice(grp_id,grpItem.point_dep,list);
   prices.synchFromSirena(list);
+
+  if ( std::string("evaluation") == (const char*)reqNode->name ) {
+    LogTrace(TRACE5) << reqNode->name;
+    if ( !prices.getMPSOrderId().empty() ) {
+      tst();
+      MPS::DBExchanger dbChanger( prices.getMPSOrderId() );
+      std::string xml;
+      if ( !dbChanger.check_msg( xml, MPS::DBExchanger::rtRequest, MPS::DBExchanger::stComplete ) ) {
+        EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);
+        if ( !isDoomedToWait() ) {
+          AfterPaid( reqNode, resNode );
+          return;
+        }
+        return;
+      }
+    }
+    if ( std::string("evaluation") != (const char*)reqNode->name ) {
+      AfterPaid( reqNode, resNode );
+      return;
+    }
+  }
+
   prices.toContextDB(grp_id);
+
   xmlNodePtr node = NewTextChild(resNode,"prices");
   NewTextChild(node,"grp_id",grp_id);
   prices.toXML(NewTextChild( node, "services" ));
   if ( GetNode("prices/services/items/item",resNode) == nullptr ) { //а есть ли значения
     tst();
     if ( NodeAsInteger("pr_after_print",reqNode,0) != 0 ) {
-      NewTextChild(resNode, "finish");
+      SetProp( NewTextChild(resNode, "finish"), "result", "ok" );
       return;
     }
     throw AstraLocale::UserException("MSG.EMD.SERVICES_ALREADY_PAID");
@@ -1222,7 +1294,7 @@ void ServiceEvalInterface::backPaid(const std::string& exchangeId,xmlNodePtr req
 
   if ( externalSysResNode == nullptr ) { // откат
     prices.fromContextDB(grp_id);
-    std::vector<std::string> svcs;
+    std::vector<SVCKey> svcs;
     bool cancelRequest;
     std::shared_ptr<SWC::SWCExchange> req;
     if ( (cancelRequest=prices.haveStatusDirect( TPriceRFISCList::STATUS_DIRECT_ISSUE_ANSWER, svcs )) ||
@@ -1234,7 +1306,7 @@ void ServiceEvalInterface::backPaid(const std::string& exchangeId,xmlNodePtr req
         req = make_shared<SvcEmdVoidReq>(prices.getSvcEmdRegnum(),SvcEmdSvcsReq(svcs));
       }
       //???req->fromDB();
-      RequestFromGrpId( reqNode, grp_id, *req.get() );
+      RequestFromGrpId( reqNode, grp_id, *req.get(), getSWCClientFromPOS( prices.getPosId()) );
       inRequest = true;
     }
     if ( inRequest ) {
@@ -1276,11 +1348,11 @@ void ServiceEvalInterface::backPaid(const std::string& exchangeId,xmlNodePtr req
     prices.setStatusDirect(res->exchangeId() == SvcEmdVoidRes::getExchangeId()?TPriceRFISCList::STATUS_DIRECT_ISSUE_CONFIRM:TPriceRFISCList::STATUS_DIRECT_ISSUE_ANSWER,TPriceRFISCList::STATUS_DIRECT_ORDER);
     prices.toContextDB(grp_id);
     ASTRA::commit(); //!!!
-    std::vector<std::string> svcs;
+    std::vector<SVCKey> svcs;
     if ( SvcEmdIssueCancelRes::getExchangeId() == exchangeId &&
          prices.haveStatusDirect( TPriceRFISCList::STATUS_DIRECT_ISSUE_CONFIRM, svcs ) ) {
       SvcEmdVoidReq req(prices.getSvcEmdRegnum(),SvcEmdSvcsReq(svcs));
-      RequestFromGrpId( reqNode, grp_id, req );
+      RequestFromGrpId( reqNode, grp_id, req, getSWCClientFromPOS( prices.getPosId()) );
       return;
     }
   }
@@ -1335,7 +1407,7 @@ void ServiceEvalInterface::Paid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   }
   tst();
   prices.setSvcEmdPayDoc( SvcEmdPayDoc( "IN", "" ) );
-  std::vector<std::string> svcs;
+  std::vector<SVCKey> svcs;
   prices.haveStatusDirect(TPriceRFISCList::STATUS_DIRECT_SELECTED,svcs);
   if ( svcs.empty() ) {
     throw AstraLocale::UserException("MSG.EMD.NOT_SERVICES_CHOICE");
@@ -1345,9 +1417,21 @@ void ServiceEvalInterface::Paid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     tst();
     MPS::RegisterMethod registerMethod;
     MPS::OrderID orderId;
-    orderId.SetShop_Id(555);
+    //реквизиты пос и shop_id
+    MPS::PosClient client;
+    client.fromDB( prices.getPosId() );
+    MPS::PostEntryArray Entries("postdata");
+    MPS::PostEntry entry;
+    entry.Setname( "POSVendor" );
+    entry.Setvalue( client.getVendor() );
+    Entries.addItem( entry );
+    entry.Setname( "POSSerialNumber" );
+    entry.Setvalue( client.getSerial() );
+    Entries.addItem( entry );
+    orderId.SetShop_Id( client.getShopId() );
     orderId.SetNumber(registerMethod.getUniqueNumber());
     registerMethod.setOrder( orderId );
+    registerMethod.setPostEntryArray( Entries );
     //prices.getSvcEmdRegnum(), prices.getSvcEmdPayDoc(), SvcEmdSvcsReq(svcs)
 
     MPS::Amount cost("cost");
@@ -1374,56 +1458,139 @@ void ServiceEvalInterface::Paid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     orderItem.setAmount( amount );
     sales.addItem( orderItem );
     orderFull.setSales( sales );
-
+    if ( MPS::TIMELIMIT_SEC() > 0 ) {
+      MPS::TXSDateTime Atimelimit("timelimit");
+      Atimelimit.setTime( NowUTC() + MPS::TIMELIMIT_SEC()/(1440.0*60.0) );
+      orderFull.setTimelimit( Atimelimit );
+    }
     registerMethod.setDescription( orderFull );
 
-    registerMethod.request( reqNode );
+    registerMethod.request( reqNode ); //request to MPS
     prices.setMPSOrderId( registerMethod.getOrderId() );
     prices.toContextDB(grp_id);
-    tst();
   }
   else {
     prices.toContextDB(grp_id);
     continuePaidRequest(reqNode, resNode);
-    tst();
   }
 //  backPaid(reqNode,NULL,resNode); // откат всех оплат, которые не завершилось
+}
+
+int getSWCClientFromPOS( int pos_id )
+{
+  if ( pos_id != ASTRA::NoExists ) {
+    MPS::PosClient client;
+    client.fromDB( pos_id );
+    return client.getSirenaId();
+  }
+  return ASTRA::NoExists;
+}
+
+void ServiceEvalInterface::SendOrderReq( xmlNodePtr reqNode, int grp_id, const SvcEmdRegnum& reqnum,
+                                         const std::string& surname, int client_id )
+{
+  //запрос заказа из сирены
+  OrderReq orderReq( reqnum, surname );
+  tst();
+  RequestFromGrpId( reqNode, grp_id, orderReq );
 }
 
 void ServiceEvalInterface::CheckPaid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   //mps_requests
   int grp_id = NodeAsInteger("grp_id",reqNode);
+  std::string method = NodeAsString( "method", reqNode, MPS::RegisterMethod().methodName().c_str() );
   TPriceRFISCList prices;
   prices.fromContextDB(grp_id);
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "SELECT status FROM mps_requests WHERE grp_id=:grp_id AND request_type=:request_type AND status IN(:status1,:status2) AND order_id=:order_id AND page_no=1";
-  Qry.CreateVariable( "grp_id", otInteger, grp_id );
-  Qry.CreateVariable( "request_type", otString, "request" );
-  Qry.CreateVariable( "status1", otString, "answer" );
-  Qry.CreateVariable( "status2", otString, "error" );
-  Qry.CreateVariable( "order_id", otString, prices.getMPSOrderId() );
-  LogTrace(TRACE5) << "grp_id=" << grp_id <<",mps_order_id=" << prices.getMPSOrderId();
-  Qry.Execute();
-  if ( !Qry.Eof ) {
+  std::string notifyXML;
+  MPS::DBExchanger::EnumStatus currStatus;
+  if ( MPS::DBExchanger( method, prices.getMPSOrderId() ).check_msg( currStatus, notifyXML, MPS::DBExchanger::rtNotify, MPS::DBExchanger::stAny ) ) { // пришел notify
     tst();
-    if ( std::string( "error" ) == Qry.FieldAsString( "status") )
-      NewTextChild( resNode, "paid_error", "Ощибка:)" ); //!!! отправить текст ошибки, полученный при PUSH
-    else {
-      NewTextChild( resNode, "paid_finish" );
-      prices.setStatusDirect(TPriceRFISCList::STATUS_DIRECT_ORDER,TPriceRFISCList::STATUS_DIRECT_PAID); //!!!
-      prices.setStatusDirect(TPriceRFISCList::STATUS_DIRECT_SELECTED,TPriceRFISCList::STATUS_DIRECT_PAID); //!!!
-      prices.toDB(grp_id);
-      prices.SvcEmdPayDoc::clear();
-      //prices.SvcEmdCost::clear();
-      prices.SvcEmdTimeout::clear();
-      prices.toContextDB(grp_id);
-      EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);
-      return;
+    MPS::NotifyPushEvent event;
+    event.fromStr( notifyXML, MPS::NotifyPushEvent::onlyStatus );
+    if ( currStatus == MPS::DBExchanger::stComplete ) {
+      if ( event.isGood() ) {
+        tst();
+        //EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);
+        AfterPaid( reqNode, resNode );
+       // AstraLocale::showMessage( "MSG.MPS_COMPLETED" );
+      }
+      else {
+        SetProp( NewTextChild( resNode, "finish", event.GetError() ), "result", "error" ); //!!! отправить текст ошибки, полученный при PUSH
+        AstraLocale::showErrorMessage( "MSG.MPS_ERROR", LParams() << LParam("msg", event.GetError() ) );
+      }
     }
   }
 }
+
+void ServiceEvalInterface::PosAssign(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int point_id = NodeAsInteger("point_id",reqNode);
+  LogTrace(TRACE5) << "ServiceEvalInterface::" << __func__ << " point_id=" << point_id;
+  if ( !iMPSPayAtDest(point_id) ) {
+    tst();
+    return;
+  }
+  xmlNodePtr node = NewTextChild( resNode, "pos_list" ); //need always
+  MPS::PosAssignator pos;
+  pos.fromDB( point_id );
+  if ( !pos.isEmpty() ) {
+     pos.toXML( node );
+  }
+}
+
+void ServiceEvalInterface::PosSet(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int pos_id = NodeAsInteger("pos_id",reqNode);
+  LogTrace(TRACE5) << "ServiceEvalInterface::" << __func__ << " pos_id=" << pos_id;
+  MPS::PosAssignator pos;
+  pos.AssignPos( pos_id );
+}
+
+void ServiceEvalInterface::PosRelease(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  LogTrace(TRACE5) << "ServiceEvalInterface::" << __func__;
+  MPS::PosAssignator pos;
+  pos.ReleasePos( );
+}
+
+void ServiceEvalInterface::CancelPaid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int grp_id = NodeAsInteger("grp_id",reqNode);
+  TPriceRFISCList prices;
+  prices.fromContextDB(grp_id);
+  CheckIn::TSimplePaxGrpItem grpItem;
+  if ( !grpItem.getByGrpId(grp_id) ) {
+    throw AstraLocale::UserException("MSG.PASSENGER.NOT_FOUND.REFRESH_DATA");
+  }
+  SetProp( NewTextChild( resNode, "finish", AstraLocale::getLocaleText("MSG.MPS_CANCEL") ), "result", "error" ); //!!! отправить текст ошибки, полученный при PUSH
+  TLogLocale tlocale;
+  tlocale.lexema_id = "EVT.AGENT_MPS_STOP_WAIT";
+  tlocale.ev_type=ASTRA::evtPax;
+  tlocale.id1 = grpItem.point_dep;
+  tlocale.id2 = ASTRA::NoExists;
+  tlocale.id3 = grp_id;
+  tlocale.prms << PrmSmpl<std::string>("pnr", prices.getRegnum());
+  TReqInfo::Instance()->LocaleToLog( tlocale );
+  MPS::PosAssignator pos;
+  pos.ReleasePos( );
+
+  /*MPS::CancelMethod cancelMethod;
+  MPS::OrderID orderId;
+  orderId.SetShop_Id( MPS::CancelMethod::getShopId() );
+  orderId.SetNumber( prices.getMPSOrderId() );
+  cancelMethod.setOrder( orderId );
+
+  MPS::DBExchanger dbExchanger( cancelMethod.methodName(), prices.getMPSOrderId() );
+  if ( !dbExchanger.alreadyRequest() ) { //!!!ошибку выдавать?
+    //cancelMethod.request( reqNode );
+  }
+*/
+  //OrderStatusChanger( prices.getMPSOrderId() ).stopWaitNotify();
+
+  //NewTextChild( resNode, "paid_finish" );
+}
+
 
 void ServiceEvalInterface::PayDocParamsRequest(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -1472,7 +1639,7 @@ void ServiceEvalInterface::continuePaidRequest(xmlNodePtr reqNode, xmlNodePtr re
   int grp_id=NodeAsInteger("grp_id",reqNode);
   TPriceRFISCList prices;
   prices.fromContextDB(grp_id);
-  std::vector<std::string> svcs;
+  std::vector<SVCKey> svcs;
   if ( !prices.getNextIssueQueryGrpEMD( svcs ) ) {
     prices.setStatusDirect(TPriceRFISCList::STATUS_DIRECT_ISSUE_CONFIRM,TPriceRFISCList::STATUS_DIRECT_PAID);
     prices.toDB(grp_id);
@@ -1484,27 +1651,28 @@ void ServiceEvalInterface::continuePaidRequest(xmlNodePtr reqNode, xmlNodePtr re
     return;
   }
   LogTrace(TRACE5) << "svcs.size=" << svcs.size();
-  SvcEmdIssueReq req(prices.getSvcEmdRegnum(), prices.getSvcEmdPayDoc(), SvcEmdSvcsReq(svcs));
+  SvcEmdIssueReq req(prices.getSvcEmdRegnum(), prices.getSvcEmdPayDoc(), SvcEmdSvcsReq(svcs) );
   tst();
   prices.toContextDB(grp_id);
   ASTRA::commit();
-  RequestFromGrpId( reqNode, grp_id, req );
+  RequestFromGrpId( reqNode, grp_id, req, getSWCClientFromPOS( prices.getPosId() ) );
   tst();
 }
 
 void ServiceEvalInterface::AfterPaid(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  LogTrace(TRACE5) << __func__;
-  int grp_id=NodeAsInteger("grp_id",reqNode);
+  LogTrace(TRACE5) << __func__ << " reqNode=" << reqNode->name;
+  int grp_id = NodeAsInteger("grp_id",reqNode);
+
+
   TPriceRFISCList prices;
   prices.fromContextDB(grp_id); //???
   xmlNodePtr node = NewTextChild(resNode,"prices");
   NewTextChild(node,"grp_id",grp_id);
   prices.toXML(NewTextChild( node, "services" ));
   NewTextChild(resNode,"pr_print");
-  NewTextChild( resNode, "paid_finish" ); //for MPS
-  SetProp( NewTextChild(resNode,"POSExchange"), "key", grp_id );
-
+  SetProp( NewTextChild( resNode, "finish" ), "result", "ok" ); //for MPS
+//  SetProp( NewTextChild(resNode,"POSExchange"), "key", grp_id );
   AstraLocale::showMessage( "MSG.EMD.PAID_FINISHED" );
 }
 
@@ -1537,7 +1705,7 @@ void ServiceEvalInterface::response_svc_emd_issue_query(const std::string& excha
     SvcEmdIssueConfirmReq reqConfirm( SvcEmdRegnum(res.getRegnum()),  prices.getSvcEmdPayDoc(), res.getSvcEmdCost() );
 
     ASTRA::commit(); //!!!
-    RequestFromGrpId( reqNode, grp_id, reqConfirm );
+    RequestFromGrpId( reqNode, grp_id, reqConfirm, getSWCClientFromPOS( prices.getPosId() ) );
     tst();
   }
   catch(EXCEPTIONS::Exception &e) {
@@ -1597,39 +1765,6 @@ void ServiceEvalInterface::BeforeResponseHandle(int reqCtxtId, xmlNodePtr& reqNo
 void ServiceEvalInterface::BeforePaid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   //NewTextChild(resNode,"POSExchange"); //!!!
-}
-
-void ServiceEvalInterface::AfterPaid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-  tst();
-}
-
-void ServiceEvalInterface::exchange(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-  LogTrace(TRACE5) << reqNode->name;
-  sberbank s;
-  xmlNodePtr node = NewTextChild(resNode,"exchange");
-  std::string modeStr = NodeAsString( "mode", reqNode );
-  int grp_id = NodeAsInteger("@key",reqNode);
-  LogTrace(TRACE5) << "grp_id=" << grp_id << ",mode=" << modeStr;
-  if ( modeStr == "posProcess" ) {
-    LogTrace(TRACE5) << "pos finished : request=???";
-    NewTextChild(node,"mode","posStop");
-    return;
-  }
-  if ( modeStr == "posStart" ) {
-    TPriceRFISCList prices;
-    prices.fromContextDB(grp_id);
-    SvcEmdCost cost  = prices.getSvcEmdCost();
-    LogTrace(TRACE5) << "cost=" << cost.getCost();
-    node = NewTextChild(node,"commands");
-    node = NewTextChild(node,"command");
-    NewTextChild( node, "name", "pay" );
-    NewTextChild( node, "request", s.pay(cost.getCost()));
-    prices.SvcEmdCost::clear();
-    prices.toContextDB(grp_id);
-    return;
-  }
 }
 */
 

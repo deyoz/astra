@@ -7,15 +7,12 @@ include(ts/sirena_exchange_macro.ts)
 ### test 1 - регистрация одного пассажира на одном сегменте
 #########################################################################################
 
-$(init)
-$(init_jxt_pult МОВРОМ)
-$(login)
+$(init_term)
 $(init_eds ЮТ UTET UTDC)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ЮТ 103 ДМД ПЛК РЕПИН ИВАН)
 
 $(sql "update TRIP_SETS set PIECE_CONCEPT=1")
-$(sql "update DESKS set VERSION='201707-0195750'")
 
 $(settcl SIRENA_HOST localhost)
 $(settcl SIRENA_PORT 8008)
@@ -466,9 +463,8 @@ $(KICK_IN)
 ### test 2 - регистрация группы из двух пассажиров на одном сегменте
 #########################################################################################
 
-$(init)
-$(init_jxt_pult МОВРОМ)
-$(login)
+$(init_term 201509-0173355)
+
 $(init_eds ЮТ UTET UTDC)
 
 $(PREPARE_FLIGHT_2PAXES_1SEG ЮТ 103 ДМД ПЛК РЕПИН ВАСИЛИЙ РЕПИНА АННА)
@@ -846,15 +842,13 @@ $(KICK_IN)
 ### test 3 - регистрация одного пассажира на одном сегменте с ошибкой обмена с Сиреной
 #########################################################################################
 
-$(init)
-$(init_jxt_pult МОВРОМ)
-$(login)
+$(init_term)
+
 $(init_eds ЮТ UTET UTDC)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ЮТ 103 ДМД ПЛК РЕПИН ИВАН)
 
 $(sql "update TRIP_SETS set PIECE_CONCEPT=1")
-$(sql "update DESKS set VERSION='201707-0195750'")
 
 $(settcl SIRENA_HOST localhost)
 $(settcl SIRENA_PORT 8008)
@@ -1016,14 +1010,11 @@ $(lastRedisplay)
 ### test 4 - регистрация одного пассажира на одном сегменте с ошибкой обмена с СЭБ
 #########################################################################################
 
-$(init)
-$(init_jxt_pult МОВРОМ)
-$(login)
+$(init_term)
+
 $(init_eds ЮТ UTET UTDC)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ЮТ 103 ДМД ПЛК РЕПИН ИВАН)
-
-$(sql "update DESKS set VERSION='201707-0195750'")
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
@@ -1138,14 +1129,12 @@ $(lastRedisplay)
 ### test 5 - iapi
 #########################################################################################
 
-$(init)
-$(init_jxt_pult МОВРОМ)
-$(login)
+$(init_term)
+
 $(init_eds ЮТ UTET UTDC)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ЮТ 103 ДМД BJS REPIN IVAN)
 
-$(sql "update DESKS set VERSION='201707-0195750'")
 $(sql "insert into APIS_SETS(AIRLINE, COUNTRY_DEP, COUNTRY_ARV, COUNTRY_CONTROL, FORMAT, TRANSPORT_TYPE, TRANSPORT_PARAMS, EDI_ADDR, EDI_OWN_ADDR, ID, PR_DENIAL) values('ЮТ', NULL, 'ЦН', 'ЦН', 'IAPI_CN', '?', '?', 'NIAC:ZZ', 'NORDWIND:ZZ', id__seq.nextval, 0)")
 $(sql "insert into AIRLINE_OFFICES(ID, AIRLINE, COUNTRY_CONTROL, CONTACT_NAME, PHONE, FAX, TO_APIS) values(id__seq.nextval, 'ЮТ', 'ЦН', 'TEST CONTACT', '12 34 56 78', '98765432', 1)")
 $(sql "insert into EDI_ADDRS(ADDR, CANON_NAME) values ('NIAC', 'MOWET')")

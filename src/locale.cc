@@ -7,11 +7,18 @@
 #include "iapi_interaction.h"
 #include "tlg/tlg.h"
 #include "tlg/typeb_template_init.h"
+#include "passenger_callbacks.h"
+#include "base_callbacks.h"
+#include "apps_interaction.h"
+#include "pax_calc_data.h"
+#include "pg_session.h"
 
 #include <jxtlib/JxtInterface.h>
 #include <serverlib/ocilocal.h>
 #include <serverlib/TlgLogger.h>
+#include <serverlib/EdiHelpDbPgCallbacks.h>
 #include <libtlg/telegrams.h>
+#include <edilib/edilib_dbpg_callbacks.h>
 
 #define NICKNAME "ANTON"
 #define NICKTRACE ANTON_TRACE
@@ -114,20 +121,32 @@ void init_pnr_callbacks()
     CallbacksSingleton<Ticketing::AstraPnrCallbacks>::Instance()->setCallbacks(new EtickPnrCallbacks);
 }
 
+void init_edilib_callbacks()
+{
+    edilib::EdilibDbCallbacks::setEdilibDbCallbacks(new edilib::EdilibPgCallbacks(PgCpp::getPgManaged()));
+}
+
+void init_edihelp_callbacks()
+{
+    ServerFramework::EdiHelpDbCallbacks::setEdiHelpDbCallbacks(new ServerFramework::EdiHelpDbPgCallbacks(PgCpp::getPgManaged()));
+}
+
 int init_locale(void)
 {
     ProgTrace(TRACE1,"init_locale");
     JxtInterfaceMng::Instance();
+    init_edilib_callbacks();
     if(edifact::init_edifact() < 0)
         throw EXCEPTIONS::Exception("'init_edifact' error!");
     typeb_parser::typeb_template_init();
     init_tlg_callbacks();
+    init_edihelp_callbacks();
     init_pnr_callbacks();
-    init_fqt_callbacks();
     init_rfisc_callbacks();
-    init_ticket_callbacks();
-    init_asvc_callbacks();
+    initPassengerCallbacks();
+    APPS::init_callbacks();
     IAPI::init_callbacks();
+    PaxCalcData::init_callbacks();
     TlgLogger::setLogging();
     return 0;
 }

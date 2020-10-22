@@ -15,6 +15,7 @@
 #include "astra_callbacks.h"
 #include "exch_checkin_result.h"
 #include "payment_base.h"
+#include "flt_settings.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -405,10 +406,14 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
     NewTextChild( paxNode, "client_type", PaxQry.FieldAsString( col_client_type ) );
     res.clear();
     TCkinRoute ckinRoute;
-    if ( ckinRoute.GetRouteAfter( PaxQry.FieldAsInteger( col_grp_id ), crtNotCurrent, crtIgnoreDependent ) ) { // есть сквозная регистрация
+    ckinRoute.getRouteAfter( GrpId_t(PaxQry.FieldAsInteger( col_grp_id )),
+                             TCkinRoute::NotCurrent,
+                             TCkinRoute::IgnoreDependence,
+                             TCkinRoute::WithoutTransit );
+    if ( !ckinRoute.empty() ) { // есть сквозная регистрация
       xmlNodePtr rnode = NewTextChild( paxNode, "tckin_route" );
       int seg_no=1;
-      for ( vector<TCkinRouteItem>::iterator i=ckinRoute.begin(); i!=ckinRoute.end(); i++ ) {
+      for ( TCkinRoute::iterator i=ckinRoute.begin(); i!=ckinRoute.end(); i++ ) {
          xmlNodePtr inode = NewTextChild( rnode, "seg" );
          SetProp( inode, "num", seg_no );
          NewTextChild( inode, "flight", i->operFlt.airline + IntToString(i->operFlt.flt_no) + i->operFlt.suffix );

@@ -3,8 +3,8 @@ include(ts/macro.ts)
 #meta: suite emd
 
 
-$(init_jxt_pult Œ‚Œ)
-$(login)
+$(init_term)
+
 $(init_eds ’ UTET UTDC)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ’ 103 „Œ„ ‹Š REPIN IVAN)

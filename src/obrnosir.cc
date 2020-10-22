@@ -8,11 +8,14 @@
 #include "basel_aero.h"
 #include "ffp_sirena.h"
 #include "baggage_calc.h"
-#include "serverlib/query_runner.h"
-#include "edilib/edi_loading.h"
+#include "pg_session.h"
+
+#include <serverlib/query_runner.h>
+#include <edilib/edilib_dbpg_callbacks.h>
+#include <edilib/edi_loading.h>
 
 #define NICKNAME "VLAD"
-#include "serverlib/slogger.h"
+#include <serverlib/slogger.h>
 
 #include "tlg/lci_parser.h"
 #include "img.h"
@@ -32,6 +35,7 @@
 int nosir_test(int argc,char **argv);
 void nosir_test_help(const char *name);
 
+int edi_load_messages_local(int argc, char** argv);
 int seasons_dst_format(int argc,char **argv);
 int points_dst_format(int argc,char **argv);
 int nosir_tscript(int argc, char** argv);
@@ -63,7 +67,7 @@ const
     const char *description;
   } obrnosirnick []={
     {"-test",                   nosir_test,             nosir_test_help,            NULL},
-    {"-ediinsert",              edi_load_messages_main, NULL,                       "loading edifact templates"},
+    {"-ediinsert",              edi_load_messages_local, NULL,                       "loading edifact templates"},
     {"-testbm",                 testbm,                 NULL,                       NULL},
     {"-load_fr",                load_fr,                NULL,                       "loading FR files to database"},
     {"-get_fr",                 get_fr,                 NULL,                       "getting FR files from database to local path"},
@@ -132,13 +136,19 @@ int nosir_test(int argc,char **argv)
   for(int i=0; i<argc; i++)
     printf("argv[%i]='%s'\n",i,argv[i]);
   return 0;
-};
+}
 
 void nosir_test_help(const char *name)
 {
   printf("  %-15.15s ", name);
   puts("Sample of 'astra -nosir' usage: printing all params");
-};
+}
+
+int edi_load_messages_local(int argc, char** argv)
+{
+  edilib::EdilibDbCallbacks::setEdilibDbCallbacks(new edilib::EdilibPgCallbacks(PgCpp::getPgManaged()));
+  return edi_load_messages_main(argc, argv);
+}
 
 int main_nosir_user(int argc,char **argv)
 {

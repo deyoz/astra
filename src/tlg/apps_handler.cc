@@ -13,7 +13,14 @@
 #include "apps_interaction.h"
 #include "alarms.h"
 #include "date_time.h"
+#include "apps_handler.h"
 
+#include "pg_session.h"
+#include <serverlib/pg_cursctl.h>
+#include <serverlib/pg_rip.h>
+
+#include <serverlib/cursctl.h>
+#include <serverlib/dates_oci.h>
 #include <serverlib/query_runner.h>
 #include <serverlib/posthooks.h>
 #include <serverlib/ourtime.h>
@@ -24,10 +31,12 @@
 #define NICKNAME "ANNA"
 #define NICKTRACE SYSTEM_TRACE
 #include <serverlib/test.h>
+#include <serverlib/slogger.h>
 
 using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC::date_time;
+using namespace boost::posix_time;
 
 static int WAIT_INTERVAL()       //миллисекунды
 {
@@ -54,7 +63,7 @@ static int PROC_COUNT()          //кол-во разбираемых телеграмм за одну итерацию
 };
 
 static bool handle_tlg(void);
-static void resend_tlg(void);
+//static void resend_tlg(void);
 
 int main_apps_handler_tcl(int supervisorSocket, int argc, char *argv[])
 {
@@ -182,46 +191,56 @@ bool handle_tlg(void)
 
 void resend_tlg(void)
 {
-  time_t time_start=time(NULL);
+    time_t time_start=time(NULL);
 
-  // проверим, есть ли сообщения без ответа или нуждающиеся в повторной отправке
-  TQuery Qry(&OraSession);
-  Qry.SQLText = "SELECT send_time, msg_id, send_attempts, msg_text, point_id "
-                "FROM apps_messages ";
-  Qry.Execute();
-
-  int count = 0;
-  for(;!Qry.Eof && (count++)<PROC_COUNT(); Qry.Next(), ASTRA::rollback())
-  {
-    int point_id = Qry.FieldAsInteger("point_id");
-    int send_attempts = Qry.FieldAsInteger("send_attempts");
-    bool apps_down = get_alarm(point_id, Alarm::APPSOutage);
-    TDateTime send_time = Qry.FieldAsDateTime("send_time");
-    int msg_id = Qry.FieldAsInteger("msg_id");
-    if (!APPS::checkTime(PointId_t(point_id)) || send_attempts == APPS::MaxSendAttempts) {
-      /* More than 2 days has passed after flight scheduled departure time or max value of send attempts has been reached.
-         It is useless to continue send. */
-      APPS::deleteMsg(msg_id);
+    Dates::DateTime_t send_time;
+    int msg_id;
+    int send_attempts;
+    int count = 0;
+    Dates::DateTime_t elapsed = Dates::second_clock::universal_time() - seconds(10);
+    // проверим, есть ли сообщения без ответа или нуждающиеся в повторной отправке
+    auto cur = get_pg_curs("select SEND_TIME, MSG_ID, SEND_ATTEMPTS "
+                          "from APPS_MESSAGES where (:elapsed > APPS_MESSAGES.SEND_TIME) ");
+    cur
+        .def(send_time)
+        .def(msg_id)
+        .def(send_attempts)
+        .bind(":elapsed", elapsed)
+        .exec();
+    for(;!cur.fen() && (count++)<PROC_COUNT(); ASTRA::rollback()) {
+        auto point_id = APPS::pointIdByMsgId(msg_id);
+        if(!point_id) {
+            continue;
+        }
+        bool apps_down = get_alarm(point_id->get(), Alarm::APPSOutage);
+        if (!APPS::checkTime(*point_id) || send_attempts == APPS::MaxSendAttempts) {
+          /* More than 2 days has passed after flight scheduled departure time or max value of send attempts has been reached.
+             It is useless to continue send. */
+            ProgTrace(TRACE5, " More than 2 days has passed after flight scheduled departure time or max value of send attempts has been reached");
+            APPS::deleteMsg(msg_id);
+            return ;
+        }
+        // maximum time to wait for a response from APPS is 4 sec
+        auto now = Dates::second_clock::universal_time();
+        time_duration ttw_sec = seconds(apps_down ? 600.0 : 10.0);
+        if (now - send_time < ttw_sec) {
+            ProgTrace(TRACE5, " OR SHIT! HERE WE GO AGAIN...");
+            continue;
+        }
+        if( ( send_attempts >= APPS::NumSendAttempts ) && !apps_down ) {
+          // включим тревогу "Нет связи с APPS"
+            ProgTrace(TRACE5, "send_attempts >= 5. Set alarm APPSOutage");
+            set_alarm(point_id->get(), Alarm::APPSOutage, true);
+        }
+        ProgTrace(TRACE5, "resend_tlg: elapsed time %s",  to_simple_string(now - send_time).c_str());
+        APPS::reSendMsg(msg_id);
+        callPostHooksBefore();
+        ASTRA::commit();
+        callPostHooksAfter();
+        emptyHookTables();
     }
-    // maximum time to wait for a response from APPS is 4 sec
-    TDateTime now = NowUTC();
-    double ttw_sec = apps_down?600.0:10.0;
-    if (now - send_time < ttw_sec/(24.0*60.0*60.0)) {
-      continue;
-    }
-    if( ( send_attempts >= APPS::NumSendAttempts ) && !apps_down ) {
-      // включим тревогу "Нет связи с APPS"
-      set_alarm(point_id, Alarm::APPSOutage, true);
-    }
-    ProgTrace(TRACE5, "resend_tlg: elapsed time %s", DateTimeToStr( (NowUTC() - send_time), "hh:nn:ss" ).c_str());
-    APPS::reSendMsg(send_attempts, Qry.FieldAsString("msg_text"), msg_id);
-    callPostHooksBefore();
-    ASTRA::commit();
-    callPostHooksAfter();
-    emptyHookTables();
-  }
-  time_t time_end=time(NULL);
-  if (time_end-time_start>1)
+    time_t time_end=time(NULL);
+    if (time_end-time_start>1)
     ProgTrace(TRACE5,"Attention! resend_tlg execute time: %ld secs, count=%d",
                      time_end-time_start,count);
 }

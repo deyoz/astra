@@ -19,7 +19,6 @@
 #include "typeb_utils.h"
 #include "term_version.h"
 #include "alarms.h"
-#include "salons.h"
 #include "qrys.h"
 #include "serverlib/logger.h"
 #include "serverlib/posthooks.h"
@@ -676,7 +675,7 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
           bool is_first_part = iv == tlgs.begin() or (iv - 1)->id != iv->id;
           bool is_last_part = (iv + 1 == tlgs.end() or (iv + 1)->id != iv->id);
           err_lst.toXML(node, iv->draft, is_first_part, is_last_part, TReqInfo::Instance()->desk.lang);
-      } catch(Exception &E) {
+      } catch(const Exception &E) {
           ProgError(STDLOG, "ErrLst: tlg_id = %d, num = %d; %s", iv->id, iv->num, E.what());
       } catch(...) {
           ProgError(STDLOG, "ErrLst: tlg_id = %d, num = %d; unknown exception", iv->id, iv->num);
@@ -759,7 +758,7 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
           bool is_first_part = iv == tlgs.begin() or (iv - 1)->id != iv->id;
           bool is_last_part = (iv + 1 == tlgs.end() or (iv + 1)->id != iv->id);
           err_lst.toXML(node, iv->draft, is_first_part, is_last_part, TReqInfo::Instance()->desk.lang);
-      } catch(Exception &E) {
+      } catch(const Exception &E) {
           ProgError(STDLOG, "ErrLst: tlg_id = %d, num = %d; %s", iv->id, iv->num, E.what());
       } catch(...) {
           ProgError(STDLOG, "ErrLst: tlg_id = %d, num = %d; unknown exception", iv->id, iv->num);
@@ -1170,7 +1169,7 @@ void TelegramInterface::SendTlg(int tlg_id, bool forwarded)
       const TTypeBTypesRow& row = (const TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg.tlg_type));
       tlg_basic_type=row.basic_type;
     }
-    catch(EBaseTableError)
+    catch(const EBaseTableError&)
     {
       throw AstraLocale::UserException("MSG.TLG.NOT_FOUND.REFRESH_DATA");
     };
@@ -1233,7 +1232,7 @@ void TelegramInterface::SendTlg(int tlg_id, bool forwarded)
           }
           while ((line_p=parser.NextLine(line_p))!=NULL);
         }
-        catch(TypeB::ETlgError)
+        catch(const TypeB::ETlgError&)
         {
           throw AstraLocale::UserException("MSG.WRONG_ADDR_LINE");
         };
@@ -1354,7 +1353,7 @@ void TelegramInterface::SendTlg(int tlg_id, bool forwarded)
     };
     if (sended) markTlgAsSent(tlg_id);
   }
-  catch(EOracleError &E)
+  catch(const EOracleError &E)
   {
     if ( E.Code >= 20000 )
     {
@@ -1468,7 +1467,7 @@ string TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info, int ty
               TReqInfo::Instance()->LocaleToLog(lexema_id, params, evtTlg, i->point_id, typeb_out_id);
             };
         }
-        catch(AstraLocale::UserException &E)
+        catch(const AstraLocale::UserException &E)
         {
             lexema_id = "EVT.TLG.CREATE_ERROR";
             string err_id;
@@ -1491,7 +1490,7 @@ string TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info, int ty
                 {
                     SendTlg(typeb_out_id, forwarded);
                 }
-            catch(AstraLocale::UserException &E)
+            catch(const AstraLocale::UserException &E)
             {
                 string err_id;
                 LEvntPrms err_prms;
@@ -1508,7 +1507,7 @@ string TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info, int ty
                         time_end-time_start,typeb_out_id);
         };
     }
-    catch( Exception &E )
+    catch(const Exception &E)
     {
       ProgError(STDLOG,"SendTlg (point_id=%d, type=%s): %s",i->point_id,i->get_tlg_type().c_str(),E.what());
       result = E.what();
@@ -1587,37 +1586,30 @@ bool TTlgContent::addBag(const CheckIn::TBagItem &bag)
 
 void LoadContent(int id, bool pr_grp, TTlgContent& con)
 {
+  ostringstream sql;
+
+  sql << "SELECT pax_grp.grp_id, pax_grp.point_dep, pax_grp.class, pax_grp.status "
+         "FROM pax_grp ";
+  if(not pr_grp)
+    sql << ", pax ";
+  sql << "WHERE pax_grp.bag_refuse=0 ";
+  if(pr_grp)
+    sql << " AND pax_grp.grp_id = :id ";
+  else
+    sql << " AND pax_grp.grp_id=pax.grp_id and pax.pax_id = :id ";
+
+
   TQuery Qry(&OraSession);
   Qry.Clear();
-  string SQLText= "SELECT ";
-  if(not pr_grp)
-      SQLText += " pax.grp_id, ";
-  SQLText +=
-    "       points.point_id, points.point_num, points.first_point, points.pr_tranzit, "
-    "       NVL(trip_sets.pr_lat_seat,1) AS pr_lat_seat, pax_grp.class "
-    "FROM points,pax_grp,trip_sets ";
-  if(not pr_grp)
-      SQLText += ", pax ";
-  SQLText +=
-    "WHERE points.point_id=pax_grp.point_dep AND points.pr_del>=0 AND "
-    "      points.point_id=trip_sets.point_id(+) AND "
-    "      bag_refuse=0 ";
-  if(pr_grp)
-      SQLText += " and grp_id=:id ";
-  else
-      SQLText += " and pax_grp.grp_id=pax.grp_id and pax_id = :id ";
-  Qry.SQLText= SQLText;
+  Qry.SQLText=sql.str();
   Qry.CreateVariable("id",otInteger,id);
   Qry.Execute();
   if (Qry.Eof) return;
-  con.pr_lat_seat=Qry.FieldAsInteger("pr_lat_seat")!=0;
   con.OutCls=Qry.FieldAsString("class");
 
-  int point_id=Qry.FieldAsInteger("point_id");
-  int point_num=Qry.FieldAsInteger("point_num");
-  int first_point=Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point");
-  bool pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
-  int grp_id = pr_grp ? id : Qry.FieldAsInteger("grp_id");
+  int point_id=Qry.FieldAsInteger("point_dep");
+  int grp_id=Qry.FieldAsInteger("grp_id");
+  string grp_status=Qry.FieldAsString("status");
 
   bool pr_unaccomp=con.OutCls.empty();
 
@@ -1629,13 +1621,8 @@ void LoadContent(int id, bool pr_grp, TTlgContent& con)
 
   if (!pr_unaccomp)
   {
-    TTlgCompLayerList complayers;
-    if(not SALONS2::isFreeSeating(point_id) and not SALONS2::isEmptySalons(point_id)) {
-      getSalonLayers( point_id, point_num, first_point, pr_tranzit, complayers, false );
-    }
-
     Qry.Clear();
-    SQLText=(string)
+    string SQLText=(string)
       "SELECT DISTINCT transfer_subcls.transfer_num, classes.code, classes.priority "
       "FROM pax, transfer_subcls, subcls, classes "
       "WHERE pax.pax_id=transfer_subcls.pax_id AND "
@@ -1660,12 +1647,16 @@ void LoadContent(int id, bool pr_grp, TTlgContent& con)
     Qry.Clear();
     SQLText=(string)
       "SELECT pax_id, bag_pool_num, reg_no, surname, name,  "
-      "       DECODE(pr_brd,NULL,'N',0,'C','B') AS status "
+      "       DECODE(pr_brd,NULL,'N',0,'C','B') AS status, "
+      "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,:grp_status,:point_id,'one',1,0) AS seat_no, "      //is_jmp ¤.¡. NULL!
+      "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,:grp_status,:point_id,'one',1,1) AS seat_no_lat "   //is_jmp ¤.¡. NULL!
       "FROM pax "
       "WHERE " + (pr_grp ? "grp_id" : "pax_id") + "=:id AND bag_pool_num IS NOT NULL AND "
       "      pax_id=ckin.get_bag_pool_pax_id(grp_id,bag_pool_num,0)";
     Qry.SQLText=SQLText;
-    Qry.CreateVariable("id",otInteger,id);
+    Qry.CreateVariable("id", otInteger, id);
+    Qry.CreateVariable("grp_status", otString, grp_status);
+    Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
     for(;!Qry.Eof;Qry.Next())
     {
@@ -1675,7 +1666,8 @@ void LoadContent(int id, bool pr_grp, TTlgContent& con)
       pax.surname=Qry.FieldAsString("surname");
       pax.name=Qry.FieldAsString("name");
       pax.status=Qry.FieldAsString("status");
-      pax.seat_no.add_seats(pax_id, complayers);
+      pax.seat_no=Qry.FieldAsString("seat_no");
+      pax.seat_no_lat=Qry.FieldAsString("seat_no_lat");
       pax.pnr_addr=TPnrAddrs().getByPaxId(pax_id);
       pax.bag_pool_num=Qry.FieldAsInteger("bag_pool_num");
       con.pax[pax.bag_pool_num]=pax;
@@ -1714,21 +1706,18 @@ void CompareContent(const TTlgContent& con1, const TTlgContent& con2, vector<TTl
   conADD.indicator=TypeB::None;
   conADD.OutFlt=con2.OutFlt;
   conADD.OnwardFlt=con2.OnwardFlt;
-  conADD.pr_lat_seat=con2.pr_lat_seat;
   conADD.OutCls=con2.OutCls;
   conADD.OnwardCls=con2.OnwardCls;
 
   conCHG.indicator=TypeB::CHG;
   conCHG.OutFlt=con2.OutFlt;
   conCHG.OnwardFlt=con2.OnwardFlt;
-  conCHG.pr_lat_seat=con2.pr_lat_seat;
   conCHG.OutCls=con2.OutCls;
   conCHG.OnwardCls=con2.OnwardCls;
 
   conDEL.indicator=TypeB::DEL;
   conDEL.OutFlt=con1.OutFlt;
   conDEL.OnwardFlt=con1.OnwardFlt;
-  conDEL.pr_lat_seat=con1.pr_lat_seat;
   conDEL.OutCls=con1.OutCls;
   conDEL.OnwardCls=con1.OnwardCls;
 
@@ -1793,8 +1782,7 @@ void CompareContent(const TTlgContent& con1, const TTlgContent& con2, vector<TTl
                   pax1->second.name != pax2->second.name ||
                   pax1->second.status != pax2->second.status ||
                   pax1->second.pnr_addr != pax2->second.pnr_addr ||
-                  pax1->second.seat_no.get_seat_one(con1.pr_lat_seat) !=
-                  pax2->second.seat_no.get_seat_one(con2.pr_lat_seat) ||
+                  pax1->second.seat_no != pax2->second.seat_no ||
                   pax1->second.reg_no != pax2->second.reg_no ||
                   bag1->second.amount != bag2->second.amount ||
                   bag1->second.weight != bag2->second.weight)
@@ -1830,10 +1818,10 @@ std::string TlgElemIdToElem(TElemType type, int id, bool pr_lat)
     TElemFmt fmt=prLatToElemFmt(efmtCodeNative, pr_lat);
     try {
         return TypeB::TlgElemIdToElem(type, id, fmt, AstraLocale::LANG_RU);
-    } catch(UserException &E) {
+    } catch(const UserException &E) {
         ProgTrace(TRACE5, "BSM::TlgElemIdToElem: elem_type: %s, fmt: %s, what: %s", EncodeElemType(type), EncodeElemFmt(fmt), E.what());
         return "";
-    } catch(exception &E) {
+    } catch(const exception &E) {
         ProgError(STDLOG, "BSM::TlgElemIdToElem: elem_type: %s, fmt: %s, what: %s", EncodeElemType(type), EncodeElemFmt(fmt), E.what());
         return "";
     } catch(...) {
@@ -1847,10 +1835,10 @@ std::string TlgElemIdToElem(TElemType type, std::string id, bool pr_lat)
     TElemFmt fmt=prLatToElemFmt(efmtCodeNative, pr_lat);
     try {
         return TypeB::TlgElemIdToElem(type, id, fmt, AstraLocale::LANG_RU);
-    } catch(UserException &E) {
+    } catch(const UserException &E) {
         ProgTrace(TRACE5, "BSM::TlgElemIdToElem: elem_type: %s, fmt: %s, what: %s", EncodeElemType(type), EncodeElemFmt(fmt), E.what());
         return "";
-    } catch(exception &E) {
+    } catch(const exception &E) {
         ProgError(STDLOG, "BSM::TlgElemIdToElem: elem_type: %s, fmt: %s, what: %s", EncodeElemType(type), EncodeElemFmt(fmt), E.what());
         return "";
     } catch(...) {
@@ -1996,7 +1984,7 @@ bool CreateTlgBody(const TTlgContent& con, const TypeB::TCreateInfo &createInfo,
          << (con.indicator==TypeB::DEL?'N':'Y');
     if (p->second.first.reg_no!=ASTRA::NoExists)
       body << '/'
-           << p->second.first.seat_no.get_seat_one(con.pr_lat_seat || options.is_lat) << '/'
+           << (options.is_lat?p->second.first.seat_no_lat:p->second.first.seat_no) << '/'
            << p->second.first.status << '/'
            << setw(3) << setfill('0') << p->second.first.reg_no;
     body << ENDL;
@@ -2212,7 +2200,7 @@ void TelegramInterface::TestSeatRanges(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
       NewTextChild(rangeNode,"second_line",i->second.line);
     };
   }
-  catch(Exception &e)
+  catch(const Exception &e)
   {
     throw UserException(e.what());
   };
@@ -2233,7 +2221,7 @@ int send_tlg(int argc,char **argv)
         if(StrToInt(argv[1], tlg_id) == EOF)
             throw Exception("tlg_id must be number");
         TelegramInterface::SendTlg(tlg_id, false);
-    } catch (Exception &E) {
+    } catch (const Exception &E) {
         printf("Error: %s\n", E.what());
         puts("Usage:");
         send_tlg_help(argv[0]);
@@ -2317,7 +2305,7 @@ void sendTypeBOnTakeoffTask(const TTripTaskKey &task)
     TypeB::TTakeoffCreator(task.point_id).getInfo(createInfo);
     TelegramInterface::SendTlg(createInfo);
   }
-  catch(std::exception &E)
+  catch(const std::exception &E)
   {
     ProgError(STDLOG,"%s (point_id=%d): %s", __FUNCTION__, task.point_id, E.what());
   };

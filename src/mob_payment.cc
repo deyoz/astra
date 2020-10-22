@@ -377,7 +377,7 @@ void SearchPassengersResponse::searchPassengers(const SearchPassengersRequest& r
   {
     req.barcode.get().getBarcodeFilter().getPassengers(search, paxs, true);
   }
-  if (req.tkn)
+  else if (req.tkn)
   {
     search(paxs, req.tkn.get());
   }
@@ -505,7 +505,7 @@ void SearchFlightsResponse::add(const TAdvTripInfo& flt)
     flights.erase(f);
     return;
   }
-  if (flight.act_out_exists())
+  if (!flight.act_out_exists())
     flight.setStages(flight.point_id);
   get_DesksGates(flight.point_id, flight.check_in_desks, flight.gates);
 }
@@ -655,7 +655,7 @@ class SegKeys : public map<int, Sirena::TPaxSegKey>
     }
 };
 
-void GetPassengerInfoResponse::prepareEntities(int paxId)
+void GetPassengerInfoResponse::prepareEntities(const PaxId_t& paxId)
 {
   CheckIn::TSimplePaxList paxs;
   CheckIn::Search()(paxs, PaxIdFilter(paxId));
@@ -705,7 +705,7 @@ void GetPassengerInfoResponse::prepareEntities(int paxId)
     if (segKeys.find(t.first) != segKeys.end()) continue; //уже считали информацию на основе зарегистрированного сквозняка
 
     const CheckIn::TTransferItem& item = t.second;
-    FlightFilter fltFilter = createFlightFlt(item);
+    FlightFilter fltFilter = createFlightFilter(item);
     paxFilter.subclass = item.subclass;
 
     search(paxs, fltFilter, paxFilter);
@@ -798,7 +798,7 @@ void MobilePaymentInterface::getPassengerInfo(XMLRequestCtxt *ctxt, xmlNodePtr r
   try
   {
     GetPassengerInfoResponse res;
-    res.prepareEntities(NodeAsInteger("pax_id", reqNode));
+    res.prepareEntities(PaxId_t(NodeAsInteger("pax_id", reqNode)));
     res.toXML(NewTextChild(resNode, (const char*)reqNode->name));
   }
   catch(const std::exception& e)
@@ -814,7 +814,7 @@ namespace ASTRA
 template<> const Segment& SegmentCache::add(const TPaxSegmentPair& segmentPair) const
 {
   TAdvTripRoute route;
-  route.getRouteBetween(segmentPair.point_dep, segmentPair.airp_arv);
+  route.getRouteBetween(segmentPair);
 
   if (route.size()<2)
   {

@@ -17,13 +17,9 @@ include(ts/macro.ts)
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult ŒŽ‚ŽŒ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
 
 $(init_apps ž’ –‡ APPS_26 closeout=true inbound=false outbound=true)
-
-
 
 $(PREPARE_SEASON_SCD ž’ • ‘Ž— 298)
 $(make_spp)
@@ -44,10 +40,10 @@ $(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
 $(CHECKIN_PAX_WITH_VISA $(get pax_id) $(get point_dep) $(get point_arv)
                         ž’ 298 • ‘Ž— TUMALI VALERII 2986145115578 ‚‡
                         UA FA144642 UA 16.04.1968 25.06.2025 M
-                        123134 UA 20.10.2019 20.10.2020 CZ)
+                        123134 UA 20.10.2019 20.10.2030 CZ)
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PRQ/34/1/P/UKR/UKR/FA144642//P//20250625////TUMALI/VALERII/19680416/M///N/N///////00011////////PAD/13/1/CZ/V//123134/UKR/20201020///////.*
+.*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PRQ/34/1/P/UKR/UKR/FA144642//P//20250625////TUMALI/VALERII/19680416/M///N/N///////00011////////PAD/13/1/CZ/V//123134/UKR/20301020///////.*
 
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
 CIRS:$(capture 1)/PRS/29/001/CZ/P/UKR/UKR/FA144642//P//20250625/////TUMALI/VALERII/19680416/M//8501/B/1////////
@@ -65,7 +61,7 @@ $(set tid $(get_single_tid $(get point_dep) TUMALI VALERII))
 $(CANCEL_PAX $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv) ž’ 298 • ‘Ž— TUMALI VALERII 2986145115578 ‚‡)
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PCX/21/1/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/00011/.*
+.*CICX:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PCX/21/1/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/00011/.*
 
 
 # à¥£¨áâà æ¨ï ç«¥­  íª¨¯ ¦ 
@@ -73,10 +69,10 @@ $(CANCEL_PAX $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point
 $(CHECKIN_CREW_WITH_VISA $(get point_dep) $(get point_arv)
                          ž’ 298 • ‘Ž— VOLODIN SEMEN ‚‡
                          RUS 2124134 RUS 11.05.1978 15.05.2025 M
-                         34534534 RUS 21.10.2019 21.10.2020 CZ)
+                         34534534 RUS 21.10.2019 21.10.2030 CZ)
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PRQ/34/1/C/RUS/RUS/2124134//P//20250515////VOLODIN/SEMEN/19780511/M///N/N///////00-11////////PAD/13/1/CZ/V//34534534/RUS/20201021///////.*
+.*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PRQ/34/1/C/RUS/RUS/2124134//P//20250515////VOLODIN/SEMEN/19780511/M///N/N///////00C11////////PAD/13/1/CZ/V//34534534/RUS/20301021///////.*
 
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
 CIRS:$(capture 1)/PRS/29/001/CZ/C/RUS/RUS/2124134//P//20250515////VOLODIN/SEMEN/19780511/M///8501/B/10/////////
@@ -91,7 +87,7 @@ $(set tid $(get_single_tid $(get point_dep) VOLODIN SEMEN))
 $(CANCEL_CHECKIN_CREW $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv) ž’ 298 • ‘Ž— VOLODIN SEMEN ‚‡)
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PCX/21/1/10/C/RUS/RUS/2124134//P/20250515////VOLODIN/SEMEN/19780511/M///N/N/00-11/.*
+.*CICX:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PCX/21/1/10/C/RUS/RUS/2124134//P/20250515////VOLODIN/SEMEN/19780511/M///N/N/00C11/.*
 
 
 # § ªàëâ¨¥ à¥©á . ® ­ áâà®©ª¥ APPS ¤®«¦¥­ ã©â¨ CIMR
@@ -123,9 +119,7 @@ $(WRITE_DESTS $(get point_dep) $(get point_arv) $(get move_id) ž’ 298 • ‘Ž—
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult ŒŽ‚ŽŒ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
 
 $(init_apps ž’ –‡ APPS_26 closeout=false inbound=false outbound=true)
 
@@ -145,7 +139,7 @@ $(auto_set_craft $(get point_dep))
 $(run_trip_task send_apps $(get point_dep))
 
 # ãå®¤ïâ CIRQ-§ ¯à®áë
-$(CIRQ_61_UT_REQS_APPS_VERSION_26 UT 298 PRG AER $(yyyymmdd) $(yyyymmdd) 081500 120000)
+$(CIRQ_61_UT_REQS_APPS_VERSION_26 UT 298 PRG AER $(yyyymmdd) $(yyyymmdd) 0[0-9]?1500 1[0-9]?0000)
 
 
 # ¬ã«¨àã¥¬ ¯à¨å®¤ ­¥áª®«ìª¨å apps-®â¢¥â®¢:
@@ -193,12 +187,12 @@ $(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
 $(CHECKIN_PAX_WITH_VISA_AND_DOCA $(get pax_id) $(get point_dep) $(get point_arv)
                                  ž’ 298 • ‘Ž— TUMALI VALERII 2986145115578 ‚‡
                                  UA FA144642 UA 16.04.1968 25.06.2025 M
-                                 213121 CZ 10.03.2019 10.03.2020 CZ)
+                                 213121 CZ 10.03.2019 10.03.2030 CZ)
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PCX/21/1/3/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
+.*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PCX/21/1/3/P/UKR/UKR/FA144642//P/$(yyyymmdd +1y)////TUMALI/VALERII/19680416/M///N/N/.*
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PRQ/34/1/P/UKR/UKR/FA144642//P//20250625////TUMALI/VALERII/19680416/M///N/N///////00011////////PAD/13/1/CZ/V//213121/CZE/20200310/ADDRESS/CITY/REGION/112233.*
+.*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PRQ/34/1/P/UKR/UKR/FA144642//P//20250625////TUMALI/VALERII/19680416/M///N/N///////00011////////PAD/13/1/CZ/V//213121/CZE/20300310/ADDRESS/CITY/REGION/112233.*
 
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
 CIRS:$(capture 1)/PRS/29/001/CZ/P/UA/UA/FA144642//P//20250625/////TUMALI/VALERII/19680416/U//8509/X/////////
@@ -213,12 +207,12 @@ $(set pax_id $(get_pax_id $(get point_dep) SELIVANOV "RUSLAN NAILYEVICH MR"))
 $(CHECKIN_PAX_WITH_VISA $(get pax_id) $(get point_dep) $(get point_arv)
                         ž’ 298 • ‘Ž— SELIVANOV "RUSLAN NAILYEVICH" 2985085963078 ‚‡
                         UA 12342131 UA 23.09.1983 20.12.2025 M
-                        56573563 CZ 10.03.2019 10.03.2020 CZ)
+                        56573563 CZ 10.03.2019 10.03.2030 CZ)
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PCX/21/1/2/P/RUS/RUS/9205589611//P/20251220////SELIVANOV/RUSLAN NAILYEVICH/19830923/M///N/N/.*
+.*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PCX/21/1/2/P/RUS/RUS/9205589611//P/$(yyyymmdd +1y)////SELIVANOV/RUSLAN NAILYEVICH/19830923/M///N/N/.*
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PRQ/34/1/P/UKR/UKR/12342131//P//20251220////SELIVANOV/RUSLAN NAILYEVICH/19830923/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PRQ/34/1/P/UKR/UKR/12342131//P//20251220////SELIVANOV/RUSLAN NAILYEVICH/19830923/M///N/N////.*
 
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
 CIRS:$(capture 1)/PRS/29/001/CZ/P/RU/RU/9205589611//P//20251220/////SELIVANOV/RUSLAN NAILYEVICH/19830923/M//8502/D/////////
@@ -239,10 +233,10 @@ $(INB_ADL_UT_DEL2PAXES PRG AER 298 $(ddmon +0 en))
 $(run_trip_task send_apps $(get point_dep))
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PCX/21/1/4/P/KAZ/KAZ/N11024936//P/20261004////ALIMOV/TALGAT/19960511/M///N/N/.*
+.*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PCX/21/1/4/P/KAZ/KAZ/N11024936//P/$(yyyymmdd +1y)////ALIMOV/TALGAT/19960511/M///N/N/.*
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PCX/21/1/5/P/KAZ/KAZ/N07298275//P/20210329////KHASSENOVA/ZULFIYA/19741106/F///N/N/.*
+.*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PCX/21/1/5/P/KAZ/KAZ/N07298275//P/$(yyyymmdd +1y)////KHASSENOVA/ZULFIYA/19741106/F///N/N/.*
 
 # ¯à¨å®¤¨â ADL á ¨§¬¥­¥­¨¥¬ ¤ ­­ëå ¯® ®¤­®¬ã ¯ áá ¦¨àã
 $(INB_ADL_UT_CHG1PAX PRG AER 298 $(ddmon +0 en))
@@ -253,10 +247,10 @@ $(run_trip_task send_apps $(get point_dep))
 # à ­¥¥ ¯® íâ®¬ã ¯ áá ¦¨àã!!!
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PCX/21/1/1/P/RUS/RUS/0319189298//P/20201008////KURGINSKAYA/ANNA GRIGOREVNA/19870602/F///N/N/.*
+.*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PCX/21/1/1/P/RUS/RUS/0319189298//P/$(yyyymmdd +1y)////KURGINSKAYA/ANNA GRIGOREVNA/19870602/F///N/N/.*
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PRQ/34/1/P/RUS/RUS/0319189297//P//20201008////KURGINSKAYA/ANNA GRIGOREVNA/19870602/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PRQ/34/1/P/RUS/RUS/0319189297//P//$(yyyymmdd +1y)////KURGINSKAYA/ANNA GRIGOREVNA/19870602/F///N/N////.*
 
 
 # § ªàëâ¨¥ à¥©á . ® ­ áâà®©ª¥ APPS … ¤®«¦¥­ ãå®¤¨âì CIMR
@@ -284,9 +278,7 @@ $(WRITE_DESTS $(get point_dep) $(get point_arv) $(get move_id) ž’ 298 • ‘Ž—
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult ŒŽ‚ŽŒ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
 
 $(init_apps ž’ –‡ APPS_26 inbound=false outbound=true)
 
@@ -304,7 +296,7 @@ $(auto_set_craft $(get point_dep))
 $(run_trip_task send_all_apps $(get point_dep))
 
 # ãå®¤ïâ CIRQ-§ ¯à®áë
-$(CIRQ_61_UT_REQS_APPS_VERSION_26 UT 298 PRG AER $(yyyymmdd) $(yyyymmdd) 081500 120000)
+$(CIRQ_61_UT_REQS_APPS_VERSION_26 UT 298 PRG AER $(yyyymmdd) $(yyyymmdd) 0[0-9]?1500 1[0-9]?0000)
 
 %%
 #########################################################################################
@@ -323,9 +315,7 @@ $(CIRQ_61_UT_REQS_APPS_VERSION_26 UT 298 PRG AER $(yyyymmdd) $(yyyymmdd) 081500 
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult ŒŽ‚ŽŒ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
 
 $(init_apps ž’ –‡ APPS_26 closeout=true inbound=false outbound=true denial=true)
 
@@ -348,10 +338,10 @@ $(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
 $(CHECKIN_PAX_WITH_VISA $(get pax_id) $(get point_dep) $(get point_arv)
                         ž’ 298 • ‘Ž— TUMALI VALERII 2986145115578 ‚‡
                         UA FA144642 UA 16.04.1968 25.06.2025 M
-                        123134 UA 20.10.2019 20.10.2020 CZ)
+                        123134 UA 20.10.2019 20.10.2030 CZ)
 
 # >> lines=auto mode=regex
-# .*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PRQ/22/1/P/UKR/UKR/FA144642//P//20250625////TUMALI/VALERII/19680416/M///N/N///////00011////////PAD/13/1/CZ/V//123134/UKR/20201020///////.*
+# .*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PRQ/22/1/P/UKR/UKR/FA144642//P//20250625////TUMALI/VALERII/19680416/M///N/N///////00011////////PAD/13/1/CZ/V//123134/UKR/20301020///////.*
 
 # << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
 # CIRS:$(capture 1)/PRS/29/001/CZ/P/UKR/UKR/FA144642//P//20250625/////TUMALI/VALERII/19680416/M//8501/B/1////////
@@ -369,7 +359,7 @@ $(set tid $(get_single_tid $(get point_dep) TUMALI VALERII))
 $(CANCEL_PAX $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv) ž’ 298 • ‘Ž— TUMALI VALERII 2986145115578 ‚‡)
 
 # >> lines=auto mode=regex
-# .*CICX:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PCX/21/1/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/00011/.*
+# .*CICX:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PCX/21/1/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/00011/.*
 
 
 # à¥£¨áâà æ¨ï ç«¥­  íª¨¯ ¦ 
@@ -377,10 +367,10 @@ $(CANCEL_PAX $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point
 $(CHECKIN_CREW_WITH_VISA $(get point_dep) $(get point_arv)
                          ž’ 298 • ‘Ž— VOLODIN SEMEN ‚‡
                          RUS 2124134 RUS 11.05.1978 15.05.2025 M
-                         34534534 RUS 21.10.2019 21.10.2020 CZ)
+                         34534534 RUS 21.10.2019 21.10.2030 CZ)
 
 # >> lines=auto mode=regex
-# .*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PRQ/34/1/C/RUS/RUS/2124134//P//20250515////VOLODIN/SEMEN/19780511/M///N/N///////00-11////////PAD/13/1/CZ/V//34534534/RUS/20201021///////.*
+# .*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PRQ/34/1/C/RUS/RUS/2124134//P//20250515////VOLODIN/SEMEN/19780511/M///N/N///////00C11////////PAD/13/1/CZ/V//34534534/RUS/20301021///////.*
 
 # << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
 # CIRS:$(capture 1)/PRS/29/001/CZ/C/RUS/RUS/2124134//P//20250515////VOLODIN/SEMEN/19780511/M///8501/B/10/////////
@@ -395,7 +385,7 @@ $(set tid $(get_single_tid $(get point_dep) VOLODIN SEMEN))
 $(CANCEL_CHECKIN_CREW $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv) ž’ 298 • ‘Ž— VOLODIN SEMEN ‚‡)
 
 # >> lines=auto mode=regex
-# .*CICX:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PCX/21/1/10/C/RUS/RUS/2124134//P/20250515////VOLODIN/SEMEN/19780511/M///N/N/00-11/.*
+# .*CICX:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PCX/21/1/10/C/RUS/RUS/2124134//P/20250515////VOLODIN/SEMEN/19780511/M///N/N/00C11/.*
 
 
 # § ªàëâ¨¥ à¥©á . ® ­ áâà®©ª¥ APPS ¤®«¦¥­ ã©â¨ CIMR
@@ -427,9 +417,7 @@ $(WRITE_DESTS $(get point_dep) $(get point_arv) $(get move_id) ž’ 298 • ‘Ž—
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult ŒŽ‚ŽŒ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
 
 $(init_apps ž’ –‡ APPS_26 closeout=false inbound=false outbound=true denial=true)
 
@@ -493,12 +481,12 @@ $(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
 $(CHECKIN_PAX_WITH_VISA_AND_DOCA $(get pax_id) $(get point_dep) $(get point_arv)
                                  ž’ 298 • ‘Ž— TUMALI VALERII 2986145115578 ‚‡
                                  UA FA144642 UA 16.04.1968 25.06.2025 M
-                                 213121 CZ 10.03.2019 10.03.2020 CZ)
+                                 213121 CZ 10.03.2019 10.03.2030 CZ)
 
 # >> lines=auto mode=regex
-# .*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PCX/21/1/3/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
+# .*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PCX/21/1/3/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
 # >> lines=auto mode=regex
-# .*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PRQ/34/1/P/UKR/UKR/FA144642//P//20250625////TUMALI/VALERII/19680416/M///N/N///////00011////////PAD/13/1/CZ/V//213121/CZE/20200310/ADDRESS/CITY/REGION/112233.*
+# .*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PRQ/34/1/P/UKR/UKR/FA144642//P//20250625////TUMALI/VALERII/19680416/M///N/N///////00011////////PAD/13/1/CZ/V//213121/CZE/20300310/ADDRESS/CITY/REGION/112233.*
 
 # << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
 # CIRS:$(capture 1)/PRS/29/001/CZ/P/UA/UA/FA144642//P//20250625/////TUMALI/VALERII/19680416/U//8509/X/////////
@@ -513,12 +501,12 @@ $(set pax_id $(get_pax_id $(get point_dep) SELIVANOV "RUSLAN NAILYEVICH MR"))
 $(CHECKIN_PAX_WITH_VISA $(get pax_id) $(get point_dep) $(get point_arv)
                         ž’ 298 • ‘Ž— SELIVANOV "RUSLAN NAILYEVICH" 2985085963078 ‚‡
                         UA 12342131 UA 23.09.1983 20.12.2025 M
-                        56573563 CZ 10.03.2019 10.03.2020 CZ)
+                        56573563 CZ 10.03.2019 10.03.2030 CZ)
 
 # >> lines=auto mode=regex
-# .*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PCX/21/1/2/P/RUS/RUS/9205589611//P/20251220////SELIVANOV/RUSLAN NAILYEVICH/19830923/M///N/N/.*
+# .*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PCX/21/1/2/P/RUS/RUS/9205589611//P/20251220////SELIVANOV/RUSLAN NAILYEVICH/19830923/M///N/N/.*
 # >> lines=auto mode=regex
-# .*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PRQ/34/1/P/UKR/UKR/12342131//P//20251220////SELIVANOV/RUSLAN NAILYEVICH/19830923/M///N/N////.*
+# .*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PRQ/34/1/P/UKR/UKR/12342131//P//20251220////SELIVANOV/RUSLAN NAILYEVICH/19830923/M///N/N////.*
 
 # << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
 # CIRS:$(capture 1)/PRS/29/001/CZ/P/RU/RU/9205589611//P//20251220/////SELIVANOV/RUSLAN NAILYEVICH/19830923/M//8502/D/////////
@@ -548,10 +536,10 @@ $(run_trip_task send_apps $(get point_dep) "uncheck")
 # à ­¥¥ ¯® íâ®¬ã ¯ áá ¦¨àã!!!
 
 # >> lines=auto mode=regex
-# .*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PCX/21/1/1/P/RUS/RUS/0319189298//P/20201008////KURGINSKAYA/ANNA GRIGOREVNA/19870602/F///N/N/.*
+# .*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PCX/21/1/1/P/RUS/RUS/0319189298//P/20201008////KURGINSKAYA/ANNA GRIGOREVNA/19870602/F///N/N/.*
 
 # >> lines=auto mode=regex
-# .*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PRQ/34/1/P/RUS/RUS/0319189297//P//20201008////KURGINSKAYA/ANNA GRIGOREVNA/19870602/F///N/N////.*
+# .*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PRQ/34/1/P/RUS/RUS/0319189297//P//20201008////KURGINSKAYA/ANNA GRIGOREVNA/19870602/F///N/N////.*
 
 
 # § ªàëâ¨¥ à¥©á . ® ­ áâà®©ª¥ APPS … ¤®«¦¥­ ãå®¤¨âì CIMR
@@ -579,9 +567,7 @@ $(WRITE_DESTS $(get point_dep) $(get point_arv) $(get move_id) ž’ 298 • ‘Ž—
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult ŒŽ‚ŽŒ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
 
 $(init_apps ž’ –‡ APPS_26 inbound=false outbound=true denial=true)
 
@@ -618,9 +604,7 @@ $(run_trip_task send_all_apps $(get point_dep) "uncheck")
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult ŒŽ‚ŽŒ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
 
 $(init_apps ž’ –‡ APPS_26 closeout=true inbound=true outbound=true)
 $(init_apps ž’ ” APPS_21 closeout=true inbound=true outbound=true)
@@ -645,15 +629,15 @@ $(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
 $(CHECKIN_PAX_WITH_VISA $(get pax_id) $(get point_dep) $(get point_arv)
                         ž’ 298 • ‘Ž— TUMALI VALERII 2986145115578 ‚‡
                         UA FA144642 UA 16.04.1968 25.06.2025 M
-                        123134 UA 20.10.2019 20.10.2020 CZ)
+                        123134 UA 20.10.2019 20.10.2030 CZ)
 
-$(CIRQ_26 UT 298 PRG AER $(yyyymmdd) 081500 $(yyyymmdd) 120000
+$(CIRQ_26 UT 298 PRG AER $(yyyymmdd) 0[0-9]?1500 $(yyyymmdd) 1[0-9]?0000
         P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N N
-        00011 CZ V 123134 UKR 20201020)
+        00011 CZ V 123134 UKR 20301020)
 
 $(set msg_id1 $(capture 1))
 
-$(CIRQ_21 "" UT 298 PRG AER $(yyyymmdd) 081500 $(yyyymmdd) 120000
+$(CIRQ_21 "" UT 298 PRG AER $(yyyymmdd) 0[0-9]?1500 $(yyyymmdd) 1[0-9]?0000
         P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N N)
 
 $(set msg_id2 $(capture 1))
@@ -672,10 +656,10 @@ $(set tid $(get_single_tid $(get point_dep) TUMALI VALERII))
 $(CANCEL_PAX $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv) ž’ 298 • ‘Ž— TUMALI VALERII 2986145115578 ‚‡)
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PCX/21/1/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/00011.*
+.*CICX:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PCX/21/1/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/00011.*
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PCX/20/1/2/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
+.*CICX:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PCX/20/1/2/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
 
 %%
 ##############################################################################################
@@ -694,9 +678,7 @@ $(CANCEL_PAX $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point
 $(settcl APPS_H2H_ADDR APTXS)
 $(settcl APPS_ROT_NAME APPGT)
 
-$(init_jxt_pult ŒŽ‚ŽŒ)
-$(set_desk_version 201707-0195750)
-$(login)
+$(init_term)
 
 $(init_apps ž’ –‡ APPS_26 closeout=true inbound=true outbound=true)
 $(init_apps ž’ ” APPS_21 closeout=true inbound=true outbound=true)
@@ -722,15 +704,15 @@ $(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
 $(CHECKIN_PAX_WITH_VISA $(get pax_id) $(get point_dep) $(get point_arv)
                         ž’ 298 • ‘Ž— TUMALI VALERII 2986145115578 ‚‡
                         UA FA144642 UA 16.04.1968 25.06.2025 M
-                        123134 UA 20.10.2019 20.10.2020 CZ)
+                        123134 UA 20.10.2019 20.10.2030 CZ)
 
-$(CIRQ_26 UT 298 PRG AER $(yyyymmdd) 081500 $(yyyymmdd) 120000
+$(CIRQ_26 UT 298 PRG AER $(yyyymmdd) 0[0-9]?1500 $(yyyymmdd) 1[0-9]?0000
         P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N N
-        00011 CZ V 123134 UKR 20201020)
+        00011 CZ V 123134 UKR 20301020)
 
 $(set msg_id1 $(capture 1))
 
-$(CIRQ_21 "" UT 298 PRG AER $(yyyymmdd) 081500 $(yyyymmdd) 120000
+$(CIRQ_21 "" UT 298 PRG AER $(yyyymmdd) 0[0-9]?1500 $(yyyymmdd) 1[0-9]?0000
         P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N N)
 
 $(set msg_id2 $(capture 1))
@@ -748,18 +730,18 @@ $(set tid $(get_single_tid $(get point_dep) TUMALI VALERII))
 # ¨§¬¥­¥­¥­¨¥ ¯® ¯ áá ¦¨àã FA144642 -> FA144643
 
 !!
-$(UPDATE_PAX_ON_BOARDING $(get pax_id) $(get point_dep) $(get tid) RUS FA144643 UA 16.04.1968 25.06.2025 M TUMALI VALERII 123134 UA 20.10.2019 20.10.2020 CZ)
+$(UPDATE_PAX_ON_BOARDING $(get pax_id) $(get point_dep) $(get tid) RUS FA144643 UA 16.04.1968 25.06.2025 M TUMALI VALERII 123134 UA 20.10.2019 20.10.2030 CZ)
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PCX/21/1/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/00011/.*
+.*CICX:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PCX/21/1/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/00011/.*
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PRQ/34/1/P/UKR/RUS/FA144643//P//20250625////TUMALI/VALERII/19680416/M///N/N///////00011////////PAD/13/1/CZ/V//123134/UKR/20201020///////.*.*
+.*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PRQ/34/1/P/UKR/RUS/FA144643//P//20250625////TUMALI/VALERII/19680416/M///N/N///////00011////////PAD/13/1/CZ/V//123134/UKR/20301020///////.*.*
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PCX/20/1/2/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
+.*CICX:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PCX/20/1/2/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/081500/$(yyyymmdd)/120000/PRQ/22/1/P/UKR/RUS/FA144643//P/20250625////TUMALI/VALERII/19680416/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PRQ/22/1/P/UKR/RUS/FA144643//P/20250625////TUMALI/VALERII/19680416/M///N/N////.*
 
 #####################################################################

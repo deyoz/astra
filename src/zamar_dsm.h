@@ -13,8 +13,11 @@
 
 using BASIC::date_time::TDateTime;
 
-enum class ZamarType { PaxCtl, SBDO };
+enum class ZamarType { PaxCtl, SBDO, CUWS };
 enum class ZamarActionType { CONFIRM, REVOKE };
+
+const char *EncodeZamarType(ZamarType type);
+ZamarType DecodeZamarType(const char *type);
 
 struct ZamarDataInterface
 {
@@ -62,6 +65,8 @@ class PassengerSearchResult : public ZamarDataInterface
   std::multimap<TBagTagNumber, CheckIn::TBagItem> bagTagsExtended;
   std::list<std::pair<double, int>> bagTagsGenerated;
 
+  void DateTimeToXML(xmlNodePtr resNode, const std::string &name, TDateTime value, const std::string &airp = {}) const;
+
 public:
   void fromXML(xmlNodePtr reqNode, xmlNodePtr externalSysResNode, ZamarType type = ZamarType::SBDO) override final;
   void toXML(xmlNodePtr resNode, ZamarType type = ZamarType::SBDO) const override final;
@@ -105,17 +110,17 @@ struct ZamarBagTag
   void tagNumberToDB(TQuery &Qry) const;
   void paxIdToDB(TQuery &Qry) const;
   TBagConcept::Enum bagConcept() const;
-  void Generate(int grp_id);
+  void Generate(int grp_id, ZamarType type);
   void SetListId();
 
   void fromXML_add(xmlNodePtr reqNode);
-  void fromXML(xmlNodePtr reqNode, ZamarActionType actionType);
+  void fromXML(xmlNodePtr reqNode, ZamarType type, ZamarActionType actionType);
   void toXML(xmlNodePtr resNode) const;
 
-  void toDB_generated() const;
+  void toDB_generated(ZamarType type) const;
   void toDB_activated(xmlNodePtr reqNode, xmlNodePtr externalSysResNode) const;
   void toDB_deactivated(xmlNodePtr reqNode, xmlNodePtr externalSysResNode) const;
-  void fromDB(ZamarActionType actionType);
+  void fromDB(ZamarType type, ZamarActionType actionType);
 
   void Activate(xmlNodePtr reqNode, xmlNodePtr externalSysResNode);
   void Deactivate(xmlNodePtr reqNode, xmlNodePtr externalSysResNode, bool force);
@@ -146,6 +151,10 @@ class ZamarBaggageTagRevoke : public ZamarDataInterface
 public:
   void fromXML(xmlNodePtr reqNode, xmlNodePtr externalSysResNode, ZamarType = ZamarType::SBDO) override final;
   void toXML(xmlNodePtr resNode, ZamarType = ZamarType::SBDO) const override final;
+};
+
+struct ZamarXML {
+    static void ProcessXML(ZamarDataInterface& data, xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode, ZamarType type);
 };
 
 #endif // ZAMAR_DSM_H

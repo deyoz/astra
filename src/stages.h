@@ -10,6 +10,7 @@
 #include "oralib.h"
 #include "astra_elems.h"
 #include "astra_locale.h"
+#include <serverlib/algo.h>
 
 using BASIC::date_time::TDateTime;
 
@@ -91,6 +92,34 @@ class TTripStage : public TTripStageTimes
 typedef std::map<TStage, TTripStage> TMapTripStages;
 typedef std::vector<std::string> TCkinClients;
 
+class StageInitPropsContainer
+{
+  private:
+    std::map<TStage, bool> autoAttribute_;
+    std::map<TStage, int> timeBeforeScdOut_;
+  public:
+    void clear()
+    {
+      autoAttribute_.clear();
+      timeBeforeScdOut_.clear();
+    }
+    void setAutoAttribute(const TStage stage, const bool value)
+    {
+      autoAttribute_.emplace(stage, value);
+    }
+    void setTimeBeforeScdOut(const TStage stage, const int value)
+    {
+      timeBeforeScdOut_.emplace(stage, value);
+    }
+    boost::optional<bool> getAutoAttribute(const TStage stage)
+    {
+      return algo::find_opt<boost::optional>(autoAttribute_, stage);
+    }
+    boost::optional<int> getTimeBeforeScdOut(const TStage stage)
+    {
+      return algo::find_opt<boost::optional>(timeBeforeScdOut_, stage);
+    }
+};
 
 class TTripStages {
   private:

@@ -322,13 +322,12 @@ void GetDrawSalonProp( xmlNodePtr reqNode, xmlNodePtr resNode )
 void getTariffColors( std::map<std::string,std::string> &colors )
 {
   colors.clear();
-  colors.insert( make_pair( "$00CECF00", "rurect" ) );
-  colors.insert( make_pair( "$004646FF", "rurect" ) );
-  colors.insert( make_pair( "$000DCAA4", "rurect" ) );
-  colors.insert( make_pair( "$00FF64FF", "rurect" ) );
-  colors.insert( make_pair( "$00000000", "rurect" ) );
-  colors.insert( make_pair( "$001C66FF", "rurect" ) );
-  colors.insert( make_pair( "$00FD2D71", "rurect" ) );
+  TQuery Qry(&OraSession);
+  Qry.SQLText = "SELECT color,figure FROM comp_tariff_colors";
+  Qry.Execute();
+  for ( ;!Qry.Eof; Qry.Next() ) {
+    colors.insert( make_pair( Qry.FieldAsString( "color" ), Qry.FieldAsString( "figure" ) ) );
+  }
 }
 
 void GetDrawWebTariff( xmlNodePtr reqNode, xmlNodePtr resNode )

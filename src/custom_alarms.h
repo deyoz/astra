@@ -76,9 +76,5 @@ struct TCustomAlarms {
 };
 
 void init_rfisc_callbacks();
-void init_fqt_callbacks();
-void init_ticket_callbacks();
-void init_asvc_callbacks();
-
 
 #endif

@@ -14,6 +14,7 @@
 #include "base_tables.h"
 #include "seats_utils.h"
 #include "comp_props.h"
+#include "crafts/ComponCreator.h"
 
 using BASIC::date_time::TDateTime;
 
@@ -65,10 +66,6 @@ enum TReadStyle { rTripSalons, rComponSalons };
 
 enum TModify { mNone, mDelete, mAdd, mChange };
 
-enum TFindSetCraft { rsComp_NoCraftComps /* нет компоновок для типа ВС*/,
-                     rsComp_NoFound /* по условиям компоновка не найдена */,
-                     rsComp_NoChanges /* компоновка не изменилась */,
-                     rsComp_Found /* найдена новая компоновка */ };
 enum TCompareComps { ccXY,
                      ccXYVisible,
                      ccName,
@@ -89,17 +86,6 @@ enum TRFISCMode { rTariff, rRFISC, rAll };
 typedef BitSet<TCompareComps> TCompareCompsFlags;
 
 bool isREM_SUBCLS( std::string rem );
-
-struct TSetsCraftPoints: public std::vector<int> {
-   int comp_id;
-   void Clear() {
-     clear();
-     comp_id = -1;
-   }
-   TSetsCraftPoints() {
-     Clear();
-   }
-};
 
 struct TPaxCover {
   public:
@@ -126,12 +112,12 @@ struct TSalonPoint {
         x = 0;
         y = 0;
         num = 0;
-    };
+    }
     TSalonPoint( int ax, int ay, int anum ) {
         x = ax;
         y = ay;
         num = anum;
-    };
+    }
     bool operator == ( const TSalonPoint &value ) const {
     return ( x == value.x &&
              y == value.y &&
@@ -272,10 +258,14 @@ struct TRFISC {
 struct TExtRFISC: public TRFISC {
   bool pr_prot_ckin=false;
   boost::optional<int> brand_priority;
+  boost::optional<int> airps_priority;
+  boost::optional<std::string> brand_code;
   void clear() {
     TRFISC::clear();
     pr_prot_ckin = false;
     brand_priority = boost::none;
+    brand_code = boost::none;
+    airps_priority = boost::none;
   }
 };
 
@@ -393,12 +383,14 @@ class TSeatTariffMap : public TSeatTariffMapType
   public:
     TSeatTariffMap() : _potential_queries(0), _real_queries(0) { clear(); }
     //скорее всего будет использоваться перед первоначальной регистрацией:
-    void get(const TAdvTripInfo &operFlt, const TSimpleMktFlight &markFlt, const CheckIn::TPaxTknItem &tkn);
+    void get(const TAdvTripInfo &operFlt, const TSimpleMktFlight &markFlt,
+             const CheckIn::TPaxTknItem &tkn, const std::string& airp_arv);
     //если пассажир зарегистрирован и мы хотим абсолютно минимизировать запросы к БД:
     void get(const int point_id_oper,
              const int point_id_mark,
              const int grp_id,
-             const int pax_id);
+             const int pax_id,
+             const std::string& airp_arv);
     //если пассажир зарегистрирован:
     void get(const int pax_id);
 
@@ -580,13 +572,16 @@ class TSectionInfo:public SimpleProp {
     std::map<int,TSalonPax> paxs;
   public:
     TSectionInfo():SimpleProp() {
+      clear();
       clearProps();
     }
     void clearProps();
     void operator = (const TSectionInfo &sectionInfo);
+    bool inSection( int row ) const {
+      return SimpleProp::inSection( row );
+    }
     bool inSection( const TSalonPoint &salonPoint ) const;
     bool inSection( const TSeat &aseat ) const;
-    bool inSection( int row ) const;
     bool inSectionPaxId( int pax_id );
     void AddSalonPoints( const TSalonPoint &asalonPoint, const TSeat &aseat ) {
       salonPoints.push_back( TSalonPointNames( asalonPoint, aseat ) );
@@ -865,12 +860,13 @@ class TPlace {
         }
       }
     }
-    TSeatLayer getCurrLayer( int key ) {
-      if ( lrss.find( key ) == lrss.end() ) {
+    TSeatLayer getCurrLayer( int key ) const {
+      std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp >::const_iterator cl = lrss.find( key );
+      if ( cl == lrss.end() ) {
         TSeatLayer seatLayer;
         return seatLayer;
       }
-      return *lrss[ key ].begin();
+      return *cl->second.begin();
     }
     void GetLayers( int point_dep, std::set<TSeatLayer,SeatLayerCompare> &vlayers, TGetLayersMode layersMode ) const {
       vlayers.clear();
@@ -1011,11 +1007,14 @@ class TPlaceList {
     std::string GetXsName( int x );
     std::string GetYsName( int y );
     bool GetisPlaceXY( std::string placeName, TPoint &p );
-    void Add( TPlace &pl );
+    int Add( TPlace &pl );
     void clearSeats() {
       places.clear();
       xs.clear();
       ys.clear();
+    }
+    bool isEmpty() {
+      return places.empty();
     }
 };
 
@@ -1618,7 +1617,8 @@ class TSalonList {
     //void DropRFISCRemarks( TSeatTariffMap &tariffMap );
     //void SetTariffsByRFICSColor( int point_dep, TSeatTariffMap &tariffMap, bool setPassengerTariffs );
     void ReadPaxs( TQuery &Qry, TPaxList &pax_list );
-    void ReadCrsPaxs( TQuery &Qry, TPaxList &pax_list );
+    void ReadCrsPaxs( TQuery &Qry, TPaxList &pax_list,
+                      int pax_id, std::string &airp_arv );
     void validateLayersSeats( );
     void CommitLayers();
     void RollbackLayers();
@@ -1627,6 +1627,9 @@ class TSalonList {
     std::map<int,TPaxList> pax_lists;
     bool isCraftLat() const {
       return pr_craft_lat;
+    }
+    void setCraftLang( bool pr_craft_lat ) {
+      this->pr_craft_lat = pr_craft_lat;
     }
     TRFISCMode getRFISCMode() const {
       return RFISCMode;
@@ -1650,7 +1653,7 @@ class TSalonList {
     std::string getAirline() const {
       return filterSets.filterRoutes.getAirline();
     }
-    void getEditableFlightLayers( BitSet<ASTRA::TCompLayerType> &editabeLayers );
+    void getEditableFlightLayers( BitSet<ASTRA::TCompLayerType> &editabeLayers, bool isLibraRequest = false );
     bool getSeatDescription() {
       return prSeatDescription;
     }
@@ -1673,7 +1676,7 @@ class TSalonList {
 //    void ReadSeats( TQuery &Qry, const std::string &FilterClass );
     void Build( xmlNodePtr salonsNode );
     void Parse( int vpoint_id, const std::string &airline, xmlNodePtr salonsNode );
-    void WriteFlight( int vpoint_id, bool saveContructivePlaces );
+    void WriteFlight( int vpoint_id, bool saveContructivePlaces, bool isLibraRequest = false );
     void WriteCompon( int &vcomp_id, const TComponSets &componSets, bool saveContructivePlaces );
     void convertSeatTariffs( TPlace &iseat, bool pr_departure_tariff_only, int point_dep, int point_arv ) const;
     bool CreateSalonsForAutoSeats( TSalons &salons,
@@ -1769,15 +1772,8 @@ class TAdjustmentRows: public adjustmentIndexRow {
   bool InternalExistsRegPassenger( int trip_id, bool SeatNoIsNull );
   void GetTripParams( int trip_id, xmlNodePtr dataNode );
   void GetCompParams( int comp_id, xmlNodePtr dataNode );
-  bool isAutoCompChg( int point_id );
-  void setManualCompChg( int point_id );
   int GetCompId( const std::string craft, const std::string bort, const std::string airline,
                  std::vector<std::string> airps,  int f, int c, int y );
-  TFindSetCraft AutoSetCraft( bool pr_tranzit_routes, int point_id, TSetsCraftPoints &points );
-  TFindSetCraft AutoSetCraft( int point_id, TSetsCraftPoints &points );
-  TFindSetCraft AutoSetCraft( int point_id );
-  void InitVIP( int point_id );
-  void setTRIP_CLASSES( int point_id );
   bool getSalonChanges( const std::vector<TPlaceList*> &list1, bool pr_craft_lat1,
                         const std::vector<TPlaceList*> &list2, bool pr_craft_lat2,
                         TRFISCMode RFISCMode,
@@ -1800,8 +1796,6 @@ class TAdjustmentRows: public adjustmentIndexRow {
   bool ChangeCfg( const std::vector<TPlaceList*> &list1,
                   const std::vector<TPlaceList*> &list2 );
   bool IsMiscSet( int point_id, int misc_type );
-  void check_diffcomp_alarm( int point_id );
-  std::string getDiffCompsAlarmRoutes( int point_id );
   int CRC32_Comp( int point_id );
   bool compatibleLayer( ASTRA::TCompLayerType layer_type );
   void verifyValidRem( const std::string &className, const std::string &remCode );
@@ -1813,9 +1807,8 @@ class TAdjustmentRows: public adjustmentIndexRow {
   void DeleteSalons( int point_id );
   bool isUserProtectLayer( ASTRA::TCompLayerType layer_type );
   void resetLayers( int point_id, ASTRA::TCompLayerType layer_type,
-                    const TSeatRanges &seatRanges, const std::string &reason );
-  void processSalonsCfg_TestMode(int point_id, int comp_id);
-
+                    const TSeatRanges &seatRanges, const std::string &reason,
+                    bool isLibraRequest = false );
   bool selfckin_client();
 /*  void addAirlineSelfCkinTariff( const std::string &airline, TSeatTariffMap &tariffMap );
                                  std::string getPointAirp(int point_id);*/
@@ -1853,6 +1846,7 @@ class TAdjustmentRows: public adjustmentIndexRow {
     return res;
   }
   int getCRC_Comp( int point_id );
+  bool isComponSeatsNoChanges( const TTripInfo &info );
 } // END namespace SALONS2
 int testsalons(int argc,char **argv);
 #endif /*_SALONS2_H_*/

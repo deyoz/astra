@@ -125,10 +125,12 @@ bool get_et_addr_set(const std::string &airline,
 
 std::string get_canon_name(const std::string& edi_addr);
 
-void copy_notify_levb(int src_edi_sess_id,
-                      int dest_edi_sess_id,
+void copy_notify_levb(const std::string& msgid,
+                      int session_id,
+                      int new_session_id,
                       bool err_if_not_found);
-void confirm_notify_levb(int edi_sess_id, bool err_if_not_found);
+void confirm_notify_levb(const std::string& msgid,
+                         int session_id);
 std::string make_xml_kick(const edifact::KickInfo &kickInfo);
 edifact::KickInfo createKickInfo(const int v_reqCtxtId,
                                  const std::string &v_iface);
@@ -294,6 +296,7 @@ void ProcEvent(const TLogLocale &event,
 
 bool isTermCheckinRequest(xmlNodePtr reqNode);
 bool isWebCheckinRequest(xmlNodePtr reqNode);
+bool isTagCUWS(xmlNodePtr reqNode);
 bool isTagAddRequestSBDO(xmlNodePtr reqNode);
 bool isTagConfirmRequestSBDO(xmlNodePtr reqNode);
 bool isTagRevokeRequestSBDO(xmlNodePtr reqNode);
