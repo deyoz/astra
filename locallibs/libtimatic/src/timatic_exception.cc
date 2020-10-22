@@ -35,4 +35,13 @@ ValidateError::ValidateError(BIGLOG_SIGNATURE, const char *fmt, ...)
     msg_ = HelpCpp::vsprintf_string_ap(fmt, ap);
 }
 
+//-----------------------------------------------
+
+NotFoundError::NotFoundError(BIGLOG_SIGNATURE, const char *fmt, ...)
+    : Error(BIGLOG_VARIABLE)
+{
+    VA_HOLDER(ap, fmt);
+    msg_ = HelpCpp::vsprintf_string_ap(fmt, ap);
+}
+
 } // Timatic

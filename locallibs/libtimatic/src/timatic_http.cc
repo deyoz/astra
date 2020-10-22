@@ -168,13 +168,24 @@ static std::shared_ptr<Response> getResponse(const std::string &content)
 
 //-----------------------------------------------
 
+void HttpData::Init(const std::string &content)
+{
+    splitText(content, header_, content_);
+    httpCode_ = getHttpCode(header_);
+    jsessionID_ = getJsessionID(header_);
+    response_ = Timatic::getResponse(content_);
+}
+
+HttpData::HttpData(const std::string &content)
+    : httpCode_(500)
+{
+    Init(content);
+}
+
 HttpData::HttpData(const httpsrv::HttpResp &httpResp)
     : httpCode_(500)
 {
-    splitText(httpResp.text, header_, content_);
-    httpCode_ = getHttpCode(header_);
-    jsessionID_ = getJsessionID(header_);
-    response_ = getResponse(content_);
+    Init(httpResp.text);
 }
 
 } // Timatic

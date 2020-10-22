@@ -24,12 +24,17 @@ protected:
 
 class SessionError : public Error {
 public:
-    SessionError(BIGLOG_SIGNATURE, const char *fmt, ...);
+    SessionError(BIGLOG_SIGNATURE, const char *fmt = "", ...);
 };
 
 class ValidateError : public Error {
 public:
-    ValidateError(BIGLOG_SIGNATURE, const char *fmt, ...);
+    ValidateError(BIGLOG_SIGNATURE, const char *fmt = "", ...);
+};
+
+class NotFoundError : public Error {
+public:
+    NotFoundError(BIGLOG_SIGNATURE, const char *fmt = "", ...);
 };
 
 } // Timatic

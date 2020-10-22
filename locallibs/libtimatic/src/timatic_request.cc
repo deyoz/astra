@@ -165,6 +165,9 @@ void LoginReq::fill(xmlNodePtr node) const
 DocumentReq::DocumentReq()
     : Request(RequestType::Document), section_(DataSection::PassportVisa)
 {
+    section_ = DataSection::PassportVisaHealth;
+    documentType_ = DocumentType::Passport;
+    documentGroup_ = DocumentGroup::AlienResidents;
 }
 
 void DocumentReq::validate() const
@@ -182,8 +185,8 @@ void DocumentReq::validate() const
     if (nationalityCode_.size() != 2)
         throw ValidateError(BIGLOG, "nationalityCode=%s", nationalityCode_.c_str());
 
-    if (documentType_.size() > 100)
-        throw ValidateError(BIGLOG, "documentType=%s", documentType_.c_str());
+    if (documentType_ < DocumentType::AliensPassport || documentType_ > DocumentType::VotersRegistrationCard)
+        throw ValidateError(BIGLOG, "documentType=%d", (int)documentType_);
 
     //
     // mandatory2
@@ -193,8 +196,8 @@ void DocumentReq::validate() const
     if (carrierCode_ && carrierCode_->size() > 10)
         throw ValidateError(BIGLOG, "carrierCode=%s", carrierCode_->c_str());
 
-    if (ticket_ && (ticket_->size() < 1 || ticket_->size() > 300))
-        throw ValidateError(BIGLOG, "ticket=%s", ticket_->c_str());
+    if (ticket_ && (*ticket_ != Ticket::NoTicket and ticket_ != Ticket::Ticket))
+        throw ValidateError(BIGLOG, "ticket=%d", (int)*ticket_);
 
     if (passportSeries_ && passportSeries_->empty())
         throw ValidateError(BIGLOG, "passportSeries=%s", passportSeries_->c_str());
@@ -214,8 +217,9 @@ void DocumentReq::validate() const
     if (visaData_)
         visaData_->validate();
 
-    if (residencyDocument_ && residencyDocument_->empty())
-        throw ValidateError(BIGLOG, "residencyDocument=%s", residencyDocument_->c_str());
+    if (residencyDocument_ &&
+       (*residencyDocument_ < ResidencyDocument::AliensPassport || *residencyDocument_ > ResidencyDocument::ResidencePermit))
+        throw ValidateError(BIGLOG, "residencyDocument=%s", (int)*residencyDocument_);
 
     //
     // optional
@@ -231,16 +235,19 @@ void DocumentReq::validate() const
     if (issueDateGMT_ && issueDateGMT_->is_special())
         throw ValidateError(BIGLOG, "issueDateGMT is special");
 
-    if (documentFeature_ && (documentFeature_ < DocumentFeature::Biometric || documentFeature_ > DocumentFeature::MachineReadableDocument))
+    if (expiryDateGMT_ && expiryDateGMT_->is_special())
+        throw ValidateError(BIGLOG, "expiryDateGMT is special");
+
+    if (documentFeature_ && (documentFeature_ < DocumentFeature::Biometric || documentFeature_ > DocumentFeature::None))
         throw ValidateError(BIGLOG, "documentFeature=%d", (int)*documentFeature_);
 
     if (documentLanguage_ && documentLanguage_->size() != 2)
         throw ValidateError(BIGLOG, "documentLanguage=%s", documentLanguage_->c_str());
 
-    if (stayType_ && (stayType_ < StayType::Vacation || stayType_ > StayType::Duty))
+    if (stayType_ && (stayType_ < StayType::Business || stayType_ > StayType::Duty))
         throw ValidateError(BIGLOG, "stayType=%d", (int)*stayType_);
 
-    if (gender_ && (gender_ != Gender::Male || gender_ != Gender::Female))
+    if (gender_ && (gender_ != Gender::Male and gender_ != Gender::Female))
         throw ValidateError(BIGLOG, "gender=%d", (int)*gender_);
 
     if (birthCountryCode_ && birthCountryCode_->size() != 2)
@@ -252,8 +259,9 @@ void DocumentReq::validate() const
     if (residentCountryCode_ && residentCountryCode_->size() != 2)
         throw ValidateError(BIGLOG, "residentCountryCode=%s", residentCountryCode_->c_str());
 
-    if (secondaryDocumentType_ && secondaryDocumentType_->size() > 100)
-        throw ValidateError(BIGLOG, "secondaryDocumentType=%s", secondaryDocumentType_->c_str());
+    if (secondaryDocumentType_ &&
+       (*secondaryDocumentType_ < SecondaryDocumentType::BirthCertificate || *secondaryDocumentType_ > SecondaryDocumentType::TravelPermitHKMO))
+        throw ValidateError(BIGLOG, "secondaryDocumentType=%d", (int)*secondaryDocumentType_);
 
     for (const auto &cv : countriesVisited_) {
         if (cv.size() != 2)
@@ -285,22 +293,19 @@ void DocumentReq::fill(xmlNodePtr node) const
     if (!nationalityCode_.empty())
         xmlNewChild(node, nullptr, "nationalityCode", nationalityCode_);
 
-    if (!documentType_.empty())
-        xmlNewChild(node, nullptr, "documentType", documentType_);
-
-    if (!documentGroup_.empty())
-        xmlNewChild(node, nullptr, "documentGroup", documentGroup_);
+    xmlNewChild(node, nullptr, "documentType", toString(documentType_));
+    xmlNewChild(node, nullptr, "documentGroup", toString(documentGroup_));
 
     //
     // mandatory2
     if (arrivalDateGMT_)
-        xmlNewChild(node, nullptr, "arrivalDate", toString(*arrivalDateGMT_));
+        xmlNewChild(node, nullptr, "arrivalDate", toString(*arrivalDateGMT_, DateFormat::DateTime));
 
     if (carrierCode_)
         xmlNewChild(node, nullptr, "carrierCode", *carrierCode_);
 
     if (ticket_)
-        xmlNewChild(node, nullptr, "ticket", *ticket_);
+        xmlNewChild(node, nullptr, "ticket", toString(*ticket_));
 
     if (passportSeries_)
         xmlNewChild(node, nullptr, "passportSeries", *passportSeries_);
@@ -318,12 +323,12 @@ void DocumentReq::fill(xmlNodePtr node) const
         visaData_->fill(node);
 
     if (residencyDocument_)
-        xmlNewChild(node, nullptr, "residencyDocument", *residencyDocument_);
+        xmlNewChild(node, nullptr, "residencyDocument", toString(*residencyDocument_));
 
     //
     // optional
     if (departDateGMT_)
-        xmlNewChild(node, nullptr, "departDate", toString(*departDateGMT_));
+        xmlNewChild(node, nullptr, "departDate", toString(*departDateGMT_, DateFormat::DateTime));
 
     if (departAirportCode_)
         xmlNewChild(node, nullptr, "departAirportCode", *departAirportCode_);
@@ -332,7 +337,10 @@ void DocumentReq::fill(xmlNodePtr node) const
         xmlNewChild(node, nullptr, "issueCountryCode", *issueCountryCode_);
 
     if (issueDateGMT_)
-        xmlNewChild(node, nullptr, "issueDate", toString(*issueDateGMT_));
+        xmlNewChild(node, nullptr, "issueDate", toString(*issueDateGMT_, DateFormat::Date));
+
+    if (expiryDateGMT_)
+        xmlNewChild(node, nullptr, "expiryDate", toString(*expiryDateGMT_, DateFormat::Date));
 
     if (documentFeature_)
         xmlNewChild(node, nullptr, "documentFeature", toString(*documentFeature_));
@@ -347,13 +355,13 @@ void DocumentReq::fill(xmlNodePtr node) const
         xmlNewChild(node, nullptr, "birthCountryCode", *birthCountryCode_);
 
     if (birthDateGMT_)
-        xmlNewChild(node, nullptr, "birthDate", toString(*birthDateGMT_));
+        xmlNewChild(node, nullptr, "birthDate", toString(*birthDateGMT_, DateFormat::Date));
 
     if (residentCountryCode_)
         xmlNewChild(node, nullptr, "residentCountryCode", *residentCountryCode_);
 
     if (secondaryDocumentType_)
-        xmlNewChild(node, nullptr, "secondaryDocumentType", *secondaryDocumentType_);
+        xmlNewChild(node, nullptr, "secondaryDocumentType", toString(*secondaryDocumentType_));
 
     for (const auto &cv : countriesVisited_)
         xmlNewChild(node, nullptr, "countriesVisited", cv);
@@ -409,7 +417,7 @@ void ParamReq::fill(xmlNodePtr node) const
         xmlNewChild(node, nullptr, "transitCountry", tc);
 
     if (queryDateGMT_)
-        xmlNewChild(node, nullptr, "queryDateGMT", toString(*queryDateGMT_));
+        xmlNewChild(node, nullptr, "queryDateGMT", toString(*queryDateGMT_, DateFormat::DateTime));
 }
 
 //-----------------------------------------------
@@ -421,7 +429,7 @@ ParamValuesReq::ParamValuesReq()
 
 void ParamValuesReq::validate() const
 {
-    if (parameterName_ < ParameterName::DocumentType || parameterName_ > ParameterName::DocumentFeature)
+    if (parameterName_ < ParameterName::Country || parameterName_ > ParameterName::Ticket)
         throw ValidateError(BIGLOG, "parameterName=%d", (int)parameterName_);
 
     if (section_ && section_->size() > 100)
@@ -451,7 +459,7 @@ void ParamValuesReq::fill(xmlNodePtr node) const
         xmlNewChild(node, nullptr, "section", *section_);
 
     if (queryDateGMT_)
-        xmlNewChild(node, nullptr, "queryDateGMT", toString(*queryDateGMT_));
+        xmlNewChild(node, nullptr, "queryDateGMT", toString(*queryDateGMT_, DateFormat::DateTime));
 }
 
 //-----------------------------------------------
@@ -545,5 +553,37 @@ void VisaReq::fill(xmlNodePtr node) const
     if (countryCode_)
         xmlNewChild(node, nullptr, "countryCode", *countryCode_);
 }
+
+//-----------------------------------------------
+
+static const std::map<RequestType, ParamValue> REQUEST_TYPE_MAP = {
+    {RequestType::Base, {"Base", "Base"}},
+    {RequestType::CheckName, {"CheckName", "CheckName"}},
+    {RequestType::Login, {"Login", "Login"}},
+    {RequestType::Document, {"Document", "Document"}},
+    {RequestType::Param, {"Param", "Param"}},
+    {RequestType::ParamValues, {"ParamValues", "ParamValues"}},
+    {RequestType::Country, {"Country", "Country"}},
+    {RequestType::Visa, {"Visa", "Visa"}},
+    {RequestType::CountryInformation, {"CountryInformation", "CountryInformation"}},
+    {RequestType::News, {"News", "News"}},
+    {RequestType::Notification, {"Notification", "Notification"}},
+    {RequestType::Terms, {"Terms", "Terms"}},
+    {RequestType::Download, {"Download", "Download"}},
+    {RequestType::Cli, {"Cli", "Cli"}},
+    {RequestType::CliLogger, {"CliLogger", "CliLogger"}},
+    {RequestType::CliKeyword, {"CliKeyword", "CliKeyword"}},
+};
+
+const ParamValue &getParams(const RequestType &val)
+{
+    auto it = REQUEST_TYPE_MAP.find(val);
+    if (it != REQUEST_TYPE_MAP.end())
+        return it->second;
+    throw NotFoundError(BIGLOG);
+}
+
+const std::map<RequestType, ParamValue> &getRequestTypeMap() { return REQUEST_TYPE_MAP; }
+std::string toString(const RequestType &val) { return getParams(val).name; }
 
 } // Timatic

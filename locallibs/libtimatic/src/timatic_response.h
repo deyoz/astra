@@ -1,5 +1,6 @@
 #pragma once
 
+#include <libxml/tree.h>
 #include "timatic_base.h"
 
 #include <vector>
@@ -96,18 +97,33 @@ private:
 
 //-----------------------------------------------
 
+struct DocumentParagraphContent {
+    struct Node {
+        std::string nodeName;
+        std::string nodeContent;
+        xmlElementType nodeType;
+        std::vector<std::pair<std::string, std::string>> props;
+        std::vector<Node> items;
+    };
+    std::vector<Node> items;
+    void fromXML(xmlNodePtr node, Optional<std::vector<Node> &> node_list = boost::none);
+    std::string toStr(Optional<xmlNodePtr> resNode = boost::none, Optional<const std::vector<Node> &> node_list = boost::none) const;
+};
+
+//-----------------------------------------------
+
 class DocumentParagraphSection {
 public:
     DocumentParagraphSection(const xmlNodePtr node);
     int paragraphID() const { return paragraphID_; }
     ParagraphType paragraphType() const { return paragraphType_; }
-    const std::vector<std::string> &paragraphText() const { return paragraphText_; }
+    const DocumentParagraphContent &paragraphText() const { return paragraphText_; }
     const std::vector<DocumentParagraphSection> documentChildParagraph() const { return documentChildParagraph_; }
 
 private:
     int paragraphID_;
     ParagraphType paragraphType_;
-    std::vector<std::string> paragraphText_;
+    DocumentParagraphContent paragraphText_;
     std::vector<DocumentParagraphSection> documentChildParagraph_;
 };
 

@@ -177,7 +177,6 @@ static Optional<Session> createSession(const Config &config)
     CheckNameResp checkResp = checkHttpData->get<CheckNameResp>();
     tmp.sessionID = checkResp.sessionID();
     tmp.jsessionID = checkHttpData->jsessionID();
-    tmp.expires = time(nullptr);
 
     //
 
@@ -190,7 +189,6 @@ static Optional<Session> createSession(const Config &config)
     LoginResp loginResp = loginHttpData->get<LoginResp>();
     if (!loginHttpData->jsessionID().empty())
         tmp.jsessionID = loginHttpData->jsessionID();
-    tmp.expires = time(nullptr);
 
     //
 
@@ -275,8 +273,8 @@ START_TEST(timatic_example)
     req.section(DataSection::PassportVisa);
     req.destinationCode("GB");
     req.nationalityCode("RU");
-    req.documentType("Passport");
-    req.documentGroup("N");
+    req.documentType(DocumentType::Passport);
+    req.documentGroup(DocumentGroup::Normal);
 
     // send request
     httpsrv::xp_testing::add_forecast(docForecast);
@@ -329,8 +327,8 @@ START_TEST(timatic_doc_req)
     req.section(DataSection::PassportVisa);
     req.destinationCode("GB");
     req.nationalityCode("RU");
-    req.documentType("Passport");
-    req.documentGroup("N");
+    req.documentType(DocumentType::Passport);
+    req.documentGroup(DocumentGroup::Normal);
 
     ck_assert_str_eq(expected, req.content(sess));
 }
@@ -532,8 +530,7 @@ START_TEST(timatic_doc_resp)
     const DocumentParagraphSection dp0 = ds0.documentParagraph()[0];
     ck_assert_int_eq(dp0.paragraphID(), 11172);
     fail_unless(dp0.paragraphType() == ParagraphType::Information);
-    ck_assert_int_eq(dp0.paragraphText().size(), 1);
-    ck_assert_str_eq(dp0.paragraphText()[0], "Capital - Moscow (MOW). The Russian Fed. is a member state of the Commonwealth of Independent States.");
+    ck_assert_str_eq(dp0.paragraphText().toStr(), "Capital - Moscow (MOW). The Russian Fed. is a member state of the Commonwealth of Independent States.");
 
     const DocumentSection ds1 = dci.sectionInformation()[1];
     ck_assert_str_eq(ds1.sectionName(), "Passport");
@@ -562,10 +559,7 @@ START_TEST(timatic_doc_resp)
     const DocumentParagraphSection dp60 = dss60.documentParagraph()[0];
     ck_assert_int_eq(dp60.paragraphID(), 11249);
     fail_unless(dp60.paragraphType() == ParagraphType::Information);
-    ck_assert_int_eq(dp60.paragraphText().size(), 3);
-    ck_assert_str_eq(dp60.paragraphText()[0], "Import allowed.");
-    ck_assert_str_eq(dp60.paragraphText()[1], "Local currency: (Russian Rouble - RUB): and foreign currencies: no restrictions.");
-    ck_assert_str_eq(dp60.paragraphText()[2], "Written import declaration may be needed on export.");
+    ck_assert_str_eq(dp60.paragraphText().toStr(), "Import allowed.<br/>Local currency: (Russian Rouble - RUB): and foreign currencies: no restrictions. <br/>Written import declaration may be needed on export.");
 
     const DocumentSubSection dss61 = ds6.subsectionInformation()[1];
     ck_assert_str_eq(dss61.subsectionName(), "Export:");
@@ -574,9 +568,7 @@ START_TEST(timatic_doc_resp)
     const DocumentParagraphSection dp61 = dss61.documentParagraph()[0];
     ck_assert_int_eq(dp61.paragraphID(), 11185);
     fail_unless(dp61.paragraphType() == ParagraphType::Information);
-    ck_assert_int_eq(dp61.paragraphText().size(), 2);
-    ck_assert_str_eq(dp61.paragraphText()[0], "Export allowed.");
-    ck_assert_str_eq(dp61.paragraphText()[1], "Local currency (Russian Rouble - RUB) and foreign currencies: Written declaration required for amounts over 3,000.-. Import declaration / confirmation of import or transfer required for amounts over 10,000.-. Traveler's cheques are allowed up to amounts imported. Declaration required for traveler's cheques purchased in Russia.");
+    ck_assert_str_eq(dp61.paragraphText().toStr(), "Export allowed.<br/>Local currency (Russian Rouble - RUB) and foreign currencies: Written declaration required for amounts over 3,000.-. Import declaration / confirmation of import or transfer required for amounts over 10,000.-. Traveler's cheques are allowed up to amounts imported. Declaration required for traveler's cheques purchased in Russia.");
 }
 END_TEST
 

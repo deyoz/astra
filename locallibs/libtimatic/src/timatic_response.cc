@@ -59,6 +59,66 @@ LoginResp::LoginResp(const xmlNodePtr node)
 
 //-----------------------------------------------
 
+std::string DocumentParagraphContent::toStr(Optional<xmlNodePtr> resNode, Optional<const std::vector<Node> &> node_list) const
+{
+    XmlDoc resDoc;
+    if(not resNode) {
+        resDoc = xMakeDoc("<res/>");
+        resNode = resDoc.get()->children;
+        node_list = items;
+    }
+    for(const auto &i: node_list.get()) {
+        if(i.nodeType == XML_TEXT_NODE)
+            xmlNodeAddContent(resNode.get(), (const xmlChar*)i.nodeContent.c_str());
+        else {
+            xmlNodePtr curNode = xmlNewChild(resNode.get(), nullptr, i.nodeName.c_str(), nullptr);
+            for(const auto &prop: i.props)
+                xmlNewProp(curNode, (const xmlChar *)prop.first.c_str(), (const xmlChar *)prop.second.c_str());
+            toStr(curNode, i.items);
+        }
+    }
+    std::string result;
+    if(resDoc) {
+        xmlBufferPtr buf = xmlBufferCreate();
+        try {
+            xmlNodePtr curNode = resDoc.get()->children->children;
+            while(curNode) {
+                xmlNodeDump(buf, resDoc.get(), curNode, 0, 0);
+                curNode = curNode->next;
+            }
+            result = (char *)buf->content;
+            xmlBufferFree(buf);
+        } catch(...) {
+            xmlBufferFree(buf);
+        }
+    }
+    return result;
+}
+
+void DocumentParagraphContent::fromXML(xmlNodePtr node, Optional<std::vector<Node> &> node_list)
+{
+    if(not node_list) {
+        items.clear();
+        node_list = items;
+    }
+    for (xmlNodePtr child2 = node->children; child2; child2 = child2->next) {
+        node_list->emplace_back();
+        auto &node = node_list->back();
+        node.nodeName = reinterpret_cast<const char *>(child2->name);
+        if(child2->content)
+            node.nodeContent = (const char *)child2->content;
+        node.nodeType = child2->type;
+        xmlAttrPtr pr = child2->properties;
+        while(pr) {
+            node.props.push_back(std::make_pair((const char *)pr->name, (const char *)pr->children->content));
+            pr = pr->next;
+        }
+        fromXML(child2, node.items);
+    }
+}
+
+//-----------------------------------------------
+
 DocumentParagraphSection::DocumentParagraphSection(const xmlNodePtr node)
     : paragraphID_(-1)
 {
@@ -68,6 +128,24 @@ DocumentParagraphSection::DocumentParagraphSection(const xmlNodePtr node)
         if (xCmpNames(child, "paragraphType")) {
             paragraphType_ = getParagraphType(xGetStr(child));
         } else if (xCmpNames(child, "paragraphText")) {
+            paragraphText_.fromXML(child);
+
+
+
+// In this case vector will be empty
+// <paragraphText>
+//   <p>Visa required.</p>
+// </paragraphText>
+
+// Those examples will be handled incorrectly too
+//
+// <paragraphText>Visitors not holding return/onward tickets could be refused entry. <notesReference paragraphId="43399"/></paragraphText>
+//
+// <paragraphText>Free import by persons of 18 years and older:<br/>1. 400 cigarettes or 200 cigarillos or 100 cigars or 500 grams of tobacco products if only one type of tobacco products is imported (otherwise only half of the quantities allowed);<br/>2. only for persons of 21 years and older: alcoholic beverages: 3 liters;<br/>3. a reasonable quantity of perfume for personal use;<br/>4. goods up to an amount of EUR 10,000.- for personal use only;<br/>5. caviar (factory packed) max. 250 grams per person. </paragraphText>
+
+
+
+            /*
             for (xmlNodePtr child2 = child->children; child2; child2 = child2->next) {
                 if (xCmpNames(child2, "text") && child2->content) {
                     std::string value(reinterpret_cast<const char *>(child2->content));
@@ -75,6 +153,7 @@ DocumentParagraphSection::DocumentParagraphSection(const xmlNodePtr node)
                         paragraphText_.emplace_back(StrUtils::StringTrim(value));
                 }
             }
+            */
         } else if (xCmpNames(child, "documentChildParagraph")) {
             documentChildParagraph_.emplace_back(child);
         }
