@@ -5,9 +5,8 @@ export ASTRA_HOME=$(pwd)
 export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:$(pwd)/pkgconfig"
 export MAKE_J=${MAKE_J:-`grep -c ^processor /proc/cpuinfo`}
 export LOAD_A=${LOAD_A:-`grep -c ^processor /proc/cpuinfo`}
-#export PLATFORM='m32'
-export PLATFORM='m64'
-export CPP_STD_VERSION='c++14'
+export PLATFORM=${PLATFORM:? PLATFORM not set}
+export CPP_STD_VERSION=${CPP_STD_VERSION:? CPP_STD_VERSION not set}
 
 if [ -z "$LOCALCXX" ]; then
     if [ -z "$CXX" ]; then
@@ -200,9 +199,9 @@ else
     done
 fi
 
-user=`echo ${CONNECT_STRING} | sed -e 's/\/.*//'`
-password=`echo ${CONNECT_STRING} | sed -e 's/.*\///'`
-PG_CONNECT_STRING="postgresql://$user:$password@localhost/${user}_db"
+user=`echo ${CONNECT_STRING} | awk -F '/' '{print $1}'`
+password=`echo ${CONNECT_STRING} | awk -F '/' '{print $2}' | awk -F '@' '{print $1}'`
+PG_CONNECT_STRING="postgresql://$user:$password@localhost/${user}"
 
 
 #echo MAKE_J=${MAKE_J} TEST_J=${TEST_J}
@@ -267,6 +266,7 @@ if [ "$createtcl" = "1" ]; then
     checkresult createtcl $?
 fi
 if [ "$createdb" = "1" ]; then
+    PG_CONNECT_STRING=$PG_CONNECT_STRING \
     bin/createdb.sh ${TEST_J:-1}
     checkresult bin/createdb.sh $?
 fi
