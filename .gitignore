@@ -19,6 +19,7 @@ src/astra
 /*.creator.user
 /*.files
 /*.includes
+src/xplogs/
 *.log.bfs
 .deps
 *~
