@@ -6161,16 +6161,19 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     if (ediResNode==nullptr &&
         !PaxConfirmations::AppliedMessages::exists(reqNode))
     {
-      PaxConfirmations::Messages messages(DCSAction::CheckInOnDesk, segList.transformForPaxConfirmations());
+      PaxConfirmations::Messages messages(DCSAction::CheckInOnDesk,
+                                          segList.transformForPaxConfirmations(),
+                                          !new_checkin);
       xmlNodePtr resNode=NodeAsNode("/term/answer", getXmlCtxt()->resDoc);
       if (messages.toXML(resNode, AstraLocale::OutputLang())) throw UserException2();
     }
     if(!rollbackGuaranteed &&
        PaxConfirmations::AppliedMessages::exists(reqNode))
     {
+      PaxConfirmations::Segments segments=segList.transformForPaxConfirmations();
       PaxConfirmations::AppliedMessages appliedMessages(reqNode);
-      appliedMessages.toDB();
-      appliedMessages.toLog(segList.transformForPaxConfirmations());
+      appliedMessages.toDB(segments);
+      appliedMessages.toLog(segments);
     }
 
     timing.finish("PaxConfirmations");

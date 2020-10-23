@@ -875,7 +875,7 @@ static PaxConfirmations::Segments getForPaxConfirmations(const TTripInfo& flt,
   {
     CheckIn::TSimplePaxItem pax;
     if (pax.getByPaxId(paxId.get()))
-      segment.paxs.push_back(pax);
+      segment.paxs.emplace_back(paxId, pax);
   }
 
   return result;
@@ -1525,7 +1525,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                         if (paxWithoutSeat.exists()) paxIds.emplace_back(paxWithoutSeat.pax_id);
 
                         PaxConfirmations::Messages messages(DCSAction::Boarding,
-                                                            getForPaxConfirmations(fltInfo, GrpId_t(grp_id), paxIds));
+                                                            getForPaxConfirmations(fltInfo, GrpId_t(grp_id), paxIds),
+                                                            false);
                         if (messages.toXML(dataNode, AstraLocale::OutputLang())) throw CompleteWithError();
                       }
                       break;
