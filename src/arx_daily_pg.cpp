@@ -1278,7 +1278,8 @@ void deleteByPaxes(const PaxId_t& pax_id)
                 "DELETE FROM paid_rfisc WHERE pax_id=:pax_id; "
                 "DELETE FROM pax_norms_text WHERE pax_id=:pax_id; "
                 "DELETE FROM sbdo_tags_generated WHERE pax_id=:pax_id; "
-                "DELETE FROM pax_calc_data WHERE pax_calc_data_id=:pax_id; END;");
+                "DELETE FROM pax_calc_data WHERE pax_calc_data_id=:pax_id; "
+                "DELETE FROM pax_confirmations WHERE pax_id=:pax_id; END;");
     cur.bind(":pax_id", pax_id);
     cur.exec();
     //todo delete from pax

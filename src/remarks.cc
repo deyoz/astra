@@ -39,6 +39,12 @@ std::ostream& operator << (std::ostream& os, const TRemCategory& value)
   return os;
 }
 
+std::ostream& operator<<(std::ostream& os, const TierLevelKey& tierLevel)
+{
+  os << tierLevel.airline << ":" << tierLevel.code;
+  return os;
+}
+
 const std::vector<std::string> appsStatusRem={"SXIA", "SPIA", "SBIA"}; //порядок важен
 const std::vector<std::string> appsOverrideRem={"RSIA", "OVRA", "OVRG"};
 

@@ -593,6 +593,7 @@ BEGIN
         DELETE FROM bi_stat WHERE pax_id=curRow.pax_id;
         DELETE FROM sbdo_tags_generated WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_calc_data WHERE pax_calc_data_id=curRow.pax_id AND crs_deleted IS NULL;
+        DELETE FROM pax_confirmations WHERE pax_id=curRow.pax_id;
         DELETE FROM pax WHERE pax_id=curRow.pax_id;
         FOR langCurRow IN langCur LOOP
           UPDATE events_bilingual SET id2=NULL
