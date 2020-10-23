@@ -2,6 +2,7 @@
 #include "apis_creator.h"
 #include "alarms.h"
 #include "tlg/remote_system_context.h"
+#include "base_callbacks.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/slogger.h"
@@ -17,6 +18,13 @@ bool needCheckStatus(const TCompleteAPICheckInfo& checkInfo)
                        checkInfo.apis_formats().end(),
                        getIAPIFormats().begin(),
                        getIAPIFormats().end())!=checkInfo.apis_formats().end();
+}
+
+void RequestCollector::clear()
+{
+  groupedPassengers.clear();
+  apisDataset.clear();
+  requestParamsList.clear();
 }
 
 std::string RequestCollector::getRequestId()
@@ -36,21 +44,19 @@ bool RequestCollector::resendNeeded(const CheckIn::PaxRems& rems)
   return false;
 }
 
-void RequestCollector::addPassengerIfNeed(const int pax_id,
-                                          const int point_dep,
-                                          const std::string& airp_arv,
+void RequestCollector::addPassengerIfNeed(const PaxId_t& paxId,
+                                          const TPaxSegmentPair& paxSegment,
                                           const TCompleteAPICheckInfo& checkInfo)
 {
   if (checkInfo.apis_formats().empty()) return;
 
-  PaxIdsKey key(point_dep, airp_arv);
-  auto i=groupedPassengers.find(key);
+  auto i=groupedPassengers.find(paxSegment);
   if (i==groupedPassengers.end())
   {
     if (!needCheckStatus(checkInfo)) return;
-    i=groupedPassengers.emplace(key, PaxIds()).first;
+    i=groupedPassengers.emplace(paxSegment, PaxIds()).first;
   }
-  i->second.insert(pax_id);
+  i->second.insert(paxId);
 }
 
 void RequestCollector::collectApisDataset()
@@ -59,23 +65,23 @@ void RequestCollector::collectApisDataset()
 
   for(const auto& i : groupedPassengers)
   {
-    const PaxIdsKey& paxIdsKey=i.first;
+    const TPaxSegmentPair& paxSegment=i.first;
     const PaxIds& paxIds=i.second;
 
     TApisRouteData rd;
-    if (!rd.depInfo.getByPointId(paxIdsKey.point_dep,
+    if (!rd.depInfo.getByPointId(paxSegment.point_dep,
                                  FlightProps(FlightProps::NotCancelled, FlightProps::WithCheckIn)))
     {
       //что-то написать
       continue;
     };
 
-    rd.paxLegs.getRouteBetween(paxIdsKey.point_dep, paxIdsKey.airp_arv);
+    rd.paxLegs.getRouteBetween(paxSegment);
     if(rd.paxLegs.size()<2)
     {
       ProgTrace(TRACE5,
                 "%s: route.size()=%zu (point_id=%d, airp_arv=%s)", __func__,
-                rd.paxLegs.size(), paxIdsKey.point_dep, paxIdsKey.airp_arv.c_str());
+                rd.paxLegs.size(), paxSegment.point_dep, paxSegment.airp_arv.c_str());
       continue;
     }
 
@@ -84,11 +90,11 @@ void RequestCollector::collectApisDataset()
     if (rd.lstSetsData.empty()) continue;
 
     CheckIn::TSimplePaxGrpItem grp;
-    for(const int& paxId : paxIds)
+    for(const PaxId_t& paxId : paxIds)
     {
       TApisPaxData pax;
 
-      if (!pax.getByPaxId(paxId)) continue;
+      if (!pax.getByPaxId(paxId.get())) continue;
       if (!pax.refuse.empty()) continue;
 
       if (grp.id!=pax.grp_id)
@@ -103,8 +109,8 @@ void RequestCollector::collectApisDataset()
       pax.airp_arv_final=pax.airp_arv;
       pax.processingIndicator=TReqInfo::Instance()->client_type==ctTerm?"173":"174";
 
-      CheckIn::LoadPaxDoc(paxId, pax.doc);
-      pax.doco = CheckIn::LoadPaxDoco(paxId);
+      CheckIn::LoadPaxDoc(paxId.get(), pax.doc);
+      pax.doco = CheckIn::TPaxDocoItem::get(paxCheckIn, paxId);
       rd.lstPaxData.push_back(pax);
       if (rd.lstPaxData.size()==MaxPassengerCountInRequest)
       {
@@ -249,9 +255,13 @@ bool PassengerStatus::allowedToBoarding(const int paxId, const TCompleteAPICheck
   return true;
 }
 
-bool PassengerStatusInspector::allowedToPrintBP(const int paxId, const int grpId)
+bool PassengerStatusInspector::allowedToPrintBP(const int pax_id, const int grp_id)
 {
-  if (PassengerStatus::allowedToBoarding(paxId)) return true; //специально вначале - оптимизируем обращения к БД (подавляющее большинство разрешено к посадке)
+  if (PassengerStatus::allowedToBoarding(pax_id)) return true; //специально вначале - оптимизируем обращения к БД (подавляющее большинство разрешено к посадке)
+
+  PaxId_t paxId(pax_id);
+  boost::optional<GrpId_t> grpId;
+  if (grp_id!=ASTRA::NoExists) grpId=boost::in_place(grp_id);
 
   return (!needCheckStatus(get(paxId, grpId)));
 }
@@ -500,11 +510,6 @@ void PassengerStatusList::updateByCusRequest() const
   }
 }
 
-void init_callbacks()
-{
-  CallbacksSingleton<edifact::CusresCallbacks>::Instance()->setCallbacks(new CusresCallbacks);
-}
-
 void CusresCallbacks::onCusResponseHandle(TRACE_SIGNATURE, const edifact::Cusres& cusres)
 {
   LogTrace(TRACE_PARAMS) << __func__ << " started";
@@ -517,5 +522,128 @@ void CusresCallbacks::onCusRequestHandle(TRACE_SIGNATURE, const edifact::Cusres&
   PassengerStatusList::processCusres(cusres, true);
 }
 
+class PaxEvents: public PaxEventCallbacks<TRemCategory>,
+                 public PaxEventCallbacks<PaxChanges>
+{
+  private:
+    CompleteAPICheckInfoCache checkInfoCache;
+    IAPI::RequestCollector iapiCollector;
+    map<TTripTaskKey, TDateTime> flightTasks;
+  public:
+    void clear()
+    {
+      checkInfoCache.clear();
+      iapiCollector.clear();
+      flightTasks.clear();
+    }
+
+    void apply()
+    {
+      iapiCollector.send();
+      for(const auto& i : flightTasks)
+        add_trip_task(i.first, i.second);
+    }
+
+    void processIfNeed(const PaxOrigin& paxOrigin,
+                       const PaxIdWithSegmentPair& paxId,
+                       const bool refused)
+    {
+      if (!paxId.getSegmentPair()) return;
+      if (paxOrigin==paxPnl) return;
+
+      const TPaxSegmentPair& paxSegment=paxId.getSegmentPair().get();
+      const TCompleteAPICheckInfo& checkInfo=checkInfoCache.get(paxSegment);
+
+      switch(paxOrigin)
+      {
+        case paxPnl:
+          if (IAPI::needCheckStatus(checkInfo))
+          {
+            addAlarmByPaxId(paxId().get(), {Alarm::SyncIAPI}, {paxOrigin});
+            flightTasks.emplace(TTripTaskKey(paxSegment.point_dep, AlarmTypes().encode(Alarm::SyncIAPI), ""), ASTRA::NoExists);
+          }
+          break;
+        case paxCheckIn:
+          if (refused)
+            IAPI::deleteAlarms(paxId().get(), paxSegment.point_dep);
+          else
+            iapiCollector.addPassengerIfNeed(paxId(), paxSegment, checkInfo);
+          break;
+        default: break;
+      }
+    }
+
+    //ByPaxId
+    void initialize(TRACE_SIGNATURE,
+                    const PaxOrigin& paxOrigin)
+    {
+      clear();
+    }
+
+    void finalize(TRACE_SIGNATURE,
+                  const PaxOrigin& paxOrigin)
+    {
+      apply();
+      clear();
+    }
+
+    void onChange(TRACE_SIGNATURE,
+                  const PaxOrigin& paxOrigin,
+                  const PaxIdWithSegmentPair& paxId,
+                  const std::set<TRemCategory>& categories);
+
+    void onChange(TRACE_SIGNATURE,
+                  const PaxOrigin& paxOrigin,
+                  const PaxIdWithSegmentPair& paxId,
+                  const std::set<PaxChanges>& categories);
+};
+
+void PaxEvents::onChange(TRACE_SIGNATURE,
+                         const PaxOrigin& paxOrigin,
+                         const PaxIdWithSegmentPair& paxId,
+                         const std::set<TRemCategory>& categories)
+{
+  if (!paxId.getSegmentPair()) return;
+
+  if (algo::none_of(categories, [](const TRemCategory& cat)
+                                { return cat==remTKN ||
+                                         cat==remDOC ||
+                                         cat==remDOCO ||
+                                         cat==remAPPSOverride; }
+                    )) return;
+
+  processIfNeed(paxOrigin, paxId, false);
+}
+
+void PaxEvents::onChange(TRACE_SIGNATURE,
+                         const PaxOrigin& paxOrigin,
+                         const PaxIdWithSegmentPair& paxId,
+                         const std::set<PaxChanges>& categories)
+{
+  if (!paxId.getSegmentPair()) return;
+
+  if (categories.count(PaxChanges::Cancel)>0)
+  {
+    processIfNeed(paxOrigin, paxId, true);
+  }
+
+  if (categories.count(PaxChanges::New)>0)
+  {
+    processIfNeed(paxOrigin, paxId, false);
+  }
+}
+
+void init_callbacks()
+{
+  static bool init=false;
+  if (init) return;
+
+  CallbacksSingleton<edifact::CusresCallbacks>::Instance()->setCallbacks(new CusresCallbacks);
+  PaxEvents* paxEvents=new PaxEvents;
+  CallbacksSuite< PaxEventCallbacks<TRemCategory> >::Instance()->addCallbacks(paxEvents);
+  CallbacksSuite< PaxEventCallbacks<PaxChanges> >::Instance()->addCallbacks(paxEvents);
+  init=true;
+}
 
 } //namespace IAPI
+

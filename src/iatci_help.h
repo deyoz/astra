@@ -18,6 +18,10 @@ namespace RemoteSystemContext {
 
 namespace iatci {
 
+const std::string FcIndicatorAllDefault = "";
+const std::string FcIndicatorAll = "A";
+const std::string FcIndicatorThis = "T";
+
 std::string fullFlightString(const FlightDetails& flight, bool edi = true);
 std::string flightString(const FlightDetails& flight);
 std::string airlineAccode(const std::string& airline);
@@ -38,15 +42,15 @@ class IatciXmlDb
 {
 public:
     static const size_t PageSize;
-    static void add(int grpId, const std::string& xmlText);
-    static void del(int grpId);
-    static void upd(int grpId, const std::string& xmlText);
-    static std::string load(int grpId);
-    static bool exists(int grpId);
+    static void add(const GrpId_t& grpId, const std::string& xmlText);
+    static void del(const GrpId_t& grpId);
+    static void upd(const GrpId_t& grpId, const std::string& xmlText);
+    static std::string load(const GrpId_t& grpId);
+    static bool exists(const GrpId_t& grpId);
 
 private:
-    static void saveXml(int grpId, const std::string& xmlText);
-    static void delXml(int grpId);
+    static void saveXml(const GrpId_t& grpId, const std::string& xmlText);
+    static void delXml(const GrpId_t& grpId);
 };
 
 //---------------------------------------------------------------------------------------
@@ -64,6 +68,7 @@ iatci::AddressDetails          makeAddress(const edifact::AddElem& add);
 iatci::VisaDetails             makeVisa(const edifact::PapElem& pap);
 iatci::OriginatorDetails       makeOrg(const edifact::LorElem& lor);
 iatci::CascadeHostDetails      makeCascade(const edifact::ChdElem& chd);
+iatci::MessageDetails          makeMessageDetails(const edifact::DmcElem& dmc);
 iatci::FlightDetails           makeOutboundFlight(const edifact::FdqElem& fdq);
 boost::optional<FlightDetails> makeInboundFlight(const edifact::FdqElem& fdq);
 iatci::SeatRequestDetails      makeSeatReq(const edifact::SrpElem& srp);
@@ -92,6 +97,7 @@ iatci::PaxDetails                          makeRespPax(const astra_api::astra_en
                                                        const boost::optional<astra_api::astra_entities::PaxInfo>& infant = boost::none);
 iatci::FlightDetails                       makeFlight(const astra_api::astra_entities::SegmentInfo& seg);
 iatci::OriginatorDetails                   makeOrg(const astra_api::astra_entities::SegmentInfo& seg);
+iatci::OriginatorDetails                   makeCascadeOrg(const astra_api::astra_entities::SegmentInfo& seg);
 boost::optional<iatci::FlightSeatDetails>  makeFlightSeat(const astra_api::astra_entities::PaxInfo& pax);
 boost::optional<iatci::ReservationDetails> makeReserv(const astra_api::astra_entities::PaxInfo& pax);
 boost::optional<iatci::SeatDetails>        makeSeat(const astra_api::astra_entities::PaxInfo& pax);
@@ -106,7 +112,8 @@ boost::optional<iatci::DocDetails>         makeDoc(const astra_api::astra_entiti
 iatci::AddressDetails::AddrInfo            makeAddrInfo(const astra_api::astra_entities::AddressInfo& address);
 boost::optional<iatci::AddressDetails>     makeAddress(const astra_api::astra_entities::PaxInfo& pax);
 boost::optional<iatci::VisaDetails>        makeVisa(const astra_api::astra_entities::PaxInfo& pax);
-boost::optional<iatci::CascadeHostDetails> makeCascade();
+
+boost::optional<iatci::UpdateBaggageDetails> makeUpdBaggage(const astra_api::astra_entities::PaxInfo& pax);
 
 iatci::UpdatePaxDetails makeUpdPax(const astra_api::astra_entities::PaxInfo& newPax,
                                    iatci::UpdateDetails::UpdateActionCode_e act);
@@ -125,12 +132,19 @@ iatci::UpdateBaggageDetails makeUpdBaggage(const astra_api::astra_entities::BagP
 //---------------------------------------------------------------------------------------
 
 iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg,
-                                bool readAdditionals = false);
+                                bool readAdditionals = false,
+                                const std::string& fcIndicator = FcIndicatorAllDefault);
+iatci::MessageDetails makeMessageDetails(const astra_api::xml_entities::XmlSegment& ediSeg);
+boost::optional<iatci::CascadeHostDetails> makeCascade(const std::string& airline,
+                                                       boost::optional<astra_api::xml_entities::XmlHostDetails> hostDetails,
+                                                       boost::optional<iatci::CascadeHostDetails> cascadeBase = boost::none);
+boost::optional<iatci::CascadeHostDetails> makeCascade(const astra_api::xml_entities::XmlSegment& seg,
+                                                       const std::string& fcIndicator = FcIndicatorAllDefault);
 boost::optional<iatci::SeatRequestDetails> makeSeatReq(const astra_api::xml_entities::XmlSegment& seg);
 //---------------------------------------------------------------------------------------
 
-void saveDeferredCkiData(tlgnum_t msgId, const std::list<dcrcka::Result>& lRes);
-std::list<dcrcka::Result> loadDeferredCkiData(tlgnum_t msgId);
+void saveDeferredCkiData(tlgnum_t msgId, const DefferedIatciData& defferedData);
+boost::optional<DefferedIatciData> loadDeferredCkiData(tlgnum_t msgId);
 
 void saveCkiData(edilib::EdiSessionId_t sessId, const std::list<dcrcka::Result>& lRes);
 std::list<dcrcka::Result> loadCkiData(edilib::EdiSessionId_t sessId);
@@ -217,6 +231,23 @@ Ticketing::RemoteSystemContext::DcsSystemContext* readDcs(const iatci::FlightDet
 
 //---------------------------------------------------------------------------------------
 
-int getLastTCkinGrpId(int grpId);
+GrpId_t getLastTCkinGrpId(const GrpId_t& grpId);
+
+//---------------------------------------------------------------------------------------
+
+std::string createFlightKey(const std::string& airl,
+                            const Ticketing::FlightNum_t& flNum,
+                            const boost::gregorian::date& depDate,
+                            const std::string& depPort,
+                            const std::string& arrPort);
+
+//---------------------------------------------------------------------------------------
+
+std::string createFlightKey(const std::string& airl,
+                            int flNum,
+                            BASIC::date_time::TDateTime depDateTime,
+                            const std::string& depPort,
+                            const std::string& arrPort);
+
 
 }//namespace iatci

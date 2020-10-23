@@ -74,6 +74,7 @@ xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const std::string &
 xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const int content, const int nvl);
 xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const double content, const double nvl);
 
+void NodeAddContent(xmlNodePtr cur, const char* content);
 void NodeSetContent(xmlNodePtr cur, const char* content);
 void NodeSetContent(xmlNodePtr cur, const std::string &content);
 void NodeSetContent(xmlNodePtr cur, const int content);

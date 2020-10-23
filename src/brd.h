@@ -49,17 +49,10 @@ public:
                                        const std::string &lang,
                                        const ASTRA::TRptType rpt_type,
                                        const std::string &client_type,
-                                       const TSortType sort = stRegNo );
+                                       const TSortType sort,
+                                       const bool usePaxCalcData=false);
 
   static void GetPax(xmlNodePtr reqNode, xmlNodePtr resNode);
 };
-
-void GetAPISAlarms(ASTRA::TPaxTypeExt pax_ext,
-                   bool api_doc_applied,
-                   int crs_pax_id, //¬.¡. NoExists
-                   const TCompleteAPICheckInfo &check_info,
-                   const CheckIn::TAPISItem &apis,
-                   const std::set<APIS::TAlarmType> &required_alarms,
-                   std::set<APIS::TAlarmType> &alarms);
 
 #endif

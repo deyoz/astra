@@ -7,6 +7,7 @@
 #include "astra_utils.h"
 #include "astra_locale.h"
 #include "astra_misc.h"
+#include "astra_types.h"
 #include "sopp.h"
 #include "stages.h"
 
@@ -524,6 +525,7 @@ class FlightPoints:public std::vector<TTripRouteItem> {
 
 class TFlights:public std::vector<FlightPoints> {
   public:
+    void Get( const std::set<PointId_t> &pointIds, TFlightType flightType );
     void Get( const std::set<int> &point_ids, TFlightType flightType );
     void Get( const std::vector<int> &points, TFlightType flightType );
     void Get( int point_dep, TFlightType flightType ) {

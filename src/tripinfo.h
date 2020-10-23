@@ -15,8 +15,6 @@
 
 using BASIC::date_time::TDateTime;
 
-std::string getDocsFlags( int pax_id, bool pr_checkin );
-
 class TTripListFilter
 {
   public:
@@ -124,7 +122,7 @@ const std::string CREW_CLASS_VIEW=" ";
 const int CREW_CLS_GRP_ID=1000000000;
 const std::string CREW_CLS_GRP_VIEW=" ";
 void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode );
-void viewCRSList( int point_id, xmlNodePtr dataNode );
+void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePtr dataNode );
 void viewPaxLoadSectionReport( int point_id, xmlNodePtr resNode );
 
 bool SearchPaxByScanData(xmlNodePtr reqNode,

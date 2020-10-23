@@ -13,6 +13,7 @@
 #include "events.h"
 #include "qrys.h"
 #include "date_time.h"
+#include "flt_settings.h"
 
 #include "serverlib/perfom.h"
 
@@ -84,7 +85,7 @@ inline TDateTime SetDate( TDateTime date, int Year, int diffday )
       EncodeDate( Year, Month, Day, date );
       return date;
     }
-    catch( EConvertError ) { // high year????
+    catch(const EConvertError&) { // high year????
       TDateTime ddd = date + diffday;
       DecodeDate( ddd, Tmp, Month, Day );
       EncodeDate( Year, Month, Day, date );

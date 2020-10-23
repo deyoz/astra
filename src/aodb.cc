@@ -680,9 +680,10 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
       //		record<<setw(1)<<0; // трансатлантический багаж :)
       // стойка рег. + время рег. + выход на посадку + время прохода на посадку
       // определение сквозняка
-      TCkinRouteItem item;
-      TCkinRoute().GetPriorSeg( Qry.FieldAsInteger( "grp_id" ), crtIgnoreDependent, item );
-      bool pr_tcheckin = ( item.grp_id != NoExists );
+      auto item=TCkinRoute::getPriorGrp( GrpId_t(Qry.FieldAsInteger( "grp_id" )),
+                                         TCkinRoute::IgnoreDependence,
+                                         TCkinRoute::WithoutTransit );
+      bool pr_tcheckin = item;
       record<<GetTermInfo( TimeQry, Qry.FieldAsInteger( "pax_id" ),
                            Qry.FieldAsInteger( "reg_no" ),
                            pr_tcheckin,

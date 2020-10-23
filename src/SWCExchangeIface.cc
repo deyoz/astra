@@ -58,7 +58,8 @@ void SWCExchange::fromDB(int clientId)
 {
   this->clientId = clientId;
   Authorization = "Authorization:Basic " + StrUtils::b64_encode( getTCLParam("SWC_CONNECT","") );
-  Resource = "/swc-xml/site";
+  //Resource = "/swc-xml/site";
+  Resource = "/swc-astra-to-sirena/site";
   LogTrace(TRACE5) << __func__ << " " << Authorization << ",clientId=" << clientId << ", Resource=" <<Resource;
 }
 
@@ -139,6 +140,5 @@ void SWCExchangeIface::Request(xmlNodePtr reqNode, int clientId, const std::stri
   ExchangeIface* iface=dynamic_cast<ExchangeIface*>(JxtInterfaceMng::Instance()->GetInterface(ifaceName));
   iface->DoRequest(reqNode, nullptr, req, client);
 }
-
 
 }

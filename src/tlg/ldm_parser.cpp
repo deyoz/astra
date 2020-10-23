@@ -4,6 +4,7 @@
 #include <boost/algorithm/string/classification.hpp>
 #include "qrys.h"
 #include "sopp.h"
+#include "flt_settings.h"
 
 #define NICKNAME "DEN"
 #include <serverlib/slogger.h>

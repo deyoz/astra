@@ -8,6 +8,7 @@
 #include "astra_utils.h"
 #include "term_version.h"
 #include "date_time.h"
+#include "base_callbacks.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -17,7 +18,29 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC::date_time;
 
-TRemCategory getRemCategory( const string &rem_code, const string &rem_text )
+std::ostream& operator << (std::ostream& os, const TRemCategory& value)
+{
+  switch(value)
+  {
+    case remTKN:          os << "remTKN"; break;
+    case remDOC:          os << "remDOC"; break;
+    case remDOCO:         os << "remDOCO"; break;
+    case remDOCA:         os << "remDOCA"; break;
+    case remFQT:          os << "remFQT"; break;
+    case remASVC:         os << "remASVC"; break;
+    case remPD:           os << "remPD"; break;
+    case remCREW:         os << "remCREW"; break;
+    case remAPPSOverride: os << "remAPPSOverride"; break;
+    case remAPPSStatus:   os << "remAPPSStatus"; break;
+    case remUnknown:      os << "remUnknown"; break;
+  }
+  return os;
+}
+
+const std::vector<std::string> appsStatusRem={"SXIA", "SPIA", "SBIA"}; //порядок важен
+const std::vector<std::string> appsOverrideRem={"RSIA", "OVRA", "OVRG"};
+
+TRemCategory getRemCategory(const CheckIn::TPaxRemItem& rem)
 {
   static map<string, TRemCategory> rem_cats;
   static bool init=false;
@@ -39,23 +62,27 @@ TRemCategory getRemCategory( const string &rem_code, const string &rem_text )
       if (category=="ASVC") rem_cats[Qry.FieldAsString("rem_code")]=remASVC; else
       if (category=="CREW") rem_cats[Qry.FieldAsString("rem_code")]=remCREW;
     };
+    for(const string& rem_code : appsStatusRem) rem_cats[rem_code]=remAPPSStatus;
+    for(const string& rem_code : appsOverrideRem) rem_cats[rem_code]=remAPPSOverride;
+
     init=true;
   };
-  if (!rem_code.empty())
+  if (!rem.code.empty())
   {
     //код ремарки не пустой
-    map<string, TRemCategory>::const_iterator iRem=rem_cats.find(rem_code);
+    map<string, TRemCategory>::const_iterator iRem=rem_cats.find(rem.code);
     if (iRem!=rem_cats.end()) return iRem->second;
+
+    if (rem.code.size()==4 && rem.code.substr(0,2)=="PD")
+    return remPD;
   };
-  if (!rem_text.empty())
+  if (!rem.text.empty())
   {
     for(map<string, TRemCategory>::const_iterator iRem=rem_cats.begin(); iRem!=rem_cats.end(); ++iRem)
     {
-      if (rem_text.substr(0,iRem->first.size())==iRem->first) return iRem->second;
+      if (rem.text.substr(0,iRem->first.size())==iRem->first) return iRem->second;
     };
   };
-  if (rem_code.size()==4 && rem_code.substr(0,2)=="PD")
-    return remPD;
   return remUnknown;
 };
 
@@ -64,9 +91,9 @@ bool isDisabledRemCategory( TRemCategory cat )
   return cat==remTKN || cat==remDOC || cat==remDOCO || cat==remDOCA || cat==remASVC || cat==remFQT;
 };
 
-bool isDisabledRem( const string &rem_code, const string &rem_text)
+bool isDisabledRem(const CheckIn::TPaxRemItem& rem)
 {
-  TRemCategory cat=getRemCategory(rem_code, rem_text);
+  TRemCategory cat=getRemCategory(rem);
   return isDisabledRemCategory(cat);
 };
 
@@ -84,7 +111,7 @@ bool isReadonlyRemCategory( TRemCategory cat )
   return cat==remTKN || cat==remDOC || cat==remDOCO || cat==remDOCA || cat==remASVC || cat==remPD;
 };
 
-bool isReadonlyRem( const string &rem_code, const string &rem_text )
+bool isReadonlyRem(const CheckIn::TPaxRemItem& rem)
 {
   static set<string> rems;
   if (rems.empty())
@@ -93,26 +120,16 @@ bool isReadonlyRem( const string &rem_code, const string &rem_text )
     for(;i>=0;i--) rems.insert(ReadonlyRemCodes[i]);
   };
 
-  if (!rem_code.empty()) return rems.find(rem_code)!=rems.end();
+  if (!rem.code.empty()) return rems.find(rem.code)!=rems.end();
 
-  if (!rem_text.empty())
+  if (!rem.text.empty())
   {
     for(set<string>::const_iterator iRem=rems.begin(); iRem!=rems.end(); ++iRem)
     {
-      if (rem_text.substr(0,iRem->size())==*iRem) return true;
+      if (rem.text.substr(0,iRem->size())==*iRem) return true;
     };
   };
 
-  return false;
-}
-
-const std::vector<std::string> appsStatusRem={"SXIA", "SPIA", "SBIA"}; //порядок важен
-const std::vector<std::string> appsOverrideRem={"RSIA", "OVRA", "OVRG"};
-
-static bool isAPPSRem( const std::string& rem )
-{
-  if (std::find(appsStatusRem.begin(), appsStatusRem.end(), rem)!=appsStatusRem.end()) return true;
-  if (std::find(appsOverrideRem.begin(), appsOverrideRem.end(), rem)!=appsOverrideRem.end()) return true;
   return false;
 }
 
@@ -730,7 +747,7 @@ bool LoadPaxRem(int pax_id, std::multiset<TPaxRemItem> &rems)
   {
     TPaxRemItem rem;
     rem.fromDB(PaxRemQry.get());
-    TRemCategory cat=getRemCategory(rem.code, rem.text);
+    TRemCategory cat=getRemCategory(rem);
     if (isDisabledRemCategory(cat)) continue;
     rems.insert(rem);
   };
@@ -783,20 +800,41 @@ bool LoadPaxFQT(int pax_id, std::set<TPaxFQTItem> &fqts)
   return !fqts.empty();
 };
 
-bool LoadPaxFQTNotEmptyTierLevel(int pax_id, std::set<TPaxFQTItem> &fqts, bool onlyFQTV)
+std::set<TPaxFQTItem> getPaxFQTNotEmptyTierLevel(const PaxOrigin& origin, const PaxId_t& paxId, bool onlyFQTV)
 {
-  fqts.clear();
-  LoadPaxFQT(pax_id, fqts);
-  for(set<TPaxFQTItem>::iterator i=fqts.begin(); i!=fqts.end();)
+  std::set<TPaxFQTItem> result;
+  switch(origin)
+  {
+    case paxCheckIn:
+      LoadPaxFQT(paxId.get(), result);
+      break;
+    case paxPnl:
+      LoadCrsPaxFQT(paxId.get(), result);
+      break;
+    default:
+      break;
+  }
+
+  //алгоритм std::remove_id применить для std::set невозможно, хотя хотелось бы
+  //начиная с с++20 для std::set есть метод erase_if для этих целей
+  for(set<TPaxFQTItem>::iterator i=result.begin(); i!=result.end();)
   {
     if (i->tier_level.empty() or (onlyFQTV and i->rem != "FQTV"))
     {
-      i=fqts.erase(i);
+      i=result.erase(i);
       continue;
     }
     ++i;
   }
-  return !fqts.empty();
+
+  return result;
+}
+
+boost::optional<TPaxFQTItem> TPaxFQTItem::getNotEmptyTierLevel(const PaxOrigin& origin, const PaxId_t& paxId, bool onlyFQTV)
+{
+  std::set<TPaxFQTItem> fqts=getPaxFQTNotEmptyTierLevel(origin, paxId, onlyFQTV);
+  if (fqts.empty()) return boost::none;
+  return *fqts.begin();
 }
 
 bool DeletePaxASVC(int pax_id)
@@ -936,29 +974,6 @@ bool LoadCrsPaxASVC(int pax_id, vector<TPaxASVCItem> &asvc)
   return PaxASVCFromDB(pax_id, asvc, true);
 };
 
-
-void SavePaxRem(int pax_id, const multiset<TPaxRemItem> &rems)
-{
-  TQuery RemQry(&OraSession);
-  RemQry.Clear();
-  RemQry.SQLText="DELETE FROM pax_rem WHERE pax_id=:pax_id";
-  RemQry.CreateVariable("pax_id",otInteger,pax_id);
-  RemQry.Execute();
-
-  RemQry.SQLText=
-    "INSERT INTO pax_rem(pax_id,rem,rem_code) VALUES(:pax_id,:rem,:rem_code)";
-  RemQry.DeclareVariable("rem",otString);
-  RemQry.DeclareVariable("rem_code",otString);
-  for(multiset<TPaxRemItem>::const_iterator r=rems.begin(); r!=rems.end(); ++r)
-  {
-    if (r->text.empty()) continue; //защита от пустой ремарки (иногда может почему то приходить с терминала)
-    if ( isAPPSRem( r->code) )
-      continue; // не храним информацию о перезаписи и повторной отправке в APPS
-    r->toDB(RemQry);
-    RemQry.Execute();
-  };
-};
-
 void GetPaxFQTCards(const std::set<TPaxFQTItem> &fqts, TPaxFQTCards &cards)
 {
   cards.clear();
@@ -1000,36 +1015,6 @@ void SyncFQTTierLevel(int pax_id, bool from_crs, set<TPaxFQTItem> &fqts)
     fqts=tmp_fqts;
   }
 }
-
-void SavePaxFQT(int pax_id, const std::set<TPaxFQTItem> &fqts)
-{
-  TQuery FQTQry(&OraSession);
-  FQTQry.Clear();
-  FQTQry.SQLText="DELETE FROM pax_fqt WHERE pax_id=:pax_id";
-  FQTQry.CreateVariable("pax_id",otInteger,pax_id);
-  FQTQry.Execute();
-
-  FQTQry.SQLText=
-    "INSERT INTO pax_fqt(pax_id,rem_code,airline,no,extra,tier_level,tier_level_confirm) "
-    "VALUES(:pax_id,:rem_code,:airline,:no,:extra,:tier_level,:tier_level_confirm)";
-  FQTQry.DeclareVariable("rem_code",otString);
-  FQTQry.DeclareVariable("airline",otString);
-  FQTQry.DeclareVariable("no",otString);
-  FQTQry.DeclareVariable("extra",otString);
-  FQTQry.DeclareVariable("tier_level",otString);
-  FQTQry.DeclareVariable("tier_level_confirm",otInteger);
-  for(set<TPaxFQTItem>::const_iterator r=fqts.begin(); r!=fqts.end(); ++r)
-  {
-    r->toDB(FQTQry);
-    FQTQry.Execute();
-  };
-
-  try {
-    callbacks<PaxRemCallbacks>()->afterPaxFQTChange(TRACE5, pax_id);
-  } catch(...) {
-      CallbacksExceptionFilter(STDLOG);
-  }
-};
 
 class TPaxRemOriginItem
 {
@@ -1258,7 +1243,7 @@ void PaxRemAndASVCFromDB(int pax_id,
 
   for(multiset<TPaxRemItem>::iterator r=rems_and_asvc.begin(); r!=rems_and_asvc.end();)
   {
-    if (isDisabledRem(r->code, r->text))
+    if (isDisabledRem(*r))
       r=Erase(rems_and_asvc, r);
     else
       ++r;

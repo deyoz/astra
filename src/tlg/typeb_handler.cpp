@@ -1253,6 +1253,13 @@ void get_tlg_info(
 
         switch (HeadingInfo->tlg_cat)
         {
+            case tcDCS:
+                {
+                    TDCSHeadingInfo &info = *(dynamic_cast<TDCSHeadingInfo*>(HeadingInfo));
+                    airline = info.flt.airline;
+                    airp = info.flt.airp_dep;
+                    break;
+                }
             case tcLCI:
                 {
                     TLCIHeadingInfo &info = *(dynamic_cast<TLCIHeadingInfo*>(HeadingInfo));

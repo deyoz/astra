@@ -117,7 +117,9 @@ class TSegItem
       scd_in_contain_time=false;
     }
 
-    const TSegItem& toSirenaXML(xmlNodePtr node, const AstraLocale::OutputLang &lang) const;
+    const TSegItem& toSirenaXML(xmlNodePtr node,
+                                const boost::optional<CheckIn::TPaxTknItem>& tkn,
+                                const AstraLocale::OutputLang &lang) const;
 };
 
 class TPaxSection;
@@ -126,7 +128,7 @@ class TPaxSegItem : public TSegItem
 {
   public:
     std::string subcl;
-    CheckIn::TPaxTknItem tkn;
+    boost::optional<CheckIn::TPaxTknItem> tkn;
     int display_id;
     TPnrAddrs pnrAddrs;
     std::set<CheckIn::TPaxFQTItem> fqts;
@@ -138,13 +140,13 @@ class TPaxSegItem : public TSegItem
     void clear()
     {
       subcl.clear();
-      tkn.clear();
+      tkn=boost::none;
       display_id=ASTRA::NoExists;
       pnrAddrs.clear();
       fqts.clear();
     }
     using TSegItem::set;
-    void set(const CheckIn::TPaxTknItem& _tkn, TPaxSection* paxSection);
+    void setTicket(const CheckIn::TPaxTknItem& tkn_, TPaxSection* paxSection);
 
     const TPaxSegItem& toSirenaXML(xmlNodePtr node, const AstraLocale::OutputLang &lang) const;
 };
@@ -210,6 +212,8 @@ class TPaxItem
       doc.clear();
       segs.clear();
     }
+
+    void addMissingTickets(TPaxSection* paxSection);
 
     const TPaxItem& toSirenaXML(xmlNodePtr node, const AstraLocale::OutputLang &lang) const;
     std::string category() const {
@@ -324,6 +328,10 @@ class TPaxSection
     }
     void toXML(xmlNodePtr node) const;
     void updateSeg(const Sirena::TPaxSegKey &key, const int idForMerge);
+    void addMissingTickets()
+    {
+      for(TPaxItem& pax : paxs) pax.addMissingTickets(this);
+    }
 };
 
 class TSvcList : public std::list<TSvcItem>

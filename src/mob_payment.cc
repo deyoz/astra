@@ -299,7 +299,7 @@ void SearchPassengersResponse::add(const CheckIn::TSimplePaxItem& pax,
 
       if (flt.airp!=reqDeparture) return;
 
-      CheckIn::TPaxSegmentPair segmentPair(flt.point_id, pnr.airp_arv);
+      TPaxSegmentPair segmentPair(flt.point_id, pnr.airp_arv);
       const Segment& segment=SegmentCache::get(segmentPair);
       if (!segment.departure.match(TReqInfo::Instance()->user.access)) return;
 
@@ -316,7 +316,7 @@ void SearchPassengersResponse::add(const CheckIn::TSimplePaxItem& pax,
 
       if (grp.airp_dep!=reqDeparture) return;
 
-      CheckIn::TPaxSegmentPair segmentPair=grp.getSegmentPair();
+      TPaxSegmentPair segmentPair=grp.getSegmentPair();
       const Segment& segment=SegmentCache::get(segmentPair);
       if (!segment.departure.match(TReqInfo::Instance()->user.access)) return;
 
@@ -377,7 +377,7 @@ void SearchPassengersResponse::searchPassengers(const SearchPassengersRequest& r
   {
     req.barcode.get().getBarcodeFilter().getPassengers(search, paxs, true);
   }
-  if (req.tkn)
+  else if (req.tkn)
   {
     search(paxs, req.tkn.get());
   }
@@ -450,7 +450,10 @@ bool SearchPassengersResponse::suitable(const Passenger& passenger,
 void SearchPassengersResponse::filterPassengers(const SearchPassengersRequest& req)
 {
   for(auto p=passengers.begin(); p!=passengers.end();)
-    if (!suitable(*p, req)) p=passengers.erase(p); else ++p;
+    if (!suitable(*p, req) || !p->tkn.validET())
+      p=passengers.erase(p);
+    else
+      ++p;
 }
 
 const SearchPassengersResponse& SearchPassengersResponse::toXML(xmlNodePtr node) const
@@ -502,7 +505,7 @@ void SearchFlightsResponse::add(const TAdvTripInfo& flt)
     flights.erase(f);
     return;
   }
-  if (flight.act_out_exists())
+  if (!flight.act_out_exists())
     flight.setStages(flight.point_id);
   get_DesksGates(flight.point_id, flight.check_in_desks, flight.gates);
 }
@@ -652,7 +655,7 @@ class SegKeys : public map<int, Sirena::TPaxSegKey>
     }
 };
 
-void GetPassengerInfoResponse::prepareEntities(int paxId)
+void GetPassengerInfoResponse::prepareEntities(const PaxId_t& paxId)
 {
   CheckIn::TSimplePaxList paxs;
   CheckIn::Search()(paxs, PaxIdFilter(paxId));
@@ -797,7 +800,7 @@ void MobilePaymentInterface::getPassengerInfo(XMLRequestCtxt *ctxt, xmlNodePtr r
   try
   {
     GetPassengerInfoResponse res;
-    res.prepareEntities(NodeAsInteger("pax_id", reqNode));
+    res.prepareEntities(PaxId_t(NodeAsInteger("pax_id", reqNode)));
     res.toXML(NewTextChild(resNode, (const char*)reqNode->name));
   }
   catch(const std::exception& e)
@@ -810,10 +813,10 @@ void MobilePaymentInterface::getPassengerInfo(XMLRequestCtxt *ctxt, xmlNodePtr r
 namespace ASTRA
 {
 
-template<> const Segment& SegmentCache::add(const CheckIn::TPaxSegmentPair& segmentPair) const
+template<> const Segment& SegmentCache::add(const TPaxSegmentPair& segmentPair) const
 {
   TAdvTripRoute route;
-  route.getRouteBetween(segmentPair.point_dep, segmentPair.airp_arv);
+  route.getRouteBetween(segmentPair);
 
   if (route.size()<2)
   {

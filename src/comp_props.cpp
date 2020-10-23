@@ -13,13 +13,14 @@
 #include "salons.h"
 #include "seats.h"
 #include "seats_utils.h"
-#include "convert.h"
 #include "iatci.h"
 #include "iatci_help.h"
 #include "astra_misc.h"
 #include "tlg/tlg_parser.h" // only for convert_salons
 #include "term_version.h"
 #include "alarms.h"
+#include "flt_settings.h"
+
 #include "serverlib/str_utils.h"
 
 #define NICKNAME "DJEK"

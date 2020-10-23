@@ -1,5 +1,5 @@
 #!/bin/sh
-if [ -f ../externallibs/external_env_file ] ; then . ../externallibs/external_env_file ; fi
+if [ -f ../locallibs/external_env_file ] ; then . ../locallibs/external_env_file ; fi
 if [ $# -gt 0 ]
 then
     LC_ALL=C \

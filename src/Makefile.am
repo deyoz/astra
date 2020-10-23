@@ -34,7 +34,7 @@ xp-tests: clean-xp-tests
 	grep "100%: Checks" xp-tests.log > /dev/null 2>&1
 
 
-AM_CXXFLAGS = $(TCLINCLUDE) @PION_CFLAGS@ 
+AM_CXXFLAGS = $(TCLINCLUDE) @PION_CFLAGS@ @LIBTIMATIC_CXXFLAGS@
 astra_SOURCES = \
   adm.cc \
   access.cc \
@@ -74,11 +74,11 @@ astra_SOURCES = \
   cache.cc \
   cent.cc \
   checkin.cc \
+  checkin_segments.cc \
   checkin_utils.cc \
   ckin_search.cc \
   code_convert.cc \
   comp_layers.cc \
-  convert.cc \
   counters.cc \
   comp_props.cpp \
   crypt.cc \
@@ -94,10 +94,11 @@ astra_SOURCES = \
   etick.cc \
   events.cc \
   external_spp_synch.cc \
-  exch_checkin_result.cpp \  
+  exch_checkin_result.cpp \
   ExchangeIface.cc \
   ffp_sirena.cc \
   flt_binding.cc \
+  flt_settings.cc \
   flt_tasks_daemon.cc \
   file_queue.cc \
   hist.cc \
@@ -112,8 +113,11 @@ astra_SOURCES = \
   maindcs.cc \
   meridian.cc \
   mob_payment.cc \
+  MPSExchangeIface.cc \
   obrnosir.cc \
   passenger.cc \
+  passenger_callbacks.cc \
+  pax_calc_data.cc \
   payment.cc \
   payment_base.cc \
   pers_weights.cc \
@@ -137,6 +141,7 @@ astra_SOURCES = \
   seats_utils.cc \
   seats.cc \
   seat_descript.cc \
+  seat_number.cc \
   seatPax.cc \
   service_eval.cc \
   sirena_exchange.cc \
@@ -199,7 +204,15 @@ astra_SOURCES = \
   custom_alarms.cc \
   nosir_create_tlg.cc \
   prn_forms_layout.cc \
-  zamar_dsm.cpp
+  cuws_main.cc \
+  cuws_handlers.cc \
+  timatic.cc \
+  timatic_request.cc \
+  timatic_response.cc \
+  timatic_exchange.cc \
+  zamar_dsm.cpp \
+  pg_session.cc \
+  base_callbacks.cpp
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
@@ -208,6 +221,7 @@ astra_LDADD = $(all_libraries) \
 	kiosk/libkiosk.a \
 	crafts/libcraft.a \
 	tests/libtests.a \
+	@LIBTIMATIC_LIBS@ \
 	@SHARED_LIBS@ @SHARED_DEPEND_LIBS@ \
 	@LIBTLG_LIBS@ \
 	@SERVERLIB_LIBS@ \
@@ -278,11 +292,11 @@ noinst_HEADERS = \
   cache.h \
   cent.h \
   checkin.h \
+  checkin_segments.h \
   checkin_utils.h \
   ckin_search.h \
   code_convert.h \
   comp_layers.h \
-  convert.h \
   counters.h \
   comp_props.h \
   crypt.h \
@@ -297,10 +311,11 @@ noinst_HEADERS = \
   etick.h \
   events.h \
   external_spp_synch.h \
-  exch_checkin_result.h \  
+  exch_checkin_result.h \
   ExchangeIface.h \
   ffp_sirena.h \
   flt_binding.h \
+  flt_settings.h \
   file_queue.h \
   hist.h \
   hist_interface.h \
@@ -314,8 +329,11 @@ noinst_HEADERS = \
   maindcs.h \
   meridian.h \
   mob_payment.h \
+  MPSExchangeIface.h \  
   obrnosir.h \
   passenger.h \
+  passenger_callbacks.h \
+  pax_calc_data.h \
   payment.h \
   payment_base.h \
   pers_weights.h \
@@ -339,6 +357,7 @@ noinst_HEADERS = \
   seats_utils.h \
   seats.h \
   seat_descript.h \
+  seat_number.h \
   seatPax.h \
   service_eval.h \
   sirena_exchange.h \
@@ -395,4 +414,14 @@ noinst_HEADERS = \
   custom_alarms.h \
   nosir_create_tlg.h \
   prn_forms_layout.h \
-  zamar_dsm.h
+  cuws_main.h \
+  cuws_handlers.h \
+  http_consts.h \
+  timatic.h \
+  timatic_request.h \
+  timatic_response.h \
+  timatic_exchange.h \
+  zamar_dsm.h \
+  astra_types.h \
+  pg_session.h \
+  base_callbacks.h

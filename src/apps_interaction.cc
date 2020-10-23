@@ -808,13 +808,17 @@ void TPaxAddData::init( const int pax_id, const int ver )
   if ( !CheckIn::LoadPaxDoco( pax_id, doco ) )
     CheckIn::LoadCrsPaxVisa( pax_id, doco );
 
-  CheckIn::TPaxDocaItem docaD;
-  if ( !CheckIn::LoadPaxDoca( pax_id, CheckIn::docaDestination, docaD ) )
+  CheckIn::TPaxDocaItem docaD;  //!!!vlad неправильно вычисляется, должно зависеть от paxOrigin
+
+  CheckIn::TDocaMap docaMap;
+  CheckIn::LoadPaxDoca(pax_id, docaMap);
+  boost::optional<CheckIn::TPaxDocaItem> docaOpt=docaMap.get(apiDocaD);
+  if (!docaOpt)
   {
-    CheckIn::TDocaMap doca_map;
-    CheckIn::LoadCrsPaxDoca( pax_id, doca_map );
-    docaD = doca_map[apiDocaD];
+    CheckIn::LoadCrsPaxDoca(pax_id, docaMap);
+    docaOpt=docaMap.get(apiDocaD);
   }
+  if (docaOpt) docaD=docaOpt.get();
 
   if (!doco.applic_country.empty())
   {
@@ -952,22 +956,25 @@ bool TPaxRequest::getByPaxId( const int pax_id, const std::string& override_type
   int grp_id = Qry.FieldAsInteger("grp_id");
 
   // проверим исходящий трансфер
-  TCkinRouteItem next;
-  TCkinRoute().GetNextSeg(grp_id, crtIgnoreDependent, next );
-  if ( !next.airp_arv.empty() )
+  auto next=TCkinRoute::getNextGrp(GrpId_t(grp_id),
+                                   TCkinRoute::IgnoreDependence,
+                                   TCkinRoute::WithoutTransit);
+  if ( next )
   {
     string country_arv = getCountryByAirp( airp_arv ).code;
     if ( isAPPSCountry( country_arv, airline.code ) &&
-       ( getCountryByAirp( next.airp_arv ).code != country_arv ) )
+       ( getCountryByAirp( next.get().airp_arv ).code != country_arv ) )
       transfer = Dest;
   }
-  tckin_route.GetRouteBefore( grp_id, crtNotCurrent, crtIgnoreDependent );
+  tckin_route.getRouteBefore( GrpId_t(grp_id),
+                              TCkinRoute::NotCurrent,
+                              TCkinRoute::IgnoreDependence,
+                              TCkinRoute::WithoutTransit );
   if ( !tckin_route.empty() )
   {
     ckin_flt.init( tckin_route.front().point_dep, "CHK", version );
-    TCkinRouteItem prior;
+    TCkinRouteItem prior(tckin_route.back());
     // проверим входящий трансфер
-    prior = tckin_route.back();
     if ( !prior.airp_dep.empty() )
     {
       string country_dep = getCountryByAirp(Qry.FieldAsString("airp_dep")).code;

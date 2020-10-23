@@ -7,6 +7,9 @@
 #include "iapi_interaction.h"
 #include "tlg/tlg.h"
 #include "tlg/typeb_template_init.h"
+#include "passenger_callbacks.h"
+#include "base_callbacks.h"
+#include "pax_calc_data.h"
 
 #include <jxtlib/JxtInterface.h>
 #include <serverlib/ocilocal.h>
@@ -123,11 +126,10 @@ int init_locale(void)
     typeb_parser::typeb_template_init();
     init_tlg_callbacks();
     init_pnr_callbacks();
-    init_fqt_callbacks();
     init_rfisc_callbacks();
-    init_ticket_callbacks();
-    init_asvc_callbacks();
+    initPassengerCallbacks();
     IAPI::init_callbacks();
+    PaxCalcData::init_callbacks();
     TlgLogger::setLogging();
     return 0;
 }

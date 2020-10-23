@@ -5,7 +5,6 @@
 #include "astra_date_time.h"
 #include "exceptions.h"
 #include "oralib.h"
-#include "convert.h"
 #include "astra_locale.h"
 #include "seats_utils.h"
 #include "aodb.h"
@@ -18,6 +17,7 @@
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/slogger.h"
 #include "apis_utils.h"
+#include <serverlib/cursctl.h>
 
 using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
@@ -391,6 +391,24 @@ bool TAdvTripInfo::getByPointId ( const int point_id,
   return getByPointId(NoExists, point_id, props);
 }
 
+bool TAdvTripInfo::transitable(const PointId_t& pointId)
+{
+  auto cur = make_curs("SELECT 1 AS transitable "
+                       "FROM points a, points b "
+                       "WHERE b.move_id=a.move_id AND "
+                       "      a.point_id=:point_id AND a.pr_del=0 AND "
+                       "      b.point_num<a.point_num AND b.pr_del=0 AND "
+                       "      rownum<2");
+
+  bool result=false;
+
+  cur.def(result)
+     .bind(":point_id", pointId.get())
+     .EXfet();
+
+  return result;
+}
+
 string TLastTrferInfo::str()
 {
   ostringstream trip;
@@ -402,96 +420,7 @@ string TLastTrferInfo::str()
        << ElemIdToCodeNative(etSuffix, suffix)
        << ')';
   return trip.str();
-};
-
-bool DefaultTripSets( const TTripSetType setType )
-{
-  return setType==tsOverloadReg ||
-         setType==tsAPISControl;
 }
-
-bool GetTripSets( const TTripSetType setType,
-                  const TTripInfo &info )
-{
-  if (!(setType>=0 && setType<100))
-    throw Exception("%s: wrong setType=%d", __FUNCTION__, (int)setType);
-
-  TQuery Qry( &OraSession );
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT pr_misc, "
-    "    DECODE(airline,NULL,0,8)+ "
-    "    DECODE(flt_no,NULL,0,2)+ "
-    "    DECODE(airp_dep,NULL,0,4) AS priority "
-    "FROM misc_set "
-    "WHERE type=:type AND "
-    "      (airline IS NULL OR airline=:airline) AND "
-    "      (flt_no IS NULL OR flt_no=:flt_no) AND "
-    "      (airp_dep IS NULL OR airp_dep=:airp_dep) "
-    "ORDER BY priority DESC";
-  Qry.CreateVariable("type",otInteger,(int)setType);
-  Qry.CreateVariable("airline",otString,info.airline);
-  Qry.CreateVariable("flt_no",otInteger,info.flt_no);
-  Qry.CreateVariable("airp_dep",otString,info.airp);
-  Qry.Execute();
-  if (Qry.Eof) return DefaultTripSets(setType);
-  return Qry.FieldAsInteger("pr_misc")!=0;
-};
-
-bool GetSelfCkinSets( const TTripSetType setType,
-                      const int point_id,
-                      const ASTRA::TClientType client_type )
-{
-  if (point_id==ASTRA::NoExists)
-    throw Exception("%s: wrong point_id=NoExists", __FUNCTION__);
-  TCachedQuery Qry("SELECT airline, flt_no, suffix, airp, scd_out FROM points WHERE point_id=:point_id AND pr_del>=0",
-                   QParams() << QParam("point_id", otInteger, point_id));
-  Qry.get().Execute();
-  if (Qry.get().Eof) return false;
-  TTripInfo info(Qry.get());
-  return GetSelfCkinSets(setType, info, client_type);
-};
-
-bool GetSelfCkinSets(const TTripSetType setType,
-                     const TTripInfo &info,
-                     const ASTRA::TClientType client_type )
-{
-  if (!(setType>=200 && setType<300))
-    throw Exception("%s: wrong setType=%d", __FUNCTION__, (int)setType);
-  if (!(client_type==ctWeb ||
-        client_type==ctKiosk ||
-        client_type==ctMobile))
-    throw Exception("%s: wrong client_type=%s (setType=%d)", __FUNCTION__, EncodeClientType(client_type), (int)setType);
-  TQuery Qry( &OraSession );
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT value, "
-    "    DECODE(client_type,NULL,0,1)+ "
-    "    DECODE(airline,NULL,0,8)+ "
-    "    DECODE(flt_no,NULL,0,2)+ "
-    "    DECODE(airp_dep,NULL,0,4) AS priority "
-    "FROM self_ckin_set "
-    "WHERE type=:type AND "
-    "      (airline IS NULL OR airline=:airline) AND "
-    "      (flt_no IS NULL OR flt_no=:flt_no) AND "
-    "      (airp_dep IS NULL OR airp_dep=:airp_dep) AND "
-    "      (client_type IS NULL OR client_type=:client_type) "
-    "ORDER BY priority DESC";
-  Qry.CreateVariable("type",otInteger,(int)setType);
-  Qry.CreateVariable("airline",otString,info.airline);
-  Qry.CreateVariable("flt_no",otInteger,info.flt_no);
-  Qry.CreateVariable("airp_dep",otString,info.airp);
-  Qry.CreateVariable("client_type",otString,EncodeClientType(client_type));
-  Qry.Execute();
-  if (Qry.Eof)
-  {
-    switch(setType)
-    {
-      default: return false;
-    };
-  };
-  return Qry.FieldAsInteger("value")!=0;
-};
 
 TDateTime DayMonthToDate(int day, int month, TDateTime base_date, TDateDirection direction)
 {
@@ -1026,266 +955,324 @@ std::string flight_view(int grp_id, int seg_no)
   return "";
 }
 
-/*
-GetRouteAfterByET() {}
-
-GetRouteByET(int pax_id)
+TCkinRouteItem::TCkinRouteItem(TQuery &Qry)
 {
-  "SELECT ticket_no, coupon_no FROM pax WHERE pax_id=  "
+  grp_num=Qry.FieldAsInteger("grp_num");
+  seg_no=Qry.FieldAsInteger("seg_no");
+  transit_num=Qry.FieldAsInteger("transit_num");
+  pr_depend=Qry.FieldAsInteger("pr_depend")!=0;
+
+  grp_id=Qry.FieldAsInteger("grp_id");
+  point_dep=Qry.FieldAsInteger("point_dep");
+  point_arv=Qry.FieldAsInteger("point_arv");
+  airp_dep=Qry.FieldAsString("airp_dep");
+  airp_arv=Qry.FieldAsString("airp_arv");
+  status=DecodePaxStatus(Qry.FieldAsString("status"));
+  operFlt.Init(Qry);
 }    
-*/
     
-bool TCkinRoute::GetRouteByET(
-        int pax_id,
-        bool after_current,
-        TCkinRouteType1 route_type1
-        )
-{
-    clear();
-    TQuery Qry(&OraSession);
-    Qry.Clear();
-    Qry.SQLText="SELECT ticket_no, coupon_no FROM pax WHERE pax_id=:pax_id";
-    Qry.CreateVariable("pax_id", otInteger, pax_id);
-    Qry.Execute();
-    if (Qry.Eof) return false;
-    GetRouteByET(Qry.FieldAsString("ticket_no"),
-            Qry.FieldAsInteger("coupon_no"),
-            after_current,route_type1,Qry);
-    return true;
-}
-
-void TCkinRoute::GetRouteByET(
-        const string &tick_no,
-        int coupon_no,
-        bool after_current,
-        TCkinRouteType1 route_type1,
-        TQuery& Qry
-        )
-{
-    ostringstream sql;
-    sql << "SELECT " + TTripInfo::selectedFields("points") + ", "
-        "       pax_grp.grp_id, pax_grp.point_dep, pax_grp.point_arv, "
-        "       pax_grp.airp_dep, pax_grp.airp_arv "
-        "FROM points, pax_grp, pax "
-        "WHERE points.point_id=pax_grp.point_dep AND "
-        "      pax_grp.grp_id=pax.grp_id AND "
-        "      pax.ticket_no=:tick_no ";
-    if (after_current)
-        sql << "AND coupon_no>=:coupon_no "
-            << "ORDER BY coupon_no ASC ";
-    else
-        sql << "AND coupon_no<=:coupon_no "
-            << "ORDER BY coupon_no DESC ";
-    Qry.Clear();
-    Qry.SQLText = sql.str().c_str();
-    Qry.CreateVariable("tick_no", otString, tick_no);
-    Qry.CreateVariable("coupon_no", otInteger, coupon_no);
-    Qry.Execute();
-    if (!Qry.Eof && Qry.FieldAsInteger("coupon_no")==coupon_no)
-    {
-        for(;!Qry.Eof;)
-        {
-            TCkinRouteItem item;
-            item.fromDB(Qry);
-
-            Qry.Next();
-
-            if (route_type1==crtNotCurrent && item.coupon_no==coupon_no) continue;
-            push_back(item);
-        };
-        if (!after_current) reverse(begin(),end());
-    };
-}
-
-void TCkinRoute::GetRoute(int tckin_id,
-                          int seg_no,
-                          bool after_current,
-                          TCkinRouteType1 route_type1,
-                          TCkinRouteType2 route_type2,
-                          TQuery& Qry)
+std::string TCkinRoute::getSelectSQL(const Direction direction,
+                                     const std::string& subselect)
 {
   ostringstream sql;
-  sql << "SELECT " + TTripInfo::selectedFields("points") + ", "
-         "       pax_grp.grp_id, pax_grp.point_dep, pax_grp.point_arv, "
-         "       pax_grp.airp_dep, pax_grp.airp_arv, "
-         "       tckin_pax_grp.seg_no, tckin_pax_grp.pr_depend "
-         "FROM points, pax_grp, tckin_pax_grp "
-         "WHERE points.point_id=pax_grp.point_dep AND "
-         "      pax_grp.grp_id=tckin_pax_grp.grp_id AND "
-         "      tckin_pax_grp.tckin_id=:tckin_id ";
-  if (after_current)
+  sql << "SELECT " << TTripInfo::selectedFields("points") << ", \n"
+         "       pax_grp.grp_id, pax_grp.point_dep, pax_grp.point_arv, \n"
+         "       pax_grp.airp_dep, pax_grp.airp_arv, pax_grp.status, \n"
+         "       tckin_pax_grp.grp_num, tckin_pax_grp.seg_no, \n"
+         "       tckin_pax_grp.transit_num, tckin_pax_grp.pr_depend, \n"
+         "       key.grp_num AS current_grp_num \n"
+         "FROM points, pax_grp, tckin_pax_grp, \n"
+         "(" + subselect + ") key \n"
+         "WHERE points.point_id=pax_grp.point_dep AND \n"
+         "      pax_grp.grp_id=tckin_pax_grp.grp_id AND \n"
+         "      tckin_pax_grp.tckin_id=key.tckin_id \n";
+  switch(direction)
   {
-    sql << "AND tckin_pax_grp.seg_no>=:seg_no "
-        << "ORDER BY seg_no ASC";
+    case After:
+      sql << "      AND tckin_pax_grp.grp_num>=key.grp_num \n";
+      break;
+    case Before:
+      sql << "      AND tckin_pax_grp.grp_num<=key.grp_num \n";
+      break;
+    default:
+      break;
   }
-  else
-  {
+  sql << "ORDER BY grp_num ASC";
 
-    sql << "AND tckin_pax_grp.seg_no<=:seg_no "
-        << "ORDER BY seg_no DESC";
-  };
+  return sql.str();
+}
 
+boost::optional<int> TCkinRoute::getRoute(const int tckin_id,
+                                          const int grp_num,
+                                          const Direction direction)
+{
+  boost::optional<int> current_grp_num;
+
+  clear();
+
+  TQuery Qry(&OraSession);
   Qry.Clear();
-  Qry.SQLText= sql.str().c_str();
-  Qry.CreateVariable("tckin_id",otInteger,tckin_id);
-  Qry.CreateVariable("seg_no",otInteger,seg_no);
+  Qry.SQLText=getSelectSQL(direction,
+                           "SELECT :tckin_id AS tckin_id, :grp_num AS grp_num FROM dual");
+  Qry.CreateVariable("tckin_id", otInteger, tckin_id);
+  Qry.CreateVariable("grp_num", otInteger, grp_num);
   Qry.Execute();
-  if (!Qry.Eof && Qry.FieldAsInteger("seg_no")==seg_no)
+  if (!Qry.Eof) current_grp_num=Qry.FieldAsInteger("current_grp_num");
+  for(; !Qry.Eof; Qry.Next())
+    emplace_back(Qry);
+
+  return current_grp_num;
+}
+
+boost::optional<int> TCkinRoute::getRoute(const GrpId_t& grpId,
+                                          const Direction direction)
+{
+  boost::optional<int> current_grp_num;
+
+  clear();
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=getSelectSQL(direction,
+                           "SELECT tckin_id, grp_num FROM tckin_pax_grp WHERE grp_id=:grp_id");
+  Qry.CreateVariable("grp_id", otInteger, grpId.get());
+  Qry.Execute();
+  if (!Qry.Eof) current_grp_num=Qry.FieldAsInteger("current_grp_num");
+  for(; !Qry.Eof; Qry.Next())
+    emplace_back(Qry);
+
+  return current_grp_num;
+}
+
+boost::optional<int> TCkinRoute::getRoute(const PaxId_t& paxId,
+                                          const Direction direction)
+{
+  boost::optional<int> current_grp_num;
+
+  clear();
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=getSelectSQL(direction,
+                           "SELECT tckin_pax_grp.tckin_id, tckin_pax_grp.grp_num "
+                           "FROM pax, tckin_pax_grp "
+                           "WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.pax_id=:pax_id");
+  Qry.CreateVariable("pax_id", otInteger, paxId.get());
+  Qry.Execute();
+  if (!Qry.Eof) current_grp_num=Qry.FieldAsInteger("current_grp_num");
+  for(; !Qry.Eof; Qry.Next())
+    emplace_back(Qry);
+
+  return current_grp_num;
+}
+
+void TCkinRoute::applyFilter(const boost::optional<int>& current_grp_num,
+                             const Currentity currentity,
+                             const Dependence dependence,
+                             const GroupStatus groupStatus)
+{
+  if (!current_grp_num)
   {
-    bool pr_depend=true;
-    for(;!Qry.Eof;)
+    clear();
+    return;
+  }
+
+  if (dependence==OnlyDependent)
+  {
+    TCkinRoute::iterator endDependent=begin();
+    TCkinRoute::iterator beginDependent=endDependent;
+    for(; endDependent!=end(); ++endDependent)
     {
-      if (route_type2==crtOnlyDependent && !pr_depend) break;
+      if (!endDependent->pr_depend) beginDependent=endDependent;
 
-      TCkinRouteItem item;
-      item.fromDB(Qry);
+      if (endDependent->grp_num==current_grp_num.get()) break;
+    }
+    if (endDependent==end())
+      beginDependent=endDependent; //не нашли current_grp_num;
+    else
+      ++endDependent;
+    for(; endDependent!=end(); ++endDependent)
+    {
+      if (!endDependent->pr_depend) break;
+    }
 
-      if (!after_current) pr_depend=Qry.FieldAsInteger("pr_depend")!=0;
+    erase(endDependent, end());
+    erase(begin(), beginDependent);
+  }
 
-      Qry.Next();
+  if (groupStatus==WithoutTransit)
+    erase(std::remove_if(begin(), end(), [](const auto& item) { return item.transit_num!=0; }), end());
 
-      if (!Qry.Eof)
-      {
-        if (after_current) pr_depend=Qry.FieldAsInteger("pr_depend")!=0;
-      };
+  TCkinRoute::iterator curr=std::find_if(begin(), end(), [&](const auto& item) { return item.grp_num==current_grp_num.get(); });
+  if (curr==end())
+  {
+    clear();
+    return;
+  }
 
-      if (route_type1==crtNotCurrent && item.seg_no==seg_no) continue;
-      push_back(item);
-    };
-    if (!after_current) reverse(begin(),end());
-  };
-};
+  if (currentity==NotCurrent) erase(curr);
+}
 
-bool TCkinRoute::GetRoute(int grp_id,
-                          bool after_current,
-                          TCkinRouteType1 route_type1,
-                          TCkinRouteType2 route_type2)
+bool TCkinRoute::getRoute(const PaxId_t& paxId)
 {
-  clear();
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText="SELECT tckin_id,seg_no FROM tckin_pax_grp WHERE grp_id=:grp_id";
-  Qry.CreateVariable("grp_id", otInteger, grp_id);
-  Qry.Execute();
-  if (Qry.Eof) return false;
-  GetRoute(Qry.FieldAsInteger("tckin_id"),
-           Qry.FieldAsInteger("seg_no"),
-           after_current,route_type1,route_type2,Qry);
-  return true;
-};
+  const auto current_grp_num=getRoute(paxId, Full);
+  applyFilter(current_grp_num, WithCurrent, IgnoreDependence, WithoutTransit);
+  return current_grp_num;
+}
 
-bool TCkinRoute::GetRouteAfterByET(int pax_id,
-                               TCkinRouteType1 route_type1)
+bool TCkinRoute::getRoute(const GrpId_t& grpId,
+                          const Currentity currentity,
+                          const Dependence dependence,
+                          const GroupStatus groupStatus)
 {
-  return GetRouteByET(pax_id,true,route_type1);
-};
+  const auto current_grp_num=getRoute(grpId, Full);
+  applyFilter(current_grp_num, currentity, dependence, groupStatus);
+  return current_grp_num;
+}
 
-bool TCkinRoute::GetRouteBeforeByET(int pax_id,
-                               TCkinRouteType1 route_type1)
+bool TCkinRoute::getRouteAfter(const GrpId_t& grpId,
+                               const Currentity currentity,
+                               const Dependence dependence,
+                               const GroupStatus groupStatus)
 {
-  return GetRouteByET(pax_id,false,route_type1);
-};
+  const auto current_grp_num=getRoute(grpId, After);
+  applyFilter(current_grp_num, currentity, dependence, groupStatus);
+  return current_grp_num;
+}
 
-void TCkinRoute::GetRouteAfterByET(const string &tick_no,
-                               int coupon_no,
-                               TCkinRouteType1 route_type1)
+bool TCkinRoute::getRouteBefore(const GrpId_t& grpId,
+                                const Currentity currentity,
+                                const Dependence dependence,
+                                const GroupStatus groupStatus)
 {
-  clear();
-  TQuery Qry(&OraSession);
-  return GetRouteByET(tick_no,coupon_no,true,route_type1,Qry);
+  const auto current_grp_num=getRoute(grpId, Before);
+  applyFilter(current_grp_num, currentity, dependence, groupStatus);
+  return current_grp_num;
 };
 
-void TCkinRoute::GetRouteBeforeByET(const string &tick_no,
-                               int coupon_no,
-                               TCkinRouteType1 route_type1)
+boost::optional<TCkinRouteItem> TCkinRoute::getPriorGrp(const int tckin_id,
+                                                        const int grp_num,
+                                                        const Dependence dependence,
+                                                        const GroupStatus groupStatus)
 {
-  clear();
-  TQuery Qry(&OraSession);
-  return GetRouteByET(tick_no,coupon_no,false,route_type1,Qry);
-};
+  TCkinRoute route;
+  const auto current_grp_num=route.getRoute(tckin_id, grp_num, Before);
+  route.applyFilter(current_grp_num, NotCurrent, dependence, groupStatus);
+  if (route.empty()) return {};
+  return route.back();
+}
 
-
-bool TCkinRoute::GetRouteAfter(int grp_id,
-                               TCkinRouteType1 route_type1,
-                               TCkinRouteType2 route_type2)
+boost::optional<TCkinRouteItem> TCkinRoute::getPriorGrp(const GrpId_t& grpId,
+                                                        const Dependence dependence,
+                                                        const GroupStatus groupStatus)
 {
-  return GetRoute(grp_id,true,route_type1,route_type2);
-};
+  TCkinRoute route;
+  const auto current_grp_num=route.getRoute(grpId, Before);
+  route.applyFilter(current_grp_num, NotCurrent, dependence, groupStatus);
+  if (route.empty()) return {};
+  return route.back();
+}
 
-bool TCkinRoute::GetRouteBefore(int grp_id,
-                                TCkinRouteType1 route_type1,
-                                TCkinRouteType2 route_type2)
+boost::optional<TCkinRouteItem> TCkinRoute::getNextGrp(const GrpId_t& grpId,
+                                                       const Dependence dependence,
+                                                       const GroupStatus groupStatus)
 {
-  return GetRoute(grp_id,false,route_type1,route_type2);
-};
+  TCkinRoute route;
+  const auto current_grp_num=route.getRoute(grpId, After);
+  route.applyFilter(current_grp_num, NotCurrent, dependence, groupStatus);
+  if (route.empty()) return {};
+  return route.front();
+}
 
-void TCkinRoute::GetRouteAfter(int tckin_id,
-                               int seg_no,
-                               TCkinRouteType1 route_type1,
-                               TCkinRouteType2 route_type2)
+boost::optional<GrpId_t> TCkinRoute::toDB(const std::list<TCkinRouteInsertItem> &tckinGroups)
 {
-  clear();
-  TQuery Qry(&OraSession);
-  GetRoute(tckin_id,seg_no,
-           true,route_type1,route_type2,Qry);
-};
+  if (tckinGroups.size()<=1) return {};
 
-void TCkinRoute::GetRouteBefore(int tckin_id,
-                                int seg_no,
-                                TCkinRouteType1 route_type1,
-                                TCkinRouteType2 route_type2)
-{
-  clear();
-  TQuery Qry(&OraSession);
-  GetRoute(tckin_id,seg_no,
-           false,route_type1,route_type2,Qry);
-};
+  auto cur=make_curs("INSERT INTO tckin_pax_grp "
+                     "  (tckin_id, grp_num, seg_no, transit_num, grp_id, first_reg_no, pr_depend) "
+                     "VALUES "
+                     "  (:tckin_id, :grp_num, :seg_no, :transit_num, :grp_id, :first_reg_no, :pr_depend)");
 
-void TCkinRoute::GetNextSeg(int tckin_id,
-                            int seg_no,
-                            TCkinRouteType2 route_type2,
-                            TCkinRouteItem& item)
-{
-  item.Clear();
-  clear();
-  TQuery Qry(&OraSession);
-  GetRoute(tckin_id,seg_no,
-           true,crtNotCurrent,route_type2,Qry);
-  if (!empty()) item=front();
-};
+  bool firstGrp=true;
+  int grp_num=1;
+  int seg_no=1;
+  int transit_num=0;
 
-bool TCkinRoute::GetNextSeg(int grp_id,
-                            TCkinRouteType2 route_type2,
-                            TCkinRouteItem& item)
-{
-  item.Clear();
-  if (!GetRoute(grp_id,true,crtNotCurrent,route_type2)) return false;
-  if (!empty()) item=front();
-  return true;
-};
+  short null = -1, nnull = 0;
+  for(const auto& i : tckinGroups)
+  {
+    if (!firstGrp && i.status!=psTransit)
+    {
+      seg_no++;
+      transit_num=0;
+    }
 
-void TCkinRoute::GetPriorSeg(int tckin_id,
-                             int seg_no,
-                             TCkinRouteType2 route_type2,
-                             TCkinRouteItem& item)
-{
-  item.Clear();
-  clear();
-  TQuery Qry(&OraSession);
-  GetRoute(tckin_id,seg_no,
-           false,crtNotCurrent,route_type2,Qry);
-  if (!empty()) item=back();
-};
+    cur.bind(":tckin_id", tckinGroups.front().grpId.get())
+       .bind(":grp_num", grp_num++)
+       .bind(":seg_no", seg_no)
+       .bind(":transit_num", transit_num++)
+       .bind(":grp_id", i.grpId.get())
+       .bind(":first_reg_no", i.firstRegNo?i.firstRegNo.get().get():0, i.firstRegNo?&nnull:&null)
+       .bind(":pr_depend", !firstGrp)
+       .exec();
 
-bool TCkinRoute::GetPriorSeg(int grp_id,
-                             TCkinRouteType2 route_type2,
-                             TCkinRouteItem& item)
+    firstGrp=false;
+  }
+
+  return tckinGroups.front().grpId;
+}
+
+std::string TCkinRoute::copySubselectSQL(const std::string& mainTable,
+                                         const std::initializer_list<std::string>& otherTables,
+                                         const bool forEachPassenger)
 {
-  item.Clear();
-  if (!GetRoute(grp_id,false,crtNotCurrent,route_type2)) return false;
-  if (!empty()) item=back();
-  return true;
-};
+  std::ostringstream result;
+  result << "FROM " << mainTable << ", ";
+  for(const auto& tab : otherTables)
+    result << tab << ", ";
+
+  if (forEachPassenger)
+    result << "(SELECT pax.pax_id, "
+              "        tckin_pax_grp.grp_id, "
+              "        tckin_pax_grp.tckin_id, "
+              "        tckin_pax_grp.seg_no, "
+              "        tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
+              " FROM pax, tckin_pax_grp "
+              " WHERE pax.grp_id=tckin_pax_grp.grp_id AND "
+              "       tckin_pax_grp.transit_num=0 AND "
+              "       pax.grp_id=:grp_id_src) src, "
+              "(SELECT pax.pax_id, "
+              "        tckin_pax_grp.grp_id, "
+              "        tckin_pax_grp.tckin_id, "
+              "        tckin_pax_grp.seg_no, "
+              "        tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
+              " FROM pax, tckin_pax_grp "
+              " WHERE pax.grp_id=tckin_pax_grp.grp_id AND "
+              "       tckin_pax_grp.transit_num=0 AND "
+              "       pax.grp_id=:grp_id_dest) dest "
+              "WHERE src.tckin_id=dest.tckin_id AND "
+              "      src.distance=dest.distance AND "
+              "      " << mainTable << ".pax_id=src.pax_id AND "
+              "      " << mainTable << ".transfer_num+src.seg_no-dest.seg_no>=0 ";
+  else
+    result << "(SELECT tckin_pax_grp.grp_id, "
+              "        tckin_pax_grp.tckin_id, "
+              "        tckin_pax_grp.seg_no "
+              " FROM tckin_pax_grp "
+              " WHERE tckin_pax_grp.transit_num=0 AND "
+              "       tckin_pax_grp.grp_id=:grp_id_src) src, "
+              "(SELECT tckin_pax_grp.grp_id, "
+              "        tckin_pax_grp.tckin_id, "
+              "        tckin_pax_grp.seg_no "
+              " FROM tckin_pax_grp "
+              " WHERE tckin_pax_grp.transit_num=0 AND "
+              "       tckin_pax_grp.grp_id=:grp_id_dest) dest "
+              "WHERE src.tckin_id=dest.tckin_id AND "
+              "      " << mainTable << ".grp_id=src.grp_id AND "
+              "      " << mainTable << ".transfer_num+src.seg_no-dest.seg_no>=0 ";
+
+  return result.str();
+}
 
 const TSimpleMktFlight& TSimpleMktFlight::toXML(xmlNodePtr node,
                                                 const boost::optional<AstraLocale::OutputLang>& lang) const
@@ -1502,22 +1489,6 @@ const TGrpMktFlight& TGrpMktFlight::toDB(TQuery &Qry) const
   return *this;
 }
 
-TCkinRouteItem& TCkinRouteItem::fromDB(TQuery &Qry)
-{
-    Clear();
-    grp_id=Qry.FieldAsInteger("grp_id");
-    point_dep=Qry.FieldAsInteger("point_dep");
-    point_arv=Qry.FieldAsInteger("point_arv");
-    airp_dep=Qry.FieldAsString("airp_dep");
-    airp_arv=Qry.FieldAsString("airp_arv");
-    if(Qry.GetFieldIndex("seg_no") >= 0)
-        seg_no=Qry.FieldAsInteger("seg_no");
-    if(Qry.GetFieldIndex("coupon_no") >= 0)
-        coupon_no=Qry.FieldAsInteger("coupon_no");
-    operFlt.Init(Qry);
-    return *this;
-}
-
 TGrpMktFlight& TGrpMktFlight::fromDB(TQuery &Qry)
 {
   clear();
@@ -1549,104 +1520,72 @@ bool TGrpMktFlight::getByGrpId(int grp_id)
   return true;
 }
 
+static string whereSQL(const TCkinSegmentSet& setting)
+{
+  switch (setting)
+  {
+    case cssAllPrev:
+      return " WHERE tckin_id=:tckin_id AND grp_num<:grp_num";
+    case cssAllPrevCurr:
+      return " WHERE tckin_id=:tckin_id AND grp_num<=:grp_num";
+    case cssAllPrevCurrNext:
+      return " WHERE tckin_id=:tckin_id AND grp_num<=:grp_num+1";
+    case cssCurr:
+      return " WHERE tckin_id=:tckin_id AND grp_num=:grp_num";
+    default:
+      return "";
+  };
+}
+
 int SeparateTCkin(int grp_id,
                   TCkinSegmentSet upd_depend,
                   TCkinSegmentSet upd_tid,
                   int tid)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT tckin_id,seg_no FROM tckin_pax_grp WHERE grp_id=:grp_id";
-  Qry.CreateVariable("grp_id",otInteger,grp_id);
-  Qry.Execute();
-  if (Qry.Eof) return NoExists;
+  int tckin_id=NoExists;
+  int grp_num=NoExists;
 
-  int tckin_id=Qry.FieldAsInteger("tckin_id");
-  int seg_no=Qry.FieldAsInteger("seg_no");
+  auto cur=make_curs("SELECT tckin_id, grp_num FROM tckin_pax_grp WHERE grp_id=:grp_id");
+
+  cur.bind(":grp_id", grp_id)
+     .def(tckin_id)
+     .def(grp_num)
+     .EXfet();
+
+  if (cur.err() == NO_DATA_FOUND) return NoExists;
 
   if (upd_depend==cssNone) return tckin_id;
 
-  ostringstream sql;
-  string where_str;
-
-  if (tid!=NoExists)
+  if (tid!=NoExists && upd_tid!=cssNone)
   {
-    switch (upd_tid)
-    {
-      case cssAllPrev:
-        where_str=" WHERE tckin_id=:tckin_id AND seg_no<:seg_no";
-        break;
-      case cssAllPrevCurr:
-        where_str=" WHERE tckin_id=:tckin_id AND seg_no<=:seg_no";
-        break;
-      case cssAllPrevCurrNext:
-        where_str=" WHERE tckin_id=:tckin_id AND seg_no<=:seg_no+1";
-        break;
-      case cssCurr:
-        where_str=" WHERE tckin_id=:tckin_id AND seg_no=:seg_no";
-        break;
-      default:
-        where_str="";
-    };
-    if (!where_str.empty())
-    {
-      sql.str("");
-      sql << "UPDATE pax_grp SET tid=:tid "
-          << "WHERE grp_id IN (SELECT grp_id FROM tckin_pax_grp " << where_str << ") ";
+    auto upd=make_curs("UPDATE pax_grp SET tid=:tid "
+                  "WHERE grp_id IN (SELECT grp_id FROM tckin_pax_grp " + whereSQL(upd_tid) + ") ");
+    upd.bind(":tckin_id", tckin_id)
+       .bind(":grp_num", grp_num)
+       .bind(":tid", tid)
+       .exec();
+  }
 
-      Qry.Clear();
-      Qry.SQLText=sql.str().c_str();
-      Qry.CreateVariable("tckin_id",otInteger,tckin_id);
-      Qry.CreateVariable("seg_no",otInteger,seg_no);
-      Qry.CreateVariable("tid",otInteger,tid);
-      Qry.Execute();
-    };
-  };
 
-  switch (upd_depend)
-  {
-    case cssAllPrev:
-      where_str=" WHERE tckin_id=:tckin_id AND seg_no<:seg_no";
-      break;
-    case cssAllPrevCurr:
-      where_str=" WHERE tckin_id=:tckin_id AND seg_no<=:seg_no";
-      break;
-    case cssAllPrevCurrNext:
-      where_str=" WHERE tckin_id=:tckin_id AND seg_no<=:seg_no+1";
-      break;
-    case cssCurr:
-      where_str=" WHERE tckin_id=:tckin_id AND seg_no=:seg_no";
-      break;
-    default:
-      where_str="";
-  };
-  if (!where_str.empty())
-  {
-    sql.str("");
-    sql << "UPDATE tckin_pax_grp SET pr_depend=0 " << where_str;
-
-    Qry.Clear();
-    Qry.SQLText=sql.str().c_str();
-    Qry.CreateVariable("tckin_id",otInteger,tckin_id);
-    Qry.CreateVariable("seg_no",otInteger,seg_no);
-    Qry.Execute();
-  };
+  auto upd=make_curs("UPDATE tckin_pax_grp SET pr_depend=0 " + whereSQL(upd_depend));
+  upd.bind(":tckin_id", tckin_id)
+     .bind(":grp_num", grp_num)
+     .exec();
 
   return tckin_id;
-};
+}
 
 class TCkinIntegritySeg
 {
   public:
-    int seg_no;
+    int grp_num;
     int grp_id;
     bool pr_depend;
     map<int/*pax_no=reg_no-first_reg_no*/, string/*refuse*/> pax;
-    TCkinIntegritySeg(int vseg_no, int vgrp_id, bool vpr_depend):
-      seg_no(vseg_no),
+    TCkinIntegritySeg(int vgrp_num, int vgrp_id, bool vpr_depend):
+      grp_num(vgrp_num),
       grp_id(vgrp_id),
-      pr_depend(vpr_depend) {};
+      pr_depend(vpr_depend) {}
 };
 
 void CheckTCkinIntegrity(const set<int> &tckin_ids, int tid)
@@ -1657,11 +1596,11 @@ void CheckTCkinIntegrity(const set<int> &tckin_ids, int tid)
   Qry.Clear();
   Qry.SQLText=
     "SELECT pax.reg_no, pax.refuse, "
-    "       tckin_pax_grp.seg_no, tckin_pax_grp.grp_id, "
+    "       tckin_pax_grp.grp_num, tckin_pax_grp.grp_id, "
     "       tckin_pax_grp.first_reg_no, tckin_pax_grp.pr_depend "
     "FROM pax, tckin_pax_grp "
     "WHERE tckin_pax_grp.grp_id=pax.grp_id AND tckin_id=:tckin_id "
-    "ORDER BY seg_no ";
+    "ORDER BY grp_num ";
   Qry.DeclareVariable("tckin_id", otInteger);
 
   TQuery UpdQry(&OraSession);
@@ -1687,21 +1626,21 @@ void CheckTCkinIntegrity(const set<int> &tckin_ids, int tid)
     Qry.Execute();
     if (Qry.Eof) continue;
 
-    int prior_seg_no=NoExists;
+    int prior_grp_num=NoExists;
     int first_reg_no=NoExists;
-    map<int/*seg_no*/, TCkinIntegritySeg> segs;
-    map<int/*seg_no*/, TCkinIntegritySeg>::iterator iSeg=segs.end();
+    map<int/*grp_num*/, TCkinIntegritySeg> segs;
+    map<int/*grp_num*/, TCkinIntegritySeg>::iterator iSeg=segs.end();
     for(;!Qry.Eof;Qry.Next())
     {
-      int curr_seg_no=Qry.FieldAsInteger("seg_no");
-      if (prior_seg_no==NoExists || prior_seg_no!=curr_seg_no)
+      int curr_grp_num=Qry.FieldAsInteger("grp_num");
+      if (prior_grp_num==NoExists || prior_grp_num!=curr_grp_num)
       {
-        iSeg=segs.insert(make_pair(curr_seg_no,
-                                   TCkinIntegritySeg(curr_seg_no,
-                                                     Qry.FieldAsInteger("grp_id"),
-                                                     Qry.FieldAsInteger("pr_depend")!=0))).first;
+        iSeg=segs.emplace(curr_grp_num,
+                          TCkinIntegritySeg(curr_grp_num,
+                                            Qry.FieldAsInteger("grp_id"),
+                                            Qry.FieldAsInteger("pr_depend")!=0)).first;
         first_reg_no=Qry.FieldIsNULL("first_reg_no")?NoExists:Qry.FieldAsInteger("first_reg_no");
-        prior_seg_no=curr_seg_no;
+        prior_grp_num=curr_grp_num;
       };
 
       if (first_reg_no!=NoExists && iSeg!=segs.end())
@@ -1710,20 +1649,20 @@ void CheckTCkinIntegrity(const set<int> &tckin_ids, int tid)
       };
     };
 
-    map<int/*seg_no*/, TCkinIntegritySeg>::const_iterator iPriorSeg=segs.end();
-    for(map<int/*seg_no*/, TCkinIntegritySeg>::const_iterator iCurrSeg=segs.begin(); iCurrSeg!=segs.end(); ++iCurrSeg)
+    map<int/*grp_num*/, TCkinIntegritySeg>::const_iterator iPriorSeg=segs.end();
+    for(map<int/*grp_num*/, TCkinIntegritySeg>::const_iterator iCurrSeg=segs.begin(); iCurrSeg!=segs.end(); ++iCurrSeg)
     {
       /*
-      ProgTrace(TRACE5,"CheckTCkinIntegrity: tckin_id=%d seg_no=%d grp_id=%d pr_depend=%d",
+      ProgTrace(TRACE5,"CheckTCkinIntegrity: tckin_id=%d grp_num=%d grp_id=%d pr_depend=%d",
                        *tckin_id,
-                       iCurrSeg->second.seg_no,
+                       iCurrSeg->second.grp_num,
                        iCurrSeg->second.grp_id,
                        (int)iCurrSeg->second.pr_depend);
       for(map<int, string>::const_iterator p=iCurrSeg->second.pax.begin();p!=iCurrSeg->second.pax.end();++p)
       {
-        ProgTrace(TRACE5,"CheckTCkinIntegrity: tckin_id=%d seg_no=%d pax_no=%d refuse=%s",
+        ProgTrace(TRACE5,"CheckTCkinIntegrity: tckin_id=%d grp_num=%d pax_no=%d refuse=%s",
                          *tckin_id,
-                         iCurrSeg->second.seg_no,
+                         iCurrSeg->second.grp_num,
                          p->first,
                          p->second.c_str());
       };
@@ -1732,7 +1671,7 @@ void CheckTCkinIntegrity(const set<int> &tckin_ids, int tid)
       {
 
         if (iPriorSeg==segs.end() || //первый сегмент
-            iPriorSeg->second.seg_no+1!=iCurrSeg->second.seg_no ||
+            iPriorSeg->second.grp_num+1!=iCurrSeg->second.grp_num ||
             iPriorSeg->second.pax!=iCurrSeg->second.pax)
         {
           UpdQry.SetVariable("grp_id", iCurrSeg->second.grp_id);
@@ -2464,15 +2403,3 @@ void TInfantAdults::clear()
    temp_parent_id = NoExists;
 }
 
-void TAdvTripRoute::getRouteBetween(int point_dep, const string& airp_arv)
-{
-  clear();
-  GetRouteAfter(NoExists, point_dep, trtWithCurrent, trtNotCancelled);
-  TAdvTripRoute::iterator i=begin();
-  for(; i!=end(); ++i)
-    if (i->airp==airp_arv) break;
-  if (i!=end())
-    erase(++i, end());
-  else
-   clear();
-}

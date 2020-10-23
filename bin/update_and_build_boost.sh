@@ -9,8 +9,8 @@ uab_config_and_build() {
 prefix=${1:?no prefix parameter}
 
 toolset=''
-[[ $CC =~ clang ]] && toolset="clang"
-[[ $CC =~ gcc ]] && toolset="gcc"
+[[ $LOCALCC =~ clang ]] && toolset="clang"
+[[ $LOCALCC =~ gcc ]] && toolset="gcc"
 
 userconfigjam=~/user-config.jam
 [ -f $userconfigjam ] && die 1 "$userconfigjam is already here - another $0 is running? If not, remove the file and try again."
@@ -18,9 +18,25 @@ userconfigjam=~/user-config.jam
 cxxflags=''
 b2_options='--disable-icu'
 if [ -n "$toolset" ]; then
-    cat <<EOF > $userconfigjam
+    for tok in $LOCALCXX; do
+        if [[ $tok = -* ]] ; then
+            [[ $tok != -fsanitize=* ]] && [[ $tok != -$PLATFORM ]] && cxxflags="$cxxflags cxxflags=$tok"
+        elif [ -z "$b2_options" ] && which $tok && $tok --version && $tok -dumpversion; then
+            cxx=`which $tok`
+            cxx_version=`$cxx -dumpversion`
+            if ! which $toolset &> /dev/null || [ "$cxx_version" != "`$toolset -dumpversion`" ]; then
+                cat <<EOF > $userconfigjam
 using $toolset : $cxx_version : $cxx ;
 EOF
+                if [ -n "$cxx_version" ]; then
+                    b2_options="toolset=$toolset-$cxx_version"
+                fi
+            fi
+        fi
+    done
+    if [ -z "$b2_options" ]; then
+        b2_options="toolset=$toolset"
+    fi
 fi
 
 # pyconfig.h compile error fix
@@ -32,32 +48,15 @@ glibcxxdebug=''
 if [ -n "$python_include_path" ]; then
     cxxflags="$cxxflags cxxflags='$python_include_path'"
 fi
-
-for f in $CXXFLAGS; do
-    if [[ "$f" = "-m32" ]] || [[ "$f" = "-m64" ]] ; then
-        address_model="address-model=$(echo "$f" | cut -c3-)"
-    fi;
-
-    if [[ "$f" = -std=* ]] ; then
-        cxxflags="$cxxflags cxxflags=$f"
-
-        std=$(echo $f | cut -c5-)
-        case $std in
-            "c++11")
-                cxxflags="$cxxflags cxxflags=-DBOOST_NO_CXX11_SCOPED_ENUMS cxxflags=-DBOOST_NO_CXX11_EXPLICIT_CONVERSION_OPERATORS"
-            ;;
-        esac;
-    fi;
-done;
-
-for f in $LDFLAGS; do
-    linkflags="$linkflags linkflags=$f"
-done;
-
+[ -n "$CPP_STD_VERSION" ] && cxxflags="$cxxflags cxxflags=-std=$CPP_STD_VERSION"
 if [ "${SIRENA_USE_LIBCXX:-}" = "1" ]; then
     cxxflags="$cxxflags cxxflags=-stdlib=libc++ linkflags=-stdlib=libc++"
 fi
 #cxxflags="cxxflags=-fPIC linkflags=-fPIC $cxxflags"
+
+address_model=''
+[ "${PLATFORM:-}" = "m64" ] && address_model='address-model=64'
+[ "${PLATFORM:-}" = "m32" ] && address_model='address-model=32'
 
 b2_options="$b2_options threading=multi --layout=system"
 [[ ${SIRENA_ENABLE_SHARED:-} == 1 ]] && b2_options="$b2_options link=shared runtime-link=shared"
@@ -262,11 +261,8 @@ echo '--- boost/optional/optional_fwd.hpp 2016-07-04 18:12:16.088459101 +0300
 ' | patch -p0
 
 sed -i 's/print sys\.prefix/print(sys.prefix)/' ./bootstrap.sh
-./bootstrap.sh --prefix=$prefix --without-icu
-
-TOOLCHAIN_FLAGS="$TCH_BOOST_INCLUDES $TCH_BOOST_LINKFLAGS"
-
-b2_build_flags="$cxxflags $linkflags $TOOLCHAIN_FLAGS $glibcxxdebug $address_model $b2_options --build_dir=/tmp/boost_build/$prefix --prefix=$prefix -j${MAKE_J:-3}"
+CC="$LOCALCC" ./bootstrap.sh --prefix=$prefix --without-icu
+b2_build_flags="$cxxflags $glibcxxdebug $address_model $b2_options --build_dir=/tmp/boost_build/$prefix --prefix=$prefix -j${MAKE_J:-3}"
 echo "./b2 $b2_build_flags clean" > build.clean
 echo "./b2 $b2_build_flags stage" | tee build.stage
 ./b2 $b2_build_flags stage > /dev/null #really annoying output

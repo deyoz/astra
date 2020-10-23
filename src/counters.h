@@ -3,7 +3,7 @@
 #include "oralib.h"
 #include "passenger.h"
 #include "astra_misc.h"
-#include "sopp.h"
+#include "flt_settings.h"
 
 namespace CheckIn
 {

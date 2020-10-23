@@ -57,7 +57,8 @@ const char *TStatTypeS[statNum] = {
     "statServicesFull",
     "statServicesShort",
     "statServicesDetail",
-    "statSalonFull"
+    "statSalonFull",
+    "statZamarFull"
 };
 
 void TStatParams::fromFileParams(map<string, string> &file_params)
@@ -254,6 +255,9 @@ void TStatParams::get(xmlNodePtr reqNode)
         else throw Exception("Unknown stat mode " + name);
     } else if(type == "Изменения салона") {
         if(name == "Подробная") statType=statSalonFull;
+        else throw Exception("Unknown stat mode " + name);
+    } else if(type == "SBDO (Zamar)") {
+        if(name == "Подробная") statType=statZamarFull;
         else throw Exception("Unknown stat mode " + name);
     } else
         throw Exception("Unknown stat type " + type);
@@ -540,7 +544,10 @@ string TAirpArvInfo::get(TQuery &Qry)
     map<int, string>::iterator im = items.find(grp_id);
     if(im == items.end()) {
         TCkinRoute tckin_route;
-        tckin_route.GetRouteAfter(grp_id, crtWithCurrent, crtIgnoreDependent);
+        tckin_route.getRouteAfter(GrpId_t(grp_id),
+                                  TCkinRoute::WithCurrent,
+                                  TCkinRoute::IgnoreDependence,
+                                  TCkinRoute::WithoutTransit);
         string airp_arv;
         if(tckin_route.empty())
             airp_arv = Qry.FieldAsString("airp_arv");

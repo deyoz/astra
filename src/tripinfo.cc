@@ -19,7 +19,6 @@
 #include "docs/docs_common.h"
 #include "stat/stat_main.h"
 #include "print.h"
-#include "convert.h"
 #include "term_version.h"
 #include "salons.h"
 #include "salonform.h"
@@ -35,6 +34,9 @@
 #include "ckin_search.h"
 #include "payment_base.h"
 #include "service_eval.h"
+#include "flt_settings.h"
+#include "baggage_calc.h"
+#include "pax_calc_data.h"
 
 #include <serverlib/algo.h>
 #include <serverlib/testmode.h>
@@ -163,15 +165,11 @@ void setSQLTripList( TQuery &Qry, const TTripListSQLFilter &filter )
     const TTripInfoSQLParams &params=dynamic_cast<const TTripInfoSQLParams&>(filter);
 
     sql <<
-      "SELECT " + TTripInfo::selectedFields("points") + ", "
-      "       points.bort, "
+      "SELECT " + TAdvTripInfo::selectedFields("points") + ", "
       "       points.park_out, "
-      "       points.trip_type, "
       "       points.litera, "
       "       points.remark, "
-      "       ckin.tranzitable(points.point_id) AS tranzitable, "
-      "       ckin.get_pr_tranzit(points.point_id) AS pr_tranzit, "
-      "       points.first_point \n"
+      "       ckin.get_pr_tranzit(points.point_id) AS is_true_tranzit \n"
       "FROM points ";
     if (!params.station.first.empty() && !params.station.second.empty())
       sql << ",trip_stations ";
@@ -771,7 +769,7 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   {
     xmlNodePtr segsNode=NewTextChild(dataNode,"segments");
     for(node=node->children;node!=NULL;node=node->next)
-      if(!skipSeg(node)) { 
+      if(!skipSeg(node)) {
         GetSegInfo(node, NULL, NewTextChild(segsNode,"segment"));
       }
   };
@@ -933,7 +931,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   if (Qry.Eof) return false;
   if (!checkFinalStages(StagesQry, point_id, filter)) return false;
 
-  TTripInfo info(Qry);
+  TAdvTripInfo info(Qry);
   xmlNodePtr node = NewTextChild( dataNode, "tripheader" );
   NewTextChild( node, "point_id", Qry.FieldAsInteger( "point_id" ) );
 
@@ -979,7 +977,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   NewTextChild( node, "trip_type", ElemIdToCodeNative(etTripType,Qry.FieldAsString( "trip_type" )) );
   NewTextChild( node, "litera", Qry.FieldAsString( "litera" ) );
   NewTextChild( node, "remark", Qry.FieldAsString( "remark" ) );
-  NewTextChild( node, "pr_tranzit", (int)Qry.FieldAsInteger( "pr_tranzit" )!=0 );
+  NewTextChild( node, "pr_tranzit", (int)Qry.FieldAsInteger( "is_true_tranzit" )!=0 );
 
   //trip нужен для ChangeTrip клиента:
   NewTextChild( node, "trip", GetTripName(info,ecCkin,reqInfo->screen.name=="TLG.EXE",true)); //ecCkin? !!vlad
@@ -1046,8 +1044,9 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
     NewTextChild( node, "craft_stage", tripStages.getStage( stCraft ) );
   };
 
-/* попросили убрать работу с табло 24.10.1018 Feature #33436
- *  if (reqInfo->screen.name == "AIR.EXE" && reqInfo->desk.airp == "ВНК")
+/* попросили убрать работу с табло 24.10.1018 Feature #33436*/
+/* попросили добавить работу с табло 15.07.2020 Feature #38290*/
+   if (reqInfo->screen.name == "AIR.EXE" && reqInfo->desk.airp == "ВНК")
   {
     TQuery Qryh( &OraSession );
     Qryh.Clear();
@@ -1060,7 +1059,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
     Qryh.Execute();
     if (!Qryh.Eof)
       NewTextChild( node, "start_check_info", (int)!Qryh.FieldIsNULL( "start_time" ) );
-  };*/
+  };
 
   if (reqInfo->screen.name == "AIR.EXE" ||
       reqInfo->screen.name == "BRDBUS.EXE" ||
@@ -1072,7 +1071,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
         reqInfo->screen.name == "PREPREG.EXE")
     {
       NewTextChild( node, "ckin_stage", tripStages.getStage( stCheckIn ) );
-      NewTextChild( node, "tranzitable", (int)(Qry.FieldAsInteger("tranzitable")!=0) );
+      NewTextChild( node, "tranzitable", (int)info.transitable());
     };
 
     TQuery Qryh( &OraSession );
@@ -1829,7 +1828,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     xmlNodePtr node=NodeAsNodeFast("rems",node2)->children;
     for(;node!=NULL;node=node->next)
     {
-      TRemCategory cat=getRemCategory(NodeAsString(node), "");
+      TRemCategory cat=getRemCategory(CheckIn::TPaxRemItem(NodeAsString(node), ""));
       if (isDisabledRemCategory(cat))
         rems[cat].push_back(NodeAsString(node));
       else
@@ -2004,6 +2003,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
                 break;
               case remCREW:
               case remPD:
+              case remAPPSOverride:
+              case remAPPSStatus:
               case remUnknown:
                 sql << "  SELECT DISTINCT pax.pax_id,pax_rem.rem_code " << endl
                     << "  FROM pax_grp,pax,pax_rem " << endl
@@ -2820,13 +2821,13 @@ void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
   PaxLoadtoXML(datasetsNode, bag_info, paxRemCounters, total.bags);
 }
 
-void viewCRSList( int point_id, xmlNodePtr dataNode )
+void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePtr dataNode )
 {
   bool pr_free_seating = SALONS2::isFreeSeating( point_id );
   TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
-  TQuery Qry( &OraSession );
   TPaxSeats priorSeats( point_id );
-  Qry.Clear();
+  bool apis_generation = TRouteAPICheckInfo(point_id).apis_generation();
+
   ostringstream sql;
 
   sql <<
@@ -2835,18 +2836,21 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
      "      crs_pnr.priority AS pnr_priority, "
      "      RTRIM(crs_pax.surname||' '||crs_pax.name) full_name, "
      "      crs_pax.pers_type, "
-     "      crs_pnr.class, "
-     "      crs_pnr.subclass, "
+     "      crs_pax.cabin_class AS editable_cabin_class, "
+      << CheckIn::TSimplePaxItem::cabinClassFromCrsSQL() << " AS cabin_class, "
+      << CheckIn::TSimplePaxItem::cabinSubclassFromCrsSQL() << " AS cabin_subclass, "
       << CheckIn::TSimplePaxItem::origClassFromCrsSQL() << " AS orig_class, "
      "      crs_pax.seat_xname, "
      "      crs_pax.seat_yname, "
-     "      crs_pax.seats seats, "
+     "      crs_pax.seats, "
+     "      crs_pax.bag_norm, "
+     "      crs_pax.bag_norm_unit, "
      "      crs_pnr.airp_arv, "
      "      crs_pnr.airp_arv_final, "
      "      report.get_PSPT(crs_pax.pax_id, 1, :lang) AS document, "
      "      report.get_TKNO(crs_pax.pax_id) AS ticket, "
      "      crs_pax.pax_id, "
-     "      crs_pax.tid tid, "
+     "      crs_pax.tid, "
      "      crs_pnr.pnr_id, "
      "      crs_pnr.point_id AS point_id_tlg, "
      "      ids.status, "
@@ -2857,26 +2861,42 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
      "      pax.refuse, "
      "      pax.grp_id, "
      "      pax.wl_type, "
-     "      pax.is_jmp "
-     "FROM crs_pnr,crs_pax,pax,pax_grp,"
-     "       ( ";
+     "      pax.is_jmp ";
+  if (apis_generation)
+    sql << ", pax_calc_data.* ";
+  else
+    sql << ", pax_calc_data.crs_fqt_tier_level ";
+  sql <<
+     "FROM crs_pnr,crs_pax,pax,pax_grp,pax_calc_data,";
 
+  bool returnPnrIds=!paxId;
+  ostringstream subquerySqlFilter;
+  if (paxId)
+    subquerySqlFilter << "crs_pax.pax_id=" << paxId.get();
 
-  sql << getSearchPaxSubquery(psCheckin, true, false, false, false, "")
+  sql << "       ( "
+      << getSearchPaxSubquery(psCheckin, returnPnrIds, false, false, false, subquerySqlFilter.str())
       << "UNION \n"
-      << getSearchPaxSubquery(psGoshow,  true, false, false, false, "")
+      << getSearchPaxSubquery(psGoshow,  returnPnrIds, false, false, false, subquerySqlFilter.str())
       << "UNION \n"
-      << getSearchPaxSubquery(psTransit, true, false, false, false, "");
+      << getSearchPaxSubquery(psTransit, returnPnrIds, false, false, false, subquerySqlFilter.str())
+      << "       ) ids ";
+
+  if (returnPnrIds)
+    sql << "WHERE crs_pnr.pnr_id=ids.pnr_id AND ";
+  else
+    sql << "WHERE crs_pax.pax_id=ids.pax_id AND ";
 
   sql <<
-     "       ) ids "
-     "WHERE crs_pnr.pnr_id=ids.pnr_id AND "
+     "      crs_pax.pax_id=pax_calc_data.pax_calc_data_id(+) AND "
      "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
      "      crs_pax.pax_id=pax.pax_id(+) AND "
      "      pax.grp_id=pax_grp.grp_id(+) AND "
      "      crs_pax.pr_del=0 "
      "ORDER BY crs_pnr.point_id";
 
+  TQuery Qry( &OraSession );
+  Qry.Clear();
   Qry.SQLText=sql.str().c_str();
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.CreateVariable( "ps_ok", otString, EncodePaxStatus(ASTRA::psCheckin) );
@@ -2926,32 +2946,51 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   string def_class=ElemIdToCodeNative(etClass, EncodeClass(ASTRA::Y));
   string def_status=EncodePaxStatus(ASTRA::psCheckin);
 
+  xmlNodePtr fieldNode, editPropsNode;
   xmlNodePtr defNode = NewTextChild( dataNode, "defaults" );
   NewTextChild(defNode, "pnr_ref", "");
   NewTextChild(defNode, "pnr_status", "");
   NewTextChild(defNode, "pnr_priority", "");
   NewTextChild(defNode, "pers_type", def_pers_type);
-  NewTextChild(defNode, "class", def_class);
-  NewTextChild(defNode, "seats", 1);
-  NewTextChild(defNode, "last_target", "");
-  NewTextChild(defNode, "client_type");
-  NewTextChild(defNode, "ticket", "");
-  NewTextChild(defNode, "document", "");
-  NewTextChild(defNode, "status", def_status);
-  NewTextChild(defNode, "rems", "");
-  NewTextChild(defNode, "rem", "");
+
+  fieldNode=NewTextChild(defNode, "class", def_class);
+  SetProp(fieldNode, "editable", TReqInfo::Instance()->user.access.rights().permitted(196)?"true":"false", "false");
+  editPropsNode=NewTextChild(fieldNode, "edit_properties");
+  SetProp(editPropsNode, "caption", getLocaleText("CAP.PNL_EDIT_FORM.CABIN_CLASS"));
+  SetProp(editPropsNode, "form_width", 400);
+  SetProp(editPropsNode, "char_case", "ecUpperCase");
+  SetProp(editPropsNode, "max_length", 1);
+  SetProp(editPropsNode, "width", 30);
+  SetProp(editPropsNode, "align", "taCenter");
+
   NewTextChild(defNode, "nseat_no", "");
   NewTextChild(defNode, "wl_type", "");
   NewTextChild(defNode, "layer_type", "");
   NewTextChild(defNode, "isseat", 1);
+  NewTextChild(defNode, "seats", 1);
+  NewTextChild(defNode, "last_target", "");
+  NewTextChild(defNode, "client_type", "");
+  NewTextChild(defNode, "apis", "");
+  NewTextChild(defNode, "ticket", "");
+  NewTextChild(defNode, "document", "");
+  NewTextChild(defNode, "rems", "");
+  NewTextChild(defNode, "brand", "");
+
+  fieldNode=NewTextChild(defNode, "bag_norm", "");
+  SetProp(fieldNode, "editable", TReqInfo::Instance()->user.access.rights().permitted(195)?"true":"false", "false");
+  editPropsNode=NewTextChild(fieldNode, "edit_properties");
+  SetProp(editPropsNode, "caption", getLocaleText("CAP.PNL_EDIT_FORM.BAG_NORM"));
+  SetProp(editPropsNode, "form_width", 400);
+  SetProp(editPropsNode, "max_length", 2);
+  SetProp(editPropsNode, "numbers_only", "true");
+  SetProp(editPropsNode, "width", 40);
+  SetProp(editPropsNode, "align", "taCenter");
+
+  NewTextChild(defNode, "fqt", "");
+  NewTextChild(defNode, "status", def_status);
+  NewTextChild(defNode, "rem", "");
   NewTextChild(defNode, "reg_no", "");
   NewTextChild(defNode, "refuse", "");
-  NewTextChild(defNode, "brand", "");
-  NewTextChild(defNode, "fqt", "");
-  bool apis_generation = TRouteAPICheckInfo(point_id).apis_generation();
-  if ( apis_generation ) {
-    NewTextChild(defNode, "apis", "");
-  }
 
   TRemGrp rem_grp;
   rem_grp.Load(retPNL_SEL, point_id);
@@ -2965,12 +3004,15 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   int col_pnr_priority=Qry.FieldIndex("pnr_priority");
   int col_full_name=Qry.FieldIndex("full_name");
   int col_pers_type=Qry.FieldIndex("pers_type");
-  int col_class=Qry.FieldIndex("class");
-  int col_subclass=Qry.FieldIndex("subclass");
+  int col_editable_cabin_class=Qry.FieldIndex("editable_cabin_class");
+  int col_cabin_class=Qry.FieldIndex("cabin_class");
+  int col_cabin_subclass=Qry.FieldIndex("cabin_subclass");
   int col_orig_class=Qry.FieldIndex("orig_class");
   int col_seat_xname=Qry.FieldIndex("seat_xname");
   int col_seat_yname=Qry.FieldIndex("seat_yname");
   int col_seats=Qry.FieldIndex("seats");
+  int col_bag_norm=Qry.FieldIndex("bag_norm");
+  int col_bag_norm_unit=Qry.FieldIndex("bag_norm_unit");
   int col_airp_arv=Qry.FieldIndex("airp_arv");
   int col_airp_arv_final=Qry.FieldIndex("airp_arv_final");
   int col_document=Qry.FieldIndex("document");
@@ -2988,13 +3030,13 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   int col_pax_seats=Qry.FieldIndex("pax_seats");
   int col_wl_type=Qry.FieldIndex("wl_type");
   int col_is_jmp=Qry.FieldIndex("is_jmp");
-  int mode; // режим для поиска мест 0 - регистрация иначе список pnl
+  int col_crs_fqt_tier_level=Qry.FieldIndex("crs_fqt_tier_level");
   int crs_row=1, pax_row=1;
   TBrands brands; //объявляем здесь, чтобы задействовать кэширование брендов
+  AllAPIAttrs allAPIAttrs(flt.scd_out);
+  AstraLocale::OutputLang outputLang;
   for(;!Qry.Eof;Qry.Next())
   {
-    mode = -1; // не надо искать место
-    string seat_no;
     if (!Qry.FieldIsNULL(col_grp_id))
     {
       PointsQry.SetVariable("grp_id",Qry.FieldAsInteger(col_grp_id));
@@ -3026,9 +3068,94 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     NewTextChild( node, "pnr_priority", Qry.FieldAsString( col_pnr_priority ), "" );
     NewTextChild( node, "full_name", Qry.FieldAsString( col_full_name ) );
     NewTextChild( node, "pers_type", Qry.FieldAsString( col_pers_type ), def_pers_type ); //специально не перекодируем, так как идет подсчет по типам
-    NewTextChild( node, "class", classIdsToCodeNative(Qry.FieldAsString( col_orig_class ),
-                                                      Qry.FieldAsString( col_class )), def_class );
-    NewTextChild( node, "subclass", ElemIdToCodeNative(etSubcls, Qry.FieldAsString( col_subclass )) );
+    if (!Qry.FieldIsNULL(col_editable_cabin_class))
+    {
+      xmlNodePtr classNode=NewTextChild( node, "class", classIdsToCodeNative(Qry.FieldAsString( col_orig_class ),
+                                                                             Qry.FieldAsString( col_cabin_class )) );
+      SetProp(classNode, "edit_value", ElemIdToCodeNative(etClass, Qry.FieldAsString( col_editable_cabin_class )));
+    }
+    else
+      NewTextChild( node, "class", classIdsToCodeNative(Qry.FieldAsString( col_orig_class ),
+                                                        Qry.FieldAsString( col_cabin_class )), def_class );
+
+    NewTextChild( node, "subclass", ElemIdToCodeNative(etSubcls, Qry.FieldAsString( col_cabin_subclass )) );
+
+    int pax_id=Qry.FieldAsInteger( col_pax_id );
+
+    std::string seat_no;
+    std::string layer_type;
+
+    int mode = -1; // не надо искать место // режим для поиска мест 0 - регистрация иначе список pnl
+    if (!Qry.FieldIsNULL(col_grp_id))
+    {
+      if ( Qry.FieldIsNULL( col_refuse ) )
+      {
+        mode = 0;
+        SQry.SetVariable( "layer_type", Qry.FieldAsString( col_grp_status ) );
+        SQry.SetVariable( "seats", Qry.FieldAsInteger(col_pax_seats)  );
+        SQry.SetVariable( "point_id", point_id );
+        SQry.SetVariable( "pax_row", pax_row );
+//        ProgTrace( TRACE5, "mode=%d, pax_id=%d, seats=%d, point_id=%d, pax_row=%d, layer_type=%s",
+//                           mode, pax_id, Qry.FieldAsInteger(col_pax_seats), point_id,
+//                           pax_row, Qry.FieldAsString( col_grp_status ) );
+      }
+    }
+    else {
+      mode = 1;
+      SQry.SetVariable( "xname", Qry.FieldAsString( col_seat_xname ) );
+      SQry.SetVariable( "yname", Qry.FieldAsString( col_seat_yname ) );
+      SQry.SetVariable( "layer_type", FNull );
+      SQry.SetVariable( "seats", Qry.FieldAsInteger(col_seats)  );
+      SQry.SetVariable( "point_id", Qry.FieldAsInteger(col_point_id_tlg) );
+      SQry.SetVariable( "crs_row", crs_row );
+//      ProgTrace( TRACE5, "mode=%d, pax_id=%d, seats=%d, point_id=%d, crs_row=%d, layer_type=%s",
+//                         mode, pax_id, Qry.FieldAsInteger(col_seats), point_id,
+//                         crs_row, "" );
+    }
+
+    if (mode==0 || mode==1)
+    {
+      SQry.SetVariable( "mode", mode );
+      SQry.SetVariable( "pax_id", pax_id );
+      SQry.SetVariable( "is_jmp", (int)(Qry.FieldAsInteger(col_is_jmp)!=0) );
+      SQry.SetVariable( "seat_no", FNull );
+      SQry.Execute();
+      if ( mode == 0 )
+          pax_row++;
+      else
+          crs_row++;
+
+      if ( !SQry.VariableIsNULL( "seat_no" ) ) {
+          seat_no = SQry.GetVariableAsString( "seat_no" );
+          if ( mode == 0 ) {
+              layer_type = ((const TGrpStatusTypesRow&)grp_status_types.get_row("code",Qry.FieldAsString( col_grp_status ))).layer_type;
+          }
+          else {
+              layer_type = SQry.GetVariableAsString( "layer_type" );
+          }
+      } // не задано место
+      else {
+          if ( mode == 0 &&
+             Qry.FieldAsInteger( col_seats ) &&
+             !pr_free_seating ) {
+              string old_seat_no;
+              if ( Qry.FieldIsNULL( col_wl_type ) ) {
+                old_seat_no = priorSeats.getSeats( pax_id, "seats" );
+                if ( !old_seat_no.empty() )
+                  old_seat_no = "(" + old_seat_no + ")";
+              }
+              else
+                  old_seat_no = AstraLocale::getLocaleText("ЛО");
+              seat_no=old_seat_no;
+          }
+      }
+    }
+
+    NewTextChild( node, "nseat_no", seat_no, "" );
+    if ( !Qry.FieldIsNULL( col_wl_type ) )
+      NewTextChild( node, "wl_type", Qry.FieldAsString( col_wl_type ) );
+    NewTextChild( node, "layer_type", layer_type, "" );
+    NewTextChild( node, "isseat", ( pr_free_seating || !SQry.VariableIsNULL( "seat_no" ) || !Qry.FieldAsInteger( col_seats ) ) );
     NewTextChild( node, "seats", Qry.FieldAsInteger( col_seats ), 1 );
     NewTextChild( node, "target", ElemIdToCodeNative(etAirp,Qry.FieldAsString( col_airp_arv ) ));
     if (!Qry.FieldIsNULL(col_airp_arv_final))
@@ -3045,18 +3172,62 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     };
 
     NewTextChild( node, "client_type", ElemIdToNameShort(etClientType, Qry.FieldAsString(col_client_type)), "" );
+
+    if ( apis_generation )
+    {
+      bool paxNotRefused=!Qry.FieldIsNULL(col_grp_id) && Qry.FieldIsNULL(col_refuse);
+      NewTextChild( node, "apis", allAPIAttrs.view(Qry, paxNotRefused), "" );
+    }
+
     NewTextChild( node, "ticket", Qry.FieldAsString( col_ticket ), "" );
     NewTextChild( node, "document", Qry.FieldAsString( col_document ), "" );
-    NewTextChild( node, "status", Qry.FieldAsString( col_status ), def_status );
 
-    int pax_id=Qry.FieldAsInteger( col_pax_id );
     multiset<CheckIn::TPaxRemItem> rems;
     LoadCrsPaxRem(pax_id, rems);
     CheckIn::TPaxRemItem apps_satus_rem = getAPPSRem( pax_id, TReqInfo::Instance()->desk.lang );
     if ( !apps_satus_rem.empty() )
      rems.insert( apps_satus_rem );
+    NewTextChild( node, "rems", GetRemarkStr(rem_grp, rems), "" );
+
+    boost::optional<TBagQuantity> crsBagNorm=CheckIn::TSimplePaxItem::getCrsBagNorm(Qry, col_bag_norm, col_bag_norm_unit);
+
+    CheckIn::TPaxTknItem tkn;
+    CheckIn::LoadCrsPaxTkn(pax_id, tkn);
+    TETickItem etick;
+    if ( tkn.validET() )
+    {
+      etick.fromDB(tkn.no, tkn.coupon, TETickItem::Display, false);
+      brands.get(flt.airline, etick);
+      NewTextChild( node, "brand", brands.getSingleBrand().name(outputLang) );
+    }
+
+    if (crsBagNorm)
+    {
+      xmlNodePtr bagNormNode=NewTextChild(node, "bag_norm", trueBagNormView(crsBagNorm, etick, outputLang));
+      SetProp(bagNormNode, "edit_value", crsBagNorm.get().view(outputLang, false));
+    }
+    else
+      NewTextChild(node, "bag_norm", trueBagNormView(crsBagNorm, etick, outputLang), "");
+
+    if (allAPIAttrs.useOldAlgorithm())
+    {
+      std::set<CheckIn::TPaxFQTItem> fqts;
+      CheckIn::LoadCrsPaxFQT(pax_id, fqts);
+      for(set<CheckIn::TPaxFQTItem>::const_iterator f=fqts.begin(); f!=fqts.end(); ++f) {
+        if (f->rem=="FQTV" && !f->tier_level.empty())  {
+          NewTextChild( node, "fqt", f->tier_level );
+          break;
+        }
+      }
+    }
+    else
+    {
+      NewTextChild( node, "fqt", Qry.FieldAsString(col_crs_fqt_tier_level), "" );
+    }
+    NewTextChild( node, "status", Qry.FieldAsString( col_status ), def_status );
+
     ostringstream rem_detail;
-    xmlNodePtr stcrNode = NULL;
+    xmlNodePtr stcrNode = nullptr;
     for(multiset<CheckIn::TPaxRemItem>::const_iterator r=rems.begin();r!=rems.end();++r)
     {
       rem_detail << ".R/" << r->text << "   ";
@@ -3065,231 +3236,20 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
         stcrNode = NewTextChild( node, "step", "down" );
       };
     };
-    NewTextChild( node, "rems", GetRemarkStr(rem_grp, rems), "" );
     NewTextChild( node, "rem", rem_detail.str(), "" );
+
     NewTextChild( node, "pax_id", pax_id );
     NewTextChild( node, "pnr_id", Qry.FieldAsInteger( col_pnr_id ) );
     NewTextChild( node, "tid", Qry.FieldAsInteger( col_tid ) );
-    if ( !Qry.FieldIsNULL( col_wl_type ) )
-        NewTextChild( node, "wl_type", Qry.FieldAsString( col_wl_type ) );
 
     if (!Qry.FieldIsNULL(col_grp_id))
     {
       NewTextChild( node, "reg_no", Qry.FieldAsInteger( col_reg_no ) );
       NewTextChild( node, "refuse", Qry.FieldAsString( col_refuse ), "" );
-      if ( !Qry.FieldIsNULL( col_refuse ) )
-        continue; // не надо искать место
-      mode = 0;
-      SQry.SetVariable( "layer_type", Qry.FieldAsString( col_grp_status ) );
-      SQry.SetVariable( "seats", Qry.FieldAsInteger(col_pax_seats)  );
-      SQry.SetVariable( "point_id", point_id );
-      SQry.SetVariable( "pax_row", pax_row );
-      ProgTrace( TRACE5, "mode=%d, pax_id=%d, seats=%d, point_id=%d, pax_row=%d, layer_type=%s",
-                         mode, pax_id, Qry.FieldAsInteger(col_pax_seats), point_id,
-                         pax_row, Qry.FieldAsString( col_grp_status ) );
     }
-    else {
-        mode = 1;
-        SQry.SetVariable( "xname", Qry.FieldAsString( col_seat_xname ) );
-        SQry.SetVariable( "yname", Qry.FieldAsString( col_seat_yname ) );
-        SQry.SetVariable( "layer_type", FNull );
-        SQry.SetVariable( "seats", Qry.FieldAsInteger(col_seats)  );
-        SQry.SetVariable( "point_id", Qry.FieldAsInteger(col_point_id_tlg) );
-        SQry.SetVariable( "crs_row", crs_row );
-      ProgTrace( TRACE5, "mode=%d, pax_id=%d, seats=%d, point_id=%d, crs_row=%d, layer_type=%s",
-                         mode, pax_id, Qry.FieldAsInteger(col_seats), point_id,
-                         crs_row, "" );
-    }
-    SQry.SetVariable( "mode", mode );
-    SQry.SetVariable( "pax_id", pax_id );
-    SQry.SetVariable( "is_jmp", (int)(Qry.FieldAsInteger(col_is_jmp)!=0) );
-    SQry.SetVariable( "seat_no", FNull );
-    SQry.Execute();
-    if ( mode == 0 )
-        pax_row++;
-    else
-        crs_row++;
-    NewTextChild( node, "isseat", ( pr_free_seating || !SQry.VariableIsNULL( "seat_no" ) || !Qry.FieldAsInteger( col_seats ) ) );
-    if ( !SQry.VariableIsNULL( "seat_no" ) ) {
-        string seat_no = SQry.GetVariableAsString( "seat_no" );
-        string layer_type;
-        if ( mode == 0 ) {
-            layer_type = ((const TGrpStatusTypesRow&)grp_status_types.get_row("code",Qry.FieldAsString( col_grp_status ))).layer_type;
-        }
-        else {
-            layer_type = SQry.GetVariableAsString( "layer_type" );
-        }
-        switch ( DecodeCompLayerType( (const char*)layer_type.c_str() ) ) { // 12.12.08 для совместимости со старой версией
-            case cltProtCkin:
-                NewTextChild( node, "preseat_no", seat_no );
-                NewTextChild( node, "crs_seat_no", string(Qry.FieldAsString( col_seat_xname ))+Qry.FieldAsString( col_seat_yname ) );
-                break;
-            case cltPNLCkin:
-                NewTextChild( node, "crs_seat_no", seat_no );
-                break;
-            default:
-                NewTextChild( node, "seat_no", seat_no );
-                break;
-        }
-        NewTextChild( node, "nseat_no", seat_no );
-        NewTextChild( node, "layer_type", layer_type );
-    } // не задано место
-    else {
-        if ( mode == 0 &&
-           Qry.FieldAsInteger( col_seats ) &&
-           !pr_free_seating ) {
-            string old_seat_no;
-            if ( Qry.FieldIsNULL( col_wl_type ) ) {
-              old_seat_no = priorSeats.getSeats( pax_id, "seats" );
-              if ( !old_seat_no.empty() )
-                old_seat_no = "(" + old_seat_no + ")";
-            }
-            else
-                old_seat_no = AstraLocale::getLocaleText("ЛО");
-            if ( !old_seat_no.empty() )
-              NewTextChild( node, "nseat_no", old_seat_no );
-        }
-    }
-    CheckIn::TPaxTknItem tkn;
-    CheckIn::LoadCrsPaxTkn(pax_id, tkn);
-    if ( tkn.validET() ) {
-      brands.get(flt.airline, TETickItem().fromDB(tkn.no, tkn.coupon, TETickItem::Display, false));
-      NewTextChild( node, "brand", brands.getSingleBrand().name(AstraLocale::OutputLang()) );
-    }
-    std::set<CheckIn::TPaxFQTItem> fqts;
-    CheckIn::LoadCrsPaxFQT(pax_id, fqts);
-    for(set<CheckIn::TPaxFQTItem>::const_iterator f=fqts.begin(); f!=fqts.end(); ++f) {
-      if (f->rem=="FQTV" && !f->tier_level.empty())  {
-        NewTextChild( node, "fqt", f->tier_level );
-        break;
-      }
-    }
-    //DocsFlags
-    if ( !apis_generation ) {
-      continue;
-    }
-    std::string docflags = getDocsFlags( pax_id, !Qry.FieldIsNULL(col_grp_id) );
-    ProgTrace( TRACE5, "docflags=%s", docflags.c_str() );
-    NewTextChild( node, "apis", docflags, "" );
-    //end for
-  };
+  } //end for
   brands.traceCaching();
 };
-
-
-template <class T1>
-std::string getDocsFlag_OLD( const T1 &crs_pax_doc, const T1 &pax_doc, bool pr_checkin, std::string flagStr, bool firstFlag )
-{
-  std::string res;
-  if ( (crs_pax_doc.empty() && !pax_doc.empty()) ||
-       (!crs_pax_doc.empty() && !pax_doc.empty() && !crs_pax_doc.equalAttrs( pax_doc )) ) {
-     if ( !firstFlag ) res += "/";
-     res += string("+") + flagStr;
-  }
-  if ( !crs_pax_doc.empty() && ( !pr_checkin || crs_pax_doc.equalAttrs( pax_doc ) ) ) {
-    if ( !firstFlag ) res += "/";
-    res += flagStr;
-  }
-  if ( !crs_pax_doc.empty() && pax_doc.empty() && pr_checkin ) {
-    if ( !firstFlag ) res += "/";
-    res += string("-") + flagStr;
-  }
-  return res;
-}
-
-template <class TDOC>
-std::string getDocsFlag( const TDOC &crs_pax_doc, const TDOC &pax_doc, bool pr_checkin, std::string flagStr, bool firstFlag )
-{
-  ostringstream res;
-  if (!firstFlag) res << "/";
-  if (crs_pax_doc.empty())
-  {
-    if (pax_doc.empty())
-    {
-      return "";
-    }
-    else
-    {
-      if ((pax_doc.scanned_attrs & pax_doc.getNotEmptyFieldsMask()) != pax_doc.getNotEmptyFieldsMask())
-        res << "+"; // Добавили при регистрации в ручную
-      else
-        res << "*"; // Добавили при регистрации с помощью сканирования
-    }
-  }
-  else // !crs_pax_doc.empty()
-  {
-    if (pax_doc.empty())
-    {
-      if (pr_checkin)
-        res << "-"; // Удалили
-    }
-    else if (!crs_pax_doc.equalAttrs( pax_doc ))
-    {
-      if ((pax_doc.scanned_attrs & pax_doc.getNotEmptyFieldsMask()) != pax_doc.getNotEmptyFieldsMask())
-        res << "#"; // Изменили в ручную
-      else
-        res << "="; // Изменение данных через сканирование
-    }
-  }
-  res << flagStr;
-  return res.str();
-}
-
-std::string getDocsFlags( int pax_id, bool pr_checkin )
-{
-  //ProgTrace( TRACE5, "getDocsFlags: pax_id=%d, pr_checkin=%d", pax_id, pr_checkin);
-  std::string res;
-  CheckIn::TPaxDocItem pax_doc, crs_pax_doc;
-  CheckIn::TPaxDocoItem pax_doco, crs_pax_doco;
-  CheckIn::LoadCrsPaxDoc(pax_id,crs_pax_doc);
-  if ( pr_checkin ) {
-    CheckIn::LoadPaxDoc(pax_id,pax_doc);
-  }
-  res += getDocsFlag( crs_pax_doc, pax_doc, pr_checkin, "S", res.empty() );
-  CheckIn::LoadCrsPaxVisa(pax_id,crs_pax_doco);
-  if ( pr_checkin ) {
-    CheckIn::LoadPaxDoco(pax_id,pax_doco);
-  }
-  res += getDocsFlag( crs_pax_doco, pax_doco, pr_checkin, "O", res.empty() );
-  CheckIn::TDocaMap doca_map, crs_doca_map;
-  CheckIn::LoadCrsPaxDoca(pax_id,crs_doca_map);
-  if ( pr_checkin ) {
-    CheckIn::LoadPaxDoca(pax_id,doca_map);
-  }
-  CheckIn::TPaxDocaItem pax_doca, crs_pax_doca;
-  if ( doca_map.find( apiDocaB ) != doca_map.end() ||
-       !doca_map[ apiDocaB ].empty() ) {
-    pax_doca = doca_map[ apiDocaB ];
-  }
-  if ( crs_doca_map.find( apiDocaB ) != crs_doca_map.end() ||
-       !crs_doca_map[ apiDocaB ].empty() ) {
-    crs_pax_doca = crs_doca_map[ apiDocaB ];
-  }
-  res += getDocsFlag( crs_pax_doca, pax_doca, pr_checkin, "AB", res.empty() );
-  pax_doca.clear();
-  crs_pax_doca.clear();
-  if ( doca_map.find( apiDocaR ) != doca_map.end() ||
-       !doca_map[ apiDocaR ].empty() ) {
-    pax_doca = doca_map[ apiDocaR ];
-  }
-  if ( crs_doca_map.find( apiDocaR ) != crs_doca_map.end() ||
-       !crs_doca_map[ apiDocaR ].empty() ) {
-    crs_pax_doca = crs_doca_map[ apiDocaR ];
-  }
-  res += getDocsFlag( crs_pax_doca, pax_doca, pr_checkin, "AR", res.empty() );
-  pax_doca.clear();
-  crs_pax_doca.clear();
-  if ( doca_map.find( apiDocaD ) != doca_map.end() ||
-       !doca_map[ apiDocaD ].empty() ) {
-    pax_doca = doca_map[ apiDocaD ];
-  }
-  if ( crs_doca_map.find( apiDocaD ) != crs_doca_map.end() ||
-       !crs_doca_map[ apiDocaD ].empty() ) {
-    crs_pax_doca = crs_doca_map[ apiDocaD ];
-  }
-  res += getDocsFlag( crs_pax_doca, pax_doca, pr_checkin, "AD", res.empty() );
-  return res;
-}
 
 bool SearchPaxByScanData(xmlNodePtr reqNode,
                          int &point_id,
@@ -3303,7 +3263,8 @@ bool SearchPaxByScanData(xmlNodePtr reqNode,
 bool SearchPaxByScanData(xmlNodePtr reqNode,
                          int &point_id,
                          int &reg_no,
-                         int &pax_id, bool &isBoardingPass)
+                         int &pax_id,
+                         bool &isBoardingPass)
 {
   point_id=NoExists;
   reg_no=NoExists;
@@ -3319,6 +3280,7 @@ bool SearchPaxByScanData(xmlNodePtr reqNode,
   else
     bcbp=NodeAsString("scan_data", reqNode);
 
-  return SearchPaxByScanData(bcbp, point_id, reg_no, pax_id, isBoardingPass);
+  boost::optional<TSearchFltInfo> searchFltInfo;
+  return SearchPaxByScanData(bcbp, point_id, reg_no, pax_id, isBoardingPass, searchFltInfo);
 }
 

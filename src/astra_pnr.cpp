@@ -6,6 +6,7 @@
 #include "AirportControl.h"
 #include "basetables.h"
 #include "tlg/CheckinBaseTypesOci.h"
+#include "base_callbacks.h"
 
 #include <serverlib/cursctl.h>
 #include <serverlib/dates_oci.h>

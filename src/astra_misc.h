@@ -13,8 +13,29 @@
 #include "astra_locale.h"
 #include "stages.h"
 #include "xml_unit.h"
+#include "astra_types.h"
 
 using BASIC::date_time::TDateTime;
+
+class TPaxSegmentPair
+{
+  public:
+    int point_dep;
+    std::string airp_arv;
+
+    TPaxSegmentPair(const int pointDep, const std::string& airpArv) :
+      point_dep(pointDep), airp_arv(airpArv) {}
+
+    bool operator < (const TPaxSegmentPair &seg) const
+    {
+      if (point_dep!=seg.point_dep)
+        return point_dep < seg.point_dep;
+      return airp_arv < seg.airp_arv;
+    }
+
+    PointId_t pointDep() const { return PointId_t(point_dep); }
+    AirportCode_t airpArv() const { return AirportCode_t(airp_arv); }
+};
 
 class FlightProps
 {
@@ -424,6 +445,12 @@ class TAdvTripInfo : public TTripInfo
                                 const FlightProps& props = FlightProps() );
     virtual bool getByPointId ( const int point_id,
                                 const FlightProps& props = FlightProps() );
+    static bool transitable(const PointId_t& pointId);
+    bool transitable() const
+    {
+      if (point_id==ASTRA::NoExists) return false;
+      return transitable(PointId_t(point_id));
+    }
 };
 
 typedef std::list<TAdvTripInfo> TAdvTripInfoList;
@@ -495,95 +522,6 @@ class TLastTCkinSegInfo : public TLastTrferInfo
     };
 };
 
-//настройки рейса
-enum TTripSetType { /*не привязанные к рейсу*/
-                    tsCraftInitVIP=1,                   //Автоматическая разметка VIP-мест в компоновке
-                    tsEDSNoExchange=10,                 //Запрет обмена с СЭДом.
-                    tsETSNoExchange=11,                 //Запрет обмена с СЭБом. Только ETL.
-                    tsIgnoreTrferSet=12,                //Оформление любого трансфера без учета настроек
-                    tsMixedNorms=13,                    //Смешивание норм, тарифов, сборов при трансфере
-                    tsNoTicketCheck=15,                 //Отмена контроля номеров билетов
-                    tsCharterSearch=16,                 //Поисковый запрос регистрации для чартеров
-                    tsCraftNoChangeSections=17,         //Запрет изменения компоновки, назначенной на рейс
-                    tsCheckMVTDelays=18,                //Контроль ввода задержек
-                    tsSendMVTDelays=19,                 //Отправка MVT на взлет с задержками
-                    tsPrintSCDCloseBoarding=21,         //Отображение планового времени в посадочном талоне
-                    tsMintransFile=22,                  //Файл для Минтранса
-                    tsAODBCreateFlight=26,              //Создание рейсов из AODB
-                    tsSetDepTimeByMVT=27,               //Проставление вылета рейса по телеграмме MVT
-                    tsSyncMeridian=28,                  //Синхронизация с меридианом
-                    tsNoEMDAutoBinding=31,              //Запрет автопривязки EMD
-                    tsCheckPayOnTCkinSegs=32,           //Контроль оплаты только на сквозных сегментах
-                    tsAutoPTPrint=34,                   //Автоматическая печать посадочных
-                    tsAutoPTPrintReseat=35,             //Автоматическая печать ПТ при изменении места
-                    tsPrintFioPNL=36,                   //Печать в посадочном ФИО из бронирования (PNL)
-                    tsWeightControl=37,                 //Контроль веса багажа
-                    tsLCIPersWeights=38,                //Веса пассажиров на основании LCI
-                    tsNoCrewCkinAlarm=40,               //Отмена тревоги 'Регистрация экипажа'
-                    tsNoCtrlDocsCrew=41,                //Не контролировать ввод документов для экипажа
-                    tsNoCtrlDocsExtraCrew=42,           //Не контролировать ввод документов для доп. экипажа
-                    tsETSControlMethod=43,              //Контрольный метод при обмене с СЭБом
-                    tsNoRefuseIfBrd=44,                 //Запрет отмены регистрации если пассажир статус "посажен"
-                    tsRegWithoutNOREC=45,               //Запрет регистрации NOREC
-                    tsBanAdultsWithBabyInOneZone=54,    //Запрет регистрации пассажиров с младецами в одном блоке мест
-                    tsAdultsWithBabyInOneZoneWL=55,     //Регистрация на ЛО взрослого с ребенком, если нет больше блоков без младенцев
-                    tsProcessInboundLDM=56,             //Обработка входных LDM
-                    tsBaggageCheckInCrew=57,            //Оформление багажа для экипажа
-                    tsDeniedSeatCHINEmergencyExit=60,   //Регистрация на ЛО взрослого с ребенком, если нет больше блоков без младенцев
-                    tsDeniedSeatOnPNLAfterPay=61,       //Запред рассадки на оплаченные места из PNL/ADL
-                    tsSeatDescription=62,               //Расчет стоимости в салоне по свойству мест
-                    tsShowTakeoffDiffTakeoffACT=70,     //Выводить сообщение в СОПП о разнице времен факта вылета и планового или разсчетного времени
-                    tsShowTakeoffPassNotBrd=71,         //Выводить сообщение в СОПП о том, что есть не посаженные пассажира при проставлении факта вылета
-                    tsDeniedBoardingJMP=80,             //Запрет посадки пассажиров JMP
-                    tsChangeETStatusWhileBoarding=81,   //Изменение статуса ЭБ при посадке
-                    tsNotUseBagNormFromET=82,           //Не применять весовую норму из ЭБ
-                    tsPayAtDesk=90,                     //Оплата на стойке регистрации
-                    tsReseatOnRFISC=93,                 //сообщение при пересадке пассажира на место с разметкой RFISC
-
-                    /*привязанные к рейсу (есть соответствующие поля в таблице trip_sets и CheckBox в "Подготовке к регистрации")*/
-                    tsCheckLoad=2,                  //Контроль загрузки при регистрации
-                    tsOverloadReg=3,                //Разрешение регистрации при превышении загрузки
-                    tsExam=4,                       //Досмотровый контроль перед посадкой
-                    tsCheckPay=5,                   //Контроль оплаты багажа при посадке
-                    tsExamCheckPay=7,               //Контроль оплаты багажа при досмотре
-                    tsRegWithTkn=8,                 //Запрет регистрации без номеров билетов
-                    tsRegWithDoc=9,                 //Запрет регистрации без номеров документов
-                    tsRegWithoutTKNA=14,            //Запрет регистрации TKNA
-                    tsAutoWeighing=20,              //Контроль автоматического взвешивания багажа
-                    tsFreeSeating=23,               //Свободная рассадка
-                    tsAPISControl=24,               //Контроль данных APIS
-                    tsAPISManualInput=25,           //Ручной ввод данных APIS
-                    tsPieceConcept=30,              //Система расчета багажа и услуги из ГРС
-                    tsUseJmp=39,                    //Регистрация на откидные сиденья
-                    tsJmpCfg=1000,                  //Кол-во откидных сидений
-
-                    //Ден, Женя, не добавляйте в эту секцию настройки, которые не в таблице trip_sets
-
-                    /*привязанные к рейсу по залам*/
-                    tsBrdWithReg=101,               //Посадка при регистрации
-                    tsExamWithBrd=102,              //Досмотр при посадке
-
-                    /*не привязанные к рейсу для саморегистрации*/
-                    tsRegWithSeatChoice=201,        //Запрет регистрации без выбора места
-                    tsRegRUSNationOnly=203,         //Запрет регистрации нерезидентов РФ
-                    tsSelfCkinCharterSearch=204,    //Поисковый запрос саморегистрации для чартеров
-                    tsNoRepeatedSelfCkin=205,       //Запрет повторной саморегистрации
-                    tsAllowCancelSelfCkin=206,       //Отмена саморегистрации без учета терминала
-                    tsKioskCheckinOnPaidSeat=207,    //Регистрация пассажиров с киоска на платные места
-                    tsEmergencyExitBPNotAllowed=208  //Запрет печати посадочного на местах аварийного выхода для саморегистрации
-
-                  };
-
-bool DefaultTripSets( const TTripSetType setType );
-bool GetTripSets( const TTripSetType setType,
-                  const TTripInfo &info );
-bool GetSelfCkinSets( const TTripSetType setType,
-                      const int point_id,
-                      const ASTRA::TClientType client_type );
-bool GetSelfCkinSets( const TTripSetType setType,
-                      const TTripInfo &info,
-                      const ASTRA::TClientType client_type );
-
 //процедура перевода отдельного дня (без месяца и года) в полноценный TDateTime
 //ищет ближайшую или совпадающую дату по отношению к base_date
 //параметр back - направление поиска (true - в прошлое от base_date, false - в будущее)
@@ -602,7 +540,7 @@ struct TTripRouteItem
   TTripRouteItem()
   {
     Clear();
-  };
+  }
   void Clear()
   {
     part_key = ASTRA::NoExists;
@@ -610,6 +548,14 @@ struct TTripRouteItem
     point_num = ASTRA::NoExists;
     airp.clear();
     pr_cancel = true;
+  }
+  bool suitable(const PointId_t& pointId) const
+  {
+    return pointId.get()==point_id;
+  }
+  bool suitable(const AirportCode_t& airpCode) const
+  {
+    return airpCode.get()==airp;
   }
 };
 
@@ -813,8 +759,35 @@ class TAdvTripRoute : public TTripBase, public std::vector<TAdvTripRouteItem>
                 bool after_current,
                 TTripRouteType1 route_type1,
                 TTripRouteType2 route_type2);
+
+    template <class T>
+    void trimRoute(const T& criterion)
+    {
+      TAdvTripRoute::iterator i=std::find_if(begin(), end(),
+                                             [&criterion](const auto& i) { return i.suitable(criterion); });
+      if (i!=end()) {
+          erase(++i, end());
+      }
+      else {
+          clear();
+      }
+    }
   public:
-    void getRouteBetween(int point_dep, const std::string &airp_arv);
+    template <class T>
+    void getRouteBetween(const TAdvTripInfo& fltInfo, const T& criterion)
+    {
+      clear();
+      GetRouteAfter(fltInfo, trtWithCurrent, trtNotCancelled);
+      trimRoute(criterion);
+    }
+
+    void getRouteBetween(const TPaxSegmentPair& segmentPair)
+    {
+      clear();
+      GetRouteAfter(ASTRA::NoExists, segmentPair.point_dep, trtWithCurrent, trtNotCancelled);
+      trimRoute(segmentPair.airpArv());
+    }
+
     virtual ~TAdvTripRoute() {}
 };
 
@@ -859,119 +832,106 @@ class TTrferRoute : public std::vector<TTrferRouteItem>
 
 struct TCkinRouteItem
 {
+  int grp_num, seg_no, transit_num;
+  bool pr_depend;
+
   int grp_id;
   int point_dep, point_arv;
   std::string airp_dep, airp_arv;
-  int seg_no;   // заполняется при поиске по сквозняку
-  int coupon_no; // заполняется при поиске по ET
+  ASTRA::TPaxStatus status;
   TTripInfo operFlt;
-  TCkinRouteItem& fromDB(TQuery &Qry);
-  TCkinRouteItem()
-  {
-    Clear();
-  };
-  void Clear()
-  {
-    grp_id = ASTRA::NoExists;
-    point_dep = ASTRA::NoExists;
-    point_arv = ASTRA::NoExists;
-    seg_no = ASTRA::NoExists;
-    coupon_no = ASTRA::NoExists;
-    operFlt.Clear();
-  };
+
+  TCkinRouteItem(TQuery &Qry);
 };
 
-enum TCkinRouteType1 { crtNotCurrent,
-                       crtWithCurrent };
-enum TCkinRouteType2 { crtOnlyDependent,
-                       crtIgnoreDependent };
+typedef std::list<GrpId_t> GrpIds;
+typedef std::list<int> TCkinGrpIds;
 
-class TCkinGrpIds : public std::list<int> {};
-class TGrpIds     : public std::list<int> {};
+class TCkinRouteInsertItem
+{
+  public:
+    GrpId_t grpId;
+    boost::optional<RegNo_t> firstRegNo; //для несопровождаемого багажа none
+    ASTRA::TPaxStatus status;
+
+    TCkinRouteInsertItem(const GrpId_t& grpId_,
+                         const boost::optional<RegNo_t>& firstRegNo_,
+                         const ASTRA::TPaxStatus status_) :
+      grpId(grpId_), firstRegNo(firstRegNo_), status(status_) {}
+};
 
 class TCkinRoute : public std::vector<TCkinRouteItem>
 {
-  private:
-    void GetRoute(int tckin_id,
-                  int seg_no,
-                  bool after_current,
-                  TCkinRouteType1 route_type1,
-                  TCkinRouteType2 route_type2,
-                  TQuery& Qry);
-    bool GetRoute(int grp_id,
-                  bool after_current,
-                  TCkinRouteType1 route_type1,
-                  TCkinRouteType2 route_type2);
-
-    void GetRouteByET(
-            const std::string &tick_no,
-            int coupon_no,
-            bool after_current,
-            TCkinRouteType1 route_type1,
-            TQuery& Qry
-            );
-    bool GetRouteByET(
-            int pax_id,
-            bool after_current,
-            TCkinRouteType1 route_type1
-            );
   public:
-    //сквозной маршрут после стыковки grp_id
-    bool GetRouteAfter(int grp_id,
-                       TCkinRouteType1 route_type1,
-                       TCkinRouteType2 route_type2);   //результат=false только если для grp_id не производилась сквозная регистрация!
-    void GetRouteAfter(int tckin_id,
-                       int seg_no,
-                       TCkinRouteType1 route_type1,
-                       TCkinRouteType2 route_type2);
+    enum Currentity  { NotCurrent,
+                       WithCurrent };
+    enum Dependence  { OnlyDependent,
+                       IgnoreDependence };
+    enum GroupStatus { WithoutTransit,
+                       WithTransit };
+  private:
+    enum Direction   { Full, Before, After };
+
+    static std::string getSelectSQL(const Direction direction,
+                                    const std::string& subselect);
+
+    boost::optional<int> getRoute(const int tckin_id,
+                                  const int grp_num,
+                                  const Direction direction);
+    boost::optional<int> getRoute(const GrpId_t& grpId,
+                                  const Direction direction);
+    boost::optional<int> getRoute(const PaxId_t& paxId,
+                                  const Direction direction);
+
+    void applyFilter(const boost::optional<int>& current_grp_num,
+                     const Currentity currentity,
+                     const Dependence dependence,
+                     const GroupStatus groupStatus);
+  public:
+    bool getRoute(const PaxId_t& paxId);                 //результат=false только если для grp_id не производилась сквозная регистрация!
+
+    bool getRoute(const GrpId_t& grpId,
+                  const Currentity currentity,
+                  const Dependence dependence,
+                  const GroupStatus groupStatus);   //результат=false только если для grp_id не производилась сквозная регистрация!
+
+    bool getRouteAfter(const GrpId_t& grpId,
+                       const Currentity currentity,
+                       const Dependence dependence,
+                       const GroupStatus groupStatus);   //результат=false только если для grp_id не производилась сквозная регистрация!
+
     //сквозной маршрут до стыковки grp_id
-    bool GetRouteBefore(int grp_id,
-                        TCkinRouteType1 route_type1,
-                        TCkinRouteType2 route_type2);  //результат=false только если для grp_id не производилась сквозная регистрация!
-    void GetRouteBefore(int tckin_id,
-                        int seg_no,
-                        TCkinRouteType1 route_type1,
-                        TCkinRouteType2 route_type2);
+    bool getRouteBefore(const GrpId_t& grpId,
+                        const Currentity currentity,
+                        const Dependence dependence,
+                        const GroupStatus groupStatus);  //результат=false только если для grp_id не производилась сквозная регистрация!
 
-    // Сквозной маршрут после ЭБ coupon_no
-    bool GetRouteAfterByET(int pax_id,
-            TCkinRouteType1 route_type1);
-    void GetRouteAfterByET(const std::string &tick_no,
-            int coupon_no,
-            TCkinRouteType1 route_type1);
+    //возвращает предыдущий сегмент стыковки (м.б. промежуточный транзитный сегмент)
+    static boost::optional<TCkinRouteItem> getPriorGrp(const int tckin_id,
+                                                       const int grp_num,
+                                                       const Dependence dependence,
+                                                       const GroupStatus groupStatus);
 
-    // Сквозной маршрут до ЭБ coupon_no
-    bool GetRouteBeforeByET(int pax_id,
-            TCkinRouteType1 route_type1);
-    void GetRouteBeforeByET(const std::string &tick_no,
-            int coupon_no,
-            TCkinRouteType1 route_type1);
+    static boost::optional<TCkinRouteItem> getPriorGrp(const GrpId_t& grpId,
+                                                       const Dependence dependence,
+                                                       const GroupStatus groupStatus);
+    //возвращает следующий сегмент стыковки (м.б. промежуточный транзитный сегмент)
+    static boost::optional<TCkinRouteItem> getNextGrp(const GrpId_t& grpId,
+                                                      const Dependence dependence,
+                                                      const GroupStatus groupStatus);
 
-    //возвращает следующий сегмент стыковки
-    void GetNextSeg(int tckin_id,
-                    int seg_no,
-                    TCkinRouteType2 route_type2,
-                    TCkinRouteItem& item);
-    bool GetNextSeg(int grp_id,
-                    TCkinRouteType2 route_type2,
-                    TCkinRouteItem& item);     //результат=false только если для grp_id не производилась сквозная регистрация!
-                                               //отсутствие следующего сегмента всегда лучше проверять по возвращенному item
-
-    //возвращает предыдущий сегмент стыковки
-    void GetPriorSeg(int tckin_id,
-                     int seg_no,
-                     TCkinRouteType2 route_type2,
-                     TCkinRouteItem& item);
-    bool GetPriorSeg(int grp_id,
-                     TCkinRouteType2 route_type2,
-                     TCkinRouteItem& item);    //результат=false только если для grp_id не производилась сквозная регистрация!
-                                               //отсутствие предыдущего сегмента всегда лучше проверять по возвращенному item
     void get(TCkinGrpIds &tckin_grp_ids) const
     {
       tckin_grp_ids.clear();
       for(TCkinRoute::const_iterator i=begin(); i!=end(); ++i)
         tckin_grp_ids.push_back(i->grp_id);
     }
+
+    static boost::optional<GrpId_t> toDB(const std::list<TCkinRouteInsertItem>& tckinGroups);
+
+    static std::string copySubselectSQL(const std::string& mainTable,
+                                        const std::initializer_list<std::string>& otherTables,
+                                        const bool forEachPassenger);
 };
 
 enum TCkinSegmentSet { cssNone,

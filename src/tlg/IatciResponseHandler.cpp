@@ -34,6 +34,7 @@ public:
         edifact::PpdElem                  m_ppd;
         boost::optional<edifact::PrdElem> m_prd;
         boost::optional<edifact::PfdElem> m_pfd;
+        boost::optional<edifact::PbdElem> m_pbd;
         boost::optional<edifact::PsiElem> m_psi;
         boost::optional<edifact::PapElem> m_pap;
         boost::optional<edifact::PapElem> m_papInfant;
@@ -42,6 +43,7 @@ public:
     public:
         void setPpd(const boost::optional<PpdElem>& ppd);
         void setPrd(const boost::optional<edifact::PrdElem>& prd, bool required = false);
+        void setPbd(const boost::optional<edifact::PbdElem>& pbd, bool required = false);
         void setPsi(const boost::optional<edifact::PsiElem>& psi, bool required = false);
         void setPfd(const boost::optional<edifact::PfdElem>& pfd, bool required = false);
         void addApg(const boost::optional<edifact::PapElem>& pap,
@@ -206,9 +208,10 @@ void IatciResponseHandler::parse()
             SetEdiPointToSegGrG(pMes(), SegGrElement(2, currPax), "PROG_ERR");
 
             IatciResultMaker::Pxg pxg;
-            pxg.setPpd(readEdiPpd(pMes()));
+            pxg.setPpd(readEdiPpd(pMes()));            
             pxg.setPrd(readEdiPrd(pMes()));
             pxg.setPfd(readEdiPfd(pMes()));
+            pxg.setPbd(readEdiPbd(pMes()));
             pxg.setPsi(readEdiPsi(pMes()));
 
             int apgCount = GetNumSegGr(pMes(), 3);
@@ -232,11 +235,24 @@ void IatciResponseHandler::handle()
     boost::optional<tlgnum_t> postponeTlgNum = PostponeEdiHandling::findPostponeTlg(ediSessId());
     if(postponeTlgNum) {
         // сохранение данных для последующей обработки отложенной телеграммы
-        iatci::saveDeferredCkiData(*postponeTlgNum, m_lRes);
+        iatci::saveDeferredCkiData(*postponeTlgNum, iatci::DefferedIatciData::create(m_lRes));
     } else {
         // сохранение данных для obrzap
         iatci::saveCkiData(ediSessId(), m_lRes);
     }
+}
+
+void IatciResponseHandler::onTimeOut()
+{
+    boost::optional<tlgnum_t> postponeTlgNum = PostponeEdiHandling::findPostponeTlg(ediSessId());
+    if(postponeTlgNum) {
+        iatci::saveDeferredCkiData(*postponeTlgNum, iatci::DefferedIatciData::createTimeout());
+    }
+}
+
+void IatciResponseHandler::onCONTRL()
+{
+    onTimeOut();
 }
 
 //---------------------------------------------------------------------------------------
@@ -253,6 +269,14 @@ void IatciResultMaker::Pxg::setPrd(const boost::optional<edifact::PrdElem>& prd,
     if(required)
         ASSERT(prd);
     m_prd = prd;
+}
+
+void IatciResultMaker::Pxg::setPbd(const boost::optional<edifact::PbdElem>& pbd,
+                                   bool required)
+{
+    if(required)
+        ASSERT(pbd);
+    m_pbd = pbd;
 }
 
 void IatciResultMaker::Pxg::setPsi(const boost::optional<edifact::PsiElem>& psi,
@@ -329,7 +353,10 @@ boost::optional<iatci::ServiceDetails> IatciResultMaker::Pxg::makeService() cons
 
 boost::optional<iatci::BaggageDetails> IatciResultMaker::Pxg::makeBaggage() const
 {
-    // TODO
+    if(m_pbd) {
+        return iatci::makeBaggage(*m_pbd);
+    }
+
     return boost::none;
 }
 

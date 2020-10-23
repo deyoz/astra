@@ -1,4 +1,5 @@
 #include <string>
+#include <memory>
 #include "oralib.h"
 #include "astra_callbacks.h"
 #include "astra_main.h"
@@ -149,7 +150,8 @@ class AstraApplication : public ServerFramework::ApplicationCallbacks
     virtual int tcl_init(Tcl_Interp *interp)
     {
       ApplicationCallbacks::tcl_init(interp);
-      AstraJxtCallbacks* astra_cb_ptr = new AstraJxtCallbacks();
+      jxtlib::JXTLib::Instance()->SetCallbacks(std::make_unique<AstraJxtCallbacks>());
+      AstraJxtCallbacks* astra_cb_ptr = dynamic_cast<AstraJxtCallbacks*>(jxtlib::JXTLib::Instance()->GetCallbacks());
       astra_cb_ptr->SetPostProcessXMLAnswerCallback(CheckTermResDoc);
       return 0;
     }
@@ -197,6 +199,9 @@ static void init_foreign_tests()
 {
     void init_edi_msg_tests();
     init_edi_msg_tests();
+
+    void initTimaticTests();
+    initTimaticTests();
 }
 #endif/*XP_TESTING*/
 

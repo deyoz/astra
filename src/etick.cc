@@ -40,6 +40,7 @@
 #include "passenger.h"
 #include "ckin_search.h"
 #include "zamar_dsm.h"
+#include "flt_settings.h"
 #include "tlg/et_disp_request.h"
 #include "tlg/emd_disp_request.h"
 #include "tlg/emd_system_update_request.h"
@@ -365,7 +366,7 @@ void TlgETDisplay(int point_id_tlg, const set<int> &ids, bool is_pax_id)
         eticks.insert(eticksKey);
         ProgTrace(TRACE5, "%s: ETSearchInterface::SearchET (%s)", __FUNCTION__, p->traceStr().c_str());
       }
-      catch(UserException &e)
+      catch(const UserException &e)
       {
         ProgTrace(TRACE5, "%s: %s", __FUNCTION__, e.what());
         ProgTrace(TRACE5, "%s: ETSearchByTickNoParams (%s)", __FUNCTION__, p->traceStr().c_str());
@@ -373,7 +374,7 @@ void TlgETDisplay(int point_id_tlg, const set<int> &ids, bool is_pax_id)
       };
     }
   }
-  catch(std::exception &e)
+  catch(const std::exception &e)
   {
     ProgError(STDLOG, "%s: %s", __FUNCTION__, e.what());
   }
@@ -429,10 +430,11 @@ const TETickItem& TETickItem::toDB(const TEdiAction ediAction) const
                 << QParam("surname", otString, surname)
                 << QParam("name", otString, name)
                 << QParam("fare_basis", otString, fare_basis)
-                << (bag_norm!=ASTRA::NoExists?QParam("bag_norm", otInteger, bag_norm):
-                                              QParam("bag_norm", otInteger, FNull))
+                << (bagNorm?QParam("bag_norm", otInteger, bagNorm.get().getQuantity()):
+                            QParam("bag_norm", otInteger, FNull))
+                << (bagNorm?QParam("bag_norm_unit", otString, TBagUnit(bagNorm.get().getUnit()).get_db_form()):
+                            QParam("bag_norm_unit", otString, FNull))
                 << QParam("fare_class", otString, fare_class)
-                << QParam("bag_norm_unit", otString, bag_norm_unit.get_db_form())
                 << QParam("last_display", otDate, NowUTC())
                 << QParam("inserted", otInteger, FNull);
       break;
@@ -465,7 +467,7 @@ const TETickItem& TETickItem::toDB(const TEdiAction ediAction) const
 
         TCachedQuery Qry(sql, QryParams);
 
-        longToDB(Qry.get(), "tlg_text", ediPnr.get().ediText(), false, 1000);
+        longToDB(Qry.get(), "tlg_text", ediPnr->ediTextWithCharset("IATA"), false, 1000);
       }
       break;
 
@@ -572,9 +574,11 @@ TETickItem& TETickItem::fromDB(const TEdiAction ediAction,
         name=Qry.FieldAsString("name");
         fare_basis=Qry.FieldAsString("fare_basis");
         fare_class=Qry.FieldAsString("fare_class");
-        bag_norm=Qry.FieldIsNULL("bag_norm")?ASTRA::NoExists:
-                                             Qry.FieldAsInteger("bag_norm");
-        bag_norm_unit.set(Qry.FieldAsString("bag_norm_unit"));
+        if (!Qry.FieldIsNULL("bag_norm"))
+        {
+          bagNorm=boost::in_place(Qry.FieldAsInteger("bag_norm"),
+                                  string(Qry.FieldAsString("bag_norm_unit")));
+        }
       }
       break;
 
@@ -712,6 +716,54 @@ static std::string airlineToXML(const std::string& code)
   return airlineToPrefferedCode(code, OutputLang(LANG_RU, {OutputLang::OnlyTrueIataCodes}));
 }
 
+static boost::optional<std::string> segmentAirpSpecView(const AirportCode_t& airp,
+                                                        const bool isDepartureAirp,
+                                                        const Ticketing::TicketNum_t& ticknum,
+                                                        const Ticketing::CouponNum_t& cpnnum)
+{
+  if (airp.get()=="АКЛ")
+  {
+    boost::optional<Itin> etDispItin=getEtDispCouponItin(ticknum, cpnnum);
+    if (!etDispItin) return {};
+
+    const std::string& airpFromET=isDepartureAirp?etDispItin.get().depPointCode():
+                                                  etDispItin.get().arrPointCode();
+
+    if (airpFromET=="TSE" || airpFromET=="NQZ") return airpFromET;
+  }
+  return {};
+}
+
+std::string airpDepToPrefferedCode(const AirportCode_t& airp,
+                                   const boost::optional<CheckIn::TPaxTknItem>& tkn,
+                                   const OutputLang &lang)
+{
+  if (tkn && tkn.get().validET())
+  {
+    const auto special=segmentAirpSpecView(airp,
+                                           true,
+                                           Ticketing::TicketNum_t(tkn.get().no),
+                                           Ticketing::CouponNum_t(tkn.get().coupon));
+    if (special) return special.get();
+  }
+  return airpToPrefferedCode(airp.get(), lang);
+}
+
+std::string airpArvToPrefferedCode(const AirportCode_t& airp,
+                                   const boost::optional<CheckIn::TPaxTknItem>& tkn,
+                                   const OutputLang &lang)
+{
+  if (tkn && tkn.get().validET())
+  {
+    const auto special=segmentAirpSpecView(airp,
+                                           false,
+                                           Ticketing::TicketNum_t(tkn.get().no),
+                                           Ticketing::CouponNum_t(tkn.get().coupon));
+    if (special) return special.get();
+  }
+  return airpToPrefferedCode(airp.get(), lang);
+}
+
 Ticketing::Ticket TETickItem::makeTicket(const AstraEdifact::TFltParams& fltParams,
                                          const std::string& subclass,
                                          const CouponStatus& real_status) const
@@ -721,12 +773,13 @@ Ticketing::Ticket TETickItem::makeTicket(const AstraEdifact::TFltParams& fltPara
                                  AirpTZRegion(fltParams.fltInfo.airp));
   ptime scd(DateTimeToBoost(scd_local));
 
-  boost::optional<Itin> wcItin;
+  Ticketing::TicketNum_t ticketNum(et.no);
+  Ticketing::CouponNum_t couponNum(et.coupon);
 
+  boost::optional<Itin> wcItin;
   if (fltParams.control_method)
   {
-    wcItin=getWcCouponItin(Ticketing::TicketNum_t(et.no),
-                           Ticketing::CouponNum_t(et.coupon));
+    wcItin=getWcCouponItin(ticketNum, couponNum);
 
     if (wcItin)
       LogTrace(TRACE5) << __FUNCTION__ << ": wcItin.get().airCode()=" << wcItin.get().airCode()
@@ -734,6 +787,16 @@ Ticketing::Ticket TETickItem::makeTicket(const AstraEdifact::TFltParams& fltPara
     else
       LogTrace(TRACE5) << __FUNCTION__ << ": wcItin==boost::none";
   };
+
+  const auto airpDepSpecView=segmentAirpSpecView(AirportCode_t(airp_dep),
+                                                 true,
+                                                 ticketNum,
+                                                 couponNum);
+
+  const auto airpArvSpecView=segmentAirpSpecView(AirportCode_t(airp_arv),
+                                                 false,
+                                                 ticketNum,
+                                                 couponNum);
 
   Itin itin(wcItin?wcItin.get().airCode():
                    airlineToXML(fltParams.fltInfo.airline),   //marketing carrier
@@ -745,6 +808,9 @@ Ticketing::Ticket TETickItem::makeTicket(const AstraEdifact::TFltParams& fltPara
             time_duration(not_a_date_time), // not a date time
             airp_dep,
             airp_arv);
+  if (airpDepSpecView) itin.setSpecDepPoint(airpDepSpecView.get());
+  if (airpArvSpecView) itin.setSpecArrPoint(airpArvSpecView.get());
+
   Coupon cpn(ci,itin);
 
   list<Coupon> lcpn;
@@ -884,15 +950,11 @@ void ETDisplayToDB(const Ticketing::EdiPnr& ediPnr)
         continue;
       }
       if(itin.luggage().haveLuggage())
-      {
-        ETickItem.bag_norm=itin.luggage()->quantity();
-        ETickItem.bag_norm_unit=itin.luggage()->chargeQualifier();
-      }
+        ETickItem.bagNorm=boost::in_place(itin.luggage()->quantity(),
+                                          itin.luggage()->chargeQualifier());
       else
-      {
-        ETickItem.bag_norm=ASTRA::NoExists;
-        ETickItem.bag_norm_unit.clear();
-      }
+        ETickItem.bagNorm=boost::none;
+
       ETickItem.fare_class = itin.rbd()->code(RUSSIAN);
 
       ETickItem.toDB(TETickItem::Display);
@@ -1175,7 +1237,7 @@ Ticketing::Pnr readDispPnr(EDI_REAL_MES_STRUCT *pMes)
         Pnr::Trace(TRACE2, pnr);
         return pnr;
       }
-      catch(edilib::EdiExcept &e)
+      catch(const edilib::EdiExcept &e)
       {
         throw EXCEPTIONS::Exception("edilib: %s", e.what());
       }
@@ -1191,7 +1253,7 @@ Ticketing::Pnr readUacPnr(EDI_REAL_MES_STRUCT *pMes)
       Pnr::Trace(TRACE2, pnr);
       return pnr;
     }
-    catch(edilib::EdiExcept &e)
+    catch(const edilib::EdiExcept &e)
     {
       throw EXCEPTIONS::Exception("edilib: %s", e.what());
     }
@@ -1214,7 +1276,7 @@ void ETSearchInterface::KickHandler(XMLRequestCtxt *ctxt,
             HandleNotSuccessEtsResult(*remRes, resNode);
         }
     }
-    catch(edilib::EdiExcept &e) {
+    catch(const edilib::EdiExcept &e) {
         throw EXCEPTIONS::Exception("edilib: %s", e.what());
     }
 }
@@ -1237,7 +1299,7 @@ void ETRequestControlInterface::KickHandler(XMLRequestCtxt *ctxt,
             HandleNotSuccessEtsResult(*remRes, resNode);
         }
     }
-    catch(edilib::EdiExcept &e) {
+    catch(const edilib::EdiExcept &e) {
         throw EXCEPTIONS::Exception("edilib: %s", e.what());
     }
 }
@@ -1328,7 +1390,7 @@ void SearchEMDsByTickNo(const set<Ticketing::TicketNum_t> &emds,
       ediReq.sendTlg();
     };
   }
-  catch(RemoteSystemContext::system_not_found &e)
+  catch(const RemoteSystemContext::system_not_found &e)
   {
     throw AstraLocale::UserException("MSG.EMD.EDS_ADDR_NOT_DEFINED_FOR_FLIGHT",
                                      LEvntPrms() << PrmFlight("flight", e.airline(), e.flNum()?e.flNum().get():ASTRA::NoExists, "") );
@@ -1683,7 +1745,7 @@ bool EMDSystemUpdateInterface::EMDChangeDisassociation(const edifact::KickInfo &
       result=true;
     }
   }
-  catch(Ticketing::RemoteSystemContext::system_not_found &e)
+  catch(const Ticketing::RemoteSystemContext::system_not_found &e)
   {
     throw AstraLocale::UserException("MSG.EMD.EDS_ADDR_NOT_DEFINED_FOR_FLIGHT",
                                      LEvntPrms() << PrmFlight("flight", e.airline(), e.flNum()?e.flNum().get():ASTRA::NoExists, "") );
@@ -1776,7 +1838,7 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
                                        false,
                                        mtick);
     }
-    catch(AstraLocale::UserException &e)
+    catch(const AstraLocale::UserException &e)
     {
       if (!only_one)
       {
@@ -2042,11 +2104,11 @@ void ETStatusInterface::ETCheckStatusForRollback(int point_id,
         }
       }
     }
-    catch(CheckIn::UserException)
+    catch(const CheckIn::UserException&)
     {
       throw;
     }
-    catch(AstraLocale::UserException &e)
+    catch(const AstraLocale::UserException &e)
     {
       throw CheckIn::UserException(e.getLexemaData(), point_id);
     }
@@ -2170,7 +2232,7 @@ bool EMDStatusInterface::EMDChangeStatus(const edifact::KickInfo &kickInfo,
       };
     };
   }
-  catch(Ticketing::RemoteSystemContext::system_not_found &e)
+  catch(const Ticketing::RemoteSystemContext::system_not_found &e)
   {
     throw AstraLocale::UserException("MSG.EMD.EDS_ADDR_NOT_DEFINED_FOR_FLIGHT",
                                      LEvntPrms() << PrmFlight("flight", e.airline(), e.flNum()?e.flNum().get():ASTRA::NoExists, "") );
@@ -2210,7 +2272,7 @@ bool ETStatusInterface::ChangeStatusLocallyOnly(const TFltParams& fltParams,
     AstraEdifact::ProcEvent(event, ctxt, nullptr, false);
 
   }
-  catch(AirportControlNotFound)
+  catch(const AirportControlNotFound&)
   {
     ProgTrace(TRACE5, "%s: AirportControlNotFound for %s (point_id=%d)",
                       __FUNCTION__, item.et.no_str().c_str(), item.point_id);
@@ -2220,7 +2282,7 @@ bool ETStatusInterface::ChangeStatusLocallyOnly(const TFltParams& fltParams,
 //      //скорее всего данный купон работал по интерактиву
 //      return false;
   }
-  catch(WcCouponNotFound)
+  catch(const WcCouponNotFound&)
   {
     ProgTrace(TRACE5, "%s: WcCouponNotFound for %s (point_id=%d)",
                       __FUNCTION__, item.et.no_str().c_str(), item.point_id);
@@ -2291,12 +2353,12 @@ bool ETStatusInterface::ReturnAirportControl(const TFltParams& fltParams,
                           Ticketing::CouponNum_t(item.et.coupon),
                           false);
   }
-  catch(AirportControlNotFound)
+  catch(const AirportControlNotFound&)
   {
     ProgTrace(TRACE5, "%s: AirportControlNotFound for %s (point_id=%d)",
                       __FUNCTION__, item.et.no_str().c_str(), item.point_id);
   }
-  catch(WcCouponNotFound)
+  catch(const WcCouponNotFound&)
   {
     ProgTrace(TRACE5, "%s: WcCouponNotFound for %s (point_id=%d)",
                       __FUNCTION__, item.et.no_str().c_str(), item.point_id);
@@ -2354,7 +2416,8 @@ void ETStatusInterface::ETCheckStatus(int id,
           "       etickets.airp_arv AS tick_airp_arv, "
           "       etickets.coupon_status AS coupon_status "
           "FROM pax_grp,pax,etickets "
-          "WHERE pax_grp.grp_id=pax.grp_id AND pax.ticket_rem='TKNE' AND "
+          "WHERE pax_grp.grp_id=pax.grp_id AND pax_grp.status<>:transit AND "
+          "      pax.ticket_rem='TKNE' AND "
           "      pax.ticket_no IS NOT NULL AND pax.coupon_no IS NOT NULL AND "
           "      pax.ticket_no=etickets.ticket_no(+) AND "
           "      pax.coupon_no=etickets.coupon_no(+) AND ";
@@ -2378,6 +2441,7 @@ void ETStatusInterface::ETCheckStatus(int id,
         sql << "ORDER BY pax.ticket_no,pax.coupon_no,DECODE(pax.refuse,NULL,0,1)";
 
         Qry.SQLText=sql.str().c_str();
+        Qry.CreateVariable("transit", otString, EncodePaxStatus(ASTRA::psTransit));
         Qry.Execute();
         if (!Qry.Eof)
         {
@@ -2474,11 +2538,11 @@ void ETStatusInterface::ETCheckStatus(int id,
         }
       }
     }
-    catch(CheckIn::UserException)
+    catch(const CheckIn::UserException&)
     {
       throw;
     }
-    catch(AstraLocale::UserException &e)
+    catch(const AstraLocale::UserException &e)
     {
       throw CheckIn::UserException(e.getLexemaData(), point_id);
     }
@@ -2537,11 +2601,11 @@ void ETStatusInterface::ETCheckStatus(int id,
         }
       }
     }
-    catch(CheckIn::UserException)
+    catch(const CheckIn::UserException&)
     {
       throw;
     }
-    catch(AstraLocale::UserException &e)
+    catch(const AstraLocale::UserException &e)
     {
       throw CheckIn::UserException(e.getLexemaData(), check_point_id);
     }
@@ -2602,7 +2666,7 @@ bool ETStatusInterface::ETChangeStatus(const edifact::KickInfo &kickInfo,
         TAirlinesRow& row=(TAirlinesRow&)base_tables.get("airlines").get_row("code",oper_carrier);
         if (!row.code_lat.empty()) oper_carrier=row.code_lat;
       }
-      catch(EBaseTableError) {}
+      catch(const EBaseTableError&) {}
       */
         if (i->first.addrs.first.empty() ||
             i->first.addrs.second.empty())
@@ -3022,10 +3086,10 @@ void ChangeStatusInterface::KickOnTimeout(xmlNodePtr reqNode, xmlNodePtr resNode
     // TODO handle COS timeout
 }
 
-bool EMDAutoBoundInterface::BeforeLock(const EMDAutoBoundId &id, int &point_id, TGrpIds &grp_ids)
+bool EMDAutoBoundInterface::BeforeLock(const EMDAutoBoundId &id, int &point_id, GrpIds &grpIds)
 {
   point_id=NoExists;
-  grp_ids.clear();
+  grpIds.clear();
 
   QParams params;
   id.setSQLParams(params);
@@ -3036,9 +3100,9 @@ bool EMDAutoBoundInterface::BeforeLock(const EMDAutoBoundId &id, int &point_id, 
   for(; !Qry.get().Eof; Qry.get().Next())
   {
     if (point_id!=Qry.get().FieldAsInteger("point_dep")) continue;
-    int grp_id=Qry.get().FieldAsInteger("grp_id");
-    if (find(grp_ids.begin(), grp_ids.end(), grp_id)==grp_ids.end())
-      grp_ids.push_back(grp_id);
+    GrpId_t grpId(Qry.get().FieldAsInteger("grp_id"));
+    if (find(grpIds.begin(), grpIds.end(), grpId)==grpIds.end())
+      grpIds.push_back(grpId);
   };
 
   TTripInfo info;
@@ -3047,12 +3111,12 @@ bool EMDAutoBoundInterface::BeforeLock(const EMDAutoBoundId &id, int &point_id, 
   return true;
 }
 
-bool EMDAutoBoundInterface::Lock(const EMDAutoBoundId &id, int &point_id, TGrpIds &grp_ids, const std::string &whence)
+bool EMDAutoBoundInterface::Lock(const EMDAutoBoundId &id, int &point_id, GrpIds &grpIds, const std::string &whence)
 {
   point_id=NoExists;
-  grp_ids.clear();
+  grpIds.clear();
 
-  if (!BeforeLock(id, point_id, grp_ids)) return false;
+  if (!BeforeLock(id, point_id, grpIds)) return false;
 
   TFlights flightsForLock;
   flightsForLock.Get( point_id, ftTranzit );
@@ -3066,10 +3130,10 @@ bool EMDAutoBoundInterface::Lock(const EMDAutoBoundId &id, int &point_id, TCkinG
   tckin_grp_ids.clear();
 
   int grp_id=NoExists;
-  TGrpIds grp_ids;
-  bool res=BeforeLock(id, point_id, grp_ids);
-  if (!grp_ids.empty()) grp_id=grp_ids.front();
-  if (grp_ids.size()>1)
+  GrpIds grpIds;
+  bool res=BeforeLock(id, point_id, grpIds);
+  if (!grpIds.empty()) grp_id=grpIds.front().get();
+  if (grpIds.size()>1)
     throw EXCEPTIONS::Exception("EMDAutoBoundInterface::Lock: more than one grp_id found");
   if (grp_id!=NoExists) tckin_grp_ids.push_back(grp_id);
   if (!res) return false;
@@ -3090,11 +3154,11 @@ static bool needTryCheckinServicesAuto(int id, bool is_grp_id)
 void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqNode)
 {
   //раскомментировав эту строчку, ты, дорогой друг, отключишь любую автопривязку EMD, кроме фоновой по закрытию регистрации
-  // try { dynamic_cast<const EMDAutoBoundPointId&>(id); } catch(std::bad_cast) { return; }
+  // try { dynamic_cast<const EMDAutoBoundPointId&>(id); } catch(const std::bad_cast&) { return; }
 
   int point_id=NoExists;
-  TGrpIds grp_ids;
-  if (!Lock(id, point_id, grp_ids, __FUNCTION__)) return;
+  GrpIds grpIds;
+  if (!Lock(id, point_id, grpIds, __FUNCTION__)) return;
 
   //проверим, что нет тревоги "Нет связи с СЭБ"
   TFltParams fltParams;
@@ -3103,10 +3167,10 @@ void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqN
   //услуги
   boost::optional< set<int> > pax_ids_for_refresh=set<int>();
 
-  for(auto grp_id : grp_ids)
+  for(const GrpId_t& grpId : grpIds)
   {
     TPaidRFISCListWithAuto paid_rfisc;
-    paid_rfisc.fromDB(grp_id, true);
+    paid_rfisc.fromDB(grpId.get(), true);
     for(TPaidRFISCListWithAuto::const_iterator p=paid_rfisc.begin(); p!=paid_rfisc.end(); ++p)
       if (p->second.need_positive()) pax_ids_for_refresh.get().insert(p->second.pax_id);
   };
@@ -3117,12 +3181,12 @@ void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqN
     if (termReqName=="TCkinLoadPax")
     {
       //для местовой системы делаем refresh только при загрузке группы
-      for(auto grp_id : grp_ids)
+      for(const GrpId_t& grpId : grpIds)
       {
         WeightConcept::TPaidBagList paid;
-        WeightConcept::PaidBagFromDB(NoExists, grp_id, paid);
+        WeightConcept::PaidBagFromDB(NoExists, grpId.get(), paid);
         CheckIn::TServicePaymentListWithAuto payment;
-        payment.fromDB(grp_id);
+        payment.fromDB(grpId.get());
         for(WeightConcept::TPaidBagList::const_iterator p=paid.begin(); p!=paid.end(); ++p)
         {
           if (p->weight<=0) continue;
@@ -3240,7 +3304,7 @@ void EMDAutoBoundInterface::EMDSearch(const EMDAutoBoundId &id,
                                     ETSearchInterface::spEMDRefresh,
                                     kickInfo.get());
       }
-      catch(UserException& e)
+      catch(const UserException& e)
       {
         LogTrace(TRACE5) << __FUNCTION__ << ": " << e.what();
       };
@@ -3392,12 +3456,12 @@ void EMDAutoBoundInterface::EMDTryBind(const TCkinGrpIds &tckin_grp_ids,
     };
 
   }
-  catch(UserException &e)
+  catch(const UserException &e)
   {
     ASTRA::rollback();
     ProgTrace(TRACE5, ">>>> %s: UserException: %s", __FUNCTION__, e.what());
   }
-  catch(std::exception &e)
+  catch(const std::exception &e)
   {
     ASTRA::rollback();
     ProgError(STDLOG, "%s: std::exception: %s", __FUNCTION__, e.what());
@@ -3407,8 +3471,13 @@ void EMDAutoBoundInterface::EMDTryBind(const TCkinGrpIds &tckin_grp_ids,
 void emd_refresh_task(const TTripTaskKey &task)
 {
   LogTrace(TRACE5) << __FUNCTION__ << ": " << task;
-
-  EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundPointId(task.point_id), nullptr);
+  if ( !task.params.empty() ) {
+    int grp_id;
+    StrToInt( task.params.c_str(), grp_id );
+    EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), nullptr);
+  }
+  else
+    EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundPointId(task.point_id), nullptr);
 }
 
 void emd_try_bind_task(const TTripTaskKey &task)
@@ -3508,7 +3577,8 @@ void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 
     BrdInterface::GetPax(termReqNode, resNode);
   }
-  if (termReqName=="paid")
+  if (termReqName=="paid" ||
+      termReqName=="evaluation")
   {
     EMDAutoBoundGrpId id(termReqNode);
     TCkinGrpIds tckin_grp_ids;
@@ -3545,11 +3615,11 @@ void handleEtDispResponse(const edifact::RemoteResults& remRes)
         Ticketing::EdiPnr ediPnr(remRes.tlgSource(), edifact::EdiDisplRes);
         ETDisplayToDB(ediPnr);
     }
-    catch(UserException &e)
+    catch(const UserException &e)
     {
       ProgTrace(TRACE5, ">>>> %s: %s", __FUNCTION__, e.what());
     }
-    catch(std::exception &e)
+    catch(const std::exception &e)
     {
         if (remRes.isSystemPult())
           ProgTrace(TRACE5, ">>>> %s: %s", __FUNCTION__, e.what());

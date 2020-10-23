@@ -340,7 +340,7 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
       try {
         i->second.est = ClientToUTC( i->second.est, region );
       }
-      catch( boost::local_time::ambiguous_result ) {
+      catch( const boost::local_time::ambiguous_result& ) {
          throw AstraLocale::UserException( "MSG.STAGE.EST_TIME_NOT_EXACTLY_DEFINED_FOR_AIRP",
                  LParams() << LParam("stage", TStagesRules::Instance()->stage_name_view( i->first, airp ))
                            << LParam("airp", ElemIdToCodeNative(etAirp,airp)));
@@ -350,7 +350,7 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
       try {
         i->second.act = ClientToUTC( i->second.act, region );
       }
-      catch( boost::local_time::ambiguous_result ) {
+      catch( const boost::local_time::ambiguous_result& ) {
          throw AstraLocale::UserException( "MSG.STAGE.ACT_TIME_NOT_EXACTLY_DEFINED_FOR_AIRP",
                  LParams() << LParam("stage", TStagesRules::Instance()->stage_name_view( i->first, airp ))
                            << LParam("airp", ElemIdToCodeNative(etAirp,airp)));
@@ -803,7 +803,8 @@ void astra_timer( TDateTime utcdate )
    "WHERE points.point_id = trip_stages.point_id AND "
    "      points.act_out IS NULL AND "
    "      points.pr_del = 0 AND "
-   "      trip_stages.time_auto_not_act <= :now "
+   "      trip_stages.time_auto_not_act <= :now AND "
+   "      trip_stages.time_auto_not_act >= :now - 3 "
    " ORDER BY trip_stages.point_id, trip_stages.stage_id ";
   Qry.CreateVariable( "now", otDate, utcdate );
   TQuery QExecStage(&OraSession);

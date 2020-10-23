@@ -17,6 +17,7 @@
 #include "astra_callbacks.h"
 #include "http_main.h"
 #include "web_search.h"
+#include "stat/stat_zamar.h"
 
 #define NICKNAME "GRISHA"
 #include <serverlib/slogger.h>
@@ -53,7 +54,7 @@ void ZamarException(const AstraLocale::LexemaData& lexemeData, const string& com
   if (lexemeData.lexema_id == STR_INCORRECT_DATA_IN_XML)
   {
     ProgError(STDLOG, "ZAMAR incorrect data in XML: %s", comment.c_str());
-    throw AstraLocale::UserException("WRAP.QRY_HANDLER_ERR", AstraLocale::LParams() << AstraLocale::LParam("text", comment));
+    throw AstraLocale::UserException(STR_INCORRECT_DATA_IN_XML, AstraLocale::LParams() << AstraLocale::LParam("text", comment));
   }
   else
   {
@@ -166,103 +167,123 @@ void PassengerSearchResult::fromXML(xmlNodePtr reqNode, xmlNodePtr externalSysRe
   // bcbp or paxId
   bool isBoardingPass = false;
   int reg_no = NoExists;
-  if (nullptr != GetNode("bcbp", reqNode))
+  boost::optional<TSearchFltInfo> bcbpFltInfo;
+  try
   {
-    string bcbp = NodeAsString( "bcbp", reqNode);
-    if (bcbp.empty())
-      ZamarException(STR_INCORRECT_DATA_IN_XML, "Empty <bcbp>", __func__);
-    SearchPaxByScanData(bcbp, point_id, reg_no, pax_id, isBoardingPass);
-    if (point_id==NoExists || reg_no==NoExists || pax_id==NoExists || !isBoardingPass)
+    if (nullptr != GetNode("bcbp", reqNode))
     {
-      LogTrace(TRACE5) << __FUNCTION__
-                       << ": found_point_id=" << point_id
-                       << ", reg_no=" << reg_no
-                       << ", found_pax_id=" << pax_id
-                       << boolalpha << ", isBoardingPass=" << isBoardingPass;
-      if (!isBoardingPass)
-        throw AstraLocale::UserException("MSG.WRONG_DATA_RECEIVED");
-      if (point_id==NoExists)
-        ZamarException(STR_PAX_NO_MATCH, "", __func__);
-      if (pax_id==NoExists)
-        ZamarException(STR_PAX_NO_MATCH, "", __func__);
-      throw AstraLocale::UserException("MSG.PASSENGER.NOT_CHECKIN_WITH_REG_NO");
+      string bcbp = NodeAsString( "bcbp", reqNode);
+      if (bcbp.empty())
+        ZamarException(STR_INCORRECT_DATA_IN_XML, "Empty <bcbp>", __func__);
+      SearchPaxByScanData(bcbp, point_id, reg_no, pax_id, isBoardingPass, bcbpFltInfo);
+      if (point_id==NoExists || reg_no==NoExists || pax_id==NoExists || !isBoardingPass)
+      {
+        LogTrace(TRACE5) << __FUNCTION__
+                         << ": found_point_id=" << point_id
+                         << ", reg_no=" << reg_no
+                         << ", found_pax_id=" << pax_id
+                         << boolalpha << ", isBoardingPass=" << isBoardingPass;
+        if (!isBoardingPass)
+          ZamarException(AstraLocale::LexemaData("MSG.WRONG_DATA_RECEIVED"), "", __func__);
+        if (point_id==NoExists)
+          ZamarException(STR_PAX_NO_MATCH, "", __func__);
+        if (pax_id==NoExists)
+          ZamarException(STR_PAX_NO_MATCH, "", __func__);
+        ZamarException(AstraLocale::LexemaData("MSG.PASSENGER.NOT_CHECKIN_WITH_REG_NO"), "", __func__);
+      }
     }
-  }
-  else
-  {
-    if (nullptr == GetNode("passengerId", reqNode))
-      ZamarException(STR_INCORRECT_DATA_IN_XML, "Must provide <bcbp> or <passengerId>", __func__);
-    pax_id = NodeAsInteger("passengerId", reqNode);
-  }
-
-  // pax
-  if (not pax_item.getByPaxId(pax_id))
-  {
-    stringstream ss;
-    ss << "pax_id='" << pax_id << "'";
-    ZamarException(STR_PAX_NO_MATCH, ss.str(), __func__);
-  }
-
-  // grp
-  grp_id = pax_item.grp_id;
-  bool get_grp_result = false;
-  if (type == ZamarType::PaxCtl)
-    get_grp_result = grp_item.getByGrpId(grp_id);
-  else if (type == ZamarType::SBDO)
-    get_grp_result = grp_item.getByGrpIdWithBagConcepts(grp_id);
-  if (not get_grp_result)
-  {
-    stringstream ss;
-    if (type == ZamarType::PaxCtl)
-      ss << "Failed grp_item.getByGrpId ";
-    else if (type == ZamarType::SBDO)
-      ss << "Failed grp_item.getByGrpIdWithBagConcepts ";
     else
-      ss << "Unknown grp_id error ";
-    ss << grp_id;
-    ZamarException(STR_INTERNAL_ERROR, ss.str(), __func__);
-  }
-
-  // point
-  if (NoExists == point_id)
-    point_id = grp_item.point_dep;
-
-  ZamarGetFlt(point_id, trip_info);
-
-  doc_exists = CheckIn::LoadPaxDoc(pax_id, doc);
-  doco_exists = CheckIn::LoadPaxDoco(pax_id, doco);
-
-  mkt_flt.getByPaxId(pax_id);
-  if (mkt_flt.empty())
-  {
-    stringstream ss;
-    ss << "Failed mkt_flt.getByPaxId " << pax_id;
-    ZamarException(STR_INTERNAL_ERROR, ss.str(), __func__);
-  }
-
-  // flightStatus
-  flightCheckinStage = TTripStages(point_id).getStage( stCheckIn );
-  // pnr
-  pnrs.getByPaxIdFast(pax_id);
-
-  // baggageTags
-  GetTagsByPool(grp_id, pax_item.bag_pool_num, bagTagsExtended, false);
-  if (type == ZamarType::SBDO)
-  {
-    // generated
-    TQuery Qry( &OraSession );
-    Qry.SQLText="SELECT no, weight FROM sbdo_tags_generated WHERE pax_id = :pax_id AND deactivated = 0";
-    Qry.CreateVariable( "pax_id", otInteger, pax_id );
-    Qry.Execute();
-    for(; not Qry.Eof; Qry.Next())
     {
-      const double no = Qry.FieldAsFloat("no");
-      // проверяем что не активирована
-      if (find_if(bagTagsExtended.cbegin(), bagTagsExtended.cend(),
-                  [no](auto & it){ return no == it.first.numeric_part; })
-          == bagTagsExtended.cend())
-        bagTagsGenerated.emplace_back(no, Qry.FieldAsInteger("weight"));
+      if (nullptr == GetNode("passengerId", reqNode))
+        ZamarException(STR_INCORRECT_DATA_IN_XML, "Must provide <bcbp> or <passengerId>", __func__);
+      pax_id = NodeAsInteger("passengerId", reqNode);
     }
+
+    // pax
+    if (not pax_item.getByPaxId(pax_id))
+    {
+      stringstream ss;
+      ss << "pax_id='" << pax_id << "'";
+      ZamarException(STR_PAX_NO_MATCH, ss.str(), __func__);
+    }
+
+    // grp
+    grp_id = pax_item.grp_id;
+    bool get_grp_result = false;
+    if (type == ZamarType::PaxCtl)
+      get_grp_result = grp_item.getByGrpId(grp_id);
+    else if (type == ZamarType::SBDO)
+      get_grp_result = grp_item.getByGrpIdWithBagConcepts(grp_id);
+    if (not get_grp_result)
+    {
+      stringstream ss;
+      if (type == ZamarType::PaxCtl)
+        ss << "Failed grp_item.getByGrpId ";
+      else if (type == ZamarType::SBDO)
+        ss << "Failed grp_item.getByGrpIdWithBagConcepts ";
+      else
+        ss << "Unknown grp_id error ";
+      ss << grp_id;
+      ZamarException(STR_INTERNAL_ERROR, ss.str(), __func__);
+    }
+
+    // point
+    if (NoExists == point_id)
+      point_id = grp_item.point_dep;
+
+    ZamarGetFlt(point_id, trip_info);
+
+    doc_exists = CheckIn::LoadPaxDoc(pax_id, doc);
+    doco_exists = CheckIn::LoadPaxDoco(pax_id, doco);
+
+    mkt_flt.getByPaxId(pax_id);
+    if (mkt_flt.empty())
+    {
+      stringstream ss;
+      ss << "Failed mkt_flt.getByPaxId " << pax_id;
+      ZamarException(STR_INTERNAL_ERROR, ss.str(), __func__);
+    }
+
+    // flightStatus
+    flightCheckinStage = TTripStages(point_id).getStage( stCheckIn );
+    // pnr
+    pnrs.getByPaxIdFast(pax_id);
+
+    // baggageTags
+    GetTagsByPool(grp_id, pax_item.bag_pool_num, bagTagsExtended, false);
+    if (type == ZamarType::SBDO)
+    {
+      // generated
+      TQuery Qry( &OraSession );
+      Qry.SQLText="SELECT no, weight FROM sbdo_tags_generated WHERE pax_id = :pax_id AND deactivated = 0";
+      Qry.CreateVariable( "pax_id", otInteger, pax_id );
+      Qry.Execute();
+      for(; not Qry.Eof; Qry.Next())
+      {
+        const double no = Qry.FieldAsFloat("no");
+        // проверяем что не активирована
+        if (find_if(bagTagsExtended.cbegin(), bagTagsExtended.cend(),
+                    [no](auto & it){ return no == it.first.numeric_part; })
+            == bagTagsExtended.cend())
+          bagTagsGenerated.emplace_back(no, Qry.FieldAsInteger("weight"));
+      }
+    }
+
+    if (type == ZamarType::SBDO && bcbpFltInfo)
+      set_stat_zamar(AirlineCode_t(bcbpFltInfo.get().airline),
+                     AirportCode_t(bcbpFltInfo.get().airp_dep), true);
+  }
+  catch(const AstraLocale::UserException& e)
+  {
+    AstraLocale::LexemaData lexemeData=e.getLexemaData();
+    if (type == ZamarType::SBDO && bcbpFltInfo &&
+        lexemeData.lexema_id!=STR_INTERNAL_ERROR &&
+        lexemeData.lexema_id!=STR_INCORRECT_DATA_IN_XML)
+    {
+      set_stat_zamar(AirlineCode_t(bcbpFltInfo.get().airline),
+                     AirportCode_t(bcbpFltInfo.get().airp_dep), false);
+    }
+    throw;
   }
 }
 
@@ -528,9 +549,10 @@ void PassengerSearchResult::toXML(xmlNodePtr resNode, ZamarType type) const
   // bonusLevel -- SBDO
   if (type == ZamarType::SBDO)
   {
-    set<CheckIn::TPaxFQTItem> fqts;
-    if (CheckIn::LoadPaxFQTNotEmptyTierLevel(pax_id, fqts, true))
-      NewTextChild(resNode, "bonusLevel", fqts.begin()->tier_level);
+    boost::optional<CheckIn::TPaxFQTItem> bonusLevel=
+      CheckIn::TPaxFQTItem::getNotEmptyTierLevel(paxCheckIn, PaxId_t(pax_id), true);
+    if (bonusLevel)
+      NewTextChild(resNode, "bonusLevel", bonusLevel.get().tier_level);
     else
       NewTextChild(resNode, "bonusLevel");
   }
@@ -542,24 +564,26 @@ void PassengerSearchResult::toXML(xmlNodePtr resNode, ZamarType type) const
     xmlNodePtr allowanceNode = NewTextChild(resNode, "baggageAllowance");
     SetProp(allowanceNode, "type", BagConcepts().encode(bagAllowanceType));
 
-    boost::optional<TBagTotals> totals = boost::none;
+    boost::optional<BagAllowance> bagAllowance;
     if (bagAllowanceType == TBagConcept::Piece)
-      totals = PieceConcept::getBagAllowance(pax_item);
+      bagAllowance = PieceConcept::getBagAllowance(pax_item);
     else if (bagAllowanceType == TBagConcept::Weight)
     {
-      totals = WeightConcept::getBagAllowance(pax_item);
-      if (!totals)
-        totals = WeightConcept::calcBagAllowance(pax_item, grp_item, trip_info);
+      bagAllowance = WeightConcept::getBagAllowance(pax_item);
+      if (!bagAllowance)
+        bagAllowance = WeightConcept::calcBagAllowance(pax_item, grp_item, trip_info);
     }
     // bagAllowanceCount -- SBDO
-    if (totals && totals->amount != ASTRA::NoExists)
-      SetProp(allowanceNode, "pks", totals->amount);
+    if (bagAllowance && bagAllowance->amount)
+      SetProp(allowanceNode, "pks", bagAllowance->amount.get());
     // bagAllowanceWeight -- SBDO
-    if (totals && totals->weight != ASTRA::NoExists)
+    if (bagAllowance && bagAllowance->weight)
     {
-      SetProp(allowanceNode, "weight", totals->weight);
+      SetProp(allowanceNode, "weight", bagAllowance->weight.get());
       SetProp(allowanceNode, "unit", "KG");
     }
+    if (bagAllowance && bagAllowance->perUnit)
+      SetProp(allowanceNode, "forEachPks", bagAllowance->perUnit.get()?"true":"false");
 
     // baggageTypes -- SBDO
     TRFISCListWithProps rfiscList;

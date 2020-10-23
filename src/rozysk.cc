@@ -15,6 +15,7 @@
 #include "jxtlib/xml_stuff.h"
 #include "serverlib/logger.h"
 #include "franchise.h"
+#include "flt_settings.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -460,7 +461,7 @@ void get_route_not_rus(int point_dep, int point_arv, TRow &r)
       string city = base_tables.get("AIRPS").get_row("code", i->airp).AsString("city");
       if (base_tables.get("CITIES").get_row("code", city).AsString("country") == "”") rus_exists=true;
     }
-    catch(EBaseTableError) {};
+    catch(const EBaseTableError&) {};
     if (point_arv==i->point_id) break;
   };
   if (i!=route.end())
@@ -600,11 +601,11 @@ void sync_pax(int pax_id, const string &term, const string &user_descr)
   {
     sync_pax_internal(pax_id, term, user_descr, false);
   }
-  catch(Exception &e)
+  catch(const Exception &e)
   {
     ProgError(STDLOG, "rozysk::sync_pax: %s", e.what());
   }
-  catch(std::exception &e)
+  catch(const std::exception &e)
   {
     ProgError(STDLOG, "rozysk::sync_pax: %s", e.what());
   };
@@ -616,11 +617,11 @@ void sync_pax_grp(int grp_id, const string &term, const string &user_descr)
   {
     sync_pax_internal(grp_id, term, user_descr, true);
   }
-  catch(Exception &e)
+  catch(const Exception &e)
   {
     ProgError(STDLOG, "rozysk::sync_pax_grp: %s", e.what());
   }
-  catch(std::exception &e)
+  catch(const std::exception &e)
   {
     ProgError(STDLOG, "rozysk::sync_pax_grp: %s", e.what());
   };
@@ -686,11 +687,11 @@ void sync_crs_pax(int pax_id, const string &term, const string &user_descr)
   {
     sync_crs_pax_internal(pax_id, term, user_descr, false);
   }
-  catch(Exception &e)
+  catch(const Exception &e)
   {
     ProgError(STDLOG, "rozysk::sync_crs_pax: %s", e.what());
   }
-  catch(std::exception &e)
+  catch(const std::exception &e)
   {
     ProgError(STDLOG, "rozysk::sync_crs_pax: %s", e.what());
   };
@@ -702,11 +703,11 @@ void sync_crs_pnr(int pnr_id, const string &term, const string &user_descr)
   {
     sync_crs_pax_internal(pnr_id, term, user_descr, true);
   }
-  catch(Exception &e)
+  catch(const Exception &e)
   {
     ProgError(STDLOG, "rozysk::sync_crs_pnr: %s", e.what());
   }
-  catch(std::exception &e)
+  catch(const std::exception &e)
   {
     ProgError(STDLOG, "rozysk::sync_crs_pnr: %s", e.what());
   };
@@ -818,12 +819,12 @@ class TPaxListTJKFilter : public TPaxListFilter
       {
         country_dep=((TCitiesRow&)basecities.get_row( "code", ((TAirpsRow&)baseairps.get_row( "code", pax.departureAirport, true )).city)).country;
       }
-      catch(EBaseTableError) {};
+      catch(const EBaseTableError&) {};
       try
       {
         country_arv=((TCitiesRow&)basecities.get_row( "code", ((TAirpsRow&)baseairps.get_row( "code", pax.departureAirport, true )).city)).country;
       }
-      catch(EBaseTableError) {};
+      catch(const EBaseTableError&) {};
 
 
       if ( pax.nationality == "TJK" || country_dep == "’„" || country_arv == "’„" ) return true;
@@ -1072,7 +1073,7 @@ void get_pax_list(int point_id,
             };
           };
         }
-        catch(EBaseTableError) {};
+        catch(const EBaseTableError&) {};
       }
       else if (!Qry.FieldIsNULL( idx_doc_type ))
       {
@@ -1081,7 +1082,7 @@ void get_pax_list(int point_id,
           const TPaxDocTypesRow &doc_type_row = (const TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",Qry.FieldAsString( idx_doc_type ));
           pax.docType = doc_type_row.code_mintrans;
         }
-        catch(EBaseTableError) {};
+        catch(const EBaseTableError&) {};
       };
 
       pax.docNumber = Qry.FieldAsString( idx_doc_no );
@@ -1360,7 +1361,7 @@ void save_mintrans_files()
           throw;
         };
       }
-      catch(Exception &E)
+      catch(const Exception &E)
       {
           OraSession.Rollback();
           try
@@ -1371,7 +1372,7 @@ void save_mintrans_files()
           catch(...) {};
 
       }
-      catch(std::exception &E)
+      catch(const std::exception &E)
       {
           OraSession.Rollback();
           ProgError(STDLOG,"std::exception: %s (file id=%d)",E.what(),item->id);

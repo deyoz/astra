@@ -6,6 +6,7 @@
 #include "exch_checkin_result.h"
 #include "jms/jms.hpp"
 #include "apis_settings.h"
+#include "flt_settings.h"
 
 #define NICKNAME "GRISHA"
 #include "serverlib/test.h"
@@ -154,10 +155,12 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
         if (pax.airp_arv_final.empty()) pax.airp_arv_final=pax.airp_arv;
 
         LoadPaxDoc(pax.id, pax.doc);
-        pax.doco = CheckIn::LoadPaxDoco(pax.id);
-        pax.docaD = CheckIn::LoadPaxDoca(pax.id, CheckIn::docaDestination);
-        pax.docaR = CheckIn::LoadPaxDoca(pax.id, CheckIn::docaResidence);
-        pax.docaB = CheckIn::LoadPaxDoca(pax.id, CheckIn::docaBirth);
+        pax.doco = CheckIn::TPaxDocoItem::get(paxCheckIn, PaxId_t(pax.id));
+        CheckIn::TDocaMap doca;
+        CheckIn::LoadPaxDoca(pax.id, doca);
+        pax.docaD = doca.get(apiDocaD);
+        pax.docaR = doca.get(apiDocaR);
+        pax.docaB = doca.get(apiDocaB);
 
         SeatsQry.SetVariable("pax_id", pax.id);
         SeatsQry.Execute();

@@ -1,5 +1,6 @@
 #include "CusResponseHandler.h"
 #include "apis_edi_file.h"
+#include "base_callbacks.h"
 
 #define NICKNAME "ANTON"
 #define NICK_TRACE ANTON_TRACE

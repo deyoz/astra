@@ -99,7 +99,7 @@ protected:
     struct cache_elem_comp: public std::binary_function<const cache_elem &,
             const cache_elem & , bool >
     {
-        bool operator()(const cache_elem &a, const cache_elem &b)
+        bool operator()(const cache_elem &a, const cache_elem &b) const
         {
             if(a.first==b.first )
                 return a.second->ida()<b.second->ida();

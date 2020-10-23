@@ -204,8 +204,7 @@ class TETickItem
     std::string surname, name;
     std::string fare_basis;
     std::string fare_class;
-    int bag_norm;
-    TBagUnit bag_norm_unit;
+    boost::optional<TBagQuantity> bagNorm;
     std::string display_error, change_status_error;
     int point_id;
     std::string airp_dep, airp_arv;
@@ -240,8 +239,7 @@ class TETickItem
       name.clear();
       fare_basis.clear();
       fare_class.clear();
-      bag_norm=ASTRA::NoExists;
-      bag_norm_unit.clear();
+      bagNorm=boost::none;
       display_error.clear();
       change_status_error.clear();
       point_id=ASTRA::NoExists;
@@ -260,19 +258,14 @@ class TETickItem
       return et < item.et;
     }
 
-    std::string bag_norm_view() const
+    std::string bagNormView(const AstraLocale::OutputLang &lang) const
     {
-      std::ostringstream s;
-      if (bag_norm!=ASTRA::NoExists || !bag_norm_unit.empty())
-      {
-        if (bag_norm!=ASTRA::NoExists)
-          s << bag_norm << AstraLocale::getLocaleText(bag_norm_unit.get_lexeme_form());
-      }
+      if (empty()) return "";
+
+      if (bagNorm)
+        return bagNorm.get().view(lang);
       else
-      {
-        s << AstraLocale::getLocaleText("…’");
-      };
-      return s.str();
+        return lowerc(AstraLocale::getLocaleText("…’", lang.get()));
     }
 
     const TETickItem& toDB(const TEdiAction ediAction) const;
@@ -291,6 +284,14 @@ class TETickItem
     static void syncOriginalSubclass(const TETCoupon& et);
     static bool syncOriginalSubclass(int pax_id);
 };
+
+std::string airpDepToPrefferedCode(const AirportCode_t& airp,
+                                   const boost::optional<CheckIn::TPaxTknItem>& tkn,
+                                   const AstraLocale::OutputLang &lang);
+
+std::string airpArvToPrefferedCode(const AirportCode_t& airp,
+                                   const boost::optional<CheckIn::TPaxTknItem>& tkn,
+                                   const AstraLocale::OutputLang &lang);
 
 void ETDisplayToDB(const Ticketing::EdiPnr &ediPnr);
 
@@ -579,7 +580,7 @@ void ContinueCheckin(xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodeP
 class EMDAutoBoundInterface: public AstraJxtIface
 {
   private:
-    static bool BeforeLock(const EMDAutoBoundId &id, int &point_id, TGrpIds &grp_ids);
+    static bool BeforeLock(const EMDAutoBoundId &id, int &point_id, GrpIds &grpIds);
   public:
     EMDAutoBoundInterface(): AstraJxtIface("EMDAutoBound")
     {
@@ -589,7 +590,7 @@ class EMDAutoBoundInterface: public AstraJxtIface
     void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
     virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
 
-    static bool Lock(const EMDAutoBoundId &id, int &point_id, TGrpIds &grp_ids, const std::string &whence);
+    static bool Lock(const EMDAutoBoundId &id, int &point_id, GrpIds &grpIds, const std::string &whence);
     static bool Lock(const EMDAutoBoundId &id, int &point_id, TCkinGrpIds &tckin_grp_ids, const std::string &whence);
     static void EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqNode);
     static void EMDTryBind(const TCkinGrpIds &tckin_grp_ids,

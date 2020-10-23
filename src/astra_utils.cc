@@ -12,7 +12,6 @@
 #include "dev_consts.h"
 #include "dev_utils.h"
 
-
 #include <serverlib/tcl_utils.h>
 #include <serverlib/monitor_ctl.h>
 #include <serverlib/sirena_queue.h>
@@ -1563,6 +1562,11 @@ TCountriesRow getCountryByAirp( const std::string& airp)
   return ((const TCountriesRow&)base_tables.get("countries").get_row("code",cityRow.country));
 }
 
+CountryCode_t getCountryByAirp(const AirportCode_t& airp)
+{
+  return CountryCode_t(getCountryByAirp(airp.get()).code);
+}
+
 class TTranslitLetter
 {
   public:
@@ -2080,15 +2084,4 @@ string getDocMonth(TDateTime claim_date, bool pr_lat)
 bool isDoomedToWait()
 {
     return ServerFramework::getQueryRunner().getEdiHelpManager().mustWait();
-}
-
-void CallbacksExceptionFilter(STDLOG_SIGNATURE)
-{
-    try {
-        throw;
-    } catch(const std::exception &E) {
-        LogError(STDLOG_VARIABLE) << __FUNCTION__ << ": something wrong: " << E.what();
-    } catch(...) {
-        LogError(STDLOG_VARIABLE) << __FUNCTION__ << ": something wrong";
-    }
 }

@@ -113,6 +113,7 @@ class TBagUnit
     Ticketing::Baggage::Baggage_t get() const;
     std::string get_db_form() const;
     std::string get_lexeme_form() const;
+    std::string get_events_form() const;
 };
 
 class TBagQuantity

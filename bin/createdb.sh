@@ -3,8 +3,8 @@
 NUM_COPIES=$1
 
 echo createdb.sh:
-echo NUM_COPIES=${NUM_COPIES}
 echo CONNECT_STRING=${CONNECT_STRING}
+echo PG_CONNECT_STRING=${PG_CONNECT_STRING}
 
 
 checkresult()
@@ -15,32 +15,26 @@ checkresult()
     fi
 }
 
-build_database()
+build_ora_database()
 {
-    sqldir=$1
-    ( ( cd ${sqldir} && SYSPAROL=${SYSPAROL:-system/manager`echo $CONNECT_STRING | grep -o "@.*$"`} PATH=${ORACLE_HOME}/bin:${PATH} ./create_database.sh )
-      checkresult createdb $?
+    oradir=$1
+    ( ( cd ${oradir} && ./create_database.sh ${CONNECT_STRING} )
+      checkresult create_ora_db $?
       ( cd src && make install-edimessages )
       checkresult installedimessages $?
     )
 }
 
-pids=()
-rm -rf sql_copy*.tmp
-for i in $(seq 0 $(expr ${NUM_COPIES:-0} - 1)); do
-    if [ "${i}" == "0" ]; then
-        build_database sql &
-    else
-        connstr_copy=$(echo $CONNECT_STRING | sed "s@\([^/]\+\)@\1_copy${i}@")
-        cp -a sql sql_copy${i}.tmp
-        ( export CONNECT_STRING=$connstr_copy; build_database sql_copy${i}.tmp ) &
-    fi
-    pids[${i}]=$!
-done
-for i in $(seq 0 $(expr ${NUM_COPIES:-0} - 1)); do
-    pid=${pids[${i}]}
-    echo waiting for build_database${i} pid=${pid}
-    wait ${pid}
-    checkresult build_database${i} $?
-    echo ${pid} done
-done
+build_pg_database()
+{
+     pgdir=$1
+     ( ( cd ${pgdir} && ./create_database.sh ${PG_CONNECT_STRING} )
+       checkresult create_pg_db $?
+     )
+}
+
+build_pg_database sql/bases/pg
+checkresult build_pg_database $?
+
+build_ora_database sql/bases/ora
+checkresult build_ora_database $?

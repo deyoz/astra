@@ -16,7 +16,6 @@
 #include "oralib.h"
 #include "misc.h"
 #include "tlg.h"
-#include "convert.h"
 #include "seats_utils.h"
 #include "salons.h"
 #include "memory_manager.h"
@@ -31,6 +30,7 @@
 #include "qrys.h"
 #include "points.h"
 #include "counters.h"
+#include "pax_calc_data.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -105,6 +105,8 @@ bool ParseSEATRem(TTlgParser &tlg, const string &rem_text, TSeatRanges &seats);
 bool ParseTKNRem(TTlgParser &tlg, const string &rem_text, TTKNItem &tkn);
 bool ParseFQTRem(TTlgParser &tlg, const string &rem_text, TFQTItem &fqt);
 
+void parseAndBindSystemId(TTlgParser &tlg, TNameElement &ne, const string &paxLevelElement);
+
 const char* TTlgParser::NextLine(const char* p)
 {
   if (p==NULL) return NULL;
@@ -121,9 +123,10 @@ const char* TTlgParser::GetLexeme(const char* p)
   if (len>(int)sizeof(lex)-1)
     throw ETlgError("Too long lexeme");
   lex[len]=0;
-  strncpy(lex,p,len);
   if (len==0) return NULL;
-  else return p+len;
+
+  strncpy(lex,p,len);
+  return p+len;
 };
 
 const char* TTlgParser::GetSlashedLexeme(const char* p)
@@ -181,9 +184,10 @@ const char* TTlgParser::GetNameElement(const char* p, bool trimRight) //до перво
   if (len>(int)sizeof(lex)-1)
     throw ETlgError("Too long lexeme");
   lex[len]=0;
-  strncpy(lex,p,len);
   if (len==0) return NULL;
-  else return p+len;
+
+  strncpy(lex,p,len);
+  return p+len;
 };
 
 const char* TTlgParser::GetToEOLLexeme(const char* p)
@@ -197,9 +201,10 @@ const char* TTlgParser::GetToEOLLexeme(const char* p)
   if (len>(int)sizeof(lex)-1)
     throw ETlgError("Too long lexeme");
   lex[len]=0;
-  strncpy(lex,p,len);
   if (len==0) return NULL;
-  else return p+len;
+
+  strncpy(lex,p,len);
+  return p+len;
 };
 
 const char* GetTlgElementName(TTlgElement e)
@@ -247,7 +252,7 @@ char* GetAirline(char* airline, bool with_icao, bool throwIfUnknown)
   {
     return TlgElemToElemId(etAirline,airline,airline,with_icao);
   }
-  catch (EBaseTableError)
+  catch (const EBaseTableError&)
   {
     if (throwIfUnknown)
       throw ETlgError("Unknown airline code '%s'", airline);
@@ -261,7 +266,7 @@ char* GetAirp(char* airp, bool with_icao=false, bool throwIfUnknown=true)
   {
     return TlgElemToElemId(etAirp,airp,airp,with_icao);
   }
-  catch (EBaseTableError)
+  catch (const EBaseTableError&)
   {
     if (throwIfUnknown)
       throw ETlgError("Unknown airport code '%s'", airp);
@@ -277,7 +282,7 @@ TClass GetClass(const char* subcl)
     TlgElemToElemId(etSubcls,subcl,subclh);
     return DecodeClass(getBaseTable(etSubcls).get_row("code",subclh).AsString("cl").c_str());
   }
-  catch (EBaseTableError)
+  catch (const EBaseTableError&)
   {
     throw ETlgError("Unknown subclass '%s'", subcl);
   };
@@ -289,7 +294,7 @@ char* GetSubcl(char* subcl, bool throwIfUnknown=true)
   {
     return TlgElemToElemId(etSubcls,subcl,subcl);
   }
-  catch (EBaseTableError)
+  catch (const EBaseTableError&)
   {
     if (throwIfUnknown)
       throw ETlgError("Unknown subclass '%s'", subcl);
@@ -309,7 +314,7 @@ char GetSuffix(char &suffix, bool throwIfUnknown)
       TlgElemToElemId(etSuffix,suffixh,suffixh);
       suffix=suffixh[0];
     }
-    catch (EBaseTableError)
+    catch (const EBaseTableError&)
     {
       if (throwIfUnknown)
         throw ETlgError("Unknown flight number suffix '%c'", suffix);
@@ -326,7 +331,7 @@ void GetPaxDocCountry(const char* elem, char* id)
     {
       TlgElemToElemId(etPaxDocCountry,elem,id);
     }
-    catch (EBaseTableError)
+    catch (const EBaseTableError&)
     {
       char country[3];
       TlgElemToElemId(etCountry,elem,country);
@@ -334,7 +339,7 @@ void GetPaxDocCountry(const char* elem, char* id)
       strcpy(id,getBaseTable(etPaxDocCountry).get_row("country",country).AsString("code").c_str());
     };
   }
-  catch (EBaseTableError)
+  catch (const EBaseTableError&)
   {
     throw ETlgError("Unknown country code '%s'", elem);
   };
@@ -533,7 +538,7 @@ char ParseBSMElement(const char *p, TTlgParser &tlg, TBSMInfo* &data, TMemoryMan
             {
               flt.scd = DayMonthToDate(day, monthAsNum(month), Now(), dateEverywhere);
             }
-            catch(EConvertError)
+            catch(const EConvertError&)
             {
               throw ETlgError("Can't convert flight date");
             };
@@ -633,7 +638,7 @@ char ParseBSMElement(const char *p, TTlgParser &tlg, TBSMInfo* &data, TMemoryMan
       };
       return (*id);
     }
-    catch (ETlgError E)
+    catch (const ETlgError& E)
     {
       switch (*id)
       {
@@ -734,7 +739,7 @@ TTlgPartInfo ParseBSMHeading(TTlgPartInfo heading, TBSMHeadingInfo &info, TMemor
     }
     while ((line_p=tlg.NextLine(line_p))!=NULL);
   }
-  catch(ETlgError E)
+  catch(const ETlgError& E)
   {
     throwTlgError(E.what(), heading, line_p);
   };
@@ -986,7 +991,7 @@ void ParseBTMContent(TTlgPartInfo body, const TBSMHeadingInfo& info, TBtmContent
         throw ETlgError("Wrong final element");
     };
   }
-  catch (ETlgError E)
+  catch (const ETlgError& E)
   {
     throwTlgError(E.what(), body, line_p);
   };
@@ -1038,7 +1043,7 @@ TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, TDCSHeadingInfo &info, TFligh
               info.flt.scd = DayMonthToDate(day, monthAsNum(month), Now(), dateEverywhere);
               info.flt.pr_utc=false;
             }
-            catch(EConvertError)
+            catch(const EConvertError&)
             {
               throw ETlgError("Can't convert local date");
             };
@@ -1105,7 +1110,7 @@ TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, TDCSHeadingInfo &info, TFligh
     }
     while ((line_p=tlg.NextLine(line_p))!=NULL);
   }
-  catch(ETlgError E)
+  catch(const ETlgError& E)
   {
     throwTlgError(E.what(), heading, line_p);
   };
@@ -1228,7 +1233,7 @@ void ParseAHMFltInfo(TTlgPartInfo body, const TAHMHeadingInfo &info, TFltInfo& f
       default:;
     };
   }
-  catch(ETlgError E)
+  catch(const ETlgError& E)
   {
     //вывести ошибку+номер строки
     throwTlgError(E.what(), body, line_p);
@@ -1330,12 +1335,12 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading,
                     EncodeTime(hour,min,sec,time_create);
                     infoh.time_create=day_create+time_create;
                   }
-                  catch(EConvertError)
+                  catch(const EConvertError&)
                   {
                     throw ETlgError("Can't convert creation time");
                   };
                 }
-                catch(ETlgError) {};
+                catch(const ETlgError&) {};
               };
               p=tlg.GetLexeme(p);
             };
@@ -1409,7 +1414,7 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading,
       mem.create(info, STDLOG);
     };
   }
-  catch(ETlgError E)
+  catch(const ETlgError& E)
   {
     mem.destroy(info, STDLOG);
     if (info!=NULL) delete info;
@@ -1463,7 +1468,7 @@ void ParseDCSEnding(TTlgPartInfo ending, THeadingInfo &headingInfo, TEndingInfo 
     }
     else throw ETlgError("Wrong end of message");
   }
-  catch(ETlgError E)
+  catch(const ETlgError& E)
   {
     throwTlgError(E.what(), ending, ending.p);
   };
@@ -1500,7 +1505,7 @@ void ParseAHMEnding(TTlgPartInfo ending, TEndingInfo& info)
       if (tlg.GetLexeme(p)!=NULL) throw ETlgError("Unknown lexeme");
     };
   }
-  catch(ETlgError E)
+  catch(const ETlgError& E)
   {
     throwTlgError(E.what(), ending, ending.p);
   };
@@ -1588,6 +1593,7 @@ void ParseSOMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TSOMContent& con)
           if (lexh[0]=='-')
           {
             e=SeatsByDestination;
+            [[fallthrough]];
           }
           else throw ETlgError("Seats by destination expected");
         case SeatsByDestination:
@@ -1633,7 +1639,7 @@ void ParseSOMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TSOMContent& con)
               iSeats->ranges.insert(iSeats->ranges.end(),ranges.begin(),ranges.end());
               usePriorContext=true;
             }
-            catch(EConvertError)
+            catch(const EConvertError&)
             {
               //диапазон не разобрался
               if (lexh[0]=='-')
@@ -1657,7 +1663,7 @@ void ParseSOMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TSOMContent& con)
     }
     while ((line_p=tlg.NextLine(line_p))!=NULL);
   }
-  catch (ETlgError E)
+  catch (const ETlgError& E)
   {
     throwTlgError(E.what(), body, line_p);
   };
@@ -1750,7 +1756,7 @@ void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con)
                 {
                   EncodeDate(year,mon,day,flt.scd);
                 }
-                catch(EConvertError)
+                catch(const EConvertError&)
                 {
                   throw ETlgError("Can't convert connecting flight date");
                 };
@@ -1859,7 +1865,7 @@ void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con)
     }
     while ((line_p=tlg.NextLine(line_p))!=NULL);
   }
-  catch (ETlgError E)
+  catch (const ETlgError& E)
   {
     throwTlgError(E.what(), body, line_p);
   };
@@ -1967,6 +1973,7 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
             break;
           };
           e=Configuration;
+          [[fallthrough]];
         case Configuration:
           if (strncmp(tlg.lex,"CFG/",4)==0)
           {
@@ -2015,6 +2022,7 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
             break;
           };
           e=ClassCodes;
+          [[fallthrough]];
         case ClassCodes:
           if (strcmp(tlg.lex,"RBD")==0)
           {
@@ -2040,6 +2048,7 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
           else
           e=SpaceAvailableElement;
           e_part=1;
+          [[fallthrough]];
         case SpaceAvailableElement:
           if (e_part==1)
           {
@@ -2131,6 +2140,7 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
             };
           e=TranzitElement;
           e_part=1;
+          [[fallthrough]];
         case TranzitElement:
           if (e_part==1)
           {
@@ -2206,6 +2216,7 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
             };
           e=TotalsByDestination;
           e_part=1;
+          [[fallthrough]];
         case TotalsByDestination:
           if (NILpossible && strcmp(tlg.lex,"NIL")==0)
           {
@@ -2363,6 +2374,7 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
             e_part=3;
             break;
           };
+          [[fallthrough]];
         case EndOfMessage:
           {
             throw ETlgError("Unknown lexeme");
@@ -2433,15 +2445,16 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
           airline_mark=pnr_airline_mark;
         };
 
-        for(vector<TNameElement>::iterator i=iPnrItem->ne.begin();i!=iPnrItem->ne.end();++i)
+        for(TNameElement& ne : iPnrItem->ne)
         {
-          ParseRemarks(seat_rem_priority,tlg,info,*iPnrItem,*i);
-          i->removeNotConfimedSSRs();
+          ParseRemarks(seat_rem_priority,tlg,info,*iPnrItem,ne);
+          ne.removeNotConfimedSSRs();
+          ne.bindSystemIds();
         };
       };
     };
   }
-  catch (ETlgError E)
+  catch (const ETlgError& E)
   {
     throwTlgError(E.what(), body, line_p);
   };
@@ -2774,7 +2787,7 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
                                     (Transfer.date_variation==ASTRA::NoExists?"":IntToString(Transfer.date_variation).c_str()),
                                     (Transfer.status[0]==0?"":Transfer.status));
                 }
-                catch(ETlgError)
+                catch(const ETlgError&)
                 {
                   ProgTrace(TRACE5, "%-30s: ETlgError!", s.str().c_str());
                 };
@@ -2932,6 +2945,10 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
     pr_bag_info=true;
     return;
   };
+  if (strcmp(lexh,"U")==0)
+  {
+    parseAndBindSystemId(tlg, ne, tlg.lex+3);
+  }
 };
 
 void ParseNameElement(const char* p, vector<string> &names, TElemPresence num_presence)
@@ -3008,17 +3025,85 @@ string OnlyAlphaInLexeme(string lex)
   return lex;
 };
 
+
+bool TNameElement::parsePassengerIDs(std::string& paxLevelElement, std::set<PaxItemsIterator>& applicablePaxItems)
+{
+  applicablePaxItems.clear();
+  if (paxLevelElement.empty()) return false;
+  //ищем ссылку на пассажира до совпадения фамилий
+  vector<string> names;
+  string::size_type pos=paxLevelElement.find_last_of('-');
+  while(pos!=string::npos)
+  {
+    try
+    {
+      ParseNameElement(paxLevelElement.substr(pos+1).c_str(), names, epOptional);
+      if (!names.empty() && names.front()==surname) break; //нашли
+    }
+    catch(const ETlgError &E) {};
+
+    if (pos!=0)
+      pos=paxLevelElement.find_last_of('-',pos-1);
+    else
+      pos=string::npos;
+  }
+
+  if (pos!=string::npos)
+  {
+    //нашли ссылку на пассажира
+    for(vector<string>::const_iterator i=names.begin();i!=names.end();++i)
+    {
+      if (i==names.begin()) continue;  //пропускаем surname
+
+      int k=0;
+      for(;k<=1;k++)
+      {
+        PaxItemsIterator iPaxItem=pax.begin();
+        for(; iPaxItem!=pax.end(); ++iPaxItem)
+        {
+          if ((k==0&&iPaxItem->name!=*i)||
+              (k!=0&&OnlyAlphaInLexeme(iPaxItem->name)!=OnlyAlphaInLexeme(*i))) continue;
+          if (applicablePaxItems.insert(iPaxItem).second) break;
+        };
+        if (iPaxItem!=pax.end()) break;
+      };
+      if (k>1)
+      {
+        //не нашли name в ne
+        applicablePaxItems.clear();
+        return false;
+      }
+    }
+
+    paxLevelElement.erase(pos); //убрать окончание ремарки после -
+    return true;
+  }
+  else
+  {
+    //не нашли ссылку на пассажира
+    if (pax.size()==1)
+      applicablePaxItems.insert(pax.begin());
+    else
+      if (containsSinglePassenger())
+      {
+        for(PaxItemsIterator iPaxItem=pax.begin(); iPaxItem!=pax.end();++iPaxItem)
+          if (!iPaxItem->isSeatBlocking())
+          {
+            applicablePaxItems.insert(iPaxItem);
+            break;
+          }
+      }
+    return !applicablePaxItems.empty();
+  }
+}
+
 void BindRemarks(TTlgParser &tlg, TNameElement &ne)
 {
   char c;
-  int res,k;
-  string::size_type pos;
-  bool pr_parse;
-  string strh;
+  int res;
   char rem_code[7],numh[4];
   int num;
   vector<TRemItem>::iterator iRemItem;
-  vector<TPaxItem>::iterator iPaxItem;
 
   for(iRemItem=ne.rem.begin();iRemItem!=ne.rem.end();++iRemItem)
   {
@@ -3045,120 +3130,14 @@ void BindRemarks(TTlgParser &tlg, TNameElement &ne)
         strcmp(rem_code,"VIP")==0) strcpy(iRemItem->code,rem_code);
   };
   //попробовать привязать ремарки к конкретным пассажирам
-  for(iRemItem=ne.rem.begin();iRemItem!=ne.rem.end();)
+  set<TNameElement::PaxItemsIterator> paxItems;
+  for(iRemItem=ne.rem.begin(); iRemItem!=ne.rem.end();)
   {
-    if (iRemItem->text.empty())
+    if (ne.parsePassengerIDs(iRemItem->text, paxItems))
     {
-      ++iRemItem;
-      continue;
-    };
-
-    //ищем ссылку на пассажира до совпадения фамилий
-    vector<string> names;
-    pos=iRemItem->text.find_last_of('-');
-    while(pos!=string::npos)
-    {
-      strh=iRemItem->text.substr(pos+1);
-      try
-      {
-        ParseNameElement(strh.c_str(),names,epOptional);
-        if (!names.empty()&&*(names.begin())==ne.surname) break; //нашли
-      }
-      catch(ETlgError &E) {};
-
-      if (pos!=0)
-        pos=iRemItem->text.find_last_of('-',pos-1);
-      else
-        pos=string::npos;
-    };
-
-    pr_parse=false;
-    if (pos!=string::npos)
-    {
-      pr_parse=true;
-      for(vector<string>::iterator i=names.begin();i!=names.end();++i)
-      {
-        if (i!=names.begin())
-        {
-          for(k=0;k<=1;k++)
-          {
-            for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();++iPaxItem)
-            {
-              if ((k==0&&iPaxItem->name!=*i)||
-                  (k!=0&&OnlyAlphaInLexeme(iPaxItem->name)!=OnlyAlphaInLexeme(*i))) continue;
-              if (iPaxItem->rem.empty())
-              {
-                iPaxItem->rem.push_back(TRemItem());
-                break;
-              }
-              else
-              {
-                TRemItem& RemItem=iPaxItem->rem.back();
-                if (RemItem.text.empty()) continue;
-                else
-                {
-                  iPaxItem->rem.push_back(TRemItem());
-                  break;
-                };
-              };
-            };
-            if (iPaxItem!=ne.pax.end()) break;
-          };
-          if (k>1&&iPaxItem==ne.pax.end())
-          {
-            pr_parse=false;
-            break;
-          };
-        };
-      };
-
-      if (pr_parse) iRemItem->text.erase(pos); //убрать окончание ремарки после -
-    }
-    else
-    {
-      //не нашли ссылку на пассажира
-      iPaxItem=ne.pax.end();
-      if (ne.pax.size()==1)
-        iPaxItem=ne.pax.begin();
-      else
-        if (ne.containsSinglePassenger())
-        {
-          for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();++iPaxItem)
-            if (!iPaxItem->isSeatBlocking()) break;
-        }
-
-      if (iPaxItem==ne.pax.end())
-      {
-        ++iRemItem;
-        continue;
-      };
-
-      iPaxItem=ne.pax.begin();
-      if (iPaxItem->rem.empty() ||
-          !iPaxItem->rem.back().text.empty())
-      {
-        iPaxItem->rem.push_back(TRemItem());
-      };
-      pr_parse=true;
-    };
-
-    for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();++iPaxItem)
-    {
-      if (iPaxItem->rem.empty()) continue;
-      TRemItem& RemItem=iPaxItem->rem.back();
-      if (RemItem.text.empty())
-      {
-        if (pr_parse)
-        {
-          RemItem.text=iRemItem->text;
-          strcpy(RemItem.code,iRemItem->code);
-        }
-        else
-          iPaxItem->rem.pop_back();
-      };
-    };
-    if (pr_parse)
+      for(const auto& i : paxItems) i->rem.push_back(*iRemItem);
       iRemItem=ne.rem.erase(iRemItem);
+    }
     else
       ++iRemItem;
   };
@@ -3172,59 +3151,45 @@ bool ParseASVCRem(TTlgParser &tlg, const string &rem_text, TASVCItem &asvc);
 bool ParseOTHS_DOCSRem(TTlgParser &tlg, const string &rem_text, TDocExtraItem &doc);
 bool ParseOTHS_FQTSTATUSRem(TTlgParser &tlg, const string &rem_text, TFQTExtraItem &fqt);
 bool ParseSeatBlockingRem(TTlgParser &tlg, const string &rem_text, TSeatBlockingRem &rem);
-void BindDetailRem(TRemItem &remItem, bool isGrpRem, TPaxItem &paxItem,
-                   const TDetailRemAncestor &item)
+
+void bindSystemId(const PassengerSystemId& item, TPaxItem& paxItem)
 {
-  if (item.pr_inf)
+  if (item.infIndicatorExists())
   {
     if (paxItem.inf.size()==1)
     {
-      for(int pass=0; pass<6 ;pass++)
-      try
-      {
-        switch(pass)
-        {
-          case 0: paxItem.inf.begin()->doc.push_back(dynamic_cast<const TDocItem&>(item)); break;
-          case 1: paxItem.inf.begin()->doco.push_back(dynamic_cast<const TDocoItem&>(item)); break;
-          case 2: paxItem.inf.begin()->doca.push_back(dynamic_cast<const TDocaItem&>(item)); break;
-          case 3: paxItem.inf.begin()->tkn.push_back(dynamic_cast<const TTKNItem&>(item)); break;
-          case 4: paxItem.inf.begin()->chkd.push_back(dynamic_cast<const TCHKDItem&>(item)); break;
-          case 5: break;
-          default: return;
-        };
-        break;
-      }
-      catch(std::bad_cast) {};
-      paxItem.inf.begin()->rem.push_back(remItem);
-      remItem.text.clear();
-    };
+      paxItem.inf.front().add(item);
+    }
   }
   else
   {
-    for(int pass=0; pass<6 ;pass++)
-    try
+    paxItem.add(item);
+  }
+}
+
+template<class ItemT>
+void BindDetailRem(TRemItem &remItem, bool isGrpRem, TPaxItem &paxItem,
+                   const ItemT &item)
+{
+  if (item.infIndicatorExists())
+  {
+    if (paxItem.inf.size()==1)
     {
-      switch(pass)
-      {
-        case 0: paxItem.doc.push_back(dynamic_cast<const TDocItem&>(item)); break;
-        case 1: paxItem.doco.push_back(dynamic_cast<const TDocoItem&>(item)); break;
-        case 2: paxItem.doca.push_back(dynamic_cast<const TDocaItem&>(item)); break;
-        case 3: paxItem.tkn.push_back(dynamic_cast<const TTKNItem&>(item)); break;
-        case 4: paxItem.chkd.push_back(dynamic_cast<const TCHKDItem&>(item)); break;
-        case 5: paxItem.asvc.push_back(dynamic_cast<const TASVCItem&>(item)); break;
-        default: return;
-      };
-      break;
+      paxItem.inf.front().add(item);
+      paxItem.inf.front().add(remItem);
+      remItem.text.clear();
     }
-    catch(std::bad_cast) {};
+  }
+  else
+  {
+    paxItem.add(item);
     if (isGrpRem)
     {
-      paxItem.rem.push_back(remItem);
+      paxItem.add(remItem);
       remItem.text.clear();
     };
-  };
-
-};
+  }
+}
 
 void TInfList::removeIfExistsIn(const TInfList &infs)
 {
@@ -3465,7 +3430,7 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
               TDocExtraItem doc;
               if (ParseOTHS_DOCSRem(tlg,iRemItem->text,doc))
               {
-                if (*(doc.no)!=0)
+                if (doc.valid())
                   iPaxItem->doc_extra.insert(make_pair(doc.no, doc));
                 continue;
               };
@@ -3680,7 +3645,7 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
               TDocExtraItem doc;
               if (ParseOTHS_DOCSRem(tlg,iRemItem->text,doc))
               {
-                if (*(doc.no)!=0)
+                if (doc.valid())
                   ne.pax.begin()->doc_extra.insert(make_pair(doc.no, doc));
                 ne.pax.begin()->rem.push_back(*iRemItem);
                 iRemItem->text.clear();
@@ -3810,16 +3775,6 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
   };
 };
 
-void TTKNItem::toDB(TQuery &Qry) const
-{
-  Qry.SetVariable("rem_code", rem_code);
-  Qry.SetVariable("ticket_no", ticket_no);
-  if (coupon_no!=0)
-    Qry.SetVariable("coupon_no", coupon_no);
-  else
-    Qry.SetVariable("coupon_no", FNull);
-}
-
 bool TPaxItem::emdRequired(const std::string& ssr_code) const
 {
   if (ssr_code.empty()) return false;
@@ -3853,10 +3808,8 @@ bool TPaxItem::isSeatBlockingRem(const string &rem_code)
          rem_code=="CBBG";
 }
 
-int TPaxItem::getNotUsedSeatBlockingId(const int& paxId)
+boost::optional<PaxId_t> TPaxItem::getNotUsedSeatBlockingId(const PaxId_t& paxId)
 {
-  if (paxId==NoExists) return NoExists;
-
   TQuery Qry(&OraSession);
   Qry.SQLText =
     "SELECT seat_id "
@@ -3864,26 +3817,40 @@ int TPaxItem::getNotUsedSeatBlockingId(const int& paxId)
     "WHERE pax_id=:pax_id AND pr_del=0 AND "
     "      NOT EXISTS(SELECT crs_pax.pax_id FROM crs_pax WHERE crs_pax.pax_id=crs_seats_blocking.seat_id AND crs_pax.pr_del=0) "
     "ORDER BY seat_id ";
-  Qry.CreateVariable("pax_id", otInteger, paxId);
+  Qry.CreateVariable("pax_id", otInteger, paxId.get());
   Qry.Execute();
-  if (Qry.Eof) return NoExists;
-  return Qry.FieldAsInteger("seat_id");
+  if (Qry.Eof) return boost::none;
+  return PaxId_t(Qry.FieldAsInteger("seat_id"));
 }
 
-void TPaxItem::getAndLockSeatBlockingIds(const int& paxId, std::set<int>& seatIds)
+std::map<PaxId_t, TSeatsBlockingItem> TPaxItem::getAndLockSeatBlockingItems(const PaxId_t& paxId)
 {
-  seatIds.clear();
-  if (paxId==NoExists) return;
+  std::map<PaxId_t, TSeatsBlockingItem> result;
+
   TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "SELECT seat_id "
-    "FROM crs_seats_blocking "
-    "WHERE pax_id=:pax_id AND pr_del=0 "
-    "FOR UPDATE";
-  Qry.CreateVariable("pax_id", otInteger, paxId);
+  Qry.SQLText = "SELECT * FROM crs_seats_blocking WHERE pax_id=:pax_id AND pr_del=0 FOR UPDATE";
+  Qry.CreateVariable("pax_id", otInteger, paxId.get());
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
-    seatIds.insert(Qry.FieldAsInteger("seat_id"));
+    result.emplace(PaxId_t(Qry.FieldAsInteger("seat_id")),
+                   TSeatsBlockingItem(Qry.FieldAsString("surname"),
+                                      Qry.FieldAsString("name")));
+
+  return result;
+}
+
+std::set<PaxId_t> TPaxItem::getAndLockInfantIds(const PaxId_t &paxId)
+{
+  std::set<PaxId_t> result;
+
+  TQuery Qry(&OraSession);
+  Qry.SQLText = "SELECT inf_id FROM crs_inf WHERE pax_id=:pax_id FOR UPDATE";
+  Qry.CreateVariable("pax_id", otInteger, paxId.get());
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+    result.emplace(Qry.FieldAsInteger("inf_id"));
+
+  return result;
 }
 
 void TPaxItem::bindSeatsBlocking(const TNameElement& ne,
@@ -3965,7 +3932,6 @@ void TPaxItem::fillSeatBlockingRemList(TTlgParser &tlg)
     TSeatBlockingRem seatBlockingRem;
     if (ParseSeatBlockingRem(tlg,remItem.text,seatBlockingRem))
       seatBlockingRemList.push_back(seatBlockingRem);
-
   }
 }
 
@@ -3973,6 +3939,13 @@ bool TPaxItem::dontSaveToDB(const TNameElement& ne) const
 {
   return (ne.surname=="NONAMES" && name.empty()) ||
          (ne.isSpecial() && name=="NONAMES");
+}
+
+void TNameElement::bindSystemIds()
+{
+  for(TPaxItem& p : pax)
+    for(const PassengerSystemId& systemId : p.systemIds)
+      bindSystemId(systemId, p);
 }
 
 void TNameElement::fillSeatBlockingRemList(TTlgParser &tlg)
@@ -4024,19 +3997,19 @@ void TNameElement::bindSeatsBlocking(const std::string& remCode,
     }
 }
 
-void TPaxItem::setSomeDataForSeatsBlocking(const int& paxId, const TNameElement& ne)
+void TPaxItem::setSomeDataForSeatsBlocking(const boost::optional<PaxId_t>& paxId, const TNameElement& ne)
 {
-  if (ne.indicator==CHG && paxId!=NoExists)
+  if (ne.indicator==CHG && paxId)
   {
     TSeatsBlockingList seatsBlockingFromDB;
-    seatsBlockingFromDB.fromDB(paxId);
+    seatsBlockingFromDB.fromDB(paxId.get().get());
     long newSeats=seats;
     seatsBlocking.replace(seatsBlockingFromDB, true, newSeats);
     if (newSeats>=1 && newSeats<=3)
       seats=newSeats;
     else
       LogError(STDLOG) << __FUNCTION__
-                       << ": paxId=" << paxId
+                       << ": paxId=" << paxId.get()
                        << ", seats=" << seats
                        << ", newSeats=" << newSeats;
   }
@@ -4389,7 +4362,7 @@ bool ParseSEATRem(TTlgParser &tlg, const string &rem_text, TSeatRanges &seats)
         seats.insert(seats.end(),ranges.begin(),ranges.end());
         usePriorContext=true;
       }
-      catch(EConvertError)
+      catch(const EConvertError&)
       {
         //диапазон не разобрался - ну и хрен с ним
         usePriorContext=false;
@@ -4440,7 +4413,7 @@ bool ParseCHDRem(TTlgParser &tlg, const string &rem_text, vector<TChdItem> &chd)
       {
         ParseNameElement(tlg.lex,names,epNone);
       }
-      catch(ETlgError &E)
+      catch(const ETlgError &E)
       {
         continue;
       };
@@ -4504,7 +4477,7 @@ bool ParseINFRem(TTlgParser &tlg, const string &rem_text, TInfList &inf)
       {
         ParseNameElement(tlg.lex,names,epNone);
       }
-      catch(ETlgError &E)
+      catch(const ETlgError &E)
       {
         continue;
       };
@@ -4641,7 +4614,7 @@ bool ParseDOCSRem(TTlgParser &tlg, TDateTime scd_local, const string &rem_text, 
             break;
         }
       }
-      catch(exception &E)
+      catch(const exception &E)
       {
         switch(k)
         {
@@ -4684,7 +4657,7 @@ bool ParseDOCSRem(TTlgParser &tlg, TDateTime scd_local, const string &rem_text, 
         };
       };
     }
-    catch(ETlgError &E)
+    catch(const ETlgError &E)
     {
       ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",doc.rem_code,E.what(),rem_text.c_str());
     };
@@ -4755,7 +4728,7 @@ bool ParseDOCSRem(TTlgParser &tlg, TDateTime scd_local, const string &rem_text, 
             break;
         }
       }
-      catch(exception &E)
+      catch(const exception &E)
       {
         switch(k)
         {
@@ -4786,7 +4759,7 @@ bool ParseDOCSRem(TTlgParser &tlg, TDateTime scd_local, const string &rem_text, 
         };
       };
     }
-    catch(ETlgError &E)
+    catch(const ETlgError &E)
     {
       ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",doc.rem_code,E.what(),rem_text.c_str());
     };
@@ -4871,7 +4844,7 @@ bool ParseDOCORem(TTlgParser &tlg, TDateTime scd_local, const string &rem_text, 
             break;
         }
       }
-      catch(exception &E)
+      catch(const exception &E)
       {
         switch(k)
         {
@@ -4902,7 +4875,7 @@ bool ParseDOCORem(TTlgParser &tlg, TDateTime scd_local, const string &rem_text, 
         };
       };
     }
-    catch(ETlgError &E)
+    catch(const ETlgError &E)
     {
       ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",doc.rem_code,E.what(),rem_text.c_str());
     };
@@ -4998,7 +4971,7 @@ bool ParseDOCARem(TTlgParser &tlg, const string &rem_text, TDocaItem &doca)
             break;
         }
       }
-      catch(exception &E)
+      catch(const exception &E)
       {
         switch(k)
         {
@@ -5029,7 +5002,7 @@ bool ParseDOCARem(TTlgParser &tlg, const string &rem_text, TDocaItem &doca)
         };
       };
     }
-    catch(ETlgError &E)
+    catch(const ETlgError &E)
     {
       ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",doca.rem_code,E.what(),rem_text.c_str());
     };
@@ -5038,6 +5011,91 @@ bool ParseDOCARem(TTlgParser &tlg, const string &rem_text, TDocaItem &doca)
 
   return false;
 };
+
+PassengerSystemId parseSystemId(TTlgParser &tlg, const string &paxLevelElement)
+{
+  PassengerSystemId result;
+
+  char c;
+  int res,k;
+
+  const char *p=paxLevelElement.c_str();
+
+  for(k=0;k<=1;k++)
+  try
+  {
+    try
+    {
+      p=tlg.GetSlashedLexeme(p);
+      if (p==NULL && k>=1) break;
+      if (p==NULL) throw ETlgError("Lexeme not found");
+      if (*tlg.lex==0) continue;
+      c=0;
+      switch(k)
+      {
+        case 0:
+          res=sscanf(tlg.lex,"%25[A-Z0-9]%c",lexh,&c);
+          if (c!=0||res!=1) throw ETlgError("Wrong format");
+          result.uniqueReference=lexh;
+          break;
+        case 1:
+          res=sscanf(tlg.lex,"%1[I]%c",lexh,&c);
+          if (c!=0||res!=1||strcmp(lexh,"I")!=0) throw ETlgError("Wrong format");
+          result.infantIndicator=true;
+          break;
+      }
+    }
+    catch(const exception &E)
+    {
+      switch(k)
+      {
+        case 0:
+          throw ETlgError("unique reference: %s",E.what());
+        case 1:
+          throw ETlgError("infant indicator: %s",E.what());
+      };
+    };
+  }
+  catch(const ETlgError &E)
+  {
+    //ProgTrace(TRACE0,"Critical .U/ error: %s (%s)",E.what(),paxLevelElement.c_str());
+    throw;
+  };
+
+  return result;
+}
+
+void parseAndBindSystemId(TTlgParser &tlg, TNameElement &ne, const string &paxLevelElement)
+{
+  try
+  {
+    string systemId(paxLevelElement);
+    //попробовать привязать ремарки к конкретным пассажирам
+    if (!systemId.empty())
+    {
+      set<TNameElement::PaxItemsIterator> paxItems;
+      ne.parsePassengerIDs(systemId, paxItems);
+      if (paxItems.size()!=1)
+        throw ETlgError("Must relate strictly to one passenger");
+      (*paxItems.begin())->systemIds.push_back(parseSystemId(tlg, systemId));
+    }
+    else parseSystemId(tlg, systemId);
+  }
+  catch(const ETlgError &e)
+  {
+    throw ETlgError(".U/ error: %s", e.what());
+  }
+}
+
+void PersonAncestor::add(const PassengerSystemId& id)
+{
+  if (systemId)
+  {
+    if (systemId.get().uniqueReference!=id.uniqueReference)
+      throw ETlgError("Duplicate unique reference .U/%s", id.uniqueReference.c_str());
+  }
+  else systemId=id;
+}
 
 bool ParseCHKDRem(TTlgParser &tlg, const string &rem_text, TCHKDItem &chkd)
 {
@@ -5084,7 +5142,7 @@ bool ParseCHKDRem(TTlgParser &tlg, const string &rem_text, TCHKDItem &chkd)
             break;
         }
       }
-      catch(exception &E)
+      catch(const exception &E)
       {
         switch(k)
         {
@@ -5100,7 +5158,7 @@ bool ParseCHKDRem(TTlgParser &tlg, const string &rem_text, TCHKDItem &chkd)
         };
       };
     }
-    catch(ETlgError &E)
+    catch(const ETlgError &E)
     {
       ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",chkd.rem_code,E.what(),rem_text.c_str());
     };
@@ -5176,7 +5234,7 @@ bool ParseASVCRem(TTlgParser &tlg, const string &rem_text, TASVCItem &asvc)
             break;
         }
       }
-      catch(exception &E)
+      catch(const exception &E)
       {
         switch(k)
         {
@@ -5206,7 +5264,7 @@ bool ParseASVCRem(TTlgParser &tlg, const string &rem_text, TASVCItem &asvc)
         };
       };
     }
-    catch(ETlgError &E)
+    catch(const ETlgError &E)
     {
       ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",asvc.rem_code,E.what(),rem_text.c_str());
     };
@@ -5251,7 +5309,7 @@ bool ParseSeatBlockingRem(TTlgParser &tlg, const string &rem_text, TSeatBlocking
           break;
       }
     }
-    catch(exception &E)
+    catch(const exception &E)
     {
       switch(k)
       {
@@ -5262,7 +5320,7 @@ bool ParseSeatBlockingRem(TTlgParser &tlg, const string &rem_text, TSeatBlocking
       };
     };
   }
-  catch(ETlgError &E)
+  catch(const ETlgError &E)
   {
     ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",rem.rem_code,E.what(),rem_text.c_str());
   };
@@ -5321,7 +5379,7 @@ bool ParseOTHS_DOCSRem(TTlgParser &tlg, const string &rem_text, TDocExtraItem &d
             break;
         }
       }
-      catch(exception &E)
+      catch(const exception &E)
       {
         switch(k)
         {
@@ -5337,7 +5395,7 @@ bool ParseOTHS_DOCSRem(TTlgParser &tlg, const string &rem_text, TDocExtraItem &d
         };
       };
     }
-    catch(ETlgError &E)
+    catch(const ETlgError &E)
     {
       ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",rem_code,E.what(),rem_text.c_str());
     };
@@ -5394,7 +5452,7 @@ bool ParseOTHS_FQTSTATUSRem(TTlgParser &tlg, const string &rem_text, TFQTExtraIt
             break;
         }
       }
-      catch(exception &E)
+      catch(const exception &E)
       {
         switch(k)
         {
@@ -5407,7 +5465,7 @@ bool ParseOTHS_FQTSTATUSRem(TTlgParser &tlg, const string &rem_text, TFQTExtraIt
         };
       };
     }
-    catch(ETlgError &E)
+    catch(const ETlgError &E)
     {
       ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",rem_code,E.what(),rem_text.c_str());
     };
@@ -5471,7 +5529,7 @@ bool ParseTKNRem(TTlgParser &tlg, const string &rem_text, TTKNItem &tkn)
             break;
         };
       }
-      catch(exception &E)
+      catch(const exception &E)
       {
         switch(k)
         {
@@ -5483,12 +5541,12 @@ bool ParseTKNRem(TTlgParser &tlg, const string &rem_text, TTKNItem &tkn)
             tkn.pr_inf=false;
             throw ETlgError("ticket number: %s",E.what());
           case 2:
-            tkn.coupon_no=0;
+            tkn.coupon_no=NoExists;
             throw ETlgError("coupon number: %s",E.what());
         };
       };
     }
-    catch(ETlgError &E)
+    catch(const ETlgError &E)
     {
       ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",tkn.rem_code,E.what(),rem_text.c_str());
       return false;
@@ -5550,7 +5608,7 @@ bool ParseFQTRem(TTlgParser &tlg, const string &rem_text, TFQTItem &fqt)
             break;
         };
       }
-      catch(exception &E)
+      catch(const exception &E)
       {
         switch(k)
         {
@@ -5564,7 +5622,7 @@ bool ParseFQTRem(TTlgParser &tlg, const string &rem_text, TFQTItem &fqt)
 
       };
     }
-    catch(ETlgError &E)
+    catch(const ETlgError &E)
     {
       ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",fqt.rem_code,E.what(),rem_text.c_str());
       return false;
@@ -5642,7 +5700,7 @@ void GetParts(const char* tlg_p, TTlgPartsText &text, THeadingInfo* &info, TFlig
     }
     while ((line_p=tlg.NextLine(line_p))!=NULL);
   }
-  catch(ETlgError E)
+  catch(const ETlgError& E)
   {
     if (E.error_line()==NoExists)
       throwTlgError(E.what(), parts.addr, line_p);
@@ -6075,448 +6133,11 @@ void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con)
   };
 };
 
-void SavePNLADLRemarks(int pax_id, const vector<TRemItem> &rem)
-{
-  if (rem.empty()) return;
-  TQuery CrsPaxRemQry(&OraSession);
-  CrsPaxRemQry.Clear();
-  CrsPaxRemQry.SQLText=
-    "INSERT INTO crs_pax_rem(pax_id,rem,rem_code) "
-    "VALUES(:pax_id,:rem,:rem_code)";
-  CrsPaxRemQry.DeclareVariable("pax_id",otInteger);
-  CrsPaxRemQry.DeclareVariable("rem",otString);
-  CrsPaxRemQry.DeclareVariable("rem_code",otString);
-  //ремарки пассажира
-  CrsPaxRemQry.SetVariable("pax_id",pax_id);
-  for(vector<TRemItem>::const_iterator iRemItem=rem.begin();iRemItem!=rem.end();++iRemItem)
-  {
-    if (iRemItem->text.empty()) continue;
-    CrsPaxRemQry.SetVariable("rem",iRemItem->text.substr(0,250));
-    CrsPaxRemQry.SetVariable("rem_code",iRemItem->code);
-    CrsPaxRemQry.Execute();
-  };
-};
-
-void SaveDOCSRem(int pax_id, const vector<TDocItem> &doc, const map<string, TDocExtraItem> &doc_extra)
-{
-  if (doc.empty()) return;
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "INSERT INTO crs_pax_doc "
-    "  (pax_id,rem_code,rem_status,type,issue_country,no,nationality, "
-    "   birth_date,gender,expiry_date,surname,first_name,second_name,pr_multi, "
-    "   type_rcpt) "
-    "VALUES "
-    "  (:pax_id,:rem_code,:rem_status,:type,:issue_country,:no,:nationality, "
-    "   :birth_date,:gender,:expiry_date,:surname,:first_name,:second_name,:pr_multi, "
-    "   :type_rcpt) ";
-  Qry.CreateVariable("pax_id",otInteger,pax_id);
-  Qry.DeclareVariable("rem_code",otString);
-  Qry.DeclareVariable("rem_status",otString);
-  Qry.DeclareVariable("type",otString);
-  Qry.DeclareVariable("issue_country",otString);
-  Qry.DeclareVariable("no",otString);
-  Qry.DeclareVariable("nationality",otString);
-  Qry.DeclareVariable("birth_date",otDate);
-  Qry.DeclareVariable("gender",otString);
-  Qry.DeclareVariable("expiry_date",otDate);
-  Qry.DeclareVariable("surname",otString);
-  Qry.DeclareVariable("first_name",otString);
-  Qry.DeclareVariable("second_name",otString);
-  Qry.DeclareVariable("pr_multi",otInteger);
-  Qry.DeclareVariable("type_rcpt",otString);
-  for(vector<TDocItem>::const_iterator i=doc.begin();i!=doc.end();i++)
-  {
-    if (i->Empty()) continue;
-    Qry.SetVariable("rem_code",i->rem_code);
-    Qry.SetVariable("rem_status",i->rem_status);
-    Qry.SetVariable("type",i->type);
-    Qry.SetVariable("issue_country",i->issue_country);
-    Qry.SetVariable("no",i->no);
-    Qry.SetVariable("nationality",i->nationality);
-    if (i->birth_date!=NoExists)
-      Qry.SetVariable("birth_date",i->birth_date);
-    else
-      Qry.SetVariable("birth_date",FNull);
-    Qry.SetVariable("gender",i->gender);
-    if (i->expiry_date!=NoExists)
-      Qry.SetVariable("expiry_date",i->expiry_date);
-    else
-      Qry.SetVariable("expiry_date",FNull);
-    Qry.SetVariable("surname",i->surname.substr(0,64));
-    Qry.SetVariable("first_name",i->first_name.substr(0,64));
-    Qry.SetVariable("second_name",i->second_name.substr(0,64));
-    Qry.SetVariable("pr_multi",(int)i->pr_multi);
-    Qry.SetVariable("type_rcpt", FNull);
-    if (*(i->no)!=0)
-    {
-      map<string, TDocExtraItem>::const_iterator j=doc_extra.find(i->no);
-      if (j!=doc_extra.end()) Qry.SetVariable("type_rcpt", j->second.type_rcpt);
-    };
-    Qry.Execute();
-  };
-};
-
-void SaveDOCORem(int pax_id, const vector<TDocoItem> &doc)
-{
-  if (doc.empty()) return;
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "INSERT INTO crs_pax_doco "
-    "  (pax_id,rem_code,rem_status,birth_place,type,no,issue_place,issue_date, "
-    "   applic_country) "
-    "VALUES "
-    "  (:pax_id,:rem_code,:rem_status,:birth_place,:type,:no,:issue_place,:issue_date, "
-    "   :applic_country) ";
-  Qry.CreateVariable("pax_id",otInteger,pax_id);
-  Qry.DeclareVariable("rem_code",otString);
-  Qry.DeclareVariable("rem_status",otString);
-  Qry.DeclareVariable("birth_place",otString);
-  Qry.DeclareVariable("type",otString);
-  Qry.DeclareVariable("no",otString);
-  Qry.DeclareVariable("issue_place",otString);
-  Qry.DeclareVariable("issue_date",otDate);
-  Qry.DeclareVariable("applic_country",otString);
-  for(vector<TDocoItem>::const_iterator i=doc.begin();i!=doc.end();i++)
-  {
-    if (i->Empty()) continue;
-    Qry.SetVariable("rem_code",i->rem_code);
-    Qry.SetVariable("rem_status",i->rem_status);
-    Qry.SetVariable("birth_place",i->birth_place.substr(0,35));
-    Qry.SetVariable("type",i->type);
-    Qry.SetVariable("no",i->no);
-    Qry.SetVariable("issue_place",i->issue_place.substr(0,35));
-    if (i->issue_date!=NoExists)
-      Qry.SetVariable("issue_date",i->issue_date);
-    else
-      Qry.SetVariable("issue_date",FNull);
-    Qry.SetVariable("applic_country",i->applic_country);
-    Qry.Execute();
-  };
-};
-
-void SaveDOCARem(int pax_id, const vector<TDocaItem> &doca)
-{
-  if (doca.empty()) return;
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "INSERT INTO crs_pax_doca "
-    "  (pax_id,rem_code,rem_status,type,country,address,city,region,postal_code) "
-    "VALUES "
-    "  (:pax_id,:rem_code,:rem_status,:type,:country,:address,:city,:region,:postal_code) ";
-  Qry.CreateVariable("pax_id",otInteger,pax_id);
-  Qry.DeclareVariable("rem_code",otString);
-  Qry.DeclareVariable("rem_status",otString);
-  Qry.DeclareVariable("type",otString);
-  Qry.DeclareVariable("country",otString);
-  Qry.DeclareVariable("address",otString);
-  Qry.DeclareVariable("city",otString);
-  Qry.DeclareVariable("region",otString);
-  Qry.DeclareVariable("postal_code",otString);
-  for(vector<TDocaItem>::const_iterator i=doca.begin();i!=doca.end();i++)
-  {
-    if (i->Empty()) continue;
-    Qry.SetVariable("rem_code",i->rem_code);
-    Qry.SetVariable("rem_status",i->rem_status);
-    Qry.SetVariable("type",i->type);
-    Qry.SetVariable("country",i->country);
-    Qry.SetVariable("address",i->address.substr(0,35));
-    Qry.SetVariable("city",i->city.substr(0,35));
-    Qry.SetVariable("region",i->region.substr(0,35));
-    Qry.SetVariable("postal_code",i->postal_code.substr(0,17));
-    Qry.Execute();
-  };
-};
-
-void SaveTKNRem(int pax_id, const vector<TTKNItem> &tkn, bool clearBeforeSave)
-{
-  if (!clearBeforeSave && tkn.empty()) return;
-
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.CreateVariable("pax_id",otInteger,pax_id);
-  if (clearBeforeSave)
-  {
-    Qry.SQLText="DELETE FROM crs_pax_tkn WHERE pax_id=:pax_id";
-    Qry.Execute();
-  }
-  if (!tkn.empty())
-  {
-    Qry.SQLText=
-        "INSERT INTO crs_pax_tkn "
-        "  (pax_id,rem_code,ticket_no,coupon_no) "
-        "VALUES "
-        "  (:pax_id,:rem_code,:ticket_no,:coupon_no) ";
-    Qry.DeclareVariable("rem_code",otString);
-    Qry.DeclareVariable("ticket_no",otString);
-    Qry.DeclareVariable("coupon_no",otInteger);
-    for(const TTKNItem& t : tkn)
-    {
-      t.toDB(Qry);
-      Qry.Execute();
-    }
-  }
-};
-
-bool SaveCHKDRem(int pax_id, const vector<TCHKDItem> &chkd)
-{
-  bool result=false;
-  if (chkd.empty()) return result;
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "INSERT INTO crs_pax_chkd "
-    "  (pax_id,rem_status,reg_no) "
-    "VALUES "
-    "  (:pax_id,:rem_status,:reg_no) ";
-  Qry.CreateVariable("pax_id",otInteger,pax_id);
-  Qry.DeclareVariable("rem_status",otString);
-  Qry.DeclareVariable("reg_no",otInteger);
-  for(vector<TCHKDItem>::const_iterator i=chkd.begin();i!=chkd.end();++i)
-  {
-    if (i->Empty() || string(i->rem_status).empty()) continue;
-    Qry.SetVariable("rem_status",i->rem_status);
-    Qry.SetVariable("reg_no",(int)i->reg_no);
-    Qry.Execute();
-    result=true;
-  };
-  if (result)
-  {
-    Qry.Clear();
-    Qry.SQLText="UPDATE crs_pax SET sync_chkd=1 WHERE pax_id=:pax_id";
-    Qry.CreateVariable("pax_id",otInteger,pax_id);
-    Qry.Execute();
-  };
-  return result;
-};
-
-static bool SyncPaxASVC(int pax_id)
-{
-  bool result=false;
-  if (CheckIn::DeletePaxASVC(pax_id)) result=true;
-  if (CheckIn::AddPaxASVC(pax_id, false)) result=true;
-  if (result)
-  {
-      addAlarmByPaxId(pax_id, {Alarm::SyncEmds}, {paxCheckIn});
-      TPaxAlarmHook::set(Alarm::UnboundEMD, pax_id);
-
-      try {
-          callbacks<PaxASVCCallbacks>()->onSyncPaxASVC(TRACE5, pax_id);
-      } catch(...) {
-          CallbacksExceptionFilter(STDLOG);
-      }
-
-  }
-  return result;
-}
-
-static bool SyncPaxPD(int pax_id)
-{
-  bool result=false;
-  if (CheckIn::DeletePaxPD(pax_id)) result=true;
-  if (CheckIn::AddPaxPD(pax_id, false)) result=true;
-  return result;
-}
-
 static void onChangeClass(int pax_id, ASTRA::TClass cl)
 {
   addAlarmByPaxId(pax_id, {Alarm::SyncCabinClass}, {paxCheckIn});
   TPaxAlarmHook::set(Alarm::SyncCabinClass, pax_id);
 }
-
-static void LoadASVCRem(int pax_id, vector<TASVCItem> &asvc)
-{
-  asvc.clear();
-
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText="SELECT * FROM crs_pax_asvc WHERE pax_id=:pax_id";
-  Qry.CreateVariable("pax_id",otInteger,pax_id);
-  Qry.Execute();
-  for(; !Qry.Eof; Qry.Next())
-  {
-    TASVCItem item;
-    strcpy(item.rem_code, "ASVC");
-    strcpy(item.rem_status, Qry.FieldAsString("rem_status"));
-    strcpy(item.RFIC, Qry.FieldAsString("rfic"));
-    strcpy(item.RFISC, Qry.FieldAsString("rfisc"));
-    if (!Qry.FieldIsNULL("service_quantity"))
-      item.service_quantity=Qry.FieldAsInteger("service_quantity");
-    strcpy(item.ssr_code, Qry.FieldAsString("ssr_code"));
-    strcpy(item.service_name, Qry.FieldAsString("service_name"));
-    strcpy(item.emd_type, Qry.FieldAsString("emd_type"));
-    strcpy(item.emd_no, Qry.FieldAsString("emd_no"));
-    if (!Qry.FieldIsNULL("emd_coupon"))
-      item.emd_coupon=Qry.FieldAsInteger("emd_coupon");
-    asvc.push_back(item);
-  }
-}
-
-static void LoadPDRem(int pax_id, multiset<TPDRemItem> &pdRems)
-{
-  pdRems.clear();
-
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText="SELECT * FROM crs_pax_rem WHERE pax_id=:pax_id AND rem_code LIKE 'PD__'";
-  Qry.CreateVariable("pax_id",otInteger,pax_id);
-  Qry.Execute();
-  for(; !Qry.Eof; Qry.Next())
-  {
-    TPDRemItem item;
-    strcpy(item.code, Qry.FieldAsString("rem_code"));
-    item.text=Qry.FieldAsString("rem");
-    if (item.isPDRem())
-      pdRems.insert(item);
-  }
-}
-
-static void SaveASVCRem(int pax_id,
-                        const vector<TASVCItem> &asvc,
-                        std::set<int>& paxIdsForSync)
-{
-  bool deleteASVC=true;
-  if (!asvc.empty())
-  {
-    vector<TASVCItem> prior;
-    LoadASVCRem(pax_id, prior);
-    if (prior.empty()) deleteASVC=false;
-    bool modified=false;
-    for(const TASVCItem& item : asvc)
-    {
-      if (item.Empty() || string(item.rem_status).empty()) continue;
-
-      vector<TASVCItem>::iterator i=find(prior.begin(), prior.end(), item);
-      if (i==prior.end())
-      {
-        modified=true;
-        break;
-      }
-      prior.erase(i);
-    }
-
-    if (!modified && prior.empty()) return;
-  }
-
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.CreateVariable("pax_id",otInteger,pax_id);
-  if (deleteASVC)
-  {
-    Qry.SQLText="DELETE FROM crs_pax_asvc WHERE pax_id=:pax_id";
-    Qry.Execute();
-    if (asvc.empty() && Qry.RowsProcessed()==0) return;
-  }
-
-  if (!asvc.empty())
-  {
-    Qry.SQLText=
-        "INSERT INTO crs_pax_asvc "
-        "  (pax_id,rem_status,rfic,rfisc,service_quantity,ssr_code,service_name,emd_type,emd_no,emd_coupon) "
-        "VALUES "
-        "  (:pax_id,:rem_status,:rfic,:rfisc,:service_quantity,:ssr_code,:service_name,:emd_type,:emd_no,:emd_coupon) ";
-    Qry.DeclareVariable("rem_status",otString);
-    Qry.DeclareVariable("rfic",otString);
-    Qry.DeclareVariable("rfisc",otString);
-    Qry.DeclareVariable("service_quantity",otInteger);
-    Qry.DeclareVariable("ssr_code",otString);
-    Qry.DeclareVariable("service_name",otString);
-    Qry.DeclareVariable("emd_type",otString);
-    Qry.DeclareVariable("emd_no",otString);
-    Qry.DeclareVariable("emd_coupon",otInteger);
-    for(const TASVCItem& item : asvc)
-    {
-      if (item.Empty() || string(item.rem_status).empty()) continue;
-      Qry.SetVariable("rem_status",item.rem_status);
-      Qry.SetVariable("rfic",item.RFIC);
-      Qry.SetVariable("rfisc",item.RFISC);
-      item.service_quantity!=NoExists?Qry.SetVariable("service_quantity",item.service_quantity):
-                                      Qry.SetVariable("service_quantity",FNull);
-      Qry.SetVariable("ssr_code",item.ssr_code);
-      Qry.SetVariable("service_name",item.service_name);
-      Qry.SetVariable("emd_type",item.emd_type);
-      Qry.SetVariable("emd_no",item.emd_no);
-      item.emd_coupon!=NoExists?Qry.SetVariable("emd_coupon",item.emd_coupon):
-                                Qry.SetVariable("emd_coupon",FNull);
-      Qry.Execute();
-    }
-  }
-
-  paxIdsForSync.insert(pax_id);
-};
-
-static void DeletePDRem(int pax_id,
-                        const vector<TRemItem> &rem1,
-                        const vector<TRemItem> &rem2,
-                        std::set<int>& paxIdsForSync)
-{
-  multiset<TPDRemItem> curr;
-  for(const TRemItem& r : rem1)
-    if (r.isPDRem()) curr.insert(r);
-  for(const TRemItem& r : rem2)
-    if (r.isPDRem()) curr.insert(r);
-
-  bool deletePD=true;
-  bool modified=true;
-  if (!curr.empty())
-  {
-    multiset<TPDRemItem> prior;
-    LoadPDRem(pax_id, prior);
-    if (prior.empty()) deletePD=false;
-    if (prior==curr) modified=false;
-  }
-
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.CreateVariable("pax_id",otInteger,pax_id);
-  if (deletePD)
-  {
-    Qry.SQLText="DELETE FROM crs_pax_rem WHERE pax_id=:pax_id AND rem_code LIKE 'PD__'";
-    Qry.Execute();
-    if (curr.empty() && Qry.RowsProcessed()==0) modified=false;
-  }
-
-  if (modified)
-    paxIdsForSync.insert(pax_id);
-};
-
-void SaveFQTRem(int pax_id, const vector<TFQTItem> &fqt, const set<TFQTExtraItem> &fqt_extra)
-{
-  if (fqt.empty()) return;
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "INSERT INTO crs_pax_fqt "
-    "  (pax_id, rem_code, airline, no, extra, tier_level) "
-    "VALUES "
-    "  (:pax_id, :rem_code, :airline, :no, :extra, :tier_level) ";
-  Qry.CreateVariable("pax_id",otInteger,pax_id);
-  Qry.DeclareVariable("rem_code",otString);
-  Qry.DeclareVariable("airline",otString);
-  Qry.DeclareVariable("no",otString);
-  Qry.DeclareVariable("extra",otString);
-  set<TFQTItem> unique_fqt;
-  for(vector<TFQTItem>::const_iterator i=fqt.begin();i!=fqt.end();i++)
-    unique_fqt.insert(*i);
-  if (unique_fqt.size()==1 && fqt_extra.size()==1)
-    Qry.CreateVariable("tier_level", otString, fqt_extra.begin()->tier_level);
-  else
-    Qry.CreateVariable("tier_level", otString, FNull);
-  for(vector<TFQTItem>::const_iterator i=fqt.begin();i!=fqt.end();i++)
-  {
-    Qry.SetVariable("rem_code",i->rem_code);
-    Qry.SetVariable("airline",i->airline);
-    Qry.SetVariable("no",i->no);
-    if (i->extra.size()>250)
-      Qry.SetVariable("extra", i->extra.substr(0,250));
-    else
-      Qry.SetVariable("extra", i->extra);
-    Qry.Execute();
-  };
-};
 
 void SaveDCSBaggage(int pax_id, const TNameElement &ne)
 {
@@ -6640,16 +6261,16 @@ void UpdateCrsDataStat(const TTlgElement elem,
 class SuitablePax
 {
   public:
-    int pax_id;
-    int parent_pax_id;
+    PaxId_t paxId;
+    boost::optional<PaxId_t> parentPaxId;
     bool deleted;
     TDateTime last_op;
     bool classChanged;
 
-    SuitablePax(TCachedQuery &Qry)
+    SuitablePax(TCachedQuery &Qry) : paxId(Qry.get().FieldAsInteger("pax_id"))
     {
-      pax_id=Qry.get().FieldAsInteger("pax_id");
-      parent_pax_id=Qry.get().FieldIsNULL("parent_pax_id")?NoExists:Qry.get().FieldAsInteger("parent_pax_id");
+      if (!Qry.get().FieldIsNULL("parent_pax_id"))
+        parentPaxId=boost::in_place(Qry.get().FieldAsInteger("parent_pax_id"));
       deleted=Qry.get().FieldAsInteger("pr_del")!=0;
       last_op=Qry.get().FieldAsDateTime("last_op");
       classChanged=false;
@@ -6785,7 +6406,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
   {
     Qry.Execute();
   }
-  catch(EOracleError &E)
+  catch(const EOracleError &E)
   {
     if (E.Code!=1) throw;
   };
@@ -6798,7 +6419,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
   {
     Qry.Execute();
   }
-  catch(EOracleError &E)
+  catch(const EOracleError &E)
   {
     if (E.Code!=1) throw;
   };
@@ -6862,7 +6483,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
       {
         Qry.Execute();
       }
-      catch(EOracleError &E)
+      catch(const EOracleError &E)
       {
         if (E.Code!=1) throw;
       };
@@ -7144,12 +6765,15 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
           "  ELSE "
           "    UPDATE crs_pax "
           "    SET pnr_id=:pnr_id, pers_type= :pers_type, seat_xname= :seat_xname, seat_yname= :seat_yname, seat_rem= :seat_rem, "
-          "        seat_type= :seat_type, seats=:seats, bag_pool= :bag_pool, pr_del= :pr_del, last_op= :last_op, tid=cycle_tid__seq.currval,need_apps=:need_apps "
+          "        seat_type= :seat_type, seats=:seats, bag_pool= :bag_pool, pr_del= :pr_del, last_op= :last_op, tid=cycle_tid__seq.currval, "
+          "        need_apps=:need_apps, unique_reference=:unique_reference "
           "    WHERE pax_id=:pax_id; "
           "    IF SQL%FOUND THEN RETURN; END IF; "
           "  END IF; "
-          "  INSERT INTO crs_pax(pax_id,pnr_id,surname,name,pers_type,seat_xname,seat_yname,seat_rem,seat_type,seats,bag_pool,sync_chkd,pr_del,last_op,tid,need_apps,orig_subclass,orig_class) "
-          "  SELECT :pax_id,:pnr_id,:surname,:name,:pers_type,:seat_xname,:seat_yname,:seat_rem,:seat_type,:seats,:bag_pool,0,:pr_del,:last_op,cycle_tid__seq.currval,:need_apps,subclass,class "
+          "  INSERT INTO crs_pax(pax_id,pnr_id,surname,name,pers_type,seat_xname,seat_yname,seat_rem, "
+          "    seat_type,seats,bag_pool,sync_chkd,pr_del,last_op,tid,need_apps,unique_reference,orig_subclass,orig_class) "
+          "  SELECT :pax_id,:pnr_id,:surname,:name,:pers_type,:seat_xname,:seat_yname,:seat_rem,:seat_type, "
+          "    :seats,:bag_pool,0,:pr_del,:last_op,cycle_tid__seq.currval,:need_apps,:unique_reference,subclass,class "
           "  FROM crs_pnr WHERE pnr_id=:pnr_id; "
           "END;";
         CrsPaxInsQry.DeclareVariable("pax_id",otInteger);
@@ -7166,6 +6790,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         CrsPaxInsQry.DeclareVariable("pr_del",otInteger);
         CrsPaxInsQry.DeclareVariable("last_op",otDate);
         CrsPaxInsQry.DeclareVariable("need_apps",otInteger);
+        CrsPaxInsQry.DeclareVariable("unique_reference",otString);
 
         TQuery CrsInfInsQry(&OraSession);
         CrsInfInsQry.Clear();
@@ -7222,7 +6847,11 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
 
         int pnr_id;
         bool pr_sync_pnr;
-        set<int> paxIdsModified, paxIdsForSyncASVC, paxIdsForSyncPD;
+        set<int> paxIdsModified;
+        ModifiedPaxRem modifiedPaxRem(paxPnl);
+        ModifiedPaxRem modifiedASVCAndPD(paxPnl);
+        ModifiedPax newOrCancelledPax(paxPnl);
+        PaxCalcData::ChangesHolder paxCalcDataChanges(paxPnl);
         PaxIdsForDeleteTlgSeatRanges paxIdsForDeleteTlgSeatRanges;
         PaxIdsForInsertTlgSeatRanges paxIdsForInsertTlgSeatRanges;
         bool chkd_exists=false;
@@ -7237,6 +6866,10 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
        for(bool delIndicatorPass : {true, false})
         for(iTotals=con.resa.begin();iTotals!=con.resa.end();iTotals++)
         {
+          boost::optional<TPaxSegmentPair> segmentPair;
+          if (point_id_spp != ASTRA::NoExists)
+            segmentPair=boost::in_place(point_id_spp, iTotals->dest);
+
           CrsPnrQry.SetVariable("airp_arv",iTotals->dest);
           CrsPnrQry.SetVariable("subclass",iTotals->subcl);
           CrsPnrInsQry.SetVariable("airp_arv",iTotals->dest);
@@ -7402,16 +7035,13 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
               TNameElement& ne=*iNameElement;
               if ((ne.indicator==DEL && !delIndicatorPass) ||
                   (ne.indicator!=DEL && delIndicatorPass)) continue;
-              int seatsBlockingPaxId=NoExists;
+              boost::optional<PaxId_t> seatsBlockingPaxId;
               for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();iPaxItem++)
               {
                 if (iPaxItem->dontSaveToDB(ne)) continue;
 
-                int pax_id=NoExists;
-                bool paxClassChanged=false;
+                boost::optional<SuitablePax> suitablePax;
 
-                CrsPaxInsQry.SetVariable("pax_id",FNull);
-                CrsPaxInsQry.SetVariable("surname",ne.surname);
                 if (ne.indicator==ADD||ne.indicator==CHG||ne.indicator==DEL)
                 {
                   SuitablePaxList suitablePaxList;
@@ -7419,15 +7049,13 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                   if (!suitablePaxList.empty())
                   {
                     //нашли в PNR
-                    const SuitablePax& suitablePax = suitablePaxList.front();
-                    if (suitablePax.last_op > info.time_create) continue;
-                    if ((ne.indicator==ADD && suitablePax.deleted) ||
+                    const SuitablePax& pax = suitablePaxList.front();
+                    if (pax.last_op > info.time_create) continue;
+                    if ((ne.indicator==ADD && pax.deleted) ||
                         ne.indicator==CHG ||
                         ne.indicator==DEL)
                     {
-                      pax_id=suitablePax.pax_id;
-                      paxClassChanged=suitablePax.classChanged;
-                      CrsPaxInsQry.SetVariable("pax_id",suitablePax.pax_id);
+                      suitablePax=pax;
                     };
                   }
                   else
@@ -7438,14 +7066,12 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                       if (!suitablePaxList.empty())
                       {
                         //нашли по билету (скорее всего в другом PNR)
-                        const SuitablePax& suitablePax = suitablePaxList.front();
-                        if (suitablePax.last_op <= info.time_create &&
-                            suitablePax.deleted)
+                        const SuitablePax& pax = suitablePaxList.front();
+                        if (pax.last_op <= info.time_create &&
+                            pax.deleted)
                         {
-                          pax_id=suitablePax.pax_id;
-                          paxClassChanged=suitablePax.classChanged;
-                          CrsPaxInsQry.SetVariable("pax_id",suitablePax.pax_id);
-                          ProgTrace(TRACE5, "suitablePax: pax_id=%d", pax_id);
+                          suitablePax=pax;
+                          ProgTrace(TRACE5, "suitablePax: pax_id=%d", pax.paxId.get());
                         }
                       }
                     }
@@ -7457,7 +7083,10 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                   };
                 };
 
-                iPaxItem->setSomeDataForSeatsBlocking(pax_id, ne);
+                if (suitablePax)
+                  iPaxItem->setSomeDataForSeatsBlocking(suitablePax.get().paxId, ne);
+                else
+                  iPaxItem->setSomeDataForSeatsBlocking(boost::none, ne);
 
                 TSeatsBlockingList::iterator iSeatsBlocking=iPaxItem->seatsBlocking.begin();
                 for(bool seatsBlockingPass=false;
@@ -7469,18 +7098,28 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
 
                   const TPaxItem& paxItem=seatsBlockingPass?*iSeatsBlocking:*iPaxItem;
 
+                  boost::optional<PaxId_t> suitablePaxIdOrSeatId;
                   if (seatsBlockingPass)
                   {
-                    pax_id=TPaxItem::getNotUsedSeatBlockingId(seatsBlockingPaxId);
-                    if (pax_id==NoExists)
-                      throw Exception("%s: getNotUsedSeatBlockingId returned NoExists! (seatsBlockingPaxId=%d)",
-                                      __FUNCTION__, seatsBlockingPaxId);
-                    CrsPaxInsQry.SetVariable("pax_id",pax_id);
-                    CrsPaxInsQry.SetVariable("pers_type",EncodePerson(adult));
+                    if (!seatsBlockingPaxId)
+                      throw Exception("%s: seatsBlockingPaxId=boost::none!", __func__);
+                    suitablePaxIdOrSeatId=TPaxItem::getNotUsedSeatBlockingId(seatsBlockingPaxId.get());
+                    if (!suitablePaxIdOrSeatId)
+                      throw Exception("%s: getNotUsedSeatBlockingId returned boost::none! (seatsBlockingPaxId=%d)",
+                                      __FUNCTION__, seatsBlockingPaxId.get().get());
                   }
                   else
-                    CrsPaxInsQry.SetVariable("pers_type",EncodePerson(paxItem.pers_type));
+                  {
+                    if (suitablePax) suitablePaxIdOrSeatId=boost::in_place(suitablePax.get().paxId.get());
+                  }
+
+                  if (!suitablePaxIdOrSeatId)
+                    CrsPaxInsQry.SetVariable("pax_id",FNull);
+                  else
+                    CrsPaxInsQry.SetVariable("pax_id",suitablePaxIdOrSeatId.get().get());
+                  CrsPaxInsQry.SetVariable("surname",ne.surname);
                   CrsPaxInsQry.SetVariable("name",paxItem.name);
+                  CrsPaxInsQry.SetVariable("pers_type",EncodePerson(seatsBlockingPass?adult:paxItem.pers_type));
                   if (ne.indicator!=DEL && !paxItem.seat.Empty())
                   {
                     CrsPaxInsQry.SetVariable("seat_xname",paxItem.seat.line);
@@ -7520,14 +7159,48 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                   }
                   else
                     CrsPaxInsQry.SetVariable("need_apps",0);
+                  CrsPaxInsQry.SetVariable("unique_reference", paxItem.uniqueReference());
                   CrsPaxInsQry.Execute();
-                  pax_id=CrsPaxInsQry.GetVariableAsInteger("pax_id");
-                  if (!seatsBlockingPass) seatsBlockingPaxId=pax_id;
+
+                  PaxIdWithSegmentPair paxId(PaxId_t(CrsPaxInsQry.GetVariableAsInteger("pax_id")), segmentPair);
+
+                  addPaxEvent(paxId,
+                              seatsBlockingPass?true:(!suitablePax || suitablePax.get().deleted),
+                              ne.indicator==DEL,
+                              newOrCancelledPax);
+
+                  if (!seatsBlockingPass) seatsBlockingPaxId=paxId();
                   if (ne.indicator==CHG||ne.indicator==DEL)
                   {
-                    set<int> paxIds;
-                    TPaxItem::getAndLockSeatBlockingIds(pax_id, paxIds);
-                    paxIds.insert(pax_id);
+                    map<PaxId_t, TSeatsBlockingItem> seatBlockingItems=TPaxItem::getAndLockSeatBlockingItems(paxId());
+                    set<PaxId_t> infantIds=TPaxItem::getAndLockInfantIds(paxId());
+
+                    set<PaxId_t> seatOccupiedIds;
+                    seatOccupiedIds.insert(paxId());
+                    for(const auto& item : seatBlockingItems)
+                    {
+                      const PaxId_t& id=item.first;
+                      seatOccupiedIds.insert(id);
+                      if (item.second.isCBBG())
+                        addPaxEvent(PaxIdWithSegmentPair(id, segmentPair), false, true, newOrCancelledPax);
+                    }
+                    for(const PaxId_t& id : infantIds)
+                      addPaxEvent(PaxIdWithSegmentPair(id, segmentPair), false, true, newOrCancelledPax);
+
+                    if (ne.indicator==DEL)
+                    {
+                      for(const PaxId_t& id : seatOccupiedIds)
+                      {
+                        paxIdsForDeleteTlgSeatRanges.add({cltPNLCkin,
+                                                          cltPNLBeforePay,
+                                                          cltPNLAfterPay,
+                                                          cltProtCkin,
+                                                          cltProtSelfCkin,
+                                                          cltProtBeforePay,
+                                                          cltProtAfterPay},
+                                                         id.get());
+                      }
+                    }
 
                     //удаляем все по пассажиру
                     Qry.Clear();
@@ -7540,10 +7213,6 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                       "  PROCEDURE delete_data(vpax_id crs_pax.pax_id%TYPE) IS "
                       "  BEGIN "
                       "    DELETE FROM crs_pax_rem WHERE pax_id=vpax_id AND rem_code NOT LIKE 'PD__'; "
-                      "    DELETE FROM crs_pax_doc WHERE pax_id=vpax_id; "
-                      "    DELETE FROM crs_pax_doco WHERE pax_id=vpax_id; "
-                      "    DELETE FROM crs_pax_doca WHERE pax_id=vpax_id; "
-                      "    DELETE FROM crs_pax_fqt WHERE pax_id=vpax_id; "
                       "    DELETE FROM crs_pax_chkd WHERE pax_id=vpax_id; "
                       "  END delete_data; "
                       "BEGIN "
@@ -7566,29 +7235,9 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                       "  delete_data(:pax_id); "
                       "  UPDATE crs_pax SET inf_id=NULL WHERE pax_id=:pax_id; "
                       "END;";
-                    Qry.CreateVariable("pax_id", otInteger, pax_id);
+                    Qry.CreateVariable("pax_id", otInteger, paxId().get());
                     Qry.CreateVariable("last_op", otDate, info.time_create);
                     Qry.Execute();
-
-                    if (ne.indicator==DEL)
-                    {
-                      for(const int& paxId : paxIds)
-                      {
-                        paxIdsForDeleteTlgSeatRanges.add({cltPNLCkin,
-                                                          cltPNLBeforePay,
-                                                          cltPNLAfterPay,
-                                                          cltProtCkin,
-                                                          cltProtSelfCkin,
-                                                          cltProtBeforePay,
-                                                          cltProtAfterPay},
-                                                         paxId);
-
-                        if(is_need_apps) {
-                          deleteAPPSAlarms(paxId, point_id_spp);
-                          deleteAPPSData(paxId);
-                        }
-                      }
-                    }
                   };
                   if (ne.indicator!=DEL)
                   {
@@ -7600,11 +7249,10 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     CrsPaxInsQry.SetVariable("pr_del",0);
                     CrsPaxInsQry.SetVariable("last_op",info.time_create);
                     //младенцы пассажира
-                    CrsInfInsQry.SetVariable("pax_id",pax_id);
+                    CrsInfInsQry.SetVariable("pax_id",paxId().get());
                     for(TInfList::const_iterator iInfItem=paxItem.inf.begin();iInfItem!=paxItem.inf.end();++iInfItem)
                     {
-                      int inf_id=ASTRA::NoExists;
-                      bool infClassChanged=false;
+                      boost::optional<SuitablePax> suitableInf;
 
                       if (ne.indicator==ADD||ne.indicator==CHG)
                       {
@@ -7614,66 +7262,74 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                           searchInOwnPnr?
                                 suitablePaxList.get(pnr_id, iInfItem->surname, iInfItem->name, true):
                                 suitablePaxList.get(iInfItem->tkn, point_id, system, info.sender, *iTotals, iInfItem->surname, iInfItem->name, true);
-                          for(const SuitablePax& suitablePax : suitablePaxList)
+                          for(const SuitablePax& pax : suitablePaxList)
                           {
                             if ((!searchInOwnPnr ||
-                                 (suitablePax.parent_pax_id!=NoExists &&
-                                  suitablePax.parent_pax_id==pax_id)) &&
-                                suitablePax.last_op <= info.time_create &&
-                                suitablePax.deleted)
+                                 (pax.parentPaxId && pax.parentPaxId.get()==paxId())) &&
+                                pax.last_op <= info.time_create &&
+                                pax.deleted)
                             {
-                              inf_id=suitablePax.pax_id;
-                              infClassChanged=suitablePax.classChanged;
+                              suitableInf=pax;
                               if (!searchInOwnPnr)
-                                ProgTrace(TRACE5, "suitablePax: inf_id=%d", inf_id);
+                                ProgTrace(TRACE5, "suitablePax: inf_id=%d", pax.paxId.get());
                               break;
                             }
                           }
-                          if (inf_id!=NoExists) break;
+                          if (suitableInf) break;
                         }
                       }
 
-                      if (inf_id==ASTRA::NoExists)
+                      if (!suitableInf)
                         CrsPaxInsQry.SetVariable("pax_id",FNull);
                       else
-                        CrsPaxInsQry.SetVariable("pax_id",inf_id);
+                        CrsPaxInsQry.SetVariable("pax_id",suitableInf.get().paxId.get());
                       CrsPaxInsQry.SetVariable("surname",iInfItem->surname);
                       CrsPaxInsQry.SetVariable("name",iInfItem->name);
+                      CrsPaxInsQry.SetVariable("unique_reference", iInfItem->uniqueReference());
                       CrsPaxInsQry.Execute();
-                      inf_id=CrsPaxInsQry.GetVariableAsInteger("pax_id");
-                      CrsInfInsQry.SetVariable("inf_id",inf_id);
+
+                      PaxIdWithSegmentPair infId(PaxId_t(CrsPaxInsQry.GetVariableAsInteger("pax_id")), segmentPair);
+
+                      addPaxEvent(infId,
+                                  !suitableInf || suitableInf.get().deleted,
+                                  false,
+                                  newOrCancelledPax);
+
+                      CrsInfInsQry.SetVariable("inf_id",infId().get());
                       CrsInfInsQry.Execute();
-                      SavePNLADLRemarks(inf_id,iInfItem->rem);
-                      SaveDOCSRem(inf_id,iInfItem->doc,paxItem.doc_extra);
-                      SaveDOCORem(inf_id,iInfItem->doco);
-                      SaveDOCARem(inf_id,iInfItem->doca);
-                      SaveTKNRem(inf_id,iInfItem->tkn,ne.indicator!=None);
-                      if (SaveCHKDRem(inf_id,iInfItem->chkd)) chkd_exists=true;
-                      paxIdsModified.insert(inf_id);
-                      if (infClassChanged) onChangeClass(inf_id, iTotals->cl);
+                      SavePNLADLRemarks(infId,iInfItem->rem);
+                      SaveDOCSRem(infId,suitableInf,iInfItem->doc,paxItem.doc_extra, modifiedPaxRem);
+                      SaveDOCORem(infId,suitableInf,iInfItem->doco, modifiedPaxRem);
+                      SaveDOCARem(infId,suitableInf,iInfItem->doca, modifiedPaxRem);
+                      SaveTKNRem(infId,suitableInf,iInfItem->tkn, modifiedPaxRem);
+                      if (SaveCHKDRem(infId,iInfItem->chkd)) chkd_exists=true;
+                      paxIdsModified.insert(infId().get());
+                      if (suitableInf && suitableInf.get().classChanged)
+                        onChangeClass(infId().get(), iTotals->cl);
                     };
 
-                    DeletePDRem(pax_id, paxItem.rem, ne.rem, paxIdsForSyncPD); //обязательно до записи ремарок
+                    DeletePDRem(paxId, paxItem.rem, ne.rem, modifiedASVCAndPD); //обязательно до записи ремарок
 
                     //ремарки пассажира
-                    SavePNLADLRemarks(pax_id,paxItem.rem);
-                    SaveDOCSRem(pax_id,paxItem.doc,paxItem.doc_extra);
-                    SaveDOCORem(pax_id,paxItem.doco);
-                    SaveDOCARem(pax_id,paxItem.doca);
-                    SaveTKNRem(pax_id,paxItem.tkn,ne.indicator!=None);
-                    SaveFQTRem(pax_id,paxItem.fqt,paxItem.fqt_extra);
-                    if (SaveCHKDRem(pax_id,paxItem.chkd)) chkd_exists=true;
-                    paxIdsModified.insert(pax_id);
-                    if (paxClassChanged) onChangeClass(pax_id, iTotals->cl);
+                    SavePNLADLRemarks(paxId,paxItem.rem);
+                    SaveDOCSRem(paxId,suitablePax,paxItem.doc,paxItem.doc_extra, modifiedPaxRem);
+                    SaveDOCORem(paxId,suitablePax,paxItem.doco, modifiedPaxRem);
+                    SaveDOCARem(paxId,suitablePax,paxItem.doca, modifiedPaxRem);
+                    SaveTKNRem(paxId,suitablePax,paxItem.tkn, modifiedPaxRem);
+                    SaveFQTRem(paxId,suitablePax,paxItem.fqt,paxItem.fqt_extra, modifiedPaxRem);
+                    if (SaveCHKDRem(paxId,paxItem.chkd)) chkd_exists=true;
+                    paxIdsModified.insert(paxId().get());
+                    if (suitablePax && suitablePax.get().classChanged)
+                      onChangeClass(paxId().get(), iTotals->cl);
 
-                    if (!seatsBlockingPass) paxItem.seatsBlocking.toDB(pax_id);
+                    if (!seatsBlockingPass) paxItem.seatsBlocking.toDB(paxId().get());
 
-                    SaveASVCRem(pax_id, paxItem.asvc, paxIdsForSyncASVC);
+                    SaveASVCRem(paxId, paxItem.asvc, modifiedASVCAndPD);
 
                     //ремарки, не привязанные к пассажиру
-                    SavePNLADLRemarks(pax_id,ne.rem);
+                    SavePNLADLRemarks(paxId,ne.rem);
 
-                    paxIdsForDeleteTlgSeatRanges.erase(pax_id); //могла ранее обработаться секция DEL в результате чего мы бы удалили все телеграммные слои
+                    paxIdsForDeleteTlgSeatRanges.erase(paxId().get()); //могла ранее обработаться секция DEL в результате чего мы бы удалили все телеграммные слои
                     if (!isPRL)
                     {
                       //текущие слои
@@ -7690,18 +7346,18 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
 
                       //предыдущие слои
                       TlgSeatRanges priorTlgSeatRanges;
-                      priorTlgSeatRanges.get({cltPNLCkin, cltPNLBeforePay, cltPNLAfterPay}, pax_id);
+                      priorTlgSeatRanges.get({cltPNLCkin, cltPNLBeforePay, cltPNLAfterPay}, paxId().get());
 
                       if (currTlgSeatRanges!=priorTlgSeatRanges)
                       {
                         if (!priorTlgSeatRanges.empty())
                         {
-                          priorTlgSeatRanges.dump("priorTlgSeatRanges (pax_id="+IntToString(pax_id)+"):");
-                          currTlgSeatRanges.dump("currTlgSeatRanges (pax_id="+IntToString(pax_id)+"):");
+                          priorTlgSeatRanges.dump("priorTlgSeatRanges (pax_id="+IntToString(paxId().get())+"):");
+                          currTlgSeatRanges.dump("currTlgSeatRanges (pax_id="+IntToString(paxId().get())+"):");
                         }
                         //слои различаются, удаляем старые, добавляем новые
-                        paxIdsForDeleteTlgSeatRanges.add({cltPNLCkin, cltPNLBeforePay, cltPNLAfterPay}, pax_id);
-                        paxIdsForInsertTlgSeatRanges.add(iTotals->dest, currTlgSeatRanges, pax_id);
+                        paxIdsForDeleteTlgSeatRanges.add({cltPNLCkin, cltPNLBeforePay, cltPNLAfterPay}, paxId().get());
+                        paxIdsForInsertTlgSeatRanges.add(iTotals->dest, currTlgSeatRanges, paxId().get());
                       }
                     }
                     else
@@ -7710,20 +7366,20 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                       currTlgSeatRanges.add(cltPRLTrzt, paxItem.seatRanges);
                       //слои, не привязанные к пассажиру
                       currTlgSeatRanges.add(cltPRLTrzt, ne.seatRanges);
-                      paxIdsForInsertTlgSeatRanges.add(iTotals->dest, currTlgSeatRanges, pax_id);
+                      paxIdsForInsertTlgSeatRanges.add(iTotals->dest, currTlgSeatRanges, paxId().get());
                     }
                   };
 
                   if (!isPRL && !pr_sync_pnr)
                   {
                     //делаем синхронизацию пассажира с розыском
-                    rozysk::sync_crs_pax(pax_id, "", "");
+                    rozysk::sync_crs_pax(paxId().get(), "", "");
                   };
 
                   if (isPRL && iPaxItem==ne.pax.begin())
                   {
                     //запишем багаж
-                    if (!ne.bag.Empty() || !ne.tags.empty()) SaveDCSBaggage(pax_id, ne);
+                    if (!ne.bag.Empty() || !ne.tags.empty()) SaveDCSBaggage(paxId().get(), ne);
                   };
                 }
               };
@@ -7806,6 +7462,16 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
            for(TAdvTripInfoList::const_iterator it = trips.begin(); it != trips.end(); it++)
              add_trip_task((*it).point_id, SYNC_NEW_CHKD, "");
          };
+
+         PaxCalcData::addChanges(newOrCancelledPax, paxCalcDataChanges);
+         PaxCalcData::addChanges(modifiedPaxRem, paxCalcDataChanges);
+
+         //важно, что PaxCalcData::addChanges вызываем до synchronizePaxEvents!
+         synchronizePaxEvents(newOrCancelledPax, modifiedPaxRem);
+         modifiedPaxRem.executeCallbacksByPaxId(TRACE5);
+         newOrCancelledPax.executeCallbacksByPaxId(TRACE5);
+
+
          if(apps_pax_exists) {
            TDateTime start_time;
            bool result = checkTime( point_id_spp, start_time );
@@ -7818,8 +7484,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
 
        bool lock=!paxIdsForDeleteTlgSeatRanges.empty() ||
                  !paxIdsForInsertTlgSeatRanges.empty() ||
-                 (!isPRL && !paxIdsForSyncASVC.empty()) ||
-                 (!isPRL && !paxIdsForSyncPD.empty());
+                 (!isPRL && !modifiedASVCAndPD.empty());
        if (lock)
        {
          TFlights flightsForLock;
@@ -7840,19 +7505,10 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
          check_layer_change(point_ids_spp, __func__);
        }
 
-       if (!isPRL && !paxIdsForSyncASVC.empty())
+       if (!isPRL)
        {
-         timing.start("SyncPaxASVC");
-         for(int paxId : paxIdsForSyncASVC)
-           SyncPaxASVC(paxId);
-         timing.finish("SyncPaxASVC");
-       }
-       if (!isPRL && !paxIdsForSyncPD.empty())
-       {
-         timing.start("SyncPaxPD");
-         for(int paxId : paxIdsForSyncPD)
-           SyncPaxPD(paxId);
-         timing.finish("SyncPaxPD");
+         modifiedASVCAndPD.executeCallbacksByCategory(TRACE5);
+         paxCalcDataChanges.executeCallbacksByPaxId(TRACE5);
        }
       } //if (pr_ne)
 

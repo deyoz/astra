@@ -65,18 +65,13 @@ std::string IatciSmfRequestHandler::respType() const
     return "S";
 }
 
-iatci::dcrcka::Result IatciSmfRequestHandler::handleRequest() const
+std::list<iatci::dcrcka::Result> IatciSmfRequestHandler::handleRequest() const
 {
     ASSERT(m_smfParams);
-    return iatci::fillSeatmap(m_smfParams.get());
+    return { iatci::fillSeatmap(m_smfParams.get()) };
 }
 
-edilib::EdiSessionId_t IatciSmfRequestHandler::sendCascadeRequest() const
-{
-    throw "Not implemented!";
-}
-
-const iatci::IBaseParams* IatciSmfRequestHandler::paramsNew() const
+const iatci::IBaseParams* IatciSmfRequestHandler::params() const
 {
     return m_smfParams.get_ptr();
 }

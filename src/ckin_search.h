@@ -163,9 +163,9 @@ class Search
 class PaxIdFilter
 {
   private:
-    int value;
+    PaxId_t paxId;
   public:
-    explicit PaxIdFilter(int _value) : value(_value) {}
+    explicit PaxIdFilter(const PaxId_t& _paxId) : paxId(_paxId) {}
 
     bool validForSearch() const;
     void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const {}
@@ -257,6 +257,20 @@ class TCkinPaxFilter : public FullnameFilter
       subclass=pax.getCabinSubclass();
       pers_type=pax.pers_type;
       seats=pax.seats;
+    }
+
+    TCkinPaxFilter(const std::string& surname_,
+                   const std::string& name_,
+                   const std::string& subclass_,
+                   const ASTRA::TPerson pers_type_,
+                   const int seats_)
+    {
+      clear();
+      surname=surname_;
+      name=name_;
+      subclass=subclass_;
+      pers_type=pers_type_;
+      seats=seats_;
     }
 
     void clear()

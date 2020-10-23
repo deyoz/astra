@@ -1,0 +1,84 @@
+#!/bin/sh -e
+
+ rm -f ok
+ rm -f log
+(
+
+if [ "${1}" = "NO_SIRENA_POSTGRES_CONNECT" ]; then
+    echo PostgreSQL Connection not set
+    exit
+fi
+
+PGUSER=${1#postgr*://}
+PGHOSTANDDB=${PGUSER##*@}
+PGHOST=${PGHOSTANDDB%/*}
+PGPASSWORD=${PGUSER%%@*}
+PGPASSWORD=${PGPASSWORD#*:}
+PGUSER=${PGUSER%%:*}
+
+echo "PG CONNECT STRING: ${1}"
+echo "0begin for $PGUSER $PGPASSWORD $PGHOST"
+
+user=$PGUSER
+password=$PGPASSWORD
+
+if [ -n "$PG_SYSPAROL" ]; then
+    sysconnect=$PG_SYSPAROL
+else
+    if [ -n "$SYSPAROL" ]; then
+        system_user=${SYSPAROL%%/*}
+        system_password=${SYSPAROL#*/}
+        system_password=${system_password%%@*}
+    else
+        system_user=system
+        system_password=manager
+    fi
+    sysconnect='postgres://'${system_user}':'${system_password}'@'${PGHOST}/postgres
+fi
+
+echo connecting $sysconnect
+
+psql $sysconnect <<EOF
+SELECT pg_terminate_backend(pid), pid  FROM pg_stat_activity WHERE usename = '$user' or datname = '$user';
+
+DROP DATABASE IF EXISTS $user;
+DROP DATABASE IF EXISTS ${user}_db;
+
+do
+\$body$
+begin
+  if not exists (
+      select 1
+      from   pg_catalog.pg_user
+      where  usename = '$user')
+  then
+      raise notice 'User $user does not exist, creating';
+      create user $user password '$password';
+  else
+      raise notice 'User $user exists, dropping';
+      drop owned by $user cascade;
+      drop user $user;
+      raise notice 'Creating user $user';
+      create user $user password '$password';
+  end if;
+end
+\$body$;
+
+CREATE DATABASE $user WITH
+    TEMPLATE            = template0
+    ENCODING            = 'UTF8'
+    LC_COLLATE          = 'C'
+    LC_CTYPE            = 'en_US.UTF-8'
+    CONNECTION LIMIT    = 25;
+
+GRANT ALL PRIVILEGES ON DATABASE $user TO $user;
+
+-- Following lines are almost copy-paste from oracle db builder, seems nobody knows how should it work.
+-- create xp_testing table to prevent DB building on PROD
+drop table if exists xp_testing;
+create table xp_testing ( kek smallint );
+create table if not exists xp_testing_bases ( base varchar(100), connect_string varchar(200) );
+EOF
+
+) 2>&1 |tee -a log
+

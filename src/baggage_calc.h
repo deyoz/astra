@@ -10,6 +10,34 @@
 #include "events.h"
 #include "passenger.h"
 #include "astra_misc.h"
+#include "flt_settings.h"
+#include "etick.h"
+
+class BagAllowance
+{
+  public:
+    boost::optional<int> amount;
+    boost::optional<int> weight;
+    boost::optional<bool> perUnit;
+
+    BagAllowance(const WeightConcept::TNormItem& norm)
+    {
+      //WeightConcept
+      if (norm.amount!=ASTRA::NoExists) amount=norm.amount;
+      if (norm.weight!=ASTRA::NoExists) weight=norm.weight;
+      if (norm.per_unit!=ASTRA::NoExists) perUnit=(norm.per_unit!=0);
+    }
+
+    BagAllowance() : weight(0) {}
+
+    BagAllowance(const TBagQuantity& bagNorm)
+    {
+      //PieceConcept
+      amount=0;
+      if (bagNorm.getUnit()==Ticketing::Baggage::NumPieces)
+        amount=bagNorm.getQuantity();
+    }
+};
 
 namespace WeightConcept
 {
@@ -110,6 +138,7 @@ class TPaxInfo
     std::string subcl;
     std::string cl;
     CheckIn::TPaxTknItem tkn;
+    boost::optional<PaxId_t> paxId;
     TPaxInfo() { clear(); }
     void clear()
     {
@@ -119,6 +148,7 @@ class TPaxInfo
       subcl.clear();
       cl.clear();
       tkn.clear();
+      paxId={};
     }
     std::string traceStr() const
     {
@@ -137,7 +167,8 @@ class TPaxInfo
       return s.str();
     }
 
-    boost::optional<TNormItem> etickNormFromDB() const;
+    boost::optional<TBagQuantity> crsNormFromDB() const;
+    boost::optional<TBagQuantity> etickNormFromDB() const;
 };
 
 class TBagInfo : public CheckIn::TSimpleBagItem
@@ -220,10 +251,10 @@ bool BagPaymentCompleted(int grp_id, int *value_bag_count=NULL);
 
 std::string GetBagAirline(const TTripInfo &operFlt, const TTripInfo &markFlt, bool is_local_scd_out);
 
-boost::optional<TBagTotals> getBagAllowance(const CheckIn::TSimplePaxItem& pax);
-boost::optional<TBagTotals> calcBagAllowance(const CheckIn::TSimplePaxItem& pax,
-                                             const CheckIn::TSimplePaxGrpItem& grp,
-                                             const TTripInfo& flt);
+boost::optional<BagAllowance> getBagAllowance(const CheckIn::TSimplePaxItem& pax);
+boost::optional<BagAllowance> calcBagAllowance(const CheckIn::TSimplePaxItem& pax,
+                                               const CheckIn::TSimplePaxGrpItem& grp,
+                                               const TTripInfo& flt);
 
 } //namespace WeightConcept
 
@@ -232,11 +263,18 @@ namespace PieceConcept
 
 std::string GetBagRcptStr(int grp_id, int pax_id);
 
-boost::optional<TBagTotals> getBagAllowance(const CheckIn::TSimplePaxItem& pax);
+boost::optional<BagAllowance> getBagAllowance(const CheckIn::TSimplePaxItem& pax);
 
 } //namespace PieceConcept
 
 std::string GetBagRcptStr(const std::vector<std::string> &rcpts);
+
+boost::optional<TBagQuantity> trueBagNorm(const boost::optional<TBagQuantity>& crsBagNorm,
+                                          const TETickItem& etick);
+
+std::string trueBagNormView(const boost::optional<TBagQuantity>& crsBagNorm,
+                            const TETickItem& etick,
+                            const AstraLocale::OutputLang &lang);
 
 #endif
 

@@ -28,10 +28,28 @@ struct PriceDoc
   }
 };
 
+struct SVCKey
+{
+  std::string svcId;
+  std::string orderId;
+  bool operator < (const SVCKey& key) const {
+    return ( orderId + svcId < key.orderId + key.svcId );
+  }
+  bool operator == (const SVCKey& key) const {
+    return ( orderId + svcId == key.orderId + key.svcId );
+  }
+  void clear() {
+    svcId.clear();
+    orderId.clear();
+  }
+  SVCKey(){}
+  SVCKey( const std::string& asvcId, const std::string& aorderId ):svcId(asvcId),orderId(aorderId){}
+};
+
 class SvcFromSirena
 {
   public:
-    std::string svc_id;
+    SVCKey svcKey;
     PriceDoc doc;
     std::string pass_id;
     std::string seg_id;
@@ -47,7 +65,7 @@ class SvcFromSirena
       clear();
     }
     void clear() {
-      svc_id.clear();
+      svcKey.clear();
       doc.clear();
       pass_id.clear();
       seg_id.clear();
@@ -66,12 +84,12 @@ class SvcFromSirena
     void toXML(xmlNodePtr node) const;
     void toDB(TQuery& Qry) const;
     void fromDB(TQuery& Qry,const std::string& lang="");
-    bool valid() const;
+    bool clientValid() const;
     bool only_for_cost() const;
     std::string toString() const;
 };
 
-typedef  std::map<std::string,SvcFromSirena> SVCS;
+typedef  std::map<SVCKey,SvcFromSirena> SVCS;
 
 class TPriceServiceItem : public TPaxSegRFISCKey
 {
@@ -87,7 +105,7 @@ class TPriceServiceItem : public TPaxSegRFISCKey
       all
     };
     TPriceServiceItem() { clear(); }
-    TPriceServiceItem(const TPaxSegRFISCKey& _item, const std::string &_pax_name, std::map<std::string,SvcFromSirena> _svcs) :
+    TPriceServiceItem(const TPaxSegRFISCKey& _item, const std::string &_pax_name, const SVCS& _svcs) :
       TPaxSegRFISCKey(_item), pax_name(_pax_name), svcs(_svcs) {}
     void clear()
     {
@@ -97,15 +115,15 @@ class TPriceServiceItem : public TPaxSegRFISCKey
     }
     std::string name_view(const std::string& lang="") const;
 
-    void addSVCS(const std::string &code, const SvcFromSirena &val ) {
-      svcs.emplace( code, val );
+    void addSVCS( const SVCKey &key, const SvcFromSirena &val ) {
+      svcs.emplace( key, val );
     }
-    void eraseSVC(const std::string &code) {
-      svcs.erase(code);
+    void eraseSVC( const SVCKey &key) {
+      svcs.erase(key);
     }
 
-    bool findSVC( const std::string& code, SVCS::iterator& f ) {
-      f = svcs.find( code );
+    bool findSVC( const SVCKey &key, SVCS::iterator& f ) {
+      f = svcs.find( key );
       return ( f != svcs.end() );
     }
 
@@ -126,7 +144,7 @@ class TPriceServiceItem : public TPaxSegRFISCKey
           case all:
             break;
         }
-        _svcs.emplace( svc.first,svc.second );
+        _svcs.emplace( svc.first, svc.second );
       }
     }
 
@@ -141,11 +159,11 @@ class TPriceServiceItem : public TPaxSegRFISCKey
 
     void changeStatus( const std::string& from, const std::string& to );
 
-    const TPriceServiceItem& toXML(xmlNodePtr node, const std::string& svc_idx) const;
+    const TPriceServiceItem& toXML(xmlNodePtr node, const SVCKey& svcKey) const;
     const TPriceServiceItem& toContextXML(xmlNodePtr node) const;
-    TPriceServiceItem& fromXML(xmlNodePtr node);
+    TPriceServiceItem& fromXML(xmlNodePtr node, const std::string& orderId);
     TPriceServiceItem& fromContextXML(xmlNodePtr node);
-    const TPriceServiceItem& toDB(TQuery &Qry, const std::string& svc_id) const;
+    const TPriceServiceItem& toDB(TQuery &Qry, const SVCKey& svcKey) const;
     TPriceServiceItem& fromDB(TQuery &Qry,const std::string& lang="");
     std::string traceStr() const;
 };
@@ -233,13 +251,21 @@ class SvcEmdRegnum
     bool empty() const {
       return regnum.empty();
     }
-    SvcEmdRegnum getSvcEmdRegnum() {
+    SvcEmdRegnum getSvcEmdRegnum() const {
       SvcEmdRegnum _regnum = *this;
       return _regnum;
     }
     void setSvcEmdRegnum( const SvcEmdRegnum& _regnum ) {
       SvcEmdRegnum::operator = (_regnum);
     }
+    std::string getRegnum() const {
+      return regnum;
+    }
+
+    void setRegnum( const std::string& _regnum  ) {
+      regnum = _regnum;
+    }
+
     std::string toString() {
       return regnum;
     }
@@ -249,12 +275,12 @@ class SvcEmdRegnum
 class SvcEmdCost
 {
   private:
-    float cost;
+    std::string cost;
     std::string currency;
     TElemFmt fmt;
   public:
     void clear() {
-       cost = ASTRA::NoExists;
+       cost.clear();
        currency.clear();
        fmt = efmtUnknown;
     }
@@ -263,8 +289,8 @@ class SvcEmdCost
     SvcEmdCost() {
       clear();
     }
-    SvcEmdCost(float _cost, const std::string _currency, TElemFmt _fmt ):cost(_cost),currency(_currency),fmt(_fmt){}
-    SvcEmdCost(float _cost, const std::string _currency ):cost(_cost),currency(_currency), fmt(efmtUnknown){}
+    SvcEmdCost(std::string& _cost, const std::string _currency, TElemFmt _fmt ):cost(_cost),currency(_currency),fmt(_fmt){}
+    SvcEmdCost(std::string& _cost, const std::string _currency ):cost(_cost),currency(_currency), fmt(efmtUnknown){}
     SvcEmdCost getSvcEmdCost() const {
       SvcEmdCost _cost = *this;
       return _cost;
@@ -272,15 +298,18 @@ class SvcEmdCost
     void setSvcEmdCost( const SvcEmdCost& _cost ) {
       SvcEmdCost::operator = (_cost);
     }
-    float getCost() {
+    std::string getCost() {
       return cost;
+    }
+    std::string getCurrency() {
+      return currency;
     }
 };
 
 class SvcEmdSvcsReq
 {
   private:
-    std::vector<std::string> svcs;
+    std::vector<SVCKey> svcs;
   public:
     void clear() {
        svcs.clear();
@@ -289,7 +318,7 @@ class SvcEmdSvcsReq
     SvcEmdSvcsReq() {
       clear();
     }
-    SvcEmdSvcsReq(std::vector<std::string>_svcs):svcs(_svcs){}
+    SvcEmdSvcsReq(std::vector<SVCKey>_svcs):svcs(_svcs){}
 
 };
 
@@ -378,6 +407,8 @@ class TPriceRFISCList: public std::map<TPaxSegRFISCKey, TPriceServiceItem>, publ
   private:
     std::string surname;
     BASIC::date_time::TDateTime time_create;
+    std::string mps_order_id;
+    int FPosId;
     std::string error_code, error_message;
   public:
     void clear() {
@@ -387,14 +418,28 @@ class TPriceRFISCList: public std::map<TPaxSegRFISCKey, TPriceServiceItem>, publ
       SvcEmdTimeout::clear();
       std::map<TPaxSegRFISCKey, TPriceServiceItem>::clear();
       surname.clear();
+      mps_order_id.clear();
+      FPosId = ASTRA::NoExists;
       error_code.clear();
       error_message.clear();
     }
     void setSurname( const std::string& _surname ) {
       surname=_surname;
     }
-    std::string getSurname() {
+    std::string getSurname() const {
       return surname;
+    }
+    void setMPSOrderId( const std::string& _mps_order_id ) {
+      mps_order_id = _mps_order_id;
+    }
+    std::string getMPSOrderId() {
+      return mps_order_id;
+    }
+    void setPosId( int pos_id ) {
+      FPosId = pos_id;
+    }
+    int getPosId( ) const {
+      return FPosId;
     }
     void setServices( const TPaidRFISCList& list );
     void setError( const SirenaExchange::TExchange& ex ) {
@@ -426,10 +471,12 @@ class TPriceRFISCList: public std::map<TPaxSegRFISCKey, TPriceServiceItem>, publ
     void synchFromSirena(const SvcEmdSvcsAns& svcs);
     bool filterFromTerminal(const TPriceRFISCList& list);
     void setStatusDirect( const std::string &from, const std::string &to );
-    bool haveStatusDirect( const std::string& statusDirect, std::vector<std::string> &svcs);
+    bool haveStatusDirect( const std::string& statusDirect, std::vector<SVCKey> &svcs);
     bool haveStatusDirect( const std::string& statusDirect );
-    bool getNextIssueQueryGrpEMD( std::vector<std::string> &svcs);
+    bool getNextIssueQueryGrpEMD( std::vector<SVCKey> &svcs);
     bool terminalChoiceAny();
+    float getTotalCost();
+    std::string getTotalCurrency();
 };
 
 

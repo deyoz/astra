@@ -329,6 +329,18 @@ void getTariffColors( std::map<std::string,std::string> &colors )
   colors.insert( make_pair( "$00000000", "rurect" ) );
   colors.insert( make_pair( "$001C66FF", "rurect" ) );
   colors.insert( make_pair( "$00FD2D71", "rurect" ) );
+  colors.insert( make_pair( "$00BD1CA0", "rurect" ) );
+  colors.insert( make_pair( "$00C98810", "rurect" ) );
+  colors.insert( make_pair( "$00C08080", "rurect" ) );
+  
+  colors.insert( make_pair( "$000AB0E0", "rurect" ) );
+  colors.insert( make_pair( "$0020E6A0", "rurect" ) );
+  colors.insert( make_pair( "$00D09FE3", "rurect" ) );
+  colors.insert( make_pair( "$00793C91", "rurect" ) );
+  
+  colors.insert( make_pair( "clYellow", "rurect" ) );
+  
+  
 }
 
 void GetDrawWebTariff( xmlNodePtr reqNode, xmlNodePtr resNode )

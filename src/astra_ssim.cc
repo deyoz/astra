@@ -31,6 +31,8 @@ using namespace TypeB;
 #include <serverlib/lwriter.h>
 #include <boost/scoped_ptr.hpp>
 
+using namespace nsi;
+
 //------------------------------------------------------------------------------------------
 ssim::ScdPeriods ScdPeriodsFromDb( const ct::Flight& flt, const Period& prd );
 //------------------------------------------------------------------------------------------
@@ -247,7 +249,7 @@ boost::optional<CountryData> AstraCallbacks::findCountryData(const nsi::CountryI
 {
   if (TRACE_ALL_FUNCTIONS) LogTrace(TRACE1) << __func__ << " code = '" << IdToCode(id.get()) << "'";
   // explicit CountryData(const CountryId&, const GeozoneId&, const CurrencyId&);
-  CountryData data(id, GeozoneId(0), CurrencyId(0));
+  CountryData data(id, CurrencyId(0));
   string country_code = GetElemId(etCountry, IdToCode(id.get()));
   const TCountriesRow &countryRow = (const TCountriesRow&)base_tables.get("countries").get_row("code", country_code);
   data.isoCode = countryRow.code_iso;
@@ -387,16 +389,21 @@ boost::optional<CurrencyData> AstraCallbacks::findCurrencyData(const nsi::Curren
 }
 
 // заглушки
-boost::optional<OrganizationId> AstraCallbacks::findOrganizationId(const EncString& code)
+std::set<GeozoneId> AstraCallbacks::getGeozones(const CountryId&)
 {
-  return boost::optional<OrganizationId>();
+    return {};
 }
 
-boost::optional<OrganizationData> AstraCallbacks::findOrganizationData(const OrganizationId& id)
+std::set<GeozoneId> AstraCallbacks::getGeozones(const RegionId&)
 {
-  // explicit OrganizationData(const OrganizationId&);
-  return OrganizationData(id);
+    return {};
 }
+
+std::set<GeozoneId> AstraCallbacks::getGeozones(const CityId&)
+{
+    return {};
+}
+
 
 //------------------------------------------------------------------------------------------
 

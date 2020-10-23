@@ -5,6 +5,7 @@
 #include "misc.h"
 #include "date_time.h"
 #include "astra_context.h"
+#include "flt_settings.h"
 #include "tlg/tlg.h"
 #include "tlg/remote_results.h"
 #include "tlg/request_params.h"

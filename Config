@@ -1,6 +1,18 @@
-#!/bin/bash 
+#!/bin/sh 
 
-CXXFLAGS="$EXTERNAL_CXXFLAGS $CXXFLAGS"
+if [ -f locallibs/external_env_file ]; then . locallibs/external_env_file; fi
+
+if [ "$LOCALCC" = "" ] ; then
+        LOCALCC=gcc
+fi
+
+if [ "$LOCALCXX" = "" ] ; then
+        LOCALCXX=g++
+fi
+
+CC=$LOCALCC
+CXX=$LOCALCXX
+CFLAGS=$LOCALCFLAGS
 
 if [ "$1" = "-f" ] ; then
      echo "skip -f option"
@@ -21,11 +33,11 @@ if [ "$BUILD_TESTS" = "1" ]; then
       WITH_PARAMS="$WITH_PARAMS --enable-xp-testing"
 fi
 
-if [[ -n "$TOOLS" ]]; then
-    tcl_flag="--with-tcl=$TOOLS"
-fi;
 
 WITH_PARAMS="$WITH_PARAMS --with-xml-prefix=$LIBXML2 --with-check=$LIBCHECK"
 
+[ -n $ORACLE_INSTANT ] && export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${ORACLE_INSTANT}"
+
 pwd
-autoreconf --force --install && ./configure --silent CC="$CC" CXX="$CXX" CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" $tcl_flag $WITH_PARAMS $shared_mode $@
+set -e
+autoreconf --force --install && ./configure --silent CFLAGS="$CFLAGS" CXXFLAGS="$CFLAGS" CC="$CC" CXX="$CXX" $WITH_PARAMS $shared_mode $@

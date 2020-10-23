@@ -43,6 +43,10 @@ void CkiRequest::collectMessage()
         viewChdElement(pMes(), *m_params.cascade());
     }
 
+    if(m_params.message()) {
+        viewDmcElement(pMes(), *m_params.message());
+    }
+
     SetEdiSegGr(pMes(), 1);
     SetEdiPointToSegGrW(pMes(), 1);
     viewFdqElement(pMes(), m_params.outboundFlight(), m_params.inboundFlight());

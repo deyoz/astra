@@ -13,6 +13,7 @@
 #include "apis_utils.h"
 #include "base_tables.h"
 #include <serverlib/algo.h>
+#include <serverlib/cursctl.h>
 
 #include <regex>
 
@@ -24,6 +25,36 @@
 using namespace std;
 using namespace BASIC::date_time;
 using namespace AstraLocale;
+
+std::ostream& operator << (std::ostream& os, const PaxChanges& value)
+{
+  switch(value)
+  {
+    case PaxChanges::New:    os << "PaxChanges::New"; break;
+    case PaxChanges::Cancel: os << "PaxChanges::Cancel"; break;
+  }
+  return os;
+}
+
+void addPaxEvent(const PaxIdWithSegmentPair& paxId,
+                 const bool cancelledOrMissingBefore,
+                 const bool cancelledAfter,
+                 ModifiedPax& modifiedPax)
+{
+  if (cancelledOrMissingBefore==cancelledAfter) return;
+
+  if (!modifiedPax.remove(cancelledAfter?PaxChanges::New:PaxChanges::Cancel, paxId))
+    modifiedPax.add(cancelledAfter?PaxChanges::Cancel:PaxChanges::New, paxId);
+}
+
+void synchronizePaxEvents(const ModifiedPax& modifiedPax,
+                          ModifiedPaxRem& modifiedPaxRem)
+{
+  for(const PaxIdWithSegmentPair& paxId : modifiedPax.getPaxIds(PaxChanges::New))
+    modifiedPaxRem.remove(paxId);
+  for(const PaxIdWithSegmentPair& paxId : modifiedPax.getPaxIds(PaxChanges::Cancel))
+    modifiedPaxRem.remove(paxId);
+}
 
 namespace APIS
 {
@@ -147,12 +178,20 @@ std::string TPaxTknItem::get_rem_text(bool inf_indicator,
 int TPaxTknItem::checkedInETCount() const
 {
   if (!validET()) return 0;
-  TCachedQuery Qry("SELECT COUNT(*) AS num FROM pax WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no",
-                   QParams() << QParam("ticket_no", otString, no)
-                             << QParam("coupon_no", otInteger, coupon));
-  Qry.get().Execute();
-  if (Qry.get().Eof) return 0;
-  return Qry.get().FieldAsInteger("num");
+
+  auto cur=make_curs("SELECT COUNT(*) FROM pax_grp, pax "
+                     "WHERE pax.grp_id=pax_grp.grp_id AND "
+                     "      pax.ticket_no=:ticket_no AND pax.coupon_no=:coupon_no AND "
+                     "      pax_grp.status<>:transit");
+  int result=0;
+
+  cur.bind(":ticket_no", no)
+     .bind(":coupon_no", coupon)
+     .bind(":transit", EncodePaxStatus(ASTRA::psTransit))
+     .def(result)
+     .EXfet();
+
+  return result;
 }
 
 bool LoadPaxTkn(int pax_id, TPaxTknItem &tkn)
@@ -189,42 +228,17 @@ bool LoadPaxTkn(TDateTime part_key, int pax_id, TPaxTknItem &tkn)
 bool LoadCrsPaxTkn(int pax_id, TPaxTknItem &tkn)
 {
   tkn.clear();
-  const char* sql1=
+  const char* sql=
     "SELECT ticket_no, coupon_no, rem_code AS ticket_rem, 0 AS ticket_confirm "
     "FROM crs_pax_tkn "
     "WHERE pax_id=:pax_id "
     "ORDER BY DECODE(rem_code,'TKNE',0,'TKNA',1,'TKNO',2,3),ticket_no,coupon_no ";
-  const char* sql2=
-    "SELECT report.get_TKNO2(:pax_id, '/') AS no FROM dual";
 
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, pax_id);
-  TCachedQuery PaxTknQry(sql1, QryParams);
+  TCachedQuery PaxTknQry(sql, QryParams);
   PaxTknQry.get().Execute();
   if (!PaxTknQry.get().Eof) tkn.fromDB(PaxTknQry.get());
-  else
-  {
-    TCachedQuery GetTKNO2Qry(sql2, QryParams);
-    GetTKNO2Qry.get().Execute();
-    if (!GetTKNO2Qry.get().Eof && !GetTKNO2Qry.get().FieldIsNULL("no"))
-    {
-      tkn.no=GetTKNO2Qry.get().FieldAsString("no");
-      if (!tkn.no.empty())
-      {
-        string::size_type pos=tkn.no.find_last_of('/');
-        if (pos!=string::npos)
-        {
-          if (StrToInt(tkn.no.substr(pos+1).c_str(),tkn.coupon)!=EOF)
-            tkn.no.erase(pos);
-          else
-            tkn.coupon=ASTRA::NoExists;
-          tkn.rem="TKNE";
-        }
-        else
-          tkn.rem="TKNA";
-      };
-    };
-  };
   return !tkn.empty();
 };
 
@@ -990,14 +1004,39 @@ std::string TPaxDocaItem::logStr(const std::string &lang) const
   return result.str();
 }
 
+TPaxDocaItem::TPaxDocaItem(const TAPIType& apiType)
+{
+  clear();
+  if (apiType==apiDocaB) type="B";
+  if (apiType==apiDocaR) type="R";
+  if (apiType==apiDocaD) type="D";
+}
+
 TAPIType TPaxDocaItem::apiType() const
 {
-  // throw exception вместо apiUnknown?
-  TAPIType result = apiUnknown;
-  if (type == "B") result = apiDocaB;
-  if (type == "R") result = apiDocaR;
-  if (type == "D") result = apiDocaD;
-  return result;
+  if (type == "B") return apiDocaB;
+  if (type == "R") return apiDocaR;
+  if (type == "D") return apiDocaD;
+  return apiUnknown;
+}
+
+boost::optional<TPaxDocItem> TPaxDocItem::get(const PaxOrigin& origin, const PaxId_t& paxId)
+{
+  boost::optional<TPaxDocItem> result;
+  result=boost::in_place();
+  switch(origin)
+  {
+    case paxCheckIn:
+      if (LoadPaxDoc(ASTRA::NoExists, paxId.get(), result.get())) return result;
+      break;
+    case paxPnl:
+      if (LoadCrsPaxDoc(paxId.get(), result.get())) return result;
+      break;
+    default:
+      break;
+  }
+
+  return boost::none;
 }
 
 bool LoadPaxDoc(int pax_id, TPaxDocItem &doc)
@@ -1053,37 +1092,36 @@ std::string GetPaxDocStr(TDateTime part_key,
 bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc)
 {
   doc.clear();
-  const char* sql1=
+  const char* sql=
     "SELECT * "
     "FROM crs_pax_doc "
     "WHERE pax_id=:pax_id "
     "ORDER BY DECODE(type,'P',0,NULL,2,1),DECODE(rem_code,'DOCS',0,1),no NULLS LAST";
-  const char* sql2=
-    "SELECT report.get_PSPT2(:pax_id) AS no FROM dual";
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, pax_id);
-  TCachedQuery PaxDocQry(sql1, QryParams);
+  TCachedQuery PaxDocQry(sql, QryParams);
   PaxDocQry.get().Execute();
   if (!PaxDocQry.get().Eof) doc.fromDB(PaxDocQry.get());
-  else
-  {
-    TCachedQuery GetPSPT2Qry(sql2, QryParams);
-    GetPSPT2Qry.get().Execute();
-    if (!GetPSPT2Qry.get().Eof && !GetPSPT2Qry.get().FieldIsNULL("no"))
-    {
-      doc.no=GetPSPT2Qry.get().FieldAsString("no");
-    };
-  };
   return !doc.empty();
 };
 
-boost::optional<TPaxDocoItem> LoadPaxDoco(int pax_id)
+boost::optional<TPaxDocoItem> TPaxDocoItem::get(const PaxOrigin& origin, const PaxId_t& paxId)
 {
-  TPaxDocoItem doc;
-  if (LoadPaxDoco(pax_id, doc))
-    return doc;
-  else
-    return boost::none;
+  boost::optional<TPaxDocoItem> result;
+  result=boost::in_place();
+  switch(origin)
+  {
+    case paxCheckIn:
+      if (LoadPaxDoco(ASTRA::NoExists, paxId.get(), result.get())) return result;
+      break;
+    case paxPnl:
+      if (LoadCrsPaxDoco(paxId.get(), result.get())) return result;
+      break;
+    default:
+      break;
+  }
+
+  return boost::none;
 }
 
 bool LoadPaxDoco(int pax_id, TPaxDocoItem &doc)
@@ -1117,14 +1155,14 @@ bool LoadPaxDoco(TDateTime part_key, int pax_id, TPaxDocoItem &doc)
   return !doc.empty();
 };
 
-bool LoadCrsPaxVisa(int pax_id, TPaxDocoItem &doc)
+bool LoadCrsPaxDoco(int pax_id, TPaxDocoItem &doc)
 {
   doc.clear();
   const char* sql=
     "SELECT birth_place, type, no, issue_place, issue_date, NULL AS expiry_date, applic_country "
     "FROM crs_pax_doco "
-    "WHERE pax_id=:pax_id AND rem_code='DOCO' AND type='V' "
-    "ORDER BY no ";
+    "WHERE pax_id=:pax_id AND rem_code='DOCO' "
+    "ORDER BY DECODE(type,'V',0,NULL,2,1), no NULLS LAST";
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, pax_id);
   TCachedQuery PaxDocQry(sql, QryParams);
@@ -1133,30 +1171,80 @@ bool LoadCrsPaxVisa(int pax_id, TPaxDocoItem &doc)
   return !doc.empty();
 };
 
-void ConvertDoca(CheckIn::TDocaMap doca_map,
+bool LoadCrsPaxVisa(int pax_id, TPaxDocoItem &doc)
+{
+  if (LoadCrsPaxDoco(pax_id, doc))
+  {
+    if (doc.type!="V") doc.clear();
+  }
+  return !doc.empty();
+}
+
+boost::optional<TPaxDocaItem> TDocaMap::get(const TAPIType& type) const
+{
+  const auto i = find(type);
+  if (i!=end()) return i->second;
+  return boost::none;
+}
+
+void TDocaMap::get(const TAPIType& type, TPaxDocaItem& doca) const
+{
+  boost::optional<CheckIn::TPaxDocaItem> docaOpt=get(type);
+  doca=docaOpt?docaOpt.get():TPaxDocaItem(type);
+}
+
+void ConvertDoca(const CheckIn::TDocaMap& doca_map,
                  TPaxDocaItem &docaB,
                  TPaxDocaItem &docaR,
                  TPaxDocaItem &docaD)
 {
-  // присвоение полю type было в старом коде!
-  docaB.clear();
-  docaB.type="B";
-  docaR.clear();
-  docaR.type="R";
-  docaD.clear();
-  docaD.type="D";
-  if (doca_map.count(apiDocaB)) docaB = doca_map[apiDocaB];
-  if (doca_map.count(apiDocaR)) docaR = doca_map[apiDocaR];
-  if (doca_map.count(apiDocaD)) docaD = doca_map[apiDocaD];
-};
+  doca_map.get(apiDocaB, docaB);
+  doca_map.get(apiDocaR, docaR);
+  doca_map.get(apiDocaD, docaD);
+}
 
-boost::optional<TPaxDocaItem> LoadPaxDoca(int pax_id, TDocaType type)
+const TDocaMap& TDocaMap::toXML(xmlNodePtr node) const
 {
-  TPaxDocaItem doc;
-  if (LoadPaxDoca(pax_id, type, doc))
-    return doc;
-  else
-    return boost::none;
+  if (node==nullptr) return *this;
+  xmlNodePtr docaNode=NewTextChild(node, "addresses");
+  for(const auto& d : *this)
+    d.second.toXML(docaNode);
+
+  return *this;
+}
+
+TDocaMap& TDocaMap::fromXML(xmlNodePtr node)
+{
+  clear();
+  if (node==nullptr) return *this;
+
+  for(xmlNodePtr docaNode=node->children; docaNode!=nullptr; docaNode=docaNode->next)
+  {
+    TPaxDocaItem docaItem;
+    docaItem.fromXML(docaNode);
+    if (docaItem.empty()) continue;
+    if (docaItem.apiType() != apiUnknown) (*this)[docaItem.apiType()] = docaItem;
+  };
+
+  return *this;
+}
+
+TDocaMap TDocaMap::get(const PaxOrigin& origin, const PaxId_t& paxId)
+{
+  TDocaMap result;
+  switch(origin)
+  {
+    case paxCheckIn:
+      LoadPaxDoca(ASTRA::NoExists, paxId.get(), result);
+      break;
+    case paxPnl:
+      LoadCrsPaxDoca(paxId.get(), result);
+      break;
+    default:
+      break;
+  }
+
+  return result;
 }
 
 bool LoadPaxDoca(int pax_id, CheckIn::TDocaMap &doca_map)
@@ -1164,14 +1252,9 @@ bool LoadPaxDoca(int pax_id, CheckIn::TDocaMap &doca_map)
   return LoadPaxDoca(ASTRA::NoExists, pax_id, doca_map);
 };
 
-bool LoadPaxDoca(int pax_id, TDocaType type, TPaxDocaItem &doca)
-{
-  return LoadPaxDoca(ASTRA::NoExists, pax_id, type, doca);
-};
-
 bool LoadPaxDoca(TDateTime part_key, int pax_id, CheckIn::TDocaMap &doca_map)
 {
-  doca_map.Clear();
+  doca_map.clear();
   const char* sql = "SELECT * FROM pax_doca WHERE pax_id=:pax_id";
   const char* sql_arx = "SELECT * FROM arx_pax_doca WHERE part_key=:part_key AND pax_id=:pax_id";
   const char* sql_result = nullptr;
@@ -1191,45 +1274,14 @@ bool LoadPaxDoca(TDateTime part_key, int pax_id, CheckIn::TDocaMap &doca_map)
   {
     TPaxDocaItem docaItem;
     docaItem.fromDB(PaxDocQry.get());
-    if (!docaItem.empty_without_type() && docaItem.apiType() != apiUnknown) doca_map[docaItem.apiType()] = docaItem;
+    doca_map[docaItem.apiType()] = docaItem;
   }
-  for (CheckIn::TDocaMap::const_iterator i = doca_map.begin(); i != doca_map.end(); ++i)
-    if (not i->second.empty()) return true;
-  return false;
-};
-
-bool LoadPaxDoca(TDateTime part_key, int pax_id, TDocaType type, TPaxDocaItem &doca)
-{
-  doca.clear();
-  const char* sql=
-    "SELECT * FROM pax_doca WHERE pax_id=:pax_id AND type=:type";
-  const char* sql_arx=
-    "SELECT * FROM arx_pax_doca WHERE part_key=:part_key AND pax_id=:pax_id AND type=:type";
-  const char *sql_result = NULL;
-  QParams QryParams;
-  if (part_key!=ASTRA::NoExists)
-  {
-      QryParams << QParam("part_key", otDate, part_key);
-      sql_result = sql_arx;
-  }
-  else
-      sql_result = sql;
-  QryParams << QParam("pax_id", otInteger, pax_id);
-  switch(type)
-  {
-    case docaDestination: QryParams << QParam("type", otString, "D"); break;
-    case docaResidence:   QryParams << QParam("type", otString, "R"); break;
-    case docaBirth:       QryParams << QParam("type", otString, "B"); break;
-  };
-  TCachedQuery PaxDocQry(sql_result, QryParams);
-  PaxDocQry.get().Execute();
-  if (!PaxDocQry.get().Eof) doca.fromDB(PaxDocQry.get());
-  return !doca.empty();
+  return !doca_map.empty();
 };
 
 bool LoadCrsPaxDoca(int pax_id, CheckIn::TDocaMap &doca_map)
 {
-  doca_map.Clear();
+  doca_map.clear();
   const char* sql=
     "SELECT type, country, address, city, region, postal_code "
     "FROM crs_pax_doca "
@@ -1244,34 +1296,39 @@ bool LoadCrsPaxDoca(int pax_id, CheckIn::TDocaMap &doca_map)
   {
     if (prior_type!=PaxDocaQry.get().FieldAsString("type"))
     {
-      TPaxDocaItem doca_item;
-      doca_item.fromDB(PaxDocaQry.get());
-      if (!doca_item.empty_without_type() && doca_item.apiType() != apiUnknown) doca_map[doca_item.apiType()] = doca_item;
-      prior_type=PaxDocaQry.get().FieldAsString("type");
+      TPaxDocaItem docaItem;
+      docaItem.fromDB(PaxDocaQry.get());
+      if (docaItem.suitableForDB())
+      {
+        doca_map[docaItem.apiType()] = docaItem;
+        prior_type=PaxDocaQry.get().FieldAsString("type");
+      }
     };
   };
-  for (CheckIn::TDocaMap::const_iterator i = doca_map.begin(); i != doca_map.end(); ++i)
-    if (not i->second.empty()) return true;
-  return false;
+  return !doca_map.empty();
 };
 
-bool SavePaxDoc(int pax_id,
-                const TPaxDocItem &doc,
-                boost::optional<TPaxDocItem> priorDoc)
+void SavePaxDoc(const PaxIdWithSegmentPair& paxId,
+                const bool paxIdUsedBefore,
+                const TPaxDocItem& doc,
+                ModifiedPaxRem& modifiedPaxRem)
 {
-  bool result=false;
+  TPaxDocItem priorDoc;
+  if (paxIdUsedBefore)
+    LoadPaxDoc(paxId().get(), priorDoc);
+  SavePaxDoc(paxId, doc, priorDoc, modifiedPaxRem);
+}
 
-  if (!priorDoc)
-  {
-    priorDoc=boost::in_place();
-    LoadPaxDoc(pax_id, priorDoc.get());
-  }
-
-  bool deleteOld=!priorDoc.get().empty();
+void SavePaxDoc(const PaxIdWithSegmentPair& paxId,
+                const TPaxDocItem& doc,
+                const TPaxDocItem& priorDoc,
+                ModifiedPaxRem& modifiedPaxRem)
+{
+  bool deleteOld=!priorDoc.empty();
   bool insertNew=!doc.empty();
 
   if ((deleteOld || insertNew) &&
-      !doc.equal(priorDoc.get()))
+      !doc.equal(priorDoc))
   {
     TCachedQuery Qry("BEGIN "
                      "  IF :delete_old<>0 THEN "
@@ -1309,34 +1366,36 @@ bool SavePaxDoc(int pax_id,
                      << QParam("insert_new",otInteger));
 
     doc.toDB(Qry.get());
-    Qry.get().SetVariable("pax_id",pax_id);
+    Qry.get().SetVariable("pax_id",paxId().get());
     Qry.get().SetVariable("delete_old",(int)deleteOld);
     Qry.get().SetVariable("insert_new",(int)insertNew);
     Qry.get().Execute();
 
-    result=true;
+    modifiedPaxRem.add(remDOC, paxId);
   }
-
-  return result;
 }
 
-bool SavePaxDoco(int pax_id,
-                 const TPaxDocoItem &doc,
-                 boost::optional<TPaxDocoItem> priorDoc)
+void SavePaxDoco(const PaxIdWithSegmentPair& paxId,
+                 const bool paxIdUsedBefore,
+                 const TPaxDocoItem& doc,
+                 ModifiedPaxRem& modifiedPaxRem)
 {
-  bool result=false;
+  TPaxDocoItem priorDoc;
+  if (paxIdUsedBefore)
+    LoadPaxDoco(paxId().get(), priorDoc);
+  SavePaxDoco(paxId, doc, priorDoc, modifiedPaxRem);
+}
 
-  if (!priorDoc)
-  {
-    priorDoc=boost::in_place();
-    LoadPaxDoco(pax_id, priorDoc.get());
-  }
-
-  bool deleteOld=!priorDoc.get().empty();
+void SavePaxDoco(const PaxIdWithSegmentPair& paxId,
+                 const TPaxDocoItem& doc,
+                 const TPaxDocoItem& priorDoc,
+                 ModifiedPaxRem& modifiedPaxRem)
+{
+  bool deleteOld=!priorDoc.empty();
   bool insertNew=!doc.empty();
 
   if ((deleteOld || insertNew) &&
-      !doc.equal(priorDoc.get()))
+      !doc.equal(priorDoc))
   {
     TCachedQuery Qry("BEGIN "
                      "  IF :delete_old<>0 THEN "
@@ -1364,75 +1423,187 @@ bool SavePaxDoco(int pax_id,
                      << QParam("insert_new",otInteger));
 
     doc.toDB(Qry.get());
-    Qry.get().SetVariable("pax_id",pax_id);
+    Qry.get().SetVariable("pax_id",paxId().get());
     Qry.get().SetVariable("delete_old",(int)deleteOld);
     Qry.get().SetVariable("insert_new",(int)insertNew);
     Qry.get().Execute();
 
-    result=true;
+    modifiedPaxRem.add(remDOCO, paxId);
   }
 
   TCachedQuery PaxQry("UPDATE pax SET doco_confirm=:doco_confirm WHERE pax_id=:pax_id",
-                      QParams() << QParam("pax_id", otInteger, pax_id)
+                      QParams() << QParam("pax_id", otInteger, paxId().get())
                                 << QParam("doco_confirm", otInteger, (int)doc.doco_confirm));
   PaxQry.get().Execute();
-
-  return result;
 }
 
-void SavePaxDoca(int pax_id, const CheckIn::TDocaMap &doca_map, TQuery& PaxDocaQry)
+void SavePaxDoca(const PaxIdWithSegmentPair& paxId,
+                 const bool paxIdUsedBefore,
+                 const CheckIn::TDocaMap& doca,
+                 ModifiedPaxRem& modifiedPaxRem)
 {
-  list<TPaxDocaItem> doca2;
-  for (CheckIn::TDocaMap::const_iterator idm = doca_map.begin(); idm != doca_map.end(); ++idm)
-    if (!idm->second.empty()) doca2.push_back(idm->second);
+  CheckIn::TDocaMap priorDoca;
+  if (paxIdUsedBefore)
+    LoadPaxDoca(paxId().get(), priorDoca);
+  SavePaxDoca(paxId, doca, priorDoca, modifiedPaxRem);
+}
 
-  const char* sql=
-        "BEGIN "
-        "  IF :first_iteration<>0 THEN "
-        "    DELETE FROM pax_doca WHERE pax_id=:pax_id; "
-        "    :first_iteration:=0; "
-        "  END IF; "
-        "  IF :only_delete=0 THEN "
-        "    INSERT INTO pax_doca "
-        "      (pax_id,type,country,address,city,region,postal_code) "
-        "    VALUES "
-        "      (:pax_id,:type,:country,:address,:city,:region,:postal_code); "
-        "  END IF; "
-        "END;";
-  if (strcmp(PaxDocaQry.SQLText.SQLText(),sql)!=0)
-  {
-    PaxDocaQry.Clear();
-    PaxDocaQry.SQLText=sql;
-    PaxDocaQry.DeclareVariable("pax_id",otInteger);
-    PaxDocaQry.DeclareVariable("type",otString);
-    PaxDocaQry.DeclareVariable("country",otString);
-    PaxDocaQry.DeclareVariable("address",otString);
-    PaxDocaQry.DeclareVariable("city",otString);
-    PaxDocaQry.DeclareVariable("region",otString);
-    PaxDocaQry.DeclareVariable("postal_code",otString);
-    PaxDocaQry.DeclareVariable("only_delete",otInteger);
-    PaxDocaQry.DeclareVariable("first_iteration",otInteger);
-  };
+void SavePaxDoca(const PaxIdWithSegmentPair& paxId,
+                 const TDocaMap& doca,
+                 const TDocaMap& priorDoca,
+                 ModifiedPaxRem& modifiedPaxRem)
+{
+  const TDocaMap newDoca=algo::filter(doca, [](const auto& item) { return item.second.suitableForDB(); } );
 
-  PaxDocaQry.SetVariable("pax_id",pax_id);
-  PaxDocaQry.SetVariable("first_iteration",(int)true);
-  if (!doca2.empty())
+  bool deleteOld=!priorDoca.empty();
+  bool insertNew=!newDoca.empty();
+
+  if ((deleteOld || insertNew) &&
+       priorDoca!=newDoca)
   {
-    for(list<TPaxDocaItem>::const_iterator d=doca2.begin(); d!=doca2.end(); ++d)
+    if (deleteOld)
     {
-      d->toDB(PaxDocaQry);
-      PaxDocaQry.SetVariable("only_delete",(int)d->empty());
-      PaxDocaQry.Execute();
-    };
-  }
-  else
-  {
-    TPaxDocaItem().toDB(PaxDocaQry);
-    PaxDocaQry.SetVariable("only_delete",(int)true);
-    PaxDocaQry.Execute();
-  };
+      TCachedQuery Qry("DELETE FROM pax_doca WHERE pax_id=:pax_id",
+                        QParams() << QParam("pax_id", otInteger, paxId().get()));
+      Qry.get().Execute();
+    }
+    if (insertNew)
+    {
+      TCachedQuery Qry( "INSERT INTO pax_doca "
+                        "  (pax_id,type,country,address,city,region,postal_code) "
+                        "VALUES "
+                        "  (:pax_id,:type,:country,:address,:city,:region,:postal_code)",
+                        QParams() << QParam("pax_id", otInteger, paxId().get())
+                                  << QParam("type", otString)
+                                  << QParam("country", otString)
+                                  << QParam("address", otString)
+                                  << QParam("city", otString)
+                                  << QParam("region", otString)
+                                  << QParam("postal_code", otString) );
+      for(const auto& i : newDoca)
+      {
+        i.second.toDB(Qry.get());
+        Qry.get().Execute();
+      }
+    }
 
-};
+    modifiedPaxRem.add(remDOCA, paxId);
+  }
+}
+
+void SavePaxFQT(const PaxIdWithSegmentPair& paxId,
+                const bool paxIdUsedBefore,
+                const std::set<TPaxFQTItem>& fqts,
+                ModifiedPaxRem& modifiedPaxRem)
+{
+  std::set<TPaxFQTItem> prior;
+  if (paxIdUsedBefore)
+    LoadPaxFQT(paxId().get(), prior);
+  SavePaxFQT(paxId, fqts, prior, modifiedPaxRem);
+}
+
+void SavePaxFQT(const PaxIdWithSegmentPair& paxId,
+                const std::set<TPaxFQTItem>& fqts,
+                const std::set<TPaxFQTItem>& prior,
+                ModifiedPaxRem& modifiedPaxRem)
+{
+  bool deleteOld=!prior.empty();
+  bool insertNew=!fqts.empty();
+
+  if ((deleteOld || insertNew) &&
+       prior!=fqts)
+  {
+    TQuery FQTQry(&OraSession);
+    FQTQry.CreateVariable("pax_id",otInteger,paxId().get());
+    if (deleteOld)
+    {
+      FQTQry.SQLText="DELETE FROM pax_fqt WHERE pax_id=:pax_id";
+      FQTQry.Execute();
+    }
+
+    if (insertNew)
+    {
+      FQTQry.SQLText=
+        "INSERT INTO pax_fqt(pax_id,rem_code,airline,no,extra,tier_level,tier_level_confirm) "
+        "VALUES(:pax_id,:rem_code,:airline,:no,:extra,:tier_level,:tier_level_confirm)";
+      FQTQry.DeclareVariable("rem_code",otString);
+      FQTQry.DeclareVariable("airline",otString);
+      FQTQry.DeclareVariable("no",otString);
+      FQTQry.DeclareVariable("extra",otString);
+      FQTQry.DeclareVariable("tier_level",otString);
+      FQTQry.DeclareVariable("tier_level_confirm",otInteger);
+
+      for(const TPaxFQTItem& fqt : fqts)
+      {
+        fqt.toDB(FQTQry);
+        FQTQry.Execute();
+      }
+    }
+
+    modifiedPaxRem.add(remFQT, paxId);
+  }
+}
+
+void SavePaxRem(const PaxIdWithSegmentPair& paxId,
+                const bool paxIdUsedBefore,
+                const std::multiset<TPaxRemItem>& rems,
+                ModifiedPaxRem& modifiedPaxRem)
+{
+  std::multiset<TPaxRemItem> prior;
+  if (paxIdUsedBefore)
+    LoadPaxRem(paxId().get(), prior);
+  SavePaxRem(paxId, rems, prior, modifiedPaxRem);
+}
+
+void SavePaxRem(const PaxIdWithSegmentPair& paxId,
+                const std::multiset<TPaxRemItem>& rems,
+                const std::multiset<TPaxRemItem>& prior,
+                ModifiedPaxRem& modifiedPaxRem)
+{
+  std::multiset<TPaxRemItem> remsToDB=
+      algo::filter(rems, [&paxId, &modifiedPaxRem] (const TPaxRemItem& rem)
+                         {
+                           if (rem.text.empty()) return false; //защита от пустой ремарки (иногда может почему то приходить с терминала)
+                           TRemCategory cat=getRemCategory(rem);
+                           if (cat==remAPPSOverride || cat==remAPPSStatus)
+                           {
+                             modifiedPaxRem.add(cat, paxId);
+                             return false;  // не храним информацию о перезаписи и повторной отправке в APPS
+                           }
+                           return true;
+                         });
+
+  bool deleteOld=!prior.empty();
+  bool insertNew=!remsToDB.empty();
+
+  if ((deleteOld || insertNew) &&
+       prior!=remsToDB)
+  {
+    TQuery RemQry(&OraSession);
+    RemQry.CreateVariable("pax_id",otInteger,paxId().get());
+    if (deleteOld)
+    {
+      RemQry.SQLText="DELETE FROM pax_rem WHERE pax_id=:pax_id";
+      RemQry.Execute();
+    }
+
+    if (insertNew)
+    {
+      RemQry.SQLText=
+        "INSERT INTO pax_rem(pax_id,rem,rem_code) VALUES(:pax_id,:rem,:rem_code)";
+      RemQry.DeclareVariable("rem",otString);
+      RemQry.DeclareVariable("rem_code",otString);
+
+      for(const TPaxRemItem& rem : remsToDB)
+      {
+        rem.toDB(RemQry);
+        RemQry.Execute();
+      }
+    }
+
+    modifiedPaxRem.add(remUnknown, paxId);
+  }
+}
 
 const TSimplePaxItem& TSimplePaxItem::toEmulXML(xmlNodePtr node, bool PaxUpdatesPending) const
 {
@@ -1485,12 +1656,7 @@ const TPaxItem& TPaxItem::toXML(xmlNodePtr node) const
   if (TknExists) tkn.toXML(paxNode);
   if (DocExists) doc.toXML(paxNode);
   if (DocoExists || doco.needPseudoType()) doco.toXML(paxNode);
-  if (DocaExists)
-  {
-    xmlNodePtr docaNode=NewTextChild(paxNode, "addresses");
-    for(CheckIn::TDocaMap::const_iterator d = doca_map.begin(); d != doca_map.end(); ++d)
-      d->second.toXML(docaNode);
-  };
+  if (DocaExists) doca_map.toXML(paxNode);
   return *this;
 };
 
@@ -1537,20 +1703,9 @@ TPaxItem& TPaxItem::fromXML(xmlNodePtr node)
         //терминал
         doc.fromXML(GetNodeFast("document",node2));
         doco.fromXML(GetNodeFast("doco",node2));
+        doca_map.fromXML(GetNodeFast("addresses",node2));
         DocExists=true;
         DocoExists=true;
-
-        xmlNodePtr docaNode=GetNodeFast("addresses",node2);
-        if (docaNode!=NULL)
-        {
-          for(docaNode=docaNode->children; docaNode!=NULL; docaNode=docaNode->next)
-          {
-            TPaxDocaItem docaItem;
-            docaItem.fromXML(docaNode);
-            if (docaItem.empty()) continue;
-            if (docaItem.apiType() != apiUnknown) doca_map[docaItem.apiType()] = docaItem;
-          };
-        };
         DocaExists=true;
       }
       else
@@ -1561,17 +1716,7 @@ TPaxItem& TPaxItem::fromXML(xmlNodePtr node)
         xmlNodePtr docoNode=GetNodeFast("doco",node2);
         doco.fromXML(docoNode);
         xmlNodePtr docaNode=GetNodeFast("addresses",node2);
-        if (docaNode!=NULL)
-        {
-          for(docaNode=docaNode->children; docaNode!=NULL; docaNode=docaNode->next)
-          {
-            TPaxDocaItem docaItem;
-            docaItem.fromXML(docaNode);
-            if (docaItem.empty()) continue;
-            if (docaItem.apiType() != apiUnknown) doca_map[docaItem.apiType()] = docaItem;
-          };
-        };
-
+        doca_map.fromXML(docaNode);
         DocExists=(tid==ASTRA::NoExists || docNode!=NULL);
         DocoExists=(tid==ASTRA::NoExists || docoNode!=NULL);
         DocaExists=(tid==ASTRA::NoExists || docaNode!=NULL);
@@ -1687,6 +1832,18 @@ const std::string& TSimplePaxItem::origSubclassFromCrsSQL()
   static const std::string result=" CASE WHEN crs_pnr.class="+origClassFromCrsSQL()+
                                   "      THEN crs_pnr.subclass "
                                   "      ELSE NVL(crs_pax.etick_subclass, NVL(crs_pax.orig_subclass, crs_pnr.subclass)) END ";
+  return result;
+}
+
+const std::string& TSimplePaxItem::cabinClassFromCrsSQL()
+{
+  static const std::string result=" CASE WHEN crs_pax.cabin_class IS NOT NULL THEN crs_pax.cabin_class ELSE crs_pnr.class END ";
+  return result;
+}
+
+const std::string& TSimplePaxItem::cabinSubclassFromCrsSQL()
+{
+  static const std::string result=" crs_pnr.subclass ";
   return result;
 }
 
@@ -1875,21 +2032,18 @@ std::string TSimplePaxItem::checkInStatus() const
   return "not_checked";
 }
 
-TComplexClass TSimplePaxItem::getCrsClass(bool onlyIfClassChange) const
+boost::optional<TComplexClass> TSimplePaxItem::getCrsClass(const PaxId_t& paxId, bool onlyIfClassChange)
 {
-  TComplexClass result;
-
-  if (id==ASTRA::NoExists) return result;
-
   TCachedQuery Qry(
     "SELECT "+origClassFromCrsSQL()+" AS orig_class, "
-    "       crs_pnr.subclass, crs_pnr.class "
+    "       "+cabinSubclassFromCrsSQL()+" AS subclass, "
+    "       "+cabinClassFromCrsSQL()+" AS class "
     "FROM crs_pnr, crs_pax "
     "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
     "      crs_pnr.system='CRS' AND "
     "      crs_pax.pax_id=:pax_id AND "
     "      crs_pax.pr_del=0",
-    QParams() << QParam("pax_id", otInteger, id));
+    QParams() << QParam("pax_id", otInteger, paxId.get()));
   Qry.get().Execute();
   if (!Qry.get().Eof)
   {
@@ -1897,11 +2051,13 @@ TComplexClass TSimplePaxItem::getCrsClass(bool onlyIfClassChange) const
     std::string originalClass=Qry.get().FieldAsString("orig_class");
     if (!onlyIfClassChange || currentClass!=originalClass)
     {
+      TComplexClass result;
       result.subcl=Qry.get().FieldAsString("subclass");
       result.cl=currentClass;
+      return result;
     }
   }
-  return result;
+  return {};
 }
 
 std::string TSimplePaxItem::getCabinClass() const
@@ -2040,6 +2196,23 @@ void TSimplePaxItem::getBaggageListForSBDO(TBagTypeList& list) const
   getBaggageInHoldList(id, list);
 }
 
+boost::optional<TBagQuantity> TSimplePaxItem::getCrsBagNorm(const PaxId_t& paxId)
+{
+  int dbBagNorm=ASTRA::NoExists;
+  string dbBagNormUnit;
+
+  auto cur=make_curs("SELECT bag_norm, bag_norm_unit FROM crs_pax WHERE pax_id=:pax_id AND pr_del=0");
+  cur.bind(":pax_id", paxId.get())
+     .defNull(dbBagNorm, ASTRA::NoExists)
+     .defNull(dbBagNormUnit, "")
+     .exfet();
+
+  if (dbBagNorm!=ASTRA::NoExists && dbBagNorm>=0 && !dbBagNormUnit.empty())
+    return TBagQuantity(dbBagNorm, dbBagNormUnit);
+
+  return {};
+}
+
 TAPISItem& TAPISItem::fromDB(int pax_id)
 {
   clear();
@@ -2056,9 +2229,7 @@ const TAPISItem& TAPISItem::toXML(xmlNodePtr node) const
   xmlNodePtr apisNode=NewTextChild(node, "apis");
   doc.toXML(apisNode);
   doco.toXML(apisNode);
-  xmlNodePtr docaNode=NewTextChild(apisNode, "addresses");
-  for(CheckIn::TDocaMap::const_iterator d = doca_map.begin(); d != doca_map.end(); ++d)
-    d->second.toXML(docaNode);
+  doca_map.toXML(apisNode);
   return *this;
 };
 
@@ -2074,6 +2245,8 @@ TPaxListItem& TPaxListItem::fromXML(xmlNodePtr paxNode, bool trfer_confirm)
   pax.fromXML(paxNode);
   dont_check_payment=NodeAsIntegerFast("dont_check_payment", node2, 0)!=0;
   crs_seat_no=NodeAsStringFast("preseat_no", node2, "");
+  if (GetNodeFast("original_crs_pax_id", node2)!=nullptr)
+    originalCrsPaxId=boost::in_place(NodeAsIntegerFast("original_crs_pax_id", node2));
   //ремарки
   xmlNodePtr remNode=GetNodeFast("rems",node2);
   if (remNode!=NULL)
@@ -2083,7 +2256,7 @@ TPaxListItem& TPaxListItem::fromXML(xmlNodePtr paxNode, bool trfer_confirm)
     {
       CheckIn::TPaxRemItem rem;
       rem.fromXML(remNode);
-      TRemCategory cat=getRemCategory(rem.code, rem.text);
+      TRemCategory cat=getRemCategory(rem);
       if (cat==remASVC) continue; //пропускаем переданные ASVC
       rems.insert(rem);
     };
@@ -2161,7 +2334,7 @@ void TPaxListItem::checkImportantRems(bool new_checkin, ASTRA::TPaxStatus grp_st
     {
       if (pass==0)
       {
-        TRemCategory cat=getRemCategory(r->code, r->text);
+        TRemCategory cat=getRemCategory(*r);
         if (!r->code.empty() && cat==remCREW)
           crewRemsStat.add(r->code);
       }
@@ -2237,10 +2410,9 @@ void TPaxListItem::checkImportantRems(bool new_checkin, ASTRA::TPaxStatus grp_st
 
 int TPaxListItem::getExistingPaxIdOrSwear() const
 {
-  int pax_id=(pax.id==ASTRA::NoExists?generated_pax_id:pax.id);
-  if (pax_id==ASTRA::NoExists)
-    throw EXCEPTIONS::Exception("%s: strange situation!", __FUNCTION__);
-  return pax_id;
+  if (pax.id!=ASTRA::NoExists) return pax.id;
+  if (generatedPaxId) return generatedPaxId.get().get();
+  throw EXCEPTIONS::Exception("%s: strange situation!", __FUNCTION__);
 }
 
 int TPaxList::getBagPoolMainPaxId(int bag_pool_num) const
@@ -2479,8 +2651,8 @@ bool TSimplePnrItem::getByPaxId(int pax_id)
   clear();
   TCachedQuery Qry("SELECT crs_pnr.pnr_id, "
                    "       crs_pnr.airp_arv, "+
-                   TSimplePaxItem::origClassFromCrsSQL()+" AS class, "
-                   "       crs_pnr.class AS cabin_class, "
+                   TSimplePaxItem::origClassFromCrsSQL()+" AS class, "+
+                   TSimplePaxItem::cabinClassFromCrsSQL()+" AS cabin_class, "
                    "       crs_pnr.status "
                    "FROM crs_pnr, crs_pax "
                    "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND crs_pax.pax_id=:pax_id",
@@ -2646,9 +2818,9 @@ TCkinPaxTknItem& TCkinPaxTknItem::fromDB(TQuery &Qry)
 }
 
 template<class T>
-void getTCkinInfo(int pax_id, map<int, T> &tkns)
+void getTCkinInfo(int pax_id, map<int, T> &container)
 {
-  tkns.clear();
+  container.clear();
 
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -2658,14 +2830,14 @@ void getTCkinInfo(int pax_id, map<int, T> &tkns)
     "     (SELECT tckin_pax_grp.tckin_id, "
     "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
     "      FROM pax, tckin_pax_grp "
-    "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.pax_id=:pax_id) p "
+    "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.pax_id=:pax_id AND tckin_pax_grp.transit_num=0) p "
     "WHERE tckin_pax_grp.tckin_id=p.tckin_id AND "
     "      pax.grp_id=tckin_pax_grp.grp_id AND "
-    "      tckin_pax_grp.first_reg_no-pax.reg_no=p.distance ";
+    "      tckin_pax_grp.first_reg_no-pax.reg_no=p.distance AND tckin_pax_grp.transit_num=0";
   Qry.CreateVariable("pax_id", otInteger, pax_id);
   Qry.Execute();
   for(; !Qry.Eof; Qry.Next())
-    tkns.insert(make_pair(Qry.FieldAsInteger("seg_no"), T().fromDB(Qry)));
+    container.emplace(Qry.FieldAsInteger("seg_no"), T().fromDB(Qry));
 }
 
 void GetTCkinPassengers(int pax_id, map<int, TSimplePaxItem> &paxs)

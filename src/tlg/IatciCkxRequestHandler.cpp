@@ -125,7 +125,7 @@ void IatciCkxRequestHandler::parse()
         PopEdiPoint_wdG(pMes());
     }
 
-    m_ckxParamsNew = ckxParamsNewMaker.makeParams();
+    m_ckxParams = ckxParamsNewMaker.makeParams();
 }
 
 std::string IatciCkxRequestHandler::respType() const
@@ -133,12 +133,17 @@ std::string IatciCkxRequestHandler::respType() const
     return "X";
 }
 
-const iatci::IBaseParams* IatciCkxRequestHandler::paramsNew() const
+std::string IatciCkxRequestHandler::fcIndicator() const
 {
-    return m_ckxParamsNew.get_ptr();
+    return "";
 }
 
-iatci::dcrcka::Result IatciCkxRequestHandler::handleRequest() const
+const iatci::IBaseParams* IatciCkxRequestHandler::params() const
+{
+    return m_ckxParams.get_ptr();
+}
+
+std::list<iatci::dcrcka::Result> IatciCkxRequestHandler::handleRequest() const
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__;
 
@@ -148,13 +153,8 @@ iatci::dcrcka::Result IatciCkxRequestHandler::handleRequest() const
         return iatci::cancelCheckin(inboundTlgNum());
     }
 
-    ASSERT(m_ckxParamsNew);
-    return iatci::cancelCheckin(m_ckxParamsNew.get());
-}
-
-edilib::EdiSessionId_t IatciCkxRequestHandler::sendCascadeRequest() const
-{
-    throw "Not implemented!";
+    ASSERT(m_ckxParams);
+    return { iatci::cancelCheckin(m_ckxParams.get()) };
 }
 
 //---------------------------------------------------------------------------------------

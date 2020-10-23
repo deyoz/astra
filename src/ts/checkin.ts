@@ -12,7 +12,7 @@ $(init_jxt_pult åéÇêéå)
 $(login)
 $(init_eds ûí UTET UTDC)
 
-$(PREPARE_FLIGHT_1 ûí 103 ÑåÑ èãä êÖèàç àÇÄç)
+$(PREPARE_FLIGHT_1PAX_1SEG ûí 103 ÑåÑ èãä êÖèàç àÇÄç)
 
 $(sql "update TRIP_SETS set PIECE_CONCEPT=1")
 $(sql "update DESKS set VERSION='201707-0195750'")
@@ -111,27 +111,10 @@ $(SAVE_ET_DISP $(get point_dep) 2981212121212 êÖèàç àÇÄç)
 
 
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:åéÇ+++ûí+Y+::RU+åéÇêéå"
-EQN+1:TD"
-TKT+2981212121212:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+ÑåÑ+èãä+ûí+103++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
-
-
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref) ûí 2981212121212 1 CK)
 <<
-UNB+SIRE:1+UTET+UTDC+160408:0828+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+2:TD"
-TKT+2981212121212:T::3"
-CPN+1:CK::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_COS UTET UTDC $(last_edifact_ref) 2981212121212 1 CK)
+
 
 $(http_forecast content=$(get_svc_availability_resp))
 
@@ -148,31 +131,7 @@ $(KICK_IN_SILENT)
         <recloc crs=\"UT\">0840Z6</recloc>
       </segment>
     </passenger>
-    <display id=\"1\">UNB+SIRE:1+UTET+UTDC+xxxxxx:xxxx+xxxxxxxxxx0001+++T"
-UNH+1+TKCRES:06:1:IA+xxxxxxxxxx"
-MSG+:131+3"
-TIF+êÖèàç+àÇÄç"
-TAI+0162"
-RCI+ûí:G4LK6W:1"
-MON+B:20.00:USD+T:20.00:USD"
-FOP+CA:3"
-PTK+++$(ddmmyy)+++:US"
-ODI+DME+LED"
-ORG+UT:MOW++IAH++A+US+D80D1BWO"
-EQN+1:TD"
-TXD+700+0.00:::US"
-IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END"
-IFT+4:5+00001230161213"
-IFT+4:10+REFUNDABLE"
-IFT+4:39+HOUSTON+UNITED AIRLINES INC"
-TKT+2981212121212:T:1:3"
-CPN+1:I"
-TVL+$(ddmmyy):2205+DME+LED+ûí+103:Y+J"
-RPI++NS"
-PTS++YINF"
-UNT+19+1"
-UNZ+1+xxxxxxxxxx0001"
-</display>
+    <display id=\"1\">UNB+IATA:1+UTET+UTDC+xxxxxx:xxxx+xxxxxxxxxx0001+++T'UNH+1+TKCRES:06:1:IA+xxxxxxxxxx'MSG+:131+3'TIF+êÖèàç+àÇÄç'TAI+0162'RCI+ûí:G4LK6W:1'MON+B:20.00:USD+T:20.00:USD'FOP+CA:3'PTK+++$(ddmmyy)+++:US'ODI+MOW+LED'ORG+ûí:MOW++IAH++A+US+D80D1BWO'EQN+1:TD'TXD+700+0.00:::US'IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END'IFT+4:5+00001230161213'IFT+4:10+REFUNDABLE'IFT+4:39+HOUSTON+UNITED AIRLINES INC'TKT+2981212121212:T:1:3'CPN+1:I'TVL+$(ddmmyy):2205+DME+LED+ûí+103:Y+J'RPI++NS'PTS++YINF'UNT+19+1'UNZ+1+xxxxxxxxxx0001'</display>
   </svc_availability>
 </query>
 
@@ -288,31 +247,7 @@ $(http_forecast content=$(get_svc_payment_status_invalid_resp))
         <recloc crs=\"UT\">0840Z6</recloc>
       </segment>
     </passenger>
-    <display id=\"1\">UNB+SIRE:1+UTET+UTDC+xxxxxx:xxxx+xxxxxxxxxx0001+++T"
-UNH+1+TKCRES:06:1:IA+xxxxxxxxxx"
-MSG+:131+3"
-TIF+êÖèàç+àÇÄç"
-TAI+0162"
-RCI+ûí:G4LK6W:1"
-MON+B:20.00:USD+T:20.00:USD"
-FOP+CA:3"
-PTK+++$(ddmmyy)+++:US"
-ODI+DME+LED"
-ORG+UT:MOW++IAH++A+US+D80D1BWO"
-EQN+1:TD"
-TXD+700+0.00:::US"
-IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END"
-IFT+4:5+00001230161213"
-IFT+4:10+REFUNDABLE"
-IFT+4:39+HOUSTON+UNITED AIRLINES INC"
-TKT+2981212121212:T:1:3"
-CPN+1:I"
-TVL+$(ddmmyy):2205+DME+LED+ûí+103:Y+J"
-RPI++NS"
-PTS++YINF"
-UNT+19+1"
-UNZ+1+xxxxxxxxxx0001"
-</display>
+    <display id=\"1\">UNB+IATA:1+UTET+UTDC+xxxxxx:xxxx+xxxxxxxxxx0001+++T'UNH+1+TKCRES:06:1:IA+xxxxxxxxxx'MSG+:131+3'TIF+êÖèàç+àÇÄç'TAI+0162'RCI+ûí:G4LK6W:1'MON+B:20.00:USD+T:20.00:USD'FOP+CA:3'PTK+++$(ddmmyy)+++:US'ODI+MOW+LED'ORG+ûí:MOW++IAH++A+US+D80D1BWO'EQN+1:TD'TXD+700+0.00:::US'IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END'IFT+4:5+00001230161213'IFT+4:10+REFUNDABLE'IFT+4:39+HOUSTON+UNITED AIRLINES INC'TKT+2981212121212:T:1:3'CPN+1:I'TVL+$(ddmmyy):2205+DME+LED+ûí+103:Y+J'RPI++NS'PTS++YINF'UNT+19+1'UNZ+1+xxxxxxxxxx0001'</display>
     <svc passenger-id=\"...\" segment-id=\"0\" company=\"UT\" service_type=\"C\" rfisc=\"0L1\" rfic=\"C\" emd_type=\"EMD-A\">
       <name language=\"en\">FISHING EQUIPMENT UPTO44LB20KG</name>
       <name language=\"ru\">êõÅéãéÇçõÖ ëçÄëíà Ñé 44î 20äÉ</name>
@@ -427,31 +362,7 @@ $(http_forecast content=$(get_svc_payment_status_resp))
         <recloc crs=\"UT\">0840Z6</recloc>
       </segment>
     </passenger>
-    <display id=\"1\">UNB+SIRE:1+UTET+UTDC+xxxxxx:xxxx+xxxxxxxxxx0001+++T"
-UNH+1+TKCRES:06:1:IA+xxxxxxxxxx"
-MSG+:131+3"
-TIF+êÖèàç+àÇÄç"
-TAI+0162"
-RCI+ûí:G4LK6W:1"
-MON+B:20.00:USD+T:20.00:USD"
-FOP+CA:3"
-PTK+++$(ddmmyy)+++:US"
-ODI+DME+LED"
-ORG+UT:MOW++IAH++A+US+D80D1BWO"
-EQN+1:TD"
-TXD+700+0.00:::US"
-IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END"
-IFT+4:5+00001230161213"
-IFT+4:10+REFUNDABLE"
-IFT+4:39+HOUSTON+UNITED AIRLINES INC"
-TKT+2981212121212:T:1:3"
-CPN+1:I"
-TVL+$(ddmmyy):2205+DME+LED+ûí+103:Y+J"
-RPI++NS"
-PTS++YINF"
-UNT+19+1"
-UNZ+1+xxxxxxxxxx0001"
-</display>
+    <display id=\"1\">UNB+IATA:1+UTET+UTDC+xxxxxx:xxxx+xxxxxxxxxx0001+++T'UNH+1+TKCRES:06:1:IA+xxxxxxxxxx'MSG+:131+3'TIF+êÖèàç+àÇÄç'TAI+0162'RCI+ûí:G4LK6W:1'MON+B:20.00:USD+T:20.00:USD'FOP+CA:3'PTK+++$(ddmmyy)+++:US'ODI+MOW+LED'ORG+ûí:MOW++IAH++A+US+D80D1BWO'EQN+1:TD'TXD+700+0.00:::US'IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END'IFT+4:5+00001230161213'IFT+4:10+REFUNDABLE'IFT+4:39+HOUSTON+UNITED AIRLINES INC'TKT+2981212121212:T:1:3'CPN+1:I'TVL+$(ddmmyy):2205+DME+LED+ûí+103:Y+J'RPI++NS'PTS++YINF'UNT+19+1'UNZ+1+xxxxxxxxxx0001'</display>
     <svc passenger-id=\"...\" segment-id=\"0\" company=\"UT\" service_type=\"C\" rfisc=\"0L1\" rfic=\"C\" emd_type=\"EMD-A\">
       <name language=\"en\">FISHING EQUIPMENT UPTO44LB20KG</name>
       <name language=\"ru\">êõÅéãéÇçõÖ ëçÄëíà Ñé 44î 20äÉ</name>
@@ -488,7 +399,7 @@ $(init_jxt_pult åéÇêéå)
 $(login)
 $(init_eds ûí UTET UTDC)
 
-$(PREPARE_FLIGHT_4 ûí 103 ÑåÑ èãä êÖèàç ÇÄëàãàâ êÖèàçÄ ÄççÄ)
+$(PREPARE_FLIGHT_2PAXES_1SEG ûí 103 ÑåÑ èãä êÖèàç ÇÄëàãàâ êÖèàçÄ ÄççÄ)
 
 $(dump_table CRS_PAX)
 
@@ -620,49 +531,14 @@ $(SAVE_ET_DISP $(get point_dep) 2981212121213 êÖèàçÄ ÄççÄ)
 
 
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 1)"
-MSG+:142"
-ORG+1H:åéÇ+++ûí+Y+::RU+åéÇêéå"
-EQN+1:TD"
-TKT+2981212121212:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+ÑåÑ+èãä+ûí+103++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref 1)0001"
-
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref 1) ûí 2981212121212 1 CK)
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:åéÇ+++ûí+Y+::RU+åéÇêéå"
-EQN+1:TD"
-TKT+2981212121213:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+ÑåÑ+èãä+ûí+103++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
-
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref 0) ûí 2981212121213 1 CK)
 
 <<
-UNB+SIRE:1+UTET+UTDC+160408:0828+$(last_edifact_ref 1)0001+++T"
-UNH+1+TKCRES:06:1:IA+$(last_edifact_ref 1)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2981212121212:T::3"
-CPN+1:CK::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref 1)0001"
-
+$(TKCRES_ET_COS UTET UTDC $(last_edifact_ref 1) 2981212121212 1 CK)
 <<
-UNB+SIRE:1+UTET+UTDC+160408:0828+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2981212121213:T::3"
-CPN+1:CK::E"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_COS UTET UTDC $(last_edifact_ref 0) 2981212121213 1 CK)
 
 
 
@@ -903,7 +779,7 @@ $(init_jxt_pult åéÇêéå)
 $(login)
 $(init_eds ûí UTET UTDC)
 
-$(PREPARE_FLIGHT_1 ûí 103 ÑåÑ èãä êÖèàç àÇÄç)
+$(PREPARE_FLIGHT_1PAX_1SEG ûí 103 ÑåÑ èãä êÖèàç àÇÄç)
 
 $(sql "update TRIP_SETS set PIECE_CONCEPT=1")
 $(sql "update DESKS set VERSION='201707-0195750'")
@@ -1002,26 +878,10 @@ $(SAVE_ET_DISP $(get point_dep) 2981212121212 êÖèàç àÇÄç)
 
 
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:åéÇ+++ûí+Y+::RU+åéÇêéå"
-EQN+1:TD"
-TKT+2981212121212:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+ÑåÑ+èãä+ûí+103++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
-
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref) ûí 2981212121212 1 CK)
 <<
-UNB+SIRE:1+UTET+UTDC+160408:0828+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+2:TD"
-TKT+2981212121212:T::3"
-CPN+1:CK::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_COS UTET UTDC $(last_edifact_ref) 2981212121212 1 CK)
+
 
 
 $(http_forecast content=$(get_svc_availability_invalid_resp))
@@ -1039,31 +899,7 @@ $(KICK_IN_SILENT)
         <recloc crs=\"UT\">0840Z6</recloc>
       </segment>
     </passenger>
-    <display id=\"1\">UNB+SIRE:1+UTET+UTDC+xxxxxx:xxxx+xxxxxxxxxx0001+++T"
-UNH+1+TKCRES:06:1:IA+xxxxxxxxxx"
-MSG+:131+3"
-TIF+êÖèàç+àÇÄç"
-TAI+0162"
-RCI+ûí:G4LK6W:1"
-MON+B:20.00:USD+T:20.00:USD"
-FOP+CA:3"
-PTK+++$(ddmmyy)+++:US"
-ODI+DME+LED"
-ORG+UT:MOW++IAH++A+US+D80D1BWO"
-EQN+1:TD"
-TXD+700+0.00:::US"
-IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END"
-IFT+4:5+00001230161213"
-IFT+4:10+REFUNDABLE"
-IFT+4:39+HOUSTON+UNITED AIRLINES INC"
-TKT+2981212121212:T:1:3"
-CPN+1:I"
-TVL+$(ddmmyy):2205+DME+LED+ûí+103:Y+J"
-RPI++NS"
-PTS++YINF"
-UNT+19+1"
-UNZ+1+xxxxxxxxxx0001"
-</display>
+    <display id=\"1\">UNB+IATA:1+UTET+UTDC+xxxxxx:xxxx+xxxxxxxxxx0001+++T'UNH+1+TKCRES:06:1:IA+xxxxxxxxxx'MSG+:131+3'TIF+êÖèàç+àÇÄç'TAI+0162'RCI+ûí:G4LK6W:1'MON+B:20.00:USD+T:20.00:USD'FOP+CA:3'PTK+++$(ddmmyy)+++:US'ODI+MOW+LED'ORG+ûí:MOW++IAH++A+US+D80D1BWO'EQN+1:TD'TXD+700+0.00:::US'IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END'IFT+4:5+00001230161213'IFT+4:10+REFUNDABLE'IFT+4:39+HOUSTON+UNITED AIRLINES INC'TKT+2981212121212:T:1:3'CPN+1:I'TVL+$(ddmmyy):2205+DME+LED+ûí+103:Y+J'RPI++NS'PTS++YINF'UNT+19+1'UNZ+1+xxxxxxxxxx0001'</display>
   </svc_availability>
 </query>
 
@@ -1089,7 +925,7 @@ $(init_jxt_pult åéÇêéå)
 $(login)
 $(init_eds ûí UTET UTDC)
 
-$(PREPARE_FLIGHT_1 ûí 103 ÑåÑ èãä êÖèàç àÇÄç)
+$(PREPARE_FLIGHT_1PAX_1SEG ûí 103 ÑåÑ èãä êÖèàç àÇÄç)
 
 $(sql "update DESKS set VERSION='201707-0195750'")
 
@@ -1184,28 +1020,9 @@ $(SAVE_ET_DISP $(get point_dep) 2981212121212 êÖèàç àÇÄç)
 
 
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:åéÇ+++ûí+Y+::RU+åéÇêéå"
-EQN+1:TD"
-TKT+2981212121212:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+ÑåÑ+èãä+ûí+103++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
-
-
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref) ûí 2981212121212 1 CK)
 <<
-UNB+SIRE:1+UTET+UTDC+160408:0828+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
-MSG+:142+7"
-EQN+1:TD"
-TKT+2981212121212:T::3"
-CPN+1:CK::E"
-ERC+401"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_COS_FAKE_ERR UTET UTDC $(last_edifact_ref) 2981212121212 1 CK 401)
 
 
 >> lines=auto

@@ -21,6 +21,8 @@
 #include "astra_callbacks.h"
 #include "xml_unit.h"
 #include "qrys.h"
+#include "html_pages.h"
+#include "http_consts.h"
 
 using namespace EXCEPTIONS;
 
@@ -38,16 +40,6 @@ using namespace std;
 
 namespace AstraHTTP
 {
-
-const std::string CLIENT_ID = "CLIENT-ID";
-const std::string OPERATION = "OPERATION";
-const std::string HOST = "Host";
-const std::string AUTHORIZATION = "Authorization";
-const std::string REFERER = "Referer";
-const std::string KIOSKID = "kioskId";
-
-const std::string LOGIN = "login";
-const std::string PASSWORD = "password";
 
 using namespace ServerFramework::HTTP;
 
@@ -109,6 +101,8 @@ void HTTPClient::populate_client_from_uri(const string& uri)
         ProgTrace( TRACE5, "%s: %s", __FUNCTION__, i_part->c_str() );
         std::vector<std::string> part_vec;
         boost::split(part_vec, *i_part, boost::is_any_of("="));
+        if ( part_vec.size() == 1 and !part_vec[0].empty())
+            uri_params[part_vec[0]];
         if ( part_vec.size() == 2 and !part_vec[0].empty() and !part_vec[1].empty() ) {
             uri_params[part_vec[0]] = part_vec[1];
         }
@@ -133,6 +127,14 @@ void HTTPClient::get(const request& req)
   }
   if ( p.find( OPERATION ) != p.end() ) {
     operation =  p[OPERATION];
+  }
+  if ( operation.empty() && p.find( "SOAPAction" ) != p.end() ) {
+    operation = p[ "SOAPAction" ];
+    std::string::size_type pos = operation.rfind('/');
+    if ( pos != string::npos ) {
+      operation.erase( 0, pos + 1 );
+      LogTrace(TRACE5) << operation;
+    }
   }
   if ( p.find( AUTHORIZATION ) != p.end() && p[ AUTHORIZATION ].length() > 6 ) {
     string Authorization = p[ AUTHORIZATION ].substr( 6 );
@@ -174,6 +176,8 @@ void HTTPClient::get(const request& req)
   Qry.Execute();
   if(not Qry.Eof)
       exchange_type = Qry.FieldAsString("exchange_type");
+  if(exchange_type == EXCHANGE_TYPE::CUWS)
+      operation = exchange_type;
   if (Qry.Eof ||
       user_name != Qry.FieldAsString( "http_user" ) ||
       password != Qry.FieldAsString( "http_pswd" ))
@@ -307,6 +311,9 @@ bool get_b64_prop(const string &val)
 
 reply& HTTPClient::fromJXT( std::string res, reply& rep )
 {
+  TResHTTPParams http_params;
+  http_params.fromXML(res);
+
   bool b64 = false;
   if (!jxt_format)
   {
@@ -336,15 +343,37 @@ reply& HTTPClient::fromJXT( std::string res, reply& rep )
       rep.content = /*"<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +*/ res;
   }
 
-  rep.status = reply::ok;
-  rep.headers.resize(4);
-  rep.headers[0].name = "Content-Length";
-  rep.headers[0].value = boost::lexical_cast<std::string>(rep.content.size());
-  rep.headers[1].name = "Content-Type";
-  rep.headers[2].name = "Access-Control-Allow-Origin";
-  rep.headers[2].value = "*";
-  rep.headers[3].name = "Access-Control-Allow-Headers";
-  rep.headers[3].value = "CLIENT-ID,OPERATION,Authorization";
+  rep.status = http_params.status;
+
+  rep.headers.clear();
+  rep.headers.push_back(header());
+  rep.headers.back().name = HTTP_HDR::CONTENT_LENGTH;
+  rep.headers.back().value = boost::lexical_cast<std::string>(rep.content.size());
+  rep.headers.push_back(header());
+  rep.headers.back().name = HTTP_HDR::CONTENT_TYPE;
+  rep.headers.push_back(header());
+  rep.headers.back().name = HTTP_HDR::ACCESS_CONTROL_ALLOW_ORIGIN;
+  rep.headers.back().value = "*";
+  rep.headers.push_back(header());
+  rep.headers.back().name = HTTP_HDR::ACCESS_CONTROL_ALLOW_HEADERS;
+  rep.headers.back().value = "CLIENT-ID,OPERATION,Authorization";
+  rep.headers.push_back(header());
+  rep.headers.back().name = HTTP_HDR::CACHE_CONTROL;
+  rep.headers.back().value = "no-cache";
+
+  for(map<string, string>::const_iterator i = http_params.hdrs.begin();
+          i != http_params.hdrs.end(); i++) {
+      auto hdr = rep.headers.begin();
+      for(; hdr != rep.headers.end() and hdr->name != i->first; hdr++) ;
+      if(hdr != rep.headers.end())
+          hdr->value = i->second;
+      else {
+          rep.headers.push_back(header());
+          rep.headers.back().name = i->first;
+          rep.headers.back().value = i->second;
+      }
+  }
+
   return rep;
 }
 
@@ -402,6 +431,7 @@ void save_http_client_headers(const request &req)
 
 void http_main(reply& rep, const request& req)
 {
+    LogTrace(TRACE5) << "HTTP REQUEST: '" << req.to_string();
     try
     {
         try
@@ -432,10 +462,10 @@ void http_main(reply& rep, const request& req)
             } else {
                 rep.status = reply::forbidden;
                 rep.headers.resize(2);
-                rep.headers[0].name = "Content-Length";
+                rep.headers[0].name = HTTP_HDR::CONTENT_LENGTH;
                 rep.content = "FORBIDDEN!";
                 rep.headers[0].value = boost::lexical_cast<std::string>(rep.content.size());
-                rep.headers[1].name = "Content-Type";
+                rep.headers[1].name = HTTP_HDR::CONTENT_TYPE;
             }
         }
         catch(std::exception &e)
@@ -453,12 +483,20 @@ void http_main(reply& rep, const request& req)
     {
         rep.status = reply::internal_server_error;
         rep.headers.resize(2);
-        rep.headers[0].name = "Content-Length";
+        rep.headers[0].name = HTTP_HDR::CONTENT_LENGTH;
         rep.content = "SERVER ERROR! CONTACT WITH DEVELOPERS";
         rep.headers[0].value = boost::lexical_cast<std::string>(rep.content.size());
-        rep.headers[1].name = "Content-Type";
+        rep.headers[1].name = HTTP_HDR::CONTENT_TYPE;
     }
     LogTrace(TRACE5) << "http_main: finished uri = " << req.uri;
+
+
+    std::vector<uint8_t> buf;
+    rep.to_buffer(buf);
+    ostringstream sbuf;
+    for(const auto &i: buf) sbuf << i;
+    LogTrace(TRACE5) << "HTTP RESPONSE: " << sbuf.str();
+
     InitLogTime(NULL);
     return;
 }

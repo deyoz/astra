@@ -246,6 +246,7 @@ class TNormItem
   void GetNorms(PrmEnum& prmenum) const;
   bool getByNormId(int normId, bool& isDirectActionNorm);
   bool getByNormId(int normId);
+  static boost::optional<TNormItem> create(const boost::optional<TBagQuantity>& bagNorm);
 };
 
 class TPaxNormItem : public TBagTypeKey

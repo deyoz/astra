@@ -28,6 +28,7 @@ class Alarm
       CrewCheckin,
       CrewNumber,
       CrewDiff,
+      APISControl,
       APISDiffersFromBooking,
       APISIncomplete,
       APISManualInput,
@@ -45,7 +46,8 @@ class Alarm
 //относятся только к тревогам пассажиров, а не рейсов
       SyncEmds,
       SyncCabinClass,
-      SyncCustomAlarms
+      SyncCustomAlarms,
+      SyncIAPI
     };
 
     typedef std::list< std::pair<Enum, std::string> > TPairs;
@@ -68,6 +70,7 @@ class Alarm
         {CrewCheckin,            "CREW_CHECKIN"             },
         {CrewNumber,             "CREW_NUMBER"              },
         {CrewDiff,               "CREW_DIFF"                },
+        {APISControl,            "APIS_CONTROL"             },  //только для вызова хука и вычисления сразу трех тревог APIS
         {APISDiffersFromBooking, "APIS_DIFFERS_FROM_BOOKING"},
         {APISIncomplete,         "APIS_INCOMPLETE"          },
         {APISManualInput,        "APIS_MANUAL_INPUT"        },
@@ -84,6 +87,7 @@ class Alarm
         {SyncEmds,               "SYNC_EMDS"                },
         {SyncCabinClass,         "SYNC_CABIN_CLASS"         },
         {SyncCustomAlarms,       "SYNC_CUSTOM_ALARMS"       },
+        {SyncIAPI,               "SYNC_IAPI"                },
        };
       return l;
     }

@@ -65,6 +65,18 @@ std::string TBagUnit::get_lexeme_form() const
   return "";
 }
 
+std::string TBagUnit::get_events_form() const
+{
+  switch(unit)
+  {
+    case Ticketing::Baggage::NumPieces:    return "EVT.BAGGAGE_UNIT.PC";
+    case Ticketing::Baggage::WeightKilo:   return "EVT.BAGGAGE_UNIT.KG";
+    case Ticketing::Baggage::WeightPounds: return "EVT.BAGGAGE_UNIT.LB";
+    case Ticketing::Baggage::Nil:          return "";
+  }
+  return "";
+}
+
 std::string TBagQuantity::view(const AstraLocale::OutputLang &lang, const bool &unitRequired) const
 {
   ostringstream s;
@@ -357,24 +369,8 @@ void CopyPaxNorms(int grp_id_src, int grp_id_dest)
     "       pax_norms_text.airline, "
     "       pax_norms_text.concept, "
     "       pax_norms_text.rfiscs, "
-    "       pax_norms_text.text "
-    "FROM pax_norms_text, "
-    "     (SELECT pax.pax_id, "
-    "             tckin_pax_grp.tckin_id, "
-    "             tckin_pax_grp.seg_no, "
-    "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
-    "      FROM pax, tckin_pax_grp "
-    "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_src) src, "
-    "     (SELECT pax.pax_id, "
-    "             tckin_pax_grp.tckin_id, "
-    "             tckin_pax_grp.seg_no, "
-    "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
-    "      FROM pax, tckin_pax_grp "
-    "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_dest) dest "
-    "WHERE src.tckin_id=dest.tckin_id AND "
-    "      src.distance=dest.distance AND "
-    "      pax_norms_text.pax_id=src.pax_id AND "
-    "      pax_norms_text.transfer_num+src.seg_no-dest.seg_no>=0 ";
+    "       pax_norms_text.text " +
+    TCkinRoute::copySubselectSQL("pax_norms_text", {}, true);
   Qry.CreateVariable("grp_id_src", otInteger, grp_id_src);
   Qry.CreateVariable("grp_id_dest", otInteger, grp_id_dest);
   Qry.Execute();
@@ -394,24 +390,8 @@ void CopyPaxBrands(int grp_id_src, int grp_id_dest)
     "       pax_brands.transfer_num+src.seg_no-dest.seg_no, "
     "       pax_brands.lang, "
     "       pax_brands.page_no, "
-    "       pax_brands.text "
-    "FROM pax_brands, "
-    "     (SELECT pax.pax_id, "
-    "             tckin_pax_grp.tckin_id, "
-    "             tckin_pax_grp.seg_no, "
-    "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
-    "      FROM pax, tckin_pax_grp "
-    "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_src) src, "
-    "     (SELECT pax.pax_id, "
-    "             tckin_pax_grp.tckin_id, "
-    "             tckin_pax_grp.seg_no, "
-    "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
-    "      FROM pax, tckin_pax_grp "
-    "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_dest) dest "
-    "WHERE src.tckin_id=dest.tckin_id AND "
-    "      src.distance=dest.distance AND "
-    "      pax_brands.pax_id=src.pax_id AND "
-    "      pax_brands.transfer_num+src.seg_no-dest.seg_no>=0 ";
+    "       pax_brands.text " +
+    TCkinRoute::copySubselectSQL("pax_brands", {}, true);
   Qry.CreateVariable("grp_id_src", otInteger, grp_id_src);
   Qry.CreateVariable("grp_id_dest", otInteger, grp_id_dest);
   Qry.Execute();

@@ -37,12 +37,13 @@ public:
     using iatci::FlightDetails::m_flightNum;
     using iatci::FlightDetails::m_depPort;
     using iatci::FlightDetails::m_arrPort;
-    using iatci::FlightDetails::m_gate;
     using iatci::FlightDetails::m_depDate;
     using iatci::FlightDetails::m_arrDate;
     using iatci::FlightDetails::m_depTime;
     using iatci::FlightDetails::m_arrTime;
     using iatci::FlightDetails::m_boardingTime;
+    using iatci::FlightDetails::m_gate;
+    using iatci::FlightDetails::m_fcIndicator;
 };
 
 }//namespace
@@ -55,9 +56,10 @@ inline void save(Archive& ar, const iatci::FlightDetails& par, const unsigned in
 {
     FlightDetailsAccessor acc(par);
     ar & acc.m_airline;
-    ar & acc.m_depPort & acc.m_arrPort & acc.m_gate;
+    ar & acc.m_depPort & acc.m_arrPort;
     ar & acc.m_depDate & acc.m_arrDate;
     ar & acc.m_depTime & acc.m_arrTime & acc.m_boardingTime;
+    ar & acc.m_gate & acc.m_fcIndicator;
 
     unsigned flNum = acc.m_flightNum.get();
     ar & flNum;
@@ -68,9 +70,10 @@ inline void load(Archive& ar, iatci::FlightDetails& par, const unsigned int vers
 {
     FlightDetailsAccessor acc;
     ar & acc.m_airline;
-    ar & acc.m_depPort & acc.m_arrPort & acc.m_gate;
+    ar & acc.m_depPort & acc.m_arrPort;
     ar & acc.m_depDate & acc.m_arrDate;
     ar & acc.m_depTime & acc.m_arrTime & acc.m_boardingTime;
+    ar & acc.m_gate & acc.m_fcIndicator;
 
     unsigned flNum = 0;
     ar & flNum;
@@ -1096,8 +1099,14 @@ public:
 
     iatci::CascadeHostDetails& get() { return *this; }
 
-    using iatci::CascadeHostDetails::m_originAirline;
-    using iatci::CascadeHostDetails::m_originPort;
+    using iatci::CascadeHostDetails::m_airline;
+    using iatci::CascadeHostDetails::m_location;
+    using iatci::CascadeHostDetails::m_destAirline;
+    using iatci::CascadeHostDetails::m_destFlightNum;
+    using iatci::CascadeHostDetails::m_destFlightDate;
+    using iatci::CascadeHostDetails::m_destDepPort;
+    using iatci::CascadeHostDetails::m_destArrPort;
+    using iatci::CascadeHostDetails::m_fcIndicator;
     using iatci::CascadeHostDetails::m_hostAirlines;
 };
 
@@ -1110,14 +1119,30 @@ template<class Archive>
 inline void save(Archive& ar, const iatci::CascadeHostDetails& par, const unsigned int version)
 {
     CascadeHostDetailsAccessor acc(par);
-    ar & acc.m_originAirline & acc.m_originPort & acc.m_hostAirlines;
+    ar & acc.m_airline & acc.m_location;
+    unsigned flNum = 0;
+    if(acc.m_destFlightNum) {
+        flNum = acc.m_destFlightNum.get();
+    }
+    ar & flNum;
+    ar & acc.m_destAirline & acc.m_destFlightDate;
+    ar & acc.m_destDepPort & acc.m_destArrPort & acc.m_fcIndicator;
+    ar & acc.m_hostAirlines;
 }
 
 template<class Archive>
 inline void load(Archive& ar, iatci::CascadeHostDetails& par, const unsigned int version)
 {
     CascadeHostDetailsAccessor acc;
-    ar & acc.m_originAirline & acc.m_originPort & acc.m_hostAirlines;
+    ar & acc.m_airline & acc.m_location;
+    unsigned flNum = 0;
+    ar & flNum;
+    if(flNum) {
+        acc.m_destFlightNum = Ticketing::FlightNum_t(flNum);
+    }
+    ar & acc.m_destAirline & acc.m_destFlightDate;
+    ar & acc.m_destDepPort & acc.m_destArrPort & acc.m_fcIndicator;
+    ar & acc.m_hostAirlines;
     par = acc.get();
 }
 
@@ -1430,6 +1455,56 @@ inline void serialize(Archive& ar, iatci::dcrcka::Result& par, const unsigned in
 {
     boost::serialization::split_free(ar, par, version);
 }
+
+//---------------------------------------------------------------------------------------
+
+namespace {
+
+class DefferedDataAccessor: private iatci::DefferedIatciData
+{
+public:
+    // for save
+    explicit DefferedDataAccessor(const iatci::DefferedIatciData& par)
+        : iatci::DefferedIatciData(par)
+    {}
+
+    // for load
+    DefferedDataAccessor()
+    {}
+
+    iatci::DefferedIatciData& get() { return *this; }
+
+    using iatci::DefferedIatciData::m_status;
+    using iatci::DefferedIatciData::m_error;
+    using iatci::DefferedIatciData::m_lRes;
+};
+
+}//namespace
+
+/*****
+ * DefferedIatciData
+ *****/
+template<class Archive>
+inline void save(Archive& ar, const iatci::DefferedIatciData& par, const unsigned int version)
+{
+    DefferedDataAccessor acc(par);
+    ar & acc.m_status & acc.m_error & acc.m_lRes;
+}
+
+template<class Archive>
+inline void load(Archive& ar, iatci::DefferedIatciData& par, const unsigned int version)
+{
+    DefferedDataAccessor acc;
+    ar & acc.m_status & acc.m_error & acc.m_lRes;
+    par = acc.get();
+}
+
+template<class Archive>
+inline void serialize(Archive& ar, iatci::DefferedIatciData& par, const unsigned int version)
+{
+    boost::serialization::split_free(ar, par, version);
+}
+
 
 //namespace iatci {
 //namespace dcrcka {

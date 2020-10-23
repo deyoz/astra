@@ -119,6 +119,11 @@ IatciCkuRequestHandler::IatciCkuRequestHandler(_EDI_REAL_MES_STRUCT_* pMes,
 {
 }
 
+bool IatciCkuRequestHandler::fullAnswer() const
+{
+    return false;
+}
+
 void IatciCkuRequestHandler::parse()
 {
     IatciCkuParamsMaker ckuParamsMaker;
@@ -171,20 +176,28 @@ std::string IatciCkuRequestHandler::respType() const
     return "U";
 }
 
-const iatci::IBaseParams* IatciCkuRequestHandler::paramsNew() const
+std::string IatciCkuRequestHandler::fcIndicator() const
+{
+    return "";
+}
+
+const iatci::IBaseParams* IatciCkuRequestHandler::params() const
 {
     return m_ckuParams.get_ptr();
 }
 
-iatci::dcrcka::Result IatciCkuRequestHandler::handleRequest() const
+std::list<iatci::dcrcka::Result> IatciCkuRequestHandler::handleRequest() const
 {
-    ASSERT(m_ckuParams);
-    return iatci::updateCheckin(*m_ckuParams);
-}
+    LogTrace(TRACE3) << "Enter to " << __FUNCTION__;
 
-edilib::EdiSessionId_t IatciCkuRequestHandler::sendCascadeRequest() const
-{
-    throw "Not implemented!";
+    if(postponeHandling()) {
+        LogTrace(TRACE3) << "postpone handling for tlg " << inboundTlgNum();
+
+        return iatci::updateCheckin(inboundTlgNum());
+    }
+
+    ASSERT(m_ckuParams);
+    return { iatci::updateCheckin(m_ckuParams.get()) };
 }
 
 //---------------------------------------------------------------------------------------

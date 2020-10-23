@@ -117,22 +117,6 @@ static CpnElem getCpn(const Ticketing::CouponNum_t& cpnNum,
     cpn.m_status = status;
     return cpn;
 }
-
-static TvlElem getTvl(const Ticketing::Itin& itin)
-{
-    TvlElem tvl;
-    tvl.m_airline = itin.airCode();
-    tvl.m_operAirline = itin.airCodeOper();
-    tvl.m_flNum = Ticketing::FlightNum_t(itin.flightnum());
-    tvl.m_operFlNum = Ticketing::FlightNum_t(itin.flightnumOper());
-    tvl.m_depDate = itin.date1();
-    tvl.m_depTime = itin.time1();
-    tvl.m_arrDate = itin.date2();
-    tvl.m_arrTime = itin.time2();
-    tvl.m_depPoint = itin.depPointCode();
-    tvl.m_arrPoint = itin.arrPointCode();
-    return tvl;
-}
     
 void EmdCosRequest::collectMessage()
 {

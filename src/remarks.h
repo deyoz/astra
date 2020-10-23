@@ -8,14 +8,33 @@
 #include "oralib.h"
 #include "xml_unit.h"
 #include "astra_locale.h"
+#include "astra_types.h"
 
-enum TRemCategory { remTKN, remDOC, remDOCO, remDOCA, remFQT, remASVC, remPD, remCREW, remUnknown };
+namespace CheckIn
+{
+class TPaxRemItem;
+}
 
-TRemCategory getRemCategory( const std::string &rem_code, const std::string &rem_text );
+enum TRemCategory { remTKN,
+                    remDOC,
+                    remDOCO,
+                    remDOCA,
+                    remFQT,
+                    remASVC,
+                    remPD,
+                    remCREW,
+                    remAPPSOverride,
+                    remAPPSStatus,
+                    remUnknown,
+                    last=remUnknown };
+
+std::ostream& operator << (std::ostream& os, const TRemCategory& value);
+
+TRemCategory getRemCategory(const CheckIn::TPaxRemItem& rem);
 bool isDisabledRemCategory( TRemCategory cat );
-bool isDisabledRem(const std::string &rem_code, const std::string &rem_text);
+bool isDisabledRem(const CheckIn::TPaxRemItem& rem);
 bool isReadonlyRemCategory( TRemCategory cat );
-bool isReadonlyRem( const std::string &rem_code, const std::string &rem_text );
+bool isReadonlyRem(const CheckIn::TPaxRemItem& rem);
 
 enum TRemEventType {
     retBP,
@@ -40,7 +59,7 @@ class TRemGrp : public std::set<std::string>
 {
   public:
     TRemGrp() {}
-    TRemGrp(std::initializer_list<std::string> l) : std::set<std::string>(l) {}
+    TRemGrp(const std::initializer_list<std::string>& l) : std::set<std::string>(l) {}
     bool exists (const std::string &rem) const { return find(rem) != end(); }
     void Load(TRemEventType rem_set_type, int point_id);
     void Load(TRemEventType rem_set_type, const std::string &airline);
@@ -257,6 +276,7 @@ class TPaxFQTItem : public TPaxRemBasic, public TPaxFQTCard
     {
       return std::make_pair("fqt_rems", "fqt_rem");
     }
+    static boost::optional<TPaxFQTItem> getNotEmptyTierLevel(const PaxOrigin& origin, const PaxId_t& paxId, bool onlyFQTV);
 };
 
 class TServiceBasic
@@ -364,11 +384,8 @@ typedef std::multiset<TPaxRemItem> PaxRems;
 bool LoadPaxRem(int pax_id, std::multiset<TPaxRemItem> &rems);
 bool LoadCrsPaxRem(int pax_id, std::multiset<TPaxRemItem> &rems);
 bool LoadPaxFQT(int pax_id, std::set<TPaxFQTItem> &fqts);
-bool LoadPaxFQTNotEmptyTierLevel(int pax_id, std::set<TPaxFQTItem> &fqts, bool onlyFQTV);
+std::set<TPaxFQTItem> getPaxFQTNotEmptyTierLevel(const PaxOrigin& origin, const PaxId_t& paxId, bool onlyFQTV);
 bool LoadCrsPaxFQT(int pax_id, std::set<TPaxFQTItem> &fqts);
-
-void SavePaxRem(int pax_id, const std::multiset<TPaxRemItem> &rems);
-void SavePaxFQT(int pax_id, const std::set<TPaxFQTItem> &fqts);
 
 typedef std::map<TPaxFQTCard, TPaxFQTItem> TPaxFQTCards;
 void GetPaxFQTCards(const std::set<TPaxFQTItem> &fqts, TPaxFQTCards &cards);
@@ -433,14 +450,6 @@ CheckIn::TPaxRemItem CalcJmpRem(const ASTRA::TPaxStatus grp_status,
 
 bool forbiddenRemExists(const TRemGrp& forbiddenRemGrp,
                         const std::multiset<CheckIn::TPaxRemItem> &rems);
-
-class PaxRemCallbacks
-{
-    public:
-        virtual ~PaxRemCallbacks() {}
-        virtual void afterPaxFQTChange(TRACE_SIGNATURE, int pax_id) = 0;
-};
-
 
 #endif
 

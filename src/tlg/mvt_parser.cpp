@@ -3,6 +3,7 @@
 #define NICKNAME "DEN"
 #include <serverlib/slogger.h>
 #include "sopp.h"
+#include "flt_settings.h"
 
 using namespace std;
 using namespace BASIC::date_time;
@@ -143,7 +144,7 @@ namespace TypeB
                     line_p=tlg.NextLine(line_p);
                 } while (line_p and *line_p != 0);
             }
-            catch (ETlgError E)
+            catch (const ETlgError& E)
             {
                 throwTlgError(E.what(), body, line_p);
             };

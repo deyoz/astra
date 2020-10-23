@@ -14,7 +14,7 @@ $(login)
 $(init_eds ’ UTET UTDC)
 
 $(prepare_bp_printing ’ 103 „Œ„)
-$(PREPARE_FLIGHT_1 ’ 103 „Œ„ ‹Š …ˆ ˆ‚€)
+$(PREPARE_FLIGHT_1PAX_1SEG ’ 103 „Œ„ ‹Š …ˆ ˆ‚€)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
