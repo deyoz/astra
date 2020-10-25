@@ -52,7 +52,8 @@ enum TRemEventType {
     retSELF_CKIN_EXCHANGE,
     retFORBIDDEN_WEB,
     retFORBIDDEN_KIOSK,
-    retFORBIDDEN_MOB
+    retFORBIDDEN_MOB,
+    retFORBIDDEN_FREE_SEAT
 };
 
 class TRemGrp : public std::set<std::string>

@@ -199,6 +199,9 @@ void TRemGrp::Load(TRemEventType rem_set_type, const string &airline)
       case retFORBIDDEN_MOB:
         event_type = "MOB";
         break;
+      case retFORBIDDEN_FREE_SEAT:
+        event_type = "FREE_SEAT";
+        break;
       default:
         throw Exception("LoadRemGrp: unknown event type %d", rem_set_type);
     }
