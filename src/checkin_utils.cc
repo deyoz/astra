@@ -363,9 +363,6 @@ void seatingWhenNewCheckIn(const TSegListItem& seg,
   SALONS2::TSalonList salonList(true);
   salonList.ReadFlight( SALONS2::TFilterRoutesSets( grp.point_dep, grp.point_arv ), "", ASTRA::NoExists );
   //заполним массив для рассадки
-  TRemGrp remGrp;
-  remGrp.Load(retFORBIDDEN_FREE_SEAT,grp.point_dep);
-
   for(int k=0;k<=1;k++)
   {
     for(CheckIn::TPaxList::const_iterator p=paxs.begin(); p!=paxs.end(); ++p)
@@ -397,19 +394,19 @@ void seatingWhenNewCheckIn(const TSegListItem& seg,
               r->code=="UMNR" ||
               r->code=="WCHS" ||
               r->code=="MEDA") flagCHIN=true;
-          pas.add_rem(r->code,remGrp);
+          pas.add_rem(r->code);
         }
         string pass_rem;
-        if ( subcls_rems.IsSubClsRem( pax.getCabinSubclass(), pass_rem ) )  pas.add_rem(pass_rem,remGrp);
+        if ( subcls_rems.IsSubClsRem( pax.getCabinSubclass(), pass_rem ) )  pas.add_rem(pass_rem);
         if ( AdultsWithBaby( pax_id, InfItems ) ) {
           flagCHIN = true;
           flagINFT = true;
         }
         if ( flagCHIN ) {
-          pas.add_rem("CHIN",remGrp);
+          pas.add_rem("CHIN");
         }
         if ( flagINFT ) {
-          pas.add_rem("INFT",remGrp);
+          pas.add_rem("INFT");
         }
 
         //здесь набираем
@@ -445,7 +442,7 @@ void seatingWhenNewCheckIn(const TSegListItem& seg,
   boost::posix_time::ptime mst1 = boost::posix_time::microsec_clock::local_time();
   //рассадка
   SALONS2::TAutoSeats autoSeats;
-  SEATS2::SeatsPassengers( salonList, algo, TReqInfo::Instance()->client_type, SEATS2::Passengers, autoSeats, remGrp );
+  SEATS2::SeatsPassengers( salonList, algo, TReqInfo::Instance()->client_type, SEATS2::Passengers, autoSeats );
   bool pr_do_check_wait_list_alarm = salonList.check_waitlist_alarm_on_tranzit_routes( autoSeats );
   //!!! иногда True - возможна рассадка на забронированные места, когда
   // есть право на регистрацию, статус рейса окончание, есть право сажать на чужие заброн. места

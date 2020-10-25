@@ -2339,18 +2339,14 @@ bool TSublsRems::IsSubClsRem( const string &subclass, string &vrem )
   return !vrem.empty();
 }
 
-void TPassenger::add_rem( const std::string &code, const TRemGrp& remGrp )
+void TPassenger::add_rem( const std::string &code )
 {
     if ( isREM_SUBCLS( code ) )
         SUBCLS_REM = code;
     rems.push_back( code );
-    LogTrace(TRACE5) << code << " " << remGrp.exists( code );
-    ignore_tariff |= remGrp.exists( code );
 }
 
-void TPassenger::remove_rem( const std::string &code,
-                             const std::map<std::string, int> &remarks,
-                             const TRemGrp& remGrp )
+void TPassenger::remove_rem( const std::string &code, const std::map<std::string, int> &remarks )
 {
   if ( isREM_SUBCLS( code ) ) {
     SUBCLS_REM.clear();
@@ -2358,22 +2354,10 @@ void TPassenger::remove_rem( const std::string &code,
   if ( code == maxRem ) {
     maxRem.clear();
   }
-  bool ch = false;
   std::vector<std::string>::iterator irem = std::find( rems.begin(), rems.end(), code );
   if ( irem != rems.end() ) {
     rems.erase( irem );
-    ch = ignore_tariff && remGrp.exists( code );
   }
-  if ( ch ) {
-    ignore_tariff = false;
-    for (vector<string>::iterator ir=rems.begin(); ir!=rems.end(); ) {
-      if ( remGrp.exists( code ) ) {
-        ignore_tariff = true;
-        break;
-      }
-    }
-  }
-
   calc_priority( remarks );
 }
 
@@ -2925,16 +2909,14 @@ void SeatsPassengersGrps( SALONS2::TSalons *Salons,
                           TClientType client_type,
                           TRFISCMode UseRFISCMode,
                           TPassengers &passengers,
-                          const std::map<int,TPaxList> &pax_lists,
-                          const TRemGrp& remGrp );
+                          const std::map<int,TPaxList> &pax_lists );
 
 /* рассадка пассажиров */
 void SeatsPassengers( SALONS2::TSalonList &salonList,
                       TSeatAlgoParams ASeatAlgoParams /* sdUpDown_Line - умолчание */,
                       TClientType client_type,
                       TPassengers &passes,
-                      SALONS2::TAutoSeats &autoSeats,
-                      const TRemGrp& remGrp )
+                      SALONS2::TAutoSeats &autoSeats )
 {
   SeatsStat.clear();
   SeatsStat.deactivate();
@@ -2993,8 +2975,7 @@ void SeatsPassengers( SALONS2::TSalonList &salonList,
                            client_type,
                            salonList.getRFISCMode(),
                            passes,
-                           salonList.pax_lists,
-                           remGrp );
+                           salonList.pax_lists );
       for ( int i=0; i<passes.getCount(); i++ ) {
         values.clear();
         TPassenger &pass=passes.Get( i );
@@ -3077,8 +3058,7 @@ std::string separatelyRem( const std::string &rem, const std::vector<std::string
 
 void dividePassengersToGrps( TPassengers &passengers, vector<TPassengers> &passGrps,
                              bool separately_seat_adult_with_baby,
-                             bool separately_seat_chin_emergency,
-                             const TRemGrp& remGrp )
+                             bool separately_seat_chin_emergency )
 {
   SeatsStat.start(__FUNCTION__);
   passGrps.clear();
@@ -3097,7 +3077,7 @@ void dividePassengersToGrps( TPassengers &passengers, vector<TPassengers> &passG
              pass.preseat_layer == cltPNLAfterPay )
           pr_pay = true;
       }
-      //взрослые и взрослые с младенцами + ремарки с возможностью сесть на платные ма
+      //взрослые и взрослые с младенцами
       ostringstream grp_variant;
       std::vector<std::string> vrems;
       pass.get_remarks( vrems );
@@ -3105,7 +3085,7 @@ void dividePassengersToGrps( TPassengers &passengers, vector<TPassengers> &passG
                   << separatelyRem( separately_seat_adult_with_baby?"INFT":"", vrems, pass.index )
                   << separatelyRem( separately_seat_chin_emergency?"CHIN":"", vrems, pass.index );
       //дети и оплата
-      grp_variant << pr_pay << pass.ignore_tariff << (ignoreINFT || pass.isRemark( "INFT" ));
+      grp_variant << pr_pay << (ignoreINFT || pass.isRemark( "INFT" ));
       //тариф
       grp_variant << pass.tariffs.key() << EncodeCompLayerType(pass.preseat_layer) << pass.dont_check_payment;
 //      ProgTrace( TRACE5, "grp_variant=%s, pax=%s", grp_variant.str().c_str(), pass.toString().c_str() );
@@ -3161,16 +3141,14 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                       bool denial_emergency_seats,
                       TRFISCMode useRFISCMode,
                       TPassengers &passengers,
-                      const std::vector<TCoordSeat> &paxsSeats,
-                      const TRemGrp& remGrp );
+                      const std::vector<TCoordSeat> &paxsSeats );
 
 void SeatsPassengersGrps( SALONS2::TSalons *Salons,
                           TSeatAlgoParams ASeatAlgoParams /* sdUpDown_Line - умолчание */,
                           TClientType client_type,
                           TRFISCMode useRFISCMode,
                           TPassengers &passengers,
-                          const std::map<int,TPaxList> &pax_lists,
-                          const TRemGrp& remGrp )
+                          const std::map<int,TPaxList> &pax_lists )
 {
   if ( !passengers.getCount() )
     return;
@@ -3190,8 +3168,7 @@ void SeatsPassengersGrps( SALONS2::TSalons *Salons,
   TEmergencySeats emergencySeats( CurrSalon->trip_id );
   dividePassengersToGrps( passengers, passGrps,
                           babyZoness.useInfantSection(),
-                          emergencySeats.deniedEmergencySection(),
-                          remGrp
+                          emergencySeats.deniedEmergencySection()
                           );
   // passengers - скорее всего это глобальная переменная, надо ее запомнить, использовать, а потом восстановить
   //в последнем элементе вектора - вся группа до разбивки
@@ -3228,8 +3205,7 @@ void SeatsPassengersGrps( SALONS2::TSalons *Salons,
                        denial_emergency_seats,
                        useRFISCMode,
                        passengers,
-                       paxsSeats,
-                       remGrp );
+                       paxsSeats );
       babyZoness.rollbackDisabledBabySection( Salons );
       emergencySeats.rollbackDisabledEmergencySeats( Salons );
       //указать, что найденные места принадлежат пассажирам с детьми!!!
@@ -3512,37 +3488,6 @@ class AnomalisticConditionsPayment
         ProgTrace( TRACE5, "pass %s", pass.toString().c_str() );
       }*/
     }
-    static void ClearTariffForSpecRemarks( SALONS2::TSalons *Salons, const TRemGrp& remGrp, TPassengers &passengers ) {
-      std::vector<std::string> specRemarks, rems;
-      for ( int i=0; i<passengers.getCount(); i++ ) {
-         TPassenger &pass = passengers.Get( i );
-         if ( !pass.ignore_tariff ) {
-            continue;
-         }
-         pass.get_remarks( rems );
-         for ( const auto &r : rems ) {
-           if ( remGrp.exists( r ) &&
-                find( specRemarks.begin(), specRemarks.end(), r ) == specRemarks.end() ) {
-             specRemarks.emplace_back( r );
-           }
-         }
-      }
-      for ( vector<SALONS2::TPlaceList*>::iterator plList=Salons->placelists.begin();
-            plList!=Salons->placelists.end(); plList++ ) {
-        TPlaceList* placeList = *plList;
-        for ( IPlace i=placeList->places.begin(); i!=placeList->places.end(); i++ ) {
-          if ( i->SeatTariff.empty() || !i->visible || !i->isplace )
-            continue;
-          for ( const auto & r : i->rems ) {
-            if ( !r.pr_denial &&
-                 find( specRemarks.begin(), specRemarks.end(), r.rem ) != specRemarks.end() ) {
-              i->SeatTariff.clear();
-              LogTrace(TRACE5)<<"remove tariff from " << i->yname << i->xname;
-            }
-          }
-        }
-      }
-    }
 
 /*    static void clearTariffsOnWebSignal( SALONS2::TSalons *Salons, TPassengers &passengers ) {
       //очищаем тариф места
@@ -3588,8 +3533,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                       bool denial_emergency_seats,
                       TRFISCMode useRFISCMode,
                       TPassengers &passengers,
-                      const std::vector<TCoordSeat> &paxsSeats,
-                      const TRemGrp& remGrp )
+                      const std::vector<TCoordSeat> &paxsSeats )
 {
   ProgTrace( TRACE5, "NEWSEATS, ASeatAlgoParams=%d, Salons->placelists.size()=%zu, passengers.getCount()=%d, paxsSeats.size()=%zu, separately_seats_adult_with_baby=%d, denial_emergency_seats=%d",
             (int)ASeatAlgoParams.SeatAlgoType, Salons->placelists.size(), passengers.getCount(), paxsSeats.size(), separately_seats_adult_with_baby, denial_emergency_seats );
@@ -3608,7 +3552,6 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
   //AnomalisticConditionsPayment::clearTariffsOnWebSignal( Salons, passengers );
   AnomalisticConditionsPayment::setPayementOnWebSignal( Salons, passengers );
   AnomalisticConditionsPayment::removeRemarksOnPaymentLayer( Salons, passengers );
-  AnomalisticConditionsPayment::ClearTariffForSpecRemarks( Salons, remGrp, passengers );
 
   GetUseLayers( UseLayers );
   TUseLayers preseat_layers, curr_preseat_layers;
@@ -3679,7 +3622,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
       prINFT = true;
     }
     if ( !pass.SUBCLS_REM.empty() && !Salons->isExistSubcls( pass.SUBCLS_REM ) ) {
-      pass.remove_rem( pass.SUBCLS_REM, passengers.remarks, remGrp );
+      pass.remove_rem( pass.SUBCLS_REM, passengers.remarks );
     }
 
     if ( !pass.SUBCLS_REM.empty() ) {
@@ -3798,7 +3741,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
 //                 ProgTrace( TRACE5, "condRates.current_rate=%f continue", condRates.current_rate->rate );
                  continue;
                }
-               if ( use_preseat_layer && SeatAlg == sSeatPassengers ) {
+               if ( use_preseat_layer && SeatAlg == sSeatPassengers ) { // если предварительно размеченный слой, то игнорируем платные места
                  condRates.ignore_rate = true;
                }
                else {
@@ -4807,8 +4750,7 @@ std::map<int,map<string,map<ASTRA::TCompLayerType,vector<TPassenger> > > > passe
 void dividePassengersToGrpsAutoSeats( TIntStatusSalonPassengers::const_iterator ipass_status,
                                       const SALONS2::TSalonList &salonList,
                                       vector<TPassengers> &passGrps,
-                                      std::set<int> &pax_lists_with_baby,
-                                      const TRemGrp& remGrp )
+                                      std::set<int> &pax_lists_with_baby )
 {
   TClsGrp &cls_grp = (TClsGrp &)base_tables.get("CLS_GRP");    //cls_grp.code subclass,
   SEATS2::TSublsRems subcls_rems( salonList.getAirline() );
@@ -4845,7 +4787,7 @@ void dividePassengersToGrpsAutoSeats( TIntStatusSalonPassengers::const_iterator 
     vpass.cabin_clname = ipass->cabin_cl;
     if ( ipass->pr_infant != ASTRA::NoExists ) {
       ProgTrace( TRACE5, "AutoReSeatsPassengers: pax_id=%d add INFT", vpass.paxId );
-      vpass.add_rem( "INFT",remGrp );
+      vpass.add_rem( "INFT" );
     }
     vpass.Step = sRight;
     bool flagCHIN = ( ipass->pr_infant != ASTRA::NoExists ||
@@ -4865,17 +4807,17 @@ void dividePassengersToGrpsAutoSeats( TIntStatusSalonPassengers::const_iterator 
       }
       if ( comp_rems.find( r->code ) != comp_rems.end() &&
            r->code == "STCR" ) {
-        vpass.add_rem( "STCR",remGrp );
+        vpass.add_rem( "STCR" );
         vpass.Step = sDown;
       }
     }
     if ( flagCHIN ) {
-      vpass.add_rem( "CHIN",remGrp );
+      vpass.add_rem( "CHIN" );
     }
     string rem;
     const TBaseTableRow &row=cls_grp.get_row( "id", ipass->cabin_class_grp );
     if ( subcls_rems.IsSubClsRem( row.AsString( "code" ), rem ) ) {
-      vpass.add_rem( rem,remGrp );
+      vpass.add_rem( rem );
     }
     ProgTrace( TRACE5, "pass add pax_id=%d, add CHIN=%d", vpass.paxId, flagCHIN );
     //по одному
@@ -4894,8 +4836,7 @@ void dividePassengersToGrpsAutoSeats( TIntStatusSalonPassengers::const_iterator 
 
 void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
                             const SALONS2::TIntArvSalonPassengers &passengers,
-                            TSeatAlgoParams ASeatAlgoParams,
-                            const TRemGrp& remGrp )
+                            TSeatAlgoParams ASeatAlgoParams )
 {
   LogTrace(TRACE5) << "AutoReSeatsPassengers: point_id=" << salonList.getDepartureId() << ",getSeatDescription=" << salonList.getSeatDescription();
   SEAT_DESCR::paxsWaitListDescrSeat paxsSeatDescr;
@@ -5007,7 +4948,7 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
         try {
           //набор групп
           vector<TPassengers> passGrps;
-          dividePassengersToGrpsAutoSeats( ipass_status, salonList, passGrps, pax_lists_with_baby, remGrp );
+          dividePassengersToGrpsAutoSeats( ipass_status, salonList, passGrps, pax_lists_with_baby );
           for ( vector<TPassengers>::iterator ipasses=passGrps.begin(); ipasses !=passGrps.end(); ++ipasses ) {
             int len = ipasses->getCount();
             if ( !len ) {

@@ -612,11 +612,7 @@ void TPaxData::init( const int pax_ident, const std::string& surname, const std:
   if(!override_type.empty())
     override_codes = override_type;
   // passenger reference
-  std::string seq_num = std::to_string(abs((reg_no == ASTRA::NoExists) ? 0 : reg_no));
-  if(is_crew) {
-      seq_num = 'C' + seq_num;
-  }
-
+  int seq_num = (reg_no == ASTRA::NoExists) ? 0 : reg_no;
   int pass_desc;
   switch (tricky_gender)
   {

@@ -184,7 +184,6 @@ struct TPassenger {
     std::string wl_type;
     int countPlace;
     bool is_jmp;
-    bool ignore_tariff;
     TSeatStep Step;
     std::string SUBCLS_REM;
     std::string maxRem;
@@ -239,10 +238,8 @@ struct TPassenger {
       point_arv = ASTRA::NoExists;
     }
     void set_seat_no();
-    void add_rem( const std::string &code, const TRemGrp& remGrp );
-    void remove_rem( const std::string &code,
-                     const std::map<std::string, int> &remarks,
-                     const TRemGrp& remGrp );
+    void add_rem( const std::string &code );
+    void remove_rem( const std::string &code, const std::map<std::string, int> &remarks );
     void calc_priority( const std::map<std::string, int> &remarks );
     void get_remarks( std::vector<std::string> &vrems );
     bool isRemark( std::string code );
@@ -470,14 +467,12 @@ typedef std::map<ASTRA::TCompLayerType,bool> TUseLayers;
 void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, TSeatAlgoParams ASeatAlgoParams );
 void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
                             const SALONS2::TIntArvSalonPassengers &passengers,
-                            TSeatAlgoParams ASeatAlgoParams,
-                            const TRemGrp& remGrp );
+                            TSeatAlgoParams ASeatAlgoParams );
 void SeatsPassengers( SALONS2::TSalonList &salonList,
                       TSeatAlgoParams ASeatAlgoParams,
                       ASTRA::TClientType client_type,
                       TPassengers &passengers,
-                      SALONS2::TAutoSeats &seats,
-                      const TRemGrp& remGrp );
+                      SALONS2::TAutoSeats &seats );
 BitSet<TChangeLayerSeatsProps>
      ChangeLayer( const SALONS2::TSalonList &salonList, ASTRA::TCompLayerType layer_type, int time_limit, int point_id, int pax_id, int &tid,
                   std::string first_xname, std::string first_yname, TSeatsType seat_type,
