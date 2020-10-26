@@ -4,5 +4,6 @@ create table arx_stat_zamar (
     airp varchar2(3) not null,
     amount_ok number(9) not null,
     amount_fault number(9) not null,
+    sbdo_type varchar2(10) not null,
     part_key date not null
 );
