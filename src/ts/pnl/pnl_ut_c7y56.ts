@@ -1,3 +1,266 @@
+$(defmacro PNL_UT_C7Y56_TRANSFER1
+    depp=AER
+    arrp=PRG
+    fltno=298
+    depd=$(ddmon +0 en)
+    addr_to=MOWKK1H
+    addr_from=TJMRMUT
+    out_trfer1_fltno=190
+    out_trfer1_arrp=AMS
+    out_trfer1_subcls=G
+    out_trfer1_date=$(dd +0 en)
+    out_trfer1_time=0120
+
+    inb_trfer1_fltno=088
+    inb_trfer1_depp=SVX
+    inb_trfer1_subcls=G
+    inb_trfer1_date=$(dd +0 en)
+    inb_trfer1_time=0120
+
+    out_trfer2_fltno=450
+    out_trfer2_arrp=LHR
+    out_trfer2_subcls=G
+    out_trfer2_date=$(dd +0 en)
+    out_trfer2_time=0830
+
+{$(addr_to)
+.$(addr_from) 091320
+PNL
+UT$(fltno)/$(depd) $(depp) PART1
+CFG/007C056Y
+RBD C/CJIDA Y/YSTEQGNBXWUORVHLKPZF
+AVAIL
+ $(depp)  $(arrp)
+C000
+Y014
+-$(arrp)000C
+-$(arrp)000J
+-$(arrp)000I
+-$(arrp)000D
+-$(arrp)000A
+-$(arrp)000Y
+-$(arrp)000S
+-$(arrp)000T
+-$(arrp)000E
+-$(arrp)000Q
+-$(arrp)000G
+-$(arrp)000N
+-$(arrp)000B
+-$(arrp)000X
+-$(arrp)003W
+1ALIMOV/TALGAT-A2
+.L/F57K6C/UT
+.L/5ZM3PD/1H
+.R/TKNE HK1 2982425696898/1
+.R/DOCS HK1/P/KZ/N11024936/KZ/11MAY96/M/04OCT26/ALIMOV/TALGAT
+.R/PSPT HK1 NPN11024936/KZ/11MAY96/ALIMOV/TALGAT/M
+.R/FOID PPNPN11024936
+1KOBYLINSKIY/ALEKSEY MR
+.L/F55681/UT
+.L/UQZ82M/1A
+.I/UT$(inb_trfer1_fltno)$(inb_trfer1_subcls)$(inb_trfer1_date)$(inb_trfer1_depp)$(depp)$(out_trfer1_time)
+.R/TKNE HK1 2982409342779/2
+.R/FOID HK1 PP0306355301
+.R/DOCS HK1/P/RU/0306355301/RU/31DEC86/M/05OCT29/KOBYLINSKIY
+.RN//ALEKSEY
+.R/PSPT HK1 P0306355301/RU/31DEC86/KOBYLINSKIY/ALEKSEY/M
+.R/FOID PPP0306355301
+1OZ/OFER
+.L/F554G3/UT
+.L/UPCN6A/1A
+.O/UT$(out_trfer1_fltno)$(out_trfer1_subcls)$(out_trfer1_date)$(arrp)$(out_trfer1_arrp)$(out_trfer1_time)
+.O2/UT$(out_trfer2_fltno)$(out_trfer2_subcls)$(out_trfer2_date)$(out_trfer1_arrp)$(out_trfer2_arrp)$(out_trfer2_time)
+.R/TKNE HK1 2985523437721/1
+.R/FOID HK1 PP32427293
+# 1SELIVANOV/RUSLAN NAILYEVICH MR
+# .L/F56KFM/UT
+# .L/WXA9Q7/1A
+# .O2/UT$(out_trfer2_fltno)$(out_trfer2_subcls)$(out_trfer2_date)$(out_trfer1_arrp)$(out_trfer2_arrp)$(out_trfer2_time)
+# .R/TKNE HK1 2985085963078/1
+# .R/FOID HK1 PP9205589611
+# .R/DOCS HK1/P/RU/9205589611/RU/23SEP83/M/20DEC25/SELIVANOV
+# .RN//RUSLAN/NAILYEVICH
+# .R/PSPT HK1 P9205589611/RU/23SEP83/SELIVANOV/RUSLAN/M
+# .R/FOID PPP9205589611
+ENDPNL}
+) #end-of-macro PNL_UT_C7Y56_TRANSFER1
+
+$(defmacro PNL_UT_C7Y56_TRANSFER2
+    depp=AER
+    arrp=PRG
+    fltno=298
+    depd=$(ddmon +0 en)
+    addr_to=MOWKK1H
+    addr_from=TJMRMUT
+    out_trfer1_fltno=190
+    out_trfer1_arrp=AMS
+    out_trfer1_subcls=G
+    out_trfer1_date=$(dd +0 en)
+    out_trfer1_time=0120
+
+    inb_trfer1_fltno=088
+    inb_trfer1_depp=SVX
+    inb_trfer1_subcls=G
+    inb_trfer1_date=$(dd +0 en)
+    inb_trfer1_time=0120
+
+    out_trfer2_fltno=450
+    out_trfer2_arrp=LHR
+    out_trfer2_subcls=G
+    out_trfer2_date=$(dd +0 en)
+    out_trfer2_time=0830
+
+{$(addr_to)
+.$(addr_from) 091320
+PNL
+UT$(fltno)/$(depd) $(depp) PART1
+CFG/007C056Y
+RBD C/CJIDA Y/YSTEQGNBXWUORVHLKPZF
+AVAIL
+ $(depp)  $(arrp)
+C000
+Y014
+-$(arrp)000C
+-$(arrp)000J
+-$(arrp)000I
+-$(arrp)000D
+-$(arrp)000A
+-$(arrp)000Y
+-$(arrp)000S
+-$(arrp)000T
+-$(arrp)000E
+-$(arrp)000Q
+-$(arrp)000G
+-$(arrp)000N
+-$(arrp)000B
+-$(arrp)000X
+-$(arrp)003W
+1OZ/OFER
+.L/F554G3/UT
+.L/UPCN6A/1A
+.O/UT$(out_trfer2_fltno)$(out_trfer2_subcls)$(out_trfer2_date)$(out_trfer1_arrp)$(out_trfer2_arrp)$(out_trfer2_time)
+.R/TKNE HK1 2985523437721/1
+.R/FOID HK1 PP32427293
+ENDPNL}
+) #end-of-macro PNL_UT_C7Y56_TRANSFER2
+
+$(defmacro PNL_UT_C7Y56_TRANSFER3
+    depp=AER
+    arrp=PRG
+    fltno=298
+    depd=$(ddmon +0 en)
+    addr_to=MOWKK1H
+    addr_from=TJMRMUT
+    out_trfer1_fltno=190
+    out_trfer1_arrp=AMS
+    out_trfer1_subcls=G
+    out_trfer1_date=$(dd +0 en)
+    out_trfer1_time=0120
+
+    inb_trfer1_fltno=088
+    inb_trfer1_depp=SVX
+    inb_trfer1_subcls=G
+    inb_trfer1_date=$(dd +0 en)
+    inb_trfer1_time=0120
+
+    out_trfer2_fltno=450
+    out_trfer2_arrp=LHR
+    out_trfer2_subcls=G
+    out_trfer2_date=$(dd +0 en)
+    out_trfer2_time=0830
+
+{$(addr_to)
+.$(addr_from) 091320
+PNL
+UT$(fltno)/$(depd) $(depp) PART1
+CFG/007C056Y
+RBD C/CJIDA Y/YSTEQGNBXWUORVHLKPZF
+AVAIL
+ $(depp)  $(arrp)
+C000
+Y014
+-$(arrp)000C
+-$(arrp)000J
+-$(arrp)000I
+-$(arrp)000D
+-$(arrp)000A
+-$(arrp)000Y
+-$(arrp)000S
+-$(arrp)000T
+-$(arrp)000E
+-$(arrp)000Q
+-$(arrp)000G
+-$(arrp)000N
+-$(arrp)000B
+-$(arrp)000X
+-$(arrp)003W
+1OZ/OFER
+.L/F554G3/UT
+.L/UPCN6A/1A
+.R/TKNE HK1 2985523437721/1
+.R/FOID HK1 PP32427293
+ENDPNL}
+) #end-of-macro PNL_UT_C7Y56_TRANSFER3
+
+
+$(defmacro PNL_UT_C7Y56_CHECKIN
+    depp=AER
+    arrp=PRG
+    fltno=298
+    depd=$(ddmon +0 en)
+    addr_to=MOWKK1H
+    addr_from=TJMRMUT
+    out_trfer1_fltno=190
+    out_trfer1_arrp=AMS
+    out_trfer1_subcls=G
+    out_trfer1_date=$(dd +0 en)
+    out_trfer1_time=0120
+
+    inb_trfer1_fltno=088
+    inb_trfer1_depp=SVX
+    inb_trfer1_subcls=G
+    inb_trfer1_date=$(dd +0 en)
+    inb_trfer1_time=0120
+
+    out_trfer2_fltno=450
+    out_trfer2_arrp=LHR
+    out_trfer2_subcls=G
+    out_trfer2_date=$(dd +0 en)
+    out_trfer2_time=0830
+
+{$(addr_to)
+.$(addr_from) 091320
+PNL
+UT$(fltno)/$(depd) $(depp) PART1
+CFG/007C056Y
+RBD C/CJIDA Y/YSTEQGNBXWUORVHLKPZF
+AVAIL
+ $(depp)  $(arrp)
+C000
+Y014
+-$(arrp)000C
+-$(arrp)000J
+-$(arrp)000I
+-$(arrp)000D
+-$(arrp)000A
+-$(arrp)000Y
+-$(arrp)000S
+-$(arrp)000T
+-$(arrp)000E
+-$(arrp)000Q
+-$(arrp)000G
+-$(arrp)000N
+-$(arrp)000B
+-$(arrp)000X
+-$(arrp)003W
+1OZ/OFER
+.L/F554G3/UT
+.L/UPCN6A/1A
+.R/TKNE HK1 2985523437721/1
+.R/FOID HK1 PP32427293
+ENDPNL}
+) #end-of-macro PNL_UT_C7Y56_CHECKIN
+
 $(defmacro PNL_UT_C7Y56_PART1
     depp=AER
     arrp=PRG

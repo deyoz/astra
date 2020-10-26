@@ -771,6 +771,23 @@ void NodeSetContent(xmlNodePtr cur, const int content)
     NodeSetContent(cur, IntToString(content));
 }
 
+void NodeAddContent(xmlNodePtr cur, const char* content)
+{
+    if (cur==NULL) throw EXMLError("Node not defined (NULL)");
+    if (content!=NULL&&*content==0) content=NULL;
+    xmlChar* tmp=xmlEncodeSpecialChars(cur->doc,BAD_CAST content);
+    try
+    {
+      xmlNodeAddContent(cur,tmp);
+      if (tmp!=NULL) xmlFree(tmp);
+    }
+    catch(...)
+    {
+      if (tmp!=NULL) xmlFree(tmp);
+      throw;
+    };
+}
+
 void NodeSetContent(xmlNodePtr cur, const char* content)
 {
     if (cur==NULL) throw EXMLError("Node not defined (NULL)");

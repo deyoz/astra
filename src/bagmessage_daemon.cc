@@ -37,7 +37,7 @@ class BM_OUTPUT_QUEUE : public TFileQueue
     static const int WAIT_ANSWER_SEC = 30; // Тайм-аут между отметками 'send' и 'done'. Если истек - сообщение подлежит повторной отсылке
     time_t lastRead;                       // Когда последний раз читали очередь из базы
   public:
-    BM_OUTPUT_QUEUE();                     // Конструктор
+    BM_OUTPUT_QUEUE(const string &name);   // Конструктор
     void get();                            // Перечитать очередь
     void sendFile( int tlg_id );           // Поставить отметку "телеграмма взята на отсылку"
     static void unSendFile( int tlg_id );  // Снять отметку "телеграмма взята на отсылку"
@@ -45,9 +45,9 @@ class BM_OUTPUT_QUEUE : public TFileQueue
     static void onWriteFinished( int tlg_id, int result ); // Обработчик завершения отправки телеграммы
 };
 
-BM_OUTPUT_QUEUE::BM_OUTPUT_QUEUE()
+BM_OUTPUT_QUEUE::BM_OUTPUT_QUEUE(const string &name)
 {
-  canonName = getTCLParam( "SBM_CANON_NAME", NULL );
+  canonName = name;
   ProgTrace( TRACE0, "SITA BagMessage: canon_name=%s", canonName.c_str() );
   lastRead = 0;
 }
@@ -121,7 +121,7 @@ typedef std::shared_ptr<BMConnection> pBMConnection;
 void run_bag_msg_process( const char *cmd, const std::string &name )
 {
   io_service io;
-  BM_OUTPUT_QUEUE queue;
+  BM_OUTPUT_QUEUE queue(name);
   int NUM_CONNECTIONS = 1; // Количество параллельных соединений; в будущем может быть увеличено;
 // Также в будущем возможно чтение этой величины из конфигурационного файла
 //  NUM_CONNECTIONS = getTCLParam( "SBM_NUM_CONNECTIONS", 1, 4, 1 );
@@ -139,7 +139,7 @@ void run_bag_msg_process( const char *cmd, const std::string &name )
     InitLogTime( cmd ); // Чтобы время в лог правильно писалось.
   // Текущая работа соединений
     for( vector<pBMConnection>::iterator curr = conn.begin(); curr != conn.end(); ++curr )
-      (*curr)->run();
+      (*curr)->run(name);
   // Текущая работа самого boost'а
     io.poll_one();
   // Очередь на выход

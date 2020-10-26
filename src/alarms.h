@@ -28,6 +28,7 @@ class Alarm
       CrewCheckin,
       CrewNumber,
       CrewDiff,
+      APISControl,
       APISDiffersFromBooking,
       APISIncomplete,
       APISManualInput,
@@ -37,6 +38,7 @@ class Alarm
       APPSConflict,
       APPSNegativeDirective,
       APPSError,
+      APPSNotScdInTime,
       IAPIProblem,
       IAPINegativeDirective,
       WBDifferLayout,
@@ -45,7 +47,9 @@ class Alarm
 //относятся только к тревогам пассажиров, а не рейсов
       SyncEmds,
       SyncCabinClass,
-      SyncCustomAlarms
+      SyncCustomAlarms,
+      SyncIAPI,
+      SyncAPPS
     };
 
     typedef std::list< std::pair<Enum, std::string> > TPairs;
@@ -68,6 +72,7 @@ class Alarm
         {CrewCheckin,            "CREW_CHECKIN"             },
         {CrewNumber,             "CREW_NUMBER"              },
         {CrewDiff,               "CREW_DIFF"                },
+        {APISControl,            "APIS_CONTROL"             },  //только для вызова хука и вычисления сразу трех тревог APIS
         {APISDiffersFromBooking, "APIS_DIFFERS_FROM_BOOKING"},
         {APISIncomplete,         "APIS_INCOMPLETE"          },
         {APISManualInput,        "APIS_MANUAL_INPUT"        },
@@ -77,6 +82,7 @@ class Alarm
         {APPSConflict,           "APPS_CONFLICT"            },
         {APPSNegativeDirective,  "APPS_NEGATIVE_DIRECTIVE"  },
         {APPSError,              "APPS_ERROR"               },
+        {APPSNotScdInTime,       "APPS_NOT_SCD_IN_TIME"     },
         {IAPIProblem,            "IAPI_PROBLEM"             },
         {IAPINegativeDirective,  "IAPI_NEGATIVE_DIRECTIVE"  },
         {WBDifferLayout,         "WB_DIFF_LAYOUT"           },
@@ -84,6 +90,8 @@ class Alarm
         {SyncEmds,               "SYNC_EMDS"                },
         {SyncCabinClass,         "SYNC_CABIN_CLASS"         },
         {SyncCustomAlarms,       "SYNC_CUSTOM_ALARMS"       },
+        {SyncIAPI,               "SYNC_IAPI"                },
+        {SyncAPPS,               "SYNC_APPS"                },
        };
       return l;
     }
@@ -128,8 +136,9 @@ void check_crew_alarms(int point_id);
 void check_crew_alarms_task(const TTripTaskKey &task);
 void check_apis_alarms(int point_id);
 void check_apis_alarms(int point_id, const std::set<Alarm::Enum> &checked_alarms);
-bool check_apps_alarm( int point_id );
-bool check_iapi_alarm( int point_id );
+bool check_apps_alarm(int point_id);
+bool check_iapi_alarm(int point_id);
+bool check_apps_scd_alarm(const PointId_t& point_id);
 
 template<typename T>
 class TSomeonesAlarm
@@ -184,6 +193,7 @@ class TTripAlarmHook : public TSomeonesAlarmHook<TTripAlarm>
 {
   public:
     static void set(Alarm::Enum _type, const int& _id);
+    static void setAlways(Alarm::Enum _type, const int& _id);
 };
 
 class TGrpAlarmHook : public TSomeonesAlarmHook<TGrpAlarm>
@@ -217,6 +227,8 @@ bool existsAlarmByPointId(const int pointId,
                           const std::initializer_list<Alarm::Enum>& alarms,
                           const std::initializer_list<PaxOrigin>& origins);
 void getAlarmByPointId(const int pointId, const Alarm::Enum alarmType, std::set<int>& paxIds);
+std::set<PaxId_t> getAlarmByPointId(const PointId_t& pointId, const Alarm::Enum alarmType,
+                                    const PaxOrigin origin);
 
 #endif
 

@@ -21,12 +21,11 @@ void HTTPClient::sendRequest(const std::string &reqText, const edifact::KickInfo
     LogTrace(TRACE5) << __func__ << "msgid=" << kickInfo.msgId;
     LogTrace(TRACE5) << __func__ << "handle=" << kickInfo.jxt.get().handle;
     LogTrace(TRACE5) << ServerFramework::getQueryRunner().getEdiHelpManager().msgId();
-    tst();
     std::string desk = kickInfo.desk.empty() ? "SYSPUL" : kickInfo.desk;
 
     const std::string httpPost = makeHttpPostRequest( reqText );
 
-    LogTrace(TRACE5) << "HTTP Request from [" << desk << "], text:\n" << reqText;
+    LogTrace(TRACE5) << "HTTP Request from [" << desk << "], text:\n" << httpPost;
 
     const httpsrv::Pult pul(desk);
     const httpsrv::Domain domain(domainName);
@@ -36,7 +35,7 @@ void HTTPClient::sendRequest(const std::string &reqText, const edifact::KickInfo
                                domain, m_addr, httpPost);
     req.setTimeout(boost::posix_time::seconds(m_timeout))
         .setMaxTryCount(1/*SIRENA_REQ_ATTEMPTS()*/)
-        .setSSL(httpsrv::UseSSLFlag(false))
+        .setSSL(httpsrv::UseSSLFlag(m_useSsl))
         .setPeresprosReq(kick)
         .setDeffered(true);
     req();
@@ -175,7 +174,6 @@ void ExchangeIface::DoRequest(xmlNodePtr reqNode, xmlNodePtr externalSysResNode,
     int reqCtxtId = AstraContext::SetContext("TERM_REQUEST", XMLTreeToText(reqNode->doc));
     std::string reqText;
     req.build(reqText);
-    tst();
     client.sendRequest(reqText, createKickInfo(reqCtxtId,GetIfaceName()), domainName);
 
 //    SvcSirenaInterface* iface=dynamic_cast<SvcSirenaInterface*>(JxtInterfaceMng::Instance()->GetInterface(SvcSirenaInterface::name()));

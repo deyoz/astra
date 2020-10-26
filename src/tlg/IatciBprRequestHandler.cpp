@@ -127,18 +127,18 @@ std::string IatciBprRequestHandler::respType() const
     return "B";
 }
 
-iatci::dcrcka::Result IatciBprRequestHandler::handleRequest() const
+std::string IatciBprRequestHandler::fcIndicator() const
+{
+    return "";
+}
+
+std::list<iatci::dcrcka::Result> IatciBprRequestHandler::handleRequest() const
 {
     ASSERT(m_bprParamsNew);
-    return iatci::reprintBoardingPass(m_bprParamsNew.get());
+    return { iatci::reprintBoardingPass(m_bprParamsNew.get()) };
 }
 
-edilib::EdiSessionId_t IatciBprRequestHandler::sendCascadeRequest() const
-{
-    throw "Not implemented!";
-}
-
-const iatci::IBaseParams* IatciBprRequestHandler::paramsNew() const
+const iatci::IBaseParams* IatciBprRequestHandler::params() const
 {
     return m_bprParamsNew.get_ptr();
 }

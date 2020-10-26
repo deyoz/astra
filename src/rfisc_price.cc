@@ -10,9 +10,10 @@
 
 void SvcFromSirena::fromContextXML(xmlNodePtr node) {
   clear();
-  svc_id = NodeAsString( "svc_id", node );
+  svcKey.svcId = NodeAsString( "svc_id", node );
+  svcKey.orderId = NodeAsString( "orderId", node );
   doc = PriceDoc( NodeAsString( "doc_id", node, "" ),NodeAsString( "doc_type", node, "" ),NodeAsBoolean( "unpoundable", node, false ) );
-  LogTrace(TRACE5) << svc_id  << " " << doc.doc_id;
+  LogTrace(TRACE5) << svcKey.svcId  << " " << doc.doc_id;
   pass_id = NodeAsString( "pass_id", node );
   seg_id = NodeAsString( "seg_id", node );
   name = NodeAsString( "name", node );
@@ -26,7 +27,7 @@ void SvcFromSirena::fromContextXML(xmlNodePtr node) {
 
 void SvcFromSirena::fromXML(xmlNodePtr node) {
   clear();
-  svc_id = NodeAsString( "svc_id", node );
+  svcKey.svcId = NodeAsString( "svc_id", node );
   price = NodeAsFloat( "price", node );
   currency = NodeAsString( "currency", node );
   ticket_cpn = NodeAsString( "ticket_cpn", node, "" );
@@ -34,7 +35,8 @@ void SvcFromSirena::fromXML(xmlNodePtr node) {
 }
 
 void SvcFromSirena::toContextXML(xmlNodePtr node) const {
-  NewTextChild( node, "svc_id", svc_id );
+  NewTextChild( node, "svc_id", svcKey.svcId );
+  NewTextChild( node, "orderId", svcKey.orderId );
   NewTextChild( node, "doc_id", doc.doc_id );
   NewTextChild( node, "doc_type", doc.doc_type );
   NewTextChild( node, "unpoundable", doc.unpoundable );
@@ -50,17 +52,18 @@ void SvcFromSirena::toContextXML(xmlNodePtr node) const {
 }
 
 void SvcFromSirena::toXML(xmlNodePtr node) const {
-  NewTextChild( node, "svc_id", svc_id );
+  NewTextChild( node, "svc_id", svcKey.svcId );
   NewTextChild( node, "price", price );
   NewTextChild( node, "currency", currency );
   NewTextChild( node, "ticket_cpn", ticket_cpn );
   NewTextChild( node, "ticknum", ticknum );
-  NewTextChild(node,"valid", valid());
+  NewTextChild(node,"valid", clientValid());
 }
 
 void SvcFromSirena::toDB( TQuery& Qry) const
 {
-  Qry.SetVariable("svc_id",svc_id);
+  Qry.SetVariable("svc_id",svcKey.svcId);
+  Qry.SetVariable("order_id",svcKey.orderId);
   Qry.SetVariable("doc_id",doc.doc_id);
   Qry.SetVariable("pass_id",pass_id);
   Qry.SetVariable("seg_id",seg_id);
@@ -72,7 +75,8 @@ void SvcFromSirena::toDB( TQuery& Qry) const
 
 void SvcFromSirena::fromDB(TQuery& Qry,const std::string& lang)
 {
-  svc_id = Qry.FieldAsString("svc_id");
+  svcKey.svcId = Qry.FieldAsString("svc_id");
+  svcKey.orderId = Qry.FieldAsString("order_id");
   doc = PriceDoc(Qry.FieldAsString("doc_id"),"",false);
   pass_id = Qry.FieldAsString("pass_id");
   seg_id = Qry.FieldAsString("seg_id");
@@ -89,7 +93,7 @@ bool SvcFromSirena::only_for_cost() const
   return price == -1.0;
 }
 
-bool SvcFromSirena::valid() const
+bool SvcFromSirena::clientValid() const
 {
   return price!=ASTRA::NoExists &&
          price>=0.0 &&
@@ -99,26 +103,10 @@ bool SvcFromSirena::valid() const
 
 std::string SvcFromSirena::toString() const {
   std::ostringstream s;
-  s << "svc_id=" << svc_id << ",price=" << price << ",cuurency=" << currency
+  s << "svc_id=" << svcKey.svcId << ",orderId=" << svcKey.orderId << ",price=" << price << ",cuurency=" << currency
     << ",doc_id=" << doc.doc_id << ",doc_type=" << doc.doc_type << ",unpoundable=" << doc.unpoundable
     << ",ticknum="<<ticknum<<"/"<<ticket_cpn;
   return s.str();
-}
-
-const TPriceServiceItem& TPriceServiceItem::toXML(xmlNodePtr node, const std::string& svc_id) const
-{
-  if (node==NULL) return *this;
-  TPaxSegRFISCKey::toXML(node);
-  if ( std::string( NodeAsString( "name_view", node) ).empty() ) {
-    ReplaceTextChild(node, "name_view", name_view() ); //!!!
-  }
-  NewTextChild(node,"pax_name",pax_name);
-  if ( svcs.find( svc_id ) == svcs.end() ) {
-    throw EXCEPTIONS::Exception( std::string("scvs not found svc_id") + svc_id );
-  }
-  SvcFromSirena svc = svcs.at(svc_id);
-  svc.toXML(node);
-  return *this;
 }
 
 const TPriceServiceItem& TPriceServiceItem::toContextXML(xmlNodePtr node) const
@@ -149,7 +137,7 @@ TPriceServiceItem& TPriceServiceItem::fromContextXML(xmlNodePtr node)
     while ( n != nullptr && std::string("item") == (const char*)n->name ) {
       SvcFromSirena svc;
       svc.fromContextXML(n);
-      svcs.emplace(svc.svc_id,svc);
+      svcs.emplace(svc.svcKey,svc);
       n = n->next;
     }
   }
@@ -159,7 +147,7 @@ TPriceServiceItem& TPriceServiceItem::fromContextXML(xmlNodePtr node)
   return *this;
 }
 
-TPriceServiceItem& TPriceServiceItem::fromXML(xmlNodePtr node)
+TPriceServiceItem& TPriceServiceItem::fromXML(xmlNodePtr node, const std::string& orderId)
 {
   if (node==NULL) return *this;
   TPaxSegRFISCKey::fromXML(node);
@@ -167,7 +155,24 @@ TPriceServiceItem& TPriceServiceItem::fromXML(xmlNodePtr node)
   pax_name = NodeAsStringFast("pax_name",node2,"");
   SvcFromSirena svc;
   svc.fromXML(node);
-  svcs.emplace(svc.svc_id,svc);
+  svc.svcKey.orderId = orderId;
+  svcs.emplace(svc.svcKey,svc);
+  return *this;
+}
+
+const TPriceServiceItem& TPriceServiceItem::toXML(xmlNodePtr node, const SVCKey& svcKey) const
+{
+  if (node==NULL) return *this;
+  TPaxSegRFISCKey::toXML(node);
+  if ( std::string( NodeAsString( "name_view", node) ).empty() ) {
+    ReplaceTextChild(node, "name_view", name_view() ); //!!!
+  }
+  NewTextChild(node,"pax_name",pax_name);
+  if ( svcs.find( svcKey ) == svcs.end() ) {
+    throw EXCEPTIONS::Exception( "svc not found svc_id %s", svcKey.svcId.c_str() );
+  }
+  SvcFromSirena svc = svcs.at(svcKey);
+  svc.toXML(node);
   return *this;
 }
 
@@ -183,21 +188,21 @@ std::string TPriceServiceItem::name_view(const std::string& lang) const
 void TPriceServiceItem::changeStatus( const std::string& from, const std::string& to ) {
   for ( auto& osvc : svcs ) {
     if ( osvc.second.status_direct == from ) {
-      LogTrace(TRACE5)<<"svc_id=" << osvc.first << " change direct status from " << osvc.second.status_direct << " to " << to;
+      LogTrace(TRACE5)<<"svcKey(" << osvc.first.svcId << ","<< osvc.first.orderId << ") change direct status from " << osvc.second.status_direct << " to " << to;
       osvc.second.status_direct = to;
     }
   }
 }
 
-const TPriceServiceItem& TPriceServiceItem::toDB(TQuery &Qry, const std::string& svc_id) const
+const TPriceServiceItem& TPriceServiceItem::toDB(TQuery &Qry, const SVCKey& svcKey) const
 {
   Qry.SetVariable("name_view", name_view(AstraLocale::LANG_RU));
   Qry.SetVariable("name_view_lat", name_view(AstraLocale::LANG_EN));
   //Qry.SetVariable("list_id",(list_id==ASTRA::NoExists?FNull:list_id));
-  if ( svcs.find( svc_id ) == svcs.end() ) {
-    throw EXCEPTIONS::Exception( std::string("scvs not found svc_id") + svc_id );
+  if ( svcs.find( svcKey ) == svcs.end() ) {
+    throw EXCEPTIONS::Exception( "svc not found svc_id %d", svcKey.svcId );
   }
-  SvcFromSirena svc = svcs.at(svc_id);
+  SvcFromSirena svc = svcs.at(svcKey);
   svc.toDB(Qry);
   return *this;
 }
@@ -207,13 +212,15 @@ TPriceServiceItem& TPriceServiceItem::fromDB(TQuery &Qry, const std::string& lan
   TPaxSegRFISCKey::fromDB(Qry);
   SvcFromSirena svc;
   svc.fromDB(Qry,lang);
-  int svc_id = 100000;
-  std::pair<std::map<std::string,SvcFromSirena>::iterator,bool> ret;
-  ret = svcs.insert(make_pair(svc.svc_id,svc)); //!!!здесь потеря
+  //int svc_id = 100000;
+  //std::pair<std::map<std::string,SvcFromSirena>::iterator,bool> ret;
+  svcs.insert(std::make_pair(svc.svcKey,svc)); //!!!здесь потеря
+  LogTrace(TRACE5) << svcs.size();
+/*  ret = svcs.insert(make_pair(svc.svcKey,svc)); //!!!здесь потеря
   if ( ret.second == false ) { //один и тот же svc_id, но в разных PNR
      svcs.insert(make_pair(IntToString(svc_id),svc)); //псевдо svc_id для печати Дена
      svc_id++;
-  }
+  }*/
   PaxsNames p;
   pax_name = p.getPaxName(pax_id);
   return *this;
@@ -294,7 +301,7 @@ void SvcEmdRegnum::toXML(xmlNodePtr node,SvcEmdRegnum::Enum style) const {
 void SvcEmdCost::fromXML(xmlNodePtr node) {
   clear();
   cost = NodeAsString( "cost",node,"");
-  if ( cost.empty() ) {
+  if ( !cost.empty() ) {
     currency = ElemToElemId( etCurrency, NodeAsString( "cost/@curr",node), fmt );
   }
 }
@@ -306,7 +313,7 @@ void SvcEmdCost::toXML(xmlNodePtr node) const {
 void SvcEmdSvcsReq::toXML(xmlNodePtr node) const
 {
   for ( const auto& svc : svcs ) {
-    SetProp( NewTextChild( node, "svc" ), "id", svc );
+    SetProp( NewTextChild( node, "svc" ), "id", svc.svcId );
   }
 }
 
@@ -420,10 +427,15 @@ void TPriceRFISCList::toContextDB(int grp_id,bool pr_only_del) const
 
 void TPriceRFISCList::toDB(int grp_id) const
 {
+  //добавляем только новые записи
+  TPriceRFISCList r;
+  r.fromDB(grp_id);
+  std::vector<SVCKey> bd_svcs;
+  r.haveStatusDirect( "", bd_svcs ); //просто выбрали все те, которые записаны в БД, у них статусы пустые, т.к. не храняться в БД
   TQuery Qry(&OraSession);
   Qry.SQLText =
-    "INSERT INTO pay_services(grp_id,pax_id,transfer_num,rfisc,service_type,airline,name_view,name_view_lat,list_id,svc_id,doc_id,pass_id,seg_id,price,currency,ticknum,ticket_cpn,time_paid)"
-    "  VALUES(:grp_id,:pax_id,:transfer_num,:rfisc,:service_type,:airline,:name_view,:name_view_lat,:list_id,:svc_id,:doc_id,:pass_id,:seg_id,:price,:currency,:ticknum,:ticket_cpn,:time_paid)";
+    "INSERT INTO pay_services(grp_id,pax_id,transfer_num,rfisc,service_type,airline,name_view,name_view_lat,list_id,svc_id,order_id,doc_id,pass_id,seg_id,price,currency,ticknum,ticket_cpn,time_paid)"
+    "  VALUES(:grp_id,:pax_id,:transfer_num,:rfisc,:service_type,:airline,:name_view,:name_view_lat,:list_id,:svc_id,:order_id,:doc_id,:pass_id,:seg_id,:price,:currency,:ticknum,:ticket_cpn,:time_paid)";
   Qry.CreateVariable("grp_id",otInteger,grp_id);
   Qry.DeclareVariable("pax_id",otInteger);
   Qry.DeclareVariable("transfer_num",otInteger);
@@ -434,6 +446,7 @@ void TPriceRFISCList::toDB(int grp_id) const
   Qry.DeclareVariable("name_view_lat",otString);
   Qry.DeclareVariable("list_id",otInteger);
   Qry.DeclareVariable("svc_id",otInteger);
+  Qry.DeclareVariable("order_id",otString);
   Qry.DeclareVariable("doc_id",otString);
   Qry.DeclareVariable("pass_id",otInteger);
   Qry.DeclareVariable("seg_id",otInteger);
@@ -446,6 +459,10 @@ void TPriceRFISCList::toDB(int grp_id) const
     SVCS svcs;
     p.second.getSVCS( svcs, STATUS_DIRECT_PAID );
     for ( const auto svc : svcs ) {
+      if ( std::find( bd_svcs.begin(), bd_svcs.end(), svc.first ) != bd_svcs.end() ||
+           svc.second.ticknum.empty()  ) { //уже есть в БД или еще не выписан
+        continue;
+      }
       p.first.toDB(Qry);
       p.second.toDB(Qry,svc.first);
       Qry.Execute();
@@ -478,6 +495,7 @@ void TPriceRFISCList::fromContextXML(xmlNodePtr node)
   SvcEmdRegnum::fromXML(node,SvcEmdRegnum::propStyle);
   surname = NodeAsString("surname",node);
   mps_order_id = NodeAsString("mps_order_id",node,"");
+  FPosId = NodeAsInteger( "pos_id", node, ASTRA::NoExists );
   error_code = NodeAsString("error_code",node,"");
   error_message = NodeAsString("error_message",node,"");
   SvcEmdPayDoc::fromXML(node);
@@ -509,6 +527,9 @@ void TPriceRFISCList::toContextXML(xmlNodePtr node,bool checkFormPay) const
   if ( !mps_order_id.empty() ) {
     NewTextChild(node, "mps_order_id", mps_order_id);
   }
+  if ( FPosId != ASTRA::NoExists ) {
+    NewTextChild( node, "pos_id", FPosId );
+  }
   if ( !error_code.empty() ) {
     NewTextChild(node, "error_code", error_code);
   }
@@ -537,7 +558,7 @@ void TPriceRFISCList::fromXML(xmlNodePtr node)
   while ( node != nullptr &&
           std::string("item") == (const char*)node->name ) {
     TPriceServiceItem item;
-    item.fromXML(node);
+    item.fromXML( node, SvcEmdRegnum::getRegnum() );
     auto p = find(item);
     if ( p != end() ) {
       SVCS svcs;
@@ -566,7 +587,7 @@ void TPriceRFISCList::toXML(xmlNodePtr node) const
       }
       xmlNodePtr n = NewTextChild( node2, "item" );
       p.second.toXML( n, svc.first );
-      if ( svc.second.valid() ) {
+      if ( svc.second.clientValid() ) {
         total += svc.second.price;
         if ( currency.empty() ) {
           currency = ElemIdToElemCtxt( ecCkin, etCurrency, svc.second.currency, efmtCodeNative );
@@ -593,7 +614,7 @@ void TPriceRFISCList::setServices( const TPaidRFISCList& list )
         tmpItem.need != ASTRA::NoExists &&
         tmpItem.need>0) // need - кол-во платить, paid -- paid - платные услуги
       {
-        TPriceServiceItem priceItem(tmpItem,paxNames.getPaxName(tmpItem.pax_id),std::map<std::string,SvcFromSirena>());
+        TPriceServiceItem priceItem(tmpItem,paxNames.getPaxName(tmpItem.pax_id),SVCS());
         LogTrace(TRACE5) << priceItem.list_id;
         insert( std::make_pair(p,priceItem) );
       }
@@ -605,10 +626,12 @@ void TPriceRFISCList::setServices( const TPaidRFISCList& list )
 
 void TPriceRFISCList::synchFromSirena(const SvcEmdSvcsAns& svcs)
 {
+  SVCKey svcKey("",SvcEmdRegnum::getRegnum());
   for ( const auto& nsvc : svcs ) {
     for ( auto& oitem : *this ) {
       SVCS::iterator f;
-      if ( oitem.second.findSVC( nsvc.id, f ) ) {
+      svcKey.svcId = nsvc.id;
+      if ( oitem.second.findSVC( svcKey, f ) ) {
         f->second.status_svc = nsvc.status;
         f->second.ticket_cpn = nsvc.ticket_cpn.empty()?f->second.ticket_cpn:nsvc.ticket_cpn;
         f->second.ticknum = nsvc.ticknum.empty()?f->second.ticknum:nsvc.ticknum;
@@ -622,7 +645,7 @@ bool TPriceRFISCList::synchFromSirena(const TPriceRFISCList& list, bool only_del
 {
   bool res = true;
 
-  std::set<std::string> svc_ids, doc_ids;
+  std::set<SVCKey> svc_ids, doc_ids;
   std::set<TServiceType::Enum> sevice_types;
 
   for ( const auto& nitem : list ) { //filter
@@ -641,7 +664,7 @@ bool TPriceRFISCList::synchFromSirena(const TPriceRFISCList& list, bool only_del
       SVCS::iterator f;
       if ( oitem.second.findSVC(s,f) &&
            f->second.doc.unpoundable ) {
-        doc_ids.insert(f->second.doc.doc_id);
+        doc_ids.insert(SVCKey(f->second.doc.doc_id,getRegnum()));
         LogTrace(TRACE5) << f->second.doc.doc_id;
       }
     }
@@ -687,7 +710,7 @@ bool TPriceRFISCList::synchFromSirena(const TPriceRFISCList& list, bool only_del
     for ( const auto &osvc : osvcs ) {
       if ( nsvcs.find(osvc.first)==nsvcs.end() ) {
         //LogTrace(TRACE5) << oitem->second.traceStr();
-        if ( doc_ids.find( osvc.second.doc.doc_id ) == doc_ids.end() &&
+        if ( doc_ids.find( SVCKey(osvc.second.doc.doc_id,getRegnum()) ) == doc_ids.end() &&
              sevice_types.find( oitem->first.service_type ) == sevice_types.end() ) {
           //LogTrace(TRACE5) << osvc.second.doc.doc_id;
           oitem->second.eraseSVC(osvc.first);
@@ -717,18 +740,18 @@ void TPriceRFISCList::setStatusDirect( const std::string &from, const std::strin
 
 bool TPriceRFISCList::haveStatusDirect( const std::string& statusDirect )
 {
-  std::vector<std::string> svcs;
+  std::vector<SVCKey> svcs;
   return haveStatusDirect( statusDirect, svcs );
 }
 
-bool TPriceRFISCList::haveStatusDirect( const std::string& statusDirect, std::vector<std::string> &svcs )
+bool TPriceRFISCList::haveStatusDirect( const std::string& statusDirect, std::vector<SVCKey> &svcs )
 {
   svcs.clear();
   for ( const auto& oitem : *this ) {
     SVCS nsvcs;
     oitem.second.getSVCS( nsvcs, statusDirect );
     for ( const auto& osvc : nsvcs ) {
-      if ( osvc.second.valid() ) {
+      if ( osvc.second.clientValid() ) {
         svcs.push_back( osvc.first );
       }
     }
@@ -736,7 +759,7 @@ bool TPriceRFISCList::haveStatusDirect( const std::string& statusDirect, std::ve
   return !svcs.empty();
 }
 
-bool TPriceRFISCList::getNextIssueQueryGrpEMD( std::vector<std::string> &svcs)
+bool TPriceRFISCList::getNextIssueQueryGrpEMD( std::vector<SVCKey> &svcs)
 {
   bool res = false;
   svcs.clear();
@@ -757,10 +780,10 @@ bool TPriceRFISCList::getNextIssueQueryGrpEMD( std::vector<std::string> &svcs)
         svcs.push_back( osvc.first );
         SVCS::iterator f;
         if ( !oitem.second.findSVC( osvc.first, f ) ) {
-          throw EXCEPTIONS::Exception( "svc not found %s", osvc.first.c_str() );
+          throw EXCEPTIONS::Exception( "svc not found %s", osvc.first.svcId.c_str() );
         }
         f->second.status_direct = TPriceRFISCList::STATUS_DIRECT_ISSUE_QUERY;
-        LogTrace(TRACE5) << __func__ << " " << osvc.first;
+        LogTrace(TRACE5) << __func__ << " " << osvc.first.svcId;
        //!!! break; //only one at step
       //!!!}
     }
@@ -780,7 +803,7 @@ bool TPriceRFISCList::terminalChoiceAny()
     SVCS svcs;
     nitem.second.getSVCS( svcs, TPriceServiceItem::EnumSVCS::only_for_pay );
     for ( const auto& nsvc : svcs ) {
-      if ( nsvc.second.valid() ) {
+      if ( nsvc.second.clientValid() ) {
         return true;
       }
     }
@@ -795,7 +818,7 @@ float TPriceRFISCList::getTotalCost()
     SVCS svcs;
     nitem.second.getSVCS( svcs, TPriceServiceItem::EnumSVCS::only_for_pay );
     for ( const auto& nsvc : svcs ) {
-      if ( nsvc.second.valid() ) {
+      if ( nsvc.second.clientValid() ) {
         res += nsvc.second.price;
       }
     }
@@ -809,7 +832,7 @@ std::string TPriceRFISCList::getTotalCurrency()
     SVCS svcs;
     nitem.second.getSVCS( svcs, TPriceServiceItem::EnumSVCS::only_for_pay );
     for ( const auto& nsvc : svcs ) {
-      if ( nsvc.second.valid() &&
+      if ( nsvc.second.clientValid() &&
            !nsvc.second.currency.empty() ) {
         return nsvc.second.currency;
       }
@@ -830,8 +853,8 @@ bool TPriceRFISCList::filterFromTerminal(const TPriceRFISCList& list)
       for ( const auto& nsvc : nsvcs ) {
         SVCS::iterator f;
         if ( oitem->second.findSVC( nsvc.first, f ) ) {
-          LogTrace(TRACE5) << "svc_id=" << nsvc.first << " " << f->second.status_direct;
-            if ( f->second.valid() &&
+          LogTrace(TRACE5) << "svc_id=" << nsvc.first.svcId << " " << f->second.status_direct;
+            if ( f->second.clientValid() &&
                  f->second.status_direct == TPriceRFISCList::STATUS_DIRECT_ORDER  ) {
               f->second.status_direct = TPriceRFISCList::STATUS_DIRECT_SELECTED;
               res = true;
@@ -843,15 +866,13 @@ bool TPriceRFISCList::filterFromTerminal(const TPriceRFISCList& list)
   return res;
 }
 
-int getKeyPaxId( int pax_id, TQuery &Qry )
+int getKeyPaxId( int pax_id )
 {
-  Qry.SetVariable("pax_id",pax_id);
-  Qry.Execute();
-  int res = Qry.Eof?ASTRA::NoExists:Qry.FieldAsInteger("pax_id");
-  if (res ==ASTRA::NoExists) { //!!!
-    res = pax_id;
-  }
-  return res;
+  std::map<int, CheckIn::TCkinPaxTknItem> tkns;
+  GetTCkinTickets(pax_id, tkns);
+  boost::optional<CheckIn::TCkinPaxTknItem> tkn=algo::find_opt<boost::optional>(tkns, 1);
+
+  return tkn?tkn.get().pax_id:pax_id;
 }
 
 
@@ -859,7 +880,10 @@ void SegsPaxs::fromDB(int grp_id, int point_dep)
 {
   segs.clear();
   TCkinRoute tckin_route;
-  tckin_route.GetRouteAfter(grp_id, crtNotCurrent, crtOnlyDependent);
+  tckin_route.getRouteAfter(GrpId_t(grp_id),
+                            TCkinRoute::NotCurrent,
+                            TCkinRoute::OnlyDependent,
+                            TCkinRoute::WithoutTransit);
   int seg_no = 0;
   segs.insert(std::make_pair(seg_no,PointGrpPaxs(point_dep,grp_id)));
   for ( auto p : tckin_route ) { //пробег по маршруту и группам
@@ -869,20 +893,6 @@ void SegsPaxs::fromDB(int grp_id, int point_dep)
     LogTrace(TRACE5) << seg_no << "=" << p.point_dep << ",grp_id=" << p.grp_id;
   }
   //начитка пассажиров
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "SELECT pax.ticket_no, pax.coupon_no, pax.ticket_rem, pax.ticket_confirm, "
-    "       pax.grp_id, pax.pax_id "
-    "FROM pax, tckin_pax_grp, "
-    "     (SELECT tckin_pax_grp.tckin_id, "
-    "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
-    "      FROM pax, tckin_pax_grp "
-    "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.pax_id=:pax_id) p "
-    "WHERE tckin_pax_grp.tckin_id=p.tckin_id AND "
-    "      pax.grp_id=tckin_pax_grp.grp_id AND "
-    "      tckin_pax_grp.first_reg_no-pax.reg_no=p.distance AND "
-    "      tckin_pax_grp.seg_no=1";
-  Qry.DeclareVariable("pax_id",otInteger);
   for ( auto s=segs.begin(); s!=segs.end(); ) {
     LogTrace(TRACE5) << s->first << "=(point_id=" << s->second.point_id << ",grp_id=" << s->second.grp_id << ")";
     TPaidRFISCList PaidRFISCList;
@@ -907,7 +917,7 @@ void SegsPaxs::fromDB(int grp_id, int point_dep)
             continue;
           }
           if ( s->second.paxs.find(p.pax_id) == s->second.paxs.end() ) {
-            s->second.paxs[ p.pax_id ] = getKeyPaxId( p.pax_id, Qry );
+            s->second.paxs[ p.pax_id ] = getKeyPaxId( p.pax_id );
             LogTrace(TRACE5) << "p.trfer_num=" << p.trfer_num << ",point_id =" << s->second.point_id << ",pax_id=" << p.pax_id;
           }
         }

@@ -642,6 +642,7 @@ boost::optional<FdqElem> readEdiFdq(_EDI_REAL_MES_STRUCT_ *pMes)
     std::string inbArrDateTime = GetDBFName(pMes, DataElement(2107), CompElement());
     std::string inbDepPoint = GetDBFName(pMes, DataElement(3215, 0, 1), CompElement());
     std::string inbArrPoint = GetDBFName(pMes, DataElement(3259, 0, 1), CompElement());
+    std::string flIndicator = GetDBFName(pMes, DataElement(9856), CompElement());
 
     FdqElem fdq;
     fdq.m_outbAirl = outbAirl;
@@ -674,6 +675,10 @@ boost::optional<FdqElem> readEdiFdq(_EDI_REAL_MES_STRUCT_ *pMes)
     }
     fdq.m_inbDepPoint = inbDepPoint;
     fdq.m_inbArrPoint = inbArrPoint;
+    if(flIndicator.empty()) {
+        flIndicator = "A";
+    }
+    fdq.m_flIndicator = flIndicator;
 
     LogTrace(TRACE3) << fdq;
 
@@ -920,11 +925,30 @@ boost::optional<ChdElem> readEdiChd(_EDI_REAL_MES_STRUCT_ *pMes)
     chd.m_origAirline = GetDBFName(pMes, DataElement(3127), CompElement("C059"));
     chd.m_origPoint = GetDBFName(pMes, DataElement(3800), CompElement("C059"));
 
+    chd.m_outbAirline = GetDBFName(pMes, DataElement(3127), CompElement("C013"));
+    std::string outbFlNum = GetDBFName(pMes, DataElement(3802), CompElement("C014"));
+    std::string outbDepDateTime = GetDBFName(pMes, DataElement(2281), CompElement());
+    chd.m_depPoint = GetDBFName(pMes, DataElement(3215), CompElement());
+    chd.m_arrPoint = GetDBFName(pMes, DataElement(3259), CompElement());
+    chd.m_outbFlContinIndic = GetDBFName(pMes, DataElement(9856), CompElement());
+
+    if(!outbFlNum.empty()) {
+        chd.m_outbFlNum = getFlightNum(outbFlNum);
+    }
+
+    if(outbDepDateTime.length() == 6) {
+        chd.m_depDate = Dates::rrmmdd(outbDepDateTime);
+    } else {
+        if(!outbDepDateTime.empty()) {
+            LogWarning(STDLOG) << "Invalid action flight date/time of departure: '" << outbDepDateTime << "'";
+        }
+    }
+
     unsigned num_hosts = GetNumComposite(pMes, "C696");
 
     EdiPointHolder c696_holder(pMes);
 
-    for (unsigned i = 0; i < num_hosts; i++)
+    for(unsigned i = 0; i < num_hosts; i++)
     {
         SetEdiPointToCompositeG(pMes, "C696", i, "EtErr::INV_HOST_DEFINITION");
 
@@ -937,6 +961,21 @@ boost::optional<ChdElem> readEdiChd(_EDI_REAL_MES_STRUCT_ *pMes)
     LogTrace(TRACE3) << chd;
 
     return chd;
+}
+
+boost::optional<edifact::DmcElem> readEdiDmc(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    EdiPointHolder pfd_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "DMC")) {
+        return boost::optional<DmcElem>();
+    }
+
+    DmcElem dmc;
+    dmc.m_maxNumRespFlights = GetDBFName(pMes, DataElement(6350), CompElement());
+
+    LogTrace(TRACE3) << dmc;
+
+    return dmc;
 }
 
 boost::optional<FsdElem> readEdiFsd(_EDI_REAL_MES_STRUCT_ *pMes)

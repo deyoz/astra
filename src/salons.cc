@@ -27,6 +27,7 @@
 #include "crafts/CraftCaches.h"
 #include "seat_descript.h"
 #include "seat_number.h"
+#include "astra_elems.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/slogger.h"
@@ -187,6 +188,9 @@ void TSeatTariffMap::get(TQuery &Qry, const std::string &traceDetail)
   clear();
 
   Qry.Execute();
+  int airps_priority_idx=Qry.GetFieldIndex("airps_priority");
+  int brand_priority_idx=Qry.GetFieldIndex("brand_priority");
+  int brand_code_idx=Qry.GetFieldIndex("brand_code");
   for(; !Qry.Eof; Qry.Next())
   {
     TExtRFISC rfisc;
@@ -195,11 +199,18 @@ void TSeatTariffMap::get(TQuery &Qry, const std::string &traceDetail)
     rfisc.currency_id=Qry.FieldAsString("rate_cur");
     rfisc.code=Qry.FieldAsString("rfisc");
     rfisc.pr_prot_ckin=Qry.FieldAsInteger("pr_prot_ckin");
-    if (Qry.GetFieldIndex("brand_priority")>=0)
-      rfisc.brand_priority=Qry.FieldAsInteger("brand_priority");
+    if (airps_priority_idx>=0)
+      rfisc.airps_priority=Qry.FieldAsInteger(airps_priority_idx);
+    if (brand_priority_idx>=0)
+      rfisc.brand_priority=Qry.FieldAsInteger(brand_priority_idx);
+    if (brand_code_idx>=0)
+      rfisc.brand_code=Qry.FieldAsString(brand_code_idx);
 
     pair<TSeatTariffMapType::iterator, bool> i=insert(make_pair(rfisc.color, rfisc));
-    if (!i.second && rfisc!=i.first->second && rfisc.brand_priority==i.first->second.brand_priority)
+    if (!i.second && rfisc!=i.first->second &&
+        rfisc.brand_priority==i.first->second.brand_priority &&
+        rfisc.brand_code==i.first->second.brand_code &&
+        rfisc.airps_priority==i.first->second.airps_priority)
     {
       ProgError(STDLOG, "TSeatTariffMap::get: color=%s duplicated (%s)", rfisc.color.c_str(), traceDetail.c_str());
       trace(TRACE5);
@@ -247,7 +258,8 @@ void TSeatTariffMap::get_rfisc_colors_internal(const std::string &airline_oper)
   else static_cast<TSeatTariffMapType&>(*this)=iRFISColors->second;
 }
 
-void TSeatTariffMap::get(const TAdvTripInfo &operFlt, const TSimpleMktFlight &markFlt, const CheckIn::TPaxTknItem &tkn)
+void TSeatTariffMap::get(const TAdvTripInfo &operFlt, const TSimpleMktFlight &markFlt,
+                         const CheckIn::TPaxTknItem &tkn, const std::string& airp_arv)
 {
   clear();
 
@@ -275,14 +287,17 @@ void TSeatTariffMap::get(const TAdvTripInfo &operFlt, const TSimpleMktFlight &ma
       _status=stUnknownETDisp;
       return;
     }
-
     _potential_queries++;
     _real_queries++;
     TCachedQuery Qry(
       "SELECT rfisc_comp_props.rate_color, rfisc_comp_props.pr_prot_ckin, rfisc_rates.rate, rfisc_rates.rate_cur, rfisc_rates.rfisc, "
-      "       LENGTH(:fare_basis)-REGEXP_COUNT(brand_fares.fare_basis, '[^*]') AS brand_priority "
+      "       DECODE(airp_dep,NULL,0,4) + "
+      "       DECODE(airp_arv,NULL,0,2) AS airps_priority, "
+      "       LENGTH(:fare_basis)-REGEXP_COUNT(brand_fares.fare_basis, '[^*]') AS brand_priority, brand_fares.brand AS brand_code "
       "FROM brand_fares, rfisc_rates, rfisc_comp_props "
       "WHERE brand_fares.airline=rfisc_rates.airline AND "
+      "      (rfisc_rates.airp_dep IS NULL OR rfisc_rates.airp_dep=:airp_dep) AND "
+      "      (rfisc_rates.airp_arv IS NULL OR rfisc_rates.airp_arv=:airp_arv) AND "
       "      brand_fares.brand=rfisc_rates.brand AND "
       "      rfisc_rates.airline=rfisc_comp_props.airline AND "
       "      rfisc_rates.rfisc=rfisc_comp_props.code AND "
@@ -292,8 +307,10 @@ void TSeatTariffMap::get(const TAdvTripInfo &operFlt, const TSimpleMktFlight &ma
       "      :fare_basis LIKE REPLACE(brand_fares.fare_basis,'*','%') AND "
       "      :issue_date>=brand_fares.sale_first_date AND "
       "      (brand_fares.sale_last_date IS NULL OR :issue_date<brand_fares.sale_last_date) "
-      "ORDER BY brand_priority",
+      "ORDER BY airps_priority DESC, brand_priority, brand_fares.brand",
       QParams() << QParam("airline", otString, operFlt.airline)
+                << QParam("airp_dep", otString, operFlt.airp)
+                << QParam("airp_arv", otString, airp_arv)
                 << QParam("fare_basis", otString, etick.fare_basis)
                 << QParam("issue_date", otDate, etick.issue_date)
     );
@@ -301,6 +318,8 @@ void TSeatTariffMap::get(const TAdvTripInfo &operFlt, const TSimpleMktFlight &ma
     ostringstream s;
     s << "status=stUseRFISC, "
       << "airline=" << operFlt.airline << ", "
+      << "airp_dep="<< operFlt.airp << ", "
+      << "airp_arv="<< airp_arv << ", "
       << "fare_basis=" << etick.fare_basis << ", "
       << "issue_date=" << DateTimeToStr(etick.issue_date, "dd.mm.yy");
     get(Qry.get(), s.str());
@@ -339,7 +358,8 @@ void TSeatTariffMap::get(const TAdvTripInfo &operFlt, const TSimpleMktFlight &ma
 void TSeatTariffMap::get(const int point_id_oper,
                          const int point_id_mark,
                          const int grp_id,
-                         const int pax_id)
+                         const int pax_id,
+                         const std::string& airp_arv)
 {
   clear();
 
@@ -383,7 +403,7 @@ void TSeatTariffMap::get(const int point_id_oper,
     CheckIn::LoadPaxTkn(pax_id, tkn);
   };
 
-  get(iOper->second, iMark->second, tkn);
+  get(iOper->second, iMark->second, tkn, airp_arv);
 }
 
 void TSeatTariffMap::get(const int pax_id)
@@ -392,7 +412,7 @@ void TSeatTariffMap::get(const int pax_id)
 
   _potential_queries++;
   _real_queries++;
-  TCachedQuery Qry("SELECT pax_grp.point_dep AS point_id_oper, pax_grp.point_id_mark, pax_grp.grp_id "
+  TCachedQuery Qry("SELECT pax_grp.point_dep AS point_id_oper, pax_grp.point_id_mark, pax_grp.grp_id, pax_grp.airp_arv "
                    "FROM pax_grp, pax "
                    "WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=:pax_id",
                    QParams() << QParam("pax_id", otInteger, pax_id));
@@ -405,8 +425,9 @@ void TSeatTariffMap::get(const int pax_id)
   int point_id_oper=Qry.get().FieldAsInteger("point_id_oper");
   int point_id_mark=Qry.get().FieldAsInteger("point_id_mark");
   int grp_id=Qry.get().FieldAsInteger("grp_id");
+  std::string airp_arv=Qry.get().FieldAsString("airp_arv");
 
-  get(point_id_oper, point_id_mark, grp_id, pax_id);
+  get(point_id_oper, point_id_mark, grp_id, pax_id, airp_arv);
 }
 
 void TSeatTariffMap::trace( TRACE_SIGNATURE ) const
@@ -1414,7 +1435,7 @@ xmlNodePtr TPlace::Build( xmlNodePtr node, int point_dep, bool pr_lat_seat,
          TSeatTariff seatTariff;
          seatTariff.color = irfisc->second.color;
          seatTariff.rate = 1; //!!!
-         seatTariff.currency_id = "РУБ"; //!!!
+         seatTariff.currency_id = ElemIdToClientElem( etCurrency, "РУБ", efmtCodeNative ); //!!!
          tariffs.insert( make_pair( irfisc->first, seatTariff ) );
        }
      }
@@ -1435,7 +1456,7 @@ xmlNodePtr TPlace::Build( xmlNodePtr node, int point_dep, bool pr_lat_seat,
            NewTextChild( propNode, "point_id", itariff->first );
            NewTextChild( propNode, "value", itariff->second.rate );
            NewTextChild( propNode, "color", itariff->second.color );
-           NewTextChild( propNode, "currency_id", itariff->second.currency_id );
+           NewTextChild( propNode, "currency_id", ElemIdToClientElem( etCurrency, itariff->second.currency_id, efmtCodeNative ) );
            /*!!!if ( !itariff->second.code.empty() ) {
              NewTextChild( propNode, "rfics", itariff->second.code );
            }*/
@@ -1444,7 +1465,7 @@ xmlNodePtr TPlace::Build( xmlNodePtr node, int point_dep, bool pr_lat_seat,
            if ( !pr_update ) {
              xmlNodePtr n = NewTextChild( node, "tariff",itariff->second.rate );
              SetProp( n, "color", itariff->second.color );
-             SetProp( n, "currency_id", itariff->second.currency_id );
+             SetProp( n, "currency_id", ElemIdToClientElem( etCurrency, itariff->second.currency_id, efmtCodeNative ) );
              /*!!!if ( !itariff->second.code.empty() ) {
                SetProp( n, "rfics", itariff->second.code );
              }*/
@@ -1453,7 +1474,7 @@ xmlNodePtr TPlace::Build( xmlNodePtr node, int point_dep, bool pr_lat_seat,
                   //делаем заглушку для того, чтобы работало
              xmlNodePtr n = NewTextChild( propsNode, "tariff",itariff->second.rate );
              SetProp( n, "color", itariff->second.color );
-             SetProp( n, "currency_id", itariff->second.currency_id );
+             SetProp( n, "currency_id",  ElemIdToClientElem( etCurrency, itariff->second.currency_id, efmtCodeNative ) );
              /*!!!if ( !itariff->second.code.empty() ) {
                SetProp( n, "rfics", itariff->second.code );
              }*/
@@ -1485,13 +1506,13 @@ xmlNodePtr TPlace::Build( xmlNodePtr node, int point_dep, bool pr_lat_seat,
            }
            NewTextChild( propNode, "color", irfisc->second.color );
            if ( !irfisc->second.currency_id.empty() ) {
-             NewTextChild( propNode, "currency_id", irfisc->second.currency_id );
+             NewTextChild( propNode, "currency_id", ElemIdToClientElem( etCurrency, irfisc->second.currency_id, efmtCodeNative )  );
            }
            if ( !irfisc->second.code.empty() ) {
              NewTextChild( propNode, "code", irfisc->second.code );
            }
 
-           NewTextChild( propNode, "currency_id", irfisc->second.currency_id );
+           NewTextChild( propNode, "currency_id", ElemIdToClientElem( etCurrency, irfisc->second.currency_id, efmtCodeNative ) );
            NewTextChild( propNode, "code", irfisc->second.code );
          }
          else {
@@ -1502,7 +1523,7 @@ xmlNodePtr TPlace::Build( xmlNodePtr node, int point_dep, bool pr_lat_seat,
            }
            NewTextChild( propNode, "color", irfisc->second.color );
            if ( !irfisc->second.currency_id.empty() ) {
-             NewTextChild( propNode, "currency_id", irfisc->second.currency_id );
+             NewTextChild( propNode, "currency_id", ElemIdToClientElem( etCurrency, irfisc->second.currency_id, efmtCodeNative ) );
            }
            if ( !irfisc->second.code.empty() ) {
              NewTextChild( propNode, "code", irfisc->second.code );
@@ -1785,7 +1806,7 @@ xmlNodePtr TPlace::Build( xmlNodePtr node, bool pr_lat_seat, bool pr_update ) co
    if ( !SeatTariff.empty() ) {
      xmlNodePtr n = NewTextChild( node, "tariff", SeatTariff.rate );
      SetProp( n, "color", SeatTariff.color );
-     SetProp( n, "currency_id", SeatTariff.currency_id );
+     SetProp( n, "currency_id", ElemIdToClientElem( etCurrency, SeatTariff.currency_id, efmtCodeNative ) );
 /*!!!     if ( !SeatTariff.RFISC.empty() ) {
        SetProp( n, "rfics", SeatTariff.RFISC );
      }*/
@@ -2607,8 +2628,10 @@ void TSalonList::ReadPaxs( TQuery &Qry, TPaxList &pax_list )
   }
 }
 /* если пассажир зарегистрирован, то в этой выборке он не участует*/
-void TSalonList::ReadCrsPaxs( TQuery &Qry, TPaxList &pax_list )
+void TSalonList::ReadCrsPaxs( TQuery &Qry, TPaxList &pax_list,
+                              int pax_id, std::string &airp_arv )
 {
+  airp_arv.clear();
   int idx_pax_id = Qry.FieldIndex( "pax_id" );
   int idx_seats = Qry.FieldIndex( "seats" );
   int idx_pers_type = Qry.FieldIndex( "pers_type" );
@@ -2617,10 +2640,15 @@ void TSalonList::ReadCrsPaxs( TQuery &Qry, TPaxList &pax_list )
   int idx_orig_class = Qry.FieldIndex( "orig_class" );
   int idx_cabin_class = Qry.FieldIndex( "cabin_class" );
   int idx_parent_pax_id = Qry.FieldIndex( "parent_pax_id" );
+  int idx_airp_arv = Qry.FieldIndex( "airp_arv" );
   for ( ; !Qry.Eof; Qry.Next() ) {
     int id = Qry.FieldAsInteger( idx_pax_id );
     if ( pax_list.find( id ) != pax_list.end() ) {
       continue;
+    }
+    if ( id == pax_id &&
+         idx_airp_arv >= 0 ) {
+      airp_arv = Qry.FieldAsString( idx_airp_arv );
     }
     TSalonPax pax;
     pax.seats = Qry.FieldAsInteger( idx_seats );
@@ -4237,6 +4265,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
       ReadRFISCColors( Qry, filterRoutes, prior_compon_props_point_id );
     }
   }
+  std::string pax_airp_arv;
   if ( !only_compon_props ) {
     // начитываем список зарегистрированных пассажиров по маршруту  pax_list
     Qry.Clear();
@@ -4249,7 +4278,8 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
       "        pax_grp.point_dep, pax_grp.point_arv, "
       "        crs_inf.pax_id AS parent_pax_id, "
       "        DECODE(client_type,:web_client,1,:mobile_client,1,0) pr_web, "
-      "        crew_type "
+      "        crew_type, "
+      "        pax_grp.airp_arv "
       "    FROM pax_grp, pax, crs_inf "
       "   WHERE pax.grp_id=pax_grp.grp_id AND "
       "         pax_grp.point_dep=:point_dep AND "
@@ -4269,10 +4299,11 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
     // начитываем список забронированных пассажиров по рейсу  pax_list
     Qry.Clear();
     Qry.SQLText =
-      "SELECT crs_pax.pax_id, seats, pers_type, name, surname, "
-      "       crs_pnr.class AS cabin_class, "+
+      "SELECT crs_pax.pax_id, seats, pers_type, name, surname, "+
+      CheckIn::TSimplePaxItem::cabinClassFromCrsSQL()+" AS cabin_class, "+
       CheckIn::TSimplePaxItem::origClassFromCrsSQL()+" AS orig_class, "
-      "       DECODE( crs_pax.inf_id, NULL, NULL, crs_pax.pax_id ) AS parent_pax_id "
+      "       DECODE( crs_pax.inf_id, NULL, NULL, crs_pax.pax_id ) AS parent_pax_id, "
+      "       crs_pnr.airp_arv "
       "    FROM crs_pax, crs_pnr, tlg_binding "
       "   WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
       "         crs_pnr.point_id=tlg_binding.point_id_tlg AND "
@@ -4284,7 +4315,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
           iseg!=filterRoutes.end(); iseg++ ) {
       Qry.SetVariable( "point_dep", iseg->point_id );
       Qry.Execute();
-      ReadCrsPaxs( Qry, pax_lists[ iseg->point_id ] );
+      ReadCrsPaxs( Qry, pax_lists[ iseg->point_id ], tariff_pax_id, pax_airp_arv );
 //      ProgTrace( TRACE5, "TSalonList::ReadFlight: crs_pax_lists[ %d ].size()=%zu", iseg->point_id, pax_lists[ iseg->point_id ].size() );
     }
   }
@@ -4351,7 +4382,16 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
         if ( !mktFlight.empty() ) {
           CheckIn::TPaxTknItem tkn;
           CheckIn::LoadCrsPaxTkn( tariff_pax_id, tkn);
-          tariffMap.get( operFlt, mktFlight, tkn );
+          if ( pax_airp_arv.empty() ) {
+            CheckIn::TSimplePnrItem spi;
+            if ( spi.getByPaxId( tariff_pax_id ) ) {
+              pax_airp_arv = spi.airp_arv;
+            }
+            else {
+              LogError(STDLOG) << "TSimplePnrItem::getByPaxId(" << tariff_pax_id << ") return false";
+            }
+          }
+          tariffMap.get( operFlt, mktFlight, tkn, pax_airp_arv );
           paxTariff = (tariffMap.status() == TSeatTariffMap::stUseRFISC);
         }
       }
@@ -4530,7 +4570,6 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
   xmlNodePtr salonNode = NodeAsNodeFast( "placelist", node );
   TSeatRemark seatRemark;
   int lat_count = 0, rus_count = 0;
-  string rus_lines = rus_seat, lat_lines = lat_seat;
   TElemFmt fmt;
   std::map<std::string,pair<TSeatTariff, TPlace> > uniqTariffs;
   TSeatTariffMap tariffMap;
@@ -4583,13 +4622,11 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
       place.xname = NodeAsStringFast( "xname", node );
 
       if ( !pr_lat_seat_init ) {
-        if ( rus_lines.find( place.xname ) != string::npos ) {
-          rus_count++;
+        boost::optional<bool> isLatin=SeatNumber::isLatinIataLine(place.xname);
+        if (isLatin) {
+          isLatin.get()?lat_count++:rus_count++;
         }
-          if ( lat_lines.find( place.xname ) != string::npos ) {
-          lat_count++;
-        }
-        }
+      }
       place.xname = SeatNumber::tryNormalizeLine( place.xname );
       place.yname = SeatNumber::tryNormalizeRow( NodeAsStringFast( "yname", node ) );
 
@@ -4669,6 +4706,7 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
         place.AddLayer( seatlayer.point_id, seatlayer );
       }
 
+      TElemFmt fmt;
       if ( TReqInfo::Instance()->desk.compatible( TRANSIT_CRAFT_VERSION ) ) {
         n1 = GetNodeFast( "tariffs", node );
         if ( n1 ) {
@@ -4680,7 +4718,7 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
             seatTariff.color = NodeAsStringFast( "color", n2, "" );
             if ( seatTariff.color != "clBtnFace" ) { // ошибка на стороне терминала в случае лат. режима
               seatTariff.rate = NodeAsFloatFast( "value", n2, NoExists );
-              seatTariff.currency_id = NodeAsStringFast( "currency_id", n2, "" );
+              seatTariff.currency_id = ElemToElemId( etCurrency, NodeAsStringFast( "currency_id", n2, "" ), fmt );
               checkTariffs( place, seatTariff, uniqTariffs, pr_craft_lat );
               place.AddTariff( point_id, seatTariff );
               if ( !TReqInfo::Instance()->desk.compatible( RFISC_VERSION ) &&
@@ -4707,7 +4745,7 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
           seatTariff.color = NodeAsString( "@color", n1 );
           if ( seatTariff.color != "clBtnFace" ) { // ошибка на стороне терминала в случае лат. режима
             seatTariff.rate = NodeAsFloat( n1 );
-            seatTariff.currency_id = NodeAsString( "@currency_id", n1 );
+            seatTariff.currency_id = ElemToElemId( etCurrency, NodeAsString( "@currency_id", n1 ), fmt );
             checkTariffs( place, seatTariff, uniqTariffs, pr_craft_lat );
             place.AddTariff( vpoint_id, seatTariff );
             if ( !TReqInfo::Instance()->desk.compatible( RFISC_VERSION ) &&
@@ -6547,11 +6585,9 @@ bool TPlaceList::GetisPlaceXY( string placeName, TPoint &p )
       break;
   if ( i )
     placeName.erase( 0, i );
-  string seat_no = placeName, salon_seat_no;
-  if ( placeName == CharReplace( seat_no, rus_seat, lat_seat ) )
-    CharReplace( seat_no, lat_seat, rus_seat );
-  if ( placeName == seat_no )
-    seat_no.clear();
+
+  string seat_no = SeatNumber::stupidlyChangeEncoding(placeName), salon_seat_no;
+
   for( vector<string>::iterator ix=xs.begin(); ix!=xs.end(); ix++ )
     for ( vector<string>::iterator iy=ys.begin(); iy!=ys.end(); iy++ ) {
         salon_seat_no = SeatNumber::tryDenormalizeRow(*iy) + SeatNumber::tryDenormalizeLine(*ix,false);
@@ -6826,26 +6862,75 @@ int GetCompId( const std::string craft, const std::string bort, const std::strin
  }
 }
 
-struct TTripClasses {
+struct TTripClass {
   int block;
   int protect;
   int cfg;
-  TTripClasses() {
+  TTripClass() {
     block = 0;
     protect = 0;
     cfg = 0;
   }
+  bool operator == ( const TTripClass &value ) const {
+    return ( block == value.block &&
+             protect == value.protect &&
+             cfg == value.cfg );
+  }
 };
 
-void setTRIP_CLASSES( int point_id )
-{
-	TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "DELETE trip_classes WHERE point_id = :point_id ";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  Qry.Clear();
-  Qry.SQLText =
+class TTripClasses: private std::map<string,TTripClass> {
+  private:
+    int point_id;
+  public:
+  TTripClasses( int vpoint_id ) {
+    point_id = vpoint_id;
+  }
+  void deleteCfg( ) {
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText =
+      "DELETE trip_classes WHERE point_id = :point_id ";
+    Qry.CreateVariable( "point_id", otInteger, point_id );
+    Qry.Execute();
+  }
+  void read() {
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText =
+      "SELECT class, cfg, block, prot FROM trip_classes "
+      " WHERE point_id=:point_id";
+    Qry.CreateVariable( "point_id", otInteger, point_id );
+    Qry.Execute();
+    clear();
+    for ( ; !Qry.Eof; Qry.Next() ) {
+      TTripClass cl;
+      cl.cfg = Qry.FieldAsInteger( "cfg" );
+      cl.block = Qry.FieldAsInteger( "block" );
+      cl.protect = Qry.FieldAsInteger( "prot" );
+      insert( make_pair( Qry.FieldAsString( "class" ), cl ) );
+    }
+  }
+  bool operator == ( const TTripClasses &trip_classes ) const {
+     for ( TTripClasses::const_iterator i=begin(); i!=end(); i++ ) {
+       TTripClasses::const_iterator j = trip_classes.find( i->first );
+       if ( j == trip_classes.end() ||
+            !(j->second == i->second) ) {
+         return false;
+       }
+     }
+     for ( TTripClasses::const_iterator i=trip_classes.begin(); i!=trip_classes.end(); i++ ) {
+       TTripClasses::const_iterator j = find( i->first );
+       if ( j == end() ||
+            !(j->second == i->second) ) {
+         return false;
+       }
+     }
+     return true;
+  }
+  void readLayerCfg( ) {
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText =
     "SELECT t.num, t.x, t.y, t.class, t.elem_type, r.layer_type"
     " FROM trip_comp_ranges r, trip_comp_elems t "
     "WHERE r.point_id=:point_id AND "
@@ -6854,90 +6939,151 @@ void setTRIP_CLASSES( int point_id )
     "      t.x=r.x AND "
     "      t.y=r.y AND "
     "      r.layer_type in (:blockcent_layer,:disable_layer,:protect_layer)";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "blockcent_layer", otString, EncodeCompLayerType(ASTRA::cltBlockCent) );
-  Qry.CreateVariable( "disable_layer", otString, EncodeCompLayerType(ASTRA::cltDisable) );
-  Qry.CreateVariable( "protect_layer", otString, EncodeCompLayerType(ASTRA::cltProtect) );
-  Qry.Execute();
-  int idx_num = Qry.FieldIndex( "num" );
-  int idx_x = Qry.FieldIndex( "x" );
-  int idx_y = Qry.FieldIndex( "y" );
-  int idx_elem_type = Qry.FieldIndex( "elem_type" );
-  int idx_class = Qry.FieldIndex( "class" );
-  int idx_layer_type = Qry.FieldIndex( "layer_type" );
-  map<string,vector<TPlace> > seats;
-  for ( ; !Qry.Eof; Qry.Next() ) {
-    if ( !TCompElemTypes::Instance()->isSeat( Qry.FieldAsString( idx_elem_type ) ) ) {
-      continue;
-    }
-    TPlace seat;
-    seat.num = Qry.FieldAsInteger( idx_num );
-    seat.x = Qry.FieldAsInteger( idx_x );
-    seat.y = Qry.FieldAsInteger( idx_y );
-    seat.clname = Qry.FieldAsString( idx_class );
-    TSeatLayer seatLayer;
-    seatLayer.point_id = point_id;
-    seatLayer.layer_type = DecodeCompLayerType( Qry.FieldAsString( idx_layer_type ) );
-    vector<TPlace>::iterator iseat;
-    for ( iseat=seats[ seat.clname ].begin(); iseat!=seats[ seat.clname ].end(); iseat++ ) {
-      if ( iseat->num == seat.num &&
-           iseat->x == seat.x &&
-           iseat->y == seat.y ) {
-        break;
+    Qry.CreateVariable( "point_id", otInteger, point_id );
+    Qry.CreateVariable( "blockcent_layer", otString, EncodeCompLayerType(ASTRA::cltBlockCent) );
+    Qry.CreateVariable( "disable_layer", otString, EncodeCompLayerType(ASTRA::cltDisable) );
+    Qry.CreateVariable( "protect_layer", otString, EncodeCompLayerType(ASTRA::cltProtect) );
+    Qry.Execute();
+    int idx_num = Qry.FieldIndex( "num" );
+    int idx_x = Qry.FieldIndex( "x" );
+    int idx_y = Qry.FieldIndex( "y" );
+    int idx_elem_type = Qry.FieldIndex( "elem_type" );
+    int idx_class = Qry.FieldIndex( "class" );
+    int idx_layer_type = Qry.FieldIndex( "layer_type" );
+    map<string,vector<TPlace> > seats;
+    for ( ; !Qry.Eof; Qry.Next() ) {
+      if ( !TCompElemTypes::Instance()->isSeat( Qry.FieldAsString( idx_elem_type ) ) ) {
+        continue;
+      }
+      TPlace seat;
+      seat.num = Qry.FieldAsInteger( idx_num );
+      seat.x = Qry.FieldAsInteger( idx_x );
+      seat.y = Qry.FieldAsInteger( idx_y );
+      seat.clname = Qry.FieldAsString( idx_class );
+      TSeatLayer seatLayer;
+      seatLayer.point_id = point_id;
+      seatLayer.layer_type = DecodeCompLayerType( Qry.FieldAsString( idx_layer_type ) );
+      vector<TPlace>::iterator iseat;
+      for ( iseat=seats[ seat.clname ].begin(); iseat!=seats[ seat.clname ].end(); iseat++ ) {
+        if ( iseat->num == seat.num &&
+             iseat->x == seat.x &&
+             iseat->y == seat.y ) {
+          break;
+        }
+      }
+      if ( iseat != seats[ seat.clname ].end() ) {
+        iseat->AddLayer( point_id, seatLayer );
+      }
+      else {
+        seat.AddLayer( point_id, seatLayer );
+        seats[ seat.clname ].push_back( seat );
       }
     }
-    if ( iseat != seats[ seat.clname ].end() ) {
-      iseat->AddLayer( point_id, seatLayer );
+    for ( map<string,vector<TPlace> >::iterator iclass=seats.begin(); iclass!=seats.end(); iclass++ ) {
+      for ( vector<TPlace>::iterator iseat=iclass->second.begin(); iseat!=iclass->second.end(); iseat++ ) {
+        if ( iseat->getCurrLayer( point_id ).layer_type == cltBlockCent ||
+             iseat->getCurrLayer( point_id ).layer_type == cltDisable ) {
+          TTripClasses::iterator tc = find( iclass->first );
+          if ( tc == end() ) {
+            insert( make_pair( iclass->first, TTripClass() ) );
+            tc = find( iclass->first );
+          }
+          tc->second.block++;
+        }
+        if ( iseat->getCurrLayer( point_id ).layer_type == ASTRA::cltProtect ) {
+          TTripClasses::iterator tc = find( iclass->first );
+          if ( tc == end() ) {
+            insert( make_pair( iclass->first, TTripClass() ) );
+            tc = find( iclass->first );
+          }
+          tc->second.protect++;
+        }
+      }
+    }
+  }
+  void setCfg( const std::map<string,TTripClass> &values ) {
+    clear();
+    insert( values.begin(), values.end() );
+  }
+  void readClassCfg( int id, TReadStyle readStyle ) {
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    if ( readStyle == rTripSalons ) {
+      Qry.SQLText =
+        "SELECT class, elem_type, COUNT( elem_type ) cfg "
+        " FROM trip_comp_elems "
+        "WHERE trip_comp_elems.point_id=:id AND "
+        "      class IS NOT NULL "
+        "GROUP BY class, elem_type";
     }
     else {
-      seat.AddLayer( point_id, seatLayer );
-      seats[ seat.clname ].push_back( seat );
+      Qry.SQLText =
+        "SELECT class, elem_type, COUNT( elem_type ) cfg "
+        " FROM comp_elems "
+        "WHERE comp_elems.comp_id=:id AND "
+        "      class IS NOT NULL "
+        "GROUP BY class, elem_type";
     }
-  }
-  map<string,TTripClasses> trip_classes;
-  for ( map<string,vector<TPlace> >::iterator iclass=seats.begin(); iclass!=seats.end(); iclass++ ) {
-    for ( vector<TPlace>::iterator iseat=iclass->second.begin(); iseat!=iclass->second.end(); iseat++ ) {
-      if ( iseat->getCurrLayer( point_id ).layer_type == cltBlockCent ||
-           iseat->getCurrLayer( point_id ).layer_type == cltDisable ) {
-        trip_classes[ iclass->first ].block++;
-      }
-      if ( iseat->getCurrLayer( point_id ).layer_type == ASTRA::cltProtect ) {
-        trip_classes[ iclass->first ].protect++;
-      }
-    }
-  }
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT class, elem_type, COUNT( elem_type ) cfg "
-    " FROM trip_comp_elems "
-    "WHERE trip_comp_elems.point_id=:point_id AND "
-    "      class IS NOT NULL "
-    "GROUP BY class, elem_type";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  for ( ; !Qry.Eof; Qry.Next() ) {
-    if ( !TCompElemTypes::Instance()->isSeat( Qry.FieldAsString( "elem_type" ) ) ) {
-      continue;
-    }
-    trip_classes[ Qry.FieldAsString( "class" ) ].cfg += Qry.FieldAsInteger( "cfg" );
-  }
-  Qry.Clear();
-  Qry.SQLText =
-    "INSERT INTO trip_classes(point_id,class,cfg,block,prot) "
-    " VALUES(:point_id,:class,:cfg,:block,:prot)";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.DeclareVariable( "class", otString );
-  Qry.DeclareVariable( "cfg", otInteger );
-  Qry.DeclareVariable( "block", otInteger );
-  Qry.DeclareVariable( "prot", otInteger );
-  for( map<string,TTripClasses>::iterator iclass=trip_classes.begin(); iclass!=trip_classes.end(); iclass++ ) {
-    Qry.SetVariable( "class", iclass->first );
-    Qry.SetVariable( "cfg", iclass->second.cfg );
-    Qry.SetVariable( "block", iclass->second.block );
-    Qry.SetVariable( "prot", iclass->second.protect );
+    Qry.CreateVariable( "id", otInteger, id );
     Qry.Execute();
+    for ( ; !Qry.Eof; Qry.Next() ) {
+      if ( !TCompElemTypes::Instance()->isSeat( Qry.FieldAsString( "elem_type" ) ) ) {
+        continue;
+      }
+      TTripClasses::iterator tc = find( Qry.FieldAsString( "class" ) );
+      if ( tc == end() ) {
+        insert( make_pair( Qry.FieldAsString( "class" ), TTripClass() ) );
+        tc = find( Qry.FieldAsString( "class" ) );
+      }
+      tc->second.cfg += Qry.FieldAsInteger( "cfg" );
+    }
   }
-  CheckIn::TCounters().recount(point_id, CheckIn::TCounters::Total, __FUNCTION__);
+  void writeCfg( ) {
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText =
+      "INSERT INTO trip_classes(point_id,class,cfg,block,prot) "
+      " VALUES(:point_id,:class,:cfg,:block,:prot)";
+    Qry.CreateVariable( "point_id", otInteger, point_id );
+    Qry.DeclareVariable( "class", otString );
+    Qry.DeclareVariable( "cfg", otInteger );
+    Qry.DeclareVariable( "block", otInteger );
+    Qry.DeclareVariable( "prot", otInteger );
+    for( map<string,TTripClass>::iterator iclass=begin(); iclass!=end(); iclass++ ) {
+      Qry.SetVariable( "class", iclass->first );
+      Qry.SetVariable( "cfg", iclass->second.cfg );
+      Qry.SetVariable( "block", iclass->second.block );
+      Qry.SetVariable( "prot", iclass->second.protect );
+      Qry.Execute();
+    }
+    CheckIn::TCounters().recount(point_id, CheckIn::TCounters::Total, __FUNCTION__);
+  }
+  void processBaseCompCfg( int id ) {
+    deleteCfg( );
+    readClassCfg( id, rComponSalons );
+    writeCfg( );
+  }
+  void processSalonsCfg( ) {
+    deleteCfg( );
+    readLayerCfg( );
+    readClassCfg( point_id, rTripSalons );
+    writeCfg( );
+  }
+  string toString() {
+    string res = "cfg:";
+    for ( std::map<string,TTripClass>::iterator i=begin(); i!=end(); i++ ) {
+      res = res + " class=" + i->first + ",cfg=" + IntToString( i->second.cfg ) +
+                  ",protect=" + IntToString( i->second.protect ) +
+                  ",block=" + IntToString( i->second.block );
+    }
+    return res;
+  }
+};
+
+void setTRIP_CLASSES( int point_id )
+{
+  TTripClasses trip_classes( point_id );
+  trip_classes.processSalonsCfg( );
 }
 
 void CreateComps( const TCompsRoutes &routes, int comp_id )
@@ -7426,7 +7572,7 @@ std::string getDiffCompsAlarmRoutes( int point_id )
 TFindSetCraft SetCraft( bool pr_tranzit_routes, int point_id, TSetsCraftPoints &points )
 {
   TFlights flights;
-    flights.Get( point_id, ftTranzit );
+  flights.Get( point_id, ftTranzit );
   flights.Lock(__FUNCTION__);
 
   points.Clear();
@@ -7441,9 +7587,68 @@ TFindSetCraft SetCraft( bool pr_tranzit_routes, int point_id, TSetsCraftPoints &
   string airline = Qry.FieldAsString( "airline" );
   string airp = Qry.FieldAsString( "airp" );
   int old_comp_id = Qry.FieldAsInteger( "comp_id" );
-    string craft = Qry.FieldAsString( "craft" );
-
+  string craft = Qry.FieldAsString( "craft" );
     //!logProgTrace( TRACE5, "SetCraft: point_id=%d,pr_tranzit_routes=%d,bort=%s,craft=%s,old_comp_id=%d",
+
+  map<int,TCounters> crs_data;
+  if ( isFreeSeating( point_id ) ) { //свободная рассадка
+    ProgTrace( TRACE5, "SetCraft: isFreeSeating" );
+    if ( !bort.empty() && !craft.empty() ) {
+      Qry.Clear();
+      Qry.SQLText =
+        "SELECT comp_id FROM comps "
+        "WHERE craft=:craft AND bort=:bort";
+      Qry.CreateVariable( "craft", otString, craft );
+      Qry.CreateVariable( "bort", otString, bort );
+      Qry.Execute();
+      if ( !Qry.Eof ) {
+        int comp_id = Qry.FieldAsInteger( "comp_id" );
+
+        TTripClasses trip_classes1( point_id ), trip_classes2( point_id );
+
+        trip_classes1.read( ); //начитка old cfg
+        trip_classes2.readClassCfg( comp_id, rComponSalons ); //начитка new cfg
+        if ( trip_classes1 == trip_classes2 ) {
+          ProgTrace( TRACE5, "SetCraft: isFreeSeating found bort, return rsComp_NoChanges, trip_classes1=%s, trip_classes2=%s",
+                     trip_classes1.toString().c_str(), trip_classes2.toString().c_str() );
+          return rsComp_NoChanges;
+        }
+        trip_classes2.deleteCfg( ); //delete old
+        trip_classes2.writeCfg( ); //write new
+        ProgTrace( TRACE5, "SetCraft: isFreeSeating found bort, return rsComp_Found" );
+        LEvntPrms prms;
+        TCFG(point_id).param(prms);
+        TReqInfo::Instance()->LocaleToLog("EVT.LAYOUT_BASED_ON_BOARD_NUM", prms, ASTRA::evtFlt, point_id);
+        return rsComp_Found;
+      }
+    }
+    vector<int> v;
+    v.push_back( point_id );
+    getCrsData( v, crs_data ); //PNL CFG
+    if ( crs_data.find( point_id ) != crs_data.end() &&
+      crs_data[ point_id ].f + crs_data[ point_id ].c + crs_data[ point_id ].y > 0 ) {
+      TTripClasses trip_classes1( point_id ), trip_classes2( point_id );
+      trip_classes1.read( ); //начитка old cfg
+      map<string,TTripClass> cfgs;
+      cfgs[ "П" ].cfg = crs_data[ point_id ].f;
+      cfgs[ "Б" ].cfg = crs_data[ point_id ].c;
+      cfgs[ "Э" ].cfg = crs_data[ point_id ].y;
+      trip_classes2.setCfg( cfgs );
+      if ( trip_classes1 == trip_classes2 ) {
+        ProgTrace( TRACE5, "SetCraft: isFreeSeating found PNL cfg, return rsComp_Found" );
+        return rsComp_NoChanges;
+      }
+      trip_classes2.deleteCfg( ); //delete old
+      trip_classes2.writeCfg( ); //write new
+      LEvntPrms prms;
+      TCFG(point_id).param(prms);
+      TReqInfo::Instance()->LocaleToLog("EVT.LAYOUT_BASED_ON_PNL_ADL_DATA", prms, ASTRA::evtFlt, point_id);
+      return rsComp_Found;
+    }
+    ProgTrace( TRACE5, "SetCraft: isFreeSeating return rsComp_NoFound" );
+    return rsComp_NoFound;
+  }
+        //!logProgTrace( TRACE5, "SetCraft: point_id=%d,pr_tranzit_routes=%d,bort=%s,craft=%s,old_comp_id=%d",
   //!log           point_id,pr_tranzit_routes,bort.c_str(),craft.c_str(),old_comp_id );
     if ( craft.empty() ) {
     ProgTrace( TRACE5, "SetCraft: return rsComp_NoCraftComps, craft.empty()" );
@@ -7473,8 +7678,7 @@ TFindSetCraft SetCraft( bool pr_tranzit_routes, int point_id, TSetsCraftPoints &
   }
   if ( points.empty() )
     return rsComp_NoChanges;
-  map<int,TCounters> crs_data;
-  
+
   for ( int step=0; step<=5; step++ ) {
     // выбираем макс. компоновку по CFG из PNL/ADL для всех центров бронирования
     //!logProgTrace( TRACE5, "step=%d", step );
@@ -7568,7 +7772,7 @@ TFindSetCraft AutoSetCraft( bool pr_tranzit_routes, int point_id, TSetsCraftPoin
     ProgTrace( TRACE5, "AutoSetCraft, pr_tranzit_routes=%d, point_id=%d", pr_tranzit_routes, point_id );
     try {
       points.Clear();
-    if ( isAutoCompChg( point_id ) && !isFreeSeating( point_id ) ) {
+    if ( isAutoCompChg( point_id ) ) {
         ProgTrace( TRACE5, "Auto set comp, point_id=%d", point_id );
       return SetCraft( pr_tranzit_routes, point_id, points );
     }
@@ -9040,7 +9244,7 @@ bool _TSalonPassengers::BuildWaitList( bool prSeatDescription, xmlNodePtr dataNo
     "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:rnum) AS bag_amount, "
     "       ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
     "       ckin.get_excess_pc(pax.grp_id, pax.pax_id) AS excess_pc, "
-    "       tckin_pax_grp.tckin_id, tckin_pax_grp.seg_no "
+    "       tckin_pax_grp.tckin_id, tckin_pax_grp.grp_num "
     "FROM pax, tckin_pax_grp, pax_grp "
     "WHERE pax_grp.grp_id=pax.grp_id AND "
     "      pax.pax_id=:pax_id AND "
@@ -9048,7 +9252,6 @@ bool _TSalonPassengers::BuildWaitList( bool prSeatDescription, xmlNodePtr dataNo
   Qry.DeclareVariable( "pax_id", otInteger );
   Qry.DeclareVariable( "rnum", otInteger );
   int rownum = 0;
-  TCkinRoute tckin_route;
   xmlNodePtr passengersNode = NULL;
   xmlNodePtr layerNode;
   //std::map<int,std::map<std::string,map<string,std::set<TSalonPax,ComparePassenger>,CompareGrpStatus >,CompareClass >,CompareArv > {
@@ -9156,18 +9359,18 @@ bool _TSalonPassengers::BuildWaitList( bool prSeatDescription, xmlNodePtr dataNo
                                              TBagKilos(Qry.FieldAsInteger( "excess_wt" )));
       ostringstream trip;
       if ( !Qry.FieldIsNULL("tckin_id") ) {
-        TCkinRouteItem priorSeg;
-        tckin_route.GetPriorSeg(Qry.FieldAsInteger("tckin_id"),
-                                Qry.FieldAsInteger("seg_no"),
-                                crtIgnoreDependent,
-                                priorSeg);
-        if (priorSeg.grp_id!=NoExists)
+        auto inboundGrp=TCkinRoute::getPriorGrp(Qry.FieldAsInteger("tckin_id"),
+                                                Qry.FieldAsInteger("grp_num"),
+                                                TCkinRoute::IgnoreDependence,
+                                                TCkinRoute::WithTransit);
+        if (inboundGrp)
         {
-          TDateTime local_scd_out = UTCToClient(priorSeg.operFlt.scd_out,AirpTZRegion(priorSeg.operFlt.airp));
-            trip << ElemIdToElemCtxt( ecDisp, etAirline, priorSeg.operFlt.airline, priorSeg.operFlt.airline_fmt )
-                 << setw(3) << setfill('0') << priorSeg.operFlt.flt_no
-                 << ElemIdToElemCtxt( ecDisp, etSuffix, priorSeg.operFlt.suffix, priorSeg.operFlt.suffix_fmt )
-                 << "/" << DateTimeToStr( local_scd_out, "dd" );
+          const TTripInfo& flt=inboundGrp.get().operFlt;
+          TDateTime local_scd_out = UTCToClient(flt.scd_out,AirpTZRegion(flt.airp));
+          trip << ElemIdToElemCtxt( ecDisp, etAirline, flt.airline, flt.airline_fmt )
+               << setw(3) << setfill('0') << flt.flt_no
+               << ElemIdToElemCtxt( ecDisp, etSuffix, flt.suffix, flt.suffix_fmt )
+               << "/" << DateTimeToStr( local_scd_out, "dd" );
         }
       }
       NewTextChild( passNode, "trip_from", trip.str(), def.trip_from );

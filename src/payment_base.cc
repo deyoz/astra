@@ -453,7 +453,7 @@ void TServicePaymentList::toDB(int grp_id) const
     {
       Qry.get().Execute();
     }
-    catch(EOracleError E)
+    catch(const EOracleError& E)
     {
       if (E.Code==1)
       {
@@ -486,27 +486,9 @@ std::string TServicePaymentList::copySelectSQL()
       "       service_payment.doc_aircode, "
       "       service_payment.doc_no, "
       "       service_payment.doc_coupon, "
-      "       service_payment.doc_weight "
-      "FROM service_payment, "
-      "     (SELECT pax.pax_id, "
-      "             tckin_pax_grp.grp_id, "
-      "             tckin_pax_grp.tckin_id, "
-      "             tckin_pax_grp.seg_no, "
-      "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
-      "      FROM pax, tckin_pax_grp "
-      "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_src) src, "
-      "     (SELECT pax.pax_id, "
-      "             tckin_pax_grp.grp_id, "
-      "             tckin_pax_grp.tckin_id, "
-      "             tckin_pax_grp.seg_no, "
-      "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
-      "      FROM pax, tckin_pax_grp "
-      "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_dest) dest "
-      "WHERE src.tckin_id=dest.tckin_id AND "
-      "      src.distance=dest.distance AND "
-      "      service_payment.pax_id=src.pax_id AND "
-      "      service_payment.transfer_num+src.seg_no-dest.seg_no>=0 AND "
-      "      service_payment.pax_id IS NOT NULL AND service_payment.doc_weight IS NULL ";
+      "       service_payment.doc_weight " +
+      TCkinRoute::copySubselectSQL("service_payment", {}, true) +
+      "      AND service_payment.pax_id IS NOT NULL AND service_payment.doc_weight IS NULL ";
 }
 
 std::string TServicePaymentList::copySelectSQL2()
@@ -525,22 +507,9 @@ std::string TServicePaymentList::copySelectSQL2()
       "       service_payment.doc_aircode, "
       "       service_payment.doc_no, "
       "       service_payment.doc_coupon, "
-      "       service_payment.doc_weight "
-      "FROM service_payment, "
-      "     (SELECT tckin_pax_grp.grp_id, "
-      "             tckin_pax_grp.tckin_id, "
-      "             tckin_pax_grp.seg_no "
-      "      FROM tckin_pax_grp "
-      "      WHERE tckin_pax_grp.grp_id=:grp_id_src) src, "
-      "     (SELECT tckin_pax_grp.grp_id, "
-      "             tckin_pax_grp.tckin_id, "
-      "             tckin_pax_grp.seg_no "
-      "      FROM tckin_pax_grp "
-      "      WHERE tckin_pax_grp.grp_id=:grp_id_dest) dest "
-      "WHERE src.tckin_id=dest.tckin_id AND "
-      "      service_payment.grp_id=src.grp_id AND "
-      "      service_payment.transfer_num+src.seg_no-dest.seg_no>=0 AND "
-      "      service_payment.pax_id IS NULL AND service_payment.doc_weight IS NULL ";
+      "       service_payment.doc_weight " +
+      TCkinRoute::copySubselectSQL("service_payment", {}, false) +
+      "      AND service_payment.pax_id IS NULL AND service_payment.doc_weight IS NULL ";
 }
 
 void TServicePaymentList::copyDBOneByOne(int grp_id_src, int grp_id_dest)
@@ -576,7 +545,7 @@ void TServicePaymentList::copyDB(int grp_id_src, int grp_id_dest)
   {
     Qry.get().Execute();
   }
-  catch(EOracleError E)
+  catch(const EOracleError& E)
   {
     if (E.Code==1)
       copyDBOneByOne(grp_id_src, grp_id_dest);

@@ -692,6 +692,7 @@ struct FdqElem
     Dates::time_duration m_inbArrTime;
     std::string m_inbDepPoint;
     std::string m_inbArrPoint;
+    std::string m_flIndicator;
 
     FdqElem()
         : m_outbDepDate(Dates::not_a_date_time),
@@ -855,6 +856,14 @@ struct ChdElem
     std::string m_outbFlContinIndic;
 
     std::list<std::string> m_hostAirlines;
+};
+
+//---------------------------------------------------------------------------------------
+
+///@class DmcElem - Default message characteristics --DMC
+struct DmcElem
+{
+    std::string m_maxNumRespFlights;
 };
 
 //---------------------------------------------------------------------------------------
@@ -1163,6 +1172,7 @@ std::ostream& operator<<(std::ostream &os, const FdrElem &fdr);
 std::ostream& operator<<(std::ostream &os, const RadElem &rad);
 std::ostream& operator<<(std::ostream &os, const PfdElem &pfd);
 std::ostream& operator<<(std::ostream &os, const ChdElem &chd);
+std::ostream& operator<<(std::ostream &os, const DmcElem &dmc);
 std::ostream& operator<<(std::ostream &os, const FsdElem &fsd);
 std::ostream& operator<<(std::ostream &os, const ErdElem &erd);
 std::ostream& operator<<(std::ostream &os, const SpdElem &spd);

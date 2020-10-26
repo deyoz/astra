@@ -38,6 +38,7 @@ namespace Ticketing
         CITY=0,
         PORT,
         AIRLINE,
+        COUNTRY,
         ROUTER
     };
 
@@ -181,10 +182,11 @@ template <IDS T,class IntType>
     }
 
 
-    typedef Value<CITY,int> City_t;
-    typedef Value<PORT,int> Port_t;
-    typedef Value<AIRLINE,int> Airline_t;
-    typedef Value<ROUTER,int> RouterId_t;
+    typedef Value<CITY, int>    City_t;
+    typedef Value<PORT, int>    Port_t;
+    typedef Value<AIRLINE, int> Airline_t;
+    typedef Value<COUNTRY, int> Country_t;
+    typedef Value<ROUTER, int>  RouterId_t;
 
 } //namespace Ticketing
 

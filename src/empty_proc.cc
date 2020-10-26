@@ -1745,7 +1745,10 @@ int pc_wt_stat(int argc,char **argv)
 
         int events_point_id=*i, events_grp_id=grp_id;
         TCkinRoute route;
-        route.GetRouteBefore(grp_id, crtWithCurrent, crtIgnoreDependent);
+        route.getRouteBefore(GrpId_t(grp_id),
+                             TCkinRoute::WithCurrent,
+                             TCkinRoute::IgnoreDependence,
+                             TCkinRoute::WithoutTransit);
         if (!route.empty())
         {
           events_point_id=route.front().point_dep;

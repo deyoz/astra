@@ -179,12 +179,17 @@ void viewPbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::BaggageDetails& ba
  * @brief makes a FDR element
 */
 void viewFdrElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightDetails& flight,
-                    const std::string& fcIndicator = "T");
+                    const std::string& fcIndicator);
 
 /**
  * @brief makes a CHD element
 */
 void viewChdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::CascadeHostDetails& cascadeDetails);
+
+/**
+ * @brief makes a DMC element
+*/
+void viewDmcElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::MessageDetails& messageDetails);
 
 /**
  * @brief makes a RAD element

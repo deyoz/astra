@@ -177,12 +177,28 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "    pax ";
     if(rpt_params.pr_trfer)
         SQLText += ", transfer, trfer_trips ";
+    if(rpt_params.trzt_autoreg != TRptParams::TrztAutoreg::All)
+        SQLText += ", tckin_pax_grp \n";
     SQLText +=
         "where "
         "    points.pr_del>=0 AND "
         "    pax_grp.point_dep = :point_id and "
         "    pax_grp.point_arv = points.point_id and "
         "    pax_grp.grp_id = bag2.grp_id and ";
+
+    if(rpt_params.trzt_autoreg != TRptParams::TrztAutoreg::All) {
+        if(rpt_params.trzt_autoreg == TRptParams::TrztAutoreg::Auto)
+            SQLText +=
+                "   pax_grp.status IN ('T') and \n"
+                "   tckin_pax_grp.grp_id is not null and \n";
+        else
+            SQLText +=
+                "   not (pax_grp.status IN ('T') and \n"
+                "   tckin_pax_grp.grp_id is not null) and \n";
+        SQLText +=
+            "   tckin_pax_grp.grp_id(+)=pax_grp.grp_id AND \n"
+            "   tckin_pax_grp.transit_num(+)<>0 and \n";
+    }
 
     if (rpt_params.pr_brd)
       SQLText +=

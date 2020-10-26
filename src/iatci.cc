@@ -18,9 +18,11 @@
 #include "tlg/IatciSmfRequest.h"
 #include "tlg/IatciIfm.h"
 #include "tlg/remote_system_context.h"
+#include "tlg/postpone_edifact.h"
 #include "tlg/edi_msg.h"
 
 #include <serverlib/dates_oci.h>
+#include <serverlib/rip_oci.h>
 #include <serverlib/cursctl.h>
 #include <serverlib/savepoint.h>
 #include <serverlib/dump_table.h>
@@ -38,6 +40,8 @@ using namespace astra_api;
 using namespace astra_api::xml_entities;
 using namespace iatci;
 using namespace BASIC::date_time;
+using namespace Ticketing;
+using namespace Ticketing::RemoteSystemContext;
 using iatci::dcrcka::Result;
 
 
@@ -48,15 +52,16 @@ namespace
         XMLDoc m_doc;
         xmlNodePtr m_node;
     public:
-        EdiResCtxtWrapper(int ctxtId, const std::string& from)
+        EdiResCtxtWrapper(const ReqCtxtId_t& ctxtId, const std::string& from)
         {
             read(ctxtId, from);
         }
 
-        EdiResCtxtWrapper(int ctxtId, xmlNodePtr addCtxtNode, const std::string& tagName,
+        EdiResCtxtWrapper(const ReqCtxtId_t& ctxtId,
+                          xmlNodePtr addCtxtNode, const std::string& tagName,
                           const std::string& from)
         {
-            AstraEdifact::addToEdiResponseCtxt(ctxtId, addCtxtNode, tagName);
+            AstraEdifact::addToEdiResponseCtxt(ctxtId.get(), addCtxtNode, tagName);
             read(ctxtId, from);
         }
 
@@ -71,9 +76,9 @@ namespace
         }
 
     protected:
-        void read(int ctxtId, const std::string& from)
+        void read(const ReqCtxtId_t& ctxtId, const std::string& from)
         {
-            AstraEdifact::getEdiResponseCtxt(ctxtId, true, from, m_doc, false);
+            AstraEdifact::getEdiResponseCtxt(ctxtId.get(), true, from, m_doc, false);
             if(m_doc.docPtr() != NULL) {
                 m_node = NodeAsNode("/context", m_doc.docPtr());
             }
@@ -87,9 +92,9 @@ namespace
         XMLDoc m_doc;
         xmlNodePtr m_node;
     public:
-        TermReqCtxtWrapper(int ctxtId, bool clear, const std::string& from)
+        TermReqCtxtWrapper(const ReqCtxtId_t& ctxtId, bool clear, const std::string& from)
         {
-            AstraEdifact::getTermRequestCtxt(ctxtId, clear, from, m_doc);
+            AstraEdifact::getTermRequestCtxt(ctxtId.get(), clear, from, m_doc);
             m_node = NodeAsNode("/term/query", m_doc.docPtr())->children;
         }
 
@@ -98,45 +103,6 @@ namespace
             ASSERT(m_node != NULL);
             return m_node;
         }
-    };
-
-    //-----------------------------------------------------------------------------------
-
-    class IatciPaxSeg
-    {
-        iatci::FlightDetails m_seg;
-        iatci::PaxDetails m_pax;
-
-    public:
-        IatciPaxSeg(const iatci::FlightDetails& seg,
-                    const iatci::PaxDetails& pax)
-            : m_seg(seg), m_pax(pax)
-        {}
-
-        static IatciPaxSeg readFirst(int grpId)
-        {
-            LogTrace(TRACE3) << "read first iatci paxseg for grpId: " << grpId;
-            return read(grpId, 1);
-        }
-
-        static IatciPaxSeg read(int grpId, unsigned segInd)
-        {
-            LogTrace(TRACE3) << "read iatci paxseg for grpId: " << grpId
-                             << " and segInd:" << segInd;
-            XMLDoc loadedDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(grpId));
-            XmlCheckInTabs loadedTabs(findNodeR(loadedDoc.docPtr()->children, "segments"));
-            std::list<XmlSegment> lSeg = algo::transform< std::list<XmlSegment> >(loadedTabs.tabs(),
-                [](const XmlCheckInTab& tab) { return tab.xmlSeg(); });
-            std::vector<Result> lRes = LoadPaxXmlResult(lSeg).toIatci(Result::Passlist,
-                                                                      Result::Ok);
-            ASSERT(segInd > 0 && segInd <= lRes.size()); // TODO #21190 check pax_id
-            Result res = lRes.at(segInd - 1);
-            ASSERT(res.pax());
-            return IatciPaxSeg(res.flight(), res.pax().get());
-        }
-
-        const iatci::FlightDetails& seg() const { return m_seg; }
-        const iatci::PaxDetails&    pax() const { return m_pax; }
     };
 
     //-----------------------------------------------------------------------------------
@@ -341,7 +307,7 @@ namespace
                 m_remChange = remChng;
             }
         }
-        
+
         // ремарки fqt
         std::list<astra_entities::FqtRemark> lOldFqtRems;
         if(oldPax.m_fqtRems) {
@@ -355,7 +321,7 @@ namespace
                 m_fqtRemChange = fqtRemChng;
             }
         }
-            
+
         // персональная информация
         if(oldPax.m_surname != newPax.m_surname || oldPax.m_name != newPax.m_name)
         {
@@ -488,7 +454,7 @@ namespace
     {
         ASSERT(oldTabs.size() == newTabs.size());
 
-        for(size_t i = 0; i < oldTabs.size(); ++i) {
+        for(size_t i = 0; i < newTabs.size(); ++i) {
             m_tabsDiff.insert(std::make_pair(i, TabDiff::diff(oldTabs.tabs().at(i),
                                                               newTabs.tabs().at(i))));
         }
@@ -498,20 +464,20 @@ namespace
 
     struct PointsPair
     {
-        int m_pointDep;
-        int m_pointArv;
+        PointId_t m_pointDep;
+        PointId_t m_pointArv;
 
-        PointsPair(int pointDep, int pointArv)
+        PointsPair(const PointId_t& pointDep, const PointId_t& pointArv)
             : m_pointDep(pointDep),
               m_pointArv(pointArv)
         {}
 
-        static PointsPair readByGrpId(int grpId)
+        static PointsPair readByGrpId(const GrpId_t& grpId)
         {
             LogTrace(TRACE5) << "Enter to " << __FUNCTION__ << " by grpId " << grpId;
 
-            int pointDep = ASTRA::NoExists,
-                pointArv = ASTRA::NoExists;
+            GrpId_t::base_type pointDep = ASTRA::NoExists,
+                               pointArv = ASTRA::NoExists;
             OciCpp::CursCtl cur = make_curs(
                     "select POINT_DEP, POINT_ARV from PAX_GRP where GRP_ID=:grp_id");
             cur.bind(":grp_id", grpId)
@@ -523,7 +489,8 @@ namespace
                 throw EXCEPTIONS::Exception("Group %d not found", grpId);
             }
 
-            return PointsPair(pointDep, pointArv);
+            return PointsPair(PointId_t(pointDep),
+                              PointId_t(pointArv));
         }
     };
 
@@ -549,7 +516,7 @@ namespace
               m_airport(airport)
         {}
 
-        static PointInfo readByPointId(int pointId)
+        static PointInfo readByPointId(const PointId_t& pointId)
         {
             LogTrace(TRACE5) << "Enter to " << __FUNCTION__ << " by pointId " << pointId;
 
@@ -596,7 +563,7 @@ namespace
         void updatePaxSeat(const iatci::UpdateSeatDetails& updSeat);
 
         xmlNodePtr iatciNode() const { return m_iatciNode; }
-        
+
         bool tryUpdatePaxDoc(const iatci::PaxDetails& pax);
         bool tryUpdatePaxVisa(const iatci::PaxDetails& pax);
         bool tryUpdatePaxAddresses(const iatci::PaxDetails& pax);
@@ -689,7 +656,7 @@ namespace
 
         updateSeatNode(tripId, paxId, updSeat.seat());
     }
-    
+
     bool IatciUpdater::tryUpdatePaxDoc(const iatci::PaxDetails& pax)
     {
         xmlNodePtr reqSegsNode = findNodeR(m_reqNode, m_reqRootSegsNodeName);
@@ -706,7 +673,7 @@ namespace
             updatePaxDoc(pax);
             return true;
         }
-        
+
         return false;
     }
 
@@ -859,6 +826,11 @@ static bool isReseatReq(xmlNodePtr reqNode)
     return findNodeR(reqNode, "Reseat") != NULL;
 }
 
+static bool isUpdateBaggageReq(xmlNodePtr reqNode)
+{
+    return findNodeR(reqNode, "bags") != NULL;
+}
+
 static bool isCheckinRequest(xmlNodePtr reqNode)
 {
     return findNodeR(reqNode, "TCkinSavePax") != NULL;
@@ -870,7 +842,8 @@ static std::string getOldSeat(xmlNodePtr reqNode)
     ASSERT(tripIdNode != NULL && !NodeIsNULL(tripIdNode));
     int magicId = NodeAsInteger(tripIdNode);
     iatci::MagicTab magicTab = iatci::MagicTab::fromNeg(magicId);
-    XMLDoc oldXmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(magicTab.grpId()));
+    GrpId_t grpId(magicTab.grpId());
+    XMLDoc oldXmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(grpId));
     XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
     const XmlCheckInTab& oldIatciTab = oldIatciTabs.tabs().at(magicTab.tabInd() - 1);
     ASSERT(!oldIatciTab.lPax().empty());
@@ -879,33 +852,43 @@ static std::string getOldSeat(xmlNodePtr reqNode)
     return oldSeat;
 }
 
-static PointsPair readPointsPair(int grpId)
+static PointsPair readPointsPair(const GrpId_t& grpId)
 {
     TCkinRoute tckinRoute;
-    if(tckinRoute.GetRouteAfter(grpId, crtWithCurrent, crtIgnoreDependent)) {
+    if(tckinRoute.getRouteAfter(GrpId_t(grpId),
+                                TCkinRoute::WithCurrent,
+                                TCkinRoute::IgnoreDependence,
+                                TCkinRoute::WithoutTransit)) {
         // если на стороне Астры делалась локальная(не iatci) сквозная регистрация
         ASSERT(!tckinRoute.empty());
-        return PointsPair(tckinRoute.back().point_dep,
-                          tckinRoute.back().point_arv);
+        return PointsPair(PointId_t(tckinRoute.back().point_dep),
+                          PointId_t(tckinRoute.back().point_arv));
     } else {
         // если один единственный сегмент
         return PointsPair::readByGrpId(grpId);
     }
 }
 
-static PointInfo readDepPointInfo(int grpId)
+static PointInfo readDepPointInfo(const GrpId_t& grpId)
 {
     return PointInfo::readByPointId(readPointsPair(grpId).m_pointDep);
 }
 
-static iatci::OriginatorDetails makeOrg(int grpId)
+static iatci::OriginatorDetails makeOrg(const GrpId_t& grpId)
 {
     PointInfo pointInfo = readDepPointInfo(grpId);
     return iatci::OriginatorDetails(pointInfo.m_airline,
                                     pointInfo.m_airport);
 }
 
-static iatci::FlightDetails makeOwnFlight(int pointDep, int pointArv)
+static iatci::OriginatorDetails makeCascadeOrg(const GrpId_t& grpId)
+{
+    PointInfo pointInfo = readDepPointInfo(grpId);
+    return iatci::OriginatorDetails(pointInfo.m_airline);
+}
+
+static iatci::FlightDetails makeOwnFlight(const PointId_t& pointDep,
+                                          const PointId_t& pointArv)
 {
     PointInfo depPointInfo = PointInfo::readByPointId(pointDep);
     PointInfo arvPointInfo = PointInfo::readByPointId(pointArv);
@@ -916,7 +899,7 @@ static iatci::FlightDetails makeOwnFlight(int pointDep, int pointArv)
                                 depPointInfo.m_scdOut);
 }
 
-static iatci::FlightDetails makeOwnFlight(int grpId)
+static iatci::FlightDetails makeOwnFlight(const GrpId_t& grpId)
 {
     PointsPair pointsPair = readPointsPair(grpId);
     return makeOwnFlight(pointsPair.m_pointDep,
@@ -932,20 +915,20 @@ static std::string getIatciRequestContext(const edifact::KickInfo& kickInfo = ed
     return XMLTreeToText(xmlCtxt.docPtr());
 }
 
-static int getGrpId(xmlNodePtr reqNode, xmlNodePtr resNode, IatciInterface::RequestType reqType)
+static GrpId_t getGrpId(xmlNodePtr reqNode, xmlNodePtr resNode, IatciInterface::RequestType reqType)
 {
-    int grpId = 0;
+    boost::optional<GrpId_t> grpId;
     if(reqType == IatciInterface::Cki || reqType == IatciInterface::Ckx) {
         // при первичной регистрации grp_id появляется в ответном xml, при отмене - в запросе
         xmlNodePtr node = (reqType == IatciInterface::Cki ? resNode : reqNode);
         XmlCheckInTabs ownTabs(findNodeR(node, "segments"));
         ASSERT(!ownTabs.empty());
-        grpId = ownTabs.tabs().back().seg().m_grpId;
+        grpId = GrpId_t(ownTabs.tabs().back().xmlSeg().seg_info.grp_id);
     } else {
         // в остальных случаях grp_id уже содержится в запросе, либо её можно найти
         xmlNodePtr grpIdNode = findNodeR(reqNode, "grp_id");
-        if(grpIdNode != NULL && !isempty(grpIdNode)) {
-            grpId = NodeAsInteger(grpIdNode);
+        if(grpIdNode != NULL && !isempty(grpIdNode)) {            
+            grpId = GrpId_t{NodeAsInteger(grpIdNode)};
         } else {
             xmlNodePtr tripIdNode = findNodeR(reqNode, "trip_id");
             if(tripIdNode != NULL && !isempty(tripIdNode)) {
@@ -956,27 +939,28 @@ static int getGrpId(xmlNodePtr reqNode, xmlNodePtr resNode, IatciInterface::Requ
             } else {
                 xmlNodePtr pointIdNode = findNodeR(reqNode, "point_id");
                 ASSERT((pointIdNode != NULL && !isempty(pointIdNode)));
-                int pointId = NodeAsInteger(pointIdNode);
+                PointId_t pointId(NodeAsInteger(pointIdNode));
                 xmlNodePtr regNoNode = findNodeR(reqNode, "reg_no");
                 if(regNoNode != NULL && !isempty(regNoNode)) {
-                    int regNo = NodeAsInteger(regNoNode);
+                    RegNo_t regNo(NodeAsInteger(regNoNode));
                     grpId = astra_api::findGrpIdByRegNo(pointId, regNo);
                 } else {
                     xmlNodePtr paxIdNode = findNodeR(reqNode, "pax_id");
                     if(paxIdNode != NULL && !isempty(paxIdNode)) {
-                        int paxId = NodeAsInteger(paxIdNode);
+                        PaxId_t paxId(NodeAsInteger(paxIdNode));
                         grpId = astra_api::findGrpIdByPaxId(pointId, paxId);
                     }
                 }
             }
         }
 
-        grpId = iatci::getLastTCkinGrpId(grpId);
+        ASSERT(grpId);
+        grpId = iatci::getLastTCkinGrpId(*grpId);
     }
 
-    LogTrace(TRACE3) << "grpId: " << grpId;
-    ASSERT(grpId > 0);
-    return grpId;
+    //LogTrace(TRACE3) << "grpId: " << grpId;
+    ASSERT(grpId && (*grpId).get() > 0);
+    return *grpId;
 }
 
 
@@ -984,8 +968,7 @@ static void specialPlfErrorHandler(xmlNodePtr reqNode, const Ticketing::AstraMsg
 {
     LogTrace(TRACE3) << __FUNCTION__ << " called for err:" << errCode;
     if(errCode == Ticketing::AstraErr::PAX_SURNAME_NOT_CHECKED_IN) {
-        int grpId = getGrpId(reqNode, NULL, IatciInterface::Plf);
-        ASSERT(grpId > 0);
+        GrpId_t grpId = getGrpId(reqNode, NULL, IatciInterface::Plf);
         if(!iatci::IatciXmlDb::load(grpId).empty()) {
             LogWarning(STDLOG) << "Group " << grpId << " marked as checked-in at our side but not checked-in at iatci-partner side. Drop iatci information...";
             iatci::IatciXmlDb::del(grpId);
@@ -1160,6 +1143,10 @@ static edifact::KickInfo getIatciKickInfo(xmlNodePtr reqNode, xmlNodePtr ediResN
         int termReqCtxtId = AstraContext::SetContext("TERM_REQUEST", XMLTreeToText(reqNode->doc));
         if(ediResNode != NULL) {
             AstraEdifact::addToEdiResponseCtxt(termReqCtxtId, ediResNode->children, "");
+        } else {
+            xmlNodePtr ediResCtxtNode;
+            XMLDoc ediResCtxt("context", ediResCtxtNode, __FUNCTION__);
+            AstraEdifact::addToEdiResponseCtxt(termReqCtxtId, ediResCtxtNode->children, "");
         }
         return AstraEdifact::createKickInfo(termReqCtxtId, "IactiInterface");
     }
@@ -1251,6 +1238,8 @@ static void checkInfants(const std::list<astra_entities::PaxInfo>& lReqInfants,
 
 static iatci::CkiParams getCkiParams(xmlNodePtr reqNode)
 {
+    bool inApiMode = TReqInfo::Instance()->api_mode;
+
     XmlCheckInTabs ownTabs(findNodeR(reqNode, "segments"));
     ASSERT(!ownTabs.empty());
 
@@ -1313,10 +1302,15 @@ static iatci::CkiParams getCkiParams(xmlNodePtr reqNode)
                                                   infantVisa));
     }
 
-    return iatci::CkiParams(iatci::makeOrg(lastOwnSeg),
-                            iatci::makeCascade(),
+    auto org     = inApiMode ? iatci::makeCascadeOrg(lastOwnSeg) : iatci::makeOrg(lastOwnSeg);
+    auto cascade = inApiMode ? iatci::makeCascade(lastOwnTab.xmlSeg().mark_flight.airline, firstEdiTab.xmlSeg().host_details) : boost::optional<iatci::CascadeHostDetails>();
+    auto message = inApiMode ? iatci::makeMessageDetails(firstEdiTab.xmlSeg()) : boost::optional<iatci::MessageDetails>();
+    return iatci::CkiParams(org,
+                            cascade,
+                            message,
                             iatci::dcqcki::FlightGroup(iatci::makeFlight(firstEdiTab.seg()),
-                                                       makeOwnFlight(lastOwnSeg.m_pointDep, lastOwnSeg.m_pointArv),
+                                                       makeOwnFlight(PointId_t(lastOwnSeg.m_pointDep),
+                                                                     PointId_t(lastOwnSeg.m_pointArv)),
                                                        lPaxGrp));
 }
 
@@ -1510,7 +1504,9 @@ static void checkCkuParams(const iatci::CkuParams& params)
 
 static iatci::CkxParams getCkxParams(xmlNodePtr reqNode)
 {
-    int ownGrpId = getGrpId(reqNode, NULL, IatciInterface::Ckx);
+    bool inApiMode = TReqInfo::Instance()->api_mode;
+
+    GrpId_t ownGrpId(getGrpId(reqNode, NULL, IatciInterface::Ckx));
     XMLDoc xmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
 
     XmlCheckInTabs oldIatciTabs(findNodeR(xmlDoc.docPtr()->children, "segments"));
@@ -1548,8 +1544,18 @@ static iatci::CkxParams getCkxParams(xmlNodePtr reqNode)
         }
     }
 
-    return iatci::CkxParams(makeOrg(ownGrpId),
-                            makeCascade(),
+    boost::optional<XmlHostDetails> hostDetails;
+    xmlNodePtr hdNode = findNodeR(reqNode, "host_details");
+    if(hdNode != NULL) {
+        hostDetails = XmlEntityReader::readHostDetails(hdNode);
+    }
+
+    auto org     = inApiMode ? makeCascadeOrg(ownGrpId) : makeOrg(ownGrpId);
+    auto cascade = inApiMode ? iatci::makeCascade(org.airline(), hostDetails)
+                             : boost::optional<iatci::CascadeHostDetails>();
+
+    return iatci::CkxParams(org,
+                            cascade,
                             iatci::dcqckx::FlightGroup(iatci::makeFlight(firstReqTab.seg()),
                                                        makeOwnFlight(ownGrpId),
                                                        lPaxGrp));
@@ -1592,15 +1598,22 @@ static iatci::UpdateSeatDetails getSeatUpdate(xmlNodePtr reqNode)
 
 static iatci::CkuParams getSeatUpdateParams(xmlNodePtr reqNode)
 {
+    bool inApiMode = TReqInfo::Instance()->api_mode;
+
     int magicId = NodeAsInteger("trip_id", reqNode);
     ASSERT(magicId < 0);
     iatci::MagicTab magicTab = iatci::MagicTab::fromNeg(magicId);
     int paxId = NodeAsInteger("pax_id", reqNode);
+    boost::optional<XmlHostDetails> hostDetails;
+    xmlNodePtr hdNode = findNodeR(reqNode, "host_details");
+    if(hdNode != NULL) {
+        hostDetails = XmlEntityReader::readHostDetails(hdNode);
+    }
     LogTrace(TRACE3) << "Iatci reseat: grpId: " << magicTab.grpId()
                      << "; tabInd: " << magicTab.tabInd()
                      << "; paxId: " << paxId;
 
-    int ownGrpId = magicTab.grpId();
+    GrpId_t ownGrpId(magicTab.grpId());
     XMLDoc oldXmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
 
     XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
@@ -1623,6 +1636,17 @@ static iatci::CkuParams getSeatUpdateParams(xmlNodePtr reqNode)
         infant = iatci::makeQryPax(*inft);
     }
 
+    auto org = inApiMode ? makeCascadeOrg(ownGrpId) : makeOrg(ownGrpId);
+
+    boost::optional<iatci::CascadeHostDetails> cascade;
+    if(inApiMode || magicTab.tabInd() > 1) {
+        cascade = iatci::makeCascade(oldIatciTab.xmlSeg(), iatci::FcIndicatorThis);
+    }
+
+    if(inApiMode) {
+        cascade = iatci::makeCascade(org.airline(), hostDetails, cascade);
+    }
+
     std::list<iatci::dcqcku::PaxGroup> lPaxGrp;
     lPaxGrp.push_back(iatci::dcqcku::PaxGroup(iatci::makeQryPax(*paxOpt, inft),
                                               boost::none, // Reserv
@@ -1638,8 +1662,10 @@ static iatci::CkuParams getSeatUpdateParams(xmlNodePtr reqNode)
                                               boost::none  // Update visa
                                               ));
 
-    return iatci::CkuParams(makeOrg(ownGrpId),
-                            boost::none,
+
+
+    return iatci::CkuParams(org,
+                            cascade,
                             iatci::dcqcku::FlightGroup(iatci::makeFlight(oldIatciTabs.tabs().front().xmlSeg()),
                                                        makeOwnFlight(ownGrpId),
                                                        lPaxGrp));
@@ -1649,7 +1675,7 @@ static bool ediTabsContainsDestination(const XmlCheckInTabs& tabs, const std::st
 {
     LogTrace(TRACE3) << "check destination for " << dest;
     for(const auto tab: tabs.ediTabs()) {
-        if(BaseTables::Port(tab.seg().m_airpArv)->ida() == BaseTables::Port(dest)->ida()) {
+        if(BaseTables::Port(tab.xmlSeg().seg_info.airp_arv)->ida() == BaseTables::Port(dest)->ida()) {
             return true;
         }
     }
@@ -1659,11 +1685,14 @@ static bool ediTabsContainsDestination(const XmlCheckInTabs& tabs, const std::st
 
 static boost::optional<iatci::CkuParams> getUpdateBaggageParams(xmlNodePtr reqNode)
 {
-    int ownGrpId = getGrpId(reqNode, NULL, IatciInterface::Cku);
+    bool inApiMode = TReqInfo::Instance()->api_mode;
+
+    GrpId_t ownGrpId(getGrpId(reqNode, NULL, IatciInterface::Cku));
     XMLDoc oldXmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
 
     XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
     xmlNodePtr iatciSegsNode = findNodeR(reqNode, "iatci_segments");
+
     boost::optional<XmlCheckInTabs> reqIatciTabs; // must be!
     if(iatciSegsNode) {
         reqIatciTabs = XmlCheckInTabs(iatciSegsNode);
@@ -1716,12 +1745,18 @@ static boost::optional<iatci::CkuParams> getUpdateBaggageParams(xmlNodePtr reqNo
     std::list<astra_entities::PaxInfo> lModPax;
     for(const auto& oldPax: lPax) {
         astra_entities::PaxInfo modPax = oldPax;
-        boost::optional<astra_entities::PaxInfo> reqPax = findPax(lReqPax, oldPax.id());
+
+        boost::optional<astra_entities::PaxInfo> reqPax = findPax(lReqPax, modPax.id());
         if(reqPax) {
             modPax.setBagPoolNum(reqPax->bagPoolNum());
+            modPax.setIatciBags(reqPax->iatciBags());
+            modPax.setIatciBagTags(reqPax->iatciBagTags());
+            lModPax.push_back(modPax);
         }
-        lModPax.push_back(modPax);
     }
+
+    const std::list<astra_entities::PaxInfo> lNonInfants = filterNotInfants(lPax);
+    const std::list<astra_entities::PaxInfo> lInfants = filterInfants(lPax);
 
     const std::list<astra_entities::PaxInfo> lModNonInfants = filterNotInfants(lModPax);
     const std::list<astra_entities::PaxInfo> lModInfants = filterInfants(lModPax);
@@ -1742,6 +1777,9 @@ static boost::optional<iatci::CkuParams> getUpdateBaggageParams(xmlNodePtr reqNo
         if(pax.isInfant()) {
             inft = pax;
             adult = findPax(lModNonInfants, pax.iatciParentId());
+            if(!adult){
+                adult = findPax(lNonInfants, pax.iatciParentId());
+            }
             poolNumInft = inft->bagPoolNum();
             if(adult) {
                 poolNumAdult = adult->bagPoolNum();
@@ -1750,6 +1788,9 @@ static boost::optional<iatci::CkuParams> getUpdateBaggageParams(xmlNodePtr reqNo
         } else {
             inft = findInfantByParentId(lModInfants, pax.id());
             adult = pax;
+            if(!inft) {
+                inft = findInfantByParentId(lInfants, pax.id());
+            }
             poolNumAdult = adult->bagPoolNum();
             if(inft) {
                 poolNumInft = inft->bagPoolNum();
@@ -1758,7 +1799,7 @@ static boost::optional<iatci::CkuParams> getUpdateBaggageParams(xmlNodePtr reqNo
         }
 
         astra_api::astra_entities::BagPool total(poolNum),
-                                       handTotal(poolNum);       
+                                       handTotal(poolNum);
 
         if(poolNumInft) {
             ASSERT(algo::contains(bagPoolNums, poolNumInft));
@@ -1803,13 +1844,18 @@ static boost::optional<iatci::CkuParams> getUpdateBaggageParams(xmlNodePtr reqNo
         }
 
         bool skipUpdate = false;
-        if(!bagTags.empty()) {
+        if(!bagTags.empty() && !inApiMode) {
             skipUpdate = !ediTabsContainsDestination(oldIatciTabs,
                                                      bagTags.front().destination());
         }
 
         if(!skipUpdate)
         {
+            auto updBaggage = inApiMode ? iatci::makeUpdBaggage(pax)
+                                        : iatci::makeUpdBaggage(total,
+                                                                handTotal,
+                                                                bagTags);
+
             lPaxGrp.push_back(iatci::dcqcku::PaxGroup(iatci::makeQryPax(adult.get(), inft),
                                                       boost::none, // Reserv
                                                       boost::none, // Baggage
@@ -1817,9 +1863,7 @@ static boost::optional<iatci::CkuParams> getUpdateBaggageParams(xmlNodePtr reqNo
                                                       infant,
                                                       boost::none,
                                                       boost::none,
-                                                      iatci::makeUpdBaggage(total,
-                                                                            handTotal,
-                                                                            bagTags),
+                                                      updBaggage,
                                                       boost::none,
                                                       boost::none,
                                                       boost::none,
@@ -1833,8 +1877,18 @@ static boost::optional<iatci::CkuParams> getUpdateBaggageParams(xmlNodePtr reqNo
         return boost::none;
     }
 
-    return iatci::CkuParams(makeOrg(ownGrpId),
-                            boost::none,
+    boost::optional<XmlHostDetails> hostDetails;
+    xmlNodePtr hdNode = findNodeR(reqNode, "host_details");
+    if(hdNode != NULL) {
+        hostDetails = XmlEntityReader::readHostDetails(hdNode);
+    }
+
+    auto org     = inApiMode ? makeCascadeOrg(ownGrpId) : makeOrg(ownGrpId);
+    auto cascade = inApiMode ? iatci::makeCascade(org.airline(), hostDetails)
+                             : boost::optional<iatci::CascadeHostDetails>();
+
+    return iatci::CkuParams(org,
+                            cascade,
                             iatci::dcqcku::FlightGroup(iatci::makeFlight(oldIatciTabs.tabs().front().xmlSeg()),
                                                        makeOwnFlight(ownGrpId),
                                                        lPaxGrp));
@@ -1850,11 +1904,13 @@ static void checkDocAndVisaUpdate(const boost::optional<UpdateDocDetails>& updDo
 
 static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
 {
-    if(findNodeR(reqNode, "bags")) {
+    if(isUpdateBaggageReq(reqNode)) {
         return getUpdateBaggageParams(reqNode);
     }
 
-    int ownGrpId = getGrpId(reqNode, NULL, IatciInterface::Cku);
+    bool inApiMode = TReqInfo::Instance()->api_mode;
+
+    GrpId_t ownGrpId(getGrpId(reqNode, NULL, IatciInterface::Cku));
     XMLDoc oldXmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
 
     XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
@@ -1978,8 +2034,18 @@ static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
         return boost::none;
     }
 
-    return iatci::CkuParams(makeOrg(ownGrpId),
-                            boost::none,
+    boost::optional<XmlHostDetails> hostDetails;
+    xmlNodePtr hdNode = findNodeR(reqNode, "host_details");
+    if(hdNode != NULL) {
+        hostDetails = XmlEntityReader::readHostDetails(hdNode);
+    }
+
+    auto org     = inApiMode ? makeCascadeOrg(ownGrpId) : makeOrg(ownGrpId);
+    auto cascade = inApiMode ? iatci::makeCascade(org.airline(), hostDetails)
+                             : boost::optional<iatci::CascadeHostDetails>();
+
+    return iatci::CkuParams(org,
+                            cascade,
                             iatci::dcqcku::FlightGroup(iatci::makeFlight(oldIatciTabs.tabs().front().xmlSeg()),
                                                        makeOwnFlight(ownGrpId),
                                                        lPaxGrp));
@@ -1987,7 +2053,7 @@ static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
 
 static iatci::BprParams getBprParams(xmlNodePtr reqNode)
 {
-    int ownGrpId = NodeAsInteger("grp_id", reqNode);
+    GrpId_t ownGrpId(NodeAsInteger("grp_id", reqNode));
     XMLDoc oldXmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
     XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
     ASSERT(!oldIatciTabs.tabs().empty());
@@ -2019,14 +2085,6 @@ static iatci::BprParams getBprParams(xmlNodePtr reqNode)
                                                        lPaxGrp));
 }
 
-static iatci::PlfParams getPlfParams(int grpId)
-{
-    IatciPaxSeg ediPaxSeg = IatciPaxSeg::readFirst(grpId);
-    return iatci::PlfParams(makeOrg(grpId),
-                            ediPaxSeg.pax(),
-                            ediPaxSeg.seg());
-}
-
 static iatci::SmfParams getSmfParams(int magicId)
 {
     ASSERT(magicId < 0);
@@ -2035,13 +2093,21 @@ static iatci::SmfParams getSmfParams(int magicId)
     }
 
     iatci::MagicTab magicTab = iatci::MagicTab::fromNeg(magicId);
-    XMLDoc oldXmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(magicTab.grpId()));
+    GrpId_t grpId(magicTab.grpId());
+    XMLDoc oldXmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(grpId));
     XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
     const XmlCheckInTab& oldIatciTab = oldIatciTabs.tabs().at(magicTab.tabInd() - 1);
 
+    boost::optional<CascadeHostDetails> cascade;
+    if(magicTab.tabInd() > 1) {
+        cascade = iatci::makeCascade(oldIatciTab.xmlSeg());
+    }
+
     return iatci::SmfParams(makeOrg(magicTab.grpId()),
                             iatci::makeSeatReq(oldIatciTab.xmlSeg()),
-                            iatci::makeFlight(oldIatciTab.xmlSeg()));
+                            iatci::makeFlight(oldIatciTabs.tabs().front().xmlSeg()),
+                            boost::none,
+                            cascade);
 }
 
 static iatci::SmfParams getSmfParams(xmlNodePtr reqNode)
@@ -2054,7 +2120,7 @@ static iatci::SmfParams getSmfParams(xmlNodePtr reqNode)
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-static void MagicUpdate(xmlNodePtr resNode, int grpId, IatciInterface::RequestType reqType)
+static void MagicUpdate(xmlNodePtr resNode, const GrpId_t& grpId, IatciInterface::RequestType reqType)
 {
     xmlNodePtr segsNode = findNodeR(resNode, "segments");
     unsigned segInd = 0;
@@ -2075,19 +2141,19 @@ static void MagicUpdate(xmlNodePtr resNode, int grpId, IatciInterface::RequestTy
     }
 }
 
-static void SaveIatciCkiXmlRes(xmlNodePtr iatciResNode, int grpId)
+static void SaveIatciCkiXmlRes(xmlNodePtr iatciResNode, const GrpId_t& grpId)
 {
     LogTrace(TRACE3) << __FUNCTION__;
     iatci::IatciXmlDb::add(grpId, XMLTreeToText(iatciResNode->doc));
 }
 
-static void SaveIatciCkuPlfBprXmlRes(xmlNodePtr iatciResNode, int grpId)
+static void SaveIatciCkuPlfBprXmlRes(xmlNodePtr iatciResNode, const GrpId_t& grpId)
 {
     LogTrace(TRACE3) << __FUNCTION__;
     iatci::IatciXmlDb::upd(grpId, XMLTreeToText(iatciResNode->doc));
 }
 
-static void SaveIatciCkxXmlRes(xmlNodePtr iatciResNode, int grpId)
+static void SaveIatciCkxXmlRes(xmlNodePtr iatciResNode, const GrpId_t& grpId)
 {
     LogTrace(TRACE3) << __FUNCTION__;
 
@@ -2133,7 +2199,8 @@ static void SaveIatciCkxXmlRes(xmlNodePtr iatciResNode, int grpId)
     }
 }
 
-static void SaveIatciXmlResByReqType(xmlNodePtr iatciResNode, int grpId,
+static void SaveIatciXmlResByReqType(xmlNodePtr iatciResNode,
+                                     const GrpId_t& grpId,
                                      IatciInterface::RequestType reqType)
 {
     switch(reqType)
@@ -2144,7 +2211,7 @@ static void SaveIatciXmlResByReqType(xmlNodePtr iatciResNode, int grpId,
 
     case IatciInterface::Cku:
     case IatciInterface::Plf:
-    case IatciInterface::Bpr:        
+    case IatciInterface::Bpr:
         SaveIatciCkuPlfBprXmlRes(iatciResNode, grpId);
         break;
 
@@ -2157,24 +2224,16 @@ static void SaveIatciXmlResByReqType(xmlNodePtr iatciResNode, int grpId,
     }
 }
 
-static void SaveIatciXmlRes(xmlNodePtr iatciResNode, xmlNodePtr termReqNode, int grpId,
-                            IatciInterface::RequestType reqType)
+static void SaveIatciGrp(const GrpId_t& grpId, IatciInterface::RequestType reqType, xmlNodePtr ediResNode)
 {
-    LogTrace(TRACE3) << "Enter to " << __FUNCTION__;
+    LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId:" << grpId;
+    xmlNodePtr iatciResNode = NodeAsNode("/iatci_result", ediResNode);
     MagicUpdate(iatciResNode, grpId, reqType);
     SaveIatciXmlResByReqType(iatciResNode, grpId, reqType);
 }
 
-static void SaveIatciGrp(int grpId, IatciInterface::RequestType reqType,
-                         xmlNodePtr ediResNode, xmlNodePtr termReqNode, xmlNodePtr resNode)
-{
-    LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId:" << grpId;
-    xmlNodePtr iatciResNode = NodeAsNode("/iatci_result", ediResNode);
-    SaveIatciXmlRes(iatciResNode, termReqNode, grpId, reqType);
-}
-
-static void UpdateIatciGrp(int grpId, IatciInterface::RequestType reqType,
-                           xmlNodePtr ediResNode, xmlNodePtr termReqNode, xmlNodePtr resNode)
+static void UpdateIatciGrp(const GrpId_t& grpId, IatciInterface::RequestType reqType,
+                           xmlNodePtr ediResNode, xmlNodePtr termReqNode)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId:" << grpId;
     XMLDoc loadedDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(grpId));
@@ -2239,7 +2298,7 @@ static void UpdateIatciGrp(int grpId, IatciInterface::RequestType reqType,
         }
     }
 
-    SaveIatciGrp(grpId, reqType, updater.iatciNode(), termReqNode, resNode);
+    SaveIatciGrp(grpId, reqType, updater.iatciNode());
 }
 
 static void ShowRemoteError(const Ticketing::AstraMsg_t& errCode,
@@ -2251,6 +2310,17 @@ static void ShowRemoteError(const Ticketing::AstraMsg_t& errCode,
     lex << AstraLocale::LParam("air_code", dcs.airlineImpl()->code(lang))
         << AstraLocale::LParam("err_text", AstraLocale::LexemaData(errCode));
     AstraLocale::showError("WRAP.REM_DCS_ERROR", lex);
+}
+
+static void CheckPostponeRequest(edilib::EdiSessionId_t sessId, const edifact::KickInfo& kickInfo)
+{
+    if(TReqInfo::Instance()->api_mode)
+    {
+        tlgnum_t tnum = *RemoteSystemContext::SystemContext::Instance(STDLOG).inbTlgInfo().tlgNum();
+        AstraEdifact::WritePostponedContext(tnum, kickInfo.reqCtxtId);
+        TlgHandling::PostponeEdiHandling::postpone(tnum, sessId);
+        throw TlgHandling::TlgToBePostponed(tnum);
+    }
 }
 
 //---------------------------------------------------------------------------------------
@@ -2330,7 +2400,7 @@ bool IatciInterface::MayNeedSendIatci(xmlNodePtr reqNode)
     if(tabs.empty()) return false;
     if(tabs.containsEdiTab()) return true;
 
-    return IatciXmlDb::exists(tabs.tabs().back().seg().m_grpId);
+    return IatciXmlDb::exists(GrpId_t(tabs.tabs().back().xmlSeg().seg_info.grp_id));
 }
 
 bool IatciInterface::InitialRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode)
@@ -2339,10 +2409,12 @@ bool IatciInterface::InitialRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode)
     auto ckiParams = getCkiParams(reqNode);
     // пока проверяем без какого-либо условия
     checkCkiParams(ckiParams);
-    edifact::SendCkiRequest(ckiParams,
-                            getIatciPult(),
-                            getIatciRequestContext(kickInfo),
-                            kickInfo);
+    edilib::EdiSessionId_t sessId = edifact::SendCkiRequest(ckiParams,
+                                                            getIatciPult(),
+                                                            getIatciRequestContext(kickInfo),
+                                                            kickInfo);
+
+    CheckPostponeRequest(sessId, kickInfo);
 
     return true; /*req was sent*/
 }
@@ -2356,10 +2428,11 @@ bool IatciInterface::UpdateRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode)
     {
         edifact::KickInfo kickInfo = getIatciKickInfo(reqNode, ediResNode);
         checkCkuParams(*ckuParams);
-        edifact::SendCkuRequest(ckuParams.get(),
-                                getIatciPult(),
-                                getIatciRequestContext(kickInfo),
-                                kickInfo);
+        edilib::EdiSessionId_t sessId = edifact::SendCkuRequest(ckuParams.get(),
+                                                                getIatciPult(),
+                                                                getIatciRequestContext(kickInfo),
+                                                                kickInfo);
+        CheckPostponeRequest(sessId, kickInfo);
 
         return true; /*req was sent*/
     }
@@ -2370,19 +2443,22 @@ bool IatciInterface::UpdateRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode)
 void IatciInterface::UpdateSeatRequest(xmlNodePtr reqNode)
 {
     edifact::KickInfo kickInfo = getIatciKickInfo(reqNode, NULL);
-    edifact::SendCkuRequest(getSeatUpdateParams(reqNode),
-                            getIatciPult(),
-                            getIatciRequestContext(kickInfo),
-                            kickInfo);
+    edilib::EdiSessionId_t sessId = edifact::SendCkuRequest(getSeatUpdateParams(reqNode),
+                                                            getIatciPult(),
+                                                            getIatciRequestContext(kickInfo),
+                                                            kickInfo);
+    CheckPostponeRequest(sessId, kickInfo);
 }
 
 bool IatciInterface::CancelRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode)
 {
     edifact::KickInfo kickInfo = getIatciKickInfo(reqNode, ediResNode);
-    edifact::SendCkxRequest(getCkxParams(reqNode),
-                            getIatciPult(),
-                            getIatciRequestContext(kickInfo),
-                            kickInfo);
+    edilib::EdiSessionId_t sessId = edifact::SendCkxRequest(getCkxParams(reqNode),
+                                                            getIatciPult(),
+                                                            getIatciRequestContext(kickInfo),
+                                                            kickInfo);
+
+    CheckPostponeRequest(sessId, kickInfo);
 
     return true; /*req was sent*/
 }
@@ -2396,13 +2472,10 @@ void IatciInterface::ReprintRequest(xmlNodePtr reqNode)
                             kickInfo);
 }
 
-void IatciInterface::PasslistRequest(xmlNodePtr reqNode, int grpId)
+void IatciInterface::PasslistRequest(xmlNodePtr reqNode,
+                                     const GrpId_t& grpId)
 {
-    edifact::KickInfo kickInfo = getIatciKickInfo(reqNode, NULL);
-    edifact::SendPlfRequest(getPlfParams(grpId),
-                            getIatciPult(),
-                            getIatciRequestContext(kickInfo),
-                            kickInfo);
+    // TODO
 }
 
 void IatciInterface::SeatmapRequest(xmlNodePtr reqNode)
@@ -2414,7 +2487,7 @@ void IatciInterface::SeatmapRequest(xmlNodePtr reqNode)
                             kickInfo);
 }
 
-void IatciInterface::CheckinKickHandler(int ctxtId,
+void IatciInterface::CheckinKickHandler(const ReqCtxtId_t& ctxtId,
                                         xmlNodePtr initialReqNode,
                                         xmlNodePtr resNode,
                                         const std::list<Result>& lRes)
@@ -2424,7 +2497,7 @@ void IatciInterface::CheckinKickHandler(int ctxtId,
     FuncOut(CheckinKickHandler);
 }
 
-void IatciInterface::UpdateKickHandler(int ctxtId,
+void IatciInterface::UpdateKickHandler(const ReqCtxtId_t& ctxtId,
                                        xmlNodePtr initialReqNode,
                                        xmlNodePtr resNode,
                                        const std::list<Result>& lRes)
@@ -2435,17 +2508,17 @@ void IatciInterface::UpdateKickHandler(int ctxtId,
     FuncOut(UpdateKickHandler);
 }
 
-void IatciInterface::CancelKickHandler(int ctxtId,
+void IatciInterface::CancelKickHandler(const ReqCtxtId_t& ctxtId,
                                        xmlNodePtr initialReqNode,
                                        xmlNodePtr resNode,
                                        const std::list<Result>& lRes)
 {
-    FuncIn(CancelKickHandler);    
+    FuncIn(CancelKickHandler);
     DoKickAction(ctxtId, initialReqNode, resNode, lRes, Ckx, ActSavePax);
     FuncOut(CancelKickHandler);
 }
 
-void IatciInterface::ReprintKickHandler(int ctxtId,
+void IatciInterface::ReprintKickHandler(const ReqCtxtId_t& ctxtId,
                                         xmlNodePtr initialReqNode,
                                         xmlNodePtr resNode,
                                         const std::list<Result>& lRes)
@@ -2455,7 +2528,7 @@ void IatciInterface::ReprintKickHandler(int ctxtId,
     FuncOut(ReprintKickHandler);
 }
 
-void IatciInterface::PasslistKickHandler(int ctxtId,
+void IatciInterface::PasslistKickHandler(const ReqCtxtId_t& ctxtId,
                                          xmlNodePtr initialReqNode,
                                          xmlNodePtr resNode,
                                          const std::list<Result>& lRes)
@@ -2465,7 +2538,7 @@ void IatciInterface::PasslistKickHandler(int ctxtId,
     FuncOut(PasslistKickHandler);
 }
 
-void IatciInterface::SeatmapKickHandler(int ctxtId,
+void IatciInterface::SeatmapKickHandler(const ReqCtxtId_t& ctxtId,
                                         xmlNodePtr initialReqNode,
                                         xmlNodePtr resNode,
                                         const std::list<Result>& lRes)
@@ -2484,7 +2557,7 @@ void IatciInterface::SeatmapKickHandler(int ctxtId,
     FuncOut(SeatmapKickHandler);
 }
 
-void IatciInterface::SeatmapForPassengerKickHandler(int ctxtId,
+void IatciInterface::SeatmapForPassengerKickHandler(const ReqCtxtId_t& ctxtId,
                                                     xmlNodePtr initialReqNode,
                                                     xmlNodePtr resNode,
                                                     const std::list<Result>& lRes)
@@ -2505,7 +2578,7 @@ void IatciInterface::KickHandler(XMLRequestCtxt* ctxt,
     {
         LogTrace(TRACE3) << *remRes;
 
-        int reqCtxtId = GetReqCtxtId(reqNode);
+        ReqCtxtId_t reqCtxtId = GetReqCtxtId(reqNode);
         TermReqCtxtWrapper termReqCtxt(reqCtxtId, true, "IatciInterface::KickHandler");
         if(remRes->status() == RemoteStatus::Timeout)
         {
@@ -2531,10 +2604,10 @@ void IatciInterface::KickHandler(XMLRequestCtxt* ctxt,
 
 void IatciInterface::FallbackMessage(xmlNodePtr initialReqNode)
 {
-    if(isCheckinRequest(initialReqNode)) 
+    if(isCheckinRequest(initialReqNode))
     {
         RequestType reqType = ClassifyCheckInRequest(initialReqNode);
-        switch(reqType) 
+        switch(reqType)
         {
         case Cki:
         {
@@ -2543,14 +2616,14 @@ void IatciInterface::FallbackMessage(xmlNodePtr initialReqNode)
                                       ckiParams.fltGroup().inboundFlight()),
                            IfmAction(IfmAction::Del),
                            IfmPaxes(ckiParams.fltGroup().paxGroups()));
-            ifm.send();    
+            ifm.send();
         }
         break;
 
         case Cku:
         {
             ; // TODO
-        }   
+        }
         break;
 
         case Ckx:
@@ -2560,8 +2633,8 @@ void IatciInterface::FallbackMessage(xmlNodePtr initialReqNode)
                                       ckxParams.fltGroup().inboundFlight()),
                            IfmAction(IfmAction::Del),
                            IfmPaxes(ckxParams.fltGroup().paxGroups()));
-            ifm.send();                            
-        } 
+            ifm.send();
+        }
         break;
 
         default:
@@ -2570,7 +2643,7 @@ void IatciInterface::FallbackMessage(xmlNodePtr initialReqNode)
     }
 }
 
-void IatciInterface::KickHandler_onTimeout(int ctxtId,
+void IatciInterface::KickHandler_onTimeout(const ReqCtxtId_t& ctxtId,
                                            xmlNodePtr initialReqNode,
                                            xmlNodePtr resNode)
 {
@@ -2581,7 +2654,7 @@ void IatciInterface::KickHandler_onTimeout(int ctxtId,
     FuncOut(KickHandler_onTimeout);
 }
 
-void IatciInterface::KickHandler_onSuccess(int ctxtId,
+void IatciInterface::KickHandler_onSuccess(const ReqCtxtId_t& ctxtId,
                                            xmlNodePtr initialReqNode,
                                            xmlNodePtr resNode,
                                            const std::list<Result>& lRes)
@@ -2615,7 +2688,7 @@ void IatciInterface::KickHandler_onSuccess(int ctxtId,
     FuncOut(KickHandler_onSuccess);
 }
 
-void IatciInterface::KickHandler_onFailure(int ctxtId,
+void IatciInterface::KickHandler_onFailure(const ReqCtxtId_t& ctxtId,
                                            xmlNodePtr initialReqNode,
                                            xmlNodePtr resNode,
                                            const std::list<Result>& lRes,
@@ -2631,7 +2704,7 @@ void IatciInterface::KickHandler_onFailure(int ctxtId,
         RollbackChangeOfStatus(initialReqNode, ctxtId);
     }
     break;
-    
+
     case Result::Cancel:
     {
         RollbackChangeOfStatus(initialReqNode, ctxtId);
@@ -2666,10 +2739,10 @@ void IatciInterface::KickHandler_onFailure(int ctxtId,
     FuncOut(KickHandler_onFailure);
 }
 
-int IatciInterface::GetReqCtxtId(xmlNodePtr kickReqNode) const
+ReqCtxtId_t IatciInterface::GetReqCtxtId(xmlNodePtr kickReqNode)
 {
     ASSERT(GetNode("@req_ctxt_id", kickReqNode) != NULL);
-    return NodeAsInteger("@req_ctxt_id", kickReqNode);
+    return ReqCtxtId_t(NodeAsInteger("@req_ctxt_id", kickReqNode));
 }
 
 static std::list<Ticketing::TicketNum_t> getTickNumsOnFirstSeg(xmlNodePtr node)
@@ -2691,7 +2764,7 @@ static IatciViewXmlParams getIatciViewXmlParams(xmlNodePtr node)
     return IatciViewXmlParams(tickNumOrder);
 }
 
-static IatciViewXmlParams getIatciViewXmlParams(int grpId)
+static IatciViewXmlParams getIatciViewXmlParams(const GrpId_t& grpId)
 {
     XMLDoc oldXml = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(grpId));
     return getIatciViewXmlParams(oldXml.docPtr()->children);
@@ -2720,7 +2793,7 @@ static void normalizeIatciPaxDocs(xmlNodePtr iatciResNode,
     }
 }
 
-void IatciInterface::DoKickAction(int ctxtId,
+void IatciInterface::DoKickAction(const ReqCtxtId_t& ctxtId,
                                   xmlNodePtr reqNode,
                                   xmlNodePtr resNode,
                                   const std::list<Result>& lRes,
@@ -2728,16 +2801,14 @@ void IatciInterface::DoKickAction(int ctxtId,
                                   KickAction act)
 {
     FuncIn(DoKickAction);
-    ReqParams(reqNode).setBoolParam("after_kick", true);        
+    ReqParams(reqNode).setBoolParam("after_kick", true);
 
     XMLDoc iatciResCtxt = ASTRA::createXmlDoc("<iatci_result/>");
     xmlNodePtr iatciResNode = NodeAsNode(std::string("/iatci_result").c_str(), iatciResCtxt.docPtr());
     xmlNodePtr segmentsNode = newChild(iatciResNode, "segments");
-    newChild(iatciResNode, "segments_for_log");
+    xmlNodePtr logSegmentsNode = newChild(iatciResNode, "segments_for_log");
 
     EdiResCtxtWrapper ediResCtxt(ctxtId, iatciResNode, "context", __FUNCTION__);
-    xmlNodePtr logSegmentsNode = findNodeR(ediResCtxt.node(), "segments_for_log");
-    ASSERT(logSegmentsNode);
 
     switch(act)
     {
@@ -2749,7 +2820,7 @@ void IatciInterface::DoKickAction(int ctxtId,
         }
 
         ASSERT(CheckInInterface::SavePax(reqNode, ediResCtxt.node(), resNode));
-        int grpId = getGrpId(reqNode, resNode, reqType);
+        GrpId_t grpId = getGrpId(reqNode, resNode, reqType);
 
         if(reqType == Ckx) {
             // ответ на отмену, не содержащий данных, дополним информацией о пассажирах
@@ -2759,9 +2830,9 @@ void IatciInterface::DoKickAction(int ctxtId,
         }
 
         if(reqType == Cku) {
-            UpdateIatciGrp(grpId, reqType, iatciResNode, reqNode, resNode);
+            UpdateIatciGrp(grpId, reqType, iatciResNode, reqNode);
         } else {
-            SaveIatciGrp(grpId, reqType, iatciResNode, reqNode, resNode);
+            SaveIatciGrp(grpId, reqType, iatciResNode);
         }
         CheckInInterface::LoadIatciPax(NULL, resNode, grpId, false);
     }
@@ -2770,36 +2841,36 @@ void IatciInterface::DoKickAction(int ctxtId,
     case ActReseatPax:
     {
         ASSERT(lRes.size() == 1);
-        ASSERT(!lRes.front().paxGroups().empty());
-        ASSERT(lRes.front().paxGroups().front().seat());
-        const std::string requestedSeat = getSeatUpdate(reqNode).seat();
-        const std::string confirmedSeat = lRes.front().paxGroups().front().seat()->seat();
-        if(requestedSeat != confirmedSeat) {
-            LogError(STDLOG) << "Warning: remote DCS confirmed a place other than the requested! "
-                             << "Requested: " << requestedSeat << "; "
-                             << "Confirmed: " << confirmedSeat;
+        if(!lRes.front().paxGroups().empty() && lRes.front().paxGroups().front().seat()) {
+            const std::string requestedSeat = getSeatUpdate(reqNode).seat();
+            const std::string confirmedSeat = lRes.front().paxGroups().front().seat()->seat();
+            if(requestedSeat != confirmedSeat) {
+                LogError(STDLOG) << "Warning: remote DCS confirmed a place other than the requested! "
+                                 << "Requested: " << requestedSeat << "; "
+                                 << "Confirmed: " << confirmedSeat;
+            }
         }
-        int grpId = getGrpId(reqNode, resNode, reqType);
-        ReqParams(reqNode).setStrParam("old_seat", getOldSeat(reqNode));        
-        UpdateIatciGrp(grpId, reqType, iatciResNode, reqNode, resNode);
+        GrpId_t grpId = getGrpId(reqNode, resNode, reqType);
+        ReqParams(reqNode).setStrParam("old_seat", getOldSeat(reqNode));
+        UpdateIatciGrp(grpId, reqType, iatciResNode, reqNode);
         SeatmapRequest(reqNode); // перепосылаем карту мест, чтобы сформировать ответ на смену места
     }
     break;
 
     case ActLoadPax:
     {
-        int grpId = getGrpId(reqNode, resNode, reqType);
+        GrpId_t grpId = getGrpId(reqNode, resNode, reqType);
         iatci::iatci2xml(segmentsNode, lRes, getIatciViewXmlParams(grpId));
-        SaveIatciGrp(grpId, reqType, iatciResNode, reqNode, resNode);
+        SaveIatciGrp(grpId, reqType, iatciResNode);
         CheckInInterface::LoadPax(reqNode, resNode);
     }
     break;
 
     case ActReprint:
     {
-        int grpId = getGrpId(reqNode, resNode, reqType);
+        GrpId_t grpId = getGrpId(reqNode, resNode, reqType);
         iatci::iatci2xml(segmentsNode, lRes, getIatciViewXmlParams(grpId));
-        SaveIatciGrp(grpId, reqType, iatciResNode, reqNode, resNode);
+        SaveIatciGrp(grpId, reqType, iatciResNode);
         PrintInterface::GetPrintDataBP(reqNode, resNode);
     }
     break;
@@ -2811,7 +2882,8 @@ void IatciInterface::DoKickAction(int ctxtId,
     FuncOut(DoKickAction);
 }
 
-void IatciInterface::RollbackChangeOfStatus(xmlNodePtr initialReqNode, int ctxtId)
+void IatciInterface::RollbackChangeOfStatus(xmlNodePtr initialReqNode,
+                                            const ReqCtxtId_t& ctxtId)
 {
     if(!isCheckinRequest(initialReqNode)) {
         return;
@@ -2823,3 +2895,39 @@ void IatciInterface::RollbackChangeOfStatus(xmlNodePtr initialReqNode, int ctxtI
         ETStatusInterface::ETRollbackStatus(ediResCtxt.docPtr(), false);
     }
 }
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+namespace iatci {
+
+GrpId_t getCkxGrpId(xmlNodePtr reqNode)
+{
+    return GrpId_t(getGrpId(reqNode, NULL, IatciInterface::Ckx));
+}
+
+GrpId_t getCkuGrpId(xmlNodePtr reqNode)
+{
+    return GrpId_t(getGrpId(reqNode, NULL, IatciInterface::Cku));
+}
+
+void saveCkiGrp(const GrpId_t& grpId, xmlNodePtr reqNode, xmlNodePtr iatciResNode)
+{
+    LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId:" << grpId;
+    MagicUpdate(iatciResNode, grpId, IatciInterface::Cki);
+    SaveIatciCkiXmlRes(iatciResNode, grpId);
+}
+
+void saveCkuGrp(const GrpId_t& grpId, xmlNodePtr reqNode, xmlNodePtr iatciResNode)
+{
+    LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId:" << grpId;
+    UpdateIatciGrp(grpId, IatciInterface::Cku, iatciResNode, reqNode);
+}
+
+void saveCkxGrp(const GrpId_t& grpId, xmlNodePtr reqNode, xmlNodePtr iatciResNode)
+{
+    LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId:" << grpId;
+    MagicUpdate(iatciResNode, grpId, IatciInterface::Ckx);
+    SaveIatciCkxXmlRes(iatciResNode, grpId);
+}
+
+}//namespace iatci

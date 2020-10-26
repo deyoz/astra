@@ -2,6 +2,7 @@
 #include <boost/bind.hpp>
 
 #include "astra_utils.h"
+#include "qrys.h"
 
 #define NICKNAME "GRIG"
 #define NICKTRACE GRIG_TRACE
@@ -89,7 +90,7 @@ void BMConnection::resetAndSwitch()
   activeIp = ( activeIp + 1 ) % NUMLINES; // Чтобы следующая попытка была по другой линии
 }
 
-void BMConnection::init()
+void BMConnection::init(const string &name)
 {
   if( configured )
     return;
@@ -97,18 +98,26 @@ void BMConnection::init()
 // В будущем возможно чтение из другого источника, да к тому же в зависимости от значения line_number
 //  if( line_number == 0 )
 //  {
-    ip_addr[0].host = getTCLParam( "SBM_HOST1", NULL );
-    ip_addr[0].port = getTCLParam( "SBM_PORT1", 1000, 65535, 65535 );
-    ip_addr[1].host = getTCLParam( "SBM_HOST2", NULL );
-    ip_addr[1].port = getTCLParam( "SBM_PORT2", 1000, 65535, 65535 );
-    activeIp = 0;
-    login = getTCLParam( "SBM_LOGIN", NULL );
-    password = getTCLParam( "SBM_PASSWORD", NULL );
-    heartBeat = getTCLParam( "SBM_HEARTBEAT_INTERVAL", 1, 60, 30 );
-    heartBeatTimeout = getTCLParam( "SBM_HEARTBEAT_TIMEOUT", 1, 300, 105 );
-    loginTimeout = getTCLParam( "SBM_LOGIN_TIMEOUT", 1, 30, 15 );
-    ackTimeout = getTCLParam( "SBM_ACK_MSG_TIMEOUT", 1, 30, 15 );
-    warmUpTimeout = getTCLParam( "SBM_WARM_UP_TIMEOUT", 5, 240, 120 );
+
+    TCachedQuery Qry("select * from sbm_profiles where canon_name = :name", QParams() << QParam("name", otString, name));
+    Qry.get().Execute();
+    if(Qry.get().Eof)
+        throw EXCEPTIONS::Exception( "Can't read sbm_profiles for canon_name '%s'", name.c_str() );
+    else {
+        canon_name = name;
+        ip_addr[0].host = Qry.get().FieldAsString("host1");
+        ip_addr[0].port = Qry.get().FieldAsInteger("port1");
+        ip_addr[1].host = Qry.get().FieldAsString("host2");
+        ip_addr[1].port = Qry.get().FieldAsInteger("port2");
+        activeIp = 0;
+        login = Qry.get().FieldAsString("login");
+        password = Qry.get().FieldAsString("password");
+        heartBeat = Qry.get().FieldAsInteger("heartbeat_interval");
+        heartBeatTimeout = Qry.get().FieldAsInteger("heartbeat_timeout");
+        loginTimeout = Qry.get().FieldAsInteger("login_timeout");
+        ackTimeout = Qry.get().FieldAsInteger("ack_msg_timeout");
+        warmUpTimeout = Qry.get().FieldAsInteger("warm_up_timeout");
+    }
 /* Следы отладки 2-линейного варианта. Потом можно будет убрать
   }
   else if( line_number == 1 )
@@ -123,9 +132,9 @@ void BMConnection::init()
     heartBeat = getTCLParam( "SBM_HEARTBEAT_INTERVAL", 0, 60, 30 );
   }
 */
-  ProgTrace( TRACE0, "BMConnection::init(): line_number=%d,ip[0]=%s:%d,ip[1]=%s:%d,login=%s,password=%s,heartbeat=%d,heartbeatTimeout=%d,"
+  ProgTrace( TRACE0, "BMConnection::init(): canon_name=%s line_number=%d,ip[0]=%s:%d,ip[1]=%s:%d,login=%s,password=%s,heartbeat=%d,heartbeatTimeout=%d,"
                      "loginTimeout=%d,ackTimeout=%d,warmUpTimeout=%d",
-             line_number, ip_addr[0].host.c_str(), ip_addr[0].port, ip_addr[1].host.c_str(), ip_addr[1].port,
+             canon_name.c_str(), line_number, ip_addr[0].host.c_str(), ip_addr[0].port, ip_addr[1].host.c_str(), ip_addr[1].port,
              login.c_str(), password.c_str(), heartBeat, heartBeatTimeout, loginTimeout, ackTimeout, warmUpTimeout );
   configured = true;
   // Если вдруг возникла необходимость перечитать конфигурацию - то скорее всего был обрыв связи,
@@ -148,13 +157,13 @@ void BMConnection::onConnect( const boost::system::error_code& err )
   BM_HOST *ip = & ip_addr[ activeIp ];
   if( err.value() == 0 )
   {
-    ProgTrace( TRACE0, "Connection %d: connected to SITA BagMessage on %s:%d (after wait for %ld ms)",
-               line_number, ip->host.c_str(), ip->port, (long)cd.total_milliseconds() );
+    ProgTrace( TRACE0, "%s Connection %d: connected to SITA BagMessage on %s:%d (after wait for %ld ms)",
+               canon_name.c_str(), line_number, ip->host.c_str(), ip->port, (long)cd.total_milliseconds() );
     connected = BM_OP_READY;
   }
   else
   {
-    ProgError( STDLOG, "Connection %d: Cannot connect to SITA BagMessage on %s:%d. error=%d(%s) wait=%ld ms", line_number,
+    ProgError( STDLOG, "%s Connection %d: Cannot connect to SITA BagMessage on %s:%d. error=%d(%s) wait=%ld ms", canon_name.c_str(), line_number,
                ip->host.c_str(), ip->port, err.value(), err.message().c_str(), (long)cd.total_milliseconds() );
     resetAndSwitch();
   }
@@ -172,20 +181,20 @@ void BMConnection::connect()
   if( channelStart == 0 )
   {
     channelStart = now;
-    ProgTrace( TRACE5, "connection %d warmup begins at time %lu", line_number, channelStart );
+    ProgTrace( TRACE5, "%s connection %d warmup begins at time %lu", canon_name.c_str(), line_number, channelStart );
   }
   BM_HOST *ip = & ip_addr[ activeIp ];
   ip::tcp::endpoint ep( ip::address::from_string( ip->host ), ip->port );
   if( socket.is_open() ) // Тонкость: если сокет почему-то уже открытый - то установка соединения не проходит. Так что надо закрыть.
     socket.close();
-  ProgTrace( TRACE5, "connection %d try to connect on %s:%d ...", line_number, ip->host.c_str(), ip->port );
+  ProgTrace( TRACE5, "%s connection %d try to connect on %s:%d ...", canon_name.c_str(), line_number, ip->host.c_str(), ip->port );
   adminStartTime = microsec_clock::local_time();
   socket.async_connect( ep, boost::bind( &BMConnection::onConnect, this, boost::asio::placeholders::error) );
 }
 
 bool BMConnection::makeMessage( BM_MESSAGE_TYPE type, string message_text, int msg_id )
 {
-  ProgTrace( TRACE5, "makeMessage()" );
+  ProgTrace( TRACE5, "%s makeMessage()", canon_name.c_str() );
   if( message_text.length() >= 0xFFFF )
   {
     ProgError( STDLOG, "Too long text to send - %zu bytes", message_text.length() );
@@ -208,8 +217,8 @@ bool BMConnection::makeMessage( BM_MESSAGE_TYPE type, string message_text, int m
 
 void BMConnection::doSendMessage()
 {
-  ProgTrace( TRACE5, "connection %d doSendMessage(): try to send: appl_id=%8.8s version=%d type=%d(%s) id=%d data_len=%d",
-             line_number, header.appl_id.c_str(), header.version, header.type, messageTypes[ header.type ].c_str(),
+  ProgTrace( TRACE5, "%s connection %d doSendMessage(): try to send: appl_id=%8.8s version=%d type=%d(%s) id=%d data_len=%d",
+             canon_name.c_str(), line_number, header.appl_id.c_str(), header.version, header.type, messageTypes[ header.type ].c_str(),
              header.message_id_number, header.data_length );
   if( wbuf != NULL )
     delete( wbuf );
@@ -226,8 +235,8 @@ void BMConnection::doSendMessage()
   {
     waitForAck = header.message_id_number;
     waitForAckTime = microsec_clock::local_time();
-    ProgTrace( TRACE5, "connection %d set timer for ACK_DATA - id=%d tlg_id=%d now=%s",
-               line_number, waitForAck, waitForAckId, to_iso_string( waitForAckTime ).c_str() );
+    ProgTrace( TRACE5, "%s connection %d set timer for ACK_DATA - id=%d tlg_id=%d now=%s",
+               canon_name.c_str(), line_number, waitForAck, waitForAckId, to_iso_string( waitForAckTime ).c_str() );
   }
   else
   {
@@ -244,8 +253,8 @@ void BMConnection::onWrite( const boost::system::error_code& error, std::size_t 
   writeStatus = BM_OP_NONE;
   if( error.value() == 0 )
   {
-    ProgTrace( TRACE5, "async_write() finished for connection %d. %zu bytes written, %ld ms spent",
-               line_number, n, (long)cd.total_milliseconds() );
+    ProgTrace( TRACE5, "%s async_write() finished for connection %d. %zu bytes written, %ld ms spent",
+               canon_name.c_str(), line_number, n, (long)cd.total_milliseconds() );
     if( needSendAck > 0 ) // Стоит запрос на подтверждение сообщения - отослать вне очереди
     {
       sendMessage( ACK_MSG, "", needSendAck ); // подтвердить прием
@@ -254,8 +263,8 @@ void BMConnection::onWrite( const boost::system::error_code& error, std::size_t 
   }
   else
   { // Ошибки в передаче просто так не возникают. Скорее всего, проблемы со связью. И надо устанавливать ее заново.
-    ProgError( STDLOG, "async_write() finished with errors for connection %d. %zu bytes written, err=%d(%s). %ld ms spent ",
-               line_number, n, error.value(), error.message().c_str(), (long)cd.total_milliseconds() );
+    ProgError( STDLOG, "%s async_write() finished with errors for connection %d. %zu bytes written, err=%d(%s). %ld ms spent ",
+               canon_name.c_str(), line_number, n, error.value(), error.message().c_str(), (long)cd.total_milliseconds() );
     reset();
   }
   if( waitForAck <= 0 )
@@ -273,17 +282,17 @@ bool BMConnection::sendMessage( BM_MESSAGE_TYPE type, string message_text, int m
 {
   if( ! configured )
   {
-    ProgError( STDLOG, "Call to sendMessage() before connection is cofigured" );
+    ProgError( STDLOG, "%s Call to sendMessage() before connection is cofigured", canon_name.c_str() );
     return false;
   }
   if( waitForAck >= 0 )
   {
-    ProgTrace( TRACE5, "Call to sendMessage() while waiting for data acknowledgment!!!" );
+    ProgTrace( TRACE5, "%s Call to sendMessage() while waiting for data acknowledgment!!!", canon_name.c_str() );
     return false;
   }
   if( writeStatus != BM_OP_NONE )
   {
-    ProgTrace( TRACE5, "Call to sendMessage() while previous operation is not finished" );
+    ProgTrace( TRACE5, "%s Call to sendMessage() while previous operation is not finished", canon_name.c_str() );
     return false;
   }
   if( makeMessage( type, message_text, msg_id ) )
@@ -296,20 +305,20 @@ bool BMConnection::sendMessage( BM_MESSAGE_TYPE type, string message_text, int m
 
 void BMConnection::sendLogin()
 {
-  ProgTrace( TRACE5, "connection %d sendLogin()", line_number );
+  ProgTrace( TRACE5, "%s connection %d sendLogin()", canon_name.c_str(), line_number );
   if( sendMessage( LOGIN_RQST, password ) )
     loginStatus = BM_OP_WAIT;
 }
 
 void BMConnection::sendTlg( string text )
 {
-  ProgTrace( TRACE5, "sendTlg(): text=%s", text.c_str() );
+  ProgTrace( TRACE5, "%s sendTlg(): text=%s", canon_name.c_str(), text.c_str() );
   sendMessage( DATA, text );
 }
 
 void BMConnection::sendTlgAck( int id, string text, void (*handler)( int, int ) )
 {
-  ProgTrace( TRACE5, "sendTlgAck(): id=%d,text=%s", id, text.c_str() );
+  ProgTrace( TRACE5, "%s sendTlgAck(): id=%d,text=%s", canon_name.c_str(), id, text.c_str() );
   waitForAckId = id;
   writeHandler = handler;
   sendMessage( ACK_DATA, text );
@@ -319,7 +328,7 @@ void BMConnection::onRead( const boost::system::error_code& error, std::size_t n
 {
   if( error.value() == 0 && n == rheader.data_length )
   {
-    ProgTrace( TRACE5, "async_read() finished for connection %d. %zu bytes read", line_number, n );
+    ProgTrace( TRACE5, "%s async_read() finished for connection %d. %zu bytes read", canon_name.c_str(), line_number, n );
     if( rheader.type == ACK_DATA )
     {
       needSendAck = rheader.message_id_number;
@@ -337,13 +346,13 @@ void BMConnection::onRead( const boost::system::error_code& error, std::size_t n
     }
     else
     {
-      ProgError( STDLOG, "SITA BagMessage sends a message of incorrect type %d for connection %d", rheader.type, line_number );
+      ProgError( STDLOG, "SITA BagMessage %s sends a message of incorrect type %d for connection %d", canon_name.c_str(), rheader.type, line_number );
     }
   }
   else
   {
-    ProgError( STDLOG, "async_read() finished with errors for connection %d. %zu bytes read (%d expected), err=%d(%s)",
-               line_number, n, rheader.data_length, error.value(), error.message().c_str() );
+    ProgError( STDLOG, "%s async_read() finished with errors for connection %d. %zu bytes read (%d expected), err=%d(%s)",
+               canon_name.c_str(), line_number, n, rheader.data_length, error.value(), error.message().c_str() );
   }
 }
 
@@ -357,8 +366,8 @@ void BMConnection::checkInput()
     size_t size = read( socket, buffer(buf), transfer_exactly( BM_HEADER::SIZE ) );
 
     rheader.loadFrom( buf );
-    ProgTrace( TRACE5, "header received on connection %d: size=%zu, head: appl_id=%8.8s version=%d type=%d(%s) id=%d data_len=%d",
-               line_number, size, rheader.appl_id.c_str(), rheader.version, rheader.type, messageTypes[ rheader.type ].c_str(),
+    ProgTrace( TRACE5, "%s header received on connection %d: size=%zu, head: appl_id=%8.8s version=%d type=%d(%s) id=%d data_len=%d",
+               canon_name.c_str(), line_number, size, rheader.appl_id.c_str(), rheader.version, rheader.type, messageTypes[ rheader.type ].c_str(),
                rheader.message_id_number, rheader.data_length );
     lastRecvTime = time( NULL );
     if( rheader.data_length > 0 ) // Помимо заголовка есть данные
@@ -375,18 +384,18 @@ void BMConnection::checkInput()
       switch( rheader.type ) // Быстрая обработка того, что связано с протоколом
       {
         case LOGIN_ACCEPT:
-          ProgTrace( TRACE5, "SITA BagMessage: login accepted for connection %d after %ld ms waiting",
-                     line_number, (long)cd.total_milliseconds() );
+          ProgTrace( TRACE5, "SITA BagMessage %s: login accepted for connection %d after %ld ms waiting",
+                     canon_name.c_str(), line_number, (long)cd.total_milliseconds() );
           loginStatus = BM_OP_READY;
           channelStart = 0;
           break;
         case LOGIN_REJECT:
-          ProgError( STDLOG, "SITA BagMessage: login rejected for connection %d!!! Login or password may be incorrect.", line_number );
+          ProgError( STDLOG, "SITA BagMessage %s: login rejected for connection %d!!! Login or password may be incorrect.", canon_name.c_str(), line_number );
           loginStatus = BM_OP_NONE;
           break;
         case ACK_MSG:
-          ProgTrace( TRACE5, "SITA BagMessage: receive ACK_MSG for message id=%d after %ld ms waiting",
-                     rheader.message_id_number, (long)cd.total_milliseconds() );
+          ProgTrace( TRACE5, "SITA BagMessage %s: receive ACK_MSG for message id=%d after %ld ms waiting",
+                     canon_name.c_str(), rheader.message_id_number, (long)cd.total_milliseconds() );
           if( (int)rheader.message_id_number == waitForAck )
           { // Подтверждена доставка сообщения - только теперь помечаем его как доставленное
             waitForAck = -1;
@@ -412,30 +421,30 @@ void BMConnection::checkInput()
 */
           else
           {
-            ProgTrace( TRACE5, "... but it is unexpected - ignore" );
+            ProgTrace( TRACE5, "%s ... but it is unexpected - ignore", canon_name.c_str() );
           }
           break;
         case NAK_MSG:
-          ProgTrace( TRACE5, "SITA BagMessage: receive NAK_MSG for message id=%d after %ld ms waiting",
-                     rheader.message_id_number, (long)cd.total_milliseconds() );
+          ProgTrace( TRACE5, "SITA BagMessage %s: receive NAK_MSG for message id=%d after %ld ms waiting",
+                     canon_name.c_str(), rheader.message_id_number, (long)cd.total_milliseconds() );
           waitForAck = -1;
           doSendMessage();
           break;
         case STATUS:
-          ProgTrace( TRACE5, "SITA BagMessage: receive STATUS message for connection %d", line_number );
+          ProgTrace( TRACE5, "SITA BagMessage %s: receive STATUS message for connection %d", canon_name.c_str(), line_number );
           break;
         case DATA_ON:
-          ProgTrace( TRACE5, "SITA BagMessage: receive DATA_ON message for connection %d", line_number );
+          ProgTrace( TRACE5, "SITA BagMessage %s: receive DATA_ON message for connection %d", canon_name.c_str(), line_number );
           paused = false;
           break;
         case DATA_OFF:
-          ProgTrace( TRACE5, "SITA BagMessage: receive DATA_OFF message for connection %d", line_number );
+          ProgTrace( TRACE5, "SITA BagMessage %s: receive DATA_OFF message for connection %d", canon_name.c_str(), line_number );
           paused = true;
           break;
 // Сообщения типов LOGIN_RQST и LOG_OFF мы не получаем, только посылаем
 // Сообщения типов DATA и ACK_DATA всегда содержат данные - их обрабатываем после полного получения
         default:
-          ProgError( STDLOG, "SITA BagMessage sends a message of incorrect type %d for connection %d", rheader.type, line_number );
+          ProgError( STDLOG, "SITA BagMessage %s sends a message of incorrect type %d for connection %d", canon_name.c_str(), rheader.type, line_number );
           break;
       } // switch
     } // if сообщение только из заголовка ... else ...
@@ -447,16 +456,16 @@ void BMConnection::checkTimer()
   time_t now = time( NULL );
   if( channelStart != 0 && now - channelStart >= warmUpTimeout )
   {
-    ProgError( STDLOG, "SITA BagMessage: cannot warm up connection %d in %d seconds - try to switch channels",
-               line_number, warmUpTimeout );
+    ProgError( STDLOG, "SITA BagMessage %s: cannot warm up connection %d in %d seconds - try to switch channels",
+               canon_name.c_str(), line_number, warmUpTimeout );
     resetAndSwitch();
   }
   else if( loginStatus == BM_OP_WAIT )
   {
     if( now - lastSendTime >= loginTimeout )
     { // Ответ на запрос логина не пришел - надо начинать с начала
-      ProgError( STDLOG, "SITA BagMessage: no LOGIN_ACCEPT input message on connection %d after %d seconds waiting",
-                 line_number, loginTimeout );
+      ProgError( STDLOG, "SITA BagMessage %s: no LOGIN_ACCEPT input message on connection %d after %d seconds waiting",
+                 canon_name.c_str(), line_number, loginTimeout );
       loginStatus = BM_OP_NONE;
     }
   }
@@ -468,8 +477,8 @@ void BMConnection::checkTimer()
     }
     if( now - lastRecvTime >= heartBeatTimeout )
     { // давно ничего не получали - считаем, что линия грохнулась
-      ProgError( STDLOG, "SITA BagMessage: no input messages on connection %d in last %d seconds - connection may be failed",
-                 line_number, heartBeatTimeout );
+      ProgError( STDLOG, "SITA BagMessage %s: no input messages on connection %d in last %d seconds - connection may be failed",
+                 canon_name.c_str(), line_number, heartBeatTimeout );
       socket.close();
       reset();
       // И после этого в основном рабочем цикле заново начнется установка связи и прочее
@@ -480,8 +489,8 @@ void BMConnection::checkTimer()
       time_duration d = pnow - waitForAckTime;
       if( d.total_seconds() >= ackTimeout )
       { // Запросили подтверждение приема, а оно не пришло вовремя
-        ProgTrace( TRACE5, "connection %d TIMEOUT! pnow=%s, waitForAckTime=%s - No acknowledgment for message id=%d - resending",
-                   line_number, to_iso_string( pnow ).c_str(), to_iso_string( waitForAckTime ).c_str(), waitForAck );
+        ProgTrace( TRACE5, "%s connection %d TIMEOUT! pnow=%s, waitForAckTime=%s - No acknowledgment for message id=%d - resending",
+                   canon_name.c_str(), line_number, to_iso_string( pnow ).c_str(), to_iso_string( waitForAckTime ).c_str(), waitForAck );
         waitForAck = -1;
         doSendMessage();
       }
@@ -489,11 +498,11 @@ void BMConnection::checkTimer()
   }
 }
 
-void BMConnection::run()
+void BMConnection::run(const string &name)
 { // Сделать одно действие по работе. Поскольку вызывается в цикле, можно сразу делать возврат
   if( ! isInit() )
   {
-    init();
+    init(name);
     return;
   }
   else if( connected == BM_OP_NONE )
@@ -520,12 +529,12 @@ void BMConnection::run()
     }
     else
     {
-      ProgError( STDLOG, "connection %d: loginStatus=%d - that is not normal!", line_number, loginStatus );
+      ProgError( STDLOG, "%s connection %d: loginStatus=%d - that is not normal!", canon_name.c_str(), line_number, loginStatus );
     }
   }
   else
   {
-    ProgError( STDLOG, "connection %d: connected=%d - that is not normal!", line_number, connected );
+    ProgError( STDLOG, "%s connection %d: connected=%d - that is not normal!", canon_name.c_str(), line_number, connected );
   }
 }
 

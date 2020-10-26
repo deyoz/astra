@@ -208,7 +208,7 @@ const Segment& Segment::toXML(xmlNodePtr node,
 {
   if (node==nullptr) return *this;
 
-  SetProp(node, "carrier", airlineToPrefferedCode(departure.airline, lang));
+  SetProp(node, "carrier", airlineToPrefferedCode(departure.airline_out, lang));
   SetProp(node, "flight_no", departure.flight_number(lang));
   SetProp(node, "departure", airpToPrefferedCode(departure.airp, lang));
   SetProp(node, "destination", airpToPrefferedCode(arrival.airp, lang));
@@ -299,7 +299,7 @@ void SearchPassengersResponse::add(const CheckIn::TSimplePaxItem& pax,
 
       if (flt.airp!=reqDeparture) return;
 
-      CheckIn::TPaxSegmentPair segmentPair(flt.point_id, pnr.airp_arv);
+      TPaxSegmentPair segmentPair(flt.point_id, pnr.airp_arv);
       const Segment& segment=SegmentCache::get(segmentPair);
       if (!segment.departure.match(TReqInfo::Instance()->user.access)) return;
 
@@ -316,7 +316,7 @@ void SearchPassengersResponse::add(const CheckIn::TSimplePaxItem& pax,
 
       if (grp.airp_dep!=reqDeparture) return;
 
-      CheckIn::TPaxSegmentPair segmentPair=grp.getSegmentPair();
+      TPaxSegmentPair segmentPair=grp.getSegmentPair();
       const Segment& segment=SegmentCache::get(segmentPair);
       if (!segment.departure.match(TReqInfo::Instance()->user.access)) return;
 
@@ -377,7 +377,7 @@ void SearchPassengersResponse::searchPassengers(const SearchPassengersRequest& r
   {
     req.barcode.get().getBarcodeFilter().getPassengers(search, paxs, true);
   }
-  if (req.tkn)
+  else if (req.tkn)
   {
     search(paxs, req.tkn.get());
   }
@@ -505,7 +505,7 @@ void SearchFlightsResponse::add(const TAdvTripInfo& flt)
     flights.erase(f);
     return;
   }
-  if (flight.act_out_exists())
+  if (!flight.act_out_exists())
     flight.setStages(flight.point_id);
   get_DesksGates(flight.point_id, flight.check_in_desks, flight.gates);
 }
@@ -655,7 +655,7 @@ class SegKeys : public map<int, Sirena::TPaxSegKey>
     }
 };
 
-void GetPassengerInfoResponse::prepareEntities(int paxId)
+void GetPassengerInfoResponse::prepareEntities(const PaxId_t& paxId)
 {
   CheckIn::TSimplePaxList paxs;
   CheckIn::Search()(paxs, PaxIdFilter(paxId));
@@ -702,13 +702,11 @@ void GetPassengerInfoResponse::prepareEntities(int paxId)
   TCkinPaxFilter paxFilter(pax);
   for(const auto& t : trfer)
   {
-    if (segKeys.find(t.first)!=segKeys.end()) continue; //уже считали информацию на основе зарегистрированного сквозняка
+    if (segKeys.find(t.first) != segKeys.end()) continue; //уже считали информацию на основе зарегистрированного сквозняка
 
-    const CheckIn::TTransferItem& item=t.second;
-    FlightFilter fltFilter(item.operFlt);
-    fltFilter.setLocalDate(item.operFlt.scd_out);
-    fltFilter.airp_arv=item.airp_arv;
-    paxFilter.subclass=item.subclass;
+    const CheckIn::TTransferItem& item = t.second;
+    FlightFilter fltFilter = createFlightFilter(item);
+    paxFilter.subclass = item.subclass;
 
     search(paxs, fltFilter, paxFilter);
 
@@ -800,7 +798,7 @@ void MobilePaymentInterface::getPassengerInfo(XMLRequestCtxt *ctxt, xmlNodePtr r
   try
   {
     GetPassengerInfoResponse res;
-    res.prepareEntities(NodeAsInteger("pax_id", reqNode));
+    res.prepareEntities(PaxId_t(NodeAsInteger("pax_id", reqNode)));
     res.toXML(NewTextChild(resNode, (const char*)reqNode->name));
   }
   catch(const std::exception& e)
@@ -813,10 +811,10 @@ void MobilePaymentInterface::getPassengerInfo(XMLRequestCtxt *ctxt, xmlNodePtr r
 namespace ASTRA
 {
 
-template<> const Segment& SegmentCache::add(const CheckIn::TPaxSegmentPair& segmentPair) const
+template<> const Segment& SegmentCache::add(const TPaxSegmentPair& segmentPair) const
 {
   TAdvTripRoute route;
-  route.getRouteBetween(segmentPair.point_dep, segmentPair.airp_arv);
+  route.getRouteBetween(segmentPair);
 
   if (route.size()<2)
   {

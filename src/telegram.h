@@ -241,7 +241,7 @@ class TPaxItem
 {
   public:
     std::string surname,name,status,pnr_addr;
-    TTlgSeatList seat_no;
+    std::string seat_no, seat_no_lat;
     int reg_no;
     int bag_amount, bag_weight, rk_weight;
     int bag_pool_num;
@@ -275,7 +275,6 @@ class TTlgContent
     TypeB::TIndicator indicator;
     TTrferRouteItem OutFlt;
     TTrferRoute OnwardFlt;
-    bool pr_lat_seat;
 
     std::string OutCls;
     std::vector< std::list<std::string/*class*/> > OnwardCls;
@@ -286,7 +285,6 @@ class TTlgContent
     TTlgContent()
     {
       indicator=TypeB::None;
-      pr_lat_seat=false;
     };
     bool addTag(const TTagKey& tagKey, const TTlgContent& src);
     bool addTag(const CheckIn::TTagItem &tag);

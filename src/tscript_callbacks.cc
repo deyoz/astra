@@ -9,9 +9,9 @@
 #include <jxtlib/xml_tools.h>
 #include <jxtlib/utf2cp866.h>
 #include <edilib/edi_func_cpp.h>
-#include "oralib.h"
 
-// #include "tlg_source_edifact.h"
+#include "oralib.h"
+#include "pg_session.h"
 #include "xp_testing.h"
 
 #define NICKNAME "DMITRYVM"
@@ -77,20 +77,21 @@ namespace xp_testing { namespace tscript {
                 outq.push(redisplay);
             }
         }
-                
+
         virtual void beforeTest()
         {
-             LogTrace(TRACE3) << __func__;
-             make_curs("savepoint tscript").exec();
-             
-             TsCallbacks::beforeTest();	
+            LogTrace(TRACE3) << __func__ << " tscript ************* savepoint tscript";
+            make_curs("savepoint tscript").exec();
+            get_pg_curs("savepoint tscript").exec();
+            TsCallbacks::beforeTest();
+            PgCpp::commit();
         }
 
         virtual void afterTest()
         {
-            LogTrace(TRACE3) << __func__;
+            LogTrace(TRACE3) << __func__ << " tscript ************* savepoint tscript";
             make_curs("rollback to savepoint tscript").exec();
-
+            get_pg_curs("rollback to savepoint tscript").exec();
             if (nosir_mode()) {
                 rollbackInTestMode();
                 // this commit makes SP_XP_TESTING to prevent core dump in nosir mode

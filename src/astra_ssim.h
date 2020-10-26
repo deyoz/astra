@@ -11,17 +11,14 @@
 #include <serverlib/str_utils.h>
 #include <serverlib/string_cast.h>
 #include <coretypes/flight.h>
-using namespace ct;
 
 #include <nsi/nsi.h>
 #include <nsi/callbacks.h>
-using namespace nsi;
 
 #include <string>
 #include <iostream>
 #include <fstream>
 #include <streambuf>
-using namespace std;
 
 #include <libssim/callbacks.h>
 #include <libssim/ssim_data_types.h>
@@ -59,48 +56,48 @@ public:
 
     // заглушки
     virtual boost::optional<nsi::DocTypeId> findDocTypeId(const EncString&) override;
-    virtual boost::optional<DocTypeData> findDocTypeData(const nsi::DocTypeId&) override;
+    virtual boost::optional<nsi::DocTypeData> findDocTypeData(const nsi::DocTypeId&) override;
 
     // заглушки
     virtual boost::optional<nsi::SsrTypeId> findSsrTypeId(const EncString&) override;
-    virtual boost::optional<SsrTypeData> findSsrTypeData(const nsi::SsrTypeId&) override;
+    virtual boost::optional<nsi::SsrTypeData> findSsrTypeData(const nsi::SsrTypeId&) override;
 
     // заглушки
     virtual boost::optional<nsi::GeozoneId> findGeozoneId(const EncString&) override;
-    virtual boost::optional<GeozoneData> findGeozoneData(const nsi::GeozoneId&) override;
+    virtual boost::optional<nsi::GeozoneData> findGeozoneData(const nsi::GeozoneId&) override;
 
     virtual boost::optional<nsi::CountryId> findCountryId(const EncString&) override;
     virtual boost::optional<nsi::CountryId> findCountryIdByIso(const EncString&) override;
-    virtual boost::optional<CountryData> findCountryData(const nsi::CountryId&) override;
+    virtual boost::optional<nsi::CountryData> findCountryData(const nsi::CountryId&) override;
 
     virtual boost::optional<nsi::RegionId> findRegionId(const EncString&) override;
-    virtual boost::optional<RegionData> findRegionData(const nsi::RegionId&) override;
+    virtual boost::optional<nsi::RegionData> findRegionData(const nsi::RegionId&) override;
 
     virtual boost::optional<nsi::CityId> findCityId(const EncString&) override;
-    virtual boost::optional<CityData> findCityData(const nsi::CityId&) override;
+    virtual boost::optional<nsi::CityData> findCityData(const nsi::CityId&) override;
 
     virtual boost::optional<nsi::PointId> findPointId(const EncString&) override;
-    virtual boost::optional<PointData> findPointData(const nsi::PointId&) override;
+    virtual boost::optional<nsi::PointData> findPointData(const nsi::PointId&) override;
 
     virtual boost::optional<nsi::CompanyId> findCompanyId(const EncString&) override;
     virtual boost::optional<nsi::CompanyId> findCompanyIdByAccountCode(const EncString&) override;
-    virtual boost::optional<CompanyData> findCompanyData(const nsi::CompanyId&) override;
+    virtual boost::optional<nsi::CompanyData> findCompanyData(const nsi::CompanyId&) override;
 
     virtual boost::optional<nsi::AircraftTypeId> findAircraftTypeId(const EncString&) override;
-    virtual boost::optional<AircraftTypeData> findAircraftTypeData(const nsi::AircraftTypeId&) override;
+    virtual boost::optional<nsi::AircraftTypeData> findAircraftTypeData(const nsi::AircraftTypeId&) override;
 
     // заглушки
-    virtual boost::optional<RouterId> findRouterId(const EncString&) override;
-    virtual boost::optional<RouterData> findRouterData(const nsi::RouterId&) override;
+    virtual boost::optional<nsi::RouterId> findRouterId(const EncString&) override;
+    virtual boost::optional<nsi::RouterData> findRouterData(const nsi::RouterId&) override;
 
     // заглушки
-    virtual boost::optional<CurrencyId> findCurrencyId(const EncString&) override;
-    virtual boost::optional<CurrencyData> findCurrencyData(const nsi::CurrencyId&) override;
+    virtual boost::optional<nsi::CurrencyId> findCurrencyId(const EncString&) override;
+    virtual boost::optional<nsi::CurrencyData> findCurrencyData(const nsi::CurrencyId&) override;
 
     // заглушки
-    virtual boost::optional<OrganizationId> findOrganizationId(const EncString&) override;
-    virtual boost::optional<OrganizationData> findOrganizationData(const OrganizationId&) override;
-
+    std::set<nsi::GeozoneId> getGeozones(const nsi::CountryId&) override;
+    std::set<nsi::GeozoneId> getGeozones(const nsi::RegionId&) override;
+    std::set<nsi::GeozoneId> getGeozones(const nsi::CityId&) override;
 };
 //------------------------------------------------------------------------------------------
 

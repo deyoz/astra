@@ -232,7 +232,7 @@ namespace EXCH_CHECKIN_RESULT
      int bagweight;
      std::string status;
      std::string client_type;
-     std::vector<TCkinRouteItem> ckinRoutes;
+     TCkinRoute ckinRoute;
      CheckIn::TPaxTknItem tkn;
      std::multiset<CheckIn::TPaxRemItem> rems;
      CheckIn::TPaxDocItem doc;
@@ -604,10 +604,10 @@ namespace EXCH_CHECKIN_RESULT
       else
         paxData.status = "boarded";
     paxData.client_type = PaxQry.FieldAsString( col_client_type );
-    TCkinRoute ckinRoute;
-    if ( ckinRoute.GetRouteAfter( PaxQry.FieldAsInteger( col_grp_id ), crtNotCurrent, crtIgnoreDependent ) ) { // есть сквозная регистрация
-      paxData.ckinRoutes = ckinRoute;
-    }
+    paxData.ckinRoute.getRouteAfter( GrpId_t(PaxQry.FieldAsInteger( col_grp_id )),
+                                     TCkinRoute::NotCurrent,
+                                     TCkinRoute::IgnoreDependence,
+                                     TCkinRoute::WithoutTransit);
     LoadPaxTkn( paxData.pax_id, paxData.tkn );
     LoadPaxRem( paxData.pax_id, paxData.rems ); //все остальные ремарки
     if ( request.isAction( Request::ServicePayment ) ) {
@@ -658,10 +658,10 @@ namespace EXCH_CHECKIN_RESULT
   void FlightData::toXML( xmlNodePtr flightNode )
   {
     NewTextChild( flightNode, "point_id", route.front().point_id );
-    NewTextChild( flightNode, "airline", route.front().airline );
-    NewTextChild( flightNode, "flt_no", route.front().flt_num );
-    if ( !route.front().suffix.empty() ) {
-      NewTextChild( flightNode, "suffix", route.front().suffix );
+    NewTextChild( flightNode, "airline", route.front().airline_out );
+    NewTextChild( flightNode, "flt_no", route.front().flt_num_out );
+    if ( !route.front().suffix_out.empty() ) {
+      NewTextChild( flightNode, "suffix", route.front().suffix_out );
     }
     NewTextChild( flightNode, "scd_out", DateTimeToStr( ASTRA::date_time::UTCToClient( route.front().scd_out, region ), "dd.mm.yyyy hh:nn" ) );
     if ( !craft.empty() ) {
@@ -749,10 +749,10 @@ namespace EXCH_CHECKIN_RESULT
     NewTextChild( paxNode, "bagweight", bagweight );
     NewTextChild( paxNode, "status", status );
     NewTextChild( paxNode, "client_type", client_type);
-    if ( !this->ckinRoutes.empty() ) {
+    if ( !this->ckinRoute.empty() ) {
       xmlNodePtr rnode = NewTextChild( paxNode, "tckin_route" );
       int seg_no=1;
-      for ( std::vector<TCkinRouteItem>::iterator i=ckinRoutes.begin(); i!=ckinRoutes.end(); i++ ) {
+      for ( TCkinRoute::iterator i=ckinRoute.begin(); i!=ckinRoute.end(); i++ ) {
          xmlNodePtr inode = NewTextChild( rnode, "seg" );
          SetProp( inode, "num", seg_no );
          NewTextChild( inode, "flight", i->operFlt.airline + IntToString(i->operFlt.flt_no) + i->operFlt.suffix );
@@ -1057,7 +1057,7 @@ namespace EXCH_CHECKIN_RESULT
         continue;
       }
       //фильтр по номеру рейса
-      int flt_no = route.front().flt_num;
+      int flt_no = route.front().flt_num_out;
       if ( flt_no < 0 || ( !request.flts.empty() && std::find( request.flts.begin(), request.flts.end(), flt_no ) == request.flts.end() ) ) {
         continue;
       }

@@ -453,7 +453,7 @@ void TBagTypeList::fromDB(int list_id, bool only_visible)
   {
     TBagTypeListItem item;
     item.fromDB(Qry);
-    if (insert(make_pair(item, item)).second) update_stat(item);
+    if (emplace(item, item).second) update_stat(item);
   }
 }
 
@@ -570,9 +570,10 @@ void TBagTypeList::create(const std::string &airline,
       "SELECT bag_types.*, "
       "       LPAD(bag_types.code, 2, '0') AS code_str, "
       "       :airline AS airline, "
+      "       bag_unaccomp.pr_unaccomp, "
       "       bag_unaccomp.pr_additional "
       "FROM bag_types, bag_unaccomp "
-      "WHERE bag_types.code=bag_unaccomp.code AND bag_unaccomp.pr_unaccomp<>0 AND "
+      "WHERE bag_types.code=bag_unaccomp.code AND "
       "      (bag_unaccomp.airline IS NULL OR bag_unaccomp.airline=:airline) AND "
       "      (bag_unaccomp.airp IS NULL OR bag_unaccomp.airp=:airp) AND "
       "       bag_types.code<>99 "
@@ -582,6 +583,7 @@ void TBagTypeList::create(const std::string &airline,
     Qry.CreateVariable("airp", otString, airp);
   };
   Qry.Execute();
+  set<TBagTypeListKey> processed;
   for(;!Qry.Eof;Qry.Next())
   {
     TBagTypeListItem item;
@@ -601,7 +603,13 @@ void TBagTypeList::create(const std::string &airline,
     if (item.descr.size()>150) item.descr.erase(150);
     if (item.descr_lat.size()>150)item.descr_lat.erase(150);
 
-    insert(make_pair(item, item));
+    if (is_unaccomp)
+    {
+      if (!processed.insert(item).second) continue;
+      if (Qry.FieldAsInteger("pr_unaccomp")==0) continue;
+    }
+
+    emplace(item, item);
   };
 
   TBagTypeListItem item;
@@ -611,7 +619,7 @@ void TBagTypeList::create(const std::string &airline,
   item.name=getLocaleText(WeightConcept::REGULAR_BAG_NAME, LANG_RU);
   item.name_lat=getLocaleText(WeightConcept::REGULAR_BAG_NAME, LANG_EN);
   item.visible=!is_unaccomp;
-  insert(make_pair(item, item));
+  emplace(item, item);
 }
 
 void TBagTypeList::createForInboundTrferFromBTM(const std::string &airline)
@@ -626,7 +634,7 @@ void TBagTypeList::createForInboundTrferFromBTM(const std::string &airline)
   item.name=getLocaleText(WeightConcept::REGULAR_BAG_NAME, LANG_RU);
   item.name_lat=getLocaleText(WeightConcept::REGULAR_BAG_NAME, LANG_EN);
   item.visible=false;
-  insert(make_pair(item, item));
+  emplace(item, item);
 }
 
 void TBagTypeList::update_stat(const TBagTypeListItem &item)
@@ -755,6 +763,26 @@ void TNormItem::GetNorms(PrmEnum& prmenum) const
     if (amount!=ASTRA::NoExists)
       prmenum.prms << PrmSmpl<string>("", " ") << PrmSmpl<int>("", amount) << PrmLexema("", "EVT.P");
   };
+}
+
+boost::optional<TNormItem> TNormItem::create(const boost::optional<TBagQuantity>& bagNorm)
+{
+  if (!bagNorm) return boost::none;
+
+  if (bagNorm.get().getUnit()!=Ticketing::Baggage::WeightKilo &&
+      bagNorm.get().getUnit()!=Ticketing::Baggage::Nil) return boost::none;
+
+  TNormItem result;
+
+  if (bagNorm.get().getQuantity()>0)
+  {
+    //норма известна и она не нулевая
+    result.norm_type=ASTRA::bntFreeExcess;
+    result.weight=bagNorm.get().getQuantity();
+    result.per_unit=false;
+  }
+
+  return result;
 }
 
 const TPaxNormItem& TPaxNormItem::toXML(xmlNodePtr node) const

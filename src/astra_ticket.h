@@ -28,6 +28,9 @@ typedef BaseFrequentPass FrequentPass;
 // NOTE: See eticklib for realization
 class Itin : public BaseItin<Luggage>
 {
+    boost::optional<std::string> SpecDepPoint;
+    boost::optional<std::string> SpecArrPoint;
+
 public:
     typedef boost::shared_ptr< Itin > SharedPtr;
     Itin(const std::string &air,
@@ -129,6 +132,12 @@ public:
                Luggage())
     {
     }
+
+    const boost::optional<std::string>& specDepPoint() const { return SpecDepPoint; }
+    const boost::optional<std::string>& specArrPoint() const { return SpecArrPoint; }
+
+    void setSpecDepPoint(const std::string& sdp) { SpecDepPoint = sdp; }
+    void setSpecArrPoint(const std::string& sap) { SpecArrPoint = sap; }
 };
 
 // NOTE: See eticklib for realization

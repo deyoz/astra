@@ -151,10 +151,13 @@ struct TPMTotalsCmp {
         if(l.pr_trfer == NoExists)
             if(l.point_id == r.point_id)
                 if(l.lvl == r.lvl)
+                    return l.cls < r.cls;
+                    /*
                     if(l.status == r.status)
                         return l.cls < r.cls;
                     else
                         return l.status < r.status;
+                        */
                 else
                     return l.lvl < r.lvl;
             else
@@ -164,10 +167,13 @@ struct TPMTotalsCmp {
                 if(l.target == r.target)
                     if(l.pr_trfer == r.pr_trfer)
                         if(l.lvl == r.lvl)
+                            return l.cls < r.cls;
+                            /*
                             if(l.status == r.status)
                                 return l.cls < r.cls;
                             else
                                 return l.status < r.status;
+                                */
                         else
                             return l.lvl < r.lvl;
                     else
@@ -211,6 +217,8 @@ void PMTotalsToXML(const TPMTotals &PMTotals, map<string, int> &fr_target_ref, x
     for(TPMTotals::const_iterator im = PMTotals.begin(); im != PMTotals.end(); im++) {
         const TPMTotalsKey &key = im->first;
         const TPMTotalsRow &row = im->second;
+
+        key.dump();
 
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
 
@@ -408,6 +416,8 @@ void REPORTS::PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode
         "   halls2 \n";
     if(rpt_params.pr_trfer)
         SQLText += ", transfer, trfer_trips \n";
+    if(rpt_params.trzt_autoreg != TRptParams::TrztAutoreg::All)
+        SQLText += ", tckin_pax_grp \n";
     SQLText +=
         "WHERE \n"
         "   points.pr_del>=0 AND \n"
@@ -421,6 +431,20 @@ void REPORTS::PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode
         "   pr_brd IS NOT NULL and \n"
         "   decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and \n";
     Qry.CreateVariable("pr_brd_pax", otInteger, rpt_params.pr_brd);
+
+    if(rpt_params.trzt_autoreg != TRptParams::TrztAutoreg::All) {
+        if(rpt_params.trzt_autoreg == TRptParams::TrztAutoreg::Auto)
+            SQLText +=
+                "   pax_grp.status IN ('T') and \n"
+                "   tckin_pax_grp.grp_id is not null and \n";
+        else
+            SQLText +=
+                "   not (pax_grp.status IN ('T') and \n"
+                "   tckin_pax_grp.grp_id is not null) and \n";
+        SQLText +=
+            "   tckin_pax_grp.grp_id(+)=pax_grp.grp_id AND \n"
+            "   tckin_pax_grp.transit_num(+)<>0 and \n";
+    }
 
     if(not rpt_params.subcls.empty()) {
         SQLText +=
@@ -568,5 +592,6 @@ void REPORTS::PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode
     NewTextChild(variablesNode, "takeoff", (takeoff == NoExists ? "" : DateTimeToStr(takeoff, "dd.mm.yy hh:nn")));
     NewTextChild(variablesNode, "takeoff_date", (takeoff == NoExists ? "" : DateTimeToStr(takeoff, "dd.mm")));
     NewTextChild(variablesNode, "takeoff_time", (takeoff == NoExists ? "" : DateTimeToStr(takeoff, "hh:nn")));
+    LogTrace(TRACE5) << GetXMLDocText(resNode->doc);
 }
 

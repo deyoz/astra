@@ -44,21 +44,7 @@ bool IatciRequestHandler::fullAnswer() const
 
 void IatciRequestHandler::handle()
 {
-    // TODO
-//    if(nextParams())
-//    {
-//        if(!postponeHandling()) {
-//            // TODO
-//            //EdiSessionId_t sessId = sendCascadeRequest();
-//            //throw TlgHandling::TlgToBePostponed(sessId);
-//        } else {
-//            // достаём данные, которые получили от другой DCS
-//            loadDeferredData();
-//        }
-//    }
-
-    // выполним обработку "у нас"
-    m_lRes.push_front(handleRequest());
+    m_lRes = handleRequest();
 }
 
 void IatciRequestHandler::makeAnAnswer()
@@ -70,8 +56,8 @@ void IatciRequestHandler::makeAnAnswer()
         SetEdiSegGr(pMesW(), SegGrElement(1, curFlg));
         SetEdiPointToSegGrW(pMesW(), SegGrElement(1, curFlg), "SegGr1(flg) not found");
 
-        viewFdrElement(pMesW(), res.flight());
-        viewRadElement(pMesW(), respType(), res.statusAsString());
+        viewFdrElement(pMesW(), res.flight(), fcIndicator());
+        viewRadElement(pMesW(), respType(), fullAnswer() ? "O" : "P");
         if(res.cascade()) {
             viewChdElement(pMesW(), *res.cascade());
         }
@@ -162,8 +148,8 @@ void IatciRequestHandler::makeAnAnswerErr()
     SetEdiSegGr(pMesW(), SegGrElement(1));
     SetEdiPointToSegGrW(pMesW(), SegGrElement(1), "SegGr1(flg) not found");
 
-    ASSERT(paramsNew());
-    viewFdrElement(pMesW(), paramsNew()->outboundFlight());
+    ASSERT(params());
+    viewFdrElement(pMesW(), params()->outboundFlight(), "T");
     viewRadElement(pMesW(), respType(), "X");
     viewErdElement(pMesW(), ediErrorLevel(), ediErrorCode(), ediErrorText());
 
@@ -190,24 +176,6 @@ const std::string& IatciRequestHandler::ediErrorLevel() const
 bool IatciRequestHandler::postponeHandling() const
 {
     return SystemContext::Instance(STDLOG).inbTlgInfo().repeatedlyProcessed();
-}
-
-void IatciRequestHandler::loadDeferredData()
-{
-    m_lRes = iatci::loadDeferredCkiData(inboundTlgNum());
-    if(m_lRes.empty()) {
-        throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "Empty result list!");
-    } else if(m_lRes.size() == 1 &&
-              (m_lRes.front().status() == iatci::dcrcka::Result::Failed ||
-               m_lRes.front().status() == iatci::dcrcka::Result::RecoverableError)) {
-        // что-то пошло не так - скорее всего, случился таймаут
-        boost::optional<iatci::ErrorDetails> err = m_lRes.front().error();
-        if(err) {
-            throw tick_soft_except(STDLOG, err->errCode(), err->errDesc().c_str());
-        } else {
-            LogError(STDLOG) << "Warning: error detected but error information not found!";
-        }
-    }
 }
 
 }//namespace TlgHandling

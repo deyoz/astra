@@ -27,6 +27,7 @@
 #include "stat_reprint.h"
 #include "stat_services.h"
 #include "stat_salon.h"
+#include "stat_zamar.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -249,6 +250,9 @@ void create_plain_files(
             break;
         case statSalonFull:
             RunSalonStatFile(params, order_writer);
+            break;
+        case statZamarFull:
+            RunZamarFullFile(params, order_writer);
             break;
         default:
             throw Exception("unsupported statType %d", params.statType);
@@ -498,6 +502,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         case statTrferPax:
         case statRFISC:
         case statSalonFull:
+        case statZamarFull:
             get_compatible_report_form("stat", reqNode, resNode);
             break;
         default:
@@ -707,6 +712,12 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             TADFullStat ADFullStat;
             RunADStat(params, ADFullStat);
             createXMLADFullStat(params, ADFullStat, resNode);
+        }
+        if(params.statType == statZamarFull)
+        {
+            TZamarFullStat ZamarFullStat;
+            RunZamarStat(params, ZamarFullStat);
+            createXMLZamarFullStat(params, ZamarFullStat, resNode);
         }
     }
     /* GRISHA */

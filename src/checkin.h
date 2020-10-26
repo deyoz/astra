@@ -9,6 +9,7 @@
 #include "astra_ticket.h"
 #include "astra_locale.h"
 #include "astra_consts.h"
+#include "astra_types.h"
 #include "rfisc_sirena.h"
 #include "astra_misc.h"
 #include "oralib.h"
@@ -18,24 +19,11 @@
 #include "events.h"
 #include "tlg/tlg_parser.h"
 #include "sirena_exchange.h"
+#include "astra_types.h"
+#include "checkin_segments.h"
 
 
 using BASIC::date_time::TDateTime;
-
-struct TSegInfo
-{
-  int point_dep,point_arv;
-  std::string airp_dep,airp_arv;
-  int point_num,first_point;
-  bool pr_tranzit;
-  TTripInfo fltInfo;
-};
-
-struct TCkinSegFlts
-{
-  std::vector<TSegInfo> flts;
-  bool is_edi;
-};
 
 class TTrferSetsInfo
 {
@@ -62,7 +50,7 @@ void traceTrfer( TRACE_SIGNATURE,
 
 void traceTrfer( TRACE_SIGNATURE,
                  const std::string &descr,
-                 const std::map<int, std::pair<TCkinSegFlts, TTrferSetsInfo> > &segs );
+                 const std::map<int, std::pair<CheckIn::Segments, TTrferSetsInfo> > &segs );
 
 namespace CheckIn
 {
@@ -180,33 +168,16 @@ public:
 
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
 
-  static bool CheckCkinFlight(const int point_dep,
-                              const std::string& airp_dep,
-                              const int point_arv,
-                              const std::string& airp_arv,
-                              TSegInfo& segInfo);
   static void GetTCkinFlights(const TTripInfo &operFlt,
                               const std::map<int, CheckIn::TTransferItem> &trfer,
-                              std::map<int, std::pair<CheckIn::TTransferItem, TCkinSegFlts> > &segs);
-
-  static void ParseTransfer(xmlNodePtr trferNode,
-                            xmlNodePtr paxNode,
-                            const TSegInfo &firstSeg,
-                            CheckIn::TTransferList &segs);
-  static void ParseTransfer(xmlNodePtr trferNode,
-                            xmlNodePtr paxNode,
-                            const std::string &airp_arv,
-                            const TDateTime scd_out_local,
-                            CheckIn::TTransferList &segs);
+                              std::map<int, std::pair<CheckIn::TTransferItem, CheckIn::Segments> > &segs);
 
   static void SaveTransfer(int grp_id, const CheckIn::TTransferList &trfer,
-                           const std::map<int, std::pair<TCkinSegFlts, TTrferSetsInfo> > &trfer_segs,
+                           const std::map<int, std::pair<CheckIn::Segments, TTrferSetsInfo> > &trfer_segs,
                            int seg_no, TLogLocale& tlocale);
   static void SaveTCkinSegs(int grp_id,
-                            xmlNodePtr segsNode,
-                            const std::map<int,TSegInfo> &segs,
-                            int seg_no,
-                            const std::vector<TSegInfo>& iatciSegs,
+                            const CheckIn::SegmentMap &segs,
+                            const std::vector<CheckIn::IatciSegment>& iatciSegs,
                             TLogLocale& tlocale);
   static bool SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode);
   static bool SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
@@ -222,7 +193,7 @@ public:
                               xmlNodePtr reqNode, xmlNodePtr resNode);
   static void LoadPaxByGrpId(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNode, bool afterSavePax);
   static void LoadPax(xmlNodePtr reqNode, xmlNodePtr resNode);
-  static void LoadIatciPax(xmlNodePtr reqNode, xmlNodePtr resNode, int grpId, bool needSync);
+  static void LoadIatciPax(xmlNodePtr reqNode, xmlNodePtr resNode, const GrpId_t& grpId, bool needSync);
   static void PaxRemToXML(xmlNodePtr paxNode);
   static void BuildTransfer(const TTrferRoute &trfer, TTrferRouteType route_type, xmlNodePtr transferNode);
   static void BuildTCkinSegments(int grp_id, xmlNodePtr tckinNode);
@@ -243,26 +214,21 @@ public:
                                    std::map<int, CheckIn::TTransferItem> &trfer);
 
   static void LoadOnwardCrsTransfer(const std::map<int, CheckIn::TTransferItem> &trfer,
-                                    const std::map<int, std::pair<TCkinSegFlts, TTrferSetsInfo> > &trfer_segs,
+                                    const std::map<int, std::pair<CheckIn::Segments, TTrferSetsInfo> > &trfer_segs,
                                     xmlNodePtr trferNode);
   static void LoadOnwardCrsTransfer(const std::map<int, std::pair<CheckIn::TTransferItem, TTrferSetsInfo> > &trfer,
                                     xmlNodePtr trferNode);
+
+  static std::map<int, CheckIn::TTransferItem> getCrsTransferMap(const PaxId_t &pax_id);
 
   static void GetTrferSets(const TTripInfo &operFlt,
                            const std::string &oper_airp_arv,
                            const std::string &tlg_airp_dep,
                            const std::map<int, CheckIn::TTransferItem> &trfer,
                            const bool get_trfer_permit_only,
-                           std::map<int, std::pair<TCkinSegFlts, TTrferSetsInfo> > &trfer_segs);
+                           std::map<int, std::pair<CheckIn::Segments, TTrferSetsInfo> > &trfer_segs);
 
   static CheckInInterface* instance();
-};
-
-class TicketCallbacks
-{
-    public:
-        virtual ~TicketCallbacks() {}
-        virtual void onChangeTicket(TRACE_SIGNATURE, int grp_id) = 0;
 };
 
 #ifdef XP_TESTING

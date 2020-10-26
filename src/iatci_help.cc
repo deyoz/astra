@@ -7,10 +7,12 @@
 #include "astra_utils.h"
 #include "astra_misc.h"
 #include "basetables.h"
+#include "date_time.h"
 #include "tripinfo.h"
+#include "seat_number.h"
+#include "pg_session.h"
 #include "tlg/edi_msg.h"
 #include "tlg/remote_system_context.h"
-#include "seat_number.h"
 
 #include <serverlib/dates_io.h>
 #include <serverlib/dates_oci.h>
@@ -20,6 +22,7 @@
 #include <serverlib/int_parameters_oci.h>
 #include <serverlib/rip_oci.h>
 #include <serverlib/algo.h>
+#include <serverlib/pg_rip.h>
 
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/archive/text_oarchive.hpp>
@@ -208,26 +211,26 @@ static std::string getIatciAddrType(const std::string& astraAddrType)
 
 const size_t IatciXmlDb::PageSize = 1000;
 
-void IatciXmlDb::add(int grpId, const std::string& xmlText)
+void IatciXmlDb::add(const GrpId_t& grpId, const std::string& xmlText)
 {
     LogTrace(TRACE5) << "Enter to " << __FUNCTION__ << "; grpId=" << grpId;
     saveXml(grpId, xmlText);
 }
 
-void IatciXmlDb::del(int grpId)
+void IatciXmlDb::del(const GrpId_t& grpId)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId=" << grpId;
     delXml(grpId);
 }
 
-void IatciXmlDb::upd(int grpId, const std::string& xmlText)
+void IatciXmlDb::upd(const GrpId_t& grpId, const std::string& xmlText)
 {
     LogTrace(TRACE5) << "Enter to " << __FUNCTION__ << "; grpId=" << grpId;
     delXml(grpId);
     saveXml(grpId, xmlText);
 }
 
-void IatciXmlDb::saveXml(int grpId, const std::string& xmlText)
+void IatciXmlDb::saveXml(const GrpId_t& grpId, const std::string& xmlText)
 {
     LogTrace(TRACE5) << "Enter to " << __FUNCTION__ << "; grpId=" << grpId
                      << "; xmlText size=" << xmlText.size()
@@ -241,7 +244,7 @@ void IatciXmlDb::saveXml(int grpId, const std::string& xmlText)
         LogTrace(TRACE3) << "pageNo=" << pageNo << "; page=" << page;
         itb = ite;
 
-        make_curs(
+        get_pg_curs(
 "insert into GRP_IATCI_XML(GRP_ID, PAGE_NO, XML_TEXT) "
 "values (:grp_id, :page_no, :xml_text)")
         .bind(":grp_id", grpId)
@@ -251,20 +254,20 @@ void IatciXmlDb::saveXml(int grpId, const std::string& xmlText)
     }
 }
 
-void IatciXmlDb::delXml(int grpId)
+void IatciXmlDb::delXml(const GrpId_t& grpId)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId=" << grpId;
-    OciCpp::CursCtl cur = make_curs(
+    auto cur = get_pg_curs(
 "delete from GRP_IATCI_XML where GRP_ID=:grp_id");
     cur.bind(":grp_id", grpId)
        .exec();
 }
 
-std::string IatciXmlDb::load(int grpId)
+std::string IatciXmlDb::load(const GrpId_t& grpId)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId=" << grpId;
     std::string res, page;
-    OciCpp::CursCtl cur = make_curs(
+    auto cur = get_pg_curs(
 "select XML_TEXT from GRP_IATCI_XML where GRP_ID=:grp_id "
 "order by PAGE_NO");
     cur.bind(":grp_id", grpId)
@@ -277,15 +280,15 @@ std::string IatciXmlDb::load(int grpId)
     return res;
 }
 
-bool IatciXmlDb::exists(int grpId)
+bool IatciXmlDb::exists(const GrpId_t& grpId)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId=" << grpId;
-    OciCpp::CursCtl cur = make_curs(
+    auto cur = get_pg_curs(
 "select 1 from GRP_IATCI_XML where GRP_ID=:grp_id");
     cur.bind(":grp_id", grpId)
        .exfet();
 
-    return cur.err() != NO_DATA_FOUND;
+    return cur.err() != PgCpp::NoDataFound;
 }
 
 //---------------------------------------------------------------------------------------
@@ -449,16 +452,28 @@ iatci::OriginatorDetails makeOrg(const edifact::LorElem& lor)
 
 iatci::CascadeHostDetails makeCascade(const edifact::ChdElem& chd)
 {
-    iatci::CascadeHostDetails cascade =
-            iatci::CascadeHostDetails(chd.m_origAirline.empty() ? ""
-                                          : BaseTables::Company(chd.m_origAirline)->rcode(),
-                                      chd.m_origPoint.empty() ? ""
-                                           : BaseTables::Port(chd.m_origPoint)->rcode());
+    iatci::CascadeHostDetails cascade(chd.m_origAirline,
+                                      chd.m_origPoint,
+                                      chd.m_outbAirline,
+                                      chd.m_outbFlNum,
+                                      chd.m_depDate,
+                                      chd.m_depPoint,
+                                      chd.m_arrPoint,
+                                      chd.m_outbFlContinIndic);
     for(const auto& hostAirline: chd.m_hostAirlines) {
         cascade.addHostAirline(BaseTables::Company(hostAirline)->rcode());
     }
 
     return cascade;
+}
+
+iatci::MessageDetails makeMessageDetails(const edifact::DmcElem& dmc)
+{
+    if(dmc.m_maxNumRespFlights.empty()) {
+        return iatci::MessageDetails::createDefault();
+    }
+
+    return iatci::MessageDetails(std::stoul(dmc.m_maxNumRespFlights));
 }
 
 iatci::FlightDetails makeOutboundFlight(const edifact::FdqElem& fdq)
@@ -656,17 +671,22 @@ iatci::PaxDetails makeRespPax(const astra_api::astra_entities::PaxInfo& pax,
 
 iatci::FlightDetails makeFlight(const astra_api::astra_entities::SegmentInfo& seg)
 {
-    return iatci::FlightDetails(BaseTables::Company(seg.m_markFlight.m_airline)->rcode(),
+    return iatci::FlightDetails(BaseTables::Company(seg.m_markFlight.m_airline.get())->rcode(),
                                 Ticketing::FlightNum_t(seg.m_markFlight.m_flightNum),
-                                BaseTables::Port(seg.m_airpDep)->rcode(),
-                                BaseTables::Port(seg.m_airpArv)->rcode(),
+                                BaseTables::Port(seg.m_airpDep.get())->rcode(),
+                                BaseTables::Port(seg.m_airpArv.get())->rcode(),
                                 seg.m_markFlight.m_scdDepDate);
 }
 
 iatci::OriginatorDetails makeOrg(const astra_api::astra_entities::SegmentInfo& seg)
 {
-    return iatci::OriginatorDetails(BaseTables::Company(seg.m_markFlight.m_airline)->rcode(),
-                                    BaseTables::Port(seg.m_markFlight.m_airpDep)->rcode());
+    return iatci::OriginatorDetails(BaseTables::Company(seg.m_markFlight.m_airline.get())->rcode(),
+                                    BaseTables::Port(seg.m_markFlight.m_airpDep.get())->rcode());
+}
+
+iatci::OriginatorDetails makeCascadeOrg(const astra_api::astra_entities::SegmentInfo& seg)
+{
+    return iatci::OriginatorDetails(BaseTables::Company(seg.m_markFlight.m_airline.get())->rcode());
 }
 
 boost::optional<iatci::ReservationDetails> makeReserv(const astra_api::astra_entities::PaxInfo& pax)
@@ -753,9 +773,65 @@ boost::optional<iatci::ServiceDetails> makeService(const astra_api::astra_entiti
     return service;
 }
 
+boost::optional<iatci::UpdateBaggageDetails> makeUpdBaggage(const astra_api::astra_entities::PaxInfo& pax)
+{
+    if(!pax.m_iatciBags && !pax.m_iatciBagTags) {
+        return boost::none;
+    }
+
+    boost::optional<BaggageDetails::BagInfo> bag, handBag;
+    std::list<BaggageDetails::BagTagInfo> bagTags;
+
+    for(const auto& b: pax.m_iatciBags->bags) {
+        if(!b.is_hand) {
+            bag = BaggageDetails::BagInfo(b.num_of_pieces, b.weight);
+        } else {
+            handBag = BaggageDetails::BagInfo(b.num_of_pieces, b.weight);
+        }
+    }
+
+    if(bag && pax.m_iatciBagTags) {
+        for(const auto& t: pax.m_iatciBagTags->tags) {
+            bagTags.push_back(BaggageDetails::BagTagInfo(t.carrier_code,
+                                                         t.dest,
+                                                         BaggageDetails::BagTagInfo::makeFullTag(t.accode, t.tag_num),
+                                                         t.qtty));
+        }
+    }
+
+    return UpdateBaggageDetails(UpdateDetails::Replace,
+                                bag, handBag, bagTags);
+}
+
 boost::optional<iatci::BaggageDetails> makeBaggage(const astra_api::astra_entities::PaxInfo& pax)
 {
-    return iatci::BaggageDetails(iatci::BaggageDetails::BagInfo());
+    if(!pax.m_iatciBags && !pax.m_iatciBagTags) {
+        return iatci::BaggageDetails(iatci::BaggageDetails::BagInfo());
+    }
+
+    boost::optional<BaggageDetails::BagInfo> bag, handBag;
+    std::list<BaggageDetails::BagTagInfo> bagTags;
+
+    for(const auto& b: pax.m_iatciBags->bags) {
+        if(!b.num_of_pieces || !b.weight) continue;
+        if(!b.is_hand) {
+            bag = BaggageDetails::BagInfo(b.num_of_pieces, b.weight);
+        } else {
+            handBag = BaggageDetails::BagInfo(b.num_of_pieces, b.weight);
+        }
+    }
+
+    if(bag) {
+        ASSERT(pax.m_iatciBagTags && !pax.m_iatciBagTags->tags.empty());
+        for(const auto& t: pax.m_iatciBagTags->tags) {
+            bagTags.push_back(BaggageDetails::BagTagInfo(t.carrier_code,
+                                                         t.dest,
+                                                         BaggageDetails::BagTagInfo::makeFullTag(t.accode, t.tag_num),
+                                                         t.qtty));
+        }
+    }
+
+    return BaggageDetails(bag, handBag, bagTags);
 }
 
 boost::optional<iatci::BaggageDetails> makeBaggage(const astra_api::astra_entities::PaxInfo& pax,
@@ -851,12 +927,6 @@ boost::optional<iatci::VisaDetails> makeVisa(const astra_api::astra_entities::Pa
     return boost::none;
 }
 
-boost::optional<iatci::CascadeHostDetails> makeCascade()
-{
-    // TODO
-    return boost::none;
-}
-
 iatci::UpdatePaxDetails makeUpdPax(const astra_api::astra_entities::PaxInfo& newPax,
                                    iatci::UpdateDetails::UpdateActionCode_e act)
 {
@@ -937,7 +1007,8 @@ iatci::UpdateBaggageDetails makeUpdBaggage(const astra_api::astra_entities::BagP
 //---------------------------------------------------------------------------------------
 
 iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg,
-                                bool readAdditionals)
+                                bool readAdditionals,
+                                const std::string& fcIndicator)
 {
     std::string airl      = seg.trip_header.airline;
     int         flNum     = seg.trip_header.flt_no;
@@ -972,7 +1043,7 @@ iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg,
     boost::posix_time::time_duration scd_brd_to_time(boost::posix_time::not_a_date_time);
     std::string gate;
 
-    if(readAdditionals) {
+    if(readAdditionals && point_dep > 0) {
         scd_brd_to_time = readBPBoardedTo(point_dep, airp_dep);
         gate            = readBPGate(point_dep);
     }
@@ -986,7 +1057,71 @@ iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg,
                                 scd_dep_time,
                                 boost::posix_time::time_duration(boost::posix_time::not_a_date_time),
                                 scd_brd_to_time,
-                                gate);
+                                gate,
+                                fcIndicator);
+}
+
+boost::optional<iatci::CascadeHostDetails> makeCascade(const std::string& airline,
+                                                       boost::optional<astra_api::xml_entities::XmlHostDetails> host_details,
+                                                       boost::optional<iatci::CascadeHostDetails> cascadeBase)
+{
+    boost::optional<iatci::CascadeHostDetails> cascade = cascadeBase;
+
+    if(!host_details) {
+        return cascade;
+    }
+
+    if(host_details->hostOrigin) {
+        if(!cascade) {
+            cascade = iatci::CascadeHostDetails();
+        }
+
+        cascade->setFirstAirlineAndLocation(host_details->hostOrigin->origAirline,
+                                            host_details->hostOrigin->origLocation);
+    }
+
+    if(!cascade) {
+        cascade = iatci::CascadeHostDetails();
+    }
+
+    if(!host_details->hostAirlines.empty()) {
+        for(const auto& ha: host_details->hostAirlines) {
+            cascade->addHostAirline(ha);
+        }
+    } else {
+        if(!cascade->firstAirline().empty()) {
+            cascade->addHostAirline(cascade->firstAirline());
+        }
+    }
+
+    cascade->addHostAirline(airline);
+
+    return cascade;
+}
+
+boost::optional<iatci::CascadeHostDetails> makeCascade(const astra_api::xml_entities::XmlSegment& seg,
+                                                       const std::string& fcIndicator)
+{
+    auto fld = makeFlight(seg);
+    return iatci::CascadeHostDetails(fld.airline(),
+                                     fld.flightNum(),
+                                     fld.depDate(),
+                                     fld.depPort(),
+                                     fld.arrPort(),
+                                     fcIndicator);
+}
+
+iatci::MessageDetails makeMessageDetails(const astra_api::xml_entities::XmlSegment& ediSeg)
+{
+    if(!ediSeg.host_details) {
+        return iatci::MessageDetails::createDefault();
+    }
+
+    if(!ediSeg.host_details->maxRespFlights) {
+        return iatci::MessageDetails::createDefault();
+    }
+
+    return iatci::MessageDetails(*ediSeg.host_details->maxRespFlights);
 }
 
 //---------------------------------------------------------------------------------------
@@ -1010,7 +1145,7 @@ static const size_t MaxDataPartLen = 4000;
 static const size_t MaxDataParts = 5;
 
 
-static std::string serialize(const std::list<dcrcka::Result>& lRes)
+static std::string serializeResults(const std::list<dcrcka::Result>& lRes)
 {
     std::ostringstream os;
     {
@@ -1020,14 +1155,41 @@ static std::string serialize(const std::list<dcrcka::Result>& lRes)
     return os.str();
 }
 
-static void deserialize(std::list<dcrcka::Result>& lRes, const std::string& data)
+static std::list<dcrcka::Result> deserializeResults(const std::string& data)
 {
+    std::list<dcrcka::Result> lRes;
+
     std::stringstream is;
     is << data;
     {
         boost::archive::text_iarchive ia(is);
         ia >> lRes;
     }
+    return lRes;
+}
+
+//---------------------------------------------------------------------------------------
+
+static std::string serializeDefferedData(const DefferedIatciData& defferedData)
+{
+    std::ostringstream os;
+    {
+        boost::archive::text_oarchive oa(os);
+        oa << defferedData;
+    }
+    return os.str();
+}
+
+static DefferedIatciData deserializeDefferedData(const std::string& data)
+{
+    DefferedIatciData defferedData;
+    std::stringstream is;
+    is << data;
+    {
+        boost::archive::text_iarchive ia(is);
+        ia >> defferedData;
+    }
+    return defferedData;
 }
 
 //---------------------------------------------------------------------------------------
@@ -1062,9 +1224,9 @@ static std::vector<std::string> slpitDataParts(const std::string& in)
 
 //---------------------------------------------------------------------------------------
 
-void saveDeferredCkiData(tlgnum_t msgId, const std::list<dcrcka::Result>& lRes)
+void saveDeferredCkiData(tlgnum_t msgId, const DefferedIatciData& defferedData)
 {
-    std::string serialized = serialize(lRes);
+    std::string serialized = serializeDefferedData(defferedData);
 
     LogTrace(TRACE3) << __FUNCTION__
                      << " by msgId: " << msgId
@@ -1084,7 +1246,7 @@ void saveDeferredCkiData(tlgnum_t msgId, const std::list<dcrcka::Result>& lRes)
        .exec();
 }
 
-std::list<dcrcka::Result> loadDeferredCkiData(tlgnum_t msgId)
+boost::optional<DefferedIatciData> loadDeferredCkiData(tlgnum_t msgId)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " by msgId: " << msgId;
 
@@ -1101,28 +1263,27 @@ std::list<dcrcka::Result> loadDeferredCkiData(tlgnum_t msgId)
 "returning DATA1, DATA2, DATA3, DATA4, DATA5 "
 "into :data1, :data2, :data3, :data4, :data5; \n"
 "end;");
-    cur.bind(":msg_id", msgId.num)
-       .bindOut(":data1",     data[0])
+    cur.autoNull()
+       .bind(":msg_id", msgId.num)
+       .bindOutNull(":data1", data[0], "")
        .bindOutNull(":data2", data[1], "")
        .bindOutNull(":data3", data[2], "")
        .bindOutNull(":data4", data[3], "")
        .bindOutNull(":data5", data[4], "")
        .exec();
 
-    std::string serialized(std::string(data[0]) + data[1] + data[2] + data[3] + data[5]);
+    std::string serialized(std::string(data[0]) + data[1] + data[2] + data[3] + data[4]);
     if(serialized.empty()) {
         tst();
-        return std::list<dcrcka::Result>();
+        return boost::none;
     }
 
-    std::list<dcrcka::Result> lRes;
-    deserialize(lRes, serialized);
-    return lRes;
+    return deserializeDefferedData(serialized);
 }
 
 void saveCkiData(edilib::EdiSessionId_t sessId, const std::list<dcrcka::Result>& lRes)
 {
-    std::string serialized = serialize(lRes);
+    std::string serialized = serializeResults(lRes);
 
     LogTrace(TRACE3) << __FUNCTION__
                      << " by sessId: " << sessId
@@ -1174,9 +1335,7 @@ std::list<dcrcka::Result> loadCkiData(edilib::EdiSessionId_t sessId)
         return std::list<dcrcka::Result>();
     }
 
-    std::list<dcrcka::Result> lRes;
-    deserialize(lRes, serialized);
-    return lRes;
+    return deserializeResults(serialized);
 }
 
 //---------------------------------------------------------------------------------------
@@ -1915,15 +2074,67 @@ DcsSystemContext* readDcs(const iatci::FlightDetails& outbFlt,
 
 //---------------------------------------------------------------------------------------
 
-int getLastTCkinGrpId(int grpId)
+GrpId_t getLastTCkinGrpId(const GrpId_t& grpId)
 {
     TCkinRoute tckinRoute;
-    if(tckinRoute.GetRouteAfter(grpId, crtWithCurrent, crtIgnoreDependent)) {
+    if(tckinRoute.getRouteAfter(GrpId_t(grpId),
+                                TCkinRoute::WithCurrent,
+                                TCkinRoute::IgnoreDependence,
+                                TCkinRoute::WithoutTransit)) {
         ASSERT(!tckinRoute.empty());
-        return tckinRoute.back().grp_id;
+        return GrpId_t(tckinRoute.back().grp_id);
     } else {
         return grpId;
     }
+}
+
+//---------------------------------------------------------------------------------------
+
+std::string createFlightKey(const std::string& airl,
+                            const Ticketing::FlightNum_t& flNum,
+                            const boost::gregorian::date& depDate,
+                            const std::string& depPort,
+                            const std::string& arrPort)
+{
+    if(airl.empty()
+            || !flNum
+            || depDate.is_special()
+            || depPort.empty() || arrPort.empty())
+    {
+        return "";
+    }
+
+    std::ostringstream os;
+    os << BaseTables::Company(airl)->code() << "_" << flNum << "_"
+       << HelpCpp::string_cast(depDate, "%d%m%y") << "_"
+       << BaseTables::Port(depPort)->code() << "_"
+       << BaseTables::Port(arrPort)->code();
+
+    return os.str();
+}
+
+//---------------------------------------------------------------------------------------
+
+std::string createFlightKey(const std::string& airl,
+                            int flNum,
+                            BASIC::date_time::TDateTime depDateTime,
+                            const std::string& depPort,
+                            const std::string& arrPort)
+{
+    if(airl.empty()
+            || flNum == ASTRA::NoExists || !flNum
+            || depDateTime == ASTRA::NoExists
+            || depPort.empty() || arrPort.empty())
+    {
+        return "";
+    }
+    std::ostringstream os;
+    os << BaseTables::Company(airl)->code() << "_" << flNum << "_"
+       << BASIC::date_time::DateTimeToStr(depDateTime, "ddmmyy") << "_"
+       << BaseTables::Port(depPort)->code() << "_"
+       << BaseTables::Port(arrPort)->code();
+
+    return os.str();
 }
 
 }//namespace iatci

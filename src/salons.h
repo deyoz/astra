@@ -272,10 +272,14 @@ struct TRFISC {
 struct TExtRFISC: public TRFISC {
   bool pr_prot_ckin=false;
   boost::optional<int> brand_priority;
+  boost::optional<int> airps_priority;
+  boost::optional<std::string> brand_code;
   void clear() {
     TRFISC::clear();
     pr_prot_ckin = false;
     brand_priority = boost::none;
+    brand_code = boost::none;
+    airps_priority = boost::none;
   }
 };
 
@@ -393,12 +397,14 @@ class TSeatTariffMap : public TSeatTariffMapType
   public:
     TSeatTariffMap() : _potential_queries(0), _real_queries(0) { clear(); }
     //скорее всего будет использоваться перед первоначальной регистрацией:
-    void get(const TAdvTripInfo &operFlt, const TSimpleMktFlight &markFlt, const CheckIn::TPaxTknItem &tkn);
+    void get(const TAdvTripInfo &operFlt, const TSimpleMktFlight &markFlt,
+             const CheckIn::TPaxTknItem &tkn, const std::string& airp_arv);
     //если пассажир зарегистрирован и мы хотим абсолютно минимизировать запросы к БД:
     void get(const int point_id_oper,
              const int point_id_mark,
              const int grp_id,
-             const int pax_id);
+             const int pax_id,
+             const std::string& airp_arv);
     //если пассажир зарегистрирован:
     void get(const int pax_id);
 
@@ -1618,7 +1624,8 @@ class TSalonList {
     //void DropRFISCRemarks( TSeatTariffMap &tariffMap );
     //void SetTariffsByRFICSColor( int point_dep, TSeatTariffMap &tariffMap, bool setPassengerTariffs );
     void ReadPaxs( TQuery &Qry, TPaxList &pax_list );
-    void ReadCrsPaxs( TQuery &Qry, TPaxList &pax_list );
+    void ReadCrsPaxs( TQuery &Qry, TPaxList &pax_list,
+                      int pax_id, std::string &airp_arv );
     void validateLayersSeats( );
     void CommitLayers();
     void RollbackLayers();

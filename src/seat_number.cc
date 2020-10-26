@@ -81,6 +81,13 @@ bool SeatNumber::isIataRow(const std::string& row)
   return getIataRowNum(row, 0);
 }
 
+boost::optional<bool> SeatNumber::isLatinIataLine(const std::string& line)
+{
+  boost::optional<char> result=getIataLineChar(line, 0);
+  if (result) return IsAscii7(result.get());
+  return boost::none;
+}
+
 boost::optional<char> SeatNumber::normalizeIataLine(const std::string& line)
 {
   return getIataLineChar(line, 0, true);
@@ -215,4 +222,15 @@ string SeatNumber::normalizePrevIataRowOrException(const string& row)
   }
 
   return result.get();
+}
+
+string SeatNumber::stupidlyChangeEncoding(const std::string& seatNumber)
+{
+  string result = seatNumber;
+  if ( seatNumber == CharReplace( result, rusLines, latLines ) )
+    CharReplace( result, latLines, rusLines );
+  if ( seatNumber == result )
+    result.clear();
+
+  return result;
 }

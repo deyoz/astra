@@ -2,6 +2,7 @@
 #include "baggage_calc.h"
 #include "payment_base.h"
 #include "astra_elem_utils.h"
+#include "ckin_search.h"
 #include <regex>
 
 #define NICKNAME "VLAD"
@@ -22,7 +23,9 @@ const std::string TGroupInfo::id="group_svc_info";
 const std::string TPseudoGroupInfo::id="pseudogroup_svc_info";
 const std::string TPassengers::id="passenger_with_svc";
 
-const TSegItem& TSegItem::toSirenaXML(xmlNodePtr node, const OutputLang &lang) const
+const TSegItem& TSegItem::toSirenaXML(xmlNodePtr node,
+                                      const boost::optional<CheckIn::TPaxTknItem>& tkn,
+                                      const OutputLang &lang) const
 {
   if (node==NULL) return *this;
 
@@ -34,8 +37,8 @@ const TSegItem& TSegItem::toSirenaXML(xmlNodePtr node, const OutputLang &lang) c
   };
   SetProp(node, "operating_company", airlineToPrefferedCode(operFlt.airline, lang));
   SetProp(node, "operating_flight", operFlt.flight_number(lang));
-  SetProp(node, "departure", airpToPrefferedCode(operFlt.airp, lang));
-  SetProp(node, "arrival", airpToPrefferedCode(airp_arv, lang));
+  SetProp(node, "departure", airpDepToPrefferedCode(AirportCode_t(operFlt.airp), tkn, lang));
+  SetProp(node, "arrival", airpArvToPrefferedCode(AirportCode_t(airp_arv), tkn, lang));
   if (operFlt.scd_out!=ASTRA::NoExists)
   {
     if (scd_out_contain_time)
@@ -57,25 +60,50 @@ const TSegItem& TSegItem::toSirenaXML(xmlNodePtr node, const OutputLang &lang) c
   return *this;
 }
 
-void TPaxSegItem::set(const CheckIn::TPaxTknItem& _tkn, TPaxSection* paxSection)
+void TPaxSegItem::setTicket(const CheckIn::TPaxTknItem& tkn_, TPaxSection* paxSection)
 {
-  tkn=_tkn;
+  tkn=tkn_;
   display_id=ASTRA::NoExists;
-  if (paxSection!=nullptr && tkn.validET())
-    display_id=paxSection->displays.add(TETickItem().fromDB(tkn.no, tkn.coupon, TETickItem::DisplayTlg, false).ediPnr);
+  if (paxSection!=nullptr && tkn && tkn.get().validET())
+    display_id=paxSection->displays.add(TETickItem().fromDB(tkn.get().no, tkn.get().coupon, TETickItem::DisplayTlg, false).ediPnr);
+}
+
+void TPaxItem::addMissingTickets(TPaxSection* paxSection)
+{
+  for(auto& i : segs)
+  {
+    TPaxSegItem& seg=i.second;
+    if (seg.tkn) continue;
+
+    FlightFilter fltFilter(seg.operFlt);
+    fltFilter.setLocalDate(seg.operFlt.scd_out);
+    fltFilter.airp_arv=seg.airp_arv;
+
+    TCkinPaxFilter paxFilter(surname, name, seg.subcl, pers_type, seats);
+
+    CheckIn::TSimplePaxList paxs;
+    CheckIn::Search()(paxs, fltFilter, paxFilter);
+
+    if (paxs.size()!=1) continue;
+
+    CheckIn::TSimplePaxItem& pax=paxs.front();
+    if (pax.origin()==paxPnl)
+      CheckIn::LoadCrsPaxTkn(pax.id, pax.tkn);
+    seg.setTicket(pax.tkn, paxSection);
+  }
 }
 
 const TPaxSegItem& TPaxSegItem::toSirenaXML(xmlNodePtr node, const OutputLang &lang) const
 {
   if (node==NULL) return *this;
 
-  TSegItem::toSirenaXML(node, lang);
+  TSegItem::toSirenaXML(node, tkn, lang);
   SetProp(node, "subclass", ElemIdToPrefferedElem(etSubcls, subcl, efmtCodeNative, lang.get()));
-  if (!tkn.no.empty())
+  if (tkn && !tkn.get().no.empty())
   {
     xmlNodePtr tknNode=NewTextChild(node, "ticket");
-    SetProp(tknNode, "number", tkn.no);
-    SetProp(tknNode, "coupon_num", tkn.coupon, ASTRA::NoExists);
+    SetProp(tknNode, "number", tkn.get().no);
+    SetProp(tknNode, "coupon_num", tkn.get().coupon, ASTRA::NoExists);
     SetProp(tknNode, "display_id", display_id, ASTRA::NoExists);
   }
   pnrAddrs.toSirenaXML(node, lang);
@@ -1161,25 +1189,9 @@ void CopyPaxServiceLists(int grp_id_src, int grp_id_dest, bool is_grp_id, bool r
   else
     sql << "       :list_id ";
 
-  sql << "FROM pax_service_lists, service_lists, "
-         "     (SELECT pax.pax_id, "
-         "             tckin_pax_grp.tckin_id, "
-         "             tckin_pax_grp.seg_no, "
-         "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
-         "      FROM pax, tckin_pax_grp "
-         "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_src) src, "
-         "     (SELECT pax.pax_id, "
-         "             tckin_pax_grp.tckin_id, "
-         "             tckin_pax_grp.seg_no, "
-         "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
-         "      FROM pax, tckin_pax_grp "
-         "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_dest) dest "
-         "WHERE pax_service_lists.list_id=service_lists.id AND "
-         "      service_lists.rfisc_used=:rfisc_used AND "
-         "      src.tckin_id=dest.tckin_id AND "
-         "      src.distance=dest.distance AND "
-         "      pax_service_lists.pax_id=src.pax_id AND "
-         "      pax_service_lists.transfer_num+src.seg_no-dest.seg_no>=0 ";
+  sql << TCkinRoute::copySubselectSQL("pax_service_lists", {"service_lists"}, true)
+      << "      AND pax_service_lists.list_id=service_lists.id "
+         "      AND service_lists.rfisc_used=:rfisc_used ";
   Qry.Clear();
   Qry.SQLText=sql.str();
   if (!rfisc_used)

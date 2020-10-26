@@ -5,6 +5,7 @@
 #include "misc.h"
 #include "date_time.h"
 #include "astra_context.h"
+#include "flt_settings.h"
 #include "tlg/tlg.h"
 #include "tlg/remote_results.h"
 #include "tlg/request_params.h"
@@ -885,23 +886,33 @@ bool isWebCheckinRequest(xmlNodePtr reqNode)
          strcmp((const char*)reqNode->name, "SavePax") == 0;
 }
 
+bool isTagCUWS(xmlNodePtr reqNode)
+{
+    return reqNode!=nullptr &&
+        TReqInfo::Instance()->client_type==ctHTTP &&
+        GetNode("/term/query/CUWS", reqNode->doc)!=nullptr;
+}
+
 bool isTagAddRequestSBDO(xmlNodePtr reqNode)
 {
   return reqNode!=nullptr &&
          TReqInfo::Instance()->client_type==ctHTTP &&
-         GetNode("/term/query/PassengerBaggageTagAdd", reqNode->doc)!=nullptr;
+         (GetNode("/term/query/PassengerBaggageTagAdd", reqNode->doc)!=nullptr or
+          (reqNode->parent and (string)"Issue_TagNumber" == (const char *)reqNode->parent->name));
 }
 
 bool isTagConfirmRequestSBDO(xmlNodePtr reqNode)
 {
   return reqNode!=nullptr &&
          TReqInfo::Instance()->client_type==ctHTTP &&
-         GetNode("/term/query/PassengerBaggageTagConfirm", reqNode->doc)!=nullptr;
+         (GetNode("/term/query/PassengerBaggageTagConfirm", reqNode->doc)!=nullptr or
+          (reqNode->parent and (string)"Set_Bag_as_Active" == (const char *)reqNode->parent->name));
 }
 
 bool isTagRevokeRequestSBDO(xmlNodePtr reqNode)
 {
   return reqNode!=nullptr &&
          TReqInfo::Instance()->client_type==ctHTTP &&
-         GetNode("/term/query/PassengerBaggageTagRevoke", reqNode->doc)!=nullptr;
+         (GetNode("/term/query/PassengerBaggageTagRevoke", reqNode->doc)!=nullptr or
+          (reqNode->parent and (string)"Set_Bag_as_Inactive" == (const char *)reqNode->parent->name));
 }

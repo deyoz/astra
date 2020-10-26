@@ -220,6 +220,7 @@ class PrintInterface: public JxtInterface
                 ASTRA::TDevOper::Enum op_type,
                 xmlNodePtr reqNode,
                 xmlNodePtr resNode);
+        static void GetEMDAList(xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
 void checkBeforePrintBP(const PrintInterface::BPPax &pax);

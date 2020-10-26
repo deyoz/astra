@@ -12,6 +12,11 @@
 
 namespace CheckIn
 {
+class TPaxTransferItem;
+class TTransferItem;
+class TTransferList;
+
+TAdvTripInfo routeInfoFromTrfr(const CheckIn::TTransferItem& seg);
 
 class TPaxTransferItem
 {
@@ -77,11 +82,17 @@ class TTransferList : public std::vector<TTransferItem>
   public:
     void load(int grp_id);
     void check(int id, bool isGrpId, int seg_no) const;
+    void parseSegments(xmlNodePtr trferNode,
+                       const AirportCode_t& airpArv,
+                       const TDateTime scd_out_local);
+    void parseSubclasses(xmlNodePtr paxNode);
 };
 
 void PaxTransferFromDB(int pax_id, std::list<TPaxTransferItem> &trfer);
 void PaxTransferToXML(const std::list<TPaxTransferItem> &trfer, xmlNodePtr paxNode);
 void PaxTransferToDB(int pax_id, int pax_no, const CheckIn::TTransferList &trfer, int seg_no);
+
+TSearchFltInfo createSearchFlt(const CheckIn::TTransferItem &item);
 
 }; //namespace CheckIn
 
@@ -257,18 +268,40 @@ class TGrpId : public std::pair<int/*grp_id*/, int/*bag_pool_num*/>
      };
 };
 
-enum TAlarmType { atUnattached,
-                  atInPaxDuplicate,
-                  atOutPaxDuplicate,
-                  atInRouteIncomplete,
-                  atInRouteDiffer,
-                  atOutRouteDiffer,     //никогда не возникает на экране подтверждения входящего трансфера
-                  atInOutRouteDiffer,
-                  atWeightNotDefined,
-                  atOutRouteWithErrors, //никогда не возникает на экране подтверждения входящего трансфера
-                  atLength };
+enum class Alarm
+{
+    Unattached,
+    InPaxDuplicate,
+    OutPaxDuplicate,
+    InRouteIncomplete,
+    InRouteDiffer,
+    InOutRouteDiffer,
+    WeightNotDefined,
+};
 
-typedef std::map<TGrpId, std::set<TAlarmType> > TAlarmTagMap;
+class AlarmTypes : public ASTRA::PairList<Alarm, std::string>
+{
+  private:
+    virtual std::string className() const { return "TrferList::AlarmTypes"; }
+  public:
+    AlarmTypes() : ASTRA::PairList<Alarm, std::string>(
+                     {{Alarm::Unattached,        "TRFER_UNATTACHED"          },
+                      {Alarm::InPaxDuplicate,    "TRFER_IN_PAX_DUPLICATE"    },
+                      {Alarm::OutPaxDuplicate,   "TRFER_OUT_PAX_DUPLICATE"   },
+                      {Alarm::InRouteIncomplete, "TRFER_IN_ROUTE_INCOMPLETE" },
+                      {Alarm::InRouteDiffer,     "TRFER_IN_ROUTE_DIFFER"     },
+                      {Alarm::InOutRouteDiffer,  "TRFER_IN_OUT_ROUTE_DIFFER" },
+                      {Alarm::WeightNotDefined,  "TRFER_WEIGHT_NOT_DEFINED"  }},
+                     boost::none,
+                     boost::none) {}
+    static AlarmTypes& instance()
+    {
+      static AlarmTypes alarmTypes;
+      return alarmTypes;
+    }
+};
+
+typedef std::map<TGrpId, std::set<Alarm> > TAlarmTagMap;
 
 class TGrpConfirmItem
 {
@@ -303,7 +336,7 @@ class TGrpViewItem : public TBagItem
     int subcl_priority;
     std::vector<TPaxItem> paxs;
     int seats;
-    std::set<TAlarmType> alarms;
+    std::set<Alarm> alarms;
     int calc_status;
 
     TGrpViewItem() : TBagItem()
@@ -448,21 +481,23 @@ class TGrpItem
     void normalizeTrfer();
 };
 
-enum TConflictReason { conflictInPaxDuplicate,
-                       conflictOutPaxDuplicate,
-                       conflictInRouteIncomplete,
-                       conflictInRouteDiffer,
-                       conflictOutRouteDiffer,
-                       conflictInOutRouteDiffer,
-                       conflictWeightNotDefined,
-                       conflictOutRouteWithErrors};
+enum class ConflictReason { InPaxDuplicate,
+                            OutPaxDuplicate,
+                            InRouteIncomplete,
+                            InRouteDiffer,
+                            OutRouteDiffer,
+                            InOutRouteDiffer,
+                            WeightNotDefined,
+                            OutRouteWithErrors,
+                            OutRouteTruncated,
+                          };
 
-bool isGlobalConflict(TConflictReason c);
-TrferList::TAlarmType GetConflictAlarm(TConflictReason c);
+bool isGlobalConflict(ConflictReason c);
+TrferList::Alarm GetConflictAlarm(ConflictReason c);
 
 typedef std::map<TGrpId, std::list<TBagTagNumber> > TUnattachedTagMap;
 
-typedef std::map<TGrpId, std::pair<TrferList::TGrpItem, std::set<TConflictReason> > > TNewGrpTagMap;
+typedef std::map<TGrpId, std::pair<TrferList::TGrpItem, std::set<ConflictReason> > > TNewGrpTagMap;
 typedef std::map<std::pair<std::string/*surname*/, std::string/*name*/>, std::set<TGrpId> > TNewGrpPaxMap;
 
 class TNewGrpInfo
@@ -470,7 +505,7 @@ class TNewGrpInfo
   public:
     TNewGrpTagMap tag_map;
     TNewGrpPaxMap pax_map;
-    std::set<TConflictReason> conflicts;
+    std::set<ConflictReason> conflicts;
     void clear()
     {
       tag_map.clear();
@@ -484,7 +519,7 @@ class TNewGrpInfo
 class ConflictReasons
 {
   private:
-    std::set<TConflictReason> conflicts;
+    std::set<ConflictReason> conflicts;
     bool emptyInboundBaggage;
   public:
     void set(const TNewGrpInfo& info)

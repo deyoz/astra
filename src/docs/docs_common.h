@@ -15,6 +15,13 @@ struct TRptParams {
         std::string req_lang; // Язык, затребованный с клиента, если пустой, то вычисляем язык на основе маршрута
         std::string GetLang(TElemFmt &fmt, std::string firm_lang) const;
     public:
+
+        enum class TrztAutoreg {
+            All,
+            Auto,
+            ExceptAuto
+        };
+
         TPrnParams prn_params;
         TSortType sort;
         int point_id;
@@ -27,6 +34,7 @@ struct TRptParams {
         bool pr_et;
         bool pr_trfer;
         bool pr_brd;
+        TrztAutoreg trzt_autoreg;
         TSimpleMktFlight mkt_flt;
         std::string client_type;
         std::map< TRemCategory, std::vector<std::string> > rems;
@@ -48,6 +56,7 @@ struct TRptParams {
             pr_et(false),
             pr_trfer(false),
             pr_brd(false),
+            trzt_autoreg(TrztAutoreg::All),
             text(ASTRA::NoExists)
     {};
 };

@@ -4,22 +4,27 @@
 
 #ifdef XP_TESTING
 
-#include "xml_unit.h"
+#include "astra_types.h"
 #include "astra_main.h"
 #include "astra_misc.h"
+#include "flt_settings.h"
 #include "astra_api.h"
 #include "checkin.h"
 #include "season.h"
 #include "salons.h"
 #include "date_time.h"
-#include "base_tables.h"
 #include "apps_interaction.h"
+#include "alarms.h"
+#include "xml_unit.h"
+#include "pg_session.h"
 #include "tlg/tlg.h"
 #include "tlg/remote_system_context.h"
 #include "tlg/edi_tlg.h"
+#include "tlg/apps_handler.h"
 
 #include <queue>
 #include <fstream>
+#include <sstream>
 #include <boost/regex.hpp>
 #include <boost/foreach.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -28,9 +33,12 @@
 #include <serverlib/exception.h>
 #include <serverlib/func_placeholders.h>
 #include <serverlib/cursctl.h>
+#include <serverlib/dates_oci.h>
 #include <serverlib/str_utils.h>
 #include <serverlib/tcl_utils.h>
 #include <serverlib/dates_io.h>
+#include <serverlib/rip_oci.h>
+#include <serverlib/pg_rip.h>
 #include <jxtlib/jxtlib.h>
 #include <jxtlib/utf2cp866.h>
 
@@ -40,6 +48,7 @@
 void tests_init() {}
 
 void runEdiTimer_4testsOnly();
+static std::vector<string> getFlightTasks(const std::string& table_name, const PointId_t &point_id);
 
 using namespace xp_testing::tscript;
 
@@ -212,7 +221,7 @@ static std::string lastEdifactOurref(size_t pos)
 static std::string FP_last_edifact_ref(const std::vector<std::string>& p)
 {
     if (p.size() > 0) {
-        return lastEdifactOurref(atoi(p.at(0).c_str()));
+        return lastEdifactOurref(std::stoi(p.at(0)));
     } else {
         return lastEdifactOurref(0);
     }
@@ -299,7 +308,7 @@ std::string FP_make_spp(const std::vector<std::string> &p)
 {
     boost::gregorian::date d = boost::posix_time::second_clock::local_time().date();
 
-    std::string fmt = "ddmmyy";
+    std::string fmt = "%d%m%y";
     if(p.size() > 1) {
         fmt = p.at(1);
     }
@@ -324,7 +333,7 @@ static std::vector<std::string> pointIdSppVector()
 {
     std::vector<std::string> res;
     std::string point_id_spp;
-    OciCpp::CursCtl cur = make_curs("select POINT_ID_SPP from TLG_BINDING order by POINT_ID_TLG");
+    OciCpp::CursCtl cur = make_curs("select POINT_ID_SPP from TLG_BINDING order by POINT_ID_TLG desc");
 
     cur.
         def(point_id_spp).
@@ -349,7 +358,7 @@ static std::string lastPointIdSpp(size_t pos)
 static std::string FP_last_point_id_spp(const std::vector<std::string>& p)
 {
     if (p.size() > 0) {
-        return lastPointIdSpp(atoi(p.at(0).c_str()));
+        return lastPointIdSpp(std::stoi(p.at(0)));
     } else {
         return lastPointIdSpp(0);
     }
@@ -378,30 +387,30 @@ static int getMoveId(int pointId)
 static std::string FP_get_move_id(const std::vector<std::string>& p)
 {
     assert(p.size() > 0);
-    int move_id = getMoveId(std::atoi(p.at(0).c_str()));
+    int move_id = getMoveId(std::stoi(p.at(0)));
     return std::to_string(move_id);
 }
 
 static std::string FP_get_next_trip_point_id(const std::vector<std::string>& p)
 {
     assert(p.size() > 0);
-    return getNextTripPointId(atoi(p.at(0).c_str()));
+    return getNextTripPointId(std::stoi(p.at(0)));
 }
 
 static std::string FP_get_dep_point_id(const std::vector<std::string>& p)
 {
     assert(p.size() == 4);
-    int point_id = astra_api::findDepPointId(p.at(0)/*airport*/,
-                                             p.at(1)/*airline*/,
-                                             atoi(p.at(2).c_str()),/*flight num*/
-                                             Dates::rrmmdd(p.at(3).c_str()));/*dep date*/
-    return std::to_string(point_id);
+    PointId_t point_id = astra_api::findDepPointId(p.at(0)/*airport*/,
+                                                   p.at(1)/*airline*/,
+                                                   std::stoi(p.at(2)),/*flight num*/
+                                                   Dates::rrmmdd(p.at(3).c_str()));/*dep date*/
+    return std::to_string(point_id.get());
 }
 
 static std::string FP_autoSetCraft(const std::vector<std::string>& p)
 {
     assert(p.size() == 1);
-    int point_id = atoi(p.at(0).c_str());
+    int point_id = std::stoi(p.at(0));
     SALONS2::AutoSetCraft(point_id);
     return "";
 }
@@ -410,27 +419,28 @@ static std::string FP_getPaxId(const std::vector<std::string>& p)
 {
     using namespace astra_api::xml_entities;
     assert(p.size() == 3);
-    int pointDep = atoi(p.at(0).c_str());
-    std::string paxSurname = p.at(1);
-    std::string paxName = p.at(2);
+    PointId_t pointDep(std::stoi(p.at(0)));
+    Surname_t paxSurname(p.at(1));
+    Name_t paxName(p.at(2));
 
+    LogTrace(TRACE5) << __FUNCTION__;
     SearchPaxXmlResult spRes =
             astra_api::AstraEngine::singletone().SearchCheckInPax(pointDep,
                                                                   paxSurname,
                                                                   paxName);
-
-    std::list<XmlTrip> lTrip = spRes.applyNameFilter(paxSurname, paxName);
+    LogTrace(TRACE5) << __FUNCTION__;
+    std::list<XmlTrip> lTrip = spRes.filterTrips(paxSurname.get(), paxName.get());
     assert(!lTrip.empty());
     const XmlTrip& frontTrip = lTrip.front();
 
-    std::list<XmlPnr> lPnr = frontTrip.applyNameFilter(paxSurname, paxName);
+    std::list<XmlPnr> lPnr = frontTrip.filterPnrs(paxSurname.get(), paxName.get());
     assert(!lPnr.empty());
     const XmlPnr& frontPnr = lPnr.front();
 
-    std::list<XmlPax> lPax = frontPnr.applyNameFilter(paxSurname, paxName);
+    std::list<XmlPax> lPax = frontPnr.filterPaxes(paxSurname.get(), paxName.get());
     assert(!lPax.empty());
     const XmlPax& pax = lPax.front();
-
+    LogTrace(TRACE5) << __FUNCTION__;
     return std::to_string(pax.pax_id);
 }
 
@@ -438,7 +448,7 @@ static std::string FP_getSingleGrpId(const std::vector<std::string>& p)
 {
     using namespace astra_api::xml_entities;
     assert(p.size() == 3);
-    int pointDep = atoi(p.at(0).c_str());
+    PointId_t pointDep(std::stoi(p.at(0)));
     std::string paxSurname = p.at(1);
     std::string paxName = p.at(2);
 
@@ -454,7 +464,7 @@ static std::string FP_getSinglePaxId(const std::vector<std::string>& p)
 {
     using namespace astra_api::xml_entities;
     assert(p.size() == 3);
-    int pointDep = atoi(p.at(0).c_str());
+    PointId_t pointDep(std::stoi(p.at(0)));
     std::string paxSurname = p.at(1);
     std::string paxName = p.at(2);
 
@@ -470,7 +480,7 @@ static std::string FP_getSingleTid(const std::vector<std::string>& p)
 {
     using namespace astra_api::xml_entities;
     assert(p.size() == 3);
-    int pointDep = atoi(p.at(0).c_str());
+    PointId_t pointDep(std::stoi(p.at(0)));
     std::string paxSurname = p.at(1);
     std::string paxName = p.at(2);
 
@@ -479,7 +489,7 @@ static std::string FP_getSingleTid(const std::vector<std::string>& p)
     assert(!plRes.lPax.empty());
     const XmlPax& pax = lPax.front();
     assert(pax.reg_no != ASTRA::NoExists);
-    LoadPaxXmlResult lpRes = astra_api::AstraEngine::singletone().LoadPax(pointDep, pax.reg_no);
+    LoadPaxXmlResult lpRes = astra_api::AstraEngine::singletone().LoadPax(pointDep, RegNo_t(pax.reg_no));
     assert(!lpRes.lSeg.empty());
     const XmlSegment& paxSeg = lpRes.lSeg.front();
     return std::to_string(paxSeg.seg_info.tid);
@@ -489,7 +499,7 @@ static std::string FP_getSinglePaxTid(const std::vector<std::string>& p)
 {
     using namespace astra_api::xml_entities;
     assert(p.size() == 3);
-    int pointDep = atoi(p.at(0).c_str());
+    PointId_t pointDep(std::stoi(p.at(0)));
     std::string paxSurname = p.at(1);
     std::string paxName = p.at(2);
 
@@ -498,17 +508,41 @@ static std::string FP_getSinglePaxTid(const std::vector<std::string>& p)
     assert(!plRes.lPax.empty());
     const XmlPax& pax = lPax.front();
     assert(pax.reg_no != ASTRA::NoExists);
-    LoadPaxXmlResult lpRes = astra_api::AstraEngine::singletone().LoadPax(pointDep, pax.reg_no);
+    LoadPaxXmlResult lpRes = astra_api::AstraEngine::singletone().LoadPax(pointDep, RegNo_t(pax.reg_no));
     lpRes.applyPaxFilter(PaxFilter(NameFilter(paxSurname, paxName), {}, {}));
     assert(!lpRes.lSeg.empty());
     const XmlSegment& paxSeg = lpRes.lSeg.front();
     return std::to_string(paxSeg.passengers.front().tid);
 }
 
+static std::string FP_getIatciTabId(const std::vector<std::string>& p)
+{
+    assert(p.size() == 2);
+    GrpId_t grpId(std::stoi(p.at(0)));
+    unsigned tabInd = std::stoi(p.at(1));
+    int id;
+
+    auto cur = get_pg_curs(
+"select ID from IATCI_TABS where GRP_ID=:grp_id and TAB_IND=:tab_ind");
+
+    cur
+            .def(id)
+            .bind(":grp_id", grpId)
+            .bind(":tab_ind",tabInd)
+            .EXfet();
+
+    if(cur.err() == PgCpp::NoDataFound) {
+        throw EXCEPTIONS::Exception("Iatci tab not found by grp_id=" + std::to_string(grpId.get())
+                                    + " and tab_ind=" + std::to_string(tabInd));
+    }
+
+    return std::to_string(id);
+}
+
 static std::string FP_getPointTid(const std::vector<std::string>& p)
 {
     assert(p.size() == 1);
-    int pointId = atoi(p.at(0).c_str());
+    int pointId = std::stoi(p.at(0));
     int tid = 0;
     OciCpp::CursCtl cur = make_curs(
 "select TID from POINTS where POINT_ID=:point_id");
@@ -524,11 +558,11 @@ static std::string FP_get_lat_code(const std::vector<std::string>& p)
     std::string table = p.at(0),
                  code = p.at(1);
     if(table == "awk") {
-        return ((const TAirlinesRow&)base_tables.get("airlines").get_row("code", code)).code_lat;
+        return BaseTables::Company(code)->lcode();
     } else if(table == "sfe") {
-        return ((const TCitiesRow&)base_tables.get("cities").get_row("code", code)).code_lat;
+        return BaseTables::City(code)->lcode();
     } else if(table == "aer") {
-        return ((const TAirpsRow&)base_tables.get("airps").get_row("code", code)).code_lat;
+        return BaseTables::Port(code)->lcode();
     } else {
         return "";
     }
@@ -602,7 +636,7 @@ static std::string FP_lastGeneratedPaxId(const std::vector<std::string>& par)
 static std::string FP_substr(const std::vector<std::string>& par)
 {
     ASSERT(par.size() == 3);
-    return par.at(0).substr(std::atoi(par.at(1).c_str()), std::atoi(par.at(2).c_str()));
+    return par.at(0).substr(std::stoi(par.at(1)), std::stoi(par.at(2)));
 }
 
 static std::string FP_setDeskVersion(const std::vector<std::string>& par)
@@ -640,19 +674,21 @@ static std::string FP_initApps(const std::vector<tok::Param>& par)
     std::string country = PositionalValues(par).at(1);
     std::string format  = PositionalValues(par).at(2);
 
-    bool inbound  = tok::GetValue(par, "inbound",  "true") == "true";
-    bool outbound = tok::GetValue(par, "outbound", "true") == "true";
-    bool closeout = tok::GetValue(par, "closeout", "true") == "true";
-    bool prdenial = tok::GetValue(par, "denial",   "false")== "true";
-
+    bool inbound    = tok::GetValue(par, "inbound",  "true")    == "true";
+    bool outbound   = tok::GetValue(par, "outbound", "true")    == "true";
+    bool closeout   = tok::GetValue(par, "closeout", "true")    == "true";
+    bool prdenial   = tok::GetValue(par, "denial",   "false")   == "true";
+    bool precheckin = tok::GetValue(par, "pre_checkin", "true")  == "true";
     LogTrace(TRACE1) << "init_apps: "
-                     << "airline: "  << airline << "; "
-                     << "country: "  << country << "; "
-                     << "format: "   << format << "; "
-                     << "inbound: "  << inbound << "; "
-                     << "outbound: " << outbound << "; "
-                     << "closeout: " << closeout << "; "
-                     << "prdenial: " << prdenial;
+                     << "airline: "    << airline    << "; "
+                     << "country: "    << country    << "; "
+                     << "format: "     << format     << "; "
+                     << "inbound: "    << inbound    << "; "
+                     << "outbound: "   << outbound   << "; "
+                     << "closeout: "   << closeout   << "; "
+                     << "prdenial: "   << prdenial   << "; "
+                     << "precheckin: " << precheckin << "; ";
+
 
     make_curs(
 "delete from APPS_SETS where AIRLINE=:airline and APPS_COUNTRY=:country")
@@ -661,8 +697,8 @@ static std::string FP_initApps(const std::vector<tok::Param>& par)
             .exec();
 
     make_curs(
-"insert into APPS_SETS(AIRLINE, APPS_COUNTRY, FORMAT, FLT_CLOSEOUT, INBOUND, OUTBOUND, PR_DENIAL, ID) "
-"values(:airline, :country, :format, :closeout, :inbound, :outbound, :prdenial, id__seq.nextval)")
+"insert into APPS_SETS(AIRLINE, APPS_COUNTRY, FORMAT, FLT_CLOSEOUT, INBOUND, OUTBOUND, PR_DENIAL, PRE_CHECKIN, ID) "
+"values(:airline, :country, :format, :closeout, :inbound, :outbound, :prdenial, :precheckin, id__seq.nextval)")
             .bind(":airline", airline)
             .bind(":country", country)
             .bind(":format",  format)
@@ -670,6 +706,7 @@ static std::string FP_initApps(const std::vector<tok::Param>& par)
             .bind(":inbound", inbound)
             .bind(":outbound",outbound)
             .bind(":prdenial",prdenial)
+            .bind(":precheckin", precheckin)
             .exec();
     return "";
 }
@@ -680,27 +717,92 @@ static std::string FP_translit(const std::vector<std::string>& par)
     return StrUtils::translit(par.at(0));
 }
 
+void checkPresenceTask(const PointId_t& pointId, const std::string & taskName)
+{
+    auto tasks = getFlightTasks("TRIP_TASKS", pointId);
+    std::string nameOfTask;
+    if(taskName == "send_apps") {
+        nameOfTask = "SEND_NEW_APPS_INFO";
+    } else if(taskName == "send_all_apps") {
+        nameOfTask = "SEND_ALL_APPS_INFO";
+    } else if(taskName == "check_trip_alarms") {
+        nameOfTask = "CHECK_ALARM";
+    } else {
+        LogTrace(TRACE3) << __FUNCTION__ << " Unknown task: " << taskName;
+        ASSERT(false);
+    }
+    if(find(tasks.begin(), tasks.end(), nameOfTask) == tasks.end()) {
+        LogTrace(TRACE3) << __FUNCTION__ << " Not find task: " << nameOfTask;
+        ASSERT(false);
+    }
+}
+
 static std::string FP_run_trip_task(const std::vector<std::string>& par)
 {
-    ASSERT(par.size() == 2);
+    ASSERT(par.size() <= 3);
     const std::string taskName = par.at(0);
-    int pointId = std::atoi(par.at(1).c_str());
-
-    LogTrace(TRACE3) << "Test run trip task " << taskName << " for point_id=" << pointId;
-
-    if(taskName == "send_apps") {
-        sendNewAPPSInfo(TTripTaskKey(pointId, "SEND_NEW_APPS_INFO", ""));
-    } if(taskName == "send_all_apps") {
-        sendAllAPPSInfo(TTripTaskKey(pointId, "SEND_ALL_APPS_INFO", ""));
+    PointId_t pointId(std::stoi(par.at(1)));
+    std::string checkPresenceOfTheTask = "check";
+    if(par.size() == 3)  {
+        checkPresenceOfTheTask = par.at(2);
+    }
+    if(checkPresenceOfTheTask == "check") {
+        checkPresenceTask(pointId, taskName);
     }
 
+    try{
+        if(taskName == "send_apps") {
+            APPS::sendNewInfo(TTripTaskKey(pointId, "SEND_NEW_APPS_INFO", ""));
+        } else if(taskName == "send_all_apps") {
+            APPS::sendAllInfo(TTripTaskKey(pointId, "SEND_ALL_APPS_INFO", ""));
+        } else if(taskName == "check_trip_alarms") {
+            checkAlarm(TTripTaskKey(pointId.get(), "CHECK_ALARM" , "APPS_NOT_SCD_IN_TIME"));
+        }
+    }
+    catch(EXCEPTIONS::Exception &E) {
+        LogTrace(TRACE5) << " Continue testing after throw: " << E.what();
+    }
+    return "";
+}
+
+void updateAppsMsg(int msg_id, Dates::DateTime_t send_time, int send_attempts)
+{
+    //LogTrace(TRACE5) << __FUNCTION__ << " send_time: " << send_time << " send_attempts:" << send_attempts;
+    auto cur = make_curs(
+               "update APPS_MESSAGES "
+               "set SEND_ATTEMPTS = :send_attempts, SEND_TIME = :send_time "
+               "where MSG_ID = :msg_id ");
+    cur
+        .bind(":send_attempts", send_attempts)
+        .bind(":send_time", send_time)
+        .bind(":msg_id", msg_id)
+        .exec();
+}
+
+static std::string FP_runUpdateMsg(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() == 3);
+    int msg_id = std::stoi(par.at(0));
+    int send_time_after = std::stoi(par.at(1));
+    int send_attempts = std::stoi(par.at(2));
+    //auto msg = APPS::APPSMessage::readAppsMsg(msg_id);
+    Dates::DateTime_t send_time = Dates::second_clock::universal_time() - seconds(send_time_after);
+
+    LogTrace(TRACE5) << __FUNCTION__ << " time: " << HelpCpp::string_cast(send_time, "%H%M%S");
+    updateAppsMsg(msg_id, send_time, send_attempts);
+    return "";
+}
+
+static std::string FP_runResendTlg(const std::vector<std::string>& par)
+{
+    resend_tlg();
     return "";
 }
 
 static std::string FP_combineBrdWithReg(const std::vector<std::string>& par)
 {
     ASSERT(par.size() == 1);
-    int pointId = std::atoi(par.at(0).c_str());
+    int pointId = std::stoi(par.at(0));
 
     make_curs(
 "insert into TRIP_HALL(PR_MISC, TYPE, POINT_ID) values (1, :ts_brd_with_reg, :point_id)")
@@ -709,6 +811,97 @@ static std::string FP_combineBrdWithReg(const std::vector<std::string>& par)
             .exec();
 
     return "";
+}
+
+static std::vector<string> getPaxAlarms(const std::string& table_name, int pax_id)
+{
+    std::string alarm;
+    auto cur = make_curs(
+"select ALARM_TYPE from "+table_name+" where PAX_ID=:pax_id");
+    cur.def(alarm)
+       .bind(":pax_id",pax_id)
+       .exec();
+    std::vector<std::string> res;
+    while(!cur.fen()){
+        res.push_back(alarm);
+    }
+    return res;
+}
+
+static std::string formatPaxAlarms(const std::vector<std::string>& alarms)
+{
+    std::ostringstream oss;
+    for(const auto & alarm : alarms){
+        oss << alarm << '\n';
+    }
+    return oss.str();
+}
+
+static std::vector<string> getTripAlarms(const std::string& table_name, int point_id)
+{
+    std::string alarm;
+    auto cur = make_curs(
+               "select ALARM_TYPE from "+table_name+" where POINT_ID=:point_id");
+    cur.def(alarm)
+            .bind(":point_id", point_id)
+            .exec();
+    std::vector<std::string> res;
+    while(!cur.fen()) {
+        res.push_back(alarm);
+    }
+    return res;
+}
+
+static std::vector<string> getFlightTasks(const std::string& table_name, const PointId_t& point_id)
+{
+    std::string task;
+    auto cur = make_curs(
+               "select NAME from "+table_name+" where POINT_ID=:point_id order by ID");
+    cur.def(task)
+            .bind(":point_id", point_id.get())
+            .exec();
+    std::vector<std::string> res;
+    while(!cur.fen()) {
+        res.push_back(task);
+    }
+    return res;
+}
+
+static std::string formatTripAlarms(const std::vector<std::string>& alarms)
+{
+    std::ostringstream oss;
+    for(const auto & alarm : alarms){
+        oss << alarm << '\n';
+    }
+    return oss.str();
+}
+
+static std::string FP_checkPaxAlarms(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() == 1);
+    int pax_id = std::stoi(par.at(0));
+    return formatPaxAlarms(getPaxAlarms("PAX_ALARMS", pax_id));
+}
+
+static std::string FP_checkCrsPaxAlarms(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() == 1);
+    int pax_id = std::stoi(par.at(0));
+    return formatPaxAlarms(getPaxAlarms("CRS_PAX_ALARMS", pax_id));
+}
+
+static std::string FP_checkTripAlarms(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() == 1);
+    int point_id = std::stoi(par.at(0));
+    return formatTripAlarms(getTripAlarms("TRIP_ALARMS", point_id));
+}
+
+static std::string FP_checkFlightTasks(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() == 1);
+    PointId_t point_id(std::stoi(par.at(0)));
+    return formatTripAlarms(getFlightTasks("TRIP_TASKS", point_id));
 }
 
 
@@ -734,6 +927,7 @@ FP_REGISTER("get_single_grp_id", FP_getSingleGrpId);
 FP_REGISTER("get_single_pax_id", FP_getSinglePaxId);
 FP_REGISTER("get_single_tid", FP_getSingleTid);
 FP_REGISTER("get_single_pax_tid",FP_getSinglePaxTid);
+FP_REGISTER("get_iatci_tab_id", FP_getIatciTabId);
 FP_REGISTER("get_point_tid", FP_getPointTid);
 FP_REGISTER("get_lat_code", FP_get_lat_code);
 FP_REGISTER("prepare_bp_printing", FP_prepare_bp_printing);
@@ -746,6 +940,11 @@ FP_REGISTER("set_user_time_type", FP_setUserTime);
 FP_REGISTER("init_apps", FP_initApps);
 FP_REGISTER("translit", FP_translit);
 FP_REGISTER("run_trip_task", FP_run_trip_task);
-FP_REGISTER("combine_brd_wirth_reg", FP_combineBrdWithReg);
-
+FP_REGISTER("combine_brd_with_reg", FP_combineBrdWithReg);
+FP_REGISTER("check_pax_alarms", FP_checkPaxAlarms);
+FP_REGISTER("check_crs_pax_alarms", FP_checkCrsPaxAlarms);
+FP_REGISTER("check_trip_alarms", FP_checkTripAlarms);
+FP_REGISTER("check_flight_tasks", FP_checkFlightTasks);
+FP_REGISTER("update_msg", FP_runUpdateMsg);
+FP_REGISTER("resend", FP_runResendTlg);
 #endif /* XP_TESTING */

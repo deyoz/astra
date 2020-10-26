@@ -2,8 +2,9 @@
 #include "astra_msg.h"
 #include "exceptions.h"
 #include "astra_utils.h"
+#include "pg_session.h"
 #include "config.h"
-#include <serverlib/cursctl.h>
+
 #include <serverlib/testmode.h>
 
 #define NICKNAME "ANTON"
@@ -50,41 +51,41 @@ static void addIatciSettings(const IatciSettings& sett)
 {
     LogTrace(TRACE3) << "add iatci settings for dcs_id: " << sett.DcsId;
     LogTrace(TRACE3) << "ifm:" << sett.Ifm;
-    make_curs(
+    get_pg_curs(
 "insert into IATCI_SETTINGS(DCS_ID, CKI, CKX, CKU, BPR, PLF, SMF, IFM) "
 "values (:dcs_id, :cki, :ckx, :cku, :bpr, :plf, :smf, :ifm)")
        .bind(":dcs_id", sett.DcsId.get())
-       .bind(":cki",    sett.Cki)
-       .bind(":ckx",    sett.Ckx)
-       .bind(":cku",    sett.Cku)
-       .bind(":bpr",    sett.Bpr)
-       .bind(":plf",    sett.Plf)
-       .bind(":smf",    sett.Smf)
-       .bind(":ifm",    sett.Ifm)
+       .bind(":cki",    sett.Cki?1:0)
+       .bind(":ckx",    sett.Ckx?1:0)
+       .bind(":cku",    sett.Cku?1:0)
+       .bind(":bpr",    sett.Bpr?1:0)
+       .bind(":plf",    sett.Plf?1:0)
+       .bind(":smf",    sett.Smf?1:0)
+       .bind(":ifm",    sett.Ifm?1:0)
        .exec();
 }
 
 static void updateIatciSettings(const IatciSettings& sett)
 {
     LogTrace(TRACE3) << "update iatci settings for dcs_id: " << sett.DcsId;
-    make_curs(
+    get_pg_curs(
 "update IATCI_SETTINGS set "
 "CKI=:cki, CKX=:ckx, CKU=:cku, :BPR=:bpr, PLF=:plf, SMF=:smf, IFM=:ifm "
 "where DCS_ID=:dcs_id")
       .bind(":dcs_id", sett.DcsId.get())
-      .bind(":cki",    sett.Cki)
-      .bind(":ckx",    sett.Ckx)
-      .bind(":cku",    sett.Cku)
-      .bind(":bpr",    sett.Bpr)
-      .bind(":plf",    sett.Plf)
-      .bind(":smf",    sett.Smf)
-      .bind(":ifm",    sett.Ifm)
+      .bind(":cki",    sett.Cki?1:0)
+      .bind(":ckx",    sett.Ckx?1:0)
+      .bind(":cku",    sett.Cku?1:0)
+      .bind(":bpr",    sett.Bpr?1:0)
+      .bind(":plf",    sett.Plf?1:0)
+      .bind(":smf",    sett.Smf?1:0)
+      .bind(":ifm",    sett.Ifm?1:0)
       .exec();
 }
 
 IatciSettings readIatciSettings(const Ticketing::SystemAddrs_t& dcsId, bool createDefault)
 { 
-    OciCpp::CursCtl cur = make_curs(
+    auto cur = get_pg_curs(
 "select CKI, CKX, CKU, BPR, PLF, SMF, IFM "
 "from IATCI_SETTINGS "
 "where DCS_ID = :dcs_id");
@@ -102,7 +103,7 @@ IatciSettings readIatciSettings(const Ticketing::SystemAddrs_t& dcsId, bool crea
        .def(sett.Ifm)
        .EXfet();
 
-    if(cur.err() == NO_DATA_FOUND) {
+    if(cur.err() == PgCpp::NoDataFound) {
         LogTrace(TRACE0) << "Iatci settings not found for dcs: " << dcsId;
         if(createDefault) {
             sett = IatciSettings::defaultSettings(dcsId);
@@ -126,15 +127,14 @@ void writeIatciSettings(const IatciSettings& sett)
 
 bool checkExistance(const Ticketing::SystemAddrs_t& dcsId)
 {
-    OciCpp::CursCtl cur = make_curs(
-"select 1 from IATCI_SETTINGS "
-"where DCS_ID = :dcs_id");
+    auto cur = get_pg_curs(
+"select 1 from IATCI_SETTINGS where DCS_ID = :dcs_id");
 
     cur.stb()
        .bind(":dcs_id", dcsId.get())
        .exfet();
 
-    return (cur.err() != NO_DATA_FOUND);
+    return (cur.err() != PgCpp::NoDataFound);
 }
 
 }//namespace iatci

@@ -15,12 +15,12 @@
 #include "stat/stat_main.h"
 #include "salons.h"
 #include "seats.h"
-#include "sopp.h"
 #include "aodb.h"
 #include "misc.h"
 #include "term_version.h"
 #include "trip_tasks.h"
 #include "code_convert.h"
+#include "flt_settings.h"
 
 #include "serverlib/perfom.h"
 
@@ -2949,6 +2949,12 @@ void FlightPoints::Get( int vpoint_dep )
              vpoint_dep, point_dep, point_arv );
 };
 
+void TFlights::Get( const std::set<PointId_t> &pointIds, TFlightType flightType )
+{
+  vector<int> tmp = algo::transform<std::vector>(pointIds, [](const PointId_t& pointId) { return pointId.get(); });
+  Get(tmp, flightType);
+}
+
 void TFlights::Get( const std::set<int> &point_ids, TFlightType flightType )
 {
   vector<int> tmp(point_ids.begin(), point_ids.end());
@@ -3011,10 +3017,10 @@ void TFlights::GetForTCkinRouteDependent(const int grp_id, const TFlightType fli
   tckin_grp_ids.clear();
 
   TCkinRoute route;
-  route.GetRouteBefore(grp_id, crtNotCurrent, crtOnlyDependent);
-  TCkinRoute routeAfter;
-  routeAfter.GetRouteAfter(grp_id, crtWithCurrent, crtOnlyDependent);
-  route.insert(route.end(), routeAfter.begin(), routeAfter.end());
+  route.getRoute(GrpId_t(grp_id),
+                 TCkinRoute::WithCurrent,
+                 TCkinRoute::OnlyDependent,
+                 TCkinRoute::WithoutTransit);
 
   if (!route.empty())
   {

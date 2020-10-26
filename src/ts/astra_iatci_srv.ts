@@ -6,31 +6,12 @@ $(defmacro ETS_COS_EXCHANGE
     tickno
     cpnno
     status
-    pult=‚
 {
 
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::xx+$(pult)"
-EQN+1:TD"
-TKT+$(tickno):T"
-CPN+$(cpnno):$(status)"
-TVL+$(ddmmyy)+„„+‹+’+103++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
-
-# ®βΆ¥β ®β ‘
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref) ’ $(tickno) $(cpnno) $(status))
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+$(tickno):T::3"
-CPN+$(cpnno):$(status)::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_COS UTET UTDC $(last_edifact_ref) $(tickno) $(cpnno) $(status))
 
 }) #end-of-macro
 
@@ -40,10 +21,10 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
-$(init_dcs ‘“ DCS1 DCS2)
+$(init_dcs ‘7 DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
 
 
 # § ―ΰ®α ª €αβΰ¥
@@ -60,7 +41,7 @@ PSI++FQTV:UT:1017820380"
 UNT+8+1"
 UNZ+1+ASTRA000660001"
 
-$(ETS_COS_EXCHANGE 2982401841689 1 CK IATCIP)
+$(ETS_COS_EXCHANGE 2982401841689 1 CK)
 
 # ®βΆ¥β ®β €αβΰλ
 >>
@@ -86,9 +67,9 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
-$(init_dcs ‘“ DCS1 DCS2)
+$(init_dcs ‘7 DCS1 DCS2)
 
-$(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
 
 
 # § ―ΰ®α ª €αβΰ¥
@@ -107,19 +88,10 @@ UNZ+1+ASTRA000660001"
 
 # ―®θρ« § ―ΰ®α Ά ‘ ­  α¬¥­γ αβ βγα  ¨§  αβΰλ
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841689:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„„+‹+’+103++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref) ’ 2982401841689 1 CK)
 
 
-# TODO §¤¥αμ ­γ¦­® αν¬γ«¨ΰ®Ά βμ β ©¬ γβ ®βΆ¥β  ‘
+# ν¬γ«οζ¨ο β ©¬ γβ  ®βΆ¥β  ‘
 $(sql {update EDISESSION_TIMEOUTS set time_out = sysdate - 1})
 $(run_daemon edi_timeout)
 
@@ -150,30 +122,11 @@ UNT+8+1"
 UNZ+1+ASTRA000670001"
 
 
-
 # ―®θρ« § ―ΰ®α Ά ‘ ­  α¬¥­γ αβ βγα  ¨§  αβΰλ
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841689:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„„+‹+’+103++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
-
-# ®βΆ¥β ®β ‘
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref) ’ 2982401841689 1 CK)
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2982401841689:T::3"
-CPN+1:CK::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_COS UTET UTDC $(last_edifact_ref) 2982401841689 1 CK)
 
 
 >>
@@ -205,34 +158,16 @@ UNZ+1+ASTRA000680001"
 
 # ―®θ«¨ Ά ‘ ®βª βλΆ βμ αβ βγα ªγ―®­ 
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841689:T"
-CPN+1:I"
-TVL+$(ddmmyy)+„„+‹+’+103++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
-
-# ®βΆ¥β ®β ‘
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref) ’ 2982401841689 1 I)
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2982401841689:T::3"
-CPN+1:I::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_COS UTET UTDC $(last_edifact_ref) 2982401841689 1 I)
 
 
 # ®βΆ¥β ­  ®β¬¥­γ ¨§ €αβΰλ
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000680001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00068"
-FDR+UT+103+$(yymmdd)+DME+LED++T"
+FDR+UT+103+$(yymmdd)+DME+LED"
 RAD+X+P"
 UNT+4+1"
 UNZ+1+ASTRA000680001"
@@ -274,26 +209,10 @@ UNZ+1+ASTRA000670001"
 
 # ―®θρ« § ―ΰ®α Ά ‘ ­  α¬¥­γ αβ βγα  ¨§  αβΰλ
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841689:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„„+‹+’+103++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
-
-# ®βΆ¥β ®β ‘
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref) ’ 2982401841689 1 CK)
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+7"
-ERC+396"
-IFT+3+…‚…›‰ ‘’€’“‘ ‹…’€/“€"
-UNT+5+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_COS_ERR UTET UTDC $(last_edifact_ref) 396 "…‚…›‰ ‘’€’“‘ ‹…’€/“€")
+
 
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000670001+++T"
@@ -313,9 +232,9 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
-$(init_dcs ‘“ DCS1 DCS2)
+$(init_dcs ‘7 DCS1 DCS2)
 
-$(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
 
 # PLF ¤® ΰ¥£¨αβΰ ζ¨¨
 <<
@@ -350,7 +269,7 @@ PBD+0"
 UNT+8+1"
 UNZ+1+ASTRA000660001"
 
-$(ETS_COS_EXCHANGE 2982401841689 1 CK IATCIP)
+$(ETS_COS_EXCHANGE 2982401841689 1 CK)
 
 # ®βΆ¥β ®β €αβΰλ
 >>
@@ -390,7 +309,7 @@ UNZ+1+ASTRA000710001"
 # >>
 #UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000710001+++T"
 #UNH+1+DCRCKA:03:1:IA+ASTRA00071"
-#FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+#FDR+UT+103+$(yymmdd)1015+DME+LED"
 #RAD+P+O"
 #PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
 #PRD+Y"
@@ -408,10 +327,10 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
-$(init_dcs ‘“ DCS1 DCS2)
+$(init_dcs ‘7 DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
 
 
 # § ―ΰ®α ª €αβΰ¥
@@ -428,7 +347,7 @@ UNT+8+1"
 UNZ+1+ASTRA000660001"
 
 
-$(ETS_COS_EXCHANGE 2982401841689 1 CK IATCIP)
+$(ETS_COS_EXCHANGE 2982401841689 1 CK)
 
 
 # ®βΆ¥β ®β €αβΰλ
@@ -482,15 +401,9 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)1015+DME+LED++T"
-RAD+U+O"
-FSD+0950"
-PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
-PRD+Y"
-PFD...
-PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+OTHS::::::OTHS FREE TEXT+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
-PAP+A:REPIN:IVAN:760501:::RUS++P:99999999999:USA:::491231:M::::::REPIN:IVAN:ABRAMOVICH"
-UNT+10+1"
+FDR+UT+103+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
 UNZ+1+ASTRA000660001"
 
 
@@ -508,15 +421,9 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)1015+DME+LED++T"
-RAD+U+O"
-FSD+0950"
-PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
-PRD+Y"
-PFD...
-PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M+FQTV:UT:1230012345"
-PAP+A:REPIN:IVAN:760501:::RUS++P:99999999999:USA:::491231:M::::::REPIN:IVAN:ABRAMOVICH"
-UNT+10+1"
+FDR+UT+103+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
 UNZ+1+ASTRA000660001"
 
 
@@ -527,10 +434,10 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
-$(init_dcs ‘“ DCS1 DCS2)
+$(init_dcs ‘7 DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
 
 # § ―ΰ®α ª €αβΰ¥
 <<
@@ -558,10 +465,10 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
-$(init_dcs ‘“ DCS1 DCS2)
+$(init_dcs ‘7 DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
 
 # § ―ΰ®α ª €αβΰ¥
 <<
@@ -576,7 +483,7 @@ PBD+0"
 UNT+8+1"
 UNZ+1+ASTRA000660001"
 
-$(ETS_COS_EXCHANGE 2982401841689 1 CK IATCIP)
+$(ETS_COS_EXCHANGE 2982401841689 1 CK)
 
 # ®βΆ¥β ®β €αβΰλ
 >>
@@ -607,15 +514,9 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)1015+DME+LED++T"
-RAD+U+O"
-FSD+0950"
-PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
-PRD+Y"
-PFD...
-PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
-PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
-UNT+10+1"
+FDR+UT+103+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
 UNZ+1+ASTRA000660001"
 
 %%
@@ -626,10 +527,10 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
-$(init_dcs ‘“ DCS1 DCS2)
+$(init_dcs ‘7 DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
 
 # § ―ΰ®α ª €αβΰ¥
 <<
@@ -644,7 +545,7 @@ PBD+0"
 UNT+8+1"
 UNZ+1+ASTRA000660001"
 
-$(ETS_COS_EXCHANGE 2982401841689 1 CK IATCIP)
+$(ETS_COS_EXCHANGE 2982401841689 1 CK)
 
 # ®βΆ¥β ®β €αβΰλ
 >>
@@ -675,7 +576,7 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+FDR+UT+103+$(yymmdd)1015+DME+LED"
 RAD+B+O"
 FSD+0950"
 PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
@@ -696,7 +597,7 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
-$(init_dcs ‘“ DCS1 DCS2)
+$(init_dcs ‘7 DCS1 DCS2)
 
 
 # § ―ΰ®α ª €αβΰ¥
@@ -771,10 +672,10 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
-$(init_dcs ‘“ DCS1 DCS2)
+$(init_dcs ‘7 DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
 
 
 # § ―ΰ®α ª €αβΰ¥
@@ -791,7 +692,7 @@ UNT+8+1"
 UNZ+1+ASTRA000660001"
 
 
-$(ETS_COS_EXCHANGE 2982401841689 1 CK IATCIP)
+$(ETS_COS_EXCHANGE 2982401841689 1 CK)
 
 
 # ®βΆ¥β ®β €αβΰλ
@@ -821,28 +722,7 @@ DEL
 1REPIN/IVAN
 ENDIFM
 
->>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841689:T"
-CPN+1:I"
-TVL+$(ddmmyy)+„„+‹+’+103++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
-
-# ®βΆ¥β ®β ‘
-<<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2982401841689:T::3"
-CPN+1:I::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(ETS_COS_EXCHANGE 2982401841689 1 I)
 
 
 %%
@@ -852,12 +732,12 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
-$(init_dcs ‘“ DCS1 DCS2)
+$(init_dcs ‘7 DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
-                   REPIN IVAN 2982401841689 1
-                   PETROV PETR 2982401841612 1)
+$(PREPARE_FLIGHT_2PAXES_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
+                                           REPIN IVAN 2982401841689 1
+                                           PETROV PETR 2982401841612 1)
 
 
 # § ―ΰ®α ª €αβΰ¥
@@ -875,56 +755,24 @@ PSD+N"
 UNT+12+1"
 UNZ+1+ASTRA000660001"
 
-
+# ¨¤ρ¬ Ά ‘
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 1)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841612:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„„+‹+’+103++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref 1)0001"
-
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref 1) ’ 2982401841612 1 CK)
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841689:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„„+‹+’+103++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref 0) ’ 2982401841689 1 CK)
 
 # ®¤¨­ ®βΆ¥β ―ΰ¨θρ«, ¤ΰγ£®© § β ©¬ γβ¨«αο
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2982401841689:T::3"
-CPN+1:CK::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_COS UTET UTDC $(last_edifact_ref) 2982401841689 1 CK)
+
 
 $(sql {update EDISESSION_TIMEOUTS set time_out = sysdate - 1})
 $(run_daemon edi_timeout)
 
-
 # ®ª β γα―¥θ­®© α¬¥­λ αβ βγα 
->> lines=auto
-MSG+:142"
-ORG+1H:‚+++’+Y+::xx+xxxxxx"
-EQN+1:TD"
-TKT+2982401841689:T"
-CPN+1:I"
-TVL+$(ddmmyy)+„„+‹+’+103++1"
+>>
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref) ’ 2982401841689 1 I)
 
-$(dump_table EDISESSION fields="OURREF")
 
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
@@ -943,12 +791,12 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
-$(init_dcs ‘“ DCS1 DCS2)
+$(init_dcs ‘7 DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
-                   REPIN IVAN 2982401841689 1
-                   REPIN PETR 2982401841612 1)
+$(PREPARE_FLIGHT_2PAXES_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
+                                           REPIN IVAN 2982401841689 1
+                                           REPIN PETR 2982401841612 1)
 
 
 $(deny_ets_interactive ’ 103 „„)
@@ -990,10 +838,10 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
-$(init_dcs ‘“ DCS1 DCS2)
+$(init_dcs ‘7 DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
+$(PREPARE_FLIGHT_2PAXES_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
                    REPIN IVAN 2982401841689 1
                    REPIN IVAN 2982401841612 1)
 
@@ -1050,10 +898,10 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
-$(init_dcs ‘“ DCS1 DCS2)
+$(init_dcs ‘7 DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
+$(PREPARE_FLIGHT_2PAXES_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
                    REPIN IVAN 2982401841689 1
                    PETROV PETR 2982401841612 1)
 
@@ -1076,29 +924,12 @@ UNT+12+1"
 UNZ+1+ASTRA000660001"
 
 
+# § ―ΰ®αλ Ά ‘
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 1)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841612:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„„+‹+’+103++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref 1)0001"
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref 1) ’ 2982401841612 1 CK)
+>>
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref 0) ’ 2982401841689 1 CK)
 
->>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841689:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„„+‹+’+103++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
 
 # ­¥ ―®«γη¨«¨ ­¨ ®¤­®£® ®βΆ¥β  ®β ‘
 
@@ -1123,12 +954,12 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
-$(init_dcs ‘“ DCS1 DCS2)
+$(init_dcs ‘7 DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
-                   REPIN IVAN 2982401841689 1
-                   PETROV PETR 2982401841612 1)
+$(PREPARE_FLIGHT_2PAXES_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
+                                           REPIN IVAN 2982401841689 1
+                                           PETROV PETR 2982401841612 1)
 
 
 # § ―ΰ®α ª €αβΰ¥
@@ -1149,52 +980,20 @@ UNT+12+1"
 UNZ+1+ASTRA000660001"
 
 
+$(set edi_ref1 $(last_edifact_ref 1))
+$(set edi_ref0 $(last_edifact_ref 0))
+
+# § ―ΰ®αλ Ά ‘
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 1)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841612:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„„+‹+’+103++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref 1)0001"
-
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) ’ 2982401841612 1 CK)
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841689:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„„+‹+’+103++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982401841689 1 CK)
 
 
-# ®βΆ¥β ΰ §
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2982401841689:T::3"
-CPN+1:CK::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
-
-# ®βΆ¥β ¤Ά 
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref0) 2982401841689 1 CK)
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2982401841612:T::3"
-CPN+1:CK::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref1) 2982401841612 1 CK)
 
 
 >>
@@ -1258,31 +1057,11 @@ UNT+6+1"
 UNZ+1+ASTRA000680001"
 
 
-
 # ―®θ«¨ ®βª βλΆ βμ αβ βγαλ
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 1)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841612:T"
-CPN+1:I"
-TVL+$(ddmmyy)+„„+‹+’+103++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref 1)0001"
-
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref 1) ’ 2982401841612 1 I)
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841689:T"
-CPN+1:I"
-TVL+$(ddmmyy)+„„+‹+’+103++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref 0) ’ 2982401841689 1 I)
 
 
 # ­¥ ―®«γη¨«¨ ­¨ ®¤­®£® ®βΆ¥β  ®β ‘
@@ -1336,58 +1115,26 @@ UNZ+1+ASTRA000680001"
 
 
 # ―®θ«¨ ®βª βλΆ βμ αβ βγαλ
->>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 1)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841612:T"
-CPN+1:I"
-TVL+$(ddmmyy)+„„+‹+’+103++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref 1)0001"
+
+$(set edi_ref1 $(last_edifact_ref 1))
+$(set edi_ref0 $(last_edifact_ref 0))
 
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841689:T"
-CPN+1:I"
-TVL+$(ddmmyy)+„„+‹+’+103++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) ’ 2982401841612 1 I)
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982401841689 1 I)
 
 
-# ®βΆ¥β ΰ §
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2982401841689:T::3"
-CPN+1:I::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
-
-# ®βΆ¥β ¤Ά 
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref0) 2982401841689 1 I)
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2982401841612:T::3"
-CPN+1:I::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref1) 2982401841612 1 I)
 
 
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000680001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00068"
-FDR+UT+103+$(yymmdd)+DME+LED++T"
+FDR+UT+103+$(yymmdd)+DME+LED"
 RAD+X+P"
 UNT+4+1"
 UNZ+1+ASTRA000680001"
@@ -1422,10 +1169,10 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
-$(init_dcs ‘“ DCS1 DCS2)
+$(init_dcs ‘7 DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
+$(PREPARE_FLIGHT_2PAXES_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
                    REPIN IVAN 2982401841689 1
                    PETROV PETR 2982401841612 1)
 
@@ -1539,10 +1286,10 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
-$(init_dcs ‘“ DCS1 DCS2)
+$(init_dcs ‘7 DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
+$(PREPARE_FLIGHT_2PAXES_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
                    REPIN IVAN 2982401841689 1
                    PETROV PETR 2982401841612 1)
 
@@ -1600,7 +1347,7 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+FDR+UT+103+$(yymmdd)1015+DME+LED"
 RAD+B+O"
 FSD+0950"
 PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
@@ -1631,7 +1378,7 @@ UNZ+1+ASTRA000680001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000680001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00068"
-FDR+UT+103+$(yymmdd)+DME+LED++T"
+FDR+UT+103+$(yymmdd)+DME+LED"
 RAD+X+P"
 UNT+4+1"
 UNZ+1+ASTRA000680001"
@@ -1644,10 +1391,10 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
-$(init_dcs ‘“ DCS1 DCS2)
+$(init_dcs ‘7 DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
+$(PREPARE_FLIGHT_2PAXES_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
                    ONE CHILD 2982401841689 1
                    PETROV PETR 2982401841612 1)
 
@@ -1692,10 +1439,10 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
-$(init_dcs ‘“ DCS1 DCS2)
+$(init_dcs ‘7 DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_6 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
+$(PREPARE_FLIGHT_1PAX_1INFT_1SEG ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
                    ONE ADULT 2982401841612 1
                    ONE INFANT 2982401841689 1)
 
@@ -1720,52 +1467,15 @@ UNZ+1+1"
 
 # ®΅ι¥­¨¥ α ‘ (α¬¥­  αβ βγα  ­  CK)
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 1)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841612:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„„+‹+’+103++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref 1)0001"
-
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref 1) ’ 2982401841612 1 CK)
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841689:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„„+‹+’+103++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref 0) ’ 2982401841689 1 CK)
 
 
-# ®βΆ¥β ΰ §
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2982401841689:T::3"
-CPN+1:CK::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
-
-# ®βΆ¥β ¤Ά 
+$(TKCRES_ET_COS UTET UTDC $(last_edifact_ref 1) 2982401841612 1 CK)
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2982401841612:T::3"
-CPN+1:CK::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
-
+$(TKCRES_ET_COS UTET UTDC $(last_edifact_ref 0) 2982401841689 1 CK)
 
 
 >>
@@ -1799,16 +1509,9 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)1015+DME+LED++T"
-RAD+U+O"
-FSD+0950"
-PPD+ONE+A:Y+xxxxxxxxxx:xxxxxxxxxx+ADULT+ONE:INFANT"
-PRD+Y"
-PFD+xxxx+N:Y:3:::::Y:N+001:002+Y"
-PSI++TKNE::29824018416121+TKNE::INF29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/ONE/ADULT+FOID::::::FOID PPZB400522509+INFT::::::INFT HK1 01JAN17 ONE/INFANT+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/ONE/ADULT/M"
-PAP+A:ONE:ADULT:760501:::USA++P:99999999999:USA:::$(yymmdd +6y):M::::::ONE:ADULT:ABRAMOVICH"
-PAP+IN:ONE:INFANT:170202:::RUS++P:88888888888:USA:::$(yymmdd +7y):M::::::ONE:INFANT:ADULTOVICH"
-UNT+11+1"
+FDR+UT+103+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
 UNZ+1+ASTRA000660001"
 
 
@@ -1826,16 +1529,9 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)1015+DME+LED++T"
-RAD+U+O"
-FSD+0950"
-PPD+ONE+A:Y+xxxxxxxxxx:xxxxxxxxxx+ADULT+ONE:INFANT"
-PRD+Y"
-PFD+004A+N:Y:3:::::Y:N+001:002+Y"
-PSI++TKNE::29824018416121+TKNE::INF29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/ONE/ADULT+FOID::::::FOID PPZB400522509+INFT::::::INFT HK1 01JAN17 ONE/INFANT+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/ONE/ADULT/M"
-PAP+A:ONE:ADULT:760501:::USA++P:99999999999:USA:::$(yymmdd +6y):M::::::ONE:ADULT:ABRAMOVICH"
-PAP+IN:ONE:INFANT:170202:::RUS++P:88888888888:USA:::$(yymmdd +7y):M::::::ONE:INFANT:ADULTOVICH"
-UNT+11+1"
+FDR+UT+103+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
 UNZ+1+ASTRA000660001"
 
 
@@ -1852,7 +1548,7 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+FDR+UT+103+$(yymmdd)1015+DME+LED"
 RAD+B+O"
 FSD+0950"
 PPD+ONE+A:Y+xxxxxxxxxx:xxxxxxxxxx+ADULT+ONE:INFANT"
@@ -1877,59 +1573,26 @@ UNZ+1+ASTRA000680001"
 
 
 # ®΅ι¥­¨¥ α ‘ (®βª β αβ βγα )
->>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 1)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841612:T"
-CPN+1:I"
-TVL+$(ddmmyy)+„„+‹+’+103++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref 1)0001"
-
+$(set edi_ref1 $(last_edifact_ref 1))
+$(set edi_ref0 $(last_edifact_ref 0))
 
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841689:T"
-CPN+1:I"
-TVL+$(ddmmyy)+„„+‹+’+103++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) ’ 2982401841612 1 I)
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982401841689 1 I)
 
 
-# ®βΆ¥β ΰ §
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2982401841689:T::3"
-CPN+1:I::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
-
-# ®βΆ¥β ¤Ά 
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref1) 2982401841612 1 I)
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2982401841612:T::3"
-CPN+1:I::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref0) 2982401841689 1 I)
+
 
 
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000680001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00068"
-FDR+UT+103+$(yymmdd)+DME+LED++T"
+FDR+UT+103+$(yymmdd)+DME+LED"
 RAD+X+P"
 UNT+4+1"
 UNZ+1+ASTRA000680001"
@@ -1942,10 +1605,10 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
-$(init_dcs ‘“ DCS1 DCS2)
+$(init_dcs ‘7 DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
+$(PREPARE_FLIGHT_2PAXES_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
                    REPIN IVAN 2982401841689 1
                    REPIN PETR 2982401841612 1)
 
@@ -2003,21 +1666,9 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)1015+DME+LED++T"
-RAD+U+O"
-FSD+0950"
-PPD+REPIN+A:N+xxxxxxxxxx+PETR"
-PRD+Y"
-PFD...
-PBD+1:13+1:5+NP+U6:241:1:LED:262"
-PSI++TKNE::29824018416121+DOCS::::::DOCS HK1/P/TJK/400522510/TJK/24JUL85/M/05FEB25/REPIN/PETR+FOID::::::FOID PPZB400522510+PSPT::::::PSPT HK1 ZB400522510/TJK/24JUL85/REPIN/PETR/M"
-PAP+A:REPIN:PETR:850724:::TJK++P:400522510:TJK:::250205:M::::::REPIN:PETR"
-PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
-PRD+Y"
-PFD...
-PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
-PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
-UNT+16+1"
+FDR+UT+103+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
 UNZ+1+ASTRA000660001"
 
 <<
@@ -2033,22 +1684,9 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)1015+DME+LED++T"
-RAD+U+O"
-FSD+0950"
-PPD+REPIN+A:N+xxxxxxxxxx+PETR"
-PRD+Y"
-PFD...
-PBD+1:13+1:5+NP+U6:241:1:LED:262"
-PSI++TKNE::29824018416121+DOCS::::::DOCS HK1/P/TJK/400522510/TJK/24JUL85/M/05FEB25/REPIN/PETR+FOID::::::FOID PPZB400522510+PSPT::::::PSPT HK1 ZB400522510/TJK/24JUL85/REPIN/PETR/M"
-PAP+A:REPIN:PETR:850724:::TJK++P:400522510:TJK:::250205:M::::::REPIN:PETR"
-PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
-PRD+Y"
-PFD...
-PBD+1:12+2:8+NP+U6:260:1:LED:262"
-PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
-PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
-UNT+17+1"
+FDR+UT+103+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
 UNZ+1+ASTRA000660001"
 
 
@@ -2065,22 +1703,9 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)1015+DME+LED++T"
-RAD+U+O"
-FSD+0950"
-PPD+REPIN+A:N+xxxxxxxxxx+PETR"
-PRD+Y"
-PFD+xxxx+N:Y:3:::::Y:N+001+Y"
-PBD+3:15+1:5+NP+U6:245:2:LED:262+U6:248:1:LED:262"
-PSI++TKNE::29824018416121+DOCS::::::DOCS HK1/P/TJK/400522510/TJK/24JUL85/M/05FEB25/REPIN/PETR+FOID::::::FOID PPZB400522510+PSPT::::::PSPT HK1 ZB400522510/TJK/24JUL85/REPIN/PETR/M"
-PAP+A:REPIN:PETR:850724:::TJK++P:400522510:TJK:::250205:M::::::REPIN:PETR"
-PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
-PRD+Y"
-PFD+xxxx+N:Y:3:::::Y:N+002+Y"
-PBD+1:12+2:8+NP+U6:260:1:LED:262"
-PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
-PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
-UNT+17+1"
+FDR+UT+103+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
 UNZ+1+ASTRA000660001"
 
 
@@ -2097,22 +1722,9 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)1015+DME+LED++T"
-RAD+U+O"
-FSD+0950"
-PPD+REPIN+A:N+xxxxxxxxxx+PETR"
-PRD+Y"
-PFD...
-PBD+0+1:5+NP"
-PSI++TKNE::29824018416121+DOCS::::::DOCS HK1/P/TJK/400522510/TJK/24JUL85/M/05FEB25/REPIN/PETR+FOID::::::FOID PPZB400522510+PSPT::::::PSPT HK1 ZB400522510/TJK/24JUL85/REPIN/PETR/M"
-PAP+A:REPIN:PETR:850724:::TJK++P:400522510:TJK:::250205:M::::::REPIN:PETR"
-PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
-PRD+Y"
-PFD...
-PBD+1:12+2:8+NP+U6:260:1:LED:262"
-PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
-PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
-UNT+17+1"
+FDR+UT+103+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
 UNZ+1+ASTRA000660001"
 
 <<
@@ -2128,22 +1740,9 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)1015+DME+LED++T"
-RAD+U+O"
-FSD+0950"
-PPD+REPIN+A:N+xxxxxxxxxx+PETR"
-PRD+Y"
-PFD...
-PBD+0+1:5+NP"
-PSI++TKNE::29824018416121+DOCS::::::DOCS HK1/P/TJK/400522510/TJK/24JUL85/M/05FEB25/REPIN/PETR+FOID::::::FOID PPZB400522510+PSPT::::::PSPT HK1 ZB400522510/TJK/24JUL85/REPIN/PETR/M"
-PAP+A:REPIN:PETR:850724:::TJK++P:400522510:TJK:::250205:M::::::REPIN:PETR"
-PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
-PRD+Y"
-PFD...
-PBD+1:12+2:8+NP+U6:277:1:LED:262"
-PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
-PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
-UNT+17+1"
+FDR+UT+103+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
 UNZ+1+ASTRA000660001"
 
 <<
@@ -2161,22 +1760,9 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)1015+DME+LED++T"
-RAD+U+O"
-FSD+0950"
-PPD+REPIN+A:N+xxxxxxxxxx+PETR"
-PRD+Y"
-PFD...
-PBD+0"
-PSI++TKNE::29824018416121+DOCS::::::DOCS HK1/P/TJK/400522510/TJK/24JUL85/M/05FEB25/REPIN/PETR+FOID::::::FOID PPZB400522510+PSPT::::::PSPT HK1 ZB400522510/TJK/24JUL85/REPIN/PETR/M"
-PAP+A:REPIN:PETR:850724:::TJK++P:400522510:TJK:::250205:M::::::REPIN:PETR"
-PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
-PRD+Y"
-PFD...
-PBD+0"
-PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
-PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
-UNT+17+1"
+FDR+UT+103+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
 UNZ+1+ASTRA000660001"
 
 
@@ -2187,10 +1773,10 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
-$(init_dcs ‘“ DCS1 DCS2)
+$(init_dcs ‘7 DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α  α ®¤­®δ ¬¨«μζ ¬¨
-$(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
+$(PREPARE_FLIGHT_2PAXES_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
                    REPIN IVAN 2982401841689 1
                    REPIN IVAN 2982401841612 1)
 
@@ -2312,15 +1898,9 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)1015+DME+LED++T"
-RAD+U+O"
-FSD+0950"
-PPD+REPIN+A:N+$(lpad $(get repin1_id) 10 "0")+IVAN"
-PRD+Y"
-PFD+004A+N:Y:3:::::Y:N+002+Y"
-PSI++TKNE::29824018416121+DOCS::::::DOCS HK1/P/TJK/400522510/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522510+PSPT::::::PSPT HK1 ZB400522510/TJK/24JUL85/REPIN/IVAN/M"
-PAP+A:REPIN:IVAN:850724:::TJK++P:400522510:TJK:::250205:M::::::REPIN:IVAN"
-UNT+10+1"
+FDR+UT+103+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
 UNZ+1+ASTRA000660001"
 
 
@@ -2336,7 +1916,7 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)+DME+LED++T"
+FDR+UT+103+$(yymmdd)+DME+LED"
 RAD+X+P"
 UNT+4+1"
 UNZ+1+ASTRA000660001"
@@ -2369,10 +1949,10 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
-$(init_dcs ‘“ DCS1 DCS2)
+$(init_dcs ‘7 DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
 
 $(deny_ets_interactive ’ 103 „„)
 
@@ -2413,7 +1993,7 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
-$(init_dcs ‘“ DCS1 DCS2)
+$(init_dcs ‘7 DCS1 DCS2)
 
 # § ―ΰ®α ª €αβΰ¥
 <<
@@ -2441,10 +2021,10 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
-$(init_dcs ‘“ DCS1 DCS2)
+$(init_dcs ‘7 DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
 
 $(deny_ets_interactive ’ 103 „„)
 
@@ -2544,16 +2124,9 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)1015+DME+LED++T"
-RAD+U+O"
-FSD+0950"
-PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
-PRD+Y"
-PFD+xxxx+N:Y:3:::::Y:N+001+Y"
-PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
-PAP+A:REPIN:IVAN:760501:::RUS++P:99999999999:USA:::$(yymmdd +7y):M::::::REPIN:IVAN:ABRAMOVICH"
-ADD++701:::::USA+700:::::RUS:10001"
-UNT+11+1"
+FDR+UT+103+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
 UNZ+1+ASTRA000660001"
 
 
@@ -2571,16 +2144,9 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)1015+DME+LED++T"
-RAD+U+O"
-FSD+0950"
-PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
-PRD+Y"
-PFD+xxxx+N:Y:3:::::Y:N+001+Y"
-PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
-PAP+A:REPIN:IVAN:760501:::RUS++P:99999999999:USA:::$(yymmdd +7y):M::::::REPIN:IVAN:ABRAMOVICH"
-ADD++700:::::RUS:10001"
-UNT+11+1"
+FDR+UT+103+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
 UNZ+1+ASTRA000660001"
 
 
@@ -2591,10 +2157,10 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
-$(init_dcs ‘“ DCS1 DCS2)
+$(init_dcs ‘7 DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_6 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
+$(PREPARE_FLIGHT_1PAX_1INFT_1SEG ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
                    ONE ADULT 2982401841612 1
                    ONE INFANT 2982401841689 1)
 
@@ -2651,17 +2217,9 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)1015+DME+LED++T"
-RAD+U+O"
-FSD+0950"
-PPD+ONE+A:Y+xxxxxxxxxx:xxxxxxxxxx+ADULT+ONE:INFANT"
-PRD+Y"
-PFD+xxxx+N:Y:3:::::Y:N+001:002+Y"
-PSI++TKNE::29824018416121+TKNE::INF29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/ONE/ADULT+FOID::::::FOID PPZB400522509+INFT::::::INFT HK1 01JAN17 ONE/INFANT+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/ONE/ADULT/M"
-PAP+A:ONE:ADULT:500101:::RUS++P:1234566:RUS:::$(yymmdd +2y):M::::::ONE:ADULT H"
-PAP+IN:ONE:INFANT:170101:::RUS++P:1234566:RUS:::$(yymmdd +3y):M::::::ONE:INFANT H"
-ADD++701:::::RUS"
-UNT+12+1"
+FDR+UT+103+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
 UNZ+1+ASTRA000660001"
 
 
@@ -2679,16 +2237,9 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)1015+DME+LED++T"
-RAD+U+O"
-FSD+0950"
-PPD+ONE+A:Y+xxxxxxxxxx:xxxxxxxxxx+ADULT+ONE:INFANT"
-PRD+Y"
-PFD+xxxx+N:Y:3:::::Y:N+001:002+Y"
-PSI++TKNE::29824018416121+TKNE::INF29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/ONE/ADULT+FOID::::::FOID PPZB400522509+INFT::::::INFT HK1 01JAN17 ONE/INFANT+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/ONE/ADULT/M"
-PAP+A:ONE:ADULT:500101:::RUS++P:1234566:RUS:::$(yymmdd +2y):M::::::ONE:ADULT H"
-PAP+IN:ONE:INFANT:170101:::RUS++P:1234566:RUS:::$(yymmdd +3y):M::::::ONE:INFANT H"
-UNT+11+1"
+FDR+UT+103+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
 UNZ+1+ASTRA000660001"
 
 
@@ -2706,17 +2257,9 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)1015+DME+LED++T"
-RAD+U+O"
-FSD+0950"
-PPD+ONE+A:Y+xxxxxxxxxx:xxxxxxxxxx+ADULT+ONE:INFANT"
-PRD+Y"
-PFD+xxxx+N:Y:3:::::Y:N+001:002+Y"
-PSI++TKNE::29824018416121+TKNE::INF29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/ONE/ADULT+FOID::::::FOID PPZB400522509+INFT::::::INFT HK1 01JAN17 ONE/INFANT+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/ONE/ADULT/M"
-PAP+A:ONE:ADULT:500101:::RUS++P:1234566:RUS:::$(yymmdd +2y):M::::::ONE:ADULT H"
-ADD++701:::::RUS"
-PAP+IN:ONE:INFANT:170101:::RUS++P:1234566:RUS:::$(yymmdd +3y):M::::::ONE:INFANT H"
-UNT+12+1"
+FDR+UT+103+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
 UNZ+1+ASTRA000660001"
 
 
@@ -2734,18 +2277,9 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)1015+DME+LED++T"
-RAD+U+O"
-FSD+0950"
-PPD+ONE+A:Y+xxxxxxxxxx:xxxxxxxxxx+ADULT+ONE:INFANT"
-PRD+Y"
-PFD+xxxx+N:Y:3:::::Y:N+001:002+Y"
-PSI++TKNE::29824018416121+TKNE::INF29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/ONE/ADULT+FOID::::::FOID PPZB400522509+INFT::::::INFT HK1 01JAN17 ONE/INFANT+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/ONE/ADULT/M"
-PAP+A:ONE:ADULT:500101:::RUS++P:1234566:RUS:::$(yymmdd +2y):M::::::ONE:ADULT H"
-ADD++701:::::RUS"
-PAP+IN:ONE:INFANT:170101:::RUS++P:1234566:RUS:::$(yymmdd +3y):M::::::ONE:INFANT H"
-ADD++701:::::USA"
-UNT+13+1"
+FDR+UT+103+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
 UNZ+1+ASTRA000660001"
 
 
@@ -2762,18 +2296,9 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)1015+DME+LED++T"
-RAD+U+O"
-FSD+0950"
-PPD+ONE+A:Y+xxxxxxxxxx:xxxxxxxxxx+ADULT+ONE:INFANT"
-PRD+Y"
-PFD+xxxx+N:Y:3:::::Y:N+001:002+Y"
-PSI++TKNE::29824018416121+TKNE::INF29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/ONE/ADULT+FOID::::::FOID PPZB400522509+INFT::::::INFT HK1 01JAN17 ONE/INFANT+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/ONE/ADULT/M"
-PAP+A:ONE:ADULT:500101:::RUS++P:1234566:RUS:::$(yymmdd +2y):M::::::ONE:ADULT H"
-ADD++701:::::RUS"
-PAP+IN:ONE:INFANT:180111:::BLR++P:123456733:BLR:::$(yymmdd +7y):M::::::ONE:INFANT"
-ADD++701:::::USA"
-UNT+13+1"
+FDR+UT+103+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
 UNZ+1+ASTRA000660001"
 
 
@@ -2789,7 +2314,7 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+FDR+UT+103+$(yymmdd)1015+DME+LED"
 RAD+B+O"
 FSD+0950"
 PPD+ONE+A:Y+xxxxxxxxxx:xxxxxxxxxx+ADULT+ONE:INFANT"
@@ -2816,7 +2341,7 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)+DME+LED++T"
+FDR+UT+103+$(yymmdd)+DME+LED"
 RAD+X+P"
 UNT+4+1"
 UNZ+1+ASTRA000660001"
@@ -2829,10 +2354,10 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
-$(init_dcs ‘“ DCS1 DCS2)
+$(init_dcs ‘7 DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_6 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
+$(PREPARE_FLIGHT_1PAX_1INFT_1SEG ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
                    ONE ADULT 2982401841612 1
                    ONE INFANT 2982401841689 1)
 
@@ -2920,17 +2445,9 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)1015+DME+LED++T"
-RAD+U+O"
-FSD+0950"
-PPD+ONE+A:Y+xxxxxxxxxx:xxxxxxxxxx+ADULT+ONE:INFANT"
-PRD+Y"
-PFD+xxxx+N:Y:3:::::Y:N+001:002+Y"
-PBD+1:13+1:5+NP+S7:241:1:LED:421"
-PSI++TKNE::29824018416121+TKNE::INF29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/ONE/ADULT+FOID::::::FOID PPZB400522509+INFT::::::INFT HK1 01JAN17 ONE/INFANT+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/ONE/ADULT/M"
-PAP+A:ONE:ADULT:500101:::RUS++P:1234566:RUS:::$(yymmdd +2y):M::::::ONE:ADULT H"
-PAP+IN:ONE:INFANT:170101:::RUS++P:1234566:RUS:::$(yymmdd +3y):M::::::ONE:INFANT H"
-UNT+12+1"
+FDR+UT+103+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
 UNZ+1+ASTRA000660001"
 
 
@@ -2948,15 +2465,9 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)1015+DME+LED++T"
-RAD+U+O"
-FSD+0950"
-PPD+ONE+A:Y+xxxxxxxxxx:xxxxxxxxxx+ADULT+ONE:INFANT"
-PRD+Y"
-PFD+xxxx+N:Y:3:::::Y:N+001:002+Y"
-PBD+1:13+1:5+NP+S7:241:1:LED:421"
-PSI++TKNE::29824018416121+TKNE::INF29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/ONE/ADULT+FOID::::::FOID PPZB400522509+INFT::::::INFT HK1 01JAN17 ONE/INFANT+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/ONE/ADULT/M"
-UNT+10+1"
+FDR+UT+103+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
 UNZ+1+ASTRA000660001"
 
 
@@ -2975,18 +2486,9 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)1015+DME+LED++T"
-RAD+U+O"
-FSD+0950"
-PPD+ONE+A:Y+xxxxxxxxxx:xxxxxxxxxx+ADULT+ONE:INFANT"
-PRD+Y"
-PFD+xxxx+N:Y:3:::::Y:N+001:002+Y"
-PBD+1:13+1:5+NP+S7:241:1:LED:421"
-PSI++TKNE::29824018416121+TKNE::INF29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/ONE/ADULT+FOID::::::FOID PPZB400522509+INFT::::::INFT HK1 01JAN17 ONE/INFANT+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/ONE/ADULT/M"
-PAP+A:ONE:ADULT:500101:::RUS++P:1234566:RUS:::$(yymmdd +6y):::::::ONE:ADULT H+V:777888:USA"
-ADD++701:::::RUS"
-PAP+IN:ONE:INFANT:170101:::RUS++P:1234566:RUS:::$(yymmdd +7y):::::::ONE:INFANT H+V:888777:RUS"
-UNT+13+1"
+FDR+UT+103+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
 UNZ+1+ASTRA000660001"
 
 
@@ -3003,18 +2505,9 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)1015+DME+LED++T"
-RAD+U+O"
-FSD+0950"
-PPD+ONE+A:Y+xxxxxxxxxx:xxxxxxxxxx+ADULT+ONE:INFANT"
-PRD+Y"
-PFD+xxxx+N:Y:3:::::Y:N+001:002+Y"
-PBD+3:15+1:5+NP+S7:245:2:LED:421+S7:248:1:LED:421"
-PSI++TKNE::29824018416121+TKNE::INF29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/ONE/ADULT+FOID::::::FOID PPZB400522509+INFT::::::INFT HK1 01JAN17 ONE/INFANT+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/ONE/ADULT/M"
-PAP+A:ONE:ADULT:500101:::RUS++P:1234566:RUS:::$(yymmdd +6y):::::::ONE:ADULT H+V:777888:USA"
-ADD++701:::::RUS"
-PAP+IN:ONE:INFANT:170101:::RUS++P:1234566:RUS:::$(yymmdd +7y):::::::ONE:INFANT H+V:888777:RUS"
-UNT+13+1"
+FDR+UT+103+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
 UNZ+1+ASTRA000660001"
 
 
@@ -3025,10 +2518,10 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
-$(init_dcs ‘“ DCS1 DCS2)
+$(init_dcs ‘7 DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
+$(PREPARE_FLIGHT_2PAXES_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
                    REPIN {IVAN MR} 2982401841689 1
                    PETROV PETR 2982401841612 1)
 
@@ -3078,15 +2571,9 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)1015+DME+LED++T"
-RAD+U+O"
-FSD+0950"
-PPD+REPIN+A:N+xxxxxxxxxx+IVAN MR"
-PRD+Y"
-PFD+xxxx+N:Y:3:::::Y:N+001+Y"
-PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN MR+FOID::::::FOID PPZB400522509+OTHS::::::OTHS FREE TEXT+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN MR/M"
-PAP+A:REPIN:IVAN MR:760501:::RUS++P:99999999999:USA:::491231:M::::::REPIN:IVAN:ABRAMOVICH"
-UNT+10+1"
+FDR+UT+103+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
 UNZ+1+ASTRA000660001"
 
 
@@ -3097,10 +2584,10 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
-$(init_dcs ‘“ DCS1 DCS2)
+$(init_dcs ‘7 DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
+$(PREPARE_FLIGHT_2PAXES_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
                    REPIN IVAN 2982401841689 1
                    PETROV PETR 2982401841612 1)
 
@@ -3124,52 +2611,20 @@ PAP+A:PETROV:PETR:870408:::JP+:::DECLINED+P:TL0046023:JP:::000101:F:702"
 UNT+12+1"
 UNZ+1+ASTRA000660001"
 
+$(set edi_ref1 $(last_edifact_ref 1))
+$(set edi_ref0 $(last_edifact_ref 0))
 
+# § ―ΰ®αλ Ά ‘
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 1)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841612:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„„+‹+’+103++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref 1)0001"
-
-
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) ’ 2982401841612 1 CK)
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841689:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„„+‹+’+103++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982401841689 1 CK)
 
 
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2982401841689:T::3"
-CPN+1:CK::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
-
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref0) 2982401841689 1 CK)
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2982401841612:T::3"
-CPN+1:CK::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref1) 2982401841612 1 CK)
 
 
 >>
@@ -3205,29 +2660,16 @@ PRD+K+OK++HLMWCF"
 USD++001A"
 PPD+PETROV+A:N++PETR"
 PRD+K+OK++HLMWCF"
-USD++002A"
+USD++001B"
 UNT+10+86"
 UNZ+1+FFCE00069A0001"
 
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+FFCE00069A0001+++T"
 UNH+1+DCRCKA:03:1:IA+30389AC1000D"
-FDR+UT+103+$(yymmdd)1015+DME+LED++T"
-RAD+U+O"
-FSD+0950"
-PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
-PRD+Y"
-PFD+xxxx+N:Y:3:::::Y:N+001+Y"
-PBD+2:13++NP+S7:241:2:LED:421"
-PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
-PAP+A:REPIN:IVAN:850307:::JPN++P:TL0046022:JPN:::231007:F::::::REPIN:IVAN"
-PPD+PETROV+A:N+xxxxxxxxxx+PETR"
-PRD+Y"
-PFD+xxxx+N:Y:3:::::Y:N+002+Y"
-PBD+1:7+1:5+NP+S7:243:1:LED:421"
-PSI++TKNE::29824018416121+DOCS::::::DOCS HK1/P/TJK/400522510/TJK/24JUL85/M/05FEB25/PETROV/PETR+FOID::::::FOID PPZB400522510+PSPT::::::PSPT HK1 ZB400522510/TJK/24JUL85/PETROV/PETR/M"
-PAP+A:PETROV:PETR:870408:::JPN++P:TL0046023:JPN:::000101:F::::::PETROV:PETR"
-UNT+17+1"
+FDR+UT+103+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
 UNZ+1+FFCE00069A0001"
 
 
@@ -3238,13 +2680,13 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
-$(init_dcs ‘“ DCS1 DCS2)
+$(init_dcs ‘7 DCS1 DCS2)
 
 $(settcl SIRENA_HOST localhost)
 $(settcl SIRENA_PORT 8008)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
 
 $(sql "update TRIP_SETS set PIECE_CONCEPT=1")
 
@@ -3262,7 +2704,7 @@ PBD+0"
 UNT+8+1"
 UNZ+1+ASTRA000660001"
 
-$(ETS_COS_EXCHANGE 2982401841689 1 CK IATCIP)
+$(ETS_COS_EXCHANGE 2982401841689 1 CK)
 
 # ®βΆ¥β ®β €αβΰλ
 >>
@@ -3293,14 +2735,708 @@ UNZ+1+ASTRA000660001"
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
 UNH+1+DCRCKA:03:1:IA+ASTRA00066"
-FDR+UT+103+$(yymmdd)1015+DME+LED++T"
-RAD+U+O"
+FDR+UT+103+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
+UNZ+1+ASTRA000660001"
+
+
+%%
+#########################################################################################
+# ό30
+
+$(init)
+$(init_jxt_pult ‚)
+$(login)
+
+$(init_eds ’ UTET UTDC)
+
+$(init_dcs ‘7 DCS_S7 DCS_UT)
+
+$(init_dcs ‘“ DCS_SU DCS_UT)
+
+
+$(PREPARE_SEASON_SCD ’ „„ ‹ 101)
+$(make_spp)
+
+<<
+$(PNL_2PAXES_3SEGS_WITH_REMARKS ’ „„ ‹ 101
+                                ‘“ ‹ ‘— 202
+                                “6 ‘— ™ 303
+                                PUTIN VLADIMIR   2982401841689 1 K Y 0840Z6 09T1B3
+                                MEDVEDEV DMITRII 2982401841735 1 Y M 0850Z7 09T1C4)
+
+$(set ediref1 $(last_edifact_ref 1))
+$(set ediref0 $(last_edifact_ref 0))
+
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(get ediref1) ’ 2982401841689)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(get ediref0) ’ 2982401841735)
+
+<<
+$(TKCRES_ET_DISP_1CPN UTET UTDC $(get ediref1) UT 2982401841689 I PUTIN VLADIMIR $(ddmmyy) DME LED 101)
+<<
+$(TKCRES_ET_DISP_1CPN UTET UTDC $(get ediref0) UT 2982401841735 I MEDVEDEV DMITRII $(ddmmyy) DME LED 101)
+
+$(auto_set_craft $(get_dep_point_id „„ ’ 101 $(yymmdd +0)))
+
+
+# $(deny_ets_interactive ’ 101 „„)
+
+
+# § ―ΰ®α ª €αβΰ¥
+<<
+UNB+SIRE:1+DCS_S7+DCS_UT+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+S7:EKN"
+DMC++++9"
+FDQ+UT+101+$(yymmdd)+DME+LED++S7+550+$(yymmdd)0530+$(yymmdd)0940+EKN+DME"
+PPD+PUTIN+M++VLADIMIR"
+PRD+Y"
+PSD+N"
+PBD+0"
+PPD+MEDVEDEV+M++DMITRII"
+PRD+K"
+PSD+N"
+PBD+0"
+UNT+8+1"
+UNZ+1+ASTRA000660001"
+
+$(set edi_ref1 $(last_edifact_ref 1))
+$(set edi_ref0 $(last_edifact_ref 0))
+
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) ’ 2982401841689 1 CK xxxxxx „„ ‹ 101 Y)
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982401841735 1 CK xxxxxx „„ ‹ 101 K)
+
+<<
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref1) 2982401841689 1 CK)
+<<
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref0) 2982401841735 1 CK)
+
+
+>>
+UNB+SIRE:1+DCS_UT+DCS_SU+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
+LOR+UT"
+DMC++++8"
+CHD+S7:EKN++++++++H::UT+H::S7"
+FDQ+SU+202+$(yymmdd)+LED+AER++UT+101+$(yymmdd)++DME+LED"
+PPD+PUTIN+A:N++VLADIMIR"
+PRD+K"
+PBD+0"
+PPD+MEDVEDEV+A:N++DMITRII"
+PRD+Y"
+PBD+0"
+UNT+12+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+# ν¬γ«οζ¨ο β ©¬ γβ  ®βΆ¥β  DCS
+$(sql {update EDISESSION_TIMEOUTS set time_out = sysdate - 1})
+$(run_daemon edi_timeout)
+
+
+$(set edi_ref1 $(last_edifact_ref 1))
+$(set edi_ref0 $(last_edifact_ref 0))
+
+
+# ®βª βλΆ ¥¬ αβ βγαλ
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) ’ 2982401841689 1 I xxxxxx „„ ‹ 101 Y)
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982401841735 1 I xxxxxx „„ ‹ 101 K)
+
+
+# ®βΆ¥η ¥¬
+>>
+UNB+SIRE:1+DCS_UT+DCS_S7+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+101+$(yymmdd)+DME+LED++T"
+RAD+I+X"
+ERD+1:196:TIMEOUT OCCURED ON HOST 3"
+UNT+5+1"
+UNZ+1+ASTRA000660001"
+
+
+%%
+#########################################################################################
+# ό31
+
+$(init)
+$(init_jxt_pult ‚)
+$(login)
+
+$(init_eds ’ UTET UTDC)
+
+$(init_dcs ‘7 DCS_S7 DCS_UT)
+
+$(init_dcs ‘“ DCS_SU DCS_UT)
+
+
+$(PREPARE_SEASON_SCD ’ „„ ‹ 101)
+$(make_spp)
+
+<<
+$(PNL_2PAXES_3SEGS_WITH_REMARKS ’ „„ ‹ 101
+                                ‘“ ‹ ‘— 202
+                                “6 ‘— ™ 303
+                                PUTIN VLADIMIR   2982401841689 1 K Y 0840Z6 09T1B3
+                                MEDVEDEV DMITRII 2982401841735 1 Y M 0850Z7 09T1C4)
+
+$(set ediref1 $(last_edifact_ref 1))
+$(set ediref0 $(last_edifact_ref 0))
+
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(get ediref1) ’ 2982401841689)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(get ediref0) ’ 2982401841735)
+
+<<
+$(TKCRES_ET_DISP_1CPN UTET UTDC $(get ediref1) UT 2982401841689 I PUTIN VLADIMIR $(ddmmyy) DME LED 101)
+<<
+$(TKCRES_ET_DISP_1CPN UTET UTDC $(get ediref0) UT 2982401841735 I MEDVEDEV DMITRII $(ddmmyy) DME LED 101)
+
+$(auto_set_craft $(get_dep_point_id „„ ’ 101 $(yymmdd +0)))
+
+
+# $(deny_ets_interactive ’ 101 „„)
+
+
+# § ―ΰ®α ª €αβΰ¥
+<<
+UNB+SIRE:1+DCS_S7+DCS_UT+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+S7"
+DMC++++7"
+CHD+U6:EKN++++++++H::S7+H::U6"
+FDQ+UT+101+$(yymmdd)+DME+LED++S7+550+$(yymmdd)0530+$(yymmdd)0940+EKN+DME"
+PPD+PUTIN+M++VLADIMIR"
+PRD+Y"
+PSD+N"
+PBD+0"
+PPD+MEDVEDEV+M++DMITRII"
+PRD+K"
+PSD+N"
+PBD+0"
+UNT+8+1"
+UNZ+1+ASTRA000660001"
+
+$(set edi_ref1 $(last_edifact_ref 1))
+$(set edi_ref0 $(last_edifact_ref 0))
+
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) ’ 2982401841689 1 CK xxxxxx „„ ‹ 101 Y)
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982401841735 1 CK xxxxxx „„ ‹ 101 K)
+
+<<
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref1) 2982401841689 1 CK)
+<<
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref0) 2982401841735 1 CK)
+
+
+>>
+UNB+SIRE:1+DCS_UT+DCS_SU+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
+LOR+UT"
+DMC++++6"
+CHD+U6:EKN++++++++H::UT+H::S7+H::U6"
+FDQ+SU+202+$(yymmdd)+LED+AER++UT+101+$(yymmdd)++DME+LED"
+PPD+PUTIN+A:N++VLADIMIR"
+PRD+K"
+PBD+0"
+PPD+MEDVEDEV+A:N++DMITRII"
+PRD+Y"
+PBD+0"
+UNT+12+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+DCS_SU+DCS_UT+150217:0747+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:03:1:IA+$(last_edifact_ref)"
+FDR+SU+202+$(yymmdd)+LED+AER"
+RAD+I+X"
+ERD+1:102"
+UNT+5+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+$(set edi_ref1 $(last_edifact_ref 1))
+$(set edi_ref0 $(last_edifact_ref 0))
+
+
+# ®βª βλΆ ¥¬ αβ βγαλ
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) ’ 2982401841689 1 I xxxxxx „„ ‹ 101 Y)
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982401841735 1 I xxxxxx „„ ‹ 101 K)
+
+
+# ®βΆ¥η ¥¬
+>>
+UNB+SIRE:1+DCS_UT+DCS_S7+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+101+$(yymmdd)+DME+LED++T"
+RAD+I+X"
+ERD+1:102:UNABLE TO PROCESS - SYSTEM ERROR"
+UNT+5+1"
+UNZ+1+ASTRA000660001"
+
+
+
+%%
+#########################################################################################
+# ό32
+
+$(init)
+$(init_jxt_pult ‚)
+$(login)
+
+$(init_eds ’ UTET UTDC)
+
+$(init_dcs ‘7 DCS_S7 DCS_UT)
+
+$(init_dcs ‘“ DCS_SU DCS_UT)
+
+
+$(PREPARE_SEASON_SCD ’ „„ ‹ 101)
+$(make_spp)
+
+<<
+$(PNL_2PAXES_3SEGS_WITH_REMARKS ’ „„ ‹ 101
+                                ‘“ ‹ ‘— 202
+                                “6 ‘— ™ 303
+                                PUTIN VLADIMIR   2982401841689 1 K Y 0840Z6 09T1B3
+                                MEDVEDEV DMITRII 2982401841735 1 Y M 0850Z7 09T1C4)
+
+$(set ediref1 $(last_edifact_ref 1))
+$(set ediref0 $(last_edifact_ref 0))
+
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(get ediref1) ’ 2982401841689)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(get ediref0) ’ 2982401841735)
+
+<<
+$(TKCRES_ET_DISP_1CPN UTET UTDC $(get ediref1) UT 2982401841689 I PUTIN VLADIMIR $(ddmmyy) DME LED 101)
+<<
+$(TKCRES_ET_DISP_1CPN UTET UTDC $(get ediref0) UT 2982401841735 I MEDVEDEV DMITRII $(ddmmyy) DME LED 101)
+
+$(auto_set_craft $(get_dep_point_id „„ ’ 101 $(yymmdd +0)))
+
+
+# $(deny_ets_interactive ’ 101 „„)
+
+
+# § ―ΰ®α ­  ΰ¥£¨αβΰ ζ¨ξ ª €αβΰ¥
+<<
+UNB+SIRE:1+DCS_S7+DCS_UT+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+S7:EKN"
+FDQ+UT+101+$(yymmdd)+DME+LED++S7+550+$(yymmdd)0530+$(yymmdd)0940+EKN+DME"
+PPD+PUTIN+M++VLADIMIR"
+PRD+Y"
+PSD+N"
+PBD+1:13+1:5+NP+S7:200:1:TJM:421"
+PPD+MEDVEDEV+M++DMITRII"
+PRD+K"
+PSD+N"
+PBD+1:10++NP+S7:210:1:TJM:421"
+UNT+8+1"
+UNZ+1+ASTRA000660001"
+
+$(set edi_ref1 $(last_edifact_ref 1))
+$(set edi_ref0 $(last_edifact_ref 0))
+
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) ’ 2982401841689 1 CK xxxxxx „„ ‹ 101 Y)
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982401841735 1 CK xxxxxx „„ ‹ 101 K)
+
+<<
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref1) 2982401841689 1 CK)
+<<
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref0) 2982401841735 1 CK)
+
+
+>>
+UNB+SIRE:1+DCS_UT+DCS_SU+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
+LOR+UT"
+DMC++++8"
+CHD+S7:EKN++++++++H::UT+H::S7"
+FDQ+SU+202+$(yymmdd)+LED+AER++UT+101+$(yymmdd)++DME+LED"
+PPD+PUTIN+A:N++VLADIMIR"
+PRD+K"
+PBD+1:13+1:5+NP+S7:200:1:TJM:421"
+PPD+MEDVEDEV+A:N++DMITRII"
+PRD+Y"
+PBD+1:10++NP+S7:210:1:TJM:421"
+UNT+12+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+DCS_SU+DCS_UT+150217:0747+$(last_edifact_ref)0001+++O"
+UNH+1+DCRCKA:94:1:IA+$(last_edifact_ref)"
+FDR+SU+202+$(yymmdd)1200+LED+AER++T"
+RAD+I+O"
+FSD+1535++GATE1"
+PPD+PUTIN+A:N+0013929620+VLADIMIR"
+PFD+005A"
+PBD+1:13+1:5+NP+S7:200:1:TJM:421"
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/PUTIN/VLADIMIR+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/PUTIN/VLADIMIR/M"
+PAP+A:PUTIN:VLADIMIR:850724:::TJK++P:400522509:TJK:::250205:M::::::PUTIN:VLADIMIR"
+PPD+MEDVEDEV+A:N+0013929621+DMITRII"
+PFD+005B"
+PBD+1:10++NP+S7:210:1:TJM:421"
+PSI++TKNE::29824018417351+DOCS::::::DOCS HK1/P/TJK/400522512/TJK/24JUL86/M/05FEB22/MEDVEDEV/DMITRII+FOID::::::FOID PPZB400522512+PSPT::::::PSPT HK1 ZB400522512/TJK/24JUL86/MEDVEDEV/DMITRII/M"
+PAP+A:MEDVEDEV:DMITRII:860724:::TJK++P:400522512:TJK:::220205:M::::::MEDVEDEV:DMITRII"
+FDR+U6+303+$(yymmdd)1500+AER+TJM++T"
+RAD+I+O"
+FSD+2035++GATE1"
+PPD+PUTIN+A:N+223929624+VLADIMIR"
+PFD+005A"
+PBD+1:13+1:5+NP+S7:200:1:TJM:421"
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/PUTIN/VLADIMIR+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/PUTIN/VLADIMIR/M"
+PAP+A:PUTIN:VLADIMIR:850724:::TJK++P:400522509:TJK:::250205:M::::::PUTIN:VLADIMIR"
+PPD+MEDVEDEV+A:N+223929625+DMITRII"
+PFD+005B"
+PBD+1:10++NP+S7:210:1:TJM:421"
+PSI++TKNE::29824018417351+DOCS::::::DOCS HK1/P/TJK/400522512/TJK/24JUL86/M/05FEB22/MEDVEDEV/DMITRII+FOID::::::FOID PPZB400522512+PSPT::::::PSPT HK1 ZB400522512/TJK/24JUL86/MEDVEDEV/DMITRII/M"
+PAP+A:MEDVEDEV:DMITRII:860724:::TJK++P:400522512:TJK:::220205:M::::::MEDVEDEV:DMITRII"
+UNT+14+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+# ®βΆ¥β
+>>
+UNB+SIRE:1+DCS_UT+DCS_S7+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+101+$(yymmdd)1015+DME+LED++T"
+RAD+I+O"
 FSD+0950"
-PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+PPD+PUTIN+A:N+xxxxxxxxxx+VLADIMIR"
 PRD+Y"
 PFD+xxxx+N:Y:3:::::Y:N+001+Y"
-PBD+1:13+1:5+NP+U6:241:1:LED:262"
-PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
-PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
-UNT+11+1"
+PBD+1:13+1:5+NP+S7:200:1:xxx:421"
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/PUTIN/VLADIMIR+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/PUTIN/VLADIMIR/M"
+PAP+A:PUTIN:VLADIMIR:850724:::TJK++P:400522509:TJK:::250205:M::::::PUTIN:VLADIMIR"
+PPD+MEDVEDEV+A:N+xxxxxxxxxx+DMITRII"
+PRD+K"
+PFD+xxxx+N:Y:3:::::Y:N+002+Y"
+PBD+1:10++NP+S7:210:1:xxx:421"
+PSI++TKNE::29824018417351+DOCS::::::DOCS HK1/P/TJK/400522512/TJK/24JUL86/M/05FEB22/MEDVEDEV/DMITRII+FOID::::::FOID PPZB400522512+PSPT::::::PSPT HK1 ZB400522512/TJK/24JUL86/MEDVEDEV/DMITRII/M"
+PAP+A:MEDVEDEV:DMITRII:860724:::TJK++P:400522512:TJK:::220205:M::::::MEDVEDEV:DMITRII"
+FDR+SU+202+$(yymmdd)1200+LED+AER++T"
+RAD+I+O"
+FSD+1535++GATE1"
+PPD+PUTIN+A:N+0013929620+VLADIMIR"
+PFD+005A+:::::::Y+Y"
+PBD+1:13+1:5+NP+S7:200:1:TJM:421"
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/PUTIN/VLADIMIR+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/PUTIN/VLADIMIR/M"
+PAP+A:PUTIN:VLADIMIR:850724:::TJK++P:400522509:TJK:::250205:M::::::PUTIN:VLADIMIR"
+PPD+MEDVEDEV+A:N+0013929621+DMITRII"
+PFD+005B+:::::::Y+Y"
+PBD+1:10++NP+S7:210:1:TJM:421"
+PSI++TKNE::29824018417351+DOCS::::::DOCS HK1/P/TJK/400522512/TJK/24JUL86/M/05FEB22/MEDVEDEV/DMITRII+FOID::::::FOID PPZB400522512+PSPT::::::PSPT HK1 ZB400522512/TJK/24JUL86/MEDVEDEV/DMITRII/M"
+PAP+A:MEDVEDEV:DMITRII:860724:::TJK++P:400522512:TJK:::220205:M::::::MEDVEDEV:DMITRII"
+FDR+U6+303+$(yymmdd)1500+AER+TJM++T"
+RAD+I+O"
+FSD+2035++GATE1"
+PPD+PUTIN+A:N+223929624+VLADIMIR"
+PFD+005A+:::::::Y+Y"
+PBD+1:13+1:5+NP+S7:200:1:TJM:421"
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/PUTIN/VLADIMIR+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/PUTIN/VLADIMIR/M"
+PAP+A:PUTIN:VLADIMIR:850724:::TJK++P:400522509:TJK:::250205:M::::::PUTIN:VLADIMIR"
+PPD+MEDVEDEV+A:N+223929625+DMITRII"
+PFD+005B+:::::::Y+Y"
+PBD+1:10++NP+S7:210:1:TJM:421"
+PSI++TKNE::29824018417351+DOCS::::::DOCS HK1/P/TJK/400522512/TJK/24JUL86/M/05FEB22/MEDVEDEV/DMITRII+FOID::::::FOID PPZB400522512+PSPT::::::PSPT HK1 ZB400522512/TJK/24JUL86/MEDVEDEV/DMITRII/M"
+PAP+A:MEDVEDEV:DMITRII:860724:::TJK++P:400522512:TJK:::220205:M::::::MEDVEDEV:DMITRII"
+UNT+43+1"
 UNZ+1+ASTRA000660001"
+
+
+# § ―ΰ®α ­  ®΅­®Ά«¥­¨¥ ― α―®ΰβ­λε ¤ ­­λε
+<<
+UNB+SIRE:1+DCS_S7+DCS_UT+150217:0747+ASTRA000610001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00061"
+LOR+S7:SVO"
+FDQ+UT+101+$(yymmdd)+DME+LED"
+PPD+MEDVEDEV+A:N++DMITRII"
+UAP+R+A:::760501:::RUS++P:99999999999:USA:::491231:M::::::MEDVEDEV:DMITRII:ABRAMOVICH"
+UNT+6+1"
+UNZ+1+ASTRA000610001"
+
+>>
+UNB+SIRE:1+DCS_UT+DCS_SU+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKU:94:1:IA+$(last_edifact_ref)"
+LOR+UT"
+CHD+S7:SVO++++++++H::UT+H::S7"
+FDQ+SU+202+$(yymmdd)1200+LED+AER"
+PPD+MEDVEDEV+A:N+xxxxxxxxxx+DMITRII"
+UAP+R+A:MEDVEDEV:DMITRII:760501:::RUS++P:99999999999:USA:::491231:M::::::MEDVEDEV:DMITRII:ABRAMOVICH"
+UNT+7+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+DCS_SU+DCS_UT+150217:0747+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:03:1:IA+$(last_edifact_ref)"
+FDR+SU+202+$(yymmdd)+LED+AER"
+RAD+U+P"
+UNT+4+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+>>
+UNB+SIRE:1+DCS_UT+DCS_S7+xxxxxx:xxxx+ASTRA000610001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00061"
+FDR+UT+101+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
+UNZ+1+ASTRA000610001"
+
+
+# § ―ΰ®α ­  α¬¥­γ ¬¥αβ  ­  "­ θ¥¬" α¥£¬¥­β¥
+<<
+UNB+SIRE:1+DCS_S7+DCS_UT+150217:0747+ASTRA000610001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00061"
+LOR+S7:SVO"
+FDQ+UT+101+$(yymmdd)+DME+LED+T"
+PPD+MEDVEDEV+A:N++DMITRII"
+USD++004A"
+UNT+6+1"
+UNZ+1+ASTRA000610001"
+
+>>
+UNB+SIRE:1+DCS_UT+DCS_S7+xxxxxx:xxxx+ASTRA000610001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00061"
+FDR+UT+101+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
+UNZ+1+ASTRA000610001"
+
+
+# § ―ΰ®α ­  α¬¥­γ ¬¥αβ  ­  "ηγ¦®¬" α¥£¬¥­β¥
+<<
+UNB+SIRE:1+DCS_S7+DCS_UT+150217:0747+ASTRA000610001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00061"
+LOR+S7:SVO"
+CHD++SU+202+$(yymmdd)+LED+AER+T"
+FDQ+UT+101+$(yymmdd)+DME+LED"
+PPD+PUTIN+A:N++VLADIMIR"
+USD++004B"
+UNT+6+1"
+UNZ+1+ASTRA000610001"
+
+
+>>
+UNB+SIRE:1+DCS_UT+DCS_SU+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKU:94:1:IA+$(last_edifact_ref)"
+LOR+UT"
+CHD+S7:SVO+SU+202+$(yymmdd)+LED+AER+T++H::UT+H::S7"
+FDQ+SU+202+$(yymmdd)1200+LED+AER"
+PPD+PUTIN+A:N+xxxxxxxxxx+VLADIMIR"
+USD++004B"
+UNT+7+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+DCS_SU+DCS_UT+150217:0747+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:03:1:IA+$(last_edifact_ref)"
+FDR+SU+202+$(yymmdd)+LED+AER"
+RAD+U+P"
+CHD+++++++++H::SU"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+>>
+UNB+SIRE:1+DCS_UT+DCS_S7+xxxxxx:xxxx+ASTRA000610001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00061"
+FDR+UT+101+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
+UNZ+1+ASTRA000610001"
+
+
+# § ―ΰ®α ­  ¨§¬¥­¥­¨¥ ΅ £ ¦ 
+<<
+UNB+SIRE:1+DCS_S7+DCS_UT+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+101+$(yymmdd)+DME+LED"
+PPD+PUTIN+A:N++VLADIMIR"
+UBD+R:2:25++R:NP+R:S7:220:2:TJM:421"
+UNT+6+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS_UT+DCS_SU+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKU:94:1:IA+$(last_edifact_ref)"
+LOR+UT"
+CHD+S7:SVO++++++++H::UT+H::S7"
+FDQ+SU+202+$(yymmdd)1200+LED+AER"
+PPD+PUTIN+A:N+xxxxxxxxxx+VLADIMIR"
+UBD+R:2:25++R:NP+R:S7:220:2:TJM:421"
+UNT+7+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+DCS_SU+DCS_UT+150217:0747+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:03:1:IA+$(last_edifact_ref)"
+FDR+SU+202+$(yymmdd)+LED+AER"
+RAD+U+P"
+CHD+++++++++H::SU"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+>>
+UNB+SIRE:1+DCS_UT+DCS_S7+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+101+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
+UNZ+1+ASTRA000660001"
+
+
+# ¥ιρ § ―ΰ®α ­  ¨§¬¥­¥­¨¥ ΅ £ ¦ 
+<<
+UNB+SIRE:1+DCS_S7+DCS_UT+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+101+$(yymmdd)+DME+LED"
+PPD+PUTIN+A:N++VLADIMIR"
+UBD+R:1:4++R:NP+R:S7:222:1:TJM:421"
+PPD+MEDVEDEV+A:N++DMITRII"
+UBD+R:0+R:1:5+R:NP"
+UNT+6+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS_UT+DCS_SU+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKU:94:1:IA+$(last_edifact_ref)"
+LOR+UT"
+CHD+S7:SVO++++++++H::UT+H::S7"
+FDQ+SU+202+$(yymmdd)1200+LED+AER"
+PPD+PUTIN+A:N+0013929620+VLADIMIR"
+UBD+R:1:4++R:NP+R:S7:222:1:TJM:421"
+PPD+MEDVEDEV+A:N+0013929621+DMITRII"
+UBD+R:0+R:1:5+R:NP"
+UNT+9+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+DCS_SU+DCS_UT+150217:0747+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:03:1:IA+$(last_edifact_ref)"
+FDR+SU+202+$(yymmdd)+LED+AER"
+RAD+U+P"
+CHD+++++++++H::SU"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+>>
+UNB+SIRE:1+DCS_UT+DCS_S7+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+101+$(yymmdd)1015+DME+LED"
+RAD+U+P"
+UNT+4+1"
+UNZ+1+ASTRA000660001"
+
+
+# § ―ΰ®α ­  ®β¬¥­γ ΰ¥£¨αβΰ ζ¨¨ ª €αβΰ¥ ®¤­®£® ― αα ¦¨ΰ 
+<<
+UNB+SIRE:1+DCS_S7+DCS_UT+150217:0747+ASTRA000680001+++O"
+UNH+1+DCQCKX:03:1:IA+ASTRA00068"
+LOR+S7:SVO"
+FDQ+UT+101+$(yymmdd)+DME+LED"
+PPD+MEDVEDEV+A:N++DMITRII"
+UNT+6+1"
+UNZ+1+ASTRA000680001"
+
+
+$(set edi_ref0 $(last_edifact_ref 0))
+
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982401841735 1 I xxxxxx „„ ‹ 101 K)
+<<
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref0) 2982401841735 1 I)
+
+
+# ¨¤ρ¬ §  ®β¬¥­®© ­  α«¥¤γξι¥¬ α¥£¬¥­β¥
+>>
+UNB+SIRE:1+DCS_UT+DCS_SU+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKX:94:1:IA+$(last_edifact_ref)"
+LOR+UT"
+CHD+S7:SVO++++++++H::UT+H::S7"
+FDQ+SU+202+$(yymmdd)+LED+AER"
+PPD+MEDVEDEV+A:N+0013929621+DMITRII"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+DCS_SU+DCS_UT+150217:0747+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:03:1:IA+$(last_edifact_ref)"
+FDR+SU+202+$(yymmdd)+LED+AER"
+RAD+X+P"
+UNT+4+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+# δ®ΰ¬¨ΰγ¥¬ ®ª®­η β¥«μ­λ© ®βΆ¥β ¤«ο S7
+>>
+UNB+SIRE:1+DCS_UT+DCS_S7+xxxxxx:xxxx+ASTRA000680001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00068"
+FDR+UT+101+$(yymmdd)1015+DME+LED"
+RAD+X+P"
+UNT+4+1"
+UNZ+1+ASTRA000680001"
+
+
+# § ―ΰ®α ­  ®β¬¥­γ ΰ¥£¨αβΰ ζ¨¨ ª €αβΰ¥ ¤ΰγ£®£® ― αα ¦¨ΰ 
+<<
+UNB+SIRE:1+DCS_S7+DCS_UT+150217:0747+ASTRA000690001+++O"
+UNH+1+DCQCKX:03:1:IA+ASTRA00069"
+LOR+S7:SVO"
+FDQ+UT+101+$(yymmdd)+DME+LED"
+PPD+PUTIN+A:N++VLADIMIR"
+UNT+6+1"
+UNZ+1+ASTRA000690001"
+
+
+$(set edi_ref0 $(last_edifact_ref 0))
+
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982401841689 1 I xxxxxx „„ ‹ 101 Y)
+<<
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref0) 2982401841689 1 I)
+
+# ¨¤ρ¬ §  ®β¬¥­®© ­  α«¥¤γξι¥¬ α¥£¬¥­β¥
+>>
+UNB+SIRE:1+DCS_UT+DCS_SU+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKX:94:1:IA+$(last_edifact_ref)"
+LOR+UT"
+CHD+S7:SVO++++++++H::UT+H::S7"
+FDQ+SU+202+$(yymmdd)+LED+AER"
+PPD+PUTIN+A:N+0013929620+VLADIMIR"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+DCS_SU+DCS_UT+150217:0747+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:03:1:IA+$(last_edifact_ref)"
+FDR+SU+202+$(yymmdd)+LED+AER"
+RAD+X+P"
+UNT+4+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+>>
+UNB+SIRE:1+DCS_UT+DCS_S7+xxxxxx:xxxx+ASTRA000690001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00069"
+FDR+UT+101+$(yymmdd)+DME+LED"
+RAD+X+P"
+UNT+4+1"
+UNZ+1+ASTRA000690001"

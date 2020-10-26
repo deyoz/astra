@@ -1,6 +1,7 @@
 #include "CusRequestHandler.h"
 #include "apis_edi_file.h"
 #include "view_edi_elements.h"
+#include "base_callbacks.h"
 
 #include <edilib/edi_func_cpp.h>
 

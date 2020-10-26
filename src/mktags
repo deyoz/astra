@@ -5,3 +5,5 @@ ctags -R -a ../locallibs/jxtlib/src
 ctags -R -a ../locallibs/shared/src
 ctags -R -a ../locallibs/libtlg/src
 ctags -R -a ../locallibs/libtypeb/src
+ctags -R -a ../locallibs/libtimatic/src
+ctags -R -a /usr/include/libxml2

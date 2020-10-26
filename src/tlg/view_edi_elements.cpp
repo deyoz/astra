@@ -12,9 +12,6 @@
 #include <serverlib/dates_io.h>
 #include <serverlib/dates.h>
 
-#include <boost/lexical_cast.hpp>
-#include <boost/foreach.hpp>
-
 #define NICKNAME "ANTON"
 #define NICKTRACE ROMAN_TRACE
 #include <serverlib/slogger.h>
@@ -109,7 +106,7 @@ void viewUnhElement(_EDI_REAL_MES_STRUCT_* pMes, const UnhElem& elem)
     SetEdiComposite(pMes, CompElement("S010", 0));
     PushEdiPointW(pMes);
     SetEdiPointToCompositeW(pMes, CompElement("S010", 0));
-    std::string seqNum = boost::lexical_cast< std::string >(elem.m_seqNumber);
+    std::string seqNum = std::to_string(elem.m_seqNumber);
     SetEdiDataElem(pMes, DataElement(70, 0), StrUtils::LPad(seqNum, 2, '0'));
     SetEdiDataElem(pMes, DataElement(73, 0), UnhElem::seqFlagToStr(elem.m_seqFlag));
     PopEdiPointW(pMes);
@@ -264,7 +261,7 @@ void viewDocElement(_EDI_REAL_MES_STRUCT_* pMes, const DocElem& elem, int num)
 void viewCntElement(_EDI_REAL_MES_STRUCT_* pMes, const CntElem& elem, int num)
 {
     std::ostringstream cnt;
-    cnt << boost::lexical_cast< std::string >(elem.m_cntType) << ":";
+    cnt << std::to_string(elem.m_cntType) << ":";
     cnt << elem.m_cnt;
     SetEdiFullSegment(pMes, SegmElement("CNT", num), cnt.str());
 }
@@ -320,21 +317,39 @@ void viewItin(EDI_REAL_MES_STRUCT *pMes, const Ticketing::Itin &itin, int num)
     SetEdiFullSegment(pMes, SegmElement("TVL"), tvl.str());
 }
 
+static std::string getDepPortCode(const Ticketing::Itin &itin, bool translit)
+{
+    if(itin.specDepPoint()) {
+        return itin.specDepPoint().get();
+    }
+
+    BaseTables::Port depPort(itin.depPointCode());
+    return translit ? depPort->lcode() : depPort->rcode();
+}
+
+static std::string getArrPortCode(const Ticketing::Itin &itin, bool translit)
+{
+    if(itin.specArrPoint()) {
+        return itin.specArrPoint().get();
+    }
+
+    BaseTables::Port arrPort(itin.arrPointCode());
+    return translit ? arrPort->lcode() : arrPort->rcode();
+}
+
 void viewItin2(EDI_REAL_MES_STRUCT *pMes, const Ticketing::Itin &itin,
                bool translit, int num)
 {
     std::ostringstream tvl;
 
-    BaseTables::Port depPort(itin.depPointCode()),
-                     arrPort(itin.arrPointCode());
     BaseTables::Company airl(itin.airCode());
 
     tvl << (itin.date1().is_special()?"":
             HelpCpp::string_cast(itin.date1(), "%d%m%y"))
             << ":" << (itin.time1().is_special()?"":
             HelpCpp::string_cast(itin.time1(), "%H%M")) << "+" <<
-            (translit ? depPort->lcode() : depPort->rcode()) << "+" <<
-            (translit ? arrPort->lcode() : arrPort->rcode()) << "+" <<
+            getDepPortCode(itin, translit) << "+" <<
+            getArrPortCode(itin, translit) << "+" <<
             (translit ? airl->lcode() : airl->rcode());
     if(!itin.airCodeOper().empty()) {
         BaseTables::Company operAirl(itin.airCodeOper());
@@ -415,7 +430,7 @@ void viewEqnElement(_EDI_REAL_MES_STRUCT_* pMes, const std::list<EqnElem>& lElem
     }
 
     std::ostringstream eqn;
-    BOOST_FOREACH(const EqnElem& elem, lElem)
+    for(const EqnElem& elem: lElem)
     {
         eqn << elem.m_numberOfUnits << ":";
         eqn << elem.m_qualifier << "+";
@@ -434,7 +449,7 @@ void viewOrgElement(_EDI_REAL_MES_STRUCT_* pMes, const Ticketing::OrigOfRequest&
     org << elem.pprNumber() << "++";
     org << (translit ? airl->lcode() : airl->rcode()) << "+";
     org << elem.type() << "+::";
-    org << elem.langStr() << "+" << (translit ? StrUtils::translit(elem.pult(), false) : elem.pult());
+    org << elem.langStr() << "+" << (translit ? StrUtils::translit(elem.pult()) : elem.pult());
     SetEdiFullSegment(pMes, SegmElement("ORG"), org.str());
 }
 
@@ -485,6 +500,7 @@ void viewFdqElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightDetails& nex
     SetEdiDataElem(pMes, DataElement(2281, 0), fullDateTimeString(nextFlight.depDate(), nextFlight.depTime()));
     SetEdiDataElem(pMes, DataElement(3215, 0), BaseTables::Port(nextFlight.depPort())->code(/*lang*/));
     SetEdiDataElem(pMes, DataElement(3259, 0), BaseTables::Port(nextFlight.arrPort())->code(/*lang*/));
+    SetEdiDataElem(pMes, DataElement(9856, 0), nextFlight.fcIndicator());
 
     if(currFlight)
     {
@@ -504,6 +520,7 @@ void viewFdqElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightDetails& nex
         SetEdiDataElem(pMes, DataElement(2107, 0),    fullDateTimeString(currFlight->arrDate(), currFlight->arrTime()));
         SetEdiDataElem(pMes, DataElement(3215, 0, 1), BaseTables::Port(currFlight->depPort())->code(/*lang*/));
         SetEdiDataElem(pMes, DataElement(3259, 0, 1), BaseTables::Port(currFlight->arrPort())->code(/*lang*/));
+        SetEdiDataElem(pMes, DataElement(9856, 0, 1), currFlight->fcIndicator());
     }
 
     PopEdiPointW(pMes);
@@ -580,7 +597,7 @@ void viewPsiElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::ServiceDetails& se
 {
     std::ostringstream psi;
     psi << service.osi();
-    BOOST_FOREACH(const iatci::ServiceDetails::SsrInfo& ssr, service.lSsr())
+    for(const iatci::ServiceDetails::SsrInfo& ssr: service.lSsr())
     {
         psi << "+" << ssr.ssrCode() << ":";
         if(!ssr.airline().empty()) {
@@ -611,7 +628,7 @@ void viewPsdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::SeatDetails& seat)
 {
     std::ostringstream psd;
     psd << seat.smokeIndAsString();
-    BOOST_FOREACH(const std::string& seatCharactesistic, seat.characteristics()) {
+    for(const std::string& seatCharactesistic: seat.characteristics()) {
         psd << ":" << seatCharactesistic;
     }
     psd << "+" << iatci::normSeatNum(seat.seat());
@@ -660,19 +677,46 @@ void viewPbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::BaggageDetails& ba
 void viewChdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::CascadeHostDetails& cascadeDetails)
 {
     std::ostringstream chd;
-    if(!cascadeDetails.originAirline().empty()) {
-        chd << BaseTables::Company(cascadeDetails.originAirline())->code(/*lang*/);
+    if(!cascadeDetails.firstAirline().empty()) {
+        chd << BaseTables::Company(cascadeDetails.firstAirline())->code(/*lang*/);
     }
-    chd << ":";
-    if(!cascadeDetails.originPort().empty()) {
-        chd << BaseTables::Port(cascadeDetails.originPort())->code(/*lang*/);
+    if(!cascadeDetails.firstLocation().empty()) {
+        chd << ":" << BaseTables::Port(cascadeDetails.firstLocation())->code(/*lang*/);
     }
+    chd << "+";
+    if(!cascadeDetails.destAirline().empty()) {
+        chd << BaseTables::Company(cascadeDetails.destAirline())->code(/*lang*/);
+    }
+    chd << "+";
+    if(cascadeDetails.destFlightNum()) {
+        chd << cascadeDetails.destFlightNum();
+    }
+    chd << "+";
+    if(!cascadeDetails.destFlightDate().is_special()) {
+        chd << Dates::rrmmdd(cascadeDetails.destFlightDate());
+    }
+    chd << "+";
+    if(!cascadeDetails.destDepPort().empty()) {
+        chd << BaseTables::Port(cascadeDetails.destDepPort())->code(/*lang*/);
+    }
+    chd << "+";
+    if(!cascadeDetails.destArrPort().empty()) {
+        chd << BaseTables::Port(cascadeDetails.destArrPort())->code(/*lang*/);
+    }
+    chd << "+" << cascadeDetails.fcIndicator();
 
-    chd << "++++++++";
-    BOOST_FOREACH(const std::string& hostAirline, cascadeDetails.hostAirlines()) {
+    chd << "++";
+    for(const std::string& hostAirline: cascadeDetails.hostAirlines()) {
         chd << "H::" << BaseTables::Company(hostAirline)->code(/*lang*/) << "+";
     }
     SetEdiFullSegment(pMes, SegmElement("CHD"), chd.str());
+}
+
+void viewDmcElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::MessageDetails& messageDetails)
+{
+    std::ostringstream dmc;
+    dmc << "+++" << messageDetails.maxRespFlights();
+    SetEdiFullSegment(pMes, SegmElement("DMC"), dmc.str());
 }
 
 void viewRadElement(_EDI_REAL_MES_STRUCT_* pMes, const std::string& respType,
@@ -766,7 +810,7 @@ void viewUsdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateSeatDetails&
 {
     std::ostringstream usd;
     usd << updSeat.smokeIndAsString();
-    BOOST_FOREACH(const std::string& seatCharactesistic, updSeat.characteristics()) {
+    for(const std::string& seatCharactesistic: updSeat.characteristics()) {
         usd << ":" << seatCharactesistic;
     }
     usd << "+" << iatci::normSeatNum(updSeat.seat());
@@ -870,7 +914,7 @@ void viewUapElement(_EDI_REAL_MES_STRUCT_* pMes, bool infant)
 void viewUsiElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateServiceDetails& updService)
 {
     std::ostringstream usi;
-    BOOST_FOREACH(const iatci::UpdateServiceDetails::UpdSsrInfo& ssr, updService.lSsr())
+    for(const iatci::UpdateServiceDetails::UpdSsrInfo& ssr: updService.lSsr())
     {
         usi << "+" << ssr.actionCodeAsString() << ":"
                    << ssr.ssrCode() << ":";
@@ -913,7 +957,7 @@ void viewCbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::CabinDetails& cabi
             << std::setfill('0') << std::setw(3) << cabinDetails.overwingArea()->lastRow();
     }
     cbd << "+";
-    BOOST_FOREACH(const iatci::SeatColumnDetails& seatColumn, cabinDetails.seatColumns()) {
+    for(const iatci::SeatColumnDetails& seatColumn: cabinDetails.seatColumns()) {
         cbd << iatci::normSeatLetter(seatColumn.column()) << ":"
             << seatColumn.desc1() << ":"
             << seatColumn.desc2() << "+";
@@ -926,10 +970,10 @@ void viewRodElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::RowDetails& rowDet
     std::ostringstream rod;
     rod << rowDetails.row() << "+";
     rod << rowDetails.characteristic() << "+";
-    BOOST_FOREACH(const iatci::SeatOccupationDetails& seatOccup, rowDetails.lOccupationDetails()) {
+    for(const iatci::SeatOccupationDetails& seatOccup: rowDetails.lOccupationDetails()) {
         rod << iatci::normSeatLetter(seatOccup.column())
             << ":" << seatOccup.occupation();
-        BOOST_FOREACH(const std::string& seatCharstc, seatOccup.lCharacteristics()) {
+        for(const std::string& seatCharstc: seatOccup.lCharacteristics()) {
             rod << ":" << seatCharstc;
         }
         rod << "+";

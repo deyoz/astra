@@ -501,7 +501,7 @@ class TPaxServiceLists : public std::set<TPaxServiceListsItem>
   public:
     void fromDB(int id, bool is_unaccomp);
     void toDB(bool is_unaccomp) const;
-    void toXML(int id, bool is_unaccomp, int tckin_seg_count, xmlNodePtr node);
+    void toXML(int id, bool is_unaccomp, int tckin_seg_count, const TCkinRoute& ckinRouteAfter, xmlNodePtr node);
 };
 
 class TPaxSegRFISCKey : public Sirena::TPaxSegKey, public TRFISCKey

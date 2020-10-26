@@ -55,7 +55,8 @@ void TBrands::get(const std::string &airline, const TETickItem& etick)
             "SELECT "
             "   brands.id, "
             "   brand_fares.sale_first_date, "
-            "   brand_fares.sale_last_date "
+            "   brand_fares.sale_last_date, "
+            "   LENGTH(:fare_basis)-REGEXP_COUNT(brand_fares.fare_basis, '[^*]') AS brand_priority "
             "FROM "
             "   brand_fares, "
             "   brands "
@@ -64,7 +65,7 @@ void TBrands::get(const std::string &airline, const TETickItem& etick)
             "   :fare_basis LIKE REPLACE(fare_basis, '*', '%') AND "
             "   brand_fares.airline = brands.airline AND "
             "   brand_fares.brand = brands.code "
-            "ORDER BY LENGTH(:fare_basis)-REGEXP_COUNT(brand_fares.fare_basis, '[^*]') ",
+            "ORDER BY brand_priority, brand_fares.brand",
             QParams() << QParam("airline", otString, airline)
                       << QParam("fare_basis", otString, etick.fare_basis));
       brandQry.get().Execute();

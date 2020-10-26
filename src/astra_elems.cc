@@ -138,6 +138,14 @@ const
                          {etVoucherType,           "etVoucherType",           "voucher_types"},
                        };
 
+TElemType DecodeElemType(const char *type)
+{
+    int i=sizeof(ElemBaseTables)/sizeof(ElemBaseTables[0])-1;
+    for(;i>=0;i--)
+        if ((string)ElemBaseTables[i].EncodeStr==type) return ElemBaseTables[i].ElemType;
+    throw Exception("%s: not found for %s", __func__, type);
+}
+
 const char* EncodeElemType(const TElemType type)
 {
   int i=sizeof(ElemBaseTables)/sizeof(ElemBaseTables[0])-1;
@@ -363,16 +371,23 @@ string ElemToElemId(TElemType type, const string &elem, TElemFmt &fmt, const std
         fmt=efmtCodeNative;
         return id;
       }
-      catch (EBaseTableError) {};
+      catch (const EBaseTableError&) {};
       try
       {
         id=((const TCodeBaseTableRow&)CodeBaseTable.get_row("code_lat",elem,with_deleted)).code;
         fmt=efmtCodeInter;
         return id;
       }
-      catch (EBaseTableError) {};
+      catch (const EBaseTableError&) {};
+
+      if ((type==etAirp || type==etCity) &&
+          (elem=="TSE" || elem=="NQZ"))
+      {
+        fmt=efmtCodeInter;
+        return "€Š‹";
+      }
     }
-    catch (bad_cast) {};
+    catch (const bad_cast&) {};
 
     try
     {
@@ -384,16 +399,16 @@ string ElemToElemId(TElemType type, const string &elem, TElemFmt &fmt, const std
         fmt=efmtCodeICAONative;
         return id;
       }
-      catch (EBaseTableError) {};
+      catch (const EBaseTableError&) {};
       try
       {
         id=((const TICAOBaseTableRow&)ICAOBaseTable.get_row("code_icao_lat",elem,with_deleted)).code;
         fmt=efmtCodeICAOInter;
         return id;
       }
-      catch (EBaseTableError) {};
+      catch (const EBaseTableError&) {};
     }
-    catch (bad_cast) {};
+    catch (const bad_cast&) {};
 
     try
     {
@@ -405,9 +420,9 @@ string ElemToElemId(TElemType type, const string &elem, TElemFmt &fmt, const std
         fmt=efmtCodeISOInter;
         return id;
       }
-      catch (EBaseTableError) {};
+      catch (const EBaseTableError&) {};
     }
-    catch (bad_cast) {};
+    catch (const bad_cast&) {};
   }
   else
   {
@@ -517,7 +532,7 @@ void getElem(TElemFmt fmt, const std::string &lang, const TBaseTableRow& BaseTab
         elem=BaseTableRow.AsString("short_name", lang);
         return;
       }
-      catch (EBaseTableError) {};
+      catch (const EBaseTableError&) {};
       break;
 
     case efmtNameLong:
@@ -530,7 +545,7 @@ void getElem(TElemFmt fmt, const std::string &lang, const TBaseTableRow& BaseTab
           elem=row.name_lat;
         return;
       }
-      catch (bad_cast) {};
+      catch (const bad_cast&) {};
       break;
 
     case efmtCodeNative:
@@ -550,7 +565,7 @@ void getElem(TElemFmt fmt, const std::string &lang, const TBaseTableRow& BaseTab
           return;
         };
       }
-      catch (bad_cast) {};
+      catch (const bad_cast&) {};
       break;
 
     case efmtCodeICAONative:
@@ -571,7 +586,7 @@ void getElem(TElemFmt fmt, const std::string &lang, const TBaseTableRow& BaseTab
         };
 
       }
-      catch (bad_cast) {};
+      catch (const bad_cast&) {};
       break;
 
     case efmtCodeISOInter:
@@ -584,7 +599,7 @@ void getElem(TElemFmt fmt, const std::string &lang, const TBaseTableRow& BaseTab
           return;
         };
       }
-      catch (bad_cast) {};
+      catch (const bad_cast&) {};
       break;
 
     case efmtUnknown:
@@ -612,7 +627,7 @@ string ElemIdToElem(TElemType type, const string &id, const vector< pair<TElemFm
         if (!elem.empty()) break;
       };
     }
-    catch (EBaseTableError) {};
+    catch (const EBaseTableError&) {};
   }
   else
   {
@@ -672,7 +687,7 @@ string ElemIdToElem(TElemType type, int id, const vector< pair<TElemFmt,string> 
         if (!elem.empty()) break;
       };
     }
-    catch (EBaseTableError) {};
+    catch (const EBaseTableError&) {};
   } else
   {
     TQuery Qry(&OraSession);
@@ -737,6 +752,7 @@ void getElemFmts(TElemFmt fmt, string basic_lang, vector< pair<TElemFmt,string> 
     {
        case efmtNameLong:
          fmts.push_back( make_pair(efmtNameLong, lang) );
+         [[fallthrough]];
        case efmtNameShort:
          fmts.push_back( make_pair(efmtNameShort, lang) );
          fmts.push_back( make_pair(efmtCodeNative, lang) );
@@ -878,7 +894,7 @@ string ElemToPaxDocCountryId(const string &elem, TElemFmt &fmt)
                             getBaseTable(etPaxDocCountry).get_row("country",country).AsString("code"),
                             fmt);
       }
-      catch (EBaseTableError) {};
+      catch (const EBaseTableError&) {};
     };
   };
   return result;
@@ -895,7 +911,7 @@ std::string PaxDocCountryIdToPrefferedElem(const std::string &id, TElemFmt fmt, 
                                    getBaseTable(etPaxDocCountry).get_row("code",id).AsString("country"),
                                    fmt, lang, with_deleted);
     }
-    catch (EBaseTableError) {}
+    catch (const EBaseTableError&) {}
   }
   if (result.empty())
     result=ElemIdToPrefferedElem(etPaxDocCountry, id, fmt, lang, with_deleted);

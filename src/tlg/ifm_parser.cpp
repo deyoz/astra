@@ -215,7 +215,10 @@ void HandleTypebIfm::handle(const typeb_parser::TypeBMessage& tbmsg)
                                   boost::none,
                                   flg);
 
-    if(iatci::cancelCheckin(cancelParams).status() != iatci::dcrcka::Result::OkWithNoData) {
+    auto cancelStatus = iatci::cancelCheckin(cancelParams).status();
+    if(cancelStatus != iatci::dcrcka::Result::OkWithNoData &&
+       cancelStatus != iatci::dcrcka::Result::Ok)
+    {
         LogError(STDLOG) << "Unable to handle IFM with DEL indicator!";
     }
 }

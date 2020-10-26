@@ -34,7 +34,7 @@ xp-tests: clean-xp-tests
 	grep "100%: Checks" xp-tests.log > /dev/null 2>&1
 
 
-AM_CXXFLAGS = $(TCLINCLUDE) @PION_CFLAGS@ 
+AM_CXXFLAGS = $(TCLINCLUDE) @PION_CFLAGS@ @LIBTIMATIC_CXXFLAGS@
 astra_SOURCES = \
   adm.cc \
   access.cc \
@@ -74,6 +74,7 @@ astra_SOURCES = \
   cache.cc \
   cent.cc \
   checkin.cc \
+  checkin_segments.cc \
   checkin_utils.cc \
   ckin_search.cc \
   code_convert.cc \
@@ -93,10 +94,11 @@ astra_SOURCES = \
   etick.cc \
   events.cc \
   external_spp_synch.cc \
-  exch_checkin_result.cpp \  
+  exch_checkin_result.cpp \
   ExchangeIface.cc \
   ffp_sirena.cc \
   flt_binding.cc \
+  flt_settings.cc \
   flt_tasks_daemon.cc \
   file_queue.cc \
   hist.cc \
@@ -114,6 +116,8 @@ astra_SOURCES = \
   MPSExchangeIface.cc \
   obrnosir.cc \
   passenger.cc \
+  passenger_callbacks.cc \
+  pax_calc_data.cc \
   payment.cc \
   payment_base.cc \
   pers_weights.cc \
@@ -202,7 +206,13 @@ astra_SOURCES = \
   prn_forms_layout.cc \
   cuws_main.cc \
   cuws_handlers.cc \
-  zamar_dsm.cpp
+  timatic.cc \
+  timatic_request.cc \
+  timatic_response.cc \
+  timatic_exchange.cc \
+  zamar_dsm.cpp \
+  pg_session.cc \
+  base_callbacks.cpp
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
@@ -211,6 +221,7 @@ astra_LDADD = $(all_libraries) \
 	kiosk/libkiosk.a \
 	crafts/libcraft.a \
 	tests/libtests.a \
+	@LIBTIMATIC_LIBS@ \
 	@SHARED_LIBS@ @SHARED_DEPEND_LIBS@ \
 	@LIBTLG_LIBS@ \
 	@SERVERLIB_LIBS@ \
@@ -281,6 +292,7 @@ noinst_HEADERS = \
   cache.h \
   cent.h \
   checkin.h \
+  checkin_segments.h \
   checkin_utils.h \
   ckin_search.h \
   code_convert.h \
@@ -299,10 +311,11 @@ noinst_HEADERS = \
   etick.h \
   events.h \
   external_spp_synch.h \
-  exch_checkin_result.h \  
+  exch_checkin_result.h \
   ExchangeIface.h \
   ffp_sirena.h \
   flt_binding.h \
+  flt_settings.h \
   file_queue.h \
   hist.h \
   hist_interface.h \
@@ -319,6 +332,8 @@ noinst_HEADERS = \
   MPSExchangeIface.h \  
   obrnosir.h \
   passenger.h \
+  passenger_callbacks.h \
+  pax_calc_data.h \
   payment.h \
   payment_base.h \
   pers_weights.h \
@@ -402,4 +417,11 @@ noinst_HEADERS = \
   cuws_main.h \
   cuws_handlers.h \
   http_consts.h \
-  zamar_dsm.h
+  timatic.h \
+  timatic_request.h \
+  timatic_response.h \
+  timatic_exchange.h \
+  zamar_dsm.h \
+  astra_types.h \
+  pg_session.h \
+  base_callbacks.h

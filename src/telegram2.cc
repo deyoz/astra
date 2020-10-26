@@ -25,12 +25,14 @@
 #include "docs/docs_common.h"
 #include "docs/docs_pax_list.h"
 #include "seat_number.h"
+#include "flt_settings.h"
 
 #define NICKNAME "DEN"
 #include "serverlib/slogger.h"
 
 #include "alarms.h"
 #include "TypeBHelpMng.h"
+#include "html_pages.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -192,7 +194,7 @@ string getDefaultSex()
   }
 } */
 
-void getSalonPaxsSeats( int point_dep, std::map<int,TCheckinPaxSeats> &checkinPaxsSeats )
+void getSalonPaxsSeats( int point_dep, std::map<int,TCheckinPaxSeats> &checkinPaxsSeats, bool pr_tranzit )
 {
   checkinPaxsSeats.clear();
   std::set<ASTRA::TCompLayerType> search_layers;
@@ -212,6 +214,8 @@ void getSalonPaxsSeats( int point_dep, std::map<int,TCheckinPaxSeats> &checkinPa
     TSalonPassengers passengers;
     SALONS2::TGetPassFlags flags;
     flags.setFlag( SALONS2::gpPassenger ); //только пассажиров с местами
+    if(pr_tranzit)
+        flags.setFlag( SALONS2::gpTranzits ); // транзитники?
     TSectionInfo sectionInfo;
     salonList.getSectionInfo( sectionInfo, flags );
     TLayersSeats layerSeats;
@@ -1694,10 +1698,11 @@ namespace PRL_SPACE {
         Qry.get().Execute();
         for(; !Qry.get().Eof; Qry.get().Next())
         {
-          TRemCategory cat=getRemCategory(Qry.get().FieldAsString("rem_code"),
-                                          Qry.get().FieldAsString("rem"));
+          CheckIn::TPaxRemItem rem;
+          rem.fromDB(Qry.get());
+          TRemCategory cat=getRemCategory(rem);
           if (isDisabledRemCategory(cat)) continue;
-          items.push_back(transliter(Qry.get().FieldAsString("rem"), 1, info.is_lat()));
+          items.push_back(transliter(rem.text, 1, info.is_lat()));
         };
 
         bool inf_indicator=false; //сюда попадают только люди не infant и ремарки выводим только для этих людей
@@ -3439,7 +3444,7 @@ void TSSR::get(const TRemGrp &ssr_rem_grp, int pax_id)
   for(multiset<CheckIn::TPaxRemItem>::const_iterator r=rems.begin(); r!=rems.end(); ++r)
   {
     if(not ssr_rem_grp.exists(r->code)) continue;
-    TRemCategory cat=getRemCategory(r->code, r->text);
+    TRemCategory cat=getRemCategory(*r);
     if (cat!=remFQT && isDisabledRemCategory(cat)) continue;
     TSSRItem item;
     item.code=r->code;
@@ -5526,15 +5531,17 @@ void TDestList<T>::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 }
 
 struct TLDMBag {;
-    int baggage, cargo, mail;
+    int bag_amount, baggage, cargo, mail;
     void get(TypeB::TDetailCreateInfo &info, int point_arv);
     TLDMBag():
+        bag_amount(0),
         baggage(0),
         cargo(0),
         mail(0)
     {};
     TLDMBag &operator += (const TLDMBag &item)
     {
+        bag_amount += item.bag_amount;
         baggage += item.baggage;
         cargo += item.cargo;
         mail += item.mail;
@@ -5727,7 +5734,8 @@ void TLDMBag::get(TypeB::TDetailCreateInfo &info, int point_arv)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "SELECT NVL(SUM(weight),0) AS weight "
+        "SELECT NVL(SUM(weight),0) AS weight, "
+        "       NVL(SUM(amount),0) AS amount "
         "FROM pax_grp,bag2 "
         "WHERE pax_grp.grp_id=bag2.grp_id AND "
         "      pax_grp.point_dep=:point_id AND "
@@ -5738,7 +5746,10 @@ void TLDMBag::get(TypeB::TDetailCreateInfo &info, int point_arv)
     Qry.CreateVariable("point_arv", otInteger, point_arv);
     Qry.CreateVariable("point_id", otInteger, info.point_id);
     Qry.Execute();
-    baggage = Qry.FieldAsInteger("weight");
+    if(not Qry.Eof) {
+        bag_amount = Qry.FieldAsInteger("amount");
+        baggage = Qry.FieldAsInteger("weight");
+    }
     Qry.SQLText =
         "SELECT cargo,mail "
         "FROM trip_load "
@@ -5958,6 +5969,7 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
     const TypeB::TLDMOptions &options = *info.optionsAs<TypeB::TLDMOptions>();
 
     vector<string> si;
+    vector<string> si_trzt;
     for(vector<TLDMDest>::iterator iv = items.begin(); iv != items.end(); iv++) {
         row.str("");
         row
@@ -6022,15 +6034,29 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
                 << " E " << iv->excess.kilos.getQuantity();
             body.push_back(buf.str());
         }
+        if(options.version == "AMADEUS") {
+            if(si_trzt.empty())
+                si_trzt.push_back("SI");
+            row.str("");
+            row
+                << info.TlgElemIdToElem(etAirp, iv->target) << " "
+                << "C " << setw(7) << right << iv->bag.cargo << " "
+                << "M " << setw(7) << right << iv->bag.mail << " "
+                << "B " << setw(5) << right << iv->bag.bag_amount << "/"
+                << setw(7) << right << iv->bag.baggage << " "
+                << "O" << setw(8) << 0 << " "
+                << "T" << setw(8) << 0;
+            si_trzt.push_back(row.str());
+        }
     }
     if(options.version == "28ed")
         body.insert(body.end(), si.begin(), si.end());
-    if(options.version == "CEK" and options.exb) {
+    if((options.version == "CEK" or options.version == "AMADEUS") and options.exb) {
         row.str("");
         row << "SI: EXB" << excess_sum.kilos.getQuantity() << KG;
         body.push_back(row.str());
     }
-    if(options.version == "CEK" and info.airp_dep != "ЧЛБ") {
+    if(options.version != "AMADEUS" and options.version == "CEK" and info.airp_dep != "ЧЛБ") {
         row.str("");
         row << "SI: B";
         if(baggage_sum > 0)
@@ -6054,6 +6080,8 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
             row << to_ramp_sum.by_flight().first << "/" << to_ramp_sum.by_flight().second << KG;
         body.push_back(row.str());
     }
+    if(options.version == "AMADEUS")
+        body.insert(body.end(), si_trzt.begin(), si_trzt.end());
     //    body.push_back("SI: TRANSFER BAG CPT 0 NS 0");
 }
 
@@ -6144,7 +6172,7 @@ void TLDMDests::get(TypeB::TDetailCreateInfo &info)
     pax_list.options.pr_brd = boost::in_place(REPORTS::TBrdVal::bvTRUE);
     pax_list.fromDB();
     TTripRoute route;
-    if(not pax_list.empty() and route.GetRouteAfter(NoExists, info.point_id, trtNotCurrent, trtNotCancelled)) {
+    if(route.GetRouteAfter(NoExists, info.point_id, trtNotCurrent, trtNotCancelled)) {
         for(const auto &point_arv: route) {
             items.emplace_back();
             auto &item = items.back();
@@ -7437,7 +7465,7 @@ void TSeatPlan::get(TypeB::TDetailCreateInfo &info)
             throw UserException("MSG.SALONS.FREE_SEATING");
         if(isEmptySalons(info.point_id))
             throw UserException("MSG.FLIGHT_WO_CRAFT_CONFIGURE");
-        getSalonPaxsSeats(info.point_id, checkinPaxsSeats);
+        getSalonPaxsSeats(info.point_id, checkinPaxsSeats, true);
     }
 }
 
@@ -9603,6 +9631,11 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
         tlg_id = create_tlg(createInfo, NoExists, tlgTypeInfo, true);
     } catch(AstraLocale::UserException &E) {
         throw AstraLocale::UserException( "MSG.TLG.CREATE_ERROR", LParams() << LParam("what", getLocaleText(E.getLexemaData())));
+    } catch(Exception &E) {
+        if(tlgTypeInfo.basic_type == "->>")
+            throw AstraLocale::UserException("MSG.TLG.MANUAL_FWD_FORBIDDEN");
+        else
+            throw;
     }
 
     if (tlg_id != NoExists)
@@ -9800,7 +9833,6 @@ namespace WBMessages {
             filter.airp_dep = f.airp;
             filter.scd_out = f.scd_out;
             filter.scd_out_in_utc = true;
-            filter.only_with_reg = false;
 
             list<TAdvTripInfo> flts;
             SearchFlt(filter, flts);
@@ -9937,7 +9969,6 @@ namespace CKIN_REPORT {
         filter.airp_dep = getElemId(etAirp, airp);
         filter.scd_out = flt.date;
         filter.scd_out_in_utc = true;
-        filter.only_with_reg = false;
         int point_id = get_point_id(filter);
         if(point_id == NoExists)
             throw Exception("flight not found: %s", val.c_str());
@@ -10524,18 +10555,18 @@ namespace CKIN_REPORT {
         return result;
     }
 
-    string RouteItemToStr(const TCkinRouteItem &route_item)
+    string RouteItemToStr(const boost::optional<TCkinRouteItem>& route_item)
     {
         ostringstream result;
-        if(route_item.point_dep != NoExists) {
+        if(route_item) {
 
             TCachedQuery grpQry("select * from pax_grp where grp_id = :grp_id",
-                    QParams() << QParam("grp_id", otInteger, route_item.grp_id));
+                    QParams() << QParam("grp_id", otInteger, route_item.get().grp_id));
             grpQry.get().Execute();
             string cls = CheckIn::TSimplePaxGrpItem().fromDB(grpQry.get()).cl;
 
             TTripInfo trip_info;
-            trip_info.getByPointId(route_item.point_dep);
+            trip_info.getByPointId(route_item.get().point_dep);
             TElemFmt fmt;
             result
                 << ElemToElemId(etAirline, trip_info.airline, fmt, LANG_EN)
@@ -10603,7 +10634,7 @@ namespace CKIN_REPORT {
         if(pax_list.empty()) return;
 
         map<int,TCheckinPaxSeats> checkinPaxsSeats;
-        getSalonPaxsSeats(point_id, checkinPaxsSeats);
+        getSalonPaxsSeats(point_id, checkinPaxsSeats, false);
 
         TInfants inf;
         {
@@ -10685,11 +10716,14 @@ namespace CKIN_REPORT {
 
             NewTextChild(itemNode, "tknm");
 
-            TCkinRouteItem route_item;
-            TCkinRoute().GetNextSeg(iPax->grp_id, crtIgnoreDependent, route_item);
-            NewTextChild(itemNode, "outbound", RouteItemToStr(route_item));
-            TCkinRoute().GetPriorSeg(iPax->grp_id, crtIgnoreDependent, route_item);
-            NewTextChild(itemNode, "inbound", RouteItemToStr(route_item));
+            auto outbound=TCkinRoute::getNextGrp(GrpId_t(iPax->grp_id),
+                                                 TCkinRoute::IgnoreDependence,
+                                                 TCkinRoute::WithoutTransit);
+            auto inbound=TCkinRoute::getPriorGrp(GrpId_t(iPax->grp_id),
+                                                 TCkinRoute::IgnoreDependence,
+                                                 TCkinRoute::WithoutTransit);
+            NewTextChild(itemNode, "outbound", RouteItemToStr(outbound));
+            NewTextChild(itemNode, "inbound", RouteItemToStr(inbound));
 
             NewTextChild(itemNode, "z");
 
@@ -10754,25 +10788,6 @@ namespace CKIN_REPORT {
             }
         }
     }
-}
-
-string html_get_param(const string &tag_name, xmlNodePtr reqNode)
-{
-    string result;
-    xmlNodePtr node = reqNode->children;
-    node = NodeAsNodeFast("get_params", node);
-    if(not node) throw Exception("html_get_param: get_params not found where expected");
-    node = node->children;
-    for(; node; node = node->next) {
-        xmlNodePtr node2 = node->children;
-        string name = NodeAsStringFast("name", node2);
-        string value = NodeAsStringFast("value", node2);
-        if(name == tag_name) {
-            result = value;
-            break;
-        }
-    }
-    return result;
 }
 
 namespace KUF_STAT {
@@ -11074,7 +11089,6 @@ void TelegramInterface::kuf_file(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         if(StrToDateTime(items[3].c_str(), "dd.mm.yy", filter.scd_out) == EOF)
             throw Exception("kuf_file: can't convert scd_out: %s", items[3].c_str());
         filter.scd_out_in_utc = true;
-        filter.only_with_reg = false;
 
         list<TAdvTripInfo> flts;
         SearchFlt(filter, flts);

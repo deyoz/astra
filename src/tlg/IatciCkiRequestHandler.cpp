@@ -78,13 +78,15 @@ public:
 private:
     edifact::LorElem                  m_lor;
     boost::optional<edifact::ChdElem> m_chd;
+    boost::optional<edifact::DmcElem> m_dmc;
     edifact::FdqElem                  m_fdq;
     std::list<Pxg>                    m_lPxg;
 
 public:
     void setLor(const boost::optional<edifact::LorElem>& lor);
     void setChd(const boost::optional<edifact::ChdElem>& chd, bool required = false);
-    void setFdq(const boost::optional<edifact::FdqElem>& fdq);
+    void setDmc(const boost::optional<edifact::DmcElem>& dmc, bool required = false);
+    void setFdq(const boost::optional<edifact::FdqElem>& fdq);    
     void addPxg(const Pxg& pxg);
 
     iatci::CkiParams makeParams() const;
@@ -92,6 +94,7 @@ public:
 protected:
     iatci::dcqcki::FlightGroup                 makeFlightGroup() const;
     boost::optional<iatci::CascadeHostDetails> makeCascade() const;
+    iatci::MessageDetails                      makeMessageDetails() const;
 
 };
 
@@ -107,6 +110,7 @@ void IatciCkiRequestHandler::parse()
 {
     IatciCkiParamsMaker ckiParamsNewMaker;
     ckiParamsNewMaker.setLor(readEdiLor(pMes()));
+    ckiParamsNewMaker.setDmc(readEdiDmc(pMes()));
     ckiParamsNewMaker.setChd(readEdiChd(pMes()));
 
     SetEdiPointToSegGrG(pMes(), SegGrElement(1), "PROG_ERR");
@@ -141,7 +145,7 @@ void IatciCkiRequestHandler::parse()
         PopEdiPoint_wdG(pMes());
     }
 
-    m_ckiParamsNew = ckiParamsNewMaker.makeParams();
+    m_ckiParams = ckiParamsNewMaker.makeParams();
 }
 
 std::string IatciCkiRequestHandler::respType() const
@@ -149,28 +153,28 @@ std::string IatciCkiRequestHandler::respType() const
     return "I";
 }
 
-iatci::dcrcka::Result IatciCkiRequestHandler::handleRequest() const
+std::string IatciCkiRequestHandler::fcIndicator() const
+{
+    return "T";
+}
+
+std::list<iatci::dcrcka::Result> IatciCkiRequestHandler::handleRequest() const
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__;
 
     if(postponeHandling()) {
         LogTrace(TRACE3) << "postpone handling for tlg " << inboundTlgNum();
 
-        return iatci::checkinPax(inboundTlgNum());
+        return iatci::checkin(inboundTlgNum());
     }
 
-    ASSERT(m_ckiParamsNew);
-    return iatci::checkinPaxes(m_ckiParamsNew.get());
+    ASSERT(m_ckiParams);
+    return { iatci::checkin(m_ckiParams.get()) };
 }
 
-edilib::EdiSessionId_t IatciCkiRequestHandler::sendCascadeRequest() const
+const iatci::IBaseParams* IatciCkiRequestHandler::params() const
 {
-    throw "Not implemented!";
-}
-
-const iatci::IBaseParams* IatciCkiRequestHandler::paramsNew() const
-{
-    return m_ckiParamsNew.get_ptr();
+    return m_ckiParams.get_ptr();
 }
 
 //---------------------------------------------------------------------------------------
@@ -349,11 +353,19 @@ void IatciCkiParamsMaker::setLor(const boost::optional<edifact::LorElem>& lor)
 }
 
 void IatciCkiParamsMaker::setChd(const boost::optional<edifact::ChdElem>& chd,
-                                    bool required)
+                                 bool required)
 {
     if(required)
         ASSERT(chd);
     m_chd = chd;
+}
+
+void IatciCkiParamsMaker::setDmc(const boost::optional<edifact::DmcElem>& dmc,
+                                 bool required)
+{
+    if(required)
+        ASSERT(dmc);
+    m_dmc = dmc;
 }
 
 void IatciCkiParamsMaker::setFdq(const boost::optional<edifact::FdqElem>& fdq)
@@ -371,6 +383,7 @@ iatci::CkiParams IatciCkiParamsMaker::makeParams() const
 {
     return iatci::CkiParams(iatci::makeOrg(m_lor),
                             makeCascade(),
+                            makeMessageDetails(),
                             makeFlightGroup());
 }
 
@@ -391,6 +404,15 @@ boost::optional<iatci::CascadeHostDetails> IatciCkiParamsMaker::makeCascade() co
     }
 
     return boost::none;
+}
+
+iatci::MessageDetails IatciCkiParamsMaker::makeMessageDetails() const
+{
+    if(m_dmc) {
+        return iatci::makeMessageDetails(*m_dmc);
+    }
+
+    return iatci::MessageDetails::createDefault();
 }
 
 }//namespace TlgHandling

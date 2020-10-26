@@ -828,6 +828,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "    :evtPax, "
                 "    :evtPay, "
                 "    :evtGraph, "
+                "    :evtTimatic, "
                 "    :evtTlg, "
                 "    :evtComp, "
                 "    :evtAccess, "
@@ -865,6 +866,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "    :evtPax, "
                 "    :evtPay, "
                 "    :evtGraph, "
+                "    :evtTimatic, "
                 "    :evtTlg, "
                 "    :evtComp, "
                 "    :evtAccess, "
@@ -910,6 +912,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
             Qry.CreateVariable("evtSeason", otString, evtSeason);
         }
         Qry.CreateVariable("evtGraph", otString, NodeAsString("evtGraph", reqNode));
+        Qry.CreateVariable("evtTimatic", otString, NodeAsString("evtTimatic", reqNode, ""));
         Qry.CreateVariable("evtTlg", otString, NodeAsString("evtTlg", reqNode));
         Qry.CreateVariable("evtComp", otString, NodeAsString("evtComp", reqNode));
         Qry.CreateVariable("evtAccess", otString, NodeAsString("evtAccess", reqNode));

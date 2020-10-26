@@ -11,13 +11,18 @@
 #include <boost/optional.hpp>
 #include "date_time.h"
 #include "qrys.h"
+#include "astra_types.h"
+#include "astra_misc.h"
+#include "base_callbacks.h"
 
 using BASIC::date_time::TDateTime;
 
 const long int NO_FIELDS=0x0000;
 
 enum TAPIType { apiDoc, apiDoco, apiDocaB, apiDocaR, apiDocaD, apiTkn, apiUnknown };
-enum PaxOrigin { paxCheckIn, paxPnl, paxTest };
+enum class PaxChanges { New, Cancel, last=Cancel};
+
+std::ostream& operator << (std::ostream& os, const PaxChanges& value);
 
 const int TEST_ID_BASE = 1000000000;
 const int TEST_ID_LAST = TEST_ID_BASE+999999999;
@@ -27,10 +32,166 @@ bool isTestPaxId(int id);
 int getEmptyPaxId();
 bool isEmptyPaxId(int id);
 
+class PaxIdWithSegmentPair
+{
+  private:
+    PaxId_t paxId;
+    boost::optional<TPaxSegmentPair> paxSegment;
+  public:
+    explicit
+    PaxIdWithSegmentPair(const PaxId_t& paxId_,
+                         const boost::optional<TPaxSegmentPair>& paxSegment_) :
+      paxId(paxId_), paxSegment(paxSegment_) {}
+    PaxIdWithSegmentPair(const PaxId_t& paxId_,
+                         const TPaxSegmentPair& paxSegment_) :
+      paxId(paxId_), paxSegment(paxSegment_) {}
+    const PaxId_t& operator() () const { return paxId; }
+    const boost::optional<TPaxSegmentPair>& getSegmentPair() const { return paxSegment; }
+
+    bool operator < (const PaxIdWithSegmentPair &item) const
+    {
+      return paxId<item.paxId;
+    }
+};
+
+template <typename CategoryT>
+class PaxEventCallbacks
+{
+  public:
+    virtual ~PaxEventCallbacks() {}
+
+    //ByPaxId
+    virtual void initialize(TRACE_SIGNATURE,
+                            const PaxOrigin& paxOrigin){}
+    virtual void finalize(TRACE_SIGNATURE,
+                          const PaxOrigin& paxOrigin){}
+    virtual void onChange(TRACE_SIGNATURE,
+                          const PaxOrigin& paxOrigin,
+                          const PaxIdWithSegmentPair& paxId,
+                          const std::set<CategoryT>& categories){}
+
+    //ByCategory
+    virtual void initializeForCategory(TRACE_SIGNATURE,
+                                       const PaxOrigin& paxOrigin,
+                                       const CategoryT& category){}
+    virtual void finalizeForCategory(TRACE_SIGNATURE,
+                                     const PaxOrigin& paxOrigin,
+                                     const CategoryT& category){}
+    virtual void onChange(TRACE_SIGNATURE,
+                          const PaxOrigin& paxOrigin,
+                          const CategoryT& category,
+                          const std::set<PaxIdWithSegmentPair>& paxIds){}
+};
+
+template <typename CategoryT>
+class PaxEventHolder
+{
+  private:
+    static const auto categoryCount=typename std::underlying_type<CategoryT>::type(CategoryT::last)+1;
+    std::vector<std::set<PaxIdWithSegmentPair>> paxIds;
+    std::map<PaxIdWithSegmentPair, std::set<CategoryT> > paxCategories;
+    PaxOrigin paxOrigin;
+  public:
+    PaxEventHolder(const PaxOrigin& paxOrigin_) : paxIds(categoryCount), paxOrigin(paxOrigin_)
+    {}
+
+    void clear()
+    {
+      for(auto& i : paxIds) i.clear();
+      paxCategories.clear();
+    }
+
+    const std::set<PaxIdWithSegmentPair>& getPaxIds(const CategoryT& category) const
+    {
+      return paxIds[typename std::underlying_type<CategoryT>::type(category)];
+    }
+
+    void add(const CategoryT& category, const PaxIdWithSegmentPair& paxId)
+    {
+      paxIds[typename std::underlying_type<CategoryT>::type(category)].insert(paxId);
+      auto i=paxCategories.find(paxId);
+      if (i==paxCategories.end()) {
+          i=paxCategories.emplace(paxId, std::set<CategoryT>()).first;
+      }
+      i->second.insert(category);
+    }
+    bool remove(const CategoryT& category, const PaxIdWithSegmentPair& paxId)
+    {
+      auto i=paxCategories.find(paxId);
+      if (i!=paxCategories.end()) i->second.erase(category);
+      return paxIds[typename std::underlying_type<CategoryT>::type(category)].erase(paxId);
+    }
+    bool remove(const PaxIdWithSegmentPair& paxId)
+    {
+      for(auto& paxIdsForCategory : paxIds)
+        paxIdsForCategory.erase(paxId);
+      return paxCategories.erase(paxId);
+    }
+
+    bool exists(const std::initializer_list<CategoryT>& categoryList) const
+    {
+        return algo::any_of(categoryList, [&](const CategoryT & cat) {return !getPaxIds(cat).empty();});
+    }
+
+    bool empty() const
+    {
+      return paxCategories.empty();
+    }
+
+    void executeCallbacksByCategory(TRACE_SIGNATURE)
+    {
+        for(const auto & category_callbacks : callbacksSuite< PaxEventCallbacks<CategoryT> >()) {
+            for(unsigned cat=0; cat<categoryCount; cat++)
+            {
+              CategoryT category=static_cast<CategoryT>(cat);
+              category_callbacks->initializeForCategory(TRACE_VARIABLE, paxOrigin, category);
+              if (!paxIds[cat].empty()) {
+                  category_callbacks->onChange(TRACE_VARIABLE, paxOrigin, category, paxIds[cat]);
+              }
+              category_callbacks->finalizeForCategory(TRACE_VARIABLE, paxOrigin, category);
+            }
+        }
+    }
+
+    void executeCallbacksByPaxId(TRACE_SIGNATURE) const
+    {
+        for(const auto & category_callbacks : callbacksSuite< PaxEventCallbacks<CategoryT> >()) {
+            category_callbacks->initialize(TRACE_VARIABLE, paxOrigin);
+
+            for(const auto& i : paxCategories)
+            {
+              if (!i.second.empty()) {
+                  category_callbacks->onChange(TRACE_VARIABLE, paxOrigin, i.first, i.second);
+              }
+            }
+
+            category_callbacks->finalize(TRACE_VARIABLE, paxOrigin);
+        }
+    }
+};
+
+typedef PaxEventHolder<TRemCategory> ModifiedPaxRem;
+typedef PaxEventHolder<PaxChanges> ModifiedPax;
+
+void addPaxEvent(const PaxIdWithSegmentPair& paxId,
+                 const bool cancelledOrMissingBefore,
+                 const bool cancelledAfter,
+                 ModifiedPax& modifiedPax);
+
+void synchronizePaxEvents(const ModifiedPax& modifiedPax,
+                          ModifiedPaxRem& modifiedPaxRem);
+
 namespace CheckIn
 {
 
 class TSimplePaxItem;
+boost::optional<TPaxSegmentPair> paxSegment(const PaxId_t& pax_id);
+boost::optional<TPaxSegmentPair> crsSegment(const PaxId_t& pax_id);
+boost::optional<TPaxSegmentPair> ckinSegment(const GrpId_t& grp_id);
+std::vector<TPaxSegmentPair> paxRouteSegments(const PaxId_t& pax_id);
+std::vector<TPaxSegmentPair> crsRouteSegments(const PaxId_t& pax_id);
+std::vector<int> routePoints(const PaxId_t& pax_id, PaxOrigin checkinType);
+std::vector<std::string> routeAirps(const PaxId_t& pax_id, PaxOrigin checkinType);
 
 class TPaxGrpCategory
 {
@@ -307,6 +468,8 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic, public TPaxDocCompo
     void addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const;
     bool finalPassengerCheck(const TSimplePaxItem& pax) const { return true; }
     bool suitable(const TPaxDocItem& doc) const;
+
+    static boost::optional<TPaxDocItem> get(const PaxOrigin& origin, const PaxId_t& paxId);
 };
 
 class TScannedPaxDocItem : public TPaxDocItem
@@ -412,6 +575,8 @@ class TPaxDocoItem : public TPaxAPIItem, public TPaxRemBasic, public TPaxDocComp
       return "DOCO";
     }
     std::string logStr(const std::string &lang=AstraLocale::LANG_EN) const;
+
+    static boost::optional<TPaxDocoItem> get(const PaxOrigin& origin, const PaxId_t& paxId);
 };
 
 class TPaxDocaItem : public TPaxAPIItem, public TPaxRemBasic
@@ -430,11 +595,12 @@ class TPaxDocaItem : public TPaxAPIItem, public TPaxRemBasic
     std::string city;
     std::string region;
     std::string postal_code;
-    long int scanned_attrs; // НЕ ИСПОЛЬЗУЕТСЯ (для совместимости с getDocsFlag)
+    long int scanned_attrs; //всегда NO_FIELDS
     TPaxDocaItem()
     {
       clear();
     };
+    TPaxDocaItem(const TAPIType& apiType);
     void clear()
     {
       type.clear();
@@ -454,7 +620,12 @@ class TPaxDocaItem : public TPaxAPIItem, public TPaxRemBasic
              region.empty() &&
              postal_code.empty();
     };
-    bool empty_without_type() const
+    bool suitableForDB() const
+    {
+      return apiType()!=apiUnknown && !emptyWithoutType();
+    }
+
+    bool emptyWithoutType() const
     {
       return country.empty() &&
              address.empty() &&
@@ -529,22 +700,7 @@ class TComplexClass
     const TComplexClass& toXML(xmlNodePtr node, const std::string& fieldPrefix) const;
 };
 
-class TPaxSegmentPair
-{
-  public:
-    int point_dep;
-    std::string airp_arv;
 
-    TPaxSegmentPair(const int pointDep, const std::string& airpArv) :
-      point_dep(pointDep), airp_arv(airpArv) {}
-
-    bool operator < (const TPaxSegmentPair &seg) const
-    {
-      if (point_dep!=seg.point_dep)
-        return point_dep < seg.point_dep;
-      return airp_arv < seg.airp_arv;
-    }
-};
 
 class TSimplePaxItem
 {
@@ -607,6 +763,8 @@ class TSimplePaxItem
     static ASTRA::TTrickyGender::Enum getTrickyGender(ASTRA::TPerson pers_type, ASTRA::TGender::Enum gender);
     static const std::string& origClassFromCrsSQL();
     static const std::string& origSubclassFromCrsSQL();
+    static const std::string& cabinClassFromCrsSQL();
+    static const std::string& cabinSubclassFromCrsSQL();
 
     const TSimplePaxItem& toEmulXML(xmlNodePtr node, bool PaxUpdatesPending) const;
     TSimplePaxItem& fromDB(TQuery &Qry);
@@ -638,7 +796,6 @@ class TSimplePaxItem
 
     std::string checkInStatus() const;
 
-    TComplexClass getCrsClass(bool onlyIfClassChange) const;
     std::string getCabinClass() const;
     std::string getCabinSubclass() const;
     bool cabinClassToDB() const;
@@ -661,6 +818,18 @@ class TSimplePaxItem
         return paxPnl;
       else
         return paxCheckIn;
+    }
+
+    static boost::optional<TComplexClass> getCrsClass(const PaxId_t& paxId, bool onlyIfClassChange);
+    static boost::optional<TBagQuantity> getCrsBagNorm(const PaxId_t& paxId);
+
+    template <typename T>
+    static boost::optional<TBagQuantity> getCrsBagNorm(TQuery &Qry, const T& quantityField, const T& unitField)
+    {
+      if (!Qry.FieldIsNULL(quantityField) && !Qry.FieldIsNULL(unitField))
+        return TBagQuantity(Qry.FieldAsInteger(quantityField),
+                            std::string(Qry.FieldAsString(unitField)));
+      return {};
     }
 };
 
@@ -685,11 +854,12 @@ class TSimplePaxList : public std::list<TSimplePaxItem>
 class TDocaMap : public std::map<TAPIType, TPaxDocaItem>
 {
   public:
-    TDocaMap() { Clear(); }
-    // при инициализации пустыми значениями вылетает Exception: NormalizeDoca: result.apiType()==apiUnknown!
-    // при инициализации полями с заполненным типом неправильно отрабатывает empty()
-    // см. также HandleDoca
-    void Clear() { clear(); }
+    boost::optional<TPaxDocaItem> get(const TAPIType& type) const;
+    void get(const TAPIType& type, TPaxDocaItem& doca) const;
+    const TDocaMap& toXML(xmlNodePtr node) const;
+    TDocaMap& fromXML(xmlNodePtr node);
+
+    static TDocaMap get(const PaxOrigin& origin, const PaxId_t& paxId);
 };
 
 class TPaxItem : public TSimplePaxItem
@@ -712,7 +882,7 @@ class TPaxItem : public TSimplePaxItem
       TSimplePaxItem::clear();
       doc.clear();
       doco.clear();
-      doca_map.Clear();
+      doca_map.clear();
       PaxUpdatesPending=false;
       DocExists=false;
       DocoExists=false;
@@ -740,7 +910,7 @@ class TAPISItem
     {
       doc.clear();
       doco.clear();
-      doca_map.Clear();
+      doca_map.clear();
     };
 
     const TAPISItem& toXML(xmlNodePtr node) const;
@@ -755,17 +925,13 @@ class TPaxListItem
     CheckIn::TPaxItem pax;
     bool dont_check_payment;
     std::string crs_seat_no; //crs
-    int generated_pax_id; //заполняется только при первоначальной регистрации (new_checkin) и только для NOREC
+    boost::optional<PaxId_t> generatedPaxId; //заполняется только при первоначальной регистрации (new_checkin) и только для NOREC
+    boost::optional<PaxId_t> originalCrsPaxId; //заполняется на промежуточных транзитных сегментах для всех, кто не NOREC на исходном сегменте
     bool remsExists;
     std::multiset<CheckIn::TPaxRemItem> rems;
     std::set<CheckIn::TPaxFQTItem> fqts;
     boost::optional< std::list<WeightConcept::TPaxNormItem> > norms;
     xmlNodePtr node;
-
-    bool tknModified;
-    bool docModified;
-    bool docoModified;
-    bool refused;
 
     TPaxListItem() { clear(); }
     TPaxListItem(const TSimplePaxItem& _pax)
@@ -779,17 +945,13 @@ class TPaxListItem
       pax.clear();
       dont_check_payment=false;
       crs_seat_no.clear();
-      generated_pax_id=ASTRA::NoExists;
+      generatedPaxId=boost::none;
+      originalCrsPaxId=boost::none;
       remsExists=false;
       rems.clear();
       fqts.clear();
       norms=boost::none;
       node=NULL;
-
-      tknModified=false;
-      docModified=false;
-      docoModified=false;
-      refused=false;
     }
 
     bool trferAttachable() const
@@ -960,38 +1122,62 @@ std::string GetPaxDocStr(TDateTime part_key,
                          bool with_issue_country=false,
                          const std::string &lang="");
 
-boost::optional<TPaxDocoItem> LoadPaxDoco(int pax_id);
 bool LoadPaxDoco(int pax_id, TPaxDocoItem &doc);
 bool LoadPaxDoco(TDateTime part_key, int pax_id, TPaxDocoItem &doc);
-enum TDocaType
-{
-  docaDestination,
-  docaResidence,
-  docaBirth
-};
 
-void ConvertDoca(TDocaMap doca_map,
+void ConvertDoca(const TDocaMap& doca_map,
                  TPaxDocaItem &docaB,
                  TPaxDocaItem &docaR,
                  TPaxDocaItem &docaD);
 
-boost::optional<TPaxDocaItem> LoadPaxDoca(int pax_id, TDocaType type);
 bool LoadPaxDoca(int pax_id, TDocaMap &doca_map);
-bool LoadPaxDoca(int pax_id, TDocaType type, TPaxDocaItem &doca);
 bool LoadPaxDoca(TDateTime part_key, int pax_id, TDocaMap &doca_map);
-bool LoadPaxDoca(TDateTime part_key, int pax_id, TDocaType type, TPaxDocaItem &doca);
 
 bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc);
-bool LoadCrsPaxVisa(int pax_id, TPaxDocoItem &doc);
+bool LoadCrsPaxDoco(int pax_id, TPaxDocoItem &doc);
+bool LoadCrsPaxVisa(int pax_id, TPaxDocoItem &doc); //вызывает LoadCrsPaxDoco, потом проверяет, что type=V, иначе вернет false
 bool LoadCrsPaxDoca(int pax_id, TDocaMap &doca_map);
 
-bool SavePaxDoc(int pax_id,
-                const TPaxDocItem &doc,
-                boost::optional<TPaxDocItem> priorDoc=boost::none);
-bool SavePaxDoco(int pax_id,
-                 const TPaxDocoItem &doc,
-                 boost::optional<TPaxDocoItem> priorDoc=boost::none);
-void SavePaxDoca(int pax_id, const TDocaMap &doca_map, TQuery& PaxDocaQry);
+void SavePaxDoc(const PaxIdWithSegmentPair& paxId,
+                const bool paxIdUsedBefore,
+                const TPaxDocItem& doc,
+                ModifiedPaxRem& modifiedPaxRem);
+void SavePaxDoc(const PaxIdWithSegmentPair& paxId,
+                const TPaxDocItem& doc,
+                const TPaxDocItem& priorDoc,
+                ModifiedPaxRem& modifiedPaxRem);
+void SavePaxDoco(const PaxIdWithSegmentPair& paxId,
+                 const bool paxIdUsedBefore,
+                 const TPaxDocoItem& doc,
+                 ModifiedPaxRem& modifiedPaxRem);
+void SavePaxDoco(const PaxIdWithSegmentPair& paxId,
+                 const TPaxDocoItem& doc,
+                 const TPaxDocoItem& priorDoc,
+                 ModifiedPaxRem& modifiedPaxRem);
+void SavePaxDoca(const PaxIdWithSegmentPair& paxId,
+                 const bool paxIdUsedBefore,
+                 const TDocaMap& doca,
+                 ModifiedPaxRem& modifiedPaxRem);
+void SavePaxDoca(const PaxIdWithSegmentPair& paxId,
+                 const TDocaMap& doca,
+                 const TDocaMap& priorDoca,
+                 ModifiedPaxRem& modifiedPaxRem);
+void SavePaxFQT(const PaxIdWithSegmentPair& paxId,
+                const bool paxIdUsedBefore,
+                const std::set<TPaxFQTItem>& fqts,
+                ModifiedPaxRem& modifiedPaxRem);
+void SavePaxFQT(const PaxIdWithSegmentPair& paxId,
+                const std::set<TPaxFQTItem>& fqts,
+                const std::set<TPaxFQTItem>& prior,
+                ModifiedPaxRem& modifiedPaxRem);
+void SavePaxRem(const PaxIdWithSegmentPair& paxId,
+                const bool paxIdUsedBefore,
+                const std::multiset<TPaxRemItem>& rems,
+                ModifiedPaxRem& modifiedPaxRem);
+void SavePaxRem(const PaxIdWithSegmentPair& paxId,
+                const std::multiset<TPaxRemItem>& rems,
+                const std::multiset<TPaxRemItem>& prior,
+                ModifiedPaxRem& modifiedPaxRem);
 
 std::string PaxDocGenderNormalize(const std::string &pax_doc_gender);
 

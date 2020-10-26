@@ -32,6 +32,7 @@ libstat_a_SOURCES = \
   stat_orders.cc \
   stat_ovb.cc \
   stat_salon.cc \
+  stat_zamar.cc \
   stat_vo.cc
         
 
@@ -63,4 +64,5 @@ noinst_HEADERS = \
   stat_orders.h \
   stat_ovb.h \
   stat_salon.h \
+  stat_zamar.h \
   stat_vo.h

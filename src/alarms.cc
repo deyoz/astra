@@ -12,16 +12,19 @@
 #include "trip_tasks.h"
 #include "salons.h"
 #include "qrys.h"
-#include "brd.h"
+#include "pax_calc_data.h"
 #include "emdoc.h"
 #include "sopp.h"
 #include "date_time.h"
 #include "custom_alarms.h"
 #include "apis_creator.h"
+#include "apps_interaction.h"
+#include "flt_settings.h"
+#include <serverlib/cursctl.h>
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
-#include "serverlib/test.h"
+#include <serverlib/slogger.h>
 
 using namespace std;
 using namespace ASTRA;
@@ -36,19 +39,25 @@ const AlarmTypesList &AlarmTypes()
 
 void checkAlarm(const TTripTaskKey &task)
 {
-  Alarm::Enum alarm=AlarmTypes().decode(task.params);
-  switch(alarm)
-  {
+    Alarm::Enum alarm=AlarmTypes().decode(task.params);
+    switch(alarm)
+    {
+    case Alarm::APISControl:
+        check_apis_alarms(task.point_id);
+        break;
     case Alarm::APPSProblem:
-      check_apps_alarm(task.point_id);
-      break;
+        check_apps_alarm(task.point_id);
+        break;
     case Alarm::IAPIProblem:
-      check_iapi_alarm(task.point_id);
-      break;
+        check_iapi_alarm(task.point_id);
+        break;
+    case Alarm::APPSNotScdInTime:
+        check_apps_scd_alarm(PointId_t(task.point_id));
+        break;
     default:
       throw Exception("Unsupported");
       break;
-  }
+    }
 }
 
 void addTaskForCheckingAlarm(int point_id, Alarm::Enum alarm)
@@ -112,8 +121,10 @@ bool get_alarm( int point_id, Alarm::Enum alarm_type )
     return !Qry.Eof;
 }
 
+//set or delete
 void set_alarm( int point_id, Alarm::Enum alarm_type, bool alarm_value )
 {
+    LogTrace(TRACE5) << __FUNCTION__ <<  "point_id: " << point_id << " alarm_type: " << alarm_type << " alarm: " << (bool)(alarm_value);
     TQuery Qry(&OraSession);
     if(alarm_value)
         Qry.SQLText = "insert into trip_alarms(point_id, alarm_type) values(:point_id, :alarm_type)";
@@ -482,10 +493,9 @@ void check_crew_alarms(int point_id)
 
 void check_apis_alarms(int point_id)
 {
-  set<Alarm::Enum> checked_alarms;
-  checked_alarms.insert(Alarm::APISDiffersFromBooking);
-  checked_alarms.insert(Alarm::APISIncomplete);
-  checked_alarms.insert(Alarm::APISManualInput);
+  static set<Alarm::Enum> checked_alarms={Alarm::APISDiffersFromBooking,
+                                          Alarm::APISIncomplete,
+                                          Alarm::APISManualInput};
   check_apis_alarms(point_id, checked_alarms);
 };
 
@@ -522,15 +532,17 @@ void check_apis_alarms(int point_id, const set<Alarm::Enum> &checked_alarms)
       bool need_crs_pax=off_alarms.find(APIS::atDiffersFromBooking)!=off_alarms.end();
 
       ostringstream sql;
-      sql << "SELECT pax.pax_id, pax.name, pax_grp.airp_arv, pax_grp.status, pax.crew_type, ";
+      sql << "SELECT pax_grp.airp_arv, pax_grp.status, "
+             "       pax.name, pax.crew_type, pax.doco_confirm, pax_calc_data.*, ";
       if (need_crs_pax)
         sql << "       crs_pax.pax_id AS crs_pax_id ";
       else
         sql << "       NULL AS crs_pax_id ";
-      sql << "FROM pax_grp, pax ";
+      sql << "FROM pax_grp, pax, pax_calc_data ";
       if (need_crs_pax)
         sql << ", crs_pax ";
       sql << "WHERE pax_grp.grp_id = pax.grp_id AND "
+             "      pax.pax_id = pax_calc_data.pax_calc_data_id(+) AND "
              "      pax_grp.point_dep = :point_id AND "
              "      pax.refuse IS NULL ";
       if (need_crs_pax)
@@ -540,36 +552,36 @@ void check_apis_alarms(int point_id, const set<Alarm::Enum> &checked_alarms)
       Qry.SQLText=sql.str().c_str();
       Qry.CreateVariable("point_id", otInteger, point_id);
       Qry.Execute();
-      for(;!Qry.Eof;Qry.Next())
+      if (!Qry.Eof)
       {
-        if (off_alarms.empty()) break;
+        int col_name=Qry.FieldIndex("name");
+        int col_airp_arv=Qry.FieldIndex("airp_arv");
+        int col_status=Qry.FieldIndex("status");
+        int col_crew_type=Qry.FieldIndex("crew_type");
+        int col_doco_confirm=Qry.FieldIndex("doco_confirm");
+        int col_crs_pax_id=Qry.FieldIndex("crs_pax_id");
+        AllAPIAttrs allAPIAttrs(ASTRA::NoExists);
+        for(;!Qry.Eof;Qry.Next())
+        {
+          if (off_alarms.empty()) break;
 
-        int pax_id=Qry.FieldAsInteger("pax_id");
-        int crs_pax_id=Qry.FieldIsNULL("crs_pax_id")?NoExists:Qry.FieldAsInteger("crs_pax_id");
-        string name=Qry.FieldAsString("name");
-        string airp_arv=Qry.FieldAsString("airp_arv");
-        TPaxStatus status=DecodePaxStatus(Qry.FieldAsString("status"));
-        ASTRA::TCrewType::Enum crew_type = CrewTypes().decode(Qry.FieldAsString("crew_type"));
-        ASTRA::TPaxTypeExt pax_ext(status, crew_type);
+          string name=Qry.FieldAsString(col_name);
+          string airp_arv=Qry.FieldAsString(col_airp_arv);
+          TPaxStatus status=DecodePaxStatus(Qry.FieldAsString(col_status));
+          ASTRA::TCrewType::Enum crew_type = CrewTypes().decode(Qry.FieldAsString(col_crew_type));
+          ASTRA::TPaxTypeExt pax_ext(status, crew_type);
+          bool docoConfirmed=Qry.FieldAsInteger(col_doco_confirm)!=0;
+          bool crsExists=!Qry.FieldIsNULL(col_crs_pax_id);
 
-        boost::optional<const TCompleteAPICheckInfo&> check_info=route_check_info.get(airp_arv);
-        if (!check_info || check_info.get().apis_formats().empty()) continue;
+          boost::optional<const TCompleteAPICheckInfo&> check_info=route_check_info.get(airp_arv);
+          if (!check_info || check_info.get().apis_formats().empty()) continue;
 
-        CheckIn::TAPISItem apis;
-        if (off_alarms.find(APIS::atDiffersFromBooking)!=off_alarms.end() ||
-            off_alarms.find(APIS::atIncomplete)!=off_alarms.end())
-          //грузим все данные
-          apis.fromDB(pax_id);
-        else
-          //грузим только документ
-          CheckIn::LoadPaxDoc(pax_id, apis.doc);
-
-        set<APIS::TAlarmType> alarms;
-        GetAPISAlarms(pax_ext, name!="CBBG", crs_pax_id, check_info.get(), apis, off_alarms, alarms);
-        for(set<APIS::TAlarmType>::const_iterator a=alarms.begin(); a!=alarms.end(); ++a) off_alarms.erase(*a);
-      };
-    };
-  };
+          set<APIS::TAlarmType> alarms=allAPIAttrs.getAlarms(Qry, name!="CBBG", pax_ext, docoConfirmed, crsExists, check_info.get(), off_alarms);
+          for(set<APIS::TAlarmType>::const_iterator a=alarms.begin(); a!=alarms.end(); ++a) off_alarms.erase(*a);
+        }
+      }
+    }
+  }
 
   if (checked_alarms.find(Alarm::APISDiffersFromBooking)!=checked_alarms.end())
     set_alarm( point_id,
@@ -586,7 +598,7 @@ void check_apis_alarms(int point_id, const set<Alarm::Enum> &checked_alarms)
 
 };
 
-void check_unbound_emd_alarm( int point_id )
+void check_unbound_emd_alarm(int point_id)
 {
   bool emd_alarm = false;
   if ( CheckStageACT(point_id, sCloseCheckIn) )
@@ -596,22 +608,31 @@ void check_unbound_emd_alarm( int point_id )
 
 bool check_apps_alarm( int point_id )
 {
-  bool apps_alarm=existsAlarmByPointId(point_id,
+  bool apps_alarm = existsAlarmByPointId(point_id,
                                        {Alarm::APPSNegativeDirective,
                                         Alarm::APPSError,
                                         Alarm::APPSConflict},
                                        {paxCheckIn, paxPnl});
-  set_alarm( point_id, Alarm::APPSProblem, apps_alarm );
+  set_alarm(point_id, Alarm::APPSProblem, apps_alarm);
   return apps_alarm;
 }
 
-bool check_iapi_alarm( int point_id )
+bool check_iapi_alarm(int point_id)
 {
-  bool iapi_alarm=existsAlarmByPointId(point_id,
+  bool iapi_alarm = existsAlarmByPointId(point_id,
                                        {Alarm::IAPINegativeDirective},
                                        {paxCheckIn});
-  set_alarm( point_id, Alarm::IAPIProblem, iapi_alarm );
+  set_alarm(point_id, Alarm::IAPIProblem, iapi_alarm);
   return iapi_alarm;
+}
+
+bool check_apps_scd_alarm(const PointId_t &point_id)
+{
+    LogTrace(TRACE5) << __FUNCTION__;
+    bool not_scd_time = APPS::checkNeedAlarmScdIn(point_id);
+    LogTrace(TRACE5) << " scd_time = " << not_scd_time;
+    set_alarm(point_id.get(), Alarm::APPSNotScdInTime, not_scd_time);
+    return not_scd_time;
 }
 
 void TTripAlarm::check()
@@ -628,8 +649,10 @@ void TTripAlarm::check()
     case Alarm::SyncCabinClass:
       add_trip_task(id, AlarmTypes().encode(type), "");
       break;
+    case Alarm::APISControl:
     case Alarm::APPSProblem:
     case Alarm::IAPIProblem:
+    case Alarm::APPSNotScdInTime:
       addTaskForCheckingAlarm(id, type);
       break;
     default:
@@ -670,18 +693,24 @@ template <> void Simple<TTripAlarm>::run()
 
 template <> void Simple<TGrpAlarm>::run()
 {
-  p.check();
+    p.check();
 }
 
 template <> void Simple<TPaxAlarm>::run()
 {
-  p.check();
+    p.check();
 }
 }
 
 void TTripAlarmHook::set(Alarm::Enum _type, const int& _id)
 {
-  sethBefore(TSomeonesAlarmHook<TTripAlarm>(TTripAlarm(_type, _id)));
+    sethBefore(TSomeonesAlarmHook<TTripAlarm>(TTripAlarm(_type, _id)));
+}
+
+void TTripAlarmHook::setAlways(Alarm::Enum _type, const int& _id)
+{
+    LogTrace(TRACE5) << __FUNCTION__ << " id: "<< _id << " " <<_type;
+    sethAlways(TSomeonesAlarmHook<TTripAlarm>(TTripAlarm(_type, _id)));
 }
 
 void TGrpAlarmHook::set(Alarm::Enum _type, const int& _id)
@@ -882,4 +911,53 @@ void getAlarmByPointId(const int pointId, const Alarm::Enum alarmType, std::set<
   Qry.get().Execute();
   for(; !Qry.get().Eof; Qry.get().Next())
     paxIds.insert(Qry.get().FieldAsInteger("pax_id"));
+}
+
+std::set<PaxId_t> getAlarmByPointId(const PointId_t& pointId, const Alarm::Enum alarmType,
+                                    const PaxOrigin origin)
+{
+    std::set<PaxId_t> paxIds;
+    const std::string alarm =  AlarmTypes().encode(alarmType);
+    int pax_id = 0;
+    switch (origin) {
+    case paxCheckIn:
+    {
+        auto cur = make_curs(
+                   "select PAX_ALARMS.PAX_ID "
+                   "from PAX, PAX_GRP, PAX_ALARMS "
+                   " where PAX_ALARMS.ALARM_TYPE = :alarm and PAX_GRP.POINT_DEP = :point_id_spp and "
+                   "   PAX.GRP_ID = PAX_GRP.GRP_ID and PAX.PAX_ID = PAX_ALARMS.PAX_ID ");
+
+        cur.def(pax_id)
+           .bind(":point_id_spp", pointId.get())
+           .bind(":alarm", alarm)
+           .exec();
+        while(!cur.fen()) {
+            paxIds.insert(PaxId_t(pax_id));
+        }
+        break;
+    }
+    case paxPnl:
+    {
+        auto cur = make_curs(
+                   "select CRS_PAX.PAX_ID "
+                   "from CRS_PAX, CRS_PNR, TLG_BINDING, CRS_PAX_ALARMS "
+                   " where CRS_PAX_ALARMS.ALARM_TYPE = :alarm and POINT_ID_SPP = :point_id_spp and "
+                   "   CRS_PAX.PNR_ID = CRS_PNR.PNR_ID and CRS_PAX.PAX_ID = CRS_PAX_ALARMS.PAX_ID and "
+                   "   CRS_PNR.POINT_ID = TLG_BINDING.POINT_ID_TLG");
+        cur.def(pax_id)
+           .bind(":point_id_spp", pointId.get())
+           .bind(":alarm", alarm)
+           .exec();
+        while(!cur.fen()) {
+            paxIds.insert(PaxId_t(pax_id));
+        }
+        break;
+    }
+    default:
+        //test or throw error
+        //throw Exception("Unknown PaxOrigin")
+        break;
+    }
+    return paxIds;
 }

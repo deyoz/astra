@@ -153,9 +153,10 @@ void RemoteResults::readDb(/*const std::string &pult,*/ std::list<RemoteResults>
     Curs8Ctl cur(STDLOG,
                  select + " where INTMSGID=:INTID", &os);
 
-    auto msgId = ServerFramework::getQueryRunner().getEdiHelpManager().msgId();
+    auto msgIdAsStr = ServerFramework::getQueryRunner().getEdiHelpManager().msgId().asString();
+
     cur
-            .bind(":INTID", msgId.asString());
+            .bind(":INTID", msgIdAsStr);
     OciDef(cur, defs);
     cur.exec();
 
@@ -167,7 +168,7 @@ void RemoteResults::readDb(/*const std::string &pult,*/ std::list<RemoteResults>
     {
         Curs8Ctl(STDLOG,
                  "delete from REMOTE_RESULTS where INTMSGID=:INTID", &os)
-                .bind(":INTID", msgId.asString())
+                .bind(":INTID", msgIdAsStr)
                 .exec();
     }
 }

@@ -72,18 +72,18 @@ std::string IatciPlfRequestHandler::respType() const
     return "P";
 }
 
-iatci::dcrcka::Result IatciPlfRequestHandler::handleRequest() const
+std::string IatciPlfRequestHandler::fcIndicator() const
+{
+    return "T";
+}
+
+std::list<iatci::dcrcka::Result> IatciPlfRequestHandler::handleRequest() const
 {
     ASSERT(m_plfParams);
-    return iatci::fillPasslist(m_plfParams.get());
+    return { iatci::fillPasslist(m_plfParams.get()) };
 }
 
-edilib::EdiSessionId_t IatciPlfRequestHandler::sendCascadeRequest() const
-{
-    throw "Not implemented!";
-}
-
-const iatci::IBaseParams* IatciPlfRequestHandler::paramsNew() const
+const iatci::IBaseParams* IatciPlfRequestHandler::params() const
 {
     return m_plfParams.get_ptr();
 }

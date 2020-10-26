@@ -243,8 +243,8 @@ static const std::string& getSearchPaxQuerySelectPart()
   static const std::string result=
          "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.airp_arv, \n"+
          CheckIn::TSimplePaxItem::origClassFromCrsSQL()+" AS class, \n"+
-         CheckIn::TSimplePaxItem::origSubclassFromCrsSQL()+" AS subclass, \n"
-         "       crs_pnr.class AS cabin_class, \n"
+         CheckIn::TSimplePaxItem::origSubclassFromCrsSQL()+" AS subclass, \n"+
+         CheckIn::TSimplePaxItem::cabinClassFromCrsSQL()+" AS cabin_class, \n"
          "       crs_pnr.status AS pnr_status, crs_pnr.priority AS pnr_priority, \n"
          "       crs_pax.surname,crs_pax.name,crs_pax.pers_type, \n"
          "       salons.get_crs_seat_no(crs_pax.pax_id,crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, \n"
@@ -361,6 +361,7 @@ void executeSearchPaxQuery(const int& point_dep,
                     break;
      case psGoshow: Qry.CreateVariable( "ps_goshow", otString, EncodePaxStatus(ASTRA::psGoshow) );
                     //break не надо!
+                    [[fallthrough]];
            default: Qry.CreateVariable( "ps_ok", otString, EncodePaxStatus(ASTRA::psCheckin) );
   }
   Qry.Execute();
@@ -387,9 +388,9 @@ std::string Search::getSQLText() const
       break;
     case paxPnl:
       sql << "SELECT crs_pax.*, \n"
-          << CheckIn::TSimplePaxItem::origSubclassFromCrsSQL()+" AS subclass, \n"
-          << "       crs_pnr.subclass AS cabin_subclass, \n"
-             "       crs_pnr.class AS cabin_class, \n"
+          << CheckIn::TSimplePaxItem::origSubclassFromCrsSQL() << " AS subclass, \n"
+          << CheckIn::TSimplePaxItem::cabinSubclassFromCrsSQL() << " AS cabin_subclass, \n"
+          << CheckIn::TSimplePaxItem::cabinClassFromCrsSQL() << " AS cabin_class, \n"
              "       NULL AS cabin_class_grp \n"
              "FROM crs_pnr, crs_pax";
       for(const std::string& t : tables)
@@ -456,7 +457,7 @@ bool Search::timeIsUp() const
 
 bool PaxIdFilter::validForSearch() const
 {
-  return value!=ASTRA::NoExists;
+  return true;
 }
 
 void PaxIdFilter::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const
@@ -477,7 +478,7 @@ void PaxIdFilter::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<s
 
 void PaxIdFilter::addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const
 {
-  params << QParam("pax_id", otInteger, value);
+  params << QParam("pax_id", otInteger, paxId.get());
 }
 
 bool SurnameFilter::validForSearch() const
@@ -643,15 +644,22 @@ bool TCkinPaxFilter::suitable(const CheckIn::TSimplePaxItem& pax) const
   return true;
 }
 
+FlightFilter createFlightFilter(const TTransferItem &item) {
+    FlightFilter fltFilter(item.operFlt);
+    fltFilter.setLocalDate(item.operFlt.scd_out);
+    fltFilter.airp_arv = item.airp_arv;
+    return fltFilter;
+}
+
 void FlightFilter::setLocalDate(TDateTime localDate)
 {
-  if (localDate==NoExists) return;
+    if (localDate==NoExists) return;
 
-  modf(localDate, &localDate);
-  scd_out=ASTRA::NoExists;
-  min_scd_out=localDate;
-  max_scd_out=localDate+1.0;
-  scdOutIsLocal=true;
+    modf(localDate, &localDate);
+    scd_out=ASTRA::NoExists;
+    min_scd_out=localDate;
+    max_scd_out=localDate+1.0;
+    scdOutIsLocal=true;
 }
 
 bool FlightFilter::validForSearch() const
@@ -773,8 +781,8 @@ bool FlightFilter::suitable(const TAdvTripRouteItem& departure,
   if (max_scd_out!=ASTRA::NoExists &&
       (departure_scd_out==ASTRA::NoExists || max_scd_out<=departure_scd_out)) return false;
 
-  if (!airline.empty() && airline!=departure.airline) return false;
-  if (flt_no!=ASTRA::NoExists && (flt_no!=departure.flt_num || suffix!=departure.suffix)) return false;
+  if (!airline.empty() && airline!=departure.airline_out) return false;
+  if (flt_no!=ASTRA::NoExists && (flt_no!=departure.flt_num_out || suffix!=departure.suffix_out)) return false;
   if (!airp_arv.empty() && airp_arv!=arrival.airp) return false;
 
   return true;

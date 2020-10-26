@@ -179,7 +179,7 @@ struct TDestInfo
   };
 
   bool fromDB(int point_id, bool pr_throw);
-  void toXML(xmlNodePtr node, XMLStyle xmlStyle) const;
+  void toXML(xmlNodePtr node, XMLStyle xmlStyle, const boost::optional<CheckIn::TPaxTknItem>& tkn) const;
 };
 
 struct TFlightInfo
@@ -233,7 +233,7 @@ struct TFlightInfo
   void add(const TDestInfo &dest);
   const TDestInfo& getDestInfo(int point_arv) const;
   void toXMLsimple(xmlNodePtr node, XMLStyle xmlStyle) const;
-  void toXML(xmlNodePtr node, XMLStyle xmlStyle) const;
+  void toXML(xmlNodePtr node, XMLStyle xmlStyle, const boost::optional<CheckIn::TPaxTknItem>& tkn) const;
   boost::optional<TStage> stage() const;
   int getStagePriority() const;
   void isSelfCheckInPossible(bool first_segment, bool notRefusalExists, bool refusalExists) const;
@@ -298,7 +298,6 @@ struct TPNRSegInfo : public TPNRSegId
     int point_dep, point_arv;
     TPnrAddrs pnr_addrs;
     boost::optional<TMktFlight> mktFlight;
-    std::string cabin_cls;
     std::string cabin_subcls;
     TPNRSegInfo() { clear(); }
 
@@ -309,7 +308,6 @@ struct TPNRSegInfo : public TPNRSegId
     point_arv=ASTRA::NoExists;
     pnr_addrs.clear();
     mktFlight=boost::none;
-    cabin_cls.clear();
     cabin_subcls.clear();
   }
 
@@ -326,6 +324,8 @@ struct TPNRSegInfo : public TPNRSegId
                                      const TPNRSegInfo& seg2,
                                      const TFlightRbd& rbds,
                                      std::list<AstraLocale::LexemaData>& errors);
+
+  boost::optional<CheckIn::TPaxTknItem> getAnyValidET() const;
 };
 
 struct TPaxInfo
@@ -371,6 +371,8 @@ struct TPNRInfo
   static bool isIdenticalSegInfo(const std::pair<int, TPNRSegInfo>& s1,
                                  const std::pair<int, TPNRSegInfo>& s2);
   bool partOf(const TPNRInfo &pnrInfo) const;
+
+  boost::optional<CheckIn::TPaxTknItem> getAnyValidET() const;
 };
 
 struct TPNRs
@@ -491,7 +493,9 @@ void getTCkinData( const TPnrData &first,
 bool SearchPaxByScanData(const std::string& bcbp,
                          int &point_id,
                          int &reg_no,
-                         int &pax_id, bool &isBoardingPass);
+                         int &pax_id,
+                         bool &isBoardingPass,
+                         boost::optional<TSearchFltInfo>& searchFltInfo);
 
 #endif // __WEB_SEARCH_H__
 

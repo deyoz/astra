@@ -55,6 +55,8 @@
 #include "MPSExchangeIface.h"
 #include "mob_payment.h"
 #include "cuws_main.h"
+#include "timatic.h"
+#include "timatic_exchange.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -65,6 +67,8 @@ using namespace jxtlib;
 void AstraJxtCallbacks::InitInterfaces()
 {
     ProgTrace(TRACE3, "AstraJxtCallbacks::InitInterfaces");
+    new TimaticInterface();
+    new Timatic::TimaticExchangeIface();
     new CUWSInterface();
     new SysReqInterface();
     new MainDCSInterface();

@@ -4,6 +4,12 @@
 
 #define CUWS_JXT_IFACE_ID "CUWS"
 
+namespace CUWS {
+    void CUWSDispatcher(xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode);
+    void PostProcessXMLAnswer();
+    xmlNodePtr NewTextChildNoPrefix(xmlNodePtr parent, const char *name, const char *content = NULL);
+}
+
 class CUWSInterface: public JxtInterface
 {
     public:

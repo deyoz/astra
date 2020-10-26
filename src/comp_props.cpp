@@ -19,6 +19,8 @@
 #include "tlg/tlg_parser.h" // only for convert_salons
 #include "term_version.h"
 #include "alarms.h"
+#include "flt_settings.h"
+
 #include "serverlib/str_utils.h"
 
 #define NICKNAME "DJEK"

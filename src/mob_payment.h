@@ -140,13 +140,13 @@ class Flight : public TAdvTripInfo, public Stages
 class Passenger : public CheckIn::TSimplePaxItem
 {
   public:
-    CheckIn::TPaxSegmentPair segmentPair;
+    TPaxSegmentPair segmentPair;
     CheckIn::TPaxDocItem doc;
     TPnrAddrs pnrAddrs;
 
 
     Passenger(const CheckIn::TSimplePaxItem& _pax,
-              const CheckIn::TPaxSegmentPair& _segmentPair) :
+              const TPaxSegmentPair& _segmentPair) :
       CheckIn::TSimplePaxItem(_pax), segmentPair(_segmentPair) {}
     const Passenger& toXML(xmlNodePtr node,
                            const Segment& segment,
@@ -157,7 +157,7 @@ class Passenger : public CheckIn::TSimplePaxItem
     std::string statusStr() const;
 };
 
-typedef ASTRA::Cache<CheckIn::TPaxSegmentPair, Segment> SegmentCache;
+typedef ASTRA::Cache<TPaxSegmentPair, Segment> SegmentCache;
 
 class SearchPassengersResponse : public Response,
                                  public SegmentCache,
@@ -197,7 +197,7 @@ class GetPassengerInfoResponse : public Response
   private:
     SirenaExchange::TEntityList entities;
   public:
-    void prepareEntities(int paxId);
+    void prepareEntities(const PaxId_t& paxId);
     const GetPassengerInfoResponse& toXML(xmlNodePtr node) const;
 
     static boost::optional<std::pair<TAdvTripInfo, std::string>> getSegmentInfo(const CheckIn::TSimplePaxItem& pax);

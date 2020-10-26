@@ -1,5 +1,4 @@
-#!/bin/bash
-set -euo pipefail
+#!/bin/bash -e
 
 grep_version() {
     grep -w "BOOST_VERSION[ ]\+$2" $1/boost/version.hpp
@@ -10,25 +9,23 @@ uab_config_and_build() {
 prefix=${1:?no prefix parameter}
 
 toolset=''
-[[ $CC =~ clang ]] && toolset="clang"
-[[ $CC =~ gcc ]] && toolset="gcc"
+[[ $LOCALCC =~ clang ]] && toolset="clang"
+[[ $LOCALCC =~ gcc ]] && toolset="gcc"
 
-export BOOST_BUILD_USER_CONFIG="$prefix/src/user-config.jam"
-[ -f "$BOOST_BUILD_USER_CONFIG" ] && die 1 "$BOOST_BUILD_USER_CONFIG is already here - another $0 is running? If not, remove the file and try again."
-touch "$BOOST_BUILD_USER_CONFIG"
+userconfigjam=~/user-config.jam
+[ -f $userconfigjam ] && die 1 "$userconfigjam is already here - another $0 is running? If not, remove the file and try again."
 
-cxxflags=
-b2_options=
+cxxflags=''
+b2_options='--disable-icu'
 if [ -n "$toolset" ]; then
-    for tok in $CXX; do
+    for tok in $LOCALCXX; do
         if [[ $tok = -* ]] ; then
-            [[ $tok != -fsanitize=* ]] && [[ -z ${PLATFORM:+x} || $tok != -$PLATFORM ]] && cxxflags="$cxxflags cxxflags=$tok"
+            [[ $tok != -fsanitize=* ]] && [[ $tok != -$PLATFORM ]] && cxxflags="$cxxflags cxxflags=$tok"
         elif [ -z "$b2_options" ] && which $tok && $tok --version && $tok -dumpversion; then
             cxx=`which $tok`
-            [[ -n ${DISTCC_HOSTS:-} ]] && which distcc &> /dev/null && cxx="distcc $cxx"
             cxx_version=`$cxx -dumpversion`
             if ! which $toolset &> /dev/null || [ "$cxx_version" != "`$toolset -dumpversion`" ]; then
-                cat <<EOF > "$BOOST_BUILD_USER_CONFIG"
+                cat <<EOF > $userconfigjam
 using $toolset : $cxx_version : $cxx ;
 EOF
                 if [ -n "$cxx_version" ]; then
@@ -41,8 +38,6 @@ EOF
         b2_options="toolset=$toolset"
     fi
 fi
-cp $BOOST_BUILD_USER_CONFIG /tmp/BOOST_BUILD_USER_CONFIG
-b2_options="$b2_options --disable-icu --ignore-site-config"
 
 # pyconfig.h compile error fix
 python_include_path=`(pkg-config python2 --cflags-only-I --silence-errors || true) | awk '{print $1}'`
@@ -54,41 +49,24 @@ if [ -n "$python_include_path" ]; then
     cxxflags="$cxxflags cxxflags='$python_include_path'"
 fi
 [ -n "$CPP_STD_VERSION" ] && cxxflags="$cxxflags cxxflags=-std=$CPP_STD_VERSION"
-
-for f in $CXXFLAGS; do
-    if [[ "$f" = "-m32" ]] || [[ "$f" = "-m64" ]] ; then
-        address_model="address-model=$(echo "$f" | cut -c3-)"
-    fi;
-
-    if [[ "$f" = -std=* ]] ; then
-        cxxflags="$cxxflags cxxflags=$f"
-
-        std=$(echo $f | cut -c5-)
-        case $std in
-            "c++11")
-                cxxflags="$cxxflags cxxflags=-DBOOST_NO_CXX11_SCOPED_ENUMS cxxflags=-DBOOST_NO_CXX11_EXPLICIT_CONVERSION_OPERATORS"
-            ;;
-        esac;
-    fi;
-done;
-
-linkflags=
-for f in $LDFLAGS; do
-    linkflags="$linkflags linkflags=$f"
-done;
-
 if [ "${SIRENA_USE_LIBCXX:-}" = "1" ]; then
     cxxflags="$cxxflags cxxflags=-stdlib=libc++ linkflags=-stdlib=libc++"
 fi
 #cxxflags="cxxflags=-fPIC linkflags=-fPIC $cxxflags"
 
+address_model=''
+[ "${PLATFORM:-}" = "m64" ] && address_model='address-model=64'
+[ "${PLATFORM:-}" = "m32" ] && address_model='address-model=32'
+
 b2_options="$b2_options threading=multi --layout=system"
 [[ ${SIRENA_ENABLE_SHARED:-} == 1 ]] && b2_options="$b2_options link=shared runtime-link=shared"
 [[ ${SIRENA_ENABLE_SHARED:-} == 0 ]] && b2_options="$b2_options link=static runtime-link=static"
 
-exclude_libs=" math mpi atomic graph_parallel context coroutine signals python wave locale random timer log"
+exclude_libs="math mpi atomic graph_parallel context coroutine signals python wave locale random timer"
 grep_version $prefix/src 106100 && exclude_libs="$exclude_libs metaparse type_erasure log"
-b2_options="$b2_options `echo \"$exclude_libs\" | sed 's/ \b/ --without-/g'`"
+for i in $exclude_libs ; do
+    b2_options="$b2_options --without-$i"
+done
 cd $prefix/src
 
 echo '--- boost/date_time/time_clock.hpp    2015-03-04 01:19:01.000000000 +0300
@@ -283,19 +261,15 @@ echo '--- boost/optional/optional_fwd.hpp 2016-07-04 18:12:16.088459101 +0300
 ' | patch -p0
 
 sed -i 's/print sys\.prefix/print(sys.prefix)/' ./bootstrap.sh
-./bootstrap.sh --prefix=$prefix --without-icu
-
-TOOLCHAIN_FLAGS= # "$TCH_BOOST_INCLUDES $TCH_BOOST_LINKFLAGS"
-
-b2_build_flags="$cxxflags $linkflags $TOOLCHAIN_FLAGS $glibcxxdebug ${address_model:-} $b2_options --build_dir=/tmp/boost_build/$prefix --prefix=$prefix -j${MAKE_J:-3}"
+CC="$LOCALCC" ./bootstrap.sh --prefix=$prefix --without-icu
+b2_build_flags="$cxxflags $glibcxxdebug $address_model $b2_options --build_dir=/tmp/boost_build/$prefix --prefix=$prefix -j${MAKE_J:-3}"
 echo "./b2 $b2_build_flags clean" > build.clean
 echo "./b2 $b2_build_flags stage" | tee build.stage
 ./b2 $b2_build_flags stage > /dev/null #really annoying output
 echo "./b2 install"
 ./b2 $b2_build_flags install > /dev/null # -- # --
 echo "./b2 $b2_build_flags install" > build.previous
-cat "$BOOST_BUILD_USER_CONFIG" >> build.previous
-rm -f "$BOOST_BUILD_USER_CONFIG"
+rm -f $userconfigjam
 
 }
 

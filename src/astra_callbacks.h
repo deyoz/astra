@@ -11,8 +11,7 @@ class AstraJxtCallbacks : public jxtlib::JXTLibCallbacks
   public:
     AstraJxtCallbacks() : JXTLibCallbacks()
     {
-      jxtlib::JXTLib::Instance()->SetCallbacks(this);
-      fp_post_process = NULL;
+        fp_post_process = NULL;
     }
     void SetPostProcessXMLAnswerCallback(void (*post_process_ptr)())
     {
