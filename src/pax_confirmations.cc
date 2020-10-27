@@ -106,22 +106,51 @@ bool SettingsFilter::suitableRemCode(const std::string& rem_code) const
   return algo::any_of(rems.get(), [&rem_code](const auto& i) { return i.code==rem_code; } );
 }
 
-void AppliedMessages::toDB() const
+const std::set<AppliedMessage>& AppliedMessages::getMessages(const Segment& seg,
+                                                             const int paxIndex,
+                                                             const std::pair<PaxId_t, CheckIn::TSimplePaxItem>& paxPair) const
 {
-  if (messages.empty()) return;
+  static std::set<AppliedMessage> emptyMessages;
+
+  if (paxPair.second.id!=ASTRA::NoExists)
+  {
+    const auto i=messagesByPaxId.find(PaxId_t(paxPair.second.id));
+    if (i!=messagesByPaxId.end()) return i->second;
+  }
+  else
+  {
+    const auto i=messagesByNorecId.find(NorecId(PointId_t(seg.flt.point_id), paxIndex));
+    if (i!=messagesByNorecId.end()) return i->second;
+  }
+
+  return emptyMessages;
+}
+
+void AppliedMessages::toDB(const Segments& segs) const
+{
+  if (messagesByPaxId.empty() && messagesByNorecId.empty()) return;
 
   auto cur = make_curs("INSERT INTO pax_confirmations(pax_id, id, text) "
                        "VALUES(:pax_id, :id, :text)");
 
-  for(const auto& i : messages)
-    for(const AppliedMessage& m : i.second)
+  for(const Segment& seg : segs)
+  {
+    int paxIndex=0;
+    for(const auto& paxPair : seg.paxs)
     {
-      cur.noThrowError(CERR_U_CONSTRAINT)
-         .bind(":pax_id", i.first.get())
-         .bind(":id", m.id)
-         .bind(":text", m.text)
-         .exec();
+      paxIndex++;
+      const auto& messages=getMessages(seg, paxIndex, paxPair);
+
+      for(const AppliedMessage& m : messages)
+      {
+        cur.noThrowError(CERR_U_CONSTRAINT)
+           .bind(":pax_id", paxPair.first.get())
+           .bind(":id", m.id)
+           .bind(":text", m.text)
+           .exec();
+      }
     }
+  }
 }
 
 void AppliedMessages::toLog(const Segments& segs) const
@@ -133,17 +162,21 @@ void AppliedMessages::toLog(const Segments& segs) const
     msg.lexema_id = "EVT.PASSENGER_DATA";
     msg.id1=seg.flt.point_id;
     msg.id3=seg.grp.id;
-    for(const CheckIn::TSimplePaxItem& pax : seg.paxs)
-    {
-      if (pax.id==ASTRA::NoExists) continue;
 
-      const auto i=messages.find(PaxId_t(pax.id));
-      if (i==messages.end()) continue;
+    int paxIndex=0;
+    for(const auto& paxPair : seg.paxs)
+    {
+      paxIndex++;
+      const auto& messages=getMessages(seg, paxIndex, paxPair);
+
+      const CheckIn::TSimplePaxItem& pax=paxPair.second;
 
       msg.id2=pax.reg_no;
 
-      for(const AppliedMessage& m : i->second)
+      set<string> alreadyUsedText;
+      for(const AppliedMessage& m : messages)
       {
+        if (!alreadyUsedText.insert(m.text).second) continue;
         msg.prms.clearPrms();
         msg.prms << PrmSmpl<string>("pax_name", pax.full_name())
                  << PrmElem<string>("pers_type", etPersType, EncodePerson(pax.pers_type))
@@ -176,7 +209,7 @@ void AppliedMessages::get(int id, bool isGrpId)
      .exec();
 
   while(!cur.fen())
-    messages[PaxId_t(pax_id)].emplace(msg_id, msg_text);
+    messagesByPaxId[PaxId_t(pax_id)].emplace(msg_id, msg_text);
 }
 
 bool AppliedMessages::exists(xmlNodePtr node)
@@ -191,20 +224,34 @@ void AppliedMessages::get(xmlNodePtr node)
   xmlNodePtr replyInfoNode=GetNode("confirmations/pax_confirmations/reply_info", node);
   for(; replyInfoNode!=nullptr; replyInfoNode=replyInfoNode->next)
   {
-    PaxId_t paxId(NodeAsInteger("passenger/@id", replyInfoNode));
-    xmlNodePtr confirmationNode=GetNode("passenger/confirmation", replyInfoNode);
+    xmlNodePtr paxNode=NodeAsNode("passenger", replyInfoNode);
+
+    boost::optional<PaxId_t> paxId;
+    boost::optional<NorecId> norecId;
+    xmlNodePtr paxIdNode=GetNode("@id", paxNode);
+    if (paxIdNode!=nullptr)
+      paxId=boost::in_place(NodeAsInteger(paxIdNode));
+    else
+      norecId=boost::in_place(PointId_t(NodeAsInteger("@point_id", paxNode)),
+                              NodeAsInteger("@index", paxNode));
+
+    xmlNodePtr confirmationNode=GetNode("confirmation", paxNode);
     for(; confirmationNode!=nullptr; confirmationNode=confirmationNode->next)
     {
-      messages[paxId].emplace(NodeAsInteger("@id", confirmationNode),
-                              NodeAsString(confirmationNode));
+      if (paxId)
+        messagesByPaxId[paxId.get()].emplace(NodeAsInteger("@id", confirmationNode),
+                                             NodeAsString(confirmationNode));
+      if (norecId)
+        messagesByNorecId[norecId.get()].emplace(NodeAsInteger("@id", confirmationNode),
+                                                 NodeAsString(confirmationNode));
     }
   }
 }
 
 bool AppliedMessages::exists(const PaxId_t& paxId, const int id) const
 {
-  const auto i=messages.find(paxId);
-  if (i==messages.end()) return false;
+  const auto i=messagesByPaxId.find(paxId);
+  if (i==messagesByPaxId.end()) return false;
 
   return algo::any_of(i->second, [&id](const auto& message) { return message.id==id; });
 }
@@ -294,12 +341,14 @@ void Messages::add(const SettingsFilter& filter,
   }
 }
 
-Messages::Messages(const DCSAction::Enum dcsAction, const Segments& segs) : segments(segs)
+Messages::Messages(const DCSAction::Enum dcsAction,
+                   const Segments& segs,
+                   const bool excludeAppliedMessages) : segments(segs)
 {
   for(const Segment& seg : segments)
   {
     boost::optional<AppliedMessages> appliedMessages;
-    if (dcsAction!=DCSAction::Boarding && seg.grp.id!=ASTRA::NoExists)
+    if (excludeAppliedMessages)
     {
       if (seg.paxs.size()>1)
       {
@@ -309,18 +358,18 @@ Messages::Messages(const DCSAction::Enum dcsAction, const Segments& segs) : segm
       {
         if (!seg.paxs.empty())
         {
-          appliedMessages=boost::in_place(PaxId_t(seg.paxs.front().id));
+          appliedMessages=boost::in_place(seg.paxs.front().first);
         }
       }
     }
 
-    for(const CheckIn::TSimplePaxItem& pax : seg.paxs)
+    for(const auto& paxPair : seg.paxs)
     {
-      if (pax.id==ASTRA::NoExists) continue;
+      const CheckIn::TSimplePaxItem& pax=paxPair.second;
 
       if (!pax.refuse.empty()) continue;
 
-      add(SettingsFilter(PaxId_t(pax.id),
+      add(SettingsFilter(PaxId_t(paxPair.first),
                          AirlineCode_t(seg.flt.airline),
                          AirportCode_t(seg.grp.airp_dep),
                          Class_t(seg.grp.cl),
@@ -341,11 +390,14 @@ bool Messages::toXML(xmlNodePtr node, const OutputLang &lang) const
 
   xmlNodePtr messagesNode=nullptr;
   for(const Segment& seg : segments)
-    for(const CheckIn::TSimplePaxItem& pax : seg.paxs)
+  {
+    int paxIndex=0;
+    for(const auto& paxPair : seg.paxs)
     {
-      if (pax.id==ASTRA::NoExists) continue;
+      paxIndex++;
+      const CheckIn::TSimplePaxItem& pax=paxPair.second;
 
-      SettingsByPaxId::const_iterator i=settingsByPaxId.find(PaxId_t(pax.id));
+      SettingsByPaxId::const_iterator i=settingsByPaxId.find(paxPair.first);
       if (i==settingsByPaxId.end()) continue;
 
       if (messagesNode==nullptr)
@@ -358,23 +410,37 @@ bool Messages::toXML(xmlNodePtr node, const OutputLang &lang) const
       xmlNodePtr messageNode=NewTextChild(messagesNode, "message");
       SetProp(messageNode, "use_big_dialog", (int)false);
       NewTextChild(messageNode, "text", getText(pax, seg.flt, segments.size()>1, i->second, lang));
-      replyInfoToXML(messageNode, i->first, i->second, lang);
+      if (pax.id!=ASTRA::NoExists)
+        replyInfoToXML(messageNode, PaxId_t(pax.id), boost::none, i->second, lang);
+      else
+        replyInfoToXML(messageNode, boost::none, NorecId(PointId_t(seg.flt.point_id), paxIndex), i->second, lang);
 
       result=true;
     }
+  }
 
   return result;
 }
 
 void Messages::replyInfoToXML(xmlNodePtr messageNode,
-                              const PaxId_t& paxId,
+                              const boost::optional<PaxId_t>& paxId,
+                              const boost::optional<NorecId>& norecId,
                               const Settings& settings,
                               const OutputLang &lang)
 {
   if (messageNode==nullptr) return;
 
   xmlNodePtr paxNode=NewTextChild(NewTextChild(messageNode, "reply_info"), "passenger");
-  SetProp(paxNode, "id", paxId.get());
+  if (paxId)
+  {
+    SetProp(paxNode, "id", paxId.get().get());
+  }
+  if (norecId)
+  {
+    SetProp(paxNode, "point_id", norecId.get().pointId.get());
+    SetProp(paxNode, "index",  norecId.get().paxIndex);
+  }
+
   for(const Setting& setting : settings)
   {
     xmlNodePtr confirmationNode=NewTextChild(paxNode, "confirmation",
@@ -407,8 +473,13 @@ std::string Messages::getText(const CheckIn::TSimplePaxItem& pax,
   else
     result << paxStr;
 
+  set<string> alreadyUsedText;
   for(const Setting& setting : settings)
-    result << endl << "    " << (lang.get()==LANG_RU?setting.text:setting.text_lat);
+  {
+    const string& text=(lang.get()==LANG_RU?setting.text:setting.text_lat);
+    if (!alreadyUsedText.insert(text).second) continue;
+    result << endl << "    " << text;
+  }
 
   result << endl << endl << " " << getLocaleText("QST.CONTINUE", lang.get());
 

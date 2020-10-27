@@ -80,7 +80,7 @@ PaxConfirmations::Segments TSegList::transformForPaxConfirmations() const
     segment.flt=s.flt;
     segment.grp=s.grp;
     for(const CheckIn::TPaxListItem& p : s.paxs)
-      segment.paxs.push_back(p.pax);
+      segment.paxs.emplace_back(PaxId_t(p.getExistingPaxIdOrSwear()), p.pax);
   }
 
   return result;

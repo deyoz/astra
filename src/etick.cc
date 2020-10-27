@@ -468,7 +468,7 @@ const TETickItem& TETickItem::toDB(const TEdiAction ediAction) const
 
         TCachedQuery Qry(sql, QryParams);
 
-        longToDB(Qry.get(), "tlg_text", ediPnr.get().ediText(), false, 1000);
+        longToDB(Qry.get(), "tlg_text", ediPnr->ediTextWithCharset("IATA"), false, 1000);
       }
       break;
 
