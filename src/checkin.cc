@@ -4508,10 +4508,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               pax.crew_type=priorPax.crew_type;
               pax.is_jmp=priorPax.is_jmp;
               pax.cabin=priorPax.cabin;
+              pax.reg_no=priorPax.reg_no;
               if (!new_checkin && !pax.PaxUpdatesPending)
               {
                 pax.pers_type=priorPax.pers_type;
                 pax.refuse=priorPax.refuse;
+                pax.subcl=priorPax.subcl;
               }
               priorSimplePaxList.push_back(priorPax);
             }
@@ -6150,6 +6152,31 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   }
 
   timing.finish("SavePax");
+
+  if (reqInfo->desk.compatible(PAX_CONFIRMATIONS_VERSION))
+  {
+    timing.start("PaxConfirmations");
+
+    if (ediResNode==nullptr &&
+        !PaxConfirmations::AppliedMessages::exists(reqNode))
+    {
+      PaxConfirmations::Messages messages(DCSAction::CheckInOnDesk,
+                                          segList.transformForPaxConfirmations(),
+                                          !new_checkin);
+      xmlNodePtr resNode=NodeAsNode("/term/answer", getXmlCtxt()->resDoc);
+      if (messages.toXML(resNode, AstraLocale::OutputLang())) throw UserException2();
+    }
+    if(!rollbackGuaranteed &&
+       PaxConfirmations::AppliedMessages::exists(reqNode))
+    {
+      PaxConfirmations::Segments segments=segList.transformForPaxConfirmations();
+      PaxConfirmations::AppliedMessages appliedMessages(reqNode);
+      appliedMessages.toDB(segments);
+      appliedMessages.toLog(segments);
+    }
+
+    timing.finish("PaxConfirmations");
+  }
 
   return true;
 }

@@ -459,7 +459,7 @@ class TTypeBOptionValues: public TCodeBaseTable {
   public:
     TTypeBOptionValues() {
       Init();
-        select_sql = "SELECT tlg_type||'+'||category||'+'||value AS code, "
+      select_sql = "SELECT tlg_type||'+'||category||'+'||value AS code, "
                    "       short_name, short_name_lat, name, name_lat "
                    "FROM typeb_option_values";
       }
@@ -1289,19 +1289,19 @@ class TVoucherTypes: public TCodeBaseTable {
     }
 };
 
-class DCSServiceTypesRow: public TCodeBaseTableRow {
+class DCSActionsRow: public TCodeBaseTableRow {
   public:
-    const char *get_row_name() const { return "DCSServiceTypesRow"; }
+    const char *get_row_name() const { return "DCSActionsRow"; }
 };
 
-class DCSServiceTypes: public TCodeBaseTable {
+class DCSActions: public TCodeBaseTable {
   protected:
-    const char *get_table_name() { return "DCSServiceTypes"; }
+    const char *get_table_name() { return "DCSActions"; }
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     void Invalidate() {} //всегда актуальна
   public:
-    DCSServiceTypes() {
-        Init( "dcs_service_types" );
+    DCSActions() {
+        Init( "dcs_actions" );
     }
 };
 

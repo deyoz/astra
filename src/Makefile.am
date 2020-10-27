@@ -118,6 +118,7 @@ astra_SOURCES = \
   passenger.cc \
   passenger_callbacks.cc \
   pax_calc_data.cc \
+  pax_confirmations.cc \
   payment.cc \
   payment_base.cc \
   pers_weights.cc \
@@ -334,6 +335,7 @@ noinst_HEADERS = \
   passenger.h \
   passenger_callbacks.h \
   pax_calc_data.h \
+  pax_confirmations.h \
   payment.h \
   payment_base.h \
   pers_weights.h \

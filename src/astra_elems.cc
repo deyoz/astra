@@ -86,7 +86,7 @@ const
                          {etCraft,                 "etCraft",                 "crafts"},
                          {etCurrency,              "etCurrency",              "currency"},
                          {etCustomAlarmType,       "etCustomAlarmType",       "custom_alarm_types"},
-                         {etDCSServiceType,        "etDCSServiceType",        "dcs_service_types"},
+                         {etDCSAction,             "etDCSAction",             "dcs_actions"},
                          {etDelayType,             "etDelayType",             ""},
                          {etDeskGrp,               "etDeskGrp",               ""},
                          {etDevFmtType,            "etDevFmtType",            "dev_fmt_types"},

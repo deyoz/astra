@@ -83,7 +83,7 @@ void DCSServiceApplying::throwIfNotAllowed(int pax_id, DCSService::Enum dcsServi
   {
     LexemaData lexemeData;
 
-    lexemeData.lparams << LParam("service", ElemIdToNameLong(etDCSServiceType, dcsServices().encode(dcsService)));
+    lexemeData.lparams << LParam("service", ElemIdToNameLong(etDCSAction, dcsServices().encode(dcsService)));
 
     if (!requiredRFISCs.empty())
     {

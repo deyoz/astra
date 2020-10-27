@@ -331,6 +331,42 @@ const std::string ACCESS_DENIED = "Access denied";
 // TODO: get rid of this outrageous define
 #define OP_TYPE_COND(COL) "nvl(" COL", :op_type) = :op_type" // c++11 standard requires space before identifier: ..." COL"...
 
+class DCSAction
+{
+  public:
+    enum Enum
+    {
+      CheckInOnDesk,
+      PrintBPOnDesk,
+      ChangeSeatOnDesk,
+      Boarding
+    };
+
+    static const std::list< std::pair<Enum, std::string> >& pairs()
+    {
+      static std::list< std::pair<Enum, std::string> > l =
+      {
+        {CheckInOnDesk,    "CHECKIN_ON_DESK"},
+        {PrintBPOnDesk,    "PRINT_BP_ON_DESK"},
+        {ChangeSeatOnDesk, "CHG_SEAT_ON_DESK"},
+        {Boarding,         "BOARDING"}
+      };
+      return l;
+    }
+};
+
+class DCSActionsContainer : public ASTRA::PairList<DCSAction::Enum, std::string>
+{
+  private:
+    virtual std::string className() const { return "DCSActions"; }
+  public:
+    DCSActionsContainer() : ASTRA::PairList<DCSAction::Enum, std::string>(DCSAction::pairs(),
+                                                                          boost::none,
+                                                                          boost::none) {}
+};
+
+const DCSActionsContainer& dcsActions();
+
 class TAlignment
 {
   public:

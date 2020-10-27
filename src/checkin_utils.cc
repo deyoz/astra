@@ -70,6 +70,22 @@ bool TSegList::needCopyBaggage(const GrpId_t& grpId, const size_t trferSize) con
   return false;
 }
 
+PaxConfirmations::Segments TSegList::transformForPaxConfirmations() const
+{
+  PaxConfirmations::Segments result;
+  for(const TSegListItem& s : *this)
+  {
+    result.emplace_back();
+    PaxConfirmations::Segment& segment=result.back();
+    segment.flt=s.flt;
+    segment.grp=s.grp;
+    for(const CheckIn::TPaxListItem& p : s.paxs)
+      segment.paxs.emplace_back(PaxId_t(p.getExistingPaxIdOrSwear()), p.pax);
+  }
+
+  return result;
+}
+
 namespace CheckIn
 {
 

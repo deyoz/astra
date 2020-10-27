@@ -30,6 +30,7 @@
 #include "custom_alarms.h"
 #include "telegram.h"
 #include "pax_calc_data.h"
+#include "pax_confirmations.h"
 #include <serverlib/algo.h>
 
 #define NICKNAME "VLAD"
@@ -856,6 +857,30 @@ static void setDeboardingMessage(const string& sbgError,
   warning=boost::in_place("MSG.PASSENGER.NOT_BOARDING2", fullnameParam);
 }
 
+static PaxConfirmations::Segments getForPaxConfirmations(const TTripInfo& flt,
+                                                         const GrpId_t& grpId,
+                                                         const std::list<PaxId_t>& paxIds)
+{
+  PaxConfirmations::Segments result;
+
+  result.emplace_back();
+  PaxConfirmations::Segment& segment=result.back();
+  segment.flt=flt;
+  if (!segment.grp.getByGrpId(grpId.get()))
+  {
+    result.clear();
+    return result;
+  }
+  for(const PaxId_t& paxId : paxIds)
+  {
+    CheckIn::TSimplePaxItem pax;
+    if (pax.getByPaxId(paxId.get()))
+      segment.paxs.emplace_back(paxId, pax);
+  }
+
+  return result;
+}
+
 void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     enum TSearchType {updateByPaxId,
@@ -1400,7 +1425,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         {
           //============================ вопрос в терминал ============================
           bool reset=false;
-          for(int pass=1;pass<=4;pass++)
+          for(int pass=1;pass<=5;pass++)
           {
             switch(pass)
             {
@@ -1491,12 +1516,35 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                         }
                       };
                       break;
+              case 5: if (screen==sBoarding && set_mark &&
+                          reqInfo->desk.compatible(PAX_CONFIRMATIONS_VERSION) &&
+                          !PaxConfirmations::AppliedMessages::exists(reqNode))
+                      {
+                        std::list<PaxId_t> paxIds;
+                        if (paxWithSeat.exists()) paxIds.emplace_back(paxWithSeat.pax_id);
+                        if (paxWithoutSeat.exists()) paxIds.emplace_back(paxWithoutSeat.pax_id);
+
+                        PaxConfirmations::Messages messages(DCSAction::Boarding,
+                                                            getForPaxConfirmations(fltInfo, GrpId_t(grp_id), paxIds),
+                                                            false);
+                        if (messages.toXML(dataNode, AstraLocale::OutputLang())) throw CompleteWithError();
+                      }
+                      break;
+
             };
-          }; //for(int pass=1;pass<=4;pass++)
+          }; //for(int pass=1;pass<=5;pass++)
         };
 
         //============================ собственно посадка пассажира(ов) ============================
         lock_and_get_new_tid(NoExists);  //не лочим рейс, так как лочим ранее
+
+        if (PaxConfirmations::AppliedMessages::exists(reqNode))
+        {
+          std::list<PaxId_t> paxIds;
+          if (paxWithSeat.exists()) paxIds.emplace_back(paxWithSeat.pax_id);
+          if (paxWithoutSeat.exists()) paxIds.emplace_back(paxWithoutSeat.pax_id);
+          PaxConfirmations::AppliedMessages(reqNode).toLog(getForPaxConfirmations(fltInfo, GrpId_t(grp_id), paxIds));
+        }
 
         boost::optional<BSM::TBSMAddrs> BSMaddrs;
 

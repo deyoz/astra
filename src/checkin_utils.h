@@ -5,6 +5,7 @@
 #include "web_search.h"
 #include "apis_utils.h"
 #include "trip_tasks.h"
+#include "pax_confirmations.h"
 
 struct TSegListItem
 {
@@ -19,6 +20,7 @@ class TSegList : public std::list<TSegListItem>
 {
   public:
     bool needCopyBaggage(const GrpId_t& grpId, const size_t trferSize) const;
+    PaxConfirmations::Segments transformForPaxConfirmations() const;
 };
 
 namespace CheckIn

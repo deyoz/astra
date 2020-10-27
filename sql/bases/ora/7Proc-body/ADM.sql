@@ -15,6 +15,26 @@ last_date DATE
 
 TYPE periods_cur IS REF CURSOR RETURN periods_row;
 
+PROCEDURE check_ascii(str	IN VARCHAR2,
+                      cache_code  IN cache_tables.code%TYPE,
+                      cache_field IN cache_fields.name%TYPE,
+                      vlang       IN locale_messages.lang%TYPE)
+IS
+c       CHAR(1);
+info	 adm.TCacheInfo;
+lparams  system.TLexemeParams;
+BEGIN
+  FOR i IN 1..LENGTH(str) LOOP
+    c:=SUBSTR(str,i,1);
+    IF ASCII(c)>127 THEN
+      info:=adm.get_cache_info(cache_code);
+      lparams('field_name'):=get_locale_text(info.field_title(cache_field), vlang);
+      lparams('symbol'):=c;
+      system.raise_user_exception('MSG.FIELD_INCLUDE_INVALID_CHARACTER1', lparams);
+    END IF;
+  END LOOP;
+END check_ascii;
+
 PROCEDURE check_chars_in_name(str	  IN VARCHAR2,
                               pr_lat      IN INTEGER,
                               symbols     IN VARCHAR2,
