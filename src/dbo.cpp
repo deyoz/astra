@@ -33,6 +33,7 @@ std::string MappingInfo::columnsStr(const std::string& table) const
         }
     }
     return result;
+
 }
 
 std::string MappingInfo::insertColumns() const
