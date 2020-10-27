@@ -791,19 +791,18 @@ void ComponLibraFinder::AstraSearchResult::Write( TQuery& Qry ) {
   Qry.Clear();
   Qry.SQLText =
     "BEGIN "
-    "UPDATE libra_comps SET plan_id=:plan_id, conf_id=:conf_id, time_create=:time_create "
+    "UPDATE libra_comps SET plan_id=:plan_id, conf_id=:conf_id, time_change=system.UTCSYSDATE "
     " WHERE comp_id=:comp_id; "
     "  IF SQL%NOTFOUND THEN "
-    " INSERT INTO libra_comps(plan_id,conf_id,comp_id,time_create) "
-    "  VALUES(:plan_id,:conf_id,:comp_id,:time_create);"
+    " INSERT INTO libra_comps(plan_id,conf_id,comp_id,time_create,time_change) "
+    "  SELECT :plan_id,:conf_id,:comp_id,system.UTCSYSDATE,system.UTCSYSDATE from dual;"
     "  END IF; "
     "END;";
   Qry.CreateVariable( "plan_id", otInteger, plan_id );
   Qry.CreateVariable( "conf_id", otInteger, conf_id );
   Qry.CreateVariable( "comp_id", otInteger, comp_id );
-  Qry.CreateVariable( "time_create", otDate, libra_time_create );
   Qry.Execute();
-  LogTrace(TRACE5) << "plan_id=" << plan_id << " conf_id=" << conf_id << " comp_id=" << comp_id << " time_create=" << libra_time_create;
+  LogTrace(TRACE5) << __func__ << " plan_id=" << plan_id << " conf_id=" << conf_id << " comp_id=" << comp_id;
 }
 
 void ComponLibraFinder::AstraSearchResult::ReadFromAHMIds( int plan_id, int conf_id, TQuery& Qry ) {
@@ -811,7 +810,7 @@ void ComponLibraFinder::AstraSearchResult::ReadFromAHMIds( int plan_id, int conf
   this->conf_id = conf_id;
   Qry.Clear();
   Qry.SQLText =
-    "SELECT l.time_create, c.comp_id FROM libra_comps l, comps c"
+    "SELECT l.time_create, l.time_change, c.comp_id FROM libra_comps l, comps c"
     " WHERE l.comp_id=c.comp_id AND "
     "       l.plan_id=:plan_id AND "
     "       l.conf_id=:conf_id ";
@@ -824,16 +823,16 @@ void ComponLibraFinder::AstraSearchResult::ReadFromAHMIds( int plan_id, int conf
   }
   else {
     comp_id = Qry.FieldAsInteger( "comp_id" );
-    comps_time_create = Qry.FieldAsDateTime( "time_create" );
+    time_create = Qry.FieldAsDateTime( "time_create" );
+    time_change = Qry.FieldIsNULL( "time_change" )?ASTRA::NoExists:Qry.FieldAsDateTime( "time_change" );
   }
-  CheckAHMChanges( Qry );
 }
 
 void ComponLibraFinder::AstraSearchResult::ReadFromAHMCompId( int comp_id, TQuery& Qry ) {
   this->comp_id = comp_id;
   Qry.Clear();
   Qry.SQLText =
-    "SELECT l.time_create, l.plan_id, l.conf_id FROM libra_comps l, comps c"
+    "SELECT l.time_create, l.time_change, l.plan_id, l.conf_id FROM libra_comps l, comps c"
     " WHERE l.comp_id=c.comp_id AND "
     "       c.comp_id=:comp_id";
   Qry.CreateVariable( "comp_id", otInteger, comp_id );
@@ -845,75 +844,9 @@ void ComponLibraFinder::AstraSearchResult::ReadFromAHMCompId( int comp_id, TQuer
   else {
     plan_id = Qry.FieldAsInteger( "plan_id" );
     conf_id = Qry.FieldAsInteger( "conf_id" );
-    comps_time_create = Qry.FieldAsDateTime( "time_create" );
+    time_create = Qry.FieldAsDateTime( "time_create" );
+    time_change = Qry.FieldIsNULL( "time_change" )?ASTRA::NoExists:Qry.FieldAsDateTime( "time_change" );
   }
-  CheckAHMChanges( Qry );
-}
-
-void ComponLibraFinder::AstraSearchResult::CheckAHMChanges( TQuery& Qry ) {
-  //!!!нет порверки на изменение конфигурации conf_id
-  if ( plan_id < 0 ) {
-    return;
-  }
-  std::map<std::string, std::pair<std::string,std::string>> libraTabs = {
-                                          { "WB_REF_WS_AIR_S_L_P_S",     { "WB_REF_WS_AIR_S_L_P_S_HST" , "" } },
-                                          //{ "WB_REF_WS_AIR_REG_WGT",     {"WB_REF_WS_AIR_REG_WGT_HST",""} },
-                                          //{ "WB_REF_WS_AIR_S_L_C_ADV",   {"WB_REF_WS_AIR_S_L_C_ADV_HST",""}},
-                                          //{ "WB_REF_WS_AIR_S_L_C_IDN",   {"WB_REF_WS_AIR_S_L_C_IDN_HST",""}},
-                                          //{ "WB_REF_WS_AIR_SL_CAI_TT",   {"WB_REF_WS_AIR_SL_CAI_TT_HST",""}},
-                                          //{ "WB_REF_WS_AIR_SL_CI_T",     {"WB_REF_WS_AIR_SL_CI_T_HST","" }},
-                                          { "WB_REF_WS_AIR_S_L_P_S_P",   { "WB_REF_WS_AIR_S_L_P_S_P_HST", "" } },
-                                          { "WB_REF_WS_SEATS_PARAMS",    { "WB_REF_WS_SEATS_PARAMS_HIST",
-                                          " SELECT MAX(date_write_) AS date_write "
-                                          " FROM WB_REF_WS_AIR_S_L_P_S_P p join WB_REF_WS_SEATS_PARAMS_HIST s "
-                                          " on p.adv_id=:plan_id AND "
-                                          " s.id=p.PARAM_ID AND "
-                                          " (s.date_write_>:time_create OR :time_create IS NULL)" } },
-                                          { "WB_REF_WS_AIR_S_L_PLAN",    { "WB_REF_WS_AIR_S_L_PLAN_HST", "" } },
-                                          { "WB_REF_WS_AIR_S_L_A_U_S",   { "WB_REF_WS_AIR_S_L_A_U_S_HST", "" } }
-                                       };
-
-  std::string ssql;
-  BASIC::date_time::TDateTime max_time_create = ASTRA::NoExists;
-  LogTrace(TRACE5) <<  comps_time_create;
-  for ( const auto &sql : libraTabs ) {
-    Qry.Clear();
-    if ( sql.second.second.empty() ) {
-      ssql = "SELECT MAX(date_write_) date_write FROM ";
-      ssql += sql.second.first;
-      ssql += " WHERE ( date_write_>:time_create OR :time_create IS NULL ) AND ";
-      ssql += "         adv_id=:plan_id";
-    }
-    else {
-      ssql = sql.second.second;
-    }
-    Qry.SQLText = ssql;
-    Qry.CreateVariable( "plan_id", otInteger, plan_id );
-    if ( comps_time_create == ASTRA::NoExists ) {
-      Qry.CreateVariable( "time_create", otDate, FNull );
-    }
-    else {
-      Qry.CreateVariable( "time_create", otDate, comps_time_create );
-    }
-    LogTrace(TRACE5) << sql.second.second;
-    LogTrace(TRACE5) << ssql;
-    Qry.Execute();
-    tst();
-    if ( !Qry.FieldIsNULL( "date_write" ) &&
-         max_time_create < Qry.FieldAsDateTime( "date_write" ) ) {
-      max_time_create = Qry.FieldAsDateTime( "date_write" );
-    }
-  }
-  if ( max_time_create != ASTRA::NoExists ) {
-    LogTrace(TRACE5) << "comp is changed, time_create=" << BASIC::date_time::DateTimeToStr( max_time_create, BASIC::date_time::ServerFormatDateTimeAsString );
-  }
-  if ( max_time_create == ASTRA::NoExists ) {
-    libra_time_create = comps_time_create;
-  }
-  else {
-    libra_time_create = max_time_create;
-  }
-
 }
 
 bool LibraComps::isLibraComps( int id, bool isComps, BASIC::date_time::TDateTime& time_create ) {
@@ -959,22 +892,57 @@ ComponLibraFinder::AstraSearchResult ComponLibraFinder::checkChangeAHMFromAHMIds
   return res;
 }
 
-void ComponLibraFinder::SetChangesAHMFromPointId( int point_id, TQuery& Qry ) {
-   ComponSetter componSetter( point_id );
-   if ( !componSetter.isLibraMode() ) {
-     return;
-   }
-   Qry.Clear();
-   Qry.SQLText =
-     "SELECT comp_id FROM trip_sets WHERE point_id=:point_id";
-   Qry.CreateVariable( "point_id", otInteger, point_id );
-   Qry.Execute();
-   if ( !Qry.Eof ) {
-     if ( !ComponLibraFinder::checkChangeAHMFromCompId( Qry.FieldAsInteger( "comp_id" ), Qry ).isOk() ) {
-        componSetter.SetCraft( true ); //pr_tranzit_routes = true !!!???
-     }
-   }
- }
+void signalChangesComp( TQuery &Qry, int plan_id, int conf_id ) {
+  Qry.Clear();
+  std::string sql =
+    "UPDATE libra_comps SET time_change=NULL "
+    " WHERE plan_id = :plan_id ";
+  if ( conf_id != ASTRA::NoExists ) {
+    sql + " AND conf_id = :conf_id ";
+  }
+  Qry.SQLText = sql;
+  Qry.CreateVariable( "plan_id", otInteger, plan_id );
+  if ( conf_id != ASTRA::NoExists ) {
+    Qry.CreateVariable( "conf_id", otInteger, conf_id );
+  }
+  Qry.Execute();
+  OraSession.Commit();
+  sql =
+    "SELECT t.point_id, l.comp_id, l.plan_id, l.conf_id "
+    " FROM libra_comps l "
+    " JOIN trip_sets t ON l.comp_id=t.comp_id "
+    "      AND plan_id = :plan_id ";
+  if ( conf_id != ASTRA::NoExists ) {
+    sql + " AND conf_id = :conf_id ";
+  }
+  sql += " ORDER BY plan_id, conf_id ";
+  Qry.SQLText = sql;
+  Qry.CreateVariable( "plan_id", otInteger, plan_id );
+  if ( conf_id != ASTRA::NoExists ) {
+    Qry.CreateVariable( "conf_id", otInteger, conf_id );
+  }
+  Qry.Execute();
+  int prior_plan_id = -1, prior_conf_id = -1;
+  ComponCreator::ComponSetter::TStatus prior_status;
+  for ( ; !Qry.Eof; Qry.Next() ) {
+    ComponCreator::ComponSetter componSetter( Qry.FieldAsInteger( "point_id" ) );
+    if ( !componSetter.isLibraMode()  ) {
+      continue;
+    }
+    if ( prior_plan_id == Qry.FieldAsInteger( "plan_id" ) &&
+         prior_conf_id == Qry.FieldAsInteger( "conf_id" ) &&
+         prior_status == ComponCreator::ComponSetter::TStatus::NotCrafts ) {
+      // не смогли найти и создать базовую компоновку
+      continue;
+    }
+    componSetter.setCompId( -1 ); //будет пересоздана компоновка на рейс
+    prior_status = componSetter.SetCraft(true);
+    prior_plan_id = Qry.FieldAsInteger( "plan_id" );
+    prior_conf_id = Qry.FieldAsInteger( "conf_id" );
+    OraSession.Commit();
+  }
+}
+
 
 /*
  *
@@ -1333,7 +1301,7 @@ std::string getLibraCfg( int plan_id, int conf_id,
   Qry.CreateVariable( "bort", otString, bort );
   Qry.Execute();
   if ( Qry.Eof ) {
-    throw EXCEPTIONS::Exception( "createBaseLibraCompon: conf not found, conf_id=%d", conf_id );
+    throw EXCEPTIONS::Exception( "getLibraCfg: conf not found, conf_id=%d", conf_id );
   }
   std::string res;
   if ( Qry.FieldAsInteger( "F" ) > 0 ) {
@@ -1354,7 +1322,7 @@ std::string getLibraCfg( int plan_id, int conf_id,
   return res;
 }
 
-void createBaseLibraCompon( const TAdvTripInfo &fltInfo, ComponLibraFinder::AstraSearchResult& res, TQuery &Qry ) {
+void ComponSetter::createBaseLibraCompon( ComponLibraFinder::AstraSearchResult& res, TQuery &Qry ) {
   LogTrace( TRACE5 ) << __func__ << " plan_id=" << res.plan_id << ", conf_id=" << res.conf_id;
   //начитываем инфу по классах рядов
   //начитываем инфу по местам
@@ -1591,7 +1559,7 @@ void createBaseLibraCompon( const TAdvTripInfo &fltInfo, ComponLibraFinder::Astr
   res.Write( Qry );
 }
 
-void CreateCompon( const TCompsRoutes &routes, int comp_id, TQuery &Qry ) {
+void CreateFlightCompon( const TCompsRoutes &routes, int comp_id, TQuery &Qry ) {
   LogTrace(TRACE5) << __func__ << ",comp_id=" << comp_id;
   TQuery QryVIP(&OraSession);
   Qry.Clear();
@@ -1767,14 +1735,14 @@ ComponSetter::TStatus ComponSetter::IntSetCraft( bool pr_tranzit_routes ) {
     }
   }
   if ( isLibraMode() && !res.isOk() ) {
-    createBaseLibraCompon( fltInfo, res, Qry  );
+    createBaseLibraCompon( res, Qry  );
     if ( res.comp_id < 0 ) {
       LogTrace( TRACE5 ) << __func__ << " invalid comps in libra plan_id=" << res.plan_id << ", conf_id=" << res.conf_id;
       return NotCrafts;
     }
   }
   if ( !isLibraMode() || (comp_id=res.comp_id) >= 0 ) {
-    CreateCompon( routes, comp_id, Qry );
+    CreateFlightCompon( routes, comp_id, Qry );
   }
   LogTrace( TRACE5 ) << __func__ << ": return Created";
   return Created;

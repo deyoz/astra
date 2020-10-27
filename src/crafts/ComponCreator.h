@@ -36,13 +36,12 @@ class ComponLibraFinder {
 public:
   class AstraSearchResult {
     private:
-      void CheckAHMChanges( TQuery& Qry );
     public:
       int plan_id;
       int conf_id;
       int comp_id;
-      BASIC::date_time::TDateTime comps_time_create;
-      BASIC::date_time::TDateTime libra_time_create;
+      BASIC::date_time::TDateTime time_create;
+      BASIC::date_time::TDateTime time_change;
 
       AstraSearchResult( bool isLibraMode = true ) {
         clear();
@@ -51,14 +50,13 @@ public:
         plan_id = -1;
         conf_id = -1;
         comp_id = -1;
-        comps_time_create = ASTRA::NoExists;
-        libra_time_create = ASTRA::NoExists;
+        time_create = ASTRA::NoExists;
+        time_change = ASTRA::NoExists;
       }
 
       bool isOk( ) {
         return ( comp_id >= 0 &&
-                 comps_time_create != ASTRA::NoExists &&
-                 comps_time_create == libra_time_create );
+                 time_change != ASTRA::NoExists );
       }
       void Write( TQuery& Qry );
       void ReadFromAHMIds( int plan_id, int conf_id, TQuery& Qry );
@@ -68,12 +66,13 @@ public:
   static std::string getConvertClassSQLText();
   static AstraSearchResult checkChangeAHMFromAHMIds( int plan_id, int conf_id, TQuery& Qry );
   static AstraSearchResult checkChangeAHMFromCompId( int comp_id, TQuery& Qry );
-  static void SetChangesAHMFromPointId( int point_id, TQuery& Qry );
   static int getPlanId( const std::string& bort, TQuery& Qry );
   static int getConfig( int planId,
                         const std::string& airline, const std::string& bort,
                         int f, int c, int y,
                         bool pr_ignore_fcy, TQuery& Qry );
+  static void SetChanges( int plan_id );
+  static void SetChanges( int plan_id, int comp_id );
 };
 
 class ComponSetter: public TSetsCraftPoints {
@@ -109,6 +108,7 @@ public:
   int getCompId( ) {
     return fcomp_id;
   }
+  void createBaseLibraCompon( ComponLibraFinder::AstraSearchResult& res, TQuery &Qry );
   void setCompId( int comp_id ) {
     fcomp_id = comp_id;
   }
@@ -128,6 +128,8 @@ public:
   static bool isLibraComps( int id, CompType compType );
   static bool isLibraMode( const TTripInfo &info );
 };
+
+void signalChangesComp( TQuery &Qry, int plan_id, int conf_id = ASTRA::NoExists );
 
 } //end namespace ComponCreator
 

@@ -4102,7 +4102,6 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
     throw EXCEPTIONS::Exception( "MSG.SALONS.FREE_SEATING" );
   }
   TQuery Qry( &OraSession );
-  ComponCreator::ComponLibraFinder::SetChangesAHMFromPointId( filterRoutesSets.point_dep, Qry ); //а может компоновка в Либре поменялась???
   bool only_compon_props = ( prior_compon_props_point_id != ASTRA::NoExists );
   ProgTrace( TRACE5, "TSalonList::ReadFlight(): filterClass=%s, prior_compon_props_point_id=%d",
              filterClass.c_str(), prior_compon_props_point_id );

@@ -117,30 +117,45 @@ static bool set_blocked(xmlNodePtr reqNode, xmlNodePtr resNode)
   return true;
 }
 
+static bool seat_plan_change(xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int seat_plan_id = NodeAsInteger( "args/seat_plan_id", reqNode );
+  LogTrace(TRACE5) << __func__ << " seat_plan_id=" << seat_plan_id;
+  TQuery Qry(&OraSession);
+  ComponCreator::signalChangesComp( Qry, seat_plan_id );
+  return true;
+}
+
+static bool configuration_change(xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int seat_plan_id = NodeAsInteger( "args/seat_plan_id", reqNode );
+  int configuration_id = NodeAsInteger( "args/configuration_id", reqNode );
+  LogTrace(TRACE5) << __func__ << " seat_plan_id=" << seat_plan_id << ", configuration_id=" << configuration_id;
+  TQuery Qry(&OraSession);
+  ComponCreator::signalChangesComp( Qry, seat_plan_id, configuration_id );
+  return true;
+}
+
+
 static bool get_seating_details(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int point_id = NodeAsInteger( "args/point_id", reqNode );
-  TQuery Qry(&OraSession);
   resNode = NewTextChild( resNode, "compon" );
   tst();
-  if ( !ComponCreator::ComponSetter( point_id ).isLibraMode() ) {
+  ComponCreator::ComponSetter componSetter( point_id );
+  if ( !componSetter.isLibraMode() ) {
     throw EXCEPTIONS::Exception("Mode is not Libra");
   }
-  tst();
-  //может измениться componSetter.getCompId()
-  ComponCreator::ComponLibraFinder::SetChangesAHMFromPointId( point_id, Qry );
-  tst();
-  //заново начитываем
-  ComponCreator::ComponSetter componSetter( point_id );
+  TQuery Qry(&OraSession);
   ComponCreator::ComponLibraFinder::AstraSearchResult res = ComponCreator::ComponLibraFinder::checkChangeAHMFromCompId( componSetter.getCompId(), Qry );
-  tst();
   if ( !res.isOk( ) ) {
-    throw EXCEPTIONS::Exception("Compon is not valid");
-  }
+   throw EXCEPTIONS::Exception("Compon is not valid");
+ }
   SetProp( resNode, "plan_id", res.plan_id );
   SetProp( resNode, "conf_id", res.conf_id );
   SetProp( resNode, "comp_id", res.comp_id );
-  SetProp( resNode, "time_create", BASIC::date_time::DateTimeToStr( res.comps_time_create,BASIC::date_time::ServerFormatDateTimeAsString ) );
+  SetProp( resNode, "time_create", BASIC::date_time::DateTimeToStr( res.time_create,BASIC::date_time::ServerFormatDateTimeAsString ) );
+  SetProp( resNode, "time_change", BASIC::date_time::DateTimeToStr( res.time_change,BASIC::date_time::ServerFormatDateTimeAsString ) );
   xmlNodePtr personsNode = NewTextChild( resNode, "persons" );
   xmlNodePtr layersNode = NewTextChild( resNode, "layers" );
   xmlNodePtr seatsNode = NewTextChild( resNode, "seats" );
@@ -278,7 +293,7 @@ static bool get_seating_details(xmlNodePtr reqNode, xmlNodePtr resNode)
   xmlNodePtr wNode = NewTextChild( resNode, "baggage" );
   for ( const auto& destW : weights ) {
     xmlNodePtr n1 = NewTextChild( wNode, "dest" );
-    SetProp( n1, "val", destW.first );
+    SetProp( n1, "val", destW.first );           
     for ( const auto &classW : destW.second ) {
       xmlNodePtr classNode = NewTextChild( n1, "class", classW.first );
       if ( classW.second.amount ) {
@@ -321,7 +336,10 @@ static bool call(xmlNodePtr reqNode, xmlNodePtr resNode)
     __DECLARE_CALL__("load_doc",            load_doc);
     __DECLARE_CALL__("get_user_info",       get_user_info);
     __DECLARE_CALL__("get_seating_details", get_seating_details);
-    __DECLARE_CALL__("set_blocked", set_blocked);
+    __DECLARE_CALL__("set_blocked",         set_blocked);
+    __DECLARE_CALL__("seat_plan_change",    seat_plan_change);
+    __DECLARE_CALL__("configuration_change",configuration_change);
+
 
     LogError(STDLOG) << "Unknown astra call '" << func_name << "'";
     NewTextChild(resNode, "error", "Unknown astra call '" + func_name + "'");
