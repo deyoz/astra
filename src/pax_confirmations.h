@@ -12,23 +12,6 @@
 namespace PaxConfirmations
 {
 
-class NorecId
-{
-  public:
-    PointId_t pointId;
-    int paxIndex;
-
-    NorecId(const PointId_t& pointId_, const int paxIndex_) :
-      pointId(pointId_), paxIndex(paxIndex_) {}
-
-    bool operator < (const NorecId& norecId) const
-    {
-      if (pointId!=norecId.pointId)
-        return pointId<norecId.pointId;
-      return paxIndex<norecId.paxIndex;
-    }
-};
-
 class SettingsFilter
 {
   private:
@@ -129,14 +112,13 @@ class Setting
 
 typedef std::set<Setting> Settings;
 typedef std::map<PaxId_t, Settings> SettingsByPaxId;
-typedef std::list< std::pair<PaxId_t, CheckIn::TSimplePaxItem> > Passengers;
 
 class Segment
 {
   public:
     TTripInfo flt;
     CheckIn::TSimplePaxGrpItem grp;
-    Passengers paxs;
+    CheckIn::TSimplePaxList paxs;
 };
 
 typedef std::list<Segment> Segments;
@@ -159,19 +141,15 @@ class AppliedMessage
 class AppliedMessages
 {
   private:
-    std::map<PaxId_t, std::set<AppliedMessage>> messagesByPaxId;
-    std::map<NorecId, std::set<AppliedMessage>> messagesByNorecId;
+    std::map<PaxId_t, std::set<AppliedMessage>> messages;
     void get(int id, bool isGrpId);
     void get(xmlNodePtr node);
-    const std::set<AppliedMessage>& getMessages(const Segment& seg,
-                                                const int paxIndex,
-                                                const std::pair<PaxId_t, CheckIn::TSimplePaxItem>& paxPair) const;
   public:
     AppliedMessages(const PaxId_t& paxId);
     AppliedMessages(const GrpId_t& grpId);
     AppliedMessages(xmlNodePtr node);
     bool exists(const PaxId_t& paxId, const int id) const;
-    void toDB(const Segments& segs) const;
+    void toDB() const;
     void toLog(const Segments& segs) const;
 
     static bool exists(xmlNodePtr node);
@@ -189,13 +167,10 @@ class Messages
     void add(const SettingsFilter& filter, const boost::optional<AppliedMessages>& messages);
     bool toXML(xmlNodePtr node, const AstraLocale::OutputLang &lang) const;
 
-    Messages(const DCSAction::Enum dcsAction,
-             const Segments& segs,
-             const bool excludeAppliedMessages);
+    Messages(const DCSAction::Enum dcsAction, const Segments& segs);
 
     static void replyInfoToXML(xmlNodePtr messageNode,
-                               const boost::optional<PaxId_t>& paxId,
-                               const boost::optional<NorecId>& norecId,
+                               const PaxId_t& paxId,
                                const Settings& settings,
                                const AstraLocale::OutputLang &lang);
 

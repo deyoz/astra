@@ -174,8 +174,6 @@ struct EdiPnr
 
     const std::string& ediText() const { return m_ediText; }
     const edifact::EdiMessageType& ediType() const { return m_ediType; }
-
-    std::string ediTextWithCharset(const std::string& charset) const;
 };
 
 std::ostream& operator<<(std::ostream& os, const EdiPnr& ediPnr);
