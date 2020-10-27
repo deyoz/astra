@@ -34,7 +34,7 @@
 #define EMDA_VERSION                  "204000-0000000"
 #define DOCO_CONFIRM_VERSION          "204000-0000000"
 #define LAYER_PROT_SELF_CKIN          "204000-0000000"
-#define MPS_POS_PAY                   "203003-0000000"
+#define MPS_POS_PAY                   "202009-0233568"
 
 
 
