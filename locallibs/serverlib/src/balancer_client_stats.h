@@ -5,6 +5,7 @@
 #include "daemon_impl.h"
 
 #include "balancer_locks.h"
+#include <atomic>
 
 namespace balancer {
 

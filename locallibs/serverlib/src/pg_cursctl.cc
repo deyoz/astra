@@ -528,10 +528,10 @@ private:
 };
 
 template<typename T>
-T reverseValue(const char *data)
+T reverseValue(const char* data)
 {
     T result;
-    char *dest = (char *)&result;
+    char *dest = reinterpret_cast<char*>(&result);
     for(size_t i=0; i<sizeof(T); i++)
     {
         dest[i] = data[sizeof(T)-i-1];
@@ -542,8 +542,8 @@ T reverseValue(const char *data)
 template<typename T>
 T htont(T src)
 {
-#   if __FLOAT_WORD_ORDER__ == __ORDER_LITTLE_ENDIAN__
-        return reverseValue<T>((char *)&src);
+#   if __BYTE_ORDER__  == __ORDER_LITTLE_ENDIAN__
+        return reverseValue<T>(reinterpret_cast<const char*>(&src));
 #   else
         return src;
 #   endif
@@ -2397,6 +2397,47 @@ START_TEST(test_long_long)
     fail_unless(i2 == 5, "failed: i2=%d expected 5 from default for NULL", i2);
 } END_TEST
 
+START_TEST(pg_test_float)
+{
+    float e = 0.001f;
+    float f1 = 12345.67f, f2 = 0.00f;
+    make_curs("select 2.34 where ABS(12345.67 - :i) <= 0.001").bind(":i", f1).def(f2).EXfet();
+    fail_unless(fabs(2.34f - f2) <= e, "failed: f2=%f expected 2.34", f2);
+    fail_unless(12345.67f == f1, "failed: f1=%f expected 12345.67", f1);
+
+    f1 = -12345.67f, f2 = 0.00f;
+    make_curs("select 3.0 where :i < -5").bind(":i", f1).def(f2).EXfet();
+    fail_unless(fabs(3.0f - f2) <= e, "failed: f2=%f expected 3.0", f2);
+
+    short defInd = 0;
+    make_curs("select null").def(f2, &defInd).EXfet();
+    fail_unless(f2 == 0.00, "failed: f2=%f expected 0.00 for NULL", f2);
+
+    make_curs("select null").defNull(f2, 5.1f).EXfet();
+    fail_unless(f2 == 5.1f, "failed: f2=%f expected 5.1 from default for NULL", f2);
+}
+END_TEST
+
+START_TEST(pg_test_double)
+{
+    double f1 = 12345.6789, f2 = 0.00;
+    make_curs("select 2.34 where :i = float '12345.6789'").bind(":i", f1).def(f2).EXfet();
+    fail_unless(2.34 == f2, "failed: f2=%lf expected 2.34", f2);
+    fail_unless(12345.6789 == f1);
+
+    f1 = -12345.67, f2 = 0.00;
+    make_curs("select 3.0 where :i < -5").bind(":i", f1).def(f2).EXfet();
+    fail_unless(3.0 == f2, "failed: f2=%lf expected 3.0", f2);
+
+    short defInd = 0;
+    make_curs("select null").def(f2, &defInd).EXfet();
+    fail_unless(f2 == 0.00, "failed: f2=%lf expected 0.00 for NULL", f2);
+
+    make_curs("select null").defNull(f2, 5.1).EXfet();
+    fail_unless(f2 == 5.1, "failed: f2=%lf expected 5.1 from default for NULL", f2);
+}
+END_TEST
+
 START_TEST(test_date)
 {
     boost::gregorian::date d1(boost::gregorian::from_simple_string("1980-07-09")), d2;
@@ -3727,6 +3768,8 @@ TCASEREGISTER(setupReadOnly, nullptr)
     ADD_TEST(test_short);
     ADD_TEST(test_int);
     ADD_TEST(test_unsigned);
+    ADD_TEST(pg_test_double);
+    ADD_TEST(pg_test_float);
     ADD_TEST(test_long_long);
     ADD_TEST(test_date);
     ADD_TEST(test_date_special);
