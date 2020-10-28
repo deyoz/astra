@@ -1143,13 +1143,7 @@ static std::string FP_runArchStep(const std::vector<std::string>& par)
 static std::string FP_runArch(const std::vector<std::string>& par)
 {
     ASSERT(par.size() == 1);
-    //boost::gregorian::date d = boost::posix_time::second_clock::local_time().date();
-    //std::string fmt = "%d%m%y";
     Dates::DateTime_t date = HelpCpp::time_cast(par.at(0).c_str(), "%d%m%y");
-
-    //TDateTime utcdate = BASIC::date_time::BoostToDateTime(d);
-    //LogTrace(TRACE5) << __FUNCTION__ << " time: " << DateTimeToStr( utcdate, "DD.MM.YYYY" ); //HelpCpp::string_cast(send_time, "%H%M%S");
-
     bool resultPg = PG_ARX::arx_daily(date);
     bool result = arx_daily(BoostToDateTime(date));
     return "";

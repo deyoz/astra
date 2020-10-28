@@ -386,8 +386,6 @@ public:
         return *this;
     }
 
-
-
     template<typename Err>
     Cursor & noThrowError(Err err)
     {

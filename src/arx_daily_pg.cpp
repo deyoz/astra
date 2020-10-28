@@ -405,7 +405,6 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
                             arx_stat_reprint(point_id, part_key);
                             arx_trfer_pax_stat(point_id, part_key);
                             arx_bi_stat(point_id, part_key);
-                            //TODO
                             arx_agent_stat(point_id, part_key);
                             arx_stat(point_id, part_key);
                             arx_trfer_stat(point_id, part_key);

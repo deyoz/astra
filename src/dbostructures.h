@@ -2437,6 +2437,7 @@ struct STAT_ZAMAR
     std::string airp;
     int amount_ok;
     int amount_fault;
+    std::string sbdo_type;
 
     template<typename Action>
     void persist(Action & a) {
@@ -2445,6 +2446,7 @@ struct STAT_ZAMAR
         dbo::field(a,airp,"AIRP", dbo::NotNull);
         dbo::field(a,amount_ok,"AMOUNT_OK", dbo::NotNull);
         dbo::field(a,amount_fault,"AMOUNT_FAULT", dbo::NotNull);
+        dbo::field(a,sbdo_type,"SBDO_TYPE", dbo::NotNull);
     }
 };
 
