@@ -137,12 +137,7 @@ locallibs/jxtlib/Makefile
 locallibs/jxtlib/src/Makefile
 locallibs/libcoretypes/Makefile
 locallibs/libcoretypes/src/Makefile
-locallibs/libjms/AUTHORS
-locallibs/libjms/COPYING
-locallibs/libjms/ChangeLog
 locallibs/libjms/Makefile
-locallibs/libjms/NEWS
-locallibs/libjms/README
 locallibs/libjms/examples/Makefile
 locallibs/libjms/src/Makefile
 locallibs/libjms/tests/Makefile
