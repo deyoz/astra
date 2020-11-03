@@ -1,0 +1,3 @@
+# required for Makefile in sirenalibs
+echo "nothing to do"
+

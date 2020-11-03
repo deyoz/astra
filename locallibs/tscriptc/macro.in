@@ -1,0 +1,49 @@
+$(defmacro m1 a b c=dc d=dd
+$(a)+$(b)+$(c)+$(d)
+)
+
+$(defmacro m2 d $(m1 [$(d)]))
+
+$(m1)
+$(m1 va vb vc vd)
+$(m1 d=vd va)
+$(m2 va)
+
+$(if 1 a b)
+$(if {{0}} a b)
+$(if 1 a)
+$(if 0 a)
+$(expr 1 + 2)
+$(if $(expr 1 < 2) "1 < 2" "1 > 2")
+$(if $(expr 1 > 2) "1 > 2" "1 < 2")
+
+$(defmacro repeat count body
+    $(if $(expr $(count) > 0)
+        $(body)$(repeat $(expr $(count) - 1) $(body))))
+$(repeat 5 $(a))
+
+$(defmacro big-block
+{
+<<
+TLGLINE1
+TLGLINE2
+TLGLINE2
+
+>>
+REQLINE1
+REQLINE2
+
+LINE1
+LINE2
+
+LINE3
+})
+
+$(big-block)
+
+$(defmacro macro-seq {a}{b})
+$(macro-seq)
+
+$(defmacro SPACE-SEPARATED-NAME {a b})
+$(defmacro SPACE-SEPARATED-VALUE {c d})
+$(f $(SPACE-SEPARATED-NAME)=$(SPACE-SEPARATED-VALUE))
