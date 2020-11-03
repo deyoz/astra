@@ -1,0 +1,13 @@
+INSTALL
+dc_chk
+deq_message
+enq_message
+file2queue
+perf_chk
+resender
+resender_fork
+mq_tests
+aq_addr_parser
+amqp_addr_parser
+examples/amqexample
+libjms-conf
