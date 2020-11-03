@@ -1,0 +1,92 @@
+#ifndef CORETYPES_PACKER_H
+#define CORETYPES_PACKER_H
+
+#include <serverlib/json_packer.h>
+#include <serverlib/period.h>
+
+#include "coretypes.h"
+
+namespace json_spirit
+{
+
+JSON_PACK_UNPACK_DECL(ct::FlightNum);
+JSON_PACK_UNPACK_DECL(ct::Suffix);
+JSON_PACK_UNPACK_DECL(ct::Recloc);
+JSON_PACK_UNPACK_DECL(ct::RemoteRecloc);
+JSON_PACK_UNPACK_DECL(ct::Rbd);
+JSON_PACK_UNPACK_DECL(ct::Cabin);
+JSON_PACK_UNPACK_DECL(ct::Seat);
+JSON_PACK_UNPACK_DECL(ct::SegId);
+JSON_PACK_UNPACK_DECL(ct::PassId);
+JSON_PACK_UNPACK_DECL(ct::SsrId);
+JSON_PACK_UNPACK_DECL(ct::OsiId);
+JSON_PACK_UNPACK_DECL(ct::SvcId);
+JSON_PACK_UNPACK_DECL(ct::SpaceId);
+JSON_PACK_UNPACK_DECL(ct::DocId);
+JSON_PACK_UNPACK_DECL(ct::DocNumber);
+
+JSON_PACK_UNPACK_DECL(ct::GroupName);
+JSON_PACK_UNPACK_DECL(ct::TicketSer);
+JSON_PACK_UNPACK_DECL(ct::TicketNum);
+JSON_PACK_UNPACK_DECL(ct::AccountCode);
+JSON_PACK_UNPACK_DECL(ct::Coupon);
+JSON_PACK_UNPACK_DECL(ct::LegNum);
+JSON_PACK_UNPACK_DECL(ct::SegNum);
+JSON_PACK_UNPACK_DECL(ct::Version);
+JSON_PACK_UNPACK_DECL(ct::DeiCode);
+
+JSON_PACK_UNPACK_DECL(ct::Flight);
+JSON_PACK_UNPACK_DECL(ct::FlightDate);
+JSON_PACK_UNPACK_DECL(ct::FlightSeg);
+JSON_PACK_UNPACK_DECL(ct::FlightSegDate);
+JSON_PACK_UNPACK_DECL(ct::RbdOrder2);
+JSON_PACK_UNPACK_DECL(ct::RbdLayout);
+JSON_PACK_UNPACK_DECL(ct::Cabins);
+JSON_PACK_UNPACK_DECL(ct::Rbds);
+
+JSON_PACK_UNPACK_DECL(Period);
+JSON_PACK_UNPACK_DECL(Freq);
+JSON_PACK_UNPACK_DECL(DayRange);
+
+JSON_PACK_UNPACK_DECL(ct::Agency);
+JSON_PACK_UNPACK_DECL(ct::Ppr);
+JSON_PACK_UNPACK_DECL(ct::Pult);
+JSON_PACK_UNPACK_DECL(ct::Operator);
+
+JSON_PACK_UNPACK_DECL(ct::PassType);
+JSON_PACK_UNPACK_DECL(ct::Sex);
+JSON_PACK_UNPACK_DECL(ct::EmdType);
+JSON_PACK_UNPACK_DECL(ct::SegStatus);
+JSON_PACK_UNPACK_DECL(ct::SegStatus::Code);
+JSON_PACK_UNPACK_DECL(ct::ArrStatus);
+JSON_PACK_UNPACK_DECL(ct::ArrStatus::Code);
+JSON_PACK_UNPACK_DECL(ct::SsrStatus);
+JSON_PACK_UNPACK_DECL(ct::SsrStatus::Code);
+JSON_PACK_UNPACK_DECL(ct::SvcStatus);
+JSON_PACK_UNPACK_DECL(ct::SvcStatus::Code);
+JSON_PACK_UNPACK_DECL(ct::SpecRes);
+
+JSON_PACK_UNPACK_DECL(ct::PredPoint);
+JSON_PACK_UNPACK_DECL(ct::DocTypeEx);
+JSON_DESC_TYPE_DECL(ct::Checkin);
+JSON_PACK_UNPACK_DECL(ct::SegTime);
+
+JSON_PACK_UNPACK_DECL(ct::Carf);
+
+JSON_PACK_UNPACK_DECL(ct::RfiscSubCode);
+JSON_PACK_UNPACK_DECL(ct::RfiscCommercialName);
+JSON_PACK_UNPACK_DECL(ct::RfiscGroupCode);
+JSON_PACK_UNPACK_DECL(ct::RfiscGroup);
+JSON_PACK_UNPACK_DECL(ct::RfiscSubGroupCode);
+JSON_PACK_UNPACK_DECL(ct::RfiscSubGroup);
+JSON_PACK_UNPACK_DECL(ct::Rfic);
+
+JSON_PACK_UNPACK_DECL(ct::TypebAddress);
+JSON_PACK_UNPACK_DECL(ct::EdiAddress);
+JSON_PACK_UNPACK_DECL(ct::LangCode);
+JSON_PACK_UNPACK_DECL(ct::ServiceType);
+JSON_PACK_UNPACK_DECL(ct::SsrCode);
+
+} // json_spirit
+
+#endif /* CORETYPES_PACKER_H */
