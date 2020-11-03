@@ -1,0 +1,30 @@
+#!/bin/sh 
+if [ "$LOCALCC" = "" ] ; then
+	LOCALCC=gcc
+fi
+
+if [ "$LOCALCXX" = "" ] ; then
+	LOCALCXX=g++
+fi
+
+CC=$LOCALCC
+CXX=$LOCALCXX
+CFLAGS=$LOCALCFLAGS
+
+if [ "$1" = "-f" ] ; then
+     echo "skip -f option"
+     shift
+fi
+if [ "$1" = "-shared" ] ; then
+     shift
+     shared_mode="--enable-shared --disable-static"
+fi
+
+libssim_xp_flags=''
+if [ "$XP_TESTING" ]; then
+    libssim_xp_flags='--enable-xp-testing'
+fi
+pwd
+set -x
+autoreconf --force --install && ./configure --silent CFLAGS="$CFLAGS" CXXFLAGS="$CFLAGS" CC="$CC" CXX="$CXX" $libssim_xp_flags $WITH_BOOST $shared_mode $@
+
