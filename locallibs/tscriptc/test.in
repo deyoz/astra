@@ -1,0 +1,54 @@
+$(rsd НН-109 $(ddmmyy +10) max )
+$(?? {})
+%%
+a = \ # comment1
+a = \    
+a
+b$(foo a b)
+c{ab {} c #}#
+{ET###123}
+%%
+d
+{ $(foo a=1 b={2} c d e) }
+{
+  { a }
+  b
+  c d
+}
+~ a=1\
+ b = 2 \
+    c = 3
+~ a=1 b=2 c = 3      
+<<body-as-param
+<<
+??
+;;
+??
+a
+;;
+>> mode  =  "regex" "" a=1 b=2 c=3 d e f g h
+>> mode=regex
+line1
+line2;;
+
+>> mode=regex
+line1
+!! capture=on
+line2!!!
+
+>> mode=regex
+line1
+line2
+%%
+??
+
+!! REQ capture=on;;
+
+!!
+  ;;
+!!
+foo1
+foo2
+;;
+??
+before-eofff
