@@ -1,0 +1,6 @@
+conftest.c
+local_after.tcl
+local_before.tcl
+serverlibconfig
+common*mk
+common*old

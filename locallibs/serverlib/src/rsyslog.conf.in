@@ -1,0 +1,84 @@
+# start rsyslogd with this command
+# /usr/sbin/rsyslogd -d -c5 -n -i /tmp/rs.pid -f $PWD/rsys.conf
+
+#Settings for local and sending  to remote server
+
+$ModLoad imtcp
+$InputTCPServerRun 9514
+
+$outchannel log_rotate_log1, @LOGDIR@/sirena.log, 2147483648, @LOGDIR@/logrotate.sh @LOGDIR@/sirena.log
+
+$outchannel log_rotate_loginet, @LOGDIR@/internet.log, 2147483648, @LOGDIR@/logrotate.sh @LOGDIR@/internet.log
+
+$outchannel log_rotate_logjxt, @LOGDIR@/jxt.log, 2147483648, @LOGDIR@/logrotate.sh @LOGDIR@/jxt.log
+
+$outchannel log_rotate_logdaemon, @LOGDIR@/daemon.log, 2147483648, @LOGDIR@/logrotate.sh @LOGDIR@/daemon.log
+
+$outchannel log_rotate_logairimp, @LOGDIR@/logairimp.log, 2147483648, @LOGDIR@/logrotate.sh @LOGDIR@/logairimp.log
+
+$outchannel log_rotate_log_sys, @LOGDIR@/system.log, 2147483648, @LOGDIR@/logrotate.sh @LOGDIR@/system.log
+
+$outchannel log_rotate_logfcgi, @LOGDIR@/fcgi.log, 2147483648, @LOGDIR@/logrotate.sh @LOGDIR@/fcgi.log
+
+$outchannel log_rotate_tclmon, @LOGDIR@/tclmon.log, 2147483648, @LOGDIR@/logrotate.sh @LOGDIR@/tclmon.log
+
+$outchannel log_rotate_airimp, @LOGDIR@/airimp.log, 2147483648, @LOGDIR@/logrotate.sh @LOGDIR@/airimp.log
+
+$outchannel log_rotate_appraiser, @LOGDIR@/appraiser.log, 2147483648, @LOGDIR@/logrotate.sh @LOGDIR@/appraiser.log
+
+#Replace 'emms:' to valid value
+#$template ForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %syslogtag:1:32%emms:%msg:::drop-last-lf%"
+$template LocalFormat, "%TIMESTAMP:::date-rfc3339% %procid% %msg:::drop-last-lf%\n"
+
+#М.б. нужно отсортировать правила по убыванию количества логов для разных групп.
+#Кажется, rsyslog проверяет правила до первого совпадения
+:app-name, startswith, "log1" :omfile:$log_rotate_log1;LocalFormat
+:app-name, startswith, "loginet" :omfile:$log_rotate_loginet;LocalFormat
+:app-name, startswith, "logjxt" :omfile:$log_rotate_logjxt;LocalFormat
+:app-name, startswith, "logdaemon" :omfile:$log_rotate_logdaemon;LocalFormat
+:app-name, startswith, "logairimp" :omfile:$log_rotate_logairimp;LocalFormat
+:app-name, startswith, "log_sys" :omfile:$log_rotate_log_sys;LocalFormat
+:app-name, startswith, "logfcgi" :omfile:$log_rotate_logfcgi;LocalFormat
+:app-name, startswith, "tclmon" :omfile:$log_rotate_tclmon;LocalFormat
+:app-name, startswith, "airimp" :omfile:$log_rotate_airimp;LocalFormat
+:app-name, startswith, "logappraiser" :omfile:$log_rotate_appraiser;LocalFormat
+
+#*.* @@127.0.0.1:9515;ForwardFormat #send all logs
+
+#End settings for local and sending  to remote server
+
+
+#Settings for receive remote logs. Uncomment all
+
+#$ModLoad imtcp
+#$InputTCPServerRun 9515
+
+##$outchannel log_rotation,/var/log/log_rotation.log, 52428800,/home/me/./log_rotation_script
+##$outchannel log_rotate,@LOGDIR@/other.log, 30000,/home/nonstop/work/serverlibTesting/src/logrotate.sh
+
+#$outchannel log_rotate_log1, @LOGDIR@/sirena.log, 104857600, @LOGDIR@/logrotate.sh @LOGDIR@/sirena.log
+#$outchannel log_rotate_loginet, @LOGDIR@/internet.log, 104857600, @LOGDIR@/logrotate.sh @LOGDIR@/internet.log
+#$outchannel log_rotate_logjxt, @LOGDIR@/ejxt.log, 104857600, @LOGDIR@/logrotate.sh @LOGDIR@/ejxt.log
+#$outchannel log_rotate_logdaemon, @LOGDIR@/daemon.log, 104857600, @LOGDIR@/logrotate.sh @LOGDIR@/daemon.log
+#$outchannel log_rotate_logairimp, @LOGDIR@/logairimp.log, 104857600,@LOGDIR@/logrotate.sh @LOGDIR@/logairimp.log
+#$outchannel log_rotate_log_sys, @LOGDIR@/system.log, 104857600, @LOGDIR@/logrotate.sh @LOGDIR@/system.log
+#$outchannel log_rotate_logappraiser, @LOGDIR@/appraiser.log, 104857600, @LOGDIR@/logrotate.sh @LOGDIR@/appraiser.log
+
+#$template LocalFormat,"%TIMESTAMP:::date-rfc3339% %procid% %msg:::drop-last-lf%\n"
+
+##Rule set for message with prifix 'emms:'.
+
+#if ($msg startswith 'emms:') and ($app-name startswith 'log1') then :omfile:$log_rotate_log1;LocalFormat
+#if ($msg startswith 'emms:') and ($app-name startswith 'loginet') then :omfile:$log_rotate_loginet;LocalFormat
+#if ($msg startswith 'emms:') and ($app-name startswith 'logjxt') then :omfile:$log_rotate_logjxt;LocalFormat
+#if ($msg startswith 'emms:') and ($app-name startswith 'logdaemon') then :omfile:$log_rotate_logdaemon;LocalFormat
+#if ($msg startswith 'emms:') and ($app-name startswith 'logairimp') then :omfile:$log_rotate_logairimp;LocalFormat
+#if ($msg startswith 'emms:') and ($app-name startswith 'log_sys') then :omfile:$log_rotate_log_sys;LocalFormat
+#if ($msg startswith 'emms:') and ($app-name startswith 'logappraiser') then :omfile:$log_rotate_logappraiser;LocalFormat
+
+##End rule set for message with prifix 'emms:'.
+
+#End settings for receive remote logs.
+
+#*.* ~ #distinct all
+
