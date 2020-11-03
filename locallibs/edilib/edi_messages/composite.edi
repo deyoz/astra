@@ -1,0 +1,1149 @@
+ # File for inserting composite structure 
+# Composite: composite_name  "Text about this composite "    
+#      Pos  Data_Elem  M/C R     
+
+#####################################
+Composite: S001 "Syntax identifier"      
+0010 0001 M 1
+0020 0002 M 1
+
+Composite: S002 "Interchange sender"
+0010 0004 M 1
+0020 0007 C 1
+0030 0008 C 1
+
+Composite: S003 "Interchange recipient"
+0010 0010 M 1
+0020 0007 C 1
+0030 0014 C 1
+
+Composite: S004 "Date/time of preparation"
+0010 0017 M 1
+0020 0019 M 1
+
+Composite: S005 "Recipient's reference, password"
+0010 0022 M 1
+0020 0025 C 1
+
+Composite: S009 "Message identifer"
+0010 0065 M 1
+0020 0052 M 1
+0030 0054 M 1
+0040 0051 M 1
+0050 0057 C 1
+
+Composite: S010 "Status of the transfer"
+0010 0070 M 1
+0020 0073 C 1
+
+Composite: S011 "Data element identification"
+0010 0098 M 1
+0020 0104 C 1
+#####################################
+
+Composite: C336 "System details"
+0010 9906 C 1
+0020 3225 C 1
+0030 3224 C 1
+
+Composite: C300 "Originator details"
+0010 9900 C 1
+0020 9902 C 1
+0030 9902 C 1
+0040 9902 C 1
+
+Composite: C328 "Location"
+0010 3225 C 1
+0020 3224 C 1
+
+Composite: C354 "Originator details"
+0010 3207 C 1
+0020 6345 C 1
+0030 3453 C 1
+
+Composite: C302 "Message function / business details"
+0010 4025 C 1
+0020 1225 C 1
+0030 3055 C 1 
+0040 1225 C 20
+
+Composite: C337 "Source type"
+0010 7293 M 2
+
+Composite: C330 "Reservation control information"
+0010 9906 C 1
+0020 9956 C 1
+0030 9958 C 1
+0040 9916 C 1
+0050 9994 C 1
+
+Composite: C186 "Quantity details"
+0010 6063 M 1
+0020 6060 M 1
+0030 6411 C 1
+
+Composite: C653 "Referencing details"
+0010 1153 C 1
+0020 1154 C 1
+
+Composite: C280 "Range"
+0010 6411 C 1
+0020 6162 C 1
+0030 6152 C 1
+
+Composite: C049 "Row characteristics details"
+0010 9864 M 9
+
+Composite: C051 "Seat occupation details"
+0010 9831 M 1
+0020 9865 C 1
+0030 9825 C 38
+
+Composite: C660 "Selection details information"
+0010 9750 M 1
+0020 9749 C 1
+
+Composite: C344 "Generic details"
+0010 9854 C 1
+0020 9807 C 1
+0030 9873 C 1
+0040 9992 C 1
+0050 9825 C 5
+
+Composite: C047 "Range of row details"
+0010 9830 M 1
+0020 6804 C 1
+0030 9831 C 20
+
+Composite: C334 "Special requirements type details"
+0010 9962 M 1
+0020 4405 C 1
+0030 6060 C 1
+0040 9906 C 1
+0050 7365 C 1
+0060 7365 C 1
+0070 3225 C 1
+0080 3225 C 1
+0090 4440 C 99
+
+Composite: C332 "Special requirements data details"
+0010 9960 C 1
+0020 6411 C 1
+0030 9944 C 1
+0040 9825 C 5
+
+Composite: C687 "Class information"
+0010 7037 C 1
+0020 9873 C 1
+
+Composite: C322 "Traveller surname information"
+0010 9936 M 1
+0020 6353 C 1
+0030 6060 C 1
+0040 4405 C 1
+
+Composite: C324 "Traveller details"
+0010 9942 C 1
+0020 6353 C 1
+0030 9944 C 1
+0040 9946 C 1
+0050 9754 C 2
+
+Composite: C306 "Company identification"
+0010 9906 C 1
+0020 9906 C 1
+0030 9906 C 1
+
+Composite: C308 "Product identification details"
+0010 9908 M 1
+0020 7037 C 1
+0030 9914 C 1
+0040 7009 C 3
+
+Composite: C338 "Traffic restriction details"
+0010 9930 C 1
+0020 9968 C 1
+0030 9966 C 1
+0040 4440 C 1
+
+Composite: C310 "Product date/time"
+0010 9916 C 1
+0020 9918 C 1
+0030 9920 C 1
+0040 9922 C 1
+0050 9954 C 1
+
+Composite: C309 "Product type details"
+0010 1050 M 9
+
+Composite: C311 "Marriage control details"
+0010 5479 C 1
+0020 9995 C 1
+0030 1082 C 1
+0040 5479 C 1
+0050 9906 C 1
+
+Composite: C055 "Warning details"
+0010 9876 M 1
+0020 9845 C 1
+0030 4440 C 1
+
+Composite: C346 "Free text qualification"
+0010 4451 M 1
+0020 9980 C 1
+0030 4405 C 1
+0040 9906 C 1
+0050 3453 C 1
+
+Composite: C997 "Accommodation allocation information"
+0010 1154 M 1
+0020 9143 M 1
+0030 7904 C 1
+0040 7907 C 1
+0050 9960 C 99
+
+Composite: C314 "Additional product details"
+0010 8179 C 1
+0020 9924 C 1
+0030 9926 C 1
+0040 5482 C 1
+0050 9928 C 1
+0060 2380 C 1
+0070 9950 C 1
+0080 3225 C 3
+
+Composite: C348 "Station information"
+0010 9870 C 1
+0020 3223 C 2
+
+Composite: C317 "Miliage/time details"
+0010 6314 C 1
+0020 6411 C 1
+0030 9918 C 1
+
+Composite: C318 "Traveller time details"
+0010 9918 C 1
+0020 9922 C 1
+0030 9952 C 1
+
+Composite: C320 "Product facilities"
+0010 9932 C 1
+0020 9934 C 1
+0030 9970 C 1
+0040 7037 C 26
+
+Composite: C042 "Flight service details"
+0010 9871 C 4
+
+Composite: C342 "Cabin class designation"
+0010 9854 M 1
+0020 7037 C 1
+0030 9873 C 1
+0040 9992 C 1
+
+Composite: C052 "Cabin class seat row range details"
+0010 9830 M 2
+
+Composite: C053 "Smoking area seat row range details"
+0010 9830 M 2
+
+Composite: C058 "Overwing seat row range"
+0010 9830 M 2
+
+Composite: C054 "Cabin width and column details"
+0010 9831 M 1
+0020 9882 C 2
+
+Composite: C340 "Cabin facilities details"
+0010 9978 M 1 
+0020 3227 C 1
+
+Composite: C312 "Connection details"
+0010 3225 C 1
+0020 9906 C 1
+0030 9918 C 1
+0040 9922 C 1
+0050 7365 C 1
+
+Composite: C688 "Data and time details"
+0010 2005 C 1
+0020 9916 C 1
+0030 9918 C 1
+0040 2005 C 1
+0050 9918 C 1
+0060 8335 C 1
+0070 3225 C 1
+
+Composite: C206 "Identification number"
+0010 7402 M 1
+0020 7405 C 1
+
+Composite: C674 "Excess baggage details"
+0010 6345 C 1
+0020 5004 C 1
+0030 7365 C 1
+
+Composite: C675 "Baggage details"
+0010 6060 C 1
+0020 6314 C 1
+0030 5463 C 1
+0040 6411 C 1
+
+Composite: C358 "Bagtag details"
+0010 9906 C 1
+0020 7140 M 1
+0030 7240 C 1
+0040 3225 C 1
+0050 9996 C 1
+0060 9988 C 1
+0070 7081 C 1
+
+Composite: C048 "Configuration details"
+0010 9854 M 1
+0020 6800 C 1
+0030 7037 C 26
+
+Composite: C361 "Additional equipment information"
+0010 9866 C 2
+0020 9906 C 1
+0030 8260 C 1
+0040 9978 C 2
+
+Composite: C523 "Number of unit details"
+0010 6350 C 1
+0020 6353 C 1
+
+Composite: C901 "Application error information"
+0010 9321 M 1
+0020 1131 C 1
+0030 3055 C 1
+
+Composite: C056 "Error information"
+0010 9876 M 1
+0020 9845 C 1
+0030 4440 C 1
+
+Composite: C326 "Frequent traveller identification"
+0010 9906 M 1
+0020 9948 M 1
+0030 9944 C 1
+0040 4405 C 1
+0050 7456 C 1
+
+Composite: C676 "Message conditions"
+0010 3153 C 1
+0020 6350 C 1
+0030 7365 C 2
+0040 6411 C 1
+0050 7240 C 1
+0060 5479 C 9
+######################################
+Composite: C677 "Message equipment details"
+0010 8053 M 1
+0020 8249 C 1
+0030 8155 C 1
+
+Composite: C304 "Product details"
+0010 7037 M 1
+0020 7011 C 1
+0030 7161 C 1
+0040 7009 C 4
+
+Composite: C517 "Location identification"
+0010 3225 C 1
+0020 1131 C 1
+0030 3055 C 1
+0040 3224 C 1
+
+Composite: C362 "Time information"
+0010 9918 M 1
+0020 9922 C 1
+0030 9986 C 1
+0040 9954 C 1
+
+Composite: C366 "Terminal information"
+0010 3223 C 2
+
+Composite: C654 "Instruction information"
+0010 4401 C 1
+0020 4403 C 1
+
+Composite: C655 "Message/application/product information"
+0010 1225 C 1
+0020 9755 C 1
+0030 9756 C 1
+0040 3207 C 1
+0050 9916 C 1
+0060 9920 C 1
+0070 6350 C 1
+#########################################################
+Composite: C642 "Internal identification details"
+0010 9902 M 1
+0020 9893 C 1
+
+Composite: C663 "Monetary information"
+0010 5025 M 1
+0020 1230 C 1
+0030 6345 C 1
+0040 3225 C 1
+
+Composite: C664 "Pricing/ticketing information"
+0010 5387 C 1
+0020 5387 C 1
+0030 5387 C 1
+0040 5387 C 1
+0050 5387 C 1
+0060 5387 C 1
+0070 5387 C 1
+0080 5387 C 1
+0090 5387 C 1
+0100 5387 C 1
+0110 5387 C 1
+0120 5387 C 1
+0130 5387 C 1
+0140 5387 C 1
+0150 5387 C 1
+0160 5387 C 1
+0170 5387 C 1
+0180 5387 C 1
+0190 5387 C 1
+0200 5387 C 1
+0210 5387 C 1
+0220 5387 C 1
+0230 5387 C 1
+0240 5387 C 1
+0250 5387 C 1
+0260 5387 C 1
+0270 5387 C 1
+0280 5387 C 1
+0290 5387 C 1
+0300 5387 C 1
+
+Composite: C666 "Location detail"
+0010 3225 C 1
+0020 3207 C 1
+
+Composite: C641 "Form of payment details"
+0010 9888 M 1
+0020 9988 C 1
+0030 5004 C 1
+0040 9906 C 1
+0050 1154 C 1
+0060 9916 C 1
+0070 9889 C 1
+0080 9890 C 1
+0090 5004 C 1
+0100 9891 C 1
+0110 3194 C 1
+0120 2475 C 1
+0130 4440 C 1
+0140 7453 C 1
+0150 9892 C 1
+
+Composite: C993 "Tour identification"
+0010 9908 C 1
+0020 3036 C 1
+0030 6168 C 1
+0040 9924 C 1
+0050 9928 C 1
+0060 6350 C 1
+0070 6060 C 1
+
+Composite: C668 "Tax details"
+0010 5278 C 1
+0020 3207 C 1
+0030 6345 C 1
+0040 5153 C 1
+0050 5278 C 1
+0060 6345 C 1
+0070 5153 C 1
+0080 5004 C 1
+0090 5007 C 2
+
+Composite: C967 "Consumer reference identification"
+0010 1153 M 1
+0020 1154 C 1
+0030 3036 C 1
+
+Composite: C667 "Ticket number details"
+0010 1004 C 1
+0020 1001 C 1
+0030 7240 C 1
+0040 9988 C 1
+0050 1229 C 1
+0060 1004 C 1
+
+Composite: C640 "Coupon information"
+0010 1050 C 1
+0020 4405 C 1
+0030 5004 C 1
+0040 1159 C 1
+0050 9887 C 1
+0060 1245 C 1
+0070 4405 C 1
+0080 1050 C 1
+0090 1154 C 1
+0100 1229 C 1
+
+Composite: C350 "Document details"
+0010 1004 C 1
+0020 4405 C 1
+0030 2380 C 1
+0040 3207 C 1
+
+Composite: C355 "Processing details"
+0010 7365 M 1
+0020 4405 C 1
+0030 4440 C 999
+
+Composite: C643 "Rate/tarif class information"
+0010 5242 C 1
+0020 9988 C 1
+0030 5242 C 1
+0040 9988 C 1
+
+Composite: C665 "Company identification number"
+0010 9996 M 1
+0020 9996 C 1
+
+Composite: C686 "Baggage reference details"
+0010 7365 C 1
+0020 7402 C 1
+
+
+Composite: C002 "Document/message name"
+0010 1001 C 1
+0020 1131 C 1
+0030 3055 C 1
+0040 1000 C 1
+
+
+Composite: C106 "Document/message identification"
+0010 1004 C 1
+0020 1056 C 1
+0030 1060 C 1
+
+
+Composite: C082 "Party identification details"
+0010 3039 C 1
+0020 1131 C 1
+0030 3055 C 1
+
+
+#U058 (C058-UN NAME AND ADDRESS)
+Composite: U058 "Name and address"
+0010 3124 M 1
+0020 3124 C 1
+0030 3124 C 1
+0040 3124 C 1
+0050 3124 C 1
+
+
+Composite: C080 "Party name"
+0010 3036 M 1
+0020 3036 C 1
+0030 3036 C 1
+0040 3036 C 1
+0050 3036 C 1
+0060 3045 C 1
+
+
+#U059 (C059-UN STREET)
+Composite: U059 "Street"
+0010 3042 M 1
+0020 3042 C 1
+0030 3042 C 1
+0040 3042 C 1
+
+
+Composite: C076 "Communication contact"
+0010 3148 M 1
+0020 3155 M 1
+
+
+Composite: C220 "Mode of transport"
+0010 8067 M 1
+0020 8066 C 1
+
+
+Composite: C228 "Transport means"
+0010 8179 C 1
+0020 8178 C 1
+
+
+Composite: C040 "Carrier"
+0010 3127 C 1
+0020 1131 C 1
+0030 3055 C 1
+0040 3128 C 1
+
+
+Composite: C401 "Excess transportation information"
+0010 8457 M 1
+0020 8459 M 1
+0030 7130 C 1
+
+
+Composite: C222 "Transport identification"
+0010 8213 C 1
+0020 1131 C 1
+0030 3055 C 1
+0040 8212 C 1
+0050 8453 C 1
+
+
+Composite: C519 "Related location one identification"
+0010 3223 C 1
+0020 1131 C 1
+0030 3055 C 1
+0040 3222 C 1
+
+
+Composite: C553 "Related location two identification"
+0010 3233 C 1
+0020 1131 C 1
+0030 3055 C 1
+0040 3232 C 1
+
+
+Composite: C955 "Attribute type"
+0010 9021 C 1
+0020 1131 C 1
+0030 3055 C 1
+0040 9020 C 1
+
+
+Composite: C956 "Attribute detail"
+0010 9019 C 1
+0020 1131 C 1
+0030 3055 C 1
+0040 9018 C 1
+
+
+Composite: C506 "Reference"
+0010 1153 M 1
+0020 1154 C 1
+0030 1156 C 1
+0040 4000 C 1
+0050 1060 C 1
+
+
+Composite: C503 "Document/message details"
+0010 1004 C 1
+0020 1373 C 1
+0030 1366 C 1
+0040 3453 C 1
+0050 1056 C 1
+0060 1060 C 1
+
+
+Composite: C507 "Date/time/period"
+0010 2005 M 1
+0020 2380 C 1
+0030 2379 C 1
+
+
+Composite: C270 "Control"
+0010 6069 M 1
+0020 6066 M 1
+0030 6411 C 1
+
+
+Composite: C819 "Country sub-entity details"
+0010 3229 C 1
+0020 1131 C 1
+0030 3055 C 1
+0040 3228 C 1
+
+
+Composite: U042 "Nationality details"
+0010 3293 C 1
+0020 1131 C 1
+0030 3055 C 1
+0040 3292 C 1
+
+
+Composite: S006 "Application sender identification"
+0010 0040 M 1
+0020 0007 C 1
+
+
+Composite: S007 "Application recipient identification"
+0010 0044 M 1
+0020 0007 C 1
+
+
+Composite: S008 "Message version"
+0010 0052 M 1
+0020 0054 M 1
+0030 0057 C 1
+
+
+Composite: C323 "Traveller related text"
+0010 9944 C 1
+0020 4451 C 1
+0030 4440 C 9
+
+
+Composite: C662 "Fare details"
+0010 6353 C 1
+0020 5482 C 1
+0030 3207 C 1
+0040 9878 C 1
+
+
+Composite: C644 "Fare type grouping information"
+0010 5388 C 5
+
+
+Composite: C661 "Conversion rate details"
+0010 9875 C 1
+0020 6345 C 1
+0030 5419 C 1
+0040 5004 C 1
+0050 5004 C 1
+0060 5153 C 1
+0070 6314 C 1
+0080 6321 C 1
+
+
+Composite: C977 "Payment details"
+0010 5903 M 1
+0020 5905 C 1
+0030 5909 C 1
+0040 5004 C 1
+0050 6345 C 1
+0060 1154 C 1
+0070 9916 C 1
+0080 3225 C 1
+
+
+Composite: C978 "Credit card information"
+0010 3036 M 1
+0020 1154 C 1
+0030 9916 C 1
+0040 3901 C 1
+0050 9944 C 1
+
+
+Composite: C991 "Vehicle information"
+0010 8154 C 1
+0020 7402 C 1
+
+
+Composite: C211 "Dimensions"
+0010 6411 C 1
+0020 6168 C 1
+0030 6140 C 1
+0040 6008 C 1
+
+
+Composite: C992 "Position"
+0010 3223 C 1
+0020 3223 C 1
+
+
+Composite: C658 "Data type information"
+0010 9989 M 1
+0020 9011 C 1
+
+
+Composite: C659 "Data information"
+0010 9988 C 1
+0020 6060 C 1
+0030 6411 C 1
+0040 4440 C 1
+
+
+Composite: C212 "Item number identification"
+0010 7140 C 1
+0020 7143 C 1
+0030 1131 C 1
+0040 3055 C 1
+
+
+Composite: C684 "Specific traveller details"
+0010 9944 C 1
+0020 6314 C 1
+0030 9916 C 1
+0040 9936 C 1
+0050 9942 C 1
+
+
+Composite: C957 "Commission details"
+0010 4439 M 1
+0020 5004 C 1
+0030 6345 C 1
+0040 3036 C 1
+0050 4440 C 1
+
+
+Composite: C959 "Service date, time, location information"
+0010 7161 M 1
+0020 9918 C 1
+0030 9922 C 1
+0040 9916 C 1
+0050 3224 C 1
+
+
+Composite: C998 "Discount information"
+0010 4465 M 1
+0020 5482 C 1
+0030 3036 C 1
+0040 6350 C 1
+
+
+Composite: C982 "Tariff information"
+0010 5907 C 1
+0020 5004 C 1
+0030 6345 C 1
+0040 5911 C 1
+0050 5025 C 1
+0060 2152 C 1
+0070 5377 C 1
+0080 5906 C 1
+0090 9916 C 1
+0100 9920 C 1
+
+
+Composite: C983 "Rate information"
+0010 5243 C 1
+0020 6162 C 1
+0030 6152 C 1
+
+
+Composite: C984 "Associated charges information"
+0010 5901 C 1
+0020 5004 C 1
+0030 7008 C 1
+0040 6060 C 1
+0050 2901 C 1
+0060 6345 C 1
+0070 3225 C 1
+0080 4440 C 1
+
+Composite: C647 "Fare Category Codes"
+0010 5263 M 1
+0020 5263 C 8
+
+Composite: C646 "Additional fare qualifier details"
+0010 5242 C 1
+0020 7357 C 1
+0030 5388 C 1
+0040 5242 C 29
+
+Composite: C648 "Discount/penalty information"
+0010 9910 M 1
+0020 5004 C 1
+0030 5482 C 1
+
+Composite: C059 "Place of origin a request"
+0010 3127 C 1
+0020 3800 C 1
+0030 3805 C 1
+
+Composite: C012 "Requestor identification details"
+0010 3806 C 1
+0020 9879 C 1
+0030 9880 C 1
+0040 9881 C 1
+
+Composite: C013 "Outbound carrier details"
+0010 3127 M 1
+0020 3127 C 1
+
+Composite: C014 "Outbound flight number details"
+0010 3802 M 1
+0020 9801 C 1
+
+Composite: C015 "Inbound carrier details"
+0010 3127 M 1
+0020 3127 C 1
+
+Composite: C016 "Inbound flight number details"
+0010 3802 M 1
+0020 9801 C 1
+
+Composite: C017 "Passenger type details"
+0010 9819 M 1
+0020 9884 C 1
+
+Composite: C018 "Infant name details"
+0010 3808 C 1
+0020 3809 C 1
+
+Composite: C020 "Passenger party reference details"
+0010 9826 M 1
+0020 9827 M 1
+
+Composite: C021 "Surname connector details"
+0010 9828 M 1
+0020 9829 M 1
+
+Composite: C022 "Pnr on booking system details"
+0010 3127 M 1
+0020 9823 M 1
+
+Composite: C023 "Class details"
+0010 9800 M 1
+0020 9873 C 1
+
+Composite: C024 "Generic seat request details"
+0010 9807 M 1
+0020 9825 C 5
+
+Composite: C025 "Seat range request details"
+0010 9830 C 1
+0020 6804 C 1
+0030 9831 C 20
+
+Composite: C026 "Seat adjustment details"
+0010 9832 C 1
+0020 9833 C 1
+0030 6803 C 1
+
+Composite: C027 "Checked baggage details"
+0010 6806 M 1
+0020 6803 C 1
+
+Composite: C028 "Hand baggage details"
+0010 6806 C 1
+0020 6803 C 1
+
+Composite: C029 "Bag tag details"
+0010 3127 M 1
+0020 9835 M 1
+0030 9836 C 1
+0040 3259 C 1
+0050 3810 C 1
+0060 9885 C 1
+
+Composite: C030 "Ssr details"
+0010 9837 M 1
+0020 3127 C 1
+0030 9839 C 1
+0040 9886 C 1
+0050 6806 C 1
+0060 6803 C 1
+0070 4440 C 1
+0080 6353 C 1
+
+Composite: C060 "Passenger api details"
+0010 6353 C 1
+0020 3808 C 1
+0030 3809 C 1
+0040 9916 C 1
+0050 9869 C 1
+0060 9754 C 1
+0070 3207 C 1
+0080 4440 C 1
+0090 3225 C 1
+
+Composite: C686 "Baggage reference details"
+0010 7365 C 1
+0020 7402 C 1
+
+Composite: C690 "Pax id details in querying system"
+0010 9821 M 1
+0020 9821 C 1
+
+Composite: C691 "Pax id details in third party system"
+0010 9821 M 1
+0020 9821 C 1
+
+Composite: C692 "Pax id details in responding system"
+0010 9821 M 1
+0020 9821 C 1
+
+Composite: C693  "Bagtag stub information"
+0010 3127 M 1
+0020 9835 M 1
+0030 9836 C 1
+0040 3259 C 1
+0050 3810 C 1
+0060 9885 C 1
+
+Composite: C696 "Host definition"
+0010 9803 M 1
+0020 9804 C 1
+0030 3127 C 1
+
+Composite: C700 "Document id"
+0010 7365 C 1
+0020 1004 C 1
+0030 3207 C 1
+0040 9813 C 1
+0050 4440 C 1
+0060 2380 C 1
+0070 6353 C 1
+0080 9890 C 1
+0090 3228 C 1
+0100 3164 C 1
+0110 3036 C 1
+0120 2380 C 1
+0130 3808 C 1
+0140 3809 C 1
+0150 9754 C 1
+0160 9813 C 9
+0170 3224 C 1
+
+Composite: C701 "Passenger contact data"
+0010 3808 C 1
+0020 3809 C 1
+0030 3148 C 1
+0040 4440 C 1
+
+Composite: C031 "Action details"
+0010 9858 M 1
+0020 1229 C 9
+
+Composite: C032 "Address details"
+0010 3299 C 1
+0020 3042 C 1
+0030 3164 C 1
+0040 3229 C 1
+0050 3228 C 1
+0060 3207 C 1
+0070 3251 C 1
+0080 4440 C 1
+0090 3224 C 1
+
+Composite: C034 "Update seat adjustment details"
+0010 9858 M 1
+0020 9832 C 1
+0030 9833 C 1
+0040 6803 C 1
+
+
+Composite: C035 "Update checked baggage details"
+0010 9858 M 1
+0020 6806 C 1
+0030 6803 C 1
+
+
+Composite: C036 "Update hand baggage details"
+0010 9858 M 1
+0020 6806 C 1
+0030 6803 C 1
+
+
+Composite: C037 "Update bag tag details"
+0010 9858 M 1
+0020 3127 M 1
+0030 9835 M 1
+0040 9836 C 1
+0050 3259 C 1
+0060 3810 C 1
+0070 9885 C 1
+
+
+Composite: C038 "Update SSR details"
+0010 9858 M 1
+0020 9837 M 1
+0030 3127 C 1
+0040 9839 C 1
+0050 9886 C 1
+0060 6806 C 1
+0070 6803 C 1
+0080 4440 C 1
+0090 6353 C 1
+
+
+Composite: C039 "Update OSI details"
+0010 9858 M 1
+0020 9838 M 1
+
+
+Composite: C041 "Complexing flight details"
+0010 3802 M 1
+0020 3215 M 1
+0030 3259 M 1
+0040 3127 C 1
+0050 9801 C 1
+
+
+Composite: C043 "Seat details"
+0010 9809 C 1
+0020 9861 C 1
+
+
+Composite: C044 "Seat definition details"
+0010 9807 C 1
+0020 9854 C 1
+0030 9873 C 1
+0040 4440 C 1
+0050 3215 C 1
+0060 3259 C 1
+0070 7800 C 1
+0080 9862 C 1
+0090 9825 C 5
+
+
+Composite: C045 "Boarding security code details"
+0010 9874 M 1
+0020 9874 C 1
+
+
+Composite: C694 "Bag pool reference"
+0010 9858 M 1
+0020 7365 C 1
+0030 7402 C 1
+
+
+Composite: C695 "Update bagtag stub information"
+0010 9858 M 1
+0020 3127 M 1
+0030 3802 M 1
+0040 2281 M 1
+0050 3259 M 1
+0060 9800 C 1
+0070 9801 C 1
+
+
+Composite: C046 "Passenger selection details"
+0010 3808 M 1
+0020 3809 C 1
+0030 9800 C 1
+0040 9824 C 1
+
+
+Composite: C057 "Bag tag selection details"
+0010 3127 M 1
+0020 9835 M 1
+
+
+Composite: C502 "Measurement details"
+0010 6313 C 1
+0020 6321 C 1
+0030 6155 C 1
+
+
+Composite: C174 "Value/range"
+0010 6411 C 1
+0020 6314 C 1
+0030 6162 C 1
+0040 6152 C 1
+
+
+Composite: C107 "Text reference"
+0010 4441 M 1
+0020 1131 C 1
+0030 3055 C 1
+
+
+Composite: C108 "Text literal"
+0010 4444 M 1
+0020 4444 C 1
+0030 4444 C 1
+0040 4444 C 1
+0050 4444 C 1
+
+
+Composite: C697 "Api passenger details"
+0010 9916 C 1
+0020 1004 C 1
+0030 3207 C 1
+0040 3809 C 1
+0050 3808 C 1
+0060 9869 C 1
+0070 4440 C 1

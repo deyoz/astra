@@ -1,0 +1,1183 @@
+ # File for inserting message structure 
+# Message:  message_name "Text about this message "    
+#         Pos  Tag    M/C R
+#Sg[n]:   Pos  MaxPos M/C R
+
+Message:  HWPREQ  "Message structure for hybrid wrap up request"
+	
+	0005 UNB M 1
+	0010 UNH M 1
+	0020 MSG M 9
+Sg1:	0030 050 C 1
+	0040 ORG M 1
+	0050 ABI C 2
+	0060 RCI C 1
+	0070 LTS M 1
+	0080 UNT M 1
+        0090 UNZ M 1
+
+Message:  HWPRES  "Message structure for hybrid wrap up response"
+        
+	0005 UNB M 1
+        0010 UNH M 1
+        0020 MSG M 1
+        0030 RCI C 1
+Sg1:    0040 060 C 5
+        0050 ERC M 1
+        0060 IFT C 1
+        0070 LTS C 1
+        0080 UNT M 1
+        0090 UNZ M 1
+
+Message:  ITAREQ  "Inventory adjustment request"
+
+	0005 UNB M 1
+        0010 UNH M 1 
+        0020 MSG C 1
+Sg1:	0030 050 C 1
+        0040 ORG M 1
+        0050 ABI C 2
+        0060 RCI C 1
+        0070 EQN C 1
+        0080 FTI C 1
+        0090 SDT C 1
+        0100 SSR C 9
+	0105 POC C 1
+Sg2:    0110 140 C 999
+        0120 TIF M 1
+        0130 FTI C 99
+        0140 SSR C 9
+Sg3:    0150 400 C 99
+        0160 ODI M 1
+        0170 MSG C 1
+Sg4:    0180 400 M 99
+        0190 TVL M 1
+        0200 APD C 1
+        0210 RPI C 1
+        0220 RCI C 1
+        0230 EQN C 1
+        0240 FTI C 1
+        0250 PDI C 1
+        0260 SDT C 1
+        0270 SSR C 9
+        0280 REF C 1
+Sg5:     0290 320 C 999
+        0300 TIF M 1
+        0310 FTI C 99
+        0320 SSR C 9
+Sg6:     0330 360 C 20
+        0340 SAC M 1
+        0350 ODI M 1
+        0360 PDI M 4
+        0370 IFT C 1
+Sg7:	0380 400 C 1
+	0390 DUM M 1
+	0400 TVL M 1
+        0410 UNT M 1
+        0420 UNZ M 1
+
+
+Message:  ITARES  "Inventory adjustment response"
+
+	0005 UNB M 1
+        0010 UNH M 1
+        0020 MSG C 1
+        0030 RCI C 1
+        0040 EQN C 1
+        0050 IFT C 1
+Sg1:    0060 080 C 5
+        0070 ERC M 1
+        0080 IFT C 1
+Sg2:    0090 370 C 99
+        0100 ODI M 1
+        0110 MSG C 1
+        0120 IFT C 1
+Sg3:    0130 150 C 5
+        0140 ERC M 1
+        0150 IFT C 1
+Sg4:    0160 370 C 99
+        0170 TVL M 1
+        0180 APD C 1
+        0190 RPI C 1
+        0200 RCI C 1
+        0210 EQN C 1
+        0220 PDI C 1
+        0230 SDT C 1
+        0240 IFT C 1
+        0250 SSR C 9
+Sg5:    0260 280 C 5
+        0270 ERC M 1
+        0280 IFT C 1
+        0290 TBI C 1
+        0300 EBD C 1
+        0310 QTY C 1
+Sg6:    0320 340 C 5
+        0330 REF M 1
+        0340 IFT M 1
+Sg7:	0350 370 C 1
+	0360 DUM M 1
+	0370 TVL M 1
+        0380 UNT M 1
+        0390 UNZ M 1
+
+Message:  CLTREQ  "Clear/terminate request"
+
+	0005 UNB M 1
+        0010 UNH M 1
+        0020 ORG C 1
+        0030 RCI C 1
+        0040 CLT M 1
+        0050 UNT M 1
+        0060 UNZ M 1
+
+Message:  CLTRES  "Clear/terminate response"
+
+	0005 UNB M 1
+        0010 UNH M 1
+        0020 RCI C 1
+        0030 CLT M 1
+        0040 UNT M 1
+        0050 UNZ M 1
+
+Message:  PAOREQ  "Product availability offering request"
+
+	0005 UNB M 1
+        0010 UNH M 1 
+        0020 MSG C 1
+Sg1:	0030 050 C 1
+        0040 ORG M 1
+        0050 ABI C 2
+        0060 PDI C 1
+        0070 EQN C 1
+        0080 RPI C 1
+        0085 FTI C 1
+        0090 RCI C 1
+        0100 SSR C 9
+	0105 POC C 1
+Sg2:    0110 140 C 999
+        0120 TIF M 1
+        0130 FTI C 99
+        0140 SSR C 9
+Sg3:    0150 400 M 99
+        0160 ODI M 1
+        0170 MSG C 1
+        0180 PDI C 1
+Sg4:    0190 400 C 99
+        0200 TVL M 1
+        0210 PDI C 1
+        0220 RPI C 1
+        0230 FTI C 1
+        0240 SSR C 9
+       	0250 APD C 1
+        0260 CNX C 1
+Sg5:    0265 275 C 2
+        0270 TRA M 1
+	0275 MPD C 1
+        0280 PRT C 1
+        0290 RNG C 1
+Sg6:    0350 380 C 999
+        0360 TIF M 1
+        0370 FTI C 99
+        0380 SSR C 9
+        0390 TBI C 3
+        0400 IFT C 1
+        0410 UNT M 1
+        0420 UNZ M 1
+
+
+Message:  PAORES  "Product availability offering respons"
+
+	0005 UNB M 1
+        0010 UNH M 1 
+        0020 MSG C 1
+        0030 EQN C 1
+        0040 IFT C 9
+        0050 TIF C 1
+Sg1:	0060 080 C 5
+        0070 ERC M 1
+        0080 IFT C 1
+Sg2:    0090 310 C 99
+        0100 ODI M 1
+        0110 MSG C 1
+	0115 IFT C 1
+Sg3:    0120 310 C 99
+        0130 TVL M 1
+        0140 PDI C 1
+        0150 APD C 1
+        0160 EQN C 1
+        0170 IFT C 3
+	0180 TRF C 1
+	0190 SDT C 1
+	0200 TIF C 1
+Sg4:	0210 230 C 5
+	0220 ERC M 1
+	0230 IFT C 1
+Sg5:	0240 260 C 3
+	0250 TBI M 1
+	0260 PDI C 1
+	0270 EBD C 1
+	0280 QTY C 1
+Sg6:	0290 310 C 5
+	0300 REF M 1
+	0310 IFT M 1
+	0320 UNT M 1
+        0330 UNZ M 1
+
+
+Message:  SMPREQ  "Seat map request"
+
+	0005 UNB M 1
+        0010 UNH M 1 
+        0020 MSG C 1
+        0030 ORG C 1
+        0040 TVL C 1
+        0050 SRP C 1
+        0060 RPI C 1
+        0070 FTI C 1
+        0080 RCI C 1
+        0090 EQI C 1
+Sg1:    0100 120 C 99
+        0110 TIF M 1
+        0120 FTI C 99
+        0130 UNT M 1
+        0140 UNZ M 1
+
+
+
+Message:  SMPRES  " Seat map response"
+
+	0005 UNB M 1
+        0010 UNH M 1
+        0020 MSG C 1
+        0030 ORG C 1
+        0040 RAD C 1
+        0050 ERD C 1
+        0060 WAD C 1
+        0070 SRP C 1
+Sg1:    0080 210 C 5
+        0090 TVL M 1
+        0100 ERD C 1
+        0110 WAD C 1
+        0120 APD C 1
+        0130 EQI C 1
+        0140 AAI C 1
+Sg2:    0150 180 C 9
+        0160 CBD M 1
+        0170 EQN C 1
+        0180 CBF C 9
+Sg3:    0190 210 C 999
+        0200 ROD M 1
+        0210 CBF C 9
+        0220 UNT M 1
+        0230 UNZ M 1
+
+
+Message:  APSINQ  " Application/product status inquiry"
+
+	0010 UNB M 1
+	0020 UNH M 1
+	0030 MAP M 9
+	0040 UNT M 1
+	0050 UNZ M 1
+
+Message:  APSRES  " Application/product status response"
+
+	0010 UNB M 1
+	0020 UNH M 1
+	0030 ERC C 1
+	0040 IFT C 1
+Sg1:	0050 070 C 9
+	0055 MAP M 1
+	0060 ERC C 1
+	0070 IFT C 1
+	0080 UNT M 1
+	0090 UNZ M 1
+
+Message:  CONTRL "Respond to a query  message that contains a syntax error or non-application processing error"
+	0010 UNB M 1
+	0020 UNH M 1
+	0030 UCI M 1
+Sg1:	0040 050 C 1
+	0050 UCM M 1
+	0060 UNT M 1
+	0070 UNZ M 1
+
+Message:  HSFREQ "Message structure for hybrid screen format / print material request"
+	0010 UNB M 1
+        0020 UNH M 1
+Sg1:	0030 050 C 1
+	0040 ORG M 1
+        0050 REF C 1
+        0060 MSG C 1
+        0070 EQN C 1
+        0080 DCD C 1
+        0090 RCI C 1
+        0100 LTS M 1
+        0110 UNT M 1
+        0120 UNZ M 1
+
+Message:  HSFRES "Message structure for hybrid screen format / print material response"
+	0010 UNB M 1
+        0020 UNH M 1
+        0030 MSG C 1
+Sg1:    0040 060 C 1
+	0050 ERC M 1
+	0060 IFT C 1
+	0070 EQN C 1
+	0080 RCI C 1
+	0090 LTS C 1
+	0100 UNT M 1
+        0110 UNZ M 1
+
+Message: XSBREQ "Deliver TypeB formatted AIRIMP messages over the TypeA - Request"
+	0010 UNB M 1
+	0020 UNH M 1
+	0030 LTS M 1
+	0040 UNT M 1
+	0050 UNZ M 1
+
+Message: XSBRES "Deliver TypeB formatted AIRIMP messages over the TypeA - Response"
+	0010 UNB M 1
+	0020 UNH M 1
+	0030 MSG M 1
+	0040 UNT M 1
+	0050 UNZ M 1
+
+Message: XSBPOL "TypeA test link - Request"
+	0010 UNB M 1
+	0020 UNH M 1
+	0040 UNT M 1
+	0050 UNZ M 1
+
+Message: XSBACK "TypeA test link - Response"
+	0010 UNB M 1
+	0020 UNH M 1
+	0040 UNT M 1
+	0050 UNZ M 1
+
+Message: TKTREQ "Ticketing request"
+	0010 UNB M 1
+	0020 UNH M 1
+	0030 MSG M 1
+	0040 ORG C 1
+	0050 TAI C 1
+	0060 RCI C 1
+	0070 MON C 1
+	0080 PTK C 1
+	0090 ODI C 1
+	0100 TVL C 1
+	0110 FOP C 1
+	0120 FTI C 1
+	0130 ATI C 1
+	0140 EQN C 1
+	0150 TXD C 5
+	0160 IFT C 9
+	0170 CRI C 1
+        0171 FAR C 1
+        0172 FQU C 1
+Sg1:    0180 204 C 99
+	0190 TKT M 1
+	0201 ORG C 1
+Sg102:  0202 204 C 4
+	0203 CPN M 1
+	0204 CVR C 1
+Sg2:	0210 550 C 99
+	0220 TIF M 1
+        0222 MSG C 1
+	0230 TAI C 1
+	0240 RCI C 1
+	0250 MON C 1
+	0260 FOP C 1
+	0270 PTK C 1
+	0280 ODI C 1
+	0290 TVL C 1
+	0300 FTI C 1
+	0310 ATI C 1
+	0320 EQN C 1
+	0330 TXD C 5
+	0340 DID C 99
+	0350 IFT C 9
+	0360 CRI C 1
+	0361 FAR C 1
+        0362 FQU C 1
+        0363 PTS C 1
+Sg3:	0370 550 C 99
+	0380 TKT M 1
+	0390 IFT C 1
+	0400 PTK C 1
+        0402 PTS C 1
+Sg4:	0410 550 C 4
+	0420 CPN M 1
+	0430 TVL C 2
+	0440 RCI C 1
+	0450 RPI C 1
+	0460 PTS C 1
+	0470 EBD C 1
+	0480 FTI C 1
+	0490 DAT C 1
+	0500 IFT C 9
+	0510 PTK C 1
+    0515 FAR C 1
+    0520 CVR C 1
+    0530 APD C 1
+    0540 SSR C 1
+    0550 ASG C 1
+	0560 UNT M 1
+	0570 UNZ M 1
+
+Message: TKTRES "Ticketing response"
+	0010 UNB M 1
+	0020 UNH M 1
+	0030 MSG M 1
+	0040 ORG C 1
+	0050 TAI C 1
+	0060 RCI C 1
+	0070 MON C 1
+	0080 PTK C 1
+	0090 ODI C 1
+	0100 ATI C 1
+	0110 FOP C 1
+	0120 EQN C 1
+	0130 TXD C 5
+	0140 ERC C 1
+	0150 CPN C 1
+	0160 DID C 1
+	0170 IFT C 9
+Sg1:	0180 220 C 999
+	0190 TKT M 1
+	0200 ORG C 1
+	0210 ERC C 1
+	0220 CPN C 4
+Sg2:	0230 599 C 99
+	0240 TIF M 1
+	0250 TAI C 1
+	0260 RCI C 1
+	0270 MON C 1
+	0280 FOP C 1
+	0290 PTK C 1
+	0300 ODI C 1
+	0310 FTI C 1
+	0320 ATI C 1
+	0325 ORG C 1
+	0330 EQN C 1
+	0340 TXD C 5
+	0350 ERC C 1
+	0360 DID C 99
+	0370 IFT C 9
+	0380 CRI C 1
+        0382 FAR C 1
+        0384 FQU C 1
+        0386 PTS C 1
+Sg3:	0390 599 C 999
+	0400 TKT M 1
+	0410 ERC C 1
+	0420 ORG C 1
+	0430 DAT C 1
+	0440 IFT C 2
+	0450 PTK C 1
+	0460 CRI C 1
+Sg4:	0470 599 C 99
+	0480 CPN M 1
+	0490 TVL C 2
+	0500 RCI C 1
+	0510 RPI C 1
+	0520 PTS C 1
+	0530 EBD C 1
+	0540 FTI C 1
+	0550 DAT C 1
+	0560 ERC C 1
+	0570 ORG C 1
+	0580 IFT C 9
+	0590 PTK C 1
+    0592 FAR C 1
+    0594 CVR C 1
+    0596 APD C 1
+    0598 SSR C 1
+    0599 ASG C 1
+	0600 UNT M 1
+	0610 UNZ M 1
+
+Message: TKCREQ "Ticketing control request"
+	0010 UNB M 1
+	0020 UNH M 1
+	0030 MSG M 1
+	0040 ORG C 1
+	0050 TAI C 1
+	0060 RCI C 1
+	0070 EQN C 1
+	0080 TVL C 2
+	0090 TIF C 1
+	0100 FTI C 1
+	0110 FOP C 1
+	0120 RPI C 1
+	0130 IFT C 9
+	0140 CRI C 1
+Sg1:	0150 440 C 999
+	0160 TKT M 1
+	0170 TIF C 1
+	0180 TAI C 1
+	0190 RCI C 1
+	0200 FTI C 1
+	0210 MON C 1
+	0220 FOP C 1
+	0230 PTK C 1
+	0240 TXD C 1
+	0250 ODI C 1
+	0260 ORG C 1
+	0270 DAT C 1
+	0280 ATI C 1
+	0290 EQN C 1
+	0300 IFT C 9
+	0310 DID C 99
+	0320 TBD C 1
+	0330 CRI C 1
+Sg2:	0340 440 C 4
+	0350 CPN M 1
+	0360 TVL C 2
+	0370 PTS C 1
+	0380 DAT C 1
+	0390 RPI C 1
+	0400 IFT C 9
+	0410 EBD C 1
+	0420 PTK C 1
+	0430 FTI C 1
+	0440 TBD C 1
+	0450 UNT M 1
+	0460 UNZ M 1
+
+Message: TKCRES "Ticketing control response"
+	0010 UNB M 1
+	0020 UNH M 1
+	0030 MSG M 1
+	0040 ORG C 1
+	0050 TAI C 1
+	0060 RCI C 1
+	0070 MON C 1
+	0080 PTK C 1
+	0090 FOP C 1
+	0100 ATI C 1
+	0110 EQN C 1
+	0120 TXD C 1
+	0130 ERC C 1
+	0140 CPN C 1
+	0150 TVL C 4
+	0160 DID C 99
+	0170 IFT C 9
+Sg1:	0180 250 C 999
+	0190 TKT M 1
+	0200 ORG C 1
+	0210 ERC C 1
+Sg2:	0220 240 C 4
+	0230 CPN M 1
+	0240 ERC C 1
+	0250 IFT C 1
+Sg3:	0260 630 C 99
+	0270 TIF M 1
+	0280 TAI C 1
+	0290 RCI C 1
+	0300 MON C 1
+	0310 FOP C 1
+	0320 PTK C 1
+	0330 ODI C 1
+	0340 FTI C 1
+	0350 ATI C 1
+	0360 ORG C 1
+	0370 EQN C 1
+	0380 TXD C 5
+	0390 ERC C 1
+	0400 DID C 99
+	0410 IFT C 9
+	0411 FAR C 1
+	0412 FQU C 1
+	0413 PTS C 1
+Sg4:	0420 630 C 999
+	0430 TKT M 1
+	0440 ERC C 1
+	0450 ORG C 1
+	0460 DAT C 1
+	0470 IFT C 2
+	0480 TBD C 1
+	0490 CRI C 1
+Sg5:	0500 630 C 99
+	0510 CPN M 1
+	0520 TVL C 4
+	0530 RCI C 1
+	0540 RPI C 1
+	0550 PTS C 1
+	0560 EBD C 1
+	0570 FTI C 1
+	0580 DAT C 1
+	0590 ERC C 1
+	0600 ORG C 1
+	0610 IFT C 9
+	0620 PTK C 1
+	0630 TBD C 1
+	0640 UNT M 1
+	0650 UNZ M 1
+
+Message: TKCUAC "Ticketing unsolicited airport control request"
+	0010 UNB M 1
+	0020 UNH M 1
+	0030 MSG M 1
+	0040 ORG M 1
+	0050 TAI C 1
+	0060 RCI C 1
+	0070 EQN C 1
+	0080 TVL C 1
+	0090 RPI C 1
+	0092 FAR C 1
+	0094 FQU C 1
+Sg1:	0100 390 M 999
+	0110 TIF M 1
+	0120 TAI C 1
+	0130 RCI C 1
+	0140 FTI C 1
+	0150 MON M 1
+	0160 FOP M 1
+	0170 PTK C 1
+	0180 TXD C 99
+	0190 ODI C 1
+	0200 ORG C 1
+	0210 ATI C 1
+	0220 EQN C 1
+	0230 IFT C 9
+	0240 DID C 99
+	0250 CRI C 1
+	0252 FAR C 1
+	0254 FQU C 1
+	0256 PTS C 1
+Sg2:	0260 390 M 999
+	0270 TKT M 1
+	0280 DAT C 1
+	0290 IFT C 9
+	0292 PTK C 1
+Sg3:	0300 390 M 4
+	0310 CPN M 1
+	0320 TVL C 4
+	0330 PTS C 1
+	0340 DAT C 1
+	0350 RPI C 1
+	0360 IFT C 9
+	0370 EBD C 2
+	0380 PTK C 1
+	0390 FTI C 1
+	0400 UNT M 1
+	0410 UNZ M 1
+
+Message: PAXLST "Passenger list message"
+        0005 UNB M 1
+        0010 UNG M 1
+        0020 UNH M 1
+        0030 BGM M 1
+        0035 RFF C 1
+Sg1:    0040 060 C 1
+        0050 NAD M 1
+        0060 COM C 1
+Sg2:    0070 110 M 10
+        0080 TDT M 1
+Sg3:    0090 110 M 10
+        0100 LOC M 1
+        0110 DTM M 2
+Sg4:    0120 220 C 99999
+        0130 NAD M 1
+        0140 ATT C 1
+        0150 DTM C 1
+        0152 GEI C 1
+        0155 MEA C 9
+        0157 FTX C 99
+        0160 LOC C 5
+        0170 NAT C 1
+        0180 RFF C 99999
+Sg5:    0190 220 C 2
+        0200 DOC M 1
+        0210 DTM C 2
+        0220 LOC C 2
+        0230 CNT C 1
+        0240 UNT M 1
+        0250 UNE M 1
+        0260 UNZ M 1
+
+Message: CUSRES "Passenger data report response message"
+        0005 UNB M 1
+        0010 UNG C 1
+        0020 UNH M 1
+        0030 BGM M 1
+        0035 RFF C 1
+Sg3:    0040 070 C 10
+        0050 RFF M 1
+        0060 DTM M 2
+        0070 LOC M 2
+Sg4:    0080 120 M 9999
+        0090 ERP M 1
+        0100 RFF C 3
+        0110 ERC M 1
+        0120 FTX C 1
+        0130 UNT M 1
+        0140 UNE C 1
+        0150 UNZ M 1
+	
+	
+Message: PNRREQ "PNR data request message"
+    0005 UNB M 1
+    0010 UNH M 1
+    0020 MSG M 1
+    0030 ORG C 1
+    0040 RCI C 1
+    0050 TIF C 1
+    0060 FTI C 1
+    0070 TKT C 1
+    0080 TVL C 1
+    0090 SDT C 1
+    0100 IFT C 999
+    0110 UNT M 1
+    0120 UNZ M 1
+
+Message: PNREXC "PNR data exchange message"
+        0005 UNB M 1
+        0010 UNH M 1
+Sg1:    0020 040 C 1
+        0030 ORG M 1
+        0040 ABI C 3
+        0050 RCI C 1
+        0060 TXD C 4
+        0070 MSG C 9
+        0080 IFT C 999
+Sg2:    0090 110 C 5
+        0100 ERC M 1
+        0110 IFT C 1
+Sg3:    0120 150 C 999
+        0130 SSR M 1
+        0140 SRP C 1
+        0150 REF C 1
+Sg4:    0160 250 C 2000
+        0170 TIF M 1
+        0180 IFT C 99
+        0190 FTI C 1
+        0200 TRT C 1
+        0210 FAR C 3
+Sg5:    0220 250 C 999
+        0230 SSR M 1
+        0240 SRP C 1
+        0250 REF C 1
+Sg6:    0260 290 C 1
+        0270 PTK M 1
+        0280 EQN C 1
+        0290 CVR C 1
+Sg7:    0300 330 C 1
+        0310 DID M 1
+        0320 RCI C 1
+        0330 TIF C 999
+Sg8:    0340 810 C 99
+        0350 TVL M 1
+        0360 MSG C 1
+        0370 RCI C 1
+        0380 RPI C 1
+        0390 APD C 1
+        0400 EQN C 1
+        0410 SDT C 1
+        0420 IFT C 99
+Sg9:    0430 450 C 3
+        0440 TII M 1
+        0450 APD C 1
+Sg10:   0460 480 C 999
+        0470 SSR M 1
+        0480 SRP C 1
+Sg11:   0490 580 C 999
+        0500 TIF M 1
+        0510 FTI C 1
+        0520 FAR C 3
+        0530 CRI C 1
+        0540 PMT C 1
+        0550 IFT C 99
+Sg12:   0560 580 C 999
+        0570 SSR M 1
+        0580 SRP C 1
+Sg13:   0590 700 C 1
+        0600 DUM M 1
+        0610 AAI C 1
+        0620 ASD C 1
+        0630 ATI C 1
+        0640 CRI C 1
+        0650 DIS C 1
+        0660 TFF C 1
+        0670 CMN C 1
+        0680 PMT C 9
+        0690 VEH C 9
+        0700 DAT C 1
+Sg14:   0710 810 C 999
+        0720 REF M 1
+        0730 SPI C 1
+        0740 EQN C 1
+        0750 PTK C 1
+        0760 FOP C 1
+        0770 ITM C 1
+        0780 IFT C 1
+        0790 ORG C 1
+        0800 TAI C 1
+        0810 TKT C 1
+Sg15:   0820 1090 C 999
+        0830 STD M 1
+        0840 PTK C 1
+Sg16:   0850 1090 M 3
+        0860 FAR M 1
+        0870 CVR C 1
+        0880 MON C 1
+        0890 EQN C 1
+        0900 TXD C 3
+        0910 IFT C 9
+Sg17:   0920 940 C 99
+        0930 FCC M 1
+        0940 MON C 1
+Sg18:   0950 1040 C 99
+        0960 TII M 1
+        0970 MON C 1
+        0980 FAR C 1
+        0990 EQN C 1
+        1000 PDI C 1
+        1010 EBD C 1
+Sg19:   1020 1040 C 99
+        1030 FCC M 1
+        1040 MON C 1
+Sg20:   1050 1090 C 99
+        1060 TVL M 1
+        1070 RPI C 1
+        1080 TII C 1
+        1090 EBD C 1
+        1100 UNT M 1
+        1110 UNZ M 1
+
+Message: TNLRES "Traveller name list response message"
+        0005 UNB M 1
+        0010 UNH M 1
+        0020 IFT C 1
+        0030 TVL C 1
+        0040 ERC C 1
+Sg1:    0050 140 M 99
+        0060 ODI M 1
+Sg2:    0070 140 M 999
+        0080 TIF M 1
+        0090 RPI C 1
+        0100 SDT C 1
+        0110 TVL C 1
+        0120 RCI C 1
+        0130 PDI C 1
+        0140 MSG C 1
+        0150 UNT M 1
+        0160 UNZ M 1
+
+Message: GGEMSG "Galileo General Error Message"
+        0005 UNB M 1
+        0010 UNH M 1
+        0020 ERC M 1
+        0030 IFT C 1
+        0150 UNT M 1
+        0160 UNZ M 1
+
+Message:  CHBREQ  "Check booking request"
+
+        0005 UNB M 1
+        0010 UNH M 1
+        0040 ORG M 1
+        0060 ODI M 1
+Sg1:    0080 100 M 99
+        0090 TVL M 1
+        0100 RPI M 1
+        0110 UNT M 1
+        0120 UNZ M 1
+
+Message:  CHBRES  "Check Booking response"
+
+        0005 UNB M 1
+        0010 UNH M 1
+Sg1:    0020 040 C 1
+        0030 ERC M 1
+        0040 IFT C 1
+Sg2:    0050 280 C 99
+        0060 TVL M 1
+        0070 RPI C 1
+Sg3:    0080 280 C 5
+        0090 ERC M 1
+        0280 IFT C 1
+        0290 UNT M 1
+        0300 UNZ M 1
+
+Message: SBPREQ "Advance seat assignment and boarding pass request"
+
+        0005 UNB M 1
+        0010 UNH M 1
+        0020 MSG C 1
+        0030 ORG C 1
+        0040 RCI C 1
+        0050 EQN C 1
+        0060 DCD C 1
+        0070 FTI C 1
+Sg1:    0080 110 C 30
+        0090 SSR M 1
+        0100 SRP C 1
+        0110 DAT C 1
+Sg2:    0120 180 C 999
+        0130 TIF M 1
+        0140 FTI C 99
+Sg3:    0150 180 C 30
+        0160 SSR M 1
+        0170 SRP C 1
+        0180 DAT C 1
+Sg4:    0190 370 C 99
+        0200 TVL M 1
+        0210 MSG C 1
+        0220 RPI C 1
+        0230 APD C 1
+        0240 PDI C 1
+        0250 IFT C 5
+        0260 FTI C 1
+Sg5:    0270 300 C 30
+        0280 SSR M 1
+        0290 SRP C 1
+        0300 DAT C 1
+Sg6:    0310 370 C 999
+        0320 TIF M 1
+        0330 FTI C 99
+Sg7:    0340 370 C 30
+        0350 SSR M 1
+        0360 SRP C 1
+        0370 DAT C 1
+        0380 UNT M 1
+        0390 UNZ M 1
+
+Message: SBPRES "Advance seat assignment and boarding pass response"
+
+        0005 UNB M 1
+        0010 UNH M 1
+        0020 MSG C 1
+        0040 RCI C 1
+        0050 EQN C 1
+        0060 IFT C 1
+Sg1:    0070 090 C 5
+        0080 ERC M 1
+        0090 IFT C 1
+Sg2:    0100 160 C 30
+        0110 SSR M 1
+        0120 SRP C 1
+        0130 DAT C 1
+Sg3:    0140 160 C 5
+        0150 ERC M 1
+        0160 IFT C 1
+Sg4:    0170 260 C 999
+        0180 TIF M 1
+        0190 FTI C 1
+Sg5:    0200 260 C 30
+        0210 SSR M 1
+        0220 SRP C 1
+        0230 DAT C 1
+Sg6:    0240 260 C 5
+        0250 ERC M 1
+        0260 IFT C 1
+Sg7:    0270 520 C 99
+        0280 TVL M 1
+        0290 RPI C 1
+        0300 APD C 1
+        0310 BPS C 1
+        0320 IFT C 1
+Sg8:    0330 350 C 5
+        0340 ERC M 1
+        0350 IFT C 1
+Sg9:    0360 420 C 30
+        0370 SSR M 1
+        0380 SRP C 1
+        0390 DAT C 1
+Sg10:   0400 420 C 5
+        0410 ERC M 1
+        0420 IFT C 1
+Sg11:   0430 520 C 999
+        0440 TIF M 1
+        0450 FTI C 1
+Sg12:   0460 520 C 30
+        0470 SSR M 1
+        0480 SRP C 1
+        0490 DAT C 1
+Sg13:   0500 520 C 5
+        0510 ERC M 1
+        0520 IFT C 1
+        0530 UNT M 1
+        0540 UNZ M 1
+
+
+Message: DCQCKI "Through check-in request message"
+
+        0005 UNB M 1
+        0010 UNH M 1
+        0015 LOR M 1
+        0020 DMC C 1
+        0025 CHD C 1
+        0030 DVC C 1
+Sg1:    0040 100 M 3
+        0050 FDQ M 1
+Sg2:    0055 100 M 99
+        0060 PPD M 1
+        0065 PRD C 1
+        0070 PSD C 1
+        0075 PBD C 1
+        0080 PSI C 1
+        0085 CRI C 1
+        0090 BTI C 99
+Sg3:    0092 100 C 9
+        0095 PAP M 1
+        0100 ADD C 1
+        0105 UNT M 1
+        0110 UNZ M 1
+        
+        
+Message: DCQCKU "Through check-in update request message"
+
+        0005 UNB M 1
+        0010 UNH M 1
+        0015 LOR M 1
+        0020 DMC C 1
+        0025 CHD C 1
+        0030 DVC C 1
+Sg1:    0040 130 M 3
+        0050 FDQ M 1
+Sg2:    0055 130 M 99
+        0060 PPD M 1
+        0065 PRD C 1
+        0070 PSD C 1
+        0075 PBD C 1
+        0080 PSI C 1
+        0085 UIF C 1
+        0090 UPD C 1
+        0095 URD C 1
+        0100 USD C 1
+        0105 UBD C 1
+        0110 USI C 1
+        0115 UTI C 99
+Sg3:    0120 130 C 99
+        0125 UAP M 1
+        0130 ADD C 1
+        0135 UNT M 1
+        0140 UNZ M 1
+        
+        
+Message: DCQPLF "Passenger list function request message"
+
+        0005 UNB M 1
+        0010 UNH M 1
+        0015 LOR M 1
+        0020 FDQ M 1
+        0025 SPD M 1
+        0030 CHD C 1
+        0035 UNT M 1
+        0040 UNZ M 1
+        
+        
+Message: DCQCKX "Through check-in cancel request message"
+
+        0005 UNB M 1
+        0010 UNH M 1
+        0015 LOR M 1
+        0020 CHD C 1
+Sg1:    0030 100 M 3
+        0040 FDQ M 1
+Sg2:    0050 100 M 99
+        0060 PPD M 1
+        0065 PRD C 1
+        0080 PSD C 1
+        0085 PBD C 1
+        0090 PSI C 1
+        0100 CRD C 1
+        0105 UNT M 1
+        0110 UNZ M 1
+        
+        
+Message: DCRCKA "Through check-in response message"
+
+        0005 UNB M 1
+        0010 UNH M 1
+Sg1:    0020 150 M 9
+        0030 FDR M 1
+        0035 RAD M 1
+        0040 CHD C 1
+        0045 ERD C 1
+        0050 WAD C 1
+        0055 FSD C 9
+        0060 EQD C 1
+Sg2:    0070 150 C 99
+        0080 PPD M 1
+        0085 PRD C 1
+        0090 PFD C 1
+        0095 PBD C 1
+        0100 PCD C 9
+        0105 PSI C 1
+        0110 CRI C 1
+Sg3:    0120 140 C 9
+        0130 PAP M 1
+        0140 ADD C 1
+        0150 WAD C 1
+        0160 UNT M 1
+        0170 UNZ M 1
+        
+        
+Message: DCQSMF "Seat map function request"
+    
+        0005 UNB M 1
+        0010 UNH M 1
+        0020 LOR M 1
+        0030 FDQ M 1
+        0040 SRP C 1
+        0050 CHD C 1
+        0060 UNT M 1
+        0070 UNZ M 1
+        
+        
+Message: DCRSMF "Seat map function response"
+
+        0005 UNB M 1
+        0010 UNH M 1
+Sg1:    0020 110 M 2
+        0030 FDR M 1
+        0040 RAD M 1
+        0050 CHD C 1
+        0060 ERD C 1
+        0070 WAD C 1
+        0080 SRP C 1
+        0090 EQD C 1
+        0100 CBD C 9
+        0110 ROD C 999
+        0120 UNT M 1
+        0130 UNZ M 1
+        
+        
+Message: DCQBPR "Boarding pass reprint request"
+        0005 UNB M 1
+        0010 UNH M 1
+        0015 LOR M 1
+        0020 CHD C 1        
+Sg1:    0030 090 M 3
+        0040 FDQ M 1        
+Sg2:    0050 090 M 99
+        0060 PPD M 1
+        0065 PRD C 1
+        0080 PSD C 1
+        0085 PBD C 1
+        0090 PSI C 1    
+        0100 UNT M 1
+        0110 UNZ M 1
+
+
+Message: CUSUMS "Passenger data unsolicited message - fake message(it is CUSRES)"
+        0005 UNB M 1
+        0010 UNG C 1
+        0020 UNH M 1
+        0030 BGM M 1
+        0035 RFF C 1
+Sg3:    0040 070 C 10
+        0050 RFF M 1
+        0060 DTM M 2
+        0070 LOC M 2
+Sg4:    0080 120 M 9999
+        0090 ERP M 1
+        0100 RFF C 3
+        0110 ERC M 1
+        0120 FTX C 1
+        0130 UNT M 1
+        0140 UNE C 1
+        0150 UNZ M 1

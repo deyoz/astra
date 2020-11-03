@@ -1,0 +1,645 @@
+ # File for inserting data elements 
+ #A - Alpha-Numeric
+ #N - Numeric      
+ #a - Alphabetic   
+# data_elem Format(A/N/a) min_field max_field "Text about this data element"
+
+##################################
+#UNB
+0001 a 4 4  "Syntax identifier"
+0002 N 1 1  "Syntax version number"
+0004 A 1 35 "Sender identification"
+0007 A 1 4  "Partner identification code qualifier"
+0008 A 1 14 "Address for reverse routing"
+0010 A 1 35 "Recipient identification"
+0014 A 1 14 "Routing address"
+0017 N 6 6  "Date"
+0019 N 4 4  "Time"
+0020 A 1 14 "Interchange control reference"
+0022 A 1 14 "Recipient's reference, password"
+0025 A 2 2  "Recipient's reference, password qualifier" 
+0026 A 1 14 "Application reference"
+0029 a 1 1  "Processing priority code"
+0031 N 1 1  "ACKNOLEDGEMENT REQUEST"
+0032 A 1 35 "COMMUNICATIONS AGREEMENT ID" 
+0035 N 1 1  "TEST INDICATOR"
+
+#UNZ
+0036 N 1 6  "Interchange control unit"
+
+#UNH
+0062 A 1 14 "Message referensce number"
+0065 A 1 6  "Message type"
+0052 A 1 3  "Message version number"
+0054 A 1 3  "Message release number"
+#В книжке 0051 A 1 3  "Controlling agency,coded"
+#Но на сайте так!
+0051 A 1 2  "Controlling agency" 
+0057 A 1 6  "Association assigned code"
+0068 A 1 35 "Common Access reference"
+0070 N 1 2  "Sequence of transfer"
+0073 a 1 1  "First and last transfer"
+
+#UNT
+#В книжке 0074 N 1 10 "..."
+#Но на сайте так!
+0074 N 1 6  "Number of segments in the message"
+##################################
+
+#ORG
+9906 A 1 35 "Company identification"
+3225 A 1 25 "Place/Location identification"
+3224 A 1 17 "Place/Location name"
+9900 A 1 9  "Travel Agent Identification Details"
+#9900 N 1 9  "Travel Agent Identification Details"
+#9900 A 1 12  "Travel Agent Identification Details"
+9902 A 1 9  "In-House Identification"
+#9902 A 1 12  "In-House Identification"
+9972 A 1 1  "Original type code"
+3207 A 1 3  "Country, Coded"
+6345 A 1 3  "Currency, Coded"
+3453 A 1 3  "Language, Coded"
+9904 A 1 12  "Originator's authority request code"
+#9904 A 1 9  "Originator's authority request code"
+3148 A 1 25 "Communication number"
+3039 A 1 17 "Party id identification"
+
+#MSG
+4025 A 1 3  "Business function, coded"
+1225 A 1 3  "Message function, coded"
+3055 A 1 3  "Code list responsible agency, coded"
+4343 A 1 3  "Responce type, coded"
+
+#ABI
+7293 A 1 3  "Sector/subject identification qualifer"
+
+#RCI
+9956 A 1 20 "Reservation control number"
+9958 A 1 1  "Reservation control type"
+9916 A 1 35 "First data"
+9994 N 1 9  "Time"
+
+#LTS
+9990 A 1 9999 "Text string details"
+
+#QTY
+6063 A 1 3  "Quantity qualifier"
+6060 N 1 15 "Quantity"
+6411 A 1 3  "Measure unit qualifier"
+
+#RAD
+9868 a 1 1  "Response type, coded"
+9869 a 1 1  "Processing status code"
+
+#REF
+1153 A 1 3  "Reference qualifier"
+1154 A 1 35 "Reference number"
+
+#RNG
+6167 A 1 3  "Range type qualifier"
+6162 N 1 18 "Range minimum"
+6152 N 1 18 "Range maximum"
+
+#ROD
+9830 N 1 3  "Seat row number"
+9864 A 1 3  "Row characteristic"
+9831 A 1 1  "Seat column"
+9865 A 1 1  "Seat ocupation"
+9825 A 1 2  "Seat characteristic, coded"
+
+#RPI
+4405 A 1 3  "Status, coded"
+
+#SAC
+1245 A 1 3  "Status indicator, coded"
+
+#SDT
+9750 A 1 3  "Option"
+9749 A 1 35 "Associated option information"
+
+#SRP
+9854 a 1 1  "Cabin class designator"
+9807 a 1 1  "No smoking indicator"
+9873 N 1 1  "Cabin class of service, coded"
+9992 a 1 1  "Cabin compartment designator"
+6804 N 1 3  "Rows - number of rows"
+7365 A 1 3  "Processing indicator, coded"
+4440 A 1 70 "Free text"
+
+#SSR
+9962 A 1 4  "Special requirement type"
+9960 A 1 4  "Special requirement data"
+9944 A 1 10 "Traveller reference number"
+
+#TBI
+7037 A 1 17 "Characteristic identification"
+9752 a 1 3  "Alpha reference identification"
+9753 N 1 4  "Numeric reference identification"
+
+#TIF
+9936 A 1 70 "Traveller surname"
+6353 A 1 3  "Number of units qualifier"
+9942 A 1 70 "Traveller given name"
+9946 A 1 1  "Traveller accompanied by infant"
+9754 A 1 70 "Other names"
+
+#TRA
+9908 A 1 35 "Product identification"
+9914 A 1 3  "Product identification characteristic"
+7009 A 1 7  "Item description identification"
+
+#TRF
+9930 A 1 3  "Traffic restriction"
+9968 A 1 3  "Traffic restriction type, coded"
+9966 A 1 3  "Traffic restriction qualifier, coded"
+
+#TVL
+9918 N 1 4  "First time"
+9920 A 1 35 "Second date"
+9922 N 1 4  "Second time"
+9954 N 1 1  "Date vriation"
+1050 A 1 6  "Sequence number"
+1082 N 1 6  "Line item number"
+5479 A 1 3  "Relation, coded"
+9995 N 1 10 "Group number"
+
+#WAD
+9876 N 1 1  "Processing level"
+9845 N 1 4  "Error/warning message number"
+
+#ITF 
+4451 A 1 3  "Text subject qualifier"
+9980 A 1 4  "Information type"
+
+#AAI
+9143 A 1 3  "Relationship, coded"
+7904 A 1 10 "Accommondation type"
+7907 A 1 3  "Characteristic, coded"
+
+#APD
+8179 A 1 8  "Type of means of transport identification"
+9924 N 1 3  "Number of stops"
+9926 N 1 6  "Leg duration"
+5482 N 1 8  "Percentage"
+9928 A 1 7  "Days of operation"
+2380 A 1 35 "Date/Time/Period" 
+9950 A 1 1  "Complexing flight indicator"
+9870 A 1 6  "Gate description"
+3223 A 1 25 "Related place/location one identification"
+3233 A 1 25 "Related place/location two identification"
+6314 N 1 18 "Measurement value"
+9952 A 1 10 "Check-in details"
+9932 A 1 3  "Facility type, coded"
+9934 A 1 70 "Facility description, text"
+9970 A 1 3  "Product details qualifier"
+
+#BPS
+2804 N 1 4  "Local boarding time"
+9853 A 1 6  "Aircraft position"
+9855 A 1 8  "Bar code data"
+9851 A 1 21 "Discounted/non-revenue passenger priority information"
+9871 A 1 1  "Flight service code"
+9872 A 1 2  "Flight delay reason, coded"
+
+#CBD
+9863 a 1 1  "Cabin class location"
+9883 a 1 1  "Seat accupation default indicator"
+9882 A 1 2  "Column description"
+
+#CBF
+9976 A 1 3  "Row location qualifier"
+9978 A 1 3  "Cabin ficilities characteristic"
+3227 A 1 3  "Place/location qualifier"
+
+#CLT
+1229 A 1 3  "Action request / notification, coded"
+
+#DAT
+2005 A 1 3  "Date/Time/Period qualifier"
+8335 A 1 3  "Movement type, coded"
+
+#DCD
+7402 A 1 35 "Edentity number"
+7405 A 1 3  "Edentity number qualifier"
+9997 A 1 3  "Material type, coded"
+9988 A 1 3  "Secured or non sequred print material"
+
+
+#EBD
+5004 N 1 18 "Monetary amount"
+5463 A 1 3  "Allowance or charge qualifier"
+7140 A 1 35 "Item number"
+7240 N 1 15 "Total number of items"
+9996 A 1 15 "Company identification number"
+7081 A 1 3  "Item characteristic, coded"
+
+#EQI
+6800 N 1 3  "Seats - number of seats"
+9866 A 1 12 "Aircraft cabin version identification"
+8260 A 1 17 "Equipment identification number"
+
+#EQN
+6350 N 1 15 "Number of units"
+
+#ERC
+9321 A 1 3  "Application error, coded"
+1131 A 1 3  "Code list qualifier"
+
+#FTI
+9948 A 1 25 "Frequent traveller identification code"
+7456 A 1 35 "Membership level"
+
+#MPD
+3153 A 1 3  "Communication channel identifier, coded"
+8053 A 1 3  "Equipment qualifier"
+8249 A 1 3  "Equipment status, coded"
+8155 A 1 4  "Equipment size and type identification"
+
+#PDI
+7011 A 1 3  "Article availability, coded"
+7161 A 1 3  "Special service, coded"
+
+#PRT
+9986 N 4 4  "UTC/local time variation"
+
+#MAP
+4401 A 1 3  "Instruction, coded"
+4403 A 1 3  "Instruction qualifier"
+9755 A 1 17 "Application identification"
+9756 A 1 3  "Application identification qualifier"
+
+#UCI
+0083 A 1 3  "Action, coded"
+0085 A 1 3  "Syntax error coded (Used if error in UNB/UNZ)"
+0013 a 3 3  "Segment tag (UNB or UNZ)"
+
+#S011
+0098 N 1 3  "Erroneus data element position in segment"
+0104 N 1 3  "Erroneus component data element position"
+
+#TAI
+#C642
+9893 A 1 3  "Identification type, coded"
+
+#MON
+#C663
+5025 A 1 3  "A code describing an amount"
+1230 A 1 35 "Amount,'FREE','BULK'"
+
+#PTK
+5379 A 1 3  "Price/tariff type, coded"
+#C664
+5387 A 1 3  "Price type qualifier"
+
+#FOP
+#C641
+9888 A 1 10 "Form of payment type"
+9889 A 1 17 "Approval identification"
+9890 A 1 3  "Source, coded"
+9891 A 1 3  "Verification, coded"
+3194 A 1 70 "Account holder number"
+2475 A 1 3  "Payment type reference, coded"
+7453 A 1 3  "Membership status, coded"
+9892 A 1 35 "Transaction information"
+
+#TXD
+5305 A 1 3 "Duty/tax/fee category,coded"
+#C668
+5278 A 1 17 "Duty/tax/fee rate"
+5153 A 1 3  "Duty/tax/fee type, coded"
+
+#CRI
+#C967
+3036 A 1 35 "Party name"
+
+#TKT
+#C667
+1004 A 1 35 "Document/message number"
+1001 A 1 3  "Document/message name,coded"
+
+#CPN
+#C640
+1159 A 1 3  "Sequence number sourcr,coded"
+9887 A 1 35 "Control identification"
+
+#PTS
+#C643
+5242 A 1 35 "Rate/tarif class"
+4183 A 1 3  "Special condition,coded"
+
+#C993
+6168 N 1 15  "Length dimension"
+
+
+#BGM
+#C002
+1000 A 1 35 "Document name"
+#C106 
+1056 A 1 9  "Version identifier"
+1060 A 1 6  "Revision number"
+
+
+#NAD
+3035 A 1 3  "Party function code qualifier"
+3164 A 1 35 "City name"
+3251 A 1 17 "Postal identification code"
+#U058 (C058-UN NAME AND ADDRESS)
+3124 A 1 35 "Name and address line"
+#C080
+3045 A 1 3  "Party name format, coded"
+#U059 (C059-UN STREET)
+3042 A 1 35 "Street and number/p.o. box"
+#C819
+3229 A 1 9  "Country sub-entity name code"
+3228 A 1 70 "Country sub-entity name"
+
+
+#COM
+#C076
+3155 A 1 3  "Communication channel qualifier"
+
+
+#TDT
+8051 A 1 3  "Transport stage qualifier"
+8028 A 1 17 "Conveyance reference number"
+8101 A 1 3  "Transit direction, coded"
+8281 A 1 3  "Transport ownership, coded"
+#C220
+8067 A 1 3  "Mode of transport, coded"
+8066 A 1 17 "Mode of transport"
+#C228
+8178 A 1 17 "Type of means transport"
+#C040
+3127 A 1 17 "Carrier identification"
+3128 A 1 35 "Carrier name"
+#C401
+8457 A 1 3  "Excess transportation reason, coded"
+8459 A 1 3  "Excess transportation responsibility, coded"
+7130 A 1 17 "Customer authorization number"
+#C222
+8213 A 1 9  "Id. of means of transport identification"
+8212 A 1 35 "Id. of the means of transport"
+8453 A 1 3  "Nationality of means of transport, coded"
+
+
+#LOC
+#C519
+3222 A 1 70  "First related location name"
+#C553
+3232 A 1 70  "Second related location name"
+
+
+#ATT
+9017 A 1 3  "Attribute function code qualifier"
+#C955
+9021 A 1 17 "Attribute type description code"
+9020 A 1 70 "Attribute type description"
+#C956
+9019 A 1 17  "Attribute description code"
+9018 A 1 256 "Attribute description"
+
+
+#NAT
+3493 A 1 3  "Nationality code qualifier"
+
+
+#RFF
+#C506
+1156 A 1 6  "Document line identifier"
+4000 A 1 35 "Reference version identifier"
+
+
+#DOC
+1220 N 1 2  "Document copies required quantity"
+1218 N 1 2  "Document originals required quantity"
+#C503
+1373 A 1 3  "Document status code"
+1366 A 1 70 "Document source description"
+
+
+#DTM
+#C507
+2379 A 1 3  "Date or time or period format code"
+
+#CNT
+#C270
+6069 A 1 3  "Control total type code qualifier"
+6066 A 1 18 "Control total quantity"
+
+
+#NAT
+#U042
+3293 A 1 3  "Nationality name code"
+3292 A 1 35 "Nationality name"
+
+
+#UNG
+0038 A 1 6  "Message group identification"
+0048 A 1 14 "Group reference number"
+0058 A 1 14 "Application password"
+#S006
+0040 A 1 35 "Application sender identification"
+#S007
+0044 A 1 35 "Application recipient identification"
+
+#UNE
+0060 N 1 6  "Group control count"
+
+#FAR
+9878 A 1 3  "Fare classification type, coded"
+5388 A 1 35 "Fare type grouping information"
+
+#CVR
+9875 A 1 3  "Conversion type, coded"
+5419 A 1 3  "Rate type qualifier"
+6321 A 1 3  "Measurement significance, coded"
+
+#PMT
+3901 A 1 4  "Bank identification"
+5903 A 1 4  "Form of payment identification"
+5905 A 1 4  "Payment type identification"
+5909 A 1 3  "Service to be paid, coded"
+
+#DIS
+4465 A 1 3  "Adjustment reason, coded"
+
+#TFF
+5907 A 1 20 "Rate type identification"
+5911 A 1 3  "Rate plan, coded"
+2152 N 1 3  "Number of periods"
+5377 A 1 3  "Price change indicator, coded"
+5906 N 1 20 "Total monetary amount"
+5243 A 1 9  "Rate/tariff class identification"
+5901 A 1 3  "Charge unit, coded"
+7008 A 1 35 "Item description"
+2901 A 1 3  "Charge period, coded"
+
+
+#VEH
+8154 A 1 35 "Equipment size and type"
+6140 N 1 15 "Width dimension"
+6008 N 1 15 "Height dimension"
+
+#SPI
+9989 A 1 3  "Data type, coded"
+9011 A 1 3  "Status event, coded"
+
+#ITM
+7143 A 1 3  "Item number type, coded"
+
+#FCC
+5237 A 1 3  "Charge category, coded"
+
+#CMN
+4439 A 1 3  "Payment conditions, coded"
+
+#C647
+5263 A 1 20 "Rate type identification"
+
+7357 A 1 18 "Commodity/rate identification"
+
+9910 A 1 3  "Fare qualifier"
+5007 A 1 3  "Monetary function, coded"
+
+#C059
+3800 a 1 5  "Place of origin of business, coded"
+3805 a 1 2  "Country where request originated"
+
+#C012
+3806 A 1 34 "Requestor identification"
+9879 A 1 4  "Identification code set designator"
+9880 A 1 7  "Office identification"
+9881 A 1 4  "Requestor authority code"
+
+#DMC
+9813 a 1 1  "Confirmation indicator"
+6801 a 1 1  "Weight unit code"
+9815 N 1 1  "Maximum number of flights to be handled"
+
+#CHD
+3802 N 1 4  "Flight number"
+9801 a 1 1  "Operational suffix to the carrier code"
+2281 N 1 10 "Departure date and time"
+3215 a 1 5  "Place of departure, coded"
+3259 a 1 5  "Place of destination, coded"
+9856 a 1 1  "Outbound flight continuation indicator"
+9802 N 1 1  "Maximum number of hosts allowed"
+9803 a 1 1  "Host qualifer"
+9804 N 1 1  "Host definition numeric"
+
+#DVC
+9817 a 1 1  "Availability of a boarding pass printer"
+9818 N 1 1  "Limit for bag tag printing"
+
+#FDQ
+2107 N 1 10 "Arrival date and time"
+3803 A 1 2  "Terminal of arrival"
+9857 a 1 1  "Inbound type of service indicator"
+
+#C017
+9819 a 1 1  "Passenger type"
+9884 a 1 1  "Passenger with infant indicator"
+
+#C018
+3808 a 1 64 "Surname"
+3809 a 1 64 "Given name"
+
+#C020
+9826 a 1 2  "Alpha party reference"
+9827 N 1 3  "Numeric party reference"
+
+#C692
+9821 A 1 10 "Unique passenger reference"
+
+#C021
+9828 N 1 2 "Surname/family name connector"
+9829 N 1 2 "Passenger number within a surname/family name"
+
+#PPD
+9867 a 1 1 "Complexing passenger indicator"
+6803 N 1 4 "Weight"
+
+#C023
+9800 a 1 1 "Reservation booking designator"
+
+#C026
+9832 N 1 1 "Seat count adjustment"
+9833 A 1 2 "Reason for seat adjustment, coded"
+
+#C027
+6806 N 1 3 "Number of pieces"
+
+#C029
+9835 N 1 16 "Tag serial number"
+9836 N 1 3  "Number of consecutive tag serial number"
+3810 N 1 3  "Airline code number"
+9885 N 1 1  "Online/interline indicator"
+
+#C030
+9837 a 1 4  "Special service request(SSR) code"
+9839 A 1 25 "Frequent flyer identification code"
+9886 N 1 2  "Age"
+
+
+#PRD
+9811 N 1 15 "Ticket number"
+9822 a 1 2  "Reservation status"
+9823 A 1 9  "Passenger name record locator"
+
+#PSD
+9809 A 1 4  "Specific seat"
+
+#PSI
+9838 A 1 250 "Other service information (OSI)"
+
+#C031
+9858 a 1 1  "Update action code"
+
+#C032
+3299 A 1 3  "Address purpose code"
+
+#CRD
+9859 N 1 2  "Reason for cancel, coded"
+9860 a 1 1  "Type of cancel"
+
+#FSD
+3801 A 1 2  "Terminal of departure"
+
+#EQI
+7800 A 1 3  "Equipment code"
+
+#PFD
+9861 A 1 4  "Free seating reference identifier"
+9862 a 1 1  "Seat request fulfilled indicator"
+9850 a 1 1  "Issue/reissue boarding pass"
+
+#C045
+9874 A 1 5  "Passenger boarding security identifier"
+
+#C046
+9824 N 1 3  "Number of passenger in surname/family"
+
+#MEA
+6311 A 1 3  "Measurement application qualifier"
+7383 A 1 3  "Surface/layer indicator, coded"
+#C502
+6313 A 1 3  "Measurement dimension, coded"
+6155 A 1 3  "Measurement attribute, coded"
+
+
+#FTX
+4453 A 1 3  "Free text function code"
+4447 A 1 3  "Free text format code"
+#C107
+4441 A 1 17 "Free text description code"
+#C108 - num 4444 selected as random free number and may be replaced to another!"
+4444 A 1 100 "Free text"
+
+#ERP
+1049 N 1 1 "Message section code"
+
+#GEI
+9649 A 1 3 "Processing information code qualifier"
+
+#ASG
+7077 A 1 3 "The service is for baggage allowance, baggage charges, flight, merchandise, reissue/refund or ticket."

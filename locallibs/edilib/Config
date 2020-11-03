@@ -1,0 +1,22 @@
+#!/bin/sh -e
+
+CC=${LOCALCC:-gcc}
+CXX=${LOCALCXX:-g++}
+CFLAGS=$LOCALCFLAGS
+
+if [ "$1" = "-f" ] ; then
+     echo "skip -f option"
+     shift
+fi
+if [ "$1" = "-shared" ] ; then
+     shift
+     shared_mode="--enable-shared --disable-static"
+fi
+
+edilib_xp_flags=''
+[ "$XP_TESTING" ] && edilib_xp_flags='--enable-xp-testing'
+
+echo edilib
+set -x
+autoreconf --force --install && ./configure --silent CC="$CC" CXX="$CXX" CFLAGS="$CFLAGS" CXXFLAGS="$CFLAGS" $edilib_xp_flags $WITH_BOOST $shared_mode $@
+
