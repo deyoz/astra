@@ -15,6 +15,9 @@ src/astra
 *.config
 *.autosave
 *.swp
+/Makefile
+src/Makefile
+src/**/Makefile
 astra_msg_types.dat
 astra_msg_types.etp
 edi_astra_msg_types.h
