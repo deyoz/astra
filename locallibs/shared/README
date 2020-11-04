@@ -1,0 +1,14 @@
+
+RUN:
+	./Config
+	make
+
+GRS and TEST:
+	Создаем ссылку в бусте
+	cd /grs1/home/src/BOOST/ && ln -s . include
+
+	Запускаем конфиг с указанием буста и оригинального make
+	./configure --with-boost=/grs1/home/src/BOOST/ MAKE=/usr/bin/make
+
+Any problems?
+	ask Roman <rom@sirena2000.ru>
