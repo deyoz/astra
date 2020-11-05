@@ -32,30 +32,53 @@ public:
                                 TQuery& Qry );
 };
 
+/*struct LibraInfo {
+
+  int comp_id;
+  int planId;
+  int conf_id;
+  TEventLibraChange evtStatus;
+  LibraInfo( int comp_id ) {
+    clear();
+  }
+  void clear() {
+    comp_id = ASTRA::Exists;
+    planId = ASTRA::Exists;;
+    conf_id = ASTRA::Exists;;
+
+  }
+};*/
+
 class ComponLibraFinder {
 public:
   class AstraSearchResult {
     private:
     public:
+      enum TEventLibraStatus { evNoExists, evNoChange, evChange };
       int plan_id;
       int conf_id;
       int comp_id;
       BASIC::date_time::TDateTime time_create;
       BASIC::date_time::TDateTime time_change;
+      TEventLibraStatus evtStatus;
 
-      AstraSearchResult( bool isLibraMode = true ) {
+      AstraSearchResult() {
         clear();
       }
       void clear() {
-        plan_id = -1;
-        conf_id = -1;
-        comp_id = -1;
+        plan_id = ASTRA::NoExists;
+        conf_id = ASTRA::NoExists;
+        comp_id = ASTRA::NoExists;
         time_create = ASTRA::NoExists;
         time_change = ASTRA::NoExists;
+        evtStatus = TEventLibraStatus::evNoExists;
       }
-
+      void getLibraCompStatus( const std::string& airline,
+                               const std::string& bort,
+                               TQuery& Qry,
+                               const int& comp_id );
       bool isOk( ) {
-        return ( comp_id >= 0 &&
+        return ( comp_id != ASTRA::NoExists &&
                  time_change != ASTRA::NoExists );
       }
       void Write( TQuery& Qry );
@@ -73,10 +96,17 @@ public:
                         bool pr_ignore_fcy, TQuery& Qry );
   static void SetChanges( int plan_id );
   static void SetChanges( int plan_id, int comp_id );
+  static int GetLibraConfigs( const std::string& airline, const std::string& bort,
+                              int conf_id, std::vector<int>& configs, TQuery& Qry );
 };
 
 class ComponSetter: public TSetsCraftPoints {
 public:
+  enum TModeCreate {
+     mReCreate,
+     mNone
+  };
+
   enum TStatus { NotCrafts /* нет компоновок для типа ВС*/,
                  NotFound /* по условиям компоновка не найдена */,
                  NoChanges /* компоновка не изменилась */,
@@ -84,31 +114,30 @@ public:
 
 private:
   TAdvTripInfo fltInfo;
-  struct LibraInfo {
-    int planId;
-    LibraInfo() {
-      planId = -1;
-    }
-  } libraInfo;
-
+  TModeCreate fmode;
   int fcomp_id;
   int SearchCompon( bool pr_tranzit_routes,
                     const std::vector<std::string>& airps,
-                    TQuery &Qry );
+                    TQuery &Qry, int libra_plan_id = ASTRA::NoExists );
   void Init( int point_id );
   TStatus IntSetCraftFreeSeating( );
   TStatus IntSetCraft( bool pr_tranzit_routes );
 public:
-  ComponSetter( int point_id ):TSetsCraftPoints() {
+  ComponSetter( int point_id, TModeCreate mode = mNone ):TSetsCraftPoints() {
+    fmode = mode;
     Init( point_id );
   }
-  TStatus SetCraft( bool pr_tranzit_routes );
-  TStatus AutoSetCraft( bool pr_tranzit_routes );
+  TStatus SetCraft( bool pr_tranzit_routes = true );
+  TStatus AutoSetCraft( bool pr_tranzit_routes = true );
   bool isLibraMode();
   int getCompId( ) {
     return fcomp_id;
   }
-  void createBaseLibraCompon( ComponLibraFinder::AstraSearchResult& res, TQuery &Qry );
+  static void createBaseLibraCompon( ComponLibraFinder::AstraSearchResult& res,
+                                     const std::string& airline,
+                                     const std::string& craft,
+                                     const std::string& bort,
+                                     TQuery &Qry );
   void setCompId( int comp_id ) {
     fcomp_id = comp_id;
   }
@@ -130,6 +159,7 @@ public:
 };
 
 void signalChangesComp( TQuery &Qry, int plan_id, int conf_id = ASTRA::NoExists );
+void SychAHMCompsFromBort( const std::string& airline, const std::string& craft, const std::string& bort  );
 
 } //end namespace ComponCreator
 

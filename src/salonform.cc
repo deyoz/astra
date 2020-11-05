@@ -241,21 +241,16 @@ void getFlightTuneCompRef( int point_id, bool use_filter, const string &trip_air
 }
 
 struct CompParams {
-   bool onlySetComp;
-   bool use_filter;
-   bool isLibra;
+   enum TCond  { fcOnleSetCompon, fcFiltered, fcLibra };
+   BitSet<TCond> conds;
    std::string filter_airline;
    std::string filter_craft;
    std::string filter_bort;
-   CompParams( bool vonlySetComp,
-               bool vuse_filter,
-               bool visLibra,
+   CompParams( const BitSet<TCond>& vconds,
                std::string vfilter_airline,
                std::string vfilter_craft,
                std::string vfilter_bort ) {
-     onlySetComp = vonlySetComp;
-     use_filter = vuse_filter;
-     isLibra = visLibra;
+     conds = vconds;
      filter_airline = vfilter_airline;
      filter_craft = vfilter_craft;
      filter_bort = vfilter_bort;
@@ -268,25 +263,34 @@ void getFlightBaseCompRef( int point_id,
 {
   TQuery Qry( &OraSession );
   string sql;
-  if ( !compParams.onlySetComp )
+  if ( !compParams.conds.isFlag( CompParams::TCond::fcOnleSetCompon ) ) {
     sql =
       "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "
       "       comps.descr,0 as pr_comp, comps.airline, comps.airp "
-      " FROM comps, points "
-      "WHERE points.craft = comps.craft AND points.point_id = :point_id "
-      " UNION ";
+      " FROM comps, points ";
+    if ( compParams.conds.isFlag( CompParams::TCond::fcLibra ) ) {
+      sql += ",libra_comps ";
+    }
+    sql +=
+      "WHERE points.craft = comps.craft AND points.point_id = :point_id ";
+    if ( compParams.conds.isFlag( CompParams::TCond::fcLibra ) ) {
+      sql += " AND libra_comps.comp_id=comps.comp_id ";
+    }
+    sql +=  " UNION ";
+  }
   sql +=
     "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "
     "       comps.descr,1 as pr_comp, null airline, null airp "
     " FROM comps, points, trip_sets "
     "WHERE points.point_id=trip_sets.point_id AND ";
-  if ( !compParams.isLibra ) {
+//  if ( !compParams.isLibra ) {
     sql += "      points.craft = comps.craft AND ";
-  }
+//  }
   sql +=
     " points.point_id = :point_id AND "
     "      trip_sets.comp_id = comps.comp_id "
     "ORDER BY craft, bort, classes, descr";
+  LogTrace(TRACE5) << sql;
   Qry.SQLText = sql;
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
@@ -311,7 +315,7 @@ void getFlightBaseCompRef( int point_id,
     };
     comp.airline = Qry.FieldAsString( "airline" );
     comp.airp = Qry.FieldAsString( "airp" );
-    if ( !compParams.use_filter ||
+    if ( !compParams.conds.isFlag( CompParams::TCond::fcFiltered ) ||
          ( comp.comp_type != ctBase && comp.comp_type != ctBaseBort ) || /* поиск компоновки только по компоновкам нужной А/К или портовым компоновкам */
              ( ( comp.airline.empty() || compParams.filter_airline == comp.airline ) &&
                filterComponsForView( comp.airline, comp.airp ) ) ) {
@@ -480,8 +484,13 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     vector<TShowComps> comps, comps_tmp;
     TTripInfo info;
     info.Init( Qry );
-    if ( ComponCreator::LibraComps::isLibraMode( info ) ) { // только текущая компоновка
-      getFlightBaseCompRef( point_id, CompParams( true, false, true, trip_airline, craft, bort ), comps );
+    LogTrace(TRACE5) << info.airline << info.airp;
+    if ( ComponCreator::LibraComps::isLibraMode( info ) ) {
+      tst();
+      ComponCreator::SychAHMCompsFromBort( trip_airline, craft, bort ); //синхронизация компоновок
+      BitSet<CompParams::TCond> conds;
+      conds.setFlag( CompParams::TCond::fcLibra );
+      getFlightBaseCompRef( point_id, CompParams( conds, trip_airline, craft, bort ), comps );
     }
     else {
       getFlightTuneCompRef( point_id, true, trip_airline, comps );
@@ -502,7 +511,9 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
           if ( !Qry.Eof && craft == Qry.FieldAsString( "craft" ) ) {
             ProgTrace( TRACE5, "GetPriorAirp: point_id=%d, comp_id=%d", item.point_id, Qry.FieldAsInteger( "comp_id" ) );
             if ( Qry.FieldAsInteger( "comp_id" ) >= 0 ) { // базовая
-              getFlightBaseCompRef( item.point_id, CompParams( true, false, false, trip_airline, craft, bort ), comps_tmp );
+              BitSet<CompParams::TCond> conds;
+              conds.setFlag( CompParams::TCond::fcOnleSetCompon );
+              getFlightBaseCompRef( item.point_id, CompParams( conds, trip_airline, craft, bort ), comps_tmp );
             }
             else {
               getFlightTuneCompRef( item.point_id, false, trip_airline, comps_tmp ); // редактированная
@@ -522,7 +533,9 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
           }
         }
       }
-      getFlightBaseCompRef( point_id, CompParams( false, true, false, trip_airline, craft, bort ), comps );
+      BitSet<CompParams::TCond> conds;
+      conds.setFlag( CompParams::TCond::fcFiltered );
+      getFlightBaseCompRef( point_id, CompParams( conds, trip_airline, craft, bort ), comps );
     }
     //sort comps for client
     sort( comps.begin(), comps.end(), CompareShowComps );
@@ -780,8 +793,9 @@ void SalonFormInterface::ComponShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
       throw UserException( "MSG.SALONS.NOT_FOUND" );
     Qry.SetVariable( "point_id", item.point_id );
     Qry.Execute();
-    if ( !Qry.Eof )
+    if ( !Qry.Eof ) {
       ProgTrace( TRACE5, "prior_crc_comp=%d", Qry.FieldAsInteger( "crc_comp" ) );
+    }
     if ( Qry.Eof ||
          ( crc_comp != 0 &&
            Qry.FieldAsInteger( "crc_comp" ) != 0 &&
