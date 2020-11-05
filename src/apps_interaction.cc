@@ -1198,6 +1198,7 @@ bool checkNeedAlarmScdIn(const PointId_t& point_id)
 
 bool checkAPPSSegment(const TPaxSegmentPair & seg)
 {
+    LogTrace(TRACE5) << __FUNCTION__;
     TAdvTripRoute route = getTransitRoute(seg);
     if(route.size() < 2) {
         LogTrace(TRACE5) << __FUNCTION__ << " route size < 2";
@@ -3163,6 +3164,7 @@ public:
     }
 
     bool find(const TPaxSegmentPair& segmentPair) {
+        LogTrace(TRACE5) << __FUNCTION__ ;
         auto it = cache.find(segmentPair);
         if(it != cache.end()) {
             return it->second;
@@ -3225,21 +3227,35 @@ public:
                 const PaxIdWithSegmentPair& paxId,
                 const std::set<PaxChanges>& paxChanges)
     {
-        LogTrace(TRACE5) << __FUNCTION__;
-        auto paxSeg = paxId.getSegmentPair();
-        if(!paxSeg) {
-            return;
-        }
-        if(paxOrigin == paxPnl) {
-            if(AppsSetsCallbacksCache::Instanse().find(*paxSeg)) {
-                PointId_t point_id(paxSeg->point_dep);
-                if(isNeedAddTask(point_id, SEND_NEW_APPS_INFO)) {
-                    addAlarmByPaxId(paxId().get(), {Alarm::SyncAPPS}, {paxOrigin});
-                    AppsTasks::Instanse().add(TTripTaskKey(point_id, SEND_NEW_APPS_INFO, ""));
-                }
+        try
+        {
+            auto paxSeg = paxId.getSegmentPair();
+            if(!paxSeg) {
+                return;
             }
-        } else if(paxOrigin == paxCheckIn) {
+            if(paxOrigin == paxPnl) {
+                if(AppsSetsCallbacksCache::Instanse().find(*paxSeg)) {
+                    PointId_t point_id(paxSeg->point_dep);
+                    if(isNeedAddTask(point_id, SEND_NEW_APPS_INFO)) {
+                        addAlarmByPaxId(paxId().get(), {Alarm::SyncAPPS}, {paxOrigin});
+                        AppsTasks::Instanse().add(TTripTaskKey(point_id, SEND_NEW_APPS_INFO, ""));
+                    }
+                }
+            } else if(paxOrigin == paxCheckIn) {
 
+            }
+        }
+        catch(EOracleError &E)
+        {
+            ProgError(STDLOG,"EOracleError %d: %s", E.Code,E.what());
+        }
+        catch(std::exception &E)
+        {
+            ProgError(STDLOG,"std::exception: %s", E.what());
+        }
+        catch(...)
+        {
+            ProgError(STDLOG, "Unknown exception");
         }
     }
 };
@@ -3267,21 +3283,35 @@ public:
                 const PaxIdWithSegmentPair& paxId,
                 const std::set<TRemCategory>& remCategories)
     {
-        LogTrace(TRACE5) << __FUNCTION__;
-        auto paxSeg = paxId.getSegmentPair();
-        if(!paxSeg) {
-            return;
-        }
-        if(paxOrigin == paxPnl) {
-            if(AppsSetsCallbacksCache::Instanse().find(*paxSeg)) {
-                PointId_t point_id(paxSeg->point_dep);
-                if(isNeedAddTask(point_id, SEND_NEW_APPS_INFO)) {
-                    addAlarmByPaxId(paxId().get(), {Alarm::SyncAPPS}, {paxOrigin});
-                    AppsTasks::Instanse().add(TTripTaskKey(point_id, SEND_NEW_APPS_INFO, ""));
-                }
+        try
+        {
+            auto paxSeg = paxId.getSegmentPair();
+            if(!paxSeg) {
+                return;
             }
-        } else if(paxOrigin == paxCheckIn) {
+            if(paxOrigin == paxPnl) {
+                if(AppsSetsCallbacksCache::Instanse().find(*paxSeg)) {
+                    PointId_t point_id(paxSeg->point_dep);
+                    if(isNeedAddTask(point_id, SEND_NEW_APPS_INFO)) {
+                        addAlarmByPaxId(paxId().get(), {Alarm::SyncAPPS}, {paxOrigin});
+                        AppsTasks::Instanse().add(TTripTaskKey(point_id, SEND_NEW_APPS_INFO, ""));
+                    }
+                }
+            } else if(paxOrigin == paxCheckIn) {
 
+            }
+        }
+        catch(EOracleError &E)
+        {
+            ProgError(STDLOG,"EOracleError %d: %s", E.Code,E.what());
+        }
+        catch(std::exception &E)
+        {
+            ProgError(STDLOG,"std::exception: %s", E.what());
+        }
+        catch(...)
+        {
+            ProgError(STDLOG, "Unknown exception");
         }
     }
 };
