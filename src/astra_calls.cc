@@ -34,13 +34,15 @@ namespace AstraCalls {
 using namespace OciCpp;
 using namespace BASIC::date_time;
 
+/*LogWarning(STDLOG) << "Exception cathed during call '" << func_name << "'. " << e.what();*/
+
 #define __DECLARE_CALL__(func_name_, func) \
     if(func_name == func_name_)\
     {\
         try {\
             return func(reqNode, detailsNode);\
         } catch(std::exception& e) {\
-            LogWarning(STDLOG) << "Exception cathed during call '" << func_name << "'. " << e.what();\
+            LogError(STDLOG) << "Exception cathed during call '" << func_name << "'. " << e.what();\
             NewTextChild(resNode, "error", "Internal error occured during call '" + func_name + "'");\
         } catch(...) {\
             LogWarning(STDLOG) << "Unknown exception catched during call '" << func_name << "'";\
@@ -293,7 +295,7 @@ static bool get_seating_details(xmlNodePtr reqNode, xmlNodePtr resNode)
   xmlNodePtr wNode = NewTextChild( resNode, "baggage" );
   for ( const auto& destW : weights ) {
     xmlNodePtr n1 = NewTextChild( wNode, "dest" );
-    SetProp( n1, "val", destW.first );           
+    SetProp( n1, "val", destW.first );
     for ( const auto &classW : destW.second ) {
       xmlNodePtr classNode = NewTextChild( n1, "class", classW.first );
       if ( classW.second.amount ) {
