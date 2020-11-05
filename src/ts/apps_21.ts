@@ -2132,3 +2132,39 @@ $(CICX_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
 $(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
           P UKR UKR FA144777 P 20250625 TUMALI VALERII 19680416 M N N "" AAE)
 
+#####################################################################
+%%
+###
+#   Тест №27
+#
+#   Описание: пассажиров: 61,
+#             интерактив: выкл
+#            версия apps: 21
+#
+#   Обработка PNL для APPS не должна падать, если пункт прилета PNL не совпадает с суточным планом полета
+###
+#########################################################################################
+
+$(settcl APPS_H2H_ADDR APTXS)
+$(settcl APPS_ROT_NAME APPGT)
+
+$(init_term)
+
+$(init_apps ЮТ ЦЗ APPS_21 closeout=true inbound=true outbound=false)
+
+$(PREPARE_SEASON_SCD ЮТ СОЧ ПРХ 298)
+$(make_spp)
+$(deny_ets_interactive ЮТ 298 СОЧ)
+
+$(INB_PNL_UT AER AMS 298 $(ddmon +0 en))
+$(set point_dep $(last_point_id_spp))
+
+$(combine_brd_with_reg $(get point_dep))
+$(auto_set_craft $(get point_dep))
+
+??
+$(dump_table CRS_PAX fields="name, surname" where="name='OFER'" display=on)
+>> lines=auto
+[OFER] [OZ] $()
+
+
