@@ -196,7 +196,7 @@ $(CHECKIN_PAX_WITH_VISA_AND_DOCA $(get pax_id) $(get point_dep) $(get point_arv)
                                  213121 CZ 10.03.2019 10.03.2030 CZ)
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PCX/21/1/3/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
+.*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PCX/21/1/3/P/UKR/UKR/FA144642//P/$(yyyymmdd +1y)////TUMALI/VALERII/19680416/M///N/N/.*
 >> lines=auto mode=regex
 .*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PRQ/34/1/P/UKR/UKR/FA144642//P//20250625////TUMALI/VALERII/19680416/M///N/N///////00011////////PAD/13/1/CZ/V//213121/CZE/20300310/ADDRESS/CITY/REGION/112233.*
 
@@ -216,7 +216,7 @@ $(CHECKIN_PAX_WITH_VISA $(get pax_id) $(get point_dep) $(get point_arv)
                         56573563 CZ 10.03.2019 10.03.2030 CZ)
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PCX/21/1/2/P/RUS/RUS/9205589611//P/20251220////SELIVANOV/RUSLAN NAILYEVICH/19830923/M///N/N/.*
+.*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PCX/21/1/2/P/RUS/RUS/9205589611//P/$(yyyymmdd +1y)////SELIVANOV/RUSLAN NAILYEVICH/19830923/M///N/N/.*
 >> lines=auto mode=regex
 .*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PRQ/34/1/P/UKR/UKR/12342131//P//20251220////SELIVANOV/RUSLAN NAILYEVICH/19830923/M///N/N////.*
 
@@ -239,10 +239,10 @@ $(INB_ADL_UT_DEL2PAXES PRG AER 298 $(ddmon +0 en))
 $(run_trip_task send_apps $(get point_dep))
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PCX/21/1/4/P/KAZ/KAZ/N11024936//P/20261004////ALIMOV/TALGAT/19960511/M///N/N/.*
+.*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PCX/21/1/4/P/KAZ/KAZ/N11024936//P/$(yyyymmdd +1y)////ALIMOV/TALGAT/19960511/M///N/N/.*
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PCX/21/1/5/P/KAZ/KAZ/N07298275//P/20210329////KHASSENOVA/ZULFIYA/19741106/F///N/N/.*
+.*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PCX/21/1/5/P/KAZ/KAZ/N07298275//P/$(yyyymmdd +1y)////KHASSENOVA/ZULFIYA/19741106/F///N/N/.*
 
 # приходит ADL с изменением данных по одному пассажиру
 $(INB_ADL_UT_CHG1PAX PRG AER 298 $(ddmon +0 en))
@@ -253,10 +253,10 @@ $(run_trip_task send_apps $(get point_dep))
 # ранее по этому пассажиру!!!
 
 >> lines=auto mode=regex
-.*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PCX/21/1/1/P/RUS/RUS/0319189298//P/20201008////KURGINSKAYA/ANNA GRIGOREVNA/19870602/F///N/N/.*
+.*CICX:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PCX/21/1/1/P/RUS/RUS/0319189298//P/$(yyyymmdd +1y)////KURGINSKAYA/ANNA GRIGOREVNA/19870602/F///N/N/.*
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PRQ/34/1/P/RUS/RUS/0319189297//P//20201008////KURGINSKAYA/ANNA GRIGOREVNA/19870602/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PRQ/34/1/P/RUS/RUS/0319189297//P//$(yyyymmdd +1y)////KURGINSKAYA/ANNA GRIGOREVNA/19870602/F///N/N////.*
 
 
 # закрытие рейса. По настройке APPS НЕ должен уходить CIMR

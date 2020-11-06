@@ -84,6 +84,8 @@ $(defmacro PREPARE_SEASON_SCD
   craft=TU5
   first_date=$(date_format %d.%m.%Y)
   last_date=$(date_format %d.%m.%Y)
+  takeoff=30.12.1899
+  land=30.12.1899
 {
 {<?xml version='1.0' encoding='CP866'?>
  <term>
@@ -105,12 +107,12 @@ $(defmacro PREPARE_SEASON_SCD
               <company>$(airl)</company>
               <trip>$(fltno)</trip>
               <bc>$(craft)</bc>
-              <takeoff>30.12.1899 10:15:00</takeoff>
+              <takeoff>$(takeoff) 10:15:00</takeoff>
               <y>-1</y>
             </dest>
             <dest>
               <cod>$(arrp)</cod>
-              <land>30.12.1899 12:00:00</land>
+              <land>$(land) 12:00:00</land>
             </dest>
           </dests>
         </subrange>
@@ -2630,52 +2632,52 @@ $(defmacro CIRQ_61_UT_REQS_APPS_VERSION_21
 {
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0305984920//P/20491009////VERGUNOV/VASILII LEONIDOVICH/19601104/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0305984920//P/$(yyyymmdd +1y)////VERGUNOV/VASILII LEONIDOVICH/19601104/M///N/N////.*
 
 $(set msg_id1 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/KAZ/KAZ/N11024936//P/20261004////ALIMOV/TALGAT/19960511/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/KAZ/KAZ/N11024936//P/$(yyyymmdd +1y)////ALIMOV/TALGAT/19960511/M///N/N////.*
 
 $(set msg_id2 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/KAZ/KAZ/N07298275//P/20210329////KHASSENOVA/ZULFIYA/19741106/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/KAZ/KAZ/N07298275//P/$(yyyymmdd +1y)////KHASSENOVA/ZULFIYA/19741106/F///N/N////.*
 
 $(set msg_id3 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/9205589611//P/20251220////SELIVANOV/RUSLAN NAILYEVICH/19830923/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/9205589611//P/$(yyyymmdd +1y)////SELIVANOV/RUSLAN NAILYEVICH/19830923/M///N/N////.*
 
 $(set msg_id4 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0317833785//P/20201009////RIAZANOVA/IRINA GENNADEVNA/19721003/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0317833785//P/$(yyyymmdd +1y)////RIAZANOVA/IRINA GENNADEVNA/19721003/F///N/N////.*
 
 $(set msg_id5 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0313361730//P/20241007////AKOPOV/ANDREI/19930621/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0313361730//P/$(yyyymmdd +1y)////AKOPOV/ANDREI/19930621/M///N/N////.*
 
 $(set msg_id6 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/VAG594936//O/20241007////BABAKHANOVA/KIRA/20100405/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/VAG594936//O/$(yyyymmdd +1y)////BABAKHANOVA/KIRA/20100405/F///N/N////.*
 
 $(set msg_id7 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0305555064//P/20241007////STIPIDI/ANGELINA/19820723/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0305555064//P/$(yyyymmdd +1y)////STIPIDI/ANGELINA/19820723/F///N/N////.*
 
 $(set msg_id8 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/VIAG519994//O/20241007////AKOPOVA/OLIVIIA/20190822/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/VIAG519994//O/$(yyyymmdd +1y)////AKOPOVA/OLIVIIA/20190822/F///N/N////.*
 
 $(set msg_id9 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0306355301//P/20291005////KOBYLINSKIY/ALEKSEY/19861231/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0306355301//P/$(yyyymmdd +1y)////KOBYLINSKIY/ALEKSEY/19861231/M///N/N////.*
 
 $(set msg_id10 $(capture 1))
 
@@ -2685,252 +2687,252 @@ $(set msg_id10 $(capture 1))
 $(set msg_id11 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0803963313//P/20241008////LUCHAK/OKSANA/19771022/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0803963313//P/$(yyyymmdd +1y)////LUCHAK/OKSANA/19771022/F///N/N////.*
 
 $(set msg_id12 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0319189298//P/20201008////KURGINSKAYA/ANNA GRIGOREVNA/19870602/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0319189298//P/$(yyyymmdd +1y)////KURGINSKAYA/ANNA GRIGOREVNA/19870602/F///N/N////.*
 
 $(set msg_id13 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/652123387//P/20220110////BUMBURIDI/ODISSEI AFANASEVICH/19510514/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/652123387//P/$(yyyymmdd +1y)////BUMBURIDI/ODISSEI AFANASEVICH/19510514/M///N/N////.*
 
 $(set msg_id14 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0319350828//P/20201007////CHEKMAREV/KONSTANTIN ALEKSANDROVICH/19900317/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0319350828//P/$(yyyymmdd +1y)////CHEKMAREV/KONSTANTIN ALEKSANDROVICH/19900317/M///N/N////.*
 
 $(set msg_id15 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/UKR/UKR/FA144642//P/$(yyyymmdd +1y)////TUMALI/VALERII/19680416/M///N/N////.*
 
 $(set msg_id16 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0307611933//P/20201007////VASILIADI/KSENIYA VALEREVNA/19840913/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0307611933//P/$(yyyymmdd +1y)////VASILIADI/KSENIYA VALEREVNA/19840913/F///N/N////.*
 
 $(set msg_id17 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/VАГ815247//O/20201007////CHEKMAREV/RONALD KONSTANTINOVICH/20180129/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/VАГ815247//O/$(yyyymmdd +1y)////CHEKMAREV/RONALD KONSTANTINOVICH/20180129/M///N/N////.*
 
 $(set msg_id18 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0305350198//P/20350626////ZAINULLINA/RAISA GRIGOREVNA/19590102/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0305350198//P/$(yyyymmdd +1y)////ZAINULLINA/RAISA GRIGOREVNA/19590102/F///N/N////.*
 
 $(set msg_id19 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/4611296643//P/20201007////KOTLIAR/VLADIMIR NIKOLAEVICH/19660117/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/4611296643//P/$(yyyymmdd +1y)////KOTLIAR/VLADIMIR NIKOLAEVICH/19660117/M///N/N////.*
 
 $(set msg_id20 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/6008404843//P/20491004////AGAFONOV/DENIS DMITRIEVICH/19881230/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/6008404843//P/$(yyyymmdd +1y)////AGAFONOV/DENIS DMITRIEVICH/19881230/M///N/N////.*
 
 $(set msg_id21 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/4515495907//P/20491004////POLETAEVA/MARIIA DMITRIEVNA/19930807/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/4515495907//P/$(yyyymmdd +1y)////POLETAEVA/MARIIA DMITRIEVNA/19930807/F///N/N////.*
 
 $(set msg_id22 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/4503912696//P/20491004////ASTAFEV/DMITRII VLADIMIROVICH/19790707/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/4503912696//P/$(yyyymmdd +1y)////ASTAFEV/DMITRII VLADIMIROVICH/19790707/M///N/N////.*
 
 $(set msg_id23 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/4510616333//P/20491004////TIKHOMIROVA/KRISTINA VALEREVNA/19870913/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/4510616333//P/$(yyyymmdd +1y)////TIKHOMIROVA/KRISTINA VALEREVNA/19870913/F///N/N////.*
 
 $(set msg_id24 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/4605592746//P/20491004////BALASHOV/SERGEI MIKHAILOVICH/19510831/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/4605592746//P/$(yyyymmdd +1y)////BALASHOV/SERGEI MIKHAILOVICH/19510831/M///N/N////.*
 
 $(set msg_id25 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/726713638//P/20231113////BUMBURIDI/EKATERINA SERGEEVNA/19520331/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/726713638//P/$(yyyymmdd +1y)////BUMBURIDI/EKATERINA SERGEEVNA/19520331/F///N/N////.*
 
 $(set msg_id26 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/728840142//P/20240523////MOKSOKHOEV/OLEG VIKTOROVICH/20110203/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/728840142//P/$(yyyymmdd +1y)////MOKSOKHOEV/OLEG VIKTOROVICH/20110203/M///N/N////.*
 
 $(set msg_id27 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/715704423//P/20210810////MOKSOKHOEV/VICTOR SERGEEVICH/19810907/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/715704423//P/$(yyyymmdd +1y)////MOKSOKHOEV/VICTOR SERGEEVICH/19810907/M///N/N////.*
 
 $(set msg_id28 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0305367719//P/20290930////RUBLEVA/MARINA/19801012/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0305367719//P/$(yyyymmdd +1y)////RUBLEVA/MARINA/19801012/F///N/N////.*
 
 $(set msg_id29 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/714051483//P/20210412////KAPANOVA/SVETLANA VLADISLAVOVNA/19720824/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/714051483//P/$(yyyymmdd +1y)////KAPANOVA/SVETLANA VLADISLAVOVNA/19720824/F///N/N////.*
 
 $(set msg_id30 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0319013818//P/20380802////KRAVTSOVA/ELENA VLADIMIROVNA/19730627/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0319013818//P/$(yyyymmdd +1y)////KRAVTSOVA/ELENA VLADIMIROVNA/19730627/F///N/N////.*
 
 $(set msg_id31 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/4606018370//P/20201004////KUZNETSOV/ILIA VLADIMIROVICH/19780804/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/4606018370//P/$(yyyymmdd +1y)////KUZNETSOV/ILIA VLADIMIROVICH/19780804/M///N/N////.*
 
 $(set msg_id32 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0319404210//P/20201004////TAGIROV/SERGEI/19740906/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0319404210//P/$(yyyymmdd +1y)////TAGIROV/SERGEI/19740906/M///N/N////.*
 
 $(set msg_id33 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/2512791944//P/20201005////CHETVERTKOV/EVGENII VLADIMIROVICH/19680207/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/2512791944//P/$(yyyymmdd +1y)////CHETVERTKOV/EVGENII VLADIMIROVICH/19680207/M///N/N////.*
 
 $(set msg_id34 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0305453906//P/20201003////IARINENKO/MAKSIM ALEKSEEVICH/19790430/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0305453906//P/$(yyyymmdd +1y)////IARINENKO/MAKSIM ALEKSEEVICH/19790430/M///N/N////.*
 
 $(set msg_id35 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/4505137601//P/20380116////BUGAEV/PAVEL/19820202/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/4505137601//P/$(yyyymmdd +1y)////BUGAEV/PAVEL/19820202/M///N/N////.*
 
 $(set msg_id36 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0309013487//P/20380820////CHETVERIKOVA/JULIA/19791221/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0309013487//P/$(yyyymmdd +1y)////CHETVERIKOVA/JULIA/19791221/F///N/N////.*
 
 $(set msg_id37 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/ISR/ISR/33322514//P/20690919////FUKS/LIUDMILA/19900707/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/ISR/ISR/33322514//P/$(yyyymmdd +1y)////FUKS/LIUDMILA/19900707/F///N/N////.*
 
 $(set msg_id38 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0312185128//P/20200928////KARUNA/ALBINA VALENTINOVNA/19670126/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0312185128//P/$(yyyymmdd +1y)////KARUNA/ALBINA VALENTINOVNA/19670126/F///N/N////.*
 
 $(set msg_id39 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/IVАГ827949//O/20200928////KARUNA/EKATERINA SERGEEVNA/20140724/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/IVАГ827949//O/$(yyyymmdd +1y)////KARUNA/EKATERINA SERGEEVNA/20140724/F///N/N////.*
 
 $(set msg_id40 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/IVАГ827950//O/20200928////KARUNA/ELIZAVETA SERGEEVNA/20140724/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/IVАГ827950//O/$(yyyymmdd +1y)////KARUNA/ELIZAVETA SERGEEVNA/20140724/F///N/N////.*
 
 $(set msg_id41 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/IVАГ848869//O/20200928////KARUNA/SERGEY SERGEEVICH/20140724/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/IVАГ848869//O/$(yyyymmdd +1y)////KARUNA/SERGEY SERGEEVICH/20140724/M///N/N////.*
 
 $(set msg_id42 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0306152502//P/20200928////KARUNA/SERGEY VIKTOROVICH/19610101/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0306152502//P/$(yyyymmdd +1y)////KARUNA/SERGEY VIKTOROVICH/19610101/M///N/N////.*
 
 $(set msg_id43 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/IVАГ848868//O/20200928////KARUNA/SOFIYA SERGEEVNA/20140724/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/IVАГ848868//O/$(yyyymmdd +1y)////KARUNA/SOFIYA SERGEEVNA/20140724/F///N/N////.*
 
 $(set msg_id44 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0312220158//P/20290709////MAKEYAN/GEVORG SIMAVONOVICH/19921107/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0312220158//P/$(yyyymmdd +1y)////MAKEYAN/GEVORG SIMAVONOVICH/19921107/M///N/N////.*
 
 $(set msg_id45 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0314612597//P/20200925////AVIDZBA/DZHIKHAN/19580901/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0314612597//P/$(yyyymmdd +1y)////AVIDZBA/DZHIKHAN/19580901/F///N/N////.*
 
 $(set msg_id46 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/IАБ083812//O/20200925////AVIDZBA/MARK/20141220/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/IАБ083812//O/$(yyyymmdd +1y)////AVIDZBA/MARK/20141220/M///N/N////.*
 
 $(set msg_id47 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0315047607//P/20200925////MKELBA/SALIMA/19871228/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0315047607//P/$(yyyymmdd +1y)////MKELBA/SALIMA/19871228/F///N/N////.*
 
 $(set msg_id48 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0399187351//P/20380823////ATOMAS/NATALIA VALERIEVNA/19780423/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0399187351//P/$(yyyymmdd +1y)////ATOMAS/NATALIA VALERIEVNA/19780423/F///N/N////.*
 
 $(set msg_id49 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0308968576//P/20201001////BARSUK/TATIANA/19631016/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0308968576//P/$(yyyymmdd +1y)////BARSUK/TATIANA/19631016/F///N/N////.*
 
 $(set msg_id50 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/4501742939//P/20201001////BURIAKOV/EVGENII EVGENEVICH/19750302/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/4501742939//P/$(yyyymmdd +1y)////BURIAKOV/EVGENII EVGENEVICH/19750302/M///N/N////.*
 
 $(set msg_id51 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0304440901//P/20201011////DIKOVA/MARIIA SERGEEVNA/19821024/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0304440901//P/$(yyyymmdd +1y)////DIKOVA/MARIIA SERGEEVNA/19821024/F///N/N////.*
 
 $(set msg_id52 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0310526187//P/20201001////DMITRIEVA/IULIIA ALEKSANDROVNA/19850823/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0310526187//P/$(yyyymmdd +1y)////DMITRIEVA/IULIIA ALEKSANDROVNA/19850823/F///N/N////.*
 
 $(set msg_id53 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/VАГ841650//O/20201001////CHARKOV/NIKOLAI GENNADEVICH/20180811/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/VАГ841650//O/$(yyyymmdd +1y)////CHARKOV/NIKOLAI GENNADEVICH/20180811/M///N/N////.*
 
 $(set msg_id54 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/VАГ568572//O/20201001////CHARKOV/MIKHAIL GENNADEVICH/20151121/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/VАГ568572//O/$(yyyymmdd +1y)////CHARKOV/MIKHAIL GENNADEVICH/20151121/M///N/N////.*
 
 $(set msg_id55 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0312089903//P/20201001////SAMOILENKO/IGOR ALEKSANDROVICH/19670619/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0312089903//P/$(yyyymmdd +1y)////SAMOILENKO/IGOR ALEKSANDROVICH/19670619/M///N/N////.*
 
 $(set msg_id56 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/516703310//P/20221024////SERGIENKO/ALEKSANDR VIKTOROVICH/19860527/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/516703310//P/$(yyyymmdd +1y)////SERGIENKO/ALEKSANDR VIKTOROVICH/19860527/M///N/N////.*
 
 $(set msg_id57 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0317834955//P/20201002////STARODUBTSEVA/OLGA ANDREEVNA/19900111/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0317834955//P/$(yyyymmdd +1y)////STARODUBTSEVA/OLGA ANDREEVNA/19900111/F///N/N////.*
 
 $(set msg_id58 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/VАГ506585//O/20200922////KHARCHENKO/MARIIA SEMENOVNA/20150714/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/VАГ506585//O/$(yyyymmdd +1y)////KHARCHENKO/MARIIA SEMENOVNA/20150714/F///N/N////.*
 
 $(set msg_id59 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0315043239//P/20200922////KHARCHENKO/NATALIA ALEKSANDROVNA/19910412/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0315043239//P/$(yyyymmdd +1y)////KHARCHENKO/NATALIA ALEKSANDROVNA/19910412/F///N/N////.*
 
 $(set msg_id60 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0315042043//P/20200922////KHARCHENKO/SEMEN VIACHESLAVOVICH/19800525/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/21/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/22/1/P/RUS/RUS/0315042043//P/$(yyyymmdd +1y)////KHARCHENKO/SEMEN VIACHESLAVOVICH/19800525/M///N/N////.*
 
 $(set msg_id61 $(capture 1))
 
@@ -3095,52 +3097,52 @@ $(defmacro CIRQ_61_UT_REQS_APPS_VERSION_26
 {
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0305984920//P//20491009////VERGUNOV/VASILII LEONIDOVICH/19601104/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0305984920//P//$(yyyymmdd +1y)////VERGUNOV/VASILII LEONIDOVICH/19601104/M///N/N////.*
 
 $(set msg_id1 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/KAZ/KAZ/N11024936//P//20261004////ALIMOV/TALGAT/19960511/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/KAZ/KAZ/N11024936//P//$(yyyymmdd +1y)////ALIMOV/TALGAT/19960511/M///N/N////.*
 
 $(set msg_id2 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/KAZ/KAZ/N07298275//P//20210329////KHASSENOVA/ZULFIYA/19741106/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/KAZ/KAZ/N07298275//P//$(yyyymmdd +1y)////KHASSENOVA/ZULFIYA/19741106/F///N/N////.*
 
 $(set msg_id3 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/9205589611//P//20251220////SELIVANOV/RUSLAN NAILYEVICH/19830923/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/9205589611//P//$(yyyymmdd +1y)////SELIVANOV/RUSLAN NAILYEVICH/19830923/M///N/N////.*
 
 $(set msg_id4 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0317833785//P//20201009////RIAZANOVA/IRINA GENNADEVNA/19721003/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0317833785//P//$(yyyymmdd +1y)////RIAZANOVA/IRINA GENNADEVNA/19721003/F///N/N////.*
 
 $(set msg_id5 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0313361730//P//20241007////AKOPOV/ANDREI/19930621/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0313361730//P//$(yyyymmdd +1y)////AKOPOV/ANDREI/19930621/M///N/N////.*
 
 $(set msg_id6 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/VAG594936//O//20241007////BABAKHANOVA/KIRA/20100405/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/VAG594936//O//$(yyyymmdd +1y)////BABAKHANOVA/KIRA/20100405/F///N/N////.*
 
 $(set msg_id7 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0305555064//P//20241007////STIPIDI/ANGELINA/19820723/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0305555064//P//$(yyyymmdd +1y)////STIPIDI/ANGELINA/19820723/F///N/N////.*
 
 $(set msg_id8 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/VIAG519994//O//20241007////AKOPOVA/OLIVIIA/20190822/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/VIAG519994//O//$(yyyymmdd +1y)////AKOPOVA/OLIVIIA/20190822/F///N/N////.*
 
 $(set msg_id9 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0306355301//P//20291005////KOBYLINSKIY/ALEKSEY/19861231/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0306355301//P//$(yyyymmdd +1y)////KOBYLINSKIY/ALEKSEY/19861231/M///N/N////.*
 
 $(set msg_id10 $(capture 1))
 
@@ -3150,252 +3152,252 @@ $(set msg_id10 $(capture 1))
 $(set msg_id11 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0803963313//P//20241008////LUCHAK/OKSANA/19771022/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0803963313//P//$(yyyymmdd +1y)////LUCHAK/OKSANA/19771022/F///N/N////.*
 
 $(set msg_id12 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0319189298//P//20201008////KURGINSKAYA/ANNA GRIGOREVNA/19870602/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0319189298//P//$(yyyymmdd +1y)////KURGINSKAYA/ANNA GRIGOREVNA/19870602/F///N/N////.*
 
 $(set msg_id13 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/652123387//P//20220110////BUMBURIDI/ODISSEI AFANASEVICH/19510514/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/652123387//P//$(yyyymmdd +1y)////BUMBURIDI/ODISSEI AFANASEVICH/19510514/M///N/N////.*
 
 $(set msg_id14 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0319350828//P//20201007////CHEKMAREV/KONSTANTIN ALEKSANDROVICH/19900317/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0319350828//P//$(yyyymmdd +1y)////CHEKMAREV/KONSTANTIN ALEKSANDROVICH/19900317/M///N/N////.*
 
 $(set msg_id15 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/UKR/UKR/FA144642//P//20250625////TUMALI/VALERII/19680416/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/UKR/UKR/FA144642//P//$(yyyymmdd +1y)////TUMALI/VALERII/19680416/M///N/N////.*
 
 $(set msg_id16 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0307611933//P//20201007////VASILIADI/KSENIYA VALEREVNA/19840913/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0307611933//P//$(yyyymmdd +1y)////VASILIADI/KSENIYA VALEREVNA/19840913/F///N/N////.*
 
 $(set msg_id17 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/VАГ815247//O//20201007////CHEKMAREV/RONALD KONSTANTINOVICH/20180129/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/VАГ815247//O//$(yyyymmdd +1y)////CHEKMAREV/RONALD KONSTANTINOVICH/20180129/M///N/N////.*
 
 $(set msg_id18 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0305350198//P//20350626////ZAINULLINA/RAISA GRIGOREVNA/19590102/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0305350198//P//$(yyyymmdd +1y)////ZAINULLINA/RAISA GRIGOREVNA/19590102/F///N/N////.*
 
 $(set msg_id19 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/4611296643//P//20201007////KOTLIAR/VLADIMIR NIKOLAEVICH/19660117/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/4611296643//P//$(yyyymmdd +1y)////KOTLIAR/VLADIMIR NIKOLAEVICH/19660117/M///N/N////.*
 
 $(set msg_id20 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/6008404843//P//20491004////AGAFONOV/DENIS DMITRIEVICH/19881230/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/6008404843//P//$(yyyymmdd +1y)////AGAFONOV/DENIS DMITRIEVICH/19881230/M///N/N////.*
 
 $(set msg_id21 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/4515495907//P//20491004////POLETAEVA/MARIIA DMITRIEVNA/19930807/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/4515495907//P//$(yyyymmdd +1y)////POLETAEVA/MARIIA DMITRIEVNA/19930807/F///N/N////.*
 
 $(set msg_id22 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/4503912696//P//20491004////ASTAFEV/DMITRII VLADIMIROVICH/19790707/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/4503912696//P//$(yyyymmdd +1y)////ASTAFEV/DMITRII VLADIMIROVICH/19790707/M///N/N////.*
 
 $(set msg_id23 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/4510616333//P//20491004////TIKHOMIROVA/KRISTINA VALEREVNA/19870913/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/4510616333//P//$(yyyymmdd +1y)////TIKHOMIROVA/KRISTINA VALEREVNA/19870913/F///N/N////.*
 
 $(set msg_id24 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/4605592746//P//20491004////BALASHOV/SERGEI MIKHAILOVICH/19510831/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/4605592746//P//$(yyyymmdd +1y)////BALASHOV/SERGEI MIKHAILOVICH/19510831/M///N/N////.*
 
 $(set msg_id25 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/726713638//P//20231113////BUMBURIDI/EKATERINA SERGEEVNA/19520331/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/726713638//P//$(yyyymmdd +1y)////BUMBURIDI/EKATERINA SERGEEVNA/19520331/F///N/N////.*
 
 $(set msg_id26 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/728840142//P//20240523////MOKSOKHOEV/OLEG VIKTOROVICH/20110203/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/728840142//P//$(yyyymmdd +1y)////MOKSOKHOEV/OLEG VIKTOROVICH/20110203/M///N/N////.*
 
 $(set msg_id27 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/715704423//P//20210810////MOKSOKHOEV/VICTOR SERGEEVICH/19810907/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/715704423//P//$(yyyymmdd +1y)////MOKSOKHOEV/VICTOR SERGEEVICH/19810907/M///N/N////.*
 
 $(set msg_id28 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0305367719//P//20290930////RUBLEVA/MARINA/19801012/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0305367719//P//$(yyyymmdd +1y)////RUBLEVA/MARINA/19801012/F///N/N////.*
 
 $(set msg_id29 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/714051483//P//20210412////KAPANOVA/SVETLANA VLADISLAVOVNA/19720824/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/714051483//P//$(yyyymmdd +1y)////KAPANOVA/SVETLANA VLADISLAVOVNA/19720824/F///N/N////.*
 
 $(set msg_id30 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0319013818//P//20380802////KRAVTSOVA/ELENA VLADIMIROVNA/19730627/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0319013818//P//$(yyyymmdd +1y)////KRAVTSOVA/ELENA VLADIMIROVNA/19730627/F///N/N////.*
 
 $(set msg_id31 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/4606018370//P//20201004////KUZNETSOV/ILIA VLADIMIROVICH/19780804/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/4606018370//P//$(yyyymmdd +1y)////KUZNETSOV/ILIA VLADIMIROVICH/19780804/M///N/N////.*
 
 $(set msg_id32 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0319404210//P//20201004////TAGIROV/SERGEI/19740906/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0319404210//P//$(yyyymmdd +1y)////TAGIROV/SERGEI/19740906/M///N/N////.*
 
 $(set msg_id33 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/2512791944//P//20201005////CHETVERTKOV/EVGENII VLADIMIROVICH/19680207/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/2512791944//P//$(yyyymmdd +1y)////CHETVERTKOV/EVGENII VLADIMIROVICH/19680207/M///N/N////.*
 
 $(set msg_id34 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0305453906//P//20201003////IARINENKO/MAKSIM ALEKSEEVICH/19790430/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0305453906//P//$(yyyymmdd +1y)////IARINENKO/MAKSIM ALEKSEEVICH/19790430/M///N/N////.*
 
 $(set msg_id35 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/4505137601//P//20380116////BUGAEV/PAVEL/19820202/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/4505137601//P//$(yyyymmdd +1y)////BUGAEV/PAVEL/19820202/M///N/N////.*
 
 $(set msg_id36 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0309013487//P//20380820////CHETVERIKOVA/JULIA/19791221/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0309013487//P//$(yyyymmdd +1y)////CHETVERIKOVA/JULIA/19791221/F///N/N////.*
 
 $(set msg_id37 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/ISR/ISR/33322514//P//20690919////FUKS/LIUDMILA/19900707/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/ISR/ISR/33322514//P//$(yyyymmdd +1y)////FUKS/LIUDMILA/19900707/F///N/N////.*
 
 $(set msg_id38 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0312185128//P//20200928////KARUNA/ALBINA VALENTINOVNA/19670126/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0312185128//P//$(yyyymmdd +1y)////KARUNA/ALBINA VALENTINOVNA/19670126/F///N/N////.*
 
 $(set msg_id39 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/IVАГ827949//O//20200928////KARUNA/EKATERINA SERGEEVNA/20140724/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/IVАГ827949//O//$(yyyymmdd +1y)////KARUNA/EKATERINA SERGEEVNA/20140724/F///N/N////.*
 
 $(set msg_id40 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/IVАГ827950//O//20200928////KARUNA/ELIZAVETA SERGEEVNA/20140724/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/IVАГ827950//O//$(yyyymmdd +1y)////KARUNA/ELIZAVETA SERGEEVNA/20140724/F///N/N////.*
 
 $(set msg_id41 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/IVАГ848869//O//20200928////KARUNA/SERGEY SERGEEVICH/20140724/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/IVАГ848869//O//$(yyyymmdd +1y)////KARUNA/SERGEY SERGEEVICH/20140724/M///N/N////.*
 
 $(set msg_id42 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0306152502//P//20200928////KARUNA/SERGEY VIKTOROVICH/19610101/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0306152502//P//$(yyyymmdd +1y)////KARUNA/SERGEY VIKTOROVICH/19610101/M///N/N////.*
 
 $(set msg_id43 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/IVАГ848868//O//20200928////KARUNA/SOFIYA SERGEEVNA/20140724/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/IVАГ848868//O//$(yyyymmdd +1y)////KARUNA/SOFIYA SERGEEVNA/20140724/F///N/N////.*
 
 $(set msg_id44 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0312220158//P//20290709////MAKEYAN/GEVORG SIMAVONOVICH/19921107/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0312220158//P//$(yyyymmdd +1y)////MAKEYAN/GEVORG SIMAVONOVICH/19921107/M///N/N////.*
 
 $(set msg_id45 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0314612597//P//20200925////AVIDZBA/DZHIKHAN/19580901/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0314612597//P//$(yyyymmdd +1y)////AVIDZBA/DZHIKHAN/19580901/F///N/N////.*
 
 $(set msg_id46 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/IАБ083812//O//20200925////AVIDZBA/MARK/20141220/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/IАБ083812//O//$(yyyymmdd +1y)////AVIDZBA/MARK/20141220/M///N/N////.*
 
 $(set msg_id47 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0315047607//P//20200925////MKELBA/SALIMA/19871228/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0315047607//P//$(yyyymmdd +1y)////MKELBA/SALIMA/19871228/F///N/N////.*
 
 $(set msg_id48 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0399187351//P//20380823////ATOMAS/NATALIA VALERIEVNA/19780423/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0399187351//P//$(yyyymmdd +1y)////ATOMAS/NATALIA VALERIEVNA/19780423/F///N/N////.*
 
 $(set msg_id49 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0308968576//P//20201001////BARSUK/TATIANA/19631016/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0308968576//P//$(yyyymmdd +1y)////BARSUK/TATIANA/19631016/F///N/N////.*
 
 $(set msg_id50 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/4501742939//P//20201001////BURIAKOV/EVGENII EVGENEVICH/19750302/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/4501742939//P//$(yyyymmdd +1y)////BURIAKOV/EVGENII EVGENEVICH/19750302/M///N/N////.*
 
 $(set msg_id51 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0304440901//P//20201011////DIKOVA/MARIIA SERGEEVNA/19821024/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0304440901//P//$(yyyymmdd +1y)////DIKOVA/MARIIA SERGEEVNA/19821024/F///N/N////.*
 
 $(set msg_id52 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0310526187//P//20201001////DMITRIEVA/IULIIA ALEKSANDROVNA/19850823/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0310526187//P//$(yyyymmdd +1y)////DMITRIEVA/IULIIA ALEKSANDROVNA/19850823/F///N/N////.*
 
 $(set msg_id53 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/VАГ841650//O//20201001////CHARKOV/NIKOLAI GENNADEVICH/20180811/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/VАГ841650//O//$(yyyymmdd +1y)////CHARKOV/NIKOLAI GENNADEVICH/20180811/M///N/N////.*
 
 $(set msg_id54 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/VАГ568572//O//20201001////CHARKOV/MIKHAIL GENNADEVICH/20151121/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/VАГ568572//O//$(yyyymmdd +1y)////CHARKOV/MIKHAIL GENNADEVICH/20151121/M///N/N////.*
 
 $(set msg_id55 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0312089903//P//20201001////SAMOILENKO/IGOR ALEKSANDROVICH/19670619/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0312089903//P//$(yyyymmdd +1y)////SAMOILENKO/IGOR ALEKSANDROVICH/19670619/M///N/N////.*
 
 $(set msg_id56 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/516703310//P//20221024////SERGIENKO/ALEKSANDR VIKTOROVICH/19860527/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/516703310//P//$(yyyymmdd +1y)////SERGIENKO/ALEKSANDR VIKTOROVICH/19860527/M///N/N////.*
 
 $(set msg_id57 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0317834955//P//20201002////STARODUBTSEVA/OLGA ANDREEVNA/19900111/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0317834955//P//$(yyyymmdd +1y)////STARODUBTSEVA/OLGA ANDREEVNA/19900111/F///N/N////.*
 
 $(set msg_id58 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/VАГ506585//O//20200922////KHARCHENKO/MARIIA SEMENOVNA/20150714/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/VАГ506585//O//$(yyyymmdd +1y)////KHARCHENKO/MARIIA SEMENOVNA/20150714/F///N/N////.*
 
 $(set msg_id59 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0315043239//P//20200922////KHARCHENKO/NATALIA ALEKSANDROVNA/19910412/F///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0315043239//P//$(yyyymmdd +1y)////KHARCHENKO/NATALIA ALEKSANDROVNA/19910412/F///N/N////.*
 
 $(set msg_id60 $(capture 1))
 
 >> lines=auto mode=regex
-.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0315042043//P//20200922////KHARCHENKO/SEMEN VIACHESLAVOVICH/19800525/M///N/N////.*
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/$(airl)$(fltno)/$(depp)/$(arrp)/$(depd)/$(dept)/$(arrd)/$(arrt)/PRQ/34/1/P/RUS/RUS/0315042043//P//$(yyyymmdd +1y)////KHARCHENKO/SEMEN VIACHESLAVOVICH/19800525/M///N/N////.*
 
 $(set msg_id61 $(capture 1))
 

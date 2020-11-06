@@ -54,10 +54,12 @@ TAdvTripRoute getTransitRoute(const TPaxSegmentPair& flight)
     } else {
         route.getRouteBetween(flight);
     }
-    if(route.empty()) {
-        throw Exception("Empty route, point_id %d", flight.point_dep);
+//    if(route.empty()) {
+//        throw Exception("Empty route, point_id %d", flight.point_dep);
+//    }
+    if(!route.empty()) {
+        checkRouteSuffix(route);
     }
-    checkRouteSuffix(route);
     return route;
 }
 

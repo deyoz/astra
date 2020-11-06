@@ -1134,6 +1134,9 @@ bool checkNeedAlarmScdIn(const PointId_t& point_id)
     //check int flight
     //LogTrace(TRACE5) << __FUNCTION__ << " point_id: " << point_id;
     auto route = getTransitRoute(TPaxSegmentPair{point_id.get(), ""});
+    if(route.empty()) {
+        return false;
+    }
     if(route.size() < 2) {
         LogTrace(TRACE5) << __FUNCTION__ << " rotue size < 2";
         return false;
@@ -1155,7 +1158,11 @@ bool checkNeedAlarmScdIn(const PointId_t& point_id)
 
 bool checkAPPSSegment(const TPaxSegmentPair & seg)
 {
+    LogTrace(TRACE5) << __FUNCTION__;
     TAdvTripRoute route = getTransitRoute(seg);
+    if(route.empty()) {
+        return false;
+    }
     if(route.size() < 2) {
         LogTrace(TRACE5) << __FUNCTION__ << " route size < 2";
         return false;
@@ -1471,6 +1478,10 @@ Opt<FlightData> createCkinFlightData(const GrpId_t& grp_id)
     LogTrace(TRACE5) << __FUNCTION__;
     Opt<TPaxSegmentPair> ckinSeg = CheckIn::ckinSegment(grp_id);
     if(ckinSeg){
+         auto route = getTransitRoute(*ckinSeg);
+        if(route.empty()) {
+            return boost::none;
+        }
         return createFlightData(*ckinSeg, "CHK");
     }
     return boost::none;
@@ -2146,6 +2157,10 @@ Opt<PaxRequest> PaxRequest::createByFields(const HolderType reqType, const PaxId
     }
     TransactionData trs = createTransactionData(need_del ? CICX:CIRQ, pre_checkin,
                                                 AirlineCode_t(airline));
+    auto route = getTransitRoute(TPaxSegmentPair{info.point_dep, info.airp_arv});
+    if(route.empty()) {
+        return boost::none;
+    }
     FlightData intFlight = createFlightData(TPaxSegmentPair{info.point_dep, info.airp_arv}, "INT");
     Opt<FlightData> ckinFlight = createCkinFlightData(GrpId_t(info.grp_id));
     PaxData pax = createPaxData(pax_id, Surname_t(info.surname), Name_t(info.name), isCrew, override_type,
@@ -2907,6 +2922,10 @@ Opt<ManifestRequest> createManifestReq(const TPaxSegmentPair &flt, const std::st
         return boost::none;
     }
     TransactionData trs = createTransactionData(CIMR, false, AirlineCode_t(point_info->airline));
+    auto route = getTransitRoute(flt);
+    if(route.empty()) {
+        return boost::none;
+    }
     FlightData flight = createFlightData(flt, "INM");
     ManifestData mft(country_lat);
     return ManifestRequest(trs, flight, mft);
@@ -3116,6 +3135,7 @@ public:
     }
 
     bool find(const TPaxSegmentPair& segmentPair) {
+        LogTrace(TRACE5) << __FUNCTION__ ;
         auto it = cache.find(segmentPair);
         if(it != cache.end()) {
             return it->second;
@@ -3154,6 +3174,20 @@ private:
 };
 
 
+void paxPnlOnChange(const PaxOrigin& paxOrigin, const PaxIdWithSegmentPair& paxId)
+{
+    auto paxSeg = paxId.getSegmentPair();
+    if(!paxSeg) {
+        return;
+    }
+    if(AppsSetsCallbacksCache::Instanse().find(*paxSeg)) {
+        PointId_t point_id(paxSeg->point_dep);
+        if(isNeedAddTask(point_id, SEND_NEW_APPS_INFO)) {
+            addAlarmByPaxId(paxId().get(), {Alarm::SyncAPPS}, {paxOrigin});
+            AppsTasks::Instanse().add(TTripTaskKey(point_id, SEND_NEW_APPS_INFO, ""));
+        }
+    }
+}
 
 class PaxChangesCallbacks : public PaxEventCallbacks<PaxChanges>
 {
@@ -3176,21 +3210,17 @@ public:
                 const PaxIdWithSegmentPair& paxId,
                 const std::set<PaxChanges>& paxChanges)
     {
-        LogTrace(TRACE5) << __FUNCTION__ << paxId();
-        auto paxSeg = paxId.getSegmentPair();
-        if(!paxSeg) {
-            return;
-        }
-        if(paxOrigin == paxPnl) {
-            if(AppsSetsCallbacksCache::Instanse().find(*paxSeg)) {
-                PointId_t point_id(paxSeg->point_dep);
-                if(isNeedAddTask(point_id, SEND_NEW_APPS_INFO)) {
-                    addAlarmByPaxId(paxId().get(), {Alarm::SyncAPPS}, {paxOrigin});
-                    AppsTasks::Instanse().add(TTripTaskKey(point_id, SEND_NEW_APPS_INFO, ""));
-                }
-            }
-        } else if(paxOrigin == paxCheckIn) {
+        try
+        {
+            if(paxOrigin == paxPnl) {
+                paxPnlOnChange(paxOrigin, paxId);
+            } else if(paxOrigin == paxCheckIn) {
 
+            }
+        }
+        catch(std::exception &e)
+        {
+            ProgError(STDLOG,"std::exception: %s", e.what());
         }
     }
 };
@@ -3218,21 +3248,17 @@ public:
                 const PaxIdWithSegmentPair& paxId,
                 const std::set<TRemCategory>& remCategories)
     {
-        LogTrace(TRACE5) << __FUNCTION__ << paxId();
-        auto paxSeg = paxId.getSegmentPair();
-        if(!paxSeg) {
-            return;
-        }
-        if(paxOrigin == paxPnl) {
-            if(AppsSetsCallbacksCache::Instanse().find(*paxSeg)) {
-                PointId_t point_id(paxSeg->point_dep);
-                if(isNeedAddTask(point_id, SEND_NEW_APPS_INFO)) {
-                    addAlarmByPaxId(paxId().get(), {Alarm::SyncAPPS}, {paxOrigin});
-                    AppsTasks::Instanse().add(TTripTaskKey(point_id, SEND_NEW_APPS_INFO, ""));
-                }
-            }
-        } else if(paxOrigin == paxCheckIn) {
+        try
+        {
+            if(paxOrigin == paxPnl) {
+                paxPnlOnChange(paxOrigin, paxId);
+            } else if(paxOrigin == paxCheckIn) {
 
+            }
+        }
+        catch(std::exception &E)
+        {
+            ProgError(STDLOG,"std::exception: %s", E.what());
         }
     }
 };
