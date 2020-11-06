@@ -4610,7 +4610,7 @@ BitSet<TChangeLayerSeatsProps>
        seat_type == stReseat && //пересадка
        checkinLayers.find( layer_type ) != checkinLayers.end() // уже зарегистрированного
      ) {
-    DCSServiceApplying::throwIfNotAllowed( pax_id, DCSAction::Enum::ChangeSeatOnDesk ); //нельзя делать пересадку, т.к. должны быть услуги
+    DCSServiceApplying::RequiredRfiscs( DCSAction::ChangeSeatOnDesk, PaxId_t(pax_id) ).throwIfNotExists(); //нельзя делать пересадку, т.к. должны быть услуги
   }
 
   int curr_tid = NoExists;

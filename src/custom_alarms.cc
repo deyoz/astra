@@ -1,5 +1,4 @@
 #include "custom_alarms.h"
-#include "dcs_services.h"
 #include "rfisc.h"
 #include "brands.h"
 #include "checkin.h"
@@ -80,7 +79,7 @@ void TCustomAlarms::TSets::fromDB(const std::string &airline, int pax_id, set<in
     if(get(airline)) {
         auto &sets = items[airline];
 
-        boost::optional<RFISCsSet> paxRFISCs;
+        boost::optional<set<string>> paxRFISCs;
         boost::optional<set<CheckIn::TPaxFQTItem>> fqts;
         boost::optional<vector<CheckIn::TPaxASVCItem>> asvcs;
 

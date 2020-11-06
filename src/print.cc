@@ -1979,7 +1979,7 @@ void checkBeforePrintBP(const PrintInterface::BPPax &pax, IAPI::PassengerStatusI
 {
     if (!iapiInspector.allowedToPrintBP(pax.pax_id, pax.grp_id))
         throw UserException("MSG.BP_PRINT_NOT_ALLOWED.APPS_PROBLEM");
-    DCSServiceApplying::throwIfNotAllowed( pax.pax_id, DCSAction::Enum::PrintBPOnDesk );
+    DCSServiceApplying::RequiredRfiscs(DCSAction::PrintBPOnDesk, PaxId_t(pax.pax_id)).throwIfNotExists();
 }
 
 void checkBeforePrintBP(const PrintInterface::BPPax &pax)
