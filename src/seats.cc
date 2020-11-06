@@ -302,7 +302,7 @@ struct TAllowedAttributesSeat {
     if ( Qry.Eof ) {
       ProgError( STDLOG, "isWorkINFT: flight not found!!!, point_id=%d", point_id );
     }
-    pr_isWorkINFT = ( !Qry.Eof && 
+    pr_isWorkINFT = ( !Qry.Eof &&
                       (string("РГ") == Qry.FieldAsString( "airline")/* || string("ЮТ") == Qry.FieldAsString( "airline")*/));
     SeatsStat.stop(__FUNCTION__);
     return pr_isWorkINFT;
@@ -4610,7 +4610,7 @@ BitSet<TChangeLayerSeatsProps>
        seat_type == stReseat && //пересадка
        checkinLayers.find( layer_type ) != checkinLayers.end() // уже зарегистрированного
      ) {
-    DCSServiceApplying::throwIfNotAllowed( pax_id, DCSService::Enum::ChangeSeatOnDesk ); //нельзя делать пересадку, т.к. должны быть услуги
+    DCSServiceApplying::throwIfNotAllowed( pax_id, DCSAction::Enum::ChangeSeatOnDesk ); //нельзя делать пересадку, т.к. должны быть услуги
   }
 
   int curr_tid = NoExists;

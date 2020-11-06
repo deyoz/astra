@@ -11,13 +11,10 @@
 using namespace std;
 using namespace AstraLocale;
 
-const DCSServices& dcsServices() { return ASTRA::singletone<DCSServices>(); }
-
-
 std::ostream& operator<<(std::ostream& os, const DCSServiceApplyingParams& params)
 {
   os << endl << "  airline:        " << params.airline
-     << endl << "  dcs_service:    " << dcsServices().encode(params.dcs_service);
+     << endl << "  dcs_action:    " << dcsActions().encode(params.dcs_action);
   if (!params.brand_airline.empty())
     os << endl << "  brand_airline:  " << params.brand_airline;
   if (!params.brand_code.empty())
@@ -55,7 +52,7 @@ void DCSServiceApplying::addRequiredRFISCs(const DCSServiceApplyingParams& param
     "      (class IS NULL OR class=:class) AND "
     "      pr_denial=0 ",
     QParams() << QParam("airline", otString, params.airline)
-              << QParam("dcs_service", otString, dcsServices().encode(params.dcs_service))
+              << QParam("dcs_service", otString, dcsActions().encode(params.dcs_action))
               << QParam("brand_airline", otString, params.brand_airline)
               << QParam("brand_code", otString, params.brand_code)
               << QParam("fqt_airline", otString, params.fqt_airline)
@@ -75,15 +72,15 @@ void DCSServiceApplying::addRequiredRFISCs(const DCSServiceApplyingParams& param
   LogTrace(TRACE5) << __FUNCTION__ << ": " << s.str();
 }
 
-void DCSServiceApplying::throwIfNotAllowed(int pax_id, DCSService::Enum dcsService)
+void DCSServiceApplying::throwIfNotAllowed(int pax_id, DCSAction::Enum dcsAction)
 {
   RFISCsSet requiredRFISCs;
 
-  if ( !isAllowed( pax_id, dcsService, requiredRFISCs ) )
+  if ( !isAllowed( pax_id, dcsAction, requiredRFISCs ) )
   {
     LexemaData lexemeData;
 
-    lexemeData.lparams << LParam("service", ElemIdToNameLong(etDCSAction, dcsServices().encode(dcsService)));
+    lexemeData.lparams << LParam("service", ElemIdToNameLong(etDCSAction, dcsActions().encode(dcsAction)));
 
     if (!requiredRFISCs.empty())
     {
@@ -106,10 +103,10 @@ void DCSServiceApplying::throwIfNotAllowed(int pax_id, DCSService::Enum dcsServi
   }
 }
 
-bool DCSServiceApplying::isAllowed(int pax_id, DCSService::Enum dcsService, RFISCsSet& reqRFISCs)
+bool DCSServiceApplying::isAllowed(int pax_id, DCSAction::Enum dcsAction, RFISCsSet& reqRFISCs)
 {
   LogTrace(TRACE5) << __FUNCTION__ << ": pax_id=" << pax_id <<
-                                      ", dcsService=" << dcsServices().encode(dcsService);
+                                      ", dcsAction=" << dcsActions().encode(dcsAction);
 
   reqRFISCs.clear();
 
@@ -133,7 +130,7 @@ bool DCSServiceApplying::isAllowed(int pax_id, DCSService::Enum dcsService, RFIS
 
   DCSServiceApplyingParams params;
   params.airline=flt.airline;
-  params.dcs_service=dcsService;
+  params.dcs_action=dcsAction;
   params.cl=grp.cl;
   for(const TBrand& brand : brands)
   {
