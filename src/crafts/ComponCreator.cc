@@ -1694,6 +1694,10 @@ void ComponSetter::createBaseLibraCompon( ComponLibraFinder::AstraSearchResult& 
 
 void CreateFlightCompon( const TCompsRoutes &routes, int comp_id, TQuery &Qry ) {
   LogTrace(TRACE5) << __func__ << ",comp_id=" << comp_id;
+  if ( comp_id == ASTRA::NoExists ) {
+    LogError(STDLOG) << __func__ << " comp_id is not set";
+    return;
+  }
   TQuery QryVIP(&OraSession);
   Qry.Clear();
   Qry.SQLText =
@@ -1866,12 +1870,13 @@ ComponSetter::TStatus ComponSetter::IntSetCraft( bool pr_tranzit_routes ) {
   }
   else {
     search_comp_id = SearchCompon( pr_tranzit_routes, airps, Qry, isLibraMode()?compState.plan_id:ASTRA::NoExists );
+    LogTrace(TRACE5) << search_comp_id;
     if ( search_comp_id == ASTRA::NoExists ) {
       LogTrace( TRACE5 ) << __func__ << ": return NotFound";
       return NotFound;
     }
   }
-  if ( isLibraMode() ) { // comp_id = conf_id - попытаемся найти в базовых компоновках Астры компоновку Либры и поверить ее на изменения
+  if ( isLibraMode() ) { // search_comp_id = conf_id - попытаемся найти в базовых компоновках Астры компоновку Либры и поверить ее на изменения
     if ( compState.evtStatus == ComponLibraFinder::AstraSearchResult::evChange ) {
       compState.conf_id = search_comp_id;
       createBaseLibraCompon( compState, fltInfo.airline, fltInfo.craft, fltInfo.bort, Qry  );
@@ -1880,6 +1885,7 @@ ComponSetter::TStatus ComponSetter::IntSetCraft( bool pr_tranzit_routes ) {
         return NotCrafts;
       }
     }
+    search_comp_id = compState.comp_id;
   }
   else {
     // найден вариант компоновки
@@ -1888,9 +1894,10 @@ ComponSetter::TStatus ComponSetter::IntSetCraft( bool pr_tranzit_routes ) {
       return NoChanges; // не нужно изменять компоновку
     }
   }
-  if ( !isLibraMode() || (fcomp_id=compState.comp_id) != ASTRA::NoExists ) {
-    CreateFlightCompon( routes, fcomp_id, Qry );
-  }
+
+  fcomp_id = search_comp_id;
+  LogTrace(TRACE5) << fcomp_id;
+  CreateFlightCompon( routes, fcomp_id, Qry );
   LogTrace( TRACE5 ) << __func__ << ": return Created";
   return Created;
 }
