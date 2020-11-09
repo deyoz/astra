@@ -815,13 +815,7 @@ class TPlace {
       agle = 0;
       isPax = false;
     }
-    bool isLayer( ASTRA::TCompLayerType layer, int pax_id = -1 ) {
-        for (std::vector<TPlaceLayer>::iterator i=layers.begin(); i!=layers.end(); i++ ) {
-            if ( i->layer_type == layer && ( pax_id == -1 || i->pax_id == pax_id ) )
-                return true;
-        };
-        return false;
-    }
+    bool isLayer( ASTRA::TCompLayerType layer, int pax_id = -1 );
     static bool isCleanDoubleLayerType( ASTRA::TCompLayerType layer_type ) {
       return ( layer_type == ASTRA::cltSOMTrzt ||
                layer_type == ASTRA::cltPRLTrzt );
@@ -1592,6 +1586,8 @@ class CraftSeats: public std::vector<TPlaceList*> {
     int crc32( );
 };
 
+typedef std::map<bool, std::vector<std::string>> TBuildMap;
+
 class TSalonList {
   private:
     TFilterSets filterSets;
@@ -1674,6 +1670,7 @@ class TSalonList {
                      bool for_calc_waitlist = false,  //!!!
                      int prior_compon_props_point_id = ASTRA::NoExists );
 //    void ReadSeats( TQuery &Qry, const std::string &FilterClass );
+    void Build( TBuildMap &seats);
     void Build( xmlNodePtr salonsNode );
     void Parse( int vpoint_id, const std::string &airline, xmlNodePtr salonsNode );
     void WriteFlight( int vpoint_id, bool saveContructivePlaces, bool isLibraRequest = false );
