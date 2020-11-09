@@ -131,31 +131,7 @@ $(KICK_IN_SILENT)
         <recloc crs=\"UT\">0840Z6</recloc>
       </segment>
     </passenger>
-    <display id=\"1\">UNB+SIRE:1+UTET+UTDC+xxxxxx:xxxx+xxxxxxxxxx0001+++T"
-UNH+1+TKCRES:06:1:IA+xxxxxxxxxx"
-MSG+:131+3"
-TIF+êÖèàç+àÇÄç"
-TAI+0162"
-RCI+ûí:G4LK6W:1"
-MON+B:20.00:USD+T:20.00:USD"
-FOP+CA:3"
-PTK+++$(ddmmyy)+++:US"
-ODI+MOW+LED"
-ORG+xx:MOW++IAH++A+US+D80D1BWO"
-EQN+1:TD"
-TXD+700+0.00:::US"
-IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END"
-IFT+4:5+00001230161213"
-IFT+4:10+REFUNDABLE"
-IFT+4:39+HOUSTON+UNITED AIRLINES INC"
-TKT+2981212121212:T:1:3"
-CPN+1:I"
-TVL+$(ddmmyy):2205+DME+LED+ûí+103:Y+J"
-RPI++NS"
-PTS++YINF"
-UNT+19+1"
-UNZ+1+xxxxxxxxxx0001"
-</display>
+    <display id=\"1\">UNB+IATA:1+UTET+UTDC+xxxxxx:xxxx+xxxxxxxxxx0001+++T'UNH+1+TKCRES:06:1:IA+xxxxxxxxxx'MSG+:131+3'TIF+êÖèàç+àÇÄç'TAI+0162'RCI+ûí:G4LK6W:1'MON+B:20.00:USD+T:20.00:USD'FOP+CA:3'PTK+++$(ddmmyy)+++:US'ODI+MOW+LED'ORG+ûí:MOW++IAH++A+US+D80D1BWO'EQN+1:TD'TXD+700+0.00:::US'IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END'IFT+4:5+00001230161213'IFT+4:10+REFUNDABLE'IFT+4:39+HOUSTON+UNITED AIRLINES INC'TKT+2981212121212:T:1:3'CPN+1:I'TVL+$(ddmmyy):2205+DME+LED+ûí+103:Y+J'RPI++NS'PTS++YINF'UNT+19+1'UNZ+1+xxxxxxxxxx0001'</display>
   </svc_availability>
 </query>
 
@@ -271,31 +247,7 @@ $(http_forecast content=$(get_svc_payment_status_invalid_resp))
         <recloc crs=\"UT\">0840Z6</recloc>
       </segment>
     </passenger>
-    <display id=\"1\">UNB+SIRE:1+UTET+UTDC+xxxxxx:xxxx+xxxxxxxxxx0001+++T"
-UNH+1+TKCRES:06:1:IA+xxxxxxxxxx"
-MSG+:131+3"
-TIF+êÖèàç+àÇÄç"
-TAI+0162"
-RCI+ûí:G4LK6W:1"
-MON+B:20.00:USD+T:20.00:USD"
-FOP+CA:3"
-PTK+++$(ddmmyy)+++:US"
-ODI+MOW+LED"
-ORG+xx:MOW++IAH++A+US+D80D1BWO"
-EQN+1:TD"
-TXD+700+0.00:::US"
-IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END"
-IFT+4:5+00001230161213"
-IFT+4:10+REFUNDABLE"
-IFT+4:39+HOUSTON+UNITED AIRLINES INC"
-TKT+2981212121212:T:1:3"
-CPN+1:I"
-TVL+$(ddmmyy):2205+DME+LED+ûí+103:Y+J"
-RPI++NS"
-PTS++YINF"
-UNT+19+1"
-UNZ+1+xxxxxxxxxx0001"
-</display>
+    <display id=\"1\">UNB+IATA:1+UTET+UTDC+xxxxxx:xxxx+xxxxxxxxxx0001+++T'UNH+1+TKCRES:06:1:IA+xxxxxxxxxx'MSG+:131+3'TIF+êÖèàç+àÇÄç'TAI+0162'RCI+ûí:G4LK6W:1'MON+B:20.00:USD+T:20.00:USD'FOP+CA:3'PTK+++$(ddmmyy)+++:US'ODI+MOW+LED'ORG+ûí:MOW++IAH++A+US+D80D1BWO'EQN+1:TD'TXD+700+0.00:::US'IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END'IFT+4:5+00001230161213'IFT+4:10+REFUNDABLE'IFT+4:39+HOUSTON+UNITED AIRLINES INC'TKT+2981212121212:T:1:3'CPN+1:I'TVL+$(ddmmyy):2205+DME+LED+ûí+103:Y+J'RPI++NS'PTS++YINF'UNT+19+1'UNZ+1+xxxxxxxxxx0001'</display>
     <svc passenger-id=\"...\" segment-id=\"0\" company=\"UT\" service_type=\"C\" rfisc=\"0L1\" rfic=\"C\" emd_type=\"EMD-A\">
       <name language=\"en\">FISHING EQUIPMENT UPTO44LB20KG</name>
       <name language=\"ru\">êõÅéãéÇçõÖ ëçÄëíà Ñé 44î 20äÉ</name>
@@ -410,31 +362,7 @@ $(http_forecast content=$(get_svc_payment_status_resp))
         <recloc crs=\"UT\">0840Z6</recloc>
       </segment>
     </passenger>
-    <display id=\"1\">UNB+SIRE:1+UTET+UTDC+xxxxxx:xxxx+xxxxxxxxxx0001+++T"
-UNH+1+TKCRES:06:1:IA+xxxxxxxxxx"
-MSG+:131+3"
-TIF+êÖèàç+àÇÄç"
-TAI+0162"
-RCI+ûí:G4LK6W:1"
-MON+B:20.00:USD+T:20.00:USD"
-FOP+CA:3"
-PTK+++$(ddmmyy)+++:US"
-ODI+MOW+LED"
-ORG+xx:MOW++IAH++A+US+D80D1BWO"
-EQN+1:TD"
-TXD+700+0.00:::US"
-IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END"
-IFT+4:5+00001230161213"
-IFT+4:10+REFUNDABLE"
-IFT+4:39+HOUSTON+UNITED AIRLINES INC"
-TKT+2981212121212:T:1:3"
-CPN+1:I"
-TVL+$(ddmmyy):2205+DME+LED+ûí+103:Y+J"
-RPI++NS"
-PTS++YINF"
-UNT+19+1"
-UNZ+1+xxxxxxxxxx0001"
-</display>
+    <display id=\"1\">UNB+IATA:1+UTET+UTDC+xxxxxx:xxxx+xxxxxxxxxx0001+++T'UNH+1+TKCRES:06:1:IA+xxxxxxxxxx'MSG+:131+3'TIF+êÖèàç+àÇÄç'TAI+0162'RCI+ûí:G4LK6W:1'MON+B:20.00:USD+T:20.00:USD'FOP+CA:3'PTK+++$(ddmmyy)+++:US'ODI+MOW+LED'ORG+ûí:MOW++IAH++A+US+D80D1BWO'EQN+1:TD'TXD+700+0.00:::US'IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END'IFT+4:5+00001230161213'IFT+4:10+REFUNDABLE'IFT+4:39+HOUSTON+UNITED AIRLINES INC'TKT+2981212121212:T:1:3'CPN+1:I'TVL+$(ddmmyy):2205+DME+LED+ûí+103:Y+J'RPI++NS'PTS++YINF'UNT+19+1'UNZ+1+xxxxxxxxxx0001'</display>
     <svc passenger-id=\"...\" segment-id=\"0\" company=\"UT\" service_type=\"C\" rfisc=\"0L1\" rfic=\"C\" emd_type=\"EMD-A\">
       <name language=\"en\">FISHING EQUIPMENT UPTO44LB20KG</name>
       <name language=\"ru\">êõÅéãéÇçõÖ ëçÄëíà Ñé 44î 20äÉ</name>
@@ -971,31 +899,7 @@ $(KICK_IN_SILENT)
         <recloc crs=\"UT\">0840Z6</recloc>
       </segment>
     </passenger>
-    <display id=\"1\">UNB+SIRE:1+UTET+UTDC+xxxxxx:xxxx+xxxxxxxxxx0001+++T"
-UNH+1+TKCRES:06:1:IA+xxxxxxxxxx"
-MSG+:131+3"
-TIF+êÖèàç+àÇÄç"
-TAI+0162"
-RCI+ûí:G4LK6W:1"
-MON+B:20.00:USD+T:20.00:USD"
-FOP+CA:3"
-PTK+++$(ddmmyy)+++:US"
-ODI+MOW+LED"
-ORG+xx:MOW++IAH++A+US+D80D1BWO"
-EQN+1:TD"
-TXD+700+0.00:::US"
-IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END"
-IFT+4:5+00001230161213"
-IFT+4:10+REFUNDABLE"
-IFT+4:39+HOUSTON+UNITED AIRLINES INC"
-TKT+2981212121212:T:1:3"
-CPN+1:I"
-TVL+$(ddmmyy):2205+DME+LED+ûí+103:Y+J"
-RPI++NS"
-PTS++YINF"
-UNT+19+1"
-UNZ+1+xxxxxxxxxx0001"
-</display>
+    <display id=\"1\">UNB+IATA:1+UTET+UTDC+xxxxxx:xxxx+xxxxxxxxxx0001+++T'UNH+1+TKCRES:06:1:IA+xxxxxxxxxx'MSG+:131+3'TIF+êÖèàç+àÇÄç'TAI+0162'RCI+ûí:G4LK6W:1'MON+B:20.00:USD+T:20.00:USD'FOP+CA:3'PTK+++$(ddmmyy)+++:US'ODI+MOW+LED'ORG+ûí:MOW++IAH++A+US+D80D1BWO'EQN+1:TD'TXD+700+0.00:::US'IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END'IFT+4:5+00001230161213'IFT+4:10+REFUNDABLE'IFT+4:39+HOUSTON+UNITED AIRLINES INC'TKT+2981212121212:T:1:3'CPN+1:I'TVL+$(ddmmyy):2205+DME+LED+ûí+103:Y+J'RPI++NS'PTS++YINF'UNT+19+1'UNZ+1+xxxxxxxxxx0001'</display>
   </svc_availability>
 </query>
 
