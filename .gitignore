@@ -159,6 +159,7 @@ locallibs/serverlib/src/Makefile
 locallibs/shared/Makefile
 locallibs/shared/sql/Makefile
 locallibs/shared/src/Makefile
+locallibs/shared/INSTALL
 externallibs/
 astra_qt_prj/
 nohup.out
@@ -168,4 +169,4 @@ GPATH
 GRTAGS
 GSYMS
 GTAGS
-
+build_all
