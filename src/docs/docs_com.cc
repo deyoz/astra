@@ -1,6 +1,13 @@
 #include "docs_com.h"
 #include "typeb_utils.h"
 #include "telegram.h"
+#include "salonform.h"
+
+#define NICKNAME "DENIS"
+#include "serverlib/slogger.h"
+
+using namespace std;
+using namespace ASTRA;
 
 namespace DOCS {
 
@@ -27,18 +34,51 @@ void COM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "text", tlg.heading + tlg.body + tlg.ending);
     }
 
-    TypeB::TDetailCreateInfo detail_info;
-    detail_info.create_point = info.create_point;
-    detail_info.copy(info);
-    detail_info.point_id = info.point_id;
-    detail_info.lang = AstraLocale::LANG_RU;
-    detail_info.elem_fmt = prLatToElemFmt(efmtCodeNative, detail_info.get_options().is_lat);
-    detail_info.time_create = NowUTC();
+    SALONS2::TBuildMap seats;
+    SALONS2::TSalonList salonList(true);
+    salonList.ReadFlight( SALONS2::TFilterRoutesSets( rpt_params.point_id, NoExists ), {}, NoExists );
+    salonList.Build(seats);
 
-    TTlgSeatList seats;
-//    seats.apply_comp(detail_info, false);
+    static const int row_size = 60;
+    ostringstream seats_output;
+    for(const auto &occupy: seats) {
+        seats_output << (occupy.first ? "‡ ­ïâë¥ ¬¥áâ " : "‘¢®¡®¤­ë¥ ¬¥áâ ") << endl;
+        string row;
+        for(const auto &seat: occupy.second) {
+            if(not row.empty())
+                row += ", ";
+            if((row + seat).size() > row_size) {
+                seats_output << row << endl;
+                row = seat;
+            } else
+                row += seat;
+        }
+        if(not row.empty())
+            seats_output << row << endl << endl;
+    }
 
-    // Ð¢ÐµÐ¿ÐµÑ€ÑŒ Ð¿ÐµÑ€ÐµÐ¼ÐµÐ½Ð½Ñ‹Ðµ Ð¾Ñ‚Ñ‡ÐµÑ‚Ð°
+    NewTextChild(NewTextChild(dataSetNode, "row"), "text", seats_output.str());
+
+    /*
+    std::vector<SALONS2::TCompSectionLayers> CompSectionsLayers;
+    vector<TZoneOccupiedSeats> zoneSeats, notZoneSeats;
+    std::vector<SALONS2::TCompSection> compSections;
+    ZoneLoads(rpt_params.point_id, false, false, false, zoneSeats, notZoneSeats, CompSectionsLayers, compSections);
+    LogTrace(TRACE5) << "Occupy";
+    for(const auto &zone: zoneSeats) {
+        LogTrace(TRACE5) << "name: " << zone.name;
+        for(const auto &seat: zone.seats)
+            LogTrace(TRACE5) << seat.yname << seat.xname;
+    }
+    LogTrace(TRACE5) << "Not occupy";
+    for(const auto &zone: notZoneSeats) {
+        LogTrace(TRACE5) << "name: " << zone.name;
+        for(const auto &seat: zone.seats)
+            LogTrace(TRACE5) << seat.yname << seat.xname;
+    }
+    */
+
+    // ’¥¯¥àì ¯¥à¥¬¥­­ë¥ ®âç¥â 
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     NewTextChild(variablesNode, "caption", EncodeRptType(rpt_params.rpt_type));
     ASTRA::rollback();

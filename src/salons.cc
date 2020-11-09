@@ -947,6 +947,15 @@ void TSalons::Clear( )
   OccupySeats = boost::none;
 }
 
+bool TPlace::isLayer( ASTRA::TCompLayerType layer, int pax_id) {
+    LogTrace(TRACE5) << __func__ << ": yname: " << yname << ", xname: " << yname << " layers.size(): " << layers.size();
+    for (std::vector<TPlaceLayer>::iterator i=layers.begin(); i!=layers.end(); i++ ) {
+        if ( i->layer_type == layer && ( pax_id == -1 || i->pax_id == pax_id ) )
+            return true;
+    };
+    return false;
+}
+
 bool TPlace::CompareRems( const TPlace &seat ) const
 {
   if ( remarks.size() != seat.remarks.size() ) {
@@ -4398,6 +4407,35 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
   if ( !only_compon_props ) {
     validateLayersSeats( );
   }
+}
+
+bool hasLayer(const std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp > &layers, ASTRA::TCompLayerType layer_type)
+{
+    for(const auto &point: layers)
+        for(const auto &layer: point.second)
+            if(layer.layer_type == layer_type) return true;
+    return false;
+}
+
+void TSalonList::Build(TBuildMap &seats)
+{
+    std::vector<std::string> elem_types;
+    constructiveElemTypes( elem_types );
+    for( CraftSeats::iterator placeList=_seats.begin(); placeList!=_seats.end(); placeList++ ) {
+        for ( TPlaces::iterator place = (*placeList)->places.begin();
+                place != (*placeList)->places.end(); place++ ) {
+            if ( !forBuild( *place, elem_types ) ) {
+                continue;
+            }
+
+            std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp > layers;
+            place->GetLayers( layers, glAll );
+
+            seats[hasLayer(layers, cltCheckin)].push_back(
+                            SeatNumber::tryDenormalizeRow( place->yname ) +
+                            SeatNumber::tryDenormalizeLine( place->xname, isCraftLat()));
+        }
+    }
 }
 
 void TSalonList::Build( xmlNodePtr salonsNode )
