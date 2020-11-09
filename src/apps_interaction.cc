@@ -1156,6 +1156,9 @@ bool checkAPPSFormats(const PointId_t& point_dep, const AirportCode_t& airp_arv,
 {
     LogTrace(TRACE5) << __FUNCTION__ << " point_id: " << point_dep << " airp_arv: " << airp_arv;
     TAdvTripRoute route = getTransitRoute(TPaxSegmentPair{point_dep.get(), airp_arv.get()});
+    if(route.empty()) {
+        return false;
+    }
     if(!isInternationalFlight(AirportCode_t(route.front().airp), AirportCode_t(route.back().airp)))
     {
         return false;
@@ -1516,6 +1519,10 @@ Opt<FlightData> createCkinFlightData(const GrpId_t& grp_id)
     LogTrace(TRACE5) << __FUNCTION__;
     Opt<TPaxSegmentPair> ckinSeg = CheckIn::ckinSegment(grp_id);
     if(ckinSeg){
+        auto route = getTransitRoute(*ckinSeg);
+        if(route.empty()) {
+            return boost::none;
+        }
         return createFlightData(*ckinSeg, "CHK");
     }
     return boost::none;
@@ -2191,6 +2198,10 @@ Opt<PaxRequest> PaxRequest::createByFields(const HolderType reqType, const PaxId
     }
     TransactionData trs = createTransactionData(need_del ? CICX:CIRQ, pre_checkin,
                                                 AirlineCode_t(airline));
+    auto route = getTransitRoute(TPaxSegmentPair{info.point_dep, info.airp_arv});
+    if(route.empty()) {
+        return boost::none;
+    }
     FlightData intFlight = createFlightData(TPaxSegmentPair{info.point_dep, info.airp_arv}, "INT");
     Opt<FlightData> ckinFlight = createCkinFlightData(GrpId_t(info.grp_id));
     PaxData pax = createPaxData(pax_id, Surname_t(info.surname), Name_t(info.name), isCrew, override_type,
@@ -2955,6 +2966,10 @@ Opt<ManifestRequest> createManifestReq(const TPaxSegmentPair &flt, const std::st
         return boost::none;
     }
     TransactionData trs = createTransactionData(CIMR, false, AirlineCode_t(point_info->airline));
+    auto route = getTransitRoute(flt);
+    if(route.empty()) {
+        return boost::none;
+    }
     FlightData flight = createFlightData(flt, "INM");
     ManifestData mft(country_lat);
     return ManifestRequest(trs, flight, mft);
@@ -3202,7 +3217,20 @@ private:
     AppsTasks() = default;
 };
 
-
+void paxPnlOnChange(const PaxOrigin& paxOrigin, const PaxIdWithSegmentPair& paxId)
+{
+    auto paxSeg = paxId.getSegmentPair();
+    if(!paxSeg) {
+        return;
+    }
+    if(AppsSetsCallbacksCache::Instanse().find(*paxSeg)) {
+        PointId_t point_id(paxSeg->point_dep);
+        if(isNeedAddTask(point_id, SEND_NEW_APPS_INFO)) {
+            addAlarmByPaxId(paxId().get(), {Alarm::SyncAPPS}, {paxOrigin});
+            AppsTasks::Instanse().add(TTripTaskKey(point_id, SEND_NEW_APPS_INFO, ""));
+        }
+    }
+}
 
 class PaxChangesCallbacks : public PaxEventCallbacks<PaxChanges>
 {
@@ -3229,33 +3257,15 @@ public:
     {
         try
         {
-            auto paxSeg = paxId.getSegmentPair();
-            if(!paxSeg) {
-                return;
-            }
             if(paxOrigin == paxPnl) {
-                if(AppsSetsCallbacksCache::Instanse().find(*paxSeg)) {
-                    PointId_t point_id(paxSeg->point_dep);
-                    if(isNeedAddTask(point_id, SEND_NEW_APPS_INFO)) {
-                        addAlarmByPaxId(paxId().get(), {Alarm::SyncAPPS}, {paxOrigin});
-                        AppsTasks::Instanse().add(TTripTaskKey(point_id, SEND_NEW_APPS_INFO, ""));
-                    }
-                }
+                paxPnlOnChange(paxOrigin,paxId);
             } else if(paxOrigin == paxCheckIn) {
 
             }
         }
-        catch(EOracleError &E)
+        catch(std::exception &e)
         {
-            ProgError(STDLOG,"EOracleError %d: %s", E.Code,E.what());
-        }
-        catch(std::exception &E)
-        {
-            ProgError(STDLOG,"std::exception: %s", E.what());
-        }
-        catch(...)
-        {
-            ProgError(STDLOG, "Unknown exception");
+            ProgError(STDLOG,"std::exception: %s", e.what());
         }
     }
 };
@@ -3285,33 +3295,15 @@ public:
     {
         try
         {
-            auto paxSeg = paxId.getSegmentPair();
-            if(!paxSeg) {
-                return;
-            }
             if(paxOrigin == paxPnl) {
-                if(AppsSetsCallbacksCache::Instanse().find(*paxSeg)) {
-                    PointId_t point_id(paxSeg->point_dep);
-                    if(isNeedAddTask(point_id, SEND_NEW_APPS_INFO)) {
-                        addAlarmByPaxId(paxId().get(), {Alarm::SyncAPPS}, {paxOrigin});
-                        AppsTasks::Instanse().add(TTripTaskKey(point_id, SEND_NEW_APPS_INFO, ""));
-                    }
-                }
+                paxPnlOnChange(paxOrigin, paxId);
             } else if(paxOrigin == paxCheckIn) {
 
             }
         }
-        catch(EOracleError &E)
+        catch(std::exception &e)
         {
-            ProgError(STDLOG,"EOracleError %d: %s", E.Code,E.what());
-        }
-        catch(std::exception &E)
-        {
-            ProgError(STDLOG,"std::exception: %s", E.what());
-        }
-        catch(...)
-        {
-            ProgError(STDLOG, "Unknown exception");
+            ProgError(STDLOG,"std::exception: %s", e.what());
         }
     }
 };
