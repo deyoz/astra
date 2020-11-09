@@ -1,3 +1,4 @@
+build_all
 src/astra
 /tick_serv.*
 /configure
