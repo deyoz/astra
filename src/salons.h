@@ -1599,6 +1599,8 @@ class CraftSeats: public std::vector<TPlaceList*> {
     int crc32( );
 };
 
+typedef std::map<bool, std::vector<std::string>> TBuildMap;
+
 class TSalonList {
   private:
     TFilterSets filterSets;
@@ -1678,6 +1680,7 @@ class TSalonList {
                      bool for_calc_waitlist = false,  //!!!
                      int prior_compon_props_point_id = ASTRA::NoExists );
 //    void ReadSeats( TQuery &Qry, const std::string &FilterClass );
+    void Build( TBuildMap &seats);
     void Build( xmlNodePtr salonsNode );
     void Parse( int vpoint_id, const std::string &airline, xmlNodePtr salonsNode );
     void WriteFlight( int vpoint_id, bool saveContructivePlaces );

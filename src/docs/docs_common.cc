@@ -43,6 +43,7 @@ void TRptParams::Init(xmlNodePtr node)
             rpt_type != rtNOTOC and
             rpt_type != rtLIR and
             rpt_type != rtVOUCHERS and
+            rpt_type != rtCOM and
             rpt_type != rtKOMPLEKT
             )
         rpt_type = TRptType((int)rpt_type + 1);
