@@ -5,6 +5,7 @@
 #include <list>
 
 #include "astra_consts.h"
+#include "astra_misc.h"
 #include "oralib.h"
 #include "xml_unit.h"
 #include "transfer.h"
@@ -336,6 +337,8 @@ class TGroupBagItem
     static bool completeXMLForIatci(int grp_id, xmlNodePtr bagtagNode, xmlNodePtr firstSegNode);
     static bool tagNumberUsedInGroup(int pax_id, const TBagTagNumber& tag, int& tagOwner/*pax_id*/);
     static void checkTagUniquenessOnFlight(int grp_id);
+    static void copyPaxPool(const GrpId_t& src, const GrpId_t& dest);
+    static void copyPaxPool(const std::list<TCkinRouteInsertItem> &tckinGroups);
     static void copyDB(const GrpId_t& src, const GrpId_t& dest);
 };
 
