@@ -6049,7 +6049,11 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   } //цикл по сегментам
 
   boost::optional<GrpId_t> tckinId=TCkinRoute::toDB(tckinGroupsWhenNewCheckIn);
-  if (tckinId) AfterSaveInfo.tckin_id=tckinId.get().get();
+  if (tckinId)
+  {
+    AfterSaveInfo.tckin_id=tckinId.get().get();
+    CheckIn::TGroupBagItem::copyPaxPool(tckinGroupsWhenNewCheckIn);
+  }
 
   bool rollbackGuaranteed = (needSyncEdsEts(ediResNode) && !ChangeStatusInfo.empty()) ||
                             rollbackGuaranteedOnFirstSegment;
