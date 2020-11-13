@@ -1208,28 +1208,14 @@ void sync_sirena_rozysk( TDateTime utcdate )
 
 void create_mintrans_file(int point_id)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT airline, flt_no, suffix, airp, scd_out, act_out "
-    "FROM points "
-    "WHERE point_id=:point_id AND pr_del>=0";
-  Qry.CreateVariable("point_id", otInteger, point_id);
-  Qry.Execute();
-  if (Qry.Eof) return;
-  if (Qry.FieldIsNULL("airline") ||
-      Qry.FieldIsNULL("flt_no") ||
-      Qry.FieldIsNULL("airp")) return;
-
-  bool departure=!Qry.FieldIsNULL("act_out");
-
-  TTripInfo fltInfo(Qry);
+  TTripInfo fltInfo;
+  if (!fltInfo.getByPointId(point_id)) return;
   if (!GetTripSets(tsMintransFile, fltInfo)) return;
 
   map<string, string> fileparams;
-  TFileQueue::add_sets_params( Qry.FieldAsString("airp"),
-                               Qry.FieldAsString("airline"),
-                               Qry.FieldAsString("flt_no"),
+  TFileQueue::add_sets_params( fltInfo.airp,
+                               fltInfo.airline,
+                               IntToString(fltInfo.flt_no),
                                OWN_POINT_ADDR(),
                                FILE_MINTRANS_TYPE,
                                true,
@@ -1288,7 +1274,7 @@ void create_mintrans_file(int point_id)
       << p->crewRoleCode << ";"
       << p->gender << ";"
       << p->citizenship << ";"
-      << (departure && p->operationType=="06"?"14":p->operationType) << ";"
+      << p->operationType << ";"
       << (p->registerTimeIS==NoExists?"":DateTimeToStr(p->registerTimeIS, "yyyy-mm-ddThh:nnZ")) << ";"
       << p->airlineCode << ";"
       << setw(3) << setfill('0') << p->flightNum << ";"
