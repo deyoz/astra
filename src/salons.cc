@@ -4448,16 +4448,14 @@ void TSalonList::Build(TBuildMap &seats)
     for( CraftSeats::iterator placeList=_seats.begin(); placeList!=_seats.end(); placeList++ ) {
         for ( TPlaces::iterator place = (*placeList)->places.begin();
                 place != (*placeList)->places.end(); place++ ) {
-            if ( !forBuild( *place, elem_types ) ) {
+            if(not place->visible or isConstructivePlace( place->elem_type, elem_types))
                 continue;
-            }
-
             std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp > layers;
             place->GetLayers( layers, glAll );
 
             seats[hasLayer(layers, cltCheckin)].push_back(
-                            SeatNumber::tryDenormalizeRow( place->yname ) +
-                            SeatNumber::tryDenormalizeLine( place->xname, isCraftLat()));
+                    SeatNumber::tryDenormalizeRow( place->yname ) +
+                    SeatNumber::tryDenormalizeLine( place->xname, isCraftLat()));
         }
     }
 }
