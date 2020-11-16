@@ -66,6 +66,7 @@ const char *RptTypeS[] = {
     "RESEAT",
     "RESEATTXT",
     "KOMPLEKT",
+    "COM",
     "?"
 };
 

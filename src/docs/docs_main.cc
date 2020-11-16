@@ -16,6 +16,7 @@
 #include "docs_services.h"
 #include "docs_reseat.h"
 #include "docs_komplekt.h"
+#include "docs_com.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -171,6 +172,9 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
             break;
         case rtKOMPLEKT:
             KOMPLEKT(rpt_params, reqNode, resNode);
+            break;
+        case rtCOM:
+            DOCS::COM(rpt_params, reqNode, resNode);
             break;
         default:
             throw AstraLocale::UserException("MSG.TEMPORARILY_NOT_SUPPORTED");

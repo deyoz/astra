@@ -4433,6 +4433,33 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
   }
 }
 
+bool hasLayer(const std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp > &layers, ASTRA::TCompLayerType layer_type)
+{
+    for(const auto &point: layers)
+        for(const auto &layer: point.second)
+            if(layer.layer_type == layer_type) return true;
+    return false;
+}
+
+void TSalonList::Build(TBuildMap &seats)
+{
+    std::vector<std::string> elem_types;
+    constructiveElemTypes( elem_types );
+    for( CraftSeats::iterator placeList=_seats.begin(); placeList!=_seats.end(); placeList++ ) {
+        for ( TPlaces::iterator place = (*placeList)->places.begin();
+                place != (*placeList)->places.end(); place++ ) {
+            if(not place->visible or isConstructivePlace( place->elem_type, elem_types))
+                continue;
+            std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp > layers;
+            place->GetLayers( layers, glAll );
+
+            seats[hasLayer(layers, cltCheckin)].push_back(
+                    SeatNumber::tryDenormalizeRow( place->yname ) +
+                    SeatNumber::tryDenormalizeLine( place->xname, isCraftLat()));
+        }
+    }
+}
+
 void TSalonList::Build( xmlNodePtr salonsNode )
 {         //compon
   BitSet<TDrawPropsType> props;

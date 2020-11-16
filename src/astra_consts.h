@@ -179,6 +179,7 @@ enum TRptType {
     rtRESEAT,
     rtRESEATTXT,
     rtKOMPLEKT,
+    rtCOM,
     rtUnknown,
     rtTypeNum
 };

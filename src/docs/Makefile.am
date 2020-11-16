@@ -25,6 +25,7 @@ libdocs_a_SOURCES = \
   docs_wb_msg.cc \
   docs_vouchers.cc \
   docs_pax_list.cc \
+  docs_com.cc \
   docs_text_grid.cc
         
 
@@ -50,4 +51,5 @@ noinst_HEADERS = \
   docs_wb_msg.h \
   docs_vouchers.h \
   docs_text_grid.h \
+  docs_com.h \
   docs_pax_list.h
