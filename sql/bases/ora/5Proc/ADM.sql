@@ -6,6 +6,18 @@ utSupport       CONSTANT TUserType := 0;
 utAirport       CONSTANT TUserType := 1;
 utAirline       CONSTANT TUserType := 2;
 
+PROCEDURE check_ascii(str	IN VARCHAR2,
+                      cache_code  IN cache_tables.code%TYPE,
+                      cache_field IN cache_fields.name%TYPE,
+                      vlang       IN locale_messages.lang%TYPE);
+
+PROCEDURE check_chars_in_name(str	  IN VARCHAR2,
+                              pr_lat      IN INTEGER,
+                              symbols     IN VARCHAR2,
+                              cache_code  IN cache_tables.code%TYPE,
+                              cache_field IN cache_fields.name%TYPE,
+                              vlang       IN locale_messages.lang%TYPE);
+
 PROCEDURE modify_originator(
        vid              typeb_originators.id%TYPE,
        vlast_date       typeb_originators.last_date%TYPE,

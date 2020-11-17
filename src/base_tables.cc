@@ -136,8 +136,8 @@ TBaseTable &TBaseTables::get(string name)
             base_tables[name] = new TBIPrintTypes();
         else if(name == "VOUCHER_TYPES")
             base_tables[name] = new TVoucherTypes();
-        else if(name == "DCS_SERVICE_TYPES")
-            base_tables[name] = new DCSServiceTypes();
+        else if(name == "DCS_ACTIONS")
+            base_tables[name] = new DCSActions();
         else if(name == "PAY_METHODS_TYPES")
             base_tables[name] = new TPayMethodTypes();
         else
@@ -1017,9 +1017,9 @@ void TVoucherTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow *
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void DCSServiceTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void DCSActions::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
-  *row = new DCSServiceTypesRow;
+  *row = new DCSActionsRow;
   mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 }

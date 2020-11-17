@@ -57,7 +57,29 @@ class TBrand
 
     const TBrand& toWebXML(xmlNodePtr node,
                            const AstraLocale::OutputLang& lang) const;
+
+    class Key
+    {
+      public:
+        AirlineCode_t airlineOper;
+        std::string code;
+
+        Key(const AirlineCode_t& airlineOper_, const std::string& code_) :
+          airlineOper(airlineOper_), code(code_) {}
+
+        bool operator == (const Key &key) const
+        {
+          return airlineOper==key.airlineOper && code==key.code;
+        }
+    };
+
+    Key key() const
+    {
+      return Key(AirlineCode_t(oper_airline), code());
+    }
 };
+
+std::ostream& operator<<(std::ostream& os, const TBrand::Key& brand);
 
 typedef std::list<std::pair<int, ASTRA::Range<TDateTime> > > BrandIdsWithDateRanges;
 

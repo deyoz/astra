@@ -102,3 +102,5 @@ std::string ASTRA::TPaxTypeExt::ToString() const
     oss << "TPaxTypeExt: _pax_status=" << ASTRA::TPaxStatusS[_pax_status] << "; _crew_type=" << CrewTypes().encode(_crew_type) << ";";
     return oss.str();
 }
+
+const DCSActionsContainer& dcsActions() { return ASTRA::singletone<DCSActionsContainer>(); }

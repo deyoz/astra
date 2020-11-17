@@ -65,6 +65,23 @@ class TRemGrp : public std::set<std::string>
     void Load(TRemEventType rem_set_type, const std::string &airline);
 };
 
+class TierLevelKey
+{
+  public:
+    AirlineCode_t airline;
+    std::string code;
+
+    TierLevelKey(const AirlineCode_t& airline_, const std::string& code_) :
+      airline(airline_), code(code_) {}
+
+    bool operator == (const TierLevelKey &key) const
+    {
+      return airline==key.airline && code==key.code;
+    }
+};
+
+std::ostream& operator<<(std::ostream& os, const TierLevelKey& tierLevel);
+
 namespace CheckIn
 {
 
@@ -277,6 +294,12 @@ class TPaxFQTItem : public TPaxRemBasic, public TPaxFQTCard
       return std::make_pair("fqt_rems", "fqt_rem");
     }
     static boost::optional<TPaxFQTItem> getNotEmptyTierLevel(const PaxOrigin& origin, const PaxId_t& paxId, bool onlyFQTV);
+
+    boost::optional<TierLevelKey> tierLevelKey() const
+    {
+      if (tier_level.empty()) return boost::none;
+      return TierLevelKey(AirlineCode_t(airline), tier_level);
+    }
 };
 
 class TServiceBasic

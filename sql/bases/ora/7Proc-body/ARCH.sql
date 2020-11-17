@@ -1166,6 +1166,7 @@ BEGIN
         DELETE FROM pax_norms_text WHERE pax_id=paxids(k);
         DELETE FROM sbdo_tags_generated WHERE pax_id=paxids(k);
         DELETE FROM pax_calc_data WHERE pax_calc_data_id=paxids(k);
+        DELETE FROM pax_confirmations WHERE pax_id=paxids(k);
         pax_count:=pax_count+1;
       END LOOP;
       FORALL i IN 1..paxrowids.COUNT

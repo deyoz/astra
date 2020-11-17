@@ -33,7 +33,7 @@ enum TElemType {
                  etCraft,                    //тип ВС (воздушное судно)
                  etCurrency,                 //коды валют
                  etCustomAlarmType,          //пользовательские тревоги
-                 etDCSServiceType,           //типы услуг в Астре
+                 etDCSAction,                //действие в Астре
                  etDelayType,                //коды задержек рейсов
                  etDeskGrp,                  //группы пультов
                  etDevFmtType,               //форматы устройств

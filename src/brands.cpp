@@ -122,3 +122,9 @@ const TBrand& TBrand::toWebXML(xmlNodePtr node,
   NewTextChild(node, "name", ElemIdToPrefferedElem(etBrand, id, efmtNameLong, lang.get()));
   return *this;
 }
+
+std::ostream& operator<<(std::ostream& os, const TBrand::Key& brand)
+{
+  os << brand.airlineOper << ":" << brand.code;
+  return os;
+}

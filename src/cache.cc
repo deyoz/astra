@@ -714,9 +714,9 @@ TUpdateDataType TCacheTable::refreshData()
     if(OnBeforeRefresh)
       try {
           (*OnBeforeRefresh)(*this, *Qry, query_type);
-      } catch(UserException E) {
+      } catch(const UserException &E) {
           throw;
-      } catch(Exception E) {
+      } catch(const Exception &E) {
           ProgError(STDLOG, "OnBeforeRefresh failed: %s", E.what());
           throw;
       } catch(...) {
@@ -1524,9 +1524,9 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
   if(OnBeforeApplyAll)
       try {
           (*OnBeforeApplyAll)(*this);
-      } catch(UserException E) {
+      } catch(const UserException &E) {
           throw;
-      } catch(Exception E) {
+      } catch(const Exception &E) {
           ProgError(STDLOG, "OnBeforeApplyAll failed: %s", E.what());
           throw;
       } catch(...) {
@@ -1588,9 +1588,9 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
         if(OnBeforeApply)
             try {
                 (*OnBeforeApply)(*this, *iv, *Qry, query_type);
-            } catch(UserException E) {
+            } catch(const UserException &E) {
                 throw;
-            } catch(Exception E) {
+            } catch(const Exception &E) {
                 ProgError(STDLOG, "OnBeforeApply failed: %s", E.what());
                 throw;
             } catch(...) {
@@ -1604,7 +1604,7 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
           if ( Logging ) /* логирование */
             OnLogging( *iv, status );
         }
-        catch( EOracleError E ) {
+        catch(const EOracleError &E) {
           if ( E.Code >= 20000 ) {
             string str = E.what();
             throw UserException(EOracleError2UserException(str));
@@ -1623,9 +1623,9 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
         if(OnAfterApply)
             try {
                 (*OnAfterApply)(*this, *iv, *Qry, query_type);
-            } catch(UserException E) {
+            } catch(const UserException &E) {
                 throw;
-            } catch(Exception E) {
+            } catch(const Exception &E) {
                 ProgError(STDLOG, "OnAfterApply failed: %s", E.what());
                 throw;
             } catch(...) {
@@ -1639,9 +1639,9 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
   if(OnAfterApplyAll)
       try {
           (*OnAfterApplyAll)(*this);
-      } catch(UserException E) {
+      } catch(const UserException &E) {
           throw;
-      } catch(Exception E) {
+      } catch(const Exception &E) {
           ProgError(STDLOG, "OnAfterApplyAll failed: %s", E.what());
           throw;
       } catch(...) {
@@ -1947,7 +1947,8 @@ void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TC
   if (cache.code() == "BI_PRINT_RULES" ||
       cache.code() == "REM_TXT_SETS" ||
       cache.code() == "CUSTOM_ALARM_SETS" ||
-      cache.code() == "DCS_SERVICE_APPLYING") {
+      cache.code() == "DCS_SERVICE_APPLYING" ||
+      cache.code() == "CONFIRMATION_SETS") {
       list<string> l;
       if (
               row.status != usDeleted and
