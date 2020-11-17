@@ -347,6 +347,8 @@ Messages::Messages(const DCSAction::Enum dcsAction,
 {
   for(const Segment& seg : segments)
   {
+    if (seg.grp.grpCategory()!=CheckIn::TPaxGrpCategory::Passenges) continue;
+
     boost::optional<AppliedMessages> appliedMessages;
     if (excludeAppliedMessages)
     {
