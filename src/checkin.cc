@@ -6158,7 +6158,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
   timing.finish("SavePax");
 
-  if (reqInfo->desk.compatible(PAX_CONFIRMATIONS_VERSION))
+  if (reqInfo->client_type==ctTerm &&  //только с терминала, никаких ctPNL и ctHTTP
+      reqInfo->desk.compatible(PAX_CONFIRMATIONS_VERSION))
   {
     timing.start("PaxConfirmations");
 
