@@ -1213,7 +1213,35 @@ BitSet<SEATS2::TChangeLayerSeatsProps>
       if (!fltInfo.getByPointId(point_id))
         throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
       if ( GetTripSets(tsReseatOnRFISC,fltInfo) ) {
-        AstraLocale::showErrorMessage( "MSG.SEATS.SEATS_WARNING_RFISC" );
+        TRemGrp remGrp;
+        remGrp.Load(retFORBIDDEN_FREE_SEAT, point_id);
+        std::multiset<CheckIn::TPaxRemItem> rems;
+        CheckIn::LoadPaxRem( pax_id, rems );
+        std::vector<std::string> specRemarks;
+        for ( const auto & r : rems ) {
+          if ( remGrp.exists( r.code ) &&
+               find( specRemarks.begin(), specRemarks.end(), r.code ) == specRemarks.end() ) {
+            specRemarks.emplace_back( r.code );
+            LogTrace(TRACE5)<<r.code;
+          }
+        }
+        std::set<TPlace*,CompareSeats> _seats;
+        TSeatLayer _seatLayer;
+        NewSalonList.getPaxLayer(point_id, pax_id, _seatLayer, _seats, false );
+        bool show_msg = true;
+        for ( const auto & s : _seats ) {
+          std::vector<TSeatRemark> vremarks;
+          s->GetRemarks( point_id, vremarks );
+          for ( const auto r : vremarks ) {
+            if (  !r.pr_denial &&
+                  std::find( specRemarks.begin(), specRemarks.end(), r.value ) != specRemarks.end() ) {
+              show_msg = false;
+              break;
+            }
+          }
+        }
+        if ( show_msg )
+          AstraLocale::showErrorMessage( "MSG.SEATS.SEATS_WARNING_RFISC" );
       }
     }
   }
@@ -1551,6 +1579,8 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   SALONS2::TSalonList salonList;
   SALONS2::TSalonPassengers passengers;
   salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ), "", NoExists );
+  TRemGrp remGrp;
+  remGrp.Load(retFORBIDDEN_FREE_SEAT,point_id);
   SALONS2::TGetPassFlags flags;
   flags.setFlag( SALONS2::gpPassenger );
   flags.setFlag( SALONS2::gpWaitList );
@@ -1565,7 +1595,8 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     SALONS2::TSalonPassengers::const_iterator ipasses = passengers.find( point_id );
     if ( ipasses != passengers.end() ) {
       SEATS2::AutoReSeatsPassengers( salonList, ipasses->second,
-                                     SEATS2::GetSeatAlgo( Qry, info.airline, info.flt_no, info.airp ) );
+                                     SEATS2::GetSeatAlgo( Qry, info.airline, info.flt_no, info.airp ),
+                                     remGrp );
     }
     xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
     SALONS2::GetTripParams( point_id, dataNode );
