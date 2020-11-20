@@ -47,8 +47,8 @@ void addRights2Req(xmlNodePtr rootNode)
 std::string callLibra(xmlNodePtr reqRootNode)
 {
     // Доклейка пульта, оператора и прав доступа
-    //addOprPult2Req(rootNode);  пока отключено
-    //addRights2Req(rootNode);   пока отключено
+    addOprPult2Req(reqRootNode);
+    addRights2Req(reqRootNode);
 
     std::string xml_in = XMLTreeToText(reqRootNode->doc);
     LogTrace(TRACE5) << __func__ << " xml_in=" << xml_in;
