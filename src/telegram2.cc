@@ -9833,7 +9833,6 @@ namespace WBMessages {
             filter.airp_dep = f.airp;
             filter.scd_out = f.scd_out;
             filter.scd_out_in_utc = true;
-            filter.only_with_reg = false;
 
             list<TAdvTripInfo> flts;
             SearchFlt(filter, flts);
@@ -9970,7 +9969,6 @@ namespace CKIN_REPORT {
         filter.airp_dep = getElemId(etAirp, airp);
         filter.scd_out = flt.date;
         filter.scd_out_in_utc = true;
-        filter.only_with_reg = false;
         int point_id = get_point_id(filter);
         if(point_id == NoExists)
             throw Exception("flight not found: %s", val.c_str());
@@ -11091,7 +11089,6 @@ void TelegramInterface::kuf_file(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         if(StrToDateTime(items[3].c_str(), "dd.mm.yy", filter.scd_out) == EOF)
             throw Exception("kuf_file: can't convert scd_out: %s", items[3].c_str());
         filter.scd_out_in_utc = true;
-        filter.only_with_reg = false;
 
         list<TAdvTripInfo> flts;
         SearchFlt(filter, flts);

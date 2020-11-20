@@ -8,23 +8,24 @@
 #include <serverlib/loki/LokiTypeInfo.h>
 
 #include <typeinfo>
-#include <boost/shared_ptr.hpp>
 
 
 namespace BaseTables {
 
 struct PortExceptionConf{
-    static char  const * const thing;
+    static char const * const thing;
 };
 struct CityExceptionConf{
-    static char const * const  thing;
+    static char const * const thing;
 };
-
 struct RouterExceptionConf {
-    static char const * const  thing;
+    static char const * const thing;
 };
 struct CompanyExceptionConf {
-    static char const * const  thing;
+    static char const * const thing;
+};
+struct CountryExceptionConf {
+    static char const * const thing;
 };
 
 
@@ -56,10 +57,11 @@ public:
     virtual ~noSuchThing()throw() {}
 };
 
-typedef noSuchThing<PortExceptionConf> noSuchPort;
-typedef noSuchThing<CityExceptionConf> noSuchCity;
-typedef noSuchThing<RouterExceptionConf> noSuchRouter;
+typedef noSuchThing<PortExceptionConf>    noSuchPort;
+typedef noSuchThing<CityExceptionConf>    noSuchCity;
+typedef noSuchThing<RouterExceptionConf>  noSuchRouter;
 typedef noSuchThing<CompanyExceptionConf> noSuchCompany;
+typedef noSuchThing<CountryExceptionConf> noSuchCountry;
 
 
 template <typename T>    class IdaHolder ;
@@ -123,12 +125,12 @@ protected:
 public:
     static T const * GetInstanceCode(const char * code, const char *sql)
     {
-          typename T::IdaType ida;
-          if(!CommonData<typename T::IdaType>::GetInstanceCode_help(sql, code, ida))
-          {
-              return 0;
-          }
-          return new T(ida);
+        typename T::IdaType ida;
+        if(!CommonData<typename T::IdaType>::GetInstanceCode_help(sql, code, ida))
+        {
+            return 0;
+        }
+        return new T(ida);
 //        typename std::set<cache_elem,cache_elem_comp>::iterator i=
 //                std::find_if(cache.begin(),cache.end(),
 //                        compCommonDataCode<T>(code,Loki::TypeInfo(typeid(T))));
@@ -150,7 +152,6 @@ public:
 
     static T const * GetInstance(typename T::IdaType ida)
     {
-        return new T(ida);
 //        typename std::set<cache_elem,cache_elem_comp>::iterator i=
 //                std::find_if(cache.begin(),cache.end(),
 //                        compCommonDataIda<T>(ida,Loki::TypeInfo(typeid(T))));
@@ -169,6 +170,7 @@ public:
 //            abort();
 //        }
 //        return ret;
+        return new T(ida);
     }
 
     static void clearCache()
@@ -277,7 +279,7 @@ typedef enum {
 
 template <typename T> class IdaHolder {
     typename T::IdaType ida_;
-    boost::shared_ptr<const T> cache;
+    const T *cache;
     bool m_noClose;
     bool m_throwNoData;
     struct boolean {int i;};
@@ -297,7 +299,7 @@ public:
                        ReadClose_t close = YesClose)
             :ida_(), m_noClose(close == NoClose), m_throwNoData(thr == YesThrowND)
     {
-        cache.reset(CacheData<T>::GetInstance(p));
+        cache = CacheData<T>::GetInstance(p);
         if(cache)
         {
             if(cache->closed() && m_noClose)
@@ -324,7 +326,7 @@ public:
               m_noClose(close == NoClose),
               m_throwNoData(thr == YesThrowND)
     {
-        cache.reset(T::GetInstance(p.c_str()));
+        cache = T::GetInstance(p.c_str());
         if(cache)
         {
             if(cache->closed() && m_noClose)
@@ -358,8 +360,7 @@ public:
             typename T::NoSuchThing thing;
             throw EXCEPTIONS::Exception("IdaHolder for " + thing.thingName() +  ": Use of uninitialized value");
         }
-        return cache.get();
-        //return cache;
+        return cache;
     }
     /**
     * проверка на инициированность
@@ -378,23 +379,56 @@ public:
 };
 
 
+class Country_impl;
+class City_impl;
+class Port_impl;
+class Company_impl;
+class Router_impl;
+
+typedef IdaHolder<Country_impl> Country;
+typedef IdaHolder<City_impl>    City;
+typedef IdaHolder<Port_impl>    Port;
+typedef IdaHolder<Company_impl> Company;
+typedef IdaHolder<Router_impl>  Router;
+
+
+class Country_impl: public CommonData <Ticketing::Country_t>
+{
+    std::string codeIso_;
+public:
+    typedef noSuchCountry NoSuchThing;
+    typedef Ticketing::Country_t IdaType;
+    explicit Country_impl(IdaType ida);
+    static const Country_impl* GetInstance(const char* code);
+    const std::string& codeIso() const { return codeIso_; }
+};
+
+
 class City_impl: public CommonData <Ticketing::City_t>
 {
+    std::string country_;
+    std::string tzRegion_;
 public:
     typedef noSuchCity NoSuchThing;
     typedef Ticketing::City_t IdaType;
-    explicit City_impl(IdaType Ida);
+    explicit City_impl(IdaType ida);
     static const City_impl* GetInstance(const char* code);
+    Country country() const { return Country(country_); }
+    const std::string& tzRegion() const { return tzRegion_; }
 };
 
 
 class Port_impl: public CommonData <Ticketing::Port_t>
 {
+    std::string city_;
+    std::string codeIcao_;
+    std::string lcodeIcao_;
 public:
     typedef noSuchPort NoSuchThing;
     typedef Ticketing::Port_t IdaType;
-    explicit Port_impl(IdaType Ida);
+    explicit Port_impl(IdaType ida);
     static const Port_impl* GetInstance(const char* code);
+    City city() const { return City(city_); }
 };
 
 
@@ -402,13 +436,17 @@ class Company_impl: public CommonData <Ticketing::Airline_t>
 {
 private:
     std::string accode_;
+    std::string codeIcao_;
+    std::string lcodeIcao_;
 public:
     typedef noSuchCompany NoSuchThing;
     typedef Ticketing::Airline_t IdaType;
     explicit Company_impl(IdaType ida);
     static const Company_impl *GetInstance(const char *code);
 
-    const std::string& accode() const { return accode_; }
+    const std::string&    accode() const { return accode_; }
+    const std::string&  codeIcao() const { return codeIcao_; }
+    const std::string& lcodeIcao() const { return lcodeIcao_; }
 };
 
 
@@ -474,12 +512,5 @@ public:
      */
     bool loopback() const { return Loopback_; }
 };
-
-
-typedef IdaHolder<City_impl> City;
-typedef IdaHolder<Port_impl> Port;
-typedef IdaHolder<Company_impl> Company;
-typedef IdaHolder<Router_impl> Router;
-
 
 }//namespace BaseTables

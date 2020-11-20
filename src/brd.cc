@@ -749,6 +749,13 @@ void SaveAPIS(int point_id, int pax_id, int tid, xmlNodePtr reqNode)
   PaxCalcData::addChanges(modifiedPaxRem, changesHolder);
   changesHolder.executeCallbacksByPaxId(TRACE5);
 
+  if (modifiedPaxRem.exists({remDOC, remDOCO, remDOCA}))
+  {
+    APPS::AppsCollector appsCollector;
+    appsCollector.addPaxItem(PaxId_t(pax_id));
+    appsCollector.send();
+  }
+
   if (apis_control)
   {
     list<pair<string, string> > msgs;
@@ -1393,15 +1400,15 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         //============================ проверка APPS и IAPI статуса пассажира ============================
         if (set_mark)
         {
-          if (checkAPPSSets(point_id, point_arv)) {
-            std::unique_ptr<TPaxRequest> apps_pax(new TPaxRequest());
+          if (APPS::checkAPPSSets(PointId_t(point_id), PointId_t(point_arv))) {
             for(int pass=0;pass<2;pass++)
             {
               const TPaxItem &pax=(pass==0?paxWithSeat:paxWithoutSeat);
               if (!pax.exists()) continue;
-              apps_pax->fromDBByPaxId( pax.pax_id );
-              if( apps_pax->getStatus() != "B" )
-                throw AstraLocale::UserException("MSG.PASSENGER.APPS_PROBLEM");
+              auto statuses = APPS::statusesFromDb(PaxId_t(pax.pax_id));
+              if (algo::any_of(statuses, [](auto & st){return st!="B";})) {
+                  throw AstraLocale::UserException("MSG.PASSENGER.APPS_PROBLEM");
+              }
             }
           }
 

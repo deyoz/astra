@@ -25,6 +25,80 @@ using namespace std;
 using namespace ASTRA;
 using namespace ASTRA::date_time;
 
+boost::optional<TTripInfo> getPointInfo(const PointId_t point_dep)
+{
+    TTripInfo point_info;
+    if (!point_info.getByPointId(point_dep.get())) {
+        return boost::none;
+    }
+    return point_info;
+}
+
+void checkRouteSuffix(const TAdvTripRoute &route)
+{
+    if (!route.front().suffix_out.empty()) {
+        const TTripSuffixesRow &suffixRow = (const TTripSuffixesRow&)base_tables.get("trip_suffixes").
+                get_row("code", route.front().suffix_out);
+        if (suffixRow.code_lat.empty()) {
+            throw Exception("suffixRow.code_lat empty (code=%s)",suffixRow.code.c_str());
+        }
+    }
+}
+
+TAdvTripRoute getTransitRoute(const TPaxSegmentPair& flight)
+{
+    TAdvTripRoute route;
+    LogTrace(TRACE5)<< __FUNCTION__ << " point: " << flight.point_dep << " airp_arv: "<< flight.airp_arv;
+    if(flight.airp_arv.empty()) {
+        route.GetRouteAfter(NoExists, flight.point_dep, trtWithCurrent, trtNotCancelled);
+    } else {
+        route.getRouteBetween(flight);
+    }
+//    if(route.empty()) {
+//        throw Exception("Empty route, point_id %d", flight.point_dep);
+//    }
+    if(!route.empty()) {
+        checkRouteSuffix(route);
+    }
+    return route;
+}
+
+std::vector<TPaxSegmentPair> transitLegs(const TAdvTripRoute& route)
+{
+    std::vector<TPaxSegmentPair> res;
+    if(route.size() < 2) {
+        LogTrace(TRACE5) << " Route can't be processed! Size TAdvTripRoute < 2";
+        return res;
+    }
+    int point_dep = route.front().point_id;
+    for(size_t i = 1; i < route.size(); i++) {
+        std::string airp_arv = route[i].airp;
+        res.emplace_back(point_dep, airp_arv);
+        point_dep = route[i].point_id;
+    }
+    return res;
+}
+
+std::vector<std::string> segAirps(const TPaxSegmentPair & flight)
+{
+    std::vector<std::string> res;
+    TAdvTripRoute route = getTransitRoute(flight);
+    for(const auto &item : route) {
+        res.push_back(item.airp);
+    }
+    return res;
+}
+
+std::vector<int> segPoints(const TPaxSegmentPair & flight)
+{
+    std::vector<int> res;
+    TAdvTripRoute route = getTransitRoute(flight);
+    for(const auto &item : route) {
+        res.push_back(item.point_id);
+    }
+    return res;
+}
+
 bool TTripInfo::getByPointId ( const TDateTime part_key,
                                const int point_id,
                                const FlightProps &props )
@@ -655,11 +729,11 @@ void TAdvTripRoute::GetRoute(TDateTime part_key,
     item.airp=Qry.FieldAsString("airp");
     item.pr_cancel=Qry.FieldAsInteger("pr_del")!=0;
     if (!Qry.FieldIsNULL("airline"))
-      item.airline=Qry.FieldAsString("airline");
+      item.airline_out=Qry.FieldAsString("airline");
     if (!Qry.FieldIsNULL("suffix"))
-      item.suffix=Qry.FieldAsString("suffix");
+      item.suffix_out=Qry.FieldAsString("suffix");
     if (!Qry.FieldIsNULL("flt_no"))
-      item.flt_num=Qry.FieldAsInteger("flt_no");
+      item.flt_num_out=Qry.FieldAsInteger("flt_no");
     if (!Qry.FieldIsNULL("scd_in"))
       item.scd_in=Qry.FieldAsDateTime("scd_in");
     if (!Qry.FieldIsNULL("scd_out"))
@@ -969,8 +1043,8 @@ TCkinRouteItem::TCkinRouteItem(TQuery &Qry)
   airp_arv=Qry.FieldAsString("airp_arv");
   status=DecodePaxStatus(Qry.FieldAsString("status"));
   operFlt.Init(Qry);
-}    
-    
+}
+
 std::string TCkinRoute::getSelectSQL(const Direction direction,
                                      const std::string& subselect)
 {
@@ -2223,8 +2297,7 @@ void SearchFlt(const TSearchFltInfo &filter, list<TAdvTripInfo> &flts)
             << QParam("suffix", otString, filter.suffix)
             << QParam("airp_dep", otString, filter.airp_dep)
             << (filter.scd_out!=NoExists?QParam("scd", otDate, filter.scd_out):
-                                         QParam("scd", otDate, FNull))
-            << QParam("only_with_reg", otInteger, (int)filter.only_with_reg);
+                                         QParam("scd", otDate, FNull));
 
   ostringstream sql;
   sql <<
@@ -2245,7 +2318,7 @@ void SearchFlt(const TSearchFltInfo &filter, list<TAdvTripInfo> &flts)
       "      or act_out >= TO_DATE(:scd)-1 AND act_out < TO_DATE(:scd)+2 \n ";
     sql <<
       "      ) AND \n"
-      "      pr_del>=0 AND (:only_with_reg=0 OR pr_reg<>0) \n";
+      "      pr_del>=0 \n";
   }
   else
   {
@@ -2262,7 +2335,7 @@ void SearchFlt(const TSearchFltInfo &filter, list<TAdvTripInfo> &flts)
       "      or act_out >= TO_DATE(:scd) AND act_out < TO_DATE(:scd)+1 \n";
     sql <<
       "      ) AND \n"
-      "      pr_del>=0 AND (:only_with_reg=0 OR pr_reg<>0) \n";
+      "      pr_del>=0 \n";
   };
 
   sql << " " << filter.additional_where;
@@ -2271,6 +2344,7 @@ void SearchFlt(const TSearchFltInfo &filter, list<TAdvTripInfo> &flts)
   PointsQry.get().Execute();
   for(;!PointsQry.get().Eof;PointsQry.get().Next())
   {
+    if (!TAdvTripInfo::match(PointsQry.get(), filter.flightProps)) continue;
     TAdvTripInfo flt(PointsQry.get());
     if (!filter.scd_out_in_utc)
     {

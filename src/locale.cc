@@ -9,6 +9,7 @@
 #include "tlg/typeb_template_init.h"
 #include "passenger_callbacks.h"
 #include "base_callbacks.h"
+#include "apps_interaction.h"
 #include "pax_calc_data.h"
 
 #include <jxtlib/JxtInterface.h>
@@ -128,6 +129,7 @@ int init_locale(void)
     init_pnr_callbacks();
     init_rfisc_callbacks();
     initPassengerCallbacks();
+    APPS::init_callbacks();
     IAPI::init_callbacks();
     PaxCalcData::init_callbacks();
     TlgLogger::setLogging();

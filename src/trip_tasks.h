@@ -4,6 +4,7 @@
 #include <string>
 #include "date_time.h"
 #include "astra_consts.h"
+#include "astra_types.h"
 #include "oralib.h"
 #include <set>
 
@@ -41,6 +42,8 @@ class TTripTaskKey
     std::string params;
     TTripTaskKey(int _point_id, const std::string& _name, const std::string& _params) :
       point_id(_point_id), name(_name), params(_params) {}
+    TTripTaskKey(const PointId_t& _point_id, const std::string& _name, const std::string& _params) :
+      point_id(_point_id.get()), name(_name), params(_params) {}
     TTripTaskKey(TQuery &Qry) { fromDB(Qry); }
 
     bool operator < (const TTripTaskKey &task) const

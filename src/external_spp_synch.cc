@@ -9,6 +9,7 @@
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 using namespace EXCEPTIONS;
 using namespace std;
@@ -203,7 +204,7 @@ void TParseFlight::clear() {
   pr_landing = false;
   status.clear();
   record.clear();
-};
+}
 
 struct AnswerContent {
    std::string airline;
@@ -384,6 +385,9 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
     " ORDER BY point_num";
   uQry.DeclareVariable( "move_id", otInteger );
   uQry.CreateVariable( "airp", otString, TReqInfo::Instance()->desk.airp );
+  bool isSCDINEmptyN = false;
+  bool isSCDINEmptyO = false;
+
   for ( std::map<std::string,map<bool, TParseFlight> >::iterator iflight = flights.begin();
         iflight != flights.end(); iflight ++ ) {
     TPoints points;
@@ -393,6 +397,7 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
     std::string airp;
     TDateTime scd_in;
     TDateTime scd_out;
+
     bool pr_land = false, pr_takeoff= false;
     int doubleMove_id = ASTRA::NoExists;
     int doublePoint_id = ASTRA::NoExists;
@@ -469,6 +474,12 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
         FUseData.setFlag( udDelays );
         FUseData.setFlag( udStages );
         points.dests.Load( doubleMove_id, FUseData );
+        for ( const auto &d : points.dests.items ) {
+          if ( d.point_id != dests.items.front().point_id &&
+               d.scd_in == ASTRA::NoExists ) {
+            isSCDINEmptyO = true;
+          }
+        }
       }
       for ( std::vector<TElemStruct>::iterator iairp=airps.begin(); iairp!=airps.end(); iairp++ ) {
         TPointsDest dest;
@@ -628,6 +639,21 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
       if ( !points.dests.items.empty() ) {
         try {
           points.Save( false );
+          TPointDests dests;
+          dests.Load(points.move_id,BitSet<TUseDestData>());
+          std::set<int> points_scd_ins;
+          for ( const auto & d : dests.items ) {
+            if ( d.point_id != dests.items.front().point_id &&
+               d.scd_in == ASTRA::NoExists ) {
+              isSCDINEmptyN = true;
+            }
+            points_scd_ins.insert( d.point_id );
+          }
+          if ( !((!isSCDINEmptyN && !isSCDINEmptyO) ||
+                (doubleMove_id == ASTRA::NoExists && !isSCDINEmptyN)) ) {
+            LogTrace(TRACE5) << "isSCDINEmptyN=" << isSCDINEmptyN << ",isSCDINEmptyO=" << isSCDINEmptyO << "insert=" << (doubleMove_id == ASTRA::NoExists);
+            changeSCDIN_AtDests( points_scd_ins );
+          }
           if ( fl_in != iflight->second.end() ) {
             fl_in->second.error = EncodeEventType( ASTRA::evtFlt );
           }
@@ -1064,7 +1090,7 @@ public:
      filter.suffix = flt.suffix;
      filter.dep_date_flags.setFlag(ddtEST);
      filter.scd_out_in_utc = true;
-     filter.only_with_reg = true;
+     filter.flightProps = FlightProps(FlightProps::WithCancelled, FlightProps::WithCheckIn);
      double f, l;
      modf( flt.scd_out - range_hours/24.0, &f );
      modf( flt.scd_out + range_hours/24.0, &l );
@@ -1174,6 +1200,9 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, c
   }
   ProgTrace( TRACE5, "pr_find=%d, move_id=%d", pr_find, points.move_id );
 
+   bool isSCDINEmptyN = false, isSCDINEmptyO = false;
+   bool insert = false;
+
   if ( pr_find ) { // рейс нашелся, надо зачитать
     if ( d.status == tdDelete ) {
       ProgTrace( TRACE5, "flight status=delete, but not save this event to db, ignore" );
@@ -1187,6 +1216,12 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, c
     UseData.setFlag( udMaxCommerce );
     //UseData.setFlag( udStations );
     points.dests.Load( points.move_id, UseData );
+    for ( const auto &d : points.dests.items ) {
+      if ( d.point_id != points.dests.items.begin()->point_id &&
+           d.scd_in == ASTRA::NoExists ) {
+        isSCDINEmptyO = true;
+      }
+    }
   }
   else { // новый рейс, а можно ли его создать?
     TTripInfo info;
@@ -1197,6 +1232,7 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, c
       ProgTrace( TRACE5, "IntWriteDests: missing right for create flight" );
       throw EConvertError( "missing right for create flight" );
     }
+    insert = true;
     if ( d.craft.empty() ) {
       warning += ";Не задан тип ВС";
       //!!!throw EConvertError( "Не задан тип ВС" );
@@ -1384,7 +1420,14 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, c
       }
     }
   }
-
+  bool isfirst = true;
+  for ( const auto &d : points.dests.items ) {
+    if ( d.pr_del == -1 ) continue;
+    if ( !isfirst && d.scd_in == ASTRA::NoExists ) {
+      isSCDINEmptyN = true;
+    }
+    isfirst = false;
+  }
   // сохраняем
   //try {
     points.Save( false );
@@ -1409,6 +1452,17 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, c
       if ( pr_charter_setSCD ) { // сохраняем плановую дату, передаваемую из Синхрона
         AODB_POINTS::setSCD_OUT( aodb_point_id, d.scd_out );
       }
+    }
+
+    if ( !((!isSCDINEmptyN && !isSCDINEmptyO) ||
+           (insert && !isSCDINEmptyN)) ) {
+      LogTrace(TRACE5) << "isSCDINEmptyN=" << isSCDINEmptyN << ",isSCDINEmptyO=" << isSCDINEmptyO << "insert=" << insert;
+      points.dests.Load(points.move_id,BitSet<TUseDestData>());
+      std::set<int> points_scd_ins;
+      for ( const auto &d : points.dests.items ) {
+        points_scd_ins.insert( d.point_id );
+      }
+      changeSCDIN_AtDests( points_scd_ins );
     }
 /*  }
   catch( Exception &e ) {

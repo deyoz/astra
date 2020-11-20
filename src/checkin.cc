@@ -70,6 +70,7 @@
 #include <serverlib/testmode.h>
 #include <serverlib/dump_table.h>
 #include <etick/tick_data.h>
+#include <serverlib/algo.h>
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -1066,6 +1067,7 @@ void CheckInInterface::GetTrferSets(const TTripInfo &operFlt,
   }
 }
 
+// trferItem.operFlt.point_id остается не проинициализированным
 void CheckInInterface::GetOnwardCrsTransfer(int id, bool isPnrId,
                                             const TTripInfo &operFlt,
                                             const string &oper_airp_arv,
@@ -1137,12 +1139,39 @@ void CheckInInterface::GetOnwardCrsTransfer(int id, bool isPnrId,
     if (trferItem.subclass_fmt==efmtUnknown)
       trferItem.subclass=t->subcl;
 
+    LogTrace(TRACE5) << __FUNCTION__ << " trferItem point_id: "<< trferItem.operFlt.point_id;
     trfer[t->num]=trferItem;
 
     prior_transfer_num=t->num;
     prior_airp_arv=trferItem.airp_arv;
     prior_airp_arv_fmt=trferItem.airp_arv_fmt;
   }
+}
+
+//Чтение пока только Onward, только последующие трансферы
+std::map<int, CheckIn::TTransferItem> CheckInInterface::getCrsTransferMap(const PaxId_t& pax_id)
+{
+    int pnr_id = 0, point_id = 0;
+    std::string airp_arv;
+    auto cur = make_curs(
+               "select POINT_ID_SPP, CRS_PAX.PNR_ID, AIRP_ARV "
+               ", PERS_TYPE "
+               "from CRS_PAX, CRS_PNR, TLG_BINDING "
+               "where PAX_ID = :pax_id and CRS_PAX.PNR_ID = CRS_PNR.PNR_ID and "
+               "      CRS_PNR.POINT_ID = TLG_BINDING.POINT_ID_TLG");
+    cur
+        .def(point_id)
+        .def(pnr_id)
+        .def(airp_arv)
+        .bind(":pax_id", pax_id.get())
+        .EXfet();
+    if(cur.err() == NO_DATA_FOUND) {
+        LogTrace(TRACE5) << __FUNCTION__ << " No data found";
+        return {};
+    }
+    map<int, CheckIn::TTransferItem> trfer;
+    CheckInInterface::GetOnwardCrsTransfer(pnr_id, true, *getPointInfo(PointId_t(point_id)), airp_arv, trfer);
+    return trfer;
 }
 
 void CheckInInterface::LoadOnwardCrsTransfer(const map<int, CheckIn::TTransferItem> &trfer,
@@ -4150,7 +4179,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     if (new_checkin)
       segList.back().setCabinClassAndSubclass(segs.isTransitGrp());
 
-    if (!pr_unaccomp && checkAPPSSets(segList.back().grp.point_dep, segList.back().grp.point_arv))
+    if (!pr_unaccomp && APPS::checkAPPSSets(PointId_t(segList.back().grp.point_dep),
+                                            PointId_t(segList.back().grp.point_arv)))
         need_apps = true;
   }
 
@@ -4356,6 +4386,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   CheckIn::TTransferList::const_iterator iTrfer;
   map<int, std::pair<CheckIn::Segments, TTrferSetsInfo> > trfer_segs;
   bool rollbackGuaranteedOnFirstSegment=false;
+  APPS::AppsCollector    appsCollector;
   ModifiedPaxRem modifiedPaxRem(paxCheckIn);
   ModifiedPax newOrCancelledPax(paxCheckIn);
   std::list<TCkinRouteInsertItem> tckinGroupsWhenNewCheckIn;
@@ -5151,9 +5182,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   CheckIn::SavePaxFQT(paxId, !new_checkin, p->fqts, modifiedPaxRem);
                 }
 
-                if ( need_apps ) {
-                  // Для новых пассадиров ремарки APPS не проверяем
-                  processPax( paxId().get() );
+                if (need_apps) {
+                    // Для новых пассажиров ремарки APPS не проверяем
+                    appsCollector.addPaxItem(paxId());
                 }
 
                 // Запись в pax_events
@@ -5408,11 +5439,11 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 CheckIn::SavePaxFQT(paxId, !new_checkin, p->fqts, modifiedPaxRem);
               }
 
-              if ( need_apps ) {
-                string override;
-                bool is_forced = false;
-                HandleAPPSRems(p->rems, override, is_forced);
-                processPax( pax.id, override, is_forced );
+              if (need_apps) {
+                  std::string override;
+                  bool is_forced = false;
+                  HandleAPPSRems(p->rems, override, is_forced);
+                  appsCollector.addPaxItem(PaxId_t(pax.id), override, is_forced);
               }
             }
             catch(const CheckIn::UserException&)
@@ -6027,6 +6058,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                             rollbackGuaranteedOnFirstSegment;
   if(!rollbackGuaranteed)
   {
+      appsCollector.send();
       synchronizePaxEvents(newOrCancelledPax, modifiedPaxRem);
       modifiedPaxRem.executeCallbacksByPaxId(TRACE5);
       modifiedPaxRem.executeCallbacksByCategory(TRACE5);
@@ -7702,7 +7734,7 @@ void CheckInInterface::GetTCkinFlights(const TTripInfo &operFlt,
         filter.airp_dep=t->second.operFlt.airp;
         filter.scd_out=t->second.operFlt.scd_out;
         filter.scd_out_in_utc=false;
-        filter.only_with_reg=true;
+        filter.flightProps = FlightProps(FlightProps::WithCancelled, FlightProps::WithCheckIn);
 
         //ищем рейс в СПП
         list<TAdvTripInfo> flts;
@@ -8470,7 +8502,7 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     filter.airp_dep = airp_fromXML(NodeAsNode("AIRP_DEP", flightNode), cfErrorIfEmpty, __FUNCTION__, "MERIDIAN");
     filter.scd_out = scd_out_fromXML(NodeAsString("SCD", flightNode), "dd.mm.yyyy");
     filter.scd_out_in_utc = false;
-    filter.only_with_reg = true;
+    filter.flightProps = FlightProps(FlightProps::WithCancelled, FlightProps::WithCheckIn);
 
     TDateTime checkDate = UTCToLocal(NowUTC(), AirpTZRegion(filter.airp_dep)); // for HTTP
 

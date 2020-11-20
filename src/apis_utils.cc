@@ -212,7 +212,8 @@ void TCompleteAPICheckInfo::set(const TPaxSegmentPair& paxSegment)
     catch(const EBaseTableError&) {};
 
     std::set<std::string> apps_formats;
-    if (checkAPPSSets(paxSegment.point_dep, paxSegment.airp_arv, &apps_formats))
+    if (APPS::checkAPPSFormats(PointId_t(paxSegment.point_dep), AirportCode_t(paxSegment.airp_arv),
+                               &apps_formats))
     {
       _apis_formats.insert(apps_formats.begin(), apps_formats.end());
       is_inter=true;

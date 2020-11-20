@@ -367,7 +367,7 @@ static void LogTlgOutTypeAPP(const std::string& text)
 {   
     const size_t stxPos = text.find(0x02);
     LogTlg() << StrUtils::replaceSubstrCopy(text.substr(0, stxPos), "\r", "\\") << "\n"
-             << appsTextAsHumanReadable(text.substr(stxPos + 1));
+             << APPS::appsTextAsHumanReadable(text.substr(stxPos + 1));
 }
 
 static void LogTlgOut(const std::string& type, int tlgNum, const std::string& receiver, const std::string& text)

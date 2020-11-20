@@ -12,6 +12,7 @@
 #include "astra_elem_utils.h"
 #include "apis_utils.h"
 #include "base_tables.h"
+#include "checkin.h"
 #include <serverlib/algo.h>
 #include <serverlib/cursctl.h>
 
@@ -92,6 +93,110 @@ bool isEmptyPaxId(int id)
 
 namespace CheckIn
 {
+
+boost::optional<TPaxSegmentPair> buildSegment(OciCpp::CursCtl & cur, const PaxId_t pax_id)
+{
+    int point_id;
+    std::string airp_arv;
+    cur.def(point_id)
+       .def(airp_arv)
+       .bind(":pax_id",pax_id.get())
+       .exfet();
+    if(cur.err() == NO_DATA_FOUND) {
+        return boost::none;
+    }
+    return TPaxSegmentPair{point_id, airp_arv};
+}
+
+boost::optional<TPaxSegmentPair> paxSegment(const PaxId_t &pax_id)
+{
+    auto cur = make_curs(
+               "select POINT_DEP, AIRP_ARV "
+               "from PAX_GRP, PAX "
+               "where PAX_ID=:pax_id and PAX_GRP.GRP_ID=PAX.GRP_ID");
+    return buildSegment(cur, pax_id);
+}
+
+boost::optional<TPaxSegmentPair> crsSegment(const PaxId_t& pax_id)
+{
+    auto cur = make_curs(
+               "select POINT_ID_SPP, AIRP_ARV "
+               "from CRS_PAX, CRS_PNR, TLG_BINDING "
+               "where PAX_ID=:pax_id and CRS_PAX.PNR_ID = CRS_PNR.PNR_ID "
+               "and CRS_PNR.POINT_ID = TLG_BINDING.POINT_ID_TLG");
+    return buildSegment(cur, pax_id);
+}
+
+boost::optional<TPaxSegmentPair> ckinSegment(const GrpId_t& grp_id)
+{
+    TCkinRoute tckin_route;
+    tckin_route.getRouteBefore(grp_id,
+                               TCkinRoute::NotCurrent,
+                               TCkinRoute::IgnoreDependence,
+                               TCkinRoute::WithoutTransit);
+    if(tckin_route.empty()) {
+        return boost::none;
+    }
+    return TPaxSegmentPair{tckin_route.front().point_dep, tckin_route.front().airp_arv};
+}
+
+std::vector<TPaxSegmentPair> paxRouteSegments(const PaxId_t &pax_id)
+{
+    TCkinRoute tCkinRoute;
+    bool get = tCkinRoute.getRoute(pax_id);
+    if(!get) {
+        boost::optional<TPaxSegmentPair> singleFlight = CheckIn::paxSegment(pax_id);
+        if(!singleFlight){
+            LogTrace(TRACE5) << __FUNCTION__ << " Not found any route for pax: " << pax_id.get();
+            return {};
+        } else {
+            return {*singleFlight};
+        }
+    }
+    std::vector<TPaxSegmentPair> res;
+    for(const TCkinRouteItem& seg : tCkinRoute) {
+        res.emplace_back(seg.point_dep, seg.airp_arv);
+    }
+    return res;
+}
+
+std::vector<TPaxSegmentPair> crsRouteSegments(const PaxId_t &pax_id)
+{
+    std::vector<TPaxSegmentPair> res;
+    auto crs_route_map = CheckInInterface::getCrsTransferMap(pax_id);
+    for(const auto& pair : crs_route_map) {
+        const CheckIn::TTransferItem& seg = pair.second;
+        auto info = CheckIn::routeInfoFromTrfr(seg);
+        res.emplace_back(info.point_id, seg.airp_arv);
+    }
+    return res;
+}
+
+std::vector<int> routePoints(const PaxId_t &pax_id, PaxOrigin checkinType)
+{
+    std::vector<TPaxSegmentPair> route =
+            (checkinType == PaxOrigin::paxCheckIn) ? paxRouteSegments(pax_id)
+                                                   : crsRouteSegments(pax_id);
+    std::vector<int> res;
+    for(const auto& seg : route) {
+        std::vector<int> transitRoute = segPoints(seg);
+        algo::append(res, transitRoute);
+    }
+    return res;
+}
+
+std::vector<std::string> routeAirps(const PaxId_t &pax_id, PaxOrigin checkinType)
+{
+    std::vector<TPaxSegmentPair> route =
+            (checkinType == PaxOrigin::paxCheckIn) ? paxRouteSegments(pax_id)
+                                                   : crsRouteSegments(pax_id);
+    std::vector<std::string> res;
+    for(const auto& seg : route) {
+        std::vector<std::string> transitRoute = segAirps(seg);
+        algo::append(res, transitRoute);
+    }
+    return res;
+}
 
 const TPaxGrpCategoriesView& PaxGrpCategories()
 {

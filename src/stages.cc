@@ -1150,7 +1150,7 @@ void Takeoff( int point_id )
   time_start=time(NULL);
   try
   {
-    APPSFlightCloseout(point_id);
+    APPS::appsFlightCloseout(PointId_t(point_id));
   }
   catch(std::exception &E)
   {

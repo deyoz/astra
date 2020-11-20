@@ -326,6 +326,31 @@ void TTransferList::parseSubclasses(xmlNodePtr paxNode)
   }
 }
 
+TSearchFltInfo createSearchFlt(const CheckIn::TTransferItem &item)
+{
+    TSearchFltInfo filter;
+    filter.airline  = item.operFlt.airline;
+    filter.suffix   = item.operFlt.suffix;
+    filter.airp_dep = item.operFlt.airp;
+    filter.flt_no   = item.operFlt.flt_no;
+    filter.scd_out  = item.operFlt.scd_out;
+    filter.scd_out_in_utc  = false; //локальное время порта
+    filter.flightProps     = FlightProps(FlightProps::NotCancelled, FlightProps::WithCheckIn);
+    return filter;
+}
+
+TAdvTripInfo routeInfoFromTrfr(const CheckIn::TTransferItem& seg)
+{
+    TSearchFltInfo searchFilter = CheckIn::createSearchFlt(seg);
+    std::list<TAdvTripInfo> flt;
+    SearchFlt(searchFilter, flt);
+    if(flt.empty() || flt.size() > 1) {
+        LogTrace(TRACE5) << __FUNCTION__ << " Search filter error: ";
+        throw Exception("Search error");
+    }
+    return flt.front();
+}
+
 } //namespace CheckIn
 
 std::ostream& operator << (std::ostream& os, const TrferList::Alarm alarm)
@@ -865,7 +890,6 @@ void TrferFromDB(TTrferType type,
       filter.airp_dep=flt1.airp;
       filter.scd_out=flt1.scd_out;
       filter.scd_out_in_utc=false;
-      filter.only_with_reg=false;
       filter.additional_where=
         " AND EXISTS(SELECT pax_grp.point_dep "
         "            FROM pax_grp "

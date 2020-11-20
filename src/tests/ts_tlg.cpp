@@ -53,7 +53,7 @@ namespace tscript {
             }
             handle_edi_tlg(tlgi);
         }
-        else if(IsAPPSAnswText(tlg))
+        else if(APPS::isAPPSAnswText(tlg))
         {
             tlg_info tlgi = {};
             tlgi.id       = saveTlg("LOOPB", "LOOPB", "IAPP", tlg);

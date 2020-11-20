@@ -17,6 +17,16 @@
 
 using BASIC::date_time::TDateTime;
 
+class TPaxSegmentPair;
+class TTripInfo;
+class TAdvTripRoute;
+
+boost::optional<TTripInfo> getPointInfo(const PointId_t point_dep);
+std::vector<std::string> segAirps(const TPaxSegmentPair & flight);
+std::vector<int> segPoints(const TPaxSegmentPair & flight);
+TAdvTripRoute getTransitRoute(const TPaxSegmentPair& flight);
+std::vector<TPaxSegmentPair> transitLegs(const TAdvTripRoute& route);
+
 class TPaxSegmentPair
 {
   public:
@@ -355,7 +365,7 @@ class TTripInfo
       if (props.checkin_ability()==FlightProps::WithCheckIn && !pr_reg) return false;
       return true;
     }
-    
+
     bool match(const TAccess& access) const
     {
       return access.airlines().permitted(airline) &&
@@ -562,8 +572,8 @@ struct TTripRouteItem
 struct TAdvTripRouteItem : TTripRouteItem
 {
   TDateTime scd_in, scd_out, act_out;
-  std::string airline, suffix;
-  int flt_num;
+  std::string airline_out, suffix_out;
+  int flt_num_out;
 
   TAdvTripRouteItem() : TTripRouteItem()
   {
@@ -574,9 +584,9 @@ struct TAdvTripRouteItem : TTripRouteItem
     scd_in = ASTRA::NoExists;
     scd_out = ASTRA::NoExists;
     act_out = ASTRA::NoExists;
-    airline.clear();
-    suffix.clear();
-    flt_num = ASTRA::NoExists;
+    airline_out.clear();
+    suffix_out.clear();
+    flt_num_out = ASTRA::NoExists;
   }
   TDateTime scd_in_local() const
   {
@@ -602,15 +612,15 @@ struct TAdvTripRouteItem : TTripRouteItem
   }
   std::string flight_number(const boost::optional<AstraLocale::OutputLang>& lang) const
   {
-    if (flt_num==ASTRA::NoExists) return "";
+    if (flt_num_out==ASTRA::NoExists) return "";
     std::ostringstream s;
-    s << std::setw(3) << std::setfill('0') << flt_num
-      << (lang? ElemIdToPrefferedElem(etSuffix, suffix, efmtCodeNative, lang->get()): suffix);
+    s << std::setw(3) << std::setfill('0') << flt_num_out
+      << (lang? ElemIdToPrefferedElem(etSuffix, suffix_out, efmtCodeNative, lang->get()): suffix_out);
     return s.str();
   }
   bool match(const TAccess& access) const
   {
-    return access.airlines().permitted(airline) &&
+    return access.airlines().permitted(airline_out) &&
            access.airps().permitted(airp);
   }
 
@@ -1131,7 +1141,7 @@ class TSearchFltInfo
     int flt_no;
     TDateTime scd_out;
     bool scd_out_in_utc;
-    bool only_with_reg;
+    FlightProps flightProps;
     std::string additional_where;
 
     TDepDateFlags dep_date_flags;
@@ -1143,9 +1153,9 @@ class TSearchFltInfo
       flt_no=ASTRA::NoExists;
       scd_out=ASTRA::NoExists;;
       scd_out_in_utc=false;
-      only_with_reg=false;
     };
 
+    static TSearchFltInfo create(const TTripInfo &item);
     virtual ~TSearchFltInfo() {}
 };
 

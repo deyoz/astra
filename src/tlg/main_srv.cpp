@@ -325,7 +325,7 @@ void process_tlg(void)
         if(IsEdifactText(tlg_body,tlg_len)) {
           type = tEdi;
           subtype = specifyEdiTlgSubtype(tlg_body);
-        } else if (IsAPPSAnswText(tlg_body)) {
+        } else if (APPS::isAPPSAnswText(tlg_body)) {
           type = tAPPS;
         } else {
           type = tTYPEB;

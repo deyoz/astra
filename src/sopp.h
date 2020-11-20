@@ -411,10 +411,10 @@ public:
      AddEvent("GetTime",evHandle);
      evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::CreateAPIS);
      AddEvent("CreateAPIS",evHandle);
-     evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::WriteVoucher);
-     AddEvent("WriteVoucher",evHandle);
      evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::ReadVoucher);
      AddEvent("ReadVoucher",evHandle);
+     evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::WriteVoucher);
+     AddEvent("WriteVoucher",evHandle);
      evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::readPaxZoneLoad);
      AddEvent("readPaxZoneLoad",evHandle);
   };
@@ -438,8 +438,8 @@ public:
   void WriteDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void CreateAPIS(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void WriteVoucher(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ReadVoucher(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void WriteVoucher(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };
 
@@ -459,6 +459,8 @@ void updateTransitIfNeeded(const TAdvTripInfo& flt, bool new_pr_tranzit);
 void SetFlightFact(int point_id, TDateTime utc_act_out);
 void getTripVouchers( int point_id, std::set<std::string> &trip_vouchers );
 void ChangeBortFromLDM(const std::string &bort, int point_id);
+
+void changeSCDIN_AtDests( const std::set<int>& points_scd_ins );
 
 #endif /*_SOPP_H_*/
 

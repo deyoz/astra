@@ -2949,7 +2949,6 @@ void PrintInterface::print_bp2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     if(StrToDateTime(NodeAsString("scd_out", contentNode), "dd.mm.yy", filter.scd_out) == EOF)
         throw Exception("print_bp: can't convert scd_out: %s", NodeAsString("scd_Out", contentNode));
     filter.scd_out_in_utc = true;
-    filter.only_with_reg = false;
 
     list<TAdvTripInfo> flts;
     SearchFlt(filter, flts);
@@ -3022,7 +3021,6 @@ void PrintInterface::print_bp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         if(StrToDateTime(params[2].c_str(), "dd.mm.yy", filter.scd_out) == EOF)
             throw Exception("print_bp: can't convert scd_out: %s", params[2].c_str());
         filter.scd_out_in_utc = true;
-        filter.only_with_reg = false;
 
         list<TAdvTripInfo> flts;
         SearchFlt(filter, flts);

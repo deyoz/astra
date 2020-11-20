@@ -219,6 +219,8 @@ public:
   static void LoadOnwardCrsTransfer(const std::map<int, std::pair<CheckIn::TTransferItem, TTrferSetsInfo> > &trfer,
                                     xmlNodePtr trferNode);
 
+  static std::map<int, CheckIn::TTransferItem> getCrsTransferMap(const PaxId_t &pax_id);
+
   static void GetTrferSets(const TTripInfo &operFlt,
                            const std::string &oper_airp_arv,
                            const std::string &tlg_airp_dep,

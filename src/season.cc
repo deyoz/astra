@@ -407,11 +407,11 @@ bool TFilter::isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime scd_i
   try {
     f2 = modf( (double)ClientToUTC( f1 + firstTime, flight_tz_region ), &f3 );
   }
-  catch( boost::local_time::ambiguous_result ) {
+  catch( boost::local_time::ambiguous_result& ) {
     f2 = modf( (double)ClientToUTC( f1 + 1 + firstTime, flight_tz_region ), &f3  );
     f3--;
   }
-  catch( boost::local_time::time_label_invalid ) {
+  catch( boost::local_time::time_label_invalid& ) {
     throw AstraLocale::UserException( "MSG.FLIGHT_BEGINNING_TIME_NOT_EXISTS",
             LParams() << LParam("time", DateTimeToStr( f1 + firstTime, "dd.mm hh:nn" )));
   }
@@ -423,11 +423,11 @@ bool TFilter::isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime scd_i
   try {
     f2 = modf( (double)ClientToUTC( f1 + lastTime, flight_tz_region ), &f3 );
   }
-  catch( boost::local_time::ambiguous_result ) {
+  catch( boost::local_time::ambiguous_result& ) {
     f2 = modf( (double)ClientToUTC( f1 + 1 + lastTime, flight_tz_region ), &f3 );
     f3--;
   }
-  catch( boost::local_time::time_label_invalid ) {
+  catch( boost::local_time::time_label_invalid& ) {
     throw AstraLocale::UserException( "MSG.FLIGHT_ENDING_TIME_NOT_EXISTS",
             LParams() << LParam("time", DateTimeToStr( f1 + lastTime, "dd.mm hh:nn" )));
   }
@@ -844,8 +844,10 @@ void CreateSPP( TDateTime localdate )
       string airline, suffix, airp;
       TDateTime scd_out;
       vector<TTripInfo> flts;
+
       bool pr_check_usa_apis = false;
-      vector<int> points;
+      set<int> points;
+      bool isEmptySCD_IN = false;
       for ( TDests::iterator d=im->second.dests.begin(); d!=im->second.dests.end(); d++ ) {
         PQry.SetVariable( "point_num", d->num );
         airp = ElemToElemId( etAirp, d->airp, fmt );
@@ -899,8 +901,12 @@ void CreateSPP( TDateTime localdate )
           PQry.SetVariable( "craft", ElemToElemId( etCraft, d->craft, fmt ) );
           PQry.SetVariable( "craft_fmt", (int)d->craft_fmt );
         }
-        if ( d->scd_in == NoExists )
+        if ( d->scd_in == NoExists ) {
           PQry.SetVariable( "scd_in", FNull );
+          if ( d != im->second.dests.begin() ) {
+            isEmptySCD_IN = true;
+          }
+        }
         else
           PQry.SetVariable( "scd_in", d->scd_in + d->diff );//!!!08.04.13im->second.diff );
         if ( d->scd_out == NoExists ) {
@@ -948,7 +954,7 @@ void CreateSPP( TDateTime localdate )
         PersWeightRules weights;
         persWeights.getRules( point_id, weights );
         weights.write( point_id );
-        points.push_back(point_id);
+        points.insert(point_id);
         p = d;
         if ( !airline.empty() &&
               d->trip != NoExists &&
@@ -964,6 +970,7 @@ void CreateSPP( TDateTime localdate )
       } // end for dests
       TTlgBinding(true).bind_flt_oper(flts);
       TTrferBinding().bind_flt_oper(flts);
+
       if ( pr_check_usa_apis ) {
         try {
           check_trip_tasks( move_id );
@@ -972,9 +979,12 @@ void CreateSPP( TDateTime localdate )
           ProgError(STDLOG,"CreateSPP.check_trip_tasks (move_id=%d): %s",move_id,E.what());
         };
       }
-      for ( vector<int>::const_iterator i = points.begin(); i != points.end(); i++) {
-        on_change_trip( CALL_POINT, *i, ChangeTrip::SeasonCreateSPP );
+      for ( auto const &i : points) {
+        on_change_trip( CALL_POINT, i, ChangeTrip::SeasonCreateSPP );
       };
+      if ( isEmptySCD_IN ) {
+        changeSCDIN_AtDests( points );
+      }
     }  //flights points
   } //spp days
   TReqInfo::Instance()->LocaleToLog("EVT.SEASON.GET_SPP", LEvntPrms()
@@ -1040,7 +1050,7 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
       modf( (double)d.scd_in, &f1 );
       if ( f1 == da ) {
         candests = candests || filter.isFilteredUTCTime( da, first_day, d.scd_in );
-        ProgTrace( TRACE5, "filter.firsttime=%s, filter.lasttime=%s, d,scd_in=%s, res=%d",
+        ProgTrace( TRACE5, "filter.firsttime=%s, filter.lasttime=%s, d.scd_in=%s, res=%d",
                    DateTimeToStr( filter.firstTime, "dd hh:nn" ).c_str(),
                    DateTimeToStr( filter.lastTime, "dd hh:nn" ).c_str(),
                    DateTimeToStr( d.scd_in, "dd hh:nn" ).c_str(), candests );
@@ -1547,10 +1557,10 @@ TDateTime ConvertFlightDate( TDateTime time, TDateTime first, const std::string 
       try {
         f2 = modf( (double)ClientToUTC( f3, region ), &f3 );
       }
-      catch( boost::local_time::ambiguous_result ) {
+      catch( boost::local_time::ambiguous_result& ) {
         f2 = modf( (double)ClientToUTC( f3 + 1, region ) - 1, &f3 );
       }
-      catch( boost::local_time::time_label_invalid ) {
+      catch( boost::local_time::time_label_invalid& ) {
         throw AstraLocale::UserException( pr_arr?"MSG.ARV_TIME_FOR_POINT_NOT_EXISTS":"MSG.DEP_TIME_FOR_POINT_NOT_EXISTS",
                 LParams() << LParam("airp", ElemIdToCodeNative(etAirp,airp)) << LParam("time", DateTimeToStr( first, "dd.mm" )));
       }
@@ -3167,10 +3177,10 @@ int ConvertPeriod( TPeriod &period, const TDateTime &flight_time, const std::str
   try {
     period.first = ClientToUTC( (double)period.first, filter_tz_region );
   }
-  catch( boost::local_time::ambiguous_result ) {
+  catch( boost::local_time::ambiguous_result& ) {
       period.first = ClientToUTC( (double)period.first + 1, filter_tz_region ) - 1;
   }
-  catch( boost::local_time::time_label_invalid ) {
+  catch( boost::local_time::time_label_invalid& ) {
     throw AstraLocale::UserException( "MSG.FLIGHT_TIME_NOT_EXISTS",
             LParams() << LParam("time", DateTimeToStr( period.first, "dd.mm hh:nn" )));
   }

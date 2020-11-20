@@ -25,7 +25,6 @@
 #include "alarms.h"
 #include "trip_tasks.h"
 #include "remarks.h"
-#include "apps_interaction.h"
 #include "etick.h"
 #include "qrys.h"
 #include "points.h"
@@ -6766,14 +6765,14 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
           "    UPDATE crs_pax "
           "    SET pnr_id=:pnr_id, pers_type= :pers_type, seat_xname= :seat_xname, seat_yname= :seat_yname, seat_rem= :seat_rem, "
           "        seat_type= :seat_type, seats=:seats, bag_pool= :bag_pool, pr_del= :pr_del, last_op= :last_op, tid=cycle_tid__seq.currval, "
-          "        need_apps=:need_apps, unique_reference=:unique_reference "
+          "        unique_reference=:unique_reference "
           "    WHERE pax_id=:pax_id; "
           "    IF SQL%FOUND THEN RETURN; END IF; "
           "  END IF; "
           "  INSERT INTO crs_pax(pax_id,pnr_id,surname,name,pers_type,seat_xname,seat_yname,seat_rem, "
-          "    seat_type,seats,bag_pool,sync_chkd,pr_del,last_op,tid,need_apps,unique_reference,orig_subclass,orig_class) "
+          "    seat_type,seats,bag_pool,sync_chkd,pr_del,last_op,tid,unique_reference,orig_subclass,orig_class) "
           "  SELECT :pax_id,:pnr_id,:surname,:name,:pers_type,:seat_xname,:seat_yname,:seat_rem,:seat_type, "
-          "    :seats,:bag_pool,0,:pr_del,:last_op,cycle_tid__seq.currval,:need_apps,:unique_reference,subclass,class "
+          "    :seats,:bag_pool,0,:pr_del,:last_op,cycle_tid__seq.currval,:unique_reference,subclass,class "
           "  FROM crs_pnr WHERE pnr_id=:pnr_id; "
           "END;";
         CrsPaxInsQry.DeclareVariable("pax_id",otInteger);
@@ -6789,7 +6788,6 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         CrsPaxInsQry.DeclareVariable("bag_pool",otString);
         CrsPaxInsQry.DeclareVariable("pr_del",otInteger);
         CrsPaxInsQry.DeclareVariable("last_op",otDate);
-        CrsPaxInsQry.DeclareVariable("need_apps",otInteger);
         CrsPaxInsQry.DeclareVariable("unique_reference",otString);
 
         TQuery CrsInfInsQry(&OraSession);
@@ -6855,7 +6853,6 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         PaxIdsForDeleteTlgSeatRanges paxIdsForDeleteTlgSeatRanges;
         PaxIdsForInsertTlgSeatRanges paxIdsForInsertTlgSeatRanges;
         bool chkd_exists=false;
-        bool apps_pax_exists=false;
         int point_id_spp = ASTRA::NoExists;
         TAdvTripInfoList trips;
         if ( !isPRL ) {
@@ -6875,9 +6872,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
           CrsPnrInsQry.SetVariable("airp_arv",iTotals->dest);
           CrsPnrInsQry.SetVariable("subclass",iTotals->subcl);
           CrsPnrInsQry.SetVariable("class",EncodeClass(iTotals->cl));
-          bool is_need_apps = false;
-          if ( point_id_spp != ASTRA::NoExists )
-            is_need_apps = checkAPPSSets(point_id_spp, iTotals->dest);
+
           for(iPnrItem=iTotals->pnr.begin();iPnrItem!=iTotals->pnr.end();iPnrItem++)
           {
             TPnrItem& pnr=*iPnrItem;
@@ -7153,12 +7148,6 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                   else
                     CrsPaxInsQry.SetVariable("pr_del",0);
                   CrsPaxInsQry.SetVariable("last_op",info.time_create);
-                  if(is_need_apps) {
-                    CrsPaxInsQry.SetVariable("need_apps",1);
-                    apps_pax_exists=true;
-                  }
-                  else
-                    CrsPaxInsQry.SetVariable("need_apps",0);
                   CrsPaxInsQry.SetVariable("unique_reference", paxItem.uniqueReference());
                   CrsPaxInsQry.Execute();
 
@@ -7471,13 +7460,6 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
          modifiedPaxRem.executeCallbacksByPaxId(TRACE5);
          newOrCancelledPax.executeCallbacksByPaxId(TRACE5);
 
-
-         if(apps_pax_exists) {
-           TDateTime start_time;
-           bool result = checkTime( point_id_spp, start_time );
-           if ( result || start_time != ASTRA::NoExists )
-             add_trip_task( point_id_spp, SEND_NEW_APPS_INFO, "", start_time );
-         }
          for(int id : paxIdsModified)
            TETickItem::syncOriginalSubclass(id);
        }

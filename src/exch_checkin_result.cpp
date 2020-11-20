@@ -658,10 +658,10 @@ namespace EXCH_CHECKIN_RESULT
   void FlightData::toXML( xmlNodePtr flightNode )
   {
     NewTextChild( flightNode, "point_id", route.front().point_id );
-    NewTextChild( flightNode, "airline", route.front().airline );
-    NewTextChild( flightNode, "flt_no", route.front().flt_num );
-    if ( !route.front().suffix.empty() ) {
-      NewTextChild( flightNode, "suffix", route.front().suffix );
+    NewTextChild( flightNode, "airline", route.front().airline_out );
+    NewTextChild( flightNode, "flt_no", route.front().flt_num_out );
+    if ( !route.front().suffix_out.empty() ) {
+      NewTextChild( flightNode, "suffix", route.front().suffix_out );
     }
     NewTextChild( flightNode, "scd_out", DateTimeToStr( ASTRA::date_time::UTCToClient( route.front().scd_out, region ), "dd.mm.yyyy hh:nn" ) );
     if ( !craft.empty() ) {
@@ -1057,7 +1057,7 @@ namespace EXCH_CHECKIN_RESULT
         continue;
       }
       //фильтр по номеру рейса
-      int flt_no = route.front().flt_num;
+      int flt_no = route.front().flt_num_out;
       if ( flt_no < 0 || ( !request.flts.empty() && std::find( request.flts.begin(), request.flts.end(), flt_no ) == request.flts.end() ) ) {
         continue;
       }
