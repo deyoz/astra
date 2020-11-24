@@ -340,7 +340,7 @@ static void GetPNRsList(const WebSearch::TPNRFilter &filter,
   CheckIn::TSimplePaxList paxs;
   SurnameFilter surname(filter);
 
-  CheckIn::Search search(WebSearch::TIMEOUT());
+  CheckIn::Search search(paxPnl, WebSearch::TIMEOUT());
   if (!filter.ticket_no.empty())
   {
     CheckIn::TPaxTknItem tkn;
