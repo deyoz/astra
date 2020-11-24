@@ -139,18 +139,30 @@ void RequiredRfiscs::add(const SettingsFilter& filter)
 
 RequiredRfiscs::RequiredRfiscs(const DCSAction::Enum dcsAction_,
                                const PaxId_t& paxId) :
-  settingsByPaxId(paxId, Settings()), dcsAction(dcsAction_)
+  settingsByPaxId(paxId, Settings()),
+  dcsAction(dcsAction_),
+  notRequiredAtAll(false)
 {
   LogTrace(TRACE5) << __func__ << ": dcsAction=" << dcsActions().encode(dcsAction)
                                << ", paxId=" << paxId;
 
-  if ( TReqInfo::Instance()->client_type != ASTRA::ctTerm ) return;// только с терминала
+  if ( TReqInfo::Instance()->client_type != ASTRA::ctTerm )
+  {
+    notRequiredAtAll=true;
+    return;// только с терминала
+  }
 
   CheckIn::TSimplePaxItem pax;
   if (!pax.getByPaxId(paxId.get())) return;
 
   CheckIn::TSimplePaxGrpItem grp;
   if (!grp.getByGrpId(pax.grp_id)) return;
+
+  if (grp.grpCategory()!=CheckIn::TPaxGrpCategory::Passenges)
+  {
+    notRequiredAtAll=true;
+    return;
+  }
 
   TTripInfo flt;
   if (!flt.getByPointId(grp.point_dep)) return;
@@ -171,7 +183,7 @@ RfiscsSet RequiredRfiscs::get() const
 
 bool RequiredRfiscs::exists() const
 {
-  if ( TReqInfo::Instance()->client_type != ASTRA::ctTerm ) return true;// только с терминала
+  if (notRequiredAtAll) return true;
 
   if (settingsCache.empty()) return false;
 

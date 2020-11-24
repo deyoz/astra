@@ -104,6 +104,7 @@ class RequiredRfiscs
     std::list<std::pair<SettingsFilter, Settings>> settingsCache;
     SettingsByPaxId settingsByPaxId;
     DCSAction::Enum dcsAction;
+    bool notRequiredAtAll;
     const Settings& filterRoughly(const SettingsFilter& filter);
     void add(const SettingsFilter& filter);
     RfiscsSet get() const;
