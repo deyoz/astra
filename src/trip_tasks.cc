@@ -89,6 +89,7 @@ TTripTasks::TTripTasks()
     items.emplace(SYNC_NEW_CHKD, TypeB::SyncNewCHKD);
     items.emplace(SYNC_ALL_CHKD, TypeB::SyncAllCHKD);
     items.emplace(EMD_REFRESH, emd_refresh_task);
+    items.emplace(EMD_REFRESH_BY_GRP, emd_refresh_by_grp_task);
     items.emplace(STAT_FV, stat_fv);
     items.emplace(EMD_TRY_BIND, emd_try_bind_task);
     items.emplace(EMD_SYS_UPDATE, emd_sys_update);

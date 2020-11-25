@@ -717,7 +717,7 @@ void MPSExchangeIface::NotifyPushEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
       return;
     }
     //ставим задачу на обновление EMD & change status to F
-    add_trip_task( TTripTaskKey(grpItem.point_dep,EMD_REFRESH,IntToString(grp_id) ) );
+    add_trip_task( TTripTaskKey(grpItem.point_dep,EMD_REFRESH_BY_GRP,IntToString(grp_id) ) );
     //EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode); не работает!
     TLogLocale tlocale;
     NewTextChild( reqNode, "grp_id", grp_id );//!!!

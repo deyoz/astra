@@ -3471,13 +3471,17 @@ void EMDAutoBoundInterface::EMDTryBind(const TCkinGrpIds &tckin_grp_ids,
 void emd_refresh_task(const TTripTaskKey &task)
 {
   LogTrace(TRACE5) << __FUNCTION__ << ": " << task;
+  EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundPointId(task.point_id), nullptr);
+}
+
+void emd_refresh_by_grp_task(const TTripTaskKey &task)
+{
+  LogTrace(TRACE5) << __FUNCTION__ << ": " << task;
   if ( !task.params.empty() ) {
     int grp_id;
     StrToInt( task.params.c_str(), grp_id );
     EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), nullptr);
   }
-  else
-    EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundPointId(task.point_id), nullptr);
 }
 
 void emd_try_bind_task(const TTripTaskKey &task)

@@ -607,6 +607,7 @@ class EMDAutoBoundInterface: public AstraJxtIface
 };
 
 void emd_refresh_task(const TTripTaskKey &task);
+void emd_refresh_by_grp_task(const TTripTaskKey &task);
 void emd_try_bind_task(const TTripTaskKey &task);
 
 inline xmlNodePtr astra_iface(xmlNodePtr resNode, const std::string &iface_id)
