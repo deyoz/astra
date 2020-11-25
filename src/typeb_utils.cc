@@ -1263,7 +1263,7 @@ void TCreatePoint::paramsFromString(const string &params)
 {
     size_t idx = params.find(" ");
     if(idx == string::npos)
-        throw EXCEPTIONS::Exception("%s wrong params", __FUNCTION__);
+        throw EXCEPTIONS::Exception("%s wrong params %s", __FUNCTION__, params.c_str());
     stage_id = DecodeStage(params.substr(0, idx).c_str());
     time_offset = ToInt(params.substr(idx + 1));
 }
