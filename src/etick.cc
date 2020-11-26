@@ -50,6 +50,7 @@
 #include "tlg/remote_results.h"
 #include "tlg/remote_system_context.h"
 #include "tlg/postpone_edifact.h"
+#include "cuws_main.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -3002,7 +3003,7 @@ void ChangeStatusInterface::KickOnAnswer(xmlNodePtr reqNode, xmlNodePtr resNode)
     }
 }
 
-void transformKickRequest(xmlNodePtr termReqNode, xmlNodePtr kickReqNode)
+void transformKickRequest(xmlNodePtr termReqNode, xmlNodePtr &kickReqNode)
 {
   if (termReqNode==nullptr) return;
 
@@ -3032,6 +3033,11 @@ void transformKickRequest(xmlNodePtr termReqNode, xmlNodePtr kickReqNode)
 
 void ContinueCheckin(xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode)
 {
+  if(isTagCUWS(reqNode)) {
+      CUWS::CUWSDispatcher(reqNode, externalSysResNode, resNode);
+      return;
+  }
+
   if (isTagAddRequestSBDO(reqNode))
   {
     ZamarSBDOInterface::PassengerBaggageTagAdd(reqNode, externalSysResNode, resNode);

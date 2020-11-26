@@ -1,8 +1,9 @@
 #pragma once
 
 #include "stat_common.h"
+#include "zamar_dsm.h"
 
-void set_stat_zamar(const AirlineCode_t &airline, const AirportCode_t &airp, bool pr_ok);
+void set_stat_zamar(ZamarType type, const AirlineCode_t &airline, const AirportCode_t &airp, bool pr_ok);
 
 struct TZamarStatRow {
     AirportCode_t airp;

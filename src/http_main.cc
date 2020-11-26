@@ -176,8 +176,17 @@ void HTTPClient::get(const request& req)
   Qry.Execute();
   if(not Qry.Eof)
       exchange_type = Qry.FieldAsString("exchange_type");
-  if(exchange_type == EXCHANGE_TYPE::CUWS)
-      operation = exchange_type;
+  if(exchange_type == EXCHANGE_TYPE::CUWS) {
+      // Если запрос wsdl или envelope, то отдаем в обработчик CUWS
+      // В остальных случаях ожидаем сиреновский kick, который jxt_format = true
+      if(
+              lowerc(req.uri).find("?wsdl") != string::npos or
+              lowerc(req.content).find(":envelope>") != string::npos
+        )
+          operation = exchange_type;
+      else
+          operation.clear();
+  }
   if (Qry.Eof ||
       user_name != Qry.FieldAsString( "http_user" ) ||
       password != Qry.FieldAsString( "http_pswd" ))
@@ -315,7 +324,7 @@ reply& HTTPClient::fromJXT( std::string res, reply& rep )
   http_params.fromXML(res);
 
   bool b64 = false;
-  if (!jxt_format)
+  if (!jxt_format or exchange_type == EXCHANGE_TYPE::CUWS)
   {
     string::size_type pos = res.find( "<content" );
     if ( pos != string::npos) {
@@ -332,9 +341,9 @@ reply& HTTPClient::fromJXT( std::string res, reply& rep )
     }
   }
 
-  if(b64)
+  if(b64) {
       rep.content = StrUtils::b64_decode(res);
-  else {
+  } else {
       XMLDoc doc(res);
       if(doc.docPtr()) {
           // отформатировать отступы в XML
@@ -431,7 +440,7 @@ void save_http_client_headers(const request &req)
 
 void http_main(reply& rep, const request& req)
 {
-    LogTrace(TRACE5) << "HTTP REQUEST: '" << req.to_string();
+    LogTrace(TRACE5) << "HTTP REQUEST: '" << req.to_string() << req.content;
     try
     {
         try

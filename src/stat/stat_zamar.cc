@@ -11,7 +11,7 @@ using namespace EXCEPTIONS;
 using namespace BASIC::date_time;
 using namespace AstraLocale;
 
-void set_stat_zamar(const AirlineCode_t &airline, const AirportCode_t &airp, bool pr_ok)
+void set_stat_zamar(ZamarType type, const AirlineCode_t &airline, const AirportCode_t &airp, bool pr_ok)
 {
     LogTrace(TRACE5) << __func__ << " start: " << airline << ", " << airp << ", " << pr_ok;
     try {
@@ -20,12 +20,14 @@ void set_stat_zamar(const AirlineCode_t &airline, const AirportCode_t &airp, boo
                 "  pragma autonomous_transaction; "
                 "begin "
                 "  insert into stat_zamar( "
+                "     sbdo_type, "
                 "     time, "
                 "     airline, "
                 "     airp, "
                 "     amount_ok, "
                 "     amount_fault "
                 "  ) values ( "
+                "     :sbdo_type, "
                 "     :time, "
                 "     :airline, "
                 "     :airp, "
@@ -35,6 +37,7 @@ void set_stat_zamar(const AirlineCode_t &airline, const AirportCode_t &airp, boo
                 "  commit; "
                 "end; ",
                 QParams()
+                << QParam("sbdo_type", otString, EncodeZamarType(type))
                 << QParam("time", otDate, NowUTC())
                 << QParam("airline", otString, airline.get())
                 << QParam("airp", otString, airp.get())
@@ -72,7 +75,9 @@ void RunZamarStat(
         QParams QryParams;
         QryParams
             << QParam("FirstDate", otDate, params.FirstDate)
-            << QParam("LastDate", otDate, params.LastDate);
+            << QParam("LastDate", otDate, params.LastDate)
+            << QParam("sbdo_type", otString, EncodeZamarType(ZamarType::SBDO));
+
         string SQLText = "select stat_zamar.* from ";
         if(pass != 0) {
             SQLText +=
@@ -88,7 +93,9 @@ void RunZamarStat(
         if(pass != 0)
             SQLText +=
                 "    stat_zamar.part_key >= :FirstDate AND stat_zamar.part_key < :LastDate and \n";
-        SQLText += "   stat_zamar.time >= :FirstDate AND stat_zamar.time < :LastDate ";
+        SQLText +=
+            "   stat_zamar.time >= :FirstDate AND stat_zamar.time < :LastDate and "
+            "   stat_zamar.sbdo_type = :sbdo_type ";
         TCachedQuery Qry(SQLText, QryParams);
 
         Qry.get().Execute();
