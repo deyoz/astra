@@ -76,15 +76,70 @@ void params_from_xml(xmlNodePtr reqNode, const string &name, map<string, string>
     }
 }
 
-void CUWSwsdl(xmlNodePtr resNode, const string &uri, const string &host, const string &client_id)
+struct TEndPoint {
+    bool wsdl;
+    string proto;
+    string uri;
+    string host;
+    string client_id;
+
+    void clear()
+    {
+        wsdl = false;
+        proto.clear();
+        uri.clear();
+        host.clear();
+        client_id.clear();
+    }
+
+    bool empty()
+    {
+        return
+            proto.empty() and
+            uri.empty() and
+            host.empty() and
+            client_id.empty();
+    }
+
+    void fromXML(xmlNodePtr reqNode)
+    {
+        clear();
+        map<string, string> header;
+        map<string, string> get_params;
+        CUWS::params_from_xml(reqNode, "header", header);
+        CUWS::params_from_xml(reqNode, "get_params", get_params);
+        wsdl = get_params.find("wsdl") != get_params.end();
+        if(wsdl) {
+            proto = header[AstraHTTP::X_ORIG_PROTO];
+            if(proto.empty()) proto = "http";
+
+            uri = header[AstraHTTP::X_ORIG_URI];
+            if(uri.empty()) uri = NodeAsString(AstraHTTP::URI_PATH.c_str(), reqNode);
+
+            host = header[AstraHTTP::X_ORIG_HOST];
+            if(host.empty()) host = header[AstraHTTP::HOST];
+
+            client_id = get_params[AstraHTTP::CLIENT_ID];
+
+            if(host.empty())
+                throw Exception("host is empty");
+            if(client_id.empty())
+                throw Exception("client_id is empty");
+            if(uri.empty())
+                throw Exception("uri is empty");
+        }
+    }
+
+    string str() const
+    {
+        return proto + "://" + host + uri + "?" + AstraHTTP::CLIENT_ID + "=" + client_id;
+    }
+
+};
+
+void CUWSwsdl(xmlNodePtr resNode, const TEndPoint &endpoint)
 {
-    if(host.empty())
-        throw Exception("host is empty");
-    if(client_id.empty())
-        throw Exception("client_id is empty");
-    if(uri.empty())
-        throw Exception("uri is empty");
-    to_content(resNode, "/cuws.wsdl", "ENDPOINT", "http://" + host + uri + "?" + AstraHTTP::CLIENT_ID + "=" + client_id);
+    to_content(resNode, "/cuws.wsdl", "ENDPOINT", endpoint.str());
 }
 
 void CUWSDispatcher(xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode)
@@ -133,17 +188,10 @@ void PostProcessXMLAnswer()
 void CUWSInterface::CUWS(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     try {
-        map<string, string> header;
-        map<string, string> get_params;
-        CUWS::params_from_xml(reqNode, "header", header);
-        CUWS::params_from_xml(reqNode, "get_params", get_params);
-
-        if(get_params.find("wsdl") != get_params.end()) {
-            CUWS::CUWSwsdl(
-                    resNode,
-                    NodeAsString(AstraHTTP::URI_PATH.c_str(), reqNode),
-                    header[AstraHTTP::HOST],
-                    get_params[AstraHTTP::CLIENT_ID]);
+        CUWS::TEndPoint endpoint;
+        endpoint.fromXML(reqNode);
+        if(endpoint.wsdl) {
+            CUWS::CUWSwsdl(resNode, endpoint);
         } else {
             CUWS::CUWSDispatcher(reqNode, nullptr, resNode);
         }
