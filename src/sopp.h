@@ -339,7 +339,21 @@ struct TSOPPTrip {
   }
 };
 
-typedef std::vector<TSOPPTrip> TSOPPTrips;
+//typedef std::vector<TSOPPTrip> TSOPPTrips;
+class TSOPPTrips:public std::vector<TSOPPTrip> {
+  public:
+    enum TModule { tSOPP, tISG, tSPPCEK, tsLibra };
+    TDateTime first_date;
+    TDateTime next_date;
+    bool pr_arx;
+    TModule module;
+    TSOPPTrips( TDateTime _first_date, TDateTime _next_date, bool _pr_arx, TModule _module ){
+      first_date = _first_date;
+      next_date = _next_date;
+      pr_arx = _pr_arx;
+      module = _module;
+    }
+};
 
 void createSOPPTrip( int point_id, TSOPPTrips &trips );
 
@@ -458,6 +472,8 @@ void getTripVouchers( int point_id, std::set<std::string> &trip_vouchers );
 void ChangeBortFromLDM(const std::string &bort, int point_id);
 
 void changeSCDIN_AtDests( const std::set<int>& points_scd_ins );
+
+std::string internal_ReadData_N( TSOPPTrips &trips, long int &exec_time, int point_id = ASTRA::NoExists );
 
 #endif /*_SOPP_H_*/
 

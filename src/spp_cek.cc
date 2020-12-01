@@ -1256,7 +1256,7 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
       spp_days.push_back( UTCNow + max_day );
     }
     TFileData fd;
-  TSOPPTrips trips;
+  TSOPPTrips trips( NoExists, NoExists, false, TSOPPTrips::tSPPCEK );
   createSOPPTrip( point_id, trips );
   tst();
   xmlDocPtr doc = 0, old_doc = 0;

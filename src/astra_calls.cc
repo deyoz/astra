@@ -8,7 +8,9 @@
 #include "astra_consts.h"
 #include "crafts/ComponCreator.h"
 #include "seat_number.h"
+#include "sopp.h"
 #include "date_time.h"
+#include "astra_date_time.h"
 #include "typeb_utils.h"
 
 #include <serverlib/xml_tools.h>
@@ -135,6 +137,39 @@ static bool configuration_change(xmlNodePtr reqNode, xmlNodePtr resNode)
   LogTrace(TRACE5) << __func__ << " seat_plan_id=" << seat_plan_id << ", configuration_id=" << configuration_id;
   TQuery Qry(&OraSession);
   ComponCreator::signalChangesComp( Qry, seat_plan_id, configuration_id );
+  return true;
+}
+//=========запрос на СПП от Либры==============
+static bool get_spp(xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  TUserSettingType old_time_format = TReqInfo::Instance()->user.sets.time;
+  try {
+   TSOPPTrips trips(  NowUTC() - 3,  NowUTC() + 1, false, TSOPPTrips::tsLibra );
+   long int exec_time;
+   internal_ReadData_N( trips, exec_time );
+   TReqInfo::Instance()->user.sets.time = old_time_format;
+   NewTextChild( resNode, "flights" );
+   for ( const auto &f : trips ) {
+     if ( f.scd_out == ASTRA::NoExists ||
+          f.region.empty() ) {
+       continue;
+     }
+     xmlNodePtr flightNode = NewTextChild( resNode, "flight" );
+     SetProp( flightNode, "point_id", f.point_id );
+     NewTextChild( flightNode, "airline", f.airline_out );
+     NewTextChild( flightNode, "flt_no", f.flt_no_out );
+     NewTextChild( flightNode, "suffix", f.suffix_out );
+     NewTextChild( flightNode, "airp", f.airp );
+     NewTextChild( flightNode, "utc_scd_out", DateTimeToStr( f.scd_out, ServerFormatDateTimeAsString ) );
+     NewTextChild( flightNode, "local_scd_out", DateTimeToStr( ASTRA::date_time::UTCToClient( f.scd_out, f.region ), ServerFormatDateTimeAsString ) );
+     NewTextChild( flightNode, "craft", f.craft_out );
+     NewTextChild( flightNode, "bort", f.bort_out );
+   }
+  }
+  catch(...) {
+    TReqInfo::Instance()->user.sets.time = old_time_format;
+    throw;
+  }
   return true;
 }
 
@@ -341,6 +376,7 @@ static bool call(xmlNodePtr reqNode, xmlNodePtr resNode)
     __DECLARE_CALL__("set_blocked",         set_blocked);
     __DECLARE_CALL__("seat_plan_change",    seat_plan_change);
     __DECLARE_CALL__("configuration_change",configuration_change);
+    __DECLARE_CALL__("get_spp",get_spp);
 
 
     LogError(STDLOG) << "Unknown astra call '" << func_name << "'";
