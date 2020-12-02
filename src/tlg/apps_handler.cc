@@ -184,25 +184,42 @@ bool handle_tlg(void)
   return queue_not_empty;
 }
 
-void resend_tlg(void)
+struct msg
 {
-    time_t time_start=time(NULL);
-
     Dates::DateTime_t send_time;
     int msg_id;
     int send_attempts;
-    int count = 0;
-    Dates::DateTime_t elapsed = Dates::second_clock::universal_time() - seconds(10);
+};
+
+std::vector<msg> readMessagesByElapsedTime(const Dates::DateTime_t & elapsed)
+{
+    msg read_msg;
     // проверим, есть ли сообщения без ответа или нуждающиеся в повторной отправке
     auto cur = make_curs("select SEND_TIME, MSG_ID, SEND_ATTEMPTS "
-                          "from APPS_MESSAGES where (:elapsed > APPS_MESSAGES.SEND_TIME) ");
+                          "from APPS_MESSAGES where SEND_TIME < :elapsed ");
     cur
-        .def(send_time)
-        .def(msg_id)
-        .def(send_attempts)
+        .def(read_msg.send_time)
+        .def(read_msg.msg_id)
+        .def(read_msg.send_attempts)
         .bind(":elapsed", elapsed)
         .exec();
-    for(;!cur.fen() && (count++)<PROC_COUNT(); ASTRA::rollback()) {
+
+    std::vector<msg> messages;
+    while(!cur.fen()) {
+        messages.push_back(read_msg);
+    }
+    return messages;
+}
+
+void resend_tlg(void)
+{
+    time_t time_start=time(NULL);
+    int count = 0;
+    Dates::DateTime_t elapsed = Dates::second_clock::universal_time() - seconds(10);
+    std::vector<msg> messages = readMessagesByElapsedTime(elapsed);
+
+    for(int i=0; i<messages.size() && (count++)<PROC_COUNT(); i++, ASTRA::rollback()) {
+        auto [send_time, msg_id, send_attempts] = messages[i];
         auto point_id = APPS::pointIdByMsgId(msg_id);
         if(!point_id) {
             continue;
@@ -218,7 +235,7 @@ void resend_tlg(void)
         auto now = Dates::second_clock::universal_time();
         time_duration ttw_sec = seconds(apps_down ? 600.0 : 10.0);
         if (now - send_time < ttw_sec) {
-            ProgTrace(TRACE5, " OR SHIT! HERE WE GO AGAIN...");
+            ProgTrace(TRACE5, "HERE WE GO AGAIN...");
             continue;
         }
         if( ( send_attempts >= APPS::NumSendAttempts ) && !apps_down ) {
