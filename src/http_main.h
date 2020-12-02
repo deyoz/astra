@@ -6,6 +6,7 @@
 #include "serverlib/http_parser.h"
 #include "web_main.h"
 #include "cuws_main.h"
+#include "http_consts.h"
 
 namespace AstraHTTP
 {
@@ -102,7 +103,8 @@ struct HTTPClient
         const TExchangeTypeMap jxt_interface {
             {EXCHANGE_TYPE::CUWS,
                 {
-                    {"CUWS", JxtInfo(CUWS_JXT_IFACE_ID, nullptr)}
+                    {"CUWS", JxtInfo(CUWS_JXT_IFACE_ID, nullptr)},
+                    {GET_RESOURCE,  JxtInfo(HTML_JXT_INTERFACE_ID,      NULL)}
                 }
             },{EXCHANGE_TYPE::CREWCHECKIN,
                 {
@@ -121,7 +123,7 @@ struct HTTPClient
                 }
             },{EXCHANGE_TYPE::KUFSTAT,
                 {
-                    {"get_resource",  JxtInfo(HTML_JXT_INTERFACE_ID,      NULL)},
+                    {GET_RESOURCE,  JxtInfo(HTML_JXT_INTERFACE_ID,      NULL)},
                     {"kuf_file",      JxtInfo(TELEGRAM_JXT_INTERFACE_ID,  NULL)},
                     {"kuf_stat_flts", JxtInfo(TELEGRAM_JXT_INTERFACE_ID,  NULL)},
                     {"kuf_stat",      JxtInfo(TELEGRAM_JXT_INTERFACE_ID,  NULL)}
@@ -177,7 +179,7 @@ struct HTTPClient
                     {"GetGRPPrintData", JxtInfo(PRINT_JXT_INTERFACE_ID,     NULL)},
                     {"GetImg", JxtInfo(PRINT_JXT_INTERFACE_ID,              NULL)},
                     {"GetPrintData", JxtInfo(PRINT_JXT_INTERFACE_ID,        NULL)},
-                    {"get_resource", JxtInfo(HTML_JXT_INTERFACE_ID,         NULL)},
+                    {GET_RESOURCE, JxtInfo(HTML_JXT_INTERFACE_ID,         NULL)},
                     {"print_bp", JxtInfo(PRINT_JXT_INTERFACE_ID,            NULL)},
                     {"print_bp2", JxtInfo(PRINT_JXT_INTERFACE_ID,           NULL)}
                     // Не используются ?
