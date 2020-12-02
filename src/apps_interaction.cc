@@ -905,7 +905,15 @@ int APPSMessage::getVersion() const
 void reSendMsg(int msg_id)
 {
     Opt<APPSMessage> msg = APPSMessage::readAppsMsg(msg_id);
+    if(!msg) {
+        LogTrace(TRACE0) << __FUNCTION__ << " Not found msg by msg_id: " << msg_id;
+        return;
+    }
     Opt<AppsSettings> settings = AppsSettings::readSettings(msg->getSettingsId());
+    if(!settings) {
+        LogTrace(TRACE0) << __FUNCTION__ << " Not found apps settings by settings_id: " << msg->getSettingsId();
+        return;
+    }
     std::string msg_text = makeHeader(settings->getAirline(), getIdent()) + msg->getMsg();
     sendTlg(getAPPSRotName(), OWN_CANON_NAME(), qpOutApp, 20, msg_text, ASTRA::NoExists, ASTRA::NoExists);
 
