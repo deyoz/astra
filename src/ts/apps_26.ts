@@ -745,3 +745,51 @@ $(UPDATE_PAX_ON_BOARDING $(get pax_id) $(get point_dep) $(get tid) RUS FA144643 
 .*CIRQ:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PRQ/22/1/P/UKR/RUS/FA144643//P/20250625////TUMALI/VALERII/19680416/M///N/N////.*
 
 #####################################################################
+
+%%
+###
+#   Тест №9
+#
+#   Описание: пассажиров: 61,
+#             интерактив: выкл
+#            версия apps: 26
+#
+#   APPS-запрос на посадку ОДНОГО пассажира без визы(doco) но с Docad уходит во время регистрации
+###
+#########################################################################################
+
+$(settcl APPS_H2H_ADDR APTXS)
+$(settcl APPS_ROT_NAME APPGT)
+
+$(init_jxt_pult МОВРОМ)
+$(set_desk_version 201707-0195750)
+$(login)
+
+$(init_apps ЮТ ЦЗ APPS_26 closeout=true inbound=false outbound=true)
+
+$(PREPARE_SEASON_SCD ЮТ ПРХ СОЧ 298)
+$(make_spp)
+$(deny_ets_interactive ЮТ 298 ПРХ)
+
+$(INB_PNL_UT PRG AER 298 $(ddmon +0 en))
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set move_id $(get_move_id $(get point_dep)))
+
+$(combine_brd_with_reg $(get point_dep))
+$(auto_set_craft $(get point_dep))
+
+$(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
+
+!!
+$(CHECKIN_PAX_WITH_DOCA $(get pax_id) $(get point_dep) $(get point_arv)
+                                 ЮТ 298 ПРХ СОЧ TUMALI VALERII 2986145115578 ВЗ
+                                 UA FA144642 UA 16.04.1968 25.06.2025 M
+                                 USA OHIO WillardAve Cleveland 44102)
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PRQ/34/1/P/UKR/UKR/FA144642//P//20250625////TUMALI/VALERII/19680416/M///N/N///////00011////////PAD/13/1///////WillardAve/Cleveland/OHIO/44102///.*
+
+
+

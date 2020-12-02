@@ -2167,4 +2167,157 @@ $(dump_table CRS_PAX fields="name, surname" where="name='OFER'" display=on)
 >> lines=auto
 [OFER] [OZ] $()
 
+#################################
 
+%%
+###
+#   Тест №28
+#
+#   Описание: пассажиров: 61,
+#             интерактив: выкл
+#            версия apps: 21
+#
+#   Проверка перепосылки сообщения CIMR
+###
+#########################################################################################
+
+$(settcl APPS_H2H_ADDR APTXS)
+$(settcl APPS_ROT_NAME APPGT)
+
+$(init_jxt_pult МОВРОМ)
+$(set_desk_version 201707-0195750)
+$(login)
+
+$(init_apps ЮТ ЦЗ APPS_21 closeout=true inbound=true outbound=true)
+$(init_apps ЮТ НЛ APPS_21 closeout=false inbound=false outbound=false)
+
+$(PREPARE_SEASON_SCD_TRANSIT ЮТ СОЧ АМС ПРХ 298) #сочи внуково прага
+$(make_spp)
+$(deny_ets_interactive ЮТ 298 СОЧ)
+
+$(INB_PNL_UT AER PRG 298 $(ddmon +0 en))
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get_next_trip_point_id $(get point_dep))))
+
+$(combine_brd_with_reg $(get point_dep))
+$(auto_set_craft $(get point_dep))
+
+$(set move_id $(get_move_id $(get point_dep)))
+
+$(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
+
+# закрытие рейса. По настройке APPS должен уйти CIMR
+
+!! err=ignore
+$(WRITE_DESTS $(get point_dep) $(get point_arv) $(get move_id) ЮТ 298 СОЧ ПРХ
+              $(date_format %d.%m.%Y) 10:15:00
+              $(date_format %d.%m.%Y) 11:00:00)
+
+>> lines=auto mode=regex
+.*CIMR:([0-9]+)/UTUTA1/21/INM/3/UT298/AER/$(yyyymmdd)/MRQ/3/CZ/C/C/.*
+
+$(set msg_id1 $(capture 1))
+
+# Не должна произойти перепосылка потому что прошло менее 10 секунд без ответа
+$(update_msg $(get msg_id1) 5 2)
+$(resend)
+
+# Должна произойти перепосылка потому что прошло более 10 секунд без ответа
+$(update_msg $(get msg_id1) 15 2)
+$(resend)
+
+>> lines=auto mode=regex
+.*CIMR:([0-9]+)/UTUTA1/21/INM/3/UT298/AER/$(yyyymmdd)/MRQ/3/CZ/C/C/.*
+
+# Повторно должна произойти перепосылка потому что прошло более 10 секунд без ответа
+$(update_msg $(get msg_id1) 15 2)
+$(resend)
+
+>> lines=auto mode=regex
+.*CIMR:([0-9]+)/UTUTA1/21/INM/3/UT298/AER/$(yyyymmdd)/MRQ/3/CZ/C/C/.*
+
+
+#Должна происходить перепосылка и выставляется ALARM::APPSOutage , потому что количество отправок равно 5
+$(update_msg $(get msg_id1) 20 6)
+$(resend)
+
+>> lines=auto mode=regex
+.*CIMR:([0-9]+)/UTUTA1/21/INM/3/UT298/AER/$(yyyymmdd)/MRQ/3/CZ/C/C/.*
+
+??
+$(check_trip_alarms $(get point_dep))
+>>
+APPS_OUTAGE
+$()
+
+#Не должна происходить перепосылка , потому что количество отправок равно 99
+$(update_msg $(get msg_id1) 30 99)
+$(resend)
+
+########################################################
+
+%%
+########################################################################
+###
+#   Тест №29
+#
+#   Описание: пассажиров: 61,
+#             интерактив: выкл
+#            версия apps: 21
+#
+#   APPS CIMR обработка ответа CIMA и удаление сообщения из APPS_MESSAGES и APPS_MANIFEST_DATA
+###
+#########################################################################################
+
+$(settcl APPS_H2H_ADDR APTXS)
+$(settcl APPS_ROT_NAME APPGT)
+
+$(init_jxt_pult МОВРОМ)
+$(set_desk_version 201707-0195750)
+$(login)
+
+$(init_apps ЮТ ЦЗ APPS_21 closeout=true inbound=true outbound=true)
+$(init_apps ЮТ НЛ APPS_21 closeout=false inbound=false outbound=false)
+
+$(PREPARE_SEASON_SCD_TRANSIT ЮТ СОЧ АМС ПРХ 298) #сочи внуково прага
+$(make_spp)
+$(deny_ets_interactive ЮТ 298 СОЧ)
+
+$(INB_PNL_UT AER PRG 298 $(ddmon +0 en))
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get_next_trip_point_id $(get point_dep))))
+
+$(combine_brd_with_reg $(get point_dep))
+$(auto_set_craft $(get point_dep))
+
+$(set move_id $(get_move_id $(get point_dep)))
+
+$(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
+
+# закрытие рейса. По настройке APPS должен уйти CIMR
+
+!! err=ignore
+$(WRITE_DESTS $(get point_dep) $(get point_arv) $(get move_id) ЮТ 298 СОЧ ПРХ
+              $(date_format %d.%m.%Y) 10:15:00
+              $(date_format %d.%m.%Y) 11:00:00)
+
+
+>> lines=auto mode=regex
+.*CIMR:([0-9]+)/UTUTA1/21/INM/3/UT298/AER/$(yyyymmdd)/MRQ/3/CZ/C/C/.*
+
+#ответ на запрос о закрытии с ошибкой.
+<< h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
+CIMA:$(capture 1)/MAK/4/CZ/8701/6231/No movements found for this flight/
+
+!! capture=on
+$(GET_EVENTS $(get point_dep))
+
+>> lines=auto
+        <msg>Запрос на закрытие рейса. Результатдля страны ЦЗ: Запрос отклонен. Причина:No movements found for this flight</msg>
+
+??
+$(dump_table apps_messages display=on)
+>> lines=auto
+$()
