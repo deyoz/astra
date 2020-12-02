@@ -1760,6 +1760,119 @@ $(defmacro CHECKIN_PAX_WITH_VISA_AND_DOCA
 
 #########################################################################################
 
+$(defmacro CHECKIN_PAX_WITH_DOCA
+    pax_id
+    point_dep
+    point_arv
+    airl
+    flt
+    airp_dep
+    airp_arv
+    surname
+    name
+    tickno
+    pers_type
+    doc_issue_country
+    doc_no
+    doc_nationality
+    doc_birth_date
+    doc_expiry_date
+    doc_gender
+    doca_country
+    doca_region
+    doca_address
+    doca_city
+    doca_postal_code
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <TCkinSavePax>
+      <agent_stat_period>3</agent_stat_period>
+      <transfer/>
+      <segments>
+        <segment>
+          <point_dep>$(point_dep)</point_dep>
+          <point_arv>$(point_arv)</point_arv>
+          <airp_dep>$(airp_dep)</airp_dep>
+          <airp_arv>$(airp_arv)</airp_arv>
+          <class>Э</class>
+          <status>K</status>
+          <wl_type/>
+          <mark_flight>
+            <airline>$(airl)</airline>
+            <flt_no>$(flt)</flt_no>
+            <suffix/>
+            <scd>$(date_format %d.%m.%Y +0) 00:00:00</scd>
+            <airp_dep>$(airp_dep)</airp_dep>
+            <pr_mark_norms>0</pr_mark_norms>
+          </mark_flight>
+          <passengers>
+            <pax>
+              <pax_id>$(pax_id)</pax_id>
+              <surname>$(surname)</surname>
+              <name>$(name)</name>
+              <pers_type>$(pers_type)</pers_type>
+              <seat_no/>
+              <preseat_no/>
+              <seat_type/>
+              <seats>1</seats>
+              <ticket_no>$(tickno)</ticket_no>
+              <coupon_no>1</coupon_no>
+              <ticket_rem>TKNE</ticket_rem>
+              <ticket_confirm>0</ticket_confirm>
+              <document>
+                <type>P</type>
+                <issue_country>$(doc_issue_country)</issue_country>
+                <no>$(doc_no)</no>
+                <nationality>$(doc_nationality)</nationality>
+                <birth_date>$(doc_birth_date) 00:00:00</birth_date>
+                <expiry_date>$(doc_expiry_date) 00:00:00</expiry_date>
+                <gender>$(doc_gender)</gender>
+                <surname>$(surname)</surname>
+                <first_name>$(name)</first_name>
+              </document>
+              <doco>
+                <type>-</type>
+              </doco>
+              <addresses>
+                <doca>
+                  <type>D</type>
+                  <country>$(doca_country)</country>
+                  <region>$(doca_region)</region>
+                  <address>$(doca_address)</address>
+                  <city>$(doca_city)</city>
+                  <postal_code>$(doca_postal_code)</postal_code>
+                </doca>
+              </addresses>
+              <subclass>Э</subclass>
+              <bag_pool_num/>
+              <transfer/>
+              <rems/>
+              <fqt_rems/>
+              <norms/>
+            </pax>
+          </passengers>
+          <paid_bag_emd/>
+        </segment>
+      </segments>
+      <excess>0</excess>
+      <hall>1</hall>
+      <paid_bags>
+        <paid_bag>
+          <bag_type/>
+          <weight>0</weight>
+          <rate_id/>
+          <rate_trfer/>
+        </paid_bag>
+      </paid_bags>
+    </TCkinSavePax>
+  </query>
+</term>}
+
+}) #end-of-macro CHECKIN_PAX_WITH_DOCA
+
+#########################################################################################
+
 $(defmacro UPDATE_PAX_PASSPORT
     pax_id
     grp_id
