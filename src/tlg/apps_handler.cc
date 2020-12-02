@@ -218,7 +218,6 @@ void resend_tlg(void)
              It is useless to continue send. */
             ProgTrace(TRACE5, " More than 2 days has passed after flight scheduled departure time or max value of send attempts has been reached");
             APPS::deleteMsg(msg_id);
-            return ;
         }
         // maximum time to wait for a response from APPS is 4 sec
         auto now = Dates::second_clock::universal_time();
