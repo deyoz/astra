@@ -22,7 +22,6 @@
 #include "xml_unit.h"
 #include "qrys.h"
 #include "html_pages.h"
-#include "http_consts.h"
 
 using namespace EXCEPTIONS;
 
@@ -111,7 +110,7 @@ void HTTPClient::populate_client_from_uri(const string& uri)
         client_info = getInetClient(uri_params[CLIENT_ID]);
         operation = uri_params[OPERATION];
         if(operation.empty())
-            operation = "get_resource";
+            operation = GET_RESOURCE;
         user_name = uri_params[LOGIN];
         password = uri_params[PASSWORD];
     }
@@ -185,8 +184,18 @@ void HTTPClient::get(const request& req)
               lowerc(req.content).find(":envelope>") != string::npos
         )
           operation = exchange_type;
-      else
-          operation.clear();
+      else {
+          // проверим формат контента <term><query><kick>...
+          XMLDoc doc(req.content);
+          if(doc.docPtr() != nullptr) {
+              try {
+                  xmlNodePtr currNode = NodeAsNode("query", doc.docPtr()->children);
+                  NodeAsNode("kick", currNode);
+                  operation.clear();
+              } catch(...) {}
+              // если не kick, то это get_resource
+          }
+      }
   }
   if (Qry.Eof ||
       user_name != Qry.FieldAsString( "http_user" ) ||

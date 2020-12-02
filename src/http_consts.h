@@ -15,6 +15,7 @@ namespace AstraHTTP
     const std::string X_ORIG_HOST = "X-Original-Host";
     const std::string X_ORIG_URI = "X-Original-URI";
 
+    const std::string GET_RESOURCE = "get_resource";
     const std::string LOGIN = "login";
     const std::string PASSWORD = "password";
 }
