@@ -10,6 +10,7 @@
 #include "passenger_callbacks.h"
 #include "base_callbacks.h"
 #include "apps_interaction.h"
+#include "dbostructures.h"
 #include "pax_calc_data.h"
 #include "pg_session.h"
 
@@ -144,6 +145,7 @@ int init_locale(void)
     init_pnr_callbacks();
     init_rfisc_callbacks();
     initPassengerCallbacks();
+    dbo::initStructures();
     APPS::init_callbacks();
     IAPI::init_callbacks();
     PaxCalcData::init_callbacks();

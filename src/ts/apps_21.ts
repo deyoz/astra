@@ -2318,6 +2318,6 @@ $(GET_EVENTS $(get point_dep))
         <msg>Запрос на закрытие рейса. Результатдля страны ЦЗ: Запрос отклонен. Причина:No movements found for this flight</msg>
 
 ??
-$(dump_table apps_messages display=on)
+$(dump_pg_table apps_messages display=on)
 >> lines=auto
 $()

@@ -2884,6 +2884,36 @@ struct AODB_SPP_FILES
     }
 };
 
+struct APPS_MANIFEST_DATA
+{
+    std::string msg_text;
+    int msg_id;
+    int point_id;
+
+    template<typename Action>
+    void persist(Action & a) {
+        dbo::field(a,msg_text,"MSG_TEXT", dbo::NotNull);
+        dbo::field(a,msg_id,"MSG_ID", dbo::NotNull);
+        dbo::field(a,point_id,"POINT_ID", dbo::NotNull);
+    }
+};
+
+struct APPS_MESSAGES
+{
+    Dates::DateTime_t send_time;
+    int msg_id;
+    int settings_id;
+    int send_attempts;
+
+    template<typename Action>
+    void persist(Action & a) {
+        dbo::field(a,send_time,"SEND_TIME", dbo::NotNull);
+        dbo::field(a,settings_id,"SETTINGS_ID");
+        dbo::field(a,msg_id,"MSG_ID", dbo::NotNull);
+        dbo::field(a,send_attempts,"SEND_ATTEMPTS", dbo::NotNull);
+    }
+};
+
 }   //end namespace dbo
 
 

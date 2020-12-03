@@ -133,6 +133,8 @@ void initStructures()
         INIT_DBO(FILES);
         INIT_DBO(KIOSK_EVENTS);
         INIT_DBO(AODB_SPP_FILES);
+        INIT_DBO(APPS_MANIFEST_DATA);
+        INIT_DBO(APPS_MESSAGES);
     }
     initialized = true;
 }
