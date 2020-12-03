@@ -358,7 +358,7 @@ bool handle_tlg(void)
   TlgQry.Execute();
   try
   {
-    for (;!TlgQry.Eof&&count<HANDLER_PROC_COUNT();count++,TlgQry.Next(),ASTRA::commit()/*OraSession.Commit()*/)
+    for (;!TlgQry.Eof&&count<HANDLER_PROC_COUNT();count++,TlgQry.Next(),ASTRA::commit())
     {
         tlg_info tlgi = {};
         tlgi.fromDB(TlgQry);
@@ -507,7 +507,7 @@ void handle_tpb_tlg(const tlg_info &tlg)
   try
   {
     procTlg(tlg.id);
-    ASTRA::commit(); // OraSession.commit();
+    ASTRA::commit();
 
     string tlgs_text=getTlgText(tlg.id);
     int typeb_tlg_id=NoExists;
@@ -849,12 +849,12 @@ bool parse_tlg(const string &handler_id)
         Exception E("%d attempts to parse previously failed", TlgIdQry.FieldAsInteger("proc_attempt"));
         progError(tlg_id, NoExists, error_no, E, "", TFlightsForBind());
         parseTypeB(tlg_id);
-        ASTRA::commit();//OraSession.Commit();
+        ASTRA::commit();
         count++;
         continue;
       };
       procTypeB(tlg_id, 1);
-      ASTRA::commit();//OraSession.Commit();
+      ASTRA::commit();
 
       ProgTrace(TRACE5, "tlg_id: %d", tlg_id);
       time_receive=TlgIdQry.FieldAsDateTime("time_receive");
@@ -894,7 +894,7 @@ bool parse_tlg(const string &handler_id)
         progError(tlg_id, tlg_num, error_no, E, tlg_type, bind_flts);
         parseTypeB(tlg_id);
         bindTypeB(tlg_id, bind_flts, E);
-        ASTRA::commit();//OraSession.Commit();
+        ASTRA::commit();
         continue;
       };
 
@@ -908,7 +908,7 @@ bool parse_tlg(const string &handler_id)
           if (utc_date-time_receive > PARTS_NOT_RECEIVE_TIMEOUT)
             throw ETlgError("Some parts not received");
           procTypeB(tlg_id, -1);
-          ASTRA::commit();//OraSession.Commit();
+          ASTRA::commit();
           continue;
         };
 
@@ -929,7 +929,7 @@ bool parse_tlg(const string &handler_id)
           if (utc_date-time_receive > PARTS_NOT_RECEIVE_TIMEOUT)
             throw ETlgError("Some parts not received");
           procTypeB(tlg_id, -1);
-          ASTRA::commit();//OraSession.Commit();
+          ASTRA::commit();
           continue;
         };
 
@@ -957,7 +957,7 @@ bool parse_tlg(const string &handler_id)
               {
                 parseTypeB(tlg_id);
                 callPostHooksBefore();
-                ASTRA::commit();//OraSession.Commit();
+                ASTRA::commit();
                 count++;
                 callPostHooksAfter();
                 emptyHookTables();
@@ -971,7 +971,7 @@ bool parse_tlg(const string &handler_id)
                   //по истечении некоторого времени - записать в просроченные
                   throw ETlgError(tlgeNotMonitorYesAlarm, "Time limit reached");
                 procTypeB(tlg_id, -1);
-                ASTRA::commit();//OraSession.Commit();
+                ASTRA::commit();
               };
             };
             if (strcmp(info.tlg_type,"PRL")==0)
@@ -981,7 +981,7 @@ bool parse_tlg(const string &handler_id)
               SavePNLADLPRLContent(tlg_id,info,con,true);
               parseTypeB(tlg_id);
               callPostHooksBefore();
-              ASTRA::commit();//OraSession.Commit();
+              ASTRA::commit();
               count++;
               callPostHooksAfter();
               emptyHookTables();
@@ -993,7 +993,7 @@ bool parse_tlg(const string &handler_id)
               SavePTMContent(tlg_id,info,con);
               parseTypeB(tlg_id);
               callPostHooksBefore();
-              ASTRA::commit();//OraSession.Commit();
+              ASTRA::commit();
               count++;
               callPostHooksAfter();
               emptyHookTables();
@@ -1005,7 +1005,7 @@ bool parse_tlg(const string &handler_id)
               SaveSOMContent(tlg_id,info,con);
               parseTypeB(tlg_id);
               callPostHooksBefore();
-              ASTRA::commit();//OraSession.Commit();
+              ASTRA::commit();
               count++;
               callPostHooksAfter();
               emptyHookTables();
@@ -1022,7 +1022,7 @@ bool parse_tlg(const string &handler_id)
               SaveBTMContent(tlg_id,info,con);
               parseTypeB(tlg_id);
               callPostHooksBefore();
-              ASTRA::commit();//OraSession.Commit();
+              ASTRA::commit();
               count++;
               callPostHooksAfter();
               emptyHookTables();
@@ -1043,7 +1043,7 @@ bool parse_tlg(const string &handler_id)
             }
             parseTypeB(tlg_id);
             callPostHooksBefore();
-            ASTRA::commit();//OraSession.Commit();
+            ASTRA::commit();
             count++;
             callPostHooksAfter();
             emptyHookTables();
@@ -1064,7 +1064,7 @@ bool parse_tlg(const string &handler_id)
                   SaveFlt(tlg_id,info.flt_info.toFltInfo(),btFirstSeg,TSearchFltInfoPtr());
               parseTypeB(tlg_id);
               callPostHooksBefore();
-              ASTRA::commit();//OraSession.Commit();
+              ASTRA::commit();
               count++;
               callPostHooksAfter();
               emptyHookTables();
@@ -1078,7 +1078,7 @@ bool parse_tlg(const string &handler_id)
             SaveLCIContent(tlg_id,time_receive,info,con);
             parseTypeB(tlg_id);
             callPostHooksBefore();
-            ASTRA::commit();//OraSession.Commit();
+            ASTRA::commit();
             count++;
             callPostHooksAfter();
             emptyHookTables();
@@ -1117,7 +1117,7 @@ bool parse_tlg(const string &handler_id)
             //телеграмму неизвестного типа сразу пишем в разобранные
             parseTypeB(tlg_id);
             callPostHooksBefore();
-            ASTRA::commit();//OraSession.Commit();
+            ASTRA::commit();
             count++;
             callPostHooksAfter();
             emptyHookTables();
@@ -1143,7 +1143,7 @@ bool parse_tlg(const string &handler_id)
           parseTypeB(tlg_id);
           bindTypeB(tlg_id, bind_flts, E);
           TypeBHelpMng::notify_msg(tlg_id, E.what()); // Отвешиваем процесс, если есть.
-          ASTRA::commit();//OraSession.Commit();
+          ASTRA::commit();
         }
         catch(...) {};
       };

@@ -342,9 +342,20 @@ JXTLib::JXTLib() : pimpl(std::make_unique<Impl>()) {}
 
 const XmlDataDesc *JXTLib::getDataImpl(const std::string &data_id)
 {
+
     auto const pos = pimpl->data_impls.find(data_id);
     if(pos == pimpl->data_impls.end())
+    {
+        const std::string hardcode="ia_awk_data";
+        if(data_id.size()>=hardcode.size() && data_id.substr(0,hardcode.size())==hardcode)
+        {
+            auto const pos2 = pimpl->data_impls.find(hardcode);
+            if(pos2!=pimpl->data_impls.end())
+                return pos2->second.get();
+        }
+        ProgTrace(TRACE1,"getDataImpl('%s') - return nullptr",data_id.c_str());
         return nullptr;
+    }
     return pos->second.get();
 }
 

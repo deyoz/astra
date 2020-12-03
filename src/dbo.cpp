@@ -1,4 +1,5 @@
 #include "dbo.h"
+#include "hooked_session.h"
 
 #define NICKNAME "FELIX"
 #define NICKTRACE FELIX_TRACE
@@ -78,15 +79,39 @@ std::string MappingInfo::stringColumns(const vector<std::string>& fields) const
     return  result;
 }
 
+Session::Session(DbCpp::Session* oraSess,
+                 DbCpp::Session* pgSessRo, DbCpp::Session* pgSessRw)
+    : ora_dbcpp_session(oraSess),
+      pg_dbcpp_session_ro(pgSessRo), pg_dbcpp_session_rw(pgSessRw)
+{
+}
 
+void Session::clearIgnoreErrors()
+{
+    ignoreErrors.clear();
+}
+
+Session& Session::getMainInstance()
+{
+    static Session mainInst(get_main_ora_rw_sess(STDLOG),
+                            get_main_pg_ro_sess(STDLOG), get_main_pg_rw_sess(STDLOG));
+    return mainInst;
+}
+
+Session& Session::getArxInstance()
+{
+    static Session arxInst(get_arx_ora_rw_sess(STDLOG),
+                           get_arx_pg_ro_sess(STDLOG), get_arx_pg_rw_sess(STDLOG));
+    return arxInst;
+}
 
 string Session::dump(const string &tableName, const vector<string> &tokens, const string &query)
 {
     std::string result_query;
     std::string tblName = str_tolower(tableName);
-    shared_ptr<MappingInfo> mapInfo = getMapping(tblName);
+    shared_ptr<MappingInfo> mapInfo = Mapper::getInstance().getMapping(tblName);
     if(!mapInfo) {
-        throw EXCEPTIONS::Exception("Unknown tablename: " + tblName);
+        throw EXCEPTIONS::Exception("Unknown table name: " + tblName);
     }
 
     int size = tokens.empty() ? mapInfo->columnsCount() : tokens.size();
@@ -95,15 +120,13 @@ string Session::dump(const string &tableName, const vector<string> &tokens, cons
 
     std::string DB;
     if(db == CurrentDb::Postgres) {
-        DB = " Posgres ";
+        DB = " Postgres ";
     } else {
         DB = " Oracle ";
     }
     LogTrace1 << "---------------- " << tableName << DB << " DUMP ----------------------";
     LogTrace1 << result_query;
-    PgCpp::CursCtl pg_cur = get_pg_curs(result_query);
-    OciCpp::CursCtl or_cur = make_curs(result_query);
-    Cursor cur = createCursor(pg_cur, or_cur);
+    Cursor cur = getWriteCursor(result_query);
     std::string dump = cur.dump(size);
     LogTrace1 << dump;
     return dump;

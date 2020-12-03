@@ -1,5 +1,5 @@
-#ifndef OCI_TYPES_H
-#define OCI_TYPES_H
+#pragma once
+
 #include <cstring>
 #include <string>
 #include <sstream>
@@ -69,4 +69,3 @@ inline std::ostream & operator << (std::ostream& os, const OciVcs<L> &vcs)
 }
 
 } // namespace OciCpp
-#endif // OCI_TYPES_H

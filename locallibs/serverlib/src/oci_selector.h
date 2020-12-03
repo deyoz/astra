@@ -1,6 +1,6 @@
 #pragma once
 
-#include <boost/shared_array.hpp>
+#include <vector>
 #include <oci.h>
 
 namespace OciCpp {
@@ -24,8 +24,8 @@ enum iValues
 
 using indicator = sb2;
 
-using buf_ptr_t = boost::shared_array<char>;
-using ind_ptr_t = boost::shared_array<indicator>;
+using buf_ptr_t = std::vector<char>;
+using ind_ptr_t = std::vector<indicator>;
 
 class default_ptr_t;
 

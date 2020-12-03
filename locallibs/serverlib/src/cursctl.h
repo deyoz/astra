@@ -15,8 +15,11 @@
 #include "commit_rollback.h"
 
 #include <vector>
+#include <set>
 #define TRACESYS 0,"SYSTEM",__FILE__,__LINE__
 #define OCI8_CURSCTL_SUPPORT
+
+namespace dbcpp { template <typename C> class BaseRow; }
 
 /**
   * @namespace OciCpp
@@ -25,7 +28,6 @@
 namespace OciCpp
 {
 class OciSession;
-class BaseRow;
 
 /**
   * сообщить в лог об ошибке Oracle
@@ -99,15 +101,14 @@ template <> struct OciSelector<const _type_> \
     static constexpr External::type data_type = External::pod; \
     static bool canBind(const _type_ &) noexcept { return true; } \
     static void* addr(const _type_ *a) noexcept { return const_cast<_type_*>(a); } \
-    static char* to(const void* a, indicator& ind)\
+    static void to(buf_ptr_t& dst, const void* src, indicator& ind)\
     {\
+        static_assert(std::is_trivially_copyable<_type_>::value, "must be a trivially_copyable type");\
         if (ind == iok)\
         {\
-            char* memory = new char[sizeof(_type_)];\
-            memcpy(memory, a, sizeof(_type_));\
-            return memory;\
+            dst.resize(sizeof(_type_));\
+            memcpy(dst.data(), src, sizeof(_type_));\
         }\
-        return nullptr; \
     }\
     static constexpr int size(const void* ) noexcept { return sizeof(_type_); }\
     static void check(_type_ const *) noexcept {} \
@@ -141,14 +142,12 @@ template <unsigned L> struct OciSelector< const OciVcs<L> >
     enum { type = SQLT_VCS };
     static constexpr External::type data_type = External::pod;
     static bool canBind(const OciVcs<L>&) { return true; }
-    static char* to(const void* a, indicator& ind) 
+    static void to(buf_ptr_t& dst, const void* src, indicator& ind)
     {
-        char* memory = new char[len];
-        if (ind == iok)
-        {
-            memcpy(memory, a, len);
+        if (ind == iok) {
+            dst.resize(len);
+            memcpy(dst.data(), src, len);
         }
-        return memory;
     }
     static int size(const void* /*addr*/) { return len; }
     static void * addr(const OciVcs<L> *a){ return const_cast<OciVcs<L>*>(a); };
@@ -170,7 +169,7 @@ template <> struct OciSelector<const std::string>
     static const External::type data_type = External::string;
     static bool canBind(const std::string&) {return true;}
     static void* addr(const std::string* a) {return const_cast<std::string*>(a);}
-    static char* to(const void* a, indicator& ind);
+    static void to(buf_ptr_t& dst, const void* src, indicator& ind);
     static int size(const void* addr);
     static void check(std::string const *){}
 };
@@ -210,7 +209,7 @@ template <typename T> struct sel_data
     default_ptr_t default_value;
     bool bind_in;
     int external_skip_size;
-    char* (*to)(const void*, indicator&) = nullptr;
+    void (*to)(buf_ptr_t&, const void*, indicator&) = nullptr;
     void (*from)(char*, const char*, indicator) = nullptr;
     int (*get_size)(const void*) = nullptr;
     ub4 maxarrlen;
@@ -331,6 +330,8 @@ public:
      * @return number of processed rows
     */
     int rowcount();
+    int colcount();
+
     /**
      * ociexception won't be thrown when Oracle error with code err occurs.
      * @param err error code (OciCppErrs)
@@ -408,20 +409,24 @@ private:
 public:
     CursCtl & defFull(void *ptr, int maxlen, short *ind, unsigned short *clen, int type);
 
-    CursCtl& defRow(BaseRow&);
+    CursCtl& defRow(dbcpp::BaseRow<CursCtl>&);
 
     template <typename T> CursCtl& idef(T& t, short *ind)
     {
+    //    static_assert(OciSelector<T>::canOdef == 1);
         return def_(t, ind, nullptr);
     }
     template <typename T> CursCtl& def(T& t, short *ind=0)
     {
+    //    static_assert(OciSelector<T>::canOdef == 1);
         return def_(t, ind, nullptr);
     }
     template <typename T,typename T2> CursCtl& defNull(T &t, T2&& f)
     {
+    //    static_assert(OciSelector<T>::canOdef == 1);
         return def_(t, nullptr, std::forward<T2>(f));
     }
+  private:
     template <typename T> CursCtl& bind_(const char *pl, const T& t, indicator *ind, ub4 maxarrlen, ub4* curarrlen )
     {
         static_assert(OciSelector<T>::canObind == 1, "canBind is not defined for this type");
@@ -453,7 +458,7 @@ public:
         }
         if (stableBind() && maxarrlen==0) //FIXME 
         {
-            buf.data.reset(OciSelector<T>::to(buf.value_addr, buf.ind ? *buf.ind : buf.indic));
+            OciSelector<T>::to(buf.data, buf.value_addr, buf.ind ? *buf.ind : buf.indic);
         }
         // Если такой bind уже есть, то затрём его более потом в exec_start()
         bind_bufs.emplace_back(std::move(buf));
@@ -482,17 +487,21 @@ public:
         }
         return bind_(pl, t, ind, maxarrlen,curarrlen);
     }
+  public:
     template <typename T> CursCtl& bind(const std::string& pl, const T& t, short *ind=0)
     {
+        static_assert(OciSelector<T>::canObind == 1);
         return smart_bind(pl.c_str(), t, ind,0,0);
     }
     template <typename T> CursCtl& bind(const char *pl, const T& t, short *ind=0)
     {
+        static_assert(OciSelector<T>::canObind == 1);
         return smart_bind(pl, t, ind,0,0);
     }
     template <typename T> CursCtl& _bindArray(const char *pl, const T& t, short *ind, ub4 maxarrlen, ub4* curarrlen)
     {
-        (void)(OciSelector<T>::canBindArray); 
+        static_assert(OciSelector<T>::canObind == 1);
+        static_assert(OciSelector<T>::canBindArray == 1);
         return smart_bind(pl, t, ind,maxarrlen,curarrlen);
     }
 
@@ -512,9 +521,9 @@ private:
         buf.get_size = &OciSelector<T>::size;
         if (OciSelector<T>::data_type != External::pod && buf.maxarrlen==0) //FIXME
         {
-            buf.data.reset(OciSelector<T>::to(buf.value_addr, buf.ind ? *buf.ind : buf.indic));
-            if(not buf.data and OciSelector<T>::data_type == External::wrapper) // TODO authomatic use of OciSelector<T>::mem_buf()
-                buf.data.reset(new char[buf.type_size]); // память-то нужна полюбас
+            OciSelector<T>::to(buf.data, buf.value_addr, buf.ind ? *buf.ind : buf.indic);
+            if(buf.data.empty() and OciSelector<T>::data_type == External::wrapper) // TODO authomatic use of OciSelector<T>::mem_buf()
+                buf.data.resize(buf.type_size); // память-то нужна полюбас
         }
         // Если такой bind уже есть, то затрём его более потом в exec_start()
         bind_bufs.emplace_back(std::move(buf));
@@ -570,15 +579,13 @@ public:
     /**
      * Executes query and fetches one line by default.
      * @param count number of lines per one fetch
-     * @param p deprecated
      * @return Oracle error code */
-    int exfet(unsigned count=1, const char *p=0);
+    int exfet(unsigned count=1);
     /**
      * Executes query and fetches one line by default.
      * If there is more than count lines raises ociexception.
-     * @param count number of lines per one fetch
-     * @param p deprecated */
-    int EXfet(unsigned count=1, const char *p=0);
+     * @param count number of lines per one fetch */
+    int EXfet(unsigned count=1);
     /**
      * Fetches one line by default.
      * @param count number of line per one fetch
@@ -625,6 +632,8 @@ class Oracle8Data;
 class OciSession 
 {
     friend class Oracle8Data;
+    template<typename Type, typename Dummy> friend struct OciSelector;
+
 public:
     struct OciSessionNativeData
     {
@@ -661,12 +670,17 @@ public:
 
     Lda_Def* getLd() { return lda_; } // to use in old OCI7 code
     int mode() const { return mode_; } 
-    const OciSessionNativeData& native() const { return native_; } //FIXME unused
+    const OciSessionNativeData& native() const { return native_; }
     const std::string& getLogin() const { return connectionParams_.login; }
     std::string getConnectString() const;
     bool getDieOnError() const;
     void setDieOnError(bool value);
     void setClientInfo(const std::string &clientInfo);
+
+#ifdef XP_TESTING
+    bool attachToGlobalTransaction(const std::string& transactionName);
+#endif // XP_TESTING
+
 #ifndef XP_TESTING
 private:
 #endif // XP_TESTING
@@ -698,6 +712,9 @@ void setMainSession(const std::shared_ptr<OciSession>& session);
 OciSession& mainSession();
 OciSession* pmainSession();
 std::shared_ptr<OciSession> mainSessionPtr();
+#ifdef XP_TESTING
+void openGlobalCursors();
+#endif // XP_TESTING
 
 void putSession(const std::string& name, std::shared_ptr<OciCpp::OciSession> session);
 OciSession& getSession(const std::string& name);

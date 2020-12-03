@@ -54,12 +54,12 @@ int decompress(const void* in_ptr, size_t in_size, std::vector<uint8_t>& out, Co
     return Z_OK; // == 0
 }
 
-int _compress(const uint8_t * in, const size_t & in_size, std::vector<uint8_t>& out)
+int compress(void const* in_ptr, size_t in_size, std::vector<uint8_t>& out)
 {
     out.resize(in_size + 100);
     uLongf out_len = out.size();
 
-    if(int err = ::compress(out.data(), &out_len, in, in_size))
+    if(int err = ::compress(out.data(), &out_len, static_cast<const Bytef*>(in_ptr), in_size))
     {
         out.clear();
         return err;
@@ -72,7 +72,7 @@ int _compress(const uint8_t * in, const size_t & in_size, std::vector<uint8_t>& 
 
 int compress(const std::vector<uint8_t>& in, std::vector<uint8_t>& out)
 {
-    return _compress(in.data(), in.size(), out);
+    return compress(in.data(), in.size(), out);
 }
 
 std::vector<uint8_t> compressStr(const std::string & in)
@@ -81,7 +81,7 @@ std::vector<uint8_t> compressStr(const std::string & in)
 
     std::vector<uint8_t> out;
 
-    if(_compress(reinterpret_cast<const uint8_t *>(in.data()), in.length(), out) != Z_OK)
+    if(compress(reinterpret_cast<const uint8_t *>(in.data()), in.length(), out) != Z_OK)
         throw std::runtime_error("ZLib::compress error");
 
     return out;

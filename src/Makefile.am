@@ -220,7 +220,8 @@ astra_SOURCES = \
   dbo.cpp \
   dbostructures.cpp \
   astra_calls.cc \
-  wb_messages.cc
+  wb_messages.cc \
+  hooked_session.cc
 
 
 astra_LDADD = $(all_libraries) \
@@ -445,4 +446,5 @@ noinst_HEADERS = \
   dbo.h \
   dbostructures.h \
   astra_calls.h \
-  wb_messages.h
+  wb_messages.h \
+  hooked_session.h

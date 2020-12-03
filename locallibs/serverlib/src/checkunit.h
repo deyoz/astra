@@ -74,7 +74,7 @@ const char* __wtfailed_c_str(const char* s); // {  return s;  }
 #define _ck_assert_str(X, OP, Y, NULLEQ, NULLNE) \
     __local_ck_assert_str(__FILE__,__LINE__, __wtfailed_c_str(X), __wtfailed_c_str(Y), \
                           [](const char* l, const char* r){ return l and r and 0 OP strcmp(l,r); }, \
-                          "Assertion '"#X" "#OP" "#Y"' failed: left is '%s', right is '%s'", \
+                          "Assertion '"#X" "#OP" "#Y"' failed: left is \"%s\", right is \"%s\"", \
                           NULLEQ, NULLNE);
 #endif
 

@@ -6,17 +6,19 @@
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 
 #include "dates.h"
+#include "cursctl.h"
 
 namespace OciCpp {
 
-    struct oracle_datetime
-    {
-        unsigned char value[7];
-        oracle_datetime();
-        oracle_datetime(int year, int month, int day, int hour = 0, int min = 0, int sec = 0);
-    };
+struct oracle_datetime
+{
+    enum { size = 7 };
+    unsigned char value[size];
+    oracle_datetime();
+    oracle_datetime(int year, int month, int day, int hour = 0, int min = 0, int sec = 0);
+};
 
-   std::ostream & operator << (std::ostream& os,const oracle_datetime &t);
+std::ostream & operator << (std::ostream& os,const oracle_datetime &t);
 
 boost::gregorian::date from_oracle_date(oracle_datetime const & od);
 oracle_datetime to_oracle_datetime(boost::gregorian::date const & d);
@@ -26,7 +28,6 @@ oracle_datetime to_oracle_datetime(boost::posix_time::ptime const & t);
 
 }
 
-#include "cursctl.h"
 namespace OciCpp
 {
 
@@ -36,18 +37,16 @@ template<> struct OciSelector<const oracle_datetime>
     enum { canObind = 1 };
     static bool canBind(const oracle_datetime& ) { return true; }
     static void* addr(const oracle_datetime* a) {return const_cast<oracle_datetime*>(a);}
-    static char* to(const void* a, indicator& ind)
+    static void to(buf_ptr_t& dst, const void* src, indicator& ind)
     {
-        char* memory = new char[7];
-        if (ind == iok)
-        {
-            memcpy(memory, static_cast<const oracle_datetime*>(a)->value, 7);
+        dst.resize(len);
+        if (ind == iok) {
+            memcpy(&dst[0], static_cast<const oracle_datetime*>(src)->value, len);
         }
-        return memory;
     }
-    static int size(const void* /*addr*/) { return 7; }
+    static int size(const void* /*addr*/) { return oracle_datetime::size; }
     static void check( const oracle_datetime * ) {}
-    static const int len = 7;
+    static const int len = oracle_datetime::size;
     static const int type = SQLT_DAT;
     static const External::type data_type = External::pod;
 };
@@ -63,10 +62,10 @@ template<> struct OciSelector<const boost::posix_time::ptime>
     enum { canObind = 1 };
     static constexpr bool canBind(const boost::posix_time::ptime&) noexcept { return true; }
     static void* addr(const boost::posix_time::ptime* a) { return const_cast<boost::posix_time::ptime*>(a); }
-    static char* to(const void* a, indicator& indic);
+    static void to(buf_ptr_t& dst, const void* src, indicator& indic);
     static constexpr int size(const void* /*addr*/) noexcept { return 7; }
     static void check(const boost::posix_time::ptime*) noexcept { }
-    static const int len = 7;
+    static const int len = oracle_datetime::size;
     static const int type = SQLT_DAT;
     static const External::type data_type = External::wrapper;
 };
@@ -83,10 +82,10 @@ template<> struct OciSelector<const boost::gregorian::date>
     enum { canObind = 1 };
     static constexpr bool canBind(const boost::gregorian::date&) noexcept { return true; }
     static void* addr(const boost::gregorian::date* a) { return const_cast<boost::gregorian::date*>(a); }
-    static char* to(const void* a, indicator& indic);
+    static void to(buf_ptr_t& dst, const void* src, indicator& indic);
     static constexpr int size(const void* /*addr*/) noexcept { return 7; }
     static void check(const boost::gregorian::date*) noexcept { }
-    static const int len = 7;
+    static const int len = oracle_datetime::size;
     static const int type = SQLT_DAT;
     static const External::type data_type = External::wrapper;
 };
@@ -109,7 +108,7 @@ template <> struct OciSelector<const std::chrono::system_clock::time_point>
     enum { type = SQLT_VNU/*OciNumericTypeTraits<__base_type_>::otype*/ };
     static constexpr External::type data_type = External::wrapper;
     static bool canBind(const std::chrono::system_clock::time_point&) { return true; }
-    static char* to(const void* a, indicator& ind);
+    static void to(buf_ptr_t& dst, const void* src, indicator& indic);    
     static void* addr(const std::chrono::system_clock::time_point* a) { return a; }
     static int size(const void* a) { return  len; }
     static void check(std::chrono::system_clock::time_point const *){}//{a->get();}

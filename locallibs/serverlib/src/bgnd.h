@@ -1,11 +1,9 @@
-#ifndef SERVERLIB_BGND_DAEMON_TASK_H
-#define SERVERLIB_BGND_DAEMON_TASK_H
+#pragma once
 
 #include <vector>
+#include <set>
 #include <boost/optional.hpp>
 
-#include "daemon_event.h"
-#include "daemon_task.h"
 #include "objid.h"
 #include "rip.h"
 #include "rip_validators.h"
@@ -42,41 +40,33 @@ typedef std::vector<Error> Errors;
 boost::optional<BgndReqId> addReq(const std::string& tag, const ct::UserId&, const ct::CommandId&, const std::string&);
 boost::optional<BgndReqId> addReq(const std::string& tag, const ct::UserId& uid, const ct::CommandId& cmdId,
                                   const std::string& req, const std::string& socketName);
-Errors readErrors(const ct::CommandId&);
-void delErrors(const ct::CommandId&);
 
-void setSession(OciCpp::OciSession*);
-
-// если запрос не выполнен, то можно его выбросить, а можно попробовать переобработать позже
-// для второго варианта достаточно сохранить этот же запрос с новым id
-
-class BgndRequestTask
-    : public ServerFramework::CyclicDaemonTask<BgndReqId>
+class Storage
 {
 public:
-    virtual ~BgndRequestTask() {}
-    BgndRequestTask(const std::string& tag, const ServerFramework::DaemonTaskTraits& traits);
-    virtual Message run(const boost::posix_time::ptime&, const bgnd::Request&) = 0;
-    virtual Message handleError(const boost::posix_time::ptime& tm, const bgnd::Request& req) const;
+    virtual ~Storage();
 
-private:
-    int run(const boost::posix_time::ptime&, const BgndReqId&, bool) override final;
+    static Storage& instance();
+    static void setupStorage(Storage*);
 
-protected:
-    Message bgndErr_;
+    virtual void commit() = 0;
+    virtual std::set<BgndReqId> readAllReqs(const std::string& tag) = 0;
+    virtual std::set<BgndReqId> readAllReqsUnordered(const std::string& tag) = 0;
+    virtual BgndReqId nextBgndId() = 0;
+    virtual boost::optional<Request> readReq(const BgndReqId& id) = 0;
+    virtual boost::optional<BgndReqId> addReq(const std::string& tag, const ct::UserId&,
+            const ct::CommandId&, const std::string& req) = 0;
+    virtual void delReq(const BgndReqId&) = 0;
+    virtual void delPrevOrEqualReqs(const BgndReqId&) = 0;
+    virtual void delAllReqs() const = 0;
+
+    virtual void addError(const BgndReqId&, const ct::CommandId&, const std::string& errText) = 0;
+    virtual Errors readErrors(const ct::CommandId&) = 0;
+    virtual void delErrors(const ct::CommandId&) = 0;
 };
 
-#ifdef XP_TESTING
-namespace external_tests {
-
-void check_bgnd_reqs();
-void check_daemon_task();
-void check_bgnd_errors();
-
-}
-#endif
+void setupOracleStorage();
+void setupPgStorage();
+void cleanBgndReqs();
 
 } // bgnd
-
-#endif /* SERVERLIB_BGND_DAEMON_TASK_H */
-

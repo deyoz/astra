@@ -5,6 +5,7 @@
 #include <string>
 #include <boost/optional.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
+#include <boost/serialization/assume_abstract.hpp>
 #include "strong_types.h"
 #include "internal_msgid.h"
 
@@ -70,10 +71,22 @@ protected:
     ReqCorrelationData() {}
 };
 
-enum class CustomAuth {
-    None,
-    NTLM
+/* Данные для аутентификации по протоколу */
+namespace protocol {
+enum class Type {
+    NTLMv2 = 1
 };
+
+class Data {
+public:
+    virtual ~Data() = default;
+    virtual Type type() const = 0;
+};
+using DataPtr = std::shared_ptr<Data>;
+
+DataPtr ntlmv2(const std::string &domain, const std::string &username, const std::string &password);
+DataPtr ntlmv2(const std::string &domainSlashUsername, const std::string &password);
+} // namespace protocol
 
 struct HttpReq {
     ReqCorrelationData correlation;
@@ -83,8 +96,8 @@ struct HttpReq {
     std::string text; /* HTTP текст запроса, включая HTTP заголовки */
     std::vector<boost::posix_time::ptime> deadlines; /* Время наступления таймаутов для каждой попытки */
     CustomData customData;
-    CustomAuth customAuth;
     boost::optional<ClientAuth> clientAuth;
+    protocol::DataPtr protocolData;
     std::string peresprosReq;
     UseSSLFlag useSSL;
     int64_t recId;
@@ -98,8 +111,8 @@ struct HttpReq {
             const std::string& text,
             const std::vector<boost::posix_time::ptime>& deadlines,
             const CustomData& customData,
-            const CustomAuth& customAuth,
             const boost::optional<ClientAuth>& clientAuth,
+            const protocol::DataPtr& protocolData,
             const std::string& peresprosReq,
             const UseSSLFlag& useSSL,
             const int64_t recId,
@@ -114,7 +127,6 @@ enum CommErrCode {
     COMMERR_RESOLVE,
     COMMERR_CONNECT,
     COMMERR_HANDSHAKE,
-    COMMERR_AUTHENTICATE,
     COMMERR_WRITE,
     COMMERR_READ_HEADERS,
     COMMERR_READ_CHUNK_HEADER,
@@ -176,8 +188,8 @@ public:
         std::string reqText);
     /* Необязательные параметры */
     DoHttpRequest& setCustomData(const CustomData& customData);
-    DoHttpRequest& setCustomAuth(const CustomAuth& customAuth);
     DoHttpRequest& setClientAuth(const ClientAuth& clientAuth);
+    DoHttpRequest& setProtocolData(protocol::DataPtr &&protocolData);
     DoHttpRequest& setMaxTryCount(unsigned maxTryCount); /* Максимальное число попыток перепосылки запроса */
     DoHttpRequest& setTimeout(const boost::posix_time::time_duration& timeout); /* Для каждой попытки */
     DoHttpRequest& setPeresprosReq(const std::string& req);
@@ -200,8 +212,8 @@ private:
     const HostAndPort hostAndPort_;
     const std::string reqText_;
     CustomData customData_;
-    CustomAuth customAuth_;
     boost::optional<ClientAuth> clientAuth_;
+    protocol::DataPtr protocolData_;
     boost::posix_time::time_duration timeout_; /* default = 15 */
     std::string peresprosReq_;
     boost::posix_time::time_duration peresprosTimeout_; /* default = (timeout_ * maxTryCount) + 10 */
@@ -260,5 +272,7 @@ std::vector<std::string> getOutgoingHttpRequests();
 bool forkAllowed();
 
 } /* namespace httpsrv */
+
+BOOST_SERIALIZATION_ASSUME_ABSTRACT(httpsrv::protocol::Data)
 
 #endif /* #ifndef __HTTPSRV_H */

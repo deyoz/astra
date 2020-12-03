@@ -354,7 +354,7 @@ bool TArxMoveFlt::Next(int max_rows, int duration)
           tst();
           Qry->Execute();
           tst();
-          ASTRA::commit();
+          ASTRA::commitAndCallCommitHooks();
           proc_count++;
         }
         catch(...)
@@ -483,7 +483,7 @@ bool TArxTypeBIn::Next(int max_rows, int duration)
           //в архив
           Qry->SetVariable("tlg_id",tlg_id);
           Qry->Execute();
-          ASTRA::commit();
+          ASTRA::commitAndCallCommitHooks();
           proc_count++;
         }
         catch(...)
@@ -582,7 +582,7 @@ bool TArxTlgTrips::Next(int max_rows, int duration)
         //в архив
         Qry->SetVariable("point_id",point_id);
         Qry->Execute();
-        ASTRA::commit();
+        ASTRA::commitAndCallCommitHooks();
         proc_count++;
       }
       catch(...)
@@ -643,7 +643,7 @@ bool TArxMoveNoFlt::Next(int max_rows, int duration)
   Qry->SetVariable("max_rows",max_rows);
   Qry->SetVariable("time_duration",duration);
   Qry->Execute();
-  ASTRA::commit();
+  ASTRA::commitAndCallCommitHooks();
   proc_count++;
   step=Qry->GetVariableAsInteger("step");
   return step>0;
@@ -798,7 +798,7 @@ bool test_arx_daily(TDateTime utcdate, int step)
     LogTrace(TRACE5) << __FUNCTION__ << " step: " << step << " date: " << utcdate;
     auto arxMove = create_arx_manager(utcdate, step);
 
-    ProgTrace(TRACE5,"arx_daily_pg: %s started", arxMove->TraceCaption().c_str());
+    ProgTrace(TRACE5,"arx_daily: %s started", arxMove->TraceCaption().c_str());
 
     arxMove->BeforeProc();
     time_t time_finish = time(NULL)+ARX_DURATION();
@@ -813,7 +813,7 @@ bool test_arx_daily(TDateTime utcdate, int step)
     }
     while(arxMove->Next(ARX_MAX_ROWS(), duration));
 
-    ProgTrace(TRACE5,"arx_daily_pg: %s finished",arxMove->TraceCaption().c_str());
+    ProgTrace(TRACE5,"arx_daily: %s finished",arxMove->TraceCaption().c_str());
     return true;
 }
 #endif //XP_TESTING

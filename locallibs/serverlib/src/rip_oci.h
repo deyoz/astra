@@ -20,18 +20,18 @@ struct OciSelectorRipHelper
     static const External::type data_type = External::wrapper;
     static const int canBindout = 1;
 
-    static int size(const void* a) { return sizeof(T); }
+    static int size(const void* ) { return sizeof(T); }
 
     template<typename RipType>
     static void* addr(const RipType* a) { return const_cast<RipType*>(a); }
 
     template<typename RipType>
-    static char* to(const void* a, indicator& ind, const RipType*) {
+    static void to(buf_ptr_t& dst, const void* src, indicator& ind, const RipType*) {
         ind = iok;
-        char* memory = new char[sizeof(T)];
-        memcpy(memory, &reinterpret_cast<const RipType*>(a)->get(), sizeof(T));
-        return memory;
+        dst.resize(sizeof(T));
+        memcpy(&dst[0], &static_cast<const RipType*>(src)->get(), sizeof(T));
     }
+
     template<typename RipType>
     static void from(RipType* out_ptr, const char* in_ptr, indicator ind) {
         if (ind == iok) {
@@ -57,14 +57,13 @@ struct OciSelectorRipHelper<std::string>
     static void* addr(RipType* a) { return const_cast<std::string*>(&a->getRef()); }
 
     template<typename RipType>
-    static char* to(const void* a, indicator& ind, const RipType*) {
-        const std::string& s = static_cast<const RipType*>(a)->get();
-        char* memory = new char[s.size() + 1];
+    static void to(buf_ptr_t& dst, const void* src, indicator& ind, const RipType*) {
+        const std::string& s = static_cast<const RipType*>(src)->get();
+        dst.resize(s.size() + 1);
         if (ind == iok) {
-            s.copy(memory, s.size());
+            s.copy(&dst[0], s.size());
         }
-        memory[s.size()] = '\0';
-        return memory;
+        dst[s.size()] = '\0';
     }
     template<typename RipType>
     static void from(RipType* out_ptr, const char* in_ptr, indicator ind) {
@@ -91,8 +90,8 @@ struct OciSelector<const rip::BaseParameter<traits_t, base_t> >
     static bool canBind(const this_type&) { return true; }
     static int size(const void* a) { return helper_t::size(a); }
     static void* addr(const this_type* a) { return helper_t::addr(a); }
-    static char* to(const void* a, indicator& ind) { return helper_t::to(a, ind, (this_type*)NULL); }
-    static void check(this_type const *a) { /* always valid */ }
+    static void to(buf_ptr_t& dst, const void* src, indicator& ind) { helper_t::to(dst, src, ind, (this_type*)NULL); }
+    static void check(this_type const *) { /* always valid */ }
 };
 
 template <typename traits_t, typename base_t>

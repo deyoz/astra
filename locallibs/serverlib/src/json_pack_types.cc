@@ -341,7 +341,7 @@ UnpackResult<boost::posix_time::ptime> Traits<boost::posix_time::ptime>::unpackE
 
 
 JSON_RIP_PACK(ct::UserId);
-//JSON_RIP_PACK(bgnd::BgndReqId);
+JSON_RIP_PACK(bgnd::BgndReqId);
 JSON_RIP_PACK(ct::ObjectId);
 JSON_RIP_PACK(ct::CommandId);
 
@@ -422,5 +422,7 @@ UnpackResult< UserLanguage > Traits< UserLanguage >::unpackInt( mValue const &v 
     return unpackUserLanguage(v, false);
 }
 
-} // json_spirit
+JSON_RIP_PACK(rip::Int);
+JSON_RIP_PACK(rip::UInt);
 
+} // json_spirit

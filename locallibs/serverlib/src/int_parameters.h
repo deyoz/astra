@@ -47,7 +47,7 @@ public:
         check_init();
         return val_;
     }
-    const char* name() const { return traits_t().name_; }
+    const char* name() const { return traits_t::name_; }
     bool valid() const noexcept { return is_init(); }
 
     explicit operator bool () const noexcept { return valid(); }
@@ -108,7 +108,7 @@ public:
 private:
     void check_init() const {
         if (!is_init()){
-            throw Exception(std::string("undefined BaseIntParam: ") + traits_t().name_);
+            throw Exception(std::string("undefined BaseIntParam: ") + traits_t::name_);
         }
     }
     bool is_init() const noexcept {
@@ -267,7 +267,7 @@ public:
     }
     const std::string& get() const {
         check_init();
-        return val_; 
+        return val_;
     }
     const char* name() const { return traits_t().name; }
     bool valid() const { return is_init(); }
@@ -358,17 +358,15 @@ struct LessThanStrValidator
 
 #define MakeIntParamType(ruler, type) \
 struct MakeNameWithLine2(ruler, _PARINT_AT_) \
-{   const char* name_; \
-    MakeNameWithLine2(ruler, _PARINT_AT_)() { name_ = #ruler; } \
+{   static constexpr char const * name_ = #ruler; \
 }; \
 typedef ParInt::BaseIntParam<MakeNameWithLine2(ruler, _PARINT_AT_), type> ruler;
 
 #define MakeArithmeticsIntParamType(ruler, type) \
 struct MakeNameWithLine2(ruler, _PARINT_AT_) \
-{   const char* name_; \
-    static const bool can_compare_to_base_t = true; \
-    static const bool allow_arithmetics = true; \
-    MakeNameWithLine2(ruler, _PARINT_AT_)() { name_ = #ruler; } \
+{   static constexpr char const * name_ = #ruler; \
+    static constexpr bool can_compare_to_base_t = true; \
+    static constexpr bool allow_arithmetics = true; \
 }; \
 typedef ParInt::BaseIntParam<MakeNameWithLine2(ruler, _PARINT_AT_), type> ruler;
 

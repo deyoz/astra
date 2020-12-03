@@ -92,11 +92,9 @@ namespace PgCpp
 
         template <> struct PgTraits<CharBuffer>
         {
-            static const int format = 0;
-
             using this_type = CharBuffer;
 
-            static int length(const this_type& b) { return 0; }
+            static int length(const this_type& b) { return b.size; }
             static bool setNull(char* value)
             {
                 auto p     = reinterpret_cast<CharBuffer*>(value);
@@ -118,29 +116,36 @@ namespace PgCpp
                     dst[sz] = 0;
                 } else
                 {
-                    dst.resize(s.size + 1);
+                    dst.resize(s.size);
                     memcpy(dst.data(), s.data, s.size);
                 }
             }
             static bool setValue(char* value, const char* data, int len)
             {
                 CharBuffer* p = reinterpret_cast<CharBuffer*>(value);
-                if (static_cast<size_t>(len) > p->size)
+                if (p->oid == PgOid::Varchar)
                 {
-                    return false;
-                }
-                memcpy(p->data, data, len);
-                if (static_cast<size_t>(len) < p->size)
+                    if (static_cast<size_t>(len) > p->size)
+                    {
+                        return false;
+                    }
+                    memcpy(p->data, data, len);
+                    if (static_cast<size_t>(len) < p->size)
+                    {
+                        p->data[len] = '\0';
+                    }
+                } else
                 {
-                    p->data[len] = '\0';
+                    fillCharBuffFromHex(p->data, p->size, data);
                 }
                 return true;
             }
         };
         template <> Argument makeTypeDesc(const CharBuffer& t)
         {
-            return Argument{ static_cast<PgOid_t>(t.oid), PgTraits<CharBuffer>::format,
-                             PgTraits<CharBuffer>::format ? PgTraits<CharBuffer>::length(t) : 0 };
+            int format = t.oid == PgOid::Varchar ? 0 : 1;
+            return Argument { static_cast<PgOid_t>(t.oid), format,
+                              format ? PgTraits<CharBuffer>::length(t) : 0 };
         }
     }
 }
@@ -190,6 +195,7 @@ namespace DbCpp
         (ResultCode::Deadlock, "Deadlock")
         (ResultCode::WaitExpired, "WaitExpired")
         (ResultCode::BadConnection, "BadConnection")
+        (ResultCode::ReadOnly, "ReadOnly")
         (ResultCode::CERR_INVALID_IDENTIFIER, "CERR_INVALID_IDENTIFIER")
         (ResultCode::CERR_TRUNC, "CERR_TRUNC")
         (ResultCode::CERR_SELL, "CERR_SELL")
@@ -198,6 +204,11 @@ namespace DbCpp
         (ResultCode::REQUIRED_NEXT_PIECE, "REQUIRED_NEXT_PIECE")
         (ResultCode::REQUIRED_NEXT_BUFFER, "REQUIRED_NEXT_BUFFER")
     ENUM_NAMES_END(ResultCode)
+
+    bool operator!(ResultCode e)
+    {
+        return e == ResultCode::Ok;
+    }
 
     std::ostream& operator<<(std::ostream& os, ResultCode code)
     {
@@ -244,6 +255,7 @@ namespace DbCpp
         { ResultCode::Deadlock, PgCpp::Deadlock },
         { ResultCode::WaitExpired, PgCpp::WaitExpired },
         { ResultCode::BadConnection, PgCpp::BadConnection },
+        { ResultCode::ReadOnly, PgCpp::ReadOnly },
     };
 
     static ResultCode pgErrorCodeMapper(int code)
@@ -294,66 +306,61 @@ namespace DbCpp
     class CursCtlImpl
     {
     public:
-        virtual ~CursCtlImpl() {}
+        virtual ~CursCtlImpl() { }
 
-#define supportType(X)                                                                             \
-    virtual void def(X t, short* ind)                                    = 0;                      \
-    virtual void defNull(X t, const X defVal)                            = 0;                      \
-    virtual void bind(const std::string& n, const X t, const short* ind) = 0
-        supportType(bool&);
-        supportType(char&);
-        supportType(short&);
-        supportType(int&);
-        supportType(long&);
-        supportType(long long&);
-        supportType(unsigned char&);
-        supportType(unsigned short&);
-        supportType(unsigned int&);
-        supportType(unsigned long&);
-        supportType(unsigned long long&);
-        supportType(std::string&);
-        supportType(boost::gregorian::date&);
-        supportType(boost::posix_time::ptime&);
-#undef supportType
+#define defineType(TYPE)                                                                           \
+    virtual void def(TYPE& t, short* ind)                                    = 0;                  \
+    virtual void defNull(TYPE& t, const TYPE& defVal)                        = 0;                  \
+    virtual void bind(const std::string& n, const TYPE& t, const short* ind) = 0
+
+        defineType(bool);
+        defineType(char);
+        defineType(short);
+        defineType(int);
+        defineType(long);
+        defineType(long long);
+        defineType(unsigned char);
+        defineType(unsigned short);
+        defineType(unsigned int);
+        defineType(unsigned long);
+        defineType(unsigned long long);
+        defineType(float);
+        defineType(double);
+        defineType(std::string);
+        defineType(boost::gregorian::date);
+        defineType(boost::posix_time::ptime);
+
+#undef defineType
+
         virtual void def(char* t, size_t size, short* ind)                             = 0;
         virtual void defNull(char* t, size_t size, const char* defVal, size_t defSize) = 0;
+        virtual void defArray(char* t, size_t size, short* ind)                        = 0;
         virtual void bind(const std::string& n, const char* const& t, size_t size, const short* ind)
             = 0;
-        virtual void bind_array(const std::string& n, const char* const& t, size_t size,
-                                const short* ind)
+        virtual void bindArray(const std::string& n, const char* const& t, size_t size,
+                               const short* ind)
             = 0;
         virtual void bind(const std::string& n, const char* const& t, const short* ind) = 0;
 
-        virtual void autoNull()                          = 0;
-        virtual void noThrowError(ResultCode err)        = 0;
-        virtual void stb()                               = 0;
-        virtual void unstb()                             = 0;
-        virtual void singleRowMode()                     = 0;
-        virtual void fetchLen(int count)                 = 0;
-        virtual void structSize(int data, int indicator) = 0;
+        virtual void autoNull()                   = 0;
+        virtual void noThrowError(ResultCode err) = 0;
+        virtual void stb()                        = 0;
+        virtual void unstb()                      = 0;
+        virtual void singleRowMode()              = 0;
 
-        virtual ResultCode exfet(int count = 1) = 0;
-        virtual ResultCode EXfet(int count = 1) = 0;
-        virtual ResultCode exec()               = 0;
-        virtual ResultCode fen(int count = 1)   = 0;
-        virtual ResultCode err()                = 0;
-        virtual int rowcount()                  = 0;
-        virtual int rowcount_now()              = 0;
-        virtual bool isStable() const           = 0;
+        virtual ResultCode exfet()    = 0;
+        virtual ResultCode EXfet()    = 0;
+        virtual ResultCode exec()     = 0;
+        virtual ResultCode fen()      = 0;
+        virtual ResultCode err()      = 0;
+        virtual int rowcount()        = 0;
+        virtual bool isStable() const = 0;
     };
 
-#define supportType(X)                                                                             \
-    virtual void def(X t, short* ind) override                                                     \
-    {                                                                                              \
-        mNeedFetch = true;                                                                         \
-        mCursCtl.def(t, ind);                                                                      \
-    }                                                                                              \
-    virtual void defNull(X t, const X defVal) override                                             \
-    {                                                                                              \
-        mNeedFetch = true;                                                                         \
-        mCursCtl.defNull(t, defVal);                                                               \
-    }                                                                                              \
-    virtual void bind(const std::string& n, const X t, const short* ind) override                  \
+#define defineType(TYPE)                                                                           \
+    virtual void def(TYPE& t, short* ind) override { mCursCtl.def(t, ind); }                       \
+    virtual void defNull(TYPE& t, const TYPE& defVal) override { mCursCtl.defNull(t, defVal); }    \
+    virtual void bind(const std::string& n, const TYPE& t, const short* ind) override              \
     {                                                                                              \
         mCursCtl.bind(n, t, ind);                                                                  \
     }
@@ -372,9 +379,6 @@ namespace DbCpp
             : mSession(static_cast<PgSession&>(sess))
             , mCursCtl(mSession.createPgCursor(n, f, l, sql, cacheit))
             , mIsStable(defaultStableBind())
-            , mExecuted(false)
-            , mNeedFetch(false)
-            , mFetched(false)
         {
             mCursCtl.noThrowError(PgCpp::ResultCode::BadConnection);
             if (mIsStable)
@@ -386,33 +390,23 @@ namespace DbCpp
             }
         }
 
-        ~PostgresImpl()
-        {
-#ifdef XP_TESTING
-            if (!mExecuted)
-            {
-                LogWarning(STDLOG) << "DbCpp::CursCtl has been destructed without being executed";
-            }
-            if (mNeedFetch && !mFetched)
-            {
-                LogWarning(STDLOG) << "mNeedFetch && !mFetched";
-            }
-#endif
-        }
+        ~PostgresImpl() { }
 
-        supportType(bool&);
-        supportType(char&);
-        supportType(short&);
-        supportType(int&);
-        supportType(long&);
-        supportType(long long&);
-        supportType(unsigned short&);
-        supportType(unsigned int&);
-        supportType(unsigned long&);
-        supportType(unsigned long long&);
-        supportType(std::string&);
-        supportType(boost::gregorian::date&);
-        supportType(boost::posix_time::ptime&);
+        defineType(bool);
+        defineType(char);
+        defineType(short);
+        defineType(int);
+        defineType(long);
+        defineType(long long);
+        defineType(unsigned short);
+        defineType(unsigned int);
+        defineType(unsigned long);
+        defineType(unsigned long long);
+        defineType(float);
+        defineType(double);
+        defineType(std::string);
+        defineType(boost::gregorian::date);
+        defineType(boost::posix_time::ptime);
 
         virtual void bind(const std::string& n, const char* const& t, const short* ind) override
         {
@@ -433,7 +427,6 @@ namespace DbCpp
 
         virtual void def(char* t, size_t size, short* ind = 0) override
         {
-            mNeedFetch = true;
             mCharBufferCache.emplace_back(t, size, false);
             mCursCtl.def(mCharBufferCache.back(), ind);
         }
@@ -443,12 +436,18 @@ namespace DbCpp
             {
                 throw comtech::Exception("default value is longer than output buffer");
             }
-            mNeedFetch = true;
             CharBuffer def(defVal, defSize, true);
 
             mCharBufferCache.emplace_back(t, size, false);
             mCursCtl.defNull(mCharBufferCache.back(), def);
         }
+
+        virtual void defArray(char* t, size_t size, short* ind)
+        {
+            mCharBufferCache.emplace_back(t, size, false, PgOid::ByteArray);
+            mCursCtl.def(mCharBufferCache.back(), ind);
+        }
+
         virtual void bind(const std::string& n, const char* const& t, size_t size,
                           const short* ind) override
         {
@@ -456,8 +455,8 @@ namespace DbCpp
             mCursCtl.bind(n, mCharBufferCache.back(), ind);
         }
 
-        virtual void bind_array(const std::string& n, const char* const& t, size_t size,
-                                const short* ind) override
+        virtual void bindArray(const std::string& n, const char* const& t, size_t size,
+                               const short* ind) override
         {
             mCharBufferCache.emplace_back(t, size, false, PgOid::ByteArray);
             mCursCtl.bind(n, mCharBufferCache.back(), ind);
@@ -479,24 +478,9 @@ namespace DbCpp
             mCursCtl.unstb();
         }
         virtual void singleRowMode() override { mCursCtl.singleRowMode(); }
-        virtual void fetchLen(int count) override
-        {
-            throw comtech::Exception(STDLOG, __func__, "Call of unsupported PostgresImpl method");
-        }
-        virtual void structSize(int data, int indicator) override
-        {
-            throw comtech::Exception(STDLOG, __func__, "Call of unsupported PostgresImpl method");
-        }
 
-        virtual ResultCode exfet(int count) override
+        virtual ResultCode exfet() override
         {
-            mExecuted = true;
-            mFetched  = true;
-            if (count > 1)
-            {
-                throw comtech::Exception(STDLOG, __func__,
-                                         "PostgresImpl: 'count' should not exceed 1");
-            }
             mSession.activateSession();
             DbCpp::ResultCode ret = pgErrorCodeMapper(mCursCtl.exfet());
             if (ret == DbCpp::ResultCode::BadConnection)
@@ -506,15 +490,8 @@ namespace DbCpp
             }
             return ret;
         }
-        virtual ResultCode EXfet(int count) override
+        virtual ResultCode EXfet() override
         {
-            mExecuted = true;
-            mFetched  = true;
-            if (count > 1)
-            {
-                throw comtech::Exception(STDLOG, __func__,
-                                         "PostgresImpl: 'count' should not exceed 1");
-            }
             mSession.activateSession();
             DbCpp::ResultCode ret = pgErrorCodeMapper(mCursCtl.EXfet());
             if (ret == DbCpp::ResultCode::BadConnection)
@@ -526,7 +503,6 @@ namespace DbCpp
         }
         virtual ResultCode exec() override
         {
-            mExecuted = true;
             mSession.activateSession();
             DbCpp::ResultCode ret = pgErrorCodeMapper(mCursCtl.exec());
             if (ret == DbCpp::ResultCode::BadConnection)
@@ -536,29 +512,9 @@ namespace DbCpp
             }
             return ret;
         }
-        virtual ResultCode fen(int count) override
-        {
-#ifdef XP_TESTING
-            if (!mExecuted && inTestMode())
-            {
-                LogError(STDLOG) << "DbCpp::CursCtl has to be executed before calling fen()";
-                exit(1);
-            }
-#endif
-            mFetched = true;
-            if (count > 1)
-            {
-                throw comtech::Exception(STDLOG, __func__,
-                                         "PostgresImpl: 'count' should not exceed 1");
-            }
-            return pgErrorCodeMapper(mCursCtl.fen());
-        }
+        virtual ResultCode fen() override { return pgErrorCodeMapper(mCursCtl.fen()); }
         virtual ResultCode err() override { return pgErrorCodeMapper(mCursCtl.err()); }
         virtual int rowcount() override { return mCursCtl.rowcount(); }
-        virtual int rowcount_now() override
-        {
-            throw comtech::Exception(STDLOG, __func__, "Call of unsupported PostgresImpl method");
-        }
         virtual bool isStable() const override { return mIsStable; }
 
     private:
@@ -566,24 +522,13 @@ namespace DbCpp
         DbCpp::PgSession& mSession;
         PgCpp::CursCtl mCursCtl;
         bool mIsStable;
-        bool mExecuted;
-        bool mNeedFetch;
-        bool mFetched;
     };
-#undef supportType
+#undef defineType
 
-#define supportType(X)                                                                             \
-    virtual void def(X t, short* ind) override                                                     \
-    {                                                                                              \
-        mNeedFetch = true;                                                                         \
-        mCursCtl.def(t, ind);                                                                      \
-    }                                                                                              \
-    virtual void defNull(X t, const X defVal) override                                             \
-    {                                                                                              \
-        mNeedFetch = true;                                                                         \
-        mCursCtl.defNull(t, defVal);                                                               \
-    }                                                                                              \
-    virtual void bind(const std::string& n, const X t, const short* ind) override                  \
+#define defineType(TYPE)                                                                           \
+    virtual void def(TYPE& t, short* ind) override { mCursCtl.def(t, ind); }                       \
+    virtual void defNull(TYPE& t, const TYPE& defVal) override { mCursCtl.defNull(t, defVal); }    \
+    virtual void bind(const std::string& n, const TYPE& t, const short* ind) override              \
     {                                                                                              \
         mCursCtl.bind(n, t, const_cast<short*>(ind));                                              \
     }
@@ -594,9 +539,6 @@ namespace DbCpp
                    bool cacheit)
             : mCursCtl(static_cast<OraSession&>(sess).createOraCursor(n, f, l, sql, cacheit))
             , mIsStable(defaultStableBind())
-            , mExecuted(false)
-            , mNeedFetch(false)
-            , mFetched(false)
         {
             if (mIsStable)
             {
@@ -607,34 +549,24 @@ namespace DbCpp
             }
         }
 
-        ~OracleImpl()
-        {
-#ifdef XP_TESTING
-            if (!mExecuted)
-            {
-                LogWarning(STDLOG) << "DbCpp::CursCtl has been destructed without being executed";
-            }
-            if (mNeedFetch && !mFetched)
-            {
-                LogWarning(STDLOG) << "mNeedFetch && !mFetched";
-            }
-#endif
-        }
+        ~OracleImpl() { }
 
-        supportType(bool&);
-        supportType(char&);
-        supportType(short&);
-        supportType(int&);
-        supportType(long long&);
-        supportType(unsigned char&);
-        supportType(unsigned short&);
-        supportType(unsigned int&);
-        supportType(unsigned long long&);
-        supportType(long&);
-        supportType(unsigned long&);
-        supportType(std::string&);
-        supportType(boost::gregorian::date&);
-        supportType(boost::posix_time::ptime&);
+        defineType(bool);
+        defineType(char);
+        defineType(short);
+        defineType(int);
+        defineType(long long);
+        defineType(unsigned char);
+        defineType(unsigned short);
+        defineType(unsigned int);
+        defineType(unsigned long long);
+        defineType(long);
+        defineType(unsigned long);
+        defineType(float);
+        defineType(double);
+        defineType(std::string);
+        defineType(boost::gregorian::date);
+        defineType(boost::posix_time::ptime);
 
         virtual void bind(const std::string& n, const char* const& t, const short* ind) override
         {
@@ -642,7 +574,6 @@ namespace DbCpp
         }
         virtual void def(char* t, size_t size, short* ind) override
         {
-            mNeedFetch = true;
             mCharBufferCache.emplace_back(t, size, false);
             mCursCtl.def(mCharBufferCache.back(), ind);
         }
@@ -652,22 +583,27 @@ namespace DbCpp
             {
                 throw OciCpp::ociexception("default value is longer than output buffer");
             }
-            mNeedFetch = true;
             mCharBufferCache.emplace_back(t, size, false);
             CharBuffer def(defVal, defSize, true);
 
             mCursCtl.defNull(mCharBufferCache.back(), def);
         }
+
+        virtual void defArray(char* t, size_t size, short* ind)
+        {
+            mCursCtl.defFull(const_cast<char*>(t), size, const_cast<short*>(ind), 0, SQLT_BIN);
+        }
+
         virtual void bind(const std::string& n, const char* const& t, size_t size,
                           const short* ind) override
         {
             mCursCtl.bindFull(n, const_cast<char*>(t), size, const_cast<short*>(ind), 0, SQLT_STR);
         }
 
-        virtual void bind_array(const std::string& n, const char* const& t, size_t size,
-                                const short* ind) override
+        virtual void bindArray(const std::string& n, const char* const& t, size_t size,
+                               const short* ind) override
         {
-            mCursCtl.bindFull(n, const_cast<char*>(t), size, const_cast<short*>(ind), 0, SQLT_CHR);
+            mCursCtl.bindFull(n, const_cast<char*>(t), size, const_cast<short*>(ind), 0, SQLT_BIN);
         }
 
         virtual void autoNull() override { mCursCtl.autoNull(); }
@@ -692,92 +628,61 @@ namespace DbCpp
         {
             throw comtech::Exception(STDLOG, __func__, "Call of unsupported OracleImpl method");
         }
-        virtual void fetchLen(int count) override
-        {
-            mFetched = true;
-            mCursCtl.fetchLen(count);
-        }
-        virtual void structSize(int data, int indicator) override
-        {
-            mCursCtl.structSize(data, indicator);
-        }
 
-        virtual ResultCode exfet(int count) override
-        {
-            mExecuted = true;
-            mFetched  = true;
-            return oraErrorCodeMapper(mCursCtl.exfet(count));
-        }
-        virtual ResultCode EXfet(int count) override
-        {
-            mExecuted = true;
-            mFetched  = true;
-            return oraErrorCodeMapper(mCursCtl.EXfet(count));
-        }
+        virtual ResultCode exfet() override { return oraErrorCodeMapper(mCursCtl.exfet()); }
+        virtual ResultCode EXfet() override { return oraErrorCodeMapper(mCursCtl.EXfet()); }
         virtual ResultCode exec() override
         {
-            mExecuted = true;
             mCursCtl.exec();
             return ResultCode::Ok;
         }
-        virtual ResultCode fen(int count) override
-        {
-#ifdef XP_TESTING
-            if (!mExecuted && inTestMode())
-            {
-                LogError(STDLOG) << "DbCpp::CursCtl has to be executed before calling fen()";
-                exit(1);
-            }
-#endif
-            mFetched = true;
-            return oraErrorCodeMapper(mCursCtl.fen(count));
-        }
+        virtual ResultCode fen() override { return oraErrorCodeMapper(mCursCtl.fen()); }
         virtual ResultCode err() override { return oraErrorCodeMapper(mCursCtl.err()); }
         virtual int rowcount() override { return mCursCtl.rowcount(); }
-        virtual int rowcount_now() override { return mCursCtl.rowcount_now(); }
         virtual bool isStable() const override { return mIsStable; }
 
     private:
         std::list<CharBuffer> mCharBufferCache;
         OciCpp::CursCtl mCursCtl;
         bool mIsStable;
-        bool mExecuted;
-        bool mNeedFetch;
-        bool mFetched;
     };
-#undef supportType
+#undef defineType
 
-#define supportType(X)                                                                             \
-    CursCtl& CursCtl::def(X& t, short* ind)                                                        \
+#define defineType(TYPE)                                                                           \
+    CursCtl& CursCtl::def_(TYPE& t, short* ind)                                                    \
     {                                                                                              \
         mImpl->def(t, ind);                                                                        \
         return *this;                                                                              \
     }                                                                                              \
-    CursCtl& CursCtl::defNull(X& t, const X& defVal)                                               \
+    CursCtl& CursCtl::defNull_(TYPE& t, const TYPE& defVal)                                        \
     {                                                                                              \
         mImpl->defNull(t, defVal);                                                                 \
         return *this;                                                                              \
     }                                                                                              \
-    CursCtl& CursCtl::bind_(const std::string& n, const X& t, const short* ind)                    \
+    CursCtl& CursCtl::bind_(const std::string& n, const TYPE& t, const short* ind)                 \
     {                                                                                              \
         mImpl->bind(n, t, ind);                                                                    \
         return *this;                                                                              \
     }
-    supportType(bool);
-    supportType(char);
-    supportType(short);
-    supportType(int);
-    supportType(long);
-    supportType(long long);
-    supportType(unsigned char);
-    supportType(unsigned short);
-    supportType(unsigned int);
-    supportType(unsigned long);
-    supportType(unsigned long long);
-    supportType(std::string);
-    supportType(boost::gregorian::date);
-    supportType(boost::posix_time::ptime);
-#undef supportType
+
+    defineType(bool);
+    defineType(char);
+    defineType(short);
+    defineType(int);
+    defineType(long);
+    defineType(long long);
+    defineType(unsigned char);
+    defineType(unsigned short);
+    defineType(unsigned int);
+    defineType(unsigned long);
+    defineType(unsigned long long);
+    defineType(float);
+    defineType(double);
+    defineType(std::string);
+    defineType(boost::gregorian::date);
+    defineType(boost::posix_time::ptime);
+
+#undef defineType
 
     CursCtl& CursCtl::def(char* t, size_t size, short* ind)
     {
@@ -787,6 +692,11 @@ namespace DbCpp
     CursCtl& CursCtl::defNull(char* t, size_t size, const char* defVal, size_t defSize)
     {
         mImpl->defNull(t, size, defVal, defSize);
+        return *this;
+    }
+    CursCtl& CursCtl::defArray(char* t, size_t size, short* ind)
+    {
+        mImpl->defArray(t, size, ind);
         return *this;
     }
     CursCtl& CursCtl::bind_(const std::string& n, const char* const& t, size_t size,
@@ -801,10 +711,10 @@ namespace DbCpp
         return *this;
     }
 
-    CursCtl& CursCtl::bind_array(const std::string& n, const char* const& t, size_t size,
-                                 const short* ind)
+    CursCtl& CursCtl::bindArray(const std::string& n, const char* const& t, size_t size,
+                                const short* ind)
     {
-        mImpl->bind_array(n, t, size, ind);
+        mImpl->bindArray(n, t, size, ind);
         return *this;
     }
 
@@ -820,7 +730,7 @@ namespace DbCpp
         }
     }
 
-    CursCtl::CursCtl(CursCtl&& ) = default;
+    CursCtl::CursCtl(CursCtl&&) = default;
 
     CursCtl::~CursCtl() = default;
 
@@ -849,24 +759,13 @@ namespace DbCpp
         mImpl->singleRowMode();
         return *this;
     }
-    CursCtl& CursCtl::fetchLen(int count)
-    {
-        mImpl->fetchLen(count);
-        return *this;
-    }
-    CursCtl& CursCtl::structSize(int data, int indicator)
-    {
-        mImpl->structSize(data, indicator);
-        return *this;
-    }
 
-    ResultCode CursCtl::exfet(int count) { return mImpl->exfet(count); }
-    ResultCode CursCtl::EXfet(int count) { return mImpl->EXfet(count); }
+    ResultCode CursCtl::exfet() { return mImpl->exfet(); }
+    ResultCode CursCtl::EXfet() { return mImpl->EXfet(); }
     ResultCode CursCtl::exec() { return mImpl->exec(); }
-    ResultCode CursCtl::fen(int count) { return mImpl->fen(count); }
+    ResultCode CursCtl::fen() { return mImpl->fen(); }
     ResultCode CursCtl::err() { return mImpl->err(); }
     int CursCtl::rowcount() { return mImpl->rowcount(); }
-    int CursCtl::rowcount_now() { return mImpl->rowcount_now(); }
 
     bool CursCtl::isStable() const { return mImpl->isStable(); }
     void CursCtl::throwBadBindException(const std::string& msg) const

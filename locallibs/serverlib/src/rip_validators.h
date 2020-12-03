@@ -1,5 +1,4 @@
-#ifndef SERVERLIB_RIP_VALIDATORS_H
-#define SERVERLIB_RIP_VALIDATORS_H
+#pragma once
 
 #include <string>
 #include "encstring.h"
@@ -33,10 +32,7 @@ bool byLength(const EncString& v)
 }
 
 bool byRegex(const std::string& v, const std::string& reStr);
+
 } // validators
+
 } // rip
-
-
-
-#endif /* SERVERLIB_RIP_VALIDATORS_H */
-

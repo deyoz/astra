@@ -29,12 +29,12 @@
 #include <serverlib/str_utils.h>
 #include <serverlib/dates_oci.h>
 #include <serverlib/dates_io.h>
-#include "serverlib/oci_rowid.h"
+#include <serverlib/oci_rowid.h>
+#include <serverlib/dbcpp_session.h>
+#include <serverlib/dbcpp_cursctl.h>
 
 
 #define NICKNAME "FELIX"
-#define NICKTRACE FELIX_TRACE
-//#include <serverlib/slogger.h>
 #include <serverlib/slogger_nonick.h>
 
 using std::string;
@@ -43,18 +43,22 @@ using std::shared_ptr;
 using std::type_info;
 using std::endl;
 
+namespace DbCpp {
+    class Session;
+}
+
 using namespace Dates;
+
+
 
 namespace dbo
 {
 
-enum CurrentDb{
+enum CurrentDb {
     Oracle,
     Postgres
 };
 
-
-class Session;
 template<typename Result>
 class Query;
 class InitSchema;
@@ -65,8 +69,8 @@ template<typename Cur> class Binder;
 
 
 
-typedef  std::variant<int, long long, float, double, DateTime_t, Date_t ,std::string,
-    bool, PointId_t, GrpId_t, MoveId_t, PaxId_t, PointIdTlg_t, PnrId_t > bindedTypes;
+typedef std::variant<bool, int, long long, float, double, std::string,
+                     DateTime_t, Date_t> bindedTypes;
 
 static std::string str_tolower(std::string s) {
     std::transform(s.begin(), s.end(), s.begin(),
@@ -132,7 +136,7 @@ bool isNull(const C& val)
 template<typename C>
 bool isNotNull(const C& val)
 {
-    return val != nullValue(val);
+    return !isNull(val);
 }
 
 template <typename V>
@@ -163,16 +167,12 @@ public:
     template<typename Cur, typename T>
     void bind(Cur &cur, T&& value) const
     {
-        if(isNotNull(value)) {
-            cur.bind(":"+name_, std::forward<T>(value));
-        } else {
-            short null = -1;
-            cur.bind(":"+name_, std::forward<T>(value), &null); //bind NULL
-        }
+        short null = -1, nnull = 0;
+        cur.bind(":"+name_, std::forward<T>(value), isNull(value) ? &null : &nnull);
     }
 
     template<typename Cur>
-    void define(Cur &cur) const
+    void def(Cur &cur) const
     {
         if(isNullable()) {
             cur.defNull(value_, nullValue(value_));
@@ -282,7 +282,7 @@ public:
 
     template <typename V>
     void act(const FieldRef<V> & field) {
-        field.define(m_cur);
+        field.def(m_cur);
     }
 private:
     Cur & m_cur;
@@ -320,32 +320,32 @@ template<class... Ts> overload(Ts...) -> overload<Ts...>;
 
 class Cursor
 {
-    std::variant<PgCpp::CursCtl *, OciCpp::CursCtl *> cur_;
+    DbCpp::CursCtl cur_;
 
 public:
-    Cursor(PgCpp::CursCtl & cur) :  cur_(&cur) {}
-    Cursor(OciCpp::CursCtl & cur) :  cur_(&cur) {}
-    virtual ~Cursor() = default;
-    Cursor & bind(std::map<std::string, dbo::bindedTypes> &bindedVars)
+    Cursor(DbCpp::CursCtl&& cur)
+        : cur_(std::move(cur))
     {
-        std::visit([&](auto &cur){
-            for(auto & [name, value] : bindedVars) {
-                std::visit([&](auto &v)
-                {
-                    cur->bind(name, v);
-                }, value);
-            }
-        }, cur_);
+        cur_.stb(); // want unstb()
+    }
+
+    virtual ~Cursor() = default;
+
+    Cursor& bind(std::map<std::string, dbo::bindedTypes>& bindedVars)
+    {        
+        for(auto & [name, value] : bindedVars) {
+            std::visit([&](auto &v) {
+                cur_.bind(name, v);
+            }, value);
+        }
         return *this;
     }
 
     template<typename Object>
-    Cursor & bindAll(Object & obj)
+    Cursor& bindAll(Object & obj)
     {
-        std::visit([&](auto &cur){
-            Binder b(*cur);
-            b.visit(obj);
-        }, cur_);
+        Binder b(cur_);
+        b.visit(obj);
         return *this;
     }
 
@@ -353,93 +353,60 @@ public:
     {
         std::stringstream res;
         std::vector<std::string> vals(fields_size);
-        std::visit([&](auto &cur) {
-            for(std::string& val:  vals) {
-                cur->defNull(val, "NULL");
+
+        for(std::string& val:  vals) {
+            cur_.defNull(val, "NULL");
+        }
+        cur_.exec();
+
+        while(!cur_.fen()) {
+            for(const std::string& val:  vals) {
+                res << "[" << val << "] ";
             }
-            cur->exec();
-            while(!cur->fen()) {
-                for(const std::string& val:  vals) {
-                    res << "[" << val << "] ";
-                }
-                res << endl;
-            }
-        }, cur_);
+            res << std::endl;
+        }
+
         return res.str();
     }
 
     template<typename Result>
-    Cursor & define(Result & r)
+    Cursor& def(Result & r)
     {
-        std::visit([&](auto &cur){
-            DefineClass d(*cur);
-            d.visit(r);
-        }, cur_);
+        DefineClass d(cur_);
+        d.visit(r);
         return *this;
     }
 
-    Cursor & exec() {
-        std::visit([&](auto &cur)
-        {
-            cur->exec();
-        }, cur_);
-        return *this;
-    }
-
-    template<typename Err>
-    Cursor & noThrowError(Err err)
+    Cursor& exec()
     {
-        std::visit( overload {
-             [&](PgCpp::CursCtl *cur) {cur->noThrowError(static_cast<PgCpp::ResultCode>(err));},
-             [&](OciCpp::CursCtl *cur) {cur->noThrowError(static_cast<int>(err));}
-             }, cur_);
+        cur_.exec();
         return *this;
     }
 
-    bool fen() {
-        bool res = false;
-        std::visit([&](auto &cur)
-        {
-            res =  cur->fen();
-        }, cur_);
-        return res;
+    Cursor& noThrowError(DbCpp::ResultCode err)
+    {
+        cur_.noThrowError(err);
+        return *this;
+    }
+
+    bool fen()
+    {
+        return cur_.fen() != DbCpp::ResultCode::Ok;
     }
 
 };
 
-class Session
+
+class Mapper
 {
 private:
-    Session(){}
+    Mapper() {}
 
 public:
-    Session(const Session &s) = delete;
-    Session& operator=(const Session &s) = delete;
-    Session(Session &&) = delete;
-    Session & operator=(Session &&) = delete;
-    CurrentDb db;
-
-    static Session& getInstance() {
-        static Session s;
-        return s;
-    }
-    void connectPostgres()
+    static Mapper& getInstance()
     {
-        db = Postgres;
-    }
-    void connectOracle()
-    {
-        db = Oracle;
-    }
-
-    Cursor createCursor(PgCpp::CursCtl& pg_cur, OciCpp::CursCtl & or_cur)
-    {
-        if(db == CurrentDb::Postgres)
-        {
-            return Cursor(pg_cur);
-        } else {
-            return Cursor(or_cur);
-        }
+        static Mapper inst;
+        return inst;
     }
 
     template <typename Class>
@@ -451,7 +418,7 @@ public:
         }
         auto mapInfo = std::make_shared<MappingInfo>(tblName, typeid(Class));
         if(!mapInfo) {
-            throw EXCEPTIONS::Exception(" Error allocate memory");
+            throw EXCEPTIONS::Exception("Unable to allocate memory");
         }
         mapInfo->init<Class>();
         classRegistry[&typeid(Class)] = mapInfo;
@@ -465,11 +432,11 @@ public:
     {
         std::string tblName = str_tolower(tableName);
         auto it = tableRegistry.find(tblName);
-
-        if (it != tableRegistry.end())
+        if(it != tableRegistry.end()) {
             return it->second;
-        else
+        } else {
             return nullptr;
+        }
     }
 
     template<typename Class>
@@ -481,30 +448,80 @@ public:
             return nullptr;
         }
         auto it = classRegistry.find(&typeid(Class));
-        if (it != classRegistry.end())
+        if (it != classRegistry.end()) {
             return it->second;
-        else
-            throw EXCEPTIONS::Exception("Not known type: " + std::string(typeid(Class).name()));
+        } else {
+            throw EXCEPTIONS::Exception("Unknown type: " + std::string(typeid(Class).name()));
+        }
     }
 
+private:
+    std::map< std::string, shared_ptr<MappingInfo> > tableRegistry;
+    std::map< const_typeinfo_ptr, shared_ptr<MappingInfo>, typecomp > classRegistry;
+};
+
+
+class Session
+{
+private:
+    Session() {}
+
+protected:
+    Session(DbCpp::Session* oraSess,
+            DbCpp::Session* pgSessRo, DbCpp::Session* pgSessRw);
+
+public:
+    Session(const Session &s) = delete;
+    Session& operator=(const Session &s) = delete;
+    Session(Session &&) = delete;
+    Session& operator=(Session &&) = delete;
+
+    static Session& getMainInstance();
+    static Session& getArxInstance();
+
+    void connectPostgres()
+    {
+        db = Postgres;
+    }
+    void connectOracle()
+    {
+        db = Oracle;
+    }
+
+    Cursor getReadCursor(const std::string& sql)
+    {
+        if(db == CurrentDb::Postgres) {
+            return Cursor(pg_dbcpp_session_ro->createCursor(STDLOG, sql));
+        } else {
+            return Cursor(ora_dbcpp_session->createCursor(STDLOG, sql));
+        }
+    }
+
+    Cursor getWriteCursor(const std::string& sql)
+    {
+        if(db == CurrentDb::Postgres) {
+            return Cursor(pg_dbcpp_session_rw->createCursor(STDLOG, sql));
+        } else {
+            return Cursor(ora_dbcpp_session->createCursor(STDLOG, sql));
+        }
+    }
 
     template<typename Object>
     void insert(Object && obj, const std::string& tblName = "")
     {
         std::string tableName = tblName;
         if(tableName.empty()) {
-            tableName = getMapping<Object>()->tableName();
+            tableName = Mapper::getInstance().getMapping<Object>()->tableName();
         }
-        shared_ptr<MappingInfo> mapInfo = getMapping(tableName);
+        shared_ptr<MappingInfo> mapInfo = Mapper::getInstance().getMapping(tableName);
         if(!mapInfo) {
-            throw EXCEPTIONS::Exception("Not known table: " + tableName);
+            throw EXCEPTIONS::Exception("Unknown table: " + tableName);
         }
         std::string query = mapInfo->insertColumns();
 
-        PgCpp::CursCtl pg_cur = get_pg_curs(query);
-        OciCpp::CursCtl or_cur = make_curs(query);
+        LogTrace1 << "query: " << query;
 
-        Cursor cur = createCursor(pg_cur, or_cur);
+        Cursor cur = getWriteCursor(query);
         for(const auto & err : ignoreErrors) {
             cur.noThrowError(err);
         }
@@ -517,19 +534,26 @@ public:
     template <class Result>
     Query<Result> query(std::string selectQuery = "")
     {
-        return Query<Result>(selectQuery);
+        return Query<Result>(this, selectQuery);
     }
 
-    Session & noThrowError(int err)
+    Session & noThrowError(DbCpp::ResultCode err)
     {
         ignoreErrors.push_back(err);
         return *this;
     }
-    std::vector<int> ignoreErrors;
+
+    void clearIgnoreErrors();
 
 private:
-    std::map<std::string, shared_ptr<MappingInfo>> tableRegistry;
-    std::map<const_typeinfo_ptr, shared_ptr<MappingInfo>, typecomp> classRegistry;
+    CurrentDb db;
+    std::vector<DbCpp::ResultCode> ignoreErrors;
+
+    // DbCpp session for reading/writing from/to Oracle
+    DbCpp::Session* ora_dbcpp_session;
+    // DbCpp sessions for reading/writing from/to Postgresql
+    DbCpp::Session* pg_dbcpp_session_ro;
+    DbCpp::Session* pg_dbcpp_session_rw;
 };
 
 class InitSchema
@@ -554,7 +578,9 @@ template<typename Result>
 class Query
 {
 public:
-    Query(const std::string& selectQuery) : m_select(selectQuery)
+    Query(Session* sess, const std::string& selectQuery)
+        : m_sess(sess),
+          m_select(selectQuery)
     {}
 
     operator std::optional<Result> ()
@@ -577,24 +603,19 @@ public:
 
     std::vector<Result> resultList()
     {
-        auto& sess = Session::getInstance();
-        auto mapInfo = sess.getMapping<Result>();
-        std::string query = createQuery(mapInfo);
-
-        PgCpp::CursCtl pg_cur = get_pg_curs(query);
-        OciCpp::CursCtl or_cur = make_curs(query);
-        Cursor cur = sess.createCursor(pg_cur, or_cur);
+        auto mapInfo = Mapper::getInstance().getMapping<Result>();
+        Cursor cur = m_sess->getReadCursor(createQuery(mapInfo));
 
         Result r;
         cur.bind(bindVars)
-           .define(r)
+           .def(r)
            .exec();
 
         std::vector<Result> res;
         while(!cur.fen()) {
             res.push_back(r);
         }
-        sess.ignoreErrors.clear();
+        m_sess->clearIgnoreErrors();
         return res;
     }
 
@@ -642,6 +663,7 @@ public:
     }
 
 private:
+    Session*    m_sess;
     std::string m_select;
     std::string m_where;
     std::string m_from;

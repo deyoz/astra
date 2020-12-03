@@ -47,6 +47,7 @@ enum ResultCode
     Deadlock,
     WaitExpired,
     BadConnection,
+    ReadOnly,
 };
 
 SessionDescriptor getManagedSession(const std::string&);
@@ -265,7 +266,7 @@ struct PgTraits<std::string>
     static const PgOid oid = PgOid::Varchar;
     static const int format = 0;
 
-    static int length(const std::string& s) { return 0; }
+    static int length(const std::string& ) { return 0; }
     static bool setNull(char* value);
     static void fillBindData(std::vector<char>& dst, const std::string& s);
     static bool setValue(char* value, const char* data, int len);
@@ -307,7 +308,7 @@ struct PgTraits<const char*>
     static const PgOid oid = PgOid::Varchar;
     static const int format = 0;
 
-    static int length(const char* s) {
+    static int length(const char* ) {
         return 0;
     }
     // static bool setNull - def is not allowed
@@ -345,7 +346,7 @@ struct PgTraits<std::array<char, N>>
         dst.resize(N);
         memcpy(dst.data(), v.data(), N);
     }
-    static bool setValue(char* value, const char* data, int l) {
+    static bool setValue(char* value, const char* data, int /*l*/) {
         auto p = reinterpret_cast<std::array<char, N>*>(value);
         p->fill(0);
         return fillCharBuffFromHex(p->data(), N, data);

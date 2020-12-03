@@ -35,6 +35,9 @@ class BoolHolder {
     explicit BoolHolder(bool v):val(v){}
     bool getValue() const { return val;}
 };
+
+namespace OciCpp { class OciSession; }
+
 namespace HelpCpp {
 
 template<typename Type, size_t sz>
@@ -504,6 +507,8 @@ bool rough_lte(T lhs, T rhs, T epsilon = std::numeric_limits<T>::epsilon()) // o
 typedef uint64_t ObjIdType;
 
 ObjIdType objId();
+ObjIdType objId(const std::string& sequence, OciCpp::OciSession* sess = nullptr);
+
 std::string convertToId(const std::string& src, unsigned len, const std::string& prefix, const std::string& dict);
 std::string convertToId(const std::string& src, unsigned len, const std::string& prefix);
 std::string convertToId(const uint64_t& src, unsigned len, const std::string& prefix);

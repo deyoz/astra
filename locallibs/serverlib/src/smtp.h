@@ -179,6 +179,10 @@ namespace SMTP {
         {
             return EmailPart(contents, charset.name(), "text/xml", true, false /*set binary flag to false, when it's true we have no charset*/, name);
         }
+        static EmailPart csvAttachment(std::vector<char> const &contents, Charset const &charset, std::string const &name)
+        {
+            return EmailPart(contents, charset.name(), "text/csv", true, false /*set binary flag to false, when it's true we have no charset*/, name);
+        }
     
     };
     

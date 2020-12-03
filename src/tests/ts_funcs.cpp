@@ -26,6 +26,7 @@
 #include "arx_daily_pg.h"
 #include "dbo.h"
 #include "dbostructures.h"
+#include "hooked_session.h"
 
 #include <queue>
 #include <fstream>
@@ -37,11 +38,13 @@
 #include <serverlib/tscript.h>
 #include <serverlib/exception.h>
 #include <serverlib/func_placeholders.h>
+#include <serverlib/posthooks.h>
 #include <serverlib/cursctl.h>
 #include <serverlib/dates_oci.h>
 #include <serverlib/str_utils.h>
 #include <serverlib/tcl_utils.h>
 #include <serverlib/dates_io.h>
+#include <serverlib/dump_table.h>
 #include <serverlib/rip_oci.h>
 #include <serverlib/pg_rip.h>
 #include <jxtlib/jxtlib.h>
@@ -905,11 +908,13 @@ static std::string FP_dump_pg_table(const std::vector<tok::Param>& params)
 {
     ASSERT(params.size() > 0);
     std::string tableName = params[0].value;
-    std::string fields, where, order;
+    std::string connect, fields, where, order;
     bool display = false;
 
     for (size_t i = 1; i < params.size(); ++i) {
-        if (params[i].name == "fields") {
+        if (params[i].name == "connect") {
+            connect = params[i].value;
+        } else if (params[i].name == "fields") {
             fields = params[i].value;
         } else if (params[i].name == "where") {
             where = params[i].value;
@@ -934,16 +939,39 @@ static std::string FP_dump_pg_table(const std::vector<tok::Param>& params)
     for(auto & tok : fieldTokens) {
         StrUtils::StringTrim(&tok);
     }
-    auto &session = dbo::Session::getInstance();
+    auto &session = connect == "ARX" ? dbo::Session::getArxInstance()
+                                     : dbo::Session::getMainInstance();
     session.connectPostgres();
     session.dump(tableName, fieldTokens, resultQuery);
+    return "";
+}
+
+static std::string FP_dump_db_table(const std::vector<tok::Param>& params)
+{
+    ASSERT(params.size() > 0);
+    std::string tableName = params[0].value;
+
+    std::string db = "pg";
+    for (size_t i = 1; i < params.size(); ++i) {
+        if(params[i].name == "db") {
+            db = params[i].value;
+        }
+    }
+
+    std::string dump;
+    if(db == "pg") {
+        DbCpp::DumpTable(*get_main_pg_rw_sess(STDLOG), tableName).exec(dump);
+    } else if(db == "ora") {
+        DbCpp::DumpTable(*get_main_ora_rw_sess(STDLOG), tableName).exec(dump);
+    }
+    LogTrace(TRACE3) << dump;
     return "";
 }
 
 static std::string FP_agent_stat_equal(const std::vector<tok::Param>& params)
 {
     std::vector<dbo::ARX_AGENT_STAT> ora_arx_agents_stat = dbo::readOraArxAgentsStat();
-    auto &session = dbo::Session::getInstance();
+    auto &session = dbo::Session::getArxInstance();
 
     session.connectPostgres();
     std::vector<dbo::ARX_AGENT_STAT> pg_arx_agents_stats = session.query<dbo::ARX_AGENT_STAT>();
@@ -955,11 +983,13 @@ static std::string FP_tables_equal(const std::vector<tok::Param>& params)
 {
     ASSERT(params.size() > 0);
     std::string tableName = params[0].value;
-    std::string fields, where, order;
+    std::string connect, fields, where, order;
     bool display = false;
 
     for (size_t i = 1; i < params.size(); ++i) {
-        if (params[i].name == "fields") {
+        if (params[i].name == "connect") {
+            connect = params[i].value;
+        } else if (params[i].name == "fields") {
             fields = params[i].value;
         } else if (params[i].name == "where") {
             where = params[i].value;
@@ -978,7 +1008,8 @@ static std::string FP_tables_equal(const std::vector<tok::Param>& params)
     if(!order.empty()) {
         resultQuery += " order by " + order;
     }
-    auto &session = dbo::Session::getInstance();
+    auto &session = connect == "arx" ? dbo::Session::getArxInstance()
+                                     : dbo::Session::getMainInstance();
     session.connectPostgres();
     std::string postgresDump = session.dump(tableName, {}, resultQuery);
     session.connectOracle();
@@ -1135,8 +1166,9 @@ static std::string FP_runArchStep(const std::vector<std::string>& par)
     //TDateTime utcdate = BASIC::date_time::BoostToDateTime(d);
     //LogTrace(TRACE5) << __FUNCTION__ << " time: " << DateTimeToStr( utcdate, "DD.MM.YYYY" ); //HelpCpp::string_cast(send_time, "%H%M%S");
 
-    bool resultPg = PG_ARX::test_arx_daily(date, step);
-    bool result = test_arx_daily(BoostToDateTime(date), step);
+    PG_ARX::test_arx_daily(date, step);
+    test_arx_daily(BoostToDateTime(date), step);
+
     return "";
 }
 
@@ -1221,6 +1253,7 @@ FP_REGISTER("update_pg_coupon", FP_runUpdateCoupon);
 FP_REGISTER("run_arch_step", FP_runArchStep);
 FP_REGISTER("run_arch", FP_runArch);
 FP_REGISTER("dump_pg_table", FP_dump_pg_table);
+FP_REGISTER("dump_db_table", FP_dump_db_table);
 FP_REGISTER("are_tables_equal", FP_tables_equal);
 FP_REGISTER("are_agent_stat_equal", FP_agent_stat_equal);
 FP_REGISTER("collect_flight_stat", FP_collectFlightStat);

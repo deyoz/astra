@@ -90,24 +90,22 @@ std::vector<MealServiceData> mealServices()
                                                      EncString::from866("Обед")),
 
         MealServiceData( 4, EncString::from866("F"), EncString::from866("Food for Purchase"),
-                                                     EncString::from866("Питание за отдельную плату")),
+                                                     EncString::from866("Платное питание")),
 
         MealServiceData( 5, EncString::from866("G"), EncString::from866("Food and Beverages for Purchase"),
-                                                     EncString::from866("Напитки и питание за отдельную плату")),
+                                                     EncString::from866("Платные напитки и питание")),
 
         MealServiceData( 6, EncString::from866("H"), EncString::from866("Hot Meal"),
                                                      EncString::from866("Горячие закуски")),
 
         MealServiceData( 7, EncString::from866("K"), EncString::from866("Continental Breakfast"),
-                                                     EncString::from866("Континентальный Завтрак")),
+                                                     EncString::from866("Континентальный завтрак")),
 
         MealServiceData( 8, EncString::from866("L"), EncString::from866("Lunch"),
                                                      EncString::from866("Ланч")),
 
         MealServiceData( 9, EncString::from866("M"), EncString::from866("Meal (general)"),
-                                                     EncString::from866("Основной термин, используется, если "
-                                                                        "конкретный вид питания не обозначен "
-                                                                        "(т.е. предусмотрена какая-то еда)")),
+                                                     EncString::from866("Питание (без уточнений)")),
 
         MealServiceData(10, EncString::from866("N"), EncString::from866("No Meal Service"),
                                                      EncString::from866("Питание не предоставляется")),
@@ -116,16 +114,16 @@ std::vector<MealServiceData> mealServices()
                                                      EncString::from866("Холодные закуски")),
 
         MealServiceData(12, EncString::from866("P"), EncString::from866("Alcoholic Beverages for Purchase"),
-                                                     EncString::from866("Алкогольные напитки за отдельную плату")),
+                                                     EncString::from866("Платные алкогольные напитки")),
 
         MealServiceData(13, EncString::from866("R"), EncString::from866("Refreshments - Complimentary"),
-                                                     EncString::from866("Прохладительные напитки - бесплатно")),
+                                                     EncString::from866("Бесплатные прохладительные напитки")),
 
         MealServiceData(14, EncString::from866("S"), EncString::from866("Snack or Brunch"),
-                                                     EncString::from866("Легкие закуски или Поздний завтрак")),
+                                                     EncString::from866("Легкие закуски или поздний завтрак")),
 
         MealServiceData(15, EncString::from866("V"), EncString::from866("Refreshments for Purchase"),
-                                                     EncString::from866("Прохладительные напитки - за плату")),
+                                                     EncString::from866("Платные прохладительные напитки")),
 
         MealServiceData(16, EncString::from866("Y"), EncString::from866("Duty Free sales"),
                                                      EncString::from866("Продажа из Duty Free"))

@@ -15,6 +15,7 @@
 #include "testmode.h"
 #include "logopt.h"
 #include "pg_locks.h"
+#include "tclmon.h"
 
 #define NICKNAME "NONSTOP"
 #include "slogger.h"
@@ -313,9 +314,10 @@ ResultCode sqlStateToResultCode(const char* sqlState)
         {"23XXX", 2, ResultCode::ConstraintFail},   // Class 23 - Integrity Constraint Violation
         {"42XXX", 2, ResultCode::BadSqlText},       // Class 42 - Syntax Error or Access Rule Violation
         {"57XXX", 2, ResultCode::BadConnection},    // Class 57: Operator Intervention
+        {"25006", 5, ResultCode::ReadOnly},         // 25006: cannot execute in a read-only transaction
         {"40001", 5, ResultCode::BadConnection},    // 40001: Transaction Rollback: serialization_failure
         {"40P01", 5, ResultCode::Deadlock},         // 40P01: deadlock_detected
-        {"55P03", 5, ResultCode::Busy},             // 55P03: lock_not_available
+        {"55P03", 5, ResultCode::Busy}              // 55P03: lock_not_available
     };
     for (const auto& ec : errCodes) {
         if (std::strncmp(sqlState, ec.sqlState, ec.len) == 0) {
@@ -1424,12 +1426,24 @@ bool copyDataFrom(Session& sess, const std::string& sql, const char* data, size_
     return result;
 }
 
-static PGconn* connect(const char* connStr, bool exitOnFail)
+std::string connStringWithAppName(const std::string& connStr, const std::string& app_suffix)
 {
-    PGconn* c = PQconnectdb(connStr);
+  return connStr
+    + (connStr.find('?')==std::string::npos ? "?":"&")
+    +"application_name="+tclmonCurrentProcessName()
+    +"_"+std::to_string(getpid())
+    + (app_suffix.empty() ? app_suffix : ("_"+app_suffix));
+}
+
+static PGconn* connect(const char* a_connStr, bool exitOnFail)
+{
+    const std::string connStr=connStringWithAppName(a_connStr);
+    PGconn* c = PQconnectdb(connStr.c_str());
     const ConnStatusType st = PQstatus(c);
     if (st != CONNECTION_OK) {
+        LogTrace(TRACE0) << PQerrorMessage(c);
         PQfinish(c);
+
         if (exitOnFail) {
             LogError(STDLOG) << "failed to connect to " << connStr;
             sleep(1);
@@ -1663,13 +1677,17 @@ static int appendPos(Positions& ps, const std::string& pl)
     return ++i;
 }
 
-static bool isDml(const std::string& s)
+bool isDml(const std::string& s)
 {
-    auto pos = s.find(' ');
+    auto pos_beg = s.find_first_not_of(' ');
+    if (pos_beg == std::string::npos) {
+        return false;
+    }
+    auto pos = s.find_first_of(" (+-'\n",pos_beg);
     if (pos == std::string::npos) {
         return false;
     }
-    std::string cmd = s.substr(0, pos);
+    std::string cmd = s.substr(pos_beg, pos);
     std::transform(cmd.begin(), cmd.end(), cmd.begin(), ::toupper);
     return cmd == "SELECT"
         || cmd == "INSERT"
@@ -2503,7 +2521,7 @@ START_TEST(test_datetime)
     CHECK_EQUAL_STRINGS(to_iso_string(t2), "20200415T155128.004000");
     make_curs("select timestamp '2020-04-15 15:51:28.1049'").def(t2).EXfet();
     CHECK_EQUAL_STRINGS(to_iso_string(t2), "20200415T155128.104000");
-    
+
     make_curs("set time zone -7").exec();
     make_curs("select to_timestamp('26/02/1984 06:20:58.43', 'DD/MM/YYYY HH24:MI:SS.MS')")
         .def(t2).EXfet();
@@ -2814,7 +2832,7 @@ START_TEST(test_bind_ParNotEq1)
     bind(":inp", _inp).
     EXfet();
     LogTrace(TRACE5)<<"_inp='"<<_inp<<"' _res='"<<_res<<"'";
-    fail_unless(_res ==_inp, "expected 1");    
+    fail_unless(_res ==_inp, "expected 1");
 }
 END_TEST
 
@@ -2828,7 +2846,7 @@ START_TEST(test_bind_ParNotEq2)
     bind(":inp", _inp).
     EXfet();
     LogTrace(TRACE5)<<"_inp='"<<_inp<<"' _res="<<_res;
-    fail_unless(_res == 1, "expected 1");    
+    fail_unless(_res == 1, "expected 1");
 }
 END_TEST
 
@@ -3053,10 +3071,10 @@ START_TEST(test_bind_int_after_long_int)
   make_pg_curs_autonomous(sd, "CREATE TABLE TEST_BIND_INT ( FLD1 INTEGER );").exec();
   make_pg_curs_autonomous(sd, "INSERT INTO TEST_BIND_INT (FLD1) VALUES(999);").exec();
   std::string query="SELECT COUNT(*) FROM TEST_BIND_INT WHERE FLD1=:FLD";
-    
+
   {// make cached cursor and bind long long int
     long long int fld=999;
-    
+
     int tmp=0;
     PgCpp::CursCtl cr = make_curs(query);
     cr.bind(":FLD",fld);
@@ -3068,7 +3086,7 @@ START_TEST(test_bind_int_after_long_int)
 
   { //reuse cached cursor and bind int
     int fld=999;
-        
+
     int tmp=0;
     PgCpp::CursCtl cr = make_curs(query);
     cr.bind(":FLD",fld);
@@ -3078,7 +3096,7 @@ START_TEST(test_bind_int_after_long_int)
     fail_unless(tmp == 1, "tmp=%d expected 1", tmp);
   }
 
-} 
+}
 END_TEST
 
 enum TestEnum { te_1 = 1, te_2 = 2 };
@@ -3313,7 +3331,7 @@ START_TEST(test_loop_bind)
         data[i] = i - 50;
     }
 
-    int i, r;
+    int i = 0, r;
 
     cur.unstb().bind(":v", i).def(r);
 
@@ -3672,7 +3690,13 @@ START_TEST(test_convertSql)
          "UPDATE A SET B=(($1+(-$2)/$3+ABS(5*$4-3)))"}, // operators
         {"CREATE TABLE A (:d)", "CREATE TABLE A (:d)"}, // DDL - no conversion
         {"WITH A AS (SELECT :a a) SELECT a FROM A WHERE a = :b",
-         "WITH A AS (SELECT $1 a) SELECT a FROM A WHERE a = $2"} // WITH
+         "WITH A AS (SELECT $1 a) SELECT a FROM A WHERE a = $2"}, // WITH
+        //{"   SELECT :i", "   SELECT $1"}, // spaces at begin
+        {"SELECT(1),:i", "SELECT(1),$1"}, // no space, but (
+        {"SELECT\n1,:i", "SELECT\n1,$1"}, // no space, but \n
+        {"SELECT+1,:i", "SELECT+1,$1"}, // no space, but +
+        {"SELECT-1,:i", "SELECT-1,$1"}, // no space, but -
+        {"SELECT'1',:i", "SELECT'1',$1"}, // no space, but '
     };
     const auto nOk = sizeof(tcOk) / sizeof(tcOk[0]);
 
@@ -3754,6 +3778,35 @@ START_TEST(test_diff_bind_types)
     );
 } END_TEST
 
+START_TEST(test_select_wo_space)
+{
+    {
+        int b=0;
+        make_curs("SELECT(1)").def(b).EXfet();
+        fail_unless(b==1,"expected 1");
+    }
+    {
+        int b=0;
+        make_curs("SELECT\n1").def(b).EXfet();
+        fail_unless(b==1,"expected 1");
+    }
+    {
+        int b=0;
+        make_curs("SELECT+1").def(b).EXfet();
+        fail_unless(b==1,"expected 1");
+    }
+    {
+        int b=0;
+        make_curs("SELECT-1").def(b).EXfet();
+        fail_unless(b==-1,"expected -1");
+    }
+    {
+        std::string b;
+        make_curs("SELECT'1'").def(b).EXfet();
+        fail_unless(b=="1","expected \"1\"");
+    }
+} END_TEST
+
 #define SUITENAME "PgSqlUtil"
 TCASEREGISTER(setupReadOnly, nullptr)
 {
@@ -3805,6 +3858,7 @@ TCASEREGISTER(setupReadOnly, nullptr)
     ADD_TEST(test_session_destruction);
     ADD_TEST(test_diff_bind_types);
     ADD_TEST(bind_json_dict);
+    ADD_TEST(test_select_wo_space);
 }TCASEFINISH
 
 TCASEREGISTER(setupManaged, nullptr)

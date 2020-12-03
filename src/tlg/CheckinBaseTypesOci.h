@@ -17,19 +17,19 @@ struct OciSelector<Ticketing::Value<I,base_t> > { \
     static const External::type data_type = External::wrapper;\
     static bool canBind(const Ticketing::Value<I,base_t>& ) {return true;} \
     static void * addr(this_type *a){return a;} \
-    static char* to(const void* a, indicator& ind)\
+    static void to(buf_ptr_t& dst, const void* src, indicator& ind)\
     {\
-        char* memory = new char[sizeof(base_t)];\
-        if (!*((this_type*)a))\
+        if (!*((this_type*)src))\
         {\
             ind = inull;\
         }\
         if (ind == iok)\
         {\
-            base_t val = ((this_type*)a)->get(); \
-            memcpy(memory, &val, sizeof(base_t));\
+            dst.resize(len);\
+            memcpy(&dst[0], static_cast<const this_type*>(src)->never_use_except_in_OciCpp(), len);\
+        } else {\
+            dst.clear();\
         }\
-        return memory;\
     }\
     static void check(this_type const *a){ a->get();} \
     static int size(const void* a)\
@@ -41,7 +41,7 @@ struct OciSelector<Ticketing::Value<I,base_t> > { \
         if (ind == iok)\
         {\
             this_type a;\
-            base_t val = (*(base_t*)in_ptr);\
+            base_t val = (*(const base_t*)in_ptr);\
             a = this_type(val);\
             ((this_type*)out_ptr)->operator =(a);\
         }\
@@ -56,18 +56,19 @@ template <Ticketing::IDS I> struct OciSelector<const Ticketing::Value<I,base_t> 
     typedef const Ticketing::Value<I,base_t> this_type;\
     static bool canBind(const Ticketing::Value<I,base_t>& ) {return true;} \
     static void * addr(const this_type *a){return (void*)a;}\
-    static char* to(const void* a, indicator& ind)\
+    static void to(buf_ptr_t& dst, const void* src, indicator& ind)\
     {\
-        char* memory = new char[sizeof(base_t)];\
-        if (!((this_type*)a))\
+        if (!*((this_type*)src))\
         {\
             ind = inull;\
         }\
         if (ind == iok)\
         {\
-            memset(memory, ((this_type*)a)->get(), sizeof(base_t));\
+            dst.resize(len);\
+            memcpy(&dst[0], static_cast<const this_type*>(src)->never_use_except_in_OciCpp(), len);\
+        } else {\
+            dst.clear();\
         }\
-        return memory;\
     }\
     static int size(const void* a)\
     {\

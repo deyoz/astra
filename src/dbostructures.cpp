@@ -8,16 +8,14 @@ namespace dbo
 {
 
 #define INIT_DBO(class_name) { \
-    auto & session = dbo::Session::getInstance(); \
-    session.MapClass<class_name>(#class_name); \
+    auto & mapper = dbo::Mapper::getInstance(); \
+    mapper.MapClass<class_name>(#class_name); \
 }
 
 void initStructures()
 {
     static bool initialized = false;
     if(!initialized) {
-        //auto & session = dbo::Session::getInstance();
-        //session.MapClass<Points>("Points");
         INIT_DBO(Points);
         INIT_DBO(Arx_Points);
         INIT_DBO(Move_Arx_Ext);

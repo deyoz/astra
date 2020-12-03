@@ -595,8 +595,6 @@ $(are_tables_equal ARX_TLG_STAT)
 ###
 #########################################################################################
 
-$(desc_test 1)
-
 $(init_term)
 
 $(PREPARE_SEASON_SCD ûí ëéó ãïê 100 -1 TU5 $(date_format %d.%m.%Y +10) $(date_format %d.%m.%Y +30))

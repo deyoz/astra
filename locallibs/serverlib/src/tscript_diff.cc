@@ -52,58 +52,6 @@ namespace xp_testing { namespace tscript {
         return c == '\n';
     }
 
-    /* All special characters in default Boost regex syntax */
-    static bool IsSpecialRegexChar(char c)
-    {
-        static const std::string specialChars = ".[{}()\\*+?|^$";
-        return specialChars.find(c) != std::string::npos;
-    }
-
-    /* Checks for stand-alone ellipsis at given position i */
-    static bool CheckEllipsis(const std::string& s, size_t i)
-    {
-        return i + 2 < s.size()
-            && s.at(i + 0) == '.'
-            && s.at(i + 1) == '.'
-            && s.at(i + 2) == '.'
-            && (          i == 0  || s.at(i - 1) != '.')
-            && (i + 3 == s.size() || s.at(i + 3) != '.');
-    }
-
-    static boost::optional<std::string> MakePatternRegex(const std::string& pattern)
-    {
-        bool needRegex = false;
-        std::string result;
-        result.reserve(pattern.size());
-        size_t i = 0;
-        while (i < pattern.size()) {
-            const char c = pattern.at(i);
-            ++i;
-            /* c == '.' here just for speed optimization, CheckEllipsis is sufficient otherwise */
-            if (c == '.' && CheckEllipsis(pattern, i - 1)) {
-                /* stand-alone "..." means sequence of any characters */
-                result += ".*";
-                needRegex = true;
-                i += 2;
-            } else if (c == 'x') {
-                result += '.';
-                needRegex = true;
-            } else if (IsSpecialRegexChar(c)) {
-                result += std::string("\\") + c;
-            } else
-                result += c;
-        }
-        return needRegex ? result : boost::optional<std::string>();
-    }
-
-    static bool IsEqualLines(const std::string& pattern, const std::string& line)
-    {
-        const boost::optional<std::string> re = MakePatternRegex(pattern);
-        return re ?
-            boost::regex_match(line, boost::regex(*re)) :
-            pattern == line;
-    }
-
     static void PrintNewLine(std::ostream& o, const std::string& line)
     {
         PrintLine(o, COLOR_NEW, COLOR_NEW_WS, line);
@@ -140,7 +88,7 @@ namespace xp_testing { namespace tscript {
         boost::split(oldLines, oldText, IsNewline);
         boost::split(newLines, newText, IsNewline);
 
-        const std::list<TextDiffLine> diff = TextDiff(oldLines, newLines, IsEqualLines);
+        const std::list<TextDiffLine> diff = TextDiff(oldLines, newLines, nullptr);
         if (!diff.empty())
             PrintDiff_(std::cout, newLines, diff);
         return !diff.empty();

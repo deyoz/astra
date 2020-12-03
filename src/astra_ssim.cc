@@ -431,7 +431,7 @@ int GetFltNo(ct::Flight flight)
 
 string GetSuffix(ct::Flight flight)
 {
-  string s = suffixToString(flight.suffix); // lang = ENGLISH
+  string s = ct::suffixToString(flight.suffix); // lang = ENGLISH
   if (TRACE_ALL_FUNCTIONS) LogTrace(TRACE1) << __func__ << " suffix = '" << s << "'";
   if (s.empty())
     return s;
@@ -597,7 +597,7 @@ void ScdPeriodToDb( const ssim::ScdPeriod &scd )
     curr = next;
     curr.airline = ElemToElemId( etAirline, IdToCode(scd.flight.airline.get()), curr.airline_fmt );
     curr.trip = scd.flight.number.get();
-    curr.suffix = ElemToElemId( etSuffix, suffixToString(scd.flight.suffix), curr.suffix_fmt );
+    curr.suffix = ElemToElemId( etSuffix, ct::suffixToString(scd.flight.suffix), curr.suffix_fmt );
     curr.airp = ElemToElemId( etAirp, IdToCode(leg.s.from.get()), curr.airp_fmt );
     curr.craft = ElemToElemId( etCraft, IdToCode(leg.aircraftType.get()), curr.craft_fmt );
     curr.triptype = DefaultTripType(false);
@@ -653,9 +653,9 @@ void ScdPeriodToDb( const ssim::ScdPeriod &scd )
     for (auto &cfg : leg.subclOrder.config())
       if (cfg.second)
       {
-        if (cabinCode(cfg.first)=="F") curr.f = cfg.second.get();
-        if (cabinCode(cfg.first)=="C") curr.c = cfg.second.get();
-        if (cabinCode(cfg.first)=="Y") curr.y = cfg.second.get();
+        if (ct::cabinCode(cfg.first)=="F") curr.f = cfg.second.get();
+        if (ct::cabinCode(cfg.first)=="C") curr.c = cfg.second.get();
+        if (ct::cabinCode(cfg.first)=="Y") curr.y = cfg.second.get();
       }
     dests.dests.push_back( curr );
   } // ileg

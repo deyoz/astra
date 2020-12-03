@@ -1,59 +1,37 @@
-//
-// C++ Interface: timer
-//
-// Description: Timer
-//
-//
-// Author: Kovalev Roman <rom@sirena2000.ru>, (C) 2006
-//
-//
-#ifndef _TIMER_H_
-#define _TIMER_H_
+#pragma once
+
 #include <iosfwd>
 #include <string>
-#include <sys/time.h>
 
-namespace Timer
+namespace HelpCpp
 {
-class timer
-{
-    struct timeval StartTime;
-    std::string TName;
 
+class Timer
+{
 public:
-    /**
-     * @brief no name timer constr
-     */
-    timer();
-    /**
-     * @brief named timer constr
-     * @param name
-     */
-    timer(const std::string &name);
+    Timer(bool startOnCreate = true);
 
-    /**
-     * @brief timer name
-     * @return
-     */
-    const std::string &name() const { return TName; }
+    Timer(const std::string& name, bool startOnCreate = true);
 
-    /**
-     * @brief restarts timer
-     */
+    Timer(const Timer&) = delete;
+
+    Timer(Timer&&) = delete;
+
+    const std::string& name() const;
+
     void restart();
 
-    /**
-     * @brief time elapsed in seconds since last restart or construct
-     * @return
-     */
-    double elapsed() const;
+    long elapsedSeconds() const;
 
-    /**
-     * @brief time elapsed in microseconds since last restart or construct
-     * @return
-     */
-    long usec() const;
+    long elapsedMilliseconds() const;
+
+    long elapsedMicroseconds() const;
+
+    friend std::ostream& operator<<(std::ostream& os, const Timer&);
+
+private:
+    std::string name_;
+    long startTime_;
 };
-std::ostream & operator << (std::ostream& os, const timer &);
-}
-#endif /*_TIMER_H_*/
+
+} // namespace HelpCpp

@@ -69,10 +69,10 @@ class Oci8Session
     OciStatementHandle getStHandle();
 
     void setAqCallback(const std::string& name, OciCpp::AqEventCallback* cb);
+    int mode() const { return 8; }
     std::string getConnectString() const;
     void setClientInfo(const std::string &clientInfo);
 };
-
 
 OCILobLocator* createLob(Oci8Session& os, const std::string& data, ub4 dtype);
 OCILobLocator* createLob(Oci8Session& os, const std::vector<char>& data, ub4 dtype);

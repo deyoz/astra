@@ -34,6 +34,7 @@ class LogStream
 {
 public:
     LogStream(std::ostringstream& s) : stream(s) {}
+    std::ostringstream& guts() & { return stream; }
 
     template<typename T, typename = decltype(std::declval<std::ostream&>() << std::declval<const T&>())>
     LogStream& operator<<(const T& v) {
@@ -78,6 +79,8 @@ protected:
     StreamLogger(int level, const char *nick, const char *file, unsigned line);
 public:
 
+    StreamLogger & operator<< (char* v) { return this->operator<< (const_cast<char const*>(v)); }
+    StreamLogger & operator<< (char const* v);
     StreamLogger & operator<< (const boost::gregorian::date& );
     StreamLogger & operator<< (const boost::posix_time::ptime& );
     StreamLogger & operator<< (const boost::posix_time::time_duration& );

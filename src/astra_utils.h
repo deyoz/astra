@@ -663,6 +663,10 @@ void dumpTable(const std::string& table,
 
 void commit();
 void rollback();
+
+void commitAndCallCommitHooks();
+void rollbackAndCallRollbackHooks();
+
 void rollbackSavePax();
 
 void beforeSoftError();

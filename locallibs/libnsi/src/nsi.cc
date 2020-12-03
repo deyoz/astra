@@ -627,8 +627,9 @@ std::ostream& operator<<(std::ostream& os, const PointOrCode& p)
     }
 }
 
+// redmine: 38555
 CityPoint::CityPoint(CityId c)
-    : cityId_(c)
+    : cityId_(c), pointId_(nsi::PointId(c.get()))
 {
 }
 

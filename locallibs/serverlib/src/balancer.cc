@@ -61,8 +61,8 @@ static int tcl_read_config(ClientData cl, Tcl_Interp* interp, int objc, Tcl_Obj*
 template< typename T >
 static T random(T b, T e)
 {
-    static boost::random::mt19937 gen(std::time(0));
-    static boost::random::uniform_int_distribution< T > distribution(b, e);
+    static boost::random::mt19937 gen;
+    boost::random::uniform_int_distribution< T > distribution(b, e);
 
     return distribution(gen);
 }
@@ -293,6 +293,7 @@ Balancer<T>::Connection::Connection(boost::asio::io_service& ios, T& f, Node& n,
       query_(h, s, boost::asio::ip::tcp::resolver::query::address_configured
                    | boost::asio::ip::tcp::resolver::query::numeric_service),
       ep_(),
+      ccid_ { 0 },
       queueSizeBuf_(0),
       waitTimeBuf_(0),
       msgSize_(0),
@@ -330,13 +331,17 @@ void Balancer<T>::Connection::write() {
     }
 
     if (!queue_.empty()) {
+        LogTrace(TRACE7) << __FUNCTION__ << ": request with ccid: "
+                         << queue_.front().ccid() << " will be sent";
+
         boost::asio::async_write(
                 *socket_,
                 queue_.front().toBuffers(),
                 boost::bind(
                     &Balancer<T>::Connection::handleWrite,
                     this->shared_from_this(),
-                    boost::asio::placeholders::error
+                    boost::asio::placeholders::error,
+                    queue_.front().ccid()
                 )
         );
     }
@@ -362,6 +367,8 @@ void Balancer<T>::Connection::write(const typename T::KeyType& ccid /*client con
 
 template<typename T>
 void Balancer<T>::Connection::wait(void (Balancer<T>::Connection::*f)()) {
+    LogTrace(TRACE7) << __FUNCTION__ << ": " << this << " : " << query_.host_name() << ':' << query_.service_name();
+
     static constexpr long ML_SECOND = 1024;
 
     auto timer = std::make_shared<boost::asio::deadline_timer>(service_);
@@ -375,6 +382,8 @@ void Balancer<T>::Connection::wait(void (Balancer<T>::Connection::*f)()) {
 
 template<typename T>
 void Balancer<T>::Connection::resolve() {
+    LogTrace(TRACE7) << __FUNCTION__ << ": " << query_.host_name() << ':' << query_.service_name();
+
     static constexpr unsigned ATTEMPT_COUNT = 4;
 
     if (ATTEMPT_COUNT == ++attemptCount_) {
@@ -412,10 +421,13 @@ void Balancer<T>::Connection::resolve() {
 
 template<typename T>
 void Balancer<T>::Connection::connect() {
-    static constexpr unsigned ATTEMPT_COUNT = 16;
-
     assert(ep_);
     assert(State::Reconnect == state_);
+
+    LogTrace(TRACE7) << __FUNCTION__ << ": " << query_.host_name() << ':' << query_.service_name() << " resolved to: " << *ep_;
+
+    static constexpr unsigned ATTEMPT_COUNT = 16;
+
 
     if (ATTEMPT_COUNT == ++attemptCount_) {
         LogError(STDLOG) << "Can't established connection to " << query_.host_name()
@@ -485,6 +497,15 @@ void Balancer<T>::Connection::handleReadStat(const boost::system::error_code& e)
     node_.nodeStats(ntohl(queueSizeBuf_), ntohl(waitTimeBuf_));
     msgSize_ = ntohl(msgSize_);
 
+    if (!frontend_.validateMsgSize(msgSize_)) {
+        LogError(STDLOG) << "Invalid message size: " << msgSize_
+                         << " from: " << query_.host_name() << ':' << query_.service_name();
+
+        handleError(__FUNCTION__, boost::system::errc::make_error_code (boost::system::errc::invalid_argument));
+
+        return;
+    }
+
     auto buf = std::make_shared<std::vector<uint8_t> >(msgSize_);
     auto c = this->shared_from_this();
 
@@ -535,6 +556,8 @@ void Balancer<T>::Connection::handleReadStat(const boost::system::error_code& e)
 template<typename T>
 void Balancer<T>::Connection::handleError(const char* functionName, const boost::system::error_code& e)
 {
+    LogTrace(TRACE7) << __FUNCTION__;
+
     if (State::Final == state_) {
         LogTrace(TRACE0) << "Connection " << this << " to " << query_.host_name()
                          << ':' << query_.service_name() << " finalized";
@@ -549,13 +572,13 @@ void Balancer<T>::Connection::handleError(const char* functionName, const boost:
     shutdown(false);
     node_.stash(this->shared_from_this());
 
-    connect();
+    wait(&Balancer< T >::Connection::connect);
 }
 
 
 template<typename T>
-void Balancer<T>::Connection::handleWrite(const boost::system::error_code& e) {
-    LogTrace(TRACE7) << __FUNCTION__ << ": " << socket_->native_handle();
+void Balancer<T>::Connection::handleWrite(const boost::system::error_code& e, const uint64_t ccid) {
+    LogTrace(TRACE7) << __FUNCTION__ << ": " << socket_->native_handle() << " for ccid: " << ccid;
 
     if (!e) {
 /* TODO expired connections
@@ -568,6 +591,16 @@ void Balancer<T>::Connection::handleWrite(const boost::system::error_code& e) {
             }
         }
 */
+
+        if (queue_.empty()) {
+            LogTrace(TRACE0) << "Queue empty, expected ccid: " << ccid;
+            return;
+        }
+
+        if (queue_.front().ccid() != ccid) {
+            LogTrace(TRACE0) << "invalid ccid: [ " << queue_.front().ccid() << " != " << ccid << " ]";
+            return;
+        }
 
         LogTlg() << "Request from client id: " << queue_.front().clientId()
                  << " with message id: " << queue_.front().messageId()
@@ -595,16 +628,32 @@ void Balancer<T>::Connection::handleWrite(const boost::system::error_code& e) {
 
 template<typename T>
 void Balancer<T>::Connection::shutdown(const bool f /*final*/) {
+    LogTrace(TRACE1) << __FUNCTION__ << ": final: " << f;
+
     boost::system::error_code e;
 
     state_ = f ? State::Final : State::Reconnect;
     for (auto c : waitClientIds_) {
+        LogTrace(TRACE5) << "Remove connection id associated with ccid: " << c.first;
+
         if (auto p = c.second.data.lock()) {
             frontend_.rmConnectionId(p);
         }
     }
 
     waitClientIds_.clear();
+
+    if (!queue_.empty()) {
+        if (auto p = queue_.front().key().lock()) {
+            LogTrace(TRACE5) << "Remove connection id associated with ccid: " << queue_.front().ccid();
+
+            frontend_.rmConnectionId(p);
+        }
+
+        LogTrace(TRACE5) << "Remove request with ccid: " << queue_.front().ccid();
+
+        queue_.pop();
+    }
 
     socket_->shutdown(boost::asio::ip::tcp::socket::shutdown_both, e);
     socket_->close(e);

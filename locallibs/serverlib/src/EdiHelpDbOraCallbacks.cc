@@ -122,7 +122,7 @@ boost::optional<ConfirmInfo> EdiHelpDbOraCallbacks::confirm_notify_oraside(const
 
     ConfirmInfo ci = {};
     unsigned short binlen = 0;
-    char signalTxt[1001];
+    char signalTxt[1301];
     char instanceName[4];
     char address[41];
 
@@ -190,7 +190,7 @@ boost::optional<ConfirmInfo> EdiHelpDbOraCallbacks::confirm_notify_oraside(
     request += "END; \n";
 
     ConfirmInfo ci = {};
-    char signalTxt[1001];
+    char signalTxt[1301];
     char address[41];
 
     OciCpp::CursCtl cur = make_curs(request);
