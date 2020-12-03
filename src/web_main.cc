@@ -1370,14 +1370,15 @@ void WebRequestsIface::IntViewCraft(xmlNodePtr reqNode, xmlNodePtr resNode)
   if ( SALONS2::isFreeSeating( point_id ) ) { //???
     throw UserException( "MSG.SALONS.FREE_SEATING" );
   }
-
   WebSearch::TFlightInfo flt;
   flt.fromDB(point_id, true);
-
-  int pnr_id=TIdsPnrData(flt).fromXML(reqNode).getStrictlySinglePnrId();
-
   TWebGrp grp(flt);
-  grp.addPnr(pnr_id, true, false );
+
+  if ( GetNode( "pnr_id", reqNode ) != nullptr ||
+       GetNode( "crs_pax_id", reqNode ) != nullptr ) {
+    int pnr_id=TIdsPnrData(flt).fromXML(reqNode).getStrictlySinglePnrId();
+    grp.addPnr(pnr_id, true, false );
+  }
   AstraWeb::WebCraft::ViewCraft( grp.paxs, reqNode, resNode );
 }
 
