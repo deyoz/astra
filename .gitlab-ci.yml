@@ -1,0 +1,24 @@
+stages:
+  - build
+  - test
+
+build:
+  stage: build
+  script:
+    export PKG_CONFIG_PATH="/usr/pgsql-12/lib/pkgconfig:$PKG_CONFIG_PATH"
+    export PLATFORM=m64
+    export ENABLE_SHARED=1
+    export BUILD_TESTS=1
+    export MAKE_J=8
+    export CPP_STD_VERSION="c++17"    
+    export MY_LOCAL_CFLAGS="-gas-loc-support -gno-as-locview-support -gno-column-info -gno-statement-frontiers -gno-variable-location-views -gno-inline-points -gz -Wno-maybe-uninitialized"
+    export MY_LOCAL_LDFLAGS="-gz"
+    export BUILD_PG=1
+
+    ./buildFromScratch.sh astra_trunk/trunk --build_external_libs --configlibs --buildlibs --configastra --buildastra 
+
+test:
+  stage: test
+  script:
+    ./buildFromScratch.sh astra_trunk/trunk --createtcl --createdb --runtests
+
