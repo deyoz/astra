@@ -10,6 +10,8 @@ build:
     export ENABLE_SHARED=1
     export BUILD_TESTS=1
     export MAKE_J=8
+    export CC=$LOCALCC
+    export CXX=$LOCALCXX
     export CPP_STD_VERSION="c++17"    
     export MY_LOCAL_CFLAGS="-gas-loc-support -gno-as-locview-support -gno-column-info -gno-statement-frontiers -gno-variable-location-views -gno-inline-points -gz -Wno-maybe-uninitialized"
     export MY_LOCAL_LDFLAGS="-gz"
