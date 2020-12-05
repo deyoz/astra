@@ -4,16 +4,22 @@ stages:
 
 cache:
   paths:
-    - src/astra
+    - externallibs/
 
 build:
   stage: build
 
   script:
-    ./buildFromScratch.sh astra_trunk/trunk --build_external_libs --configlibs --buildlibs --configastra --buildastra --createtcl --createdb
+    ./buildFromScratch.sh astra_trunk/trunk --build_external_libs --configlibs --buildlibs --configastra --buildastra
+
+  artifacts:
+    paths:
+      - src/
+    exclude:
+      - src/**/*.o
 
 test:
   stage: test
 
   script:
-    ./buildFromScratch.sh astra_trunk/trunk --runtests
+    ./buildFromScratch.sh astra_trunk/trunk --createtcl --createdb --runtests
