@@ -5,6 +5,7 @@ stages:
 cache:
   paths:
     - externallibs/
+    - src/astra
 
 build:
   stage: build
@@ -14,7 +15,6 @@ build:
 
   artifacts:
     paths:
-      - src/astra
       - src/Makefile
 
 test:
