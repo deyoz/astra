@@ -5,7 +5,7 @@ stages:
 cache:
   paths:
     - externallibs/
-    - src/astra
+    - src/
 
 build:
   stage: build
@@ -13,9 +13,9 @@ build:
   script:
     ./buildFromScratch.sh astra_trunk/trunk --build_external_libs --configlibs --buildlibs --configastra --buildastra
 
-  artifacts:
-    paths:
-      - src/Makefile
+  #artifacts:
+  #  paths:
+  #    - src/Makefile
 
 test:
   stage: test
