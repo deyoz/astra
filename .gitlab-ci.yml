@@ -5,7 +5,6 @@ stages:
 cache:
   paths:
     - externallibs/
-    - src/astra
 
 build:
   stage: build
@@ -14,9 +13,13 @@ build:
     ./buildFromScratch.sh astra_trunk/trunk --build_external_libs --configlibs --buildlibs --configastra --buildastra
 
   artifacts:
-    paths:
+    paths:    
     - locallibs/env_file
     - locallibs/external_env_file
+    - src/
+    exlude:
+    - src/**/*.o
+
 
 test:
   stage: test
