@@ -11,7 +11,7 @@ build:
   stage: build
 
   script:
-    ./buildFromScratch.sh astra_trunk/trunk --build_external_libs --configlibs --buildlibs --configastra --buildastra --createdb
+    ./buildFromScratch.sh astra_trunk/trunk --build_external_libs --configlibs --buildlibs --configastra --buildastra
 
   #artifacts:
   #  paths:
