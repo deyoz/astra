@@ -20,7 +20,7 @@ build_ora_database()
     oradir=$1
     ( ( cd ${oradir} && ./create_database.sh ${CONNECT_STRING} )
       checkresult create_ora_db $?
-      ( cd src && ./nosir.tcl -ediinsert -i ../locallibs/edilib/edi_messages/ )
+      ( cd src && make install-edimessages )
       checkresult installedimessages $?
     )
 }
