@@ -14,9 +14,8 @@ build:
 
   artifacts:
     paths:
-      - src/
-    exclude:
-      - src/**/*.o
+      - src/astra
+      - src/Makefile
 
 test:
   stage: test
