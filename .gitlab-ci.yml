@@ -17,6 +17,7 @@ build:
     paths:    
     - locallibs/env_file
     - locallibs/external_env_file
+    - Makefile
 
 test:
   stage: test
