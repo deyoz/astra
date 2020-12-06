@@ -5,6 +5,7 @@ stages:
 cache:
   paths:
     - externallibs/
+    - src/
 
 build:
   stage: build
@@ -16,10 +17,6 @@ build:
     paths:    
     - locallibs/env_file
     - locallibs/external_env_file
-    - src/
-    exclude:
-    - src/**/*.o
-
 
 test:
   stage: test
