@@ -17,7 +17,7 @@ build:
     - locallibs/env_file
     - locallibs/external_env_file
     - src/
-    exlude:
+    exclude:
     - src/**/*.o
 
 
