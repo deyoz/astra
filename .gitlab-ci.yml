@@ -13,9 +13,10 @@ build:
   script:
     ./buildFromScratch.sh astra_trunk/trunk --build_external_libs --configlibs --buildlibs --configastra --buildastra
 
-  #artifacts:
-  #  paths:
-  #    - src/Makefile
+  artifacts:
+    paths:
+    - locallibs/env_file
+    - locallibs/external_env_file
 
 test:
   stage: test
