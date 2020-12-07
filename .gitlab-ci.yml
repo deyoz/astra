@@ -1,6 +1,9 @@
 stages:
   - build
 
+variables:
+  GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_COMMIT_REF_SLUG
+
 cache:
   key: "$CI_COMMIT_REF_SLUG"
   paths:
