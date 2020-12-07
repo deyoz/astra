@@ -5,6 +5,7 @@
 #ifdef XP_TESTING
 
 #include "astra_types.h"
+#include "astra_elems.h"
 #include "astra_main.h"
 #include "astra_misc.h"
 #include "flt_settings.h"
@@ -27,6 +28,7 @@
 #include "dbo.h"
 #include "dbostructures.h"
 #include "hooked_session.h"
+#include "iapi_interaction.h"
 
 #include <queue>
 #include <fstream>
@@ -151,22 +153,6 @@ const std::string &getLastRedisplay()
 static std::string FP_lastRedisplay(const std::vector<std::string> &args)
 {
     return getLastRedisplay();
-}
-
-static int LastAppsMsgId;
-
-void setLastAppsMsgId(int lastAppsMsgId)
-{
-    LastAppsMsgId = lastAppsMsgId;
-}
-int getLastAppsMsgID()
-{
-    return LastAppsMsgId;
-}
-
-static std::string FP_lastAppsMsgId(const std::vector<std::string> &args)
-{
-    return std::to_string(getLastAppsMsgID());
 }
 
 static std::string FP_req(const std::vector<tok::Param>& params)
@@ -651,6 +637,15 @@ static std::string FP_get_lat_code(const std::vector<std::string>& p)
     }
 }
 
+static std::string FP_getElemId(const std::vector<std::string>& p)
+{
+    assert(p.size() == 2);
+    std::string type = p.at(0),
+                elem = p.at(1);
+    TElemFmt fmt=efmtUnknown;
+    return ElemToElemId(DecodeElemType(type.c_str()), elem, fmt);
+}
+
 static std::string FP_deny_ets_interactive(const std::vector<std::string>& p)
 {
     assert(p.size() == 3);
@@ -744,17 +739,32 @@ static std::string FP_setDeskVersion(const std::vector<std::string>& par)
 
 static std::string FP_setUserTime(const std::vector<std::string>& par)
 {
-    ASSERT(par.size() == 1);
+    ASSERT(par.size() == 2);
     const std::string userTimeType = par.at(0);
-    LogTrace(TRACE3) << "set user time type: " << userTimeType;
+    int time;
     if(userTimeType == "UTC") {
-        TReqInfo::Instance()->user.sets.time = ustTimeUTC;
+        time = ustTimeUTC;
     } else if(userTimeType == "LocalDesk") {
-        TReqInfo::Instance()->user.sets.time = ustTimeLocalDesk;
+        time = ustTimeLocalDesk;
     } else if(userTimeType == "LocalAirp") {
-        TReqInfo::Instance()->user.sets.time = ustTimeLocalAirp;
+        time = ustTimeLocalAirp;
     } else {
         throw EXCEPTIONS::Exception("Unknown user time type!");
+    }
+
+    for(bool insert : {false, true})
+    {
+
+      std::string sql = insert?
+        "INSERT INTO user_sets(user_id, time) SELECT user_id, :time FROM users2 WHERE login=:login":
+        "UPDATE user_sets SET time=:time WHERE user_id IN (SELECT user_id FROM users2 WHERE login=:login)";
+
+      auto cur = make_curs(sql);
+      cur.bind(":time", time)
+         .bind(":login", par.at(1))
+         .exec();
+
+      if (cur.rowcount()>0) break;
     }
 
     return "";
@@ -1201,6 +1211,12 @@ std::string FP_pg_sql(const std::vector<std::string> &args)
     return "";
 }
 
+static std::string FP_initIapiRequestId(const std::vector<std::string> &par)
+{
+  ASSERT(par.size() == 1);
+  IAPI::initRequestIdGenerator(std::stoi(par.at(0)));
+  return "";
+}
 
 FP_REGISTER("<<", FP_tlg_in);
 FP_REGISTER("!!", FP_req);
@@ -1214,7 +1230,6 @@ FP_REGISTER("get_move_id", FP_get_move_id);
 FP_REGISTER("init_jxt_pult", FP_init_jxt_pult);
 FP_REGISTER("init", FP_init);
 FP_REGISTER("lastRedisplay", FP_lastRedisplay);
-FP_REGISTER("lastAppsMsgId", FP_lastAppsMsgId);
 FP_REGISTER("init_eds",   FP_init_eds);
 FP_REGISTER("init_dcs",   FP_init_dcs);
 FP_REGISTER("make_spp", FP_make_spp);
@@ -1229,6 +1244,7 @@ FP_REGISTER("get_crs_pax_unique_ref", FP_getCrsPaxUniqRef);
 FP_REGISTER("get_iatci_tab_id", FP_getIatciTabId);
 FP_REGISTER("get_point_tid", FP_getPointTid);
 FP_REGISTER("get_lat_code", FP_get_lat_code);
+FP_REGISTER("get_elem_id", FP_getElemId);
 FP_REGISTER("prepare_bp_printing", FP_prepare_bp_printing);
 FP_REGISTER("deny_ets_interactive", FP_deny_ets_interactive);
 FP_REGISTER("settcl", FP_settcl);
@@ -1258,5 +1274,6 @@ FP_REGISTER("are_tables_equal", FP_tables_equal);
 FP_REGISTER("are_agent_stat_equal", FP_agent_stat_equal);
 FP_REGISTER("collect_flight_stat", FP_collectFlightStat);
 FP_REGISTER("pg_sql", FP_pg_sql);
+FP_REGISTER("init_iapi_request_id", FP_initIapiRequestId);
 
 #endif /* XP_TESTING */

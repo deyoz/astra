@@ -10,6 +10,11 @@
 namespace IAPI
 {
 
+#ifdef XP_TESTING
+void initRequestIdGenerator(int id);
+std::string getLastRequestId();
+#endif/*XP_TESTING*/
+
 bool needCheckStatus(const TCompleteAPICheckInfo& checkInfo);
 
 class RequestCollector
