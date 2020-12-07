@@ -1,0 +1,12 @@
+stages:
+  - build
+
+cache:
+  paths:
+    - externallibs/
+
+build:
+  stage: build
+
+  script:
+    ./buildFromScratch.sh astra_stable/stable
