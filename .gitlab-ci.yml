@@ -2,7 +2,7 @@ stages:
   - build
 
 cache:
-  key: "CI_COMMIT_BRANCH"
+  key: "$CI_COMMIT_REF_SLUG"
   paths:
     - externallibs/
 
