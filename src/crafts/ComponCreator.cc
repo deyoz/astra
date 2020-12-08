@@ -946,7 +946,7 @@ void signalChangesComp( TQuery &Qry, int plan_id, int conf_id ) {
     "UPDATE libra_comps SET time_change=NULL "
     " WHERE plan_id = :plan_id ";
   if ( conf_id != ASTRA::NoExists ) {
-    sql + " AND conf_id = :conf_id ";
+    sql += " AND conf_id = :conf_id ";
   }
   Qry.SQLText = sql;
   Qry.CreateVariable( "plan_id", otInteger, plan_id );
@@ -961,7 +961,7 @@ void signalChangesComp( TQuery &Qry, int plan_id, int conf_id ) {
     " JOIN trip_sets t ON l.comp_id=t.comp_id "
     "      AND plan_id = :plan_id ";
   if ( conf_id != ASTRA::NoExists ) {
-    sql + " AND conf_id = :conf_id ";
+    sql += " AND conf_id = :conf_id ";
   }
   sql += " ORDER BY plan_id, conf_id ";
   Qry.SQLText = sql;
