@@ -5,6 +5,7 @@
 #include "oralib.h"
 #include "alarms.h"
 #include "salons.h"
+#include "images.h"
 #include "date_time.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
@@ -973,11 +974,9 @@ void GetSeatRemPriority(const string &airline_mark, TSeatRemPriority &rems)
     if (rem_layer==cltUnknown) continue;
     try
     {
-      const TCompLayerTypesRow &row=(const TCompLayerTypesRow&)base_tables.get("comp_layer_types")
-                                                                          .get_row("code",EncodeCompLayerType(rem_layer));
-      r->second=row.priority;
+       r->second = BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline_mark, rem_layer ) );
     }
-    catch(EBaseTableError) {};
+    catch(EBaseTableError&) {};
   };
   //сортируем
   stable_sort(rems.begin(),rems.end(),lessSeatRemPriority);

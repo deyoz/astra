@@ -207,7 +207,7 @@ static bool get_seating_details(xmlNodePtr reqNode, xmlNodePtr resNode)
   std::set<ASTRA::TCompLayerType> search_layers;
   for ( int ilayer=0; ilayer<(int)ASTRA::cltTypeNum; ilayer++ ) {
     ASTRA::TCompLayerType layer_type = (ASTRA::TCompLayerType)ilayer;
-    BASIC_SALONS::TCompLayerType layer_elem;
+    BASIC_SALONS::TCompLayerElem layer_elem;
     if ( BASIC_SALONS::TCompLayerTypes::Instance()->getElem( layer_type, layer_elem ) &&
          layer_elem.getOccupy() ) {
       search_layers.insert( layer_type );
@@ -248,11 +248,11 @@ static bool get_seating_details(xmlNodePtr reqNode, xmlNodePtr resNode)
   std::map<std::string,std::map<std::string,Counters>> weights; //направление, класс
   for ( SALONS2::TLayersSeats::iterator ilayer=layerSeats.begin();
         ilayer!=layerSeats.end(); ilayer++ ) {
-    if ( search_layers.find( ilayer->first.layer_type ) == search_layers.end() ) {
+    if ( search_layers.find( ilayer->first.layerType() ) == search_layers.end() ) {
       continue;
     }
-    if ( layers.find( ilayer->first.layer_type ) == layers.end() ) {
-      layers.insert( ilayer->first.layer_type );
+    if ( layers.find( ilayer->first.layerType() ) == layers.end() ) {
+      layers.insert( ilayer->first.layerType() );
     }
     if ( paxs.find( ilayer->first.getPaxId() ) == paxs.end() ) {
       LogError(STDLOG) << "pax_id=%" <<  ilayer->first.getPaxId() << " not found";
@@ -315,14 +315,14 @@ static bool get_seating_details(xmlNodePtr reqNode, xmlNodePtr resNode)
       xmlNodePtr nseat = NewTextChild( n, "item" );
       NewTextChild( nseat, "RowNo", SeatNumber::tryDenormalizeRow( iseat->row ) );
       NewTextChild( nseat, "Ident", SeatNumber::tryDenormalizeLine( iseat->line, true ) );
-      NewTextChild( nseat, "layer", EncodeCompLayerType( ilayer->first.layer_type ) );
+      NewTextChild( nseat, "layer", EncodeCompLayerType( ilayer->first.layerType() ) );
     }
   }
   for ( const auto& p : persons ) {
     SetProp( NewTextChild( personsNode, "code", p ), "name", (p=="U")?"Unknown":(p=="A")?"Adult":(p=="M")?"Male":(p=="F")?"Female":(p=="C")?"Children":"Baby");
   }
   for ( const auto& p : layers ) {
-    BASIC_SALONS::TCompLayerType layer_elem;
+    BASIC_SALONS::TCompLayerElem layer_elem;
     BASIC_SALONS::TCompLayerTypes::Instance()->getElem( p, layer_elem );
     SetProp( NewTextChild( layersNode, "code", EncodeCompLayerType( p ) ), "name", layer_elem.getName().c_str() );
   }

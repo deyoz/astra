@@ -878,7 +878,6 @@ void TCompLayerTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow
 {
   *row = new TCompLayerTypesRow;
   mem.create(*row, STDLOG);
-  ((TCompLayerTypesRow*)*row)->priority=Qry.FieldAsInteger("priority");
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 

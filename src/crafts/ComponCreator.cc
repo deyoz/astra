@@ -476,7 +476,7 @@ class TTripClasses: private mapTripClasses_t {
       seat.x = Qry.FieldAsInteger( idx_x );
       seat.y = Qry.FieldAsInteger( idx_y );
       seat.clname = Qry.FieldAsString( idx_class );
-      SALONS2::TSeatLayer seatLayer;
+      SALONS2::TLayerSeat seatLayer;
       seatLayer.point_id = point_id;
       seatLayer.layer_type = DecodeCompLayerType( Qry.FieldAsString( idx_layer_type ) );
       std::vector<SALONS2::TPlace>::iterator iseat;
@@ -487,25 +487,27 @@ class TTripClasses: private mapTripClasses_t {
           break;
         }
       }
+      SALONS2::TLayerPrioritySeat layerPrioritySeat( seatLayer,
+                                                    BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey("",seatLayer.layer_type) ) );
       if ( iseat != seats[ seat.clname ].end() ) {
-        iseat->AddLayer( point_id, seatLayer );
+        iseat->AddLayer( point_id, layerPrioritySeat );
       }
       else {
-        seat.AddLayer( point_id, seatLayer );
+        seat.AddLayer( point_id, layerPrioritySeat );
         seats[ seat.clname ].push_back( seat );
       }
     }
     for ( const auto& iclass : seats ) {
       for ( const auto& iseat : iclass.second ) {
-        if ( iseat.getCurrLayer( point_id ).layer_type == ASTRA::cltBlockCent ||
-             iseat.getCurrLayer( point_id ).layer_type == ASTRA::cltDisable ) {
+        if ( iseat.getCurrLayer( point_id ).layerType() == ASTRA::cltBlockCent ||
+             iseat.getCurrLayer( point_id ).layerType() == ASTRA::cltDisable ) {
           TTripClasses::iterator tc = find( iclass.first );
           if ( tc == end() ) {
             tc = emplace( iclass.first, TTripClass() ).first;
           }
           tc->second.block++;
         }
-        if ( iseat.getCurrLayer( point_id ).layer_type == ASTRA::cltProtect ) {
+        if ( iseat.getCurrLayer( point_id ).layerType() == ASTRA::cltProtect ) {
           TTripClasses::iterator tc = find( iclass.first );
           if ( tc == end() ) {
             tc = emplace( iclass.first, TTripClass() ).first;

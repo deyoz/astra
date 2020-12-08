@@ -64,10 +64,10 @@ bool descriptSeatCreator::existsRemark( const SeatCoord &seatCoord, const std::s
 bool descriptSeatCreator::existsLayer( const SeatCoord &seatCoord, ASTRA::TCompLayerType layer_type ) {
   SALONS2::TPlace seat;
   if ( seatCoord.isValidSeat( seat ) ) {
-    std::set<SALONS2::TSeatLayer,SALONS2::SeatLayerCompare> vlayers;
+    SALONS2::TSetOfLayerPriority vlayers;
     seat.GetLayers( seatCoord.point_dep,  vlayers, SALONS2::TGetLayersMode::glBase );
     for ( auto ilayer : vlayers ) {
-      if ( ilayer.layer_type == layer_type ) {
+      if ( ilayer.layerType() == layer_type ) {
         return true;
       }
     }

@@ -111,7 +111,7 @@ void getSalonPaxsSeats( int point_dep, std::map<int,TCheckinPaxSeats> &checkinPa
   std::set<ASTRA::TCompLayerType> search_layers;
   for ( int ilayer=0; ilayer<(int)cltTypeNum; ilayer++ ) {
     ASTRA::TCompLayerType layer_type = (ASTRA::TCompLayerType)ilayer;
-    BASIC_SALONS::TCompLayerType layer_elem;
+    BASIC_SALONS::TCompLayerElem layer_elem;
     if ( BASIC_SALONS::TCompLayerTypes::Instance()->getElem( layer_type, layer_elem ) &&
          layer_elem.getOccupy() ) {
       search_layers.insert( layer_type );
@@ -133,7 +133,7 @@ void getSalonPaxsSeats( int point_dep, std::map<int,TCheckinPaxSeats> &checkinPa
     sectionInfo.GetPaxs( paxs );
     for ( TLayersSeats::iterator ilayer=layerSeats.begin();
           ilayer!=layerSeats.end(); ilayer++ ) {
-      if ( search_layers.find( ilayer->first.layer_type ) == search_layers.end() ) {
+      if ( search_layers.find( ilayer->first.layerType() ) == search_layers.end() ) {
         tst();
         continue;
       }
@@ -169,9 +169,9 @@ void getSalonPaxsSeats( int point_dep, std::map<int,TCheckinPaxSeats> &checkinPa
             iseat!=ilayer->second.end(); iseat++ ) {
         TTlgCompLayer compLayer;
         compLayer.pax_id = ilayer->first.getPaxId();
-        compLayer.point_dep = ilayer->first.point_dep;
-        compLayer.point_arv = ilayer->first.point_arv;
-        compLayer.layer_type = ilayer->first.layer_type;
+        compLayer.point_dep = ilayer->first.point_dep();
+        compLayer.point_arv = ilayer->first.point_arv();
+        compLayer.layer_type = ilayer->first.layerType();
         compLayer.xname = iseat->line;
         compLayer.yname = iseat->row;
         checkinPaxsSeats[ ilayer->first.getPaxId() ].gender = gender;
@@ -197,29 +197,29 @@ void getSalonLayers( int point_id,
   TSectionInfo sectionInfo;
   salonList.getSectionInfo( sectionInfo, flags );
   complayers.pr_craft_lat = salonList.isCraftLat();
-  std::vector<std::pair<TSeatLayer,TPassSeats> > layersSeats;
+  std::vector<std::pair<TLayerPrioritySeat,TPassSeats> > layersSeats;
   TTlgCompLayer comp_layer;
   int next_point_arv = ASTRA::NoExists;
 
   for ( int ilayer=0; ilayer<(int)cltTypeNum; ilayer++ ) {
     ASTRA::TCompLayerType layer_type = (ASTRA::TCompLayerType)ilayer;
-    BASIC_SALONS::TCompLayerType layer_elem;
+    BASIC_SALONS::TCompLayerElem layer_elem;
     if ( (pr_blocked && (layer_type == cltBlockCent || layer_type == cltDisable)) ||
          (!pr_blocked &&
             BASIC_SALONS::TCompLayerTypes::Instance()->getElem( layer_type, layer_elem ) &&
             layer_elem.getOccupy()) ) {
       sectionInfo.GetCurrentLayerSeat( layer_type, layersSeats );
-      for ( std::vector<std::pair<TSeatLayer,TPassSeats> >::iterator ilayer=layersSeats.begin();
+      for ( std::vector<std::pair<TLayerPrioritySeat,TPassSeats> >::iterator ilayer=layersSeats.begin();
             ilayer!=layersSeats.end(); ilayer++ ) {
-        if ( ilayer->first.point_id != point_id ) {
+        if ( ilayer->first.point_id() != point_id ) {
           continue;
         }
         comp_layer.pax_id = ilayer->first.getPaxId();
-        comp_layer.point_dep = ilayer->first.point_dep;
+        comp_layer.point_dep = ilayer->first.point_dep();
         if ( comp_layer.point_dep == ASTRA::NoExists ) {
-          comp_layer.point_dep = ilayer->first.point_id;
+          comp_layer.point_dep = ilayer->first.point_id();
         }
-        comp_layer.point_arv = ilayer->first.point_arv;
+        comp_layer.point_arv = ilayer->first.point_arv();
         if ( comp_layer.point_arv == ASTRA::NoExists ) { //до след. пункта
           if ( next_point_arv == ASTRA::NoExists ) {
             TTripRoute route;
@@ -237,7 +237,7 @@ void getSalonLayers( int point_id,
           }
           comp_layer.point_arv = next_point_arv;
         }
-        comp_layer.layer_type = ilayer->first.layer_type;
+        comp_layer.layer_type = ilayer->first.layerType();
         for ( TPassSeats::iterator iseat=ilayer->second.begin();
               iseat!=ilayer->second.end(); iseat++ ) {
           comp_layer.xname = iseat->line;

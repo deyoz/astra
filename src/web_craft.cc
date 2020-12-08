@@ -265,7 +265,7 @@ namespace WebCraft {
                                                  dropLayersFlags );
     TSalons *Salons = &SalonsN;
     if ( salonList.getRFISCMode() != rTariff  ) {
-      Salons->SetTariffsByRFISC(point_id);
+      Salons->SetTariffsByRFISC(point_id, salonList.getAirline());
     }
     for( vector<TPlaceList*>::iterator placeList = Salons->placelists.begin(); // пробег по салонам
          placeList != Salons->placelists.end(); placeList++ ) {
