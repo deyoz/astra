@@ -189,14 +189,8 @@ $(set point_arv $(get_next_trip_point_id $(get point_dep)))
 $(combine_brd_with_reg $(get point_dep))
 $(auto_set_craft $(get point_dep))
 
-$(sql "begin LIBRA.WRITE_AHM_FLIGHT_LOG_MSG($(get point_dep), 'Ž…€’Ž AHM', 'ŒŽ‚ŽŒ', '‘ŽŽ™…ˆ… ‚ †“€‹ …‰‘€ Ž’ …„€Š’Ž€ AHM'); end;")
-$(sql "begin LIBRA.WRITE_BAL_FLIGHT_LOG_MSG($(get point_dep), '–…’Ž‚™ˆŠ', 'ŒŽ‚ŽŒ', '‘ŽŽ™…ˆ… ‚ †“€‹ …‰‘€ Ž’ Š€‹œŠ“‹Ÿ’Ž€ –…’Ž‚Šˆ'); end;")
-
-!! capture=on
-$(GET_EVENTS $(get point_dep))
-
->> lines=auto
-        <msg>‘ŽŽ™…ˆ… ‚ †“€‹ …‰‘€ Ž’ …„€Š’Ž€ AHM</msg>
+$(sql "begin LIBRA.WRITE_AHM_LOG_MSG('Ž…€’Ž AHM', 'ŒŽ‚ŽŒ', '‘ŽŽ™…ˆ… ‚ †“€‹ Ž’ …„€Š’Ž€ AHM'); end;")
+$(sql "begin LIBRA.WRITE_BALANCE_LOG_MSG($(get point_dep), '–…’Ž‚™ˆŠ', 'ŒŽ‚ŽŒ', '‘ŽŽ™…ˆ… ‚ †“€‹ …‰‘€ Ž’ Š€‹œŠ“‹Ÿ’Ž€ –…’Ž‚Šˆ'); end;")
 
 !! capture=on
 $(GET_EVENTS $(get point_dep))

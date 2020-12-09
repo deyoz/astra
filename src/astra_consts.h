@@ -102,7 +102,7 @@ enum TOperMode { omCUSE, omCUTE, omMUSE, omRESA, omSTAND, omTypeNum };
 extern const char* OperModeS[omTypeNum];
 
 enum TEventType {evtSeason,evtDisp,evtFlt,evtGraph,evtFltTask,evtTimatic,evtPax,evtPay,evtComp,evtTlg,
-                 evtAccess,evtSystem,evtCodif,evtPeriod,evtPrn,evtProgError,evtUnknown,evtTypeNum};
+                 evtAccess,evtSystem,evtCodif,evtPeriod,evtPrn,evtAhm,evtProgError,evtUnknown,evtTypeNum};
 extern const char* EventTypeS[evtTypeNum];
 
 typedef enum {F,C,Y,NoClass} TClass;
