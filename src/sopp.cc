@@ -2883,6 +2883,41 @@ void SoppInterface::DeleteAllPassangers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   AstraLocale::showMessage( "MSG.UNREGISTRATION_ALL_PASSENGERS" );
 }
 
+void CargoMailWeight(
+        const string &suffix,
+        int point_id,
+        int point_arv,
+        int cargo,
+        int mail
+        )
+{
+    TCachedQuery Qry(
+            "BEGIN "
+            " SELECT airp INTO :airp_arv FROM points WHERE point_id=:point_arv; "
+            " UPDATE trip_load SET cargo=:cargo,mail=:mail"
+            "  WHERE point_dep=:point_id AND point_arv=:point_arv; "
+            " IF SQL%NOTFOUND THEN "
+            "  INSERT INTO trip_load(point_dep,airp_dep,point_arv,airp_arv,cargo,mail)  "
+            "   SELECT point_id,airp,:point_arv,:airp_arv,:cargo,:mail FROM points "
+            "    WHERE point_id=:point_id; "
+            " END IF;"
+            "END;",
+            QParams()
+            << QParam("point_id", otInteger, point_id)
+            << QParam("point_arv", otInteger, point_arv)
+            << QParam("airp_arv", otString)
+            << QParam("cargo", otInteger, cargo)
+            << QParam("mail", otInteger, mail)
+            );
+    Qry.get().Execute();
+    TReqInfo::Instance()->LocaleToLog("EVT.CARGO_MAIL_WEIGHT", LEvntPrms()
+            << PrmSmpl<string>("suffix", suffix)
+            << PrmElem<std::string>("airp", etAirp, Qry.get().GetVariableAsString( "airp_arv" ))
+            << PrmSmpl<int>("cargo_weight", cargo)
+            << PrmSmpl<int>("mail_weight", mail),
+            evtFlt, point_id);
+}
+
 void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr node = NodeAsNode( "trips", reqNode );
@@ -2946,37 +2981,14 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             }
             xmlNodePtr trip_loadNode = GetNode( "trip_load", luggageNode );
             if ( trip_loadNode ) {
-                Qry.Clear();
-                Qry.SQLText =
-                    "BEGIN "
-                    " SELECT airp INTO :airp_arv FROM points WHERE point_id=:point_arv; "
-                    " UPDATE trip_load SET cargo=:cargo,mail=:mail"
-                    "  WHERE point_dep=:point_id AND point_arv=:point_arv; "
-                    " IF SQL%NOTFOUND THEN "
-                    "  INSERT INTO trip_load(point_dep,airp_dep,point_arv,airp_arv,cargo,mail)  "
-                    "   SELECT point_id,airp,:point_arv,:airp_arv,:cargo,:mail FROM points "
-                    "    WHERE point_id=:point_id; "
-                    " END IF;"
-                    "END;";
-                Qry.CreateVariable( "point_id", otInteger, point_id );
-                Qry.DeclareVariable( "point_arv", otInteger );
-                Qry.DeclareVariable( "airp_arv", otString );
-                Qry.DeclareVariable( "cargo", otInteger );
-                Qry.DeclareVariable( "mail", otInteger );
                 xmlNodePtr load = trip_loadNode->children;
                 while( load ) {
                     xmlNodePtr x = load->children;
-                    Qry.SetVariable( "point_arv", NodeAsIntegerFast( "point_arv", x ) );
-                    int cargo = NodeAsIntegerFast( "cargo", x );
-                    Qry.SetVariable( "cargo", cargo );
-                    int mail = NodeAsIntegerFast( "mail", x );
-                    Qry.SetVariable( "mail", mail );
-                    Qry.Execute();
-                    TReqInfo::Instance()->LocaleToLog("EVT.CARGO_MAIL_WEIGHT", LEvntPrms()
-                                                   << PrmElem<std::string>("airp", etAirp, Qry.GetVariableAsString( "airp_arv" ))
-                                                   << PrmSmpl<int>("cargo_weight", cargo)
-                                                   << PrmSmpl<int>("mail_weight", mail),
-                                                   evtFlt, point_id);
+                    CargoMailWeight(
+                            {}, point_id,
+                            NodeAsIntegerFast( "point_arv", x ),
+                            NodeAsIntegerFast( "cargo", x ),
+                            NodeAsIntegerFast( "mail", x ));
                     load = load->next;
                 }
             }

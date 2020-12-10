@@ -475,5 +475,7 @@ void changeSCDIN_AtDests( const std::set<int>& points_scd_ins );
 
 std::string internal_ReadData_N( TSOPPTrips &trips, long int &exec_time, int point_id = ASTRA::NoExists );
 
+void CargoMailWeight(const std::string &prefix, int point_id, int point_arv, int cargo, int mail);
+
 #endif /*_SOPP_H_*/
 

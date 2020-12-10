@@ -805,6 +805,10 @@ class TTlgParser
 
 extern char lexh[];
 
+std::string GetAirp(const std::string &airp, bool with_icao=true, bool throwIfUnknown=true);
+std::string GetAirline(const std::string &airline, bool with_icao = true, bool throwIfUnknown=true);
+std::string GetSuffix(const std::string &suffix, bool throwIfUnknown=true);
+
 int CalcEOLCount(const char* p);
 char* GetAirline(char* airline, bool with_icao=true, bool throwIfUnknown=true);
 char GetSuffix(char &suffix, bool throwIfUnknown=true);
