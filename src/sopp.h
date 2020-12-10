@@ -462,5 +462,7 @@ void ChangeBortFromLDM(const std::string &bort, int point_id);
 
 void changeSCDIN_AtDests( const std::set<int>& points_scd_ins );
 
+void CargoMailWeight(const std::string &prefix, int point_id, int point_arv, int cargo, int mail);
+
 #endif /*_SOPP_H_*/
 

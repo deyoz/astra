@@ -37,68 +37,6 @@ TTlgPartInfo ParseUCMHeading(TTlgPartInfo heading, TUCMHeadingInfo &info, TFligh
     return nextPart(heading, line_p);
 }
 
-namespace new_breed {
-    string TlgElemToElemId(TElemType type, const string &elem, bool with_icao = false)
-    {
-        TElemFmt fmt;
-        string id2;
-
-        id2=ElemToElemId(type, elem, fmt, false);
-        if (fmt==efmtUnknown)
-            throw EBaseTableError("TlgElemToElemId: elem not found (type=%s, elem=%s)",
-                    EncodeElemType(type),elem.c_str());
-        if (id2.empty())
-            throw EBaseTableError("TlgElemToElemId: id is empty (type=%s, elem=%s)",
-                    EncodeElemType(type),elem.c_str());
-        if (!with_icao && (fmt==efmtCodeICAONative || fmt==efmtCodeICAOInter))
-            throw EBaseTableError("TlgElemToElemId: ICAO only elem found (type=%s, elem=%s)",
-                    EncodeElemType(type),elem.c_str());
-
-        return id2;
-    }
-
-    string GetAirp(const string &airp, bool with_icao=true)
-    {
-        try
-        {
-            return TlgElemToElemId(etAirp,airp,with_icao);
-        }
-        catch (EBaseTableError)
-        {
-            throw ETlgError("Unknown airport code '%s'", airp.c_str());
-        };
-    };
-
-    string GetAirline(const string &airline, bool with_icao = true)
-    {
-        try
-        {
-            return TlgElemToElemId(etAirline,airline,with_icao);
-        }
-        catch (EBaseTableError)
-        {
-            throw ETlgError("Unknown airline code '%s'", airline.c_str());
-        };
-    };
-
-    string GetSuffix(const string &suffix)
-    {
-        string result;
-        if (not suffix.empty())
-        {
-            try
-            {
-                result = TlgElemToElemId(etSuffix,suffix);
-            }
-            catch (EBaseTableError)
-            {
-                throw ETlgError("Unknown flight number suffix '%s'", suffix.c_str());
-            };
-        };
-        return result;
-    };
-}
-
 void TUCMFltInfo::clear()
 {
     src.clear();
@@ -130,29 +68,29 @@ void TUCMFltInfo::parse(const char *val, TFlightsForBind &flts, TTlgCategory tlg
 
     if (boost::regex_match(src, results, e_ntm)) {
         // NTM
-        airline = new_breed::GetAirline(results[1]);
+        airline = GetAirline(results[1]);
         flt_no = ToInt(results[2]);
-        suffix = new_breed::GetSuffix(results[3]);
+        suffix = GetSuffix(results[3]);
         date = ParseDate(results[4]);
-        airp = new_breed::GetAirp(results[5]);
+        airp = GetAirp(results[5]);
     } else if (boost::regex_match(src, results, e_sls_ucm)) {
         // SLS & UCM
-        airline = new_breed::GetAirline(results[1]);
+        airline = GetAirline(results[1]);
         flt_no = ToInt(results[2]);
-        suffix = new_breed::GetSuffix(results[3]);
+        suffix = GetSuffix(results[3]);
         date = ParseDate(ToInt(results[4]));
-        airp = new_breed::GetAirp(results[7]);
+        airp = GetAirp(results[7]);
     } else if (boost::regex_match(src, results, e1)) {
         // OTHER 1 (unknown airp)
-        airline = new_breed::GetAirline(results[1]);
+        airline = GetAirline(results[1]);
         flt_no = ToInt(results[2]);
-        suffix = new_breed::GetSuffix(results[3]);
+        suffix = GetSuffix(results[3]);
         date = ParseDate(ToInt(results[6]));
     } else if (boost::regex_match(src, results, e2)) {
         // OTHER 2 (unknown airp)
-        airline = new_breed::GetAirline(results[1]);
+        airline = GetAirline(results[1]);
         flt_no = ToInt(results[2]);
-        suffix = new_breed::GetSuffix(results[3]);
+        suffix = GetSuffix(results[3]);
         date = ParseDate(ToInt(results[4]));
     } else
         throw ETlgError(tlgeNotMonitorNotAlarm, "Wrong flight: " + src);

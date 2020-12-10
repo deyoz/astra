@@ -30,6 +30,7 @@
 #include "points.h"
 #include "counters.h"
 #include "pax_calc_data.h"
+#include <boost/regex.hpp>
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -225,51 +226,86 @@ int CalcEOLCount(const char* p)
   return i;
 };
 
+string TlgElemToElemId(TElemType type, const string &elem, bool with_icao = false)
+{
+    TElemFmt fmt;
+    string id2;
+
+    id2=ElemToElemId(type, elem, fmt, false);
+    if (fmt==efmtUnknown)
+        throw EBaseTableError("TlgElemToElemId: elem not found (type=%s, elem=%s)",
+                EncodeElemType(type),elem.c_str());
+    if (id2.empty())
+        throw EBaseTableError("TlgElemToElemId: id is empty (type=%s, elem=%s)",
+                EncodeElemType(type),elem.c_str());
+    if (!with_icao && (fmt==efmtCodeICAONative || fmt==efmtCodeICAOInter))
+        throw EBaseTableError("TlgElemToElemId: ICAO only elem found (type=%s, elem=%s)",
+                EncodeElemType(type),elem.c_str());
+
+    return id2;
+}
+
 char* TlgElemToElemId(TElemType type, const char* elem, char* id, bool with_icao=false)
 {
-  TElemFmt fmt;
-  string id2;
-
-  id2=ElemToElemId(type, elem, fmt, false);
-  if (fmt==efmtUnknown)
-    throw EBaseTableError("TlgElemToElemId: elem not found (type=%s, elem=%s)",
-                          EncodeElemType(type),elem);
-  if (id2.empty())
-    throw EBaseTableError("TlgElemToElemId: id is empty (type=%s, elem=%s)",
-                          EncodeElemType(type),elem);
-  if (!with_icao && (fmt==efmtCodeICAONative || fmt==efmtCodeICAOInter))
-    throw EBaseTableError("TlgElemToElemId: ICAO only elem found (type=%s, elem=%s)",
-                          EncodeElemType(type),elem);
-
-  strcpy(id,id2.c_str());
+  strcpy(id,TlgElemToElemId(type, elem, with_icao).c_str());
   return id;
+};
+
+string GetAirp(const string &airp, bool with_icao, bool throwIfUnknown)
+{
+    try
+    {
+        return TlgElemToElemId(etAirp,airp,with_icao);
+    }
+    catch (EBaseTableError)
+    {
+        if (throwIfUnknown)
+            throw ETlgError("Unknown airport code '%s'", airp.c_str());
+    };
+    return airp;
+};
+
+string GetAirline(const string &airline, bool with_icao, bool throwIfUnknown)
+{
+    try
+    {
+        return TlgElemToElemId(etAirline,airline,with_icao);
+    }
+    catch (EBaseTableError)
+    {
+        if (throwIfUnknown)
+            throw ETlgError("Unknown airline code '%s'", airline.c_str());
+    };
+    return airline;
+};
+
+string GetSuffix(const string &suffix, bool throwIfUnknown)
+{
+    string result;
+    if (not suffix.empty())
+    {
+        try
+        {
+            result = TlgElemToElemId(etSuffix,suffix);
+        }
+        catch (EBaseTableError)
+        {
+            if (throwIfUnknown)
+                throw ETlgError("Unknown flight number suffix '%s'", suffix.c_str());
+        };
+    };
+    return result;
 };
 
 char* GetAirline(char* airline, bool with_icao, bool throwIfUnknown)
 {
-  try
-  {
-    return TlgElemToElemId(etAirline,airline,airline,with_icao);
-  }
-  catch (const EBaseTableError&)
-  {
-    if (throwIfUnknown)
-      throw ETlgError("Unknown airline code '%s'", airline);
-  };
+  strcpy(airline, GetAirline((string)airline, with_icao, throwIfUnknown).c_str());
   return airline;
 };
 
 char* GetAirp(char* airp, bool with_icao=false, bool throwIfUnknown=true)
 {
-  try
-  {
-    return TlgElemToElemId(etAirp,airp,airp,with_icao);
-  }
-  catch (const EBaseTableError&)
-  {
-    if (throwIfUnknown)
-      throw ETlgError("Unknown airport code '%s'", airp);
-  };
+  strcpy(airp, GetAirp((string)airp, with_icao, throwIfUnknown).c_str());
   return airp;
 };
 
@@ -303,23 +339,8 @@ char* GetSubcl(char* subcl, bool throwIfUnknown=true)
 
 char GetSuffix(char &suffix, bool throwIfUnknown)
 {
-  if (suffix!=0)
-  {
-    char suffixh[2];
-    suffixh[0]=suffix;
-    suffixh[1]=0;
-    try
-    {
-      TlgElemToElemId(etSuffix,suffixh,suffixh);
-      suffix=suffixh[0];
-    }
-    catch (const EBaseTableError&)
-    {
-      if (throwIfUnknown)
-        throw ETlgError("Unknown flight number suffix '%c'", suffix);
-    };
-  };
-  return suffix;
+    suffix = GetSuffix(suffix ? string(1, suffix) : string(), throwIfUnknown)[0];
+    return suffix;
 };
 
 void GetPaxDocCountry(const char* elem, char* id)
@@ -354,7 +375,8 @@ TTlgCategory GetTlgCategory(char *tlg_type)
       strcmp(tlg_type,"SOM")==0||
       strcmp(tlg_type,"PRL")==0) cat=tcDCS;
   if (strcmp(tlg_type,"BTM")==0) cat=tcBSM;
-  if (strcmp(tlg_type,"MVT")==0) cat=tcAHM;
+  if (strcmp(tlg_type,"MVT")==0||
+      strcmp(tlg_type,"UWS")==0) cat=tcAHM;
   if (strcmp(tlg_type,"SSM")==0) cat=tcSSM;
   if (strcmp(tlg_type,"ASM")==0) cat=tcASM;
   if (strcmp(tlg_type,"LCI")==0) cat=tcLCI;
@@ -1150,6 +1172,17 @@ void ParseAHMFltInfo(TTlgPartInfo body, const TAHMHeadingInfo &info, TFltInfo& f
             char trip[9];
             res=sscanf(tlg.lex,"%11[A-Z€-Ÿð0-9/].%s",lexh,tlg.lex);
             if (res!=2) throw ETlgError("Wrong flight identifier");
+
+            {
+                string src = tlg.lex;
+                static const boost::regex e_airp("^" + regex::airp + "$");
+                boost::match_results<std::string::const_iterator> results;
+                if(boost::regex_match(src, results, e_airp)) {
+                    strcpy(flt.airp_dep, tlg.lex);
+                    GetAirp(flt.airp_dep);
+                }
+            }
+
             c=0;
             res=sscanf(lexh,"%8[A-Z€-Ÿð0-9]%c",trip,&c);
             if (c!=0||res!=1)
