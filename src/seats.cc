@@ -3463,7 +3463,8 @@ class AnomalisticConditionsPayment
               TLayerPrioritySeat layer = place->getCurrLayer( Salons->trip_id );
               if ( //place->isLayer( cltProtAfterPay, pass.paxId ) ) {
                    (layer.layerType() == cltProtAfterPay ||
-                    layer.layerType() == cltProtSelfCkin) &&
+                    layer.layerType() == cltProtSelfCkin ||
+                    layer.layerType() == cltProtCkin ) && //!!!добавил, т.к. считаю, что если есть разместка агентом, то он значет что делает и пусть истема посадить на это место
                    layer.crs_pax_id() == pass.paxId ) {
                 tst();
                 for ( std::vector<TRem>::iterator irem=place->rems.begin(); irem!=place->rems.end(); ) {

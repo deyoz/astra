@@ -1153,14 +1153,19 @@ BitSet<SEATS2::TChangeLayerSeatsProps>
     if ( !used_seat_no.empty() && !flags.isFlag( flSetPayLayer ) ) {
       Qry.Clear();
       Qry.SQLText =
-        "SELECT first_yname||first_xname pre_seat_no, layer_type, priority "
-        " FROM trip_comp_layers, comp_layer_types "
-        " WHERE point_id=:point_id AND "
-        "       trip_comp_layers.layer_type IN (:protckin_layer,:prot_pay1,:prot_pay2,:prot_selfckin) AND "
-        "       crs_pax_id=:pax_id AND "
-        "       comp_layer_types.code=trip_comp_layers.layer_type "
-        "ORDER BY priority";
+        "SELECT first_yname||first_xname pre_seat_no, t.layer_type, "
+        "    CASE WHEN clp.airline IS NULL THEN clt.priority ELSE clp.priority END priority "
+        "  FROM trip_comp_layers t "
+        " JOIN comp_layer_types clt "
+        "   on clt.code=t.layer_type "
+        " LEFT JOIN comp_layer_priorities clp "
+        "   on clp.layer_type=t.layer_type AND clp.airline=:airline"
+        " WHERE t.point_id=:point_id AND "
+        "       t.layer_type IN (:protckin_layer,:prot_pay1,:prot_pay2,:prot_selfckin) AND "
+        "       crs_pax_id=:pax_id "
+        " ORDER BY priority ";
       Qry.CreateVariable( "point_id", otInteger, point_id );
+      Qry.CreateVariable( "airline", otString, fltInfo.airline );
       Qry.CreateVariable( "pax_id", otInteger, pax_id );
       Qry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType( cltProtCkin ) );
       Qry.CreateVariable( "prot_pay1", otString, EncodeCompLayerType( cltPNLAfterPay ) );
@@ -1382,12 +1387,12 @@ static void ChangeIatciSeats(xmlNodePtr reqNode)
     return AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR");
 }
 
-void CheckResetLayer( TCompLayerType &layer_type, int crs_pax_id )
+void CheckResetLayer( const std::string& airline, TCompLayerType &layer_type, int crs_pax_id )
 {
   if ( layer_type != cltProtCkin ) {
     return;
   }
-  ProgTrace( TRACE5, "CheckResetLayer input layer_type=%s", EncodeCompLayerType(layer_type) );
+  ProgTrace( TRACE5, "CheckResetLayer input layer_type=%s, airline=%s", EncodeCompLayerType(layer_type), airline.c_str() );
   TQuery Qry( &OraSession );
   Qry.SQLText =
     "DECLARE "
@@ -1415,7 +1420,10 @@ void CheckResetLayer( TCompLayerType &layer_type, int crs_pax_id )
     if ( !reqInfo->user.access.check_profile_by_crs_pax(crs_pax_id, 193) ) {
       throw UserException( "MSG.SEATS.CHANGE_PAY_SEATS_DENIED" );
     }
-    layer_type = layer_type_out;
+    if ( BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, layer_type_out ) ) >
+         BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, layer_type ) ) ) {
+      layer_type = layer_type_out;
+    }
   }
   ProgTrace( TRACE5, "CheckResetLayer return layer_type=%s", EncodeCompLayerType(layer_type) );
 }
@@ -1426,6 +1434,8 @@ void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType sea
   if(point_id < 0) {
       return ChangeIatciSeats(reqNode);
   }
+  TTripInfo fltInfo;
+  fltInfo.getByPointId( point_id );
   int pax_id = NodeAsInteger( "pax_id", reqNode );
   int tid = NodeAsInteger( "tid", reqNode );
   int comp_crc = NodeAsInteger( "comp_crc", reqNode, 0 );
@@ -1447,7 +1457,7 @@ void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType sea
   }
   // если пришел слой cltProtCkin а есть более приоритетный clt..AfterPay то надо подменить слой
   TCompLayerType layer_type = DecodeCompLayerType( NodeAsString( "layer", reqNode, "" ) );
-  CheckResetLayer( layer_type, pax_id );
+  CheckResetLayer( fltInfo.airline, layer_type, pax_id );
   IntChangeSeatsN( point_id, pax_id, tid, xname, yname,
                    seat_type,
                    layer_type,

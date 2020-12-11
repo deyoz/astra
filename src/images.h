@@ -304,7 +304,7 @@ class TCompLayerTypes {
     }
     int priority( const LayerKey &key ) {
       if ( layers.find( key.layer_type ) != layers.end() ) {
-        if ( airline_priorities.find( key ) != airline_priorities.end() ) {
+        if ( !key.airline.empty() && airline_priorities.find( key ) != airline_priorities.end() ) {
           return airline_priorities[ key ];
         }
         return layers[ key.layer_type ].getPriority();
