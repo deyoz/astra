@@ -836,7 +836,8 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "    :evtCodif, "
                 "    :evtSeason, "
                 "    :evtDisp, "
-                "    :evtPeriod "
+                "    :evtPeriod, "
+                "    :evtAhm "
                 "          ) ";
         } else {
             if(ARX_EVENTS_DISABLED())
@@ -874,7 +875,8 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "    :evtCodif, "
                 "    :evtSeason, "
                 "    :evtDisp, "
-                "    :evtPeriod "
+                "    :evtPeriod, "
+                "    :evtAhm "
                 "          ) ";
             Qry.CreateVariable("lang_undef", otString, "ZZ");
         }
@@ -883,36 +885,15 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         Qry.CreateVariable("evtFlt", otString, NodeAsString("evtFlt", reqNode));
         Qry.CreateVariable("evtPax", otString, NodeAsString("evtPax", reqNode));
         Qry.CreateVariable("system_user", otString, SYSTEM_USER);
-        {
-            xmlNodePtr node = GetNode("evtFltTask", reqNode);
-            string evtFltTask;
-            if(node)
-                evtFltTask = NodeAsString(node);
-            Qry.CreateVariable("evtFltTask", otString, evtFltTask);
-        }
-        {
-            xmlNodePtr node = GetNode("evtPay", reqNode);
-            string evtPay;
-            if(node)
-                evtPay = NodeAsString(node);
-            Qry.CreateVariable("evtPay", otString, evtPay);
-        }
-        {
-            xmlNodePtr node = GetNode("evtDisp", reqNode);
-            string evtDisp;
-            if(node)
-                evtDisp = NodeAsString(node);
-            Qry.CreateVariable("evtDisp", otString, evtDisp);
-        }
-        {
-            xmlNodePtr node = GetNode("evtSeason", reqNode);
-            string evtSeason;
-            if(node)
-                evtSeason = NodeAsString(node);
-            Qry.CreateVariable("evtSeason", otString, evtSeason);
-        }
+
+        Qry.CreateVariable("evtFltTask", otString, NodeAsString("evtFltTask", reqNode, {}));
+        Qry.CreateVariable("evtPay", otString, NodeAsString("evtPay", reqNode, {}));
+        Qry.CreateVariable("evtDisp", otString, NodeAsString("evtDisp", reqNode, {}));
+        Qry.CreateVariable("evtSeason", otString, NodeAsString("evtSeason", reqNode, {}));
+        Qry.CreateVariable("evtAhm", otString, NodeAsString("evtAhm", reqNode, {}));
+        Qry.CreateVariable("evtTimatic", otString, NodeAsString("evtTimatic", reqNode, {}));
+
         Qry.CreateVariable("evtGraph", otString, NodeAsString("evtGraph", reqNode));
-        Qry.CreateVariable("evtTimatic", otString, NodeAsString("evtTimatic", reqNode, ""));
         Qry.CreateVariable("evtTlg", otString, NodeAsString("evtTlg", reqNode));
         Qry.CreateVariable("evtComp", otString, NodeAsString("evtComp", reqNode));
         Qry.CreateVariable("evtAccess", otString, NodeAsString("evtAccess", reqNode));
