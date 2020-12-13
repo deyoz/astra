@@ -3,6 +3,7 @@
 #include "alarms.h"
 #include "tlg/remote_system_context.h"
 #include "base_callbacks.h"
+#include "serverlib/testmode.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/slogger.h"
@@ -44,12 +45,17 @@ std::string RequestCollector::getRequestId()
   Qry.Execute();
   std::ostringstream s;
   s << std::setw(7) << std::setfill('0');
-#ifndef XP_TESTING
-  s << Qry.FieldAsInteger("id");
-#else
-  s << (requestIdGenerator++);
-  setLastRequestId(s.str());
+#ifdef XP_TESTING
+  if (inTestMode())
+  {
+    s << (requestIdGenerator++);
+    setLastRequestId(s.str());
+  }
+  else
 #endif/*XP_TESTING*/
+  {
+    s << Qry.FieldAsInteger("id");
+  }
   return s.str();
 }
 
