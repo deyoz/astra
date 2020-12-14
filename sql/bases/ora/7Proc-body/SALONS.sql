@@ -179,44 +179,55 @@ FUNCTION get_crs_seat_no(vpax_id     IN crs_pax.pax_id%TYPE,
                          row	     IN NUMBER DEFAULT 1,
                          only_lat    IN NUMBER DEFAULT 0) RETURN VARCHAR2
 IS
-CURSOR cur IS
+CURSOR cur(vairline   IN points.airline%TYPE) IS
   SELECT first_xname AS xname,
          first_yname AS yname,
-         layer_type
-  FROM tlg_comp_layers, comp_layer_types
-  WHERE crs_pax_id=vpax_id AND
-        tlg_comp_layers.layer_type=comp_layer_types.code
-  ORDER BY priority,tlg_comp_layers.layer_type,first_yname,first_xname;
+         tlg.layer_type,
+         CASE WHEN clp.airline IS NULL THEN clt.priority ELSE clp.priority END priority
+  FROM tlg_comp_layers tlg
+  JOIN comp_layer_types clt 
+    on clt.code=tlg.layer_type 
+  LEFT JOIN comp_layer_priorities clp
+    on clp.layer_type=tlg.layer_type AND clp.airline=vairline
+  WHERE tlg.crs_pax_id=vpax_id
+  ORDER BY priority,tlg.layer_type,first_yname,first_xname;
 curRow    cur%ROWTYPE;
 res VARCHAR2(20);
 vpoint_dep crs_pnr.point_id%TYPE;
 BEGIN
   vlayer_type := NULL;
   IF vpax_id IS NULL THEN
-    IF row=1 THEN crsSeatInfo.point_id:=NULL; END IF;
+    IF row=1 THEN 
+       crsSeatInfo.point_id:=NULL; 
+       crsSeatInfo.airline:=NULL;
+    END IF;
     RETURN NULL;
   END IF;
+  IF row=1 OR 
+     vpoint_id IS NULL OR
+     crsSeatInfo.airline IS NULL THEN -- поиск самого приоритетного слоя, первая строка, надо найти АК
+    BEGIN
+      SELECT points.airline, tlg_binding.point_id_tlg
+      INTO crsSeatInfo.airline, vpoint_dep
+      FROM crs_pnr,crs_pax,tlg_binding,points
+      WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND 
+            crs_pax.pax_id=vpax_id AND
+            tlg_binding.point_id_tlg=crs_pnr.point_id AND
+            points.point_id=tlg_binding.point_id_spp AND
+            rownum<=1;
+    EXCEPTION
+      WHEN NO_DATA_FOUND THEN
+        crsSeatInfo.airline:=NULL;
+        crsSeatInfo.point_id:=NULL;
+        RETURN NULL;
+    END;
+  ELSE
+    vpoint_dep:=vpoint_id;
+  END IF;
   res:=NULL;
-  OPEN cur;
+  OPEN cur(crsSeatInfo.airline);
   FETCH cur INTO curRow;
   IF cur%FOUND THEN
-    IF only_lat=0 THEN
-      IF vpoint_id IS NULL THEN
-        BEGIN
-          SELECT point_id
-          INTO vpoint_dep
-          FROM crs_pnr,crs_pax
-          WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND crs_pax.pax_id=vpax_id;
-        EXCEPTION
-          WHEN NO_DATA_FOUND THEN
-            CLOSE cur;
-            IF row=1 THEN crsSeatInfo.point_id:=NULL; END IF;
-            RETURN NULL;
-        END;
-      ELSE
-        vpoint_dep:=vpoint_id;
-      END IF;
-    END IF;
     WHILE cur%FOUND LOOP
       IF vlayer_type IS NULL OR vlayer_type <> curRow.layer_type THEN
         IF curRow.layer_type=cltPNLCkin THEN
