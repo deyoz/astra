@@ -1420,7 +1420,7 @@ void CheckResetLayer( const std::string& airline, TCompLayerType &layer_type, in
     if ( !reqInfo->user.access.check_profile_by_crs_pax(crs_pax_id, 193) ) {
       throw UserException( "MSG.SEATS.CHANGE_PAY_SEATS_DENIED" );
     }
-    if ( BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, layer_type_out ) ) >
+    if ( BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, layer_type_out ) ) <
          BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, layer_type ) ) ) {
       layer_type = layer_type_out;
     }
