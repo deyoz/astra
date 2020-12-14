@@ -16,6 +16,7 @@
 #include "lci_parser.h"
 #include "ucm_parser.h"
 #include "mvt_parser.h"
+#include "uws_parser.h"
 #include "ldm_parser.h"
 #include "ifm_parser.h"
 #include "typeb_utils.h"
@@ -1039,7 +1040,11 @@ bool parse_tlg(const string &handler_id)
           {
             TAHMHeadingInfo &info = *(dynamic_cast<TAHMHeadingInfo*>(HeadingInfo));
 
-            if((string)info.tlg_type == "MVT") {
+            if((string)info.tlg_type == "UWS") {
+                UWSParser::TUWSContent con;
+                UWSParser::ParseUWSContent(part, info, con, mem);
+                UWSParser::SaveUWSContent(tlg_id, info, con);
+            } else if((string)info.tlg_type == "MVT") {
                 MVTParser::TMVTContent con;
                 MVTParser::ParseMVTContent(part, info, con, mem);
                 MVTParser::SaveMVTContent(tlg_id, info, con);
@@ -1242,8 +1247,8 @@ void get_tlg_info(
         part.offset = parts.addr.size();
         ParseHeading(part, HeadingInfo, bind_flts, mem);
 
-        LogTrace(TRACE5) << "tlg_type: " << tlg_type;
         tlg_type = HeadingInfo->tlg_type;
+        LogTrace(TRACE5) << "tlg_type: " << tlg_type;
 
         part.p=parts.body.c_str();
         part.EOL_count=CalcEOLCount(parts.addr.c_str())+
