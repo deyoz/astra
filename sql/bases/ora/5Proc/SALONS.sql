@@ -25,7 +25,8 @@ TYPE TCRSSeatInfo IS RECORD
 (
 point_id        NUMBER(9),
 pr_lat_seat     trip_sets.pr_lat_seat%TYPE,
-pr_paid_ckin    trip_paid_ckin.point_id%TYPE
+pr_paid_ckin    trip_paid_ckin.point_id%TYPE,
+airline		comp_layer_priorities.airline%TYPE
 );
 
 TYPE TTableCompLayerType IS TABLE OF comp_layer_types.code%TYPE INDEX BY BINARY_INTEGER;
