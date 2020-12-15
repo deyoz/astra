@@ -906,13 +906,7 @@ class TClientTypes: public TCodeBaseTable {
 
 class TCompLayerTypesRow: public TCodeBaseTableRow {
   public:
-    int priority;
     const char *get_row_name() const { return "TCompLayerTypesRow"; };
-    int AsInteger(std::string field) const
-    {
-      if (lowerc(field)=="priority") return priority;
-      return TCodeBaseTableRow::AsInteger(field);
-    }
 };
 
 class TCompLayerTypes: public TCodeBaseTable {

@@ -9,6 +9,7 @@
 #include "astra_consts.h"
 #include "date_time.h"
 #include "astra_locale.h"
+#include "astra_utils.h"
 
 using BASIC::date_time::TDateTime;
 
@@ -151,66 +152,53 @@ class TCompElemTypes {
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-class TCompLayerType {
+class TCompLayerElem {
   private:
     std::string code;
     ASTRA::TCompLayerType layer_type;
     std::string name;
     std::string name_lat;
-    bool del_if_comp_chg;
     std::string color;
     std::string figure;
     bool pr_occupy;
-    int priority;
   public:
-    TCompLayerType( ) {
+    TCompLayerElem( ) {
       Clear();
     }
-    TCompLayerType( const std::string &vcode,
+    TCompLayerElem( const std::string &vcode,
                     ASTRA::TCompLayerType vlayer_type,
                     const std::string &vname,
                     const std::string &vname_lat,
-                    bool vdel_if_comp_chg,
                     const std::string &vcolor,
                     const std::string &vfigure,
-                    bool vpr_occupy,
-                    int vpriority ) {
+                    bool vpr_occupy ) {
       code = vcode;
       layer_type = vlayer_type;
       name = vname;
       name_lat = vname_lat;
-      del_if_comp_chg = vdel_if_comp_chg;
       color = vcolor;
       figure = vfigure;
       pr_occupy = vpr_occupy;
-      priority = vpriority;
     }
     void Clear() {
       code.clear();
       layer_type = ASTRA::cltUnknown;
       name.clear();
       name_lat.clear();
-      del_if_comp_chg = false;
       color.clear();
       figure.clear();
       pr_occupy = false;
-      priority = -1;
     }
-    void operator = ( const BASIC_SALONS::TCompLayerType &layer ) {
+    void operator = ( const BASIC_SALONS::TCompLayerElem &layer ) {
       code = layer.code;
       layer_type = layer.layer_type;
       name = layer.name;
       name_lat = layer.name_lat;
       if ( name_lat.empty() )
         name_lat = name;
-      del_if_comp_chg = layer.del_if_comp_chg;
       color = layer.color;
       figure = layer.figure;
       pr_occupy = layer.pr_occupy;
-      priority = layer.priority;
-    }
-    int getPriority() {
-      return priority;
     }
     bool getOccupy() {
       return pr_occupy;
@@ -235,9 +223,66 @@ class TCompLayerType {
     }
 };
 
-class TCompLayerTypes {
+class TCompLayerPriority: public TCompLayerElem {
   private:
-    std::map<ASTRA::TCompLayerType,BASIC_SALONS::TCompLayerType> layers;
+    std::string code;
+    ASTRA::TCompLayerType layer_type;
+    std::string name;
+    std::string name_lat;
+    std::string color;
+    std::string figure;
+    bool pr_occupy;
+    int priority;
+  public:
+    TCompLayerPriority( ) {
+      Clear();
+    }
+    TCompLayerPriority( const std::string &vcode,
+                        ASTRA::TCompLayerType vlayer_type,
+                        const std::string &vname,
+                        const std::string &vname_lat,
+                        const std::string &vcolor,
+                        const std::string &vfigure,
+                        bool vpr_occupy,
+                        int vpriority ):TCompLayerElem(vcode,
+                                                       vlayer_type,
+                                                       vname,
+                                                       vname_lat,
+                                                       vcolor,
+                                                       vfigure,
+                                                       vpr_occupy),priority(vpriority) {}
+    void Clear() {
+      TCompLayerElem::Clear();
+      priority = -1;
+    }
+    void operator = ( const TCompLayerPriority &layer ) {
+      TCompLayerElem::operator =(layer);
+      priority = layer.priority;
+    }
+    int getPriority() {
+      return priority;
+    }
+};
+
+class TCompLayerTypes {
+  public:
+    struct LayerKey {
+      std::string airline;
+      ASTRA::TCompLayerType layer_type;
+      bool operator < ( const LayerKey& _apriority ) const {
+        if ( airline != _apriority.airline )
+          return ( airline < _apriority.airline );
+        return ( EncodeCompLayerType( layer_type ) < EncodeCompLayerType( _apriority.layer_type ) );
+      }
+      LayerKey( const std::string& _airline, ASTRA::TCompLayerType _layer_type) {
+        airline = _airline;
+        layer_type = _layer_type;
+      }
+    };
+
+  private:
+    std::map<LayerKey,int> airline_priorities; //приоритеты для АК
+    std::map<ASTRA::TCompLayerType,TCompLayerPriority> layers;
     std::map<ASTRA::TCompLayerType, std::map<ASTRA::TCompLayerType,int> > layers_priority_routes;
   public:
     static TCompLayerTypes *Instance() {
@@ -249,7 +294,7 @@ class TCompLayerTypes {
     }
     void Update();
     TCompLayerTypes();
-    bool getElem( const ASTRA::TCompLayerType &layer_type, TCompLayerType &layer_elem ) {
+    bool getElem( const ASTRA::TCompLayerType layer_type, TCompLayerElem &layer_elem ) {
       if ( layers.find( layer_type ) != layers.end() ) {
         layer_elem = layers[ layer_type ];
         return true;
@@ -257,10 +302,14 @@ class TCompLayerTypes {
       layer_elem.Clear();
       return false;
     }
-    int priority( const ASTRA::TCompLayerType &layer_type ) {
-      TCompLayerType elem;
-      getElem( layer_type, elem );
-      return elem.getPriority();
+    int priority( const LayerKey &key ) {
+      if ( layers.find( key.layer_type ) != layers.end() ) {
+        if ( !key.airline.empty() && airline_priorities.find( key ) != airline_priorities.end() ) {
+          return airline_priorities[ key ];
+        }
+        return layers[ key.layer_type ].getPriority();
+      }
+      throw EXCEPTIONS::Exception( "get layer priority: layer type is not found ");
     }                        /*  ан  е = layer1, ┐озже layer2, ┐о  oоL ани   ан  ий ┐ ио и е нее ┐озднего */
     bool priority_on_routes( const ASTRA::TCompLayerType &layer_type1,
                              const ASTRA::TCompLayerType &layer_type2,
@@ -276,13 +325,13 @@ class TCompLayerTypes {
       return true;
     }
     std::string getCode( const ASTRA::TCompLayerType &layer_type ) {
-      TCompLayerType elem;
+      TCompLayerElem elem;
       getElem( layer_type, elem );
       return elem.getCode();
     }
     std::string getName( const ASTRA::TCompLayerType &layer_type,
                          std::string Lang = AstraLocale::LANG_RU ) {
-      TCompLayerType elem;
+      TCompLayerElem elem;
       getElem( layer_type, elem );
       if ( Lang == AstraLocale::LANG_RU || elem.getNameLat().empty() ) {
         return elem.getName();
@@ -293,7 +342,7 @@ class TCompLayerTypes {
     }
 };
 
-};
+}
 
 
 void GetDataForDrawSalon( xmlNodePtr reqNode, xmlNodePtr resNode);

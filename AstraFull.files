@@ -25,6 +25,8 @@ src/astra_consts.cc
 src/astra_consts.h
 src/astra_context.cc
 src/astra_context.h
+src/astra_calls.cc
+src/astra_calls.h
 src/astra_dates.h
 src/astra_dates_oci.h
 src/astra_elem_utils.cc
@@ -82,6 +84,10 @@ src/comp_layers.cc
 src/comp_layers.h
 src/convert.cc
 src/convert.h
+src/crafts/ComponCreator.сс
+src/crafts/ComponCreator.h
+src/crafts/CraftCaches.сс
+src/crafts/CraftCaches.h
 src/crypt.cc
 src/crypt.h
 src/Depeches.cpp
@@ -171,6 +177,8 @@ src/season.cc
 src/season.h
 src/seats.cc
 src/seats.h
+src/seatPax.cc
+src/seatPax.h
 src/seat_descript.cc
 src/seat_descript.h
 src/seats_utils.cc
