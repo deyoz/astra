@@ -189,7 +189,17 @@ $(set point_arv $(get_next_trip_point_id $(get point_dep)))
 $(combine_brd_with_reg $(get point_dep))
 $(auto_set_craft $(get point_dep))
 
-$(sql "begin LIBRA.WRITE_AHM_LOG_MSG('Ž…€’Ž AHM', 'ŒŽ‚ŽŒ', '‘ŽŽ™…ˆ… ‚ †“€‹ Ž’ …„€Š’Ž€ AHM'); end;")
+$(set awk_UT 226)
+
+$(sql "begin LIBRA.WRITE_AHM_LOG_MSG($(get awk_UT), null,  null, 'Ž…€’Ž AHM', 'ŒŽ‚ŽŒ', '‘ŽŽ™…ˆ… 1 ‚ †“€‹ Ž’ …„€Š’Ž€ AHM'); end;")
+$(sql "begin LIBRA.WRITE_AHM_LOG_MSG($(get awk_UT), 'DOW', null, 'Ž…€’Ž AHM', 'ŒŽ‚ŽŒ', '‘ŽŽ™…ˆ… 2 ‚ †“€‹ Ž’ …„€Š’Ž€ AHM'); end;")
+$(sql "begin LIBRA.WRITE_AHM_LOG_MSG($(get awk_UT), 'TOW', 'ZZ-738', 'Ž…€’Ž AHM', 'ŒŽ‚ŽŒ', '‘ŽŽ™…ˆ… 3 ‚ †“€‹ Ž’ …„€Š’Ž€ AHM'); end;")
+$(sql "begin LIBRA.WRITE_AHM_LOG_MSG($(get awk_UT), null,  'BB-321', 'Ž…€’Ž AHM', 'ŒŽ‚ŽŒ', '‘ŽŽ™…ˆ… 4 ‚ †“€‹ Ž’ …„€Š’Ž€ AHM'); end;")
+$(sql "begin LIBRA.WRITE_AHM_LOG_MSG($(get awk_UT), null,  null, 'Ž…€’Ž AHM', 'ŒŽ‚ŽŒ', '‘ŽŽ™…ˆ… 5 ‚ †“€‹ Ž’ …„€Š’Ž€ AHM'); end;")
+$(sql "begin LIBRA.WRITE_AHM_LOG_MSG($(get awk_UT), 'DOW', null, 'Ž…€’Ž AHM', 'ŒŽ‚ŽŒ', '‘ŽŽ™…ˆ… 6 ‚ †“€‹ Ž’ …„€Š’Ž€ AHM'); end;")
+$(sql "begin LIBRA.WRITE_AHM_LOG_MSG($(get awk_UT), 'TOW', 'ZZ-738', 'Ž…€’Ž AHM', 'ŒŽ‚ŽŒ', '‘ŽŽ™…ˆ… 7 ‚ †“€‹ Ž’ …„€Š’Ž€ AHM'); end;")
+$(sql "begin LIBRA.WRITE_AHM_LOG_MSG($(get awk_UT), null,  'BB-321', 'Ž…€’Ž AHM', 'ŒŽ‚ŽŒ', '‘ŽŽ™…ˆ… 8 ‚ †“€‹ Ž’ …„€Š’Ž€ AHM'); end;")
+
 $(sql "begin LIBRA.WRITE_BALANCE_LOG_MSG($(get point_dep), '–…’Ž‚™ˆŠ', 'ŒŽ‚ŽŒ', '‘ŽŽ™…ˆ… ‚ †“€‹ …‰‘€ Ž’ Š€‹œŠ“‹Ÿ’Ž€ –…’Ž‚Šˆ'); end;")
 
 !! capture=on
@@ -197,3 +207,11 @@ $(GET_EVENTS $(get point_dep))
 
 >> lines=auto
         <msg>‘ŽŽ™…ˆ… ‚ †“€‹ …‰‘€ Ž’ Š€‹œŠ“‹Ÿ’Ž€ –…’Ž‚Šˆ</msg>
+
+??
+$(dump_table AHM_DICT display="on" fields="AIRLINE, CATEGORY, BORT_NUM" order="ID")
+>> lines=auto
+[226] [NULL] [NULL] $()
+[226] [DOW] [NULL] $()
+[226] [TOW] [ZZ-738] $()
+[226] [NULL] [BB-321] $()

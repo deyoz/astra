@@ -1,0 +1,1 @@
+create unique index AHM_DICT__AK on AHM_DICT(AIRLINE, CATEGORY, BORT_NUM);
