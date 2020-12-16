@@ -645,6 +645,9 @@ void PassengerSearchResult::toXML(xmlNodePtr resNode, ZamarType type) const
       SetProp(segmentNode, "flightCode", item.operFlt.flight_number(lang));
       SetProp(segmentNode, "src", airpToPrefferedCode(item.operFlt.airp, lang));
       SetProp(segmentNode, "dst", airpToPrefferedCode(item.airp_arv, lang));
+      if(type == ZamarType::CUWS and item.operFlt.scd_out != NoExists) {
+          SetProp(segmentNode, "scd_out", DateTimeToStr(UTCToLocal(item.operFlt.scd_out, AirpTZRegion(item.operFlt.airp)), "yyyy-mm-dd"));
+      }
     }
   }
 
