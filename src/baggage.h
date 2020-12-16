@@ -112,6 +112,8 @@ class TUnaccompRuleItem
 
 class TSimpleBagItem
 {
+  private:
+      std::string get_rem_code_internal(TRFISCListWithPropsCache &lists, bool pr_ldm) const;
   public:
     boost::optional<TRFISCKey> pc;
     boost::optional<TBagTypeKey> wt;
@@ -141,7 +143,8 @@ class TSimpleBagItem
 
     const TSimpleBagItem& toDB(TQuery &Qry) const;
     TSimpleBagItem& fromDB(TQuery &Qry);
-    std::string get_rem_code(TRFISCListWithPropsCache &lists) const;
+    std::string get_rem_code_lci(TRFISCListWithPropsCache &lists) const;
+    std::string get_rem_code_ldm(TRFISCListWithPropsCache &lists) const;
 };
 
 class TBagItem : public TSimpleBagItem
