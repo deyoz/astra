@@ -631,7 +631,7 @@ void PassengerSearchResult::toXML(xmlNodePtr resNode, ZamarType type) const
   }
 
   // baggageRoute -- SBDO
-  if (type == ZamarType::SBDO)
+  if (type == ZamarType::SBDO or type == ZamarType::CUWS)
   {
     TTrferRoute route;
     route.GetRoute(grp_item.id, trtWithFirstSeg);
