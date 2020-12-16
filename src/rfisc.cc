@@ -873,7 +873,8 @@ TRFISCBagProps& TRFISCBagProps::fromDB(TQuery &Qry)
     min_weight=Qry.FieldAsInteger("min_weight");
   if (!Qry.FieldIsNULL("max_weight"))
     max_weight=Qry.FieldAsInteger("max_weight");
-  rem_code=Qry.FieldAsString("rem_code");
+  rem_code_lci=Qry.FieldAsString("rem_code_lci");
+  rem_code_ldm=Qry.FieldAsString("rem_code_ldm");
   return *this;
 }
 

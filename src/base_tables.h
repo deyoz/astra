@@ -1059,8 +1059,9 @@ class TBagNormTypes: public TCodeBaseTable {
 };
 
 class TBagTypesRow: public TIdBaseTableRow {
-      public:
-    const char *get_row_name() const { return "TBagTypesRow"; };
+    public:
+        std::string rem_code_lci, rem_code_ldm;
+        const char *get_row_name() const { return "TBagTypesRow"; };
 };
 
 class TBagTypes: public TIdBaseTable {
@@ -1071,7 +1072,14 @@ class TBagTypes: public TIdBaseTable {
   public:
     TBagTypes() {
         Init();
-        select_sql = "SELECT code AS id,name,name_lat FROM bag_types";
+        select_sql =
+            "select "
+            "   code id, "
+            "   name, "
+            "   name_lat, "
+            "   rem_code_lci, "
+            "   rem_code_ldm "
+            "from bag_types";
     };
 };
 

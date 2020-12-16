@@ -5651,7 +5651,7 @@ void TBagRems::get(TypeB::TDetailCreateInfo &info)
       "       bag2.bag_type_str, "
       "       bag2.service_type, "
       "       bag2.airline, "
-      "       bag_types.rem_code, "
+      "       bag_types.rem_code_lci, "
       "       SUM(bag2.amount) AS amount, "
       "       SUM(bag2.weight) AS weight "
       "FROM pax_grp, bag2, bag_types "
@@ -5668,7 +5668,7 @@ void TBagRems::get(TypeB::TDetailCreateInfo &info)
       "         bag2.bag_type_str, "
       "         bag2.service_type, "
       "         bag2.airline, "
-      "         bag_types.rem_code",
+      "         bag_types.rem_code_lci",
       QParams() << QParam("point_id", otInteger, info.point_id));
 
     Qry.get().Execute();
@@ -5677,11 +5677,11 @@ void TBagRems::get(TypeB::TDetailCreateInfo &info)
     for(; not Qry.get().Eof; Qry.get().Next()) //не попадает ручная кладь!
     {
       string airp_arv = Qry.get().FieldAsString("airp_arv");
-      string rem_code = Qry.get().FieldAsString("rem_code");
+      string rem_code = Qry.get().FieldAsString("rem_code_lci");
       CheckIn::TSimpleBagItem bagItem;
       bagItem.fromDB(Qry.get());
       if (bagItem.pc)
-        rem_code=bagItem.get_rem_code(lists);
+        rem_code=bagItem.get_rem_code_lci(lists);
 
       if(not rem_code.empty()) {
           items[airp_arv][rem_code].first += bagItem.amount;
@@ -5811,6 +5811,11 @@ struct TLDMDest {
     TLDMBag bag;
     TExcess excess;
     TToRampBag to_ramp;
+
+    struct TRem: public set<string> {
+        string str();
+    } rems;
+
     void append(TLDMDests &dests);
     TLDMDest():
         point_arv(NoExists),
@@ -5838,6 +5843,7 @@ struct TLDMDest {
         inf += item.inf;
         female += item.female;
         male += item.male;
+        rems.insert(item.rems.begin(), item.rems.end());
         return *this;
     }
 };
@@ -6002,6 +6008,7 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
         row
             << "/0"
             << "/0";
+        if(options.version == "28ed") row << iv->rems.str();
         if(options.version == "CEK" and info.airp_dep == "ЧЛБ")
             row
                 << ".B/" << iv->bag.baggage
@@ -6153,6 +6160,14 @@ void TLDMDest::append(TLDMDests &dests)
             *this += dest;
 }
 
+string TLDMDest::TRem::str()
+{
+    string result;
+    for(const auto &i: *this)
+        result += "." + i;
+    return result;
+}
+
 void TLDMDests::get(TypeB::TDetailCreateInfo &info)
 {
     TLDMDests before_dests;
@@ -6172,6 +6187,8 @@ void TLDMDests::get(TypeB::TDetailCreateInfo &info)
     pax_list.options.pr_brd = boost::in_place(REPORTS::TBrdVal::bvTRUE);
     pax_list.fromDB();
     TTripRoute route;
+    map<int, CheckIn::TBagMap> bags;
+    TRFISCListWithPropsCache lists;
     if(route.GetRouteAfter(NoExists, info.point_id, trtNotCurrent, trtNotCancelled)) {
         for(const auto &point_arv: route) {
             items.emplace_back();
@@ -6193,6 +6210,25 @@ void TLDMDests::get(TypeB::TDetailCreateInfo &info)
             item.male = 0;
 
             for(const auto &pax: pax_list) {
+                if(bags.find(pax->simple.grp_id) == bags.end()) {
+                    auto res = bags.insert(make_pair(pax->simple.grp_id, CheckIn::TBagMap()));
+                    res.first->second.fromDB(pax->simple.grp_id);
+                    for(const auto &i: res.first->second) {
+                        if(i.second.pc) {
+                            string rem = i.second.get_rem_code_ldm(lists);
+                            if(not rem.empty()) item.rems.insert(rem);
+                        }
+                        if(i.second.wt) {
+                            try {
+                                int bag_type = ToInt(i.second.wt->bag_type);
+                                const TBagTypesRow &row=(const TBagTypesRow&)(base_tables.get("bag_types").get_row("id",bag_type));
+                                if(not row.rem_code_ldm.empty())
+                                    item.rems.insert(row.rem_code_ldm);
+                            } catch(...) {}
+                        }
+                    }
+                }
+
                 if(pax->grp().point_arv == point_arv.point_id) {
                     item.rk_weight += pax->rk_weight(true);
                     item.f += pax->cl() == "П" and pax->seats();
@@ -7194,7 +7230,7 @@ void TLCIPaxTotals::get_bag_info(map<string, pair<int, int> > &bag_info, int &ba
     if(pool_pax_id != NoExists and pool_pax_id == pax_id) {
         TCachedQuery bagInfoQry(
                 "select "
-                "   decode(bag2.to_ramp, 0, bag_types.rem_code, 'DAA') rem_code, "
+                "   decode(bag2.to_ramp, 0, bag_types.rem_code_lci, 'DAA') rem_code, "
                 "   sum(decode(pr_cabin,0,amount,null)) bag_amount, "
                 "   sum(decode(pr_cabin,0,weight,null)) bag_weight "
                 "from "
@@ -7206,7 +7242,7 @@ void TLCIPaxTotals::get_bag_info(map<string, pair<int, int> > &bag_info, int &ba
                 "   bag2.bag_type = bag_types.code(+) "
                 "group by "
                 "   bag2.to_ramp, "
-                "   bag_types.rem_code ",
+                "   bag_types.rem_code_lci ",
                 QParams()
                 << QParam("grp_id", otInteger, grp_id)
                 << QParam("bag_pool_num", otInteger, bag_pool_num));
@@ -7389,24 +7425,6 @@ string get_grp_cls(int pax_id)
     string result;
     if(not Qry.get().Eof)
         result = Qry.get().FieldAsString("class");
-    return result;
-}
-
-string get_rem_category(int grp_id)
-{
-    string result;
-    TCachedQuery Qry(
-            "select bag_types.rem_code "
-            "from pax_grp, bag2, bag_types where "
-            "   pax_grp.grp_id = :grp_id and "
-            "   pax_grp.grp_id = bag2.grp_id and "
-            "   bag2.pr_cabin=0 AND "
-            "   ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse) = 0 and "
-            "   bag2.bag_type = bag_types.code(+) ",
-            QParams() << QParam("grp_id", otInteger, grp_id));
-    Qry.get().Execute();
-    if(not Qry.get().Eof)
-        result = Qry.get().FieldAsString("rem_code");
     return result;
 }
 

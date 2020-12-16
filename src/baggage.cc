@@ -309,13 +309,23 @@ void TBagItem::check(TRFISCListWithPropsCache &lists) const
   check(lists.getBagPropsList(pc.get().list_id));
 }
 
-std::string TSimpleBagItem::get_rem_code(TRFISCListWithPropsCache &lists) const
+std::string TSimpleBagItem::get_rem_code_lci(TRFISCListWithPropsCache &lists) const
+{
+    return get_rem_code_internal(lists, false);
+}
+
+std::string TSimpleBagItem::get_rem_code_ldm(TRFISCListWithPropsCache &lists) const
+{
+    return get_rem_code_internal(lists, true);
+}
+
+std::string TSimpleBagItem::get_rem_code_internal(TRFISCListWithPropsCache &lists, bool pr_ldm) const
 {
   if (!pc) throw Exception("%s: !pc", __FUNCTION__);
   const TRFISCBagPropsList &list=lists.getBagPropsList(pc.get().list_id);
   TRFISCBagPropsList::const_iterator i=list.find(pc.get().key());
   if (i==list.end()) return "";
-  return i->second.rem_code;
+  return (pr_ldm ? i->second.rem_code_ldm : i->second.rem_code_lci);
 }
 
 std::string TBagItem::key_str(const std::string& lang) const
