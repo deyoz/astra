@@ -641,10 +641,25 @@ void PassengerSearchResult::toXML(xmlNodePtr resNode, ZamarType type) const
     {
       xmlNodePtr segmentNode = NewTextChild(routeNode, "segment");
       SetProp(segmentNode, "id", ++id);
-      SetProp(segmentNode, "airline", airlineToPrefferedCode(item.operFlt.airline, lang));
-      SetProp(segmentNode, "flightCode", item.operFlt.flight_number(lang));
-      SetProp(segmentNode, "src", airpToPrefferedCode(item.operFlt.airp, lang));
-      SetProp(segmentNode, "dst", airpToPrefferedCode(item.airp_arv, lang));
+
+      string airline = airlineToPrefferedCode(item.operFlt.airline, lang);
+      string flightCode = item.operFlt.flight_number(lang);
+      string src = airpToPrefferedCode(item.operFlt.airp, lang);
+      string dst = airpToPrefferedCode(item.airp_arv, lang);
+
+      SetProp(segmentNode, "airline", airline);
+      SetProp(segmentNode, "flightCode", flightCode);
+      SetProp(segmentNode, "src", src);
+      SetProp(segmentNode, "dst", dst);
+
+      if(type == ZamarType::CUWS) {
+          AstraLocale::OutputLang lang_en(AstraLocale::LANG_EN);
+          SetProp(segmentNode, "airline_lat", airlineToPrefferedCode(item.operFlt.airline, lang_en), airline);
+          SetProp(segmentNode, "flightCode_lat", item.operFlt.flight_number(lang_en), flightCode);
+          SetProp(segmentNode, "src_lat", airpToPrefferedCode(item.operFlt.airp, lang_en), src);
+          SetProp(segmentNode, "dst_lat", airpToPrefferedCode(item.airp_arv, lang_en), dst);
+      }
+
       if(type == ZamarType::CUWS and item.operFlt.scd_out != NoExists) {
           SetProp(segmentNode, "scd_out", DateTimeToStr(UTCToLocal(item.operFlt.scd_out, AirpTZRegion(item.operFlt.airp)), "yyyy-mm-dd"));
       }
