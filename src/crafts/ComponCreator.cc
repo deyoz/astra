@@ -488,7 +488,8 @@ class TTripClasses: private mapTripClasses_t {
         }
       }
       SALONS2::TLayerPrioritySeat layerPrioritySeat( seatLayer,
-                                                    BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey("",seatLayer.layer_type) ) );
+                                                    BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey("",seatLayer.layer_type),
+                                                                                                         BASIC_SALONS::TCompLayerTypes::Enum::ignoreAirline ) );
       if ( iseat != seats[ seat.clname ].end() ) {
         iseat->AddLayer( point_id, layerPrioritySeat );
       }

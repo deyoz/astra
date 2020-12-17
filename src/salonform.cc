@@ -75,11 +75,8 @@ void ZoneLoadsTranzitSalons(int point_id,
   zones.clear();
   TQuery Qry(&OraSession);
   try {
-    Qry.SQLText =
-      "SELECT airline,flt_no,suffix,airp,scd_out FROM points WHERE point_id=:point_id";
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.Execute();
-    TTripInfo info( Qry );
+    TTripInfo info;
+    info.getByPointId( point_id );
     SALONS2::TSalonList salonList;
     salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, NoExists ), "", NoExists );
     if ( !(salonList.getCompId() > 0 && SALONS2::isComponSeatsNoChanges( info )) ) {
@@ -418,12 +415,8 @@ void SalonFormInterface::RefreshPaxSalons(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
     salonList.Build( NewTextChild( dataNode, "salons" ) );
     int comp_id = salonList.getCompId();
     if ( comp_id > 0 ) { //строго завязать базовые компоновки с назначенными на рейс
-      TQuery Qry( &OraSession );
-      Qry.SQLText =
-        "SELECT airline,flt_no,suffix,airp,scd_out FROM points WHERE point_id=:point_id";
-      Qry.CreateVariable( "point_id", otInteger, point_id );
-      Qry.Execute();
-      TTripInfo info( Qry );
+      TTripInfo info;
+      info.getByPointId( point_id );
       if ( isComponSeatsNoChanges( info ) ) {
         componPropCodes::Instance()->buildSections( comp_id, TReqInfo::Instance()->desk.lang, dataNode, TAdjustmentRows().get( salonList ) );
       }
@@ -589,12 +582,8 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     GetDataForDrawSalon( reqNode, resNode );
   }
   if ( comp_id > 0 ) { //строго завязать базовые компоновки с назначенными на рейс
-    Qry.Clear();
-    Qry.SQLText =
-        "SELECT airline,flt_no,suffix,airp,scd_out FROM points WHERE point_id=:point_id";
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.Execute();
-      TTripInfo info( Qry );
+    TTripInfo info;
+    info.getByPointId( point_id );
       if ( isComponSeatsNoChanges( info ) ) {
         componPropCodes::Instance()->buildSections( comp_id, TReqInfo::Instance()->desk.lang, dataNode, TAdjustmentRows().get( salonList ) );
     }
@@ -629,13 +618,10 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   TFlights flights;
   flights.Get( trip_id, ftTranzit );
   flights.Lock(__FUNCTION__);
-  Qry.SQLText =
-    "SELECT airline,flt_no,suffix,airp,scd_out FROM points WHERE point_id=:point_id";
-  Qry.CreateVariable( "point_id", otInteger, trip_id );
-  Qry.Execute();
-  TTripInfo info( Qry );
+  TTripInfo info;
+  info.getByPointId( trip_id );
   SALONS2::TSalonList salonList(true), priorsalonList(true);
-  salonList.Parse( trip_id, info.airline, NodeAsNode( "salons", reqNode ) );
+  salonList.Parse( info, info.airline, NodeAsNode( "salons", reqNode ) );
   //была ли до этого момента компоновка
   Qry.Clear();
   Qry.SQLText =
@@ -871,7 +857,7 @@ void SalonFormInterface::ComponWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   BitSet<ASTRA::TCompLayerType> editabeLayers;
   getEditabeLayers( editabeLayers, true );
   componSets.Parse( reqNode );
-  salonList.Parse( ASTRA::NoExists, componSets.airline, GetNode( "salons", reqNode ) );
+  salonList.Parse( boost::none, componSets.airline, GetNode( "salons", reqNode ) );
   bool saveContructivePlaces = false;
   if ( componSets.modify != SALONS2::mNone &&
        componSets.modify != SALONS2::mAdd ) {
@@ -1387,7 +1373,9 @@ static void ChangeIatciSeats(xmlNodePtr reqNode)
     return AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR");
 }
 
-void CheckResetLayer( const std::string& airline, TCompLayerType &layer_type, int crs_pax_id )
+void CheckResetLayer( const std::string& airline,
+                      const BASIC_SALONS::TCompLayerTypes::Enum& flag,
+                      TCompLayerType &layer_type, int crs_pax_id )
 {
   if ( layer_type != cltProtCkin ) {
     return;
@@ -1420,8 +1408,8 @@ void CheckResetLayer( const std::string& airline, TCompLayerType &layer_type, in
     if ( !reqInfo->user.access.check_profile_by_crs_pax(crs_pax_id, 193) ) {
       throw UserException( "MSG.SEATS.CHANGE_PAY_SEATS_DENIED" );
     }
-    if ( BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, layer_type_out ) ) <
-         BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, layer_type ) ) ) {
+    if ( BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, layer_type_out ), flag ) <
+         BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, layer_type ), flag ) ) {
       layer_type = layer_type_out;
     }
   }
@@ -1457,7 +1445,10 @@ void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType sea
   }
   // если пришел слой cltProtCkin а есть более приоритетный clt..AfterPay то надо подменить слой
   TCompLayerType layer_type = DecodeCompLayerType( NodeAsString( "layer", reqNode, "" ) );
-  CheckResetLayer( fltInfo.airline, layer_type, pax_id );
+  BASIC_SALONS::TCompLayerTypes::Enum flag = (GetTripSets( tsAirlineCompLayerPriority, fltInfo )?
+                                                  BASIC_SALONS::TCompLayerTypes::Enum::useAirline:
+                                                  BASIC_SALONS::TCompLayerTypes::Enum::ignoreAirline);
+  CheckResetLayer( fltInfo.airline, flag, layer_type, pax_id );
   IntChangeSeatsN( point_id, pax_id, tid, xname, yname,
                    seat_type,
                    layer_type,
@@ -1545,12 +1536,8 @@ void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr req
       salonList.Build( salonsNode );
       comp_id = salonList.getCompId();
       if ( comp_id > 0 ) { //строго завязать базовые компоновки с назначенными на рейс
-        Qry.Clear();
-          Qry.SQLText =
-            "SELECT airline,flt_no,suffix,airp,scd_out FROM points WHERE point_id=:point_id";
-        Qry.CreateVariable( "point_id", otInteger, point_id );
-        Qry.Execute();
-        TTripInfo info( Qry );
+        TTripInfo info;
+        info.getByPointId( point_id );
         if ( isComponSeatsNoChanges( info ) ) {
           componPropCodes::Instance()->buildSections( comp_id, TReqInfo::Instance()->desk.lang, dataNode, TAdjustmentRows().get( salonList ) );
         }
@@ -1602,12 +1589,8 @@ void SalonFormInterface::WaitList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     comp_id = salonList.getCompId();
     SALONS2::GetTripParams( point_id, dataNode );
     if ( comp_id > 0 ) {
-      Qry.Clear();
-      Qry.SQLText =
-       "SELECT airline,flt_no,suffix,airp,scd_out FROM points WHERE point_id=:point_id";
-      Qry.CreateVariable( "point_id", otInteger, point_id );
-      Qry.Execute();
-      TTripInfo info( Qry );
+      TTripInfo info;
+      info.getByPointId( point_id );
       if ( isComponSeatsNoChanges( info ) ) { //строго завязать базовые компоновки с назначенными на рейс
         componPropCodes::Instance()->buildSections( comp_id, TReqInfo::Instance()->desk.lang, dataNode, TAdjustmentRows().get( salonList ) );
       }

@@ -251,11 +251,15 @@ TSeatPlaces SeatPlaces;
 class CurrSalon {
 private:
   static std::string airline;
+  static BASIC_SALONS::TCompLayerTypes::Enum flag;
   static SALONS2::TSalons* FCurrSalon;
 public:
-  static void set( const std::string &_airline, SALONS2::TSalons* S ) {
+  static void set( const std::string &_airline,
+                   BASIC_SALONS::TCompLayerTypes::Enum _flag,
+                   SALONS2::TSalons* S ) {
     FCurrSalon = S;
     airline = _airline;
+    flag = _flag;
   }
   static SALONS2::TSalons& get( ){
     return *CurrSalon::FCurrSalon;
@@ -263,12 +267,16 @@ public:
   static std::string getAirline() {
     return CurrSalon::airline;
   }
+  static BASIC_SALONS::TCompLayerTypes::Enum getFlag() {
+    return CurrSalon::flag;
+  }
   static int getPriority( ASTRA::TCompLayerType layer_type ) {
-    return BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, layer_type ) );
+    return BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, layer_type ), flag );
   }
 };
 
 std::string CurrSalon::airline = "";
+BASIC_SALONS::TCompLayerTypes::Enum CurrSalon::flag = BASIC_SALONS::TCompLayerTypes::Enum::ignoreAirline;
 SALONS2::TSalons* CurrSalon::FCurrSalon = nullptr;
 
 
@@ -2881,7 +2889,9 @@ void SetLayers( SALONS2::TSalons *Salons,
 
 /*///////////////////////////END CLASS TPASSENGERS/////////////////////////*/
 
-bool ExistsBasePlace( const std::string& airline, SALONS2::TSalons &Salons, TPassenger &pass )
+bool ExistsBasePlace( const TTripInfo& fltInfo,
+                      const BASIC_SALONS::TCompLayerTypes::Enum& flag,
+                      SALONS2::TSalons &Salons, TPassenger &pass )
 {
   SALONS2::TPlaceList *placeList;
   SALONS2::TPoint FP;
@@ -2933,7 +2943,8 @@ bool ExistsBasePlace( const std::string& airline, SALONS2::TSalons &Salons, TPas
             pass.set_seat_no();
           }
           (*ipl)->AddLayerToPlace( pass.grp_status, 0, pass.paxId, NoExists, NoExists,
-                                   BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, pass.grp_status ) ) );
+                                   BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( fltInfo.airline, pass.grp_status ),
+                                                                                        flag ) );
           if ( CurrSalon::get().canAddOccupy( *ipl ) ) {
             CurrSalon::get().AddOccupySeat( placeList->num, (*ipl)->x, (*ipl)->y );
           }
@@ -2970,6 +2981,9 @@ void SeatsPassengers( SALONS2::TSalonList &salonList,
   SeatsStat.start("SeatsPassengers(SalonList)");
   /* надо подготовить переменную CurrSalon на основе salonList */
   TFilterRoutesSets filterRoutes = salonList.getFilterRoutes();
+  BASIC_SALONS::TCompLayerTypes::Enum flag = (GetTripSets( tsAirlineCompLayerPriority, salonList.getfltInfo() )?
+                                                  BASIC_SALONS::TCompLayerTypes::Enum::useAirline:
+                                                  BASIC_SALONS::TCompLayerTypes::Enum::ignoreAirline);
   TPaxsCover paxs;
   TCreateSalonPropFlags propFlags;
   for ( int i=0; i<passes.getCount(); i++ ) {
@@ -2999,7 +3013,7 @@ void SeatsPassengers( SALONS2::TSalonList &salonList,
                                              grp_layers,
                                              paxs,
                                              dropLayersFlags ) ) {
-    CurrSalon::set( salonList.getAirline(), &SalonsN );
+    CurrSalon::set( salonList.getAirline(), flag, &SalonsN );
     countP++;
     if ( countP == 20 ) {  //маленькая защитка
       ProgError( STDLOG, "SeatsPassengers dead loop!!!" );
@@ -3342,7 +3356,9 @@ void SeatsPassengersGrps( SALONS2::TSalons *Salons,
 }
 
 
-bool UsedPayedPreseatForPassenger( int point_id, const std::string& airline, TPlace &seat, const TPassenger &pass, bool check_rfisc  ) {
+bool UsedPayedPreseatForPassenger( const TTripInfo& fltInfo,
+                                   BASIC_SALONS::TCompLayerTypes::Enum flag,
+                                   TPlace &seat, const TPassenger &pass, bool check_rfisc  ) {
   if ( TReqInfo::Instance()->client_type == ctTerm && seat.SeatTariff.rate == 0.0 ) { // only for Term analize rates
     tst();
     return true;
@@ -3365,20 +3381,20 @@ bool UsedPayedPreseatForPassenger( int point_id, const std::string& airline, TPl
   }
   //у пассажира разметка с меньшим приоритетом чем платное
   BASIC_SALONS::TCompLayerTypes *compTypes = BASIC_SALONS::TCompLayerTypes::Instance();
-  int priority = compTypes->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, pass.preseat_layer ) );
-  if ( priority > compTypes->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, cltProtBeforePay ) )&&
-       priority > compTypes->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, cltProtAfterPay ) )&&
-       priority > compTypes->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, cltPNLBeforePay ) )&&
-       priority > compTypes->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, cltPNLAfterPay ) ) &&
-       priority > compTypes->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, cltProtSelfCkin ) ) ) {
+  int priority = compTypes->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( fltInfo.airline, pass.preseat_layer ), flag );
+  if ( priority > compTypes->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( fltInfo.airline, cltProtBeforePay ), flag )&&
+       priority > compTypes->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( fltInfo.airline, cltProtAfterPay ), flag )&&
+       priority > compTypes->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( fltInfo.airline, cltPNLBeforePay ), flag )&&
+       priority > compTypes->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( fltInfo.airline, cltPNLAfterPay ), flag ) &&
+       priority > compTypes->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( fltInfo.airline, cltProtSelfCkin ), flag ) ) {
     if ( pass.preseat_layer == cltProtCkin ) {
       if ( !check_rfisc ) {
         return false;
       }
       std::map<int, TRFISC,classcomp> vrfiscs;
       seat.GetRFISCs( vrfiscs );
-      if ( vrfiscs.find( point_id ) != vrfiscs.end() ) {
-        TRFISC rfisc = vrfiscs[ point_id ];
+      if ( vrfiscs.find( fltInfo.point_id ) != vrfiscs.end() ) {
+        TRFISC rfisc = vrfiscs[ fltInfo.point_id ];
         LogTrace(TRACE5) << rfisc.str();
         TSeatTariffMapType::const_iterator irfisc;
         if ( !rfisc.empty() &&
@@ -3402,7 +3418,9 @@ bool UsedPayedPreseatForPassenger( int point_id, const std::string& airline, TPl
 class AnomalisticConditionsPayment
 {
   public:
-    static void clearPreseatPaymentLayers( SALONS2::TSalons *Salons, const std::string& airline,  bool check_prot_ckin_rfisc, TPassengers &passengers ) {
+    static void clearPreseatPaymentLayers( SALONS2::TSalons *Salons, const TTripInfo& fltInfo,
+                                           BASIC_SALONS::TCompLayerTypes::Enum flag,
+                                           bool check_prot_ckin_rfisc, TPassengers &passengers ) {
       //удаляем предварительно назначенное платное место
       for ( int i=0; i<passengers.getCount(); i++ ) {
         TPassenger &pass = passengers.Get( i );
@@ -3421,7 +3439,7 @@ class AnomalisticConditionsPayment
               if ( (pass.preseat_layer == cltProtBeforePay /* && !p->SeatTariff.empty() если место ничего не стоит - просили вебовцы*/) ||
                    pass.preseat_layer == cltPNLBeforePay ||
                    (pass.preseat_layer == cltProtSelfCkin && !p->SeatTariff.empty()) || //резерв, но не оплачен
-                   !UsedPayedPreseatForPassenger( Salons->trip_id, airline, *p, pass, check_prot_ckin_rfisc ) ) { //очистка предварительно назначенных мест
+                   !UsedPayedPreseatForPassenger( fltInfo, flag, *p, pass, check_prot_ckin_rfisc ) ) { //очистка предварительно назначенных мест
                 prClear = true; // не оплатили - удаляем из компоновки разметку слоем и пассажира делаем обычным
                 pls.push_back( p );
               }
@@ -3492,7 +3510,9 @@ class AnomalisticConditionsPayment
         }
       }
     }
-    static void setPayementOnWebSignal( SALONS2::TSalons *Salons, const std::string& airline, TPassengers &passengers ) {
+    static void setPayementOnWebSignal( SALONS2::TSalons *Salons, const TTripInfo& fltInfo,
+                                        BASIC_SALONS::TCompLayerTypes::Enum flag,
+                                        TPassengers &passengers ) {
       for ( int i=0; i<passengers.getCount(); i++ ) {
         TPassenger &pass = passengers.Get( i );
       //  ProgTrace( TRACE5, "pass %s", pass.toString().c_str() );
@@ -3516,7 +3536,8 @@ class AnomalisticConditionsPayment
                 break;
               }
               place->AddLayerToPlace( cltProtAfterPay, NowUTC(), pass.paxId, Salons->trip_id, pass.point_arv,
-                                      BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, cltProtAfterPay ) ) );
+                                      BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( fltInfo.airline, cltProtAfterPay ),
+                                                                                           flag ) );
               if ( CurrSalon::get().canAddOccupy( place ) ) {
                 CurrSalon::get().AddOccupySeat( placeList->num, place->x, place->y );
               }
@@ -3633,10 +3654,13 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
   }
   TTripInfo fltInfo;
   fltInfo.getByPointId( Salons->trip_id );
-  AnomalisticConditionsPayment::clearPreseatPaymentLayers( Salons, fltInfo.airline, useRFISCMode == rRFISC, passengers );
+  BASIC_SALONS::TCompLayerTypes::Enum flag = (GetTripSets( tsAirlineCompLayerPriority, fltInfo )?
+                                                  BASIC_SALONS::TCompLayerTypes::Enum::useAirline:
+                                                  BASIC_SALONS::TCompLayerTypes::Enum::ignoreAirline);
+  AnomalisticConditionsPayment::clearPreseatPaymentLayers( Salons, fltInfo, flag, useRFISCMode == rRFISC, passengers );
   //AnomalisticConditionsPayment::clearTariffProtCkinLayers( Salons, UseRFISCMode, passengers );
   //AnomalisticConditionsPayment::clearTariffsOnWebSignal( Salons, passengers );
-  AnomalisticConditionsPayment::setPayementOnWebSignal( Salons, fltInfo.airline, passengers );
+  AnomalisticConditionsPayment::setPayementOnWebSignal( Salons, fltInfo, flag, passengers );
   AnomalisticConditionsPayment::removeRemarksOnPaymentLayer( Salons, passengers );
   AnomalisticConditionsPayment::ClearTariffForSpecRemarks( Salons, remGrp, passengers );
 
@@ -3653,7 +3677,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
     SeatPlaces.separately_seats_adults_crs_pax_id = passengers.Get( 0 ).paxId;
     //ProgTrace( TRACE5, "SeatPlaces.separately_seats_adults_crs_pax_id=%d", SeatPlaces.separately_seats_adults_crs_pax_id );
   }
-  CurrSalon::set( fltInfo.airline, Salons );
+  CurrSalon::set( fltInfo.airline, flag, Salons );
   CanUseLayers = true;
   CanUseSmoke = false; /* пока не будем работать с курящими местами */
   preseat_layers[ cltProtCkin ] = CanUseLayer( cltProtCkin, UseLayers );
@@ -4266,7 +4290,9 @@ BitSet<TChangeLayerSeatsProps>
 
   TAdvTripInfo operFlt;
   operFlt.getByPointId( point_id );
-
+  BASIC_SALONS::TCompLayerTypes::Enum flag = (GetTripSets( tsAirlineCompLayerPriority, operFlt )?
+                                                  BASIC_SALONS::TCompLayerTypes::Enum::useAirline:
+                                                  BASIC_SALONS::TCompLayerTypes::Enum::ignoreAirline);
   /* считываем инфу по пассажиру */
   switch ( layer_type ) {
     case cltGoShow:
@@ -4362,8 +4388,10 @@ BitSet<TChangeLayerSeatsProps>
   salonList.getPaxLayer( point_id, pax_id,
                          layerPrioritySeat, seats );
   if ( layerPrioritySeat.layerType() != cltUnknown ) {
-    if ( BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( salonList.getAirline(), layerPrioritySeat.layerType() ) ) <
-         BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( salonList.getAirline(), layer_type ) ) ) {
+    if ( BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( salonList.getAirline(), layerPrioritySeat.layerType() ),
+                                                              flag ) <
+         BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( salonList.getAirline(), layer_type ),
+                                                              flag ) ) {
       throw UserException( "MSG.SEATS.SEAT_NO.EXIST_MORE_PRIORITY" ); //пассажир имеет более приоритетное место
     }
   }
@@ -4586,7 +4614,7 @@ BitSet<TChangeLayerSeatsProps>
       TPassenger pass;
       pass.preseat_pax_id = pax_id;
       pass.preseat_layer = layer_type;
-      if ( !UsedPayedPreseatForPassenger( point_id, salonList.getAirline(), *seat, pass, false ) ) {
+      if ( !UsedPayedPreseatForPassenger( operFlt, flag, *seat, pass, false ) ) {
          throw UserException( "MSG.SEATS.UNABLE_SET_CURRENT" );
       }
       strcpy( r.first.line, seat->xname.c_str() );
@@ -4922,6 +4950,9 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
                             const TRemGrp& remGrp )
 {
   LogTrace(TRACE5) << "AutoReSeatsPassengers: point_id=" << salonList.getDepartureId() << ",getSeatDescription=" << salonList.getSeatDescription();
+  BASIC_SALONS::TCompLayerTypes::Enum flag = (GetTripSets( tsAirlineCompLayerPriority, salonList.getfltInfo() )?
+                                                  BASIC_SALONS::TCompLayerTypes::Enum::useAirline:
+                                                  BASIC_SALONS::TCompLayerTypes::Enum::ignoreAirline);
   SEAT_DESCR::paxsWaitListDescrSeat paxsSeatDescr;
   if ( salonList.getSeatDescription() ) {
     paxsSeatDescr.get( salonList.getDepartureId() );
@@ -4999,7 +5030,8 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
                        pass.paxId, salonList.getDepartureId(), pass.point_arv );
             place->AddLayerToPlace( cltCheckin, NowUTC(), pass.paxId,
                                     salonList.getDepartureId(), pass.point_arv,
-                                    BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( salonList.getAirline(), cltCheckin ) ) );
+                                    BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( salonList.getAirline(), cltCheckin ),
+                                                                                         flag ) );
             if ( CurrSalon::get().canAddOccupy( place ) ) {
               CurrSalon::get().AddOccupySeat( pass.placeList->num, place->x, place->y );
             }
@@ -5009,7 +5041,7 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
         tst();
         Passengers.Clear();
         FSeatAlgoParams = ASeatAlgoParams;
-        CurrSalon::set( salonList.getAirline(), &SalonsN );
+        CurrSalon::set( salonList.getAirline(), flag, &SalonsN );
         SeatAlg = sSeatPassengers;
         CanUseLayers = false; /* не учитываем статус мест */
         UseLayers[ cltProtCkin ] = true;
@@ -5047,7 +5079,7 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
               vpass.seatsDescr.addSeatDescr(v);
               Passengers.Add( vpass );
               if ( !salonList.getSeatDescription() ) { //пробег по базовым местам при рассадке без учета свойств мест
-                ExistsBasePlace( salonList.getAirline(), SalonsN, vpass ); // пассажир не посажен, но нашлось для него базовое место - пометили как занято //??? кодировка !!!
+                ExistsBasePlace( salonList.getfltInfo(), flag, SalonsN, vpass ); // пассажир не посажен, но нашлось для него базовое место - пометили как занято //??? кодировка !!!
               }
             }
             if ( Passengers.getCount() ) {
@@ -5221,7 +5253,7 @@ bool TPassengers::existsNoSeats()
 
 bool isCheckinWOChoiceSeats( int point_id )
 {
-  TCachedQuery Qry("SELECT airline, flt_no, suffix, airp, scd_out FROM points WHERE point_id=:point_id AND pr_del>=0",
+  TCachedQuery Qry("SELECT point_id,airline, flt_no, suffix, airp, scd_out FROM points WHERE point_id=:point_id AND pr_del>=0",
                QParams() << QParam("point_id", otInteger, point_id));
   Qry.get().Execute();
   if (Qry.get().Eof) return false;
