@@ -98,3 +98,4 @@ FUNCTION normalize_bort(str points.bort%TYPE) RETURN points.bort%TYPE;
 FUNCTION check_bort(str VARCHAR2) RETURN points.bort%TYPE;
 
 END salons;
+/
