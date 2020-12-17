@@ -5813,7 +5813,9 @@ struct TLDMDest {
     TToRampBag to_ramp;
 
     struct TRem: public set<string> {
-        string str();
+        public:
+            void add(map<int, CheckIn::TBagMap> &bags, TRFISCListWithPropsCache &lists, int grp_id);
+            string str();
     } rems;
 
     void append(TLDMDests &dests);
@@ -6160,6 +6162,28 @@ void TLDMDest::append(TLDMDests &dests)
             *this += dest;
 }
 
+void TLDMDest::TRem::add(map<int, CheckIn::TBagMap> &bags, TRFISCListWithPropsCache &lists, int grp_id)
+{
+    if(bags.find(grp_id) == bags.end()) {
+        auto res = bags.insert(make_pair(grp_id, CheckIn::TBagMap()));
+        res.first->second.fromDB(grp_id);
+        for(const auto &i: res.first->second) {
+            if(i.second.pc) {
+                string rem = i.second.get_rem_code_ldm(lists);
+                if(not rem.empty()) insert(rem);
+            }
+            if(i.second.wt) {
+                try {
+                    int bag_type = ToInt(i.second.wt->bag_type);
+                    const TBagTypesRow &row=(const TBagTypesRow&)(base_tables.get("bag_types").get_row("id",bag_type));
+                    if(not row.rem_code_ldm.empty())
+                        insert(row.rem_code_ldm);
+                } catch(...) {}
+            }
+        }
+    }
+}
+
 string TLDMDest::TRem::str()
 {
     string result;
@@ -6210,25 +6234,6 @@ void TLDMDests::get(TypeB::TDetailCreateInfo &info)
             item.male = 0;
 
             for(const auto &pax: pax_list) {
-                if(bags.find(pax->simple.grp_id) == bags.end()) {
-                    auto res = bags.insert(make_pair(pax->simple.grp_id, CheckIn::TBagMap()));
-                    res.first->second.fromDB(pax->simple.grp_id);
-                    for(const auto &i: res.first->second) {
-                        if(i.second.pc) {
-                            string rem = i.second.get_rem_code_ldm(lists);
-                            if(not rem.empty()) item.rems.insert(rem);
-                        }
-                        if(i.second.wt) {
-                            try {
-                                int bag_type = ToInt(i.second.wt->bag_type);
-                                const TBagTypesRow &row=(const TBagTypesRow&)(base_tables.get("bag_types").get_row("id",bag_type));
-                                if(not row.rem_code_ldm.empty())
-                                    item.rems.insert(row.rem_code_ldm);
-                            } catch(...) {}
-                        }
-                    }
-                }
-
                 if(pax->grp().point_arv == point_arv.point_id) {
                     item.rk_weight += pax->rk_weight(true);
                     item.f += pax->cl() == "" and pax->seats();
@@ -6239,6 +6244,7 @@ void TLDMDests::get(TypeB::TDetailCreateInfo &info)
                     item.inf += pax->simple.pers_type == TPerson::baby;
                     item.female += pax->simple.pers_type == TPerson::adult and pax->simple.gender == TGender::Female;
                     item.male += pax->simple.pers_type == TPerson::adult and pax->simple.gender != TGender::Female;
+                    item.rems.add(bags, lists, pax->simple.grp_id);
                 }
             }
             item.append(before_dests);
