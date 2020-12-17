@@ -131,7 +131,7 @@ proc astra_init {} {
     #for {set i 1} {$i<=$::TIMER_NUM} {incr i} {
     #  create_process 1 [ list timer $i ] 3
     #}
-    create_process 1 [ list timer den ] 3
+    #create_process 1 [ list timer den ] 3
     #create_process 1 [ list tlg_http_snd ] 3
 
 #create_process 1 [ list tlg_snd ] 3

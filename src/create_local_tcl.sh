@@ -11,6 +11,10 @@ if [ ! -f "nosir.tcl" ]; then
     cp ../RUN_EXAMPLE/nosir.tcl nosir.tcl
 fi
 
+if [ ! -f "supervisor.tcl" ]; then
+    cp ../RUN_EXAMPLE/supervisor.tcl supervisor.tcl
+fi
+
 if [ ! -f "date_time_zonespec.csv" ]; then
     cp ../RUN_EXAMPLE/date_time_zonespec.csv date_time_zonespec.csv
 fi

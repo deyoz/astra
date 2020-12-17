@@ -33,6 +33,7 @@ sql/bases/pg/3Seq/now.run
 astra.tcl
 date_time_zonespec.csv
 nosir.tcl
+supervisor.tcl
 /*.creator
 /*.creator.user
 /*.files
