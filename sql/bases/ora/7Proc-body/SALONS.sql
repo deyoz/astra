@@ -243,7 +243,7 @@ BEGIN
              rownum<=1;
        OPEN MiscCur(crsSeatInfo.airline,vflt_no,vairp_dep);
        FETCH MiscCur INTO curMiscRow;
-       IF cur%FOUND THEN
+       IF MiscCur%FOUND THEN
          crsSeatInfo.use_airline_priority:=curMiscRow.pr_misc;
        ELSE
          crsSeatInfo.use_airline_priority:=0;
