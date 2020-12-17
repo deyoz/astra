@@ -179,53 +179,87 @@ FUNCTION get_crs_seat_no(vpax_id     IN crs_pax.pax_id%TYPE,
                          row	     IN NUMBER DEFAULT 1,
                          only_lat    IN NUMBER DEFAULT 0) RETURN VARCHAR2
 IS
-CURSOR cur(vairline   IN points.airline%TYPE) IS
+
+CURSOR cur(vairline   IN points.airline%TYPE,
+           vuse_airline_priority IN misc_set.pr_misc%TYPE) IS
   SELECT first_xname AS xname,
          first_yname AS yname,
          tlg.layer_type,
          CASE WHEN clp.airline IS NULL THEN clt.priority ELSE clp.priority END priority
   FROM tlg_comp_layers tlg
-  JOIN comp_layer_types clt 
-    on clt.code=tlg.layer_type 
+  JOIN comp_layer_types clt
+    on clt.code=tlg.layer_type
   LEFT JOIN comp_layer_priorities clp
-    on clp.layer_type=tlg.layer_type AND clp.airline=vairline
+    on clp.layer_type=tlg.layer_type AND
+       clp.airline=vairline AND
+       vuse_airline_priority=1
   WHERE tlg.crs_pax_id=vpax_id
   ORDER BY priority,tlg.layer_type,first_yname,first_xname;
-curRow    cur%ROWTYPE;
-res VARCHAR2(20);
-vpoint_dep crs_pnr.point_id%TYPE;
+CURSOR MiscCur(vairline        points.airline%TYPE,
+               vflt_no         points.flt_no%TYPE,
+               vairp_dep       points.airp%TYPE) IS
+  SELECT pr_misc,
+         DECODE(airline,NULL,0,8)+
+         DECODE(flt_no,NULL,0,2)+
+         DECODE(airp_dep,NULL,0,4) AS priority
+  FROM misc_set
+  WHERE (airline IS NULL OR airline=vairline) AND
+        (flt_no IS NULL OR flt_no=vflt_no) AND
+        (airp_dep IS NULL OR airp_dep=vairp_dep)
+  ORDER BY priority DESC;
+curRow    	cur%ROWTYPE;
+curMiscRow      MiscCur%ROWTYPE;
+res 		VARCHAR2(20);
+vpoint_dep 	crs_pnr.point_id%TYPE;
+vflt_no		points.flt_no%TYPE;
+vairp_dep		points.airp%TYPE;
 BEGIN
   vlayer_type := NULL;
   IF vpax_id IS NULL THEN
-    IF row=1 THEN 
-       crsSeatInfo.point_id:=NULL; 
+    IF row=1 THEN
+       crsSeatInfo.point_id:=NULL;
        crsSeatInfo.airline:=NULL;
+       crsSeatInfo.use_airline_priority:=0;
     END IF;
     RETURN NULL;
   END IF;
-  IF row=1 OR 
+  IF row=1 OR
      vpoint_id IS NULL OR
      crsSeatInfo.airline IS NULL THEN -- поиск самого приоритетного слоя, первая строка, надо найти АК
-    BEGIN
-      SELECT points.airline, tlg_binding.point_id_tlg
-      INTO crsSeatInfo.airline, vpoint_dep
-      FROM crs_pnr,crs_pax,tlg_binding,points
-      WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND 
-            crs_pax.pax_id=vpax_id AND
-            tlg_binding.point_id_tlg=crs_pnr.point_id AND
-            points.point_id=tlg_binding.point_id_spp AND
-            rownum<=1;
-    EXCEPTION
-      WHEN NO_DATA_FOUND THEN
-        crsSeatInfo.airline:=NULL;
-        crsSeatInfo.point_id:=NULL;
-        RETURN NULL;
+     BEGIN
+       SELECT points.airline,
+              points.flt_no,
+              points.airp,
+              tlg_binding.point_id_tlg
+       INTO crsSeatInfo.airline,
+            vflt_no,
+            vairp_dep,
+            vpoint_dep
+       FROM crs_pnr,crs_pax,tlg_binding,points
+       WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND
+             crs_pax.pax_id=vpax_id AND
+             tlg_binding.point_id_tlg=crs_pnr.point_id AND
+             points.point_id=tlg_binding.point_id_spp AND
+             rownum<=1;
+       OPEN MiscCur(crsSeatInfo.airline,vflt_no,vairp_dep);
+       FETCH MiscCur INTO curMiscRow;
+       IF MiscCur%FOUND THEN
+         crsSeatInfo.use_airline_priority:=curMiscRow.pr_misc;
+       ELSE
+         crsSeatInfo.use_airline_priority:=0;
+       END IF;
+     EXCEPTION
+       WHEN NO_DATA_FOUND THEN
+         crsSeatInfo.airline:=NULL;
+         crsSeatInfo.use_airline_priority:=0;
+         crsSeatInfo.point_id:=NULL;
+         RETURN NULL;
     END;
   ELSE
-    vpoint_dep:=vpoint_id;
+     vpoint_dep:=vpoint_id;
   END IF;
   res:=NULL;
-  OPEN cur(crsSeatInfo.airline);
+  OPEN cur(crsSeatInfo.airline,crsSeatInfo.use_airline_priority);
   FETCH cur INTO curRow;
   IF cur%FOUND THEN
     WHILE cur%FOUND LOOP

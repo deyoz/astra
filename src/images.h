@@ -266,12 +266,13 @@ class TCompLayerPriority: public TCompLayerElem {
 
 class TCompLayerTypes {
   public:
+    enum Enum { useAirline, ignoreAirline };
     struct LayerKey {
       std::string airline;
       ASTRA::TCompLayerType layer_type;
       bool operator < ( const LayerKey& _apriority ) const {
-        if ( airline != _apriority.airline )
-          return ( airline < _apriority.airline );
+          if ( airline != _apriority.airline )
+            return ( airline < _apriority.airline );
         return ( EncodeCompLayerType( layer_type ) < EncodeCompLayerType( _apriority.layer_type ) );
       }
       LayerKey( const std::string& _airline, ASTRA::TCompLayerType _layer_type) {
@@ -302,9 +303,11 @@ class TCompLayerTypes {
       layer_elem.Clear();
       return false;
     }
-    int priority( const LayerKey &key ) {
+    int priority( const LayerKey &key, const Enum &flag ) {
       if ( layers.find( key.layer_type ) != layers.end() ) {
-        if ( !key.airline.empty() && airline_priorities.find( key ) != airline_priorities.end() ) {
+        if ( flag != ignoreAirline &&
+             !key.airline.empty() &&
+             airline_priorities.find( key ) != airline_priorities.end() ) {
           return airline_priorities[ key ];
         }
         return layers[ key.layer_type ].getPriority();

@@ -974,7 +974,8 @@ void GetSeatRemPriority(const string &airline_mark, TSeatRemPriority &rems)
     if (rem_layer==cltUnknown) continue;
     try
     {
-       r->second = BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( "", rem_layer ) );
+       r->second = BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( "", rem_layer ),
+                                                                        BASIC_SALONS::TCompLayerTypes::Enum::ignoreAirline );
     }
     catch(EBaseTableError&) {};
   };

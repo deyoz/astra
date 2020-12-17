@@ -1759,6 +1759,9 @@ class TSalonList {
       return filterSets.filterRoutes.getAirline();
     }
     void getEditableFlightLayers( BitSet<ASTRA::TCompLayerType> &editabeLayers );
+    TTripInfo& getfltInfo() {
+      return filterSets.filterRoutes.getfltInfo();
+    }
     bool getSeatDescription() {
       return prSeatDescription;
     }
@@ -1781,9 +1784,9 @@ class TSalonList {
 //    void ReadSeats( TQuery &Qry, const std::string &FilterClass );
     void Build( TBuildMap &seats);
     void Build( xmlNodePtr salonsNode );
-    void Parse( int vpoint_id, const std::string &airline, xmlNodePtr salonsNode );
+    void Parse( boost::optional<TTripInfo> fltInfo, const std::string &airline, xmlNodePtr salonsNode );
+    void WriteCompon( int &vcomp_id, const TComponSets &componSets, bool saveContructivePlaces );    
     void WriteFlight( int vpoint_id, bool saveContructivePlaces );
-    void WriteCompon( int &vcomp_id, const TComponSets &componSets, bool saveContructivePlaces );
     void convertSeatTariffs( TPlace &iseat, bool pr_departure_tariff_only, int point_dep, int point_arv ) const;
     bool CreateSalonsForAutoSeats( TSalons &salons,
                                    TFilterRoutesSets &filterRoutes,

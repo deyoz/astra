@@ -118,7 +118,7 @@ void TSelfCkinSalonTariff::setTariffMap( int point_id,
                                          TSeatTariffMap &tariffMap ) {
   TQuery Qry( &OraSession );
   Qry.SQLText =
-    "SELECT airline,flt_no,suffix,airp,craft,scd_out "
+    "SELECT point_id,airline,flt_no,suffix,airp,craft,scd_out "
     " FROM points WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
@@ -623,7 +623,7 @@ void getMenuLayers( bool isTripCraft,
 }
 
 void buildMenuLayers( bool isTripCraft,
-                      const std::string& airline,
+                      const TTripInfo& fltInfo,
                       const std::map<ASTRA::TCompLayerType,TMenuLayer> &menuLayers,
                       const BitSet<TDrawPropsType> &props,
                       xmlNodePtr salonsNode, int point_id )
@@ -641,6 +641,9 @@ void buildMenuLayers( bool isTripCraft,
   }
   editNode = NewTextChild( salonsNode, "layers_prop" );
   TReqInfo *r = TReqInfo::Instance();
+  BASIC_SALONS::TCompLayerTypes::Enum flag = (GetTripSets( tsAirlineCompLayerPriority, fltInfo )?
+                                                  BASIC_SALONS::TCompLayerTypes::Enum::useAirline:
+                                                  BASIC_SALONS::TCompLayerTypes::Enum::ignoreAirline);
   for( map<ASTRA::TCompLayerType,TMenuLayer>::const_iterator ilayer=menuLayers.begin(); ilayer!=menuLayers.end(); ilayer++ ) {
     if ( !compatibleLayer( ilayer->first ) )
       continue;
@@ -654,7 +657,7 @@ void buildMenuLayers( bool isTripCraft,
     xmlNodePtr n = NewTextChild( editNode, "layer", layer_elem.getCode( ) );
     SetProp( n, "id", id );
     SetProp( n, "name", layerInst->getName( ilayer->first, TReqInfo::Instance()->desk.lang ) );
-    int priority = layerInst->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, ilayer->first ) );
+    int priority = layerInst->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( fltInfo.airline, ilayer->first ), flag );
     SetProp( n, "priority", priority );
     if ( max_priority < priority )
       max_priority = priority;
@@ -721,7 +724,7 @@ void CreateSalonMenu( const TTripInfo &fltInfo, xmlNodePtr salonsNode )
   std::map<ASTRA::TCompLayerType,SALONS2::TMenuLayer> menuLayers;
   getMenuLayers( fltInfo.point_id, filterLayers, menuLayers );
   BitSet<TDrawPropsType> props;
-  buildMenuLayers( true, fltInfo.airline, menuLayers, props, salonsNode, fltInfo.point_id );
+  buildMenuLayers( true, fltInfo, menuLayers, props, salonsNode, fltInfo.point_id );
 }
 
 bool compatibleLayer( ASTRA::TCompLayerType layer_type )
@@ -1668,7 +1671,8 @@ void TPlace::SetTariffsByRFISC( int point_dep, const std::string& airline )
     else {
       SeatTariff.clear();
       AddLayerToPlace( cltDisable, NowUTC(), NoExists, point_dep, NoExists,
-                       BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, cltDisable ) ) );
+                       BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, cltDisable ),
+                                                                            BASIC_SALONS::TCompLayerTypes::Enum::ignoreAirline ) );
       ProgTrace( TRACE5, "SetTariffsByRFICS: place(%d,%d) set unavailable", x, y );
     }
   }
@@ -2113,7 +2117,10 @@ void TSalonList::ReadLayers( TQuery &Qry, FilterRoutesProperty &filterRoutes,
                              int prior_compon_props_point_id )
 {
   BASIC_SALONS::TCompLayerTypes *layerInst = BASIC_SALONS::TCompLayerTypes::Instance();
-  std::string airline = getAirline();
+  TTripInfo fltInfo = filterRoutes.getfltInfo(); //point_id может не быть при чтении базовых компоновок
+  BASIC_SALONS::TCompLayerTypes::Enum flag = (GetTripSets( tsAirlineCompLayerPriority, fltInfo )?
+                                                  BASIC_SALONS::TCompLayerTypes::Enum::useAirline:
+                                                  BASIC_SALONS::TCompLayerTypes::Enum::ignoreAirline);
   int col_point_id = Qry.GetFieldIndex( "point_id" );
   int col_num = Qry.FieldIndex( "num" );
   int col_x = Qry.FieldIndex( "x" );
@@ -2188,7 +2195,8 @@ void TSalonList::ReadLayers( TQuery &Qry, FilterRoutesProperty &filterRoutes,
         }
         layer.time_create = ASTRA::NoExists;
       }
-      TLayerPrioritySeat layerPrioritySeat( layer, layerInst->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, layer.layer_type ) ) );
+      TLayerPrioritySeat layerPrioritySeat( layer, layerInst->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( fltInfo.airline, layer.layer_type ),
+                                                                                                                 flag ) );
       TPlaceList* placelist = NULL;
       TSalonPoint point_s;
       point_s.num = Qry.FieldAsInteger( col_num );
@@ -2955,7 +2963,8 @@ void TSalonList::ReadCompon( int vcomp_id, int point_id )
   if ( point_id != ASTRA::NoExists ) {
     Qry.Clear();
     Qry.SQLText =
-      "SELECT airline, "
+      "SELECT point_id,"
+      "       airline, "
       "       flt_no, "
       "       suffix, "
       "       scd_out, "
@@ -4501,7 +4510,7 @@ void TSalonList::Build( xmlNodePtr salonsNode )
   getMenuLayers( getDepartureId() != ASTRA::NoExists,
                  filterSets.filtersLayers[ getDepartureId() ],
                  menuLayers );
-  buildMenuLayers( getDepartureId() != ASTRA::NoExists, getAirline(),
+  buildMenuLayers( getDepartureId() != ASTRA::NoExists, getfltInfo(),
                    menuLayers, props, salonsNode, getDepartureId() );
   TSeatTariffMap tariffMap;
   ProgTrace( TRACE5, "airline=%s", getAirline().c_str() );
@@ -4563,10 +4572,16 @@ void checkTariffs( const TPlace &seat, const TSeatTariff &seatTariff,
   }
 }
 
-void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr salonsNode )
+void TSalonList::Parse( boost::optional<TTripInfo> fltInfo, const std::string &airline, xmlNodePtr salonsNode )
 {
+  int vpoint_id = fltInfo?fltInfo.get().point_id:ASTRA::NoExists;
   ProgTrace( TRACE5, "TSalonList::Parse, point_id=%d, airline=%s", vpoint_id, airline.c_str() );
   BASIC_SALONS::TCompLayerTypes *layerInst = BASIC_SALONS::TCompLayerTypes::Instance();
+  BASIC_SALONS::TCompLayerTypes::Enum flag =  fltInfo?
+                                                   (GetTripSets( tsAirlineCompLayerPriority, fltInfo.get() )?
+                                                    BASIC_SALONS::TCompLayerTypes::Enum::useAirline:
+                                                    BASIC_SALONS::TCompLayerTypes::Enum::ignoreAirline)
+                                                    :BASIC_SALONS::TCompLayerTypes::Enum::ignoreAirline ;
   Clear();
   if ( salonsNode == NULL )
     return;
@@ -4704,13 +4719,15 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
             seatlayer.pax_id = NodeAsIntegerFast( "pax_id", n2, NoExists );
             seatlayer.crs_pax_id = NodeAsIntegerFast( "crs_pax_id", n2, NoExists );
             TLayerPrioritySeat layerPrioritySeat( seatlayer,
-                                                  layerInst->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, seatlayer.layer_type ) ) );
+                                                  layerInst->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, seatlayer.layer_type ),
+                                                                                                                flag ) );
             if ( uniqueLayers.find( layerPrioritySeat ) == uniqueLayers.end() ) {
               uniqueLayers.insert( layerPrioritySeat ); // без учета времени
               seatlayer.time_create = NodeAsDateTimeFast( "time_create", n2, NoExists );
               place.AddLayer( seatlayer.point_id,
                               TLayerPrioritySeat( seatlayer,
-                                                  layerInst->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, seatlayer.layer_type ) ) ) );
+                                                  layerInst->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, seatlayer.layer_type ),
+                                                                                                                flag ) ) );
               //!logProgTrace( TRACE5, "seatlayer=%s", seatlayer.toString().c_str() );
             }
           }
@@ -4725,7 +4742,8 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
         seatlayer.point_id = vpoint_id;
         seatlayer.point_dep = vpoint_id;
         place.AddLayer( seatlayer.point_id, TLayerPrioritySeat( seatlayer,
-                                                                layerInst->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, seatlayer.layer_type ) ) ) );
+                                                                layerInst->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, seatlayer.layer_type ),
+                                                                                     flag ) ) );
       }
 
       TElemFmt fmt;
@@ -5498,6 +5516,9 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &Salons,
   ProgTrace( TRACE5, "filterRoutes.point_dep=%d, filterRoutes.point_arv=%d, drop_not_web_passes=%d, pr_web_terminal=%d",
              filterRoutes.point_dep, filterRoutes.point_arv, dropLayersFlags.isFlag( clDropNotWeb ), pr_web_terminal );
   TPropsPoints points( filterSets.filterRoutes, filterRoutes.point_dep, filterRoutes.point_arv );
+  BASIC_SALONS::TCompLayerTypes::Enum flag = (GetTripSets( tsAirlineCompLayerPriority, getfltInfo() )?
+                                                  BASIC_SALONS::TCompLayerTypes::Enum::useAirline:
+                                                  BASIC_SALONS::TCompLayerTypes::Enum::ignoreAirline);
   Salons.Clear();
   Salons.trip_id = getDepartureId();
   Salons.comp_id = getCompId();
@@ -5531,7 +5552,8 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &Salons,
     ls.inRoute = true;
     ls.time_create = NowUTC();
     ls.layer_type = *ilayer;
-    currLayers.emplace( TLayerPrioritySeat(ls,BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( getAirline(), ls.layer_type ) ) ) );
+    currLayers.emplace( TLayerPrioritySeat(ls,BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( getAirline(), ls.layer_type ),
+                                                                                                   flag ) ) );
   }
   TRem rem;
   TPointInRoute point;
@@ -5663,7 +5685,8 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &Salons,
               if ( !compareLayerSeat( clayer, tmp_layer ) ) {
                 iseat->AddLayerToPlace( cltDisable, clayer.time_create(), clayer.getPaxId(),
                                         clayer.point_dep(), NoExists,
-                                        BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( getAirline(), cltDisable ) ) );
+                                        BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( getAirline(), cltDisable ),
+                                                                                             flag ) );
                 ProgTrace( TRACE5, "CreateSalonsForAutoSeats: %s add cltDisable because %s", string(iseat->yname+iseat->xname).c_str(),
                            ilayer->toString().c_str() );
                 pr_blocked_layer = true;
@@ -6258,7 +6281,8 @@ void TZoneBL::setDisabled( const TTripInfo& fltInfo, TSalons* salons )
     TPlace* pseat = *iseat;
     savePlaces.push_back( *pseat );
     pseat->AddLayerToPlace( cltDisable, NowUTC(), NoExists, fltInfo.point_id, NoExists,
-                            BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( fltInfo.airline, cltDisable ) ) );
+                            BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( fltInfo.airline, cltDisable ),
+                                                                                 BASIC_SALONS::TCompLayerTypes::Enum::ignoreAirline ) );
     if ( salons != nullptr ) {
       if ( salons->canAddOccupy( pseat ) ) {
         salons->AddOccupySeat( salon_num, pseat->x, pseat->y );
@@ -6994,7 +7018,8 @@ class TTripClasses: private std::map<string,TTripClass> {
         }
       }
       SALONS2::TLayerPrioritySeat layerPrioritySeat( seatLayer,
-                                                     BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey("",seatLayer.layer_type) ) );
+                                                     BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey("",seatLayer.layer_type),
+                                                                                                          BASIC_SALONS::TCompLayerTypes::Enum::ignoreAirline ) );
 
       if ( iseat != seats[ seat.clname ].end() ) {
         iseat->AddLayer( point_id, layerPrioritySeat );
@@ -9517,6 +9542,9 @@ void resetLayers( int point_id, ASTRA::TCompLayerType layer_type,
   salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id ), "", NoExists );
   std::map<int, TSetOfLayerPriority,classcomp > layers;
   BASIC_SALONS::TCompLayerTypes *layerInst = BASIC_SALONS::TCompLayerTypes::Instance();
+  BASIC_SALONS::TCompLayerTypes::Enum flag = (GetTripSets( tsAirlineCompLayerPriority, salonList.getfltInfo() )?
+                                                BASIC_SALONS::TCompLayerTypes::Enum::useAirline:
+                                                BASIC_SALONS::TCompLayerTypes::Enum::ignoreAirline);
 
   for ( CraftSeats::iterator isalonList=salonList._seats.begin();
         isalonList!=salonList._seats.end(); isalonList++ ) {
@@ -9555,7 +9583,8 @@ void resetLayers( int point_id, ASTRA::TCompLayerType layer_type,
         seatLayer.layer_type = layer_type;
         seatLayer.time_create = time_create;
         iseat->AddLayer( point_id, TLayerPrioritySeat( seatLayer,
-                                                       layerInst->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( salonList.getAirline(), seatLayer.layer_type ) ) ) );
+                                                       layerInst->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( salonList.getAirline(), seatLayer.layer_type ),
+                                                                            flag ) ) );
       }
     }
   }
@@ -9787,7 +9816,8 @@ void AddPass( int pax_id, const std::string &surname,  ASTRA::TCompLayerType lay
   seatLayer.crs_pax_id = ASTRA::NoExists;
   seatLayer.time_create = time_create;
   SALONS2::TLayerPrioritySeat layerSeatPriority( seatLayer,
-                                                 BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey("",seatLayer.layer_type) ) );
+                                                 BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey("",seatLayer.layer_type),
+                                                                                                      BASIC_SALONS::TCompLayerTypes::Enum::ignoreAirline ) );
 
   for ( vector<string>::const_iterator i=seatnames.begin(); i!=seatnames.end(); i++ ) {
     SALONS2::TPlace* place;
