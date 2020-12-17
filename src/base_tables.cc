@@ -943,6 +943,8 @@ void TBagTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **rep
 {
   *row = new TBagTypesRow;
   mem.create(*row, STDLOG);
+  ((TBagTypesRow*)*row)->rem_code_lci=Qry.FieldAsString("rem_code_lci");
+  ((TBagTypesRow*)*row)->rem_code_ldm=Qry.FieldAsString("rem_code_ldm");
   TIdBaseTable::create_row(Qry,row,replaced_row);
 };
 

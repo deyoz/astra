@@ -400,7 +400,8 @@ class TRFISCBagProps
     std::string RFISC;
     int priority;
     int min_weight, max_weight;
-    std::string rem_code;
+    std::string rem_code_lci;
+    std::string rem_code_ldm;
 
     TRFISCBagProps()
     {
@@ -413,7 +414,8 @@ class TRFISCBagProps
       priority=ASTRA::NoExists;
       min_weight=ASTRA::NoExists;
       max_weight=ASTRA::NoExists;
-      rem_code.clear();
+      rem_code_lci.clear();
+      rem_code_ldm.clear();
     }
 
     TRFISCBagProps& fromDB(TQuery &Qry);
