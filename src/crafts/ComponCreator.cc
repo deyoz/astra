@@ -191,9 +191,9 @@ public:
       if ( !i->pr_reg ) {
         continue;
       }
-      if ( iprior != end() && i != end()-1 ) {
-        int crc_comp1 = SALONS2::getCRC_Comp( iprior->point_id );
-        int crc_comp2 = SALONS2::getCRC_Comp( i->point_id );
+      if ( iprior != end() && i != end()-1 ) { //здесь хочется сравнивать только crc32 с учетом есть ли место для рассадки пассажиров и игнорировать тип места
+        int crc_comp1 = SALONS2::CompCheckSum::keyFromDB( iprior->point_id ).base_crc32;
+        int crc_comp2 = SALONS2::CompCheckSum::keyFromDB( i->point_id ).base_crc32;
         if ( !CompRouteinRoutes( *iprior, *i ) ||
              ( crc_comp1 != 0 &&
                crc_comp2 != 0 &&
@@ -1711,11 +1711,12 @@ void CreateFlightCompon( const TCompsRoutes &routes, int comp_id, TQuery &Qry ) 
 
   TQuery QryTripSets(&OraSession);
   QryTripSets.SQLText =
-    "UPDATE trip_sets SET comp_id=:comp_id, pr_lat_seat=:pr_lat_seat,crc_comp=:crc_comp WHERE point_id=:point_id";
+    "UPDATE trip_sets SET comp_id=:comp_id,pr_lat_seat=:pr_lat_seat,crc_comp=:crc_comp,crc_base_comp=:crc_base_comp WHERE point_id=:point_id";
   QryTripSets.CreateVariable( "comp_id", otInteger, comp_id==ASTRA::NoExists?FNull:comp_id );
   QryTripSets.CreateVariable( "pr_lat_seat", otInteger, pr_lat_seat );
   QryTripSets.DeclareVariable( "point_id", otInteger );
   QryTripSets.DeclareVariable( "crc_comp", otInteger );
+  QryTripSets.DeclareVariable( "crc_base_comp", otInteger );
   Qry.Clear();
   Qry.SQLText =
     "BEGIN "
@@ -1769,7 +1770,7 @@ void CreateFlightCompon( const TCompsRoutes &routes, int comp_id, TQuery &Qry ) 
   QryLayers.CreateVariable( "comp_id", otInteger, comp_id );
   QryLayers.DeclareVariable( "point_id", otInteger );
   QryLayers.DeclareVariable( "layer_type", otString );
-  int crc_comp = 0;
+  SALONS2::CompCheckSum checksum(0,0);
   std::vector<int> points_tranzit_check_wait_alarm;
   for ( const auto& i : routes ) {
     if ( i.inRoutes && i.auto_comp_chg && i.pr_reg ) {
@@ -1789,14 +1790,15 @@ void CreateFlightCompon( const TCompsRoutes &routes, int comp_id, TQuery &Qry ) 
           }
         }
       }
-      if ( crc_comp == 0 ) {
-        crc_comp = SALONS2::CRC32_Comp( i.point_id );
+      if ( checksum.base_crc32 == 0 ) {
+        checksum = SALONS2::CompCheckSum::calcFromDB( i.point_id );
       }
       InitVIP( i, QryVIP );
       TTripClasses trip_classes( i.point_id );
       trip_classes.processSalonsCfg( );
       QryTripSets.SetVariable( "point_id", i.point_id );
-      QryTripSets.SetVariable( "crc_comp", crc_comp );
+      QryTripSets.SetVariable( "crc_comp", checksum.total_crc32 );
+      QryTripSets.SetVariable( "crc_base_comp", checksum.base_crc32 );
       QryTripSets.Execute();
       LEvntPrms prms;
       TCFG(i.point_id).param(prms);

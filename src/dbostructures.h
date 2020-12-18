@@ -1235,6 +1235,7 @@ struct TRIP_SETS
     int c= ASTRA::NoExists;
     int comp_id= ASTRA::NoExists;
     int crc_comp;
+    int crc_base_comp= ASTRA::NoExists; //контрольная сумма crc32 может быть NULL
     int et_final_attempt;
     int f= ASTRA::NoExists;
     int jmp_cfg;
@@ -1271,6 +1272,7 @@ struct TRIP_SETS
         dbo::field(a,c,"C");
         dbo::field(a,comp_id,"COMP_ID");
         dbo::field(a,crc_comp,"CRC_COMP", dbo::NotNull);
+        dbo::field(a,crc_base_comp,"CRC_BASE_COMP");
         dbo::field(a,et_final_attempt,"ET_FINAL_ATTEMPT", dbo::NotNull);
         dbo::field(a,f,"F");
         dbo::field(a,jmp_cfg,"JMP_CFG", dbo::NotNull);

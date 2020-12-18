@@ -208,7 +208,7 @@ void getFlightTuneCompRef( int point_id, bool use_filter, const string &trip_air
     comp.comp_id = -1;
     comp.craft = Qry.FieldAsString("craft");
     comp.bort = Qry.FieldAsString("bort");
-      comp.crc_comp = Qry.FieldAsInteger("crc_comp");
+    comp.crc_comp = Qry.FieldAsInteger("crc_comp");
     if (Qry.FieldAsInteger("f")) {
       comp.classes += ElemIdToCodeNative(etClass,"П");
       comp.classes += IntToString(Qry.FieldAsInteger("f"));
@@ -392,7 +392,7 @@ void SalonFormInterface::RefreshPaxSalons(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
   if ( SALONS2::isFreeSeating( point_id ) ) {
     throw UserException( "MSG.SALONS.FREE_SEATING" );
   }
-  int ncomp_crc = CRC32_Comp( point_id );
+  int ncomp_crc = CompCheckSum::calcFromDB( point_id ).total_crc32;
   SALONS2::TSalonList salonList;
   try {
     salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), filterClass, prior_tariff_pax_id );
@@ -633,7 +633,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   bool saveContructivePlaces = false;
   if ( !Qry.Eof ) { // была старая компоновка
     priorsalonList.ReadFlight( SALONS2::TFilterRoutesSets( trip_id ), "", NoExists );
-    pr_base_change = salonList._seats.crc32() != priorsalonList._seats.crc32();
+    pr_base_change = salonList._seats.basechecksum() != priorsalonList._seats.basechecksum();
     if ( (!TReqInfo::Instance()->desk.compatible( SALON_SECTION_VERSION )) &&
          SALONS2::haveConstructiveCompon( trip_id, rTripSalons ) ) {
       saveContructivePlaces = true;
@@ -703,10 +703,12 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   ComponCreator::setFlightClasses( trip_id );
   //set flag auto change in false state
   ComponCreator::setManualCompChg( trip_id );
+  SALONS2::CompCheckSum checksum = SALONS2::CompCheckSum::calcFromDB( trip_id );
   Qry.Clear();
-  Qry.SQLText = "UPDATE trip_sets SET crc_comp=:crc_comp WHERE point_id=:point_id";
+  Qry.SQLText = "UPDATE trip_sets SET crc_comp=:crc_comp,crc_base_comp=:crc_base_comp WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, trip_id );
-  Qry.CreateVariable( "crc_comp", otInteger, SALONS2::CRC32_Comp( trip_id ) );
+  Qry.CreateVariable( "crc_comp", otInteger, checksum.total_crc32 );
+  Qry.CreateVariable( "crc_base_comp", otString, checksum.base_crc32 );
   Qry.Execute();
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   SALONS2::GetTripParams( trip_id, dataNode );
@@ -864,13 +866,13 @@ void SalonFormInterface::ComponWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     priorsalonList.ReadCompon( comp_id, ASTRA::NoExists );
     bool isLibraComps = ComponCreator::LibraComps::isLibraComps(comp_id, ComponCreator::LibraComps::ctComp);
     if ( isLibraComps &&
-         salonList._seats.crc32() != priorsalonList._seats.crc32() ) {
+         salonList._seats.basechecksum() != priorsalonList._seats.basechecksum() ) {
       throw UserException( "MSG.CHANGE_NOT_AVAILABLE_LIBRA_COMPS" );
     }
     if (  componSets.modify == SALONS2::mChange &&
          (!TReqInfo::Instance()->desk.compatible( SALON_SECTION_VERSION )||isLibraComps) &&
          SALONS2::haveConstructiveCompon( comp_id, rComponSalons ) ) {
-      if ( salonList._seats.crc32() != priorsalonList._seats.crc32() ) {
+      if ( salonList._seats.basechecksum() != priorsalonList._seats.basechecksum() ) {
         throw UserException( "MSG.CHANGE_COMPON_NOT_AVAILABLE_UPDATE_TERM" );
       }
       saveContructivePlaces = true;
@@ -1202,7 +1204,7 @@ BitSet<SEATS2::TChangeLayerSeatsProps>
       return propsSeatsFlags;
     }
     salonList.JumpToLeg( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ) );
-    int ncomp_crc = CRC32_Comp( point_id );
+    int ncomp_crc = SALONS2::CompCheckSum::calcFromDB( point_id ).total_crc32;
     if ( (comp_crc != 0 && ncomp_crc != 0 && comp_crc != ncomp_crc) ) { //update
       throw UserException( "MSG.SALONS.CHANGE_CONFIGURE_CRAFT_ALL_DATA_REFRESH" );
     }
@@ -1496,7 +1498,7 @@ void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr req
       if ( tariff_pax_id != ASTRA::NoExists ) {
         salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), "", tariff_pax_id );
       }
-      int ncomp_crc = CRC32_Comp( point_id );
+      int ncomp_crc = SALONS2::CompCheckSum::calcFromDB( point_id ).total_crc32;
       if ( (comp_crc != 0 && ncomp_crc != 0 && comp_crc != ncomp_crc) ) { //update
         throw UserException( "MSG.SALONS.CHANGE_CONFIGURE_CRAFT_ALL_DATA_REFRESH" );
       }

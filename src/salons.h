@@ -1687,7 +1687,7 @@ class CraftSeats: public std::vector<TPlaceList*> {
   public:
     void Clear();
     void read( TQuery &Qry, const std::string &cls );
-    int crc32( );
+    int basechecksum( );
 };
 
 typedef std::map<bool, std::vector<std::string>> TBuildMap;
@@ -1900,7 +1900,6 @@ class TAdjustmentRows: public adjustmentIndexRow {
   bool ChangeCfg( const std::vector<TPlaceList*> &list1,
                   const std::vector<TPlaceList*> &list2 );
   bool IsMiscSet( int point_id, int misc_type );
-  int CRC32_Comp( int point_id );
   bool compatibleLayer( ASTRA::TCompLayerType layer_type );
   void verifyValidRem( const std::string &className, const std::string &remCode );
   bool isBaseLayer( ASTRA::TCompLayerType layer_type, bool isComponCraft );
@@ -1949,8 +1948,21 @@ class TAdjustmentRows: public adjustmentIndexRow {
     }
     return res;
   }
-  int getCRC_Comp( int point_id );
+
+  struct CompCheckSum {
+    int total_crc32;
+    int base_crc32;
+    CompCheckSum( int _total_crc32, int _base_crc32 ) {
+       total_crc32 = _total_crc32;
+       base_crc32 = _base_crc32;
+    }
+    static int calcCheckSum( const std::string& buf );
+    static CompCheckSum calcFromDB( int point_id );
+    static CompCheckSum keyFromDB( int point_id );
+  };
   bool isComponSeatsNoChanges( const TTripInfo &info );
-} // END namespace SALONS2
-int testsalons(int argc,char **argv);
+ } // END namespace SALONS2
+
+ int testsalons(int argc,char **argv);
+
 #endif /*_SALONS2_H_*/
