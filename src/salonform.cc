@@ -1204,7 +1204,8 @@ BitSet<SEATS2::TChangeLayerSeatsProps>
       return propsSeatsFlags;
     }
     salonList.JumpToLeg( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ) );
-    int ncomp_crc = SALONS2::CompCheckSum::calcFromDB( point_id ).total_crc32;
+    int ncomp_crc = CompCheckSum::keyFromDB( point_id ).total_crc32; //берем из БД, не надо заново расчитывать
+    //int ncomp_crc = SALONS2::CompCheckSum::calcFromDB( point_id ).total_crc32;
     if ( (comp_crc != 0 && ncomp_crc != 0 && comp_crc != ncomp_crc) ) { //update
       throw UserException( "MSG.SALONS.CHANGE_CONFIGURE_CRAFT_ALL_DATA_REFRESH" );
     }
@@ -1304,7 +1305,7 @@ BitSet<SEATS2::TChangeLayerSeatsProps>
     SALONS2::GetTripParams( point_id, dataNode );
     salonList.JumpToLeg( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ) );
     int comp_id;
-    salonList.Build( NewTextChild( dataNode, "salons" ) );
+    salonList.Build( NewTextChild( dataNode, "salons" ) ); //crc32 из БД
     comp_id = salonList.getCompId();
     if ( flags.isFlag( flWaitList ) ) {
       SALONS2::TSalonPassengers passengers;
@@ -1498,7 +1499,7 @@ void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr req
       if ( tariff_pax_id != ASTRA::NoExists ) {
         salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), "", tariff_pax_id );
       }
-      int ncomp_crc = SALONS2::CompCheckSum::calcFromDB( point_id ).total_crc32;
+      int ncomp_crc = SALONS2::CompCheckSum::keyFromDB( point_id ).total_crc32;
       if ( (comp_crc != 0 && ncomp_crc != 0 && comp_crc != ncomp_crc) ) { //update
         throw UserException( "MSG.SALONS.CHANGE_CONFIGURE_CRAFT_ALL_DATA_REFRESH" );
       }
