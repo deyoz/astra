@@ -5662,20 +5662,21 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &Salons,
               }
             }
           }
-/*          if ( pr_web_terminal && !paxs.empty() ) { //требуем заполнение списка пассажиров
+          if ( pr_web_terminal && !paxs.empty() ) { //требуем заполнение списка пассажиров
                   //!logProgTrace( TRACE5, "CreateSalonsForAutoSeats: %s %s, paxs.empty=%d, isOwnerFreePlace=%d",
             //!log           ilayer->toString().c_str(), tmp_layer.toString().c_str(), paxs.empty(),
             //!log           AstraWeb::isOwnerFreePlace( tmp_layer.getPaxId(), paxs ) );
-                    if ( ( tmp_layer.layer_type == cltPNLCkin ||
-                           isUserProtectLayer( tmp_layer.layer_type ) )  && !isOwnerFreePlace<TPaxCover>( tmp_layer.getPaxId(), paxs ) ) {
-                      iseat->AddLayerToPlace( cltDisable, tmp_layer.time_create, tmp_layer.getPaxId(),
-                                              tmp_layer.point_dep, NoExists,
-                                              BASIC_SALONS::TCompLayerTypes::Instance()->priority( cltDisable ) );
+                    if ( ( tmp_layer.layerType() == cltPNLCkin ||
+                           isUserProtectLayer( tmp_layer.layerType() ) )  && !isOwnerFreePlace<TPaxCover>( tmp_layer.getPaxId(), paxs ) ) {
+                      iseat->AddLayerToPlace( cltDisable, tmp_layer.time_create(), tmp_layer.getPaxId(),
+                                              tmp_layer.point_dep(), NoExists,
+                                               BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( getAirline(), cltDisable ),
+                                                                                                    flag ) );
                       ProgTrace( TRACE5, "CreateSalonsForAutoSeats: %s add cltDisable because %s", string(iseat->yname+iseat->xname).c_str(),
                                  ilayer->toString().c_str() );
                       pr_blocked_layer = true;
                     }
-          }*/
+          }
           if ( pr_blocked_layer ) {
             break;
           }

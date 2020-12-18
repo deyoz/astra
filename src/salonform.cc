@@ -1077,7 +1077,7 @@ BitSet<SEATS2::TChangeLayerSeatsProps>
   int point_arv = NoExists;
   TQuery Qry( &OraSession );
   Qry.SQLText =
-    "SELECT airline, flt_no, suffix, airp, scd_out "
+    "SELECT point_id, airline, flt_no, suffix, airp, scd_out "
     "FROM points "
     "WHERE points.point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -1147,7 +1147,9 @@ BitSet<SEATS2::TChangeLayerSeatsProps>
         " JOIN comp_layer_types clt "
         "   on clt.code=t.layer_type "
         " LEFT JOIN comp_layer_priorities clp "
-        "   on clp.layer_type=t.layer_type AND clp.airline=:airline"
+        "   on clp.layer_type=t.layer_type AND "
+        "      clp.airline=:airline AND "
+        "      :airline_priority=1 "
         " WHERE t.point_id=:point_id AND "
         "       t.layer_type IN (:protckin_layer,:prot_pay1,:prot_pay2,:prot_selfckin) AND "
         "       crs_pax_id=:pax_id "
@@ -1159,6 +1161,7 @@ BitSet<SEATS2::TChangeLayerSeatsProps>
       Qry.CreateVariable( "prot_pay1", otString, EncodeCompLayerType( cltPNLAfterPay ) );
       Qry.CreateVariable( "prot_pay2", otString, EncodeCompLayerType( cltProtAfterPay ) );
       Qry.CreateVariable( "prot_selfckin", otString, EncodeCompLayerType( cltProtSelfCkin ) );
+      Qry.CreateVariable( "airline_priority", otInteger, GetTripSets( tsAirlineCompLayerPriority, fltInfo )?1:0 );
       Qry.Execute();
       int priority = -1;
       for ( ;!Qry.Eof; Qry.Next() ) {
