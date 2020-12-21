@@ -93,7 +93,7 @@ void Session::clearIgnoreErrors()
 
 Session& Session::getMainInstance()
 {
-    static Session mainInst(get_main_ora_rw_sess(STDLOG),
+    static Session mainInst(get_main_ora_sess(STDLOG),
                             get_main_pg_ro_sess(STDLOG), get_main_pg_rw_sess(STDLOG));
     return mainInst;
 }

@@ -336,7 +336,7 @@ using ArxPgSession_ReadOnly  = SessionTraits<DoNothingHooks,      ArxPgConnectio
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-DbCpp::Session* get_main_ora_rw_sess(STDLOG_SIGNATURE)
+DbCpp::Session* get_main_ora_sess(STDLOG_SIGNATURE)
 {
     return DbCpp::mainOraSessionPtr(STDLOG_VARIABLE);
 }
@@ -364,7 +364,7 @@ DbCpp::Session* get_arx_ora_rw_sess(STDLOG_SIGNATURE)
 {
 #ifdef XP_TESTING
     if(inTestMode()) {
-        return get_main_ora_rw_sess(STDLOG_VARIABLE);
+        return get_main_ora_sess(STDLOG_VARIABLE);
     }
 #endif//XP_TESTING
 
@@ -372,7 +372,7 @@ DbCpp::Session* get_arx_ora_rw_sess(STDLOG_SIGNATURE)
     if(sess != nullptr) {
         return sess;
     }
-    return get_main_ora_rw_sess(STDLOG_VARIABLE);
+    return get_main_ora_sess(STDLOG_VARIABLE);
 }
 
 //---------------------------------------------------------------------------------------

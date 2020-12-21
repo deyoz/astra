@@ -973,7 +973,7 @@ static std::string FP_dump_db_table(const std::vector<tok::Param>& params)
     if(db == "pg") {
         DbCpp::DumpTable(*get_main_pg_rw_sess(STDLOG), tableName).exec(dump);
     } else if(db == "ora") {
-        DbCpp::DumpTable(*get_main_ora_rw_sess(STDLOG), tableName).exec(dump);
+        DbCpp::DumpTable(*get_main_ora_sess(STDLOG), tableName).exec(dump);
     }
     LogTrace(TRACE3) << dump;
     return "";

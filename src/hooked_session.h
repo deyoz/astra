@@ -9,7 +9,7 @@ namespace DbCpp {
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-DbCpp::Session* get_main_ora_rw_sess(STDLOG_SIGNATURE);
+DbCpp::Session* get_main_ora_sess(STDLOG_SIGNATURE);
 
 DbCpp::Session* get_main_pg_ro_sess(STDLOG_SIGNATURE);
 DbCpp::Session* get_main_pg_rw_sess(STDLOG_SIGNATURE);

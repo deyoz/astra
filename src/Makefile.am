@@ -221,7 +221,8 @@ astra_SOURCES = \
   dbostructures.cpp \
   astra_calls.cc \
   wb_messages.cc \
-  hooked_session.cc
+  hooked_session.cc \
+  PgOraConfig.cc
 
 
 astra_LDADD = $(all_libraries) \
@@ -447,4 +448,5 @@ noinst_HEADERS = \
   dbostructures.h \
   astra_calls.h \
   wb_messages.h \
-  hooked_session.h
+  hooked_session.h \
+  PgOraConfig.h
