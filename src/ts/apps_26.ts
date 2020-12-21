@@ -729,7 +729,6 @@ $(set tid $(get_single_tid $(get point_dep) TUMALI VALERII))
 
 # измененение по пассажиру FA144642 -> FA144643
 
-!!
 $(UPDATE_PAX_ON_BOARDING $(get pax_id) $(get point_dep) $(get tid) RUS FA144643 UA 16.04.1968 25.06.2025 M TUMALI VALERII 123134 UA 20.10.2019 20.10.2030 CZ)
 
 >> lines=auto mode=regex

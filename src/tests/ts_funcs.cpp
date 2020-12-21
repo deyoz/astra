@@ -29,6 +29,7 @@
 #include "dbostructures.h"
 #include "hooked_session.h"
 #include "iapi_interaction.h"
+#include "prn_tag_store.h"
 
 #include <queue>
 #include <fstream>
@@ -1218,6 +1219,21 @@ static std::string FP_initIapiRequestId(const std::vector<std::string> &par)
   return "";
 }
 
+static std::string FP_getBCBP(const std::vector<std::string> &par)
+{
+  ASSERT(par.size() >= 2);
+  GrpId_t grpId(std::stoi(par.at(0)));
+  PaxId_t paxId(std::stoi(par.at(1)));
+  bool langRu=(par.size() >= 3) && (par.at(2) == AstraLocale::LANG_RU);
+
+  TPrnTagStore pts(TDevOper::PrnBP, grpId.get(), paxId.get(), false, false, nullptr);
+
+  if (langRu)
+    return pts.get_tag(TAG::BCBP_M_2);
+  else
+    return pts.get_tag(TAG::BCBP_M_2, {}, "E");
+}
+
 FP_REGISTER("<<", FP_tlg_in);
 FP_REGISTER("!!", FP_req);
 FP_REGISTER("astra_hello", FP_astra_hello);
@@ -1275,5 +1291,6 @@ FP_REGISTER("are_agent_stat_equal", FP_agent_stat_equal);
 FP_REGISTER("collect_flight_stat", FP_collectFlightStat);
 FP_REGISTER("pg_sql", FP_pg_sql);
 FP_REGISTER("init_iapi_request_id", FP_initIapiRequestId);
+FP_REGISTER("get_bcbp", FP_getBCBP);
 
 #endif /* XP_TESTING */

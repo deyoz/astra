@@ -1962,7 +1962,6 @@ $(set tid $(get_single_tid $(get point_dep) TUMALI VALERII))
 CIRS:$(capture 1)/PRS/27/001/CZ/P/UA/UA/FA144642//P//20250625////TUMALI/VALERII/19680416/M//8501/B/3////////
 
 # измененение по пассажиру FA144642 -> FA144643
-!!
 $(UPDATE_PAX_ON_BOARDING $(get pax_id) $(get point_dep) $(get tid) RUS FA144643 UA 16.04.1968 25.06.2025 M TUMALI VALERII)
 
 >> lines=auto mode=regex
