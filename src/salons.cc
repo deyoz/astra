@@ -4467,7 +4467,7 @@ void TSalonList::Build( xmlNodePtr salonsNode )
   int comp_crc = 0;
   ProgTrace( TRACE5, "getDepartureId=%d", getDepartureId() );
   if ( getDepartureId() != ASTRA::NoExists ) {
-    comp_crc = getCRC_Comp( filterSets.filterRoutes.getDepartureId() );
+    comp_crc = CompCheckSum::keyFromDB( filterSets.filterRoutes.getDepartureId() ).total_crc32;
   }
   if ( comp_crc != 0 ) {
     SetProp( salonsNode, "comp_crc", comp_crc );
@@ -5694,20 +5694,21 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &Salons,
               }
             }
           }
-/*          if ( pr_web_terminal && !paxs.empty() ) { //требуем заполнение списка пассажиров
+          if ( pr_web_terminal && !paxs.empty() ) { //требуем заполнение списка пассажиров
                   //!logProgTrace( TRACE5, "CreateSalonsForAutoSeats: %s %s, paxs.empty=%d, isOwnerFreePlace=%d",
             //!log           ilayer->toString().c_str(), tmp_layer.toString().c_str(), paxs.empty(),
             //!log           AstraWeb::isOwnerFreePlace( tmp_layer.getPaxId(), paxs ) );
-                    if ( ( tmp_layer.layer_type == cltPNLCkin ||
-                           isUserProtectLayer( tmp_layer.layer_type ) )  && !isOwnerFreePlace<TPaxCover>( tmp_layer.getPaxId(), paxs ) ) {
-                      iseat->AddLayerToPlace( cltDisable, tmp_layer.time_create, tmp_layer.getPaxId(),
-                                              tmp_layer.point_dep, NoExists,
-                                              BASIC_SALONS::TCompLayerTypes::Instance()->priority( cltDisable ) );
+                    if ( ( tmp_layer.layerType() == cltPNLCkin ||
+                           isUserProtectLayer( tmp_layer.layerType() ) )  && !isOwnerFreePlace<TPaxCover>( tmp_layer.getPaxId(), paxs ) ) {
+                      iseat->AddLayerToPlace( cltDisable, tmp_layer.time_create(), tmp_layer.getPaxId(),
+                                              tmp_layer.point_dep(), NoExists,
+                                               BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( getAirline(), cltDisable ),
+                                                                                                    flag ) );
                       ProgTrace( TRACE5, "CreateSalonsForAutoSeats: %s add cltDisable because %s", string(iseat->yname+iseat->xname).c_str(),
                                  ilayer->toString().c_str() );
                       pr_blocked_layer = true;
                     }
-          }*/
+          }
           if ( pr_blocked_layer ) {
             break;
           }
@@ -7147,11 +7148,12 @@ void CreateComps( const TCompsRoutes &routes, int comp_id )
 
   TQuery QryTripSets(&OraSession);
   QryTripSets.SQLText =
-    "UPDATE trip_sets SET comp_id=:comp_id, pr_lat_seat=:pr_lat_seat,crc_comp=:crc_comp WHERE point_id=:point_id";
-  QryTripSets.CreateVariable( "comp_id", otInteger, comp_id );
+    "UPDATE trip_sets SET comp_id=:comp_id,pr_lat_seat=:pr_lat_seat,crc_comp=:crc_comp,crc_base_comp=:crc_base_comp WHERE point_id=:point_id";
+  QryTripSets.CreateVariable( "comp_id", otInteger, comp_id==ASTRA::NoExists?FNull:comp_id );
   QryTripSets.CreateVariable( "pr_lat_seat", otInteger, pr_lat_seat );
   QryTripSets.DeclareVariable( "point_id", otInteger );
   QryTripSets.DeclareVariable( "crc_comp", otInteger );
+  QryTripSets.DeclareVariable( "crc_base_comp", otInteger );
   Qry.Clear();
   Qry.SQLText =
     "BEGIN "
@@ -7205,7 +7207,7 @@ void CreateComps( const TCompsRoutes &routes, int comp_id )
   QryLayers.CreateVariable( "comp_id", otInteger, comp_id );
   QryLayers.DeclareVariable( "point_id", otInteger );
   QryLayers.DeclareVariable( "layer_type", otString );
-  int crc_comp = 0;
+  SALONS2::CompCheckSum checksum(0,0);
   std::vector<int> points_tranzit_check_wait_alarm;
   for (TCompsRoutes::const_iterator i=routes.begin(); i!=routes.end(); i++ ) {
     if ( i->inRoutes && i->auto_comp_chg && i->pr_reg ) {
@@ -7225,13 +7227,14 @@ void CreateComps( const TCompsRoutes &routes, int comp_id )
           }
         }
       }
-      if ( crc_comp == 0 ) {
-        crc_comp = CRC32_Comp( i->point_id );
+      if ( checksum.base_crc32 == 0 ) {
+        checksum = SALONS2::CompCheckSum::calcFromDB( i->point_id );
       }
       InitVIP( i->point_id );
       setTRIP_CLASSES( i->point_id );
       QryTripSets.SetVariable( "point_id", i->point_id );
-      QryTripSets.SetVariable( "crc_comp", crc_comp );
+      QryTripSets.SetVariable( "crc_comp", checksum.total_crc32 );
+      QryTripSets.SetVariable( "crc_base_comp", checksum.base_crc32 );
       QryTripSets.Execute();
       LEvntPrms prms;
       TCFG(i->point_id).param(prms);
@@ -7481,8 +7484,18 @@ void getSeasonData( const vector<int> &points, map<int,TCounters> &crs_data )
   //!log           crs_data[ -1 ].point_id, crs_data[ -1 ].f, crs_data[ -1 ].c, crs_data[ -1 ].y );
 }
 
-int CRC32_Comp( int point_id )
-{
+int CompCheckSum::calcCheckSum( const std::string& buf ) {
+  //!std::string md5buf = md5_sum( buf );
+  boost::crc_basic<32> crc32( 0x04C11DB7, 0xFFFFFFFF, 0xFFFFFFFF, true, true );
+  crc32.reset();
+  //!crc32.process_bytes( md5buf.c_str(), md5buf.size() );
+  crc32.process_bytes( buf.c_str(), buf.size() );
+  std::string md5buf = IntToString( crc32.checksum() ); //!
+  //return CheckSumComp( crc32.checksum(), md5buf );
+  return crc32.checksum();
+}
+
+CompCheckSum CompCheckSum::calcFromDB( int point_id ) {
   TQuery QryDisableLayer(&OraSession);
   //только для размеченных слоев в компоновке
   QryDisableLayer.SQLText =
@@ -7503,8 +7516,8 @@ int CRC32_Comp( int point_id )
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   if ( Qry.Eof )
-    return 0;
-  ostringstream buf;
+    return CompCheckSum(0,0);
+  ostringstream total_buf, base_buf;
   int idx_num = Qry.FieldIndex( "num" );
   int idx_x = Qry.FieldIndex( "x" );
   int idx_y = Qry.FieldIndex( "y" );
@@ -7516,45 +7529,41 @@ int CRC32_Comp( int point_id )
     TSalonPoint p( Qry.FieldAsInteger( idx_x ),
                    Qry.FieldAsInteger( idx_y ),
                    Qry.FieldAsInteger( idx_num ) );
-    buf <<  p.num;
-    buf << p.x;
-    buf << p.y;
-    buf << TCompElemTypes::Instance()->isSeat( Qry.FieldAsString( idx_elem_type ) );
+    total_buf <<  p.num; base_buf << p.num;
+    total_buf << p.x; base_buf << p.x;
+    total_buf << p.y; base_buf << p.y;
+    total_buf << Qry.FieldAsString( idx_elem_type ); base_buf << (TCompElemTypes::Instance()->isSeat( Qry.FieldAsString( idx_elem_type ) )?"1":"0");
     bool pr_disable = ( !QryDisableLayer.Eof &&
                          QryDisableLayer.FieldAsInteger( idx_num_dis ) == p.num &&
                          QryDisableLayer.FieldAsInteger( idx_x_dis ) == p.x &&
                          QryDisableLayer.FieldAsInteger( idx_y_dis ) == p.y );
     if ( pr_disable ) {
       QryDisableLayer.Next();
-      buf << "1";
+      total_buf << "1"; base_buf << "1";
     }
     else {
-      buf << "0";
+      total_buf << "0"; base_buf << "0";
     }
-    buf << Qry.FieldAsString( idx_class );
-    buf << Qry.FieldAsString( idx_xname );
-    buf << Qry.FieldAsString( idx_yname );
+    total_buf << Qry.FieldAsString( idx_class ); base_buf << Qry.FieldAsString( idx_class );
+    total_buf << Qry.FieldAsString( idx_xname ); base_buf << Qry.FieldAsString( idx_xname );
+    total_buf << Qry.FieldAsString( idx_yname ); base_buf << Qry.FieldAsString( idx_yname );
   }
-  boost::crc_basic<32> crc32( 0x04C11DB7, 0xFFFFFFFF, 0xFFFFFFFF, true, true );
-  crc32.reset();
-  crc32.process_bytes( buf.str().c_str(), buf.str().size() );
-  int comp_id = crc32.checksum();
-  //!logProgTrace( TRACE5, "CRC32_Comp: point_id=%d, crc_comp=%d", point_id, comp_id );
-  return comp_id;
+  return CompCheckSum( CompCheckSum::calcCheckSum( total_buf.str() ),
+                       CompCheckSum::calcCheckSum( base_buf.str() ) );
 }
 
-int getCRC_Comp( int point_id )
-{
+CompCheckSum CompCheckSum::keyFromDB( int point_id ) {
   TQuery Qry(&OraSession);
   Qry.SQLText =
-    "SELECT crc_comp,comp_id FROM trip_sets WHERE point_id=:point_id";
+    "SELECT crc_comp,NVL(crc_base_comp,crc_comp) as crc_base_comp,comp_id FROM trip_sets WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   if ( Qry.Eof ) {
     ProgError( STDLOG, "getCRC_Comp: point_id=%d, trip_sets not exists record", point_id );
-    return 0;
+    return CompCheckSum(0,0);
   }
-  return Qry.FieldAsInteger( "crc_comp" );
+  return CompCheckSum( Qry.FieldAsInteger( "crc_comp" ),
+                       Qry.FieldAsInteger( "crc_base_comp" ) );
 }
 
 void calc_diffcomp_alarm( TCompsRoutes &routes )
@@ -7566,8 +7575,8 @@ void calc_diffcomp_alarm( TCompsRoutes &routes )
     if ( !i->pr_reg )
       continue;
     if ( iprior != routes.end() && i != routes.end()-1 ) {
-      int crc_comp1 = getCRC_Comp( iprior->point_id );
-      int crc_comp2 = getCRC_Comp( i->point_id );
+      int crc_comp1 = SALONS2::CompCheckSum::keyFromDB( iprior->point_id ).base_crc32;
+      int crc_comp2 = SALONS2::CompCheckSum::keyFromDB( i->point_id ).base_crc32;
       //!logProgTrace( TRACE5, "iprior->point_id=%d, prior_crc_comp1=%d, i->point_id=%d, crc_comp2=%d",
       //!log           iprior->point_id, crc_comp1, i->point_id, crc_comp2 );
       if ( !CompRouteinRoutes( *iprior, *i ) ||
@@ -9766,7 +9775,7 @@ void CraftSeats::read( TQuery &Qry, const std::string &cls )
   }
 }
 
-int CraftSeats::crc32()
+int CraftSeats::basechecksum()
 {
   std::vector<std::string> elem_types;
   constructiveElemTypes( elem_types );
@@ -9779,12 +9788,7 @@ int CraftSeats::crc32()
       buf << (*isalon)->num << iseat->x << iseat->y << iseat->clname << iseat->xname << iseat->yname << TCompElemTypes::Instance()->isSeat( iseat->elem_type );
     }
   }
-  boost::crc_basic<32> crc32( 0x04C11DB7, 0xFFFFFFFF, 0xFFFFFFFF, true, true );
-  crc32.reset();
-  crc32.process_bytes( buf.str().c_str(), buf.str().size() );
-  int comp_crc = crc32.checksum();
-  //!logProgTrace( TRACE5, "CRC32_Comp: point_id=%d, crc_comp=%d", point_id, comp_id );
-  return comp_crc;
+  return CompCheckSum::calcCheckSum( buf.str() );
 }
 
 
