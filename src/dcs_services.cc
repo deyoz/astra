@@ -11,155 +11,232 @@
 using namespace std;
 using namespace AstraLocale;
 
-std::ostream& operator<<(std::ostream& os, const DCSServiceApplyingParams& params)
+namespace DCSServiceApplying
 {
-  os << endl << "  airline:        " << params.airline
-     << endl << "  dcs_action:    " << dcsActions().encode(params.dcs_action);
-  if (!params.brand_airline.empty())
-    os << endl << "  brand_airline:  " << params.brand_airline;
-  if (!params.brand_code.empty())
-    os << endl << "  brand_code:     " << params.brand_code;
-  if (!params.fqt_airline.empty())
-    os << endl << "  fqt_airline:    " << params.fqt_airline;
-  if (!params.fqt_tier_level.empty())
-    os << endl << "  fqt_tier_level: " << params.fqt_tier_level;
-  if (!params.cl.empty())
-    os << endl << "  cl:             " << params.cl;
+
+std::ostream& operator<<(std::ostream& os, const SettingsFilter& filter)
+{
+  os << endl << "  airline:        " << filter.airline
+     << endl << "  dcsAction:      " << dcsActions().encode(filter.dcsAction)
+     << endl << "  cl:             " << filter.cl;
+
   return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const RFISCsSet& rfiscs)
+std::ostream& operator<<(std::ostream& os, const Setting& setting)
 {
-  for(const auto& i : rfiscs)
-    os << " " << i;
+  os << "  id: " << setting.id;
+  os << ", brand: ";
+  if (setting.brand)
+    os << setting.brand.get();
+  os << ", tierLevel: ";
+  if (setting.tierLevel)
+    os << setting.tierLevel.get();
+  os << ", fqtShouldNotExists: " << boolalpha << setting.fqtShouldNotExists
+     << ", rfisc: " << setting.rfisc;
+
   return os;
 }
 
-void DCSServiceApplying::addRequiredRFISCs(const DCSServiceApplyingParams& params, RFISCsSet& rfiscs)
+std::ostream& operator<<(std::ostream& os, const Settings& settings)
 {
-  LogTrace(TRACE5) << __FUNCTION__ << ": " << params;
+  for(const auto& i : settings)
+    os << endl << i;
 
-  TCachedQuery Qry(
-    "SELECT id, rfisc "
+  return os;
+}
+
+bool SettingsFilter::suitable(const boost::optional<TBrand::Key>& brand, TBrands& brands) const //!!!в PaxConfirmations::SettingsFilter метод один в один
+{
+  if (!brand) return true;
+
+  if (!brandKeyList)
+  {
+    brands.get(paxId.get());
+
+    brandKeyList=boost::in_place();
+    brandKeyList.get()=algo::transform<std::list<TBrand::Key>>(brands, [](const auto& i) { return i.key(); } );
+  }
+
+  return algo::any_of(brandKeyList.get(), [&brand](const auto& i) { return i==brand.get(); } );
+}
+
+bool SettingsFilter::suitable(const boost::optional<TierLevelKey>& tierLevel,                   //!!!в PaxConfirmations::SettingsFilter метод один в один
+                              const bool fqtShouldNotExists) const
+{
+  if (!tierLevel && !fqtShouldNotExists) return true;
+
+  if (!fqts)
+  {
+    fqts=boost::in_place();
+    LoadPaxFQT(paxId.get(), fqts.get());
+  }
+
+  if (fqtShouldNotExists) return fqts.get().empty();
+
+  return algo::any_of(fqts.get(), [&tierLevel](const auto& i) { return i.tierLevelKey()==tierLevel; } );
+}
+
+const Settings& RequiredRfiscs::filterRoughly(const SettingsFilter& filter)
+{
+  auto iSettings=std::find_if(settingsCache.begin(), settingsCache.end(),
+                              [&filter](const auto& i) {  return filter.airline==i.first.airline &&
+                                                                 filter.dcsAction==i.first.dcsAction &&
+                                                                 filter.cl==i.first.cl; } );
+
+  if (iSettings!=settingsCache.end()) return iSettings->second;
+
+
+  iSettings=settingsCache.emplace(settingsCache.end(), filter, Settings());
+
+  Settings& settings=iSettings->second;
+
+  LogTrace(TRACE5) << __func__ << ": " << filter;
+
+  auto cur = make_curs(
+    "SELECT " + Setting::selectedFields() +
     "FROM dcs_service_applying "
     "WHERE airline=:airline AND "
     "      dcs_service=:dcs_service AND "
-    "      (brand_airline IS NULL OR brand_airline=:brand_airline) AND "
-    "      (brand_code IS NULL OR brand_code=:brand_code) AND "
-    "      (fqt_airline IS NULL AND fqt_tier_level IS NULL OR"
-    "       fqt_airline IS NULL AND fqt_tier_level IS NOT NULL AND :fqt_airline IS NULL AND :fqt_tier_level IS NULL OR "
-    "       fqt_airline=:fqt_airline AND fqt_tier_level=:fqt_tier_level) AND "
     "      (class IS NULL OR class=:class) AND "
-    "      pr_denial=0 ",
-    QParams() << QParam("airline", otString, params.airline)
-              << QParam("dcs_service", otString, dcsActions().encode(params.dcs_action))
-              << QParam("brand_airline", otString, params.brand_airline)
-              << QParam("brand_code", otString, params.brand_code)
-              << QParam("fqt_airline", otString, params.fqt_airline)
-              << QParam("fqt_tier_level", otString, params.fqt_tier_level)
-              << QParam("class", otString, params.cl)
-  );
+    "      pr_denial=0 ");
 
-  ostringstream s;
-  Qry.get().Execute();
-  for(; !Qry.get().Eof; Qry.get().Next())
+
+
+  Setting setting;
+
+  Setting::curDef(cur, setting);
+
+  cur.bind(":airline", filter.airline.get())
+     .bind(":dcs_service", dcsActions().encode(filter.dcsAction))
+     .bind(":class", filter.cl.get())
+     .exec();
+
+  while(!cur.fen())
   {
-    int id=Qry.get().FieldAsInteger("id");
-    string rfisc=Qry.get().FieldAsString("rfisc");
-    s << "(" << id << ", " << rfisc << ") ";
-    rfiscs.insert(rfisc);
+    settings.insert(setting.afterFetchProcessing());
   }
-  LogTrace(TRACE5) << __FUNCTION__ << ": " << s.str();
+
+  if (!settings.empty())
+    LogTrace(TRACE5) << __func__ << ": " << settings;
+
+  return settings;
 }
 
-void DCSServiceApplying::throwIfNotAllowed(int pax_id, DCSAction::Enum dcsAction)
+void RequiredRfiscs::add(const SettingsFilter& filter)
 {
-  RFISCsSet requiredRFISCs;
+  const Settings& settingsRoughly=filterRoughly(filter);
 
-  if ( !isAllowed( pax_id, dcsAction, requiredRFISCs ) )
+  for(const Setting& setting : settingsRoughly)
   {
-    LexemaData lexemeData;
-
-    lexemeData.lparams << LParam("service", ElemIdToNameLong(etDCSAction, dcsActions().encode(dcsAction)));
-
-    if (!requiredRFISCs.empty())
+    if (filter.suitable(setting.brand, brands) &&
+        filter.suitable(setting.tierLevel, setting.fqtShouldNotExists))
     {
-      ostringstream s;
-      for(RFISCsSet::const_iterator i=requiredRFISCs.begin(); i!=requiredRFISCs.end(); ++i)
-      {
-        if (i!=requiredRFISCs.begin()) s << ", ";
-        s << *i;
-      }
-      lexemeData.lparams << LParam("rfiscs", s.str());
-
-      if (requiredRFISCs.size()==1)
-        lexemeData.lexema_id="MSG.DCS_SERVICE.NOT_AVAIL_RFISC_REQUIRED";
-      else
-        lexemeData.lexema_id="MSG.DCS_SERVICE.NOT_AVAIL_RFISCS_REQUIRED";
+      settingsByPaxId.second.insert(setting);
     }
-    else lexemeData.lexema_id="MSG.DCS_SERVICE.NOT_AVAIL";
-
-    throw UserException(lexemeData.lexema_id, lexemeData.lparams);
   }
 }
 
-bool DCSServiceApplying::isAllowed(int pax_id, DCSAction::Enum dcsAction, RFISCsSet& reqRFISCs)
+RequiredRfiscs::RequiredRfiscs(const DCSAction::Enum dcsAction_,
+                               const PaxId_t& paxId) :
+  settingsByPaxId(paxId, Settings()),
+  dcsAction(dcsAction_),
+  notRequiredAtAll(false)
 {
-  LogTrace(TRACE5) << __FUNCTION__ << ": pax_id=" << pax_id <<
-                                      ", dcsAction=" << dcsActions().encode(dcsAction);
+  LogTrace(TRACE5) << __func__ << ": dcsAction=" << dcsActions().encode(dcsAction)
+                               << ", paxId=" << paxId;
 
-  reqRFISCs.clear();
-
-  if ( TReqInfo::Instance()->client_type != ASTRA::ctTerm ) return true;//  о└ ко с  е oина└а
+  if ( TReqInfo::Instance()->client_type != ASTRA::ctTerm )
+  {
+    notRequiredAtAll=true;
+    return;// только с терминала
+  }
 
   CheckIn::TSimplePaxItem pax;
-  if (!pax.getByPaxId(pax_id)) return false;
+  if (!pax.getByPaxId(paxId.get())) return;
 
   CheckIn::TSimplePaxGrpItem grp;
-  if (!grp.getByGrpId(pax.grp_id)) return false;
+  if (!grp.getByGrpId(pax.grp_id)) return;
 
-  TTripInfo flt;
-  if (!flt.getByPointId(grp.point_dep)) return false;
-
-  TBrands brands;
-  brands.get(pax.id);
-  if (brands.empty()) brands.emplace_back();
-
-  set<CheckIn::TPaxFQTItem> fqts=CheckIn::getPaxFQTNotEmptyTierLevel(paxCheckIn, PaxId_t(pax.id), false);
-  if (fqts.empty()) fqts.insert(CheckIn::TPaxFQTItem());
-
-  DCSServiceApplyingParams params;
-  params.airline=flt.airline;
-  params.dcs_action=dcsAction;
-  params.cl=grp.cl;
-  for(const TBrand& brand : brands)
+  if (grp.grpCategory()!=CheckIn::TPaxGrpCategory::Passenges)
   {
-    params.brand_airline=brand.oper_airline;
-    params.brand_code=   brand.code();
-
-    for(const CheckIn::TPaxFQTItem& fqt : fqts)
-    {
-      params.fqt_airline=fqt.airline;
-      params.fqt_tier_level=fqt.tier_level;
-      addRequiredRFISCs(params, reqRFISCs);
-    }
+    notRequiredAtAll=true;
+    return;
   }
 
-  if (reqRFISCs.empty()) return true;  //не на └и ╗о коo╗ании/о╗е а ии ни одного   еб еoого RFISCа
+  TTripInfo flt;
+  if (!flt.getByPointId(grp.point_dep)) return;
 
-  RFISCsSet paxRFISCs, intersectRFISCs;
+  add(SettingsFilter(paxId,
+                     AirlineCode_t(flt.airline),
+                     dcsAction,
+                     Class_t(grp.cl)));
+}
+
+RfiscsSet RequiredRfiscs::get() const
+{
+  RfiscsSet result;
+  for(const Setting& setting : settingsByPaxId.second)
+    result.insert(setting.rfisc);
+  return result;
+}
+
+bool RequiredRfiscs::exists() const
+{
+  if (notRequiredAtAll) return true;
+
+  if (settingsCache.empty()) return false;
+
+  RfiscsSet reqRFISCs=get();
+
+  if (reqRFISCs.empty()) return true;  //не нашли по компании/операции ни одного требуемого RFISCа
+
+  RfiscsSet paxRFISCs, intersectRFISCs;
 
   TPaidRFISCListWithAuto paid;
-  paid.fromDB(pax.id, false);
-  paid.getUniqRFISCSs(pax.id, paxRFISCs);
+  paid.fromDB(settingsByPaxId.first.get(), false);
+  paid.getUniqRFISCSs(settingsByPaxId.first.get(), paxRFISCs);
 
   set_intersection(reqRFISCs.begin(), reqRFISCs.end(),
                    paxRFISCs.begin(), paxRFISCs.end(),
                    inserter(intersectRFISCs, intersectRFISCs.end()));
 
-  LogTrace(TRACE5) << __FUNCTION__ << ": reqRFISCs:" << reqRFISCs;
-  LogTrace(TRACE5) << __FUNCTION__ << ": paxRFISCs:" << paxRFISCs;
-  LogTrace(TRACE5) << __FUNCTION__ << ": intersectRFISCs:" << intersectRFISCs;
+  LogTrace(TRACE5) << __func__ << ": reqRFISCs: " << LogCont(" ", reqRFISCs);
+  LogTrace(TRACE5) << __func__ << ": paxRFISCs: " << LogCont(" ", paxRFISCs);
+  LogTrace(TRACE5) << __func__ << ": intersectRFISCs: " << LogCont(" ", intersectRFISCs);
 
   return !intersectRFISCs.empty();
 }
+
+void RequiredRfiscs::throwIfNotExists() const
+{
+  if (exists()) return;
+
+  RfiscsSet requiredRFISCs=get();
+
+  LexemaData lexemeData;
+
+  lexemeData.lparams << LParam("service", ElemIdToNameLong(etDCSAction, dcsActions().encode(dcsAction)));
+
+  if (!requiredRFISCs.empty())
+  {
+    ostringstream s;
+    for(RfiscsSet::const_iterator i=requiredRFISCs.begin(); i!=requiredRFISCs.end(); ++i)
+    {
+      if (i!=requiredRFISCs.begin()) s << ", ";
+      s << *i;
+    }
+    lexemeData.lparams << LParam("rfiscs", s.str());
+
+    if (requiredRFISCs.size()==1)
+      lexemeData.lexema_id="MSG.DCS_SERVICE.NOT_AVAIL_RFISC_REQUIRED";
+    else
+      lexemeData.lexema_id="MSG.DCS_SERVICE.NOT_AVAIL_RFISCS_REQUIRED";
+  }
+  else lexemeData.lexema_id="MSG.DCS_SERVICE.NOT_AVAIL";
+
+  throw UserException(lexemeData.lexema_id, lexemeData.lparams);
+}
+
+} //namespace DCSServiceApplying
+

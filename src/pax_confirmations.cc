@@ -371,7 +371,7 @@ Messages::Messages(const DCSAction::Enum dcsAction,
 
       if (!pax.refuse.empty()) continue;
 
-      add(SettingsFilter(PaxId_t(paxPair.first),
+      add(SettingsFilter(paxPair.first,
                          AirlineCode_t(seg.flt.airline),
                          AirportCode_t(seg.grp.airp_dep),
                          Class_t(seg.grp.cl),

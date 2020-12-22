@@ -6,7 +6,6 @@
 #include "etick.h"
 #include "term_version.h"
 #include "brands.h"
-#include "dcs_services.h"
 
 using namespace std;
 using namespace ASTRA;
@@ -324,7 +323,7 @@ namespace BIPrintRules {
                         ") ", QryParams);
                 try {
                     Qry.get().Execute();
-                } catch( EOracleError E ) {
+                } catch(const EOracleError &E) {
                     if(E.Code != 1) throw; // ignore unique constraint violated
                 }
             }
@@ -599,7 +598,7 @@ string get_rem_txt(const string &airline, int pax_id, int tag_index)
 {
     // Достаем RFISC-и
     // как платные, так и бесплатные
-    RFISCsSet paxRFISCs;
+    std::set<std::string> paxRFISCs;
     TPaidRFISCListWithAuto paid;
     paid.fromDB(pax_id, false);
     paid.getUniqRFISCSs(pax_id, paxRFISCs);
