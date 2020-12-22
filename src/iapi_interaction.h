@@ -159,6 +159,8 @@ class CusresCallbacks: public edifact::CusresCallbacks
     virtual void onCusRequestHandle(TRACE_SIGNATURE, const edifact::Cusres& cusres);
 };
 
+std::vector<std::string> statusesFromDb(const PaxId_t& pax_id);
+
 void init_callbacks();
 
 } //namespace IAPI

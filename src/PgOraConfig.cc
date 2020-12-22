@@ -27,6 +27,7 @@ namespace PgOra
     using GroupsType = std::vector<std::pair<std::string, std::vector<std::string>>>;
 
     static const GroupsType sGroups {
+         { "SP_PG_GROUP_IAPI", { "IAPI_PAX_DATA" } }
     };
 
     static std::string getGroupInner(std::string tableName, const GroupsType& groups)
@@ -46,12 +47,16 @@ namespace PgOra
         return std::string();
     }
 
-    std::string getGroup(const std::string& tableName) { return getGroupInner(tableName, sGroups); }
-
-    bool supportsPg(const std::string& tableName)
+    std::string getGroup(const std::string& objectName)
     {
-        const std::string& group = getGroup(tableName);
-        return group == "" ? false : Config(getGroup(tableName)).writePostgres();
+        return getGroupInner(objectName, sGroups);
+    }
+
+    bool supportsPg(const std::string& objectName)
+    {
+        const std::string& group = getGroup(objectName);
+        return group == "" ? false
+                           : Config(getGroup(objectName)).writePostgres();
     }
 
     DbCpp::Session& getROSession(const std::string& objectName)

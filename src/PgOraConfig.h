@@ -35,8 +35,8 @@ namespace PgOra
     DbCpp::Session& getROSession(const std::string& objectName);
     DbCpp::Session& getRWSession(const std::string& objectName);
     DbCpp::Session& getAutoSession(const std::string& tableName);
-    bool supportsPg(const std::string& tableName);
-    std::string getGroup(const std::string& tableName);
+    bool supportsPg(const std::string& objectName);
+    std::string getGroup(const std::string& objectName);
 
     std::string makeSeqNextVal(const std::string& sequenceName);
     long getSeqNextVal(const std::string& sequenceName);

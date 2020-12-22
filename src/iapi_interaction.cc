@@ -1,12 +1,15 @@
 #include "iapi_interaction.h"
 #include "apis_creator.h"
 #include "alarms.h"
-#include "tlg/remote_system_context.h"
 #include "base_callbacks.h"
-#include "serverlib/testmode.h"
+#include "PgOraConfig.h"
+#include "tlg/remote_system_context.h"
+
+#include <serverlib/testmode.h>
+#include <serverlib/dbcpp_cursctl.h>
 
 #define NICKNAME "VLAD"
-#include "serverlib/slogger.h"
+#include <serverlib/slogger.h>
 
 namespace IAPI
 {
@@ -230,6 +233,55 @@ void deleteAlarms(const int pax_id, const int point_id_spp)
     LogError(STDLOG) << __func__ << ": point_id_spp==ASTRA::NoExists";
 }
 
+static bool updateIapiPaxData(const PointId_t& pointId,
+                              const PaxId_t& paxId,
+                              const CountryCode_t& countryControl,
+                              const std::string& freeText,
+                              PassengerStatus::Enum status,
+                              const std::string& msgId)
+{
+    auto cur = make_db_curs(
+"UPDATE iapi_pax_data "
+"SET status=:status, free_text=:free_text, msg_id=:msg_id, point_id=:point_id, pr_del=0 "
+"WHERE pax_id=:pax_id AND country_control=:country_control",
+                PgOra::getRWSession("IAPI_PAX_DATA"));
+
+    cur
+            .bind(":point_id",        pointId.get())
+            .bind(":pax_id",          paxId.get())
+            .bind(":country_control", countryControl.get())
+            .bind(":free_text",       freeText)
+            .bind(":status",          status)
+            .bind(":msg_id",          msgId)
+            .exec();
+
+    return cur.rowcount() > 0;
+}
+
+static bool insertIapiPaxData(const PointId_t& pointId,
+                              const PaxId_t& paxId,
+                              const CountryCode_t& countryControl,
+                              const std::string& freeText,
+                              PassengerStatus::Enum status,
+                              const std::string& msgId)
+{
+    auto cur = make_db_curs(
+"INSERT INTO iapi_pax_data(pax_id, country_control, status, free_text, msg_id, point_id, pr_del) "
+"VALUES(:pax_id, :country_control, :status, :free_text, :msg_id, :point_id, 0)",
+                PgOra::getRWSession("IAPI_PAX_DATA"));
+
+    cur
+            .bind(":point_id",        pointId.get())
+            .bind(":pax_id",          paxId.get())
+            .bind(":country_control", countryControl.get())
+            .bind(":free_text",       freeText)
+            .bind(":status",          status)
+            .bind(":msg_id",          msgId)
+            .exec();
+
+    return cur.rowcount() > 0;
+}
+
 
 PassengerStatus& PassengerStatus::fromDB(TQuery &Qry)
 {
@@ -260,14 +312,22 @@ const PassengerStatus& PassengerStatus::toDB(TQuery &Qry) const
 
 bool PassengerStatus::allowedToBoarding(const int paxId)
 {
-  TQuery Qry(&OraSession);
-  Qry.SQLText="SELECT status FROM iapi_pax_data WHERE pax_id=:pax_id AND pr_del=0";
-  Qry.CreateVariable("pax_id", otInteger, paxId);
-  Qry.Execute();
-  for(; !Qry.Eof; Qry.Next())
-    if (!allowedToBoarding( statusTypes().decode(Qry.FieldAsString("status")) )) return false;
+    auto cur = make_db_curs(
+"SELECT status FROM iapi_pax_data WHERE pax_id=:pax_id AND pr_del=0",
+                PgOra::getROSession("IAPI_PAX_DATA"));
 
-  return true;
+    std::string status;
+    cur
+            .defNull(status, "")
+            .bind(":pax_id", paxId)
+            .exec();
+    while(!cur.fen()) {
+        if(!allowedToBoarding(statusTypes().decode(status))) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 bool PassengerStatus::allowedToBoarding(const int paxId, const TCompleteAPICheckInfo& checkInfo)
@@ -292,78 +352,87 @@ const PassengerStatus& PassengerStatus::updateByRequest(const std::string& msgId
                                                         const std::string& msgIdForChangePassengerData,
                                                         bool& notRequestedBefore) const
 {
-  TQuery Qry(&OraSession);
-  Qry.SQLText=
-      "BEGIN "
-      "  :inserted:=0; "
-      "  UPDATE iapi_pax_data "
-      "  SET status=:status, free_text=:free_text, msg_id=:msg_id_change, point_id=:point_id, pr_del=0 "
-      "  WHERE pax_id=:pax_id AND country_control=:country_control; "
-      "  IF SQL%NOTFOUND THEN "
-      "    INSERT INTO iapi_pax_data(pax_id, country_control, status, free_text, msg_id, point_id, pr_del) "
-      "    VALUES(:pax_id, :country_control, :status, :free_text, :msg_id_clear, :point_id, 0); "
-      "    :inserted:=1; "
-      "  END IF; "
-      "END;";
-  Qry.DeclareVariable("pax_id", otInteger);
-  Qry.DeclareVariable("country_control", otString);
-  Qry.DeclareVariable("status", otString);
-  Qry.DeclareVariable("free_text", otString);
-  Qry.DeclareVariable("point_id", otInteger);
-  Qry.CreateVariable("msg_id_clear", otString, msgIdForClearPassengerRequest);
-  Qry.CreateVariable("msg_id_change", otString, msgIdForChangePassengerData);
-  Qry.CreateVariable("inserted", otInteger, FNull);
+    LogTrace(TRACE5) << __func__ << " pax_id=" << m_paxId
+                                 << " point_Id=" << m_pointId
+                                 << " country_control=" << m_countryControl
+                                 << " msgIdForClearPassengerRequest=" << msgIdForClearPassengerRequest
+                                 << " msgIdForChangePassengerData=" << msgIdForChangePassengerData;
 
-  toDB(Qry);
-  Qry.Execute();
+    notRequestedBefore = !updateIapiPaxData(PointId_t(m_pointId),
+                                            PaxId_t(m_paxId),
+                                            CountryCode_t(m_countryControl),
+                                            m_freeText,
+                                            m_status,
+                                            msgIdForChangePassengerData);
 
-  notRequestedBefore=Qry.GetVariableAsInteger("inserted")!=0;
+    if(notRequestedBefore) {
+        insertIapiPaxData(PointId_t(m_pointId),
+                          PaxId_t(m_paxId),
+                          CountryCode_t(m_countryControl),
+                          m_freeText,
+                          m_status,
+                          msgIdForClearPassengerRequest);
+    }
 
-  return *this;
+    return *this;
 }
 
 const PassengerStatus& PassengerStatus::updateByResponse(const std::string& msgId) const
 {
-  if (msgId.empty()) return *this;
+    if (msgId.empty()) return *this;
 
-  TQuery Qry(&OraSession);
-  Qry.SQLText=
-      "UPDATE iapi_pax_data SET status=:status, free_text=:free_text "
-      "WHERE pax_id=:pax_id AND country_control=:country_control AND msg_id=:msg_id";
-  Qry.DeclareVariable("pax_id", otInteger);
-  Qry.DeclareVariable("country_control", otString);
-  Qry.DeclareVariable("status", otString);
-  Qry.DeclareVariable("free_text", otString);
-  Qry.CreateVariable("msg_id", otString, msgId);
+    auto cur = make_db_curs(
+"UPDATE iapi_pax_data SET status=:status, free_text=:free_text "
+"WHERE pax_id=:pax_id AND country_control=:country_control AND msg_id=:msg_id",
+        PgOra::getRWSession("IAPI_PAX_DATA"));
 
-  toDB(Qry);
-  Qry.Execute();
-  if (Qry.RowsProcessed()>0) writeToLogAndCheckAlarm(false);
+    auto encStatus = statusTypes().encode(m_status);
+    cur
+            .bind(":pax_id",          m_paxId)
+            .bind(":country_control", m_countryControl)
+            .bind(":status",          encStatus)
+            .bind(":free_text",       m_freeText)
+            .bind(":msg_id",          msgId)
+            .exec();
 
-  return *this;
+    if(cur.rowcount() > 0) {
+        writeToLogAndCheckAlarm(false);
+    } else {
+        LogTrace(TRACE5) << __func__
+                         << ": passenger not found (paxId=" << m_paxId
+                         << ", countryControl=" << m_countryControl
+                         << ", msg_id=" << msgId << ")";
+    }
+
+    return *this;
 }
 
 const PassengerStatus& PassengerStatus::updateByCusRequest(bool& notRequestedBefore) const
 {
-  TQuery Qry(&OraSession);
-  Qry.SQLText=
-      "UPDATE iapi_pax_data SET status=:status, free_text=:free_text "
-      "WHERE pax_id=:pax_id AND country_control=:country_control";
-  Qry.DeclareVariable("pax_id", otInteger);
-  Qry.DeclareVariable("country_control", otString);
-  Qry.DeclareVariable("status", otString);
-  Qry.DeclareVariable("free_text", otString);
+    auto cur = make_db_curs(
+"UPDATE iapi_pax_data SET status=:status, free_text=:free_text "
+"WHERE pax_id=:pax_id AND country_control=:country_control",
+        PgOra::getRWSession("IAPI_PAX_DATA"));
 
-  toDB(Qry);
-  Qry.Execute();
-  if (Qry.RowsProcessed()>0)
-    writeToLogAndCheckAlarm(true);
-  else
-    LogTrace(TRACE5) << __func__ << ": passenger not found (paxId=" << m_paxId << ", countryControl=" << m_countryControl << ")";
+    auto encStatus = statusTypes().encode(m_status);
+    cur
+            .bind(":pax_id",          m_paxId)
+            .bind(":country_control", m_countryControl)
+            .bind(":status",          encStatus)
+            .bind(":free_text",       m_freeText)
+            .exec();
 
-  notRequestedBefore=Qry.RowsProcessed()>0;
+    if(cur.rowcount() > 0) {
+        writeToLogAndCheckAlarm(true);
+    } else {
+        LogTrace(TRACE5) << __func__
+                         << ": passenger not found (paxId=" << m_paxId
+                         << ", countryControl=" << m_countryControl << ")";
+    }
 
-  return *this;
+    notRequestedBefore = cur.rowcount() > 0;
+
+    return *this;
 }
 
 void PassengerStatus::writeToLogAndCheckAlarm(bool isRequest) const
@@ -501,20 +570,25 @@ void PassengerStatusList::processCusres(const edifact::Cusres& cusres, bool isRe
 void PassengerStatusList::getByResponseHeaderLevel(const std::string& msgId,
                                                    const PassengerStatus& statusPattern)
 {
-  if (msgId.empty()) return;
+    if (msgId.empty()) return;
 
-  TQuery Qry(&OraSession);
-  Qry.SQLText=
-      "SELECT pax_id FROM iapi_pax_data WHERE country_control=:country_control AND msg_id=:msg_id";
-  Qry.CreateVariable("msg_id", otString, msgId);
-  Qry.CreateVariable("country_control", otString, statusPattern.countryControl());
-  Qry.Execute();
-  for(; !Qry.Eof; Qry.Next())
-  {
-    PassengerStatus status(statusPattern);
-    status.setPaxId(Qry.FieldAsInteger("pax_id"));
-    insert(status);
-  }
+    auto cur = make_db_curs(
+"SELECT pax_id FROM iapi_pax_data "
+"WHERE country_control=:country_control AND msg_id=:msg_id",
+              PgOra::getROSession("IAPI_PAX_DATA"));
+
+    int paxId = ASTRA::NoExists;
+
+    cur
+            .def(paxId)
+            .bind(":country_control", statusPattern.countryControl())
+            .bind(":msg_id",          msgId)
+            .exec();
+    while(!cur.fen()) {
+        PassengerStatus status(statusPattern);
+        status.setPaxId(paxId);
+        insert(status);
+    }
 }
 
 void PassengerStatusList::updateByResponse(const std::string& msgId) const
@@ -653,6 +727,25 @@ void PaxEvents::onChange(TRACE_SIGNATURE,
   {
     processIfNeed(paxOrigin, paxId, false);
   }
+}
+
+std::vector<std::string> statusesFromDb(const PaxId_t& pax_id)
+{
+    std::vector<std::string> res;
+    auto cur = make_db_curs(
+"SELECT status FROM iapi_pax_data WHERE pax_id = :pax_id",
+                PgOra::getROSession("IAPI_PAX_DATA"));
+
+    std::string status;
+    cur
+            .defNull(status, "")
+            .bind(":pax_id", pax_id.get())
+            .exec();
+
+    while(!cur.fen()) {
+        res.emplace_back(status);
+    }
+    return res;
 }
 
 void init_callbacks()
