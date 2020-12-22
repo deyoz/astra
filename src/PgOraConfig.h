@@ -34,7 +34,7 @@ namespace PgOra
 
     DbCpp::Session& getROSession(const std::string& objectName);
     DbCpp::Session& getRWSession(const std::string& objectName);
-    DbCpp::Session& getAutoSession(const std::string& tableName);
+    DbCpp::Session& getAutoSession(const std::string& objectName);
     bool supportsPg(const std::string& objectName);
     std::string getGroup(const std::string& objectName);
 

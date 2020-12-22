@@ -235,7 +235,7 @@ void IatciResponseHandler::handle()
     boost::optional<tlgnum_t> postponeTlgNum = PostponeEdiHandling::findPostponeTlg(ediSessId());
     if(postponeTlgNum) {
         // сохранение данных для последующей обработки отложенной телеграммы
-        iatci::saveDeferredCkiData(*postponeTlgNum, iatci::DefferedIatciData::create(m_lRes));
+        iatci::saveDeferredCkiData(*postponeTlgNum, iatci::DeferredIatciData::create(m_lRes));
     } else {
         // сохранение данных для obrzap
         iatci::saveCkiData(ediSessId(), m_lRes);
@@ -246,7 +246,7 @@ void IatciResponseHandler::onTimeOut()
 {
     boost::optional<tlgnum_t> postponeTlgNum = PostponeEdiHandling::findPostponeTlg(ediSessId());
     if(postponeTlgNum) {
-        iatci::saveDeferredCkiData(*postponeTlgNum, iatci::DefferedIatciData::createTimeout());
+        iatci::saveDeferredCkiData(*postponeTlgNum, iatci::DeferredIatciData::createTimeout());
     }
 }
 

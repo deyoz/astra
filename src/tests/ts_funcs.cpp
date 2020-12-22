@@ -30,6 +30,7 @@
 #include "hooked_session.h"
 #include "iapi_interaction.h"
 #include "prn_tag_store.h"
+#include "PgOraConfig.h"
 
 #include <queue>
 #include <fstream>
@@ -43,6 +44,7 @@
 #include <serverlib/func_placeholders.h>
 #include <serverlib/posthooks.h>
 #include <serverlib/cursctl.h>
+#include <serverlib/dbcpp_cursctl.h>
 #include <serverlib/dates_oci.h>
 #include <serverlib/str_utils.h>
 #include <serverlib/tcl_utils.h>
@@ -592,16 +594,17 @@ static std::string FP_getIatciTabId(const std::vector<std::string>& p)
     unsigned tabInd = std::stoi(p.at(1));
     int id;
 
-    auto cur = get_pg_curs(
-"select ID from IATCI_TABS where GRP_ID=:grp_id and TAB_IND=:tab_ind");
+    auto cur = make_db_curs(
+"select ID from IATCI_TABS where GRP_ID=:grp_id and TAB_IND=:tab_ind",
+                PgOra::getROSession("IATCI_TABS"));
 
     cur
             .def(id)
-            .bind(":grp_id", grpId)
+            .bind(":grp_id", grpId.get())
             .bind(":tab_ind",tabInd)
             .EXfet();
 
-    if(cur.err() == PgCpp::NoDataFound) {
+    if(cur.err() == DbCpp::ResultCode::NoDataFound) {
         throw EXCEPTIONS::Exception("Iatci tab not found by grp_id=" + std::to_string(grpId.get())
                                     + " and tab_ind=" + std::to_string(tabInd));
     }

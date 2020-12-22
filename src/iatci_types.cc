@@ -5,13 +5,10 @@
 #include "date_time.h"
 #include "astra_locale_adv.h"
 #include "astra_msg.h"
-#include "pg_session.h"
+#include "PgOraConfig.h"
 
 #include <serverlib/exception.h>
-#include <serverlib/cursctl.h>
-#include <serverlib/rip_oci.h>
-#include <serverlib/pg_rip.h>
-#include <serverlib/pg_seq.h>
+#include <serverlib/dbcpp_cursctl.h>
 #include <etick/exceptions.h>
 
 #include <ostream>
@@ -41,12 +38,13 @@ int MagicTab::toNeg() const
     int id = read(m_grpId, m_tabInd);
     if(!id) {
         id = genNextTabId();
-        auto cur = get_pg_curs(
-"insert into IATCI_TABS(ID, GRP_ID, TAB_IND) values (:id, :grp_id, :tab_ind)");
+        auto cur = make_db_curs(
+"insert into IATCI_TABS(ID, GRP_ID, TAB_IND) values (:id, :grp_id, :tab_ind)",
+                    PgOra::getRWSession("IATCI_TABS"));
 
         cur
                 .bind(":id",      id)
-                .bind(":grp_id",  m_grpId)
+                .bind(":grp_id",  m_grpId.get())
                 .bind(":tab_ind", m_tabInd)
                 .exec();
         LogTrace(TRACE1) << "New iatci tab_id (-)" << id << " was generated "
@@ -58,8 +56,9 @@ int MagicTab::toNeg() const
 
 boost::optional<MagicTab> MagicTab::readById(int id)
 {
-    auto cur = get_pg_curs(
-"select GRP_ID, TAB_IND from IATCI_TABS where ID=:id");
+    auto cur = make_db_curs(
+"select GRP_ID, TAB_IND from IATCI_TABS where ID=:id",
+                PgOra::getROSession("IATCI_TABS"));
 
     int grpId;
     unsigned tabInd;
@@ -68,7 +67,7 @@ boost::optional<MagicTab> MagicTab::readById(int id)
             .def(grpId)
             .def(tabInd)
             .EXfet();
-    if(cur.err() == PgCpp::NoDataFound) {
+    if(cur.err() == DbCpp::ResultCode::NoDataFound) {
         LogTrace(TRACE1) << "Iatci tab " << id << " not found in DB!";
         return boost::none;
     }
@@ -78,16 +77,17 @@ boost::optional<MagicTab> MagicTab::readById(int id)
 
 int MagicTab::read(const GrpId_t& grpId, unsigned tabInd)
 {
-    auto cur = get_pg_curs(
-"select ID from IATCI_TABS where GRP_ID=:grp_id and TAB_IND=:tab_ind");
+    auto cur = make_db_curs(
+"select ID from IATCI_TABS where GRP_ID=:grp_id and TAB_IND=:tab_ind",
+                PgOra::getROSession("IATCI_TABS"));
 
     int id = 0;
     cur
-            .bind(":grp_id", grpId)
+            .bind(":grp_id", grpId.get())
             .bind(":tab_ind",tabInd)
             .def(id)
             .EXfet();
-    if(cur.err() == PgCpp::NoDataFound) {
+    if(cur.err() == DbCpp::ResultCode::NoDataFound) {
         LogTrace(TRACE1) << "Iatci tab " << grpId << "," << tabInd << " not found in DB!";
         return 0;
     }
@@ -97,7 +97,7 @@ int MagicTab::read(const GrpId_t& grpId, unsigned tabInd)
 
 int MagicTab::genNextTabId()
 {
-    return PgCpp::Sequence(PgCpp::getPgManaged(), "IATCI_TABS_SEQ").nextval<int>(STDLOG);
+    return PgOra::getSeqNextVal("IATCI_TABS_SEQ");
 }
 
 //---------------------------------------------------------------------------------------
@@ -2361,73 +2361,73 @@ const dcqbpr::FlightGroup& BprParams::fltGroup() const
 
 //---------------------------------------------------------------------------------------
 
-DefferedIatciData::Status_e DefferedIatciData::status() const
+DeferredIatciData::Status_e DeferredIatciData::status() const
 {
     return m_status;
 }
 
-DefferedIatciData::Error_e DefferedIatciData::error() const
+DeferredIatciData::Error_e DeferredIatciData::error() const
 {
     return m_error;
 }
 
-const std::list<dcrcka::Result>& DefferedIatciData::lRes() const
+const std::list<dcrcka::Result>& DeferredIatciData::lRes() const
 {
     return m_lRes;
 }
 
-DefferedIatciData::Status_e DefferedIatciData::calcStatus(const std::list<dcrcka::Result>& lRes)
+DeferredIatciData::Status_e DeferredIatciData::calcStatus(const std::list<dcrcka::Result>& lRes)
 {
-    DefferedIatciData::Status_e status = DefferedIatciData::Status_e::Success;
+    DeferredIatciData::Status_e status = DeferredIatciData::Status_e::Success;
     for(auto res: lRes)
     {
         if(res.status() != dcrcka::Result::Status_e::Ok &&
            res.status() != dcrcka::Result::Status_e::OkWithNoData)
         {
-            status = DefferedIatciData::Status_e::Failed;
+            status = DeferredIatciData::Status_e::Failed;
         }
     }
 
     return status;
 }
 
-DefferedIatciData::Error_e DefferedIatciData::calcError(const std::list<dcrcka::Result>& lRes)
+DeferredIatciData::Error_e DeferredIatciData::calcError(const std::list<dcrcka::Result>& lRes)
 {
-    DefferedIatciData::Error_e error = DefferedIatciData::Error_e::None;
+    DeferredIatciData::Error_e error = DeferredIatciData::Error_e::None;
     for(auto res: lRes)
     {
         if(res.status() != dcrcka::Result::Status_e::Ok &&
            res.status() != dcrcka::Result::Status_e::OkWithNoData)
         {
-            error = DefferedIatciData::Error_e::RemoteError;
+            error = DeferredIatciData::Error_e::RemoteError;
         }
     }
 
     return error;
 }
 
-DefferedIatciData DefferedIatciData::create(const std::list<dcrcka::Result>& lRes)
+DeferredIatciData DeferredIatciData::create(const std::list<dcrcka::Result>& lRes)
 {
-    return DefferedIatciData(calcStatus(lRes),
+    return DeferredIatciData(calcStatus(lRes),
                              calcError(lRes),
                              lRes);
 }
 
-DefferedIatciData DefferedIatciData::createError(Error_e error)
+DeferredIatciData DeferredIatciData::createError(Error_e error)
 {
-    return DefferedIatciData(DefferedIatciData::Status_e::Failed,
+    return DeferredIatciData(DeferredIatciData::Status_e::Failed,
                              error,
                              {});
 }
 
-DefferedIatciData DefferedIatciData::createTimeout()
+DeferredIatciData DeferredIatciData::createTimeout()
 {
-    return createError(DefferedIatciData::Error_e::Timeout);
+    return createError(DeferredIatciData::Error_e::Timeout);
 }
 
 //---------------------------------------------------------------------------------------
 
-std::ostream& operator<<(std::ostream& os, const DefferedIatciData& ddata)
+std::ostream& operator<<(std::ostream& os, const DeferredIatciData& ddata)
 {
     os << "Deffered iatci data: "
        << "status: " << (int)ddata.status() << "; "

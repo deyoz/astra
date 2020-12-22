@@ -27,18 +27,19 @@ namespace PgOra
     using GroupsType = std::vector<std::pair<std::string, std::vector<std::string>>>;
 
     static const GroupsType sGroups {
-         { "SP_PG_GROUP_IAPI", { "IAPI_PAX_DATA" } }
+        { "SP_PG_GROUP_IAPI",  { "IAPI_PAX_DATA" } },
+        { "SP_PG_GROUP_IATCI", { "IATCI_TABS_SEQ", "IATCI_TABS", "IATCI_SETTINGS", "GRP_IATCI_XML", "DEFERRED_CKI_DATA", "CKI_DATA" } },
     };
 
-    static std::string getGroupInner(std::string tableName, const GroupsType& groups)
+    static std::string getGroupInner(std::string objectName, const GroupsType& groups)
     {
-        if (!tableName.empty())
+        if (!objectName.empty())
         {
-            tableName = StrUtils::ToUpper(tableName);
+            objectName = StrUtils::ToUpper(objectName);
             for (const auto& group : groups)
             {
                 if (algo::any_of(group.second,
-                                 [&](const std::string& table) { return table == tableName; }))
+                                 [&](const std::string& objName) { return objName == objectName; }))
                 {
                     return group.first;
                 }
@@ -87,9 +88,9 @@ namespace PgOra
         return *get_main_ora_sess(STDLOG);
     }
 
-    DbCpp::Session& getAutoSession(const std::string& tableName)
+    DbCpp::Session& getAutoSession(const std::string& objectName)
     {
-        if (supportsPg(tableName))
+        if (supportsPg(objectName))
         {
             return *get_main_pg_au_sess(STDLOG);
         }

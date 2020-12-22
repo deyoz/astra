@@ -143,8 +143,8 @@ boost::optional<iatci::CascadeHostDetails> makeCascade(const astra_api::xml_enti
 boost::optional<iatci::SeatRequestDetails> makeSeatReq(const astra_api::xml_entities::XmlSegment& seg);
 //---------------------------------------------------------------------------------------
 
-void saveDeferredCkiData(tlgnum_t msgId, const DefferedIatciData& defferedData);
-boost::optional<DefferedIatciData> loadDeferredCkiData(tlgnum_t msgId);
+void saveDeferredCkiData(tlgnum_t msgId, const DeferredIatciData& defferedData);
+boost::optional<DeferredIatciData> loadDeferredCkiData(tlgnum_t msgId);
 
 void saveCkiData(edilib::EdiSessionId_t sessId, const std::list<dcrcka::Result>& lRes);
 std::list<dcrcka::Result> loadCkiData(edilib::EdiSessionId_t sessId);

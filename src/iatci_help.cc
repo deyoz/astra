@@ -13,16 +13,13 @@
 #include "pg_session.h"
 #include "tlg/edi_msg.h"
 #include "tlg/remote_system_context.h"
+#include "PgOraConfig.h"
 
 #include <serverlib/dates_io.h>
-#include <serverlib/dates_oci.h>
-#include <serverlib/cursctl.h>
 #include <serverlib/xml_stuff.h>
-#include <serverlib/dates_io.h>
-#include <serverlib/int_parameters_oci.h>
-#include <serverlib/rip_oci.h>
+#include <serverlib/cursctl.h>
+#include <serverlib/dbcpp_cursctl.h>
 #include <serverlib/algo.h>
-#include <serverlib/pg_rip.h>
 
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/archive/text_oarchive.hpp>
@@ -244,35 +241,42 @@ void IatciXmlDb::saveXml(const GrpId_t& grpId, const std::string& xmlText)
         LogTrace(TRACE3) << "pageNo=" << pageNo << "; page=" << page;
         itb = ite;
 
-        get_pg_curs(
+        auto cur = make_db_curs(
 "insert into GRP_IATCI_XML(GRP_ID, PAGE_NO, XML_TEXT) "
-"values (:grp_id, :page_no, :xml_text)")
-        .bind(":grp_id", grpId)
-        .bind(":page_no", pageNo)
-        .bind(":xml_text", page)
-        .exec();
+"values (:grp_id, :page_no, :xml_text)",
+                PgOra::getRWSession("GRP_IATCI_XML"));
+        cur
+                .bind(":grp_id",   grpId.get())
+                .bind(":page_no",  pageNo)
+                .bind(":xml_text", page)
+                .exec();
     }
 }
 
 void IatciXmlDb::delXml(const GrpId_t& grpId)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId=" << grpId;
-    auto cur = get_pg_curs(
-"delete from GRP_IATCI_XML where GRP_ID=:grp_id");
-    cur.bind(":grp_id", grpId)
-       .exec();
+    auto cur = make_db_curs(
+"delete from GRP_IATCI_XML where GRP_ID=:grp_id",
+                PgOra::getRWSession("GRP_IATCI_XML"));
+    cur
+            .bind(":grp_id", grpId.get())
+            .exec();
 }
 
 std::string IatciXmlDb::load(const GrpId_t& grpId)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId=" << grpId;
     std::string res, page;
-    auto cur = get_pg_curs(
+    auto cur = make_db_curs(
 "select XML_TEXT from GRP_IATCI_XML where GRP_ID=:grp_id "
-"order by PAGE_NO");
-    cur.bind(":grp_id", grpId)
-       .def(page)
-       .exec();
+"order by PAGE_NO",
+                PgOra::getROSession("GRP_IATCI_XML"));
+    cur
+            .bind(":grp_id", grpId.get())
+            .def(page)
+            .exec();
+
     while(!cur.fen()) {
         res += page;
     }
@@ -283,12 +287,14 @@ std::string IatciXmlDb::load(const GrpId_t& grpId)
 bool IatciXmlDb::exists(const GrpId_t& grpId)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId=" << grpId;
-    auto cur = get_pg_curs(
-"select 1 from GRP_IATCI_XML where GRP_ID=:grp_id");
-    cur.bind(":grp_id", grpId)
-       .exfet();
+    auto cur = make_db_curs(
+"select 1 from GRP_IATCI_XML where GRP_ID=:grp_id",
+                PgOra::getROSession("GRP_IATCI_XML"));
+    cur
+            .bind(":grp_id", grpId.get())
+            .exfet();
 
-    return cur.err() != PgCpp::NoDataFound;
+    return cur.err() != DbCpp::ResultCode::NoDataFound;
 }
 
 //---------------------------------------------------------------------------------------
@@ -1170,26 +1176,26 @@ static std::list<dcrcka::Result> deserializeResults(const std::string& data)
 
 //---------------------------------------------------------------------------------------
 
-static std::string serializeDefferedData(const DefferedIatciData& defferedData)
+static std::string serializeDeferredData(const DeferredIatciData& deferredData)
 {
     std::ostringstream os;
     {
         boost::archive::text_oarchive oa(os);
-        oa << defferedData;
+        oa << deferredData;
     }
     return os.str();
 }
 
-static DefferedIatciData deserializeDefferedData(const std::string& data)
+static DeferredIatciData deserializeDeferredData(const std::string& data)
 {
-    DefferedIatciData defferedData;
+    DeferredIatciData deferredData;
     std::stringstream is;
     is << data;
     {
         boost::archive::text_iarchive ia(is);
-        ia >> defferedData;
+        ia >> deferredData;
     }
-    return defferedData;
+    return deferredData;
 }
 
 //---------------------------------------------------------------------------------------
@@ -1224,9 +1230,9 @@ static std::vector<std::string> slpitDataParts(const std::string& in)
 
 //---------------------------------------------------------------------------------------
 
-void saveDeferredCkiData(tlgnum_t msgId, const DefferedIatciData& defferedData)
+void saveDeferredCkiData(tlgnum_t msgId, const DeferredIatciData& defferedData)
 {
-    std::string serialized = serializeDefferedData(defferedData);
+    std::string serialized = serializeDeferredData(defferedData);
 
     LogTrace(TRACE3) << __FUNCTION__
                      << " by msgId: " << msgId
@@ -1234,51 +1240,102 @@ void saveDeferredCkiData(tlgnum_t msgId, const DefferedIatciData& defferedData)
 
     std::vector<std::string> parts = slpitDataParts(serialized);
 
-    OciCpp::CursCtl cur = make_curs(
+    auto cur = make_db_curs(
 "insert into DEFERRED_CKI_DATA(MSG_ID, DATA1, DATA2, DATA3, DATA4, DATA5) "
-"values (:msg_id, :data1, :data2, :data3, :data4, :data5)");
-    cur.bind(":msg_id", msgId.num)
-       .bind(":data1", parts[0])
-       .bind(":data2", parts[1])
-       .bind(":data3", parts[2])
-       .bind(":data4", parts[3])
-       .bind(":data5", parts[4])
-       .exec();
+"values (:msg_id, :data1, :data2, :data3, :data4, :data5)",
+                PgOra::getRWSession("DEFERRED_CKI_DATA"));
+
+    cur
+            .bind(":msg_id", msgId.num.get())
+            .bind(":data1", parts[0])
+            .bind(":data2", parts[1])
+            .bind(":data3", parts[2])
+            .bind(":data4", parts[3])
+            .bind(":data5", parts[4])
+            .exec();
 }
 
-boost::optional<DefferedIatciData> loadDeferredCkiData(tlgnum_t msgId)
+static boost::optional<DeferredIatciData> readDeferredCkiData(tlgnum_t msgId)
 {
-    LogTrace(TRACE3) << __FUNCTION__ << " by msgId: " << msgId;
+    auto cur = make_db_curs(
+"select DATA1, DATA2, DATA3, DATA4, DATA5 from DEFERRED_CKI_DATA where MSG_ID=:msg_id",
+                PgOra::getROSession("DEFERRED_CKI_DATA"));
 
-    char data[MaxDataParts][MaxDataPartLen + 1] = {};
+    std::vector<std::string> data(5);
+    cur
+            .autoNull()
+            .defNull(data[0], "")
+            .defNull(data[1], "")
+            .defNull(data[2], "")
+            .defNull(data[3], "")
+            .defNull(data[4], "")
+            .bind(":msg_id", msgId.num.get())
+            .EXfet();
 
-    OciCpp::CursCtl cur = make_curs(
-"begin\n"
-":data1:=NULL;\n"
-":data2:=NULL;\n"
-":data3:=NULL;\n"
-":data4:=NULL;\n"
-":data5:=NULL;\n"
-"delete from DEFERRED_CKI_DATA where MSG_ID=:msg_id "
-"returning DATA1, DATA2, DATA3, DATA4, DATA5 "
-"into :data1, :data2, :data3, :data4, :data5; \n"
-"end;");
-    cur.autoNull()
-       .bind(":msg_id", msgId.num)
-       .bindOutNull(":data1", data[0], "")
-       .bindOutNull(":data2", data[1], "")
-       .bindOutNull(":data3", data[2], "")
-       .bindOutNull(":data4", data[3], "")
-       .bindOutNull(":data5", data[4], "")
-       .exec();
-
-    std::string serialized(std::string(data[0]) + data[1] + data[2] + data[3] + data[4]);
+    std::string serialized(data[0] + data[1] + data[2] + data[3] + data[4]);
     if(serialized.empty()) {
         tst();
         return boost::none;
     }
 
-    return deserializeDefferedData(serialized);
+    return deserializeDeferredData(serialized);
+}
+
+static void cleanupDeferredCkiData(tlgnum_t msgId)
+{
+    auto cur = make_db_curs(
+"delete from DEFERRED_CKI_DATA where MSG_ID=:msg_id",
+                PgOra::getRWSession("DEFERRED_CKI_DATA"));
+
+    cur
+            .bind(":msg_id", msgId.num.get())
+            .exec();
+}
+
+static std::list<dcrcka::Result> readCkiData(edilib::EdiSessionId_t sessId)
+{
+    auto cur = make_db_curs(
+"select DATA1, DATA2, DATA3, DATA4, DATA5 from CKI_DATA where EDISESSION_ID=:sess_id",
+                PgOra::getROSession("CKI_DATA"));
+
+    std::vector<std::string> data(5);
+    cur
+            .autoNull()
+            .defNull(data[0], "")
+            .defNull(data[1], "")
+            .defNull(data[2], "")
+            .defNull(data[3], "")
+            .defNull(data[4], "")
+            .bind(":sess_id", sessId.get())
+            .EXfet();
+
+    std::string serialized(data[0] + data[1] + data[2] + data[3] + data[4]);
+    if(serialized.empty()) {
+        tst();
+        return std::list<dcrcka::Result>();
+    }
+
+    return deserializeResults(serialized);
+}
+
+static void cleanupCkiData(edilib::EdiSessionId_t sessId)
+{
+    auto cur = make_db_curs(
+"delete from CKI_DATA where EDISESSION_ID=:sess_id",
+                PgOra::getRWSession("CKI_DATA"));
+
+    cur
+            .bind(":sess_id", sessId.get())
+            .exec();
+}
+
+boost::optional<DeferredIatciData> loadDeferredCkiData(tlgnum_t msgId)
+{
+    LogTrace(TRACE3) << __FUNCTION__ << " by msgId: " << msgId;
+
+    auto data = readDeferredCkiData(msgId);
+    cleanupDeferredCkiData(msgId);
+    return data;
 }
 
 void saveCkiData(edilib::EdiSessionId_t sessId, const std::list<dcrcka::Result>& lRes)
@@ -1291,51 +1348,27 @@ void saveCkiData(edilib::EdiSessionId_t sessId, const std::list<dcrcka::Result>&
 
     std::vector<std::string> parts = slpitDataParts(serialized);
 
-    OciCpp::CursCtl cur = make_curs(
+    auto cur = make_db_curs(
 "insert into CKI_DATA(EDISESSION_ID, DATA1, DATA2, DATA3, DATA4, DATA5) "
-"values (:sessid, :data1, :data2, :data3, :data4, :data5)");
-    cur.bind(":sessid", sessId)
-       .bind(":data1", parts[0])
-       .bind(":data2", parts[1])
-       .bind(":data3", parts[2])
-       .bind(":data4", parts[3])
-       .bind(":data5", parts[4])
-       .exec();
+"values (:sess_id, :data1, :data2, :data3, :data4, :data5)",
+                PgOra::getRWSession("CKI_DATA"));
+    cur
+            .bind(":sess_id", sessId.get())
+            .bind(":data1", parts[0])
+            .bind(":data2", parts[1])
+            .bind(":data3", parts[2])
+            .bind(":data4", parts[3])
+            .bind(":data5", parts[4])
+            .exec();
 }
 
 std::list<dcrcka::Result> loadCkiData(edilib::EdiSessionId_t sessId)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " by sessId: " << sessId;
 
-    char data[MaxDataParts][MaxDataPartLen + 1] = {};
-
-    OciCpp::CursCtl cur = make_curs(
-"begin\n"
-":data1:=NULL;\n"
-":data2:=NULL;\n"
-":data3:=NULL;\n"
-":data4:=NULL;\n"
-":data5:=NULL;\n"
-"delete from CKI_DATA where EDISESSION_ID=:sessid "
-"returning DATA1, DATA2, DATA3, DATA4, DATA5 "
-"into :data1, :data2, :data3, :data4, :data5; \n "
-"end;");
-
-    cur.bind(":sessid", sessId)
-       .bindOut(":data1",     data[0])
-       .bindOutNull(":data2", data[1], "")
-       .bindOutNull(":data3", data[2], "")
-       .bindOutNull(":data4", data[3], "")
-       .bindOutNull(":data5", data[4], "")
-       .exec();
-
-    std::string serialized(std::string(data[0]) + data[1] + data[2] + data[3] + data[5]);
-    if(serialized.empty()) {
-        tst();
-        return std::list<dcrcka::Result>();
-    }
-
-    return deserializeResults(serialized);
+    auto data = readCkiData(sessId);
+    cleanupCkiData(sessId);
+    return data;
 }
 
 //---------------------------------------------------------------------------------------
