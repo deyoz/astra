@@ -237,7 +237,7 @@ static bool updateIapiPaxData(const PointId_t& pointId,
                               const PaxId_t& paxId,
                               const CountryCode_t& countryControl,
                               const std::string& freeText,
-                              PassengerStatus::Enum status,
+                              const std::string& status,
                               const std::string& msgId)
 {
     auto cur = make_db_curs(
@@ -262,7 +262,7 @@ static bool insertIapiPaxData(const PointId_t& pointId,
                               const PaxId_t& paxId,
                               const CountryCode_t& countryControl,
                               const std::string& freeText,
-                              PassengerStatus::Enum status,
+                              const std::string& status,
                               const std::string& msgId)
 {
     auto cur = make_db_curs(
@@ -280,34 +280,6 @@ static bool insertIapiPaxData(const PointId_t& pointId,
             .exec();
 
     return cur.rowcount() > 0;
-}
-
-
-PassengerStatus& PassengerStatus::fromDB(TQuery &Qry)
-{
-  clear();
-
-  m_paxId=Qry.FieldAsInteger("pax_id");
-  m_countryControl=Qry.FieldAsString("country_control");
-  m_status=statusTypes().decode(Qry.FieldAsString("status"));
-  m_freeText=Qry.FieldAsString("free_text");
-  m_pointId=Qry.FieldAsInteger("point_id");
-
-  return *this;
-}
-
-const PassengerStatus& PassengerStatus::toDB(TQuery &Qry) const
-{
-  m_paxId!=ASTRA::NoExists?Qry.SetVariable("pax_id", m_paxId):
-                           Qry.SetVariable("pax_id", FNull);
-  Qry.SetVariable("country_control", m_countryControl);
-  Qry.SetVariable("status", statusTypes().encode(m_status));
-  Qry.SetVariable("free_text", m_freeText);
-  if (Qry.GetVariableIndex("point_id")>=0)
-    m_pointId!=ASTRA::NoExists?Qry.SetVariable("point_id", m_pointId):
-                               Qry.SetVariable("point_id", FNull);
-
-  return *this;
 }
 
 bool PassengerStatus::allowedToBoarding(const int paxId)
@@ -352,17 +324,20 @@ const PassengerStatus& PassengerStatus::updateByRequest(const std::string& msgId
                                                         const std::string& msgIdForChangePassengerData,
                                                         bool& notRequestedBefore) const
 {
+    auto encStatus = statusTypes().encode(m_status);
+
     LogTrace(TRACE5) << __func__ << " pax_id=" << m_paxId
                                  << " point_Id=" << m_pointId
                                  << " country_control=" << m_countryControl
                                  << " msgIdForClearPassengerRequest=" << msgIdForClearPassengerRequest
-                                 << " msgIdForChangePassengerData=" << msgIdForChangePassengerData;
+                                 << " msgIdForChangePassengerData=" << msgIdForChangePassengerData
+                                 << " status=" << m_status << "(" << encStatus << ")";
 
     notRequestedBefore = !updateIapiPaxData(PointId_t(m_pointId),
                                             PaxId_t(m_paxId),
                                             CountryCode_t(m_countryControl),
                                             m_freeText,
-                                            m_status,
+                                            encStatus,
                                             msgIdForChangePassengerData);
 
     if(notRequestedBefore) {
@@ -370,7 +345,7 @@ const PassengerStatus& PassengerStatus::updateByRequest(const std::string& msgId
                           PaxId_t(m_paxId),
                           CountryCode_t(m_countryControl),
                           m_freeText,
-                          m_status,
+                          encStatus,
                           msgIdForClearPassengerRequest);
     }
 

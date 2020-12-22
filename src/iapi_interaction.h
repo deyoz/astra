@@ -119,9 +119,6 @@ class PassengerStatus
 
     const std::string& countryControl() const { return m_countryControl; }
 
-    PassengerStatus& fromDB(TQuery &Qry);
-    const PassengerStatus& toDB(TQuery &Qry) const;
-
     static bool allowedToBoarding(const int paxId, const TCompleteAPICheckInfo& checkInfo);
     const PassengerStatus& updateByRequest(const std::string& msgIdForClearPassengerRequest,
                                            const std::string& msgIdForChangePassengerData,
