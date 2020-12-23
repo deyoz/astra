@@ -1156,13 +1156,14 @@ static std::string FP_runUpdateCoupon(const std::vector<std::string>& par)
     int status = std::stoi(par.at(0));
     std::string ticknum = par.at(1);
     int num = std::stoi(par.at(2));
-    auto cur = get_pg_curs("UPDATE WC_COUPON set STATUS = :status "
-                           "where TICKNUM = :ticknum and NUM = :num");
+    auto cur = make_db_curs(
+"UPDATE WC_COUPON set STATUS=:status where TICKNUM=:ticknum and NUM=:num",
+                PgOra::getRWSession("WC_COUPON"));
     cur
-       .bind(":status", status)
-       .bind(":ticknum", ticknum)
-       .bind(":num", num)
-       .exec();
+            .bind(":status",  status)
+            .bind(":ticknum", ticknum)
+            .bind(":num",     num)
+            .exec();
     return "";
 }
 

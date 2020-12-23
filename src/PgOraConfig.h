@@ -40,5 +40,6 @@ namespace PgOra
 
     std::string makeSeqNextVal(const std::string& sequenceName);
     long getSeqNextVal(const std::string& sequenceName);
+    unsigned long getSeqNextVal_ul(const std::string& sequenceName);
 
 }// namespace PgOra

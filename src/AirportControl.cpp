@@ -1,13 +1,11 @@
 #include "AirportControl.h"
 #include "basetables.h"
+#include "PgOraConfig.h"
 #include "tlg/CheckinBaseTypesOci.h"
 
 #include "pg_session.h"
-#include <serverlib/pg_cursctl.h>
-#include <serverlib/pg_rip.h>
 
-#include <serverlib/cursctl.h>
-#include <serverlib/dates_oci.h>
+#include <serverlib/dbcpp_cursctl.h>
 
 #include <boost/scoped_ptr.hpp>
 
@@ -128,13 +126,10 @@ AirportControl* AirportControl::readDb(const Ticketing::TicketNum_t& tickNum,
     LogTrace(TRACE3) << __FUNCTION__ << " by "
                      << tickNum << "/" << cpnNum;
 
-    PgCpp::CursCtl cur = get_pg_curs(
-"select TICKNUM, CPNNUM, DATE_CR, RECLOC "
-"from AIRPORT_CONTROLS "
-"where TICKNUM=:tnum and CPNNUM=:cnum");
-
-    cur.bind(":tnum", tickNum.get())
-       .bind(":cnum", cpnNum.get());
+    auto cur = make_db_curs(
+"select TICKNUM, CPNNUM, DATE_CR, RECLOC from AIRPORT_CONTROLS "
+"where TICKNUM=:tnum and CPNNUM=:cnum",
+                PgOra::getROSession("AIRPORT_CONTROLS"));
 
     std::string rTick, rRecloc;
     unsigned rCpn;
@@ -145,9 +140,11 @@ AirportControl* AirportControl::readDb(const Ticketing::TicketNum_t& tickNum,
             .def(rCpn)
             .def(rDateCr)
             .def(rRecloc)
+            .bind(":tnum", tickNum.get())
+            .bind(":cnum", cpnNum.get())
             .EXfet();
 
-    if(cur.err() == PgCpp::NoDataFound)
+    if(cur.err() == DbCpp::ResultCode::NoDataFound)
     {
         if(throwNf) {
             throw AirportControlNotFound(tickNum, cpnNum);
@@ -169,20 +166,31 @@ void AirportControl::writeDb(const AirportControl& ac)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " " << ac;
 
-    PgCpp::CursCtl cur = get_pg_curs(
+    if(PgOra::supportsPg("AIRPORT_CONTROLS")) {
+        make_db_curs_no_cache("savepoint BEFORE_INS_AC",
+                              PgOra::getRWSession("AIRPORT_CONTROLS")).exec();
+    }
+
+    auto cur = make_db_curs(
 "insert into AIRPORT_CONTROLS(TICKNUM, CPNNUM, DATE_CR, RECLOC) "
-"values (:tnum, :cnum, :date_cr, :rl)");
+"values (:tnum, :cnum, :date_cr, :rl)",
+                PgOra::getRWSession("AIRPORT_CONTROLS"));
 
     cur.
-            noThrowError(PgCpp::ConstraintFail).      //CERR_U_CONSTRAINT
+            stb().
             bind(":tnum",    ac.ticknum().get()).
             bind(":cnum",    ac.cpnnum().get()).
             bind(":date_cr", Dates::second_clock::local_time()).
             bind(":rl",      ac.recloc()).
+            noThrowError(DbCpp::ResultCode::ConstraintFail).
             exec();
 
-    if(cur.err() == PgCpp::ConstraintFail)
+    if(cur.err() == DbCpp::ResultCode::ConstraintFail)
     {
+        if(PgOra::supportsPg("AIRPORT_CONTROLS")) {
+            make_db_curs_no_cache("rollback to savepoint BEFORE_INS_AC",
+                                  PgOra::getRWSession("AIRPORT_CONTROLS")).exec();
+        }
         throw AirportControlExists();
     }
 }
@@ -192,14 +200,14 @@ void AirportControl::deleteDb(const AirportControl& ac)
     LogTrace(TRACE3) << __FUNCTION__ << " by "
                      << ac.ticknum() << "/" << ac.cpnnum();
 
-    PgCpp::CursCtl cur = get_pg_curs(
-"delete from AIRPORT_CONTROLS "
-"where TICKNUM=:tnum and CPNNUM=:cnum");
+    auto cur = make_db_curs(
+"delete from AIRPORT_CONTROLS where TICKNUM=:tnum and CPNNUM=:cnum",
+                PgOra::getRWSession("AIRPORT_CONTROLS"));
 
-    cur.bind(":tnum", ac.ticknum().get())
-       .bind(":cnum", ac.cpnnum().get())
-       .exec();
-
+    cur
+            .bind(":tnum", ac.ticknum().get())
+            .bind(":cnum", ac.cpnnum().get())
+            .exec();
 }
 
 void AirportControl::writeDb() const

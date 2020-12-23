@@ -29,6 +29,7 @@ namespace PgOra
     static const GroupsType sGroups {
         { "SP_PG_GROUP_IAPI",  { "IAPI_PAX_DATA" } },
         { "SP_PG_GROUP_IATCI", { "IATCI_TABS_SEQ", "IATCI_TABS", "IATCI_SETTINGS", "GRP_IATCI_XML", "DEFERRED_CKI_DATA", "CKI_DATA" } },
+        { "SP_PG_GROUP_WC",    { "RL_SEQ", "WC_PNR", "WC_TICKET", "WC_COUPON", "AIRPORT_CONTROLS" } },
     };
 
     static std::string getGroupInner(std::string objectName, const GroupsType& groups)
@@ -105,14 +106,25 @@ namespace PgOra
         return ("SELECT " + sequenceName + ".NEXTVAL FROM DUAL");
     }
 
-    long getSeqNextVal(const std::string& sequenceName)
+    template<class T>
+    T getSeqNextValInner(const std::string& sequenceName)
     {
-        long result;
+        T result;
         make_db_curs(makeSeqNextVal(sequenceName),
                      getRWSession(sequenceName))
                 .def(result)
                 .EXfet();
         return result;
+    }
+
+    long getSeqNextVal(const std::string& sequenceName)
+    {
+        return getSeqNextValInner<long>(sequenceName);
+    }
+
+    unsigned long getSeqNextVal_ul(const std::string& sequenceName)
+    {
+        return getSeqNextValInner<unsigned long>(sequenceName);
     }
 
 } // namespace PgOra

@@ -1,8 +1,5 @@
 #include "recloc.h"
-
-#include <serverlib/cursctl.h>
-#include <serverlib/pg_cursctl.h>
-#include "pg_session.h"
+#include "PgOraConfig.h"
 
 #include <string>
 #include <math.h>
@@ -35,10 +32,8 @@ inline std::string GenerateRecloc_(pnr_seq_t seq)
 }
 
 std::string GenerateRecloc()
-{
-    pnr_seq_t seq;
-    PgCpp::CursCtl pnrCur = get_pg_curs("select nextval('RL_SEQ')");
-    pnrCur.def(seq).EXfet();
+{    
+    pnr_seq_t seq = PgOra::getSeqNextVal_ul("RL_SEQ");
     return GenerateRecloc_(seq);
 }
 
