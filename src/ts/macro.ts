@@ -3702,7 +3702,7 @@ $(defmacro CHANGE_TRIP_SETS
 <term>
   <query handle='0' id='prepreg' ver='1' opr='PIKE' screen='PREPREG.EXE' mode='STAND' lang='RU' term_id='2479792165'>
     <CrsDataApplyUpdates>
-      <point_id>$(get point_dep)</point_id>
+      <point_id>$(point_dep)</point_id>
       <question>1</question>
       <crsdata/>
       <trip_sets>\
