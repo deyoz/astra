@@ -51,6 +51,16 @@ $(defmacro login2
 
 #########################################################################################
 
+$(defmacro init_term
+    desk_version=201707-0195750
+{
+$(init_jxt_pult Œ‚Œ)
+$(login PIKE PIKE)
+$(set_desk_version $(desk_version) Œ‚Œ)
+}) #end-of-defmacro init_term
+
+#########################################################################################
+
 $(defmacro KICK_IN
 {
 >> lines=auto
