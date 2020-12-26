@@ -2025,6 +2025,50 @@ $(defmacro UPDATE_PAX_REM
 
 #########################################################################################
 
+$(defmacro LOAD_APIS_REQUEST
+  point_dep
+  pax_id
+  pax_tid
+  capture=off
+{
+
+!! capture=$(capture)
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='brd' ver='1' opr='PIKE' screen='BRDBUS.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <LoadPaxAPIS>
+      <point_id>$(point_dep)</point_id>
+      <pax_id>$(pax_id)</pax_id>
+      <tid>$(pax_tid)</tid>
+    </LoadPaxAPIS>
+  </query>
+</term>}
+
+}) #end-of-macro LOAD_APIS_REQUEST
+
+$(defmacro SAVE_APIS_REQUEST
+  point_dep
+  pax_id
+  pax_tid
+  apis
+  capture=off
+{
+
+!! capture=$(capture)
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='brd' ver='1' opr='PIKE' screen='BRDBUS.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <SavePaxAPIS>
+      <point_id>$(point_dep)</point_id>
+      <pax_id>$(pax_id)</pax_id>
+      <tid>$(pax_tid)</tid>
+$(apis)
+    </SavePaxAPIS>
+  </query>
+</term>}
+
+}) #end-of-macro SAVE_APIS_REQUEST
+
 $(defmacro UPDATE_PAX_ON_BOARDING
     pax_id
     point_dep
@@ -2042,14 +2086,10 @@ $(defmacro UPDATE_PAX_ON_BOARDING
     visa_issue_date=""
     visa_expiry_date=""
     visa_applic_country=""
-{{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='brd' ver='1' opr='PIKE' screen='BRDBUS.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-  <SavePaxAPIS>
-        <point_id>$(point_dep)</point_id>
-        <pax_id>$(pax_id)</pax_id>
-        <tid>$(tid)</tid>
-        <apis>
+{
+
+$(SAVE_APIS_REQUEST $(point_dep) $(pax_id) $(tid)
+{        <apis>
           <document>
             <type>P</type>
             <issue_country>$(doc_issue_country)</issue_country>
@@ -2070,10 +2110,8 @@ $(defmacro UPDATE_PAX_ON_BOARDING
             <applic_country>$(visa_applic_country)</applic_country>
             <birth_place/>
           </doco>
-        </apis>
-      </SavePaxAPIS>
-    </query>
-  </term>}
+        </apis>}
+)
 
 }) #end-of-macro UPDATE_PAX_ON_BOARDING
 
@@ -3525,3 +3563,204 @@ $(set msg_id60 $(capture 1))
 $(set msg_id61 $(capture 1))
 
 }) #end-if-macro CIRQ_61_UT_REQS
+
+
+#########################################################################################
+### возможность регистрации группы из любого кол-ва участников в секции passengers
+
+$(defmacro NEW_CHECKIN_REQUEST
+  point_dep
+  point_arv
+  airp_dep
+  airp_arv
+  passengers
+  capture=off
+{
+
+!! capture=$(capture) err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='EN' term_id='2479792165'>
+    <TCkinSavePax>
+      <agent_stat_period>3</agent_stat_period>
+      <transfer/>
+      <segments>
+        <segment>
+          <point_dep>$(point_dep)</point_dep>
+          <point_arv>$(point_arv)</point_arv>
+          <airp_dep>$(get_elem_id etAirp $(airp_dep))</airp_dep>
+          <airp_arv>$(get_elem_id etAirp $(airp_arv))</airp_arv>
+          <class>Э</class>
+          <status>K</status>
+          <wl_type/>
+$(passengers)
+        </segment>
+      </segments>
+      <hall>777</hall>
+    </TCkinSavePax>
+  </query>
+</term>}
+
+}) #end defmacro NEW_CHECKIN_REQUEST
+
+#########################################################################################
+### возможность записи изменений по любому кол-ву участников в секции passengers
+
+$(defmacro CHANGE_CHECKIN_REQUEST
+  point_dep
+  point_arv
+  airp_dep
+  airp_arv
+  grp_id
+  grp_tid
+  passengers
+  capture=off
+{
+
+!! capture=$(capture) err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='EN' term_id='2479792165'>
+    <TCkinSavePax>
+      <agent_stat_period>3</agent_stat_period>
+      <segments>
+        <segment>
+          <point_dep>$(point_dep)</point_dep>
+          <point_arv>$(point_arv)</point_arv>
+          <airp_dep>$(get_elem_id etAirp $(airp_dep))</airp_dep>
+          <airp_arv>$(get_elem_id etAirp $(airp_arv))</airp_arv>
+          <class>Э</class>
+          <grp_id>$(grp_id)</grp_id>
+          <tid>$(grp_tid)</tid>
+$(passengers)
+        </segment>
+      </segments>
+      <hall>777</hall>
+      <bag_refuse/>
+    </TCkinSavePax>
+  </query>
+</term>}
+
+}) #end defmacro CHANGE_CHECKIN_REQUEST
+
+#########################################################################################
+### изменение настроек рейса в trip_sets (галочки в главном экране "Подготовки")
+
+$(defmacro CHANGE_TRIP_SETS
+  point_dep     #единственный параметр, который должен быть непустым
+  pr_tranzit
+  pr_tranz_reg
+  trzt_bort_changing
+  trzt_brd_with_autoreg
+  pr_block_trzt
+  use_jmp
+  pr_free_seating
+  pr_check_load
+  pr_overload_reg
+  pr_exam
+  pr_exam_check_pay
+  pr_check_pay
+  pr_reg_with_tkn
+  pr_reg_with_doc
+  pr_reg_without_tkna
+  auto_weighing
+  apis_control
+  apis_manual_input
+  piece_concept
+  jmp_cfg
+{
+
+!! err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='prepreg' ver='1' opr='PIKE' screen='PREPREG.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <CrsDataApplyUpdates>
+      <point_id>$(point_dep)</point_id>
+      <question>1</question>
+      <crsdata/>
+      <trip_sets>\
+$(if $(eq $(pr_tranzit) "") {
+        <pr_tranzit>0</pr_tranzit>} {
+        <pr_tranzit>$(pr_tranzit)</pr_tranzit>})\
+$(if $(eq $(pr_tranz_reg) "") "" {
+        <pr_tranz_reg>$(pr_tranz_reg)</pr_tranz_reg>})\
+$(if $(eq $(trzt_bort_changing) "") "" {
+        <trzt_bort_changing>$(trzt_bort_changing)</trzt_bort_changing>})\
+$(if $(eq $(trzt_brd_with_autoreg) "") "" {
+        <trzt_brd_with_autoreg>$(trzt_brd_with_autoreg)</trzt_brd_with_autoreg>})\
+$(if $(eq $(pr_block_trzt) "") "" {
+        <pr_block_trzt>$(pr_block_trzt)</pr_block_trzt>})\
+$(if $(eq $(use_jmp) "") "" {
+        <use_jmp>$(use_jmp)</use_jmp>})\
+$(if $(eq $(pr_free_seating) "") "" {
+        <pr_free_seating>$(pr_free_seating)</pr_free_seating>})\
+$(if $(eq $(pr_check_load) "") "" {
+        <pr_check_load>$(pr_check_load)</pr_check_load>})\
+$(if $(eq $(pr_overload_reg) "") "" {
+        <pr_overload_reg>$(pr_overload_reg)</pr_overload_reg>})\
+$(if $(eq $(pr_exam) "") "" {
+        <pr_exam>$(pr_exam)</pr_exam>})\
+$(if $(eq $(pr_exam_check_pay) "") "" {
+        <pr_exam_check_pay>$(pr_exam_check_pay)</pr_exam_check_pay>})\
+$(if $(eq $(pr_check_pay) "") "" {
+        <pr_check_pay>$(pr_check_pay)</pr_check_pay>})\
+$(if $(eq $(pr_reg_with_tkn) "") "" {
+        <pr_reg_with_tkn>$(pr_reg_with_tkn)</pr_reg_with_tkn>})\
+$(if $(eq $(pr_reg_with_doc) "") "" {
+        <pr_reg_with_doc>$(pr_reg_with_doc)</pr_reg_with_doc>})\
+$(if $(eq $(pr_reg_without_tkna) "") "" {
+        <pr_reg_without_tkna>$(pr_reg_without_tkna)</pr_reg_without_tkna>})\
+$(if $(eq $(auto_weighing) "") "" {
+        <auto_weighing>$(auto_weighing)</auto_weighing>})\
+$(if $(eq $(apis_control) "") "" {
+        <apis_control>$(apis_control)</apis_control>})\
+$(if $(eq $(apis_manual_input) "") "" {
+        <apis_manual_input>$(apis_manual_input)</apis_manual_input>})\
+$(if $(eq $(piece_concept) "") "" {
+        <piece_concept>$(piece_concept)</piece_concept>})\
+$(if $(eq $(jmp_cfg) "") "" {
+        <jmp_cfg>$(jmp_cfg)</jmp_cfg>})
+      </trip_sets>
+      <tripcounters/>
+    </CrsDataApplyUpdates>
+  </query>
+</term>}
+
+})
+
+#########################################################################################
+### разнообразные сообщения в терминал
+
+$(defmacro USER_ERROR_RESPONSE
+  lexema_id
+  code=0
+{
+
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer...
+    <command>
+      <user_error lexema_id='$(lexema_id)' code='$(code)'>...</user_error>
+    </command>
+  </answer>
+</term>
+
+
+})
+
+$(defmacro USER_ERROR_MESSAGE_TAG
+  lexema_id
+  code=0
+{    <command>
+      <user_error_message lexema_id='$(lexema_id)' code='$(code)'>...</user_error_message>
+    </command>}
+)
+
+$(defmacro MESSAGE_TAG
+  lexema_id
+  code=0
+{    <command>
+      <message lexema_id='$(lexema_id)' code='$(code)'>...</message>
+    </command>}
+)

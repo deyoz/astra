@@ -30,23 +30,7 @@ $(defmacro PREPARE_SPP_FLIGHT_SETTINGS
 {
 $(set point_dep $(last_point_id_spp))
 
-!! err=ignore
-{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='prepreg' ver='1' opr='PIKE' screen='PREPREG.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-    <CrsDataApplyUpdates>
-      <point_id>$(get point_dep)</point_id>
-      <question>1</question>
-      <crsdata/>
-      <trip_sets>
-        <pr_tranzit>0</pr_tranzit>
-        <pr_free_seating>1</pr_free_seating>
-        <apis_manual_input>1</apis_manual_input>
-      </trip_sets>
-      <tripcounters/>
-    </CrsDataApplyUpdates>
-  </query>
-</term>}
+$(CHANGE_TRIP_SETS $(get point_dep) pr_free_seating=1 apis_manual_input=1)
 
 $(OPEN_CHECKIN $(get point_dep))
 
@@ -302,10 +286,7 @@ $(defmacro NO_BOARD
 
 $(BOARDING_REQUEST $(point_dep) $(pax_id) $(hall))
 
->> lines=auto
-    <command>
-      <user_error lexema_id='MSG.PASSENGER.APPS_PROBLEM' code='0'>...</user_error>
-    </command>
+$(USER_ERROR_RESPONSE MSG.PASSENGER.APPS_PROBLEM)
 
 })
 
@@ -318,104 +299,7 @@ $(defmacro APIS_INCOMPLETE_ON_BOARDING
 $(BOARDING_REQUEST $(point_dep) $(pax_id) $(hall))
 
 >> lines=auto
-    <command>
-      <user_error_message lexema_id='MSG.PASSENGER.APIS_INCOMPLETE' code='128'>...</user_error_message>
-    </command>
-
-})
-
-$(defmacro NEW_CHECKIN_REQUEST
-  point_dep
-  point_arv
-  airp_dep
-  airp_arv
-  passengers
-  capture=off
-{
-
-!! capture=$(capture) err=ignore
-{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-    <TCkinSavePax>
-      <agent_stat_period>3</agent_stat_period>
-      <transfer/>
-      <segments>
-        <segment>
-          <point_dep>$(point_dep)</point_dep>
-          <point_arv>$(point_arv)</point_arv>
-          <airp_dep>$(get_elem_id etAirp $(airp_dep))</airp_dep>
-          <airp_arv>$(get_elem_id etAirp $(airp_arv))</airp_arv>
-          <class>Э</class>
-          <status>K</status>
-          <wl_type/>
-$(passengers)
-        </segment>
-      </segments>
-      <hall>777</hall>
-    </TCkinSavePax>
-  </query>
-</term>}
-
-})
-
-$(defmacro CHANGE_CHECKIN_REQUEST
-  point_dep
-  point_arv
-  airp_dep
-  airp_arv
-  grp_id
-  grp_tid
-  passengers
-  capture=off
-{
-
-!! capture=$(capture) err=ignore
-{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='EN' term_id='2479792165'>
-    <TCkinSavePax>
-      <agent_stat_period>3</agent_stat_period>
-      <segments>
-        <segment>
-          <point_dep>$(point_dep)</point_dep>
-          <point_arv>$(point_arv)</point_arv>
-          <airp_dep>$(get_elem_id etAirp $(airp_dep))</airp_dep>
-          <airp_arv>$(get_elem_id etAirp $(airp_arv))</airp_arv>
-          <class>Э</class>
-          <grp_id>$(grp_id)</grp_id>
-          <tid>$(grp_tid)</tid>
-$(passengers)
-        </segment>
-      </segments>
-      <hall>777</hall>
-      <bag_refuse/>
-    </TCkinSavePax>
-  </query>
-</term>}
-
-})
-
-$(defmacro CHANGE_APIS_REQUEST
-  point_dep
-  pax_id
-  pax_tid
-  apis
-  capture=off
-{
-
-!! capture=$(capture) err=ignore
-{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='brd' ver='1' opr='PIKE' screen='BRDBUS.EXE' mode='STAND' lang='EN' term_id='2479792165'>
-    <SavePaxAPIS>
-      <point_id>$(point_dep)</point_id>
-      <pax_id>$(pax_id)</pax_id>
-      <tid>$(pax_tid)</tid>
-$(apis)
-    </SavePaxAPIS>
-  </query>
-</term>}
+$(USER_ERROR_MESSAGE_TAG MSG.PASSENGER.APIS_INCOMPLETE 128)
 
 })
 
@@ -1291,10 +1175,7 @@ capture=on
 
 )
 
->> lines=auto
-    <command>
-      <user_error lexema_id='MSG.CHECKIN.PASSENGERS_TICKETS_NOT_SET' code='0'>...
-    </command>
+$(USER_ERROR_RESPONSE MSG.CHECKIN.PASSENGERS_TICKETS_NOT_SET)
 
 %%
 
@@ -1371,10 +1252,7 @@ capture=on
 
 )
 
->> lines=auto
-    <command>
-      <user_error lexema_id='MSG.CHECKIN.PNR_ADDR_REQUIRED' code='0'>...
-    </command>
+$(USER_ERROR_RESPONSE MSG.CHECKIN.PNR_ADDR_REQUIRED)
 
 %%
 
@@ -4450,7 +4328,7 @@ $(APIS_INCOMPLETE_ON_BOARDING $(get point_dep) $(get pax_id_03))
 $(set pax_tid_02 $(get_single_pax_tid $(get point_dep) KIM "HUI HSIN"))
 $(set pax_tid_03 $(get_single_pax_tid $(get point_dep) JAMES "SHUMIT"))
 
-$(CHANGE_APIS_REQUEST $(get point_dep) $(get pax_id_02) $(get pax_tid_02)
+$(SAVE_APIS_REQUEST $(get point_dep) $(get pax_id_02) $(get pax_tid_02)
 {
 <apis>
     <document>
@@ -4523,7 +4401,7 @@ UNT+14+11085B94E1F8FA"
 UNE+1+1"
 UNZ+1+$(get ediref_paxlst_01)0001"
 
-$(CHANGE_APIS_REQUEST $(get point_dep) $(get pax_id_03) $(get pax_tid_03)
+$(SAVE_APIS_REQUEST $(get point_dep) $(get pax_id_03) $(get pax_tid_03)
 {
 <apis>
     <doco>
