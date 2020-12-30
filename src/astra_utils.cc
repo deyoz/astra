@@ -52,7 +52,7 @@ using namespace AstraLocale;
 namespace xp_testing {
     bool isWebRequest(const std::string& login)
     {
-        static const std::vector<std::string> WebLogins { "KIOSK2" };
+        static const std::vector<std::string> WebLogins { "KIOSK2", "HTML"};
         LogTrace(TRACE3) << __func__ << " called for login: " << login;
         return algo::contains(WebLogins, login);
     }
