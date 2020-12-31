@@ -32,6 +32,7 @@
 #include "prn_tag_store.h"
 #include "PgOraConfig.h"
 #include "cr_lf.h"
+#include "cache.h"
 
 #include <queue>
 #include <fstream>
@@ -670,52 +671,13 @@ static std::string FP_getElemId(const std::vector<std::string>& p)
     return ElemToElemId(DecodeElemType(type.c_str()), elem, fmt);
 }
 
-static std::string FP_deny_ets_interactive(const std::vector<std::string>& p)
-{
-    assert(p.size() == 3);
-    std::string airl = p.at(0);
-    std::string flt_no = p.at(1);
-    std::string airp_dep = p.at(2);
-
-    OciCpp::CursCtl cur = make_curs(
-"insert into MISC_SET (ID, TYPE, AIRLINE, FLT_NO, AIRP_DEP, PR_MISC) "
-"values (id__seq.nextval, 11, :airl, :flt_no, :airp_dep, 1)");
-    cur.bind(":airl", airl)
-       .bind(":flt_no", flt_no)
-       .bind(":airp_dep", airp_dep)
-       .exec();
-
-    return "";
-}
-
-static std::string getRandomBpTypeCode()
+static std::string FP_getRandomBpTypeCode(const std::vector<std::string>& p)
 {
     OciCpp::CursCtl cur = make_curs(
 "select CODE from BP_TYPES where CODE in ('TST') AND op_type='PRINT_BP' order by dbms_random.random");
     std::string code;
     cur.def(code).exfet();
     return code;
-}
-
-static std::string FP_prepare_bp_printing(const std::vector<std::string>& p)
-{
-    assert(p.size() == 3);
-    std::string airl = p.at(0);
-    std::string flt_no = p.at(1);
-    std::string airp = p.at(2);
-    std::string bpType = getRandomBpTypeCode();
-
-    OciCpp::CursCtl cur = make_curs(
-"insert into BP_SET (ID, AIRLINE, FLT_NO, AIRP_DEP, BP_TYPE, OP_TYPE) "
-"values (ID__SEQ.nextval, :airl, :flt_no, :airp, :bp_type, 'PRINT_BP')");
-
-    cur.bind(":airl",   airl)
-       .bind(":flt_no", flt_no)
-       .bind(":airp",   airp)
-       .bind(":bp_type",bpType)
-       .exec();
-
-    return "";
 }
 
 static std::string FP_settcl(const std::vector<std::string>& par)
@@ -1067,20 +1029,6 @@ static std::string FP_tables_equal(const std::vector<tok::Param>& params)
     return "";
 }
 
-static std::string FP_combineBrdWithReg(const std::vector<std::string>& par)
-{
-    ASSERT(par.size() == 1);
-    int pointId = std::stoi(par.at(0));
-
-    make_curs(
-"insert into TRIP_HALL(PR_MISC, TYPE, POINT_ID) values (1, :ts_brd_with_reg, :point_id)")
-            .bind(":ts_brd_with_reg", (int)tsBrdWithReg)
-            .bind(":point_id", pointId)
-            .exec();
-
-    return "";
-}
-
 static std::vector<string> getPaxAlarms(const std::string& table_name, int pax_id)
 {
     std::string alarm;
@@ -1268,6 +1216,28 @@ static std::string FP_getBCBP(const std::vector<std::string> &par)
     return pts.get_tag(TAG::BCBP_M_2, {}, "E");
 }
 
+static std::string FP_cache(const std::vector<std::string> &par)
+{
+  CacheTableTermRequest cacheRequest(par);
+
+  return cacheRequest.getXml();
+}
+
+static std::string FP_getCacheIfaceVer(const std::vector<std::string> &par)
+{
+  ASSERT(par.size() == 1);
+  boost::optional<int> ifaceVersion=CacheTableTermRequest::getInterfaceVersion(par[0]);
+
+  if (ifaceVersion) return std::to_string(ifaceVersion.get());
+
+  return "";
+}
+
+static std::string FP_getCacheSQLParam(const std::vector<std::string> &par)
+{
+  return CacheTableTermRequest::getSQLParamXml(par);
+}
+
 FP_REGISTER("<<", FP_tlg_in);
 FP_REGISTER("!!", FP_req);
 FP_REGISTER("astra_hello", FP_astra_hello);
@@ -1295,8 +1265,7 @@ FP_REGISTER("get_iatci_tab_id", FP_getIatciTabId);
 FP_REGISTER("get_point_tid", FP_getPointTid);
 FP_REGISTER("get_lat_code", FP_get_lat_code);
 FP_REGISTER("get_elem_id", FP_getElemId);
-FP_REGISTER("prepare_bp_printing", FP_prepare_bp_printing);
-FP_REGISTER("deny_ets_interactive", FP_deny_ets_interactive);
+FP_REGISTER("get_random_bp_type", FP_getRandomBpTypeCode);
 FP_REGISTER("settcl", FP_settcl);
 FP_REGISTER("last_generated_pax_id", FP_lastGeneratedPaxId);
 FP_REGISTER("substr", FP_substr);
@@ -1306,7 +1275,6 @@ FP_REGISTER("init_apps", FP_initApps);
 FP_REGISTER("translit", FP_translit);
 FP_REGISTER("http_wrap", FP_http_wrap);
 FP_REGISTER("run_trip_task", FP_run_trip_task);
-FP_REGISTER("combine_brd_with_reg", FP_combineBrdWithReg);
 FP_REGISTER("check_pax_alarms", FP_checkPaxAlarms);
 FP_REGISTER("check_crs_pax_alarms", FP_checkCrsPaxAlarms);
 FP_REGISTER("check_trip_alarms", FP_checkTripAlarms);
@@ -1327,5 +1295,8 @@ FP_REGISTER("collect_flight_stat", FP_collectFlightStat);
 FP_REGISTER("pg_sql", FP_pg_sql);
 FP_REGISTER("init_iapi_request_id", FP_initIapiRequestId);
 FP_REGISTER("get_bcbp", FP_getBCBP);
+FP_REGISTER("cache", FP_cache);
+FP_REGISTER("cache_iface_ver", FP_getCacheIfaceVer);
+FP_REGISTER("cache_sql_param", FP_getCacheSQLParam);
 
 #endif /* XP_TESTING */

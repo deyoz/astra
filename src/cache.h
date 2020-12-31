@@ -1,5 +1,4 @@
-#ifndef _CACHE_H_
-#define _CACHE_H_
+#pragma once
 
 #include <string>
 #include <map>
@@ -10,7 +9,6 @@
 
 #include "jxtlib/JxtInterface.h"
 
-using namespace ASTRA;
 class CacheInterface : public JxtInterface
 {
 public:
@@ -217,7 +215,7 @@ class TCacheTable {
         std::string InsertSQL;
         std::string UpdateSQL;
         std::string DeleteSQL;
-        TEventType EventType;
+        ASTRA::TEventType EventType;
         bool Logging;
         bool KeepLocally;
         bool KeepDeletedRows;
@@ -288,5 +286,42 @@ inline bool lf( const TCacheField2 &item1, const TCacheField2 &item2 )
     return item1.num<item2.num;
 }
 
-#endif /*_CACHE_H_*/
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#ifdef XP_TESTING
+
+class CacheTableTermRequest : public TCacheTable
+{
+  private:
+    std::string queryLogin;
+    std::string queryLang;
+    boost::optional<XMLDoc> sqlParamsDoc;
+    std::list< std::pair<TCacheQueryType, std::map<std::string, std::string> > > appliedRows;
+    void addAppliedRow(const TCacheQueryType queryType,
+                       const std::vector<std::string>::const_iterator& b,
+                       const std::vector<std::string>::const_iterator& e);
+    void addSQLParams(const std::vector<std::string>::const_iterator& b,
+                      const std::vector<std::string>::const_iterator& e);
+    void appliedRowToXml(const int rowIndex,
+                         const TCacheQueryType queryType,
+                         const std::map<std::string, std::string>& fields,
+                         xmlNodePtr rowsNode) const;
+    void queryPropsToXml(xmlNodePtr queryNode) const;
+
+    static boost::optional<TCacheQueryType> tryGetQueryType(const std::string& par);
+    static std::string getAppliedRowStatus(const TCacheQueryType queryType);
+
+  public:
+    CacheTableTermRequest(const std::vector<std::string> &par);
+    std::string getXml() const;
+
+    static boost::optional<int> getInterfaceVersion(const std::string& cacheCode);
+    static std::string getSQLParamXml(const std::vector<std::string> &par);
+
+};
+
+#endif/*XP_TESTING*/
+
 

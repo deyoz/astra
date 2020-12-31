@@ -17,6 +17,8 @@
 #include "qrys.h"
 #include "trip_tasks.h"
 #include "jxtlib/xml_stuff.h"
+#include <serverlib/algo.h>
+#include <serverlib/cursctl.h>
 
 #define NICKNAME "DJEK"
 #include "serverlib/slogger.h"
@@ -27,6 +29,7 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
 using namespace BASIC::date_time;
+using namespace ASTRA;
 
 /* все названия тегов params переводятся в вверхний регистр - переменные в sql в верхнем регистре*/
 void TCacheTable::getParams(xmlNodePtr paramNode, TParams &vparams)
@@ -2172,3 +2175,356 @@ void TParams1::setSQL(TQuery *Qry)
     }
 }
 
+#ifdef XP_TESTING
+
+boost::optional<TCacheQueryType> CacheTableTermRequest::tryGetQueryType(const std::string& par)
+{
+  boost::optional<TCacheQueryType> result;
+  if      (par=="insert")  result=cqtInsert;
+  else if (par=="update")  result=cqtUpdate;
+  else if (par=="delete")  result=cqtDelete;
+
+  return result;
+};
+
+std::string CacheTableTermRequest::getAppliedRowStatus(const TCacheQueryType queryType)
+{
+  if (queryType==cqtInsert) return "inserted";
+  if (queryType==cqtUpdate) return "modified";
+  if (queryType==cqtDelete) return "deleted";
+
+  return "";
+};
+
+boost::optional<int> CacheTableTermRequest::getInterfaceVersion(const std::string& cacheCode)
+{
+  boost::optional<int> result;
+
+  auto cur = make_curs("SELECT tid FROM cache_tables WHERE code=:code");
+  int tid;
+  cur.def(tid)
+     .bind(":code", StrUtils::ToUpper(cacheCode))
+     .EXfet();
+
+  if(cur.err() != NO_DATA_FOUND) result=tid;
+
+  return result;
+}
+
+std::string CacheTableTermRequest::getSQLParamXml(const std::vector<std::string> &par)
+{
+  ASSERT(par.size() == 3);
+
+  XMLDoc sqlParamDoc("sqlparams");
+  xmlNodePtr paramNode=NewTextChild(NodeAsNode("/sqlparams", sqlParamDoc.docPtr()), par[0].c_str(), par[2]);
+
+  TCacheConvertType type=ctString;
+  std::string typeStr=StrUtils::ToLower(par[1]);
+  if      (typeStr=="integer") type=ctInteger;
+  else if (typeStr=="double") type=ctDouble;
+  else if (typeStr=="datetime") type=ctDateTime;
+
+  SetProp(paramNode, "type", (int)type);
+
+  return StrUtils::replaceSubstrCopy(sqlParamDoc.text(), "encoding=\"UTF-8\"", "encoding=\"CP866\"");
+}
+
+CacheTableTermRequest::CacheTableTermRequest(const std::vector<std::string> &par)
+{
+  ASSERT(par.size() >= 5);
+
+  auto iPar=par.begin();
+
+  queryLogin=*(iPar++);
+  queryLang=*(iPar++);
+
+  XMLDoc initDoc("cache");
+  xmlNodePtr cacheNode=NodeAsNode("/cache", initDoc.docPtr());
+  xmlNodePtr paramsNode=NewTextChild(cacheNode, "params");
+  string cacheCode=StrUtils::ToUpper(*(iPar++));
+  NewTextChild(paramsNode, "code", cacheCode);
+  NewTextChild(paramsNode, "interface_ver", *(iPar++));
+  NewTextChild(paramsNode, "data_ver", *(iPar++));
+
+  //обработаем возможные SQLParams
+  auto iParQueryType=std::find_if(iPar, par.end(), [](const std::string& p) { return tryGetQueryType(p); });
+  addSQLParams(iPar, iParQueryType);
+  if (sqlParamsDoc) CopyNode(cacheNode, NodeAsNode("/sqlparams", sqlParamsDoc.get().docPtr()));
+
+  //обработаем возможные appliedRows
+  for(; iParQueryType!=par.end();)
+  {
+    boost::optional<TCacheQueryType> queryType=tryGetQueryType(*(iParQueryType++));
+    ASSERT(queryType);
+
+    iPar=iParQueryType;
+    iParQueryType=std::find_if(iPar, par.end(), [](const std::string& p) { return tryGetQueryType(p); });
+    addAppliedRow(queryType.get(), iPar, iParQueryType);
+  }
+
+
+  Init(cacheNode);
+}
+
+void CacheTableTermRequest::addSQLParams(const std::vector<std::string>::const_iterator& b,
+                                         const std::vector<std::string>::const_iterator& e)
+{
+  for(auto iPar=b; iPar!=e; ++iPar)
+  {
+    XMLDoc sqlParamDoc(*iPar);
+    ASSERT(sqlParamDoc.docPtr()!=nullptr);
+    xml_decode_nodelist(sqlParamDoc.docPtr()->children);
+
+    if (!sqlParamsDoc) sqlParamsDoc=boost::in_place("sqlparams");
+    CopyNodeList(NodeAsNode("/sqlparams", sqlParamsDoc.get().docPtr()),
+                 NodeAsNode("/sqlparams", sqlParamDoc.docPtr()));
+  }
+}
+
+void CacheTableTermRequest::addAppliedRow(const TCacheQueryType queryType,
+                                          const std::vector<std::string>::const_iterator& b,
+                                          const std::vector<std::string>::const_iterator& e)
+{
+  appliedRows.emplace_back(queryType, std::map<std::string, std::string>());
+  for(auto iPar=b; iPar!=e; ++iPar)
+  {
+    string::size_type idx=iPar->find_first_of("=:");
+    if (idx!=string::npos)
+    {
+      std::string name=StrUtils::trim(iPar->substr(0,idx));
+      std::string value=StrUtils::trim(iPar->substr(idx+1));
+      ASSERT(!name.empty());
+      appliedRows.back().second.emplace(StrUtils::ToUpper(name), value);
+    }
+  }
+}
+
+void CacheTableTermRequest::appliedRowToXml(const int rowIndex,
+                                            const TCacheQueryType queryType,
+                                            const std::map<std::string, std::string>& fields,
+                                            xmlNodePtr rowsNode) const
+{
+  if (rowsNode==nullptr) return;
+
+  xmlNodePtr rowNode=NewTextChild(rowsNode, "row");
+  SetProp(rowNode, "index", rowIndex);
+  SetProp(rowNode, "status", getAppliedRowStatus(queryType));
+
+  if (sqlParamsDoc) CopyNode(rowNode, NodeAsNode("/sqlparams", sqlParamsDoc.get().docPtr()));
+
+  int colIndex=0;
+  for(const auto& f : FFields)
+  {
+    boost::optional<string> oldValue, newValue;
+    if (queryType==cqtUpdate || queryType==cqtDelete)
+      oldValue=algo::find_opt<boost::optional>(fields, "OLD_"+f.Name);
+    if (queryType==cqtUpdate || queryType==cqtInsert)
+      newValue=algo::find_opt<boost::optional>(fields, f.Name);
+
+    xmlNodePtr colNode=nullptr;
+    if (queryType==cqtInsert)
+      colNode=NewTextChild(rowNode, "col", newValue?newValue.get():"");
+    if (queryType==cqtUpdate)
+    {
+      colNode=NewTextChild(rowNode, "col");
+      NewTextChild(colNode, "old", oldValue?oldValue.get():"");
+      NewTextChild(colNode, "new", newValue?newValue.get():"");
+    }
+    if (queryType==cqtDelete)
+      colNode=NewTextChild(rowNode, "col", oldValue?oldValue.get():"");
+
+    ASSERT(colNode!=nullptr);
+    SetProp(colNode, "index" ,colIndex++);
+  }
+}
+
+void CacheTableTermRequest::queryPropsToXml(xmlNodePtr queryNode) const
+{
+  if (queryNode==nullptr) return;
+
+  auto cur = make_curs(
+    "SELECT desks.term_mode, desks.term_id FROM users2, desks "
+    "WHERE users2.desk=desks.code AND users2.login=:login");
+  string mode;
+  uint32_t termId;
+  cur.def(mode)
+     .def(termId)
+     .bind(":login", queryLogin)
+     .EXfet();
+
+  ASSERT(cur.err() != NO_DATA_FOUND);
+
+  SetProp(queryNode, "handle", 0);
+  SetProp(queryNode, "id", "cache");
+  SetProp(queryNode, "ver", 1);
+  SetProp(queryNode, "opr", queryLogin);
+  SetProp(queryNode, "screen", "MAINDCS.EXE");
+  SetProp(queryNode, "mode", mode);
+  SetProp(queryNode, "lang", queryLang);
+  SetProp(queryNode, "term_id", std::to_string(termId));
+}
+
+std::string CacheTableTermRequest::getXml() const
+{
+  XMLDoc queryDoc("term");
+  xmlNodePtr queryNode=NewTextChild(NodeAsNode("/term", queryDoc.docPtr()), "query");
+  queryPropsToXml(queryNode);
+
+  xmlNodePtr cacheNode=appliedRows.empty()?NewTextChild(queryNode, "cache"):
+                                           NewTextChild(queryNode, "cache_apply");
+  xmlNodePtr paramsNode=NewTextChild(cacheNode, "params");
+  const auto cacheCode=algo::find_opt<boost::optional>(Params, std::string(TAG_CODE));
+  const auto cacheInterfaceVersion=algo::find_opt<boost::optional>(Params, TAG_REFRESH_INTERFACE);
+  const auto cacheDataVersion=algo::find_opt<boost::optional>(Params, TAG_REFRESH_DATA);
+  NewTextChild(paramsNode, "code", cacheCode?cacheCode.get().Value:"");
+  NewTextChild(paramsNode, "interface_ver", cacheInterfaceVersion?cacheInterfaceVersion.get().Value:"");
+  NewTextChild(paramsNode, "data_ver", cacheDataVersion?cacheDataVersion.get().Value:"");
+
+  if (sqlParamsDoc) CopyNode(cacheNode, NodeAsNode("/sqlparams", sqlParamsDoc.get().docPtr()));
+
+  xmlNodePtr rowsNode=NewTextChild(cacheNode, "rows");
+  int rowIndex=0;
+  for(const auto& row : appliedRows)
+    appliedRowToXml(rowIndex++, row.first, row.second, rowsNode);
+
+  return StrUtils::replaceSubstrCopy(queryDoc.text(), "encoding=\"UTF-8\"", "encoding=\"CP866\"");
+}
+
+#endif/*XP_TESTING*/
+
+/*
+<term>
+  <query handle="0" id="cache" ver="1" opr="VLAD"
+    <cache>
+      <params>
+        <code>TRIP_BRD_WITH_REG</code>
+        <data_ver/>
+        <interface_ver>681841448</interface_ver>
+      </params>
+      <sqlparams>
+        <point_id type="0">4864052</point_id>
+      </sqlparams>
+    </cache>
+  </query>
+</term>
+
+<term>
+  <query handle="0" id="cache" ver="1" opr="VLAD"
+    <cache_apply>
+      <params>
+        <code>TRIP_BRD_WITH_REG</code>
+        <interface_ver>681835639</interface_ver>
+        <data_ver>-1</data_ver>
+      </params>
+      <sqlparams>
+        <point_id type="0">4864052</point_id>
+      </sqlparams>
+      <rows>
+        <row index="0" status="modified">
+          <col index="0">
+            <old>4864052</old>
+            <new>4864052</new>
+          </col>
+          <col index="1">
+            <old/>
+            <new/>
+          </col>
+          <col index="2">
+            <old/>
+            <new/>
+          </col>
+          <col index="3">
+            <old>0</old>
+            <new>1</new>
+          </col>
+        </row>
+      </rows>
+    </cache_apply>
+  </query>
+</term>
+
+<term>
+  <query handle="0" id="cache" ver="1" opr="VLAD" s
+    <cache_apply>
+      <params>
+        <code>TRIP_BRD_WITH_REG</code>
+        <interface_ver>681841448</interface_ver>
+        <data_ver>-1</data_ver>
+      </params>
+      <sqlparams>
+        <point_id type="0">4864052</point_id>
+      </sqlparams>
+      <rows>
+        <row index="0" status="modified">
+          <col index="0">
+            <old/>
+            <new/>
+          </col>
+          <col index="1">
+            <old/>
+            <new/>
+          </col>
+          <col index="2">
+            <old>0</old>
+            <new>1</new>
+          </col>
+          <col index="3">
+            <old>4864052</old>
+            <new>4864052</new>
+          </col>
+        </row>
+      </rows>
+    </cache_apply>
+  </query>
+</term>
+
+
+<term>
+  <query handle="0" id="cache" ver="1" opr="VLAD" s
+    <cache_apply>
+      <params>
+        <code>TRIP_BRD_WITH_REG</code>
+        <interface_ver>681835639</interface_ver>
+        <data_ver>-1</data_ver>
+      </params>
+      <sqlparams>
+        <point_id type="0">4864052</point_id>
+      </sqlparams>
+      <rows>
+        <row index="0" status="deleted">
+          <col index="0">4864052</col>
+          <col index="1"/>
+          <col index="2"/>
+          <col index="3">1</col>
+        </row>
+      </rows>
+    </cache_apply>
+  </query>
+</term>
+
+<term>
+  <query handle="0" id="cache" ver="1" opr="VLAD" scre
+    <cache_apply>
+      <params>
+        <code>TRIP_BRD_WITH_REG</code>
+        <interface_ver>681835639</interface_ver>
+        <data_ver>-1</data_ver>
+      </params>
+      <sqlparams>
+        <point_id type="0">4864052</point_id>
+      </sqlparams>
+      <rows>
+        <row index="0" status="inserted">
+          <sqlparams>
+            <point_id type="0">4864052</point_id>
+          </sqlparams>
+          <col index="0"/>
+          <col index="1"/>
+          <col index="2"/>
+          <col index="3">0</col>
+        </row>
+      </rows>
+    </cache_apply>
+  </query>
+</term>
+*/
