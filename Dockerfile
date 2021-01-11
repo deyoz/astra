@@ -11,11 +11,12 @@ RUN apt update \
     && alien -i oracle-instantclient19.5-basic-19.5.0.0.0-1.x86_64.rpm \
     && alien -i oracle-instantclient19.5-sqlplus-19.5.0.0.0-1.x86_64.rpm \
     && alien -i oracle-instantclient19.5-devel-19.5.0.0.0-1.x86_64.rpm \
-    && alien -i oracle-instantclient19.5-tools-19.5.0.0.0-1.x86_64.rpm
+    && alien -i oracle-instantclient19.5-tools-19.5.0.0.0-1.x86_64.rpm \
+    && libghc-bzlib-dev libssl1.0-dev
 ENV BUILD_TESTS=1 \
 	ENABLE_SHARED=1 \
 	BUILD_TESTS=1 \
-	CPP_STD_VERSION=c++14 \
+	CPP_STD_VERSION=c++17 \
         XP_NO_RECHECK=1 \
         XP_LIST_EXCLUDE=SqlUtil,Serverlib,httpsrv,httpsrv_ext,ssim \
         PLATFORM=m64 \
@@ -25,13 +26,11 @@ ENV BUILD_TESTS=1 \
         ORACLE_HOME=/usr/lib/oracle/19.5/client64 \
         LD_LIBRARY_PATH=/usr/lib/oracle/19.5/client64/lib \
         LOCALCC=gcc-7 LOCALCXX=g++-7 \
-        PG_HOST=${PG_HOST:-localhost} \ 
+        PG_HOST=${PG_HOST:-localhost} \
         PG_SYSPAROL=postgres://etick_test:etick@$PG_HOST \
         TZ=Europe/Moscow
 
 RUN env && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
-
-RUN apt install -yqq libghc-bzlib-dev libssl1.0-dev
 
 RUN mkdir /opt/astra
 
