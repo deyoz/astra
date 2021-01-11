@@ -35,6 +35,9 @@ xp-tests: clean-xp-tests
 	grep "100%: Checks" xp-tests.log > /dev/null 2>&1
 
 
+xp-tests-local:
+	$(MAKE) xp-tests XP_START_FROM=apis
+
 AM_CXXFLAGS = $(TCLINCLUDE) @SERVERLIB_CXXFLAGS@ @LIBTIMATIC_CXXFLAGS@
 astra_SOURCES = \
   adm.cc \
@@ -343,7 +346,7 @@ noinst_HEADERS = \
   meridian.h \
   mob_payment.h \
   msg_queue.h \
-  MPSExchangeIface.h \  
+  MPSExchangeIface.h \
   obrnosir.h \
   passenger.h \
   passenger_callbacks.h \
