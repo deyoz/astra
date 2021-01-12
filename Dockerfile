@@ -1,7 +1,7 @@
 FROM ubuntu:18.04
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt update \
-    && apt install -yqq gcc g++ build-essential alien wget subversion libtool libssl-dev tcl8.6-dev tcl pkg-config gettext joe libpq-dev distcc python2.7 \
+    && apt install -yqq gcc g++ build-essential alien wget subversion libtool tcl8.6-dev tcl pkg-config gettext joe libpq-dev distcc python2.7 \
                         python cmake libpng-dev libaio1 libaio-dev libtool-bin \
                         libxml2-dev postgresql-client libghc-bzlib-dev libssl1.0-dev \
     && wget https://download.oracle.com/otn_software/linux/instantclient/195000/oracle-instantclient19.5-sqlplus-19.5.0.0.0-1.x86_64.rpm \
