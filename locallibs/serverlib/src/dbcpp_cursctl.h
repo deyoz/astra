@@ -77,7 +77,18 @@ namespace DbCpp
         ResultCode exec();
         ResultCode fen();
         ResultCode err();
+        ResultCode nefen();
         int rowcount();
+
+        int fieldsCount() const;
+
+        bool fieldIsNull(const std::string& fn) const;
+        std::string fieldValue(const std::string& fn) const;
+        int fieldIndex(const std::string& fn) const;
+
+        bool fieldIsNull(int fi) const;
+        std::string fieldValue(int fi) const;
+        std::string fieldName(int fi) const;
 
         bool isStable() const;
 

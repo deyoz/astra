@@ -16,6 +16,8 @@
 #include "logopt.h"
 #include "pg_locks.h"
 #include "tclmon.h"
+#include "str_utils.h"
+#include "algo.h"
 
 #define NICKNAME "NONSTOP"
 #include "slogger.h"
@@ -1883,6 +1885,79 @@ PgResult CursCtl::execSql()
     return res;
 }
 
+int CursCtl::fieldsCount() const
+{
+    return fields_.size();
+}
+
+bool CursCtl::fieldIsNull(const std::string& fname) const
+{
+    auto field = algo::find_opt<boost::optional>(fields_, StrUtils::ToUpper(fname));
+    if(field) {
+        return field->IsNull;
+    }
+
+    throw PgException(STDLOG, sess_->sd_, ResultCode::Fatal,
+                      "Field with name '" + fname + "' does not fetched!");
+}
+
+std::string CursCtl::fieldValue(const std::string& fname) const
+{
+    auto field = algo::find_opt<boost::optional>(fields_, StrUtils::ToUpper(fname));
+    if(field) {
+        return field->Value;
+    }
+
+    throw PgException(STDLOG, sess_->sd_, ResultCode::Fatal,
+                      "Field with name '" + fname + "' does not fetched!");
+}
+
+int CursCtl::fieldIndex(const std::string& fname) const
+{
+    auto field = algo::find_opt<boost::optional>(fields_, StrUtils::ToUpper(fname));
+    if(field) {
+        return field->Index;
+    }
+
+    return -1;
+}
+
+bool CursCtl::fieldIsNull(int fieldIndex) const
+{
+    auto opt = algo::find_opt_if<boost::optional>(fields_,
+                  [fieldIndex](const auto& kv) { return kv.second.Index == fieldIndex; });
+    if(opt) {
+        return opt->second.IsNull;
+    }
+
+    throw PgException(STDLOG, sess_->sd_, ResultCode::Fatal,
+                      "Field with index '" + std::to_string(fieldIndex) + "' does not fetched!");
+}
+
+std::string CursCtl::fieldValue(int fieldIndex) const
+{
+    auto opt = algo::find_opt_if<boost::optional>(fields_,
+                  [fieldIndex](const auto& kv) { return kv.second.Index == fieldIndex; });
+    if(opt) {
+        return opt->second.Value;
+    }
+
+    throw PgException(STDLOG, sess_->sd_, ResultCode::Fatal,
+                      "Field with index '" + std::to_string(fieldIndex) + "' does not fetched!");
+}
+
+std::string CursCtl::fieldName(int fieldIndex) const
+{
+    auto opt = algo::find_opt_if<boost::optional>(fields_,
+                  [fieldIndex](const auto& kv) { return kv.second.Index == fieldIndex; });
+    if(opt) {
+        return opt->second.Name;
+    }
+
+    throw PgException(STDLOG, sess_->sd_, ResultCode::Fatal,
+                      "Field with index '" + std::to_string(fieldIndex) + "' does not fetched!");
+}
+
 static void setupFetcher(std::unique_ptr<PgFetcher>& f, CursCtl& c, bool singleRowMode)
 {
     if (f) {
@@ -2000,6 +2075,61 @@ int CursCtl::fen()
             return erc_;
         }
     }
+    fetcher_->fetchNext();
+    return erc_;
+}
+
+int CursCtl::nefen()
+{
+    if (erc_) {
+        return erc_;
+    }
+    if (!fetcher_) {
+        erc_ = ResultCode::Fatal;
+        handleError(*this, sess_->sd_, erc_, "fetch is not available (forgot to call exec?)");
+        return erc_;
+    }
+    PGresult* res = fetcher_->getResult();
+    if (res == nullptr) {
+        erc_ = NoDataFound;
+        return erc_;
+    }
+    if (singleRowMode_) {
+        if (!checkResult(*this, sess_->sd_, res)) {
+            LogTrace(TRACE5) << sess_->sd_ << " rollback due to expected error";
+            SessionManager::instance().getSessionBehaviour(sess_->sd_)
+                .onAfterBadQuery(sess_->sd_, PG_CONN(sess_->conn()));
+            return erc_;
+        }
+    }
+    const int currRow = fetcher_->currentRow();
+    const int sz = PQnfields(PG_RESULT(res));
+    LogTrace(TRACE5) << "sz = " << sz;
+    fields_.clear();
+    for(int i = 0; i < sz; ++i) {
+        std::string fname = PQfname(PG_RESULT(res), i);
+
+        LogTrace(TRACE5) << "field[" << i << "] "
+                         << "name=" << fname << " "
+                         << "format=" << PQfformat(PG_RESULT(res), i);
+
+        ASSERT(PQfformat(PG_RESULT(res), i) == 0 && "only text format is supported");
+
+        LogTrace(TRACE5) << "field name=" << fname;
+        fname = StrUtils::ToUpper(fname);
+
+        char* value = PQgetvalue(PG_RESULT(res), currRow, i);
+        LogTrace(TRACE5) << "value=" << value;
+
+        const int len = PQgetlength(PG_RESULT(res), currRow, i);
+        LogTrace(TRACE5) << "len=" << len;
+
+        bool isNull = PQgetisnull(PG_RESULT(res), currRow, i);
+        LogTrace(TRACE5) << "isNull=" << isNull;
+
+        fields_.emplace(fname, Field{fname, isNull, std::string(value, len), i });
+    }
+
     fetcher_->fetchNext();
     return erc_;
 }

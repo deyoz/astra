@@ -352,9 +352,20 @@ namespace DbCpp
         virtual ResultCode EXfet()    = 0;
         virtual ResultCode exec()     = 0;
         virtual ResultCode fen()      = 0;
+        virtual ResultCode nefen()    = 0;
         virtual ResultCode err()      = 0;
         virtual int rowcount()        = 0;
         virtual bool isStable() const = 0;
+
+        virtual int fieldsCount() const = 0;
+
+        virtual bool        fieldIsNull(const std::string& fn) const = 0;
+        virtual std::string fieldValue(const std::string& fn) const = 0;
+        virtual int         fieldIndex(const std::string& fn) const = 0;
+
+        virtual bool        fieldIsNull(int fi) const = 0;
+        virtual std::string fieldValue(int fi) const = 0;
+        virtual std::string fieldName(int fi) const = 0;
     };
 
 #define defineType(TYPE)                                                                           \
@@ -513,9 +524,20 @@ namespace DbCpp
             return ret;
         }
         virtual ResultCode fen() override { return pgErrorCodeMapper(mCursCtl.fen()); }
+        virtual ResultCode nefen() override { return pgErrorCodeMapper(mCursCtl.nefen()); }
         virtual ResultCode err() override { return pgErrorCodeMapper(mCursCtl.err()); }
         virtual int rowcount() override { return mCursCtl.rowcount(); }
         virtual bool isStable() const override { return mIsStable; }
+
+        virtual int fieldsCount() const override { return mCursCtl.fieldsCount(); }
+
+        virtual bool        fieldIsNull(const std::string& fn) const override { return mCursCtl.fieldIsNull(fn); }
+        virtual std::string  fieldValue(const std::string& fn) const override { return mCursCtl.fieldValue(fn); }
+        virtual int          fieldIndex(const std::string& fn) const override { return mCursCtl.fieldIndex(fn); }
+
+        virtual bool        fieldIsNull(int fi) const override { return mCursCtl.fieldIsNull(fi); }
+        virtual std::string  fieldValue(int fi) const override { return mCursCtl.fieldValue(fi); }
+        virtual std::string   fieldName(int fi) const override { return mCursCtl.fieldName(fi); }
 
     private:
         std::list<CharBuffer> mCharBufferCache;
@@ -637,9 +659,44 @@ namespace DbCpp
             return ResultCode::Ok;
         }
         virtual ResultCode fen() override { return oraErrorCodeMapper(mCursCtl.fen()); }
+        virtual ResultCode nefen() override
+        {
+            throw comtech::Exception(STDLOG, __func__, "Call of unsupported OracleImpl method");
+        }
         virtual ResultCode err() override { return oraErrorCodeMapper(mCursCtl.err()); }
         virtual int rowcount() override { return mCursCtl.rowcount(); }
         virtual bool isStable() const override { return mIsStable; }
+
+        virtual int fieldsCount() const override
+        {
+            throw comtech::Exception(STDLOG, __func__, "Call of unsupported OracleImpl method");
+        }
+
+        virtual bool fieldIsNull(const std::string& fn) const override
+        {
+            throw comtech::Exception(STDLOG, __func__, "Call of unsupported OracleImpl method");
+        }
+        virtual std::string fieldValue(const std::string& fn) const override
+        {
+            throw comtech::Exception(STDLOG, __func__, "Call of unsupported OracleImpl method");
+        }
+        virtual int fieldIndex(const std::string& fn) const override
+        {
+            throw comtech::Exception(STDLOG, __func__, "Call of unsupported OracleImpl method");
+        }
+
+        virtual bool fieldIsNull(int fi) const override
+        {
+            throw comtech::Exception(STDLOG, __func__, "Call of unsupported OracleImpl method");
+        }
+        virtual std::string fieldValue(int fi) const override
+        {
+            throw comtech::Exception(STDLOG, __func__, "Call of unsupported OracleImpl method");
+        }
+        virtual std::string fieldName(int fi) const override
+        {
+            throw comtech::Exception(STDLOG, __func__, "Call of unsupported OracleImpl method");
+        }
 
     private:
         std::list<CharBuffer> mCharBufferCache;
@@ -764,8 +821,19 @@ namespace DbCpp
     ResultCode CursCtl::EXfet() { return mImpl->EXfet(); }
     ResultCode CursCtl::exec() { return mImpl->exec(); }
     ResultCode CursCtl::fen() { return mImpl->fen(); }
+    ResultCode CursCtl::nefen() { return mImpl->nefen(); }
     ResultCode CursCtl::err() { return mImpl->err(); }
     int CursCtl::rowcount() { return mImpl->rowcount(); }
+
+    int CursCtl::fieldsCount() const { return mImpl->fieldsCount(); }
+
+    bool CursCtl::fieldIsNull(const std::string& fn) const { return mImpl->fieldIsNull(fn); }
+    std::string CursCtl::fieldValue(const std::string& fn) const { return mImpl->fieldValue(fn); }
+    int CursCtl::fieldIndex(const std::string& fn) const { return mImpl->fieldIndex(fn); }
+
+    bool CursCtl::fieldIsNull(int fi) const { return mImpl->fieldIsNull(fi); }
+    std::string CursCtl::fieldValue(int fi) const { return mImpl->fieldValue(fi); }
+    std::string CursCtl::fieldName(int fi) const { return mImpl->fieldName(fi); }
 
     bool CursCtl::isStable() const { return mImpl->isStable(); }
     void CursCtl::throwBadBindException(const std::string& msg) const

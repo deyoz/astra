@@ -476,6 +476,14 @@ bool checkResult(CursCtl& cur, SessionDescriptor, PgResult result);
 void dumpCursor(const CursCtl&);
 } // details
 
+struct Field
+{
+    std::string Name;
+    bool        IsNull;
+    std::string Value;
+    int         Index;
+};
+
 class CursCtl
 {
     friend class Session;
@@ -584,6 +592,17 @@ public:
     ResultCode err() const { return erc_; }
     int rowcount();
 
+    int nefen();
+    int fieldsCount() const;
+
+    bool        fieldIsNull(const std::string& fname) const;
+    std::string  fieldValue(const std::string& fname) const;
+    int          fieldIndex(const std::string& fname) const;
+
+    bool        fieldIsNull(int fieldIndex) const;
+    std::string  fieldValue(int fieldIndex) const;
+    std::string   fieldName(int fieldIndex) const;
+
 #ifdef XP_TESTING
 public:
 #else
@@ -603,9 +622,11 @@ private:
     std::set<ResultCode> noThrowErrors_;
     std::vector<details::IDefaultValueHolder*> defaults_;
 
+    std::map<std::string, Field> fields_;
+
     void appendBinding(const std::string& pl, const details::BindArg&);
     bool hasBinding(const std::string& pl);
-    PgResult execSql();
+    PgResult execSql();   
 
     template <typename T>
     void bind_(const std::string& pl_, const T& t, const short* ind = nullptr)

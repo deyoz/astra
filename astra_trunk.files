@@ -2699,3 +2699,5 @@ src/xp_testing.cc
 src/xp_testing.h
 src/zamar_dsm.cpp
 src/zamar_dsm.h
+src/pg_tquery.h
+src/pg_tquery.cc
