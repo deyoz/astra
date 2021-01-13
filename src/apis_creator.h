@@ -1482,6 +1482,7 @@ struct TAPISFormat_EDI_AZ : public TEdiAPISFormat
     add_rule(r_setSeats);
     add_rule(r_setBagCount);
 //    add_rule(r_setBagWeight);
+    add_rule(r_bagTagSerials);
     add_rule(r_setCarrier);
     add_rule(r_notOmitCrew);
     add_rule(r_processDocNumber);
