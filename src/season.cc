@@ -3460,6 +3460,8 @@ void SeasonInterface::Edit(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 
 void SeasonInterface::convert(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  throw Exception("Unimplemented SeasonInterface::convert");
+#if 0
   TQuery Qry( &OraSession );
   Qry.SQLText =
    "SELECT trip_id,num,move_id,first_day,last_day,days,pr_cancel pr_del,tlg,reference "
@@ -3556,7 +3558,7 @@ void SeasonInterface::convert(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     ProgError( STDLOG, "Unknown error, trip_id=%d", trip_id );
   };
  }
-
+#endif
 }
 
 
