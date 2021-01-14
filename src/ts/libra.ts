@@ -117,7 +117,7 @@ $(init_term)
 </term>}
 
 ??
-$(dump_table WB_MSG fields="point_id, msg_type, source" display="on")
+$(pg_dump_table WB_MSG fields="point_id, msg_type, source" display="on")
 
 >> lines=auto
 [4853359] [LOADSHEET] [LIBRA] $()
