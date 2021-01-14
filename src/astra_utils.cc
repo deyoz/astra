@@ -1846,7 +1846,7 @@ void rollback()
 
 void commitAndCallCommitHooks()
 {
-    commit_(true/*call rollback hooks*/);
+    commit_(true/*call commit hooks*/);
 }
 
 void rollbackAndCallRollbackHooks()
