@@ -467,7 +467,7 @@ void IntGetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr res
     Qry.CreateVariable( "pkcs_id", otInteger, Crypt.pkcs_id );
     Qry.Execute();
     if ( Qry.Eof ||
-         (GetNode( "getkeys", reqNode ) == NULL && Qry.FieldAsInteger( "send_count" ) != 0) )
+       (GetNode( "getkeys", reqNode ) == NULL && Qry.FieldAsInteger( "send_count" ) != 0) )
       return;
 
     node = NewTextChild( node, "pkcs", Crypt.pkcs_id );
@@ -483,32 +483,34 @@ void IntGetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr res
     if ( !Qry.Eof )
         node = NewTextChild( node, "files" );
     xmlNodePtr fnode;
-    void *data = NULL;
+    void *data = nullptr;
     int len = 0;
     string hexstr;
     try {
       while ( !Qry.Eof ) {
         len = Qry.GetSizeLongField( "data" );
-        if ( data == NULL )
+        if ( data == nullptr )
           data = malloc( len );
         else
           data = realloc( data, len );
-        if ( data == NULL )
+        if ( data == nullptr )
           throw Exception( "Ошибка программы" );
         Qry.FieldAsLong( "data", data );
         StringToHex( string((char*)data, len), hexstr );
-          fnode = NewTextChild( node, "file", hexstr.c_str() );
-          SetProp( fnode, "filename", Qry.FieldAsString( "name" ) );
-            Qry.Next();
+        fnode = NewTextChild( node, "file", hexstr.c_str() );
+        SetProp( fnode, "filename", Qry.FieldAsString( "name" ) );
+        Qry.Next();
       }
     }
     catch( ... ) {
-        if ( data )
-          free( data );
-          throw;
+      if ( data != nullptr ) {
+        free( data );
+      }
+      throw;
     }
-          if ( data )
-          free( data );
+    if ( data != nullptr  ) {
+      free( data );
+    }
   }
 }
 
@@ -560,27 +562,27 @@ void GetCertRequestInfo( const string &desk, bool pr_grp, TCertRequest &req )
       "       crypt_req_data.pr_denial=0 ";
   Qry.CreateVariable( "desk", otString, desk );
   Qry.Execute();
-        if ( Qry.Eof )
-          throw AstraLocale::UserException( "MSG.MESSAGEPRO.NO_DATA_FOR_CERT_QRY" );
-        req.FileKey = "astra"+DateTimeToStr( udate, "ddmmyyhhnn" );
-        req.Country =	Qry.FieldAsString( "country" );
-        req.Algo = Qry.FieldAsString( "key_algo" );
-        if ( !Qry.FieldIsNULL( "keyslength" ) )
-          req.KeyLength = Qry.FieldAsInteger( "keyslength" );
-        else
-                req.KeyLength = 0;
-        req.StateOrProvince = Qry.FieldAsString( "state" );
-        req.Localite = Qry.FieldAsString( "city" );
-        req.Organization = Qry.FieldAsString( "organization" );
-        req.OrganizationalUnit = Qry.FieldAsString( "organizational_unit" );
-        req.Title = Qry.FieldAsString( "title" );
-        req.CommonName = Qry.FieldAsString( "user_name" );
+  if ( Qry.Eof )
+    throw AstraLocale::UserException( "MSG.MESSAGEPRO.NO_DATA_FOR_CERT_QRY" );
+  req.FileKey = "astra"+DateTimeToStr( udate, "ddmmyyhhnn" );
+  req.Country =	Qry.FieldAsString( "country" );
+  req.Algo = Qry.FieldAsString( "key_algo" );
+  if ( !Qry.FieldIsNULL( "keyslength" ) )
+    req.KeyLength = Qry.FieldAsInteger( "keyslength" );
+  else
+    req.KeyLength = 0;
+  req.StateOrProvince = Qry.FieldAsString( "state" );
+  req.Localite = Qry.FieldAsString( "city" );
+  req.Organization = Qry.FieldAsString( "organization" );
+  req.OrganizationalUnit = Qry.FieldAsString( "organizational_unit" );
+  req.Title = Qry.FieldAsString( "title" );
+  req.CommonName = Qry.FieldAsString( "user_name" );
   if ( req.CommonName.empty() ) {
         req.CommonName = "Astra";
-        if ( pr_grp )
-                req.CommonName += "(Group)";
-        req.CommonName += desk;
-        req.CommonName += DateTimeToStr( udate, "ddmmyyhhnn" );
+    if ( pr_grp )
+      req.CommonName += "(Group)";
+    req.CommonName += desk;
+    req.CommonName += DateTimeToStr( udate, "ddmmyyhhnn" );
   }
   req.EmailAddress = Qry.FieldAsString( "email" );
 }
@@ -677,7 +679,7 @@ void IntPutRequestCertificate( const string &request, const string &desk, bool p
     "  WHERE code=:desk";
   Qry.CreateVariable( "pr_grp", otInteger, pr_grp );
   Qry.CreateVariable( "desk", otString, desk );
-  Qry.CreateVariable( "request", otString, request );
+  Qry.CreateVariable( "request", otString, ConvertCodepage( request,  "UTF8", "CP866" ) ); //request to db CP866
   if ( pkcs_id != NoExists )
     Qry.CreateVariable( "pkcs_id", otInteger, pkcs_id );
   else
@@ -808,8 +810,8 @@ void DeletePSE( const string &PSEpath, const string &file_key, const string &fil
     unlink( file_key.c_str() );
   if ( !file_req.empty() )
     unlink( file_req.c_str() );
-        Erase_PSE31( (char*)PSEpath.c_str() );
-        remove( PSEpath.c_str() );
+  PSE_Erase( (char *)PSEpath.c_str() );
+  remove( PSEpath.c_str() );
 }
 
 void readPSEFile( const string &filename, const string &name, TPSEFile &pse_file )
@@ -936,19 +938,23 @@ string getPassword( )
         return  pswd;
 }
 
+static char* CP866toUTF8Char( const std::string& value ) {
+  static std::string v = "";
+  v = ConvertCodepage( value,  "CP866", "UTF8" );
+  return (char*)v.c_str();
+}
+
 void CreatePSE( const string &desk, bool pr_grp, int password_len, TPKCS &pkcs )
 {
-        pkcs.pse_files.clear();
-        tst();
-        ValidateCertificateRequest( desk, pr_grp );
-        ValidatePKCSData( desk, pr_grp ); //нельзя создавать несколько PKCS для одного пульта или группы пультов
-        TCertRequest req;
-        GetCertRequestInfo( desk, pr_grp, req );
-        tst();
-        pkcs.key_filename = req.FileKey + ".key";
-        pkcs.cert_filename = req.FileKey + ".pem";
-        pkcs.password = getPassword( );
-        string PSEpath = readStringFromTcl( "MESPRO_PSE_PATH", "./crypt" );
+  pkcs.pse_files.clear();
+  ValidateCertificateRequest( desk, pr_grp );
+  ValidatePKCSData( desk, pr_grp ); //нельзя создавать несколько PKCS для одного пульта или группы пультов
+  TCertRequest req;
+  GetCertRequestInfo( desk, pr_grp, req );
+  pkcs.key_filename = req.FileKey + ".key";
+  pkcs.cert_filename = req.FileKey + ".pem";
+  pkcs.password = getPassword( );
+  string PSEpath = readStringFromTcl( "MESPRO_PSE_PATH", "./crypt" );
   PSEpath += "/pses";
   mkdir( PSEpath.c_str(), 0777 );
   int i = 1;
@@ -962,26 +968,27 @@ void CreatePSE( const string &desk, bool pr_grp, int password_len, TPKCS &pkcs )
   try {
     string file_key = PSEpath + "/pkey.key";
     string file_req = PSEpath + "/request.req";
-          if ( req.Algo.empty() )
-            GetError( "SetNewKeysAlgorithm", SetNewKeysAlgorithm( (char*)MP_KEY_ALG_NAME_GOST_2012_256 ) );//(char*)"ECR3410" ) );
-          else
-                GetError( "SetNewKeysAlgorithm", SetNewKeysAlgorithm( (char*)req.Algo.c_str() ) );
-          GetError( "SetCertificateRequestFlags", SetCertificateRequestFlags( CERT_REQ_DONT_PRINT_TEXT ) );
-          GetError( "SetCountry", SetCountry( (char*)req.Country.c_str() ) );
-          GetError( "SetStateOrProvince", SetStateOrProvince( (char*)req.StateOrProvince.c_str() ) );
-          GetError( "SetLocality", SetLocality( (char*)req.Localite.c_str() ) );
-          GetError( "SetOrganization", SetOrganization( (char*)req.Organization.c_str() ) );
-          GetError( "SetOrganizationalUnit", SetOrganizationalUnit( (char*)req.OrganizationalUnit.c_str() ) );
-          GetError( "SetTitle", SetTitle( (char*)req.Title.c_str() ) );
-          GetError( "SetCommonName", SetCommonName( (char*)req.CommonName.c_str() ) );
-          GetError( "SetEmailAddress", SetEmailAddress( (char*)req.EmailAddress.c_str() ) ); //!!!
-    GetError( "PSE31_Generation", PSE31_Generation( (char*)PSEpath.c_str(), 0, NULL, 0 ) );
+    if ( req.Algo.empty() )
+      GetError( "SetNewKeysAlgorithm", SetNewKeysAlgorithm( (char*)MP_KEY_ALG_NAME_GOST_2012_256 ) );//(char*)"ECR3410" ) );
+    else
+      GetError( "SetNewKeysAlgorithm", SetNewKeysAlgorithm( (char*)req.Algo.c_str() ) );
+    GetError( "SetCertificateRequestFlags", SetCertificateRequestFlags( CERT_REQ_DONT_PRINT_TEXT ) );
+    GetError( "SetCountry", SetCountry( CP866toUTF8Char( req.Country ) ) );
+    GetError( "SetStateOrProvince", SetStateOrProvince( CP866toUTF8Char(req.StateOrProvince ) ) );
+    GetError( "SetLocality", SetLocality( CP866toUTF8Char( req.Localite ) ) );
+    GetError( "SetOrganization", SetOrganization( CP866toUTF8Char( req.Organization ) ) );
+    GetError( "SetOrganizationalUnit", SetOrganizationalUnit( CP866toUTF8Char( req.OrganizationalUnit ) ) );
+    GetError( "SetTitle", SetTitle( CP866toUTF8Char( req.Title ) ) );
+    GetError( "SetCommonName", SetCommonName( CP866toUTF8Char( req.CommonName ) ) );
+    GetError( "SetEmailAddress", SetEmailAddress( CP866toUTF8Char( req.EmailAddress ) ) ); //!!!
+    GetError( "PSE_Generation", PSE_Generation( (char*)PSEpath.c_str(), 0, NULL, 0 ) );
     try {
       ProgTrace( TRACE5, "req.Algo=%s, file_key=%s", req.Algo.c_str(), file_key.c_str() );
-      if ( req.Algo == "RSA" || req.Algo == "DSA" ) {
-        if ( req.Algo == "RSA" && req.KeyLength > 0 )
-                GetError( "SetKeysLength", SetKeysLength( req.KeyLength ) );
-                GetError( "NewKeysGeneration", NewKeysGeneration( (char*)file_key.c_str(), (char*)pkcs.password.c_str(), (char*)file_req.c_str() ) );
+      if ( req.Algo == MP_KEY_ALG_NAME_RSA || req.Algo == MP_KEY_ALG_NAME_DSA ) {
+        if ( (req.Algo == MP_KEY_ALG_NAME_RSA) && (req.KeyLength > 0) ) {
+          GetError( "SetKeysLength", SetKeysLength( req.KeyLength ) );
+        }
+        GetError( "NewKeysGeneration", NewKeysGeneration( (char*)file_key.c_str(), (char*)pkcs.password.c_str(), (char*)file_req.c_str() ) );
       }
       else {
         GetError( "NewKeysGenerationEx", NewKeysGenerationEx( (char*)PSEpath.c_str(), NULL, (char*)file_key.c_str(), (char*)pkcs.password.c_str(), (char*)file_req.c_str() ) );
@@ -1062,10 +1069,7 @@ void CryptInterface::CryptValidateServerKey(XMLRequestCtxt *ctxt, xmlNodePtr req
     ProgTrace( TRACE5, "algo=%s", algo.c_str() );
     if ( algo.empty() )
       throw Exception( "Ошибка программы" );
-    pr_GOST = ( algo == string( "ECR3410" ) ||
-                algo == string( "R3410" ) ||
-                algo == MP_HASH_ALG_NAME_GOST_2012_256 ||
-                algo == MP_HASH_ALG_NAME_GOST_2012_512 );
+    pr_GOST = ( algo != MP_KEY_ALG_NAME_RSA && algo != MP_KEY_ALG_NAME_DSA );
     ProgTrace( TRACE5, "pr_GOST=%d, algo=%s", pr_GOST, algo.c_str() );
   }
   catch(...) {
