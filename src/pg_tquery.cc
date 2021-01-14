@@ -485,6 +485,8 @@ void TQuery::SetVariable(const std::string& vname, tnull vdata)
 #include "xp_testing.h"
 #include "pg_session.h"
 
+#include <serverlib/cursctl.h>
+
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 using namespace xp_testing;
@@ -570,11 +572,83 @@ START_TEST(pg_tquery_common_usage)
 END_TEST;
 
 
+START_TEST(check_ora_sessions)
+{
+    // create table
+    make_curs("drop table TEST_ORA_SESSIONS")
+            .noThrowError(CERR_TABLE_NOT_EXISTS)
+            .exec();
+    make_curs("create table TEST_ORA_SESSIONS(ID number)")
+            .exec();
+
+    int id = 0, tmpId = 0;
+
+    // insert via OciCpp::CursCtl
+    make_curs("insert into TEST_ORA_SESSIONS(ID) values (:id)")
+            .bind(":id", ++id)
+            .exec();
+
+    // insert via DbCpp::CursCtl
+    make_db_curs("insert into TEST_ORA_SESSIONS(ID) values (:id)", *get_main_ora_sess(STDLOG))
+            .bind(":id", ++id)
+            .exec();
+
+    // insert via TQuery
+    TQuery InsQry(&OraSession);
+    InsQry.SQLText = "insert into TEST_ORA_SESSIONS(ID) values (:id)";
+    InsQry.CreateVariable("id", otInteger, ++id);
+    InsQry.Execute();
+
+    std::vector<int> ids1, ids2, ids3;
+
+    // select via OciCpp::CursCtl
+    auto ocicur = make_curs("select ID from TEST_ORA_SESSIONS");
+    ocicur
+            .def(tmpId)
+            .exec();
+    while(!ocicur.fen()) {
+        LogTrace(TRACE3) << "id=" << tmpId << " was read from ocicur";
+        ids1.emplace_back(tmpId);
+    }
+
+    // select via DbCpp::CursCtl
+    auto dbcur = make_db_curs("select ID from TEST_ORA_SESSIONS", *get_main_ora_sess(STDLOG));
+    dbcur
+            .def(tmpId)
+            .exec();
+    while(dbcur.fen() == DbCpp::ResultCode::Ok) {
+        LogTrace(TRACE3) << "id=" << tmpId << " was read from dbcur";
+        ids2.emplace_back(tmpId);
+    }
+
+    // select via TQuery
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "select ID from TEST_ORA_SESSIONS";
+    Qry.Execute();
+    for(; !Qry.Eof; Qry.Next()) {
+        tmpId = Qry.FieldAsInteger("ID");
+        LogTrace(TRACE3) << "id=" << tmpId << " was read from TQuery";
+        ids3.emplace_back(tmpId);
+    }
+
+    fail_unless(ids1 == ids2);
+    fail_unless(ids1 == ids3);
+}
+END_TEST;
+
 
 #define SUITENAME "pg_tquery"
 TCASEREGISTER(testInitDB, testShutDBConnection)
 {
     ADD_TEST(pg_tquery_common_usage);
+}
+TCASEFINISH;
+#undef SUITENAME
+
+#define SUITENAME "ora_sessions"
+TCASEREGISTER(testInitDB, 0)
+{
+    ADD_TEST(check_ora_sessions);
 }
 TCASEFINISH;
 #undef SUITENAME
