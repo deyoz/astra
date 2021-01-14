@@ -4002,10 +4002,6 @@ static bool GetDeferEtStatusFlag(xmlNodePtr ediResNode)
         LogTrace(TRACE3) << "defer_etstatus is false in api_mode";
         return false;
     }
-    if(inTestMode()) {
-        LogTrace(TRACE3) << "defer_etstatus is false in test_mode";
-        return false;
-    }
     bool defer_etstatus=false;
     TQuery Qry(&OraSession);
 
@@ -4019,7 +4015,7 @@ static bool GetDeferEtStatusFlag(xmlNodePtr ediResNode)
       if (!Qry.Eof && !Qry.FieldIsNULL("defer_etstatus"))
         defer_etstatus=Qry.FieldAsInteger("defer_etstatus")!=0;
       else
-        defer_etstatus=true;
+        defer_etstatus=!inTestMode(); //по умолчанию в рабочем режиме раздельное подтверждение, в тестовом нераздельное
     }
 
     return defer_etstatus;
@@ -4614,8 +4610,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               //проверяем фамилию в билете
               if (!pax.tkn.no.empty() && !pax.surname.empty() && pax.api_doc_applied())
               {
-                list<TETickItem> eticks;
-                TETickItem::fromDB(pax.tkn.no, TETickItem::Display, eticks);
+                list<TETickItem> eticks = TETickItem::fromDB(pax.tkn.no, TETickItem::Display);
                 if (!eticks.empty() && !eticks.front().surname.empty())
                 {
                   string tick_surname=eticks.front().surname;

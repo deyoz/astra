@@ -204,6 +204,7 @@ class TETickItem
     std::string surname, name;
     std::string fare_basis;
     std::string fare_class;
+    std::string orig_fare_class;
     boost::optional<TBagQuantity> bagNorm;
     std::string display_error, change_status_error;
     int point_id;
@@ -269,20 +270,31 @@ class TETickItem
     }
 
     const TETickItem& toDB(const TEdiAction ediAction) const;
-    TETickItem& fromDB(const TEdiAction ediAction, TQuery &Qry);
     TETickItem& fromDB(const std::string &_et_no,
                        const int _et_coupon,
                        const TEdiAction ediAction,
                        const bool lock);
-    static void fromDB(const std::string &_et_no,
-                       const TEdiAction ediAction,
-                       std::list<TETickItem> &eticks);
+    static std::list<TETickItem> fromDB(int _point_id,
+                       const bool lock);
+    static std::list<TETickItem> fromDB(const std::string &_et_no,
+                       const TEdiAction ediAction);
 
     Ticketing::Ticket makeTicket(const AstraEdifact::TFltParams& fltParams,
                                  const std::string &subclass,
                                  const Ticketing::CouponStatus& real_status) const;
     static void syncOriginalSubclass(const TETCoupon& et);
     static bool syncOriginalSubclass(int pax_id);
+
+private:
+    void saveDisplayTlg() const;
+    void saveDisplay() const;
+    void saveChangeOfStatus() const;
+    TETickItem& loadDisplayTlg(const std::string& _et_no, int _et_coupon, bool lock);
+    TETickItem& loadDisplay(const std::string& _et_no, int _et_coupon, bool lock);
+    static std::list<TETickItem> loadDisplay(const std::string& _et_no, bool lock);
+    TETickItem& loadChangeOfStatus(const std::string& _et_no, int _et_coupon, bool lock);
+    static std::list<TETickItem> loadChangeOfStatus(int _point_id, bool lock);
+    static std::list<TETickItem> loadChangeOfStatus(const std::string& _et_no, bool lock);
 };
 
 std::string airpDepToPrefferedCode(const AirportCode_t& airp,

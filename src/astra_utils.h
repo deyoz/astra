@@ -19,6 +19,7 @@
 #include "jxtlib/jxt_xml_cont.h"
 #include <libtlg/tlgnum.h>
 #include "astra_types.h"
+#include <serverlib/dbcpp_cursctl.h>
 
 using BASIC::date_time::TDateTime;
 
@@ -747,7 +748,34 @@ class Statistic : public std::map<T, int>
     }
 };
 
-void longToDB(TQuery &Qry, const std::string &column_name, const std::string &src, bool nullable=false, int len=4000);
+template<class TQueryT>
+void longToDB(TQueryT &Qry, const std::string &column_name, const std::string &src,
+              bool nullable=false, int len=4000)
+{
+    if (!src.empty())
+    {
+      std::string::const_iterator ib,ie;
+      ib=src.begin();
+      for(int page_no=1;ib<src.end();page_no++)
+      {
+        ie=ib+len;
+        if (ie>src.end()) ie=src.end();
+        Qry.SetVariable("page_no", page_no);
+        Qry.SetVariable(column_name, std::string(ib,ie));
+        Qry.Execute();
+        ib=ie;
+      };
+    }
+    else
+    {
+      if (nullable)
+      {
+        Qry.SetVariable("page_no", 1);
+        Qry.SetVariable(column_name, FNull);
+        Qry.Execute();
+      };
+    }
+}
 
 void traceXML(const xmlDocPtr doc);
 

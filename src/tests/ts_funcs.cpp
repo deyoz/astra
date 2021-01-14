@@ -27,6 +27,7 @@
 #include "prn_tag_store.h"
 #include "cache.h"
 #include "PgOraConfig.h"
+#include "timer.h"
 
 #include <queue>
 #include <fstream>
@@ -172,7 +173,7 @@ static std::string FP_init_jxt_pult(const std::vector<std::string> &args)
         puts("Init locale failed");
         return "";
     }
-    
+
     assert(args.size() == 1 && args[0].length() == 6);
     GetTestContext()->vars["JXT_PULT"] = args[0];
     return "";
@@ -272,7 +273,7 @@ static std::string FP_init_dcs(const std::vector<std::string> &p)
     using namespace Ticketing::RemoteSystemContext;
 
     assert(p.size() > 2);
-    
+
     std::string airAddr = "",
     ourAirAddr = "";
     if(p.size() > 4) {
@@ -374,7 +375,7 @@ static int getMoveId(int pointId)
    int move_id = 0;
    cur.bind(":point_id", pointId)
       .def(move_id).exfet();
-   return move_id;   
+   return move_id;
 }
 
 static std::string FP_get_move_id(const std::vector<std::string>& p)
@@ -963,6 +964,12 @@ static std::string FP_getCacheSQLParam(const std::vector<std::string> &par)
   return CacheTableTermRequest::getSQLParamXml(par);
 }
 
+static std::string FP_runEtFltTask(const std::vector<std::string> &par)
+{
+  ETCheckStatusFlt();
+  return "";
+}
+
 FP_REGISTER("<<", FP_tlg_in);
 FP_REGISTER("!!", FP_req);
 FP_REGISTER("astra_hello", FP_astra_hello);
@@ -1010,5 +1017,6 @@ FP_REGISTER("cache", FP_cache);
 FP_REGISTER("cache_iface_ver", FP_getCacheIfaceVer);
 FP_REGISTER("cache_sql_param", FP_getCacheSQLParam);
 FP_REGISTER("dump_db_table", FP_dump_db_table);
+FP_REGISTER("run_et_flt_task", FP_runEtFltTask);
 
 #endif /* XP_TESTING */
