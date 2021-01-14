@@ -238,7 +238,7 @@ void getFlightTuneCompRef( int point_id, bool use_filter, const string &trip_air
 }
 
 struct CompParams {
-   enum TCond  { fcOnleSetCompon, fcFiltered, fcLibra };
+   enum TCond  { fcOnlySetCompon, fcFiltered, fcLibra };
    BitSet<TCond> conds;
    std::string filter_airline;
    std::string filter_craft;
@@ -260,7 +260,7 @@ void getFlightBaseCompRef( int point_id,
 {
   TQuery Qry( &OraSession );
   string sql;
-  if ( !compParams.conds.isFlag( CompParams::TCond::fcOnleSetCompon ) ) {
+  if ( !compParams.conds.isFlag( CompParams::TCond::fcOnlySetCompon ) ) {
     sql =
       "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "
       "       comps.descr,0 as pr_comp, comps.airline, comps.airp "
@@ -271,7 +271,7 @@ void getFlightBaseCompRef( int point_id,
     sql +=
       "WHERE points.craft = comps.craft AND points.point_id = :point_id ";
     if ( compParams.conds.isFlag( CompParams::TCond::fcLibra ) ) {
-      sql += " AND libra_comps.comp_id=comps.comp_id ";
+      sql += " AND libra_comps.comp_id=comps.comp_id AND points.bort=comps.bort ";
     }
     sql +=  " UNION ";
   }
@@ -279,13 +279,10 @@ void getFlightBaseCompRef( int point_id,
     "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "
     "       comps.descr,1 as pr_comp, null airline, null airp "
     " FROM comps, points, trip_sets "
-    "WHERE points.point_id=trip_sets.point_id AND ";
-//  if ( !compParams.isLibra ) {
-    sql += "      points.craft = comps.craft AND ";
-//  }
-  sql +=
+    "WHERE points.point_id=trip_sets.point_id AND "
+    "      points.craft = comps.craft AND "
     " points.point_id = :point_id AND "
-    "      trip_sets.comp_id = comps.comp_id "
+    " trip_sets.comp_id = comps.comp_id "
     "ORDER BY craft, bort, classes, descr";
   LogTrace(TRACE5) << sql;
   Qry.SQLText = sql;
@@ -505,7 +502,7 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             ProgTrace( TRACE5, "GetPriorAirp: point_id=%d, comp_id=%d", item.point_id, Qry.FieldAsInteger( "comp_id" ) );
             if ( Qry.FieldAsInteger( "comp_id" ) >= 0 ) { // базовая
               BitSet<CompParams::TCond> conds;
-              conds.setFlag( CompParams::TCond::fcOnleSetCompon );
+              conds.setFlag( CompParams::TCond::fcOnlySetCompon );
               getFlightBaseCompRef( item.point_id, CompParams( conds, trip_airline, craft, bort ), comps_tmp );
             }
             else {
