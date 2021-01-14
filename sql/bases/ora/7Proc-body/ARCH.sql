@@ -1251,7 +1251,6 @@ BEGIN
     DELETE FROM pax_seats WHERE point_id=curRow.point_id;
     DELETE FROM utg_prl WHERE point_id=curRow.point_id;
     DELETE FROM trip_tasks WHERE point_id=curRow.point_id;
-    DELETE FROM etickets WHERE point_id=curRow.point_id;
     DELETE FROM emdocs WHERE point_id=curRow.point_id;
     DELETE FROM trip_apis_params WHERE point_id=curRow.point_id;
     DELETE FROM counters_by_subcls WHERE point_id=curRow.point_id;
@@ -1688,14 +1687,6 @@ BEGIN
         IF SYSDATE>time_finish THEN CLOSE cur; RETURN; END IF;
       END LOOP;
       CLOSE cur;
-    END IF;
-    IF step=5 THEN
-      DELETE FROM eticks_display WHERE last_display<arx_date AND rownum<=remain_rows;
-      remain_rows:=remain_rows-SQL%ROWCOUNT;
-    END IF;
-    IF step=6 THEN
-      DELETE FROM eticks_display_tlgs WHERE last_display<arx_date AND rownum<=remain_rows;
-      remain_rows:=remain_rows-SQL%ROWCOUNT;
     END IF;
     IF step=7 THEN
       DELETE FROM emdocs_display WHERE last_display<arx_date AND rownum<=remain_rows;

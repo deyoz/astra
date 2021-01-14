@@ -30,6 +30,7 @@ namespace PgOra
         { "SP_PG_GROUP_IAPI",  { "IAPI_PAX_DATA" } },
         { "SP_PG_GROUP_IATCI", { "IATCI_TABS_SEQ", "IATCI_TABS", "IATCI_SETTINGS", "GRP_IATCI_XML", "DEFERRED_CKI_DATA", "CKI_DATA" } },
         { "SP_PG_GROUP_WC",    { "RL_SEQ", "WC_PNR", "WC_TICKET", "WC_COUPON", "AIRPORT_CONTROLS" } },
+        { "SP_PG_GROUP_ET",    { "ETICKETS", "ETICKS_DISPLAY", "ETICKS_DISPLAY_TLGS" } },
     };
 
     static std::string getGroupInner(std::string objectName, const GroupsType& groups)
@@ -56,9 +57,13 @@ namespace PgOra
 
     bool supportsPg(const std::string& objectName)
     {
+        LogTrace(TRACE5) << __func__ << ": objectName=" << objectName;
         const std::string& group = getGroup(objectName);
-        return group == "" ? false
-                           : Config(getGroup(objectName)).writePostgres();
+        LogTrace(TRACE5) << __func__ << ": group=" << group;
+        bool result = group == "" ? false
+                                  : Config(getGroup(objectName)).writePostgres();
+        LogTrace(TRACE5) << __func__ << ": result=" << result;
+        return result;
     }
 
     DbCpp::Session& getROSession(const std::string& objectName)

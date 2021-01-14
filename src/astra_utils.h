@@ -19,6 +19,7 @@
 #include "jxtlib/jxt_xml_cont.h"
 #include <libtlg/tlgnum.h>
 #include "astra_types.h"
+#include <serverlib/dbcpp_cursctl.h>
 
 using BASIC::date_time::TDateTime;
 
@@ -775,6 +776,10 @@ void longToDB(TQueryT &Qry, const std::string &column_name, const std::string &s
       };
     }
 }
+
+void execWithPager(DbCpp::CursCtl& cur,
+                   const std::string& field_holder, const std::string& value,
+                   bool nullable=false, int len=4000);
 
 void traceXML(const xmlDocPtr doc);
 

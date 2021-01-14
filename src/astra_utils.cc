@@ -2012,6 +2012,35 @@ int TNearestDate::get()
     return point_id;
 }
 
+void execWithPager(DbCpp::CursCtl& cur,
+                   const std::string& field_holder, const std::string& value,
+                   bool nullable, int length)
+{
+  if (!value.empty())
+  {
+    std::string::const_iterator ib,ie;
+    ib=value.begin();
+    for(int page_no=1;ib<value.end();page_no++)
+    {
+      ie=ib+length;
+      if (ie>value.end()) ie=value.end();
+      cur.bind(":page_no", page_no);
+      cur.bind(field_holder.c_str(), std::string(ib,ie));
+      cur.exec();
+      ib=ie;
+    };
+  }
+  else
+  {
+    if (nullable)
+    {
+      cur.bind("page_no", 1);
+      cur.bind(field_holder.c_str(), "", -1 /*null*/);
+      cur.exec();
+    };
+  }
+}
+
 void traceXML(const xmlDocPtr doc)
 {
   string xml=XMLTreeToText(doc);

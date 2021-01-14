@@ -22,6 +22,8 @@
 #include <serverlib/dates_io.h>
 #include <serverlib/tcl_utils.h>
 #include <serverlib/oci_rowid.h>
+#include <serverlib/dbcpp_cursctl.h>
+#include "PgOraConfig.h"
 
 #include "dbo.h"
 #include "dbostructures.h"
@@ -35,6 +37,8 @@ using namespace ASTRA;
 using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
 using namespace std;
+
+bool deleteEtickets(int point_id);
 
 namespace  PG_ARX
 {
@@ -1398,7 +1402,6 @@ void deleteByPointId(const PointId_t& point_id)
                          " DELETE FROM pax_seats WHERE point_id=:point_id;         "
                          " DELETE FROM utg_prl WHERE point_id=:point_id;           "
                          " DELETE FROM trip_tasks WHERE point_id=:point_id;        "
-                         " DELETE FROM etickets WHERE point_id=:point_id;          "
                          " DELETE FROM emdocs WHERE point_id=:point_id;            "
                          " DELETE FROM trip_apis_params WHERE point_id=:point_id;  "
                          " DELETE FROM counters_by_subcls WHERE point_id=:point_id;"
@@ -1413,6 +1416,7 @@ void deleteByPointId(const PointId_t& point_id)
                          "END;");
     cur.bind(":point_id", point_id);
     cur.exec();
+    deleteEtickets(point_id.get());
 }
 
 void deleteByMoveId(const MoveId_t & move_id)
@@ -2069,14 +2073,28 @@ int delete_aodb_spp_files(const Dates::DateTime_t& arx_date, int remain_rows)
 
 int delete_eticks_display(const Dates::DateTime_t& arx_date, int remain_rows)
 {
-    auto cur = make_curs("delete from ETICKS_DISPLAY where LAST_DISPLAY < :arx_date and ROWNUM <= :remain_rows ");
+    auto cur = make_db_curs(
+          "delete from ETICKS_DISPLAY "
+          "where (TICKET_NO, COUPON_NO) in ("
+          "select TICKET_NO, COUPON_NO "
+          "from ETICKS_DISPLAY "
+          "where LAST_DISPLAY < :arx_date "
+          "FETCH FIRST :remain_rows ROWS ONLY) ",
+          PgOra::getRWSession("ETICKS_DISPLAY"));
     cur.bind(":arx_date", arx_date).bind(":remain_rows", remain_rows).exec();
     return cur.rowcount();
 }
 
 int delete_eticks_display_tlgs(const Dates::DateTime_t& arx_date, int remain_rows)
 {
-    auto cur = make_curs("delete from ETICKS_DISPLAY_TLGS where LAST_DISPLAY < :arx_date and ROWNUM <= :remain_rows ");
+    auto cur = make_db_curs(
+          "delete from ETICKS_DISPLAY_TLGS "
+          "where (TICKET_NO, COUPON_NO) in ("
+          "select TICKET_NO, COUPON_NO "
+          "from ETICKS_DISPLAY_TLGS "
+          "where LAST_DISPLAY < :arx_date "
+          "FETCH FIRST :remain_rows ROWS ONLY) ",
+          PgOra::getRWSession("ETICKS_DISPLAY_TLGS"));
     cur.bind(":arx_date", arx_date).bind(":remain_rows", remain_rows).exec();
     return cur.rowcount();
 }
