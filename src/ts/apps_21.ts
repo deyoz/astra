@@ -1812,10 +1812,10 @@ $(init_apps ЮТ НЛ APPS_21 closeout=false inbound=true outbound=true)
 #Сначала завели рейс потом пришел PNL , SEND_NEW_APPS_INFO(tlg)
 
 $(PREPARE_SEASON_SCD ЮТ АМС ПРХ 300 -1 TU5 $(date_format %d.%m.%Y -12) $(date_format %d.%m.%Y +12))
-$(make_spp $(ddmmyy -2))
+$(make_spp $(ddmmyy -3))
 $(deny_ets_interactive ЮТ 300 АМС)
 
-$(INB_PNL_UT AMS PRG 300 $(ddmon -2 en))
+$(INB_PNL_UT AMS PRG 300 $(ddmon -3 en))
 $(set point_dep $(last_point_id_spp))
 
 
