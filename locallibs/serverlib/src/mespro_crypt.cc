@@ -76,7 +76,7 @@ bool initMesProCrypting(MPCryptParams &params)
       ProgError(STDLOG, "GetCertPublicKeyAlgorithmBuffer() failed\n");
       return false;
     }
-    if(strcmp(cert_algo,"ECR3410")==0 || strcmp(cert_algo,"R3410")==0) // ƒŽ‘’
+    if(strcmp(cert_algo,MP_KEY_ALG_NAME_RSA)!=0 && strcmp(cert_algo,MP_KEY_ALG_NAME_DSA)!=0) // ƒŽ‘’
     {
       std::string PSEpath=readStringFromTcl("MESPRO_PSE_PATH","./crypt");
       err=AddPSEPrivateKeyFromBufferEx((char *)PSEpath.c_str(),0,(char *)params.PKey.data(),params.PKey.size(),params.PKeyPass.empty()?0:((char *)params.PKeyPass.c_str()));
