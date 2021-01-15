@@ -67,11 +67,15 @@ end
 CREATE DATABASE $user WITH
     TEMPLATE            = template0
     ENCODING            = 'UTF8'
-    LC_COLLATE          = 'C'
+    LC_COLLATE          = 'C.UTF-8'
     LC_CTYPE            = 'en_US.UTF-8'
     CONNECTION LIMIT    = 25;
 
 GRANT ALL PRIVILEGES ON DATABASE $user TO $user;
+
+-- Чтобы сообщения ошибочных SQL-запросов были по-английски
+-- иначе скрипты построения БД их не ловят
+ALTER DATABASE $user SET lc_messages='C';
 
 -- Following lines are almost copy-paste from oracle db builder, seems nobody knows how should it work.
 -- create xp_testing table to prevent DB building on PROD
