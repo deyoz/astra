@@ -15,8 +15,8 @@ build:
   script:
     ./buildFromScratch.sh astra_trunk/trunk
 
-artifacts:
-  name: "tclmonlog"
-  paths:
-    - src/tclmon.log
-  when: on_failure
+  artifacts:
+    name: "tclmonlog"
+    paths:
+      - src/tclmon.log
+    when: on_failure
