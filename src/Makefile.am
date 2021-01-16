@@ -219,7 +219,7 @@ astra_SOURCES = \
   timatic_exchange.cc \
   zamar_dsm.cpp \
   pg_session.cc \
-  pg_tquery.cc \
+  db_tquery.cc \
   base_callbacks.cpp \
   dbo.cpp \
   dbostructures.cpp \
@@ -447,7 +447,7 @@ noinst_HEADERS = \
   zamar_dsm.h \
   astra_types.h \
   pg_session.h \
-  pg_tquery.h \
+  db_tquery.h \
   base_callbacks.h \
   dbo.h \
   dbostructures.h \

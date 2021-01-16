@@ -1,8 +1,11 @@
 #include "wb_messages.h"
 #include "astra_utils.h"
-#include "pg_tquery.h"
+#include "db_tquery.h"
 #include "PgOraConfig.h"
 #include "date_time.h"
+
+#define NICKNAME "DEN"
+#include <serverlib/slogger.h>
 
 
 namespace WBMessages {
@@ -31,7 +34,7 @@ const TMsgTypes& MsgTypes()
 void toDB(int point_id, TMsgType::Enum msg_type,
           const std::string &content, const std::string &source)
 {
-    PG::TQuery Qry;
+    DB::TQuery Qry(PgOra::getRWSession("WB_MSG"));
     Qry.SQLText =
 "insert into WB_MSG(ID, MSG_TYPE, POINT_ID, TIME_RECEIVE, SOURCE) values "
 "(:id, :msg_type, :point_id, :nowutc, :source)";
@@ -44,7 +47,7 @@ void toDB(int point_id, TMsgType::Enum msg_type,
     Qry.CreateVariable("source",   otString,  source);
     Qry.Execute();
 
-    PG::TQuery TxtQry;
+    DB::TQuery TxtQry(PgOra::getRWSession("WB_MSG_TEXT"));
     TxtQry.SQLText =
 "insert into WB_MSG_TEXT(ID, PAGE_NO, TEXT) values(:id, :page_no, :text)";
 
