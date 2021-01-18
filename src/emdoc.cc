@@ -4,6 +4,8 @@
 #include "qrys.h"
 #include "date_time.h"
 #include "alarms.h"
+#include <serverlib/dbcpp_cursctl.h>
+#include "PgOraConfig.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -188,28 +190,21 @@ string GetSQL(const TListType ltype)
   if (ltype==allWithTknByPointId)
   sql << "       d.grp_id AS service_payment_grp_id, \n";
 
-  sql << "       CASE /*WHEN a.emd_no IS NOT NULL THEN a.rfic*/ \n"
-         "            WHEN b.emd_no IS NOT NULL THEN b.rfic \n"
+  sql << "       CASE WHEN b.emd_no IS NOT NULL THEN b.rfic \n"
          "                                      ELSE c.rfic END AS rfic, \n"
-         "       CASE /*WHEN a.emd_no IS NOT NULL THEN a.rfisc*/ \n"
-         "            WHEN b.emd_no IS NOT NULL THEN b.rfisc \n"
+         "       CASE WHEN b.emd_no IS NOT NULL THEN b.rfisc \n"
          "                                      ELSE c.rfisc END AS rfisc, \n"
-         "       CASE /*WHEN a.emd_no IS NOT NULL THEN a.service_quantity*/ \n"
-         "            WHEN b.emd_no IS NOT NULL THEN b.service_quantity \n"
+         "       CASE WHEN b.emd_no IS NOT NULL THEN b.service_quantity \n"
          "                                      ELSE c.service_quantity END AS service_quantity, \n"
-         "       CASE /*WHEN a.emd_no IS NOT NULL THEN a.ssr_code*/ \n"
-         "            WHEN b.emd_no IS NOT NULL THEN b.ssr_code \n"
+         "       CASE WHEN b.emd_no IS NOT NULL THEN b.ssr_code \n"
          "                                      ELSE c.ssr_code END AS ssr_code, \n"
-         "       CASE /*WHEN a.emd_no IS NOT NULL THEN a.service_name*/ \n"
-         "            WHEN b.emd_no IS NOT NULL THEN b.service_name \n"
+         "       CASE WHEN b.emd_no IS NOT NULL THEN b.service_name \n"
          "                                      ELSE c.service_name END AS service_name, \n"
-         "       CASE /*WHEN a.emd_no IS NOT NULL THEN a.emd_type*/ \n"
-         "            WHEN b.emd_no IS NOT NULL THEN b.emd_type \n"
+         "       CASE WHEN b.emd_no IS NOT NULL THEN b.emd_type \n"
          "                                      ELSE c.emd_type END AS emd_type, \n"
-         "       CASE /*WHEN a.emd_no IS NOT NULL THEN a.emd_no_base*/ \n"
-         "            WHEN b.emd_no IS NOT NULL THEN b.emd_no_base \n"
+         "       CASE WHEN b.emd_no IS NOT NULL THEN b.emd_no_base \n"
          "                                      ELSE c.emd_no END AS emd_no_base \n"
-         "FROM /*emdocs_display a,*/ pax_emd b, pax_asvc c, \n";
+         "FROM pax_emd b, pax_asvc c, \n";
   if (ltype==unboundByPointId ||
       ltype==unboundByPaxId ||
       ltype==allWithTknByPointId)
@@ -532,169 +527,348 @@ TEMDocItem::TEMDocItem(const Emd& _emd,
   emd_no_base=connected_emd_no.empty()?emd.no:*(connected_emd_no.begin());
 }
 
+static void bindDisplayItem(DbCpp::CursCtl& cur,
+                            const TEMDocItem& item)
+{
+  short notNull = 0;
+  short null = -1;
+  cur.stb()
+      .bind(":doc_no", item.emd.no)
+      .bind(":coupon_no", item.emd.coupon)
+      .bind(":rfic", item.RFIC)
+      .bind(":rfisc", item.RFISC)
+      .bind(":service_quantity", item.service_quantity)
+      .bind(":ssr_code", item.ssr_code)
+      .bind(":service_name", item.service_name)
+      .bind(":emd_type", item.emd_type)
+      .bind(":emd_no_base", item.emd_no_base)
+      .bind(":et_no", item.et.no)
+      .bind(":et_coupon", item.et.coupon,
+               item.et.coupon != ASTRA::NoExists ? &notNull : &null)
+      .bind(":last_display", DateTimeToBoost(NowUTC()));
+}
+
+static bool updateDisplay(const TEMDocItem& item)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": emd_no=" << item.emd.no
+                   << ", coupon_no=" << item.emd.coupon;
+  auto cur = make_db_curs(
+        "UPDATE emdocs_display "
+        "SET rfic=:rfic, "
+        "    rfisc=:rfisc, "
+        "    service_quantity=:service_quantity, "
+        "    ssr_code=:ssr_code, "
+        "    service_name=:service_name, "
+        "    emd_type=:emd_type, "
+        "    emd_no_base=:emd_no_base, "
+        "    et_no=:et_no, "
+        "    et_coupon=:et_coupon, "
+        "    last_display=:last_display "
+        "WHERE emd_no=:doc_no "
+        "AND emd_coupon=:coupon_no ",
+        PgOra::getRWSession("EMDOCS_DISPLAY"));
+  bindDisplayItem(cur, item);
+  cur.exec();
+
+  LogTrace(TRACE5) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+static bool insertDisplay(const TEMDocItem& item)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": ticket_no=" << item.emd.no
+                   << ", coupon_no=" << item.emd.coupon;
+  auto cur = make_db_curs(
+        "INSERT INTO emdocs_display( "
+        "emd_no, emd_coupon, rfic, rfisc, service_quantity, ssr_code, "
+        "service_name, emd_type, emd_no_base, et_no, et_coupon, last_display "
+        ") VALUES ( "
+        ":doc_no, :coupon_no, :rfic, :rfisc, :service_quantity, :ssr_code, "
+        ":service_name, :emd_type, :emd_no_base, :et_no, :et_coupon, :last_display "
+        ") ",
+        PgOra::getRWSession("EMDOCS_DISPLAY"));
+  bindDisplayItem(cur, item);
+  cur.exec();
+
+  LogTrace(TRACE5) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+const TEMDocItem& TEMDocItem::saveDisplay() const
+{
+  LogTrace(TRACE5) << __func__
+                   << ": emd_no=" << emd.no
+                   << ", coupon_no=" << emd.coupon;
+  const bool updated = updateDisplay(*this);
+  if (not updated) {
+    insertDisplay(*this);
+  }
+  return *this;
+}
+
+static void bindChangeOfStatusItem(DbCpp::CursCtl& cur,
+                                   const TEMDocItem& item)
+{
+  short notNull = 0;
+  short null = -1;
+  cur.stb()
+      .bind(":point_id", item.point_id)
+      .bind(":coupon_status",
+            item.emd.status!=CouponStatus::Unavailable ? item.emd.status->dispCode()
+                                                       : "",
+            item.emd.status!=CouponStatus::Unavailable ? &notNull : &null)
+      .bind(":change_status_error", item.change_status_error.substr(0,100))
+      .bind(":doc_no", item.emd.no)
+
+      .bind(":coupon_no", item.emd.coupon);
+}
+
+static bool updateChangeOfStatus(const TEMDocItem& item)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": emd_no=" << item.emd.no
+                   << ", coupon_no=" << item.emd.coupon;
+  auto cur = make_db_curs(
+        "UPDATE emdocs "
+        "SET change_status_error=:change_status_error, "
+        "    coupon_status=:coupon_status, "
+        "    point_id=:point_id "
+        "WHERE doc_no=:doc_no "
+        "AND coupon_no=:coupon_no ",
+        PgOra::getRWSession("EMDOCS"));
+  bindChangeOfStatusItem(cur, item);
+  cur.exec();
+
+  LogTrace(TRACE5) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+static bool insertChangeOfStatus(const TEMDocItem& item)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": ticket_no=" << item.emd.no
+                   << ", coupon_no=" << item.emd.coupon;
+  auto cur = make_db_curs(
+        "INSERT INTO emdocs( "
+        "doc_no, coupon_no, coupon_status, change_status_error, associated, point_id "
+        ") VALUES ( "
+        ":doc_no, :coupon_no, :coupon_status, :change_status_error, 1, :point_id "
+        ") ",
+        PgOra::getRWSession("EMDOCS"));
+  bindChangeOfStatusItem(cur, item);
+  cur.exec();
+
+  LogTrace(TRACE5) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+const TEMDocItem& TEMDocItem::saveChangeOfStatus() const
+{
+  LogTrace(TRACE5) << __func__
+                   << ": emd_no=" << emd.no
+                   << ", coupon_no=" << emd.coupon;
+  const bool updated = updateChangeOfStatus(*this);
+  if (not updated) {
+    insertChangeOfStatus(*this);
+  }
+  return *this;
+}
+
+static void bindSystemUpdateItem(DbCpp::CursCtl& cur,
+                                   const TEMDocItem& item)
+{
+  cur.stb()
+      .bind(":point_id", item.point_id)
+      .bind(":associated", int(item.emd.action==CpnStatAction::associate))
+      .bind(":associated_no", item.et.no)
+      .bind(":associated_coupon", item.et.coupon)
+      .bind(":system_update_error", item.change_status_error.substr(0,100))
+      .bind(":doc_no", item.emd.no)
+      .bind(":coupon_no", item.emd.coupon);
+}
+
+static bool updateSystemUpdate(const TEMDocItem& item)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": emd_no=" << item.emd.no
+                   << ", coupon_no=" << item.emd.coupon;
+  auto cur = make_db_curs(
+        "UPDATE emdocs "
+        "SET system_update_error=:system_update_error, "
+        "    associated=:associated, "
+        "    associated_no=:associated_no, "
+        "    associated_coupon=:associated_coupon, "
+        "    point_id=:point_id "
+        "WHERE doc_no=:doc_no "
+        "AND coupon_no=:coupon_no ",
+        PgOra::getRWSession("EMDOCS"));
+  bindSystemUpdateItem(cur, item);
+  cur.exec();
+
+  LogTrace(TRACE5) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+static bool insertSystemUpdate(const TEMDocItem& item)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": ticket_no=" << item.emd.no
+                   << ", coupon_no=" << item.emd.coupon;
+  auto cur = make_db_curs(
+        "INSERT INTO emdocs( "
+        "doc_no, coupon_no, system_update_error, associated, associated_no, associated_coupon, point_id "
+        ") VALUES( "
+        ":doc_no, :coupon_no, :system_update_error, :associated, :associated_no, :associated_coupon, :point_id "
+        ") ",
+        PgOra::getRWSession("EMDOCS"));
+  bindSystemUpdateItem(cur, item);
+  cur.exec();
+
+  LogTrace(TRACE5) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+const TEMDocItem& TEMDocItem::saveSystemUpdate() const
+{
+  LogTrace(TRACE5) << __func__
+                   << ": emd_no=" << emd.no
+                   << ", coupon_no=" << emd.coupon;
+  const bool updated = updateSystemUpdate(*this);
+  if (not updated) {
+    insertSystemUpdate(*this);
+  }
+  return *this;
+}
+
+bool deleteEmdocs(int point_id)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": point_id=" << point_id;
+  auto cur = make_db_curs(
+        "DELETE FROM emdocs "
+        "WHERE point_id=:point_id ",
+        PgOra::getRWSession("EMDOCS"));
+  cur.stb()
+      .bind(":point_id", point_id)
+      .exec();
+
+  LogTrace(TRACE5) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
 const TEMDocItem& TEMDocItem::toDB(const TEdiAction ediAction) const
 {
   if (emd.empty())
     throw EXCEPTIONS::Exception("TEMDocItem::toDB: empty emd");
 
-  QParams QryParams;
-  QryParams << QParam("doc_no", otString, emd.no)
-            << (emd.coupon!=ASTRA::NoExists?QParam("coupon_no", otInteger, emd.coupon):
-                                            QParam("coupon_no", otInteger, FNull));
-
   switch(ediAction)
   {
     case Display:
-      QryParams << QParam("rfic", otString)
-                << QParam("rfisc", otString)
-                << QParam("service_quantity", otInteger)
-                << QParam("ssr_code", otString)
-                << QParam("service_name", otString)
-                << QParam("emd_type", otString)
-                << QParam("emd_no_base", otString, emd_no_base)
-                << QParam("et_no", otString, et.no)
-                << (et.coupon!=ASTRA::NoExists?QParam("et_coupon", otInteger, et.coupon):
-                                               QParam("et_coupon", otInteger, FNull))
-                << QParam("last_display", otDate, NowUTC());
-      break;
+      return saveDisplay();
     case ChangeOfStatus:
-      QryParams << (point_id!=ASTRA::NoExists?QParam("point_id", otInteger, point_id):
-                                              QParam("point_id", otInteger, FNull))
-                << (emd.status!=CouponStatus::Unavailable?QParam("coupon_status", otString, emd.status->dispCode()):
-                                                          QParam("coupon_status", otString, FNull))
-                << QParam("change_status_error", otString, change_status_error.substr(0,100));
-      break;
+      return saveChangeOfStatus();
     case SystemUpdate:
-      QryParams << (point_id!=ASTRA::NoExists?QParam("point_id", otInteger, point_id):
-                                              QParam("point_id", otInteger, FNull))
-                << QParam("associated", otInteger, (int)(emd.action==CpnStatAction::associate))
-                << QParam("associated_no", otString, et.no)
-                << QParam("associated_coupon", otInteger, et.coupon)
-                << QParam("system_update_error", otString, system_update_error.substr(0,100));
-      break;
+      return saveSystemUpdate();
   }
 
-  if (ediAction==Display)
-  {
-    const char* sql=
-        "BEGIN "
-        "  UPDATE emdocs_display "
-        "  SET rfic=:rfic, rfisc=:rfisc, service_quantity=:service_quantity, ssr_code=:ssr_code, "
-        "      service_name=:service_name, emd_type=:emd_type, emd_no_base=:emd_no_base, "
-        "      et_no=:et_no, et_coupon=:et_coupon, last_display=:last_display "
-        "  WHERE emd_no=:doc_no AND emd_coupon=:coupon_no; "
-        "  IF SQL%NOTFOUND THEN "
-        "    INSERT INTO emdocs_display(emd_no, emd_coupon, rfic, rfisc, service_quantity, ssr_code, "
-        "      service_name, emd_type, emd_no_base, et_no, et_coupon, last_display) "
-        "    VALUES(:doc_no, :coupon_no, :rfic, :rfisc, :service_quantity, :ssr_code, "
-        "      :service_name, :emd_type, :emd_no_base, :et_no, :et_coupon, :last_display); "
-        "  END IF; "
-        "END;";
-
-    TCachedQuery Qry(sql, QryParams);
-    CheckIn::TServiceBasic::toDB(Qry.get());
-    Qry.get().Execute();
-  }
-
-  if (ediAction==ChangeOfStatus)
-  {
-    const char* sql=
-        "BEGIN "
-        "  UPDATE emdocs "
-        "  SET change_status_error=:change_status_error, coupon_status=:coupon_status, "
-        "      point_id=:point_id "
-        "  WHERE doc_no=:doc_no AND coupon_no=:coupon_no; "
-        "  IF SQL%NOTFOUND THEN "
-        "    INSERT INTO emdocs(doc_no, coupon_no, coupon_status, change_status_error, associated, point_id) "
-        "    VALUES(:doc_no, :coupon_no, :coupon_status, :change_status_error, 1, :point_id); "
-        "  END IF; "
-        "END;";
-
-    TCachedQuery Qry(sql, QryParams);
-    Qry.get().Execute();
-  }
-
-  if (ediAction==SystemUpdate)
-  {
-    const char* sql=
-        "BEGIN "
-        "  UPDATE emdocs "
-        "  SET system_update_error=:system_update_error, "
-        "      associated=:associated, associated_no=:associated_no, associated_coupon=:associated_coupon, "
-        "      point_id=:point_id "
-        "  WHERE doc_no=:doc_no AND coupon_no=:coupon_no; "
-        "  IF SQL%NOTFOUND THEN "
-        "    INSERT INTO emdocs(doc_no, coupon_no, system_update_error, associated, associated_no, associated_coupon, point_id) "
-        "    VALUES(:doc_no, :coupon_no, :system_update_error, :associated, :associated_no, :associated_coupon, :point_id); "
-        "  END IF; "
-        "END;";
-
-    TCachedQuery Qry(sql, QryParams);
-    Qry.get().Execute();
-  }
   return *this;
 }
 
-TEMDCoupon& TEMDCoupon::fromDB(TQuery &Qry)
+TEMDocItem& TEMDocItem::loadDisplay(const std::string& _emd_no,
+                                    int _emd_coupon,
+                                    bool lock)
 {
+  LogTrace(TRACE5) << __func__
+                   << ": emd_no=" << _emd_no
+                   << ", coupon_no=" << _emd_coupon;
   clear();
+  Dates::DateTime_t last_display;
+  auto cur = make_db_curs(
+        "SELECT "
+        "emd_coupon, emd_no, emd_no_base, emd_type, et_coupon, et_no, "
+        "last_display, rfic, rfisc, service_name, service_quantity, ssr_code "
+        "FROM emdocs_display "
+        "WHERE emd_no=:doc_no "
+        "AND emd_coupon=:coupon_no "
+        + std::string(lock ? " FOR UPDATE" : ""),
+        lock ? PgOra::getRWSession("EMDOCS_DISPLAY")
+             : PgOra::getROSession("EMDOCS_DISPLAY"));
+  cur.stb()
+      .def(emd.coupon)
+      .def(emd.no)
+      .def(emd_no_base)
+      .def(emd_type)
+      .defNull(et.coupon, ASTRA::NoExists)
+      .defNull(et.no, "")
+      .def(last_display)
+      .def(RFIC)
+      .def(RFISC)
+      .def(service_name)
+      .defNull(service_quantity, 0)
+      .defNull(ssr_code, "")
+      .bind(":doc_no", _emd_no)
+      .bind(":coupon_no", _emd_coupon)
+      .EXfet();
 
-  no=Qry.FieldAsString("emd_no");
-  coupon=Qry.FieldIsNULL("emd_coupon")?ASTRA::NoExists:
-                                       Qry.FieldAsInteger("emd_coupon");
-
+  LogTrace(TRACE5) << __func__
+                   << ": found="
+                   << (cur.err() != DbCpp::ResultCode::NoDataFound);
   return *this;
 }
 
-const TEMDCoupon& TEMDCoupon::toDB(TQuery &Qry) const
+TEMDocItem& TEMDocItem::loadEmdocs(const std::string& _emd_no,
+                                   int _emd_coupon,
+                                   bool lock)
 {
-  Qry.SetVariable("emd_no", no);
-  coupon!=ASTRA::NoExists?Qry.SetVariable("emd_coupon", coupon):
-                          Qry.SetVariable("emd_coupon", FNull);
-
-  return *this;
-}
-
-TEMDocItem& TEMDocItem::fromDB(const TEdiAction ediAction,
-                               TQuery &Qry)
-{
+  LogTrace(TRACE5) << __func__
+                   << ": emd_no=" << _emd_no
+                   << ", coupon_no=" << _emd_coupon;
   clear();
+  int associated = 0;
+  std::string coupon_status;
+  auto cur = make_db_curs(
+        "SELECT "
+        "doc_no AS emd_no, coupon_no AS emd_coupon, "
+        "coupon_status, associated, associated_no, associated_coupon, "
+        "change_status_error, system_update_error, point_id "
+        "FROM emdocs "
+        "WHERE doc_no=:doc_no "
+        "AND coupon_no=:coupon_no "
+        + std::string(lock ? " FOR UPDATE" : ""),
+        lock ? PgOra::getRWSession("EMDOCS")
+             : PgOra::getROSession("EMDOCS"));
+  cur.stb()
+      .def(emd.coupon)
+      .def(emd.no)
+      .defNull(coupon_status, CouponStatus(CouponStatus::Unavailable)->dispCode())
+      .def(associated)
+      .defNull(et.no, "")
+      .defNull(et.coupon, ASTRA::NoExists)
+      .defNull(change_status_error, "")
+      .defNull(system_update_error, "")
+      .def(point_id)
+      .bind(":doc_no", _emd_no)
+      .bind(":coupon_no", _emd_coupon)
+      .EXfet();
 
-  emd.fromDB(Qry);
-
-  switch(ediAction)
-  {
-    case Display:
-      {
-        CheckIn::TServiceBasic::fromDB(Qry);
-        emd_no_base=Qry.FieldAsString("emd_no_base");
-        et.no=Qry.FieldAsString("et_no");
-        et.coupon=Qry.FieldIsNULL("et_coupon")?ASTRA::NoExists:
-                                               Qry.FieldAsInteger("et_coupon");
-      }
-      break;
-
-    case ChangeOfStatus:
-    case SystemUpdate:
-      {
-        et.no=Qry.FieldAsString("associated_no");
-        et.coupon=Qry.FieldIsNULL("associated_coupon")?ASTRA::NoExists:
-                                                       Qry.FieldAsInteger("associated_coupon");
-
-        emd.status=Qry.FieldIsNULL("coupon_status")?CouponStatus(CouponStatus::Unavailable):
-                                                    CouponStatus(CouponStatus::fromDispCode(Qry.FieldAsString("coupon_status")));
-        emd.action=Qry.FieldAsInteger("associated")!=0?CpnStatAction::associate:
-                                                       CpnStatAction::disassociate;
-
-        change_status_error=Qry.FieldAsString("change_status_error");
-        system_update_error=Qry.FieldAsString("system_update_error");
-
-        point_id=Qry.FieldIsNULL("point_id")?ASTRA::NoExists:
-                                             Qry.FieldAsInteger("point_id");
-      }
-      break;
+  if (cur.err() != DbCpp::ResultCode::NoDataFound) {
+    emd.action=associated!=0?CpnStatAction::associate:
+                             CpnStatAction::disassociate;
+    emd.status = CouponStatus(CouponStatus::fromDispCode(coupon_status));
   }
 
+  LogTrace(TRACE5) << __func__
+                   << ": found="
+                   << (cur.err() != DbCpp::ResultCode::NoDataFound);
   return *this;
 }
 
@@ -705,38 +879,36 @@ TEMDocItem& TEMDocItem::fromDB(const TEdiAction ediAction,
 {
   clear();
 
-  if (_emd_no.empty() || _emd_coupon==ASTRA::NoExists)
+  if (_emd_no.empty() || _emd_coupon==ASTRA::NoExists) {
     throw EXCEPTIONS::Exception("TEMDocItem::fromDB: empty emd");
+  }
 
-  QParams QryParams;
-  QryParams << QParam("doc_no", otString, _emd_no);
-  QryParams << QParam("coupon_no", otInteger, _emd_coupon);
-
-  const string sql=ediAction==Display?
-                   "SELECT * FROM emdocs_display "
-                   "WHERE emd_no=:doc_no AND emd_coupon=:coupon_no":
-                   "SELECT doc_no AS emd_no, coupon_no AS emd_coupon, "
-                   "       coupon_status, associated, associated_no, associated_coupon, "
-                   "       change_status_error, system_update_error, point_id "
-                   "FROM emdocs "
-                   "WHERE doc_no=:doc_no AND coupon_no=:coupon_no";
-
-  TCachedQuery Qry(sql+(lock?" FOR UPDATE":""), QryParams);
-
-  Qry.get().Execute();
-  if (!Qry.get().Eof)
-    fromDB(ediAction, Qry.get());
+  if (ediAction==Display) {
+    return loadDisplay(_emd_no, _emd_coupon, lock);
+  } else {
+    return loadEmdocs(_emd_no, _emd_coupon, lock);
+  }
 
   return *this;
 }
 
 void TEMDocItem::deleteDisplay() const
 {
-  TCachedQuery Qry("DELETE FROM emdocs_display WHERE emd_no=:emd_no AND emd_coupon=:emd_coupon",
-                   QParams() << QParam("emd_no", otString)
-                             << QParam("emd_coupon", otInteger));
-  emd.toDB(Qry.get());
-  Qry.get().Execute();
+  LogTrace(TRACE5) << __func__
+                   << ": emd_no=" << emd.no
+                   << ", coupon_no=" << emd.coupon;
+  auto cur = make_db_curs(
+        "DELETE FROM emdocs_display "
+        "WHERE emd_no=:emd_no "
+        "AND emd_coupon=:emd_coupon ",
+        PgOra::getRWSession("EMDOCS_DISPLAY"));
+  cur.stb()
+      .bind(":emd_no", emd.no)
+      .bind(":coupon_no", emd.coupon)
+      .exec();
+
+  LogTrace(TRACE5) << __func__
+                   << ": rowcount=" << cur.rowcount();
 }
 
 bool ActualEMDEvent(const TEMDCtxtItem &EMDCtxt,
