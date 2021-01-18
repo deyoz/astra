@@ -39,6 +39,7 @@ using namespace EXCEPTIONS;
 using namespace std;
 
 bool deleteEtickets(int point_id);
+bool deleteEmdocs(int point_id);
 
 namespace  PG_ARX
 {
@@ -1402,7 +1403,6 @@ void deleteByPointId(const PointId_t& point_id)
                          " DELETE FROM pax_seats WHERE point_id=:point_id;         "
                          " DELETE FROM utg_prl WHERE point_id=:point_id;           "
                          " DELETE FROM trip_tasks WHERE point_id=:point_id;        "
-                         " DELETE FROM emdocs WHERE point_id=:point_id;            "
                          " DELETE FROM trip_apis_params WHERE point_id=:point_id;  "
                          " DELETE FROM counters_by_subcls WHERE point_id=:point_id;"
                          " DELETE FROM iapi_pax_data WHERE point_id=:point_id;     "
@@ -1417,6 +1417,7 @@ void deleteByPointId(const PointId_t& point_id)
     cur.bind(":point_id", point_id);
     cur.exec();
     deleteEtickets(point_id.get());
+    deleteEmdocs(point_id.get());
 }
 
 void deleteByMoveId(const MoveId_t & move_id)
@@ -2101,7 +2102,14 @@ int delete_eticks_display_tlgs(const Dates::DateTime_t& arx_date, int remain_row
 
 int delete_emdocs_display(const Dates::DateTime_t& arx_date, int remain_rows)
 {
-    auto cur = make_curs("delete from EMDOCS_DISPLAY where LAST_DISPLAY < :arx_date and ROWNUM <= :remain_rows ");
+    auto cur = make_db_curs(
+          "delete from EMDOCS_DISPLAY "
+          "where (EMD_NO, EMD_COUPON) in ("
+          "select EMD_NO, EMD_COUPON "
+          "from EMDOCS_DISPLAY "
+          "where LAST_DISPLAY < :arx_date "
+          "FETCH FIRST :remain_rows ROWS ONLY) ",
+          PgOra::getRWSession("EMDOCS_DISPLAY"));
     cur.bind(":arx_date", arx_date).bind(":remain_rows", remain_rows).exec();
     return cur.rowcount();
 }

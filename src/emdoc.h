@@ -52,9 +52,6 @@ class TEMDCoupon : public AstraEdifact::TCoupon
       AstraEdifact::TCoupon::clear();
       action=Ticketing::CpnStatAction::associate;
     }
-
-    TEMDCoupon& fromDB(TQuery &Qry);
-    const TEMDCoupon& toDB(TQuery &Qry) const;
 };
 
 class TEMDCtxtItem : public AstraEdifact::TCtxtItem
@@ -134,12 +131,23 @@ class TEMDocItem : public CheckIn::TServiceBasic
     }
 
     const TEMDocItem& toDB(const TEdiAction ediAction) const;
-    TEMDocItem& fromDB(const TEdiAction ediAction, TQuery &Qry);
     TEMDocItem& fromDB(const TEdiAction ediAction,
                        const std::string &_emd_no,
                        const int _emd_coupon,
                        const bool lock);
     void deleteDisplay() const;
+
+private:
+    const TEMDocItem& saveDisplay() const;
+    const TEMDocItem& saveChangeOfStatus() const;
+    const TEMDocItem& saveSystemUpdate() const;
+
+    TEMDocItem& loadDisplay(const std::string& _emd_no,
+                            int _emd_coupon,
+                            bool lock);
+    TEMDocItem& loadEmdocs(const std::string& _emd_no,
+                           int _emd_coupon,
+                           bool lock);
 };
 
 class TEMDocList : public std::list<TEMDocItem>
