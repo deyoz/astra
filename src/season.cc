@@ -18,6 +18,7 @@
 #include "astra_date_time.h"
 #include "PgOraConfig.h"
 #include <serverlib/dbcpp_cursctl.h>
+#include "db_tquery.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -57,7 +58,7 @@ void createSPP( TDateTime localdate, TSpp &spp, bool createViewer, string &err_c
 
 bool SsmIdExists(int trip_id)
 {
-  TQuery QryCheck(&OraSession);
+  DB::TQuery QryCheck(PgOra::getROSession("SCHED_DAYS"));
   QryCheck.SQLText = "SELECT ssm_id from sched_days where trip_id = :trip_id";
   QryCheck.CreateVariable("trip_id", otInteger, trip_id);
   QryCheck.Execute();
@@ -1777,88 +1778,105 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
   return true;
 }
 
-void SEASON::int_write( const TFilter &filter, int ssm_id, vector<TPeriod> &speriods,
-                int &trip_id, map<int,TDestList> &mapds )
+int getMaxNumSchedDays(int trip_id)
+{
+  int num = 0;
+  auto cur = make_db_curs("SELECT MAX(num) num FROM sched_days WHERE trip_id=:trip_id", PgOra::getROSession("SCHED_DAYS"));
+  cur.def(num).EXfet();
+  return num;
+}
+
+static int getNextRoutesMoveId()
+{
+  int move_id;
+  auto cur = make_db_curs("SELECT routes_move_id.nextval AS move_id FROM dual", PgOra::getROSession("ROUTES"));
+  cur.def(move_id).EXfet();
+  return move_id;
+}
+
+static int getNextRoutesTripId()
+{
+  int trip_id;
+  auto cur = make_db_curs("SELECT routes_trip_id.nextval AS trip_id FROM dual", PgOra::getROSession("ROUTES"));
+  cur.def(trip_id).EXfet();
+  return trip_id;
+}
+
+void SEASON::int_write(const TFilter &filter, int ssm_id, vector<TPeriod> &speriods,
+                        int &trip_id, map<int, TDestList> &mapds)
 {
   LogTrace(TRACE5) << __func__ << " ssm_id=" << ssm_id << " trip_id=" << trip_id;
   vector<TPeriod> oldperiods;
-  TQuery SQry( &OraSession );
-  SQry.Clear();
-  SQry.SQLText =
+  DB::TQuery SQrySched(PgOra::getRWSession("SCHED_DAYS"));
+  SQrySched.SQLText =
     "SELECT first_day, last_day, days, pr_del, tlg, reference, trip_id, move_id "
     " FROM sched_days "
     " WHERE trip_id=:trip_id";
-  SQry.CreateVariable( "trip_id", otInteger, trip_id );
-  SQry.Execute();
-  while ( !SQry.Eof ) {
+  SQrySched.CreateVariable( "trip_id", otInteger, trip_id );
+  SQrySched.Execute();
+  while ( !SQrySched.Eof ) {
       TPeriod p;
-      p.first = SQry.FieldAsDateTime( "first_day" );
-      p.last = SQry.FieldAsDateTime( "last_day" );
-      p.days = SQry.FieldAsString( "days" );
-      p.pr_del = SQry.FieldAsInteger( "pr_del" );
-      p.tlg = SQry.FieldAsString( "tlg" );
-      p.ref = SQry.FieldAsString( "reference" );
-      p.move_id = SQry.FieldAsInteger( "move_id" );
+      p.first = SQrySched.FieldAsDateTime( "first_day" );
+      p.last = SQrySched.FieldAsDateTime( "last_day" );
+      p.days = SQrySched.FieldAsString( "days" );
+      p.pr_del = SQrySched.FieldAsInteger( "pr_del" );
+      p.tlg = SQrySched.FieldAsString( "tlg" );
+      p.ref = SQrySched.FieldAsString( "reference" );
+      p.move_id = SQrySched.FieldAsInteger( "move_id" );
       oldperiods.push_back( p );
-      SQry.Next();
+      SQrySched.Next();
   }
-  SQry.Clear();
+
+  TQuery SQryDel(&OraSession);
+
   int num=0;
   if ( trip_id != NoExists ) {
     if ( ssm_id == NoExists ) {
       TDateTime begin_date_season;
-      SQry.Clear();
       begin_date_season = BoostToDateTime( filter.periods.begin()->period.begin() );
       // теперь можно удалить все периоды, кот.
       //!!! ошибка т.к. периоды заводятся относительно региона первого п.п. у кот. delta=0
       ProgTrace( TRACE5, "delete all periods from database" );
-      SQry.Clear();
-      SQry.SQLText =
+      SQryDel.Clear();
+      SQryDel.SQLText =
       "BEGIN "
       "DELETE routes WHERE move_id IN "
       "(SELECT move_id FROM sched_days WHERE trip_id=:trip_id AND last_day>=:begin_date_season ); "
       "DELETE sched_days WHERE trip_id=:trip_id AND last_day>=:begin_date_season; END; ";
-      SQry.CreateVariable( "trip_id", otInteger, trip_id );
-      SQry.CreateVariable( "begin_date_season", otDate, begin_date_season );
-      SQry.Execute();
+      SQryDel.CreateVariable( "trip_id", otInteger, trip_id );
+      SQryDel.CreateVariable( "begin_date_season", otDate, begin_date_season );
+      SQryDel.Execute();
     }
-    SQry.Clear();
-    SQry.SQLText = "SELECT MAX(num) num FROM sched_days WHERE trip_id=:trip_id";
-    SQry.CreateVariable( "trip_id", otInteger, trip_id );
-    SQry.Execute();
-    if ( SQry.Eof )
-       num = 0;
-    else
-       num = SQry.FieldAsInteger( "num" ) + 1;
+    SQryDel.Clear();
+    num = getMaxNumSchedDays(trip_id);
   }
   else {
     // это новый рейс
-    ProgTrace( TRACE5, "it is new trip" );
-    SQry.SQLText = "SELECT routes_trip_id.nextval AS trip_id FROM dual";
-    SQry.Execute();
-    trip_id = SQry.FieldAsInteger(0);
+    ProgTrace(TRACE5, "it is new trip");
+    trip_id = getNextRoutesTripId();
     ProgTrace( TRACE5, "new trip_id=%d", trip_id );
     TReqInfo::Instance()->LocaleToLog("EVT.SEASON.NEW_FLIGHT", evtSeason, trip_id);
   }
 
-  TQuery NQry( &OraSession );
-  NQry.SQLText = "SELECT routes_move_id.nextval AS move_id FROM dual";
-  SQry.Clear();
-  SQry.SQLText =
-  "INSERT INTO sched_days(trip_id,move_id,num,first_day,last_day,days,pr_del,tlg,reference,region,ssm_id,delta) "
-  "VALUES(:trip_id,:move_id,:num,:first_day,:last_day,:days,:pr_del,:tlg,:reference,:region,:ssm_id,:delta) ";
-  SQry.DeclareVariable( "trip_id", otInteger );
-  SQry.DeclareVariable( "move_id", otInteger );
-  SQry.DeclareVariable( "num", otInteger );
-  SQry.DeclareVariable( "first_day", otDate );
-  SQry.DeclareVariable( "last_day", otDate );
-  SQry.DeclareVariable( "days", otString );
-  SQry.DeclareVariable( "pr_del", otInteger );
-  SQry.DeclareVariable( "tlg", otString );
-  SQry.DeclareVariable( "reference", otString );
-  SQry.CreateVariable( "region", otString, filter.filter_tz_region );
-  SQry.CreateVariable( "ssm_id", otInteger, ssm_id==ASTRA::NoExists?FNull:ssm_id );
-  SQry.DeclareVariable( "delta", otInteger );
+  SQryDel.Clear();
+
+  auto InsSched = DB::TQuery(PgOra::getRWSession("SCHED_DAYS"));
+  InsSched.SQLText =
+      "INSERT INTO sched_days(trip_id,move_id,num,first_day,last_day,days,pr_del,tlg,reference,region,ssm_id,delta) "
+      "VALUES(:trip_id,:move_id,:num,:first_day,:last_day,:days,:pr_del,:tlg,:reference,:region,:ssm_id,:delta) ";
+  InsSched.DeclareVariable( "trip_id", otInteger );
+  InsSched.DeclareVariable( "move_id", otInteger );
+  InsSched.DeclareVariable( "num", otInteger );
+  InsSched.DeclareVariable( "first_day", otDate );
+  InsSched.DeclareVariable( "last_day", otDate );
+  InsSched.DeclareVariable( "days", otString );
+  InsSched.DeclareVariable( "pr_del", otInteger );
+  InsSched.DeclareVariable( "tlg", otString );
+  InsSched.DeclareVariable( "reference", otString );
+  InsSched.CreateVariable( "region", otString, filter.filter_tz_region );
+  InsSched.CreateVariable( "ssm_id", otInteger, ssm_id==ASTRA::NoExists?FNull:ssm_id );
+  InsSched.DeclareVariable( "delta", otInteger );
+
   TQuery RQry( &OraSession );
   RQry.SQLText =
   "INSERT INTO routes(move_id,num,airp,airp_fmt,pr_del,scd_in,airline,airline_fmt,flt_no,craft,craft_fmt,scd_out,litera, "
@@ -1896,8 +1914,7 @@ void SEASON::int_write( const TFilter &filter, int ssm_id, vector<TPeriod> &sper
       continue;
     }
     if ( ip->modify == finsert ) {
-      NQry.Execute();
-      new_move_id = NQry.FieldAsInteger( 0 );
+      new_move_id = getNextRoutesMoveId();
       for ( vector<TPeriod>::iterator yp=ip+1; yp!=speriods.end(); yp++ ) {
         ProgTrace( TRACE5, "yp->move_id=%d, yp->modify=%d, ip->move_id=%d, ip->modify=%d",
                    yp->move_id, yp->modify, ip->move_id, ip->modify );
@@ -1915,16 +1932,24 @@ void SEASON::int_write( const TFilter &filter, int ssm_id, vector<TPeriod> &sper
 
 
     ProgTrace( TRACE5, "trip_id=%d, new_move_id=%d,num=%d", trip_id, new_move_id,num );
-    SQry.SetVariable( "trip_id", trip_id );
-    SQry.SetVariable( "move_id", new_move_id );
-    SQry.SetVariable( "num", num );
-    SQry.SetVariable( "first_day", ip->first );
-    SQry.SetVariable( "last_day", ip->last );
-    SQry.SetVariable( "days", ip->days );
-    SQry.SetVariable( "pr_del", ip->pr_del );
-    SQry.SetVariable( "tlg", ip->tlg );
-    SQry.SetVariable( "reference", ip->ref );
-    SQry.SetVariable( "delta", ip->delta );
+    InsSched.SetVariable( "trip_id", trip_id );
+    InsSched.SetVariable( "move_id", new_move_id );
+    InsSched.SetVariable( "num", num );
+    InsSched.SetVariable( "first_day", ip->first );
+    InsSched.SetVariable( "last_day", ip->last );
+    InsSched.SetVariable( "days", ip->days );
+    InsSched.SetVariable( "pr_del", ip->pr_del );
+    InsSched.SetVariable( "tlg", ip->tlg );
+    InsSched.SetVariable( "reference", ip->ref );
+    InsSched.SetVariable( "delta", ip->delta );
+    LogTrace(TRACE5) << "InsSched: trip_id=" << trip_id <<
+      " move_id=" << new_move_id << " num=" << num <<
+      " first_day=" << ip->first <<
+      " last_day=" << ip->last <<
+      " days=" << ip->days << " pr_del=" << ip->pr_del <<
+      " tlg=" << ip->tlg << " reference=" << ip->ref <<
+      " region=" << filter.filter_tz_region << " ssm_id=" << ssm_id;
+
     vector<TPeriod>::iterator ew = oldperiods.end();
     for ( ew=oldperiods.begin(); ew!=oldperiods.end(); ew++ ) {
         if ( ew->first == ip->first && ew->last == ip->last )
@@ -1981,14 +2006,7 @@ void SEASON::int_write( const TFilter &filter, int ssm_id, vector<TPeriod> &sper
       TReqInfo::Instance()->LocaleToLog( lexema_id, params, evtSeason, trip_id, new_move_id );
     }
     // GRISHA
-    LogTrace(TRACE5) << "SQry: trip_id=" << SQry.GetVariableAsInteger("trip_id") <<
-      " move_id=" << SQry.GetVariableAsInteger("move_id") << " num=" << SQry.GetVariableAsInteger("num") <<
-      " first_day=" << DateTimeToStr(SQry.GetVariableAsDateTime("first_day")) <<
-      " last_day=" << DateTimeToStr(SQry.GetVariableAsDateTime("last_day")) <<
-      " days=" << SQry.GetVariableAsString("days") << " pr_del=" << SQry.GetVariableAsInteger("pr_del") <<
-      " tlg=" << SQry.GetVariableAsString("tlg") << " reference=" << SQry.GetVariableAsString("reference") <<
-      " region=" << SQry.GetVariableAsString("region") << " ssm_id=" << SQry.GetVariableAsInteger("ssm_id");
-    SQry.Execute()  ;
+    InsSched.Execute()  ;
     num++;
     TDestList ds = mapds[ ip->move_id ];
     int dnum = 0;

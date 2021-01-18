@@ -17,6 +17,8 @@ using namespace typeb_parser;
 #include "astra_misc.h"
 #include "date_time.h"
 #include "flt_binding.h"
+#include "PgOraConfig.h"
+#include "db_tquery.h"
 
 using namespace BASIC::date_time;
 using namespace std;
@@ -567,14 +569,16 @@ void ScdPeriodToDb( const ssim::ScdPeriod &scd )
   Qry.CreateVariable("last", otDate, last);
   Qry.CreateVariable("days", otString, days);
   Qry.Execute();
-  // запись в sched_days
   Qry.Clear();
-  Qry.SQLText = "SELECT trip_id FROM sched_days s, ssm_schedule m WHERE m.flight=:flight and s.ssm_id=m.ssm_id and rownum<2 ";
-  Qry.CreateVariable("flight", otString, flight);
-  Qry.Execute();
+
+  // запись в sched_days
+  auto SchdQry = DB::TQuery(PgOra::getRWSession("SCHED_DAYS"));
+  SchdQry.SQLText = "SELECT trip_id FROM sched_days s, ssm_schedule m WHERE m.flight=:flight and s.ssm_id=m.ssm_id FETCH FIRST 1 ROWS ONLY";
+  SchdQry.CreateVariable("flight", otString, flight);
+  SchdQry.Execute();
   int trip_id;
-  if (!Qry.Eof)
-    trip_id = Qry.FieldAsInteger("trip_id");
+  if (!SchdQry.Eof)
+    trip_id = SchdQry.FieldAsInteger("trip_id");
   else
     trip_id = ASTRA::NoExists;
   vector<TPeriod> speriods; //- периоды выполнения
