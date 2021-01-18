@@ -1004,7 +1004,7 @@ std::list<TETickItem> TETickItem::loadChangeOfStatus(int _point_id, bool lock)
         lock ? PgOra::getRWSession("ETICKETS")
              : PgOra::getROSession("ETICKETS"));
   sqlh.def()
-      .bind(":coupon_no", _point_id)
+      .bind(":point_id", _point_id)
       .EXfet();
 
   while (!sqlh.cursor().fen()) {
