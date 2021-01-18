@@ -1005,7 +1005,7 @@ std::list<TETickItem> TETickItem::loadChangeOfStatus(int _point_id, bool lock)
              : PgOra::getROSession("ETICKETS"));
   sqlh.def()
       .bind(":point_id", _point_id)
-      .EXfet();
+      .exec();
 
   while (!sqlh.cursor().fen()) {
     TETickItem item;
