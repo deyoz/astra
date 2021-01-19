@@ -80,6 +80,7 @@ namespace DbCpp
         ResultCode nefen();
         int rowcount();
 
+        int currentRow() const;
         int fieldsCount() const;
 
         bool fieldIsNull(const std::string& fn) const;

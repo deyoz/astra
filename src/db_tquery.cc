@@ -173,10 +173,15 @@ void TQueryIfaceDbCppImpl::Execute()
 {
     initInnerCursCtl();
     bindVariables();
+    ASSERT(m_cur);
     m_cur->exec();
 
+    m_eof = 1;
     if(isSelectQuery(m_sqlText)) {
-        Next();
+        m_eof = 0;
+        if(m_cur->nefen() == DbCpp::ResultCode::NoDataFound) {
+            m_eof = 1;
+        }
     }
 }
 
@@ -203,16 +208,13 @@ void TQueryIfaceDbCppImpl::Clear()
 
 int TQueryIfaceDbCppImpl::RowsProcessed()
 {
-    // TODO
-    ASSERT(false);
-    return 0;
+    return m_cur->rowcount();
 }
 
 int TQueryIfaceDbCppImpl::RowCount()
 {
-    // TODO
-    ASSERT(false);
-    return 0;
+    ASSERT(m_cur);
+    return m_eof ? m_cur->rowcount() : m_cur->currentRow();
 }
 
 int TQueryIfaceDbCppImpl::FieldsCount()
@@ -975,7 +977,7 @@ START_TEST(common_usage)
     double floatval = 3.14159;
 
     get_pg_curs_autocommit("drop table if exists TEST_TQUERY").exec();
-    get_pg_curs_autocommit("create table TEST_TQUERY(FLD1 integer, FLD2 timestamp, FLD3 varchar(20), FLD4 integer);").exec();
+    get_pg_curs_autocommit("create table TEST_TQUERY(FLD1 integer, FLD2 timestamp, FLD3 varchar(20), FLD4 integer)").exec();
 
     DB::TQuery Qry(*get_main_pg_rw_sess(STDLOG));
     Qry.SQLText = "insert into TEST_TQUERY(FLD1, FLD2 , FLD3, FLD4) values (:fld1, :fld2, :fld3, :fld4)";
@@ -1071,19 +1073,129 @@ END_TEST;
 
 START_TEST(rowcount_rowsprocessed)
 {
+    // create tables
+    make_curs("drop table TEST_ORA_ROWCOUNT")
+            .noThrowError(CERR_TABLE_NOT_EXISTS)
+            .exec();
+    make_curs("create table TEST_ORA_ROWCOUNT(ID number)")
+            .exec();
+
+    get_pg_curs_autocommit("drop table if exists TEST_PG_ROWCOUNT").exec();
+    get_pg_curs_autocommit("create table TEST_PG_ROWCOUNT(ID integer)").exec();
+
     // Ora
     DB::TQuery OraQry(*get_main_ora_sess(STDLOG));
+    OraQry.SQLText = "insert into TEST_ORA_ROWCOUNT(ID) values(:id)";
+    OraQry.CreateVariable("id", otInteger, 10);
+    OraQry.Execute();
+    int oraRp1 = OraQry.RowsProcessed();
+    int oraRc1 = OraQry.RowCount();
+
+    std::vector<int> OraRpVec1;
+    std::vector<int> OraRcVec1;
+    for(int i = 11; i < 20; ++i) {
+        OraRpVec1.emplace_back(OraQry.RowsProcessed());
+        OraRcVec1.emplace_back(OraQry.RowCount());
+
+        OraQry.SetVariable("id", i);
+        OraQry.Execute();
+        LogTrace(TRACE3) << "i=" << i << " "
+                         << "rp=" << OraQry.RowsProcessed() << "; "
+                         << "rc=" << OraQry.RowCount();
+    }
+
+    OraQry.Clear();
+    OraQry.SQLText = "delete from TEST_ORA_ROWCOUNT where ID < 15";
+    OraQry.Execute();
+    int oraRp2 = OraQry.RowsProcessed();
+    int oraRc2 = OraQry.RowCount();
+
+    OraQry.Clear();
+    OraQry.SQLText = "select ID from TEST_ORA_ROWCOUNT";
+    OraQry.Execute();
+    int oraRp3 = OraQry.RowsProcessed();
+    int oraRc3 = OraQry.RowCount();
+
+    std::vector<int> OraRpVec2;
+    std::vector<int> OraRcVec2;
+    for(; !OraQry.Eof; OraQry.Next()) {
+        OraRpVec2.emplace_back(OraQry.RowsProcessed());
+        OraRcVec2.emplace_back(OraQry.RowCount());
+
+        LogTrace(TRACE3) << "Ora id=" << OraQry.FieldAsInteger("ID") << " "
+                         << "rp=" << OraQry.RowsProcessed() << "; "
+                         << "rc=" << OraQry.RowCount();
+    }
 
 
     // Pg
     DB::TQuery PgQry(*get_main_pg_rw_sess(STDLOG));
+    PgQry.SQLText = "insert into TEST_PG_ROWCOUNT(ID) values(:id)";
+    PgQry.CreateVariable("id", otInteger, 10);
+    PgQry.Execute();
+    int pgRp1 = PgQry.RowsProcessed();
+    int pgRc1 = PgQry.RowCount();
+
+    std::vector<int> PgRpVec1;
+    std::vector<int> PgRcVec1;
+    for(int i = 11; i < 20; ++i) {
+        PgRpVec1.emplace_back(PgQry.RowsProcessed());
+        PgRcVec1.emplace_back(PgQry.RowCount());
+
+        PgQry.SetVariable("id", i);
+        PgQry.Execute();
+
+        LogTrace(TRACE3) << "i=" << i << " "
+                         << "rp=" << PgQry.RowsProcessed() << "; "
+                         << "rc=" << PgQry.RowCount();
+
+    }
+
+    PgQry.Clear();
+    PgQry.SQLText = "delete from TEST_PG_ROWCOUNT where ID < 15";
+    PgQry.Execute();
+    int pgRp2 = PgQry.RowsProcessed();
+    int pgRc2 = PgQry.RowCount();
+
+    PgQry.Clear();
+    PgQry.SQLText = "select ID from TEST_PG_ROWCOUNT";
+    PgQry.Execute();
+    int pgRp3 = PgQry.RowsProcessed();
+    int pgRc3 = PgQry.RowCount();
+
+    std::vector<int> PgRpVec2;
+    std::vector<int> PgRcVec2;
+    for(; !PgQry.Eof; PgQry.Next()) {
+        PgRpVec2.emplace_back(PgQry.RowsProcessed());
+        PgRcVec2.emplace_back(PgQry.RowCount());
+
+        LogTrace(TRACE3) << "Pg id=" << PgQry.FieldAsInteger("ID") << " "
+                         << "rp=" << PgQry.RowsProcessed() << "; "
+                         << "rc=" << PgQry.RowCount();
+    }
+
+
+    fail_unless(oraRp1 == pgRp1, "Ora.RowsProcessed[%d] != Pg.RowProcessed[%d]", oraRp1, pgRp1);
+    fail_unless(oraRc1 == pgRc1, "Ora.RowCount[%d] != Pg.RowCount[%d]", oraRc1, pgRc1);
+
+    fail_unless(oraRp2 == pgRp2, "Ora.RowsProcessed[%d] != Pg.RowProcessed[%d]", oraRp2, pgRp2);
+    fail_unless(oraRc2 == pgRc2, "Ora.RowCount[%d] != Pg.RowCount[%d]", oraRc2, pgRc2);
+
+    fail_unless(oraRp3 == pgRp3, "Ora.RowsProcessed[%d] != Pg.RowProcessed[%d]", oraRp3, pgRp3);
+    fail_unless(oraRc3 == pgRc3, "Ora.RowCount[%d] != Pg.RowCount[%d]", oraRc3, pgRc3);
+
+    fail_unless(OraRpVec1 == PgRpVec1);
+    fail_unless(OraRcVec1 == PgRcVec1);
+    fail_unless(OraRpVec2 == PgRpVec2);
+    fail_unless(OraRcVec2 == PgRcVec2);
+
 }
 END_TEST;
 
 START_TEST(compare_empty_string_behavior)
 {
     get_pg_curs_autocommit("drop table if exists TEST_EMPTY_STRING").exec();
-    get_pg_curs_autocommit("create table TEST_EMPTY_STRING(FLD1 varchar(20), FLD2 varchar(20));").exec();
+    get_pg_curs_autocommit("create table TEST_EMPTY_STRING(FLD1 varchar(20), FLD2 varchar(20))").exec();
 
     const char* emptyCharStar = "";
     const std::string emptyString = "";
@@ -1226,16 +1338,16 @@ END_TEST;
 TCASEREGISTER(testInitDB, testShutDBConnection)
 {
     ADD_TEST(common_usage);
-    ADD_TEST(rowcount_rowsprocessed);
     ADD_TEST(compare_empty_string_behavior);
 }
 TCASEFINISH;
 #undef SUITENAME
 
-#define SUITENAME "ora_sessions"
+#define SUITENAME "ora_pg_compare"
 TCASEREGISTER(testInitDB, 0)
 {
     ADD_TEST(check_ora_sessions);
+    ADD_TEST(rowcount_rowsprocessed);
 }
 TCASEFINISH;
 #undef SUITENAME

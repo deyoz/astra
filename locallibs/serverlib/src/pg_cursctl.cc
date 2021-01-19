@@ -2083,6 +2083,11 @@ int CursCtl::fen()
     return erc_;
 }
 
+int CursCtl::currentRow() const
+{
+    return fetcher_->currentRow();
+}
+
 int CursCtl::nefen()
 {
     if (erc_) {

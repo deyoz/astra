@@ -592,6 +592,7 @@ public:
     ResultCode err() const { return erc_; }
     int rowcount();
 
+    int currentRow() const;
     int nefen();
     int fieldsCount() const;
 

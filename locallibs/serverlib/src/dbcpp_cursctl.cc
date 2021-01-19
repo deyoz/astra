@@ -357,6 +357,7 @@ namespace DbCpp
         virtual int rowcount()        = 0;
         virtual bool isStable() const = 0;
 
+        virtual int currentRow() const = 0;
         virtual int fieldsCount() const = 0;
 
         virtual bool        fieldIsNull(const std::string& fn) const = 0;
@@ -529,6 +530,7 @@ namespace DbCpp
         virtual int rowcount() override { return mCursCtl.rowcount(); }
         virtual bool isStable() const override { return mIsStable; }
 
+        virtual int currentRow() const override { return mCursCtl.currentRow(); }
         virtual int fieldsCount() const override { return mCursCtl.fieldsCount(); }
 
         virtual bool        fieldIsNull(const std::string& fn) const override { return mCursCtl.fieldIsNull(fn); }
@@ -668,6 +670,11 @@ namespace DbCpp
         virtual bool isStable() const override { return mIsStable; }
 
         virtual int fieldsCount() const override
+        {
+            throw comtech::Exception(STDLOG, __func__, "Call of unsupported OracleImpl method");
+        }
+
+        virtual int currentRow() const override
         {
             throw comtech::Exception(STDLOG, __func__, "Call of unsupported OracleImpl method");
         }
@@ -825,6 +832,7 @@ namespace DbCpp
     ResultCode CursCtl::err() { return mImpl->err(); }
     int CursCtl::rowcount() { return mImpl->rowcount(); }
 
+    int CursCtl::currentRow() const { return mImpl->currentRow(); }
     int CursCtl::fieldsCount() const { return mImpl->fieldsCount(); }
 
     bool CursCtl::fieldIsNull(const std::string& fn) const { return mImpl->fieldIsNull(fn); }
