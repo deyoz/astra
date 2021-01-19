@@ -258,7 +258,9 @@ void GetAllStatusesByPointId(TListType type, int point_id, std::set<TETickItem> 
   if (type==allNotCheckedStatusesByPointId) {
     const std::list<TETickItem> items = TETickItem::fromDB(point_id, false /*lock*/);
     for (const TETickItem& item: items) {
-      if (item.empty() || not existsPaxWithEt(item.et.no, item.et.coupon)) {
+      if (item.empty() ||
+          item.et.status==CouponStatus::Unavailable ||
+          existsPaxWithEt(item.et.no, item.et.coupon)) {
         continue;
       }
       list.insert(item);

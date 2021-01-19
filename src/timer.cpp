@@ -71,6 +71,8 @@ static void watchDog(TDateTime* ptimer)
   }
 }
 
+void cleanOldRecords();
+
 int main_timer_tcl(int supervisorSocket, int argc, char *argv[])
 {
   try
@@ -201,6 +203,8 @@ void exec_tasks( const char *proc_name, int argc, char *argv[] )
       else
       if ( name == "clean_typeb_help" ) TypeBHelpMng::clean_typeb_help();
       else
+      if ( name == "clean_old_records" ) cleanOldRecords();
+      else
       if ( name == "test_watch_dog" ) sleep(keep_alive_minuts * 60 * 2);
 
       TDateTime next_exec;
@@ -315,6 +319,16 @@ void utg(void)
   }
 }
 
+void cleanOldRecords()
+{
+    SirenaExchange::TLastExchangeInfo::cleanOldRecords();
+    ServerFramework::EdiHelpManager::cleanOldRecords();
+    AstraEdifact::cleanOldRecords(120);
+    TGeneratedTags::cleanOldRecords(2*24*60); //2 суток
+    cleanForeignScan(365);
+    ASTRA::commit();
+}
+
 using namespace AstraEdifact;
 
 void ETCheckStatusFlt(void)
@@ -324,13 +338,6 @@ void ETCheckStatusFlt(void)
 
   try
   {
-    SirenaExchange::TLastExchangeInfo::cleanOldRecords();//!!!потом для очистки чего бы то ни было выделить отдельную процедуру
-    ServerFramework::EdiHelpManager::cleanOldRecords();
-    AstraEdifact::cleanOldRecords(120);
-    TGeneratedTags::cleanOldRecords(2*24*60); //2 суток
-    cleanForeignScan(365);
-    OraSession.Commit();
-
     list<TAdvTripInfo> flts;
 
     TQuery ETQry(&OraSession);
@@ -360,7 +367,7 @@ void ETCheckStatusFlt(void)
 
     for(const TAdvTripInfo &flt : flts)
     {
-      OraSession.Rollback();
+      ASTRA::rollback();
       try
       {
         TFltParams fltParams;
@@ -380,7 +387,7 @@ void ETCheckStatusFlt(void)
             TypeB::TETLCreator(flt.point_id).getInfo(createInfo);
             TelegramInterface::SendTlg(createInfo);
             TFltParams::finishFinalAttempts(flt.point_id);
-            OraSession.Commit();
+            ASTRA::commit();
           }
           catch(std::exception &E)
           {
@@ -410,7 +417,7 @@ void ETCheckStatusFlt(void)
               if (fltParams.in_final_status)
                 TFltParams::incFinalAttempts(flt.point_id);
             };
-            OraSession.Commit();
+            ASTRA::commit();
           }
           catch(std::exception &E)
           {
@@ -423,11 +430,11 @@ void ETCheckStatusFlt(void)
         ProgError(STDLOG,"ETCheckStatusFlt (point_id=%d): unknown error",flt.point_id);
       };
     };
-    OraSession.Rollback();
+    ASTRA::rollback();
   }
   catch(...)
   {
-    try { OraSession.Rollback( ); } catch( ... ) { };
+    try { ASTRA::rollback( ); } catch( ... ) { };
     throw;
   };
 };

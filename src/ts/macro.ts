@@ -313,7 +313,7 @@ $(defmacro TKCREQ_ET_COS
     depp=ДМД
     arrp=ПЛК
     fltno=103
-    subcls=Y
+    subcls
     depd=$(ddmmyy)
 {UNB+SIRE:1+$(from)+$(to)+xxxxxx:xxxx+$(ediref)0001+++O"
 UNH+1+TKCREQ:96:2:IA+$(ediref)"
@@ -322,7 +322,7 @@ ORG+1H:МОВ+++$(airl)+Y+::xx+$(pult)"
 EQN+1:TD"
 TKT+$(tickno):T"
 CPN+$(cpnno):$(status)"
-TVL+$(depd)+$(depp)+$(arrp)+$(airl)+$(fltno)++1"
+TVL+$(depd)+$(depp)+$(arrp)+$(airl)+$(fltno)$(if $(eq $(subcls) "") "" ":"$(subcls))++$(cpnno)"
 UNT+8+1"
 UNZ+1+$(ediref)0001"}
 ) # end-of-macro TKCREQ_ET_COS
@@ -1185,6 +1185,7 @@ $(defmacro SAVE_ET_DISP
     recloc=G4LK6W
     depp=DME
     arrp=LED
+    cpnno=1
 {
 {<?xml version='1.0' encoding='CP866'?>
 <term>
@@ -1199,7 +1200,7 @@ $(defmacro SAVE_ET_DISP
 >>
 $(TKCREQ_ET_DISP $(dcs_addr) $(ets_addr) $(last_edifact_ref 0) $(airl) $(tickno))
 <<
-$(TKCRES_ET_DISP_1CPN $(ets_addr) $(dcs_addr) $(last_edifact_ref) $(airl) $(tickno) I $(surname) $(name) $(ddmmyy) $(depp) $(arrp))
+$(TKCRES_ET_DISP_1CPN $(ets_addr) $(dcs_addr) $(last_edifact_ref) $(airl) $(tickno) I $(surname) $(name) $(ddmmyy) $(depp) $(arrp) cpnno=$(cpnno))
 
 $(KICK_IN_SILENT)
 
@@ -3601,6 +3602,7 @@ $(defmacro NEW_CHECKIN_REQUEST
   airp_dep
   airp_arv
   passengers
+  hall=777
   capture=off
 {
 
@@ -3623,7 +3625,7 @@ $(defmacro NEW_CHECKIN_REQUEST
 $(passengers)
         </segment>
       </segments>
-      <hall>777</hall>
+      <hall>$(hall)</hall>
     </TCkinSavePax>
   </query>
 </term>}
@@ -3641,6 +3643,7 @@ $(defmacro CHANGE_CHECKIN_REQUEST
   grp_id
   grp_tid
   passengers
+  hall=777
   capture=off
 {
 
@@ -3662,7 +3665,7 @@ $(defmacro CHANGE_CHECKIN_REQUEST
 $(passengers)
         </segment>
       </segments>
-      <hall>777</hall>
+      <hall>$(hall)</hall>
       <bag_refuse/>
     </TCkinSavePax>
   </query>

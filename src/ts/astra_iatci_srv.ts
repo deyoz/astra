@@ -2794,9 +2794,9 @@ $(set edi_ref1 $(last_edifact_ref 1))
 $(set edi_ref0 $(last_edifact_ref 0))
 
 >>
-$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) ’ 2982401841689 1 CK xxxxxx „„ ‹ 101 Y)
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) ’ 2982401841689 1 CK xxxxxx „„ ‹ 101)
 >>
-$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982401841735 1 CK xxxxxx „„ ‹ 101 K)
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982401841735 1 CK xxxxxx „„ ‹ 101)
 
 <<
 $(TKCRES_ET_COS UTET UTDC $(get edi_ref1) 2982401841689 1 CK)
@@ -2832,9 +2832,9 @@ $(set edi_ref0 $(last_edifact_ref 0))
 
 # ®βª βλΆ ¥¬ αβ βγαλ
 >>
-$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) ’ 2982401841689 1 I xxxxxx „„ ‹ 101 Y)
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) ’ 2982401841689 1 I xxxxxx „„ ‹ 101)
 >>
-$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982401841735 1 I xxxxxx „„ ‹ 101 K)
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982401841735 1 I xxxxxx „„ ‹ 101)
 
 
 # ®βΆ¥η ¥¬
@@ -2910,9 +2910,9 @@ $(set edi_ref1 $(last_edifact_ref 1))
 $(set edi_ref0 $(last_edifact_ref 0))
 
 >>
-$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) ’ 2982401841689 1 CK xxxxxx „„ ‹ 101 Y)
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) ’ 2982401841689 1 CK xxxxxx „„ ‹ 101)
 >>
-$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982401841735 1 CK xxxxxx „„ ‹ 101 K)
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982401841735 1 CK xxxxxx „„ ‹ 101)
 
 <<
 $(TKCRES_ET_COS UTET UTDC $(get edi_ref1) 2982401841689 1 CK)
@@ -2952,9 +2952,9 @@ $(set edi_ref0 $(last_edifact_ref 0))
 
 # ®βª βλΆ ¥¬ αβ βγαλ
 >>
-$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) ’ 2982401841689 1 I xxxxxx „„ ‹ 101 Y)
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) ’ 2982401841689 1 I xxxxxx „„ ‹ 101)
 >>
-$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982401841735 1 I xxxxxx „„ ‹ 101 K)
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982401841735 1 I xxxxxx „„ ‹ 101)
 
 
 # ®βΆ¥η ¥¬
@@ -3029,9 +3029,9 @@ $(set edi_ref1 $(last_edifact_ref 1))
 $(set edi_ref0 $(last_edifact_ref 0))
 
 >>
-$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) ’ 2982401841689 1 CK xxxxxx „„ ‹ 101 Y)
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) ’ 2982401841689 1 CK xxxxxx „„ ‹ 101)
 >>
-$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982401841735 1 CK xxxxxx „„ ‹ 101 K)
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982401841735 1 CK xxxxxx „„ ‹ 101)
 
 <<
 $(TKCRES_ET_COS UTET UTDC $(get edi_ref1) 2982401841689 1 CK)
@@ -3337,7 +3337,7 @@ UNZ+1+ASTRA000680001"
 $(set edi_ref0 $(last_edifact_ref 0))
 
 >>
-$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982401841735 1 I xxxxxx „„ ‹ 101 K)
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982401841735 1 I xxxxxx „„ ‹ 101)
 <<
 $(TKCRES_ET_COS UTET UTDC $(get edi_ref0) 2982401841735 1 I)
 
@@ -3386,7 +3386,7 @@ UNZ+1+ASTRA000690001"
 $(set edi_ref0 $(last_edifact_ref 0))
 
 >>
-$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982401841689 1 I xxxxxx „„ ‹ 101 Y)
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982401841689 1 I xxxxxx „„ ‹ 101)
 <<
 $(TKCRES_ET_COS UTET UTDC $(get edi_ref0) 2982401841689 1 I)
 

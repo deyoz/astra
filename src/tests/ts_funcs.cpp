@@ -33,6 +33,7 @@
 #include "PgOraConfig.h"
 #include "cr_lf.h"
 #include "cache.h"
+#include "timer.h"
 
 #include <queue>
 #include <fstream>
@@ -1238,6 +1239,12 @@ static std::string FP_getCacheSQLParam(const std::vector<std::string> &par)
   return CacheTableTermRequest::getSQLParamXml(par);
 }
 
+static std::string FP_runEtFltTask(const std::vector<std::string> &par)
+{
+  ETCheckStatusFlt();
+  return "";
+}
+
 FP_REGISTER("<<", FP_tlg_in);
 FP_REGISTER("!!", FP_req);
 FP_REGISTER("astra_hello", FP_astra_hello);
@@ -1298,5 +1305,6 @@ FP_REGISTER("get_bcbp", FP_getBCBP);
 FP_REGISTER("cache", FP_cache);
 FP_REGISTER("cache_iface_ver", FP_getCacheIfaceVer);
 FP_REGISTER("cache_sql_param", FP_getCacheSQLParam);
+FP_REGISTER("run_et_flt_task", FP_runEtFltTask);
 
 #endif /* XP_TESTING */
