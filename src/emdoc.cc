@@ -533,11 +533,6 @@ static void bindDisplayItem(DbCpp::CursCtl& cur,
   short notNull = 0;
   short null = -1;
   cur.stb()
-      .bind(":point_id", item.point_id)
-      .bind(":associated", int(item.emd.action==CpnStatAction::associate))
-      .bind(":associated_no", item.et.no)
-      .bind(":associated_coupon", item.et.coupon)
-      .bind(":system_update_error", item.change_status_error.substr(0,100))
       .bind(":doc_no", item.emd.no)
       .bind(":coupon_no", item.emd.coupon)
       .bind(":rfic", "", &null)
@@ -574,7 +569,6 @@ static bool updateDisplay(const TEMDocItem& item)
         "AND emd_coupon=:coupon_no ",
         PgOra::getRWSession("EMDOCS_DISPLAY"));
   bindDisplayItem(cur, item);
-  cur.exec();
 
   LogTrace(TRACE5) << __func__
                    << ": rowcount=" << cur.rowcount();
