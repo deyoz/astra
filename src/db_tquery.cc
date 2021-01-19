@@ -935,7 +935,7 @@ void TQuery::SetVariable(const std::string& vname, tnull vdata) { m_impl->SetVar
 
 using namespace xp_testing;
 
-START_TEST(pg_tquery_common_usage)
+START_TEST(db_tquery_common_usage)
 {
     int intval = 20;
     boost::posix_time::ptime timeval = boost::posix_time::second_clock::local_time();
@@ -1012,9 +1012,88 @@ START_TEST(pg_tquery_common_usage)
         fail_unless(Qry.FieldName(0) == "FLD1", "FieldName failed");
         fail_unless(Qry.FieldName(4) == "FLD5", "FieldName failed");
     }
+
+    Qry.Clear();
+    Qry.SQLText = "insert into TEST_TQUERY(FLD1, FLD3) values (:fld1, :fld3)";
+    Qry.CreateVariable("fld1", otInteger, 101);
+    Qry.CreateVariable("fld3", otString,  "");
+    Qry.Execute();
+
+    Qry.Clear();
+    Qry.SQLText = "insert into TEST_TQUERY(FLD1, FLD3) values (:fld1, :fld3)";
+    Qry.CreateVariable("fld1", otInteger, 102);
+    Qry.CreateVariable("fld3", otString,  FNull);
+    Qry.Execute();
+
+    Qry.Clear();
+    Qry.SQLText = "select FLD1, FLD3 from TEST_TQUERY where FLD1 > 100";
+    Qry.Execute();
+    for(; !Qry.Eof; Qry.Next()) {
+        LogTrace(TRACE3) << "Qry.Eof = " << Qry.Eof;
+        LogTrace(TRACE3) << "Value of field FLD1=" << Qry.FieldAsInteger("FLD1");
+        LogTrace(TRACE3) << "Value of field FLD3=" << Qry.FieldAsString("FLD3")
+                         << "   (isNULL=" << Qry.FieldIsNULL("FLD3") << ")";
+        fail_unless(Qry.FieldIsNULL("FLD3"), "FieldIsNULL failed");
+    }
 }
 END_TEST;
 
+START_TEST(compare_empty_string_behavior)
+{
+    get_pg_curs_autocommit("drop table if exists TEST_EMPTY_STRING").exec();
+    get_pg_curs_autocommit("create table TEST_EMPTY_STRING(FLD1 varchar(20), FLD2 varchar(20));").exec();
+
+    get_pg_curs("insert into TEST_EMPTY_STRING(FLD1, FLD2) values(:fld1, :fld2)")
+            .stb()
+            .bind(":fld1", "pgcpp")
+            .bind(":fld2", "")
+            .exec();
+
+    std::string fld1, fld2;
+    auto pgcur = get_pg_curs("select FLD1, FLD2 from TEST_EMPTY_STRING");
+    pgcur
+            .def(fld1)
+            .defNull(fld2, "is_null")
+            .EXfet();
+
+    LogTrace(TRACE3) << "Via PgCpp fld1=" << fld1 << "; fld2=" << fld2;
+    fail_unless(fld1 == "pgcpp");
+    fail_unless(fld2 == "is_null");
+
+    make_db_curs("insert into TEST_EMPTY_STRING(FLD1, FLD2) values(:fld1, :fld2)",
+                 *get_main_pg_rw_sess(STDLOG))
+            .stb()
+            .bind(":fld1", "dbcpp")
+            .bind(":fld2", "")
+            .exec();
+
+    auto dbcppcur = make_db_curs("select FLD1, FLD2 from TEST_EMPTY_STRING",
+                                 *get_main_pg_rw_sess(STDLOG));
+    dbcppcur
+            .def(fld1)
+            .defNull(fld2, "is_null")
+            .EXfet();
+
+    LogTrace(TRACE3) << "Via DbCpp fld1=" << fld1 << "; fld2=" << fld2;
+    fail_unless(fld1 == "dbcpp");
+    fail_unless(fld2 == "is_null");
+
+    DB::TQuery Qry(*get_main_pg_rw_sess(STDLOG));
+    Qry.SQLText = "insert into TEST_EMPTY_STRING(FLD1, FLD2) values(:fld1, :fld2)";
+    Qry.CreateVariable("fld1", otString, "tquery");
+    Qry.CreateVariable("fld2", otString, "");
+    Qry.Execute();
+
+    Qry.Clear();
+    Qry.SQLText = "select FLD1, FLD2 from TEST_EMPTY_STRING";
+    Qry.Execute();
+    for(; !Qry.Eof; Qry.Next()) {
+        LogTrace(TRACE3) << "Fld1=" << Qry.FieldAsString("FLD1") << ", "
+                         << "Fld2=" << Qry.FieldAsString("FLD2");
+        fail_unless(Qry.FieldIsNULL("FLD2"), "Field must be null!");
+    }
+}
+END_TEST;
 
 START_TEST(check_ora_sessions)
 {
@@ -1081,10 +1160,11 @@ START_TEST(check_ora_sessions)
 END_TEST;
 
 
-#define SUITENAME "pg_tquery"
+#define SUITENAME "db_tquery"
 TCASEREGISTER(testInitDB, testShutDBConnection)
 {
-    ADD_TEST(pg_tquery_common_usage);
+    ADD_TEST(db_tquery_common_usage);
+    ADD_TEST(compare_empty_string_behavior);
 }
 TCASEFINISH;
 #undef SUITENAME
