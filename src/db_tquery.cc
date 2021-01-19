@@ -1043,10 +1043,19 @@ START_TEST(compare_empty_string_behavior)
     get_pg_curs_autocommit("drop table if exists TEST_EMPTY_STRING").exec();
     get_pg_curs_autocommit("create table TEST_EMPTY_STRING(FLD1 varchar(20), FLD2 varchar(20));").exec();
 
+    const char* emptyCharStar = "";
+    const std::string emptyString = "";
+
+    get_pg_curs("insert into TEST_EMPTY_STRING(FLD1, FLD2) values(:fld1, :fld2)")
+            .bind(":fld1", "pgcpp")
+            .bind(":fld2", emptyCharStar)
+            .exec();
+
+
     get_pg_curs("insert into TEST_EMPTY_STRING(FLD1, FLD2) values(:fld1, :fld2)")
             .stb()
             .bind(":fld1", "pgcpp")
-            .bind(":fld2", "")
+            .bind(":fld2", emptyString)
             .exec();
 
     std::string fld1, fld2;
@@ -1054,17 +1063,26 @@ START_TEST(compare_empty_string_behavior)
     pgcur
             .def(fld1)
             .defNull(fld2, "is_null")
-            .EXfet();
+            .exec();
 
-    LogTrace(TRACE3) << "Via PgCpp fld1=" << fld1 << "; fld2=" << fld2;
-    fail_unless(fld1 == "pgcpp");
-    fail_unless(fld2 == "is_null");
+    while(!pgcur.fen()) {
+        LogTrace(TRACE3) << "Via PgCpp fld1=" << fld1 << "; fld2='" << fld2 << "'";
+        fail_unless(fld1 == "pgcpp");
+        fail_unless(fld2 == "is_null");
+    }
 
     make_db_curs("insert into TEST_EMPTY_STRING(FLD1, FLD2) values(:fld1, :fld2)",
                  *get_main_pg_rw_sess(STDLOG))
             .stb()
             .bind(":fld1", "dbcpp")
-            .bind(":fld2", "")
+            .bind(":fld2", emptyCharStar)
+            .exec();
+
+    make_db_curs("insert into TEST_EMPTY_STRING(FLD1, FLD2) values(:fld1, :fld2)",
+                 *get_main_pg_rw_sess(STDLOG))
+            .stb()
+            .bind(":fld1", "dbcpp")
+            .bind(":fld2", emptyString)
             .exec();
 
     auto dbcppcur = make_db_curs("select FLD1, FLD2 from TEST_EMPTY_STRING",
@@ -1072,11 +1090,13 @@ START_TEST(compare_empty_string_behavior)
     dbcppcur
             .def(fld1)
             .defNull(fld2, "is_null")
-            .EXfet();
+            .exec();
 
-    LogTrace(TRACE3) << "Via DbCpp fld1=" << fld1 << "; fld2=" << fld2;
-    fail_unless(fld1 == "dbcpp");
-    fail_unless(fld2 == "is_null");
+    while(dbcppcur.fen() == DbCpp::ResultCode::Ok) {
+        LogTrace(TRACE3) << "Via DbCpp fld1=" << fld1 << "; fld2='" << fld2 << "'";
+        fail_unless(fld1 == "dbcpp");
+        fail_unless(fld2 == "is_null");
+    }
 
     DB::TQuery Qry(*get_main_pg_rw_sess(STDLOG));
     Qry.SQLText = "insert into TEST_EMPTY_STRING(FLD1, FLD2) values(:fld1, :fld2)";

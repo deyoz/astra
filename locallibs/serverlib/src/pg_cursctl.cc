@@ -873,6 +873,10 @@ void PgTraits<const char*>::fillBindData(std::vector<char>& dst, const char* s)
         return;
     }
     const int sz = strlen(s);
+    if(!sz) {
+        dst.clear();
+        return;
+    }
     dst.resize(sz + 1);
     memcpy(dst.data(), s, sz);
     dst[sz] = 0;
