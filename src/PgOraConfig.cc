@@ -35,6 +35,21 @@ namespace PgOra
         { "SP_PG_GROUP_WB",    { "WB_MSG", "WB_MSG_TEXT" } },
     };
 
+    static std::string getGroupByName(std::string objectName, const GroupsType& groups)
+    {
+        if (!objectName.empty())
+        {
+            objectName = StrUtils::ToUpper(objectName);
+            for (const auto& group : groups)
+            {
+                if (group.first == objectName) {
+                    return group.first;
+                }
+            }
+        }
+        return std::string();
+    }
+
     static std::string getGroupInner(std::string objectName, const GroupsType& groups)
     {
         if (!objectName.empty())
@@ -54,7 +69,11 @@ namespace PgOra
 
     std::string getGroup(const std::string& objectName)
     {
-        return getGroupInner(objectName, sGroups);
+        std::string result = getGroupInner(objectName, sGroups);
+        if (result.empty()) {
+            return getGroupByName(objectName, sGroups);
+        }
+        return result;
     }
 
     bool supportsPg(const std::string& objectName)
@@ -62,8 +81,8 @@ namespace PgOra
         LogTrace(TRACE5) << __func__ << ": objectName=" << objectName;
         const std::string& group = getGroup(objectName);
         LogTrace(TRACE5) << __func__ << ": group=" << group;
-        bool result = group == "" ? false
-                                  : Config(getGroup(objectName)).writePostgres();
+        bool result = group.empty() ? false
+                                    : Config(group).writePostgres();
         LogTrace(TRACE5) << __func__ << ": result=" << result;
         return result;
     }
