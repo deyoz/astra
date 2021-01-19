@@ -122,6 +122,10 @@ $(pg_dump_table WB_MSG fields="point_id, msg_type, source" display="on")
 >> lines=auto
 [4853359] [LOADSHEET] [LIBRA] $()
 
+??
+$(pg_dump_table WB_MSG_TEXT fields="page_no, text" display="on")
+>> lines=auto
+[1] [L O A D S H E E T] $()
 
 %%
 ###

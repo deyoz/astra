@@ -26,7 +26,8 @@ public:
     void Next();
     void Clear();
 
-    void SetSession(DbCpp::Session& session);
+    int RowsProcessed();
+    int RowCount();
 
     int FieldsCount();
     std::string FieldName(int ind);

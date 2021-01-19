@@ -53,6 +53,8 @@ public:
     virtual void Execute() = 0;
     virtual void Next() = 0;
     virtual void Clear() = 0;
+    virtual int RowsProcessed() = 0;
+    virtual int RowCount() = 0;
     virtual int FieldsCount() = 0;
     virtual std::string FieldName(int ind) = 0;
     virtual int GetFieldIndex(const std::string& fname) = 0;
@@ -109,6 +111,8 @@ public:
     virtual void Execute() override;
     virtual void Next() override;
     virtual void Clear() override;
+    virtual int RowsProcessed() override;
+    virtual int RowCount() override;
     virtual int FieldsCount() override;
     virtual std::string FieldName(int ind) override;
     virtual int GetFieldIndex(const std::string& fname) override;
@@ -195,6 +199,20 @@ void TQueryIfaceDbCppImpl::Clear()
     m_sqlText.clear();
     m_cur.reset();
     m_eof = 0;
+}
+
+int TQueryIfaceDbCppImpl::RowsProcessed()
+{
+    // TODO
+    ASSERT(false);
+    return 0;
+}
+
+int TQueryIfaceDbCppImpl::RowCount()
+{
+    // TODO
+    ASSERT(false);
+    return 0;
 }
 
 int TQueryIfaceDbCppImpl::FieldsCount()
@@ -494,10 +512,8 @@ void TQueryIfaceDbCppImpl::SetVariable(const std::string& vname, tnull vdata)
 }
 
 void TQueryIfaceDbCppImpl::initInnerCursCtl()
-{
-    if(!m_cur) {
-        m_cur = std::make_shared<DbCpp::CursCtl>(std::move(make_db_curs(m_sqlText, m_sess)));
-    }
+{    
+    m_cur = std::make_shared<DbCpp::CursCtl>(std::move(make_db_curs(m_sqlText, m_sess)));
 }
 
 void TQueryIfaceDbCppImpl::bindVariables()
@@ -583,6 +599,8 @@ public:
     virtual void Execute() override;
     virtual void Next() override;
     virtual void Clear() override;
+    virtual int RowsProcessed() override;
+    virtual int RowCount() override;
     virtual int FieldsCount() override;
     virtual std::string FieldName(int ind) override;
     virtual int GetFieldIndex(const std::string& fname) override;
@@ -683,6 +701,16 @@ void TQueryIfaceNativeImpl::Next()
 void TQueryIfaceNativeImpl::Clear()
 {
     __NATIVE_CALL_WITHOUT_ARGS__(Clear);
+}
+
+int TQueryIfaceNativeImpl::RowsProcessed()
+{
+    __RETURN_NATIVE_CALL_WITHOUT_ARGS__(RowsProcessed);
+}
+
+int TQueryIfaceNativeImpl::RowCount()
+{
+    __RETURN_NATIVE_CALL_WITHOUT_ARGS__(RowCount);
 }
 
 int TQueryIfaceNativeImpl::FieldsCount()
@@ -867,6 +895,9 @@ void TQuery::Execute() { m_impl->Execute(); }
 void TQuery::Next() { m_impl->Next(); }
 void TQuery::Clear() { m_impl->Clear(); }
 
+int TQuery::RowsProcessed() { return m_impl->RowsProcessed(); }
+int TQuery::RowCount() { return m_impl->RowCount(); }
+
 int TQuery::FieldsCount() { return m_impl->FieldsCount(); }
 std::string TQuery::FieldName(int ind) { return m_impl->FieldName(ind); }
 
@@ -935,7 +966,7 @@ void TQuery::SetVariable(const std::string& vname, tnull vdata) { m_impl->SetVar
 
 using namespace xp_testing;
 
-START_TEST(db_tquery_common_usage)
+START_TEST(common_usage)
 {
     int intval = 20;
     boost::posix_time::ptime timeval = boost::posix_time::second_clock::local_time();
@@ -1035,6 +1066,17 @@ START_TEST(db_tquery_common_usage)
                          << "   (isNULL=" << Qry.FieldIsNULL("FLD3") << ")";
         fail_unless(Qry.FieldIsNULL("FLD3"), "FieldIsNULL failed");
     }
+}
+END_TEST;
+
+START_TEST(rowcount_rowsprocessed)
+{
+    // Ora
+    DB::TQuery OraQry(*get_main_ora_sess(STDLOG));
+
+
+    // Pg
+    DB::TQuery PgQry(*get_main_pg_rw_sess(STDLOG));
 }
 END_TEST;
 
@@ -1183,7 +1225,8 @@ END_TEST;
 #define SUITENAME "db_tquery"
 TCASEREGISTER(testInitDB, testShutDBConnection)
 {
-    ADD_TEST(db_tquery_common_usage);
+    ADD_TEST(common_usage);
+    ADD_TEST(rowcount_rowsprocessed);
     ADD_TEST(compare_empty_string_behavior);
 }
 TCASEFINISH;
