@@ -535,16 +535,16 @@ static void bindDisplayItem(DbCpp::CursCtl& cur,
   cur.stb()
       .bind(":doc_no", item.emd.no)
       .bind(":coupon_no", item.emd.coupon)
-      .bind(":rfic", "", &null)
-      .bind(":rfisc", "", &null)
-      .bind(":service_quantity", 0, &null)
-      .bind(":ssr_code", "", &null)
-      .bind(":service_name", "", &null)
-      .bind(":emd_type", "", &null)
+      .bind(":rfic", item.RFIC)
+      .bind(":rfisc", item.RFISC)
+      .bind(":service_quantity", item.service_quantity)
+      .bind(":ssr_code", item.ssr_code)
+      .bind(":service_name", item.service_name)
+      .bind(":emd_type", item.emd_type)
       .bind(":emd_no_base", item.emd_no_base)
       .bind(":et_no", item.et.no)
       .bind(":et_coupon", item.et.coupon,
-            item.et.coupon != ASTRA::NoExists ? &notNull : &null)
+               item.et.coupon != ASTRA::NoExists ? &notNull : &null)
       .bind(":last_display", DateTimeToBoost(NowUTC()));
 }
 
@@ -569,6 +569,7 @@ static bool updateDisplay(const TEMDocItem& item)
         "AND emd_coupon=:coupon_no ",
         PgOra::getRWSession("EMDOCS_DISPLAY"));
   bindDisplayItem(cur, item);
+  cur.exec();
 
   LogTrace(TRACE5) << __func__
                    << ": rowcount=" << cur.rowcount();
@@ -583,7 +584,7 @@ static bool insertDisplay(const TEMDocItem& item)
   auto cur = make_db_curs(
         "INSERT INTO emdocs_display( "
         "emd_no, emd_coupon, rfic, rfisc, service_quantity, ssr_code, "
-        "service_name, emd_type, emd_no_base, et_no, et_coupon, last_display, "
+        "service_name, emd_type, emd_no_base, et_no, et_coupon, last_display "
         ") VALUES ( "
         ":doc_no, :coupon_no, :rfic, :rfisc, :service_quantity, :ssr_code, "
         ":service_name, :emd_type, :emd_no_base, :et_no, :et_coupon, :last_display "
