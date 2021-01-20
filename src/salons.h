@@ -1959,7 +1959,7 @@ class TAdjustmentRows: public adjustmentIndexRow {
 
   struct CompCheckSum {
     int total_crc32;
-    int base_crc32;
+    int base_crc32; //для alarm, не учитывает тип места, а только "место для рассадки или нет"
     CompCheckSum( int _total_crc32, int _base_crc32 ) {
        total_crc32 = _total_crc32;
        base_crc32 = _base_crc32;
