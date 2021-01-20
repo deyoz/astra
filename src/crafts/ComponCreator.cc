@@ -15,10 +15,29 @@
 
 namespace ComponCreator {
 
-const
-  std::string DISABLE_CODE_SEAT = "Y";
+const //AHM
   std::string AISLE_LEFT_CODE_SEAT = "AL";
   std::string AISLE_RIGHT_CODE_SEAT = "AR";
+  std::string EMERGENCY_EXIT_CODE_SEAT = "E"; // аварийный выход elem_type="A"
+  std::string BASSINET_POSITIONS_CODE_SEAT = "B"; //люлька remark "BSCT"
+  std::string BULKHEAD_POSITIONS_CODE_SEAT = "F"; //-??? впереди перегородка - но это начало салона надо ли отображать отдельно перегородку?
+  std::string INCAPACITATED_PASS_CODE_SEAT = "H"; //-??? не дееспособный пассажир
+  std::string INFANT_PREFERENCE_CODE_SEAT = "I"; // место для младенцев remark "INFT"
+  std::string REAR_FACING_CODE_SEAT = "J"; // место обращенное назад  agle = 180
+  std::string NEAR_GALLEY_CODE_SEAT = "K"; //-??? возле буфета
+  std::string LEGS_SPACE_CODE_SEAT = "L"; // место для ног
+  std::string WHEEL_CHAIR_CODE_SEAT = "M"; //??? инвалидная коляска remark "WCHC"
+  std::string OVER_WING_CODE_SEAT = "O"; //-??? крыло remark "WING"
+  std::string STRETCHER_LOCATION_CODE_SEAT = "P"; //носилки remark "STCR"
+  std::string QUIET_ZONE_CODE_SEAT = "Q"; //???-тихая зона
+  std::string SMOKING_CODE_SEAT = "S"; // для курящих
+  std::string NEAR_TOILET_CODE_SEAT = "Т"; //???-рядом с туалетом прорисовывать туалеты?
+  std::string UNNACOMPANIED_MINOR_CODE_SEAT = "U"; //несоверщеннолетний без сопровождения remark UMNR
+  std::string LEFT_VACANT_CODE_SEAT = "U"; //для занятия в последнюю очередь
+  std::string NOT_MOVIE_CODE_SEAT = "W"; //???-
+  std::string NOT_AVAILABLE_CODE_SEAT = "X";//not available - когда места '000'. Если для среднего задано X, то его нет и маста приживаются друг к другу по центру
+  std::string DISABLE_CODE_SEAT = "Y";//not fitted не установлено - когда места '000'. Если в середине стоит Y, то получаем '0 0' дыру
+  std::string BUFFER_ZONE_CODE_SEAT = "Z";//buffer zone
 
 int SIGN( int a ) {
     return (a > 0) - (a < 0);
@@ -662,7 +681,7 @@ int ComponLibraFinder::getPlanId( const std::string& bort, TQuery& Qry ) {
   if ( bort.empty() ) {
       return ASTRA::NoExists;
   }
-  //!!! нет проверки на тип ВС, только борт
+  //!!! нет проверки на тип ВС, только борт. Здесь выбирается компоновка по расписанию поэтому такое условие по дате + сортировка. Не изменять!!!
   Qry.Clear();
   Qry.SQLText =
   "SELECT brw.S_L_ADV_ID AS PLAN_ID "
@@ -1329,12 +1348,68 @@ typedef std::map<int,int> tseat_props;
 void setLibraProps( SALONS2::CraftSeats& seats, const tprops& props, const tseat_props& seat_props  ) {
   //seat_props <getSeatKey, libra_seat_idx>
   //props <libra_seat_idx,vector<seat_prop_code>> список свойств мест
-  return;
-/*  for ( auto& seatSalon : seats ) {
-    std::string lines_row, prior_lines_row;
+  for ( const auto& seatSalon : seats ) {
+    //std::string lines_row, prior_lines_row;
     for ( auto& seat : seatSalon->places ) {
+      if ( !seat.visible ) {
+        continue;
+      }
+      tseat_props::const_iterator sps = seat_props.find( SALONS2::getSeatKey::get( seatSalon->num, seat.x, seat.y ) );
+      if ( sps == seat_props.end() ) {
+        continue;
+      }
+      LogTrace(TRACE5) << seatSalon->num << " " << seat.x << " " << seat.y << " " << sps->second;
+      tprops::const_iterator seatProps = props.find( sps->second );
+      if ( seatProps == props.end() ) {
+        continue;
+      }
+      for ( const auto& p : seatProps->second ) { //properties list
+        LogTrace(TRACE5) << p;
+        if ( p == EMERGENCY_EXIT_CODE_SEAT ) {
+          seat.elem_type = SALONS2::ARMCHAIR_EMERGENCY_EXIT_TYPE;
+        }
+        if ( p == BASSINET_POSITIONS_CODE_SEAT ) { //люлька
+          seat.AddRemark( ASTRA::NoExists, SALONS2::TSeatRemark( "BSCT", 0 )  );
+        }
+        if ( p == INFANT_PREFERENCE_CODE_SEAT ) {
+          seat.AddRemark( ASTRA::NoExists, SALONS2::TSeatRemark( "INFT", 0 )  );
+        }
+        if ( p == REAR_FACING_CODE_SEAT ) {
+          seat.agle = 180;
+        }
+        if ( p == LEGS_SPACE_CODE_SEAT ) {
+          seat.AddRemark( ASTRA::NoExists, SALONS2::TSeatRemark( "LEGS", 0 )  );
+        }
+        if ( p == WHEEL_CHAIR_CODE_SEAT ) {
+          seat.AddRemark( ASTRA::NoExists, SALONS2::TSeatRemark( "WCHC", 0 )  );
+        }
+        if ( p == STRETCHER_LOCATION_CODE_SEAT ) {
+          seat.AddRemark( ASTRA::NoExists, SALONS2::TSeatRemark( "STCR", 0 )  );
+        }
+        if ( p == SMOKING_CODE_SEAT ) {
+          SALONS2::TLayerSeat seatlayer;
+          seatlayer.layer_type = ASTRA::TCompLayerType::cltSmoke;
+          SALONS2::TLayerPrioritySeat layerPrioritySeat( seatlayer,
+                                                         BASIC_SALONS::TCompLayerTypes::Instance()->priority(
+                                                             BASIC_SALONS::TCompLayerTypes::LayerKey( "", seatlayer.layer_type ),
+                                                             BASIC_SALONS::TCompLayerTypes::ignoreAirline ) );
+          seat.AddLayer( ASTRA::NoExists, layerPrioritySeat );
+        }
+        if ( p == UNNACOMPANIED_MINOR_CODE_SEAT ) {
+          seat.AddRemark( ASTRA::NoExists, SALONS2::TSeatRemark( "UMNR", 0 )  );
+        }
+        if ( p == LEFT_VACANT_CODE_SEAT ) {
+          SALONS2::TLayerSeat seatlayer;
+          seatlayer.layer_type = ASTRA::TCompLayerType::cltProtect;
+          SALONS2::TLayerPrioritySeat layerPrioritySeat( seatlayer,
+                                                         BASIC_SALONS::TCompLayerTypes::Instance()->priority(
+                                                             BASIC_SALONS::TCompLayerTypes::LayerKey( "", seatlayer.layer_type ),
+                                                             BASIC_SALONS::TCompLayerTypes::ignoreAirline ) );
+          seat.AddLayer( ASTRA::NoExists, layerPrioritySeat );
+        }
+      }
     }
-  }*/
+  }
 }
 
 std::string getLibraCfg( int plan_id, int conf_id,
@@ -1643,6 +1718,7 @@ void ComponSetter::createBaseLibraCompon( ComponLibraFinder::AstraSearchResult& 
     LogTrace( TRACE5 ) << "(x=" << seat.x << ",y=" << seat.y << ")" << ",xname=" << seat.xname << ",yname=" << seat.yname <<",class=" << seat.clname <<",visible=" <<seat.visible;
 
     //если есть проход справа, то координаты след мест по x увеличиваем на 1, если слева, то текущую координату увеличиваем на 1
+    seat.x += aisle.getDiff( );
     if ( seat.visible ) {
       if ( seat.isplace ) {
         tprops::iterator im = props.find( Qry.FieldAsInteger( "id" ) );
@@ -1652,13 +1728,11 @@ void ComponSetter::createBaseLibraCompon( ComponLibraFinder::AstraSearchResult& 
         if ( find( im->second.begin(), im->second.end(), AISLE_RIGHT_CODE_SEAT ) != im->second.end() ) {
            aisle.AddRight( );
         }
-        if ( im != props.end() ) {
-           seat_props.emplace( SALONS2::getSeatKey::get( seatSalon->num, seat.x, seat.y ), im->first );
+        if (seat.visible = ( find( im->second.begin(), im->second.end(), DISABLE_CODE_SEAT ) == im->second.end() )) {
+          seat_props.emplace( SALONS2::getSeatKey::get( seatSalon->num, seat.x, seat.y ), im->first );
         }
-        seat.visible = ( find( im->second.begin(), im->second.end(), DISABLE_CODE_SEAT ) == im->second.end() );
       }
     }
-    seat.x += aisle.getDiff( );
     //LogTrace(TRACE5) << aisle.getDiff( ) << " " << seat.x;
     aisle.AddSeat(seat);
   } // end for

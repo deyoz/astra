@@ -742,6 +742,14 @@ struct TSeatRemark {
   bool operator != (const TSeatRemark &seatRemark) const {
     return !equal( seatRemark );
   }
+  TSeatRemark( const std::string& _value, bool _pr_denial ) {
+    value = _value;
+    pr_denial = _pr_denial;
+  }
+  TSeatRemark() {
+    value = "";
+    pr_denial = true;
+  }
 };
 
 struct SeatRemarkCompare {
