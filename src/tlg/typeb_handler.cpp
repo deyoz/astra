@@ -38,6 +38,7 @@
 #include <tcl.h>
 #include <math.h>
 #include <iostream>
+#include <regex>
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -55,6 +56,7 @@ namespace TypeB {
 }
 
 static void handle_tpb_tlg(const tlg_info &tlg);
+static void prehandle_tpb_tlg(tlg_info &tlg);
 
 static int HANDLER_WAIT_INTERVAL()       //миллисекунды
 {
@@ -143,11 +145,11 @@ int main_typeb_handler_tcl(int supervisorSocket, int argc, char *argv[])
       waitCmd("CMD_TYPEB_HANDLER",queue_not_empty?HANDLER_PROC_INTERVAL():HANDLER_WAIT_INTERVAL(),buf,sizeof(buf));
     }; // end of loop
   }
-  catch(EOracleError &E)
+  catch(const EOracleError &E)
   {
     ProgError(STDLOG,"EOracleError %d: %s\nSQL: %s)",E.Code,E.what(),E.SQLText());
   }
-  catch(std::exception &E)
+  catch(const std::exception &E)
   {
     ProgError(STDLOG,"std::exception: %s",E.what());
   }
@@ -207,11 +209,11 @@ int main_typeb_parser_tcl(int supervisorSocket, int argc, char *argv[])
       waitCmd(getSocketName(handler_id).c_str(),queue_not_empty?PARSER_PROC_INTERVAL():PARSER_WAIT_INTERVAL(),buf,sizeof(buf));
     }; // end of loop
   }
-  catch(EOracleError &E)
+  catch(const EOracleError &E)
   {
     ProgError(STDLOG,"EOracleError %d: %s\nSQL: %s)",E.Code,E.what(),E.SQLText());
   }
-  catch(std::exception &E)
+  catch(const std::exception &E)
   {
     ProgError(STDLOG,"std::exception: %s",E.what());
   }
@@ -365,6 +367,7 @@ bool handle_tlg(void)
         tlgi.fromDB(TlgQry);
         if (tlgi.ttlExpired()) errorTlg(tlgi.id,"TTL");
 
+        prehandle_tpb_tlg(tlgi);
         handle_tpb_tlg(tlgi);
     }
   }
@@ -385,8 +388,16 @@ bool handle_tlg(void)
 
 void parse_and_handle_tpb_tlg(const tlg_info &tlg)
 {
-    handle_tpb_tlg(tlg);
+    tlg_info tlg2(tlg);
+    prehandle_tpb_tlg(tlg2);
+    handle_tpb_tlg(tlg2);
     parse_tlg(all_other_handler_id);
+}
+
+void prehandle_tpb_tlg(tlg_info &tlg)
+{
+  std::regex re("^(([^\\n\\r]+(\\n|\\r\\n)){1,8}\\.\\w{7}[^\\n\\r]*(\\n|\\r\\n))PDM(\\n|\\r\\n)");
+  tlg.text=std::regex_replace(tlg.text, re, "$1");
 }
 
 void handle_tpb_tlg(const tlg_info &tlg)
@@ -510,7 +521,6 @@ void handle_tpb_tlg(const tlg_info &tlg)
     procTlg(tlg.id);
     ASTRA::commit();
 
-    string tlgs_text=getTlgText(tlg.id);
     int typeb_tlg_id=NoExists;
     int typeb_tlg_num=1;
     ostringstream merge_key;
@@ -519,7 +529,7 @@ void handle_tpb_tlg(const tlg_info &tlg)
 
     try
     {
-      GetParts(tlgs_text.c_str(), parts, HeadingInfo, bind_flts, mem);
+      GetParts(tlg.text.c_str(), parts, HeadingInfo, bind_flts, mem);
       if (parts.addr.size()>255) throw ETlgError("Address too long");
       if (parts.heading.size()>100) throw ETlgError("Header too long");
       if (parts.ending.size()>20) throw ETlgError("End of message too long");
@@ -565,7 +575,7 @@ void handle_tpb_tlg(const tlg_info &tlg)
           fltInfo.suffix = ElemToElemId(etSuffix, info.flt.suffix, fmt);
           fltInfo.scd_out = info.flt.scd;
           map<string, string> extra;
-          putUTG(tlg.id, typeb_tlg_num, info.tlg_type, fltInfo, tlgs_text, extra);
+          putUTG(tlg.id, typeb_tlg_num, info.tlg_type, fltInfo, tlg.text, extra);
 
         }
         else
@@ -603,11 +613,11 @@ void handle_tpb_tlg(const tlg_info &tlg)
           typeb_tlg_id=TlgIdQry.GetVariableAsInteger("id");
       };
     }
-    catch(ETlgError &E)
+    catch(const ETlgError &E)
     {
       errors.push_back(E);
       parts.clear();
-      parts.body=tlgs_text;
+      parts.body=tlg.text;
     };
 
     if (typeb_tlg_id!=NoExists)
@@ -653,7 +663,7 @@ void handle_tpb_tlg(const tlg_info &tlg)
         socket_name = getSocketName(InsQry.get().GetVariableAsString("proc_name"));
         insert_typeb=true;
       }
-      catch(EOracleError E)
+      catch(const EOracleError &E)
       {
         if (E.Code==1)
         {
@@ -680,7 +690,7 @@ void handle_tpb_tlg(const tlg_info &tlg)
           socket_name = getSocketName(InsQry.get().GetVariableAsString("proc_name"));
           insert_typeb=true;
 
-          if (tlgs_text!=typeb_in_text.str())
+          if (tlg.text!=typeb_in_text.str())
           {
             long part_no;
             if (HeadingInfo->tlg_cat==tcDCS)
@@ -727,7 +737,7 @@ void handle_tpb_tlg(const tlg_info &tlg)
       }
     }
   }
-  catch(std::exception &E)
+  catch(const std::exception &E)
   {
     ASTRA::rollback();//OraSession.Rollback();
     try
@@ -888,7 +898,7 @@ bool parse_tlg(const string &handler_id)
         part.offset+=parts.body.size();
         ParseEnding(part,HeadingInfo,EndingInfo,mem);
       }
-      catch(std::exception &E)
+      catch(const std::exception &E)
       {
         count++;
         if (isIgnoredEOracleError(E)) continue;
@@ -1129,7 +1139,7 @@ bool parse_tlg(const string &handler_id)
           };
         };
       }
-      catch(TlgHandling::TlgToBePostponed& e)
+      catch(const TlgHandling::TlgToBePostponed& e)
       {
           LogTrace(TRACE1) << "Tlg " << e.tlgNum() << " to be postponed";
           callPostHooksBefore();
@@ -1137,7 +1147,7 @@ bool parse_tlg(const string &handler_id)
           callPostHooksAfter();
           emptyHookTables();
       }
-      catch(std::exception &E)
+      catch(const std::exception &E)
       {
         count++;
         ASTRA::rollback();//OraSession.Rollback();
