@@ -21,7 +21,7 @@ class TPaxSegmentPair;
 class TTripInfo;
 class TAdvTripRoute;
 
-boost::optional<TTripInfo> getPointInfo(const PointId_t point_dep);
+std::optional<TTripInfo> getPointInfo(const PointId_t point_dep);
 std::vector<std::string> segAirps(const TPaxSegmentPair & flight);
 std::vector<int> segPoints(const TPaxSegmentPair & flight);
 TAdvTripRoute getTransitRoute(const TPaxSegmentPair& flight);

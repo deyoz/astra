@@ -25,11 +25,11 @@ using namespace std;
 using namespace ASTRA;
 using namespace ASTRA::date_time;
 
-boost::optional<TTripInfo> getPointInfo(const PointId_t point_dep)
+std::optional<TTripInfo> getPointInfo(const PointId_t point_dep)
 {
     TTripInfo point_info;
     if (!point_info.getByPointId(point_dep.get())) {
-        return boost::none;
+        return std::nullopt;
     }
     return point_info;
 }
