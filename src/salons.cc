@@ -2710,6 +2710,7 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
     "       pr_lat_seat, "
     "       NVL(comp_id,-1) comp_id, "
     "       crc_comp, "
+    "       NVL(crc_base_comp,crc_comp) as crc_base_comp, "
     "       craft, "
     "       bort, "
     "       airp, "
@@ -2727,6 +2728,7 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
   }
   fltInfo.Init( Qry );
   crc_comp = Qry.FieldAsInteger( "crc_comp" );
+  int crc_base_comp = Qry.FieldAsInteger( "crc_base_comp" );
   pr_craft_lat = Qry.FieldAsInteger( "pr_lat_seat" );
   comp_id = Qry.FieldAsInteger( "comp_id" );
   bool pr_tranzit = ( Qry.FieldAsInteger( "pr_tranzit" ) != 0 &&
@@ -2749,7 +2751,7 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
       Qry.SetVariable( "point_id", iroute->point_id );
       Qry.Execute();
       if ( Qry.Eof ||
-           crc_comp != Qry.FieldAsInteger( "crc_comp" ) ||
+           crc_base_comp != Qry.FieldAsInteger( "crc_base_comp" ) ||
            !pr_tranzit )
         break;
       //!logProgTrace( TRACE5, "point_id=%d, pr_tranzit=%d, act_out=%d",
@@ -2780,7 +2782,7 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
         Qry.SetVariable( "point_id", iroute->point_id );
         Qry.Execute();
         if ( Qry.Eof ||
-             crc_comp != Qry.FieldAsInteger( "crc_comp" )  ||
+             crc_base_comp != Qry.FieldAsInteger( "crc_base_comp" )  ||
              Qry.FieldAsInteger( "pr_tranzit" ) == 0 ||
              Qry.FieldAsInteger( "pr_tranz_reg" ) != 0 )
           break;
@@ -5647,7 +5649,7 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &Salons,
             break;
           }
           tmp_layer = *ilayer;
-          if ( ilayers->first != getDepartureId() ) { //если это не наш пункт вылета
+          if ( ilayers->first != getDepartureId() ) { //если это не наш пункт вылета, пакс может встать на Ло при регистрации, если в след. пункте есть слой после месты
             if ( !points.getPropRoute( ilayers->first, point ) ) { //слой не найден - такого не может быть
               //logProgTrace( TRACE5, "CreateSalonsForAutoSeats: %s, not add %s", string(iseat->yname+iseat->xname).c_str(),
               //log           ilayer->toString().c_str() );
