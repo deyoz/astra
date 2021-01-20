@@ -1,6 +1,7 @@
 #include "db_tquery.h"
 #include "hooked_session.h"
 #include "exceptions.h"
+#include "qrys.h"
 
 #include <serverlib/dbcpp_cursctl.h>
 #include <serverlib/dbcpp_session.h>
@@ -949,6 +950,47 @@ void TQuery::SetVariable(const std::string& vname, const std::string& vdata) { m
 void TQuery::SetVariable(const std::string& vname, double vdata) { m_impl->SetVariable(vname, vdata); }
 void TQuery::SetVariable(const std::string& vname, tnull vdata) { m_impl->SetVariable(vname, vdata); }
 
+//---------------------------------------------------------------------------------------
+
+TCachedQuery::TCachedQuery(DbCpp::Session& sess, const std::string& sqlText, const QParams& params)
+{
+    init(sess, sqlText, params);
+}
+
+TCachedQuery::TCachedQuery(DbCpp::Session& sess, const std::string& sqlText)
+{
+    init(sess, sqlText, QParams());
+}
+
+void TCachedQuery::init(DbCpp::Session& sess, const std::string& sqlText, const QParams& params)
+{
+    m_qry.reset(new TQuery(sess));
+    m_qry->SQLText = sqlText;
+
+    for(const QParam& p: params) {
+        if(p.empty) {
+            m_qry->CreateVariable(p.name, p.ft, FNull);
+        } else {
+            if(p.ft == otInteger) {
+                m_qry->CreateVariable(p.name, p.ft, p.int_value);
+            } else if(p.ft == otFloat) {
+                m_qry->CreateVariable(p.name, p.ft, p.double_value);
+            } else if(p.ft == otDate) {
+                m_qry->CreateVariable(p.name, p.ft, p.double_value);
+            } else if(p.ft == otString) {
+                m_qry->CreateVariable(p.name, p.ft, p.string_value);
+            } else {
+                LogError(STDLOG) << "Unsupported param type " << p.ft << " for variable " << p.name;
+            }
+        }
+    }
+}
+
+TQuery& TCachedQuery::get()
+{
+    return *m_qry.get();
+}
+
 }//namespace DB
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -1061,13 +1103,27 @@ START_TEST(common_usage)
     Qry.Clear();
     Qry.SQLText = "select FLD1, FLD3 from TEST_TQUERY where FLD1 > 100";
     Qry.Execute();
+    std::vector<int> ids1, ids2;
     for(; !Qry.Eof; Qry.Next()) {
-        LogTrace(TRACE3) << "Qry.Eof = " << Qry.Eof;
         LogTrace(TRACE3) << "Value of field FLD1=" << Qry.FieldAsInteger("FLD1");
         LogTrace(TRACE3) << "Value of field FLD3=" << Qry.FieldAsString("FLD3")
                          << "   (isNULL=" << Qry.FieldIsNULL("FLD3") << ")";
         fail_unless(Qry.FieldIsNULL("FLD3"), "FieldIsNULL failed");
+        ids1.emplace_back(Qry.FieldAsInteger("FLD1"));
     }
+
+    auto sql = "select FLD1, FLD3 from TEST_TQUERY where FLD1 > :fld1";
+    DB::TCachedQuery cachedQry(*get_main_pg_rw_sess(STDLOG), sql,
+                               QParams() << QParam("fld1", otInteger, 100));
+    cachedQry.get().Execute();
+    for(; not cachedQry.get().Eof; cachedQry.get().Next()) {
+        LogTrace(TRACE3) << "Value of field FLD1=" << cachedQry.get().FieldAsInteger("FLD1");
+        LogTrace(TRACE3) << "Value of field FLD3=" << cachedQry.get().FieldAsString("FLD3")
+                         << "   (isNULL=" << cachedQry.get().FieldIsNULL("FLD3") << ")";
+        ids2.emplace_back(cachedQry.get().FieldAsInteger("FLD1"));
+    }
+
+    fail_unless(ids1 == ids2);
 }
 END_TEST;
 

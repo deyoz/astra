@@ -8,6 +8,8 @@ namespace DbCpp {
     class Session;
 }//namespace DbCpp
 
+class QParams;
+
 /////////////////////////////////////////////////////////////////////////////////////////
 
 namespace DB {
@@ -69,6 +71,24 @@ public:
 
 private:
     std::unique_ptr<class TQueryIfaceImpl> m_impl;
+};
+
+//---------------------------------------------------------------------------------------
+
+class TCachedQuery
+{
+public:
+    TCachedQuery(DbCpp::Session& sess, const std::string& sqlText, const QParams& p);
+    TCachedQuery(DbCpp::Session& sess, const std::string& sqlText);
+    ~TCachedQuery() {}
+
+    TQuery& get();
+
+protected:
+    void init(DbCpp::Session& sess, const std::string& sqlText, const QParams& p);
+
+private:
+    std::shared_ptr<TQuery> m_qry;
 };
 
 }//namespace DB
