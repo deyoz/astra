@@ -23,7 +23,7 @@ enum class TransferFlag
 };
 
 template<typename T>
-using Opt = boost::optional<T>;
+using Opt = std::optional<T>;
 
 std::ostream& operator << (std::ostream& os, const TransferFlag& trfer);
 std::vector<std::string> statusesFromDb(const PaxId_t& pax_id);
