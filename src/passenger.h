@@ -185,9 +185,9 @@ namespace CheckIn
 {
 
 class TSimplePaxItem;
-boost::optional<TPaxSegmentPair> paxSegment(const PaxId_t& pax_id);
-boost::optional<TPaxSegmentPair> crsSegment(const PaxId_t& pax_id);
-boost::optional<TPaxSegmentPair> ckinSegment(const GrpId_t& grp_id);
+std::optional<TPaxSegmentPair> paxSegment(const PaxId_t& pax_id);
+std::optional<TPaxSegmentPair> crsSegment(const PaxId_t& pax_id);
+std::optional<TPaxSegmentPair> ckinSegment(const GrpId_t& grp_id);
 std::vector<TPaxSegmentPair> paxRouteSegments(const PaxId_t& pax_id);
 std::vector<TPaxSegmentPair> crsRouteSegments(const PaxId_t& pax_id);
 std::vector<int> routePoints(const PaxId_t& pax_id, PaxOrigin checkinType);

@@ -711,7 +711,7 @@ Opt<PointId_t> paxDataPointId(int msg_id)
         .EXfet();
     if(cur.err() == PgCpp::NoDataFound) {
         LogTrace(TRACE5) << __FUNCTION__ << " Query error. Not found data by msg_id: " << msg_id;
-        return boost::none;
+        return std::nullopt;
     }
     return PointId_t(point_id);
 }
@@ -726,7 +726,7 @@ Opt<PointId_t> manifestDataPointId(int msg_id)
         .EXfet();
     if(cur.err() == PgCpp::NoDataFound) {
         LogTrace(TRACE5) << __FUNCTION__ << " Query error. Not found data by msg_id: " << msg_id;
-        return boost::none;
+        return std::nullopt;
     }
     return PointId_t(point_id);
 }
@@ -785,7 +785,7 @@ Opt<AppsPaxDTO> AppsPaxDTO::load(const PaxId_t& pax_id, const AppsSettingsId_t& 
     if(!appsReader.execute())
     {
         LogTrace(TRACE5) << __FUNCTION__ << " Apps mapper can't execute ";
-        return boost::none;
+        return std::nullopt;
     }
     return appsReader;
 }
@@ -799,7 +799,7 @@ Opt<AppsPaxDTO> AppsPaxDTO::load(int msg_id)
     if(!appsReader.execute())
     {
         LogTrace(TRACE5) << __FUNCTION__ << " Apps mapper can't execute ";
-        return boost::none;
+        return std::nullopt;
     }
     return appsReader;
 }
@@ -986,7 +986,7 @@ Opt<MsgData> read_pax_data(int msg_id)
         .EXfet();
     if(cur2.err() == PgCpp::NoDataFound) {
         LogTrace(TRACE5) << __FUNCTION__ << " No data found in APPS_PAX_DATA by msg_id: " << msg_id;
-        return boost::none;
+        return std::nullopt;
     }
     return msg;
 }
@@ -1003,7 +1003,7 @@ Opt<MsgData> read_manifest_data(int msg_id)
         .EXfet();
     if(cur2.err() == PgCpp::NoDataFound) {
         LogTrace(TRACE5) << __FUNCTION__ << " No data found in APPS_MANIFEST_DATA by msg_id: " << msg_id;
-        return boost::none;
+        return std::nullopt;
     }
     return msg;
 }
@@ -1026,7 +1026,7 @@ Opt<APPSMessage> APPSMessage::readAppsMsg(int msg_id)
        .EXfet();
     if(cur.err() == PgCpp::NoDataFound) {
         LogTrace(TRACE5) << __FUNCTION__ << " No data found in APPS_MESSAGES by msg_id: " << msg_id;
-        return boost::none;
+        return std::nullopt;
     }
 
     msg = read_pax_data(msg_id);
@@ -1034,7 +1034,7 @@ Opt<APPSMessage> APPSMessage::readAppsMsg(int msg_id)
         msg = read_manifest_data(msg_id);
     }
     if(!msg) {
-        return boost::none;
+        return std::nullopt;
     }
 
     return APPSMessage(AppsSettingsId_t(settings_id), PointId_t(msg->point_id), msg->msg_text, msg_id,
@@ -1542,7 +1542,7 @@ Opt<AppsSettings> AppsSettings::readSettings(const AirlineCode_t& airline,
             .EXfet();
     if(cur.err() == NO_DATA_FOUND) {
         LogTrace(TRACE5) <<  __FUNCTION__ << " NO DATA FOUND ";
-        return boost::none;
+        return std::nullopt;
     }
     //Router получаем только , если настрйоки заведены
     std::string router(getAPPSRotName());
@@ -1581,7 +1581,7 @@ Opt<AppsSettings> AppsSettings::readSettings(const AppsSettingsId_t & id)
             .EXfet();
     if(cur.err() == NO_DATA_FOUND) {
         LogTrace(TRACE5) <<  __FUNCTION__ << " NO DATA FOUND ";
-        return boost::none;
+        return std::nullopt;
     }
     //Router получаем только , если настрйоки заведены
     std::string router(getAPPSRotName());
@@ -1684,11 +1684,11 @@ Opt<FlightData> createCkinFlightData(const GrpId_t& grp_id)
     if(ckinSeg){
         auto route = getTransitRoute(*ckinSeg);
         if(route.empty()) {
-            return boost::none;
+            return std::nullopt;
         }
         return createFlightData(*ckinSeg, "CHK");
     }
-    return boost::none;
+    return std::nullopt;
 }
 
 void FlightData::validateData() const
@@ -2015,7 +2015,7 @@ PaxAddData createPaxAddData(const PaxId_t& pax_id, PaxOrigin origin)
         throw Exception("Unknow origin");
     }
 
-    Opt<CheckIn::TPaxDocaItem> docaOpt = docaMap.get(apiDocaD);
+    boost::optional<CheckIn::TPaxDocaItem> docaOpt = docaMap.get(apiDocaD);
     if(docaOpt) {
         doca = createDoca(*docaOpt);
     }
@@ -2132,7 +2132,7 @@ Opt<AppsSettings> appsSets(const AirlineCode_t &airline, const CountryCode_t &co
             return set;
         }
     }
-    return boost::none;
+    return std::nullopt;
 }
 
 std::set<AppsSettings> appsSetsForRoute(const TAdvTripRoute& route)
@@ -2288,14 +2288,14 @@ Opt<PaxRequest> PaxRequest::createByPaxId(const PaxId_t& pax_id, const std::stri
         .bind(":pax_id", pax_id.get())
         .EXfet();
     if(cur.err() == NO_DATA_FOUND) {
-        return boost::none;
+        return std::nullopt;
     }
     Opt<TTripInfo> point_info = getPointInfo(PointId_t(info.point_dep));
     if(!point_info) {
-        return boost::none;
+        return std::nullopt;
     }
     if(!isInternationalFlight(AirportCode_t(info.airp_dep), AirportCode_t(info.airp_arv))) {
-        return boost::none;
+        return std::nullopt;
     }
     ASTRA::TGender::Enum gender = (info.is_female == NullFemale) ? ASTRA::TGender::Unknown
                                                                  : femaleToGender(info.is_female);
@@ -2325,7 +2325,7 @@ Opt<PaxRequest> PaxRequest::createByFields(const HolderType reqType, const PaxId
                                                 AirlineCode_t(airline));
     auto route = getTransitRoute(TPaxSegmentPair{info.point_dep, info.airp_arv});
     if(route.empty()) {
-        return boost::none;
+        return std::nullopt;
     }
     FlightData intFlight = createFlightData(TPaxSegmentPair{info.point_dep, info.airp_arv}, "INT");
     Opt<FlightData> ckinFlight = createCkinFlightData(GrpId_t(info.grp_id));
@@ -2357,7 +2357,7 @@ Opt<PaxRequest> PaxRequest::createByCrsPaxId(const PaxId_t &pax_id, const std::s
         .bind(":pax_id", pax_id.get())
         .EXfet();
     if(cur.err() == NO_DATA_FOUND) {
-        return boost::none;
+        return std::nullopt;
     }
     auto point_info = getPointInfo(PointId_t(info.point_dep));
     if(!point_info) {
@@ -2365,10 +2365,10 @@ Opt<PaxRequest> PaxRequest::createByCrsPaxId(const PaxId_t &pax_id, const std::s
     }
     if(!isInternationalFlight(TPaxSegmentPair{info.point_dep, info.airp_arv}))
     {
-        return boost::none;
+        return std::nullopt;
     }
     return createByFields(Crs, pax_id, info, true, ASTRA::TGender::Unknown,
-                          override_type, AirlineCode_t(point_info->airline), pr_del, boost::none);
+                          override_type, AirlineCode_t(point_info->airline), pr_del, std::nullopt);
 }
 
 Opt<PaxRequest> PaxRequest::createFromPaxDB(HolderType type, const PaxId_t& pax_id,
@@ -2678,11 +2678,14 @@ void APPSAnswer::readAnswerErrors(const std::string& source)
     }
 }
 
-int readAnswerMsgId(const std::string & source)
+Opt<int> readAnswerMsgId(const std::string & source)
 {
     vector<std::string> tmp;
     boost::split(tmp, source, boost::is_any_of("/"));
-    return getInt(tmp.front());
+    if(tmp.empty()) {
+        return std::nullopt;
+    }
+    return std::stoi(tmp.front());
 }
 
 std::string APPSAnswer::toString() const
@@ -2780,7 +2783,11 @@ bool processReply(const std::string& source_raw)
 std::unique_ptr<PaxReqAnswer> createPaxReqAnswer(const std::string& code, const std::string& source)
 {
     LogTrace(TRACE5) << __FUNCTION__;
-    Opt<APPSMessage> msg = APPSMessage::readAppsMsg(readAnswerMsgId(source));
+    Opt<int> msg_id = readAnswerMsgId(source);
+    if(!msg_id) {
+        return nullptr;
+    }
+    Opt<APPSMessage> msg = APPSMessage::readAppsMsg(*msg_id);
     if(!msg){
         return nullptr;
     }
@@ -2824,7 +2831,11 @@ std::unique_ptr<PaxReqAnswer> createPaxReqAnswer(const std::string& code, const 
 std::unique_ptr<ManifestAnswer> createManifestAnswer(const std::string& code, const std::string& source)
 {
     LogTrace(TRACE5) << __FUNCTION__;
-    Opt<APPSMessage> msg = APPSMessage::readAppsMsg(readAnswerMsgId(source));
+    Opt<int> msg_id = readAnswerMsgId(source);
+    if(!msg_id) {
+        return nullptr;
+    }
+    Opt<APPSMessage> msg = APPSMessage::readAppsMsg(*msg_id);
     if(!msg){
         return nullptr;
     }
@@ -3093,13 +3104,13 @@ Opt<ManifestRequest> createManifestReq(const TPaxSegmentPair &flt, const std::st
     Opt<TTripInfo> point_info = getPointInfo(PointId_t(flt.point_dep));
     if(!point_info) {
         LogTrace(TRACE5) << __FUNCTION__ << " have not point info";
-        return boost::none;
+        return std::nullopt;
     }
     TransactionData trs = createTransactionData(CIMR, false, AirlineCode_t(point_info->airline));
     auto route = getTransitRoute(flt);
     if(route.empty()) {
         LogTrace(TRACE5) << __FUNCTION__ << " route empty";
-        return boost::none;
+        return std::nullopt;
     }
     FlightData flight = createFlightData(flt, "INM");
     ManifestData mft(country_lat);

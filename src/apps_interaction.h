@@ -23,7 +23,7 @@ enum class TransferFlag
 };
 
 template<typename T>
-using Opt = boost::optional<T>;
+using Opt = std::optional<T>;
 
 void dumpAppsPaxData();
 void dumpAppsMsg();
