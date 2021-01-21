@@ -173,28 +173,22 @@ namespace BASIC {
 
         TDateTime LocalToUTC(TDateTime dt, const std::string& region, int isDst) {
 
-          try
+          TDateTime utc=LocalToUTCInner(dt, region, isDst);
+
+          if (region=="Europe/Volgograd")
           {
-            TDateTime utc=LocalToUTCInner(dt, region, isDst);
-            return utc;
+            static TDateTime tmp=0.0;
+            if (tmp==0.0)
+              StrToDateTime("27.12.2020 02:00:00", "dd.mm.yyyy hh:nn:ss", tmp, false);
+
+            if (dt>=tmp)
+              utc=LocalToUTCInner(dt, "Europe/Moscow", isDst);
           }
-          catch(const boost::local_time::time_label_invalid&)
-          {
-            throw EXCEPTIONS::Exception("%s: invalid time (%s : %s)",
-                                        __func__,
-                                        DateTimeToStr(dt, "dd.mm.yyyy hh:nn").c_str(),
-                                        region.c_str());
-          }
-          catch(const boost::local_time::ambiguous_result&)
-          {
-            throw EXCEPTIONS::Exception("%s: ambiguous time (%s : %s)",
-                                        __func__,
-                                        DateTimeToStr(dt, "dd.mm.yyyy hh:nn").c_str(),
-                                        region.c_str());
-          }
+
+          return utc;
         }
 
-        TDateTime UTCToLocal(TDateTime dt, const std::string& region) {
+        TDateTime UTCToLocalInner(TDateTime dt, const std::string& region) {
 
             TimeZone* TimeZoneUTC = TimeZone::createTimeZone("Etc/GMT");
 
@@ -211,6 +205,23 @@ namespace BASIC {
             gc.setTimeZone(*region_tz);
 
             return Calendar2DateTime(gc);
+        }
+
+        TDateTime UTCToLocal(TDateTime dt, const std::string& region) {
+
+          TDateTime local=UTCToLocalInner(dt, region);
+
+          if (region=="Europe/Volgograd")
+          {
+            static TDateTime tmp=0.0;
+            if (tmp==0.0)
+              StrToDateTime("27.12.2020 02:00:00", "dd.mm.yyyy hh:nn:ss", tmp, false);
+
+            if (local>=tmp)
+              local=UTCToLocalInner(dt, "Europe/Moscow");
+          }
+
+          return local;
         }
 
         boost::gregorian::date UTCToLocal(const boost::gregorian::date& dateUtc,
