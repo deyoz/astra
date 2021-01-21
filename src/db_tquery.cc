@@ -116,6 +116,7 @@ private:
     struct Variable
     {
         BindVariant Value;
+        otFieldType Type;
         bool        IsNull;
     };
 
@@ -172,6 +173,8 @@ protected:
     static int         fieldValueAsInteger(const char* fname, const std::string& val);
     static TDateTime   fieldValueAsDateTime(const char* fname, const std::string& val);
     static double      fieldValueAsFloat(const char* fname, const std::string& val);
+
+    std::optional<Variable> findVariable(const std::string& vname) const;
 };
 
 //
@@ -418,33 +421,33 @@ double TQueryIfaceDbCppImpl::FieldAsFloat(int ind)
 
 void TQueryIfaceDbCppImpl::CreateVariable(const std::string& vname, otFieldType vtype, int vdata)
 {
-    m_variables.emplace(vname, Variable{vdata, false/*IsNull*/});
+    m_variables.emplace(vname, Variable{vdata, vtype, false/*IsNull*/});
 }
 
 void TQueryIfaceDbCppImpl::CreateVariable(const std::string& vname, otFieldType vtype, const std::string& vdata)
 {
-    m_variables.emplace(vname, Variable{vdata, false/*IsNull*/});
+    m_variables.emplace(vname, Variable{vdata, vtype, false/*IsNull*/});
 }
 
 void TQueryIfaceDbCppImpl::CreateVariable(const std::string& vname, otFieldType vtype, double vdata)
 {
     if(vtype == otDate) {
-        m_variables.emplace(vname, Variable{BASIC::date_time::DateTimeToBoost(vdata), false/*IsNull*/});
+        m_variables.emplace(vname, Variable{BASIC::date_time::DateTimeToBoost(vdata), vtype, false/*IsNull*/});
     } else {
-        m_variables.emplace(vname, Variable{vdata, false/*IsNull*/});
+        m_variables.emplace(vname, Variable{vdata, vtype, false/*IsNull*/});
     }
 }
 
 void TQueryIfaceDbCppImpl::CreateVariable(const std::string& vname, otFieldType vtype, tnull vdata)
 {
     if(vtype == otInteger) {
-        m_variables.emplace(vname, Variable{0, true/*IsNull*/});
+        m_variables.emplace(vname, Variable{0, vtype, true/*IsNull*/});
     } else if(vtype == otFloat) {
-        m_variables.emplace(vname, Variable{0.0, true/*IsNull*/});
+        m_variables.emplace(vname, Variable{0.0, vtype, true/*IsNull*/});
     } else if(vtype == otString) {
-        m_variables.emplace(vname, Variable{"", true/*IsNull*/});
+        m_variables.emplace(vname, Variable{"", vtype, true/*IsNull*/});
     } else if(vtype == otDate) {
-        m_variables.emplace(vname, Variable{boost::posix_time::second_clock::local_time(), true/*IsNull*/});
+        m_variables.emplace(vname, Variable{boost::posix_time::second_clock::local_time(), vtype, true/*IsNull*/});
     } else {
         LogError(STDLOG) << "Unsupported null variable type " << vtype << " for variable " << vname;
     }
@@ -460,7 +463,7 @@ int TQueryIfaceDbCppImpl::VariablesCount()
 //       -1, если иначе
 int TQueryIfaceDbCppImpl::GetVariableIndex(const std::string& vname)
 {
-    return algo::find_opt<std::optional>(m_variables, vname) ? 1 : -1;
+    return findVariable(vname) ? 1 : -1;
 }
 
 int TQueryIfaceDbCppImpl::VariableIndex(const std::string& vname)
@@ -481,7 +484,7 @@ int TQueryIfaceDbCppImpl::VariableIsNULL(const std::string& vname)
         throw EOracleError( "You cannot get value to variable with an empty name", 1 );
     }
 
-    auto optVar = algo::find_opt<std::optional>(m_variables, vname);
+    auto optVar = findVariable(vname);
     if(!optVar) {
         char serror[ 100 ];
         sprintf(serror, "Variable %s does not exists", vname.c_str());
@@ -532,8 +535,10 @@ void TQueryIfaceDbCppImpl::SetVariable(const std::string& vname, const std::stri
 void TQueryIfaceDbCppImpl::SetVariable(const std::string& vname, double vdata)
 {
     checkVariable4Set(vname);
+    auto var = findVariable(vname);
+    ASSERT(var);
     DeleteVariable(vname);
-    CreateVariable(vname, otFloat, vdata);
+    CreateVariable(vname, var->Type, vdata);
 }
 
 void TQueryIfaceDbCppImpl::SetVariable(const std::string& vname, tnull vdata)
@@ -617,6 +622,11 @@ double TQueryIfaceDbCppImpl::fieldValueAsFloat(const char* fname, const std::str
     }
 
     return value;
+}
+
+std::optional<TQueryIfaceDbCppImpl::Variable> TQueryIfaceDbCppImpl::findVariable(const std::string& vname) const
+{
+    return algo::find_opt<std::optional>(m_variables, vname);
 }
 
 //---------------------------------------------------------------------------------------
@@ -1053,7 +1063,10 @@ START_TEST(common_usage)
     Qry.SQLText = "insert into TEST_TQUERY(FLD1, FLD2 , FLD3, FLD4) values (:fld1, :fld2, :fld3, :fld4)";
     Qry.DeclareVariable("fld1", otInteger);
     Qry.SetVariable("fld1", intval);
-    Qry.CreateVariable("fld2", otDate,    timevaldt);
+
+    Qry.DeclareVariable("fld2", otDate);
+    Qry.SetVariable("fld2", timevaldt);
+
     Qry.CreateVariable("fld3", otString,  strval);
     Qry.CreateVariable("fld4", otInteger, FNull);
 
