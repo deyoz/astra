@@ -665,5 +665,288 @@ $(TKCRES_ET_COS UTET UTDC $(get edi_ref1) 2986145134263 2 B)
 <<
 $(TKCRES_ET_COS UTET UTDC $(get edi_ref0) 2986145143703 2 B)
 
+%%
+
+### test 6 - ¨§¬¥­¥­¨¥ αβ βγα®Ά ―ΰ¨ ®β«®¦¥­­®© α¬¥­¥ αβ βγα  
+#########################################################################################
+
+$(init_term)
+
+$(set_user_time_type LocalAirp PIKE)
+
+$(set airline UT)
+$(set flt_no 280)
+$(set craft TU5)
+$(set airp_dep DME)
+$(set time_dep "$(date_format %d.%m.%Y -1) 07:00")
+$(set time_arv "$(date_format %d.%m.%Y -1) 10:00")
+$(set airp_arv AER)
+
+$(NEW_SPP_FLIGHT_ONE_LEG $(get airline) $(get flt_no) $(get craft) $(get airp_dep) $(get time_dep) $(get time_arv) $(get airp_arv))
+
+$(INB_PNL_UT $(get airp_dep) $(get airp_arv) $(get flt_no) $(ddmon -1))
+
+$(init_eds ’ UTET UTDC)
+$(cache PIKE RU DESK_GRP_SETS $(cache_iface_ver DESK_GRP_SETS) ""
+  insert grp_id:1 defer_etstatus:1)
+
+$(set point_dep $(last_point_id_spp))
+
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set pax_id_06 $(get_pax_id $(get point_dep) „’…‚€ "‹ €‹…‘€„‚€"))
+$(set pax_id_07 $(get_pax_id $(get point_dep) —€‚ "•€‹ ƒ…€„…‚—"))
+$(set pax_id_08 $(get_pax_id $(get point_dep) —€‚ "‹€‰"))
+
+$(SAVE_ET_DISP $(get point_dep) 2982425618100 „’…‚€ "‹ €‹…‘€„‚€"
+  recloc=F43LF1 depp=$(get airp_dep) arrp=$(get airp_arv))
+$(SAVE_ET_DISP $(get point_dep) 2982425618102 —€‚ "•€‹ ƒ…€„…‚—"
+  recloc=F43LF1 depp=$(get airp_dep) arrp=$(get airp_arv))
+$(SAVE_ET_DISP $(get point_dep) 2982425618101 —€‚ "‹€‰"
+  recloc=F43LF1 depp=$(get airp_dep) arrp=$(get airp_arv))
+
+$(NEW_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(get airp_dep) $(get airp_arv) hall=1
+{
+<passengers>
+  <pax>
+    <pax_id>$(get pax_id_06)</pax_id>
+    <surname>„’…‚€</surname>
+    <name>‹ €‹…‘€„‚€</name>
+    <pers_type>‚‡</pers_type>
+    <seat_no/>
+    <preseat_no/>
+    <seat_type/>
+    <seats>1</seats>
+    <ticket_no>2982425618100</ticket_no>
+    <coupon_no>1</coupon_no>
+    <ticket_rem>TKNE</ticket_rem>
+    <ticket_confirm>1</ticket_confirm>
+    <document>
+      <type>P</type>
+      <issue_country>RUS</issue_country>
+      <no>0310526187</no>
+      <nationality>RUS</nationality>
+      <birth_date>23.08.1985 00:00:00</birth_date>
+      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
+      <gender>F</gender>
+      <surname>„’…‚€</surname>
+      <first_name>‹ €‹…‘€„‚€</first_name>
+    </document>
+    <subclass>P</subclass>
+    <bag_pool_num/>
+    <transfer/>
+  </pax>
+  <pax>
+    <pax_id>$(get pax_id_07)</pax_id>
+    <surname>—€‚</surname>
+    <name>•€‹ ƒ…€„…‚—</name>
+    <pers_type></pers_type>
+    <seat_no/>
+    <preseat_no/>
+    <seat_type/>
+    <seats>1</seats>
+    <ticket_no>2982425618102</ticket_no>
+    <coupon_no>1</coupon_no>
+    <ticket_rem>TKNE</ticket_rem>
+    <ticket_confirm>1</ticket_confirm>
+    <document>
+      <type>F</type>
+      <issue_country>RUS</issue_country>
+      <no>V€ƒ568572</no>
+      <nationality>RUS</nationality>
+      <birth_date>21.11.$(date_format %Y -5y) 00:00:00</birth_date>
+      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
+      <gender>M</gender>
+      <surname>—€‚</surname>
+      <first_name>•€‹ ƒ…€„…‚—</first_name>
+    </document>
+    <subclass>P</subclass>
+    <bag_pool_num/>
+    <transfer/>
+  </pax>
+  <pax>
+    <pax_id>$(get pax_id_08 )</pax_id>
+    <surname>—€‚</surname>
+    <name>‹€‰</name>
+    <pers_type></pers_type>
+    <seat_no/>
+    <preseat_no/>
+    <seat_type/>
+    <seats>1</seats>
+    <ticket_no>2982425618101</ticket_no>
+    <coupon_no>1</coupon_no>
+    <ticket_rem>TKNE</ticket_rem>
+    <ticket_confirm>1</ticket_confirm>
+    <document>
+      <type>F</type>
+      <issue_country>RUS</issue_country>
+      <no>V€ƒ841650</no>
+      <nationality>RUS</nationality>
+      <birth_date>11.08.$(date_format %Y -2y) 00:00:00</birth_date>
+      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
+      <gender>M</gender>
+      <surname>—€‚</surname>
+      <first_name>•€‹ ƒ…€„…‚—</first_name>
+    </document>
+    <subclass>P</subclass>
+    <bag_pool_num/>
+    <transfer/>
+  </pax>
+</passengers>
+})
+
+$(set grp_id $(get_single_grp_id $(get point_dep) „’…‚€ "‹ €‹…‘€„‚€"))
+$(set grp_tid $(get_single_tid $(get point_dep) „’…‚€ "‹ €‹…‘€„‚€"))
+$(set pax_tid_06 $(get_single_pax_tid $(get point_dep) „’…‚€ "‹ €‹…‘€„‚€"))
+$(set pax_tid_07 $(get_single_pax_tid $(get point_dep) —€‚ "•€‹ ƒ…€„…‚—"))
+$(set pax_tid_08 $(get_single_pax_tid $(get point_dep) —€‚ "‹€‰"))
+
+!! err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='ETStatus' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <ChangeGrpStatus>
+      <segments>
+        <segment>
+          <grp_id>$(get grp_id)</grp_id>
+        </segment>
+      </segments>
+    </ChangeGrpStatus>
+  </query>
+</term>}
+
+$(set edi_ref2 $(last_edifact_ref 2))
+$(set edi_ref1 $(last_edifact_ref 1))
+$(set edi_ref0 $(last_edifact_ref 0))
+
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref2) ’ 2982425618100 1 CK xxxxxx „„ ‘— 280 depd=$(ddmmyy -1))
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) ’ 2982425618101 1 CK xxxxxx „„ ‘— 280 depd=$(ddmmyy -1))
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982425618102 1 CK xxxxxx „„ ‘— 280 depd=$(ddmmyy -1))
+
+<<
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref2) 2982425618100 1 CK)
+<<
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref1) 2982425618101 1 CK)
+<<
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref0) 2982425618102 1 CK)
+
+$(KICK_IN_SILENT)
+
+$(CHANGE_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(get airp_dep) $(get airp_arv) $(get grp_id) $(get grp_tid) hall=1
+{
+<passengers>
+  <pax>
+    <pax_id>$(get pax_id_06)</pax_id>
+    <surname>„’…‚€</surname>
+    <name>‹ €‹…‘€„‚€</name>
+    <pers_type>‚‡</pers_type>
+    <refuse/>
+    <ticket_no>2982425618100</ticket_no>
+    <coupon_no>1</coupon_no>
+    <ticket_rem>TKNE</ticket_rem>
+    <ticket_confirm>0</ticket_confirm>
+    <document>
+      <type>P</type>
+      <issue_country>RUS</issue_country>
+      <no>0310526187</no>
+      <nationality>RUS</nationality>
+      <birth_date>23.08.1985 00:00:00</birth_date>
+      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
+      <gender>F</gender>
+      <surname>„’…‚€</surname>
+      <first_name>‹ €‹…‘€„‚€</first_name>
+    </document>
+    <subclass>P</subclass>
+    <bag_pool_num/>
+    <transfer/>
+    <tid>$(get pax_tid_06)</tid>
+  </pax>
+  <pax>
+    <pax_id>$(get pax_id_07)</pax_id>
+    <surname>—€‚</surname>
+    <name>•€‹ ƒ…€„…‚—</name>
+    <pers_type></pers_type>
+    <refuse></refuse>
+    <ticket_no>2982425618102</ticket_no>
+    <coupon_no>1</coupon_no>
+    <ticket_rem>TKNE</ticket_rem>
+    <ticket_confirm>0</ticket_confirm>
+    <document>
+      <type>F</type>
+      <issue_country>RUS</issue_country>
+      <no>V€ƒ568572</no>
+      <nationality>RUS</nationality>
+      <birth_date>21.11.$(date_format %Y -5y) 00:00:00</birth_date>
+      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
+      <gender>M</gender>
+      <surname>—€‚</surname>
+      <first_name>•€‹ ƒ…€„…‚—</first_name>
+    </document>
+    <subclass>P</subclass>
+    <bag_pool_num/>
+    <transfer/>
+    <tid>$(get pax_tid_07)</tid>
+  </pax>
+  <pax>
+    <pax_id>$(get pax_id_08)</pax_id>
+    <surname>—€‚</surname>
+    <name>‹€‰</name>
+    <pers_type></pers_type>
+    <refuse>€</refuse>
+    <ticket_no>2982425618101</ticket_no>
+    <coupon_no>1</coupon_no>
+    <ticket_rem>TKNE</ticket_rem>
+    <ticket_confirm>0</ticket_confirm>
+    <document>
+      <type>F</type>
+      <issue_country>RUS</issue_country>
+      <no>V€ƒ841650</no>
+      <nationality>RUS</nationality>
+      <birth_date>11.08.$(date_format %Y -2y) 00:00:00</birth_date>
+      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
+      <gender>M</gender>
+      <surname>—€‚</surname>
+      <first_name>•€‹ ƒ…€„…‚—</first_name>
+    </document>
+    <subclass>P</subclass>
+    <bag_pool_num/>
+    <transfer/>
+    <tid>$(get pax_tid_08)</tid>
+  </pax>
+</passengers>
+})
+
+!! err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='ETStatus' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <ChangeGrpStatus>
+      <segments>
+        <segment>
+          <grp_id>$(get grp_id)</grp_id>
+          <check_point_id>$(get point_dep)</check_point_id>
+        </segment>
+      </segments>
+    </ChangeGrpStatus>
+  </query>
+</term>}
+
+$(set edi_ref1 $(last_edifact_ref 1))
+$(set edi_ref0 $(last_edifact_ref 0))
+
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) ’ 2982425618102 1 I xxxxxx „„ ‘— 280 depd=$(ddmmyy -1))
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982425618101 1 I xxxxxx „„ ‘— 280 depd=$(ddmmyy -1))
+
+<<
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref1) 2982425618102 1 I)
+<<
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref0) 2982425618101 1 I)
+
+$(KICK_IN_SILENT)
+
 
 
