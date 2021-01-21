@@ -799,6 +799,7 @@ struct CreatorSPPLocker {
      DB::TQuery Qry(PgOra::getRWSession("SEASON_SPP"));
      Qry.SQLText = "SELECT lock_spp FROM season_spp FOR UPDATE";
      Qry.Execute();
+     ASSERT(Qry.RowCount() == 1);
      islock = true;
    }
    void commit() {
@@ -2088,7 +2089,7 @@ void SEASON::int_write(const TFilter &filter, int ssm_id, vector<TPeriod> &speri
           pr_add = true;
         }
         if ( id->trip != NoExists ) {
-          prmenum2.prms << PrmSmpl<int>("", id->trip);
+        prmenum2.prms << PrmSmpl<int>("", id->trip);
           pr_add = true;
         }
         if ( !id->suffix.empty() ) {
