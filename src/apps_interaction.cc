@@ -616,6 +616,7 @@ void AppsManifestDTO::save(const ManifestRequest &request, const std::string& ms
                "(point_id, msg_id, msg_text) "
                "VALUES (:point_id, :msg_id, :msg_text)");
     cur
+        .stb()
         .bind(":msg_id",      msg_id)
         .bind(":point_id",    request.getPointId())
         .bind(":msg_text",    msg_text)
