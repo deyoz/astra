@@ -72,7 +72,6 @@ const
     {"-termversion",            SetTermVersionNotice,   SetTermVersionNoticeHelp,   NULL},
     {"-create_apis",            create_apis_nosir,      create_apis_nosir_help,     NULL},
     {"-send_tlg",               send_tlg,               send_tlg_help,              NULL},
-    {"-dst_seasons",            seasons_dst_format,     NULL,                       NULL},
     {"-agent_stat_delta",       STAT::agent_stat_delta, NULL,                       NULL},
     {"-lci",                    TypeB::lci,             NULL,                       NULL},
     {"-tz2db",                  tz2db,                  NULL,                       "reload date_time_zonespec.csv content to db"},
@@ -86,7 +85,7 @@ const
     {"-tscript",                nosir_tscript,          NULL,                       NULL},
 #endif//XP_TESTING
     {"-file_by_id",             file_by_id,             NULL,                       NULL},
-    {"-dst_points",             points_dst_format,      NULL,                       NULL},
+    // {"-dst_points",             points_dst_format,      NULL,                       NULL},
     {"-ovb",                    STAT::ovb,              NULL,                       NULL},
     {"-http",                   verifyHTTP,             NULL,                       NULL},
     {"-bcbp",                   AstraWeb::bcbp_test,    NULL,                       NULL},
