@@ -1245,7 +1245,7 @@ void createSPP( TDateTime ldt_SPPStart, TSpp &spp, bool createViewer, string &er
         "   WHERE routes.move_id = sched_days.move_id AND "
         "         DATE_TRUNC('day', first_day) + interval '1 day' * (delta_out + delta) <= :vd AND "
         "         DATE_TRUNC('day', last_day) + interval '1 day' * (delta_out + delta) >= :vd AND "
-        "         POSITION(TO_CHAR(:vd - interval '1 day' * (delta_in + delta), 'ID') in days) != 0 ) as d "
+        "         POSITION(TO_CHAR(:vd - interval '1 day' * (delta_out + delta), 'ID') in days) != 0 ) as d "
         " ORDER BY move_id, qdate";
   } else {
     Qry.SQLText =
