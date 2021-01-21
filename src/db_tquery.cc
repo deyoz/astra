@@ -422,7 +422,11 @@ double TQueryIfaceDbCppImpl::FieldAsFloat(int ind)
 
 void TQueryIfaceDbCppImpl::CreateVariable(const std::string& vname, otFieldType vtype, int vdata)
 {
-    m_variables.emplace(vname, Variable{vdata, vtype, false/*IsNull*/});
+    if(vtype == otFloat) {
+        m_variables.emplace(vname, Variable{static_cast<double>(vdata), vtype, false/*IsNull*/});
+    } else {
+        m_variables.emplace(vname, Variable{vdata, vtype, false/*IsNull*/});
+    }
 }
 
 void TQueryIfaceDbCppImpl::CreateVariable(const std::string& vname, otFieldType vtype, const std::string& vdata)
@@ -434,6 +438,8 @@ void TQueryIfaceDbCppImpl::CreateVariable(const std::string& vname, otFieldType 
 {
     if(vtype == otDate) {
         m_variables.emplace(vname, Variable{BASIC::date_time::DateTimeToBoost(vdata), vtype, false/*IsNull*/});
+    } else if(vtype == otInteger) {
+        m_variables.emplace(vname, Variable{static_cast<int>(vdata), vtype, false/*IsNull*/});
     } else {
         m_variables.emplace(vname, Variable{vdata, vtype, false/*IsNull*/});
     }
@@ -448,7 +454,7 @@ void TQueryIfaceDbCppImpl::CreateVariable(const std::string& vname, otFieldType 
     } else if(vtype == otString) {
         m_variables.emplace(vname, Variable{"", vtype, true/*IsNull*/});
     } else if(vtype == otDate) {
-        m_variables.emplace(vname, Variable{boost::posix_time::second_clock::local_time(), vtype, true/*IsNull*/});
+        m_variables.emplace(vname, Variable{boost::posix_time::ptime(), vtype, true/*IsNull*/});
     } else {
         LogError(STDLOG) << "Unsupported null variable type " << vtype << " for variable " << vname;
     }
@@ -554,7 +560,8 @@ void TQueryIfaceDbCppImpl::SetVariable(const std::string& vname, tnull vdata)
 void TQueryIfaceDbCppImpl::initInnerCursCtl()
 {
     auto sql = StrUtils::trim(m_sqlText);
-    m_cur = std::make_shared<DbCpp::CursCtl>(std::move(make_db_curs(sql, m_sess)));
+    LogTrace(TRACE3) << "About to create CursCtl for sql='" << sql << "'";
+    m_cur = std::make_shared<DbCpp::CursCtl>(DbCpp::CursCtl(m_sess, STDLOG, sql.c_str()));
 }
 
 void TQueryIfaceDbCppImpl::bindVariables()
