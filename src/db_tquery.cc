@@ -29,17 +29,20 @@ namespace {
 
 bool isSelectQuery(const std::string& s)
 {
-    auto pos_beg = s.find_first_not_of(' ');
+    static const std::string SelectCmd = "SELECT";
+
+    auto pos_beg = s.find_first_not_of(" \n");
     if (pos_beg == std::string::npos) {
         return false;
     }
-    auto pos = s.find_first_of(" (+-'\n",pos_beg);
-    if (pos == std::string::npos) {
+
+    std::string cmd = s.substr(pos_beg);
+    if(cmd.length() < SelectCmd.length()) {
         return false;
     }
-    std::string cmd = s.substr(pos_beg, pos);
-    std::transform(cmd.begin(), cmd.end(), cmd.begin(), ::toupper);
-    return cmd == "SELECT";
+
+    cmd = StrUtils::ToUpper(cmd.substr(0, SelectCmd.length()));
+    return cmd == SelectCmd;
 }
 
 static const std::map<PgCpp::ResultCode, OciCppErrs> sPgOraErrorCodeMapper = {
@@ -211,9 +214,7 @@ void TQueryIfaceDbCppImpl::Execute()
     m_eof = 1;
     if(isSelectQuery(m_sqlText)) {
         m_eof = 0;
-        if(m_cur->nefen() == DbCpp::ResultCode::NoDataFound) {
-            m_eof = 1;
-        }
+        Next();
     }
 }
 
@@ -544,12 +545,16 @@ void TQueryIfaceDbCppImpl::SetVariable(const std::string& vname, double vdata)
 void TQueryIfaceDbCppImpl::SetVariable(const std::string& vname, tnull vdata)
 {
     checkVariable4Set(vname);
-    // nothing to do - already have null
+    auto var = findVariable(vname);
+    ASSERT(var);
+    DeleteVariable(vname);
+    CreateVariable(vname, var->Type, vdata);
 }
 
 void TQueryIfaceDbCppImpl::initInnerCursCtl()
-{    
-    m_cur = std::make_shared<DbCpp::CursCtl>(std::move(make_db_curs(m_sqlText, m_sess)));
+{
+    auto sql = StrUtils::trim(m_sqlText);
+    m_cur = std::make_shared<DbCpp::CursCtl>(std::move(make_db_curs(sql, m_sess)));
 }
 
 void TQueryIfaceDbCppImpl::bindVariables()
@@ -1068,7 +1073,9 @@ START_TEST(common_usage)
     Qry.SetVariable("fld2", timevaldt);
 
     Qry.CreateVariable("fld3", otString,  strval);
-    Qry.CreateVariable("fld4", otInteger, FNull);
+
+    Qry.CreateVariable("fld4", otInteger, 22);
+    Qry.SetVariable("fld4", FNull);
 
     fail_unless(Qry.VariableIsNULL("fld2") == 0, "VariableIsNULL failed");
     fail_unless(Qry.VariableIsNULL("fld4") == 1, "VariableIsNULL failed");
@@ -1168,7 +1175,7 @@ START_TEST(common_usage)
 }
 END_TEST;
 
-START_TEST(rowcount_rowsprocessed)
+START_TEST(rowcount_rowsprocessed_eof)
 {
     // create tables
     make_curs("drop table TEST_ORA_ROWCOUNT")
@@ -1286,6 +1293,17 @@ START_TEST(rowcount_rowsprocessed)
     fail_unless(OraRpVec2 == PgRpVec2);
     fail_unless(OraRcVec2 == PgRcVec2);
 
+    OraQry.Clear();
+    OraQry.SQLText = "select ID from TEST_ORA_ROWCOUNT where ID=16";
+    OraQry.Execute();
+    int OraEof = OraQry.Eof;
+
+    PgQry.Clear();
+    PgQry.SQLText = "select ID from TEST_PG_ROWCOUNT where ID=16";
+    PgQry.Execute();
+    int PgEof = PgQry.Eof;
+
+    fail_unless(OraEof == PgEof);
 }
 END_TEST;
 
@@ -1386,6 +1404,21 @@ START_TEST(throw_errors)
 }
 END_TEST;
 
+START_TEST(sqltext_with_spaces)
+{
+    get_pg_curs_autocommit("drop table if exists TEST_SQLTEXT_WITH_SPACES").exec();
+    get_pg_curs_autocommit("create table TEST_SQLTEXT_WITH_SPACES ( FLD1 varchar(1) not null );").exec();
+
+    get_pg_curs_autocommit("insert into TEST_SQLTEXT_WITH_SPACES(FLD1) VALUES ('1')").exec();
+
+    DB::TQuery Qry(*get_main_pg_ro_sess(STDLOG));
+    Qry.SQLText = " select FLD1 from TEST_SQLTEXT_WITH_SPACES ";
+    Qry.Execute();
+
+    fail_unless(Qry.FieldAsString("FLD1") == "1", "FieldAsString failed!");
+}
+END_TEST;
+
 START_TEST(check_ora_sessions)
 {
     // create table
@@ -1457,6 +1490,7 @@ TCASEREGISTER(testInitDB, testShutDBConnection)
     ADD_TEST(common_usage);
     ADD_TEST(compare_empty_string_behavior);
     ADD_TEST(throw_errors);
+    ADD_TEST(sqltext_with_spaces);
 }
 TCASEFINISH;
 #undef SUITENAME
@@ -1465,7 +1499,7 @@ TCASEFINISH;
 TCASEREGISTER(testInitDB, 0)
 {
     ADD_TEST(check_ora_sessions);
-    ADD_TEST(rowcount_rowsprocessed);
+    ADD_TEST(rowcount_rowsprocessed_eof);
 }
 TCASEFINISH;
 #undef SUITENAME
