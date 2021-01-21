@@ -82,7 +82,7 @@ static std::list<int> getMoveIdByTripId(int trip_id, boost::posix_time::ptime be
   auto cur = make_db_curs("SELECT move_id FROM sched_days "
                           "WHERE trip_id = :trip_id AND "
                           "(last_day >= :begin_date_season or :begin_date_season is null)",
-                          PgOra::getRWSession("SCHED_DAYS"));
+                          PgOra::getROSession("SCHED_DAYS"));
   cur.
     bind(":trip_id", trip_id).
     bind(":begin_date_season", begin_date).
@@ -1880,7 +1880,7 @@ void SEASON::int_write(const TFilter &filter, int ssm_id, vector<TPeriod> &speri
 {
   LogTrace(TRACE5) << __func__ << " ssm_id=" << ssm_id << " trip_id=" << trip_id;
   vector<TPeriod> oldperiods;
-  DB::TQuery SQrySched(PgOra::getRWSession("SCHED_DAYS"));
+  DB::TQuery SQrySched(PgOra::getROSession("SCHED_DAYS"));
   SQrySched.SQLText =
     "SELECT first_day, last_day, days, pr_del, tlg, reference, trip_id, move_id "
     " FROM sched_days "
