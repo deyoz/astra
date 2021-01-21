@@ -2806,7 +2806,7 @@ std::unique_ptr<PaxReqAnswer> createPaxReqAnswer(const std::string& code, const 
     int pax_id = 0;
     std::string family_name = "";
 
-    auto cur = make_curs(sql.str());
+    auto cur = get_pg_curs(sql.str());
     cur.stb()
        .def(pax_id)
        .def(family_name)
