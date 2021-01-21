@@ -1111,7 +1111,7 @@ $(SAVE_ET_DISP $(get point_dep) 2981212121212 REPIN IVAN ž’ UTDC UTET G4LK6W DME
                 <no>7774441110</no>
                 <nationality>RUS</nationality>
                 <birth_date>01.05.1976 00:00:00</birth_date>
-                <expiry_date>09.01.2021 00:00:00</expiry_date>
+                <expiry_date>09.01.2029 00:00:00</expiry_date>
                 <gender>M</gender>
                 <surname>REPIN</surname>
                 <first_name>IVAN</first_name>
@@ -1122,7 +1122,7 @@ $(SAVE_ET_DISP $(get point_dep) 2981212121212 REPIN IVAN ž’ UTDC UTET G4LK6W DME
                 <no>4538926</no>
                 <issue_place>RUS</issue_place>
                 <issue_date>09.01.2011 00:00:00</issue_date>
-                <expiry_date>09.01.2021 00:00:00</expiry_date>
+                <expiry_date>09.01.2029 00:00:00</expiry_date>
                 <applic_country>CHN</applic_country>
               </doco>
               <addresses/>
@@ -1200,10 +1200,10 @@ RFF+AVF:xxxxxx"
 RFF+ABO...
 RFF+YZY:2981212121212C1"
 DOC+P:110:ZZZ+7774441110"
-DTM+36:210109"
+DTM+36:290109"
 LOC+91+RUS"
 DOC+V:110:ZZZ+4538926"
-DTM+36:210109"
+DTM+36:290109"
 LOC+91+RUS"
 CNT+42:1"
 UNT+28+11085B94E1F8FA"
