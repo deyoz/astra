@@ -173,28 +173,10 @@ namespace BASIC {
 
         TDateTime LocalToUTC(TDateTime dt, const std::string& region, int isDst) {
 
-          try
-          {
-            TDateTime utc=LocalToUTCInner(dt, region, isDst);
-            return utc;
-          }
-          catch(const boost::local_time::time_label_invalid&)
-          {
-            throw EXCEPTIONS::Exception("%s: invalid time (%s : %s)",
-                                        __func__,
-                                        DateTimeToStr(dt, "dd.mm.yyyy hh:nn").c_str(),
-                                        region.c_str());
-          }
-          catch(const boost::local_time::ambiguous_result&)
-          {
-            throw EXCEPTIONS::Exception("%s: ambiguous time (%s : %s)",
-                                        __func__,
-                                        DateTimeToStr(dt, "dd.mm.yyyy hh:nn").c_str(),
-                                        region.c_str());
-          }
+          return LocalToUTCInner(dt, region, isDst);
         }
 
-        TDateTime UTCToLocal(TDateTime dt, const std::string& region) {
+        TDateTime UTCToLocalInner(TDateTime dt, const std::string& region) {
 
             TimeZone* TimeZoneUTC = TimeZone::createTimeZone("Etc/GMT");
 
@@ -211,6 +193,11 @@ namespace BASIC {
             gc.setTimeZone(*region_tz);
 
             return Calendar2DateTime(gc);
+        }
+
+        TDateTime UTCToLocal(TDateTime dt, const std::string& region) {
+
+          return UTCToLocalInner(dt, region);
         }
 
         boost::gregorian::date UTCToLocal(const boost::gregorian::date& dateUtc,
