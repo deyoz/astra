@@ -6,6 +6,7 @@
 #include <serverlib/dbcpp_cursctl.h>
 #include <serverlib/dbcpp_session.h>
 #include <serverlib/pg_cursctl.h>
+#include <serverlib/oci_err.h>
 #include <serverlib/exception.h>
 #include <serverlib/str_utils.h>
 #include <serverlib/algo.h>
@@ -39,6 +40,25 @@ bool isSelectQuery(const std::string& s)
     std::string cmd = s.substr(pos_beg, pos);
     std::transform(cmd.begin(), cmd.end(), cmd.begin(), ::toupper);
     return cmd == "SELECT";
+}
+
+static const std::map<PgCpp::ResultCode, OciCppErrs> sPgOraErrorCodeMapper = {
+    { PgCpp::BadSqlText,     CERR_INVALID_IDENTIFIER },
+    { PgCpp::BadBind,        CERR_BIND },
+    { PgCpp::NoDataFound,    NO_DATA_FOUND },
+    { PgCpp::TooManyRows,    CERR_TOO_MANY_ROWS },
+    { PgCpp::ConstraintFail, CERR_U_CONSTRAINT },
+    { PgCpp::FetchNull,      CERR_NULL },
+    { PgCpp::FetchFail,      CERR_INVALID_NUMBER },
+    { PgCpp::Busy,           CERR_BUSY },
+    { PgCpp::Deadlock,       CERR_DEADLOCK },
+    { PgCpp::WaitExpired ,   WAIT_TIMEOUT_EXPIRED },
+    { PgCpp::BadConnection,  CERR_NOT_CONNECTED },
+};
+
+std::optional<OciCppErrs> oraErrorCodeMapper(PgCpp::ResultCode pgErr)
+{
+    return algo::find_opt<std::optional>(sPgOraErrorCodeMapper, pgErr);
 }
 
 }//namespace
@@ -175,7 +195,15 @@ void TQueryIfaceDbCppImpl::Execute()
     initInnerCursCtl();
     bindVariables();
     ASSERT(m_cur);
-    m_cur->exec();
+    try {
+        m_cur->exec();
+    } catch(PgCpp::PgException& e) {
+        if(auto oraErr = oraErrorCodeMapper(e.errCode())) {
+            throw EOracleError(e.what(), *oraErr);
+        } else {
+            throw;
+        }
+    }
 
     m_eof = 1;
     if(isSelectQuery(m_sqlText)) {
@@ -1325,6 +1353,26 @@ START_TEST(compare_empty_string_behavior)
 }
 END_TEST;
 
+START_TEST(throw_errors)
+{
+    get_pg_curs_autocommit("drop table if exists TEST_THROW_ERRORS").exec();
+    get_pg_curs_autocommit("create table TEST_THROW_ERRORS ( FLD1 varchar(1) not null );").exec();
+    get_pg_curs_autocommit("Create unique index TEST_THROW_ERRORS_FLD1 on TEST_THROW_ERRORS (FLD1);").exec();
+
+    DB::TQuery Qry(*get_main_pg_rw_sess(STDLOG));
+    Qry.SQLText = "insert into TEST_THROW_ERRORS(FLD1) VALUES ('1')";
+    // 1-st insert
+    Qry.Execute();
+
+    // 2-nd insert
+    try {
+        Qry.Execute();
+    } catch(EOracleError& e) {
+        fail_unless(e.Code == 1, "Invalid EOracleError error code!");
+    }
+}
+END_TEST;
+
 START_TEST(check_ora_sessions)
 {
     // create table
@@ -1395,6 +1443,7 @@ TCASEREGISTER(testInitDB, testShutDBConnection)
 {
     ADD_TEST(common_usage);
     ADD_TEST(compare_empty_string_behavior);
+    ADD_TEST(throw_errors);
 }
 TCASEFINISH;
 #undef SUITENAME
