@@ -47,7 +47,7 @@ CURSOR TKNCur IS
   WHERE pax_id=vpax_id AND (NVL(only_TKNE,0)=0 OR rem_code='TKNE')
   ORDER BY DECODE(rem_code,'TKNE',0,'TKNA',1,'TKNO',2,3),ticket_no,coupon_no;
 TKNCurRow TKNCur%ROWTYPE;
-result  crs_pax_rem.rem%TYPE;
+result VARCHAR2(250);
 BEGIN
   result:=NULL;
   OPEN TKNCur;
@@ -71,7 +71,7 @@ CURSOR DocCur IS
   WHERE pax_id=vpax_id
   ORDER BY DECODE(type,'P',0,NULL,2,1),DECODE(rem_code,'DOCS',0,1),no NULLS LAST;
 DocCurRow DocCur%ROWTYPE;
-result          crs_pax_rem.rem%TYPE;
+result VARCHAR2(250);
 BEGIN
   result:=NULL;
   OPEN DocCur;

@@ -181,6 +181,9 @@ void addPaxEvent(const PaxIdWithSegmentPair& paxId,
 void synchronizePaxEvents(const ModifiedPax& modifiedPax,
                           ModifiedPaxRem& modifiedPaxRem);
 
+std::set<PaxId_t> loadPaxIdSet(GrpId_t grp_id);
+bool existsPax(PaxId_t pax_id);
+
 namespace CheckIn
 {
 
@@ -1061,6 +1064,9 @@ class TSimplePaxGrpItem
       return TPaxSegmentPair(point_dep, airp_arv);
     }
 };
+
+std::set<int> loadInfIdSet(int pax_id, bool lock);
+std::set<int> loadSeatIdSet(int pax_id, bool lock);
 
 class TPaxGrpItem : public TSimplePaxGrpItem
 {

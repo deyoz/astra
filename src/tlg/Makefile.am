@@ -25,9 +25,9 @@ libtlg_a_SOURCES = apps_handler.cc apps_answer_emul.cc edi_handler.cpp edi_msg.c
         IatciBprRequest.cpp IatciBprResponseHandler.cpp IatciBprRequestHandler.cpp \
         IatciSeatmapRequestHandler.cpp IatciSmfRequestHandler.cpp IatciIfm.cpp \
         CusResponseHandler.cpp CusRequestHandler.cpp \
-        ldm_parser.cpp paxlst_request.cpp typeb_remarks.cc uws_parser.cpp
-        
-        
+        ldm_parser.cpp paxlst_request.cpp typeb_remarks.cc typeb_db.cc uws_parser.cpp
+
+
 
 noinst_HEADERS = EdifactRequest.h read_edi_elements.h edi_elements.h \
    	view_edi_elements.h emd_disp_request.h typeb_handler.h \
@@ -49,6 +49,6 @@ noinst_HEADERS = EdifactRequest.h read_edi_elements.h edi_elements.h \
         IatciBprRequest.h IatciBprResponseHandler.h IatciBprRequestHandler.h \
         IatciSeatmapRequestHandler.h IatciSmfRequestHandler.h IatciIfm.h \
         CusResponseHandler.h CusRequestHandler.h \
-        ldm_parser.h paxlst_request.h typeb_remarks.h uws_parser.h
-   	
-   	
+        ldm_parser.h paxlst_request.h typeb_remarks.h typeb_db.h uws_parser.h
+
+
