@@ -800,15 +800,12 @@ struct CreatorSPPLocker {
    }
 
    void lock() {
+     LogTrace(TRACE3) << "season_spp::lock";
      if ( islock ) {
        return;
      }
-     TQuery Qry(&OraSession);
-     Qry.SQLText =
-       "BEGIN "
-       "SELECT lock_spp INTO :lock_spp FROM season_spp FOR UPDATE; "
-       "END; ";
-     Qry.DeclareVariable( "lock_spp", otInteger );
+     DB::TQuery Qry(PgOra::getRWSession("SEASON_SPP"));
+     Qry.SQLText = "SELECT lock_spp FROM season_spp FOR UPDATE";
      Qry.Execute();
      islock = true;
    }
@@ -817,6 +814,7 @@ struct CreatorSPPLocker {
       OraSession.Commit();
       #endif
       islock = false;
+      LogTrace(TRACE3) << "season_spp::commit";
    }
 };
 
@@ -1072,18 +1070,19 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
   canUseAirp = false;
   // имеем move_id, vd на период выполнения
   // получим маршрут и проверим на права доступа к этому маршруту
-  TQuery Qry(&OraSession);
+  const auto boost_vd = DateTimeToBoost(vd);
+  DB::TQuery Qry(PgOra::getROSession("ROUTES"));
 
   Qry.SQLText =
-    " SELECT num, routes.airp, routes.airp_fmt, scd_in-TRUNC(scd_in)+:vdate+delta_in scd_in, "
+    " SELECT num, routes.airp, routes.airp_fmt, scd_in, "
     "        airline, airline_fmt, flt_no, craft, craft_fmt, "
-    "        scd_out-TRUNC(scd_out)+:vdate+delta_out scd_out, trip_type, litera, "
-    "        airps.city city, routes.pr_del, f, c, y, suffix, suffix_fmt "
-    " FROM routes, airps "
-    " WHERE routes.move_id=:vmove_id AND routes.airp=airps.code  "
+    "        scd_out, trip_type, litera, "
+    "        routes.pr_del, f, c, y, suffix, suffix_fmt, delta_in, delta_out "
+    " FROM routes "
+    " WHERE routes.move_id=:vmove_id "
     " ORDER BY move_id,num";
 
-  Qry.CreateVariable( "vdate", otDate, vd );
+  // Qry.CreateVariable( "vdate", otDate, vd );
   Qry.CreateVariable( "vmove_id", otInteger, move_id );
 
   Qry.Execute();
@@ -1096,14 +1095,18 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
     d.num = Qry.FieldAsInteger( "num" );
     d.airp = Qry.FieldAsString( "airp" );
     d.airp_fmt = (TElemFmt)Qry.FieldAsInteger( "airp_fmt" );
-    d.city = Qry.FieldAsString( "city" );
+    d.city = BaseTables::Port(d.airp)->city()->code();
     d.pr_del = Qry.FieldAsInteger( "pr_del" );
     if ( !d.pr_del )
       ds.pr_del = false;
     if ( Qry.FieldIsNULL( "scd_in" ) )
       d.scd_in = NoExists;
     else {
-      d.scd_in = Qry.FieldAsDateTime( "scd_in" );
+      // scd_in-TRUNC(scd_in)+:vdate+delta_in scd_in
+      const boost::posix_time::time_duration delta_in(24 * Qry.FieldAsInteger("delta_in"), 0, 0);
+      auto scd_in = DateTimeToBoost(Qry.FieldAsDateTime( "scd_in" ));
+      scd_in = (boost_vd + delta_in) + (scd_in - boost::posix_time::ptime(scd_in.date()));
+      d.scd_in = BoostToDateTime(scd_in);
       modf( (double)d.scd_in, &f1 );
       if ( f1 == da ) {
         candests = candests || filter.isFilteredUTCTime( da, first_day, d.scd_in );
@@ -1139,8 +1142,13 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
     if ( Qry.FieldIsNULL( "scd_out" ) )
       d.scd_out = NoExists;
     else {
-      d.scd_out = Qry.FieldAsDateTime( "scd_out" );
-      modf( (double)d.scd_out, &f1 );
+      // scd_out-TRUNC(scd_out)+:vdate+delta_out
+      const boost::posix_time::time_duration delta_out(24 * Qry.FieldAsInteger("delta_out"), 0, 0);
+      auto scd_out = DateTimeToBoost(Qry.FieldAsDateTime("scd_out"));
+      scd_out = (boost_vd + delta_out) + (scd_out - boost::posix_time::ptime(scd_out.date()));
+      d.scd_out = BoostToDateTime(scd_out);
+
+      modf((double)d.scd_out, &f1);
       if ( f1 == da ) {
         candests = candests || filter.isFilteredUTCTime( da, first_day, d.scd_out );
         ProgTrace( TRACE5, "filter.firsttime=%s, filter.lasttime=%s, d,scd_out=%s, res=%d",
@@ -1232,8 +1240,8 @@ void createSPP( TDateTime ldt_SPPStart, TSpp &spp, bool createViewer, string &er
         "           first_day,last_day,region "
         " FROM sched_days,routes "
         " WHERE routes.move_id = sched_days.move_id AND "
-        "       DATE_TRUNC(first_day) + interval '1 day' * (delta_in + delta) <= :vd AND "
-        "       DATE_TRUNC(last_day) + interval '1 day' * (delta_in + delta) >= :vd AND  "
+        "       DATE_TRUNC('day', first_day) + interval '1 day' * (delta_in + delta) <= :vd AND "
+        "       DATE_TRUNC('day', last_day) + interval '1 day' * (delta_in + delta) >= :vd AND  "
         "       POSITION(TO_CHAR(:vd - interval '1 day' * (delta_in - delta), 'ID') in days) != 0 ) "
         "   UNION "
         " SELECT routes.move_id as move_id, "
@@ -1242,8 +1250,8 @@ void createSPP( TDateTime ldt_SPPStart, TSpp &spp, bool createViewer, string &er
         "        first_day,last_day,region "
         " FROM sched_days,routes "
         "   WHERE routes.move_id = sched_days.move_id AND "
-        "         DATE_TRUNC(first_day) + interval '1 day' * (delta_out + delta) <= :vd AND "
-        "         DATE_TRUNC(last_day) + interval '1 day' * (delta_out + delta) >= :vd AND "
+        "         DATE_TRUNC('day', first_day) + interval '1 day' * (delta_out + delta) <= :vd AND "
+        "         DATE_TRUNC('day', last_day) + interval '1 day' * (delta_out + delta) >= :vd AND "
         "         POSITION(TO_CHAR(:vd - interval '1 day' * (delta_in - delta), 'ID') in days) != 0 ) d "
         " ORDER BY move_id, qdate";
   } else {
@@ -2818,21 +2826,21 @@ bool ConvertPeriodToLocal( TDateTime &first, TDateTime &last, string &days, cons
 
 void GetDests( map<int,TDestList> &mapds, const TFilter &filter, int vmove_id )
 {
+  LogTrace(TRACE3) << __FUNCTION__;
   TPerfTimer tm;
   tm.Init();
   TReqInfo *reqInfo = TReqInfo::Instance();
-  TQuery RQry( &OraSession );
+  DB::TQuery RQry(PgOra::getROSession("ROUTES"));
   string sql =
-  "SELECT move_id,num,routes.airp airp,airp_fmt,airps.city city, "
+  "SELECT move_id,num,routes.airp airp,airp_fmt, "
   "       routes.pr_del,scd_in+delta_in scd_in,airline,airline_fmt,"
   "       flt_no,craft,craft_fmt,litera,trip_type,scd_out+delta_out scd_out,f,c,y,unitrip,suffix,suffix_fmt "
-  " FROM routes, airps "
-  "WHERE ";
+  " FROM routes ";
   if ( vmove_id > NoExists ) {
     RQry.CreateVariable( "move_id", otInteger, vmove_id );
-    sql += "move_id=:move_id AND ";
+    sql += "WHERE move_id=:move_id ";
   }
-  sql += "routes.airp=airps.code ORDER BY move_id,num";
+  sql += " ORDER BY move_id,num";
 
   RQry.SQLText = sql;
   RQry.Execute();
@@ -2840,7 +2848,6 @@ void GetDests( map<int,TDestList> &mapds, const TFilter &filter, int vmove_id )
   int idx_num = RQry.FieldIndex("num");
   int idx_airp = RQry.FieldIndex("airp");
   int idx_airp_fmt = RQry.FieldIndex("airp_fmt");
-  int idx_city = RQry.FieldIndex("city");
   int idx_rpr_del = RQry.FieldIndex("pr_del");
   int idx_scd_in = RQry.FieldIndex("scd_in");
   int idx_airline = RQry.FieldIndex("airline");
@@ -2895,7 +2902,7 @@ void GetDests( map<int,TDestList> &mapds, const TFilter &filter, int vmove_id )
         canUseAirp = true;
     if ( reqInfo->user.access.airlines().permitted( d.airline ) )
         canUseAirline = true;
-    d.city = RQry.FieldAsString( idx_city );
+    d.city = BaseTables::Port(d.airp)->city()->code();
     cityKey = cityKey || d.city == filter.city;
     d.region = AirpTZRegion( RQry.FieldAsString( idx_airp ), false );
     d.pr_del = RQry.FieldAsInteger( idx_rpr_del );
