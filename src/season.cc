@@ -65,22 +65,14 @@ int getMaxNumSchedDays(int trip_id)
   return num;
 }
 
-static int getNextRoutesMoveId()
+static long getNextRoutesMoveId()
 {
-  int move_id;
-  auto cur = make_db_curs("SELECT routes_move_id.nextval AS move_id FROM dual",
-                          PgOra::getROSession("ROUTES"));
-  cur.def(move_id).EXfet();
-  return move_id;
+  return PgOra::getSeqNextVal("ROUTES_MOVE_ID");
 }
 
-static int getNextRoutesTripId()
+static long getNextRoutesTripId()
 {
-  int trip_id;
-  auto cur = make_db_curs("SELECT routes_trip_id.nextval AS trip_id FROM dual",
-                          PgOra::getROSession("ROUTES"));
-  cur.def(trip_id).EXfet();
-  return trip_id;
+  return PgOra::getSeqNextVal("ROUTES_TRIP_ID");
 }
 
 static std::list<int> getMoveIdByTripId(int trip_id, boost::posix_time::ptime begin_date = boost::posix_time::not_a_date_time)

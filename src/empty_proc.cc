@@ -1950,7 +1950,7 @@ void getPeriods( string filter_tz_region, vector<P> &periods ) {
   }*/
 }
 
-
+#if 0
 int points_dst_format(int argc,char **argv)
 {
   bool prior = false;
@@ -2282,6 +2282,7 @@ int points_dst_format(int argc,char **argv)
   }
   return 0;
 }
+#endif // if 0
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/replace.hpp>
