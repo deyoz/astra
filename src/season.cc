@@ -1066,11 +1066,11 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
   DB::TQuery Qry(PgOra::getROSession("ROUTES"));
 
   Qry.SQLText =
-    " SELECT num, routes.airp, routes.airp_fmt, scd_in, "
+    "SELECT num, routes.airp, routes.airp_fmt, scd_in, "
     "        airline, airline_fmt, flt_no, craft, craft_fmt, "
     "        scd_out, trip_type, litera, "
     "        routes.pr_del, f, c, y, suffix, suffix_fmt, delta_in, delta_out "
-    " FROM routes "
+    " FROM ROUTES "
     " WHERE routes.move_id=:vmove_id "
     " ORDER BY move_id,num";
 
@@ -1095,7 +1095,7 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
       d.scd_in = NoExists;
     else {
       // scd_in-TRUNC(scd_in)+:vdate+delta_in scd_in
-      const boost::posix_time::time_duration delta_in(24 * Qry.FieldAsInteger("delta_in"), 0, 0);
+      const boost::gregorian::days delta_in(Qry.FieldAsInteger("delta_in"));
       auto scd_in = DateTimeToBoost(Qry.FieldAsDateTime( "scd_in" ));
       scd_in = (boost_vd + delta_in) + (scd_in - boost::posix_time::ptime(scd_in.date()));
       d.scd_in = BoostToDateTime(scd_in);
@@ -1135,7 +1135,7 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
       d.scd_out = NoExists;
     else {
       // scd_out-TRUNC(scd_out)+:vdate+delta_out
-      const boost::posix_time::time_duration delta_out(24 * Qry.FieldAsInteger("delta_out"), 0, 0);
+      const boost::gregorian::days delta_out(Qry.FieldAsInteger("delta_out"));
       auto scd_out = DateTimeToBoost(Qry.FieldAsDateTime("scd_out"));
       scd_out = (boost_vd + delta_out) + (scd_out - boost::posix_time::ptime(scd_out.date()));
       d.scd_out = BoostToDateTime(scd_out);
@@ -1208,7 +1208,7 @@ void createSPP( TDateTime ldt_SPPStart, TSpp &spp, bool createViewer, string &er
   TFilter filter;
   filter.GetSeason();
 
-  DB::TQuery Qry(PgOra::getRWSession("SCHED_DAYS"));
+  DB::TQuery Qry(PgOra::getROSession("SCHED_DAYS"));
 
   double udt_SppStart, udt_SppEnd;
   udt_SppStart = ClientToUTC( ldt_SPPStart, filter.filter_tz_region, false );
@@ -1224,7 +1224,7 @@ void createSPP( TDateTime ldt_SPPStart, TSpp &spp, bool createViewer, string &er
 
   if(pg_enabled) {
     Qry.SQLText =
-        " SELECT DISTINCT move_id,first_day,last_day,:vd-delta AS qdate,pr_del,d.region region "
+        "SELECT DISTINCT move_id,first_day,last_day,:vd - interval '1 day' * delta AS qdate,pr_del,d.region region "
         "  FROM "
         "  ( SELECT routes.move_id as move_id,"
         "           delta_in as delta,"
@@ -1234,7 +1234,7 @@ void createSPP( TDateTime ldt_SPPStart, TSpp &spp, bool createViewer, string &er
         " WHERE routes.move_id = sched_days.move_id AND "
         "       DATE_TRUNC('day', first_day) + interval '1 day' * (delta_in + delta) <= :vd AND "
         "       DATE_TRUNC('day', last_day) + interval '1 day' * (delta_in + delta) >= :vd AND  "
-        "       POSITION(TO_CHAR(:vd - interval '1 day' * (delta_in - delta), 'ID') in days) != 0 ) "
+        "       POSITION(TO_CHAR(:vd - interval '1 day' * (delta_in + delta), 'ID') in days) != 0 "
         "   UNION "
         " SELECT routes.move_id as move_id, "
         "        delta_out as delta,"
@@ -1244,7 +1244,7 @@ void createSPP( TDateTime ldt_SPPStart, TSpp &spp, bool createViewer, string &er
         "   WHERE routes.move_id = sched_days.move_id AND "
         "         DATE_TRUNC('day', first_day) + interval '1 day' * (delta_out + delta) <= :vd AND "
         "         DATE_TRUNC('day', last_day) + interval '1 day' * (delta_out + delta) >= :vd AND "
-        "         POSITION(TO_CHAR(:vd - interval '1 day' * (delta_in - delta), 'ID') in days) != 0 ) d "
+        "         POSITION(TO_CHAR(:vd - interval '1 day' * (delta_in + delta), 'ID') in days) != 0 ) as d "
         " ORDER BY move_id, qdate";
   } else {
     Qry.SQLText =
@@ -2825,8 +2825,8 @@ void GetDests( map<int,TDestList> &mapds, const TFilter &filter, int vmove_id )
   DB::TQuery RQry(PgOra::getROSession("ROUTES"));
   string sql =
   "SELECT move_id,num,routes.airp airp,airp_fmt, "
-  "       routes.pr_del,scd_in+delta_in scd_in,airline,airline_fmt,"
-  "       flt_no,craft,craft_fmt,litera,trip_type,scd_out+delta_out scd_out,f,c,y,unitrip,suffix,suffix_fmt "
+  "       routes.pr_del,scd_in, delta_in, airline,airline_fmt,"
+  "       flt_no,craft,craft_fmt,litera,trip_type,scd_out, delta_out,f,c,y,unitrip,suffix,suffix_fmt "
   " FROM routes ";
   if ( vmove_id > NoExists ) {
     RQry.CreateVariable( "move_id", otInteger, vmove_id );
@@ -2842,12 +2842,14 @@ void GetDests( map<int,TDestList> &mapds, const TFilter &filter, int vmove_id )
   int idx_airp_fmt = RQry.FieldIndex("airp_fmt");
   int idx_rpr_del = RQry.FieldIndex("pr_del");
   int idx_scd_in = RQry.FieldIndex("scd_in");
+  int idx_delta_in = RQry.FieldIndex("delta_in");
   int idx_airline = RQry.FieldIndex("airline");
   int idx_airline_fmt = RQry.FieldIndex("airline_fmt");
   int idx_trip = RQry.FieldIndex("flt_no");
   int idx_craft = RQry.FieldIndex("craft");
   int idx_craft_fmt = RQry.FieldIndex("craft_fmt");
   int idx_scd_out = RQry.FieldIndex("scd_out");
+  int idx_delta_out = RQry.FieldIndex("delta_out");
   int idx_litera = RQry.FieldIndex("litera");
   int idx_triptype = RQry.FieldIndex("trip_type");
   int idx_f = RQry.FieldIndex("f");
@@ -2898,11 +2900,13 @@ void GetDests( map<int,TDestList> &mapds, const TFilter &filter, int vmove_id )
     cityKey = cityKey || d.city == filter.city;
     d.region = AirpTZRegion( RQry.FieldAsString( idx_airp ), false );
     d.pr_del = RQry.FieldAsInteger( idx_rpr_del );
-    if ( RQry.FieldIsNULL( idx_scd_in ) )
+    if (RQry.FieldIsNULL(idx_scd_in) or RQry.FieldIsNULL(idx_delta_in))
       d.scd_in = NoExists;
     else {
-      d.scd_in = RQry.FieldAsDateTime( idx_scd_in );
-      modf( (double)d.scd_in, &f1 );
+      const auto scd_in = DateTimeToBoost(RQry.FieldAsDateTime(idx_scd_in)) + \
+                          boost::gregorian::days(RQry.FieldAsInteger(idx_delta_in));
+      d.scd_in = BoostToDateTime(scd_in);
+      modf((double)d.scd_in, &f1);
     }
     if ( RQry.FieldIsNULL( idx_trip ) )
       d.trip = NoExists;
@@ -2913,10 +2917,12 @@ void GetDests( map<int,TDestList> &mapds, const TFilter &filter, int vmove_id )
     d.litera = RQry.FieldAsString( idx_litera );
     d.triptype = RQry.FieldAsString( idx_triptype );
     triptypeKey = triptypeKey || d.triptype == filter.triptype;
-    if ( RQry.FieldIsNULL( idx_scd_out ) )
+    if ( RQry.FieldIsNULL( idx_scd_out ) or RQry.FieldIsNULL( idx_delta_out ))
       d.scd_out = NoExists;
     else {
-      d.scd_out = RQry.FieldAsDateTime( idx_scd_out );
+      const auto scd_out = DateTimeToBoost(RQry.FieldAsDateTime(idx_scd_out)) +
+                           boost::gregorian::days(RQry.FieldAsInteger(idx_delta_out));
+      d.scd_out = BoostToDateTime(scd_out);
     }
     d.f = RQry.FieldAsInteger( idx_f );
     d.c = RQry.FieldAsInteger( idx_c );
