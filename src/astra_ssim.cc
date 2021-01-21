@@ -3,7 +3,7 @@
 #define NICKNAME "GRISHA"
 #define NICKTRACE GRISHA_TRACE
 #include <serverlib/slogger.h>
-const bool TRACE_ALL_FUNCTIONS = false;
+const bool TRACE_ALL_FUNCTIONS = true;
 
 #include <typeb/typeb_template.h>
 #include <typeb/SSM_template.h>
@@ -17,6 +17,8 @@ using namespace typeb_parser;
 #include "astra_misc.h"
 #include "date_time.h"
 #include "flt_binding.h"
+#include "PgOraConfig.h"
+#include "db_tquery.h"
 
 using namespace BASIC::date_time;
 using namespace std;
@@ -463,28 +465,64 @@ void DeleteScdPeriodsFromDb( const std::set<ssim::ScdPeriod> &scds )
   TReqInfo *reqInfo = TReqInfo::Instance();
   reqInfo->user.sets.time = ustTimeLocalAirp; // останется на рабочем
 //  reqInfo->desk.code = "MOVGRG"; // удалить
+  const bool pg_enabled = PgOra::supportsPg("SCHED_DAYS");
   for (auto &scd : scds)
   {
     if (TRACE_ALL_FUNCTIONS) LogTrace(TRACE1) << __func__ << " scd = " << scd;
     TDateTime first = BoostToDateTime(scd.period.start);
     TDateTime last = BoostToDateTime(scd.period.end);
-    TQuery Qry( &OraSession );
-    Qry.SQLText =
-        "BEGIN "
-        "DELETE FROM routes WHERE move_id IN ( "
-        " SELECT move_id FROM sched_days WHERE ssm_id IN ( "
-        " SELECT ssm_id FROM ssm_schedule "
-        " WHERE flight=:flight AND TRUNC(first)=TRUNC(:first) AND TRUNC(last)=TRUNC(:last) ) ); "
-        "DELETE FROM sched_days WHERE ssm_id IN ( "
-        " SELECT ssm_id FROM ssm_schedule "
-        " WHERE flight=:flight AND TRUNC(first)=TRUNC(:first) AND TRUNC(last)=TRUNC(:last) ); "
-        "DELETE FROM ssm_schedule "
-        " WHERE flight=:flight AND TRUNC(first)=TRUNC(:first) AND TRUNC(last)=TRUNC(:last); "
-        "END;";
-    Qry.CreateVariable("flight", otString, FlightToString(scd.flight));
-    Qry.CreateVariable("first", otDate, first);
-    Qry.CreateVariable("last", otDate, last);
-    Qry.Execute();
+    if (pg_enabled) {
+      DbCpp::CursCtl del1 = make_db_curs("DELETE FROM routes WHERE move_id IN ( "
+                          " SELECT move_id FROM sched_days WHERE ssm_id IN ( "
+                          " SELECT ssm_id FROM ssm_schedule "
+                          " WHERE flight=:flight AND DATE_TRUNC('day', first)=DATE_TRUNC('day', :first) "
+                          " AND DATE_TRUNC('day', last) = DATE_TRUNC('day', :last) ) )",
+                          PgOra::getRWSession("ROUTES"));
+      del1.
+        bind(":first", FlightToString(scd.flight)).
+        bind(":first", scd.period.start).
+        bind(":last", scd.period.end).
+        exec();
+
+      DbCpp::CursCtl del2 = make_db_curs("DELETE FROM sched_days WHERE ssm_id IN ( "
+                              " SELECT ssm_id FROM ssm_schedule "
+                              " WHERE flight=:flight AND DATE_TRUNC('day', first) = DATE_TRUNC('day', :first) "
+                              " AND DATE_TRUNC('day', last) = DATE_TRUNC('day', :last) )",
+                              PgOra::getRWSession("ROUTES"));
+      del2.
+        bind(":first", FlightToString(scd.flight)).
+        bind(":first", scd.period.start).
+        bind(":last", scd.period.end).
+        exec();
+
+      DbCpp::CursCtl del3 = make_db_curs("DELETE FROM ssm_schedule "
+                          " WHERE flight=:flight AND DATE_TRUNC('day', first) = DATE_TRUNC('day', :first) "
+                          " AND DATE_TRUNC('day', last) = DATE_TRUNC('day', :last)",
+                          PgOra::getRWSession("ROUTES"));
+      del3.
+        bind(":first", FlightToString(scd.flight)).
+        bind(":first", scd.period.start).
+        bind(":last", scd.period.end).
+        exec();
+    } else {
+      TQuery Qry(&OraSession);
+      Qry.SQLText =
+          "BEGIN "
+          "DELETE FROM routes WHERE move_id IN ( "
+          " SELECT move_id FROM sched_days WHERE ssm_id IN ( "
+          " SELECT ssm_id FROM ssm_schedule "
+          " WHERE flight=:flight AND TRUNC(first)=TRUNC(:first) AND TRUNC(last)=TRUNC(:last) ) ); "
+          "DELETE FROM sched_days WHERE ssm_id IN ( "
+          " SELECT ssm_id FROM ssm_schedule "
+          " WHERE flight=:flight AND TRUNC(first)=TRUNC(:first) AND TRUNC(last)=TRUNC(:last) ); "
+          "DELETE FROM ssm_schedule "
+          " WHERE flight=:flight AND TRUNC(first)=TRUNC(:first) AND TRUNC(last)=TRUNC(:last); "
+          "END;";
+      Qry.CreateVariable("flight", otString, FlightToString(scd.flight));
+      Qry.CreateVariable("first", otDate, first);
+      Qry.CreateVariable("last", otDate, last);
+      Qry.Execute();
+    }
   } // scd
 }
 
@@ -537,12 +575,9 @@ void CheckDepArrTimeEqual( const ssim::ScdPeriod &scd )
 
 void ScdPeriodToDb( const ssim::ScdPeriod &scd )
 {
-  TQuery QryId(&OraSession);
-  QryId.Clear();
-  QryId.SQLText = "SELECT ssm_id.nextval AS ssm_id FROM dual";
-  QryId.Execute();
-  int ssm_id = QryId.FieldAsInteger(0);
-  if (TRACE_ALL_FUNCTIONS) LogTrace(TRACE1) << __func__ << " ssm_id = " << ssm_id << " scd = " << scd;
+  int ssm_id = PgOra::getSeqNextVal("SSM_ID");
+  if (TRACE_ALL_FUNCTIONS)
+    LogTrace(TRACE1) << __func__ << " ssm_id = " << ssm_id << " scd = " << scd;
   TReqInfo *reqInfo = TReqInfo::Instance();
   /*???if ( utc ) {
     reqInfo->user.sets.time = ustTimeUTC;
@@ -556,8 +591,7 @@ void ScdPeriodToDb( const ssim::ScdPeriod &scd )
   TDateTime last = BoostToDateTime(scd.period.end);
   string days = scd.period.freq.str();
   // запись в ssm_schedule
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getRWSession("SSM_SCHEDULE"));
   Qry.SQLText =
       "INSERT INTO ssm_schedule(ssm_id, flight, first, last, days) "
       " VALUES(:ssm_id, :flight, :first, :last, :days) ";
@@ -567,14 +601,16 @@ void ScdPeriodToDb( const ssim::ScdPeriod &scd )
   Qry.CreateVariable("last", otDate, last);
   Qry.CreateVariable("days", otString, days);
   Qry.Execute();
-  // запись в sched_days
   Qry.Clear();
-  Qry.SQLText = "SELECT trip_id FROM sched_days s, ssm_schedule m WHERE m.flight=:flight and s.ssm_id=m.ssm_id and rownum<2 ";
-  Qry.CreateVariable("flight", otString, flight);
-  Qry.Execute();
+
+  // запись в sched_days
+  auto SchdQry = DB::TQuery(PgOra::getROSession("SCHED_DAYS"));
+  SchdQry.SQLText = "SELECT trip_id FROM sched_days s, ssm_schedule m WHERE m.flight=:flight and s.ssm_id=m.ssm_id FETCH FIRST 1 ROWS ONLY";
+  SchdQry.CreateVariable("flight", otString, flight);
+  SchdQry.Execute();
   int trip_id;
-  if (!Qry.Eof)
-    trip_id = Qry.FieldAsInteger("trip_id");
+  if (!SchdQry.Eof)
+    trip_id = SchdQry.FieldAsInteger("trip_id");
   else
     trip_id = ASTRA::NoExists;
   vector<TPeriod> speriods; //- периоды выполнения
@@ -678,7 +714,7 @@ ssim::Route RouteFromDb(int move_id, TDateTime first)
   TReqInfo *reqInfo = TReqInfo::Instance(); // ??? уже есть в вызывающей функции
   reqInfo->user.sets.time = ustTimeLocalAirp; // останется на рабочем
 //  reqInfo->desk.code = "MOVGRG"; // удалить
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("ROUTES"));
   Qry.Clear();
   Qry.SQLText =
     "SELECT num,airp,airp_fmt,flt_no,suffix,scd_in,craft,craft_fmt,scd_out,delta_in,delta_out,f,c,y,rbd_order "
@@ -771,8 +807,7 @@ ssim::ScdPeriods ScdPeriodsFromDb( const ct::Flight& flt, const Period& prd )
   // если у периода нет второй даты, то end = pos_infin
   TDateTime start = BoostToDateTimeCorrectInfinity(prd.start);
   TDateTime end = BoostToDateTimeCorrectInfinity(prd.end);
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("SCHED_DAYS"));
   Qry.SQLText =
       "SELECT s.move_id move_id, m.first first, m.last last, m.days days "
       " FROM sched_days s, ssm_schedule m "
