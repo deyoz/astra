@@ -173,19 +173,7 @@ namespace BASIC {
 
         TDateTime LocalToUTC(TDateTime dt, const std::string& region, int isDst) {
 
-          TDateTime utc=LocalToUTCInner(dt, region, isDst);
-
-          if (region=="Europe/Volgograd")
-          {
-            static TDateTime tmp=0.0;
-            if (tmp==0.0)
-              StrToDateTime("27.12.2020 02:00:00", "dd.mm.yyyy hh:nn:ss", tmp, false);
-
-            if (dt>=tmp)
-              utc=LocalToUTCInner(dt, "Europe/Moscow", isDst);
-          }
-
-          return utc;
+          return LocalToUTCInner(dt, region, isDst);
         }
 
         TDateTime UTCToLocalInner(TDateTime dt, const std::string& region) {
@@ -209,19 +197,7 @@ namespace BASIC {
 
         TDateTime UTCToLocal(TDateTime dt, const std::string& region) {
 
-          TDateTime local=UTCToLocalInner(dt, region);
-
-          if (region=="Europe/Volgograd")
-          {
-            static TDateTime tmp=0.0;
-            if (tmp==0.0)
-              StrToDateTime("27.12.2020 02:00:00", "dd.mm.yyyy hh:nn:ss", tmp, false);
-
-            if (local>=tmp)
-              local=UTCToLocalInner(dt, "Europe/Moscow");
-          }
-
-          return local;
+          return UTCToLocalInner(dt, region);
         }
 
         boost::gregorian::date UTCToLocal(const boost::gregorian::date& dateUtc,
