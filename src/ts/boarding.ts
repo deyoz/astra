@@ -1,4 +1,5 @@
 include(ts/macro.ts)
+include(ts/adm_macro.ts)
 
 # meta: suite boarding
 
@@ -9,8 +10,7 @@ $(defmacro PREPARE_SPP_FLIGHT_SETTINGS
 
 $(set airp_other $(if $(eq $(get_elem_id etAirp $(airp_dep)) "ДМД") "VKO" "ДМД"))
 
-$(sql {INSERT INTO misc_set(id, type, airline, flt_no, airp_dep, pr_misc)
-       VALUES(id__seq.nextval, 11, '$(get_elem_id etAirline $(airline))', NULL, NULL, 1)})
+$(deny_ets_interactive $(airline))
 $(sql {INSERT INTO halls2(id, airp, terminal, name, name_lat, rpt_grp, pr_vip)
        VALUES(776, '$(get_elem_id etAirp $(airp_dep))', NULL, '$(airp_dep)', NULL, NULL, 0)})
 $(sql {INSERT INTO halls2(id, airp, terminal, name, name_lat, rpt_grp, pr_vip)
@@ -29,7 +29,6 @@ $(defmacro DO_CHECKIN
 
 $(PREPARE_SEASON_SCD $(airline) $(airp_dep) $(airp_arv) $(flt_no))
 $(make_spp)
-$(deny_ets_interactive $(airline) $(flt_no) $(airp_dep))
 $(PREPARE_SPP_FLIGHT_SETTINGS $(airline) $(airp_dep))
 
 $(INB_PNL_UT $(airp_dep) $(airp_arv) $(flt_no) $(ddmon +0))
@@ -1259,8 +1258,7 @@ $(USER_ERROR_MESSAGE_TAG MSG.PASSENGER.NOT_EXAM2)
 #########################################################################################
 ### проверяем, что по одному из залов посадим, если настройка "Досмотр при посадке на рейс" для этого зала
 
-$(sql {INSERT INTO trip_hall(point_id, type, hall, pr_misc)
-       VALUES($(get point_dep), 102, 777, 1)})
+$(combine_exam_with_brd $(get point_dep) 777)
 
 $(BOARDING_REQUEST_BY_PAX_ID $(get point_dep) $(get pax_id_01) 776 "" 1 capture=on)
 
@@ -1276,8 +1274,7 @@ $(MESSAGE_TAG MSG.PASSENGER.BOARDING2)
 #########################################################################################
 ### проверяем, что теперь и по другому залу посадим, если настройка "Досмотр при посадке на рейс" для всех залов
 
-$(sql {INSERT INTO trip_hall(point_id, type, hall, pr_misc)
-       VALUES($(get point_dep), 102, NULL, 1)})
+$(combine_exam_with_brd $(get point_dep) "")
 
 $(BOARDING_REQUEST_BY_PAX_ID $(get point_dep) $(get pax_id_01) 776 "" 1 capture=on)
 
@@ -1306,6 +1303,3 @@ $(MESSAGE_TAG MSG.PASSENGER.DEBARKED2)
 ### test 4
 ### Подтверждения при посадке:
 #########################################################################################
-
-
-

@@ -12,6 +12,7 @@
 using namespace std;
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
+using namespace ASTRA;
 
 enum TRightState {rsOn, rsOff};
 enum TRightListType{rltRights, rltAssignRights, rltNone};
