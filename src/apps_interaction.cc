@@ -745,7 +745,7 @@ void AppsPaxDTO::save(const PaxRequest & request, const std::string& cirq_msg_te
                "INSERT INTO apps_pax_data "
                "(pax_id, point_id, cirq_msg_id, cirq_msg_text, cicx_msg_text, settings_id, send_time, family_name) "
                "VALUES (:pax_id, :point_id, :cirq_msg_id, :cirq_msg_text, :cicx_msg_text, :settings_id, :send_time, :family_name)");
-    cur
+    cur.stb()
         .bind(":cirq_msg_id",      cirq_msg_id)
         .bind(":pax_id",           request.getPax().pax_id)
         .bind(":point_id",         request.getPointId())
@@ -1028,6 +1028,7 @@ void APPSMessage::save() const
                "insert into APPS_MESSAGES(MSG_ID, SEND_ATTEMPTS, SEND_TIME, SETTINGS_ID) "
                "values (:msg_id, :send_attempts, :send_time, :settings_id)");
     cur
+            .stb()
             .bind(":msg_id", msg_id)
             .bind(":send_attempts", send_attempts)
             .bind(":send_time", nowUtc) // тоже самое DateTimeToBoost(NowUTC())
@@ -2763,7 +2764,7 @@ std::unique_ptr<PaxReqAnswer> createPaxReqAnswer(const std::string& code, const 
     int pax_id = 0;
     std::string family_name = "";
     auto cur = make_curs(sql.str());
-    cur
+    cur.stb()
        .def(pax_id)
        .def(family_name)
        .bind(":msg_id", msg->getMsgId())
@@ -3133,7 +3134,11 @@ void sendInfo(const PointId_t& point_id, const PointIdTlg_t& point_id_tlg)
                "where CRS_PNR.PNR_ID=CRS_PAX.PNR_ID and POINT_ID=:point_id_tlg");
     std::string airp_arv;
     int pax_id;
-    cur.def(pax_id).def(airp_arv).bind(":point_id_tlg", point_id_tlg.get()).exec();
+    cur
+        .def(pax_id)
+        .def(airp_arv)
+        .bind(":point_id_tlg", point_id_tlg.get())
+        .exec();
 
     TFlights flightsForLock;
     flightsForLock.Get(point_id.get(), ftTranzit);
@@ -3156,7 +3161,10 @@ void sendAllInfo(const TTripTaskKey &task)
                "   POINT_ID_SPP=:point_id_spp and "
                "   POINTS.PR_DEL=0 AND POINTS.PR_REG<>0");
     int point_id_tlg;
-    cur.def(point_id_tlg).bind(":point_id_spp", task.point_id).exec();
+    cur
+        .def(point_id_tlg)
+        .bind(":point_id_spp", task.point_id)
+        .exec();
     while(!cur.fen()) {
         sendInfo(PointId_t(task.point_id), PointIdTlg_t(point_id_tlg));
     }
