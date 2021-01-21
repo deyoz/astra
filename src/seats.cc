@@ -4288,6 +4288,7 @@ BitSet<TChangeLayerSeatsProps>
   flights.Get( point_id, ftTranzit );
   flights.Lock(__FUNCTION__);
 
+  int step = 0;
   TAdvTripInfo operFlt;
   operFlt.getByPointId( point_id );
   BASIC_SALONS::TCompLayerTypes::Enum flag = (GetTripSets( tsAirlineCompLayerPriority, operFlt )?
@@ -4299,13 +4300,16 @@ BitSet<TChangeLayerSeatsProps>
     case cltTranzit:
     case cltCheckin:
     case cltTCheckin:
+      {
+        multiset<CheckIn::TPaxRemItem> rems;
+        CheckIn::LoadPaxRem(false /*crs*/, pax_id, rems, false /*onlyPD*/, "STCR");
+        step = rems.size();
+      }
       Qry.SQLText =
-       "SELECT surname, name, reg_no, pax.grp_id, pax.seats, pax.is_jmp, a.step step, pax.tid, '' airp_arv, point_dep, point_arv, "
+       "SELECT surname, name, reg_no, pax.grp_id, pax.seats, pax.is_jmp, pax.tid, '' airp_arv, point_dep, point_arv, "
        "       0 point_id, salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,:point_dep,'list',rownum) AS seat_no, "
        "       NVL(pax.cabin_class, pax_grp.class) AS class, pers_type "
-       " FROM pax, pax_grp, "
-       "( SELECT COUNT(*) step FROM pax_rem "
-       "   WHERE rem_code = 'STCR' AND pax_id=:pax_id ) a "
+       " FROM pax, pax_grp "
        "WHERE pax.pax_id=:pax_id AND "
        "      pax_grp.grp_id=pax.grp_id ";
        Qry.CreateVariable( "point_dep", otInteger, point_id );
@@ -4315,13 +4319,16 @@ BitSet<TChangeLayerSeatsProps>
     case cltProtAfterPay:
     case cltPNLAfterPay:
     case cltProtSelfCkin:
+      {
+        multiset<CheckIn::TPaxRemItem> rems;
+        CheckIn::LoadCrsPaxRem(pax_id, rems, false /*onlyPD*/, "STCR");
+        step = rems.size();
+      }
       Qry.SQLText =
-        "SELECT surname, name, 0 reg_no, 0 grp_id, seats, 0 is_jmp, a.step step, crs_pax.tid, airp_arv, point_id, 0 point_arv, "
+        "SELECT surname, name, 0 reg_no, 0 grp_id, seats, 0 is_jmp, crs_pax.tid, airp_arv, point_id, 0 point_arv, "
         "       NULL AS seat_no, pers_type, " +
         CheckIn::TSimplePaxItem::cabinClassFromCrsSQL() + " AS class "
-        " FROM crs_pax, crs_pnr, "
-        "( SELECT COUNT(*) step FROM crs_pax_rem "
-        "   WHERE rem_code = 'STCR' AND pax_id=:pax_id ) a "
+        " FROM crs_pax, crs_pnr "
         " WHERE crs_pax.pax_id=:pax_id AND crs_pax.pr_del=0 AND "
         "       crs_pax.pnr_id=crs_pnr.pnr_id";
         if ( layer_type == cltProtCkin || layer_type == cltProtSelfCkin ||
@@ -4355,7 +4362,7 @@ BitSet<TChangeLayerSeatsProps>
   int seats_count = Qry.FieldAsInteger( "seats" );
   bool is_jmp = Qry.FieldAsInteger( "is_jmp" )!=0;
   int pr_down;
-  if ( Qry.FieldAsInteger( "step" ) )
+  if ( step )
     pr_down = 1;
   else
     pr_down = 0;

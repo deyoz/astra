@@ -30,6 +30,7 @@
 #include "points.h"
 #include "counters.h"
 #include "pax_calc_data.h"
+#include "typeb_db.h"
 #include <boost/regex.hpp>
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
@@ -5875,6 +5876,8 @@ bool DeletePRLContent(int point_id, const THeadingInfo& info)
 {
   if (isDeleteTypeBContent(point_id, info))
   {
+    DeleteTypeBData(point_id, "DCS", info.sender, true /*delete_trip_comp_layers*/);
+
     TQuery Qry(&OraSession);
     Qry.Clear();
     Qry.SQLText=
@@ -7224,6 +7227,19 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                       }
                     }
 
+                    const std::set<int> infIdSet = CheckIn::loadInfIdSet(paxId().get(), true /*lock*/);
+                    for (int inf_id: infIdSet) {
+                      DeleteCrsChkd(inf_id);
+                      DeleteFreeRem(inf_id);
+                    }
+                    const std::set<int> seatIdSet = CheckIn::loadSeatIdSet(paxId().get(), true /*lock*/);
+                    for (int seat_id: seatIdSet) {
+                      DeleteCrsChkd(seat_id);
+                      DeleteFreeRem(seat_id);
+                    }
+                    DeleteCrsChkd(paxId().get());
+                    DeleteFreeRem(paxId().get());
+
                     //удаляем все по пассажиру
                     Qry.Clear();
                     Qry.SQLText=
@@ -7232,29 +7248,21 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                       "    SELECT inf_id FROM crs_inf WHERE pax_id=:pax_id FOR UPDATE; "
                       "  CURSOR cur2 IS "
                       "    SELECT seat_id FROM crs_seats_blocking WHERE pax_id=:pax_id AND pr_del=0 FOR UPDATE; "
-                      "  PROCEDURE delete_data(vpax_id crs_pax.pax_id%TYPE) IS "
-                      "  BEGIN "
-                      "    DELETE FROM crs_pax_rem WHERE pax_id=vpax_id AND rem_code NOT LIKE 'PD__'; "
-                      "    DELETE FROM crs_pax_chkd WHERE pax_id=vpax_id; "
-                      "  END delete_data; "
                       "BEGIN "
                       "  FOR curRow IN cur LOOP "
                       "    INSERT INTO crs_inf_deleted(inf_id, pax_id) "
                       "    SELECT inf_id, pax_id FROM crs_inf WHERE inf_id=curRow.inf_id; "
                       "    DELETE FROM crs_inf WHERE inf_id=curRow.inf_id; "
-                      "    delete_data(curRow.inf_id); "
                       "    UPDATE crs_pax "
                       "    SET pr_del=1, last_op=:last_op, tid=cycle_tid__seq.currval "
                       "    WHERE pax_id=curRow.inf_id AND pr_del=0; "
                       "  END LOOP; "
                       "  FOR curRow IN cur2 LOOP "
                       "    UPDATE crs_seats_blocking SET pr_del=1 WHERE seat_id=curRow.seat_id; "
-                      "    delete_data(curRow.seat_id); "
                       "    UPDATE crs_pax "
                       "    SET pr_del=1, last_op=:last_op, tid=cycle_tid__seq.currval "
                       "    WHERE pax_id=curRow.seat_id AND pr_del=0; "
                       "  END LOOP; "
-                      "  delete_data(:pax_id); "
                       "  UPDATE crs_pax SET inf_id=NULL WHERE pax_id=:pax_id; "
                       "END;";
                     Qry.CreateVariable("pax_id", otInteger, paxId().get());

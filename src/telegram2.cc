@@ -27,6 +27,8 @@
 #include "seat_number.h"
 #include "flt_settings.h"
 #include "wb_messages.h"
+#include "db_tquery.h"
+#include "PgOraConfig.h"
 
 #define NICKNAME "DEN"
 #include "serverlib/slogger.h"
@@ -2219,7 +2221,10 @@ struct TExtraSeatName {
     }
     void get(int pax_id, bool pr_crs = false)
     {
-        TQuery Qry(&OraSession);
+        LogTrace(TRACE5) << __func__
+                         << ": pax_id=" << pax_id
+                         << ", pr_crs=" << pr_crs;
+        DB::TQuery Qry(PgOra::getROSession(pr_crs ? "CRS_PAX_REM" : "PAX_REM"));
         string SQLText = (string)
             "select distinct "
             "   rem_code "

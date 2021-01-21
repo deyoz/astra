@@ -4,6 +4,8 @@
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
 #include "serverlib/slogger.h"
+#include "db_tquery.h"
+#include "PgOraConfig.h"
 
 using namespace ASTRA;
 using namespace std;
@@ -596,9 +598,11 @@ bool SaveCHKDRem(const PaxIdWithSegmentPair& paxId, const vector<TCHKDItem> &chk
 
 static void LoadASVCRem(const PaxId_t& paxId, vector<TASVCItem> &asvc)
 {
+  LogTrace(TRACE5) << __func__
+                   << ": pax_id=" << paxId.get();
   asvc.clear();
 
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("CRS_PAX_ASVC"));
   Qry.Clear();
   Qry.SQLText="SELECT * FROM crs_pax_asvc WHERE pax_id=:pax_id";
   Qry.CreateVariable("pax_id",otInteger,paxId.get());
@@ -607,15 +611,15 @@ static void LoadASVCRem(const PaxId_t& paxId, vector<TASVCItem> &asvc)
   {
     TASVCItem item;
     strcpy(item.rem_code, "ASVC");
-    strcpy(item.rem_status, Qry.FieldAsString("rem_status"));
-    strcpy(item.RFIC, Qry.FieldAsString("rfic"));
-    strcpy(item.RFISC, Qry.FieldAsString("rfisc"));
+    strcpy(item.rem_status, Qry.FieldAsString("rem_status").c_str());
+    strcpy(item.RFIC, Qry.FieldAsString("rfic").c_str());
+    strcpy(item.RFISC, Qry.FieldAsString("rfisc").c_str());
     if (!Qry.FieldIsNULL("service_quantity"))
       item.service_quantity=Qry.FieldAsInteger("service_quantity");
-    strcpy(item.ssr_code, Qry.FieldAsString("ssr_code"));
-    strcpy(item.service_name, Qry.FieldAsString("service_name"));
-    strcpy(item.emd_type, Qry.FieldAsString("emd_type"));
-    strcpy(item.emd_no, Qry.FieldAsString("emd_no"));
+    strcpy(item.ssr_code, Qry.FieldAsString("ssr_code").c_str());
+    strcpy(item.service_name, Qry.FieldAsString("service_name").c_str());
+    strcpy(item.emd_type, Qry.FieldAsString("emd_type").c_str());
+    strcpy(item.emd_no, Qry.FieldAsString("emd_no").c_str());
     if (!Qry.FieldIsNULL("emd_coupon"))
       item.emd_coupon=Qry.FieldAsInteger("emd_coupon");
     asvc.push_back(item);
@@ -626,6 +630,8 @@ void SaveASVCRem(const PaxIdWithSegmentPair& paxId,
                  const vector<TASVCItem> &asvc,
                  ModifiedPaxRem& modifiedPaxRem)
 {
+  LogTrace(TRACE5) << __func__
+                   << ": pax_id=" << paxId().get();
   bool deleteFromDB=true;
   if (!asvc.empty())
   {
@@ -635,7 +641,7 @@ void SaveASVCRem(const PaxIdWithSegmentPair& paxId,
     if (doNothing(prior, asvc)) return;
   }
 
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getRWSession("CRS_PAX_ASVC"));
   Qry.Clear();
   Qry.CreateVariable("pax_id",otInteger,paxId().get());
   if (deleteFromDB)
@@ -684,8 +690,10 @@ void SaveASVCRem(const PaxIdWithSegmentPair& paxId,
 
 void SavePNLADLRemarks(const PaxIdWithSegmentPair& paxId, const vector<TRemItem> &rem)
 {
+  LogTrace(TRACE5) << __func__
+                   << ": pax_id=" << paxId().get();
   if (rem.empty()) return;
-  TQuery CrsPaxRemQry(&OraSession);
+  DB::TQuery CrsPaxRemQry(PgOra::getRWSession("CRS_PAX_REM"));
   CrsPaxRemQry.Clear();
   CrsPaxRemQry.SQLText=
     "INSERT INTO crs_pax_rem(pax_id,rem,rem_code) "
@@ -706,9 +714,11 @@ void SavePNLADLRemarks(const PaxIdWithSegmentPair& paxId, const vector<TRemItem>
 
 static void LoadPDRem(const PaxIdWithSegmentPair& paxId, multiset<TPDRemItem> &pdRems)
 {
+  LogTrace(TRACE5) << __func__
+                   << ": pax_id=" << paxId().get();
   pdRems.clear();
 
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("CRS_PAX_REM"));
   Qry.Clear();
   Qry.SQLText="SELECT * FROM crs_pax_rem WHERE pax_id=:pax_id AND rem_code LIKE 'PD__'";
   Qry.CreateVariable("pax_id",otInteger,paxId().get());
@@ -716,11 +726,46 @@ static void LoadPDRem(const PaxIdWithSegmentPair& paxId, multiset<TPDRemItem> &p
   for(; !Qry.Eof; Qry.Next())
   {
     TPDRemItem item;
-    strcpy(item.code, Qry.FieldAsString("rem_code"));
+    strcpy(item.code, Qry.FieldAsString("rem_code").c_str());
     item.text=Qry.FieldAsString("rem");
     if (item.isPDRem())
       pdRems.insert(item);
   }
+}
+
+bool DeleteFreeRem(int pax_id)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": pax_id=" << pax_id;
+  auto cur = make_db_curs(
+        "DELETE FROM crs_pax_rem "
+        "WHERE pax_id=:pax_id "
+        "AND rem_code NOT LIKE 'PD__' ",
+        PgOra::getRWSession("CRS_PAX_REM"));
+  cur.stb()
+      .bind(":pax_id", pax_id)
+      .exec();
+
+  LogTrace(TRACE5) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+bool DeleteCrsChkd(int pax_id)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": pax_id=" << pax_id;
+  auto cur = make_db_curs(
+        "DELETE FROM crs_pax_chkd "
+        "WHERE pax_id=:pax_id ",
+        PgOra::getRWSession("CRS_PAX_CHKD"));
+  cur.stb()
+      .bind(":pax_id", pax_id)
+      .exec();
+
+  LogTrace(TRACE5) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
 }
 
 void DeletePDRem(const PaxIdWithSegmentPair& paxId,
@@ -744,7 +789,7 @@ void DeletePDRem(const PaxIdWithSegmentPair& paxId,
     if (prior==curr) modified=false;
   }
 
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getRWSession("CRS_PAX_REM"));
   Qry.Clear();
   Qry.CreateVariable("pax_id",otInteger,paxId().get());
   if (deletePD)

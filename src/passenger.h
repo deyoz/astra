@@ -1061,6 +1061,9 @@ class TSimplePaxGrpItem
     }
 };
 
+std::set<int> loadInfIdSet(int pax_id, bool lock);
+std::set<int> loadSeatIdSet(int pax_id, bool lock);
+
 class TPaxGrpItem : public TSimplePaxGrpItem
 {
   private:

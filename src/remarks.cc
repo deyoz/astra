@@ -11,6 +11,8 @@
 
 #include "iapi_interaction.h"
 #include "apps_interaction.h"
+#include <serverlib/dbcpp_cursctl.h>
+#include "PgOraConfig.h"
 
 #include <serverlib/str_utils.h>
 
@@ -761,20 +763,46 @@ bool LoadPaxRem(int pax_id, std::multiset<TPaxRemItem> &rems)
   return !rems.empty();
 };
 
-bool LoadCrsPaxRem(int pax_id, multiset<TPaxRemItem> &rems)
+bool LoadPaxRem(bool is_crs, int pax_id, multiset<TPaxRemItem> &rems, bool onlyPD,
+                const std::string& code)
 {
+  LogTrace(TRACE5) << __func__
+                   << ": pax_id=" << pax_id
+                   << ", is_crs=" << is_crs;
   rems.clear();
-  const char* sql=
-    "SELECT * FROM crs_pax_rem WHERE pax_id=:pax_id";
+  std::string rem_code;
+  std::string rem_text;
+  auto cur = make_db_curs(
+        "SELECT "
+        "rem, rem_code "
+        "FROM " + std::string(is_crs ? "CRS_PAX_REM" : "PAX_REM") + " "
+        "WHERE pax_id=:pax_id "
+        + std::string(onlyPD ? "AND rem_code LIKE 'PD__' " : "")
+        + std::string(!code.empty() ? "AND rem_code = :rem_code " : ""),
+        PgOra::getROSession(is_crs ? "CRS_PAX_REM" : "PAX_REM"));
 
-  QParams QryParams;
-  QryParams << QParam("pax_id", otInteger, pax_id);
-  TCachedQuery PaxRemQry(sql, QryParams);
-  PaxRemQry.get().Execute();
-  for(;!PaxRemQry.get().Eof;PaxRemQry.get().Next())
-    rems.insert(TPaxRemItem().fromDB(PaxRemQry.get()));
+  cur.stb()
+      .def(rem_text)
+      .def(rem_code)
+      .bind(":pax_id", pax_id);
+  if (!code.empty()) {
+    cur.bind(":rem_code", code);
+  }
+  cur.exec();
+
+  while (!cur.fen()) {
+    rems.insert(TPaxRemItem(rem_code, rem_text));
+  }
+  LogTrace(TRACE5) << __func__
+                   << ": count=" << rems.size();
   return !rems.empty();
-};
+}
+
+bool LoadCrsPaxRem(int pax_id, multiset<TPaxRemItem> &rems, bool onlyPD,
+                   const std::string& code)
+{
+  return LoadPaxRem(true /*is_crs*/, pax_id, rems, onlyPD, code);
+}
 
 bool LoadCrsPaxFQT(int pax_id, std::set<TPaxFQTItem> &fqts)
 {
@@ -859,95 +887,173 @@ bool DeletePaxPD(int pax_id)
   return (Qry.get().RowsProcessed()>0);
 }
 
+std::set<int> loadPaxIdSet(int grp_id);
+TGrpServiceAutoList loadCrsPaxAsvc(int pax_id, const std::optional<TTripInfo>& flt = {});
+
+bool AddPaxASVC(const TGrpServiceAutoItem& item)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": pax_id=" << item.pax_id;
+  auto cur = make_db_curs(
+        "INSERT INTO pax_asvc ("
+        "pax_id, rfic, rfisc, service_quantity, ssr_code, service_name, emd_type, emd_no, emd_coupon "
+        ") VALUES ( "
+        ":pax_id, :rfic, :rfisc, :service_quantity, :ssr_code, :service_name, :emd_type, :emd_no, :emd_coupon "
+        ")",
+        PgOra::getRWSession("PAX_ASVC"));
+  short notNull = 0;
+  short null = -1;
+  cur.stb()
+      .bind(":pax_id", item.pax_id)
+      .bind(":rfic", item.RFIC)
+      .bind(":rfisc", item.RFISC)
+      .bind(":service_quantity", item.service_quantity)
+      .bind(":ssr_code", item.ssr_code)
+      .bind(":service_name", item.service_name)
+      .bind(":emd_type", item.emd_type)
+      .bind(":emd_no", item.emd_no)
+      .bind(":emd_coupon", item.emd_coupon,
+            item.emd_coupon != ASTRA::NoExists ? &notNull : &null);
+  cur.exec();
+
+  LogTrace(TRACE5) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+bool AddPaxASVC(int pax_id)
+{
+  bool result = false;
+  const TGrpServiceAutoList asvcs = loadCrsPaxAsvc(pax_id);
+  for (const TGrpServiceAutoItem& asvc: asvcs) {
+    result = AddPaxASVC(asvc);
+  }
+  return result;
+}
+
 bool AddPaxASVC(int id, bool is_grp_id)
 {
-  ostringstream sql;
-  sql <<
-    "INSERT INTO pax_asvc(pax_id, rfic, rfisc, service_quantity, ssr_code, service_name, emd_type, emd_no, emd_coupon) "
-    "SELECT pax.pax_id, rfic, rfisc, service_quantity, ssr_code, service_name, emd_type, emd_no, emd_coupon "
-    "FROM pax, crs_pax_asvc "
-    "WHERE pax.pax_id=crs_pax_asvc.pax_id AND "
-    "      rfic IS NOT NULL AND "
-    "      rfisc IS NOT NULL AND "
-    "      service_quantity IS NOT NULL AND "
-    "      service_name IS NOT NULL AND "
-    "      (rem_status='HI' AND "
-    "       emd_type IS NOT NULL AND "
-    "       emd_no IS NOT NULL AND "
-    "       emd_coupon IS NOT NULL OR "
-    "       rem_status='HK' AND "
-    "       emd_type IS NULL AND "
-    "       emd_no IS NULL AND "
-    "       emd_coupon IS NULL) AND ";
-  if (is_grp_id)
-    sql <<  "      pax.grp_id=:id ";
-  else
-    sql <<  "      pax.pax_id=:id ";
+  bool result = false;
+  if (is_grp_id) {
+    const std::set<int> paxIdSet = loadPaxIdSet(id);
+    for (int pax_id: paxIdSet) {
+      result = AddPaxASVC(pax_id);
+    }
+  } else {
+    result = AddPaxASVC(id);
+  }
+  return result;
+}
 
-  QParams QryParams;
-  QryParams << QParam("id", otInteger, id);
-  TCachedQuery Qry(sql.str().c_str(), QryParams);
-  Qry.get().Execute();
-  return (Qry.get().RowsProcessed()>0);
+bool AddPaxRem(int pax_id, const CheckIn::TPaxRemItem& item)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": pax_id=" << pax_id;
+  auto cur = make_db_curs(
+        "INSERT INTO pax_rem ( "
+        "pax_id, rem, rem_code "
+        ") VALUES ( "
+        ":pax_id, :rem, :rem_code "
+        ")",
+        PgOra::getRWSession("PAX_REM"));
+  cur.stb()
+      .bind(":pax_id", pax_id)
+      .bind(":rem", item.text)
+      .bind(":rem_code", item.code);
+  cur.exec();
+
+  LogTrace(TRACE5) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+bool AddPaxPD(int pax_id)
+{
+  bool result = false;
+  multiset<CheckIn::TPaxRemItem> rems;
+  LoadCrsPaxRem(pax_id, rems, true /*onlyPD*/);
+  for (const CheckIn::TPaxRemItem& rem: rems) {
+    result = AddPaxRem(pax_id, rem);
+  }
+  return result;
 }
 
 bool AddPaxPD(int id, bool is_grp_id)
 {
-  ostringstream sql;
-  sql <<
-    "INSERT INTO pax_rem(pax_id, rem, rem_code) "
-    "SELECT pax.pax_id, crs_pax_rem.rem, crs_pax_rem.rem_code "
-    "FROM pax, crs_pax_rem "
-    "WHERE pax.pax_id=crs_pax_rem.pax_id AND "
-    "      crs_pax_rem.rem_code LIKE 'PD__' AND ";
-  if (is_grp_id)
-    sql <<  "      pax.grp_id=:id ";
-  else
-    sql <<  "      pax.pax_id=:id ";
+  bool result = false;
+  if (is_grp_id) {
+    const std::set<int> paxIdSet = loadPaxIdSet(id);
+    for (int pax_id: paxIdSet) {
+      result = AddPaxPD(pax_id);
+    }
+  } else {
+    result = AddPaxPD(id);
+  }
+  return result;
+}
 
-  QParams QryParams;
-  QryParams << QParam("id", otInteger, id);
-  TCachedQuery Qry(sql.str().c_str(), QryParams);
-  Qry.get().Execute();
-  return (Qry.get().RowsProcessed()>0);
+std::string LoadCrsPaxRem(int pax_id, const std::string& ssr_code)
+{
+  multiset<CheckIn::TPaxRemItem> rems;
+  LoadCrsPaxRem(pax_id, rems);
+  std::string ssr_text;
+  for (const CheckIn::TPaxRemItem& rem: rems) {
+    if (rem.code == ssr_code) {
+      if (!ssr_text.empty()) {
+        ssr_text.clear();
+        break;
+      }
+      ssr_text = rem.text;
+    }
+  }
+  return ssr_text;
+}
+
+bool PaxASVC_CrsFromDB(int pax_id, vector<TPaxASVCItem> &result)
+{
+  result.clear();
+  const TGrpServiceAutoList asvcs = loadCrsPaxAsvc(pax_id);
+  for (const TGrpServiceAutoItem& asvc: asvcs) {
+    TPaxASVCItem item;
+    item.clear();
+    item.emd_no=asvc.emd_no;
+    item.emd_coupon=asvc.emd_coupon;
+    item.RFIC=asvc.RFIC;
+    item.RFISC=asvc.RFISC;
+    item.service_quantity=asvc.service_quantity;
+    item.ssr_code=asvc.ssr_code;
+    item.service_name=asvc.service_name;
+    item.emd_type=asvc.emd_type;
+    if (!item.ssr_code.empty()) {
+      item.ssr_text = LoadCrsPaxRem(pax_id, item.ssr_code);
+    }
+    result.push_back(item);
+  }
+  return !result.empty();
 }
 
 bool PaxASVCFromDB(int pax_id, vector<TPaxASVCItem> &asvc, bool from_crs)
 {
+  if (from_crs) {
+    return PaxASVC_CrsFromDB(pax_id, asvc);
+  }
   asvc.clear();
   const char* sql=
     "SELECT * FROM pax_asvc WHERE pax_id=:pax_id";
-  const char* crs_sql=
-    "SELECT * FROM crs_pax_asvc "
-    "WHERE pax_id=:pax_id AND "
-    "      rfic IS NOT NULL AND "
-    "      rfisc IS NOT NULL AND "
-    "      service_quantity IS NOT NULL AND "
-    "      service_name IS NOT NULL AND "
-    "      (rem_status='HI' AND "
-    "       emd_type IS NOT NULL AND "
-    "       emd_no IS NOT NULL AND "
-    "       emd_coupon IS NOT NULL OR "
-    "       rem_status='HK' AND "
-    "       emd_type IS NULL AND "
-    "       emd_no IS NULL AND "
-    "       emd_coupon IS NULL) ";
 
   QParams ASVCQryParams;
   ASVCQryParams << QParam("pax_id", otInteger, pax_id);
-  TCachedQuery PaxASVCQry(from_crs?crs_sql:sql, ASVCQryParams);
+  TCachedQuery PaxASVCQry(sql, ASVCQryParams);
   PaxASVCQry.get().Execute();
   if (!PaxASVCQry.get().Eof)
   {
     const char* rem_sql=
       "SELECT rem FROM pax_rem WHERE pax_id=:pax_id AND rem_code=:rem_code";
-    const char* crs_rem_sql=
-      "SELECT rem FROM crs_pax_rem WHERE pax_id=:pax_id AND rem_code=:rem_code";
 
     QParams RemQryParams;
     RemQryParams << QParam("pax_id", otInteger, pax_id)
                  << QParam("rem_code", otString);
-    TCachedQuery PaxRemQry(from_crs?crs_rem_sql:rem_sql, RemQryParams);
+    TCachedQuery PaxRemQry(rem_sql, RemQryParams);
 
     for(;!PaxASVCQry.get().Eof;PaxASVCQry.get().Next())
     {
@@ -968,7 +1074,7 @@ bool PaxASVCFromDB(int pax_id, vector<TPaxASVCItem> &asvc, bool from_crs)
     };
   };
   return !asvc.empty();
-};
+}
 
 bool LoadPaxASVC(int pax_id, vector<TPaxASVCItem> &asvc)
 {

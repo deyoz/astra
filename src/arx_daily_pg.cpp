@@ -24,6 +24,7 @@
 #include <serverlib/oci_rowid.h>
 #include <serverlib/dbcpp_cursctl.h>
 #include "PgOraConfig.h"
+#include "tlg/typeb_db.h"
 
 #include "dbo.h"
 #include "dbostructures.h"
@@ -175,6 +176,7 @@ int get_excess_pc(const GrpId_t& grp_id, const PaxId_t& pax_id, int include_all_
 
 void delete_typeb_data(const PointId_t& point_id)
 {
+    TypeB::DeleteTypeBData(point_id.get(), "", "", false/*delete_trip_comp_layers*/);
     auto cur = make_curs(
                 "BEGIN \n"
                 "   ckin.delete_typeb_data(:point_id, NULL, NULL, FALSE); \n"

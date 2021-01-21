@@ -15,6 +15,8 @@
 #include "checkin.h"
 #include <serverlib/algo.h>
 #include <serverlib/cursctl.h>
+#include <serverlib/dbcpp_cursctl.h>
+#include "PgOraConfig.h"
 
 #include <regex>
 
@@ -2794,40 +2796,148 @@ TPaxGrpCategory::Enum TSimplePaxGrpItem::grpCategory() const
     return TPaxGrpCategory::Passenges;
 }
 
+std::set<int> loadPaxIdSet(int grp_id)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": grp_id=" << grp_id;
+  std::set<int> result;
+  int pax_id = ASTRA::NoExists;
+  auto cur = make_db_curs(
+        "SELECT pax_id "
+        "FROM pax "
+        "WHERE pax.grp_id=:grp_id ",
+        PgOra::getROSession("PAX"));
+
+  cur.stb()
+      .def(pax_id)
+      .bind(":grp_id", grp_id)
+      .exec();
+
+  while (!cur.fen()) {
+    result.insert(pax_id);
+  }
+  LogTrace(TRACE5) << __func__
+                   << ": count=" << result.size();
+  return result;
+}
+
+std::set<int> loadInfIdSet(int pax_id, bool lock)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": pax_id=" << pax_id;
+  std::set<int> result;
+  int inf_id = ASTRA::NoExists;
+  auto cur = make_db_curs(
+        "SELECT inf_id "
+        "FROM crs_inf "
+        "WHERE pax_id=:pax_id "
+        + std::string(lock ? "FOR UPDATE " : ""),
+        lock ? PgOra::getRWSession("CRS_INF")
+             : PgOra::getROSession("CRS_INF"));
+
+  cur.stb()
+      .def(inf_id)
+      .bind(":pax_id", pax_id)
+      .exec();
+
+  while (!cur.fen()) {
+    result.insert(inf_id);
+  }
+  LogTrace(TRACE5) << __func__
+                   << ": count=" << result.size();
+  return result;
+}
+
+std::set<int> loadSeatIdSet(int pax_id, bool lock)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": pax_id=" << pax_id;
+  std::set<int> result;
+  int seat_id = ASTRA::NoExists;
+  auto cur = make_db_curs(
+        "SELECT seat_id "
+        "FROM crs_seats_blocking "
+        "WHERE pax_id=:pax_id "
+        "AND pr_del=0 "
+        + std::string(lock ? "FOR UPDATE " : ""),
+        lock ? PgOra::getRWSession("CRS_SEATS_BLOCKING")
+             : PgOra::getROSession("CRS_SEATS_BLOCKING"));
+
+  cur.stb()
+      .def(seat_id)
+      .bind(":pax_id", pax_id)
+      .exec();
+
+  while (!cur.fen()) {
+    result.insert(seat_id);
+  }
+  LogTrace(TRACE5) << __func__
+                   << ": count=" << result.size();
+  return result;
+}
+
+TGrpServiceAutoList loadCrsPaxAsvc(int pax_id, const std::optional<TTripInfo>& flt = {})
+{
+  LogTrace(TRACE5) << __func__
+                   << ": pax_id=" << pax_id;
+  TGrpServiceAutoList result;
+  TGrpServiceAutoItem item;
+  item.clear();
+  auto cur = make_db_curs(
+        "SELECT "
+        "rfic, rfisc, service_quantity, ssr_code, service_name, emd_type, emd_no, emd_coupon "
+        "FROM crs_pax_asvc "
+        "WHERE pax_id=:pax_id AND "
+        "      rfic IS NOT NULL AND "
+        "      rfisc IS NOT NULL AND "
+        "      service_quantity IS NOT NULL AND "
+        "      service_name IS NOT NULL AND "
+        "      (rem_status='HI' AND "
+        "       emd_type IS NOT NULL AND "
+        "       emd_no IS NOT NULL AND "
+        "       emd_coupon IS NOT NULL OR "
+        "       rem_status='HK' AND "
+        "       emd_type IS NULL AND "
+        "       emd_no IS NULL AND "
+        "       emd_coupon IS NULL) ",
+        PgOra::getROSession("CRS_PAX_ASVC"));
+
+  cur.stb()
+      .def(item.RFIC)
+      .def(item.RFISC)
+      .def(item.service_quantity)
+      .defNull(item.ssr_code, "")
+      .def(item.service_name)
+      .defNull(item.emd_type, "")
+      .defNull(item.emd_no, "")
+      .defNull(item.emd_coupon, ASTRA::NoExists)
+      .bind(":pax_id", pax_id)
+      .exec();
+
+  while (!cur.fen()) {
+    item.pax_id=pax_id;
+    item.trfer_num=0;
+    if (flt) {
+      if (!item.isSuitableForAutoCheckin()) continue;
+      if (!item.permittedForAutoCheckin(*flt)) continue;
+    }
+    result.push_back(item);
+  }
+  LogTrace(TRACE5) << __func__
+                   << ": count=" << result.size();
+  return result;
+}
+
 void TPaxGrpItem::SyncServiceAuto(const TTripInfo& flt)
 {
-  ostringstream sql;
-  sql <<
-    "SELECT pax.pax_id, 0 AS transfer_num, "
-    "       rfic, rfisc, service_quantity, ssr_code, service_name, emd_type, emd_no, emd_coupon "
-    "FROM pax, crs_pax_asvc "
-    "WHERE pax.pax_id=crs_pax_asvc.pax_id AND "
-    "      rfic IS NOT NULL AND "
-    "      rfisc IS NOT NULL AND "
-    "      service_quantity IS NOT NULL AND "
-    "      service_name IS NOT NULL AND "
-    "      (rem_status='HI' AND "
-    "       emd_type IS NOT NULL AND "
-    "       emd_no IS NOT NULL AND "
-    "       emd_coupon IS NOT NULL OR "
-    "       rem_status='HK' AND "
-    "       emd_type IS NULL AND "
-    "       emd_no IS NULL AND "
-    "       emd_coupon IS NULL) AND "
-    "      pax.grp_id=:id ";
-  QParams QryParams;
-  QryParams << QParam("id", otInteger, id);
-  TCachedQuery Qry(sql.str().c_str(), QryParams);
-  Qry.get().Execute();
-  for(;!Qry.get().Eof; Qry.get().Next())
-  {
-    TGrpServiceAutoItem item;
-    item.fromDB(Qry.get());
-    if (!item.isSuitableForAutoCheckin()) continue;
-    if (!item.permittedForAutoCheckin(flt)) continue;
-
+  const std::set<int> paxIdSet = loadPaxIdSet(id);
+  for (int pax_id: paxIdSet) {
+    const TGrpServiceAutoList asvcList = loadCrsPaxAsvc(pax_id, flt);
+    if (asvcList.empty()) {
+      continue;
+    }
     if (!svc_auto) svc_auto=TGrpServiceAutoList();
-    svc_auto.get().push_back(item);
+    svc_auto.get().insert(svc_auto.get().begin(), asvcList.begin(), asvcList.end());
   }
 }
 

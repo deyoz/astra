@@ -817,53 +817,6 @@ BEGIN
   WHERE point_id=vpoint_id AND
         (vsystem IS NULL OR system=vsystem) AND
         (vsender IS NULL OR sender=vsender);
-  SELECT pax_id BULK COLLECT INTO paxids
-  FROM crs_pnr,crs_pax
-  WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND
-        crs_pnr.point_id=vpoint_id AND
-        (vsystem IS NULL OR system=vsystem) AND
-        (vsender IS NULL OR sender=vsender);
-  FORALL i IN 1..paxids.COUNT
-    DELETE FROM crs_seats_blocking WHERE pax_id=paxids(i);
-  FORALL i IN 1..paxids.COUNT
-    DELETE FROM crs_inf WHERE pax_id=paxids(i);
-  FORALL i IN 1..paxids.COUNT
-    DELETE FROM crs_inf_deleted WHERE pax_id=paxids(i);
-  FORALL i IN 1..paxids.COUNT
-    DELETE FROM crs_pax_rem WHERE pax_id=paxids(i);
-  FORALL i IN 1..paxids.COUNT
-    DELETE FROM crs_pax_doc WHERE pax_id=paxids(i);
-  FORALL i IN 1..paxids.COUNT
-    DELETE FROM crs_pax_doco WHERE pax_id=paxids(i);
-  FORALL i IN 1..paxids.COUNT
-    DELETE FROM crs_pax_doca WHERE pax_id=paxids(i);
-  FORALL i IN 1..paxids.COUNT
-    DELETE FROM crs_pax_tkn WHERE pax_id=paxids(i);
-  FORALL i IN 1..paxids.COUNT
-    DELETE FROM crs_pax_fqt WHERE pax_id=paxids(i);
-  FORALL i IN 1..paxids.COUNT
-    DELETE FROM crs_pax_chkd WHERE pax_id=paxids(i);
-  FORALL i IN 1..paxids.COUNT
-    DELETE FROM crs_pax_asvc WHERE pax_id=paxids(i);
-  FORALL i IN 1..paxids.COUNT
-    DELETE FROM crs_pax_refuse WHERE pax_id=paxids(i);
-  FORALL i IN 1..paxids.COUNT
-    DELETE FROM dcs_bag WHERE pax_id=paxids(i);
-  FORALL i IN 1..paxids.COUNT
-    DELETE FROM dcs_tags WHERE pax_id=paxids(i);
-
-  IF delete_trip_comp_layers THEN
-    FORALL i IN 1..paxids.COUNT
-      DELETE FROM trip_comp_layers WHERE crs_pax_id=paxids(i);
-  END IF;
-  FORALL i IN 1..paxids.COUNT
-    DELETE FROM tlg_comp_layers WHERE crs_pax_id=paxids(i);
-  FORALL i IN 1..paxids.COUNT
-    DELETE FROM crs_pax_alarms WHERE pax_id=paxids(i);
-  FORALL i IN 1..paxids.COUNT
-    DELETE FROM crs_pax_context WHERE pax_id=paxids(i);
-  FORALL i IN 1..paxids.COUNT
-    DELETE FROM pax_calc_data WHERE pax_calc_data_id=paxids(i);
 
   FORALL i IN 1..pnrids.COUNT
     DELETE FROM pnr_addrs WHERE pnr_id=pnrids(i);
