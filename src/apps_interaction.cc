@@ -187,7 +187,7 @@ static PaxData createPaxData(const PaxId_t &paxId, const Surname_t& surname, con
                          bool is_crew, const std::string& override_type,
                          const Opt<RegNo_t> &reg_no, ASTRA::TTrickyGender::Enum tricky_gender,
                          TransferFlag trfer);
-static PaxAddData createPaxAddData(const PaxId_t &pax_id, PaxOrigin origin);
+static Opt<PaxAddData> createPaxAddData(const PaxId_t &pax_id, PaxOrigin origin);
 static Opt<ManifestRequest> createManifestReq(const TPaxSegmentPair &flt, const string &country_lat);
 
 // Отправка APPS сообщений
@@ -1949,7 +1949,7 @@ std::string PaxData::msg(int version, MessageType type) const
     return msg.str();
 }
 
-PaxAddData createPaxAddData(const PaxId_t& pax_id, PaxOrigin origin)
+Opt<PaxAddData> createPaxAddData(const PaxId_t& pax_id, PaxOrigin origin)
 {
     LogTrace(TRACE5) << __FUNCTION__ << " pax_id: " << pax_id;
     CheckIn::TDocaMap docaMap;
@@ -1978,6 +1978,10 @@ PaxAddData createPaxAddData(const PaxId_t& pax_id, PaxOrigin origin)
     if(docaOpt) {
         doca = createDoca(*docaOpt);
     }
+    if(!doca && !doco) {
+        return std::nullopt;
+    }
+
     return PaxAddData{doco, doca};
 }
 
