@@ -19,6 +19,7 @@ using namespace typeb_parser;
 #include "flt_binding.h"
 #include "PgOraConfig.h"
 #include "db_tquery.h"
+#include <serverlib/dbcpp_cursctl.h>
 
 using namespace BASIC::date_time;
 using namespace std;
