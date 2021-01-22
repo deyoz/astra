@@ -2691,7 +2691,7 @@ void WebRequestsIface::CheckFFP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 
 void WebRequestsIface::ParseMessage(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  throw Exception("not implemented. insert into ssm_in");
+  throw EXCEPTIONS::Exception("not implemented. insert into ssm_in");
 }
 
 /////////////////// MERIDIAN //////////////////////////////////
