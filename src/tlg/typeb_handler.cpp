@@ -32,6 +32,7 @@
 #include <serverlib/TlgLogger.h>
 #include <serverlib/cursctl.h>
 #include <serverlib/TlgLogger.h>
+#include <serverlib/testmode.h>
 
 #include <unistd.h>
 #include <errno.h>
@@ -283,10 +284,17 @@ void progError(int tlg_id,
                  ProgError(STDLOG, "         %s", flight.c_str());
   };
 
+  std::string err_msg = E.what();
+  if (err_msg.empty())
+  {
+    LogError(STDLOG) << "E.what() empty before errorTypeB";
+    err_msg = "UNKNOWN ERROR";
+  }
+
   if (tlge!=NULL)
-    errorTypeB(tlg_id, part_no, error_no, tlge->error_pos(), tlge->error_len(), E.what());
+    errorTypeB(tlg_id, part_no, error_no, tlge->error_pos(), tlge->error_len(), err_msg);
   else
-    errorTypeB(tlg_id, part_no, error_no, NoExists, NoExists, E.what());
+    errorTypeB(tlg_id, part_no, error_no, NoExists, NoExists, err_msg);
 };
 
 void bindTypeB(int typeb_tlg_id, const TFlightsForBind &flts, ETlgErrorType error_type)
@@ -747,6 +755,10 @@ void handle_tpb_tlg(const tlg_info &tlg)
       errorTlg(tlg.id,"PARS",E.what());
     }
     catch(...) {};
+#ifdef XP_TESTING
+    if (inTestMode())
+      throw;
+#endif
   }
   catch(...)
   {
@@ -906,6 +918,10 @@ bool parse_tlg(const string &handler_id)
         parseTypeB(tlg_id);
         bindTypeB(tlg_id, bind_flts, E);
         ASTRA::commit();
+#ifdef XP_TESTING
+        if(inTestMode())
+          throw;
+#endif
         continue;
       };
 
@@ -1161,6 +1177,10 @@ bool parse_tlg(const string &handler_id)
           ASTRA::commit();
         }
         catch(...) {};
+#ifdef XP_TESTING
+        if (inTestMode())
+          throw;
+#endif
       };
     };
     queue_not_empty=!TlgIdQry.Eof;

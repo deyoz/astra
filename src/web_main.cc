@@ -2691,18 +2691,7 @@ void WebRequestsIface::CheckFFP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 
 void WebRequestsIface::ParseMessage(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  xmlNodePtr node = GetNode( "@type", reqNode );
-  if ( node == NULL )
-    throw AstraLocale::UserException( "Tag '@type' not found" );
-  string stype = NodeAsString( node );
-  string body = NodeAsString( reqNode );
-  ProgTrace( TRACE5, "ParseMessage: stype=%s, body=|%s|", stype.c_str(), body.c_str() );
-  //разборка телеграммы Дена ssm
-  TQuery Qry(&OraSession);
-  Qry.SQLText = "insert into ssm_in(id, type, data) values(ssm_in__seq.nextval, :type, :data)";
-  Qry.CreateVariable("data", otString, body);
-  Qry.CreateVariable("type", otString, stype);
-  Qry.Execute();
+  throw EXCEPTIONS::Exception("not implemented. insert into ssm_in");
 }
 
 /////////////////// MERIDIAN //////////////////////////////////
