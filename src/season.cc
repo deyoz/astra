@@ -97,9 +97,9 @@ static std::list<int> getMoveIdByTripId(int trip_id, boost::posix_time::ptime be
 
 static void deleteSchedDays(int trip_id, boost::posix_time::ptime begin_date = boost::posix_time::not_a_date_time)
 {
-  auto cur = make_db_curs("DELETE sched_days "
+  auto cur = make_db_curs("DELETE FROM sched_days "
                           "WHERE trip_id=:trip_id "
-                          "AND (last_day>=:begin_date_season or :begin_date_season)",
+                          "AND (last_day>=:begin_date_season or :begin_date_season is null)",
                           PgOra::getRWSession("SCHED_DAYS"));
   cur.
     bind(":trip_id", trip_id).
@@ -113,7 +113,7 @@ static void deleteSchedDays(int trip_id, boost::posix_time::ptime begin_date = b
 static void deleteRoutesByMoveid(const std::list<int> &lmove_id)
 {
   for(const int move_id: lmove_id) {
-    auto cur = make_db_curs("DELETE routes WHERE move_id = :move_id",
+    auto cur = make_db_curs("DELETE FROM routes WHERE move_id = :move_id",
                             PgOra::getRWSession("ROUTES"));
     cur.bind(":move_id", move_id).exec();
     LogTrace(TRACE3) << "delete routes by move_id = "
@@ -3807,3 +3807,34 @@ TDoubleTrip::~TDoubleTrip()
 /*        }
        } // end !timeKey
 */
+
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#ifdef XP_TESTING
+
+#include "xp_testing.h"
+START_TEST(check_delete_routes)
+{
+  std::list<int> lmove_id;
+  lmove_id.push_back(1);
+  deleteRoutesByMoveid(lmove_id);
+}
+END_TEST;
+
+START_TEST(check_delete_sched_days)
+{
+  deleteSchedDays(1);
+}
+END_TEST;
+
+#define SUITENAME "season"
+TCASEREGISTER(testInitDB, testShutDBConnection)
+{
+  ADD_TEST(check_delete_routes);
+  ADD_TEST(check_delete_sched_days);
+}
+TCASEFINISH;
+#undef SUITENAME
+#endif /*XP_TESTING*/
