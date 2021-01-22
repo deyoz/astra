@@ -1,5 +1,4 @@
-#ifndef __OCI_EXCEPTION_H_
-#define __OCI_EXCEPTION_H_
+#pragma once
 
 #include <string>
 #include "exception.h"
@@ -39,5 +38,3 @@ struct UniqConstrException : public ociexception {
 };
 
 } // namespace OciCpp
-
-#endif // __OCI_EXCEPTION_H_

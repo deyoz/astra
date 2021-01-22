@@ -615,6 +615,12 @@ ObjIdType objId()
         OciCpp::Sequence(OciCpp::mainSession(), "SEQ_OBJECT").nextval<std::string>(STDLOG));
 }
 
+ObjIdType objId(const std::string& sequence, OciCpp::OciSession* sess)
+{
+    return boost::lexical_cast<ObjIdType>(
+        OciCpp::Sequence((sess ? *sess : OciCpp::mainSession()), sequence).nextval<std::string>(STDLOG));
+}
+
 static void bigdiv(const std::string& s, unsigned divider, std::string& res, unsigned& reminder)
 {
     std::string src = s;

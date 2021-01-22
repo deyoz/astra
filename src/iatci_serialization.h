@@ -1460,23 +1460,23 @@ inline void serialize(Archive& ar, iatci::dcrcka::Result& par, const unsigned in
 
 namespace {
 
-class DefferedDataAccessor: private iatci::DefferedIatciData
+class DefferedDataAccessor: private iatci::DeferredIatciData
 {
 public:
     // for save
-    explicit DefferedDataAccessor(const iatci::DefferedIatciData& par)
-        : iatci::DefferedIatciData(par)
+    explicit DefferedDataAccessor(const iatci::DeferredIatciData& par)
+        : iatci::DeferredIatciData(par)
     {}
 
     // for load
     DefferedDataAccessor()
     {}
 
-    iatci::DefferedIatciData& get() { return *this; }
+    iatci::DeferredIatciData& get() { return *this; }
 
-    using iatci::DefferedIatciData::m_status;
-    using iatci::DefferedIatciData::m_error;
-    using iatci::DefferedIatciData::m_lRes;
+    using iatci::DeferredIatciData::m_status;
+    using iatci::DeferredIatciData::m_error;
+    using iatci::DeferredIatciData::m_lRes;
 };
 
 }//namespace
@@ -1485,14 +1485,14 @@ public:
  * DefferedIatciData
  *****/
 template<class Archive>
-inline void save(Archive& ar, const iatci::DefferedIatciData& par, const unsigned int version)
+inline void save(Archive& ar, const iatci::DeferredIatciData& par, const unsigned int version)
 {
     DefferedDataAccessor acc(par);
     ar & acc.m_status & acc.m_error & acc.m_lRes;
 }
 
 template<class Archive>
-inline void load(Archive& ar, iatci::DefferedIatciData& par, const unsigned int version)
+inline void load(Archive& ar, iatci::DeferredIatciData& par, const unsigned int version)
 {
     DefferedDataAccessor acc;
     ar & acc.m_status & acc.m_error & acc.m_lRes;
@@ -1500,7 +1500,7 @@ inline void load(Archive& ar, iatci::DefferedIatciData& par, const unsigned int 
 }
 
 template<class Archive>
-inline void serialize(Archive& ar, iatci::DefferedIatciData& par, const unsigned int version)
+inline void serialize(Archive& ar, iatci::DeferredIatciData& par, const unsigned int version)
 {
     boost::serialization::split_free(ar, par, version);
 }

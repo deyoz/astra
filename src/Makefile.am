@@ -213,7 +213,10 @@ astra_SOURCES = \
   timatic_exchange.cc \
   zamar_dsm.cpp \
   pg_session.cc \
-  base_callbacks.cpp
+  db_tquery.cc \
+  base_callbacks.cpp \
+  hooked_session.cc \
+  PgOraConfig.cc
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
@@ -426,4 +429,7 @@ noinst_HEADERS = \
   zamar_dsm.h \
   astra_types.h \
   pg_session.h \
-  base_callbacks.h
+  db_tquery.h \
+  base_callbacks.h \
+  hooked_session.h \
+  PgOraConfig.h

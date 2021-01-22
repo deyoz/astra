@@ -1,3 +1,7 @@
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include "astra_utils.h"
 #include "oralib.h"
 #include "astra_locale.h"
@@ -21,6 +25,10 @@
 #include <serverlib/dump_table.h>
 #include <serverlib/EdiHelpManager.h>
 #include <serverlib/query_runner.h>
+#include <serverlib/commit_rollback.h>
+#include <serverlib/posthooks.h>
+#include <serverlib/algo.h>
+#include <serverlib/pg_cursctl.h>
 #include <jxtlib/JxtInterface.h>
 #include <jxtlib/jxt_cont.h>
 #include <jxtlib/xml_stuff.h>
@@ -1237,7 +1245,7 @@ int getTCLParam(const char* name, int min, int max, int def)
   {
     if (def==NoExists) throw;
     res=def;
-    ProgTrace( TRACE0, e.what() );
+    ProgTrace( TRACE0, "%s", e.what() );
   };
 
   ProgTrace( TRACE5, "TCL param %s=%d", name, res );
@@ -1259,7 +1267,7 @@ string getTCLParam(const char* name, const char* def)
   {
     if (def==NULL) throw;
     res=def;
-    ProgTrace( TRACE0, e.what() );
+    ProgTrace( TRACE0, "%s", e.what() );
   };
 
   ProgTrace( TRACE5, "TCL param %s='%s'", name, res.c_str() );
@@ -1775,53 +1783,58 @@ void dumpTable(const std::string& table,
     dt.exec(loglevel, nick, file, line);
 }
 
-
-static void commitInTestMode_()
+void commit_(bool withCommitHooks = false)
 {
-    make_curs("SAVEPOINT SP_XP_TESTING").exec();
-    /*
-    LogTrace(TRACE3) << sql;
-    std::shared_ptr <OciCpp::OracleData> odata;
-    odata = OciCpp::mainSession().cdaCursor(sql,false);
-    if (odata->exec())
-    {
-        fprintf(stderr, "SAVEPOINT SP_XP_TESTING failed");
-        abort();
-    }*/
+    LogTrace(TRACE3) << "ASTRA::commit(" << (withCommitHooks ? "with commit hooks"
+                                                             : "without commit hooks") << ")";
+#ifdef XP_TESTING
+    if(inTestMode()) {
+        ::commit(); return;
+    }
+#endif//XP_TESTING
+
+    OraSession.Commit();
+    ::commit();
+    if(withCommitHooks) {
+        callPostHooksCommit();
+    }
 }
 
-static void rollbackInTestMode_()
+void rollback_(bool withRollbackHooks = false)
 {
-    make_curs("ROLLBACK TO SAVEPOINT SP_XP_TESTING").exec();
-    /*LogTrace(TRACE3) << sql;
-    std::shared_ptr <OciCpp::OracleData> odata;
-    odata = OciCpp::mainSession().cdaCursor(sql,false);
-    if (odata->exec())
-    {
-        LogError (STDLOG) << odata->error_text()<<"\n" << sql;
-        fprintf(stderr, "ROLLBACK TO SAVEPOINT SP_XP_TESTING failed\n");
-        abort();
-    }*/
+    LogTrace(TRACE3) << "ASTRA::rollback(" << (withRollbackHooks ? "with rollback hooks"
+                                                                 : "without rollback hooks") << ")";
+#ifdef XP_TESTING
+    if(inTestMode()) {
+        ::rollback(); return;
+    }
+#endif//XP_TESTING
+
+    OraSession.Rollback();
+    ::rollback();
+    if(withRollbackHooks) {
+        callRollbackPostHooks();
+    }
 }
 
 void commit()
 {
-    LogTrace(TRACE3) << "ASTRA::commit()";
-    if(inTestMode()) {
-        commitInTestMode_();
-    } else {
-        OraSession.Commit();
-    }
+    commit_(false/*DO NOT call commit hooks*/);
 }
 
 void rollback()
 {
-    LogTrace(TRACE3) << "ASTRA::rollback()";
-    if(inTestMode()) {
-        rollbackInTestMode_();
-    } else {
-        OraSession.Rollback();
-    }
+    rollback_(false/*DO NOT call rollback hooks*/);
+}
+
+void commitAndCallCommitHooks()
+{
+    commit_(true/*call commit hooks*/);
+}
+
+void rollbackAndCallRollbackHooks()
+{
+    rollback_(true/*call rollback hooks*/);
 }
 
 void rollbackSavePax()

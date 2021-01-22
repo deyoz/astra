@@ -444,7 +444,7 @@ bool MCache::set(const std::string& key_in, const std::vector<char>& value,
 
     memcached_return_t ret = memcached_set(m_memc,
                                            key.c_str(), key.length(),
-                                           &value[0], value.size(),
+                                           value.data(), value.size(),
                                            expiration, flags);
 
     if (ret != MEMCACHED_SUCCESS)
@@ -501,7 +501,7 @@ bool MCache::add(const std::string& key_in, const std::vector<char>& value,
 
     memcached_return_t ret = memcached_add(m_memc,
                                            key.c_str(), key.length(),
-                                           &value[0], value.size(),
+                                           value.data(), value.size(),
                                            expiration, flags);
 
     return (ret == MEMCACHED_SUCCESS);
@@ -550,7 +550,11 @@ bool MCache::flush(time_t expiration)
     return trueFlush(expiration);
 #endif// XP_TESTING
 }
-
+/*
+bool MCache::stats()
+{
+}
+*/
 #else // HAVE_MEMCACHED
 
 uint64_t createVersion()
@@ -985,6 +989,7 @@ bool MCacheObject::write_(time_t expiration)
 bool MCacheObject::readFromCache()
 {
 #ifdef HAVE_MEMCACHED
+    ProgTrace(TRACE5, "read from memcached");
     size_t len = 0;
     char* data = 0;
     if(!m_mcache->get(data, len, key())) {
@@ -1002,6 +1007,7 @@ bool MCacheObject::readFromCache()
         LogWarning(STDLOG) << "Invalid data has been read for key '" << key() << "'";
         return false;
     }
+    ProgTrace(TRACE5, "%s : read data of len %zu", __func__, len);
 
     char* buff = getBuff();
     if(!buff)
@@ -1809,7 +1815,7 @@ START_TEST(check_cache_perf)
                                                       0);
     fail_if(!ret, "write to cache failed");
 
-    Timer::timer t1;
+    HelpCpp::Timer t1;
     size_t counter = 10000;
     start_profiling();
     for(size_t i = 0; i < counter; i++)
@@ -1822,7 +1828,7 @@ START_TEST(check_cache_perf)
         free(newVal);
     }
     stop_profiling();
-    std::cout << t1 << " (" << t1.elapsed() / counter << ")" << std::endl;
+    std::cout << t1 << " (" << t1.elapsedMilliseconds() / counter << ")" << std::endl;
 }
 END_TEST
 
@@ -1856,7 +1862,7 @@ START_TEST(get_vs_multiget_perf)
     const size_t counter = 400;
 
     size_t dataCounter = 0;
-    Timer::timer t1;
+    HelpCpp::Timer t1;
     for(size_t i = 0; i < counter; i++)
     {
         char* newVal = 0;
@@ -1871,11 +1877,11 @@ START_TEST(get_vs_multiget_perf)
         }
     }
     std::cout << "Timer for get(" << dataCounter << ") : "
-              << t1 << " (" << t1.elapsed() / counter << ")" << std::endl;
+              << t1 << " (" << t1.elapsedMilliseconds() / counter << ")" << std::endl;
 
 
     dataCounter = 0;
-    Timer::timer t2;
+    HelpCpp::Timer t2;
 
     for(size_t i = 0; i < counter; i++)
     {
@@ -1893,7 +1899,7 @@ START_TEST(get_vs_multiget_perf)
         }
     }
     std::cout << "Timer for multi-get(" << dataCounter << "): "
-              << t2 << " (" << t2.elapsed() / counter << ")" << std::endl;
+              << t2 << " (" << t2.elapsedMilliseconds() / counter << ")" << std::endl;
 
 }
 END_TEST

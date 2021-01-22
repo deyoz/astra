@@ -38,7 +38,7 @@ public:
     int spCounter_;
 #endif // XP_TESTING
 private:
-    Session(const char*);
+    Session(const char* connStr);
     std::shared_ptr<details::PgExecutor> cursData(const std::string& sql, bool cache = true);
 
     PgConn conn_;
@@ -51,5 +51,7 @@ private:
     friend SessionDescriptor getReadOnlySession(const std::string&);
     friend SessionDescriptor getAutoCommitSession(const std::string&);
 };
+
+std::string connStringWithAppName(const std::string& connStr, const std::string& app_suffix="");
 
 } // PgCpp

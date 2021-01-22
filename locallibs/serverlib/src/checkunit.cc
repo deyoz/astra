@@ -15,11 +15,13 @@
 #include <assert.h>
 #include <signal.h>
 #include <iconv.h>
+#include <sys/ioctl.h>
 
 #include <string>
 #include <list>
 #include <map>
 #include <iostream>
+#include <iomanip>
 
 #include "checkunit.h"
 #include "testmode.h"
@@ -48,6 +50,7 @@ void init_logrange_tests();
 void init_algo_tests();
 void init_httpsrv_tests();
 void init_postgres_tests();
+void init_bgnd_tests();
 
 static void init_serverlib_tests()
 {
@@ -65,6 +68,7 @@ static void init_serverlib_tests()
     init_algo_tests();
     init_httpsrv_tests();
     init_postgres_tests();
+    init_bgnd_tests();
 }
 
 namespace
@@ -407,15 +411,15 @@ static void AddSuiteToSRunner(SRunner* sr, const SirenaSuite& sirSuite, bool one
 
 static void AddSuitesToSRunner(SRunner* sr, const std::vector<SirenaSuite>& suites, bool oneTestPerTCase)
 {
-    for (std::vector<SirenaSuite>::const_iterator it = suites.begin(); it != suites.end(); ++it)
-        AddSuiteToSRunner(sr, *it, oneTestPerTCase);
+    for (auto const& suite : suites)
+        AddSuiteToSRunner(sr, suite, oneTestPerTCase);
 }
 
 static void PrepareRunList(const std::vector<SirenaSuite>& suites, SharedRunList& runList)
 {
-    for (std::vector<SirenaSuite>::const_iterator suite = suites.begin(); suite != suites.end(); ++suite) {
-        for (Tests::const_iterator test = suite->tests.begin(); test != suite->tests.end(); ++test)
-            runList.add(TCaseToRun(suite->name, test->fullName));
+    for (auto const& suite : suites) {
+        for (auto const& test : suite.tests)
+            runList.add(TCaseToRun(suite.name, test.fullName));
     }
 }
 
@@ -739,6 +743,32 @@ static void SetJobIdx(size_t jobIdx) {
     setTclVar(JobIdxVar, std::to_string(jobIdx));
 }
 
+//-----------------------------------------------------------------------
+
+struct TCasePrinter
+{
+    pid_t pid;
+    unsigned jobIdx;
+    unsigned n_tests, xpFrom;
+    unsigned crisp_columns;
+    void operator<<(TCaseToRun const* t) const;
+};
+void TCasePrinter::operator<<(TCaseToRun const* t) const
+{
+    if(crisp_columns and xpFrom > t->seq_num)
+        return;
+    if(crisp_columns)
+        LogCout(COUT_INFO) /* << '\r' << "\x1b[48;5;67m" << std::setw(crisp_columns * t->seq_num / n_tests) << ' ' */
+                           << '\r' << std::right << std::setw(5) << t->seq_num
+                           << '\\' << std::left << std::setw(5) << n_tests
+                           << ": " << std::setw(crisp_columns - 13) << t->tcaseName
+                           << std::flush;
+    else
+        LogCout(COUT_INFO) << t->seq_num << '\\' << n_tests << ' ' << pid << '/' << jobIdx
+                           << ": " << t->tcaseName << (xpFrom > t->seq_num ? "<skipped>":"")
+                           << std::endl;
+}
+
 } //anonymous ns
 
 int GetJobIdx() {
@@ -746,31 +776,26 @@ int GetJobIdx() {
     return (ret > 0) ? ret : 0;
 }
 
-
-static void ForkedJob(size_t jobIdx,size_t xpFrom, const std::vector<SirenaSuite>& suites, SharedRunList& runList, bool suppress_stdout = false)
+static void ForkedJob(unsigned jobIdx, unsigned xpFrom, const std::vector<SirenaSuite>& suites, SharedRunList& runList, bool suppress_stdout, unsigned crisp_columns)
 {
-    LogCout(COUT_DEBUG) << "forked job with pid = " << getpid() << ", job idx = " << jobIdx << ", suppress_stdout = " << std::boolalpha << suppress_stdout << std::endl;
+    LogCout(COUT_DEBUG) << "forked job with pid = " << getpid() << ", job idx = " << jobIdx << ", suppress_stdout = " << std::boolalpha << suppress_stdout << ", crisp_columns=" << crisp_columns << std::endl;
     SetJobIdx(jobIdx);
     FixConnectStrings(jobIdx);
     TSignalsOnTests signals_on_test;
 
     SRunner* sr = CreateSRunner();
     AddSuitesToSRunner(sr, suites, true /* oneTestPerTCase */);
-    const size_t n_tests = CountTests(suites);
+    const unsigned n_tests = CountTests(suites);
     size_t test_diff_count=0;
     size_t local_seq_num=0;
     auto saved_stdout = suppress_stdout ? dup(1) : 0;
     auto devnull = suppress_stdout ? open("/dev/null", O_WRONLY) : 0;
 
+    TCasePrinter print = { getpid(), jobIdx, n_tests, xpFrom, crisp_columns };
+
     while(const TCaseToRun* tcaseToRun = runList.getNext())
     {
-        LogCout(COUT_INFO)
-            << tcaseToRun->seq_num << '\\' << n_tests << ' '
-            << getpid() << "/" << jobIdx
-            << ": "
-            << tcaseToRun->tcaseName
-            << (xpFrom>tcaseToRun->seq_num ? "<skipped>":"")
-            << std::endl;
+        print << tcaseToRun;
 
         if (xpFrom>tcaseToRun->seq_num)
           continue;
@@ -933,6 +958,11 @@ static size_t RunSuites(const std::vector<SirenaSuite>& suites,size_t xpFrom)
     const size_t numJobs = std::min(static_cast<size_t>(numJobs_i), n_tests);
 
     const bool suppress_stdout = GetBooleanEnv("SIRENA_XP_NO_STDOUT");
+    unsigned crisp_columns = GetBooleanEnv("SIRENA_XP_CRISP_OUTPUT");
+    if(crisp_columns) {
+        struct winsize w;
+        crisp_columns = ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == 0 ? w.ws_col : 0;
+    }
 
     PidHolder memcached_pid;
     const auto memcached_socket = readStringFromTcl("XP_TESTS_MEMCACHED_HOST","");
@@ -951,7 +981,6 @@ static size_t RunSuites(const std::vector<SirenaSuite>& suites,size_t xpFrom)
     PrepareRunList(suites, runList);
     check_test_duplicates(suites);
 
-    
     std::vector<pid_t> jobPids(numJobs, 0);
     for (size_t jobIdx = 0; jobIdx < numJobs; ++jobIdx) {
         if(const pid_t pid = fork())
@@ -959,7 +988,7 @@ static size_t RunSuites(const std::vector<SirenaSuite>& suites,size_t xpFrom)
         else
         {
             runList.markAsForkedJob();
-            ForkedJob(jobIdx, xpFrom, suites, runList, suppress_stdout);
+            ForkedJob(jobIdx, xpFrom, suites, runList, suppress_stdout, crisp_columns);
             return 0;
         }
     }
@@ -984,6 +1013,8 @@ static size_t RunSuites(const std::vector<SirenaSuite>& suites,size_t xpFrom)
             }
         }
     }
+    if(suppress_stdout)
+        LogCout(COUT_INFO) << std::endl;
     if (allForkedJobsDone) {
         LogCout(COUT_DEBUG) << "all forked jobs completed successfully" << std::endl;
         std::vector<Result> results = runList.getResults();
@@ -1004,13 +1035,12 @@ int run_all_tests(void)
     const char* c_xpFrom = getenv("XP_FROM");
     const char* xpExclude = getenv("XP_LIST_EXCLUDE");
     const char* xpStartFrom = getenv("XP_START_FROM");
-    const char* no_tests = getenv("XP_NO_RUN");
 
-    if(no_tests &&  strcmp(no_tests,"1")==0){
+    if(GetBooleanEnv("XP_NO_RUN")) {
         fprintf(stdout,"\nPRODUCTION SYSTEM! DON'T RUN TESTS!!\n");
         return 1;
     }
-    
+
     size_t xpFrom=0; 
     if (c_xpFrom!=nullptr)
     {
@@ -1106,17 +1136,12 @@ std::string maybe_recode_answer(std::string&& answer)
 //-----------------------------------------------------------------------
 
 void initTsFuncs();
-void setShmservTestMode();
 int main_tests()
 {
     init_serverlib_tests();
     initTestMode();
     set_signal(term3);
 
-    char const *xpt1 = getenv("XP_TESTING");
-    if (xpt1 && atoi(xpt1) == 1) {
-        setShmservTestMode();
-    }
     initTsFuncs();
     try {
 

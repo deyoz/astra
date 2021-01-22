@@ -1,5 +1,4 @@
-#ifndef __TSCRIPT_DIFF_H
-#define __TSCRIPT_DIFF_H
+#pragma once
 
 #ifdef XP_TESTING
 #include <string>
@@ -9,6 +8,3 @@ namespace xp_testing { namespace tscript {
 }}
 
 #endif // XP_TESTING
-
-#endif
-

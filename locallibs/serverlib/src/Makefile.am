@@ -24,7 +24,7 @@ libserver_la_SOURCES = addr2line.cc cache.cc checkunit.cc crypting.cc daemon_eve
 					   local_tcp_event.cc logger.cc log_queue.cc logwriter.cc lwriter.cc md5.cc memcached_api.cc \
 					   memmap.cc mes.cc mespro_crypt.cc monitor.cc monitor_ctl.cc new_daemon.cc base64.cc \
 					   object.cc oci8.cc ocilocal.cc ourtime.cc posthooks.cc potok.cc profiler.cc crc32.cc \
-					   pg_cursctl.cc dbcpp_cursctl.cc dbcpp_session.cc commit_rollback.cc \
+					   pg_cursctl.cc dbcpp_cursctl.cc dbcpp_session.cc commit_rollback.cc attempts.cc \
 					   query_runner.cc queue.cc queue_proc.cc savepoint.cc shmserv_hash.cc signal.cc simplelog.cc \
 					   sirenaproc.cc sirena_queue.cc slogger.cc string_cast.cc str_utils.cc tclmon.cc tcl_utils.cc \
 					   testmode.cc text_codec.cc timer.cc timestat.cc TlgLogger.cc xp_test_utils.cc tscript_vm.cc \
@@ -37,7 +37,7 @@ libserver_la_SOURCES = addr2line.cc cache.cc checkunit.cc crypting.cc daemon_eve
 					   http_logs_callbacks.cc \
 					   httpsrv.cc test_exp_map.cc simple_task.cc cc_censor.cc sha.cc logcout.cc msglog.cc enumset.cc \
 					   logrange.cc algo.cc deffered_exec.cc balancer.cc base32.cc amqp_connection_handler.cc test_httpsrv.cc \
-					   ntlm_msg.cc ntlm_service.cc ntlm_server.cc
+					   ntlm_common.cc ntlm_protocol.cc dump_table.cc
 
 if XP_TESTING
 

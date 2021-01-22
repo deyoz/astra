@@ -1,6 +1,3 @@
-#if HAVE_CONFIG_H
-#endif
-
 /*
 *  C++ Implementation: slogger
 *
@@ -119,6 +116,10 @@ StreamLogger & StreamLogger::operator<< (std::ios_base& (*func)(std::ios_base&))
 
 StreamLogger & StreamLogger::operator<< (std::basic_ios<char>& (*func)(std::basic_ios<char>&)) {
     return operator<< <> (func);
+}
+
+StreamLogger & StreamLogger::operator<< (char const* v) {
+    return operator<< <> (v ? v : "(nil)");
 }
 
 #ifdef XP_TESTING

@@ -16,15 +16,15 @@ template <class T, size_t N> struct OciSelector< const std::array<T,N> >
     static bool canBind(const SType& /*val*/) noexcept { return true; }
     static void* addr(const SType* a){ return a ? const_cast<SType*>(a)->data() : nullptr; }
     static int size(const void* /*addr*/) noexcept { return len; }
-    static char* to(const void * a, indicator& ind)
+    static void to(buf_ptr_t& dst, const void* src, indicator& ind)
     {
         if(ind == iok)
         {
-            auto memory = new char[len];
-            memcpy(memory, static_cast<const SType*>(a)->data(), len);
-            return memory;
+            dst.resize(len);
+            memcpy(dst.data(), static_cast<const SType*>(src)->data(), len);
+        } else {
+            dst.clear();
         }
-        return nullptr;
     }
     static void check(const SType* ) noexcept {}
 };

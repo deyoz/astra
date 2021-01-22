@@ -2,8 +2,7 @@
  * tscript virtual machine interpretator
  */
 
-#ifndef __TSCRIPT_VM_H
-#define __TSCRIPT_VM_H
+#pragma once
 
 #include <string>
 #include <vector>
@@ -65,7 +64,7 @@ namespace xp_testing { namespace tscript {
      * Load
      **************************************************************************/
 
-    VmSuite VmLoadSuite(std::istream& in);
+    VmSuite VmLoadSuite(const std::string& vmcode);
 
     /***************************************************************************
      * Execute
@@ -86,5 +85,3 @@ namespace xp_testing { namespace tscript {
 
     void VmExecModule(VmEnv& env, VmCallFunctor& callFunctor, const VmModule& module);
 }} /* namespace */
-
-#endif /* #ifndef __TSCRIPT_VM_H */

@@ -4,12 +4,12 @@
 #include "astra_utils.h"
 #include "astra_tick_view_xml.h"
 #include "AirportControl.h"
+#include "PgOraConfig.h"
 #include "basetables.h"
-#include "tlg/CheckinBaseTypesOci.h"
 #include "base_callbacks.h"
+#include "tlg/CheckinBaseTypesOci.h"
 
-#include <serverlib/cursctl.h>
-#include <serverlib/dates_oci.h>
+#include <serverlib/dbcpp_cursctl.h>
 #include <etick/tickmng.h>
 
 #include <boost/scoped_ptr.hpp>
@@ -47,12 +47,18 @@ static void saveCouponWc(const std::string& recloc,
                      << cpn.ticknum() << "/"
                      << cpn.couponInfo().num();
 
-    make_curs(
-"begin "
-"delete from WC_COUPON where TICKNUM=:ticknum and NUM=:num; "
+    make_db_curs(
+"delete from WC_COUPON where TICKNUM=:ticknum and NUM=:num",
+                PgOra::getRWSession("WC_COUPON"))
+            .stb()
+            .bind(":ticknum",       cpn.ticknum())
+            .bind(":num",           cpn.couponInfo().num())
+            .exec();
+
+    make_db_curs(
 "insert into WC_COUPON(RECLOC, TICKNUM, NUM, STATUS) "
-"values (:recloc, :ticknum, :num, :status);"
-"end;")
+"values (:recloc, :ticknum, :num, :status)",
+                PgOra::getRWSession("WC_COUPON"))
             .stb()
             .bind(":recloc",        recloc)
             .bind(":ticknum",       cpn.ticknum())
@@ -94,10 +100,9 @@ static void updateCouponWc(const Ticketing::TicketNum_t& ticknum,
                      << cpnnum << "/"
                      << status;
 
-    make_curs(
-"update WC_COUPON set STATUS=:status "
-"where TICKNUM=:ticknum and "
-"NUM=:cpnnum")
+    make_db_curs(
+"update WC_COUPON set STATUS=:status where TICKNUM=:ticknum and NUM=:cpnnum",
+                PgOra::getRWSession("WC_COUPON"))
             .stb()
             .bind(":ticknum",       ticknum.get())
             .bind(":cpnnum",        cpnnum.get())
@@ -116,12 +121,16 @@ static void saveTicketWc(const std::string& recloc,
         saveCouponWc(recloc, cpn);
     }
 
-    make_curs(
-"begin "
-"delete from WC_TICKET where TICKNUM=:ticknum; "
+    make_db_curs(
+"delete from WC_TICKET where TICKNUM=:ticknum",
+                PgOra::getRWSession("WC_TICKET"))
+            .bind(":ticknum", ticket.ticknumt().get())
+            .exec();
+
+    make_db_curs(
 "insert into WC_TICKET(RECLOC, TICKNUM) "
-"values (:recloc, :ticknum); "
-"end;")
+"values (:recloc, :ticknum)",
+                PgOra::getRWSession("WC_TICKET"))
             .bind(":recloc",  recloc)
             .bind(":ticknum", ticket.ticknumt().get())
             .exec();
@@ -145,15 +154,17 @@ static void savePnrEdifact(const std::string& recloc,
         LogTrace(TRACE3) << "pageNo=" << pageNo << "; page=" << page;
         itb = ite;
 
-        make_curs(
+        make_db_curs(
 "insert into WC_PNR(RECLOC, PAGE_NO, TLG_TEXT, TLG_TYPE, DATE_CR) "
-"values (:recloc, :page_no, :edi_text, :edi_type, :date_cr)")
-        .bind(":recloc",   recloc)
-        .bind(":page_no",  pageNo)
-        .bind(":edi_text", page)
-        .bind(":edi_type", static_cast<int>(ediType))
-        .bind(":date_cr",  Dates::second_clock::local_time())
-        .exec();
+"values (:recloc, :page_no, :edi_text, :edi_type, :date_cr)",
+                PgOra::getRWSession("WC_PNR"))
+            .stb()
+            .bind(":recloc",   recloc)
+            .bind(":page_no",  pageNo)
+            .bind(":edi_text", page)
+            .bind(":edi_type", static_cast<int>(ediType))
+            .bind(":date_cr",  Dates::second_clock::local_time())
+            .exec();
     }
 }
 
@@ -232,9 +243,10 @@ void loadWcEdiPnr(const std::string& recloc, boost::optional<EdiPnr>& ediPnr)
 
     std::string res, page;
     int tlgType = 0;
-    OciCpp::CursCtl cur = make_curs(
-"select TLG_TEXT, TLG_TYPE from WC_PNR where RECLOC=:recloc "
-"order by PAGE_NO");
+
+    auto cur = make_db_curs(
+"select TLG_TEXT, TLG_TYPE from WC_PNR where RECLOC=:recloc order by PAGE_NO",
+                PgOra::getROSession("WC_PNR"));
     cur.bind(":recloc", recloc)
        .def(page)
        .def(tlgType)
@@ -309,19 +321,17 @@ boost::optional<WcPnr> loadWcPnrWithActualStatuses(const Ticketing::TicketNum_t&
 
 boost::optional<WcTicket> readWcTicket(const Ticketing::TicketNum_t& tickNum)
 {
-    OciCpp::CursCtl cur = make_curs(
-"select RECLOC "
-"from WC_TICKET "
-"where TICKNUM=:ticknum");
+    auto cur = make_db_curs(
+"select RECLOC from WC_TICKET where TICKNUM=:ticknum",
+                PgOra::getROSession("WC_TICKET"));
 
     std::string recloc;
     cur
-            .stb()
             .def(recloc)
             .bind(":ticknum", tickNum.get())
             .EXfet();
 
-    if(cur.err() == NO_DATA_FOUND) {
+    if(cur.err() == DbCpp::ResultCode::NoDataFound) {
         return boost::none;
     }
 
@@ -331,22 +341,20 @@ boost::optional<WcTicket> readWcTicket(const Ticketing::TicketNum_t& tickNum)
 boost::optional<WcCoupon> readWcCoupon(const Ticketing::TicketNum_t& tickNum,
                                        const Ticketing::CouponNum_t& cpnNum)
 {
-    OciCpp::CursCtl cur = make_curs(
-"select RECLOC, STATUS "
-"from WC_COUPON "
-"where TICKNUM=:ticknum and NUM=:cpnnum");
+    auto cur = make_db_curs(
+"select RECLOC, STATUS from WC_COUPON where TICKNUM=:ticknum and NUM=:cpnnum",
+                PgOra::getROSession("WC_COUPON"));
 
     std::string recloc;
     int status = 0;
     cur
-            .stb()
             .def(recloc)
             .def(status)
             .bind(":ticknum", tickNum.get())
             .bind(":cpnnum",  cpnNum.get())
             .EXfet();
 
-    if(cur.err() == NO_DATA_FOUND) {
+    if(cur.err() == DbCpp::ResultCode::NoDataFound) {
         return boost::none;
     }
 
@@ -357,21 +365,19 @@ WcCoupon readWcCouponByRl(const std::string& recloc,
                           const Ticketing::TicketNum_t& tickNum,
                           const Ticketing::CouponNum_t& cpnNum)
 {
-    OciCpp::CursCtl cur = make_curs(
-"select STATUS "
-"from WC_COUPON "
-"where RECLOC=:recloc and TICKNUM=:ticknum and NUM=:cpnnum");
+    auto cur = make_db_curs(
+"select STATUS from WC_COUPON where RECLOC=:recloc and TICKNUM=:ticknum and NUM=:cpnnum",
+                PgOra::getROSession("WC_COUPON"));
 
     int status = 0;
     cur
-            .stb()
             .def(status)
             .bind(":recloc",  recloc)
             .bind(":ticknum", tickNum.get())
             .bind(":cpnnum",  cpnNum.get())
             .EXfet();
 
-    if(cur.err() == NO_DATA_FOUND) {
+    if(cur.err() == DbCpp::ResultCode::NoDataFound) {
         throw WcCouponNotFound(recloc, tickNum, cpnNum);
     }
 

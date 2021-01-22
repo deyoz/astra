@@ -4,15 +4,19 @@
 #include "oralib.h"
 #include "base_tables.h"
 #include "qrys.h"
-#include "serverlib/str_utils.h"
 #include "astra_utils.h"
 #include "term_version.h"
 #include "date_time.h"
 #include "base_callbacks.h"
 
+#include "iapi_interaction.h"
+#include "apps_interaction.h"
+
+#include <serverlib/str_utils.h>
+
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
-#include "serverlib/slogger.h"
+#include <serverlib/slogger.h>
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -235,31 +239,24 @@ void TRemGrp::Load(TRemEventType rem_set_type, const string &airline)
 
 static void getAPPSRemCodes(const int pax_id, set<string>& remCodes)
 {
-  TQuery Qry( &OraSession );
-  Qry.CreateVariable( "pax_id", otInteger, pax_id );
-  Qry.SQLText = "SELECT status FROM apps_pax_data WHERE pax_id = :pax_id ORDER BY send_time DESC";
-  Qry.Execute();
-  if (!Qry.Eof)
-  {
-    string status = Qry.FieldAsString("status");
-    if( status == "B" )
-      remCodes.insert("SBIA");
-    else if( status == "P" )
-      remCodes.insert("SPIA");
-    else if( status == "X" )
-      remCodes.insert("SXIA");
-  }
+    for(const auto& st: APPS::statusesFromDb(PaxId_t(pax_id))) {
+        if(st == "B") {
+            remCodes.insert("SBIA");
+        } else if(st == "P") {
+            remCodes.insert("SPIA");
+        } else if(st == "X") {
+            remCodes.insert("SXIA");
+        }
+    }
 
-  Qry.SQLText = "SELECT status FROM iapi_pax_data WHERE pax_id = :pax_id";
-  Qry.Execute();
-  for(; !Qry.Eof; Qry.Next())
-  {
-    string status = Qry.FieldAsString("status");
-    if (status == "0Z")
-      remCodes.insert("SBIA");
-    else if (!status.empty())
-      remCodes.insert("SXIA");
-  }
+
+    for(const auto& st: IAPI::statusesFromDb(PaxId_t(pax_id))) {
+        if(st == "0Z") {
+            remCodes.insert("SBIA");
+        } else if (!st.empty()) {
+            remCodes.insert("SXIA");
+        }
+    }
 }
 
 CheckIn::TPaxRemItem getAPPSRem(const int pax_id, const std::string &lang )

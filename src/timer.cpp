@@ -215,24 +215,24 @@ void exec_tasks( const char *proc_name, int argc, char *argv[] )
         UQry.Execute();
       };
         callPostHooksBefore();
-        OraSession.Commit();
+        ASTRA::commitAndCallCommitHooks();
         callPostHooksAfter();
       }
       catch( EOracleError &E )
     {
-      try { OraSession.Rollback(); } catch(...) {};
+      try { ASTRA::rollbackAndCallRollbackHooks(); } catch(...) {};
       ProgError( STDLOG, "EOracleError %d: %s", E.Code, E.what());
       ProgError( STDLOG, "SQL: %s", E.SQLText());
       ProgError( STDLOG, "task name=%s", name.c_str() );
     }
     catch( std::exception &E )
     {
-      try { OraSession.Rollback(); } catch(...) {};
+      try { ASTRA::rollbackAndCallRollbackHooks(); } catch(...) {};
       ProgError( STDLOG, "std::exception: %s, task name=%s", E.what(), name.c_str() );
     }
     catch( ... )
     {
-      try { OraSession.Rollback(); } catch(...) {};
+      try { ASTRA::rollbackAndCallRollbackHooks(); } catch(...) {};
       ProgError( STDLOG, "Unknown error, task name=%s", name.c_str() );
     };
     callPostHooksAlways();

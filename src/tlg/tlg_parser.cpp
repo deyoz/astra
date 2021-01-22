@@ -6718,7 +6718,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
 
   if (pr_recount) crs_recount(point_id,NoExists,true);
 
-  ASTRA::commit();//OraSession.Commit();
+  ASTRA::commit();
 
   class ParseLater {};
 

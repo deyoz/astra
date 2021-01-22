@@ -15,6 +15,9 @@
 #include "testmode.h"
 #include "logopt.h"
 #include "pg_locks.h"
+#include "tclmon.h"
+#include "str_utils.h"
+#include "algo.h"
 
 #define NICKNAME "NONSTOP"
 #include "slogger.h"
@@ -313,9 +316,10 @@ ResultCode sqlStateToResultCode(const char* sqlState)
         {"23XXX", 2, ResultCode::ConstraintFail},   // Class 23 - Integrity Constraint Violation
         {"42XXX", 2, ResultCode::BadSqlText},       // Class 42 - Syntax Error or Access Rule Violation
         {"57XXX", 2, ResultCode::BadConnection},    // Class 57: Operator Intervention
+        {"25006", 5, ResultCode::ReadOnly},         // 25006: cannot execute in a read-only transaction
         {"40001", 5, ResultCode::BadConnection},    // 40001: Transaction Rollback: serialization_failure
         {"40P01", 5, ResultCode::Deadlock},         // 40P01: deadlock_detected
-        {"55P03", 5, ResultCode::Busy},             // 55P03: lock_not_available
+        {"55P03", 5, ResultCode::Busy}              // 55P03: lock_not_available
     };
     for (const auto& ec : errCodes) {
         if (std::strncmp(sqlState, ec.sqlState, ec.len) == 0) {
@@ -526,6 +530,79 @@ private:
     boost::posix_time::time_duration maxIdleTime_;
     std::list<std::string> globalSavepoints_;
 };
+
+template<typename T>
+T reverseValue(const char* data)
+{
+    T result;
+    char *dest = reinterpret_cast<char*>(&result);
+    for(size_t i=0; i<sizeof(T); i++)
+    {
+        dest[i] = data[sizeof(T)-i-1];
+    }
+    return result;
+}
+
+template<typename T>
+T htont(T src)
+{
+#   if __BYTE_ORDER__  == __ORDER_LITTLE_ENDIAN__
+        return reverseValue<T>(reinterpret_cast<const char*>(&src));
+#   else
+        return src;
+#   endif
+}
+
+bool PgTraits<float>::setNull(char* value)
+{
+    float* v = reinterpret_cast<float*>(value);
+    *v = 0;
+    return true;
+}
+
+void PgTraits<float>::fillBindData(std::vector<char>& dst, float v)
+{
+    dst.resize(sizeof(v));
+    v = htont(v);
+    memcpy(dst.data(), &v, sizeof(v));
+}
+
+bool PgTraits<float>::setValue(char* value, const char* data, int)
+{
+    float* v = reinterpret_cast<float*>(value);
+    char* endptr = nullptr;
+    *v = strtof(data, &endptr);
+    if (endptr && *endptr != 0) {
+        return false;
+    }
+    return true;
+}
+
+bool PgTraits<double>::setNull(char* value)
+{
+    double* v = reinterpret_cast<double*>(value);
+    *v = 0;
+    return true;
+}
+
+void PgTraits<double>::fillBindData(std::vector<char>& dst, double v)
+{
+    dst.resize(sizeof(v));
+    v = htont(v);
+    memcpy(dst.data(), &v, sizeof(v));
+}
+
+bool PgTraits<double>::setValue(char* value, const char* data, int)
+{
+    double* v = reinterpret_cast<double*>(value);
+    char* endptr = nullptr;
+    *v = strtod(data, &endptr);
+    if (endptr && *endptr != 0) {
+        return false;
+    }
+    return true;
+}
+
 
 bool PgTraits<int>::setNull(char* value)
 {
@@ -796,6 +873,10 @@ void PgTraits<const char*>::fillBindData(std::vector<char>& dst, const char* s)
         return;
     }
     const int sz = strlen(s);
+    if(!sz) {
+        dst.clear();
+        return;
+    }
     dst.resize(sz + 1);
     memcpy(dst.data(), s, sz);
     dst[sz] = 0;
@@ -1351,12 +1432,24 @@ bool copyDataFrom(Session& sess, const std::string& sql, const char* data, size_
     return result;
 }
 
-static PGconn* connect(const char* connStr, bool exitOnFail)
+std::string connStringWithAppName(const std::string& connStr, const std::string& app_suffix)
 {
-    PGconn* c = PQconnectdb(connStr);
+  return connStr
+    + (connStr.find('?')==std::string::npos ? "?":"&")
+    +"application_name="+tclmonCurrentProcessName()
+    +"_"+std::to_string(getpid())
+    + (app_suffix.empty() ? app_suffix : ("_"+app_suffix));
+}
+
+static PGconn* connect(const char* a_connStr, bool exitOnFail)
+{
+    const std::string connStr=connStringWithAppName(a_connStr);
+    PGconn* c = PQconnectdb(connStr.c_str());
     const ConnStatusType st = PQstatus(c);
     if (st != CONNECTION_OK) {
+        LogTrace(TRACE0) << PQerrorMessage(c);
         PQfinish(c);
+
         if (exitOnFail) {
             LogError(STDLOG) << "failed to connect to " << connStr;
             sleep(1);
@@ -1590,13 +1683,17 @@ static int appendPos(Positions& ps, const std::string& pl)
     return ++i;
 }
 
-static bool isDml(const std::string& s)
+bool isDml(const std::string& s)
 {
-    auto pos = s.find(' ');
+    auto pos_beg = s.find_first_not_of(' ');
+    if (pos_beg == std::string::npos) {
+        return false;
+    }
+    auto pos = s.find_first_of(" (+-'\n",pos_beg);
     if (pos == std::string::npos) {
         return false;
     }
-    std::string cmd = s.substr(0, pos);
+    std::string cmd = s.substr(pos_beg, pos);
     std::transform(cmd.begin(), cmd.end(), cmd.begin(), ::toupper);
     return cmd == "SELECT"
         || cmd == "INSERT"
@@ -1792,6 +1889,79 @@ PgResult CursCtl::execSql()
     return res;
 }
 
+int CursCtl::fieldsCount() const
+{
+    return fields_.size();
+}
+
+bool CursCtl::fieldIsNull(const std::string& fname) const
+{
+    auto field = algo::find_opt<boost::optional>(fields_, StrUtils::ToUpper(fname));
+    if(field) {
+        return field->IsNull;
+    }
+
+    throw PgException(STDLOG, sess_->sd_, ResultCode::Fatal,
+                      "Field with name '" + fname + "' does not fetched!");
+}
+
+std::string CursCtl::fieldValue(const std::string& fname) const
+{
+    auto field = algo::find_opt<boost::optional>(fields_, StrUtils::ToUpper(fname));
+    if(field) {
+        return field->Value;
+    }
+
+    throw PgException(STDLOG, sess_->sd_, ResultCode::Fatal,
+                      "Field with name '" + fname + "' does not fetched!");
+}
+
+int CursCtl::fieldIndex(const std::string& fname) const
+{
+    auto field = algo::find_opt<boost::optional>(fields_, StrUtils::ToUpper(fname));
+    if(field) {
+        return field->Index;
+    }
+
+    return -1;
+}
+
+bool CursCtl::fieldIsNull(int fieldIndex) const
+{
+    auto opt = algo::find_opt_if<boost::optional>(fields_,
+                  [fieldIndex](const auto& kv) { return kv.second.Index == fieldIndex; });
+    if(opt) {
+        return opt->second.IsNull;
+    }
+
+    throw PgException(STDLOG, sess_->sd_, ResultCode::Fatal,
+                      "Field with index '" + std::to_string(fieldIndex) + "' does not fetched!");
+}
+
+std::string CursCtl::fieldValue(int fieldIndex) const
+{
+    auto opt = algo::find_opt_if<boost::optional>(fields_,
+                  [fieldIndex](const auto& kv) { return kv.second.Index == fieldIndex; });
+    if(opt) {
+        return opt->second.Value;
+    }
+
+    throw PgException(STDLOG, sess_->sd_, ResultCode::Fatal,
+                      "Field with index '" + std::to_string(fieldIndex) + "' does not fetched!");
+}
+
+std::string CursCtl::fieldName(int fieldIndex) const
+{
+    auto opt = algo::find_opt_if<boost::optional>(fields_,
+                  [fieldIndex](const auto& kv) { return kv.second.Index == fieldIndex; });
+    if(opt) {
+        return opt->second.Name;
+    }
+
+    throw PgException(STDLOG, sess_->sd_, ResultCode::Fatal,
+                      "Field with index '" + std::to_string(fieldIndex) + "' does not fetched!");
+}
+
 static void setupFetcher(std::unique_ptr<PgFetcher>& f, CursCtl& c, bool singleRowMode)
 {
     if (f) {
@@ -1909,6 +2079,54 @@ int CursCtl::fen()
             return erc_;
         }
     }
+    fetcher_->fetchNext();
+    return erc_;
+}
+
+int CursCtl::currentRow() const
+{
+    return fetcher_->currentRow();
+}
+
+int CursCtl::nefen()
+{
+    if (erc_) {
+        return erc_;
+    }
+    if (!fetcher_) {
+        erc_ = ResultCode::Fatal;
+        handleError(*this, sess_->sd_, erc_, "fetch is not available (forgot to call exec?)");
+        return erc_;
+    }
+    PGresult* res = fetcher_->getResult();
+    if (res == nullptr) {
+        erc_ = NoDataFound;
+        return erc_;
+    }
+    if (singleRowMode_) {
+        if (!checkResult(*this, sess_->sd_, res)) {
+            LogTrace(TRACE5) << sess_->sd_ << " rollback due to expected error";
+            SessionManager::instance().getSessionBehaviour(sess_->sd_)
+                .onAfterBadQuery(sess_->sd_, PG_CONN(sess_->conn()));
+            return erc_;
+        }
+    }
+    const int currRow = fetcher_->currentRow();
+    const int sz = PQnfields(PG_RESULT(res));
+    fields_.clear();
+    for(int i = 0; i < sz; ++i) {
+        std::string fname = PQfname(PG_RESULT(res), i);
+        ASSERT(PQfformat(PG_RESULT(res), i) == 0 && "only text format is supported");
+
+        fname = StrUtils::ToUpper(fname);
+
+        char* value = PQgetvalue(PG_RESULT(res), currRow, i);
+        const int len = PQgetlength(PG_RESULT(res), currRow, i);
+        bool isNull = PQgetisnull(PG_RESULT(res), currRow, i);
+
+        fields_.emplace(fname, Field{fname, isNull, std::string(value, len), i });
+    }
+
     fetcher_->fetchNext();
     return erc_;
 }
@@ -2323,6 +2541,47 @@ START_TEST(test_long_long)
     fail_unless(i2 == 5, "failed: i2=%d expected 5 from default for NULL", i2);
 } END_TEST
 
+START_TEST(pg_test_float)
+{
+    float e = 0.001f;
+    float f1 = 12345.67f, f2 = 0.00f;
+    make_curs("select 2.34 where ABS(12345.67 - :i) <= 0.001").bind(":i", f1).def(f2).EXfet();
+    fail_unless(fabs(2.34f - f2) <= e, "failed: f2=%f expected 2.34", f2);
+    fail_unless(12345.67f == f1, "failed: f1=%f expected 12345.67", f1);
+
+    f1 = -12345.67f, f2 = 0.00f;
+    make_curs("select 3.0 where :i < -5").bind(":i", f1).def(f2).EXfet();
+    fail_unless(fabs(3.0f - f2) <= e, "failed: f2=%f expected 3.0", f2);
+
+    short defInd = 0;
+    make_curs("select null").def(f2, &defInd).EXfet();
+    fail_unless(f2 == 0.00, "failed: f2=%f expected 0.00 for NULL", f2);
+
+    make_curs("select null").defNull(f2, 5.1f).EXfet();
+    fail_unless(f2 == 5.1f, "failed: f2=%f expected 5.1 from default for NULL", f2);
+}
+END_TEST
+
+START_TEST(pg_test_double)
+{
+    double f1 = 12345.6789, f2 = 0.00;
+    make_curs("select 2.34 where :i = float '12345.6789'").bind(":i", f1).def(f2).EXfet();
+    fail_unless(2.34 == f2, "failed: f2=%lf expected 2.34", f2);
+    fail_unless(12345.6789 == f1);
+
+    f1 = -12345.67, f2 = 0.00;
+    make_curs("select 3.0 where :i < -5").bind(":i", f1).def(f2).EXfet();
+    fail_unless(3.0 == f2, "failed: f2=%lf expected 3.0", f2);
+
+    short defInd = 0;
+    make_curs("select null").def(f2, &defInd).EXfet();
+    fail_unless(f2 == 0.00, "failed: f2=%lf expected 0.00 for NULL", f2);
+
+    make_curs("select null").defNull(f2, 5.1).EXfet();
+    fail_unless(f2 == 5.1, "failed: f2=%lf expected 5.1 from default for NULL", f2);
+}
+END_TEST
+
 START_TEST(test_date)
 {
     boost::gregorian::date d1(boost::gregorian::from_simple_string("1980-07-09")), d2;
@@ -2388,7 +2647,7 @@ START_TEST(test_datetime)
     CHECK_EQUAL_STRINGS(to_iso_string(t2), "20200415T155128.004000");
     make_curs("select timestamp '2020-04-15 15:51:28.1049'").def(t2).EXfet();
     CHECK_EQUAL_STRINGS(to_iso_string(t2), "20200415T155128.104000");
-    
+
     make_curs("set time zone -7").exec();
     make_curs("select to_timestamp('26/02/1984 06:20:58.43', 'DD/MM/YYYY HH24:MI:SS.MS')")
         .def(t2).EXfet();
@@ -2699,7 +2958,7 @@ START_TEST(test_bind_ParNotEq1)
     bind(":inp", _inp).
     EXfet();
     LogTrace(TRACE5)<<"_inp='"<<_inp<<"' _res='"<<_res<<"'";
-    fail_unless(_res ==_inp, "expected 1");    
+    fail_unless(_res ==_inp, "expected 1");
 }
 END_TEST
 
@@ -2713,7 +2972,7 @@ START_TEST(test_bind_ParNotEq2)
     bind(":inp", _inp).
     EXfet();
     LogTrace(TRACE5)<<"_inp='"<<_inp<<"' _res="<<_res;
-    fail_unless(_res == 1, "expected 1");    
+    fail_unless(_res == 1, "expected 1");
 }
 END_TEST
 
@@ -2938,10 +3197,10 @@ START_TEST(test_bind_int_after_long_int)
   make_pg_curs_autonomous(sd, "CREATE TABLE TEST_BIND_INT ( FLD1 INTEGER );").exec();
   make_pg_curs_autonomous(sd, "INSERT INTO TEST_BIND_INT (FLD1) VALUES(999);").exec();
   std::string query="SELECT COUNT(*) FROM TEST_BIND_INT WHERE FLD1=:FLD";
-    
+
   {// make cached cursor and bind long long int
     long long int fld=999;
-    
+
     int tmp=0;
     PgCpp::CursCtl cr = make_curs(query);
     cr.bind(":FLD",fld);
@@ -2953,7 +3212,7 @@ START_TEST(test_bind_int_after_long_int)
 
   { //reuse cached cursor and bind int
     int fld=999;
-        
+
     int tmp=0;
     PgCpp::CursCtl cr = make_curs(query);
     cr.bind(":FLD",fld);
@@ -2963,7 +3222,7 @@ START_TEST(test_bind_int_after_long_int)
     fail_unless(tmp == 1, "tmp=%d expected 1", tmp);
   }
 
-} 
+}
 END_TEST
 
 enum TestEnum { te_1 = 1, te_2 = 2 };
@@ -3198,7 +3457,7 @@ START_TEST(test_loop_bind)
         data[i] = i - 50;
     }
 
-    int i, r;
+    int i = 0, r;
 
     cur.unstb().bind(":v", i).def(r);
 
@@ -3557,7 +3816,13 @@ START_TEST(test_convertSql)
          "UPDATE A SET B=(($1+(-$2)/$3+ABS(5*$4-3)))"}, // operators
         {"CREATE TABLE A (:d)", "CREATE TABLE A (:d)"}, // DDL - no conversion
         {"WITH A AS (SELECT :a a) SELECT a FROM A WHERE a = :b",
-         "WITH A AS (SELECT $1 a) SELECT a FROM A WHERE a = $2"} // WITH
+         "WITH A AS (SELECT $1 a) SELECT a FROM A WHERE a = $2"}, // WITH
+        //{"   SELECT :i", "   SELECT $1"}, // spaces at begin
+        {"SELECT(1),:i", "SELECT(1),$1"}, // no space, but (
+        {"SELECT\n1,:i", "SELECT\n1,$1"}, // no space, but \n
+        {"SELECT+1,:i", "SELECT+1,$1"}, // no space, but +
+        {"SELECT-1,:i", "SELECT-1,$1"}, // no space, but -
+        {"SELECT'1',:i", "SELECT'1',$1"}, // no space, but '
     };
     const auto nOk = sizeof(tcOk) / sizeof(tcOk[0]);
 
@@ -3639,6 +3904,35 @@ START_TEST(test_diff_bind_types)
     );
 } END_TEST
 
+START_TEST(test_select_wo_space)
+{
+    {
+        int b=0;
+        make_curs("SELECT(1)").def(b).EXfet();
+        fail_unless(b==1,"expected 1");
+    }
+    {
+        int b=0;
+        make_curs("SELECT\n1").def(b).EXfet();
+        fail_unless(b==1,"expected 1");
+    }
+    {
+        int b=0;
+        make_curs("SELECT+1").def(b).EXfet();
+        fail_unless(b==1,"expected 1");
+    }
+    {
+        int b=0;
+        make_curs("SELECT-1").def(b).EXfet();
+        fail_unless(b==-1,"expected -1");
+    }
+    {
+        std::string b;
+        make_curs("SELECT'1'").def(b).EXfet();
+        fail_unless(b=="1","expected \"1\"");
+    }
+} END_TEST
+
 #define SUITENAME "PgSqlUtil"
 TCASEREGISTER(setupReadOnly, nullptr)
 {
@@ -3653,6 +3947,8 @@ TCASEREGISTER(setupReadOnly, nullptr)
     ADD_TEST(test_short);
     ADD_TEST(test_int);
     ADD_TEST(test_unsigned);
+    ADD_TEST(pg_test_double);
+    ADD_TEST(pg_test_float);
     ADD_TEST(test_long_long);
     ADD_TEST(test_date);
     ADD_TEST(test_date_special);
@@ -3688,6 +3984,7 @@ TCASEREGISTER(setupReadOnly, nullptr)
     ADD_TEST(test_session_destruction);
     ADD_TEST(test_diff_bind_types);
     ADD_TEST(bind_json_dict);
+    ADD_TEST(test_select_wo_space);
 }TCASEFINISH
 
 TCASEREGISTER(setupManaged, nullptr)

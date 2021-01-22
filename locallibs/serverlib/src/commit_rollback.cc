@@ -12,7 +12,7 @@ void commit()
     OciCpp::mainSession().commit();
 #ifdef ENABLE_PG
     PgCpp::commit();
-    if (auto sess = DbCpp::mainPgSessionPtr(STDLOG, false)) {
+    if (auto sess = DbCpp::mainPgManagedSessionPtr(STDLOG, false)) {
         sess->commit();
     }
 #endif // ENABLE_PG
@@ -25,7 +25,7 @@ void commitInTestMode()
 #ifdef XP_TESTING
     PgCpp::commitInTestMode();
 #endif //XP_TESTING
-    if (auto sess = DbCpp::mainPgSessionPtr(STDLOG, false)) {
+    if (auto sess = DbCpp::mainPgManagedSessionPtr(STDLOG, false)) {
         sess->commit();
     }
 #endif // ENABLE_PG
@@ -36,7 +36,7 @@ void rollback()
     OciCpp::mainSession().rollback();
 #ifdef ENABLE_PG
     PgCpp::rollback();
-    if (auto sess = DbCpp::mainPgSessionPtr(STDLOG, false)) {
+    if (auto sess = DbCpp::mainPgManagedSessionPtr(STDLOG, false)) {
         sess->rollback();
     }
 #endif // ENABLE_PG
@@ -49,7 +49,7 @@ void rollbackInTestMode()
 #ifdef XP_TESTING
     PgCpp::rollbackInTestMode();
 #endif //XP_TESTING
-    if (auto sess = DbCpp::mainPgSessionPtr(STDLOG, false)) {
+    if (auto sess = DbCpp::mainPgManagedSessionPtr(STDLOG, false)) {
         sess->rollback();
     }
 #endif // ENABLE_PG

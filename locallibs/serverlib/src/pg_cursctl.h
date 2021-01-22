@@ -47,6 +47,7 @@ enum ResultCode
     Deadlock,
     WaitExpired,
     BadConnection,
+    ReadOnly,
 };
 
 SessionDescriptor getManagedSession(const std::string&);
@@ -120,6 +121,8 @@ struct BindArg
 };
 
 enum class PgOid : PgOid_t { // values from pg_type.h
+    Float4 = 700,
+    Float8 = 701,
     Int8 = 20,
     Boolean = 16,
     ByteArray = 17,
@@ -142,6 +145,30 @@ enum class PgOid : PgOid_t { // values from pg_type.h
 template<typename T>
 struct PgTraits
 {
+};
+
+template<>
+struct PgTraits<float>
+{
+    static const PgOid oid = PgOid::Float4;
+    static const int format = 1;
+
+    static int length(float) { return sizeof(float); }
+    static bool setNull(char* value);
+    static void fillBindData(std::vector<char>& dst, float v);
+    static bool setValue(char* value, const char* data, int);
+};
+
+template<>
+struct PgTraits<double>
+{
+    static const PgOid oid = PgOid::Float8;
+    static const int format = 1;
+
+    static int length(double) { return sizeof(double); }
+    static bool setNull(char* value);
+    static void fillBindData(std::vector<char>& dst, double v);
+    static bool setValue(char* value, const char* data, int);
 };
 
 template<>
@@ -239,7 +266,7 @@ struct PgTraits<std::string>
     static const PgOid oid = PgOid::Varchar;
     static const int format = 0;
 
-    static int length(const std::string& s) { return 0; }
+    static int length(const std::string& ) { return 0; }
     static bool setNull(char* value);
     static void fillBindData(std::vector<char>& dst, const std::string& s);
     static bool setValue(char* value, const char* data, int len);
@@ -281,7 +308,7 @@ struct PgTraits<const char*>
     static const PgOid oid = PgOid::Varchar;
     static const int format = 0;
 
-    static int length(const char* s) {
+    static int length(const char* ) {
         return 0;
     }
     // static bool setNull - def is not allowed
@@ -319,7 +346,7 @@ struct PgTraits<std::array<char, N>>
         dst.resize(N);
         memcpy(dst.data(), v.data(), N);
     }
-    static bool setValue(char* value, const char* data, int l) {
+    static bool setValue(char* value, const char* data, int /*l*/) {
         auto p = reinterpret_cast<std::array<char, N>*>(value);
         p->fill(0);
         return fillCharBuffFromHex(p->data(), N, data);
@@ -449,6 +476,14 @@ bool checkResult(CursCtl& cur, SessionDescriptor, PgResult result);
 void dumpCursor(const CursCtl&);
 } // details
 
+struct Field
+{
+    std::string Name;
+    bool        IsNull;
+    std::string Value;
+    int         Index;
+};
+
 class CursCtl
 {
     friend class Session;
@@ -557,6 +592,18 @@ public:
     ResultCode err() const { return erc_; }
     int rowcount();
 
+    int currentRow() const;
+    int nefen();
+    int fieldsCount() const;
+
+    bool        fieldIsNull(const std::string& fname) const;
+    std::string  fieldValue(const std::string& fname) const;
+    int          fieldIndex(const std::string& fname) const;
+
+    bool        fieldIsNull(int fieldIndex) const;
+    std::string  fieldValue(int fieldIndex) const;
+    std::string   fieldName(int fieldIndex) const;
+
 #ifdef XP_TESTING
 public:
 #else
@@ -576,9 +623,11 @@ private:
     std::set<ResultCode> noThrowErrors_;
     std::vector<details::IDefaultValueHolder*> defaults_;
 
+    std::map<std::string, Field> fields_;
+
     void appendBinding(const std::string& pl, const details::BindArg&);
     bool hasBinding(const std::string& pl);
-    PgResult execSql();
+    PgResult execSql();   
 
     template <typename T>
     void bind_(const std::string& pl_, const T& t, const short* ind = nullptr)

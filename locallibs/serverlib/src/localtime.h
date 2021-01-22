@@ -1,5 +1,4 @@
-#ifndef LOCALTIME_HPP_
-#define LOCALTIME_HPP_
+#pragma once
 
 #include <vector>
 #include <string>
@@ -168,4 +167,13 @@ boost::posix_time::ptime City2GMT(const boost::posix_time::ptime& time, const st
 std::vector<boost::gregorian::date> getZoneLeapDates(const std::string& zone,
         const boost::gregorian::date& start, const boost::gregorian::date& end, bool inUTC = true);
 
-#endif /* LOCALTIME_HPP_ */
+class TimeZoneCacheController
+{
+public:
+    virtual ~TimeZoneCacheController();
+
+    virtual bool needRefresh();
+    virtual const std::string& tzdir();
+};
+
+void setupTimeZoneController(TimeZoneCacheController*);

@@ -101,7 +101,7 @@ class TOci8NativeLobDef : public TOci8Native
 int Curs8Ctl::throw_ocierror(const char* n, const char* f, int l, const char* freetext)
 {
     constexpr OCIStmt* stmt = nullptr;
-  return throw_ocierror(n, f, l, stmt, freetext);
+    return throw_ocierror(n, f, l, stmt, freetext);
 }
 
 int Curs8Ctl::throw_ocierror(const char* n, const char* f, int l, OCIStmt* stmthp, const char* freetext)

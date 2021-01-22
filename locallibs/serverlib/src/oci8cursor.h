@@ -1,5 +1,4 @@
-#ifndef __OCI8CURSOR_H_
-#define __OCI8CURSOR_H_
+#pragma once
 
 #include <set>
 #include <list>
@@ -34,7 +33,7 @@ class TOci8Native
     virtual ub2 type() const =0;
     
     virtual dvoid* data() { throw ociexception("TOci8Native: data()"); }
-    virtual void get_data(Oci8Session& os,void* data, sb2 indicator) const { throw ociexception("TOci8Native: get_data(os,data,ind)"); }
+    virtual void get_data(Oci8Session& /*os*/,void* /*data*/, sb2 /*indicator*/) const { throw ociexception("TOci8Native: get_data(os,data,ind)"); }
 
     virtual void get_data(Oci8Session& os,void* data,const dvoid* buf) const =0;
     virtual void set_data(Oci8Session& os,dvoid* buf,const void* data) const =0;
@@ -66,7 +65,7 @@ class TOci8NativeNumberDef : public TOci8NativeNumber<T,SGN>
     typename TOci8NativeNumber<T,SGN>::TN number;
   public:
     virtual dvoid* data() { return &number; }
-    virtual void get_data(Oci8Session& os,void* data,sb2 indicator) const { TOci8NativeNumber<T,SGN>::get_data(os,data,&number); }
+    virtual void get_data(Oci8Session& os,void* data,sb2 /*indicator*/) const { TOci8NativeNumber<T,SGN>::get_data(os,data,&number); }
     
  //   TOci8NativeNumber_LLI_def() : number(OCINumber()) {}
     virtual ~TOci8NativeNumberDef<T,SGN>() {};
@@ -87,8 +86,8 @@ class TOci8NativeDate_PTIME : public TOci8Native
     virtual sb4 size() const { return sizeof(TN); }
     virtual ub2 type() const { return SQLT_DAT; }
     
-    virtual void get_data(Oci8Session& os,void* data,const dvoid* buf) const { *((boost::posix_time::ptime*)data)=from_oracle_time(*((const TN*)buf)); }
-    virtual void set_data(Oci8Session& os,dvoid* buf,const void* data) const { *((TN*)buf)=to_oracle_datetime(*((boost::posix_time::ptime const*)data)); }
+    virtual void get_data(Oci8Session& /*os*/,void* data,const dvoid* buf) const { *((boost::posix_time::ptime*)data)=from_oracle_time(*((const TN*)buf)); }
+    virtual void set_data(Oci8Session& /*os*/,dvoid* buf,const void* data) const { *((TN*)buf)=to_oracle_datetime(*((boost::posix_time::ptime const*)data)); }
     
     virtual ~TOci8NativeDate_PTIME() {};
 };
@@ -100,7 +99,7 @@ class TOci8NativeDateDef_PTIME : public TOci8NativeDate_PTIME
     using TOci8Native::get_data;
   public:
     virtual dvoid* data() { return &date; }
-    virtual void get_data(Oci8Session& os,void* data, sb2 indicator) const { TOci8NativeDate_PTIME::get_data(os,data,&date); }
+    virtual void get_data(Oci8Session& os,void* data, sb2 /*indicator*/) const { TOci8NativeDate_PTIME::get_data(os,data,&date); }
 
     virtual ~TOci8NativeDateDef_PTIME() {};
 };
@@ -159,13 +158,13 @@ template <typename T> struct oci_char_buf
 template <int L> struct oci_char_buf< char [L] > {
     static ub2 type() { return SQLT_STR; }   
     static void* addr(char (*a)[L]){return a;}
-    static int size(char (*a)[L]) { return L; }
+    static int size(char (*)[L]) { return L; }
 };
 
 template <int L> struct oci_char_buf< const char [L] > {
     static ub2 type() { return SQLT_STR; }   
     static const void* addr(const char (*a)[L]) {return a;}
-    static int size(const char (*a)[L]) { return L; }
+    static int size(const char (*)[L]) { return L; }
 };
 
 } // namespace
@@ -302,20 +301,20 @@ class Curs8Ctl
     template <typename D> Curs8Ctl& bind(const D &t)  {
       return bind(reinterpret_cast<const char*>(oci_char_buf<const D>::addr(&t)),oci_char_buf<const D>::size(&t));  }
 
-    template <typename T> Curs8Ctl& bindVec(const std::vector<T> &vec,const char* name, const char& data) { return bindArr(name,data,sizeof(T)); }
-    template <typename T> Curs8Ctl& bindVec(const std::vector<T> &vec,const char* name, const int& data) { return bindArr(name,data,sizeof(T)); }
-    template <typename T> Curs8Ctl& bindVec(const std::vector<T> &vec,const char* name, const unsigned int& data) { return bindArr(name,data,sizeof(T)); }
-    template <typename T> Curs8Ctl& bindVec(const std::vector<T> &vec,const char* name, const long int& data) { return bindArr(name,data,sizeof(T)); }
-    template <typename T> Curs8Ctl& bindVec(const std::vector<T> &vec,const char* name, const unsigned long int& data) { return bindArr(name,data,sizeof(T)); }
+    template <typename T> Curs8Ctl& bindVec(const std::vector<T> &,const char* name, const char& data) { return bindArr(name,data,sizeof(T)); }
+    template <typename T> Curs8Ctl& bindVec(const std::vector<T> &,const char* name, const int& data) { return bindArr(name,data,sizeof(T)); }
+    template <typename T> Curs8Ctl& bindVec(const std::vector<T> &,const char* name, const unsigned int& data) { return bindArr(name,data,sizeof(T)); }
+    template <typename T> Curs8Ctl& bindVec(const std::vector<T> &,const char* name, const long int& data) { return bindArr(name,data,sizeof(T)); }
+    template <typename T> Curs8Ctl& bindVec(const std::vector<T> &,const char* name, const unsigned long int& data) { return bindArr(name,data,sizeof(T)); }
     template <typename T> Curs8Ctl& bindVec(const std::vector<T> &vec,const char* name, const long long int& data);
     template <typename T> Curs8Ctl& bindVec(const std::vector<T> &vec,const char* name, const unsigned long long int& data);
     template <typename T> Curs8Ctl& bindVec(const std::vector<T> &vec,const char* name, const boost::posix_time::ptime& data);
     template <typename T> Curs8Ctl& bindVec(const std::vector<T> &vec,const char* name, const boost::posix_time::ptime& data,size_t size);
-    template <typename T> Curs8Ctl& bindVec(const std::vector<T> &vec,const char* name, const char* data, size_t len) { return bindArr(name,data,len,sizeof(T)); }
-    template <typename T,typename D> Curs8Ctl& bindVec(const std::vector<T> &vec,const char* name,const D &t) {
+    template <typename T> Curs8Ctl& bindVec(const std::vector<T> &,const char* name, const char* data, size_t len) { return bindArr(name,data,len,sizeof(T)); }
+    template <typename T,typename D> Curs8Ctl& bindVec(const std::vector<T> &,const char* name,const D &t) {
       return bindArr(name,reinterpret_cast<const char*>(oci_char_buf<const D>::addr(&t)),oci_char_buf<const D>::size(&t),sizeof(T));  }
     template <typename T,typename L,typename D> Curs8Ctl& lbindVec(
-      std::vector<T> const& vec,const char* name,D &t,std::vector<L> const& vl, unsigned short int const& l,ub2 type)  {
+      std::vector<T> const& ,const char* name,D &t,std::vector<L> const& , unsigned short int const& l,ub2 type)  {
       return lbindArr(name,reinterpret_cast<const char*>(oci_char_buf<const D>::addr(&t)),oci_char_buf<const D>::size(&t),sizeof(T),const_cast<ub2*>(&l),sizeof(L),type);  }
 
       
@@ -391,14 +390,14 @@ Curs8Ctl& Curs8Ctl::bindVec(const std::vector<T> &vec,const char* name, const bo
 }
 
 template <typename T> 
-Curs8Ctl& Curs8Ctl::bindVec(const std::vector<T> &vec,const char* name, const long long int& data)
+Curs8Ctl& Curs8Ctl::bindVec(const std::vector<T> &,const char* name, const long long int& data)
 {
   return 
     bindArr(name,data,sizeof(T));    
 }
 
 template <typename T> 
-Curs8Ctl& Curs8Ctl::bindVec(const std::vector<T> &vec,const char* name, const unsigned long long int& data)
+Curs8Ctl& Curs8Ctl::bindVec(const std::vector<T> &,const char* name, const unsigned long long int& data)
 {
   return 
     bindArr(name,data,sizeof(T));    
@@ -524,5 +523,3 @@ Curs8Ctl& Curs8Ctl::bindN__(const char* name, const dvoid* data)
 }
 
 }
-
-#endif // __OCI8CURSOR_H_

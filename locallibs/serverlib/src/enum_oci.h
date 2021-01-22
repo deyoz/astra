@@ -19,7 +19,7 @@ struct OciSelector<T, typename std::enable_if_t<std::is_enum<T>::value>>
     static const External::type data_type = helper_t::data_type;
     static bool canBind(const T &) { return true; }
     static void* addr(T *a) { return const_cast<void*>((const void*)a); }
-    static char* to(const void* a, indicator& ind) { return helper_t::to(a, ind); }
+    static void to(buf_ptr_t& dst, const void* src, indicator& ind) { helper_t::to(dst, src, ind); }
     static int size(const void* addr) { return helper_t::size(addr); }
     static void check(const T *) { /* always valid */ }
     enum { canBindout = helper_t::canBindout };

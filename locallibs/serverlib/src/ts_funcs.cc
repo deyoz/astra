@@ -26,6 +26,7 @@
 #include "query_runner.h"
 #include "memcached_api.h"
 #include "pg_cursctl.h"
+#include "dbcpp_session.h"
 
 #define NICKNAME "DMITRYVM"
 #include "slogger.h"
@@ -304,8 +305,38 @@ static std::string FP_sql(const std::vector<tok::Param>& params)
         return "";
     }
 }
+
+template<typename DumpTable>
+std::shared_ptr<DumpTable> getDumpTable(const std::string& session, const std::string& tableName);
+
+template<>
+std::shared_ptr<ServerFramework::OraDumpTable> getDumpTable<ServerFramework::OraDumpTable>(
+        const std::string& session, const std::string& tableName)
+{
+    return session.empty()
+              ? std::make_shared<ServerFramework::OraDumpTable>(tableName)
+              : std::make_shared<ServerFramework::OraDumpTable>(OciCpp::getSession(session), tableName);
+}
+
+template<>
+std::shared_ptr<ServerFramework::PgDumpTable> getDumpTable<ServerFramework::PgDumpTable>(
+        const std::string& session, const std::string& tableName)
+{
+    ASSERT(!session.empty());
+    return std::make_shared<ServerFramework::PgDumpTable>(PgCpp::getManagedSession(session), tableName);
+}
+
+template<>
+std::shared_ptr<ServerFramework::DbDumpTable> getDumpTable<ServerFramework::DbDumpTable>(
+        const std::string& session, const std::string& tableName)
+{
+    ASSERT(session.empty());
+    return std::make_shared<ServerFramework::DbDumpTable>(DbCpp::mainPgManagedSession(STDLOG), tableName);
+}
+
 // dump_table pass fields="line,tline,p_id" where="regnum='REGNUM'" order="line.tline"
-static std::string FP_dump_table(const std::vector<tok::Param>& params)
+template<typename DumpTable>
+static std::string dump_table(const std::vector<tok::Param>& params)
 {
     ASSERT(params.size() > 0);
 
@@ -327,20 +358,36 @@ static std::string FP_dump_table(const std::vector<tok::Param>& params)
             }
         }
     }
-    OciCpp::DumpTable dt(OciCpp::getSession(session), tableName);
+    auto dt = getDumpTable<DumpTable>(session, tableName);
+
     if (!fields.empty()) {
-        dt.addFld(fields);
+        dt->addFld(fields);
     }
-    dt.where(where);
-    dt.order(order);
+    dt->where(where);
+    dt->order(order);
     std::string answer;
     if (display) {
-        dt.exec(answer);
+        dt->exec(answer);
     } else {
-        dt.exec(TRACE5);
+        dt->exec(TRACE5);
     }
 
     return answer;
+}
+
+static std::string FP_dump_table(const std::vector<tok::Param>& params)
+{
+    return dump_table<ServerFramework::OraDumpTable>(params);
+}
+
+static std::string FP_pg_dump_table(const std::vector<tok::Param>& params)
+{
+    return dump_table<ServerFramework::PgDumpTable>(params);
+}
+
+static std::string FP_db_dump_table(const std::vector<tok::Param>& params)
+{
+    return dump_table<ServerFramework::DbDumpTable>(params);
 }
 
 static std::string FP_savepoint(const std::vector<std::string>& p)
@@ -785,6 +832,7 @@ FP_REGISTER("eq", FP_eq);
 FP_REGISTER("cat", FP_cat)
 FP_REGISTER("sql",  FP_sql)
 FP_REGISTER("dump_table", FP_dump_table)
+FP_REGISTER("pg_dump_table", FP_db_dump_table)
 FP_REGISTER("savepoint", FP_savepoint)
 FP_REGISTER("clean_edi_help", FP_clean_edi_help)
 FP_REGISTER("clear_edi_help", FP_clear_edi_help)
