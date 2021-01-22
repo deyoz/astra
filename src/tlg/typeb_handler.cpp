@@ -284,10 +284,17 @@ void progError(int tlg_id,
                  ProgError(STDLOG, "         %s", flight.c_str());
   };
 
+  std::string err_msg = E.what();
+  if (err_msg.empty())
+  {
+    LogError(STDLOG) << "E.what() empty before errorTypeB";
+    err_msg = "UNKNOWN ERROR";
+  }
+
   if (tlge!=NULL)
-    errorTypeB(tlg_id, part_no, error_no, tlge->error_pos(), tlge->error_len(), E.what());
+    errorTypeB(tlg_id, part_no, error_no, tlge->error_pos(), tlge->error_len(), err_msg);
   else
-    errorTypeB(tlg_id, part_no, error_no, NoExists, NoExists, E.what());
+    errorTypeB(tlg_id, part_no, error_no, NoExists, NoExists, err_msg);
 };
 
 void bindTypeB(int typeb_tlg_id, const TFlightsForBind &flts, ETlgErrorType error_type)
