@@ -53,6 +53,7 @@
 #include "cuws_main.h"
 #include <serverlib/dbcpp_cursctl.h>
 #include "PgOraConfig.h"
+#include "db_tquery.h"
 #include "hooked_session.h"
 
 #define NICKNAME "VLAD"
@@ -481,27 +482,27 @@ static bool insertDisplayTlg(const TETickItem& item)
                    << ": ticket_no=" << item.et.no
                    << ", coupon_no=" << item.et.coupon;
 
-  short notNull = 0;
-  short null = -1;
-  auto cur = make_db_curs(
-        "INSERT INTO eticks_display_tlgs( "
-        "ticket_no, coupon_no, page_no, tlg_text, tlg_type, last_display "
-        ") VALUES( "
-        ":ticket_no, :coupon_no, :page_no, :tlg_text, :tlg_type, :last_display "
-        ")",
-        PgOra::getRWSession("ETICKS_DISPLAY_TLGS"));
-  cur.stb()
-      .bind(":ticket_no", item.et.no)
-      .bind(":coupon_no", item.et.coupon)
-      .bind(":tlg_type",
-            item.ediPnr ? int(item.ediPnr.get().ediType()) : 0,
-            item.ediPnr ? &notNull : &null)
-      .bind(":last_display", DateTimeToBoost(NowUTC()));
-  execWithPager(cur, ":tlg_text", item.ediPnr->ediTextWithCharset("IATA"), false, 1000);
+  const std::string sql =
+      "INSERT INTO eticks_display_tlgs( "
+      "ticket_no, coupon_no, page_no, tlg_text, tlg_type, last_display "
+      ") VALUES( "
+      ":ticket_no, :coupon_no, :page_no, :tlg_text, :tlg_type, :last_display "
+      ")";
+  QParams QryParams;
+  QryParams << QParam("ticket_no", otString, item.et.no)
+            << (item.et.coupon!=ASTRA::NoExists?QParam("coupon_no", otInteger, item.et.coupon):
+                                                QParam("coupon_no", otInteger, FNull))
+            << QParam("page_no", otInteger)
+            << QParam("tlg_text", otString)
+            << (item.ediPnr?QParam("tlg_type", otInteger, (int)item.ediPnr.get().ediType()):
+                            QParam("tlg_type", otInteger, FNull))
+            << QParam("last_display", otDate, NowUTC());
+  DB::TCachedQuery Qry(PgOra::getRWSession("ETICKS_DISPLAY_TLGS"), sql, QryParams);
+  longToDB(Qry.get(), "tlg_text", item.ediPnr->ediTextWithCharset("IATA"), false, 1000);
 
   LogTrace(TRACE5) << __func__
-                   << ": rowcount=" << cur.rowcount();
-  return cur.rowcount() > 0;
+                   << ": rowcount=" << Qry.get().RowsProcessed();
+  return Qry.get().RowsProcessed() > 0;
 }
 
 void TETickItem::saveDisplayTlg() const
@@ -1325,6 +1326,8 @@ std::vector<PaxData4Sync> PaxData4Sync::load(int pax_id)
     result.push_back(item);
   }
 
+  LogTrace(TRACE5) << __func__
+                   << ": result=" << result.size();
   return result;
 }
 
@@ -1359,6 +1362,35 @@ static bool updateCrsPaxSubclass(int pax_id,
   return cur.rowcount() > 0;
 }
 
+namespace {
+
+typedef std::pair<std::string,int> TicketCoupon;
+
+std::set<TicketCoupon> getTickets(const std::vector<PaxData4Sync>& paxItems)
+{
+  std::set<TicketCoupon> result;
+  for (const PaxData4Sync& paxData: paxItems) {
+    result.insert(std::make_pair(paxData.ticket_no, paxData.coupon_no));
+  }
+  return result;
+}
+
+std::map<TicketCoupon, TETickItem> loadDisplayMap(const std::set<TicketCoupon>& ticketCoupons)
+{
+  std::map<TicketCoupon, TETickItem> result;
+  for (const TicketCoupon& tktcpn: ticketCoupons) {
+    TETickItem etick;
+    etick.fromDB(tktcpn.first, tktcpn.second, TETickItem::Display, false /*lock*/);
+    if (etick.empty()) {
+      continue;
+    }
+    result[tktcpn] = etick;
+  }
+  return result;
+}
+
+} // namespace
+
 bool TETickItem::syncOriginalSubclass(int pax_id)
 {
   LogTrace(TRACE5) << __func__
@@ -1366,9 +1398,14 @@ bool TETickItem::syncOriginalSubclass(int pax_id)
 
   bool updated = false;
   const std::vector<PaxData4Sync> paxItems = PaxData4Sync::load(pax_id);
+  const std::map<TicketCoupon, TETickItem> etDisps = loadDisplayMap(getTickets(paxItems));
   for (const PaxData4Sync& paxData: paxItems) {
-    TETickItem etick;
-    etick.loadDisplay(paxData.ticket_no, paxData.coupon_no);
+    auto tktcpn = std::make_pair(paxData.ticket_no, paxData.coupon_no);
+    auto search = etDisps.find(tktcpn);
+    if (search == etDisps.end()) {
+      continue;
+    }
+    const TETickItem& etick = search->second;
     if (etick.et.empty() or paxData.etick_subclass != etick.orig_fare_class) {
       continue;
     }
