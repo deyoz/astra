@@ -469,8 +469,10 @@ void DeleteScdPeriodsFromDb( const std::set<ssim::ScdPeriod> &scds )
   for (auto &scd : scds)
   {
     if (TRACE_ALL_FUNCTIONS) LogTrace(TRACE1) << __func__ << " scd = " << scd;
-    TDateTime first = BoostToDateTime(scd.period.start);
-    TDateTime last = BoostToDateTime(scd.period.end);
+    const TDateTime first = BoostToDateTime(scd.period.start);
+    const TDateTime last = BoostToDateTime(scd.period.end);
+    const auto scd_flight = FlightToString(scd.flight);
+
     if (pg_enabled) {
       DbCpp::CursCtl del1 = make_db_curs("DELETE FROM routes WHERE move_id IN ( "
                           " SELECT move_id FROM sched_days WHERE ssm_id IN ( "
@@ -479,7 +481,7 @@ void DeleteScdPeriodsFromDb( const std::set<ssim::ScdPeriod> &scds )
                           " AND DATE_TRUNC('day', last) = DATE_TRUNC('day', :last) ) )",
                           PgOra::getRWSession("ROUTES"));
       del1.
-        bind(":first", FlightToString(scd.flight)).
+        bind(":flight", scd_flight).
         bind(":first", scd.period.start).
         bind(":last", scd.period.end).
         exec();
@@ -490,7 +492,7 @@ void DeleteScdPeriodsFromDb( const std::set<ssim::ScdPeriod> &scds )
                               " AND DATE_TRUNC('day', last) = DATE_TRUNC('day', :last) )",
                               PgOra::getRWSession("ROUTES"));
       del2.
-        bind(":first", FlightToString(scd.flight)).
+        bind(":flight", scd_flight).
         bind(":first", scd.period.start).
         bind(":last", scd.period.end).
         exec();
@@ -500,7 +502,7 @@ void DeleteScdPeriodsFromDb( const std::set<ssim::ScdPeriod> &scds )
                           " AND DATE_TRUNC('day', last) = DATE_TRUNC('day', :last)",
                           PgOra::getRWSession("ROUTES"));
       del3.
-        bind(":first", FlightToString(scd.flight)).
+        bind(":flight", scd_flight).
         bind(":first", scd.period.start).
         bind(":last", scd.period.end).
         exec();
@@ -518,7 +520,7 @@ void DeleteScdPeriodsFromDb( const std::set<ssim::ScdPeriod> &scds )
           "DELETE FROM ssm_schedule "
           " WHERE flight=:flight AND TRUNC(first)=TRUNC(:first) AND TRUNC(last)=TRUNC(:last); "
           "END;";
-      Qry.CreateVariable("flight", otString, FlightToString(scd.flight));
+      Qry.CreateVariable("flight", otString, scd_flight);
       Qry.CreateVariable("first", otDate, first);
       Qry.CreateVariable("last", otDate, last);
       Qry.Execute();
@@ -809,7 +811,7 @@ ssim::ScdPeriods ScdPeriodsFromDb( const ct::Flight& flt, const Period& prd )
   TDateTime end = BoostToDateTimeCorrectInfinity(prd.end);
   DB::TQuery Qry(PgOra::getROSession("SCHED_DAYS"));
   Qry.SQLText =
-      "SELECT s.move_id move_id, m.first first, m.last last, m.days days "
+      "SELECT s.move_id move_id, m.first as first, m.last as last, m.days days "
       " FROM sched_days s, ssm_schedule m "
       " WHERE m.flight = :flight AND m.first <= :last AND m.last >= :first AND s.ssm_id = m.ssm_id ";
   Qry.CreateVariable("flight", otString, FlightToString(flt));
