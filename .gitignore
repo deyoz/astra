@@ -171,3 +171,4 @@ GRTAGS
 GSYMS
 GTAGS
 build_all
+buildFromScratchTrunk.sh
