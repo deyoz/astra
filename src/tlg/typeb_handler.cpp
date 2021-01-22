@@ -32,6 +32,7 @@
 #include <serverlib/TlgLogger.h>
 #include <serverlib/cursctl.h>
 #include <serverlib/TlgLogger.h>
+#include <serverlib/testmode.h>
 
 #include <unistd.h>
 #include <errno.h>
@@ -747,6 +748,10 @@ void handle_tpb_tlg(const tlg_info &tlg)
       errorTlg(tlg.id,"PARS",E.what());
     }
     catch(...) {};
+#ifdef XP_TESTING
+    if (inTestMode())
+      throw;
+#endif
   }
   catch(...)
   {
@@ -906,6 +911,10 @@ bool parse_tlg(const string &handler_id)
         parseTypeB(tlg_id);
         bindTypeB(tlg_id, bind_flts, E);
         ASTRA::commit();
+#ifdef XP_TESTING
+        if(inTestMode())
+          throw;
+#endif
         continue;
       };
 
@@ -1161,6 +1170,10 @@ bool parse_tlg(const string &handler_id)
           ASTRA::commit();
         }
         catch(...) {};
+#ifdef XP_TESTING
+        if (inTestMode())
+          throw;
+#endif
       };
     };
     queue_not_empty=!TlgIdQry.Eof;
