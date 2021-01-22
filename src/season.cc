@@ -17,6 +17,7 @@
 #include "trip_tasks.h"
 #include "astra_date_time.h"
 #include "PgOraConfig.h"
+#include <serverlib/timer.h>
 #include <serverlib/dbcpp_cursctl.h>
 #include "db_tquery.h"
 
@@ -2820,8 +2821,7 @@ bool ConvertPeriodToLocal( TDateTime &first, TDateTime &last, string &days, cons
 void GetDests( map<int,TDestList> &mapds, const TFilter &filter, int vmove_id )
 {
   LogTrace(TRACE3) << __FUNCTION__;
-  TPerfTimer tm;
-  tm.Init();
+  HelpCpp::Timer tm1;
   TReqInfo *reqInfo = TReqInfo::Instance();
   DB::TQuery RQry(PgOra::getROSession("ROUTES"));
   string sql =
@@ -2897,7 +2897,7 @@ void GetDests( map<int,TDestList> &mapds, const TFilter &filter, int vmove_id )
         canUseAirp = true;
     if ( reqInfo->user.access.airlines().permitted( d.airline ) )
         canUseAirline = true;
-    d.city = BaseTables::Port(d.airp)->city()->code();
+    d.city = ((const TAirpsRow&)base_tables.get("airps").get_row( "code", d.airp, true )).city; 
     cityKey = cityKey || d.city == filter.city;
     d.region = AirpTZRegion( RQry.FieldAsString( idx_airp ), false );
     d.pr_del = RQry.FieldAsInteger( idx_rpr_del );
@@ -2955,6 +2955,7 @@ void GetDests( map<int,TDestList> &mapds, const TFilter &filter, int vmove_id )
        cityKey && airpKey && compKey && triptypeKey && timeKey ) {
     mapds.insert(std::make_pair( move_id, ds ) );
   }
+  LogTrace(TRACE5) << __func__ << " " << tm1;
 }
 
 TDateTime TFilter::GetTZTimeDiff( TDateTime utcnow, TDateTime first, const string &tz_region )
