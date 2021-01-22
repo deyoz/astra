@@ -679,7 +679,7 @@ void IntPutRequestCertificate( const string &request, const string &desk, bool p
     "  WHERE code=:desk";
   Qry.CreateVariable( "pr_grp", otInteger, pr_grp );
   Qry.CreateVariable( "desk", otString, desk );
-  Qry.CreateVariable( "request", otString, ConvertCodepage( request,  "UTF8", "CP866" ) ); //request to db CP866
+  Qry.CreateVariable( "request", otString, ConvertCodepage( request,  "UTF-8", "CP866" ) ); //request to db CP866
   if ( pkcs_id != NoExists )
     Qry.CreateVariable( "pkcs_id", otInteger, pkcs_id );
   else
@@ -940,12 +940,13 @@ string getPassword( )
 
 static char* CP866toUTF8Char( const std::string& value ) {
   static std::string v = "";
-  v = ConvertCodepage( value,  "CP866", "UTF8" );
+  v = ConvertCodepage( value,  "CP866", "UTF-8" );
   return (char*)v.c_str();
 }
 
 void CreatePSE( const string &desk, bool pr_grp, int password_len, TPKCS &pkcs )
 {
+  SetInputCodePage( X509_NAME_UTF8 );
   pkcs.pse_files.clear();
   ValidateCertificateRequest( desk, pr_grp );
   ValidatePKCSData( desk, pr_grp ); //нельзя создавать несколько PKCS для одного пульта или группы пультов
