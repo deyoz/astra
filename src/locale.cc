@@ -11,8 +11,12 @@
 #include "base_callbacks.h"
 #include "apps_interaction.h"
 #include "pax_calc_data.h"
+#include "pg_session.h"
+#include "PgOraConfig.h"
 
 #include <jxtlib/JxtInterface.h>
+#include "jxtlib/jxtlib_dbpg_callbacks.h"
+#include "jxtlib/jxtlib_dbora_callbacks.h"
 #include <serverlib/ocilocal.h>
 #include <serverlib/TlgLogger.h>
 #include <libtlg/telegrams.h>
@@ -118,6 +122,24 @@ void init_pnr_callbacks()
     CallbacksSingleton<Ticketing::AstraPnrCallbacks>::Instance()->setCallbacks(new EtickPnrCallbacks);
 }
 
+void init_jxtlib_callbacks()
+{
+    if (PgOra::supportsPg("CONT"))
+        jxtlib::JxtlibDbCallbacks::setJxtlibDbCallbacks(new jxtlib::JxtlibDbPgCallbacks(PgCpp::getPgManaged()));
+    else
+        //default initialization in jxtlib with oracle callbacks
+        jxtlib::JxtlibDbCallbacks::setJxtlibDbCallbacks(new jxtlib::JxtlibDbOraCallbacks());
+}
+
+void init_jxtlib_callbacks()
+{
+    if (PgOra::supportsPg("CONT"))
+        jxtlib::JxtlibDbCallbacks::setJxtlibDbCallbacks(new jxtlib::JxtlibDbPgCallbacks(PgCpp::getPgManaged()));
+    else
+        //default initialization in jxtlib with oracle callbacks
+        jxtlib::JxtlibDbCallbacks::setJxtlibDbCallbacks(new jxtlib::JxtlibDbOraCallbacks());
+}
+
 int init_locale(void)
 {
     ProgTrace(TRACE1,"init_locale");
@@ -126,6 +148,7 @@ int init_locale(void)
         throw EXCEPTIONS::Exception("'init_edifact' error!");
     typeb_parser::typeb_template_init();
     init_tlg_callbacks();
+    init_jxtlib_callbacks();
     init_pnr_callbacks();
     init_rfisc_callbacks();
     initPassengerCallbacks();

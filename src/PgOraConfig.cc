@@ -27,6 +27,7 @@ namespace PgOra
     using GroupsType = std::vector<std::pair<std::string, std::vector<std::string>>>;
 
     static const GroupsType sGroups {
+        { "SP_PG_GROUP_JXTCONT", {"CONT"} },
         { "SP_PG_GROUP_IAPI",  { "IAPI_PAX_DATA" } },
         { "SP_PG_GROUP_IATCI", { "IATCI_TABS_SEQ", "IATCI_TABS", "IATCI_SETTINGS", "GRP_IATCI_XML", "DEFERRED_CKI_DATA", "CKI_DATA" } },
         { "SP_PG_GROUP_WC",    { "RL_SEQ", "WC_PNR", "WC_TICKET", "WC_COUPON", "AIRPORT_CONTROLS" } },
