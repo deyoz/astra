@@ -2,6 +2,8 @@ include(ts/macro.ts)
 
 # meta: suite html
 
+$(init)
+
 !! capture=on req_type=http
 $(http_wrap
 {GET /web_srv.html?CLIENT-ID=HTML&login=HTML&password=HTMLPWD HTTP/1.1
