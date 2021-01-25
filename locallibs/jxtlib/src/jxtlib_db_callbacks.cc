@@ -12,7 +12,8 @@ JxtlibDbCallbacks *JxtlibDbCallbacks::Instance = 0;
 JxtlibDbCallbacks *JxtlibDbCallbacks::instance()
 {
     if(JxtlibDbCallbacks::Instance == 0)
-      JxtlibDbCallbacks::Instance = new JxtlibDbOraCallbacks();
+      // JxtlibDbCallbacks::Instance = new JxtlibDbOraCallbacks();
+      throw jxtlib_exception(STDLOG, "JxtlibDbCallbacks: instance is NULL");
     return Instance;
 }
 
