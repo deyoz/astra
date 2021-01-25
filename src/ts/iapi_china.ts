@@ -1554,8 +1554,6 @@ UNT+14+11085B94E1F8FA"
 UNE+1+1"
 UNZ+1+$(get ediref_paxlst)0001"
 
-$(dump_table  iapi_pax_data)
-
 << h2h=V.\VDLG.WA/E11HCNIAPIR/I11HCNIAPIQ/P$(get tpr)\VGYA\$() charset=UNOA
 UNB+SIRE:4+NIAC+MU+$(yymmdd):$(hhmi)+1569312526531++IAPI"
 UNG+CUSRES+NIAC+MU+$(yymmdd):$(hhmi)+15693125265312+UN+D:05B"
@@ -1593,8 +1591,6 @@ ERC+1Z"
 UNT+13+11085B94E1F8FA"
 UNE+1+15693125265312"
 UNZ+1+1569312526531"
-
-$(dump_table  iapi_pax_data)
 
 $(NO_BOARD $(get point_dep) $(get pax_id))
 
@@ -1635,8 +1631,6 @@ ERC+0Z"
 UNT+13+11085B94E1F8FA"
 UNE+1+15693125265312"
 UNZ+1+1569312526531"
-
-$(dump_table  iapi_pax_data)
 
 $(OK_TO_BOARD $(get point_dep) $(get pax_id))
 
