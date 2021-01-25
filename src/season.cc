@@ -62,7 +62,7 @@ int getMaxNumSchedDays(int trip_id)
   int num = 0;
   auto cur = make_db_curs("SELECT MAX(num) num FROM sched_days WHERE trip_id=:trip_id",
                           PgOra::getROSession("SCHED_DAYS"));
-  cur.def(num).EXfet();
+  cur.bind(":trip_id", trip_id).defNull(num, 0).EXfet();
   return num;
 }
 
@@ -1885,7 +1885,7 @@ void SEASON::int_write(const TFilter &filter, int ssm_id, vector<TPeriod> &speri
   SQrySched.SQLText =
     "SELECT first_day, last_day, days, pr_del, tlg, reference, trip_id, move_id "
     " FROM sched_days "
-    " WHERE trip_id=:trip_id";
+    " WHERE trip_id = :trip_id";
   SQrySched.CreateVariable( "trip_id", otInteger, trip_id );
   SQrySched.Execute();
   while ( !SQrySched.Eof ) {
@@ -1921,6 +1921,7 @@ void SEASON::int_write(const TFilter &filter, int ssm_id, vector<TPeriod> &speri
     TReqInfo::Instance()->LocaleToLog("EVT.SEASON.NEW_FLIGHT", evtSeason, trip_id);
   }
 
+  LogTrace(TRACE3) << "INSERT INTO sched_days";
   auto InsSched = DB::TQuery(PgOra::getRWSession("SCHED_DAYS"));
   InsSched.SQLText =
       "INSERT INTO sched_days(trip_id,move_id,num,first_day,last_day,days,pr_del,tlg,reference,region,ssm_id,delta) "
@@ -3829,11 +3830,26 @@ START_TEST(check_delete_sched_days)
 }
 END_TEST;
 
+START_TEST(check_int_write_simple) {
+  TFilter filter;
+  int ssm_id = 10;
+  std::vector<TPeriod> speriods;
+  int trip_id = 10;
+  std::map<int, TDestList> mapds;
+  int_write(filter, ssm_id, speriods, trip_id, mapds);
+} END_TEST;
+
+START_TEST(check_getMaxNumSchedDays) {
+  getMaxNumSchedDays(10);
+} END_TEST;
+
 #define SUITENAME "season"
 TCASEREGISTER(testInitDB, testShutDBConnection)
 {
   ADD_TEST(check_delete_routes);
   ADD_TEST(check_delete_sched_days);
+  ADD_TEST(check_int_write_simple);
+  ADD_TEST(check_getMaxNumSchedDays);
 }
 TCASEFINISH;
 #undef SUITENAME
