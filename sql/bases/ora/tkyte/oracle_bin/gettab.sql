@@ -7,7 +7,7 @@ SET line 300
 SET sqlprompt --==
 SET trimspool on
 SET termout off
-SET serveroutput on SIZE 9000
+SET serveroutput on SIZE 9000 format wrapped
 spool 1Tab/&1..sql
 
 
@@ -36,6 +36,7 @@ DECLARE
    lv_char_length                user_tab_columns.char_length%TYPE;
    lv_nullable                   user_tab_columns.nullable%TYPE;
    lv_default                    user_tab_columns.data_default%TYPE;
+   lv_mod_data_type              VARCHAR2(100) := ''; -- Upper Case
    lv_lineno                     NUMBER := 0;
    lv_string                     VARCHAR2(2000);
    cur_coln                      NUMBER;
@@ -70,8 +71,6 @@ DECLARE
 BEGIN
 	
       select count(*) into c_cols from user_tab_columns where table_name=lv_table_name ;
---      lv_string := 'DROP TABLE ' || UPPER (lv_table_name) || ';';
-      dbms_output.put_line(lv_string);
       lv_string := 'CREATE TABLE ' || UPPER (lv_table_name) || ' (';
       dbms_output.put_line(lv_string);
       lv_string := NULL;
@@ -91,7 +90,12 @@ BEGIN
                                lv_default;
          EXIT WHEN col_cursor%notfound;
 
-         lv_string :=  UPPER (lv_column_name) || ' ' || lv_data_type;
+         lv_mod_data_type := lv_data_type;
+         IF (lv_mod_data_type = 'TIMESTAMP(6)'/*default*/) THEN
+            lv_mod_data_type := 'TIMESTAMP';
+         END IF;
+
+         lv_string :=  '    ' || UPPER (lv_column_name) || ' ' || lv_mod_data_type;
          
 
          IF  (lv_data_type = 'RAW')
@@ -115,9 +119,10 @@ BEGIN
                lv_string := lv_string || '(' || lv_data_precision || ')';
             END IF;
          END IF;
+
          IF (lv_default is not null)
          THEN
-            lv_string := lv_string ||' DEFAULT '|| lv_default;
+            lv_string := lv_string || ' DEFAULT ' || trim(lv_default);
          END IF;
 
          IF  (lv_nullable = 'N')
@@ -175,7 +180,7 @@ BEGIN
                                  lv_high_value;
           EXIT WHEN part_cursor%notfound;      
 
-          lv_string :=  'PARTITION ' || UPPER(lv_partition_name);
+          lv_string :=  '    PARTITION ' || UPPER(lv_partition_name);
           IF ( lv_partitioning_type != 'HASH' )
           THEN
             lv_string := lv_string || ' VALUES';
@@ -206,6 +211,9 @@ BEGIN
 
 END;
 /
+
+spool off
+
 --show err
 --SET heading off
  --SPOOL tab_rct2.sql
@@ -225,4 +233,3 @@ END;
  --TTITLE OFF
  --SET ECHO OFF
  --PROMPT Table re-build script created.
-

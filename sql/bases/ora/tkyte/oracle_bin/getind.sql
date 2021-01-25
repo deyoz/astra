@@ -9,7 +9,7 @@ SET pagesize 0
 SET trimspool on
 SET sqlprompt --==
 SET termout off
-set serveroutput on
+SET serveroutput on format wrapped
 spool &3/&2..&1..sql
 
 
@@ -58,7 +58,7 @@ BEGIN
             lv_string := lv_string || ' ' || lv_uniqueness;
          END IF;
          lv_index_type := trim(replace(replace(lv_index_type,'NORMAL',' '),'FUNCTION-BASED ',' '));
-         IF ( lv_index_type IS NOT NULL) THEN
+         IF ( lv_index_type IS NOT NULL and lv_index_type!='/REV') THEN
            lv_string :=lv_string || ' ' || lv_index_type;
          END IF;  
          lv_string :=lv_string ||' INDEX ';
@@ -126,6 +126,16 @@ BEGIN
             END IF;  
             lv_string := lv_string || lv_visibility || CHR(10);
          END IF; --lv_visibility='INVISIBLE'            
+
+         IF (lv_index_type='/REV')
+         THEN
+            if (lv_no_newline)
+            THEN
+              lv_string := lv_string || CHR(10);
+              lv_no_newline := FALSE;
+            END IF;  
+            lv_string := lv_string || 'REVERSE' || CHR(10);
+         END IF;           
          
          lv_string := lv_string || ';';
          dbms_output.put_line(lv_string);
@@ -135,3 +145,4 @@ BEGIN
 END;
 /
 
+spool off
