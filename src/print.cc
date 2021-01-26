@@ -3215,28 +3215,6 @@ void PrintInterface::GetEMDAList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     GetEMDAList( reqNode, resNode );
 }
 
-void PrintInterface::GetImg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    string name = NodeAsString("name", reqNode);
-    QParams QryParams;
-    QryParams << QParam("name", otString, name);
-
-    TCachedQuery Qry(
-            "select data from images_data, images where images.name = :name and images.id = images_data.id order by page_no",
-            QryParams
-            );
-
-    Qry.get().Execute();
-
-    string result;
-    for(; not Qry.get().Eof; Qry.get().Next())
-        result += Qry.get().FieldAsString("data");
-    if(result.empty())
-        throw Exception("image %s not found", name.c_str());
-    xmlNodePtr kioskImgNode = NewTextChild(resNode, "kiosk_img");
-    NewTextChild(kioskImgNode, "data", result);
-}
-
 void PrintInterface::BPParams::fromXML(xmlNodePtr node)
 {
     xmlNodePtr currNode = node->children;

@@ -18,8 +18,6 @@
 #include <serverlib/slogger.h>
 
 #include "tlg/lci_parser.h"
-#include "img.h"
-#include "collect.h"
 #include "html_pages.h"
 #include "web_main.h"
 #include "kiosk/kiosk_config.h"
@@ -67,8 +65,6 @@ const
     {"-testbm",                 testbm,                 NULL,                       NULL},
     {"-load_fr",                load_fr,                NULL,                       "loading FR files to database"},
     {"-get_fr",                 get_fr,                 NULL,                       "getting FR files from database to local path"},
-    {"-load_img",               img::load_img,          NULL,                       "loading img files to database"},
-    {"-get_img",                img::get_img,           NULL,                       "getting img files from database to local path"},
     {"-termversion",            SetTermVersionNotice,   SetTermVersionNoticeHelp,   NULL},
     {"-create_apis",            create_apis_nosir,      create_apis_nosir_help,     NULL},
     {"-send_tlg",               send_tlg,               send_tlg_help,              NULL},
@@ -103,9 +99,7 @@ const
     {"-lim_capab_stat",         nosir_lim_capab_stat,   NULL,                       NULL},
 //    {"-convert_tz",             tz_conversion,          NULL,                       NULL},
 //    {"-test_cnv",               test_conversion,        NULL,                       NULL},
-    {"-bp",                     bp_tst,                 NULL,                       NULL},
     {"-vo",                     tst_vo,                 NULL,                       NULL},
-    {"-annul_bag",              nosir_annul_bag,        NULL,                       NULL},
     {"-html_to_db",             html_to_db,             NULL,                       "loading html files to database"},
     {"-html_from_db",           html_from_db,           NULL,                       "getting html files from database to local path"},
     {"-prn_tags",               prn_tags,               NULL,                       NULL},
