@@ -1,7 +1,6 @@
-create table AHM_DICT
-(
-ID       number(9) not null,
-AIRLINE  number(9) not null,
-CATEGORY varchar2(30),
-BORT_NUM varchar2(10)
+CREATE TABLE AHM_DICT (
+    AIRLINE NUMBER(9) NOT NULL,
+    BORT_NUM VARCHAR2(10),
+    CATEGORY VARCHAR2(30),
+    ID NUMBER(9) NOT NULL
 );

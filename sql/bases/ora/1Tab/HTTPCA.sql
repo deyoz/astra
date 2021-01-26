@@ -1,4 +1,4 @@
-create table httpca (
-    cert varchar2(4000) not null,
-    domain varchar2(31)
+CREATE TABLE HTTPCA (
+    CERT VARCHAR2(4000) NOT NULL,
+    DOMAIN VARCHAR2(31)
 );

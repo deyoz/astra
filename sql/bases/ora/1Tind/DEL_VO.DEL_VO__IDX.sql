@@ -1,1 +1,1 @@
-create index del_vo__idx on del_vo(point_id);
+CREATE INDEX DEL_VO__IDX ON DEL_VO (POINT_ID);

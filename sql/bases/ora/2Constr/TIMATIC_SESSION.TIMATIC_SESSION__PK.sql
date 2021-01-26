@@ -1,7 +1,2 @@
-alter table timatic_session add constraint timatic_session__pk primary key (
-    host,
-    port,
-    username,
-    sub_username,
-    pwd
-);
+ALTER TABLE TIMATIC_SESSION ADD CONSTRAINT TIMATIC_SESSION__PK PRIMARY KEY (HOST,PORT,USERNAME,SUB_USERNAME,PWD) USING INDEX TIMATIC_SESSION__PK;
+

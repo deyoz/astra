@@ -1,4 +1,1 @@
-CREATE INDEX pnr_addrs__IDX2 ON pnr_addrs
-(
-       addr                           ASC
-);
+CREATE INDEX PNR_ADDRS__IDX2 ON PNR_ADDRS (ADDR);

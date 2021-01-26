@@ -1,12 +1,11 @@
-create table del_vo(
-    point_id number(9) not null,
-    full_name varchar2(129) not null,
-    pers_type varchar2(2) not null,
-    reg_no number(3) not null,
-    ticket_no varchar2(15),
-    coupon_no number(1),
-    rem_codes varchar2(500),
-    voucher varchar2(2) not null,
-    total number(9) not null
+CREATE TABLE DEL_VO (
+    COUPON_NO NUMBER(1),
+    FULL_NAME VARCHAR2(129) NOT NULL,
+    PERS_TYPE VARCHAR2(2) NOT NULL,
+    POINT_ID NUMBER(9) NOT NULL,
+    REG_NO NUMBER(3) NOT NULL,
+    REM_CODES VARCHAR2(500),
+    TICKET_NO VARCHAR2(15),
+    TOTAL NUMBER(9) NOT NULL,
+    VOUCHER VARCHAR2(2) NOT NULL
 );
-

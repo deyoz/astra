@@ -47,7 +47,6 @@ int test_typeb_utils(int argc,char **argv);
 int test_typeb_utils2(int argc,char **argv);
 int test_sopp_sql(int argc,char **argv);
 int test_file_queue(int argc,char **argv);
-namespace NatStat { int nat_stat(int argc,char **argv); }
 int ego_stat(int argc,char **argv);
 int tst_vo(int, char**);
 int prn_tags(int argc, char **argv);
@@ -90,7 +89,6 @@ const
     {"-ovb",                    STAT::ovb,              NULL,                       NULL},
     {"-http",                   verifyHTTP,             NULL,                       NULL},
     {"-bcbp",                   AstraWeb::bcbp_test,    NULL,                       NULL},
-    {"-nat_stat",               NatStat::nat_stat,      NULL,                       NULL},
     {"-ego_stat",               ego_stat,               NULL,                       NULL},
     {"-rfisc_stat",             nosir_rfisc_stat,       NULL,                       NULL},
     {"-rfisc_all",              nosir_rfisc_all,        NULL,                       NULL},
@@ -110,7 +108,6 @@ const
     {"-annul_bag",              nosir_annul_bag,        NULL,                       NULL},
     {"-html_to_db",             html_to_db,             NULL,                       "loading html files to database"},
     {"-html_from_db",           html_from_db,           NULL,                       "getting html files from database to local path"},
-    {"-test_norms",             WeightConcept::test_norms,             NULL,                       NULL},
     {"-prn_tags",               prn_tags,               NULL,                       NULL},
     {"-kuf_fix",                KUF_STAT::fix,          NULL,                       NULL},
     {"-stat_belgorod",          stat_belgorod,          NULL,                       NULL},

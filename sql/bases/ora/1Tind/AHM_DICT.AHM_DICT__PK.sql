@@ -1,1 +1,1 @@
-create unique index AHM_DICT__PK on AHM_DICT(ID);
+CREATE UNIQUE INDEX AHM_DICT__PK ON AHM_DICT (ID);

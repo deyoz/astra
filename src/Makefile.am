@@ -118,7 +118,6 @@ astra_SOURCES = \
   maindcs.cc \
   meridian.cc \
   mob_payment.cc \
-  msg_queue.cc \
   MPSExchangeIface.cc \
   obrnosir.cc \
   passenger.cc \
@@ -346,7 +345,6 @@ noinst_HEADERS = \
   maindcs.h \
   meridian.h \
   mob_payment.h \
-  msg_queue.h \
   MPSExchangeIface.h \
   obrnosir.h \
   passenger.h \
