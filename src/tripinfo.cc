@@ -37,6 +37,7 @@
 #include "flt_settings.h"
 #include "baggage_calc.h"
 #include "pax_calc_data.h"
+#include "tlg/typeb_db.h"
 
 #include <serverlib/algo.h>
 #include <serverlib/testmode.h>
@@ -2847,7 +2848,6 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
      "      crs_pax.bag_norm_unit, "
      "      crs_pnr.airp_arv, "
      "      crs_pnr.airp_arv_final, "
-     "      report.get_PSPT(crs_pax.pax_id, 1, :lang) AS document, "
      "      report.get_TKNO(crs_pax.pax_id) AS ticket, "
      "      crs_pax.pax_id, "
      "      crs_pax.tid, "
@@ -2895,6 +2895,9 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
      "      crs_pax.pr_del=0 "
      "ORDER BY crs_pnr.point_id";
 
+  const std::string pspt = TypeB::getPSPT(paxId->get(), true /*with_issue_country*/,
+                                          TReqInfo::Instance()->desk.lang);
+
   TQuery Qry( &OraSession );
   Qry.Clear();
   Qry.SQLText=sql.str().c_str();
@@ -2902,7 +2905,6 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
   Qry.CreateVariable( "ps_ok", otString, EncodePaxStatus(ASTRA::psCheckin) );
   Qry.CreateVariable( "ps_goshow", otString, EncodePaxStatus(ASTRA::psGoshow) );
   Qry.CreateVariable( "ps_transit", otString, EncodePaxStatus(ASTRA::psTransit) );
-  Qry.CreateVariable( "lang", otString, TReqInfo::Instance()->desk.lang );
   Qry.Execute();
   // места пассажира
   TQuery SQry( &OraSession );
@@ -3015,7 +3017,6 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
   int col_bag_norm_unit=Qry.FieldIndex("bag_norm_unit");
   int col_airp_arv=Qry.FieldIndex("airp_arv");
   int col_airp_arv_final=Qry.FieldIndex("airp_arv_final");
-  int col_document=Qry.FieldIndex("document");
   int col_ticket=Qry.FieldIndex("ticket");
   int col_pax_id=Qry.FieldIndex("pax_id");
   int col_tid=Qry.FieldIndex("tid");
@@ -3180,7 +3181,7 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
     }
 
     NewTextChild( node, "ticket", Qry.FieldAsString( col_ticket ), "" );
-    NewTextChild( node, "document", Qry.FieldAsString( col_document ), "" );
+    NewTextChild( node, "document", pspt, "" );
 
     multiset<CheckIn::TPaxRemItem> rems;
     LoadCrsPaxRem(pax_id, rems);

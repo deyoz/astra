@@ -425,4 +425,44 @@ typedef std::pair<std::string,int> TicketCoupon;
 //    return result;
 //}
 
+std::string getPSPT(int pax_id, bool with_issue_country, const std::string& language)
+{
+    LogTrace(TRACE5) << __func__
+                     << ": pax_id=" << pax_id
+                     << ": with_issue_country=" << with_issue_country
+                     << ": language=" << language;
+    std::string issue_country;
+    std::string no;
+    auto cur = make_db_curs(
+                "SELECT issue_country,no "
+                "FROM crs_pax_doc "
+                "WHERE pax_id=:pax_id "
+                "ORDER BY "
+                "CASE WHEN type='P' THEN 0 "
+                "     WHEN type IS NOT NULL THEN 1 "
+                "     ELSE 2 END, "
+                "no NULLS LAST",
+          PgOra::getROSession("CRS_PAX_DOC"));
+
+    cur.stb()
+        .def(issue_country)
+        .def(no)
+        .bind(":pax_id", pax_id)
+        .exfet();
+
+    LogTrace(TRACE5) << __func__
+                     << ": count=" << cur.rowcount();
+    if (cur.err() == DbCpp::ResultCode::NoDataFound) {
+      return std::string();
+    }
+    std::string result = no;
+    if (!result.empty()
+        && with_issue_country
+        && !issue_country.empty())
+    {
+        result += " " + issue_country;
+    }
+    return result;
+}
+
 } //namespace TypeB

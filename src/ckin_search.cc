@@ -380,8 +380,9 @@ std::string Search::getSQLText() const
     case paxCheckIn:
       sql << "SELECT pax.* \n"
              "FROM pax";
-      for(const std::string& t : tables)
+      for(const std::string& t : tables) {
         sql << ", " << t;
+      }
       sql << " \n";
       for(std::list<std::string>::const_iterator c=conditions.begin(); c!=conditions.end(); ++c)
         sql << (c==conditions.begin()?"WHERE ":"  AND ") << *c << " \n";
@@ -393,20 +394,23 @@ std::string Search::getSQLText() const
           << CheckIn::TSimplePaxItem::cabinClassFromCrsSQL() << " AS cabin_class, \n"
              "       NULL AS cabin_class_grp \n"
              "FROM crs_pnr, crs_pax";
-      for(const std::string& t : tables)
+      for(const std::string& t : tables) {
         sql << ", " << t;
+      }
       sql << " \n";
       sql << "WHERE crs_pax.pnr_id=crs_pnr.pnr_id \n"
              "  AND crs_pnr.system='CRS' \n"
              "  AND crs_pax.pr_del=0 \n";
-      for(std::list<std::string>::const_iterator c=conditions.begin(); c!=conditions.end(); ++c)
+      for(std::list<std::string>::const_iterator c=conditions.begin(); c!=conditions.end(); ++c) {
         sql << "  AND " << *c << " \n";
+      }
       break;
     case paxTest:
       sql << "SELECT test_pax.id AS pax_id, surname, name, subclass, tkn_no \n"
              "FROM test_pax";
-      for(const std::string& t : tables)
+      for(const std::string& t : tables) {
         sql << ", " << t;
+      }
       sql << " \n";
       for(std::list<std::string>::const_iterator c=conditions.begin(); c!=conditions.end(); ++c)
         sql << (c==conditions.begin()?"WHERE ":"  AND ") << *c << " \n";
@@ -416,15 +420,8 @@ std::string Search::getSQLText() const
   return sql.str();
 }
 
-bool Search::addPassengers(CheckIn::TSimplePaxList& paxs) const
+bool Search::executePaxQuery(const std::string& sql, TSimplePaxList& paxs) const
 {
-  if (conditions.empty()) return true;
-
-  string sql = getSQLText();
-
-//  LogTrace(TRACE5) << __FUNCTION__ << ": " << endl << sql;
-//  LogTrace(TRACE5) << __FUNCTION__ << ": " << endl << params;
-
   TCachedQuery Qry(sql, params);
 
   if (timeIsUp()) return false;
@@ -443,6 +440,28 @@ bool Search::addPassengers(CheckIn::TSimplePaxList& paxs) const
   }
 
   return true;
+}
+
+bool Search::addPassengers(CheckIn::TSimplePaxList& paxs)
+{
+  if (conditions.empty()) return true;
+
+  string sql = getSQLText();
+
+//  LogTrace(TRACE5) << __FUNCTION__ << ": " << endl << sql;
+//  LogTrace(TRACE5) << __FUNCTION__ << ": " << endl << params;
+
+  if (origin == paxPnl) {
+    for (int pax_id: searchPaxIds) {
+      params.clear();
+      params << QParam("pax_id", otInteger, pax_id);
+      if (!executePaxQuery(sql, paxs)) {
+        return false;
+      }
+    }
+    return true;
+  }
+  return executePaxQuery(sql, paxs);
 }
 
 bool Search::timeIsUp() const

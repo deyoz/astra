@@ -2,6 +2,9 @@
 #include "stat/stat_utils.h"
 #include "docs_utils.h"
 #include "docs_text_grid.h"
+#include "PgOraConfig.h"
+#include "db_tquery.h"
+#include "tlg/typeb_db.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -33,9 +36,7 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             "      crs_pnr.airp_arv AS target, "
             "      crs_pnr.airp_arv_final AS last_target, "
             "      crs_pnr.pnr_id, "
-            "      report.get_TKNO(crs_pax.pax_id) ticket_no, "
-            "      report.get_PSPT(crs_pax.pax_id, 1, :lang) AS document ";
-        Qry.CreateVariable("lang", otString, rpt_params.GetLang());
+            "      report.get_TKNO(crs_pax.pax_id) ticket_no ";
     }
     SQLText +=
         "FROM crs_pnr,tlg_binding,crs_pax ";
@@ -71,7 +72,7 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_crs");
 
-    TQuery docsQry(&OraSession);
+    DB::TQuery docsQry(PgOra::getROSession("CRS_PAX_DOC"));
     docsQry.SQLText = "select * from crs_pax_doc where pax_id = :pax_id and rem_code = 'DOCS'";
     docsQry.DeclareVariable("pax_id", otInteger);
     //ремарки пассажиров
@@ -81,6 +82,8 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         rem_grp.Load(retPNL_SEL, rpt_params.point_id);
     for(; !Qry.Eof; Qry.Next()) {
         int pax_id=Qry.FieldAsInteger("pax_id");
+        const std::string pspt = TypeB::getPSPT(pax_id, true /*with_issue_country*/,
+                                                rpt_params.GetLang());
         if(
                 rpt_params.rpt_type == rtBDOCS or
                 rpt_params.rpt_type == rtBDOCSTXT
@@ -138,7 +141,7 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
             NewTextChild(rowNode, "last_target", last_target);
             NewTextChild(rowNode, "ticket_no", Qry.FieldAsString("ticket_no"));
-            NewTextChild(rowNode, "document", Qry.FieldAsString("document"));
+            NewTextChild(rowNode, "document", pspt);
             NewTextChild(rowNode, "remarks", GetCrsRemarkStr(rem_grp, pax_id));
         }
     }

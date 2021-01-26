@@ -68,7 +68,7 @@ static void LoadDOCSRem(const PaxId_t& paxId,
   doc.clear();
   doc_extra.clear();
 
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("CRS_PAX_DOC"));
   Qry.Clear();
   Qry.SQLText="SELECT * FROM crs_pax_doc WHERE pax_id=:pax_id";
   Qry.CreateVariable("pax_id",otInteger,paxId.get());
@@ -76,15 +76,15 @@ static void LoadDOCSRem(const PaxId_t& paxId,
   for(; !Qry.Eof; Qry.Next())
   {
     TDocItem item;
-    strcpy(item.rem_code, Qry.FieldAsString("rem_code"));
-    strcpy(item.rem_status, Qry.FieldAsString("rem_status"));
-    strcpy(item.type, Qry.FieldAsString("type"));
-    strcpy(item.issue_country, Qry.FieldAsString("issue_country"));
-    strcpy(item.no, Qry.FieldAsString("no"));
-    strcpy(item.nationality, Qry.FieldAsString("nationality"));
+    strcpy(item.rem_code, Qry.FieldAsString("rem_code").c_str());
+    strcpy(item.rem_status, Qry.FieldAsString("rem_status").c_str());
+    strcpy(item.type, Qry.FieldAsString("type").c_str());
+    strcpy(item.issue_country, Qry.FieldAsString("issue_country").c_str());
+    strcpy(item.no, Qry.FieldAsString("no").c_str());
+    strcpy(item.nationality, Qry.FieldAsString("nationality").c_str());
     if (!Qry.FieldIsNULL("birth_date"))
       item.birth_date=Qry.FieldAsDateTime("birth_date");
-    strcpy(item.gender, Qry.FieldAsString("gender"));
+    strcpy(item.gender, Qry.FieldAsString("gender").c_str());
     if (!Qry.FieldIsNULL("expiry_date"))
       item.expiry_date=Qry.FieldAsDateTime("expiry_date");
     item.surname=Qry.FieldAsString("surname");
@@ -94,8 +94,8 @@ static void LoadDOCSRem(const PaxId_t& paxId,
     doc.push_back(item);
 
     TDocExtraItem extraItem;
-    strcpy(extraItem.no, Qry.FieldAsString("no"));
-    strcpy(extraItem.type_rcpt, Qry.FieldAsString("type_rcpt"));
+    strcpy(extraItem.no, Qry.FieldAsString("no").c_str());
+    strcpy(extraItem.type_rcpt, Qry.FieldAsString("type_rcpt").c_str());
     if (extraItem.valid())
       doc_extra.emplace(extraItem.no, extraItem);
   }
@@ -127,7 +127,7 @@ void SaveDOCSRem(const PaxIdWithSegmentPair& paxId,
 
   bool modified=false;
 
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getRWSession("CRS_PAX_DOC"));
   Qry.Clear();
   Qry.CreateVariable("pax_id",otInteger,paxId().get());
   if (deleteFromDB)
@@ -202,7 +202,7 @@ static void LoadDOCORem(const PaxId_t& paxId,
 {
   doc.clear();
 
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("CRS_PAX_DOCO"));
   Qry.Clear();
   Qry.SQLText="SELECT * FROM crs_pax_doco WHERE pax_id=:pax_id";
   Qry.CreateVariable("pax_id",otInteger,paxId.get());
@@ -210,15 +210,15 @@ static void LoadDOCORem(const PaxId_t& paxId,
   for(; !Qry.Eof; Qry.Next())
   {
     TDocoItem item;
-    strcpy(item.rem_code, Qry.FieldAsString("rem_code"));
-    strcpy(item.rem_status, Qry.FieldAsString("rem_status"));
+    strcpy(item.rem_code, Qry.FieldAsString("rem_code").c_str());
+    strcpy(item.rem_status, Qry.FieldAsString("rem_status").c_str());
     item.birth_place=Qry.FieldAsString("birth_place");
-    strcpy(item.type, Qry.FieldAsString("type"));
-    strcpy(item.no, Qry.FieldAsString("no"));
+    strcpy(item.type, Qry.FieldAsString("type").c_str());
+    strcpy(item.no, Qry.FieldAsString("no").c_str());
     item.issue_place=Qry.FieldAsString("issue_place");
     if (!Qry.FieldIsNULL("issue_date"))
       item.issue_date=Qry.FieldAsDateTime("issue_date");
-    strcpy(item.applic_country, Qry.FieldAsString("applic_country"));
+    strcpy(item.applic_country, Qry.FieldAsString("applic_country").c_str());
 
     doc.push_back(item);
   }
@@ -241,7 +241,7 @@ void SaveDOCORem(const PaxIdWithSegmentPair& paxId,
 
   bool modified=false;
 
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getRWSession("CRS_PAX_DOCO"));
   Qry.Clear();
   Qry.CreateVariable("pax_id",otInteger,paxId().get());
   if (deleteFromDB)
@@ -297,7 +297,7 @@ static void LoadDOCARem(const PaxId_t& paxId,
 {
   doca.clear();
 
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("CRS_PAX_DOCA"));
   Qry.Clear();
   Qry.SQLText="SELECT * FROM crs_pax_doca WHERE pax_id=:pax_id";
   Qry.CreateVariable("pax_id",otInteger,paxId.get());
@@ -305,10 +305,10 @@ static void LoadDOCARem(const PaxId_t& paxId,
   for(; !Qry.Eof; Qry.Next())
   {
     TDocaItem item;
-    strcpy(item.rem_code, Qry.FieldAsString("rem_code"));
-    strcpy(item.rem_status, Qry.FieldAsString("rem_status"));
-    strcpy(item.type, Qry.FieldAsString("type"));
-    strcpy(item.country, Qry.FieldAsString("country"));
+    strcpy(item.rem_code, Qry.FieldAsString("rem_code").c_str());
+    strcpy(item.rem_status, Qry.FieldAsString("rem_status").c_str());
+    strcpy(item.type, Qry.FieldAsString("type").c_str());
+    strcpy(item.country, Qry.FieldAsString("country").c_str());
     item.address=Qry.FieldAsString("address");
     item.city=Qry.FieldAsString("city");
     item.region=Qry.FieldAsString("region");
@@ -335,7 +335,7 @@ void SaveDOCARem(const PaxIdWithSegmentPair& paxId,
 
   bool modified=false;
 
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getRWSession("CRS_PAX_DOCA"));
   Qry.Clear();
   Qry.CreateVariable("pax_id",otInteger,paxId().get());
   if (deleteFromDB)

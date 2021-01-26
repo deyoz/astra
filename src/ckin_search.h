@@ -81,6 +81,7 @@ class Search
     std::set<std::string> tables;
     std::list<std::string> conditions;
     QParams params;
+    std::set<int> searchPaxIds;
     mutable std::set<int> foundPaxIds;
 
     bool incomplete;
@@ -91,6 +92,7 @@ class Search
       tables.clear();
       conditions.clear();
       params.clear();
+      searchPaxIds.clear();
     }
 
     template <class Criterion, class ... Criterions>
@@ -102,6 +104,7 @@ class Search
         criterion.addSQLTablesForSearch(origin, tables);
         criterion.addSQLConditionsForSearch(origin, conditions);
         criterion.addSQLParamsForSearch(origin, params);
+        criterion.addSearchPaxIds(origin, searchPaxIds);
       }
 
       getSQLProperties(criterions...);
@@ -123,7 +126,8 @@ class Search
 
     std::string getSQLText() const;
 
-    bool addPassengers(CheckIn::TSimplePaxList& paxs) const;
+    bool executePaxQuery(const std::string& sql, CheckIn::TSimplePaxList& paxs) const;
+    bool addPassengers(CheckIn::TSimplePaxList& paxs);
 
     bool timeIsUp() const;
 
@@ -171,6 +175,7 @@ class PaxIdFilter
     void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const {}
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
     void addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const;
+    void addSearchPaxIds(const PaxOrigin& origin, std::set<int>&) const { return; }
     bool finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const { return true; }
 };
 
@@ -192,6 +197,7 @@ class SurnameFilter
     void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const {}
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
     void addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const;
+    void addSearchPaxIds(const PaxOrigin& origin, std::set<int>&) const { return; }
     bool finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const { return true; }
     bool suitable(const CheckIn::TSimplePaxItem& pax) const;
 };
@@ -285,6 +291,7 @@ class TCkinPaxFilter : public FullnameFilter
     void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const;
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
     void addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const;
+    void addSearchPaxIds(const PaxOrigin& origin, std::set<int>&) const { return; }
     bool finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const;
     bool suitable(const CheckIn::TSimplePaxItem& pax) const;
 };
@@ -321,6 +328,7 @@ class FlightFilter : public TTripInfo
     void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const;
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
     void addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const;
+    void addSearchPaxIds(const PaxOrigin& origin, std::set<int>&) const { return; }
     bool finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const { return true; }
     bool suitable(const TAdvTripRouteItem& departure,
                   const TAdvTripRouteItem& arrival) const;
