@@ -35,7 +35,6 @@ void nosir_test_help(const char *name);
 
 int edi_load_messages_local(int argc, char** argv);
 int nosir_tscript(int argc, char** argv);
-int tz2db(int argc,char **argv);
 int verifyHTTP(int argc,char **argv);
 int test_reprint(int argc,char **argv);
 int get_events_stat(int argc,char **argv);
@@ -70,7 +69,6 @@ const
     {"-send_tlg",               send_tlg,               send_tlg_help,              NULL},
     {"-agent_stat_delta",       STAT::agent_stat_delta, NULL,                       NULL},
     {"-lci",                    TypeB::lci,             NULL,                       NULL},
-    {"-tz2db",                  tz2db,                  NULL,                       "reload date_time_zonespec.csv content to db"},
     {"-get_events_stat",        get_events_stat2,       NULL,                       NULL},
     {"-basel_stat",             basel_stat,             NULL,                       NULL},
     {"-testsalons",             testsalons,             NULL,                       NULL},
