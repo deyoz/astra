@@ -1231,7 +1231,7 @@ BEGIN
     DELETE FROM apps_messages WHERE msg_id in (SELECT msg_id FROM apps_manifest_data where point_id=curRow.point_id);
     DELETE FROM apps_pax_data WHERE point_id=curRow.point_id;
     DELETE FROM apps_manifest_data WHERE point_id=curRow.point_id;
-    DELETE FROM iapi_pax_data WHERE point_id=curRow.point_id;
+--    DELETE FROM iapi_pax_data WHERE point_id=curRow.point_id;
     DELETE FROM wb_msg_text where id in(SELECT id FROM wb_msg WHERE point_id = curRow.point_id);
     DELETE FROM wb_msg where point_id = curRow.point_id;
     DELETE FROM trip_vouchers WHERE point_id=curRow.point_id;
