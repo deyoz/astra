@@ -37,6 +37,7 @@
 #include "flt_settings.h"
 #include "baggage_calc.h"
 #include "pax_calc_data.h"
+#include "tlg/typeb_db.h"
 
 #include <serverlib/algo.h>
 #include <serverlib/testmode.h>
@@ -2847,7 +2848,6 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
      "      crs_pax.bag_norm_unit, "
      "      crs_pnr.airp_arv, "
      "      crs_pnr.airp_arv_final, "
-     "      report.get_PSPT(crs_pax.pax_id, 1, :lang) AS document, "
      "      report.get_TKNO(crs_pax.pax_id) AS ticket, "
      "      crs_pax.pax_id, "
      "      crs_pax.tid, "
@@ -2865,7 +2865,7 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
   if (apis_generation)
     sql << ", pax_calc_data.* ";
   else
-    sql << ", pax_calc_data.crs_fqt_tier_level ";
+    sql << ", pax_calc_data.crs_doc_no, pax_calc_data.crs_fqt_tier_level ";
   sql <<
      "FROM crs_pnr,crs_pax,pax,pax_grp,pax_calc_data,";
 
@@ -2902,7 +2902,6 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
   Qry.CreateVariable( "ps_ok", otString, EncodePaxStatus(ASTRA::psCheckin) );
   Qry.CreateVariable( "ps_goshow", otString, EncodePaxStatus(ASTRA::psGoshow) );
   Qry.CreateVariable( "ps_transit", otString, EncodePaxStatus(ASTRA::psTransit) );
-  Qry.CreateVariable( "lang", otString, TReqInfo::Instance()->desk.lang );
   Qry.Execute();
   // места пассажира
   TQuery SQry( &OraSession );
@@ -3015,7 +3014,6 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
   int col_bag_norm_unit=Qry.FieldIndex("bag_norm_unit");
   int col_airp_arv=Qry.FieldIndex("airp_arv");
   int col_airp_arv_final=Qry.FieldIndex("airp_arv_final");
-  int col_document=Qry.FieldIndex("document");
   int col_ticket=Qry.FieldIndex("ticket");
   int col_pax_id=Qry.FieldIndex("pax_id");
   int col_tid=Qry.FieldIndex("tid");
@@ -3030,6 +3028,7 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
   int col_pax_seats=Qry.FieldIndex("pax_seats");
   int col_wl_type=Qry.FieldIndex("wl_type");
   int col_is_jmp=Qry.FieldIndex("is_jmp");
+  int col_crs_doc_no=Qry.FieldIndex("crs_doc_no");
   int col_crs_fqt_tier_level=Qry.FieldIndex("crs_fqt_tier_level");
   int crs_row=1, pax_row=1;
   TBrands brands; //объявляем здесь, чтобы задействовать кэширование брендов
@@ -3180,7 +3179,11 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
     }
 
     NewTextChild( node, "ticket", Qry.FieldAsString( col_ticket ), "" );
-    NewTextChild( node, "document", Qry.FieldAsString( col_document ), "" );
+    std::string pspt = Qry.FieldAsString( col_crs_doc_no );
+    if (pspt.empty()) {
+      pspt = TypeB::getPSPT(pax_id, true /*with_issue_country*/, TReqInfo::Instance()->desk.lang);
+    }
+    NewTextChild( node, "document", pspt, "" );
 
     multiset<CheckIn::TPaxRemItem> rems;
     LoadCrsPaxRem(pax_id, rems);

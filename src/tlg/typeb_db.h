@@ -31,4 +31,7 @@ bool deletePaxCalcData(PaxId_t pax_id);
 bool deleteTypeBData(PointIdTlg_t point_id, const std::string& system, const std::string& sender,
                      bool delete_trip_comp_layers);
 
+std::string getPSPT(int pax_id, bool with_issue_country = false,
+                    const std::string& language = "RU");
+
 } //namespace TypeB

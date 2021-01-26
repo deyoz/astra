@@ -17,6 +17,7 @@
 #include <serverlib/cursctl.h>
 #include <serverlib/dbcpp_cursctl.h>
 #include "PgOraConfig.h"
+#include "db_tquery.h"
 
 #include <regex>
 
@@ -91,6 +92,52 @@ int getEmptyPaxId()
 bool isEmptyPaxId(int id)
 {
   return id!=ASTRA::NoExists && id==EMPTY_ID;
+}
+
+std::set<PaxId_t> loadPaxIdSet(GrpId_t grp_id)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": grp_id=" << grp_id;
+  std::set<PaxId_t> result;
+  int pax_id = ASTRA::NoExists;
+  auto cur = make_db_curs(
+        "SELECT pax_id "
+        "FROM pax "
+        "WHERE grp_id=:grp_id ",
+        PgOra::getROSession("PAX"));
+
+  cur.stb()
+      .def(pax_id)
+      .bind(":grp_id", grp_id.get())
+      .exec();
+
+  while (!cur.fen()) {
+    result.emplace(pax_id);
+  }
+  LogTrace(TRACE6) << __func__
+                   << ": count=" << result.size();
+  return result;
+}
+
+bool existsPax(PaxId_t pax_id)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": pax_id=" << pax_id;
+  int count = 0;
+  auto cur = make_db_curs(
+        "SELECT count(1) "
+        "FROM pax "
+        "WHERE pax.pax_id=:pax_id ",
+        PgOra::getROSession("PAX"));
+
+  cur.stb()
+      .def(count)
+      .bind(":pax_id", pax_id.get())
+      .EXfet();
+
+  LogTrace(TRACE6) << __func__
+                   << ": count=" << count;
+  return count > 0;
 }
 
 namespace CheckIn
@@ -616,7 +663,7 @@ const TPaxDocItem& TPaxDocItem::toDB(TQuery &Qry) const
   return *this;
 }
 
-TPaxDocCompoundType& TPaxDocCompoundType::fromDB(TQuery &Qry)
+TPaxDocCompoundType& TPaxDocCompoundType::fromDB(DB::TQuery &Qry)
 {
   clear();
   type=Qry.FieldAsString("type");
@@ -625,7 +672,7 @@ TPaxDocCompoundType& TPaxDocCompoundType::fromDB(TQuery &Qry)
   return *this;
 }
 
-TPaxDocItem& TPaxDocItem::fromDB(TQuery &Qry)
+TPaxDocItem& TPaxDocItem::fromDB(DB::TQuery &Qry)
 {
   clear();
   TPaxDocCompoundType::fromDB(Qry);
@@ -886,7 +933,7 @@ const TPaxDocoItem& TPaxDocoItem::toDB(TQuery &Qry) const
   return *this;
 }
 
-TPaxDocoItem& TPaxDocoItem::fromDB(TQuery &Qry)
+TPaxDocoItem& TPaxDocoItem::fromDB(DB::TQuery &Qry)
 {
   clear();
   TPaxDocCompoundType::fromDB(Qry);
@@ -1032,7 +1079,7 @@ const TPaxDocaItem& TPaxDocaItem::toDB(TQuery &Qry) const
   return *this;
 };
 
-TPaxDocaItem& TPaxDocaItem::fromDB(TQuery &Qry)
+TPaxDocaItem& TPaxDocaItem::fromDB(DB::TQuery &Qry)
 {
   clear();
   type=Qry.FieldAsString("type");
@@ -1168,7 +1215,9 @@ bool LoadPaxDoc(TDateTime part_key, int pax_id, TPaxDocItem &doc)
   else
       sql_result = sql;
   QryParams << QParam("pax_id", otInteger, pax_id);
-  TCachedQuery PaxDocQry(sql_result, QryParams);
+  DB::TCachedQuery PaxDocQry(part_key!=ASTRA::NoExists ? PgOra::getROSession("ARX_PAX_DOC")
+                                                       : PgOra::getROSession("PAX_DOC"),
+                             sql_result, QryParams);
   PaxDocQry.get().Execute();
   if (!PaxDocQry.get().Eof) doc.fromDB(PaxDocQry.get());
   return !doc.empty();
@@ -1203,10 +1252,18 @@ bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc)
     "SELECT * "
     "FROM crs_pax_doc "
     "WHERE pax_id=:pax_id "
-    "ORDER BY DECODE(type,'P',0,NULL,2,1),DECODE(rem_code,'DOCS',0,1),no NULLS LAST";
+    "ORDER BY "
+    "CASE WHEN type='P' THEN 0 "
+    "     WHEN type IS NOT NULL THEN 1 "
+    "     ELSE 2 END, "
+    "CASE WHEN rem_code='DOCS' THEN 0 "
+    "     ELSE 1 END, "
+    "no NULLS LAST";
+
+
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, pax_id);
-  TCachedQuery PaxDocQry(sql, QryParams);
+  DB::TCachedQuery PaxDocQry(PgOra::getROSession("CRS_PAX_DOC"), sql, QryParams);
   PaxDocQry.get().Execute();
   if (!PaxDocQry.get().Eof) doc.fromDB(PaxDocQry.get());
   return !doc.empty();
@@ -1253,10 +1310,14 @@ bool LoadPaxDoco(TDateTime part_key, int pax_id, TPaxDocoItem &doc)
     doc.doco_confirm=PaxQry.get().FieldIsNULL("doco_confirm") ||
                  PaxQry.get().FieldAsInteger("doco_confirm")!=0;
 
-  TCachedQuery PaxDocQry(part_key!=ASTRA::NoExists?
-                         "SELECT * FROM arx_pax_doco WHERE part_key=:part_key AND pax_id=:pax_id":
-                         "SELECT * FROM pax_doco WHERE pax_id=:pax_id",
-                         QryParams);
+  DB::TCachedQuery PaxDocQry(
+      part_key!=ASTRA::NoExists
+      ? PgOra::getROSession("ARX_PAX_DOCO")
+      : PgOra::getROSession("PAX_DOCO"),
+      part_key!=ASTRA::NoExists
+      ? "SELECT * FROM arx_pax_doco WHERE part_key=:part_key AND pax_id=:pax_id"
+      : "SELECT * FROM pax_doco WHERE pax_id=:pax_id",
+      QryParams);
   PaxDocQry.get().Execute();
   if (!PaxDocQry.get().Eof) doc.fromDB(PaxDocQry.get());
   return !doc.empty();
@@ -1269,10 +1330,15 @@ bool LoadCrsPaxDoco(int pax_id, TPaxDocoItem &doc)
     "SELECT birth_place, type, no, issue_place, issue_date, NULL AS expiry_date, applic_country "
     "FROM crs_pax_doco "
     "WHERE pax_id=:pax_id AND rem_code='DOCO' "
-    "ORDER BY DECODE(type,'V',0,NULL,2,1), no NULLS LAST";
+    "ORDER BY "
+    "CASE WHEN type='V' THEN 0 "
+    "     WHEN type IS NOT NULL THEN 1 "
+    "     ELSE 2 END, "
+    "no NULLS LAST";
+
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, pax_id);
-  TCachedQuery PaxDocQry(sql, QryParams);
+  DB::TCachedQuery PaxDocQry(PgOra::getROSession("CRS_PAX_DOCO"), sql, QryParams);
   PaxDocQry.get().Execute();
   if (!PaxDocQry.get().Eof) doc.fromDB(PaxDocQry.get());
   return !doc.empty();
@@ -1376,7 +1442,9 @@ bool LoadPaxDoca(TDateTime part_key, int pax_id, CheckIn::TDocaMap &doca_map)
     sql_result = sql;
   }
   QryParams << QParam("pax_id", otInteger, pax_id);
-  TCachedQuery PaxDocQry(sql_result, QryParams);
+  DB::TCachedQuery PaxDocQry(
+        PgOra::getROSession(part_key != ASTRA::NoExists ? "ARX_PAX_DOCA" : "PAX_DOCA"),
+        sql_result, QryParams);
   for(PaxDocQry.get().Execute(); !PaxDocQry.get().Eof; PaxDocQry.get().Next())
   {
     TPaxDocaItem docaItem;
@@ -1396,7 +1464,7 @@ bool LoadCrsPaxDoca(int pax_id, CheckIn::TDocaMap &doca_map)
     "ORDER BY type, address ";
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, pax_id);
-  TCachedQuery PaxDocaQry(sql, QryParams);
+  DB::TCachedQuery PaxDocaQry(PgOra::getROSession("CRS_PAX_DOCA"), sql, QryParams);
   PaxDocaQry.get().Execute();
   string prior_type;
   for(;!PaxDocaQry.get().Eof;PaxDocaQry.get().Next())
@@ -1426,6 +1494,93 @@ void SavePaxDoc(const PaxIdWithSegmentPair& paxId,
   SavePaxDoc(paxId, doc, priorDoc, modifiedPaxRem);
 }
 
+bool DeletePaxDoc(PaxId_t pax_id)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": pax_id=" << pax_id;
+  auto cur = make_db_curs(
+        "DELETE FROM pax_doc "
+        "WHERE pax_id=:pax_id ",
+        PgOra::getRWSession("PAX_DOC"));
+  cur.stb()
+      .bind(":pax_id", pax_id.get())
+      .exec();
+
+  LogTrace(TRACE6) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+bool SavePaxDoc(const TPaxDocItem& item, PaxId_t pax_id)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": pax_id=" << pax_id;
+  short notNull = 0;
+  short null = -1;
+  auto cur = make_db_curs(
+        "INSERT INTO pax_doc ( "
+        "pax_id,type,subtype,issue_country,no,nationality,birth_date,gender,expiry_date, "
+        "surname,first_name,second_name,pr_multi,type_rcpt,scanned_attrs "
+        ") VALUES ( "
+        ":pax_id,:type,:subtype,:issue_country,:no,:nationality,:birth_date,:gender,:expiry_date, "
+        ":surname,:first_name,:second_name,:pr_multi,:type_rcpt,:scanned_attrs) ",
+        PgOra::getRWSession("PAX_DOC"));
+  cur.stb()
+      .bind(":pax_id", pax_id.get())
+      .bind(":type", item.type)
+      .bind(":subtype", item.subtype)
+      .bind(":issue_country", item.issue_country)
+      .bind(":no", item.no)
+      .bind(":nationality", item.nationality)
+      .bind(":birth_date",
+            item.birth_date!=ASTRA::NoExists ? DateTimeToBoost(item.birth_date)
+                                             : boost::posix_time::ptime(),
+            item.birth_date!=ASTRA::NoExists ? &notNull : &null)
+      .bind(":gender", item.gender)
+      .bind(":expiry_date",
+            item.expiry_date!=ASTRA::NoExists ? DateTimeToBoost(item.expiry_date)
+                                              : boost::posix_time::ptime(),
+            item.expiry_date!=ASTRA::NoExists ? &notNull : &null)
+      .bind(":surname", item.surname)
+      .bind(":first_name", item.first_name)
+      .bind(":second_name", item.second_name)
+      .bind(":pr_multi", int(item.pr_multi))
+
+      .bind(":type_rcpt", item.type_rcpt)
+      .bind(":scanned_attrs", int(item.scanned_attrs))
+      .exec();
+
+  LogTrace(TRACE6) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+std::string LoadCrsTypeRcpt(PaxId_t pax_id, const std::string& no)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": pax_id=" << pax_id
+                   << ", no=" << no;
+  std::string type_rcpt;
+  auto cur = make_db_curs(
+        "SELECT MAX(type_rcpt) "
+        "FROM crs_pax_doc "
+        "WHERE pax_id=:pax_id "
+        "AND no=:no "
+        "AND type_rcpt IS NOT NULL ",
+        PgOra::getROSession("CRS_PAX_DOC"));
+  cur.stb()
+      .defNull(type_rcpt, std::string())
+      .bind(":pax_id", pax_id.get())
+      .bind(":no", no)
+      .EXfet();
+
+  LogTrace(TRACE6) << __func__
+                   << ": found="
+                   << (cur.err() != DbCpp::ResultCode::NoDataFound);
+
+  return type_rcpt;
+}
+
 void SavePaxDoc(const PaxIdWithSegmentPair& paxId,
                 const TPaxDocItem& doc,
                 const TPaxDocItem& priorDoc,
@@ -1437,46 +1592,14 @@ void SavePaxDoc(const PaxIdWithSegmentPair& paxId,
   if ((deleteOld || insertNew) &&
       !doc.equal(priorDoc))
   {
-    TCachedQuery Qry("BEGIN "
-                     "  IF :delete_old<>0 THEN "
-                     "    DELETE FROM pax_doc WHERE pax_id=:pax_id; "
-                     "  END IF; "
-                     "  IF :insert_new<>0 THEN "
-                     "    SELECT MAX(type_rcpt) INTO :type_rcpt "
-                     "    FROM crs_pax_doc "
-                     "    WHERE pax_id=:pax_id AND no=:no AND type_rcpt IS NOT NULL AND rownum<2; "
-                     "    INSERT INTO pax_doc "
-                     "      (pax_id,type,subtype,issue_country,no,nationality,birth_date,gender,expiry_date, "
-                     "       surname,first_name,second_name,pr_multi,type_rcpt,scanned_attrs) "
-                     "    VALUES "
-                     "      (:pax_id,:type,:subtype,:issue_country,:no,:nationality,:birth_date,:gender,:expiry_date, "
-                     "       :surname,:first_name,:second_name,:pr_multi,:type_rcpt,:scanned_attrs); "
-                     "  END IF; "
-                     "END;",
-                     QParams()
-                     << QParam("pax_id",otInteger)
-                     << QParam("type",otString)
-                     << QParam("subtype",otString)
-                     << QParam("issue_country",otString)
-                     << QParam("no",otString)
-                     << QParam("nationality",otString)
-                     << QParam("birth_date",otDate)
-                     << QParam("gender",otString)
-                     << QParam("expiry_date",otDate)
-                     << QParam("surname",otString)
-                     << QParam("first_name",otString)
-                     << QParam("second_name",otString)
-                     << QParam("pr_multi",otInteger)
-                     << QParam("type_rcpt",otString)
-                     << QParam("scanned_attrs",otInteger)
-                     << QParam("delete_old",otInteger)
-                     << QParam("insert_new",otInteger));
-
-    doc.toDB(Qry.get());
-    Qry.get().SetVariable("pax_id",paxId().get());
-    Qry.get().SetVariable("delete_old",(int)deleteOld);
-    Qry.get().SetVariable("insert_new",(int)insertNew);
-    Qry.get().Execute();
+    if (deleteOld) {
+      DeletePaxDoc(paxId());
+    }
+    if (insertNew) {
+      TPaxDocItem doc4save = doc;
+      doc4save.type_rcpt = LoadCrsTypeRcpt(paxId(), doc.no);
+      SavePaxDoc(doc4save, paxId());
+    }
 
     modifiedPaxRem.add(remDOC, paxId);
   }
@@ -2812,57 +2935,11 @@ TPaxGrpCategory::Enum TSimplePaxGrpItem::grpCategory() const
     return TPaxGrpCategory::Passenges;
 }
 
-bool existsPax(int pax_id)
+std::set<PaxId_t> loadInfIdSet(PaxId_t pax_id, bool lock)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": pax_id=" << pax_id;
-  int count = 0;
-  auto cur = make_db_curs(
-        "SELECT count(1) "
-        "FROM pax "
-        "WHERE pax.pax_id=:pax_id ",
-        PgOra::getROSession("PAX"));
-
-  cur.stb()
-      .def(count)
-      .bind(":pax_id", pax_id)
-      .EXfet();
-
-  LogTrace(TRACE5) << __func__
-                   << ": count=" << count;
-  return count > 0;
-}
-
-std::set<int> loadPaxIdSet(int grp_id)
-{
-  LogTrace(TRACE5) << __func__
-                   << ": grp_id=" << grp_id;
-  std::set<int> result;
-  int pax_id = ASTRA::NoExists;
-  auto cur = make_db_curs(
-        "SELECT pax_id "
-        "FROM pax "
-        "WHERE pax.grp_id=:grp_id ",
-        PgOra::getROSession("PAX"));
-
-  cur.stb()
-      .def(pax_id)
-      .bind(":grp_id", grp_id)
-      .exec();
-
-  while (!cur.fen()) {
-    result.insert(pax_id);
-  }
-  LogTrace(TRACE5) << __func__
-                   << ": count=" << result.size();
-  return result;
-}
-
-std::set<int> loadInfIdSet(int pax_id, bool lock)
-{
-  LogTrace(TRACE5) << __func__
-                   << ": pax_id=" << pax_id;
-  std::set<int> result;
+  std::set<PaxId_t> result;
   int inf_id = ASTRA::NoExists;
   auto cur = make_db_curs(
         "SELECT inf_id "
@@ -2874,22 +2951,22 @@ std::set<int> loadInfIdSet(int pax_id, bool lock)
 
   cur.stb()
       .def(inf_id)
-      .bind(":pax_id", pax_id)
+      .bind(":pax_id", pax_id.get())
       .exec();
 
   while (!cur.fen()) {
-    result.insert(inf_id);
+    result.emplace(inf_id);
   }
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": count=" << result.size();
   return result;
 }
 
-std::set<int> loadSeatIdSet(int pax_id, bool lock)
+std::set<PaxId_t> loadSeatIdSet(PaxId_t pax_id, bool lock)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": pax_id=" << pax_id;
-  std::set<int> result;
+  std::set<PaxId_t> result;
   int seat_id = ASTRA::NoExists;
   auto cur = make_db_curs(
         "SELECT seat_id "
@@ -2902,20 +2979,20 @@ std::set<int> loadSeatIdSet(int pax_id, bool lock)
 
   cur.stb()
       .def(seat_id)
-      .bind(":pax_id", pax_id)
+      .bind(":pax_id", pax_id.get())
       .exec();
 
   while (!cur.fen()) {
-    result.insert(seat_id);
+    result.emplace(seat_id);
   }
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": count=" << result.size();
   return result;
 }
 
-TGrpServiceAutoList loadCrsPaxAsvc(int pax_id, const std::optional<TTripInfo>& flt = {})
+TGrpServiceAutoList loadCrsPaxAsvc(PaxId_t pax_id, const std::optional<TTripInfo>& flt = {})
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": pax_id=" << pax_id;
   TGrpServiceAutoList result;
   TGrpServiceAutoItem item;
@@ -2948,11 +3025,11 @@ TGrpServiceAutoList loadCrsPaxAsvc(int pax_id, const std::optional<TTripInfo>& f
       .defNull(item.emd_type, "")
       .defNull(item.emd_no, "")
       .defNull(item.emd_coupon, ASTRA::NoExists)
-      .bind(":pax_id", pax_id)
+      .bind(":pax_id", pax_id.get())
       .exec();
 
   while (!cur.fen()) {
-    item.pax_id=pax_id;
+    item.pax_id=pax_id.get();
     item.trfer_num=0;
     if (flt) {
       if (!item.isSuitableForAutoCheckin()) continue;
@@ -2960,15 +3037,15 @@ TGrpServiceAutoList loadCrsPaxAsvc(int pax_id, const std::optional<TTripInfo>& f
     }
     result.push_back(item);
   }
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": count=" << result.size();
   return result;
 }
 
 void TPaxGrpItem::SyncServiceAuto(const TTripInfo& flt)
 {
-  const std::set<int> paxIdSet = loadPaxIdSet(id);
-  for (int pax_id: paxIdSet) {
+  const std::set<PaxId_t> paxIdSet = loadPaxIdSet(GrpId_t(id));
+  for (PaxId_t pax_id: paxIdSet) {
     const TGrpServiceAutoList asvcList = loadCrsPaxAsvc(pax_id, flt);
     if (asvcList.empty()) {
       continue;
@@ -3256,7 +3333,6 @@ void TPaxDocItem::addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::s
       tables.insert("pax_doc");
       break;
     case paxPnl:
-      tables.insert("crs_pax_doc");
       break;
     case paxTest:
       break;
@@ -3274,10 +3350,7 @@ void TPaxDocItem::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<s
         conditions.push_back("(pax_doc.birth_date=:doc_birth_date OR pax_doc.birth_date IS NULL)");
       break;
     case paxPnl:
-      conditions.push_back("crs_pax.pax_id=crs_pax_doc.pax_id");
-      conditions.push_back("crs_pax_doc.no=:doc_no");
-      if (birth_date!=ASTRA::NoExists)
-        conditions.push_back("(crs_pax_doc.birth_date=:doc_birth_date OR crs_pax_doc.birth_date IS NULL)");
+      conditions.push_back("crs_pax.pax_id=:pax_id");
       break;
     case paxTest:
       conditions.push_back("test_pax.doc_no=:doc_no");
@@ -3287,9 +3360,55 @@ void TPaxDocItem::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<s
 
 void TPaxDocItem::addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const
 {
+  if (origin == paxPnl) {
+    return;
+  }
   params << QParam("doc_no", otString, no);
   if (birth_date!=ASTRA::NoExists)
     params << QParam("doc_birth_date", otDate, birth_date);
+}
+
+std::set<PaxId_t> loadPaxIdSetByDocs(const std::string& doc_no, TDateTime birth_date)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": doc_no=" << doc_no
+                   << ", birth_date=" << birth_date;
+  std::set<PaxId_t> result;
+  int pax_id = 0;
+  auto cur = make_db_curs(
+        "SELECT pax_id "
+        "FROM crs_pax_doc "
+        "WHERE no=:doc_no "
+        + std::string(
+          birth_date!=ASTRA::NoExists
+          ? "AND (crs_pax_doc.birth_date=:doc_birth_date "
+            "OR crs_pax_doc.birth_date IS NULL) "
+          : ""),
+        PgOra::getROSession("CRS_PAX_DOC"));
+  cur.stb()
+      .def(pax_id)
+      .bind(":doc_no", doc_no);
+  if (birth_date!=ASTRA::NoExists) {
+    cur.bind(":doc_birth_date", DateTimeToBoost(birth_date));
+  }
+  cur.exec();
+
+  while (!cur.fen()) {
+    result.emplace(pax_id);
+  }
+  LogTrace(TRACE6) << __func__
+                   << ": count=" << result.size();
+  return result;
+}
+
+void TPaxDocItem::addSearchPaxIds(const PaxOrigin& origin, std::set<PaxId_t>& searchPaxIds) const
+{
+  searchPaxIds = loadPaxIdSetByDocs(no, birth_date);
+}
+
+bool TPaxDocItem::useSearchPaxIds(const PaxOrigin& origin) const
+{
+  return origin == paxPnl;
 }
 
 bool TPaxDocItem::suitable(const TPaxDocItem& doc) const
@@ -3308,6 +3427,9 @@ std::string TScannedPaxDocItem::getTrueNo() const
 
 void TScannedPaxDocItem::addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const
 {
+  if (origin == paxPnl) {
+    return;
+  }
   LogTrace(TRACE5) << __FUNCTION__ << ": doc_no=" << getTrueNo();
   params << QParam("doc_no", otString, getTrueNo());
   if (birth_date!=ASTRA::NoExists)
@@ -3315,6 +3437,16 @@ void TScannedPaxDocItem::addSQLParamsForSearch(const PaxOrigin& origin, QParams&
     LogTrace(TRACE5) << __FUNCTION__ << ": doc_birth_date=" << DateTimeToStr(birth_date);
     params << QParam("doc_birth_date", otDate, birth_date);
   }
+}
+
+void TScannedPaxDocItem::addSearchPaxIds(const PaxOrigin& origin, std::set<PaxId_t>& searchPaxIds) const
+{
+  searchPaxIds = loadPaxIdSetByDocs(getTrueNo(), birth_date);
+}
+
+bool TScannedPaxDocItem::useSearchPaxIds(const PaxOrigin& origin) const
+{
+  return origin == paxPnl;
 }
 
 bool TScannedPaxDocItem::suitable(const TPaxDocItem& doc) const

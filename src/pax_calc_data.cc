@@ -2,6 +2,7 @@
 #include "exceptions.h"
 #include "passenger.h"
 #include "alarms.h"
+#include "tlg/typeb_db.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/slogger.h"
@@ -322,6 +323,7 @@ class PaxEvents: public PaxEventCallbacks<Changes>
 
     static boost::optional<std::string> updatePLSQL(const std::vector<APIAttrs>& api,
                                                     const boost::optional<bool>& crsDeleted,
+                                                    const boost::optional<string>& crsDocNo,
                                                     const boost::optional<std::string>& crsFqtTierLevel);
 };
 
@@ -379,6 +381,12 @@ void PaxEvents::onChange(TRACE_SIGNATURE,
     crsDeleted=cancelCategoryExists;
   }
 
+  boost::optional<std::string> crsDocNo;
+  if (paxOrigin==paxPnl && changes.count(Changes::Doc)>0)
+  {
+    crsDocNo=TypeB::getPSPT(paxId().get(), true /*with_issue_country*/, TReqInfo::Instance()->desk.lang);
+  }
+
   boost::optional<std::string> crsFqtTierLevel;
   if (paxOrigin==paxPnl && changes.count(Changes::Fqt)>0)
   {
@@ -386,13 +394,15 @@ void PaxEvents::onChange(TRACE_SIGNATURE,
     crsFqtTierLevel=item?item.get().tier_level:"";
   }
 
-  boost::optional<std::string> sql=updatePLSQL(attrs, crsDeleted, crsFqtTierLevel);
+  boost::optional<std::string> sql=updatePLSQL(attrs, crsDeleted, crsDocNo, crsFqtTierLevel);
   if (!sql) return; //ничего не меняем
 
   auto cur=make_curs(sql.get());
   cur.bind(":pax_calc_data_id", paxId().get());
   if (crsDeleted)
     cur.bind(":crs_deleted", crsDeleted.get());
+  if (crsDocNo)
+    cur.bind(":crs_doc_no", crsDocNo.get());
   if (crsFqtTierLevel)
     cur.bind(":crs_fqt_tier_level", crsFqtTierLevel.get());
 
@@ -413,6 +423,7 @@ void PaxEvents::onChange(TRACE_SIGNATURE,
 
 boost::optional<std::string> PaxEvents::updatePLSQL(const std::vector<APIAttrs>& attrs,
                                                     const boost::optional<bool>& crsDeleted,
+                                                    const boost::optional<std::string>& crsDocNo,
                                                     const boost::optional<std::string>& crsFqtTierLevel)
 {
   std::string insertIntoSQL;
@@ -439,6 +450,19 @@ boost::optional<std::string> PaxEvents::updatePLSQL(const std::vector<APIAttrs>&
     insertIntoSQL+=i.insertIntoSQL();
     insertValuesSQL+=i.insertValuesSQL();
     updateValuesSQL+=i.updateValuesSQL();
+    firstIteration=false;
+  }
+
+  if (crsDocNo) {
+    if (!firstIteration)
+    {
+      insertIntoSQL+=", \n";
+      insertValuesSQL+=", \n";
+      updateValuesSQL+=", \n";
+    }
+    insertIntoSQL+="crs_doc_no";
+    insertValuesSQL+=":crs_doc_no";
+    updateValuesSQL+="crs_doc_no=:crs_doc_no";
     firstIteration=false;
   }
 

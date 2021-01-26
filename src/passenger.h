@@ -14,6 +14,7 @@
 #include "astra_types.h"
 #include "astra_misc.h"
 #include "base_callbacks.h"
+#include "db_tquery.h"
 
 using BASIC::date_time::TDateTime;
 
@@ -324,6 +325,8 @@ class TPaxTknItem : public TPaxAPIItem, public TPaxRemBasic
     void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const;
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
     void addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const;
+    void addSearchPaxIds(const PaxOrigin&, std::set<PaxId_t>&) const { return; }
+    bool useSearchPaxIds(const PaxOrigin&) const { return false; }
     bool finalPassengerCheck(const TSimplePaxItem& pax) const { return true; }
     bool suitable(const TPaxTknItem& tkn) const;
 };
@@ -364,7 +367,7 @@ class TPaxDocCompoundType
   TPaxDocCompoundType& fromWebXML(xmlNodePtr node);
   TPaxDocCompoundType& fromMeridianXML(xmlNodePtr node);
   const TPaxDocCompoundType& toDB(TQuery &Qry) const;
-  TPaxDocCompoundType& fromDB(TQuery &Qry);
+  TPaxDocCompoundType& fromDB(DB::TQuery &Qry);
 };
 
 class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic, public TPaxDocCompoundType
@@ -451,7 +454,7 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic, public TPaxDocCompo
     TPaxDocItem& fromWebXML(xmlNodePtr node);
     TPaxDocItem& fromMeridianXML(xmlNodePtr node);
     const TPaxDocItem& toDB(TQuery &Qry) const;
-    TPaxDocItem& fromDB(TQuery &Qry);
+    TPaxDocItem& fromDB(DB::TQuery &Qry);
 
     long int getEqualAttrsFieldsMask(const TPaxDocItem &item) const;
     long int getNotEmptyFieldsMask() const;
@@ -469,6 +472,8 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic, public TPaxDocCompo
     void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const;
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
     void addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const;
+    void addSearchPaxIds(const PaxOrigin& origin, std::set<PaxId_t>& searchPaxIds) const;
+    bool useSearchPaxIds(const PaxOrigin& origin) const;
     bool finalPassengerCheck(const TSimplePaxItem& pax) const { return true; }
     bool suitable(const TPaxDocItem& doc) const;
 
@@ -493,6 +498,8 @@ class TScannedPaxDocItem : public TPaxDocItem
     std::string getTrueNo() const;
 
     void addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const;
+    void addSearchPaxIds(const PaxOrigin& origin, std::set<PaxId_t>& searchPaxIds) const;
+    bool useSearchPaxIds(const PaxOrigin& origin) const;
     bool finalPassengerCheck(const TSimplePaxItem& pax) const { return true; }
     bool suitable(const TPaxDocItem& doc) const;
 };
@@ -565,7 +572,7 @@ class TPaxDocoItem : public TPaxAPIItem, public TPaxRemBasic, public TPaxDocComp
     TPaxDocoItem& fromWebXML(xmlNodePtr node);
     TPaxDocoItem& fromMeridianXML(xmlNodePtr node);
     const TPaxDocoItem& toDB(TQuery &Qry) const;
-    TPaxDocoItem& fromDB(TQuery &Qry);
+    TPaxDocoItem& fromDB(DB::TQuery &Qry);
 
     bool needPseudoType() const;
 
@@ -668,7 +675,7 @@ class TPaxDocaItem : public TPaxAPIItem, public TPaxRemBasic
     TPaxDocaItem& fromXML(xmlNodePtr node);
     TPaxDocaItem& fromMeridianXML(xmlNodePtr node);
     const TPaxDocaItem& toDB(TQuery &Qry) const;
-    TPaxDocaItem& fromDB(TQuery &Qry);
+    TPaxDocaItem& fromDB(DB::TQuery &Qry);
 
     long int getEqualAttrsFieldsMask(const TPaxDocaItem &item) const;
     void ReplacePunctSymbols();
@@ -1065,8 +1072,8 @@ class TSimplePaxGrpItem
     }
 };
 
-std::set<int> loadInfIdSet(int pax_id, bool lock);
-std::set<int> loadSeatIdSet(int pax_id, bool lock);
+std::set<PaxId_t> loadInfIdSet(PaxId_t pax_id, bool lock);
+std::set<PaxId_t> loadSeatIdSet(PaxId_t pax_id, bool lock);
 
 class TPaxGrpItem : public TSimplePaxGrpItem
 {
@@ -1306,6 +1313,8 @@ class TPnrAddrInfo
     void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const;
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
     void addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const;
+    void addSearchPaxIds(const PaxOrigin&, std::set<PaxId_t>&) const { return; }
+    bool useSearchPaxIds(const PaxOrigin&) const { return false; }
     bool finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const { return true; }
     bool suitable(const TPnrAddrInfo& pnr) const;
     bool suitable(const TPnrAddrs& pnrs) const;
