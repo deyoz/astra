@@ -563,6 +563,9 @@ BEGIN
       END IF;
       IF curRow.refuse='А' THEN
         deleted:=deleted+1;
+        delete from annul_tags where id in(
+          select id from annul_bag where pax_id = curRow.pax_id);
+        delete from annul_bag where pax_id = curRow.pax_id;
         DELETE FROM pax_events WHERE pax_id=curRow.pax_id;
         DELETE FROM stat_ad WHERE pax_id=curRow.pax_id;
         DELETE FROM stat_services WHERE pax_id=curRow.pax_id;
@@ -669,6 +672,9 @@ BEGIN
   END IF;
   IF NOT(is_unaccomp) AND checked+refused=0 OR
      is_unaccomp AND vbag_refuse<>0 THEN
+    delete from annul_tags where id in(
+      select id from annul_bag where grp_id = vgrp_id);
+    delete from annul_bag where grp_id = vgrp_id;
     DELETE FROM bag_prepay WHERE grp_id=vgrp_id;
     UPDATE bag_receipts SET grp_id=NULL WHERE grp_id=vgrp_id;
     DELETE FROM bag_tags WHERE grp_id=vgrp_id;
@@ -685,6 +691,7 @@ BEGIN
     DELETE FROM value_bag WHERE grp_id=vgrp_id;
     DELETE FROM pnr_addrs_pc WHERE grp_id=vgrp_id;
     DELETE FROM grp_service_lists WHERE grp_id=vgrp_id;
+    DELETE FROM svc_prices WHERE grp_id=vgrp_id;
     DELETE FROM pax_grp WHERE grp_id=vgrp_id;
     --не чистим mark_trips потому что будет слишком долгая проверка pax_grp.point_id_mark
     FOR langCurRow IN langCur LOOP

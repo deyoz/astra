@@ -23,9 +23,9 @@ cltSmoke          CONSTANT TCompLayerType := 'SMOKE';
 
 TYPE TCRSSeatInfo IS RECORD
 (
-point_id        	      NUMBER(9),
-pr_lat_seat     	      trip_sets.pr_lat_seat%TYPE,
-pr_paid_ckin    	      trip_paid_ckin.point_id%TYPE,
+point_id        NUMBER(9),
+pr_lat_seat     trip_sets.pr_lat_seat%TYPE,
+pr_paid_ckin    trip_paid_ckin.point_id%TYPE,
 airline		            	comp_layer_priorities.airline%TYPE,
 use_airline_priority    misc_set.pr_misc%TYPE
 );

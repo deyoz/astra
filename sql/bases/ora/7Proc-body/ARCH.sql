@@ -349,7 +349,6 @@ BEGIN
   RETURN vairp;
 END next_airp;
 
-
 PROCEDURE move(vmove_id  points.move_id%TYPE,
                vpart_key DATE,
                vdate_range move_arx_ext.date_range%TYPE)
@@ -381,7 +380,6 @@ miscids2 TIdsTable;
 
 use_insert BOOLEAN;
 use_move_insert BOOLEAN;
-
 BEGIN
   /*лочим*/
   UPDATE points SET point_id=point_id WHERE move_id=vmove_id;
@@ -439,7 +437,6 @@ BEGIN
     pax_count:=0;
     use_insert:=curRow.pr_del<>-1;
 
-
     FOR langCurRow IN langCur LOOP
       SELECT rowid BULK COLLECT INTO rowids
       FROM events_bilingual
@@ -463,9 +460,6 @@ BEGIN
         DELETE FROM events_bilingual WHERE rowid=rowids(i);
     END LOOP;
 
-
-
-
     SELECT rowid,grp_id BULK COLLECT INTO grprowids,grpids
     FROM pax_grp
     WHERE point_dep=curRow.point_id FOR UPDATE;
@@ -485,7 +479,6 @@ BEGIN
           WHEN DUP_VAL_ON_INDEX THEN NULL;
         END;
       END LOOP;
-
 
       FORALL i IN 1..grprowids.COUNT
         INSERT INTO arx_pax_grp
@@ -524,10 +517,10 @@ BEGIN
       FORALL i IN 1..rowids.COUNT
         INSERT INTO arx_rfisc_stat
            (point_id, pr_trfer, trfer_airline, trfer_flt_no, trfer_suffix, trfer_airp_arv, trfer_scd,
-            point_num, airp_arv, rfisc, excess, paid, tag_no, fqt_no, travel_time, user_login, user_descr, desk, time_create, part_key)
+            point_num, airp_arv, reg_no, ticket_no, coupon_no, rfisc, excess, paid, tag_no, fqt_no, travel_time, user_login, user_descr, desk, time_create, part_key)
         SELECT
            point_id, pr_trfer, trfer_airline, trfer_flt_no, trfer_suffix, trfer_airp_arv, trfer_scd,
-            point_num, airp_arv, rfisc, excess, paid, tag_no, fqt_no, travel_time, user_login, user_descr, desk, time_create, vpart_key
+            point_num, airp_arv, reg_no, ticket_no, coupon_no, rfisc, excess, paid, tag_no, fqt_no, travel_time, user_login, user_descr, desk, time_create, vpart_key
         FROM rfisc_stat
         WHERE rowid=rowids(i);
     END IF;
@@ -855,11 +848,8 @@ BEGIN
       END IF;
     END LOOP;
 
-
     FOR j IN 1..grpids.COUNT LOOP
       /* ======================цикл по группам пассажиров========================= */
-
-
 
       SELECT id BULK COLLECT INTO miscids
       FROM annul_bag
@@ -965,6 +955,25 @@ BEGIN
       FORALL i IN 1..rowids.COUNT
         DELETE FROM paid_bag WHERE rowid=rowids(i);
 
+      SELECT rowid BULK COLLECT INTO rowids
+      FROM pay_services
+      WHERE grp_id=grpids(j) FOR UPDATE;
+      IF use_insert THEN
+        FORALL i IN 1..rowids.COUNT
+          INSERT INTO arx_pay_services
+            (grp_id,pax_id,transfer_num,rfisc,service_type,airline,
+             name_view,name_view_lat,list_id,svc_id,doc_id,pass_id,seg_id,
+             price,currency,ticknum,ticket_cpn,time_paid,order_id, part_key)
+          SELECT
+             grp_id,pax_id,transfer_num,rfisc,service_type,airline,
+             name_view,name_view_lat,list_id,svc_id,doc_id,pass_id,seg_id,
+             price,currency,ticknum,ticket_cpn,time_paid,order_id, vpart_key
+          FROM pay_services
+          WHERE rowid=rowids(i);
+      END IF;
+      FORALL i IN 1..rowids.COUNT
+        DELETE FROM pay_services WHERE rowid=rowids(i);
+
       SELECT rowid,pax_id BULK COLLECT INTO paxrowids,paxids
       FROM pax
       WHERE grp_id=grpids(j) FOR UPDATE;
@@ -1019,7 +1028,6 @@ BEGIN
       FROM tckin_segments,trfer_trips
       WHERE tckin_segments.point_id_trfer=trfer_trips.point_id AND
             grp_id=grpids(j) FOR UPDATE;
-
       IF use_insert THEN
         FORALL i IN 1..rowids.COUNT
           INSERT INTO arx_tckin_segments
@@ -1032,7 +1040,6 @@ BEGIN
           WHERE tckin_segments.rowid=rowids(i) AND seg_no>0 AND
                 trfer_trips.rowid=miscrowids(i);
       END IF;
-      
       FORALL i IN 1..rowids.COUNT
         DELETE FROM tckin_segments WHERE rowid=rowids(i);
       FOR i IN 1..miscrowids.COUNT LOOP
@@ -1204,6 +1211,8 @@ BEGIN
       DELETE FROM pnr_addrs_pc WHERE grp_id=grpids(j);
       DELETE FROM grp_service_lists WHERE grp_id=grpids(j);
       DELETE FROM bag_tags_generated WHERE grp_id=grpids(j);
+      DELETE FROM mps_exchange WHERE grp_id=grpids(j);
+      DELETE FROM svc_prices WHERE grp_id=grpids(j);
     END LOOP;
     FORALL i IN 1..grprowids.COUNT
       DELETE FROM pax_grp WHERE rowid=grprowids(i);
@@ -1253,11 +1262,11 @@ BEGIN
     DELETE FROM trip_tasks WHERE point_id=curRow.point_id;
     DELETE FROM trip_apis_params WHERE point_id=curRow.point_id;
     DELETE FROM counters_by_subcls WHERE point_id=curRow.point_id;
---    DELETE FROM iapi_pax_data WHERE point_id=curRow.point_id;
     DELETE FROM wb_msg_text where id in(SELECT id FROM wb_msg WHERE point_id = curRow.point_id);
     DELETE FROM wb_msg where point_id = curRow.point_id;
     DELETE FROM trip_vouchers WHERE point_id=curRow.point_id;
     DELETE FROM confirm_print_vo_unreg WHERE point_id = curRow.point_id;
+    DELETE FROM del_vo WHERE point_id = curRow.point_id;
     DELETE FROM hotel_acmd_pax WHERE point_id = curRow.point_id;
     DELETE FROM hotel_acmd_free_pax WHERE point_id = curRow.point_id;
     DELETE FROM hotel_acmd_dates WHERE point_id = curRow.point_id;

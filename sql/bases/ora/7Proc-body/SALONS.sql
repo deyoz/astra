@@ -203,14 +203,15 @@ CURSOR MiscCur(vairline        points.airline%TYPE,
          DECODE(flt_no,NULL,0,2)+
          DECODE(airp_dep,NULL,0,4) AS priority
   FROM misc_set
-  WHERE (airline IS NULL OR airline=vairline) AND
+  WHERE type=95 AND
+        (airline IS NULL OR airline=vairline) AND
         (flt_no IS NULL OR flt_no=vflt_no) AND
         (airp_dep IS NULL OR airp_dep=vairp_dep)
   ORDER BY priority DESC;
-curRow    	cur%ROWTYPE;
+curRow    cur%ROWTYPE;
 curMiscRow      MiscCur%ROWTYPE;
-res 		VARCHAR2(20);
-vpoint_dep 	crs_pnr.point_id%TYPE;
+res VARCHAR2(20);
+vpoint_dep crs_pnr.point_id%TYPE;
 vflt_no		points.flt_no%TYPE;
 vairp_dep		points.airp%TYPE;
 BEGIN
@@ -226,7 +227,7 @@ BEGIN
   IF row=1 OR
      vpoint_id IS NULL OR
      crsSeatInfo.airline IS NULL THEN -- поиск самого приоритетного слоя, первая строка, надо найти АК
-     BEGIN
+    BEGIN
        SELECT points.airline,
               points.flt_no,
               points.airp,
@@ -235,12 +236,12 @@ BEGIN
             vflt_no,
             vairp_dep,
             vpoint_dep
-       FROM crs_pnr,crs_pax,tlg_binding,points
-       WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND
-             crs_pax.pax_id=vpax_id AND
-             tlg_binding.point_id_tlg=crs_pnr.point_id AND
-             points.point_id=tlg_binding.point_id_spp AND
-             rownum<=1;
+      FROM crs_pnr,crs_pax,tlg_binding,points
+      WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND
+            crs_pax.pax_id=vpax_id AND
+            tlg_binding.point_id_tlg=crs_pnr.point_id AND
+            points.point_id=tlg_binding.point_id_spp AND
+            rownum<=1;
        OPEN MiscCur(crsSeatInfo.airline,vflt_no,vairp_dep);
        FETCH MiscCur INTO curMiscRow;
        IF MiscCur%FOUND THEN
@@ -248,15 +249,15 @@ BEGIN
        ELSE
          crsSeatInfo.use_airline_priority:=0;
        END IF;
-     EXCEPTION
-       WHEN NO_DATA_FOUND THEN
-         crsSeatInfo.airline:=NULL;
+    EXCEPTION
+      WHEN NO_DATA_FOUND THEN
+        crsSeatInfo.airline:=NULL;
          crsSeatInfo.use_airline_priority:=0;
-         crsSeatInfo.point_id:=NULL;
-         RETURN NULL;
+        crsSeatInfo.point_id:=NULL;
+        RETURN NULL;
     END;
   ELSE
-     vpoint_dep:=vpoint_id;
+    vpoint_dep:=vpoint_id;
   END IF;
   res:=NULL;
   OPEN cur(crsSeatInfo.airline,crsSeatInfo.use_airline_priority);

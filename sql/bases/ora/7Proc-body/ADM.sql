@@ -1370,7 +1370,7 @@ IS
 lparams system.TLexemeParams;
 BEGIN
   IF vaddr IS NOT NULL THEN
-    IF LENGTH(vaddr)<4 THEN
+    IF LENGTH(vaddr)<2 THEN
       lparams('addr'):=vaddr;
       system.raise_user_exception('MSG.TLG.INVALID_ADDR_LENGTH', lparams);
     END IF;
@@ -2779,6 +2779,7 @@ PROCEDURE modify_rem_event_sets(old_set_id          rem_event_sets.set_id%TYPE,
                                 web                 rem_event_sets.event_value%TYPE,
                                 kiosk               rem_event_sets.event_value%TYPE,
                                 mob                 rem_event_sets.event_value%TYPE,
+                                free_seat           rem_event_sets.event_value%TYPE,
                                 vsetting_user       history_events.open_user%TYPE,
                                 vstation            history_events.open_desk%TYPE)
 IS
@@ -2789,7 +2790,7 @@ vid          rem_event_sets.id%TYPE;
 vset_id      rem_event_sets.set_id%TYPE;
 BEGIN
   SELECT id__seq.nextval INTO vset_id FROM dual;
-  FOR i IN 1..16 LOOP
+  FOR i IN 1..17 LOOP
     vevent_type:= CASE i
                     WHEN 1  THEN 'BP'
                     WHEN 2  THEN 'ALARM_SS'
@@ -2807,6 +2808,7 @@ BEGIN
                     WHEN 14 THEN 'WEB'
                     WHEN 15 THEN 'KIOSK'
                     WHEN 16 THEN 'MOB'
+                    WHEN 17 THEN 'FREE_SEAT'
                   END;
     vevent_value:=CASE i
                     WHEN 1  THEN bp
@@ -2825,6 +2827,7 @@ BEGIN
                     WHEN 14 THEN web
                     WHEN 15 THEN kiosk
                     WHEN 16 THEN mob
+                    WHEN 17 THEN free_seat
                   END;
 
     IF vevent_type IN ('SELF_CKIN_EXCHANGE', 'WEB', 'KIOSK', 'MOB') THEN
