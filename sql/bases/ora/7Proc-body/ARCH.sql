@@ -1253,7 +1253,7 @@ BEGIN
     DELETE FROM trip_tasks WHERE point_id=curRow.point_id;
     DELETE FROM trip_apis_params WHERE point_id=curRow.point_id;
     DELETE FROM counters_by_subcls WHERE point_id=curRow.point_id;
-    DELETE FROM iapi_pax_data WHERE point_id=curRow.point_id;
+--    DELETE FROM iapi_pax_data WHERE point_id=curRow.point_id;
     DELETE FROM wb_msg_text where id in(SELECT id FROM wb_msg WHERE point_id = curRow.point_id);
     DELETE FROM wb_msg where point_id = curRow.point_id;
     DELETE FROM trip_vouchers WHERE point_id=curRow.point_id;
