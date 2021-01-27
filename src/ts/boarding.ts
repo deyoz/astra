@@ -324,6 +324,31 @@ $(defmacro PAX_LIST_REQUEST
 
 })
 
+$(defmacro CRS_LIST_REQUEST
+  point_dep
+  capture=off
+{
+
+!! capture=$(capture) err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='prepreg' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='EN' term_id='2479792165'>
+    <ViewCRSList>
+      <dev_model/>
+      <fmt_type/>
+      <prnParams>
+        <pr_lat>0</pr_lat>
+        <encoding>UTF-16LE</encoding>
+        <offset>20</offset>
+        <top>0</top>
+      </prnParams>
+      <point_id>$(point_dep)</point_id>
+    </ViewCRSList>
+  </query>
+</term>}
+
+})
+
 $(defmacro FORM_DATA_SECTION
   total
   total_brd
@@ -689,6 +714,8 @@ $(BOARDING_RESPONSE_ONE_PAX
   $(get apis_04) $(get counters) $(MESSAGE_TAG MSG.PASSENGER.DEBARKED2)
 
 )
+
+$(CRS_LIST_REQUEST $(get point_dep))
 
 $(PAX_LIST_REQUEST $(get point_dep))
 
