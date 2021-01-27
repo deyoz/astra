@@ -15,8 +15,6 @@
 #include "serverlib/slogger.h"
 
 #include "tlg/lci_parser.h"
-#include "img.h"
-#include "collect.h"
 #include "html_pages.h"
 #include "web_main.h"
 #include "kiosk/kiosk_config.h"
@@ -32,12 +30,8 @@
 int nosir_test(int argc,char **argv);
 void nosir_test_help(const char *name);
 
-int seasons_dst_format(int argc,char **argv);
-int points_dst_format(int argc,char **argv);
 int nosir_tscript(int argc, char** argv);
-int tz2db(int argc,char **argv);
 int verifyHTTP(int argc,char **argv);
-int pc_wt_stat(int argc,char **argv);
 int test_reprint(int argc,char **argv);
 int get_events_stat(int argc,char **argv);
 int get_events_stat2(int argc,char **argv);
@@ -46,7 +40,6 @@ int test_typeb_utils(int argc,char **argv);
 int test_typeb_utils2(int argc,char **argv);
 int test_sopp_sql(int argc,char **argv);
 int test_file_queue(int argc,char **argv);
-namespace NatStat { int nat_stat(int argc,char **argv); }
 int ego_stat(int argc,char **argv);
 int tst_vo(int, char**);
 int prn_tags(int argc, char **argv);
@@ -67,15 +60,11 @@ const
     {"-testbm",                 testbm,                 NULL,                       NULL},
     {"-load_fr",                load_fr,                NULL,                       "loading FR files to database"},
     {"-get_fr",                 get_fr,                 NULL,                       "getting FR files from database to local path"},
-    {"-load_img",               img::load_img,          NULL,                       "loading img files to database"},
-    {"-get_img",                img::get_img,           NULL,                       "getting img files from database to local path"},
     {"-termversion",            SetTermVersionNotice,   SetTermVersionNoticeHelp,   NULL},
     {"-create_apis",            create_apis_nosir,      create_apis_nosir_help,     NULL},
     {"-send_tlg",               send_tlg,               send_tlg_help,              NULL},
-    {"-dst_seasons",            seasons_dst_format,     NULL,                       NULL},
     {"-agent_stat_delta",       STAT::agent_stat_delta, NULL,                       NULL},
     {"-lci",                    TypeB::lci,             NULL,                       NULL},
-    {"-tz2db",                  tz2db,                  NULL,                       "reload date_time_zonespec.csv content to db"},
     {"-get_events_stat",        get_events_stat2,       NULL,                       NULL},
     {"-basel_stat",             basel_stat,             NULL,                       NULL},
     {"-testsalons",             testsalons,             NULL,                       NULL},
@@ -86,13 +75,11 @@ const
     {"-tscript",                nosir_tscript,          NULL,                       NULL},
 #endif//XP_TESTING
     {"-file_by_id",             file_by_id,             NULL,                       NULL},
-    {"-dst_points",             points_dst_format,      NULL,                       NULL},
+    // {"-dst_points",             points_dst_format,      NULL,                       NULL},
     {"-ovb",                    STAT::ovb,              NULL,                       NULL},
     {"-http",                   verifyHTTP,             NULL,                       NULL},
     {"-bcbp",                   AstraWeb::bcbp_test,    NULL,                       NULL},
-    {"-nat_stat",               NatStat::nat_stat,      NULL,                       NULL},
     {"-ego_stat",               ego_stat,               NULL,                       NULL},
-    {"-pc_wt_stat",             pc_wt_stat,             NULL,                       NULL},
     {"-rfisc_stat",             nosir_rfisc_stat,       NULL,                       NULL},
     {"-test_reprint",           test_reprint,    NULL,                       NULL},
     {"-ffp",                    ffp,                    ffp_help,                   "getting FFP card status"},
@@ -102,12 +89,9 @@ const
     {"-seDCSAddReport",         nosir_seDCSAddReport,   NULL,                       NULL},
 //    {"-convert_tz",             tz_conversion,          NULL,                       NULL},
 //    {"-test_cnv",               test_conversion,        NULL,                       NULL},
-    {"-bp",                     bp_tst,                 NULL,                       NULL},
     {"-vo",                     tst_vo,                 NULL,                       NULL},
-    {"-annul_bag",              nosir_annul_bag,        NULL,                       NULL},
     {"-html_to_db",             html_to_db,             NULL,                       "loading html files to database"},
     {"-html_from_db",           html_from_db,           NULL,                       "getting html files from database to local path"},
-    {"-test_norms",             WeightConcept::test_norms,             NULL,                       NULL},
     {"-prn_tags",               prn_tags,               NULL,                       NULL},
     {"-kuf_fix",                KUF_STAT::fix,          NULL,                       NULL},
     {"-stat_belgorod",          stat_belgorod,          NULL,                       NULL},
@@ -128,13 +112,13 @@ int nosir_test(int argc,char **argv)
   for(int i=0; i<argc; i++)
     printf("argv[%i]='%s'\n",i,argv[i]);
   return 0;
-};
+}
 
 void nosir_test_help(const char *name)
 {
   printf("  %-15.15s ", name);
   puts("Sample of 'astra -nosir' usage: printing all params");
-};
+}
 
 int main_nosir_user(int argc,char **argv)
 {

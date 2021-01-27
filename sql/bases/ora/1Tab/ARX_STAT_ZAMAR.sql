@@ -1,8 +1,9 @@
-create table arx_stat_zamar (
-    time date not null,
-    airline varchar2(3) not null,
-    airp varchar2(3) not null,
-    amount_ok number(9) not null,
-    amount_fault number(9) not null,
-    part_key date not null
+CREATE TABLE ARX_STAT_ZAMAR (
+    AIRLINE VARCHAR2(3) NOT NULL,
+    AIRP VARCHAR2(3) NOT NULL,
+    AMOUNT_FAULT NUMBER(9) NOT NULL,
+    AMOUNT_OK NUMBER(9) NOT NULL,
+    PART_KEY DATE NOT NULL,
+    SBDO_TYPE VARCHAR2(10) NOT NULL,
+    TIME DATE NOT NULL
 );

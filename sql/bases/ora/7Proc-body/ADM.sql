@@ -1370,7 +1370,7 @@ IS
 lparams system.TLexemeParams;
 BEGIN
   IF vaddr IS NOT NULL THEN
-    IF LENGTH(vaddr)<4 THEN
+    IF LENGTH(vaddr)<2 THEN
       lparams('addr'):=vaddr;
       system.raise_user_exception('MSG.TLG.INVALID_ADDR_LENGTH', lparams);
     END IF;
@@ -2773,12 +2773,13 @@ PROCEDURE modify_rem_event_sets(old_set_id          rem_event_sets.set_id%TYPE,
                                 ckin_view           rem_event_sets.event_value%TYPE,
                                 typeb_psm           rem_event_sets.event_value%TYPE,
                                 typeb_pil           rem_event_sets.event_value%TYPE,
-                                service_stat        rem_event_sets.event_value%TYPE,
+                                rem_stat            rem_event_sets.event_value%TYPE,
                                 limited_capab_stat  rem_event_sets.event_value%TYPE,
                                 self_ckin_exchange  rem_event_sets.event_value%TYPE,
                                 web                 rem_event_sets.event_value%TYPE,
                                 kiosk               rem_event_sets.event_value%TYPE,
                                 mob                 rem_event_sets.event_value%TYPE,
+                                free_seat           rem_event_sets.event_value%TYPE,
                                 vsetting_user       history_events.open_user%TYPE,
                                 vstation            history_events.open_desk%TYPE)
 IS
@@ -2789,7 +2790,7 @@ vid          rem_event_sets.id%TYPE;
 vset_id      rem_event_sets.set_id%TYPE;
 BEGIN
   SELECT id__seq.nextval INTO vset_id FROM dual;
-  FOR i IN 1..16 LOOP
+  FOR i IN 1..17 LOOP
     vevent_type:= CASE i
                     WHEN 1  THEN 'BP'
                     WHEN 2  THEN 'ALARM_SS'
@@ -2801,12 +2802,13 @@ BEGIN
                     WHEN 8  THEN 'CKIN_VIEW'
                     WHEN 9  THEN 'TYPEB_PSM'
                     WHEN 10 THEN 'TYPEB_PIL'
-                    WHEN 11 THEN 'SERVICE_STAT'
+                    WHEN 11 THEN 'REM_STAT'
                     WHEN 12 THEN 'LIMITED_CAPAB_STAT'
                     WHEN 13 THEN 'SELF_CKIN_EXCHANGE'
                     WHEN 14 THEN 'WEB'
                     WHEN 15 THEN 'KIOSK'
                     WHEN 16 THEN 'MOB'
+                    WHEN 17 THEN 'FREE_SEAT'
                   END;
     vevent_value:=CASE i
                     WHEN 1  THEN bp
@@ -2819,12 +2821,13 @@ BEGIN
                     WHEN 8  THEN ckin_view
                     WHEN 9  THEN typeb_psm
                     WHEN 10 THEN typeb_pil
-                    WHEN 11 THEN service_stat
+                    WHEN 11 THEN rem_stat
                     WHEN 12 THEN limited_capab_stat
                     WHEN 13 THEN self_ckin_exchange
                     WHEN 14 THEN web
                     WHEN 15 THEN kiosk
                     WHEN 16 THEN mob
+                    WHEN 17 THEN free_seat
                   END;
 
     IF vevent_type IN ('SELF_CKIN_EXCHANGE', 'WEB', 'KIOSK', 'MOB') THEN

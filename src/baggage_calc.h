@@ -244,8 +244,6 @@ void RecalcPaidBag(const TTripInfo& flt,
                    TPaidBagList& prior_paid,
                    TPaidBagList& result_paid);
 
-int test_norms(int argc,char **argv);
-
 std::string GetBagRcptStr(int grp_id, int pax_id);
 bool BagPaymentCompleted(int grp_id, int *value_bag_count=NULL);
 

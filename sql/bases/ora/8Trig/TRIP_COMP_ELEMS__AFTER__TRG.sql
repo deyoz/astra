@@ -48,5 +48,4 @@ BEGIN
            (crs_pnr.class IS NULL OR crs_pnr.class=:new.class));
   END IF;
 END;
-
 /

@@ -203,7 +203,8 @@ CURSOR MiscCur(vairline        points.airline%TYPE,
          DECODE(flt_no,NULL,0,2)+
          DECODE(airp_dep,NULL,0,4) AS priority
   FROM misc_set
-  WHERE (airline IS NULL OR airline=vairline) AND
+  WHERE type=95 AND
+        (airline IS NULL OR airline=vairline) AND
         (flt_no IS NULL OR flt_no=vflt_no) AND
         (airp_dep IS NULL OR airp_dep=vairp_dep)
   ORDER BY priority DESC;

@@ -53,5 +53,4 @@ BEGIN
            (vcrs_class IS NULL OR vcrs_class=class));
   END IF;
 END;
-
 /

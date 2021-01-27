@@ -15,5 +15,4 @@ BEGIN
     :new.yname:=NVL(salons.normalize_yname(:new.yname),TRIM(UPPER(:new.yname)));
   END IF;
 END;
-
 /
