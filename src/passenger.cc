@@ -2887,7 +2887,7 @@ bool existsPax(int pax_id)
   cur.stb()
       .def(count)
       .bind(":pax_id", pax_id)
-      .exec();
+      .EXfet();
 
   LogTrace(TRACE5) << __func__
                    << ": count=" << count;
