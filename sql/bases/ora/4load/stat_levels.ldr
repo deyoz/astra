@@ -1,0 +1,17 @@
+LOAD DATA
+INFILE *
+INTO TABLE stat_levels
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,view_order
+,visible
+)
+BEGINDATA
+"Общая"|1|1
+"Детализированная"|2|2
+"Подробная"|3|4
+"Трансфер"|4|8
+"Итого"|5|16

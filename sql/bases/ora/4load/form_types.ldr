@@ -1,0 +1,36 @@
+LOAD DATA
+INFILE *
+INTO TABLE form_types
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,name
+,series_len
+,no_len
+,pr_check_bit
+,validator
+,basic_type
+,name_lat
+,id
+)
+BEGINDATA
+"BTEST"|"Big test"|5|10|1|"ТКП"|"M61"||1
+"ФФФ"|"ффф"|4|10|1|"ЮТ"|"M61"|"ффф"|2
+"PRNC1"|"PRNC1"|3|10|1|"ЮХ"|"451"||3
+"PRNC2"|"PRNC2"|3|10|1|"ЮХ"|"451"||4
+"PRNC3"|"PRNC3"|3|10|1|"ЮХ"|"451"||5
+"PRNC4"|"PRNC4"|3|10|1|"ЮХ"|"451"||6
+"PRNC5"|"PRNC5"|3|10|1|"ЮХ"|"451"||7
+"Z61"|"Квитанция для оплаты сверхнормативного багажа (СНГ)"|1|10|1|"ТКП"|"Z61"|"Bill for excess baggage payment (SNG)"|8
+"35"|"Квитанция для оплаты сверхнормативного багажа"|0|10|1|"ТКП"|"35"|"Bill for excess baggage payment"|9
+"M61"|"Ордер разных сборов (форма M61)"|1|10|1|"ТКП"|"M61"|"Order of different charges (form M61)"|10
+"298 451"|"Квитанция для оплаты сверхнормативного багажа а/к ЮТ"|4|10|1|"ЮТ"|"451"|"Bill for excess baggage payment A/L UT"|11
+"ЮХ 451"|"Квитанция для оплаты сверхнормативного багажа а/к ЮХ"|3|10|1|"ЮХ"|"451"|"Bill for excess baggage payment A/L ЮХ"|12
+"K95"|"Квитанция разных сборов"|1|10|0|"ТКП"|"K95"|"Bill of different charges"|13
+"ЯЛ 451"|"Квитанция для оплаты сверхнормативного багажа а/к ЯЛ"|3|10|1|"ЛА"|"451"||14
+"TST"|"tst"|4|10|1|"ЮТ"|"TST"||492358
+"ПЛ 451"|"Квитанция для оплаты сверхнормативного бакажа а/к ПЛ"|3|10|1|"ПЛ"|"451"|"Bill for excess baggage payment A/L FV"|515408
+"298 401"|"298 401"|4|10|1|"ЮТ"|"401"||492354
+"823 451"|"ВИМ"|4|10|1|"ЮТ"|"451"|"VIM"|492642

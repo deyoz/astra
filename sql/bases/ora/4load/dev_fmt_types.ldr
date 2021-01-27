@@ -1,0 +1,31 @@
+LOAD DATA
+INFILE *
+INTO TABLE dev_fmt_types
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,name
+,name_lat
+)
+BEGINDATA
+"SCL_AER"|"Формат обмена с весами СОЧ"|"Format of swap with AER scales"
+"SCL_BTM"|"Формат обмена с весами BTM"|"Format of swap with BTM scales"
+"SCL_CAS"|"Формат обмена с весами CAS"|"Format of swap with CAS scales"
+"SCAN_WGE"|"Формат универсального сканера"|"Wedge device format"
+"BCR"|"BCR-формат"|"BCR format"
+"DPL"|"DPL-формат"|"DPL format"
+"ATB"|"ATB-формат"|"ATB format"
+"BTP"|"BTP-формат"|"BTP format"
+"EPL2"|"EPL2-формат"|"EPL2 format"
+"ZPL2"|"ZPL2-формат"|"ZPL2 format"
+"TEXT"|"Текстовой формат вывода"|"Text output format"
+"EPSON"|"EPSON-формат вывода"|"EPSON output format"
+"FRX"|"Формат генератора отчетов"|"Format of the report generator"
+"SCAN1"|"Формат чтения штрих-кода"|"Format of reading barcode"
+"SCAN2"|"Формат чтения символов"|"Symbols scanning size"
+"SCAN3"|"Формат чтения магнитной полосы"|"Magnetic strip scanning size"
+"SCL_ABS"|"Формат обмена с весами ABS960+"|
+"Graphics2D"|"Graphics2D-формат"|"Graphics2D format"
+"POS-TTK"|"TTK-формат обмена с POS терминалом"|

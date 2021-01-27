@@ -1,0 +1,521 @@
+LOAD DATA
+INFILE *
+INTO TABLE dev_model_params
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+dev_model
+,sess_type
+,fmt_type
+,param_name
+,subparam_name
+,param_value
+,editable
+,desk_grp_id
+,pr_sess_param
+)
+BEGINDATA
+"AMADEUS"|"COM"||"baud_rate"||"9600"|1||
+"AMADEUS"|"COM"||"data_bits"||"7"|1||
+"AMADEUS"|"COM"||"stop_bits"||"1"|1||
+"AMADEUS"|"COM"||"parity_bits"||"Even"|1||
+"AMADEUS"|"COM"||"control_rts"||"Handshake"|0||
+"AMADEUS"|"COM"||"out_cts_flow"||"1"|0||
+"AMADEUS"|"COM"|"ATB"|"prefix"|||0||1
+"AMADEUS"|"COM"|"ATB"|"suffix"|||0||1
+"AMADEUS"|"COM"|"ATB"|"prefix_req"||"26"|0||1
+"AMADEUS"|"COM"|"ATB"|"suffix_req"||"0C"|0||1
+"AMADEUS"|"COM"|"ATB"|"prefix_res"||"02"|0||1
+"AMADEUS"|"COM"|"ATB"|"suffix_res"||"00"|0||1
+"AMADEUS"||"ATB"|"pr_lat"||"1"|0||
+"AMADEUS"|"COM"|"BTP"|"prefix"||"28"|0||1
+"AMADEUS"|"COM"|"BTP"|"suffix"||"29"|0||1
+"AMADEUS"||"BTP"|"pr_lat"||"1"|0||
+"BCR MUSE"|"COM/MUSE"||"env_name"||"BGR"|1||
+|"COM/MUSE"||"baud_rate"||"19200"|1||
+"INTERMEC"|"COM"||"control_rts"||"Handshake"|0||
+"INTERMEC"|"COM"||"out_cts_flow"||"1"|0||
+|"COM/MUSE"||"addr"|||1||
+|"COM/MUSE"||"proc_signals"||"1"|1||
+"OCR MUSE"|"MUSE"||"env_name"||"OCR"|0||
+|"COM/MUSE"||"data_bits"||"8"|1||
+|"COM/MUSE"||"stop_bits"||"1"|1||
+|"COM/MUSE"||"parity_bits"||"None"|1||
+|"COM/MUSE"||"prefix"|||0||
+|"COM/MUSE"||"suffix"|||0||
+|"COM/MUSE"||"read_interval"||"100"|1||
+|"COM/MUSE"||"control_rts"||"Handshake"|0||
+|"COM/MUSE"||"out_cts_flow"||"1"|0||
+|"COM/MUSE"||"wait_response"||"1"|0||
+|"COM/MUSE"||"single_request"||"1"|0||
+|"COM/MUSE"||"request_count"||"3"|0||
+|"COM/MUSE"||"response_timeout"||"1000"|0||
+|"COM/MUSE"||"ignore_airline"||"1"|0||
+||"SCAN_WGE"|"encoding"||"CP1251"|0||
+"MSR MUSE"|"MUSE"||"env_name"||"MSR"|0||
+"ATB MUSE"|"MUSE"||"addr"|||1||
+"BTP MUSE"|"MUSE"||"addr"|||1||
+"DCP MUSE"|"MUSE"||"addr"|||1||
+"SCN MUSE"|"MUSE"||"addr"|||1||
+"OCR MUSE"|"MUSE"||"addr"|||1||
+"MSR MUSE"|"MUSE"||"addr"|||1||
+"BCR MUSE"|"MUSE"||"addr"|||1||
+"ATB MUSE"|"MUSE"||"pool_key"|||0||
+"BTP MUSE"|"MUSE"||"pool_key"|||0||
+"DCP MUSE"|"MUSE"||"pool_key"|||0||
+"SCN MUSE"|"MUSE"||"pool_key"|||0||
+"OCR MUSE"|"MUSE"||"pool_key"|||0||
+"MSR MUSE"|"MUSE"||"pool_key"|||0||
+"BCR MUSE"|"MUSE"||"pool_key"|||0||
+"ACC SABRE"||"SCAN1"|"prefix"||"4243"|1||
+"ACC SABRE"||"SCAN1"|"postfix"|||1||
+"ACC SABRE"|"COM"||"prefix"||"02"|0||
+"ACC SABRE"|"COM"||"suffix"||"03"|0||
+"BCR CUTE"||"BCR"|"msg_confirm_def"||"MG#B#AOK-GOODB"|0||
+"BCR CUTE"||"BCR"|"msg_cancel_def"||"MG#B#ASTOP-ERRORB"|0||
+"BCR CUTE"||"BCR"|"msg_cancel_test"||"MG#B#ASTOP-TESTB"|0||
+"BCR MUSE"||"BCR"|"prefix"||"4243524923"|0||
+"BCR MUSE"||"BCR"|"postfix"|||0||
+"BCR MUSE"||"BCR"|"code_id_len"||"3"|0||
+"BCR MUSE"||"BCR"|"encoding"||"CP1251"|0||
+"BCR MUSE"|"MUSE"||"env_name"||"BGR"|0||
+"BCR MUSE"||"BCR"|"use_dialogs"||"0"|0||
+"BCR MUSE"||"BCR"|"msg_confirm_def"||"MG#B#AOK-GOODB"|0||
+"BCR MUSE"||"BCR"|"msg_cancel_def"||"MG#B#ASTOP-ERRORB"|0||
+"BCR MUSE"||"BCR"|"msg_cancel_test"||"MG#B#ASTOP-TESTB"|0||
+"BCR MUSE"||"BCR"|"msg_cancel_100"||"MG#B#ASTOPBWRONG FLIGHT"|0||
+"BCR MUSE"||"BCR"|"msg_cancel_120"||"MG#B#ASTOP-DUPLICATEB"|0||
+"BCR MUSE"||"BCR"|"msg_hello"||"MG#B#ADCS ASTRAB"|0||
+"BCR MUSE"||"BCR"|"msg_bye"|||0||
+"BCR MUSE"||"BCR"|"use_buzzer"||"1"|0||
+"BCR MUSE"||"BCR"|"use_red_delay"||"0"|0||
+"BCR MUSE"||"BCR"|"use_green_delay"||"0"|0||
+"BCR MUSE"||"BCR"|"cmd_confirm_data"||"NN"|0||
+"OCR CUTE"|"COM"|"SCAN2"|"prefix"||"1C02"|0||0
+"BCR CUTE"||"BCR"|"msg_cancel_100"||"MG#B#ASTOPBWRONG FLIGHT"|0||
+"BCR CUTE"||"BCR"|"msg_cancel_120"||"MG#B#ASTOP-DUPLICATEB"|0||
+"BCR CUTE"||"BCR"|"msg_hello"||"MG#B#ADCS ASTRAB"|0||
+"OCR CUTE"|"COM"|"SCAN2"|"postfix"||"031D"|0||0
+"BCR CUTE"||"BCR"|"msg_bye"|||0||
+"MSR CUTE"|"COM"|"SCAN3"|"prefix"||"0E02"|0||0
+"MSR CUTE"|"COM"|"SCAN3"|"postfix"||"030F"|0||0
+|"CUTE"||"use_run_params"||"0"|0||
+|"LPT"|"ZPL2"|"magic_button"||"Загрузить шрифты"|0||0
+"BCR CUTE"||"BCR"|"use_buzzer"||"0"|0|1|
+"OKI6300"||"EPSON"|"left"||"20"|1||
+"OKI6300"||"EPSON"|"top"||"0"|1||
+"OKI6300"|||"pr_stock"||"0"|1||
+"OCR CUTE"||"SCAN2"|"prefix"|||0||
+"OCR CUTE"||"SCAN2"|"postfix"|||0||
+"OCR CUTE"|"CUTE"||"dev_type"||"WDG_BASE"|0||
+"OCR CUTE"|"CUTE"||"addr"||"OCR"|1||
+"OCR CUTE"|"CUTE"||"multisession"||"0"|0||
+"DCP MUSE"|"MUSE"||"wait_response"||"0"|0||
+|"COM/CUTE"||"addr"|||1||
+|"COM/CUTE"||"proc_signals"||"1"|1||
+"BTP CUTE"||"BTP"|"mode_indicator"||"S"|0||
+|"COM/CUTE"||"baud_rate"||"9600"|1||
+|"COM/CUTE"||"data_bits"||"8"|1||
+|"COM/CUTE"||"stop_bits"||"1"|1||
+|"COM/CUTE"||"parity_bits"||"None"|1||
+|"COM/CUTE"||"suffix"|||0||
+|"COM/CUTE"||"read_interval"||"100"|1||
+|"COM/CUTE"||"wait_response"||"1"|0||
+|"COM/CUTE"||"single_request"||"1"|0||
+|"COM/CUTE"||"request_count"||"3"|0||
+|"COM/CUTE"||"response_timeout"||"500"|0||
+|"COM/CUTE"||"control_rts"||"Handshake"|0||
+|"COM/CUTE"||"out_cts_flow"||"1"|0||
+"BTP CUTE"||"BTP"|"mode"||"CUTE"|0||
+"BTP CUTE"||"BTP"|"logonum"||"01"|0||
+"BCR CUTE"||"BCR"|"mode"||"CUTE"|0||
+"BCR CUTE"||"BCR"|"mode_indicator"||"S"|0||
+"BCR CUTE"||"BCR"|"hdc"||"ASTRA"|0||
+"ATB CUTE"||"ATB"|"mode"||"CUTE"|0||
+"ATB CUTE"||"ATB"|"mode_indicator"||"S"|0||
+"ATB CUTE"||"ATB"|"mode"||"CUTE"|0|1|
+"ATB CUTE"||"ATB"|"mode_indicator"||"A"|0|1|
+"BTP CUTE"||"BTP"|"mode"||"CUTE"|0|1|
+"BTP CUTE"||"BTP"|"mode_indicator"||"A"|0|1|
+|"COM/CUTE"||"prefix"|||0||
+||"TEXT"|"paper_height"|||1||
+||"FRX"|"paper_height"|||1||
+"SCL AER"|"COM"||"baud_rate"||"1200"|1||
+"SCL BTM"|"COM"||"baud_rate"||"4800"|1||
+"SCL BTM"|"COM"||"check"||"1"|1||
+|"COM/CAS"||"wait_response"||"0"|0||
+|"COM/CAS"||"proc_signals"||"1"|1||
+|"COM/CAS"||"addr"|||1||
+|"COM/CAS"||"baud_rate"||"9600"|1||
+|"COM/CAS"||"data_bits"||"8"|1||
+|"COM/CAS"||"stop_bits"||"1"|1||
+|"COM/CAS"||"parity_bits"||"None"|1||
+|"COM/CAS"||"prefix"|||1||
+|"COM/CAS"||"suffix"|||1||
+|"COM/CAS"||"control_rts"||"Disable"|1||
+|"COM/CAS"||"read_interval"||"100"|1||
+|"COM"|"EPL2"|"wait_response"||"0"|0||1
+|"COM"||"wait_response"||"1"|0||
+|"COM"|"ZPL2"|"wait_response"||"0"|0||1
+|"COM"|"DPL"|"wait_response"||"0"|0||1
+|"COM/CUTE"||"ignore_airline"||"1"|0||
+"ATB CUSE"|"CUSE"||"env_name"||"ATB"|0||
+"DCP CUTE"|"CUTE"||"wait_response"||"0"|0||
+"EPSON AEA"|"COM"||"control_rts"||"Handshake"|0||
+"EPSON AEA"|"COM"||"out_cts_flow"||"1"|0||
+"EPSON AEA"||"ATB"|"encoding"||"CP866"|1||
+"EPSON AEA"||"BTP"|"encoding"||"CP866"|1||
+"ATB CUSE"||"ATB"|"pr_lat"||"1"|0||
+"ATB CUSE"|"CUSE"||"addr"|||1||
+"ATB CUSE"|"CUSE"||"print_timeout"||"3"|0||
+"BTP CUSE"||"BTP"|"pr_lat"||"1"|0||
+"BTP CUSE"|"CUSE"||"env_name"||"BTP"|0||
+"BTP CUSE"|"CUSE"||"addr"|||1||
+"BTP CUSE"|"CUSE"||"print_timeout"||"3"|0||
+"DCP CUSE"||"TEXT"|"pr_lat"||"1"|0||
+"DCP CUSE"|"CUSE"||"env_name"||"DCP"|0||
+"DCP CUSE"|"CUSE"||"addr"|||1||
+"DCP CUSE"|"CUSE"||"ignore_busy"||"1"|0||
+"DCP CUSE"|"CUSE"||"wait_response"||"0"|0||
+"SCN CUSE"|"CUSE"||"env_name"||"SCN"|0||
+"SCN CUSE"|"CUSE"||"addr"|||1||
+"SCN CUSE"|"CUSE"||"use_clearqueue"||"0"|0||
+"OCR CUSE"|"CUSE"||"env_name"||"OCR"|0||
+"OCR CUSE"|"CUSE"||"addr"|||1||
+"OCR CUSE"|"CUSE"||"use_clearqueue"||"0"|0||
+"MSR CUSE"|"CUSE"||"env_name"||"MSR"|0||
+"MSR CUSE"|"CUSE"||"addr"|||1||
+"MSR CUSE"|"CUSE"||"use_clearqueue"||"0"|0||
+"BCR CUSE"||"BCR"|"prefix"||"43555342435249235D"|0||
+"BCR CUSE"||"BCR"|"postfix"|||0||
+"BCR CUSE"||"BCR"|"code_id_len"||"2"|0||
+"BCR CUSE"||"BCR"|"encoding"||"CP1251"|0||
+"BCR CUSE"||"BCR"|"use_dialogs"||"0"|0||
+"BCR CUSE"||"BCR"|"msg_confirm_def"||"MG#B#AOK-GOODB"|0||
+"BCR CUSE"||"BCR"|"msg_cancel_def"||"MG#B#ASTOP-ERRORB"|0||
+"BCR CUSE"||"BCR"|"msg_cancel_test"||"MG#B#ASTOP-TESTB"|0||
+"BCR CUSE"||"BCR"|"msg_cancel_100"||"MG#B#ASTOPBWRONG FLIGHT"|0||
+"BCR CUSE"||"BCR"|"msg_cancel_120"||"MG#B#ASTOP-DUPLICATEB"|0||
+"BCR CUSE"||"BCR"|"msg_hello"||"MG#B#ADCS ASTRAB"|0||
+"BCR CUSE"||"BCR"|"msg_bye"|||0||
+"BCR CUSE"||"BCR"|"use_buzzer"||"1"|0||
+"BCR CUSE"|"CUSE"||"env_name"||"BGR"|0||
+"BCR CUSE"|"CUSE"||"addr"|||1||
+"BCR CUSE"|"CUSE"||"delete_st_msg"||"1"|0||
+"BCR CUSE"|"CUSE"||"ignore_busy"||"1"|0||
+"BCR CUSE"|"CUSE"||"use_clearqueue"||"0"|0||
+"WGE CUSE"||"SCAN_WGE"|"encoding"||"CP1251"|0||
+"WGE CUSE"||"SCAN_WGE"|"SCN_prefix"||"1E02"|0||
+"WGE CUSE"||"SCAN_WGE"|"SCN_postfix"||"0D031F"|0||
+"WGE CUSE"||"SCAN_WGE"|"SCN_code_id_len"||"1"|0||
+"WGE CUSE"||"SCAN_WGE"|"OCR_prefix"||"1C02"|0||
+"WGE CUSE"||"SCAN_WGE"|"OCR_postfix"||"0D031D"|0||
+"WGE CUSE"||"SCAN_WGE"|"MSR_prefix"||"0E02"|0||
+"WGE CUSE"||"SCAN_WGE"|"MSR_postfix"||"030F"|0||
+"WGE CUSE"|"CUSE"||"env_name"||"WGE"|0||
+"WGE CUSE"|"CUSE"||"addr"|||1||
+"WGE CUSE"|"CUSE"||"use_clearqueue"||"0"|0||
+"IER 602"|"COM"|"BCR"|"prefix"||"494552424352492331"|1||0
+"IER 602"|"COM"|"BCR"|"postfix"|||1||0
+"IER 602"|"COM"|"BCR"|"code_id_len"||"0"|1||0
+"IER 602"|"COM"|"BCR"|"read_interval"||"100"|1||1
+"IER 602"|"COM"||"control_rts"||"Handshake"|0||
+"IER 602"|"COM"||"out_cts_flow"||"1"|0||
+"IER 602"|"COM"||"prefix"||"02"|0||
+"IER 602"|"COM"||"suffix"||"03"|0||
+"BCR CUTE2"||"BCR"|"msg_confirm_def"||"MG#B#AOK-GOODB"|0||
+"BCR CUTE2"||"BCR"|"msg_cancel_def"||"MG#B#ASTOP-ERRORB"|0||
+"BCR CUTE2"||"BCR"|"msg_cancel_test"||"MG#B#ASTOP-TESTB"|0||
+"BCR CUTE2"||"BCR"|"msg_cancel_100"||"MG#B#ASTOPBWRONG FLIGHT"|0||
+"BCR CUTE2"||"BCR"|"msg_cancel_120"||"MG#B#ASTOP-DUPLICATEB"|0||
+"BCR CUTE2"||"BCR"|"msg_hello"||"MG#B#ADCS ASTRAB"|0||
+"BCR CUTE2"||"BCR"|"msg_bye"|||0||
+"BCR CUTE2"||"BCR"|"use_buzzer"||"0"|0|1|
+"BCR CUTE2"||"BCR"|"mode"||"CUTE"|0||
+"BCR CUTE2"||"BCR"|"mode_indicator"||"S"|0||
+"BCR CUTE2"||"BCR"|"hdc"||"ASTRA"|0||
+"BCR CUTE2"||"BCR"|"prefix"||"41535452414243524923"|0||
+"BCR CUTE2"||"BCR"|"postfix"|||0||
+"BCR CUTE2"||"BCR"|"code_id_len"||"1"|0||
+"BCR CUTE2"|"CUTE"||"dev_type"||"BGRTYPE"|0||
+"BCR CUTE2"|"CUTE"||"addr"||"BGR"|1||
+"BCR CUTE2"|"CUTE"||"multisession"||"0"|0||
+"BCR CUTE2"||"BCR"|"use_dialogs"||"0"|0||
+"BCR CUTE2"||"BCR"|"use_buzzer"||"1"|0||
+"BCR CUTE"|||"dup_scan_timeout"||"10000"|0|1|0
+||"DPL"|"pr_lat"||"0"|1||
+||"DPL"|"encoding"||"CP866"|0||
+||"DPL"|"magic_button"||"Загрузить шрифты"|0||
+||"DPL"|"timeouts"|"print"|"10000"|0||
+"BCR CUTE"||"BCR"|"prefix"||"41535452414243524923"|0||
+"BCR CUTE"||"BCR"|"postfix"|||0||
+"BCR CUTE"||"BCR"|"code_id_len"||"1"|0||
+"BCR CUTE"|"CUTE"||"dev_type"||"BGRTYPE"|0||
+"BCR CUTE"|"CUTE"||"addr"||"BGR"|1||
+"BCR CUTE"|"CUTE"||"multisession"||"0"|0||
+"BCR CUTE"||"BCR"|"use_dialogs"||"0"|0||
+||"SCAN2"|"prefix"|||1||
+||"SCAN2"|"postfix"|||1||
+||"SCAN2"|"encoding"||"CP1251"|0||
+"BCR CUTE"||"BCR"|"use_buzzer"||"1"|0||
+|"COM"||"proc_signals"||"1"|1||
+||"EPL2"|"timeouts"|"print"|"10000"|0||
+||"ATB"|"pr_lat"||"0"|1||
+||"ATB"|"encoding"||"CP1251"|0||
+||"DPL"|"posted_events"||"1"|0||
+||"ATB"|"timeouts"|"print"|"10000"|0||
+||"BTP"|"pr_lat"||"0"|1||
+||"BTP"|"encoding"||"CP1251"|0||
+"400"|"COM"||"control_rts"||"Handshake"|0||
+||"BTP"|"timeouts"|"print"|"10000"|0||
+||"EPL2"|"pr_lat"||"0"|1||
+||"EPL2"|"encoding"||"CP1251"|0||
+"400"|"COM"||"out_cts_flow"||"1"|0||
+||"EPSON"|"pr_lat"||"0"|1||
+||"EPSON"|"encoding"||"CP1251"|1||
+||"EPSON"|"left"||"0"|1||
+||"EPSON"|"top"||"0"|1||
+||"TEXT"|"pr_lat"||"0"|1||
+||"TEXT"|"encoding"||"CP1251"|1||
+||"FRX"|"pr_lat"||"0"|1||
+||"FRX"|"export_bmp"||"0"|1||
+||"SCAN1"|"prefix"|||1||
+||"SCAN1"|"postfix"||"0D"|1||
+||"SCAN3"|"postfix"|||1||
+|"MUSE"||"multisession"||"1"|0||
+|"CUTE"||"multisession"||"0"|0||
+|"COM"||"addr"|||1||
+|"COM"|"ATB"|"prefix"||"02"|1||1
+|"COM"||"baud_rate"||"9600"|1||
+|"COM"||"data_bits"||"8"|1||
+|"COM"||"stop_bits"||"1"|1||
+|"COM"||"parity_bits"||"None"|1||
+|"COM"||"prefix"|||1||
+|"COM"||"suffix"|||1||
+"SCANNER"|"COM"|"SCAN1"|"read_interval"||"100"|1||1
+"BCR IER"|"COM"|"BCR"|"read_interval"||"100"|1||1
+|"LPT"||"addr"||"LPT1"|1||
+|"WDP"||"addr"|||1||
+"ATB MUSE"|"MUSE"||"env_name"||"ATB"|0||
+"ATB MUSE"|"MUSE"||"status_req_interval"||"10000"|0||
+"BTP MUSE"|"MUSE"||"env_name"||"BTP"|0||
+"BTP MUSE"|"MUSE"||"status_req_interval"||"10000"|0||
+"DCP MUSE"|"MUSE"||"env_name"||"DCP"|0||
+|"KBW"||"read_interval"||"50"|1||
+|"KBW"||"min_scan_len"||"10"|0||
+"SCN MUSE"|"MUSE"||"env_name"||"BCR"|0||
+"ATB CUTE"|"CUTE"||"dev_type"||"ATBTYPE"|0||
+"ATB CUTE"|"CUTE"||"addr"||"ATB"|1||
+|"CUTE"|"BTP"|"timeouts"|"print"|"20000"|0||0
+"BTP CUTE"|"CUTE"||"dev_type"||"BTPTYPE"|0||
+"BTP CUTE"|"CUTE"||"addr"||"BTP"|1||
+"OCR ACC"|"COM"||"out_cts_flow"||"1"|0||
+"REGULA"|"COM"||"read_total_multiplier"||"20"|0||
+"DCP CUTE"|"CUTE"||"dev_type"||"DCPTYPE"|0||
+"DCP CUTE"|"CUTE"||"addr"||"DCP"|1||
+"DCP CUTE"|"CUTE"||"multisession"||"0"|0||
+"SCN CUTE"||"SCAN1"|"prefix"|||0||
+"SCN CUTE"||"SCAN1"|"postfix"||"0D"|0||
+"SCN CUTE"|"CUTE"||"dev_type"||"WDG_BASE"|0||
+"SCN CUTE"|"CUTE"||"addr"||"LSR"|1||
+"SCN CUTE"|"CUTE"||"multisession"||"0"|0||
+"ML390"||"EPSON"|"encoding"||"CP866"|1||
+"ML390"||"EPSON"|"left"||"20"|1||
+"ML390"||"EPSON"|"top"||"0"|1||
+"ML390"||"TEXT"|"encoding"||"CP866"|1||
+"ML3310"||"EPSON"|"left"||"20"|1||
+"ML3310"||"EPSON"|"top"||"0"|1||
+|"COM"|"ATB"|"suffix"||"03"|1||1
+|"COM"|"BTP"|"prefix"||"02"|1||1
+|"COM"|"BTP"|"suffix"||"03"|1||1
+|"COM"|"BCR"|"suffix"||"03"|1||1
+|"COM"|"BCR"|"prefix"||"02"|1||1
+||"ZPL2"|"pr_lat"||"0"|1||
+"ATB CUTE"||"ATB"|"pr_lat"||"1"|1|1|
+"BTP CUTE"||"BTP"|"pr_lat"||"1"|1|1|
+||"ZPL2"|"encoding"||"CP866"|0||
+||"SCAN3"|"encoding"||"CP1251"|0||
+||"ZPL2"|"timeouts"|"print"|"10000"|0||
+"TLP 2844"|"COM"||"xon_xoff_out"||"1"|1||
+"SCN MUSE"||"SCAN1"|"prefix"||"30"|0||
+"SCN MUSE"||"SCAN1"|"postfix"|||0||
+"TLP 2844"|"COM"||"xon_xoff_in"||"1"|1||
+"SCN MUSE"||"SCAN1"|"encoding"||"CP1251"|0||
+"BCR IER"|"COM"|"BCR"|"postfix"|||1||0
+"SCANNER"|"KBW"|"SCAN1"|"postfix"||"0D00"|1||0
+"BCR IER"|"COM"|"BCR"|"prefix"||"494552424352492331"|1||0
+"IER 627"|"COM"||"control_rts"||"Handshake"|0||
+|"COM"||"control_rts"||"Disable"|1||
+||"SCAN1"|"encoding"||"CP1251"|0||
+||"BCR"|"encoding"||"CP1251"|0||
+"SCANNER"|"KBW"|"SCAN1"|"encoding"||"UTF-16LE"|0||0
+|"COM"||"read_interval"||"100"|1||
+"IER 627"|"COM"||"out_cts_flow"||"1"|0||
+|||"pr_stock"||"1"|0||
+"DCP CUTE"|||"pr_stock"||"0"|1||
+"DCP MUSE"|||"pr_stock"||"0"|1||
+"DIR PRINT"|||"pr_stock"||"0"|1||
+"ML390"|||"pr_stock"||"0"|0||
+"ML3310"|||"pr_stock"||"0"|1||
+"OLIVETTI"|||"pr_stock"||"0"|1||
+"IER 627"|"COM"||"prefix"||"02"|0||
+"IER 627"|"COM"||"suffix"||"03"|0||
+"REGULA"|"COM"||"read_interval"||"20"|0||
+"ATB CUTE"|"CUTE"||"multisession"||"1"|1|1|
+"BTP CUTE"|"CUTE"||"multisession"||"1"|1|1|
+||"SCAN3"|"prefix"|||1||
+"MSR CUTE"||"SCAN3"|"prefix"|||0||
+"IER 627"|"COM"|"SCAN1"|"read_interval"||"100"|1||1
+"ATB CUTE"||"ATB"|"pr_lat"||"1"|1|2|
+"BTP CUTE"||"BTP"|"pr_lat"||"1"|1|2|
+||"SCAN1"|"code_id_len"||"0"|1||
+"SCN MUSE"||"SCAN1"|"code_id_len"||"1"|0||
+"SCN CUTE"||"SCAN1"|"code_id_len"||"1"|0||
+"BCR IER"|"COM"|"BCR"|"code_id_len"||"1"|1||0
+"MSR CUTE"||"SCAN3"|"postfix"|||0||
+"MSR CUTE"|"CUTE"||"dev_type"||"WDG_BASE"|0||
+"MSR CUTE"|"CUTE"||"addr"||"MSR"|1||
+"MSR CUTE"|"CUTE"||"multisession"||"0"|0||
+||"SCAN1"|"server_check"||"1"|0||
+"SBG CUTE2"||"BCR"|"msg_confirm_def"||"MG#B#AOK-GOODB"|0||
+"SBG CUTE2"||"BCR"|"msg_cancel_def"||"MG#B#ASTOP-ERRORB"|0||
+"SBG CUTE2"||"BCR"|"msg_cancel_test"||"MG#B#ASTOP-TESTB"|0||
+"SBG CUTE2"||"BCR"|"msg_cancel_100"||"MG#B#ASTOPBWRONG FLIGHT"|0||
+"SBG CUTE2"||"BCR"|"msg_cancel_120"||"MG#B#ASTOP-DUPLICATEB"|0||
+"SBG CUTE2"||"BCR"|"msg_hello"||"MG#B#ADCS ASTRAB"|0||
+"SBG CUTE2"||"BCR"|"msg_bye"|||0||
+"SBG CUTE2"||"BCR"|"use_buzzer"||"0"|0|1|
+"SBG CUTE2"||"BCR"|"mode"||"CUTE"|0||
+"SBG CUTE2"||"BCR"|"mode_indicator"||"C"|0||
+"SBG CUTE2"||"BCR"|"hdc"||"ASTRA"|0||
+|"RESA"||"multisession"||"1"|0||
+"SBG CUTE2"||"BCR"|"prefix"||"41535452414243524923"|0||
+"SBG CUTE2"||"BCR"|"postfix"|||0||
+"SBG CUTE2"||"BCR"|"code_id_len"||"1"|0||
+"SBG CUTE2"|"CUTE"||"dev_type"||"BGRTYPE"|0||
+"SBG CUTE2"|"CUTE"||"addr"||"BGR"|1||
+"SBG CUTE2"|"CUTE"||"multisession"||"0"|0||
+"SBG CUTE2"||"BCR"|"use_dialogs"||"0"|0||
+"SBG CUTE2"||"BCR"|"use_buzzer"||"1"|0||
+"REGULA"|"COM"||"prefix"||"1C02"|0||
+"ATB MUSE"|"COM/MUSE"||"env_name"||"ATB"|0||
+"ATB MUSE"|"COM/MUSE"||"status_req_interval"||"10000"|0||
+"ATB MUSE"|"COM/MUSE"||"bin"||"1"|0||
+"OCR ACC"||"SCAN2"|"prefix"||"300D"|1||
+"OCR ACC"||"SCAN2"|"postfix"|||1||
+"OCR ACC"|"COM"||"control_rts"||"Handshake"|0||
+"REGULA"|"COM"||"suffix"||"031D"|0||
+"OCR ACC"|"COM"||"prefix"||"02"|0||
+"OCR ACC"|"COM"||"suffix"||"03"|0||
+|"MUSE"|"BTP"|"timeouts"|"print"|"20000"|0||0
+|"RESA"||"wait_read"||"200"|0||
+|"RESA"||"ignore_dev_events"||"1"|0||
+||"BCR"|"sbg_mode_permitted"||"1"|0||
+|"RESA"|"ATB"|"addr"||"ATB0"|1||1
+|"RESA"|"ATB"|"pr_lat"||"1"|1||0
+"ATB RESA"|"RESA"||"prt_mode"||"1"|0||
+"ATB RESA"||"ATB"|"mode"||"RESA_AEA"|0||
+|"RESA"|"BTP"|"addr"||"BTP0"|1||1
+|"RESA"|"BTP"|"pr_lat"||"1"|1||0
+"BTP RESA"|"RESA"||"prt_mode"||"1"|0||
+"BTP RESA"||"BTP"|"mode"||"RESA_AEA"|0||
+|"RESA"|"TEXT"|"addr"||"DCP0"|1||1
+|"RESA"|"TEXT"|"pr_lat"||"1"|1||0
+"DCP RESA"|"RESA"||"wait_response"||"0"|0||
+"DCP RESA"|"RESA"||"wait_write"||"1000"|0||
+"DCP RESA"|"RESA"||"use_spool"||"3000"|0||
+"DCP RESA"|||"pr_stock"||"0"|1||
+"SCN RESA"||"SCAN1"|"prefix"||"43555445324243524923"|1||
+|"COM/MUSE"||"multisession"||"1"|0||
+"BTP MUSE"|"COM/MUSE"||"env_name"||"BTP"|0||
+"BTP MUSE"|"COM/MUSE"||"status_req_interval"||"10000"|0||
+|"COM/MUSE"||"wait_overlap_packet"||"0"|0||
+"SCN RESA"||"SCAN1"|"postfix"|||1||
+"SCN RESA"||"SCAN1"|"code_id_len"||"1"|1||
+|"RESA"|"SCAN1"|"addr"||"RTE0"|1||1
+"BCR RESA"||"BCR"|"prefix"||"43555445324243524923"|0||
+"BCR RESA"||"BCR"|"postfix"|||0||
+"BCR RESA"||"BCR"|"code_id_len"||"1"|0||
+"BCR RESA"||"BCR"|"encoding"||"CP1251"|0||
+"BCR RESA"||"BCR"|"use_dialogs"||"0"|0||
+"BCR RESA"||"BCR"|"msg_confirm_def"||"MG#B#AOK-GOODB"|0||
+"BCR RESA"||"BCR"|"msg_cancel_def"||"MG#B#ASTOP-ERRORB"|0||
+"BCR RESA"||"BCR"|"msg_cancel_test"||"MG#B#ASTOP-TESTB"|0||
+"BCR RESA"||"BCR"|"msg_cancel_100"||"MG#B#ASTOPBWRONG FLIGHT"|0||
+"BCR RESA"||"BCR"|"msg_cancel_120"||"MG#B#ASTOP-DUPLICATEB"|0||
+"BCR RESA"||"BCR"|"msg_hello"||"MG#B#ADCS ASTRAB"|0||
+"BCR RESA"||"BCR"|"msg_bye"|||0||
+"BCR RESA"||"BCR"|"use_buzzer"||"1"|0||
+"BCR RESA"||"BCR"|"use_red_delay"||"0"|0||
+"BCR RESA"||"BCR"|"use_green_delay"||"0"|0||
+"BCR RESA"||"BCR"|"cmd_confirm_data"||"NN"|0||
+|"RESA"|"BCR"|"addr"||"BGR0"|1||1
+"BCR RESA"|"RESA"||"prt_mode"||"1"|0||
+"BCR RESA"||"BCR"|"mode"||"RESA_AEA"|0||
+"WGE RESA"||"SCAN_WGE"|"encoding"||"CP1251"|0||
+"WGE RESA"||"SCAN_WGE"|"SCN_prefix"||"31"|0||
+"WGE RESA"||"SCAN_WGE"|"SCN_postfix"|||0||
+"WGE RESA"||"SCAN_WGE"|"SCN_code_id_len"||"1"|0||
+"WGE RESA"||"SCAN_WGE"|"OCR_prefix"||"4F"|0||
+"WGE RESA"||"SCAN_WGE"|"OCR_postfix"||"0D"|0||
+"WGE RESA"||"SCAN_WGE"|"OCR_code_id_len"||"2"|0||
+"WGE RESA"||"SCAN_WGE"|"MSR_prefix"||"43"|0||
+"WGE RESA"||"SCAN_WGE"|"MSR_postfix"|||0||
+"WGE RESA"||"SCAN_WGE"|"MSR_code_id_len"||"1"|0||
+|"RESA"|"SCAN_WGE"|"addr"||"RTE0"|1||1
+|"RESA"|"ATB"|"timeouts"|"init"|"60000"|0||0
+|"RESA"|"ATB"|"timeouts"|"send"|"10000"|0||0
+|"RESA"|"ATB"|"timeouts"|"check_pectab"|"10000"|0||0
+|"RESA"|"ATB"|"timeouts"|"load_pectab"|"10000"|0||0
+|"RESA"|"ATB"|"timeouts"|"unload_pectab"|"10000"|0||0
+|"RESA"|"ATB"|"timeouts"|"print"|"10000"|0||0
+|"RESA"|"ATB"|"timeouts"|"init_bins"|"10000"|0||0
+|"RESA"|"BTP"|"timeouts"|"init"|"60000"|0||0
+|"RESA"|"BTP"|"timeouts"|"send"|"10000"|0||0
+|"RESA"|"BTP"|"timeouts"|"check_pectab"|"10000"|0||0
+|"RESA"|"BTP"|"timeouts"|"load_pectab"|"10000"|0||0
+|"RESA"|"BTP"|"timeouts"|"unload_pectab"|"10000"|0||0
+|"RESA"|"BTP"|"timeouts"|"print"|"10000"|0||0
+|"RESA"|"BTP"|"timeouts"|"init_bins"|"10000"|0||0
+|"RESA"|"TEXT"|"timeouts"|"init"|"60000"|0||0
+|"RESA"|"TEXT"|"timeouts"|"send"|"10000"|0||0
+|"RESA"|"TEXT"|"timeouts"|"check_pectab"|"10000"|0||0
+|"RESA"|"TEXT"|"timeouts"|"load_pectab"|"10000"|0||0
+|"RESA"|"TEXT"|"timeouts"|"unload_pectab"|"10000"|0||0
+|"RESA"|"TEXT"|"timeouts"|"print"|"10000"|0||0
+|"RESA"|"TEXT"|"timeouts"|"init_bins"|"10000"|0||0
+|"RESA"|"BCR"|"timeouts"|"init"|"60000"|0||0
+|"RESA"|"BCR"|"timeouts"|"send"|"10000"|0||0
+|"RESA"|"BCR"|"timeouts"|"check_pectab"|"10000"|0||0
+|"RESA"|"BCR"|"timeouts"|"load_pectab"|"10000"|0||0
+|"RESA"|"BCR"|"timeouts"|"unload_pectab"|"10000"|0||0
+|"RESA"|"BCR"|"timeouts"|"print"|"10000"|0||0
+|"RESA"|"BCR"|"timeouts"|"init_bins"|"10000"|0||0
+"BCR CUTE"|||"dup_scan_timeout"||"3000"|0||0
+|"CUTE"|"BCR"|"timeouts"|"confirm"|"15000"|0||0
+|"CUTE"|"BCR"|"timeouts"|"cancel"|"15000"|0||0
+|"CUTE"|"BCR"|"timeouts"|"message"|"15000"|0||0
+|"COM/CUTE"|"BCR"|"timeouts"|"confirm"|"15000"|0||0
+|"COM/CUTE"|"BCR"|"timeouts"|"cancel"|"15000"|0||0
+|"COM/CUTE"|"BCR"|"timeouts"|"message"|"15000"|0||0
+||"SCAN2"|"server_check"||"1"|0||
+||"POS-TTK"|"timeouts"|"post"|"15000"|1||
+||"POS-TTK"|"timeouts"|"send"|"15000"|1||
+"POS SBER"|"TCP"||"addr"||"192.168.1.101"|0||
+"POS SBER"|"TCP"||"port"||"8888"|0||
+|"CUTE"||"useLock"||"0"|0||
+|"CUTE"|"ATB"|"timeouts"|"init"|"10"|0||0
+||"BCR"|"use_bgr_message"||"1"|0||
+||"BCR"|"server_check"||"1"|0||
+"ACC SABRE"||"BCR"|"prefix"||"4243"|1||
+"ACC SABRE"||"BCR"|"postfix"|||1||
+"ATB MUSE"|"COM/MUSE"|"ATB"|"timeouts"|"print"|"10000"|0||
+"BTP MUSE"|"COM/MUSE"|"BTP"|"timeouts"|"print"|"10000"|0||
+"BCR MUSE"|"COM/MUSE"|"BCR"|"use_red_delay"||"1"|0||0
+"BCR MUSE"|"COM/MUSE"|"BCR"|"use_green_delay"||"1"|0||0
+"BCR MUSE"|"COM/MUSE"|"BCR"|"cmd_confirm_data"|||0||0
+"BCR MUSE"|"COM/MUSE"|"BCR"|"prefix"||"4243524923"|1||
+"BCR MUSE"|"COM/MUSE"|"BCR"|"postfix"|||1||
+"BCR MUSE"|"COM/MUSE"|"BCR"|"code_id_len"||"3"|1||
+"BCR CUTE"||"BCR"|"red_delay"||"1"|0|1|

@@ -5,6 +5,7 @@
 #include <serverlib/EdiHelpManager.h>
 #include <serverlib/str_utils.h>
 #include <serverlib/cursctl.h>
+#include <serverlib/testmode.h>
 #include <libtlg/tlg_outbox.h>
 #include <jxtlib/xml_tools.h>
 #include <jxtlib/utf2cp866.h>
@@ -89,6 +90,7 @@ namespace xp_testing { namespace tscript {
 
         virtual void afterTest()
         {
+            if(not inTestMode()) return;
             LogTrace(TRACE3) << __func__ << " tscript ************* savepoint tscript";
             make_curs("rollback to savepoint tscript").exec();
             get_pg_curs("rollback to savepoint tscript").exec();

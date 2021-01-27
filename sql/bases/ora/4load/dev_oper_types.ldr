@@ -1,0 +1,29 @@
+LOAD DATA
+INFILE *
+INTO TABLE dev_oper_types
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,name
+,name_lat
+)
+BEGINDATA
+"SCAN_BP2"|"Сканирование посадочных талонов 2"|"Scan boarding cards 2"
+"SCAN_CARD"|"Сканирование пластиковых карт"|"Scan cards"
+"WEIGH_BAG"|"Взвешивание багажа"|"Baggage weighing"
+"PRINT_BP"|"Печать посадочных талонов"|"Print boarding cards"
+"PRINT_BT"|"Печать багажных бирок"|"Print baggage tags"
+"PRINT_BR"|"Печать багажных квитанций"|"Print baggage tickets"
+"SCAN_BP"|"Сканирование посадочных талонов 1"|"Scan boarding cards 1"
+"PRINT_FLT"|"Печать документации по рейсу"|"Print flight documentation"
+"PRINT_ARCH"|"Печать статистики и архивных данных"|"Print statistics and archive data"
+"PRINT_DISP"|"Печать сезонного расписания и СПП"|"Print season schedule and DFP (Daily Flight Plan)"
+"PRINT_TLG"|"Печать телеграмм"|"Print telegrams"
+"SEND_BSM"|"Посылка телеграмм BSM"|"Send BSM telegrams"
+"SCAN_DOC"|"Сканирование паспортов и виз"|"Scan passports and visas"
+"PRINT_BI"|"Печать приглашений"|"Print invitations"
+"PAY_POS"|"Оплата пластиковой картой"|"Credit card payment"
+"PRINT_VO"|"Печать ваучеров"|"Print vouchers"
+"PRINT_EMDA"|"Печать EMDA"|"Print EMDA"

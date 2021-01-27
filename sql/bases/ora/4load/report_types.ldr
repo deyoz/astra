@@ -1,0 +1,54 @@
+LOAD DATA
+INFILE *
+INTO TABLE report_types
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,name
+,sort_order
+,params
+,name_lat
+)
+BEGINDATA
+"GOSHO"|"Список пассажиров (GOSHO)"|20|640|"List of passengers (GOSHO)"
+"GOSHOTXT"|"Список пассажиров (GOSHO) (текстовый формат)"|21|640|"List of passengers (GOSHO) (text format)"
+"NOREC"|"Список пассажиров (NOREC)"|18|640|"List of passengers (NOREC)"
+"NORECTXT"|"Список пассажиров (NOREC) (текстовый формат)"|19|640|"List of passengers (NOREC) (text format)"
+"SPEC"|"Пассажиры спецобслуживания"|24|640|"Passengers with SSR"
+"SPECTXT"|"Пассажиры спецобслуживания (текстовый формат)"|25|640|"Passengers with SSR (text format)"
+"BDOCS"|"Неполные DOCS"|22|512|"Uncompleted DOCS"
+"PTM"|"Пассажирская ведомость"|0|6847|"Passenger Manifest"
+"PTMTXT"|"Пассажирская ведомость (текстовый формат)"|1|6847|"Passenger Manifest (text format)"
+"BTM"|"Багажная ведомость"|2|571|"Baggage Manifest"
+"BTMTXT"|"Багажная ведомость (текстовый формат)"|3|571|"Baggage Manifest (text format)"
+"WEB"|"Пассажиры саморегистрации"|4|704|"Passengers (self-registration)"
+"WEBTXT"|"Пассажиры саморегистрации (текстовый формат)"|5|704|"Passengers (self-registration) (text format)"
+"REFUSE"|"Причины невылета пассажиров"|6|640|"Reasons for passengers' non-departure"
+"REFUSETXT"|"Причины невылета пассажиров (текстовый формат)"|7|640|"Reasons for passengers' non-departure (text format)"
+"NOTPRES"|"Пассажиры, не явившиеся на посадку"|8|640|"Passengers not appearing for boarding"
+"NOTPRESTXT"|"Пассажиры, не явившиеся на посадку (текстовый формат)"|9|640|"Passengers not appearing for boarding (text format)"
+"REM"|"Пассажиры с ремарками"|10|9088|"Passengers with remarks"
+"REMTXT"|"Пассажиры с ремарками (текстовый формат)"|11|9088|"Passengers with remarks (text format)"
+"CRS"|"Пассажиры из бронирования"|12|640|"Booked passengers"
+"CRSTXT"|"Пассажиры из бронирования (текстовый формат)"|13|640|"Booked passengers (text format)"
+"CRSUNREG"|"Пассажиры из бронирования, не прошедшие регистрацию"|14|640|"Booked passengers, not undergo registration"
+"CRSUNREGTX"|"Пассажиры из бронирования, не прошедшие регистрацию (текстовый формат)"|15|640|"Booked passengers, not undergo registration (text format)"
+"EXAM"|"Досмотр / Посадка"|16|640|"Examination/Boarding"
+"EXAMTXT"|"Досмотр / Посадка (текстовый формат)"|17|640|"Examination/Boarding (text format)"
+"SERVICESTX"|"Оформленные услуги (текстовый формат)"|35|1664|"Services (text format)"
+"VOUCHERS"|"Выпущенные ваучеры"|33|0|"Vouchers issued"
+"KOMPLEKT"|"Комплект документации"|-1|0|"Documentation package"
+"COM"|"COM"|38|0|
+"EMDTXT"|"EMD (текстовый формат)"|27|512|"EMD (text format)"
+"EMD"|"EMD"|26|512|"EMD"
+"BDOCSTXT"|"Неполные DOCS (текстовый формат)"|23|512|"Uncompleted DOCS (text format)"
+"RESEAT"|"Пересаженные пассажиры с ЛО"|36|512|"Reallocated passengers from waiting list"
+"LOADSHEET"|"LOADSHEET"|28|0|
+"NOTOC"|"NOTOC"|29|0|
+"LIR"|"LIR"|30|0|
+"RESEATTXT"|"Пересаженные пассажиры с ЛО (текстовый формат)"|37|512|"Reallocated passengers from waiting list (text format)"
+"ANNUL"|"Аннулированные бирки"|31|512|"Cancelled tags"
+"ANNULTXT"|"Аннулированные бирки (текстовый формат)"|32|512|"Cancelled tags (text format)"
+"SERVICES"|"Оформленные услуги"|34|1664|"Services"

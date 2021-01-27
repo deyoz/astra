@@ -11,9 +11,11 @@
 #include "salons.h"
 #include "term_version.h"
 #include "serverlib/str_utils.h"
+#include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/classification.hpp>
 
 #define NICKNAME "DJEK"
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -86,6 +88,93 @@ void TCompElemTypes::Update()
 TCompElemTypes::TCompElemTypes()
 {
   Update();
+}
+
+void TCompElemTypes::toDB()
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "BEGIN "
+        " UPDATE comp_elem_types "
+        "   SET name=:name,name_lat=:name_lat,pr_seat=:pr_seat,time_create=:time_create,image=:image, pr_del=0, filename = :filename "
+        "  WHERE code=:code; "
+        " IF SQL%NOTFOUND THEN "
+        "  INSERT INTO comp_elem_types(code,name,name_lat,pr_seat,time_create,image,pr_del,filename) "
+        "   VALUES(:code,:name,:name_lat,:pr_seat,:time_create,:image,0,:filename); "
+        " END IF; "
+        "END;";
+    Qry.DeclareVariable("code", otString);
+    Qry.DeclareVariable("name", otString);
+    Qry.DeclareVariable("name_lat", otString);
+    Qry.DeclareVariable("pr_seat", otInteger);
+    Qry.DeclareVariable("time_create", otDate);
+    Qry.DeclareVariable("image", otLongRaw);
+    Qry.DeclareVariable("filename", otString);
+    for(const auto &i: is_places) {
+        Qry.SetVariable("code", i.first);
+        Qry.SetVariable("name", i.second.getName());
+        Qry.SetVariable("name_lat", i.second.getNameLat());
+        Qry.SetVariable("pr_seat", i.second.isSeat());
+        Qry.SetVariable("time_create", i.second.getTimeCreate());
+        string StrDec;
+        HexToString( i.second.getImage(), StrDec );
+        Qry.SetLongVariable( "image", (void*)StrDec.c_str(), StrDec.length() );
+        Qry.SetVariable("filename", i.second.getFilename());
+        Qry.Execute();
+    }
+}
+
+TCompElemTypes::TCompElemTypes(xmlNodePtr &reqNode)
+{
+    xmlNodePtr node = GetNode("data/images", reqNode);
+    if ( node != NULL ) {
+        TDateTime d = NodeAsDateTime( "@time_create", node );
+        node = node->children;
+        while ( node ) {
+            string code = NodeAsString( "code", node );
+            TCompElemType comp_elem(
+                    code,
+                    NodeAsString( "name", node ),
+                    {},
+                    NodeAsInteger( "pr_seat", node ) != 0,
+                    code == default_elem_type,
+                    d,
+                    NodeAsString( "image", node ),
+                    NodeAsString( "code", node ));
+            is_places.insert( make_pair( code, comp_elem ) );
+            node = node->next;
+        }
+    }
+}
+
+TCompElemTypes::TCompElemTypes(const std::string &file_name)
+{
+    ifstream in(file_name.c_str());
+    if (!in.good()) throw Exception("Cannot open for read file %s", file_name.c_str());
+    TDateTime d = NowUTC();
+    for(string line; getline(in, line); ) {
+        vector<string> tokens;
+        boost::split(tokens, line, boost::is_any_of("|"));
+        if(tokens.size() != 6)
+            throw Exception("wrong file format");
+        string code = tokens[0];
+        string name = tokens[1];
+        bool pr_seat = ToInt(tokens[2]) != 0;
+        string name_lat = tokens[3];
+        string filename = tokens[4];
+        string filedata = tokens[5];
+
+        TCompElemType comp_elem(
+                code,
+                name,
+                name_lat,
+                pr_seat,
+                code == default_elem_type,
+                d,
+                filedata,
+                filename);
+        is_places.insert( make_pair( code, comp_elem ) );
+    }
 }
 
 ///////////////////////////////LAYERS///////////////////////////////////////////
@@ -247,52 +336,27 @@ void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
    }
 }
 
+int load_comp_elem_types(int argc, char **argv)
+{
+    try {
+        if (argc != 2) throw Exception("Must provide path");
+        TCompElemTypes(argv[1]).toDB();
+        return 0;
+    } catch(Exception &E) {
+        LogError(STDLOG) << __func__ << ": error: " << E.what();
+        return 1;
+    } catch(...) {
+        LogError(STDLOG) << __func__ << ": unexpected error";
+        return 1;
+    }
+}
+
 void ImagesInterface::SetImages(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  ProgTrace(TRACE2, "ImagesInterface::SetImages" );
-  TQuery *Qry = OraSession.CreateQuery();
-  try {
-    Qry->SQLText = "BEGIN "\
-                   " UPDATE comp_elem_types "
-                   "   SET name=:name,pr_seat=:pr_seat,time_create=:time_create,image=:image, pr_del=0 "\
-                   "  WHERE code=:code; "\
-                   " IF SQL%NOTFOUND THEN "\
-                   "  INSERT INTO comp_elem_types(code,name,pr_seat,time_create,image,pr_del,filename) "\
-                   "   VALUES(:code,:name,:pr_seat,:time_create,:image,0,:filename); "\
-                   " END IF; "\
-                   "END;";
-    Qry->DeclareVariable( "code", otString );
-    Qry->DeclareVariable( "filename", otString );
-    Qry->DeclareVariable( "name", otString );
-    Qry->DeclareVariable( "pr_seat", otInteger );
-    Qry->DeclareVariable( "time_create", otDate );
-    Qry->DeclareVariable( "image", otLong );
-    xmlNodePtr node = GetNode("data/images", reqNode);
-    TDateTime d = NodeAsDateTime( "@time_create", node );
-    Qry->SetVariable( "time_create", d );
-    if ( node != NULL ) {
-      node = node->children;
-      string StrDec;
-      while ( node ) {
-        Qry->SetVariable( "code", NodeAsString( "code", node ) );
-        Qry->SetVariable( "filename", NodeAsString( "code", node ) );
-        Qry->SetVariable( "name", NodeAsString( "name", node ) );
-        Qry->SetVariable( "pr_seat", NodeAsString( "pr_seat", node ) );
-        StrDec = NodeAsString( "image", node );
-        HexToString( string(StrDec), StrDec );
-        Qry->CreateLongVariable( "image", otLongRaw, (void*)StrDec.c_str(), StrDec.length() );
-        Qry->Execute();
-        node = node->next;
-      }
-    }
+    ProgTrace(TRACE2, "ImagesInterface::SetImages" );
+    TCompElemTypes(reqNode).toDB();
     TCompElemTypes::Instance()->Update(); //перечитать информацию
-  }
-  catch( ... ) {
-    OraSession.DeleteQuery( *Qry );
-    throw;
-  }
-  OraSession.DeleteQuery( *Qry );
-  AstraLocale::showMessage( "MSG.DATA_SAVED" );
+    AstraLocale::showMessage( "MSG.DATA_SAVED" );
 };
 
 void ImagesInterface::GetImages(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

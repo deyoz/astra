@@ -1,0 +1,22 @@
+LOAD DATA
+INFILE *
+INTO TABLE dev_model_fmt_params
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+dev_model
+,fmt_type
+,param_name
+,desk_grp_id
+,param_value
+)
+BEGINDATA
+"OLIVETTI"|"EPSON"|"x_modif"||"4.76"
+"OLIVETTI"|"EPSON"|"y_modif"||"6.9"
+"ML390"|"EPSON"|"x_modif"||"7"
+"ML390"|"EPSON"|"y_modif"||"7.1"
+"ML3310"|"EPSON"|"x_modif"||"4.67"
+"ML3310"|"EPSON"|"y_modif"||"8.66"
+|"EPSON"|"x_modif"||"7"
+|"EPSON"|"y_modif"||"7.1"

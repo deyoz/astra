@@ -1,0 +1,39 @@
+LOAD DATA
+INFILE *
+INTO TABLE stat_params
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,visible
+,caption
+,ctype
+,width
+,len
+,isalnum
+,ref
+,ref_field
+,tag
+,edit_fmt
+,filter
+)
+BEGINDATA
+"Airline"|1|"Код а/к"|"Edit"|57|3|1|"airlines"||"ak"||
+"Airp"|2|"Код а/п"|"Edit"|57|4|1|"airps"||"ap"||
+"FltNo"|4|"№ рейса"|"Edit"|65|5|0|||"flt_no"||
+"Seance"|8|"Договор"|"CBox"|73|0|1|||||
+"KioskNo"|16|"Пульт"|"Edit"|65|6|1|"web_clients"|"desk"|"kiosk"||
+"Desk"|32|"Стойка"|"Edit"|65|6|1|"desks"|"code"|"desk"||
+"User"|64|"Логин"|"Edit"|193|0|1|"users"|"login"|"user_login"||
+"TypeBType"|128|"Тип тлг."|"Edit"|54|3|1|"typeb_types"|"basic_type"|"typeb_type"||
+"SenderAddr"|256|"Адрес отпр."|"Edit"|94|7|1|"typeb_originators"|"addr"|"sender_addr"||
+"ReceiverDescr"|512|"Канал"|"Edit"|94|6|1|"canon_names"|"code"|"receiver_descr"||
+"RegType"|1024|"Тип рег."|"Edit"|60|6|1|"self_ckin_types"||"reg_type"||
+"AirpTerminal"|32768|"Терминал"|"Edit"|90|3|1|"airp_terminals"|"id"|"terminal"|"[<airp:airps:C>] <name>"|"Airp:code;airp"
+"BIHall"|65536|"Бизнес зал"|"Edit"|120|3|1|"bi_halls"|"id"|"bi_hall"|"<id:bi_halls:NL>"|"AirpTerminal:id;terminal Airp:code;airp"
+"TrferAirline"|4096|"Код а/к"|"Edit"|57|4|1|"airlines"||"trfer_airline"||
+"TrferAirp"|8192|"Код а/п"|"Edit"|57|4|1|"airps"||"trfer_airp"||
+"SegCategory"|16384|"Категория"|"CBox"|73|0|1|||||
+"LTCkBox"|131072|"LT"|"CkBox"|15|0|0|||||
+"SalonOpType"|262144|"Тип операции"|"CBox"|160|0|1|||||

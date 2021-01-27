@@ -1,0 +1,76 @@
+LOAD DATA
+INFILE *
+INTO TABLE dev_models
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,name
+,name_lat
+)
+BEGINDATA
+"AMADEUS"|"Intermec с прошивкой AMADEUS"|"Intermec with firmware AMADEUS"
+"CUSTOM TK"|"Custom TK"|"Custom TK"
+"OCR MUSE"|"Устройство чтения символов в режиме MUSE"|"Symbols scanner (OCR) with firmware MUSE"
+"MSR MUSE"|"Устройство чтения магнитной полосы в режиме MUSE"|"Magnetic strip scanner with firmware MUSE"
+"ACC SABRE"|"Gate reader ACCESS с прошивкой Sabre"|"Gate reader ACCESS with firmware Sabre"
+"BCR MUSE"|"Gate reader в режиме MUSE"|"Gate reader in MUSE mode"
+"400"|"IER 400"|"IER 400"
+"OKI6300"|"OKI 6300"|"OKI 6300"
+"OCR CUTE"|"Устройство чтения символов в режиме CUTE"|"Symbols scanner (OCR) with firmware CUTE"
+"MSR CUTE"|"Устройство чтения магнитной полосы в режиме CUTE"|"Magnetic strip scanner with firmware CUTE"
+"WGE RESA"|"Универсальный сканер в режиме RESA CREWS"|"Wedge device in RESA CREWS mode"
+"ATB CUSS"|"ATB принтер в режиме CUSS"|"ATB printer in CUSS mode"
+"SCL AER"|"Весы в Сочи"|"Scales in Sochi"
+"SCL BTM"|"Весы BTM"|"BTM scales"
+"SCL CAS"|"Весы CAS"|"CAS scales"
+"ATB RESA"|"ATB принтер в режиме RESA CREWS"|"ATB printer in RESA CREWS mode"
+"BTP RESA"|"BTP принтер в режиме RESA CREWS"|"BTP printer in RESA CREWS mode"
+"DCP RESA"|"DCP принтер в режиме RESA CREWS"|"DCP printer in RESA CREWS mode"
+"SCN RESA"|"Устройство чтения штрих-кодов в режиме RESA CREWS"|"Bar code reader in RESA CREWS mode"
+"BCR RESA"|"Gate reader в режиме RESA CREWS"|"Gate reader in RESA CREWS mode"
+"EPSON AEA"|"EPSON L500 с прошивкой AEA"|"EPSON L500 with firmware AEA"
+"ATB CUSE"|"ATB принтер в режиме CUSE"|"ATB printer in CUSE mode"
+"BTP CUSE"|"BTP принтер в режиме CUSE"|"BTP printer in CUSE mode"
+"DCP CUSE"|"DCP принтер в режиме CUSE"|"DCP printer in CUSE mode"
+"SCN CUSE"|"Устройство чтения штрих-кодов в режиме CUSE"|"Bar code reader in CUSE mode"
+"OCR CUSE"|"Устройство чтения символов в режиме CUSE"|"Symbols scanner (OCR) with firmware CUSE"
+"MSR CUSE"|"Устройство чтения магнитной полосы в режиме CUSE"|"Magnetic strip scanner with firmware CUSE"
+"BCR CUSE"|"Gate reader в режиме CUSE"|"Gate reader in CUSE mode"
+"WGE CUSE"|"Универсальный сканер в режиме CUSE"|"Wedge device in CUSE mode"
+"IER 602"|"Gate reader IER 602"|"Gate reader IER 602"
+"BCR CUTE2"|"Gate reader с прошивкой CUTE 4.*"|"Gate reader with firmware CUTE 4.*"
+"INTERMEC"|"Intermec"|"Intermec"
+"DIR PRINT"|"Прямая печать через порт принтера"|"Direct print via printer port"
+"BCR IER"|"Gate reader IER (чтение штрих-кодов)"|"Gate reader IER (bar code reading)"
+"LP 2844-Z"|"Zebra LP-2844-Z"|"Zebra LP-2844-Z"
+"DATAMAX"|"DATAMAX"|"DATAMAX"
+"SCANNER"|"Устройство чтения штрих-кодов (сканер)"|"Bar code reader (scanner)"
+"BCR CUTE"|"Gate reader с прошивкой CUTE"|"Gate reader with firmware CUTE"
+"IER 627"|"Gate reader IER 627"|"Gate reader IER 627"
+"557"|"IER 557"|"IER 557"
+"567"|"IER 567"|"IER 567"
+"ML3310"|"OKI ML3310"|"OKI ML3310"
+"ML390"|"OKI ML390"|"OKI ML390"
+"SCN CUTE"|"Устройство чтения штрих-кодов в режиме CUTE"|"Bar code reader in CUTE mode"
+"ATB CUTE"|"ATB принтер с прошивкой CUTE"|"ATB printer with firmware CUTE"
+"BTP CUTE"|"BTP принтер с прошивкой CUTE"|"BTP printer with firmware CUTE"
+"DCP CUTE"|"DCP принтер в режиме CUTE"|"DCP printer in CUTE mode"
+"TLP 2844"|"Zebra TLP-2844"|"Zebra TLP-2844"
+"DRV PRINT"|"Принтер, установленный в системе"|"Printer installed in system"
+"6244-DT"|"Genicom 6244-DT"|"Genicom 6244-DT"
+"ATB MUSE"|"ATB принтер в режиме MUSE"|"ATB printer in MUSE mode"
+"506"|"IER 506"|"IER 506"
+"508"|"IER 508"|"IER 508"
+"OLIVETTI"|"OLIVETTI"|"OLIVETTI"
+"BTP MUSE"|"BTP принтер в режиме MUSE"|"BTP printer in MUSE mode"
+"DCP MUSE"|"DCP принтер в режиме MUSE"|"DCP printer in MUSE mode"
+"SCN MUSE"|"Устройство чтения штрих-кодов в режиме MUSE"|"Bar code reader in MUSE mode"
+"SCL ABS"|"Весы ABS"|
+"OCR ACC"|"Устройство чтения символов ACCESS (OCR)"|
+"SBG CUTE2"|"Self-boarding gate с прошивкой CUTE"|"Self-boarding gate with firmware CUTE"
+"REGULA"|"Считыватель документов Регула"|"Regula document reader"
+"TPM200"|"Hengstler TPM200HR/TPM200/TPM80"|"Hengstler TPM200HR/TPM200/TPM80"
+"SBERBANK"|"Сбербанк. ТТК"|"Sberbank. TTK"
+"POS SBER"|"Pos pay in TTK mode"|"Pos pay in TTK mode"

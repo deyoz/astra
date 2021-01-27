@@ -28,6 +28,7 @@
 #include "stat/stat_seDCSAddReport.h"
 #include "stat/stat_departed.h"
 #include "stat/stat_ovb.h"
+#include "nosir_prepare_flt.h"
 
 int nosir_test(int argc,char **argv);
 void nosir_test_help(const char *name);
@@ -120,6 +121,8 @@ const
     {"-tzdump",                 tzdump,                 NULL,                       NULL},
     {"-tzdiff",                 tzdiff,                 NULL,                       NULL},
     {"-create_tlg",             nosir_create_tlg,       NULL,                       NULL},
+    {"-load_comp_elem_types",   load_comp_elem_types,   NULL,                       NULL},
+    {"-prepare_flt",            nosir_prepare_flt,      NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)

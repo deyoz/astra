@@ -1,0 +1,26 @@
+LOAD DATA
+INFILE *
+INTO TABLE user_set_types
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,category
+,short_name
+,name
+,short_name_lat
+,name_lat
+)
+BEGINDATA
+0|"TIME"|"UTC"|"Время по Гринвичу"|"UTC"|"Greenwich time"
+1|"TIME"|"Лок. пульта"|"Время для любого а/п относительно пульта"|"Loc. of desk"|"Time for any and all a/p in regard to desk"
+2|"TIME"|"Лок. а/п"|"Местное время для каждого а/п свое"|"Loc. of a/p"|"Own local time for each a/p"
+5|"CODE2"|"ИАТА вн."|"Внутренний код ИАТА"|"IATA natv."|"IATA native code"
+6|"CODE2"|"ИАТА межд."|"Международный код ИАТА"|"IATA intl."|"IATA international code"
+7|"CODE4"|"ИКАО вн."|"Внутренний код ИКАО"|"ICAO natv."|"ICAO native code"
+8|"CODE4"|"ИКАО межд."|"Международный код ИКАО"|"ICAO intl."|"ICAO international code"
+15|"ENCODING"|"Рус."|"Русская кодировка"|"Rus."|"Russian coding"
+16|"ENCODING"|"Лат."|"Латинская кодировка"|"Lat."|"Latin coding"
+9|"CODE2"|"Смешанный"|"Код, который был введен изначально"|"Mixed"|"Originally input code"
+17|"ENCODING"|"Смеш."|"Кодировка, которая была введена изначально"|"Mix."|"Originally input coding"

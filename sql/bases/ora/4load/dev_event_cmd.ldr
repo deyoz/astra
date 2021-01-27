@@ -1,0 +1,126 @@
+LOAD DATA
+INFILE *
+INTO TABLE dev_event_cmd
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+dev_model
+,sess_type
+,fmt_type
+,event_name
+,cmd_data
+,cmd_order
+,wait_prior_cmd
+,cmd_fmt_hex
+,cmd_fmt_file
+,binary
+,posted
+,error_show
+,error_log
+,error_abort
+,desk_grp_id
+)
+BEGINDATA
+|"COM/MUSE"|"BCR"|"on_init"|"PC"|3|0|0|0|0|1|1|1|0|
+|"COM/MUSE"|"BCR"|"before_close"|"MG"|3|0|0|0|0|0|1|1|0|
+|"COM/MUSE"|"BCR"|"after_init"|"MG"|1|0|0|0|0|1|1|1|0|
+|"MUSE"|"BCR"|"on_init"|"PC"|3|0|0|0|0|1|1|1|0|
+|"MUSE"|"BCR"|"after_init"|"MG"|1|0|0|0|0|1|1|1|0|
+|"MUSE"|"BCR"|"before_close"|"MG"|3|0|0|0|0|0|1|1|0|
+|"COM/CUTE"|"BCR"|"on_init"|"CR"|4|1|0|0|0|1|1|1|0|
+|"COM/CUTE"|"BCR"|"on_init"|"PC"|5|0|0|0|0|1|1|1|0|
+|"CUTE"|"ATB"|"on_init"|"SM"|1|0|0|0|0|1|0|0|1|
+|"CUTE"|"ATB"|"on_init"|"BT"|2|1|0|0|0|1|1|1|0|
+|"CUTE"|"ATB"|"on_init"|"PC"|3|0|0|0|0|1|1|1|0|
+|"CUTE"|"BTP"|"on_init"|"SM"|1|0|0|0|0|1|0|0|1|
+|"CUTE"|"BTP"|"on_init"|"PC"|2|1|0|0|0|1|1|1|0|
+|"CUTE"|"BCR"|"on_init"|"SM"|1|0|0|0|0|1|0|0|1|
+|"CUTE"|"BCR"|"on_init"|"CR"|3|1|0|0|0|1|1|1|0|
+|"CUTE"|"BCR"|"on_init"|"PC"|4|0|0|0|0|1|1|1|0|
+|"CUTE"|"BCR"|"before_close"|"SM"|1|0|0|0|0|0|0|0|1|
+|"CUTE"|"BCR"|"before_close"|"CW"|2|0|0|0|0|0|1|1|0|
+|"CUTE"|"BCR"|"before_close"|"MG"|3|0|0|0|0|0|1|1|0|
+|"CUTE"|"BCR"|"after_init"|"MG"|1|0|0|0|0|1|1|1|0|
+|"COM"|"BCR"|"on_init"|"CR"|2|1|0|0|0|1|1|1|0|
+|"COM"|"BCR"|"on_init"|"PC"|3|0|0|0|0|1|1|1|0|
+|"COM"|"BCR"|"after_init"|"MG"|1|0|0|0|0|1|1|1|0|
+|"COM"|"BCR"|"before_close"|"CW"|2|0|0|0|0|0|1|1|0|
+|"COM"|"BCR"|"before_close"|"MG"|3|0|0|0|0|0|1|1|0|
+|"LPT"|"ZPL2"|"first_fmt_magic_btn_click"|"./dev_event_cmd/ZPL2/ASTR_CGT.FNT"|1|0|0|1|0|1|1|1|0|
+|"LPT"|"ZPL2"|"first_fmt_magic_btn_click"|"./dev_event_cmd/ZPL2/ASTR_UB.FNT"|2|0|0|1|0|1|1|1|0|
+||"DPL"|"on_first_fmt_init"|"./dev_event_cmd/DPL/datARIAL24B.SFL"|1|0|0|1|1|1|1|1|0|
+||"DPL"|"on_first_fmt_init"|"./dev_event_cmd/DPL/datARIALC24.SFL"|2|0|0|1|1|1|1|1|0|
+||"DPL"|"on_first_fmt_init"|"./dev_event_cmd/DPL/datARIAL24B.SFP"|3|0|0|1|1|1|1|1|0|
+||"DPL"|"on_first_fmt_init"|"./dev_event_cmd/DPL/datARIALC24.SFP"|4|0|0|1|1|1|1|1|0|
+||"DPL"|"first_fmt_magic_btn_click"|"./dev_event_cmd/DPL/datARIAL24B.SFL"|1|0|0|1|1|1|1|1|0|
+||"DPL"|"first_fmt_magic_btn_click"|"./dev_event_cmd/DPL/datARIALC24.SFL"|2|0|0|1|1|1|1|1|0|
+||"DPL"|"first_fmt_magic_btn_click"|"./dev_event_cmd/DPL/datARIAL24B.SFP"|3|0|0|1|1|1|1|1|0|
+||"DPL"|"first_fmt_magic_btn_click"|"./dev_event_cmd/DPL/datARIALC24.SFP"|4|0|0|1|1|1|1|1|0|
+|"COM/CUTE"|"ATB"|"on_init"|"0000;ZZ"|1|0|0|0|0|1|0|0|0|
+|"COM/CUTE"|"ATB"|"on_init"|"SM"|2|1|0|0|0|1|0|0|1|
+|"COM/CUTE"|"BCR"|"before_close"|"SM"|1|0|0|0|0|0|0|0|1|
+|"COM/CUTE"|"BCR"|"before_close"|"CW"|2|0|0|0|0|0|1|1|0|
+|"COM/CUTE"|"BCR"|"before_close"|"MG"|3|0|0|0|0|0|1|1|0|
+|"COM/CUTE"|"BCR"|"after_init"|"MG"|1|0|0|0|0|1|1|1|0|
+|"COM/CUTE"|"ATB"|"on_init"|"BT"|3|1|0|0|0|1|1|1|0|
+|"COM/CUTE"|"ATB"|"on_init"|"PC"|4|0|0|0|0|1|1|1|0|
+|"COM/CUTE"|"BTP"|"on_init"|"0000;ZZ"|1|0|0|0|0|1|0|0|0|
+|"COM/CUTE"|"BTP"|"on_init"|"SM"|2|1|0|0|0|1|0|0|1|
+|"COM/CUTE"|"BTP"|"on_init"|"PC"|3|1|0|0|0|1|1|1|0|
+|"COM/CUTE"|"BCR"|"on_init"|"0000;ZZ"|1|0|0|0|0|1|0|0|0|
+|"COM/CUTE"|"BCR"|"on_init"|"SM"|2|1|0|0|0|1|0|0|1|
+|"CUSE"|"ATB"|"on_init"|"BT"|1|0|0|0|0|1|1|1|0|
+|"CUSE"|"ATB"|"on_init"|"PC"|2|1|0|0|0|1|1|1|0|
+|"CUSE"|"BTP"|"on_init"|"PC"|1|0|0|0|0|1|1|1|0|
+|"CUSE"|"BCR"|"on_init"|"PC"|1|0|0|0|0|1|1|1|0|
+|"CUSE"|"BCR"|"on_init"|"CR"|2|1|0|0|0|1|1|1|0|
+|"CUSE"|"BCR"|"before_close"|"MG"|3|0|0|0|0|0|1|1|0|
+|"CUSE"|"BCR"|"after_init"|"MG"|1|0|0|0|0|1|1|1|0|
+"BCR CUTE2"|"CUTE"|"BCR"|"on_init"|"SM"|1|0|0|0|0|1|0|0|1|
+"BCR CUTE2"|"CUTE"|"BCR"|"on_init"|"PC"|3|1|0|0|0|1|1|1|0|
+"BCR CUTE2"|"CUTE"|"BCR"|"before_close"|"SM"|1|0|0|0|0|0|0|0|1|
+"BCR CUTE2"|"CUTE"|"BCR"|"before_close"|"MG"|3|0|0|0|0|0|1|1|0|
+"BCR CUTE2"|"COM/CUTE"|"BCR"|"on_init"|"PC"|4|1|0|0|0|1|1|1|0|
+"BCR CUTE2"|"COM/CUTE"|"BCR"|"on_init"|"0000;ZZ"|1|0|0|0|0|1|0|0|0|
+"BCR CUTE2"|"COM/CUTE"|"BCR"|"on_init"|"SM"|2|1|0|0|0|1|0|0|1|
+"BCR CUTE2"|"COM/CUTE"|"BCR"|"before_close"|"SM"|1|0|0|0|0|0|0|0|1|
+"BCR CUTE2"|"COM/CUTE"|"BCR"|"before_close"|"MG"|3|0|0|0|0|0|1|1|0|
+"SBG CUTE2"|"COM/CUTE"|"BCR"|"before_close"|"SM"|1|0|0|0|0|0|0|0|1|
+"SBG CUTE2"|"CUTE"|"BCR"|"before_close"|"SM"|1|0|0|0|0|0|0|0|1|
+"SBG CUTE2"|"COM/CUTE"|"BCR"|"before_close"|"MG"|3|0|0|0|0|0|1|1|0|
+"SBG CUTE2"|"CUTE"|"BCR"|"before_close"|"MG"|3|0|0|0|0|0|1|1|0|
+"SBG CUTE2"|"COM/CUTE"|"BCR"|"on_init"|"0000;ZZ"|1|0|0|0|0|1|0|0|0|
+"SBG CUTE2"|"CUTE"|"BCR"|"on_init"|"SM"|1|0|0|0|0|1|0|0|1|
+"SBG CUTE2"|"COM/CUTE"|"BCR"|"on_init"|"SM"|2|1|0|0|0|1|0|0|1|
+"SBG CUTE2"|"CUTE"|"BCR"|"on_init"|"PC"|3|1|0|0|0|1|1|1|0|
+"SBG CUTE2"|"COM/CUTE"|"BCR"|"on_init"|"PC"|4|1|0|0|0|1|1|1|0|
+|"RESA"|"ATB"|"on_init"|"PC"|1|0|0|0|0|1|1|1|0|
+|"RESA"|"BTP"|"on_init"|"PC"|1|0|0|0|0|1|1|1|0|
+|"COM/MUSE"|"BCR"|"on_init"|"RC"|1|0|0|0|0|1|0|0|0|
+|"COM/CUTE"|"BCR"|"on_init"|"RC"|3|1|0|0|0|1|0|0|0|
+|"COM"|"BCR"|"on_init"|"RC"|1|0|0|0|0|1|0|0|0|
+|"COM/MUSE"|"BCR"|"on_init"|"CR"|2|1|0|0|0|1|1|1|0|
+|"CUTE"|"BCR"|"on_init"|"RC"|2|1|0|0|0|1|0|0|0|
+"BCR CUTE2"|"CUTE"|"BCR"|"on_init"|"RC"|2|1|0|0|0|1|0|0|0|
+"SBG CUTE2"|"CUTE"|"BCR"|"on_init"|"RC"|2|1|0|0|0|1|0|0|0|
+|"RESA"|"BCR"|"after_init"|"MG"|1|0|0|0|0|1|1|1|0|
+|"RESA"|"BCR"|"before_close"|"CW"|2|0|0|0|0|0|1|1|0|
+|"RESA"|"BCR"|"before_close"|"MG"|3|0|0|0|0|0|1|1|0|
+|"RESA"|"BCR"|"on_init"|"RC"|1|0|0|0|0|1|0|0|0|
+|"RESA"|"BCR"|"on_init"|"CR"|2|1|0|0|0|1|1|1|0|
+|"RESA"|"BCR"|"on_init"|"PC"|3|0|0|0|0|1|1|1|0|
+|"COM/CUTE"|"BCR"|"on_init"|"EP#PROKI=OFF"|6|0|0|0|0|1|0|0|0|
+"BCR CUTE2"|"CUTE"|"BCR"|"on_init"|"SM"|1|0|0|0|0|1|0|0|1|1
+"SBG CUTE2"|"CUTE"|"BCR"|"on_init"|"SM"|1|0|0|0|0|1|0|0|1|1
+|"CUTE"|"BCR"|"on_init"|"SM"|1|0|0|0|0|1|0|0|1|1
+"BCR CUTE2"|"CUTE"|"BCR"|"on_init"|"RC"|2|1|0|0|0|1|0|0|0|1
+"SBG CUTE2"|"CUTE"|"BCR"|"on_init"|"RC"|2|1|0|0|0|1|0|0|0|1
+|"CUTE"|"BCR"|"on_init"|"RC"|2|1|0|0|0|1|0|0|0|1
+"BCR CUTE2"|"CUTE"|"BCR"|"on_init"|"PC"|3|1|0|0|0|1|1|1|0|1
+"SBG CUTE2"|"CUTE"|"BCR"|"on_init"|"PC"|3|1|0|0|0|1|1|1|0|1
+|"CUTE"|"BCR"|"on_init"|"CR"|3|1|0|0|0|1|1|1|0|1
+|"CUTE"|"BCR"|"on_init"|"PC"|4|0|0|0|0|1|1|1|0|1
+|"CUTE"|"BCR"|"on_init"|"AD;EP#BGRMODE=G"|5|0|0|0|0|1|0|0|0|1
+"BCR CUTE2"|"CUTE"|"BCR"|"on_init"|"AD;EP#BGRMODE=G"|4|0|0|0|0|1|0|0|0|1
+"SBG CUTE2"|"CUTE"|"BCR"|"on_init"|"AD;EP#BGRMODE=G"|4|0|0|0|0|1|0|0|0|1

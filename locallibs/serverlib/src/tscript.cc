@@ -282,21 +282,29 @@ void setShmservTestMode();
 int nosir_tscript(int argc, char** argv)
 {
     xp_testing::tscript::_nosir_mode = true;
-
     if (argc < 2) {
-        LogCout(COUT_ERROR) << "usage: obrzap -nosir -tscript file.ts [test# test# ...]" << std::endl;
+        LogCout(COUT_ERROR) << "usage: obrzap -nosir -tscript <optional testmode 0 or 1> file.ts [test# test# ...]" << std::endl;
         return 0;
     }
 
-    initTestMode();
+    size_t file_idx = 1;
+    bool test_mode = true;
+    try {
+        test_mode = std::stoul(argv[1]) != 0;
+        file_idx++;
+    } catch(std::invalid_argument &) {
+    }
+
+    if(test_mode)
+        initTestMode();
     set_signal(term3);
     setShmservTestMode();
 
     std::set<size_t> nums;
-    for (int i = 2; i < argc; ++i)
+    for (int i = file_idx + 1; i < argc; ++i)
         nums.insert(std::stoul(argv[i]));
 
-    return nosir_tscript_internal(argv[1], nums) ? 0 : 1;
+    return nosir_tscript_internal(argv[file_idx], nums) ? 0 : 1;
 }
 
 #endif // XP_TESTING

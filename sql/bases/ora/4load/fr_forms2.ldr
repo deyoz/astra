@@ -1,0 +1,12 @@
+LOAD DATA
+INFILE fr_forms2.dat "str X'7c0a'"
+INTO TABLE fr_forms2
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+name
+,version
+,pr_locale
+,form char(400000)
+)

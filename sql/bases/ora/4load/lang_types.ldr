@@ -1,0 +1,14 @@
+LOAD DATA
+INFILE *
+INTO TABLE lang_types
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,name
+,name_lat
+)
+BEGINDATA
+"RU"|"Русский"|"Russian"
+"EN"|"Английский"|"English"

@@ -213,6 +213,7 @@ astra_SOURCES = \
   timatic_exchange.cc \
   zamar_dsm.cpp \
   pg_session.cc \
+  nosir_prepare_flt.cc \
   base_callbacks.cpp
 
 astra_LDADD = $(all_libraries) \
@@ -426,4 +427,5 @@ noinst_HEADERS = \
   zamar_dsm.h \
   astra_types.h \
   pg_session.h \
+  nosir_prepare_flt.h \
   base_callbacks.h

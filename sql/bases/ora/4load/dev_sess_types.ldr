@@ -1,0 +1,28 @@
+LOAD DATA
+INFILE *
+INTO TABLE dev_sess_types
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,name
+,name_lat
+)
+BEGINDATA
+"COM/MUSE"|"COM/MUSE-интерфейс"|"COM/MUSE interface"
+"COM/CUTE"|"COM/CUTE-интерфейс"|"COM/CUTE interface"
+"CUSS"|"CUSS-интерфейс"|"CUSS interface"
+"COM/CAS"|"COM/CAS-интерфейс"|"COM/CAS interface"
+"RESA"|"RESA CREWS-интерфейс"|"RESA CREWS interface"
+"CUSE"|"CUSE-интерфейс"|"CUSE interface"
+"WDP"|"WINDOWS-драйвер принтера"|"Windows printer driver"
+"CUTE"|"CUTE-интерфейс"|"CUTE interface"
+"COM"|"COM-интерфейс"|"COM interface"
+"LPT"|"LPT-интерфейс"|"LPT interface"
+"USB"|"USB-интерфейс"|"USB interface"
+"MUSE"|"MUSE-интерфейс"|"MUSE interface"
+"KBW"|"Разрыв клавиатуры"|"Keyboard Wedge"
+"SITA_BSM"|"BagMessage-интерфейс"|"interface BagMessage"
+"HPD"|"Hengstler-драйвер принтера"|"Hengstler Printer Driver"
+"TCP"|"TCP интерфейс"|

@@ -89,23 +89,26 @@ class TCompElemType {
       image.clear();
       filename.clear();
     }
-    bool isSeat() {
+    bool isSeat() const {
       return is_seat;
     }
-    std::string getCode() {
+    std::string getCode() const {
       return code;
     }
-    std::string getName() {
+    std::string getName() const {
       return name;
     }
-    std::string getNameLat() {
+    std::string getNameLat() const {
       return name_lat;
     }
-    std::string getImage() {
+    std::string getImage() const {
       return image;
     }
-    std::string getFilename() {
+    std::string getFilename() const {
       return filename;
+    }
+    TDateTime getTimeCreate() const {
+      return time_create;
     }
 };
 
@@ -149,6 +152,9 @@ class TCompElemTypes {
       return ( getElem( elem_type, elem ) && elem.isSeat() );
     }
     TCompElemTypes();
+    TCompElemTypes(xmlNodePtr &reqNode);
+    TCompElemTypes(const std::string &file_name);
+    void toDB();
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -350,6 +356,7 @@ class TCompLayerTypes {
 
 void GetDataForDrawSalon( xmlNodePtr reqNode, xmlNodePtr resNode);
 void getTariffColors( std::map<std::string,std::string> &colors );
+int load_comp_elem_types(int argc, char **argv);
 
 #endif /*_IMAGES_H_*/
 
