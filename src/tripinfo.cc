@@ -2895,9 +2895,6 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
      "      crs_pax.pr_del=0 "
      "ORDER BY crs_pnr.point_id";
 
-  const std::string pspt = TypeB::getPSPT(paxId->get(), true /*with_issue_country*/,
-                                          TReqInfo::Instance()->desk.lang);
-
   TQuery Qry( &OraSession );
   Qry.Clear();
   Qry.SQLText=sql.str().c_str();
@@ -3082,6 +3079,8 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
     NewTextChild( node, "subclass", ElemIdToCodeNative(etSubcls, Qry.FieldAsString( col_cabin_subclass )) );
 
     int pax_id=Qry.FieldAsInteger( col_pax_id );
+    const std::string pspt = TypeB::getPSPT(pax_id, true /*with_issue_country*/,
+                                            TReqInfo::Instance()->desk.lang);
 
     std::string seat_no;
     std::string layer_type;
