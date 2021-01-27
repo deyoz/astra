@@ -888,6 +888,8 @@ bool DeletePaxPD(int pax_id)
 }
 
 std::set<int> loadPaxIdSet(int grp_id);
+bool existsPax(int pax_id);
+
 TGrpServiceAutoList loadCrsPaxAsvc(int pax_id, const std::optional<TTripInfo>& flt = {});
 
 bool AddPaxASVC(const TGrpServiceAutoItem& item)
@@ -940,7 +942,9 @@ bool AddPaxASVC(int id, bool is_grp_id)
       result = AddPaxASVC(pax_id);
     }
   } else {
-    result = AddPaxASVC(id);
+    if (existsPax(id)) {
+      result = AddPaxASVC(id);
+    }
   }
   return result;
 }
@@ -987,7 +991,9 @@ bool AddPaxPD(int id, bool is_grp_id)
       result = AddPaxPD(pax_id);
     }
   } else {
-    result = AddPaxPD(id);
+    if (existsPax(id)) {
+      result = AddPaxPD(id);
+    }
   }
   return result;
 }

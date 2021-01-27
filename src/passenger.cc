@@ -2873,6 +2873,27 @@ TPaxGrpCategory::Enum TSimplePaxGrpItem::grpCategory() const
     return TPaxGrpCategory::Passenges;
 }
 
+bool existsPax(int pax_id)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": pax_id=" << pax_id;
+  int count = 0;
+  auto cur = make_db_curs(
+        "SELECT count(1) "
+        "FROM pax "
+        "WHERE pax.pax_id=:pax_id ",
+        PgOra::getROSession("PAX"));
+
+  cur.stb()
+      .def(count)
+      .bind(":pax_id", pax_id)
+      .exec();
+
+  LogTrace(TRACE5) << __func__
+                   << ": count=" << count;
+  return count > 0;
+}
+
 std::set<int> loadPaxIdSet(int grp_id)
 {
   LogTrace(TRACE5) << __func__
