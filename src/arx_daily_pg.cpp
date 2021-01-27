@@ -1330,7 +1330,8 @@ void deleteByPaxes(const PaxId_t& pax_id)
                 "DELETE FROM pax_norms_text WHERE pax_id=:pax_id; "
                 "DELETE FROM sbdo_tags_generated WHERE pax_id=:pax_id; "
                 "DELETE FROM pax_calc_data WHERE pax_calc_data_id=:pax_id; "
-                "DELETE FROM pax_confirmations WHERE pax_id=:pax_id; END;");
+                "DELETE FROM pax_confirmations WHERE pax_id=:pax_id; "
+                "END;");
     cur.bind(":pax_id", pax_id);
     cur.exec();
     //todo delete from pax
@@ -1345,7 +1346,8 @@ void deleteByGrpId(const GrpId_t& grp_id)
                 "DELETE FROM tckin_pax_grp WHERE grp_id=:grp_id; "
                 "DELETE FROM pnr_addrs_pc WHERE grp_id=:grp_id; "
                 "DELETE FROM grp_service_lists WHERE grp_id=:grp_id; "
-                "DELETE FROM bag_tags_generated WHERE grp_id=:grp_id; END;");
+                "DELETE FROM bag_tags_generated WHERE grp_id=:grp_id; "
+                "END;");
     cur.bind(":grp_id", grp_id);
     cur.exec();
     //todo delete from pax_grp
@@ -1357,7 +1359,8 @@ void deleteAodbBag(const PointId_t& point_id)
                 "BEGIN "
                 "delete from AODB_BAG "
                 "where exists (select PAX_ID, POINT_ADDR from AODB_PAX where AODB_PAX.POINT_ID=:point_id and "
-                " AODB_BAG.PAX_ID = AODB_pax_id and AODB_BAG.POINT_ADDR = AODB_PAX.POINT_ADDR); END;");
+                " AODB_BAG.PAX_ID = AODB_pax_id and AODB_BAG.POINT_ADDR = AODB_PAX.POINT_ADDR); "
+                "END;");
     cur.bind(":point_id", point_id);
     cur.exec();
 }
@@ -1427,7 +1430,8 @@ void deleteByMoveId(const MoveId_t & move_id)
     auto cur = make_curs(
                 "BEGIN "
                 "DELETE FROM points WHERE move_id=:move_id;"
-                "DELETE FROM move_ref WHERE move_id=:move_id; END;");
+                "DELETE FROM move_ref WHERE move_id=:move_id; "
+                "END;");
     cur.bind(":move_id", move_id);
     cur.exec();
 }
@@ -1980,9 +1984,10 @@ int arx_tlgs(const Dates::DateTime_t& arx_date, int remain_rows)
         auto cur = make_curs("BEGIN "
                              //"delete from TLGS where POINT_ID = :id" TODO
                              //"delete from TLG_STAT where POINT_ID = :id" TODO
-                             "delete from TLG_ERROR where POINT_ID = :id; "
-                             "delete from TLG_QUEUE where POINT_ID = :id; "
-                             "delete from TLG_TEXT where POINT_ID = :id; END");
+                             "delete from TLG_ERROR where ID = :id; "
+                             "delete from TLG_QUEUE where ID = :id; "
+                             "delete from TLGS_TEXT where ID = :id; "
+                             "END;");
         cur.bind(":id", t.id).exec();
     }
     return tlgs.size();
@@ -2001,9 +2006,10 @@ int delete_files(const Dates::DateTime_t& arx_date, int remain_rows)
     for(const auto & f : files) {
         auto cur = make_curs("BEGIN "
                              //"delete from FILES where POINT_ID = :id; " TODO
-                             "delete from FILE_QUEUE where POINT_ID = :id; "
-                             "delete from FILE_PARAMS where POINT_ID = :id; "
-                             "delete from FILE_ERROR where POINT_ID = :id; END");
+                             "delete from FILE_QUEUE where ID = :id; "
+                             "delete from FILE_PARAMS where ID = :id; "
+                             "delete from FILE_ERROR where ID = :id; "
+                             "END;");
         cur.bind(":id", f.id).exec();
     }
     return files.size();
@@ -2022,7 +2028,8 @@ int delete_kiosk_events(const Dates::DateTime_t& arx_date, int remain_rows)
     for(const auto & ev : events) {
         auto cur = make_curs("BEGIN "
                              //"delete from KIOSK_EVENTS where ID = :id; " TODO
-                             "delete from KIOSK_EVENT_PARAMS where EVENT_ID = :id; END");
+                             "delete from KIOSK_EVENT_PARAMS where EVENT_ID = :id; "
+                             "END;");
         cur.bind(":id", ev.id).exec();
     }
     return events.size();
@@ -2050,7 +2057,8 @@ int delete_aodb_spp_files(const Dates::DateTime_t& arx_date, int remain_rows)
         auto cur = make_curs("BEGIN "
                              "delete from AODB_EVENTS "
                              "where filename= :filename AND point_addr= :point_addr "
-                             "AND airline= :airline AND rownum<= :remain_rows; END");
+                             "AND airline= :airline AND rownum<= :remain_rows; "
+                             "END;");
         cur
                 .bind(":filename", f.filename)
                 .bind(":point_addr", f.point_addr)
@@ -2063,7 +2071,7 @@ int delete_aodb_spp_files(const Dates::DateTime_t& arx_date, int remain_rows)
         //        auto cur2 = make_curs("BEGIN "
         //                             "delete from AODB_SPP_FILES "
         //                             "where filename= :filename AND point_addr= :point_addr "
-        //                             "AND airline= :airline; END");
+        //                             "AND airline= :airline; END;");
         //        cur2
         //           .bind(":filename", f.filename)
         //           .bind(":point_addr", f.point_addr)
