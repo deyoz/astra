@@ -661,9 +661,9 @@ void SaveASVCRem(const PaxIdWithSegmentPair& paxId,
     Qry.Clear();
     Qry.SQLText=
         "INSERT INTO crs_pax_asvc "
-        "  (pax_id,rem_status,rfic,rfisc,service_quantity,ssr_code,service_name,emd_type,emd_no,emd_coupon) "
+        "  (pax_id,rem_status,rfic,rfisc,service_quantity,ssr_code,service_name,emd_type,emd_no,emd_coupon,update_datetime) "
         "VALUES "
-        "  (:pax_id,:rem_status,:rfic,:rfisc,:service_quantity,:ssr_code,:service_name,:emd_type,:emd_no,:emd_coupon) ";
+        "  (:pax_id,:rem_status,:rfic,:rfisc,:service_quantity,:ssr_code,:service_name,:emd_type,:emd_no,:emd_coupon,:update_datetime) ";
     Qry.CreateVariable("pax_id",otInteger,paxId().get());
     Qry.DeclareVariable("rem_status",otString);
     Qry.DeclareVariable("rfic",otString);
@@ -674,6 +674,7 @@ void SaveASVCRem(const PaxIdWithSegmentPair& paxId,
     Qry.DeclareVariable("emd_type",otString);
     Qry.DeclareVariable("emd_no",otString);
     Qry.DeclareVariable("emd_coupon",otInteger);
+    Qry.CreateVariable("update_datetime",otDate,BASIC::date_time::NowUTC());
     int saved = 0;
     for(const TASVCItem& item : asvc)
     {
@@ -707,11 +708,12 @@ void SavePNLADLRemarks(const PaxIdWithSegmentPair& paxId, const vector<TRemItem>
   DB::TQuery CrsPaxRemQry(PgOra::getRWSession("CRS_PAX_REM"));
   CrsPaxRemQry.Clear();
   CrsPaxRemQry.SQLText=
-    "INSERT INTO crs_pax_rem(pax_id,rem,rem_code) "
-    "VALUES(:pax_id,:rem,:rem_code)";
+    "INSERT INTO crs_pax_rem(pax_id,rem,rem_code,update_datetime) "
+    "VALUES(:pax_id,:rem,:rem_code,:update_datetime)";
   CrsPaxRemQry.DeclareVariable("pax_id",otInteger);
   CrsPaxRemQry.DeclareVariable("rem",otString);
   CrsPaxRemQry.DeclareVariable("rem_code",otString);
+  Qry.CreateVariable("update_datetime",otDate,BASIC::date_time::NowUTC());
   //ремарки пассажира
   CrsPaxRemQry.SetVariable("pax_id",paxId().get());
   int saved = 0;
