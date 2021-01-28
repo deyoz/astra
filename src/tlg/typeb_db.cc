@@ -306,7 +306,7 @@ bool DeleteTripCompLayers(int pax_id)
                    << ": pax_id=" << pax_id;
   auto cur = make_db_curs(
         "DELETE FROM trip_comp_layers "
-        "WHERE pax_id=:pax_id ",
+        "WHERE crs_pax_id=:pax_id ",
         PgOra::getRWSession("TRIP_COMP_LAYERS"));
   cur.stb()
       .bind(":pax_id", pax_id)
@@ -323,7 +323,7 @@ bool DeleteTlgCompLayers(int pax_id)
                    << ": pax_id=" << pax_id;
   auto cur = make_db_curs(
         "DELETE FROM tlg_comp_layers "
-        "WHERE pax_id=:pax_id ",
+        "WHERE crs_pax_id=:pax_id ",
         PgOra::getRWSession("tlg_comp_layers"));
   cur.stb()
       .bind(":pax_id", pax_id)
@@ -340,7 +340,7 @@ bool DeletePaxCalcData(int pax_id)
                    << ": pax_id=" << pax_id;
   auto cur = make_db_curs(
         "DELETE FROM pax_calc_data "
-        "WHERE pax_id=:pax_id ",
+        "WHERE pax_calc_data_id=:pax_id ",
         PgOra::getRWSession("PAX_CALC_DATA"));
   cur.stb()
       .bind(":pax_id", pax_id)

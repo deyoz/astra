@@ -6,6 +6,7 @@
 #include "astra_utils.h"
 #include "qrys.h"
 #include "stat/stat_main.h"
+#include "tlg/typeb_db.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -562,6 +563,7 @@ bool TArxTlgTrips::Next(int max_rows, int duration)
 
   if (step==1 || step==2)
   {
+    bool deleteTypeBData = false;
     if (Qry->SQLText.IsEmpty())
     {
       Qry->Clear();
@@ -570,6 +572,7 @@ bool TArxTlgTrips::Next(int max_rows, int duration)
         "  arch.tlg_trip(:point_id); "
         "END;";
       Qry->DeclareVariable("point_id",otInteger);
+      deleteTypeBData = true;
     };
     while (!point_ids.empty())
     {
@@ -579,6 +582,9 @@ bool TArxTlgTrips::Next(int max_rows, int duration)
 
       try
       {
+        if (deleteTypeBData) {
+          TypeB::DeleteTypeBData(point_id, "", "", false/*delete_trip_comp_layers*/);
+        }
         //в архив
         Qry->SetVariable("point_id",point_id);
         Qry->Execute();
