@@ -713,7 +713,7 @@ void SavePNLADLRemarks(const PaxIdWithSegmentPair& paxId, const vector<TRemItem>
   CrsPaxRemQry.DeclareVariable("pax_id",otInteger);
   CrsPaxRemQry.DeclareVariable("rem",otString);
   CrsPaxRemQry.DeclareVariable("rem_code",otString);
-  Qry.CreateVariable("update_datetime",otDate,BASIC::date_time::NowUTC());
+  CrsPaxRemQry.CreateVariable("update_datetime",otDate,BASIC::date_time::NowUTC());
   //ремарки пассажира
   CrsPaxRemQry.SetVariable("pax_id",paxId().get());
   int saved = 0;
