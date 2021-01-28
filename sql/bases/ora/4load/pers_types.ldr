@@ -1,0 +1,17 @@
+LOAD DATA
+INFILE *
+INTO TABLE PERS_TYPES
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,code_lat
+,name
+,priority
+,name_lat
+)
+BEGINDATA
+"ВЗ"|"ADT"|"Взрослые"|1|"Adults"
+"РБ"|"CHD"|"Дети"|2|"Children"
+"РМ"|"INF"|"Младенцы"|3|"Infants"

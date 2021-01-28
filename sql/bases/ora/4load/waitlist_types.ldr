@@ -1,0 +1,15 @@
+LOAD DATA
+INFILE *
+INTO TABLE WAITLIST_TYPES
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,name
+,name_lat
+)
+BEGINDATA
+"C"|"Класс отсутствует"|"TRAVEL CLASS NOT FOUND"
+"O"|"Нет свободных мест"|"ALL SEATS OCCUPIED"
+"F"|"Свободная рассадка"|"FREE SEATING"

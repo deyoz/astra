@@ -1,0 +1,29 @@
+LOAD DATA
+INFILE *
+INTO TABLE REFUSAL_TYPES
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,code_lat
+,name
+,name_lat
+,id
+,pr_del
+,tid
+)
+BEGINDATA
+"Ы"|"S"|"Эгей"|"DFGDFG"|171515|0|681475109
+"M"|"M"|"мур-мур"|"HGKHGJGH"|492028|1|681796995
+"W"|"W"|"Неявка на посадку"|"No-show for boarding"|38545|0|3286684
+"П"|"P"|"Паспортный контроль"|"PROBLEM ON THE PASSPORT"|1|0|2988556
+"З"|"H"|"По состоянию здоровья"|"HEALTH CONDITION"|2|0|2988549
+"Р"|"C"|"Регистрация"|"CHECK-IN"|3|0|2988555
+"Т"|"A"|"Таможня"|"CUSTOMS"|4|0|2988557
+"О"|"R"|"Отказ от полета"|"REFUSED"|5|0|2988554
+"Б"|"E"|"САБ"|"EMERGENCY"|6|0|2988548
+"А"||"Ошибка агента"|"AGENT ERROR"|7|0|0
+"F"|"F"|"dfdfd"|"DFDF"|39741|1|3930274
+"Z"|"Z"|"пап-пурурум"||75112|0|681471303
+"Q"|"Q"|"kadabra"|"KADABRA"|74719|0|681471302

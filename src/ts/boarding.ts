@@ -63,7 +63,7 @@ $(NEW_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(airp_dep) $(airp_arv)
       <surname>VASILIADI</surname>
       <first_name>KSENIYA VALEREVNA</first_name>
     </document>
-    <subclass>L</subclass>
+    <subclass>ã</subclass>
     <bag_pool_num/>
     <transfer/>
   </pax>
@@ -91,7 +91,7 @@ $(NEW_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(airp_dep) $(airp_arv)
       <surname>CHEKMAREV</surname>
       <first_name>RONALD KONSTANTINOVICH</first_name>
     </document>
-    <subclass>L</subclass>
+    <subclass>ã</subclass>
     <bag_pool_num/>
     <transfer/>
   </pax>
@@ -126,7 +126,7 @@ $(NEW_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(airp_dep) $(airp_arv)
       <surname>STIPIDI</surname>
       <first_name>ANGELINA</first_name>
     </document>
-    <subclass>V</subclass>
+    <subclass>Ç</subclass>
     <bag_pool_num/>
     <transfer/>
   </pax>
@@ -154,7 +154,7 @@ $(NEW_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(airp_dep) $(airp_arv)
       <surname>AKOPOVA</surname>
       <first_name>OLIVIIA</first_name>
     </document>
-    <subclass>V</subclass>
+    <subclass>Ç</subclass>
     <bag_pool_num/>
     <transfer/>
   </pax>
@@ -188,7 +188,7 @@ $(NEW_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(airp_dep) $(airp_arv)
       <surname>VERGUNOV</surname>
       <first_name>VASILII LEONIDOVICH</first_name>
     </document>
-    <subclass>W</subclass>
+    <subclass>û</subclass>
     <bag_pool_num/>
     <transfer/>
     <rems>
@@ -377,7 +377,7 @@ $(defmacro DEFAULTS_SECTION
         <pr_brd>0</pr_brd>
         <pr_exam>0</pr_exam>
         <name/>
-        <pers_type/>
+        <pers_type>...
         <class>Y</class>
         <seats>1</seats>
         <ticket_no/>
@@ -442,6 +442,7 @@ $(defmacro BOARDING_RESPONSE_ONE_PAX
   reg_no
   surname
   name
+  pers_type
   airp_arv
   seat_no
   seats
@@ -482,7 +483,9 @@ $(if $(eq $(pr_brd) 0) "" {
           <pr_brd>$(pr_brd)</pr_brd>})
           <reg_no>$(reg_no)</reg_no>
           <surname>$(surname)</surname>
-          <name>$(name)</name>
+          <name>$(name)</name>\
+$(if $(eq $(pers_type) "") {} {
+          <pers_type>$(pers_type)</pers_type>})
           <airp_arv>$(airp_arv)</airp_arv>\
 $(if $(eq $(seat_no) "") {
           <seat_no/>} {
@@ -548,7 +551,7 @@ $(set counters
 $(BOARDING_RESPONSE_ONE_PAX
   $(get point_dep)
   "3/0/2(C0/Y5)" "1/0/0(C0/Y1)" "2/0/2(C0/Y4)" "1/0/0(C0/Y1)" "2/0/2(C0/Y4)"
-  $(get pax_id_01) 1 3 STIPIDI ANGELINA $(get_lat_code aer $(get airp_arv))
+  $(get pax_id_01) 1 3 STIPIDI ANGELINA "" $(get_lat_code aer $(get airp_arv))
   " 11Å" 1 2986145134262 2 0305555064 1
   $(get apis_01) $(get counters) $(MESSAGE_TAG MSG.PASSENGER.BOARDING2)
 
@@ -568,7 +571,7 @@ $(set counters
 $(BOARDING_RESPONSE_ONE_PAX
   $(get point_dep)
   "3/0/2(C0/Y5)" "1/0/1(C0/Y2)" "2/0/1(C0/Y3)" "1/0/1(C0/Y2)" "2/0/1(C0/Y3)"
-  $(get pax_id_02) 1 4 AKOPOVA OLIVIIA $(get_lat_code aer $(get airp_arv))
+  $(get pax_id_02) 1 4 AKOPOVA OLIVIIA INF $(get_lat_code aer $(get airp_arv))
   "" 0 2986145134263 2 VIAG519994 1
   $(get apis_02) $(get counters) $(MESSAGE_TAG MSG.PASSENGER.BOARDING2)
 
@@ -625,7 +628,7 @@ $(set counters
 $(BOARDING_RESPONSE_ONE_PAX
   $(get point_dep)
   "3/0/2(C0/Y5)" "2/0/1(C0/Y3)" "1/0/1(C0/Y2)" "2/0/1(C0/Y3)" "1/0/1(C0/Y2)"
-  $(get pax_id_03) 1 1 VASILIADI "KSENIYA VALEREVNA" $(get_lat_code aer $(get airp_arv))
+  $(get pax_id_03) 1 1 VASILIADI "KSENIYA VALEREVNA" "" $(get_lat_code aer $(get airp_arv))
   "  6É" 1 2986145143703 2 0307611933 1
   $(get apis_03) $(get counters) $(MESSAGE_TAG MSG.PASSENGER.BOARDING2)
 
@@ -645,7 +648,7 @@ $(set counters
 $(BOARDING_RESPONSE_ONE_PAX
   $(get point_dep)
   "3/0/2(C0/Y5)" "2/0/2(C0/Y4)" "1/0/0(C0/Y1)" "2/0/2(C0/Y4)" "1/0/0(C0/Y1)"
-  $(get pax_id_04) 1 2 CHEKMAREV "RONALD" $(get_lat_code aer $(get airp_arv))
+  $(get pax_id_04) 1 2 CHEKMAREV "RONALD" INF $(get_lat_code aer $(get airp_arv))
   "" 0 2986145143704 2 VÄÉ815247 1
   $(get apis_04) $(get counters) $(MESSAGE_TAG MSG.PASSENGER.BOARDING2)
 
@@ -665,7 +668,7 @@ $(set counters
 $(BOARDING_RESPONSE_ONE_PAX
   $(get point_dep)
   "3/0/2(C0/Y5)" "3/0/2(C0/Y5)" "0/0/0(C0/Y0)" "3/0/2(C0/Y5)" "0/0/0(C0/Y0)"
-  $(get pax_id_05) 1 5 VERGUNOV "VASILII LEONIDOVICH" $(get_lat_code aer $(get airp_arv))
+  $(get pax_id_05) 1 5 VERGUNOV "VASILII LEONIDOVICH" "" $(get_lat_code aer $(get airp_arv))
   "JMP" 1 2986145212943 1 0305984920 1
   $(get apis_05) $(get counters) $(MESSAGE_TAG MSG.PASSENGER.BOARDING2)
 
@@ -688,7 +691,7 @@ $(set counters
 $(BOARDING_RESPONSE_ONE_PAX
   $(get point_dep)
   "3/0/2(C0/Y5)" "2/0/2(C0/Y4)" "1/0/0(C0/Y1)" "2/0/2(C0/Y4)" "1/0/0(C0/Y1)"
-  $(get pax_id_03) 0 1 VASILIADI "KSENIYA VALEREVNA" $(get_lat_code aer $(get airp_arv))
+  $(get pax_id_03) 0 1 VASILIADI "KSENIYA VALEREVNA" "" $(get_lat_code aer $(get airp_arv))
   "  6É" 1 2986145143703 2 0307611933 1
   $(get apis_03) $(get counters) $(MESSAGE_TAG MSG.PASSENGER.DEBARKED2)
 
@@ -709,7 +712,7 @@ $(set counters
 $(BOARDING_RESPONSE_ONE_PAX
   $(get point_dep)
   "3/0/2(C0/Y5)" "2/0/1(C0/Y3)" "1/0/1(C0/Y2)" "2/0/1(C0/Y3)" "1/0/1(C0/Y2)"
-  $(get pax_id_04) 0 2 CHEKMAREV "RONALD" $(get_lat_code aer $(get airp_arv))
+  $(get pax_id_04) 0 2 CHEKMAREV "RONALD" INF $(get_lat_code aer $(get airp_arv))
   "" 0 2986145143704 2 VÄÉ815247 1
   $(get apis_04) $(get counters) $(MESSAGE_TAG MSG.PASSENGER.DEBARKED2)
 
@@ -744,6 +747,7 @@ $(PAX_LIST_RESPONSE
           <reg_no>2</reg_no>
           <surname>CHEKMAREV</surname>
           <name>RONALD</name>
+          <pers_type>INF</pers_type>
           <airp_arv>AER</airp_arv>
           <seat_no/>
           <seats>0</seats>
@@ -775,6 +779,7 @@ $(PAX_LIST_RESPONSE
           <reg_no>4</reg_no>
           <surname>AKOPOVA</surname>
           <name>OLIVIIA</name>
+          <pers_type>INF</pers_type>
           <airp_arv>AER</airp_arv>
           <seat_no/>
           <seats>0</seats>
@@ -818,7 +823,7 @@ $(set counters
 $(BOARDING_RESPONSE_ONE_PAX
   $(get point_dep)
   "3/0/2(C0/Y5)" "1/0/1(C0/Y2)" "2/0/1(C0/Y3)" "1/0/1(C0/Y2)" "2/0/1(C0/Y3)"
-  $(get pax_id_01) 0 3 STIPIDI ANGELINA $(get_lat_code aer $(get airp_arv))
+  $(get pax_id_01) 0 3 STIPIDI ANGELINA "" $(get_lat_code aer $(get airp_arv))
   " 11Å" 1 2986145134262 2 0305555064 1
   $(get apis_01) $(get counters) $(MESSAGE_TAG MSG.PASSENGER.DEBARKED2)
 
@@ -839,7 +844,7 @@ $(set counters
 $(BOARDING_RESPONSE_ONE_PAX
   $(get point_dep)
   "3/0/2(C0/Y5)" "1/0/0(C0/Y1)" "2/0/2(C0/Y4)" "1/0/0(C0/Y1)" "2/0/2(C0/Y4)"
-  $(get pax_id_02) 0 4 AKOPOVA OLIVIIA $(get_lat_code aer $(get airp_arv))
+  $(get pax_id_02) 0 4 AKOPOVA OLIVIIA INF $(get_lat_code aer $(get airp_arv))
   "" 0 2986145134263 2 VIAG519994 1
   $(get apis_02) $(get counters) $(MESSAGE_TAG MSG.PASSENGER.DEBARKED2)
 
@@ -895,6 +900,7 @@ $(PAX_LIST_RESPONSE
           <reg_no>2</reg_no>
           <surname>CHEKMAREV</surname>
           <name>RONALD</name>
+          <pers_type>INF</pers_type>
           <airp_arv>AER</airp_arv>
           <seat_no/>
           <seats>0</seats>
@@ -924,6 +930,7 @@ $(PAX_LIST_RESPONSE
           <reg_no>4</reg_no>
           <surname>AKOPOVA</surname>
           <name>OLIVIIA</name>
+          <pers_type>INF</pers_type>
           <airp_arv>AER</airp_arv>
           <seat_no/>
           <seats>0</seats>
@@ -1090,7 +1097,7 @@ $(set counters
 $(BOARDING_RESPONSE_ONE_PAX updated=false
   $(get point_dep)
   "3/0/2(C0/Y5)" "1/0/0(C0/Y1)" "2/0/2(C0/Y4)" "1/0/0(C0/Y1)" "2/0/2(C0/Y4)"
-  $(get pax_id_05) 1 5 VERGUNOV "VASILII LEONIDOVICH" $(get_lat_code aer $(get airp_arv))
+  $(get pax_id_05) 1 5 VERGUNOV "VASILII LEONIDOVICH" "" $(get_lat_code aer $(get airp_arv))
   "JMP" 1 2986145212943 1 0305984920 1
   $(get apis_05) $(get counters) $(USER_ERROR_MESSAGE_TAG MSG.PASSENGER.BOARDED_ALREADY2 120)
 )
@@ -1110,7 +1117,7 @@ $(set counters
 $(BOARDING_RESPONSE_ONE_PAX updated=false
   $(get point_dep)
   "3/0/2(C0/Y5)" "0/0/0(C0/Y0)" "3/0/2(C0/Y5)" "0/0/0(C0/Y0)" "3/0/2(C0/Y5)"
-  $(get pax_id_05) 0 5 VERGUNOV "VASILII LEONIDOVICH" $(get_lat_code aer $(get airp_arv))
+  $(get pax_id_05) 0 5 VERGUNOV "VASILII LEONIDOVICH" "" $(get_lat_code aer $(get airp_arv))
   "JMP" 1 2986145212943 1 0305984920 1
   $(get apis_05) $(get counters) $(USER_ERROR_MESSAGE_TAG MSG.PASSENGER.NOT_BOARDING2 120)
 )
@@ -1135,7 +1142,7 @@ $(set counters
 $(BOARDING_RESPONSE_ONE_PAX updated=false
   $(get point_dep)
   "3/0/2(C0/Y5)" "0/0/0(C0/Y0)" "3/0/2(C0/Y5)" "0/0/0(C0/Y0)" "3/0/2(C0/Y5)"
-  $(get pax_id_05) 0 5 VERGUNOV "VASILII LEONIDOVICH" $(get_lat_code aer $(get airp_arv))
+  $(get pax_id_05) 0 5 VERGUNOV "VASILII LEONIDOVICH" "" $(get_lat_code aer $(get airp_arv))
   "JMP" 1 2986145212943 1 0305984920 1
   $(get apis_05) $(get counters) $(USER_ERROR_MESSAGE_TAG MSG.PASSENGER.JMP_BOARDED_DENIAL)
 )

@@ -1,0 +1,84 @@
+LOAD DATA
+INFILE *
+INTO TABLE MISC_SET_TYPES
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,name
+,name_lat
+,category
+,view_order
+)
+BEGINDATA
+21|"Отображение планового времени в посадочном талоне"|"Scheduled time display in the boarding pass"|"MISC"|210
+24|"Контроль данных APIS"|"APIS data control"|"MISC"|240
+17|"Запрет изменения компоновки, назначенной на рейс"|"Layout change for the flight is forbidden"|"MISC"|170
+20|"Контроль автоматического взвешивания багажа"|"Control of automatic baggage weighting"|"MISC"|200
+8|"Запрет регистрации без номеров билетов"|"Prohibited check-in without ticket numbers"|"MISC"|80
+9|"Запрет регистрации без номеров документов"|"Prohibited check-in without document numbers"|"MISC"|90
+11|"Запрет обмена с СЭБом. Только ETL"|"Prohibited exchange with ETS. Only ETL"|"MISC"|110
+7|"Контроль оплаты багажа при досмотре"|"Baggage payment control whilst inspection"|"MISC"|70
+1|"Автоматическая разметка VIP-мест в компоновке"|"Automatic marking of VIP-seats in seating"|"MISC"|10
+2|"Контроль загрузки при регистрации"|"Loading control during check-in"|"MISC"|20
+3|"Разрешение регистрации при превышении загрузки"|"Allowed check-in in case of overweighting"|"MISC"|30
+4|"Досмотровый контроль перед посадкой"|"Pre-boarding inspection control"|"MISC"|40
+5|"Контроль оплаты багажа при посадке"|"Baggage payment control whilst boarding"|"MISC"|50
+12|"Оформление любого трансфера без учета настроек"|"Processing of any transfer without options"|"MISC"|120
+13|"Смешивание норм, тарифов, сборов при трансфере"|"Mixing of norms, fares, charges on transfer"|"MISC"|130
+15|"Отмена контроля номеров билетов"|"Cancellation of ticket number control"|"MISC"|150
+14|"Запрет регистрации билета TKNA"|"Prohibition of check-in with TKNA"|"MISC"|140
+16|"Поисковый запрос регистрации для чартеров"|"Check-in search inquiry for charters"|"MISC"|160
+18|"Контроль ввода задержек"|"Check of inputting delays"|"MISC"|180
+19|"Отправка MVT на взлет с задержками"|"Dispatch 'MVT departure' with delays"|"MISC"|190
+22|"Файл для Минтранса"|"File for Ministry of Transport"|"MISC"|220
+25|"Ручной ввод данных APIS"|"APIS data manual input"|"MISC"|250
+23|"Свободная рассадка"|"Free seating"|"MISC"|230
+10|"Запрет обмена с СЭДом"|"Prohibited exchange with EDS"|"MISC"|100
+101|"Посадка при регистрации"|"Boarding during check-in"|"HALL"|1010
+102|"Досмотр при посадке"|"Inspection on boarding"|"HALL"|1020
+201|"Запрет регистрации без выбора места"|"Chick-in without seat choice is forbidden"|"SELF_CKIN"|2010
+203|"Запрет регистрации нерезидентов РФ"|"Check-in not allowed for nonresident of the RF"|"SELF_CKIN"|2030
+40|"Отмена тревоги 'Регистрация экипажа'"|"Alarm 'Crew check-in' cancel"|"MISC"|400
+36|"Печать в посадочном ФИО из бронирования"|"Print surname on BP per booking data"|"MISC"|360
+43|"Контрольный метод при обмене с СЭБом"|"ETS exchange control method"|"MISC"|115
+54|"Запрет рассадки пас. с младенцем в блоке мест"|"Ban seating pass. with a baby in a block of places"|"MISC"|3000
+57|"Оформление багажа для экипажа"|"Baggage check-in for crew"|"MISC"|530
+61|"Запрет рассадки на резерв после оплаты (PNL/ADL)"|"Ban seating to reserved after payment (PNL/ADL)"|"MISC"|3010
+95|"Приоритет разметки в зависимости от авиакомпании"|"Приоритет разметки в зависимости от авиакомпании"|"MISC"|3012
+62|"Расчет стоимости в салоне по свойству мест с ЛО"|"Cost account in layout on the property of WL seats"|"MISC"|3010
+90|"Оплата на стойке DCS"|"Payment at DCS counter"|"MISC"|3011
+204|"Поисковый запрос регистрации для чартеров"|"Check-in search inquiry for charters"|"SELF_CKIN"|2040
+41|"Не контролировать ввод документов для экипажа"|"Disable documents verification for the crew"|"MISC"|410
+38|"Вес пассажиров на основании LCI"|"Passengers' weight based on LCI"|"MISC"|380
+42|"Не контролировать ввод документов для доп. экипажа"|"Disable documents verification for additional crew"|"MISC"|420
+39|"Регистрация на откидные места"|"Check-in to JMP"|"MISC"|390
+60|"Контроль рассадки на места ""аварийный выход"""|"Seating control to emergency exit seats"|"MISC"|3010
+80|"Запрет посадки JMP"|"Boarding prohibited to JMP"|"MISC"|3010
+81|"Изменение статуса ЭБ при посадке (посадка дольше!)"|"Changing ET status while boarding (longer!)"|"MISC"|117
+70|"СОПП сообщ.'Факт. время отличается от план/расч'"|"SOPP msg.?Fact depacture is diff from dep/est?"|"MISC"|500
+71|"СОПП сообщ. 'Пассажиры не прошли посадку'"|"PTS msg.?No boarded passengers?"|"MISC"|520
+207|"Регистрация пассажиров с киосков на платные места"|"Kiosk check-in to paid seats is prohibited"|"SELF_CKIN"|3010
+26|"Создание рейсов из системы AODB"|"Flights creation from AODB system"|"MISC"|260
+30|"Система расчета багажа и услуги из ГРС"|"Baggage concepts and service list from GDS"|"MISC"|300
+32|"Контроль оплаты только на сквозных сегментах"|"Baggage payment control on through-segments only"|"MISC"|320
+93|"Сообщение о пересадке на места размеченные RFISC"|"Changing seat message which marked RFISC"|"MISC"|3011
+205|"Запрет повторной саморегистрации"|"Second self-check-in forbidden"|"SELF_CKIN"|2050
+37|"Контроль ввода веса багажа и ручной клади"|"Baggage and cabin luggage weight entry control"|"MISC"|370
+56|"Обработка входных LDM"|"Processing of Inbound LDM"|"MISC"|530
+82|"Не применять весовую норму из ЭБ"|"Do not use weight data from E-ticket"|"MISC"|132
+45|"Запрет регистрации NOREC"|"Norec check in is denied"|"MISC"|95
+27|"Проставление вылета рейса по телеграмме MVT"|"Set flight departure time by MVT telegram"|"MISC"|270
+28|"Отправка данных в систему Меридиан"|"Dispatch passenger data to Meridian"|"MISC"|280
+31|"Запрет автопривязки EMD"|"Automatic EMD association is forbidden"|"MISC"|310
+63|"Работа с timatic в ручном режиме"|"Working with timatic in manual mode"|"MISC"|540
+44|"Запрет отмены регистрации если пассажир посажен"|"Checkin repeal prohibited, if passenger boarded"|"MISC"|440
+34|"Автоматическая печать ПТ в момент регистрации"|"BP automatic print at check-in in progress"|"MISC"|340
+35|"Автоматическая печать ПТ при изменении места"|"BP automatic print if seat changed"|"MISC"|350
+206|"Отмена саморегистрации всегда, если нет багажа"|"Possibility to cancel self check-in, if no baggage"|"SELF_CKIN"|2060
+208|"Запрет печати посадочного для аварийного выхода"|"Ban print for Emergency Exit"|"SELF_CKIN"|2070
+66|"Центровка LIBRA"|"Weight and balance LIBRA"|"MISC"|570
+64|"Работа с timatic в автоматическом режиме"|"Working with timatic in automatic mode"|"MISC"|550
+65|"Работа с timatic в справочном режиме"|"Working with timatic in information mode"|"MISC"|560
+67|"Поддержка inf в 2D баркоде"|"Inf support in 2D barcode"|"MISC"|580

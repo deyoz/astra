@@ -1,6 +1,6 @@
 LOAD DATA
 INFILE *
-INTO TABLE alarm_types
+INTO TABLE ALARM_TYPES
 APPEND
 FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
 TRAILING NULLCOLS
@@ -34,16 +34,18 @@ BEGINDATA
 "CREW_DIFF"|"Различие экипажа"|"Discrepancy of the crew"
 "APIS_DIFFERS_FROM_BOOKING"|"Данные APIS отличаются от данных бронирования"|"APIS data differ from booking data"
 "APIS_INCOMPLETE"|"Неполные данные APIS"|"Incomplete APIS data"
-"UNBOUND_EMD"|"Багажные EMDA"|"Baggage EMDA"
+"UNBOUND_EMD"|"Багажные EMD"|"Baggage EMD"
 "TLG_IN"|"Входные телеграммы"|"Inbound telegrams"
 "APPS_CONFLICT"|"APPS: Данные отличаются от актуальных"|"APPS data differ from actual"
 "APPS_NEGATIVE_DIRECTIVE"|"APPS: Посадка пассажира запрещена"|"APPS: Negative government boarding directive"
 "APPS_ERROR"|"APPS: Статус пассажира не определен"|"APPS: Passenger status not defined"
 "APPS_PROBLEM"|"APPS: Проблемы прохождения пограничного контроля"|"APPS: The problems of border control"
 "APPS_OUTAGE"|"APPS: Нет связи"|"APPS outage"
+"APPS_NOT_SCD_IN_TIME"|"APPS: Не указано время прилета"|"APPS: Arrival time is not specified"
 "SYNC_EMDS"|"Только для внутреннего использования"|"Internal use only"
 "SYNC_CABIN_CLASS"|"Только для внутреннего использования"|"Internal use only"
 "IAPI_NEGATIVE_DIRECTIVE"|"iAPI: Посадка пассажира запрещена"|"iAPI: Negative government boarding directive"
 "WB_DIFF_LAYOUT"|"Различие компоновок с WB"|"Aircraft configuration differ to WB"
 "WB_DIFF_SEATS"|"Различие мест с WB"|"Seat-map differ to WB"
 "IAPI_PROBLEM"|"iAPI: Проблемы прохождения пограничного контроля"|"iAPI: The problems of border control"
+"SYNC_APPS"|"Только для внутреннего использования"|"Internal use only"

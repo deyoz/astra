@@ -13,7 +13,7 @@ $(defmacro NEW_SPP_FLIGHT_ONE_LEG
   <query handle='0' id='sopp' ver='1' opr='PIKE' screen='SOPP.EXE' mode='STAND' lang='RU' term_id='2479792165'>
     <WriteDests>
       <data>
-        <move_id/>
+        <move_id>-2147483648</move_id>
         <canexcept>0</canexcept>
         <dests>
           <dest>
@@ -116,7 +116,7 @@ $(defmacro NEW_SPP_FLIGHT_TWO_LEGS
   <query handle='0' id='sopp' ver='1' opr='PIKE' screen='SOPP.EXE' mode='STAND' lang='RU' term_id='2479792165'>
     <WriteDests>
       <data>
-        <move_id/>
+        <move_id>-2147483648</move_id>
         <canexcept>0</canexcept>
         <dests>
           <dest>

@@ -4,7 +4,7 @@ include(ts/macro.ts)
 
 $(init_term)
 
-$(init_eds SU SUET SUDC)
+$(init_eds ‘“ SUET SUDC)
 
 <<
 UNB+SIRE:1+SUET+SUDC+170703:1027+FFD507DE140001++RESR1+O"
@@ -85,7 +85,7 @@ UNZ+1+FFD507DE140001"
 
 $(init_term)
 
-$(init_eds SU SUET SUDC)
+$(init_eds ‘“ SUET SUDC)
 
 <<
 UNB+SIRE:1+SUET+SUDC+170703:1027+FFD507DE140001++RESR1+O"

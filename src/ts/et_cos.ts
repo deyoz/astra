@@ -290,7 +290,7 @@ $(NEW_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(get airp_dep) $(get ai
       <surname>„Œˆ’ˆ…‚€</surname>
       <first_name>‹ˆŸ €‹…Š‘€„‚€</first_name>
     </document>
-    <subclass>P</subclass>
+    <subclass>”</subclass>
     <bag_pool_num/>
     <transfer/>
   </pax>
@@ -318,7 +318,7 @@ $(NEW_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(get airp_dep) $(get ai
       <surname>—€Š‚</surname>
       <first_name>Œˆ•€ˆ‹ ƒ…€„œ…‚ˆ—</first_name>
     </document>
-    <subclass>P</subclass>
+    <subclass>”</subclass>
     <bag_pool_num/>
     <transfer/>
   </pax>
@@ -346,7 +346,7 @@ $(NEW_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(get airp_dep) $(get ai
       <surname>—€Š‚</surname>
       <first_name>Œˆ•€ˆ‹ ƒ…€„œ…‚ˆ—</first_name>
     </document>
-    <subclass>P</subclass>
+    <subclass>”</subclass>
     <bag_pool_num/>
     <transfer/>
   </pax>
@@ -403,7 +403,7 @@ $(CHANGE_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(get airp_dep) $(get
       <surname>„Œˆ’ˆ…‚€</surname>
       <first_name>‹ˆŸ €‹…Š‘€„‚€</first_name>
     </document>
-    <subclass>P</subclass>
+    <subclass>”</subclass>
     <bag_pool_num/>
     <transfer/>
     <tid>$(get pax_tid_06)</tid>
@@ -429,7 +429,7 @@ $(CHANGE_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(get airp_dep) $(get
       <surname>—€Š‚</surname>
       <first_name>Œˆ•€ˆ‹ ƒ…€„œ…‚ˆ—</first_name>
     </document>
-    <subclass>P</subclass>
+    <subclass>”</subclass>
     <bag_pool_num/>
     <transfer/>
     <tid>$(get pax_tid_07)</tid>
@@ -455,7 +455,7 @@ $(CHANGE_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(get airp_dep) $(get
       <surname>—€Š‚</surname>
       <first_name>Œˆ•€ˆ‹ ƒ…€„œ…‚ˆ—</first_name>
     </document>
-    <subclass>P</subclass>
+    <subclass>”</subclass>
     <bag_pool_num/>
     <transfer/>
     <tid>$(get pax_tid_08)</tid>
@@ -510,7 +510,7 @@ $(NEW_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(get airp_dep) $(get ai
       <surname>VASILIADI</surname>
       <first_name>KSENIYA VALEREVNA</first_name>
     </document>
-    <subclass>L</subclass>
+    <subclass>‹</subclass>
     <bag_pool_num/>
     <transfer/>
   </pax>
@@ -538,7 +538,7 @@ $(NEW_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(get airp_dep) $(get ai
       <surname>CHEKMAREV</surname>
       <first_name>RONALD KONSTANTINOVICH</first_name>
     </document>
-    <subclass>L</subclass>
+    <subclass>‹</subclass>
     <bag_pool_num/>
     <transfer/>
   </pax>
@@ -589,7 +589,7 @@ $(NEW_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(get airp_dep) $(get ai
       <surname>STIPIDI</surname>
       <first_name>ANGELINA</first_name>
     </document>
-    <subclass>V</subclass>
+    <subclass>‚</subclass>
     <bag_pool_num/>
     <transfer/>
   </pax>
@@ -617,7 +617,7 @@ $(NEW_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(get airp_dep) $(get ai
       <surname>AKOPOVA</surname>
       <first_name>OLIVIIA</first_name>
     </document>
-    <subclass>V</subclass>
+    <subclass>‚</subclass>
     <bag_pool_num/>
     <transfer/>
   </pax>
@@ -731,7 +731,7 @@ $(NEW_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(get airp_dep) $(get ai
       <surname>„Œˆ’ˆ…‚€</surname>
       <first_name>‹ˆŸ €‹…Š‘€„‚€</first_name>
     </document>
-    <subclass>P</subclass>
+    <subclass>”</subclass>
     <bag_pool_num/>
     <transfer/>
   </pax>
@@ -759,7 +759,7 @@ $(NEW_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(get airp_dep) $(get ai
       <surname>—€Š‚</surname>
       <first_name>Œˆ•€ˆ‹ ƒ…€„œ…‚ˆ—</first_name>
     </document>
-    <subclass>P</subclass>
+    <subclass>”</subclass>
     <bag_pool_num/>
     <transfer/>
   </pax>
@@ -787,7 +787,7 @@ $(NEW_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(get airp_dep) $(get ai
       <surname>—€Š‚</surname>
       <first_name>Œˆ•€ˆ‹ ƒ…€„œ…‚ˆ—</first_name>
     </document>
-    <subclass>P</subclass>
+    <subclass>”</subclass>
     <bag_pool_num/>
     <transfer/>
   </pax>
@@ -858,7 +858,7 @@ $(CHANGE_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(get airp_dep) $(get
       <surname>„Œˆ’ˆ…‚€</surname>
       <first_name>‹ˆŸ €‹…Š‘€„‚€</first_name>
     </document>
-    <subclass>P</subclass>
+    <subclass>”</subclass>
     <bag_pool_num/>
     <transfer/>
     <tid>$(get pax_tid_06)</tid>
@@ -884,7 +884,7 @@ $(CHANGE_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(get airp_dep) $(get
       <surname>—€Š‚</surname>
       <first_name>Œˆ•€ˆ‹ ƒ…€„œ…‚ˆ—</first_name>
     </document>
-    <subclass>P</subclass>
+    <subclass>”</subclass>
     <bag_pool_num/>
     <transfer/>
     <tid>$(get pax_tid_07)</tid>
@@ -910,7 +910,7 @@ $(CHANGE_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(get airp_dep) $(get
       <surname>—€Š‚</surname>
       <first_name>Œˆ•€ˆ‹ ƒ…€„œ…‚ˆ—</first_name>
     </document>
-    <subclass>P</subclass>
+    <subclass>”</subclass>
     <bag_pool_num/>
     <transfer/>
     <tid>$(get pax_tid_08)</tid>
