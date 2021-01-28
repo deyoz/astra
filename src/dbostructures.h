@@ -1255,7 +1255,7 @@ struct TRIP_SETS
     int et_final_attempt;
     int f= ASTRA::NoExists;
     int jmp_cfg;
-    int lci_pers_weights= ASTRA::NoExists;
+    std::string weight_src;
     int max_commerce= ASTRA::NoExists;
     int piece_concept;
     int point_id;
@@ -1292,7 +1292,7 @@ struct TRIP_SETS
         dbo::field(a,et_final_attempt,"ET_FINAL_ATTEMPT", dbo::NotNull);
         dbo::field(a,f,"F");
         dbo::field(a,jmp_cfg,"JMP_CFG", dbo::NotNull);
-        dbo::field(a,lci_pers_weights,"LCI_PERS_WEIGHTS");
+        dbo::field(a,weight_src,"WEIGHT_SRC");
         dbo::field(a,max_commerce,"MAX_COMMERCE");
         dbo::field(a,piece_concept,"PIECE_CONCEPT", dbo::NotNull);
         dbo::field(a,point_id,"POINT_ID", dbo::NotNull);
