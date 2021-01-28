@@ -3179,7 +3179,11 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
     }
 
     NewTextChild( node, "ticket", Qry.FieldAsString( col_ticket ), "" );
-    NewTextChild( node, "document", Qry.FieldAsString( col_crs_doc_no ), "" );
+    std::string pspt = Qry.FieldAsString( col_crs_doc_no );
+    if (pspt.empty()) {
+      pspt = TypeB::getPSPT(pax_id, true /*with_issue_country*/, TReqInfo::Instance()->desk.lang);
+    }
+    NewTextChild( node, "document", pspt, "" );
 
     multiset<CheckIn::TPaxRemItem> rems;
     LoadCrsPaxRem(pax_id, rems);
