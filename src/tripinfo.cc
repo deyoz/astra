@@ -2865,7 +2865,7 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
   if (apis_generation)
     sql << ", pax_calc_data.* ";
   else
-    sql << ", pax_calc_data.crs_fqt_tier_level ";
+    sql << "pax_calc_data.crs_doc_no, pax_calc_data.crs_fqt_tier_level ";
   sql <<
      "FROM crs_pnr,crs_pax,pax,pax_grp,pax_calc_data,";
 
@@ -3028,6 +3028,7 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
   int col_pax_seats=Qry.FieldIndex("pax_seats");
   int col_wl_type=Qry.FieldIndex("wl_type");
   int col_is_jmp=Qry.FieldIndex("is_jmp");
+  int col_crs_doc_no=Qry.FieldIndex("crs_doc_no");
   int col_crs_fqt_tier_level=Qry.FieldIndex("crs_fqt_tier_level");
   int crs_row=1, pax_row=1;
   TBrands brands; //объявляем здесь, чтобы задействовать кэширование брендов
@@ -3079,8 +3080,6 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
     NewTextChild( node, "subclass", ElemIdToCodeNative(etSubcls, Qry.FieldAsString( col_cabin_subclass )) );
 
     int pax_id=Qry.FieldAsInteger( col_pax_id );
-    const std::string pspt = TypeB::getPSPT(pax_id, true /*with_issue_country*/,
-                                            TReqInfo::Instance()->desk.lang);
 
     std::string seat_no;
     std::string layer_type;
@@ -3180,7 +3179,7 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
     }
 
     NewTextChild( node, "ticket", Qry.FieldAsString( col_ticket ), "" );
-    NewTextChild( node, "document", pspt, "" );
+    NewTextChild( node, "document", Qry.FieldAsString( col_crs_doc_no ), "" );
 
     multiset<CheckIn::TPaxRemItem> rems;
     LoadCrsPaxRem(pax_id, rems);
