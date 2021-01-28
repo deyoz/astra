@@ -3317,7 +3317,6 @@ void TPaxDocItem::addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::s
       tables.insert("pax_doc");
       break;
     case paxPnl:
-//      tables.insert("crs_pax_doc");
       break;
     case paxTest:
       break;

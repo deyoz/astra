@@ -143,11 +143,11 @@ void SaveDOCSRem(const PaxIdWithSegmentPair& paxId,
         "INSERT INTO crs_pax_doc "
         "  (pax_id,rem_code,rem_status,type,issue_country,no,nationality, "
         "   birth_date,gender,expiry_date,surname,first_name,second_name,pr_multi, "
-        "   type_rcpt) "
+        "   type_rcpt,update_datetime) "
         "VALUES "
         "  (:pax_id,:rem_code,:rem_status,:type,:issue_country,:no,:nationality, "
         "   :birth_date,:gender,:expiry_date,:surname,:first_name,:second_name,:pr_multi, "
-        "   :type_rcpt) ";
+        "   :type_rcpt,:update_datetime) ";
     Qry.DeclareVariable("rem_code",otString);
     Qry.DeclareVariable("rem_status",otString);
     Qry.DeclareVariable("type",otString);
@@ -162,6 +162,7 @@ void SaveDOCSRem(const PaxIdWithSegmentPair& paxId,
     Qry.DeclareVariable("second_name",otString);
     Qry.DeclareVariable("pr_multi",otInteger);
     Qry.DeclareVariable("type_rcpt",otString);
+    Qry.CreateVariable("update_datetime",otDate,BASIC::date_time::NowUTC());
     for(const TDocItem& item : doc)
     {
       if (!item.suitableForDB()) continue;
@@ -256,10 +257,10 @@ void SaveDOCORem(const PaxIdWithSegmentPair& paxId,
     Qry.SQLText=
         "INSERT INTO crs_pax_doco "
         "  (pax_id,rem_code,rem_status,birth_place,type,no,issue_place,issue_date, "
-        "   applic_country) "
+        "   applic_country,update_datetime) "
         "VALUES "
         "  (:pax_id,:rem_code,:rem_status,:birth_place,:type,:no,:issue_place,:issue_date, "
-        "   :applic_country) ";
+        "   :applic_country,:update_datetime) ";
     Qry.CreateVariable("pax_id",otInteger,paxId().get());
     Qry.DeclareVariable("rem_code",otString);
     Qry.DeclareVariable("rem_status",otString);
@@ -269,6 +270,7 @@ void SaveDOCORem(const PaxIdWithSegmentPair& paxId,
     Qry.DeclareVariable("issue_place",otString);
     Qry.DeclareVariable("issue_date",otDate);
     Qry.DeclareVariable("applic_country",otString);
+    Qry.CreateVariable("update_datetime",otDate,BASIC::date_time::NowUTC());
     for(const TDocoItem& item : doc)
     {
       if (!item.suitableForDB()) continue;
@@ -349,9 +351,9 @@ void SaveDOCARem(const PaxIdWithSegmentPair& paxId,
   {
     Qry.SQLText=
         "INSERT INTO crs_pax_doca "
-        "  (pax_id,rem_code,rem_status,type,country,address,city,region,postal_code) "
+        "  (pax_id,rem_code,rem_status,type,country,address,city,region,postal_code,update_datetime) "
         "VALUES "
-        "  (:pax_id,:rem_code,:rem_status,:type,:country,:address,:city,:region,:postal_code) ";
+        "  (:pax_id,:rem_code,:rem_status,:type,:country,:address,:city,:region,:postal_code,:update_datetime) ";
     Qry.CreateVariable("pax_id",otInteger,paxId().get());
     Qry.DeclareVariable("rem_code",otString);
     Qry.DeclareVariable("rem_status",otString);
@@ -361,6 +363,7 @@ void SaveDOCARem(const PaxIdWithSegmentPair& paxId,
     Qry.DeclareVariable("city",otString);
     Qry.DeclareVariable("region",otString);
     Qry.DeclareVariable("postal_code",otString);
+    Qry.CreateVariable("update_datetime",otDate,BASIC::date_time::NowUTC());
     for(const TDocaItem& item : doca)
     {
       if (!item.suitableForDB()) continue;
