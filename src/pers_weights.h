@@ -10,6 +10,11 @@
 
 using BASIC::date_time::TDateTime;
 
+const std::string PERS_WEIGHT_NOT_SET_SRC = "";
+const std::string PERS_WEIGHT_ASTRA_SRC = "ASTRA";
+const std::string PERS_WEIGHT_LIBRA_SRC = "LIBRA";
+const std::string PERS_WEIGHT_LCI_SRC = "LCI";
+
 struct ClassesPersWeight {
   int id;
   int priority;
@@ -31,10 +36,10 @@ struct ClassesPersWeight {
 
 class PersWeightRules {
   private:
+    std::string source;
     std::vector<ClassesPersWeight> weights;
     bool intequal( PersWeightRules *p );
-    bool from_lci;
-    bool really_write(int point_id, std::string &source);
+    bool really_write(int point_id);
   public:
     void Clear() {
       weights.clear();
@@ -58,7 +63,7 @@ class PersWeightRules {
     bool empty() {
       return weights.empty();
     }
-    PersWeightRules(bool _from_lci = false): from_lci(_from_lci) {}
+    PersWeightRules(const std::string &_source=PERS_WEIGHT_ASTRA_SRC): source(_source) {}
 };
 
 

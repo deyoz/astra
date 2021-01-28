@@ -32,6 +32,15 @@ struct Cargo {
     }
 };
 
+void CargoMailWeight(
+        const std::string &suffix,
+        int point_id,
+        int point_arv,
+        int cargo,
+        int mail
+        );
+
+
 struct PaxLoad {
     std::string cl;
     int point_arv;

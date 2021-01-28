@@ -7,12 +7,15 @@
 #include "images.h"
 #include "astra_consts.h"
 #include "crafts/ComponCreator.h"
+#include "flt_settings.h"
+#include "astra_elems.h"
 #include "seat_number.h"
 #include "sopp.h"
+#include "points.h"
+#include "pers_weights.h"
 #include "date_time.h"
 #include "astra_date_time.h"
 #include "typeb_utils.h"
-
 #include <serverlib/xml_tools.h>
 #include <serverlib/exception.h>
 #include <serverlib/rip.h>
@@ -172,13 +175,83 @@ static bool get_spp(xmlNodePtr reqNode, xmlNodePtr resNode)
   }
   return true;
 }
+//====================получение весов пассажиров и багажа от Либры
+static bool set_payload_limit(xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  std::string airp_arv, airp_dep;
+  xmlNodePtr fltNode = NodeAsNode( "args/flight", reqNode );
+  int point_id = NodeAsInteger( "@point_id", fltNode );
+  TElemFmt fmt;
+  airp_dep = ElemToElemId( etAirp, NodeAsString( "@orig", fltNode ), fmt );
+  if ( fmt == efmtUnknown )
+    throw EXCEPTIONS::Exception("set_payload_limit: Unknown airp_dep ");
+  airp_arv = ElemToElemId( etAirp, NodeAsString( "@dest", fltNode ), fmt );
+  if ( fmt == efmtUnknown )
+    throw EXCEPTIONS::Exception("set_payload_limit: Unknown airp_arv ");
 
+  TTripInfo fltInfo;
+  if ( !fltInfo.getByPointId(point_id) )
+   throw EXCEPTIONS::Exception( "set_payload_limit: Flight not found" );
+  if ( !GetTripSets( tsLIBRACent, fltInfo ) ) {
+    throw EXCEPTIONS::Exception("set_payload_limit: Mode is not Libra");
+  }
+  xmlNodePtr node = GetNode( "pyld", fltNode );
+  if ( node ) {
+    TFlightMaxCommerce maxCommerce(TFlightMaxCommerce::PERS_WEIGHT_LIBRA_SRC);
+    int mc = NodeAsInteger( node );
+    if ( mc == 0 )
+      maxCommerce.SetValue( ASTRA::NoExists );
+    else
+      maxCommerce.SetValue( mc );
+     maxCommerce.Save( point_id );
+  }
+  //point_arv
+  TTripRoute route;
+  TTripRouteItem item;
+  if ( route.GetNextAirp( ASTRA::NoExists, point_id, trtNotCancelled, item ) &&
+       item.airp == airp_arv ) { // cargo
+     CargoMailWeight( TFlightMaxCommerce::PERS_WEIGHT_LIBRA_SRC + ": ",
+                      point_id,
+                      item.point_id,
+                      NodeAsInteger( "cargo", fltNode ),
+                      NodeAsInteger( "mail", fltNode ) );
+  }
+  //pers_weights
+  node = GetNode( "pax_weights", fltNode );
+  if ( node ) {
+    PersWeightRules libra_pwr(PERS_WEIGHT_LIBRA_SRC);
+    //LogTrace(TRACE5) << libra_pwr.source;
+    node = node->children;
+    while ( node && std::string((char*)node->name) == "class" ) {
+      ClassesPersWeight cpw;
+      cpw.cl =  ElemToElemId( etClass, NodeAsString( "@name", node ), fmt );
+      if ( fmt == efmtUnknown )
+        throw EXCEPTIONS::Exception("set_payload_limit: pax_weights unknown class");
+      xmlNodePtr n = GetNode( "adult", node );
+      if ( n && !std::string(NodeAsString(n)).empty() ) {
+        cpw.male = NodeAsInteger(n);
+      }
+      else {
+        cpw.male = NodeAsInteger( "male", node );
+        cpw.female = NodeAsInteger( "female", node );
+      }
+      cpw.child = NodeAsInteger( "child", node );
+      cpw.infant = NodeAsInteger( "infant", node );
+      libra_pwr.Add( cpw );
+      node = node->next;
+    }
+    PersWeightRules db_pwr;
+    db_pwr.read(point_id);
+    if ( !libra_pwr.equal(&db_pwr) )
+      libra_pwr.write(point_id);
+  }
+  return true;
+}
 
 static bool get_seating_details(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int point_id = NodeAsInteger( "args/point_id", reqNode );
   resNode = NewTextChild( resNode, "compon" );
-  tst();
   ComponCreator::ComponSetter componSetter( point_id );
   if ( !componSetter.isLibraMode() ) {
     throw EXCEPTIONS::Exception("Mode is not Libra");
@@ -377,6 +450,7 @@ static bool call(xmlNodePtr reqNode, xmlNodePtr resNode)
     __DECLARE_CALL__("seat_plan_change",    seat_plan_change);
     __DECLARE_CALL__("configuration_change",configuration_change);
     __DECLARE_CALL__("get_spp",get_spp);
+    __DECLARE_CALL__("set_payload_limit",set_payload_limit);
 
 
     LogError(STDLOG) << "Unknown astra call '" << func_name << "'";

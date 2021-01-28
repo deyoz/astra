@@ -149,13 +149,17 @@ class TFlightCargos {
 };
 
 class TFlightMaxCommerce {
+  public:
+    static const std::string PERS_WEIGHT_ASTRA_SRC;
+    static const std::string PERS_WEIGHT_LIBRA_SRC;
+    static const std::string PERS_WEIGHT_LCI_SRC;
   private:
     int value;
-    bool lci;
+    std::string source;
   public:
-    TFlightMaxCommerce(bool alci = false) {
+    TFlightMaxCommerce(const std::string &_source=PERS_WEIGHT_ASTRA_SRC) {
       value = ASTRA::NoExists;
-      lci = alci;
+      source = _source;
     }
     void SetValue( int vvalue ) {
       value = vvalue;

@@ -2603,6 +2603,10 @@ void TFlightCargos::Save( int point_id, const vector<TPointsDest> &dests )
   tst();
 }
 //////////////////////////////////////TFlightMaxCommerce////////////////////////
+const std::string TFlightMaxCommerce::PERS_WEIGHT_ASTRA_SRC = "ASTRA";
+const std::string TFlightMaxCommerce::PERS_WEIGHT_LIBRA_SRC = "LIBRA";
+const std::string TFlightMaxCommerce::PERS_WEIGHT_LCI_SRC = "LCI";
+
 void TFlightMaxCommerce::Load( int point_id )
 {
   TQuery Qry(&OraSession);
@@ -2637,16 +2641,16 @@ void TFlightMaxCommerce::Save( int point_id )
     Qry.CreateVariable( "max_commerce", otInteger, value );
   }
   Qry.Execute();
+  LEvntPrms lp;
+  lp << PrmSmpl<std::string>("source", (source==PERS_WEIGHT_ASTRA_SRC)?"": source + ": ");
+  std::string lexema_id;
   if ( value == NoExists )
-    TReqInfo::Instance()->LocaleToLog(
-            (lci ? "EVT.LCI.MAX_COMMERCE_LOAD_UNKNOWN" :
-            "EVT.MAX_COMMERCE_LOAD_UNKNOWN"),
-            evtFlt, point_id);
-  else
-    TReqInfo::Instance()->LocaleToLog(
-            (lci ? "EVT.LCI.MAX_COMMERCE_LOAD" :
-            "EVT.MAX_COMMERCE_LOAD"),
-            LEvntPrms() << PrmSmpl<int>("weight", value), evtFlt, point_id);
+    lexema_id = "EVT.MAX_COMMERCE_LOAD_UNKNOWN";
+  else {
+    lexema_id = "EVT.MAX_COMMERCE_LOAD";
+    lp << PrmSmpl<int>("weight", value);
+  }
+  TReqInfo::Instance()->LocaleToLog(lexema_id,lp, evtFlt, point_id);
   Set_AODB_overload_alarm( point_id, pr_overload_alarm );
 }
 ////////////////////////////////////TFlightDelays///////////////////////////////

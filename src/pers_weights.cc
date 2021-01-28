@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <serverlib/cursctl.h>
 #include "astra_consts.h"
 #include "date_time.h"
 #include "exceptions.h"
@@ -225,47 +226,39 @@ bool PersWeightRules::intequal( PersWeightRules *p )
   return true;
 }
 
-bool PersWeightRules::really_write(int point_id, string &source)
+bool PersWeightRules::really_write(int point_id)
 {
+    std::string trip_sets_src;
+    auto cur = make_curs("SELECT weight_src FROM trip_sets WHERE point_id=:point_id");
+    cur.defNull(trip_sets_src,PERS_WEIGHT_NOT_SET_SRC)
+     .bind(":point_id", point_id)
+     .exec();
+
+    if(cur.fen()) // нет строки в таблице trip_sets, нечего обновлять
+      return false;
+
     TTripInfo info;
     info.getByPointId(point_id);
-    bool lci_pers_weights = GetTripSets(tsLCIPersWeights,info);
-
-    TCachedQuery setsQry("select lci_pers_weights from trip_sets where point_id = :point_id",
-            QParams() << QParam("point_id", otInteger, point_id));
-    setsQry.get().Execute();
-    bool set_by_lci = false;
-    if(not setsQry.get().Eof and not setsQry.get().FieldIsNULL(0))
-        set_by_lci = setsQry.get().FieldAsInteger(0) != 0;
-
-    TCachedQuery updSetsQry("update trip_sets set lci_pers_weights = :lci_pers_weights where point_id = :point_id",
-            QParams()
-            << QParam("lci_pers_weights", otInteger)
-            << QParam("point_id", otInteger, point_id));
-
-    // В этом блоке if-else решается, выполнять перезапись весов или нет.
-
-    if(lci_pers_weights) { // В настройках рейсов разных ВКЛЮЧЕНЫ веса LCI
-        if(from_lci) {// перезапись инициируется LCI
-            if(not set_by_lci) { // устанавливаем признак LCI, если его еще не было
-                updSetsQry.get().SetVariable("lci_pers_weights", not set_by_lci);
-                updSetsQry.get().Execute();
-            }
-            // переходим в перезапись
-            source = "LCI: ";
-        } else { // перезапись инициируется настр. таблицами
-            if(set_by_lci) return false; // Если веса были установлены LCI, перезаписи нет
-            // переходим в перезапись
-        }
-    } else { // В настройках рейсов разных ОТКЛЮЧЕНЫ веса LCI
-        if(from_lci)
-            return false; // Перезапись инициируется LCI, перезаписи нет
-        else // перезапись инициируется настр. таблицами
-            if(set_by_lci) { // сбрасываем признак LCI, если он еще не сброшен
-                updSetsQry.get().SetVariable("lci_pers_weights", not set_by_lci);
-                updSetsQry.get().Execute();
-            }
-        // переходим в перезапись
+    std::string src_set;
+    //находим настройку на рейс
+    if ( GetTripSets( tsLIBRACent, info ) ) {
+      src_set = PERS_WEIGHT_LIBRA_SRC;
+    }
+    else
+      if ( GetTripSets(tsLCIPersWeights,info) ) {
+        src_set = PERS_WEIGHT_LCI_SRC;
+      }
+      else
+        src_set = PERS_WEIGHT_ASTRA_SRC;
+    if ( src_set != source ) { // если режим настройки и источник данных не совпадают, то не обновляем
+      return false;
+    }
+    if ( trip_sets_src != source ) { // если не указан либо указан другой источник информации, то  обновить источник
+      auto cur = make_curs("UPDATE trip_sets SET weight_src=:weight_src"
+                           " WHERE point_id=:point_id");
+      cur.bind(":weight_src",source)
+         .bind(":point_id", point_id)
+         .exec();
     }
     return true;
 }
@@ -274,8 +267,7 @@ void PersWeightRules::write( int point_id )
 {
   ProgTrace( TRACE5, "PersWeightRules::write point_id=%d", point_id );
 
-  string source;
-  if(not really_write(point_id, source)) return;
+  if(not really_write(point_id)) return;
 
   TFlights fligths;
   fligths.Get( point_id, ftTranzit );
@@ -335,7 +327,7 @@ void PersWeightRules::write( int point_id )
   }
     TReqInfo::Instance()->LocaleToLog(lexema_id,
             LEvntPrms()
-            << PrmSmpl<std::string>("source", source)
+            << PrmSmpl<std::string>("source", (source==PERS_WEIGHT_ASTRA_SRC)?"": source + ": ")
             << prmenum,
             evtFlt, point_id);
 }

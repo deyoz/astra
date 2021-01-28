@@ -2895,7 +2895,7 @@ string TLCIContent::answer()
             if(sth) {
                 const TSimpleWeight &mc = *dynamic_cast<TSimpleWeight *>(sth.get());
                 if(mc.measur != mN) {
-                    TFlightMaxCommerce maxCommerce(true);
+                    TFlightMaxCommerce maxCommerce(TFlightMaxCommerce::PERS_WEIGHT_LCI_SRC);
                     if ( mc.weight == 0 )
                         maxCommerce.SetValue( ASTRA::NoExists );
                     else
@@ -2911,7 +2911,7 @@ string TLCIContent::answer()
                 cpw.female = gc.f;
                 cpw.child = gc.c;
                 cpw.infant = gc.i;
-                PersWeightRules lci_pwr(true);
+                PersWeightRules lci_pwr(PERS_WEIGHT_LCI_SRC);
                 lci_pwr.Add(cpw);
 
                 PersWeightRules db_pwr;
