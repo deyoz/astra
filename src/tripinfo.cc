@@ -2865,7 +2865,7 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
   if (apis_generation)
     sql << ", pax_calc_data.* ";
   else
-    sql << "pax_calc_data.crs_doc_no, pax_calc_data.crs_fqt_tier_level ";
+    sql << ", pax_calc_data.crs_doc_no, pax_calc_data.crs_fqt_tier_level ";
   sql <<
      "FROM crs_pnr,crs_pax,pax,pax_grp,pax_calc_data,";
 
