@@ -22,11 +22,11 @@ void initStructures();
 
 struct Points
 {
-    int point_id= ASTRA::NoExists;
-    int move_id= ASTRA::NoExists;
-    int point_num= ASTRA::NoExists;
+    int point_id;
+    int move_id;
+    int point_num;
     std::string airp ;
-    short pr_tranzit = false;
+    short pr_tranzit;
     int first_point = ASTRA::NoExists;
     std::string airline;
     int flt_no = ASTRA::NoExists;
@@ -46,13 +46,13 @@ struct Points
     std::string park_in;
     std::string park_out;
     std::string remark;
-    short pr_reg = true;
-    short  pr_del = -1;
+    short pr_reg ;
+    int pr_del ;
     short airp_fmt;  //= efmtUnknown;    //TElemFmt number(1)
     short airline_fmt = -1; //= efmtUnknown; //TElemFmt
     short craft_fmt = -1; //= efmtUnknown;   //TElemFmt
     short suffix_fmt = -1; //= efmtUnknown;  //TElemFmt
-    int  tid = ASTRA::NoExists;
+    int  tid;
 
     template<typename Action>
     void persist(Action & a) {
@@ -849,7 +849,6 @@ struct ARX_BI_STAT : public BI_STAT
     }
 };
 
-// Нужно добавить поддержку типа agent_stat_t в pg курсор
 struct AGENT_STAT
 {
     int dbag_amount_inc = 0;
@@ -1126,6 +1125,23 @@ struct ARX_TLG_OUT : public TLG_OUT
 
 /////////////////////////////
 
+struct CLASSES
+{
+    std::string code;
+    std::string code_lat;
+    std::string name;
+    std::string name_lat;
+    int priority;
+
+    template<typename Action>
+    void persist(Action & a) {
+        dbo::field(a,code,"CODE", dbo::NotNull);
+        dbo::field(a,code_lat,"CODE_LAT", dbo::NotNull);
+        dbo::field(a,name,"NAME", dbo::NotNull);
+        dbo::field(a,name_lat,"NAME_LAT");
+        dbo::field(a,priority,"PRIORITY", dbo::NotNull);
+    }
+};
 
 struct TRIP_CLASSES
 {
@@ -1433,25 +1449,25 @@ struct BAG_RECEIPTS
     std::string airp_dep;
     Dates::DateTime_t annul_date;
     std::string annul_desk;
-    int annul_user_id;
+    int annul_user_id = ASTRA::NoExists;
     std::string bag_name;
-    int bag_type;
+    int bag_type = ASTRA::NoExists;
     std::string desk_lang;
-    double exch_pay_rate;
-    int exch_rate;
-    int ex_amount;
-    int ex_weight;
-    int flt_no;
+    double exch_pay_rate = ASTRA::NoExists;
+    int exch_rate= ASTRA::NoExists;
+    int ex_amount= ASTRA::NoExists;
+    int ex_weight= ASTRA::NoExists;
+    int flt_no= ASTRA::NoExists;
     std::string form_type;
-    int grp_id;
+    int grp_id = ASTRA::NoExists;
     Dates::DateTime_t issue_date;
     std::string issue_desk;
     std::string issue_place;
     int issue_user_id;
     int is_inter;
-    int kit_id;
-    int kit_num;
-    double nds;
+    int kit_id = ASTRA::NoExists;
+    int kit_num = ASTRA::NoExists;
+    double nds= ASTRA::NoExists;
     std::string nds_cur;
     int no;
     std::string pax_doc;
@@ -1468,7 +1484,7 @@ struct BAG_RECEIPTS
     std::string status;
     std::string suffix;
     std::string tickets;
-    double value_tax;
+    double value_tax = ASTRA::NoExists;
 
     template<typename Action>
     void persist(Action & a) {
@@ -1607,16 +1623,16 @@ struct ARX_BAG_PAY_TYPES : public BAG_PAY_TYPES
 
 struct ANNUL_BAG
 {
-    int amount;
-    int bag_type;
+    int amount = ASTRA::NoExists;
+    int bag_type = ASTRA::NoExists;
     int grp_id;
     int id;
-    int pax_id;
+    int pax_id = ASTRA::NoExists;
     std::string rfisc;
     Dates::DateTime_t time_annul;
     Dates::DateTime_t time_create;
-    int user_id;
-    int weight;
+    int user_id = ASTRA::NoExists;
+    int weight = ASTRA::NoExists;
 
     template<typename Action>
     void persist(Action & a) {
@@ -1677,7 +1693,7 @@ struct ARX_ANNUL_TAGS : public ANNUL_TAGS
 struct UNACCOMP_BAG_INFO
 {
     std::string airline;
-    int flt_no;
+    int flt_no = ASTRA::NoExists;
     int grp_id;
     std::string name;
     int num;
@@ -1719,11 +1735,11 @@ struct BAG2
     std::string airline;
     int amount;
     int bag_pool_num;
-    int bag_type;
+    int bag_type = ASTRA::NoExists;
     std::string bag_type_str;
     std::string desk;
     int grp_id;
-    int hall;
+    int hall = ASTRA::NoExists;
     int handmade;
     int id;
     int is_trfer;
@@ -1735,7 +1751,7 @@ struct BAG2
     std::string service_type;
     Dates::DateTime_t time_create;
     int to_ramp;
-    int user_id;
+    int user_id = ASTRA::NoExists;
     int using_scales;
     int value_bag_num;
     int weight;
@@ -1785,12 +1801,12 @@ struct ARX_BAG2 : public BAG2
 struct BAG_PREPAY
 {
     std::string aircode;
-    int bag_type;
-    int ex_weight;
+    int bag_type = ASTRA::NoExists;
+    int ex_weight = ASTRA::NoExists;
     int grp_id;
     std::string no;
     int receipt_id;
-    double value;
+    double value = ASTRA::NoExists;
     std::string value_cur;
 
     template<typename Action>
@@ -1822,7 +1838,7 @@ struct ARX_BAG_PREPAY : public BAG_PREPAY
 
 struct BAG_TAGS
 {
-    int bag_num;
+    int bag_num = ASTRA::NoExists;
     std::string color;
     int grp_id;
     int no;
@@ -1858,13 +1874,13 @@ struct ARX_BAG_TAGS : public BAG_TAGS
 struct PAID_BAG
 {
     std::string airline;
-    int bag_type;
+    int bag_type = ASTRA::NoExists;
     std::string bag_type_str;
     int grp_id;
-    int handmade;
+    int handmade = ASTRA::NoExists;
     int list_id;
-    int rate_id;
-    int rate_trfer;
+    int rate_id = ASTRA::NoExists;
+    int rate_trfer = ASTRA::NoExists;
     int weight;
 
     template<typename Action>
@@ -2565,7 +2581,7 @@ struct ARX_BAG_NORMS : public BAG_NORMS
 {
     Dates::DateTime_t part_key;
     ARX_BAG_NORMS() = default;
-    ARX_BAG_NORMS(const BAG_NORMS& sr, const Dates::DateTime_t & part_key_)
+    ARX_BAG_NORMS(const BAG_NORMS& sr, const Dates::DateTime_t & part_key_ = Dates::not_a_date_time)
         :BAG_NORMS(sr), part_key(part_key_) {}
 
     template<typename Action>
@@ -2628,7 +2644,7 @@ struct ARX_BAG_RATES : public BAG_RATES
     Dates::DateTime_t part_key;
 
     ARX_BAG_RATES() = default;
-    ARX_BAG_RATES(const BAG_RATES& sr, const Dates::DateTime_t & part_key_)
+    ARX_BAG_RATES(const BAG_RATES& sr, const Dates::DateTime_t & part_key_ = Dates::not_a_date_time)
         :BAG_RATES(sr), part_key(part_key_) {}
 
     template<typename Action>

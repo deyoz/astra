@@ -5,14 +5,63 @@
 #include "oralib.h"
 #include "astra_dates.h"
 #include "astra_types.h"
+#include "astra_consts.h"
+#include "hooked_session.h"
+#include <optional>
+
+#define get_arx_ora_curs(x) get_arx_ora_rw_sess(STDLOG)->createCursor(STDLOG, (x))
+#define get_arx_pg_ro_curs(x) get_arx_pg_ro_sess(STDLOG)->createCursor(STDLOG, (x))
+#define get_arx_pg_rw_curs(x) get_arx_pg_rw_sess(STDLOG)->createCursor(STDLOG, (x))
+
+#define get_arx_ro_curs(x) PG_ARX::ARX_READ_PG() ? get_arx_pg_ro_curs(x) : get_arx_ora_curs(x)
+#define get_arx_rw_curs(x) PG_ARX::ARX_PG_ENABLE() ? get_arx_pg_rw_curs(x) : get_arx_ora_curs(x)
+
+#define get_arx_ro_session() (PG_ARX::ARX_READ_PG() ? get_arx_pg_ro_sess(STDLOG) : get_arx_ora_rw_sess(STDLOG))
+#define get_arx_rw_session() (PG_ARX::ARX_PG_ENABLE() ? get_arx_pg_rw_sess(STDLOG) : get_arx_ora_rw_sess(STDLOG))
 
 namespace  PG_ARX {
-
-bool ARX_PG_ENABLE();
 int ARX_DAYS();
 int ARX_DURATION();
 int ARX_SLEEP();
 int ARX_MAX_ROWS();
+bool ARX_PG_ENABLE();
+bool ARX_READ_PG();
+
+struct TBagInfo
+{
+    int grp_id = 0;
+    std::optional<int> pax_id;
+    int bagAmount = 0; //NUMBER(5)
+    int bagWeight = 0; //NUMBER(6),
+    int rkAmount = 0; //NUMBER(5),
+    int rkWeight = 0; //NUMBER(6)
+};
+
+TBagInfo get_bagInfo2(Dates::DateTime_t part_key, int grp_id, std::optional<int> pax_id,
+                       std::optional<int> bag_pool_num);
+std::optional<int> get_bagAmount2(Dates::DateTime_t part_key, int grp_id, std::optional<int> pax_id,
+                    std::optional<int> bag_pool_num);
+std::optional<int> get_bagWeight2(Dates::DateTime_t part_key, int grp_id, std::optional<int> pax_id,
+                                  std::optional<int> bag_pool_num);
+std::optional<int> get_rkAmount2(Dates::DateTime_t part_key, int grp_id, std::optional<int> pax_id,
+                    std::optional<int> bag_pool_num);
+std::optional<int> get_rkWeight2(Dates::DateTime_t part_key, int grp_id, std::optional<int> pax_id,
+                                  std::optional<int> bag_pool_num);
+std::optional<int> get_excess_wt(Dates::DateTime_t part_key, int grp_id, std::optional<int> pax_id,
+                                 std::optional<int> excess_wt, std::optional<int> excess_nvl,
+                                 int bag_refuse);
+std::optional<int> get_bag_pool_pax_id(Dates::DateTime_t part_key, int grp_id,
+                                       std::optional<int> bag_pool_num, int include_refused = 1);
+int bag_pool_refused(Dates::DateTime_t part_key, int grp_id, int bag_pool_num,
+                     std::optional<std::string> vclass, int bag_refuse);
+std::optional<std::string> get_birks2(Dates::DateTime_t part_key, int grp_id, std::optional<int> pax_id,
+                       int bag_pool_num, const std::string& lang);
+std::optional<std::string> get_birks2(Dates::DateTime_t part_key, int grp_id, std::optional<int> pax_id,
+                       int bag_pool_num, int pr_lat = 0);
+std::optional<int> get_main_pax_id2(Dates::DateTime_t part_key, int grp_id, int include_refused = 1);
+
+
+
 
 bool arx_daily(const Dates::DateTime_t &utcdate);
 #ifdef XP_TESTING

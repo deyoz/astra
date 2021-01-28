@@ -6,7 +6,6 @@
 #include "astra_utils.h"
 #include "qrys.h"
 #include "stat/stat_main.h"
-#include <variant>
 
 #include <memory>
 #include <sstream>
@@ -21,14 +20,18 @@
 #include <serverlib/dates_oci.h>
 #include <serverlib/dates_io.h>
 #include <serverlib/tcl_utils.h>
+#include <serverlib/rip_oci.h>
 #include <serverlib/oci_rowid.h>
+
 #include <serverlib/dbcpp_cursctl.h>
 #include "PgOraConfig.h"
 #include "tlg/typeb_db.h"
 
-#include "dbo.h"
-#include "dbostructures.h"
+//#include "serverlib/dump_table.h"
+//#include "hooked_session.h"
 
+#include "dbostructures.h"
+#include "baggage_calc.h"
 
 #define NICKNAME "FELIX"
 #define NICKTRACE FELIX_TRACE
@@ -39,12 +42,28 @@ using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
 using namespace std;
 
+
+namespace PG_ARX {
+    bool ARX_PG_ENABLE()
+    {
+        static int always=-1;
+        return getVariableStaticBool("ARX_PG_ENABLE", &always, 0);
+    }
+
+    bool ARX_READ_PG()
+    {
+        static int always=-1;
+        return getVariableStaticBool("ARX_READ_PG", &always, 0);
+    }
+}
+
+
 bool deleteEtickets(int point_id);
 bool deleteEmdocs(int point_id);
 
 namespace  PG_ARX
 {
-
+//by move_id
 std::vector<dbo::Points> arx_points(const MoveId_t & vmove_id, const Dates::DateTime_t& part_key);
 void arx_move_ref(const MoveId_t & vmove_id, const Dates::DateTime_t& part_key);
 void arx_move_ext(const MoveId_t & vmove_id, const Dates::DateTime_t& part_key, int date_range);
@@ -129,8 +148,6 @@ int delete_eticks_display(const Dates::DateTime_t& arx_date, int remain_rows);
 int delete_eticks_display_tlgs(const Dates::DateTime_t& arx_date, int remain_rows);
 int delete_emdocs_display(const Dates::DateTime_t& arx_date, int remain_rows);
 
-
-
 namespace salons {
 
 std::string get_seat_no(const PaxId_t& pax_id, int seats, int is_jmp, std::string status, const PointId_t& point_id,
@@ -157,6 +174,82 @@ std::string get_seat_no(const PaxId_t& pax_id, int seats, int is_jmp, std::strin
 }
 
 namespace ckin {
+
+struct birks_row
+{
+    std::string tag_type;
+    int no_len=0;
+    std::string color;
+    std::string color_view;
+    long long first=0;
+    long long last=0;
+    long long no=0;
+};
+
+bool operator <(const birks_row & ls, const birks_row & rs)
+{
+    return std::tie(ls.tag_type, ls.color, ls.no) < std::tie(rs.tag_type, rs.color, rs.no);
+}
+
+std::optional<std::string> build_birks_str(const std::set<birks_row> & birks)
+{
+    std::string res; //VARCHAR2(4000)
+    std::string noStr; //VARCHAR2(15);
+    std::string firstStr; //VARCHAR2(17)
+    std::string lastStr; //VARCHAR2(3)
+    int diff; //BINARY_INTEGER;
+
+    ckin::birks_row curRow;
+    ckin::birks_row oldRow;
+    ckin::birks_row oldRow2;
+
+    for(const auto & row : birks) {
+        curRow = row;
+        diff = 1;
+        oldRow = curRow;
+        oldRow2 = {};
+        if(oldRow.tag_type == curRow.tag_type  &&
+                   ((!oldRow.color.empty() && !curRow.color.empty() &&
+                    oldRow.color==curRow.color) ||
+                    (oldRow.color.empty() && curRow.color.empty())) &&
+                    oldRow.first==curRow.first &&
+                    oldRow.last+diff==curRow.last)
+        {
+            diff += 1;
+        } else {
+            if(oldRow2.tag_type==oldRow.tag_type &&
+              ((!oldRow2.color.empty() && !oldRow.color.empty() && oldRow2.color==oldRow.color) ||
+               (oldRow2.color.empty() && oldRow.color.empty())) && oldRow2.first==oldRow.first ) {
+                firstStr = StrUtils::lpad(std::to_string(oldRow.last),3,'0');
+                if(!res.empty()) {
+                    res+=",";
+                }
+            } else {
+                firstStr = oldRow.color_view;
+                noStr = std::to_string(oldRow.first*1000+oldRow.last);
+                if (noStr.length() < oldRow.no_len) {
+                  firstStr += StrUtils::lpad(noStr,oldRow.no_len,'0');
+                } else {
+                  firstStr += noStr;
+                }
+                oldRow2 = oldRow;
+                if(!res.empty()) {
+                    res += ", ";
+                }
+            }
+
+            if(diff != 1) {
+              lastStr = StrUtils::lpad(std::to_string(oldRow.last+diff-1),3,'0');
+              res = res + firstStr + '-' + lastStr;
+            } else {
+              res += firstStr;
+            }
+            diff = 1;
+            oldRow = curRow;
+        }
+    }
+    return res;
+}
 
 int get_excess_pc(const GrpId_t& grp_id, const PaxId_t& pax_id, int include_all_svc = 0)
 {
@@ -187,10 +280,314 @@ void delete_typeb_data(const PointId_t& point_id)
 
 }
 
-bool ARX_PG_ENABLE()
+
+std::optional<int> get_bag_pool_pax_id(Dates::DateTime_t part_key, int grp_id,
+                                       std::optional<int> bag_pool_num, int include_refused)
 {
-    static int always=-1;
-    return getVariableStaticBool("ARX_PG_ENABLE", &always, 0);
+    if(!bag_pool_num) {
+        return std::nullopt;
+    }
+    std::optional<int> res;
+    int pax_id;
+    std::string refuse;
+
+    auto cur = get_arx_ro_curs(
+                "SELECT pax_id, refuse "
+                "FROM arx_pax "
+                "WHERE PART_KEY=:part_key and GRP_ID=:grp_id and BAG_POOL_NUM=:bag_pool_num "
+                "ORDER BY  CASE WHEN pers_type='ВЗ' THEN 0 WHEN pers_type='РБ' THEN 0 ELSE 1 END, "
+                "          CASE WHEN seats=0 THEN 1 ELSE 0 END, "
+                "          CASE WHEN refuse is null THEN 0 ELSE 1 END, "
+                "          CASE WHEN pers_type='ВЗ' THEN 0 WHEN pers_type='РБ' THEN 1 ELSE 2 END, "
+                "          reg_no ");
+    cur.stb()
+       .def(pax_id)
+       .defNull(refuse, "")
+       .bind(":part_key", part_key)
+       .bind(":grp_id", grp_id)
+       .bind(":bag_pool_num", bag_pool_num.value_or(0))
+       .exec();
+    if(!cur.fen()) {
+        res = pax_id;
+        if(include_refused == 0 && !refuse.empty()) {
+            res = std::nullopt;
+        }
+    }
+    return res;
+}
+
+TBagInfo get_bagInfo2(Dates::DateTime_t part_key, int grp_id, std::optional<int> pax_id,
+                       std::optional<int> bag_pool_num)
+{
+    TBagInfo bagInfo{};
+    bagInfo.grp_id = grp_id;
+    bagInfo.pax_id = pax_id;
+
+    std::optional<int> pool_pax_id = pax_id;
+    if(pax_id) {
+        if(!bag_pool_num) {
+            return bagInfo;
+        }
+        pool_pax_id = get_bag_pool_pax_id(part_key, grp_id, bag_pool_num);
+    }
+
+    if(!pax_id || (pool_pax_id && pool_pax_id == pax_id)) {
+        std::string query = "SELECT "
+                            "SUM(CASE WHEN pr_cabin=0 THEN amount ELSE NULL END) AS bagAmount, "
+                            "SUM(CASE WHEN pr_cabin=0 THEN weight ELSE NULL END) AS bagWeight, "
+                            "SUM(CASE WHEN pr_cabin=0 THEN NULL ELSE amount END) AS rkAmount, "
+                            "SUM(CASE WHEN pr_cabin=0 THEN NULL ELSE weight END) AS rkWeight "
+                            "FROM arx_bag2 "
+                            "WHERE part_key=:part_key AND grp_id=:grp_id ";
+        query += pax_id ? " AND bag_pool_num=:bag_pool_num " : "";
+        auto cur = get_arx_ro_curs(query);
+        cur.stb()
+           .defNull(bagInfo.bagAmount,ASTRA::NoExists)
+           .defNull(bagInfo.bagWeight,ASTRA::NoExists)
+           .defNull(bagInfo.rkAmount,ASTRA::NoExists)
+           .defNull(bagInfo.rkWeight,ASTRA::NoExists)
+           .bind(":part_key", part_key)
+           .bind(":grp_id", grp_id);
+        if(pax_id) {
+            cur.bind(":bag_pool_num", bag_pool_num.value_or(0));
+        }
+        cur.EXfet();
+        if(cur.err() == DbCpp::ResultCode::NoDataFound) {
+            LogTrace(TRACE5) << __FUNCTION__ << " Query error. Not found data by grp_id: " << grp_id
+                             << " part_key: " << part_key ;
+            return bagInfo;
+        }
+    }
+    return bagInfo;
+}
+
+std::optional<int> get_bagAmount2(Dates::DateTime_t part_key, int grp_id,
+                    std::optional<int> pax_id,
+                    std::optional<int> bag_pool_num)
+{
+    TBagInfo bagInfo = get_bagInfo2(part_key, grp_id, pax_id, bag_pool_num);
+    return bagInfo.bagAmount;
+}
+
+std::optional<int> get_bagWeight2(Dates::DateTime_t part_key, int grp_id,
+                                  std::optional<int> pax_id,
+                                  std::optional<int> bag_pool_num)
+{
+    TBagInfo bagInfo = get_bagInfo2(part_key, grp_id, pax_id, bag_pool_num);
+    return bagInfo.bagWeight;
+}
+
+std::optional<int> get_rkAmount2(Dates::DateTime_t part_key, int grp_id,
+                    std::optional<int> pax_id,
+                    std::optional<int> bag_pool_num)
+{
+    TBagInfo bagInfo = get_bagInfo2(part_key, grp_id, pax_id, bag_pool_num);
+    return bagInfo.rkAmount;
+}
+
+std::optional<int> get_rkWeight2(Dates::DateTime_t part_key, int grp_id,
+                                 std::optional<int> pax_id,
+                                 std::optional<int> bag_pool_num)
+{
+    TBagInfo bagInfo = get_bagInfo2(part_key, grp_id, pax_id, bag_pool_num);
+    return bagInfo.rkWeight;
+}
+
+std::optional<int> get_excess_wt(Dates::DateTime_t part_key, int grp_id,
+                                 std::optional<int> pax_id,
+                                 std::optional<int> excess_wt, std::optional<int> excess_nvl,
+                                 int bag_refuse)
+{
+    int excess = 0 ;
+    std::optional<int> main_pax_id;
+    if((!excess_wt && !excess_nvl) || !bag_refuse) {
+        auto cur = get_arx_ro_curs("SELECT (CASE WHEN BAG_REFUSE=0 THEN COALESCE(EXCESS_WT, EXCESS) ELSE 0 END) "
+                                   "FROM ARX_PAX_GRP "
+                                   "WHERE part_key=:part_key AND grp_id=:grp_id ");
+        cur.def(excess)
+           .bind(":part_key", part_key)
+           .bind(":grp_id", grp_id)
+           .EXfet();
+        if(cur.err() == DbCpp::ResultCode::NoDataFound) {
+            LogTrace(TRACE5) << __FUNCTION__ << " Query error. Not found data by grp_id: " << grp_id
+                             << " part_key: " << part_key ;
+            return std::nullopt;
+        }
+    } else {
+        if(bag_refuse == 0) {
+            if(excess_wt) return excess_wt;
+            if(excess_nvl) return excess_nvl;
+            return std::nullopt;
+        } else excess=0;
+    }
+
+    if(pax_id) {
+        main_pax_id = get_main_pax_id2(part_key, grp_id);
+    }
+    if(!(!pax_id || (main_pax_id && main_pax_id==pax_id))) {
+        return std::nullopt;
+    }
+    if(excess == 0) return std::nullopt;
+    return excess;
+}
+
+
+std::optional<int> get_main_pax_id2(Dates::DateTime_t part_key, int grp_id, int include_refused)
+{
+    std::optional<int> res;
+    int pax_id;
+    std::string refuse;
+    auto cur = get_arx_ro_curs("select PAX_ID, REFUSE from ARX_PAX "
+                               "where PART_KEY=:part_key and GRP_ID=:grp_id "
+                               "order by case when BAG_POOL_NUM is null  then 1 else 0 end, "
+                               "         case when PERS_TYPE='ВЗ' then 0 when pers_type='РБ' then 0 else 1 end, "
+                               "         case when SEATS=0 THEN 1 else 0 end, "
+                               "         case when REFUSE is null then 0 else 1 end, "
+                               "         case when PERS_TYPE='ВЗ' then 0 when PERS_TYPE='РБ' then 1 else 2 end, "
+                               "         reg_no");
+    cur.def(pax_id)
+       .defNull(refuse, "")
+       .bind(":part_key", part_key)
+       .bind(":grp_id", grp_id)
+       .exec();
+    if(!cur.fen()) {
+        res = pax_id;
+        if(include_refused == 0 && !refuse.empty()) {
+            res = std::nullopt;
+        }
+    }
+    return res;
+}
+
+int bag_pool_refused(Dates::DateTime_t part_key, int grp_id, int bag_pool_num,
+                     std::optional<std::string> vclass, int bag_refuse)
+{
+    if(bag_refuse != 0) return 1;
+    if(!vclass) return 0;
+    int n = 0;
+    auto cur = get_arx_ro_curs("select sum(case when REFUSE is null then 1 else 0 end) from ARX_PAX "
+                               "where PART_KEY=:part_key and GRP_ID=:grp_id and BAG_POOL_NUM=:bag_pool_num; ");
+    cur.def(n)
+       .bind(":part_key", part_key)
+       .bind(":grp_id", grp_id)
+       .bind(":bag_pool_num", bag_pool_num)
+       .EXfet();
+    if(cur.err() == DbCpp::ResultCode::NoDataFound || n==0) {
+        return 1;
+    } else
+        return 0;
+}
+
+std::set<ckin::birks_row> read_birks(Dates::DateTime_t part_key, int grp_id, const std::string& lang, bool bag_num=true)
+{
+    std::set<ckin::birks_row> birks;
+    ckin::birks_row row;
+    std::string pg_select = "select TAG_TYPE, COLOR, TRUNC(NO/1000) AS first, MOD(NO,1000) AS last, no ";
+    std::string ora_select = "select NO_LEN, case :lang when 'RU' then TAG_COLORS.CODE else "
+                "  coalesce(TAG_COLORS.CODE_LAT,TAG_COLORS.CODE) end as COLOR_VIEW ";
+
+    auto cur = get_arx_ro_curs(pg_select + " from ARX_BAG_TAGS "
+                               "where PART_KEY=:part_key AND grp_id=:grp_id " +
+                               (bag_num ? "" : " AND BAG_NUM is null "));
+    cur.def(row.tag_type)
+       .def(row.color)
+       .def(row.first)
+       .def(row.last)
+       .def(row.no)
+       .bind(":part_key", part_key)
+       .bind(":grp_id", grp_id)
+       .exec();
+    while(!cur.fen()) {
+        auto cur2 = make_curs(ora_select + " from TAG_TYPES,TAG_COLORS "
+                             "where TAG_TYPES.CODE = :TAG_TYPE and "
+                             "TAG_COLORS.CODE = :color; ");
+        cur2.def(row.no_len)
+            .def(row.color_view)
+            .bind(":lang", lang)
+            .bind(":tag_type", row.tag_type)
+            .bind(":color", row.color)
+            .EXfet();
+        birks.insert(row);
+    }
+    return birks;
+}
+
+std::set<ckin::birks_row> read_birks(Dates::DateTime_t part_key, int grp_id, int bag_pool_num, const std::string& lang)
+{
+    std::set<ckin::birks_row> birks;
+    ckin::birks_row row;
+    std::string pg_select = "select TAG_TYPE, COLOR, TRUNC(NO/1000) AS first, MOD(NO,1000) AS last, no ";
+    std::string ora_select = "select NO_LEN, case :lang when 'RU' then TAG_COLORS.CODE else "
+                "  coalesce(TAG_COLORS.CODE_LAT,TAG_COLORS.CODE) end as COLOR_VIEW ";
+    auto cur = get_arx_ro_curs(pg_select + " from ARX_BAG2, ARX_BAG_TAGS "
+                               "where ARX_BAG2.PART_KEY=ARX_BAG_TAGS.PART_KEY and "
+                               "    ARX_BAG2.GRP_ID=ARX_BAG_TAGS.GRP_ID and "
+                               "    ARX_BAG2.NUM=ARX_BAG_TAGS.BAG_NUM and "
+                               "    ARX_BAG2.PART_KEY=:part_key and "
+                               "    ARX_BAG2.GRP_ID=:grp_id and "
+                               "    ARX_BAG2.BAG_POOL_NUM=:bag_pool_num");
+    cur.def(row.tag_type)
+       .def(row.color)
+       .def(row.first)
+       .def(row.last)
+       .def(row.no)
+       .bind(":part_key", part_key)
+       .bind(":grp_id", grp_id)
+       .bind(":bag_pool_num", bag_pool_num)
+       .exec();
+    while(!cur.fen()) {
+        auto cur = make_curs(ora_select + " from TAG_TYPES,TAG_COLORS "
+                             "where TAG_TYPES.CODE = :TAG_TYPE and "
+                             "TAG_COLORS.CODE = :color; ");
+        cur.def(row.no_len)
+            .def(row.color_view)
+            .bind(":lang", lang)
+            .bind(":tag_type", row.tag_type)
+            .bind(":color", row.color)
+            .EXfet();
+
+        birks.insert(row);
+    }
+    return birks;
+}
+
+std::optional<std::string> get_birks2(Dates::DateTime_t part_key, int grp_id, std::optional<int> pax_id,
+                       int bag_pool_num, const std::string& lang)
+{
+    std::optional<int> pool_pax_id;
+    if(pax_id) {
+        if(!bag_pool_num) return std::nullopt;
+        pool_pax_id = get_bag_pool_pax_id(part_key, grp_id, bag_pool_num);
+    }
+
+    std::set<ckin::birks_row> birks;
+    if(!pax_id || (pool_pax_id && pool_pax_id==pax_id)) {
+        if(!pax_id) {
+                birks = read_birks(part_key, grp_id, lang);
+        }else {
+            if(bag_pool_num==1) {
+                /*для тех групп которые регистрировались с терминала без обязательной привязки */
+                 std::set<ckin::birks_row> birks1 = read_birks(part_key, grp_id, bag_pool_num, lang);
+                 std::set<ckin::birks_row> birks2 = read_birks(part_key, grp_id, lang, false);
+                //вместо SQL UNION
+                std::merge(birks1.begin(), birks1.end(), birks2.begin(), birks2.end(),
+                           std::inserter(birks, birks.begin()));
+            } else {
+                birks = read_birks(part_key, grp_id, bag_pool_num, lang);
+            }
+        }
+    }
+    return ckin::build_birks_str(birks);
+}
+
+std::optional<std::string> get_birks2(Dates::DateTime_t part_key, int grp_id, std::optional<int> pax_id,
+                       int bag_pool_num, int pr_lat)
+{
+    if(pr_lat!=1)  {
+        return get_birks2(part_key, grp_id, pax_id, bag_pool_num, "");
+    } else {
+        return get_birks2(part_key, grp_id, pax_id, bag_pool_num, "RU");
+    }
 }
 
 int ARX_DAYS()
@@ -276,8 +673,6 @@ bool TArxMoveFlt::GetPartKey(const MoveId_t &move_id, Dates::DateTime_t &part_ke
         } else {
             temp = {first_date,last_date, p.scd_in, p.est_in, p.act_in};
         }
-        LogTrace(TRACE5) << " temp size: " << temp.size();
-        for(const auto & t : temp) LogTrace(TRACE5) << " TEMP: " << t;
         auto fdates = algo::filter(temp, dbo::isNotNull<Dates::DateTime_t>);
         for(const auto & t : fdates) LogTrace(TRACE5) << " FILTER: " << t;
         first_date = (*std::min_element(fdates.begin(), fdates.end()));
@@ -314,6 +709,7 @@ bool TArxMoveFlt::GetPartKey(const MoveId_t &move_id, Dates::DateTime_t &part_ke
 
 void TArxMoveFlt::LockAndCollectStat(const MoveId_t & move_id)
 {
+    LogTrace(TRACE5) << __FUNCTION__ << " move_id: " << move_id;
     auto & session = dbo::Session::getArxInstance();
     session.connectOracle();
     std::vector<dbo::Points> points = session.query<dbo::Points>()
@@ -358,6 +754,7 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
     {
         //LogTrace(TRACE5) << "MOVE_IDS count: " << move_ids.size();
         MoveId_t move_id = move_ids.begin()->first;
+        LogTrace5 << __FUNCTION__ << " move_id: " << move_id;
         move_ids.erase(move_ids.begin());
         move_ids_count--;
         Dates::DateTime_t part_key;
@@ -472,7 +869,9 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
                     ProgError( STDLOG, "move_id=%d, part_key=not_a_date_time", move_id.get() );
                 throw;
             };
-        };
+        } else {
+            LogTrace5 << __FUNCTION__ << " GetPartKey return false";
+        }
     };
     return false;
 };
@@ -510,7 +909,7 @@ void arx_move_ref(const MoveId_t & vmove_id, const Dates::DateTime_t& part_key)
 
 std::vector<dbo::Points> arx_points(const MoveId_t & vmove_id, const Dates::DateTime_t& part_key)
 {
-    //LogTrace(TRACE5) << __FUNCTION__ << " vmove_id : "<< vmove_id;
+    LogTrace(TRACE5) << __FUNCTION__ << " vmove_id : "<< vmove_id << " part_key: " << part_key;
     auto & session = dbo::Session::getArxInstance();
     session.connectOracle();
     std::vector<dbo::Points> points = session.query<dbo::Points>()
@@ -519,7 +918,6 @@ std::vector<dbo::Points> arx_points(const MoveId_t & vmove_id, const Dates::Date
 
     //    auto cur2 = make_curs("DELETE FROM points WHERE move_id=:vmove_id");
     //    cur2.bind(":vmove_id", vmove_id).exec();
-
     session.connectPostgres();
     for(const auto &p : points) {
         dbo::Arx_Points ap(p, part_key);
@@ -530,6 +928,7 @@ std::vector<dbo::Points> arx_points(const MoveId_t & vmove_id, const Dates::Date
 
 void arx_events_by_move_id(const MoveId_t & vmove_id, const Dates::DateTime_t& part_key)
 {
+    LogTrace5 << __FUNCTION__ << " move_id: " << vmove_id << " part_key: " << part_key;
     auto & session = dbo::Session::getArxInstance();
     session.connectOracle();
     std::vector<dbo::Lang_Types> langs = session.query<dbo::Lang_Types>();
@@ -550,6 +949,7 @@ void arx_events_by_move_id(const MoveId_t & vmove_id, const Dates::DateTime_t& p
 
 void arx_events_by_point_id(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 {
+    LogTrace5 << __FUNCTION__ << " point_id: " << point_id << " part_key: " << part_key;
     auto & session = dbo::Session::getArxInstance();
     session.connectOracle();
     std::vector<dbo::Lang_Types> langs = session.query<dbo::Lang_Types>();

@@ -1,5 +1,4 @@
 #include "dbo.h"
-#include "hooked_session.h"
 
 #define NICKNAME "FELIX"
 #define NICKTRACE FELIX_TRACE
@@ -7,12 +6,33 @@
 
 using namespace std;
 
+
 namespace dbo
 {
 
-std::vector<string> MappingInfo::columns() const
+std::string Cursor::dump(size_t fields_size)
 {
-    std::vector<string> res;
+    std::stringstream res;
+    std::vector<std::string> vals(fields_size);
+
+    for(std::string& val:  vals) {
+        cur_.defNull(val, "NULL");
+    }
+    cur_.exec();
+
+    while(!cur_.fen()) {
+        for(const std::string& val:  vals) {
+            res << "[" << val << "] ";
+        }
+        res << std::endl;
+    }
+
+    return res.str();
+}
+
+std::vector<std::string> MappingInfo::columns() const
+{
+    std::vector<std::string> res;
     for(const auto & f: m_fields) {
         res.push_back(f.name());
     }
@@ -21,7 +41,7 @@ std::vector<string> MappingInfo::columns() const
 
 std::string MappingInfo::columnsStr(const std::string& table) const
 {
-    std::vector<string> cols = columns();
+    std::vector<std::string> cols = columns();
     std::string result;
     for(const auto & col: cols) {
         if(!result.empty()) {
@@ -105,7 +125,7 @@ Session& Session::getArxInstance()
     return arxInst;
 }
 
-string Session::dump(const string &tableName, const vector<string> &tokens, const string &query)
+std::string Session::dump(const std::string &tableName, const vector<std::string> &tokens, const std::string &query)
 {
     std::string result_query;
     std::string tblName = str_tolower(tableName);
@@ -114,7 +134,7 @@ string Session::dump(const string &tableName, const vector<string> &tokens, cons
         throw EXCEPTIONS::Exception("Unknown table name: " + tblName);
     }
 
-    int size = tokens.empty() ? mapInfo->columnsCount() : tokens.size();
+    size_t size = tokens.empty() ? mapInfo->columnsCount() : tokens.size();
     result_query = "select " + mapInfo->stringColumns(tokens);
     result_query += " from " + tableName + " " + query;
 
@@ -133,4 +153,6 @@ string Session::dump(const string &tableName, const vector<string> &tokens, cons
 }
 
 }
+
+
 

@@ -1,4 +1,8 @@
 #include "dbostructures.h"
+#include "pg_session.h"
+#include <serverlib/cursctl.h>
+#include <serverlib/rip_oci.h>
+#include <serverlib/dates_oci.h>
 
 #define NICKNAME "FELIX"
 #define NICKTRACE FELIX_TRACE
@@ -62,6 +66,7 @@ void initStructures()
         INIT_DBO(ARX_TLG_OUT);
         INIT_DBO(TRIP_CLASSES);
         INIT_DBO(ARX_TRIP_CLASSES);
+        INIT_DBO(CLASSES);
         INIT_DBO(TRIP_DELAYS);
         INIT_DBO(ARX_TRIP_DELAYS);
         INIT_DBO(TRIP_LOAD);

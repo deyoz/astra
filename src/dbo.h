@@ -1,55 +1,22 @@
 #ifndef DBO_H
 #define DBO_H
 
-#include <string>
-#include <map>
-#include <vector>
 #include <variant>
-#include <any>
-#include <utility>
-#include <optional>
-#include <cctype>
-#include <optional>
-#include <memory>
 
-#include "astra_types.h"
-#include "astra_dates.h"
-#include "astra_consts.h"
-#include "exceptions.h"
-#include "string_view"
-#include "pg_session.h"
-#include "date_time.h"
 #include "stat/stat_agent.h"
-
-#include <serverlib/rip_oci.h>
-#include <serverlib/pg_cursctl.h>
-#include <serverlib/pg_rip.h>
-#include <serverlib/cursctl.h>
-#include <serverlib/algo.h>
-#include <serverlib/str_utils.h>
-#include <serverlib/dates_oci.h>
 #include <serverlib/dates_io.h>
-#include <serverlib/oci_rowid.h>
 #include <serverlib/dbcpp_session.h>
 #include <serverlib/dbcpp_cursctl.h>
-
+#include "hooked_session.h"
 
 #define NICKNAME "FELIX"
 #include <serverlib/slogger_nonick.h>
 
-using std::string;
-using std::vector;
-using std::shared_ptr;
-using std::type_info;
-using std::endl;
 
 namespace DbCpp {
     class Session;
+    class CursCtl;
 }
-
-using namespace Dates;
-
-
 
 namespace dbo
 {
@@ -64,13 +31,13 @@ class Query;
 class InitSchema;
 class MappingInfo;
 class CursorInterface;
-template<typename Cur> class DefineClass;
-template<typename Cur> class Binder;
+class DefineClass;
+class Binder;
 
 
 
 typedef std::variant<bool, int, long long, float, double, std::string,
-                     DateTime_t, Date_t> bindedTypes;
+                     Dates::DateTime_t, Dates::Date_t> bindedTypes;
 
 static std::string str_tolower(std::string s) {
     std::transform(s.begin(), s.end(), s.begin(),
@@ -86,8 +53,8 @@ enum Flag {
 template<typename T>
 constexpr bool isSimpleType =
     std::is_same<T, bool>::value ||
-    std::is_same<T, DateTime_t>::value ||
-    std::is_same<T, Date_t>::value ||
+    std::is_same<T, Dates::DateTime_t>::value ||
+    std::is_same<T, Dates::Date_t>::value ||
     std::is_same<T, std::string>::value ||
     std::is_same<T, int>::value ||
     std::is_same<T, short>::value ||
@@ -100,11 +67,11 @@ constexpr V nullValue(const V& val)
     //    if constexpr (std::is_same<V, bool>::value) {
     //        return false;
     //    }
-    if constexpr (std::is_same<V, DateTime_t>::value) {
-        return not_a_date_time;
+    if constexpr (std::is_same<V, Dates::DateTime_t>::value) {
+        return Dates::not_a_date_time;
     }
-    else if constexpr (std::is_same<V, Date_t>::value) {
-        return not_a_date_time;
+    else if constexpr (std::is_same<V, Dates::Date_t>::value) {
+        return Dates::date{};
     }
     else if constexpr (std::is_same<V, std::string>::value) {
         return std::string("");
@@ -126,6 +93,9 @@ constexpr V nullValue(const V& val)
     }
     else return val;
 }
+
+const short null = -1;
+const short nnull = 0;
 
 template<typename C>
 bool isNull(const C& val)
@@ -164,15 +134,13 @@ public:
         return  !(flags_ & Flag::NotNull);
     }
 
-    template<typename Cur, typename T>
-    void bind(Cur &cur, T&& value) const
+    template<typename T>
+    void bind(DbCpp::CursCtl &cur, const T& value) const
     {
-        short null = -1, nnull = 0;
-        cur.bind(":"+name_, std::forward<T>(value), isNull(value) ? &null : &nnull);
+        cur.bind(":"+name_, value, isNotNull(value) ? &nnull : &null);
     }
 
-    template<typename Cur>
-    void def(Cur &cur) const
+    void def(DbCpp::CursCtl &cur) const
     {
         if(isNullable()) {
             cur.defNull(value_, nullValue(value_));
@@ -237,14 +205,14 @@ public:
     {}
     template<typename C>
     void init();
-    std::string columnsStr(const string &table = "") const;
-    inline int columnsCount() const
+    std::string columnsStr(const std::string &table = "") const;
+    inline size_t columnsCount() const
     {
         return m_fields.size();
     }
-    std::string stringColumns(const vector<string> &m_fields = {}) const;
+    std::string stringColumns(const std::vector<std::string> &m_fields = {}) const;
     std::string insertColumns() const;
-    const type_info & getType() const
+    const std::type_info& getType() const
     {
         return m_type;
     }
@@ -255,19 +223,18 @@ public:
         return m_tableName;
     }
 private:
-    const type_info & m_type;
+    const std::type_info& m_type;
     std::string m_tableName;
     std::vector<FieldInfo> m_fields;
     bool m_initialized = false;
 
-    std::vector<string> columns() const;
+    std::vector<std::string> columns() const;
 };
 
-template<typename Cur>
 class DefineClass
 {
 public:
-    DefineClass(Cur & cur) : m_cur(cur)  {}
+    DefineClass(DbCpp::CursCtl & cur) : m_cur(cur)  {}
 
     template<typename C>
     void visit(C& obj)
@@ -285,14 +252,13 @@ public:
         field.def(m_cur);
     }
 private:
-    Cur & m_cur;
+    DbCpp::CursCtl & m_cur;
 };
 
-template<typename Cur>
 class Binder
 {
 public:
-    Binder(Cur & cur) : m_cur(cur) {}
+    Binder(DbCpp::CursCtl & cur) : m_cur(cur) {}
 
     template<typename C>
     void visit(C& obj) {
@@ -303,7 +269,7 @@ public:
         field.bind(m_cur, field.value());
     }
 private:
-    Cur & m_cur;
+    DbCpp::CursCtl & m_cur;
 };
 
 typedef const std::type_info * const_typeinfo_ptr;
@@ -326,21 +292,33 @@ public:
     Cursor(DbCpp::CursCtl&& cur)
         : cur_(std::move(cur))
     {
-        cur_.stb(); // want unstb()
+        cur_.unstb();
     }
 
     virtual ~Cursor() = default;
 
-    Cursor& bind(std::map<std::string, dbo::bindedTypes>& bindedVars)
-    {        
-        for(auto & [name, value] : bindedVars) {
-            std::visit([&](auto &v) {
-                cur_.bind(name, v);
+    Cursor& bind(const std::map<std::string, dbo::bindedTypes>& bindedVars)
+    {
+        short null = -1, nnull = 0;
+        for(const auto & [name, value] : bindedVars) {
+            std::visit([&](const auto &v) {
+                cur_.bind(name, v, isNotNull(v) ? &nnull : &null);
             }, value);
         }
         return *this;
     }
-
+    //Переменные биндятся по значению
+    Cursor& stb()
+    {
+        cur_.stb();
+        return *this;
+    }
+    //Переменные биндятся по адресу, сохраняется адрес объекта, нельзя использовать с временными переменными(rvalue ref)
+    Cursor& unstb()
+    {
+        cur_.unstb();
+        return *this;
+    }
     template<typename Object>
     Cursor& bindAll(Object & obj)
     {
@@ -349,28 +327,10 @@ public:
         return *this;
     }
 
-    std::string dump(int fields_size)
-    {
-        std::stringstream res;
-        std::vector<std::string> vals(fields_size);
-
-        for(std::string& val:  vals) {
-            cur_.defNull(val, "NULL");
-        }
-        cur_.exec();
-
-        while(!cur_.fen()) {
-            for(const std::string& val:  vals) {
-                res << "[" << val << "] ";
-            }
-            res << std::endl;
-        }
-
-        return res.str();
-    }
+    std::string dump(size_t fields_size);
 
     template<typename Result>
-    Cursor& def(Result & r)
+    Cursor& defAll(Result & r)
     {
         DefineClass d(cur_);
         d.visit(r);
@@ -428,7 +388,7 @@ public:
         tableRegistry[tblName] = mapInfo;
     }
 
-    shared_ptr<MappingInfo> getMapping(const std::string& tableName) const
+    std::shared_ptr<MappingInfo> getMapping(const std::string& tableName) const
     {
         std::string tblName = str_tolower(tableName);
         auto it = tableRegistry.find(tblName);
@@ -440,7 +400,7 @@ public:
     }
 
     template<typename Class>
-    shared_ptr<MappingInfo> getMapping() const
+    std::shared_ptr<MappingInfo> getMapping() const
     {
         if constexpr(isSimpleType<Class>)
         {
@@ -456,8 +416,8 @@ public:
     }
 
 private:
-    std::map< std::string, shared_ptr<MappingInfo> > tableRegistry;
-    std::map< const_typeinfo_ptr, shared_ptr<MappingInfo>, typecomp > classRegistry;
+    std::map< std::string, std::shared_ptr<MappingInfo> > tableRegistry;
+    std::map< const_typeinfo_ptr, std::shared_ptr<MappingInfo>, typecomp > classRegistry;
 };
 
 
@@ -513,7 +473,7 @@ public:
         if(tableName.empty()) {
             tableName = Mapper::getInstance().getMapping<Object>()->tableName();
         }
-        shared_ptr<MappingInfo> mapInfo = Mapper::getInstance().getMapping(tableName);
+        std::shared_ptr<MappingInfo> mapInfo = Mapper::getInstance().getMapping(tableName);
         if(!mapInfo) {
             throw EXCEPTIONS::Exception("Unknown table: " + tableName);
         }
@@ -529,7 +489,7 @@ public:
         ignoreErrors.clear();
     }
 
-    std::string dump(const std::string& tableName, const vector<std::string>& tokens, const std::string& query);
+    std::string dump(const std::string& tableName, const std::vector<std::string>& tokens, const std::string& query);
 
     template <class Result>
     Query<Result> query(std::string selectQuery = "")
@@ -604,11 +564,13 @@ public:
     std::vector<Result> resultList()
     {
         auto mapInfo = Mapper::getInstance().getMapping<Result>();
-        Cursor cur = m_sess->getReadCursor(createQuery(mapInfo));
+        std::string query = createQuery(mapInfo);
+        //LogTrace5 << __FUNCTION__ << " query: " << query;
+        Cursor cur = m_sess->getReadCursor(query);
 
         Result r;
         cur.bind(bindVars)
-           .def(r)
+           .defAll(r)
            .exec();
 
         std::vector<Result> res;
@@ -631,7 +593,7 @@ public:
         return *this;
     }
 
-    Query<Result> & setBind(const std::map<std::string, dbo::bindedTypes> &bindedVars)
+    Query<Result> & setBind(const std::map<std::string, dbo::bindedTypes> & bindedVars)
     {
         bindVars = bindedVars;
         return *this;
@@ -667,7 +629,7 @@ private:
     std::string m_select;
     std::string m_where;
     std::string m_from;
-    std::map<std::string, bindedTypes> bindVars;
+    std::map<std::string, dbo::bindedTypes> bindVars{};
 };
 
 template<typename C>
