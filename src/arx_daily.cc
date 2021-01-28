@@ -563,7 +563,6 @@ bool TArxTlgTrips::Next(int max_rows, int duration)
 
   if (step==1 || step==2)
   {
-    bool deleteTypeBData = false;
     if (Qry->SQLText.IsEmpty())
     {
       Qry->Clear();
@@ -572,7 +571,6 @@ bool TArxTlgTrips::Next(int max_rows, int duration)
         "  arch.tlg_trip(:point_id); "
         "END;";
       Qry->DeclareVariable("point_id",otInteger);
-      deleteTypeBData = true;
     };
     while (!point_ids.empty())
     {
@@ -582,9 +580,8 @@ bool TArxTlgTrips::Next(int max_rows, int duration)
 
       try
       {
-        if (deleteTypeBData) {
-          TypeB::DeleteTypeBData(point_id, "", "", false/*delete_trip_comp_layers*/);
-        }
+        TypeB::DeleteTypeBData(point_id, "", "", false/*delete_trip_comp_layers*/);
+
         //в архив
         Qry->SetVariable("point_id",point_id);
         Qry->Execute();
