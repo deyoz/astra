@@ -1,0 +1,14 @@
+LOAD DATA
+INFILE *
+INTO TABLE typeb_in
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+id
+,proc_attempt
+,proc_name
+)
+BEGINDATA
+1|1|"all_other"
+2|1|"all_other"

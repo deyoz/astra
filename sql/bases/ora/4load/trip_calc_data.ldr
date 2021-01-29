@@ -1,0 +1,19 @@
+LOAD DATA
+INFILE *
+INTO TABLE trip_calc_data
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+ckin_desks
+,gates
+,point_id
+,trfer_exists
+)
+BEGINDATA
+||1|0
+||3|0
+||5|0
+||7|0
+||9|0
+||11|0

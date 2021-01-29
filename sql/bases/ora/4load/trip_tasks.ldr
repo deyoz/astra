@@ -1,0 +1,25 @@
+LOAD DATA
+INFILE *
+INTO TABLE trip_tasks
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+id
+,last_exec
+,name
+,next_exec
+,params
+,point_id
+,proc_name
+,tid
+)
+BEGINDATA
+8||"SYNC_ALL_CHKD"|20210128140602||7|"all_other"|21
+1||"EMD_REFRESH"|20210128114000|"CloseCheckIn 0"|1|"all_other"|3
+2||"EMD_REFRESH"|20210128130500|"CloseCheckIn 0"|3|"all_other"|6
+3||"EMD_REFRESH"|20210128112000|"CloseCheckIn 0"|5|"all_other"|9
+4||"EMD_REFRESH"|20210129114000|"CloseCheckIn 0"|7|"all_other"|12
+5||"EMD_REFRESH"|20210129130500|"CloseCheckIn 0"|9|"all_other"|15
+6||"EMD_REFRESH"|20210129112000|"CloseCheckIn 0"|11|"all_other"|18
+7||"CHECK_ALARM"|20210128140433|"APIS_CONTROL"|9|"all_other"|20

@@ -1,0 +1,16 @@
+LOAD DATA
+INFILE *
+INTO TABLE pax_seats
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+pax_id
+,point_id
+,pr_wl
+,xname
+,yname
+,seat_descr
+)
+BEGINDATA
+1|9|0|"A"|"001"|"LS W"

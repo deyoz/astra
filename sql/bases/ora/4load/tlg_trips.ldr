@@ -1,0 +1,19 @@
+LOAD DATA
+INFILE *
+INTO TABLE tlg_trips
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+airline
+,airp_arv
+,airp_dep
+,bind_type
+,flt_no
+,point_id
+,pr_utc
+,scd
+,suffix
+)
+BEGINDATA
+"ž’"||"‘Ž—"|0|580|13|0|20210129000000|

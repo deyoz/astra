@@ -1,0 +1,37 @@
+LOAD DATA
+INFILE *
+INTO TABLE crs_pax
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+bag_norm
+,bag_norm_unit
+,bag_pool
+,cabin_class
+,etick_class
+,etick_subclass
+,inf_id
+,last_op
+,name
+,orig_class
+,orig_subclass
+,pax_id
+,pers_type
+,pnr_id
+,pr_del
+,seats
+,seat_rem
+,seat_type
+,seat_xname
+,seat_yname
+,surname
+,sync_chkd
+,tid
+,unique_reference
+)
+BEGINDATA
+|||||||20210128094200|"IVAN IVANOVICH"|"ù"|"ù"|2|"Çá"|1|1|1|||||"PETROV"|0|23|
+|||||||20210128094200|"ANNA IVANOVNA"|"ù"|"ù"|3|"Çá"|2|0|1|||||"BOROTAEVA"|0|23|
+|||||||20210128094200|"ANNA IVANOVNA"|"ù"|"ù"|4|"Çá"|2|0|1|||||"KOROTAEVA"|0|23|
+|||||||20210128094200|"ANNA IVANOVNA"|"ù"|"ù"|5|"Çá"|2|0|1|||||"VOROTAEVA"|0|23|

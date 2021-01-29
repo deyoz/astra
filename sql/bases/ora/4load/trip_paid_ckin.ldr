@@ -1,0 +1,18 @@
+LOAD DATA
+INFILE *
+INTO TABLE trip_paid_ckin
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+point_id
+,prot_timeout
+,pr_permit
+)
+BEGINDATA
+1||0
+3||0
+5||0
+7||0
+9||0
+11||0

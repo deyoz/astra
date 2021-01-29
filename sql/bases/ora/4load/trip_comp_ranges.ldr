@@ -1,0 +1,16 @@
+LOAD DATA
+INFILE *
+INTO TABLE trip_comp_ranges
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+layer_type
+,num
+,point_id
+,range_id
+,x
+,y
+)
+BEGINDATA
+"CHECKIN"|0|9|1|0|0

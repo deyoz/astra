@@ -24,8 +24,8 @@ build_ora_database()
       checkresult installedimessages $?
       ( cd src && ./nosir.tcl -load_comp_elem_types ../${oradir}/4load/comp_elem_types.dat )
       checkresult load_comp_elem_types $?
-      ( cd src && ./nosir.tcl -tscript 0 ts/prepare_flt.ts )
-      checkresult prepare_flt $?
+#      ( cd src && ./nosir.tcl -tscript 0 ts/prepare_flt.ts )
+#      checkresult prepare_flt $?
     )
 }
 

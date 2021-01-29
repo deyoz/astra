@@ -1,0 +1,18 @@
+LOAD DATA
+INFILE *
+INTO TABLE trip_classes
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+block
+,cfg
+,class
+,point_id
+,prot
+)
+BEGINDATA
+0|12|"Å"|7|0
+0|36|"ù"|7|0
+0|8|"Å"|9|0
+0|156|"ù"|9|0

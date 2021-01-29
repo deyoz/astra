@@ -1,0 +1,17 @@
+LOAD DATA
+INFILE *
+INTO TABLE crs_set
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+airline
+,airp_dep
+,crs
+,flt_no
+,id
+,priority
+,pr_numeric_pnl
+)
+BEGINDATA
+"ž’"|"‘Ž—"|"TJMRMUT"||1|0|0

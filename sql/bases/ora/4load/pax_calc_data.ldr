@@ -1,0 +1,36 @@
+LOAD DATA
+INFILE *
+INTO TABLE pax_calc_data
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+crs_deleted
+,crs_fqt_tier_level
+,docab_crs_not_empty_attrs
+,docab_equal_attrs
+,docab_not_empty_attrs
+,docab_scanned_attrs
+,docad_crs_not_empty_attrs
+,docad_equal_attrs
+,docad_not_empty_attrs
+,docad_scanned_attrs
+,docar_crs_not_empty_attrs
+,docar_equal_attrs
+,docar_not_empty_attrs
+,docar_scanned_attrs
+,doco_crs_not_empty_attrs
+,doco_equal_attrs
+,doco_not_empty_attrs
+,doco_scanned_attrs
+,docs_crs_not_empty_attrs
+,docs_equal_attrs
+,docs_not_empty_attrs
+,docs_scanned_attrs
+,pax_calc_data_id
+)
+BEGINDATA
+0||||||||||||||||||447||||3
+0||||||||||||||||||447||||4
+0||||||||||||||||||447||||5
+||||||||||||||||||||||1

@@ -1,0 +1,23 @@
+LOAD DATA
+INFILE *
+INTO TABLE crs_data
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+airp_arv
+,avail
+,cfg
+,class
+,pad
+,point_id
+,resa
+,sender
+,system
+,tranzit
+)
+BEGINDATA
+"Ççä"|10||"Å"|0|13|0|"TJMRMUT"|"CRS"|
+"Ççä"|95||"ù"|0|13|5|"TJMRMUT"|"CRS"|
+"ëéó"||10|"Å"||13||"TJMRMUT"|"CRS"|
+"ëéó"||100|"ù"||13||"TJMRMUT"|"CRS"|

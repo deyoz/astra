@@ -1,0 +1,49 @@
+LOAD DATA
+INFILE *
+INTO TABLE trip_sets
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+apis_control
+,apis_manual_input
+,auto_comp_chg
+,auto_weighing
+,c
+,comp_id
+,crc_comp
+,crc_base_comp
+,et_final_attempt
+,f
+,jmp_cfg
+,lci_pers_weights
+,max_commerce
+,piece_concept
+,point_id
+,pr_basel_stat
+,pr_block_trzt
+,pr_check_load
+,pr_check_pay
+,pr_etstatus
+,pr_exam
+,pr_exam_check_pay
+,pr_free_seating
+,pr_lat_seat
+,pr_overload_reg
+,pr_reg_without_tkna
+,pr_reg_with_doc
+,pr_reg_with_tkn
+,pr_stat
+,pr_tranz_reg
+,trzt_bort_changing
+,trzt_brd_with_autoreg
+,use_jmp
+,y
+)
+BEGINDATA
+1|0|1|0|0||0|0|0|0|0|||0|1|0|0|0|0|0|0|0|0||1|0|0|0|0|0|0|0|0|-1
+1|0|1|0|0||0|0|0|0|0|||0|3|0|0|0|0|0|0|0|0||1|0|0|0|0|0|0|0|0|-1
+1|0|1|0|0||0|0|0|0|0|||0|5|0|0|0|0|0|0|0|0||1|0|0|0|0|0|0|0|0|-1
+1|0|0|0|0|493266|1646196742|421333137|0|0|0|||0|7|0|0|0|0|0|0|0|0|0|1|0|0|0|0|0|0|0|0|-1
+1|0|0|0|0|66651|-2015824020|-651776927|0|0|0|||0|9|0|0|0|0|0|0|0|0|0|1|0|0|0|0|0|0|0|0|-1
+1|0|0|0|0||0|0|0|0|0|||0|11|0|0|0|0|0|0|0|0||1|0|0|0|0|0|0|0|0|-1

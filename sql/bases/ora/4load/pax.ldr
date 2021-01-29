@@ -1,0 +1,36 @@
+LOAD DATA
+INFILE *
+INTO TABLE pax
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+bag_pool_num
+,cabin_class
+,cabin_class_grp
+,cabin_subclass
+,coupon_no
+,crew_type
+,doco_confirm
+,grp_id
+,is_female
+,is_jmp
+,name
+,pax_id
+,pers_type
+,pr_brd
+,pr_exam
+,refuse
+,reg_no
+,seats
+,seat_type
+,subclass
+,surname
+,ticket_confirm
+,ticket_no
+,ticket_rem
+,tid
+,wl_type
+)
+BEGINDATA
+|"Å"|10|"è"|||0|1||0|"íÖëí"|1|"Çá"|0|0||1|1||"è"|"íÖëí"|0|||19|

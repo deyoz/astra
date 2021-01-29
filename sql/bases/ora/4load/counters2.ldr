@@ -1,0 +1,29 @@
+LOAD DATA
+INFILE *
+INTO TABLE counters2
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+avail
+,class
+,crs_ok
+,crs_tranzit
+,free_goshow
+,free_ok
+,goshow
+,jmp_goshow
+,jmp_nooccupy
+,jmp_ok
+,jmp_tranzit
+,nooccupy
+,ok
+,point_arv
+,point_dep
+,tranzit
+)
+BEGINDATA
+12|"Å"|0|0|12|12|0|0|0|0|0|12|0|8|7|0
+31|"ù"|5|0|31|36|0|0|0|0|0|36|0|8|7|0
+8|"Å"|0|0|7|7|0|0|0|0|0|7|1|10|9|0
+156|"ù"|0|0|156|156|0|0|0|0|0|156|0|10|9|0

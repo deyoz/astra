@@ -1,0 +1,49 @@
+LOAD DATA
+INFILE *
+INTO TABLE rozysk
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+airline
+,airp_arv
+,airp_dep
+,bag_weight
+,doc_birth_date
+,doc_first_name
+,doc_gender
+,doc_issue_country
+,doc_nationality
+,doc_no
+,doc_second_name
+,doc_surname
+,doc_type
+,doc_type_rcpt
+,flt_no
+,landing
+,name
+,operation
+,pax_id
+,pnr
+,reg_no
+,rk_weight
+,route_type
+,route_type2
+,seat_no
+,suffix
+,surname
+,tags
+,takeoff
+,term
+,time
+,visa_applic_country
+,visa_issue_date
+,visa_issue_place
+,visa_no
+)
+BEGINDATA
+"ûí"|"Ççä"|"ëéó"||19760501000000|"ANNA IVANOVNA"|"F"|"RUS"|"RUS"|"7774441110"||"BOROTAEVA"|"P"||580||"ANNA IVANOVNA"|"K0"||"05273C"|||0||||"BOROTAEVA"||20210129000000||20210128140710||||
+"ûí"|"Ççä"|"ëéó"||19760501000000|"ANNA IVANOVNA"|"F"|"RUS"|"RUS"|"7774441110"||"KOROTAEVA"|"P"||580||"ANNA IVANOVNA"|"K0"||"05273C"|||0||||"KOROTAEVA"||20210129000000||20210128140710||||
+"ûí"|"Ççä"|"ëéó"||19760501000000|"ANNA IVANOVNA"|"F"|"RUS"|"RUS"|"7774441110"||"VOROTAEVA"|"P"||580||"ANNA IVANOVNA"|"K0"||"05273C"|||0||||"VOROTAEVA"||20210129000000||20210128140710||||
+"ûí"|"ëìê"|"Ççä"|0|||||||||||245|20210129204500|"íÖëí"|"K1"|||1|0|0|0|"1Ä"||"íÖëí"||20210129164500|"ASTADM"|20210128140432||||
+"ûí"|"ëìê"|"Ççä"|0|||||||||||245|20210129154500|"íÖëí"|"04"|1||1|0|0|0|"1Ä"||"íÖëí"||20210129134500|"ASTADM"|20210128140432||||
