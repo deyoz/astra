@@ -52,6 +52,8 @@ int rbd_test(int argc, char **argv);
 int tzdump(int argc, char **argv);
 int tzdiff(int argc, char **argv);
 
+void init_edilib_callbacks();
+
 const
   struct {
     const char *name;
@@ -130,7 +132,7 @@ void nosir_test_help(const char *name)
 
 int edi_load_messages_local(int argc, char** argv)
 {
-  edilib::EdilibDbCallbacks::setEdilibDbCallbacks(new edilib::EdilibPgCallbacks(PgCpp::getPgManaged()));
+  init_edilib_callbacks();
   return edi_load_messages_main(argc, argv);
 }
 

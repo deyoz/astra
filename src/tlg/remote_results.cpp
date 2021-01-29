@@ -284,7 +284,7 @@ void RemoteResults::cleanOldRecords(const int min_ago)
 {
     using namespace Dates;
     LogTrace(TRACE3) << __FUNCTION__;
-    const auto amin_ago = second_clock::local_time() - seconds(60*min_ago);
+    const auto amin_ago = second_clock::local_time() - minutes(min_ago);
     Oci8Session os(STDLOG, mainSession());
     Curs8Ctl cur(STDLOG,
                  "delete from REMOTE_RESULTS where DATE_CR < :min_ago", &os);

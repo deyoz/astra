@@ -972,11 +972,13 @@ std::ostream& operator<<(std::ostream& os, const Cusres& cusres)
 
 using namespace xp_testing;
 
+void init_edilib_callbacks();
+
 namespace
 {
     void init()
     {
-        edilib::EdilibDbCallbacks::setEdilibDbCallbacks(new edilib::EdilibPgCallbacks(PgCpp::getPgManaged()));
+        init_edilib_callbacks();
         edifact::init_edifact();
     }
 

@@ -22,6 +22,7 @@
 #include <serverlib/TlgLogger.h>
 #include <serverlib/EdiHelpDbPgCallbacks.h>
 #include <libtlg/telegrams.h>
+#include <edilib/edilib_dbora_callbacks.h>
 #include <edilib/edilib_dbpg_callbacks.h>
 
 #define NICKNAME "ANTON"
@@ -127,7 +128,11 @@ void init_pnr_callbacks()
 
 void init_edilib_callbacks()
 {
-    edilib::EdilibDbCallbacks::setEdilibDbCallbacks(new edilib::EdilibPgCallbacks(PgCpp::getPgManaged()));
+    if(PgOra::supportsPg("EDISESSION")) {
+        edilib::EdilibDbCallbacks::setEdilibDbCallbacks(new edilib::EdilibPgCallbacks(PgCpp::getPgManaged()));
+    } else {
+        edilib::EdilibDbCallbacks::setEdilibDbCallbacks(new edilib::EdilibOraCallbacks());
+    }
 }
 
 void init_edihelp_callbacks()

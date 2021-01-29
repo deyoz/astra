@@ -4,9 +4,11 @@
 #include "edi_utils.h"
 #include "misc.h"
 #include "date_time.h"
+#include "astra_dates.h"
 #include "astra_context.h"
 #include "flt_settings.h"
-#include "pg_session.h"
+#include "db_tquery.h"
+#include "PgOraConfig.h"
 #include "tlg/tlg.h"
 #include "tlg/remote_results.h"
 #include "tlg/request_params.h"
@@ -33,6 +35,7 @@ using namespace Ticketing;
 using namespace BASIC::date_time;
 using namespace ASTRA;
 using namespace AstraLocale;
+using namespace Dates;
 
 namespace AstraEdifact
 {
@@ -691,14 +694,15 @@ void cleanOldRecords(int min_ago)
   Qry.CreateVariable("time", otDate, now-(min_ago+60)/1440.0);
   Qry.Execute();
 
-  Qry.Clear();
-  Qry.SQLText="SELECT ida FROM edisession WHERE sessdatecr<SYSDATE-:min_ago/1440 FOR UPDATE";
-  Qry.CreateVariable("min_ago", otInteger, min_ago);
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
+  const auto amin_ago = BoostToDateTime(second_clock::local_time() - minutes(min_ago));
+  DB::TQuery EdiSessQry(PgOra::getRWSession("EDISESSION"));
+  EdiSessQry.SQLText="SELECT ida FROM edisession WHERE sessdatecr<:date_min_ago FOR UPDATE";
+  EdiSessQry.CreateVariable("date_min_ago", otDate, amin_ago);
+  EdiSessQry.Execute();
+  for(;!EdiSessQry.Eof;EdiSessQry.Next())
   {
     using namespace edilib;
-    EdiSessionId_t edisess(Qry.FieldAsInteger("ida"));
+    EdiSessionId_t edisess(EdiSessQry.FieldAsInteger("ida"));
     EdilibDbCallbacks::instance()->ediSessionDeleteDb(edisess);
     EdilibDbCallbacks::instance()->ediSessionToDeleteDb(edisess);
   };
