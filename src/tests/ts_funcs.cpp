@@ -204,7 +204,7 @@ static std::string FP_init_jxt_pult(const std::vector<std::string> &args)
         puts("Init locale failed");
         return "";
     }
-    
+
     assert(args.size() == 1 && args[0].length() == 6);
     GetTestContext()->vars["JXT_PULT"] = args[0];
     return "";
@@ -307,7 +307,7 @@ static std::string FP_init_dcs(const std::vector<std::string> &p)
     using namespace Ticketing::RemoteSystemContext;
 
     assert(p.size() > 2);
-    
+
     std::string airAddr = "",
     ourAirAddr = "";
     if(p.size() > 4) {
@@ -448,7 +448,7 @@ static int getMoveId(int pointId)
    int move_id = 0;
    cur.bind(":point_id", pointId)
       .def(move_id).exfet();
-   return move_id;   
+   return move_id;
 }
 
 static std::string FP_get_move_id(const std::vector<std::string>& p)
@@ -1245,6 +1245,59 @@ static std::string FP_runEtFltTask(const std::vector<std::string> &par)
   return "";
 }
 
+static std::string FP_cleanOldRecords(const std::vector<std::string> &par)
+{
+  cleanOldRecords();
+  return "";
+}
+
+enum class TlgIdent { TlgId, TlgNum, TypeBInId };
+
+static std::string getTlgIdent(TlgIdent tlgIdent, const std::vector<std::string> &par)
+{
+  int rowNumRequired=0;
+  if (par.size() > 0) rowNumRequired=std::stoi(par.at(0));
+
+  ASSERT(rowNumRequired<=0);
+
+  std::string sql;
+  switch (tlgIdent)
+  {
+    case TlgIdent::TlgId:     sql="SELECT id FROM tlgs ORDER BY id DESC"; break;
+    case TlgIdent::TlgNum:    sql="SELECT tlg_num FROM tlgs ORDER BY tlg_num DESC"; break;
+    case TlgIdent::TypeBInId: sql="SELECT id FROM typeb_in ORDER BY id DESC"; break;
+  }
+
+  auto cur = make_curs(sql);
+  int tlgNum;
+  cur.def(tlgNum)
+     .exec();
+
+  int rowNum=0;
+  while (!cur.fen()) {
+    if ((rowNum--)==rowNumRequired) return std::to_string(tlgNum);
+  }
+
+  if (rowNumRequired==0) throw EXCEPTIONS::Exception("Empty table TLGS!");
+
+  return "";
+}
+
+static std::string FP_lastTlgId(const std::vector<std::string> &par)
+{
+  return getTlgIdent(TlgIdent::TlgId, par);
+}
+
+static std::string FP_lastTlgNum(const std::vector<std::string> &par)
+{
+  return getTlgIdent(TlgIdent::TlgNum, par);
+}
+
+static std::string FP_lastTypeBInId(const std::vector<std::string> &par)
+{
+  return getTlgIdent(TlgIdent::TypeBInId, par);
+}
+
 FP_REGISTER("<<", FP_tlg_in);
 FP_REGISTER("!!", FP_req);
 FP_REGISTER("astra_hello", FP_astra_hello);
@@ -1306,5 +1359,9 @@ FP_REGISTER("cache", FP_cache);
 FP_REGISTER("cache_iface_ver", FP_getCacheIfaceVer);
 FP_REGISTER("cache_sql_param", FP_getCacheSQLParam);
 FP_REGISTER("run_et_flt_task", FP_runEtFltTask);
+FP_REGISTER("clean_old_records", FP_cleanOldRecords);
+FP_REGISTER("last_tlg_id", FP_lastTlgId);
+FP_REGISTER("last_tlg_num", FP_lastTlgNum);
+FP_REGISTER("last_typeb_in_id", FP_lastTypeBInId);
 
 #endif /* XP_TESTING */
