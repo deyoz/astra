@@ -847,8 +847,8 @@ TEMDocItem& TEMDocItem::loadEmdocs(const std::string& _emd_no,
         lock ? PgOra::getRWSession("EMDOCS")
              : PgOra::getROSession("EMDOCS"));
   cur.stb()
-      .def(emd.coupon)
       .def(emd.no)
+      .def(emd.coupon)
       .defNull(coupon_status, CouponStatus(CouponStatus::Unavailable)->dispCode())
       .def(associated)
       .defNull(et.no, "")
