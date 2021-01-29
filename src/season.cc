@@ -1925,7 +1925,7 @@ void SEASON::int_write(const TFilter &filter, int ssm_id, vector<TPeriod> &speri
       deleteRoutesByMoveid(move_id_list);
       deleteSchedDays(trip_id, filter.periods.begin()->period.begin());
     }
-    num = getMaxNumSchedDays(trip_id);
+    num = getMaxNumSchedDays(trip_id) + 1;
   }
   else {
     // это новый рейс
