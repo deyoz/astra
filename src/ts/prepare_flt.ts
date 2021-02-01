@@ -6,7 +6,51 @@ include(ts/adm_macro.ts)
 
 $(init_term 201509-0173355)
 
-$(prepare_bp_printing ’ 001 „Œ„)
-$(PREPARE_FLIGHT_1PAX_1SEG ’ 001 „Œ„ ‘— …ˆ ˆ‚€)
+#############################################
+
+$(PREPARE_SEASON_SCD ’ ‚Š ‘“ 245)
+$(make_spp)
+$(deny_ets_interactive ’ 245 ‚Š)
+
+$(INB_PNL_UT VKO SGC 245 $(ddmon +0 en))
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+# $(set move_id $(get_move_id $(get point_dep)))
+
+$(combine_brd_with_reg $(get point_dep))
+$(auto_set_craft $(get point_dep))
+
+#############################################
+
+$(PREPARE_SEASON_SCD ’ ‘— ‚Š 250)
+$(make_spp)
+$(deny_ets_interactive ’ 250 ‘—)
+
+$(INB_PNL_UT AER VKO 250 $(ddmon +0 en))
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+# $(set move_id $(get_move_id $(get point_dep)))
+
+$(combine_brd_with_reg $(get point_dep))
+$(auto_set_craft $(get point_dep))
+
+#############################################
+
+$(PREPARE_SEASON_SCD ’ ‘— ‚Š 580)
+$(make_spp)
+$(deny_ets_interactive ’ 580 ‘—)
+
+$(INB_PNL_UT AER VKO 580 $(ddmon +0 en))
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+# $(set move_id $(get_move_id $(get point_dep)))
+
+$(combine_brd_with_reg $(get point_dep))
+$(auto_set_craft $(get point_dep))
+
+#############################################
 
 $(sql "commit")
