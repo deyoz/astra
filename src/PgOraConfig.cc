@@ -39,7 +39,7 @@ namespace PgOra
         { "SP_PG_GROUP_SCHED", { "SCHED_DAYS", "SEASON_SPP", "ROUTES", "SSM_SCHEDULE"} },
         { "SP_PG_GROUP_SCHED_SEQ", {"ROUTES_MOVE_ID", "ROUTES_TRIP_ID", "SSM_ID"} },
         { "SP_PG_GROUP_CONTEXT", {"CONTEXT", "CONTEXT__SEQ"} },
-        { "SP_PG_GROUP_EDIFACT", {"EDISESSION", "EDISESSION_TIMEOUTS", "EDI_HELP"} }
+        { "SP_PG_GROUP_EDIFACT", {"EDISESSION"} }
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
