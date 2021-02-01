@@ -664,9 +664,9 @@ void SaveASVCRem(const PaxIdWithSegmentPair& paxId,
     Qry.Clear();
     Qry.SQLText=
         "INSERT INTO crs_pax_asvc "
-        "  (pax_id,rem_status,rfic,rfisc,service_quantity,ssr_code,service_name,emd_type,emd_no,emd_coupon,update_datetime) "
+        "  (pax_id,rem_status,rfic,rfisc,service_quantity,ssr_code,service_name,emd_type,emd_no,emd_coupon,rec_id) "
         "VALUES "
-        "  (:pax_id,:rem_status,:rfic,:rfisc,:service_quantity,:ssr_code,:service_name,:emd_type,:emd_no,:emd_coupon,:update_datetime) ";
+        "  (:pax_id,:rem_status,:rfic,:rfisc,:service_quantity,:ssr_code,:service_name,:emd_type,:emd_no,:emd_coupon,:rec_id) ";
     Qry.CreateVariable("pax_id",otInteger,paxId().get());
     Qry.DeclareVariable("rem_status",otString);
     Qry.DeclareVariable("rfic",otString);
@@ -677,11 +677,13 @@ void SaveASVCRem(const PaxIdWithSegmentPair& paxId,
     Qry.DeclareVariable("emd_type",otString);
     Qry.DeclareVariable("emd_no",otString);
     Qry.DeclareVariable("emd_coupon",otInteger);
-    Qry.CreateVariable("update_datetime",otDate,BASIC::date_time::NowUTC());
+    Qry.DeclareVariable("rec_id",otInteger);
     int saved = 0;
     for(const TASVCItem& item : asvc)
     {
       if (!item.suitableForDB()) continue;
+      const int rec_id = PgOra::getSeqNextVal("CRS_ID_SEQ");
+      Qry.SetVariable("rec_id",rec_id);
       Qry.SetVariable("rem_status",item.rem_status);
       Qry.SetVariable("rfic",item.RFIC);
       Qry.SetVariable("rfisc",item.RFISC);
@@ -711,18 +713,20 @@ void SavePNLADLRemarks(const PaxIdWithSegmentPair& paxId, const vector<TRemItem>
   DB::TQuery CrsPaxRemQry(PgOra::getRWSession("CRS_PAX_REM"));
   CrsPaxRemQry.Clear();
   CrsPaxRemQry.SQLText=
-    "INSERT INTO crs_pax_rem(pax_id,rem,rem_code,update_datetime) "
-    "VALUES(:pax_id,:rem,:rem_code,:update_datetime)";
+    "INSERT INTO crs_pax_rem(pax_id,rem,rem_code,rec_id) "
+    "VALUES(:pax_id,:rem,:rem_code,:rec_id)";
   CrsPaxRemQry.DeclareVariable("pax_id",otInteger);
   CrsPaxRemQry.DeclareVariable("rem",otString);
   CrsPaxRemQry.DeclareVariable("rem_code",otString);
-  CrsPaxRemQry.CreateVariable("update_datetime",otDate,BASIC::date_time::NowUTC());
+  CrsPaxRemQry.DeclareVariable("rec_id",otInteger);
   //ремарки пассажира
   CrsPaxRemQry.SetVariable("pax_id",paxId().get());
   int saved = 0;
   for(vector<TRemItem>::const_iterator iRemItem=rem.begin();iRemItem!=rem.end();++iRemItem)
   {
     if (iRemItem->text.empty()) continue;
+    const int rec_id = PgOra::getSeqNextVal("CRS_ID_SEQ");
+    CrsPaxRemQry.SetVariable("rec_id",rec_id);
     CrsPaxRemQry.SetVariable("rem",iRemItem->text.substr(0,250));
     CrsPaxRemQry.SetVariable("rem_code",iRemItem->code);
     CrsPaxRemQry.Execute();
