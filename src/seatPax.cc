@@ -66,7 +66,7 @@ bool paxSeats::isElemTypePaxSeat( int point_dep, int pax_id, const std::string &
     TPassSeats ranges;
     std::map<TSeat,SALONS2::TPlace*,CompareSeat> seats;
     p.get_seats( waitListReason, ranges, seats, true );
-    if ( waitListReason.layerStatus == SALONS2::layerValid ) {
+    if ( waitListReason.status == SALONS2::layerValid ) {
       for ( auto s : seats ) {
         if ( s.second->elem_type == elem_type ) {
           return true;

@@ -10,11 +10,11 @@ namespace CraftCache
 
 struct CraftSeats {
   int point_dep;
-  int crc32;
+  int total_crc32; //этот ключ включает в себя тип места
   SALONS2::CraftSeats list;
-  CraftSeats( int vpoint_dep, int vcrc32 ) {
+  CraftSeats( int vpoint_dep, int _total_crc32 ) {
     point_dep = vpoint_dep;
-    crc32 = vcrc32;
+    total_crc32 = _total_crc32;
   }
   ~CraftSeats();
 };
@@ -62,7 +62,6 @@ public:
     }
     return _instance;
   }
-  int getCurrentCRC32( int point_dep );
   void get( int point_dep, const std::string &cls, SALONS2::CraftSeats& list );
   void drop( const CraftKey &key );
   void drop( );

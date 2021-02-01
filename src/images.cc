@@ -106,17 +106,26 @@ void TCompLayerTypes::Update()
   for ( ; !Qry.Eof; Qry.Next() ) {
     string code = Qry.FieldAsString( "code" );
     ASTRA::TCompLayerType layer_type = DecodeCompLayerType( code.c_str() );
-    BASIC_SALONS::TCompLayerType layer( code,
-                                        layer_type,
-                                        Qry.FieldAsString( "name" ),
-                                        Qry.FieldAsString( "name_lat" ),
-                                        Qry.FieldAsInteger( "del_if_comp_chg" ),
-                                        Qry.FieldAsString( "color" ),
-                                        Qry.FieldAsString( "figure" ),
-                                        Qry.FieldAsInteger( "pr_occupy" ),
-                                        Qry.FieldAsInteger( "priority" ) );
-    layers.insert( make_pair( layer_type, layer ) );
+    BASIC_SALONS::TCompLayerPriority layer( code,
+                                            layer_type,
+                                            Qry.FieldAsString( "name" ),
+                                            Qry.FieldAsString( "name_lat" ),
+                                            Qry.FieldAsString( "color" ),
+                                            Qry.FieldAsString( "figure" ),
+                                            Qry.FieldAsInteger( "pr_occupy" ),
+                                            Qry.FieldAsInteger( "priority" ) );
+    layers.emplace( layer_type, layer );
     //ProgTrace( TRACE5, "TCompLayerTypes::Update(): add %s", code.c_str() );
+  }
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT airline, layer_type, priority "
+    " FROM comp_layer_priorities ";
+  Qry.Execute();
+  for ( ; !Qry.Eof; Qry.Next() ) {
+    airline_priorities.emplace( LayerKey( Qry.FieldAsString( "airline" ),
+                                          DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ) ),
+                                Qry.FieldAsInteger( "priority" ) );
   }
   Qry.Clear();
   Qry.SQLText =
@@ -322,13 +331,12 @@ void GetDrawSalonProp( xmlNodePtr reqNode, xmlNodePtr resNode )
 void getTariffColors( std::map<std::string,std::string> &colors )
 {
   colors.clear();
-  colors.insert( make_pair( "$00CECF00", "rurect" ) );
-  colors.insert( make_pair( "$004646FF", "rurect" ) );
-  colors.insert( make_pair( "$000DCAA4", "rurect" ) );
-  colors.insert( make_pair( "$00FF64FF", "rurect" ) );
-  colors.insert( make_pair( "$00000000", "rurect" ) );
-  colors.insert( make_pair( "$001C66FF", "rurect" ) );
-  colors.insert( make_pair( "$00FD2D71", "rurect" ) );
+  TQuery Qry(&OraSession);
+  Qry.SQLText = "SELECT color,figure FROM comp_tariff_colors";
+  Qry.Execute();
+  for ( ;!Qry.Eof; Qry.Next() ) {
+    colors.insert( make_pair( Qry.FieldAsString( "color" ), Qry.FieldAsString( "figure" ) ) );
+  }
 }
 
 void GetDrawWebTariff( xmlNodePtr reqNode, xmlNodePtr resNode )

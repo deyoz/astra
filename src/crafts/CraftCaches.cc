@@ -63,12 +63,6 @@ void CraftCaches::drop( const CraftKey &key )
   }
 }
 
-
-int CraftCaches::getCurrentCRC32( int point_dep )
-{
-  return SALONS2::getCRC_Comp( point_dep );
-}
-
 void CraftCaches::copy( const SALONS2::CraftSeats& src, SALONS2::CraftSeats &dest )
 {
   dest.Clear();
@@ -85,7 +79,7 @@ void CraftCaches::get( int point_dep, const std::string &cls, SALONS2::CraftSeat
    CraftKey key(point_dep,cls);
    std::map<CraftKey,CraftSeats>::iterator icraft = caches.find( key );
    if ( icraft != caches.end() &&
-        getCurrentCRC32( point_dep ) == icraft->second.crc32 ) {
+        SALONS2::CompCheckSum::keyFromDB( point_dep ).total_crc32 == icraft->second.total_crc32 ) {
      copy( icraft->second.list, list );
      LogTrace(TRACE5)<<__func__ << " use cache point_dep=" << point_dep << ",cls=" << cls;
    }
@@ -108,7 +102,8 @@ SALONS2::CraftSeats& CraftCaches::read( const CraftKey &key )
   SeatsQry->Execute();
   std::pair<std::map<CraftKey,CraftSeats>::iterator,bool> res = caches.emplace( std::piecewise_construct,
                                                                                 std::forward_as_tuple(key),
-                                                                                std::forward_as_tuple(key.point_dep, getCurrentCRC32( key.point_dep )) );
+                                                                                std::forward_as_tuple(key.point_dep,
+                                                                                SALONS2::CompCheckSum::keyFromDB( key.point_dep ).total_crc32) );
   if ( res.second ) {
     res.first->second.list.read( *SeatsQry, key.cls );
     qCaches.push( key );
