@@ -143,11 +143,11 @@ void SaveDOCSRem(const PaxIdWithSegmentPair& paxId,
         "INSERT INTO crs_pax_doc "
         "  (pax_id,rem_code,rem_status,type,issue_country,no,nationality, "
         "   birth_date,gender,expiry_date,surname,first_name,second_name,pr_multi, "
-        "   type_rcpt,update_datetime) "
+        "   type_rcpt,rec_id) "
         "VALUES "
         "  (:pax_id,:rem_code,:rem_status,:type,:issue_country,:no,:nationality, "
         "   :birth_date,:gender,:expiry_date,:surname,:first_name,:second_name,:pr_multi, "
-        "   :type_rcpt,:update_datetime) ";
+        "   :type_rcpt,:rec_id) ";
     Qry.DeclareVariable("rem_code",otString);
     Qry.DeclareVariable("rem_status",otString);
     Qry.DeclareVariable("type",otString);
@@ -162,10 +162,12 @@ void SaveDOCSRem(const PaxIdWithSegmentPair& paxId,
     Qry.DeclareVariable("second_name",otString);
     Qry.DeclareVariable("pr_multi",otInteger);
     Qry.DeclareVariable("type_rcpt",otString);
-    Qry.CreateVariable("update_datetime",otDate,BASIC::date_time::NowUTC());
+    Qry.DeclareVariable("rec_id",otInteger);
     for(const TDocItem& item : doc)
     {
       if (!item.suitableForDB()) continue;
+      const int rec_id = PgOra::getSeqNextVal("CRS_ID_SEQ");
+      Qry.SetVariable("rec_id",rec_id);
       Qry.SetVariable("rem_code",item.rem_code);
       Qry.SetVariable("rem_status",item.rem_status);
       Qry.SetVariable("type",item.type);
@@ -257,10 +259,10 @@ void SaveDOCORem(const PaxIdWithSegmentPair& paxId,
     Qry.SQLText=
         "INSERT INTO crs_pax_doco "
         "  (pax_id,rem_code,rem_status,birth_place,type,no,issue_place,issue_date, "
-        "   applic_country,update_datetime) "
+        "   applic_country,rec_id) "
         "VALUES "
         "  (:pax_id,:rem_code,:rem_status,:birth_place,:type,:no,:issue_place,:issue_date, "
-        "   :applic_country,:update_datetime) ";
+        "   :applic_country,:rec_id) ";
     Qry.CreateVariable("pax_id",otInteger,paxId().get());
     Qry.DeclareVariable("rem_code",otString);
     Qry.DeclareVariable("rem_status",otString);
@@ -270,10 +272,12 @@ void SaveDOCORem(const PaxIdWithSegmentPair& paxId,
     Qry.DeclareVariable("issue_place",otString);
     Qry.DeclareVariable("issue_date",otDate);
     Qry.DeclareVariable("applic_country",otString);
-    Qry.CreateVariable("update_datetime",otDate,BASIC::date_time::NowUTC());
+    Qry.DeclareVariable("rec_id",otInteger);
     for(const TDocoItem& item : doc)
     {
       if (!item.suitableForDB()) continue;
+      const int rec_id = PgOra::getSeqNextVal("CRS_ID_SEQ");
+      Qry.SetVariable("rec_id",rec_id);
       Qry.SetVariable("rem_code",item.rem_code);
       Qry.SetVariable("rem_status",item.rem_status);
       Qry.SetVariable("birth_place",item.birth_place.substr(0,35));
@@ -351,9 +355,9 @@ void SaveDOCARem(const PaxIdWithSegmentPair& paxId,
   {
     Qry.SQLText=
         "INSERT INTO crs_pax_doca "
-        "  (pax_id,rem_code,rem_status,type,country,address,city,region,postal_code,update_datetime) "
+        "  (pax_id,rem_code,rem_status,type,country,address,city,region,postal_code,rec_id) "
         "VALUES "
-        "  (:pax_id,:rem_code,:rem_status,:type,:country,:address,:city,:region,:postal_code,:update_datetime) ";
+        "  (:pax_id,:rem_code,:rem_status,:type,:country,:address,:city,:region,:postal_code,:rec_id) ";
     Qry.CreateVariable("pax_id",otInteger,paxId().get());
     Qry.DeclareVariable("rem_code",otString);
     Qry.DeclareVariable("rem_status",otString);
@@ -363,10 +367,12 @@ void SaveDOCARem(const PaxIdWithSegmentPair& paxId,
     Qry.DeclareVariable("city",otString);
     Qry.DeclareVariable("region",otString);
     Qry.DeclareVariable("postal_code",otString);
-    Qry.CreateVariable("update_datetime",otDate,BASIC::date_time::NowUTC());
+    Qry.DeclareVariable("rec_id",otInteger);
     for(const TDocaItem& item : doca)
     {
       if (!item.suitableForDB()) continue;
+      const int rec_id = PgOra::getSeqNextVal("CRS_ID_SEQ");
+      Qry.SetVariable("rec_id",rec_id);
       Qry.SetVariable("rem_code",item.rem_code);
       Qry.SetVariable("rem_status",item.rem_status);
       Qry.SetVariable("type",item.type);
