@@ -3338,7 +3338,6 @@ public:
     }
 
     bool find(const TPaxSegmentPair& segmentPair) {
-        LogTrace(TRACE5) << __FUNCTION__ ;
         auto it = cache.find(segmentPair);
         if(it != cache.end()) {
             return it->second;

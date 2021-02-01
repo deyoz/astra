@@ -1,8 +1,6 @@
 #include "ComponCreator.h"
 
 
-#define NICKNAME "DJEK"
-#include "serverlib/slogger.h"
 #include "images.h"
 #include "salons.h"
 #include "comp_props.h"
@@ -13,6 +11,8 @@
 #include "seat_number.h"
 #include "astra_locale_adv.h"
 
+#define NICKNAME "DJEK"
+#include "serverlib/slogger.h"
 namespace ComponCreator {
 
 const //AHM

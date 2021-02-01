@@ -10,13 +10,13 @@
 #include "serverlib/internal_msgid.h" 
 #include "serverlib/posthooks.h"
 
-#define NICKNAME "DENIS"
-#include "serverlib/test.h"
-
 #include "qrys.h"
 #include "astra_utils.h"
 #include "edi_utils.h"
 #include "exceptions.h"
+
+#define NICKNAME "DENIS"
+#include "serverlib/test.h"
 
 namespace TypeBHelpMng {
 

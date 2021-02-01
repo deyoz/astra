@@ -176,6 +176,7 @@ $(dump_table MARK_TRIPS)
 $(are_tables_equal ARX_MARK_TRIPS)
 $(are_tables_equal ARX_PAX_GRP)
 
+
 %%
 #########################################################################################
 ###
@@ -188,8 +189,6 @@ $(are_tables_equal ARX_PAX_GRP)
 $(init_jxt_pult МОВРОМ)
 $(set_desk_version 201707-0195750)
 $(login)
-
-################################################################################
 
 # $(PREPARE_SEASON_SCD ЮТ АМС ПРХ 300 -1 TU5 $(date_format %d.%m.%Y +1) $(date_format %d.%m.%Y +2))
 # $(deny_ets_interactive ЮТ 300 АМС)
@@ -210,11 +209,16 @@ $(set point_dep_UT_100 $(last_point_id_spp))
 $(set point_arv_UT_100 $(get_next_trip_point_id $(get point_dep_UT_100)))
 $(set pax_id_TUMALI $(get_pax_id $(get point_dep_UT_100) TUMALI VALERII))
 
+# это нужно для того чтобы pr_brd = 1 в таблице PAX,то есть посадить пассажира
+# А это в свою очередь нужно чтобы заполнилась таблица STAT_AD и потом ARX_STAT_AD
+$(sql {INSERT INTO trip_hall(point_id, type, hall, pr_misc)
+       VALUES($(get point_dep_UT_100), 101, NULL, 1)})
 
 !!
 $(CHECKIN_PAX $(get pax_id_TUMALI) $(get point_dep_UT_100) $(get point_arv_UT_100) ЮТ 100 СОЧ ЛХР TUMALI VALERII 2986145115578 ВЗ UA FA144642 UA 16.04.1968 25.06.2025 M)
 
 $(run_arch_step $(ddmmyy +141))
+
 $(are_tables_equal ARX_SELF_CKIN_STAT)
 $(are_tables_equal ARX_RFISC_STAT)
 $(are_tables_equal ARX_STAT_SERVICES)
@@ -266,6 +270,7 @@ $(are_tables_equal ARX_TRIP_LOAD)
 $(are_tables_equal ARX_TRIP_SETS)
 $(are_tables_equal ARX_CRS_DISPLACE2)
 $(are_tables_equal ARX_TRIP_STAGES)
+
 
 
 %%
@@ -401,9 +406,13 @@ $(dump_table POINTS)
 
 $(run_arch_step $(ddmmyy +141))
 $(are_tables_equal ARX_PAX)
+$(are_tables_equal ARX_PAX_GRP)
+$(are_tables_equal ARX_POINTS)
 
+$(are_tables_equal ARX_STAT_SERVICES)
 $(are_tables_equal ARX_TRANSFER)
 $(are_tables_equal ARX_TCKIN_SEGMENTS)
+
 
 
 %%
@@ -524,6 +533,7 @@ $(PREPARE_SEASON_SCD ЮТ СОЧ ЛХР 100 -1 TU5 $(date_format %d.%m.%Y +12) $(date_fo
 $(make_spp $(ddmmyy +265))
 
 $(dump_table POINTS fields="point_id, move_id, airline, flt_no, airp, scd_in, scd_out, est_in, est_out, act_in, act_out, time_in, time_out, airp_fmt")
+$(dump_table TLGS_IN)
 
 $(run_arch_step $(ddmmyy +387) 4)
 

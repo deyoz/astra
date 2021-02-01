@@ -1,7 +1,5 @@
 #include "kiosk_events.h"
 #include "exceptions.h"
-#define NICKNAME "DJEK"
-#include "serverlib/slogger.h"
 #include "serverlib/str_utils.h"
 #include "oralib.h"
 #include "stl_utils.h"
@@ -13,6 +11,8 @@
 #include "serverlib/json_packer_heavy.h"
 #include "serverlib/json_pack_types.h"
 
+#define NICKNAME "DJEK"
+#include "serverlib/slogger.h"
 using namespace std;
 
 

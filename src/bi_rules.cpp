@@ -1,11 +1,12 @@
 #include "bi_rules.h"
-#define NICKNAME "DENIS"
-#include "serverlib/slogger.h"
 #include "qrys.h"
 #include "dev_utils.h"
 #include "etick.h"
 #include "term_version.h"
 #include "brands.h"
+
+#define NICKNAME "DENIS"
+#include "serverlib/slogger.h"
 
 using namespace std;
 using namespace ASTRA;
