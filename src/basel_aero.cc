@@ -633,6 +633,33 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
   };
 };
 
+int arx_basel_stat(int argc, char **argv)
+{
+    TDateTime part_key=ASTRA::NoExists;
+    int point_id=ASTRA::NoExists;
+    if(argc >=3) {
+        std::string date_time = std::string(argv[1]) +" "+ std::string(argv[2]);
+        if(StrToDateTime(date_time.c_str(), "dd.mm.yyyy hh:nn:ss", part_key) == EOF) {
+            cout << "wrong part_key: " << date_time << endl;
+            return 1;
+        }
+        if(StrToInt(argv[3], point_id ) == EOF) {
+            cout << "wrong integer point_id: " << argv[3] << endl;
+            return 1;
+        }
+    } else {
+        if(StrToInt(argv[1], point_id ) == EOF) {
+            cout << "wrong integer point_id: " << argv[1] << endl;
+            return 1;
+        }
+    }
+    std::vector<TBaselStat> stats;
+    get_basel_aero_flight_stat(part_key, point_id, stats);
+    write_basel_aero_stat( NowUTC(), stats);
+
+    return 0;
+}
+
 int basel_stat(int argc,char **argv)
 {
   TDateTime part_key=ASTRA::NoExists;

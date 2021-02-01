@@ -12,7 +12,9 @@
 #include "stat/stat_main.h"
 #include "flt_settings.h"
 #include "qrys.h"
+
 #include <serverlib/algo.h>
+#include <serverlib/testmode.h>
 
 #define NICKNAME "DJEK"
 #include <serverlib/slogger.h>
@@ -117,6 +119,13 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
       Qry.CreateVariable("lang", otString, TReqInfo::Instance()->desk.lang);
       Qry.CreateVariable("evtPax",otString,EncodeEventType(ASTRA::evtPax));
       Qry.CreateVariable("evtPay",otString,EncodeEventType(ASTRA::evtPay));
+
+      #ifdef XP_TESTING
+      if(inTestMode()){
+        sql << " ORDER BY ev_order \n";
+      }
+      #endif
+
       if (part_key != NoExists) {
         Qry.CreateVariable( "part_key", otDate, part_key );
         Qry.CreateVariable("lang_undef", otString, "ZZ");

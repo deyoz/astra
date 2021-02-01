@@ -34,6 +34,8 @@
 #include "cr_lf.h"
 #include "cache.h"
 #include "timer.h"
+#include "stat/stat_departed.h"
+#include "basel_aero.h"
 
 #include <queue>
 #include <fstream>
@@ -1298,6 +1300,29 @@ static std::string FP_lastTypeBInId(const std::vector<std::string> &par)
   return getTlgIdent(TlgIdent::TypeBInId, par);
 }
 
+static std::string FP_departedFlt(const std::vector<std::string> &par)
+{
+  ASSERT(par.size() >= 2);
+  char * argv[3] = {"departed", const_cast<char *>(par.at(0).c_str()), const_cast<char *>(par.at(1).c_str())};
+  nosir_departed(3, argv);
+  return "";
+}
+
+static std::string FP_baselAeroStat(const std::vector<std::string> &par)
+{
+    //ASSERT(par.size() >= 1);
+    if(par.size() <= 2) {
+        char * argv[2] = {"basel_stat", const_cast<char *>(par.at(0).c_str())};
+        basel_stat(2, argv);
+    } else {
+        char * argv[4] = {"basel_stat", const_cast<char *>(par.at(0).c_str()),
+                                        const_cast<char *>(par.at(1).c_str()),
+                                        const_cast<char *>(par.at(2).c_str())};
+        arx_basel_stat(4, argv);
+    }
+    return "";
+}
+
 FP_REGISTER("<<", FP_tlg_in);
 FP_REGISTER("!!", FP_req);
 FP_REGISTER("astra_hello", FP_astra_hello);
@@ -1363,5 +1388,7 @@ FP_REGISTER("clean_old_records", FP_cleanOldRecords);
 FP_REGISTER("last_tlg_id", FP_lastTlgId);
 FP_REGISTER("last_tlg_num", FP_lastTlgNum);
 FP_REGISTER("last_typeb_in_id", FP_lastTypeBInId);
+FP_REGISTER("nosir_departed_flt", FP_departedFlt);
+FP_REGISTER("nosir_basel_stat", FP_baselAeroStat);
 
 #endif /* XP_TESTING */

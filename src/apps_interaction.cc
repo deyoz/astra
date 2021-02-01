@@ -1327,9 +1327,6 @@ bool checkAPPSFormats(const PointId_t& point_dep, const AirportCode_t& airp_arv,
     {
         return false;
     }
-    if(route.size() < 2) {
-        return false;
-    }
     auto sets = appsSetsForRoute(route);
     if(sets.empty()) {
         return false;

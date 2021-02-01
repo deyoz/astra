@@ -478,7 +478,8 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "   arx_events.part_key = :part_key and "
             "   (arx_events.lang = :lang OR arx_events.lang = :lang_undef) and "
             "   arx_events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg,:evtPrn) AND  "
-            "   arx_events.id1=:point_id  ";
+            "   arx_events.id1=:point_id  "
+            " ORDER BY ev_order";
         qry2 =
             "SELECT msg, time,  "
             "       id2 AS point_id,  "
@@ -491,7 +492,8 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "      arx_events.part_key = :part_key and "
             "      (arx_events.lang = :lang OR arx_events.lang = :lang_undef) and "
             "      arx_events.type IN (:evtDisp) AND "
-            "      arx_events.id1=:move_id  ";
+            "      arx_events.id1=:move_id  "
+            " ORDER BY ev_order";
     }
     NewTextChild(resNode, "airline", airline);
 

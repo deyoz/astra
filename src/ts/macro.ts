@@ -11,7 +11,6 @@ $(defmacro login
        <term_version>201509-0173355</term_version>
        <userr>$(user)</userr>
        <passwd>$(passwd)</passwd>
-       <airlines/>
        <devices/>
        <command_line_params>
          <param>RESTART</param>
@@ -2460,6 +2459,56 @@ $(defmacro GET_EVENTS
 
 #########################################################################################
 
+$(defmacro GET_ARX_EVENTS
+    point_id
+    part_key
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='Events' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+  <GetEvents>
+    <dev_model/>
+    <fmt_type/>
+    <prnParams/>
+    <point_id>$(point_id)</point_id>
+    <part_key>$(part_key) 09:00:00</part_key>
+    <EventsTypes>
+      <type>РЕЙ</type>
+      <type>ГРФ</type>
+      <type>ПАС</type>
+      <type>ОПЛ</type>
+      <type>ТЛГ</type>
+    </EventsTypes>
+    <LoadForm/>
+  </GetEvents>
+  </query>
+</term>}
+
+}) #end-of-macro
+#################################################################################
+
+$(defmacro PAX_LIST_RUN
+    point_id
+    part_key
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+<query handle='0' id='stat' ver='1' opr='PIKE' screen='ARX.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+  <PaxListRun>
+    <dev_model/>
+    <fmt_type/>
+    <prnParams>
+      <pr_lat>0</pr_lat>
+      <encoding>UTF-16LE</encoding>
+      <offset>20</offset>
+      <top>0</top>
+    </prnParams>
+    <point_id>$(point_id)</point_id>
+    <part_key>$(part_key) 09:00:00</part_key>
+  </PaxListRun>
+</query>
+</term>}
+}) #end-of-macro
+#########################################################################################
+
 $(defmacro WRITE_DESTS
     point_dep
     point_arv
@@ -3592,6 +3641,249 @@ $(set msg_id61 $(capture 1))
 
 }) #end-if-macro CIRQ_61_UT_REQS
 
+######################################################################################################
+
+$(defmacro RUN_TRFER_PAX_STAT
+    first_date=$(date_format %d.%m.%Y)
+    last_date=$(date_format %d.%m.%Y)
+
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='stat' ver='1' opr='PIKE' screen='STAT.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <run_stat>
+      <dev_model/>
+      <fmt_type/>
+      <prnParams>
+        <pr_lat>0</pr_lat>
+        <encoding>UTF-16LE</encoding>
+        <offset>20</offset>
+        <top>0</top>
+      </prnParams>
+      <stat_mode>Подробная</stat_mode>
+      <stat_type>Трансфер</stat_type>
+      <FirstDate>$(first_date) 00:00:00</FirstDate>
+      <LastDate>$(last_date) 00:00:00</LastDate>
+      <source>STAT</source>
+    </run_stat>
+  </query>
+</term>}
+
+}) #end_of_macro
+
+########################################################################################
+$(defmacro RUN_PAX_SRC_STAT
+    first_date=$(date_format %d.%m.%Y)
+    last_date=$(date_format %d.%m.%Y)
+    surname
+
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='stat' ver='1' opr='PIKE' screen='STAT.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <PaxSrcRun>
+      <dev_model/>
+      <fmt_type/>
+      <prnParams>
+        <pr_lat>0</pr_lat>
+        <encoding>UTF-16LE</encoding>
+        <offset>20</offset>
+        <top>0</top>
+      </prnParams>
+      <FirstDate>$(first_date) 00:00:00</FirstDate>
+      <LastDate>$(last_date) 00:00:00</LastDate>
+      <surname>$(surname)</surname>
+      <LoadForm/>
+    </PaxSrcRun>
+  </query>
+</term> }
+}) #end_of_macro
+
+########################################################################################
+$(defmacro RUN_FLT_TASK_LOG
+    point_id
+    part_key
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='stat' ver='1' opr='PIKE' screen='STAT.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <FltTaskLogRun>
+      <dev_model/>
+      <fmt_type/>
+      <prnParams>
+        <pr_lat>0</pr_lat>
+        <encoding>UTF-16LE</encoding>
+        <offset>20</offset>
+        <top>0</top>
+      </prnParams>
+      <point_id>$(point_id)</point_id>
+      <part_key>$(part_key) 09:00:00</part_key>
+      <client_with_trip_col_in_SysLog/>
+      <LoadForm/>
+    </FltTaskLogRun>
+  </query>
+</term> }
+}) #end_of_macro
+
+###################################################################################
+
+$(defmacro RUN_FLT_LOG
+    point_id
+    part_key
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='stat' ver='1' opr='PIKE' screen='STAT.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <FltLogRun>
+      <dev_model/>
+      <fmt_type/>
+      <prnParams>
+        <pr_lat>0</pr_lat>
+        <encoding>UTF-16LE</encoding>
+        <offset>20</offset>
+        <top>0</top>
+      </prnParams>
+      <point_id>$(point_id)</point_id>
+      <part_key>$(part_key) 09:00:00</part_key>
+      <client_with_trip_col_in_SysLog/>
+      <LoadForm/>
+    </FltLogRun>
+  </query>
+</term> }
+}) #end_of_macro
+
+#######################################################################################
+
+$(defmacro RUN_FLT_CBOX_DROP_DOWN
+    first_date
+    last_date
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='stat' ver='1' opr='PIKE' screen='STAT.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <FltCBoxDropDown>
+      <scr>4</scr>
+      <FirstDate>$(first_date) 00:00:00</FirstDate>
+      <LastDate>$(last_date) 00:00:00</LastDate>
+      <pr_del>0</pr_del>
+    </FltCBoxDropDown>
+  </query>
+</term> }
+}) #end_of_macro
+
+#########################################################################################
+
+$(defmacro RUN_ACTUAL_DEPARTURED_STAT
+    first_date=$(date_format %d.%m.%Y)
+    last_date=$(date_format %d.%m.%Y)
+
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='stat' ver='1' opr='PIKE' screen='STAT.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <run_stat>
+      <dev_model/>
+      <fmt_type/>
+      <prnParams>
+        <pr_lat>0</pr_lat>
+        <encoding>UTF-16LE</encoding>
+        <offset>20</offset>
+        <top>0</top>
+      </prnParams>
+      <stat_mode>Подробная</stat_mode>
+      <stat_type>Факт. вылет</stat_type>
+      <FirstDate>$(first_date) 00:00:00</FirstDate>
+      <LastDate>$(last_date) 00:00:00</LastDate>
+      <ak/>
+      <ap/>
+      <flt_no/>
+      <source>STAT</source>
+      <LoadForm/>
+    </run_stat>
+  </query>
+</term>}
+
+}) #end_of_macro
+
+###################################################################################
+
+$(defmacro RUN_SERVICES_STAT
+    first_date=$(date_format %d.%m.%Y)
+    last_date=$(date_format %d.%m.%Y)
+
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='stat' ver='1' opr='PIKE' screen='STAT.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <run_stat>
+      <dev_model/>
+      <fmt_type/>
+      <prnParams>
+        <pr_lat>0</pr_lat>
+        <encoding>UTF-16LE</encoding>
+        <offset>20</offset>
+        <top>0</top>
+      </prnParams>
+      <stat_mode>Подробная</stat_mode>
+      <stat_type>Услуги</stat_type>
+      <FirstDate>$(first_date) 00:00:00</FirstDate>
+      <LastDate>$(last_date) 00:00:00</LastDate>
+      <ak/>
+      <ap/>
+      <flt_no/>
+      <source>STAT</source>
+    </run_stat>
+  </query>
+</term>}
+
+}) #end_of_macro
+
+####################################################################################
+$(defmacro LOAD_PAX_BY_GRP_ID
+    point_dep
+    grp_id
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <TCkinLoadPax>
+      <point_id>$(point_dep)</point_id>
+      <grp_id>$(grp_id)</grp_id>
+    </TCkinLoadPax>
+  </query>
+</term>}
+
+}) #end-of-macro
+
+#########################################################################################
+
+$(defmacro LOAD_PAX_BY_REG_NO
+    point_dep
+    reg_no
+{
+!! err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <TCkinLoadPax>
+      <point_id>$(point_dep)</point_id>
+      <reg_no>$(reg_no)</reg_no>
+    </TCkinLoadPax>
+  </query>
+</term>}
+
+}) #end-of-macro
+
+#########################################################################################
+
+$(defmacro LOAD_PAX_BY_PAX_ID
+    point_dep
+    pax_id
+{
+!! err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <TCkinLoadPax>
+      <point_id>$(point_dep)</point_id>
+      <pax_id>$(pax_id)</pax_id>
+    </TCkinLoadPax>
+  </query>
+</term>}
+
+}) #end-of-macro
 
 #########################################################################################
 ### возможность регистрации группы из любого кол-ва участников в секции passengers
@@ -3794,3 +4086,20 @@ $(defmacro MESSAGE_TAG
       <message lexema_id='$(lexema_id)' code='$(code)'>...</message>
     </command>}
 )
+
+######################################################################################################
+
+$(defmacro READ_ARX_TRIPS
+    arx_date=$(date_format %d.%m.%Y)
+
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='sopp' ver='1' opr='PIKE' screen='STAT.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <ReadTrips>
+      <arx_date>$(arx_date) 00:00:00</arx_date>
+    </ReadTrips>
+  </query>
+</term>}
+}) #end_of_macro
+
+#########################################################################################

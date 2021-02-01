@@ -367,7 +367,7 @@ $(defmacro FORM_DATA_SECTION
         <brd_totals>...$(total)
 ...$(total_brd)
 ...$(total_not_brd)</brd_totals>
-        <test_server>0</test_server>
+        <test_server>1</test_server>
       </variables>
     </form_data>}
 )
