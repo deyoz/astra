@@ -2577,8 +2577,6 @@ class TTakeoffCreator : public TCreator
             << "BTM"
             << "TPM"
             << "PSM"
-            << "PFS"
-            << "PFSN"
             << "FTL"
             << "PRL"
             << "PIM"
