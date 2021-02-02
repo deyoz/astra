@@ -27,7 +27,7 @@ void monitor_idle();
 void monitor_idle_zapr_type(int cnt, int type_zapr);
 
 /* установить код запроса, который сейчас обрабатывается процессом*/
-void monitor_set_request(char *req);
+void monitor_set_request(const char *req);
 
 /* очистить код запроса, который сейчас обрабатывается процессом */
 /* (очистка производится автоматически при вызове monitor_idle() ) */

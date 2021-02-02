@@ -119,9 +119,6 @@ class PassengerStatus
 
     const std::string& countryControl() const { return m_countryControl; }
 
-    PassengerStatus& fromDB(TQuery &Qry);
-    const PassengerStatus& toDB(TQuery &Qry) const;
-
     static bool allowedToBoarding(const int paxId, const TCompleteAPICheckInfo& checkInfo);
     const PassengerStatus& updateByRequest(const std::string& msgIdForClearPassengerRequest,
                                            const std::string& msgIdForChangePassengerData,
@@ -158,6 +155,8 @@ class CusresCallbacks: public edifact::CusresCallbacks
     virtual void onCusResponseHandle(TRACE_SIGNATURE, const edifact::Cusres& cusres);
     virtual void onCusRequestHandle(TRACE_SIGNATURE, const edifact::Cusres& cusres);
 };
+
+std::vector<std::string> statusesFromDb(const PaxId_t& pax_id);
 
 void init_callbacks();
 

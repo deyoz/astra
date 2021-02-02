@@ -7,6 +7,7 @@
 #include <cctype>
 #include <dirent.h>
 #include <errno.h>
+#include <algorithm>
 #include "jxtlib_db_callbacks.h"
 
 #include <serverlib/cursctl.h>

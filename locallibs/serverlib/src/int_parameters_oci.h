@@ -15,17 +15,17 @@ struct OciSelector<const ParInt::BaseIntParam<traits_t,base_t> >
     typedef const ParInt::BaseIntParam<traits_t,base_t> this_type;
     static bool canBind(const ParInt::BaseIntParam<traits_t,base_t>&) {return true;}
     static void * addr(this_type* a) {return const_cast<ParInt::BaseIntParam<traits_t, base_t>*>(a);}
-    static char* to(const void* a, indicator& ind)
+    static void to(buf_ptr_t& dst, const void* src, indicator& ind)
     {
-        if (not reinterpret_cast<this_type*>(a)->valid())
+        if (not static_cast<this_type*>(src)->valid()) {
             ind = inull;
-        if (ind != inull)
-        {
-            char* memory = new char[sizeof(base_t)];
-            memcpy(memory, &reinterpret_cast<this_type*>(a)->get(), sizeof(base_t));
-            return memory;
         }
-        return nullptr;
+        if (ind != inull) {
+            dst.resize(len);
+            memcpy(&dst[0], static_cast<this_type*>(src)->never_use_except_in_OciCpp(), len);
+        } else {
+            dst.clear();
+        }
     }
     static int size(const void* /*addr*/) { return sizeof(base_t); }
     static void check(this_type const *a) {a->get();}
@@ -64,16 +64,14 @@ struct OciSelector<const ParInt::BaseStrParam<traits_t> >
     static const External::type data_type = External::string;
     static bool canBind(const this_type&) {return true;}
     static void* addr(const this_type* a) {return &ParInt::getRef(*const_cast<this_type*>(a));}
-    static char* to(const void* a, indicator& ind)
+    static void to(buf_ptr_t& dst, const void* src, indicator& ind)
     {
-        const std::string& s = ParInt::getRef(*static_cast<const this_type*>(a));
-        char* memory = new char[s.size() + 1];
-        if (ind == iok)
-        {
-            s.copy(memory, s.size());
+        const std::string& s = ParInt::getRef(*static_cast<const this_type*>(src));
+        dst.resize(s.size() + 1);
+        if (ind == iok) {
+            s.copy(&dst[0], s.size());
         }
-        memory[s.size()] = '\0';
-        return memory;
+        dst[s.size()] = '\0';
     }
     static int size(const void* addr)
     {

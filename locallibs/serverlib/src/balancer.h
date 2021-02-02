@@ -129,7 +129,7 @@ public:
         void handleError(const char* functionName, const boost::system::error_code& e);
 
         void write();
-        void handleWrite(const boost::system::error_code& e);
+        void handleWrite(const boost::system::error_code& e, const uint64_t ccid);
 
     private:
         boost::asio::io_service& service_;

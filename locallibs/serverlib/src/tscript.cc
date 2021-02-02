@@ -70,16 +70,13 @@ namespace xp_testing { namespace tscript {
         VmSuite suite;
         if (CheckCompiler()) {
             const std::string vmcode = Compile(fileName);
-            std::istringstream in(vmcode);
-            suite = VmLoadSuite(in);
+            suite = VmLoadSuite(vmcode);
         } else
             LogCout(COUT_ERROR) << "no " << COMPILER << " symlink; pls run buildFromScratch" << std::endl;
 
         std::vector<Test> tests;
-        for (const VmModule& module:  suite.modules) {
-            Test test;
-            test.module = module;
-            tests.push_back(test);
+        for (VmModule& module:  suite.modules) {
+            tests.emplace_back(std::move(module));
         }
         return tests;
     }
@@ -168,10 +165,9 @@ namespace xp_testing { namespace tscript {
         assert(!_TestContext);
         assert(_Callbacks);
         SetupTeardown env_keeper;
-
-        if (NoCatch())
+        if (NoCatch()) {
             RunTest_Internal(*_TestContext, test);
-        else
+        } else {
             try {
                 RunTest_Internal(*_TestContext, test);
             } catch (const SkipTest& e) {
@@ -180,12 +176,14 @@ namespace xp_testing { namespace tscript {
             //    LogTrace(TRACE0) << e.what();
             //    throw;
             }
+        }
     }
 
     void RunAllTests(const std::string& fileName)
     {
-        for(const auto& test : Parse(fileName))
-            RunTest(test);
+        for (const auto& t : Parse(fileName)) {
+            RunTest(t);
+        }
     }
 
     /***************************************************************************
@@ -198,7 +196,7 @@ namespace xp_testing { namespace tscript {
             std::string outstanding_msgs;
             std::queue<std::string> outq_tmp = outq;
             while(!outq_tmp.empty()) {
-                outstanding_msgs += "\n>>\n" + outq_tmp.front();
+                outstanding_msgs += "\n >> \n" + outq_tmp.front();
                 outq_tmp.pop();
             }
 
@@ -224,7 +222,8 @@ void TsCallbacks::afterTest()
 
 bool nosir_mode() { return _nosir_mode; }
 
-}} /* namespace xp_testing::tscript */
+} // tscript
+} // xp_testing
 
 /*******************************************************************************
  * nosir-интерпретатор
@@ -266,8 +265,7 @@ static bool nosir_tscript_internal(const std::string& fileName, const std::set<s
         }
     }
 
-    if (!failed.empty())
-    {
+    if (!failed.empty()) {
         LogCout(COUT_ERROR) << fileName << ": " << failed.size() << " of " << tests.size() << " failed:";
         for (size_t number:  failed)
             LogCout(COUT_ERROR) << " #" << number;
@@ -276,8 +274,6 @@ static bool nosir_tscript_internal(const std::string& fileName, const std::set<s
 
     return failed.empty();
 }
-
-void setShmservTestMode();
 
 int nosir_tscript(int argc, char** argv)
 {
@@ -290,7 +286,6 @@ int nosir_tscript(int argc, char** argv)
 
     initTestMode();
     set_signal(term3);
-    setShmservTestMode();
 
     std::set<size_t> nums;
     for (int i = 2; i < argc; ++i)

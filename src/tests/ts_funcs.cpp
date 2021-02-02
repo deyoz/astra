@@ -22,9 +22,12 @@
 #include "tlg/remote_system_context.h"
 #include "tlg/edi_tlg.h"
 #include "tlg/apps_handler.h"
+#include "hooked_session.h"
 #include "iapi_interaction.h"
 #include "prn_tag_store.h"
 #include "cache.h"
+#include "PgOraConfig.h"
+#include "timer.h"
 
 #include <queue>
 #include <fstream>
@@ -36,11 +39,14 @@
 #include <serverlib/tscript.h>
 #include <serverlib/exception.h>
 #include <serverlib/func_placeholders.h>
+#include <serverlib/posthooks.h>
 #include <serverlib/cursctl.h>
+#include <serverlib/dbcpp_cursctl.h>
 #include <serverlib/dates_oci.h>
 #include <serverlib/str_utils.h>
 #include <serverlib/tcl_utils.h>
 #include <serverlib/dates_io.h>
+#include <serverlib/dump_table.h>
 #include <serverlib/rip_oci.h>
 #include <serverlib/pg_rip.h>
 #include <jxtlib/jxtlib.h>
@@ -167,7 +173,7 @@ static std::string FP_init_jxt_pult(const std::vector<std::string> &args)
         puts("Init locale failed");
         return "";
     }
-    
+
     assert(args.size() == 1 && args[0].length() == 6);
     GetTestContext()->vars["JXT_PULT"] = args[0];
     return "";
@@ -267,7 +273,7 @@ static std::string FP_init_dcs(const std::vector<std::string> &p)
     using namespace Ticketing::RemoteSystemContext;
 
     assert(p.size() > 2);
-    
+
     std::string airAddr = "",
     ourAirAddr = "";
     if(p.size() > 4) {
@@ -369,7 +375,7 @@ static int getMoveId(int pointId)
    int move_id = 0;
    cur.bind(":point_id", pointId)
       .def(move_id).exfet();
-   return move_id;   
+   return move_id;
 }
 
 static std::string FP_get_move_id(const std::vector<std::string>& p)
@@ -510,16 +516,17 @@ static std::string FP_getIatciTabId(const std::vector<std::string>& p)
     unsigned tabInd = std::stoi(p.at(1));
     int id;
 
-    auto cur = get_pg_curs(
-"select ID from IATCI_TABS where GRP_ID=:grp_id and TAB_IND=:tab_ind");
+    auto cur = make_db_curs(
+"select ID from IATCI_TABS where GRP_ID=:grp_id and TAB_IND=:tab_ind",
+                PgOra::getROSession("IATCI_TABS"));
 
     cur
             .def(id)
-            .bind(":grp_id", grpId)
+            .bind(":grp_id", grpId.get())
             .bind(":tab_ind",tabInd)
             .EXfet();
 
-    if(cur.err() == PgCpp::NoDataFound) {
+    if(cur.err() == DbCpp::ResultCode::NoDataFound) {
         throw EXCEPTIONS::Exception("Iatci tab not found by grp_id=" + std::to_string(grpId.get())
                                     + " and tab_ind=" + std::to_string(tabInd));
     }
@@ -783,6 +790,28 @@ static std::string FP_runResendTlg(const std::vector<std::string>& par)
     return "";
 }
 
+static std::string FP_dump_db_table(const std::vector<tok::Param>& params)
+{
+    ASSERT(params.size() > 0);
+    std::string tableName = params[0].value;
+
+    std::string db = "pg";
+    for (size_t i = 1; i < params.size(); ++i) {
+        if(params[i].name == "db") {
+            db = params[i].value;
+        }
+    }
+
+    std::string dump;
+    if(db == "pg") {
+        DbCpp::DumpTable(*get_main_pg_rw_sess(STDLOG), tableName).exec(dump);
+    } else if(db == "ora") {
+        DbCpp::DumpTable(*get_main_ora_sess(STDLOG), tableName).exec(dump);
+    }
+    LogTrace(TRACE3) << dump;
+    return "";
+}
+
 static std::vector<string> getPaxAlarms(const std::string& table_name, int pax_id)
 {
     std::string alarm;
@@ -874,6 +903,23 @@ static std::string FP_checkFlightTasks(const std::vector<std::string>& par)
     return formatTripAlarms(getFlightTasks("TRIP_TASKS", point_id));
 }
 
+static std::string FP_runUpdateCoupon(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() == 3);
+    int status = std::stoi(par.at(0));
+    std::string ticknum = par.at(1);
+    int num = std::stoi(par.at(2));
+    auto cur = make_db_curs(
+"UPDATE WC_COUPON set STATUS=:status where TICKNUM=:ticknum and NUM=:num",
+                PgOra::getRWSession("WC_COUPON"));
+    cur
+            .bind(":status",  status)
+            .bind(":ticknum", ticknum)
+            .bind(":num",     num)
+            .exec();
+    return "";
+}
+
 static std::string FP_initIapiRequestId(const std::vector<std::string> &par)
 {
   ASSERT(par.size() == 1);
@@ -918,6 +964,12 @@ static std::string FP_getCacheSQLParam(const std::vector<std::string> &par)
   return CacheTableTermRequest::getSQLParamXml(par);
 }
 
+static std::string FP_runEtFltTask(const std::vector<std::string> &par)
+{
+  ETCheckStatusFlt();
+  return "";
+}
+
 FP_REGISTER("<<", FP_tlg_in);
 FP_REGISTER("!!", FP_req);
 FP_REGISTER("astra_hello", FP_astra_hello);
@@ -958,10 +1010,13 @@ FP_REGISTER("check_trip_alarms", FP_checkTripAlarms);
 FP_REGISTER("check_flight_tasks", FP_checkFlightTasks);
 FP_REGISTER("update_msg", FP_runUpdateMsg);
 FP_REGISTER("resend", FP_runResendTlg);
+FP_REGISTER("update_pg_coupon", FP_runUpdateCoupon);
 FP_REGISTER("init_iapi_request_id", FP_initIapiRequestId);
 FP_REGISTER("get_bcbp", FP_getBCBP);
 FP_REGISTER("cache", FP_cache);
 FP_REGISTER("cache_iface_ver", FP_getCacheIfaceVer);
 FP_REGISTER("cache_sql_param", FP_getCacheSQLParam);
+FP_REGISTER("dump_db_table", FP_dump_db_table);
+FP_REGISTER("run_et_flt_task", FP_runEtFltTask);
 
 #endif /* XP_TESTING */

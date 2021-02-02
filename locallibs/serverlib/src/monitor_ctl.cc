@@ -87,7 +87,7 @@ void monitor_idle()
 }
 
 /* установить код запроса, который сейчас обрабатывается процессом*/
-void monitor_set_request(char *req)
+void monitor_set_request(const char *req)
 {
   write_set_cur_req(req);
 }

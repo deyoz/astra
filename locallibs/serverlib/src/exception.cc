@@ -69,7 +69,7 @@ void prepareBacktrace(list<string>& traceList)
                 break;
             }
         }
-        
+
         string traceline;
         if (begin_name && begin_offset && end_offset && begin_name < begin_offset) {
             *begin_name++ = '\0';
@@ -78,22 +78,21 @@ void prepareBacktrace(list<string>& traceList)
 
             int status = 0;
             auto funcname = std::unique_ptr<char, decltype(free)*>(abi::__cxa_demangle(begin_name, nullptr, nullptr, &status), free);
-            if (status == 0)
-            {
+            if (status == 0) {
 #ifdef SERVERLIB_ADDR2LINE
-            string addr = addr2line((boost::format("%p") % addrlist[i]).str());
-            traceline = (boost::format("%s : %s+%s") % addr % funcname.get() % begin_offset).str();
+                const std::string addr = addr2line((boost::format("%p") % addrlist[i]).str());
+                traceline = (boost::format("%s : %s+%s") % addr % funcname.get() % begin_offset).str();
 #else
-            traceline = (boost::format("%s : %s+%s") % addrlist[i] % funcname.get() % begin_offset).str();
+                traceline = (boost::format("%p : %s+%s") % addrlist[i] % funcname.get() % begin_offset).str();
 #endif // SERVERLIB_ADDR2LINE
-            traceList.push_back(traceline);
             }
             else
-                traceList.push_back((boost::format("%s : __inlined__function_?__+%s") % addrlist[i] % begin_offset).str());
-        } else {
-            traceline = (boost::format("%p %s") % addrlist[i] % symbollist[i]).str();
-            traceList.push_back(traceline);
+                traceline = (boost::format("%p : __inlined__function_?__+%s") % addrlist[i] % begin_offset).str();
         }
+        if (traceline.empty()) {
+            traceline = (boost::format("%p %s") % addrlist[i] % symbollist[i]).str();
+        }
+        traceList.push_back(traceline);
     }
 
     free(symbollist);

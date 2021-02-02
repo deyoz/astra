@@ -1,11 +1,15 @@
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include "iatci_settings.h"
 #include "astra_msg.h"
 #include "exceptions.h"
 #include "astra_utils.h"
-#include "pg_session.h"
-#include "config.h"
+#include "PgOraConfig.h"
 
 #include <serverlib/testmode.h>
+#include <serverlib/dbcpp_cursctl.h>
 
 #define NICKNAME "ANTON"
 #define NICKTRACE ANTON_TRACE
@@ -51,44 +55,51 @@ static void addIatciSettings(const IatciSettings& sett)
 {
     LogTrace(TRACE3) << "add iatci settings for dcs_id: " << sett.DcsId;
     LogTrace(TRACE3) << "ifm:" << sett.Ifm;
-    get_pg_curs(
+    auto cur = make_db_curs(
 "insert into IATCI_SETTINGS(DCS_ID, CKI, CKX, CKU, BPR, PLF, SMF, IFM) "
-"values (:dcs_id, :cki, :ckx, :cku, :bpr, :plf, :smf, :ifm)")
-       .bind(":dcs_id", sett.DcsId.get())
-       .bind(":cki",    sett.Cki?1:0)
-       .bind(":ckx",    sett.Ckx?1:0)
-       .bind(":cku",    sett.Cku?1:0)
-       .bind(":bpr",    sett.Bpr?1:0)
-       .bind(":plf",    sett.Plf?1:0)
-       .bind(":smf",    sett.Smf?1:0)
-       .bind(":ifm",    sett.Ifm?1:0)
-       .exec();
+"values (:dcs_id, :cki, :ckx, :cku, :bpr, :plf, :smf, :ifm)",
+                PgOra::getRWSession("IATCI_SETTINGS"));
+    cur
+            .stb()
+            .bind(":dcs_id", sett.DcsId.get())
+            .bind(":cki",    sett.Cki?1:0)
+            .bind(":ckx",    sett.Ckx?1:0)
+            .bind(":cku",    sett.Cku?1:0)
+            .bind(":bpr",    sett.Bpr?1:0)
+            .bind(":plf",    sett.Plf?1:0)
+            .bind(":smf",    sett.Smf?1:0)
+            .bind(":ifm",    sett.Ifm?1:0)
+            .exec();
 }
 
 static void updateIatciSettings(const IatciSettings& sett)
 {
     LogTrace(TRACE3) << "update iatci settings for dcs_id: " << sett.DcsId;
-    get_pg_curs(
+    auto cur = make_db_curs(
 "update IATCI_SETTINGS set "
 "CKI=:cki, CKX=:ckx, CKU=:cku, :BPR=:bpr, PLF=:plf, SMF=:smf, IFM=:ifm "
-"where DCS_ID=:dcs_id")
-      .bind(":dcs_id", sett.DcsId.get())
-      .bind(":cki",    sett.Cki?1:0)
-      .bind(":ckx",    sett.Ckx?1:0)
-      .bind(":cku",    sett.Cku?1:0)
-      .bind(":bpr",    sett.Bpr?1:0)
-      .bind(":plf",    sett.Plf?1:0)
-      .bind(":smf",    sett.Smf?1:0)
-      .bind(":ifm",    sett.Ifm?1:0)
-      .exec();
+"where DCS_ID=:dcs_id",
+                PgOra::getRWSession("IATCI_SETTINGS"));
+    cur
+            .stb()
+            .bind(":dcs_id", sett.DcsId.get())
+            .bind(":cki",    sett.Cki?1:0)
+            .bind(":ckx",    sett.Ckx?1:0)
+            .bind(":cku",    sett.Cku?1:0)
+            .bind(":bpr",    sett.Bpr?1:0)
+            .bind(":plf",    sett.Plf?1:0)
+            .bind(":smf",    sett.Smf?1:0)
+            .bind(":ifm",    sett.Ifm?1:0)
+            .exec();
 }
 
 IatciSettings readIatciSettings(const Ticketing::SystemAddrs_t& dcsId, bool createDefault)
 { 
-    auto cur = get_pg_curs(
+    auto cur = make_db_curs(
 "select CKI, CKX, CKU, BPR, PLF, SMF, IFM "
 "from IATCI_SETTINGS "
-"where DCS_ID = :dcs_id");
+"where DCS_ID = :dcs_id",
+                PgOra::getROSession("IATCI_SETTINGS"));
 
     IatciSettings sett = IatciSettings::defaultSettings(dcsId);
     sett.DcsId = dcsId;
@@ -103,7 +114,7 @@ IatciSettings readIatciSettings(const Ticketing::SystemAddrs_t& dcsId, bool crea
        .def(sett.Ifm)
        .EXfet();
 
-    if(cur.err() == PgCpp::NoDataFound) {
+    if(cur.err() == DbCpp::ResultCode::NoDataFound) {
         LogTrace(TRACE0) << "Iatci settings not found for dcs: " << dcsId;
         if(createDefault) {
             sett = IatciSettings::defaultSettings(dcsId);
@@ -127,14 +138,15 @@ void writeIatciSettings(const IatciSettings& sett)
 
 bool checkExistance(const Ticketing::SystemAddrs_t& dcsId)
 {
-    auto cur = get_pg_curs(
-"select 1 from IATCI_SETTINGS where DCS_ID = :dcs_id");
+    auto cur = make_db_curs(
+"select 1 from IATCI_SETTINGS where DCS_ID = :dcs_id",
+                PgOra::getROSession("IATCI_SETTINGS"));
 
-    cur.stb()
-       .bind(":dcs_id", dcsId.get())
-       .exfet();
+    cur
+            .bind(":dcs_id", dcsId.get())
+            .exfet();
 
-    return (cur.err() != PgCpp::NoDataFound);
+    return (cur.err() != DbCpp::ResultCode::NoDataFound);
 }
 
 }//namespace iatci

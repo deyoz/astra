@@ -1,10 +1,10 @@
-#ifndef SERVERLIB_OCI_SEQ_H
-#define SERVERLIB_OCI_SEQ_H
+#pragma once
 
 #include "cursctl.h"
 
 namespace OciCpp
 {
+
 class Sequence
 {
 public:
@@ -26,8 +26,5 @@ private:
     std::string name_;
     OciSession& sess_;
 };
+
 } // OciCpp
-
-
-#endif /* SERVERLIB_OCI_SEQ_H */
-

@@ -27,16 +27,28 @@ public:
     BadLocalTime(const char*, const char*, int, const char *, const std::string &);
 };
 
-class LocalTimeParams {
-    std::string tzdir_;
-    bool isBigEndian_;
-public:
-    const std::string & tzdir();
-    bool isBigEndian() { return isBigEndian_; };
-    LocalTimeParams();
-};
+TimeZoneCacheController::~TimeZoneCacheController()
+{}
 
-class TimeZone 
+bool TimeZoneCacheController::needRefresh()
+{
+    return false;
+}
+
+const std::string& TimeZoneCacheController::tzdir()
+{
+    static std::string tzdir = readStringFromTcl("SIRENA_TZDIR", "/usr/share/zoneinfo");
+    return tzdir;
+}
+
+std::unique_ptr<TimeZoneCacheController> timeZoneCacheCtrl(new TimeZoneCacheController);
+
+void setupTimeZoneController(TimeZoneCacheController* c)
+{
+    timeZoneCacheCtrl.reset(c);
+}
+
+class TimeZone
 {
     class DataFile;
 
@@ -48,7 +60,7 @@ class TimeZone
         bool operator<(const Transition & b) const { return when < b.when; }
     };
 
-    class LocalCompare 
+    class LocalCompare
     { // функтор для поиска релевантного перевода часов, когда дано локальное время
     public:
         bool operator()(const Transition &, const Transition &) const;
@@ -57,15 +69,15 @@ class TimeZone
     int64_t baseoff; // оффсет, который был до первого известного перевода часов
     std::vector<Transition> leaps; // массив переводов
 
-    static std::string findZoneName(const char * cstr);
-    static void resolveTZName(std::string &,std::list<std::string> &,const std::string &);
+    static std::string findZoneName(const char * cstr, const std::string& tzdir);
+    static void resolveTZName(std::string &,std::vector<std::string> &,const std::string &, const std::string& tzdir);
 
-    //TimeZone(){};
+    TimeZone(){};
     bool setTimeZone(const char *);
 public:
     static const TimeZone* getTimeZone(const char * time_zone);
     static bool checkTimeZone(const char * tzname); // check whether tzname is valid
-    static LocalTimeParams params;
+    static std::map<std::string, std::shared_ptr<TimeZone>> cache;
 
     std::vector<int64_t> getLeapTimes() const;
     boost::posix_time::ptime localToGMT(const boost::posix_time::ptime &) const; 
@@ -95,6 +107,12 @@ public:
     char get();
 };
 
+static bool isBigEndian()
+{
+    static const bool res = (htonl((uint32_t) 1) == ((uint32_t) 1));
+    return res;
+}
+
 bool checkTimeZone(const std::string& zone)
 {
     return TimeZone::checkTimeZone(zone.c_str());
@@ -108,7 +126,7 @@ template <typename T> bool TimeZone::DataFile::readValue(T * val)
         pos += valSize; // чтобы все последующие обращения гарантированно возвращали false
         return false;
     }
-    if (params.isBigEndian())
+    if (isBigEndian())
     {
         char * begin = (char *) val;
         for (int i = 0; i < valSize; ++i, ++begin)
@@ -147,19 +165,8 @@ struct Date
 BadLocalTime::BadLocalTime(const char* a, const char* b, int c, const char * d, 
                            const std::string & e) : comtech::Exception(a, b, c, d, e) {};
 
-
-LocalTimeParams::LocalTimeParams() : isBigEndian_(true) {
-    isBigEndian_ = (htonl((uint32_t) 1) == ((uint32_t) 1));
-}
-
-const std::string & LocalTimeParams::tzdir() {
-    if (tzdir_.empty()) {
-        tzdir_ = readStringFromTcl("SIRENA_TZDIR","/usr/share/zoneinfo");
-    }
-    return tzdir_;
-}
- 
-std::string City2City(const std::string& from_time, const std::string& from_zone, const std::string& to_zone) {
+std::string City2City(const std::string& from_time, const std::string& from_zone, const std::string& to_zone)
+{
      return LocalTime(from_time,from_zone).setZone(to_zone).getLocalTimeStr();
 }
 
@@ -201,9 +208,9 @@ std::vector<boost::gregorian::date> getZoneLeapDates(const std::string& zone,
     return leapDates;
 }
 
-LocalTimeParams TimeZone::params;
+std::map<std::string, std::shared_ptr<TimeZone>> TimeZone::cache;
 
-std::string TimeZone::findZoneName(const char * cstr)
+std::string TimeZone::findZoneName(const char * cstr, const std::string& tzdir)
 { // convert wrong-cased (uppercased) filename to right-cased
     std::vector<std::string> fileName;
     if (cstr == NULL) {
@@ -217,7 +224,7 @@ std::string TimeZone::findZoneName(const char * cstr)
         cstr = end + 1;
     } 
 
-    DIR * dir = opendir(params.tzdir().c_str());
+    DIR * dir = opendir(tzdir.c_str());
     if (dir == NULL) {
         return "";
     }
@@ -247,7 +254,7 @@ std::string TimeZone::findZoneName(const char * cstr)
         closedir(dir);
         if (it + 1 != fileName.end())
         {
-            dir = opendir((params.tzdir() + '/' + currentPath).c_str());
+            dir = opendir((tzdir + '/' + currentPath).c_str());
             if (dir == NULL) {
                 return "";
             }
@@ -258,15 +265,15 @@ std::string TimeZone::findZoneName(const char * cstr)
 
 // пишет в fsName полный путь до tz-файла, а в cacheNames все "псевдонимы" для временной
 // зоны с именем inZoneStr
-void TimeZone::resolveTZName(std::string & fsName,std::list<std::string> & cacheNames, 
-              const std::string & inZoneStr) 
+void TimeZone::resolveTZName(std::string & fsName,std::vector<std::string> & cacheNames, 
+              const std::string & inZoneStr, const std::string& tzdir)
 {
-    fsName = TimeZone::findZoneName(inZoneStr.c_str());
+    fsName = TimeZone::findZoneName(inZoneStr.c_str(), tzdir);
     if (fsName.size() == 0) {
         throw BadLocalTime(STDLOG, "resolveTZName", 
-                           std::string("Cannot find file for '") + params.tzdir() + '/' + inZoneStr + '\'');
+                           std::string("Cannot find file for '") + tzdir + '/' + inZoneStr + '\'');
     }
-    fsName = params.tzdir() + '/' + fsName;
+    fsName = tzdir + '/' + fsName;
     // возможно, вместо уникального tzfile'а мы имели дело с линком на другой tzfile,
     // так что целесообразно было бы добавить в кеш с одинаковым указателем все остальные
     // строки-идентификаторы, которые ссылаются на тот же самый конечный файл.
@@ -304,8 +311,8 @@ void TimeZone::resolveTZName(std::string & fsName,std::list<std::string> & cache
                            fullPath.begin() + fullPath.find('/', temp + 1));
         }
         //LogTrace(TRACE5) << "normalized link: '" << fullPath << '\'';
-        if (params.tzdir().size() <= fullPath.size() &&
-            strncmp(fullPath.c_str(), params.tzdir().c_str(), params.tzdir().size()) == 0)
+        if (tzdir.size() <= fullPath.size() &&
+            strncmp(fullPath.c_str(), tzdir.c_str(), tzdir.size()) == 0)
         { // если абсолютный путь файла находится в той же папке(tzdir), что и линк, то добавим в кеш
             // ########################################
             // прежде чем добавлять в кэш новую пару, надо проапперкейсить tzname
@@ -313,7 +320,7 @@ void TimeZone::resolveTZName(std::string & fsName,std::list<std::string> & cache
             // названия будут уже апперкейснуты, нижеследующее преобразование нужно
             // будет удалить
             // ########################################
-            std::string temp(fullPath.c_str() + params.tzdir().size() + 1);
+            std::string temp(fullPath.c_str() + tzdir.size() + 1);
             transform(temp.begin(),temp.end(),temp.begin(),toupper);
             cacheNames.push_back(temp);
             //LogTrace(TRACE5) << "name added into cacheNames: '" << temp << '\'';
@@ -331,6 +338,10 @@ void TimeZone::resolveTZName(std::string & fsName,std::list<std::string> & cache
 }
 
 const TimeZone* TimeZone::getTimeZone(const char * inZone) {
+    if (timeZoneCacheCtrl->needRefresh()) {
+        TimeZone::cache.clear();
+    }
+    const std::string& tzdir = timeZoneCacheCtrl->tzdir();
     /*
       проапперкейсить
     */
@@ -347,10 +358,7 @@ const TimeZone* TimeZone::getTimeZone(const char * inZone) {
     /*
       пошукать в кеше
     */
-    typedef std::map<std::string, std::shared_ptr<TimeZone> > Map;
-    typedef std::list<std::string> List;
-    static Map cache;
-    Map::iterator it = cache.find(inZoneStr);
+    auto it = cache.find(inZoneStr);
     if (it != cache.end())
     {
         //LogTrace(TRACE5) << "TZ '" << inZoneStr << "' found in cache";
@@ -362,8 +370,8 @@ const TimeZone* TimeZone::getTimeZone(const char * inZone) {
       составить список возможных имен в кеше
     */
     std::string fsName;
-    List cacheNames;
-    resolveTZName(fsName, cacheNames, inZoneStr);
+    std::vector<std::string> cacheNames;
+    resolveTZName(fsName, cacheNames, inZoneStr, tzdir);
     /*
       пошукать в кеше
     */
@@ -383,7 +391,7 @@ const TimeZone* TimeZone::getTimeZone(const char * inZone) {
     /*
       создать объект
     */
-    auto tzp = std::make_shared<TimeZone>();
+    std::shared_ptr<TimeZone> tzp(new TimeZone);
     if (tzp->setTimeZone(fsName.c_str()) == false)
     {
         throw BadLocalTime(STDLOG, "getTimeZone", 
@@ -415,8 +423,9 @@ bool TimeZone::checkTimeZone(const char * const tzname) {
         }
     } while( end > tzname && (end[-1] == '\033' || end[0] == '\033') && --end);
     std::string newName(begin, end - begin + 1);
-    newName = findZoneName(newName.c_str());
-    newName = params.tzdir() + '/' + newName;
+    const std::string& tzdir = timeZoneCacheCtrl->tzdir();
+    newName = findZoneName(newName.c_str(), tzdir);
+    newName = tzdir + '/' + newName;
     TimeZone tz;
     return tz.setTimeZone(newName.c_str());
 }
@@ -778,14 +787,9 @@ int64_t boostToTime(const boost::posix_time::ptime& inTime)
     if (inTime.is_special()) {
         throw BadLocalTime(STDLOG, "boostToTime", "Uninitialized boost::posix_time::ptime argument");
     }
-    Date a;
-    a.year = inTime.date().year();
-    a.mon = inTime.date().month();
-    a.day = inTime.date().day();
-    a.hour = inTime.time_of_day().hours();
-    a.min = inTime.time_of_day().minutes();
-    a.sec = inTime.time_of_day().seconds();
-    return a.getTime();
+    static const boost::posix_time::ptime epoch(boost::gregorian::date(1970, 1, 1));
+    boost::posix_time::time_duration diff(inTime - epoch);
+    return (diff.ticks() / diff.ticks_per_second());
 }
 
 boost::posix_time::ptime timeToBoost(int64_t inTime)
@@ -1123,6 +1127,8 @@ START_TEST(constructors)
     fail_unless(strToTime("19600128000000") == -313286400);
     fail_unless(timeToBoost(strToTime("20000228000000")) == from_iso_string("20000228T000000"));
     fail_unless(timeToBoost(strToTime("20000301121314")) == from_iso_string("20000301T121314"));
+    fail_unless(timeToBoost(strToTime("20390901040000")) == from_iso_string("20390901T040000"));
+    fail_unless(timeToBoost(strToTime("30390901040000")) == from_iso_string("30390901T040000"));
     fail_unless(timeToBoost(strToTime("19390901040000")) == from_iso_string("19390901T040000"));
     fail_unless(timeToBoost(strToTime("19400410200000")) == from_iso_string("19400410T200000"));
     fail_unless(strToTime("20000113161718") == boostToTime(from_iso_string("20000113T161718")));

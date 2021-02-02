@@ -38,7 +38,7 @@ static tlgnum_t::num_t initTlgNum(const std::string& str)
         return num;
 
     std::string withLeadingZeros = str;
-    withLeadingZeros.insert(0, tlgnum_t::TLG_NUM_LENGTH - num.get().size(), '0');
+    withLeadingZeros.insert(0, telegrams::TLG_NUM_LENGTH - num.get().size(), '0');
     return tlgnum_t::num_t(withLeadingZeros);
 }
 
@@ -161,7 +161,7 @@ bool TlgCallbacks::saveBadTlg(const AIRSRV_MSG& tlg, int error)
 tlgnum_t TlgCallbacks::nextExpressNum()
 {
     tlgnum_t::num_t::base_type tlgNum;
-    Timer::timer tm("TlgCallbacks::nextExpressNum");
+    HelpCpp::Timer tm("TlgCallbacks::nextExpressNum");
     OciCpp::CursCtl cr = make_curs("SELECT NUMXPRTLG_SEQ.NEXTVAL FROM DUAL");
     cr.def(tlgNum);
     cr.EXfet();
@@ -171,7 +171,7 @@ tlgnum_t TlgCallbacks::nextExpressNum()
 
 boost::optional<tlgnum_t> TlgCallbacks::nextNum()
 {
-    Timer::timer tm("TlgCallbacks::nextNum");
+    HelpCpp::Timer tm("TlgCallbacks::nextNum");
     OciCpp::CursCtl cr = make_curs("SELECT NUMTLG_SEQ.NEXTVAL FROM DUAL");
     std::string num;
     cr.def(num);

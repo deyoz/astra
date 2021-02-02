@@ -1735,7 +1735,7 @@ protected:
 
 //---------------------------------------------------------------------------------------
 
-class DefferedIatciData
+class DeferredIatciData
 {
     friend class boost::serialization::access;
 
@@ -1759,7 +1759,7 @@ protected:
     std::list<dcrcka::Result> m_lRes;
 
 protected:
-    DefferedIatciData(Status_e status,
+    DeferredIatciData(Status_e status,
                       Error_e error,
                       const std::list<dcrcka::Result>& lRes)
         : m_status(status),
@@ -1767,26 +1767,26 @@ protected:
           m_lRes(lRes)
     {}
 
-    static DefferedIatciData::Status_e calcStatus(const std::list<dcrcka::Result>& lRes);
-    static DefferedIatciData::Error_e  calcError(const std::list<dcrcka::Result>& lRes);
+    static DeferredIatciData::Status_e calcStatus(const std::list<dcrcka::Result>& lRes);
+    static DeferredIatciData::Error_e  calcError(const std::list<dcrcka::Result>& lRes);
 
 public:
     Status_e                         status() const;
     Error_e                          error() const;
     const std::list<dcrcka::Result>& lRes() const;
 
-    static DefferedIatciData create(const std::list<dcrcka::Result>& lRes);
-    static DefferedIatciData createError(Error_e createError);
-    static DefferedIatciData createTimeout();
+    static DeferredIatciData create(const std::list<dcrcka::Result>& lRes);
+    static DeferredIatciData createError(Error_e createError);
+    static DeferredIatciData createTimeout();
 
-    DefferedIatciData() // for boost serialization only
-        : m_status(DefferedIatciData::Status_e::Failed),
-          m_error(DefferedIatciData::Error_e::None)
+    DeferredIatciData() // for boost serialization only
+        : m_status(DeferredIatciData::Status_e::Failed),
+          m_error(DeferredIatciData::Error_e::None)
     {}
 };
 
 //---------------------------------------------------------------------------------------
 
-std::ostream& operator<<(std::ostream& os, const DefferedIatciData& ddata);
+std::ostream& operator<<(std::ostream& os, const DeferredIatciData& ddata);
 
 }//namespace iatci

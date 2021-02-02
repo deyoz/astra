@@ -1260,8 +1260,6 @@ BEGIN
     DELETE FROM pax_seats WHERE point_id=curRow.point_id;
     DELETE FROM utg_prl WHERE point_id=curRow.point_id;
     DELETE FROM trip_tasks WHERE point_id=curRow.point_id;
-    DELETE FROM etickets WHERE point_id=curRow.point_id;
-    DELETE FROM emdocs WHERE point_id=curRow.point_id;
     DELETE FROM trip_apis_params WHERE point_id=curRow.point_id;
     DELETE FROM counters_by_subcls WHERE point_id=curRow.point_id;
     DELETE FROM apps_messages WHERE msg_id in (SELECT cirq_msg_id FROM apps_pax_data where point_id=curRow.point_id);
@@ -1269,7 +1267,7 @@ BEGIN
     DELETE FROM apps_messages WHERE msg_id in (SELECT msg_id FROM apps_manifest_data where point_id=curRow.point_id);
     DELETE FROM apps_pax_data WHERE point_id=curRow.point_id;
     DELETE FROM apps_manifest_data WHERE point_id=curRow.point_id;
-    DELETE FROM iapi_pax_data WHERE point_id=curRow.point_id;
+--    DELETE FROM iapi_pax_data WHERE point_id=curRow.point_id;
     DELETE FROM wb_msg_text where id in(SELECT id FROM wb_msg WHERE point_id = curRow.point_id);
     DELETE FROM wb_msg where point_id = curRow.point_id;
     DELETE FROM trip_vouchers WHERE point_id=curRow.point_id;
@@ -1703,18 +1701,6 @@ BEGIN
         IF SYSDATE>time_finish THEN CLOSE cur; RETURN; END IF;
       END LOOP;
       CLOSE cur;
-    END IF;
-    IF step=5 THEN
-      DELETE FROM eticks_display WHERE last_display<arx_date AND rownum<=remain_rows;
-      remain_rows:=remain_rows-SQL%ROWCOUNT;
-    END IF;
-    IF step=6 THEN
-      DELETE FROM eticks_display_tlgs WHERE last_display<arx_date AND rownum<=remain_rows;
-      remain_rows:=remain_rows-SQL%ROWCOUNT;
-    END IF;
-    IF step=7 THEN
-      DELETE FROM emdocs_display WHERE last_display<arx_date AND rownum<=remain_rows;
-      remain_rows:=remain_rows-SQL%ROWCOUNT;
     END IF;
     IF remain_rows<=0 THEN RETURN; END IF;
     step:=step+1;

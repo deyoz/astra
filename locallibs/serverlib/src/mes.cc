@@ -33,12 +33,12 @@ CachedQMbl  managQMbl;
 /*********************************************************/
 void clist_init( int procid )
 { /* инициализация системы CLIST */
-  
-  if( (procid==CLIST_PROCID_MONITOR) )
+  // TODO table?
+  if(procid==CLIST_PROCID_MONITOR)
     managQMbl.init(procid, MonitorMinMesBl);
-  else if( (procid==CLIST_PROCID_SUPERVISOR) )
+  else if(procid==CLIST_PROCID_SUPERVISOR)
     managQMbl.init(procid, SupervisorMinMesBl);
-  else if( (procid==CLIST_PROCID_TCLMON) )
+  else if(procid==CLIST_PROCID_TCLMON)
     managQMbl.init(procid, TclmonMinMesBl);
   else
     managQMbl.init(procid, 0);

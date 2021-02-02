@@ -164,10 +164,10 @@ static std::list<dcrcka::Result> loadDeferredData(tlgnum_t postponeTlgNum)
 {
     auto ddata = iatci::loadDeferredCkiData(postponeTlgNum);
     if(ddata) {
-        if(ddata->status() == iatci::DefferedIatciData::Status_e::Success) {
+        if(ddata->status() == iatci::DeferredIatciData::Status_e::Success) {
             return ddata->lRes();
         } else {
-            if(ddata->error() == iatci::DefferedIatciData::Error_e::Timeout) {
+            if(ddata->error() == iatci::DeferredIatciData::Error_e::Timeout) {
                 throw tick_soft_except(STDLOG, AstraErr::TIMEOUT_ON_HOST_3);
             } else {
                 throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR);

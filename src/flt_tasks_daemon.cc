@@ -162,31 +162,31 @@ static void check_trip_tasks(const std::string& handler_id)
             UpdQry.Execute();
 
             callPostHooksBefore();
-            OraSession.Commit();
+            ASTRA::commit();
             callPostHooksAfter();
         }
         catch( EOracleError &E )
         {
-            try { OraSession.Rollback(); } catch(...) {};
+            try { ASTRA::rollback(); } catch(...) {};
             LogError(STDLOG) << __FUNCTION__ << ": " << task;
             ProgError( STDLOG, "EOracleError %d: %s", E.Code, E.what());
             ProgError( STDLOG, "SQL: %s", E.SQLText());
         }
         catch( EXCEPTIONS::Exception &E )
         {
-            try { OraSession.Rollback(); } catch(...) {};
+            try { ASTRA::rollback(); } catch(...) {};
             LogError(STDLOG) << __FUNCTION__ << ": " << task;
             ProgError( STDLOG, "Exception: %s", E.what());
         }
         catch( std::exception &E )
         {
-            try { OraSession.Rollback(); } catch(...) {};
+            try { ASTRA::rollback(); } catch(...) {};
             LogError(STDLOG) << __FUNCTION__ << ": " << task;
             ProgError( STDLOG, "std::exception: %s", E.what());
         }
         catch( ... )
         {
-            try { OraSession.Rollback(); } catch(...) {};
+            try { ASTRA::rollback(); } catch(...) {};
             LogError(STDLOG) << __FUNCTION__ << ": " << task;
             ProgError( STDLOG, "Unknown error");
         };

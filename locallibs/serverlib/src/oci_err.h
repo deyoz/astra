@@ -1,5 +1,4 @@
-#ifndef _OCI_ERR_H__
-#define _OCI_ERR_H__
+#pragma once
 
 enum OciCppErrs
 {
@@ -27,5 +26,3 @@ enum OciCppErrs
     REQUIRED_NEXT_BUFFER= 3130,
     WAIT_TIMEOUT_EXPIRED = 30006,
 };
-
-#endif // _OCI_ERR_H__

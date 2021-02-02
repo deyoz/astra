@@ -9,7 +9,7 @@ namespace ServerFramework {  class InternalMsgId;  }
 
 class EdiHelpSignal:public Posthooks::BaseHook
 {
-    static const size_t max_buf_size = 1000;
+    static const size_t max_buf_size = 1301;
     virtual bool less2( const BaseHook *p) const noexcept;
     int msg1[4];
     char sigtext[max_buf_size];

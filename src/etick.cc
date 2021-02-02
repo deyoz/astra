@@ -51,6 +51,10 @@
 #include "tlg/remote_system_context.h"
 #include "tlg/postpone_edifact.h"
 #include "cuws_main.h"
+#include <serverlib/dbcpp_cursctl.h>
+#include "PgOraConfig.h"
+#include "db_tquery.h"
+#include "hooked_session.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -78,6 +82,24 @@ using namespace AstraEdifact;
 namespace PaxETList
 {
 
+bool isDisplayedEt(const std::string& ticket_no, int coupon_no)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": ticket_no=" << ticket_no
+                   << ", coupon_no=" << coupon_no;
+  auto cur = make_db_curs(
+        "SELECT 1 FROM eticks_display "
+        "WHERE ticket_no=:ticket_no "
+        "AND coupon_no=:coupon_no ",
+        PgOra::getROSession("ETICKS_DISPLAY"));
+  cur.stb()
+      .bind(":ticket_no", ticket_no)
+      .bind(":coupon_no", coupon_no)
+      .EXfet();
+
+  return cur.err() != DbCpp::ResultCode::NoDataFound;
+}
+
 std::string GetSQL(const TListType ltype)
 {
   ostringstream sql;
@@ -87,36 +109,18 @@ std::string GetSQL(const TListType ltype)
   {
     sql << "SELECT tlg_binding.point_id_spp AS point_id, crs_pax_tkn.ticket_no, crs_pax_tkn.coupon_no, \n"
            "       tlg_trips.airline, tlg_trips.flt_no, tlg_trips.airp_dep \n"
-           "FROM crs_pax_tkn, crs_pax, crs_pnr, tlg_trips, tlg_binding, eticks_display \n"
+           "FROM crs_pax_tkn, crs_pax, crs_pnr, tlg_trips, tlg_binding \n"
            "WHERE crs_pax_tkn.pax_id=crs_pax.pax_id AND \n"
            "      crs_pax.pnr_id=crs_pnr.pnr_id AND \n"
            "      crs_pnr.point_id=tlg_binding.point_id_tlg AND \n"
            "      crs_pnr.point_id=tlg_trips.point_id AND \n"
-           "      tlg_binding.point_id_tlg=:point_id_tlg AND \n"
-           "      crs_pax_tkn.ticket_no=eticks_display.ticket_no(+) AND \n"
-           "      crs_pax_tkn.coupon_no=eticks_display.coupon_no(+) AND \n"
-           "      eticks_display.ticket_no IS NULL AND \n";
-    if (ltype==notDisplayedByPointIdTlg)
+           "      tlg_binding.point_id_tlg=:point_id_tlg AND \n";
+    if (ltype==notDisplayedByPointIdTlg) {
       sql << "      tlg_binding.point_id_spp=:id AND \n";
-    if (ltype==notDisplayedByPaxIdTlg)
+    }
+    if (ltype==notDisplayedByPaxIdTlg) {
       sql << "      crs_pax.pax_id=:id AND \n";
-  };
-
-  if (ltype==allStatusesByPointIdFromTlg)
-  {
-    sql << "SELECT crs_pax_tkn.ticket_no, crs_pax_tkn.coupon_no, \n"
-           "       tlg_trips.airp_dep, crs_pnr.airp_arv, \n"
-           "       tlg_binding.point_id_spp AS point_id, \n"
-           "       etickets.coupon_status, etickets.error \n"
-           "FROM crs_pax_tkn, crs_pax, crs_pnr, tlg_trips, tlg_binding, etickets \n"
-           "WHERE crs_pax_tkn.pax_id=crs_pax.pax_id AND \n"
-           "      crs_pax.pnr_id=crs_pnr.pnr_id AND \n"
-           "      crs_pnr.point_id=tlg_binding.point_id_tlg AND \n"
-           "      crs_pnr.point_id=tlg_trips.point_id AND \n"
-           "      tlg_binding.point_id_spp=:point_id AND \n"
-           "      crs_pax_tkn.ticket_no=etickets.ticket_no(+) AND \n"
-           "      crs_pax_tkn.coupon_no=etickets.coupon_no(+) AND \n"
-           "      etickets.coupon_status IS NULL AND \n"; //нет записи в etickets или status=NULL
+    }
   };
 
   if (ltype==allByPointIdAndTickNoFromTlg ||
@@ -129,39 +133,26 @@ std::string GetSQL(const TListType ltype)
            "WHERE crs_pax_tkn.pax_id=crs_pax.pax_id AND \n"
            "      crs_pax.pnr_id=crs_pnr.pnr_id AND \n"
            "      crs_pnr.point_id=tlg_binding.point_id_tlg AND \n";
-    if (ltype==allByPointIdAndTickNoFromTlg)
+    if (ltype==allByPointIdAndTickNoFromTlg) {
       sql <<
            "      tlg_binding.point_id_spp=:point_id AND \n"
            "      crs_pax_tkn.ticket_no=:ticket_no AND \n";
-    if (ltype==allByTickNoAndCouponNoFromTlg)
+    }
+    if (ltype==allByTickNoAndCouponNoFromTlg) {
       sql <<
            "      crs_pax_tkn.ticket_no=:ticket_no AND \n"
            "      crs_pax_tkn.coupon_no=:coupon_no AND \n";
+    }
   }
 
   if (ltype==notDisplayedByPointIdTlg ||
       ltype==notDisplayedByPaxIdTlg ||
-      ltype==allStatusesByPointIdFromTlg ||
       ltype==allByPointIdAndTickNoFromTlg ||
       ltype==allByTickNoAndCouponNoFromTlg)
   {
     sql << "      crs_pnr.system='CRS' AND \n"
            "      crs_pax.pr_del=0 AND \n"
            "      crs_pax_tkn.rem_code='TKNE'\n";
-  };
-
-  if (ltype==allNotCheckedStatusesByPointId)
-  {
-    sql << "SELECT etickets.ticket_no, etickets.coupon_no, \n"
-           "       etickets.airp_dep, etickets.airp_arv, \n"
-           "       etickets.point_id, \n"
-           "       etickets.coupon_status, etickets.error \n"
-           "FROM etickets, pax \n"
-           "WHERE etickets.ticket_no=pax.ticket_no(+) AND \n"
-           "      etickets.coupon_no=pax.coupon_no(+) AND \n"
-           "      etickets.point_id=:point_id AND \n"
-           "      pax.pax_id IS NULL AND \n"
-           "      etickets.coupon_status IS NOT NULL \n";
   };
 
   if (ltype==allCheckedByTickNoAndCouponNo)
@@ -189,6 +180,11 @@ void GetNotDisplayedET(int point_id_tlg, int id, bool is_pax_id, std::set<ETSear
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
   {
+    if (isDisplayedEt(Qry.FieldAsString("ticket_no"),
+                      Qry.FieldAsInteger("coupon_no")))
+    {
+      continue;
+    }
     ETSearchByTickNoParams params(Qry.FieldAsInteger("point_id"), Qry.FieldAsString("ticket_no"));
     searchParams.insert(params);
     //добавляем телеграммный рейс
@@ -199,24 +195,78 @@ void GetNotDisplayedET(int point_id_tlg, int id, bool is_pax_id, std::set<ETSear
   };
 }
 
+bool existsPaxWithEt(const std::string& ticket_no, int coupon_no)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": ticket_no=" << ticket_no
+                   << ", coupon_no=" << coupon_no;
+  auto cur = make_db_curs(
+        "SELECT 1 FROM pax "
+        "WHERE ticket_no=:ticket_no "
+        "AND coupon_no=:coupon_no ",
+        PgOra::getROSession("PAX"));
+  cur.stb()
+      .bind(":ticket_no", ticket_no)
+      .bind(":coupon_no", coupon_no)
+      .EXfet();
+
+  return cur.err() != DbCpp::ResultCode::NoDataFound;
+}
+
 void GetAllStatusesByPointId(TListType type, int point_id, std::set<TETickItem> &list, bool clear_list=true)
 {
   if (clear_list) list.clear();
-  if (type==allStatusesByPointIdFromTlg ||
-      type==allNotCheckedStatusesByPointId)
-  {
+
+  if (type==allStatusesByPointIdFromTlg) {
     TQuery Qry(&OraSession);
     Qry.Clear();
-    Qry.SQLText = GetSQL(type);
+    Qry.SQLText =
+        "SELECT crs_pax_tkn.ticket_no, crs_pax_tkn.coupon_no, \n"
+        "       tlg_trips.airp_dep, crs_pnr.airp_arv, \n"
+        "       tlg_binding.point_id_spp AS point_id \n"
+        "FROM crs_pax_tkn, crs_pax, crs_pnr, tlg_trips, tlg_binding \n"
+        "WHERE crs_pax_tkn.pax_id=crs_pax.pax_id AND \n"
+        "      crs_pax.pnr_id=crs_pnr.pnr_id AND \n"
+        "      crs_pnr.point_id=tlg_binding.point_id_tlg AND \n"
+        "      crs_pnr.point_id=tlg_trips.point_id AND \n"
+        "      tlg_binding.point_id_spp=:point_id AND \n"
+        "      crs_pnr.system='CRS' AND \n"
+        "      crs_pax.pr_del=0 AND \n"
+        "      crs_pax_tkn.rem_code='TKNE'\n";
     Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.Execute();
     for(;!Qry.Eof;Qry.Next())
     {
       TETickItem item;
-      item.fromDB(TETickItem::ChangeOfStatus, Qry);
+      item.clear();
+
+      item.et.fromDB(Qry);
+      item.point_id=Qry.FieldIsNULL("point_id")?ASTRA::NoExists:
+                                           Qry.FieldAsInteger("point_id");
+      item.airp_dep=Qry.FieldAsString("airp_dep");
+      item.airp_arv=Qry.FieldAsString("airp_arv");
+
+      TETickItem eticket;
+      eticket.fromDB(item.et.no, item.et.coupon, TETickItem::ChangeOfStatus, false /*lock*/);
+      if (not eticket.empty() && eticket.et.status == CouponStatus(CouponStatus::Unavailable)) {
+        item.et.status = eticket.et.status;
+        item.change_status_error=eticket.change_status_error;
+      }
       list.insert(item);
     };
-  };
+  }
+
+  if (type==allNotCheckedStatusesByPointId) {
+    const std::list<TETickItem> items = TETickItem::fromDB(point_id, false /*lock*/);
+    for (const TETickItem& item: items) {
+      if (item.empty() ||
+          item.et.status==CouponStatus::Unavailable ||
+          existsPaxWithEt(item.et.no, item.et.coupon)) {
+        continue;
+      }
+      list.insert(item);
+    }
+  }
 }
 
 void GetByTickNoFromTlg(int point_id, const std::string& tick_no, std::set<TETCtxtItem> &items)
@@ -406,129 +456,279 @@ void TlgETDisplay(int point_id_spp)
     TlgETDisplay(Qry.FieldAsInteger("point_id_tlg"), ids, false);
 }
 
+static bool deleteDisplayTlg(const TETickItem& item)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": ticket_no=" << item.et.no
+                   << ", coupon_no=" << item.et.coupon;
+  auto cur = make_db_curs(
+        "DELETE FROM eticks_display_tlgs "
+        "WHERE ticket_no=:ticket_no "
+        "AND coupon_no=:coupon_no",
+        PgOra::getRWSession("ETICKS_DISPLAY_TLGS"));
+  cur.stb()
+      .bind(":ticket_no", item.et.no)
+      .bind(":coupon_no", item.et.coupon)
+      .exec();
+
+  LogTrace(TRACE5) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+static bool insertDisplayTlg(const TETickItem& item)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": ticket_no=" << item.et.no
+                   << ", coupon_no=" << item.et.coupon;
+
+  const std::string sql =
+      "INSERT INTO eticks_display_tlgs( "
+      "ticket_no, coupon_no, page_no, tlg_text, tlg_type, last_display "
+      ") VALUES( "
+      ":ticket_no, :coupon_no, :page_no, :tlg_text, :tlg_type, :last_display "
+      ")";
+  QParams QryParams;
+  QryParams << QParam("ticket_no", otString, item.et.no)
+            << (item.et.coupon!=ASTRA::NoExists?QParam("coupon_no", otInteger, item.et.coupon):
+                                                QParam("coupon_no", otInteger, FNull))
+            << QParam("page_no", otInteger)
+            << QParam("tlg_text", otString)
+            << (item.ediPnr?QParam("tlg_type", otInteger, (int)item.ediPnr.get().ediType()):
+                            QParam("tlg_type", otInteger, FNull))
+            << QParam("last_display", otDate, NowUTC());
+  DB::TCachedQuery Qry(PgOra::getRWSession("ETICKS_DISPLAY_TLGS"), sql, QryParams);
+  longToDB(Qry.get(), "tlg_text", item.ediPnr->ediTextWithCharset("IATA"), false, 1000);
+
+  LogTrace(TRACE5) << __func__
+                   << ": rowcount=" << Qry.get().RowsProcessed();
+  return Qry.get().RowsProcessed() > 0;
+}
+
+void TETickItem::saveDisplayTlg() const
+{
+  if (ediPnr)
+  {
+    deleteDisplayTlg(*this);
+    insertDisplayTlg(*this);
+  }
+}
+
+static void bindDisplayItem(DbCpp::CursCtl& cur,
+                            const TETickItem& item)
+{
+  short notNull = 0;
+  short null = -1;
+  cur.stb()
+      .bind(":ticket_no", item.et.no)
+      .bind(":coupon_no", item.et.coupon)
+      .bind(":issue_date", DateTimeToBoost(item.issue_date))
+      .bind(":surname", item.surname)
+      .bind(":name", item.name)
+      .bind(":fare_basis", item.fare_basis)
+      .bind(":bag_norm",
+            item.bagNorm ? item.bagNorm.get().getQuantity() : 0,
+            item.bagNorm ? &notNull : &null)
+      .bind(":bag_norm_unit",
+            item.bagNorm ? TBagUnit(item.bagNorm.get().getUnit()).get_db_form() : "",
+            item.bagNorm ? &notNull : &null)
+      .bind(":fare_class", item.fare_class)
+      .bind(":last_display", DateTimeToBoost(NowUTC()));
+}
+
+static bool updateDisplay(const TETickItem& item)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": ticket_no=" << item.et.no
+                   << ", coupon_no=" << item.et.coupon;
+  auto cur = make_db_curs(
+        "UPDATE eticks_display "
+        "SET issue_date=:issue_date, "
+        "    surname=:surname, "
+        "    name=:name, "
+        "    fare_basis=:fare_basis, "
+        "    bag_norm=:bag_norm, "
+        "    bag_norm_unit=:bag_norm_unit, "
+        "    fare_class=:fare_class, "
+        "    last_display=:last_display "
+        "WHERE ticket_no=:ticket_no "
+        "AND coupon_no=:coupon_no ",
+        PgOra::getRWSession("ETICKS_DISPLAY"));
+  bindDisplayItem(cur, item);
+  cur.exec();
+
+  LogTrace(TRACE5) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+static bool insertDisplay(const TETickItem& item)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": ticket_no=" << item.et.no
+                   << ", coupon_no=" << item.et.coupon;
+  auto cur = make_db_curs(
+        "INSERT INTO eticks_display("
+        "ticket_no, coupon_no, issue_date, surname, name, fare_basis, bag_norm, "
+        "bag_norm_unit, fare_class, orig_fare_class, last_display) "
+        "VALUES("
+        ":ticket_no, :coupon_no, :issue_date, :surname, :name, :fare_basis, :bag_norm, "
+        ":bag_norm_unit, :fare_class, :fare_class, :last_display)",
+        PgOra::getRWSession("ETICKS_DISPLAY"));
+  bindDisplayItem(cur, item);
+  cur.exec();
+
+  LogTrace(TRACE5) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+void TETickItem::saveDisplay() const
+{
+  const bool updated = updateDisplay(*this);
+  if (not updated) {
+    const bool inserted = insertDisplay(*this);
+    if (inserted) {
+      saveDisplayTlg();
+      syncOriginalSubclass(this->et);
+    }
+  }
+}
+
+static void bindEticketsItem(DbCpp::CursCtl& cur,
+                             const TETickItem& item)
+{
+  short notNull = 0;
+  short null = -1;
+  cur.stb()
+      .bind(":point_id", item.point_id)
+      .bind(":airp_dep", item.airp_dep)
+      .bind(":airp_arv", item.airp_arv)
+      .bind(":coupon_status",
+            item.et.status!=CouponStatus::Unavailable ? item.et.status->dispCode()
+                                                      : "",
+            item.et.status!=CouponStatus::Unavailable ? &notNull : &null)
+      .bind(":error", item.change_status_error.substr(0,100))
+      .bind(":ticket_no", item.et.no)
+      .bind(":coupon_no", item.et.coupon);
+}
+
+static bool updateEtickets(const TETickItem& item)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": ticket_no=" << item.et.no
+                   << ", coupon_no=" << item.et.coupon;
+  auto cur = make_db_curs(
+        "UPDATE etickets "
+        "SET point_id=:point_id, "
+        "    airp_dep=:airp_dep, "
+        "    airp_arv=:airp_arv, "
+        "    coupon_status=:coupon_status, "
+        "    error=:error "
+        "WHERE ticket_no=:ticket_no "
+        "AND coupon_no=:coupon_no ",
+        PgOra::getRWSession("ETICKETS"));
+  bindEticketsItem(cur, item);
+  cur.exec();
+
+  LogTrace(TRACE5) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+static bool updateEticketsError(const TETickItem& item)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": ticket_no=" << item.et.no
+                   << ", coupon_no=" << item.et.coupon;
+  auto cur = make_db_curs(
+        "UPDATE etickets "
+        "SET error=:error "
+        "WHERE ticket_no=:ticket_no "
+        "AND coupon_no=:coupon_no ",
+        PgOra::getRWSession("ETICKETS"));
+  cur.stb()
+      .bind(":error", item.change_status_error.substr(0,100))
+      .bind(":ticket_no", item.et.no)
+      .bind(":coupon_no", item.et.coupon);
+  cur.exec();
+
+  LogTrace(TRACE5) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+static bool insertEtickets(const TETickItem& item)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": ticket_no=" << item.et.no
+                   << ", coupon_no=" << item.et.coupon;
+  auto cur = make_db_curs(
+        "INSERT INTO etickets( "
+        "point_id, airp_dep, airp_arv, coupon_status, error, ticket_no, coupon_no) "
+        "VALUES( "
+        ":point_id, :airp_dep, :airp_arv, :coupon_status, :error, :ticket_no, :coupon_no) ",
+        PgOra::getRWSession("ETICKETS"));
+  bindEticketsItem(cur, item);
+  cur.exec();
+
+  LogTrace(TRACE5) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+bool deleteEtickets(int point_id)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": point_id=" << point_id;
+  auto cur = make_db_curs(
+        "DELETE FROM etickets "
+        "WHERE point_id=:point_id ",
+        PgOra::getRWSession("ETICKETS"));
+  cur.stb()
+      .bind(":point_id", point_id)
+      .exec();
+
+  LogTrace(TRACE5) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+void TETickItem::saveChangeOfStatus() const
+{
+  LogTrace(TRACE5) << __func__
+                   << ": ticket_no=" << et.no
+                   << ", coupon_no=" << et.coupon;
+  bool updated = false;
+  if (not change_status_error.empty()) {
+    updated = updateEticketsError(*this);
+  } else {
+    updated = updateEtickets(*this);
+  }
+  if (not updated) {
+    insertEtickets(*this);
+  }
+}
+
 const TETickItem& TETickItem::toDB(const TEdiAction ediAction) const
 {
   if (et.empty())
     throw EXCEPTIONS::Exception("TETickItem::toDB: empty eticket");
 
-  QParams QryParams;
-  QryParams << QParam("ticket_no", otString, et.no)
-            << (et.coupon!=ASTRA::NoExists?QParam("coupon_no", otInteger, et.coupon):
-                                           QParam("coupon_no", otInteger, FNull));
-
   switch(ediAction)
   {
     case DisplayTlg:
-      QryParams << QParam("page_no", otInteger)
-                << QParam("tlg_text", otString)
-                << (ediPnr?QParam("tlg_type", otInteger, (int)ediPnr.get().ediType()):
-                           QParam("tlg_type", otInteger, FNull))
-                << QParam("last_display", otDate, NowUTC());
+      saveDisplayTlg();
       break;
     case Display:
-      QryParams << (issue_date!=ASTRA::NoExists?QParam("issue_date", otDate, issue_date):
-                                                QParam("issue_date", otDate, FNull))
-                << QParam("surname", otString, surname)
-                << QParam("name", otString, name)
-                << QParam("fare_basis", otString, fare_basis)
-                << (bagNorm?QParam("bag_norm", otInteger, bagNorm.get().getQuantity()):
-                            QParam("bag_norm", otInteger, FNull))
-                << (bagNorm?QParam("bag_norm_unit", otString, TBagUnit(bagNorm.get().getUnit()).get_db_form()):
-                            QParam("bag_norm_unit", otString, FNull))
-                << QParam("fare_class", otString, fare_class)
-                << QParam("last_display", otDate, NowUTC())
-                << QParam("inserted", otInteger, FNull);
+      saveDisplay();
       break;
     case ChangeOfStatus:
-      QryParams << (point_id!=ASTRA::NoExists?QParam("point_id", otInteger, point_id):
-                                              QParam("point_id", otInteger, FNull))
-                << QParam("airp_dep", otString, airp_dep)
-                << QParam("airp_arv", otString, airp_arv)
-                << (et.status!=CouponStatus::Unavailable?QParam("coupon_status", otString, et.status->dispCode()):
-                                                         QParam("coupon_status", otString, FNull))
-                << QParam("error", otString, change_status_error.substr(0,100));
+      saveChangeOfStatus();
       break;
   };
-
-  switch(ediAction)
-  {
-    case DisplayTlg:
-      if (ediPnr)
-      {
-        TCachedQuery DelQry("DELETE FROM eticks_display_tlgs "
-                            "WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no",
-                            QParams() << QParam("ticket_no", otString, et.no)
-                                      << (et.coupon!=ASTRA::NoExists?QParam("coupon_no", otInteger, et.coupon):
-                                                                     QParam("coupon_no", otInteger, FNull)));
-        DelQry.get().Execute();
-
-        const char* sql=
-            "INSERT INTO eticks_display_tlgs(ticket_no, coupon_no, page_no, tlg_text, tlg_type, last_display) "
-            "VALUES(:ticket_no, :coupon_no, :page_no, :tlg_text, :tlg_type, :last_display)";
-
-        TCachedQuery Qry(sql, QryParams);
-
-        longToDB(Qry.get(), "tlg_text", ediPnr->ediTextWithCharset("IATA"), false, 1000);
-      }
-      break;
-
-    case Display:
-      {
-        const char* sql=
-            "BEGIN "
-            "  :inserted:=0; "
-            "  UPDATE eticks_display "
-            "  SET issue_date=:issue_date, surname=:surname, name=:name, "
-            "      fare_basis=:fare_basis, bag_norm=:bag_norm, bag_norm_unit=:bag_norm_unit, "
-            "      fare_class=:fare_class, last_display=:last_display "
-            "  WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no; "
-            "  IF SQL%NOTFOUND THEN "
-            "    INSERT INTO eticks_display(ticket_no, coupon_no, issue_date, surname, name, "
-            "      fare_basis, bag_norm, bag_norm_unit, fare_class, orig_fare_class, last_display) "
-            "    VALUES(:ticket_no, :coupon_no, :issue_date, :surname, :name, "
-            "      :fare_basis, :bag_norm, :bag_norm_unit, :fare_class, :fare_class, :last_display); "
-            "    :inserted:=1; "
-            "  END IF; "
-            "END;";
-
-        TCachedQuery Qry(sql, QryParams);
-        Qry.get().Execute();
-        bool inserted=Qry.get().GetVariableAsInteger("inserted")!=0;
-        if (inserted)
-        {
-          toDB(DisplayTlg);
-          syncOriginalSubclass(this->et);
-        }
-      }
-      break;
-
-    case ChangeOfStatus:
-      {
-        const char* sql=
-            "BEGIN "
-            "  IF :error IS NULL THEN "
-            "    UPDATE etickets "
-            "    SET point_id=:point_id, airp_dep=:airp_dep, airp_arv=:airp_arv, "
-            "        coupon_status=:coupon_status, error=:error "
-            "    WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no; "
-            "  ELSE "
-            "    UPDATE etickets "
-            "    SET error=:error "
-            "    WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no; "
-            "  END IF; "
-            "  IF SQL%NOTFOUND THEN "
-            "    INSERT INTO etickets(ticket_no, coupon_no, point_id, airp_dep, airp_arv, coupon_status, error) "
-            "    VALUES(:ticket_no, :coupon_no, :point_id, :airp_dep, :airp_arv, :coupon_status, :error); "
-            "  END IF; "
-            "END;";
-        TCachedQuery Qry(sql, QryParams);
-        Qry.get().Execute();
-      }
-      break;
-  };
-
   return *this;
-};
+}
 
 TETCoupon& TETCoupon::fromDB(TQuery &Qry)
 {
@@ -550,56 +750,304 @@ TETCtxtItem& TETCtxtItem::fromDB(TQuery &Qry, bool from_crs)
   return *this;
 }
 
-TETickItem& TETickItem::fromDB(const TEdiAction ediAction,
-                               TQuery &Qry)
+TETickItem& TETickItem::loadDisplayTlg(const std::string& _et_no,
+                                       int _et_coupon,
+                                       bool lock)
 {
-  if (ediAction!=DisplayTlg) clear();
+  LogTrace(TRACE5) << __func__
+                   << ": ticket_no=" << _et_no
+                   << ", coupon_no=" << _et_coupon;
+  int page_no = 0;
+  Dates::DateTime_t last_display;
+  std::string tlg_text;
+  int tlg_type = 0;
+  auto cur = make_db_curs(
+        "SELECT coupon_no, last_display, page_no, ticket_no, tlg_text, tlg_type "
+        "FROM eticks_display_tlgs "
+        "WHERE ticket_no=:ticket_no "
+        "AND coupon_no=:coupon_no "
+        "ORDER BY page_no "
+        + std::string(lock ? " FOR UPDATE" : ""),
+        lock ? PgOra::getRWSession("ETICKS_DISPLAY_TLGS")
+             : PgOra::getROSession("ETICKS_DISPLAY_TLGS"));
+  cur.stb()
+      .def(et.coupon)
+      .def(last_display)
+      .def(page_no)
+      .def(et.no)
+      .def(tlg_text)
+      .def(tlg_type)
+      .bind(":ticket_no", _et_no)
+      .bind(":coupon_no", _et_coupon)
+      .exec();
 
-  et.fromDB(Qry);
-
-  switch(ediAction)
-  {
-    case DisplayTlg:
-      {
-        string text=ediPnr?ediPnr.get().ediText():"";
-        ediPnr=Ticketing::EdiPnr(text + Qry.FieldAsString("tlg_text"),
-                                 static_cast<edifact::EdiMessageType>(Qry.FieldAsInteger("tlg_type")));
-      }
-      break;
-
-    case Display:
-      {
-        issue_date=Qry.FieldIsNULL("issue_date")?ASTRA::NoExists:
-                                                 Qry.FieldAsDateTime("issue_date");
-        surname=Qry.FieldAsString("surname");
-        name=Qry.FieldAsString("name");
-        fare_basis=Qry.FieldAsString("fare_basis");
-        fare_class=Qry.FieldAsString("fare_class");
-        if (!Qry.FieldIsNULL("bag_norm"))
-        {
-          bagNorm=boost::in_place(Qry.FieldAsInteger("bag_norm"),
-                                  string(Qry.FieldAsString("bag_norm_unit")));
-        }
-      }
-      break;
-
-    case ChangeOfStatus:
-      {
-        point_id=Qry.FieldIsNULL("point_id")?ASTRA::NoExists:
-                                             Qry.FieldAsInteger("point_id");
-        airp_dep=Qry.FieldAsString("airp_dep");
-        airp_arv=Qry.FieldAsString("airp_arv");
-        et.status=Qry.FieldIsNULL("coupon_status")?CouponStatus(CouponStatus::Unavailable):
-                                                   CouponStatus(CouponStatus::fromDispCode(Qry.FieldAsString("coupon_status")));
-        change_status_error=Qry.FieldAsString("error");
-      }
-      break;
+  while (!cur.fen()) {
+    string text=ediPnr?ediPnr.get().ediText():"";
+    ediPnr=Ticketing::EdiPnr(text + tlg_text,
+                             static_cast<edifact::EdiMessageType>(tlg_type));
   }
 
   return *this;
 }
 
-TETickItem& TETickItem::fromDB(const string &_et_no,
+class DisplaySqlHelper
+{
+public:
+  explicit DisplaySqlHelper(const char* n, const char* f, int l, const std::string& sql,
+                            DbCpp::Session& session)
+      : cur(session, n, f, l, sql.c_str())
+  {}
+  static std::string fields();
+  DbCpp::CursCtl& def();
+  DbCpp::CursCtl& cursor() { return cur; }
+  void fill(TETickItem& item);
+
+private:
+  DbCpp::CursCtl cur;
+  int coupon_no = ASTRA::NoExists;
+  std::string ticket_no;
+  int bag_norm = ASTRA::NoExists;
+  std::string bag_norm_unit;
+  Dates::DateTime_t issue_date;
+  Dates::DateTime_t last_display;
+  std::string orig_fare_class;
+  std::string name;
+  std::string surname;
+  std::string fare_basis;
+  std::string fare_class;
+};
+
+std::string DisplaySqlHelper::fields()
+{
+  return "bag_norm, bag_norm_unit, coupon_no, fare_basis, fare_class, "
+         "issue_date, last_display, name, orig_fare_class, surname, ticket_no ";
+}
+
+DbCpp::CursCtl& DisplaySqlHelper::def()
+{
+  cur.stb()
+      .defNull(bag_norm, ASTRA::NoExists)
+      .defNull(bag_norm_unit, "")
+      .def(coupon_no)
+      .def(fare_basis)
+      .defNull(fare_class, "")
+      .def(issue_date)
+      .def(last_display)
+      .defNull(name, "")
+      .defNull(orig_fare_class, "")
+      .def(surname)
+      .def(ticket_no);
+  return cur;
+}
+
+void DisplaySqlHelper::fill(TETickItem& item)
+{
+  if (bag_norm != ASTRA::NoExists) {
+    item.bagNorm=boost::in_place(bag_norm, bag_norm_unit);
+  }
+  item.et.coupon = coupon_no;
+  item.fare_basis = fare_basis;
+  item.fare_class = fare_class;
+  item.issue_date = issue_date.is_special() ? ASTRA::NoExists : BoostToDateTime(issue_date);
+  item.name = name;
+  item.orig_fare_class = orig_fare_class;
+  item.surname = surname;
+  item.et.no = ticket_no;
+}
+
+TETickItem& TETickItem::loadDisplay(const std::string& _et_no,
+                                    int _et_coupon,
+                                    bool lock)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": ticket_no=" << _et_no
+                   << ", coupon_no=" << _et_coupon;
+  clear();
+  auto sqlh = DisplaySqlHelper(STDLOG,
+        "SELECT " + DisplaySqlHelper::fields() +
+        "FROM eticks_display "
+        "WHERE ticket_no=:ticket_no "
+        "AND coupon_no=:coupon_no "
+        + std::string(lock ? " FOR UPDATE" : ""),
+        lock ? PgOra::getRWSession("ETICKS_DISPLAY")
+             : PgOra::getROSession("ETICKS_DISPLAY"));
+
+  sqlh.def()
+      .bind(":ticket_no", _et_no)
+      .bind(":coupon_no", _et_coupon)
+      .EXfet();
+
+  if (sqlh.cursor().err() != DbCpp::ResultCode::NoDataFound) {
+    sqlh.fill(*this);
+  }
+
+  return *this;
+}
+
+std::list<TETickItem> TETickItem::loadDisplay(const std::string& _et_no, bool lock)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": ticket_no=" << _et_no;
+  std::list<TETickItem> result;
+  auto sqlh = DisplaySqlHelper(STDLOG,
+        "SELECT " + DisplaySqlHelper::fields() +
+        "FROM eticks_display "
+        "WHERE ticket_no=:ticket_no "
+        + std::string(lock ? " FOR UPDATE" : ""),
+        lock ? PgOra::getRWSession("ETICKS_DISPLAY")
+             : PgOra::getROSession("ETICKS_DISPLAY"));
+
+  sqlh.def()
+      .bind(":ticket_no", _et_no)
+      .exec();
+
+  while (!sqlh.cursor().fen()) {
+    TETickItem item;
+    sqlh.fill(item);
+    result.push_back(item);
+  }
+  LogTrace(TRACE5) << __func__
+                   << ": count=" << result.size();
+  return result;
+}
+
+class EticketsSqlHelper
+{
+public:
+  explicit EticketsSqlHelper(const char* n, const char* f, int l, const std::string& sql,
+                            DbCpp::Session& session)
+      : cur(session, n, f, l, sql.c_str())
+  {}
+  static std::string fields();
+  DbCpp::CursCtl& def();
+  DbCpp::CursCtl& cursor() { return cur; }
+  void fill(TETickItem& item);
+
+private:
+  DbCpp::CursCtl cur;
+  std::string airp_dep;
+  std::string airp_arv;
+  int coupon_no = ASTRA::NoExists;
+  std::string coupon_status;
+  std::string change_status_error;
+  int point_id = ASTRA::NoExists;
+  std::string ticket_no;
+};
+
+std::string EticketsSqlHelper::fields()
+{
+  return "airp_arv, airp_dep, coupon_no, coupon_status, error, point_id, ticket_no ";
+}
+
+DbCpp::CursCtl& EticketsSqlHelper::def()
+{
+  cur.stb()
+      .def(airp_arv)
+      .def(airp_dep)
+      .def(coupon_no)
+      .defNull(coupon_status, CouponStatus(CouponStatus::Unavailable)->dispCode())
+      .defNull(change_status_error, "")
+      .defNull(point_id, ASTRA::NoExists)
+      .def(ticket_no);
+  return cur;
+}
+
+void EticketsSqlHelper::fill(TETickItem& item)
+{
+  item.airp_arv = airp_arv;
+  item.airp_dep = airp_dep;
+  item.et.coupon = coupon_no;
+  item.et.status = CouponStatus(CouponStatus::fromDispCode(coupon_status));
+  item.change_status_error = change_status_error;
+  item.point_id = point_id;
+  item.et.no = ticket_no;
+}
+
+TETickItem& TETickItem::loadChangeOfStatus(const std::string& _et_no,
+                                           int _et_coupon,
+                                           bool lock)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": ticket_no=" << _et_no
+                   << ", coupon_no=" << _et_coupon;
+  clear();
+  auto sqlh = EticketsSqlHelper(STDLOG,
+        "SELECT "+ EticketsSqlHelper::fields() +
+        "FROM etickets "
+        "WHERE ticket_no=:ticket_no "
+        "AND coupon_no=:coupon_no "
+        + std::string(lock ? " FOR UPDATE" : ""),
+        lock ? PgOra::getRWSession("ETICKETS")
+             : PgOra::getROSession("ETICKETS"));
+  sqlh.def()
+      .bind(":ticket_no", _et_no)
+      .bind(":coupon_no", _et_coupon)
+      .EXfet();
+
+  if (sqlh.cursor().err() != DbCpp::ResultCode::NoDataFound) {
+    sqlh.fill(*this);
+  }
+
+  LogTrace(TRACE5) << __func__
+                   << ": found="
+                   << (sqlh.cursor().err() != DbCpp::ResultCode::NoDataFound);
+  return *this;
+}
+
+std::list<TETickItem> TETickItem::loadChangeOfStatus(int _point_id, bool lock)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": point_id=" << _point_id;
+  std::list<TETickItem> result;
+  auto sqlh = EticketsSqlHelper(STDLOG,
+        "SELECT "+ EticketsSqlHelper::fields() +
+        "FROM etickets "
+        "WHERE point_id=:point_id "
+        + std::string(lock ? " FOR UPDATE" : ""),
+        lock ? PgOra::getRWSession("ETICKETS")
+             : PgOra::getROSession("ETICKETS"));
+  sqlh.def()
+      .bind(":point_id", _point_id)
+      .exec();
+
+  while (!sqlh.cursor().fen()) {
+    TETickItem item;
+    sqlh.fill(item);
+    result.push_back(item);
+  }
+  LogTrace(TRACE5) << __func__
+                   << ": count=" << result.size();
+  return result;
+}
+
+std::list<TETickItem> TETickItem::loadChangeOfStatus(const std::string& _et_no, bool lock)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": ticket_no=" << _et_no;
+  std::list<TETickItem> result;
+  auto sqlh = EticketsSqlHelper(STDLOG,
+        "SELECT " + EticketsSqlHelper::fields() +
+        "FROM etickets "
+        "WHERE ticket_no=:ticket_no "
+        + std::string(lock ? " FOR UPDATE" : ""),
+        lock ? PgOra::getRWSession("ETICKETS")
+             : PgOra::getROSession("ETICKETS"));
+
+  sqlh.def()
+      .bind(":ticket_no", _et_no)
+      .exec();
+
+  while (!sqlh.cursor().fen()) {
+    TETickItem item;
+    sqlh.fill(item);
+    result.push_back(item);
+  }
+  LogTrace(TRACE5) << __func__
+                   << ": count=" << result.size();
+  return result;
+}
+
+TETickItem& TETickItem::fromDB(const std::string &_et_no,
                                const int _et_coupon,
                                const TEdiAction ediAction,
                                const bool lock)
@@ -609,55 +1057,43 @@ TETickItem& TETickItem::fromDB(const string &_et_no,
   if (_et_no.empty() || _et_coupon==ASTRA::NoExists)
     throw EXCEPTIONS::Exception("TETickItem::fromDB: empty eticket");
 
-  QParams QryParams;
-  QryParams << QParam("ticket_no", otString, _et_no);
-  QryParams << QParam("coupon_no", otInteger, _et_coupon);
-
-  string sql;
-  if (ediAction==DisplayTlg) sql="SELECT * FROM eticks_display_tlgs WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no ORDER BY page_no";
-  if (ediAction==Display) sql="SELECT * FROM eticks_display WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no";
-  if (ediAction==ChangeOfStatus) sql="SELECT * FROM etickets WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no";
-
-  TCachedQuery Qry(sql+(lock?" FOR UPDATE":""), QryParams);
-
-  Qry.get().Execute();
-  if (ediAction==DisplayTlg)
+  switch(ediAction)
   {
-    for(;!Qry.get().Eof; Qry.get().Next())
-      fromDB(ediAction, Qry.get());
-  }
-  else
-  {
-    if (!Qry.get().Eof)
-      fromDB(ediAction, Qry.get());
+    case DisplayTlg:
+      return loadDisplayTlg(_et_no, _et_coupon, lock);
+    case Display:
+      return loadDisplay(_et_no, _et_coupon, lock);
+    case ChangeOfStatus:
+      return loadChangeOfStatus(_et_no, _et_coupon, lock);
   }
 
   return *this;
 }
 
-void TETickItem::fromDB(const std::string &_et_no,
-                        const TEdiAction ediAction,
-                        std::list<TETickItem> &eticks)
+std::list<TETickItem> TETickItem::fromDB(int _point_id, const bool lock)
 {
-  eticks.clear();
+  if (_point_id==ASTRA::NoExists)
+    throw EXCEPTIONS::Exception("TETickItem::fromDB: invalid point_id");
 
+  return loadChangeOfStatus(_point_id, lock);
+}
+
+list<TETickItem> TETickItem::fromDB(const std::string &_et_no,
+                                    const TEdiAction ediAction)
+{
   if (_et_no.empty())
     throw EXCEPTIONS::Exception("TETickItem::fromDB: empty eticket");
 
-  QParams QryParams;
-  QryParams << QParam("ticket_no", otString, _et_no);
-
-  string sql;
-  if (ediAction==DisplayTlg)
-    throw EXCEPTIONS::Exception("TETickItem::fromDB: DisplayTlg not supported");;
-  if (ediAction==Display) sql="SELECT * FROM eticks_display WHERE ticket_no=:ticket_no";
-  if (ediAction==ChangeOfStatus) sql="SELECT * FROM etickets WHERE ticket_no=:ticket_no";
-
-  TCachedQuery Qry(sql, QryParams);
-
-  Qry.get().Execute();
-  for(;!Qry.get().Eof; Qry.get().Next())
-    eticks.push_back(TETickItem().fromDB(ediAction, Qry.get()));
+  switch(ediAction)
+  {
+    case DisplayTlg:
+      throw EXCEPTIONS::Exception("TETickItem::fromDB: DisplayTlg not supported");
+    case Display:
+      return loadDisplay(_et_no, false /*lock*/);
+    case ChangeOfStatus:
+      return loadChangeOfStatus(_et_no, false /*lock*/);
+  }
+  throw EXCEPTIONS::Exception("TETickItem::fromDB: Invalid ediAction");;
 }
 
 static boost::optional<Itin> getCouponItin(const Ticketing::TicketNum_t& ticknum,
@@ -820,70 +1256,167 @@ Ticketing::Ticket TETickItem::makeTicket(const AstraEdifact::TFltParams& fltPara
   return Ticket(et.no, lcpn);
 }
 
+struct PaxData4Sync
+{
+  int view_order;
+  std::string etick_subclass;
+  std::string etick_class;
+  int class_priority;
+  std::string ticket_no;
+  int coupon_no;
+
+  static std::vector<PaxData4Sync> load(int pax_id);
+};
+
+std::vector<PaxData4Sync> PaxData4Sync::load(int pax_id)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": pax_id=" << pax_id;
+  std::vector<PaxData4Sync> result;
+  PaxData4Sync item;
+  auto cur = make_db_curs(
+        "SELECT 1 AS view_order, "
+        "       crs_rbd.fare_class AS etick_subclass, "
+        "       classes.code AS etick_class, "
+        "       classes.priority AS class_priority,"
+        "       crs_pax_tkn.ticket_no AS ticket_no, "
+        "       crs_pax_tkn.coupon_no AS coupon_no "
+        "FROM crs_pax, crs_pax_tkn, crs_pnr, pnr_market_flt, crs_rbd, subcls, classes "
+        "WHERE crs_pax_tkn.pax_id=crs_pax.pax_id AND "
+        "      crs_pax_tkn.rem_code='TKNE' AND "
+        "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
+        "      crs_pnr.system='CRS' AND "
+        "      crs_pnr.pnr_id=pnr_market_flt.pnr_id(+) AND "
+        "      pnr_market_flt.pnr_id IS NULL AND "
+        "      crs_rbd.point_id=crs_pnr.point_id AND "
+        "      crs_rbd.sender=crs_pnr.sender AND "
+        "      crs_rbd.system=crs_pnr.system AND "
+        "      subcls.code=crs_rbd.compartment AND "
+        "      classes.code=subcls.class AND "
+        "      crs_pax.pax_id=:pax_id "
+        "UNION ALL "
+        "SELECT 2 AS view_order, "
+        "       subcls.code AS etick_subclass, "
+        "       classes.code AS etick_class, "
+        "       classes.priority AS class_priority, "
+        "       crs_pax_tkn.ticket_no AS ticket_no, "
+        "       crs_pax_tkn.coupon_no AS coupon_no "
+        "FROM crs_pax, crs_pax_tkn, crs_pnr, pnr_market_flt, subcls, classes "
+        "WHERE crs_pax_tkn.pax_id=crs_pax.pax_id AND "
+        "      crs_pax_tkn.rem_code='TKNE' AND "
+        "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
+        "      crs_pnr.system='CRS' AND "
+        "      crs_pnr.pnr_id=pnr_market_flt.pnr_id(+) AND "
+        "      pnr_market_flt.pnr_id IS NULL AND "
+        "      classes.code=subcls.class AND "
+        "      crs_pax.pax_id=:pax_id "
+        "ORDER BY view_order, class_priority, etick_subclass ",
+        *get_main_ora_sess(STDLOG));
+  cur.stb()
+      .def(item.view_order)
+      .def(item.etick_subclass)
+      .def(item.etick_class)
+      .def(item.class_priority)
+      .def(item.ticket_no)
+      .def(item.coupon_no)
+      .bind(":pax_id", pax_id)
+      .exec();
+
+  while (!cur.fen()) {
+    result.push_back(item);
+  }
+
+  LogTrace(TRACE5) << __func__
+                   << ": result=" << result.size();
+  return result;
+}
+
+static bool updateCrsPaxSubclass(int pax_id,
+                                 const std::string& etick_subclass,
+                                 const std::string& etick_class)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": pax_id=" << pax_id;
+  auto cur = make_db_curs(
+        "UPDATE crs_pax "
+        "SET etick_subclass=:etick_subclass, "
+        "    etick_class=:etick_class "
+        "WHERE pax_id=:pax_id "
+        "AND (etick_subclass<>:etick_subclass "
+        "     OR etick_subclass IS NULL AND :etick_subclass IS NOT NULL "
+        "     OR etick_subclass IS NOT NULL AND :etick_subclass IS NULL "
+        "     OR etick_class<>:etick_class "
+        "     OR etick_class IS NULL AND :etick_class IS NOT NULL "
+        "     OR etick_class IS NOT NULL AND :etick_class IS NULL) ",
+
+
+        PgOra::getRWSession("CRS_PAX"));
+  cur.stb()
+      .bind(":etick_subclass", etick_subclass)
+      .bind(":etick_class", etick_class)
+      .bind(":pax_id", pax_id);
+  cur.exec();
+
+  LogTrace(TRACE5) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+namespace {
+
+typedef std::pair<std::string,int> TicketCoupon;
+
+std::set<TicketCoupon> getTickets(const std::vector<PaxData4Sync>& paxItems)
+{
+  std::set<TicketCoupon> result;
+  for (const PaxData4Sync& paxData: paxItems) {
+    result.insert(std::make_pair(paxData.ticket_no, paxData.coupon_no));
+  }
+  return result;
+}
+
+std::map<TicketCoupon, TETickItem> loadDisplayMap(const std::set<TicketCoupon>& ticketCoupons)
+{
+  std::map<TicketCoupon, TETickItem> result;
+  for (const TicketCoupon& tktcpn: ticketCoupons) {
+    TETickItem etick;
+    etick.fromDB(tktcpn.first, tktcpn.second, TETickItem::Display, false /*lock*/);
+    if (etick.empty()) {
+      continue;
+    }
+    result[tktcpn] = etick;
+  }
+  return result;
+}
+
+} // namespace
+
 bool TETickItem::syncOriginalSubclass(int pax_id)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText =
-    "DECLARE "
-    "  CURSOR cur IS "
-    "    SELECT 1 AS view_order, "
-    "           eticks_display.orig_fare_class AS etick_subclass, "
-    "           classes.code AS etick_class, "
-    "           classes.priority AS class_priority "
-    "    FROM crs_pax, crs_pax_tkn, eticks_display, crs_pnr, pnr_market_flt, crs_rbd, subcls, classes "
-    "    WHERE crs_pax_tkn.pax_id=crs_pax.pax_id AND "
-    "          crs_pax_tkn.rem_code='TKNE' AND "
-    "          eticks_display.ticket_no=crs_pax_tkn.ticket_no AND "
-    "          eticks_display.coupon_no=crs_pax_tkn.coupon_no AND "
-    "          crs_pnr.pnr_id=crs_pax.pnr_id AND "
-    "          crs_pnr.system='CRS' AND "
-    "          crs_pnr.pnr_id=pnr_market_flt.pnr_id(+) AND "
-    "          pnr_market_flt.pnr_id IS NULL AND "
-    "          crs_rbd.point_id=crs_pnr.point_id AND "
-    "          crs_rbd.sender=crs_pnr.sender AND "
-    "          crs_rbd.system=crs_pnr.system AND "
-    "          crs_rbd.fare_class=eticks_display.orig_fare_class AND "
-    "          subcls.code=crs_rbd.compartment AND "
-    "          classes.code=subcls.class AND "
-    "          crs_pax.pax_id=:pax_id "
-    "    UNION ALL "
-    "    SELECT 2 AS view_order, "
-    "           eticks_display.orig_fare_class AS etick_subclass, "
-    "           classes.code AS etick_class, "
-    "           classes.priority AS class_priority "
-    "    FROM crs_pax, crs_pax_tkn, eticks_display, crs_pnr, pnr_market_flt, subcls, classes "
-    "    WHERE crs_pax_tkn.pax_id=crs_pax.pax_id AND "
-    "          crs_pax_tkn.rem_code='TKNE' AND "
-    "          eticks_display.ticket_no=crs_pax_tkn.ticket_no AND "
-    "          eticks_display.coupon_no=crs_pax_tkn.coupon_no AND "
-    "          crs_pnr.pnr_id=crs_pax.pnr_id AND "
-    "          crs_pnr.system='CRS' AND "
-    "          crs_pnr.pnr_id=pnr_market_flt.pnr_id(+) AND "
-    "          pnr_market_flt.pnr_id IS NULL AND "
-    "          subcls.code=eticks_display.orig_fare_class AND "
-    "          classes.code=subcls.class AND "
-    "          crs_pax.pax_id=:pax_id "
-    "    ORDER BY view_order, class_priority, etick_subclass; "
-    "curRow	cur%ROWTYPE; "
-    "BEGIN "
-    "  OPEN cur; "
-    "  FETCH cur INTO curRow; "
-    "  CLOSE cur; "
-    "  UPDATE crs_pax "
-    "  SET etick_subclass=curRow.etick_subclass, etick_class=curRow.etick_class "
-    "  WHERE pax_id=:pax_id AND "
-    "        (DECODE(etick_subclass, curRow.etick_subclass, 0, 1)<>0 OR "
-    "         DECODE(etick_class, curRow.etick_class, 0, 1)<>0); "
-    "  IF SQL%NOTFOUND THEN :updated:=0; ELSE :updated:=1; END IF; "
-    "END; ";
-  Qry.CreateVariable("pax_id", otInteger, pax_id);
-  Qry.CreateVariable("updated", otInteger, FNull);
-  Qry.Execute();
-  bool updated=Qry.GetVariableAsInteger("updated")!=0;
-  if (updated)
-    ProgTrace(TRACE5, "%s: pax_id=%d updated", __FUNCTION__, pax_id);
+  LogTrace(TRACE5) << __func__
+                   << ": pax_id=" << pax_id;
 
+  bool updated = false;
+  const std::vector<PaxData4Sync> paxItems = PaxData4Sync::load(pax_id);
+  const std::map<TicketCoupon, TETickItem> etDisps = loadDisplayMap(getTickets(paxItems));
+  for (const PaxData4Sync& paxData: paxItems) {
+    auto tktcpn = std::make_pair(paxData.ticket_no, paxData.coupon_no);
+    auto search = etDisps.find(tktcpn);
+    if (search == etDisps.end()) {
+      continue;
+    }
+    const TETickItem& etick = search->second;
+    if (etick.et.empty() or paxData.etick_subclass != etick.orig_fare_class) {
+      continue;
+    }
+    updated = updateCrsPaxSubclass(pax_id,
+                                   paxData.etick_subclass,
+                                   paxData.etick_class);
+    if (updated) {
+      ProgTrace(TRACE5, "%s: pax_id=%d updated", __FUNCTION__, pax_id);
+    }
+    break;
+  }
   return updated;
 }
 
@@ -2374,6 +2907,9 @@ void ETStatusInterface::ETCheckStatus(int id,
                                       TETChangeStatusList &mtick,
                                       bool before_checkin)
 {
+  LogTrace(TRACE5) << __func__
+                   << ": id=" << id
+                   << ", area=" << area;
   //mtick.clear(); добавляем уже к заполненному
   if (TReqInfo::Instance()->duplicate) return;
   int point_id=NoExists;
@@ -2411,17 +2947,11 @@ void ETStatusInterface::ETCheckStatus(int id,
         Qry.Clear();
         ostringstream sql;
         sql <<
-          "SELECT pax_grp.airp_dep, pax_grp.airp_arv, pax_grp.class, pax.*, "
-          "       etickets.point_id AS tick_point_id, "
-          "       etickets.airp_dep AS tick_airp_dep, "
-          "       etickets.airp_arv AS tick_airp_arv, "
-          "       etickets.coupon_status AS coupon_status "
-          "FROM pax_grp,pax,etickets "
+          "SELECT pax_grp.airp_dep, pax_grp.airp_arv, pax_grp.class, pax.* "
+          "FROM pax_grp,pax "
           "WHERE pax_grp.grp_id=pax.grp_id AND pax_grp.status<>:transit AND "
           "      pax.ticket_rem='TKNE' AND "
-          "      pax.ticket_no IS NOT NULL AND pax.coupon_no IS NOT NULL AND "
-          "      pax.ticket_no=etickets.ticket_no(+) AND "
-          "      pax.coupon_no=etickets.coupon_no(+) AND ";
+          "      pax.ticket_no IS NOT NULL AND pax.coupon_no IS NOT NULL AND ";
         switch (area)
         {
           case csaFlt:
@@ -2461,16 +2991,19 @@ void ETStatusInterface::ETCheckStatus(int id,
             ticket_no=Qry.FieldAsString("ticket_no");
             coupon_no=Qry.FieldAsInteger("coupon_no");
 
+            TETickItem EticketItem;
+            EticketItem.fromDB(ticket_no, coupon_no, TETickItem::ChangeOfStatus, false /*lock*/);
+
             string airp_dep=Qry.FieldAsString("airp_dep");
             string airp_arv=Qry.FieldAsString("airp_arv");
             string cabin_subclass=Qry.FieldIsNULL("cabin_subclass")?Qry.FieldAsString("subclass"):
                                                                     Qry.FieldAsString("cabin_subclass");
 
             CouponStatus status;
-            if (Qry.FieldIsNULL("coupon_status"))
+            if (EticketItem.empty() || EticketItem.et.status == CouponStatus(CouponStatus::Unavailable)) // IS NULL
               status=CouponStatus(CouponStatus::OriginalIssue);//CouponStatus::Notification ???
             else
-              status=CouponStatus::fromDispCode(Qry.FieldAsString("coupon_status"));
+              status=EticketItem.et.status;
 
             CouponStatus real_status;
             real_status=calcPaxCouponStatus(ETCtxt.pax.refuse,
@@ -2478,10 +3011,11 @@ void ETStatusInterface::ETCheckStatus(int id,
                                             fltParams.in_final_status);
 
             if (!fltParams.equalETStatus(status, real_status) ||
-                (!Qry.FieldIsNULL("tick_point_id") &&
-                 (Qry.FieldAsInteger("tick_point_id")!=point_id ||
-                  Qry.FieldAsString("tick_airp_dep")!=airp_dep ||
-                  Qry.FieldAsString("tick_airp_arv")!=airp_arv)))
+                (!EticketItem.empty() &&
+                 EticketItem.point_id != ASTRA::NoExists &&
+                 (EticketItem.point_id!=point_id ||
+                  EticketItem.airp_dep!=airp_dep ||
+                  EticketItem.airp_arv!=airp_arv)))
             {
               TETickItem ETItem(ticket_no, coupon_no, point_id, airp_dep, airp_arv, real_status);
               if (ETStatusInterface::ChangeStatusLocallyOnly(fltParams, ETItem, ETCtxt)) continue;
@@ -2523,11 +3057,11 @@ void ETStatusInterface::ETCheckStatus(int id,
               NewTextChild(node,"pers_type",Qry.FieldAsString("pers_type"));
 
               NewTextChild(node,"prior_coupon_status",status->dispCode());
-              if (!Qry.FieldIsNULL("tick_point_id"))
+              if (!EticketItem.empty() && EticketItem.point_id != ASTRA::NoExists)
               {
-                NewTextChild(node,"prior_point_id",Qry.FieldAsInteger("tick_point_id"));
-                NewTextChild(node,"prior_airp_dep",Qry.FieldAsString("tick_airp_dep"));
-                NewTextChild(node,"prior_airp_arv",Qry.FieldAsString("tick_airp_arv"));
+                NewTextChild(node,"prior_point_id",EticketItem.point_id);
+                NewTextChild(node,"prior_airp_dep",EticketItem.airp_dep);
+                NewTextChild(node,"prior_airp_arv",EticketItem.airp_arv);
               }
 
               ProgTrace(TRACE5,"ETCheckStatus %s/%d->%s",

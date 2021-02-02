@@ -14,14 +14,17 @@ template <unsigned L> struct OciSelector< const char [L] > {
     static constexpr External::type data_type = External::pod;
     static bool canBind(const char * val) {return (val != NULL);}
     static void* addr(const char (*a)[L]) {return const_cast<char(*)[L]>(a);}
-    static char* to(const void *a, indicator& ind)
+
+    static void to(buf_ptr_t& dst, const void* src, indicator& ind)
     {
-        if(ind != iok)
-            return nullptr;
-        char* memory = new char[L + 1];
-        memcpy(memory, a, L);
-        memory[L] = '\0';
-        return memory;
+        if (ind != iok) {
+            dst.clear();
+            return;
+        }
+        const size_t a_len = strlen(static_cast<const char*>(src));
+        dst.resize(a_len + 1);
+        memcpy(&dst[0], src, a_len);
+        dst[a_len] = '\0';
     }
     static int size(const void* /*addr*/) { return L; }
     static void check(const char (* /*addr*/)[L]){}
@@ -63,7 +66,7 @@ template <> struct OciSelector<char const *> {
     static bool canBind(char const *val) {return (val != NULL);}
     static void* addr( char const * a){return const_cast <char *>(a);};
     static void* addr(char const* const* a) {return const_cast<char*>(*a);}
-    static char* to(const void* a, indicator& ind);
+    static void to(buf_ptr_t& dst, const void* src, indicator& ind);
     static int size(const void* addr);
     static void check(char const * const*){}
 };

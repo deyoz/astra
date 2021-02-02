@@ -306,14 +306,9 @@ void ParsedIface::process()
 
   // Шаг 7.
   // Найдем в описании интерфейса спецсекцию ilinks и прочтем данные оттуда
-  xmlNodePtr linksNode=findNode(iMainNode,"ilinks");
-  if(linksNode)
-    linksNode=linksNode->children;
-  while(linksNode)
-  {
-    ilinks.emplace_back(getStrPropFromXml(linksNode,"name"), (char *)linksNode->name, getStrPropFromXml(linksNode,"lang"));
-    linksNode=linksNode->next;
-  }
+  for_each_node(findNode(iMainNode,"ilinks"), [this](xmlNodePtr const n){
+          ilinks.emplace_back(getStrPropFromXml(n,"name"), reinterpret_cast<char const*>(n->name), getStrPropFromXml(n,"lang"));
+          });
 
   // Шаг 8
   std::sort(ilinks.begin(),ilinks.end(),iLinksCmp);
