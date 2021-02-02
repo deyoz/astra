@@ -81,6 +81,15 @@ std::ostream& operator<<(std::ostream& os, const TTripTaskKey& task)
 void collectStatTask(const TTripTaskKey &task);
 void sendTypeBOnTakeoffTask(const TTripTaskKey &task);
 
+void send_PFS(const TTripTaskKey &task)
+{
+    vector<TypeB::TCreateInfo> createInfo;
+    TypeB::TCreator creator(task.point_id, TypeB::TCreatePoint(task.params));
+    creator << "PFS" << "PFSN";
+    creator.getInfo(createInfo);
+    TelegramInterface::SendTlg(createInfo);
+}
+
 TTripTasks::TTripTasks()
 {
     items.emplace(SYNC_NEW_CHKD, TypeB::SyncNewCHKD);
@@ -88,6 +97,7 @@ TTripTasks::TTripTasks()
     items.emplace(EMD_REFRESH, emd_refresh_task);
     items.emplace(EMD_REFRESH_BY_GRP, emd_refresh_by_grp_task);
     items.emplace(STAT_FV, stat_fv);
+    items.emplace(SEND_PFS, send_PFS);
     items.emplace(EMD_TRY_BIND, emd_try_bind_task);
     items.emplace(EMD_SYS_UPDATE, emd_sys_update);
     items.emplace(SEND_NEW_APPS_INFO, APPS::sendNewInfo);
@@ -421,6 +431,31 @@ struct TCreatePointTripTask:public TTripTask {
               create_point == task.create_point;
         }
 };
+
+class TSendPFSTripTask: public TCreatePointTripTask
+{
+  public:
+    TSendPFSTripTask(int vpoint_id): TCreatePointTripTask(vpoint_id, SEND_PFS) {}
+    TDateTime actual_next_exec(TDateTime curr_next_exec) const;
+    void get_actual_create_points(set<TypeB::TCreatePoint> &cps) const
+    {
+        cps.clear();
+        TTripInfo flt;
+        flt.getByPointId(point_id);
+        if(flt.act_out_exists())
+            cps.insert(TypeB::TCreatePoint(sTakeoff, 0));
+    }
+};
+
+TDateTime TSendPFSTripTask::actual_next_exec(TDateTime curr_next_exec) const
+{
+    TTripStage ts;
+    TTripStages::LoadStage(point_id, (TStage)create_point.stage_id, ts);
+    TDateTime result=ASTRA::NoExists;
+    if (ts.act != ASTRA::NoExists)
+        result = max(max(ts.scd, ts.est), ts.act);
+    return result;
+}
 
 class TStatFVTripTask: public TCreatePointTripTask
 {
@@ -772,6 +807,7 @@ void on_change_trip(const string &descr, int point_id, ChangeTrip::Whence whence
         TSyncTlgOutMng::Instance()->sync_all(point_id);
         sync_trip_tasks<TEmdRefreshTripTask>(point_id);
         sync_trip_tasks<TStatFVTripTask>(point_id);
+        sync_trip_tasks<TSendPFSTripTask>(point_id);
         //        sync_trip_tasks<TAPISTripTask>(point_id);
         //        sync_trip_tasks<TCrewAlarmsTripTask>(point_id);
         try {
