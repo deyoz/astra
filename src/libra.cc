@@ -101,26 +101,27 @@ void LibraInterface::RequestHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     xmlNodePtr reqRootNode = findNodeR(clientXmlDoc.docPtr()->children, "root");
     ASSERT(reqRootNode);
     std::string data;
+    std::string exception_msg;
+    xmlNodePtr node;
     try {
       data = getRequestName(reqRootNode) == "astra_call" ? callAstra(reqRootNode)
                                                          : callLibra(reqRootNode);
     }
     catch(const ServerFramework::Exception &E) {
       LogError(STDLOG) << "LibraInterface::RequestHandler " << E.what();
-      xmlNodePtr node;
-      XMLDoc errDoc( "root", node, "LibraInterface::RequestHandler" );
-      SetProp( node, "result", "err" );
-      SetProp( node, "exception", E.what() );
-      data = errDoc.text();
+      exception_msg = E.what();
     }
     catch(...) {
       LogError(STDLOG) << "LibraInterface::RequestHandler: unknown error";
-      xmlNodePtr node;
+      exception_msg = "unknown error";
+    }  
+    if ( !exception_msg.empty() ) {
       XMLDoc errDoc( "root", node, "LibraInterface::RequestHandler" );
       SetProp( node, "result", "err" );
-      SetProp( node, "exception", "unknown error" );
-      data = errDoc.text();
+      SetProp( node, "exception", exception_msg );
+      if ( getRequestName(reqRootNode) != "astra_call" )
+        SetProp( node, "name", NodeAsString( "@name", reqRootNode, "" ) );
+      data = errDoc.text();    
     }
-
     NewTextChild(resNode, "data", data);
 }
