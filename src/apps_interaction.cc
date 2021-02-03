@@ -336,14 +336,19 @@ struct Doco
     //visa_issue_date int version >= 27
 };
 
+static std::string getDocCountryCode(const std::string& country)
+{
+    std::string country_code = ((const TPaxDocCountriesRow&)base_tables.get("pax_doc_countries").
+                                get_row("code", country)).country;
+    return (country_code.empty() ? "" : BaseTables::Country(country_code)->lcode());
+}
+
 Doco createDoco(const CheckIn::TPaxDocoItem& pax_doco)
 {
     Doco res;
     if (!pax_doco.applic_country.empty())
     {
-        std::string country_code = ((const TPaxDocCountriesRow&)base_tables.get("pax_doc_countries").
-                                    get_row("code", pax_doco.applic_country)).country;
-        res.country = (country_code.empty() ? "" : BaseTables::Country(country_code)->lcode());
+        res.country = getDocCountryCode(pax_doco.applic_country);
     }
 
     res.doco_type = pax_doco.type;
@@ -357,6 +362,7 @@ Doco createDoco(const CheckIn::TPaxDocoItem& pax_doco)
 
 struct Doca
 {
+    std::string country;
     std::string num_street;
     std::string city;
     std::string state;
@@ -366,6 +372,11 @@ struct Doca
 Doca createDoca(const CheckIn::TPaxDocaItem & docaD)
 {
     Doca res;
+    if (!docaD.country.empty())
+    {
+        res.country = getDocCountryCode(docaD.country);
+    }
+
     res.num_street  = docaD.address;
     res.city        = docaD.city;
     res.state       = docaD.region.substr(0, 20);
@@ -389,6 +400,7 @@ public:
             doco_expiry_date = doco->doco_expiry_date;
         }
         if(doca) {
+            country_for_data = doca->country;
             num_street = doca->num_street;
             city = doca->city;
             state = doca->state;
@@ -2017,10 +2029,11 @@ Opt<PaxAddData> createPaxAddData(const PaxId_t& pax_id, PaxOrigin origin)
     if(docaOpt) {
         doca = createDoca(*docaOpt);
     }
-    if(!doca && !doco) {
+    if(doco && doco->country.empty()) doco=std::nullopt;
+    if(doca && doca->country.empty()) doca=std::nullopt;
+    if(!doco && !doca) {
         return std::nullopt;
     }
-
     return PaxAddData{doco, doca};
 }
 
