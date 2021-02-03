@@ -26,7 +26,7 @@ Access-Control-Allow-Origin: *
 Access-Control-Allow-Headers: CLIENT-ID,OPERATION,Authorization
 Cache-Control: no-cache
 ETag: 430245ce720b3fc1dea98dc11f91aea0
-Last-Modified: Wed, 30 Dec 2020 09:12:02 GMT
+Last-Modified: ...
 $()
 <!doctype html>
 <html>
