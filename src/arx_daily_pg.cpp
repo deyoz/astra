@@ -1800,19 +1800,12 @@ void deleteByPointId(const PointId_t& point_id)
                          " DELETE FROM trip_stations WHERE point_id=:point_id;           "
                          " DELETE FROM trip_paid_ckin WHERE point_id=:point_id;          "
                          " DELETE FROM trip_calc_data WHERE point_id=:point_id;          "
-                         " DELETE FROM trip_alarms WHERE point_id=:point_id;             "
                          " DELETE FROM trip_pers_weights WHERE point_id=:point_id;       "
                          " DELETE FROM trip_auto_weighing WHERE point_id=:point_id;               "
-                         " DELETE FROM trip_rpt_person WHERE point_id=:point_id;                  "
                          " UPDATE trfer_trips SET point_id_spp=NULL WHERE point_id_spp=:point_id; "
                          " DELETE FROM pax_seats WHERE point_id=:point_id;         "
-                         " DELETE FROM utg_prl WHERE point_id=:point_id;           "
                          " DELETE FROM trip_tasks WHERE point_id=:point_id;        "
-                         " DELETE FROM trip_apis_params WHERE point_id=:point_id;  "
                          " DELETE FROM counters_by_subcls WHERE point_id=:point_id;"
-                         " DELETE FROM iapi_pax_data WHERE point_id=:point_id;     "
-                         " DELETE FROM wb_msg_text where id in(SELECT id FROM wb_msg WHERE point_id = :point_id);"
-                         " DELETE FROM wb_msg where point_id = :point_id;"
                          " DELETE FROM trip_vouchers WHERE point_id=:point_id;"
                          " DELETE FROM confirm_print_vo_unreg WHERE point_id = :point_id; "
                          " DELETE FROM hotel_acmd_pax WHERE point_id = :point_id; "
@@ -1821,6 +1814,16 @@ void deleteByPointId(const PointId_t& point_id)
                          "END;");
     cur.bind(":point_id", point_id);
     cur.exec();
+
+    make_db_curs("DELETE FROM trip_alarms WHERE point_id=:point_id",     PgOra::getRWSession("TRIP_ALARMS")).bind(":point_id", point_id.get()).exec();
+    make_db_curs("DELETE FROM trip_rpt_person WHERE point_id=:point_id", PgOra::getRWSession("TRIP_RPT_PERSON")).bind(":point_id", point_id.get()).exec();
+    make_db_curs("DELETE FROM trip_apis_params WHERE point_id=:point_id",PgOra::getRWSession("TRIP_APIS_PARAMS")).bind(":point_id", point_id.get()).exec();
+    make_db_curs("DELETE FROM iapi_pax_data WHERE point_id=:point_id",   PgOra::getRWSession("IAPI_PAX_DATA")).bind(":point_id", point_id.get()).exec();
+    make_db_curs("DELETE FROM utg_prl WHERE point_id=:point_id",         PgOra::getRWSession("UTG_PRL")).bind(":point_id", point_id.get()).exec();
+
+    make_db_curs("DELETE FROM wb_msg_text where id in (SELECT id FROM wb_msg WHERE point_id = :point_id)", PgOra::getRWSession("WB_MSG_TEXT")).bind(":point_id", point_id.get()).exec();
+    make_db_curs("DELETE FROM wb_msg where point_id = :point_id",        PgOra::getRWSession("WB_MSG")).bind(":point_id", point_id.get()).exec();
+
     deleteEtickets(point_id.get());
     deleteEmdocs(point_id.get());
 }

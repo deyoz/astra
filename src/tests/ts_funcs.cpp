@@ -1059,8 +1059,9 @@ static std::string formatPaxAlarms(const std::vector<std::string>& alarms)
 static std::vector<string> getTripAlarms(const std::string& table_name, int point_id)
 {
     std::string alarm;
-    auto cur = make_curs(
-               "select ALARM_TYPE from "+table_name+" where POINT_ID=:point_id");
+    auto cur = make_db_curs(
+               "select ALARM_TYPE from "+table_name+" where POINT_ID=:point_id",
+                PgOra::getROSession(table_name));
     cur.def(alarm)
             .bind(":point_id", point_id)
             .exec();

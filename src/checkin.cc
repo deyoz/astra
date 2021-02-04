@@ -1,7 +1,8 @@
 #include "checkin.h"
 #include "exceptions.h"
 #include "astra_locale.h"
-#include "oralib.h"
+#include "db_tquery.h"
+#include "PgOraConfig.h"
 #include "stl_utils.h"
 #include "xml_unit.h"
 #include "astra_consts.h"
@@ -5997,17 +5998,25 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
         if (grp.status!=psCrew)
         {
-          Qry.Clear();
-          Qry.SQLText=
-              "BEGIN "
-              "  UPDATE utg_prl SET last_flt_change_tid=cycle_tid__seq.currval WHERE point_id=:point_id; "
-              "  IF SQL%NOTFOUND THEN "
-              "    INSERT INTO utg_prl(point_id, last_tlg_create_tid, last_flt_change_tid) "
-              "    VALUES (:point_id, NULL, cycle_tid__seq.currval); "
-              "  END IF; "
-              "END;";
-          Qry.CreateVariable("point_id", otInteger, grp.point_dep);
-          Qry.Execute();
+          QParams QryParams;
+          QryParams << QParam("point_id", otInteger, grp.point_dep)
+                    << QParam("last_flt_change_tid", otInteger, PgOra::getSeqCurrVal_int("CYCLE_TID__SEQ"));
+
+          const std::string UpdSql =
+              "UPDATE utg_prl SET last_flt_change_tid=:last_flt_change_tid "
+              "WHERE point_id=:point_id ";
+
+          const std::string InsSql =
+              "INSERT INTO utg_prl(point_id, last_tlg_create_tid, last_flt_change_tid) "
+              "VALUES (:point_id, NULL, :last_flt_change_tid) ";
+
+          DB::TCachedQuery UpdQry(PgOra::getRWSession("UTG_PRL"), UpdSql, QryParams);
+          DB::TCachedQuery InsQry(PgOra::getRWSession("UTG_PRL"), InsSql, QryParams);
+
+          UpdQry.get().Execute();
+          if(UpdQry.get().RowsProcessed() == 0) {
+              InsQry.get().Execute();
+          }
         }
 
         timing.finish("utg_prl", grp.point_dep);

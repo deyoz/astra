@@ -4,7 +4,8 @@
 #include "astra_service.h"
 #include "exceptions.h"
 #include "xml_unit.h"
-#include "oralib.h"
+#include "db_tquery.h"
+#include "PgOraConfig.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "astra_date_time.h"
@@ -1611,15 +1612,17 @@ bool createUTGDataFiles( int point_id, const std::string &point_addr, TFileDatas
             );
 
     QryParams.clear();
-    QryParams << QParam("point_id", otInteger) << QParam("last_flt_change_tid", otInteger);
-    TCachedQuery updQry(
+    QryParams << QParam("point_id", otInteger)
+              << QParam("last_flt_change_tid", otInteger);
+    DB::TCachedQuery updQry(
+            PgOra::getRWSession("UTG_PRL"),
             "UPDATE utg_prl set last_tlg_create_tid = :last_flt_change_tid where point_id = :point_id",
-            QryParams
-            );
+            QryParams);
 
     QryParams.clear();
     QryParams << QParam("point_id", otInteger);
-    TCachedQuery utgQry(
+    DB::TCachedQuery utgQry(
+            PgOra::getRWSession("UTG_PRL"), // RW специально из-за update-а выше
             "select last_flt_change_tid from utg_prl where point_id = :point_id and "
             "(last_tlg_create_tid is null or last_tlg_create_tid <> last_flt_change_tid)",
             QryParams

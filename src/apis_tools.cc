@@ -1,10 +1,12 @@
 #include "apis_tools.h"
-#include "oralib.h"
+#include "db_tquery.h"
+#include "PgOraConfig.h"
 #include "astra_consts.h"
 #include "base_tables.h"
 #include "exceptions.h"
 #include "astra_utils.h"
 #include "astra_misc.h"
+#include "qrys.h"
 
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
@@ -96,9 +98,9 @@ const std::string get_msg_identifier ()
 
 bool get_trip_apis_param (const int point_id, const std::string& format, const std::string& param_name, int& param_value)
 {
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("TRIP_APIS_PARAMS"));
   Qry.SQLText=
-    "SELECT TO_NUMBER(param_value) AS param_value "
+    "SELECT param_value "
     "FROM trip_apis_params "
     "WHERE point_id=:point_id AND format=:format "
     "AND param_name=:param_name ";
@@ -113,24 +115,30 @@ bool get_trip_apis_param (const int point_id, const std::string& format, const s
 
 void set_trip_apis_param(const int point_id, const std::string& format, const std::string& param_name, const int param_value)
 {
-  TQuery Qry(&OraSession);
-  Qry.SQLText=
-    "BEGIN "
-    "  UPDATE trip_apis_params SET param_value=TO_CHAR(:param_value) "
-    "  WHERE point_id=:point_id AND format=:format "
-    "  AND param_name=:param_name; "
-    "  IF SQL%ROWCOUNT=0 THEN "
-    "    INSERT INTO trip_apis_params(point_id, format, param_name, param_value)"
-    "    VALUES (:point_id, :format, :param_name, TO_CHAR(:param_value));"
-    "  END IF; "
-    "END;";
-  Qry.CreateVariable("point_id", otInteger, point_id);
-  Qry.CreateVariable("format", otString, format);
-  Qry.CreateVariable("param_name", otString, param_name);
-  Qry.CreateVariable("param_value", otInteger, param_value);
+  QParams QryParams;
+  QryParams << QParam("point_id", otInteger, point_id)
+            << QParam("format", otString, format)
+            << QParam("param_name", otString, param_name)
+            << QParam("param_value", otInteger, param_value);
+
+  const std::string UpdSql =
+      "UPDATE trip_apis_params SET param_value=TO_CHAR(:param_value) "
+      "WHERE point_id=:point_id AND format=:format "
+      "AND param_name=:param_name ";
+
+  const std::string InsSql =
+      "INSERT INTO trip_apis_params(point_id, format, param_name, param_value) "
+      "VALUES (:point_id, :format, :param_name, TO_CHAR(:param_value)) ";
+
+  DB::TCachedQuery UpdQry(PgOra::getRWSession("TRIP_APIS_PARAMS"), UpdSql, QryParams);
+  DB::TCachedQuery InsQry(PgOra::getRWSession("TRIP_APIS_PARAMS"), InsSql, QryParams);
+
   try
   {
-    Qry.Execute();
+    UpdQry.get().Execute();
+    if(UpdQry.get().RowsProcessed() == 0) {
+        InsQry.get().Execute();
+    }
   }
   catch(const EOracleError& E)
   {

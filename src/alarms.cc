@@ -2,7 +2,8 @@
 #include "astra_consts.h"
 #include "astra_misc.h"
 #include "exceptions.h"
-#include "oralib.h"
+#include "db_tquery.h"
+#include "PgOraConfig.h"
 #include "stages.h"
 #include "pers_weights.h"
 #include "astra_elems.h"
@@ -94,11 +95,13 @@ void TripAlarms( int point_id, BitSet<Alarm::Enum> &Alarms )
         Alarms.setFlag( Alarm::ETStatus );
     }
 
-    Qry.Clear();
-    Qry.SQLText = "select alarm_type from trip_alarms where point_id = :point_id";
-    Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.Execute();
-    for(; not Qry.Eof; Qry.Next()) Alarms.setFlag(AlarmTypes().decode(Qry.FieldAsString("alarm_type")));
+    DB::TQuery AlarmsQry(PgOra::getROSession("TRIP_ALARMS"));
+    AlarmsQry.SQLText = "select alarm_type from trip_alarms where point_id = :point_id";
+    AlarmsQry.CreateVariable("point_id", otInteger, point_id);
+    AlarmsQry.Execute();
+    for(; not AlarmsQry.Eof; AlarmsQry.Next()) {
+        Alarms.setFlag(AlarmTypes().decode(AlarmsQry.FieldAsString("alarm_type")));
+    }
 }
 
 string TripAlarmName( Alarm::Enum alarm )
@@ -113,7 +116,7 @@ string TripAlarmString( Alarm::Enum alarm )
 
 bool get_alarm( int point_id, Alarm::Enum alarm_type )
 {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("TRIP_ALARMS"));
     Qry.SQLText = "select * from trip_alarms where point_id = :point_id and alarm_type = :alarm_type";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("alarm_type", otString, AlarmTypes().encode(alarm_type));
@@ -125,7 +128,7 @@ bool get_alarm( int point_id, Alarm::Enum alarm_type )
 void set_alarm( int point_id, Alarm::Enum alarm_type, bool alarm_value )
 {
     LogTrace(TRACE5) << __FUNCTION__ <<  "point_id: " << point_id << " alarm_type: " << alarm_type << " alarm: " << (bool)(alarm_value);
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getRWSession("TRIP_ALARMS"));
     if(alarm_value)
         Qry.SQLText = "insert into trip_alarms(point_id, alarm_type) values(:point_id, :alarm_type)";
     else
