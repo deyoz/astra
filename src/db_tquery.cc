@@ -1,18 +1,12 @@
 #include "db_tquery.h"
 #include "hooked_session.h"
 #include "exceptions.h"
-<<<<<<< HEAD
 #include "qrys.h"
-=======
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 
 #include <serverlib/dbcpp_cursctl.h>
 #include <serverlib/dbcpp_session.h>
 #include <serverlib/pg_cursctl.h>
-<<<<<<< HEAD
 #include <serverlib/oci_err.h>
-=======
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 #include <serverlib/exception.h>
 #include <serverlib/str_utils.h>
 #include <serverlib/algo.h>
@@ -33,7 +27,6 @@ using BASIC::date_time::TDateTime;
 
 namespace {
 
-<<<<<<< HEAD
 std::string getQueryCmd(const std::string& s)
 {
     static const size_t CmdLength = 6; // len of SELECT, INSERT, UPDATE, DELETE cmds
@@ -75,21 +68,6 @@ static const std::map<PgCpp::ResultCode, OciCppErrs> sPgOraErrorCodeMapper = {
 std::optional<OciCppErrs> oraErrorCodeMapper(PgCpp::ResultCode pgErr)
 {
     return algo::find_opt<std::optional>(sPgOraErrorCodeMapper, pgErr);
-=======
-bool isSelectQuery(const std::string& s)
-{
-    auto pos_beg = s.find_first_not_of(' ');
-    if (pos_beg == std::string::npos) {
-        return false;
-    }
-    auto pos = s.find_first_of(" (+-'\n",pos_beg);
-    if (pos == std::string::npos) {
-        return false;
-    }
-    std::string cmd = s.substr(pos_beg, pos);
-    std::transform(cmd.begin(), cmd.end(), cmd.begin(), ::toupper);
-    return cmd == "SELECT";
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 }//namespace
@@ -105,11 +83,8 @@ public:
     virtual void Execute() = 0;
     virtual void Next() = 0;
     virtual void Clear() = 0;
-<<<<<<< HEAD
     virtual int RowsProcessed() = 0;
     virtual int RowCount() = 0;
-=======
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
     virtual int FieldsCount() = 0;
     virtual std::string FieldName(int ind) = 0;
     virtual int GetFieldIndex(const std::string& fname) = 0;
@@ -150,10 +125,7 @@ private:
     struct Variable
     {
         BindVariant Value;
-<<<<<<< HEAD
         otFieldType Type;
-=======
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
         bool        IsNull;
     };
 
@@ -170,11 +142,8 @@ public:
     virtual void Execute() override;
     virtual void Next() override;
     virtual void Clear() override;
-<<<<<<< HEAD
     virtual int RowsProcessed() override;
     virtual int RowCount() override;
-=======
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
     virtual int FieldsCount() override;
     virtual std::string FieldName(int ind) override;
     virtual int GetFieldIndex(const std::string& fname) override;
@@ -213,11 +182,8 @@ protected:
     static int         fieldValueAsInteger(const char* fname, const std::string& val);
     static TDateTime   fieldValueAsDateTime(const char* fname, const std::string& val);
     static double      fieldValueAsFloat(const char* fname, const std::string& val);
-<<<<<<< HEAD
 
     std::optional<Variable> findVariable(const std::string& vname) const;
-=======
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 };
 
 //
@@ -240,7 +206,6 @@ void TQueryIfaceDbCppImpl::Execute()
 {
     initInnerCursCtl();
     bindVariables();
-<<<<<<< HEAD
     ASSERT(m_cur);
     bool isSelect = isSelectQuery(m_sqlText);
     try {
@@ -264,11 +229,6 @@ void TQueryIfaceDbCppImpl::Execute()
     m_eof = 1;
     if(isSelect) {
         m_eof = 0;
-=======
-    m_cur->exec();
-
-    if(isSelectQuery(m_sqlText)) {
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
         Next();
     }
 }
@@ -294,7 +254,6 @@ void TQueryIfaceDbCppImpl::Clear()
     m_eof = 0;
 }
 
-<<<<<<< HEAD
 int TQueryIfaceDbCppImpl::RowsProcessed()
 {
     return m_cur->rowcount();
@@ -306,8 +265,6 @@ int TQueryIfaceDbCppImpl::RowCount()
     return m_eof ? m_cur->rowcount() : m_cur->currentRow();
 }
 
-=======
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 int TQueryIfaceDbCppImpl::FieldsCount()
 {
     ASSERT(m_cur);
@@ -480,47 +437,32 @@ double TQueryIfaceDbCppImpl::FieldAsFloat(int ind)
 
 void TQueryIfaceDbCppImpl::CreateVariable(const std::string& vname, otFieldType vtype, int vdata)
 {
-<<<<<<< HEAD
     if(vtype == otFloat) {
         m_variables.emplace(vname, Variable{static_cast<double>(vdata), vtype, false/*IsNull*/});
     } else {
         m_variables.emplace(vname, Variable{vdata, vtype, false/*IsNull*/});
     }
-=======
-    m_variables.emplace(vname, Variable{vdata, false/*IsNull*/});
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 void TQueryIfaceDbCppImpl::CreateVariable(const std::string& vname, otFieldType vtype, const std::string& vdata)
 {
-<<<<<<< HEAD
     m_variables.emplace(vname, Variable{vdata, vtype, false/*IsNull*/});
-=======
-    m_variables.emplace(vname, Variable{vdata, false/*IsNull*/});
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 void TQueryIfaceDbCppImpl::CreateVariable(const std::string& vname, otFieldType vtype, double vdata)
 {
     if(vtype == otDate) {
-<<<<<<< HEAD
         m_variables.emplace(vname, Variable{BASIC::date_time::DateTimeToBoost(vdata), vtype, false/*IsNull*/});
     } else if(vtype == otInteger) {
         m_variables.emplace(vname, Variable{static_cast<int>(vdata), vtype, false/*IsNull*/});
     } else {
         m_variables.emplace(vname, Variable{vdata, vtype, false/*IsNull*/});
-=======
-        m_variables.emplace(vname, Variable{BASIC::date_time::DateTimeToBoost(vdata), false/*IsNull*/});
-    } else {
-        m_variables.emplace(vname, Variable{vdata, false/*IsNull*/});
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
     }
 }
 
 void TQueryIfaceDbCppImpl::CreateVariable(const std::string& vname, otFieldType vtype, tnull vdata)
 {
     if(vtype == otInteger) {
-<<<<<<< HEAD
         m_variables.emplace(vname, Variable{0, vtype, true/*IsNull*/});
     } else if(vtype == otFloat) {
         m_variables.emplace(vname, Variable{0.0, vtype, true/*IsNull*/});
@@ -528,15 +470,6 @@ void TQueryIfaceDbCppImpl::CreateVariable(const std::string& vname, otFieldType 
         m_variables.emplace(vname, Variable{"", vtype, true/*IsNull*/});
     } else if(vtype == otDate) {
         m_variables.emplace(vname, Variable{boost::posix_time::ptime(), vtype, true/*IsNull*/});
-=======
-        m_variables.emplace(vname, Variable{0, true/*IsNull*/});
-    } else if(vtype == otFloat) {
-        m_variables.emplace(vname, Variable{0.0, true/*IsNull*/});
-    } else if(vtype == otString) {
-        m_variables.emplace(vname, Variable{"", true/*IsNull*/});
-    } else if(vtype == otDate) {
-        m_variables.emplace(vname, Variable{boost::posix_time::second_clock::local_time(), true/*IsNull*/});
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
     } else {
         LogError(STDLOG) << "Unsupported null variable type " << vtype << " for variable " << vname;
     }
@@ -552,11 +485,7 @@ int TQueryIfaceDbCppImpl::VariablesCount()
 //       -1, если иначе
 int TQueryIfaceDbCppImpl::GetVariableIndex(const std::string& vname)
 {
-<<<<<<< HEAD
     return findVariable(vname) ? 1 : -1;
-=======
-    return algo::find_opt<std::optional>(m_variables, vname) ? 1 : -1;
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 int TQueryIfaceDbCppImpl::VariableIndex(const std::string& vname)
@@ -577,11 +506,7 @@ int TQueryIfaceDbCppImpl::VariableIsNULL(const std::string& vname)
         throw EOracleError( "You cannot get value to variable with an empty name", 1 );
     }
 
-<<<<<<< HEAD
     auto optVar = findVariable(vname);
-=======
-    auto optVar = algo::find_opt<std::optional>(m_variables, vname);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
     if(!optVar) {
         char serror[ 100 ];
         sprintf(serror, "Variable %s does not exists", vname.c_str());
@@ -632,41 +557,26 @@ void TQueryIfaceDbCppImpl::SetVariable(const std::string& vname, const std::stri
 void TQueryIfaceDbCppImpl::SetVariable(const std::string& vname, double vdata)
 {
     checkVariable4Set(vname);
-<<<<<<< HEAD
     auto var = findVariable(vname);
     ASSERT(var);
     DeleteVariable(vname);
     CreateVariable(vname, var->Type, vdata);
-=======
-    DeleteVariable(vname);
-    CreateVariable(vname, otFloat, vdata);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 void TQueryIfaceDbCppImpl::SetVariable(const std::string& vname, tnull vdata)
 {
     checkVariable4Set(vname);
-<<<<<<< HEAD
     auto var = findVariable(vname);
     ASSERT(var);
     DeleteVariable(vname);
     CreateVariable(vname, var->Type, vdata);
-=======
-    // nothing to do - already have null
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 void TQueryIfaceDbCppImpl::initInnerCursCtl()
 {
-<<<<<<< HEAD
     auto sql = StrUtils::trim(m_sqlText);
     LogTrace(TRACE3) << "About to create CursCtl for sql='" << sql << "'";
     m_cur = std::make_shared<DbCpp::CursCtl>(DbCpp::CursCtl(m_sess, STDLOG, sql.c_str()));
-=======
-    if(!m_cur) {
-        m_cur = std::make_shared<DbCpp::CursCtl>(std::move(make_db_curs(m_sqlText, m_sess)));
-    }
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 void TQueryIfaceDbCppImpl::bindVariables()
@@ -741,14 +651,11 @@ double TQueryIfaceDbCppImpl::fieldValueAsFloat(const char* fname, const std::str
     return value;
 }
 
-<<<<<<< HEAD
 std::optional<TQueryIfaceDbCppImpl::Variable> TQueryIfaceDbCppImpl::findVariable(const std::string& vname) const
 {
     return algo::find_opt<std::optional>(m_variables, vname);
 }
 
-=======
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 //---------------------------------------------------------------------------------------
 
 class TQueryIfaceNativeImpl final: public TQueryIfaceImpl
@@ -760,11 +667,8 @@ public:
     virtual void Execute() override;
     virtual void Next() override;
     virtual void Clear() override;
-<<<<<<< HEAD
     virtual int RowsProcessed() override;
     virtual int RowCount() override;
-=======
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
     virtual int FieldsCount() override;
     virtual std::string FieldName(int ind) override;
     virtual int GetFieldIndex(const std::string& fname) override;
@@ -811,50 +715,23 @@ private:
     m_qry->method(); \
     afterNativeCall();
 
-<<<<<<< HEAD
 #define __NATIVE_CALL_WITH_ARGS__(method, ...) \
     beforeNativeCall(); \
     m_qry->method(__VA_ARGS__); \
     afterNativeCall();
 
-=======
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 #define __RETURN_NATIVE_CALL_WITHOUT_ARGS__(method) \
     beforeNativeCall(); \
     auto ret = m_qry->method(); \
     afterNativeCall(); \
     return ret;
 
-<<<<<<< HEAD
 #define __RETURN_NATIVE_CALL_WITH_ARGS__(method, ...) \
     beforeNativeCall(); \
     auto ret = m_qry->method(__VA_ARGS__); \
     afterNativeCall(); \
     return ret;
 
-=======
-#define __NATIVE_CALL_WITH_1_ARG__(method, arg) \
-    beforeNativeCall(); \
-    m_qry->method(arg); \
-    afterNativeCall();
-
-#define __RETURN_NATIVE_CALL_WITH_1_ARG__(method, arg) \
-    beforeNativeCall(); \
-    auto ret = m_qry->method(arg); \
-    afterNativeCall(); \
-    return ret;
-
-#define __NATIVE_CALL_WITH_2_ARGS__(method, arg1, arg2) \
-    beforeNativeCall(); \
-    m_qry->method(arg1, arg2); \
-    afterNativeCall();
-
-#define __NATIVE_CALL_WITH_3_ARGS__(method, arg1, arg2, arg3) \
-    beforeNativeCall(); \
-    m_qry->method(arg1, arg2, arg3); \
-    afterNativeCall();
-
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 //
 
 TQueryIfaceNativeImpl::TQueryIfaceNativeImpl(std::string& sqlText, int& eof)
@@ -884,7 +761,6 @@ void TQueryIfaceNativeImpl::Clear()
     __NATIVE_CALL_WITHOUT_ARGS__(Clear);
 }
 
-<<<<<<< HEAD
 int TQueryIfaceNativeImpl::RowsProcessed()
 {
     __RETURN_NATIVE_CALL_WITHOUT_ARGS__(RowsProcessed);
@@ -895,8 +771,6 @@ int TQueryIfaceNativeImpl::RowCount()
     __RETURN_NATIVE_CALL_WITHOUT_ARGS__(RowCount);
 }
 
-=======
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 int TQueryIfaceNativeImpl::FieldsCount()
 {
     __RETURN_NATIVE_CALL_WITHOUT_ARGS__(FieldsCount);
@@ -904,155 +778,87 @@ int TQueryIfaceNativeImpl::FieldsCount()
 
 std::string TQueryIfaceNativeImpl::FieldName(int ind)
 {
-<<<<<<< HEAD
     __RETURN_NATIVE_CALL_WITH_ARGS__(FieldName, ind);
-=======
-    __RETURN_NATIVE_CALL_WITH_1_ARG__(FieldName, ind);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 int TQueryIfaceNativeImpl::GetFieldIndex(const std::string& fname)
 {
-<<<<<<< HEAD
     __RETURN_NATIVE_CALL_WITH_ARGS__(GetFieldIndex, fname);
-=======
-    __RETURN_NATIVE_CALL_WITH_1_ARG__(GetFieldIndex, fname);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 int TQueryIfaceNativeImpl::FieldIndex(const std::string& fname)
 {
-<<<<<<< HEAD
     __RETURN_NATIVE_CALL_WITH_ARGS__(FieldIndex, fname);
-=======
-    __RETURN_NATIVE_CALL_WITH_1_ARG__(FieldIndex, fname);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 int TQueryIfaceNativeImpl::FieldIsNULL(const std::string& fname)
 {
-<<<<<<< HEAD
     __RETURN_NATIVE_CALL_WITH_ARGS__(FieldIsNULL, fname);
-=======
-    __RETURN_NATIVE_CALL_WITH_1_ARG__(FieldIsNULL, fname);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 int TQueryIfaceNativeImpl::FieldIsNULL(int ind)
 {
-<<<<<<< HEAD
     __RETURN_NATIVE_CALL_WITH_ARGS__(FieldIsNULL, ind);
-=======
-    __RETURN_NATIVE_CALL_WITH_1_ARG__(FieldIsNULL, ind);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 std::string TQueryIfaceNativeImpl::FieldAsString(const std::string& fname)
 {
-<<<<<<< HEAD
     __RETURN_NATIVE_CALL_WITH_ARGS__(FieldAsString, fname);
-=======
-    __RETURN_NATIVE_CALL_WITH_1_ARG__(FieldAsString, fname);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 std::string TQueryIfaceNativeImpl::FieldAsString(int ind)
 {
-<<<<<<< HEAD
     __RETURN_NATIVE_CALL_WITH_ARGS__(FieldAsString, ind);
-=======
-    __RETURN_NATIVE_CALL_WITH_1_ARG__(FieldAsString, ind);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 int TQueryIfaceNativeImpl::FieldAsInteger(const std::string& fname)
 {
-<<<<<<< HEAD
     __RETURN_NATIVE_CALL_WITH_ARGS__(FieldAsInteger, fname);
-=======
-    __RETURN_NATIVE_CALL_WITH_1_ARG__(FieldAsInteger, fname);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 int TQueryIfaceNativeImpl::FieldAsInteger(int ind)
 {
-<<<<<<< HEAD
     __RETURN_NATIVE_CALL_WITH_ARGS__(FieldAsInteger, ind);
-=======
-    __RETURN_NATIVE_CALL_WITH_1_ARG__(FieldAsInteger, ind);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 TDateTime TQueryIfaceNativeImpl::FieldAsDateTime(const std::string& fname)
 {
-<<<<<<< HEAD
     __RETURN_NATIVE_CALL_WITH_ARGS__(FieldAsDateTime, fname);
-=======
-    __RETURN_NATIVE_CALL_WITH_1_ARG__(FieldAsDateTime, fname);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 TDateTime TQueryIfaceNativeImpl::FieldAsDateTime(int ind)
 {
-<<<<<<< HEAD
     __RETURN_NATIVE_CALL_WITH_ARGS__(FieldAsDateTime, ind);
-=======
-    __RETURN_NATIVE_CALL_WITH_1_ARG__(FieldAsDateTime, ind);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 double TQueryIfaceNativeImpl::FieldAsFloat(const std::string& fname)
 {
-<<<<<<< HEAD
     __RETURN_NATIVE_CALL_WITH_ARGS__(FieldAsFloat, fname);
-=======
-    __RETURN_NATIVE_CALL_WITH_1_ARG__(FieldAsFloat, fname);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 double TQueryIfaceNativeImpl::FieldAsFloat(int ind)
 {
-<<<<<<< HEAD
     __RETURN_NATIVE_CALL_WITH_ARGS__(FieldAsFloat, ind);
-=======
-    __RETURN_NATIVE_CALL_WITH_1_ARG__(FieldAsFloat, ind);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 void TQueryIfaceNativeImpl::CreateVariable(const std::string& vname, otFieldType vtype, int vdata)
 {
-<<<<<<< HEAD
     __NATIVE_CALL_WITH_ARGS__(CreateVariable, vname, vtype, vdata);
-=======
-    __NATIVE_CALL_WITH_3_ARGS__(CreateVariable, vname, vtype, vdata);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 void TQueryIfaceNativeImpl::CreateVariable(const std::string& vname, otFieldType vtype, const std::string& vdata)
 {
-<<<<<<< HEAD
     __NATIVE_CALL_WITH_ARGS__(CreateVariable, vname, vtype, vdata);
-=======
-    __NATIVE_CALL_WITH_3_ARGS__(CreateVariable, vname, vtype, vdata);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 void TQueryIfaceNativeImpl::CreateVariable(const std::string& vname, otFieldType vtype, double vdata)
 {
-<<<<<<< HEAD
     __NATIVE_CALL_WITH_ARGS__(CreateVariable, vname, vtype, vdata);
-=======
-    __NATIVE_CALL_WITH_3_ARGS__(CreateVariable, vname, vtype, vdata);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 void TQueryIfaceNativeImpl::CreateVariable(const std::string& vname, otFieldType vtype, tnull vdata)
 {
-<<<<<<< HEAD
     __NATIVE_CALL_WITH_ARGS__(CreateVariable, vname, vtype, vdata);
-=======
-    __NATIVE_CALL_WITH_3_ARGS__(CreateVariable, vname, vtype, vdata);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 int TQueryIfaceNativeImpl::VariablesCount()
@@ -1062,83 +868,47 @@ int TQueryIfaceNativeImpl::VariablesCount()
 
 int TQueryIfaceNativeImpl::GetVariableIndex(const std::string& vname)
 {
-<<<<<<< HEAD
     __RETURN_NATIVE_CALL_WITH_ARGS__(GetVariableIndex, vname);
-=======
-    __RETURN_NATIVE_CALL_WITH_1_ARG__(GetVariableIndex, vname);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 int TQueryIfaceNativeImpl::VariableIndex(const std::string& vname)
 {
-<<<<<<< HEAD
     __RETURN_NATIVE_CALL_WITH_ARGS__(VariableIndex, vname);
-=======
-    __RETURN_NATIVE_CALL_WITH_1_ARG__(VariableIndex, vname);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 int TQueryIfaceNativeImpl::VariableIsNULL(const std::string& vname)
 {
-<<<<<<< HEAD
     __RETURN_NATIVE_CALL_WITH_ARGS__(VariableIsNULL, vname);
-=======
-    __RETURN_NATIVE_CALL_WITH_1_ARG__(VariableIsNULL, vname);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 void TQueryIfaceNativeImpl::DeleteVariable(const std::string& vname)
 {
-<<<<<<< HEAD
     __NATIVE_CALL_WITH_ARGS__(DeleteVariable, vname);
-=======
-    __NATIVE_CALL_WITH_1_ARG__(DeleteVariable, vname);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 void TQueryIfaceNativeImpl::DeclareVariable(const std::string& vname, otFieldType vtype)
 {
-<<<<<<< HEAD
     __NATIVE_CALL_WITH_ARGS__(DeclareVariable, vname, vtype);
-=======
-    __NATIVE_CALL_WITH_2_ARGS__(DeclareVariable, vname, vtype);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 void TQueryIfaceNativeImpl::SetVariable(const std::string& vname, int vdata)
 {
-<<<<<<< HEAD
     __NATIVE_CALL_WITH_ARGS__(SetVariable, vname, vdata);
-=======
-    __NATIVE_CALL_WITH_2_ARGS__(SetVariable, vname, vdata);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 void TQueryIfaceNativeImpl::SetVariable(const std::string& vname, const std::string& vdata)
 {
-<<<<<<< HEAD
     __NATIVE_CALL_WITH_ARGS__(SetVariable, vname, vdata);
-=======
-    __NATIVE_CALL_WITH_2_ARGS__(SetVariable, vname, vdata);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 void TQueryIfaceNativeImpl::SetVariable(const std::string& vname, double vdata)
 {
-<<<<<<< HEAD
     __NATIVE_CALL_WITH_ARGS__(SetVariable, vname, vdata);
-=======
-    __NATIVE_CALL_WITH_2_ARGS__(SetVariable, vname, vdata);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 void TQueryIfaceNativeImpl::SetVariable(const std::string& vname, tnull vdata)
 {
-<<<<<<< HEAD
     __NATIVE_CALL_WITH_ARGS__(SetVariable, vname, vdata);
-=======
-    __NATIVE_CALL_WITH_2_ARGS__(SetVariable, vname, vdata);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 
 void TQueryIfaceNativeImpl::beforeNativeCall()
@@ -1157,15 +927,8 @@ void TQueryIfaceNativeImpl::afterNativeCall()
 
 #undef __NATIVE_CALL_WITHOUT_ARGS__
 #undef __RETURN_NATIVE_CALL_WITHOUT_ARGS__
-<<<<<<< HEAD
 #undef __NATIVE_CALL_WITH_ARGS__
 #undef __RETURN_NATIVE_CALL_WITH_ARGS__
-=======
-#undef __NATIVE_CALL_WITH_1_ARG__
-#undef __RETURN_NATIVE_CALL_WITH_1_ARG__
-#undef __NATIVE_CALL_WITH_2_ARGS__
-#undef __NATIVE_CALL_WITH_3_ARGS__
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 
 //---------------------------------------------------------------------------------------
 
@@ -1188,12 +951,9 @@ void TQuery::Execute() { m_impl->Execute(); }
 void TQuery::Next() { m_impl->Next(); }
 void TQuery::Clear() { m_impl->Clear(); }
 
-<<<<<<< HEAD
 int TQuery::RowsProcessed() { return m_impl->RowsProcessed(); }
 int TQuery::RowCount() { return m_impl->RowCount(); }
 
-=======
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 int TQuery::FieldsCount() { return m_impl->FieldsCount(); }
 std::string TQuery::FieldName(int ind) { return m_impl->FieldName(ind); }
 
@@ -1243,7 +1003,6 @@ void TQuery::SetVariable(const std::string& vname, const std::string& vdata) { m
 void TQuery::SetVariable(const std::string& vname, double vdata) { m_impl->SetVariable(vname, vdata); }
 void TQuery::SetVariable(const std::string& vname, tnull vdata) { m_impl->SetVariable(vname, vdata); }
 
-<<<<<<< HEAD
 //---------------------------------------------------------------------------------------
 
 TCachedQuery::TCachedQuery(DbCpp::Session& sess, const std::string& sqlText, const QParams& params)
@@ -1285,8 +1044,6 @@ TQuery& TCachedQuery::get()
     return *m_qry.get();
 }
 
-=======
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }//namespace DB
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -1306,11 +1063,7 @@ TQuery& TCachedQuery::get()
 
 using namespace xp_testing;
 
-<<<<<<< HEAD
 START_TEST(common_usage)
-=======
-START_TEST(pg_tquery_common_usage)
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 {
     int intval = 20;
     boost::posix_time::ptime timeval = boost::posix_time::second_clock::local_time();
@@ -1319,17 +1072,12 @@ START_TEST(pg_tquery_common_usage)
     double floatval = 3.14159;
 
     get_pg_curs_autocommit("drop table if exists TEST_TQUERY").exec();
-<<<<<<< HEAD
     get_pg_curs_autocommit("create table TEST_TQUERY(FLD1 integer, FLD2 timestamp, FLD3 varchar(20), FLD4 integer)").exec();
-=======
-    get_pg_curs_autocommit("create table TEST_TQUERY(FLD1 integer, FLD2 timestamp, FLD3 varchar(20), FLD4 integer);").exec();
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 
     DB::TQuery Qry(*get_main_pg_rw_sess(STDLOG));
     Qry.SQLText = "insert into TEST_TQUERY(FLD1, FLD2 , FLD3, FLD4) values (:fld1, :fld2, :fld3, :fld4)";
     Qry.DeclareVariable("fld1", otInteger);
     Qry.SetVariable("fld1", intval);
-<<<<<<< HEAD
 
     Qry.DeclareVariable("fld2", otDate);
     Qry.SetVariable("fld2", timevaldt);
@@ -1338,11 +1086,6 @@ START_TEST(pg_tquery_common_usage)
 
     Qry.CreateVariable("fld4", otInteger, 22);
     Qry.SetVariable("fld4", FNull);
-=======
-    Qry.CreateVariable("fld2", otDate,    timevaldt);
-    Qry.CreateVariable("fld3", otString,  strval);
-    Qry.CreateVariable("fld4", otInteger, FNull);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 
     fail_unless(Qry.VariableIsNULL("fld2") == 0, "VariableIsNULL failed");
     fail_unless(Qry.VariableIsNULL("fld4") == 1, "VariableIsNULL failed");
@@ -1402,7 +1145,6 @@ START_TEST(pg_tquery_common_usage)
         fail_unless(Qry.FieldName(0) == "FLD1", "FieldName failed");
         fail_unless(Qry.FieldName(4) == "FLD5", "FieldName failed");
     }
-<<<<<<< HEAD
 
     Qry.Clear();
     Qry.SQLText = "insert into TEST_TQUERY(FLD1, FLD3) values (:fld1, :fld3)";
@@ -1702,11 +1444,6 @@ START_TEST(sqltext_with_spaces)
     fail_unless(Qry.FieldAsString("FLD1") == "1", "FieldAsString failed!");
 }
 END_TEST;
-=======
-}
-END_TEST;
-
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 
 START_TEST(check_ora_sessions)
 {
@@ -1772,7 +1509,6 @@ START_TEST(check_ora_sessions)
 }
 END_TEST;
 
-<<<<<<< HEAD
 START_TEST(cast_to_integer)
 {
     // Ora
@@ -1809,30 +1545,16 @@ TCASEREGISTER(testInitDB, testShutDBConnection)
     ADD_TEST(compare_empty_string_behavior);
     ADD_TEST(throw_errors);
     ADD_TEST(sqltext_with_spaces);
-=======
-
-#define SUITENAME "pg_tquery"
-TCASEREGISTER(testInitDB, testShutDBConnection)
-{
-    ADD_TEST(pg_tquery_common_usage);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 TCASEFINISH;
 #undef SUITENAME
 
-<<<<<<< HEAD
 #define SUITENAME "ora_pg_compare"
 TCASEREGISTER(testInitDB, 0)
 {
     ADD_TEST(check_ora_sessions);
     ADD_TEST(rowcount_rowsprocessed_eof);
     ADD_TEST(cast_to_integer);
-=======
-#define SUITENAME "ora_sessions"
-TCASEREGISTER(testInitDB, 0)
-{
-    ADD_TEST(check_ora_sessions);
->>>>>>> 7ffa46e61... #39496, #39579 - DB TQuery
 }
 TCASEFINISH;
 #undef SUITENAME
