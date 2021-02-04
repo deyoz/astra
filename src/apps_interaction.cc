@@ -1455,7 +1455,7 @@ void addAlarm(const PaxId_t& pax_id, const std::initializer_list<Alarm::Enum>& a
                   const PointId_t& point_id_spp)
 {
     LogTrace(TRACE5) << __FUNCTION__ << " pax_id: " << pax_id;
-    if (addAlarmByPaxId(pax_id.get(), alarms, {paxCheckIn, paxPnl})) {
+    if (addAlarmByPaxId(pax_id, alarms, {paxCheckIn, paxPnl})) {
         syncAlarms(pax_id, point_id_spp);
     }
 }
@@ -1465,7 +1465,7 @@ void deleteAlarm(const PaxId_t &pax_id,
                  const PointId_t& point_id_spp)
 {
     LogTrace(TRACE5) << __FUNCTION__ << " pax_id: " << pax_id;
-    if (deleteAlarmByPaxId(pax_id.get(), alarms, {paxCheckIn, paxPnl})) {
+    if (deleteAlarmByPaxId(pax_id, alarms, {paxCheckIn, paxPnl})) {
         syncAlarms(pax_id, point_id_spp);
     }
 }
@@ -3197,7 +3197,7 @@ void sendNewInfo(const TTripTaskKey &task)
     flightsForLock.Lock(__FUNCTION__);
     for(const auto& pax_id : paxIds) {
         processCrsPax(pax_id);
-        deleteAlarmByPaxId(pax_id.get(), {Alarm::SyncAPPS}, {paxPnl});
+        deleteAlarmByPaxId(pax_id, {Alarm::SyncAPPS}, {paxPnl});
     }
 }
 
@@ -3359,7 +3359,7 @@ void paxPnlOnChange(const PaxOrigin& paxOrigin, const PaxIdWithSegmentPair& paxI
     if(AppsSetsCallbacksCache::Instanse().find(*paxSeg)) {
         PointId_t point_id(paxSeg->point_dep);
         if(isNeedAddTask(point_id, SEND_NEW_APPS_INFO)) {
-            addAlarmByPaxId(paxId().get(), {Alarm::SyncAPPS}, {paxOrigin});
+            addAlarmByPaxId(paxId(), {Alarm::SyncAPPS}, {paxOrigin});
             AppsTasks::Instanse().add(TTripTaskKey(point_id, SEND_NEW_APPS_INFO, ""));
         }
     }

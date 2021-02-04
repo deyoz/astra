@@ -8,6 +8,7 @@
 #include "term_version.h"
 #include "date_time.h"
 #include "base_callbacks.h"
+#include "passenger.h"
 
 #include "iapi_interaction.h"
 #include "apps_interaction.h"

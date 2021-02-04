@@ -3874,7 +3874,7 @@ void EMDAutoBoundInterface::tryBindEmd(const TCkinGrpIds &tckinGrpIds,
   bool checkinServicesAuto=tryCheckinServicesAuto(svcsAuto, payment, tckinGrpIds, emdProps, confirmed_emd);
 
   for(const GrpId_t& grpId : tckinGrpIds)
-    deleteAlarmByGrpId(grpId.get(), Alarm::SyncEmds);
+    deleteAlarmByGrpId(grpId, Alarm::SyncEmds);
 
   if (enlargedServicePayment || checkinServicesAuto)
   {

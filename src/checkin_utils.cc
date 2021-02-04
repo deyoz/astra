@@ -249,7 +249,7 @@ void syncCabinClass(const TTripTaskKey &task)
   for(const PaxId_t paxId : paxIds)
   {
     LogTrace(TRACE5) << __FUNCTION__ << ": paxId=" << paxId;
-    deleteAlarmByPaxId(paxId.get(), {Alarm::SyncCabinClass}, {paxCheckIn});
+    deleteAlarmByPaxId(paxId, {Alarm::SyncCabinClass}, {paxCheckIn});
 
     DB::Savepoint spSyncCabinClass("sync_cabin_class");
 

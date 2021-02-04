@@ -218,6 +218,8 @@ class TGrpMktFlight : public TSimpleMktFlight
     bool getByGrpId(int grp_id);
 };
 
+std::optional<PointId_t> getPointIdByPaxId(const PaxId_t pax_id);
+
 class TTripInfo
 {
   private:
@@ -471,11 +473,12 @@ class TAdvTripInfo : public TTripInfo
 typedef std::list<TAdvTripInfo> TAdvTripInfoList;
 typedef ASTRA::Cache<int/*pnr_id*/, TAdvTripInfoList> PnrFlightsCache;
 
+std::set<PointIdTlg_t> getPointIdTlgByPointIdsSpp(const PointId_t point_id_spp);
+std::optional<PointIdTlg_t> getPointIdTlgByPaxId(const PaxId_t pax_id, bool with_deleted);
 void getPointIdsSppByPointIdTlg(const PointIdTlg_t& point_id_tlg,
                                 std::set<PointId_t>& point_ids_spp,
                                 bool clear = true);
 std::set<PointId_t> getPointIdsSppByPointIdTlg(const PointIdTlg_t& point_id_tlg);
-
 void getTripsByPointIdTlg(const int point_id_tlg, TAdvTripInfoList &trips);
 void getTripsByCRSPnrId(const int pnr_id, TAdvTripInfoList &trips);
 void getTripsByCRSPaxId(const int pax_id, TAdvTripInfoList &trips);

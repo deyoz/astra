@@ -210,7 +210,7 @@ static void addAlarm( const PaxId_t& paxId,
                       const std::initializer_list<Alarm::Enum>& alarms,
                       const PointId_t& pointId )
 {
-  if (!addAlarmByPaxId(paxId.get(), alarms, {paxCheckIn})) return; //ничего не изменилось
+  if (!addAlarmByPaxId(paxId, alarms, {paxCheckIn})) return; //ничего не изменилось
   syncAlarms(pointId);
 }
 
@@ -218,13 +218,13 @@ static void deleteAlarm( const PaxId_t& paxId,
                          const std::initializer_list<Alarm::Enum>& alarms,
                          const PointId_t& pointId )
 {
-  if (!deleteAlarmByPaxId(paxId.get(), alarms, {paxCheckIn})) return; //ничего не изменилось
+  if (!deleteAlarmByPaxId(paxId, alarms, {paxCheckIn})) return; //ничего не изменилось
   syncAlarms(pointId);
 }
 
 void deleteAlarms(const PaxId_t& paxId, const PointId_t& pointId)
 {
-  if (!deleteAlarmByPaxId(paxId.get(),
+  if (!deleteAlarmByPaxId(paxId,
                           {Alarm::IAPINegativeDirective},
                           {paxCheckIn})) return; //ничего не изменилось
 
