@@ -1252,15 +1252,11 @@ BEGIN
     DELETE FROM trip_stations WHERE point_id=curRow.point_id;
     DELETE FROM trip_paid_ckin WHERE point_id=curRow.point_id;
     DELETE FROM trip_calc_data WHERE point_id=curRow.point_id;
-    DELETE FROM trip_alarms WHERE point_id=curRow.point_id;
     DELETE FROM trip_pers_weights WHERE point_id=curRow.point_id;
     DELETE FROM trip_auto_weighing WHERE point_id=curRow.point_id;
-    DELETE FROM trip_rpt_person WHERE point_id=curRow.point_id;
     UPDATE trfer_trips SET point_id_spp=NULL WHERE point_id_spp=curRow.point_id;
     DELETE FROM pax_seats WHERE point_id=curRow.point_id;
-    DELETE FROM utg_prl WHERE point_id=curRow.point_id;
     DELETE FROM trip_tasks WHERE point_id=curRow.point_id;
-    DELETE FROM trip_apis_params WHERE point_id=curRow.point_id;
     DELETE FROM counters_by_subcls WHERE point_id=curRow.point_id;
     DELETE FROM apps_messages WHERE msg_id in (SELECT cirq_msg_id FROM apps_pax_data where point_id=curRow.point_id);
     DELETE FROM apps_messages WHERE msg_id in (SELECT cicx_msg_id FROM apps_pax_data where point_id=curRow.point_id);

@@ -39,6 +39,7 @@ supervisor.tcl
 /*.files
 /*.includes
 src/xplogs/
+src/*.csv
 *.log.bfs
 .deps
 *~

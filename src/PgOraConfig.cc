@@ -33,7 +33,8 @@ namespace PgOra
         { "SP_PG_GROUP_ET",    { "ETICKETS", "ETICKS_DISPLAY", "ETICKS_DISPLAY_TLGS" } },
         { "SP_PG_GROUP_EMD",   { "EMDOCS", "EMDOCS_DISPLAY" } },
         { "SP_PG_GROUP_SCHED", { "SCHED_DAYS", "SEASON_SPP", "ROUTES", "SSM_SCHEDULE"} },
-        { "SP_PG_GROUP_SCHED_SEQ", {"ROUTES_MOVE_ID", "ROUTES_TRIP_ID", "SSM_ID"} }
+        { "SP_PG_GROUP_SCHED_SEQ", {"ROUTES_MOVE_ID", "ROUTES_TRIP_ID", "SSM_ID"} },
+        { "SP_PG_GROUP_SPPCKIN", {"TRIP_ALARMS", "TRIP_APIS_PARAMS", "TRIP_RPT_PERSON", "UTG_PRL"} }
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
@@ -133,6 +134,14 @@ namespace PgOra
         return ("SELECT " + sequenceName + ".NEXTVAL FROM DUAL");
     }
 
+    std::string makeSeqCurrVal(const std::string& sequenceName)
+    {
+        if (supportsPg(sequenceName)) {
+            return ("SELECT CURRVAL('" + sequenceName + "')");
+        }
+        return ("SELECT " + sequenceName + ".CURRVAL FROM DUAL");
+    }
+
     template<class T>
     T getSeqNextValInner(const std::string& sequenceName)
     {
@@ -149,9 +158,40 @@ namespace PgOra
         return getSeqNextValInner<long>(sequenceName);
     }
 
+    int getSeqNextVal_int(const std::string& sequenceName)
+    {
+        return getSeqNextValInner<int>(sequenceName);
+    }
+
     unsigned long getSeqNextVal_ul(const std::string& sequenceName)
     {
         return getSeqNextValInner<unsigned long>(sequenceName);
+    }
+
+    template<class T>
+    T getSeqCurrValInner(const std::string& sequenceName)
+    {
+        T result;
+        make_db_curs(makeSeqCurrVal(sequenceName),
+                     getRWSession(sequenceName))
+                .def(result)
+                .EXfet();
+        return result;
+    }
+
+    long getSeqCurrVal(const std::string& sequenceName)
+    {
+        return getSeqCurrValInner<long>(sequenceName);
+    }
+
+    int getSeqCurrVal_int(const std::string& sequenceName)
+    {
+        return getSeqNextValInner<int>(sequenceName);
+    }
+
+    unsigned long getSeqCurrVal_ul(const std::string& sequenceName)
+    {
+        return getSeqCurrValInner<unsigned long>(sequenceName);
     }
 
 } // namespace PgOra

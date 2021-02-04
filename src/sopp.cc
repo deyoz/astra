@@ -6,7 +6,8 @@
 #include "astra_utils.h"
 #include "astra_misc.h"
 #include "stl_utils.h"
-#include "oralib.h"
+#include "db_tquery.h"
+#include "PgOraConfig.h"
 #include "xml_unit.h"
 #include "astra_date_time.h"
 #include "misc.h"
@@ -6072,7 +6073,7 @@ void SoppInterface::WriteCrew(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 void SoppInterface::ReadDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     int point_id = NodeAsInteger( "point_id", reqNode );
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("TRIP_RPT_PERSON"));
     Qry.SQLText =
       "SELECT loader, pts_agent "
       "FROM trip_rpt_person WHERE point_id=:point_id";
@@ -6089,29 +6090,37 @@ void SoppInterface::ReadDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
 }
 
 void SoppInterface::WriteDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    LEvntPrms params;
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-      "BEGIN "
-      "  UPDATE trip_rpt_person "
-      "  SET loader=SUBSTR(:loader,1,100), "
-      "      pts_agent=SUBSTR(:pts_agent,1,100) "
-      "  WHERE point_id=:point_id; "
-      "  IF SQL%NOTFOUND THEN "
-      "    INSERT INTO trip_rpt_person(point_id, loader, pts_agent) "
-      "    VALUES(:point_id, SUBSTR(:loader,1,100), SUBSTR(:pts_agent,1,100)); "
-      "  END IF;"
-      "END;";
+{     
     xmlNodePtr dataNode = NodeAsNode( "data/doc", reqNode );
-    Qry.CreateVariable( "point_id", otInteger, NodeAsInteger( "point_id", dataNode ) );
     validateField( NodeAsString( "loader", dataNode ), "É‡„ßÁ®™" );
-    Qry.CreateVariable( "loader", otString, NodeAsString( "loader", dataNode ) );
     validateField( NodeAsString( "pts_agent ", dataNode ), "Ä£•≠‚ ëéèè" );
-    Qry.CreateVariable( "pts_agent", otString, NodeAsString( "pts_agent", dataNode ) );
+
+    QParams QryParams;
+    QryParams << QParam( "point_id",  otInteger, NodeAsInteger( "point_id", dataNode ) )
+              << QParam( "loader",    otString,  NodeAsString( "loader", dataNode ) )
+              << QParam( "pts_agent", otString,  NodeAsString( "pts_agent", dataNode ) );
+
+    const std::string UpdSql =
+        "UPDATE trip_rpt_person "
+        "SET loader=SUBSTR(:loader,1,100), pts_agent=SUBSTR(:pts_agent,1,100) "
+        "WHERE point_id=:point_id ";
+
+    const std::string InsSql =
+        "INSERT INTO trip_rpt_person(point_id, loader, pts_agent) "
+        "VALUES(:point_id, SUBSTR(:loader,1,100), SUBSTR(:pts_agent,1,100)) ";
+
+    DB::TCachedQuery UpdQry(PgOra::getRWSession("TRIP_RPT_PERSON"), UpdSql, QryParams);
+    DB::TCachedQuery InsQry(PgOra::getRWSession("TRIP_RPT_PERSON"), InsSql, QryParams);
+
+    LEvntPrms params;
     params << PrmSmpl<std::string>("pts_agent", NodeAsString("pts_agent", dataNode))
-              << PrmSmpl<std::string>("loader", NodeAsString("loader", dataNode));
-    Qry.Execute();
+           << PrmSmpl<std::string>("loader", NodeAsString("loader", dataNode));
+
+    UpdQry.get().Execute();
+    if(UpdQry.get().RowsProcessed() == 0) {
+        InsQry.get().Execute();
+    }
+
     TReqInfo::Instance()->LocaleToLog("EVT.PTS_AGENT_LOADER", params, evtFlt,  NodeAsInteger( "point_id", dataNode ) );
 }
 
