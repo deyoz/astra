@@ -1258,8 +1258,6 @@ BEGIN
     DELETE FROM pax_seats WHERE point_id=curRow.point_id;
     DELETE FROM trip_tasks WHERE point_id=curRow.point_id;
     DELETE FROM counters_by_subcls WHERE point_id=curRow.point_id;
-    DELETE FROM wb_msg_text where id in(SELECT id FROM wb_msg WHERE point_id = curRow.point_id);
-    DELETE FROM wb_msg where point_id = curRow.point_id;
     DELETE FROM trip_vouchers WHERE point_id=curRow.point_id;
     DELETE FROM confirm_print_vo_unreg WHERE point_id = curRow.point_id;
     DELETE FROM del_vo WHERE point_id = curRow.point_id;
