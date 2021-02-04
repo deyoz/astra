@@ -1069,8 +1069,9 @@ static std::string FP_tables_equal(const std::vector<tok::Param>& params)
 static std::vector<string> getPaxAlarms(const std::string& table_name, int pax_id)
 {
     std::string alarm;
-    auto cur = make_curs(
-"select ALARM_TYPE from "+table_name+" where PAX_ID=:pax_id");
+    auto cur = make_db_curs(
+          "select ALARM_TYPE from "+table_name+" where PAX_ID=:pax_id",
+          PgOra::getROSession(table_name));
     cur.def(alarm)
        .bind(":pax_id",pax_id)
        .exec();

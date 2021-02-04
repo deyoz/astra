@@ -26,12 +26,14 @@
 #include <serverlib/dbcpp_cursctl.h>
 #include "PgOraConfig.h"
 #include "tlg/typeb_db.h"
+#include "pax_db.h"
 
 //#include "serverlib/dump_table.h"
 //#include "hooked_session.h"
 
 #include "dbostructures.h"
 #include "baggage_calc.h"
+#include "alarms.h"
 
 #define NICKNAME "FELIX"
 #define NICKTRACE FELIX_TRACE
@@ -1721,7 +1723,6 @@ void deleteByPaxes(const PaxId_t& pax_id)
                 "DELETE FROM rozysk WHERE pax_id=:pax_id; "
                 "DELETE FROM trip_comp_layers WHERE pax_id=:pax_id; "
                 "UPDATE service_payment SET pax_id=NULL WHERE pax_id=:pax_id; "
-                "DELETE FROM pax_alarms WHERE pax_id=:pax_id; "
                 "DELETE FROM pax_custom_alarms WHERE pax_id=:pax_id; "
                 "DELETE FROM pax_service_lists WHERE pax_id=:pax_id; "
                 "DELETE FROM pax_services WHERE pax_id=:pax_id; "
@@ -1734,6 +1735,7 @@ void deleteByPaxes(const PaxId_t& pax_id)
                 "END;");
     cur.bind(":pax_id", pax_id);
     cur.exec();
+    deletePaxAlarms(pax_id);
     //todo delete from pax
 }
 

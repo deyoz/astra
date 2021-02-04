@@ -8,6 +8,7 @@
 #include "term_version.h"
 #include "date_time.h"
 #include "base_callbacks.h"
+#include "passenger.h"
 
 #include "iapi_interaction.h"
 #include "apps_interaction.h"
@@ -887,9 +888,6 @@ bool DeletePaxPD(int pax_id)
   return (Qry.get().RowsProcessed()>0);
 }
 
-std::set<int> loadPaxIdSet(int grp_id);
-bool existsPax(int pax_id);
-
 TGrpServiceAutoList loadCrsPaxAsvc(int pax_id, const std::optional<TTripInfo>& flt = {});
 
 bool AddPaxASVC(const TGrpServiceAutoItem& item)
@@ -937,12 +935,12 @@ bool AddPaxASVC(int id, bool is_grp_id)
 {
   bool result = false;
   if (is_grp_id) {
-    const std::set<int> paxIdSet = loadPaxIdSet(id);
-    for (int pax_id: paxIdSet) {
-      result = AddPaxASVC(pax_id);
+    const std::set<PaxId_t> paxIdSet = loadPaxIdSet(GrpId_t(id));
+    for (PaxId_t pax_id: paxIdSet) {
+      result = AddPaxASVC(pax_id.get());
     }
   } else {
-    if (existsPax(id)) {
+    if (existsPax(PaxId_t(id))) {
       result = AddPaxASVC(id);
     }
   }
@@ -986,12 +984,12 @@ bool AddPaxPD(int id, bool is_grp_id)
 {
   bool result = false;
   if (is_grp_id) {
-    const std::set<int> paxIdSet = loadPaxIdSet(id);
-    for (int pax_id: paxIdSet) {
-      result = AddPaxPD(pax_id);
+    const std::set<PaxId_t> paxIdSet = loadPaxIdSet(GrpId_t(id));
+    for (PaxId_t pax_id: paxIdSet) {
+      result = AddPaxPD(pax_id.get());
     }
   } else {
-    if (existsPax(id)) {
+    if (existsPax(PaxId_t(id))) {
       result = AddPaxPD(id);
     }
   }

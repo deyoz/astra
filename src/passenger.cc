@@ -94,6 +94,52 @@ bool isEmptyPaxId(int id)
   return id!=ASTRA::NoExists && id==EMPTY_ID;
 }
 
+std::set<PaxId_t> loadPaxIdSet(GrpId_t grp_id)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": grp_id=" << grp_id;
+  std::set<PaxId_t> result;
+  int pax_id = ASTRA::NoExists;
+  auto cur = make_db_curs(
+        "SELECT pax_id "
+        "FROM pax "
+        "WHERE grp_id=:grp_id ",
+        PgOra::getROSession("PAX"));
+
+  cur.stb()
+      .def(pax_id)
+      .bind(":grp_id", grp_id.get())
+      .exec();
+
+  while (!cur.fen()) {
+    result.insert(PaxId_t(pax_id));
+  }
+  LogTrace(TRACE5) << __func__
+                   << ": count=" << result.size();
+  return result;
+}
+
+bool existsPax(PaxId_t pax_id)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": pax_id=" << pax_id;
+  int count = 0;
+  auto cur = make_db_curs(
+        "SELECT count(1) "
+        "FROM pax "
+        "WHERE pax.pax_id=:pax_id ",
+        PgOra::getROSession("PAX"));
+
+  cur.stb()
+      .def(count)
+      .bind(":pax_id", pax_id.get())
+      .EXfet();
+
+  LogTrace(TRACE5) << __func__
+                   << ": count=" << count;
+  return count > 0;
+}
+
 namespace CheckIn
 {
 
@@ -2950,52 +2996,6 @@ TPaxGrpCategory::Enum TSimplePaxGrpItem::grpCategory() const
     return TPaxGrpCategory::Passenges;
 }
 
-bool existsPax(int pax_id)
-{
-  LogTrace(TRACE5) << __func__
-                   << ": pax_id=" << pax_id;
-  int count = 0;
-  auto cur = make_db_curs(
-        "SELECT count(1) "
-        "FROM pax "
-        "WHERE pax.pax_id=:pax_id ",
-        PgOra::getROSession("PAX"));
-
-  cur.stb()
-      .def(count)
-      .bind(":pax_id", pax_id)
-      .EXfet();
-
-  LogTrace(TRACE5) << __func__
-                   << ": count=" << count;
-  return count > 0;
-}
-
-std::set<int> loadPaxIdSet(int grp_id)
-{
-  LogTrace(TRACE5) << __func__
-                   << ": grp_id=" << grp_id;
-  std::set<int> result;
-  int pax_id = ASTRA::NoExists;
-  auto cur = make_db_curs(
-        "SELECT pax_id "
-        "FROM pax "
-        "WHERE pax.grp_id=:grp_id ",
-        PgOra::getROSession("PAX"));
-
-  cur.stb()
-      .def(pax_id)
-      .bind(":grp_id", grp_id)
-      .exec();
-
-  while (!cur.fen()) {
-    result.insert(pax_id);
-  }
-  LogTrace(TRACE5) << __func__
-                   << ": count=" << result.size();
-  return result;
-}
-
 std::set<int> loadInfIdSet(int pax_id, bool lock)
 {
   LogTrace(TRACE5) << __func__
@@ -3105,9 +3105,9 @@ TGrpServiceAutoList loadCrsPaxAsvc(int pax_id, const std::optional<TTripInfo>& f
 
 void TPaxGrpItem::SyncServiceAuto(const TTripInfo& flt)
 {
-  const std::set<int> paxIdSet = loadPaxIdSet(id);
-  for (int pax_id: paxIdSet) {
-    const TGrpServiceAutoList asvcList = loadCrsPaxAsvc(pax_id, flt);
+  const std::set<PaxId_t> paxIdSet = loadPaxIdSet(GrpId_t(id));
+  for (PaxId_t pax_id: paxIdSet) {
+    const TGrpServiceAutoList asvcList = loadCrsPaxAsvc(pax_id.get(), flt);
     if (asvcList.empty()) {
       continue;
     }

@@ -22,6 +22,9 @@
 #include "apis_creator.h"
 #include "apps_interaction.h"
 #include <serverlib/cursctl.h>
+#include "passenger.h"
+#include "db_tquery.h"
+#include "PgOraConfig.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -763,10 +766,10 @@ static std::string getPaxAlarmTable(const PaxOrigin paxOrigin)
   switch (paxOrigin)
   {
     case paxCheckIn:
-      return "pax_alarms";
+      return "PAX_ALARMS";
       break;
     case paxPnl:
-      return "crs_pax_alarms";
+      return "CRS_PAX_ALARMS";
       break;
     default:
       break;
@@ -775,18 +778,48 @@ static std::string getPaxAlarmTable(const PaxOrigin paxOrigin)
   return "";
 }
 
-static bool setAlarmByPaxId(const int paxId, const Alarm::Enum alarmType, const bool alarmValue, const PaxOrigin paxOrigin)
+static bool setAlarmByPaxId(const int paxId, const Alarm::Enum alarmType,
+                            const bool alarmValue, const PaxOrigin paxOrigin)
 {
+  LogTrace(TRACE6) << __func__
+                   << ": paxId=" << paxId
+                   << ", alarmType=" << alarmType
+                   << ", alarmValue=" << alarmValue
+                   << ", paxOrigin=" << paxOrigin;
   string table_name=getPaxAlarmTable(paxOrigin);
   if (table_name.empty()) return false;
 
-  TQuery Qry(&OraSession);
-  if(alarmValue)
-      Qry.SQLText = "insert into " + table_name + "(pax_id, alarm_type) values(:pax_id, :alarm_type)";
-  else
-      Qry.SQLText = "delete from " + table_name + " where pax_id = :pax_id and alarm_type = :alarm_type";
+  DB::TQuery Qry(PgOra::getRWSession(table_name));
+  if(alarmValue) {
+      Qry.SQLText =
+          "INSERT INTO " + table_name + "("
+          "pax_id, alarm_type, point_id "
+          ") VALUES ("
+          ":pax_id, :alarm_type, :point_id "
+          ")";
+  } else {
+      Qry.SQLText =
+          "DELETE FROM " + table_name + " "
+          "WHERE pax_id = :pax_id "
+          "AND alarm_type = :alarm_type ";
+  }
   Qry.CreateVariable("pax_id", otInteger, paxId);
   Qry.CreateVariable("alarm_type", otString, AlarmTypes().encode(alarmType));
+  if (alarmValue) {
+    if (paxOrigin == paxCheckIn) {
+      const std::optional<PointId_t> point_id = getPointIdByPaxId(PaxId_t(paxId));
+      if (not point_id) {
+        return false;
+      }
+      Qry.CreateVariable("point_id", otInteger, point_id->get());
+    } else if (paxOrigin == paxPnl) {
+      const std::optional<PointIdTlg_t> point_id_tlg = getPointIdTlgByPaxId(PaxId_t(paxId), true /*with_deleted*/);
+      if (not point_id_tlg) {
+        return false;
+      }
+      Qry.CreateVariable("point_id", otInteger, point_id_tlg->get());
+    }
+  }
   try {
       Qry.Execute();
       if(Qry.RowsProcessed()>0) return true;
@@ -824,33 +857,57 @@ bool deleteAlarmByPaxId(const int paxId,
 
 bool deleteAlarmByGrpId(const int grpId, const Alarm::Enum alarmType)
 {
-  TCachedQuery Qry("DELETE FROM pax_alarms WHERE alarm_type=:alarm_type AND pax_id IN (SELECT pax_id FROM pax WHERE grp_id=:grp_id)",
-                   QParams() << QParam("grp_id", otInteger, grpId)
-                             << QParam("alarm_type", otString, AlarmTypes().encode(alarmType)));
-  Qry.get().Execute();
-  return (Qry.get().RowsProcessed()>0);
+  int result = 0;
+  const std::set<PaxId_t> paxIds = loadPaxIdSet(GrpId_t(grpId));
+  for (const PaxId_t paxId: paxIds) {
+    DB::TCachedQuery Qry(
+          PgOra::getRWSession("PAX_ALARMS"),
+          "DELETE FROM pax_alarms "
+          "WHERE alarm_type=:alarm_type "
+          "AND pax_id = :pax_id",
+          QParams() << QParam("pax_id", otInteger, paxId.get())
+          << QParam("alarm_type", otString, AlarmTypes().encode(alarmType)));
+    Qry.get().Execute();
+    result += Qry.get().RowsProcessed();
+  }
+  return (result > 0);
 }
 
-bool existsAlarmByPaxId(const int paxId, const Alarm::Enum alarmType, const PaxOrigin paxOrigin)
+bool existsAlarmByPaxId(const int paxId, const Alarm::Enum alarmType,
+                        const PaxOrigin paxOrigin)
 {
   string table_name=getPaxAlarmTable(paxOrigin);
   if (table_name.empty()) return false;
 
-  TCachedQuery Qry("SELECT 1 FROM " + table_name + " WHERE alarm_type=:alarm_type AND pax_id=:pax_id",
-                   QParams() << QParam("pax_id", otInteger, paxId)
-                             << QParam("alarm_type", otString, AlarmTypes().encode(alarmType)));
+  DB::TCachedQuery Qry(
+        PgOra::getROSession(table_name),
+        "SELECT 1 FROM " + table_name + " "
+        "WHERE alarm_type=:alarm_type "
+        "AND pax_id=:pax_id",
+        QParams() << QParam("pax_id", otInteger, paxId)
+        << QParam("alarm_type", otString, AlarmTypes().encode(alarmType)));
   Qry.get().Execute();
   return (!Qry.get().Eof);
 }
 
 bool existsAlarmByGrpId(const int grpId, const Alarm::Enum alarmType)
 {
-  TCachedQuery Qry("SELECT 1 FROM pax_alarms, pax "
-                   "WHERE pax_alarms.pax_id=pax.pax_id AND pax_alarms.alarm_type=:alarm_type AND pax.grp_id=:grp_id AND rownum<2",
-                   QParams() << QParam("grp_id", otInteger, grpId)
-                             << QParam("alarm_type", otString, AlarmTypes().encode(alarmType)));
-  Qry.get().Execute();
-  return (!Qry.get().Eof);
+  const std::set<PaxId_t> paxIds = loadPaxIdSet(GrpId_t(grpId));
+  for (const PaxId_t paxId: paxIds) {
+    DB::TCachedQuery Qry(
+          PgOra::getROSession("PAX_ALARMS"),
+          "SELECT 1 FROM pax_alarms "
+          "WHERE pax_alarms.pax_id=:pax_id "
+          "AND pax_alarms.alarm_type=:alarm_type ",
+          QParams()
+          << QParam("pax_id", otInteger, paxId.get())
+          << QParam("alarm_type", otString, AlarmTypes().encode(alarmType)));
+    Qry.get().Execute();
+    if ((!Qry.get().Eof)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 static std::string getAlarmSQLEnum(const std::initializer_list<Alarm::Enum>& alarms)
@@ -867,31 +924,37 @@ bool existsAlarmByPointId(const int pointId,
 {
   for(const auto& paxOrigin : origins)
   {
+    string table_name;
     string sql;
+    int pointId_ = pointId;
     switch(paxOrigin)
     {
       case paxCheckIn:
-        sql = "SELECT 1 FROM pax_alarms, pax, pax_grp "
-              "WHERE pax_alarms.pax_id=pax.pax_id AND "
-              "      pax.grp_id=pax_grp.grp_id AND "
-              "      pax_grp.point_dep=:point_id AND "
-              "      rownum<2 AND "
-              "      pax_alarms.alarm_type IN "+ getAlarmSQLEnum(alarms);
+        table_name = "PAX_ALARMS";
+        sql = "SELECT 1 FROM pax_alarms "
+              "WHERE point_id=:point_id "
+              "AND alarm_type IN " + getAlarmSQLEnum(alarms);
         break;
       case paxPnl:
-        sql = "SELECT 1 FROM crs_pax_alarms, crs_pax, crs_pnr, tlg_binding "
-              "WHERE crs_pax_alarms.pax_id=crs_pax.pax_id AND "
-              "      crs_pax.pnr_id=crs_pnr.pnr_id AND "
-              "      crs_pnr.point_id=tlg_binding.point_id_tlg AND "
-              "      tlg_binding.point_id_spp=:point_id AND "
-              "      rownum<2 AND "
-              "      crs_pax_alarms.alarm_type IN "+ getAlarmSQLEnum(alarms);
+      {
+        table_name = "CRS_PAX_ALARMS";
+        sql = "SELECT 1 FROM crs_pax_alarms "
+              "WHERE point_id=:point_id "
+              "AND alarm_type IN " + getAlarmSQLEnum(alarms);
+        const std::optional<PointIdTlg_t> pointIdTlg = getPointIdTlgByPointIdsSpp(PointId_t(pointId));
+        if (!pointIdTlg) {
+          return false;
+        }
+        pointId_ = pointIdTlg->get();
         break;
+      }
       default:
         continue;
     }
-
-    TCachedQuery Qry(sql, QParams() << QParam("point_id", otInteger, pointId));
+    DB::TCachedQuery Qry(
+          PgOra::getROSession(table_name),
+          sql,
+          QParams() << QParam("point_id", otInteger, pointId_));
 
     Qry.get().Execute();
     if (!Qry.get().Eof) return true;
@@ -903,14 +966,15 @@ void getAlarmByPointId(const int pointId, const Alarm::Enum alarmType, std::set<
 {
   paxIds.clear();
 
-  TCachedQuery Qry("SELECT pax_alarms.pax_id "
-                   "FROM pax_alarms, pax, pax_grp "
-                   "WHERE pax_alarms.pax_id=pax.pax_id AND "
-                   "      pax.grp_id=pax_grp.grp_id AND "
-                   "      pax_grp.point_dep=:point_id AND "
-                   "      pax_alarms.alarm_type=:alarm_type",
-                   QParams() << QParam("point_id", otInteger, pointId)
-                             << QParam("alarm_type", otString, AlarmTypes().encode(alarmType)));
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("PAX_ALARMS"),
+        "SELECT pax_id "
+        "FROM pax_alarms "
+        "WHERE point_id=:point_id "
+        "AND alarm_type=:alarm_type",
+        QParams()
+        << QParam("point_id", otInteger, pointId)
+        << QParam("alarm_type", otString, AlarmTypes().encode(alarmType)));
   Qry.get().Execute();
   for(; !Qry.get().Eof; Qry.get().Next())
     paxIds.insert(Qry.get().FieldAsInteger("pax_id"));
@@ -920,19 +984,20 @@ std::set<PaxId_t> getAlarmByPointId(const PointId_t& pointId, const Alarm::Enum 
                                     const PaxOrigin origin)
 {
     std::set<PaxId_t> paxIds;
-    const std::string alarm =  AlarmTypes().encode(alarmType);
+    const std::string alarm = AlarmTypes().encode(alarmType);
     int pax_id = 0;
     switch (origin) {
     case paxCheckIn:
     {
-        auto cur = make_curs(
-                   "select PAX_ALARMS.PAX_ID "
-                   "from PAX, PAX_GRP, PAX_ALARMS "
-                   " where PAX_ALARMS.ALARM_TYPE = :alarm and PAX_GRP.POINT_DEP = :point_id_spp and "
-                   "   PAX.GRP_ID = PAX_GRP.GRP_ID and PAX.PAX_ID = PAX_ALARMS.PAX_ID ");
+        auto cur = make_db_curs(
+              "SELECT pax_id "
+              "FROM pax_alarms "
+              "WHERE alarm_type = :alarm "
+              "AND point_id = :point_id ",
+              PgOra::getROSession("PAX_ALARMS"));
 
         cur.def(pax_id)
-           .bind(":point_id_spp", pointId.get())
+           .bind(":point_id", pointId.get())
            .bind(":alarm", alarm)
            .exec();
         while(!cur.fen()) {
@@ -942,14 +1007,18 @@ std::set<PaxId_t> getAlarmByPointId(const PointId_t& pointId, const Alarm::Enum 
     }
     case paxPnl:
     {
-        auto cur = make_curs(
-                   "select CRS_PAX.PAX_ID "
-                   "from CRS_PAX, CRS_PNR, TLG_BINDING, CRS_PAX_ALARMS "
-                   " where CRS_PAX_ALARMS.ALARM_TYPE = :alarm and POINT_ID_SPP = :point_id_spp and "
-                   "   CRS_PAX.PNR_ID = CRS_PNR.PNR_ID and CRS_PAX.PAX_ID = CRS_PAX_ALARMS.PAX_ID and "
-                   "   CRS_PNR.POINT_ID = TLG_BINDING.POINT_ID_TLG");
+        const std::optional<PointIdTlg_t> pointIdTlg = getPointIdTlgByPointIdsSpp(pointId);
+        if (!pointIdTlg) {
+          return {};
+        }
+        auto cur = make_db_curs(
+                   "SELECT pax_id "
+                   "FROM crs_pax_alarms "
+                   "WHERE alarm_type = :alarm "
+                   "AND point_id = :point_id ",
+                   PgOra::getROSession("CRS_PAX_ALARMS"));
         cur.def(pax_id)
-           .bind(":point_id_spp", pointId.get())
+           .bind(":point_id", pointIdTlg->get())
            .bind(":alarm", alarm)
            .exec();
         while(!cur.fen()) {

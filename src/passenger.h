@@ -182,6 +182,9 @@ void addPaxEvent(const PaxIdWithSegmentPair& paxId,
 void synchronizePaxEvents(const ModifiedPax& modifiedPax,
                           ModifiedPaxRem& modifiedPaxRem);
 
+std::set<PaxId_t> loadPaxIdSet(GrpId_t grp_id);
+bool existsPax(PaxId_t pax_id);
+
 namespace CheckIn
 {
 

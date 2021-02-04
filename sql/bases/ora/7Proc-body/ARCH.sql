@@ -1191,7 +1191,6 @@ BEGIN
         DELETE FROM rozysk WHERE pax_id=paxids(k);
         DELETE FROM trip_comp_layers WHERE pax_id=paxids(k);
         UPDATE service_payment SET pax_id=NULL WHERE pax_id=paxids(k);
-        DELETE FROM pax_alarms WHERE pax_id=paxids(k);
         DELETE FROM pax_custom_alarms WHERE pax_id=paxids(k);
         DELETE FROM pax_service_lists WHERE pax_id=paxids(k);
         DELETE FROM pax_services WHERE pax_id=paxids(k);
