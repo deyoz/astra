@@ -445,8 +445,8 @@ std::string getPSPT(int pax_id, bool with_issue_country, const std::string& lang
           PgOra::getROSession("CRS_PAX_DOC"));
 
     cur.stb()
-        .def(issue_country)
-        .def(no)
+        .defNull(issue_country, "")
+        .defNull(no, "")
         .bind(":pax_id", pax_id)
         .exfet();
 
