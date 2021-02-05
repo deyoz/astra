@@ -1587,6 +1587,18 @@ struct TAPPSVersion26 : public TAppsSitaFormat
   bool CheckDocoIssueCountry(const string& issue_place);
 };
 
+// special version for Thailand
+struct TAPPSVersion26_TH : public TAPPSVersion26
+{
+  long int required_fields(TPaxType pax, TAPIType api) const
+  {
+    if (api == apiDoc) return DOC_APPS_26_FIELDS;
+    if (api == apiDoco) return DOCO_APPS_26_FIELDS;
+    if (api == apiDocaD) return DOCA_D_APPS_26_FIELDS;
+    return NO_FIELDS;
+  }
+};
+
 struct TIAPIFormat_CN : public TIAPIFormat
 {
     TIAPIFormat_CN()
@@ -1665,6 +1677,7 @@ inline TAPISFormat* SpawnAPISFormat(const string& fmt, bool throwIfUnhandled=tru
 
   if (fmt=="APPS_21")     p = new TAPPSVersion21; else
   if (fmt=="APPS_26")     p = new TAPPSVersion26; else
+  if (fmt=="APPS_26_TH")  p = new TAPPSVersion26_TH; else
 
   if (fmt=="IAPI_CN")     p = new TIAPIFormat_CN; else
   if (fmt=="EDI_CNCREW")  p = new TAPISFormat_EDI_CNCREW;
