@@ -88,6 +88,8 @@ static const int MaxCicxPaxNum = 10;
 
 const std::string APPS_FORMAT_21 = "APPS_21";
 const std::string APPS_FORMAT_26 = "APPS_26";
+const std::string APPS_FORMAT_26_TH = "APPS_26_TH";
+
 const int APPS_VERSION_21 = 21;
 const int APPS_VERSION_26 = 26;
 const int APPS_VERSION_27 = 27;
@@ -1260,7 +1262,7 @@ int versionByFormat(const std::string& fmt)
     if (fmt == APPS_FORMAT_21) {
         return APPS_VERSION_21;
     }
-    if (fmt == APPS_FORMAT_26) {
+    if (fmt == APPS_FORMAT_26 || fmt == APPS_FORMAT_26_TH) {
         return APPS_VERSION_26;
     }
     throw Exception("cannot get version, format %s", fmt.c_str());
