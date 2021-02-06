@@ -1,6 +1,7 @@
 include(ts/macro.ts)
 include(ts/adm_macro.ts)
 include(ts/spp/write_dests_macro.ts)
+include(ts/pax/checkin_macro.ts)
 include(ts/pax/boarding_macro.ts)
 
 # meta: suite eticket
@@ -267,88 +268,13 @@ $(NEW_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(get airp_dep) $(get ai
 {
 <passengers>
   <pax>
-    <pax_id>$(get pax_id_06)</pax_id>
-    <surname>„Œˆ’ˆ…‚€</surname>
-    <name>‹ˆŸ €‹…Š‘€„‚€</name>
-    <pers_type>‚‡</pers_type>
-    <seat_no/>
-    <preseat_no/>
-    <seat_type/>
-    <seats>1</seats>
-    <ticket_no>2982425618100</ticket_no>
-    <coupon_no>1</coupon_no>
-    <ticket_rem>TKNE</ticket_rem>
-    <ticket_confirm>0</ticket_confirm>
-    <document>
-      <type>P</type>
-      <issue_country>RUS</issue_country>
-      <no>0310526187</no>
-      <nationality>RUS</nationality>
-      <birth_date>23.08.1985 00:00:00</birth_date>
-      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
-      <gender>F</gender>
-      <surname>„Œˆ’ˆ…‚€</surname>
-      <first_name>‹ˆŸ €‹…Š‘€„‚€</first_name>
-    </document>
-    <subclass>”</subclass>
-    <bag_pool_num/>
-    <transfer/>
+$(NEW_CHECKIN_2982425618100 $(get pax_id_06))
   </pax>
   <pax>
-    <pax_id>$(get pax_id_07)</pax_id>
-    <surname>—€Š‚</surname>
-    <name>Œˆ•€ˆ‹ ƒ…€„œ…‚ˆ—</name>
-    <pers_type></pers_type>
-    <seat_no/>
-    <preseat_no/>
-    <seat_type/>
-    <seats>1</seats>
-    <ticket_no>2982425618102</ticket_no>
-    <coupon_no>1</coupon_no>
-    <ticket_rem>TKNE</ticket_rem>
-    <ticket_confirm>0</ticket_confirm>
-    <document>
-      <type>F</type>
-      <issue_country>RUS</issue_country>
-      <no>V€ƒ568572</no>
-      <nationality>RUS</nationality>
-      <birth_date>21.11.$(date_format %Y -5y) 00:00:00</birth_date>
-      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
-      <gender>M</gender>
-      <surname>—€Š‚</surname>
-      <first_name>Œˆ•€ˆ‹ ƒ…€„œ…‚ˆ—</first_name>
-    </document>
-    <subclass>”</subclass>
-    <bag_pool_num/>
-    <transfer/>
+$(NEW_CHECKIN_2982425618102 $(get pax_id_07))
   </pax>
   <pax>
-    <pax_id>$(get pax_id_08 )</pax_id>
-    <surname>—€Š‚</surname>
-    <name>ˆŠ‹€‰</name>
-    <pers_type>Œ</pers_type>
-    <seat_no/>
-    <preseat_no/>
-    <seat_type/>
-    <seats>1</seats>
-    <ticket_no>2982425618101</ticket_no>
-    <coupon_no>1</coupon_no>
-    <ticket_rem>TKNE</ticket_rem>
-    <ticket_confirm>0</ticket_confirm>
-    <document>
-      <type>F</type>
-      <issue_country>RUS</issue_country>
-      <no>V€ƒ841650</no>
-      <nationality>RUS</nationality>
-      <birth_date>11.08.$(date_format %Y -2y) 00:00:00</birth_date>
-      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
-      <gender>M</gender>
-      <surname>—€Š‚</surname>
-      <first_name>Œˆ•€ˆ‹ ƒ…€„œ…‚ˆ—</first_name>
-    </document>
-    <subclass>”</subclass>
-    <bag_pool_num/>
-    <transfer/>
+$(NEW_CHECKIN_2982425618101 $(get pax_id_08))
   </pax>
 </passengers>
 })
@@ -373,92 +299,23 @@ $(TKCRES_ET_COS UTET UTDC $(get edi_ref0) 2982425618102 1 CK)
 
 $(KICK_IN_SILENT)
 
-$(set grp_id $(get_single_grp_id $(get point_dep) „Œˆ’ˆ…‚€ "‹ˆŸ €‹…Š‘€„‚€"))
-$(set grp_tid $(get_single_tid $(get point_dep) „Œˆ’ˆ…‚€ "‹ˆŸ €‹…Š‘€„‚€"))
-$(set pax_tid_06 $(get_single_pax_tid $(get point_dep) „Œˆ’ˆ…‚€ "‹ˆŸ €‹…Š‘€„‚€"))
-$(set pax_tid_07 $(get_single_pax_tid $(get point_dep) —€Š‚ "Œˆ•€ˆ‹ ƒ…€„œ…‚ˆ—"))
-$(set pax_tid_08 $(get_single_pax_tid $(get point_dep) —€Š‚ "ˆŠ‹€‰"))
+$(set grp_id $(get_single_grp_id $(get pax_id_06)))
+$(set grp_tid $(get_single_tid $(get pax_id_06)))
+$(set pax_tid_06 $(get_single_pax_tid $(get pax_id_06)))
+$(set pax_tid_07 $(get_single_pax_tid $(get pax_id_07)))
+$(set pax_tid_08 $(get_single_pax_tid $(get pax_id_08)))
 
 $(CHANGE_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(get airp_dep) $(get airp_arv) $(get grp_id) $(get grp_tid)
 {
 <passengers>
   <pax>
-    <pax_id>$(get pax_id_06)</pax_id>
-    <surname>„Œˆ’ˆ…‚€</surname>
-    <name>‹ˆŸ €‹…Š‘€„‚€</name>
-    <pers_type>‚‡</pers_type>
-    <refuse>€</refuse>
-    <ticket_no>2982425618100</ticket_no>
-    <coupon_no>1</coupon_no>
-    <ticket_rem>TKNE</ticket_rem>
-    <ticket_confirm>0</ticket_confirm>
-    <document>
-      <type>P</type>
-      <issue_country>RUS</issue_country>
-      <no>0310526187</no>
-      <nationality>RUS</nationality>
-      <birth_date>23.08.1985 00:00:00</birth_date>
-      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
-      <gender>F</gender>
-      <surname>„Œˆ’ˆ…‚€</surname>
-      <first_name>‹ˆŸ €‹…Š‘€„‚€</first_name>
-    </document>
-    <subclass>”</subclass>
-    <bag_pool_num/>
-    <transfer/>
-    <tid>$(get pax_tid_06)</tid>
+$(CHANGE_CHECKIN_2982425618100 $(get pax_id_06) $(get pax_tid_06) refuse=€)
   </pax>
   <pax>
-    <pax_id>$(get pax_id_07)</pax_id>
-    <surname>—€Š‚</surname>
-    <name>Œˆ•€ˆ‹ ƒ…€„œ…‚ˆ—</name>
-    <pers_type></pers_type>
-    <refuse></refuse>
-    <ticket_no>2982425618102</ticket_no>
-    <coupon_no>1</coupon_no>
-    <ticket_rem>TKNE</ticket_rem>
-    <ticket_confirm>0</ticket_confirm>
-    <document>
-      <type>F</type>
-      <issue_country>RUS</issue_country>
-      <no>V€ƒ568572</no>
-      <nationality>RUS</nationality>
-      <birth_date>21.11.$(date_format %Y -5y) 00:00:00</birth_date>
-      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
-      <gender>M</gender>
-      <surname>—€Š‚</surname>
-      <first_name>Œˆ•€ˆ‹ ƒ…€„œ…‚ˆ—</first_name>
-    </document>
-    <subclass>”</subclass>
-    <bag_pool_num/>
-    <transfer/>
-    <tid>$(get pax_tid_07)</tid>
+$(CHANGE_CHECKIN_2982425618102 $(get pax_id_07) $(get pax_tid_07) refuse=)
   </pax>
   <pax>
-    <pax_id>$(get pax_id_08)</pax_id>
-    <surname>—€Š‚</surname>
-    <name>ˆŠ‹€‰</name>
-    <pers_type>Œ</pers_type>
-    <refuse>€</refuse>
-    <ticket_no>2982425618101</ticket_no>
-    <coupon_no>1</coupon_no>
-    <ticket_rem>TKNE</ticket_rem>
-    <ticket_confirm>0</ticket_confirm>
-    <document>
-      <type>F</type>
-      <issue_country>RUS</issue_country>
-      <no>V€ƒ841650</no>
-      <nationality>RUS</nationality>
-      <birth_date>11.08.$(date_format %Y -2y) 00:00:00</birth_date>
-      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
-      <gender>M</gender>
-      <surname>—€Š‚</surname>
-      <first_name>Œˆ•€ˆ‹ ƒ…€„œ…‚ˆ—</first_name>
-    </document>
-    <subclass>”</subclass>
-    <bag_pool_num/>
-    <transfer/>
-    <tid>$(get pax_tid_08)</tid>
+$(CHANGE_CHECKIN_2982425618101 $(get pax_id_08) $(get pax_tid_08) refuse=€)
   </pax>
 </passengers>
 })
@@ -487,60 +344,10 @@ $(NEW_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(get airp_dep) $(get ai
 {
 <passengers>
   <pax>
-    <pax_id>$(get pax_id_03)</pax_id>
-    <surname>VASILIADI</surname>
-    <name>KSENIYA VALEREVNA</name>
-    <pers_type>‚‡</pers_type>
-    <seat_no>6ƒ</seat_no>
-    <preseat_no/>
-    <seat_type/>
-    <seats>1</seats>
-    <ticket_no>2986145143703</ticket_no>
-    <coupon_no>2</coupon_no>
-    <ticket_rem>TKNE</ticket_rem>
-    <ticket_confirm>0</ticket_confirm>
-    <document>
-      <type>P</type>
-      <issue_country>RUS</issue_country>
-      <no>0307611933</no>
-      <nationality>RUS</nationality>
-      <birth_date>13.09.1984 00:00:00</birth_date>
-      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
-      <gender>F</gender>
-      <surname>VASILIADI</surname>
-      <first_name>KSENIYA VALEREVNA</first_name>
-    </document>
-    <subclass>‹</subclass>
-    <bag_pool_num/>
-    <transfer/>
+$(NEW_CHECKIN_2986145143703 $(get pax_id_03))
   </pax>
   <pax>
-    <pax_id>$(get pax_id_04)</pax_id>
-    <surname>CHEKMAREV</surname>
-    <name>RONALD</name>
-    <pers_type>Œ</pers_type>
-    <seat_no/>
-    <preseat_no/>
-    <seat_type/>
-    <seats>0</seats>
-    <ticket_no>2986145143704</ticket_no>
-    <coupon_no>2</coupon_no>
-    <ticket_rem>TKNE</ticket_rem>
-    <ticket_confirm>0</ticket_confirm>
-    <document>
-      <type>F</type>
-      <issue_country>RUS</issue_country>
-      <no>V€ƒ815247</no>
-      <nationality>RUS</nationality>
-      <birth_date>29.01.$(date_format %Y -1y) 00:00:00</birth_date>
-      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
-      <gender>M</gender>
-      <surname>CHEKMAREV</surname>
-      <first_name>RONALD KONSTANTINOVICH</first_name>
-    </document>
-    <subclass>‹</subclass>
-    <bag_pool_num/>
-    <transfer/>
+$(NEW_CHECKIN_2986145143704 $(get pax_id_04))
   </pax>
 </passengers>
 })
@@ -566,60 +373,10 @@ $(NEW_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(get airp_dep) $(get ai
 {
 <passengers>
   <pax>
-    <pax_id>$(get pax_id_01)</pax_id>
-    <surname>STIPIDI</surname>
-    <name>ANGELINA</name>
-    <pers_type>‚‡</pers_type>
-    <seat_no>11</seat_no>
-    <preseat_no/>
-    <seat_type/>
-    <seats>1</seats>
-    <ticket_no>2986145134262</ticket_no>
-    <coupon_no>2</coupon_no>
-    <ticket_rem>TKNE</ticket_rem>
-    <ticket_confirm>0</ticket_confirm>
-    <document>
-      <type>P</type>
-      <issue_country>RU</issue_country>
-      <no>0305555064</no>
-      <nationality>RU</nationality>
-      <birth_date>23.07.1982 00:00:00</birth_date>
-      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
-      <gender>F</gender>
-      <surname>STIPIDI</surname>
-      <first_name>ANGELINA</first_name>
-    </document>
-    <subclass>‚</subclass>
-    <bag_pool_num/>
-    <transfer/>
+$(NEW_CHECKIN_2986145134262 $(get pax_id_01))
   </pax>
   <pax>
-    <pax_id>$(get pax_id_02)</pax_id>
-    <surname>AKOPOVA</surname>
-    <name>OLIVIIA</name>
-    <pers_type>Œ</pers_type>
-    <seat_no/>
-    <preseat_no/>
-    <seat_type/>
-    <seats>0</seats>
-    <ticket_no>2986145134263</ticket_no>
-    <coupon_no>2</coupon_no>
-    <ticket_rem>TKNE</ticket_rem>
-    <ticket_confirm>0</ticket_confirm>
-    <document>
-      <type>F</type>
-      <issue_country>RU</issue_country>
-      <no>VIAG519994</no>
-      <nationality>RU</nationality>
-      <birth_date>22.08.$(date_format %Y -1y) 00:00:00</birth_date>
-      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
-      <gender>F</gender>
-      <surname>AKOPOVA</surname>
-      <first_name>OLIVIIA</first_name>
-    </document>
-    <subclass>‚</subclass>
-    <bag_pool_num/>
-    <transfer/>
+$(NEW_CHECKIN_2986145134263 $(get pax_id_02))
   </pax>
 </passengers>
 })
@@ -708,97 +465,22 @@ $(NEW_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(get airp_dep) $(get ai
 {
 <passengers>
   <pax>
-    <pax_id>$(get pax_id_06)</pax_id>
-    <surname>„Œˆ’ˆ…‚€</surname>
-    <name>‹ˆŸ €‹…Š‘€„‚€</name>
-    <pers_type>‚‡</pers_type>
-    <seat_no/>
-    <preseat_no/>
-    <seat_type/>
-    <seats>1</seats>
-    <ticket_no>2982425618100</ticket_no>
-    <coupon_no>1</coupon_no>
-    <ticket_rem>TKNE</ticket_rem>
-    <ticket_confirm>1</ticket_confirm>
-    <document>
-      <type>P</type>
-      <issue_country>RUS</issue_country>
-      <no>0310526187</no>
-      <nationality>RUS</nationality>
-      <birth_date>23.08.1985 00:00:00</birth_date>
-      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
-      <gender>F</gender>
-      <surname>„Œˆ’ˆ…‚€</surname>
-      <first_name>‹ˆŸ €‹…Š‘€„‚€</first_name>
-    </document>
-    <subclass>”</subclass>
-    <bag_pool_num/>
-    <transfer/>
+$(NEW_CHECKIN_2982425618100 $(get pax_id_06) ticket_confirm=1)
   </pax>
   <pax>
-    <pax_id>$(get pax_id_07)</pax_id>
-    <surname>—€Š‚</surname>
-    <name>Œˆ•€ˆ‹ ƒ…€„œ…‚ˆ—</name>
-    <pers_type></pers_type>
-    <seat_no/>
-    <preseat_no/>
-    <seat_type/>
-    <seats>1</seats>
-    <ticket_no>2982425618102</ticket_no>
-    <coupon_no>1</coupon_no>
-    <ticket_rem>TKNE</ticket_rem>
-    <ticket_confirm>1</ticket_confirm>
-    <document>
-      <type>F</type>
-      <issue_country>RUS</issue_country>
-      <no>V€ƒ568572</no>
-      <nationality>RUS</nationality>
-      <birth_date>21.11.$(date_format %Y -5y) 00:00:00</birth_date>
-      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
-      <gender>M</gender>
-      <surname>—€Š‚</surname>
-      <first_name>Œˆ•€ˆ‹ ƒ…€„œ…‚ˆ—</first_name>
-    </document>
-    <subclass>”</subclass>
-    <bag_pool_num/>
-    <transfer/>
+$(NEW_CHECKIN_2982425618102 $(get pax_id_07) ticket_confirm=1)
   </pax>
   <pax>
-    <pax_id>$(get pax_id_08 )</pax_id>
-    <surname>—€Š‚</surname>
-    <name>ˆŠ‹€‰</name>
-    <pers_type>Œ</pers_type>
-    <seat_no/>
-    <preseat_no/>
-    <seat_type/>
-    <seats>1</seats>
-    <ticket_no>2982425618101</ticket_no>
-    <coupon_no>1</coupon_no>
-    <ticket_rem>TKNE</ticket_rem>
-    <ticket_confirm>1</ticket_confirm>
-    <document>
-      <type>F</type>
-      <issue_country>RUS</issue_country>
-      <no>V€ƒ841650</no>
-      <nationality>RUS</nationality>
-      <birth_date>11.08.$(date_format %Y -2y) 00:00:00</birth_date>
-      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
-      <gender>M</gender>
-      <surname>—€Š‚</surname>
-      <first_name>Œˆ•€ˆ‹ ƒ…€„œ…‚ˆ—</first_name>
-    </document>
-    <subclass>”</subclass>
-    <bag_pool_num/>
-    <transfer/>
+$(NEW_CHECKIN_2982425618101 $(get pax_id_08) ticket_confirm=1)
   </pax>
 </passengers>
 })
 
-$(set grp_id $(get_single_grp_id $(get point_dep) „Œˆ’ˆ…‚€ "‹ˆŸ €‹…Š‘€„‚€"))
-$(set grp_tid $(get_single_tid $(get point_dep) „Œˆ’ˆ…‚€ "‹ˆŸ €‹…Š‘€„‚€"))
-$(set pax_tid_06 $(get_single_pax_tid $(get point_dep) „Œˆ’ˆ…‚€ "‹ˆŸ €‹…Š‘€„‚€"))
-$(set pax_tid_07 $(get_single_pax_tid $(get point_dep) —€Š‚ "Œˆ•€ˆ‹ ƒ…€„œ…‚ˆ—"))
-$(set pax_tid_08 $(get_single_pax_tid $(get point_dep) —€Š‚ "ˆŠ‹€‰"))
+$(set grp_id $(get_single_grp_id $(get pax_id_06)))
+$(set grp_tid $(get_single_tid $(get pax_id_06)))
+$(set pax_tid_06 $(get_single_pax_tid $(get pax_id_06)))
+$(set pax_tid_07 $(get_single_pax_tid $(get pax_id_07)))
+$(set pax_tid_08 $(get_single_pax_tid $(get pax_id_08)))
 
 !! err=ignore
 {<?xml version='1.0' encoding='CP866'?>
@@ -838,82 +520,13 @@ $(CHANGE_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(get airp_dep) $(get
 {
 <passengers>
   <pax>
-    <pax_id>$(get pax_id_06)</pax_id>
-    <surname>„Œˆ’ˆ…‚€</surname>
-    <name>‹ˆŸ €‹…Š‘€„‚€</name>
-    <pers_type>‚‡</pers_type>
-    <refuse/>
-    <ticket_no>2982425618100</ticket_no>
-    <coupon_no>1</coupon_no>
-    <ticket_rem>TKNE</ticket_rem>
-    <ticket_confirm>0</ticket_confirm>
-    <document>
-      <type>P</type>
-      <issue_country>RUS</issue_country>
-      <no>0310526187</no>
-      <nationality>RUS</nationality>
-      <birth_date>23.08.1985 00:00:00</birth_date>
-      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
-      <gender>F</gender>
-      <surname>„Œˆ’ˆ…‚€</surname>
-      <first_name>‹ˆŸ €‹…Š‘€„‚€</first_name>
-    </document>
-    <subclass>”</subclass>
-    <bag_pool_num/>
-    <transfer/>
-    <tid>$(get pax_tid_06)</tid>
+$(CHANGE_CHECKIN_2982425618100 $(get pax_id_06) $(get pax_tid_06) refuse="")
   </pax>
   <pax>
-    <pax_id>$(get pax_id_07)</pax_id>
-    <surname>—€Š‚</surname>
-    <name>Œˆ•€ˆ‹ ƒ…€„œ…‚ˆ—</name>
-    <pers_type></pers_type>
-    <refuse></refuse>
-    <ticket_no>2982425618102</ticket_no>
-    <coupon_no>1</coupon_no>
-    <ticket_rem>TKNE</ticket_rem>
-    <ticket_confirm>0</ticket_confirm>
-    <document>
-      <type>F</type>
-      <issue_country>RUS</issue_country>
-      <no>V€ƒ568572</no>
-      <nationality>RUS</nationality>
-      <birth_date>21.11.$(date_format %Y -5y) 00:00:00</birth_date>
-      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
-      <gender>M</gender>
-      <surname>—€Š‚</surname>
-      <first_name>Œˆ•€ˆ‹ ƒ…€„œ…‚ˆ—</first_name>
-    </document>
-    <subclass>”</subclass>
-    <bag_pool_num/>
-    <transfer/>
-    <tid>$(get pax_tid_07)</tid>
+$(CHANGE_CHECKIN_2982425618102 $(get pax_id_07) $(get pax_tid_07) refuse=)
   </pax>
   <pax>
-    <pax_id>$(get pax_id_08)</pax_id>
-    <surname>—€Š‚</surname>
-    <name>ˆŠ‹€‰</name>
-    <pers_type>Œ</pers_type>
-    <refuse>€</refuse>
-    <ticket_no>2982425618101</ticket_no>
-    <coupon_no>1</coupon_no>
-    <ticket_rem>TKNE</ticket_rem>
-    <ticket_confirm>0</ticket_confirm>
-    <document>
-      <type>F</type>
-      <issue_country>RUS</issue_country>
-      <no>V€ƒ841650</no>
-      <nationality>RUS</nationality>
-      <birth_date>11.08.$(date_format %Y -2y) 00:00:00</birth_date>
-      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
-      <gender>M</gender>
-      <surname>—€Š‚</surname>
-      <first_name>Œˆ•€ˆ‹ ƒ…€„œ…‚ˆ—</first_name>
-    </document>
-    <subclass>”</subclass>
-    <bag_pool_num/>
-    <transfer/>
-    <tid>$(get pax_tid_08)</tid>
+$(CHANGE_CHECKIN_2982425618101 $(get pax_id_08) $(get pax_tid_08) refuse=€)
   </pax>
 </passengers>
 })
@@ -947,6 +560,7 @@ $(TKCRES_ET_COS UTET UTDC $(get edi_ref1) 2982425618102 1 I)
 $(TKCRES_ET_COS UTET UTDC $(get edi_ref0) 2982425618101 1 I)
 
 $(KICK_IN_SILENT)
+
 
 
 

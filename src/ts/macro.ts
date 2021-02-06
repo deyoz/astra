@@ -1128,6 +1128,33 @@ $(defmacro SEARCH_ET_BY_TICK_NO
 
 }) #end-of-macro
 
+$(defmacro SEARCH_ET_BY_TICK_NO_ADVANCED
+    point_dep
+    ticket_no
+    coupon_no
+    ticket_rem=TKNE
+    ticket_confirm=1
+    capture=off
+{
+!! capture=$(capture) err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='ETSearchForm' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='EN' term_id='2479792165'>
+    <SearchETByTickNo>
+      <point_id>$(point_dep)</point_id>
+      <TickNoEdit>$(ticket_no)</TickNoEdit>
+      <pax>
+        <ticket_no>$(ticket_no)</ticket_no>
+        <coupon_no>$(coupon_no)</coupon_no>
+        <ticket_rem>$(ticket_rem)</ticket_rem>
+        <ticket_confirm>$(ticket_confirm)</ticket_confirm>
+      </pax>
+    </SearchETByTickNo>
+  </query>
+</term>}
+
+}) #end-of-macro
+
 #########################################################################################
 
 $(defmacro REQUEST_AC_BY_TICK_NO_CPN_NO
@@ -3890,86 +3917,6 @@ $(defmacro LOAD_PAX_BY_PAX_ID
 </term>}
 
 }) #end-of-macro
-
-#########################################################################################
-### возможность регистрации группы из любого кол-ва участников в секции passengers
-
-$(defmacro NEW_CHECKIN_REQUEST
-  point_dep
-  point_arv
-  airp_dep
-  airp_arv
-  passengers
-  hall=777
-  capture=off
-{
-
-!! capture=$(capture) err=ignore
-{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='EN' term_id='2479792165'>
-    <TCkinSavePax>
-      <agent_stat_period>3</agent_stat_period>
-      <transfer/>
-      <segments>
-        <segment>
-          <point_dep>$(point_dep)</point_dep>
-          <point_arv>$(point_arv)</point_arv>
-          <airp_dep>$(get_elem_id etAirp $(airp_dep))</airp_dep>
-          <airp_arv>$(get_elem_id etAirp $(airp_arv))</airp_arv>
-          <class>Э</class>
-          <status>K</status>
-          <wl_type/>
-$(passengers)
-        </segment>
-      </segments>
-      <hall>$(hall)</hall>
-    </TCkinSavePax>
-  </query>
-</term>}
-
-}) #end defmacro NEW_CHECKIN_REQUEST
-
-#########################################################################################
-### возможность записи изменений по любому кол-ву участников в секции passengers
-
-$(defmacro CHANGE_CHECKIN_REQUEST
-  point_dep
-  point_arv
-  airp_dep
-  airp_arv
-  grp_id
-  grp_tid
-  passengers
-  hall=777
-  capture=off
-{
-
-!! capture=$(capture) err=ignore
-{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='EN' term_id='2479792165'>
-    <TCkinSavePax>
-      <agent_stat_period>3</agent_stat_period>
-      <segments>
-        <segment>
-          <point_dep>$(point_dep)</point_dep>
-          <point_arv>$(point_arv)</point_arv>
-          <airp_dep>$(get_elem_id etAirp $(airp_dep))</airp_dep>
-          <airp_arv>$(get_elem_id etAirp $(airp_arv))</airp_arv>
-          <class>Э</class>
-          <grp_id>$(grp_id)</grp_id>
-          <tid>$(grp_tid)</tid>
-$(passengers)
-        </segment>
-      </segments>
-      <hall>$(hall)</hall>
-      <bag_refuse/>
-    </TCkinSavePax>
-  </query>
-</term>}
-
-}) #end defmacro CHANGE_CHECKIN_REQUEST
 
 #########################################################################################
 ### изменение настроек рейса в trip_sets (галочки в главном экране "Подготовки")

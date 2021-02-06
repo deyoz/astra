@@ -1,5 +1,8 @@
 include(ts/macro.ts)
+include(ts/adm_macro.ts)
 include(ts/spp/write_dests_macro.ts)
+include(ts/pax/checkin_macro.ts)
+include(ts/pax/boarding_macro.ts)
 
 # meta: suite iapi
 
@@ -7,20 +10,56 @@ $(defmacro PREPARE_CN_EXCHANGE_SETTINGS
   airline
 {
 $(set country_id $(get_elem_id etCountry CN))
-$(settcl OWN_CANON_NAME TSTDC)
-$(sql
 
-{INSERT INTO rot(canon_name,own_canon_name,ip_address,ip_port,h2h,our_h2h_addr,h2h_addr,h2h_rem_addr_num,resp_timeout,router_translit,loopback,id)
- VALUES('IAPIT','TSTDC','0.0.0.0',8888,1,'1HCNIAPIQ','1HCNIAPIR',1,NULL,NULL,NULL,id__seq.nextval)}
-"insert into EDI_ADDRS(ADDR, CANON_NAME) values ('NIAC', 'IAPIT')"
-"insert into EDIFACT_PROFILES (NAME, VERSION, SUB_VERSION, CTRL_AGENCY, SYNTAX_NAME, SYNTAX_VER) values ('IAPI', 'D', '05B', 'UN', 'UNOA', 4)"
-{INSERT INTO apis_sets(id,airline,country_dep,country_arv,country_control,format,transport_type,transport_params,edi_addr,edi_own_addr,pr_denial)
- VALUES(id__seq.nextval,'$(get_elem_id etAirline $(airline))','$(get country_id)',NULL,'$(get country_id)','IAPI_CN','FILE','apis/IAPI_CN','NIAC','$(get_lat_code awk $(airline))',0)}
-{INSERT INTO apis_sets(id,airline,country_dep,country_arv,country_control,format,transport_type,transport_params,edi_addr,edi_own_addr,pr_denial)
- VALUES(id__seq.nextval,'$(get_elem_id etAirline $(airline))',NULL,'$(get country_id)','$(get country_id)','IAPI_CN','FILE','apis/IAPI_CN','NIAC','$(get_lat_code awk $(airline))',0)}
-"insert into AIRLINE_OFFICES(ID, AIRLINE, COUNTRY_CONTROL, CONTACT_NAME, PHONE, FAX, TO_APIS) values(id__seq.nextval, '$(get_elem_id etAirline $(airline))', '$(get country_id)', 'SIRENA-TRAVEL', '4959504991', '4959504973', 1)"
+$(cache PIKE RU ROT $(cache_iface_ver ROT) ""
+  insert canon_name:IAPIT
+         ip_address:0.0.0.0
+         ip_port:8888
+         h2h:1
+         our_h2h_addr:1HCNIAPIQ
+         h2h_addr:1HCNIAPIR
+         h2h_rem_addr_num:1)
 
-)
+$(cache PIKE RU EDI_ADDRS $(cache_iface_ver EDI_ADDRS) ""
+  insert addr:NIAC canon_name:IAPIT)
+
+$(cache PIKE RU EDIFACT_PROFILES $(cache_iface_ver EDIFACT_PROFILES) ""
+  insert name:IAPI
+         version:D
+         sub_version:05B
+         ctrl_agency:UN
+         syntax_name:UNOA
+         syntax_ver:4)
+
+$(cache PIKE RU APIS_SETS $(cache_iface_ver APIS_SETS) ""
+  insert airline:$(get_elem_id etAirline $(airline))
+         country_dep:$(get country_id)
+         country_arv:
+         country_control:$(get country_id)
+         format:IAPI_CN
+         transport_type:FILE
+         transport_params:apis/IAPI_CN
+         edi_addr:NIAC
+         edi_own_addr:$(get_lat_code awk $(airline))
+         pr_denial:0
+  insert airline:$(get_elem_id etAirline $(airline))
+         country_dep:
+         country_arv:$(get country_id)
+         country_control:$(get country_id)
+         format:IAPI_CN
+         transport_type:FILE
+         transport_params:apis/IAPI_CN
+         edi_addr:NIAC
+         edi_own_addr:$(get_lat_code awk $(airline))
+         pr_denial:0)
+
+$(cache PIKE RU AIRLINE_OFFICES $(cache_iface_ver AIRLINE_OFFICES) ""
+  insert airline:$(get_elem_id etAirline $(airline))
+         country_control:$(get country_id)
+         contact_name:SIRENA-TRAVEL
+         phone:4959504991
+         fax:4959504973
+         to_apis:1)
 
 $(init_iapi_request_id 100)
 })
@@ -35,8 +74,9 @@ $(CHANGE_TRIP_SETS $(get point_dep) pr_free_seating=1 apis_manual_input=1)
 
 $(OPEN_CHECKIN $(get point_dep))
 
-$(sql "INSERT INTO misc_set(id, type, airline, flt_no, airp_dep, pr_misc) VALUES(id__seq.nextval, 11, '$(get_elem_id etAirline $(airline))', NULL, NULL, 1)")
-$(sql "INSERT INTO halls2(id, airp, terminal, name, name_lat, rpt_grp, pr_vip) VALUES(777, '$(get_elem_id etAirp $(airp_dep))', NULL, '$(airp_dep)', NULL, NULL, 0)")
+$(deny_ets_interactive $(airline))
+$(PREPARE_HALLS_FOR_BOARDING $(airp_dep))
+
 })
 
 ### Вызываем этот макрос строго после загрузки PNL
