@@ -1,5 +1,6 @@
 include(ts/macro.ts)
 include(ts/adm_macro.ts)
+include(ts/pax/checkin_macro.ts)
 include(ts/pax/boarding_macro.ts)
 
 # meta: suite boarding
@@ -40,60 +41,10 @@ $(NEW_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(airp_dep) $(airp_arv)
 {
 <passengers>
   <pax>
-    <pax_id>$(get pax_id_03)</pax_id>
-    <surname>VASILIADI</surname>
-    <name>KSENIYA VALEREVNA</name>
-    <pers_type>ВЗ</pers_type>
-    <seat_no>6Г</seat_no>
-    <preseat_no/>
-    <seat_type/>
-    <seats>1</seats>
-    <ticket_no>2986145143703</ticket_no>
-    <coupon_no>2</coupon_no>
-    <ticket_rem>TKNE</ticket_rem>
-    <ticket_confirm>0</ticket_confirm>
-    <document>
-      <type>P</type>
-      <issue_country>RUS</issue_country>
-      <no>0307611933</no>
-      <nationality>RUS</nationality>
-      <birth_date>13.09.1984 00:00:00</birth_date>
-      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
-      <gender>F</gender>
-      <surname>VASILIADI</surname>
-      <first_name>KSENIYA VALEREVNA</first_name>
-    </document>
-    <subclass>L</subclass>
-    <bag_pool_num/>
-    <transfer/>
+$(NEW_CHECKIN_2986145143703 $(get pax_id_03))
   </pax>
   <pax>
-    <pax_id>$(get pax_id_04)</pax_id>
-    <surname>CHEKMAREV</surname>
-    <name>RONALD</name>
-    <pers_type>РМ</pers_type>
-    <seat_no/>
-    <preseat_no/>
-    <seat_type/>
-    <seats>0</seats>
-    <ticket_no>2986145143704</ticket_no>
-    <coupon_no>2</coupon_no>
-    <ticket_rem>TKNE</ticket_rem>
-    <ticket_confirm>0</ticket_confirm>
-    <document>
-      <type>F</type>
-      <issue_country>RUS</issue_country>
-      <no>VАГ815247</no>
-      <nationality>RUS</nationality>
-      <birth_date>29.01.$(date_format %Y -1y) 00:00:00</birth_date>
-      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
-      <gender>M</gender>
-      <surname>CHEKMAREV</surname>
-      <first_name>RONALD KONSTANTINOVICH</first_name>
-    </document>
-    <subclass>L</subclass>
-    <bag_pool_num/>
-    <transfer/>
+$(NEW_CHECKIN_2986145143704 $(get pax_id_04))
   </pax>
 </passengers>
 })
@@ -103,60 +54,10 @@ $(NEW_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(airp_dep) $(airp_arv)
 {
 <passengers>
   <pax>
-    <pax_id>$(get pax_id_01)</pax_id>
-    <surname>STIPIDI</surname>
-    <name>ANGELINA</name>
-    <pers_type>ВЗ</pers_type>
-    <seat_no>11Б</seat_no>
-    <preseat_no/>
-    <seat_type/>
-    <seats>1</seats>
-    <ticket_no>2986145134262</ticket_no>
-    <coupon_no>2</coupon_no>
-    <ticket_rem>TKNE</ticket_rem>
-    <ticket_confirm>0</ticket_confirm>
-    <document>
-      <type>P</type>
-      <issue_country>RU</issue_country>
-      <no>0305555064</no>
-      <nationality>RU</nationality>
-      <birth_date>23.07.1982 00:00:00</birth_date>
-      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
-      <gender>F</gender>
-      <surname>STIPIDI</surname>
-      <first_name>ANGELINA</first_name>
-    </document>
-    <subclass>V</subclass>
-    <bag_pool_num/>
-    <transfer/>
+$(NEW_CHECKIN_2986145134262 $(get pax_id_01))
   </pax>
   <pax>
-    <pax_id>$(get pax_id_02)</pax_id>
-    <surname>AKOPOVA</surname>
-    <name>OLIVIIA</name>
-    <pers_type>РМ</pers_type>
-    <seat_no/>
-    <preseat_no/>
-    <seat_type/>
-    <seats>0</seats>
-    <ticket_no>2986145134263</ticket_no>
-    <coupon_no>2</coupon_no>
-    <ticket_rem>TKNE</ticket_rem>
-    <ticket_confirm>0</ticket_confirm>
-    <document>
-      <type>F</type>
-      <issue_country>RU</issue_country>
-      <no>VIAG519994</no>
-      <nationality>RU</nationality>
-      <birth_date>22.08.$(date_format %Y -1y) 00:00:00</birth_date>
-      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
-      <gender>F</gender>
-      <surname>AKOPOVA</surname>
-      <first_name>OLIVIIA</first_name>
-    </document>
-    <subclass>V</subclass>
-    <bag_pool_num/>
-    <transfer/>
+$(NEW_CHECKIN_2986145134263 $(get pax_id_02))
   </pax>
 </passengers>
 })
@@ -165,32 +66,7 @@ $(NEW_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(airp_dep) $(airp_arv)
 {
 <passengers>
   <pax>
-    <pax_id>$(get pax_id_05)</pax_id>
-    <surname>VERGUNOV</surname>
-    <name>VASILII LEONIDOVICH</name>
-    <pers_type>ВЗ</pers_type>
-    <seat_no/>
-    <preseat_no/>
-    <seat_type/>
-    <seats>1</seats>
-    <ticket_no>2986145212943</ticket_no>
-    <coupon_no>1</coupon_no>
-    <ticket_rem>TKNE</ticket_rem>
-    <ticket_confirm>0</ticket_confirm>
-    <document>
-      <type>P</type>
-      <issue_country>RU</issue_country>
-      <no>0305984920</no>
-      <nationality>RU</nationality>
-      <birth_date>04.11.1960 00:00:00</birth_date>
-      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
-      <gender>M</gender>
-      <surname>VERGUNOV</surname>
-      <first_name>VASILII LEONIDOVICH</first_name>
-    </document>
-    <subclass>W</subclass>
-    <bag_pool_num/>
-    <transfer/>
+$(NEW_CHECKIN_2986145212943 $(get pax_id_05))
     <rems>
       <rem>
         <rem_code>JMP</rem_code>
@@ -202,11 +78,11 @@ $(NEW_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(airp_dep) $(airp_arv)
 </passengers>
 })
 
-$(set grp_id_01 $(get_single_grp_id $(get point_dep) STIPIDI ANGELINA))
-$(set grp_id_02 $(get_single_grp_id $(get point_dep) AKOPOVA OLIVIIA))
-$(set grp_id_03 $(get_single_grp_id $(get point_dep) VASILIADI "KSENIYA VALEREVNA"))
-$(set grp_id_04 $(get_single_grp_id $(get point_dep) CHEKMAREV "RONALD"))
-$(set grp_id_05 $(get_single_grp_id $(get point_dep) VERGUNOV "VASILII LEONIDOVICH"))
+$(set grp_id_01 $(get_single_grp_id $(get pax_id_01)))
+$(set grp_id_02 $(get_single_grp_id $(get pax_id_02)))
+$(set grp_id_03 $(get_single_grp_id $(get pax_id_03)))
+$(set grp_id_04 $(get_single_grp_id $(get pax_id_04)))
+$(set grp_id_05 $(get_single_grp_id $(get pax_id_05)))
 
 $(set apis_01
 {          <apis>
@@ -430,8 +306,8 @@ $(defmacro BOARDING_RESPONSE_ONE_PAX
   updated=true
 {
 
-$(set grp_id $(get_single_grp_id $(point_dep) $(surname) $(name)))
-$(set pax_tid $(get_single_pax_tid $(point_dep) $(surname) $(name)))
+$(set grp_id $(get_single_grp_id $(pax_id)))
+$(set pax_tid $(get_single_pax_tid $(pax_id)))
 
 ### всегда total_brd=total_exam и total_not_brd=total_not_exam и это странновато, хотя, вроде, в очетах все нормально
 
@@ -708,7 +584,7 @@ $(PAX_LIST_RESPONSE
           <ticket_no>2986145143703</ticket_no>
           <coupon_no>2</coupon_no>
           <document>0307611933</document>
-          <tid>$(get_single_pax_tid $(get point_dep) VASILIADI "KSENIYA VALEREVNA")</tid>
+          <tid>$(get_single_pax_tid $(get pax_id_03))</tid>
           <pr_payment>1</pr_payment>
         </pax>
         <pax>
@@ -723,7 +599,7 @@ $(PAX_LIST_RESPONSE
           <ticket_no>2986145143704</ticket_no>
           <coupon_no>2</coupon_no>
           <document>VАГ815247</document>
-          <tid>$(get_single_pax_tid $(get point_dep) CHEKMAREV RONALD)</tid>
+          <tid>$(get_single_pax_tid $(get pax_id_04))</tid>
           <pr_payment>1</pr_payment>
         </pax>
         <pax>
@@ -738,7 +614,7 @@ $(PAX_LIST_RESPONSE
           <ticket_no>2986145134262</ticket_no>
           <coupon_no>2</coupon_no>
           <document>0305555064</document>
-          <tid>$(get_single_pax_tid $(get point_dep) STIPIDI ANGELINA)</tid>
+          <tid>$(get_single_pax_tid $(get pax_id_01))</tid>
           <pr_payment>1</pr_payment>
         </pax>
         <pax>
@@ -754,7 +630,7 @@ $(PAX_LIST_RESPONSE
           <ticket_no>2986145134263</ticket_no>
           <coupon_no>2</coupon_no>
           <document>VIAG519994</document>
-          <tid>$(get_single_pax_tid $(get point_dep) AKOPOVA OLIVIIA)</tid>
+          <tid>$(get_single_pax_tid $(get pax_id_02))</tid>
           <pr_payment>1</pr_payment>
         </pax>
         <pax>
@@ -769,7 +645,7 @@ $(PAX_LIST_RESPONSE
           <ticket_no>2986145212943</ticket_no>
           <coupon_no>1</coupon_no>
           <document>0305984920</document>
-          <tid>$(get_single_pax_tid $(get point_dep) VERGUNOV "VASILII LEONIDOVICH")</tid>
+          <tid>$(get_single_pax_tid $(get pax_id_05))</tid>
           <pr_payment>1</pr_payment>
         </pax>
       </passengers>}
@@ -798,7 +674,7 @@ $(BOARDING_RESPONSE_ONE_PAX
 )
 
 $(BOARDING_REQUEST_BY_PAX_ID $(get point_dep) $(get pax_id_02) 777
-  $(get_single_pax_tid $(get point_dep) AKOPOVA OLIVIIA) 0 capture=on)
+  $(get_single_pax_tid $(get pax_id_02)) 0 capture=on)
 
 $(set counters
 {      <counters>
@@ -859,7 +735,7 @@ $(PAX_LIST_RESPONSE
           <ticket_no>2986145143703</ticket_no>
           <coupon_no>2</coupon_no>
           <document>0307611933</document>
-          <tid>$(get_single_pax_tid $(get point_dep) VASILIADI "KSENIYA VALEREVNA")</tid>
+          <tid>$(get_single_pax_tid $(get pax_id_03))</tid>
           <pr_payment>1</pr_payment>
         </pax>
         <pax>
@@ -874,7 +750,7 @@ $(PAX_LIST_RESPONSE
           <ticket_no>2986145143704</ticket_no>
           <coupon_no>2</coupon_no>
           <document>VАГ815247</document>
-          <tid>$(get_single_pax_tid $(get point_dep) CHEKMAREV RONALD)</tid>
+          <tid>$(get_single_pax_tid $(get pax_id_04))</tid>
           <pr_payment>1</pr_payment>
         </pax>
         <pax>
@@ -888,7 +764,7 @@ $(PAX_LIST_RESPONSE
           <ticket_no>2986145134262</ticket_no>
           <coupon_no>2</coupon_no>
           <document>0305555064</document>
-          <tid>$(get_single_pax_tid $(get point_dep) STIPIDI ANGELINA)</tid>
+          <tid>$(get_single_pax_tid $(get pax_id_01))</tid>
           <pr_payment>1</pr_payment>
         </pax>
         <pax>
@@ -903,7 +779,7 @@ $(PAX_LIST_RESPONSE
           <ticket_no>2986145134263</ticket_no>
           <coupon_no>2</coupon_no>
           <document>VIAG519994</document>
-          <tid>$(get_single_pax_tid $(get point_dep) AKOPOVA OLIVIIA)</tid>
+          <tid>$(get_single_pax_tid $(get pax_id_02))</tid>
           <pr_payment>1</pr_payment>
         </pax>
         <pax>
@@ -917,7 +793,7 @@ $(PAX_LIST_RESPONSE
           <ticket_no>2986145212943</ticket_no>
           <coupon_no>1</coupon_no>
           <document>0305984920</document>
-          <tid>$(get_single_pax_tid $(get point_dep) VERGUNOV "VASILII LEONIDOVICH")</tid>
+          <tid>$(get_single_pax_tid $(get pax_id_05))</tid>
           <pr_payment>1</pr_payment>
         </pax>
       </passengers>}
@@ -963,7 +839,7 @@ $(DO_CHECKIN $(get airline) $(get flt_no) $(get airp_dep) $(get airp_arv))
 
 $(set pax_id_not_checked $(get_pax_id $(get point_dep) BABAKHANOVA KIRA))
 
-$(set pax_tid_01 $(get_single_pax_tid $(get point_dep) STIPIDI ANGELINA))
+$(set pax_tid_01 $(get_single_pax_tid $(get pax_id_01)))
 
 $(BOARDING_REQUEST_BY_PAX_ID capture=on $(get point_dep) $(get pax_id_01) 777 $(+ $(get pax_tid_01) 5) 1)
 
@@ -1091,8 +967,10 @@ $(BOARDING_RESPONSE_ONE_PAX updated=false
 
 ### запрещаем посадку JMP
 
-$(sql {INSERT INTO misc_set(id, type, airline, flt_no, airp_dep, pr_misc)
-       VALUES(id__seq.nextval, 80, '$(get_elem_id etAirline $(get airline))', NULL, NULL, 1)})
+$(cache PIKE RU MISC_SET $(cache_iface_ver MISC_SET) ""
+  insert type_code:80
+         airline:$(get_elem_id etAirline $(get airline))
+         pr_misc:1)
 
 $(BOARDING_REQUEST_BY_PAX_ID $(get point_dep) $(get pax_id_05) 777 "" 1 capture=on)
 

@@ -248,10 +248,8 @@ void GetAllStatusesByPointId(TListType type, int point_id, std::set<TETickItem> 
 
       TETickItem eticket;
       eticket.fromDB(item.et.no, item.et.coupon, TETickItem::ChangeOfStatus, false /*lock*/);
-      if (not eticket.empty() && eticket.et.status == CouponStatus(CouponStatus::Unavailable)) {
-        item.et.status = eticket.et.status;
-        item.change_status_error=eticket.change_status_error;
-      }
+      if (!eticket.empty() &&
+          eticket.et.status != CouponStatus(CouponStatus::Unavailable)) continue;
       list.insert(item);
     };
   }

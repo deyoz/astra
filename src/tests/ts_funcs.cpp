@@ -28,6 +28,7 @@
 #include "cache.h"
 #include "PgOraConfig.h"
 #include "timer.h"
+#include "passenger.h"
 
 #include <queue>
 #include <fstream>
@@ -440,8 +441,11 @@ static std::string FP_getPaxId(const std::vector<std::string>& p)
 
 static std::string FP_getSingleGrpId(const std::vector<std::string>& p)
 {
+  assert(p.size() == 1 || p.size() == 3);
+
+  if (p.size() == 3)
+  {
     using namespace astra_api::xml_entities;
-    assert(p.size() == 3);
     PointId_t pointDep(std::stoi(p.at(0)));
     std::string paxSurname = p.at(1);
     std::string paxName = p.at(2);
@@ -452,6 +456,14 @@ static std::string FP_getSingleGrpId(const std::vector<std::string>& p)
     assert(!plRes.lPax.empty());
     const XmlPax& pax = lPax.front();
     return std::to_string(pax.grp_id);
+  }
+  else
+  {
+    CheckIn::TSimplePaxItem pax;
+    PaxId_t paxId(std::stoi(p.at(0)));
+    assert(pax.getByPaxId( paxId.get() ));
+    return std::to_string(pax.grp_id);
+  }
 }
 
 static std::string FP_getSinglePaxId(const std::vector<std::string>& p)
@@ -470,10 +482,13 @@ static std::string FP_getSinglePaxId(const std::vector<std::string>& p)
     return std::to_string(pax.pax_id);
 }
 
-static std::string FP_getSingleTid(const std::vector<std::string>& p)
+static std::string FP_getSingleGrpTid(const std::vector<std::string>& p)
 {
+  assert(p.size() == 1 || p.size() == 3);
+
+  if (p.size() == 3)
+  {
     using namespace astra_api::xml_entities;
-    assert(p.size() == 3);
     PointId_t pointDep(std::stoi(p.at(0)));
     std::string paxSurname = p.at(1);
     std::string paxName = p.at(2);
@@ -487,12 +502,23 @@ static std::string FP_getSingleTid(const std::vector<std::string>& p)
     assert(!lpRes.lSeg.empty());
     const XmlSegment& paxSeg = lpRes.lSeg.front();
     return std::to_string(paxSeg.seg_info.tid);
+  }
+  else
+  {
+    CheckIn::TSimplePaxGrpItem grp;
+    PaxId_t paxId(std::stoi(p.at(0)));
+    assert(grp.getByPaxId( paxId.get() ));
+    return std::to_string(grp.tid);
+  }
 }
 
 static std::string FP_getSinglePaxTid(const std::vector<std::string>& p)
 {
+  assert(p.size() == 1 || p.size() == 3);
+
+  if (p.size() == 3)
+  {
     using namespace astra_api::xml_entities;
-    assert(p.size() == 3);
     PointId_t pointDep(std::stoi(p.at(0)));
     std::string paxSurname = p.at(1);
     std::string paxName = p.at(2);
@@ -507,6 +533,14 @@ static std::string FP_getSinglePaxTid(const std::vector<std::string>& p)
     assert(!lpRes.lSeg.empty());
     const XmlSegment& paxSeg = lpRes.lSeg.front();
     return std::to_string(paxSeg.passengers.front().tid);
+  }
+  else
+  {
+    CheckIn::TSimplePaxItem pax;
+    PaxId_t paxId(std::stoi(p.at(0)));
+    assert(pax.getByPaxId( paxId.get() ));
+    return std::to_string(pax.tid);
+  }
 }
 
 static std::string FP_getIatciTabId(const std::vector<std::string>& p)
@@ -989,8 +1023,9 @@ FP_REGISTER("auto_set_craft", FP_autoSetCraft);
 FP_REGISTER("get_pax_id", FP_getPaxId);
 FP_REGISTER("get_single_grp_id", FP_getSingleGrpId);
 FP_REGISTER("get_single_pax_id", FP_getSinglePaxId);
-FP_REGISTER("get_single_tid", FP_getSingleTid);
-FP_REGISTER("get_single_pax_tid",FP_getSinglePaxTid);
+FP_REGISTER("get_single_tid", FP_getSingleGrpTid); //deprecated! use get_single_grp_tid instead
+FP_REGISTER("get_single_grp_tid", FP_getSingleGrpTid);
+FP_REGISTER("get_single_pax_tid", FP_getSinglePaxTid);
 FP_REGISTER("get_iatci_tab_id", FP_getIatciTabId);
 FP_REGISTER("get_point_tid", FP_getPointTid);
 FP_REGISTER("get_lat_code", FP_get_lat_code);
