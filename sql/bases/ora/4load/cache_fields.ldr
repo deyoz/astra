@@ -220,17 +220,6 @@ BEGINDATA
 "PACTS"|6|"FIRST_DATE"|"С"||||"D"|8||0|0|0|||||
 "PACTS"|7|"LAST_DATE"|"По"||||"D"|8||1|0|0|||||
 "PACTS"|8|"DESCR"|"№ договора"|50|||"S"|50||0|0|1|||||
-"CITIES"|1|"CODE"|"Код города"||"U"||"S"|3||0|0|1|||||
-"CITIES"|1|"CODE"|"Код города"||"U"||"S"|3||0|0|0||||"RU"|
-"CITIES"|2|"CODE_LAT"|"Код лат."||"U"||"S"|3||1|0|0|||||
-"CITIES"|3|"COUNTRY"||0|||"S"|2||0|0|0|"COUNTRIES"|"CODE"|1||1
-"CITIES"|4|"COUNTRY_VIEW"|"Код гос-ва"||"U"||"S"|2||0|0|0|"COUNTRIES"|"CODE_LAT/CODE"|1||
-"CITIES"|4|"COUNTRY_VIEW"|"Код гос-ва"||"U"||"S"|2||0|0|0|"COUNTRIES"|"CODE/CODE_LAT"|1|"RU"|
-"CITIES"|5|"NAME"|"Название города"|15|"U"||"S"|50||0|0|1|||||
-"CITIES"|5|"NAME"|"Название города"|15|"U"||"S"|50||0|0|0||||"RU"|
-"CITIES"|6|"NAME_LAT"|"Название города (лат.)"|15|"U"||"S"|50||1|0|0|||||
-"CITIES"|7|"TZ_REGION"|"Часовой регион"|25|||"S"|50||1|0|0|||||
-"CITIES"|9|"ID"||0|||"NU"|9||0|1|1|||||
 "AIRPS"|1|"CODE"|"Код а/п"||"U"||"S"|3||0|0|1|||||
 "AIRPS"|1|"CODE"|"Код а/п"||"U"||"S"|3||0|0|0||||"RU"|
 "AIRPS"|2|"CODE_LAT"|"Код лат."||"U"||"S"|3||1|0|0|||||
@@ -918,8 +907,6 @@ BEGINDATA
 "TYPEB_CREATE_POINTS"|4|"TIME_OFFSET"|"Время до (чч-мм)"||"U"|"R"|"S"|5||1|0|0|||||
 "TYPEB_CREATE_POINTS"|5|"ID"||0|||"NU"|9||0|0|1|||||
 "TLGS_IN_TYPES"|1|"CODE"|"Тип"|6|||"S"|6||0|0|1|||||
-"TYPEB_TYPES_ALL"|1|"CODE"||0|"U"||"S"|6||0|1|0|||||
-"TYPEB_TYPES_ALL"|2|"BASIC_TYPE"||0|"U"||"S"|3||0|0|0|||||
 "VALUE_BAG_TAXES"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|1|"AIRLINES"|"CODE_LAT/CODE"|1||
 "VALUE_BAG_TAXES"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|1|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
 "VALUE_BAG_TAXES"|4|"PR_TRFER"|"Трфр"||||"B"|1||1|0|1|||||
@@ -1047,13 +1034,7 @@ BEGINDATA
 "BR_BLANK_LIST"|1|"VERSION"||0|||"NU"|9||0|1|1|||||
 "BR_BLANK_LIST"|2|"FORM_TYPE"|"Тип бланка"|5|"U"|"L"|"S"|5||0|0|0|"FORM_TYPES"|"CODE"|||
 "BR_BLANK_LIST"|3|"DEV_MODEL"|"Принтер"|10|"U"|"L"|"S"|10||0|0|0|"DEV_MODELS"|"CODE"|0||
-"EDIFACT_PROFILES"|1|"NAME"|"Имя"|30|||"S"|30||0|1|1|||||
-"EDIFACT_PROFILES"|2|"VERSION"|"Версия"|3|||"S"|3||0|0|0|||||
-"EDIFACT_PROFILES"|3|"SUB_VERSION"|"Подверсия"|3|||"S"|3||0|0|0|||||
-"EDIFACT_PROFILES"|4|"CTRL_AGENCY"|"Агентство"|2|||"S"|2||0|0|0|||||
 "BI_BLANK_LIST"|3|"DEV_MODEL"|"Принтер"|10|"U"|"L"|"S"|10||0|0|0|"DEV_MODELS"|"CODE"|0||
-"EDIFACT_PROFILES"|5|"SYNTAX_NAME"|"Синтаксис"|4|||"S"|4||0|0|0|||||
-"EDIFACT_PROFILES"|6|"SYNTAX_VER"|"Версия синтаксиса"|2|||"NU"|2||0|0|0|||||
 "ROT"|1|"CANON_NAME"|"Канон. имя"||"U"||"S"|5||0|1|0|||||
 "ROT"|2|"IP_ADDRESS"|"IP-адрес"||||"S"|15||0|0|0|||||
 "ROT"|3|"IP_PORT"|"IP-порт"||||"NU"|5||0|0|0|||||
@@ -1078,18 +1059,11 @@ BEGINDATA
 "ROT"|6|"H2H_ADDR"|"Адрес H2H"||||"S"|20||1|0|0|||||
 "ROT"|7|"H2H_REM_ADDR_NUM"|"H2HLYR5"|1|||"NU"|1||1|0|0|||||
 "ROT"|8|"RESP_TIMEOUT"|"Таймаут"|2|||"NU"|2||1|0|0|||||
-"BI_MODELS"|0|"CODE"||0|||"S"|7||0|1|1|||||
-"BI_MODELS"|6|"DESCR"|"Описание"|55||"L"|"S"|100||0|0|0|"TUNE::PRINT_BI"|"DESCR"|2||
 "BP_BLANK_LIST"|0|"ID"||0|||"NU"|9||0|1|1|||||
 "BP_BLANK_LIST"|1|"VERSION"||0|||"NU"|9||0|1|1|||||
 "BP_BLANK_LIST"|2|"FORM_TYPE"|"Тип бланка"|5|"U"|"L"|"S"|5||0|0|0|"BP_TYPES"|"CODE"|||
 "BP_BLANK_LIST"|3|"DEV_MODEL"|"Принтер"|10|"U"|"L"|"S"|10||0|0|0|"DEV_MODELS"|"CODE"|0||
 "BP_BLANK_LIST"|4|"FMT_TYPE"|"Формат"|10|"U"|"L"|"S"|10||0|0|0|"DEV_MODELS"|"FMT_TYPE"|0||
-"BI_MODELS"|1|"DEV_MODEL"|"Принтер"|10||"L"|"S"|10||0|1|1|"DEV_MODELS"|"CODE"|0||
-"BI_MODELS"|2|"FMT_TYPE"|"Формат"|10||"L"|"S"|10||0|1|1|"DEV_MODELS"|"FMT_TYPE"|0||
-"BI_MODELS"|3|"FORM_NAME"|"Форма"|25||"L"|"S"|50||0|0|0|"TUNE::PRINT_BI"|"NAME"|2||
-"BI_MODELS"|4|"ID"||0|||"NU"|9||0|0|0|"TUNE::PRINT_BI"|"ID"|2||
-"BI_MODELS"|5|"VERSION"|"Вер."|5|||"NU"|9||0|0|0|"TUNE::PRINT_BI"|"VERSION"|2||
 "BAG_NORM_TYPES"|1|"CODE"|"Код"||"U"||"S"|5||0|1|1|||||
 "BAG_NORM_TYPES"|1|"CODE"|"Код"||"U"||"S"|5||0|1|0||||"RU"|
 "BAG_NORM_TYPES"|2|"CODE_LAT"|"Код лат."||"U"||"S"|5||1|0|0|||||
@@ -1261,7 +1235,6 @@ BEGINDATA
 "CUSTOM_ALARM_TYPES"|4|"NAME_LAT"|"Название тревоги (лат.)"|20|||"S"|100||1|0|0|||||
 "CUSTOM_ALARM_TYPES"|5|"ID"||0|||"NU"|9||0|1|1|||||
 "CUSTOM_ALARM_SETS"|1|"ID"||0|||"NU"|9||1|1|1|||||
-"APPS_FORMATS"|1|"CODE"|"Формат"||||"S"|10||0|1|1|||||
 "BAG_TYPES"|1|"ID"||0|||"NU"|9||0|1|1|||||
 "APPS_SETS"|1|"ID"||0|||"NU"|9||1|1|1|||||
 "APPS_SETS"|2|"AIRLINE"||0|||"S"|3||0|0|0|"AIRLINES"|"CODE"|1||1
@@ -1428,11 +1401,6 @@ BEGINDATA
 "BAG_NORMS"|23|"WEIGHT"|"Вес"||||"NU"|3||1|0|1|||||
 "BAG_NORMS"|24|"PER_UNIT"|"1 место"||||"B"|1||1|0|1|||||
 "BAG_NORMS"|25|"FIRST_DATE"|"С"||||"D"|8||1|0|1|||||
-"KIOSK_CKIN_DESKS"|8|"ID"||0|||"NU"|9||0|0|1|||||
-"KIOSK_CKIN_DESKS"|6|"LAST_LOGON"|"Посл. вход"||||"D"|8||1|0|1|||||
-"KIOSK_CKIN_DESKS"|7|"PR_CRYPT"|"Шифр."||||"B"|1||1|0|1|||||
-"KIOSK_CKIN_DESKS"|5|"TERM_MODE"|"Платформа"|4|"U"||"S"|1||1|0|1|||||
-"KIOSK_CKIN_DESKS"|4|"VERSION"|"Версия терминала"|20|||"S"|1||1|0|1|||||
 "KIOSK_CKIN_SETS"|1|"ID"||0|||"NU"|9||0|1|1|||||
 "KIOSK_CKIN_SETS"|2|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|1||1
 "KIOSK_CKIN_SETS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
@@ -1511,7 +1479,6 @@ BEGINDATA
 "PAID_CKIN_SETS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
 "PAID_CKIN_SETS"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
 "PAID_CKIN_SETS"|4|"AIRP_DEP"||0|||"S"|3||1|0|0|"AIRPS"|"CODE"|2||1
-"TYPEB_TYPES_ALL"|3|"SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|||||
 "PAID_CKIN_SETS"|5|"AIRP_DEP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
 "PAID_CKIN_SETS"|5|"AIRP_DEP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
 "PAID_CKIN_SETS"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
@@ -1953,6 +1920,28 @@ BEGINDATA
 "TERM_PROFILE_RIGHTS"|2|"AIRP"|"АК"||||"S"|3||0|0|0|||||
 "TERM_PROFILE_RIGHTS"|3|"RIGHT_ID"|"Право"||||"NU"|4||0|0|0|||||
 "TERM_PROFILE_RIGHTS"|4|"user_type"|"Тип пользователя"||||"NU"|1||0|0|0|||||
+"APPS_FORMATS"|1|"CODE"|"Формат"||||"S"|10||0|1|1|||||
+"DATE_TIME_ZONESPEC"|1|"ID"|"Название"||||"S"|50||0|1|1|||||
+"BI_MODELS"|0|"CODE"||0|||"S"|5||0|1|1|||||
+"BI_MODELS"|6|"DESCR"|"Описание"|55||"L"|"S"|100||0|0|0|"TUNE::PRINT_BI"|"DESCR"|2||
+"BI_MODELS"|1|"DEV_MODEL"|"Принтер"|10||"L"|"S"|10||0|1|1|"DEV_MODELS"|"CODE"|0||
+"BI_MODELS"|2|"FMT_TYPE"|"Формат"|10||"L"|"S"|10||0|1|1|"DEV_MODELS"|"FMT_TYPE"|0||
+"BI_MODELS"|3|"FORM_NAME"|"Форма"|25||"L"|"S"|50||0|0|0|"TUNE::PRINT_BI"|"NAME"|2||
+"BI_MODELS"|4|"ID"||0|||"NU"|9||0|0|0|"TUNE::PRINT_BI"|"ID"|2||
+"BI_MODELS"|5|"VERSION"|"Вер."|5|||"NU"|9||0|0|0|"TUNE::PRINT_BI"|"VERSION"|2||
+"CITIES"|1|"CODE"|"Код города"||"U"||"S"|3||0|0|1|||||
+"CITIES"|1|"CODE"|"Код города"||"U"||"S"|3||0|0|0||||"RU"|
+"CITIES"|2|"CODE_LAT"|"Код лат."||"U"||"S"|3||1|0|0|||||
+"CITIES"|3|"COUNTRY"||0|||"S"|2||0|0|0|"COUNTRIES"|"CODE"|1||1
+"CITIES"|4|"COUNTRY_VIEW"|"Код гос-ва"||"U"||"S"|2||0|0|0|"COUNTRIES"|"CODE_LAT/CODE"|1||
+"CITIES"|4|"COUNTRY_VIEW"|"Код гос-ва"||"U"||"S"|2||0|0|0|"COUNTRIES"|"CODE/CODE_LAT"|1|"RU"|
+"CITIES"|5|"NAME"|"Название города"|15|"U"||"S"|50||0|0|1|||||
+"CITIES"|5|"NAME"|"Название города"|15|"U"||"S"|50||0|0|0||||"RU"|
+"CITIES"|6|"NAME_LAT"|"Название города (лат.)"|15|"U"||"S"|50||1|0|0|||||
+"CITIES"|7|"TZ_REGION"|"Часовой регион"|25|||"S"|50||1|0|0|"DATE_TIME_ZONESPEC"|"ID"|||
+"CITIES"|9|"ID"||0|||"NU"|9||0|1|1|||||
+"EDIFACT_PROFILES"|1|"NAME"|"Имя"|30|||"S"|30||0|1|0|||||
+"EDIFACT_PROFILES"|2|"VERSION"|"Версия"|3|||"S"|3||0|0|0|||||
 "SEAT_DESCRIPT"|1|"CODE"|"Код"||"U"||"S"|2||0|1|1|||||
 "SEAT_DESCRIPT"|2|"NAME"|"Описание"|50|||"S"|50||1|0|1|||||
 "SEAT_DESCRIPT"|3|"NAME_LAT"|"Описание (лат.)"|50|||"S"|50||1|0|1|||||
@@ -1994,6 +1983,12 @@ BEGINDATA
 "TYPEB_ADDRS_PIL"|14|"BASIC_TYPE"||0|||"S"|3||0|0|0|"TYPEB_TYPES_PIL"|"BASIC_TYPE"|1||
 "TYPEB_ADDRS_PIL"|6|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
 "TYPEB_ADDRS_PIL"|1|"ID"||0|||"NU"|9||1|1|1|||||
+"EDIFACT_PROFILES"|3|"SUB_VERSION"|"Подверсия"|3|||"S"|3||0|0|0|||||
+"EDIFACT_PROFILES"|4|"CTRL_AGENCY"|"Агентство"|2|||"S"|2||0|0|0|||||
+"EDIFACT_PROFILES"|5|"SYNTAX_NAME"|"Синтаксис"|4|||"S"|4||0|0|0|||||
+"EDIFACT_PROFILES"|6|"SYNTAX_VER"|"Версия синтаксиса"|2|||"NU"|2||0|0|0|||||
+"KIOSK_CKIN_DESKS"|1|"CODE"|"Название"||"U"||"S"|6||0|1|1|||||
+"KIOSK_CKIN_DESKS"|3|"DESCR_VIEW"|"Группа пультов"|30|||"S"|50||0|0|0|"DESK_GRP"|"NAME/NAME_LAT"|1|"RU"|
 "ET_ADDR_SET"|2|"AIRLINE"||0|||"S"|3||0|0|0|"AIRLINES"|"CODE"|1||1
 "TYPEB_ADDRS_PIL"|12|"PR_LAT"|"Лат."||||"B"|1||0|0|0|||||
 "TYPEB_ADDRS_PIL"|3|"TLG_SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|"TYPEB_TYPES_PIL"|"SHORT_NAME/SHORT_NAME_LAT"|1|"RU"|
@@ -2011,6 +2006,13 @@ BEGINDATA
 "BASIC_BAG_NORMS"|22|"AMOUNT"|"Мест"||||"NU"|2||1|0|1|||||
 "TRANZIT_SET"|1|"ID"||0|||"NU"|9||0|1|1|||||
 "TRANZIT_SET"|2|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|1||1
+"KIOSK_CKIN_DESKS"|3|"DESCR_VIEW"|"Группа пультов"|30|||"S"|50||0|0|0|"DESK_GRP"|"NAME_LAT/NAME"|1||
+"KIOSK_CKIN_DESKS"|2|"GRP_ID"||0|||"NU"|9||0|0|0|"DESK_GRP"|"GRP_ID"|1||
+"KIOSK_CKIN_DESKS"|8|"ID"||0|||"NU"|9||0|0|1|||||
+"KIOSK_CKIN_DESKS"|6|"LAST_LOGON"|"Посл. вход"||||"D"|8||1|0|1|||||
+"KIOSK_CKIN_DESKS"|7|"PR_CRYPT"|"Шифр."||||"B"|1||1|0|1|||||
+"KIOSK_CKIN_DESKS"|5|"TERM_MODE"|"Платформа"|4|"U"||"S"|1||1|0|1|||||
+"KIOSK_CKIN_DESKS"|4|"VERSION"|"Версия терминала"|20|||"S"|1||1|0|1|||||
 "BASIC_BAG_NORMS"|19|"BAG_TYPE"|"Багаж"||||"NU"|2||1|0|1|"BAG_TYPES"|"CODE"|||
 "BASIC_BAG_NORMS"|7|"CITY_ARV"||0|||"S"|3||1|0|1|"CITIES"|"CODE"|3||1
 "BASIC_BAG_NORMS"|8|"CITY_ARV_VIEW"|"До"||"U"||"S"|3||1|0|1|"CITIES"|"CODE/CODE_LAT"|3|"RU"|
@@ -2344,6 +2346,9 @@ BEGINDATA
 "DESKS"|7|"PR_CRYPT"|"Шифр."||||"B"|1||1|0|1|||||
 "DESKS"|8|"ID"||0|||"NU"|9||0|0|1|||||
 "STAGE_SETS"|8|"PR_AUTO"|"Авто"||||"B"|1||0|0|0|||||
+"TYPEB_TYPES_ALL"|1|"CODE"||0|"U"||"S"|6||0|1|0|||||
+"TYPEB_TYPES_ALL"|2|"BASIC_TYPE"||0|"U"||"S"|3||0|0|0|||||
+"TYPEB_TYPES_ALL"|3|"SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|||||
 "GRAPH_TIMES"|1|"ID"||0|||"NU"|9||0|1|1|||||
 "GRAPH_TIMES"|2|"STAGE_ID"||0|||"NU"|2||0|0|0|"GRAPH_STAGES"|"STAGE_ID"|1||1
 "GRAPH_TIMES"|3|"STAGE_NAME_VIEW"|"Название этапа"|25|||"S"|40||0|0|0|"GRAPH_STAGES"|"NAME_LAT/NAME"|1||
@@ -2361,6 +2366,11 @@ BEGINDATA
 "GRAPH_TIMES"|11|"TRIP_TYPE_VIEW"|"Тип р"||"L"||"S"|1||1|0|0|"TRIP_TYPES"|"CODE_LAT/CODE"|5||
 "GRAPH_TIMES"|11|"TRIP_TYPE_VIEW"|"Тип р"||"L"||"S"|1||1|0|0|"TRIP_TYPES"|"CODE/CODE_LAT"|5|"RU"|
 "GRAPH_TIMES"|12|"TIME"|"Мин. до вылета"||||"NU"|4||0|0|0|||||
+"TYPEB_TYPES_ALL"|4|"SHORT_NAME_LAT"|"Тип (лат.)"|15|||"S"|20||1|0|0|||||
+"TYPEB_TYPES_ALL"|5|"NAME"|"Название"|30|||"S"|50||0|0|0|||||
+"TYPEB_TYPES_ALL"|6|"NAME_LAT"|"Название (лат.)"|30|||"S"|50||1|0|0|||||
+"TYPEB_TYPES_ALL"|7|"PR_DEP"||0|||"B"|1||1|0|0|||||
+"TYPEB_TYPES_ALL"|8|"EDITABLE"|"Редакт."||||"B"|1||0|0|0|||||
 "EDI_ADDRS"|2|"CANON_NAME"|"Канон. имя"||"U"||"S"|5||0|0|0|"CANON_NAMES"|"CODE"|||
 "CONFIRMATION_SETS"|1|"ID"||0|||"NU"|9||0|1|1|||||
 "CONFIRMATION_SETS"|2|"AIRLINE"||0|||"S"|3||0|0|1|"AIRLINES"|"CODE"|1||1
@@ -2404,11 +2414,6 @@ BEGINDATA
 "CKIN_REM_TYPES2"|5|"NAME"|"Ремарка"|60|||"S"|200||0|0|1|||||
 "CKIN_REM_TYPES2"|6|"NAME_LAT"|"Ремарка (лат.)"|60|||"S"|200||1|0|0|||||
 "DCS_ACTIONS2"|3|"NAME_LAT"|"Тип (лат.)"|20|||"S"|50||0|0|0|||||
-"TYPEB_TYPES_ALL"|4|"SHORT_NAME_LAT"|"Тип (лат.)"|15|||"S"|20||1|0|0|||||
-"TYPEB_TYPES_ALL"|5|"NAME"|"Название"|30|||"S"|50||0|0|0|||||
-"TYPEB_TYPES_ALL"|6|"NAME_LAT"|"Название (лат.)"|30|||"S"|50||1|0|0|||||
-"TYPEB_TYPES_ALL"|7|"PR_DEP"||0|||"B"|1||1|0|0|||||
-"TYPEB_TYPES_ALL"|8|"EDITABLE"|"Редакт."||||"B"|1||0|0|0|||||
 "TYPEB_TYPES"|2|"BASIC_TYPE"||0|"U"||"S"|3||0|0|0|||||
 "TYPEB_TYPES"|1|"CODE"||0|"U"||"S"|6||0|1|0|||||
 "TYPEB_TYPES"|8|"EDITABLE"|"Редакт."||||"B"|1||0|0|0|||||
@@ -2577,20 +2582,6 @@ BEGINDATA
 "VALIDATOR_TYPES"|3|"NAME"|"Название"||||"S"|50||0|0|1|||||
 "VALIDATOR_TYPES"|4|"NAME_LAT"|"Название (лат.)"||||"S"|50||1|0|1|||||
 "ENCODINGS"|1|"CODE"|"Кодировка"||||"S"|40||0|1|1|||||
-"DATE_TIME_ZONESPEC"|1|"ID"|"Название"||||"S"|40||0|1|1|||||
-"DATE_TIME_ZONESPEC"|2|"COUNTRY"||0|||"S"|2||1|0|0|"COUNTRIES"|"CODE"|1||1
-"DATE_TIME_ZONESPEC"|3|"COUNTRY_VIEW"|"Код гос-ва"||"U"||"S"|2||1|0|0|"COUNTRIES"|"CODE_LAT/CODE"|1||
-"DATE_TIME_ZONESPEC"|3|"COUNTRY_VIEW"|"Код гос-ва"||"U"||"S"|2||1|0|0|"COUNTRIES"|"CODE/CODE_LAT"|1|"RU"|
-"DATE_TIME_ZONESPEC"|4|"GMT_OFFSET"|"Часовой пояс"||||"S"|9||1|0|1|||||
-"DATE_TIME_ZONESPEC"|5|"DST_ADJUSTMENT"|"Лок. корректировка"||||"S"|9||1|0|1|||||
-"DATE_TIME_ZONESPEC"|6|"STD_ABBR"|"Станд. аббрев."||||"S"|5||1|0|1|||||
-"DATE_TIME_ZONESPEC"|7|"STD_NAME"|"Станд. время"|25|||"S"|50||1|0|1|||||
-"DATE_TIME_ZONESPEC"|8|"DST_ABBR"|"Лок. аббрев."||||"S"|5||1|0|1|||||
-"DATE_TIME_ZONESPEC"|9|"DST_NAME"|"Лок. время"|25|||"S"|50||1|0|1|||||
-"DATE_TIME_ZONESPEC"|10|"DST_START_DATE_RULE"|"Нач. дата перехода"||||"S"|10||1|0|1|||||
-"DATE_TIME_ZONESPEC"|11|"START_TIME"|"Нач. время перехода"||||"S"|9||1|0|1|||||
-"DATE_TIME_ZONESPEC"|12|"DST_END_DATE_RULE"|"Кон. дата перехода"||||"S"|10||1|0|1|||||
-"DATE_TIME_ZONESPEC"|13|"END_TIME"|"Кон. время перехода"||||"S"|9||1|0|1|||||
 "CODESHARE_SETS"|1|"ID"||0|||"NU"|9||1|1|1|||||
 "CODESHARE_SETS"|2|"AIRLINE_OPER"||0|||"S"|3||0|0|1|"AIRLINES"|"CODE"|1||1
 "CODESHARE_SETS"|3|"AIRLINE_OPER_VIEW"|"А/к факт."||"U"||"S"|3||0|0|1|"AIRLINES"|"CODE_LAT/CODE"|1||
@@ -2695,10 +2686,6 @@ BEGINDATA
 "KIOSK_CKIN_DESK_GRP"|2|"NAME"|"Описание группы"|30|||"S"|50||0|0|0||||"RU"|
 "KIOSK_CKIN_DESK_GRP"|2|"NAME"|"Описание группы"|30|||"S"|50||0|0|1|||||
 "KIOSK_CKIN_DESK_GRP"|3|"NAME_LAT"|"Описание группы (лат.)"|30|||"S"|50||1|0|0|||||
-"KIOSK_CKIN_DESKS"|1|"CODE"|"Название"||"U"||"S"|6||0|1|0|||||
-"KIOSK_CKIN_DESKS"|3|"DESCR_VIEW"|"Группа пультов"|30|||"S"|50||0|0|0|"DESK_GRP"|"NAME/NAME_LAT"|1|"RU"|
-"KIOSK_CKIN_DESKS"|3|"DESCR_VIEW"|"Группа пультов"|30|||"S"|50||0|0|0|"DESK_GRP"|"NAME_LAT/NAME"|1||
-"KIOSK_CKIN_DESKS"|2|"GRP_ID"||0|||"NU"|9||0|0|0|"DESK_GRP"|"GRP_ID"|1||
 "TYPEB_ADDRS_ETL"|11|"ADDR"|"Адреса IATA"|25|"U"||"S"|100||0|0|0|||||
 "TYPEB_ADDRS_ETL"|4|"AIRLINE"||0|||"S"|3||1|0|0|"AIRLINES"|"CODE"|2||1
 "TYPEB_ADDRS_ETL"|5|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||1|0|0|"AIRLINES"|"CODE/CODE_LAT"|2|"RU"|
