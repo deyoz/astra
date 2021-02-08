@@ -77,6 +77,7 @@ astra_SOURCES = \
   checkin.cc \
   checkin_segments.cc \
   checkin_utils.cc \
+  check_grp_unification.cc \
   ckin_search.cc \
   code_convert.cc \
   comp_layers.cc \
@@ -121,6 +122,7 @@ astra_SOURCES = \
   pax_calc_data.cc \
   pax_confirmations.cc \
   pax_db.cc \
+  grp_db.cc \
   payment.cc \
   payment_base.cc \
   pers_weights.cc \
@@ -304,6 +306,7 @@ noinst_HEADERS = \
   checkin.h \
   checkin_segments.h \
   checkin_utils.h \
+  check_grp_unification.h \
   ckin_search.h \
   code_convert.h \
   comp_layers.h \
@@ -339,13 +342,14 @@ noinst_HEADERS = \
   maindcs.h \
   meridian.h \
   mob_payment.h \
-  MPSExchangeIface.h \  
+  MPSExchangeIface.h \
   obrnosir.h \
   passenger.h \
   passenger_callbacks.h \
   pax_calc_data.h \
   pax_confirmations.h \
   pax_db.h \
+  grp_db.h \
   payment.h \
   payment_base.h \
   pers_weights.h \
@@ -444,4 +448,4 @@ noinst_HEADERS = \
   dbostructures.h \
   arx_daily_pg.h
 
-  
+

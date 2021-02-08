@@ -64,6 +64,8 @@
 #include "service_eval.h"
 #include "base_callbacks.h"
 #include "pax_calc_data.h"
+#include "grp_db.h"
+#include "check_grp_unification.h"
 
 #include <jxtlib/jxt_cont.h>
 #include <serverlib/cursctl.h>
@@ -4042,12 +4044,7 @@ static bool rollbackBeforeSvcAvailability(const CheckIn::TAfterSaveInfo& info,
 
 static void doCheckGrp(int grp_id)
 {
-    auto cur = make_curs(
-        "BEGIN "
-        "  ckin.check_grp(:grp_id); "
-        "END;");
-    cur.bind(":grp_id", grp_id);
-    cur.exec();
+    checkGroupUnification(GrpId_t(grp_id));
 }
 
 
@@ -7239,25 +7236,18 @@ void CheckInInterface::SaveTransfer(int grp_id,
   CheckIn::TTransferList::const_iterator firstTrfer=trfer.begin();
   for(;firstTrfer!=trfer.end()&&seg_no>1;firstTrfer++,seg_no--);
 
-  TQuery TrferQry(&OraSession);
-  TrferQry.Clear();
-  TrferQry.SQLText=
-    "BEGIN "
-    "  :rows:=ckin.delete_grp_trfer(:grp_id); "
-    "END;";
-  TrferQry.CreateVariable("rows",otInteger,0);
-  TrferQry.CreateVariable("grp_id",otInteger,grp_id);
-  TrferQry.Execute();
+  const bool transfer_deleted = deleteTransfers(GrpId_t(grp_id));
 
   if (firstTrfer==trfer.end()) //ничего не записываем в базу
   {
-    if (TrferQry.GetVariableAsInteger("rows")>0) {
+    if (transfer_deleted) {
         tlocale.lexema_id = "EVT.CHECKIN.TRANSFER_BAGGAGE_CANCEL";
         return;
     }
     else return;
   }
 
+  TQuery TrferQry(&OraSession);
   TrferQry.Clear();
   TrferQry.SQLText=
     "DECLARE "
