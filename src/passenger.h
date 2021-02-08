@@ -295,6 +295,7 @@ class TPaxTknItem : public TPaxAPIItem, public TPaxRemBasic
     TPaxTknItem& fromXML(xmlNodePtr node);
     const TPaxTknItem& toDB(TQuery &Qry) const;
     TPaxTknItem& fromDB(TQuery &Qry);
+    TPaxTknItem& fromDB(DB::TQuery &Qry);
 
     long int getNotEmptyFieldsMask() const;
     TAPIType apiType() const { return apiTkn; }
@@ -701,6 +702,7 @@ class TComplexClass
 
     const TComplexClass& toDB(TQuery &Qry, const std::string& fieldPrefix) const;
     TComplexClass& fromDB(TQuery &Qry, const std::string& fieldPrefix);
+    TComplexClass& fromDB(DB::TQuery &Qry, const std::string& fieldPrefix);
     const TComplexClass& toXML(xmlNodePtr node, const std::string& fieldPrefix) const;
 };
 
@@ -764,6 +766,7 @@ class TSimplePaxItem
     }
 
     static ASTRA::TGender::Enum genderFromDB(TQuery &Qry);
+    static ASTRA::TGender::Enum genderFromDB(DB::TQuery &Qry);
     static ASTRA::TTrickyGender::Enum getTrickyGender(ASTRA::TPerson pers_type, ASTRA::TGender::Enum gender);
     static const std::string& origClassFromCrsSQL();
     static const std::string& origSubclassFromCrsSQL();
@@ -772,8 +775,10 @@ class TSimplePaxItem
 
     const TSimplePaxItem& toEmulXML(xmlNodePtr node, bool PaxUpdatesPending) const;
     TSimplePaxItem& fromDB(TQuery &Qry);
+    TSimplePaxItem& fromDB(DB::TQuery &Qry);
     TSimplePaxItem& fromDBCrs(TQuery &Qry, bool withTkn);
     bool getByPaxId(int pax_id, TDateTime part_key = ASTRA::NoExists);
+    static std::list<TSimplePaxItem> getByGrpId(GrpId_t grp_id);
     std::string full_name() const;
     bool isCBBG() const;
     bool api_doc_applied() const;

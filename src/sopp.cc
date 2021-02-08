@@ -48,6 +48,7 @@
 #include "baggage_tags.h"
 #include "comp_layers.h"
 #include "iapi_interaction.h"
+#include "check_grp_unification.h"
 #include "serverlib/cursctl.h"
 
 #define NICKNAME "DJEK"
@@ -2576,14 +2577,7 @@ void DeletePaxGrp( const TAdvTripInfo &fltInfo, int grp_id, bool toLog,
 
   TVouchers().fromDB(point_id, grp_id).to_deleted();
 
-  TQuery Qry(&OraSession);
-    Qry.Clear();
-    Qry.SQLText=
-    "BEGIN "
-    "  ckin.check_grp(:grp_id); "
-    "END;";
-  Qry.CreateVariable("grp_id", otInteger, grp_id);
-  Qry.Execute();
+  checkGroupUnification(GrpId_t(grp_id));
 
   TAnnulBT annul_bt_after;
   annul_bt_after.get(grp_id);

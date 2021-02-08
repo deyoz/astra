@@ -259,6 +259,19 @@ TPaxTknItem& TPaxTknItem::fromDB(TQuery &Qry)
   return *this;
 };
 
+TPaxTknItem& TPaxTknItem::fromDB(DB::TQuery &Qry)
+{
+  clear();
+  no=Qry.FieldAsString("ticket_no");
+  if (!Qry.FieldIsNULL("coupon_no"))
+    coupon=Qry.FieldAsInteger("coupon_no");
+  else
+    coupon=ASTRA::NoExists;
+  rem=Qry.FieldAsString("ticket_rem");
+  confirm=Qry.FieldAsInteger("ticket_confirm")!=0;
+  return *this;
+}
+
 long int TPaxTknItem::getNotEmptyFieldsMask() const
 {
   long int result=NO_FIELDS;
@@ -1985,6 +1998,16 @@ ASTRA::TGender::Enum TSimplePaxItem::genderFromDB(TQuery &Qry)
     return ASTRA::TGender::Male;
 }
 
+ASTRA::TGender::Enum TSimplePaxItem::genderFromDB(DB::TQuery &Qry)
+{
+  if (Qry.FieldIsNULL("is_female"))
+    return ASTRA::TGender::Unknown;
+  else if (Qry.FieldAsInteger("is_female")!=0)
+    return ASTRA::TGender::Female;
+  else
+    return ASTRA::TGender::Male;
+}
+
 ASTRA::TTrickyGender::Enum TSimplePaxItem::getTrickyGender(ASTRA::TPerson pers_type, ASTRA::TGender::Enum gender)
 {
   ASTRA::TTrickyGender::Enum result=ASTRA::TTrickyGender::Male;
@@ -2040,6 +2063,15 @@ TComplexClass& TComplexClass::fromDB(TQuery &Qry, const std::string& fieldPrefix
   return *this;
 }
 
+TComplexClass& TComplexClass::fromDB(DB::TQuery &Qry, const std::string& fieldPrefix)
+{
+  clear();
+  subcl=Qry.FieldAsString(fieldPrefix+"subclass");
+  cl=Qry.FieldAsString(fieldPrefix+"class");
+  cl_grp=Qry.FieldIsNULL(fieldPrefix+"class_grp")?ASTRA::NoExists:Qry.FieldAsInteger(fieldPrefix+"class_grp");
+  return *this;
+}
+
 TSimplePaxItem& TSimplePaxItem::fromDB(TQuery &Qry)
 {
   clear();
@@ -2048,6 +2080,35 @@ TSimplePaxItem& TSimplePaxItem::fromDB(TQuery &Qry)
   surname=Qry.FieldAsString("surname");
   name=Qry.FieldAsString("name");
   pers_type=DecodePerson(Qry.FieldAsString("pers_type"));
+  if(Qry.GetFieldIndex("crew_type") >= 0)
+      crew_type = CrewTypes().decode(Qry.FieldAsString("crew_type"));
+  is_jmp=Qry.FieldAsInteger("is_jmp")!=0;
+  if (Qry.GetFieldIndex("seat_no") >= 0)
+    seat_no=Qry.FieldAsString("seat_no");
+  seat_type=Qry.FieldAsString("seat_type");
+  seats=Qry.FieldAsInteger("seats");
+  refuse=Qry.FieldAsString("refuse");
+  pr_brd=Qry.FieldAsInteger("pr_brd")!=0;
+  pr_exam=Qry.FieldAsInteger("pr_exam")!=0;
+  reg_no=Qry.FieldAsInteger("reg_no");
+  subcl=Qry.FieldAsString("subclass");
+  cabin.fromDB(Qry, "cabin_");
+  bag_pool_num=Qry.FieldIsNULL("bag_pool_num")?ASTRA::NoExists:Qry.FieldAsInteger("bag_pool_num");
+  tid=Qry.FieldAsInteger("tid");
+  tkn.fromDB(Qry);
+  TknExists=true;
+  gender=genderFromDB(Qry);
+  return *this;
+}
+
+TSimplePaxItem& TSimplePaxItem::fromDB(DB::TQuery &Qry)
+{
+  clear();
+  id=Qry.FieldAsInteger("pax_id");
+  grp_id=Qry.FieldAsInteger("grp_id");
+  surname=Qry.FieldAsString("surname");
+  name=Qry.FieldAsString("name");
+  pers_type=DecodePerson(Qry.FieldAsString("pers_type").c_str());
   if(Qry.GetFieldIndex("crew_type") >= 0)
       crew_type = CrewTypes().decode(Qry.FieldAsString("crew_type"));
   is_jmp=Qry.FieldAsInteger("is_jmp")!=0;
@@ -2131,6 +2192,22 @@ bool TSimplePaxItem::getByPaxId(int pax_id, TDateTime part_key)
   if (PaxQry.get().Eof) return false;
   fromDB(PaxQry.get());
   return true;
+}
+
+std::list<TSimplePaxItem> TSimplePaxItem::getByGrpId(GrpId_t grp_id)
+{
+  TSimplePaxList result;
+  DB::TQuery Qry(PgOra::getROSession("PAX"));
+  Qry.SQLText = "SELECT * FROM pax "
+                "WHERE grp_id=:grp_id";
+  Qry.CreateVariable("grp_id", otInteger, grp_id.get());
+  Qry.Execute();
+  for(; !Qry.Eof; Qry.Next()) {
+    TSimplePaxItem item;
+    item.fromDB(Qry);
+    result.push_back(item);
+  }
+  return result;
 }
 
 TPaxItem& TPaxItem::fromDB(TQuery &Qry)
