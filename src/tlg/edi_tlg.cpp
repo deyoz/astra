@@ -80,7 +80,8 @@ AstraEdiSessWR::AstraEdiSessWR(const std::string &pult,
     : Pult(pult),
       EdiHead(mhead),
       H2H(0),
-      SysCtxt(sysctxt)
+      SysCtxt(sysctxt),
+      BaseOurrefName("ASTRA")
 {
     BaseTables::Router rot(sysctxt->routerCanonName());
     ASSERT(rot);
@@ -127,7 +128,7 @@ std::string AstraEdiSessWR::hthTpr() const
 
 std::string AstraEdiSessWR::baseOurrefName() const
 {
-    return "ASTRA";
+    return BaseOurrefName;
 }
 
 edi_mes_head* AstraEdiSessWR::edih()
@@ -203,6 +204,11 @@ const edilib::EdiSession* AstraEdiSessWR::ediSession() const
 const Ticketing::RemoteSystemContext::SystemContext* AstraEdiSessWR::sysCont() const
 {
     return SysCtxt;
+}
+
+void AstraEdiSessWR::setBaseOurrefName(const std::string& baseOurrefName)
+{
+    BaseOurrefName = baseOurrefName;
 }
 
 //---------------------------------------------------------------------------------------

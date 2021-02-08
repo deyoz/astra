@@ -41,6 +41,7 @@ namespace ChangeStatus
                                                               kickInfo,
                                                               airline,
                                                               flNum,
+                                                              boost::none,
                                                               lTick,
                                                               itin));
     }

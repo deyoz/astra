@@ -48,6 +48,7 @@ class AstraEdiSessWR: public edilib::EdiSessWrData
 
     hth::HthInfo* H2H;
     const Ticketing::RemoteSystemContext::SystemContext* SysCtxt;
+    std::string BaseOurrefName;
 public:
     AstraEdiSessWR(const std::string &pult,
                    edi_mes_head *mhead,
@@ -78,6 +79,7 @@ public:
     virtual const edilib::EdiSession *ediSession() const;
 
     const Ticketing::RemoteSystemContext::SystemContext *sysCont() const;
+    void setBaseOurrefName(const std::string& baseOurrefName);
 };
 
 class AstraEdiSessRD : public edilib::EdiSessRdData

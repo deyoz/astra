@@ -38,6 +38,7 @@ public:
                  const edifact::KickInfo& kickInfo,
                  const std::string& airline,
                  const Ticketing::FlightNum_t& flNum,
+                 const boost::optional<std::string>& specBaseOurrefName,
                  const Ticketing::TicketNum_t& tickNum,
                  const Ticketing::CouponNum_t& cpnNum,
                  const Ticketing::CouponStatus& status,
@@ -47,7 +48,8 @@ public:
                  const std::string& ctxt,
                  const edifact::KickInfo& kickInfo,
                  const std::string& airline,
-                 const Ticketing::FlightNum_t& flNum);
+                 const Ticketing::FlightNum_t& flNum,
+                 const boost::optional<std::string>& specBaseOurrefName);
     
     void addCoupon(const Ticketing::TicketCpn_t& tickCpn,
                    const Ticketing::CouponStatus& status);
