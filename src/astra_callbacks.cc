@@ -60,7 +60,7 @@
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 using namespace jxtlib;
 
@@ -308,6 +308,48 @@ void AstraJxtCallbacks::UserAfter()
     SetXMLDocEncoding(getXmlCtxt()->resDoc, "UTF-8");
 }
 
+void AstraJxtCallbacks::initJxtContext(const std::string &pult)
+{
+  JxtContext::JxtContHolder::Instance()->setHandler(new AstraJxtContHandlerSir(pult));
+}
+
+JxtContext::JxtCont *AstraJxtContHandlerSir::createContext(int handle)
+{
+  JxtContext::JxtCont *jc = new AstraJxtContSir(term, handle, isSavedCtxt(handle) ? JxtContext::UNCHANGED : JxtContext::TO_ADD);
+  contexts.push_back(jc);
+  return contexts.back();
+}
+
+static bool skip_jxtlib_cont(const std::string &name)
+{
+  if (name == "OPR" or
+      name == "CUR_IFACE" or
+      name == "HANDLE" or
+      name == "REQ_HANDLE" or
+      name == "JXT_BUILD")
+  {
+    return true;
+  }
+  return false;
+}
+
+void AstraJxtContSir::addRow(const JxtContext::JxtContRow *row)
+{
+  if(skip_jxtlib_cont(row->name)) {
+    LogTrace(TRACE3) << "Skip writing " << row->name << " keyword for ASTRA";
+  } else {
+    JxtContext::JxtContSir::addRow(row);
+  }
+}
+
+void AstraJxtContSir::deleteRow(const JxtContext::JxtContRow *row)
+{
+  if(skip_jxtlib_cont(row->name)) {
+    LogTrace(TRACE3) << "Skip deleting " << row->name << " keyword for ASTRA";
+  } else {
+    JxtContext::JxtContSir::deleteRow(row);
+  }
+}
 
 void AstraJxtCallbacks::HandleException(ServerFramework::Exception *e)
 {

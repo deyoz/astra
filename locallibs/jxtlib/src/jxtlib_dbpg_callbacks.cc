@@ -347,6 +347,7 @@ bool JxtlibDbPgCallbacks::jxtContIsSavedCtxt(int handle, const std::string &sess
 
 void JxtlibDbPgCallbacks::jxtContDeleteSavedCtxt(int handle, const std::string &session_id) const
 {
+  LogTrace(TRACE3) << __func__ << " " << session_id;
   auto c = make_pg_curs(sd, "DELETE FROM CONT WHERE SESS_ID=:sess_id");
   c.bind(":sess_id",session_id).exec();
 }
@@ -409,6 +410,7 @@ void JxtlibDbPgCallbacks::jxtContAddRow(const JxtContext::JxtContRow *row, const
 {
     int page_n=0;
     std::string val_part;
+    LogTrace(TRACE3) << __func__ << " " << row->name;
     auto c = make_pg_curs(sd, "INSERT INTO CONT (SESS_ID,NAME,PAGE_N,VALUE) VALUES "
                           "(:sess_id,:name,:page_n,:val)");
     c.unstb().bind(":sess_id",sess_id).bind(":name",row->name).
@@ -422,6 +424,7 @@ void JxtlibDbPgCallbacks::jxtContAddRow(const JxtContext::JxtContRow *row, const
 
 void JxtlibDbPgCallbacks::jxtContDeleteRow(const JxtContext::JxtContRow *row, const std::string &session_id) const
 {
+  LogTrace(TRACE3) << __func__ << " " << row->name;
   auto c = make_pg_curs(sd, "DELETE FROM CONT WHERE SESS_ID=:sess_id AND NAME=:name");
   c.bind(":sess_id", session_id).bind(":name",row->name).exec();
 }
