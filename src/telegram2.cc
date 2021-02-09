@@ -7626,8 +7626,14 @@ int FWD(TypeB::TDetailCreateInfo &info)
         // UCMHeadingInfo->tlg_type = "UCM"
         // tlg_row.tlg_type = "UCM->>" - for forwarding tlgs
 
-        heading << UCMHeadingInfo->tlg_type << TypeB::endl
-            << UCMHeadingInfo->flt_info.src << TypeB::endl;
+        if(UCMHeadingInfo->tlg_cat == TypeB::tcLOADSHEET)
+            heading
+                << UCMHeadingInfo->MsgId << std::endl
+                << UCMHeadingInfo->flt_info.src << std::endl;
+        else
+            heading << UCMHeadingInfo->tlg_type << TypeB::endl
+                << UCMHeadingInfo->flt_info.src << TypeB::endl;
+
         tlg_row.heading = heading.str();
         tlg_row.body = getTypeBBody(forwarderOptions->typeb_in_id,
                 forwarderOptions->typeb_in_num);

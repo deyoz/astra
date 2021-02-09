@@ -92,6 +92,7 @@ enum TTlgCategory{
     tcLDM,
     tcNTM,
     tcIFM,
+    tcLOADSHEET,
 };
 
 enum TTlgElement
@@ -187,8 +188,9 @@ class THeadingInfo
     char double_signature[3];
     std::string message_identity;
     TDateTime time_create;
-    char tlg_type[4];
+    char tlg_type[10];
     TTlgCategory tlg_cat;
+    std::string MsgId; // LOADSHEET FINAL 1325 например
 
     THeadingInfo()
     {
@@ -203,6 +205,7 @@ class THeadingInfo
       strcpy(sender,info.sender);
       strcpy(double_signature,info.double_signature);
       message_identity=info.message_identity;
+      MsgId = info.MsgId;
       time_create=info.time_create;
       strcpy(tlg_type,info.tlg_type);
       tlg_cat=info.tlg_cat;

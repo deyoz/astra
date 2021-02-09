@@ -1085,6 +1085,7 @@ bool parse_tlg(const string &handler_id)
           case tcSLS:
           case tcLDM:
           case tcNTM:
+          case tcLOADSHEET:
           {
               TUCMHeadingInfo &info = *(dynamic_cast<TUCMHeadingInfo*>(HeadingInfo));
               if(HeadingInfo->tlg_cat == tcLDM) {
@@ -1307,6 +1308,7 @@ void get_tlg_info(
             case tcSLS:
             case tcLDM:
             case tcNTM:
+            case tcLOADSHEET:
                 {
                     TUCMHeadingInfo &info = *(dynamic_cast<TUCMHeadingInfo*>(HeadingInfo));
                     airline = info.flt_info.airline;

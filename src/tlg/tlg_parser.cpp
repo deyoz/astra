@@ -8,6 +8,7 @@
 #include "tlg_parser.h"
 #include "lci_parser.h"
 #include "ucm_parser.h"
+#include "loadsheet_parser.h"
 #include "astra_consts.h"
 #include "astra_misc.h"
 #include "astra_utils.h"
@@ -387,6 +388,7 @@ TTlgCategory GetTlgCategory(char *tlg_type)
   if (strcmp(tlg_type,"LDM")==0) cat=tcLDM;
   if (strcmp(tlg_type,"NTM")==0) cat=tcNTM;
   if (strcmp(tlg_type,"IFM")==0) cat=tcIFM;
+  if (strcmp(tlg_type,"LDS")==0) cat=tcLOADSHEET;
   return cat;
 };
 
@@ -1382,13 +1384,24 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading,
           break;
         case MessageIdentifier:
           //message identifier
-          c=0;
-          res=sscanf(tlg.lex,"%3[A-Z]%c",infoh.tlg_type,&c);
-          if (c!=0||res!=1||tlg.GetLexeme(p)!=NULL)
-          {
-            *(infoh.tlg_type)=0;
+          if((string)tlg.lex == "LOADSHEET") {
+              strcpy(infoh.tlg_type, "LDS");
+              tlg.GetToEOLLexeme(line_p);
+              infoh.MsgId = tlg.lex;
+          } else {
+              c=0;
+              res=sscanf(tlg.lex,"%9[A-Z]%c",infoh.tlg_type,&c); // LOADSHEET
+              if (c!=0||res!=1) {
+                  c=0;
+                  res=sscanf(tlg.lex,"%3[A-Z]%c",infoh.tlg_type,&c);
+                  if (c!=0||res!=1||tlg.GetLexeme(p)!=NULL)
+                  {
+                      *(infoh.tlg_type)=0;
+                  }
+              }
           }
-          else
+
+          if(infoh.tlg_type)
           {
             line_p=tlg.NextLine(line_p); //проверить line_p=NULL
           };
@@ -1429,6 +1442,11 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading,
               info = new TUCMHeadingInfo(infoh);
               mem.create(info, STDLOG);
               next=ParseUCMHeading(heading,*(TUCMHeadingInfo*)info,flts);
+              break;
+            case tcLOADSHEET:
+              info = new TUCMHeadingInfo(infoh);
+              mem.create(info, STDLOG);
+              next=ParseLOADSHEETHeading(heading,*(TUCMHeadingInfo*)info);
               break;
             default:
               info = new THeadingInfo(infoh);
@@ -1474,7 +1492,7 @@ void ParseDCSEnding(TTlgPartInfo ending, THeadingInfo &headingInfo, TEndingInfo 
   char c;
   const char* p;
   TTlgParser tlg;
-  char endtlg[7];
+  char endtlg[13];
 
   try
   {
