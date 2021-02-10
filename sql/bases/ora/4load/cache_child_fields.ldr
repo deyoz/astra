@@ -1,0 +1,26 @@
+LOAD DATA
+INFILE *
+INTO TABLE cache_child_fields
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+auto_insert
+,cache_child
+,cache_parent
+,check_equal
+,field_child
+,field_parent
+,modify_var
+,read_only
+,select_var
+)
+BEGINDATA
+1|"TYPEB_CREATE_POINTS"|"TYPEB_ADDRS_LCI"|1|"typeb_addrs_id"|"id"||1|"id_sel"
+1|"TYPEB_ADDR_TRANS_PARAMS"|"TYPEB_ADDR_OWNERS_OTHERS"|1|"ADDR"|"ADDR"||1|"ADDR"
+1|"TYPEB_CREATE_POINTS"|"TYPEB_ADDRS_FORWARDING"|1|"typeb_addrs_id"|"id"||1|"id_sel"
+1|"TYPEB_CREATE_POINTS"|"TYPEB_ADDRS_COM"|1|"typeb_addrs_id"|"id"||1|"id_sel"
+1|"TYPEB_CREATE_POINTS"|"TYPEB_ADDRS_SOM"|1|"typeb_addrs_id"|"id"||1|"id_sel"
+1|"TYPEB_CREATE_POINTS"|"TYPEB_ADDRS_PIL"|1|"typeb_addrs_id"|"id"||1|"id_sel"
+1|"DESK_OWNERS_GRP"|"DESK_OWNERS"|1||"id"||1|"id_sel"
+1|"DESK_OWNERS_ADD"|"DESK_OWNERS"|1||"id"||1|"id_sel"
