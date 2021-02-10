@@ -1291,7 +1291,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                pax.is_jmp &&
                !pax.already_marked &&
                 GetTripSets( tsDeniedBoardingJMP, fltInfo ) ) {
-              AstraLocale::showErrorMessage("MSG.PASSENGER.JMP_BOARDED_DENIAL",120);
+              AstraLocale::showErrorMessage("MSG.PASSENGER.JMP_BOARDED_DENIAL");
               throw CompleteWithError();
           }
         }

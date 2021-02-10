@@ -20,6 +20,10 @@ $(utf8 {<?xml version=\"1.0\" encoding=\"UTF-8\"?>
         <name language=\"ru\">„ŽŒ€˜…… †ˆ‚Ž’Ž… ‚ ‘€‹Ž…</name>
         <description>PE</description>
       </svc>
+      <svc company=\"UT\" service_type=\"F\" rfic=\"A\" rfisc=\"0B5\" emd_type=\"EMD-A\" ssr=\"SEAT\" carry_on=\"false\" group=\"SA\">
+        <name language=\"en\">PRE RESERVED SEAT ASSIGNMENT</name>
+        <name language=\"ru\">…„‚€ˆ’…‹œ›‰ ‚›Ž Œ…‘’€</name>
+      </svc>
       <free_baggage_norm company=\"UT\" type=\"piece\">
         <text language=\"en\">Free baggage allowance 1PC
 1ST checked bag:         FIREARMS UP TO 23KG (04U)
