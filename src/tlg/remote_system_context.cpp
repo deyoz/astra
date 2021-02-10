@@ -159,12 +159,11 @@ void SystemContext::addDb()
 {
     ProgTrace(TRACE0, "SystemContext::addDb");
     OciCpp::CursCtl cur = make_curs(
-"insert into EDI_ADDRS (ADDR, CANON_NAME, CFG_ID) "
-"values (:addr, :canon_name, :cfg)");
+"insert into EDI_ADDRS (ADDR, CANON_NAME) "
+"values (:addr, :canon_name)");
     cur.stb()
        .bind(":addr", remoteAddrEdifact())
-       .bind(":canon_name", routerCanonName())
-       .bind(":cfg", ida().get());
+       .bind(":canon_name", routerCanonName());
     cur.exec();
 }
 
