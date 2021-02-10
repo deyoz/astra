@@ -580,7 +580,7 @@ bool TArxTlgTrips::Next(int max_rows, int duration)
 
       try
       {
-        TypeB::DeleteTypeBData(point_id, "", "", false/*delete_trip_comp_layers*/);
+        TypeB::deleteTypeBData(PointIdTlg_t(point_id), "", "", false/*delete_trip_comp_layers*/);
 
         //в архив
         Qry->SetVariable("point_id",point_id);

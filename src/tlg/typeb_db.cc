@@ -12,14 +12,14 @@
 namespace TypeB
 {
 
-std::set<int> LoadPaxIdSet(int point_id, const std::string& system,
-                           const std::string& sender)
+std::set<PaxId_t> loadPaxIdSet(PointIdTlg_t point_id, const std::string& system,
+                               const std::string& sender)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": point_id=" << point_id
                    << ": system=" << system
                    << ": sender=" << sender;
-  std::set<int> result;
+  std::set<PaxId_t> result;
   int pax_id = ASTRA::NoExists;
   auto cur = make_db_curs(
         "SELECT pax_id "
@@ -32,353 +32,194 @@ std::set<int> LoadPaxIdSet(int point_id, const std::string& system,
 
   cur.stb()
       .def(pax_id)
-      .bind(":point_id", point_id)
+      .bind(":point_id", point_id.get())
       .bind(":system", system)
       .bind(":sender", sender)
       .exec();
 
   while (!cur.fen()) {
-    result.insert(pax_id);
+    result.emplace(pax_id);
   }
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": count=" << result.size();
   return result;
 }
 
-bool DeleteCrsSeatsBlocking(int pax_id)
+namespace {
+
+bool deleteByPaxId(const std::string& table_name, PaxId_t pax_id)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": pax_id=" << pax_id;
   auto cur = make_db_curs(
-        "DELETE FROM crs_seats_blocking "
+        "DELETE FROM " + table_name + " "
         "WHERE pax_id=:pax_id ",
-        PgOra::getRWSession("CRS_SEATS_BLOCKING"));
+        PgOra::getRWSession(table_name));
   cur.stb()
-      .bind(":pax_id", pax_id)
+      .bind(":pax_id", pax_id.get())
       .exec();
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": rowcount=" << cur.rowcount();
   return cur.rowcount() > 0;
 }
 
-bool DeleteCrsInf(int pax_id)
-{
-  LogTrace(TRACE5) << __func__
-                   << ": pax_id=" << pax_id;
-  auto cur = make_db_curs(
-        "DELETE FROM crs_inf "
-        "WHERE pax_id=:pax_id ",
-        PgOra::getRWSession("CRS_INF"));
-  cur.stb()
-      .bind(":pax_id", pax_id)
-      .exec();
+} //namespace
 
-  LogTrace(TRACE5) << __func__
-                   << ": rowcount=" << cur.rowcount();
-  return cur.rowcount() > 0;
+bool deleteCrsSeatsBlocking(PaxId_t pax_id)
+{
+  return deleteByPaxId("CRS_SEATS_BLOCKING", pax_id);
 }
 
-bool DeleteCrsInfDeleted(int pax_id)
+bool deleteCrsInf(PaxId_t pax_id)
 {
-  LogTrace(TRACE5) << __func__
-                   << ": pax_id=" << pax_id;
-  auto cur = make_db_curs(
-        "DELETE FROM crs_inf_deleted "
-        "WHERE pax_id=:pax_id ",
-        PgOra::getRWSession("CRS_INF_DELETED"));
-  cur.stb()
-      .bind(":pax_id", pax_id)
-      .exec();
-
-  LogTrace(TRACE5) << __func__
-                   << ": rowcount=" << cur.rowcount();
-  return cur.rowcount() > 0;
+  return deleteByPaxId("CRS_INF", pax_id);
 }
 
-bool DeleteCrsPaxRem(int pax_id)
+bool deleteCrsInfDeleted(PaxId_t pax_id)
 {
-  LogTrace(TRACE5) << __func__
-                   << ": pax_id=" << pax_id;
-  auto cur = make_db_curs(
-        "DELETE FROM crs_pax_rem "
-        "WHERE pax_id=:pax_id ",
-        PgOra::getRWSession("CRS_PAX_REM"));
-  cur.stb()
-      .bind(":pax_id", pax_id)
-      .exec();
-
-  LogTrace(TRACE5) << __func__
-                   << ": rowcount=" << cur.rowcount();
-  return cur.rowcount() > 0;
+  return deleteByPaxId("CRS_INF_DELETED", pax_id);
 }
 
-bool DeleteCrsPaxDoco(int pax_id)
+bool deleteCrsPaxRem(PaxId_t pax_id)
 {
-  LogTrace(TRACE5) << __func__
-                   << ": pax_id=" << pax_id;
-  auto cur = make_db_curs(
-        "DELETE FROM crs_pax_doco "
-        "WHERE pax_id=:pax_id ",
-        PgOra::getRWSession("CRS_PAX_DOCO"));
-  cur.stb()
-      .bind(":pax_id", pax_id)
-      .exec();
-
-  LogTrace(TRACE5) << __func__
-                   << ": rowcount=" << cur.rowcount();
-  return cur.rowcount() > 0;
+  return deleteByPaxId("CRS_PAX_REM", pax_id);
 }
 
-bool DeleteCrsPaxDoca(int pax_id)
+bool deleteCrsPaxDoco(PaxId_t pax_id)
 {
-  LogTrace(TRACE5) << __func__
-                   << ": pax_id=" << pax_id;
-  auto cur = make_db_curs(
-        "DELETE FROM crs_pax_doca "
-        "WHERE pax_id=:pax_id ",
-        PgOra::getRWSession("CRS_PAX_DOCA"));
-  cur.stb()
-      .bind(":pax_id", pax_id)
-      .exec();
-
-  LogTrace(TRACE5) << __func__
-                   << ": rowcount=" << cur.rowcount();
-  return cur.rowcount() > 0;
+  return deleteByPaxId("CRS_PAX_DOCO", pax_id);
 }
 
-bool DeleteCrsPaxTkn(int pax_id)
+bool deleteCrsPaxDoca(PaxId_t pax_id)
 {
-  LogTrace(TRACE5) << __func__
-                   << ": pax_id=" << pax_id;
-  auto cur = make_db_curs(
-        "DELETE FROM crs_pax_tkn "
-        "WHERE pax_id=:pax_id ",
-        PgOra::getRWSession("CRS_PAX_TKN"));
-  cur.stb()
-      .bind(":pax_id", pax_id)
-      .exec();
-
-  LogTrace(TRACE5) << __func__
-                   << ": rowcount=" << cur.rowcount();
-  return cur.rowcount() > 0;
+  return deleteByPaxId("CRS_PAX_DOCA", pax_id);
 }
 
-bool DeleteCrsPaxFqt(int pax_id)
+bool deleteCrsPaxTkn(PaxId_t pax_id)
 {
-  LogTrace(TRACE5) << __func__
-                   << ": pax_id=" << pax_id;
-  auto cur = make_db_curs(
-        "DELETE FROM crs_pax_fqt "
-        "WHERE pax_id=:pax_id ",
-        PgOra::getRWSession("CRS_PAX_FQT"));
-  cur.stb()
-      .bind(":pax_id", pax_id)
-      .exec();
-
-  LogTrace(TRACE5) << __func__
-                   << ": rowcount=" << cur.rowcount();
-  return cur.rowcount() > 0;
+  return deleteByPaxId("CRS_PAX_TKN", pax_id);
 }
 
-bool DeleteCrsPaxChkd(int pax_id)
+bool deleteCrsPaxFqt(PaxId_t pax_id)
 {
-  LogTrace(TRACE5) << __func__
-                   << ": pax_id=" << pax_id;
-  auto cur = make_db_curs(
-        "DELETE FROM crs_pax_chkd "
-        "WHERE pax_id=:pax_id ",
-        PgOra::getRWSession("CRS_PAX_CHKD"));
-  cur.stb()
-      .bind(":pax_id", pax_id)
-      .exec();
-
-  LogTrace(TRACE5) << __func__
-                   << ": rowcount=" << cur.rowcount();
-  return cur.rowcount() > 0;
+  return deleteByPaxId("CRS_PAX_FQT", pax_id);
 }
 
-bool DeleteCrsPaxAsvc(int pax_id)
+bool deleteCrsPaxChkd(PaxId_t pax_id)
 {
-  LogTrace(TRACE5) << __func__
-                   << ": pax_id=" << pax_id;
-  auto cur = make_db_curs(
-        "DELETE FROM crs_pax_asvc "
-        "WHERE pax_id=:pax_id ",
-        PgOra::getRWSession("CRS_PAX_ASVC"));
-  cur.stb()
-      .bind(":pax_id", pax_id)
-      .exec();
-
-  LogTrace(TRACE5) << __func__
-                   << ": rowcount=" << cur.rowcount();
-  return cur.rowcount() > 0;
+  return deleteByPaxId("CRS_PAX_CHKD", pax_id);
 }
 
-bool DeleteCrsPaxRefuse(int pax_id)
+bool deleteCrsPaxAsvc(PaxId_t pax_id)
 {
-  LogTrace(TRACE5) << __func__
-                   << ": pax_id=" << pax_id;
-  auto cur = make_db_curs(
-        "DELETE FROM crs_pax_refuse "
-        "WHERE pax_id=:pax_id ",
-        PgOra::getRWSession("CRS_PAX_REFUSE"));
-  cur.stb()
-      .bind(":pax_id", pax_id)
-      .exec();
-
-  LogTrace(TRACE5) << __func__
-                   << ": rowcount=" << cur.rowcount();
-  return cur.rowcount() > 0;
+  return deleteByPaxId("CRS_PAX_ASVC", pax_id);
 }
 
-bool DeleteCrsPaxAlarms(int pax_id)
+bool deleteCrsPaxRefuse(PaxId_t pax_id)
 {
-  LogTrace(TRACE5) << __func__
-                   << ": pax_id=" << pax_id;
-  auto cur = make_db_curs(
-        "DELETE FROM crs_pax_alarms "
-        "WHERE pax_id=:pax_id ",
-        PgOra::getRWSession("CRS_PAX_ALARMS"));
-  cur.stb()
-      .bind(":pax_id", pax_id)
-      .exec();
-
-  LogTrace(TRACE5) << __func__
-                   << ": rowcount=" << cur.rowcount();
-  return cur.rowcount() > 0;
+  return deleteByPaxId("CRS_PAX_REFUSE", pax_id);
 }
 
-bool DeleteCrsPaxContext(int pax_id)
+bool deleteCrsPaxAlarms(PaxId_t pax_id)
 {
-  LogTrace(TRACE5) << __func__
-                   << ": pax_id=" << pax_id;
-  auto cur = make_db_curs(
-        "DELETE FROM crs_pax_context "
-        "WHERE pax_id=:pax_id ",
-        PgOra::getRWSession("CRS_PAX_CONTEXT"));
-  cur.stb()
-      .bind(":pax_id", pax_id)
-      .exec();
-
-  LogTrace(TRACE5) << __func__
-                   << ": rowcount=" << cur.rowcount();
-  return cur.rowcount() > 0;
+  return deleteByPaxId("CRS_PAX_ALARMS", pax_id);
 }
 
-bool DeleteDcsBag(int pax_id)
+bool deleteCrsPaxContext(PaxId_t pax_id)
 {
-  LogTrace(TRACE5) << __func__
-                   << ": pax_id=" << pax_id;
-  auto cur = make_db_curs(
-        "DELETE FROM dcs_bag "
-        "WHERE pax_id=:pax_id ",
-        PgOra::getRWSession("DCS_BAG"));
-  cur.stb()
-      .bind(":pax_id", pax_id)
-      .exec();
-
-  LogTrace(TRACE5) << __func__
-                   << ": rowcount=" << cur.rowcount();
-  return cur.rowcount() > 0;
+  return deleteByPaxId("CRS_PAX_CONTEXT", pax_id);
 }
 
-bool DeleteDcsTags(int pax_id)
+bool deleteDcsBag(PaxId_t pax_id)
 {
-  LogTrace(TRACE5) << __func__
-                   << ": pax_id=" << pax_id;
-  auto cur = make_db_curs(
-        "DELETE FROM dcs_tags "
-        "WHERE pax_id=:pax_id ",
-        PgOra::getRWSession("DCS_TAGS"));
-  cur.stb()
-      .bind(":pax_id", pax_id)
-      .exec();
-
-  LogTrace(TRACE5) << __func__
-                   << ": rowcount=" << cur.rowcount();
-  return cur.rowcount() > 0;
+  return deleteByPaxId("DCS_BAG", pax_id);
 }
 
-bool DeleteTripCompLayers(int pax_id)
+bool deleteDcsTags(PaxId_t pax_id)
 {
-  LogTrace(TRACE5) << __func__
+  return deleteByPaxId("DCS_TAGS", pax_id);
+}
+
+bool deleteTripCompLayers(PaxId_t pax_id)
+{
+  LogTrace(TRACE6) << __func__
                    << ": pax_id=" << pax_id;
   auto cur = make_db_curs(
         "DELETE FROM trip_comp_layers "
         "WHERE crs_pax_id=:pax_id ",
         PgOra::getRWSession("TRIP_COMP_LAYERS"));
   cur.stb()
-      .bind(":pax_id", pax_id)
+      .bind(":pax_id", pax_id.get())
       .exec();
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": rowcount=" << cur.rowcount();
   return cur.rowcount() > 0;
 }
 
-bool DeleteTlgCompLayers(int pax_id)
+bool deleteTlgCompLayers(PaxId_t pax_id)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": pax_id=" << pax_id;
   auto cur = make_db_curs(
         "DELETE FROM tlg_comp_layers "
         "WHERE crs_pax_id=:pax_id ",
         PgOra::getRWSession("tlg_comp_layers"));
   cur.stb()
-      .bind(":pax_id", pax_id)
+      .bind(":pax_id", pax_id.get())
       .exec();
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": rowcount=" << cur.rowcount();
   return cur.rowcount() > 0;
 }
 
-bool DeletePaxCalcData(int pax_id)
+bool deletePaxCalcData(PaxId_t pax_id)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": pax_id=" << pax_id;
   auto cur = make_db_curs(
         "DELETE FROM pax_calc_data "
         "WHERE pax_calc_data_id=:pax_id ",
         PgOra::getRWSession("PAX_CALC_DATA"));
   cur.stb()
-      .bind(":pax_id", pax_id)
+      .bind(":pax_id", pax_id.get())
       .exec();
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": rowcount=" << cur.rowcount();
   return cur.rowcount() > 0;
 }
 
-bool DeleteTypeBData(int point_id, const std::string& system, const std::string& sender,
+bool deleteTypeBData(PointIdTlg_t point_id, const std::string& system, const std::string& sender,
                      bool delete_trip_comp_layers)
 {
   int result = 0;
-  const std::set<int> paxIdSet = LoadPaxIdSet(point_id, system, sender);
-  for (int pax_id: paxIdSet) {
-      result += DeleteCrsSeatsBlocking(pax_id) ? 1 : 0;
-      result += DeleteCrsInf(pax_id) ? 1 : 0;
-      result += DeleteCrsInfDeleted(pax_id) ? 1 : 0;
-      result += DeleteCrsPaxRem(pax_id) ? 1 : 0;
-      result += DeleteCrsPaxDoco(pax_id) ? 1 : 0;
-      result += DeleteCrsPaxDoca(pax_id) ? 1 : 0;
-      result += DeleteCrsPaxTkn(pax_id) ? 1 : 0;
-      result += DeleteCrsPaxFqt(pax_id) ? 1 : 0;
-      result += DeleteCrsPaxChkd(pax_id) ? 1 : 0;
-      result += DeleteCrsPaxAsvc(pax_id) ? 1 : 0;
-      result += DeleteCrsPaxRefuse(pax_id) ? 1 : 0;
-      result += DeleteCrsPaxAlarms(pax_id) ? 1 : 0;
-      result += DeleteCrsPaxContext(pax_id) ? 1 : 0;
-      result += DeleteDcsBag(pax_id) ? 1 : 0;
-      result += DeleteDcsTags(pax_id) ? 1 : 0;
-      result += DeletePaxCalcData(pax_id) ? 1 : 0;
+  const std::set<PaxId_t> paxIdSet = loadPaxIdSet(point_id, system, sender);
+  for (PaxId_t pax_id: paxIdSet) {
+      result += deleteCrsSeatsBlocking(pax_id) ? 1 : 0;
+      result += deleteCrsInf(pax_id) ? 1 : 0;
+      result += deleteCrsInfDeleted(pax_id) ? 1 : 0;
+      result += deleteCrsPaxRem(pax_id) ? 1 : 0;
+      result += deleteCrsPaxDoco(pax_id) ? 1 : 0;
+      result += deleteCrsPaxDoca(pax_id) ? 1 : 0;
+      result += deleteCrsPaxTkn(pax_id) ? 1 : 0;
+      result += deleteCrsPaxFqt(pax_id) ? 1 : 0;
+      result += deleteCrsPaxChkd(pax_id) ? 1 : 0;
+      result += deleteCrsPaxAsvc(pax_id) ? 1 : 0;
+      result += deleteCrsPaxRefuse(pax_id) ? 1 : 0;
+      result += deleteCrsPaxAlarms(pax_id) ? 1 : 0;
+      result += deleteCrsPaxContext(pax_id) ? 1 : 0;
+      result += deleteDcsBag(pax_id) ? 1 : 0;
+      result += deleteDcsTags(pax_id) ? 1 : 0;
+      result += deletePaxCalcData(pax_id) ? 1 : 0;
 
       if (delete_trip_comp_layers) {
-          result += DeleteTripCompLayers(pax_id) ? 1 : 0;
+          result += deleteTripCompLayers(pax_id) ? 1 : 0;
       }
 
-      result += DeleteTlgCompLayers(pax_id) ? 1 : 0;
+      result += deleteTlgCompLayers(pax_id) ? 1 : 0;
   }
   return result > 0;
 }

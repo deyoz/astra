@@ -607,7 +607,7 @@ bool SaveCHKDRem(const PaxIdWithSegmentPair& paxId, const vector<TCHKDItem> &chk
 
 static void LoadASVCRem(const PaxId_t& paxId, vector<TASVCItem> &asvc)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": pax_id=" << paxId.get();
   asvc.clear();
 
@@ -633,7 +633,7 @@ static void LoadASVCRem(const PaxId_t& paxId, vector<TASVCItem> &asvc)
       item.emd_coupon=Qry.FieldAsInteger("emd_coupon");
     asvc.push_back(item);
   }
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": count=" << asvc.size();
 }
 
@@ -641,7 +641,7 @@ void SaveASVCRem(const PaxIdWithSegmentPair& paxId,
                  const vector<TASVCItem> &asvc,
                  ModifiedPaxRem& modifiedPaxRem)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": pax_id=" << paxId().get();
   bool deleteFromDB=true;
   if (!asvc.empty())
@@ -654,7 +654,7 @@ void SaveASVCRem(const PaxIdWithSegmentPair& paxId,
 
   if (deleteFromDB)
   {
-    LogTrace(TRACE5) << __func__
+    LogTrace(TRACE6) << __func__
                      << ": deleteFromDB=" << deleteFromDB;
     DB::TQuery Qry(PgOra::getRWSession("CRS_PAX_ASVC"));
     Qry.Clear();
@@ -704,7 +704,7 @@ void SaveASVCRem(const PaxIdWithSegmentPair& paxId,
       Qry.Execute();
       saved += Qry.RowsProcessed();
     }
-    LogTrace(TRACE5) << __func__
+    LogTrace(TRACE6) << __func__
                      << ": saved=" << saved;
   }
 
@@ -713,7 +713,7 @@ void SaveASVCRem(const PaxIdWithSegmentPair& paxId,
 
 void SavePNLADLRemarks(const PaxIdWithSegmentPair& paxId, const vector<TRemItem> &rem)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": pax_id=" << paxId().get();
   if (rem.empty()) return;
   DB::TQuery CrsPaxRemQry(PgOra::getRWSession("CRS_PAX_REM"));
@@ -738,13 +738,13 @@ void SavePNLADLRemarks(const PaxIdWithSegmentPair& paxId, const vector<TRemItem>
     CrsPaxRemQry.Execute();
     saved += CrsPaxRemQry.RowsProcessed();
   }
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": saved=" << saved;
 }
 
 static void LoadPDRem(const PaxIdWithSegmentPair& paxId, multiset<TPDRemItem> &pdRems)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": pax_id=" << paxId().get();
   pdRems.clear();
 
@@ -765,7 +765,7 @@ static void LoadPDRem(const PaxIdWithSegmentPair& paxId, multiset<TPDRemItem> &p
 
 bool DeleteFreeRem(int pax_id)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": pax_id=" << pax_id;
   auto cur = make_db_curs(
         "DELETE FROM crs_pax_rem "
@@ -776,14 +776,14 @@ bool DeleteFreeRem(int pax_id)
       .bind(":pax_id", pax_id)
       .exec();
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": rowcount=" << cur.rowcount();
   return cur.rowcount() > 0;
 }
 
 bool DeleteCrsChkd(int pax_id)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": pax_id=" << pax_id;
   auto cur = make_db_curs(
         "DELETE FROM crs_pax_chkd "
@@ -793,7 +793,7 @@ bool DeleteCrsChkd(int pax_id)
       .bind(":pax_id", pax_id)
       .exec();
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": rowcount=" << cur.rowcount();
   return cur.rowcount() > 0;
 }

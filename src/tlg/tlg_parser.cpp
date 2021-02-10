@@ -5894,7 +5894,7 @@ bool DeletePRLContent(int point_id, const THeadingInfo& info)
 {
   if (isDeleteTypeBContent(point_id, info))
   {
-    DeleteTypeBData(point_id, "DCS", info.sender, true /*delete_trip_comp_layers*/);
+    deleteTypeBData(PointIdTlg_t(point_id), "DCS", info.sender, true /*delete_trip_comp_layers*/);
 
     TQuery Qry(&OraSession);
     Qry.Clear();

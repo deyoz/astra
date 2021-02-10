@@ -767,7 +767,7 @@ bool LoadPaxRem(int pax_id, std::multiset<TPaxRemItem> &rems)
 bool LoadPaxRem(bool is_crs, int pax_id, multiset<TPaxRemItem> &rems, bool onlyPD,
                 const std::string& code)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": pax_id=" << pax_id
                    << ", is_crs=" << is_crs;
   rems.clear();
@@ -794,7 +794,7 @@ bool LoadPaxRem(bool is_crs, int pax_id, multiset<TPaxRemItem> &rems, bool onlyP
   while (!cur.fen()) {
     rems.insert(TPaxRemItem(rem_code, rem_text));
   }
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": count=" << rems.size();
   return !rems.empty();
 }
@@ -892,7 +892,7 @@ TGrpServiceAutoList loadCrsPaxAsvc(int pax_id, const std::optional<TTripInfo>& f
 
 bool AddPaxASVC(const TGrpServiceAutoItem& item)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": pax_id=" << item.pax_id;
   auto cur = make_db_curs(
         "INSERT INTO pax_asvc ("
@@ -916,7 +916,7 @@ bool AddPaxASVC(const TGrpServiceAutoItem& item)
             item.emd_coupon != ASTRA::NoExists ? &notNull : &null);
   cur.exec();
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": rowcount=" << cur.rowcount();
   return cur.rowcount() > 0;
 }
@@ -949,7 +949,7 @@ bool AddPaxASVC(int id, bool is_grp_id)
 
 bool AddPaxRem(int pax_id, const CheckIn::TPaxRemItem& item)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": pax_id=" << pax_id;
   auto cur = make_db_curs(
         "INSERT INTO pax_rem ( "
@@ -964,7 +964,7 @@ bool AddPaxRem(int pax_id, const CheckIn::TPaxRemItem& item)
       .bind(":rem_code", item.code);
   cur.exec();
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": rowcount=" << cur.rowcount();
   return cur.rowcount() > 0;
 }

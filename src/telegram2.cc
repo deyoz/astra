@@ -2221,7 +2221,7 @@ struct TExtraSeatName {
     }
     void get(int pax_id, bool pr_crs = false)
     {
-        LogTrace(TRACE5) << __func__
+        LogTrace(TRACE6) << __func__
                          << ": pax_id=" << pax_id
                          << ", pr_crs=" << pr_crs;
         DB::TQuery Qry(PgOra::getROSession(pr_crs ? "CRS_PAX_REM" : "PAX_REM"));
