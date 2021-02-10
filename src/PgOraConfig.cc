@@ -79,12 +79,12 @@ namespace PgOra
 
     bool supportsPg(const std::string& objectName)
     {
-        LogTrace(TRACE5) << __func__ << ": objectName=" << objectName;
+        LogTrace(TRACE6) << __func__ << ": objectName=" << objectName;
         const std::string& group = getGroup(objectName);
-        LogTrace(TRACE5) << __func__ << ": group=" << group;
+        LogTrace(TRACE6) << __func__ << ": group=" << group;
         bool result = group.empty() ? false
                                     : Config(group).writePostgres();
-        LogTrace(TRACE5) << __func__ << ": result=" << result;
+        LogTrace(TRACE6) << __func__ << ": result=" << result;
         return result;
     }
 
