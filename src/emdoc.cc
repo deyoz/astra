@@ -550,7 +550,7 @@ static void bindDisplayItem(DbCpp::CursCtl& cur,
 
 static bool updateDisplay(const TEMDocItem& item)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": emd_no=" << item.emd.no
                    << ", coupon_no=" << item.emd.coupon;
   auto cur = make_db_curs(
@@ -571,14 +571,14 @@ static bool updateDisplay(const TEMDocItem& item)
   bindDisplayItem(cur, item);
   cur.exec();
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": rowcount=" << cur.rowcount();
   return cur.rowcount() > 0;
 }
 
 static bool insertDisplay(const TEMDocItem& item)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": ticket_no=" << item.emd.no
                    << ", coupon_no=" << item.emd.coupon;
   auto cur = make_db_curs(
@@ -593,14 +593,14 @@ static bool insertDisplay(const TEMDocItem& item)
   bindDisplayItem(cur, item);
   cur.exec();
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": rowcount=" << cur.rowcount();
   return cur.rowcount() > 0;
 }
 
 const TEMDocItem& TEMDocItem::saveDisplay() const
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": emd_no=" << emd.no
                    << ", coupon_no=" << emd.coupon;
   const bool updated = updateDisplay(*this);
@@ -629,7 +629,7 @@ static void bindChangeOfStatusItem(DbCpp::CursCtl& cur,
 
 static bool updateChangeOfStatus(const TEMDocItem& item)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": emd_no=" << item.emd.no
                    << ", coupon_no=" << item.emd.coupon;
   auto cur = make_db_curs(
@@ -643,14 +643,14 @@ static bool updateChangeOfStatus(const TEMDocItem& item)
   bindChangeOfStatusItem(cur, item);
   cur.exec();
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": rowcount=" << cur.rowcount();
   return cur.rowcount() > 0;
 }
 
 static bool insertChangeOfStatus(const TEMDocItem& item)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": ticket_no=" << item.emd.no
                    << ", coupon_no=" << item.emd.coupon;
   auto cur = make_db_curs(
@@ -663,14 +663,14 @@ static bool insertChangeOfStatus(const TEMDocItem& item)
   bindChangeOfStatusItem(cur, item);
   cur.exec();
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": rowcount=" << cur.rowcount();
   return cur.rowcount() > 0;
 }
 
 const TEMDocItem& TEMDocItem::saveChangeOfStatus() const
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": emd_no=" << emd.no
                    << ", coupon_no=" << emd.coupon;
   const bool updated = updateChangeOfStatus(*this);
@@ -695,7 +695,7 @@ static void bindSystemUpdateItem(DbCpp::CursCtl& cur,
 
 static bool updateSystemUpdate(const TEMDocItem& item)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": emd_no=" << item.emd.no
                    << ", coupon_no=" << item.emd.coupon;
   auto cur = make_db_curs(
@@ -711,14 +711,14 @@ static bool updateSystemUpdate(const TEMDocItem& item)
   bindSystemUpdateItem(cur, item);
   cur.exec();
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": rowcount=" << cur.rowcount();
   return cur.rowcount() > 0;
 }
 
 static bool insertSystemUpdate(const TEMDocItem& item)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": ticket_no=" << item.emd.no
                    << ", coupon_no=" << item.emd.coupon;
   auto cur = make_db_curs(
@@ -731,14 +731,14 @@ static bool insertSystemUpdate(const TEMDocItem& item)
   bindSystemUpdateItem(cur, item);
   cur.exec();
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": rowcount=" << cur.rowcount();
   return cur.rowcount() > 0;
 }
 
 const TEMDocItem& TEMDocItem::saveSystemUpdate() const
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": emd_no=" << emd.no
                    << ", coupon_no=" << emd.coupon;
   const bool updated = updateSystemUpdate(*this);
@@ -750,7 +750,7 @@ const TEMDocItem& TEMDocItem::saveSystemUpdate() const
 
 bool deleteEmdocs(int point_id)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": point_id=" << point_id;
   auto cur = make_db_curs(
         "DELETE FROM emdocs "
@@ -760,7 +760,7 @@ bool deleteEmdocs(int point_id)
       .bind(":point_id", point_id)
       .exec();
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": rowcount=" << cur.rowcount();
   return cur.rowcount() > 0;
 }
@@ -787,7 +787,7 @@ TEMDocItem& TEMDocItem::loadDisplay(const std::string& _emd_no,
                                     int _emd_coupon,
                                     bool lock)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": emd_no=" << _emd_no
                    << ", coupon_no=" << _emd_coupon;
   clear();
@@ -819,7 +819,7 @@ TEMDocItem& TEMDocItem::loadDisplay(const std::string& _emd_no,
       .bind(":coupon_no", _emd_coupon)
       .EXfet();
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": found="
                    << (cur.err() != DbCpp::ResultCode::NoDataFound);
   return *this;
@@ -829,7 +829,7 @@ TEMDocItem& TEMDocItem::loadEmdocs(const std::string& _emd_no,
                                    int _emd_coupon,
                                    bool lock)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": emd_no=" << _emd_no
                    << ", coupon_no=" << _emd_coupon;
   clear();
@@ -866,7 +866,7 @@ TEMDocItem& TEMDocItem::loadEmdocs(const std::string& _emd_no,
     emd.status = CouponStatus(CouponStatus::fromDispCode(coupon_status));
   }
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": found="
                    << (cur.err() != DbCpp::ResultCode::NoDataFound);
   return *this;
@@ -894,7 +894,7 @@ TEMDocItem& TEMDocItem::fromDB(const TEdiAction ediAction,
 
 void TEMDocItem::deleteDisplay() const
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": emd_no=" << emd.no
                    << ", coupon_no=" << emd.coupon;
   auto cur = make_db_curs(
@@ -907,7 +907,7 @@ void TEMDocItem::deleteDisplay() const
       .bind(":coupon_no", emd.coupon)
       .exec();
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": rowcount=" << cur.rowcount();
 }
 
