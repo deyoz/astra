@@ -84,7 +84,7 @@ namespace PaxETList
 
 bool isDisplayedEt(const std::string& ticket_no, int coupon_no)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": ticket_no=" << ticket_no
                    << ", coupon_no=" << coupon_no;
   auto cur = make_db_curs(
@@ -197,7 +197,7 @@ void GetNotDisplayedET(int point_id_tlg, int id, bool is_pax_id, std::set<ETSear
 
 bool existsPaxWithEt(const std::string& ticket_no, int coupon_no)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": ticket_no=" << ticket_no
                    << ", coupon_no=" << coupon_no;
   auto cur = make_db_curs(
@@ -456,7 +456,7 @@ void TlgETDisplay(int point_id_spp)
 
 static bool deleteDisplayTlg(const TETickItem& item)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": ticket_no=" << item.et.no
                    << ", coupon_no=" << item.et.coupon;
   auto cur = make_db_curs(
@@ -469,14 +469,14 @@ static bool deleteDisplayTlg(const TETickItem& item)
       .bind(":coupon_no", item.et.coupon)
       .exec();
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": rowcount=" << cur.rowcount();
   return cur.rowcount() > 0;
 }
 
 static bool insertDisplayTlg(const TETickItem& item)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": ticket_no=" << item.et.no
                    << ", coupon_no=" << item.et.coupon;
 
@@ -498,7 +498,7 @@ static bool insertDisplayTlg(const TETickItem& item)
   DB::TCachedQuery Qry(PgOra::getRWSession("ETICKS_DISPLAY_TLGS"), sql, QryParams);
   longToDB(Qry.get(), "tlg_text", item.ediPnr->ediTextWithCharset("IATA"), false, 1000);
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": rowcount=" << Qry.get().RowsProcessed();
   return Qry.get().RowsProcessed() > 0;
 }
@@ -536,7 +536,7 @@ static void bindDisplayItem(DbCpp::CursCtl& cur,
 
 static bool updateDisplay(const TETickItem& item)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": ticket_no=" << item.et.no
                    << ", coupon_no=" << item.et.coupon;
   auto cur = make_db_curs(
@@ -555,14 +555,14 @@ static bool updateDisplay(const TETickItem& item)
   bindDisplayItem(cur, item);
   cur.exec();
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": rowcount=" << cur.rowcount();
   return cur.rowcount() > 0;
 }
 
 static bool insertDisplay(const TETickItem& item)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": ticket_no=" << item.et.no
                    << ", coupon_no=" << item.et.coupon;
   auto cur = make_db_curs(
@@ -576,7 +576,7 @@ static bool insertDisplay(const TETickItem& item)
   bindDisplayItem(cur, item);
   cur.exec();
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": rowcount=" << cur.rowcount();
   return cur.rowcount() > 0;
 }
@@ -613,7 +613,7 @@ static void bindEticketsItem(DbCpp::CursCtl& cur,
 
 static bool updateEtickets(const TETickItem& item)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": ticket_no=" << item.et.no
                    << ", coupon_no=" << item.et.coupon;
   auto cur = make_db_curs(
@@ -629,14 +629,14 @@ static bool updateEtickets(const TETickItem& item)
   bindEticketsItem(cur, item);
   cur.exec();
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": rowcount=" << cur.rowcount();
   return cur.rowcount() > 0;
 }
 
 static bool updateEticketsError(const TETickItem& item)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": ticket_no=" << item.et.no
                    << ", coupon_no=" << item.et.coupon;
   auto cur = make_db_curs(
@@ -651,14 +651,14 @@ static bool updateEticketsError(const TETickItem& item)
       .bind(":coupon_no", item.et.coupon);
   cur.exec();
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": rowcount=" << cur.rowcount();
   return cur.rowcount() > 0;
 }
 
 static bool insertEtickets(const TETickItem& item)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": ticket_no=" << item.et.no
                    << ", coupon_no=" << item.et.coupon;
   auto cur = make_db_curs(
@@ -670,14 +670,14 @@ static bool insertEtickets(const TETickItem& item)
   bindEticketsItem(cur, item);
   cur.exec();
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": rowcount=" << cur.rowcount();
   return cur.rowcount() > 0;
 }
 
 bool deleteEtickets(int point_id)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": point_id=" << point_id;
   auto cur = make_db_curs(
         "DELETE FROM etickets "
@@ -687,14 +687,14 @@ bool deleteEtickets(int point_id)
       .bind(":point_id", point_id)
       .exec();
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": rowcount=" << cur.rowcount();
   return cur.rowcount() > 0;
 }
 
 void TETickItem::saveChangeOfStatus() const
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": ticket_no=" << et.no
                    << ", coupon_no=" << et.coupon;
   bool updated = false;
@@ -752,7 +752,7 @@ TETickItem& TETickItem::loadDisplayTlg(const std::string& _et_no,
                                        int _et_coupon,
                                        bool lock)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": ticket_no=" << _et_no
                    << ", coupon_no=" << _et_coupon;
   int page_no = 0;
@@ -857,7 +857,7 @@ TETickItem& TETickItem::loadDisplay(const std::string& _et_no,
                                     int _et_coupon,
                                     bool lock)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": ticket_no=" << _et_no
                    << ", coupon_no=" << _et_coupon;
   clear();
@@ -884,7 +884,7 @@ TETickItem& TETickItem::loadDisplay(const std::string& _et_no,
 
 std::list<TETickItem> TETickItem::loadDisplay(const std::string& _et_no, bool lock)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": ticket_no=" << _et_no;
   std::list<TETickItem> result;
   auto sqlh = DisplaySqlHelper(STDLOG,
@@ -904,7 +904,7 @@ std::list<TETickItem> TETickItem::loadDisplay(const std::string& _et_no, bool lo
     sqlh.fill(item);
     result.push_back(item);
   }
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": count=" << result.size();
   return result;
 }
@@ -965,7 +965,7 @@ TETickItem& TETickItem::loadChangeOfStatus(const std::string& _et_no,
                                            int _et_coupon,
                                            bool lock)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": ticket_no=" << _et_no
                    << ", coupon_no=" << _et_coupon;
   clear();
@@ -986,7 +986,7 @@ TETickItem& TETickItem::loadChangeOfStatus(const std::string& _et_no,
     sqlh.fill(*this);
   }
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": found="
                    << (sqlh.cursor().err() != DbCpp::ResultCode::NoDataFound);
   return *this;
@@ -994,7 +994,7 @@ TETickItem& TETickItem::loadChangeOfStatus(const std::string& _et_no,
 
 std::list<TETickItem> TETickItem::loadChangeOfStatus(int _point_id, bool lock)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": point_id=" << _point_id;
   std::list<TETickItem> result;
   auto sqlh = EticketsSqlHelper(STDLOG,
@@ -1013,14 +1013,14 @@ std::list<TETickItem> TETickItem::loadChangeOfStatus(int _point_id, bool lock)
     sqlh.fill(item);
     result.push_back(item);
   }
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": count=" << result.size();
   return result;
 }
 
 std::list<TETickItem> TETickItem::loadChangeOfStatus(const std::string& _et_no, bool lock)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": ticket_no=" << _et_no;
   std::list<TETickItem> result;
   auto sqlh = EticketsSqlHelper(STDLOG,
@@ -1040,7 +1040,7 @@ std::list<TETickItem> TETickItem::loadChangeOfStatus(const std::string& _et_no, 
     sqlh.fill(item);
     result.push_back(item);
   }
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": count=" << result.size();
   return result;
 }
@@ -1268,7 +1268,7 @@ struct PaxData4Sync
 
 std::vector<PaxData4Sync> PaxData4Sync::load(int pax_id)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": pax_id=" << pax_id;
   std::vector<PaxData4Sync> result;
   PaxData4Sync item;
@@ -1324,7 +1324,7 @@ std::vector<PaxData4Sync> PaxData4Sync::load(int pax_id)
     result.push_back(item);
   }
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": result=" << result.size();
   return result;
 }
@@ -1333,7 +1333,7 @@ static bool updateCrsPaxSubclass(int pax_id,
                                  const std::string& etick_subclass,
                                  const std::string& etick_class)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": pax_id=" << pax_id;
   auto cur = make_db_curs(
         "UPDATE crs_pax "
@@ -1355,7 +1355,7 @@ static bool updateCrsPaxSubclass(int pax_id,
       .bind(":pax_id", pax_id);
   cur.exec();
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": rowcount=" << cur.rowcount();
   return cur.rowcount() > 0;
 }
@@ -1391,7 +1391,7 @@ std::map<TicketCoupon, TETickItem> loadDisplayMap(const std::set<TicketCoupon>& 
 
 bool TETickItem::syncOriginalSubclass(int pax_id)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": pax_id=" << pax_id;
 
   bool updated = false;
@@ -2906,7 +2906,7 @@ void ETStatusInterface::ETCheckStatus(int id,
                                       TETChangeStatusList &mtick,
                                       bool before_checkin)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": id=" << id
                    << ", area=" << area;
   //mtick.clear(); добавляем уже к заполненному
