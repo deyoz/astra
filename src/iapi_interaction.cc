@@ -3,6 +3,7 @@
 #include "alarms.h"
 #include "tlg/remote_system_context.h"
 #include "base_callbacks.h"
+#include "serverlib/testmode.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/slogger.h"
@@ -27,13 +28,34 @@ void RequestCollector::clear()
   requestParamsList.clear();
 }
 
+#ifdef XP_TESTING
+static int requestIdGenerator=0;
+void initRequestIdGenerator(int id) { requestIdGenerator=id; }
+
+static std::string lastRequestId;
+
+std::string getLastRequestId()               { return lastRequestId; }
+void setLastRequestId(const std::string& id) { lastRequestId = id;   }
+#endif/*XP_TESTING*/
+
 std::string RequestCollector::getRequestId()
 {
   TQuery Qry(&OraSession);
   Qry.SQLText = "SELECT apis_id__seq.nextval AS id FROM dual";
   Qry.Execute();
   std::ostringstream s;
-  s << std::setw(7) << std::setfill('0') << Qry.FieldAsInteger("id");
+  s << std::setw(7) << std::setfill('0');
+#ifdef XP_TESTING
+  if (inTestMode())
+  {
+    s << (requestIdGenerator++);
+    setLastRequestId(s.str());
+  }
+  else
+#endif/*XP_TESTING*/
+  {
+    s << Qry.FieldAsInteger("id");
+  }
   return s.str();
 }
 
