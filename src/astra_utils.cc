@@ -1903,8 +1903,57 @@ XMLDoc createXmlDoc2(const std::string& xml)
 
 }// namespace ASTRA
 
+void TRegEvents::fromArxDB(TDateTime part_key, int point_id)
+{
+    LogTrace5 << __FUNCTION__ << " part_key: " << DateTimeToBoost(part_key) << " point_id: " << point_id;
+    if(ARX_EVENTS_DISABLED()) {
+        throw AstraLocale::UserException("MSG.ERR_MSG.ARX_EVENTS_DISABLED");
+    }
+    int grp_id, reg_no;
+    Dates::DateTime_t ckin_time, brd_time;
+    std::string posStrCkinTime, posStrBrdTime;
+    if(PgOra::ARX_READ_PG()) {
+        posStrCkinTime = " STRPOS(msg,'зарегистрирован') ";
+        posStrBrdTime = " STRPOS(msg,'прошел посадку') ";
+    } else {
+        posStrCkinTime = " INSTR(msg,'зарегистрирован') ";
+        posStrBrdTime = " INSTR(msg,'прошел посадку') ";
+    }
+    auto cur = make_db_curs(
+        "SELECT id3 AS grp_id, id2 AS reg_no, "
+        "  MIN(CASE " + posStrCkinTime + " WHEN 0 THEN NULL ELSE time END) AS ckin_time, "
+        "  MAX(CASE " + posStrBrdTime + " WHEN 0 THEN NULL ELSE time END) AS brd_time "
+        "FROM arx_events "
+        "WHERE type=:evtPax AND part_key=:part_key AND (lang=:lang OR lang='ZZ') AND id1=:point_id AND "
+        "      (msg like '%зарегистрирован%' OR msg like '%прошел посадку%') "
+        "GROUP BY id3, id2",
+        PgOra::getROSession("ARX_EVENTS"));
+    cur
+       .stb()
+       .defNull(grp_id, ASTRA::NoExists)
+       .defNull(reg_no, ASTRA::NoExists)
+       .defNull(ckin_time, Dates::not_a_date_time) //
+       .defNull(brd_time, Dates::not_a_date_time) //
+       .bind(":lang", AstraLocale::LANG_RU)
+       .bind(":evtPax", EncodeEventType(ASTRA::evtPax))
+       .bind(":point_id", point_id)
+       .bind(":part_key", DateTimeToBoost(part_key))
+       .exec();
+
+    while(!cur.fen())
+    {
+        TDateTime ctime = ckin_time.is_not_a_date_time() ? NoExists : BoostToDateTime(ckin_time);
+        TDateTime btime = brd_time.is_not_a_date_time() ? NoExists : BoostToDateTime(brd_time);
+         (*this)[ make_pair(grp_id, reg_no) ] = make_pair(ctime, btime);
+    };
+}
+
 void TRegEvents::fromDB(TDateTime part_key, int point_id)
 {
+    if (part_key!=NoExists)
+    {
+        return fromArxDB(part_key, point_id);
+    }
     QParams QryParams;
     QryParams
         << QParam("lang", otString, AstraLocale::LANG_RU)
@@ -1914,24 +1963,10 @@ void TRegEvents::fromDB(TDateTime part_key, int point_id)
     sql <<
         "SELECT id3 AS grp_id, id2 AS reg_no, "
         "       MIN(DECODE(INSTR(msg,'зарегистрирован'),0,TO_DATE(NULL),time)) AS ckin_time, "
-        "       MAX(DECODE(INSTR(msg,'прошел посадку'),0,TO_DATE(NULL),time)) AS brd_time ";
-    if (part_key!=NoExists)
-    {
-        if(ARX_EVENTS_DISABLED())
-            throw AstraLocale::UserException("MSG.ERR_MSG.ARX_EVENTS_DISABLED");
-        sql <<
-            "FROM arx_events "
-            "WHERE type=:evtPax AND part_key=:part_key AND (lang=:lang OR lang=:lang_undef) AND id1=:point_id AND ";
-        QryParams
-            << QParam("part_key", otDate, part_key)
-            << QParam("lang_undef", otString, "ZZ");
-    }
-    else
-        sql <<
-            "FROM events_bilingual "
-            "WHERE lang=:lang AND type=:evtPax AND id1=:point_id AND ";
-    sql <<
-        "      (msg like '%зарегистрирован%' OR msg like '%прошел посадку%') "
+        "       MAX(DECODE(INSTR(msg,'прошел посадку'),0,TO_DATE(NULL),time)) AS brd_time "
+        "FROM events_bilingual "
+        "WHERE lang=:lang AND type=:evtPax AND id1=:point_id AND "
+        "   (msg like '%зарегистрирован%' OR msg like '%прошел посадку%') "
         "GROUP BY id3, id2";
 
     TCachedQuery Qry(sql.str(), QryParams);

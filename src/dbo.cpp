@@ -1,4 +1,7 @@
 #include "dbo.h"
+#include <serverlib/algo.h>
+#include <serverlib/str_utils.h>
+#include "hooked_session.h"
 
 #define NICKNAME "FELIX"
 #define NICKTRACE FELIX_TRACE
@@ -9,6 +12,75 @@ using namespace std;
 
 namespace dbo
 {
+
+std::string buildQuery(const std::shared_ptr<MappingInfo> &mapInfo, const QueryOps &ops)
+{
+    std::stringstream res;
+    if(!ops.select.empty()) {
+        res << ops.select;
+    } else {
+        if(!mapInfo) {
+            throw EXCEPTIONS::Exception("Not correct select type or forgot select query");
+        }
+        res << "select " << mapInfo->columnsStr(mapInfo->tableName());
+    }
+    if(!ops.from.empty()) {
+        res << " from " << ops.from;
+    } else {
+        if(!mapInfo) {
+            throw EXCEPTIONS::Exception("Not correct select type");
+        }
+        res << " from " << mapInfo->tableName();
+    }
+    if(!ops.where.empty()) {
+        res <<  " where " << ops.where;
+    }
+    if(!ops.order_by.empty()) {
+        res <<  " order by " << ops.order_by;
+    }
+    return StrUtils::ToLower(res.str());
+}
+
+std::string firstTableFrom(const std::string& from)
+{
+    std::vector<std::string> tableNames;
+    StrUtils::split_string(tableNames, from);
+    if(!tableNames.empty()) return tableNames[0];
+    return "";
+}
+
+bool contains(std::string source, std::string substring )
+{
+    return StrUtils::ToLower(source).find(StrUtils::ToLower(substring)) != source.npos;
+}
+
+DbCpp::Session* getSession(CurrentDb db, const std::shared_ptr<MappingInfo>& mapInfo,
+                           const std::string& query, const std::string& from)
+{
+    DbCpp::Session* session = nullptr;
+    std::string tableName = mapInfo ? mapInfo->tableName() : firstTableFrom(from);
+    bool isForUpdate = contains(query, "FOR UPDATE");
+    LogTrace5 << " query: " << query;
+    if(db==Config) {
+        if(isForUpdate) {session = &PgOra::getRWSession(tableName);}
+        else            {session = &PgOra::getROSession(tableName);}
+    }
+    else if(db==Postgres) {
+        bool isGroupArx = (PgOra::getGroup(tableName) == "SP_PG_GROUP_ARX");
+        if(isForUpdate) {
+            if(isGroupArx)  {session = get_arx_pg_rw_sess(STDLOG);}
+            else            {session = get_main_pg_rw_sess(STDLOG);}
+        } else {
+            if(isGroupArx)  {session = get_arx_pg_ro_sess(STDLOG);}
+            else            {session = get_main_pg_ro_sess(STDLOG);}
+        }
+    }
+    else if(db==Oracle) {session = get_main_ora_sess(STDLOG);}
+    if(session == &PgOra::getROSession("points")) {
+        LogTrace5 << " sessions equals!";
+    } else {LogTrace5 << " sessions NOT equals!";}
+    return session;
+}
 
 std::string Cursor::dump(size_t fields_size)
 {
@@ -82,7 +154,7 @@ std::string MappingInfo::stringColumns(const vector<std::string>& fields) const
     }
     for(const std::string & field: get_fields) {
         std::optional<FieldInfo> optField = algo::find_opt_if<std::optional>(m_fields,
-                      [&field](const FieldInfo & f) { return f.name() == str_tolower(field);} );
+                      [&field](const FieldInfo & f) { return f.name() == StrUtils::ToLower(field);} );
         if(!optField) {
             throw EXCEPTIONS::Exception(" Not such field :" + field);
         }
@@ -99,36 +171,22 @@ std::string MappingInfo::stringColumns(const vector<std::string>& fields) const
     return  result;
 }
 
-Session::Session(DbCpp::Session* oraSess,
-                 DbCpp::Session* pgSessRo, DbCpp::Session* pgSessRw)
-    : ora_dbcpp_session(oraSess),
-      pg_dbcpp_session_ro(pgSessRo), pg_dbcpp_session_rw(pgSessRw)
-{
-}
-
 void Session::clearIgnoreErrors()
 {
     ignoreErrors.clear();
 }
 
-Session& Session::getMainInstance()
-{
-    static Session mainInst(get_main_ora_sess(STDLOG),
-                            get_main_pg_ro_sess(STDLOG), get_main_pg_rw_sess(STDLOG));
-    return mainInst;
-}
+//Session& Session::getInstance()
+//{
+//    static Session instance{};
+//    return instance;
+//}
 
-Session& Session::getArxInstance()
-{
-    static Session arxInst(get_arx_ora_rw_sess(STDLOG),
-                           get_arx_pg_ro_sess(STDLOG), get_arx_pg_rw_sess(STDLOG));
-    return arxInst;
-}
-
-std::string Session::dump(const std::string &tableName, const vector<std::string> &tokens, const std::string &query)
+std::string Session::dump(const string &db, const std::string &tableName, const vector<std::string> &tokens,
+                          const std::string &query)
 {
     std::string result_query;
-    std::string tblName = str_tolower(tableName);
+    std::string tblName = StrUtils::ToLower(tableName);
     shared_ptr<MappingInfo> mapInfo = Mapper::getInstance().getMapping(tblName);
     if(!mapInfo) {
         throw EXCEPTIONS::Exception("Unknown table name: " + tblName);
@@ -138,21 +196,23 @@ std::string Session::dump(const std::string &tableName, const vector<std::string
     result_query = "select " + mapInfo->stringColumns(tokens);
     result_query += " from " + tableName + " " + query;
 
+    DbCpp::Session* session = nullptr;
     std::string DB;
-    if(db == CurrentDb::Postgres) {
-        DB = " Postgres ";
+    if(StrUtils::ToLower(db) == "pg") {
+        session = get_arx_pg_ro_sess(STDLOG);
+        DB = "POSTGRES";
     } else {
-        DB = " Oracle ";
+        DB = "ORACLE";
+        session = get_main_ora_sess(STDLOG);
     }
-    LogTrace1 << "---------------- " << tableName << DB << " DUMP ----------------------";
+    LogTrace1 << "---------------- " << tableName << " " << DB << " DUMP ----------------------";
     LogTrace1 << result_query;
-    Cursor cur = getWriteCursor(result_query);
+    Cursor cur(session->createCursor(STDLOG, result_query));
     std::string dump = cur.dump(size);
     LogTrace1 << dump;
     return dump;
 }
 
 }
-
 
 

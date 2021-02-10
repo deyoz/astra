@@ -352,9 +352,7 @@ bool TArxMoveFlt::Next(int max_rows, int duration)
           // поэтому если повторно запускать сбор статистики и в оракле, то таблицы events для pg и ora
           //после архивации не будут эквивалентны
           //LockAndCollectStat(move_id);
-          tst();
           Qry->Execute();
-          tst();
           ASTRA::commitAndCallCommitHooks();
           proc_count++;
         }

@@ -2,26 +2,33 @@
 #define DBO_H
 
 #include <variant>
+#include <optional>
+#include <map>
 
-#include "stat/stat_agent.h"
+#include "exceptions.h"
+#include "astra_consts.h"
+#include "date_time.h"
+#include "PgOraConfig.h"
+
 #include <serverlib/dates_io.h>
 #include <serverlib/dbcpp_session.h>
 #include <serverlib/dbcpp_cursctl.h>
-#include "hooked_session.h"
 
 #define NICKNAME "FELIX"
 #include <serverlib/slogger_nonick.h>
-
 
 namespace DbCpp {
     class Session;
     class CursCtl;
 }
 
+using namespace ASTRA;
+
 namespace dbo
 {
 
 enum CurrentDb {
+    Config,
     Oracle,
     Postgres
 };
@@ -34,7 +41,16 @@ class CursorInterface;
 class DefineClass;
 class Binder;
 
+struct QueryOps {
+    std::string select;
+    std::string where;
+    std::string from;
+    std::string order_by;
+};
 
+DbCpp::Session* getSession(CurrentDb db, const std::shared_ptr<MappingInfo>& mapInfo, const std::string &query,
+                           const std::string &from);
+std::string buildQuery(const std::shared_ptr<MappingInfo> &mapInfo, const QueryOps & ops);
 
 typedef std::variant<bool, int, long long, float, double, std::string,
                      Dates::DateTime_t, Dates::Date_t> bindedTypes;
@@ -175,7 +191,6 @@ void persist(C& object, Action & a)
     object.persist(a);
 }
 
-
 class FieldInfo
 {
 public:
@@ -302,7 +317,7 @@ public:
         short null = -1, nnull = 0;
         for(const auto & [name, value] : bindedVars) {
             std::visit([&](const auto &v) {
-                cur_.bind(name, v, isNotNull(v) ? &nnull : &null);
+                cur_.bind(str_tolower(name), v, isNotNull(v) ? &nnull : &null);
             }, value);
         }
         return *this;
@@ -423,48 +438,16 @@ private:
 
 class Session
 {
-private:
-    Session() {}
-
-protected:
-    Session(DbCpp::Session* oraSess,
-            DbCpp::Session* pgSessRo, DbCpp::Session* pgSessRw);
+//private:
+//    Session() {}
 
 public:
+    Session(dbo::CurrentDb db = dbo::Config): _currentDb(db) {}
+    //static Session& getInstance();
     Session(const Session &s) = delete;
     Session& operator=(const Session &s) = delete;
     Session(Session &&) = delete;
     Session& operator=(Session &&) = delete;
-
-    static Session& getMainInstance();
-    static Session& getArxInstance();
-
-    void connectPostgres()
-    {
-        db = Postgres;
-    }
-    void connectOracle()
-    {
-        db = Oracle;
-    }
-
-    Cursor getReadCursor(const std::string& sql)
-    {
-        if(db == CurrentDb::Postgres) {
-            return Cursor(pg_dbcpp_session_ro->createCursor(STDLOG, sql));
-        } else {
-            return Cursor(ora_dbcpp_session->createCursor(STDLOG, sql));
-        }
-    }
-
-    Cursor getWriteCursor(const std::string& sql)
-    {
-        if(db == CurrentDb::Postgres) {
-            return Cursor(pg_dbcpp_session_rw->createCursor(STDLOG, sql));
-        } else {
-            return Cursor(ora_dbcpp_session->createCursor(STDLOG, sql));
-        }
-    }
 
     template<typename Object>
     void insert(Object && obj, const std::string& tblName = "")
@@ -478,10 +461,8 @@ public:
             throw EXCEPTIONS::Exception("Unknown table: " + tableName);
         }
         std::string query = mapInfo->insertColumns();
-
-        LogTrace1 << "query: " << query;
-
-        Cursor cur = getWriteCursor(query);
+        DbCpp::Session& session = PgOra::getRWSession(mapInfo->tableName());
+        Cursor cur(session.createCursor(STDLOG, query));
         for(const auto & err : ignoreErrors) {
             cur.noThrowError(err);
         }
@@ -489,7 +470,8 @@ public:
         ignoreErrors.clear();
     }
 
-    std::string dump(const std::string& tableName, const std::vector<std::string>& tokens, const std::string& query);
+    std::string dump(const std::string& db, const std::string& tableName,
+                     const std::vector<std::string>& tokens, const std::string& query);
 
     template <class Result>
     Query<Result> query(std::string selectQuery = "")
@@ -504,16 +486,14 @@ public:
     }
 
     void clearIgnoreErrors();
+    dbo::CurrentDb currentDb() const
+    {
+        return _currentDb;
+    }
 
 private:
-    CurrentDb db;
+    dbo::CurrentDb _currentDb;
     std::vector<DbCpp::ResultCode> ignoreErrors;
-
-    // DbCpp session for reading/writing from/to Oracle
-    DbCpp::Session* ora_dbcpp_session;
-    // DbCpp sessions for reading/writing from/to Postgresql
-    DbCpp::Session* pg_dbcpp_session_ro;
-    DbCpp::Session* pg_dbcpp_session_rw;
 };
 
 class InitSchema
@@ -539,9 +519,9 @@ class Query
 {
 public:
     Query(Session* sess, const std::string& selectQuery)
-        : m_sess(sess),
-          m_select(selectQuery)
-    {}
+        : m_sess(sess), m_ops{selectQuery, "", "", ""}
+    {
+    }
 
     operator std::optional<Result> ()
     {
@@ -561,13 +541,46 @@ public:
         return resultList();
     }
 
+    Query<Result> & from(std::string condition)
+    {
+        m_ops.from = condition ;
+        return *this;
+    }
+
+    Query<Result> & where(std::string condition)
+    {
+        m_ops.where = condition ;
+        return *this;
+    }
+
+    Query<Result> & order_by(std::string condition)
+    {
+        m_ops.order_by = condition ;
+        return *this;
+    }
+
+    Query<Result> & setBind(const std::map<std::string, dbo::bindedTypes> & bindedVars)
+    {
+        bindVars = bindedVars;
+        return *this;
+    }
+
+private:
+    Session* m_sess;
+    QueryOps m_ops;
+    std::map<std::string, dbo::bindedTypes> bindVars{};
+
+    std::string createQuery(const std::shared_ptr<MappingInfo>& mapInfo)
+    {
+        return buildQuery(mapInfo, m_ops);
+    }
+
     std::vector<Result> resultList()
     {
-        auto mapInfo = Mapper::getInstance().getMapping<Result>();
-        std::string query = createQuery(mapInfo);
-        //LogTrace5 << __FUNCTION__ << " query: " << query;
-        Cursor cur = m_sess->getReadCursor(query);
-
+        const auto& map_info = Mapper::getInstance().getMapping<Result>();
+        std::string query = createQuery(map_info);
+        DbCpp::Session* session = getSession(m_sess->currentDb(), map_info, query, m_ops.from);
+        Cursor cur(session->createCursor(STDLOG, query));
         Result r;
         cur.bind(bindVars)
            .defAll(r)
@@ -580,56 +593,6 @@ public:
         m_sess->clearIgnoreErrors();
         return res;
     }
-
-    Query<Result> & from(std::string condition)
-    {
-        m_from = condition ;
-        return *this;
-    }
-
-    Query<Result> & where(std::string condition)
-    {
-        m_where = condition ;
-        return *this;
-    }
-
-    Query<Result> & setBind(const std::map<std::string, dbo::bindedTypes> & bindedVars)
-    {
-        bindVars = bindedVars;
-        return *this;
-    }
-
-    std::string createQuery(const std::shared_ptr<MappingInfo>& mapInfo)
-    {
-        std::stringstream res;
-        if(!m_select.empty()) {
-            res << m_select;
-        } else {
-            if(!mapInfo) {
-                throw EXCEPTIONS::Exception("Not correct select type or forgot select query");
-            }
-            res << "select " << mapInfo->columnsStr(mapInfo->tableName());
-        }
-        if(!m_from.empty()) {
-            res << " from " << m_from;
-        } else {
-            if(!mapInfo) {
-                throw EXCEPTIONS::Exception("Not correct select type");
-            }
-            res << " from " << mapInfo->tableName();
-        }
-        if(!m_where.empty()) {
-            res <<  " where " << m_where;
-        }
-        return res.str();
-    }
-
-private:
-    Session*    m_sess;
-    std::string m_select;
-    std::string m_where;
-    std::string m_from;
-    std::map<std::string, dbo::bindedTypes> bindVars{};
 };
 
 template<typename C>

@@ -957,13 +957,13 @@ struct STAT
     int excess_pc;
     int excess_wt;
     int f;
-    int hall;
+    int hall= ASTRA::NoExists;
     int pcs;
     int point_id;
     std::string status;
-    int term_bag;
-    int term_bp;
-    int term_ckin_service;
+    int term_bag = ASTRA::NoExists;
+    int term_bp= ASTRA::NoExists;
+    int term_ckin_service= ASTRA::NoExists;
     int unchecked;
     int weight;
     int y;

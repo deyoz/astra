@@ -811,8 +811,15 @@ $(run_arch_step $(ddmmyy +141))
 $(are_tables_equal ARX_POINTS)
 $(are_tables_equal MOVE_ARX_EXT)
 
-$(nosir_departed_flt 20201220 20210120)
+$(nosir_departed_flt $(yyyymmdd +10) $(yyyymmdd +30))
 
+#??
+#$(read_file departed.2102.csv)
+#>> lines=auto
+#ФИО;Дата рождения;Пол;Тип документа;Серия и номер документа;Номер билета;Номер бронирования;Рейс;Дата вылета;От;До;Багаж мест;Багаж вес;Время регистрации (UTC);Номер места;Способ регистрации;Печать ПТ на стойке
+#VALERII TUMALI;16.АПР.68;M;P;FA144642;2986145115578/1;;ЮТ100;24ФЕВ;СОЧ;ЛХР;0;0;04.02.2021 09:49:53;TERM
+#=======
+#$(nosir_departed_flt 20201220 20210120)
 
 %%
 #########################################################################################
@@ -1004,7 +1011,7 @@ $(nosir_basel_stat $(date_format %d.%m.%Y +20) 09:00:00 $(get point_dep_UT_100))
 ??
 $(dump_table basel_stat display="on")
 >> lines=auto
-[СОЧ] [$(get pax_id_TUMALI)] [$(get point_dep_UT_100)] [$(yymmdd)] [NULL] [NULL] [0] [NULL] [1] [$(yymmdd)] [ЭКОНОМ] [NULL] [$(yymmdd +20)] [$(yymmdd +20)] [NULL] [ЮТ100] [...] [TUMALI/VALERII] [0] [0] [NULL] [NULL] [зарегистрирован] [NULL] [NULL] [0] $()
+[СОЧ] [$(get pax_id_TUMALI)] [$(get point_dep_UT_100)] [...] [NULL] [NULL] [0] [NULL] [1] [$(yymmdd)] [ЭКОНОМ] [NULL] [$(yymmdd +20)] [$(yymmdd +20)] [NULL] [ЮТ100] [...] [TUMALI/VALERII] [0] [0] [NULL] [NULL] [зарегистрирован] [NULL] [NULL] [0] $()
 
 
 %%
@@ -1507,5 +1514,99 @@ $(RUN_FLT_CBOX_DROP_DOWN $(date_format %d.%m.%Y ) $(date_format %d.%m.%Y +266))
         <part_key>$(date_format %d.%m.%Y +1) 09:00:00</part_key>
       </f>
     </cbox>
+  </answer>
+</term>
+
+
+%%
+#########################################################################################
+
+###
+#   Тест №13
+#
+#   Описание: пассажиров: 61,
+#             интерактив: выкл
+#
+#   Чтение архива из stat_arx.cc функции LogRun
+###
+#########################################################################################
+
+$(init_jxt_pult МОВРОМ)
+$(set_desk_version 201707-0195750)
+$(login)
+
+################################################################################
+
+$(PREPARE_SEASON_SCD ЮТ СОЧ ЛХР 100 -1 TU5 $(date_format %d.%m.%Y +10) $(date_format %d.%m.%Y +30))
+$(make_spp $(ddmmyy +20))
+$(deny_ets_interactive ЮТ 100 СОЧ)
+$(INB_PNL_UT AER LHR 100 $(ddmon +20 en))
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set pax_id_TUMALI $(get_pax_id $(get point_dep) TUMALI VALERII))
+
+!!
+$(CHECKIN_PAX $(get pax_id_TUMALI) $(get point_dep) $(get point_arv) ЮТ 100 СОЧ ЛХР TUMALI VALERII 2986145115578 ВЗ UA FA144642 UA 16.04.1968 25.06.2025 M)
+
+$(set grp_id $(get_single_grp_id $(get point_dep) TUMALI VALERII))
+
+$(dump_table POINTS fields="point_id, move_id, airline, flt_no, airp, scd_in, scd_out, est_in, est_out, act_in, act_out, time_in, time_out, airp_fmt")
+$(dump_table PAX)
+
+$(run_arch_step $(ddmmyy +150))
+$(dump_table ARX_POINTS)
+
+!! capture=on
+$(RUN_LOG_RUN $(get point_dep) $(get grp_id) $(date_format %d.%m.%Y +20) 1)
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer...>
+    <form_data>
+      <variables>
+        <print_date>...</print_date>
+        <print_oper>PIKE</print_oper>
+        <print_term>МОВРОМ</print_term>
+        <use_seances>0</use_seances>
+        <test_server>1</test_server>
+        <cap_test>ТЕСТ</cap_test>
+        <page_number_fmt>Стр. %u из %u</page_number_fmt>
+        <short_page_number_fmt>Стр. %u</short_page_number_fmt>
+        <oper_info>Отчет сформирован ... (МОВ)
+оператором PIKE
+с терминала МОВРОМ</oper_info>
+        <skip_header>0</skip_header>
+        <report_title>Операции по пассажиру</report_title>
+      </variables>
+    </form_data>
+    <PaxLog>
+      <header>
+        <col>Агент</col>
+      </header>
+      <rows>
+        <row>
+          <point_id>$(get point_dep)</point_id>
+          <time>...</time>
+          <msg>Пассажир TUMALI VALERII (ВЗ) зарегистрирован. П/н: ЛХР, класс: Э, статус: Бронь, место: 5Г. Баг.нормы: нет</msg>
+          <ev_order>...</ev_order>
+          <grp_id>$(get grp_id)</grp_id>
+          <reg_no>1</reg_no>
+          <ev_user>КОВАЛЕВ Р.А.</ev_user>
+          <station>МОВРОМ</station>
+        </row>
+        <row>
+          <point_id>$(get point_dep)</point_id>
+          <time>...</time>
+          <msg>Пассажир TUMALI VALERII (ВЗ). DOCS: P/UKR/FA144642/UKR/16APR68/M/25JUN25/TUMALI/VALERII/. Ручной ввод</msg>
+          <ev_order>...</ev_order>
+          <grp_id>$(get grp_id)</grp_id>
+          <reg_no>1</reg_no>
+          <ev_user>КОВАЛЕВ Р.А.</ev_user>
+          <station>МОВРОМ</station>
+        </row>
+      </rows>
+    </PaxLog>
+    <airline>ЮТ</airline>
   </answer>
 </term>

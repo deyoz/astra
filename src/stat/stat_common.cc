@@ -499,7 +499,8 @@ void TOrderStatWriter::insert(const TOrderStatItem &row)
                 << QParam("file_name", otString, file_name)
                 );
         insDataQry.get().Execute();
-        OraSession.Commit(); // чтобы сборщик мусора все видел и не удалял.
+        ASTRA::commit();
+        //OraSession.Commit(); // чтобы сборщик мусора все видел и не удалял.
 
         ostringstream buf;
         row.add_header(buf);
@@ -516,6 +517,7 @@ void TOrderStatWriter::insert(const TOrderStatItem &row)
 
 const TFltInfoCacheItem &TFltInfoCache::get(int point_id, TDateTime part_key)
 {
+    tst();
     TFltInfoCache::iterator i = this->find(point_id);
     if(i == this->end()) {
         TTripInfo info;
@@ -536,6 +538,27 @@ const TFltInfoCacheItem &TFltInfoCache::get(int point_id, TDateTime part_key)
         i = ret.first;
     }
     return i->second;
+}
+
+string TAirpArvInfo::get(DB::TQuery &Qry)
+{
+    int grp_id = Qry.FieldAsInteger("grp_id");
+    map<int, string>::iterator im = items.find(grp_id);
+    if(im == items.end()) {
+        TCkinRoute tckin_route;
+        tckin_route.getRouteAfter(GrpId_t(grp_id),
+                                  TCkinRoute::WithCurrent,
+                                  TCkinRoute::IgnoreDependence,
+                                  TCkinRoute::WithoutTransit);
+        string airp_arv;
+        if(tckin_route.empty())
+            airp_arv = Qry.FieldAsString("airp_arv");
+        else
+            airp_arv = tckin_route.back().airp_arv;
+        pair<map<int, string>::iterator, bool> res = items.insert(make_pair(grp_id, airp_arv));
+        im = res.first;
+    }
+    return im->second;
 }
 
 string TAirpArvInfo::get(TQuery &Qry)

@@ -3,6 +3,7 @@
 #include <serverlib/cursctl.h>
 #include <serverlib/rip_oci.h>
 #include <serverlib/dates_oci.h>
+#include "hooked_session.h"
 
 #define NICKNAME "FELIX"
 #define NICKTRACE FELIX_TRACE
@@ -163,7 +164,7 @@ std::vector<dbo::AGENT_STAT> readOraAgentsStat(PointId_t point_id)
     int pax_time = 0;
     int user_id = 0;
 
-    auto cur = make_curs("select "
+    auto cur = get_main_ora_sess(STDLOG)->createCursor(STDLOG, "select "
     "  ast.user_id, ast.desk, ast.ondate, ast.pax_time, ast.pax_amount, "
     "  ast.dpax_amount.inc, ast.dpax_amount.dec, "
     "  ast.dtckin_amount.inc, ast.dtckin_amount.dec, "
@@ -179,7 +180,7 @@ std::vector<dbo::AGENT_STAT> readOraAgentsStat(PointId_t point_id)
        .def(dbag_weight_inc).def(dbag_weight_dec)
        .def(drk_amount_inc).def(drk_amount_dec)
        .def(drk_weight_inc).def(drk_weight_dec)
-       .bind(":point_id", point_id)
+       .bind(":point_id", point_id.get())
        .exec();
 
     std::vector<dbo::AGENT_STAT> agents_stat;
@@ -231,7 +232,7 @@ std::vector<dbo::ARX_AGENT_STAT> readOraArxAgentsStat()
     Dates::DateTime_t part_key;
     Dates::DateTime_t point_part_key;
 
-    auto cur = make_curs("select "
+    auto cur = get_main_ora_sess(STDLOG)->createCursor(STDLOG, "select "
     "  ast.point_id, ast.user_id, ast.desk, ast.ondate, ast.pax_time, ast.pax_amount, "
     "  ast.dpax_amount.inc, ast.dpax_amount.dec, "
     "  ast.dtckin_amount.inc, ast.dtckin_amount.dec, "
@@ -300,7 +301,8 @@ START_TEST(test_bag_prepay)
     double value = 102.21234;
     Dates::DateTime_t part_key = Dates::second_clock::universal_time();
 
-    auto cur = get_pg_curs("INSERT INTO ARX_BAG_PREPAY(aircode, grp_id, receipt_id, value, "
+    auto cur = get_arx_pg_rw_sess(STDLOG)->createCursor(STDLOG,
+                           "INSERT INTO ARX_BAG_PREPAY(aircode, grp_id, receipt_id, value, "
                            "no, part_key) VALUES(:aircode, :grp_id, :receipt_id, :value, "
                            ":no, :part_key)");
     cur.bind(":aircode", aircode)
@@ -315,10 +317,12 @@ START_TEST(test_bag_prepay)
     int read_receipt_id = 0;
     double read_value = 1.0;
 
-    auto cur2 = get_pg_curs("select RECEIPT_ID, VALUE from ARX_BAG_PREPAY where GRP_ID = 5 ");
+    auto cur2 = get_arx_pg_rw_sess(STDLOG)->createCursor(STDLOG,
+    "select RECEIPT_ID, VALUE from ARX_BAG_PREPAY where GRP_ID = 5 ");
     cur2.def(read_receipt_id).defNull(read_value, 0.0).EXfet();
 
-    auto cur3 = get_pg_curs("delete from ARX_BAG_PREPAY");
+    auto cur3 = get_arx_pg_rw_sess(STDLOG)->createCursor(STDLOG,
+    "delete from ARX_BAG_PREPAY");
     cur3.exec();
     fail_unless(12 == read_receipt_id, "failed: read_receipt_id=%lf expected 12", read_receipt_id);
     fail_unless(102.21234 == read_value, "failed: read_value=%lf expected 102.21234", read_value);
@@ -335,8 +339,9 @@ START_TEST(test_bag_pay_types)
     int receipt_id = 12;
     Dates::DateTime_t part_key = Dates::second_clock::universal_time();
 
-    auto cur = get_pg_curs("INSERT INTO ARX_BAG_PAY_TYPES(num, pay_rate_sum, pay_type, receipt_id, part_key) "
-                           " VALUES(:num, :pay_rate_sum, :pay_type, :receipt_id, :part_key)");
+    auto cur = get_arx_pg_rw_sess(STDLOG)->createCursor(STDLOG,
+    "INSERT INTO ARX_BAG_PAY_TYPES(num, pay_rate_sum, pay_type, receipt_id, part_key) "
+    " VALUES(:num, :pay_rate_sum, :pay_type, :receipt_id, :part_key)");
     cur.bind(":num", num)
        .bind(":pay_rate_sum", pay_rate_sum)
        .bind(":pay_type", pay_type)
@@ -348,10 +353,12 @@ START_TEST(test_bag_pay_types)
     int read_receipt_id = 0;
     float read_pay_rate_sum = 1.0;
 
-    auto cur2 = get_pg_curs("select receipt_id, pay_rate_sum from ARX_BAG_PAY_TYPES where NUM = 2 ");
+    auto cur2 = get_arx_pg_rw_sess(STDLOG)->createCursor(STDLOG,
+    "select receipt_id, pay_rate_sum from ARX_BAG_PAY_TYPES where NUM = 2 ");
     cur2.def(read_receipt_id).defNull(read_pay_rate_sum, 1.2).EXfet();
 
-    auto cur3 = get_pg_curs("delete from ARX_BAG_PAY_TYPES");
+    auto cur3 = get_arx_pg_rw_sess(STDLOG)->createCursor(STDLOG,
+    "delete from ARX_BAG_PAY_TYPES");
     cur3.exec();
     fail_unless(12 == read_receipt_id, "failed: read_receipt_id=%lf expected 12", read_receipt_id);
     fail_unless(std::abs(1034.33 - read_pay_rate_sum) < 0.0001, "failed: read_value=%lf expected near "
@@ -369,8 +376,9 @@ START_TEST(test_bag_value)
     std::string value_cur = "ab";
     Dates::DateTime_t part_key = Dates::second_clock::universal_time();
 
-    auto cur = get_pg_curs("INSERT INTO ARX_VALUE_BAG(grp_id, num, value, value_cur, tax, part_key) "
-                           " VALUES(:grp_id, :num, :value, :value_cur, :tax, :part_key)");
+    auto cur = get_arx_pg_rw_sess(STDLOG)->createCursor(STDLOG,
+    "INSERT INTO ARX_VALUE_BAG(grp_id, num, value, value_cur, tax, part_key) "
+    " VALUES(:grp_id, :num, :value, :value_cur, :tax, :part_key)");
     cur.bind(":grp_id", grp_id)
        .bind(":num", num)
        .bind(":value", value)
@@ -383,10 +391,11 @@ START_TEST(test_bag_value)
     float read_tax = 0;
     float read_value = 0;
 
-    auto cur2 = get_pg_curs("select tax, value from ARX_VALUE_BAG where NUM = 2 ");
+    auto cur2 = get_arx_pg_rw_sess(STDLOG)->createCursor(STDLOG,
+    "select tax, value from ARX_VALUE_BAG where NUM = 2 ");
     cur2.defNull(read_tax, 0.0).defNull(read_value, 0.0).EXfet();
 
-    auto cur3 = get_pg_curs("delete from ARX_VALUE_BAG");
+    auto cur3 = get_arx_pg_rw_sess(STDLOG)->createCursor(STDLOG,"delete from ARX_VALUE_BAG");
     cur3.exec();
     fail_unless(std::abs(124.1 - read_tax) < 0.0001, "failed: read_receipt_id=%lf expected near 124.1", read_tax);
     fail_unless(std::abs(124.12 == read_value) < 0.0001, "failed: read_value=%lf expected near 124.12", read_value);

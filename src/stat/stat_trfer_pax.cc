@@ -7,6 +7,10 @@
 #include "report_common.h"
 #include "stat_utils.h"
 
+#define NICKNAME "DENIS"
+#define NICKTRACE SYSTEM_TRACE
+#include "serverlib/slogger.h"
+
 template void RunTrferPaxStat(TStatParams const&, TOrderStatWriter&, TPrintAirline&);
 template void RunTrferPaxStat(TStatParams const&, TTrferPaxStat&, TPrintAirline&);
 
@@ -190,31 +194,40 @@ void RunTrferPaxStat(
 
         if (pass!=0)
         {
+            tst();
             SQLText +=
             "   arx_trfer_pax_stat trfer_pax_stat, "
             "   arx_pax pax, "
             "   arx_points points ";
-            if (pass==2)
+            if (pass==2) {
+                tst();
                 SQLText += ",(SELECT part_key, move_id FROM move_arx_ext \n"
                     "  WHERE part_key >= :LastDate+:arx_trip_date_range AND part_key <= :LastDate+date_range) arx_ext \n";
+            }
         }
-        else
+        else {
+            tst();
             SQLText +=
             "   trfer_pax_stat, "
             "   pax, "
             "   points ";
-
+        }
         SQLText +=
             "where ";
-        if(pass != 0)
+        if(pass != 0) {
+            tst();
             SQLText +=
                 "   points.part_key = trfer_pax_stat.part_key and "
                 "   pax.part_key = trfer_pax_stat.part_key and ";
-
-        if (pass==1)
+        }
+        if (pass==1) {
+            tst();
             SQLText += " points.part_key >= :FirstDate AND points.part_key < :LastDate + :arx_trip_date_range AND \n";
-        if (pass==2)
+        }
+        if (pass==2) {
+            tst();
             SQLText += " points.part_key=arx_ext.part_key AND points.move_id=arx_ext.move_id AND \n";
+        }
         SQLText +=
             "   trfer_pax_stat.point_id = points.point_id and ";
         params.AccessClause(SQLText);
@@ -223,6 +236,8 @@ void RunTrferPaxStat(
             "   trfer_pax_stat.pax_id = pax.pax_id ";
         TCachedQuery Qry(SQLText, QryParams);
         Qry.get().Execute();
+        tst();
+        LogTrace(TRACE5) << __FUNCTION__ << "    " << SQLText;
         if(not Qry.get().Eof) {
             int col_part_key = Qry.get().FieldIndex("part_key");
             int col_pax_id = Qry.get().FieldIndex("pax_id");
@@ -233,6 +248,7 @@ void RunTrferPaxStat(
             int col_full_name = Qry.get().FieldIndex("full_name");
             int col_pers_type = Qry.get().FieldIndex("pers_type");
             int col_tags = Qry.get().FieldIndex("tags");
+            tst();
             for(; not Qry.get().Eof; Qry.get().Next()) {
                 TDateTime part_key = NoExists;
                 if(not Qry.get().FieldIsNULL(col_part_key))
@@ -251,6 +267,7 @@ void RunTrferPaxStat(
 
                 TTrferPaxStat tmp_stat;
                 TTrferPaxStatItem item;
+                tst();
                 for(list<pair<TTripInfo, string> >::iterator flt = seg_list.begin();
                         flt != seg_list.end(); flt++) {
                     if(item.airline.empty()) {
@@ -268,8 +285,10 @@ void RunTrferPaxStat(
                         item.date2 = flt->first.scd_out;
                         item.airp_arv = flt->second;
                         item.pax_name = transliter(full_name, 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
-                        item.pax_doc = CheckIn::GetPaxDocStr(part_key, pax_id, false);
 
+                        tst();
+                        item.pax_doc = CheckIn::GetPaxDocStr(part_key, pax_id, false);
+                        tst();
                         typedef map<bool, TSegCategories::Enum> TSeg2Map;
                         typedef map<bool, TSeg2Map> TCategoryMap;
 

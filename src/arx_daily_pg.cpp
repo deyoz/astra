@@ -45,21 +45,6 @@ using namespace EXCEPTIONS;
 using namespace std;
 
 
-namespace PG_ARX {
-    bool ARX_PG_ENABLE()
-    {
-        static int always=-1;
-        return getVariableStaticBool("ARX_PG_ENABLE", &always, 0);
-    }
-
-    bool ARX_READ_PG()
-    {
-        static int always=-1;
-        return getVariableStaticBool("ARX_READ_PG", &always, 0);
-    }
-}
-
-
 bool deleteEtickets(int point_id);
 bool deleteEmdocs(int point_id);
 
@@ -293,7 +278,7 @@ std::optional<int> get_bag_pool_pax_id(Dates::DateTime_t part_key, int grp_id,
     int pax_id;
     std::string refuse;
 
-    auto cur = get_arx_ro_curs(
+    auto cur = make_db_curs(
                 "SELECT pax_id, refuse "
                 "FROM arx_pax "
                 "WHERE PART_KEY=:part_key and GRP_ID=:grp_id and BAG_POOL_NUM=:bag_pool_num "
@@ -301,7 +286,8 @@ std::optional<int> get_bag_pool_pax_id(Dates::DateTime_t part_key, int grp_id,
                 "          CASE WHEN seats=0 THEN 1 ELSE 0 END, "
                 "          CASE WHEN refuse is null THEN 0 ELSE 1 END, "
                 "          CASE WHEN pers_type='Çá' THEN 0 WHEN pers_type='êÅ' THEN 1 ELSE 2 END, "
-                "          reg_no ");
+                "          reg_no ",
+                PgOra::getROSession("ARX_PAX"));
     cur.stb()
        .def(pax_id)
        .defNull(refuse, "")
@@ -342,7 +328,7 @@ TBagInfo get_bagInfo2(Dates::DateTime_t part_key, int grp_id, std::optional<int>
                             "FROM arx_bag2 "
                             "WHERE part_key=:part_key AND grp_id=:grp_id ";
         query += pax_id ? " AND bag_pool_num=:bag_pool_num " : "";
-        auto cur = get_arx_ro_curs(query);
+        auto cur = make_db_curs(query, PgOra::getROSession("ARX_BAG2"));
         cur.stb()
            .defNull(bagInfo.bagAmount,ASTRA::NoExists)
            .defNull(bagInfo.bagWeight,ASTRA::NoExists)
@@ -403,9 +389,10 @@ std::optional<int> get_excess_wt(Dates::DateTime_t part_key, int grp_id,
     int excess = 0 ;
     std::optional<int> main_pax_id;
     if((!excess_wt && !excess_nvl) || !bag_refuse) {
-        auto cur = get_arx_ro_curs("SELECT (CASE WHEN BAG_REFUSE=0 THEN COALESCE(EXCESS_WT, EXCESS) ELSE 0 END) "
+        auto cur = make_db_curs("SELECT (CASE WHEN BAG_REFUSE=0 THEN COALESCE(EXCESS_WT, EXCESS) ELSE 0 END) "
                                    "FROM ARX_PAX_GRP "
-                                   "WHERE part_key=:part_key AND grp_id=:grp_id ");
+                                   "WHERE part_key=:part_key AND grp_id=:grp_id ",
+                                   PgOra::getROSession("ARX_PAX_GRP"));
         cur.def(excess)
            .bind(":part_key", part_key)
            .bind(":grp_id", grp_id)
@@ -439,14 +426,15 @@ std::optional<int> get_main_pax_id2(Dates::DateTime_t part_key, int grp_id, int 
     std::optional<int> res;
     int pax_id;
     std::string refuse;
-    auto cur = get_arx_ro_curs("select PAX_ID, REFUSE from ARX_PAX "
+    auto cur = make_db_curs("select PAX_ID, REFUSE from ARX_PAX "
                                "where PART_KEY=:part_key and GRP_ID=:grp_id "
                                "order by case when BAG_POOL_NUM is null  then 1 else 0 end, "
                                "         case when PERS_TYPE='Çá' then 0 when pers_type='êÅ' then 0 else 1 end, "
                                "         case when SEATS=0 THEN 1 else 0 end, "
                                "         case when REFUSE is null then 0 else 1 end, "
                                "         case when PERS_TYPE='Çá' then 0 when PERS_TYPE='êÅ' then 1 else 2 end, "
-                               "         reg_no");
+                               "         reg_no",
+                               PgOra::getROSession("ARX_PAX"));
     cur.def(pax_id)
        .defNull(refuse, "")
        .bind(":part_key", part_key)
@@ -467,8 +455,9 @@ int bag_pool_refused(Dates::DateTime_t part_key, int grp_id, int bag_pool_num,
     if(bag_refuse != 0) return 1;
     if(!vclass) return 0;
     int n = 0;
-    auto cur = get_arx_ro_curs("select sum(case when REFUSE is null then 1 else 0 end) from ARX_PAX "
-                               "where PART_KEY=:part_key and GRP_ID=:grp_id and BAG_POOL_NUM=:bag_pool_num; ");
+    auto cur = make_db_curs("select sum(case when REFUSE is null then 1 else 0 end) from ARX_PAX "
+                               "where PART_KEY=:part_key and GRP_ID=:grp_id and BAG_POOL_NUM=:bag_pool_num; ",
+                               PgOra::getROSession("ARX_PAX"));
     cur.def(n)
        .bind(":part_key", part_key)
        .bind(":grp_id", grp_id)
@@ -488,9 +477,10 @@ std::set<ckin::birks_row> read_birks(Dates::DateTime_t part_key, int grp_id, con
     std::string ora_select = "select NO_LEN, case :lang when 'RU' then TAG_COLORS.CODE else "
                 "  coalesce(TAG_COLORS.CODE_LAT,TAG_COLORS.CODE) end as COLOR_VIEW ";
 
-    auto cur = get_arx_ro_curs(pg_select + " from ARX_BAG_TAGS "
+    auto cur = make_db_curs(pg_select + " from ARX_BAG_TAGS "
                                "where PART_KEY=:part_key AND grp_id=:grp_id " +
-                               (bag_num ? "" : " AND BAG_NUM is null "));
+                               (bag_num ? "" : " AND BAG_NUM is null "),
+                            PgOra::getROSession("ARX_PAX_GRP"));
     cur.def(row.tag_type)
        .def(row.color)
        .def(row.first)
@@ -500,9 +490,10 @@ std::set<ckin::birks_row> read_birks(Dates::DateTime_t part_key, int grp_id, con
        .bind(":grp_id", grp_id)
        .exec();
     while(!cur.fen()) {
-        auto cur2 = make_curs(ora_select + " from TAG_TYPES,TAG_COLORS "
+        auto cur2 = make_db_curs(ora_select + " from TAG_TYPES,TAG_COLORS "
                              "where TAG_TYPES.CODE = :TAG_TYPE and "
-                             "TAG_COLORS.CODE = :color; ");
+                             "TAG_COLORS.CODE = :color; ",
+                             PgOra::getROSession("TAG_TYPES"));
         cur2.def(row.no_len)
             .def(row.color_view)
             .bind(":lang", lang)
@@ -521,13 +512,14 @@ std::set<ckin::birks_row> read_birks(Dates::DateTime_t part_key, int grp_id, int
     std::string pg_select = "select TAG_TYPE, COLOR, TRUNC(NO/1000) AS first, MOD(NO,1000) AS last, no ";
     std::string ora_select = "select NO_LEN, case :lang when 'RU' then TAG_COLORS.CODE else "
                 "  coalesce(TAG_COLORS.CODE_LAT,TAG_COLORS.CODE) end as COLOR_VIEW ";
-    auto cur = get_arx_ro_curs(pg_select + " from ARX_BAG2, ARX_BAG_TAGS "
+    auto cur = make_db_curs(pg_select + " from ARX_BAG2, ARX_BAG_TAGS "
                                "where ARX_BAG2.PART_KEY=ARX_BAG_TAGS.PART_KEY and "
                                "    ARX_BAG2.GRP_ID=ARX_BAG_TAGS.GRP_ID and "
                                "    ARX_BAG2.NUM=ARX_BAG_TAGS.BAG_NUM and "
                                "    ARX_BAG2.PART_KEY=:part_key and "
                                "    ARX_BAG2.GRP_ID=:grp_id and "
-                               "    ARX_BAG2.BAG_POOL_NUM=:bag_pool_num");
+                               "    ARX_BAG2.BAG_POOL_NUM=:bag_pool_num",
+                               PgOra::getROSession("ARX_BAG2"));
     cur.def(row.tag_type)
        .def(row.color)
        .def(row.first)
@@ -538,9 +530,10 @@ std::set<ckin::birks_row> read_birks(Dates::DateTime_t part_key, int grp_id, int
        .bind(":bag_pool_num", bag_pool_num)
        .exec();
     while(!cur.fen()) {
-        auto cur = make_curs(ora_select + " from TAG_TYPES,TAG_COLORS "
+        auto cur = make_db_curs(ora_select + " from TAG_TYPES,TAG_COLORS "
                              "where TAG_TYPES.CODE = :TAG_TYPE and "
-                             "TAG_COLORS.CODE = :color; ");
+                             "TAG_COLORS.CODE = :color; ",
+                             PgOra::getROSession("TAG_TYPES"));
         cur.def(row.no_len)
             .def(row.color_view)
             .bind(":lang", lang)
@@ -590,6 +583,16 @@ std::optional<std::string> get_birks2(Dates::DateTime_t part_key, int grp_id, st
     } else {
         return get_birks2(part_key, grp_id, pax_id, bag_pool_num, "RU");
     }
+}
+
+std::optional<std::string> next_airp(Dates::DateTime_t part_key, int first_point, int point_num)
+{
+    dbo::Session session;
+    std::optional<std::string> airp = session.query<std::string>("SELECT airp")
+            .from("arx_points")
+            .where("part_key = :part_key AND first_point=:first_point AND point_num > :point_num AND pr_del=0 ORDER BY point_num")
+            .setBind({{":part_key", BoostToDateTime(part_key)}, {":first_point", first_point}, {":point_num", point_num}});
+    return airp;
 }
 
 int ARX_DAYS()
@@ -654,8 +657,7 @@ bool TArxMoveFlt::GetPartKey(const MoveId_t &move_id, Dates::DateTime_t &part_ke
     //part_key=NoExists;
     date_range=NoExists;
 
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::Points> points = session.query<dbo::Points>().where(" MOVE_ID = :move_id ORDER BY point_num ")
             .setBind({{":move_id", move_id.get()}});
 
@@ -712,8 +714,7 @@ bool TArxMoveFlt::GetPartKey(const MoveId_t &move_id, Dates::DateTime_t &part_ke
 void TArxMoveFlt::LockAndCollectStat(const MoveId_t & move_id)
 {
     LogTrace(TRACE5) << __FUNCTION__ << " move_id: " << move_id;
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::Points> points = session.query<dbo::Points>()
             .where(" MOVE_ID = :move_id ")
             .setBind({{":move_id",move_id.get()} });
@@ -731,15 +732,16 @@ void TArxMoveFlt::readMoveIds(size_t max_rows)
     int move_id;
     Dates::DateTime_t part_key;
     double date_range;
-    auto cur = make_curs("SELECT move_id FROM points "
+    auto cur = make_db_curs("SELECT move_id FROM points "
                          "WHERE (time_in > TO_DATE('01.01.0001','DD.MM.YYYY') AND time_in<:arx_date)"
                          " OR (time_out > TO_DATE('01.01.0001','DD.MM.YYYY') AND time_out<:arx_date)"
                          " OR (time_in  = TO_DATE('01.01.0001','DD.MM.YYYY') AND "
-                         "      time_out = TO_DATE('01.01.0001','DD.MM.YYYY'))");
-    cur
-            .def(move_id)
-            .bind(":arx_date", utcdate-Dates::days(ARX_DAYS()))
-            .exec();
+                         "      time_out = TO_DATE('01.01.0001','DD.MM.YYYY'))",
+                         PgOra::getROSession("points"));
+    cur.stb()
+       .def(move_id)
+       .bind(":arx_date", utcdate-Dates::days(ARX_DAYS()))
+       .exec();
 
     while(!cur.fen() && (move_ids.size() < max_rows)) {
         if (GetPartKey(MoveId_t(move_id), part_key,date_range))
@@ -754,7 +756,7 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
     readMoveIds(max_rows);
     while (!move_ids.empty())
     {
-        //LogTrace(TRACE5) << "MOVE_IDS count: " << move_ids.size();
+        LogTrace(TRACE5) << "MOVE_IDS count: " << move_ids.size();
         MoveId_t move_id = move_ids.begin()->first;
         LogTrace5 << __FUNCTION__ << " move_id: " << move_id;
         move_ids.erase(move_ids.begin());
@@ -786,6 +788,7 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
 
                 LockAndCollectStat(move_id);
                 auto points =  arx_points(move_id, part_key);
+                LogTrace(TRACE5) << " points size: " << points.size();
                 if(points.size() > 0) {
                     //LogTrace(TRACE5) << " OUT_DATE_RANGE = " << date_range << " range_int: " << date_range_int;
                     if(date_range >= 1) {
@@ -887,8 +890,7 @@ void arx_move_ext(const MoveId_t & vmove_id, const Dates::DateTime_t& part_key, 
 {
     LogTrace(TRACE5) << __FUNCTION__ << " move_id: " << vmove_id << " date_range: " << date_range;
     if(date_range > 0) {
-        auto & session = dbo::Session::getArxInstance();
-        session.connectPostgres();
+        dbo::Session session;
         dbo::Move_Arx_Ext ext{date_range, vmove_id.get(), part_key};
         session.insert(ext);
     }
@@ -897,12 +899,10 @@ void arx_move_ext(const MoveId_t & vmove_id, const Dates::DateTime_t& part_key, 
 void arx_move_ref(const MoveId_t & vmove_id, const Dates::DateTime_t& part_key)
 {
     LogTrace(TRACE5) << __FUNCTION__ << " move_id: " << vmove_id;
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::Move_Ref> move_refs = session.query<dbo::Move_Ref>()
             .where(" MOVE_ID = :move_id")
             .setBind({{"move_id",vmove_id.get()} });
-    session.connectPostgres();
     for(const auto & mr : move_refs) {
         dbo::Arx_Move_Ref amr(mr,part_key);
         session.insert(amr);
@@ -912,15 +912,13 @@ void arx_move_ref(const MoveId_t & vmove_id, const Dates::DateTime_t& part_key)
 std::vector<dbo::Points> arx_points(const MoveId_t & vmove_id, const Dates::DateTime_t& part_key)
 {
     LogTrace(TRACE5) << __FUNCTION__ << " vmove_id : "<< vmove_id << " part_key: " << part_key;
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::Points> points = session.query<dbo::Points>()
             .where(" MOVE_ID = :move_id and PR_DEL<>-1 FOR UPDATE")
             .setBind({{"move_id",vmove_id.get()} });
 
     //    auto cur2 = make_curs("DELETE FROM points WHERE move_id=:vmove_id");
     //    cur2.bind(":vmove_id", vmove_id).exec();
-    session.connectPostgres();
     for(const auto &p : points) {
         dbo::Arx_Points ap(p, part_key);
         session.insert(ap);
@@ -931,17 +929,14 @@ std::vector<dbo::Points> arx_points(const MoveId_t & vmove_id, const Dates::Date
 void arx_events_by_move_id(const MoveId_t & vmove_id, const Dates::DateTime_t& part_key)
 {
     LogTrace5 << __FUNCTION__ << " move_id: " << vmove_id << " part_key: " << part_key;
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::Lang_Types> langs = session.query<dbo::Lang_Types>();
     for(const auto & lang : langs) {
-        session.connectOracle();
         std::vector<dbo::Events_Bilingual> events =  session.query<dbo::Events_Bilingual>()
                 .where(" id1 = :move_id and lang = :l and type = :evtDisp FOR UPDATE")
                 .setBind({{"move_id",vmove_id.get()},
                           {"l",lang.code},
                           {"evtDisp", EncodeEventType(evtDisp)}});
-        session.connectPostgres();
         for(const auto & ev : events) {
             dbo::Arx_Events aev(ev,part_key);
             session.insert(aev);
@@ -952,11 +947,9 @@ void arx_events_by_move_id(const MoveId_t & vmove_id, const Dates::DateTime_t& p
 void arx_events_by_point_id(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 {
     LogTrace5 << __FUNCTION__ << " point_id: " << point_id << " part_key: " << part_key;
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::Lang_Types> langs = session.query<dbo::Lang_Types>();
     for(const auto & lang : langs) {
-        session.connectOracle();
         std::vector<dbo::Events_Bilingual> events =  session.query<dbo::Events_Bilingual>()
                 .where(" id1 = :point_id and lang = :l and type in "
                        " (:evtFlt, :evtGraph, :evtFltTask, :evtPax, :evtPay, :evtTlg, :evtPrn) FOR UPDATE")
@@ -970,7 +963,6 @@ void arx_events_by_point_id(const PointId_t& point_id, const Dates::DateTime_t& 
                           {"evtTlg",     EncodeEventType(evtTlg)},
                           {"evtPrn",     EncodeEventType(evtPrn)},
                          });
-        session.connectPostgres();
         for(const auto & ev : events) {
             dbo::Arx_Events aev(ev,part_key);
             session.insert(aev);
@@ -980,8 +972,7 @@ void arx_events_by_point_id(const PointId_t& point_id, const Dates::DateTime_t& 
 
 void arx_mark_trips(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<int> pax_grp_id_marks = session.query<int>("SELECT DISTINCT point_id_mark")
             .from("pax_grp")
             .where("point_dep = :point_id")
@@ -995,7 +986,6 @@ void arx_mark_trips(const PointId_t& point_id, const Dates::DateTime_t& part_key
             mark_trips.push_back(*trip);
         }
     }
-    session.connectPostgres();
     for(const auto & mark_trip : mark_trips) {
         dbo::Arx_Mark_Trips amt(mark_trip,part_key);
         session.noThrowError(DbCpp::ResultCode::ConstraintFail).insert(amt);
@@ -1005,13 +995,11 @@ void arx_mark_trips(const PointId_t& point_id, const Dates::DateTime_t& part_key
 std::vector<dbo::Pax_Grp> arx_pax_grp(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 {
     //LogTrace(TRACE3) << __FUNCTION__ << " point_id: " << point_id;
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::Pax_Grp> pax_grps = session.query<dbo::Pax_Grp>()
             .where("point_dep = :point_id FOR UPDATE")
             .setBind({{"point_id", point_id.get()}});
 
-    session.connectPostgres();
     for(const auto &gr : pax_grps) {
         dbo::Arx_Pax_Grp apg(gr,part_key);
         session.insert(apg);
@@ -1021,13 +1009,11 @@ std::vector<dbo::Pax_Grp> arx_pax_grp(const PointId_t& point_id, const Dates::Da
 
 void arx_self_ckin_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::Self_Ckin_Stat> ckin_stats = session.query<dbo::Self_Ckin_Stat>()
             .where("point_id = :point_id FOR UPDATE")
             .setBind({{"point_id", point_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : ckin_stats) {
         dbo::Arx_Self_Ckin_Stat ascs(cs,part_key);
         session.insert(ascs);
@@ -1036,13 +1022,11 @@ void arx_self_ckin_stat(const PointId_t& point_id, const Dates::DateTime_t& part
 
 void arx_rfisc_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::RFISC_STAT> rfisc_stats = session.query<dbo::RFISC_STAT>()
             .where("point_id = :point_id FOR UPDATE")
             .setBind({{"point_id", point_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : rfisc_stats) {
         dbo::ARX_RFISC_STAT ascs(cs,part_key);
         session.insert(ascs);
@@ -1051,13 +1035,11 @@ void arx_rfisc_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key
 
 void arx_stat_services(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::STAT_SERVICES> stat_services = session.query<dbo::STAT_SERVICES>()
             .where("point_id = :point_id FOR UPDATE")
             .setBind({{"point_id", point_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : stat_services) {
         dbo::ARX_STAT_SERVICES ascs(cs,part_key);
         session.insert(ascs);
@@ -1066,13 +1048,11 @@ void arx_stat_services(const PointId_t& point_id, const Dates::DateTime_t& part_
 
 void arx_stat_rem(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::STAT_REM> stat_rems = session.query<dbo::STAT_REM>()
             .where("point_id = :point_id FOR UPDATE")
             .setBind({{"point_id", point_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : stat_rems) {
         dbo::ARX_STAT_REM ascs(cs,part_key);
         session.insert(ascs);
@@ -1081,13 +1061,11 @@ void arx_stat_rem(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 
 void arx_limited_cap_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::LIMITED_CAPABILITY_STAT> stat_lcs = session.query<dbo::LIMITED_CAPABILITY_STAT>()
             .where("point_id = :point_id FOR UPDATE")
             .setBind({{"point_id", point_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : stat_lcs) {
         dbo::ARX_LIMITED_CAPABILITY_STAT ascs(cs,part_key);
         session.insert(ascs);
@@ -1096,13 +1074,11 @@ void arx_limited_cap_stat(const PointId_t& point_id, const Dates::DateTime_t& pa
 
 void arx_pfs_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::PFS_STAT> stat_pfs = session.query<dbo::PFS_STAT>()
             .where("point_id = :point_id FOR UPDATE")
             .setBind({{"point_id", point_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : stat_pfs) {
         dbo::ARX_PFS_STAT ascs(cs,part_key);
         session.insert(ascs);
@@ -1111,13 +1087,11 @@ void arx_pfs_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 
 void arx_stat_ad(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::STAT_AD> stat_ad = session.query<dbo::STAT_AD>()
             .where("point_id = :point_id FOR UPDATE")
             .setBind({{"point_id", point_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : stat_ad) {
         dbo::ARX_STAT_AD ascs(cs,part_key);
         session.insert(ascs);
@@ -1126,13 +1100,11 @@ void arx_stat_ad(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 
 void arx_stat_ha(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::STAT_HA> stat_ha = session.query<dbo::STAT_HA>()
             .where("point_id = :point_id FOR UPDATE")
             .setBind({{"point_id", point_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : stat_ha) {
         dbo::ARX_STAT_HA ascs(cs,part_key);
         session.insert(ascs);
@@ -1141,13 +1113,11 @@ void arx_stat_ha(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 
 void arx_stat_vo(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::STAT_VO> stat_vo = session.query<dbo::STAT_VO>()
             .where("point_id = :point_id FOR UPDATE")
             .setBind({{"point_id", point_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : stat_vo) {
         dbo::ARX_STAT_VO ascs(cs,part_key);
         session.insert(ascs);
@@ -1156,13 +1126,11 @@ void arx_stat_vo(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 
 void arx_stat_reprint(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::STAT_REPRINT> stat_reprint = session.query<dbo::STAT_REPRINT>()
             .where("point_id = :point_id FOR UPDATE")
             .setBind({{"point_id", point_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : stat_reprint) {
         dbo::ARX_STAT_REPRINT ascs(cs,part_key);
         session.insert(ascs);
@@ -1171,13 +1139,11 @@ void arx_stat_reprint(const PointId_t& point_id, const Dates::DateTime_t& part_k
 
 void arx_trfer_pax_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::TRFER_PAX_STAT> stat_reprint = session.query<dbo::TRFER_PAX_STAT>()
             .where("point_id = :point_id FOR UPDATE")
             .setBind({{"point_id", point_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : stat_reprint) {
         dbo::ARX_TRFER_PAX_STAT ascs(cs,part_key);
         session.insert(ascs);
@@ -1186,13 +1152,11 @@ void arx_trfer_pax_stat(const PointId_t& point_id, const Dates::DateTime_t& part
 
 void arx_bi_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::BI_STAT> bi_stats = session.query<dbo::BI_STAT>()
             .where("point_id = :point_id FOR UPDATE")
             .setBind({{"point_id", point_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : bi_stats) {
         dbo::ARX_BI_STAT ascs(cs,part_key);
         session.insert(ascs);
@@ -1205,13 +1169,11 @@ void arx_agent_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key
 {
     auto agents_stat = dbo::readOraAgentsStat(point_id);
 
-    auto & session = dbo::Session::getArxInstance();
-    //    session.connectOracle();
+    dbo::Session session;
     //    std::vector<dbo::AGENT_STAT> bi_stats = session.query<dbo::AGENT_STAT>()
     //            .where("point_id = :point_id")
     //            .setBind({{"point_id", point_id.get()}});
 
-    session.connectPostgres();
     for(const auto &as : agents_stat) {
         dbo::ARX_AGENT_STAT ascs(as,part_key);
         ascs.part_key = ascs.ondate;
@@ -1222,13 +1184,11 @@ void arx_agent_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key
 
 void arx_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::STAT> stats = session.query<dbo::STAT>()
             .where("point_id = :point_id FOR UPDATE")
             .setBind({{"point_id", point_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : stats) {
         dbo::ARX_STAT ascs(cs,part_key);
         session.insert(ascs);
@@ -1237,13 +1197,11 @@ void arx_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 
 void arx_trfer_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::TRFER_STAT> stats = session.query<dbo::TRFER_STAT>()
             .where("point_id = :point_id FOR UPDATE").
             setBind({{"point_id", point_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : stats) {
         dbo::ARX_TRFER_STAT ascs(cs,part_key);
         session.insert(ascs);
@@ -1252,13 +1210,11 @@ void arx_trfer_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key
 
 void arx_tlg_out(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::TLG_OUT> stats = session.query<dbo::TLG_OUT>()
             .where("point_id = :point_id AND type<>'LCI' FOR UPDATE")
             .setBind({{"point_id", point_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : stats) {
         Dates::DateTime_t part_key_nvl;
         if(cs.time_send_act.is_not_a_date_time()) {
@@ -1278,12 +1234,10 @@ void arx_tlg_out(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 
 void arx_trip_classes(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::TRIP_CLASSES> stats = session.query<dbo::TRIP_CLASSES>()
             .where("point_id = :point_id").setBind({{"point_id", point_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : stats) {
         dbo::ARX_TRIP_CLASSES ascs(cs,part_key);
         session.insert(ascs);
@@ -1292,12 +1246,10 @@ void arx_trip_classes(const PointId_t& point_id, const Dates::DateTime_t& part_k
 
 void arx_trip_delays(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::TRIP_DELAYS> stats = session.query<dbo::TRIP_DELAYS>()
             .where("point_id = :point_id").setBind({{"point_id", point_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : stats) {
         dbo::ARX_TRIP_DELAYS ascs(cs,part_key);
         session.insert(ascs);
@@ -1306,12 +1258,10 @@ void arx_trip_delays(const PointId_t& point_id, const Dates::DateTime_t& part_ke
 
 void arx_trip_load(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::TRIP_LOAD> stats = session.query<dbo::TRIP_LOAD>()
             .where("point_dep = :point_id").setBind({{"point_id", point_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : stats) {
         dbo::ARX_TRIP_LOAD ascs(cs,part_key);
         session.insert(ascs);
@@ -1320,13 +1270,11 @@ void arx_trip_load(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 
 void arx_trip_sets(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::TRIP_SETS> trip_sets = session.query<dbo::TRIP_SETS>()
             .where("point_id = :point_id").setBind({{"point_id", point_id.get()}});
 
 
-    session.connectPostgres();
     for(const auto &ts : trip_sets) {
         dbo::ARX_TRIP_SETS ats;
         ats.point_id = ts.point_id;
@@ -1345,12 +1293,10 @@ void arx_trip_sets(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 
 void arx_trip_crs_displace2(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::CRS_DISPLACE2> stats = session.query<dbo::CRS_DISPLACE2>()
             .where("point_id_spp = :point_id").setBind({{"point_id", point_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : stats) {
         dbo::ARX_CRS_DISPLACE2 ascs(cs,part_key);
         ascs.point_id_tlg = ASTRA::NoExists;
@@ -1360,12 +1306,10 @@ void arx_trip_crs_displace2(const PointId_t& point_id, const Dates::DateTime_t& 
 
 void arx_trip_stages(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::TRIP_STAGES> stats = session.query<dbo::TRIP_STAGES>()
             .where("point_id = :point_id FOR UPDATE").setBind({{"point_id", point_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : stats) {
         dbo::ARX_TRIP_STAGES ascs(cs,part_key);
         session.insert(ascs);
@@ -1375,8 +1319,7 @@ void arx_trip_stages(const PointId_t& point_id, const Dates::DateTime_t& part_ke
 void arx_bag_receipts(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 {
     LogTrace1 <<__FUNCTION__ << " point_id: " << point_id;
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::BAG_RECEIPTS> bag_receipts = session.query<dbo::BAG_RECEIPTS>()
             .from("BAG_RECEIPTS, BAG_RCPT_KITS")
             .where("bag_receipts.kit_id = bag_rcpt_kits.kit_id(+) AND "
@@ -1384,7 +1327,6 @@ void arx_bag_receipts(const PointId_t& point_id, const Dates::DateTime_t& part_k
                    "bag_receipts.point_id = :point_id FOR UPDATE")
             .setBind({{"point_id", point_id.get()}});
 
-    session.connectPostgres();
     for(const auto &br : bag_receipts) {
         dbo::ARX_BAG_RECEIPTS abr(br,part_key);
         session.insert(abr);
@@ -1394,8 +1336,7 @@ void arx_bag_receipts(const PointId_t& point_id, const Dates::DateTime_t& part_k
 void arx_bag_pay_types(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 {
     LogTrace1 <<__FUNCTION__ << " point_id: " << point_id;
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::BAG_PAY_TYPES> bag_receipts = session.query<dbo::BAG_PAY_TYPES>()
             .from("BAG_RECEIPTS, BAG_RCPT_KITS, BAG_PAY_TYPES")
             .where("bag_receipts.kit_id = bag_rcpt_kits.kit_id(+) AND "
@@ -1404,7 +1345,6 @@ void arx_bag_pay_types(const PointId_t& point_id, const Dates::DateTime_t& part_
                    "bag_receipts.receipt_id = bag_pay_types.receipt_id FOR UPDATE")
             .setBind({{"point_id", point_id.get()}});
 
-    session.connectPostgres();
 
     for(const auto &bpt : bag_receipts) {
         dbo::ARX_BAG_PAY_TYPES abpt(bpt,part_key);
@@ -1414,8 +1354,7 @@ void arx_bag_pay_types(const PointId_t& point_id, const Dates::DateTime_t& part_
 
 void arx_annul_bags_tags(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::ANNUL_BAG> annul_bags = session.query<dbo::ANNUL_BAG>()
             .where("grp_id = :grp_id FOR UPDATE")
             .setBind({{"grp_id", grp_id.get()}});
@@ -1423,7 +1362,6 @@ void arx_annul_bags_tags(const GrpId_t& grp_id, const Dates::DateTime_t& part_ke
             .where("id = :grp_id FOR UPDATE")
             .setBind({{"grp_id", grp_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : annul_bags) {
         dbo::ARX_ANNUL_BAG ascs(cs,part_key);
         session.insert(ascs);
@@ -1436,13 +1374,11 @@ void arx_annul_bags_tags(const GrpId_t& grp_id, const Dates::DateTime_t& part_ke
 
 void arx_unaccomp_bag_info(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::UNACCOMP_BAG_INFO> annul_bags = session.query<dbo::UNACCOMP_BAG_INFO>()
             .where("grp_id = :grp_id FOR UPDATE")
             .setBind({{"grp_id", grp_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : annul_bags) {
         dbo::ARX_UNACCOMP_BAG_INFO ascs(cs,part_key);
         session.insert(ascs);
@@ -1451,13 +1387,11 @@ void arx_unaccomp_bag_info(const GrpId_t& grp_id, const Dates::DateTime_t& part_
 
 void arx_bag2(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::BAG2> bags2 = session.query<dbo::BAG2>()
             .where("grp_id = :grp_id FOR UPDATE")
             .setBind({{"grp_id", grp_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : bags2) {
         dbo::ARX_BAG2 ascs(cs,part_key);
         session.insert(ascs);
@@ -1466,13 +1400,11 @@ void arx_bag2(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
 
 void arx_bag_prepay(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::BAG_PREPAY> bags2 = session.query<dbo::BAG_PREPAY>()
             .where("grp_id = :grp_id FOR UPDATE")
             .setBind({{"grp_id", grp_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : bags2) {
         dbo::ARX_BAG_PREPAY ascs(cs,part_key);
         session.insert(ascs);
@@ -1481,13 +1413,11 @@ void arx_bag_prepay(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
 
 void arx_bag_tags(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::BAG_TAGS> bags2 = session.query<dbo::BAG_TAGS>()
             .where("grp_id = :grp_id FOR UPDATE")
             .setBind({{"grp_id", grp_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : bags2) {
         dbo::ARX_BAG_TAGS ascs(cs,part_key);
         session.insert(ascs);
@@ -1496,13 +1426,11 @@ void arx_bag_tags(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
 
 void arx_paid_bag(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::PAID_BAG> bags2 = session.query<dbo::PAID_BAG>()
             .where("grp_id = :grp_id FOR UPDATE")
             .setBind({{"grp_id", grp_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : bags2) {
         dbo::ARX_PAID_BAG ascs(cs,part_key);
         session.insert(ascs);
@@ -1511,13 +1439,11 @@ void arx_paid_bag(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
 
 std::vector<dbo::PAX> arx_pax(const PointId_t& point_id, const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::PAX> paxes = session.query<dbo::PAX>()
             .where("grp_id = :grp_id FOR UPDATE")
             .setBind({{"grp_id", grp_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : paxes) {
         std::string seat_no = salons::get_seat_no(PaxId_t(cs.pax_id), cs.seats, cs.is_jmp, "", point_id, "one" );
         int excess_pc = ckin::get_excess_pc(grp_id, PaxId_t(cs.pax_id));
@@ -1529,22 +1455,18 @@ std::vector<dbo::PAX> arx_pax(const PointId_t& point_id, const GrpId_t& grp_id, 
 
 void arx_transfer(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::TRANSFER> trfer = session.query<dbo::TRANSFER>()
             .where("grp_id = :grp_id AND transfer_num > 0 FOR UPDATE")
             .setBind({{":grp_id", grp_id.get()}});
     for(const auto& tr : trfer) {
-        session.connectOracle();
         std::optional<dbo::TRFER_TRIPS> trip = session.query<dbo::TRFER_TRIPS>().where("point_id = :tp FOR UPDATE")
                 .setBind({{":tp", tr.point_id_trfer}});
 
         if(trip){
-            session.connectPostgres();
             dbo::ARX_TRANSFER atr(tr, *trip,part_key);
             session.insert(atr);
             //delete
-            //            session.connectOracle();
             //            auto cur = make_curs("DELETE FROM trfer_trips where point_id = :tp");
             //            cur.bind(":tp", tr.point_id_trfer);
             //            cur.exec();
@@ -1555,8 +1477,7 @@ void arx_transfer(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
 void arx_tckin_segments(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " grp_id: " << grp_id;
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::TCKIN_SEGMENTS> segs = session.query<dbo::TCKIN_SEGMENTS>()
             .where("grp_id = :grp_id and seg_no > 0 FOR UPDATE")
             .setBind({{":grp_id", grp_id.get()}});
@@ -1565,18 +1486,15 @@ void arx_tckin_segments(const GrpId_t& grp_id, const Dates::DateTime_t& part_key
     for(const auto& s : segs) {
         static int added = 0;
         //LogTrace(TRACE3) << " get transfer trips";
-        session.connectOracle();
         std::optional<dbo::TRFER_TRIPS> trip = session.query<dbo::TRFER_TRIPS>().where("point_id = :tp FOR UPDATE")
                 .setBind({{":tp", s.point_id_trfer}});
 
         if(trip) {
-            session.connectPostgres();
             dbo::ARX_TCKIN_SEGMENTS atr(s, *trip,part_key);
             session.insert(atr);
             added ++;
             //LogTrace(TRACE3) << " added = " << added;
 
-            //            session.connectOracle();
             //            auto cur = make_curs("DELETE FROM tckin_segments where point_id_trfer = :tp");
             //            cur.bind(":tp", s.point_id_trfer);
             //            cur.exec();
@@ -1586,13 +1504,11 @@ void arx_tckin_segments(const GrpId_t& grp_id, const Dates::DateTime_t& part_key
 
 void arx_value_bag(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::VALUE_BAG> bags2 = session.query<dbo::VALUE_BAG>()
             .where("grp_id = :grp_id FOR UPDATE")
             .setBind({{"grp_id", grp_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : bags2) {
         dbo::ARX_VALUE_BAG ascs(cs,part_key);
         session.insert(ascs);
@@ -1601,13 +1517,11 @@ void arx_value_bag(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
 
 void arx_grp_norms(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::GRP_NORMS> norms = session.query<dbo::GRP_NORMS>()
             .where("grp_id = :grp_id FOR UPDATE")
             .setBind({{"grp_id", grp_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : norms) {
         dbo::ARX_GRP_NORMS ascs(cs,part_key);
         session.insert(ascs);
@@ -1616,13 +1530,11 @@ void arx_grp_norms(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
 
 void arx_pax_norms(const PaxId_t& pax_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::PAX_NORMS> norms = session.query<dbo::PAX_NORMS>()
             .where("pax_id = :pax_id FOR UPDATE")
             .setBind({{"pax_id", pax_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : norms) {
         dbo::ARX_PAX_NORMS ascs(cs,part_key);
         session.insert(ascs);
@@ -1632,13 +1544,11 @@ void arx_pax_norms(const PaxId_t& pax_id, const Dates::DateTime_t& part_key)
 
 void arx_pax_rem(const PaxId_t& pax_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::PAX_REM> norms = session.query<dbo::PAX_REM>()
             .where("pax_id = :pax_id FOR UPDATE")
             .setBind({{"pax_id", pax_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : norms) {
         dbo::ARX_PAX_REM ascs(cs,part_key);
         session.insert(ascs);
@@ -1647,13 +1557,11 @@ void arx_pax_rem(const PaxId_t& pax_id, const Dates::DateTime_t& part_key)
 
 void arx_transfer_subcls(const PaxId_t& pax_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::TRANSFER_SUBCLS> norms = session.query<dbo::TRANSFER_SUBCLS>()
             .where("pax_id = :pax_id FOR UPDATE")
             .setBind({{"pax_id", pax_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : norms) {
         dbo::ARX_TRANSFER_SUBCLS ascs(cs,part_key);
         session.insert(ascs);
@@ -1663,14 +1571,12 @@ void arx_transfer_subcls(const PaxId_t& pax_id, const Dates::DateTime_t& part_ke
 void arx_pax_doc(const PaxId_t& pax_id, const Dates::DateTime_t& part_key)
 {
     LogTrace(TRACE5) << __FUNCTION__ << " pax_id:" << pax_id;
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::PAX_DOC> docs = session.query<dbo::PAX_DOC>()
             .where("pax_id = :pax_id FOR UPDATE")
             .setBind({{"pax_id", pax_id.get()}});
     LogTrace(TRACE5) << " docs found : " << docs.size();
 
-    session.connectPostgres();
     for(const auto &d : docs) {
         dbo::ARX_PAX_DOC ad(d,part_key);
         session.insert(ad);
@@ -1679,13 +1585,11 @@ void arx_pax_doc(const PaxId_t& pax_id, const Dates::DateTime_t& part_key)
 
 void arx_pax_doco(const PaxId_t& pax_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::PAX_DOCO> norms = session.query<dbo::PAX_DOCO>()
             .where("pax_id = :pax_id FOR UPDATE")
             .setBind({{"pax_id", pax_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : norms) {
         dbo::ARX_PAX_DOCO ascs(cs,part_key);
         session.insert(ascs);
@@ -1694,13 +1598,11 @@ void arx_pax_doco(const PaxId_t& pax_id, const Dates::DateTime_t& part_key)
 
 void arx_pax_doca(const PaxId_t& pax_id, const Dates::DateTime_t& part_key)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::PAX_DOCA> norms = session.query<dbo::PAX_DOCA>()
             .where("pax_id = :pax_id FOR UPDATE")
             .setBind({{"pax_id", pax_id.get()}});
 
-    session.connectPostgres();
     for(const auto &cs : norms) {
         dbo::ARX_PAX_DOCA ascs(cs,part_key);
         session.insert(ascs);
@@ -1731,8 +1633,7 @@ void deleteByPaxes(const PaxId_t& pax_id)
                 "DELETE FROM pax_norms_text WHERE pax_id=:pax_id; "
                 "DELETE FROM sbdo_tags_generated WHERE pax_id=:pax_id; "
                 "DELETE FROM pax_calc_data WHERE pax_calc_data_id=:pax_id; "
-                "DELETE FROM pax_confirmations WHERE pax_id=:pax_id; "
-                "END;");
+                "DELETE FROM pax_confirmations WHERE pax_id=:pax_id; END;");
     cur.bind(":pax_id", pax_id);
     cur.exec();
     deletePaxAlarms(pax_id);
@@ -1748,8 +1649,7 @@ void deleteByGrpId(const GrpId_t& grp_id)
                 "DELETE FROM tckin_pax_grp WHERE grp_id=:grp_id; "
                 "DELETE FROM pnr_addrs_pc WHERE grp_id=:grp_id; "
                 "DELETE FROM grp_service_lists WHERE grp_id=:grp_id; "
-                "DELETE FROM bag_tags_generated WHERE grp_id=:grp_id; "
-                "END;");
+                "DELETE FROM bag_tags_generated WHERE grp_id=:grp_id; END;");
     cur.bind(":grp_id", grp_id);
     cur.exec();
     //todo delete from pax_grp
@@ -1761,8 +1661,7 @@ void deleteAodbBag(const PointId_t& point_id)
                 "BEGIN "
                 "delete from AODB_BAG "
                 "where exists (select PAX_ID, POINT_ADDR from AODB_PAX where AODB_PAX.POINT_ID=:point_id and "
-                " AODB_BAG.PAX_ID = AODB_pax_id and AODB_BAG.POINT_ADDR = AODB_PAX.POINT_ADDR); "
-                "END;");
+                " AODB_BAG.PAX_ID = AODB_pax_id and AODB_BAG.POINT_ADDR = AODB_PAX.POINT_ADDR); END;");
     cur.bind(":point_id", point_id);
     cur.exec();
 }
@@ -1835,8 +1734,7 @@ void deleteByMoveId(const MoveId_t & move_id)
     auto cur = make_curs(
                 "BEGIN "
                 "DELETE FROM points WHERE move_id=:move_id;"
-                "DELETE FROM move_ref WHERE move_id=:move_id; "
-                "END;");
+                "DELETE FROM move_ref WHERE move_id=:move_id; END;");
     cur.bind(":move_id", move_id);
     cur.exec();
 }
@@ -1846,14 +1744,12 @@ void deleteByMoveId(const MoveId_t & move_id)
 int arx_tlgout_noflt(const Dates::DateTime_t& arx_date, int remain_rows)
 {
     //LogTrace(TRACE5) << __FUNCTION__ << " arx_date: " << arx_date;
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
 
     std::vector<dbo::TLG_OUT> tlg_outs = session.query<dbo::TLG_OUT>()
             .where("POINT_ID is null and TIME_CREATE < :arx_date and ROWNUM < :rem_rows FOR UPDATE")
             .setBind({{":arx_date", arx_date}, {":rem_rows", remain_rows}});
 
-    session.connectPostgres();
 
     for(const auto &tg : tlg_outs) {
         Dates::DateTime_t part_key_nvl;
@@ -1874,7 +1770,6 @@ int arx_tlgout_noflt(const Dates::DateTime_t& arx_date, int remain_rows)
     return tlg_outs.size();
 
     //TODO
-    //    session.connectOracle();
     //    for(const auto & tg: tlg_outs) {
     //        auto cur = make_curs("BEGIN"
     //                             "DELETE FROM typeb_out_extra WHERE tlg_id=:id;"
@@ -1888,8 +1783,7 @@ int arx_tlgout_noflt(const Dates::DateTime_t& arx_date, int remain_rows)
 int arx_events_noflt2(const Dates::DateTime_t& arx_date, int remain_rows)
 {
     //LogTrace(TRACE5) << __FUNCTION__ << " arx_date: " << arx_date;
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     //Dates::DateTime_t elapsed = arx_date - Dates::days(30);
     std::vector<dbo::Events_Bilingual> events =  session.query<dbo::Events_Bilingual>()
             .where("ID1 is NULL  and TYPE = :evtTlg and TIME >= :elapsed and TIME < :arx_date "
@@ -1899,13 +1793,11 @@ int arx_events_noflt2(const Dates::DateTime_t& arx_date, int remain_rows)
                       {":evtTlg", EncodeEventType(evtTlg)},
                       {":rem_rows", remain_rows}});
 
-    session.connectPostgres();
     for(const auto & ev : events) {
         dbo::Arx_Events aev(ev, ev.time);
         session.insert(aev);
     }
     //TODO
-    //    session.connectOracle();
     //    auto cur = make_curs("DELETE FROM events_bilingual WHERE ID1 is NULL  and type = :evtTlg and TIME >= :arx_date - 30 and TIME < arx_date");
     //    cur.bind(":evtTlg", EncodeEventType(evtTlg))
     //       .bind(":arx_date", arx_date)
@@ -1916,8 +1808,7 @@ int arx_events_noflt2(const Dates::DateTime_t& arx_date, int remain_rows)
 int arx_events_noflt3(const Dates::DateTime_t& arx_date, int remain_rows)
 {
     //LogTrace(TRACE5) << __FUNCTION__ << " arx_date: " << arx_date;
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::Events_Bilingual> events =  session.query<dbo::Events_Bilingual>()
             .where("TIME >= :arx_date - 30 and TIME < :arx_date and rownum <= :rem_rows  and type not in "
                    " (:evtSeason, :evtDisp, :evtFlt, :evtGraph, :evtFltTask, :evtPax, :evtPay, :evtTlg, :evtPrn) FOR UPDATE")
@@ -1931,13 +1822,11 @@ int arx_events_noflt3(const Dates::DateTime_t& arx_date, int remain_rows)
                       {":evtPay",     EncodeEventType(evtPay)},
                       {":evtTlg",     EncodeEventType(evtTlg)},
                       {":evtPrn",     EncodeEventType(evtPrn)}});
-    session.connectPostgres();
     for(const auto & ev : events) {
         dbo::Arx_Events aev(ev, ev.time);
         session.insert(aev);
     }
     //TODO
-    //    session.connectOracle();
     //    auto cur = make_curs("DELETE FROM events_bilingual WHERE ID1 is NULL  and type = :evtTlg and TIME >= :arx_date - 30 and TIME < arx_date");
     //    cur.bind(":evtTlg", EncodeEventType(evtTlg))
     //       .bind(":arx_date", arx_date)
@@ -1948,18 +1837,15 @@ int arx_events_noflt3(const Dates::DateTime_t& arx_date, int remain_rows)
 int arx_stat_zamar(const Dates::DateTime_t& arx_date, int remain_rows)
 {
     //LogTrace(TRACE5) << __FUNCTION__ << " arx_date: " << arx_date;
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<dbo::STAT_ZAMAR> stats =  session.query<dbo::STAT_ZAMAR>()
             .where("TIME < :arx_date and rownum <= :rem_rows FOR UPDATE")
             .setBind({{":arx_date", arx_date}, {":rem_rows", remain_rows}});
-    session.connectPostgres();
     for(const auto & ev : stats) {
         dbo::ARX_STAT_ZAMAR aev(ev, ev.time);
         session.insert(aev);
     }
     //todo
-    //    session.connectOracle();
     //    auto cur = make_curs("DELETE FROM stat_zamar WHERE TIME < arx_date");
     //    cur.bind(":arx_date", arx_date).exec();
     return stats.size();
@@ -2063,8 +1949,7 @@ void arx_tlg_trip(const PointId_t& point_id)
                 "END;");
     cur.bind(":point_id", point_id).exec();
 
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
     std::vector<int> pnrids = session.query<int>("SELECT trfer_id").from("tlg_transfer")
             .where("point_id = :point_id")
             .setBind({{":point_id", point_id.get()}});
@@ -2216,8 +2101,7 @@ string TArxTypeBIn::TraceCaption()
 //STEP 5
 int arx_bag_norms(const Dates::DateTime_t& arx_date, int remain_rows)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
 
     std::vector<dbo::BAG_NORMS> bag_norms = session.query<dbo::BAG_NORMS>()
             .where("last_date < :arx_date AND "
@@ -2227,7 +2111,6 @@ int arx_bag_norms(const Dates::DateTime_t& arx_date, int remain_rows)
             .setBind({{":arx_date", arx_date},
                       {":remain_rows", remain_rows}});
 
-    session.connectPostgres();
     for(const auto & bn : bag_norms) {
         dbo::ARX_BAG_NORMS abn(bn, bn.last_date);
         session.insert(abn);
@@ -2237,8 +2120,7 @@ int arx_bag_norms(const Dates::DateTime_t& arx_date, int remain_rows)
 
 int arx_bag_rates(const Dates::DateTime_t& arx_date, int remain_rows)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
 
     std::vector<dbo::BAG_RATES> bag_rates = session.query<dbo::BAG_RATES>()
             .where("last_date < :arx_date AND "
@@ -2247,7 +2129,6 @@ int arx_bag_rates(const Dates::DateTime_t& arx_date, int remain_rows)
             .setBind({{":arx_date", arx_date},
                       {":remain_rows", remain_rows}});
 
-    session.connectPostgres();
     for(const auto & bn : bag_rates) {
         dbo::ARX_BAG_RATES abn(bn, bn.last_date);
         session.insert(abn);
@@ -2257,8 +2138,7 @@ int arx_bag_rates(const Dates::DateTime_t& arx_date, int remain_rows)
 
 int arx_value_bag_taxes(const Dates::DateTime_t& arx_date, int remain_rows)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
 
     std::vector<dbo::VALUE_BAG_TAXES> bag_taxes = session.query<dbo::VALUE_BAG_TAXES>()
             .where("last_date < :arx_date AND "
@@ -2267,7 +2147,6 @@ int arx_value_bag_taxes(const Dates::DateTime_t& arx_date, int remain_rows)
             .setBind({{":arx_date", arx_date},
                       {":remain_rows", remain_rows}});
 
-    session.connectPostgres();
     for(const auto & bn : bag_taxes) {
         dbo::ARX_VALUE_BAG_TAXES abn(bn, bn.last_date);
         session.insert(abn);
@@ -2277,15 +2156,13 @@ int arx_value_bag_taxes(const Dates::DateTime_t& arx_date, int remain_rows)
 
 int arx_exchange_rates(const Dates::DateTime_t& arx_date, int remain_rows)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
 
     std::vector<dbo::EXCHANGE_RATES> exc_rates = session.query<dbo::EXCHANGE_RATES>()
             .where("last_date < :arx_date AND rownum <= :remain_rows FOR UPDATE")
             .setBind({{":arx_date", arx_date},
                       {":remain_rows", remain_rows}});
 
-    session.connectPostgres();
     for(const auto & bn : exc_rates) {
         dbo::ARX_EXCHANGE_RATES abn(bn, bn.last_date);
         session.insert(abn);
@@ -2295,8 +2172,7 @@ int arx_exchange_rates(const Dates::DateTime_t& arx_date, int remain_rows)
 
 int delete_from_mark_trips(const Dates::DateTime_t& arx_date, int remain_rows)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
 
     std::vector<dbo::Mark_Trips> mark_trips = session.query<dbo::Mark_Trips>()
             .where("scd < :arx_date AND rownum <= :remain_rows FOR UPDATE")
@@ -2304,7 +2180,8 @@ int delete_from_mark_trips(const Dates::DateTime_t& arx_date, int remain_rows)
                       {":remain_rows", remain_rows}});
 
     for(const auto & bn : mark_trips) {
-        auto cur = make_curs("delete from MARK_TRIPS where POINT_ID = :point_id");
+        auto cur = make_db_curs("delete from MARK_TRIPS where POINT_ID = :point_id",
+                                PgOra::getROSession("MARK_TRIPS"));
         cur.bind(":point_id", bn.point_id).exec();
     }
     return mark_trips.size();
@@ -2367,8 +2244,7 @@ string TArxNormsRatesEtc::TraceCaption()
 // STEP 6
 int arx_tlgs(const Dates::DateTime_t& arx_date, int remain_rows)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
 
     std::vector<dbo::TLGS> tlgs = session.query<dbo::TLGS>()
             .where("time < :arx_date AND rownum <= :remain_rows FOR UPDATE")
@@ -2380,19 +2256,16 @@ int arx_tlgs(const Dates::DateTime_t& arx_date, int remain_rows)
                 .where("QUEUE_TLG_ID = :id and TIME_SEND is not null")
                 .setBind({{":id", t.id}});
 
-        session.connectPostgres();
         for(const auto & s : stats) {
             dbo::ARX_TLG_STAT ats(s, s.time_send);
             session.insert(ats);
         }
-        session.connectOracle();
         auto cur = make_curs("BEGIN "
                              //"delete from TLGS where POINT_ID = :id" TODO
                              //"delete from TLG_STAT where POINT_ID = :id" TODO
-                             "delete from TLG_ERROR where ID = :id; "
-                             "delete from TLG_QUEUE where ID = :id; "
-                             "delete from TLGS_TEXT where ID = :id; "
-                             "END;");
+                             "delete from TLG_ERROR where POINT_ID = :id; "
+                             "delete from TLG_QUEUE where POINT_ID = :id; "
+                             "delete from TLG_TEXT where POINT_ID = :id; END");
         cur.bind(":id", t.id).exec();
     }
     return tlgs.size();
@@ -2400,8 +2273,7 @@ int arx_tlgs(const Dates::DateTime_t& arx_date, int remain_rows)
 
 int delete_files(const Dates::DateTime_t& arx_date, int remain_rows)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
 
     std::vector<dbo::FILES> files = session.query<dbo::FILES>()
             .where("time < :arx_date AND rownum <= :remain_rows FOR UPDATE")
@@ -2411,10 +2283,9 @@ int delete_files(const Dates::DateTime_t& arx_date, int remain_rows)
     for(const auto & f : files) {
         auto cur = make_curs("BEGIN "
                              //"delete from FILES where POINT_ID = :id; " TODO
-                             "delete from FILE_QUEUE where ID = :id; "
-                             "delete from FILE_PARAMS where ID = :id; "
-                             "delete from FILE_ERROR where ID = :id; "
-                             "END;");
+                             "delete from FILE_QUEUE where POINT_ID = :id; "
+                             "delete from FILE_PARAMS where POINT_ID = :id; "
+                             "delete from FILE_ERROR where POINT_ID = :id; END");
         cur.bind(":id", f.id).exec();
     }
     return files.size();
@@ -2422,8 +2293,7 @@ int delete_files(const Dates::DateTime_t& arx_date, int remain_rows)
 
 int delete_kiosk_events(const Dates::DateTime_t& arx_date, int remain_rows)
 {
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
 
     std::vector<dbo::KIOSK_EVENTS> events = session.query<dbo::KIOSK_EVENTS>()
             .where("TIME < :arx_date and ROWNUM <= :remain_rows FOR UPDATE")
@@ -2433,8 +2303,7 @@ int delete_kiosk_events(const Dates::DateTime_t& arx_date, int remain_rows)
     for(const auto & ev : events) {
         auto cur = make_curs("BEGIN "
                              //"delete from KIOSK_EVENTS where ID = :id; " TODO
-                             "delete from KIOSK_EVENT_PARAMS where EVENT_ID = :id; "
-                             "END;");
+                             "delete from KIOSK_EVENT_PARAMS where EVENT_ID = :id; END");
         cur.bind(":id", ev.id).exec();
     }
     return events.size();
@@ -2450,8 +2319,7 @@ int delete_rozysk(const Dates::DateTime_t& arx_date, int remain_rows)
 int delete_aodb_spp_files(const Dates::DateTime_t& arx_date, int remain_rows)
 {
     int rowsize = 0;
-    auto & session = dbo::Session::getArxInstance();
-    session.connectOracle();
+    dbo::Session session;
 
     std::vector<dbo::AODB_SPP_FILES> files = session.query<dbo::AODB_SPP_FILES>()
             .where("filename<'SPP'||TO_CHAR(:arx_date, 'YYMMDD')||'.txt' AND rownum <= :remain_rows FOR UPDATE")
@@ -2462,8 +2330,7 @@ int delete_aodb_spp_files(const Dates::DateTime_t& arx_date, int remain_rows)
         auto cur = make_curs("BEGIN "
                              "delete from AODB_EVENTS "
                              "where filename= :filename AND point_addr= :point_addr "
-                             "AND airline= :airline AND rownum<= :remain_rows; "
-                             "END;");
+                             "AND airline= :airline AND rownum<= :remain_rows; END");
         cur
                 .bind(":filename", f.filename)
                 .bind(":point_addr", f.point_addr)
@@ -2476,7 +2343,7 @@ int delete_aodb_spp_files(const Dates::DateTime_t& arx_date, int remain_rows)
         //        auto cur2 = make_curs("BEGIN "
         //                             "delete from AODB_SPP_FILES "
         //                             "where filename= :filename AND point_addr= :point_addr "
-        //                             "AND airline= :airline; END;");
+        //                             "AND airline= :airline; END");
         //        cur2
         //           .bind(":filename", f.filename)
         //           .bind(":point_addr", f.point_addr)

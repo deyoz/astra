@@ -9,23 +9,11 @@
 #include "hooked_session.h"
 #include <optional>
 
-#define get_arx_ora_curs(x) get_arx_ora_rw_sess(STDLOG)->createCursor(STDLOG, (x))
-#define get_arx_pg_ro_curs(x) get_arx_pg_ro_sess(STDLOG)->createCursor(STDLOG, (x))
-#define get_arx_pg_rw_curs(x) get_arx_pg_rw_sess(STDLOG)->createCursor(STDLOG, (x))
-
-#define get_arx_ro_curs(x) PG_ARX::ARX_READ_PG() ? get_arx_pg_ro_curs(x) : get_arx_ora_curs(x)
-#define get_arx_rw_curs(x) PG_ARX::ARX_PG_ENABLE() ? get_arx_pg_rw_curs(x) : get_arx_ora_curs(x)
-
-#define get_arx_ro_session() (PG_ARX::ARX_READ_PG() ? get_arx_pg_ro_sess(STDLOG) : get_arx_ora_rw_sess(STDLOG))
-#define get_arx_rw_session() (PG_ARX::ARX_PG_ENABLE() ? get_arx_pg_rw_sess(STDLOG) : get_arx_ora_rw_sess(STDLOG))
-
 namespace  PG_ARX {
 int ARX_DAYS();
 int ARX_DURATION();
 int ARX_SLEEP();
 int ARX_MAX_ROWS();
-bool ARX_PG_ENABLE();
-bool ARX_READ_PG();
 
 struct TBagInfo
 {
@@ -59,9 +47,7 @@ std::optional<std::string> get_birks2(Dates::DateTime_t part_key, int grp_id, st
 std::optional<std::string> get_birks2(Dates::DateTime_t part_key, int grp_id, std::optional<int> pax_id,
                        int bag_pool_num, int pr_lat = 0);
 std::optional<int> get_main_pax_id2(Dates::DateTime_t part_key, int grp_id, int include_refused = 1);
-
-
-
+std::optional<std::string> next_airp(Dates::DateTime_t part_key, int first_point, int point_num);
 
 bool arx_daily(const Dates::DateTime_t &utcdate);
 #ifdef XP_TESTING

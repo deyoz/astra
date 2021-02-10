@@ -3,6 +3,7 @@
 
 #include <string>
 #include "astra_utils.h"
+#include "db_tquery.h"
 
 namespace STAT {
     static const std::string PARAM_SEANCE_TYPE           = "seance_type";
@@ -269,6 +270,7 @@ struct TFltInfoCache:public std::map<int, TFltInfoCacheItem> {
 struct TAirpArvInfo {
     std::map<int, std::string> items;
     std::string get(TQuery &Qry);
+    std::string get(DB::TQuery &Qry);
 };
 
 class TDeskAccess {

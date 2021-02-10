@@ -360,23 +360,6 @@ DbCpp::Session* get_main_pg_au_sess(STDLOG_SIGNATURE)
 
 //---------------------------------------------------------------------------------------
 
-DbCpp::Session* get_arx_ora_rw_sess(STDLOG_SIGNATURE)
-{
-#ifdef XP_TESTING
-    if(inTestMode()) {
-        return get_main_ora_sess(STDLOG_VARIABLE);
-    }
-#endif//XP_TESTING
-
-    DbCpp::Session* sess = ArxOraSession_ReadWrite::getSession();
-    if(sess != nullptr) {
-        return sess;
-    }
-    return get_main_ora_sess(STDLOG_VARIABLE);
-}
-
-//---------------------------------------------------------------------------------------
-
 DbCpp::Session* get_arx_pg_ro_sess(STDLOG_SIGNATURE)
 {
 #ifdef XP_TESTING

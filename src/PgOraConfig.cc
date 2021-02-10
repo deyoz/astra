@@ -15,6 +15,12 @@
 
 namespace PgOra
 {
+    bool ARX_READ_PG()
+    {
+        static int always=-1;
+        return getVariableStaticBool("ARX_READ_PG", &always, 0);
+    }
+
     Config::Config(const std::string& tcl)
         : mCfg((tcl == PgOra_config_OnlyPGparam()) ? 3 : readIntFromTcl(tcl, 0))
     {
@@ -29,6 +35,7 @@ namespace PgOra
     static const GroupsType sGroups {
         { "SP_PG_GROUP_JXTCONT", {"CONT"} },
         { "SP_PG_GROUP_IAPI",  { "IAPI_PAX_DATA" } },
+        { "SP_PG_GROUP_APPS",  { "APPS_MESSAGES", "APPS_PAX_DATA", "APPS_MANIFEST_DATA"}},
         { "SP_PG_GROUP_IATCI", { "IATCI_TABS_SEQ", "IATCI_TABS", "IATCI_SETTINGS", "GRP_IATCI_XML", "DEFERRED_CKI_DATA", "CKI_DATA" } },
         { "SP_PG_GROUP_WC",    { "RL_SEQ", "WC_PNR", "WC_TICKET", "WC_COUPON", "AIRPORT_CONTROLS" } },
         { "SP_PG_GROUP_ET",    { "ETICKETS", "ETICKS_DISPLAY", "ETICKS_DISPLAY_TLGS" } },
@@ -41,6 +48,14 @@ namespace PgOra
         { "SP_PG_GROUP_SCHED_SEQ", {"ROUTES_MOVE_ID", "ROUTES_TRIP_ID", "SSM_ID"} },
         { "SP_PG_GROUP_CONTEXT", {"CONTEXT", "CONTEXT__SEQ"} },
         { "SP_PG_GROUP_EDIFACT", {"EDISESSION"} },
+        { "SP_PG_GROUP_ARX", {"ARX_AGENT_STAT"    , "ARX_BAG_RATES"      , "ARX_GRP_NORMS"  , "ARX_PAX_DOC"         , "ARX_RFISC_STAT"    , "ARX_STAT"            , "ARX_TRANSFER_SUBCLS"   ,
+                              "ARX_ANNUL_BAG"     , "ARX_BAG_RECEIPTS"   , "ARX_PAX_GRP"    , "ARX_SELF_CKIN_STAT"  , "ARX_STAT_VO"       , "ARX_TRFER_PAX_STAT"  , "ARX_UNACCOMP_BAG_INFO" ,
+                              "ARX_ANNUL_TAGS"    , "ARX_BAG_TAGS"       , "ARX_MARK_TRIPS" , "ARX_PAX_NORMS"       , "ARX_STAT_AD"       , "ARX_STAT_ZAMAR"      , "ARX_TRFER_STAT"        ,
+                              "ARX_BAG2"          , "ARX_BI_STAT"        , "ARX_MOVE_REF"   , "ARX_PAX_REM"         , "ARX_STAT_HA"       , "ARX_TCKIN_SEGMENTS"  , "ARX_TRIP_CLASSES"      ,
+                              "ARX_BAG_NORMS"     , "ARX_CRS_DISPLACE2"  , "ARX_PAID_BAG"   , "ARX_PAX"             , "ARX_STAT_REM"      , "ARX_TLG_OUT"         , "ARX_TRIP_DELAYS"       ,
+                              "ARX_BAG_PAY_TYPES" , "ARX_EVENTS"         , "ARX_PAX_DOCA"   , "ARX_PFS_STAT"        , "ARX_STAT_REPRINT"  , "ARX_TLG_STAT"        , "ARX_TRIP_LOAD"         ,
+                              "ARX_BAG_PREPAY"    , "ARX_EXCHANGE_RATES" , "ARX_PAX_DOCO"   , "ARX_POINTS"          , "ARX_STAT_SERVICES" , "ARX_TRANSFER"        , "ARX_TRIP_SETS"         ,
+                              "MOVE_ARX_EXT"      , "ARX_VALUE_BAG"      , "ARX_TRIP_STAGES", "ARX_VALUE_BAG_TAXES" , "ARX_LIMITED_CAPABILITY_STAT" }},
         { "SP_PG_GROUP_SPPCKIN", {"TRIP_ALARMS", "TRIP_APIS_PARAMS", "TRIP_RPT_PERSON", "UTG_PRL"} }
     };
 
@@ -103,7 +118,11 @@ namespace PgOra
             const std::string& group = getGroup(objectName);
             if (group == "SP_PG_GROUP_ARX")
             {
-                return *get_arx_pg_ro_sess(STDLOG);
+                if(ARX_READ_PG()) {
+                    return *get_arx_pg_ro_sess(STDLOG);
+                }
+                else return *get_main_ora_sess(STDLOG);
+
             }
             return *get_main_pg_ro_sess(STDLOG);
         }

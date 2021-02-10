@@ -375,7 +375,7 @@ void stat_orders_collect(int interval)
     file_queue.get( TFilterQueue( OWN_POINT_ADDR(), FILE_COLLECT_TYPE ) );
     for ( TFileQueue::iterator item=file_queue.begin();
             item!=file_queue.end();
-            item++, OraSession.Commit() ) {
+            item++, ASTRA::commit() /*OraSession.Commit()*/ ) {
         try {
             switch(DecodeOrderSource(item->params[PARAM_ORDER_SOURCE])) {
                 case osSTAT :
@@ -390,7 +390,8 @@ void stat_orders_collect(int interval)
             LogTrace(TRACE5) << "stats partially collected due to timeout expired: " << tm.Print() << " ms, to be continued next time";
         }
         catch(Exception &E) {
-            OraSession.Rollback();
+            ASTRA::rollback();
+            //OraSession.Rollback();
             try
             {
                 if (isIgnoredEOracleError(E)) continue;
@@ -399,7 +400,8 @@ void stat_orders_collect(int interval)
             catch(...) {};
         }
         catch(...) {
-            OraSession.Rollback();
+            ASTRA::rollback();
+            //OraSession.Rollback();
             ProgError(STDLOG, "Something goes wrong");
         }
     }
@@ -836,7 +838,8 @@ void get_full_stat(TDateTime utcdate)
   for(;!PointsQry.Eof;PointsQry.Next())
   {
     get_flight_stat(PointsQry.FieldAsInteger("point_id"), true);
-    OraSession.Commit();
+    ASTRA::commit();
+    //OraSession.Commit();
   };
 };
 

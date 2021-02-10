@@ -157,7 +157,7 @@ void exec_tasks( const char *proc_name, int argc, char *argv[] )
         if ( name == "sync_mvd" ) sync_mvd();
         else
         if ( name == "arx_daily" ) {
-            if(PG_ARX::ARX_PG_ENABLE()) {
+            if(PgOra::supportsPg("SP_PG_GROUP_ARX")) {
                 Result = PG_ARX::arx_daily(DateTimeToBoost(utcdate));
             }
             Result = arx_daily( utcdate );

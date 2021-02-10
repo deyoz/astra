@@ -32,6 +32,8 @@ namespace PgOra
         int mCfg;
     };
 
+    bool ARX_READ_PG();
+
     DbCpp::Session& getROSession(const std::string& objectName);
     DbCpp::Session& getRWSession(const std::string& objectName);
     DbCpp::Session& getAutoSession(const std::string& objectName);

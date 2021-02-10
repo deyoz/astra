@@ -3677,6 +3677,35 @@ $(defmacro RUN_FLT_TASK_LOG
 
 ###################################################################################
 
+$(defmacro RUN_LOG_RUN
+    point_id
+    grp_id
+    part_key
+    reg_no
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='stat' ver='1' opr='PIKE' screen='STAT.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <LogRun>
+      <dev_model/>
+      <fmt_type/>
+      <prnParams>
+        <pr_lat>0</pr_lat>
+        <encoding>UTF-16LE</encoding>
+        <offset>20</offset>
+        <top>0</top>
+      </prnParams>
+      <point_id>$(point_id)</point_id>
+      <part_key>$(part_key) 09:00:00</part_key>
+      <grp_id>$(grp_id)</grp_id>
+      <reg_no>$(reg_no)</reg_no>
+      <client_with_trip_col_in_SysLog/>
+    </LogRun>
+  </query>
+</term> }
+}) #end_of_macro
+
+####################################################################################
+
 $(defmacro RUN_FLT_LOG
     point_id
     part_key

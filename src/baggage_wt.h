@@ -397,6 +397,7 @@ class TPaidBagItem : public TBagTypeKey
   TPaidBagItem& fromXML(xmlNodePtr node);
   const TPaidBagItem& toDB(TQuery &Qry) const;
   TPaidBagItem& fromDB(TQuery &Qry);
+  TPaidBagItem& fromDBO(const dbo::ARX_PAID_BAG & apb, const dbo::ARX_BAG_RATES & bag_rate);
   int priority() const;
   std::string bag_type_view(const std::string& lang="") const;
   bool paid_positive() const { return weight>0; }

@@ -124,46 +124,132 @@ bool lessPointsRow(const TPointsRow& item1,const TPointsRow& item2)
     return result;
 };
 
-void GetFltCBoxList(TScreenState scr, TDateTime first_date, TDateTime last_date, bool pr_show_del, vector<TPointsRow> &points)
+bool ArxValidateByAirp(const TDateTime& part_key, const int point_id,
+                      const std::string& airp, int point_num)
 {
     TReqInfo &reqInfo = *(TReqInfo::Instance());
-    TQuery Qry(&OraSession);
+    if (!reqInfo.user.access.airps().elems().empty()) {
+        std::optional<std::string> next_airp = PG_ARX::next_airp(DateTimeToBoost(part_key), point_id, point_num);
+        const auto& airps = reqInfo.user.access.airps().elems();
+        if (reqInfo.user.access.airps().elems_permit())
+        {
+            return (airps.count(airp)>0 || airps.count(next_airp.value_or(""))>0);
+//            sql << "AND (airp IN " << GetSQLEnum(reqInfo.user.access.airps().elems()) << " OR \n";
+//            sql << "arch.next_airp(arx_points.part_key, (CASE WHEN pr_tranzit=0 THEN point_id ELSE first_point END), point_num) IN \n";
+//            sql << GetSQLEnum(reqInfo.user.access.airps().elems()) << ") \n";
+        }
+        else
+        {
+            return (airps.count(airp)==0 || airps.count(next_airp.value_or(""))==0);
+//            sql << "AND (airp NOT IN " << GetSQLEnum(reqInfo.user.access.airps().elems()) << " OR \n";
+//            sql << "arch.next_airp(arx_points.part_key, (CASE WHEN pr_tranzit=0 THEN point_id ELSE first_point END), point_num) NOT IN \n";
+//            sql << GetSQLEnum(reqInfo.user.access.airps().elems()) << ") \n";
+        }
+    }
+    return true;
+}
+
+void FltCBoxListRead(DB::TQuery& Qry, vector<TPointsRow> &points, int& count)
+{
+    try {
+        Qry.Execute();
+    } catch (EOracleError &E) {
+        if(E.Code == 376)
+            throw AstraLocale::UserException("MSG.ONE_OF_DB_FILES_UNAVAILABLE.CALL_ADMIN");
+        else
+            throw;
+    }
+    string trip_name;
+    if(!Qry.Eof) {
+        int col_move_id=Qry.FieldIndex("move_id");
+        int col_point_num=Qry.FieldIndex("point_num");
+        int col_point_id=Qry.FieldIndex("point_id");
+        int col_part_key=Qry.FieldIndex("part_key");
+
+        for( ; !Qry.Eof; Qry.Next()) {
+            TTripInfo tripInfo(Qry);
+            try
+            {
+                trip_name = GetTripName(tripInfo,ecCkin,false,true);
+            }
+            catch(AstraLocale::UserException &E)
+            {
+                AstraLocale::showErrorMessage("MSG.ERR_MSG.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("msg", getLocaleText(E.getLexemaData())));
+                continue;
+            };
+            TPointsRow pointsRow;
+            TDateTime scd_out_client;
+            if(Qry.FieldIsNULL(col_part_key))
+                pointsRow.part_key = NoExists;
+            else {
+                pointsRow.part_key =  Qry.FieldAsDateTime(col_part_key);
+            }
+            pointsRow.point_id = Qry.FieldAsInteger(col_point_id);
+            tripInfo.get_client_dates(scd_out_client, pointsRow.real_out_client);
+            pointsRow.airline = tripInfo.airline;
+            pointsRow.suffix = tripInfo.suffix;
+            pointsRow.name = trip_name;
+            pointsRow.flt_no = tripInfo.flt_no;
+            pointsRow.move_id = Qry.FieldAsInteger(col_move_id);
+            pointsRow.point_num = Qry.FieldAsInteger(col_point_num);
+            if( pointsRow.part_key != NoExists) {
+                int first_point = Qry.FieldAsInteger("first_point");
+                int pr_tranzit = Qry.FieldAsInteger("pr_tranzit");
+                std::string airp = Qry.FieldAsString("airp");
+                int point_id = pr_tranzit==0 ? pointsRow.point_id : first_point;
+
+                if(ArxValidateByAirp(pointsRow.part_key, point_id, airp, pointsRow.point_num)) {
+                    points.push_back(pointsRow);
+                }
+            } else {
+                points.push_back(pointsRow);
+            }
+
+            count++;
+            if(count >= MAX_STAT_ROWS()) {
+                AstraLocale::showErrorMessage("MSG.TOO_MANY_FLIGHTS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
+                        LParams() << LParam("num", MAX_STAT_ROWS()));
+                break;
+            }
+        }
+    }
+}
+
+void ArxGetFltCBoxList(TScreenState scr, TDateTime first_date, TDateTime last_date, bool pr_show_del,
+                       vector<TPointsRow> &points, int &count)
+{
+    TReqInfo &reqInfo = *(TReqInfo::Instance());
+    DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"));
     Qry.CreateVariable("FirstDate", otDate, first_date);
     Qry.CreateVariable("LastDate", otDate, last_date);
-    string trip_name;
     TPerfTimer tm;
     tm.Init();
-    int count = 0;
     if (!reqInfo.user.access.totally_not_permitted())
     {
-        for(int pass=0; pass<=2; pass++)
+        for(int pass=1; pass<=2; pass++)
         {
             ostringstream sql;
-            if (pass==0)
-                sql << "SELECT \n"
-                    "    NULL part_key, \n"
-                    "    move_id, \n";
-            else
-                sql << "SELECT \n"
-                    "    arx_points.part_key, \n"
-                    "    arx_points.move_id, \n";
-
+            sql << "SELECT \n"
+                "    arx_points.part_key, \n"
+                "    arx_points.move_id, \n"
+                   " arx_points.airp, \n"
+                   " arx_points.pr_tranzit, \n"
+                   " arx_points.first_point, \n";
             sql << "    " << TTripInfo::selectedFields() << ", \n"
                    "    point_num \n";
-            if (pass==0)
-                sql << "FROM points \n"
-                    "WHERE points.scd_out >= :FirstDate AND points.scd_out < :LastDate \n";
-            if (pass==1)
+            if (pass==1) {
                 sql << "FROM arx_points \n"
-                    "WHERE arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND \n"
-                    "      arx_points.part_key >= :FirstDate and arx_points.part_key < :LastDate + :arx_trip_date_range \n";
-            if (pass==2)
-                sql << "FROM arx_points, \n"
-                    "     (SELECT part_key, move_id FROM move_arx_ext \n"
-                    "      WHERE part_key >= :LastDate + :arx_trip_date_range AND part_key <= :LastDate + date_range) arx_ext \n"
-                    "WHERE arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND \n"
-                    "      arx_points.part_key=arx_ext.part_key AND arx_points.move_id=arx_ext.move_id \n";
-
+                       "WHERE arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND \n"
+                       "      arx_points.part_key >= :FirstDate AND arx_points.part_key < :arx_trip_date_range \n";
+            }
+            if (pass==2) {
+                sql << "FROM arx_points, (SELECT part_key, move_id FROM move_arx_ext \n"
+                       "WHERE part_key >= :arx_trip_date_range ";
+                PgOra::ARX_READ_PG() ? sql << " AND part_key <= (:LastDate + date_range * INTERVAL '1 day')) arx_ext \n"
+                                      : sql << " AND part_key <= (:LastDate + date_range)) arx_ext \n";
+                sql<< "WHERE arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND \n"
+                      "      arx_points.part_key=arx_ext.part_key AND arx_points.move_id=arx_ext.move_id \n";
+            }
             if(scr == ssPaxList)
                 sql << " AND pr_del = 0 \n";
             if((scr == ssFltLog or scr == ssFltTaskLog) and !pr_show_del)
@@ -174,81 +260,63 @@ void GetFltCBoxList(TScreenState scr, TDateTime first_date, TDateTime last_date,
                 else
                     sql << " AND airline NOT IN " << GetSQLEnum(reqInfo.user.access.airlines().elems()) << "\n";
             }
-            if (!reqInfo.user.access.airps().elems().empty()) {
-                if (reqInfo.user.access.airps().elems_permit())
-                {
-                    sql << "AND (airp IN " << GetSQLEnum(reqInfo.user.access.airps().elems()) << " OR \n";
-                    if (pass==0)
-                        sql << "ckin.next_airp(DECODE(pr_tranzit,0,point_id,first_point), point_num) IN \n";
-                    else
-                        sql << "arch.next_airp(arx_points.part_key, DECODE(pr_tranzit,0,point_id,first_point), point_num) IN \n";
-                    sql << GetSQLEnum(reqInfo.user.access.airps().elems()) << ") \n";
-                }
-                else
-                {
-                    sql << "AND (airp NOT IN " << GetSQLEnum(reqInfo.user.access.airps().elems()) << " OR \n";
-                    if (pass==0)
-                        sql << "ckin.next_airp(DECODE(pr_tranzit,0,point_id,first_point), point_num) NOT IN \n";
-                    else
-                        sql << "arch.next_airp(arx_points.part_key, DECODE(pr_tranzit,0,point_id,first_point), point_num) NOT IN \n";
-                    sql << GetSQLEnum(reqInfo.user.access.airps().elems()) << ") \n";
-                };
-            };
-
-            if (pass!=0)
-                Qry.CreateVariable("arx_trip_date_range", otInteger, ARX_TRIP_DATE_RANGE());
+            Qry.CreateVariable("arx_trip_date_range", otDate, last_date + ARX_TRIP_DATE_RANGE());
 
             //ProgTrace(TRACE5, "FltCBoxDropDown: pass=%d SQL=\n%s", pass, sql.str().c_str());
             Qry.SQLText = sql.str().c_str();
-            try {
-                Qry.Execute();
-            } catch (EOracleError &E) {
-                if(E.Code == 376)
-                    throw AstraLocale::UserException("MSG.ONE_OF_DB_FILES_UNAVAILABLE.CALL_ADMIN");
-                else
-                    throw;
-            }
-            if(!Qry.Eof) {
-                int col_move_id=Qry.FieldIndex("move_id");
-                int col_point_num=Qry.FieldIndex("point_num");
-                int col_point_id=Qry.FieldIndex("point_id");
-                int col_part_key=Qry.FieldIndex("part_key");
-                for( ; !Qry.Eof; Qry.Next()) {
-                    TTripInfo tripInfo(Qry);
-                    try
-                    {
-                        trip_name = GetTripName(tripInfo,ecCkin,false,true);
-                    }
-                    catch(AstraLocale::UserException &E)
-                    {
-                        AstraLocale::showErrorMessage("MSG.ERR_MSG.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("msg", getLocaleText(E.getLexemaData())));
-                        continue;
-                    };
-                    TPointsRow pointsRow;
-                    TDateTime scd_out_client;
-                    if(Qry.FieldIsNULL(col_part_key))
-                        pointsRow.part_key = NoExists;
-                    else
-                        pointsRow.part_key = Qry.FieldAsDateTime(col_part_key);
-                    pointsRow.point_id = Qry.FieldAsInteger(col_point_id);
-                    tripInfo.get_client_dates(scd_out_client, pointsRow.real_out_client);
-                    pointsRow.airline = tripInfo.airline;
-                    pointsRow.suffix = tripInfo.suffix;
-                    pointsRow.name = trip_name;
-                    pointsRow.flt_no = tripInfo.flt_no;
-                    pointsRow.move_id = Qry.FieldAsInteger(col_move_id);
-                    pointsRow.point_num = Qry.FieldAsInteger(col_point_num);
-                    points.push_back(pointsRow);
-
-                    count++;
-                    if(count >= MAX_STAT_ROWS()) {
-                        AstraLocale::showErrorMessage("MSG.TOO_MANY_FLIGHTS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
-                                LParams() << LParam("num", MAX_STAT_ROWS()));
-                        break;
-                    }
-                }
-            }
+            FltCBoxListRead(Qry, points, count);
         }
+    }
+}
+
+void GetFltCBoxList(TScreenState scr, TDateTime first_date, TDateTime last_date, bool pr_show_del, vector<TPointsRow> &points)
+{
+    TReqInfo &reqInfo = *(TReqInfo::Instance());
+    DB::TQuery Qry(*get_main_ora_sess(STDLOG));
+    Qry.CreateVariable("FirstDate", otDate, first_date);
+    Qry.CreateVariable("LastDate", otDate, last_date);
+    TPerfTimer tm;
+    tm.Init();
+    int count = 0;
+    if (!reqInfo.user.access.totally_not_permitted())
+    {
+        ostringstream sql;
+        sql << "SELECT \n"
+                "    NULL part_key, \n"
+                "    move_id, \n";
+        sql << "    " << TTripInfo::selectedFields() << ", \n"
+               "    point_num \n";
+        sql << "FROM points \n"
+                "WHERE points.scd_out >= :FirstDate AND points.scd_out < :LastDate \n";
+        if(scr == ssPaxList)
+            sql << " AND pr_del = 0 \n";
+        if((scr == ssFltLog or scr == ssFltTaskLog) and !pr_show_del)
+            sql << " AND pr_del >= 0 \n";
+        if (!reqInfo.user.access.airlines().elems().empty()) {
+            if (reqInfo.user.access.airlines().elems_permit())
+                sql << " AND airline IN " << GetSQLEnum(reqInfo.user.access.airlines().elems()) << "\n";
+            else
+                sql << " AND airline NOT IN " << GetSQLEnum(reqInfo.user.access.airlines().elems()) << "\n";
+        }
+        if (!reqInfo.user.access.airps().elems().empty()) {
+            if (reqInfo.user.access.airps().elems_permit())
+            {
+                sql << "AND (airp IN " << GetSQLEnum(reqInfo.user.access.airps().elems()) << " OR \n";
+                sql << "ckin.next_airp(DECODE(pr_tranzit,0,point_id,first_point), point_num) IN \n";
+                sql << GetSQLEnum(reqInfo.user.access.airps().elems()) << ") \n";
+            }
+            else
+            {
+                sql << "AND (airp NOT IN " << GetSQLEnum(reqInfo.user.access.airps().elems()) << " OR \n";
+                sql << "ckin.next_airp(DECODE(pr_tranzit,0,point_id,first_point), point_num) NOT IN \n";
+                sql << GetSQLEnum(reqInfo.user.access.airps().elems()) << ") \n";
+            };
+        };
+
+        //ProgTrace(TRACE5, "FltCBoxDropDown: pass=%d SQL=\n%s", pass, sql.str().c_str());
+        Qry.SQLText = sql.str().c_str();
+        FltCBoxListRead(Qry, points, count);
+        ArxGetFltCBoxList(scr, first_date, last_date, pr_show_del, points, count);
     };
     ProgTrace(TRACE5, "FltCBoxDropDown EXEC QRY: %s", tm.PrintWithMessage().c_str());
     if(count == 0)
@@ -309,9 +377,13 @@ int nosir_months(int argc,char **argv)
 
 void GetMinMaxPartKey(const string &where, TDateTime &min_part_key, TDateTime &max_part_key)
 {
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"));
   Qry.Clear();
-  Qry.SQLText="SELECT TRUNC(MIN(part_key)) AS min_part_key FROM arx_points";
+  if(PgOra::ARX_READ_PG()) {
+    Qry.SQLText="SELECT DATE_TRUNC('day',MIN(part_key)) AS min_part_key FROM arx_points";
+  } else {
+    Qry.SQLText="SELECT TRUNC(MIN(part_key)) AS min_part_key FROM arx_points";
+  }
   Qry.Execute();
   if (Qry.Eof || Qry.FieldIsNULL("min_part_key"))
     min_part_key=NoExists;

@@ -25,9 +25,7 @@
 #include "tlg/apps_handler.h"
 #include "arx_daily.h"
 #include "arx_daily_pg.h"
-#include "dbo.h"
 #include "dbostructures.h"
-#include "hooked_session.h"
 #include "iapi_interaction.h"
 #include "prn_tag_store.h"
 #include "PgOraConfig.h"
@@ -988,10 +986,7 @@ static std::string FP_dump_pg_table(const std::vector<tok::Param>& params)
     for(auto & tok : fieldTokens) {
         StrUtils::StringTrim(&tok);
     }
-    auto &session = connect == "ARX" ? dbo::Session::getArxInstance()
-                                     : dbo::Session::getMainInstance();
-    session.connectPostgres();
-    session.dump(tableName, fieldTokens, resultQuery);
+    dbo::Session().dump("pg", tableName, fieldTokens, resultQuery);
     return "";
 }
 
@@ -1020,10 +1015,7 @@ static std::string FP_dump_db_table(const std::vector<tok::Param>& params)
 static std::string FP_agent_stat_equal(const std::vector<tok::Param>& params)
 {
     std::vector<dbo::ARX_AGENT_STAT> ora_arx_agents_stat = dbo::readOraArxAgentsStat();
-    auto &session = dbo::Session::getArxInstance();
-
-    session.connectPostgres();
-    std::vector<dbo::ARX_AGENT_STAT> pg_arx_agents_stats = session.query<dbo::ARX_AGENT_STAT>();
+    std::vector<dbo::ARX_AGENT_STAT> pg_arx_agents_stats = dbo::Session(dbo::Postgres).query<dbo::ARX_AGENT_STAT>();
     ASSERT(ora_arx_agents_stat == pg_arx_agents_stats);
     return "";
 }
@@ -1057,12 +1049,9 @@ static std::string FP_tables_equal(const std::vector<tok::Param>& params)
     if(!order.empty()) {
         resultQuery += " order by " + order;
     }
-    auto &session = connect == "arx" ? dbo::Session::getArxInstance()
-                                     : dbo::Session::getMainInstance();
-    session.connectPostgres();
-    std::string postgresDump = session.dump(tableName, {}, resultQuery);
-    session.connectOracle();
-    std::string oracleDump =  session.dump(tableName, {}, resultQuery);
+    dbo::Session session;
+    std::string postgresDump = session.dump("pg", tableName, {}, resultQuery);
+    std::string oracleDump =  session.dump("ora", tableName, {}, resultQuery);
 //    LogTrace(TRACE5) << __FUNCTION__ << " :" << postgresDump;
 //    LogTrace(TRACE5) << __FUNCTION__ << " :" << oracleDump;
     if(oracleDump != postgresDump) {
