@@ -242,6 +242,9 @@ void TRemGrp::Load(TRemEventType rem_set_type, const string &airline)
 
 static void getAPPSRemCodes(const int pax_id, set<string>& remCodes)
 {
+    if (pax_id == ASTRA::NoExists) {
+        return;
+    }
     for(const auto& st: APPS::statusesFromDb(PaxId_t(pax_id))) {
         if(st == "B") {
             remCodes.insert("SBIA");
@@ -888,7 +891,7 @@ bool DeletePaxPD(int pax_id)
   return (Qry.get().RowsProcessed()>0);
 }
 
-TGrpServiceAutoList loadCrsPaxAsvc(int pax_id, const std::optional<TTripInfo>& flt = {});
+TGrpServiceAutoList loadCrsPaxAsvc(PaxId_t pax_id, const std::optional<TTripInfo>& flt = {});
 
 bool AddPaxASVC(const TGrpServiceAutoItem& item)
 {
@@ -923,8 +926,11 @@ bool AddPaxASVC(const TGrpServiceAutoItem& item)
 
 bool AddPaxASVC(int pax_id)
 {
+  if (pax_id == ASTRA::NoExists) {
+    return false;
+  }
   bool result = false;
-  const TGrpServiceAutoList asvcs = loadCrsPaxAsvc(pax_id);
+  const TGrpServiceAutoList asvcs = loadCrsPaxAsvc(PaxId_t(pax_id));
   for (const TGrpServiceAutoItem& asvc: asvcs) {
     result = AddPaxASVC(asvc);
   }
@@ -933,6 +939,9 @@ bool AddPaxASVC(int pax_id)
 
 bool AddPaxASVC(int id, bool is_grp_id)
 {
+  if (id == ASTRA::NoExists) {
+    return false;
+  }
   bool result = false;
   if (is_grp_id) {
     const std::set<PaxId_t> paxIdSet = loadPaxIdSet(GrpId_t(id));
@@ -982,6 +991,9 @@ bool AddPaxPD(int pax_id)
 
 bool AddPaxPD(int id, bool is_grp_id)
 {
+  if (id == ASTRA::NoExists) {
+    return false;
+  }
   bool result = false;
   if (is_grp_id) {
     const std::set<PaxId_t> paxIdSet = loadPaxIdSet(GrpId_t(id));
@@ -1013,7 +1025,7 @@ std::string LoadCrsPaxRem(int pax_id, const std::string& ssr_code)
   return ssr_text;
 }
 
-bool PaxASVC_CrsFromDB(int pax_id, vector<TPaxASVCItem> &result)
+bool PaxASVC_CrsFromDB(PaxId_t pax_id, vector<TPaxASVCItem> &result)
 {
   result.clear();
   const TGrpServiceAutoList asvcs = loadCrsPaxAsvc(pax_id);
@@ -1029,14 +1041,14 @@ bool PaxASVC_CrsFromDB(int pax_id, vector<TPaxASVCItem> &result)
     item.service_name=asvc.service_name;
     item.emd_type=asvc.emd_type;
     if (!item.ssr_code.empty()) {
-      item.ssr_text = LoadCrsPaxRem(pax_id, item.ssr_code);
+      item.ssr_text = LoadCrsPaxRem(pax_id.get(), item.ssr_code);
     }
     result.push_back(item);
   }
   return !result.empty();
 }
 
-bool PaxASVCFromDB(int pax_id, vector<TPaxASVCItem> &asvc, bool from_crs)
+bool PaxASVCFromDB(PaxId_t pax_id, vector<TPaxASVCItem> &asvc, bool from_crs)
 {
   if (from_crs) {
     return PaxASVC_CrsFromDB(pax_id, asvc);
@@ -1046,7 +1058,7 @@ bool PaxASVCFromDB(int pax_id, vector<TPaxASVCItem> &asvc, bool from_crs)
     "SELECT * FROM pax_asvc WHERE pax_id=:pax_id";
 
   QParams ASVCQryParams;
-  ASVCQryParams << QParam("pax_id", otInteger, pax_id);
+  ASVCQryParams << QParam("pax_id", otInteger, pax_id.get());
   TCachedQuery PaxASVCQry(sql, ASVCQryParams);
   PaxASVCQry.get().Execute();
   if (!PaxASVCQry.get().Eof)
@@ -1055,7 +1067,7 @@ bool PaxASVCFromDB(int pax_id, vector<TPaxASVCItem> &asvc, bool from_crs)
       "SELECT rem FROM pax_rem WHERE pax_id=:pax_id AND rem_code=:rem_code";
 
     QParams RemQryParams;
-    RemQryParams << QParam("pax_id", otInteger, pax_id)
+    RemQryParams << QParam("pax_id", otInteger, pax_id.get())
                  << QParam("rem_code", otString);
     TCachedQuery PaxRemQry(rem_sql, RemQryParams);
 
@@ -1082,13 +1094,19 @@ bool PaxASVCFromDB(int pax_id, vector<TPaxASVCItem> &asvc, bool from_crs)
 
 bool LoadPaxASVC(int pax_id, vector<TPaxASVCItem> &asvc)
 {
-  return PaxASVCFromDB(pax_id, asvc, false);
-};
+  if (pax_id == ASTRA::NoExists) {
+    return false;
+  }
+  return PaxASVCFromDB(PaxId_t(pax_id), asvc, false);
+}
 
 bool LoadCrsPaxASVC(int pax_id, vector<TPaxASVCItem> &asvc)
 {
-  return PaxASVCFromDB(pax_id, asvc, true);
-};
+  if (pax_id == ASTRA::NoExists) {
+    return false;
+  }
+  return PaxASVCFromDB(PaxId_t(pax_id), asvc, true);
+}
 
 void GetPaxFQTCards(const std::set<TPaxFQTItem> &fqts, TPaxFQTCards &cards)
 {
@@ -1349,6 +1367,9 @@ void PaxRemAndASVCFromDB(int pax_id,
                          const boost::optional<std::set<TPaxFQTItem>>& add_fqts,
                          std::multiset<TPaxRemItem> &rems_and_asvc)
 {
+  if (pax_id == ASTRA::NoExists) {
+    return;
+  }
   TReqInfo *reqInfo = TReqInfo::Instance();
   rems_and_asvc.clear();
 
@@ -1366,7 +1387,7 @@ void PaxRemAndASVCFromDB(int pax_id,
   };
 
   std::vector<TPaxASVCItem> asvc;
-  PaxASVCFromDB(pax_id, asvc, from_crs);
+  PaxASVCFromDB(PaxId_t(pax_id), asvc, from_crs);
   for(vector<TPaxASVCItem>::const_iterator r=asvc.begin(); r!=asvc.end(); ++r)
   {
     rems_and_asvc.insert(TPaxRemItem(*r, false, reqInfo->desk.lang, applyLang));

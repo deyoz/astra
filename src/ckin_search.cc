@@ -452,9 +452,9 @@ bool Search::addPassengers(CheckIn::TSimplePaxList& paxs)
 //  LogTrace(TRACE5) << __FUNCTION__ << ": " << endl << params;
 
   if (origin == paxPnl) {
-    for (int pax_id: searchPaxIds) {
+    for (PaxId_t pax_id: searchPaxIds) {
       params.clear();
-      params << QParam("pax_id", otInteger, pax_id);
+      params << QParam("pax_id", otInteger, pax_id.get());
       if (!executePaxQuery(sql, paxs)) {
         return false;
       }

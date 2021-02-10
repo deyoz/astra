@@ -7245,15 +7245,15 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                       }
                     }
 
-                    const std::set<int> infIdSet = CheckIn::loadInfIdSet(paxId().get(), true /*lock*/);
-                    for (int inf_id: infIdSet) {
-                      DeleteCrsChkd(inf_id);
-                      DeleteFreeRem(inf_id);
+                    const std::set<PaxId_t> infIdSet = CheckIn::loadInfIdSet(paxId(), true /*lock*/);
+                    for (PaxId_t inf_id: infIdSet) {
+                      DeleteCrsChkd(inf_id.get());
+                      DeleteFreeRem(inf_id.get());
                     }
-                    const std::set<int> seatIdSet = CheckIn::loadSeatIdSet(paxId().get(), true /*lock*/);
-                    for (int seat_id: seatIdSet) {
-                      DeleteCrsChkd(seat_id);
-                      DeleteFreeRem(seat_id);
+                    const std::set<PaxId_t> seatIdSet = CheckIn::loadSeatIdSet(paxId(), true /*lock*/);
+                    for (PaxId_t seat_id: seatIdSet) {
+                      DeleteCrsChkd(seat_id.get());
+                      DeleteFreeRem(seat_id.get());
                     }
                     DeleteCrsChkd(paxId().get());
                     DeleteFreeRem(paxId().get());

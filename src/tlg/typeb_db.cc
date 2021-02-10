@@ -229,7 +229,7 @@ typedef std::pair<std::string,int> TicketCoupon;
 //std::string getTKNO(int pax_id, const std::string& et_term = "/",
 //                    bool only_TKNE)
 //{
-//    LogTrace(TRACE5) << __func__
+//    LogTrace(TRACE6) << __func__
 //                     << ": pax_id=" << pax_id
 //                     << ": et_term=" << et_term
 //                     << ": only_TKNE=" << only_TKNE;
@@ -261,14 +261,14 @@ typedef std::pair<std::string,int> TicketCoupon;
 //    while (!cur.fen()) {
 //      result.insert(std::make_pair(ticket_no, coupon_no));
 //    }
-//    LogTrace(TRACE5) << __func__
+//    LogTrace(TRACE6) << __func__
 //                     << ": count=" << result.size();
 //    return result;
 //}
 
 std::string getPSPT(int pax_id, bool with_issue_country, const std::string& language)
 {
-    LogTrace(TRACE5) << __func__
+    LogTrace(TRACE6) << __func__
                      << ": pax_id=" << pax_id
                      << ": with_issue_country=" << with_issue_country
                      << ": language=" << language;
@@ -291,7 +291,7 @@ std::string getPSPT(int pax_id, bool with_issue_country, const std::string& lang
         .bind(":pax_id", pax_id)
         .exfet();
 
-    LogTrace(TRACE5) << __func__
+    LogTrace(TRACE6) << __func__
                      << ": count=" << cur.rowcount();
     if (cur.err() == DbCpp::ResultCode::NoDataFound) {
       return std::string();

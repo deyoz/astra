@@ -326,7 +326,7 @@ class TPaxTknItem : public TPaxAPIItem, public TPaxRemBasic
     void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const;
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
     void addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const;
-    void addSearchPaxIds(const PaxOrigin& origin, std::set<int>& searchPaxIds) const { return; }
+    void addSearchPaxIds(const PaxOrigin& origin, std::set<PaxId_t>& searchPaxIds) const { return; }
     bool finalPassengerCheck(const TSimplePaxItem& pax) const { return true; }
     bool suitable(const TPaxTknItem& tkn) const;
 };
@@ -472,7 +472,7 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic, public TPaxDocCompo
     void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const;
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
     void addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const;
-    void addSearchPaxIds(const PaxOrigin& origin, std::set<int>& searchPaxIds) const;
+    void addSearchPaxIds(const PaxOrigin& origin, std::set<PaxId_t>& searchPaxIds) const;
     bool finalPassengerCheck(const TSimplePaxItem& pax) const { return true; }
     bool suitable(const TPaxDocItem& doc) const;
 
@@ -497,7 +497,7 @@ class TScannedPaxDocItem : public TPaxDocItem
     std::string getTrueNo() const;
 
     void addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const;
-    void addSearchPaxIds(const PaxOrigin& origin, std::set<int>& searchPaxIds) const;
+    void addSearchPaxIds(const PaxOrigin& origin, std::set<PaxId_t>& searchPaxIds) const;
     bool finalPassengerCheck(const TSimplePaxItem& pax) const { return true; }
     bool suitable(const TPaxDocItem& doc) const;
 };
@@ -1073,8 +1073,8 @@ class TSimplePaxGrpItem
     }
 };
 
-std::set<int> loadInfIdSet(int pax_id, bool lock);
-std::set<int> loadSeatIdSet(int pax_id, bool lock);
+std::set<PaxId_t> loadInfIdSet(PaxId_t pax_id, bool lock);
+std::set<PaxId_t> loadSeatIdSet(PaxId_t pax_id, bool lock);
 
 class TPaxGrpItem : public TSimplePaxGrpItem
 {
@@ -1314,7 +1314,7 @@ class TPnrAddrInfo
     void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const;
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
     void addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const;
-    void addSearchPaxIds(const PaxOrigin& origin, std::set<int>& searchPaxIds) const { return; }
+    void addSearchPaxIds(const PaxOrigin& origin, std::set<PaxId_t>& searchPaxIds) const { return; }
     bool finalPassengerCheck(const CheckIn::TSimplePaxItem& pax) const { return true; }
     bool suitable(const TPnrAddrInfo& pnr) const;
     bool suitable(const TPnrAddrs& pnrs) const;

@@ -96,7 +96,7 @@ bool isEmptyPaxId(int id)
 
 std::set<PaxId_t> loadPaxIdSet(GrpId_t grp_id)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": grp_id=" << grp_id;
   std::set<PaxId_t> result;
   int pax_id = ASTRA::NoExists;
@@ -112,16 +112,16 @@ std::set<PaxId_t> loadPaxIdSet(GrpId_t grp_id)
       .exec();
 
   while (!cur.fen()) {
-    result.insert(PaxId_t(pax_id));
+    result.emplace(pax_id);
   }
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": count=" << result.size();
   return result;
 }
 
 bool existsPax(PaxId_t pax_id)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": pax_id=" << pax_id;
   int count = 0;
   auto cur = make_db_curs(
@@ -135,7 +135,7 @@ bool existsPax(PaxId_t pax_id)
       .bind(":pax_id", pax_id.get())
       .EXfet();
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": count=" << count;
   return count > 0;
 }
@@ -1507,26 +1507,26 @@ void SavePaxDoc(const PaxIdWithSegmentPair& paxId,
   SavePaxDoc(paxId, doc, priorDoc, modifiedPaxRem);
 }
 
-bool DeletePaxDoc(int pax_id)
+bool DeletePaxDoc(PaxId_t pax_id)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": pax_id=" << pax_id;
   auto cur = make_db_curs(
         "DELETE FROM pax_doc "
         "WHERE pax_id=:pax_id ",
         PgOra::getRWSession("PAX_DOC"));
   cur.stb()
-      .bind(":pax_id", pax_id)
+      .bind(":pax_id", pax_id.get())
       .exec();
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": rowcount=" << cur.rowcount();
   return cur.rowcount() > 0;
 }
 
-bool SavePaxDoc(const TPaxDocItem& item, int pax_id)
+bool SavePaxDoc(const TPaxDocItem& item, PaxId_t pax_id)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": pax_id=" << pax_id;
   short notNull = 0;
   short null = -1;
@@ -1539,7 +1539,7 @@ bool SavePaxDoc(const TPaxDocItem& item, int pax_id)
         ":surname,:first_name,:second_name,:pr_multi,:type_rcpt,:scanned_attrs) ",
         PgOra::getRWSession("PAX_DOC"));
   cur.stb()
-      .bind(":pax_id", pax_id)
+      .bind(":pax_id", pax_id.get())
       .bind(":type", item.type)
       .bind(":subtype", item.subtype)
       .bind(":issue_country", item.issue_country)
@@ -1563,14 +1563,14 @@ bool SavePaxDoc(const TPaxDocItem& item, int pax_id)
       .bind(":scanned_attrs", int(item.scanned_attrs))
       .exec();
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": rowcount=" << cur.rowcount();
   return cur.rowcount() > 0;
 }
 
-std::string LoadCrsTypeRcpt(int pax_id, const std::string& no)
+std::string LoadCrsTypeRcpt(PaxId_t pax_id, const std::string& no)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": pax_id=" << pax_id
                    << ", no=" << no;
   std::string type_rcpt;
@@ -1583,11 +1583,11 @@ std::string LoadCrsTypeRcpt(int pax_id, const std::string& no)
         PgOra::getROSession("CRS_PAX_DOC"));
   cur.stb()
       .defNull(type_rcpt, std::string())
-      .bind(":pax_id", pax_id)
+      .bind(":pax_id", pax_id.get())
       .bind(":no", no)
       .EXfet();
 
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": found="
                    << (cur.err() != DbCpp::ResultCode::NoDataFound);
 
@@ -1606,12 +1606,12 @@ void SavePaxDoc(const PaxIdWithSegmentPair& paxId,
       !doc.equal(priorDoc))
   {
     if (deleteOld) {
-      DeletePaxDoc(paxId().get());
+      DeletePaxDoc(paxId());
     }
     if (insertNew) {
       TPaxDocItem doc4save = doc;
-      doc4save.type_rcpt = LoadCrsTypeRcpt(paxId().get(), doc.no);
-      SavePaxDoc(doc4save, paxId().get());
+      doc4save.type_rcpt = LoadCrsTypeRcpt(paxId(), doc.no);
+      SavePaxDoc(doc4save, paxId());
     }
 
     modifiedPaxRem.add(remDOC, paxId);
@@ -2996,11 +2996,11 @@ TPaxGrpCategory::Enum TSimplePaxGrpItem::grpCategory() const
     return TPaxGrpCategory::Passenges;
 }
 
-std::set<int> loadInfIdSet(int pax_id, bool lock)
+std::set<PaxId_t> loadInfIdSet(PaxId_t pax_id, bool lock)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": pax_id=" << pax_id;
-  std::set<int> result;
+  std::set<PaxId_t> result;
   int inf_id = ASTRA::NoExists;
   auto cur = make_db_curs(
         "SELECT inf_id "
@@ -3012,22 +3012,22 @@ std::set<int> loadInfIdSet(int pax_id, bool lock)
 
   cur.stb()
       .def(inf_id)
-      .bind(":pax_id", pax_id)
+      .bind(":pax_id", pax_id.get())
       .exec();
 
   while (!cur.fen()) {
-    result.insert(inf_id);
+    result.emplace(inf_id);
   }
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": count=" << result.size();
   return result;
 }
 
-std::set<int> loadSeatIdSet(int pax_id, bool lock)
+std::set<PaxId_t> loadSeatIdSet(PaxId_t pax_id, bool lock)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": pax_id=" << pax_id;
-  std::set<int> result;
+  std::set<PaxId_t> result;
   int seat_id = ASTRA::NoExists;
   auto cur = make_db_curs(
         "SELECT seat_id "
@@ -3040,20 +3040,20 @@ std::set<int> loadSeatIdSet(int pax_id, bool lock)
 
   cur.stb()
       .def(seat_id)
-      .bind(":pax_id", pax_id)
+      .bind(":pax_id", pax_id.get())
       .exec();
 
   while (!cur.fen()) {
-    result.insert(seat_id);
+    result.emplace(seat_id);
   }
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": count=" << result.size();
   return result;
 }
 
-TGrpServiceAutoList loadCrsPaxAsvc(int pax_id, const std::optional<TTripInfo>& flt = {})
+TGrpServiceAutoList loadCrsPaxAsvc(PaxId_t pax_id, const std::optional<TTripInfo>& flt = {})
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": pax_id=" << pax_id;
   TGrpServiceAutoList result;
   TGrpServiceAutoItem item;
@@ -3086,11 +3086,11 @@ TGrpServiceAutoList loadCrsPaxAsvc(int pax_id, const std::optional<TTripInfo>& f
       .defNull(item.emd_type, "")
       .defNull(item.emd_no, "")
       .defNull(item.emd_coupon, ASTRA::NoExists)
-      .bind(":pax_id", pax_id)
+      .bind(":pax_id", pax_id.get())
       .exec();
 
   while (!cur.fen()) {
-    item.pax_id=pax_id;
+    item.pax_id=pax_id.get();
     item.trfer_num=0;
     if (flt) {
       if (!item.isSuitableForAutoCheckin()) continue;
@@ -3098,7 +3098,7 @@ TGrpServiceAutoList loadCrsPaxAsvc(int pax_id, const std::optional<TTripInfo>& f
     }
     result.push_back(item);
   }
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": count=" << result.size();
   return result;
 }
@@ -3107,7 +3107,7 @@ void TPaxGrpItem::SyncServiceAuto(const TTripInfo& flt)
 {
   const std::set<PaxId_t> paxIdSet = loadPaxIdSet(GrpId_t(id));
   for (PaxId_t pax_id: paxIdSet) {
-    const TGrpServiceAutoList asvcList = loadCrsPaxAsvc(pax_id.get(), flt);
+    const TGrpServiceAutoList asvcList = loadCrsPaxAsvc(pax_id, flt);
     if (asvcList.empty()) {
       continue;
     }
@@ -3429,12 +3429,12 @@ void TPaxDocItem::addSQLParamsForSearch(const PaxOrigin& origin, QParams& params
     params << QParam("doc_birth_date", otDate, birth_date);
 }
 
-std::set<int> loadPaxIdSetByDocs(const std::string& doc_no, TDateTime birth_date)
+std::set<PaxId_t> loadPaxIdSetByDocs(const std::string& doc_no, TDateTime birth_date)
 {
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": doc_no=" << doc_no
                    << ", birth_date=" << birth_date;
-  std::set<int> result;
+  std::set<PaxId_t> result;
   int pax_id = 0;
   auto cur = make_db_curs(
         "SELECT pax_id "
@@ -3455,14 +3455,14 @@ std::set<int> loadPaxIdSetByDocs(const std::string& doc_no, TDateTime birth_date
   cur.exec();
 
   while (!cur.fen()) {
-    result.insert(pax_id);
+    result.emplace(pax_id);
   }
-  LogTrace(TRACE5) << __func__
+  LogTrace(TRACE6) << __func__
                    << ": count=" << result.size();
   return result;
 }
 
-void TPaxDocItem::addSearchPaxIds(const PaxOrigin& origin, std::set<int>& searchPaxIds) const
+void TPaxDocItem::addSearchPaxIds(const PaxOrigin& origin, std::set<PaxId_t>& searchPaxIds) const
 {
   if (origin != paxPnl) {
     return;
@@ -3498,7 +3498,7 @@ void TScannedPaxDocItem::addSQLParamsForSearch(const PaxOrigin& origin, QParams&
   }
 }
 
-void TScannedPaxDocItem::addSearchPaxIds(const PaxOrigin& origin, std::set<int>& searchPaxIds) const
+void TScannedPaxDocItem::addSearchPaxIds(const PaxOrigin& origin, std::set<PaxId_t>& searchPaxIds) const
 {
   if (origin != paxPnl) {
     return;
