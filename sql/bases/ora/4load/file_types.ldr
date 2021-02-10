@@ -1,0 +1,32 @@
+LOAD DATA
+INFILE *
+INTO TABLE file_types
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,name
+,in_order
+,thread_type
+)
+BEGINDATA
+"UTG"|"UTG выгрузка"|0|
+"MINTRANS"|"Выгрузка для Минтранса"|0|
+"APIS_TR"|"Turkish Apis"|1|
+"CHCKD"|"Результаты регистрации"|0|
+"HTTP_TYPEB"|"Отправка телеграмм по HTTP"|0|
+"CENTR"|"Центровка"|0|
+"BSM"|"BSM"|1|"ewCuteBSM"
+"SOFI"|"Выгрузка КПБ"|0|
+"SPCEK"|"Выгрузка СПП (Челябинск)"|1|
+"1CCEK"|"Выгрузка 1С (Челябинск)"|1|
+"AODBO"|"AODB выгрузка"|1|"ewAODBSave"
+"AODBI"|"AODB зарузка"|1|"ewAODBLoad"
+"FIDS"|"Выгрузка Fids"|1|
+"ROZYSK_SIR"|"Сирена-розыск"|0|
+"APIS_LT"|"Апис (Литва)"|1|
+"APIS_ES"|"Апис (Испания)"|1|
+"MERIDIAN"|"Меридиан"|0|
+"MQRF"|"Отправка даннных по рейсу в Rabbit MQ"|1|
+"MQRO"|"Отправка даннных регистрации в Rabbit MQ"|1|
