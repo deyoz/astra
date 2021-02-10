@@ -209,7 +209,7 @@ static void addAlarm( const int pax_id,
                       const std::initializer_list<Alarm::Enum>& alarms,
                       const int point_id_spp )
 {
-  if (!addAlarmByPaxId(pax_id, alarms, {paxCheckIn})) return; //ничего не изменилось
+  if (!addAlarmByPaxId(PaxId_t(pax_id), alarms, {paxCheckIn})) return; //ничего не изменилось
   syncAlarms(point_id_spp);
 }
 
@@ -217,13 +217,13 @@ static void deleteAlarm( const int pax_id,
                          const std::initializer_list<Alarm::Enum>& alarms,
                          const int point_id_spp )
 {
-  if (!deleteAlarmByPaxId(pax_id, alarms, {paxCheckIn})) return; //ничего не изменилось
+  if (!deleteAlarmByPaxId(PaxId_t(pax_id), alarms, {paxCheckIn})) return; //ничего не изменилось
   syncAlarms(point_id_spp);
 }
 
 void deleteAlarms(const int pax_id, const int point_id_spp)
 {
-  if (!deleteAlarmByPaxId(pax_id,
+  if (!deleteAlarmByPaxId(PaxId_t(pax_id),
                           {Alarm::IAPINegativeDirective},
                           {paxCheckIn})) return; //ничего не изменилось
 
@@ -630,7 +630,7 @@ class PaxEvents: public PaxEventCallbacks<TRemCategory>,
         case paxPnl:
           if (IAPI::needCheckStatus(checkInfo))
           {
-            addAlarmByPaxId(paxId().get(), {Alarm::SyncIAPI}, {paxOrigin});
+            addAlarmByPaxId(paxId(), {Alarm::SyncIAPI}, {paxOrigin});
             flightTasks.emplace(TTripTaskKey(paxSegment.point_dep, AlarmTypes().encode(Alarm::SyncIAPI), ""), ASTRA::NoExists);
           }
           break;

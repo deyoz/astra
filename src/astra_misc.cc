@@ -201,30 +201,31 @@ bool TTripInfo::getByGrpId ( const int grp_id )
   return getByPointId( Qry.FieldAsInteger( "point_dep" ) );
 }
 
-void getPointIdsSppByPointIdTlg(const int point_id_tlg, std::set<int>& point_ids_spp)
+void getPointIdsSppByPointIdTlg(const PointIdTlg_t point_id_tlg,
+                                std::set<PointId_t>& point_ids_spp)
 {
   point_ids_spp.clear();
 
   TQuery Qry( &OraSession );
   Qry.SQLText =
     "SELECT point_id_spp FROM tlg_binding WHERE point_id_tlg = :point_id";
-  Qry.CreateVariable( "point_id", otInteger, point_id_tlg );
+  Qry.CreateVariable( "point_id", otInteger, point_id_tlg.get() );
   Qry.Execute();
   for( ; !Qry.Eof; Qry.Next() )
-    point_ids_spp.insert(Qry.FieldAsInteger( "point_id_spp" ));
+    point_ids_spp.insert(PointId_t(Qry.FieldAsInteger( "point_id_spp" )));
 }
 
 void getTripsByPointIdTlg( const int point_id_tlg, TAdvTripInfoList &trips )
 {
   trips.clear();
 
-  set<int> point_ids_spp;
-  getPointIdsSppByPointIdTlg(point_id_tlg, point_ids_spp);
+  std::set<PointId_t> point_ids_spp;
+  getPointIdsSppByPointIdTlg(PointIdTlg_t(point_id_tlg), point_ids_spp);
 
-  for(const int& id : point_ids_spp)
+  for(const PointId_t& id : point_ids_spp)
   {
     TAdvTripInfo info;
-    if (info.getByPointId( id ))
+    if (info.getByPointId( id.get() ))
       trips.push_back( info );
   }
 }
@@ -259,16 +260,20 @@ template<> std::string PnrFlightsCache::traceTitle()
 
 } //namespace ASTRA
 
-std::optional<PointIdTlg_t> getPointIdTlgByPointIdsSpp(const PointId_t point_id_spp)
+std::set<PointIdTlg_t> getPointIdTlgByPointIdsSpp(const PointId_t point_id_spp)
 {
+  std::set<PointIdTlg_t> result;
   TCachedQuery Qry("SELECT point_id_tlg "
                    "FROM tlg_binding "
                    "WHERE point_id_spp = :point_id ",
                    QParams() << QParam("point_id", otInteger, point_id_spp.get()));
   Qry.get().Execute();
-  if(Qry.get().Eof) return {};
-
-  return PointIdTlg_t(Qry.get().FieldAsInteger("point_id_tlg"));
+  for(;!Qry.get().Eof;Qry.get().Next()) {
+    result.insert(PointIdTlg_t(Qry.get().FieldAsInteger("point_id_tlg")));
+  }
+  LogTrace(TRACE6) << __func__
+                   << ": count=" << result.size();
+  return result;
 }
 
 std::optional<PointIdTlg_t> getPointIdTlgByPaxId(const PaxId_t pax_id, bool with_deleted)

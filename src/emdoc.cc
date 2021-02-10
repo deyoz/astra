@@ -1056,18 +1056,18 @@ void TPaxEMDList::toDB() const
               << QParam("emd_no", otString)
               << QParam("emd_coupon", otInteger)
               << QParam("emd_no_base", otString));
-  set<int> paxIds;
+  std::set<PaxId_t> paxIds;
   for(const TPaxEMDItem& emd : *this)
   {
     emd.toDB(Qry.get());
     Qry.get().Execute();
-    paxIds.insert(emd.pax_id);
+    paxIds.emplace(emd.pax_id);
   }
 
-  for(const int& paxId : paxIds)
+  for(PaxId_t paxId : paxIds)
   {
     addAlarmByPaxId(paxId, {Alarm::SyncEmds}, {paxCheckIn});
-    TPaxAlarmHook::set(Alarm::UnboundEMD, paxId);
+    TPaxAlarmHook::set(Alarm::UnboundEMD, paxId.get());
   }
 }
 

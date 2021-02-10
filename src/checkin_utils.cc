@@ -222,8 +222,8 @@ void newCabinClassMsgToLog(int point_id,
 
 void syncCabinClass(const TTripTaskKey &task)
 {
-  set<int> paxIds;
-  getAlarmByPointId(task.point_id, Alarm::SyncCabinClass, paxIds);
+  std::set<PaxId_t> paxIds;
+  getAlarmByPointId(PointId_t(task.point_id), Alarm::SyncCabinClass, paxIds);
   if (paxIds.empty()) return;
 
   TFlights flightsForLock;
@@ -237,7 +237,7 @@ void syncCabinClass(const TTripTaskKey &task)
 
   SeatingGroups seatingGroups(fltInfo);
 
-  for(const int& paxId : paxIds)
+  for(const PaxId_t paxId : paxIds)
   {
     LogTrace(TRACE5) << __FUNCTION__ << ": paxId=" << paxId;
     deleteAlarmByPaxId(paxId, {Alarm::SyncCabinClass}, {paxCheckIn});
@@ -245,7 +245,7 @@ void syncCabinClass(const TTripTaskKey &task)
     OciCpp::Savepoint spSyncCabinClass("sync_cabin_class");
 
     TSimplePaxItem pax;
-    if (!pax.getByPaxId(paxId)) continue;
+    if (!pax.getByPaxId(paxId.get())) continue;
 
     try
     {

@@ -3693,8 +3693,8 @@ bool EMDAutoBoundInterface::Lock(const EMDAutoBoundId &id, int &point_id, TCkinG
 
 static bool needTryCheckinServicesAuto(int id, bool is_grp_id)
 {
-  return is_grp_id?existsAlarmByGrpId(id, Alarm::SyncEmds):
-                   existsAlarmByPaxId(id, Alarm::SyncEmds, paxCheckIn);
+  return is_grp_id?existsAlarmByGrpId(GrpId_t(id), Alarm::SyncEmds):
+                   existsAlarmByPaxId(PaxId_t(id), Alarm::SyncEmds, paxCheckIn);
 
 }
 
@@ -3888,7 +3888,7 @@ void EMDAutoBoundInterface::EMDTryBind(const TCkinGrpIds &tckin_grp_ids,
   bool checkinServicesAuto=tryCheckinServicesAuto(svcsAuto, payment, tckin_grp_ids, emdProps, confirmed_emd);
 
   for(const int& grp_id : tckin_grp_ids)
-    deleteAlarmByGrpId(grp_id, Alarm::SyncEmds);
+    deleteAlarmByGrpId(GrpId_t(grp_id), Alarm::SyncEmds);
 
   if (enlargedServicePayment || checkinServicesAuto)
   {

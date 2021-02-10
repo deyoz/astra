@@ -6188,7 +6188,7 @@ void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con)
 
 static void onChangeClass(int pax_id, ASTRA::TClass cl)
 {
-  addAlarmByPaxId(pax_id, {Alarm::SyncCabinClass}, {paxCheckIn});
+  addAlarmByPaxId(PaxId_t(pax_id), {Alarm::SyncCabinClass}, {paxCheckIn});
   TPaxAlarmHook::set(Alarm::SyncCabinClass, pax_id);
 }
 
