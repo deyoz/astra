@@ -55,7 +55,7 @@ namespace REPORT_PAX_REMS {
         if (!filter.empty())
         {
             pr_find=false;
-            //фильтр по конкретным ремаркам
+            //䨫��� �� ������� ६�ઠ�
             map< TRemCategory, vector<string> >::const_iterator iRem=filter.begin();
             for(; iRem!=filter.end(); iRem++)
             {
@@ -129,29 +129,29 @@ namespace REPORT_PAX_REMS {
 
         if(pr_find) {
             CheckIn::TPaxRemItem rem;
-            //обычные ремарки (обязательно обрабатываем первыми)
+            //����� ६�ન (��易⥫쭮 ��ࠡ��뢠�� ���묨)
             if (!cats[remUnknown]) LoadPaxRem(pax_id, rems);
             for(multiset<CheckIn::TPaxRemItem>::iterator r=rems.begin();r!=rems.end();++r)
                 if (getPaxRem(lang, *r, inf_indicator, rem)) final_rems.insert(rem);
 
-            //билет
+            //�����
             if (!cats[remTKN]) tkn.fromDB(Qry);
             if (getPaxRem(lang, tkn, inf_indicator, rem)) final_rems.insert(rem);
-            //документ
+            //���㬥��
             if (!cats[remDOC]) LoadPaxDoc(pax_id, doc);
             if (getPaxRem(lang, doc, inf_indicator, rem)) final_rems.insert(rem);
-            //виза
+            //����
             if (!cats[remDOCO]) LoadPaxDoco(pax_id, doco);
             if (getPaxRem(lang, doco, inf_indicator, rem)) final_rems.insert(rem);
-            //адреса
+            //����
             if (!cats[remDOCA]) LoadPaxDoca(pax_id, doca_map);
             for(CheckIn::TDocaMap::const_iterator d = doca_map.begin(); d != doca_map.end(); ++d)
                 if (getPaxRem(lang, d->second, inf_indicator, rem)) final_rems.insert(rem);
-            //бонус-программа
+            //�����-�ணࠬ��
             if (!cats[remFQT]) LoadPaxFQT(pax_id, fqts);
             for(set<CheckIn::TPaxFQTItem>::const_iterator f=fqts.begin();f!=fqts.end();++f)
                 if (getPaxRem(lang, *f, inf_indicator, rem)) final_rems.insert(rem);
-            //услуги
+            //��㣨
             if (!cats[remASVC]) LoadPaxASVC(pax_id, asvc);
             for(vector<CheckIn::TPaxASVCItem>::const_iterator a=asvc.begin();a!=asvc.end();++a)
                 if (getPaxRem(lang, *a, inf_indicator, rem)) final_rems.insert(rem);
