@@ -100,28 +100,6 @@ function create_pkgconfig_amqpcpp() {
     echo "create_pkgconfig - ok"
 }
 
-
-usage_no_exit()
-{
-    echo "Usage: `basename $0` CONNECT_STRING [options]"
-    echo -e "Options:
-    --build_external_libs
-    --configlibs
-    --buildlibs
-    --configastra
-    --buildastra
-    --createtcl
-    --createdb
-    --runtests
-    --quiet
-    --help (-h)"
-}
-
-usage()
-{
-    usage_no_exit
-    exit 1
-}
 checkresult()
 {
     if [ $2 -ne 0 ]; then
@@ -130,6 +108,79 @@ checkresult()
     fi
 }
 
+# set all stage flags to 1
+set_all_stage_flags()
+{
+    for stagef in ${all_stage_flags}; do
+        eval "${stagef}=1"
+    done
+}
+
+display_all_stage_flags()
+{
+    for stagef in ${all_stage_flags}; do
+        echo ${stagef}=${!stagef}
+    done
+}
+
+# bash variables with names from this list will be created
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# !! THE LIST MUST BE ORDERED BY DEPENDENCE !!
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+readonly all_stage_flags="build_external_libs configlibs buildlibs configastra buildastra createtcl createdb runtests"
+
+usage_no_exit()
+{
+    echo "Usage: `basename $0` CONNECT_STRING [options]"
+    echo -e "Options:
+    --quiet
+    --help (-h)"
+    for stagef in ${all_stage_flags}; do
+        echo "    --${stagef}"
+    done
+    echo NOTE: stage flags may be appended with + to set all dependent flags
+}
+
+usage()
+{
+    usage_no_exit
+    exit 1
+}
+
+# $1 == cmdline flag
+# For example:
+# --createtcl    :: This will set only createtcl variable
+# or
+# --createtcl+   :: This will set createtcl and all dependent variables
+handle_cmdline_stage_flag()
+{
+    local cmdline_flag_ok=0 # will be set to 1 if cmdline flag is valid
+    local set_all_dependent=0
+    for stagef in ${all_stage_flags}; do
+        # set just one stage flag
+        if [ "${1}" == "--${stagef}" ]; then
+            eval "${stagef}=1"
+            cmdline_flag_ok=1
+            break
+        fi
+        # set the given flag and all dependent stage flags
+        if [ "${1}" == "--${stagef}+" ]; then
+            eval "${stagef}=1"
+            cmdline_flag_ok=1
+            set_all_dependent=1
+        fi
+        # set_all_dependent works fine because the list of stage flags
+        # is ordered by dependence
+        if [ "${set_all_dependent}" == 1 ]; then
+            eval "${stagef}=1"
+        fi
+    done
+    if [ "${cmdline_flag_ok}" == 0 ]; then
+        echo invalid command line switch \"${1}\"
+        echo see --help for usage
+        exit 1
+    fi
+}
 
 if [ $# -eq 0 ]; then
     usage
@@ -138,14 +189,7 @@ elif [ $# -eq 1 ]; then
       usage
     fi
     export readonly CONNECT_STRING=$1
-    build_external_libs="1"
-    configlibs="2"
-    buildlibs="1"
-    configastra="1"
-    buildastra="1"
-    createtcl="1"
-    createdb="1"
-    runtests="1"
+    set_all_stage_flags
     quiet="0"
 elif [ $# -eq 2 ] && ( [ "$1" = "--quiet" ] || [ "$2" = "--quiet" ] ); then
     if [ "$1" != "--quiet" ]; then
@@ -153,14 +197,7 @@ elif [ $# -eq 2 ] && ( [ "$1" = "--quiet" ] || [ "$2" = "--quiet" ] ); then
     elif [ "$2" != "--quiet" ]; then
         export readonly CONNECT_STRING=$2
     fi
-    build_external_libs="1"
-    configlibs="2"
-    buildlibs="1"
-    configastra="1"
-    buildastra="1"
-    createtcl="1"
-    createdb="1"
-    runtests="1"
+    set_all_stage_flags
     quiet="1"
 else
     export CONNECT_STRING=$1
@@ -171,33 +208,19 @@ else
             ;;
         "--help") usage
             ;;
-        "--build_external_libs") build_external_libs="1"
-       	    ;;
-        "--configlibs") configlibs="2"
-            ;;
-        "--buildlibs") buildlibs="1"
-            ;;
-        "--configastra") configastra="1"
-            ;;
-        "--buildastra") buildastra="1"
-            ;;
-        "--createtcl") createtcl="1"
-            ;;
-        "--createdb") createdb="1";
-            ;;
-        "--runtests") runtests="1"
-            ;;
         "--quiet")  quiet="1"
             ;;
         "--makeiface")  usage_no_exit
            # compatibility
             exit 0
             ;;
-        *)  usage
+        *)  handle_cmdline_stage_flag ${opt}
             ;;
         esac
     done
 fi
+
+display_all_stage_flags
 
 user=`echo ${CONNECT_STRING} | awk -F '/' '{print $1}'`
 password=`echo ${CONNECT_STRING} | awk -F '/' '{print $2}' | awk -F '@' '{print $1}'`
@@ -230,7 +253,7 @@ EOF
 #create_pkgconfig_amqpcpp
 fi
 
-if [ "$configlibs" = "2" ]; then
+if [ "$configlibs" = "1" ]; then
     [ "$BUILD_TESTS" = 1 ]
     echo SIRENA_LIBCHECK_BASE=$SIRENA_LIBCHECK_BASE
     export MY_LOCAL_CFLAGS="-O2 $MY_LOCAL_CFLAGS"
