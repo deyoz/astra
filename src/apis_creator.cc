@@ -754,8 +754,8 @@ bool CreateEdiFile2(  const TApisRouteData& route,
     xmlNodePtr apisNode=xmlDocGetRootElement(doc.docPtr());
     XML_TR_version = 0;
 #if !APIS_TEST
-    if (get_trip_apis_param(route.depInfo.point_id, "XML_TR", "version", XML_TR_version.get()))
-      XML_TR_version.get()++;
+    std::optional<std::string> versionParam=get_trip_apis_param(PointId_t(route.depInfo.point_id), "XML_TR", "version");
+    if (versionParam) XML_TR_version=std::stoi(versionParam.value())+1;
 #endif
     FPM.toXMLFormat(apisNode, passengers_count, crew_count, XML_TR_version.get());
     FCM.toXMLFormat(apisNode, passengers_count, crew_count, XML_TR_version.get());
@@ -788,7 +788,7 @@ bool CreateEdiFile2(  const TApisRouteData& route,
       TReqInfo::Instance()->LocaleToLog("EVT.APIS_CREATED", params, evtFlt, route.depInfo.point_id);
 
       if (XML_TR_version)
-        set_trip_apis_param(route.depInfo.point_id, "XML_TR", "version", XML_TR_version.get());
+        set_trip_apis_param(PointId_t(route.depInfo.point_id), "XML_TR", "version", std::to_string(XML_TR_version.get()));
 
       result = true;
     }

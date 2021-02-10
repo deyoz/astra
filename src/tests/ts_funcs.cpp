@@ -724,6 +724,12 @@ static std::string FP_settcl(const std::vector<std::string>& par)
     return std::string();
 }
 
+static std::string FP_gettcl(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() == 1);
+    return readStringFromTcl(par.at(0));
+}
+
 static std::string FP_lastGeneratedPaxId(const std::vector<std::string>& par)
 {
     int lgpid = lastGeneratedPaxId();
@@ -1389,6 +1395,7 @@ FP_REGISTER("get_lat_code", FP_get_lat_code);
 FP_REGISTER("get_elem_id", FP_getElemId);
 FP_REGISTER("get_random_bp_type", FP_getRandomBpTypeCode);
 FP_REGISTER("settcl", FP_settcl);
+FP_REGISTER("gettcl", FP_gettcl);
 FP_REGISTER("last_generated_pax_id", FP_lastGeneratedPaxId);
 FP_REGISTER("substr", FP_substr);
 FP_REGISTER("set_desk_version", FP_setDeskVersion);

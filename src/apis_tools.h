@@ -34,8 +34,8 @@ class FlightLegs : public std::vector<FlightLeg> {
 
 const std::string generate_envelope_id (const std::string& airl);
 const std::string get_msg_identifier ();
-bool get_trip_apis_param (const int point_id, const std::string& format, const std::string& param_name, int& param_value);
-void set_trip_apis_param(const int point_id, const std::string& format, const std::string& param_name, const int param_value);
+std::optional<std::string> get_trip_apis_param (const PointId_t& pointId, const std::string& format, const std::string& param_name);
+void set_trip_apis_param(const PointId_t& pointId, const std::string& format, const std::string& param_name, const std::string& param_value);
 void getTBTripItem( const int point_dep, const int point_arv, const std::string& country,
                     std::string& tb_date, std::string& tb_time, std::string& tb_airp );
 std::string getTripType( ASTRA::TPaxStatus status, const int grp_id, const std::string& direction,
