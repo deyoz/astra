@@ -139,7 +139,7 @@ int main_snd_tcl(int supervisorSocket, int argc, char *argv[])
   if (sockfd!=-1) close(sockfd);
   try
   {
-    OraSession.Rollback();
+    ASTRA::rollback();
     OraSession.LogOff();
   }
   catch(...)
@@ -196,7 +196,7 @@ bool scan_tlg(bool sendOutAStepByStep)
   {
   try
   {
-    for(;!TlgQry.Eof;trace_count++,TlgQry.Next(),OraSession.Commit())
+    for(;!TlgQry.Eof;trace_count++,TlgQry.Next(),ASTRA::commit())
     {
       if (strcmp(TlgQry.FieldAsString("sender"), OWN_CANON_NAME())!=0) continue; //не добавлять критерий "tlg_queue.sender=:sender" в TlgQry - плохой план разбора
       int tlg_id=TlgQry.FieldAsInteger("id");
@@ -307,7 +307,7 @@ bool scan_tlg(bool sendOutAStepByStep)
       }
       catch(EXCEPTIONS::Exception &E)
       {
-        OraSession.Rollback();
+        ASTRA::rollback();
         try
         {
           if (isIgnoredEOracleError(E)) continue;

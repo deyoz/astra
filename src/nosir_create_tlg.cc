@@ -74,7 +74,7 @@ int nosir_create_tlg(int argc, char **argv)
                 if(not file) file = boost::in_place("tlg_out_created", std::ios::binary|std::ios::trunc);
                 file.get() << tlg.heading + tlg.body + tlg.ending;
             }
-            OraSession.Rollback();
+            ASTRA::rollback();
         }
         if(file) file.get().close();
     } catch(Exception &E) {

@@ -805,7 +805,7 @@ struct CreatorSPPLocker {
    }
    void commit() {
       #ifndef XP_TESTING
-      OraSession.Commit();
+      ASTRA::commit();
       #endif
       islock = false;
       LogTrace(TRACE3) << "season_spp::commit";

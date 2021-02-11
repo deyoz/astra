@@ -1304,7 +1304,7 @@ void save_mintrans_files()
   TDateTime prior_time=NoExists;
   int msec=0;
   try {
-    for ( TFileQueue::iterator item=file_queue.begin(); item!=file_queue.end(); item++,OraSession.Commit() ) {
+    for ( TFileQueue::iterator item=file_queue.begin(); item!=file_queue.end(); item++,ASTRA::commit() ) {
       try {
         map<string,string>::const_iterator work_dir_param=item->params.find( PARAM_WORK_DIR );
         if ( work_dir_param == item->params.end() || work_dir_param->second.empty() )
@@ -1349,7 +1349,7 @@ void save_mintrans_files()
       }
       catch(const Exception &E)
       {
-          OraSession.Rollback();
+          ASTRA::rollback();
           try
           {
               if (isIgnoredEOracleError(E)) continue;
@@ -1360,12 +1360,12 @@ void save_mintrans_files()
       }
       catch(const std::exception &E)
       {
-          OraSession.Rollback();
+          ASTRA::rollback();
           ProgError(STDLOG,"std::exception: %s (file id=%d)",E.what(),item->id);
       }
       catch(...)
       {
-          OraSession.Rollback();
+          ASTRA::rollback();
           ProgError(STDLOG,"Something goes wrong");
       };
     }; //end for
@@ -1542,7 +1542,7 @@ void sync_mvd(void)
 
       Qry.SetVariable("airp",FilesQry.FieldAsString("airp"));
       Qry.Execute();
-      OraSession.Commit();
+      ASTRA::commit();
     };
   };
 };

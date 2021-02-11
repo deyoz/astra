@@ -51,7 +51,7 @@ void commit_progress(TQuery &Qry, int parts, int size, long time_processing, int
 {
     Qry.SetVariable("progress", round((double)parts / size * 100));
     Qry.Execute();
-    OraSession.Commit();
+    ASTRA::commit();
     if(interval != NoExists) {
         if(time_processing > interval * 60 * 1000)
             throw StatOverflowException();
@@ -74,7 +74,7 @@ void TErrCommit::exec(int file_id, TOrderStatus st, const string &err)
     Qry.get().SetVariable("status", st);
     Qry.get().SetVariable("error", err);
     Qry.get().Execute();
-    OraSession.Commit();
+    ASTRA::commit();
 }
 
 TErrCommit::TErrCommit():

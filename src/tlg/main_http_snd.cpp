@@ -118,7 +118,7 @@ static void scan_tlg(void)
   file_queue.get( TFilterQueue( OWN_POINT_ADDR(), FILE_HTTP_TYPEB_TYPE ) );
   int trace_count=0;
   for ( TFileQueue::iterator item=file_queue.begin();
-        item!=file_queue.end(); item++, trace_count++ , OraSession.Commit() ) {
+        item!=file_queue.end(); item++, trace_count++ , ASTRA::commit() ) {
     try {
       TTlgOutPartInfo p;
       p.addFromFileParams(item->params); //вначале читаем параметры, так как в этой процедуре TTlgOutPartInfo чистится
@@ -201,7 +201,7 @@ static void scan_tlg(void)
       } // end for map fileparams
     }
     catch(Exception &E) {
-        OraSession.Rollback();
+        ASTRA::rollback();
         try
         {
            if (isIgnoredEOracleError(E)) continue;
@@ -211,7 +211,7 @@ static void scan_tlg(void)
 
     }
     catch(...) {
-        OraSession.Rollback();
+        ASTRA::rollback();
         ProgError(STDLOG, "Something goes wrong");
     }
   }
@@ -265,7 +265,7 @@ int main_http_snd_tcl(int supervisorSocket, int argc, char *argv[])
     if (sockfd!=-1) close(sockfd);
     try
     {
-        OraSession.Rollback();
+        ASTRA::rollback();
         OraSession.LogOff();
     }
     catch(...)

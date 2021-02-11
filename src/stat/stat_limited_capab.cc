@@ -267,7 +267,7 @@ void nosir_lim_capab_stat_point(int point_id)
     Qry.Execute();
     if (Qry.Eof || Qry.FieldAsInteger(0) == 0)
     {
-        OraSession.Rollback();
+        ASTRA::rollback();
         return;
     }
 
@@ -284,7 +284,7 @@ void nosir_lim_capab_stat_point(int point_id)
     if(pr_stat and count == 0)
         get_limited_capability_stat(point_id);
 
-    OraSession.Commit();
+    ASTRA::commit();
 }
 
 int nosir_lim_capab_stat(int argc,char **argv)
@@ -295,7 +295,7 @@ int nosir_lim_capab_stat(int argc,char **argv)
     Qry.SQLText = "select point_id from trip_sets";
     Qry.Execute();
     for(; not Qry.Eof; Qry.Next()) point_ids.push_back(Qry.FieldAsInteger(0));
-    OraSession.Rollback();
+    ASTRA::rollback();
     cout << point_ids.size() << " points to process." << endl;
     int count = 0;
     for(list<int>::iterator i = point_ids.begin(); i != point_ids.end(); i++, count++) {

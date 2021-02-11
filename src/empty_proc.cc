@@ -74,7 +74,7 @@ int get_events_stat(int argc,char **argv)
     Qry.SetVariable("low_date",curr_date);
     Qry.SetVariable("high_date",IncMonth(curr_date, 1));
     Qry.Execute();
-    OraSession.Commit();
+    ASTRA::commit();
   };
 
   return 0;
@@ -112,7 +112,7 @@ int get_events_stat2(int argc,char **argv)
     Qry.SetVariable("low_date",curr_date);
     Qry.SetVariable("high_date",curr_date+1.0);
     Qry.Execute();
-    OraSession.Commit();
+    ASTRA::commit();
   };
 
 
@@ -251,7 +251,7 @@ int test_typeb_utils2(int argc,char **argv)
   Qry.SQLText="DELETE FROM drop_test_typeb_utils2";
   Qry.Execute();
 
-  OraSession.Commit();
+  ASTRA::commit();
 
   Qry.Clear();
   Qry.SQLText=
@@ -316,10 +316,10 @@ int test_typeb_utils2(int argc,char **argv)
     }
     catch(...)
     {
-      OraSession.Rollback();
+      ASTRA::rollback();
       ProgTrace(TRACE5, "ERROR! point_id=%d", Qry.FieldAsInteger("point_id"));
     };
-    OraSession.Commit();
+    ASTRA::commit();
   };
 
   Qry.Clear();
@@ -339,7 +339,7 @@ int test_typeb_utils2(int argc,char **argv)
     TlgQry.Execute();
   };
 
-  OraSession.Commit();
+  ASTRA::commit();
 
   return 0;
 };
@@ -530,9 +530,9 @@ int test_typeb_utils(int argc,char **argv)
             };
 
 
-            OraSession.Rollback();
+            ASTRA::rollback();
         };
-        OraSession.Rollback();
+        ASTRA::rollback();
         if (f1.is_open()) f1.close();
         if (f2.is_open()) f2.close();
     }
@@ -540,7 +540,7 @@ int test_typeb_utils(int argc,char **argv)
     {
         try
         {
-            OraSession.Rollback();
+            ASTRA::rollback();
             if (f1.is_open()) f1.close();
             if (f2.is_open()) f2.close();
             ProgError(STDLOG, "test_typeb_utils2: %s", e.what() );
@@ -552,7 +552,7 @@ int test_typeb_utils(int argc,char **argv)
     {
         try
         {
-            OraSession.Rollback();
+            ASTRA::rollback();
             if (f1.is_open()) f1.close();
             if (f2.is_open()) f2.close();
         }

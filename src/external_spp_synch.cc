@@ -669,10 +669,10 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
               break;
             }
           }
-          OraSession.Commit();
+          ASTRA::commit();
         }
         catch( std::exception &e ) {
-          try { OraSession.Rollback(); } catch(...){};
+          try { ASTRA::rollback(); } catch(...){};
           ProgError( STDLOG, "saveFlights: exception=%s", e.what() );
           if ( fl_in != iflight->second.end() ) {
             fl_in->second.error = string("save error: ") + e.what();
@@ -683,7 +683,7 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
         }
         catch( ... ) {
           ProgError( STDLOG, "saveFlights: unknown error move_id=%d", points.move_id );
-          try { OraSession.Rollback(); } catch(...){};
+          try { ASTRA::rollback(); } catch(...){};
           if ( fl_in != iflight->second.end() ) {
             fl_in->second.error = "save error: unknown";
           }
@@ -747,10 +747,10 @@ void parse_saveFlights( int range_hours, xmlNodePtr reqNode, xmlNodePtr resNode 
       }
       msg += ", ok";
       prerror = false;
-      OraSession.Commit();
+      ASTRA::commit();
     }
     catch( Exception &e ) {
-      OraSession.Rollback();
+      ASTRA::rollback();
       msg = event + ": " + "flight_number=" + IntToString( flight_number ) + ",id=" + parser.id + ", error: " + e.what();
       if ( string(e.what()).find( string("missing right") ) != std::string::npos ||
            string(e.what()).find( string("Неизвестная авиакомпания") ) != std::string::npos ) {
@@ -761,12 +761,12 @@ void parse_saveFlights( int range_hours, xmlNodePtr reqNode, xmlNodePtr resNode 
       }
     }
     catch( std::exception &e ) {
-      OraSession.Rollback();
+      ASTRA::rollback();
       msg = event + ": " + "flight_number=" + IntToString( flight_number ) + ",id=" + parser.id + ", internal error: " + e.what();
       ProgError( STDLOG, "%s", msg.c_str() );
     }
     catch( ... ) {
-      OraSession.Rollback();
+      ASTRA::rollback();
       msg = event + ": " + "flight_number=" + IntToString( flight_number ) + ",id=" + parser.id + ", unknown error";
       ProgError( STDLOG, "%s", msg.c_str() );
     }
@@ -1466,17 +1466,17 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, c
     }
 /*  }
   catch( Exception &e ) {
-    OraSession.Rollback();
+    ASTRA::rollback();
     warning += string(" ;write flight error : ") + e.what();
     ProgError( STDLOG, "%s", warning.c_str() );
   }
   catch( std::exception &e ) {
-    OraSession.Rollback();
+    ASTRA::rollback();
     warning += string(" ;write flight error : ") + e.what();
     ProgError( STDLOG, "%s", warning.c_str() );
   }
   catch( ... ) {
-    OraSession.Rollback();
+    ASTRA::rollback();
     warning += " ;write flight error : unknown";
     ProgError( STDLOG, "%s", warning.c_str() );
   }*/

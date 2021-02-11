@@ -147,7 +147,7 @@ void sych_basel_aero_stat( TDateTime utcdate )
        DeleteQry.Execute();
        while ( DeleteQry.RowsProcessed() ) {
          DeleteQry.Execute();
-         OraSession.Commit();
+         ASTRA::commit();
        }
     }
     Qry.SetVariable( "airp", iairp->first );
@@ -169,7 +169,7 @@ void sych_basel_aero_stat( TDateTime utcdate )
         ProgTrace( TRACE5, "point_id=%d, stats.size()=%zu", Qry.FieldAsInteger( "point_id" ), stats.size() );
         write_basel_aero_stat( utcdate, stats );
       }
-      OraSession.Commit();
+      ASTRA::commit();
     }
     ostringstream filename;
     filename <<iairp->second<<"ASTRA-" << ElemIdToElem(etAirp, iairp->first, efmtCodeNative, AstraLocale::LANG_EN)
@@ -182,7 +182,7 @@ void sych_basel_aero_stat( TDateTime utcdate )
       f.close();
       FileSetsQry.SetVariable( "airp", iairp->first );
       FileSetsQry.Execute();
-      OraSession.Commit();
+      ASTRA::commit();
     }
     catch(...) {
       try { f.close(); } catch( ... ) { };
