@@ -11004,7 +11004,7 @@ namespace KUF_STAT {
 
                 txtQry.SetVariable("id", id);
                 longToDB(txtQry, "text", content);
-                OraSession.Commit();
+                ASTRA::commit();
                 fixed++;
             }
 

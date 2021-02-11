@@ -499,7 +499,7 @@ void TOrderStatWriter::insert(const TOrderStatItem &row)
                 << QParam("file_name", otString, file_name)
                 );
         insDataQry.get().Execute();
-        OraSession.Commit(); // чтобы сборщик мусора все видел и не удалял.
+        ASTRA::commit(); // чтобы сборщик мусора все видел и не удалял.
 
         ostringstream buf;
         row.add_header(buf);

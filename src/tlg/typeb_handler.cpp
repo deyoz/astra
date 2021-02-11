@@ -166,7 +166,7 @@ int main_typeb_handler_tcl(int supervisorSocket, int argc, char *argv[])
   };
   try
   {
-    OraSession.Rollback();
+    ASTRA::rollback();
     OraSession.LogOff();
   }
   catch(...)
@@ -230,7 +230,7 @@ int main_typeb_parser_tcl(int supervisorSocket, int argc, char *argv[])
   };
   try
   {
-    OraSession.Rollback();
+    ASTRA::rollback();
     OraSession.LogOff();
   }
   catch(...)
@@ -753,7 +753,7 @@ void handle_tpb_tlg(const tlg_info &tlg)
   }
   catch(const std::exception &E)
   {
-    ASTRA::rollback();//OraSession.Rollback();
+    ASTRA::rollback();
     try
     {
       if (isIgnoredEOracleError(E)) return;
@@ -868,7 +868,7 @@ bool parse_tlg(const string &handler_id)
   TlgIdQry.Execute();
   try
   {
-    for(;!TlgIdQry.Eof&&count<PARSER_PROC_COUNT();TlgIdQry.Next(),/*OraSession.Rollback()*/ASTRA::rollback())
+    for(;!TlgIdQry.Eof&&count<PARSER_PROC_COUNT();TlgIdQry.Next(),ASTRA::rollback())
     {
       int tlg_id=TlgIdQry.FieldAsInteger("id");
       int error_no=NoExists;
@@ -997,7 +997,7 @@ bool parse_tlg(const string &handler_id)
               }
               else
               {
-                ASTRA::rollback();//OraSession.Rollback();
+                ASTRA::rollback();
                 if (forcibly&& /*info.flt.scd<=utc_date-10*/
                       (utc_date-time_receive) > PARSING_MAX_TIMEOUT)
                   //если телеграммы не хотят принудительно разбираться
@@ -1172,7 +1172,7 @@ bool parse_tlg(const string &handler_id)
       catch(const std::exception &E)
       {
         count++;
-        ASTRA::rollback();//OraSession.Rollback();
+        ASTRA::rollback();
         try
         {
           if (isIgnoredEOracleError(E)) continue;
