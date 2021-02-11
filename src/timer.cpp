@@ -276,7 +276,7 @@ void utg(void)
   file_queue.get( TFilterQueue( OWN_POINT_ADDR(), FILE_UTG_TYPE ) );
   for ( TFileQueue::iterator item=file_queue.begin();
         item!=file_queue.end();
-        item++, OraSession.Commit() ) {
+        item++, ASTRA::commit() ) {
      try {
        if ( item->params.find( PARAM_WORK_DIR ) == item->params.end() ||
             item->params[ PARAM_WORK_DIR ].empty() ) {
@@ -301,7 +301,7 @@ void utg(void)
        TFileQueue::deleteFile(item->id);
      }
      catch(Exception &E) {
-        OraSession.Rollback();
+        ASTRA::rollback();
         try
         {
             if (isIgnoredEOracleError(E)) continue;
@@ -311,7 +311,7 @@ void utg(void)
 
     }
     catch(...) {
-       OraSession.Rollback();
+       ASTRA::rollback();
        ProgError(STDLOG, "Something goes wrong");
     }
   }
@@ -451,7 +451,7 @@ void sync_sirena_codes( void )
 
     Qry.Execute();
 
-    OraSession.Commit();
+    ASTRA::commit();
     ProgTrace(TRACE5,"sync_sirena_codes stopped");
 }
 

@@ -500,7 +500,7 @@ void TOrderStatWriter::insert(const TOrderStatItem &row)
                 );
         insDataQry.get().Execute();
         ASTRA::commit();
-        //OraSession.Commit(); // чтобы сборщик мусора все видел и не удалял.
+        //ASTRA::commit(); // чтобы сборщик мусора все видел и не удалял.
 
         ostringstream buf;
         row.add_header(buf);

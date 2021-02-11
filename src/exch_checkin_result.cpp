@@ -1187,27 +1187,27 @@ namespace MQRABBIT_TRANSPORT {
         AstraContext::SetContext( request.Sender + ".lastReqTime", 0, DateTimeToStr( request.lastRequestTime, "dd.mm.yyyy hh:nn:ss") );
       }
       callPostHooksBefore();
-      OraSession.Commit();
+      ASTRA::commit();
       callPostHooksAfter();
     }
     catch( EOracleError &E ) {
-      try { OraSession.Rollback(); } catch(...) {};
+      try { ASTRA::rollback(); } catch(...) {};
       LogError(STDLOG) << __FUNCTION__;
       ProgError( STDLOG, "EOracleError %d: %s", E.Code, E.what());
       ProgError( STDLOG, "SQL: %s", E.SQLText());
     }
     catch( EXCEPTIONS::Exception &E ) {
-      try { OraSession.Rollback(); } catch(...) {};
+      try { ASTRA::rollback(); } catch(...) {};
       LogError(STDLOG) << __FUNCTION__;
       ProgError( STDLOG, "Exception: %s", E.what());
     }
     catch( std::exception &E ) {
-      try { OraSession.Rollback(); } catch(...) {};
+      try { ASTRA::rollback(); } catch(...) {};
       LogError(STDLOG) << __FUNCTION__;
       ProgError( STDLOG, "std::exception: %s", E.what());
     }
     catch( ... ) {
-      try { OraSession.Rollback(); } catch(...) {};
+      try { ASTRA::rollback(); } catch(...) {};
       LogError(STDLOG) << __FUNCTION__;
       ProgError( STDLOG, "Unknown error");
     };
@@ -1277,27 +1277,27 @@ namespace MQRABBIT_TRANSPORT {
         AstraContext::SetContext( request.Sender + "fl.lastReqTime", 0, DateTimeToStr( request.lastRequestTime, "dd.mm.yyyy hh:nn:ss") );
       }
       callPostHooksBefore();
-      OraSession.Commit();
+      ASTRA::commit();
       callPostHooksAfter();
     }
     catch( EOracleError &E ) {
-      try { OraSession.Rollback(); } catch(...) {};
+      try { ASTRA::rollback(); } catch(...) {};
       LogError(STDLOG) << __FUNCTION__;
       ProgError( STDLOG, "EOracleError %d: %s", E.Code, E.what());
       ProgError( STDLOG, "SQL: %s", E.SQLText());
     }
     catch( EXCEPTIONS::Exception &E ) {
-      try { OraSession.Rollback(); } catch(...) {};
+      try { ASTRA::rollback(); } catch(...) {};
       LogError(STDLOG) << __FUNCTION__;
       ProgError( STDLOG, "Exception: %s", E.what());
     }
     catch( std::exception &E ) {
-      try { OraSession.Rollback(); } catch(...) {};
+      try { ASTRA::rollback(); } catch(...) {};
       LogError(STDLOG) << __FUNCTION__;
       ProgError( STDLOG, "std::exception: %s", E.what());
     }
     catch( ... ) {
-      try { OraSession.Rollback(); } catch(...) {};
+      try { ASTRA::rollback(); } catch(...) {};
       LogError(STDLOG) << __FUNCTION__;
       ProgError( STDLOG, "Unknown error");
     };

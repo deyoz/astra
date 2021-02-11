@@ -853,17 +853,17 @@ void astra_timer( TDateTime utcdate )
           }
         }
       catch( Exception &E ) {
-        try { OraSession.Rollback( ); } catch(...) { };
+        try { ASTRA::rollback( ); } catch(...) { };
         ProgError( STDLOG, "Ошибка astra_timer: %s. Время %s, point_id=%d, stage_id=%d",
                    E.what(),
                    DateTimeToStr(utcdate,"dd.mm.yyyy hh:nn:ss").c_str(),
                    point_id, stage_id );
       }
             catch( ... ) {
-                try { OraSession.Rollback( ); } catch(...) { };
+                try { ASTRA::rollback( ); } catch(...) { };
                 ProgError( STDLOG, "unknown timer error" );
             }
-            OraSession.Commit(); // запоминание факта выполнения шага + лога в БД
+            ASTRA::commit(); // запоминание факта выполнения шага + лога в БД
         if ( pr_exec_stage ) { // выполняем действия связанные с этим шагом
                 pr_exit = false; // признак того, что надо бы проверить следующие шаги графика на то, что их можно и пора выполнить
             TDateTime execStep = NowUTC();
@@ -874,18 +874,18 @@ void astra_timer( TDateTime utcdate )
                          DateTimeToStr( NowUTC() - execStep, "nn:ss" ).c_str(), count );
               }
         catch( Exception &E ) {
-          try { OraSession.Rollback( ); } catch(...) { };
+          try { ASTRA::rollback( ); } catch(...) { };
           ProgError( STDLOG, "Ошибка astra_timer: %s. Время %s, point_id=%d, stage_id=%d",
                      E.what(),
                      DateTimeToStr(utcdate,"dd.mm.yyyy hh:nn:ss").c_str(),
                      point_id, stage_id );
         }
               catch( ... ) {
-                try { OraSession.Rollback( ); } catch(...) { };
+                try { ASTRA::rollback( ); } catch(...) { };
                 ProgError( STDLOG, "unknown timer error" );
               }
         }
-      OraSession.Commit();
+      ASTRA::commit();
         Qry.Next();
     }
   }
@@ -930,15 +930,15 @@ void astra_timer( TDateTime utcdate )
       }
       catch(Exception &E)
       {
-        try { OraSession.Rollback( ); } catch(...) { };
+        try { ASTRA::rollback( ); } catch(...) { };
         ProgError( STDLOG, "DeleteTlgSeatRanges: %s", E.what() );
       }
       catch(...)
       {
-        try { OraSession.Rollback( ); } catch(...) { };
+        try { ASTRA::rollback( ); } catch(...) { };
         ProgError( STDLOG, "DeleteTlgSeatRanges: Unknown error" );
       };
-      OraSession.Commit();
+      ASTRA::commit();
       range_ids.clear();
     };
   };

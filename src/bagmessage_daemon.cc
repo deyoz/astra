@@ -66,7 +66,7 @@ void BM_OUTPUT_QUEUE::get()
 void BM_OUTPUT_QUEUE::sendFile( int tlg_id )
 {
   TFileQueue::sendFile( tlg_id );
-  OraSession.Commit();
+  ASTRA::commit();
   lastRead = lastRead - 2; // Для обмана защиты от повторного чтения
   get();
 }
@@ -81,13 +81,13 @@ void BM_OUTPUT_QUEUE::unSendFile( int tlg_id )
   if ( res ) {
     ProgTrace( TRACE5, "unSendFile id=%d", tlg_id );
   }
-  OraSession.Commit();
+  ASTRA::commit();
 }
 
 void BM_OUTPUT_QUEUE::doneFile( int tlg_id )
 {
   TFileQueue::doneFile( tlg_id );
-  OraSession.Commit();
+  ASTRA::commit();
 }
 
 void BM_OUTPUT_QUEUE::onWriteFinished( int tlg_id, int error )

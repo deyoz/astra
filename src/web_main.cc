@@ -2827,7 +2827,7 @@ bool test_check_reprint_access()
               std::cout.flush();
 
        }
-          // ~Void(){clear(); OraSession.Rollback();};
+          // ~Void(){clear(); ASTRA::rollback();};
 
            int grp_id;
            string desk_code;

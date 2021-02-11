@@ -172,7 +172,7 @@ int main_nosir_user(int argc,char **argv)
           ASTRA::rollback();
           OraSession.LogOff();
         }
-        catch(...) {  ProgError(STDLOG, "OraSession.Rollback or OraSession.LogOff error"); };
+        catch(...) {  ProgError(STDLOG, "Rollback or OraSession.LogOff error"); };
         throw;
       };
     }
@@ -227,7 +227,7 @@ void nosir_wait(int processed, bool commit_before_sleep=false, int work_secs=5, 
   static time_t start_time=time(NULL);
   if (time(NULL)-start_time>=work_secs)
   {
-    if (commit_before_sleep) OraSession.Commit();
+    if (commit_before_sleep) ASTRA::commit();
     printf("%d iterations processed. sleep...", processed);
     fflush(stdout);
     sleep(sleep_secs);

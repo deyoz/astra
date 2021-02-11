@@ -974,7 +974,7 @@ void signalChangesComp( TQuery &Qry, int plan_id, int conf_id ) {
     Qry.CreateVariable( "conf_id", otInteger, conf_id );
   }
   Qry.Execute();
-  OraSession.Commit();
+  ASTRA::commit();
   sql =
     "SELECT t.point_id, l.comp_id, l.plan_id, l.conf_id "
     " FROM libra_comps l "
@@ -1006,7 +1006,7 @@ void signalChangesComp( TQuery &Qry, int plan_id, int conf_id ) {
     prior_status = componSetter.SetCraft(true);
     prior_plan_id = Qry.FieldAsInteger( "plan_id" );
     prior_conf_id = Qry.FieldAsInteger( "conf_id" );
-    OraSession.Commit();
+    ASTRA::commit();
   }
 }
 

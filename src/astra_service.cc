@@ -373,7 +373,7 @@ void buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name
       TFileQueue::sendFile( item.id );
     }
     catch(Exception &E) {
-        OraSession.Rollback();
+        ASTRA::rollback();
       EOracleError *orae=dynamic_cast<EOracleError*>(&E);
       if (orae!=NULL&&
           (orae->Code==4061||orae->Code==4068)) {
@@ -382,10 +382,10 @@ void buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name
       else {
         try {
           TFileQueue::errorFile( item.id, string("Ошибка отправки сообщения: ") + E.what() );
-          OraSession.Commit();
+          ASTRA::commit();
         }
         catch( ... ) {
-            try { OraSession.Rollback(); } catch(...){};
+            try { ASTRA::rollback(); } catch(...){};
         }
         ProgError( STDLOG, "Exception: %s (file_id=%d)", E.what(), item.id );
         throw;
@@ -454,7 +454,7 @@ void buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name
     }
     catch(Exception &E)
     {
-        OraSession.Rollback();
+        ASTRA::rollback();
       EOracleError *orae=dynamic_cast<EOracleError*>(&E);
       if (orae!=NULL&&
           (orae->Code==4061||orae->Code==4068)) {
@@ -463,10 +463,10 @@ void buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name
       else {
         try {
           TFileQueue::errorFile( file_id, string("Ошибка отправки сообщения: ") + E.what() );
-          OraSession.Commit();
+          ASTRA::commit();
         }
         catch( ... ) {
-            try { OraSession.Rollback(); } catch(...){};
+            try { ASTRA::rollback(); } catch(...){};
         }
         ProgError( STDLOG, "Exception: %s (file_id=%d)", E.what(), file_id );
         if ( p )
@@ -921,7 +921,7 @@ bool CreateCommonFileData( bool pr_commit,
                       }
                     }
                     if ( pr_commit ) {
-                      OraSession.Commit();
+                      ASTRA::commit();
                     }
                 }
             }
@@ -929,20 +929,20 @@ bool CreateCommonFileData( bool pr_commit,
             catch(EOracleError &E)
             {
               if ( pr_commit ) {
-                try { OraSession.Rollback(); }catch(...){};
+                try { ASTRA::rollback(); }catch(...){};
               }
               ProgError( STDLOG, "EOracleError file_type=%s, %d: %s", type.c_str(), E.Code, E.what());
               ProgError( STDLOG, "SQL: %s", E.SQLText());
             }
             catch( std::exception &e) {
               if ( pr_commit ) {
-                try { OraSession.Rollback(); }catch(...){};
+                try { ASTRA::rollback(); }catch(...){};
               }
               ProgError(STDLOG, "exception file_type=%s, id=%d, what=%s", type.c_str(), id, e.what());
             }
             catch(...) {
               if ( pr_commit ) {
-                try { OraSession.Rollback(); }catch(...){};
+                try { ASTRA::rollback(); }catch(...){};
               }
               ProgError(STDLOG, "putFile: Unknown error while trying to put file");
             };
@@ -1667,7 +1667,7 @@ bool createUTGDataFiles( int point_id, const std::string &point_addr, TFileDatas
       file.params[PARAM_FILE_NAME] = UTG_file_name(tlg_id, tlg.num, "PRL", flt, file.params[PARAM_FILE_NAME_ENC]);
       fds.push_back( file );
     };
-    OraSession.Rollback();
+    ASTRA::rollback();
 
     updQry.get().SetVariable("point_id", point_id);
     updQry.get().SetVariable("last_flt_change_tid", last_flt_change_tid);

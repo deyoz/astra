@@ -109,7 +109,7 @@ int main_srv_tcl(int supervisorSocket, int argc, char *argv[])
   if (sockfd!=-1) close(sockfd);
   try
   {
-    OraSession.Rollback();
+    ASTRA::rollback();
     OraSession.LogOff();
   }
   catch(...)
@@ -409,7 +409,7 @@ void process_tlg(void)
       case TLG_ACK:
         {
           if(!handle_tlg_ack(tlg_in)) {
-              OraSession.Rollback();
+              ASTRA::rollback();
               return;
           }
         };
@@ -457,7 +457,7 @@ void process_tlg(void)
         tlg_len=0;
         break;
       default:
-        OraSession.Commit();
+        ASTRA::commit();
         if (tlg_in.type==TLG_ACK)
         {
           ProgTrace(TRACE5,"OUT: PUT->SEND (sender=%s, tlg_num=%d, time=%.10f)", tlg_in.Receiver, tlg_in.num, NowUTC());
@@ -469,7 +469,7 @@ void process_tlg(void)
     {
       if (time(NULL)-start_time>=tlg_in.TTL)
       {
-        OraSession.Rollback();
+        ASTRA::rollback();
         //по-хорошему надо бы if (type==tEdi) SendEdiTlgCONTRL
         return;
       };
@@ -485,7 +485,7 @@ void process_tlg(void)
     /*ProgTrace(TRACE5,"'sendto': tlg_num=%d, type=%d, sender=%s, receiver=%s",
                      ntohl(tlg_out.num),ntohs(tlg_out.type),tlg_out.Sender,tlg_out.Receiver);*/
 
-    OraSession.Commit();
+    ASTRA::commit();
     switch(tlg_in.type)
     {
       case TLG_IN:
@@ -514,11 +514,11 @@ void process_tlg(void)
   }
   catch(Exception &E)
   {
-    OraSession.Rollback();
+    ASTRA::rollback();
     try
     {
       ProgError(STDLOG,"Exception: %s",E.what());
-      OraSession.Commit();
+      ASTRA::commit();
     }
     catch(...) {};
   };

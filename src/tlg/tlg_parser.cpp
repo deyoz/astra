@@ -7593,7 +7593,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
   }
   catch (const ParseLater&)
   {
-    OraSession.Rollback();  //отложим разбор
+    ASTRA::rollback();  //отложим разбор
     return false;
   };
 };

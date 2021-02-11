@@ -1776,7 +1776,7 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
       QryLog.Execute();
     }
     catch( Exception &e ) {
-      try { OraSession.Rollback(); }catch(...){};
+      try { ASTRA::rollback(); }catch(...){};
       if ( fl.rec_no == NoExists )
         QryLog.SetVariable( "rec_no", -1 );
       else
@@ -1796,7 +1796,7 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
         errs += string( "Ошибка разбора строки " ) + IntToString( fl.rec_no ) + " : " + string(e.what()).substr(0,120);
     }
     catch( std::exception &e ) {
-      try { OraSession.Rollback(); }catch(...){};
+      try { ASTRA::rollback(); }catch(...){};
       if ( fl.rec_no == NoExists )
         QryLog.SetVariable( "rec_no", -1 );
       else
@@ -1816,7 +1816,7 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
         errs += string( "Ошибка разбора строки " ) + IntToString( fl.rec_no ) + " : " + string(e.what()).substr(0,120);
     }
     catch( ... ) {
-      try { OraSession.Rollback(); }catch(...){};
+      try { ASTRA::rollback(); }catch(...){};
       if ( fl.rec_no == NoExists )
         QryLog.SetVariable( "rec_no", -1 );
       else
@@ -1838,7 +1838,7 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
 
     if ( fl.rec_no > NoExists )
       max_rec_no = fl.rec_no;
-    OraSession.Commit();
+      ASTRA::commit();
   }
   TQuery Qry( &OraSession );
   Qry.SQLText = "UPDATE aodb_spp_files SET rec_no=:rec_no WHERE filename=:filename AND point_addr=:point_addr AND airline=:airline";
@@ -2027,7 +2027,7 @@ void parseIncommingAODBData()
 {
   TFileQueue file_queue;
   file_queue.get( TFilterQueue( OWN_POINT_ADDR(), FILE_AODB_IN_TYPE ) );
-  for ( TFileQueue::iterator item=file_queue.begin(); item!=file_queue.end(); item++, OraSession.Commit() ) {
+  for ( TFileQueue::iterator item=file_queue.begin(); item!=file_queue.end(); item++, ASTRA::commit() ) {
     string convert_aodb = TFileQueue::getEncoding( FILE_AODB_IN_TYPE, item->params[ PARAM_CANON_NAME ], false );
     TReqInfo::Instance()->desk.code = item->params[ PARAM_CANON_NAME ];
     ParseAndSaveSPP( item->params[ PARAM_FILE_NAME ], item->params[ PARAM_CANON_NAME ] ,
@@ -2057,7 +2057,7 @@ int main_aodb_handler_tcl(int supervisorSocket, int argc, char *argv[])
       InitLogTime(argc>0?argv[0]:NULL);
       base_tables.Invalidate();
       parseIncommingAODBData();
-      OraSession.Commit();
+      ASTRA::commit();
       if ( NowUTC() - execTask > 5.0/(1440.0*60.0) )
         ProgTrace( TRACE5, "Attention execute task time!!!, name=%s, time=%s","CMD_PARSE_AODB", DateTimeToStr( NowUTC() - execTask, "nn:ss" ).c_str() );
       callPostHooksAfter();
@@ -2079,7 +2079,7 @@ int main_aodb_handler_tcl(int supervisorSocket, int argc, char *argv[])
   };
   try
   {
-    OraSession.Rollback();
+    ASTRA::rollback();
     OraSession.LogOff();
   }
   catch(...)
