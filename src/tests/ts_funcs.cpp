@@ -951,6 +951,45 @@ static std::string FP_dumpAppsMessages(const std::vector<std::string>& par)
     return "";
 }
 
+static std::string FP_dump_table_astra(const std::vector<tok::Param> &params)
+{
+    ASSERT(params.size() > 0);
+
+    std::string tableName = params[0].value;
+    std::string session, fields, where, order;
+    bool display = false;
+    for (size_t i = 1; i < params.size(); ++i) {
+        if (params[i].name == "session") {
+            session = params[i].value;
+        } else if (params[i].name == "fields") {
+            fields = params[i].value;
+        } else if (params[i].name == "where") {
+            where = params[i].value;
+        } else if (params[i].name == "order") {
+            order = params[i].value;
+        } else if (params[i].name == "display") {
+            if (params[i].value == "on") {
+                display = true;
+            }
+        }
+    }
+    auto dt = std::make_shared<ServerFramework::DbDumpTable>(PgOra::getRWSession(tableName), tableName);
+
+    if (!fields.empty()) {
+        dt->addFld(fields);
+    }
+    dt->where(where);
+    dt->order(order);
+    std::string answer;
+    if (display) {
+        dt->exec(answer);
+    } else {
+        dt->exec(TRACE5);
+    }
+
+    return answer;
+}
+
 static std::string FP_dump_pg_table(const std::vector<tok::Param>& params)
 {
     ASSERT(params.size() > 0);
@@ -987,28 +1026,6 @@ static std::string FP_dump_pg_table(const std::vector<tok::Param>& params)
         StrUtils::StringTrim(&tok);
     }
     dbo::Session().dump("pg", tableName, fieldTokens, resultQuery);
-    return "";
-}
-
-static std::string FP_dump_db_table(const std::vector<tok::Param>& params)
-{
-    ASSERT(params.size() > 0);
-    std::string tableName = params[0].value;
-
-    std::string db = "pg";
-    for (size_t i = 1; i < params.size(); ++i) {
-        if(params[i].name == "db") {
-            db = params[i].value;
-        }
-    }
-
-    std::string dump;
-    if(db == "pg") {
-        DbCpp::DumpTable(*get_main_pg_rw_sess(STDLOG), tableName).exec(dump);
-    } else if(db == "ora") {
-        DbCpp::DumpTable(*get_main_ora_sess(STDLOG), tableName).exec(dump);
-    }
-    LogTrace(TRACE3) << dump;
     return "";
 }
 
@@ -1406,7 +1423,8 @@ FP_REGISTER("update_pg_coupon", FP_runUpdateCoupon);
 FP_REGISTER("run_arch_step", FP_runArchStep);
 FP_REGISTER("run_arch", FP_runArch);
 FP_REGISTER("dump_pg_table", FP_dump_pg_table);
-FP_REGISTER("dump_db_table", FP_dump_db_table);
+FP_REGISTER("db_dump_table", FP_dump_table_astra);
+// FP_REGISTER("dump_db_table", FP_dump_db_table);
 FP_REGISTER("are_tables_equal", FP_tables_equal);
 FP_REGISTER("are_agent_stat_equal", FP_agent_stat_equal);
 FP_REGISTER("collect_flight_stat", FP_collectFlightStat);

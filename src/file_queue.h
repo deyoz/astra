@@ -78,30 +78,38 @@ struct TFilterQueue {
                 int vtimeout_sec ) {
     Init( vreceiver, std::string(""), ASTRA::NoExists, ASTRA::NoExists, true, vtimeout_sec );
   }
-  void createQuery( TQuery &Qry ) const;
 };
 
 struct TQueueItem {
     int id;
     std::string receiver;
     std::string type;
+    std::string status;
     TDateTime time;
     TDateTime wait_time;
+    TDateTime put_time;
     std::string data;
+    int in_order;
     std::map<std::string,std::string> params;
     TQueueItem() {
       id = ASTRA::NoExists;
       time = ASTRA::NoExists;
       wait_time = ASTRA::NoExists;
+      put_time = ASTRA::NoExists;
+      in_order = 0;
     }
-    void clear() {
-      receiver.clear();
-      type.clear();
-      time = ASTRA::NoExists;
-      wait_time = ASTRA::NoExists;
-      data.clear();
-      params.clear();
-    };
+    // void clear() {
+    //   id = ASTRA::NoExists;
+    //   receiver.clear();
+    //   type.clear();
+    //   time = ASTRA::NoExists;
+    //   wait_time = ASTRA::NoExists;
+    //   put_time = ASTRA::NoExists;
+    //   data.clear();
+    //   params.clear();
+    //   status.clear();
+    //   in_order = 0;
+    // };
 };
 
 class TFileQueue: public std::vector<TQueueItem> {
@@ -120,7 +128,8 @@ class TFileQueue: public std::vector<TQueueItem> {
     }
     static std::string getstatus( int id );
     static std::string gettype( int id );
-    static TDateTime getwait_time( int id );
+    static std::string getFileData(int id);
+    static std::pair<TDateTime, TDateTime> getwait_time(int id);
     static bool in_order( int id );
     static bool in_order( const std::string &type );
     static std::string getEncoding( const std::string &type,
@@ -128,6 +137,7 @@ class TFileQueue: public std::vector<TQueueItem> {
                                     bool pr_send=true );
     static bool errorFile( int id, const std::string &msg );
     static bool sendFile( int id );
+    static bool unsendFile( int id );
     static bool doneFile( int id );
     static bool deleteFile( int id );
     static int putFile( const std::string &receiver,

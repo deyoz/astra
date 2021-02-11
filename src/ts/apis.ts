@@ -168,15 +168,15 @@ $(pg_dump_table trip_apis_params display="on")
 ### проверяем очередь files
 
 ??
-$(dump_table file_queue display="on")
+$(db_dump_table file_queue display="on")
 
 >> lines=auto
-[...] [$(gettcl OWN_POINT_ADDR)] [$(gettcl OWN_POINT_ADDR)] [PUT] [xxxxxx] [APIS_TR] $()
-[...] [$(gettcl OWN_POINT_ADDR)] [$(gettcl OWN_POINT_ADDR)] [PUT] [xxxxxx] [APIS_TR] $()
-[...] [$(gettcl OWN_POINT_ADDR)] [$(gettcl OWN_POINT_ADDR)] [PUT] [xxxxxx] [APIS_TR] $()
+[...] [$(gettcl OWN_POINT_ADDR)] [$(gettcl OWN_POINT_ADDR)] [PUT] [...] [APIS_TR] $()
+[...] [$(gettcl OWN_POINT_ADDR)] [$(gettcl OWN_POINT_ADDR)] [PUT] [...] [APIS_TR] $()
+[...] [$(gettcl OWN_POINT_ADDR)] [$(gettcl OWN_POINT_ADDR)] [PUT] [...] [APIS_TR] $()
 
 ??
-$(dump_table file_params fields="name, value" order="id, name" display="on")
+$(db_dump_table file_params fields="name, value" order="id, name" display="on")
 
 >> lines=auto
 [ACTION_CODE] [GTB_VOY2_XML_WebServices_VOY_WS_Binder_getFlightMessage] $()
@@ -199,7 +199,7 @@ $(dump_table file_params fields="name, value" order="id, name" display="on")
 [URL] [http://ws.gtb.gov.tr:8080/EXT/Gumruk/VOY/Provider/VOYWS] $()
 
 ??
-$(dump_table files fields="sender, receiver, type, error" display="on")
+$(db_dump_table files fields="sender, receiver, type, error" display="on")
 
 >> lines=auto
 [$(gettcl OWN_POINT_ADDR)] [$(gettcl OWN_POINT_ADDR)] [APIS_TR] [NULL] $()

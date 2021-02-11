@@ -2027,13 +2027,14 @@ void parseIncommingAODBData()
 {
   TFileQueue file_queue;
   file_queue.get( TFilterQueue( OWN_POINT_ADDR(), FILE_AODB_IN_TYPE ) );
-  for ( TFileQueue::iterator item=file_queue.begin(); item!=file_queue.end(); item++, ASTRA::commit() ) {
+  for ( TFileQueue::iterator item=file_queue.begin(); item!=file_queue.end(); item++ ) {
     string convert_aodb = TFileQueue::getEncoding( FILE_AODB_IN_TYPE, item->params[ PARAM_CANON_NAME ], false );
     TReqInfo::Instance()->desk.code = item->params[ PARAM_CANON_NAME ];
     ParseAndSaveSPP( item->params[ PARAM_FILE_NAME ], item->params[ PARAM_CANON_NAME ] ,
                      item->params[ NS_PARAM_AIRLINE ], item->params[ NS_PARAM_AIRP ],
                      item->data, convert_aodb );
     TFileQueue::deleteFile( item->id );
+    ASTRA::commit();
   }
 }
 

@@ -2280,12 +2280,10 @@ int delete_files(const Dates::DateTime_t& arx_date, int remain_rows)
                       {":remain_rows", remain_rows}});
 
     for(const auto & f : files) {
-        auto cur = make_curs("BEGIN "
-                             //"delete from FILES where POINT_ID = :id; " TODO
-                             "delete from FILE_QUEUE where POINT_ID = :id; "
-                             "delete from FILE_PARAMS where POINT_ID = :id; "
-                             "delete from FILE_ERROR where POINT_ID = :id; END");
-        cur.bind(":id", f.id).exec();
+        make_db_curs("delete from FILE_PARAMS where ID = :id", PgOra::getRWSession("FILE_PARAMS")).bind(":id", f.id).exec();
+        make_db_curs("delete from FILE_QUEUE where ID = :id", PgOra::getRWSession("FILE_QUEUE")).bind(":id", f.id).exec();
+        make_db_curs("delete from FILE_ERROR where ID = :id", PgOra::getRWSession("FILE_ERROR")).bind(":id", f.id).exec();
+        make_db_curs("delete from FILES where ID = :id", PgOra::getRWSession("FILES")).bind(":id", f.id).exec();
     }
     return files.size();
 }
