@@ -354,12 +354,12 @@ void parseFileParams( xmlNodePtr dataNode, map<string,string> &fileparams )
     }
 }
 
-void buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name, TQueueItem &item )
+TQueueItem buildSaveFileData(xmlNodePtr resNode, const std::string &client_canon_name)
 {
+  TQueueItem item;
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
-  item.clear();
-    TFileQueue file_queue;
-    file_queue.get( TFilterQueue( client_canon_name, WAIT_ANSWER_SEC ) );
+  TFileQueue file_queue;
+  file_queue.get( TFilterQueue( client_canon_name, WAIT_ANSWER_SEC ) );
   if ( !file_queue.empty() ) {
     item = *file_queue.begin();
     try {
@@ -392,95 +392,7 @@ void buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name
       }
     };
   }
- /*
-
-    TQuery ScanQry( &OraSession );
-    ScanQry.SQLText =
-        "SELECT file_queue.id,file_queue.sender,file_queue.receiver,file_queue.type,"
-        "       file_queue.status,file_queue.time,files.time as wait_time,system.UTCSYSDATE AS now, "
-        "       files.data, NVL(file_types.in_order,0) in_order "
-        " FROM file_queue,files,file_types "
-        " WHERE file_queue.id=files.id AND "
-    "       file_queue.sender=:sender AND "
-    "       file_queue.receiver=:receiver AND "
-    "       file_queue.type=file_types.code AND "
-    "       ( file_queue.status='PUT' OR NVL(file_types.in_order,0)!=0 OR "
-    "         file_queue.status='SEND' AND file_queue.time + :wait_answer_sec/(60*60*24) < system.UTCSYSDATE  ) "
-    " ORDER BY DECODE(in_order,1,files.time,file_queue.time),file_queue.id";
-    ScanQry.CreateVariable( "sender", otString, OWN_POINT_ADDR() );
-    ScanQry.CreateVariable( "receiver", otString, client_canon_name );
-    ScanQry.CreateVariable( "wait_answer_sec", otInteger, WAIT_ANSWER_SEC );
-    ScanQry.Execute();
-    map<string,string> fileparams;
-    char *p = NULL;
-  xmlNodePtr dataNode = NewTextChild( resNode, "data" );
-  vector<string> vecType;
-  string in_order_key;
-    while ( !ScanQry.Eof ) {
-    file_id = ScanQry.FieldAsInteger( "id" );
-   in_order_key = string( ScanQry.FieldAsString( "type" ) ) + ScanQry.FieldAsString( "receiver" );
-    try
-    {
-        if ( !ScanQry.FieldAsInteger( "in_order" ) || // не важен порядок отправки
-               ( !(find( vecType.begin(), vecType.end(), in_order_key ) != vecType.end()) &&
-                 ( string(ScanQry.FieldAsString( "status" )) != string("SEND") || // или этот файл еще не отправлен и не было перед ним такого же
-                 ScanQry.FieldAsDateTime( "time" ) + WAIT_ANSWER_SEC/(60.0*60.0*24.0) < ScanQry.FieldAsDateTime( "now" )
-               )
-           )
-              ) {
-        getFileParams( client_canon_name, ScanQry.FieldAsString( "type" ), file_id, fileparams, true );
-        int len = ScanQry.GetSizeLongField( "data" );
-        if ( p )
-            p = (char*)realloc( p, len );
-        else
-          p = (char*)malloc( len );
-        if ( !p )
-            throw Exception( string( "Can't malloc " ) + IntToString( len ) + " byte" );
-        ScanQry.FieldAsLong( "data", p );
-        xmlNodePtr fileNode = NewTextChild( dataNode, "file" );
-        NewTextChild( fileNode, "data", StrUtils::b64_encode( (const char*)p, len ) );
-        wait_time = ScanQry.FieldAsDateTime( "now" ) - ScanQry.FieldAsDateTime( "wait_time" );
-        NewTextChild( fileNode, "wait_time", wait_time );
-        ScanQry.Next();
-        if ( !ScanQry.Eof )
-            fileparams[ PARAM_NEXT_FILE ] = "TRUE";
-        else
-            fileparams[ PARAM_NEXT_FILE ] = "FALSE";
-        buildFileParams( dataNode, fileparams );
-//        ProgTrace( TRACE5, "file_id=%d, msg.size()=%d", file_id, len );
-        TFileQueue::sendFile( file_id );
-        break;
-      }
-    }
-    catch(Exception &E)
-    {
-        ASTRA::rollback();
-      EOracleError *orae=dynamic_cast<EOracleError*>(&E);
-      if (orae!=NULL&&
-          (orae->Code==4061||orae->Code==4068)) {
-         ;
-      }
-      else {
-        try {
-          TFileQueue::errorFile( file_id, string("Ошибка отправки сообщения: ") + E.what() );
-          ASTRA::commit();
-        }
-        catch( ... ) {
-            try { ASTRA::rollback(); } catch(...){};
-        }
-        ProgError( STDLOG, "Exception: %s (file_id=%d)", E.what(), file_id );
-        if ( p )
-          free( p );
-        throw;
-      }
-    };
-    if ( ScanQry.FieldAsInteger( "in_order" ) )
-      vecType.push_back( in_order_key );
-    ScanQry.Next();
-  }	 // end while
-  if ( p )
-    free( p );
-  return file_id;*/
+  return item;
 }
 
 void buildLoadFileData( xmlNodePtr resNode, const std::string &client_canon_name )
@@ -670,8 +582,7 @@ void AstraServiceInterface::authorize( XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     string curmode = NodeAsString( "curmode", reqNode );
     ProgTrace( TRACE5, "client_canon_name=%s, curmode=%s", client_canon_name.c_str(), curmode.c_str() );
     if ( curmode == "OUT" )	{
-        TQueueItem item;
-      buildSaveFileData( resNode, client_canon_name, item );
+      const TQueueItem item = buildSaveFileData( resNode, client_canon_name );
       createMsg( item, evSend );
     }
     else {
@@ -697,8 +608,7 @@ void AstraServiceInterface::ThreadTaskReqData( XMLRequestCtxt *ctxt, xmlNodePtr 
   ProgTrace( TRACE5, "client_canon_name=%s, pr_send=%d", client_canon_name.c_str(), Qry.FieldAsInteger( "pr_send" ) );
   NewTextChild( resNode, "thread_type", thread_type );
     if ( Qry.FieldAsInteger( "pr_send" ) ) {
-        TQueueItem item;
-      buildSaveFileData( resNode, client_canon_name, item );
+      const TQueueItem item = buildSaveFileData( resNode, client_canon_name);
       createMsg( item, evSend );
     }
     else {
@@ -755,7 +665,7 @@ void CommitWork( int file_id )
   ProgTrace( TRACE5, "CommitWork: param file_id=%d", item.id );
   try {
     item.type = TFileQueue::gettype( item.id );
-    item.wait_time = TFileQueue::getwait_time( item.id );
+    item.wait_time = TFileQueue::getwait_time( item.id ).first;
   }
   catch(...) {
     ProgTrace( TRACE5, ">>>commitFileData: already commited file_id=%d", item.id );
@@ -1684,25 +1594,27 @@ bool createUTGDataFiles( int point_id, const std::string &point_addr, TFileDatas
 
 void AstraServiceInterface::getFileParams( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
-    TQuery Qry( &OraSession );
+    DB::TQuery Qry( PgOra::getROSession("FILE_TYPES") );
     Qry.SQLText = "SELECT code, name from file_types";
     Qry.Execute();
-  xmlNodePtr node = NewTextChild( resNode, "file_types" );
+    xmlNodePtr node = NewTextChild( resNode, "file_types" );
     while (!Qry.Eof) {
         xmlNodePtr n = NewTextChild( node, "type" );
         NewTextChild( n, "code", Qry.FieldAsString( "code" ) );
         NewTextChild( n, "name", Qry.FieldAsString( "name" ) );
         Qry.Next();
     }
-    Qry.Clear();
-    Qry.SQLText = "SELECT DISTINCT type, receiver FROM files";
-    Qry.Execute();
+
+    DB::TQuery Qry2( PgOra::getROSession("FILES"));
+
+    Qry2.SQLText = "SELECT DISTINCT type, receiver FROM files";
+    Qry2.Execute();
     node = NewTextChild( resNode, "point_addrs" );
-    while (!Qry.Eof) {
+    while (!Qry2.Eof) {
         xmlNodePtr n = NewTextChild( node, "addrs" );
-        NewTextChild( n, "type", Qry.FieldAsString( "type" ) );
-        NewTextChild( n, "point_addr", Qry.FieldAsString( "receiver" ) );
-        Qry.Next();
+        NewTextChild( n, "type", Qry2.FieldAsString( "type" ) );
+        NewTextChild( n, "point_addr", Qry2.FieldAsString( "receiver" ) );
+        Qry2.Next();
     }
 }
 
@@ -1863,16 +1775,15 @@ bool createFidsDataFiles( int point_id, const std::string &point_addr, TFileData
 
 void AstraServiceInterface::viewFileIds( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
-  string type = NodeAsString( "type", reqNode );
-  string receiver = NodeAsString( "receiver", reqNode );
+    string type = NodeAsString( "type", reqNode );
+    string receiver = NodeAsString( "receiver", reqNode );
     TDateTime first_day = NodeAsDateTime( "first_day", reqNode );
     TDateTime last_day = NodeAsDateTime( "last_day", reqNode );
     ProgTrace( TRACE5, "type=%s, receiver=%s, first_day=%f, last_day=%f", type.c_str(), receiver.c_str(), first_day, last_day );
-    TQuery Qry( &OraSession );
+    DB::TQuery Qry(PgOra::getROSession("FILES"));
     Qry.SQLText =
-    "SELECT files.id, time, value FROM files, file_params "
-    " WHERE type=:type AND receiver=:receiver AND time>=:first_day AND time<=:last_day AND "
-    "      files.id=file_params.id(+) AND 'FileName'=file_params.name(+) ";
+    "SELECT id, time FROM files "
+    " WHERE type=:type AND receiver=:receiver AND time>=:first_day AND time<=:last_day";
     Qry.CreateVariable( "type", otString, type );
     Qry.CreateVariable( "receiver", otString, receiver );
     Qry.CreateVariable( "first_day", otDate, first_day );
@@ -1880,43 +1791,41 @@ void AstraServiceInterface::viewFileIds( XMLRequestCtxt *ctxt, xmlNodePtr reqNod
     Qry.Execute();
     xmlNodePtr node = NewTextChild( resNode, "ids" );
     while ( !Qry.Eof ) {
-        xmlNodePtr n = NewTextChild( node, "ids" );
-        NewTextChild( n, "id", Qry.FieldAsInteger( "id" ) );
-        NewTextChild( n, "time", DateTimeToStr( Qry.FieldAsDateTime( "time" ), ServerFormatDateTimeAsString ) );
-        NewTextChild( n, "filename", Qry.FieldAsString( "value" ) );
-        Qry.Next();
+      const auto file_id = Qry.FieldAsInteger( "id" );
+      xmlNodePtr n = NewTextChild( node, "ids" );
+      NewTextChild( n, "id", file_id );
+      NewTextChild( n, "time", DateTimeToStr( Qry.FieldAsDateTime( "time" ), ServerFormatDateTimeAsString ) );
+      std::string filename;
+      TFileQueue::getparam_value(file_id, "FileName", filename);
+      NewTextChild(n, "filename", Qry.FieldAsString("value"));
+      Qry.Next();
     }
 
 }
 
 void AstraServiceInterface::viewFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
-    int file_id = NodeAsInteger( "file_id", reqNode );
-    TQuery Qry( &OraSession );
-    Qry.SQLText = "SELECT type, receiver, error, data FROM files WHERE id=:file_id";
-    Qry.CreateVariable( "file_id", otInteger, file_id );
-    Qry.Execute();
-    if ( Qry.Eof )
-        throw AstraLocale::UserException( "MSG.FILE.NOT_FOUND" );
-    int len = Qry.GetSizeLongField( "data" );
-  void *p = (char*)malloc( len );
-    if ( !p )
-        throw Exception( string( "Can't malloc " ) + IntToString( len ) + " byte" );
-  Qry.FieldAsLong( "data", p );
+  int file_id = NodeAsInteger( "file_id", reqNode );
+  DB::TQuery Qry( PgOra::getROSession("FILES") );
+  Qry.SQLText = "SELECT type, receiver, error FROM files WHERE id=:file_id";
+  Qry.CreateVariable( "file_id", otInteger, file_id );
+  Qry.Execute();
+  if ( Qry.Eof )
+      throw AstraLocale::UserException( "MSG.FILE.NOT_FOUND" );
   string encoding = TFileQueue::getEncoding(Qry.FieldAsString( "type" ), Qry.FieldAsString( "receiver" ), true );
-  string str_file( (char*)p, len );
+  string str_file = TFileQueue::getFileData(file_id);
   ProgTrace( TRACE5, "encoding=%s, file_str=%s", encoding.c_str(), str_file.c_str() );
   if ( !encoding.empty() )
     str_file = ConvertCodepage( str_file, encoding, "CP866" );
   str_file = ConvertCodepage( str_file, "CP866", "WINDOWS-1251" );
   ProgTrace( TRACE5, "file_str=%s", str_file.c_str() );
-  NewTextChild( resNode, "data", StrUtils::b64_encode( str_file.c_str(), len ) );
-  free( p );
+  NewTextChild( resNode, "data", StrUtils::b64_encode( str_file.c_str(), str_file.length() ) );
   std::map<std::string, std::string> params;
   TFileQueue::getparams( file_id, params );
-    xmlNodePtr paramsN = NewTextChild( resNode, "params" );
-    for ( std::map<std::string, std::string> ::iterator iparam=params.begin();
-        iparam!=params.end(); iparam++ ) {
+  xmlNodePtr paramsN = NewTextChild( resNode, "params" );
+  for ( std::map<std::string, std::string> ::iterator iparam=params.begin();
+      iparam!=params.end(); iparam++ )
+  {
     xmlNodePtr n = NewTextChild( paramsN, "param" );
     NewTextChild( n, "name", iparam->first );
     NewTextChild( n, "value", iparam->second );

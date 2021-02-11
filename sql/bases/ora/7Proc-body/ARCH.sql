@@ -1646,15 +1646,7 @@ BEGIN
             DELETE FROM tlgs WHERE rowid=rowids(i);
         END IF;
         IF step=2 THEN
-          FORALL i IN 1..ids.COUNT
-            DELETE FROM file_queue WHERE id=ids(i);
-          FORALL i IN 1..ids.COUNT
-            DELETE FROM file_params WHERE id=ids(i);
-          FORALL i IN 1..ids.COUNT
-            DELETE FROM file_error WHERE id=ids(i);
-
-          FORALL i IN 1..rowids.COUNT
-            DELETE FROM files WHERE rowid=rowids(i);
+          NULL;
         END IF;
         IF step=8 THEN
           FORALL i IN 1..ids.COUNT

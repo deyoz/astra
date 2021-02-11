@@ -830,26 +830,43 @@ static std::string FP_runResendTlg(const std::vector<std::string>& par)
     return "";
 }
 
-static std::string FP_dump_db_table(const std::vector<tok::Param>& params)
+static std::string FP_dump_table_astra(const std::vector<tok::Param> &params)
 {
     ASSERT(params.size() > 0);
-    std::string tableName = params[0].value;
 
-    std::string db = "pg";
+    std::string tableName = params[0].value;
+    std::string session, fields, where, order;
+    bool display = false;
     for (size_t i = 1; i < params.size(); ++i) {
-        if(params[i].name == "db") {
-            db = params[i].value;
+        if (params[i].name == "session") {
+            session = params[i].value;
+        } else if (params[i].name == "fields") {
+            fields = params[i].value;
+        } else if (params[i].name == "where") {
+            where = params[i].value;
+        } else if (params[i].name == "order") {
+            order = params[i].value;
+        } else if (params[i].name == "display") {
+            if (params[i].value == "on") {
+                display = true;
+            }
         }
     }
+    auto dt = std::make_shared<ServerFramework::DbDumpTable>(PgOra::getRWSession(tableName), tableName);
 
-    std::string dump;
-    if(db == "pg") {
-        DbCpp::DumpTable(*get_main_pg_rw_sess(STDLOG), tableName).exec(dump);
-    } else if(db == "ora") {
-        DbCpp::DumpTable(*get_main_ora_sess(STDLOG), tableName).exec(dump);
+    if (!fields.empty()) {
+        dt->addFld(fields);
     }
-    LogTrace(TRACE3) << dump;
-    return "";
+    dt->where(where);
+    dt->order(order);
+    std::string answer;
+    if (display) {
+        dt->exec(answer);
+    } else {
+        dt->exec(TRACE5);
+    }
+
+    return answer;
 }
 
 static std::vector<string> getPaxAlarms(const std::string& table_name, int pax_id)
@@ -1054,12 +1071,12 @@ FP_REGISTER("check_flight_tasks", FP_checkFlightTasks);
 FP_REGISTER("update_msg", FP_runUpdateMsg);
 FP_REGISTER("resend", FP_runResendTlg);
 FP_REGISTER("update_pg_coupon", FP_runUpdateCoupon);
+FP_REGISTER("db_dump_table", FP_dump_table_astra);
 FP_REGISTER("init_iapi_request_id", FP_initIapiRequestId);
 FP_REGISTER("get_bcbp", FP_getBCBP);
 FP_REGISTER("cache", FP_cache);
 FP_REGISTER("cache_iface_ver", FP_getCacheIfaceVer);
 FP_REGISTER("cache_sql_param", FP_getCacheSQLParam);
-FP_REGISTER("dump_db_table", FP_dump_db_table);
 FP_REGISTER("run_et_flt_task", FP_runEtFltTask);
 
 #endif /* XP_TESTING */

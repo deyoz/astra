@@ -20,6 +20,8 @@
 #include <serverlib/ocilocal.h>
 #include <serverlib/TlgLogger.h>
 #include <libtlg/telegrams.h>
+#include <edilib/edilib_dbora_callbacks.h>
+#include <edilib/edilib_dbpg_callbacks.h>
 
 #define NICKNAME "ANTON"
 #define NICKTRACE ANTON_TRACE
@@ -120,15 +122,6 @@ public:
 void init_pnr_callbacks()
 {
     CallbacksSingleton<Ticketing::AstraPnrCallbacks>::Instance()->setCallbacks(new EtickPnrCallbacks);
-}
-
-void init_jxtlib_callbacks()
-{
-    if (PgOra::supportsPg("CONT"))
-        jxtlib::JxtlibDbCallbacks::setJxtlibDbCallbacks(new jxtlib::JxtlibDbPgCallbacks(PgCpp::getPgManaged()));
-    else
-        //default initialization in jxtlib with oracle callbacks
-        jxtlib::JxtlibDbCallbacks::setJxtlibDbCallbacks(new jxtlib::JxtlibDbOraCallbacks());
 }
 
 void init_jxtlib_callbacks()

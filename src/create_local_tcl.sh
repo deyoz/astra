@@ -104,6 +104,9 @@ set SP_PG_GROUP_ET 3
 set SP_PG_GROUP_EMD 3
 
 set SP_PG_GROUP_JXTCONT 3
+set SP_PG_GROUP_FILE 3
+# only after cache_tables migrated
+set SP_PG_GROUP_FILE_CFG 0
 set SP_PG_GROUP_IAPI 3
 set SP_PG_GROUP_IATCI 3
 set SP_PG_GROUP_WC 3
