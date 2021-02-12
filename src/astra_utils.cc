@@ -1800,7 +1800,7 @@ void dumpTable(const std::string& table,
     dt.exec(loglevel, nick, file, line);
 }
 
-void commit_(bool withCommitHooks = false)
+void commit_(bool withCommitHooks)
 {
     LogTrace(TRACE3) << "ASTRA::commit(" << (withCommitHooks ? "with commit hooks"
                                                              : "without commit hooks") << ")";
@@ -1817,7 +1817,7 @@ void commit_(bool withCommitHooks = false)
     }
 }
 
-void rollback_(bool withRollbackHooks = false)
+void rollback_(bool withRollbackHooks)
 {
     LogTrace(TRACE3) << "ASTRA::rollback(" << (withRollbackHooks ? "with rollback hooks"
                                                                  : "without rollback hooks") << ")";

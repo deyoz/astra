@@ -25,7 +25,6 @@ $(PREPARE_SEASON_SCD ЮТ СОЧ ЛХР 100 -1 TU5 $(date_format %d.%m.%Y +12) $(date_fo
 $(make_spp $(ddmmyy +13))
 
 $(dump_table POINTS fields="point_id, move_id, airline, flt_no, airp, scd_in, scd_out, est_in, est_out, act_in, act_out, time_in, time_out, airp_fmt, pr_del")
-#$(dump_pg_table ARX_POINTS fields="point_id, move_id, airline, flt_no, airp, scd_in, scd_out, est_in, est_out, act_in, act_out, part_key, airp_fmt")
 
 #Через 121 дня от текущей даты, ничего не архивируется
 #$(run_arch_step $(ddmmyy +121))
@@ -35,14 +34,12 @@ $(dump_table POINTS fields="point_id, move_id, airline, flt_no, airp, scd_in, sc
 
 #$(dump_table POINTS fields="point_id, move_id, airline, flt_no, airp, scd_in, scd_out, est_in, est_out, act_in, act_out, time_in, time_out, airp_fmt, pr_del")
 #$(dump_table ARX_POINTS fields="point_id, move_id, airline, flt_no, airp, scd_in, scd_out, est_in, est_out, act_in, act_out, part_key, airp_fmt")
-#$(dump_pg_table ARX_POINTS fields="point_id, move_id, airline, flt_no, airp, scd_in, scd_out, est_in, est_out, act_in, act_out, part_key, airp_fmt")
 
 #На дату архивации через 133 дня от текущей даты сохранятся рейсы , которые были через 12 дней, от текущей даты
 $(run_arch_step $(ddmmyy +133))
 
 #$(dump_table POINTS fields="point_id, move_id, airline, flt_no, airp, scd_in, scd_out, est_in, est_out, act_in, act_out, time_in, time_out, airp_fmt, pr_del")
 #$(dump_table ARX_POINTS fields="point_id, move_id, airline, flt_no, airp, scd_in, scd_out, est_in, est_out, act_in, act_out, part_key, airp_fmt")
-#$(dump_pg_table ARX_POINTS fields="point_id, move_id, airline, flt_no, airp, scd_in, scd_out, est_in, est_out, act_in, act_out, part_key, airp_fmt")
 
 $(are_tables_equal ARX_POINTS)
 
@@ -75,12 +72,10 @@ $(dump_table MOVE_ARX_EXT fields = "date_range, move_id, part_key")
 $(run_arch_step $(ddmmyy +121))
 
 #$(dump_table MOVE_ARX_EXT fields = "move_id, part_key, date_range")
-#$(dump_pg_table MOVE_ARX_EXT fields = "move_id, part_key, date_range")
 
 $(run_arch_step $(ddmmyy +131))
 
 #$(dump_table MOVE_ARX_EXT fields = "move_id, part_key, date_range")
-#$(dump_pg_table MOVE_ARX_EXT fields = "move_id, part_key, date_range")
 
 $(run_arch_step $(ddmmyy +151))
 

@@ -990,42 +990,25 @@ static std::string FP_dump_table_astra(const std::vector<tok::Param> &params)
     return answer;
 }
 
-static std::string FP_dump_pg_table(const std::vector<tok::Param>& params)
+static std::string FP_dump_db_table(const std::vector<tok::Param>& params)
 {
     ASSERT(params.size() > 0);
     std::string tableName = params[0].value;
-    std::string connect, fields, where, order;
-    bool display = false;
 
+    std::string db = "pg";
     for (size_t i = 1; i < params.size(); ++i) {
-        if (params[i].name == "connect") {
-            connect = params[i].value;
-        } else if (params[i].name == "fields") {
-            fields = params[i].value;
-        } else if (params[i].name == "where") {
-            where = params[i].value;
-        } else if (params[i].name == "order") {
-            order = params[i].value;
-        } else if (params[i].name == "display") {
-            if (params[i].value == "on") {
-                display = true;
-            }
+        if(params[i].name == "db") {
+            db = params[i].value;
         }
     }
-    std::string resultQuery;
-    if(!where.empty()) {
-        resultQuery += " where " + where;
-    }
-    if(!order.empty()) {
-        resultQuery += " order by " + order;
-    }
 
-    std::vector<std::string> fieldTokens;
-    StrUtils::split_string(fieldTokens, fields);
-    for(auto & tok : fieldTokens) {
-        StrUtils::StringTrim(&tok);
+    std::string dump;
+    if(db == "pg") {
+        DbCpp::DumpTable(*get_main_pg_rw_sess(STDLOG), tableName).exec(dump);
+    } else if(db == "ora") {
+        DbCpp::DumpTable(*get_main_ora_sess(STDLOG), tableName).exec(dump);
     }
-    dbo::Session().dump("pg", tableName, fieldTokens, resultQuery);
+    LogTrace(TRACE3) << dump;
     return "";
 }
 
@@ -1422,7 +1405,6 @@ FP_REGISTER("dump_apps_messages", FP_dumpAppsMessages);
 FP_REGISTER("update_pg_coupon", FP_runUpdateCoupon);
 FP_REGISTER("run_arch_step", FP_runArchStep);
 FP_REGISTER("run_arch", FP_runArch);
-FP_REGISTER("dump_pg_table", FP_dump_pg_table);
 FP_REGISTER("db_dump_table", FP_dump_table_astra);
 // FP_REGISTER("dump_db_table", FP_dump_db_table);
 FP_REGISTER("are_tables_equal", FP_tables_equal);

@@ -189,27 +189,11 @@ DbCpp::DbSessionType AutonomousHooks::getSessionType<DbCpp::PgSession>()
 
 //---------------------------------------------------------------------------------------
 
-struct ArxOraConnection
-{
-    static const char* connect_string_tcl()
-    {
-        return "CONNECT_STRING";
-    }
-};
-
 struct ArxPgConnection
 {
     static const char* connect_string_tcl()
     {
-#ifdef XP_TESTING
-        if(inTestMode()) {
-            return "PG_CONNECT_STRING";
-        } else {
-            return "ARX_PG_CONNECT_STRING";
-        }
-#endif//XP_TESTING
-
-        return "ARX_PG_CONNECT_STRING";
+        return "PG_CONNECT_STRING_ARX";
     }
 };
 
@@ -275,21 +259,6 @@ Session* createSession()
 
 //---------------------------------------------------------------------------------------
 
-template <>
-DbCpp::OraSession* createSession<CommitRollbackHooks, ArxOraConnection, DbCpp::OraSession>()
-{
-    std::string connStr = readStringFromTcl(ArxOraConnection::connect_string_tcl(), "");
-    if(connStr.empty())
-    {
-        LogTrace(TRACE5) << ArxOraConnection::connect_string_tcl() << " not found or empty!";
-        return nullptr;
-    }
-
-    return new DbCpp::OraSession(STDLOG, connStr);
-}
-
-//---------------------------------------------------------------------------------------
-
 template <class Hooks,
           class Connection,
           class Session>
@@ -327,8 +296,6 @@ struct SessionTraits
 
 //---------------------------------------------------------------------------------------
 
-using ArxOraSession_ReadWrite = SessionTraits<CommitRollbackHooks, ArxOraConnection, DbCpp::OraSession>;
-
 using ArxPgSession_ReadWrite = SessionTraits<CommitRollbackHooks, ArxPgConnection, DbCpp::PgSession>;
 using ArxPgSession_ReadOnly  = SessionTraits<DoNothingHooks,      ArxPgConnection, DbCpp::PgSession>;
 
@@ -364,7 +331,7 @@ DbCpp::Session* get_arx_pg_ro_sess(STDLOG_SIGNATURE)
 {
 #ifdef XP_TESTING
     if(inTestMode()) {
-        return get_main_pg_rw_sess(STDLOG_VARIABLE);
+        return get_arx_pg_rw_sess(STDLOG_VARIABLE);
     }
 #endif//XP_TESTING
 
@@ -377,12 +344,6 @@ DbCpp::Session* get_arx_pg_ro_sess(STDLOG_SIGNATURE)
 
 DbCpp::Session* get_arx_pg_rw_sess(STDLOG_SIGNATURE)
 {
-#ifdef XP_TESTING
-    if(inTestMode()) {
-        return get_main_pg_rw_sess(STDLOG_VARIABLE);
-    }
-#endif//XP_TESTING
-
     DbCpp::Session* sess = ArxPgSession_ReadWrite::getSession();
     if(sess != nullptr) {
         return sess;

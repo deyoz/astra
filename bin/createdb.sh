@@ -5,6 +5,7 @@ NUM_COPIES=$1
 echo createdb.sh:
 echo CONNECT_STRING=${CONNECT_STRING}
 echo PG_CONNECT_STRING=${PG_CONNECT_STRING}
+echo PG_CONNECT_STRING_ARX=${PG_CONNECT_STRING_ARX}
 
 
 checkresult()
@@ -36,6 +37,14 @@ build_pg_database()
      pgdir=$1
      ( ( cd ${pgdir} && ./create_database.sh ${PG_CONNECT_STRING} )
        checkresult create_pg_db $?
+     )
+     
+     other_pg_bases_dir=${pgdir}/bases_pg/
+     arx_base_dir=${other_pg_bases_dir}/arx
+     
+     # arx
+     ( ( cd ${arx_base_dir} && ./../../create_database.sh ${PG_CONNECT_STRING_ARX} )
+        checkresult create_arx_pg_db $?
      )
 }
 
