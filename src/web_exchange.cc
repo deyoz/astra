@@ -2,6 +2,9 @@
 #include "points.h"
 #include "astra_locale_adv.h"
 #include "qrys.h"
+#include "db_tquery.h"
+#include "tlg/typeb_db.h"
+#include "PgOraConfig.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/slogger.h"
@@ -578,42 +581,70 @@ const SegList& SegList::toXML(const bool& isLayerAdded, xmlNodePtr resNode) cons
 namespace ManagePaxContexts
 {
 
+static bool saveCrsPaxContext(PaxId_t pax_id, const ContextElement& elem)
+{
+  CheckIn::TSimplePaxItem crsPax;
+  const bool crsPaxFound = crsPax.getCrsByPaxId(pax_id);
+  if (not crsPaxFound) {
+    return false;
+  }
+  LogTrace(TRACE6) << __func__
+                   << ": pax_id=" << pax_id
+                   << ", key=" << elem.key
+                   << ", value=" << elem.value;
+  auto cur = make_db_curs(
+        "INSERT INTO crs_pax_context( "
+        "pax_id, key, value "
+        ") VALUES ( "
+        ":pax_id, :key, :value "
+        ") ",
+        PgOra::getRWSession("CRS_PAX_CONTEXT"));
+  cur.stb()
+      .bind(":pax_id", pax_id.get())
+      .bind(":key", elem.key)
+      .bind(":value", elem.value)
+      .exec();
+  LogTrace(TRACE6) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+static bool updateCrsPaxContext(PaxId_t pax_id, const ContextElement& elem)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": pax_id=" << pax_id
+                   << ", key=" << elem.key
+                   << ", value=" << elem.value;
+  auto cur = make_db_curs(
+        "UPDATE crs_pax_context "
+        "SET value=:value "
+        "WHERE pax_id=:pax_id "
+        "AND key=:key ",
+        PgOra::getRWSession("CRS_PAX_CONTEXT"));
+  cur.stb()
+      .bind(":pax_id", pax_id.get())
+      .bind(":key", elem.key)
+      .bind(":value", elem.value)
+      .exec();
+  LogTrace(TRACE6) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
 void Pax::toDB() const
 {
-  TQuery Qry(&OraSession);
-
-  for(Action action : {AddOrModify, Remove})
+  for(const auto& i : context)
   {
-    Qry.Clear();
-    for(const auto& i : context)
-    {
-      const ContextElement& elem=i.second;
-      if (!elem.action || elem.action!=action) continue;
+    const ContextElement& elem=i.second;
+    if (!elem.action) continue;
 
-      if (Qry.SQLText.IsEmpty())
-      {
-        Qry.CreateVariable("pax_id", otInteger, id);
-        Qry.DeclareVariable("key", otString);
-        if (action==AddOrModify)
-        {
-          Qry.SQLText="BEGIN "
-                      "  UPDATE crs_pax_context SET value=:value WHERE pax_id=:pax_id AND key=:key; "
-                      "  IF SQL%NOTFOUND THEN "
-                      "    INSERT INTO crs_pax_context(pax_id, key, value) "
-                      "    SELECT pax_id, :key, :value FROM crs_pax WHERE pax_id=:pax_id;  "
-                      "  END IF; "
-                      "END;";
-          Qry.DeclareVariable("value", otString);
-        }
-        else
-        {
-          Qry.SQLText="DELETE FROM crs_pax_context WHERE pax_id=:pax_id AND key=:key";
-        }
+    if (elem.action==AddOrModify)
+    {
+      if (!updateCrsPaxContext(PaxId_t(id), elem)) {
+        saveCrsPaxContext(PaxId_t(id), elem);
       }
-      Qry.SetVariable("key", elem.key);
-      if (action==AddOrModify)
-        Qry.SetVariable("value", elem.value);
-      Qry.Execute();
+    } else if (elem.action==Remove) {
+        TypeB::deleteCrsPaxContext(PaxId_t(id), elem.key);
     }
   }
 }
@@ -671,8 +702,10 @@ void Context::fromDB(int paxId)
 {
   clear();
 
-  TCachedQuery Qry("SELECT * FROM crs_pax_context WHERE pax_id=:pax_id",
-                   QParams() << QParam("pax_id", otInteger, paxId));
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("CRS_PAX_CONTEXT"),
+        "SELECT * FROM crs_pax_context WHERE pax_id=:pax_id",
+        QParams() << QParam("pax_id", otInteger, paxId));
   Qry.get().Execute();
   for(; !Qry.get().Eof; Qry.get().Next())
   {

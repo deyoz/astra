@@ -7247,15 +7247,15 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
 
                     const std::set<PaxId_t> infIdSet = CheckIn::loadInfIdSet(paxId(), true /*lock*/);
                     for (PaxId_t inf_id: infIdSet) {
-                      DeleteCrsChkd(inf_id.get());
+                      TypeB::deleteCrsPaxChkd(inf_id);
                       DeleteFreeRem(inf_id.get());
                     }
                     const std::set<PaxId_t> seatIdSet = CheckIn::loadSeatIdSet(paxId(), true /*lock*/);
                     for (PaxId_t seat_id: seatIdSet) {
-                      DeleteCrsChkd(seat_id.get());
+                      TypeB::deleteCrsPaxChkd(seat_id);
                       DeleteFreeRem(seat_id.get());
                     }
-                    DeleteCrsChkd(paxId().get());
+                    TypeB::deleteCrsPaxChkd(paxId());
                     DeleteFreeRem(paxId().get());
 
                     //удаляем все по пассажиру

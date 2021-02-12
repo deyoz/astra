@@ -22,6 +22,7 @@ bool deleteCrsPaxAsvc(PaxId_t pax_id);
 bool deleteCrsPaxRefuse(PaxId_t pax_id);
 bool deleteCrsPaxAlarms(PaxId_t pax_id);
 bool deleteCrsPaxContext(PaxId_t pax_id);
+bool deleteCrsPaxContext(PaxId_t pax_id, const std::string& key);
 bool deleteDcsBag(PaxId_t pax_id);
 bool deleteDcsTags(PaxId_t pax_id);
 bool deleteTripCompLayers(PaxId_t pax_id);

@@ -4044,6 +4044,34 @@ static void doCheckGrp(int grp_id)
     checkGroupUnification(GrpId_t(grp_id));
 }
 
+static bool saveCrsPaxRefuse(PaxId_t pax_id, const std::string& client_type)
+{
+  CheckIn::TSimplePaxItem crsPax;
+  const bool crsPaxFound = crsPax.getCrsByPaxId(pax_id);
+  if (not crsPaxFound) {
+    return false;
+  }
+  LogTrace(TRACE6) << __func__
+                   << ": pax_id=" << pax_id
+                   << ", client_type=" << client_type;
+
+  auto cur = make_db_curs(
+        "INSERT INTO crs_pax_refuse( "
+        "pax_id, client_type, time "
+        ") VALUES ( "
+        ":pax_id, :client_type, :time "
+        ") ",
+        PgOra::getRWSession("CRS_PAX_REFUSE"));
+  cur.stb()
+      .bind(":pax_id", pax_id.get())
+      .bind(":client_type", client_type)
+      .bind(":time", DateTimeToBoost(NowUTC()))
+      .exec();
+
+  LogTrace(TRACE6) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
 
 //процедура должна возвращать true только в том случае если произведена реальная регистрация
 bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
@@ -5388,14 +5416,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 if (reqInfo->client_type!=ctTerm && pax.refuse==refuseAgentError) //ctPNL???
                 {
                   //веб и киоск регистрация
-                  Qry.Clear();
-                  Qry.SQLText=
-                    "INSERT INTO crs_pax_refuse(pax_id, client_type, time) "
-                    "SELECT pax_id, :client_type, SYSTEM.UTCSYSDATE "
-                    "FROM crs_pax WHERE pax_id=:pax_id";
-                  Qry.CreateVariable("pax_id", otInteger, pax.id);
-                  Qry.CreateVariable("client_type", otString, EncodeClientType(reqInfo->client_type));
-                  Qry.Execute();
+                  saveCrsPaxRefuse(PaxId_t(pax.id), EncodeClientType(reqInfo->client_type));
                 }
               }
               else

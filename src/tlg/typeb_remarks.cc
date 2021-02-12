@@ -480,7 +480,7 @@ static void LoadFQTRem(const PaxId_t& paxId,
   fqt.clear();
   fqt_extra.clear();
 
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("CRS_PAX_FQT"));
   Qry.Clear();
   Qry.SQLText="SELECT * FROM crs_pax_fqt WHERE pax_id=:pax_id";
   Qry.CreateVariable("pax_id",otInteger,paxId.get());
@@ -488,9 +488,9 @@ static void LoadFQTRem(const PaxId_t& paxId,
   for(; !Qry.Eof; Qry.Next())
   {
     TFQTItem item;
-    strcpy(item.rem_code, Qry.FieldAsString("rem_code"));
-    strcpy(item.airline, Qry.FieldAsString("airline"));
-    strcpy(item.no, Qry.FieldAsString("no"));
+    strcpy(item.rem_code, Qry.FieldAsString("rem_code").c_str());
+    strcpy(item.airline, Qry.FieldAsString("airline").c_str());
+    strcpy(item.no, Qry.FieldAsString("no").c_str());
     item.extra=Qry.FieldAsString("extra");
     fqt.push_back(item);
 
@@ -530,7 +530,7 @@ void SaveFQTRem(const PaxIdWithSegmentPair& paxId,
 
   bool modified=false;
 
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getRWSession("CRS_PAX_FQT"));
   Qry.Clear();
   Qry.CreateVariable("pax_id",otInteger,paxId().get());
   if (deleteFromDB)
@@ -577,7 +577,7 @@ bool SaveCHKDRem(const PaxIdWithSegmentPair& paxId, const vector<TCHKDItem> &chk
 {
   bool result=false;
   if (chkd.empty()) return result;
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getRWSession("CRS_PAX_CHKD"));
   Qry.Clear();
   Qry.SQLText=
     "INSERT INTO crs_pax_chkd "
@@ -597,10 +597,10 @@ bool SaveCHKDRem(const PaxIdWithSegmentPair& paxId, const vector<TCHKDItem> &chk
   }
   if (result)
   {
-    Qry.Clear();
-    Qry.SQLText="UPDATE crs_pax SET sync_chkd=1 WHERE pax_id=:pax_id";
-    Qry.CreateVariable("pax_id",otInteger,paxId().get());
-    Qry.Execute();
+    DB::TQuery QryPax(PgOra::getRWSession("CRS_PAX"));
+    QryPax.SQLText="UPDATE crs_pax SET sync_chkd=1 WHERE pax_id=:pax_id";
+    QryPax.CreateVariable("pax_id",otInteger,paxId().get());
+    QryPax.Execute();
   }
   return result;
 }

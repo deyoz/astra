@@ -46,6 +46,8 @@
 #include "seatPax.h"
 #include "flt_settings.h"
 #include "baggage_calc.h"
+#include "db_tquery.h"
+#include "PgOraConfig.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/slogger.h"
@@ -764,12 +766,16 @@ bool is_forbidden_repeated_ckin(const TTripInfo &flt,
 {
   if (!GetSelfCkinSets(tsNoRepeatedSelfCkin, flt, TReqInfo::Instance()->client_type)) return false;
 
-  TCachedQuery Qry("SELECT time FROM crs_pax_refuse "
-                   "WHERE pax_id=:pax_id AND client_type IN (:ctWeb, :ctMobile, :ctKiosk) AND rownum<2",
-                   QParams() << QParam("pax_id", otInteger, pax_id)
-                             << QParam("ctWeb", otString, EncodeClientType(ctWeb))
-                             << QParam("ctMobile", otString, EncodeClientType(ctMobile))
-                             << QParam("ctKiosk", otString, EncodeClientType(ctKiosk)));
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("CRS_PAX_REFUSE"),
+        "SELECT time FROM crs_pax_refuse "
+        "WHERE pax_id=:pax_id "
+        "AND client_type IN (:ctWeb, :ctMobile, :ctKiosk) "
+        "FETCH FIRST 1 ROWS ONLY ",
+        QParams() << QParam("pax_id", otInteger, pax_id)
+        << QParam("ctWeb", otString, EncodeClientType(ctWeb))
+        << QParam("ctMobile", otString, EncodeClientType(ctMobile))
+        << QParam("ctKiosk", otString, EncodeClientType(ctKiosk)));
   Qry.get().Execute();
   if (!Qry.get().Eof) return true;
   return false;

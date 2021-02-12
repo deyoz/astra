@@ -131,6 +131,24 @@ bool deleteCrsPaxContext(PaxId_t pax_id)
   return deleteByPaxId("CRS_PAX_CONTEXT", pax_id);
 }
 
+bool deleteCrsPaxContext(PaxId_t pax_id, const std::string& key)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": pax_id=" << pax_id;
+  auto cur = make_db_curs(
+        "DELETE FROM CRS_PAX_CONTEXT "
+        "WHERE pax_id=:pax_id ",
+        PgOra::getRWSession("CRS_PAX_CONTEXT"));
+  cur.stb()
+      .bind(":pax_id", pax_id.get())
+      .bind(":key", key)
+      .exec();
+
+  LogTrace(TRACE6) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
 bool deleteDcsBag(PaxId_t pax_id)
 {
   return deleteByPaxId("DCS_BAG", pax_id);
