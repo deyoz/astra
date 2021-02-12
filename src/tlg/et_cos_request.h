@@ -16,9 +16,10 @@ public:
                 const edifact::KickInfo& kickInfo,
                 const std::string& airline,
                 const Ticketing::FlightNum_t& flNum,
+                const boost::optional<std::string>& specBaseOurrefName,
                 const std::list<Ticketing::Ticket> &lt,
                 const Ticketing::Itin *itin = NULL)
-        : EtRequestParams(org, ctxt, kickInfo, airline, flNum), lTick(lt)
+        : EtRequestParams(org, ctxt, kickInfo, airline, flNum, specBaseOurrefName), lTick(lt)
     {
         if(itin) {
             Itin.reset(new Ticketing::Itin(*itin));
