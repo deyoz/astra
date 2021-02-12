@@ -52,5 +52,8 @@ checkresult installedimessages $?
 ( cd src && ./nosir.tcl -html_to_db ../sql/nosir_load/html )
 checkresult html_to_db $?
 
+( cd src && ./nosir.tcl -load_fr ../sql/nosir_load/fr_reports )
+checkresult load_fr $?
+
 ( cd src && ./nosir.tcl -pg_sessions_check )
 checkresult pg_sessions_check $?
