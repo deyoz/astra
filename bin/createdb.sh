@@ -26,6 +26,8 @@ build_ora_database()
       checkresult html_to_db $?
       ( cd src && ./nosir.tcl -load_fr ../${oradir}/4load/fr_reports )
       checkresult load_fr $?
+      ( cd src && ./nosir.tcl -comp_elem_types_to_db ../${oradir}/4load/comp_elem_types.dat )
+      checkresult comp_elem_types_to_db $?
     )
 }
 

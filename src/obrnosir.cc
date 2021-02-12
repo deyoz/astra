@@ -114,6 +114,8 @@ const
     {"-tzdump",                 tzdump,                 NULL,                       NULL},
     {"-tzdiff",                 tzdiff,                 NULL,                       NULL},
     {"-create_tlg",             nosir_create_tlg,       NULL,                       NULL},
+    {"-comp_elem_types_to_db",  comp_elem_types_to_db,  NULL,                       NULL},
+    {"-comp_elem_types_from_db",comp_elem_types_from_db,NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)
