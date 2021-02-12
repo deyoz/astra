@@ -24,6 +24,8 @@ build_ora_database()
       checkresult installedimessages $?
       ( cd src && ./nosir.tcl -html_to_db ../${oradir}/4load/html )
       checkresult html_to_db $?
+      ( cd src && ./nosir.tcl -load_fr ../${oradir}/4load/fr_reports )
+      checkresult load_fr $?
     )
 }
 
