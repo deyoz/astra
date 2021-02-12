@@ -153,6 +153,8 @@ const
     {"-tzdump",                 tzdump,                 NULL,                       NULL},
     {"-tzdiff",                 tzdiff,                 NULL,                       NULL},
     {"-create_tlg",             nosir_create_tlg,       NULL,                       NULL},
+    {"-comp_elem_types_to_db",  comp_elem_types_to_db,  NULL,                       NULL},
+    {"-comp_elem_types_from_db",comp_elem_types_from_db,NULL,                       NULL},
 #ifdef XP_TESTING
     {"-pg_sessions_check", pg_sessions_check, NULL, "Check main PG session consistency for different methods of usage PG" },
 #endif
