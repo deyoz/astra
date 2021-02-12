@@ -24,6 +24,7 @@ namespace ChangeStatus
                                           const edifact::KickInfo &kickInfo,
                                           const std::string& airline,
                                           const Ticketing::FlightNum_t& flNum,
+                                          const edifact::SpecBaseOurrefName_t& specBaseOurrefName,
                                           Ticketing::Itin* itin)
     {
         ProgTrace(TRACE2,"request for change of status from:");
@@ -41,7 +42,7 @@ namespace ChangeStatus
                                                               kickInfo,
                                                               airline,
                                                               flNum,
-                                                              boost::none,
+                                                              specBaseOurrefName.get(),
                                                               lTick,
                                                               itin));
     }

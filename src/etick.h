@@ -498,6 +498,8 @@ class TChangeStatusList
     }
 };
 
+enum class SpecBaseOurrefNameRule { Single, Different };
+
 class ETStatusInterface : public AstraJxtIface
 {
 public:
@@ -541,9 +543,11 @@ public:
   static void ETRollbackStatus(xmlDocPtr ediResDocPtr,
                                bool check_connect);
   static bool ETChangeStatus(const edifact::KickInfo &kickInfo,
-                             const TETChangeStatusList &mtick);
+                             const TETChangeStatusList &mtick,
+                             const std::optional<edifact::SpecBaseOurrefName_t>& specBaseOurrefNameOpt);
   static bool ETChangeStatus(const xmlNodePtr reqNode,
-                             const TETChangeStatusList &mtick);
+                             const TETChangeStatusList &mtick,
+                             const SpecBaseOurrefNameRule rule);
 };
 
 class EMDStatusInterface: public AstraJxtIface
@@ -564,7 +568,8 @@ public:
                                const CheckIn::TServicePaymentListWithAuto &prior_payment,
                                TEMDChangeStatusList &emdList);
     static bool EMDChangeStatus(const edifact::KickInfo &kickInfo,
-                                const TEMDChangeStatusList &emdList);
+                                const TEMDChangeStatusList &emdList,
+                                const std::optional<edifact::SpecBaseOurrefName_t>& specBaseOurrefNameOpt);
 };
 
 class ChangeStatusInterface: public AstraJxtIface

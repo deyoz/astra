@@ -292,6 +292,8 @@ void ProcEvent(const TLogLocale &event,
                const xmlNodePtr eventCtxtNode,
                const bool repeated);
 
+edifact::SpecBaseOurrefName_t nextSpecBaseOurrefName();
+
 } //namespace AstraEdifact
 
 bool isTermCheckinRequest(xmlNodePtr reqNode);

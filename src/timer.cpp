@@ -399,7 +399,7 @@ void ETCheckStatusFlt(void)
             ProgTrace(TRACE5,"ETCheckStatusFlt.ETCheckStatus: point_id=%d",flt.point_id);
             TETChangeStatusList mtick;
             ETStatusInterface::ETCheckStatus(flt.point_id,csaFlt,flt.point_id,true,mtick);
-            if (!ETStatusInterface::ETChangeStatus(NULL,mtick))
+            if (!ETStatusInterface::ETChangeStatus(NULL, mtick, SpecBaseOurrefNameRule::Different))
             {
               if (fltParams.in_final_status)
                 TFltParams::finishFinalAttempts(flt.point_id);
