@@ -34,7 +34,7 @@ BEGINDATA
 6|"roles"|"role_id"|"name, airline, airp"
 7|"desks"|"id"|"code, grp_id, currency"
 8|"role_rights"|"id"|"role_id, right_id"
-9|"desk_owners"|"id"|"desk, airline, chan_id, pr_denial"
+9|"desk_owners"|"id"|"desk, airline, pr_denial"
 11|"user_sets"|"user_id"|"time, disp_airline, disp_airp, disp_craft, disp_suffix"
 20|"bag_norms"|"id"|"airline, city_dep, city_arv, pax_cat, subclass, class, flt_no, craft, trip_type, first_date, last_date, bag_type, amount, weight, per_unit, norm_type, extra, pr_del, pr_trfer"
 21|"airlines"|"id"|"code, code_lat, name, name_lat, short_name, short_name_lat, aircode, pr_del, code_icao, code_icao_lat, city"
