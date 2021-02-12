@@ -1,5 +1,6 @@
 include(ts/macro.ts)
 include(ts/adm_macro.ts)
+include(ts/fr_forms.ts)
 
 # meta: suite readarch
 
@@ -389,8 +390,8 @@ $(GET_ARX_EVENTS $(get point_dep) $(date_format %d.%m.%Y +1))
         <short_page_number_fmt>Стр. %u</short_page_number_fmt>
       </variables>
     </form_data>
-    <FormNotExists>EventsLog</FormNotExists>
-    <form name='EventsLog'/>
+    <form name='EventsLog'...>$(EventsLogForm)
+</form>
   </answer>
 </term>
 
@@ -563,8 +564,8 @@ $(RUN_ACTUAL_DEPARTURED_STAT $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y 
 <?xml version='1.0' encoding='CP866'?>
 <term>
   <answer...>
-    <FormNotExists>stat</FormNotExists>
-    <form name='stat'/>
+    <form name='stat'...>$(statForm)
+</form>
     <airline>ЮТ</airline>
     <grd>
       <header>
@@ -1180,8 +1181,8 @@ $(RUN_PAX_SRC_STAT $(date_format %d.%m.%Y -10) $(date_format %d.%m.%Y +10)  OZ)
         <skip_header>0</skip_header>
       </variables>
     </form_data>
-    <FormNotExists>ArxPaxList</FormNotExists>
-    <form name='ArxPaxList'/>
+    <form name='ArxPaxList'...>$(ArxPaxListForm)
+</form>
   </answer>
 </term>
 
@@ -1222,8 +1223,8 @@ $(RUN_FLT_TASK_LOG $(get point_dep) $(date_format %d.%m.%Y +1))
 <?xml version='1.0' encoding='CP866'?>
 <term>
   <answer...>
-    <FormNotExists>FltTaskLog</FormNotExists>
-    <form name='FltTaskLog'/>
+    <form name='FltTaskLog'...>$(FltTaskLogForm)
+</form>
     <form_data>
       <variables>
         <print_date>$(date_format %d.%m.%Y) $(date_format %H:%M:%S) (МОВ)</print_date>
@@ -1299,8 +1300,8 @@ $(RUN_FLT_LOG $(get point_dep) $(date_format %d.%m.%Y +1))
 <?xml version='1.0' encoding='CP866'?>
 <term>
   <answer...>
-    <FormNotExists>FltLog</FormNotExists>
-    <form name='FltLog'/>
+    <form name='FltLog'...>$(FltLogForm)
+</form>
     <form_data>
       <variables>
         <print_date>$(date_format %d.%m.%Y) $(date_format %H:%M:%S) (МОВ)</print_date>
