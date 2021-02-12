@@ -471,7 +471,6 @@ void SaveASVCRem(const PaxIdWithSegmentPair& paxId,
                  ModifiedPaxRem& modifiedPaxRem);
 void SavePNLADLRemarks(const PaxIdWithSegmentPair& paxId,
                        const std::vector<TRemItem> &rem);
-bool DeleteCrsChkd(int pax_id);
 bool DeleteFreeRem(int pax_id);
 void DeletePDRem(const PaxIdWithSegmentPair& paxId,
                  const std::vector<TRemItem> &rem1,
