@@ -2932,6 +2932,66 @@ struct APPS_MESSAGES
     }
 };
 
+struct PAY_SERVICES
+{
+    std::string airline;// varchar2(3) not null,
+    std::string currency;// varchar2(3) not null,
+    std::string doc_id;// varchar2(100) not null,
+    int grp_id;// number(9) not null,
+    int list_id;// number(9),
+    std::string name_view;// varchar2(100) not null,
+    std::string name_view_lat;// varchar2(100) not null,
+    std::string order_id;// varchar2(6) not null,
+    int pass_id;// number(9) not null,
+    int pax_id;// number(9) not null,
+    float price;// float not null,
+    std::string rfisc;// varchar2(15) not null,
+    int seg_id;// number(9) not null,
+    std::string service_type;// varchar2(1) not null,
+    int svc_id;// number(9) not null,
+    std::string ticket_cpn;// varchar2(1) not null,
+    std::string ticknum;// varchar2(15) not null,
+    Dates::DateTime_t time_paid;// date not null,
+    int transfer_num;// number(1) not null
+
+    template<typename Action>
+    void persist(Action & a) {
+        dbo::field(a,airline,"airline",             dbo::NotNull);
+        dbo::field(a,currency,"currency",           dbo::NotNull);
+        dbo::field(a,doc_id,"doc_id",               dbo::NotNull);
+        dbo::field(a,grp_id,"grp_id",               dbo::NotNull);
+        dbo::field(a,list_id,"list_id");
+        dbo::field(a,name_view,"name_view",         dbo::NotNull);
+        dbo::field(a,name_view_lat,"name_view_lat", dbo::NotNull);
+        dbo::field(a,order_id,"order_id",           dbo::NotNull);
+        dbo::field(a,pass_id,"pass_id",             dbo::NotNull);
+        dbo::field(a,pax_id,"pax_id",               dbo::NotNull);
+        dbo::field(a,price,"price",                 dbo::NotNull);
+        dbo::field(a,rfisc,"rfisc",                 dbo::NotNull);
+        dbo::field(a,seg_id,"seg_id",               dbo::NotNull);
+        dbo::field(a,service_type,"service_type",   dbo::NotNull);
+        dbo::field(a,svc_id,"svc_id",               dbo::NotNull);
+        dbo::field(a,ticket_cpn,"ticket_cpn",       dbo::NotNull);
+        dbo::field(a,ticknum,"ticknum",             dbo::NotNull);
+        dbo::field(a,time_paid,"time_paid",         dbo::NotNull);
+        dbo::field(a,transfer_num,"transfer_num",   dbo::NotNull);
+    }
+};
+
+struct ARX_PAY_SERVICES : public PAY_SERVICES
+{
+    Dates::DateTime_t part_key;
+    ARX_PAY_SERVICES() = default;
+    ARX_PAY_SERVICES(const PAY_SERVICES& ps, const Dates::DateTime_t & part_key_)
+        :PAY_SERVICES(ps), part_key(part_key_) {}
+
+    template<typename Action>
+    void persist(Action & a) {
+        PAY_SERVICES::persist(a);
+        dbo::field(a,part_key,"PART_KEY", dbo::NotNull);
+    }
+};
+
 }   //end namespace dbo
 
 

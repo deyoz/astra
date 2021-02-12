@@ -12,7 +12,7 @@
 #include <optional>
 #include "boost/date_time/local_time/local_time.hpp"
 
-#include "pg_session.h"
+//#include "pg_session.h"
 #include <serverlib/pg_cursctl.h>
 #include <serverlib/pg_rip.h>
 #include <serverlib/cursctl.h>
@@ -90,6 +90,7 @@ void arx_bag2(const GrpId_t& grp_id, const Dates::DateTime_t& part_key);
 void arx_bag_prepay(const GrpId_t& grp_id, const Dates::DateTime_t& part_key);
 void arx_bag_tags(const GrpId_t& grp_id, const Dates::DateTime_t& part_key);
 void arx_paid_bag(const GrpId_t& grp_id, const Dates::DateTime_t& part_key);
+void arx_pay_services(const GrpId_t& grp_id, const Dates::DateTime_t& part_key);
 std::vector<dbo::PAX> arx_pax(const PointId_t& point_id, const GrpId_t& grp_id, const Dates::DateTime_t& part_key);
 void arx_transfer(const GrpId_t& grp_id, const Dates::DateTime_t& part_key);
 void arx_tckin_segments(const GrpId_t& grp_id, const Dates::DateTime_t& part_key);
@@ -591,7 +592,7 @@ std::optional<std::string> next_airp(Dates::DateTime_t part_key, int first_point
     std::optional<std::string> airp = session.query<std::string>("SELECT airp")
             .from("arx_points")
             .where("part_key = :part_key AND first_point=:first_point AND point_num > :point_num AND pr_del=0 ORDER BY point_num")
-            .setBind({{":part_key", BoostToDateTime(part_key)}, {":first_point", first_point}, {":point_num", point_num}});
+            .setBind({{":part_key", part_key}, {":first_point", first_point}, {":point_num", point_num}});
     return airp;
 }
 
@@ -839,6 +840,7 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
                                 arx_bag_prepay(grp_id, part_key);
                                 arx_bag_tags(grp_id, part_key);
                                 arx_paid_bag(grp_id, part_key);
+                                arx_pay_services(grp_id, part_key);
                                 auto paxes = arx_pax(point_id, grp_id, part_key);
                                 arx_transfer(grp_id, part_key);
                                 arx_tckin_segments(grp_id, part_key);
@@ -1216,17 +1218,7 @@ void arx_tlg_out(const PointId_t& point_id, const Dates::DateTime_t& part_key)
             .setBind({{"point_id", point_id.get()}});
 
     for(const auto &cs : stats) {
-        Dates::DateTime_t part_key_nvl;
-        if(cs.time_send_act.is_not_a_date_time()) {
-            if(cs.time_send_scd.is_not_a_date_time()) {
-                part_key_nvl = cs.time_create;
-            } else {
-                part_key_nvl = cs.time_send_scd;
-            }
-        } else {
-            part_key_nvl = cs.time_send_act;
-        }
-        //NVL(time_send_act,NVL(time_send_scd,time_create)
+        Dates::DateTime_t part_key_nvl = dbo::coalesce(cs.time_send_act, cs.time_send_scd, cs.time_create);
         dbo::ARX_TLG_OUT ascs(cs, part_key_nvl);
         session.insert(ascs);
     }
@@ -1434,6 +1426,22 @@ void arx_paid_bag(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
     for(const auto &cs : bags2) {
         dbo::ARX_PAID_BAG ascs(cs,part_key);
         session.insert(ascs);
+    }
+}
+
+void arx_pay_services(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
+{
+    dbo::Session session;
+    std::vector<dbo::PAY_SERVICES> services = session.query<dbo::PAY_SERVICES>()
+            .where("grp_id = :grp_id FOR UPDATE")
+            .setBind({{"grp_id", grp_id.get()}});
+
+    for(const auto &s : services) {
+        dbo::ARX_PAY_SERVICES ascs(s,part_key);
+        session.insert(ascs);
+//        make_db_curs("delete from PAY_SERVICES where gpr_id = :grp_id", PgOra::getROSession("PAY_SERVICES"))
+//            .bind(":grp_id", grp_id.get())
+//            .exec();
     }
 }
 
@@ -1752,16 +1760,7 @@ int arx_tlgout_noflt(const Dates::DateTime_t& arx_date, int remain_rows)
 
 
     for(const auto &tg : tlg_outs) {
-        Dates::DateTime_t part_key_nvl;
-        if(tg.time_send_act.is_not_a_date_time()) {
-            if(tg.time_send_scd.is_not_a_date_time()) {
-                part_key_nvl = tg.time_create;
-            } else {
-                part_key_nvl = tg.time_send_scd;
-            }
-        } else {
-            part_key_nvl = tg.time_send_act;
-        }
+        Dates::DateTime_t part_key_nvl = dbo::coalesce(tg.time_send_act, tg.time_send_scd, tg.time_create);
         //NVL(time_send_act,NVL(time_send_scd,time_create)
         dbo::ARX_TLG_OUT ascs(tg, part_key_nvl);
         session.insert(ascs);

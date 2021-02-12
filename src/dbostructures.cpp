@@ -133,6 +133,8 @@ void initStructures()
         INIT_DBO(ARX_EXCHANGE_RATES);
         INIT_DBO(TLG_STAT);
         INIT_DBO(ARX_TLG_STAT);
+        INIT_DBO(PAY_SERVICES);
+        INIT_DBO(ARX_PAY_SERVICES);
         INIT_DBO(TLGS);
         INIT_DBO(FILES);
         INIT_DBO(KIOSK_EVENTS);
@@ -298,7 +300,7 @@ START_TEST(test_bag_prepay)
     int grp_id = 5;
     int receipt_id = 12;
     std::string no = "n";
-    double value = 102.21234;
+    double value = 102.21;
     Dates::DateTime_t part_key = Dates::second_clock::universal_time();
 
     auto cur = get_arx_pg_rw_sess(STDLOG)->createCursor(STDLOG,
@@ -325,7 +327,7 @@ START_TEST(test_bag_prepay)
     "delete from ARX_BAG_PREPAY");
     cur3.exec();
     fail_unless(12 == read_receipt_id, "failed: read_receipt_id=%lf expected 12", read_receipt_id);
-    fail_unless(102.21234 == read_value, "failed: read_value=%lf expected 102.21234", read_value);
+    fail_unless(102.21 == read_value, "failed: read_value=%lf expected 102.21", read_value);
 }
 END_TEST;
 

@@ -125,6 +125,18 @@ bool isNotNull(const C& val)
     return !isNull(val);
 }
 
+template<typename T>
+T coalesce(T const a, T const b)
+{
+    return dbo::isNotNull(a) ? a : b;
+}
+
+template<typename T1, typename... T>
+T1 coalesce(T1 const a, T... args)
+{
+    return coalesce(a, coalesce(args...));
+}
+
 template <typename V>
 class FieldRef
 {
