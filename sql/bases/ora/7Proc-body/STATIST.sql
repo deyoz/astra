@@ -63,6 +63,7 @@ BEGIN
       SUM(DECODE(seats,0,DECODE(pers_type,'êå',1,0),0)) AS baby_wop
     FROM pax_grp,pax,transfer
     WHERE pax_grp.grp_id=pax.grp_id(+) AND point_dep=vpoint_id AND pax_grp.status NOT IN ('E') AND
+          pax.refuse is null and
           pax_grp.grp_id=transfer.grp_id AND transfer_num=1 AND
           (pax.grp_id IS NULL AND pax_grp.class IS NULL OR pax.grp_id IS NOT NULL)
     GROUP BY statist.get_trfer_route(pax_grp.grp_id),client_type) b,
@@ -74,6 +75,7 @@ BEGIN
       SUM(DECODE(pr_cabin,1,weight,0)) AS unchecked
     FROM bag2,pax_grp,transfer
     WHERE pax_grp.grp_id=bag2.grp_id AND point_dep=vpoint_id AND pax_grp.status NOT IN ('E') AND
+          ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 and
           pax_grp.grp_id=transfer.grp_id AND transfer_num=1
     GROUP BY statist.get_trfer_route(pax_grp.grp_id),client_type) c,
    (SELECT
@@ -181,7 +183,8 @@ IS
       SUM(DECODE(pr_cabin,0,weight,0)) AS weight,
       SUM(DECODE(pr_cabin,1,weight,0)) AS unchecked
     FROM pax_grp,bag2
-    WHERE pax_grp.grp_id=bag2.grp_id AND point_dep=vpoint_id AND pax_grp.status NOT IN ('E')
+    WHERE pax_grp.grp_id=bag2.grp_id AND point_dep=vpoint_id AND pax_grp.status NOT IN ('E') and
+          ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0
     GROUP BY airp_arv,bag2.hall,DECODE(status,'T','T','N'),client_type;
 
   CURSOR cur2 IS
@@ -197,7 +200,8 @@ IS
           FROM bag2,
                (SELECT bag2.grp_id,MAX(bag2.num) AS num
                 FROM pax_grp,bag2
-                WHERE pax_grp.grp_id=bag2.grp_id AND point_dep=vpoint_id
+                WHERE pax_grp.grp_id=bag2.grp_id AND point_dep=vpoint_id and
+                      ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0
                 GROUP BY bag2.grp_id) last_bag
           WHERE bag2.grp_id=last_bag.grp_id AND bag2.num=last_bag.num) bag2
     WHERE pax_grp.grp_id=bag2.grp_id(+) AND point_dep=vpoint_id AND pax_grp.status NOT IN ('E')
@@ -253,11 +257,13 @@ BEGIN
                   lang='RU' AND type IN (system.evtPax, system.evtPay) AND
                   id1=pax_grp.point_dep AND id2=pax.reg_no AND rownum<2) AS term_ckin_service
     FROM pax_grp,pax
-    WHERE pax_grp.grp_id=pax.grp_id AND point_dep=vpoint_id AND pax_grp.status NOT IN ('E')
+    WHERE pax_grp.grp_id=pax.grp_id AND point_dep=vpoint_id AND pax_grp.status NOT IN ('E') and
+          pax.refuse is null
   )
   GROUP BY airp_arv,hall,DECODE(status,'T','T','N'),client_type;
 
   FOR cur1Row IN cur1 LOOP
+    continue when cur1Row.pcs = 0 and cur1Row.weight = 0 and cur1Row.unchecked = 0;
     UPDATE stat
     SET pcs=pcs+cur1Row.pcs,
         weight=weight+cur1Row.weight,
@@ -279,6 +285,7 @@ BEGIN
     END IF;
   END LOOP;
   FOR cur2Row IN cur2 LOOP
+    continue when cur2Row.excess_wt = 0 and cur2Row.excess_pc = 0;
     UPDATE stat
     SET excess_wt=excess_wt+cur2Row.excess_wt, excess_pc=excess_pc + cur2Row.excess_pc
     WHERE point_id=vpoint_id AND

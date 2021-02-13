@@ -11,5 +11,4 @@ BEGIN
     :new.time_out:=TO_DATE('01.01.0001','DD.MM.YYYY');
   END IF;
 END;
-
 /

@@ -10,5 +10,4 @@ BEGIN
     :new.time_auto_not_act:=NULL;
   END IF;
 END;
-
 /

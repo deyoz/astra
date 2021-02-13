@@ -177,12 +177,9 @@ astra_SOURCES = \
   iatci_settings.cc \
   TypeBHelpMng.cpp \
   astra_msg.cc \
-  img.cpp \
   astra_api.cc \
   astra_date_time.cpp \
   basetables.cc \
-  collect.cc \
-  collect_data.cc \
   SalonPaxList.cc \
   annul_bt.cc \
   html_pages.cc \
@@ -390,13 +387,10 @@ noinst_HEADERS = \
   iatci_settings.h \
   TypeBHelpMng.h \
   astra_msg.h \
-  img.h \
   astra_iface.h \
   astra_api.h \
   astra_date_time.h \
   basetables.h \
-  collect.h \
-  collect_data.h \
   SalonPaxList.h \
   annul_bt.h \
   html_pages.h \

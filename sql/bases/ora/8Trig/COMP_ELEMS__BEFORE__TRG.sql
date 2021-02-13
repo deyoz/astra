@@ -8,5 +8,4 @@ BEGIN
   :new.xname:=NVL(salons.normalize_xname(:new.xname),TRIM(UPPER(:new.xname)));
   :new.yname:=NVL(salons.normalize_yname(:new.yname),TRIM(UPPER(:new.yname)));
 END;
-
 /

@@ -1,10 +1,10 @@
-create table timatic_session (
-    host varchar2(200) not null,
-    port number(5) not null,
-    username varchar2(200) not null,
-    sub_username varchar2(200) not null,
-    pwd varchar2(200) not null,
-    expire date not null,
-    jsessionID varchar2(200),
-    sessionID varchar2(200)
+CREATE TABLE TIMATIC_SESSION (
+    EXPIRE DATE NOT NULL,
+    HOST VARCHAR2(200) NOT NULL,
+    JSESSIONID VARCHAR2(200),
+    PORT NUMBER(5) NOT NULL,
+    PWD VARCHAR2(200) NOT NULL,
+    SESSIONID VARCHAR2(200),
+    SUB_USERNAME VARCHAR2(200) NOT NULL,
+    USERNAME VARCHAR2(200) NOT NULL
 );
