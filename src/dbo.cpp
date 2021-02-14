@@ -13,7 +13,7 @@ using namespace std;
 namespace dbo
 {
 
-std::string buildQuery(const std::shared_ptr<MappingInfo> &mapInfo, const QueryOps &ops)
+std::string buildQuery(const std::shared_ptr<MappingInfo> &mapInfo, const QueryOps &ops, bool isOracle)
 {
     std::stringstream res;
     if(!ops.select.empty()) {
@@ -38,6 +38,16 @@ std::string buildQuery(const std::shared_ptr<MappingInfo> &mapInfo, const QueryO
     if(!ops.order_by.empty()) {
         res <<  " order by " << ops.order_by;
     }
+    if(!ops.fetch_first.empty()) {
+        if(isOracle && ops.for_update) {
+            res << " and rownum <= " << ops.fetch_first;
+        } else {
+            res << " fetch first " << ops.fetch_first << " rows only";
+        }
+    }
+    if(ops.for_update) {
+        res << " for update";
+    }
     return StrUtils::ToLower(res.str());
 }
 
@@ -49,18 +59,11 @@ std::string firstTableFrom(const std::string& from)
     return "";
 }
 
-bool contains(std::string source, std::string substring )
-{
-    return StrUtils::ToLower(source).find(StrUtils::ToLower(substring)) != source.npos;
-}
-
 DbCpp::Session* getSession(CurrentDb db, const std::shared_ptr<MappingInfo>& mapInfo,
-                           const std::string& query, const std::string& from)
+                           bool isForUpdate, const std::string& from)
 {
     DbCpp::Session* session = nullptr;
     std::string tableName = mapInfo ? mapInfo->tableName() : firstTableFrom(from);
-    bool isForUpdate = contains(query, "FOR UPDATE");
-    LogTrace5 << " query: " << query;
     if(db==Config) {
         if(isForUpdate) {session = &PgOra::getRWSession(tableName);}
         else            {session = &PgOra::getROSession(tableName);}

@@ -46,11 +46,14 @@ struct QueryOps {
     std::string where;
     std::string from;
     std::string order_by;
+    std::string fetch_first;
+    bool        for_update = false;
 };
 
-DbCpp::Session* getSession(CurrentDb db, const std::shared_ptr<MappingInfo>& mapInfo, const std::string &query,
-                           const std::string &from);
-std::string buildQuery(const std::shared_ptr<MappingInfo> &mapInfo, const QueryOps & ops);
+DbCpp::Session* getSession(CurrentDb db, const std::shared_ptr<MappingInfo>& mapInfo,
+                           bool for_update, const std::string& from);
+std::string buildQuery(const std::shared_ptr<MappingInfo> &mapInfo, const QueryOps & ops,
+                       bool isOracle);
 
 typedef std::variant<bool, int, long long, float, double, std::string,
                      Dates::DateTime_t, Dates::Date_t> bindedTypes;
@@ -553,21 +556,33 @@ public:
         return resultList();
     }
 
-    Query<Result> & from(std::string condition)
+    Query<Result> & from(const std::string& condition)
     {
-        m_ops.from = condition ;
+        m_ops.from = condition;
         return *this;
     }
 
-    Query<Result> & where(std::string condition)
+    Query<Result> & where(const std::string& condition)
     {
-        m_ops.where = condition ;
+        m_ops.where = condition;
         return *this;
     }
 
-    Query<Result> & order_by(std::string condition)
+    Query<Result> & order_by(const std::string& condition)
     {
-        m_ops.order_by = condition ;
+        m_ops.order_by = condition;
+        return *this;
+    }
+
+    Query<Result> & for_update(bool condition = true)
+    {
+        m_ops.for_update = condition;
+        return *this;
+    }
+
+    Query<Result> & fetch_first(const std::string& condition)
+    {
+        m_ops.fetch_first = condition;
         return *this;
     }
 
@@ -582,16 +597,17 @@ private:
     QueryOps m_ops;
     std::map<std::string, dbo::bindedTypes> bindVars{};
 
-    std::string createQuery(const std::shared_ptr<MappingInfo>& mapInfo)
+    std::string createQuery(const std::shared_ptr<MappingInfo>& mapInfo, bool isOracle)
     {
-        return buildQuery(mapInfo, m_ops);
+        return buildQuery(mapInfo, m_ops, isOracle);
     }
 
     std::vector<Result> resultList()
     {
         const auto& map_info = Mapper::getInstance().getMapping<Result>();
-        std::string query = createQuery(map_info);
-        DbCpp::Session* session = getSession(m_sess->currentDb(), map_info, query, m_ops.from);
+        DbCpp::Session* session = getSession(m_sess->currentDb(), map_info, m_ops.for_update, m_ops.from);
+        ASSERT(session);
+        std::string query = createQuery(map_info, session->isOracle());
         Cursor cur(session->createCursor(STDLOG, query));
         Result r;
         cur.bind(bindVars)
