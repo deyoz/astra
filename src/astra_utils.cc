@@ -1912,7 +1912,7 @@ void TRegEvents::fromArxDB(TDateTime part_key, int point_id)
     int grp_id, reg_no;
     Dates::DateTime_t ckin_time, brd_time;
     std::string posStrCkinTime, posStrBrdTime;
-    if(PgOra::ARX_READ_PG()) {
+    if(ARX::READ_PG()) {
         posStrCkinTime = " STRPOS(msg,'зарегистрирован') ";
         posStrBrdTime = " STRPOS(msg,'прошел посадку') ";
     } else {

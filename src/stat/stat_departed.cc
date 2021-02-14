@@ -235,8 +235,8 @@ void arx_departed_month(const pair<TDateTime, TDateTime> &interval, TEncodedFile
     DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"));
     Qry.CreateVariable("first_date", otDate, interval.first);
     Qry.CreateVariable("last_date", otDate, interval.second);
-    std::string dbDateRange = PgOra::ARX_READ_PG() ? "date_range * INTERVAL '1 day' "
-                                                   : "date_range ";
+    std::string dbDateRange = ARX::READ_PG() ? "date_range * INTERVAL '1 day' "
+                                             : "date_range ";
     for(int pass = 1; pass <= 2; pass++) {
         Qry.CreateVariable("arx_trip_date_range", otDate,  interval.second+ARX_TRIP_DATE_RANGE());
         ostringstream sql;

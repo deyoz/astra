@@ -9,7 +9,23 @@
 #include "hooked_session.h"
 #include <optional>
 
-namespace  PG_ARX {
+namespace ARX {
+
+bool WRITE_PG();
+bool WRITE_ORA();
+bool READ_PG();
+bool READ_ORA();
+bool CLEANUP_PG();
+
+}//namespace ARX
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+bool arx_daily_pg(TDateTime utcdate);
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+namespace PG_ARX {
 int ARX_DAYS();
 int ARX_DURATION();
 int ARX_SLEEP();
@@ -139,5 +155,6 @@ public:
     virtual std::string TraceCaption();
 };
 
-}
+}//namespace PG_ARX
+
 #endif // ARX_DAILY_PG_H

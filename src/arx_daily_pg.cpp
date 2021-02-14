@@ -48,6 +48,50 @@ using namespace std;
 bool deleteEtickets(int point_id);
 bool deleteEmdocs(int point_id);
 
+namespace ARX {
+
+bool WRITE_PG()
+{
+    static bool res = PgOra::Config("SP_PG_GROUP_ARX").writePostgres();
+    return res;
+}
+
+bool WRITE_ORA()
+{
+    static bool res = PgOra::Config("SP_PG_GROUP_ARX").writeOracle();
+    return res;
+}
+
+bool READ_PG()
+{
+    static bool res = PgOra::Config("SP_PG_GROUP_ARX").readPostgres();
+    return res;
+}
+
+bool READ_ORA()
+{
+    static bool res = PgOra::Config("SP_PG_GROUP_ARX").readOracle();
+    return res;
+}
+
+bool CLEANUP_PG()
+{
+    // Если читаем из PG, то пусть и PG-архиватор занимается удалением данных
+    // из неархивных таблиц
+    return READ_PG();
+}
+
+}//namespace ARX
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+bool arx_daily_pg(TDateTime utcdate)
+{
+    return PG_ARX::arx_daily(DateTimeToBoost(utcdate));
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
 namespace  PG_ARX
 {
 //by move_id
@@ -2597,7 +2641,6 @@ bool arx_daily(const Dates::DateTime_t& utcdate)
     prior_exec=time(NULL);
     return true;
 }
-
 
 #if HAVE_CONFIG_H
 #include <config.h>

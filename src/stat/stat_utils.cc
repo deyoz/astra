@@ -245,8 +245,8 @@ void ArxGetFltCBoxList(TScreenState scr, TDateTime first_date, TDateTime last_da
             if (pass==2) {
                 sql << "FROM arx_points, (SELECT part_key, move_id FROM move_arx_ext \n"
                        "WHERE part_key >= :arx_trip_date_range ";
-                PgOra::ARX_READ_PG() ? sql << " AND part_key <= (:LastDate + date_range * INTERVAL '1 day')) arx_ext \n"
-                                      : sql << " AND part_key <= (:LastDate + date_range)) arx_ext \n";
+                ARX::READ_PG() ? sql << " AND part_key <= (:LastDate + date_range * INTERVAL '1 day')) arx_ext \n"
+                               : sql << " AND part_key <= (:LastDate + date_range)) arx_ext \n";
                 sql<< "WHERE arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND \n"
                       "      arx_points.part_key=arx_ext.part_key AND arx_points.move_id=arx_ext.move_id \n";
             }
@@ -379,7 +379,7 @@ void GetMinMaxPartKey(const string &where, TDateTime &min_part_key, TDateTime &m
 {
   DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"));
   Qry.Clear();
-  if(PgOra::ARX_READ_PG()) {
+  if(ARX::READ_PG()) {
     Qry.SQLText="SELECT DATE_TRUNC('day',MIN(part_key)) AS min_part_key FROM arx_points";
   } else {
     Qry.SQLText="SELECT TRUNC(MIN(part_key)) AS min_part_key FROM arx_points";

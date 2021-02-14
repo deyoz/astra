@@ -15,12 +15,6 @@
 
 namespace PgOra
 {
-    bool ARX_READ_PG()
-    {
-        static int always=-1;
-        return getVariableStaticBool("ARX_READ_PG", &always, 0);
-    }
-
     Config::Config(const std::string& tcl)
         : mCfg((tcl == PgOra_config_OnlyPGparam()) ? 3 : readIntFromTcl(tcl, 0))
     {
@@ -121,11 +115,11 @@ namespace PgOra
             const std::string& group = getGroup(objectName);
             if (group == "SP_PG_GROUP_ARX")
             {
-                if(ARX_READ_PG()) {
+                if(Config(group).readPostgres()) {
                     return *get_arx_pg_ro_sess(STDLOG);
+                } else {
+                    return *get_main_ora_sess(STDLOG);
                 }
-                else return *get_main_ora_sess(STDLOG);
-
             }
             return *get_main_pg_ro_sess(STDLOG);
         }

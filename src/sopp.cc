@@ -254,7 +254,7 @@ std::string arx_points_SOPP_SQL()
     "  FROM arx_points, \n"
     "       (SELECT part_key, move_id FROM move_arx_ext \n"
     "        WHERE part_key >= :arx_trip_date_range AND part_key <= :next_date + "
-    << (PgOra::ARX_READ_PG() ? "(date_range * INTERVAL '1' day) " : "date_range ")
+    << (ARX::READ_PG() ? "(date_range * INTERVAL '1' day) " : "date_range ")
     << ") arx_ext \n"
     "   WHERE arx_points.part_key=arx_ext.part_key AND arx_points.move_id=arx_ext.move_id AND \n"
     "         pr_del <> -1 \n"
@@ -291,7 +291,7 @@ std::string arx_points_ISG_SQL()
     "  FROM arx_points, \n"
     "       (SELECT part_key, move_id FROM move_arx_ext \n"
     "        WHERE part_key >= :arx_trip_date_range AND part_key <= :next_date"
-    << (PgOra::ARX_READ_PG() ? "(date_range * INTERVAL '1' day) " : "date_range ")
+    << (ARX::READ_PG() ? "(date_range * INTERVAL '1' day) " : "date_range ")
     << ") arx_ext \n"
     "   WHERE arx_points.part_key=arx_ext.part_key AND arx_points.move_id=arx_ext.move_id AND \n"
     "         pr_del <> -1 \n"

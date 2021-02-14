@@ -1820,7 +1820,7 @@ void ArxPaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, 
                " arx_pax_grp.bag_refuse \n"
                "FROM arx_pax_grp , arx_pax , arx_points \n";
         if (pass==2) {
-            if(PgOra::ARX_READ_PG()) {
+            if(ARX::READ_PG()) {
                 sql << " , (SELECT part_key, move_id FROM move_arx_ext \n"
                        "    WHERE part_key >= :arx_trip_date_range AND part_key <= (:LastDate+ date_range * INTERVAL '1 day')) arx_ext \n";
             } else {
