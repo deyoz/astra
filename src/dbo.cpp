@@ -79,9 +79,6 @@ DbCpp::Session* getSession(CurrentDb db, const std::shared_ptr<MappingInfo>& map
         }
     }
     else if(db==Oracle) {session = get_main_ora_sess(STDLOG);}
-    if(session == &PgOra::getROSession("points")) {
-        LogTrace5 << " sessions equals!";
-    } else {LogTrace5 << " sessions NOT equals!";}
     return session;
 }
 
@@ -179,12 +176,6 @@ void Session::clearIgnoreErrors()
     ignoreErrors.clear();
 }
 
-//Session& Session::getInstance()
-//{
-//    static Session instance{};
-//    return instance;
-//}
-
 std::string Session::dump(const string &db, const std::string &tableName, const vector<std::string> &tokens,
                           const std::string &query)
 {
@@ -202,7 +193,8 @@ std::string Session::dump(const string &db, const std::string &tableName, const 
     DbCpp::Session* session = nullptr;
     std::string DB;
     if(StrUtils::ToLower(db) == "pg") {
-        session = get_arx_pg_ro_sess(STDLOG);
+        session = (PgOra::getGroup(tableName)=="SP_PG_GROUP_ARX") ? get_arx_pg_rw_sess(STDLOG)
+                                                                  : get_main_pg_rw_sess(STDLOG);
         DB = "POSTGRES";
     } else {
         DB = "ORACLE";

@@ -453,12 +453,8 @@ private:
 
 class Session
 {
-//private:
-//    Session() {}
-
 public:
     Session(dbo::CurrentDb db = dbo::Config): _currentDb(db) {}
-    //static Session& getInstance();
     Session(const Session &s) = delete;
     Session& operator=(const Session &s) = delete;
     Session(Session &&) = delete;

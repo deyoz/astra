@@ -737,6 +737,7 @@ void TTripRoute::GetRoute(TDateTime part_key,
                           TTripRouteType2 route_type2,
                           TQuery& Qry)
 {
+    tst();
   clear();
   ostringstream sql;
 
@@ -889,6 +890,7 @@ bool TTripRoute::GetArxRoute(TDateTime part_key,
                           TTripRouteType1 route_type1,
                           TTripRouteType2 route_type2)
 {
+    tst();
     dbo::Session session;
     std::optional<dbo::Arx_Points> arx_point = session.query<dbo::Arx_Points>()
             .where(" part_key=:part_key AND point_id=:point_id AND pr_del>=0")

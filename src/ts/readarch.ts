@@ -162,7 +162,7 @@ $(RUN_TRFER_PAX_STAT $(date_format %d.%m.%Y -160) $(date_format %d.%m.%Y +21))
     </grd>
     <form_data>
       <variables>
-        <print_date>$(date_format %d.%m.%Y) $(date_format %H:%M:%S) (МОВ)</print_date>
+        <print_date>... (МОВ)</print_date>
         <print_oper>PIKE</print_oper>
         <print_term>МОВРОМ</print_term>
         <use_seances>0</use_seances>
@@ -500,7 +500,7 @@ $(PAX_LIST_RUN  $(get point_dep_UT_298) $(date_format %d.%m.%Y))
     </paxList>
     <form_data>
       <variables>
-        <print_date>$(date_format %d.%m.%Y) $(date_format %H:%M:%S) (МОВ)</print_date>
+        <print_date>... (МОВ)</print_date>
         <print_oper>PIKE</print_oper>
         <print_term>МОВРОМ</print_term>
         <use_seances>0</use_seances>
@@ -615,7 +615,7 @@ $(RUN_ACTUAL_DEPARTURED_STAT $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y 
     </grd>
     <form_data>
       <variables>
-        <print_date>$(date_format %d.%m.%Y) $(date_format %H:%M:%S) (МОВ)</print_date>
+        <print_date>... (МОВ)</print_date>
         <print_oper>PIKE</print_oper>
         <print_term>МОВРОМ</print_term>
         <use_seances>0</use_seances>
@@ -758,7 +758,7 @@ $(RUN_SERVICES_STAT $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21))
     </grd>
     <form_data>
       <variables>
-        <print_date>$(date_format %d.%m.%Y) $(date_format %H:%M:%S) (МОВ)</print_date>
+        <print_date>... (МОВ)</print_date>
         <print_oper>PIKE</print_oper>
         <print_term>МОВРОМ</print_term>
         <use_seances>0</use_seances>
@@ -1167,7 +1167,7 @@ $(RUN_PAX_SRC_STAT $(date_format %d.%m.%Y -10) $(date_format %d.%m.%Y +10)  OZ)
     </paxList>
     <form_data>
       <variables>
-        <print_date>$(date_format %d.%m.%Y) $(date_format %H:%M:%S) (МОВ)</print_date>
+        <print_date>... (МОВ)</print_date>
         <print_oper>PIKE</print_oper>
         <print_term>МОВРОМ</print_term>
         <use_seances>0</use_seances>
@@ -1227,7 +1227,7 @@ $(RUN_FLT_TASK_LOG $(get point_dep) $(date_format %d.%m.%Y +1))
 </form>
     <form_data>
       <variables>
-        <print_date>$(date_format %d.%m.%Y) $(date_format %H:%M:%S) (МОВ)</print_date>
+        <print_date>... (МОВ)</print_date>
         <print_oper>PIKE</print_oper>
         <print_term>МОВРОМ</print_term>
         <use_seances>0</use_seances>
@@ -1249,7 +1249,7 @@ $(RUN_FLT_TASK_LOG $(get point_dep) $(date_format %d.%m.%Y +1))
       <rows>
         <row>
           <point_id>$(get point_dep)</point_id>
-          <time>$(date_format %d.%m.%Y) $(date_format %H:%M:)...</time>
+          <time>...</time>
           <msg>Задача EMD_REFRESH &lt;CloseCheckIn 0&gt; создана; План. вр.: $(date_format %d.%m.%y +1) 06:35:00 (UTC)</msg>
           <ev_order>...</ev_order>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
@@ -1304,7 +1304,7 @@ $(RUN_FLT_LOG $(get point_dep) $(date_format %d.%m.%Y +1))
 </form>
     <form_data>
       <variables>
-        <print_date>$(date_format %d.%m.%Y) $(date_format %H:%M:%S) (МОВ)</print_date>
+        <print_date>... (МОВ)</print_date>
         <print_oper>PIKE</print_oper>
         <print_term>МОВРОМ</print_term>
         <use_seances>0</use_seances>
@@ -1326,7 +1326,7 @@ $(RUN_FLT_LOG $(get point_dep) $(date_format %d.%m.%Y +1))
       <rows>
         <row>
           <point_id>$(get point_dep)</point_id>
-          <time>$(date_format %d.%m.%Y) $(date_format %H:%M:)...</time>
+          <time>...</time>
           <msg>На рейсе запрещена web-регистрация.</msg>
           <ev_order>...</ev_order>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
@@ -1335,7 +1335,7 @@ $(RUN_FLT_LOG $(get point_dep) $(date_format %d.%m.%Y +1))
         </row>
         <row>
           <point_id>$(get point_dep)</point_id>
-          <time>$(date_format %d.%m.%Y) $(date_format %H:%M:)...</time>
+          <time>...</time>
           <msg>Этап 'Подготовка к регистрации': план. время 00:15 $(date_format %d.%m.%y +1) (UTC)</msg>
           <ev_order>...</ev_order>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
@@ -1344,7 +1344,7 @@ $(RUN_FLT_LOG $(get point_dep) $(date_format %d.%m.%Y +1))
         </row>
         <row>
           <point_id>$(get point_dep)</point_id>
-          <time>$(date_format %d.%m.%Y) $(date_format %H:%M:)...</time>
+          <time>...</time>
           <msg>Этап 'Открытие регистрации': план. время 04:14 $(date_format %d.%m.%y +1) (UTC)</msg>
           <ev_order>...</ev_order>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
@@ -1353,7 +1353,7 @@ $(RUN_FLT_LOG $(get point_dep) $(date_format %d.%m.%Y +1))
         </row>
         <row>
           <point_id>$(get point_dep)</point_id>
-          <time>$(date_format %d.%m.%Y) $(date_format %H:%M:)...</time>
+          <time>...</time>
           <msg>Этап 'Открытие web-регистрации': план. время 07:15 $(date_format %d.%m.%y) (UTC)</msg>
           <ev_order>...</ev_order>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
@@ -1362,7 +1362,7 @@ $(RUN_FLT_LOG $(get point_dep) $(date_format %d.%m.%Y +1))
         </row>
         <row>
           <point_id>$(get point_dep)</point_id>
-          <time>$(date_format %d.%m.%Y) $(date_format %H:%M:)...</time>
+          <time>...</time>
           <msg>Этап 'Открытие kiosk-регистрации': план. время 07:15 $(date_format %d.%m.%y) (UTC)</msg>
           <ev_order>...</ev_order>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
@@ -1371,7 +1371,7 @@ $(RUN_FLT_LOG $(get point_dep) $(date_format %d.%m.%Y +1))
         </row>
         <row>
           <point_id>$(get point_dep)</point_id>
-          <time>$(date_format %d.%m.%Y) $(date_format %H:%M:)...</time>
+          <time>...</time>
           <msg>Этап 'Закрытие регистрации': план. время 06:35 $(date_format %d.%m.%y +1) (UTC)</msg>
           <ev_order>...</ev_order>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
@@ -1380,7 +1380,7 @@ $(RUN_FLT_LOG $(get point_dep) $(date_format %d.%m.%Y +1))
         </row>
         <row>
           <point_id>$(get point_dep)</point_id>
-          <time>$(date_format %d.%m.%Y) $(date_format %H:%M:)...</time>
+          <time>...</time>
           <msg>Этап 'Запрет отмены web-регистрации': план. время 06:25 $(date_format %d.%m.%y +1) (UTC)</msg>
           <ev_order>...</ev_order>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
@@ -1389,7 +1389,7 @@ $(RUN_FLT_LOG $(get point_dep) $(date_format %d.%m.%Y +1))
         </row>
         <row>
           <point_id>$(get point_dep)</point_id>
-          <time>$(date_format %d.%m.%Y) $(date_format %H:%M:)...</time>
+          <time>...</time>
           <msg>Этап 'Закрытие web-регистрации': план. время 04:15 $(date_format %d.%m.%y +1) (UTC)</msg>
           <ev_order>...</ev_order>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
@@ -1398,7 +1398,7 @@ $(RUN_FLT_LOG $(get point_dep) $(date_format %d.%m.%Y +1))
         </row>
         <row>
           <point_id>$(get point_dep)</point_id>
-          <time>$(date_format %d.%m.%Y) $(date_format %H:%M:)...</time>
+          <time>...</time>
           <msg>Этап 'Закрытие kiosk-регистрации': план. время 05:15 $(date_format %d.%m.%y +1) (UTC)</msg>
           <ev_order>...</ev_order>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
@@ -1407,7 +1407,7 @@ $(RUN_FLT_LOG $(get point_dep) $(date_format %d.%m.%Y +1))
         </row>
         <row>
           <point_id>$(get point_dep)</point_id>
-          <time>$(date_format %d.%m.%Y) $(date_format %H:%M:)...</time>
+          <time>...</time>
           <msg>Этап 'Готовность ВС к посадке': план. время 06:30 $(date_format %d.%m.%y +1) (UTC)</msg>
           <ev_order>...</ev_order>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
@@ -1416,7 +1416,7 @@ $(RUN_FLT_LOG $(get point_dep) $(date_format %d.%m.%Y +1))
         </row>
         <row>
           <point_id>$(get point_dep)</point_id>
-          <time>$(date_format %d.%m.%Y) $(date_format %H:%M:)...</time>
+          <time>...</time>
           <msg>Этап 'Окончание посадки (оформление докум.)': план. время 06:50 $(date_format %d.%m.%y +1) (UTC)</msg>
           <ev_order>...</ev_order>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
@@ -1425,7 +1425,7 @@ $(RUN_FLT_LOG $(get point_dep) $(date_format %d.%m.%Y +1))
         </row>
         <row>
           <point_id>$(get point_dep)</point_id>
-          <time>$(date_format %d.%m.%Y) $(date_format %H:%M:)...</time>
+          <time>...</time>
           <msg>Этап 'Откат трапа': план. время 07:00 $(date_format %d.%m.%y +1) (UTC)</msg>
           <ev_order>...</ev_order>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
@@ -1434,7 +1434,7 @@ $(RUN_FLT_LOG $(get point_dep) $(date_format %d.%m.%Y +1))
         </row>
         <row>
           <point_id>$(get point_dep)</point_id>
-          <time>$(date_format %d.%m.%Y) $(date_format %H:%M:)...</time>
+          <time>...</time>
           <msg>Назначение весов пассажиров на рейс: </msg>
           <ev_order>...</ev_order>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
@@ -1443,7 +1443,7 @@ $(RUN_FLT_LOG $(get point_dep) $(date_format %d.%m.%Y +1))
         </row>
         <row>
           <point_id>$(get point_dep)</point_id>
-          <time>$(date_format %d.%m.%Y) $(date_format %H:%M:)...</time>
+          <time>...</time>
           <msg>Сбор статистики по рейсу</msg>
           <ev_order>...</ev_order>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
@@ -1452,7 +1452,7 @@ $(RUN_FLT_LOG $(get point_dep) $(date_format %d.%m.%Y +1))
         </row>
         <row>
           <point_id>$(get point_dep)</point_id>
-          <time>$(date_format %d.%m.%Y) $(date_format %H:%M:)...</time>
+          <time>...</time>
           <msg>Рейс перемещен в архив</msg>
           <ev_order>...</ev_order>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>

@@ -81,6 +81,39 @@ bool CLEANUP_PG()
     return READ_PG();
 }
 
+int ARX_DAYS()
+{
+    static int VAR=NoExists;
+    if (VAR==NoExists)
+        VAR=getTCLParam("ARX_DAYS",15,NoExists,NoExists);
+    return VAR;
+}
+
+int ARX_DURATION()
+{
+    static int VAR=NoExists;
+    if (VAR==NoExists)
+        VAR=getTCLParam("ARX_DURATION",1,60,15);
+    return VAR;
+};
+
+int ARX_SLEEP()
+{
+    static int VAR=NoExists;
+    if (VAR==NoExists)
+        VAR=getTCLParam("ARX_SLEEP",1,NoExists,60);
+    return VAR;
+};
+
+int ARX_MAX_ROWS()
+{
+    static int VAR=NoExists;
+    if (VAR==NoExists)
+        VAR=getTCLParam("ARX_MAX_ROWS",100,NoExists,1000);
+    return VAR;
+};
+
+
 }//namespace ARX
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -640,37 +673,6 @@ std::optional<std::string> next_airp(Dates::DateTime_t part_key, int first_point
     return airp;
 }
 
-int ARX_DAYS()
-{
-    static int VAR=NoExists;
-    if (VAR==NoExists)
-        VAR=getTCLParam("ARX_DAYS",15,NoExists,NoExists);
-    return VAR;
-}
-
-int ARX_DURATION()
-{
-    static int VAR=NoExists;
-    if (VAR==NoExists)
-        VAR=getTCLParam("ARX_DURATION",1,60,15);
-    return VAR;
-};
-
-int ARX_SLEEP()
-{
-    static int VAR=NoExists;
-    if (VAR==NoExists)
-        VAR=getTCLParam("ARX_SLEEP",1,NoExists,60);
-    return VAR;
-};
-
-int ARX_MAX_ROWS()
-{
-    static int VAR=NoExists;
-    if (VAR==NoExists)
-        VAR=getTCLParam("ARX_MAX_ROWS",100,NoExists,1000);
-    return VAR;
-};
 
 //============================= TArxMove =============================
 
@@ -705,7 +707,7 @@ bool TArxMoveFlt::GetPartKey(const MoveId_t &move_id, Dates::DateTime_t &part_ke
     dbo::Session session;
     std::vector<dbo::Points> points = session.query<dbo::Points>().where(" MOVE_ID = :move_id ORDER BY point_num ")
             .setBind({{":move_id", move_id.get()}});
-
+    LogTrace5 << " points size : " << points.size();
     Dates::DateTime_t first_date;
     Dates::DateTime_t last_date;
     bool deleted=true;
@@ -713,7 +715,8 @@ bool TArxMoveFlt::GetPartKey(const MoveId_t &move_id, Dates::DateTime_t &part_ke
     for(size_t i = 0; i<points.size(); i++)
     {
         dbo::Points & p = points[i];
-        if (p.pr_del!= -1) {
+        if (p.pr_del != -1) {
+            tst();
             deleted=false;
         }
         std::vector<Dates::DateTime_t> temp;
@@ -724,17 +727,24 @@ bool TArxMoveFlt::GetPartKey(const MoveId_t &move_id, Dates::DateTime_t &part_ke
         }
         auto fdates = algo::filter(temp, dbo::isNotNull<Dates::DateTime_t>);
         for(const auto & t : fdates) LogTrace(TRACE5) << " FILTER: " << t;
-        first_date = (*std::min_element(fdates.begin(), fdates.end()));
-        last_date = (*std::max_element(fdates.begin(), fdates.end()));
+        if(auto minIt = std::min_element(fdates.begin(), fdates.end()); minIt != fdates.end()) {
+            first_date = *minIt;
+        }
+        if(auto maxIt = std::max_element(fdates.begin(), fdates.end()); maxIt != fdates.end()) {
+            last_date = *maxIt;
+        }
         LogTrace(TRACE5) << " myfirst_date: " << first_date << " mylast_date: " << last_date;
     }
 
     if (!deleted)
     {
+        tst();
         if (first_date!=Dates::not_a_date_time && last_date!=Dates::not_a_date_time)
         {
-            if (last_date < utcdate - Dates::days(ARX_DAYS()))
+            tst();
+            if (last_date < utcdate - Dates::days(ARX::ARX_DAYS()))
             {
+                tst();
                 //переместить в архив
                 part_key = last_date;
                 date_range = BoostToDateTime(last_date) - BoostToDateTime(first_date);
@@ -744,9 +754,11 @@ bool TArxMoveFlt::GetPartKey(const MoveId_t &move_id, Dates::DateTime_t &part_ke
     }
     else
     {
+        tst();
         //полностью удаленный рейс
-        if (last_date == Dates::not_a_date_time || last_date < utcdate-Dates::days(ARX_DAYS()))
+        if (last_date == Dates::not_a_date_time || last_date < utcdate-Dates::days(ARX::ARX_DAYS()))
         {
+            tst();
             //удалить
             part_key = Dates::not_a_date_time;
             date_range = NoExists;
@@ -774,6 +786,7 @@ void TArxMoveFlt::LockAndCollectStat(const MoveId_t & move_id)
 
 void TArxMoveFlt::readMoveIds(size_t max_rows)
 {
+    LogTrace(TRACE5) << __func__;
     int move_id;
     Dates::DateTime_t part_key;
     double date_range;
@@ -785,7 +798,7 @@ void TArxMoveFlt::readMoveIds(size_t max_rows)
                          PgOra::getROSession("points"));
     cur.stb()
        .def(move_id)
-       .bind(":arx_date", utcdate-Dates::days(ARX_DAYS()))
+       .bind(":arx_date", utcdate-Dates::days(ARX::ARX_DAYS()))
        .exec();
 
     while(!cur.fen() && (move_ids.size() < max_rows)) {
@@ -798,6 +811,7 @@ void TArxMoveFlt::readMoveIds(size_t max_rows)
 
 bool TArxMoveFlt::Next(size_t max_rows, int duration)
 {
+    LogTrace(TRACE5) << __func__;
     readMoveIds(max_rows);
     while (!move_ids.empty())
     {
@@ -816,7 +830,10 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
                 int date_range_int = 0;
                 if (date_range != NoExists)
                 {
-                    if (date_range<0) throw Exception("date_range=%f", date_range);
+                    if (date_range<0) {
+                        LogTrace(TRACE5) << " date_range < 0 :" << date_range;
+                        throw Exception("date_range=%f", date_range);
+                    }
                     if (date_range<1)
                     {
                         LogTrace(TRACE5) << " date_range < 1 :" << date_range;
@@ -1992,7 +2009,7 @@ bool TArxMoveNoFlt::Next(size_t max_rows, int duration)
     if(step <= 0) {
         step = 1;
     }
-    Dates::DateTime_t arx_date = utcdate-Dates::days(ARX_DAYS());
+    Dates::DateTime_t arx_date = utcdate-Dates::days(ARX::ARX_DAYS());
     move_noflt(arx_date, max_rows, duration, step);
     ASTRA::commitAndCallCommitHooks();
     proc_count++;
@@ -2093,7 +2110,7 @@ void arx_tlg_trip(const PointId_t& point_id)
 
 bool TArxTlgTrips::Next(size_t max_rows, int duration)
 {
-    auto points = getTlgTripPoints(utcdate-Dates::days(ARX_DAYS()), max_rows);
+    auto points = getTlgTripPoints(utcdate-Dates::days(ARX::ARX_DAYS()), max_rows);
 
     while (!points.empty())
     {
@@ -2167,7 +2184,7 @@ void move_typeb_in(int tlg_id)
 
 bool TArxTypeBIn::Next(size_t max_rows, int duration)
 {
-    std::map<int, Dates::DateTime_t> tlg_ids = getTlgIds(utcdate - Dates::days(ARX_DAYS()), max_rows);
+    std::map<int, Dates::DateTime_t> tlg_ids = getTlgIds(utcdate - Dates::days(ARX::ARX_DAYS()), max_rows);
     while (!tlg_ids.empty())
     {
         int tlg_id = tlg_ids.begin()->first;
@@ -2331,7 +2348,7 @@ bool TArxNormsRatesEtc::Next(size_t max_rows, int duration)
     if(step <= 0) {
         step = 1;
     }
-    Dates::DateTime_t arx_date = utcdate-Dates::days(ARX_DAYS());
+    Dates::DateTime_t arx_date = utcdate-Dates::days(ARX::ARX_DAYS());
     norms_rates_etc(arx_date, max_rows, duration, step);
     ASTRA::commitAndCallCommitHooks();
     proc_count++;
@@ -2551,7 +2568,7 @@ bool TArxTlgsFilesEtc::Next(size_t max_rows, int duration)
     if(step <= 0) {
         step = 1;
     }
-    Dates::DateTime_t arx_date = utcdate - Dates::days(ARX_DAYS());
+    Dates::DateTime_t arx_date = utcdate - Dates::days(ARX::ARX_DAYS());
     tlgs_files_etc(arx_date, max_rows, duration, step);
     ASTRA::commitAndCallCommitHooks();
     proc_count++;
@@ -2586,11 +2603,11 @@ bool arx_daily(const Dates::DateTime_t& utcdate)
     static int step = 1;
     static std::unique_ptr<TArxMove> arxMove = nullptr;
 
-    if (time(NULL)-prior_exec<ARX_SLEEP()) return false;
+    if (time(NULL)-prior_exec<ARX::ARX_SLEEP()) return false;
 
     dbo::initStructures();
 
-    time_t time_finish = time(NULL)+ARX_DURATION();
+    time_t time_finish = time(NULL)+ARX::ARX_DURATION();
 
     if (prior_utcdate != utcdate)
     {
@@ -2623,7 +2640,7 @@ bool arx_daily(const Dates::DateTime_t& utcdate)
                     prior_exec = time(NULL);
                     return false;
                 };
-            } while(arxMove->Next(ARX_MAX_ROWS(),duration));
+            } while(arxMove->Next(ARX::ARX_MAX_ROWS(),duration));
 
             ProgTrace(TRACE5,"arx_daily: %d iterations processed", arxMove->Processed());
         }
@@ -2659,7 +2676,7 @@ bool test_arx_daily(const Dates::DateTime_t& utcdate, int step)
                      << " started";
 
     arxMove->BeforeProc();
-    time_t time_finish = time(NULL)+ARX_DURATION();
+    time_t time_finish = time(NULL)+ARX::ARX_DURATION();
     int duration = 0;
     do{
         duration = time_finish - time(NULL);
@@ -2671,7 +2688,7 @@ bool test_arx_daily(const Dates::DateTime_t& utcdate, int step)
             return false;
         };
     }
-    while(arxMove->Next(ARX_MAX_ROWS(), duration));
+    while(arxMove->Next(ARX::ARX_MAX_ROWS(), duration));
     LogTrace(TRACE5) << "arx_daily_pg: "
                      << arxMove->TraceCaption()
                      << " finished";
