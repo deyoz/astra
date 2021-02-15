@@ -353,7 +353,8 @@ bool TArxMoveFlt::Next(int max_rows, int duration)
           else Qry->SetVariable("date_range",FNull);
           LockAndCollectStat(move_id);
           Qry->Execute();
-          OraSession.Commit();
+          tst();
+          ASTRA::commitAndCallCommitHooks();
           proc_count++;
         }
         catch(...)
@@ -482,7 +483,7 @@ bool TArxTypeBIn::Next(int max_rows, int duration)
           //в архив
           Qry->SetVariable("tlg_id",tlg_id);
           Qry->Execute();
-          OraSession.Commit();
+          ASTRA::commitAndCallCommitHooks();
           proc_count++;
         }
         catch(...)
@@ -581,7 +582,7 @@ bool TArxTlgTrips::Next(int max_rows, int duration)
         //в архив
         Qry->SetVariable("point_id",point_id);
         Qry->Execute();
-        OraSession.Commit();
+        ASTRA::commitAndCallCommitHooks();
         proc_count++;
       }
       catch(...)
@@ -642,7 +643,7 @@ bool TArxMoveNoFlt::Next(int max_rows, int duration)
   Qry->SetVariable("max_rows",max_rows);
   Qry->SetVariable("time_duration",duration);
   Qry->Execute();
-  OraSession.Commit();
+  ASTRA::commitAndCallCommitHooks();
   proc_count++;
   step=Qry->GetVariableAsInteger("step");
   return step>0;
@@ -785,5 +786,3 @@ bool arx_daily(TDateTime utcdate)
   prior_exec=time(NULL);
   return true;
 };
-
-

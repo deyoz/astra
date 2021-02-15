@@ -133,7 +133,7 @@ private:
 
 std::string url_encode(const std::string &value);
 
-std::string translit(const std::string& str);
+std::string translit(const std::string& str, bool one_to_one=false);
 
 } // namespace StrUtils
 
@@ -201,11 +201,11 @@ std::vector<std::string> str_parts_utf8(const std::string& str, size_t psz);
 
 enum class KeepEmptyTokens { False, True };
 
-template <typename T, typename C> auto push_back_or_insert(int  , C& c, T&& elem) -> decltype(c.push_back(elem)) { return c.push_back(std::forward<T>(elem)); }
-template <typename T, typename C> auto push_back_or_insert(long , C& c, T&& elem) { return c.insert(std::forward<T>(elem)); }
+template <typename T, typename C> auto push_back_or_insert(int,  C& c, T&& elem) -> decltype(c.emplace_back(elem)) { return c.emplace_back(std::forward<T>(elem)); }
+template <typename T, typename C> auto push_back_or_insert(long, C& c, T&& elem) { return c.emplace(std::forward<T>(elem)); }
 
 template <typename T, typename SP>
-T & split_string(T & res, const std::string &s, SP c, KeepEmptyTokens allow_empty_tokens = KeepEmptyTokens::True)
+T & split_string(T & res, std::string_view s, SP c, KeepEmptyTokens allow_empty_tokens = KeepEmptyTokens::True)
 {
     res.clear();
     auto fill_with_empty = [&res,allow_empty_tokens](){ if(allow_empty_tokens == KeepEmptyTokens::True) push_back_or_insert(0, res, std::string()); };
@@ -227,18 +227,18 @@ T & split_string(T & res, const std::string &s, SP c, KeepEmptyTokens allow_empt
     return res;
 }
 template <template <typename...> class OutputContainer = std::vector, typename SP>
-[[nodiscard]] auto split_string(const std::string &s, SP c)
+[[nodiscard]] auto split_string(std::string_view s, SP c)
 {
     OutputContainer<std::string> res;
-    split_string(res,s,c,KeepEmptyTokens::False);
+    split_string<OutputContainer<std::string>>(res, s, c, KeepEmptyTokens::False);
     return res;
 }
 
 template <typename T, typename SP>
-[[nodiscard]] T split_string(const std::string &s, SP c, KeepEmptyTokens allow_empty_tokens = KeepEmptyTokens::True)
+[[nodiscard]] T split_string(std::string_view s, SP c, KeepEmptyTokens allow_empty_tokens = KeepEmptyTokens::True)
 {
     T res;
-    split_string<T>(res,s,c,allow_empty_tokens);
+    split_string<T>(res, s, c, allow_empty_tokens);
     return res;
 }
 
@@ -410,16 +410,19 @@ char *safe_strcpy(char *dest, size_t dest_size, const char *src);
 inline char *safe_strcpy(char *dest, size_t dest_size, const std::string &src)
   { return safe_strcpy(dest, dest_size, src.c_str()); }
 
-//Same as upper,but with 2 argumets
 template <size_t N> void safe_strcpy(char (&dst)[N], const std::string &src, size_t up_to = std::string::npos)
 {
     if(N>0) { dst[ src.copy(dst, std::min(up_to, N-1)) ] = '\0'; }
 }
 
-//Same as upper,but with 2 argumets
 template <size_t N,size_t M> void safe_strcpy(char (&dst)[N], const char (&src)[M])
 {
-    if(N>0 && M>0) { auto l=std::min(N,M)-1;   strncpy(dst,src,l); dst[l]='\0'; }
+    if constexpr (M > N) {
+        memcpy(dst, src, N);
+        dst[N - 1] = '\0';
+    } else {
+        memcpy(dst, src, M);
+    }
 }
 
 #endif /* __cplusplus */

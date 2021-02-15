@@ -5,6 +5,7 @@
 #include <serverlib/EdiHelpManager.h>
 #include <serverlib/str_utils.h>
 #include <serverlib/cursctl.h>
+#include <serverlib/dbcpp_session.h>
 #include <libtlg/tlg_outbox.h>
 #include <jxtlib/xml_tools.h>
 #include <jxtlib/utf2cp866.h>
@@ -82,16 +83,15 @@ namespace xp_testing { namespace tscript {
         {
             LogTrace(TRACE3) << __func__ << " tscript ************* savepoint tscript";
             make_curs("savepoint tscript").exec();
-            get_pg_curs("savepoint tscript").exec();
             TsCallbacks::beforeTest();
-            PgCpp::commit();
         }
 
         virtual void afterTest()
         {
             LogTrace(TRACE3) << __func__ << " tscript ************* savepoint tscript";
             make_curs("rollback to savepoint tscript").exec();
-            get_pg_curs("rollback to savepoint tscript").exec();
+            DbCpp::mainPgManagedSession(STDLOG).rollbackInTestMode();
+            PgCpp::rollbackInTestMode();
             if (nosir_mode()) {
                 rollbackInTestMode();
                 // this commit makes SP_XP_TESTING to prevent core dump in nosir mode

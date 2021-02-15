@@ -1,151 +1,16 @@
 #pragma once
 
-#include <string.h>
-#include <tuple>
-#include <type_traits>
 #include <array>
 
+#include "db_row.h"
 #include "cursctl.h"
-#include "rip.h"
-#include "freq.h"
 
-namespace OciCpp
-{
+namespace OciCpp {
 
-class BaseRow
-{
-public:
-    virtual ~BaseRow() {}
-
-    virtual void def(CursCtl&) = 0;
-};
-
-namespace details
-{
-
-template<typename T, int N>
-struct TypeForEnum
-{
-    typedef T type;
-};
-
-template<typename T>
-struct TypeForEnum<T, 1>
-{
-    typedef int type;
-};
-
-
-template<typename T>
-struct RowFieldTraits
-{
-    typedef typename TypeForEnum<T, std::is_enum<T>::value >::type placeholder_t;
-};
-
-template<typename trait_t, typename base_t>
-struct RowFieldTraits<rip::BaseParameter<trait_t, base_t> >
-{
-    typedef base_t placeholder_t;
-};
-
-template<typename T>
-struct RowFieldTraits<boost::optional<T> >
-{
-    typedef typename RowFieldTraits<T>::placeholder_t placeholder_t;
-};
-
-template<>
-struct RowFieldTraits<Freq>
-{
-    typedef std::string placeholder_t;
-};
-
-struct no_type
-{
-};
-
-template<typename T>
-struct DefHelper
-{
-    template<typename placeholder_t>
-    static void def(CursCtl& cr, placeholder_t& val, short*) {
-        cr.def(val);
-    }
-};
-
-template<>
-struct DefHelper< no_type >
-{
-    template<typename placeholder_t>
-    static void def(CursCtl& cr, placeholder_t& val, short*) {}
-};
-
-template<typename T>
-struct DefHelper< boost::optional<T> >
-{
-    template<typename placeholder_t>
-    static void def(CursCtl& cr, placeholder_t& val, short* ind) {
-        cr.idef(val, ind);
-    }
-};
-
-template<typename T>
-struct GetHelper
-{
-    template<typename placeholder_t>
-    static T get(const placeholder_t& val, short) {
-        return T(val);
-    }
-};
-
-template<>
-struct GetHelper<no_type>
-{};
-
-template<typename T>
-struct GetHelper< boost::optional<T> >
-{
-    template<typename placeholder_t>
-    static boost::optional<T> get(const placeholder_t& val, short ind) {
-        return (ind == -1) ? boost::optional<T>() : boost::optional<T>(val);
-    }
-};
-
-} // details
+using BaseRow = dbcpp::BaseRow<OciCpp::CursCtl>;
 
 template<typename... Args>
-class Row : public BaseRow
-{
-    static_assert(sizeof...(Args) > 0, "Useless OciCpp::Row usage");
-
-    template <typename T, size_t N>
-    void define(CursCtl& cr) {
-        details::DefHelper<T>::def(cr, std::get<N>(row), &indicators[N]);
-    }
-
-    template <std::size_t... Is>
-    void define_with_index(CursCtl& cr, std::index_sequence<Is...>) {
-        int d[] = { (define<Args, Is>(cr), 0)... };
-        (void)d;
-    }
-
-    typedef std::tuple<Args...> row_type;
-    std::tuple<typename details::RowFieldTraits<Args>::placeholder_t...> row;
-    short indicators[sizeof...(Args)];
-public:
-    Row() {
-        memset(indicators, 0, sizeof(indicators));
-    }
-
-    virtual void def(CursCtl& cr) {
-        define_with_index(cr, std::index_sequence_for<Args...>());
-    }
-
-    template<int N>
-    typename std::tuple_element<N, row_type>::type get() const {
-        return details::GetHelper<typename std::tuple_element<N, row_type>::type>::get(std::get<N>(row), indicators[N]);
-    }
-};
+using Row = dbcpp::Row<OciCpp::CursCtl, Args...>;
 
 template<typename... Args>
 class Rows : public BaseRow
@@ -154,7 +19,7 @@ class Rows : public BaseRow
 
     template <typename T, size_t N>
     void define(CursCtl& cr) {
-        details::DefHelper<T>::def(cr, std::get<N>(rows.front()), &indicators[N * rows.size()]);
+        dbcpp::details::DefHelper<T>::def(cr, std::get<N>(rows.front()), &indicators[N * rows.size()]);
     }
 
     template <std::size_t... Is>
@@ -164,7 +29,7 @@ class Rows : public BaseRow
     }
 
     typedef std::tuple<Args...> row_type;
-    typedef std::tuple<typename details::RowFieldTraits<Args>::placeholder_t...> internal_row_type;
+    typedef std::tuple<typename dbcpp::details::RowFieldTraits<Args>::placeholder_t...> internal_row_type;
 
     std::vector<internal_row_type> rows;
     std::vector<short> indicators;
@@ -201,7 +66,7 @@ public:
 
         template<int N>
         typename std::tuple_element<N, row_type>::type get() const {
-            return details::GetHelper<typename std::tuple_element<N, row_type>::type>::get(std::get<N>(*row), indicators[N]);
+            return dbcpp::details::GetHelper<typename std::tuple_element<N, row_type>::type>::get(std::get<N>(*row), indicators[N]);
         }
     };
 

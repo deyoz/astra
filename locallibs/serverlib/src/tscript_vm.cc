@@ -3,6 +3,8 @@
 #include <sstream>
 #include <iomanip>
 #include <stdexcept>
+#include <cstring>
+#include <cstdlib>
 
 namespace xp_testing { namespace tscript {
 
@@ -12,22 +14,47 @@ namespace xp_testing { namespace tscript {
     
     static void PrintLocation(std::ostream& out, const VmLocation& loc);
 
-    static bool ReadQuoted(std::istream& in, std::string& result)
+    static void ParseSpaces(const char*& in)
     {
-        char c = 0;
-        in >> c;
-        if (!in)
-            return false;
+        while (*in == ' ') {
+            ++in;
+        }
+    }
 
-        if (c != '"') {
-            in.unget();
+    static bool ReadQuoted(const char*& in, std::string& result)
+    {
+        if (*in == 0) {
             return false;
         }
 
-        while (in.get(c) && c != '"') result += c;
-        if (!in || c != '"')
+        if (*in != '"') {
+            return false;
+        }
+
+        ++in;
+        const char* start = in;
+        while (*in != 0 && *in != '"') {
+            ++in;
+        };
+        result.assign(start, in);
+        if (*in == 0) {
             throw std::runtime_error("missing closing double quote");
+        }
+        ++in;
+        ParseSpaces(in);
         return true;
+    }
+
+    static void ReadUnsignedInt(const char*& in, unsigned& value)
+    {
+        char* str_end = 0;
+        value = strtol(in, &str_end, 0);
+        if (in == str_end) {
+            throw std::runtime_error("unsigned integer expected:" + std::string(in, in + 10));
+        }
+        in = str_end;
+
+        ParseSpaces(in);
     }
 
     /*
@@ -35,45 +62,47 @@ namespace xp_testing { namespace tscript {
      * OR
      * "firstFile" firstLine firstcol "lastFile" lastLine lastcol
      */
-    static bool ReadLocation(std::istream& in, VmLocation& loc)
+    static bool ReadLocation(const char*& in, VmLocation& loc)
     {
         if (!ReadQuoted(in, loc.firstFile))
             return false;
-        in >> loc.firstLine >> loc.firstCol;
+        ReadUnsignedInt(in, loc.firstLine);
+        ReadUnsignedInt(in, loc.firstCol);
+
         ReadQuoted(in, loc.lastFile);
-        in >> loc.lastLine >> loc.lastCol;
-        if (!in)
-            throw std::runtime_error("invalid location data");
+
+        ReadUnsignedInt(in, loc.lastLine);
+        ReadUnsignedInt(in, loc.lastCol);
         return true;
     }
 
-    static void ReadPush(std::istream& in, VmCmd& cmd)
+    static void ReadPush(const char*& in, VmCmd& cmd)
     {
         cmd.opcode = VM_PUSH;
 
-        char c = 0;
-        in >> c;
-        if (!in || c != '{')
+        if (*in == 0 || *in != '{')
             throw std::runtime_error("'{' expected");
-        
-        while (in.get(c) && c != '}') {
-            if (c == '\\') {
-                if (!in.get(c))
+
+        while (*(++in) != 0 && *in != '}') {
+            if (*in == '\\') {
+                if (*(++in) == 0)
                     throw std::runtime_error("escape at the end of input");
-                if (c == 'n')
-                    c = '\n';
+                if (*in == 'n') {
+                    cmd.push.value += '\n';
+                    continue;
+                }
             }
-            cmd.push.value += c;
+            cmd.push.value += *in;
         }
 
-        if (c != '}')
+        if (*in++ != '}')
             throw std::runtime_error("'}' expected");
     }
 
-    static void ReadCall(std::istream& in, VmCmd& cmd)
+    static void ReadCall(const char*& in, VmCmd& cmd)
     {
         cmd.opcode = VM_CALL;
-        in >> cmd.call.numParams;
+        ReadUnsignedInt(in, cmd.call.numParams);
         ReadLocation(in, cmd.call.loc);
 
         for (;;) {
@@ -84,54 +113,64 @@ namespace xp_testing { namespace tscript {
         }
     }
 
-    static void ReadConc(std::istream& in, VmCmd& cmd)
+    static void ReadConc(const char*& in, VmCmd& cmd)
     {
         cmd.opcode = VM_CONC;
     }
 
-    static void ParseLine(std::istream& in, VmSuite& suite)
+    static bool TryParseOpCode(const char*& in, const char* code)
     {
-        std::string opcode;
-        in >> opcode;
-        if (opcode == "BEGN") {
+        if (0 == strncmp(in, code, 4)) {
+            in += 4;
+            ParseSpaces(in);
+            return true;
+        }
+        return false;
+    }
+
+    static void ParseLine(const char*& in, VmSuite& suite)
+    {
+        if (TryParseOpCode(in, "BEGN")) {
             /* new module */
             VmModule module;
             module.index = suite.modules.size();
-            suite.modules.push_back(module);
+            suite.modules.push_back(std::move(module));
         } else {
             if (suite.modules.empty())
                 throw std::runtime_error("missing BEGN");
 
             VmModule& currentModule = suite.modules.back();
-            VmCmd cmd;
-            if      (opcode == "PUSH") ReadPush(in, cmd);
-            else if (opcode == "CALL") ReadCall(in, cmd);
-            else if (opcode == "CONC") ReadConc(in, cmd);
-            else
-                throw std::runtime_error("unknown opcode: " + opcode);
 
-            currentModule.cmds.push_back(cmd);
+            currentModule.cmds.emplace_back();
+            VmCmd& cmd = currentModule.cmds.back();
+            if (TryParseOpCode(in, "PUSH")) {
+                ReadPush(in, cmd);
+            } else if (TryParseOpCode(in, "CALL")) {
+                ReadCall(in, cmd);
+            } else if (TryParseOpCode(in, "CONC")) {
+                ReadConc(in, cmd);
+            } else {
+                throw std::runtime_error("unknown opcode: " + std::string(in, in + 4));
+            }
         }
-
-        std::string tail;
-        in >> std::noskipws >> tail;
-        if (!tail.empty())
-            throw std::runtime_error("unexpected character(s) at the end of line: " + tail);
+        if (*in != '\n') {
+            throw std::runtime_error("unexpected character(s) at the end of line:" + std::string(in, in + 20));
+        }
+        ++in;
     }
 
-    VmSuite VmLoadSuite(std::istream& in)
+    VmSuite VmLoadSuite(const std::string& vmcode)
     {
         VmSuite suite;
         unsigned lineNumber = 0;
+        const char* in = vmcode.c_str();
         try {
-            while (in) {
-                std::string line;
-                if (!std::getline(in, line) || line.empty())
+            while (*in != 0) {
+                if (*in == '\n') {
                     break;
+                }
                 ++lineNumber;
-
-                std::istringstream lineStream(line);
-                ParseLine(lineStream, suite);
+                ParseLine(in, suite);
             }
         } catch (const std::runtime_error& e) {
             std::ostringstream msg;

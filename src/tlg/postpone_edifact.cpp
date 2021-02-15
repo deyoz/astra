@@ -53,7 +53,7 @@ void PostponeEdiHandling::insertDb(const tlgnum_t& tnum, edilib::EdiSessionId_t 
 
 boost::optional<tlgnum_t> PostponeEdiHandling::deleteDb(edilib::EdiSessionId_t sessId)
 {
-    char tnum[tlgnum_t::TLG_NUM_LENGTH + 1] = {};
+    char tnum[telegrams::TLG_NUM_LENGTH + 1] = {};
     OciCpp::CursCtl cur = make_curs(
             "begin\n"
             ":msg:=NULL;\n"
@@ -194,7 +194,7 @@ boost::optional<tlgnum_t> PostponeEdiHandling::deleteWaiting(edilib::EdiSessionI
 
 boost::optional<tlgnum_t> PostponeEdiHandling::findPostponeTlg(edilib::EdiSessionId_t sessId)
 {
-    char tnum[tlgnum_t::TLG_NUM_LENGTH + 1] = {};
+    char tnum[telegrams::TLG_NUM_LENGTH + 1] = {};
     OciCpp::CursCtl cur = make_curs(
 "select MSG_ID from POSTPONED_TLG where EDISESS_ID=:edisess");
     cur.bind(":edisess", sessId)

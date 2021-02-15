@@ -28,12 +28,9 @@ MakeIntParamType(Type3, int);
 
 
 struct Type4Traits {
-    Type4Traits() {
-        name_ = "Type4";
-    };
     static constexpr bool can_compare_to_base_t = true;
     //static constexpr bool allow_arithmetics = true;
-    const char* name_;
+    static constexpr char const * name_ = "Type4";
 };
 typedef ParInt::BaseIntParam<Type4Traits, int> Type4;
 
@@ -218,6 +215,30 @@ START_TEST(parint_serialize)
     TypeDouble tDouble(4.5), tDouble2, tDouble3;
     TypeFloat tFloat(2.3), tFloat2, tFloat3;
     
+    {
+    std::ostringstream s;
+    boost::archive::text_oarchive oa(s, boost::archive::no_header);
+    const int i1 = 0;
+    oa << i1;
+    ck_assert_str_eq(s.str(), "0");
+    const Type1 t1{0};
+    oa << t1;
+    ck_assert_str_eq(s.str(), "0 0");
+    }
+    std::ostringstream s_typed, s_int;
+    {
+    boost::archive::text_oarchive oa(s_typed, boost::archive::no_header);
+    const Type1 t1{0};
+    const Type2 t2{2};
+    oa << t1 << t2;
+    }
+    {
+    boost::archive::text_oarchive oa(s_int, boost::archive::no_header);
+    const int i1 = 0;
+    const int i2 = 2;
+    oa << i1 << i2;
+    }
+    ck_assert_str_eq(s_typed.str(), s_int.str());
     std::stringstream str;
     {
         boost::archive::text_oarchive oa(str);

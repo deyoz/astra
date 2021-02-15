@@ -85,7 +85,7 @@ Oci8Session::Oci8Session(const char *nickname, const char *file, int line, const
     const std::string& login = connection_param.login;
     const std::string& password = connection_param.password;
     const std::string& server = connection_param.server;
-    Logger::getTracer().ProgTrace(TRACE5, "Oci8Session: login=%s, password=%s, server=%s", login.c_str(), password.c_str(), server.c_str());
+    Logger::getTracer().ProgTrace(getRealTraceLev(12), nickname, file, line, "Oci8Session: login=%s, password=%s, server=%s", login.c_str(), password.c_str(), server.c_str());
 
     status = OCIEnvCreate(&envhp, (ub4) OCI_EVENTS | OCI_OBJECT, 0, 0, 0, 0, 0, 0);
     check_result(status, OCIEnvCreate);

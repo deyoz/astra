@@ -22,21 +22,6 @@
 namespace algo {
 namespace details {
 
-// due to Walter E. Brown
-// "Modern Template Metaprogramming: A Compendium, Part II"
-// cppcon 2014
-//
-// template<typename...>
-// using void_t = void;
-//
-// Until CWG 1558 (a C++14 defect), unused parameters in alias templates
-// were not guaranteed to ensure SFINAE and could be ignored, so earlier
-// compilers require a more complex definition of void_t
-//
-// should be in C++17 standard library
-template<typename...> struct make_void { using type = void; };
-template<typename... Ts> using void_t = typename make_void<Ts...>::type;
-
 // Not defined; for use with decltype only.
 // decltype(front(container)) allows to get a contained data type,
 // given that std::begin can be applied.
@@ -58,7 +43,7 @@ using mapped_type = typename Container::mapped_type;
 template<typename Container, typename = void>
 struct is_map: public std::false_type {};
 template<typename Container>
-struct is_map<Container, void_t<mapped_type<Container> > >
+struct is_map<Container, std::void_t<mapped_type<Container> > >
     : public std::true_type {};
 
 // check presence of Container::push_back(value_type)
@@ -68,7 +53,7 @@ using push_back_method_t = decltype(std::declval<Container>().push_back(
 template<typename Container, typename = void>
 struct provides_push_back: public std::false_type {};
 template<typename Container>
-struct provides_push_back<Container, void_t<push_back_method_t<Container> > >
+struct provides_push_back<Container, std::void_t<push_back_method_t<Container> > >
     : public std::true_type {};
 
 // check presence of Container::find(value_type)
@@ -79,7 +64,7 @@ using find_method_t = decltype(
 template<typename Container, typename T, typename = void>
 struct provides_find: public std::false_type {};
 template<typename Container, typename T>
-struct provides_find<Container, T, void_t<find_method_t<Container, T> > >
+struct provides_find<Container, T, std::void_t<find_method_t<Container, T> > >
     : public std::true_type {};
 
 // call reserve() if a such method is available in
@@ -104,24 +89,12 @@ inline void reserve_same_size(DstContainer& dst, const SrcContainer& src)
 // std::back_inserter or just std::inserter, depending on
 // ability to push_back()
 
-template<typename Container>
-inline auto end_inserter(Container& container) ->
-    typename std::enable_if<
-        provides_push_back<Container>::value,
-        decltype(std::back_inserter(container))
-    >::type
+template<typename Container> auto end_inserter(Container& container)
 {
-    return std::back_inserter(container);
-}
-
-template<typename Container>
-inline auto end_inserter(Container& container) ->
-    typename std::enable_if<
-        !provides_push_back<Container>::value,
-        decltype(std::inserter(container, std::end(container)))
-    >::type
-{
-    return std::inserter(container, std::end(container));
+    if constexpr (provides_push_back<Container>::value)
+        return std::back_inserter(container);
+    else
+        return std::inserter(container, std::end(container));
 }
 
 // some meaningful description
@@ -341,21 +314,21 @@ filter(const std::initializer_list<InputElement>& in, UnaryPredicate&& pred)
  ******************************************************************************/
 
 template<typename Container, typename UnaryPredicate>
-inline bool all_of(const Container& container, UnaryPredicate&& pred)
+inline bool all_of(const Container& container, UnaryPredicate pred)
 {
-    return std::all_of(std::begin(container), std::end(container), std::forward<UnaryPredicate>(pred));
+    return std::all_of(std::begin(container), std::end(container), [&](auto&& i){ return std::invoke(pred, i); });
 }
 
 template<typename Container, typename UnaryPredicate>
-inline bool any_of(const Container& container, UnaryPredicate&& pred)
+inline bool any_of(const Container& container, UnaryPredicate pred)
 {
-    return std::any_of(std::begin(container), std::end(container), std::forward<UnaryPredicate>(pred));
+    return std::any_of(std::begin(container), std::end(container), [&](auto&& i){ return std::invoke(pred, i); });
 }
 
 template<typename Container, typename UnaryPredicate>
-inline bool none_of(const Container& container, UnaryPredicate&& pred)
+inline bool none_of(const Container& container, UnaryPredicate pred)
 {
-    return std::none_of(std::begin(container), std::end(container), std::forward<UnaryPredicate>(pred));
+    return std::none_of(std::begin(container), std::end(container), [&](auto&& i){ return std::invoke(pred, i); });
 }
 
 template<typename Container, typename T>
@@ -366,10 +339,10 @@ inline auto count(const Container& container, const T& val)
 }
 
 template<typename Container, typename UnaryPredicate>
-inline auto count_if(const Container& container, UnaryPredicate&& pred)
+inline auto count_if(const Container& container, UnaryPredicate pred)
     -> typename std::iterator_traits<decltype(std::begin(container))>::difference_type
 {
-    return std::count_if(std::begin(container), std::end(container), std::forward<UnaryPredicate>(pred));
+    return std::count_if(std::begin(container), std::end(container), [&](auto&& i){ return std::invoke(pred, i); });
 }
 
 template<typename Container, typename T>
@@ -389,31 +362,34 @@ inline T accumulate(const Container& container, T init, BinaryOperation&& op)
 }
 
 template <typename Iterator, typename UnaryOperation, typename BinaryOperation>
-auto lfold(Iterator it, Iterator end, UnaryOperation&& mutation, BinaryOperation&& crossover)
-    -> std::invoke_result_t<UnaryOperation, typename Iterator::value_type> // [[ expects : it < end ]]
+auto lfold(Iterator it, Iterator end, UnaryOperation mutation, BinaryOperation crossover)
+    -> std::decay_t<std::invoke_result_t<UnaryOperation, typename Iterator::reference>> // [[ expects : it < end ]]
 {
     if(it == end)
         return {};
     auto init = std::invoke(mutation, *it);
     for(++it; it != end; ++it)
-        init = crossover(std::move(init), std::invoke(mutation, *it));
+        init = std::invoke(crossover, std::move(init), std::invoke(mutation, *it));
     return init;
 }
 
 template <typename Container, typename UnaryOperation, typename BinaryOperation>
-auto lfold(Container const& c, UnaryOperation&& mutation, BinaryOperation&& crossover)
+auto lfold(Container const& c, UnaryOperation mutation, BinaryOperation crossover)
 {
-    return lfold(begin(c), end(c), std::forward<UnaryOperation>(mutation), std::forward<BinaryOperation>(crossover));
+    return lfold(begin(c), end(c), std::move(mutation), std::move(crossover));
 }
+
+// TODO: replace with std::identity
+struct identity { template<typename T> constexpr T&& operator()(T&& t) const noexcept { return std::forward<T>(t); } };
 
 template <class Iterator, class BinaryOperation> typename Iterator::value_type lfold(Iterator it, Iterator end, BinaryOperation&& op)
 {
-    return lfold(it, end, [](auto obj){ return obj; }, std::forward<BinaryOperation>(op));
+    return lfold<Iterator, identity, BinaryOperation>(it, end, {}, std::forward<BinaryOperation>(op));
 }
 
 template <class Container, class BinaryOperation> typename Container::value_type lfold(Container const& c, BinaryOperation&& op)
 {
-    return lfold(begin(c), end(c), [](auto obj){ return obj; }, std::forward<BinaryOperation>(op));
+    return lfold<typename Container::iterator, identity, BinaryOperation>(begin(c), end(c), {}, std::forward<BinaryOperation>(op));
 }
 
 template<typename Container>
@@ -428,6 +404,9 @@ inline bool is_sorted(const Container& container, Compare&& comp)
     return std::is_sorted(std::begin(container), std::end(container), std::forward<Compare>(comp));
 }
 
+template <typename T> T const& min(T const& l, T const& r) { return std::min<T>(l, r); } // to bypass overloads with std::initializer_list
+template <typename T> T const& max(T const& l, T const& r) { return std::max<T>(l, r); } // to bypass overloads with std::initializer_list
+
 /*******************************************************************************
  * contains
  ******************************************************************************/
@@ -438,8 +417,8 @@ inline bool contains(const Container& container, const T& val)
     return details::find(container, val) != nullptr;
 }
 
-template<typename T>
-inline bool contains(const std::initializer_list<T>& container, const T& val)
+template<typename T, typename E>
+inline bool contains(const std::initializer_list<T>& container, const E& val)
 {
     return contains<std::initializer_list<T> >(container, val);
 }
@@ -482,19 +461,19 @@ inline auto find_opt_if(const Container& container, UnaryPredicate pred)
 // this overload handles src lvalue references
 // (and sometimes rvalue references too, if it's more efficient)
 template<typename DstContainer, typename SrcContainer>
-inline void append(DstContainer& dst, const SrcContainer& src)
+inline auto append(DstContainer& dst, const SrcContainer& src)
 {
-    dst.insert(std::end(dst), std::begin(src), std::end(src));
+    using std::begin, std::end;
+    return dst.insert(dst.end(), begin(src), end(src));
 }
 
-template<typename DstContainer, typename SrcContainer, typename E = std::enable_if_t<std::is_rvalue_reference<SrcContainer>::value && std::is_same<DstContainer, std::decay_t<SrcContainer>>::value>>
-inline auto append(DstContainer& dst, SrcContainer&& src)
+template<typename Container> auto append(Container& dst, Container&& src)
 {
-    /*if constexpr (std::is_same_v<DstContainer, std::decay_t<SrcContainer>>)*/ {
     if (dst.empty()) {
         dst = std::move(src);
         return dst.begin();
-    } }
+    }
+    using std::begin, std::end;
     return dst.insert(dst.end(), std::make_move_iterator(begin(src)), std::make_move_iterator(end(src)));
 }
 

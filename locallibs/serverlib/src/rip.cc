@@ -26,6 +26,7 @@ void init_right_parameters()
 #ifdef XP_TESTING
 #include "rip_oci.h"
 #include "oci_row.h"
+#include "helpcpp.h"
 
 #include "xp_test_utils.h"
 #include "checkunit.h"
@@ -58,7 +59,7 @@ START_TEST(rip)
     fail_unless((bool)rip::TypeRangedInt::create(112) == false);
     try { rip::TypeRangedInt(112); fail_if(1, "must throw");
     } catch (const rip::TypeRangedInt::Exception& e) {
-        fail_unless(strcmp(e.what(), "invalid TypeRangedInt") == 0);
+        fail_unless(strcmp(e.what(), "invalid TypeRangedInt val='112'") == 0);
     }
     std::stringstream ss;
     ss << v3;
@@ -69,7 +70,7 @@ START_TEST(rip)
     fail_unless((bool)rip::TypeLenStr::create("12345") == false);
     try { rip::TypeLenStr("12345"); fail_if(1, "must throw");
     } catch (const rip::TypeLenStr::Exception& e) {
-        fail_unless(strcmp(e.what(), "invalid TypeLenStr") == 0);
+        fail_unless(strcmp(e.what(), "invalid TypeLenStr val='12345'") == 0);
     }
 
     rip::TypeReStr v5("ab12");
@@ -77,7 +78,7 @@ START_TEST(rip)
     fail_unless((bool)rip::TypeReStr::create("12345") == false);
     try { rip::TypeReStr("12345"); fail_if(1, "must throw");
     } catch (const rip::TypeReStr::Exception& e) {
-        fail_unless(strcmp(e.what(), "invalid TypeReStr") == 0);
+        fail_unless(strcmp(e.what(), "invalid TypeReStr val='12345'") == 0);
     }
 
     rip::TypeBool v6(true);
@@ -103,7 +104,7 @@ START_TEST(rip_num_ocicpp)
             .EXfet();
         fail_if(1, "must throw");
     } catch (const rip::TypeRangedInt::Exception& e) {
-        fail_unless(strcmp(e.what(), "invalid TypeRangedInt") == 0);
+        fail_unless(strcmp(e.what(), "invalid TypeRangedInt val='133'") == 0);
     }
     fail_unless(v3 == rip::TypeRangedInt(33));
 
@@ -114,7 +115,7 @@ START_TEST(rip_num_ocicpp)
         make_curs("begin :v3 := 133; end;").bindOut(":v3", v3).exec();
         fail_if(1, "must throw");
     } catch (const rip::TypeRangedInt::Exception& e) {
-        fail_unless(strcmp(e.what(), "invalid TypeRangedInt") == 0);
+        fail_unless(strcmp(e.what(), "invalid TypeRangedInt val='133'") == 0);
     }
     fail_unless(v3 == rip::TypeRangedInt(33));
 } END_TEST
@@ -141,7 +142,7 @@ START_TEST(rip_str_unstb)
             .EXfet();
         fail_if(1, "must throw");
     } catch (const rip::TypeReStr::Exception& e) {
-        fail_unless(strcmp(e.what(), "invalid TypeReStr") == 0);
+        fail_unless(strcmp(e.what(), "invalid TypeReStr val='12345'") == 0);
     }
     fail_unless(v3 == rip::TypeReStr("ab33"));
 } END_TEST
@@ -168,7 +169,7 @@ START_TEST(rip_str_stb)
             .EXfet();
         fail_if(1, "must throw");
     } catch (const rip::TypeReStr::Exception& e) {
-        fail_unless(strcmp(e.what(), "invalid TypeReStr") == 0);
+        fail_unless(strcmp(e.what(), "invalid TypeReStr val='12345'") == 0);
     }
     fail_unless(v3 == rip::TypeReStr("ab33"));
 } END_TEST
@@ -194,7 +195,7 @@ START_TEST(rip_def_row)
     }
 } END_TEST
 
-#define SUITENAME "SqlUtil"
+#define SUITENAME "Serverlib"
 TCASEREGISTER(0, 0)
     ADD_TEST(rip)
 TCASEFINISH

@@ -6,6 +6,7 @@
 #include <set>
 #include <array>
 #include <typeinfo>
+#include <memory>
 #include <algorithm>
 
 #include "posthooks.h"
@@ -27,37 +28,13 @@ bool BaseHook::less(const BaseHook *h) const
     return less2(h);
 }
 
-class HookHolder
+struct HookHolder
 {
-    BaseHook *hook;
-    public:
-        void run(void) const
-        {
-            hook->run();
-        }
-        HookHolder(const BaseHook& p):hook(p.clone()){}
-        ~HookHolder()
-        {
-            delete hook;
-        }
-        HookHolder(const HookHolder& h)
-        {
-            hook=h.hook->clone();
-        }
-        void swap(HookHolder& h)
-        {
-            std::swap(hook, h.hook);
-        }
-        HookHolder& operator=(const HookHolder &h)
-        {
-            HookHolder tmp(h);
-            swap(tmp);
-            return *this;
-        }
-        bool operator < (const HookHolder& h) const
-        {
-            return hook->less(h.hook);
-        }
+    std::unique_ptr<BaseHook> hook;
+
+    HookHolder(const BaseHook& p) : hook(p.clone()) {}
+    void run(void) const { hook->run(); }
+    bool operator < (const HookHolder& h) const { return hook->less(h.hook.get()); }
 };
 
 ReqDefPar* ReqDefPar::Register() {

@@ -2,8 +2,9 @@
 
 #include "json_packer.h"
 #include "lngv.h"
-//#include "bgnd.h"
+#include "bgnd.h"
 #include "objid.h"
+#include "rip.h"
 
 namespace boost { namespace gregorian { class date; } }
 namespace boost { namespace gregorian { class date_duration; } }
@@ -28,9 +29,11 @@ JSON_PACK_UNPACK_DECL(boost::posix_time::time_duration);
 JSON_PACK_UNPACK_DECL(boost::posix_time::ptime);
 JSON_PACK_UNPACK_DECL(Language);
 JSON_PACK_UNPACK_DECL(ct::ObjectId);
-//JSON_PACK_UNPACK_DECL(bgnd::BgndReqId);
+JSON_PACK_UNPACK_DECL(bgnd::BgndReqId);
 JSON_PACK_UNPACK_DECL(ct::UserId);
 JSON_PACK_UNPACK_DECL(ct::CommandId);
 JSON_PACK_UNPACK_DECL(UserLanguage);
+JSON_PACK_UNPACK_DECL(rip::Int);
+JSON_PACK_UNPACK_DECL(rip::UInt);
 
 } // json_spirit

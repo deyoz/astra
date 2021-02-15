@@ -69,7 +69,6 @@ namespace
 using namespace edilib;
 void run_edi_timeout_handler()
 {
-    Timer::timer timer;
     LogTrace(TRACE1) << EdifactTimeOutsDaemon::Name << ": run at " <<
             boost::posix_time::second_clock::local_time();
 

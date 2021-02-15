@@ -318,7 +318,7 @@ $(defmacro TKCREQ_ET_COS
     depp=ДМД
     arrp=ПЛК
     fltno=103
-    subcls=Y
+    subcls
     depd=$(ddmmyy)
 {UNB+SIRE:1+$(from)+$(to)+xxxxxx:xxxx+$(ediref)0001+++O"
 UNH+1+TKCREQ:96:2:IA+$(ediref)"
@@ -327,7 +327,7 @@ ORG+1H:МОВ+++$(airl)+Y+::xx+$(pult)"
 EQN+1:TD"
 TKT+$(tickno):T"
 CPN+$(cpnno):$(status)"
-TVL+$(depd)+$(depp)+$(arrp)+$(airl)+$(fltno)++1"
+TVL+$(depd)+$(depp)+$(arrp)+$(airl)+$(fltno)$(if $(eq $(subcls) "") "" ":"$(subcls))++$(cpnno)"
 UNT+8+1"
 UNZ+1+$(ediref)0001"}
 ) # end-of-macro TKCREQ_ET_COS
@@ -1134,6 +1134,33 @@ $(defmacro SEARCH_ET_BY_TICK_NO
 
 }) #end-of-macro
 
+$(defmacro SEARCH_ET_BY_TICK_NO_ADVANCED
+    point_dep
+    ticket_no
+    coupon_no
+    ticket_rem=TKNE
+    ticket_confirm=1
+    capture=off
+{
+!! capture=$(capture) err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='ETSearchForm' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='EN' term_id='2479792165'>
+    <SearchETByTickNo>
+      <point_id>$(point_dep)</point_id>
+      <TickNoEdit>$(ticket_no)</TickNoEdit>
+      <pax>
+        <ticket_no>$(ticket_no)</ticket_no>
+        <coupon_no>$(coupon_no)</coupon_no>
+        <ticket_rem>$(ticket_rem)</ticket_rem>
+        <ticket_confirm>$(ticket_confirm)</ticket_confirm>
+      </pax>
+    </SearchETByTickNo>
+  </query>
+</term>}
+
+}) #end-of-macro
+
 #########################################################################################
 
 $(defmacro REQUEST_AC_BY_TICK_NO_CPN_NO
@@ -1190,6 +1217,7 @@ $(defmacro SAVE_ET_DISP
     recloc=G4LK6W
     depp=DME
     arrp=LED
+    cpnno=1
 {
 {<?xml version='1.0' encoding='CP866'?>
 <term>
@@ -1204,7 +1232,7 @@ $(defmacro SAVE_ET_DISP
 >>
 $(TKCREQ_ET_DISP $(dcs_addr) $(ets_addr) $(last_edifact_ref 0) $(airl) $(tickno))
 <<
-$(TKCRES_ET_DISP_1CPN $(ets_addr) $(dcs_addr) $(last_edifact_ref) $(airl) $(tickno) I $(surname) $(name) $(ddmmyy) $(depp) $(arrp))
+$(TKCRES_ET_DISP_1CPN $(ets_addr) $(dcs_addr) $(last_edifact_ref) $(airl) $(tickno) I $(surname) $(name) $(ddmmyy) $(depp) $(arrp) cpnno=$(cpnno))
 
 $(KICK_IN_SILENT)
 
@@ -3564,84 +3592,6 @@ $(set msg_id61 $(capture 1))
 
 }) #end-if-macro CIRQ_61_UT_REQS
 
-
-#########################################################################################
-### возможность регистрации группы из любого кол-ва участников в секции passengers
-
-$(defmacro NEW_CHECKIN_REQUEST
-  point_dep
-  point_arv
-  airp_dep
-  airp_arv
-  passengers
-  capture=off
-{
-
-!! capture=$(capture) err=ignore
-{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='EN' term_id='2479792165'>
-    <TCkinSavePax>
-      <agent_stat_period>3</agent_stat_period>
-      <transfer/>
-      <segments>
-        <segment>
-          <point_dep>$(point_dep)</point_dep>
-          <point_arv>$(point_arv)</point_arv>
-          <airp_dep>$(get_elem_id etAirp $(airp_dep))</airp_dep>
-          <airp_arv>$(get_elem_id etAirp $(airp_arv))</airp_arv>
-          <class>Э</class>
-          <status>K</status>
-          <wl_type/>
-$(passengers)
-        </segment>
-      </segments>
-      <hall>777</hall>
-    </TCkinSavePax>
-  </query>
-</term>}
-
-}) #end defmacro NEW_CHECKIN_REQUEST
-
-#########################################################################################
-### возможность записи изменений по любому кол-ву участников в секции passengers
-
-$(defmacro CHANGE_CHECKIN_REQUEST
-  point_dep
-  point_arv
-  airp_dep
-  airp_arv
-  grp_id
-  grp_tid
-  passengers
-  capture=off
-{
-
-!! capture=$(capture) err=ignore
-{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='EN' term_id='2479792165'>
-    <TCkinSavePax>
-      <agent_stat_period>3</agent_stat_period>
-      <segments>
-        <segment>
-          <point_dep>$(point_dep)</point_dep>
-          <point_arv>$(point_arv)</point_arv>
-          <airp_dep>$(get_elem_id etAirp $(airp_dep))</airp_dep>
-          <airp_arv>$(get_elem_id etAirp $(airp_arv))</airp_arv>
-          <class>Э</class>
-          <grp_id>$(grp_id)</grp_id>
-          <tid>$(grp_tid)</tid>
-$(passengers)
-        </segment>
-      </segments>
-      <hall>777</hall>
-      <bag_refuse/>
-    </TCkinSavePax>
-  </query>
-</term>}
-
-}) #end defmacro CHANGE_CHECKIN_REQUEST
 
 #########################################################################################
 ### изменение настроек рейса в trip_sets (галочки в главном экране "Подготовки")

@@ -1,5 +1,4 @@
-#ifndef __TSCRIPT_H
-#define __TSCRIPT_H
+#pragma once
 
 #include <memory>
 #include <queue>
@@ -9,6 +8,7 @@
 namespace xp_testing { namespace tscript {
 
     struct Test {
+        Test(VmModule&& module) : module(std::move(module)) {};
         VmModule module;
     };
 
@@ -59,5 +59,3 @@ namespace xp_testing { namespace tscript {
     bool nosir_mode();
 
 }} /* namespace xp_testing::tscript */
-
-#endif /* #ifndef __TSCRIPT_H */

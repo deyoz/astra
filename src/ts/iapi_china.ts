@@ -1,4 +1,8 @@
 include(ts/macro.ts)
+include(ts/adm_macro.ts)
+include(ts/spp/write_dests_macro.ts)
+include(ts/pax/checkin_macro.ts)
+include(ts/pax/boarding_macro.ts)
 
 # meta: suite iapi
 
@@ -6,20 +10,56 @@ $(defmacro PREPARE_CN_EXCHANGE_SETTINGS
   airline
 {
 $(set country_id $(get_elem_id etCountry CN))
-$(settcl OWN_CANON_NAME TSTDC)
-$(sql
 
-{INSERT INTO rot(canon_name,own_canon_name,ip_address,ip_port,h2h,our_h2h_addr,h2h_addr,h2h_rem_addr_num,resp_timeout,router_translit,loopback,id)
- VALUES('IAPIT','TSTDC','0.0.0.0',8888,1,'1HCNIAPIQ','1HCNIAPIR',1,NULL,NULL,NULL,id__seq.nextval)}
-"insert into EDI_ADDRS(ADDR, CANON_NAME) values ('NIAC', 'IAPIT')"
-"insert into EDIFACT_PROFILES (NAME, VERSION, SUB_VERSION, CTRL_AGENCY, SYNTAX_NAME, SYNTAX_VER) values ('IAPI', 'D', '05B', 'UN', 'UNOA', 4)"
-{INSERT INTO apis_sets(id,airline,country_dep,country_arv,country_control,format,transport_type,transport_params,edi_addr,edi_own_addr,pr_denial)
- VALUES(id__seq.nextval,'$(get_elem_id etAirline $(airline))','$(get country_id)',NULL,'$(get country_id)','IAPI_CN','FILE','apis/IAPI_CN','NIAC','$(get_lat_code awk $(airline))',0)}
-{INSERT INTO apis_sets(id,airline,country_dep,country_arv,country_control,format,transport_type,transport_params,edi_addr,edi_own_addr,pr_denial)
- VALUES(id__seq.nextval,'$(get_elem_id etAirline $(airline))',NULL,'$(get country_id)','$(get country_id)','IAPI_CN','FILE','apis/IAPI_CN','NIAC','$(get_lat_code awk $(airline))',0)}
-"insert into AIRLINE_OFFICES(ID, AIRLINE, COUNTRY_CONTROL, CONTACT_NAME, PHONE, FAX, TO_APIS) values(id__seq.nextval, '$(get_elem_id etAirline $(airline))', '$(get country_id)', 'SIRENA-TRAVEL', '4959504991', '4959504973', 1)"
+$(cache PIKE RU ROT $(cache_iface_ver ROT) ""
+  insert canon_name:IAPIT
+         ip_address:0.0.0.0
+         ip_port:8888
+         h2h:1
+         our_h2h_addr:1HCNIAPIQ
+         h2h_addr:1HCNIAPIR
+         h2h_rem_addr_num:1)
 
-)
+$(cache PIKE RU EDI_ADDRS $(cache_iface_ver EDI_ADDRS) ""
+  insert addr:NIAC canon_name:IAPIT)
+
+$(cache PIKE RU EDIFACT_PROFILES $(cache_iface_ver EDIFACT_PROFILES) ""
+  insert name:IAPI
+         version:D
+         sub_version:05B
+         ctrl_agency:UN
+         syntax_name:UNOA
+         syntax_ver:4)
+
+$(cache PIKE RU APIS_SETS $(cache_iface_ver APIS_SETS) ""
+  insert airline:$(get_elem_id etAirline $(airline))
+         country_dep:$(get country_id)
+         country_arv:
+         country_control:$(get country_id)
+         format:IAPI_CN
+         transport_type:FILE
+         transport_params:apis/IAPI_CN
+         edi_addr:NIAC
+         edi_own_addr:$(get_lat_code awk $(airline))
+         pr_denial:0
+  insert airline:$(get_elem_id etAirline $(airline))
+         country_dep:
+         country_arv:$(get country_id)
+         country_control:$(get country_id)
+         format:IAPI_CN
+         transport_type:FILE
+         transport_params:apis/IAPI_CN
+         edi_addr:NIAC
+         edi_own_addr:$(get_lat_code awk $(airline))
+         pr_denial:0)
+
+$(cache PIKE RU AIRLINE_OFFICES $(cache_iface_ver AIRLINE_OFFICES) ""
+  insert airline:$(get_elem_id etAirline $(airline))
+         country_control:$(get country_id)
+         contact_name:SIRENA-TRAVEL
+         phone:4959504991
+         fax:4959504973
+         to_apis:1)
 
 $(init_iapi_request_id 100)
 })
@@ -34,169 +74,8 @@ $(CHANGE_TRIP_SETS $(get point_dep) pr_free_seating=1 apis_manual_input=1)
 
 $(OPEN_CHECKIN $(get point_dep))
 
-$(sql "INSERT INTO misc_set(id, type, airline, flt_no, airp_dep, pr_misc) VALUES(id__seq.nextval, 11, '$(get_elem_id etAirline $(airline))', NULL, NULL, 1)")
-$(sql "INSERT INTO halls2(id, airp, terminal, name, name_lat, rpt_grp, pr_vip) VALUES(777, '$(get_elem_id etAirp $(airp_dep))', NULL, '$(airp_dep)', NULL, NULL, 0)")
-})
-
-$(defmacro NEW_SPP_FLIGHT_ONE_LEG
-  airline
-  flt_no
-  craft
-  airp1
-  scd_out1 #формат даты: dd.mm.yyyy hh:nn
-  scd_in2  #формат даты: dd.mm.yyyy hh:nn
-  airp2
-{
-
-{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='sopp' ver='1' opr='PIKE' screen='SOPP.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-    <WriteDests>
-      <data>
-        <move_id/>
-        <canexcept>0</canexcept>
-        <dests>
-          <dest>
-            <modify/>
-            <airp>$(airp1)</airp>
-            <airline>$(airline)</airline>
-            <flt_no>$(flt_no)</flt_no>
-            <craft>$(craft)</craft>
-            <scd_out>$(scd_out1):00</scd_out>
-            <trip_type>п</trip_type>
-            <pr_tranzit>0</pr_tranzit>
-            <pr_reg>0</pr_reg>
-          </dest>
-          <dest>
-            <modify/>
-            <airp>$(airp2)</airp>
-            <scd_in>$(scd_in2):00</scd_in>
-            <pr_tranzit>0</pr_tranzit>
-            <pr_reg>0</pr_reg>
-          </dest>
-        </dests>
-      </data>
-    </WriteDests>
-  </query>
-</term>}
-
-})
-
-$(defmacro CHANGE_SPP_FLIGHT_ONE_LEG
-  point_dep
-  act_out1 #формат даты: dd.mm.yyyy hh:nn
-  pr_del
-  airline
-  flt_no
-  craft
-  airp1
-  scd_out1 #формат даты: dd.mm.yyyy hh:nn
-  scd_in2  #формат даты: dd.mm.yyyy hh:nn
-  airp2
-{
-
-$(set move_id $(get_move_id $(point_dep)))
-$(set point_arv $(get_next_trip_point_id $(point_dep)))
-
-{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='sopp' ver='1' opr='PIKE' screen='SOPP.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-    <WriteDests>
-      <data>
-        <move_id>$(get move_id)</move_id>
-        <canexcept>0</canexcept>
-        <dests>
-          <dest>
-            <modify/>
-            <point_id>$(point_dep)</point_id>
-            <point_num>0</point_num>
-            <airp>$(airp1)</airp>
-            <airline>$(airline)</airline>
-            <flt_no>$(flt_no)</flt_no>
-            <craft>$(craft)</craft>
-            <scd_out>$(scd_out1):00</scd_out>
-            <act_out>$(act_out1):00</act_out>
-            <trip_type>п</trip_type>
-            <pr_tranzit>0</pr_tranzit>
-            <pr_reg>1</pr_reg>
-            <pr_del>$(pr_del)</pr_del>
-          </dest>
-          <dest>
-            <modify/>
-            <point_id>$(get point_arv)</point_id>
-            <point_num>1</point_num>
-            <first_point>$(point_dep)</first_point>
-            <airp>$(airp2)</airp>
-            <scd_in>$(scd_in2):00</scd_in>
-            <trip_type>п</trip_type>
-            <pr_tranzit>0</pr_tranzit>
-            <pr_reg>0</pr_reg>
-            <pr_del>$(pr_del)</pr_del>
-          </dest>
-        </dests>
-      </data>
-    </WriteDests>
-  </query>
-</term>}
-
-})
-
-$(defmacro NEW_SPP_FLIGHT_TWO_LEGS
-  airline
-  flt_no
-  craft
-  airp1
-  scd_out1 #формат даты: dd.mm.yyyy hh:nn
-  scd_in2  #формат даты: dd.mm.yyyy hh:nn
-  airp2
-  scd_out2 #формат даты: dd.mm.yyyy hh:nn
-  scd_in3  #формат даты: dd.mm.yyyy hh:nn
-  airp3
-{
-
-{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='sopp' ver='1' opr='PIKE' screen='SOPP.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-    <WriteDests>
-      <data>
-        <move_id/>
-        <canexcept>0</canexcept>
-        <dests>
-          <dest>
-            <modify/>
-            <airp>$(airp1)</airp>
-            <airline>$(airline)</airline>
-            <flt_no>$(flt_no)</flt_no>
-            <craft>$(craft)</craft>
-            <scd_out>$(scd_out1):00</scd_out>
-            <trip_type>п</trip_type>
-            <pr_tranzit>0</pr_tranzit>
-            <pr_reg>0</pr_reg>
-          </dest>
-          <dest>
-            <modify/>
-            <airp>$(airp2)</airp>
-            <airline>$(airline)</airline>
-            <flt_no>$(flt_no)</flt_no>
-            <craft>$(craft)</craft>
-            <scd_in>$(scd_in2):00</scd_in>
-            <scd_out>$(scd_out2):00</scd_out>
-            <trip_type>п</trip_type>
-            <pr_tranzit>0</pr_tranzit>
-            <pr_reg>0</pr_reg>
-          </dest>
-          <dest>
-            <modify/>
-            <airp>$(airp3)</airp>
-            <scd_in>$(scd_in3):00</scd_in>
-            <pr_tranzit>0</pr_tranzit>
-            <pr_reg>0</pr_reg>
-          </dest>
-        </dests>
-      </data>
-    </WriteDests>
-  </query>
-</term>}
+$(deny_ets_interactive $(airline))
+$(PREPARE_HALLS_FOR_BOARDING $(airp_dep))
 
 })
 
@@ -1715,8 +1594,6 @@ UNT+14+11085B94E1F8FA"
 UNE+1+1"
 UNZ+1+$(get ediref_paxlst)0001"
 
-$(dump_table  iapi_pax_data)
-
 << h2h=V.\VDLG.WA/E11HCNIAPIR/I11HCNIAPIQ/P$(get tpr)\VGYA\$() charset=UNOA
 UNB+SIRE:4+NIAC+MU+$(yymmdd):$(hhmi)+1569312526531++IAPI"
 UNG+CUSRES+NIAC+MU+$(yymmdd):$(hhmi)+15693125265312+UN+D:05B"
@@ -1754,8 +1631,6 @@ ERC+1Z"
 UNT+13+11085B94E1F8FA"
 UNE+1+15693125265312"
 UNZ+1+1569312526531"
-
-$(dump_table  iapi_pax_data)
 
 $(NO_BOARD $(get point_dep) $(get pax_id))
 
@@ -1796,8 +1671,6 @@ ERC+0Z"
 UNT+13+11085B94E1F8FA"
 UNE+1+15693125265312"
 UNZ+1+1569312526531"
-
-$(dump_table  iapi_pax_data)
 
 $(OK_TO_BOARD $(get point_dep) $(get pax_id))
 

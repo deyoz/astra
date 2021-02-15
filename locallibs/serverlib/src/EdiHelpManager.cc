@@ -223,7 +223,7 @@ static void confirm_notify_oraside(const boost::optional<ConfirmInfo> &ci,
 
 static void confirm_notify_oraside(const char *pult, int session_id)
 {
-    Timer::timer timer;
+    HelpCpp::Timer timer;
 
     LogTrace(TRACE1) << __FUNCTION__ << ": pult = " << pult << ", instance = " << ServerFramework::EdiHelpManager::instanceName();
 
@@ -238,7 +238,7 @@ static void confirm_notify_oraside(const char *pult, int session_id)
 
 static void confirm_notify_oraside(const InternalMsgId& msgid, int session_id)
 {
-    Timer::timer timer;
+    HelpCpp::Timer timer;
 
     const auto ci = EdiHelpDbCallbacks::instance()->confirm_notify_oraside(msgid, session_id, EdiHelpManager::instanceName());
     if(not ci or ci->leftover > 1)
@@ -341,6 +341,17 @@ void confirm_notify_oraside_tst()
     qr.getEdiHelpManager().configForPerespros(STDLOG, "LALA###", 1010, 20);
     dumpEdihelp("Œ‚Œ");
 
+    confirm_notify_oraside("Œ‚Œ", 1010);
+}
+
+void confirm_notify_oraside_long_msg_test_tst()
+{
+    using namespace ServerFramework;
+    static const auto msgtext = "ZH/BUYTICKET/FORWARD=\"FROM=2000002/TO=2010290/DAY=22/MONTH=09/TIME=21:05/TRAIN=126Ÿ/CARRIER=’Š‘/N_CAR=18/TYPE_CAR=Š/SERVICE_CLASS=2‹/N_UP=2/N_DOWN=2/DIAPASON=1-15/SEX=‘/IN_ONE_KUPE=1/REMOTECHECKIN=1\"/BACKWARD=\"FROM=2010290/TO=2000002/DAY=27/MONTH=09/TIME=22:55/TRAIN=126—/CARRIER=’Š‘/N_CAR=18/TYPE_CAR=Š/SERVICE_CLASS=2‹/N_UP=2/N_DOWN=2/DIAPASON=1-15/SEX=‘/REMOTECHECKIN=1\"/ISSUBURBANTRAIN=0/DIRECTIONGROUP=0/RZHDPROVIDER=GRAND/PHONE=+79174036096/EMAIL=ELVIRAAVIA@MAIL.RU/FOP=/ISRESERVATION=0/ADULT_DOC=\"8010036445/Œ€Š€‚=‚‹€„ˆ‘‹€‚=€‹…Š‘€„‚ˆ—/17021965/RUS/Œ/[-]/////1/1////ELVIRAAVIA@MAIL.RU/+79174036096\"/ADULT_DOC=\"8005175298/•€Œ‚€=‹ˆŸ=…’‚€/18061976/RUS/F/[-]/////1/1////ELVIRAAVIA@MAIL.RU/+79174036096\"/ADULT_DOC=\"8012731497/“’€Š‚€=ƒ€‹ˆ€=œ…‚€/07031968/RUS/F/[-]/////1/1////ELVIRAAVIA@MAIL.RU/+79174036096\"/ADULT_DOC=\"8018858952/ƒ€‰“‹‹ˆ€=…‹…€=‚ˆŠ’‚€/24091973/RUS/F/[-]/////1/1////ELVIRAAVIA@MAIL.RU/+79174036096\"/FLAGS=63/STAN=7T78DD/STAN2=7T78DK/MULTISTAGE=GRANDasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdaasdasd"; // 1300 chars
+    QueryRunner qr(std::make_shared<EdiHelpManager>(MSG_ANSW_STORE_WAIT_SIG));
+    qr.setPult("Œ‚Œ");
+    qr.getEdiHelpManager().configForPerespros(STDLOG, msgtext, 1010, 20);
+    dumpEdihelp("Œ‚Œ");
     confirm_notify_oraside("Œ‚Œ", 1010);
 }
 

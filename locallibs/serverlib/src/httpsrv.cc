@@ -28,6 +28,7 @@
 #include <boost/date_time/posix_time/time_serialize.hpp>
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/array.hpp>
+#include <boost/serialization/shared_ptr.hpp>
 #include <memory>
 
 #include <type_traits>
@@ -50,7 +51,7 @@
 #include "noncopyable.h"
 #include "xml_tools.h"
 #include "http_logs_callbacks.h"
-#include "ntlm_service.h"
+#include "ntlm_protocol.h"
 
 static const char* const HTTPSRV_CMD_TCLVAR = "HTTPSRV_CMD"; /* Сокет для пинков */
 static size_t MAX_CONN_POOL_SIZE = 4096;
@@ -82,19 +83,19 @@ static struct {
 namespace ServerFramework {
 
 template<class Archive>
-void serialize(Archive & ar, InternalMsgId& t, const unsigned int version)
+void serialize(Archive & /*ar*/, InternalMsgId& /*t*/, const unsigned int /*version*/)
 {
 }
 
 
 template<class Archive>
-void save_construct_data(Archive& ar, const InternalMsgId* p, const unsigned int version)
+void save_construct_data(Archive& ar, const InternalMsgId* p, const unsigned int /*version*/)
 {
     ar << p->id();
 }
 
 template<class Archive>
-void load_construct_data(Archive& ar, InternalMsgId* p, const unsigned int version)
+void load_construct_data(Archive& ar, InternalMsgId* p, const unsigned int /*version*/)
 {
     std::decay_t<decltype(std::declval<InternalMsgId>().id())> raw;
     ar >> raw;
@@ -134,15 +135,35 @@ HostAndPort::HostAndPort(const std::string& host_colon_port)
     port = std::stoul(host_colon_port.substr(c+1));
 }
 
-HttpReq::HttpReq(const ReqCorrelationData& correlation,
+namespace protocol {
+DataPtr ntlmv2(const std::string &domain, const std::string &username, const std::string &password)
+{
+    return std::make_shared<ntlm::V2Data>(domain, username, password);
+}
+
+DataPtr ntlmv2(const std::string &domainSlashUsername, const std::string &password)
+{
+    size_t pos = domainSlashUsername.find('/');
+    if (pos == std::string::npos)
+        throw ServerFramework::Exception(STDLOG, __FUNCTION__, "malformed argument: can't find '/'");
+
+    auto domain = domainSlashUsername.substr(0, pos);
+    auto username = domainSlashUsername.substr(pos + 1);
+
+    return ntlmv2(domain, username, password);
+}
+} // namespace protocol
+
+HttpReq::HttpReq(
+        const ReqCorrelationData& correlation,
         const Domain& domain,
         const HostAndPort& hostAndPort,
         const boost::posix_time::ptime& time,
         const std::string& text,
         const std::vector<boost::posix_time::ptime>& deadlines,
         const CustomData& customData,
-        const CustomAuth& customAuth,
         const boost::optional<ClientAuth>& clientAuth,
+        const protocol::DataPtr& protocolData,
         const std::string& peresprosReq,
         const UseSSLFlag& useSSL,
         const int64_t recId,
@@ -155,8 +176,8 @@ HttpReq::HttpReq(const ReqCorrelationData& correlation,
     text(text),
     deadlines(deadlines),
     customData(customData),
-    customAuth(customAuth),
     clientAuth(clientAuth),
+    protocolData(protocolData),
     peresprosReq(peresprosReq),
     useSSL(useSSL),
     recId(recId),
@@ -196,7 +217,7 @@ std::ostream& operator<<(std::ostream& out, const Stat& stat)
 }
 
 template<class Archive>
-void serialize(Archive& ar, Stat& t, const unsigned int version)
+void serialize(Archive& ar, Stat& t, const unsigned int /*version*/)
 {
     ar & t.activeSessions;
     ar & t.activeConnections;
@@ -279,7 +300,7 @@ typedef boost::archive::text_oarchive OArchive_t;
 /* CustomData */
 
 template<class Archive>
-void serialize(Archive& ar, CustomData& t, const unsigned int version)
+void serialize(Archive& ar, CustomData& t, const unsigned int /*version*/)
 {
     ar & t.s1;
     ar & t.s2;
@@ -289,7 +310,7 @@ void serialize(Archive& ar, CustomData& t, const unsigned int version)
 
 /* ReqCorrelationData */
 template<class Archive>
-void load(Archive & ar, ReqCorrelationData & t, const unsigned int version)
+void load(Archive & ar, ReqCorrelationData & t, const unsigned int /*version*/)
 {
     std::string pult;
     ServerFramework::InternalMsgId* MsgId = nullptr;
@@ -322,7 +343,7 @@ void load(Archive & ar, ReqCorrelationData & t, const unsigned int version)
 }
 
 template<class Archive>
-void save(Archive & ar, const ReqCorrelationData& t, const unsigned int version)
+void save(Archive & ar, const ReqCorrelationData& t, const unsigned int /*version*/)
 {
     ar << (t.pult ? t.pult->str() : std::string());
     const ServerFramework::InternalMsgId *MsgId = nullptr;
@@ -351,19 +372,19 @@ void serialize(Archive & ar, ReqCorrelationData_io& t, const unsigned int versio
 /* ClientAuth */
 
 template<class Archive>
-void serialize(Archive & ar, ClientAuth& t, const unsigned int version)
+void serialize(Archive & /*ar*/, ClientAuth& /*t*/, const unsigned int /*version*/)
 {
 }
 
 template<class Archive>
-void save_construct_data(Archive& ar, const ClientAuth* p, const unsigned int version)
+void save_construct_data(Archive& ar, const ClientAuth* p, const unsigned int /*version*/)
 {
     ar << p->cert.str();
     ar << p->pkey.str();
 }
 
 template<class Archive>
-void load_construct_data(Archive& ar, ClientAuth* p, const unsigned int version)
+void load_construct_data(Archive& ar, ClientAuth* p, const unsigned int /*version*/)
 {
     std::string cert, pkey;
     ar >> cert;
@@ -371,15 +392,21 @@ void load_construct_data(Archive& ar, ClientAuth* p, const unsigned int version)
     new (p) ClientAuth(Certificate(cert), PrivateKey(pkey));
 }
 
+/* ProtocolData */
+template<class Archive>
+void serialize(Archive &, protocol::Data &, const unsigned int)
+{
+}
+
 /* HttpReq */
 
 template<class Archive>
-void serialize(Archive & ar, HttpReq& t, const unsigned int version)
+void serialize(Archive & /*ar*/, HttpReq& /*t*/, const unsigned int /*version*/)
 {
 }
 
 template<class Archive>
-void save_construct_data(Archive& ar, const HttpReq* p, const unsigned int version)
+void save_construct_data(Archive& ar, const HttpReq* p, const unsigned int /*version*/)
 {
     ar << p->correlation;
     ar << p->domain.str();
@@ -389,9 +416,9 @@ void save_construct_data(Archive& ar, const HttpReq* p, const unsigned int versi
     ar << p->text;
     ar << p->deadlines;
     ar << p->customData;
-    ar << p->customAuth;
     const ClientAuth* clientAuth = p->clientAuth ? &(*p->clientAuth) : NULL;
     ar << clientAuth;
+    ar << p->protocolData;
     ar << p->peresprosReq;
     int useSSL = (p->useSSL.getInt());
     ar << useSSL;
@@ -401,7 +428,7 @@ void save_construct_data(Archive& ar, const HttpReq* p, const unsigned int versi
 }
 
 template<class Archive>
-void load_construct_data(Archive& ar, HttpReq* p, const unsigned int version)
+void load_construct_data(Archive& ar, HttpReq* p, const unsigned int /*version*/)
 {
     std::string domain;
     std::string host;
@@ -410,8 +437,8 @@ void load_construct_data(Archive& ar, HttpReq* p, const unsigned int version)
     std::string text;
     std::vector<boost::posix_time::ptime> deadlines;
     CustomData customData;
-    CustomAuth customAuth = CustomAuth::None;
     ClientAuth* clientAuth = NULL;
+    protocol::DataPtr protocolData = nullptr;
     std::string peresprosReq;
     int useSSL = 0;
     int64_t recId = 0;
@@ -427,9 +454,9 @@ void load_construct_data(Archive& ar, HttpReq* p, const unsigned int version)
     ar >> text;
     ar >> deadlines;
     ar >> customData;
-    ar >> customAuth;
     ar >> clientAuth;
     std::unique_ptr<ClientAuth> clientAuth_free(clientAuth);
+    ar >> protocolData;
     ar >> peresprosReq;
     ar >> useSSL;
     ar >> recId;
@@ -444,8 +471,8 @@ void load_construct_data(Archive& ar, HttpReq* p, const unsigned int version)
             text,
             deadlines,
             customData,
-            customAuth,
             clientAuth ? *clientAuth : boost::optional<ClientAuth>(),
+            protocolData,
             peresprosReq,
             UseSSLFlag(useSSL),
             recId,
@@ -456,19 +483,19 @@ void load_construct_data(Archive& ar, HttpReq* p, const unsigned int version)
 /* CommErr */
 
 template<class Archive>
-void serialize(Archive & ar, CommErr& t, const unsigned int version)
+void serialize(Archive & /*ar*/, CommErr& /*t*/, const unsigned int /*version*/)
 {
 }
 
 template<class Archive>
-void save_construct_data(Archive& ar, const CommErr* p, const unsigned int version)
+void save_construct_data(Archive& ar, const CommErr* p, const unsigned int /*version*/)
 {
     ar << p->code;
     ar << p->errMsg;
 }
 
 template<class Archive>
-void load_construct_data(Archive& ar, CommErr* p, const unsigned int version)
+void load_construct_data(Archive& ar, CommErr* p, const unsigned int /*version*/)
 {
     CommErrCode code;
     std::string errMsg;
@@ -480,12 +507,12 @@ void load_construct_data(Archive& ar, CommErr* p, const unsigned int version)
 /* HttpResp */
 
 template<class Archive>
-void serialize(Archive & ar, HttpResp& t, const unsigned int version)
+void serialize(Archive & /*ar*/, HttpResp& /*t*/, const unsigned int /*version*/)
 {
 }
 
 template<class Archive>
-void save_construct_data(Archive& ar, const HttpResp* p, const unsigned int version)
+void save_construct_data(Archive& ar, const HttpResp* p, const unsigned int /*version*/)
 {
     const HttpReq* req = &p->req;
     ar << p->time;
@@ -496,7 +523,7 @@ void save_construct_data(Archive& ar, const HttpResp* p, const unsigned int vers
 }
 
 template<class Archive>
-void load_construct_data(Archive& ar, HttpResp* p, const unsigned int version)
+void load_construct_data(Archive& ar, HttpResp* p, const unsigned int /*version*/)
 {
     boost::posix_time::ptime time;
     std::string text;
@@ -1249,31 +1276,18 @@ private:
             }
         } else if (state_ == BUSY) {
             LogTrace(TRACE5) << __FUNCTION__ << ": " << this << ": OK";
-            if (req_.customAuth == CustomAuth::NTLM) {
-                httpsrv::ntlm::authenticate(
+            if (req_.protocolData && req_.protocolData->type() == httpsrv::protocol::Type::NTLMv2) {
+                LogTrace(TRACE5) << __FUNCTION__ << ": use NTLMv2";
+                httpsrv::protocol::ntlm::usev2(
                             stream_,
-                            std::bind(&HttpsConn::onAuthenticateComplete, shared_from_this(), std::placeholders::_1 /*error*/));
+                            req_,
+                            std::bind(&HttpsConn::onWriteComplete, shared_from_this(), std::placeholders::_1 /*error*/));
             } else {
                 boost::asio::async_write(
                             stream_,
                             boost::asio::buffer(req_.text),
                             std::bind(&HttpsConn::onWriteComplete, shared_from_this(), std::placeholders::_1 /*error*/));
             }
-        } else
-            LogTrace(TRACE5) << __FUNCTION__ << ": " << this << ": state changed to " << state_;
-    }
-
-    void onAuthenticateComplete(const boost::system::error_code& err)
-    {
-        if (err) {
-            LogError(STDLOG) << __FUNCTION__ << ": " << this << ": " << err.message() << ": " << LogReq(req_);
-            setErrorState(COMMERR_AUTHENTICATE, err);
-        } else if (state_ == BUSY) {
-            LogTrace(TRACE5) << __FUNCTION__ << ": " << this << ": OK";
-            boost::asio::async_write(
-                    stream_,
-                    boost::asio::buffer(req_.text),
-                    std::bind(&HttpsConn::onWriteComplete, shared_from_this(), std::placeholders::_1 /*error*/));
         } else
             LogTrace(TRACE5) << __FUNCTION__ << ": " << this << ": state changed to " << state_;
     }
@@ -1642,7 +1656,7 @@ private:
         monitor_idle();
     }
 
-    FinalCallback_t connFinishCallback(const HttpReq& req)
+    FinalCallback_t connFinishCallback(const HttpReq& /*req*/)
     {
         return
             [pool = &pool_](const auto& conn)
@@ -1907,7 +1921,7 @@ public:
                     std::placeholders::_2 /*bytes_transferred*/));
     }
 private:
-    void onReadCmd(const boost::system::error_code& err, const std::size_t bytes_transferred)
+    void onReadCmd(const boost::system::error_code& err, const std::size_t /*bytes_transferred*/)
     {
         if (err) {
             LogError(STDLOG) << __FUNCTION__ << ": " << this << ": " << err.message();
@@ -1927,7 +1941,7 @@ private:
         }
     }
 
-    void onReadData(const boost::system::error_code& err, const std::size_t bytes_transferred)
+    void onReadData(const boost::system::error_code& err, const std::size_t /*bytes_transferred*/)
     {
         if (err) {
             LogError(STDLOG) << __FUNCTION__ << ": " << this << ": " << err.message();
@@ -2011,7 +2025,7 @@ private:
             boost::asio::async_write(
                 *socket_,
                 boost::asio::buffer(NO_REQS_FOUND),
-                [self = shared_from_this()](const auto& error, const size_t N) {
+                [self = shared_from_this()](const auto& error, const size_t /*N*/) {
                     self->onWriteTrailer(error);
                 });
             return;
@@ -2254,7 +2268,7 @@ DoHttpRequest::DoHttpRequest(
     domain_(std::move(domain)),
     hostAndPort_(std::move(hostAndPort)),
     reqText_(std::move(reqText)),
-    customAuth_(CustomAuth::None),
+    protocolData_(nullptr),
     timeout_(boost::posix_time::seconds(15)),
     maxTryCount_(1),
     useSSL_(true),
@@ -2270,16 +2284,16 @@ DoHttpRequest& DoHttpRequest::setCustomData(const CustomData& customData)
     return *this;
 }
 
-DoHttpRequest& DoHttpRequest::setCustomAuth(const CustomAuth& customAuth)
-{
-    customAuth_ = customAuth;
-    return *this;
-}
-
 DoHttpRequest& DoHttpRequest::setClientAuth(const ClientAuth& clientAuth)
 {
     clientAuth_ = clientAuth;
     useSSL_ = UseSSLFlag(true);
+    return *this;
+}
+
+DoHttpRequest& DoHttpRequest::setProtocolData(protocol::DataPtr &&protocolData)
+{
+    protocolData_ = std::move(protocolData);
     return *this;
 }
 
@@ -2516,8 +2530,8 @@ int64_t DoHttpRequest::operator()()
             reqText_,
             GenerateDeadlines(now, timeout_, maxTryCount_),
             customData_,
-            customAuth_,
             clientAuth_,
+            protocolData_,
             peresprosReq_,
             useSSL_,
             recId_,
@@ -2750,7 +2764,7 @@ HasNotSentAQueryBefore::HasNotSentAQueryBefore() : ServerFramework::Exception("h
  * main
  ******************************************************************************/
 
-int main_httpsrv(int supervisorSocket, int argc, char* argv[])
+int main_httpsrv(int supervisorSocket, int /*argc*/, char* /*argv*/[])
 {
     set_signal(term3);
     InitLogTime("HTTPSRV");
@@ -2917,7 +2931,7 @@ static std::string FP_http_update_first_forecast(const std::vector<tok::Param>& 
     return std::string();
 }
 
-static std::string FP_http_delete_first_response(const std::vector<tok::Param>& args)
+static std::string FP_http_delete_first_response(const std::vector<tok::Param>& /*args*/)
 {
     ASSERT(not _ForTests.responses.empty());
     _ForTests.responses.pop();
@@ -2955,11 +2969,11 @@ static std::string FP_http_request_capture(const std::vector<tok::Param>& args)
     return std::string();
 }
 
-static std::string FP_http_no_forecasts(const std::vector<tok::Param>& args)
+static std::string FP_http_no_forecasts(const std::vector<tok::Param>& /*args*/)
 {
     ASSERT(_ForTests.responses.empty());
     ASSERT(_ForTests.forecasts.empty());
-    return "";
+    return {};
 }
 
 FP_REGISTER("utf8", FP_utf8);

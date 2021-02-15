@@ -32,6 +32,13 @@ static void commitWithHooks()
     callPostHooksAfter();
 }
 
+static void rollbackWithHooks()
+{
+    ProgTrace( TRACE1 , "Rollback" );
+    ServerFramework::applicationCallbacks()->rollback_db();
+    callRollbackPostHooks();
+}
+
 static void commit1()
 {
     ServerFramework::applicationCallbacks()->commit_db();
@@ -52,6 +59,10 @@ DaemonTaskTraits DaemonTaskTraits::Nothing()
 DaemonTaskTraits DaemonTaskTraits::OracleAndHooks()
 {
     return DaemonTaskTraits(emptyHookTables, commitWithHooks, rollback1, callPostHooksAlways);
+}
+DaemonTaskTraits DaemonTaskTraits::MainAndHooks()
+{
+    return DaemonTaskTraits(emptyHookTables, commitWithHooks, rollbackWithHooks, callPostHooksAlways);
 }
 DaemonTaskTraits DaemonTaskTraits::OracleOnly()
 {

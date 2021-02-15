@@ -479,6 +479,10 @@ public:
         return blev_->message_id(head.data());
     }
     //-----------------------------------------------------------------------
+    bool validateMsgSize(const uint32_t l) {
+        return !(l < blev_->hlen());
+    }
+    //-----------------------------------------------------------------------
     const ServerFramework::MsgId& msgIdFromHeader(const std::vector<uint8_t>& head) {
         static ServerFramework::MsgId id;
 

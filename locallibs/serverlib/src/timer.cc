@@ -1,145 +1,97 @@
-#if HAVE_CONFIG_H
-#endif
-
-/*
-*  C++ Implementation: timer
-*
-* Description: Timer
-*
-*
-* Author: Kovalev Roman <rom@sirena2000.ru>, (C) 2006
-*
-*/
-#include <iomanip>
 #include "timer.h"
+#include <chrono>
+#include <iostream>
 
-#define NICKNAME "TIMER"
-#include "slogger.h"
-
-namespace Timer
+namespace HelpCpp
 {
 
-inline void currentTime(struct timeval &_Time)
+Timer::Timer(bool startOnCreate)
 {
-    if(gettimeofday(&_Time, 0))
-        LogWarning(STDLOG) << "gettimeofday failed to initialize";
+    if (startOnCreate) {
+        restart();
+    }
 }
 
-inline double time_to_double(const struct timeval &NowTime)
+Timer::Timer(const std::string& name, bool startOnCreate)
+    : name_(name)
 {
-    return NowTime.tv_sec + NowTime.tv_usec / 1000000.;
+    if (startOnCreate) {
+        restart();
+    }
 }
 
-void timer::restart()
+const std::string& Timer::name() const
 {
-#ifdef USE_BOOST
-    StartTime = boost::posix_time::microsec_clock::universal_time();
-#else
-    currentTime(StartTime);
-#endif /*USE_BOOST*/
+    return name_;
 }
 
-double timer::elapsed() const
+void Timer::restart()
 {
-#ifdef USE_BOOST
-    using namespace boost::posix_time;
-    ptime now = microsec_clock::universal_time();
-    time_duration::tick_type elapsed = (now - StartTime).total_microseconds();
-    return static_cast<double>(elapsed) / 1000000;
-#else
-    struct timeval NowTime;
-    currentTime(NowTime);
-
-    return time_to_double(NowTime) - time_to_double(StartTime);
-#endif /*USE_BOOST*/
+    auto now = std::chrono::system_clock::now();
+    auto now_ms = std::chrono::time_point_cast<std::chrono::microseconds>(now);
+    startTime_ = now_ms.time_since_epoch().count();
 }
 
-long timer::usec() const
+template<typename T>
+static long elapsed(long start)
 {
-#ifdef USE_BOOST
-    using namespace boost::posix_time;
-    ptime now = microsec_clock::universal_time();
-    return (now - StartTime).total_microseconds();
-#else
-    struct timeval NowTime;
-    currentTime(NowTime);
-    return (NowTime.tv_sec - StartTime.tv_sec) * 1e6 + (NowTime.tv_usec - StartTime.tv_usec);
-#endif /*USE_BOOST*/
+    auto now = std::chrono::system_clock::now();
+    return std::chrono::duration_cast<T>(now
+            - std::chrono::time_point<std::chrono::system_clock>(std::chrono::microseconds(start))).count();
 }
 
-std::ostream & operator <<(std::ostream & os, const timer &t)
+long Timer::elapsedSeconds() const
 {
-    os << t.name() << (t.name().empty() ? "" : ": ")
-       << std::setiosflags(std::ios::fixed) << std::setprecision(6)
-       << t.elapsed() << "s";
-    return os;
+    return elapsed<std::chrono::seconds>(startTime_);
 }
 
-timer::timer()
+long Timer::elapsedMilliseconds() const
 {
-    restart();
+    return elapsed<std::chrono::milliseconds>(startTime_);
 }
 
-timer::timer(const std::string &name)
-    :TName(name)
+long Timer::elapsedMicroseconds() const
 {
-    restart();
+    return elapsed<std::chrono::microseconds>(startTime_);
 }
 
+std::ostream& operator<<(std::ostream& os, const Timer& t)
+{
+    if (t.name_.empty()) {
+        return os << t.elapsedMilliseconds() << "ms";
+    } else {
+        return os << t.name_ << ' ' << t.elapsedMilliseconds() << "ms";
+    }
 }
 
+} // namespace HelpCpp
 
 #ifdef XP_TESTING
-#include "xp_test_utils.h"
+#include <thread>
 #include "checkunit.h"
-#include "timing.h"
 
-START_TEST( check_timer_timing )
+#define NICKNAME "SYSTEM"
+#include "slogger.h"
+
+namespace
 {
-    Timer::timer t;
-    sleep(1);
-    LogTrace(TRACE1) << t;
-}
-END_TEST
 
-START_TEST( check_timer_perf )
+START_TEST(check_timer)
 {
-    Timer::timer t;
-    for(size_t i = 0; i < 1000000; i++) {
-        Timer::timer t2;
-        t2.elapsed();
-    }
-
-    LogTrace(TRACE1) << t;
-    // 0.307353s - NO boost
-    // 1.536118s - YES boost
-}
-END_TEST
-
-START_TEST( check_timing_perf )
-{
-    Timer::timer t;
-    TimeAccounting::Timer<TimeAccounting::Times> t1;
-    t1.start();
-    for(size_t i = 0; i < 1000000; i++) {
-        TimeAccounting::Timer<TimeAccounting::Times> t2;
-        t2.start();
-        t2.value();
-    }
-
-    LogTrace(TRACE1) << t;
-    LogTrace(TRACE1) << t1.value() / 100.;
-    // 0.453916s
-}
-END_TEST
+    using namespace std::literals;
+    HelpCpp::Timer t;
+    std::this_thread::sleep_for(16ms);
+    auto delay = t.elapsedMilliseconds();
+    LogTrace(TRACE5) << delay << "ms";
+    fail_unless(delay >= 16);
+} END_TEST
 
 #define SUITENAME "Serverlib"
-TCASEREGISTER( 0, 0 )
+TCASEREGISTER(0, 0)
 {
-    ADD_TEST( check_timer_timing );
-    ADD_TEST( check_timer_perf );
-    ADD_TEST( check_timing_perf );
+    ADD_TEST(check_timer)
 }
 TCASEFINISH
 
-#endif /*XP_TESTING*/
+} // namespace
+#endif //XP_TESTING

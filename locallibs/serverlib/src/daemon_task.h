@@ -67,6 +67,7 @@ public:
 
     static DaemonTaskTraits Nothing();
     static DaemonTaskTraits OracleAndHooks();
+    static DaemonTaskTraits MainAndHooks();
     static DaemonTaskTraits OracleOnly();
     static DaemonTaskTraits HooksOnly();
 };
@@ -118,6 +119,8 @@ class CyclicDaemonTask
 {
 public:
     CyclicDaemonTask(DaemonTaskTraits const& t) : DaemonTask(t) {}
+
+    using DaemonTask::run;
     virtual ~CyclicDaemonTask() {}
     // special non-virtual, to prevent overriding this function
     int run(const boost::posix_time::ptime& dt) override final {
@@ -150,7 +153,6 @@ protected:
     std::function<void (const boost::posix_time::ptime& dt, std::queue<Data> &queue)> fillQueueFunc_;
 
 private:
-    using DaemonTask::run;
     std::queue<Data> queue_;
     bool needRepeat_;
 };

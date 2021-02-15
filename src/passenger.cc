@@ -1928,7 +1928,7 @@ ASTRA::TTrickyGender::Enum TSimplePaxItem::getTrickyGender(ASTRA::TPerson pers_t
 
 const std::string& TSimplePaxItem::origClassFromCrsSQL()
 {
-  static const std::string result=" NVL(crs_pax.etick_class, NVL(crs_pax.orig_class, crs_pnr.class)) ";
+  static const std::string result=" COALESCE(NULLIF(crs_pax.etick_class, ''), NULLIF(crs_pax.orig_class, ''), crs_pnr.class) ";
   return result;
 }
 
@@ -1936,7 +1936,7 @@ const std::string& TSimplePaxItem::origSubclassFromCrsSQL()
 {
   static const std::string result=" CASE WHEN crs_pnr.class="+origClassFromCrsSQL()+
                                   "      THEN crs_pnr.subclass "
-                                  "      ELSE NVL(crs_pax.etick_subclass, NVL(crs_pax.orig_subclass, crs_pnr.subclass)) END ";
+                                  "      ELSE COALESCE(NULLIF(crs_pax.etick_subclass, ''), NULLIF(crs_pax.orig_subclass, ''), crs_pnr.subclass) END ";
   return result;
 }
 
