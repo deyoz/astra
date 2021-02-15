@@ -3657,10 +3657,12 @@ std::set<PaxId_t> loadPaxIdSetByDocs(const std::string& doc_no, TDateTime birth_
 
 void TPaxDocItem::addSearchPaxIds(const PaxOrigin& origin, std::set<PaxId_t>& searchPaxIds) const
 {
-  if (origin != paxPnl) {
-    return;
-  }
   searchPaxIds = loadPaxIdSetByDocs(no, birth_date);
+}
+
+bool TPaxDocItem::useSearchPaxIds(const PaxOrigin& origin) const
+{
+  return origin == paxPnl;
 }
 
 bool TPaxDocItem::suitable(const TPaxDocItem& doc) const
@@ -3693,10 +3695,12 @@ void TScannedPaxDocItem::addSQLParamsForSearch(const PaxOrigin& origin, QParams&
 
 void TScannedPaxDocItem::addSearchPaxIds(const PaxOrigin& origin, std::set<PaxId_t>& searchPaxIds) const
 {
-  if (origin != paxPnl) {
-    return;
-  }
   searchPaxIds = loadPaxIdSetByDocs(getTrueNo(), birth_date);
+}
+
+bool TScannedPaxDocItem::useSearchPaxIds(const PaxOrigin& origin) const
+{
+  return origin == paxPnl;
 }
 
 bool TScannedPaxDocItem::suitable(const TPaxDocItem& doc) const
