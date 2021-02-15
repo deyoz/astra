@@ -6195,38 +6195,39 @@ static void onChangeClass(int pax_id, ASTRA::TClass cl)
 void SaveDCSBaggage(int pax_id, const TNameElement &ne)
 {
   if (ne.bag.Empty() && ne.tags.empty()) return;
-  TQuery Qry(&OraSession);
+  DB::TQuery QryBag(PgOra::getRWSession("DCS_BAG"));
   if (!ne.bag.Empty())
   {
-    Qry.Clear();
-    Qry.SQLText=
+    QryBag.Clear();
+    QryBag.SQLText=
       "INSERT INTO dcs_bag(pax_id, bag_amount, bag_weight, rk_weight, weight_unit) "
       "VALUES(:pax_id, :bag_amount, :bag_weight, :rk_weight, :weight_unit)";
-    Qry.CreateVariable("pax_id", otInteger, pax_id);
-    Qry.CreateVariable("bag_amount", otInteger, (int)ne.bag.bag_amount);
-    Qry.CreateVariable("bag_weight", otInteger, (int)ne.bag.bag_weight);
-    Qry.CreateVariable("rk_weight", otInteger, (int)ne.bag.rk_weight);
-    Qry.CreateVariable("weight_unit", otString, ne.bag.weight_unit);
-    Qry.Execute();
+    QryBag.CreateVariable("pax_id", otInteger, pax_id);
+    QryBag.CreateVariable("bag_amount", otInteger, (int)ne.bag.bag_amount);
+    QryBag.CreateVariable("bag_weight", otInteger, (int)ne.bag.bag_weight);
+    QryBag.CreateVariable("rk_weight", otInteger, (int)ne.bag.rk_weight);
+    QryBag.CreateVariable("weight_unit", otString, ne.bag.weight_unit);
+    QryBag.Execute();
   };
   if (!ne.tags.empty())
   {
-    Qry.Clear();
-    Qry.SQLText=
+    DB::TQuery QryTags(PgOra::getRWSession("DCS_TAGS"));
+    QryTags.Clear();
+    QryTags.SQLText=
       "INSERT INTO dcs_tags(pax_id, alpha_no, numeric_no, airp_arv_final) "
       "VALUES(:pax_id, :alpha_no, :numeric_no, :airp_arv_final)";
-    Qry.CreateVariable("pax_id",otInteger,pax_id);
-    Qry.DeclareVariable("alpha_no", otString);
-    Qry.DeclareVariable("numeric_no", otFloat);
-    Qry.DeclareVariable("airp_arv_final", otString);
+    QryTags.CreateVariable("pax_id",otInteger,pax_id);
+    QryTags.DeclareVariable("alpha_no", otString);
+    QryTags.DeclareVariable("numeric_no", otFloat);
+    QryTags.DeclareVariable("airp_arv_final", otString);
     for(vector<TTagItem>::const_iterator iTag=ne.tags.begin(); iTag!=ne.tags.end(); ++iTag)
     {
-      Qry.SetVariable("alpha_no",iTag->alpha_no);
-      Qry.SetVariable("airp_arv_final",iTag->airp_arv_final);
+      QryTags.SetVariable("alpha_no",iTag->alpha_no);
+      QryTags.SetVariable("airp_arv_final",iTag->airp_arv_final);
       for(int j=0;j<iTag->num;j++)
       {
-        Qry.SetVariable("numeric_no",iTag->numeric_no+j);
-        Qry.Execute();
+        QryTags.SetVariable("numeric_no",iTag->numeric_no+j);
+        QryTags.Execute();
       };
     };
   };
