@@ -120,6 +120,11 @@ int ARX_MAX_ROWS()
 
 bool arx_daily_pg(TDateTime utcdate)
 {
+    LogTrace5 << __func__ << " utcdate: " << utcdate;
+    if(utcdate == ASTRA::NoExists) {
+        LogTrace5 << " utcdate incorrect";
+        return false;
+    }
     return PG_ARX::arx_daily(DateTimeToBoost(utcdate));
 }
 
@@ -701,7 +706,7 @@ TArxMoveFlt::~TArxMoveFlt()
 bool TArxMoveFlt::GetPartKey(const MoveId_t &move_id, Dates::DateTime_t &part_key, double &date_range)
 {
     LogTrace(TRACE5) << __FUNCTION__ << " move_id: " << move_id << " part_key: " << part_key;
-    //part_key=NoExists;
+    part_key=Dates::not_a_date_time;
     date_range=NoExists;
 
     dbo::Session session;
@@ -725,7 +730,9 @@ bool TArxMoveFlt::GetPartKey(const MoveId_t &move_id, Dates::DateTime_t &part_ke
         } else {
             temp = {first_date,last_date, p.scd_in, p.est_in, p.act_in};
         }
+        tst();
         auto fdates = algo::filter(temp, dbo::isNotNull<Dates::DateTime_t>);
+        tst();
         for(const auto & t : fdates) LogTrace(TRACE5) << " FILTER: " << t;
         if(auto minIt = std::min_element(fdates.begin(), fdates.end()); minIt != fdates.end()) {
             first_date = *minIt;
@@ -744,10 +751,12 @@ bool TArxMoveFlt::GetPartKey(const MoveId_t &move_id, Dates::DateTime_t &part_ke
             tst();
             if (last_date < utcdate - Dates::days(ARX::ARX_DAYS()))
             {
-                tst();
+                LogTrace5 << " в архив";
                 //переместить в архив
                 part_key = last_date;
                 date_range = BoostToDateTime(last_date) - BoostToDateTime(first_date);
+                LogTrace5 << " date_range : " << date_range << " last_date: " << last_date
+                          << " first_date: " << first_date;
                 return true;
             };
         };
@@ -756,9 +765,9 @@ bool TArxMoveFlt::GetPartKey(const MoveId_t &move_id, Dates::DateTime_t &part_ke
     {
         tst();
         //полностью удаленный рейс
-        if (last_date == Dates::not_a_date_time || last_date < utcdate-Dates::days(ARX::ARX_DAYS()))
+        if (last_date == Dates::not_a_date_time || last_date < (utcdate-Dates::days(ARX::ARX_DAYS())))
         {
-            tst();
+            LogTrace5 << "удаленный рейс";
             //удалить
             part_key = Dates::not_a_date_time;
             date_range = NoExists;
@@ -802,6 +811,7 @@ void TArxMoveFlt::readMoveIds(size_t max_rows)
        .exec();
 
     while(!cur.fen() && (move_ids.size() < max_rows)) {
+        tst();
         if (GetPartKey(MoveId_t(move_id), part_key,date_range))
         {
             move_ids.try_emplace(MoveId_t(move_id), part_key);
@@ -813,6 +823,9 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
 {
     LogTrace(TRACE5) << __func__;
     readMoveIds(max_rows);
+    if(move_ids.empty()) {
+        LogTrace5 << " moveids empty";
+    }
     while (!move_ids.empty())
     {
         LogTrace(TRACE5) << "MOVE_IDS count: " << move_ids.size();
@@ -1858,7 +1871,7 @@ void deleteByMoveId(const MoveId_t & move_id)
 //STEP 2
 int arx_tlgout_noflt(const Dates::DateTime_t& arx_date, int remain_rows)
 {
-    //LogTrace(TRACE5) << __FUNCTION__ << " arx_date: " << arx_date;
+    LogTrace(TRACE5) << __func__ << " arx_date: " << arx_date;
     dbo::Session session;
 
     std::vector<dbo::TLG_OUT> tlg_outs = session.query<dbo::TLG_OUT>()
@@ -1890,7 +1903,7 @@ int arx_tlgout_noflt(const Dates::DateTime_t& arx_date, int remain_rows)
 
 int arx_events_noflt2(const Dates::DateTime_t& arx_date, int remain_rows)
 {
-    //LogTrace(TRACE5) << __FUNCTION__ << " arx_date: " << arx_date;
+    LogTrace(TRACE5) << __func__ << " arx_date: " << arx_date;
     dbo::Session session;
     //Dates::DateTime_t elapsed = arx_date - Dates::days(30);
     std::vector<dbo::Events_Bilingual> events =  session.query<dbo::Events_Bilingual>()
@@ -1916,7 +1929,7 @@ int arx_events_noflt2(const Dates::DateTime_t& arx_date, int remain_rows)
 
 int arx_events_noflt3(const Dates::DateTime_t& arx_date, int remain_rows)
 {
-    //LogTrace(TRACE5) << __FUNCTION__ << " arx_date: " << arx_date;
+    LogTrace(TRACE5) << __func__ << " arx_date: " << arx_date;
     dbo::Session session;
     std::vector<dbo::Events_Bilingual> events =  session.query<dbo::Events_Bilingual>()
             .where("TIME >= :arx_date - 30 and TIME < :arx_date and type not in "
@@ -1947,7 +1960,7 @@ int arx_events_noflt3(const Dates::DateTime_t& arx_date, int remain_rows)
 
 int arx_stat_zamar(const Dates::DateTime_t& arx_date, int remain_rows)
 {
-    //LogTrace(TRACE5) << __FUNCTION__ << " arx_date: " << arx_date;
+    LogTrace(TRACE5) << __func__ << " arx_date: " << arx_date;
     dbo::Session session;
     std::vector<dbo::STAT_ZAMAR> stats =  session.query<dbo::STAT_ZAMAR>()
             .where("TIME < :arx_date")
@@ -1966,7 +1979,7 @@ int arx_stat_zamar(const Dates::DateTime_t& arx_date, int remain_rows)
 
 void move_noflt(const Dates::DateTime_t& arx_date, int max_rows, int time_duration, int& step)
 {
-    //LogTrace(TRACE5) << __FUNCTION__ << " arx_date: " << arx_date;
+    LogTrace(TRACE5) << __FUNCTION__ << " arx_date: " << arx_date;
     int remain_rows = max_rows;
     Dates::DateTime_t local_time = Dates::second_clock::local_time();
     Dates::DateTime_t time_finish = local_time + Dates::seconds(time_duration);
@@ -2006,6 +2019,7 @@ TArxMoveNoFlt::~TArxMoveNoFlt()
 
 bool TArxMoveNoFlt::Next(size_t max_rows, int duration)
 {
+    LogTrace5 << __func__;
     if(step <= 0) {
         step = 1;
     }
@@ -2052,6 +2066,7 @@ std::vector<PointId_t> TArxTlgTrips::getTlgTripPoints(const Dates::DateTime_t& a
 
 void arx_tlg_trip(const PointId_t& point_id)
 {
+    LogTrace5 << __func__ << " point_id: " << point_id;
     ckin::delete_typeb_data(point_id);
     auto cur = make_curs(
                 "BEGIN "
@@ -2110,6 +2125,7 @@ void arx_tlg_trip(const PointId_t& point_id)
 
 bool TArxTlgTrips::Next(size_t max_rows, int duration)
 {
+    LogTrace5 << __func__;
     auto points = getTlgTripPoints(utcdate-Dates::days(ARX::ARX_DAYS()), max_rows);
 
     while (!points.empty())
@@ -2145,6 +2161,7 @@ TArxTypeBIn::TArxTypeBIn(const Dates::DateTime_t &utc_date):TArxMove(utc_date)
 
 std::map<int, Dates::DateTime_t> getTlgIds(const Dates::DateTime_t& arx_date, size_t max_rows)
 {
+    LogTrace5 << __func__ << " arx_date: " << arx_date;
     std::map<int, Dates::DateTime_t> res;
     int tlg_id;
     Dates::DateTime_t time_receive;
@@ -2184,6 +2201,7 @@ void move_typeb_in(int tlg_id)
 
 bool TArxTypeBIn::Next(size_t max_rows, int duration)
 {
+    LogTrace5 << __func__;
     std::map<int, Dates::DateTime_t> tlg_ids = getTlgIds(utcdate - Dates::days(ARX::ARX_DAYS()), max_rows);
     while (!tlg_ids.empty())
     {
@@ -2310,6 +2328,7 @@ int delete_from_mark_trips(const Dates::DateTime_t& arx_date, int remain_rows)
 
 void norms_rates_etc(const Dates::DateTime_t& arx_date, int max_rows, int time_duration, int& step)
 {
+    LogTrace5 << __func__ << " arx_date: " << arx_date;
     int remain_rows = max_rows;
     Dates::DateTime_t local_time = Dates::second_clock::local_time();
     Dates::DateTime_t time_finish = local_time + Dates::seconds(time_duration);
@@ -2345,6 +2364,7 @@ TArxNormsRatesEtc::TArxNormsRatesEtc(const Dates::DateTime_t& utc_date):TArxMove
 
 bool TArxNormsRatesEtc::Next(size_t max_rows, int duration)
 {
+    LogTrace5 << __func__;
     if(step <= 0) {
         step = 1;
     }
@@ -2524,6 +2544,7 @@ int delete_emdocs_display(const Dates::DateTime_t& arx_date, int remain_rows)
 
 void tlgs_files_etc(const Dates::DateTime_t& arx_date, int max_rows, int time_duration, int& step)
 {
+    LogTrace5 << __func__ << " arx_date: " << arx_date;
     int remain_rows = max_rows;
     Dates::DateTime_t local_time = Dates::second_clock::local_time();
     Dates::DateTime_t time_finish = local_time + Dates::seconds(time_duration);
@@ -2565,6 +2586,7 @@ TArxTlgsFilesEtc::TArxTlgsFilesEtc(const Dates::DateTime_t &utc_date):TArxMove(u
 
 bool TArxTlgsFilesEtc::Next(size_t max_rows, int duration)
 {
+    LogTrace5 << __func__;
     if(step <= 0) {
         step = 1;
     }

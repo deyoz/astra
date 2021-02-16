@@ -530,7 +530,7 @@ class Query
 {
 public:
     Query(Session* sess, const std::string& selectQuery)
-        : m_sess(sess), m_ops{selectQuery, "", "", ""}
+        : m_sess(sess), m_ops{selectQuery}
     {
     }
 
@@ -604,6 +604,7 @@ private:
         DbCpp::Session* session = getSession(m_sess->currentDb(), map_info, m_ops.for_update, m_ops.from);
         ASSERT(session);
         std::string query = createQuery(map_info, session->isOracle());
+        LogTrace5 << " query: " << query;
         Cursor cur(session->createCursor(STDLOG, query));
         Result r;
         cur.bind(bindVars)
@@ -614,6 +615,7 @@ private:
         while(!cur.fen()) {
             res.push_back(r);
         }
+        LogTrace5 << " result vector size: " << res.size();
         m_sess->clearIgnoreErrors();
         return res;
     }
