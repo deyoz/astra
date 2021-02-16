@@ -142,6 +142,7 @@ std::string MappingInfo::insertColumns() const
         result += ":" + col;
     }
     st << result << ")";
+    LogTrace5 << " INSERT: " << st.str();
     return st.str();
 }
 

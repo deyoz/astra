@@ -703,15 +703,42 @@ TArxMoveFlt::~TArxMoveFlt()
 {
 };
 
+std::vector<dbo::Points> readPoints(const MoveId_t &move_id)
+{
+    std::vector<dbo::Points> points;
+    dbo::Points point;
+    auto cur = make_db_curs("select point_id, pr_del, scd_in, est_in, act_in, scd_out, "
+                            "est_out, act_out, time_in, time_out from POINTS "
+                            "where MOVE_ID = :move_id ORDER BY point_num", PgOra::getROSession("POINTS"));
+    cur.def(point.point_id)
+       .def(point.pr_del)
+       .defNull(point.scd_in, Dates::not_a_date_time)
+       .defNull(point.est_in, Dates::not_a_date_time)
+       .defNull(point.act_in, Dates::not_a_date_time)
+       .defNull(point.scd_out, Dates::not_a_date_time)
+       .defNull(point.est_out, Dates::not_a_date_time)
+       .defNull(point.act_out, Dates::not_a_date_time)
+       .defNull(point.time_in, Dates::not_a_date_time)
+       .defNull(point.time_out, Dates::not_a_date_time)
+       .bind(":move_id", move_id.get())
+       .exec();
+    while(!cur.fen()) {
+        points.push_back(point);
+    }
+    return points;
+}
+
 bool TArxMoveFlt::GetPartKey(const MoveId_t &move_id, Dates::DateTime_t &part_key, double &date_range)
 {
     LogTrace(TRACE5) << __FUNCTION__ << " move_id: " << move_id << " part_key: " << part_key;
     part_key=Dates::not_a_date_time;
     date_range=NoExists;
 
-    dbo::Session session;
-    std::vector<dbo::Points> points = session.query<dbo::Points>().where(" MOVE_ID = :move_id ORDER BY point_num ")
-            .setBind({{":move_id", move_id.get()}});
+
+//    dbo::Session session;
+//    std::vector<dbo::Points> points = session.query<dbo::Points>().where(" MOVE_ID = :move_id ORDER BY point_num ")
+//            .setBind({{":move_id", move_id.get()}});
+    std::vector<dbo::Points> points = readPoints(move_id);
     LogTrace5 << " points size : " << points.size();
     Dates::DateTime_t first_date = Dates::not_a_date_time;
     Dates::DateTime_t last_date = Dates::not_a_date_time;

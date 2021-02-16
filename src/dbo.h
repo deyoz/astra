@@ -168,6 +168,7 @@ public:
     template<typename T>
     void bind(DbCpp::CursCtl &cur, const T& value) const
     {
+        LogTrace5 << __func__ << " name :" << name_ << " value: " << value;
         cur.bind(":"+name_, value, isNotNull(value) ? &nnull : &null);
     }
 
