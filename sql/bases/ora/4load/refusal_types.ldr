@@ -1,0 +1,26 @@
+LOAD DATA
+INFILE *
+INTO TABLE refusal_types
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,code_lat
+,name
+,name_lat
+,id
+,pr_del
+,tid
+)
+BEGINDATA
+"П"||"Паспортный контроль"|"PROBLEM ON THE PASSPORT"|1|0|0
+"З"||"По состоянию здоровья"|"HEALTH CONDITION"|2|0|0
+"Р"||"Регистрация"|"CHECK-IN"|3|0|0
+"Т"||"Таможня"|"CUSTOMS"|4|0|0
+"О"||"Отказ от полета"|"REFUSED"|5|0|0
+"Б"||"САБ"|"SECURITY"|6|0|58148906
+"А"||"Ошибка агента"|"AGENT ERROR"|7|0|0
+"Я"||"Неявка на посадку"|"NO-SHOW FOR BOARDING"|578259|0|23110102
+"И"||"Интоксикация"|"INTOXICATION"|8443167|0|59437294
+"У"||"улетаем"||14949221|1|72351800

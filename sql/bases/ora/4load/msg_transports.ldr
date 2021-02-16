@@ -1,0 +1,17 @@
+LOAD DATA
+INFILE *
+INTO TABLE msg_transports
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,name
+,name_lat
+)
+BEGINDATA
+"BAG_MESSAGE"|"SITA BagMessage"|"SITA BagMessage"
+"HTTP_TYPEB"|"TypeB через HTTP"|"TypeB through HTTP"
+"SIRENA_TYPEB"|"TypeB через шлюзы Сирены"|"TypeB through Sirena gateways"
+"FILE"|"Файл"|"File"
+"RABBIT_MQ"|"RabbitMQ"|"RabbitMQ"
