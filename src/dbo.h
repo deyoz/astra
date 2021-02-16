@@ -174,8 +174,10 @@ public:
     void def(DbCpp::CursCtl &cur) const
     {
         if(isNullable()) {
+            LogTrace5 << __func__ << " nullable: " << name_ <<  " value: " << nullValue(value_);
             cur.defNull(value_, nullValue(value_));
         } else {
+            LogTrace5 << __func__ << "NOT nullable: " << name_;
             cur.def(value_);
         }
     }
@@ -352,6 +354,7 @@ public:
     template<typename Object>
     Cursor& bindAll(Object & obj)
     {
+        LogTrace5 << __func__;
         Binder b(cur_);
         b.visit(obj);
         return *this;
@@ -606,10 +609,14 @@ private:
         std::string query = createQuery(map_info, session->isOracle());
         LogTrace5 << " query: " << query;
         Cursor cur(session->createCursor(STDLOG, query));
+        LogTrace5 << " cursor created ";
         Result r;
-        cur.bind(bindVars)
-           .defAll(r)
-           .exec();
+        cur.bind(bindVars);
+        LogTrace5 << " binded ";
+        cur.defAll(r);
+        LogTrace5 << " defined ";
+        cur.exec();
+        LogTrace5 << " executed ";
 
         std::vector<Result> res;
         while(!cur.fen()) {

@@ -713,8 +713,8 @@ bool TArxMoveFlt::GetPartKey(const MoveId_t &move_id, Dates::DateTime_t &part_ke
     std::vector<dbo::Points> points = session.query<dbo::Points>().where(" MOVE_ID = :move_id ORDER BY point_num ")
             .setBind({{":move_id", move_id.get()}});
     LogTrace5 << " points size : " << points.size();
-    Dates::DateTime_t first_date;
-    Dates::DateTime_t last_date;
+    Dates::DateTime_t first_date = Dates::not_a_date_time;
+    Dates::DateTime_t last_date = Dates::not_a_date_time;
     bool deleted=true;
 
     for(size_t i = 0; i<points.size(); i++)

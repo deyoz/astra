@@ -33,14 +33,14 @@ struct Points
     std::string suffix;
     std::string craft;
     std::string bort;
-    Dates::DateTime_t scd_in;    //TDateTime
-    Dates::DateTime_t est_in;
-    Dates::DateTime_t act_in;
-    Dates::DateTime_t scd_out;
-    Dates::DateTime_t est_out;
-    Dates::DateTime_t act_out;
-    Dates::DateTime_t time_in;
-    Dates::DateTime_t time_out;
+    Dates::DateTime_t scd_in = Dates::not_a_date_time;    //TDateTime
+    Dates::DateTime_t est_in = Dates::not_a_date_time;
+    Dates::DateTime_t act_in = Dates::not_a_date_time;
+    Dates::DateTime_t scd_out = Dates::not_a_date_time;
+    Dates::DateTime_t est_out = Dates::not_a_date_time;
+    Dates::DateTime_t act_out = Dates::not_a_date_time;
+    Dates::DateTime_t time_in = Dates::not_a_date_time;
+    Dates::DateTime_t time_out = Dates::not_a_date_time;
     std::string trip_type;
     std::string litera;
     std::string park_in;
