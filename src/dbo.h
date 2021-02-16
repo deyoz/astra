@@ -384,7 +384,9 @@ public:
 
     bool fen()
     {
-        return cur_.fen() != DbCpp::ResultCode::Ok;
+        DbCpp::ResultCode res = cur_.fen();
+        LogTrace5 << " fen returned: " << static_cast<int>(res);
+        return res != DbCpp::ResultCode::Ok;
     }
 
 };
@@ -619,9 +621,19 @@ private:
         LogTrace5 << " executed ";
 
         std::vector<Result> res;
-        while(!cur.fen()) {
-            res.push_back(r);
+        LogTrace5 << " res created ";
+        try{
+            while(!cur.fen()) {
+                LogTrace5 << " fetched ";
+                res.push_back(r);
+                LogTrace5 << " object pushed ";
+            }
+            LogTrace5 << " loop ended ";
         }
+        catch(const std::exception & e){
+            LogTrace5 << " error: " << e.what();
+        }
+
         LogTrace5 << " result vector size: " << res.size();
         m_sess->clearIgnoreErrors();
         return res;
