@@ -40,10 +40,10 @@
 #define TRACE0  getRealTraceLev(0),STDLOG
 #define TRACE1  getRealTraceLev(1),STDLOG
 #define TRACE2  getRealTraceLev(12),STDLOG
-#define TRACE3  getRealTraceLev(12),STDLOG
-#define TRACE4  getRealTraceLev(12),STDLOG
-#define TRACE5  getRealTraceLev(12),STDLOG
-#define TRACE6  getRealTraceLev(12),STDLOG
+#define TRACE3  getRealTraceLev(13),STDLOG
+#define TRACE4  getRealTraceLev(14),STDLOG
+#define TRACE5  getRealTraceLev(15),STDLOG
+#define TRACE6  getRealTraceLev(16),STDLOG
 #define TRACE7  1024,STDLOG
 
 
