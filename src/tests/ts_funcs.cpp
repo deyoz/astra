@@ -1305,14 +1305,28 @@ static std::string getTlgIdent(TlgIdent tlgIdent, const std::vector<std::string>
   ASSERT(rowNumRequired<=0);
 
   std::string sql;
-  switch (tlgIdent)
-  {
-    case TlgIdent::TlgId:     sql="SELECT id FROM tlgs ORDER BY id DESC"; break;
-    case TlgIdent::TlgNum:    sql="SELECT tlg_num FROM tlgs ORDER BY tlg_num DESC"; break;
-    case TlgIdent::TypeBInId: sql="SELECT id FROM typeb_in ORDER BY id DESC"; break;
-  }
 
-  auto cur = make_curs(sql);
+  DbCpp::CursCtl cur = [](TlgIdent tlgIdent) {
+    switch (tlgIdent)
+    {
+    case TlgIdent::TlgId:
+      return make_db_curs(
+       "SELECT id FROM tlgs ORDER BY id DESC"
+        , PgOra::getRWSession("TLGS")
+      );
+    case TlgIdent::TlgNum:
+      return make_db_curs(
+       "SELECT tlg_num FROM tlgs ORDER BY tlg_num DESC"
+        , PgOra::getRWSession("TLGS")
+      );
+    default: //TlgIdent::TypeBInId:
+      return make_db_curs(
+       "SELECT id FROM typeb_in ORDER BY id DESC"
+        , PgOra::getRWSession("TYPEB_IN")
+      );
+    }
+  }(tlgIdent);
+
   int tlgNum;
   cur.def(tlgNum)
      .exec();
@@ -1435,5 +1449,28 @@ FP_REGISTER("last_tlg_num", FP_lastTlgNum);
 FP_REGISTER("last_typeb_in_id", FP_lastTypeBInId);
 FP_REGISTER("nosir_departed_flt", FP_departedFlt);
 FP_REGISTER("nosir_basel_stat", FP_baselAeroStat);
+
+#include "xp_testing.h"
+
+START_TEST(check_getTlgIdent)
+{
+    const int first_tlg_id = saveTlg("RECVR", "SENDR", "OUTA", "test1");
+    const int second_tlg_id = saveTlg("RECVR", "SENDR", "OUTB", "test2");
+    const int third_tlg_id = saveTlg("RECVR", "SENDR", "OAPP", "test3");
+
+    fail_unless(getTlgIdent(TlgIdent::TlgId, {"-2"}) == std::to_string(first_tlg_id));
+    fail_unless(getTlgIdent(TlgIdent::TlgId, {"-1"}) == std::to_string(second_tlg_id));
+    fail_unless(getTlgIdent(TlgIdent::TlgId, {"0"}) == std::to_string(third_tlg_id));
+}
+END_TEST;
+
+#define SUITENAME "tlg_queue"
+TCASEREGISTER(testInitDB, testShutDBConnection)
+{
+    ADD_TEST(check_getTlgIdent);
+}
+TCASEFINISH;
+#undef SUITENAME
+
 
 #endif /* XP_TESTING */

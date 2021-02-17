@@ -18,8 +18,9 @@
 #include <edilib/edi_tables.h>
 #include <serverlib/ourtime.h>
 #include <libtlg/telegrams.h>
+#include "db_tquery.h"
 
-
+#include "PgOraConfig.h"
 
 #define NICKNAME "VLAD"
 #include <serverlib/slogger.h>
@@ -121,7 +122,7 @@ int main_srv_tcl(int supervisorSocket, int argc, char *argv[])
 
 bool update_tlg_stat_time_send(const AIRSRV_MSG& tlg_in)
 {
-    TQuery TlgUpdQry(&OraSession);
+    DB::TQuery TlgUpdQry(PgOra::getRWSession("TLG_STAT"));
     TlgUpdQry.SQLText=
       "UPDATE tlg_stat SET time_send=SYSTEM.UTCSYSDATE "
       "WHERE queue_tlg_id=:tlg_num AND sender_canon_name=:sender";
@@ -133,7 +134,7 @@ bool update_tlg_stat_time_send(const AIRSRV_MSG& tlg_in)
 
 bool update_tlg_stat_time_receive(const AIRSRV_MSG& tlg_in)
 {
-    TQuery TlgUpdQry(&OraSession);
+    DB::TQuery TlgUpdQry(PgOra::getRWSession("TLG_STAT"));
     TlgUpdQry.SQLText=
       "UPDATE tlg_stat SET time_receive=SYSTEM.UTCSYSDATE "
       "WHERE queue_tlg_id=:tlg_num AND sender_canon_name=:sender";
@@ -145,7 +146,7 @@ bool update_tlg_stat_time_receive(const AIRSRV_MSG& tlg_in)
 
 bool del_from_tlg_queue_by_status(const AIRSRV_MSG& tlg_in, const std::string& status)
 {
-    TQuery TlgUpdQry(&OraSession);
+    DB::TQuery TlgUpdQry(PgOra::getRWSession("TLG_QUEUE"));
     TlgUpdQry.SQLText=
       "DELETE FROM tlg_queue "
       "WHERE sender= :sender AND tlg_num= :tlg_num AND "
@@ -159,7 +160,7 @@ bool del_from_tlg_queue_by_status(const AIRSRV_MSG& tlg_in, const std::string& s
 
 bool del_from_tlg_queue(const AIRSRV_MSG& tlg_in)
 {
-    TQuery TlgUpdQry(&OraSession);
+    DB::TQuery TlgUpdQry(PgOra::getRWSession("TLG_QUEUE"));
     TlgUpdQry.SQLText=
       "DELETE FROM tlg_queue "
       "WHERE sender= :sender AND tlg_num= :tlg_num AND "
@@ -173,7 +174,7 @@ bool del_from_tlg_queue(const AIRSRV_MSG& tlg_in)
 bool upd_tlg_queue_status(const AIRSRV_MSG& tlg_in,
                           const std::string& curStatus, const std::string& newStatus)
 {
-    TQuery TlgUpdQry(&OraSession);
+    DB::TQuery TlgUpdQry(PgOra::getRWSession("TLG_QUEUE"));
     TlgUpdQry.SQLText=
       "UPDATE tlg_queue SET status= :new_status "
       "WHERE sender= :sender AND tlg_num= :tlg_num AND "
@@ -188,7 +189,7 @@ bool upd_tlg_queue_status(const AIRSRV_MSG& tlg_in,
 
 bool upd_tlgs_by_error(const AIRSRV_MSG& tlg_in, const std::string& error)
 {
-    TQuery TlgUpdQry(&OraSession);
+    DB::TQuery TlgUpdQry(PgOra::getRWSession("TLGS"));
     TlgUpdQry.SQLText=
       "UPDATE tlgs SET error= :error "
       "WHERE tlg_num= :tlg_num AND sender= :sender AND "
@@ -335,7 +336,7 @@ void process_tlg(void)
 
         //сначала ищем id телеграммы, если таковая уже была
         {
-          TQuery TlgQry(&OraSession);
+          DB::TQuery TlgQry(PgOra::getROSession("TLGS"));
           TlgQry.SQLText=
             "SELECT id FROM tlgs WHERE tlg_num= :tlg_num AND sender= :sender ";
           TlgQry.CreateVariable("sender",otString,tlg_in.Sender);
@@ -357,7 +358,7 @@ void process_tlg(void)
 
             int tlg_id = getNextTlgNum();
 
-            TQuery TlgInsQry(&OraSession);
+            DB::TQuery TlgInsQry(PgOra::getRWSession("TLGS"));
             TlgInsQry.Clear();
             TlgInsQry.CreateVariable("id",otInteger,tlg_id);
             TlgInsQry.CreateVariable("sender",otString,tlg_in.Sender);

@@ -54,7 +54,8 @@ namespace PgOra
                               "ARX_BAG_PAY_TYPES" , "ARX_EVENTS"         , "ARX_PAX_DOCA"   , "ARX_PFS_STAT"        , "ARX_STAT_REPRINT"  , "ARX_TLG_STAT"        , "ARX_TRIP_LOAD"         ,
                               "ARX_BAG_PREPAY"    , "ARX_EXCHANGE_RATES" , "ARX_PAX_DOCO"   , "ARX_POINTS"          , "ARX_STAT_SERVICES" , "ARX_TRANSFER"        , "ARX_TRIP_SETS"         ,
                               "MOVE_ARX_EXT"      , "ARX_VALUE_BAG"      , "ARX_TRIP_STAGES", "ARX_VALUE_BAG_TAXES" , "ARX_LIMITED_CAPABILITY_STAT" }},
-        { "SP_PG_GROUP_SPPCKIN", {"TRIP_ALARMS", "TRIP_APIS_PARAMS", "TRIP_RPT_PERSON", "UTG_PRL"} }
+        { "SP_PG_GROUP_SPPCKIN", {"TRIP_ALARMS", "TRIP_APIS_PARAMS", "TRIP_RPT_PERSON", "UTG_PRL"} },
+        { "SP_PG_GROUP_TLG_QUE",   { "TLGS", "TLGS_TEXT", "TLG_QUEUE", "TLG_ERROR", "TLG_STAT" } },
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)

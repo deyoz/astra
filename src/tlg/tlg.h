@@ -7,6 +7,7 @@
 #include "EdifactRequest.h"
 #include "tlg_source_edifact.h"
 #include "tlg_source_typeb.h"
+#include "db_tquery.h"
 
 /* максимальный размер передаваемой по UDP телеграммы (зависит от центра) */
 #define MAX_TLG_SIZE 10240
@@ -134,7 +135,6 @@ void sendCmdEdiItciResHandler();
 void sendCmdEdiHandler(TEdiTlgSubtype st);
 void sendCmdEdiHandlerAtHook(TEdiTlgSubtype st);
 
-
 struct tlg_info
 {
   private:
@@ -147,7 +147,7 @@ struct tlg_info
     boost::optional<int> ttl;
     BASIC::date_time::TDateTime time;
 
-    void fromDB(TQuery &Qry);
+    void fromDB(DB::TQuery &Qry);
     std::string tlgNumStr() const;
     bool ttlExpired() const;
 };

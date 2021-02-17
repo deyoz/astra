@@ -2384,34 +2384,74 @@ string TArxNormsRatesEtc::TraceCaption()
 
 //============================= TArxTlgsFilesEtc===========
 // STEP 6
-int arx_tlgs(const Dates::DateTime_t& arx_date, int remain_rows)
+
+std::vector<int> get_tlgs(const Dates::DateTime_t& arx_date, int remain_rows)
+{
+    int id{};
+
+    const char* sql = PgOra::supportsPg("TLGS")
+      ? "SELECT ID FROM TLGS WHERE time < :arx_date limit :remain_rows"
+      : "SELECT ID FROM TLGS WHERE time < :arx_date AND rownum <= :remain_rows";
+
+    DbCpp::CursCtl cur = make_db_curs(
+        sql,
+        PgOra::getROSession("TLGS")
+    );
+
+    cur.bind(":arx_date", arx_date)
+       .bind(":remain_rows", remain_rows)
+       .def(id)
+       .exec();
+
+    std::vector<int> ids;
+
+    while (!cur.fen()) {
+        ids.push_back(id);
+    }
+
+    return ids;
+}
+
+void arx_tlg_stat(const std::vector<int>& ids)
 {
     dbo::Session session;
 
-    std::vector<dbo::TLGS> tlgs = session.query<dbo::TLGS>()
-            .where("time < :arx_date")
-            .fetch_first(":remain_rows")
-            .for_update(true)
-            .setBind({{":arx_date", arx_date},
-                      {":remain_rows", remain_rows}});
+    std::vector<std::vector<dbo::TLG_STAT>> allStats;
 
-    for(const auto & t : tlgs) {
-        std::vector<dbo::TLG_STAT> stats = session.query<dbo::TLG_STAT>()
-                .where("QUEUE_TLG_ID = :id and TIME_SEND is not null")
-                .setBind({{":id", t.id}});
+    for (int id : ids) {
+        allStats.emplace_back(session.query<dbo::TLG_STAT>()
+           .where("QUEUE_TLG_ID = :id and TIME_SEND is not null")
+           .setBind({{":id", id}})
+        );
+    }
 
-        for(const auto & s : stats) {
+    for (const auto& stats: allStats) {
+        for (const auto& s: stats) {
             dbo::ARX_TLG_STAT ats(s, s.time_send);
             session.insert(ats);
         }
-        auto cur = make_curs("BEGIN "
-                             //"delete from TLGS where POINT_ID = :id" TODO
-                             //"delete from TLG_STAT where POINT_ID = :id" TODO
-                             "delete from TLG_ERROR where POINT_ID = :id; "
-                             "delete from TLG_QUEUE where POINT_ID = :id; "
-                             "delete from TLG_TEXT where POINT_ID = :id; END");
-        cur.bind(":id", t.id).exec();
     }
+}
+
+void del_tlgs(const std::vector<int>& ids)
+{
+    for (int id : ids) {
+        make_db_curs("DELETE FROM TLG_STAT WHERE QUEUE_TLG_ID = :id", PgOra::getRWSession("TLG_STAT")).bind(":id", id).exec();
+        make_db_curs("DELETE FROM TLG_ERROR WHERE ID = :id", PgOra::getRWSession("TLG_ERROR")).bind(":id", id).exec();
+        make_db_curs("DELETE FROM TLG_QUEUE WHERE ID = :id", PgOra::getRWSession("TLG_QUEUE")).bind(":id", id).exec();
+        make_db_curs("DELETE FROM TLGS_TEXT WHERE ID = :id", PgOra::getRWSession("TLGS_TEXT")).bind(":id", id).exec();
+    }
+}
+
+int arx_tlgs(const Dates::DateTime_t& arx_date, int remain_rows)
+{
+    const std::vector<int> tlgs
+      = get_tlgs(arx_date, remain_rows);
+
+    arx_tlg_stat(tlgs);
+
+    del_tlgs(tlgs);
+
     return tlgs.size();
 }
 
@@ -2682,11 +2722,31 @@ bool arx_daily(const Dates::DateTime_t& utcdate)
     return true;
 }
 
-#if HAVE_CONFIG_H
-#include <config.h>
-#endif
+} //namespace PG_ARX
 
 #ifdef XP_TESTING
+
+#include "xp_testing.h"
+#include "tlg/tlg.h"
+#include "dbostructures.h"
+#include "tlg/postpone_edifact.h"
+
+bool del_from_tlg_queue(const AIRSRV_MSG& tlg_in);
+bool del_from_tlg_queue_by_status(const AIRSRV_MSG& tlg_in, const std::string& status);
+bool upd_tlg_queue_status(const AIRSRV_MSG& tlg_in,
+                          const std::string& curStatus, const std::string& newStatus);
+bool upd_tlgs_by_error(const AIRSRV_MSG& tlg_in, const std::string& error);
+
+// namespace TlgHandling {
+// void updateTlgToPostponed(const tlgnum_t& tnum);
+// bool isTlgPostponed(const tlgnum_t& tnum);
+// struct PostponeEdiHandling;
+// //void PostponeEdiHandling::addToQueue(const tlgnum_t& tnum);
+
+// }
+
+namespace PG_ARX {
+
 bool test_arx_daily(const Dates::DateTime_t& utcdate, int step)
 {
     LogTrace(TRACE5) << __FUNCTION__ << " step: " << step;
@@ -2718,6 +2778,337 @@ bool test_arx_daily(const Dates::DateTime_t& utcdate, int step)
 
     return true;
 }
-#endif //XP_TESTING
 
 } //namespace PG_ARX
+
+std::string tlgText()
+{
+    return "MOWKB1H"
+           ".MOWRMUT 122100"
+           "PNL"
+           "UT933/14MAR DME PART1"
+           "CFG/008C120Y"
+           "RBD C/C Y/YBHKLMNT"
+           "AVAIL"
+           "DME  PRG"
+           "C008"
+           "Y120"
+           "-PRG000C"
+           "-PRG000M"
+           "-PRG000Y"
+           "-PRG000T"
+           "-PRG000N"
+           "-PRG000B"
+           "-PRG000H"
+           "-PRG000L"
+           "-PRG000K"
+           "ENDPNL";
+}
+
+bool cmpTlgErrorMsg(int tlg_num, const std::string& compareWith)
+{
+    std::string data;
+
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT MSG FROM TLG_ERROR WHERE ID=:id",
+        PgOra::getROSession("TLG_ERROR")
+    );
+    cur.stb()
+       .bind(":id", tlg_num)
+       .def(data)
+       .EXfet();
+
+    return DbCpp::ResultCode::NoDataFound != cur.err()
+        && 1 == cur.rowcount()
+        && compareWith == data;
+}
+
+bool cmpTlgError(int tlg_num, const std::string& compareWith)
+{
+    std::string data;
+
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT ERROR FROM TLGS WHERE ID=:id",
+        PgOra::getROSession("TLGS")
+    );
+    cur.stb()
+       .bind(":id", tlg_num)
+       .def(data)
+       .EXfet();
+
+    return DbCpp::ResultCode::NoDataFound != cur.err()
+        && 1 == cur.rowcount()
+        && compareWith == data;
+}
+
+bool cmpTlgQueueProcAttempt(int tlg_num, const int compareWith)
+{
+    int data;
+
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT PROC_ATTEMPT FROM TLG_QUEUE WHERE ID=:id",
+        PgOra::getROSession("TLG_QUEUE")
+    );
+    cur.stb()
+       .bind(":id", tlg_num)
+       .def(data)
+       .EXfet();
+
+    return DbCpp::ResultCode::NoDataFound != cur.err()
+        && 1 == cur.rowcount()
+        && compareWith == data;
+}
+
+bool cmpTlg(const int tlg_num, const char* withReceiver, const char* withSender, const char* withType)
+{
+    std::string receiver;
+    std::string sender;
+    std::string type;
+
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT RECEIVER, SENDER, TYPE FROM TLGS WHERE ID=:id",
+        PgOra::getROSession("TLGS")
+    );
+    cur.stb()
+       .bind(":id", tlg_num)
+       .def(receiver)
+       .def(sender)
+       .def(type)
+       .EXfet();
+
+    return DbCpp::ResultCode::NoDataFound != cur.err()
+        && 1 == cur.rowcount()
+        && withReceiver == receiver
+        && withSender == sender
+        && withType == type;
+}
+
+bool cmpTlgQueue(const int tlg_num, const char* withSender, const char* withType, const char* withStatus)
+{
+    std::string status;
+    std::string type;
+    std::string sender;
+
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT STATUS, TYPE, SENDER FROM TLG_QUEUE WHERE ID=:id",
+        PgOra::getROSession("TLG_QUEUE")
+    );
+    cur.stb()
+       .bind(":id", tlg_num)
+       .def(status)
+       .def(type)
+       .def(sender)
+       .EXfet();
+
+    return DbCpp::ResultCode::NoDataFound != cur.err()
+        && 1 == cur.rowcount()
+        && withSender == sender
+        && withType == type
+        && withStatus == status;
+}
+
+START_TEST(check_getTlgText)
+{
+    const std::string tlg_text = "TEST";
+    const int tlg_id = 42;
+    putTlgText(tlg_id, tlg_text);
+    fail_unless(getTlgText(tlg_id) == tlg_text);        // src/tlg/tlg.cpp
+}
+END_TEST;
+
+START_TEST(check_loadTlg)
+{
+    const int tlg_id = loadTlg(tlgText());                // src/tlg/tlg.cpp
+    fail_unless(getTlgText(tlg_id) == tlgText());         // src/tlg/tlg.cpp
+    fail_unless(procTlg(tlg_id));                         // src/tlg/tlg.cpp
+    fail_unless(procTlg(tlg_id));                         // src/tlg/tlg.cpp
+    fail_unless(cmpTlgQueueProcAttempt(tlg_id, 2));       // current
+    fail_unless(deleteTlg(tlg_id));                       // src/tlg/tlg.cpp
+    fail_if(procTlg(tlg_id));                             // src/tlg/tlg.cpp
+
+    errorTlg(tlg_id,"PARS", "bad system");                // src/tlg/tlg.cpp
+    fail_unless(cmpTlgErrorMsg(tlg_id, "bad system"));    // current
+    errorTlg(tlg_id,"PROC", "proc_attempt");              // src/tlg/tlg.cpp
+    fail_unless(cmpTlgError(tlg_id, "PROC"));             // current
+}
+END_TEST;
+
+START_TEST(check_saveTlg)
+{
+    const int tlg_id = saveTlg(
+        "RECVR",
+        "SENDR",
+        "INB",
+        tlgText()
+    );                                                    // src/tlg/tlg.cpp
+    fail_unless(getTlgText(tlg_id) == tlgText());         // src/tlg/tlg.cpp
+    fail_unless(cmpTlg(tlg_id, "RECVR", "SENDR", "INB")); // current
+}
+END_TEST;
+
+START_TEST(check_putTlgToOutQue)
+{
+    const int tlg_id = saveTlg(
+        "RECVR",
+        "SENDR",
+        "OUTA",
+        "test"
+    );                                                    // src/tlg/tlg.cpp
+    const int priority = 0;
+    const int ttl = 0;
+    putTlg2OutQueue_wrap("RECVR", "SENDR", "OUTA", "test", priority, tlg_id, ttl);
+
+    AIRSRV_MSG tlg_in {
+        .num = tlg_id,
+        .Receiver = "SENDR",
+    };
+
+    fail_unless(upd_tlg_queue_status(tlg_in, "PUT", "GUT"));
+    fail_unless(cmpTlgQueue(tlg_id, "SENDR", "OUTA", "GUT"));
+    fail_unless(del_from_tlg_queue_by_status(tlg_in, "GUT"));
+    fail_if(cmpTlgQueue(tlg_id, "SENDR", "OUTA", "GUT"));
+
+    putTlg2OutQueue_wrap("RECVR", "SENDR", "OAPP", "test", priority, tlg_id, ttl);
+    fail_unless(cmpTlgQueue(tlg_id, "SENDR", "OAPP", "PUT"));
+    fail_unless(del_from_tlg_queue(tlg_in));
+    fail_if(cmpTlgQueue(tlg_id, "SENDR", "OAPP", "PUT"));
+
+    putTlg2OutQueue_wrap("RECVR", "SENDR", "OUTB", "test", priority, tlg_id, ttl);
+    fail_unless(upd_tlgs_by_error(tlg_in, "EPIC"));       // src/tlg/main_srv.cpp
+    fail_unless(cmpTlgError(tlg_id, "EPIC"));             // current
+
+    fail_unless(cmpTlgQueue(tlg_id, "SENDR", "OUTB", "PUT"));
+}
+END_TEST;
+
+START_TEST(check_arx_tlgs)
+{
+    const int tlg_id = loadTlg(tlgText());                // src/tlg/tlg.cpp
+    fail_unless(procTlg(tlg_id));                         // src/tlg/tlg.cpp
+    errorTlg(tlg_id,"PARS", "bad system");                // src/tlg/tlg.cpp
+
+    dbo::initStructures();
+    const auto date = Dates::second_clock::universal_time() + Dates::days(15);
+    fail_unless(1 == PG_ARX::arx_tlgs(date, 1));          // src/arx_daily_pg.cpp
+
+    fail_if(procTlg(tlg_id));
+    fail_if(cmpTlgErrorMsg(tlg_id, "bad system"));
+}
+END_TEST;
+
+START_TEST(check_isTlgPostponed)
+{
+    const int tlg_id = loadTlg(tlgText());                // src/tlg/tlg.cpp
+    tlgnum_t tlgnum(to_string(tlg_id), false);
+    fail_if(TlgHandling::isTlgPostponed(tlgnum));
+    TlgHandling::updateTlgToPostponed(tlgnum);
+    fail_unless(TlgHandling::isTlgPostponed(tlgnum));
+}
+END_TEST;
+
+START_TEST(additional)
+{
+// src/tlg/typeb_handler.cpp
+// handle_tlg
+{
+    static DB::TQuery TlgQry(PgOra::getROSession("TLG_QUEUE"));
+    if (TlgQry.SQLText.empty())
+    {
+        //внимание порядок объединения таблиц важен!
+        TlgQry.Clear();
+        TlgQry.SQLText=
+            "SELECT tlg_queue.id,tlg_queue.time,ttl, "
+            "       tlg_queue.tlg_num,tlg_queue.sender, "
+            "       COALESCE(tlg_queue.proc_attempt,0) AS proc_attempt "
+            "FROM tlg_queue "
+            "WHERE tlg_queue.receiver=:receiver AND "
+            "      tlg_queue.type='INB' AND tlg_queue.status='PUT' "
+            "ORDER BY tlg_queue.time,tlg_queue.id";
+        TlgQry.CreateVariable("receiver",otString,OWN_CANON_NAME());
+    };
+}
+
+// src/tlg/apps_answer_emul.cc
+// handle_tlg
+{
+    static DB::TQuery TlgQry(PgOra::getROSession("TLG_QUEUE"));
+    if (TlgQry.SQLText.empty())
+    {
+        //внимание порядок объединения таблиц важен!
+        TlgQry.Clear();
+        TlgQry.SQLText=
+            "SELECT tlg_queue.id,tlg_queue.time,ttl, "
+            "       tlg_queue.tlg_num,tlg_queue.sender, "
+            "       COALESCE(tlg_queue.proc_attempt,0) AS proc_attempt "
+            "FROM tlg_queue "
+            "WHERE tlg_queue.receiver=:receiver AND "
+            "      tlg_queue.type='OAPP' "
+            "ORDER BY tlg_queue.time,tlg_queue.id";
+        // для теста вместо APPS::getAPPSRotName() используем OWN_CANON_NAME()
+        // было:
+        // TlgQry.CreateVariable( "receiver", otString, APPS::getAPPSRotName() );
+        TlgQry.CreateVariable( "receiver", otString, OWN_CANON_NAME() );
+    };
+}
+
+// src/tlg/apps_handler.cc
+// handle_tlg
+{
+    static DB::TQuery TlgQry(PgOra::getROSession("TLG_QUEUE"));
+    if (TlgQry.SQLText.empty())
+    {
+        //внимание порядок объединения таблиц важен!
+        TlgQry.Clear();
+        TlgQry.SQLText=
+            "SELECT tlg_queue.id,tlg_queue.time,ttl, "
+            "       tlg_queue.tlg_num,tlg_queue.sender, "
+            "       COALESCE(tlg_queue.proc_attempt,0) AS proc_attempt "
+            "FROM tlg_queue "
+            "WHERE tlg_queue.receiver=:receiver AND "
+            "      tlg_queue.type='IAPP' AND tlg_queue.status='PUT' "
+            "ORDER BY tlg_queue.time,tlg_queue.id";
+        TlgQry.CreateVariable( "receiver", otString, OWN_CANON_NAME() );
+    };
+}
+
+// src/tlg/edi_handler.cpp
+// handle_tlg
+{
+    const std::string handler_id = "Handler Id";
+    static DB::TQuery TlgQry(PgOra::getROSession("TLG_QUEUE"));
+    if (TlgQry.SQLText.empty())
+    {
+        //внимание порядок объединения таблиц важен!
+        TlgQry.Clear();
+        TlgQry.SQLText=
+            "SELECT tlg_queue.id,tlg_queue.time,ttl, "
+            "       tlg_queue.tlg_num,tlg_queue.sender, "
+            "       COALESCE(tlg_queue.proc_attempt,0) AS proc_attempt "
+            "FROM tlg_queue "
+            "WHERE tlg_queue.receiver=:receiver AND "
+            "      tlg_queue.type='INA' AND tlg_queue.status='PUT' AND "
+            "      tlg_queue.subtype=:handler_id "
+            "ORDER BY tlg_queue.time,tlg_queue.id";
+        TlgQry.CreateVariable("receiver",otString,OWN_CANON_NAME());
+        TlgQry.CreateVariable("handler_id",otString,handler_id);
+    };
+}
+}
+END_TEST;
+
+#define SUITENAME "tlg_queue"
+TCASEREGISTER(testInitDB, testShutDBConnection)
+{
+    ADD_TEST(check_getTlgText);
+    ADD_TEST(check_loadTlg);
+    ADD_TEST(check_saveTlg);
+    ADD_TEST(check_arx_tlgs);
+    ADD_TEST(check_putTlgToOutQue);
+    ADD_TEST(check_isTlgPostponed);
+    ADD_TEST(additional);
+}
+TCASEFINISH;
+#undef SUITENAME
+
+#endif //XP_TESTING
+
