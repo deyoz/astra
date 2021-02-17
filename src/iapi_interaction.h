@@ -38,8 +38,8 @@ public:
   static bool resendNeeded(const CheckIn::PaxRems& rems);
 };
 
-void syncAlarms(const int point_id_spp);
-void deleteAlarms(const int pax_id, const int point_id_spp);
+void syncAlarms(const PointId_t& pointId);
+void deleteAlarms(const PaxId_t& paxId, const PointId_t& pointId);
 
 class PassengerStatus
 {
@@ -79,47 +79,39 @@ class PassengerStatus
 
     static const StatusTypes& statusTypes() { return ASTRA::singletone<StatusTypes>(); }
     static bool allowedToBoarding(Enum status) { return status==OnBoard; }
-    static bool allowedToBoarding(const int paxId);
+    static bool allowedToBoarding(const PaxId_t& paxId);
 
-    int m_paxId;
-    std::string m_countryControl;
+    PaxId_t m_paxId;
+    CountryCode_t m_countryControl;
     Enum m_status;
     std::string m_freeText;
-    int m_pointId;
+    std::optional<PointId_t> m_pointId;
 
   public:
-    PassengerStatus(const int paxId,
+    PassengerStatus(const PaxId_t& paxId,
                     const APIS::SettingsKey& settingsKey,
-                    int pointId) :
+                    const PointId_t& pointId) :
       m_paxId(paxId),
       m_countryControl(settingsKey.countryControl()),
       m_status(Unknown),
       m_freeText(""),
       m_pointId(pointId) {}
 
-    PassengerStatus(const edifact::Cusres::SegGr4& gr4,
-                    const APIS::SettingsKey& settingsKey);
-
-    void clear()
-    {
-      m_paxId=ASTRA::NoExists;
-      m_countryControl.clear();
-      m_status=Unknown;
-      m_freeText.clear();
-      m_pointId=ASTRA::NoExists;
-    }
+    PassengerStatus(const PaxId_t& paxId,
+                    const APIS::SettingsKey& settingsKey,
+                    const edifact::Cusres::SegGr4& gr4);
 
     bool operator < (const PassengerStatus &item) const
     {
       return m_paxId<item.m_paxId;
     }
 
-    void setPaxId(const int paxId) { m_paxId=paxId; }
-    const int& paxId() const { return m_paxId; }
+    void setPaxId(const PaxId_t& paxId) { m_paxId=paxId; }
+    const PaxId_t& paxId() const { return m_paxId; }
 
-    const std::string& countryControl() const { return m_countryControl; }
+    const CountryCode_t& countryControl() const { return m_countryControl; }
 
-    static bool allowedToBoarding(const int paxId, const TCompleteAPICheckInfo& checkInfo);
+    static bool allowedToBoarding(const PaxId_t& paxId, const TCompleteAPICheckInfo& checkInfo);
     const PassengerStatus& updateByRequest(const std::string& msgIdForClearPassengerRequest,
                                            const std::string& msgIdForChangePassengerData,
                                            bool& notRequestedBefore) const;
@@ -128,20 +120,21 @@ class PassengerStatus
     void writeToLogAndCheckAlarm(bool isRequest) const;
 
     static Level getStatusLevel(const edifact::Cusres::SegGr4& gr4);
-    static int getPaxId(const edifact::Cusres::SegGr4& gr4);
+    static std::optional<PaxId_t> getPaxId(const edifact::Cusres::SegGr4& gr4);
 };
 
 class PassengerStatusInspector : public APICheckInfoForPassenger
 {
   public:
-    bool allowedToPrintBP(const int pax_id, const int grp_id=ASTRA::NoExists);
+    bool allowedToPrintBP(const PaxId_t& paxId, const boost::optional<GrpId_t>& grpId=boost::none);
 };
 
 class PassengerStatusList : public std::set<PassengerStatus>
 {
   public:
     void getByResponseHeaderLevel(const std::string& msgId,
-                                  const PassengerStatus& statusPattern);
+                                  const APIS::SettingsKey& settingsKey,
+                                  const edifact::Cusres::SegGr4& gr4);
     void updateByResponse(const std::string& msgId) const;
     void updateByCusRequest() const;
 
@@ -156,7 +149,7 @@ class CusresCallbacks: public edifact::CusresCallbacks
     virtual void onCusRequestHandle(TRACE_SIGNATURE, const edifact::Cusres& cusres);
 };
 
-std::vector<std::string> statusesFromDb(const PaxId_t& pax_id);
+std::vector<std::string> statusesFromDb(const PaxId_t& paxId);
 
 void init_callbacks();
 

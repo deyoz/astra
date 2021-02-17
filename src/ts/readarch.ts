@@ -1,6 +1,7 @@
 include(ts/macro.ts)
 include(ts/adm_macro.ts)
 include(ts/fr_forms.ts)
+include(ts/spp/read_trips_macro.ts)
 
 # meta: suite readarch
 

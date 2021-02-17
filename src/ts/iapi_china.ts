@@ -2,6 +2,7 @@ include(ts/macro.ts)
 include(ts/adm_macro.ts)
 include(ts/spp/write_dests_macro.ts)
 include(ts/spp/write_trips_macro.ts)
+include(ts/spp/read_trips_macro.ts)
 include(ts/pax/checkin_macro.ts)
 include(ts/pax/boarding_macro.ts)
 
@@ -1464,6 +1465,12 @@ UNT+19+11085B94E1F8FA"
 UNE+1+1"
 UNZ+1+$(get ediref_paxlst)0001"
 
+$(NOT_EXISTS_TRIP_ALARM $(date_format %d.%m.%Y) IAPI_PROBLEM)
+
+$(kick_flt_tasks_daemon)
+
+$(EXISTS_TRIP_ALARM $(date_format %d.%m.%Y) IAPI_PROBLEM)
+
 $(NO_BOARD $(get point_dep) $(get pax_id2))
 $(OK_TO_BOARD $(get point_dep) $(get pax_id1))
 
@@ -1633,6 +1640,108 @@ UNT+13+11085B94E1F8FA"
 UNE+1+15693125265312"
 UNZ+1+1569312526531"
 
+$(NOT_EXISTS_TRIP_ALARM $(date_format %d.%m.%Y) IAPI_PROBLEM)
+
+$(kick_flt_tasks_daemon)
+
+$(EXISTS_TRIP_ALARM $(date_format %d.%m.%Y) IAPI_PROBLEM)
+
+$(CHECK_TRIP_ALARMS $(date_format %d.%m.%Y)
+  APIS_DIFFERS_FROM_BOOKING
+  IAPI_PROBLEM)
+
+$(NO_BOARD $(get point_dep) $(get pax_id))
+
+### китайцы прислали нам в одном из ABO буквы - ничего не делаем
+
+<< h2h=V.\VDLG.WA/E11HCNIAPIR/I11HCNIAPIQ/P$(get tpr)\VGYA\$() charset=UNOA
+UNB+SIRE:4+NIAC+MU+$(yymmdd):$(hhmi)+1569312526531++IAPI"
+UNG+CUSRES+NIAC+MU+$(yymmdd):$(hhmi)+15693125265312+UN+D:05B"
+UNH+11085B94E1F8FA+CUSRES:D:05B:UN:IATA"
+BGM+132"
+RFF+TN:1909240821556284716"
+RFF+AF:MU589"
+DTM+189:$(yymmdd)1420:201"
+DTM+232:$(yymmdd)0930:201"
+LOC+125+SFO"
+LOC+87+PVG"
+ERP+2"
+RFF+AVF:NY7HZZ"
+RFF+ABO:$(get pax_id)ABC"
+ERC+0Z"
+UNT+13+11085B94E1F8FA"
+UNE+1+15693125265312"
+UNZ+1+1569312526531"
+
+>>
+UNB+SIRE:4+MU+NIAC+xxxxxx:xxxx+1569312526531++IAPI"
+UNG+CUSRES+MU+NIAC+xxxxxx:xxxx+15693125265312+UN+D:05B"
+UNH+11085B94E1F8FA+CUSRES:D:05B:UN"
+BGM+312"
+RFF+TN:1909240821556284716"
+RFF+AF:MU589"
+DTM+189:$(yymmdd)1420:201"
+DTM+232:$(yymmdd)0930:201"
+LOC+125+SFO"
+LOC+87+PVG"
+ERP+2"
+RFF+AVF:NY7HZZ"
+RFF+ABO:$(get pax_id)ABC"
+ERC+0Z"
+UNT+13+11085B94E1F8FA"
+UNE+1+15693125265312"
+UNZ+1+1569312526531"
+
+$(kick_flt_tasks_daemon)
+
+$(EXISTS_TRIP_ALARM $(date_format %d.%m.%Y) IAPI_PROBLEM)
+
+$(NO_BOARD $(get point_dep) $(get pax_id))
+
+### китайцы прислали нам в одном из ABO число, не подходящее для pax_id - ничего не делаем
+
+<< h2h=V.\VDLG.WA/E11HCNIAPIR/I11HCNIAPIQ/P$(get tpr)\VGYA\$() charset=UNOA
+UNB+SIRE:4+NIAC+MU+$(yymmdd):$(hhmi)+1569312526531++IAPI"
+UNG+CUSRES+NIAC+MU+$(yymmdd):$(hhmi)+15693125265312+UN+D:05B"
+UNH+11085B94E1F8FA+CUSRES:D:05B:UN:IATA"
+BGM+132"
+RFF+TN:1909240821556284716"
+RFF+AF:MU589"
+DTM+189:$(yymmdd)1420:201"
+DTM+232:$(yymmdd)0930:201"
+LOC+125+SFO"
+LOC+87+PVG"
+ERP+2"
+RFF+AVF:NY7HZZ"
+RFF+ABO:2000000001"
+ERC+0Z"
+UNT+13+11085B94E1F8FA"
+UNE+1+15693125265312"
+UNZ+1+1569312526531"
+
+>>
+UNB+SIRE:4+MU+NIAC+xxxxxx:xxxx+1569312526531++IAPI"
+UNG+CUSRES+MU+NIAC+xxxxxx:xxxx+15693125265312+UN+D:05B"
+UNH+11085B94E1F8FA+CUSRES:D:05B:UN"
+BGM+312"
+RFF+TN:1909240821556284716"
+RFF+AF:MU589"
+DTM+189:$(yymmdd)1420:201"
+DTM+232:$(yymmdd)0930:201"
+LOC+125+SFO"
+LOC+87+PVG"
+ERP+2"
+RFF+AVF:NY7HZZ"
+RFF+ABO:2000000001"
+ERC+0Z"
+UNT+13+11085B94E1F8FA"
+UNE+1+15693125265312"
+UNZ+1+1569312526531"
+
+$(kick_flt_tasks_daemon)
+
+$(EXISTS_TRIP_ALARM $(date_format %d.%m.%Y) IAPI_PROBLEM)
+
 $(NO_BOARD $(get point_dep) $(get pax_id))
 
 << h2h=V.\VDLG.WA/E11HCNIAPIR/I11HCNIAPIQ/P$(get tpr)\VGYA\$() charset=UNOA
@@ -1672,6 +1781,13 @@ ERC+0Z"
 UNT+13+11085B94E1F8FA"
 UNE+1+15693125265312"
 UNZ+1+1569312526531"
+
+$(kick_flt_tasks_daemon)
+
+$(NOT_EXISTS_TRIP_ALARM $(date_format %d.%m.%Y) IAPI_PROBLEM)
+
+$(CHECK_TRIP_ALARMS $(date_format %d.%m.%Y)
+  APIS_DIFFERS_FROM_BOOKING)
 
 $(OK_TO_BOARD $(get point_dep) $(get pax_id))
 

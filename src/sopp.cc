@@ -3353,7 +3353,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
     check_unattached_trfer_alarm( i->first );
     check_conflict_trfer_alarm( i->first );
     TTripAlarmHook::set(Alarm::APISControl, i->first);
-    IAPI::syncAlarms(i->first);
+    IAPI::syncAlarms(PointId_t(i->first));
     recountBySubcls( i->first );
   };
 

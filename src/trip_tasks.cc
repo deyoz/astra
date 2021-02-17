@@ -218,7 +218,7 @@ void add_trip_task(const TTripTaskKey& task, TDateTime new_next_exec)
     "            (params = :params OR params IS NULL AND :params IS NULL); \n"
     "      UPDATE trip_tasks SET next_exec=:next_exec, tid=cycle_tid__seq.nextval \n"
     "      WHERE id=:id AND \n"
-    "            (last_exec IS NULL OR :next_exec>last_exec) AND \n"
+    "            (last_exec IS NULL OR :next_exec>=last_exec) AND \n"
     "            (next_exec IS NULL OR next_exec<>:next_exec) \n"
     "      RETURNING (SELECT next_exec FROM dual) INTO :prior_next_exec; \n"
     "      EXIT; \n"

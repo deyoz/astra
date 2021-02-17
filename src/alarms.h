@@ -48,7 +48,6 @@ class Alarm
       SyncEmds,
       SyncCabinClass,
       SyncCustomAlarms,
-      SyncIAPI,
       SyncAPPS
     };
 
@@ -90,7 +89,6 @@ class Alarm
         {SyncEmds,               "SYNC_EMDS"                },
         {SyncCabinClass,         "SYNC_CABIN_CLASS"         },
         {SyncCustomAlarms,       "SYNC_CUSTOM_ALARMS"       },
-        {SyncIAPI,               "SYNC_IAPI"                },
         {SyncAPPS,               "SYNC_APPS"                },
        };
       return l;

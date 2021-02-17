@@ -1,5 +1,6 @@
 #include "iapi_interaction.h"
 #include "apis_creator.h"
+#include "apis_settings.h"
 #include "alarms.h"
 #include "base_callbacks.h"
 #include "PgOraConfig.h"
@@ -156,7 +157,7 @@ Paxlst::PaxlstInfo& getPaxlstInfo(const TApisRouteData& route,
                                   Paxlst::PaxlstInfo& paxlst2)
 {
   bool notRequestedBefore;
-  PassengerStatus(pax.paxId(), format.settings, route.depInfo.point_id).
+  PassengerStatus(PaxId_t(pax.paxId()), format.settings, PointId_t(route.depInfo.point_id)).
       updateByRequest(paxlst1.settings().RFF_TN(),
                       paxlst2.settings().RFF_TN(),
                       notRequestedBefore);
@@ -200,37 +201,34 @@ void RequestCollector::send()
   }
 }
 
-void syncAlarms(const int point_id_spp)
+void syncAlarms(const PointId_t& pointId)
 {
-  TTripAlarmHook::set(Alarm::IAPIProblem, point_id_spp);
+  TTripAlarmHook::set(Alarm::IAPIProblem, pointId.get());
 }
 
-static void addAlarm( const int pax_id,
+static void addAlarm( const PaxId_t& paxId,
                       const std::initializer_list<Alarm::Enum>& alarms,
-                      const int point_id_spp )
+                      const PointId_t& pointId )
 {
-  if (!addAlarmByPaxId(PaxId_t(pax_id), alarms, {paxCheckIn})) return; //ничего не изменилось
-  syncAlarms(point_id_spp);
+  if (!addAlarmByPaxId(paxId, alarms, {paxCheckIn})) return; //ничего не изменилось
+  syncAlarms(pointId);
 }
 
-static void deleteAlarm( const int pax_id,
+static void deleteAlarm( const PaxId_t& paxId,
                          const std::initializer_list<Alarm::Enum>& alarms,
-                         const int point_id_spp )
+                         const PointId_t& pointId )
 {
-  if (!deleteAlarmByPaxId(PaxId_t(pax_id), alarms, {paxCheckIn})) return; //ничего не изменилось
-  syncAlarms(point_id_spp);
+  if (!deleteAlarmByPaxId(paxId, alarms, {paxCheckIn})) return; //ничего не изменилось
+  syncAlarms(pointId);
 }
 
-void deleteAlarms(const int pax_id, const int point_id_spp)
+void deleteAlarms(const PaxId_t& paxId, const PointId_t& pointId)
 {
-  if (!deleteAlarmByPaxId(PaxId_t(pax_id),
+  if (!deleteAlarmByPaxId(paxId,
                           {Alarm::IAPINegativeDirective},
                           {paxCheckIn})) return; //ничего не изменилось
 
-  if (point_id_spp!=ASTRA::NoExists)
-    syncAlarms(point_id_spp);
-  else
-    LogError(STDLOG) << __func__ << ": point_id_spp==ASTRA::NoExists";
+  syncAlarms(pointId);
 }
 
 static bool updateIapiPaxData(const PointId_t& pointId,
@@ -282,7 +280,7 @@ static bool insertIapiPaxData(const PointId_t& pointId,
     return cur.rowcount() > 0;
 }
 
-bool PassengerStatus::allowedToBoarding(const int paxId)
+bool PassengerStatus::allowedToBoarding(const PaxId_t& paxId)
 {
     auto cur = make_db_curs(
 "SELECT status FROM iapi_pax_data WHERE pax_id=:pax_id AND pr_del=0",
@@ -291,7 +289,7 @@ bool PassengerStatus::allowedToBoarding(const int paxId)
     std::string status;
     cur
             .defNull(status, "")
-            .bind(":pax_id", paxId)
+            .bind(":pax_id", paxId.get())
             .exec();
     while(!cur.fen()) {
         if(!allowedToBoarding(statusTypes().decode(status))) {
@@ -302,20 +300,16 @@ bool PassengerStatus::allowedToBoarding(const int paxId)
     return true;
 }
 
-bool PassengerStatus::allowedToBoarding(const int paxId, const TCompleteAPICheckInfo& checkInfo)
+bool PassengerStatus::allowedToBoarding(const PaxId_t& paxId, const TCompleteAPICheckInfo& checkInfo)
 {
   if (needCheckStatus(checkInfo))
     return allowedToBoarding(paxId);
   return true;
 }
 
-bool PassengerStatusInspector::allowedToPrintBP(const int pax_id, const int grp_id)
+bool PassengerStatusInspector::allowedToPrintBP(const PaxId_t& paxId, const boost::optional<GrpId_t>& grpId)
 {
-  if (PassengerStatus::allowedToBoarding(pax_id)) return true; //специально вначале - оптимизируем обращения к БД (подавляющее большинство разрешено к посадке)
-
-  PaxId_t paxId(pax_id);
-  boost::optional<GrpId_t> grpId;
-  if (grp_id!=ASTRA::NoExists) grpId=boost::in_place(grp_id);
+  if (PassengerStatus::allowedToBoarding(paxId)) return true; //специально вначале - оптимизируем обращения к БД (подавляющее большинство разрешено к посадке)
 
   return (!needCheckStatus(get(paxId, grpId)));
 }
@@ -326,24 +320,24 @@ const PassengerStatus& PassengerStatus::updateByRequest(const std::string& msgId
 {
     auto encStatus = statusTypes().encode(m_status);
 
-    LogTrace(TRACE5) << __func__ << " pax_id=" << m_paxId
-                                 << " point_Id=" << m_pointId
-                                 << " country_control=" << m_countryControl
+    LogTrace(TRACE5) << __func__ << " paxId=" << m_paxId
+                                 << " pointId=" << m_pointId.value()
+                                 << " countryControl=" << m_countryControl
                                  << " msgIdForClearPassengerRequest=" << msgIdForClearPassengerRequest
                                  << " msgIdForChangePassengerData=" << msgIdForChangePassengerData
                                  << " status=" << m_status << "(" << encStatus << ")";
 
-    notRequestedBefore = !updateIapiPaxData(PointId_t(m_pointId),
-                                            PaxId_t(m_paxId),
-                                            CountryCode_t(m_countryControl),
+    notRequestedBefore = !updateIapiPaxData(m_pointId.value(),
+                                            m_paxId,
+                                            m_countryControl,
                                             m_freeText,
                                             encStatus,
                                             msgIdForChangePassengerData);
 
     if(notRequestedBefore) {
-        insertIapiPaxData(PointId_t(m_pointId),
-                          PaxId_t(m_paxId),
-                          CountryCode_t(m_countryControl),
+        insertIapiPaxData(m_pointId.value(),
+                          m_paxId,
+                          m_countryControl,
                           m_freeText,
                           encStatus,
                           msgIdForClearPassengerRequest);
@@ -363,8 +357,8 @@ const PassengerStatus& PassengerStatus::updateByResponse(const std::string& msgI
 
     auto encStatus = statusTypes().encode(m_status);
     cur
-            .bind(":pax_id",          m_paxId)
-            .bind(":country_control", m_countryControl)
+            .bind(":pax_id",          m_paxId.get())
+            .bind(":country_control", m_countryControl.get())
             .bind(":status",          encStatus)
             .bind(":free_text",       m_freeText)
             .bind(":msg_id",          msgId)
@@ -391,8 +385,8 @@ const PassengerStatus& PassengerStatus::updateByCusRequest(bool& notRequestedBef
 
     auto encStatus = statusTypes().encode(m_status);
     cur
-            .bind(":pax_id",          m_paxId)
-            .bind(":country_control", m_countryControl)
+            .bind(":pax_id",          m_paxId.get())
+            .bind(":country_control", m_countryControl.get())
             .bind(":status",          encStatus)
             .bind(":free_text",       m_freeText)
             .exec();
@@ -412,10 +406,8 @@ const PassengerStatus& PassengerStatus::updateByCusRequest(bool& notRequestedBef
 
 void PassengerStatus::writeToLogAndCheckAlarm(bool isRequest) const
 {
-  if (m_paxId==ASTRA::NoExists) return;
-
   CheckIn::TSimplePaxItem pax;
-  if (!pax.getByPaxId(m_paxId)) return; //теоретически может быть удален по ошибке агента
+  if (!pax.getByPaxId(m_paxId.get())) return; //теоретически может быть удален по ошибке агента
   CheckIn::TSimplePaxGrpItem grp;
   if (!grp.getByGrpId(pax.grp_id)) return;
 
@@ -439,16 +431,16 @@ void PassengerStatus::writeToLogAndCheckAlarm(bool isRequest) const
   msg.prms.clearPrms();
   msg.prms << PrmSmpl<string>("pax_name", pax.full_name())
            << PrmElem<string>("pers_type", etPersType, EncodePerson(pax.pers_type))
-           << PrmElem<string>("country", etCountry, m_countryControl)
+           << PrmElem<string>("country", etCountry, m_countryControl.get())
            << PrmSmpl<string>("status",  statusStr);
 
   TReqInfo::Instance()->LocaleToLog(msg);
 
   //тревоги
   if (allowedToBoarding(m_paxId))
-    deleteAlarm(m_paxId, {Alarm::IAPINegativeDirective}, grp.point_dep);
+    deleteAlarm(m_paxId, {Alarm::IAPINegativeDirective}, PointId_t(grp.point_dep));
   else
-    addAlarm(m_paxId, {Alarm::IAPINegativeDirective}, grp.point_dep);
+    addAlarm(m_paxId, {Alarm::IAPINegativeDirective}, PointId_t(grp.point_dep));
 }
 
 PassengerStatus::Level PassengerStatus::getStatusLevel(const edifact::Cusres::SegGr4& gr4)
@@ -461,33 +453,34 @@ PassengerStatus::Level PassengerStatus::getStatusLevel(const edifact::Cusres::Se
     return UnknownLevel;
 }
 
-PassengerStatus::PassengerStatus(const edifact::Cusres::SegGr4& gr4,
-                                 const APIS::SettingsKey& settingsKey)
-{
-  clear();
+PassengerStatus::PassengerStatus(const PaxId_t& paxId,
+                                 const APIS::SettingsKey& settingsKey,
+                                 const edifact::Cusres::SegGr4& gr4) :
+  m_paxId(paxId),
+  m_countryControl(settingsKey.countryControl()),
+  m_status(statusTypes().decode(gr4.m_erc.m_errorCode)),
+  m_freeText(gr4.m_ftx?gr4.m_ftx.get().m_freeText:"") {}
 
-  m_paxId=getPaxId(gr4);
-  m_countryControl=settingsKey.countryControl();
-  m_status=statusTypes().decode(gr4.m_erc.m_errorCode);
-  if (gr4.m_ftx)
-    m_freeText=gr4.m_ftx.get().m_freeText;
-}
-
-int PassengerStatus::getPaxId(const edifact::Cusres::SegGr4& gr4)
+std::optional<PaxId_t> PassengerStatus::getPaxId(const edifact::Cusres::SegGr4& gr4)
 {
-  if (gr4.m_vRff.empty()) return ASTRA::NoExists;
-  int paxId=NoExists;
+  if (gr4.m_vRff.empty()) return {};
+
   auto beg = gr4.m_vRff.cbegin();
   auto end = gr4.m_vRff.cend();
   auto abo = find_if(beg, end, [](const auto &x){return x.m_qualifier == "ABO";});
   if (abo != end)
-    if (StrToInt(abo->m_ref.c_str(), paxId)==EOF)
+  {
+    try
+    {
+      return PaxId_t(ToInt(abo->m_ref));
+    }
+    catch (...)
     {
       LogTrace(TRACE5) << __func__ << ": wrong ABO=" << abo->m_ref;
-      paxId=NoExists;
     }
+  }
 
-  return paxId;
+  return {};
 }
 
 std::string PassengerStatusList::getMsgId(const edifact::Cusres& cusres)
@@ -513,6 +506,8 @@ void PassengerStatusList::processCusres(const edifact::Cusres& cusres, bool isRe
     return;
   }
 
+  const APIS::SettingsKey& settingsKey=settingsList.begin()->first;
+
   PassengerStatusList statuses;
 
   string msgId=getMsgId(cusres);
@@ -523,16 +518,15 @@ void PassengerStatusList::processCusres(const edifact::Cusres& cusres, bool isRe
 
     if (level==PassengerStatus::UnknownLevel) continue;
 
-    PassengerStatus status(gr4, settingsList.begin()->first);
-
     if (level==PassengerStatus::HeaderLevel)
     {
-      statuses.getByResponseHeaderLevel(msgId, status);
+      statuses.getByResponseHeaderLevel(msgId, settingsKey, gr4);
     }
     else
     {
-      if (status.paxId()!=ASTRA::NoExists)
-        statuses.insert(status);
+      std::optional<PaxId_t> paxId=PassengerStatus::getPaxId(gr4);
+      if (paxId)
+        statuses.emplace(paxId.value(), settingsKey, gr4);
     }
   }
 
@@ -543,7 +537,8 @@ void PassengerStatusList::processCusres(const edifact::Cusres& cusres, bool isRe
 }
 
 void PassengerStatusList::getByResponseHeaderLevel(const std::string& msgId,
-                                                   const PassengerStatus& statusPattern)
+                                                   const APIS::SettingsKey& settingsKey,
+                                                   const edifact::Cusres::SegGr4& gr4)
 {
     if (msgId.empty()) return;
 
@@ -552,17 +547,15 @@ void PassengerStatusList::getByResponseHeaderLevel(const std::string& msgId,
 "WHERE country_control=:country_control AND msg_id=:msg_id",
               PgOra::getROSession("IAPI_PAX_DATA"));
 
-    int paxId = ASTRA::NoExists;
+    int pax_id = ASTRA::NoExists;
 
     cur
-            .def(paxId)
-            .bind(":country_control", statusPattern.countryControl())
+            .def(pax_id)
+            .bind(":country_control", settingsKey.countryControl())
             .bind(":msg_id",          msgId)
             .exec();
     while(!cur.fen()) {
-        PassengerStatus status(statusPattern);
-        status.setPaxId(paxId);
-        insert(status);
+        emplace(PaxId_t(pax_id), settingsKey, gr4);
     }
 }
 
@@ -627,16 +620,9 @@ class PaxEvents: public PaxEventCallbacks<TRemCategory>,
 
       switch(paxOrigin)
       {
-        case paxPnl:
-          if (IAPI::needCheckStatus(checkInfo))
-          {
-            addAlarmByPaxId(paxId(), {Alarm::SyncIAPI}, {paxOrigin});
-            flightTasks.emplace(TTripTaskKey(paxSegment.point_dep, AlarmTypes().encode(Alarm::SyncIAPI), ""), ASTRA::NoExists);
-          }
-          break;
         case paxCheckIn:
           if (refused)
-            IAPI::deleteAlarms(paxId().get(), paxSegment.point_dep);
+            IAPI::deleteAlarms(paxId(), PointId_t(paxSegment.point_dep));
           else
             iapiCollector.addPassengerIfNeed(paxId(), paxSegment, checkInfo);
           break;
@@ -704,7 +690,7 @@ void PaxEvents::onChange(TRACE_SIGNATURE,
   }
 }
 
-std::vector<std::string> statusesFromDb(const PaxId_t& pax_id)
+std::vector<std::string> statusesFromDb(const PaxId_t& paxId)
 {
     std::vector<std::string> res;
     auto cur = make_db_curs(
@@ -714,7 +700,7 @@ std::vector<std::string> statusesFromDb(const PaxId_t& pax_id)
     std::string status;
     cur
             .defNull(status, "")
-            .bind(":pax_id", pax_id.get())
+            .bind(":pax_id", paxId.get())
             .exec();
 
     while(!cur.fen()) {
