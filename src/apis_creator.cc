@@ -755,7 +755,7 @@ bool CreateEdiFile2(  const TApisRouteData& route,
     XML_TR_version = 0;
 #if !APIS_TEST
     std::optional<std::string> versionParam=get_trip_apis_param(PointId_t(route.depInfo.point_id), "XML_TR", "version");
-    if (versionParam) XML_TR_version=std::stoi(versionParam.value())+1;
+    if (versionParam) XML_TR_version=ToInt(versionParam.value())+1;
 #endif
     FPM.toXMLFormat(apisNode, passengers_count, crew_count, XML_TR_version.get());
     FCM.toXMLFormat(apisNode, passengers_count, crew_count, XML_TR_version.get());
