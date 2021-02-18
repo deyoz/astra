@@ -88,7 +88,7 @@ bool isDisplayedEt(const std::string& ticket_no, int coupon_no)
                    << ": ticket_no=" << ticket_no
                    << ", coupon_no=" << coupon_no;
   auto cur = make_db_curs(
-        "SELECT 1 FROM eticks_display "
+        "SELECT COUNT(*) FROM eticks_display "
         "WHERE ticket_no=:ticket_no "
         "AND coupon_no=:coupon_no ",
         PgOra::getROSession("ETICKS_DISPLAY"));
@@ -201,7 +201,7 @@ bool existsPaxWithEt(const std::string& ticket_no, int coupon_no)
                    << ": ticket_no=" << ticket_no
                    << ", coupon_no=" << coupon_no;
   auto cur = make_db_curs(
-        "SELECT 1 FROM pax "
+        "SELECT count(*) FROM pax "
         "WHERE ticket_no=:ticket_no "
         "AND coupon_no=:coupon_no ",
         PgOra::getROSession("PAX"));
