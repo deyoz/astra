@@ -204,7 +204,7 @@ bool existsPaxWithEt(const std::string& ticket_no, int coupon_no)
         "SELECT 1 FROM pax "
         "WHERE ticket_no=:ticket_no "
         "AND coupon_no=:coupon_no "
-        "FETCH FIRST 1 ROWS ",
+        "FETCH FIRST 1 ROWS ONLY ",
         PgOra::getROSession("PAX"));
   cur.stb()
       .bind(":ticket_no", ticket_no)
