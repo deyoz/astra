@@ -1161,6 +1161,7 @@ BEGINDATA
 "BRANDS"|4|"NAME"|"Название"|25|||"S"|50||0|0|0|||||
 "BRANDS"|5|"NAME_LAT"|"Название (лат.)"|25|||"S"|50||0|0|0|||||
 "BRANDS"|6|"ID"||0|||"NU"|9||0|1|1|||||
+"KIOSK_ALIASES"|3|"CODE"|"Название"|70|||"S"|500||0|1|0|"KIOSK_ALIASES_LIST"|"CODE"|1||
 "BAG_RATES"|1|"ID"||0|||"NU"|9||1|1|1|||||
 "BAG_RATES"|2|"AIRLINE"||0|||"S"|3||0|0|1|"AIRLINES"|"CODE"|1||1
 "BAG_RATES"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|1|"AIRLINES"|"CODE_LAT/CODE"|1||
@@ -1316,18 +1317,6 @@ BEGINDATA
 "BI_TYPES"|7|"ID"||0|||"NU"|9||0|0|1|||||
 "BI_TYPES"|6|"NAME"|"Название"|25|||"S"|50||0|0|0|||||
 "BR_BLANK_LIST"|4|"FMT_TYPE"|"Формат"|10|"U"|"L"|"S"|10||0|0|0|"DEV_MODELS"|"FMT_TYPE"|0||
-"KIOSK_GRP"|1|"ID"||0|||"NU"|9||0|1|1|||||
-"KIOSK_GRP"|2|"GRP_ID"||0|||"NU"|9||0|1|0|"KIOSK_GRP_NAMES"|"ID"|1||1
-"KIOSK_GRP"|3|"NAME"|"Группа"|50|||"S"|100||0|0|1|"KIOSK_GRP_NAMES"|"NAME"|1||
-"KIOSK_GRP"|4|"KIOSK_ID"|"Ид. киоска"|15|||"S"|100||1|1|0|"KIOSK_CLIENTS"|"KIOSK_ID"|1||2
-"KIOSK_GRP"|5|"DESCR"|"Описание"|100|||"S"|1000||0|0|1|"KIOSK_GRP_NAMES"|"DESCR"|1||
-"KIOSK_CONFIG"|1|"ID"||0|||"NU"|9||0|1|1|||||
-"KIOSK_CONFIG"|2|"NAME"||0|||"S"|500||0|1|0|"KIOSK_CONFIG_LIST"|"CODE"|1||1
-"KIOSK_CONFIG"|3|"CODE"|"Название"|50|||"S"|500||0|1|0|"KIOSK_CONFIG_LIST"|"CODE"|1||
-"KIOSK_CONFIG"|4|"VALUE"|"Значение"|70|||"S"|1000||1|0|0|||||
-"KIOSK_CONFIG"|5|"APP_ID"||0|||"NU"|9||0|1|0|"KIOSK_APP_LIST"|"ID"|2||1
-"KIOSK_CONFIG"|6|"APPNAME"|"Приложение"|30|||"S"|50||1|0|0|"KIOSK_APP_LIST"|"CODE"|2||
-"KIOSK_CONFIG"|7|"GRP_ID"||0|||"NU"|9||0|1|0|"KIOSK_GRP_NAMES"|"ID"|3||1
 "KIOSK_CLIENTS"|1|"ID"||0|||"NU"|9||0|1|1|||||
 "KIOSK_CLIENTS"|2|"KIOSK_ID"|"Ид. киоска"|15|||"S"|100||0|0|0|||||
 "KIOSK_CLIENTS"|3|"APP_ID"||0|||"NU"|9||0|1|0|"KIOSK_APP_LIST"|"ID"|2||1
@@ -1356,33 +1345,6 @@ BEGINDATA
 "TRIP_BRD_WITH_REG"|3|"HALL_VIEW"|"Название зала"||||"S"|20||1|0|0|"HALLS"|"NAME_LAT/NAME"|1||
 "TRIP_BRD_WITH_REG"|3|"HALL_VIEW"|"Название зала"||||"S"|20||1|0|0|"HALLS"|"NAME/NAME_LAT"|1|"RU"|
 "TRIP_BRD_WITH_REG"|4|"PR_MISC"|"Посадка при рег."||||"B"|1||0|0|0|||||
-"WEB_CLIENTS"|1|"CLIENT_ID"|"Ид. интернет-клиента"||||"NU"|9||0|1|0|||||
-"WEB_CLIENTS"|2|"CLIENT_TYPE"||0|||"S"|5||0|0|0|"SELF_CKIN_TYPES"|"CODE"|1||1
-"WEB_CLIENTS"|3|"CLIENT_TYPE_VIEW"|"Тип рег."|20|||"S"|50||0|0|0|"SELF_CKIN_TYPES"|"NAME_LAT/NAME"|1||
-"WEB_CLIENTS"|3|"CLIENT_TYPE_VIEW"|"Тип рег."|20|||"S"|50||0|0|0|"SELF_CKIN_TYPES"|"NAME/NAME_LAT"|1|"RU"|
-"WEB_CLIENTS"|4|"DESCR"|"Описание"|20|"U"||"S"|100||0|0|0|||||
-"WEB_CLIENTS"|5|"DESK"|"Пульт"||"U"||"S"|6||0|0|0|"DESKS"|"CODE"|||
-"WEB_CLIENTS"|6|"USER_ID"|"Пользователь"|0|||"NU"|9||0|0|0|"USERS"|"USER_ID"|2||1
-"WEB_CLIENTS"|7|"USER_NAME"|"Пользователь"|50|||"S"|100||0|0|0|"USERS"|"USER_NAME"|2||
-"WEB_CLIENTS"|8|"KIOSK_ADDR"||0|||"NU"|9||1|0|1|"KIOSK_ADDR"|"ID"|3||
-"WEB_CLIENTS"|9|"KIOSK_ADDR_NAME"|"Адрес киоска"|30|||"S"|200||1|0|1|||||
-"WEB_CLIENTS"|10|"KIOSK_ID"|"Ид. киоска"|30|||"S"|50||1|0|1|||||
-"WEB_CLIENTS"|11|"ID"||0|||"NU"|9||0|0|1|||||
-"KIOSK_CONFIG"|8|"GNAME"|"Группа"|30|||"S"|50||1|0|0|"KIOSK_GRP_NAMES"|"NAME"|3||
-"KIOSK_CONFIG"|9|"KIOSK_ID"|"Ид. киоска"|15|||"S"|100||1|1|0|"KIOSK_CLIENTS"|"KIOSK_ID"|4||
-"KIOSK_CONFIG"|10|"DESCR"|"Описание"|200|||"S"|1000||1|0|0|||||
-"KIOSK_ALIASES"|1|"ID"||0|||"NU"|9||0|1|1|||||
-"KIOSK_ALIASES"|2|"NAME"||0|||"S"|500||0|1|0|"KIOSK_ALIASES_LIST"|"CODE"|1||1
-"KIOSK_ALIASES"|3|"CODE"|"Название"|70|||"S"|500||0|1|0|"KIOSK_ALIASES_LIST"|"CODE"|1||
-"KIOSK_ALIASES"|4|"VALUE"|"Значение"|170|||"S"|1000||1|0|0|||||
-"KIOSK_ALIASES"|5|"LANG_ID"||0|||"NU"|9||0|1|0|"KIOSK_LANG"|"ID"|2||1
-"KIOSK_ALIASES"|6|"LANG"|"Язык"|3|||"S"|2||1|0|0|"KIOSK_LANG"|"CODE"|2||
-"KIOSK_ALIASES"|7|"APP_ID"||0|||"NU"|9||0|1|0|"KIOSK_APP_LIST"|"ID"|3||1
-"KIOSK_ALIASES"|8|"APPNAME"|"Приложение"|30|||"S"|50||1|0|0|"KIOSK_APP_LIST"|"CODE"|3||
-"KIOSK_ALIASES"|9|"GRP_ID"||0|||"NU"|9||0|1|0|"KIOSK_GRP_NAMES"|"ID"|4||1
-"KIOSK_ALIASES"|10|"GNAME"|"Группа"|30|||"S"|50||1|0|0|"KIOSK_GRP_NAMES"|"NAME"|4||
-"KIOSK_ALIASES"|11|"KIOSK_ID"|"Ид. киоска"|15|||"S"|100||1|1|0|"KIOSK_CLIENTS"|"KIOSK_ID"|5||
-"KIOSK_ALIASES"|12|"DESCR"|"Описание"|200|||"S"|1000||1|0|0|||||
 "BAG_NORMS"|12|"CLASS"||0|||"S"|1||1|0|1|"CLASSES"|"CODE"|5||1
 "BAG_NORMS"|13|"CLASS_VIEW"|"Кл."||"U"||"S"|1||1|0|1|"CLASSES"|"CODE_LAT/CODE"|5||
 "BAG_NORMS"|13|"CLASS_VIEW"|"Кл."||"U"||"S"|1||1|0|1|"CLASSES"|"CODE/CODE_LAT"|5|"RU"|
@@ -1990,10 +1952,19 @@ BEGINDATA
 "KIOSK_CKIN_DESKS"|1|"CODE"|"Название"||"U"||"S"|6||0|1|1|||||
 "KIOSK_CKIN_DESKS"|3|"DESCR_VIEW"|"Группа пультов"|30|||"S"|50||0|0|0|"DESK_GRP"|"NAME/NAME_LAT"|1|"RU"|
 "ET_ADDR_SET"|2|"AIRLINE"||0|||"S"|3||0|0|0|"AIRLINES"|"CODE"|1||1
+"KIOSK_ALIASES"|4|"VALUE"|"Значение"|170|||"S"|1000||1|0|0|||||
+"KIOSK_ALIASES"|5|"LANG_ID"||0|||"NU"|9||0|1|0|"KIOSK_LANG"|"ID"|2||1
+"KIOSK_ALIASES"|6|"LANG"|"Язык"|3|||"S"|2||1|0|0|"KIOSK_LANG"|"CODE"|2||
 "TYPEB_ADDRS_PIL"|12|"PR_LAT"|"Лат."||||"B"|1||0|0|0|||||
 "TYPEB_ADDRS_PIL"|3|"TLG_SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|"TYPEB_TYPES_PIL"|"SHORT_NAME/SHORT_NAME_LAT"|1|"RU"|
 "TYPEB_ADDRS_PIL"|3|"TLG_SHORT_NAME"|"Тип"|15|||"S"|20||0|0|0|"TYPEB_TYPES_PIL"|"SHORT_NAME_LAT/SHORT_NAME"|1||
 "TYPEB_ADDRS_PIL"|2|"TLG_TYPE"||0|||"S"|6||0|0|0|"TYPEB_TYPES_PIL"|"CODE"|1||1
+"KIOSK_ALIASES"|7|"APP_ID"||0|||"NU"|9||0|1|0|"KIOSK_APP_LIST"|"ID"|3||1
+"KIOSK_ALIASES"|8|"APPNAME"|"Приложение"|30|||"S"|50||1|0|0|"KIOSK_APP_LIST"|"CODE"|3||
+"KIOSK_ALIASES"|9|"GRP_ID"||0|||"NU"|9||0|1|0|"KIOSK_GRP_NAMES"|"ID"|4||1
+"KIOSK_ALIASES"|10|"GNAME"|"Группа"|30|||"S"|50||1|0|0|"KIOSK_GRP_NAMES"|"NAME"|4||
+"KIOSK_ALIASES"|11|"KIOSK_ID"|"Ид. киоска"|15|||"S"|100||1|1|0|"WEB_CLIENTS"|"KIOSK_ID"|5||
+"KIOSK_ALIASES"|12|"DESCR"|"Описание"|200|||"S"|1000||1|0|0|||||
 "ET_ADDR_SET"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE_LAT/CODE"|1||
 "ET_ADDR_SET"|3|"AIRLINE_VIEW"|"А/к"||"U"||"S"|3||0|0|0|"AIRLINES"|"CODE/CODE_LAT"|1|"RU"|
 "ET_ADDR_SET"|4|"FLT_NO"|"Рейс"||||"NU"|5||1|0|0|||||
@@ -2534,6 +2505,20 @@ BEGINDATA
 "OUT_FILE_PARAM_SETS"|8|"AIRP_VIEW"|"А/п"||"U"||"S"|3||1|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
 "OUT_FILE_PARAM_SETS"|9|"PARAM_NAME"|"Параметр"|10|"U"||"S"|20||0|0|0|||||
 "OUT_FILE_PARAM_SETS"|10|"PARAM_VALUE"|"Значение"|200|||"S"|1000||1|0|0|||||
+"WEB_CLIENTS"|1|"CLIENT_ID"|"Ид. интернет-клиента"||||"NU"|9||0|1|0|||||
+"WEB_CLIENTS"|2|"CLIENT_TYPE"||0|||"S"|5||0|0|0|"SELF_CKIN_TYPES"|"CODE"|1||1
+"WEB_CLIENTS"|3|"CLIENT_TYPE_VIEW"|"Тип рег."|20|||"S"|50||0|0|0|"SELF_CKIN_TYPES"|"NAME_LAT/NAME"|1||
+"WEB_CLIENTS"|3|"CLIENT_TYPE_VIEW"|"Тип рег."|20|||"S"|50||0|0|0|"SELF_CKIN_TYPES"|"NAME/NAME_LAT"|1|"RU"|
+"WEB_CLIENTS"|4|"DESCR"|"Описание"|20|"U"||"S"|100||0|0|0|||||
+"WEB_CLIENTS"|5|"DESK"|"Пульт"||"U"||"S"|6||0|0|0|"DESKS"|"CODE"|||
+"WEB_CLIENTS"|6|"USER_ID"|"Пользователь"|0|||"NU"|9||0|0|0|"USERS"|"USER_ID"|2||1
+"WEB_CLIENTS"|7|"USER_NAME"|"Пользователь"|50|||"S"|100||0|0|0|"USERS"|"USER_NAME"|2||
+"WEB_CLIENTS"|8|"KIOSK_ADDR"||0|||"NU"|9||1|0|0|"KIOSK_ADDR"|"ID"|3||
+"WEB_CLIENTS"|9|"KIOSK_ADDR_NAME"|"Адрес киоска"|30|||"S"|200||1|0|0|"KIOSK_ADDR"|"NAME"|3||
+"WEB_CLIENTS"|10|"KIOSK_ID"|"Ид. киоска"|30|||"S"|50||1|0|0|||||
+"WEB_CLIENTS"|11|"ID"||0|||"NU"|9||0|0|1|||||
+"KIOSK_GRP"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"KIOSK_GRP"|2|"GRP_ID"||0|||"NU"|9||0|1|0|"KIOSK_GRP_NAMES"|"ID"|1||1
 "FILE_TYPES"|1|"CODE"|"Тип"||"U"||"S"|10||0|1|0|||||
 "FILE_TYPES"|2|"NAME"|"Название"|30|||"S"|50||0|0|0|||||
 "AGENCIES"|1|"CODE"|"Код"||"U"||"S"|5||0|1|0|||||
@@ -2582,6 +2567,20 @@ BEGINDATA
 "VALIDATOR_TYPES"|3|"NAME"|"Название"||||"S"|50||0|0|1|||||
 "VALIDATOR_TYPES"|4|"NAME_LAT"|"Название (лат.)"||||"S"|50||1|0|1|||||
 "ENCODINGS"|1|"CODE"|"Кодировка"||||"S"|40||0|1|1|||||
+"KIOSK_GRP"|3|"NAME"|"Группа"|50|||"S"|100||0|0|1|"KIOSK_GRP_NAMES"|"NAME"|1||
+"KIOSK_GRP"|4|"KIOSK_ID"|"Ид. киоска"|15|||"S"|100||1|1|0|"WEB_CLIENTS"|"KIOSK_ID"|1||2
+"KIOSK_GRP"|5|"DESCR"|"Описание"|100|||"S"|1000||0|0|1|"KIOSK_GRP_NAMES"|"DESCR"|1||
+"KIOSK_CONFIG"|1|"ID"||0|||"NU"|9||0|1|1|||||
+"KIOSK_CONFIG"|2|"NAME"||0|||"S"|500||0|1|0|"KIOSK_CONFIG_LIST"|"CODE"|1||1
+"KIOSK_CONFIG"|3|"CODE"|"Название"|50|||"S"|500||0|1|0|"KIOSK_CONFIG_LIST"|"CODE"|1||
+"KIOSK_CONFIG"|4|"VALUE"|"Значение"|70|||"S"|1000||1|0|0|||||
+"KIOSK_CONFIG"|5|"APP_ID"||0|||"NU"|9||0|1|0|"KIOSK_APP_LIST"|"ID"|2||1
+"KIOSK_CONFIG"|6|"APPNAME"|"Приложение"|30|||"S"|50||1|0|0|"KIOSK_APP_LIST"|"CODE"|2||
+"KIOSK_CONFIG"|7|"GRP_ID"||0|||"NU"|9||0|1|0|"KIOSK_GRP_NAMES"|"ID"|3||1
+"KIOSK_CONFIG"|8|"GNAME"|"Группа"|30|||"S"|50||1|0|0|"KIOSK_GRP_NAMES"|"NAME"|3||
+"KIOSK_CONFIG"|9|"KIOSK_ID"|"Ид. киоска"|15|||"S"|100||1|1|0|"WEB_CLIENTS"|"KIOSK_ID"|4||
+"KIOSK_CONFIG"|10|"DESCR"|"Описание"|200|||"S"|1000||1|0|0|||||
+"KIOSK_ALIASES"|1|"ID"||0|||"NU"|9||0|1|1|||||
 "CODESHARE_SETS"|1|"ID"||0|||"NU"|9||1|1|1|||||
 "CODESHARE_SETS"|2|"AIRLINE_OPER"||0|||"S"|3||0|0|1|"AIRLINES"|"CODE"|1||1
 "CODESHARE_SETS"|3|"AIRLINE_OPER_VIEW"|"А/к факт."||"U"||"S"|3||0|0|1|"AIRLINES"|"CODE_LAT/CODE"|1||
@@ -2597,6 +2596,7 @@ BEGINDATA
 "CODESHARE_SETS"|10|"AIRLINE_MARK_VIEW"|"А/к комм."||"U"||"S"|3||0|0|1|"AIRLINES"|"CODE_LAT/CODE"|3||
 "CODESHARE_SETS"|10|"AIRLINE_MARK_VIEW"|"А/к комм."||"U"||"S"|3||0|0|1|"AIRLINES"|"CODE/CODE_LAT"|3|"RU"|
 "CODESHARE_SETS"|11|"FLT_NO_MARK"|"Рейс комм."||||"NU"|5||0|0|1|||||
+"KIOSK_ALIASES"|2|"NAME"||0|||"S"|500||0|1|0|"KIOSK_ALIASES_LIST"|"CODE"|1||1
 "CRYPT_SETS"|2|"DESK_GRP_ID"||0|||"NU"|9||1|1|0|"DESK_GRP"|"GRP_ID"|1||1
 "CRYPT_SETS"|3|"DESCR"|"Группа пультов"|30|||"S"|50||1|0|0|"DESK_GRP"|"NAME_LAT/NAME"|1||
 "CRYPT_SETS"|3|"DESCR"|"Группа пультов"|30|||"S"|50||1|0|0|"DESK_GRP"|"NAME/NAME_LAT"|1|"RU"|

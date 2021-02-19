@@ -38,7 +38,7 @@ struct InetClient
 };
 
 InetClient getInetClient(const std::string &client_id);
-InetClient getInetClientByKioskId(const std::string &kiosk_id,const std::string &application);
+InetClient getInetClientByKioskId(const std::string &kiosk_id);
 
 namespace AstraWeb
 {
