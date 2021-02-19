@@ -1,0 +1,28 @@
+LOAD DATA
+INFILE *
+INTO TABLE comp_tariff_colors
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+color
+,name
+,name_lat
+,figure
+)
+BEGINDATA
+"$000AB0E0"|"Песочный"|"sand"|"rurect"
+"$0020E6A0"|"Лайм"|"Lime"|"rurect"
+"$00D09FE3"|"Пурпурный2"|"Magenta2"|"rurect"
+"clYellow"|"Желтый"|"Yellow"|"rurect"
+"$00C08080"|"Сиреневый"|"Violet"|"rurect"
+"$00C98810"|"Морской"|"Marine"|"rurect"
+"$00BD1CA0"|"Фуксия"|"Fuchsia"|"rurect"
+"$00FF64FF"|"Розовый"|"Pink"|"rurect"
+"$001C66FF"|"Оранжевый"|"Orange"|"rurect"
+"$00FD2D71"|"Фиолетовый"|"Purple"|"rurect"
+"$004646FF"|"Красный"|"Red"|"rurect"
+"$00CECF00"|"Голубой"|"Light blue"|"rurect"
+"$000DCAA4"|"Зеленый"|"Green"|"rurect"
+"clBlack"|"Черный"|"Black"|"rurect"
+"$00793C91"|"Пурпурный"|"Magenta"|"rurect"

@@ -80,7 +80,7 @@ const
                          {etClass,                 "etClass",                 "classes"},
                          {etClientType,            "etClientType",            "client_types"},
                          {etClsGrp,                "etClsGrp",                "cls_grp"},
-                         {etCompLayerType,         "etCompLayerType",         "comp_layer_types"},
+                         //{etCompLayerType,         "etCompLayerType",         "comp_layer_types"},
                          {etCompElemType,          "etCompElemType",          ""},
                          {etCountry,               "etCountry",               "countries"},
                          {etCraft,                 "etCraft",                 "crafts"},
@@ -978,4 +978,3 @@ string getElemId(TElemType type, const string &elem)
                 EncodeElemType(type),elem.c_str());
     return result;
 }
-

@@ -8559,6 +8559,27 @@ void resetLayers( int point_id, ASTRA::TCompLayerType layer_type,
   }
 }
 
+template <class DescrsT>
+static void FillSalonDescrs(
+    DescrsT& descrs,
+    const string& airline,
+    const string& craft,
+    const string& bort)
+{
+    DB::TQuery Qry(PgOra::getROSession("COMPART_DESC_SETS"));
+    Qry.SQLText =
+        "SELECT desc_code,salon_num,bort FROM compart_desc_sets "
+        "WHERE airline=:airline AND craft=:craft AND (bort IS NULL OR bort=:bort) "
+        "ORDER BY salon_num, bort, desc_code";
+    Qry.CreateVariable("airline", otString, airline);
+    Qry.CreateVariable("craft", otString, craft);
+    Qry.CreateVariable("bort", otString, bort);
+    Qry.Execute();
+    for (; !Qry.Eof; Qry.Next()) {
+        descrs[Qry.FieldAsInteger("salon_num")].insert(Qry.FieldAsString("desc_code"));
+    }
+}
+
 void getSalonDesrcs( int point_id, TSalonDesrcs &descrs )
 {
   descrs.clear();
@@ -8570,21 +8591,10 @@ void getSalonDesrcs( int point_id, TSalonDesrcs &descrs )
   if ( Qry.Eof ) {
     throw UserException( "MSG.FLIGHT.NOT_FOUND.REFRESH_DATA" );
   }
-  string airline = Qry.FieldAsString( "airline" );
-  string craft = Qry.FieldAsString( "craft" );
-  string bort = Qry.FieldAsString( "bort" );
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT desc_code,salon_num,bort FROM compart_desc_sets "
-    "WHERE airline=:airline AND craft=:craft AND (bort IS NULL OR bort=:bort) "
-    "ORDER BY salon_num, bort, desc_code";
-  Qry.CreateVariable( "airline", otString, airline );
-  Qry.CreateVariable( "craft", otString, craft );
-  Qry.CreateVariable( "bort", otString, bort );
-  Qry.Execute();
-  for ( ;!Qry.Eof; Qry.Next() ) {
-    descrs[ Qry.FieldAsInteger( "salon_num" ) ].insert( Qry.FieldAsString( "desc_code" ) );
-  }
+  const string airline = Qry.FieldAsString( "airline" );
+  const string craft = Qry.FieldAsString( "craft" );
+  const string bort = Qry.FieldAsString( "bort" );
+  FillSalonDescrs(descrs, airline, craft, bort);
 }
 
 void getPaxSeatsWL( int point_id, std::map< bool,std::map < int, TSeatRanges > > &seats ) //docs

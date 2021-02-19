@@ -84,8 +84,9 @@ TBaseTable &TBaseTables::get(string name)
               base_tables[name] = new TGrpStatusTypes();
         else if(name == "CLIENT_TYPES")
               base_tables[name] = new TClientTypes();
-        else if(name == "COMP_LAYER_TYPES")
-              base_tables[name] = new TCompLayerTypes();
+#warning It does not use anywhere (we want to eliminate it because there is another specific duplicate)
+        // else if(name == "COMP_LAYER_TYPES")
+        //       base_tables[name] = new TCompLayerTypes();
         else if(name == "ALARM_TYPES")
               base_tables[name] = new TAlarmTypes();
         else if(name == "DEV_MODELS")
@@ -874,12 +875,13 @@ void TClientTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TCompLayerTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
-{
-  *row = new TCompLayerTypesRow;
-  mem.create(*row, STDLOG);
-  TCodeBaseTable::create_row(Qry,row,replaced_row);
-};
+#warning It does not use anywhere (we want to eliminate it because there is another specific duplicate)
+// void TCompLayerTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+// {
+//   *row = new TCompLayerTypesRow;
+//   mem.create(*row, STDLOG);
+//   TCodeBaseTable::create_row(Qry,row,replaced_row);
+// };
 
 void TGraphStages::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
