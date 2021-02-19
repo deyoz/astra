@@ -213,7 +213,8 @@ astra_SOURCES = \
   db_tquery.cc \
   base_callbacks.cpp \
   hooked_session.cc \
-  PgOraConfig.cc
+  PgOraConfig.cc \
+  wb_messages.cc
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
@@ -426,4 +427,6 @@ noinst_HEADERS = \
   db_tquery.h \
   base_callbacks.h \
   hooked_session.h \
-  PgOraConfig.h
+  PgOraConfig.h \
+  wb_messages.h
+  

@@ -26,6 +26,7 @@
 #include "docs/docs_pax_list.h"
 #include "seat_number.h"
 #include "flt_settings.h"
+#include "wb_messages.h"
 
 #define NICKNAME "DEN"
 #include "serverlib/slogger.h"
@@ -9740,73 +9741,7 @@ void TelegramInterface::kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
 
 namespace WBMessages {
 
-    class TMsgType {
-        public:
-            enum Enum {
-                mtLOADSHEET,
-                mtNOTOC,
-                mtLIR,
-                None
-            };
-
-            static const std::list< std::pair<Enum, std::string> >& pairs()
-            {
-                static std::list< std::pair<Enum, std::string> > l;
-                if (l.empty())
-                {
-                    l.push_back(std::make_pair(mtLOADSHEET, "LOADSHEET"));
-                    l.push_back(std::make_pair(mtNOTOC,     "NOTOC"));
-                    l.push_back(std::make_pair(mtLIR,       "LIR"));
-                }
-                return l;
-            }
-
-    };
-
-    class TMsgTypes : public ASTRA::PairList<TMsgType::Enum, std::string>
-    {
-        private:
-            virtual std::string className() const { return "TMsgTypes"; }
-        public:
-            TMsgTypes() : ASTRA::PairList<TMsgType::Enum, std::string>(TMsgType::pairs(),
-                    boost::none,
-                    boost::none) {}
-    };
-
-    const TMsgTypes& MsgTypes()
-    {
-      static TMsgTypes msgTypes;
-      return msgTypes;
-    }
-
-    void toDB(int point_id, TMsgType::Enum msg_type, const string &content) {
-        TCachedQuery Qry(
-                "begin "
-                "   insert into wb_msg(id, msg_type, point_id, time_receive) values "
-                "      (cycle_id__seq.nextval, :msg_type, :point_id, system.utcsysdate) "
-                "      returning id into :id; "
-                "end; ",
-                QParams()
-                << QParam("point_id", otInteger, point_id)
-                << QParam("msg_type", otString, MsgTypes().encode(msg_type))
-                << QParam("id", otInteger)
-                );
-        Qry.get().Execute();
-        int id = Qry.get().GetVariableAsInteger("id");
-        TCachedQuery txtQry(
-                "INSERT INTO wb_msg_text(id, page_no, text) VALUES(:id, :page_no, :text)",
-                QParams()
-                << QParam("id", otInteger, id)
-                << QParam("page_no", otInteger)
-                << QParam("text", otString)
-                );
-        longToDB(txtQry.get(), "text", content);
-        TReqInfo::Instance()->LocaleToLog("EVT.WB.PRINT",
-                LEvntPrms() << PrmSmpl<string>("msg_type", MsgTypes().encode(msg_type)),
-                evtFlt, point_id);
-    }
-
-    void parse_print_message(const string &in_content)
+    static void parse_print_message(const string &in_content)
     {
         vector<string> lines;
         boost::split(lines, in_content, boost::is_any_of("\n"));
