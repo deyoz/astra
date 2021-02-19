@@ -2958,8 +2958,10 @@ START_TEST(check_putTlgToOutQue)
     const int ttl = 0;
     putTlg2OutQueue_wrap("RECVR", "SENDR", "OUTA", "test", priority, tlg_id, ttl);
 
-    AIRSRV_MSG tlg_in {
+    AIRSRV_MSG tlg_in = {
         .num = tlg_id,
+        .type = {},
+        .Sender = {},
         .Receiver = "SENDR",
     };
 
@@ -3111,4 +3113,3 @@ TCASEFINISH;
 #undef SUITENAME
 
 #endif //XP_TESTING
-
