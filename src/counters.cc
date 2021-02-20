@@ -11,7 +11,7 @@ using namespace std;
 namespace CheckIn
 {
 
-const TCrsCountersKey& TCrsCountersKey::toDB(TQuery &Qry) const
+const TCrsCountersKey& TCrsCountersKey::toDB(DB::TQuery &Qry) const
 {
   Qry.SetVariable("point_dep", point_dep);
   Qry.SetVariable("airp_arv", airp_arv);
@@ -19,7 +19,7 @@ const TCrsCountersKey& TCrsCountersKey::toDB(TQuery &Qry) const
   return *this;
 }
 
-TCrsCountersKey& TCrsCountersKey::fromDB(TQuery &Qry)
+TCrsCountersKey& TCrsCountersKey::fromDB(DB::TQuery &Qry)
 {
   clear();
   point_dep=Qry.FieldAsInteger("point_dep");
@@ -28,7 +28,7 @@ TCrsCountersKey& TCrsCountersKey::fromDB(TQuery &Qry)
   return *this;
 }
 
-const TCountersKey& TCountersKey::toDB(TQuery &Qry) const
+const TCountersKey& TCountersKey::toDB(DB::TQuery &Qry) const
 {
   Qry.SetVariable("point_dep", point_dep);
   Qry.SetVariable("point_arv", point_arv);
@@ -36,7 +36,7 @@ const TCountersKey& TCountersKey::toDB(TQuery &Qry) const
   return *this;
 }
 
-TCountersKey& TCountersKey::fromDB(TQuery &Qry)
+TCountersKey& TCountersKey::fromDB(DB::TQuery &Qry)
 {
   clear();
   point_dep=Qry.FieldAsInteger("point_dep");
@@ -45,14 +45,14 @@ TCountersKey& TCountersKey::fromDB(TQuery &Qry)
   return *this;
 }
 
-const TCrsCountersData& TCrsCountersData::toDB(TQuery &Qry) const
+const TCrsCountersData& TCrsCountersData::toDB(DB::TQuery &Qry) const
 {
   Qry.SetVariable("crs_tranzit", tranzit);
   Qry.SetVariable("crs_ok", ok);
   return *this;
 }
 
-TCrsCountersData& TCrsCountersData::fromDB(TQuery &Qry)
+TCrsCountersData& TCrsCountersData::fromDB(DB::TQuery &Qry)
 {
   clear();
   tranzit=Qry.FieldAsInteger("crs_tranzit");
@@ -60,7 +60,7 @@ TCrsCountersData& TCrsCountersData::fromDB(TQuery &Qry)
   return *this;
 }
 
-const TRegCountersData& TRegCountersData::toDB(TQuery &Qry) const
+const TRegCountersData& TRegCountersData::toDB(DB::TQuery &Qry) const
 {
   Qry.SetVariable("tranzit", tranzit);
   Qry.SetVariable("ok", ok);
@@ -71,122 +71,256 @@ const TRegCountersData& TRegCountersData::toDB(TQuery &Qry) const
   return *this;
 }
 
-boost::optional<int> TCrsCountersMap::getMaxCrsPriority() const
+std::optional<CrsPriority_t> TCrsCountersMap::getMaxCrsPriority(const TAdvTripInfo& flt) const
 {
   LogTrace(TRACE5) << __FUNCTION__;
 
-  boost::optional<int> max;
+  std::optional<CrsPriority_t> max;
 
-  TCachedQuery Qry("SELECT priority, crs FROM crs_set "
-                   "WHERE airline=:airline AND "
-                   "      (flt_no=:flt_no OR flt_no IS NULL) AND "
-                   "      (airp_dep=:airp_dep OR airp_dep IS NULL) "
-                   "ORDER BY crs,flt_no,airp_dep ",
-                   QParams() << QParam("airline", otString, _flt.airline)
-                             << QParam("flt_no", otInteger, _flt.flt_no)
-                             << QParam("airp_dep", otString, _flt.airp));
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("CRS_SET"),
+        "SELECT priority, crs FROM crs_set "
+        "WHERE airline=:airline AND "
+        "      (flt_no=:flt_no OR flt_no IS NULL) AND "
+        "      (airp_dep=:airp_dep OR airp_dep IS NULL) "
+        "ORDER BY crs,flt_no,airp_dep ",
+        QParams() << QParam("airline", otString, flt.airline)
+        << QParam("flt_no", otInteger, flt.flt_no)
+        << QParam("airp_dep", otString, flt.airp));
   string prior_crs;
   Qry.get().Execute();
   for(; !Qry.get().Eof; Qry.get().Next())
   {
     string curr_crs=Qry.get().FieldAsString("crs");
-    int priority=Qry.get().FieldAsInteger("priority");
+    const CrsPriority_t priority(Qry.get().FieldAsInteger("priority"));
     if (prior_crs==curr_crs) continue;
-    if (!max || max.get()<priority) max=priority;
+    if (!max || *max<priority) max=priority;
     prior_crs=curr_crs;
   }
 
   return max;
 }
 
-void TCrsCountersMap::loadCrsDataOnly()
+std::optional<CrsPriority_t> getCrsPriority(const CrsSender_t& sender,
+                                            const AirlineCode_t& airline,
+                                            int flt_no,
+                                            const AirportCode_t& airp_dep)
+{
+  int priority = ASTRA::NoExists;
+  auto cur = make_db_curs(
+        "SELECT priority FROM crs_set "
+        "WHERE crs=:sender AND airline=:airline "
+        "AND (flt_no=:flt_no OR flt_no IS NULL) "
+        "AND (airp_dep=:airp_dep OR airp_dep IS NULL) "
+        "ORDER BY flt_no,airp_dep ",
+        PgOra::getROSession("CRS_SET"));
+  cur.stb()
+      .def(priority)
+      .bind(":sender", sender.get())
+      .bind(":airline", airline.get())
+      .bind(":flt_no", flt_no)
+      .bind(":airp_dep", airp_dep.get())
+      .exfet();
+  if (priority == ASTRA::NoExists) {
+    return {};
+  }
+  return CrsPriority_t(priority);
+}
+
+struct CrsDataGrouped
+{
+  CrsSender_t sender;
+  std::string airp_arv;
+  std::string sclass;
+  int tranzit;
+  int resa;
+};
+
+std::vector<CrsDataGrouped> getCrsDataGrouped(const PointId_t& point_id,
+                                              const std::string& system = "CRS")
+{
+  const std::set<PointIdTlg_t> point_id_tlg_set = getPointIdTlgByPointIdsSpp(point_id);
+
+  std::vector<CrsDataGrouped> result;
+  for (const PointIdTlg_t& point_id_tlg: point_id_tlg_set) {
+    std::string sender;
+    std::string airp_arv;
+    std::string sclass;
+    int tranzit = ASTRA::NoExists;
+    int resa = ASTRA::NoExists;
+    auto cur = make_db_curs(
+          "SELECT sender,airp_arv,class,SUM(tranzit) AS tranzit,SUM(resa) AS resa "
+          "FROM crs_data "
+          "WHERE point_id=:point_id_tlg "
+          "AND system=:system "
+          "GROUP BY sender,airp_arv,class "
+          "HAVING SUM(tranzit) IS NOT NULL OR SUM(resa) IS NOT NULL",
+          PgOra::getROSession("CRS_DATA"));
+    cur.stb()
+        .def(sender)
+        .def(airp_arv)
+        .def(sclass)
+        .defNull(tranzit, ASTRA::NoExists)
+        .defNull(resa, ASTRA::NoExists)
+        .bind(":point_id_tlg", point_id_tlg.get())
+        .bind(":system", system)
+        .exec();
+    while (!cur.fen()) {
+      if (!CrsSender_t::validate(sender)) {
+        continue;
+      }
+      CrsDataGrouped data = {
+        CrsSender_t(sender),
+        airp_arv,
+        sclass,
+        tranzit,
+        resa
+      };
+      result.push_back(data);
+    }
+  }
+  return result;
+}
+
+void TCrsCountersMap::loadCrsDataOnly(const TAdvTripInfo& flt)
 {
   LogTrace(TRACE5) << __FUNCTION__;
 
   clear();
 
-  boost::optional<int> priority=getMaxCrsPriority();
+  std::optional<CrsPriority_t> max_priority = getMaxCrsPriority(flt);
+  if (!max_priority) {
+    max_priority = CrsPriority_t(0);
+  }
 
-  TCachedQuery Qry("SELECT :point_id_spp AS point_dep, airp_arv, class, "
-                   "       NVL(SUM(tranzit),0) AS crs_tranzit, NVL(SUM(resa),0) AS crs_ok "
-                   "FROM "
-                   "  (SELECT sender,airp_arv,class,SUM(tranzit) AS tranzit,SUM(resa) AS resa "
-                   "   FROM crs_data,tlg_binding "
-                   "   WHERE crs_data.point_id=tlg_binding.point_id_tlg AND "
-                   "         point_id_spp=:point_id_spp AND crs_data.system='CRS' "
-                   "   GROUP BY sender,airp_arv,class) "
-                   "WHERE NVL(ckin.get_crs_priority(sender,:airline,:flt_no,:airp_dep),0)=NVL(:priority,0) "
-                   "GROUP BY airp_arv,class "
-                   "HAVING SUM(tranzit) IS NOT NULL OR SUM(resa) IS NOT NULL",
-                   QParams() << QParam("point_id_spp", otInteger, _flt.point_id)
-                             << QParam("airline", otString, _flt.airline)
-                             << QParam("flt_no", otInteger, _flt.flt_no)
-                             << QParam("airp_dep", otString, _flt.airp)
-                             << QParam("priority", otInteger, FNull));
-  if (priority) Qry.get().SetVariable("priority", priority.get());
+  const std::vector<CrsDataGrouped> crs_data_grouped = getCrsDataGrouped(PointId_t(flt.point_id),
+                                                                         "CRS");
+  for (const CrsDataGrouped& data: crs_data_grouped) {
+    std::optional<CrsPriority_t> priority = getCrsPriority(data.sender,
+                                                           AirlineCode_t(flt.airline),
+                                                           flt.flt_no,
+                                                           AirportCode_t(flt.airp));
+    if (!priority) {
+      priority = CrsPriority_t(0);
+    }
+    if (priority != max_priority) {
+      continue;
+    }
+    LogTrace(TRACE6) << __func__ << ": data.tranzit=" << data.tranzit;
+    LogTrace(TRACE6) << __func__ << ": data.resa=" << data.resa;
+    TCrsCountersKey key;
+    key.point_dep = flt.point_id;
+    key.airp_arv = data.airp_arv;
+    key.cl = data.sclass;
+    TCrsCountersData value;
+    value.tranzit = data.tranzit;
+    value.ok = data.resa;
+    auto it = find(key);
+    if (it == end()) {
+      insert(std::make_pair(key, value));
+    } else {
+      sum_nullable(it->second.ok, data.resa);
+      sum_nullable(it->second.tranzit, data.tranzit);
+    }
+  }
+  for (auto& item: *this) {
+    if (item.second.ok == ASTRA::NoExists) {
+      item.second.ok = 0;
+    }
+    if (item.second.tranzit == ASTRA::NoExists) {
+      item.second.tranzit = 0;
+    }
+  }
+}
+
+void TCrsCountersMap::loadTripDataOnly(const PointId_t& point_id, bool need_clear)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": point_id=" << point_id
+                   << ", need_clear=" << need_clear;
+
+  if (need_clear) {
+    clear();
+  }
+  DB::TCachedQuery Qry(PgOra::getROSession("TRIP_DATA"),
+        "SELECT point_id AS point_dep, airp_arv, class, tranzit AS crs_tranzit, resa AS crs_ok "
+        "FROM trip_data "
+        "WHERE point_id=:point_dep ",
+        QParams() << QParam("point_dep", otInteger, point_id.get()));
   Qry.get().Execute();
 
   for(; !Qry.get().Eof; Qry.get().Next())
     insert(make_pair(TCrsCountersKey().fromDB(Qry.get()), TCrsCountersData().fromDB(Qry.get())));
+
+  LogTrace(TRACE6) << __func__
+                   << ": size=" << size();
 }
 
-void TCrsCountersMap::loadSummary()
+void TCrsCountersMap::loadCrsCountersOnly(const PointId_t& point_id, bool need_clear)
 {
-  LogTrace(TRACE5) << __FUNCTION__;
+  LogTrace(TRACE5) << __func__
+                   << ": point_id=" << point_id
+                   << ", need_clear=" << need_clear;
+
+  if (need_clear) {
+    clear();
+  }
+  DB::TCachedQuery Qry(PgOra::getROSession("CRS_COUNTERS"),
+        "SELECT point_dep, airp_arv, class, crs_tranzit, crs_ok "
+        "FROM crs_counters "
+        "WHERE point_dep=:point_dep ",
+        QParams() << QParam("point_dep", otInteger, point_id.get()));
+  Qry.get().Execute();
+
+  for(; !Qry.get().Eof; Qry.get().Next())
+    insert(make_pair(TCrsCountersKey().fromDB(Qry.get()), TCrsCountersData().fromDB(Qry.get())));
+
+  LogTrace(TRACE6) << __func__
+                   << ": size=" << size();
+}
+
+void TCrsCountersMap::loadSummary(const PointId_t& point_id)
+{
+  LogTrace(TRACE5) << __func__
+                   << ": point_id=" << point_id;
 
   clear();
-  TCachedQuery Qry("SELECT point_dep, airp_arv, class, crs_tranzit, crs_ok, 0 AS priority "
-                   "FROM crs_counters "
-                   "WHERE point_dep=:point_dep "
-                   "UNION "
-                   "SELECT point_id AS point_dep, airp_arv, class, tranzit AS crs_tranzit, resa AS crs_ok, 1 AS priority "
-                   "FROM trip_data "
-                   "WHERE point_id=:point_dep "
-                   "ORDER BY priority DESC",
-                   QParams() << QParam("point_dep", otInteger, _flt.point_id));
-  Qry.get().Execute();
+  loadTripDataOnly(point_id, false /*need_clear*/);
+  loadCrsCountersOnly(point_id, false /*need_clear*/);
 
-  for(; !Qry.get().Eof; Qry.get().Next())
-    insert(make_pair(TCrsCountersKey().fromDB(Qry.get()), TCrsCountersData().fromDB(Qry.get())));
+  LogTrace(TRACE6) << __func__
+                   << ": size=" << size();
 }
 
-void TCrsCountersMap::loadCrsCountersOnly()
+void TCrsCountersMap::deleteCrsCountersOnly(const PointId_t& point_id)
 {
-  LogTrace(TRACE5) << __FUNCTION__;
+  LogTrace(TRACE5) << __func__
+                   << ": point_id=" << point_id;
 
-  clear();
-  TCachedQuery Qry("SELECT * FROM crs_counters WHERE point_dep=:point_dep",
-                   QParams() << QParam("point_dep", otInteger, _flt.point_id));
-  Qry.get().Execute();
-
-  for(; !Qry.get().Eof; Qry.get().Next())
-    insert(make_pair(TCrsCountersKey().fromDB(Qry.get()), TCrsCountersData().fromDB(Qry.get())));
-}
-
-void TCrsCountersMap::deleteCrsCountersOnly(int point_id)
-{
-  LogTrace(TRACE5) << __FUNCTION__;
-
-  TCachedQuery Qry("DELETE FROM crs_counters WHERE point_dep=:point_dep",
-                   QParams() << QParam("point_dep", otInteger, point_id));
+  DB::TCachedQuery Qry(PgOra::getRWSession("CRS_COUNTERS"),
+        "DELETE FROM crs_counters "
+        "WHERE point_dep=:point_dep",
+        QParams() << QParam("point_dep", otInteger, point_id.get()));
   Qry.get().Execute();
 }
 
-void TCrsCountersMap::saveCrsCountersOnly() const
+void TCrsCountersMap::saveCrsCountersOnly(const PointId_t& point_id) const
 {
-  LogTrace(TRACE5) << __FUNCTION__;
+  LogTrace(TRACE5) << __func__
+                   << ": point_id=" << point_id;
 
-  deleteCrsCountersOnly(_flt.point_id);
+  deleteCrsCountersOnly(point_id);
 
   if (!empty())
   {
-    TCachedQuery InsQry("INSERT INTO crs_counters(point_dep, airp_arv, class, crs_tranzit, crs_ok) "
-                        "VALUES(:point_dep, :airp_arv, :class, :crs_tranzit, :crs_ok)",
-                        QParams() << QParam("point_dep", otInteger)
-                                  << QParam("airp_arv", otString)
-                                  << QParam("class", otString)
-                                  << QParam("crs_tranzit", otInteger)
-                                  << QParam("crs_ok", otInteger));
+    DB::TCachedQuery InsQry(PgOra::getRWSession("CRS_COUNTERS"),
+          "INSERT INTO crs_counters(point_dep, airp_arv, class, crs_tranzit, crs_ok) "
+          "VALUES(:point_dep, :airp_arv, :class, :crs_tranzit, :crs_ok)",
+          QParams() << QParam("point_dep", otInteger)
+                    << QParam("airp_arv", otString)
+                    << QParam("class", otString)
+                    << QParam("crs_tranzit", otInteger)
+                    << QParam("crs_ok", otInteger));
     for(const auto &i : *this)
     {
       i.first.toDB(InsQry.get());
@@ -221,25 +355,27 @@ void TCrsFieldsMap::apply(const TAdvTripInfo &flt, const bool pr_tranz_reg) cons
 {
   LogTrace(TRACE5) << __FUNCTION__;
 
-  TCachedQuery DelQry("UPDATE counters2 SET crs_tranzit=0, crs_ok=0 WHERE point_dep=:point_dep",
-                      QParams() << QParam("point_dep", otInteger, flt.point_id));
+  DB::TCachedQuery DelQry(PgOra::getRWSession("COUNTERS2"),
+        "UPDATE counters2 SET crs_tranzit=0, crs_ok=0 WHERE point_dep=:point_dep",
+        QParams() << QParam("point_dep", otInteger, flt.point_id));
   DelQry.get().Execute();
 
   if (!empty())
   {
-    TCachedQuery UpdQry("UPDATE counters2 "
-                        "SET crs_tranzit=DECODE(:pr_tranzit, 0, 0, :crs_tranzit), "
-                        "    crs_ok=:crs_ok, "
-                        "    tranzit=    DECODE(:pr_tranzit, 0, 0, "
-                        "                       DECODE(:pr_tranz_reg, 0, :crs_tranzit, tranzit)) "
-                        "WHERE point_dep=:point_dep AND point_arv=:point_arv AND class=:class",
-                        QParams() << QParam("pr_tranzit", otInteger, flt.pr_tranzit)
-                                  << QParam("pr_tranz_reg", otInteger, pr_tranz_reg)
-                                  << QParam("point_dep", otInteger)
-                                  << QParam("point_arv", otInteger)
-                                  << QParam("class", otString)
-                                  << QParam("crs_tranzit", otInteger)
-                                  << QParam("crs_ok", otInteger));
+    DB::TCachedQuery UpdQry(PgOra::getRWSession("COUNTERS2"),
+          "UPDATE counters2 "
+          "SET crs_tranzit=DECODE(:pr_tranzit, 0, 0, :crs_tranzit), "
+          "    crs_ok=:crs_ok, "
+          "    tranzit=    DECODE(:pr_tranzit, 0, 0, "
+          "                       DECODE(:pr_tranz_reg, 0, :crs_tranzit, tranzit)) "
+          "WHERE point_dep=:point_dep AND point_arv=:point_arv AND class=:class",
+          QParams() << QParam("pr_tranzit", otInteger, flt.pr_tranzit)
+                    << QParam("pr_tranz_reg", otInteger, pr_tranz_reg)
+                    << QParam("point_dep", otInteger)
+                    << QParam("point_arv", otInteger)
+                    << QParam("class", otString)
+                    << QParam("crs_tranzit", otInteger)
+                    << QParam("crs_ok", otInteger));
     for(const auto &i : *this)
     {
       i.first.toDB(UpdQry.get());
@@ -321,27 +457,28 @@ void TRegDifferenceMap::apply(const TAdvTripInfo &flt, const bool pr_tranz_reg) 
 
   if (!empty())
   {
-    TCachedQuery UpdQry("UPDATE counters2 "
-                        "SET tranzit=    DECODE(:pr_tranzit, 0, 0, "
-                        "                       DECODE(:pr_tranz_reg, 0, crs_tranzit, tranzit+:tranzit)), "
-                        "    ok=ok+:ok, "
-                        "    goshow=goshow+:goshow, "
-                        "    jmp_tranzit=DECODE(:pr_tranzit, 0, 0, "
-                        "                       DECODE(:pr_tranz_reg, 0, 0, jmp_tranzit+:jmp_tranzit)), "
-                        "    jmp_ok=jmp_ok+:jmp_ok, "
-                        "    jmp_goshow=jmp_goshow+:jmp_goshow "
-                        "WHERE point_dep=:point_dep AND point_arv=:point_arv AND class=:class",
-                        QParams() << QParam("pr_tranzit", otInteger, flt.pr_tranzit)
-                                  << QParam("pr_tranz_reg", otInteger, pr_tranz_reg)
-                                  << QParam("point_dep", otInteger)
-                                  << QParam("point_arv", otInteger)
-                                  << QParam("class", otString)
-                                  << QParam("tranzit", otInteger)
-                                  << QParam("ok", otInteger)
-                                  << QParam("goshow", otInteger)
-                                  << QParam("jmp_tranzit", otInteger)
-                                  << QParam("jmp_ok", otInteger)
-                                  << QParam("jmp_goshow", otInteger));
+    DB::TCachedQuery UpdQry(PgOra::getRWSession("COUNTERS2"),
+          "UPDATE counters2 "
+          "SET tranzit=    DECODE(:pr_tranzit, 0, 0, "
+          "                       DECODE(:pr_tranz_reg, 0, crs_tranzit, tranzit+:tranzit)), "
+          "    ok=ok+:ok, "
+          "    goshow=goshow+:goshow, "
+          "    jmp_tranzit=DECODE(:pr_tranzit, 0, 0, "
+          "                       DECODE(:pr_tranz_reg, 0, 0, jmp_tranzit+:jmp_tranzit)), "
+          "    jmp_ok=jmp_ok+:jmp_ok, "
+          "    jmp_goshow=jmp_goshow+:jmp_goshow "
+          "WHERE point_dep=:point_dep AND point_arv=:point_arv AND class=:class",
+          QParams() << QParam("pr_tranzit", otInteger, flt.pr_tranzit)
+                    << QParam("pr_tranz_reg", otInteger, pr_tranz_reg)
+                    << QParam("point_dep", otInteger)
+                    << QParam("point_arv", otInteger)
+                    << QParam("class", otString)
+                    << QParam("tranzit", otInteger)
+                    << QParam("ok", otInteger)
+                    << QParam("goshow", otInteger)
+                    << QParam("jmp_tranzit", otInteger)
+                    << QParam("jmp_ok", otInteger)
+                    << QParam("jmp_goshow", otInteger));
     for(const auto &i : *this)
     {
       i.first.toDB(UpdQry.get());
@@ -535,8 +672,8 @@ void TCounters::recountCrsFields()
 {
   LogTrace(TRACE5) << __FUNCTION__;
 
-  TCrsCountersMap crsCounters(flt());
-  crsCounters.loadSummary();
+  TCrsCountersMap crsCounters;
+  crsCounters.loadSummary(PointId_t(flt().point_id));
 
   TCrsFieldsMap crsFields;
   crsFields.convertFrom(crsCounters, flt(), fltRouteAfter());
@@ -553,7 +690,7 @@ const TCounters &TCounters::recount(int point_id, RecountType type, const std::s
     if (type==Total)
       TCounters::deleteInitially(point_id);
     if (type==CrsCounters)
-      TCrsCountersMap::deleteCrsCountersOnly(point_id);
+      TCrsCountersMap::deleteCrsCountersOnly(PointId_t(point_id));
     return *this;
   }
 
@@ -562,13 +699,13 @@ const TCounters &TCounters::recount(int point_id, RecountType type, const std::s
 
   if (type==CrsCounters)
   {
-    TCrsCountersMap priorCrsCounters(flt()), currCrsCounters(flt());
-    priorCrsCounters.loadCrsCountersOnly();
-    currCrsCounters.loadCrsDataOnly();
+    TCrsCountersMap priorCrsCounters, currCrsCounters;
+    priorCrsCounters.loadCrsCountersOnly(PointId_t(flt().point_id));
+    currCrsCounters.loadCrsDataOnly(flt());
     if (priorCrsCounters==currCrsCounters) return *this;  //счетчики брони не изменились
 
     lockInitially(point_id);
-    currCrsCounters.saveCrsCountersOnly();
+    currCrsCounters.saveCrsCountersOnly(PointId_t(flt().point_id));
   }
 
   recountCrsFields();
@@ -799,3 +936,88 @@ Points::~Points()
 
 } //namespace Timing
 
+std::vector<CrsData> loadCrsData(const std::set<PointIdTlg_t>& point_id_tlg_set,
+                                 const std::string& system,
+                                 const std::optional<std::string>& by_airp_arv,
+                                 const std::optional<std::string>& except_airp_arv,
+                                 bool skipNullSums)
+{
+  std::vector<CrsData> result;
+  for (const PointIdTlg_t& point_id_tlg: point_id_tlg_set) {
+    std::string sender;
+    std::string airp_arv;
+    std::string cls;
+    int tranzit = ASTRA::NoExists;
+    int resa = ASTRA::NoExists;
+    int cfg = ASTRA::NoExists;
+    auto cur = make_db_curs(
+          "SELECT sender, airp_arv, class, tranzit, resa, cfg "
+          "FROM crs_data "
+          "WHERE point_id=:point_id_tlg "
+          "AND system=:system " +
+          std::string(by_airp_arv ? "AND airp_arv=:airp_arv "
+                                  : "") +
+          std::string(except_airp_arv ? "AND airp_arv<>:except_airp_arv "
+                                      : "") +
+          std::string(skipNullSums ? "AND (resa IS NOT NULL OR tranzit IS NOT NULL) "
+                                   : ""),
+          PgOra::getROSession("CRS_DATA"));
+    cur.stb()
+        .def(sender)
+        .def(airp_arv)
+        .def(cls)
+        .defNull(tranzit, ASTRA::NoExists)
+        .defNull(resa, ASTRA::NoExists)
+        .defNull(cfg, ASTRA::NoExists)
+        .bind(":point_id_tlg", point_id_tlg.get())
+        .bind(":system", system);
+    if (by_airp_arv) {
+      cur.bind(":airp_arv", *by_airp_arv);
+    }
+    if (except_airp_arv) {
+      cur.bind(":except_airp_arv", *except_airp_arv);
+    }
+    cur.exec();
+    while (!cur.fen()) {
+      if (!CrsSender_t::validate(sender)) {
+        continue;
+      }
+      CrsDataKey key = {
+        CrsSender_t(sender),
+        AirportCode_t(airp_arv),
+        Class_t(cls),
+      };
+      CrsDataValue value = {
+        tranzit,
+        resa,
+        cfg
+      };
+      result.push_back(std::make_pair(key, value));
+    }
+  }
+  return result;
+}
+
+void sum_nullable(int& sum, int value)
+{
+  if (sum != ASTRA::NoExists
+      && value != ASTRA::NoExists)
+  {
+    sum += value;
+  } else if (sum == ASTRA::NoExists) {
+    sum = value;
+  }
+}
+
+int get_crs_ok(const PointId_t& point_id)
+{
+  int result = ASTRA::NoExists;
+  CheckIn::TCrsCountersMap crsCounters;
+  crsCounters.loadSummary(point_id);
+
+  for ( const auto& item: crsCounters ) {
+    const CheckIn::TCrsCountersData& data = item.second;
+    sum_nullable(result, data.ok);
+  }
+  return result;
+}

@@ -17,6 +17,7 @@
 #include "term_version.h"
 #include "trip_tasks.h"
 #include "flt_settings.h"
+#include "counters.h"
 
 #define NICKNAME "DJEK"
 #include <serverlib/slogger.h>
@@ -153,26 +154,418 @@ void PrepRegInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
   }
 }
 
-void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
-{
-  ProgTrace(TRACE5, "PrepRegInterface::readTripData" );
-  xmlNodePtr tripdataNode = NewTextChild( dataNode, "tripdata" );
-  xmlNodePtr itemNode;
-  TQuery Qry( &OraSession );
+namespace {
 
+struct SenderPriority
+{
+  CrsSender_t sender;
+  CrsPriority_t priority;
+};
+
+struct SenderInfo
+{
+  std::optional<CrsSender_t> sender;
+  std::string name;
+  bool is_charge = false;
+  bool is_list = false;
+  bool is_crs_main = false;
+};
+
+int countTripData(const PointId_t& point_id)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": point_id=" << point_id;
+  int result = 0;
+  auto cur = make_db_curs(
+        "SELECT count(*) FROM trip_data "
+        "WHERE point_id=:point_id ",
+        PgOra::getROSession("TRIP_DATA"));
+  cur.stb()
+      .def(result)
+      .bind(":point_id", point_id.get())
+      .EXfet();
+
+  return result;
+}
+
+std::vector<SenderPriority> getSenderPriorityList(const std::string& airline,
+                                                  int flt_no,
+                                                  const std::string& airp_dep)
+{
+  std::vector<SenderPriority> result;
+  std::string sender;
+  int priority = ASTRA::NoExists;
+  auto cur = make_db_curs(
+        "SELECT crs, priority FROM crs_set "
+        "WHERE airline=:airline "
+        "AND (flt_no=:flt_no OR flt_no IS NULL) "
+        "AND (airp_dep=:airp_dep OR airp_dep IS NULL) "
+        "ORDER BY flt_no,airp_dep ",
+        PgOra::getROSession("CRS_SET"));
+  cur.stb()
+      .def(sender)
+      .def(priority)
+      .bind(":airline", airline)
+      .bind(":flt_no", flt_no)
+      .bind(":airp_dep", airp_dep)
+      .exec();
+  while (!cur.fen()) {
+    if (!CrsSender_t::validate(sender)){
+      continue;
+    }
+    const SenderPriority senderPriority = {
+      CrsSender_t(sender),
+      CrsPriority_t(priority)
+    };
+    result.push_back(senderPriority);
+  }
+  return result;
+}
+
+std::set<CrsSender_t> getCrsSetSenders(const std::vector<SenderPriority>& items)
+{
+  std::set<CrsSender_t> result;
+  for (const SenderPriority& item: items) {
+    result.insert(item.sender);
+  }
+  return result;
+}
+
+std::map<CrsSender_t, CrsPriority_t> getCrsPriority(const std::vector<SenderPriority>& items)
+{
+  std::map<CrsSender_t, CrsPriority_t> result;
+  for (const SenderPriority& item: items) {
+    if (result.find(item.sender) != result.end()) {
+      continue;
+    }
+    result.insert(std::make_pair(item.sender, item.priority));
+  }
+  return result;
+}
+
+std::optional<SenderPriority> getMaxCrsPriority(const std::map<CrsSender_t, CrsPriority_t>& items)
+{
+  std::optional<SenderPriority> max;
+  for (auto item: items) {
+    const CrsSender_t& sender = item.first;
+    const CrsPriority_t& priority = item.second;
+    if (!max) {
+      max = { sender, priority };
+    } else {
+      if (priority > max->priority) {
+        max = { sender, priority };
+      }
+    }
+  }
+  return max;
+}
+
+std::set<CrsSender_t> getCrsDataSenders(const std::set<PointIdTlg_t>& point_id_tlg_set,
+                                        const std::string& system = "CRS")
+{
+  std::set<CrsSender_t> result;
+  for (const PointIdTlg_t& point_id_tlg: point_id_tlg_set) {
+    std::string sender;
+    auto cur = make_db_curs(
+          "SELECT DISTINCT sender FROM crs_data "
+          "WHERE point_id=:point_id_tlg "
+          "AND system=:system ",
+          PgOra::getROSession("CRS_DATA"));
+    cur.stb()
+        .def(sender)
+        .bind(":point_id_tlg", point_id_tlg.get())
+        .bind(":system", system)
+        .exec();
+    while (!cur.fen()) {
+      if (!CrsSender_t::validate(sender)) {
+        continue;
+      }
+      result.emplace(sender);
+    }
+  }
+  return result;
+}
+
+std::set<CrsSender_t> getCrsPnrSenders(const std::set<PointIdTlg_t>& point_id_tlg_set,
+                                        const std::string& system = "CRS")
+{
+  std::set<CrsSender_t> result;
+  for (const PointIdTlg_t& point_id_tlg: point_id_tlg_set) {
+    std::string sender;
+    auto cur = make_db_curs(
+          "SELECT DISTINCT sender FROM crs_pnr "
+          "WHERE point_id=:point_id_tlg "
+          "AND system=:system ",
+          PgOra::getROSession("CRS_PNR"));
+    cur.stb()
+        .def(sender)
+        .bind(":point_id_tlg", point_id_tlg.get())
+        .bind(":system", system)
+        .exec();
+    while (!cur.fen()) {
+      if (!CrsSender_t::validate(sender)) {
+        continue;
+      }
+      result.emplace(sender);
+    }
+  }
+  return result;
+}
+
+std::vector<SenderInfo> getSenderInfoList(const std::string& airline,
+                                          int flt_no,
+                                          const std::string& airp_dep,
+                                          const PointId_t& point_id,
+                                          const std::set<PointIdTlg_t>& point_id_tlg_set,
+                                          std::optional<CrsPriority_t>& max_priority)
+{
+  const std::vector<SenderPriority> sender_priority_list = getSenderPriorityList(airline,
+                                                                                 flt_no,
+                                                                                 airp_dep);
+  const std::set<CrsSender_t> crs_set_senders = getCrsSetSenders(sender_priority_list);
+  const std::set<CrsSender_t> crs_data_senders = getCrsDataSenders(point_id_tlg_set, "CRS");
+  const std::set<CrsSender_t> crs_pnr_senders  = getCrsPnrSenders(point_id_tlg_set, "CRS");
+
+  const std::map<CrsSender_t, CrsPriority_t> sender_priority_map = getCrsPriority(sender_priority_list);
+  const std::optional<SenderPriority> sender_max_priority = getMaxCrsPriority(sender_priority_map);
+  if (sender_max_priority) {
+    max_priority = sender_max_priority->priority;
+  }
+
+  const bool is_charge = countTripData(point_id) > 0;
+  const SenderInfo common_data = {
+    std::nullopt,
+    getLocaleText(std::string("Общие данные")),
+    is_charge,
+    false, /*is_list*/
+    false  /*is_crs_main*/
+  };
+  std::vector<SenderInfo> result = { common_data };
+  for (const CrsSender_t& sender: crs_set_senders) {
+    const bool is_charge = crs_data_senders.find(sender) != crs_data_senders.end();
+    const bool is_list = crs_pnr_senders.find(sender) != crs_pnr_senders.end();
+    bool is_crs_main = false;
+    if (max_priority && max_priority->get() != 0) {
+      auto sender_priority_pos = sender_priority_map.find(sender);
+      if (sender_priority_pos != sender_priority_map.end()) {
+        const CrsPriority_t& priority = sender_priority_pos->second;
+        is_crs_main = (priority == *max_priority);
+      }
+    }
+    SenderInfo info = {
+      sender,
+      ElemIdToNameLong(etTypeBSender,sender.get()),
+      is_charge,
+      is_list,
+      is_crs_main
+    };
+    result.push_back(info);
+  }
+  return result;
+}
+
+TAdvTripInfo loadFltInfo(const PointId_t& point_id)
+{
+  DB::TQuery Qry(PgOra::getROSession("POINTS"));
   Qry.Clear();
   Qry.SQLText =
     "SELECT airline, flt_no, suffix, airp, scd_out, "
     "       point_id, point_num, first_point, pr_tranzit "
     "FROM points WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.CreateVariable( "point_id", otInteger, point_id.get() );
   Qry.Execute();
   if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
+  return TAdvTripInfo(Qry);
+}
 
-  TAdvTripInfo fltInfo(Qry);
+std::map<AirportCode_t, int> loadAirportPointNumMap(int point_num, int first_point)
+{
+  std::map<AirportCode_t, int> result;
+  std::string airp;
+  int min_point_num = ASTRA::NoExists;
+  auto cur = make_db_curs(
+        "SELECT airp, MIN(point_num) AS point_num "
+        "FROM points "
+        "WHERE first_point=:first_point "
+        "AND point_num>:point_num "
+        "AND pr_del=0 "
+        "GROUP BY airp ",
+        PgOra::getROSession("POINTS"));
+  cur.stb()
+      .def(airp)
+      .def(min_point_num)
+      .bind(":first_point", first_point)
+      .bind(":point_num", point_num)
+      .exec();
+  while (!cur.fen()) {
+    result.insert(std::make_pair(AirportCode_t(airp), min_point_num));
+  }
+  return result;
+}
 
-  xmlNodePtr node;
-  node = NewTextChild( tripdataNode, "airps" );
+struct CrsDataNumKey: public CrsDataKey
+{
+  int point_num;
+
+  bool operator < (const CrsDataNumKey& key) const;
+};
+
+bool CrsDataNumKey::operator < (const CrsDataNumKey &key) const
+{
+  if (sender != key.sender) {
+    return sender < key.sender;
+  }
+  if (point_num != key.point_num) {
+    if (key.point_num == ASTRA::NoExists) {
+      return true;
+    }
+    if (point_num == ASTRA::NoExists) {
+      return false;
+    }
+    return point_num < key.point_num;
+  }
+  if (airp_arv != key.airp_arv) {
+    return airp_arv < key.airp_arv;
+  }
+  return cls < key.cls;
+}
+
+struct CrsDataSegKey
+{
+  AirportCode_t airp_arv;
+  Class_t cls;
+  CrsPriority_t priority;
+
+  bool operator < (const CrsDataSegKey& key) const;
+};
+
+bool CrsDataSegKey::operator < (const CrsDataSegKey &key) const
+{
+  if (airp_arv != key.airp_arv) {
+    return airp_arv < key.airp_arv;
+  }
+  if (cls != key.cls) {
+    return cls < key.cls;
+  }
+  return priority > key.priority;
+}
+
+std::map<CrsDataNumKey, CrsDataValue> getCrsDataGroupBySender(const TAdvTripInfo& fltInfo,
+                                                              const std::set<PointIdTlg_t>& point_id_tlg_set)
+{
+  const int first_point = fltInfo.pr_tranzit ? fltInfo.first_point : fltInfo.point_id;
+  const std::map<AirportCode_t, int> min_point_num_map
+      = loadAirportPointNumMap(fltInfo.point_num, first_point);
+  const std::vector<CrsData> crs_data_list = loadCrsData(point_id_tlg_set, "CRS",
+                                                         std::nullopt /*by*/,
+                                                         fltInfo.airp /*except*/,
+                                                         true /*skipNullSums*/);
+  std::map<CrsDataNumKey, CrsDataValue> result;
+  for (const CrsData& crs_data: crs_data_list) {
+    const CrsDataKey& key = crs_data.first;
+    const CrsDataValue& value = crs_data.second;
+    int point_num = ASTRA::NoExists;
+    for (const auto& item: min_point_num_map) {
+      const AirportCode_t& airport = item.first;
+      if (key.airp_arv == airport) {
+        point_num = item.second;
+        break;
+      }
+    }
+    CrsDataNumKey groupKey = {
+      key.sender,
+      key.airp_arv,
+      key.cls,
+      point_num
+    };
+    auto it = result.find(groupKey);
+    if (it == result.end()) {
+      result.insert(std::make_pair(groupKey, value));
+    } else {
+      sum_nullable(it->second.resa, value.resa);
+      sum_nullable(it->second.tranzit, value.tranzit);
+    }
+  }
+  return result;
+}
+
+std::map<CrsDataSegKey, CrsDataValue> loadTripData(const PointId_t& point_id)
+{
+  std::map<CrsDataSegKey, CrsDataValue> result;
+  DB::TQuery Qry(PgOra::getROSession("TRIP_DATA"));
+  Qry.Clear();
+  Qry.SQLText =
+      "SELECT airp_arv,class,resa,tranzit "
+      "FROM trip_data "
+      "WHERE point_id=:point_id "
+      "ORDER BY airp_arv,class ";
+  Qry.CreateVariable( "point_id", otInteger, point_id.get() );
+  Qry.Execute();
+  while (!Qry.Eof) {
+    CrsDataSegKey key = {
+      AirportCode_t(Qry.FieldAsString("airp_arv")),
+      Class_t(Qry.FieldAsString("class")),
+      CrsPriority_t(1)
+    };
+    CrsDataValue value = {
+      Qry.FieldAsInteger("tranzit"),
+      Qry.FieldAsInteger("resa"),
+      ASTRA::NoExists
+    };
+    result.insert(std::make_pair(key, value));
+    Qry.Next();
+  }
+  return result;
+}
+
+std::map<CrsDataSegKey, CrsDataValue> getCrsDataTotal(const TAdvTripInfo& fltInfo,
+                                                      const PointId_t& point_id,
+                                                      const std::set<PointIdTlg_t>& point_id_tlg_set,
+                                                      const std::optional<CrsPriority_t>& max_priority)
+{
+  std::map<CrsDataSegKey, CrsDataValue> result = loadTripData(point_id);
+  const std::vector<CrsData> crs_data_list = loadCrsData(point_id_tlg_set, "CRS",
+                                                         std::nullopt /*by*/,
+                                                         std::nullopt /*except*/,
+                                                         false /*skipNullSums*/);
+  for (const CrsData& crs_data: crs_data_list) {
+    const CrsDataKey& key = crs_data.first;
+    const CrsDataValue& value = crs_data.second;
+    if (max_priority && max_priority->get() != 0) {
+      std::optional<CrsPriority_t> priority
+          = CheckIn::getCrsPriority(key.sender,
+                                    AirlineCode_t(fltInfo.airline),
+                                    fltInfo.flt_no,
+                                    AirportCode_t(fltInfo.airp));
+      if (!priority) {
+        priority = CrsPriority_t(0);
+      }
+      if (priority != max_priority) {
+        continue;
+      }
+    }
+
+    CrsDataSegKey groupKey = {
+      key.airp_arv,
+      key.cls,
+      CrsPriority_t(0)
+    };
+    auto it = result.find(groupKey);
+    if (it == result.end()) {
+      result.insert(std::make_pair(groupKey, value));
+    } else {
+      sum_nullable(it->second.resa, value.resa);
+      sum_nullable(it->second.tranzit, value.tranzit);
+    }
+  }
+  return result;
+}
+
+} // namespace
+
+void makeNodeAirps(xmlNodePtr tripdataNode, const TAdvTripInfo& fltInfo)
+{
+  xmlNodePtr node = NewTextChild( tripdataNode, "airps" );
   TTripRoute route;
   route.GetRouteAfter( NoExists,
                        fltInfo.point_id,
@@ -181,179 +574,94 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
                        fltInfo.pr_tranzit,
                        trtNotCurrent,
                        trtNotCancelled );
-  for(TTripRoute::const_iterator r=route.begin(); r!=route.end(); ++r)
+  for(TTripRoute::const_iterator r=route.begin(); r!=route.end(); ++r) {
     NewTextChild( node, "airp", r->airp );
+  }
+}
 
+void makeNodeClasses(xmlNodePtr tripdataNode, const PointId_t& point_id)
+{
+  xmlNodePtr node;
   node = NewTextChild( tripdataNode, "classes" );
-  TCFG cfg(point_id);
-  for(TCFG::const_iterator c=cfg.begin(); c!=cfg.end(); ++c)
+  TCFG cfg(point_id.get());
+  for(TCFG::const_iterator c=cfg.begin(); c!=cfg.end(); ++c) {
     NewTextChild( node, "class", c->cls );
+  }
+}
 
-  Qry.Clear();
-  Qry.SQLText =
-    "BEGIN "
-    " SELECT MAX(ckin.get_crs_priority(code,:airline,:flt_no,:airp)) INTO :priority FROM typeb_senders; "
-    "END;";
-  Qry.CreateVariable( "airline", otString, fltInfo.airline );
-  Qry.CreateVariable( "flt_no", otInteger, fltInfo.flt_no );
-  Qry.CreateVariable( "airp", otString, fltInfo.airp );
-  Qry.DeclareVariable( "priority", otInteger );
-  Qry.Execute();
-  bool empty_priority = Qry.VariableIsNULL( "priority" );
-  int priority = 0;
-  if ( !empty_priority )
-    priority = Qry.GetVariableAsInteger( "priority" );
-  ProgTrace( TRACE5, "airline=%s, flt_no=%d, airp=%s, empty_priority=%d, priority=%d",
-             fltInfo.airline.c_str(), fltInfo.flt_no, fltInfo.airp.c_str(), empty_priority, priority );
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT typeb_senders.code, "
-    "       name,1 AS sort, "
-    "       DECODE(crs_data.crs,NULL,0,1) AS pr_charge, "
-    "       DECODE(crs_pnr.crs,NULL,0,1) AS pr_list, "
-    "       DECODE(NVL(:priority,0),0,0, "
-    "       DECODE(ckin.get_crs_priority(typeb_senders.code,:airline,:flt_no,:airp),:priority,1,0)) AS pr_crs_main "
-    " FROM typeb_senders, "
-    " (SELECT DISTINCT crs FROM crs_set "
-    "   WHERE airline=:airline AND "
-    "         (flt_no=:flt_no OR flt_no IS NULL) AND "
-    "         (airp_dep=:airp OR airp_dep IS NULL)) crs_set, "
-    " (SELECT DISTINCT sender AS crs FROM crs_data,tlg_binding "
-    "  WHERE crs_data.point_id=tlg_binding.point_id_tlg AND "
-    "        point_id_spp=:point_id AND crs_data.system='CRS') crs_data, "
-    " (SELECT DISTINCT sender AS crs FROM crs_pnr,tlg_binding "
-    "  WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
-    "        point_id_spp=:point_id AND crs_pnr.system='CRS') crs_pnr "
-    "WHERE typeb_senders.code=crs_set.crs(+) AND "
-    "      typeb_senders.code=crs_data.crs(+) AND "
-    "      typeb_senders.code=crs_pnr.crs(+) AND "
-    "      (crs_set.crs IS NOT NULL OR crs_data.crs IS NOT NULL OR crs_pnr.crs IS NOT NULL) "
-    "UNION "
-    "SELECT NULL AS code,'Общие данные' AS name,0 AS sort, "
-    "       DECODE(trip_data.crs,0,0,1) AS pr_charge,0,0 "
-    "FROM dual, "
-    " (SELECT COUNT(*) AS crs FROM trip_data WHERE point_id=:point_id) trip_data "
-    "ORDER BY sort,name ";
-  if ( empty_priority )
-    Qry.CreateVariable( "priority", otInteger, FNull );
-  else
-    Qry.CreateVariable( "priority", otInteger, priority );
-  Qry.CreateVariable( "airline", otString, fltInfo.airline );
-  Qry.CreateVariable( "flt_no", otInteger, fltInfo.flt_no );
-  Qry.CreateVariable( "airp", otString, fltInfo.airp );
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
+void makeNodeCrs(xmlNodePtr tripdataNode, const TAdvTripInfo& fltInfo,
+                 const PointId_t& point_id, const std::set<PointIdTlg_t>& point_id_tlg_set,
+                 std::optional<CrsPriority_t>& max_priority)
+{
+  const std::vector<SenderInfo> sender_info_list = getSenderInfoList(fltInfo.airline,
+                                                                     fltInfo.flt_no,
+                                                                     fltInfo.airp,
+                                                                     point_id,
+                                                                     point_id_tlg_set,
+                                                                     max_priority);
+
+  xmlNodePtr node;
   node = NewTextChild( tripdataNode, "crs" );
-  while ( !Qry.Eof ) {
-    itemNode = NewTextChild( node, "itemcrs" );
-    NewTextChild( itemNode, "code", Qry.FieldAsString( "code" ) );
-    if ( Qry.FieldAsInteger( "sort" ) == 0 )
-        NewTextChild( itemNode, "name", getLocaleText( Qry.FieldAsString( "name" ) ) );
-    else
-      NewTextChild( itemNode, "name", ElemIdToNameLong(etTypeBSender,Qry.FieldAsString("code")) );
-    NewTextChild( itemNode, "pr_charge", Qry.FieldAsInteger( "pr_charge" ) );
-    NewTextChild( itemNode, "pr_list", Qry.FieldAsInteger( "pr_list" ) );
-    NewTextChild( itemNode, "pr_crs_main", Qry.FieldAsInteger( "pr_crs_main" ) );
-    Qry.Next();
+  for (const SenderInfo& sender_info: sender_info_list) {
+    xmlNodePtr itemNode = NewTextChild( node, "itemcrs" );
+    NewTextChild( itemNode, "code", (sender_info.sender ? sender_info.sender->get() : "") );
+    NewTextChild( itemNode, "name", sender_info.name );
+    NewTextChild( itemNode, "pr_charge", sender_info.is_charge );
+    NewTextChild( itemNode, "pr_list", sender_info.is_list );
+    NewTextChild( itemNode, "pr_crs_main", sender_info.is_crs_main );
   }
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT sender, "
-    "       airp_arv, "
-    "       class, "
-    "       SUM(resa) AS resa, "
-    "       SUM(tranzit) AS tranzit "
-    " FROM crs_data,tlg_binding, "
-    "      (SELECT MIN(point_num) AS point_num,airp FROM points "
-    "       WHERE first_point=:first_point AND point_num>:point_num AND pr_del=0 "
-    "       GROUP BY airp) p "
-    "WHERE crs_data.point_id=tlg_binding.point_id_tlg AND "
-    "      point_id_spp=:point_id AND crs_data.system='CRS' AND "
-    "      crs_data.airp_arv=p.airp(+) AND "
-    "      crs_data.airp_arv<>:airp_dep AND "
-    "      (resa IS NOT NULL OR tranzit IS NOT NULL) "
-    "GROUP BY sender,p.point_num,airp_arv,class "
-    "ORDER BY sender,p.point_num,airp_arv ";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "first_point", otInteger, fltInfo.pr_tranzit?fltInfo.first_point:fltInfo.point_id );
-  Qry.CreateVariable( "point_num", otInteger, fltInfo.point_num );
-  Qry.CreateVariable( "airp_dep", otString, fltInfo.airp );
+}
 
-  Qry.Execute();
+void makeNodeCrsData(xmlNodePtr tripdataNode, const TAdvTripInfo& fltInfo,
+                     const PointId_t& point_id,
+                     const std::set<PointIdTlg_t>& point_id_tlg_set,
+                     const std::optional<CrsPriority_t>& max_priority)
+{
+  const std::map<CrsDataNumKey, CrsDataValue> crs_data_sender
+      = getCrsDataGroupBySender(fltInfo, point_id_tlg_set);
+
+  xmlNodePtr node;
   node = NewTextChild( tripdataNode, "crsdata" );
-  while ( !Qry.Eof ) {
-    itemNode = NewTextChild( node, "itemcrs" );
-    NewTextChild( itemNode, "crs", Qry.FieldAsString( "sender" ) );
-    NewTextChild( itemNode, "target", Qry.FieldAsString( "airp_arv" ) );
-    NewTextChild( itemNode, "class", Qry.FieldAsString( "class" ) );
-    if ( Qry.FieldIsNULL( "resa" ) )
-      NewTextChild( itemNode, "resa", -1 );
-    else
-      NewTextChild( itemNode, "resa", Qry.FieldAsInteger( "resa" ) );
-    if ( Qry.FieldIsNULL( "tranzit" ) )
-      NewTextChild( itemNode, "tranzit", -1 );
-    else
-      NewTextChild( itemNode, "tranzit", Qry.FieldAsInteger( "tranzit" ) );
-    Qry.Next();
+  for (auto &crs_data: crs_data_sender) {
+    const CrsDataNumKey& key = crs_data.first;
+    const CrsDataValue& value = crs_data.second;
+    xmlNodePtr itemNode = NewTextChild( node, "itemcrs" );
+    NewTextChild( itemNode, "crs", key.sender.get() );
+    NewTextChild( itemNode, "target", key.airp_arv.get() );
+    NewTextChild( itemNode, "class", key.cls.get() );
+    NewTextChild( itemNode, "resa", value.resa == ASTRA::NoExists ? -1 : value.resa );
+    NewTextChild( itemNode, "tranzit", value.tranzit == ASTRA::NoExists ? -1 : value.tranzit );
   }
-  Qry.Clear();
-  if ( empty_priority || !priority ) {
-    Qry.SQLText =
-      "SELECT airp_arv,class, "
-      "       0 AS priority, "
-      "       NVL(SUM(resa),0) AS resa, "
-      "       NVL(SUM(tranzit),0) AS tranzit "
-      "FROM crs_data,tlg_binding "
-      "WHERE crs_data.point_id=tlg_binding.point_id_tlg AND "
-      "      point_id_spp=:point_id AND crs_data.system='CRS' "
-      "GROUP BY airp_arv,class "
-      "UNION "
-      "SELECT airp_arv,class,1,resa,tranzit "
-      "FROM trip_data WHERE point_id=:point_id "
-      "ORDER BY airp_arv,class,priority DESC ";
-    Qry.DeclareVariable( "point_id", otInteger );
-    Qry.SetVariable( "point_id", point_id );
-  }
-  else {
-    Qry.SQLText =
-      "SELECT airp_arv,class, "
-      "       0 AS priority, "
-      "       NVL(SUM(resa),0) AS resa, "
-      "       NVL(SUM(tranzit),0) AS tranzit "
-      "FROM crs_data,tlg_binding "
-      "WHERE crs_data.point_id=tlg_binding.point_id_tlg AND "
-      "      point_id_spp=:point_id AND crs_data.system='CRS' AND "
-      "      sender IN (SELECT code FROM typeb_senders "
-      "                 WHERE ckin.get_crs_priority(code,:airline,:flt_no,:airp)=:priority) "
-      "GROUP BY airp_arv,class "
-      "UNION "
-      "SELECT airp_arv,class,1,resa,tranzit "
-      "FROM trip_data WHERE point_id=:point_id "
-      "ORDER BY airp_arv,class,priority DESC ";
-    Qry.CreateVariable( "priority", otInteger, priority );
-    Qry.CreateVariable( "airline", otString, fltInfo.airline );
-    Qry.CreateVariable( "flt_no", otInteger, fltInfo.flt_no );
-    Qry.CreateVariable( "airp", otString, fltInfo.airp );
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-  }
-  Qry.Execute();
-  string old_airp_arv;
-  string old_class;
 
-  while ( !Qry.Eof ) {
-    if ( Qry.FieldAsString( "airp_arv" ) != old_airp_arv ||
-         Qry.FieldAsString( "class" ) != old_class ) {
-      itemNode = NewTextChild( node, "itemcrs" );
-      NewTextChild( itemNode, "crs" );
-      NewTextChild( itemNode, "target", Qry.FieldAsString( "airp_arv" ) );
-      NewTextChild( itemNode, "class", Qry.FieldAsString( "class" ) );
-      NewTextChild( itemNode, "resa", Qry.FieldAsInteger( "resa" ) );
-      NewTextChild( itemNode, "tranzit", Qry.FieldAsInteger( "tranzit" ) );
-      old_airp_arv = Qry.FieldAsString( "airp_arv" );
-      old_class = Qry.FieldAsString( "class" );
-    }
-    Qry.Next();
+  std::map<CrsDataSegKey, CrsDataValue> crs_data_total = getCrsDataTotal(fltInfo,
+                                                                         point_id,
+                                                                         point_id_tlg_set,
+                                                                         max_priority);
+  for (auto &crs_data: crs_data_total) {
+    const CrsDataSegKey& key = crs_data.first;
+    const CrsDataValue& value = crs_data.second;
+    xmlNodePtr itemNode = NewTextChild( node, "itemcrs" );
+    NewTextChild( itemNode, "crs" );
+    NewTextChild( itemNode, "target", key.airp_arv.get() );
+    NewTextChild( itemNode, "class", key.cls.get() );
+    NewTextChild( itemNode, "resa", value.resa == ASTRA::NoExists ? 0 : value.resa );
+    NewTextChild( itemNode, "tranzit", value.tranzit == ASTRA::NoExists ? 0 : value.tranzit );
   }
+}
+
+void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
+{
+  ProgTrace(TRACE5, "PrepRegInterface::readTripData" );
+  xmlNodePtr tripdataNode = NewTextChild( dataNode, "tripdata" );
+  const TAdvTripInfo fltInfo = loadFltInfo(PointId_t(point_id));
+
+  makeNodeAirps(tripdataNode, fltInfo);
+  makeNodeClasses(tripdataNode, PointId_t(point_id));
+
+  const std::set<PointIdTlg_t> point_id_tlg_set = getPointIdTlgByPointIdsSpp(PointId_t(point_id));
+  std::optional<CrsPriority_t> max_priority;
+  makeNodeCrs(tripdataNode, fltInfo, PointId_t(point_id), point_id_tlg_set, max_priority);
+  makeNodeCrsData(tripdataNode, fltInfo, PointId_t(point_id), point_id_tlg_set, max_priority);
 }
 
 void CheckJMPCount(int point_id, int jmp_cfg)
@@ -376,6 +684,73 @@ void CheckJMPCount(int point_id, int jmp_cfg)
   };
 }
 
+bool updateTripData(const PointId_t& point_id, const std::string& airp_arv,
+                    const std::string& cls, int resa, int tranzit)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": point_id=" << point_id
+                   << ", airp_arv=" << airp_arv
+                   << ", cls=" << cls
+                   << ", resa=" << resa
+                   << ", tranzit=" << tranzit;
+  auto cur = make_db_curs(
+        "UPDATE trip_data "
+        "SET resa= :resa, tranzit= :tranzit "
+        "WHERE point_id=:point_id "
+        "AND airp_arv=:airp_arv "
+        "AND class=:class ",
+        PgOra::getRWSession("TRIP_DATA"));
+  cur.stb()
+      .bind(":point_id", point_id.get())
+      .bind(":airp_arv", airp_arv)
+      .bind(":class", cls)
+      .bind(":resa",resa)
+      .bind(":tranzit",tranzit)
+      .exec();
+
+  LogTrace(TRACE6) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+bool insertTripData(const PointId_t& point_id, const std::string& airp_arv,
+                    const std::string& cls, int resa, int tranzit)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": point_id=" << point_id
+                   << ", airp_arv=" << airp_arv
+                   << ", cls=" << cls
+                   << ", resa=" << resa
+                   << ", tranzit=" << tranzit;
+  auto cur = make_db_curs(
+        "INSERT INTO trip_data( "
+        "point_id,airp_arv,class,resa,tranzit,avail "
+        ") VALUES ( "
+        ":point_id,:airp_arv,:class,:resa,:tranzit,NULL "
+        ") ",
+        PgOra::getRWSession("TRIP_DATA"));
+  cur.stb()
+      .bind(":point_id", point_id.get())
+      .bind(":airp_arv", airp_arv)
+      .bind(":class", cls)
+      .bind(":resa",resa)
+      .bind(":tranzit",tranzit)
+      .exec();
+
+  LogTrace(TRACE6) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+void saveTripData(const PointId_t& point_id, const std::string& airp_arv,
+                  const std::string& cls, int resa, int tranzit)
+{
+  const bool updated = updateTripData(point_id, airp_arv, cls, resa, tranzit);
+  if (!updated) {
+    insertTripData(point_id, airp_arv, cls, resa, tranzit);
+  }
+}
+
 void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int point_id = NodeAsInteger( "point_id", reqNode );
@@ -388,26 +763,9 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
   flights.Get( point_id, ftAll );
   flights.Lock(__FUNCTION__);
 
-  TQuery Qry( &OraSession );
   xmlNodePtr node = GetNode( "crsdata", reqNode );
   if ( node != NULL )
   {
-    Qry.Clear();
-    Qry.SQLText =
-      "BEGIN "
-      " UPDATE trip_data SET resa= :resa, tranzit= :tranzit "
-      "  WHERE point_id=:point_id AND airp_arv=:airp_arv AND class=:class; "
-      " IF SQL%NOTFOUND THEN "
-      "  INSERT INTO trip_data(point_id,airp_arv,class,resa,tranzit,avail) "
-      "   VALUES(:point_id,:airp_arv,:class,:resa,:tranzit,NULL); "
-      " END IF; "
-      "END; ";
-    Qry.DeclareVariable( "resa", otInteger );
-    Qry.DeclareVariable( "tranzit", otInteger );
-    Qry.DeclareVariable( "class", otString );
-    Qry.DeclareVariable( "airp_arv", otString );
-    Qry.DeclareVariable( "point_id", otInteger );
-    Qry.SetVariable( "point_id", point_id );
     string airp_arv, cl;
     int resa, tranzit;
     node = node->children;
@@ -419,11 +777,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
       if (resa<0) resa=0;
       tranzit = NodeAsIntegerFast( "tranzit", snode );
       if (tranzit<0) tranzit=0;
-      Qry.SetVariable( "airp_arv", airp_arv );
-      Qry.SetVariable( "class", cl );
-      Qry.SetVariable( "resa", resa );
-      Qry.SetVariable( "tranzit", tranzit );
-      Qry.Execute();
+      saveTripData(PointId_t(point_id), airp_arv, cl, resa, tranzit);
       TReqInfo::Instance()->LocaleToLog("EVT.SALE_CHANGED", LEvntPrms() << PrmElem<std::string>("airp", etAirp, airp_arv)
                                         << PrmElem<std::string>("cl", etClass, cl) << PrmSmpl<int>("resa", resa)
                                         << PrmSmpl<int>("tranzit", tranzit), evtFlt, point_id );

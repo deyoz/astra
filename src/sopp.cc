@@ -320,8 +320,6 @@ const char* arx_regSQL =
     " WHERE arx_pax_grp.part_key=:part_key AND arx_pax_grp.point_dep=:point_id AND "\
     "       arx_pax.part_key=:part_key AND "
     "       arx_pax_grp.grp_id=arx_pax.grp_id AND arx_pax.pr_brd IS NOT NULL ";
-const char* resaSQL =
-    "SELECT ckin.get_crs_ok(:point_id) as resa FROM dual ";
 const char *stagesSQL =
     "SELECT trip_stages.stage_id,scd,est,act,pr_auto,pr_manual"
     " FROM trip_stages "
@@ -1475,9 +1473,6 @@ string internal_ReadData_N( TSOPPTrips &trips, long int &exec_time, int point_id
   TQuery RegQry( &OraSession );
   RegQry.SQLText = regSQL;
   RegQry.DeclareVariable( "point_id", otInteger );
-  TQuery ResaQry( &OraSession );
-  ResaQry.SQLText = resaSQL;
-  ResaQry.DeclareVariable( "point_id", otInteger );
 
   TQuery Trfer_outQry( &OraSession );
   TQuery Trfer_inQry( &OraSession );
@@ -1754,10 +1749,9 @@ string internal_ReadData_N( TSOPPTrips &trips, long int &exec_time, int point_id
           }
           ///////////////////////// resa ///////////////////////////
           //ProgTrace( TRACE5, "tr->point_id=%d", tr->point_id );
-          ResaQry.SetVariable( "point_id", tr->point_id );
-          ResaQry.Execute();
-          if ( !ResaQry.Eof ) {
-            tr->resa = ResaQry.FieldAsInteger( "resa" );
+          const int crs_ok = get_crs_ok(PointId_t(tr->point_id));
+          if ( crs_ok != ASTRA::NoExists ) {
+            tr->resa = crs_ok;
           }
           ////////////////////// trfer  ///////////////////////////////
           if (TrferList::trferOutExists( tr->point_id, Trfer_inQry ))
@@ -2172,9 +2166,6 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
   TQuery RegQry( &OraSession );
   RegQry.SQLText = regSQL;
   RegQry.DeclareVariable( "point_id", otInteger );
-  TQuery ResaQry( &OraSession );
-  ResaQry.SQLText = resaSQL;
-  ResaQry.DeclareVariable( "point_id", otInteger );
 
   TQuery Trfer_outQry( &OraSession );
   TQuery Trfer_inQry( &OraSession );
@@ -2435,10 +2426,9 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
         }
         ///////////////////////// resa ///////////////////////////
 //      ProgTrace( TRACE5, "tr->point_id=%d", tr->point_id );
-        ResaQry.SetVariable( "point_id", tr->point_id );
-        ResaQry.Execute();
-        if ( !ResaQry.Eof ) {
-          tr->resa = ResaQry.FieldAsInteger( "resa" );
+        const int crs_ok = get_crs_ok(PointId_t(tr->point_id));
+        if ( crs_ok != ASTRA::NoExists ) {
+          tr->resa = crs_ok;
         }
         ////////////////////// trfer  ///////////////////////////////
         if (TrferList::trferOutExists( tr->point_id, Trfer_inQry ))

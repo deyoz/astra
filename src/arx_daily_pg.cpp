@@ -27,6 +27,7 @@
 #include "PgOraConfig.h"
 #include "tlg/typeb_db.h"
 #include "pax_db.h"
+#include "counters.h"
 
 //#include "serverlib/dump_table.h"
 //#include "hooked_session.h"
@@ -334,18 +335,6 @@ int get_excess_pc(const GrpId_t& grp_id, const PaxId_t& pax_id, int include_all_
             .bindOutNull(":excess", excess_pc, ASTRA::NoExists)
             .exec();
     return excess_pc;
-}
-
-
-void delete_typeb_data(const PointId_t& point_id)
-{
-    TypeB::deleteTypeBData(PointIdTlg_t(point_id.get()), "", "", false/*delete_trip_comp_layers*/);
-    auto cur = make_curs(
-                "BEGIN \n"
-                "   ckin.delete_typeb_data(:point_id, NULL, NULL, FALSE); \n"
-                "END;");
-    cur.bind(":point_id", point_id)
-            .exec();
 }
 
 }
@@ -1798,6 +1787,7 @@ void deleteAodbBag(const PointId_t& point_id)
 void deleteByPointId(const PointId_t& point_id)
 {
     deleteAodbBag(point_id);
+    CheckIn::TCrsCountersMap::deleteCrsCountersOnly(point_id);
     auto cur = make_curs("BEGIN "
                          " DELETE FROM aodb_pax_change WHERE point_id=:point_id;         "
                          " DELETE FROM aodb_unaccomp WHERE point_id=:point_id;           "
@@ -1805,7 +1795,6 @@ void deleteByPointId(const PointId_t& point_id)
                          " DELETE FROM aodb_points WHERE point_id=:point_id;             "
                          " DELETE FROM exch_flights WHERE point_id=:point_id;            "
                          " DELETE FROM counters2 WHERE point_dep=:point_id;              "
-                         " DELETE FROM crs_counters WHERE point_dep=:point_id;           "
                          " DELETE FROM crs_displace2 WHERE point_id_spp=:point_id;       "
                          " DELETE FROM snapshot_points WHERE point_id=:point_id;         "
                          " UPDATE tag_ranges2 SET point_id=NULL WHERE point_id=:point_id;"
@@ -2068,15 +2057,16 @@ std::vector<PointId_t> TArxTlgTrips::getTlgTripPoints(const Dates::DateTime_t& a
 void arx_tlg_trip(const PointId_t& point_id)
 {
     LogTrace5 << __func__ << " point_id: " << point_id;
-    ckin::delete_typeb_data(point_id);
+    TypeB::deleteTypeBData(PointIdTlg_t(point_id.get()));
     auto cur = make_curs(
                 "BEGIN "
                 "DELETE FROM typeb_data_stat WHERE point_id = :point_id; "
-                "DELETE FROM crs_data_stat WHERE point_id = :point_id; "
                 "DELETE FROM tlg_comp_layers WHERE point_id = :point_id; "
                 "UPDATE crs_displace2 SET point_id_tlg=NULL WHERE point_id_tlg = :point_id;"
                 "END;");
     cur.bind(":point_id", point_id).exec();
+
+    TypeB::deleteCrsDataStat(PointIdTlg_t(point_id.get()));
 
     dbo::Session session;
     std::vector<int> pnrids = session.query<int>("SELECT trfer_id").from("tlg_transfer")

@@ -25,3 +25,6 @@ DECL_RIP_LENGTH(SubClass_t,    std::string, 1, 1);
 
 DECL_RIP_LENGTH(Surname_t,     std::string, 0, 64);
 DECL_RIP_LENGTH(Name_t,        std::string, 0, 64);
+
+DECL_RIP_LENGTH(CrsSender_t,   std::string, 7, 7);
+DECL_RIP_RANGED(CrsPriority_t, int,    0, 9);

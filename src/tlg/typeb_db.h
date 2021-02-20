@@ -8,7 +8,7 @@ namespace TypeB
 {
 
 std::set<PaxId_t> loadPaxIdSet(PointIdTlg_t point_id, const std::string& system,
-                           const std::string& sender);
+                               const std::optional<CrsSender_t>& sender);
 bool deleteCrsSeatsBlocking(PaxId_t pax_id);
 bool deleteCrsInf(PaxId_t pax_id);
 bool deleteCrsInfDeleted(PaxId_t pax_id);
@@ -28,9 +28,23 @@ bool deleteDcsTags(PaxId_t pax_id);
 bool deleteTripCompLayers(PaxId_t pax_id);
 bool deleteTlgCompLayers(PaxId_t pax_id);
 bool deletePaxCalcData(PaxId_t pax_id);
+bool deleteCrsDataStat(PointIdTlg_t point_id);
 
-bool deleteTypeBData(PointIdTlg_t point_id, const std::string& system, const std::string& sender,
-                     bool delete_trip_comp_layers);
+bool deletePnrAddrs(PnrId_t pnr_id);
+bool deleteCrsTransfer(PnrId_t pnr_id);
+bool deleteCrsPax(PnrId_t pnr_id);
+bool deletePnrMarketFlt(PnrId_t pnr_id);
+
+bool deleteCrsPnr(const PointIdTlg_t& point_id,
+                  const std::string& system, const std::optional<CrsSender_t>& sender);
+bool deleteCrsData(const PointIdTlg_t& point_id,
+                   const std::string& system, const std::optional<CrsSender_t>& sender);
+bool deleteCrsRbd(const PointIdTlg_t& point_id,
+                  const std::string& system, const std::optional<CrsSender_t>& sender);
+
+bool deleteTypeBData(PointIdTlg_t point_id, const std::string& system = "",
+                     const std::optional<CrsSender_t>& sender = {},
+                     bool delete_trip_comp_layers = false);
 
 std::string getPSPT(int pax_id, bool with_issue_country = false,
                     const std::string& language = "RU");

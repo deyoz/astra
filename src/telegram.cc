@@ -230,13 +230,13 @@ void TelegramInterface::readTripData( int point_id, xmlNodePtr dataNode )
   };
 
   //зачитаем все источники PNL на данный рейс
-  vector<string> crs;
-  GetCrsList(point_id,crs);
+  std::set<std::string> crs = GetCrsList(PointId_t(point_id));
   if (!crs.empty())
   {
     node = NewTextChild( tripdataNode, "crs_list" );
-    for(vector<string>::iterator c=crs.begin();c!=crs.end();c++)
+    for(auto c=crs.begin();c!=crs.end();c++) {
       NewTextChild(node,"crs",*c);
+    }
   };
 };
 

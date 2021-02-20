@@ -2436,7 +2436,7 @@ class TCreator
 
     std::set<std::string> p_airps;
     bool airps_init;
-    std::vector<std::string> p_crs;
+    std::set<std::string> p_crs;
     bool crs_init;
     std::vector<TSimpleMktFlight> p_mkt_flights;
     std::vector<TSimpleMktFlight> p_mkt_empty_flights;
@@ -2446,7 +2446,7 @@ class TCreator
     const Franchise::TProp &get_franchise_prop(const std::string &tlg_type);
 
     const std::set<std::string>& airps();
-    const std::vector<std::string>& crs();
+    const std::set<std::string>& crs();
     const std::vector<TSimpleMktFlight>& mkt_flights(const std::string &tlg_type);
 
     TCreatePoint create_point;
