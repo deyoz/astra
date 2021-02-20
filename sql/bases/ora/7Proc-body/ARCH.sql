@@ -1243,7 +1243,6 @@ BEGIN
     DELETE FROM trip_comp_elems WHERE point_id=curRow.point_id;
     DELETE FROM trip_comp_layers WHERE point_id=curRow.point_id;
     DELETE FROM trip_crew WHERE point_id=curRow.point_id;
-    DELETE FROM trip_data WHERE point_id=curRow.point_id;
     DELETE FROM trip_delays WHERE point_id=curRow.point_id;
     DELETE FROM trip_load WHERE point_dep=curRow.point_id;
     DELETE FROM trip_sets WHERE point_id=curRow.point_id;
@@ -1401,9 +1400,7 @@ pnrids  TIdsTable;
 paxids  TIdsTable;
 i       BINARY_INTEGER;
 BEGIN
-  ckin.delete_typeb_data(vpoint_id, NULL, NULL, FALSE);
   DELETE FROM typeb_data_stat WHERE point_id=vpoint_id;
-  DELETE FROM crs_data_stat WHERE point_id=vpoint_id;
   DELETE FROM tlg_comp_layers WHERE point_id=vpoint_id;
   UPDATE crs_displace2 SET point_id_tlg=NULL WHERE point_id_tlg=vpoint_id;
 

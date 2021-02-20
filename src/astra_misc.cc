@@ -2115,19 +2115,24 @@ string GetMktFlightStr( const TTripInfo &operFlt, const TTripInfo &markFlt, bool
   return trip.str();
 }
 
-void GetCrsList(int point_id, std::vector<std::string> &crs)
+std::set<std::string> GetCrsList(const PointId_t& point_id)
 {
-  crs.clear();
-  TQuery Qry(&OraSession);
-  Qry.SQLText=
-    "SELECT DISTINCT crs FROM tlg_binding,crs_data_stat "
-    "WHERE tlg_binding.point_id_tlg=crs_data_stat.point_id AND "
-    "      tlg_binding.point_id_spp=:point_id";
-  Qry.CreateVariable("point_id",otInteger,point_id);
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
-    crs.push_back(Qry.FieldAsString("crs"));
-};
+  std::set<std::string> result;
+  const std::set<PointIdTlg_t> point_id_tlgs = getPointIdTlgByPointIdsSpp(point_id);
+  for (const PointIdTlg_t& point_id_tlg: point_id_tlgs) {
+    DB::TQuery Qry(PgOra::getROSession("CRS_DATA_STAT"));
+    Qry.Clear();
+    Qry.SQLText=
+        "SELECT DISTINCT crs FROM crs_data_stat "
+        "WHERE point_id=:point_id_tlg";
+    Qry.CreateVariable("point_id_tlg",otInteger,point_id_tlg.get());
+    Qry.Execute();
+    for(;!Qry.Eof;Qry.Next()) {
+      result.insert(Qry.FieldAsString("crs"));
+    }
+  }
+  return result;
+}
 
 //bt
 

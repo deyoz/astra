@@ -5877,17 +5877,6 @@ bool DeletePRLContent(int point_id, const THeadingInfo& info)
   if (isDeleteTypeBContent(point_id, info))
   {
     deleteTypeBData(PointIdTlg_t(point_id), "DCS", CrsSender_t(info.sender), true /*delete_trip_comp_layers*/);
-
-    TQuery Qry(&OraSession);
-    Qry.Clear();
-    Qry.SQLText=
-      "BEGIN "
-      "  ckin.delete_typeb_data(:point_id, :system, :sender, TRUE); "
-      "END;";
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.CreateVariable("system",otString,"DCS");
-    Qry.CreateVariable("sender",otString,info.sender);
-    Qry.Execute();
     return true;
   };
   return false;
@@ -6231,66 +6220,398 @@ void SaveSOMContent(int tlg_id, TDCSHeadingInfo& info, TSOMContent& con)
   };
 };
 
+static void makeCrsDataStatSqlSet(const TTlgElement elem,
+                                  std::string& crs_data_set_null,
+                                  std::string& crs_data_stat_field)
+{
+  switch (elem)
+  {
+    case TotalsByDestination:
+      crs_data_set_null = "  SET resa=NULL, pad=NULL ";
+      crs_data_stat_field = "last_resa";
+      break;
+    case TranzitElement:
+      crs_data_set_null = "  SET tranzit=NULL ";
+      crs_data_stat_field = "last_tranzit";
+      break;
+    case SpaceAvailableElement:
+      crs_data_set_null = "  SET avail=NULL ";
+      crs_data_stat_field = "last_avail";
+      break;
+    case Configuration:
+      crs_data_set_null = "  SET cfg=NULL ";
+      crs_data_stat_field = "last_cfg";
+      break;
+    case ClassCodes:
+      crs_data_stat_field = "last_rbd";
+      break;
+    default: return;
+  }
+}
+
+bool insertCrsDataStat(const PointIdTlg_t& point_id,
+                       const TDCSHeadingInfo& info,
+                       const std::string& crs_data_stat_field)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": point_id=" << point_id
+                   << ", sender=" << info.sender
+                   << ", time_create=" << info.time_create;
+  auto cur = make_db_curs(
+        "INSERT INTO crs_data_stat(point_id, crs, " + crs_data_stat_field + ") "
+        "VALUES(:point_id, :sender, :time_create)",
+        PgOra::getRWSession("CRS_DATA_STAT"));
+  cur.stb()
+      .bind(":point_id", point_id.get())
+      .bind(":sender", info.sender)
+      .bind(":time_create", DateTimeToBoost(info.time_create))
+      .exec();
+
+  LogTrace(TRACE6) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+bool updateCrsDataStat(const PointIdTlg_t& point_id,
+                       const TDCSHeadingInfo& info,
+                       const std::string& crs_data_stat_field)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": point_id=" << point_id
+                   << ", sender=" << info.sender
+                   << ", time_create=" << info.time_create;
+  auto cur = make_db_curs(
+        "UPDATE crs_data_stat "
+        "SET "
+        + crs_data_stat_field + "=:time_create "
+        "WHERE point_id=:point_id "
+        "AND crs=:sender",
+        PgOra::getRWSession("CRS_DATA_STAT"));
+  cur.stb()
+      .bind(":point_id", point_id.get())
+      .bind(":sender", info.sender)
+      .bind(":time_create", DateTimeToBoost(info.time_create))
+      .exec();
+
+  LogTrace(TRACE6) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+void saveCrsDataStat(const PointIdTlg_t& point_id,
+                     const TDCSHeadingInfo& info,
+                     const std::string& crs_data_stat_field)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": point_id=" << point_id
+                   << ", sender=" << info.sender
+                   << ", time_create=" << info.time_create;
+  const bool updated = updateCrsDataStat(point_id, info,
+                                         crs_data_stat_field);
+  if (not updated) {
+    insertCrsDataStat(point_id, info,
+                      crs_data_stat_field);
+  }
+}
+
+bool insertCrsDataStat_PrPnl(const PointIdTlg_t& point_id,
+                             const std::string& sender,
+                             int pr_pnl_new)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": point_id=" << point_id
+                   << ", sender=" << sender
+                   << ", pr_pnl_new=" << pr_pnl_new;
+  auto cur = make_db_curs(
+        "INSERT INTO crs_data_stat(point_id,crs,pr_pnl) "
+        "VALUES(:point_id, :sender, :pr_pnl)",
+        PgOra::getRWSession("CRS_DATA_STAT"));
+  cur.stb()
+      .bind(":point_id", point_id.get())
+      .bind(":sender", sender)
+      .bind(":pr_pnl", pr_pnl_new)
+      .exec();
+
+  LogTrace(TRACE6) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+bool updateCrsDataStat_PrPnl(const PointIdTlg_t& point_id,
+                             const std::string& sender,
+                             int pr_pnl_new)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": point_id=" << point_id
+                   << ", sender=" << sender
+                   << ", pr_pnl_new=" << pr_pnl_new;
+  auto cur = make_db_curs(
+        "UPDATE crs_data_stat SET pr_pnl=:pr_pnl "
+        "WHERE point_id=:point_id AND crs=:sender ",
+        PgOra::getRWSession("CRS_DATA_STAT"));
+  cur.stb()
+      .bind(":point_id", point_id.get())
+      .bind(":sender", sender)
+      .bind(":pr_pnl", pr_pnl_new)
+      .exec();
+
+  LogTrace(TRACE6) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+void saveCrsDataStat_PrPnl(const PointIdTlg_t& point_id,
+                           const std::string& sender,
+                           int pr_pnl_new)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": point_id=" << point_id
+                   << ", sender=" << sender
+                   << ", pr_pnl_new=" << pr_pnl_new;
+  const bool updated = updateCrsDataStat_PrPnl(point_id, sender, pr_pnl_new);
+  if (not updated) {
+    insertCrsDataStat_PrPnl(point_id, sender, pr_pnl_new);
+  }
+}
+
+bool updateCrsData(const PointIdTlg_t& point_id,
+                   const std::string& sender,
+                   const std::string& system,
+                   const std::string& crs_data_set_null)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": point_id=" << point_id
+                   << ", sender=" << sender
+                   << ", system=" << system;
+  auto cur = make_db_curs(
+        "UPDATE crs_data "
+        + crs_data_set_null + " "
+        "WHERE point_id=:point_id "
+        "AND system=:system "
+        "AND sender=:sender",
+        PgOra::getRWSession("CRS_DATA"));
+  cur.stb()
+      .bind(":point_id", point_id.get())
+      .bind(":system", system)
+      .bind(":sender", sender)
+      .exec();
+
+  LogTrace(TRACE6) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+bool updateCrsData_Resa(const PointIdTlg_t& point_id,
+                        const CrsSender_t& sender,
+                        const std::string& system,
+                        const TTotalsByDest& totals)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": point_id=" << point_id
+                   << ", sender=" << sender
+                   << ", system=" << system
+                   << ", airp_arv=" << totals.dest
+                   << ", class=" << EncodeClass(totals.cl)
+                   << ", resa=" << totals.seats
+                   << ", pad= " << totals.pad;
+  auto cur = make_db_curs(
+        "UPDATE crs_data "
+        "SET resa=NVL(resa+:resa,:resa), "
+        "pad=NVL(pad+:pad,:pad) "
+        "WHERE point_id=:point_id "
+        "AND system=:system "
+        "AND sender=:sender "
+        "AND airp_arv=:airp_arv "
+        "AND class=:class ",
+        PgOra::getRWSession("CRS_DATA"));
+  cur.stb()
+      .bind(":point_id", point_id.get())
+      .bind(":system", system)
+      .bind(":sender", sender.get())
+      .bind(":airp_arv",totals.dest)
+      .bind(":class",EncodeClass(totals.cl))
+      .bind(":resa",int(totals.seats))
+      .bind(":pad",int(totals.pad))
+      .exec();
+
+  LogTrace(TRACE6) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+bool insertCrsData_Resa(const PointIdTlg_t& point_id,
+                        const CrsSender_t& sender,
+                        const std::string& system,
+                        const TTotalsByDest& totals)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": point_id=" << point_id
+                   << ", sender=" << sender
+                   << ", system=" << system
+                   << ", airp_arv=" << totals.dest
+                   << ", class=" << EncodeClass(totals.cl)
+                   << ", resa=" << totals.seats
+                   << ", pad= " << totals.pad;
+  auto cur = make_db_curs(
+        "INSERT INTO crs_data( "
+        "point_id,system,sender,airp_arv,class,resa,pad "
+        ") VALUES ( "
+        ":point_id,:system,:sender,:airp_arv,:class,:resa,:pad "
+        ")",
+        PgOra::getRWSession("CRS_DATA"));
+  cur.stb()
+      .bind(":point_id", point_id.get())
+      .bind(":system", system)
+      .bind(":sender", sender.get())
+      .bind(":airp_arv",totals.dest)
+      .bind(":class",EncodeClass(totals.cl))
+      .bind(":resa",int(totals.seats))
+      .bind(":pad",int(totals.pad))
+      .exec();
+
+  LogTrace(TRACE6) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+static std::string makeCrsDataSqlField(const TTlgElement element)
+{
+  switch (element)
+  {
+    case TranzitElement:
+      return "tranzit";
+    case SpaceAvailableElement:
+      return "avail";
+    case Configuration:
+      return "cfg";
+    default: return std::string();
+  }
+  return std::string();
+}
+
+bool updateCrsData(const TTlgElement element,
+                   const PointIdTlg_t& point_id,
+                   const CrsSender_t& sender,
+                   const std::string& system,
+                   const AirportCode_t& airp_arv,
+                   const TSeatsItem& seat)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": point_id=" << point_id
+                   << ", sender=" << sender
+                   << ", system=" << system
+                   << ", airp_arv=" << airp_arv
+                   << ", class=" << EncodeClass(seat.cl)
+                   << ", seats=" << seat.seats;
+  const std::string field_name = makeCrsDataSqlField(element);
+  auto cur = make_db_curs(
+        "UPDATE crs_data "
+        "SET " + field_name +  "=NVL("+ field_name +"+:seats,:seats) "
+        "WHERE point_id=:point_id "
+        "AND system=:system "
+        "AND sender=:sender "
+        "AND airp_arv=:airp_arv "
+        "AND class=:class ",
+        PgOra::getRWSession("CRS_DATA"));
+  cur.stb()
+      .bind(":point_id", point_id.get())
+      .bind(":system", system)
+      .bind(":sender", sender.get())
+      .bind(":airp_arv",airp_arv.get())
+      .bind(":class",EncodeClass(seat.cl))
+      .bind(":seats",int(seat.seats));
+  cur.exec();
+
+  LogTrace(TRACE6) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+bool insertCrsData(const TTlgElement element,
+                   const PointIdTlg_t& point_id,
+                   const CrsSender_t& sender,
+                   const std::string& system,
+                   const AirportCode_t& airp_arv,
+                   const TSeatsItem& seat)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": point_id=" << point_id
+                   << ", sender=" << sender
+                   << ", system=" << system
+                   << ", airp_arv=" << airp_arv
+                   << ", class=" << EncodeClass(seat.cl)
+                   << ", seats=" << seat.seats;
+  const std::string field_name = makeCrsDataSqlField(element);
+  auto cur = make_db_curs(
+        "INSERT INTO crs_data( "
+        "point_id,system,sender,airp_arv,class," + field_name + " "
+        ") VALUES ( "
+        ":point_id,:system,:sender,:airp_arv,:class,:seats "
+        ")",
+        PgOra::getRWSession("CRS_DATA"));
+  cur.stb()
+      .bind(":point_id", point_id.get())
+      .bind(":system", system)
+      .bind(":sender", sender.get())
+      .bind(":airp_arv",airp_arv.get())
+      .bind(":class",EncodeClass(seat.cl))
+      .bind(":seats",int(seat.seats))
+      .exec();
+
+  LogTrace(TRACE6) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
 void UpdateCrsDataStat(const TTlgElement elem,
-                       const int point_id,
-                       const string &system,
+                       const PointIdTlg_t& point_id,
+                       const std::string& system,
                        const TDCSHeadingInfo &info)
 {
-   string crs_data_set_null, crs_data_stat_field;
-   switch (elem)
-   {
-     case TotalsByDestination:
-       crs_data_set_null = "  SET resa=NULL, pad=NULL ";
-       crs_data_stat_field = "last_resa";
-       break;
-     case TranzitElement:
-       crs_data_set_null = "  SET tranzit=NULL ";
-       crs_data_stat_field = "last_tranzit";
-       break;
-     case SpaceAvailableElement:
-       crs_data_set_null = "  SET avail=NULL ";
-       crs_data_stat_field = "last_avail";
-       break;
-     case Configuration:
-       crs_data_set_null = "  SET cfg=NULL ";
-       crs_data_stat_field = "last_cfg";
-       break;
-     case ClassCodes:
-       crs_data_stat_field = "last_rbd";
-       break;
-     default: return;
-   };
+   std::string crs_data_set_null, crs_data_stat_field;
+   makeCrsDataStatSqlSet(elem, crs_data_set_null, crs_data_stat_field);
 
+   if (elem!=ClassCodes) {
+     updateCrsData(point_id, info.sender, system, crs_data_set_null);
+   } else {
+     TypeB::deleteCrsRbd(point_id, system, CrsSender_t(info.sender));
+   }
 
-   ostringstream sql;
-   sql << "BEGIN ";
+   if (system=="CRS") {
+     saveCrsDataStat(point_id, info, crs_data_stat_field);
+   }
+}
 
-   if (elem!=ClassCodes)
-     sql << "  UPDATE crs_data "
-         << crs_data_set_null
-         << "  WHERE point_id=:point_id AND system=:system AND sender=:sender; ";
+void UpdateCrsData_Resa(const PointIdTlg_t& point_id,
+                        const CrsSender_t& sender,
+                        const std::string& system,
+                        const std::vector<TTotalsByDest>& resa)
+{
+  for (const TTotalsByDest& totals: resa) {
+    const bool updated = updateCrsData_Resa(point_id, sender, system, totals);
+    if (!updated) {
+      insertCrsData_Resa(point_id, sender, system, totals);
+    }
+  }
+}
 
-   else
-     sql << "  DELETE FROM crs_rbd WHERE point_id=:point_id AND system=:system AND sender=:sender; ";
-
-   sql << "  IF :system='CRS' THEN "
-          "    UPDATE crs_data_stat SET " << crs_data_stat_field << "=:time_create WHERE point_id=:point_id AND crs=:sender; "
-          "    IF SQL%NOTFOUND THEN "
-          "      INSERT INTO crs_data_stat(point_id,crs," << crs_data_stat_field << ") "
-          "      VALUES(:point_id,:sender,:time_create); "
-          "    END IF; "
-          "  END IF; "
-          "END;";
-
-   TQuery Qry(&OraSession);
-   Qry.Clear();
-   Qry.SQLText=sql.str().c_str();
-   Qry.CreateVariable("point_id",otInteger,point_id);
-   Qry.CreateVariable("system",otString,system);
-   Qry.CreateVariable("sender",otString,info.sender);
-   Qry.CreateVariable("time_create",otDate,info.time_create);
-   Qry.Execute();
-};
+void UpdateCrsData(TTlgElement element,
+                   const PointIdTlg_t& point_id,
+                   const CrsSender_t& sender,
+                   const std::string& system,
+                   const std::vector<TRouteItem>& avail)
+{
+  for (const TRouteItem& route: avail) {
+    for(const TSeatsItem& seat: route.seats) {
+      const bool updated = updateCrsData(element, point_id, sender, system,
+                                         AirportCode_t(route.station), seat);
+      if (!updated) {
+        insertCrsData(element, point_id, sender, system,
+                      AirportCode_t(route.station), seat);
+      }
+    }
+  }
+}
 
 class SuitablePax
 {
@@ -6410,10 +6731,91 @@ void SuitablePaxList::get(const std::vector<TTKNItem>& tkn,
   }
 }
 
+void loadCrsDataStat(int point_id, const std::string& sender,
+                     TDateTime& last_resa,
+                     TDateTime& last_tranzit,
+                     TDateTime& last_avail,
+                     TDateTime& last_cfg,
+                     TDateTime& last_rbd,
+                     int& pr_pnl)
+{
+  DB::TQuery Qry(PgOra::getRWSession("CRS_DATA_STAT"));
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT last_resa,last_tranzit,last_avail,last_cfg,last_rbd,pr_pnl "
+    "FROM crs_data_stat "
+    "WHERE point_id=:point_id "
+    "AND crs=:crs "
+    "FOR UPDATE";
+  Qry.CreateVariable("point_id",otInteger,point_id);
+  Qry.CreateVariable("crs",otString,sender);
+  Qry.Execute();
+  if (!Qry.Eof)
+  {
+    if (!Qry.FieldIsNULL("last_resa"))
+      last_resa=Qry.FieldAsDateTime("last_resa");
+    if (!Qry.FieldIsNULL("last_tranzit"))
+      last_tranzit=Qry.FieldAsDateTime("last_tranzit");
+    if (!Qry.FieldIsNULL("last_avail"))
+      last_avail=Qry.FieldAsDateTime("last_avail");
+    if (!Qry.FieldIsNULL("last_cfg"))
+      last_cfg=Qry.FieldAsDateTime("last_cfg");
+    if (!Qry.FieldIsNULL("last_rbd"))
+      last_rbd=Qry.FieldAsDateTime("last_rbd");
+    pr_pnl=Qry.FieldAsInteger("pr_pnl");
+  };
+}
+
+std::optional<bool> getCrsSet_pr_numeric_pnl(const std::string& sender,
+                                             const TFltInfo& flt)
+{
+  DB::TQuery Qry(PgOra::getROSession("CRS_SET"));
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT pr_numeric_pnl FROM crs_set "
+    "WHERE crs=:crs AND airline=:airline AND "
+    "      (flt_no=:flt_no OR flt_no IS NULL) AND "
+    "      (airp_dep=:airp_dep OR airp_dep IS NULL) "
+    "ORDER BY flt_no,airp_dep";
+  Qry.CreateVariable("crs",otString,sender);
+  Qry.CreateVariable("airline",otString,flt.airline);
+  Qry.CreateVariable("flt_no",otInteger,(int)flt.flt_no);
+  Qry.CreateVariable("airp_dep",otString,flt.airp_dep);
+  Qry.Execute();
+  if (!Qry.Eof)
+  {
+    return Qry.FieldAsInteger("pr_numeric_pnl")!=0;
+  }
+  return {};
+}
+
+bool insertCrsSet(int new_id,
+                  const std::string& sender,
+                  const TFltInfo& flt)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": new_id=" << new_id;
+  auto cur = make_db_curs(
+        "INSERT INTO crs_set( "
+        "id,airline,flt_no,airp_dep,crs,priority,pr_numeric_pnl "
+        ") VALUES ( "
+        ":new_id,:airline,null,:airp_dep,:crs,0,0 "
+        ")",
+        PgOra::getRWSession("CRS_SET"));
+  cur.stb()
+      .bind(":new_id", new_id)
+      .bind(":crs", sender)
+      .bind(":airline", flt.airline)
+      .bind(":airp_dep",flt.airp_dep)
+      .exec();
+
+  LogTrace(TRACE6) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
 bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& con, bool forcibly)
 {
-  vector<TRouteItem>::iterator iRouteItem;
-  vector<TSeatsItem>::iterator iSeatsItem;
   vector<TTotalsByDest>::iterator iTotals;
   vector<TPnrItem>::iterator iPnrItem;
   vector<TNameElement>::iterator iNameElement;
@@ -6484,33 +6886,20 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
 
   if (!isPRL)
   {
-    Qry.Clear();
-    Qry.SQLText=
-      "SELECT pr_numeric_pnl FROM crs_set "
-      "WHERE crs=:crs AND airline=:airline AND "
-      "      (flt_no=:flt_no OR flt_no IS NULL) AND "
-      "      (airp_dep=:airp_dep OR airp_dep IS NULL) "
-      "ORDER BY flt_no,airp_dep";
-    Qry.CreateVariable("crs",otString,info.sender);
-    Qry.CreateVariable("airline",otString,con.flt.airline);
-    Qry.CreateVariable("flt_no",otInteger,(int)con.flt.flt_no);
-    Qry.CreateVariable("airp_dep",otString,con.flt.airp_dep);
-    Qry.Execute();
-    if (!Qry.Eof)
-    {
-      pr_numeric_pnl=Qry.FieldAsInteger("pr_numeric_pnl")!=0;
+    const std::optional<bool> found = getCrsSet_pr_numeric_pnl(info.sender, con.flt);
+    if (found) {
+      pr_numeric_pnl=*found;
     }
     else
     {
+      const int new_id = PgOra::getSeqNextVal_int("ID__SEQ");
+      insertCrsSet(new_id, info.sender, con.flt);
+      Qry.Clear();
       Qry.SQLText=
-        "DECLARE "
-        "  vid crs_set.id%TYPE; "
         "BEGIN "
-        "  INSERT INTO crs_set(id,airline,flt_no,airp_dep,crs,priority,pr_numeric_pnl) "
-        "  VALUES(id__seq.nextval,:airline,:flt_no,:airp_dep,:crs,0,0) RETURNING id INTO vid; "
-        "  hist.synchronize_history('crs_set',vid,:SYS_user_descr,:SYS_desk_code); "
+        "  hist.synchronize_history('crs_set',:new_id,:SYS_user_descr,:SYS_desk_code); "
         "END;";
-      Qry.SetVariable("flt_no",FNull);
+      Qry.CreateVariable("new_id", otInteger, new_id);
       Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
       Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
       try
@@ -6523,27 +6912,13 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
       };
     };
 
-    Qry.Clear();
-    Qry.SQLText=
-      "SELECT last_resa,last_tranzit,last_avail,last_cfg,last_rbd,pr_pnl FROM crs_data_stat "
-      "WHERE point_id=:point_id AND crs=:crs FOR UPDATE";
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.CreateVariable("crs",otString,info.sender);
-    Qry.Execute();
-    if (!Qry.Eof)
-    {
-      if (!Qry.FieldIsNULL("last_resa"))
-        last_resa=Qry.FieldAsDateTime("last_resa");
-      if (!Qry.FieldIsNULL("last_tranzit"))
-        last_tranzit=Qry.FieldAsDateTime("last_tranzit");
-      if (!Qry.FieldIsNULL("last_avail"))
-        last_avail=Qry.FieldAsDateTime("last_avail");
-      if (!Qry.FieldIsNULL("last_cfg"))
-        last_cfg=Qry.FieldAsDateTime("last_cfg");
-      if (!Qry.FieldIsNULL("last_rbd"))
-        last_rbd=Qry.FieldAsDateTime("last_rbd");
-      pr_pnl=Qry.FieldAsInteger("pr_pnl");
-    };
+    loadCrsDataStat(point_id, info.sender,
+                    last_resa,
+                    last_tranzit,
+                    last_avail,
+                    last_cfg,
+                    last_rbd,
+                    pr_pnl);
 
     //pr_pnl=0 - не пришел цифровой PNL
     //pr_pnl=1 - пришел цифровой PNL
@@ -6559,141 +6934,37 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
   if (!con.resa.empty()&&(last_resa==NoExists||last_resa<=info.time_create))
   {
     pr_recount=true;
-    UpdateCrsDataStat(TotalsByDestination, point_id, system, info);
-
-    Qry.Clear();
-    Qry.SQLText=
-      "BEGIN "
-      "  UPDATE crs_data SET resa=NVL(resa+:resa,:resa), pad=NVL(pad+:pad,:pad) "
-      "  WHERE point_id=:point_id AND system=:system AND sender=:sender AND "
-      "        airp_arv=:airp_arv AND class=:class; "
-      "  IF SQL%NOTFOUND THEN "
-      "    INSERT INTO crs_data(point_id,system,sender,airp_arv,class,resa,pad) "
-      "    VALUES(:point_id,:system,:sender,:airp_arv,:class,:resa,:pad); "
-      "  END IF; "
-      "END;";
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.CreateVariable("sender",otString,info.sender);
-    Qry.CreateVariable("system",otString,system);
-    Qry.DeclareVariable("airp_arv",otString);
-    Qry.DeclareVariable("class",otString);
-    Qry.DeclareVariable("resa",otInteger);
-    Qry.DeclareVariable("pad",otInteger);
-    for(iTotals=con.resa.begin();iTotals!=con.resa.end();iTotals++)
-    {
-      Qry.SetVariable("airp_arv",iTotals->dest);
-      Qry.SetVariable("class",EncodeClass(iTotals->cl));
-      Qry.SetVariable("resa",(int)iTotals->seats);
-      Qry.SetVariable("pad",(int)iTotals->pad);
-      Qry.Execute();
-    };
+    UpdateCrsDataStat(TotalsByDestination, PointIdTlg_t(point_id), system, info);
+    UpdateCrsData_Resa(PointIdTlg_t(point_id), CrsSender_t(info.sender), system, con.resa);
   };
 
   if (!con.transit.empty()&&(last_tranzit==NoExists||last_tranzit<=info.time_create))
   {
     pr_recount=true;
-    UpdateCrsDataStat(TranzitElement, point_id, system, info);
-
-    Qry.Clear();
-    Qry.SQLText=
-      "BEGIN "
-      "  UPDATE crs_data SET tranzit=NVL(tranzit+:tranzit,:tranzit) "
-      "  WHERE point_id=:point_id AND system=:system AND sender=:sender AND "
-      "        airp_arv=:airp_arv AND class=:class; "
-      "  IF SQL%NOTFOUND THEN "
-      "    INSERT INTO crs_data(point_id,system,sender,airp_arv,class,tranzit) "
-      "    VALUES(:point_id,:system,:sender,:airp_arv,:class,:tranzit); "
-      "  END IF; "
-      "END;";
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.CreateVariable("sender",otString,info.sender);
-    Qry.CreateVariable("system",otString,system);
-    Qry.DeclareVariable("airp_arv",otString);
-    Qry.DeclareVariable("class",otString);
-    Qry.DeclareVariable("tranzit",otInteger);
-    for(iRouteItem=con.transit.begin();iRouteItem!=con.transit.end();iRouteItem++)
-    {
-      Qry.SetVariable("airp_arv",iRouteItem->station);
-      for(iSeatsItem=iRouteItem->seats.begin();iSeatsItem!=iRouteItem->seats.end();iSeatsItem++)
-      {
-        Qry.SetVariable("class",EncodeClass(iSeatsItem->cl));
-        Qry.SetVariable("tranzit",(int)iSeatsItem->seats);
-        Qry.Execute();
-      };
-    };
+    UpdateCrsDataStat(TranzitElement, PointIdTlg_t(point_id), system, info);
+    UpdateCrsData(TranzitElement, PointIdTlg_t(point_id), CrsSender_t(info.sender),
+                  system, con.transit);
   };
 
   if (!con.avail.empty()&&(last_avail==NoExists||last_avail<=info.time_create))
   {
     pr_recount=true;
-    UpdateCrsDataStat(SpaceAvailableElement, point_id, system, info);
-
-    Qry.Clear();
-    Qry.SQLText=
-      "BEGIN "
-      "  UPDATE crs_data SET avail=NVL(avail+:avail,:avail) "
-      "  WHERE point_id=:point_id AND system=:system AND sender=:sender AND "
-      "        airp_arv=:airp_arv AND class=:class; "
-      "  IF SQL%NOTFOUND THEN "
-      "    INSERT INTO crs_data(point_id,system,sender,airp_arv,class,avail) "
-      "    VALUES(:point_id,:system,:sender,:airp_arv,:class,:avail); "
-      "  END IF; "
-      "END;";
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.CreateVariable("sender",otString,info.sender);
-    Qry.CreateVariable("system",otString,system);
-    Qry.DeclareVariable("airp_arv",otString);
-    Qry.DeclareVariable("class",otString);
-    Qry.DeclareVariable("avail",otInteger);
-    for(iRouteItem=con.avail.begin();iRouteItem!=con.avail.end();iRouteItem++)
-    {
-      Qry.SetVariable("airp_arv",iRouteItem->station);
-      for(iSeatsItem=iRouteItem->seats.begin();iSeatsItem!=iRouteItem->seats.end();iSeatsItem++)
-      {
-        Qry.SetVariable("class",EncodeClass(iSeatsItem->cl));
-        Qry.SetVariable("avail",(int)iSeatsItem->seats);
-        Qry.Execute();
-      };
-    };
+    UpdateCrsDataStat(SpaceAvailableElement, PointIdTlg_t(point_id), system, info);
+    UpdateCrsData(SpaceAvailableElement, PointIdTlg_t(point_id), CrsSender_t(info.sender),
+                  system, con.avail);
   };
 
   if (!con.cfg.empty()&&(last_cfg==NoExists||last_cfg<=info.time_create))
   {
     pr_recount=true;
-    UpdateCrsDataStat(Configuration, point_id, system, info);
-
-    Qry.Clear();
-    Qry.SQLText=
-      "BEGIN "
-      "  UPDATE crs_data SET cfg=NVL(cfg+:cfg,:cfg) "
-      "  WHERE point_id=:point_id AND system=:system AND sender=:sender AND "
-      "        airp_arv=:airp_arv AND class=:class; "
-      "  IF SQL%NOTFOUND THEN "
-      "    INSERT INTO crs_data(point_id,system,sender,airp_arv,class,cfg) "
-      "    VALUES(:point_id,:system,:sender,:airp_arv,:class,:cfg); "
-      "  END IF; "
-      "END;";
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.CreateVariable("sender",otString,info.sender);
-    Qry.CreateVariable("system",otString,system);
-    Qry.DeclareVariable("airp_arv",otString);
-    Qry.DeclareVariable("class",otString);
-    Qry.DeclareVariable("cfg",otInteger);
-    for(iRouteItem=con.cfg.begin();iRouteItem!=con.cfg.end();iRouteItem++)
-    {
-      Qry.SetVariable("airp_arv",iRouteItem->station);
-      for(iSeatsItem=iRouteItem->seats.begin();iSeatsItem!=iRouteItem->seats.end();iSeatsItem++)
-      {
-        Qry.SetVariable("class",EncodeClass(iSeatsItem->cl));
-        Qry.SetVariable("cfg",(int)iSeatsItem->seats);
-        Qry.Execute();
-      };
-    };
+    UpdateCrsDataStat(Configuration, PointIdTlg_t(point_id), system, info);
+    UpdateCrsData(Configuration, PointIdTlg_t(point_id), CrsSender_t(info.sender),
+                  system, con.cfg);
   };
 
   if (!con.rbd.empty()&&(last_rbd==NoExists||last_rbd<=info.time_create))
   {
-    UpdateCrsDataStat(ClassCodes, point_id, system, info);
+    UpdateCrsDataStat(ClassCodes, PointIdTlg_t(point_id), system, info);
     Qry.Clear();
     Qry.SQLText=
       "INSERT INTO crs_rbd(point_id, sender, system, fare_class, compartment, view_order) "
@@ -7549,19 +7820,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
 
         if (pr_pnl!=pr_pnl_new)
         {
-          Qry.Clear();
-          Qry.SQLText=
-            "BEGIN "
-            "  UPDATE crs_data_stat SET pr_pnl=:pr_pnl WHERE point_id=:point_id AND crs=:sender; "
-            "  IF SQL%NOTFOUND THEN "
-            "    INSERT INTO crs_data_stat(point_id,crs,pr_pnl) "
-            "    VALUES(:point_id,:sender,:pr_pnl); "
-            "  END IF; "
-            "END;";
-          Qry.CreateVariable("point_id",otInteger,point_id);
-          Qry.CreateVariable("sender",otString,info.sender);
-          Qry.CreateVariable("pr_pnl",otInteger,pr_pnl_new);
-          Qry.Execute();
+          saveCrsDataStat_PrPnl(PointIdTlg_t(point_id), info.sender, pr_pnl_new);
         };
       };
     }

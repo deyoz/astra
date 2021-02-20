@@ -280,30 +280,55 @@ public:
   void setPointId( int apoint_id ) {
     point_id = apoint_id;
   }
-  virtual void get( TQuery &Qry ) = 0;
+  virtual void get() = 0;
   virtual ~TCounters(){}
 };
 
+void max_nullable(int& max, int value)
+{
+  if (max != ASTRA::NoExists
+      && value != ASTRA::NoExists)
+  {
+    if (value > max) {
+      max = value;
+    }
+  } else if (max == ASTRA::NoExists) {
+    max = value;
+  }
+}
+
 class TCrsCounters: public TCounters {
 public:
-  virtual void get( TQuery &Qry  ) {
-    Qry.Clear();
-    Qry.SQLText =
-    "SELECT NVL( MAX( DECODE( class, 'П', cfg, 0 ) ), 0 ) f, "
-    "       NVL( MAX( DECODE( class, 'Б', cfg, 0 ) ), 0 ) c, "
-    "       NVL( MAX( DECODE( class, 'Э', cfg, 0 ) ), 0 ) y "
-    " FROM crs_data,tlg_binding,points "
-    " WHERE crs_data.point_id=tlg_binding.point_id_tlg AND "
-    "       points.point_id=:point_id AND "
-    "       point_id_spp=:point_id AND system='CRS' AND airp_arv=points.airp ";
-    Qry.DeclareVariable( "point_id", otInteger );
-
+  virtual void get() {
     for ( auto& i : *this ) {
-      Qry.SetVariable( "point_id", i.first );
-      Qry.Execute();
-      i.second.f = Qry.FieldAsInteger( "f" );
-      i.second.c = Qry.FieldAsInteger( "c" );
-      i.second.y = Qry.FieldAsInteger( "y" );
+      TTripInfo fltInfo;
+      fltInfo.getByPointId(i.first);
+      const std::set<PointIdTlg_t> point_id_tlg_set = getPointIdTlgByPointIdsSpp(PointId_t(i.first));
+      const std::vector<CrsData> crs_data_list = loadCrsData(point_id_tlg_set, "CRS",
+                                                             fltInfo.airp /*by*/,
+                                                             std::nullopt /*except*/,
+                                                             false /*skipNullSums*/);
+      int max_f = ASTRA::NoExists;
+      int max_c = ASTRA::NoExists;
+      int max_y = ASTRA::NoExists;
+      for (const CrsData& crs_data: crs_data_list) {
+        const CrsDataKey& key = crs_data.first;
+        const CrsDataValue& value = crs_data.second;
+        const TClass cls = DecodeClass(key.cls.get().c_str());
+        if (cls == F) {
+          max_nullable(max_f, value.cfg);
+        }
+        if (cls == C) {
+          max_nullable(max_c, value.cfg);
+        }
+        if (cls == Y) {
+          max_nullable(max_y, value.cfg);
+        }
+      }
+
+      i.second.f = max_f == ASTRA::NoExists ? 0 : max_f;
+      i.second.c = max_c == ASTRA::NoExists ? 0 : max_c;
+      i.second.y = max_y == ASTRA::NoExists ? 0 : max_y;
       if ( pointId() < 0 ||
             (*this)[ pointId() ].f + (*this)[ pointId() ].c + (*this)[ pointId() ].y <
            i.second.f + i.second.c + i.second.y ) {
@@ -317,36 +342,24 @@ public:
 
 class TCountersCounters: public TCounters {
 public:
-  virtual void get( TQuery &Qry  ) {
-    Qry.Clear();
-    Qry.SQLText =
-    "SELECT airp_arv,class, "
-    "       0 AS priority, "
-    "       crs_ok + crs_tranzit AS c "
-    " FROM crs_counters "
-    "WHERE point_dep=:point_id "
-    "UNION "
-    "SELECT airp_arv,class,1,resa + tranzit "
-    " FROM trip_data "
-    "WHERE point_id=:point_id "
-    "ORDER BY priority DESC ";
-    Qry.DeclareVariable( "point_id", otInteger );
-
+  virtual void get() {
     std::string vclass;
     for ( auto &i : *this ) {
-      Qry.SetVariable( "point_id", i.first );
-      Qry.Execute();
-      int priority = -1;
-      for ( ; !Qry.Eof; Qry.Next() ) {
-        if ( Qry.FieldAsInteger( "c" ) > 0 ) {
-          priority = Qry.FieldAsInteger( "priority" );
-          if ( priority != Qry.FieldAsInteger( "priority" ) ) {
-            break;
-          }
-          vclass = Qry.FieldAsString( "class" );
-          if ( vclass == "П" ) i.second.f += Qry.FieldAsInteger( "c" );
-          if ( vclass == "Б" ) i.second.c += Qry.FieldAsInteger( "c" );
-          if ( vclass == "Э" ) i.second.y += Qry.FieldAsInteger( "c" );
+      CheckIn::TCrsCountersMap crsCounters;
+      crsCounters.loadTripDataOnly(PointId_t(i.first));
+      if (crsCounters.empty()) {
+        crsCounters.loadCrsCountersOnly(PointId_t(i.first));
+      }
+
+      for ( const auto& item: crsCounters ) {
+        const CheckIn::TCrsCountersKey& key = item.first;
+        const CheckIn::TCrsCountersData& data = item.second;
+        const int sum = data.ok + data.tranzit;
+        if ( sum > 0 ) {
+          vclass = key.cl;
+          if ( vclass == "П" ) i.second.f += sum;
+          if ( vclass == "Б" ) i.second.c += sum;
+          if ( vclass == "Э" ) i.second.y += sum;
         }
       }
       if ( pointId() < 0 ||
@@ -361,7 +374,8 @@ public:
 
 class TSeasonCounters: public TCounters {
 public:
-  virtual void get( TQuery &Qry  ) {
+  virtual void get() {
+    TQuery Qry(&OraSession);
     Qry.Clear();
     Qry.SQLText =
     "SELECT ABS(f) f, ABS(c) c, ABS(y) y FROM trip_sets WHERE point_id=:point_id";
@@ -1169,7 +1183,7 @@ ComponSetter::TStatus ComponSetter::IntSetCraftFreeSeating( ) { //свободная расс
   //не задан борт или тип ВС
   TCrsCounters counters;
   counters.init( fltInfo.point_id );
-  counters.get( Qry );
+  counters.get();
   //есть данные из брони - сохраняем их как конфигурацию в trip_classes ?
   if ( counters[ fltInfo.point_id ].f + counters[ fltInfo.point_id ].c + counters[ fltInfo.point_id ].y > 0 )
   {
@@ -1215,7 +1229,7 @@ int ComponSetter::SearchCompon( bool pr_tranzit_routes,
       p = std::make_shared<TSeasonCounters>();
     }
     p.get()->init( *this );
-    p.get()->get( Qry );
+    p.get()->get();
     for ( const auto& i : *p.get() ) {
       if ( step == 0 || step == 2 || step == 4 ) {
         if ( p.get()->pointId() != i.first ||

@@ -1195,16 +1195,16 @@ const set<string>& TCreator::airps()
   return p_airps;
 };
 
-const vector<string>& TCreator::crs()
+const std::set<std::string>& TCreator::crs()
 {
   if (!crs_init)
   {
     //получим все системы бронирования из кот. была посылка
-    GetCrsList(flt.point_id, p_crs);
+    p_crs = GetCrsList(PointId_t(flt.point_id));
     crs_init=true;
   };
   return p_crs;
-};
+}
 
 const Franchise::TProp &TCreator::get_franchise_prop(const std::string &tlg_type)
 {
@@ -1317,7 +1317,7 @@ void TCreator::getInfo(vector<TCreateInfo> &info)
           };
         };
         //цикл по центрам бронирования
-        vector<string>::const_iterator c;
+        std::set<std::string>::const_iterator c;
         for(isCrsOptions?c=crs().begin():c;;isCrsOptions?++c:c)
         {
           if (isCrsOptions)

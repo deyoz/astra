@@ -8,7 +8,7 @@ namespace TypeB
 {
 
 std::set<PaxId_t> loadPaxIdSet(PointIdTlg_t point_id, const std::string& system,
-                           const std::string& sender);
+                               const std::optional<CrsSender_t>& sender);
 bool deleteCrsSeatsBlocking(PaxId_t pax_id);
 bool deleteCrsInf(PaxId_t pax_id);
 bool deleteCrsInfDeleted(PaxId_t pax_id);
@@ -37,6 +37,17 @@ bool deleteTypeBDataStat(const PointIdTlg_t& point_id);
 
 bool nullCrsDisplace2_point_id_tlg(const PointIdTlg_t& point_id);
 
+bool deletePnrAddrs(PnrId_t pnr_id);
+bool deleteCrsTransfer(PnrId_t pnr_id);
+bool deleteCrsPax(PnrId_t pnr_id);
+bool deletePnrMarketFlt(PnrId_t pnr_id);
+
+bool deleteCrsPnr(const PointIdTlg_t& point_id,
+                  const std::string& system, const std::optional<CrsSender_t>& sender);
+bool deleteCrsData(const PointIdTlg_t& point_id,
+                   const std::string& system, const std::optional<CrsSender_t>& sender);
+bool deleteCrsRbd(const PointIdTlg_t& point_id,
+                  const std::string& system, const std::optional<CrsSender_t>& sender);
 
 bool deleteTypeBData(const PointIdTlg_t& point_id, const std::string& system = "",
                      const std::optional<CrsSender_t>& sender = {},

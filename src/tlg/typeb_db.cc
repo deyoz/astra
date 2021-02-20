@@ -129,13 +129,13 @@ std::set<PnrId_t> loadPnrIdSet(const PointIdTlg_t& point_id, const std::string& 
   return result;
 }
 
-
 namespace {
 
 bool deleteByPaxId(const std::string& table_name, PaxId_t pax_id)
 {
   LogTrace(TRACE6) << __func__
-                   << ": pax_id=" << pax_id;
+                   << ": table_name=" << table_name
+                   << ", pax_id=" << pax_id;
   auto cur = make_db_curs(
         "DELETE FROM " + table_name + " "
         "WHERE pax_id=:pax_id ",
@@ -395,6 +395,23 @@ bool deletePaxCalcData(PaxId_t pax_id)
   return cur.rowcount() > 0;
 }
 
+bool deleteCrsDataStat(PointIdTlg_t point_id)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": point_id=" << point_id;
+  auto cur = make_db_curs(
+        "DELETE FROM crs_data_stat "
+        "WHERE point_id=:point_id ",
+        PgOra::getRWSession("CRS_DATA_STAT"));
+  cur.stb()
+      .bind(":point_id", point_id.get())
+      .exec();
+
+  LogTrace(TRACE6) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
 bool deletePnrAddrs(const PnrId_t& pnr_id)
 {
   return deleteByPnrId("PNR_ADDRS", pnr_id);
@@ -441,8 +458,8 @@ bool deleteTypeBData(const PointIdTlg_t& point_id, const std::string& system,
                      bool delete_trip_comp_layers)
 {
   int result = 0;
-  const std::set<PaxId_t> paxIdSet = loadPaxIdSet(point_id, system, sender);
-  for (PaxId_t pax_id: paxIdSet) {
+  const std::set<PaxId_t> pax_id_set = loadPaxIdSet(point_id, system, sender);
+  for (const PaxId_t& pax_id: pax_id_set) {
       result += deleteCrsSeatsBlocking(pax_id) ? 1 : 0;
       result += deleteCrsInf(pax_id) ? 1 : 0;
       result += deleteCrsInfDeleted(pax_id) ? 1 : 0;

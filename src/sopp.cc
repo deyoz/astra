@@ -319,8 +319,6 @@ const char* arx_regSQL =
     " WHERE arx_pax_grp.part_key=:part_key AND arx_pax_grp.point_dep=:point_id AND "\
     "       arx_pax.part_key=:part_key AND "
     "       arx_pax_grp.grp_id=arx_pax.grp_id AND arx_pax.pr_brd IS NOT NULL ";
-const char* resaSQL =
-    "SELECT ckin.get_crs_ok(:point_id) as resa FROM dual ";
 const char *stagesSQL =
     "SELECT trip_stages.stage_id,scd,est,act,pr_auto,pr_manual"
     " FROM trip_stages "
@@ -5383,7 +5381,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     }
     ComponCreator::ComponSetter componSetter( *i );
     ComponCreator::ComponSetter::TStatus status = componSetter.AutoSetCraft( true );
-    if ( ch_craft && 
+    if ( ch_craft &&
          status != ComponCreator::ComponSetter::TStatus::Created &&
          status != ComponCreator::ComponSetter::TStatus::NoChanges ) {
           reSetCraft = true;

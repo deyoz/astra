@@ -438,48 +438,6 @@ BEGIN
   RETURN vexcess;
 END get_excess_pc;
 
-FUNCTION get_crs_priority(vcrs           IN crs_set.crs%TYPE,
-                          vairline       IN crs_set.airline%TYPE,
-                          vflt_no        IN crs_set.flt_no%TYPE,
-                          vairp_dep      IN crs_set.airp_dep%TYPE) RETURN NUMBER
-IS
-CURSOR cur IS
-  SELECT priority FROM crs_set
-  WHERE crs=vcrs AND airline=vairline AND
-        (flt_no=vflt_no OR flt_no IS NULL) AND
-        (airp_dep=vairp_dep OR airp_dep IS NULL)
-  ORDER BY flt_no,airp_dep;
-vpriority       crs_set.priority%TYPE;
-BEGIN
-  vpriority:=NULL;
-  OPEN cur;
-  FETCH cur INTO vpriority;
-  CLOSE cur;
-  RETURN vpriority;
-END get_crs_priority;
-
-FUNCTION get_crs_ok(vpoint_id	IN points.point_id%TYPE) RETURN NUMBER
-IS
-vcrs_ok  NUMBER;
-BEGIN
-  SELECT SUM(NVL(a.resa,b.crs_ok))
-  INTO vcrs_ok
-  FROM
-   (SELECT resa, airp_arv, class
-    FROM trip_data
-    WHERE point_id=vpoint_id) a
-   FULL OUTER JOIN
-   (SELECT crs_ok, airp_arv, class
-    FROM crs_counters
-    WHERE crs_counters.point_dep=vpoint_id) b
-  ON a.airp_arv=b.airp_arv AND
-     a.class=b.class;
-
-  RETURN NVL(vcrs_ok,0);
-EXCEPTION
-  WHEN NO_DATA_FOUND THEN RETURN NULL;
-END get_crs_ok;
-
 FUNCTION get_main_pax_id2(vgrp_id IN pax_grp.grp_id%TYPE,
                           include_refused IN NUMBER DEFAULT 1) RETURN pax.pax_id%TYPE
 IS
@@ -585,45 +543,6 @@ BEGIN
   END IF;
   IF n>0 THEN RETURN 1; ELSE RETURN 0; END IF;
 END excess_boarded;
-
-PROCEDURE delete_typeb_data(vpoint_id  tlg_trips.point_id%TYPE,
-                            vsystem    typeb_sender_systems.system%TYPE,
-                            vsender    typeb_sender_systems.sender%TYPE,
-                            delete_trip_comp_layers BOOLEAN)
-IS
-TYPE TIdsTable IS TABLE OF NUMBER(9);
-pnrids  TIdsTable;
-paxids  TIdsTable;
-i       BINARY_INTEGER;
-BEGIN
-  SELECT pnr_id BULK COLLECT INTO pnrids
-  FROM crs_pnr
-  WHERE point_id=vpoint_id AND
-        (vsystem IS NULL OR system=vsystem) AND
-        (vsender IS NULL OR sender=vsender);
-
-  FORALL i IN 1..pnrids.COUNT
-    DELETE FROM pnr_addrs WHERE pnr_id=pnrids(i);
-  FORALL i IN 1..pnrids.COUNT
-    DELETE FROM crs_transfer WHERE pnr_id=pnrids(i);
-  FORALL i IN 1..pnrids.COUNT
-    DELETE FROM crs_pax WHERE pnr_id=pnrids(i);
-  FORALL i IN 1..pnrids.COUNT
-    DELETE FROM pnr_market_flt WHERE pnr_id=pnrids(i);
-
-  DELETE FROM crs_pnr
-  WHERE point_id=vpoint_id AND
-        (vsystem IS NULL OR system=vsystem) AND
-        (vsender IS NULL OR sender=vsender);
-  DELETE FROM crs_data
-  WHERE point_id=vpoint_id AND
-        (vsystem IS NULL OR system=vsystem) AND
-        (vsender IS NULL OR sender=vsender);
-  DELETE FROM crs_rbd
-  WHERE point_id=vpoint_id AND
-        (vsystem IS NULL OR system=vsystem) AND
-        (vsender IS NULL OR sender=vsender);
-END delete_typeb_data;
 
 PROCEDURE set_additional_list_id(vgrp_id IN pax.grp_id%TYPE)
 IS
