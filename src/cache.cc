@@ -1613,6 +1613,7 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
             throw UserException(EOracleError2UserException(str));
           }
           else {
+            LogTrace(TRACE5) << E.what();
             switch( E.Code ) {
               case 1: throw AstraLocale::UserException("MSG.UNIQUE_CONSTRAINT_VIOLATED");
               case 1400:
