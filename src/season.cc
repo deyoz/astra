@@ -3857,6 +3857,56 @@ START_TEST(check_getMaxNumSchedDays) {
   getMaxNumSchedDays(10);
 } END_TEST;
 
+START_TEST(check_boost_datetime_logic)
+{
+  const auto dt = Dates::DateTime_t(Dates::Date_t(1899,12,30), Dates::time_duration(22, 0, 0));
+  const auto dt2 = dt + boost::gregorian::days(-1);
+  LogTrace(TRACE3) << "dt=" << dt << " dt2=" << dt2;
+  fail_unless(dt2 == Dates::DateTime_t(Dates::Date_t(1899, 12, 29), Dates::time_duration(22, 0, 0)));
+  auto cur = make_db_curs(
+    "insert into routes (move_id, num, pr_del, scd_out, delta_out) "
+    "values "
+    "(1, 0, 0, :dt, -1)", PgOra::getRWSession("ROUTES"));
+  cur.bind("dt", dt).exec();
+
+  DB::TQuery RQry(PgOra::getROSession("ROUTES"));
+  string sql =
+      "SELECT scd_out, delta_out "
+      " FROM routes where move_id=1";
+  RQry.SQLText = sql;
+  RQry.Execute();
+
+  int idx_scd_out = RQry.FieldIndex("scd_out");
+  int idx_delta_out = RQry.FieldIndex("delta_out");
+
+  const auto scd_out = DateTimeToBoost(RQry.FieldAsDateTime(idx_scd_out)) +
+                       boost::gregorian::days(RQry.FieldAsInteger(idx_delta_out));
+
+  fail_unless(scd_out == dt2);
+  LogTrace(TRACE3) << "scd_out = " << scd_out << " d: " << RQry.FieldAsDateTime(idx_scd_out);
+  auto scd_out2 = BoostToDateTime(scd_out);
+  LogTrace(TRACE3) << "scd_out2 = " << DateTimeToBoost(scd_out2) << " d: " << scd_out2;
+  fail_unless(DateTimeToBoost(scd_out2) == dt2);
+
+}END_TEST;
+
+START_TEST(check_boost_dt2) {
+  const double scd_out = 0.25;
+  const int delta = 1;
+  const double day_before = -scd_out - delta; //= -1.25
+
+  const auto b_scd_out = DateTimeToBoost(scd_out);
+  const auto b_day_before = b_scd_out - boost::gregorian::days(1);
+
+  LogTrace(TRACE3) << "scd_out=" << scd_out <<
+              " day_before: " << day_before <<
+              " b_scd_out: " << b_scd_out <<
+              " b_day_before: " << b_day_before <<
+              " BoostToDateTime(b_day_before) = " << BoostToDateTime(b_day_before);
+  LogTrace(TRACE3) << "DateTimeToBoost(-1.25) = " << DateTimeToBoost(-1.25);
+  fail_unless(BoostToDateTime(b_day_before) == day_before);
+} END_TEST;
+
 #define SUITENAME "season"
 TCASEREGISTER(testInitDB, testShutDBConnection)
 {
@@ -3864,6 +3914,8 @@ TCASEREGISTER(testInitDB, testShutDBConnection)
   ADD_TEST(check_delete_sched_days);
   ADD_TEST(check_int_write_simple);
   ADD_TEST(check_getMaxNumSchedDays);
+  ADD_TEST(check_boost_datetime_logic);
+  ADD_TEST(check_boost_dt2);
 }
 TCASEFINISH;
 #undef SUITENAME

@@ -464,6 +464,7 @@ namespace BASIC {
             boost::posix_time::time_duration t1(VDateTime.time_of_day());
             EncodeTime(t1.hours(), t1.minutes(), t1.seconds(),
                 t1.fractional_seconds() / (boost::posix_time::time_duration::ticks_per_second() / 1000), t2);
+            if(d2 < 0) t2 *= -1;
             return d2 + t2;
         }
 
