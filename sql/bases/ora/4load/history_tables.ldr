@@ -90,7 +90,7 @@ BEGINDATA
 97|"place_calc"|"id"|"bc, cod_out, cod_in, time_out_out, time_out_in, tround_in, tround_out"
 100|"file_encoding"|"id"|"type, point_addr, own_point_addr, pr_send, encoding"
 101|"rot"|"id"|"canon_name, ip_address, ip_port, own_canon_name, h2h, our_h2h_addr, h2h_addr, h2h_rem_addr_num, resp_timeout, router_translit, loopback"
-102|"web_clients"|"id"|"client_type, descr, desk, user_id, tracing_search, client_id"
+102|"web_clients"|"id"|"client_type, descr, desk, user_id, tracing_search, client_id, kiosk_addr, kiosk_id"
 103|"typeb_addr_owners"|"id"|"addr, transport_type, transport_addr, country"
 104|"typeb_addr_trans_params"|"id"|"addr, param_name, param_value"
 105|"self_ckin_set"|"id"|"type, airline, flt_no, airp_dep, client_type, value"
@@ -134,4 +134,3 @@ BEGINDATA
 161|"rem_txt_sets"|"id"|"airline, rfisc, brand_airline, brand_code, fqt_airline, fqt_tier_level, tag_index, text_length, text, pr_lat"
 174|"timatic_sets"|"id"|"airline, airp, host, port, username, sub_username, pwd, pr_denial"
 176|"edi_addrs"|"addr"|"canon_name"
-170|"kiosk_clients"|"id"|"kiosk_id, app_id, client_id, addr_id, descr"
