@@ -70,7 +70,7 @@ bool TSegList::needCopyBaggage(const GrpId_t& grpId, const size_t trferSize) con
   return false;
 }
 
-PaxConfirmations::Segments TSegList::transformForPaxConfirmations() const
+PaxConfirmations::Segments TSegList::transformForPaxConfirmations(bool isNewCheckIn) const
 {
   PaxConfirmations::Segments result;
   for(const TSegListItem& s : *this)
@@ -80,7 +80,17 @@ PaxConfirmations::Segments TSegList::transformForPaxConfirmations() const
     segment.flt=s.flt;
     segment.grp=s.grp;
     for(const CheckIn::TPaxListItem& p : s.paxs)
-      segment.paxs.emplace_back(PaxId_t(p.getExistingPaxIdOrSwear()), p.pax);
+      segment.paxs.emplace(PaxId_t(p.getExistingPaxIdOrSwear()), p.pax);
+
+    if (!isNewCheckIn &&
+        (this->front().grp.group_bag ||
+         this->front().grp.svc ||
+         this->front().grp.svc_auto))
+    {
+      std::list<CheckIn::TSimplePaxItem> paxs=CheckIn::TSimplePaxItem::getByGrpId(GrpId_t(s.grp.id));
+      for(const CheckIn::TSimplePaxItem& p : paxs)
+        segment.paxs.emplace(PaxId_t(p.id), p);
+    }
   }
 
   return result;

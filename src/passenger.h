@@ -770,6 +770,7 @@ class TSimplePaxItem
     TSimplePaxItem& fromDB(TQuery &Qry);
     TSimplePaxItem& fromDBCrs(TQuery &Qry, bool withTkn);
     bool getByPaxId(int pax_id, TDateTime part_key = ASTRA::NoExists);
+    static std::list<TSimplePaxItem> getByGrpId(GrpId_t grp_id);
     std::string full_name() const;
     bool isCBBG() const;
     bool api_doc_applied() const;

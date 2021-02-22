@@ -129,7 +129,7 @@ class Setting
 
 typedef std::set<Setting> Settings;
 typedef std::map<PaxId_t, Settings> SettingsByPaxId;
-typedef std::list< std::pair<PaxId_t, CheckIn::TSimplePaxItem> > Passengers;
+typedef std::map<PaxId_t, CheckIn::TSimplePaxItem> Passengers;
 
 class Segment
 {
@@ -188,6 +188,9 @@ class Messages
   public:
     void add(const SettingsFilter& filter, const boost::optional<AppliedMessages>& messages);
     bool toXML(xmlNodePtr node, const AstraLocale::OutputLang &lang) const;
+
+    static bool checkNeeded(xmlNodePtr node);
+    static void checkCompleted(xmlNodePtr node);
 
     Messages(const DCSAction::Enum dcsAction,
              const Segments& segs,

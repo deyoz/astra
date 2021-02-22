@@ -20,7 +20,7 @@ class TSegList : public std::list<TSegListItem>
 {
   public:
     bool needCopyBaggage(const GrpId_t& grpId, const size_t trferSize) const;
-    PaxConfirmations::Segments transformForPaxConfirmations() const;
+    PaxConfirmations::Segments transformForPaxConfirmations(bool isNewCheckIn) const;
 };
 
 namespace CheckIn

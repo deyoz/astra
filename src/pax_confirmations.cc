@@ -360,7 +360,7 @@ Messages::Messages(const DCSAction::Enum dcsAction,
       {
         if (!seg.paxs.empty())
         {
-          appliedMessages=boost::in_place(seg.paxs.front().first);
+          appliedMessages=boost::in_place(seg.paxs.begin()->first);
         }
       }
     }
@@ -380,6 +380,17 @@ Messages::Messages(const DCSAction::Enum dcsAction,
           appliedMessages);
     }
   }
+}
+
+bool Messages::checkNeeded(xmlNodePtr node)
+{
+  return GetNode("confirmations_checked", node)==nullptr;
+}
+
+void Messages::checkCompleted(xmlNodePtr node)
+{
+  if (node==nullptr) return;
+  ReplaceTextChild(node, "confirmations_checked");
 }
 
 bool Messages::toXML(xmlNodePtr node, const OutputLang &lang) const
