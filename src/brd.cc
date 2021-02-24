@@ -875,7 +875,7 @@ static PaxConfirmations::Segments getForPaxConfirmations(const TTripInfo& flt,
   {
     CheckIn::TSimplePaxItem pax;
     if (pax.getByPaxId(paxId.get()))
-      segment.paxs.emplace_back(paxId, pax);
+      segment.paxs.emplace(paxId, pax);
   }
 
   return result;

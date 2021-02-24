@@ -2054,6 +2054,22 @@ bool TSimplePaxItem::getByPaxId(int pax_id, TDateTime part_key)
   return true;
 }
 
+std::list<TSimplePaxItem> TSimplePaxItem::getByGrpId(GrpId_t grp_id)
+{
+  TSimplePaxList result;
+  TQuery Qry(&OraSession);
+  Qry.SQLText = "SELECT * FROM pax "
+                "WHERE grp_id=:grp_id";
+  Qry.CreateVariable("grp_id", otInteger, grp_id.get());
+  Qry.Execute();
+  for(; !Qry.Eof; Qry.Next()) {
+    TSimplePaxItem item;
+    item.fromDB(Qry);
+    result.push_back(item);
+  }
+  return result;
+}
+
 TPaxItem& TPaxItem::fromDB(TQuery &Qry)
 {
   clear();

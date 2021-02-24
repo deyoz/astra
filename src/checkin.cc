@@ -6152,24 +6152,26 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
   timing.finish("SavePax");
 
-  if (reqInfo->client_type==ctTerm &&  //только с терминала, никаких ctPNL и ctHTTP
+  if (!isDoomedToWait() &&
+      reqInfo->client_type==ctTerm &&  //только с терминала, никаких ctPNL и ctHTTP
       reqInfo->desk.compatible(PAX_CONFIRMATIONS_VERSION))
   {
     timing.start("PaxConfirmations");
 
-    if (ediResNode==nullptr &&
+    if (PaxConfirmations::Messages::checkNeeded(reqNode) &&
         !PaxConfirmations::AppliedMessages::exists(reqNode))
     {
       PaxConfirmations::Messages messages(DCSAction::CheckInOnDesk,
-                                          segList.transformForPaxConfirmations(),
+                                          segList.transformForPaxConfirmations(new_checkin),
                                           !new_checkin);
       xmlNodePtr resNode=NodeAsNode("/term/answer", getXmlCtxt()->resDoc);
       if (messages.toXML(resNode, AstraLocale::OutputLang())) throw UserException2();
+      PaxConfirmations::Messages::checkCompleted(reqNode);
     }
     if(!rollbackGuaranteed &&
        PaxConfirmations::AppliedMessages::exists(reqNode))
     {
-      PaxConfirmations::Segments segments=segList.transformForPaxConfirmations();
+      PaxConfirmations::Segments segments=segList.transformForPaxConfirmations(new_checkin);
       PaxConfirmations::AppliedMessages appliedMessages(reqNode);
       appliedMessages.toDB(segments);
       appliedMessages.toLog(segments);
