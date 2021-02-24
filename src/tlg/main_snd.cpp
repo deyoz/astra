@@ -16,6 +16,9 @@
 #include <serverlib/ourtime.h>
 #include <libtlg/hth.h>
 #include <libtlg/telegrams.h>
+#include "db_tquery.h"
+
+#include "PgOraConfig.h"
 
 #define NICKNAME "VLAD"
 #include <serverlib/test.h>
@@ -149,26 +152,71 @@ int main_snd_tcl(int supervisorSocket, int argc, char *argv[])
   return 0;
 };
 
+std::map<pair<std::string, std::string>, sockaddr_in> getAddrMap()
+{
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT CANON_NAME, OWN_CANON_NAME, IP_ADDRESS, IP_PORT "
+       "FROM ROT",
+        PgOra::getROSession("ROT")
+    );
+
+    std::string receiver; // canon_name
+    std::string sender; // own_canon_name
+    std::string ip_address;
+    int ip_port;
+
+    cur.def(receiver)
+       .def(sender)
+       .def(ip_address)
+       .def(ip_port)
+       .exec();
+
+    std::map<pair<std::string, std::string>, sockaddr_in> addrMap;
+
+    while (!cur.fen()) {
+        sockaddr_in& to_addr = addrMap[std::make_pair(receiver, sender)];
+        to_addr.sin_family = AF_INET;
+        to_addr.sin_port = htons(ip_port);
+
+        if (!inet_aton(ip_address.data(), &to_addr.sin_addr)) {
+            throw Exception("'inet_aton' error %d: %s",errno,strerror(errno));
+        }
+    }
+
+    return addrMap;
+}
+
+const sockaddr_in* getAddrByName(
+    const std::map<pair<std::string, std::string>, sockaddr_in>& map,
+    const std::string& receiver,
+    const std::string& sender)
+{
+    const auto& it = map.find(std::make_pair(receiver, sender));
+    if (map.end() != it) {
+        return &it->second;
+    }
+    return nullptr;
+}
+
 bool scan_tlg(bool sendOutAStepByStep)
 {
   time_t time_start=time(NULL);
 
-  static TQuery TlgQry(&OraSession);
-  if (TlgQry.SQLText.IsEmpty())
+  static DB::TQuery TlgQry(PgOra::getROSession("TLG_QUEUE"));
+  if (TlgQry.SQLText.empty())
   {
     TlgQry.Clear();
     TlgQry.SQLText=
-      "SELECT /*+ INDEX (tlg_queue tlg_queue__IDX2)*/ "
-      "       tlg_queue.id,tlg_queue.tlg_num,tlg_queue.sender,tlg_queue.receiver,tlg_queue.priority, "
-      "       tlg_queue.time,tlg_queue.last_send,ttl,ip_address,ip_port "
-      "FROM tlg_queue,rot "
-      "WHERE tlg_queue.receiver=rot.canon_name(+) AND tlg_queue.sender=rot.own_canon_name(+) AND "
-      "      tlg_queue.type IN ('OUTA','OUTB','OAPP') AND tlg_queue.status='PUT' "
+    // INDEX (tlg_queue tlg_queue__IDX2)
+      "SELECT tlg_queue.id,tlg_queue.tlg_num,tlg_queue.sender,tlg_queue.receiver,tlg_queue.priority, "
+      "       tlg_queue.time,tlg_queue.last_send,ttl "
+      "FROM tlg_queue "
+      "WHERE tlg_queue.type IN ('OUTA','OUTB','OAPP') AND tlg_queue.status='PUT' "
       "ORDER BY tlg_queue.priority, tlg_queue.time_msec, tlg_queue.tlg_num";
   };
 
-  static TQuery TlgUpdQry(&OraSession);
-  if (TlgUpdQry.SQLText.IsEmpty())
+  static DB::TQuery TlgUpdQry(PgOra::getRWSession("TLG_QUEUE"));
+  if (TlgUpdQry.SQLText.empty())
   {
     TlgUpdQry.Clear();
     TlgUpdQry.SQLText=
@@ -179,16 +227,22 @@ bool scan_tlg(bool sendOutAStepByStep)
     TlgUpdQry.DeclareVariable("id", otInteger);
   };
 
+  std::map<pair<std::string, std::string>, sockaddr_in> addrMap = getAddrMap();
+
+  struct addrComparator {
+    bool operator() (const sockaddr_in& lhs, const sockaddr_in& rhs) const {
+      return std::tie(lhs.sin_addr.s_addr, lhs.sin_port) < std::tie(rhs.sin_addr.s_addr, rhs.sin_port);
+    }
+  };
+  std::map<sockaddr_in, int, addrComparator> addrCount;
+
   //считаем все телеграммы, которые еще не отправлены
-  struct sockaddr_in to_addr;
-  memset(&to_addr,0,sizeof(to_addr));
   AIRSRV_MSG tlg_out = {};
   size_t len = 0;
   int ttl = 0;
   uint16_t ttl16 = 0;
 
   int trace_count=0;
-  map< pair<string, int>, int > count;
   int firstStepByStepTlgId=ASTRA::NoExists;
   TlgQry.Execute();
   bool result=true;
@@ -198,7 +252,7 @@ bool scan_tlg(bool sendOutAStepByStep)
   {
     for(;!TlgQry.Eof;trace_count++,TlgQry.Next(),ASTRA::commit())
     {
-      if (strcmp(TlgQry.FieldAsString("sender"), OWN_CANON_NAME())!=0) continue; //не добавлять критерий "tlg_queue.sender=:sender" в TlgQry - плохой план разбора
+      if (strcmp(TlgQry.FieldAsString("sender").data(), OWN_CANON_NAME())!=0) continue; //не добавлять критерий "tlg_queue.sender=:sender" в TlgQry - плохой план разбора
       int tlg_id=TlgQry.FieldAsInteger("id");
       int priority=TlgQry.FieldAsInteger("priority");
       try
@@ -218,27 +272,27 @@ bool scan_tlg(bool sendOutAStepByStep)
           firstStepByStepTlgId=tlg_id;
         }
 
-        if (TlgQry.FieldIsNULL("ip_address")||TlgQry.FieldIsNULL("ip_port"))
+        // if (TlgQry.FieldIsNULL("ip_address")||TlgQry.FieldIsNULL("ip_port"))
+        //   throw Exception("Unknown receiver %s", TlgQry.FieldAsString("receiver"));
+
+        const sockaddr_in * addrPtr = nullptr;
+
+        if (TlgQry.FieldIsNULL("receiver")
+         || TlgQry.FieldIsNULL("sender")
+         || nullptr == (addrPtr = getAddrByName(addrMap, TlgQry.FieldAsString("receiver"), TlgQry.FieldAsString("sender")))) {
           throw Exception("Unknown receiver %s", TlgQry.FieldAsString("receiver"));
+        }
 
-        const char* ip_address=TlgQry.FieldAsString("ip_address");
-        int ip_port=TlgQry.FieldAsInteger("ip_port");
+        const auto iCount = addrCount.find(*addrPtr);
 
-        map< pair<string, int>, int >::iterator iCount=count.find( make_pair(ip_address, ip_port) );
-
-        if (iCount!=count.end() && iCount->second>=PROC_COUNT()) continue;
-
-        if (inet_aton(ip_address,&to_addr.sin_addr)==0)
-          throw Exception("'inet_aton' error %d: %s",errno,strerror(errno));
-        to_addr.sin_family=AF_INET;
-        to_addr.sin_port=htons(ip_port);
+        if (iCount!=addrCount.end() && iCount->second>=PROC_COUNT()) continue;
 
         tlg_out.num=htonl(TlgQry.FieldAsInteger("tlg_num"));
         tlg_out.type=htons(TLG_OUT);
         tlg_out.Sender[5]=0;
         tlg_out.Receiver[5]=0;
         strncpy(tlg_out.Sender,OWN_CANON_NAME(),5);
-        strncpy(tlg_out.Receiver,TlgQry.FieldAsString("receiver"),5);
+        strncpy(tlg_out.Receiver,TlgQry.FieldAsString("receiver").data(),5);
         string text=getTlgText(tlg_id);
         strcpy(tlg_out.body, text.c_str());
 
@@ -286,7 +340,7 @@ bool scan_tlg(bool sendOutAStepByStep)
             tlg_out.TTL=htons(ttl16);
 
             if (sendto(sockfd,(char*)&tlg_out,sizeof(tlg_out)-sizeof(tlg_out.body)+len,0,
-                       (struct sockaddr*)&to_addr,sizeof(to_addr))==-1)
+                       (const sockaddr*)addrPtr,sizeof(sockaddr_in))==-1)
               throw Exception("'sendto' error %d: %s",errno,strerror(errno));
             monitor_idle_zapr_type(1, QUEPOT_NULL);
             TlgUpdQry.SetVariable("id", tlg_id);
@@ -300,10 +354,12 @@ bool scan_tlg(bool sendOutAStepByStep)
                              priority);
           };
         };
-        if (iCount!=count.end())
+
+        if (addrCount.end() == iCount) {
           iCount->second++;
-        else
-          count[make_pair(ip_address, ip_port)]=1;
+        } else {
+          addrCount.insert(iCount, std::make_pair(*addrPtr, 1));
+        }
       }
       catch(EXCEPTIONS::Exception &E)
       {

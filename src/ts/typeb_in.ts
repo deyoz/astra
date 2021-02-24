@@ -4,6 +4,23 @@ include(ts/spp/write_dests_macro.ts)
 
 # meta: suite typeb
 
+$(defmacro LOAD_TLG
+  tlg_text
+  capture=off
+{
+
+!! capture=$(capture) err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='Telegram' ver='1' opr='PIKE' screen='TLG.EXE' mode='STAND' lang='EN' term_id='2479792165'>
+    <LoadTlg>
+      <tlg_text>$(tlg_text)</tlg_text>
+    </LoadTlg>
+  </query>
+</term>}
+
+})
+
 ### test 1
 ### PNL из двух частей. Вторая часть - дубликат, содержащий PDM
 #########################################################################################
@@ -406,3 +423,136 @@ $(get airline)$(get flt_no)/$(ddmon +1 en) $(get airp_dep) PART2
     </tlgs>
   </answer>
 </term>
+
+%%
+
+### test 3
+### SSM с трехзначным русским кодом
+#########################################################################################
+
+$(init_term)
+
+$(LOAD_TLG capture=on
+{MOWKK1H
+.THSPROD 281352
+SSM
+UTC
+28JAN00001E001/TRANSHOST/28JAN
+NEW
+ЛЩ9661
+29JAN21 29JAN21 5
+J МИ8 Y
+АСР0430 МХЛ0630}
+)
+
+>> lines=auto
+$(MESSAGE_TAG MSG.TLG.LOADED)
+
+#<<
+#MOWKK1H
+#.THSPROD 281352
+#SSM
+#UTC
+#28JAN00001E001/TRANSHOST/28JAN
+#NEW
+#ЛУК9661
+#29JAN21 29JAN21 5
+#J МИ8 Y
+#АСР0430 МХЛ0630
+
+%%
+
+### test 4
+### поиск неразобранных не type-b телеграмм
+#########################################################################################
+
+$(init_term)
+
+<< h2h=V.\VDLG.WA/E11HCNIAPIR/I11HCNIAPIQ/P0001\VGYA\$() charset=UNOA
+UNB+SIRE:4+NIAC+MU+$(yymmdd):$(hhmi)+1569312526531++IAPI"
+UNG+CUSRES+NIAC+MU+$(yymmdd):$(hhmi)+15693125265312+UN+D:05B"
+UNH+11085B94E1F8FA+CUSRES:D:05B:UN:IATA"
+BGM+132"
+RFF+TN:1909240821556284716"
+RFF+AF:MU589"
+DTM+189:$(yymmdd)1420:201"
+DTM+232:$(yymmdd)0930:201"
+LOC+125+SFO"
+LOC+87+PVG"
+ERP+2"
+RFF+AVF:NY7HZZ"
+RFF+ABO:1234"
+ERC+1Z"
+UNT+13+11085B94E1F8FA"
+UNE+1+15693125265312"
+UNZ+1+1569312526531"
+
+>>
+UNB+SIRE:4+MU+NIAC+xxxxxx:xxxx+1569312526531++IAPI"
+UNH+11085B94E1F8FA+CUSRES:D:05B:UN"
+BGM+312"
+ERP+1"
+ERC+118"
+UNT+5+11085B94E1F8FA"
+UNZ+1+1569312526531"
+
+!! capture=on err=ignore
+<term>
+  <query handle='0' id='Telegram' ver='1' opr='PIKE' screen='TLG.EXE' mode='STAND' lang='EN' term_id='2479792165'>
+    <GetTlgIn2>
+      <err_cls>1</err_cls>
+      <tlg_num>$(last_tlg_num -1)</tlg_num>
+      <pr_time_receive>1</pr_time_receive>
+      <TimeReceiveFrom>$(date_format %d.%m.%Y -1) 00:00:00</TimeReceiveFrom>
+      <TimeReceiveTo>$(date_format %d.%m.%Y +1) 00:00:00</TimeReceiveTo>
+    </GetTlgIn2>
+  </query>
+</term>
+
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer...
+    <tlgs>
+      <tlg>
+        <err_lst/>
+        <id>$(last_tlg_num -1)</id>
+        <num>1</num>
+        <type/>
+        <addr/>
+        <heading/>
+        <body>UNB+SIRE:4+NIAC+MU+xxxxxx:xxxx+1569312526531++IAPI'
+UNG+CUSRES+NIAC+MU+xxxxxx:xxxx+15693125265312+UN+D:05B'
+UNH+11085B94E1F8FA+CUSRES:D:05B:UN:IATA'
+BGM+132'
+RFF+TN:1909240821556284716'
+RFF+AF:MU589'
+DTM+189:xxxxxx1420:201'
+DTM+232:xxxxxx0930:201'
+LOC+125+SFO'
+LOC+87+PVG'
+ERP+2'
+RFF+AVF:NY7HZZ'
+RFF+ABO:1234'
+ERC+1Z'
+UNT+13+11085B94E1F8FA'
+UNE+1+15693125265312'
+UNZ+1+1569312526531'
+</body>
+        <ending/>
+        <time_receive>xx.xx.xxxx xx:xx:xx</time_receive>
+        <is_history>0</is_history>
+      </tlg>
+    </tlgs>
+  </answer>
+</term>
+
+%%
+
+### test 5
+### очистка
+#########################################################################################
+
+#$(clean_old_records)
+
+

@@ -1028,6 +1028,73 @@ static std::string FP_runEtFltTask(const std::vector<std::string> &par)
   return "";
 }
 
+static std::string FP_cleanOldRecords(const std::vector<std::string> &par)
+{
+  cleanOldRecords();
+  return "";
+}
+
+enum class TlgIdent { TlgId, TlgNum, TypeBInId };
+
+static std::string getTlgIdent(TlgIdent tlgIdent, const std::vector<std::string> &par)
+{
+  int rowNumRequired=0;
+  if (par.size() > 0) rowNumRequired=std::stoi(par.at(0));
+
+  ASSERT(rowNumRequired<=0);
+
+  std::string sql;
+
+  DbCpp::CursCtl cur = [](TlgIdent tlgIdent) {
+    switch (tlgIdent)
+    {
+    case TlgIdent::TlgId:
+      return make_db_curs(
+       "SELECT id FROM tlgs ORDER BY id DESC"
+        , PgOra::getRWSession("TLGS")
+      );
+    case TlgIdent::TlgNum:
+      return make_db_curs(
+       "SELECT tlg_num FROM tlgs ORDER BY tlg_num DESC"
+        , PgOra::getRWSession("TLGS")
+      );
+    default: //TlgIdent::TypeBInId:
+      return make_db_curs(
+       "SELECT id FROM typeb_in ORDER BY id DESC"
+        , PgOra::getRWSession("TYPEB_IN")
+      );
+    }
+  }(tlgIdent);
+
+  int tlgNum;
+  cur.def(tlgNum)
+     .exec();
+
+  int rowNum=0;
+  while (!cur.fen()) {
+    if ((rowNum--)==rowNumRequired) return std::to_string(tlgNum);
+  }
+
+  if (rowNumRequired==0) throw EXCEPTIONS::Exception("Empty table TLGS!");
+
+  return "";
+}
+
+static std::string FP_lastTlgId(const std::vector<std::string> &par)
+{
+  return getTlgIdent(TlgIdent::TlgId, par);
+}
+
+static std::string FP_lastTlgNum(const std::vector<std::string> &par)
+{
+  return getTlgIdent(TlgIdent::TlgNum, par);
+}
+
+static std::string FP_lastTypeBInId(const std::vector<std::string> &par)
+{
+  return getTlgIdent(TlgIdent::TypeBInId, par);
+}
+
 FP_REGISTER("<<", FP_tlg_in);
 FP_REGISTER("!!", FP_req);
 FP_REGISTER("astra_hello", FP_astra_hello);
@@ -1078,5 +1145,32 @@ FP_REGISTER("cache", FP_cache);
 FP_REGISTER("cache_iface_ver", FP_getCacheIfaceVer);
 FP_REGISTER("cache_sql_param", FP_getCacheSQLParam);
 FP_REGISTER("run_et_flt_task", FP_runEtFltTask);
+FP_REGISTER("clean_old_records", FP_cleanOldRecords);
+FP_REGISTER("last_tlg_id", FP_lastTlgId);
+FP_REGISTER("last_tlg_num", FP_lastTlgNum);
+FP_REGISTER("last_typeb_in_id", FP_lastTypeBInId);
+
+#include "xp_testing.h"
+
+START_TEST(check_getTlgIdent)
+{
+    const int first_tlg_id = saveTlg("RECVR", "SENDR", "OUTA", "test1");
+    const int second_tlg_id = saveTlg("RECVR", "SENDR", "OUTB", "test2");
+    const int third_tlg_id = saveTlg("RECVR", "SENDR", "OAPP", "test3");
+
+    fail_unless(getTlgIdent(TlgIdent::TlgId, {"-2"}) == std::to_string(first_tlg_id));
+    fail_unless(getTlgIdent(TlgIdent::TlgId, {"-1"}) == std::to_string(second_tlg_id));
+    fail_unless(getTlgIdent(TlgIdent::TlgId, {"0"}) == std::to_string(third_tlg_id));
+}
+END_TEST;
+
+#define SUITENAME "tlg_queue"
+TCASEREGISTER(testInitDB, testShutDBConnection)
+{
+    ADD_TEST(check_getTlgIdent);
+}
+TCASEFINISH;
+#undef SUITENAME
+
 
 #endif /* XP_TESTING */

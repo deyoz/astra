@@ -26,6 +26,9 @@
 #include <libtlg/tlg_outbox.h>
 #include <libtlg/hth.h>
 #include "xp_testing.h"
+#include "db_tquery.h"
+
+#include "PgOraConfig.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -239,7 +242,7 @@ int saveTlg(const char * receiver,
 
   int tlg_num = getNextTlgNum();
 
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getRWSession("TLGS"));
 
   Qry.SQLText=
     "INSERT INTO tlgs(id,sender,tlg_num,receiver,type,time,error,typeb_tlg_id,typeb_tlg_num) "
@@ -314,14 +317,16 @@ void putTlgText(int tlg_id, const string &tlg_text)
   if (tlg_id==ASTRA::NoExists)
     throw Exception("%s: tlg_id=ASTRA::NoExists", __FUNCTION__);
 
-  const char* sql=
-    "INSERT INTO tlgs_text(id, page_no, text) VALUES(:id, :page_no, :text)";
-
   QParams QryParams;
   QryParams << QParam("id", otInteger, tlg_id);
   QryParams << QParam("page_no", otInteger);
   QryParams << QParam("text", otString);
-  TCachedQuery TextQry(sql, QryParams);
+
+  DB::TCachedQuery TextQry(
+      PgOra::getRWSession("TLGS_TEXT"),
+     "INSERT INTO tlgs_text(id, page_no, text) VALUES(:id, :page_no, :text)",
+      QryParams
+  );
 
   longToDB(TextQry.get(), "text", tlg_text);
 }
@@ -330,11 +335,15 @@ std::string getTlgText(int tlg_id)
 {
     std::string text;
 
-    const char* sql=
-    "SELECT text FROM tlgs_text WHERE id=:id ORDER BY page_no";
     QParams QryParams;
     QryParams << QParam("id", otInteger, tlg_id);
-    TCachedQuery TextQry(sql, QryParams);
+
+    DB::TCachedQuery TextQry(
+        PgOra::getROSession("TLGS_TEXT"),
+       "SELECT text FROM tlgs_text WHERE id=:id ORDER BY page_no",
+        QryParams
+    );
+
     TextQry.get().Execute();
     for(;!TextQry.get().Eof;TextQry.get().Next())
         text+=TextQry.get().FieldAsString("text");
@@ -416,7 +425,7 @@ static void putTlg2OutQueue(const std::string& receiver,
                             int ttl)
 {
     TDateTime nowUTC=NowUTC();
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getRWSession("TLG_QUEUE"));
     Qry.SQLText=
       "INSERT INTO tlg_queue(id,sender,tlg_num,receiver,type,priority,status,time,ttl,time_msec,last_send) "
       "VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,:priority,'PUT',:time,:ttl,:time_msec,NULL) ";
@@ -433,11 +442,6 @@ static void putTlg2OutQueue(const std::string& receiver,
     Qry.CreateVariable("tlg_num",otInteger,tlgNum);
     Qry.Execute();
 
-    ProgTrace(TRACE5,"OUT: PUT (sender=%s, tlg_num=%d, time=%.10f, priority=%d)",
-                     Qry.GetVariableAsString("sender"),
-                     tlgNum,
-                     nowUTC,
-                     priority);
     Qry.Close();
 #ifdef XP_TESTING
     if (inTestMode()) {
@@ -598,7 +602,7 @@ int loadTlg(const std::string &text, int prev_typeb_tlg_id, bool &hist_uniq_erro
         TDateTime nowUTC=NowUTC();
         int tlg_id = getNextTlgNum();
 
-        TQuery Qry(&OraSession);
+        DB::TQuery Qry(PgOra::getRWSession("SP_PG_GROUP_TLG_QUE"));
         Qry.SQLText=
           "INSERT INTO tlg_queue(id,sender,tlg_num,receiver,type,priority,status,time,ttl,time_msec,last_send) "
           "VALUES(:tlg_num,:sender,:tlg_num,:receiver,:type,1,'PUT',:time,:ttl,:time_msec,NULL)";
@@ -620,14 +624,9 @@ int loadTlg(const std::string &text, int prev_typeb_tlg_id, bool &hist_uniq_erro
 
         putTlgText(tlg_id, text);
 
-        ProgTrace(TRACE5,"IN: PUT (sender=%s, tlg_num=%d, time=%.10f)",
-                         Qry.GetVariableAsString("sender"),
-                         tlg_id,
-                         nowUTC);
-
         if (prev_typeb_tlg_id != ASTRA::NoExists)
         {
-          Qry.Clear();
+          TQuery Qry(&OraSession);
           Qry.SQLText=
             "INSERT INTO typeb_in_history(prev_tlg_id, tlg_id, id) "
             "VALUES(:prev_tlg_id, NULL, :id)";
@@ -637,9 +636,9 @@ int loadTlg(const std::string &text, int prev_typeb_tlg_id, bool &hist_uniq_erro
           {
             Qry.Execute();
           }
-          catch(EOracleError E)
+          catch(EOracleError& e)
           {
-            if (E.Code==1)
+            if (e.Code==1)
             {
               Qry.Clear();
               Qry.SQLText="SELECT prev_tlg_id FROM typeb_in_history WHERE prev_tlg_id=:prev_tlg_id";
@@ -674,7 +673,7 @@ bool deleteTlg(int tlg_id)
     LogTrace(TRACE3) << "del tlg by num: " << tlg_id;
   try
   {
-    TQuery TlgQry(&OraSession);
+    DB::TQuery TlgQry(PgOra::getRWSession("TLG_QUEUE"));
     TlgQry.Clear();
     TlgQry.SQLText=
            "DELETE FROM tlg_queue WHERE id= :id";
@@ -699,17 +698,19 @@ bool errorTlg(int tlg_id, const string &type, const string &msg)
   try
   {
     deleteTlg(tlg_id);
-    TQuery TlgQry(&OraSession);
+    DB::TQuery TlgQry(PgOra::getRWSession("TLG_ERROR"));
     if (!msg.empty())
     {
       TlgQry.Clear();
-      TlgQry.SQLText=
-        "BEGIN "
-        "  UPDATE tlg_error SET msg= :msg WHERE id= :id; "
-        "  IF SQL%NOTFOUND THEN "
-        "    INSERT INTO tlg_error(id,msg) VALUES(:id,:msg); "
-        "  END IF; "
-        "END;";
+      TlgQry.SQLText = PgOra::supportsPg("TLG_ERROR")
+        ? "INSERT INTO tlg_error(id, msg) VALUES(:id, :msg) "
+          "ON CONFLICT(id) DO UPDATE SET msg=:msg;"
+        : "BEGIN "
+          "  UPDATE tlg_error SET msg= :msg WHERE id= :id; "
+          "  IF SQL%NOTFOUND THEN "
+          "    INSERT INTO tlg_error(id,msg) VALUES(:id,:msg); "
+          "  END IF; "
+          "END;";
       TlgQry.CreateVariable("msg",otString,msg.substr(0,1000));
       TlgQry.CreateVariable("id",otInteger,tlg_id);
       TlgQry.Execute();
@@ -835,10 +836,10 @@ bool procTlg(int tlg_id)
 {
   try
   {
-    TQuery TlgQry(&OraSession);
+    DB::TQuery TlgQry(PgOra::getRWSession("TLG_QUEUE"));
     TlgQry.Clear();
     TlgQry.SQLText=
-           "UPDATE tlg_queue SET proc_attempt=NVL(proc_attempt,0)+1 WHERE id= :id";
+           "UPDATE tlg_queue SET proc_attempt=COALESCE(proc_attempt,0)+1 WHERE id= :id";
     TlgQry.CreateVariable("id",otInteger,tlg_id);
     TlgQry.Execute();
     return TlgQry.RowsProcessed()>0;
@@ -908,9 +909,9 @@ void sendCmd(const char* receiver, const char* cmd, int cmd_len)
         ProgTrace(TRACE5,"sendCmd: cmd '%s' sended to %s (time=%ld)",cmd,receiver,time(NULL));
     };
   }
-  catch(EXCEPTIONS::Exception E)
+  catch(EXCEPTIONS::Exception& e)
   {
-    ProgTrace(TRACE0,"Exception: %s",E.what());
+    ProgTrace(TRACE0, "Exception: %s", e.what());
   };
 }
 
@@ -989,14 +990,14 @@ int waitCmd(const char* receiver, int msecs, char* buf, int buflen)
       };
     };
   }
-  catch(EXCEPTIONS::Exception E)
+  catch(EXCEPTIONS::Exception& e)
   {
-    ProgError(STDLOG,"Exception: %s",E.what());
+    ProgError(STDLOG, "Exception: %s", e.what());
   };
   return 0;
 };
 
-void tlg_info::fromDB(TQuery &Qry)
+void tlg_info::fromDB(DB::TQuery& Qry)
 {
   id           = Qry.FieldAsInteger("id");
   text         = getTlgText(id);

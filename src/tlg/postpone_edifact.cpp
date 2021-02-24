@@ -15,6 +15,9 @@
 #include <serverlib/rip_oci.h>
 #include <edilib/edi_user_func.h>
 #include <edilib/edi_tables.h>
+#include <serverlib/dbcpp_cursctl.h>
+
+#include "PgOraConfig.h"
 
 #include <boost/optional/optional_io.hpp>
 
@@ -132,11 +135,13 @@ void PostponeEdiHandling::addToQueue(const tlgnum_t& tnum)
 
     TEdiTlgSubtype tlgSubtype = specifyEdiTlgSubtype(tlg.text());
 
-    OciCpp::CursCtl cur = make_curs(
-"insert into TLG_QUEUE(ID, SENDER, TLG_NUM, RECEIVER, TYPE, SUBTYPE, PRIORITY, STATUS, TIME, TTL, TIME_MSEC) "
-"values(:id, :sender, :tlg_num, :receiver, 'INA', :subtype, 1, 'PUT', :time, 10, 0)");
+    DbCpp::CursCtl cur = make_db_curs(
+       "insert into TLG_QUEUE(ID, SENDER, TLG_NUM, RECEIVER, TYPE, SUBTYPE, PRIORITY, STATUS, TIME, TTL, TIME_MSEC) "
+       "values(:id, :sender, :tlg_num, :receiver, 'INA', :subtype, 1, 'PUT', :time, 10, 0)",
+        PgOra::getRWSession("TLG_QUEUE"));
 
-    cur.bind(":id", tnum.num)
+    cur.stb()
+       .bind(":id", std::stoull(tnum.num.get()))
        .bind(":sender", tlg.fromRot())
        .bind(":tlg_num", tlg.gatewayNum())
        .bind(":receiver", tlg.toRot())
@@ -212,25 +217,30 @@ boost::optional<tlgnum_t> PostponeEdiHandling::findPostponeTlg(edilib::EdiSessio
 
 void updateTlgToPostponed(const tlgnum_t& tnum)
 {
-    OciCpp::CursCtl cur = make_curs(
-"update TLGS set POSTPONED=1 where ID=:msg_id");
-    cur.bind(":msg_id", tnum.num)
+    DbCpp::CursCtl cur = make_db_curs(
+       "update TLGS set POSTPONED=1 where ID=:msg_id",
+        PgOra::getRWSession("TLGS"));
+    cur.stb()
+       .bind(":msg_id", std::stoull(tnum.num.get()))
        .exec();
 }
 
 bool isTlgPostponed(const tlgnum_t& tnum)
 {
     bool postponed = false;
-    OciCpp::CursCtl cur = make_curs(
-"select POSTPONED from TLGS where ID=:msg_id");
-    cur.bind(":msg_id", tnum.num)
+    DbCpp::CursCtl cur = make_db_curs(
+       "select POSTPONED from TLGS where ID=:msg_id",
+        PgOra::getROSession("TLGS"));
+    cur.stb()
+       .bind(":msg_id", std::stoull(tnum.num.get()))
        .defNull(postponed, false)
        .EXfet();
-    if(cur.err() != NO_DATA_FOUND) {
-        return postponed;
+
+    if (DbCpp::ResultCode::NoDataFound == cur.err()) {
+        return false;
     }
 
-    return false;
+    return postponed;
 }
 
 }//namespace TlgHandling

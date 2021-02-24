@@ -42,6 +42,7 @@ namespace PgOra
         { "SP_PG_GROUP_SPPCKIN", {"TRIP_ALARMS", "TRIP_APIS_PARAMS", "TRIP_RPT_PERSON", "UTG_PRL"} },
         { "SP_PG_GROUP_WB",    { "WB_MSG", "WB_MSG_TEXT" } },
         { "SP_PG_GROUP_CONTEXT", {"CONTEXT", "CONTEXT__SEQ"} },
+        { "SP_PG_GROUP_TLG_QUE",   { "TLGS", "TLGS_TEXT", "TLG_QUEUE", "TLG_ERROR", "TLG_STAT" } },
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)

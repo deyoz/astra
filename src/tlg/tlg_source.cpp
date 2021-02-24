@@ -17,6 +17,9 @@
 #include <serverlib/rip_oci.h>
 #include <serverlib/cursctl.h>
 #include <serverlib/dates.h>
+#include <serverlib/dbcpp_cursctl.h>
+
+#include "PgOraConfig.h"
 
 #include <etick/exceptions.h>
 #include <etick/etick_msg.h>
@@ -41,11 +44,14 @@ TlgSource TlgSource::readFromDb(const tlgnum_t& tlg_num)
     Dates::ptime date1;
     int gateway_num = 0;
 
-    OciCpp::CursCtl tcur = make_curs("select "
-            "TLG_NUM, SENDER, RECEIVER, ERROR, TYPE, TIME, POSTPONED "
-            "from TLGS where ID = :ID");
+    DbCpp::CursCtl tcur = make_db_curs(
+       "select TLG_NUM, SENDER, RECEIVER, ERROR, TYPE, TIME, POSTPONED "
+       "from TLGS where ID = :ID",
+        PgOra::getROSession("TLGS")
+    );
 
-    tcur.bind(":ID", tlg_num.num)
+    tcur.stb()
+        .bind(":ID", std::stoull(tlg_num.num.get()))
         .def(gateway_num)
         .def(from_rot)
         .def(to_rot)
@@ -55,8 +61,7 @@ TlgSource TlgSource::readFromDb(const tlgnum_t& tlg_num)
         .defNull(postponed, false)
         .EXfet();
 
-    if(tcur.err() == NO_DATA_FOUND)
-    {
+    if (DbCpp::ResultCode::NoDataFound == tcur.err()) {
         throw EXCEPTIONS::Exception("No such tlg: %s", HelpCpp::string_cast(tlg_num).c_str());
     }
 
