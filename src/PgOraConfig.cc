@@ -40,7 +40,8 @@ namespace PgOra
         { "SP_PG_GROUP_SCHED", { "SCHED_DAYS", "SEASON_SPP", "ROUTES", "SSM_SCHEDULE"} },
         { "SP_PG_GROUP_SCHED_SEQ", {"ROUTES_MOVE_ID", "ROUTES_TRIP_ID", "SSM_ID"} },
         { "SP_PG_GROUP_SPPCKIN", {"TRIP_ALARMS", "TRIP_APIS_PARAMS", "TRIP_RPT_PERSON", "UTG_PRL"} },
-        { "SP_PG_GROUP_WB",    { "WB_MSG", "WB_MSG_TEXT" } }
+        { "SP_PG_GROUP_WB",    { "WB_MSG", "WB_MSG_TEXT" } },
+        { "SP_PG_GROUP_CONTEXT", {"CONTEXT", "CONTEXT__SEQ"} },
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)

@@ -3,6 +3,8 @@
 #include "astra_utils.h"
 #include "exceptions.h"
 #include "oralib.h"
+#include "db_tquery.h"
+#include "PgOraConfig.h"
 
 #include "date_time.h"
 using namespace BASIC::date_time;
@@ -15,6 +17,14 @@ using namespace BASIC::date_time;
 namespace AstraContext
 {
 
+int GetContextId(const int id)
+{
+    if (id == ASTRA::NoExists) {
+        return PgOra::getSeqNextVal("context__seq");
+    }
+    return id;
+}
+
 int SetContext(const std::string &name,
                const int id,
                const std::string &value)
@@ -26,30 +36,20 @@ int SetContext(const std::string &name,
     if (name.size()>20)
       throw EXCEPTIONS::Exception("AstraContext::SetContext: context name %s too long",name.c_str());
 
-    TQuery Qry(&OraSession);
+    const int contextId = GetContextId(id);
+    DB::TQuery Qry(PgOra::getRWSession("CONTEXT"));
     Qry.SQLText=
-        "BEGIN "
-        "  IF :id IS NULL THEN "
-        "    SELECT context__seq.nextval INTO :id FROM dual; "
-        "  END IF; "
-        "  INSERT INTO context(name,id,page_no,time_create,value) "
-        "  VALUES(:name,:id,:page_no,:time_create,:value); "
-        "END;";
+        "INSERT INTO context(name,id,page_no,time_create,value) "
+        "  VALUES(:name,:id,:page_no,:time_create,:value)";
     Qry.CreateVariable("name",otString,name);
-    if (id!=ASTRA::NoExists)
-      Qry.CreateVariable("id",otInteger,id);
-    else
-      Qry.CreateVariable("id",otInteger,FNull);
+    Qry.CreateVariable("id",otInteger, contextId);
     Qry.DeclareVariable("page_no",otInteger);
     Qry.CreateVariable("time_create",otDate, NowUTC());
     Qry.DeclareVariable("value",otString);
 
     longToDB(Qry, "value", value, true);
 
-    if (!Qry.VariableIsNULL("id"))
-      return Qry.GetVariableAsInteger("id");
-    else
-      return ASTRA::NoExists;
+    return contextId;
   }
   catch(std::exception &e)
   {
@@ -69,7 +69,7 @@ TDateTime GetContext(const std::string &name,
                             std::string &value)
 {
   value.clear();
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("CONTEXT"));
   Qry.SQLText=
     "SELECT value,time_create FROM context "
     "WHERE name=:name AND id=:id ORDER BY page_no";
@@ -88,7 +88,7 @@ TDateTime GetContext(const std::string &name,
 void ClearContext(const std::string &name,
                   const TDateTime time_create)
 {
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getRWSession("CONTEXT"));
   if (time_create != ASTRA::NoExists)
   {
     Qry.SQLText=
@@ -108,7 +108,7 @@ void ClearContext(const std::string &name,
 void ClearContext(const std::string &name,
                   const int id)
 {
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getRWSession("CONTEXT"));
   Qry.SQLText=
     "DELETE FROM context WHERE name=:name AND id=:id";
   Qry.CreateVariable("name",otString,name);
