@@ -3008,96 +3008,6 @@ START_TEST(check_isTlgPostponed)
 }
 END_TEST;
 
-START_TEST(additional)
-{
-// src/tlg/typeb_handler.cpp
-// handle_tlg
-{
-    static DB::TQuery TlgQry(PgOra::getROSession("TLG_QUEUE"));
-    if (TlgQry.SQLText.empty())
-    {
-        //внимание порядок объединения таблиц важен!
-        TlgQry.Clear();
-        TlgQry.SQLText=
-            "SELECT tlg_queue.id,tlg_queue.time,ttl, "
-            "       tlg_queue.tlg_num,tlg_queue.sender, "
-            "       COALESCE(tlg_queue.proc_attempt,0) AS proc_attempt "
-            "FROM tlg_queue "
-            "WHERE tlg_queue.receiver=:receiver AND "
-            "      tlg_queue.type='INB' AND tlg_queue.status='PUT' "
-            "ORDER BY tlg_queue.time,tlg_queue.id";
-        TlgQry.CreateVariable("receiver",otString,OWN_CANON_NAME());
-    };
-}
-
-// src/tlg/apps_answer_emul.cc
-// handle_tlg
-{
-    static DB::TQuery TlgQry(PgOra::getROSession("TLG_QUEUE"));
-    if (TlgQry.SQLText.empty())
-    {
-        //внимание порядок объединения таблиц важен!
-        TlgQry.Clear();
-        TlgQry.SQLText=
-            "SELECT tlg_queue.id,tlg_queue.time,ttl, "
-            "       tlg_queue.tlg_num,tlg_queue.sender, "
-            "       COALESCE(tlg_queue.proc_attempt,0) AS proc_attempt "
-            "FROM tlg_queue "
-            "WHERE tlg_queue.receiver=:receiver AND "
-            "      tlg_queue.type='OAPP' "
-            "ORDER BY tlg_queue.time,tlg_queue.id";
-        // для теста вместо APPS::getAPPSRotName() используем OWN_CANON_NAME()
-        // было:
-        // TlgQry.CreateVariable( "receiver", otString, APPS::getAPPSRotName() );
-        TlgQry.CreateVariable( "receiver", otString, OWN_CANON_NAME() );
-    };
-}
-
-// src/tlg/apps_handler.cc
-// handle_tlg
-{
-    static DB::TQuery TlgQry(PgOra::getROSession("TLG_QUEUE"));
-    if (TlgQry.SQLText.empty())
-    {
-        //внимание порядок объединения таблиц важен!
-        TlgQry.Clear();
-        TlgQry.SQLText=
-            "SELECT tlg_queue.id,tlg_queue.time,ttl, "
-            "       tlg_queue.tlg_num,tlg_queue.sender, "
-            "       COALESCE(tlg_queue.proc_attempt,0) AS proc_attempt "
-            "FROM tlg_queue "
-            "WHERE tlg_queue.receiver=:receiver AND "
-            "      tlg_queue.type='IAPP' AND tlg_queue.status='PUT' "
-            "ORDER BY tlg_queue.time,tlg_queue.id";
-        TlgQry.CreateVariable( "receiver", otString, OWN_CANON_NAME() );
-    };
-}
-
-// src/tlg/edi_handler.cpp
-// handle_tlg
-{
-    const std::string handler_id = "Handler Id";
-    static DB::TQuery TlgQry(PgOra::getROSession("TLG_QUEUE"));
-    if (TlgQry.SQLText.empty())
-    {
-        //внимание порядок объединения таблиц важен!
-        TlgQry.Clear();
-        TlgQry.SQLText=
-            "SELECT tlg_queue.id,tlg_queue.time,ttl, "
-            "       tlg_queue.tlg_num,tlg_queue.sender, "
-            "       COALESCE(tlg_queue.proc_attempt,0) AS proc_attempt "
-            "FROM tlg_queue "
-            "WHERE tlg_queue.receiver=:receiver AND "
-            "      tlg_queue.type='INA' AND tlg_queue.status='PUT' AND "
-            "      tlg_queue.subtype=:handler_id "
-            "ORDER BY tlg_queue.time,tlg_queue.id";
-        TlgQry.CreateVariable("receiver",otString,OWN_CANON_NAME());
-        TlgQry.CreateVariable("handler_id",otString,handler_id);
-    };
-}
-}
-END_TEST;
-
 #define SUITENAME "tlg_queue"
 TCASEREGISTER(testInitDB, testShutDBConnection)
 {
@@ -3107,7 +3017,6 @@ TCASEREGISTER(testInitDB, testShutDBConnection)
     ADD_TEST(check_arx_tlgs);
     ADD_TEST(check_putTlgToOutQue);
     ADD_TEST(check_isTlgPostponed);
-    ADD_TEST(additional);
 }
 TCASEFINISH;
 #undef SUITENAME
