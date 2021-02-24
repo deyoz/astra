@@ -1032,6 +1032,6 @@ $(TKCRES_ET_COS_FAKE_ERR UTET UTDC $(last_edifact_ref) 2981212121212 1 CK 401)
 $(lastRedisplay)
 
 >> lines=auto
-    <ets_error>Пассажир РЕПИН ИВАН ():
+    <ets_error>Пассажир РЕПИН ИВАН (ВЗ):
      Ошибка при изменении статуса эл. билета 2981212121212/1: 401.
 

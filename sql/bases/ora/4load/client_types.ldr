@@ -1,0 +1,21 @@
+LOAD DATA
+INFILE *
+INTO TABLE client_types
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,name
+,short_name
+,priority
+,name_lat
+,short_name_lat
+)
+BEGINDATA
+"TERM"|"Терминал DCS Астра"|"D"|10|"DCS Astra terminal"|"D"
+"WEB"|"Web-регистрация"|"W"|20|"Web check-in"|"W"
+"KIOSK"|"Киоски саморегистрации"|"K"|30|"Self check-in kiosks"|"K"
+"HTTP"|"Http-регистрация"|"Http"|50|"Http check-in"|"Http"
+"MOBIL"|"Мобильная регистрация"|"M"|25|"Mobile check-in"|"M"
+"PNL"|"Регистрация на основе PNL (.R/CHKD)"|"PNL"|40|"Check-in based on PNL (.R/CHKD)"|"PNL"

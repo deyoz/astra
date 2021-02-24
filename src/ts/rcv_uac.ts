@@ -2,11 +2,9 @@ include(ts/macro.ts)
 
 # meta: suite eticket
 
+$(init_term)
 
-$(init)
-$(init_jxt_pult Œ‚Œ)
-$(login)
-$(init_eds SU SUET SUDC)
+$(init_eds ‘“ SUET SUDC)
 
 <<
 UNB+SIRE:1+SUET+SUDC+170703:1027+FFD507DE140001++RESR1+O"
@@ -85,11 +83,9 @@ UNZ+1+FFD507DE140001"
 %%
 #########################################################################################
 
-$(init)
-$(init_jxt_pult Œ‚Œ)
-$(login)
-$(init_eds SU SUET SUDC)
+$(init_term)
 
+$(init_eds ‘“ SUET SUDC)
 
 <<
 UNB+SIRE:1+SUET+SUDC+170703:1027+FFD507DE140001++RESR1+O"
