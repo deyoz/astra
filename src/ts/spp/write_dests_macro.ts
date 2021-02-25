@@ -6,6 +6,7 @@ $(defmacro NEW_SPP_FLIGHT_ONE_LEG
   scd_out1 #формат даты: dd.mm.yyyy hh:nn
   scd_in2  #формат даты: dd.mm.yyyy hh:nn
   airp2
+  bort
 {
 
 {<?xml version='1.0' encoding='CP866'?>
@@ -21,7 +22,9 @@ $(defmacro NEW_SPP_FLIGHT_ONE_LEG
             <airp>$(airp1)</airp>
             <airline>$(airline)</airline>
             <flt_no>$(flt_no)</flt_no>
-            <craft>$(craft)</craft>
+            <craft>$(craft)</craft>\
+$(if $(eq $(bort) "") "" {
+            <bort>$(bort)</bort>})
             <scd_out>$(scd_out1):00</scd_out>
             <trip_type>п</trip_type>
             <pr_tranzit>0</pr_tranzit>
@@ -53,6 +56,7 @@ $(defmacro CHANGE_SPP_FLIGHT_ONE_LEG
   scd_out1 #формат даты: dd.mm.yyyy hh:nn
   scd_in2  #формат даты: dd.mm.yyyy hh:nn
   airp2
+  bort
 {
 
 {<?xml version='1.0' encoding='CP866'?>
@@ -70,9 +74,12 @@ $(defmacro CHANGE_SPP_FLIGHT_ONE_LEG
             <airp>$(airp1)</airp>
             <airline>$(airline)</airline>
             <flt_no>$(flt_no)</flt_no>
-            <craft>$(craft)</craft>
-            <scd_out>$(scd_out1):00</scd_out>
-            <act_out>$(act_out1):00</act_out>
+            <craft>$(craft)</craft>\
+$(if $(eq $(bort) "") "" {
+            <bort>$(bort)</bort>})
+            <scd_out>$(scd_out1):00</scd_out>\
+$(if $(eq $(act_out1) "") "" {
+            <act_out>$(act_out1):00</act_out>})
             <trip_type>п</trip_type>
             <pr_tranzit>0</pr_tranzit>
             <pr_reg>1</pr_reg>
@@ -146,6 +153,80 @@ $(defmacro NEW_SPP_FLIGHT_TWO_LEGS
             <modify/>
             <airp>$(airp3)</airp>
             <scd_in>$(scd_in3):00</scd_in>
+            <pr_tranzit>0</pr_tranzit>
+            <pr_reg>0</pr_reg>
+          </dest>
+        </dests>
+      </data>
+    </WriteDests>
+  </query>
+</term>}
+
+})
+
+$(defmacro NEW_SPP_FLIGHT_THREE_LEGS
+  airline
+  flt_no
+  craft
+  airp1
+  scd_out1 #формат даты: dd.mm.yyyy hh:nn
+  scd_in2  #формат даты: dd.mm.yyyy hh:nn
+  airp2
+  scd_out2 #формат даты: dd.mm.yyyy hh:nn
+  scd_in3  #формат даты: dd.mm.yyyy hh:nn
+  airp3
+  scd_out3 #формат даты: dd.mm.yyyy hh:nn
+  scd_in4  #формат даты: dd.mm.yyyy hh:nn
+  airp4
+{
+
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='sopp' ver='1' opr='PIKE' screen='SOPP.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <WriteDests>
+      <data>
+        <move_id>-2147483648</move_id>
+        <canexcept>0</canexcept>
+        <dests>
+          <dest>
+            <modify/>
+            <airp>$(airp1)</airp>
+            <airline>$(airline)</airline>
+            <flt_no>$(flt_no)</flt_no>
+            <craft>$(craft)</craft>
+            <scd_out>$(scd_out1):00</scd_out>
+            <trip_type>п</trip_type>
+            <pr_tranzit>0</pr_tranzit>
+            <pr_reg>0</pr_reg>
+          </dest>
+          <dest>
+            <modify/>
+            <airp>$(airp2)</airp>
+            <airline>$(airline)</airline>
+            <flt_no>$(flt_no)</flt_no>
+            <craft>$(craft)</craft>
+            <scd_in>$(scd_in2):00</scd_in>
+            <scd_out>$(scd_out2):00</scd_out>
+            <trip_type>п</trip_type>
+            <pr_tranzit>0</pr_tranzit>
+            <pr_reg>0</pr_reg>
+          </dest>
+          <dest>
+            <modify/>
+            <airp>$(airp3)</airp>
+            <airline>$(airline)</airline>
+            <flt_no>$(flt_no)</flt_no>
+            <craft>$(craft)</craft>
+            <scd_in>$(scd_in3):00</scd_in>
+            <scd_out>$(scd_out3):00</scd_out>
+            <trip_type>п</trip_type>
+            <pr_tranzit>0</pr_tranzit>
+            <pr_reg>0</pr_reg>
+          </dest>
+          <dest>
+            <modify/>
+            <airp>$(airp4)</airp>
+            <scd_in>$(scd_in4):00</scd_in>
             <pr_tranzit>0</pr_tranzit>
             <pr_reg>0</pr_reg>
           </dest>

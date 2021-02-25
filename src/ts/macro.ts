@@ -3953,6 +3953,21 @@ $(if $(eq $(jmp_cfg) "") "" {
 })
 
 #########################################################################################
+### поиск point_dep по рейсу
+
+$(defmacro get_point_dep_for_flight
+  airline
+  flt_no
+  suffix
+  scd_out_local #yyddmm
+  airp_dep
+{$(get_dep_point_id
+  $(get_elem_id etAirp $(airp_dep))
+  $(get_elem_id etAirline $(airline))
+  $(flt_no)
+  $(scd_out_local))})
+
+#########################################################################################
 ### разнообразные сообщения в терминал
 
 $(defmacro USER_ERROR_RESPONSE
