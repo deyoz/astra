@@ -186,3 +186,77 @@ $(CHANGE_SPP_FLIGHT_REQUEST $(point_dep)
   $(change_spp_point_last $(get_next_trip_point_id $(point_dep)) $(scd_in2) "" "" $(airp2)) })
 })
 
+$(defmacro NEW_SPP_FLIGHT_THREE_LEGS
+  airline
+  flt_no
+  craft
+  airp1
+  scd_out1 #формат даты: dd.mm.yyyy hh:nn
+  scd_in2  #формат даты: dd.mm.yyyy hh:nn
+  airp2
+  scd_out2 #формат даты: dd.mm.yyyy hh:nn
+  scd_in3  #формат даты: dd.mm.yyyy hh:nn
+  airp3
+  scd_out3 #формат даты: dd.mm.yyyy hh:nn
+  scd_in4  #формат даты: dd.mm.yyyy hh:nn
+  airp4
+{
+
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='sopp' ver='1' opr='PIKE' screen='SOPP.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <WriteDests>
+      <data>
+        <move_id>-2147483648</move_id>
+        <canexcept>0</canexcept>
+        <dests>
+          <dest>
+            <modify/>
+            <airp>$(airp1)</airp>
+            <airline>$(airline)</airline>
+            <flt_no>$(flt_no)</flt_no>
+            <craft>$(craft)</craft>
+            <scd_out>$(scd_out1):00</scd_out>
+            <trip_type>п</trip_type>
+            <pr_tranzit>0</pr_tranzit>
+            <pr_reg>0</pr_reg>
+          </dest>
+          <dest>
+            <modify/>
+            <airp>$(airp2)</airp>
+            <airline>$(airline)</airline>
+            <flt_no>$(flt_no)</flt_no>
+            <craft>$(craft)</craft>
+            <scd_in>$(scd_in2):00</scd_in>
+            <scd_out>$(scd_out2):00</scd_out>
+            <trip_type>п</trip_type>
+            <pr_tranzit>0</pr_tranzit>
+            <pr_reg>0</pr_reg>
+          </dest>
+          <dest>
+            <modify/>
+            <airp>$(airp3)</airp>
+            <airline>$(airline)</airline>
+            <flt_no>$(flt_no)</flt_no>
+            <craft>$(craft)</craft>
+            <scd_in>$(scd_in3):00</scd_in>
+            <scd_out>$(scd_out3):00</scd_out>
+            <trip_type>п</trip_type>
+            <pr_tranzit>0</pr_tranzit>
+            <pr_reg>0</pr_reg>
+          </dest>
+          <dest>
+            <modify/>
+            <airp>$(airp4)</airp>
+            <scd_in>$(scd_in4):00</scd_in>
+            <pr_tranzit>0</pr_tranzit>
+            <pr_reg>0</pr_reg>
+          </dest>
+        </dests>
+      </data>
+    </WriteDests>
+  </query>
+</term>}
+
+})
+
