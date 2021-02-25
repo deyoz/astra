@@ -303,7 +303,7 @@ void TFileQueue::get( const TFilterQueue &filter,
     }
     item_out.data = getFileData(item.id);
     getparams( item.id, item_out.params );
-    items_out.push_back( item );
+    items_out.push_back(item_out);
 
     if ( filter.pr_first_order ) { //нужна последовательность посылки данных - выбираем только первый + признак того, что есть еще в очереди
       //есть ли еще в очереди файлы стакими же параметрами receiver_type и определяем признак pr_last_file
@@ -1203,33 +1203,17 @@ START_TEST(check_old_tests_file_queue)
    res++;
    file_queue.sendFile( id2 );
    file_queue.get( TFilterQueue(filter2) );
-   if ( file_queue.empty() ||
-        file_queue.begin()->id != id3||
-        file_queue.getstatus(id2) != string( "SEND" ) ||
-        file_queue.in_order( id1 ) ||
-        file_queue.in_order( id3 ) ||
-        TFileQueue::in_order( type ) ||
-        file_queue.size() != 1 ||
-        !file_queue.getparam_value( id1, "WORKDIR", param_value ) ||
-        param_value != "c:\\work" ||
-        !file_queue.isLastFile() ) {
-     ProgError( STDLOG, "error%d: %d, %d", res, file_queue.empty(), file_queue.isLastFile() );
-     if ( !file_queue.empty() ) {
-       ProgError( STDLOG, "error%d: file_queue.begin()->id=%d, id1=%d, status=%s, in_order(%d)=%d, in_order(%s)=%d, size()=%zu,param_value=%s, isLastFile=%d",
-                  res,
-                  file_queue.begin()->id,
-                  id3,
-                  file_queue.getstatus(id1).c_str(),
-                  id3,
-                  file_queue.in_order( id3 ),
-                  type.c_str(),
-                  TFileQueue::in_order( type ),
-                  file_queue.size(),
-                  param_value.c_str(),
-                  file_queue.isLastFile() );
-     }
-     fail_unless(false, "file_queue error. see log");
-   }
+   fail_unless(!file_queue.empty());
+   fail_unless(file_queue.begin()->id == id3);
+   fail_unless(file_queue.getstatus(id2) == string( "SEND" ));
+   fail_unless(!file_queue.in_order( id1 ));
+   fail_unless(!file_queue.in_order( id3 ));
+   fail_unless(!TFileQueue::in_order( type ));
+   fail_unless(file_queue.size() == 1);
+   fail_unless(file_queue.getparam_value( id1, "WORKDIR", param_value ));
+   fail_unless(file_queue.begin()->params["WORKDIR"] == param_value);
+   fail_unless(param_value == "c:\\work");
+   fail_unless(file_queue.isLastFile());
 }
 END_TEST;
 
