@@ -98,18 +98,6 @@ struct TQueueItem {
       put_time = ASTRA::NoExists;
       in_order = 0;
     }
-    // void clear() {
-    //   id = ASTRA::NoExists;
-    //   receiver.clear();
-    //   type.clear();
-    //   time = ASTRA::NoExists;
-    //   wait_time = ASTRA::NoExists;
-    //   put_time = ASTRA::NoExists;
-    //   data.clear();
-    //   params.clear();
-    //   status.clear();
-    //   in_order = 0;
-    // };
 };
 
 class TFileQueue: public std::vector<TQueueItem> {
