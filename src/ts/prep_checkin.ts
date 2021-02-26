@@ -660,7 +660,7 @@ $(crsdata_item ""        АЯТ Э 15  0)
 ### test 3
 ### три плеча с дублирующимися пунктами вылета и прилета
 ### потом отменяем дублирование пунктов
-### далее экспериментируем с приоритетами отправителей в пункте транзита
+### далее экспериментируем с приоритетами отправителей в пункте транзита и вводим частично данные вручную
 #########################################################################################
 
 $(init_term)
@@ -668,16 +668,18 @@ $(set_user_time_type LocalAirp PIKE)
 
 $(set tomor $(date_format %d.%m.%Y +1))
 
-$(NEW_SPP_FLIGHT_THREE_LEGS
-                       ЮТ 111 100 44444 DME "$(get tomor) 07:00"
-  "$(get tomor) 08:00" ЮТ 111 100 44444 TJM "$(get tomor) 10:00"
-  "$(get tomor) 11:00" ЮТ 111 100 44444 SGC "$(get tomor) 13:00"
-  "$(get tomor) 15:00"                  TJM
-)
+$(NEW_SPP_FLIGHT_REQUEST
+{ $(new_spp_point ЮТ 111 100 44444 ""                   DME "$(get tomor) 07:00")
+  $(new_spp_point ЮТ 111 100 44444 "$(get tomor) 08:00" TJM "$(get tomor) 10:00")
+  $(new_spp_point ЮТ 111 100 44444 "$(get tomor) 11:00" SGC "$(get tomor) 13:00")
+  $(new_spp_point_last             "$(get tomor) 15:00" TJM ) })
+
+$(dump_table points fields="move_id, point_id, point_num, first_point, pr_tranzit, pr_del" order="point_num")
 
 $(set point_dep1 $(get_point_dep_for_flight ЮТ 111 "" $(yymmdd +1) DME))
 $(set point_dep2 $(get_point_dep_for_flight ЮТ 111 "" $(yymmdd +1) TJM))
 $(set point_dep3 $(get_point_dep_for_flight ЮТ 111 "" $(yymmdd +1) SGC))
+$(set point_arv3 $(get_next_trip_point_id $(get point_dep3)))
 
 $(PREP_CHECKIN $(get point_dep1))
 $(PREP_CHECKIN $(get point_dep2))
@@ -989,3 +991,299 @@ $(READ_TRIPS $(date_format %d.%m.%Y +1))
           </classes>
           <stages>
 .*
+
+
+$(CHANGE_SPP_FLIGHT_REQUEST $(get point_dep2)
+{ $(change_spp_point  $(get point_dep1) ЮТ 111 100 44444 ""                   "" "" DME "$(get tomor) 07:00")
+  $(change_spp_point  $(get point_dep2) ЮТ 111 100 44444 "$(get tomor) 08:00" "" "" TJM "$(get tomor) 10:00" pr_del=1)
+  $(new_spp_point                       ЮТ 111 100 44444 "$(get tomor) 08:00"       AER "$(get tomor) 10:00")
+  $(change_spp_point  $(get point_dep3) ЮТ 111 100 44444 "$(get tomor) 11:00" "" "" SGC "$(get tomor) 13:00")
+  $(change_spp_point_last $(get point_arv3)              "$(get tomor) 15:00" "" "" TJM ) })
+
+
+$(GET_TRIP_INFO_REQUEST capture=on $(get point_dep1))
+
+###                       cfg resa tranzit block avail prot
+>> lines=auto
+      <tripcounters>
+$(tripcounters_item Всего 188  114       0     0    85    0)
+$(tripcounters_item П      92   11       0     0    81    0)
+$(tripcounters_item Б       4   15       0     0     0    0)
+$(tripcounters_item Э      92   88       0     0     4    0)
+$(tripcounters_item СОЧ   188    6       0     0    74    0)
+$(tripcounters_item СУР   188   10       0     0    74    0)
+$(tripcounters_item РЩН   188   98       0     0    74    0)
+      </tripcounters>
+      <tripdata>
+        <airps>
+          <airp>$(get_elem_id etAirp AER)</airp>
+          <airp>$(get_elem_id etAirp SGC)</airp>
+          <airp>$(get_elem_id etAirp TJM)</airp>
+        </airps>
+        <classes>
+          <class>$(get_elem_id etClass F)</class>
+          <class>$(get_elem_id etClass C)</class>
+          <class>$(get_elem_id etClass Y)</class>
+        </classes>
+        <crs>
+$(crs_item ""        "Общие данные" " "  " "  " ")
+$(crs_item "SENDER1" "SENDER1"      "x"  "x"  " ")
+$(crs_item "SENDER2" "SENDER2"      "x"  "x"  " ")
+$(crs_item "SENDER3" "SENDER3"      "x"  " "  " ")
+        </crs>
+        <crsdata>
+$(crsdata_item "SENDER1" СОЧ Э  6 -1)
+$(crsdata_item "SENDER1" СУР Б  0 -1)
+$(crsdata_item "SENDER1" СУР Э 10 -1)
+$(crsdata_item "SENDER1" РЩН Э  6 -1)
+$(crsdata_item "SENDER2" РЩН Б 15 -1)
+$(crsdata_item "SENDER2" РЩН П 11 -1)
+$(crsdata_item "SENDER2" РЩН Э 66 -1)
+$(crsdata_item ""        РЩН Б 15  0)
+$(crsdata_item ""        РЩН П 11  0)
+$(crsdata_item ""        РЩН Э 72  0)
+$(crsdata_item ""        СОЧ Б  0  0)
+$(crsdata_item ""        СОЧ П  0  0)
+$(crsdata_item ""        СОЧ Э  6  0)
+$(crsdata_item ""        СУР Б  0  0)
+$(crsdata_item ""        СУР П  0  0)
+$(crsdata_item ""        СУР Э 10  0)
+        </crsdata>
+      </tripdata>
+
+$(set point_dep4 $(get_point_dep_for_flight ЮТ 111 "" $(yymmdd +1) AER))
+
+$(CHANGE_SPP_FLIGHT_REQUEST $(get point_dep2)
+{ $(change_spp_point  $(get point_dep1) ЮТ 111 100 44444 ""                   "" "" DME "$(get tomor) 07:00")
+  $(change_spp_point  $(get point_dep2) ЮТ 111 100 44444 "$(get tomor) 08:00" "" "" TJM "$(get tomor) 10:00" pr_del=0)
+  $(change_spp_point  $(get point_dep4) ЮТ 111 100 44444 "$(get tomor) 08:00" "" "" AER "$(get tomor) 10:00" pr_del=-1)
+  $(change_spp_point  $(get point_dep3) ЮТ 111 100 44444 "$(get tomor) 11:00" "" "" SGC "$(get tomor) 13:00")
+  $(change_spp_point_last $(get point_arv3)              "$(get tomor) 15:00" "" "" TJM pr_del=-1)
+  $(new_spp_point_last                                   "$(get tomor) 15:00"       AER ) })
+
+$(GET_TRIP_INFO_REQUEST capture=on $(get point_dep2))
+
+###                       cfg resa tranzit block avail prot
+>> lines=auto
+      <tripcounters>
+$(tripcounters_item Всего 188   56      70     0    74    0)
+$(tripcounters_item П      92    7      12     0    73    0)
+$(tripcounters_item Б       4    0       3     0     1    0)
+$(tripcounters_item Э      92   49      55     0     0    0)
+$(tripcounters_item СУР   188   10      25     0    62    0)
+$(tripcounters_item СОЧ   188   46      45     0    62    0)
+      </tripcounters>
+      <tripdata>
+        <airps>
+          <airp>$(get_elem_id etAirp SGC)</airp>
+          <airp>$(get_elem_id etAirp AER)</airp>
+        </airps>
+        <classes>
+          <class>$(get_elem_id etClass F)</class>
+          <class>$(get_elem_id etClass C)</class>
+          <class>$(get_elem_id etClass Y)</class>
+        </classes>
+        <crs>
+$(crs_item ""        "Общие данные" " "  " "  " ")
+$(crs_item "SENDER1" "SENDER1"      "x"  "x"  " ")
+$(crs_item "SENDER2" "SENDER2"      "x"  "x"  " ")
+$(crs_item "SENDER3" "SENDER3"      "x"  " "  " ")
+        </crs>
+        <crsdata>
+$(crsdata_item "SENDER1" СУР Б  0 -1)
+$(crsdata_item "SENDER1" СУР Э 10  4)
+$(crsdata_item "SENDER1" СОЧ Э  6  3)
+$(crsdata_item "SENDER2" СОЧ Б  0 -1)
+$(crsdata_item "SENDER2" СОЧ П  7 -1)
+$(crsdata_item "SENDER2" СОЧ Э 33 -1)
+$(crsdata_item "SENDER3" СУР Б -1  1)
+$(crsdata_item "SENDER3" СУР П -1  4)
+$(crsdata_item "SENDER3" СУР Э -1 16)
+$(crsdata_item "SENDER3" СОЧ Б -1  2)
+$(crsdata_item "SENDER3" СОЧ П -1  8)
+$(crsdata_item "SENDER3" СОЧ Э -1 32)
+$(crsdata_item ""        СОЧ Б  0  2)
+$(crsdata_item ""        СОЧ П  7  8)
+$(crsdata_item ""        СОЧ Э 39 35)
+$(crsdata_item ""        СУР Б  0  1)
+$(crsdata_item ""        СУР П  0  4)
+$(crsdata_item ""        СУР Э 10 20)
+        </crsdata>
+      </tripdata>
+
+!! capture=on
+$(READ_TRIPS $(date_format %d.%m.%Y +1))
+
+>> mode=regex
+.*
+          <places_out>
+            <airp>TJM</airp>
+            <airp>SGC</airp>
+            <airp>AER</airp>
+          </places_out>
+          <classes>
+            <class cfg='92'>F</class>
+            <class cfg='4'>C</class>
+            <class cfg='92'>Y</class>
+          </classes>
+          <resa>114</resa>
+          <stages>
+.*
+          <places_out>
+            <airp>SGC</airp>
+            <airp>AER</airp>
+          </places_out>
+          <classes>
+            <class cfg='92'>F</class>
+            <class cfg='4'>C</class>
+            <class cfg='92'>Y</class>
+          </classes>
+          <reg>70</reg>
+          <resa>56</resa>
+          <stages>
+.*
+          <places_out>
+            <airp>AER</airp>
+          </places_out>
+          <classes>
+            <class cfg='92'>F</class>
+            <class cfg='4'>C</class>
+            <class cfg='92'>Y</class>
+          </classes>
+          <stages>
+.*
+
+
+$(cache PIKE RU CRS_SET $(cache_iface_ver CRS_SET) ""
+  insert airline:$(get_elem_id etAirline ЮТ)
+         flt_no:111
+         airp_dep:$(get_elem_id etAirp РЩН)
+         crs:SENDER1
+         priority:9
+         pr_numeric_pnl:0)
+
+### посылаем пустую ADL, чтобы перерасчитались счетчики
+
+<<
+MOWKK1H
+.SENDER2 $(dd)1201
+ADL
+UT111/$(ddmon +1 en) TJM PART1
+RBD F/FA C/CJID Y/YSTEQGNBXWUORVHLKPZ
+-AER033Z
+-AER000J
+-AER007A
+ENDADL
+
+$(GET_TRIP_INFO_REQUEST capture=on lang=EN $(get point_dep2))
+
+###                       cfg resa tranzit block avail prot
+>> lines=auto
+      <tripcounters>
+$(tripcounters_item Total 188   16       7     0   165    0)
+$(tripcounters_item F      92    0       0     0    92    0)
+$(tripcounters_item C       4    0       0     0     4    0)
+$(tripcounters_item Y      92   16       7     0    69    0)
+$(tripcounters_item SGC   188   10       4     0   165    0)
+$(tripcounters_item AER   188    6       3     0   165    0)
+      </tripcounters>
+      <tripdata>
+        <airps>
+          <airp>$(get_elem_id etAirp SGC)</airp>
+          <airp>$(get_elem_id etAirp AER)</airp>
+        </airps>
+        <classes>
+          <class>$(get_elem_id etClass F)</class>
+          <class>$(get_elem_id etClass C)</class>
+          <class>$(get_elem_id etClass Y)</class>
+        </classes>
+        <crs>
+$(crs_item ""        "Common data"  " "  " "  " ")
+$(crs_item "SENDER1" "SENDER1"      "x"  "x"  "x")
+$(crs_item "SENDER2" "SENDER2"      "x"  "x"  " ")
+$(crs_item "SENDER3" "SENDER3"      "x"  " "  " ")
+        </crs>
+        <crsdata>
+$(crsdata_item "SENDER1" СУР Б  0 -1)
+$(crsdata_item "SENDER1" СУР Э 10  4)
+$(crsdata_item "SENDER1" СОЧ Э  6  3)
+$(crsdata_item "SENDER2" СОЧ Б  0 -1)
+$(crsdata_item "SENDER2" СОЧ П  7 -1)
+$(crsdata_item "SENDER2" СОЧ Э 33 -1)
+$(crsdata_item "SENDER3" СУР Б -1  1)
+$(crsdata_item "SENDER3" СУР П -1  4)
+$(crsdata_item "SENDER3" СУР Э -1 16)
+$(crsdata_item "SENDER3" СОЧ Б -1  2)
+$(crsdata_item "SENDER3" СОЧ П -1  8)
+$(crsdata_item "SENDER3" СОЧ Э -1 32)
+$(crsdata_item ""        СОЧ Э  6  3)
+$(crsdata_item ""        СУР Б  0  0)
+$(crsdata_item ""        СУР Э 10  4)
+        </crsdata>
+      </tripdata>
+
+!! capture=on
+$(READ_TRIPS $(date_format %d.%m.%Y +1))
+
+>> mode=regex
+.*
+          <places_out>
+            <airp>SGC</airp>
+            <airp>AER</airp>
+          </places_out>
+          <classes>
+            <class cfg='92'>F</class>
+            <class cfg='4'>C</class>
+            <class cfg='92'>Y</class>
+          </classes>
+          <reg>21</reg>
+          <resa>16</resa>
+          <stages>
+.*
+
+$(CRS_DATA_UPDATE_REQUEST capture=on lang=EN $(get point_dep2)
+{$(crsdata_update СУР F  11  15)
+ $(crsdata_update СОЧ F  22  13)
+ $(crsdata_update СОЧ Y   0   0)})
+
+###                       cfg resa tranzit block avail prot
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer...>
+    <data>
+      <tripcounters>
+$(tripcounters_item Total 188   43      32     0   113    0)
+$(tripcounters_item F      92   33      28     0    31    0)
+$(tripcounters_item C       4    0       0     0     4    0)
+$(tripcounters_item Y      92   10       4     0    78    0)
+$(tripcounters_item SGC   188   21      19     0   113    0)
+$(tripcounters_item AER   188   22      13     0   113    0)
+      </tripcounters>
+    </data>
+  </answer>
+</term>
+
+!! capture=on
+$(READ_TRIPS $(date_format %d.%m.%Y +1))
+
+>> mode=regex
+.*
+          <places_out>
+            <airp>SGC</airp>
+            <airp>AER</airp>
+          </places_out>
+          <classes>
+            <class cfg='92'>F</class>
+            <class cfg='4'>C</class>
+            <class cfg='92'>Y</class>
+          </classes>
+          <reg>32</reg>
+          <resa>43</resa>
+          <stages>
+.*
+
+
+
+
+

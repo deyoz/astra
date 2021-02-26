@@ -114,7 +114,10 @@ $(defmacro PREPARE_SPP_TRANSIT_FLIGHT_AFTER_PNL
 
 $(set_user_time_type LocalAirp PIKE)
 
-$(NEW_SPP_FLIGHT_TWO_LEGS $(airline) $(flt_no) "" $(airp_dep) $(time_dep) $(time_arv_trst) $(airp_trst) $(time_dep_trst) $(time_arv) $(airp_arv))
+$(NEW_SPP_FLIGHT_REQUEST
+{ $(new_spp_point $(airline) $(flt_no) "" "" ""               $(airp_dep)  $(time_dep))
+  $(new_spp_point $(airline) $(flt_no) "" "" $(time_arv_trst) $(airp_trst) $(time_dep_trst))
+  $(new_spp_point_last                       $(time_arv)      $(airp_arv)) })
 
 $(PREPARE_SPP_FLIGHT_SETTINGS $(airline) $(airp_dep))
 
