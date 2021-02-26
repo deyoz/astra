@@ -21,8 +21,6 @@ build_ora_database()
     oradir=$1
     ( ( cd ${oradir} && ./create_database.sh ${CONNECT_STRING} )
       checkresult create_ora_db $?
-      ( cd src && ./nosir.tcl -html_to_db ../${oradir}/4load/html )
-      checkresult html_to_db $?
     )
 }
 
@@ -40,6 +38,10 @@ build_pg_database()
      ( ( cd ${arx_base_dir} && ./../../create_database.sh ${PG_CONNECT_STRING_ARX} )
         checkresult create_arx_pg_db $?
      )
+     
+    ( ( cd src && ./nosir.tcl -html_to_db ../${pgdir}/4Load/html )
+        checkresult html_to_db $?
+    )
 }
 
 build_pg_database sql/bases/pg
@@ -47,7 +49,6 @@ checkresult build_pg_database $?
 
 build_ora_database sql/bases/ora
 checkresult build_ora_database $?
-
 
 ( cd src && make install-edimessages )
 checkresult installedimessages $?
