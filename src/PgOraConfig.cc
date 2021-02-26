@@ -56,14 +56,14 @@ namespace PgOra
                               "MOVE_ARX_EXT"      , "ARX_VALUE_BAG"      , "ARX_TRIP_STAGES", "ARX_VALUE_BAG_TAXES" , "ARX_LIMITED_CAPABILITY_STAT" }},
         { "SP_PG_GROUP_SPPCKIN", {"TRIP_ALARMS", "TRIP_APIS_PARAMS", "TRIP_RPT_PERSON", "UTG_PRL"} },
         { "SP_PG_GROUP_TLG_QUE",   { "TLGS", "TLGS_TEXT", "TLG_QUEUE", "TLG_ERROR", "TLG_STAT" } },
-        { "SP_PG_GROUP_COMP", {
-            "COMPARE_COMP_LAYERS",
-            "COMP_LAYER_TYPES",
-            "COMP_LAYER_PRIORITIES",
-            "COMPART_DESC_TYPES",
-            "COMPART_DESC_SETS",
-            "COMP_LAYER_RULES",
-            "COMP_TARIFF_COLORS"} },
+        { "SP_PG_GROUP_COMP", { "COMPARE_COMP_LAYERS",
+                                "COMP_LAYER_TYPES",
+                                "COMP_LAYER_PRIORITIES",
+                                "COMPART_DESC_TYPES",
+                                "COMPART_DESC_SETS",
+                                "COMP_LAYER_RULES",
+                                "COMP_TARIFF_COLORS"} },
+        { "SP_PG_GROUP_HTML", { "HTML_PAGES", "HTML_PAGES_TEXT" } },
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
