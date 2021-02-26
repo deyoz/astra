@@ -165,15 +165,24 @@ $(defmacro NEW_SPP_FLIGHT_TWO_LEGS
 })
 
 $(defmacro NEW_SPP_FLIGHT_THREE_LEGS
-  airline
-  flt_no
-  craft
+  airline1
+  flt_no1
+  craft1
+  bort1
   airp1
   scd_out1 #формат даты: dd.mm.yyyy hh:nn
   scd_in2  #формат даты: dd.mm.yyyy hh:nn
+  airline2
+  flt_no2
+  craft2
+  bort2
   airp2
   scd_out2 #формат даты: dd.mm.yyyy hh:nn
   scd_in3  #формат даты: dd.mm.yyyy hh:nn
+  airline3
+  flt_no3
+  craft3
+  bort3
   airp3
   scd_out3 #формат даты: dd.mm.yyyy hh:nn
   scd_in4  #формат даты: dd.mm.yyyy hh:nn
@@ -191,9 +200,11 @@ $(defmacro NEW_SPP_FLIGHT_THREE_LEGS
           <dest>
             <modify/>
             <airp>$(airp1)</airp>
-            <airline>$(airline)</airline>
-            <flt_no>$(flt_no)</flt_no>
-            <craft>$(craft)</craft>
+            <airline>$(airline1)</airline>
+            <flt_no>$(flt_no1)</flt_no>
+            <craft>$(craft1)</craft>\
+$(if $(eq $(bort1) "") "" {
+            <bort>$(bort1)</bort>})
             <scd_out>$(scd_out1):00</scd_out>
             <trip_type>п</trip_type>
             <pr_tranzit>0</pr_tranzit>
@@ -202,9 +213,11 @@ $(defmacro NEW_SPP_FLIGHT_THREE_LEGS
           <dest>
             <modify/>
             <airp>$(airp2)</airp>
-            <airline>$(airline)</airline>
-            <flt_no>$(flt_no)</flt_no>
-            <craft>$(craft)</craft>
+            <airline>$(airline2)</airline>
+            <flt_no>$(flt_no2)</flt_no>
+            <craft>$(craft2)</craft>\
+$(if $(eq $(bort2) "") "" {
+            <bort>$(bort2)</bort>})
             <scd_in>$(scd_in2):00</scd_in>
             <scd_out>$(scd_out2):00</scd_out>
             <trip_type>п</trip_type>
@@ -214,9 +227,11 @@ $(defmacro NEW_SPP_FLIGHT_THREE_LEGS
           <dest>
             <modify/>
             <airp>$(airp3)</airp>
-            <airline>$(airline)</airline>
-            <flt_no>$(flt_no)</flt_no>
-            <craft>$(craft)</craft>
+            <airline>$(airline3)</airline>
+            <flt_no>$(flt_no3)</flt_no>
+            <craft>$(craft3)</craft>\
+$(if $(eq $(bort3) "") "" {
+            <bort>$(bort3)</bort>})
             <scd_in>$(scd_in3):00</scd_in>
             <scd_out>$(scd_out3):00</scd_out>
             <trip_type>п</trip_type>

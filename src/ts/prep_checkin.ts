@@ -90,6 +90,42 @@ $(if $(eq $(crs) "") {
             <tranzit>$(tranzit)</tranzit>
           </itemcrs>})
 
+$(defmacro crsdata_update
+  target
+  class
+  resa
+  tranzit
+{        <item>
+          <target>$(get_elem_id etAirp $(target))</target>
+          <class>$(get_elem_id etClass $(class))</class>
+          <resa>$(resa)</resa>
+          <tranzit>$(tranzit)</tranzit>
+        </item>})
+
+$(defmacro CRS_DATA_UPDATE_REQUEST
+  point_dep
+  update_section
+  lang=RU
+  capture=off
+{
+
+!! capture=$(capture)
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='prepreg' ver='1' opr='PIKE' screen='PREPREG.EXE' mode='STAND' lang='$(lang)' term_id='2479792165'>
+    <CrsDataApplyUpdates>
+      <point_id>$(point_dep)</point_id>
+      <question>1</question>
+      <crsdata>
+$(update_section)
+      </crsdata>
+      <tripcounters/>
+    </CrsDataApplyUpdates>
+  </query>
+</term>
+
+})
+
 ### test 1 - одно плечо, телеграммы PNL/ADL не пришли, вводятся данные вручную
 #########################################################################################
 
@@ -154,37 +190,10 @@ $(crs_item "" "Общие данные" "" "" "")
         <crsdata/>
       </tripdata>
 
-!! capture=on
-<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='prepreg' ver='1' opr='PIKE' screen='PREPREG.EXE' mode='STAND' lang='RU' term_id='2479792165'>                        \
-    <CrsDataApplyUpdates>
-      <point_id>$(get point_dep)</point_id>
-      <question>1</question>
-      <crsdata>
-        <item>
-          <target>$(get_elem_id etAirp $(get airp_arv))</target>
-          <class>П</class>
-          <resa>1</resa>
-          <tranzit>0</tranzit>
-        </item>
-        <item>
-          <target>$(get_elem_id etAirp $(get airp_arv))</target>
-          <class>Б</class>
-          <resa>8</resa>
-          <tranzit>2</tranzit>
-        </item>
-        <item>
-          <target>$(get_elem_id etAirp $(get airp_arv))</target>
-          <class>Э</class>
-          <resa>22</resa>
-          <tranzit>4</tranzit>
-        </item>
-      </crsdata>
-      <tripcounters/>
-    </CrsDataApplyUpdates>
-  </query>
-</term>
+$(CRS_DATA_UPDATE_REQUEST capture=on $(get point_dep)
+{$(crsdata_update АЯТ П  1  0)
+ $(crsdata_update АЯТ Б  8  2)
+ $(crsdata_update АЯТ Э 22  4)})
 
 ###                       cfg resa tranzit block avail prot
 >>
@@ -214,6 +223,7 @@ $(READ_TRIPS $(date_format %d.%m.%Y +1))
             <class cfg='60'>Y</class>
           </classes>
           <resa>31</resa>
+          <stages>
 
 %%
 
@@ -343,6 +353,7 @@ $(READ_TRIPS $(date_format %d.%m.%Y +1))
             <class cfg='60'>Y</class>
           </classes>
           <resa>24</resa>
+          <stages>
 
 $(CHANGE_SPP_FLIGHT_ONE_LEG $(get point_dep) "" "" $(get airline) $(get flt_no) $(get craft) $(get airp_dep) $(get time_dep) $(get time_arv) $(get airp_arv) $(get bort))
 
@@ -644,4 +655,337 @@ $(crsdata_item ""        АЯТ Э 15  0)
         </crsdata>
       </tripdata>
 
+%%
 
+### test 3
+### три плеча с дублирующимися пунктами вылета и прилета
+### потом отменяем дублирование пунктов
+### далее экспериментируем с приоритетами отправителей в пункте транзита
+#########################################################################################
+
+$(init_term)
+$(set_user_time_type LocalAirp PIKE)
+
+$(set tomor $(date_format %d.%m.%Y +1))
+
+$(NEW_SPP_FLIGHT_THREE_LEGS
+                       ЮТ 111 100 44444 DME "$(get tomor) 07:00"
+  "$(get tomor) 08:00" ЮТ 111 100 44444 TJM "$(get tomor) 10:00"
+  "$(get tomor) 11:00" ЮТ 111 100 44444 SGC "$(get tomor) 13:00"
+  "$(get tomor) 15:00"                  TJM
+)
+
+$(set point_dep1 $(get_point_dep_for_flight ЮТ 111 "" $(yymmdd +1) DME))
+$(set point_dep2 $(get_point_dep_for_flight ЮТ 111 "" $(yymmdd +1) TJM))
+$(set point_dep3 $(get_point_dep_for_flight ЮТ 111 "" $(yymmdd +1) SGC))
+
+$(PREP_CHECKIN $(get point_dep1))
+$(PREP_CHECKIN $(get point_dep2))
+$(PREP_CHECKIN $(get point_dep3))
+
+$(GET_TRIP_INFO_REQUEST capture=on $(get point_dep1))
+
+###                       cfg resa tranzit block avail prot
+>> lines=auto
+      <tripcounters>
+$(tripcounters_item Всего 188    0       0     0   188    0)
+$(tripcounters_item П      92    0       0     0    92    0)
+$(tripcounters_item Б       4    0       0     0     4    0)
+$(tripcounters_item Э      92    0       0     0    92    0)
+$(tripcounters_item РЩН   188    0       0     0   188    0)
+$(tripcounters_item СУР   188    0       0     0   188    0)
+$(tripcounters_item РЩН   188    0       0     0   188    0)
+      </tripcounters>
+      <tripdata>
+        <airps>
+          <airp>$(get_elem_id etAirp TJM)</airp>
+          <airp>$(get_elem_id etAirp SGC)</airp>
+          <airp>$(get_elem_id etAirp TJM)</airp>
+        </airps>
+        <classes>
+          <class>$(get_elem_id etClass F)</class>
+          <class>$(get_elem_id etClass C)</class>
+          <class>$(get_elem_id etClass Y)</class>
+        </classes>
+        <crs>
+$(crs_item "" "Общие данные" "" "" "")
+        </crs>
+        <crsdata/>
+      </tripdata>
+
+!! capture=on
+$(READ_TRIPS $(date_format %d.%m.%Y +1))
+
+>> mode=regex
+.*
+          <places_out>
+            <airp>TJM</airp>
+            <airp>SGC</airp>
+            <airp>TJM</airp>
+          </places_out>
+          <classes>
+            <class cfg='92'>F</class>
+            <class cfg='4'>C</class>
+            <class cfg='92'>Y</class>
+          </classes>
+          <stages>
+.*
+          <places_out>
+            <airp>SGC</airp>
+            <airp>TJM</airp>
+          </places_out>
+          <classes>
+            <class cfg='92'>F</class>
+            <class cfg='4'>C</class>
+            <class cfg='92'>Y</class>
+          </classes>
+          <stages>
+.*
+          <places_out>
+            <airp>TJM</airp>
+          </places_out>
+          <classes>
+            <class cfg='92'>F</class>
+            <class cfg='4'>C</class>
+            <class cfg='92'>Y</class>
+          </classes>
+          <stages>
+.*
+
+<<
+MOWKK1H
+.SENDER3 $(dd)1200
+PNL
+UT111/$(ddmon +1 en) DME PART1
+RBD F/FA C/CJID Y/YSTEQGNBXWUORVHLKPZ
+AVAIL
+ DME  TJM  SGC  AER
+A000  002  003
+J010  020  030
+Z100  200  300
+ENDPNL
+
+<<
+MOWKK1H
+.SENDER3 $(dd)1200
+PNL
+UT111/$(ddmon +1 en) TJM PART1
+RBD F/FA C/CJID Y/YSTEQGNBXWUORVHLKPZ
+TRANSIT
+ SGC  AER
+A004  008
+J001  002
+Z016  032
+ENDPNL
+
+<<
+MOWKK1H
+.SENDER1 $(dd)1200
+PNL
+UT111/$(ddmon +1 en) DME PART1
+RBD F/FA C/CJID Y/YSTEQGNBXWUORVHLKPZ
+AVAIL
+ DME  TJM  SGC  AER
+Y005  004  003
+-TJM000Y-PAD000
+1KIM
+-TJM001S-PAD000
+-TJM002T-PAD001
+-TJM003E-PAD000
+-AER003Y-PAD000
+-AER002S-PAD002
+-AER001T-PAD000
+-AER000E-PAD000
+-SGC003Y-PAD000
+-SGC002S-PAD001
+-SGC004T-PAD000
+-SGC001E-PAD000
+-SGC000D-PAD000
+ENDPNL
+
+<<
+MOWKK1H
+.SENDER1 $(dd)1200
+PNL
+UT111/$(ddmon +1 en) TJM PART1
+RBD F/FA C/CJID Y/YSTEQGNBXWUORVHLKPZ
+TRANSIT
+ SGC  AER
+Y004  003
+-AER003Y-PAD000
+1KIM
+-AER002S-PAD002
+-AER001T-PAD000
+-AER000E-PAD000
+-SGC003Y-PAD000
+-SGC002S-PAD001
+-SGC004T-PAD000
+-SGC001E-PAD000
+-SGC000D-PAD000
+ENDPNL
+
+<<
+MOWKK1H
+.SENDER2 $(dd)1200
+PNL
+UT111/$(ddmon +1 en) DME PART1
+RBD F/FA C/CJID Y/YSTEQGNBXWUORVHLKPZ
+-TJM066Z
+1BIM
+-TJM015J
+-TJM011A
+ENDPNL
+
+<<
+MOWKK1H
+.SENDER2 $(dd)1200
+PNL
+UT111/$(ddmon +1 en) TJM PART1
+RBD F/FA C/CJID Y/YSTEQGNBXWUORVHLKPZ
+-AER033Z
+1BIM
+-AER000J
+-AER007A
+ENDPNL
+
+$(GET_TRIP_INFO_REQUEST capture=on $(get point_dep1))
+
+###                       cfg resa tranzit block avail prot
+>> lines=auto
+      <tripcounters>
+$(tripcounters_item Всего 188  108       0     0    91    0)
+$(tripcounters_item П      92   11       0     0    81    0)
+$(tripcounters_item Б       4   15       0     0     0    0)
+$(tripcounters_item Э      92   82       0     0    10    0)
+$(tripcounters_item РЩН   188   98       0     0    80    0)
+$(tripcounters_item СУР   188   10       0     0    80    0)
+$(tripcounters_item РЩН   188    0       0     0    80    0)
+      </tripcounters>
+      <tripdata>
+        <airps>
+          <airp>$(get_elem_id etAirp TJM)</airp>
+          <airp>$(get_elem_id etAirp SGC)</airp>
+          <airp>$(get_elem_id etAirp TJM)</airp>
+        </airps>
+        <classes>
+          <class>$(get_elem_id etClass F)</class>
+          <class>$(get_elem_id etClass C)</class>
+          <class>$(get_elem_id etClass Y)</class>
+        </classes>
+        <crs>
+$(crs_item ""        "Общие данные" " "  " "  " ")
+$(crs_item "SENDER1" "SENDER1"      "x"  "x"  " ")
+$(crs_item "SENDER2" "SENDER2"      "x"  "x"  " ")
+$(crs_item "SENDER3" "SENDER3"      "x"  " "  " ")
+        </crs>
+        <crsdata>
+$(crsdata_item "SENDER1" РЩН Э  6 -1)
+$(crsdata_item "SENDER1" СУР Б  0 -1)
+$(crsdata_item "SENDER1" СУР Э 10 -1)
+$(crsdata_item "SENDER1" СОЧ Э  6 -1)
+$(crsdata_item "SENDER2" РЩН Б 15 -1)
+$(crsdata_item "SENDER2" РЩН П 11 -1)
+$(crsdata_item "SENDER2" РЩН Э 66 -1)
+$(crsdata_item ""        РЩН Б 15  0)
+$(crsdata_item ""        РЩН П 11  0)
+$(crsdata_item ""        РЩН Э 72  0)
+$(crsdata_item ""        СОЧ Б  0  0)
+$(crsdata_item ""        СОЧ П  0  0)
+$(crsdata_item ""        СОЧ Э  6  0)
+$(crsdata_item ""        СУР Б  0  0)
+$(crsdata_item ""        СУР П  0  0)
+$(crsdata_item ""        СУР Э 10  0)
+        </crsdata>
+      </tripdata>
+
+$(GET_TRIP_INFO_REQUEST capture=on $(get point_dep2))
+
+###                       cfg resa tranzit block avail prot
+>> lines=auto
+      <tripcounters>
+$(tripcounters_item Всего 188   10      25     0   153    0)
+$(tripcounters_item П      92    0       4     0    88    0)
+$(tripcounters_item Б       4    0       1     0     3    0)
+$(tripcounters_item Э      92   10      20     0    62    0)
+$(tripcounters_item СУР   188   10      25     0   153    0)
+$(tripcounters_item РЩН   188    0       0     0   153    0)
+      </tripcounters>
+      <tripdata>
+        <airps>
+          <airp>$(get_elem_id etAirp SGC)</airp>
+          <airp>$(get_elem_id etAirp TJM)</airp>
+        </airps>
+        <classes>
+          <class>$(get_elem_id etClass F)</class>
+          <class>$(get_elem_id etClass C)</class>
+          <class>$(get_elem_id etClass Y)</class>
+        </classes>
+        <crs>
+$(crs_item ""        "Общие данные" " "  " "  " ")
+$(crs_item "SENDER1" "SENDER1"      "x"  "x"  " ")
+$(crs_item "SENDER2" "SENDER2"      "x"  "x"  " ")
+$(crs_item "SENDER3" "SENDER3"      "x"  " "  " ")
+        </crs>
+        <crsdata>
+$(crsdata_item "SENDER1" СУР Б  0 -1)
+$(crsdata_item "SENDER1" СУР Э 10  4)
+$(crsdata_item "SENDER1" СОЧ Э  6  3)
+$(crsdata_item "SENDER2" СОЧ Б  0 -1)
+$(crsdata_item "SENDER2" СОЧ П  7 -1)
+$(crsdata_item "SENDER2" СОЧ Э 33 -1)
+$(crsdata_item "SENDER3" СУР Б -1  1)
+$(crsdata_item "SENDER3" СУР П -1  4)
+$(crsdata_item "SENDER3" СУР Э -1 16)
+$(crsdata_item "SENDER3" СОЧ Б -1  2)
+$(crsdata_item "SENDER3" СОЧ П -1  8)
+$(crsdata_item "SENDER3" СОЧ Э -1 32)
+$(crsdata_item ""        СОЧ Б  0  2)
+$(crsdata_item ""        СОЧ П  7  8)
+$(crsdata_item ""        СОЧ Э 39 35)
+$(crsdata_item ""        СУР Б  0  1)
+$(crsdata_item ""        СУР П  0  4)
+$(crsdata_item ""        СУР Э 10 20)
+        </crsdata>
+      </tripdata>
+
+!! capture=on
+$(READ_TRIPS $(date_format %d.%m.%Y +1))
+
+>> mode=regex
+.*
+          <places_out>
+            <airp>TJM</airp>
+            <airp>SGC</airp>
+            <airp>TJM</airp>
+          </places_out>
+          <classes>
+            <class cfg='92'>F</class>
+            <class cfg='4'>C</class>
+            <class cfg='92'>Y</class>
+          </classes>
+          <resa>114</resa>
+          <stages>
+.*
+          <places_out>
+            <airp>SGC</airp>
+            <airp>TJM</airp>
+          </places_out>
+          <classes>
+            <class cfg='92'>F</class>
+            <class cfg='4'>C</class>
+            <class cfg='92'>Y</class>
+          </classes>
+          <reg>25</reg>
+          <resa>56</resa>
+          <stages>
+.*
+          <places_out>
+            <airp>TJM</airp>
+          </places_out>
+          <classes>
+            <class cfg='92'>F</class>
+            <class cfg='4'>C</class>
+            <class cfg='92'>Y</class>
+          </classes>
+          <stages>
+.*
