@@ -37,11 +37,7 @@ build_pg_database()
      # arx
      ( ( cd ${arx_base_dir} && ./../../create_database.sh ${PG_CONNECT_STRING_ARX} )
         checkresult create_arx_pg_db $?
-     )
-     
-    ( ( cd src && ./nosir.tcl -html_to_db ../${pgdir}/4Load/html )
-        checkresult html_to_db $?
-    )
+     )     
 }
 
 build_pg_database sql/bases/pg
@@ -53,8 +49,8 @@ checkresult build_ora_database $?
 ( cd src && make install-edimessages )
 checkresult installedimessages $?
 
-( cd src && ./nosir.tcl -load_fr ../sql/nosir_load/fr_reports )
-checkresult load_fr $?
+( cd src && ./nosir.tcl -html_to_db ../sql/nosir_load/html )
+checkresult html_to_db $?
 
 ( cd src && ./nosir.tcl -pg_sessions_check )
 checkresult pg_sessions_check $?
