@@ -2037,8 +2037,8 @@ bool is_sync_paxs( int point_id )
 
   return MERIDIAN::is_sync_meridian( tripInfo ) ||
          is_sync_basel_pax( tripInfo ) ||
-         is_sync_aodb_pax( tripInfo ) ||
-         MQRABBIT_TRANSPORT::is_sync_exch_checkin_result_mqrabbit( tripInfo );
+         is_sync_FileParamSets( tripInfo, FILE_AODB_OUT_TYPE ) ||
+         is_sync_FileParamSets( tripInfo, MQRABBIT_TRANSPORT::MQRABBIT_CHECK_IN_RESULT_OUT_TYPE );
 }
 
 bool is_sync_flights( int point_id )
@@ -2046,7 +2046,26 @@ bool is_sync_flights( int point_id )
   TTripInfo tripInfo;
   if (!tripInfo.getByPointId(point_id, FlightProps(FlightProps::NotCancelled,
                                                    FlightProps::WithCheckIn))) return false;
-  return MQRABBIT_TRANSPORT::is_sync_exch_flights_result_mqrabbit( tripInfo );
+  return is_sync_FileParamSets( tripInfo, MQRABBIT_TRANSPORT::MQRABBIT_FLIGHTS_RESULT_OUT_TYPE );
+}
+
+bool is_sync_FileParamSets( const TTripInfo &tripInfo, const std::string& syncType )
+{
+  TQuery Qry( &OraSession );
+  Qry.Clear();
+  Qry.SQLText =
+      "SELECT id FROM file_param_sets "
+      " WHERE ( file_param_sets.airp IS NULL OR file_param_sets.airp=:airp ) AND "
+      "       ( file_param_sets.airline IS NULL OR file_param_sets.airline=:airline ) AND "
+      "       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=:flt_no ) AND "
+      "       file_param_sets.type=:type AND pr_send=1 AND own_point_addr=:own_point_addr AND rownum<2";
+  Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
+  Qry.CreateVariable( "type", otString, syncType );
+  Qry.CreateVariable( "airline", otString, tripInfo.airline );
+  Qry.CreateVariable( "airp", otString, tripInfo.airp );
+  Qry.CreateVariable( "flt_no", otInteger, tripInfo.flt_no );
+  Qry.Execute();
+  return ( !Qry.Eof );
 }
 
 void update_pax_change( int point_id, int pax_id, int reg_no, const string &work_mode )
