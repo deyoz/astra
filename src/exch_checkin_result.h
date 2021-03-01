@@ -9,8 +9,7 @@ namespace MQRABBIT_TRANSPORT {
 
 const std::string MQRABBIT_CHECK_IN_RESULT_OUT_TYPE = "MQRO";
 const std::string MQRABBIT_FLIGHTS_RESULT_OUT_TYPE = "MQRF";
-bool is_sync_exch_checkin_result_mqrabbit( const TTripInfo &tripInfo );
-bool is_sync_exch_flights_result_mqrabbit( const TTripInfo &tripInfo );
+const std::string PARAM_NAME_ADDR = "ADDR";
 
 struct MQRabbitParams {
   std::string addr;
@@ -18,10 +17,41 @@ struct MQRabbitParams {
   MQRabbitParams( const std::string &connect_str );
 };
 
+struct MQRabbitRequest {
+  std::string Sender;
+  std::vector<std::string> airps;
+  std::vector<std::string> airlines;
+  std::vector<int> flts;
+  bool pr_reset;
+  TDateTime lastRequestTime;
+  MQRabbitRequest() {
+    clear();
+  }
+  void clear() {
+    lastRequestTime = ASTRA::NoExists;
+    Sender.clear();
+    airps.clear();
+    airlines.clear();
+    flts.clear();
+    pr_reset = false;
+  }
+  virtual ~MQRabbitRequest(){}
+};
+
+
+class MQRSender {
+public:
+  virtual void send( const std::string& senderType,
+                     const MQRabbitRequest &request,
+                     std::map<std::string,std::string>& params )=0;
+  void execute( const std::string& senderType );
+  virtual ~MQRSender(){}
+};
+
 }
 
 namespace EXCH_CHECKIN_RESULT {
- 
+
 struct Tids {
   int pax_tid;
   int grp_tid;

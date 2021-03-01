@@ -54,51 +54,9 @@ static int WAIT_INTERVAL()       //секунды
 
 namespace MQRABBIT_TRANSPORT
 {
-
-  const std::string PARAM_NAME_ADDR = "ADDR";
   const std::string PARAM_NAME_ACTIONCODE = "ACTION_CODE";
   const int MAX_SEND_PAXS = 500;
   const int MAX_SEND_FLIGHTS = 500;
-
-bool is_sync_exch_checkin_result_mqrabbit( const TTripInfo &tripInfo )
-{
-  TQuery Qry( &OraSession );
-  Qry.Clear();
-  Qry.SQLText =
-      "SELECT id FROM file_param_sets "
-      " WHERE ( file_param_sets.airp IS NULL OR file_param_sets.airp=:airp ) AND "
-      "       ( file_param_sets.airline IS NULL OR file_param_sets.airline=:airline ) AND "
-      "       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=:flt_no ) AND "
-      "       file_param_sets.type=:type AND pr_send=1 AND own_point_addr=:own_point_addr";
-  Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
-  Qry.CreateVariable( "type", otString, MQRABBIT_TRANSPORT::MQRABBIT_CHECK_IN_RESULT_OUT_TYPE );
-  Qry.CreateVariable( "airline", otString, tripInfo.airline );
-  Qry.CreateVariable( "airp", otString, tripInfo.airp );
-  Qry.CreateVariable( "flt_no", otInteger, tripInfo.flt_no );
-  Qry.Execute();
-  return ( !Qry.Eof );
-}
-
-bool is_sync_exch_flights_result_mqrabbit( const TTripInfo &tripInfo )
-{
-  tst();
-  TQuery Qry( &OraSession );
-  Qry.Clear();
-  Qry.SQLText =
-      "SELECT id FROM file_param_sets "
-      " WHERE ( file_param_sets.airp IS NULL OR file_param_sets.airp=:airp ) AND "
-      "       ( file_param_sets.airline IS NULL OR file_param_sets.airline=:airline ) AND "
-      "       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=:flt_no ) AND "
-      "       file_param_sets.type=:type AND pr_send=1 AND own_point_addr=:own_point_addr";
-  Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
-  Qry.CreateVariable( "type", otString, MQRABBIT_TRANSPORT::MQRABBIT_FLIGHTS_RESULT_OUT_TYPE );
-  Qry.CreateVariable( "airline", otString, tripInfo.airline );
-  Qry.CreateVariable( "airp", otString, tripInfo.airp );
-  Qry.CreateVariable( "flt_no", otInteger, tripInfo.flt_no );
-  Qry.Execute();
-  ProgTrace( TRACE5, "is_sync_exch_flights_result_mqrabbit=%d", !Qry.Eof );
-  return ( !Qry.Eof );
-}
 
 } //end namespace MQRABBIT_TRANSPORT
 
@@ -131,7 +89,8 @@ int main_exch_checkin_result_queue_tcl( int supervisorSocket, int argc, char *ar
 
 namespace EXCH_CHECKIN_RESULT
 {
-  struct Request {
+  struct Request: public MQRABBIT_TRANSPORT::MQRabbitRequest {
+    std::string actionCode;
     enum Enum
     {
       ServicePayment,
@@ -139,24 +98,9 @@ namespace EXCH_CHECKIN_RESULT
       Baggage,
       LocalTime,
     };
-    std::string Sender;
-    std::string actionCode;
-    std::vector<std::string> airps;
-    std::vector<std::string> airlines;
-    std::vector<int> flts;
-    bool pr_reset;
-    TDateTime lastRequestTime;
-    Request() {
-      clear();
-    }
     void clear() {
-      lastRequestTime = ASTRA::NoExists;
-      Sender.clear();
+      MQRABBIT_TRANSPORT::MQRabbitRequest::clear();
       actionCode.clear();
-      airps.clear();
-      airlines.clear();
-      flts.clear();
-      pr_reset = false;
     }
     bool isAction( Enum action ) const {
       switch ( action ) {
@@ -173,7 +117,8 @@ namespace EXCH_CHECKIN_RESULT
 
       }
     }
-
+    virtual ~Request(){}
+    Request( const MQRABBIT_TRANSPORT::MQRabbitRequest& req ):MQRABBIT_TRANSPORT::MQRabbitRequest(req){}
   };
 
   struct FlightData {
@@ -639,9 +584,7 @@ namespace EXCH_CHECKIN_RESULT
     }
     std::vector<TAdvTripRouteItem>::const_iterator iarr_route = route.begin();
     iarr_route++;
-    tst();
     if ( iarr_route != route.end() ) {
-      tst();
       airp_arv = iarr_route->airp;
       scd_in = iarr_route->scd_in;
       FltQry.SetVariable( "point_id", iarr_route->point_id );
@@ -890,7 +833,6 @@ namespace EXCH_CHECKIN_RESULT
     PaxDBData paxDBData;
     TQuery PaxQry(&OraSession);
     paxDBData.createSQLRequest( PaxQry );
-    tst();
     // пробег по всем пассажирам у которых время больше или равно текущему
     int prior_pax_id = -1;
     int count_row = 0;
@@ -900,7 +842,6 @@ namespace EXCH_CHECKIN_RESULT
     FltQry.SQLText =
       "SELECT airline,flt_no,suffix,airp,scd_out FROM points WHERE point_id=:point_id";
     FltQry.DeclareVariable( "point_id", otInteger );
-    tst();
     for ( ;!changePaxIdsQry.Eof && pax_count<=MQRABBIT_TRANSPORT::MAX_SEND_PAXS; changePaxIdsQry.Next() ) { //по-хорошему меридиан никакого отношения к веб-регистрации не имеет
       count_row++;
       int pax_id = changePaxIdsQry.FieldAsInteger( changePaxIdsDBData.col_pax_id );
@@ -1038,7 +979,6 @@ namespace EXCH_CHECKIN_RESULT
     request.lastRequestTime  = ((request.lastRequestTime < nowUTC - 1.0/24.0)? nowUTC - 1.0/24.0:request.lastRequestTime);
     changeFlightsDBData.createSQLRequest( request, changeFlightsQry );
 
-    tst();
     // пробег по всем пассажирам у которых время больше или равно текущему
     int count_row = 0;
     int flight_count = 0;
@@ -1047,7 +987,6 @@ namespace EXCH_CHECKIN_RESULT
     FltQry.SQLText =
       "SELECT airline,flt_no,suffix,airp,craft,bort,act_in,est_in,scd_in,scd_out,est_out,act_out FROM points WHERE point_id=:point_id";
     FltQry.DeclareVariable( "point_id", otInteger );
-    tst();
     for ( ;!changeFlightsQry.Eof && flight_count<=MQRABBIT_TRANSPORT::MAX_SEND_FLIGHTS; changeFlightsQry.Next() ) {
       count_row++;
       int point_id = changeFlightsQry.FieldAsInteger( changeFlightsDBData.col_point_id );
@@ -1160,7 +1099,6 @@ namespace MQRABBIT_TRANSPORT {
            xmlFreeDoc( docPaxs );
            docPaxs = NULL;
         }
-        tst();
         //put to queue
         if ( docPaxs ) {
           jms::text_message in1;
@@ -1250,7 +1188,6 @@ namespace MQRABBIT_TRANSPORT {
            xmlFreeDoc( docFlights );
            docFlights = NULL;
         }
-        tst();
         //put to queue
         if ( docFlights ) {
           jms::text_message in1;
@@ -1304,38 +1241,27 @@ namespace MQRABBIT_TRANSPORT {
     callPostHooksAlways();
   }
 
-  static void exch_Checkin_or_Flights_result_handler(const char* handler_id, const char* task)
+  void MQRABBIT_TRANSPORT::MQRSender::execute( const std::string& senderType )
   {
-    LogTrace(TRACE5) << "exch_Checkin_or_Flights_result_handler started, handler_id=" << handler_id << ",task=" << task;
-    TReqInfo::Instance()->clear();
-    TReqInfo::Instance()->user.sets.time = ustTimeUTC;
-    emptyHookTables();
-    TDateTime nowUTC=NowUTC();
-
     TQuery Qry(&OraSession);
     Qry.SQLText =
       "SELECT point_addr, airline, airp, flt_no, param_name, param_value FROM file_param_sets, desks "
       " WHERE type=:type AND own_point_addr=:own_point_addr AND pr_send=1 AND "
       "       desks.code=file_param_sets.point_addr "
       "ORDER BY point_addr ";
-    Qry.CreateVariable( "type", otString, std::string( task ) == "paxs"?MQRABBIT_TRANSPORT::MQRABBIT_CHECK_IN_RESULT_OUT_TYPE:MQRABBIT_TRANSPORT::MQRABBIT_FLIGHTS_RESULT_OUT_TYPE );
+    Qry.CreateVariable( "type", otString, senderType );
     Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
     Qry.Execute();
+    MQRabbitRequest request;
     std::map<std::string,std::string> params;
-    EXCH_CHECKIN_RESULT::Request request;
     for ( ;!Qry.Eof; Qry.Next() ) {// это адреса очередей, для кого надо отдать результаты регистрации
       if ( request.Sender.empty() ) {
         request.Sender = Qry.FieldAsString( "point_addr" );
       }
       if ( request.Sender != Qry.FieldAsString( "point_addr" ) ) {
-        if ( std::string( task ) == "paxs" ) {
-          tst();
-          putMQRabbitPaxs( request, params );
-        }
-        else {
-          tst();
-          putMQRabbitFlights( request, params );
-        }
+        send( senderType,
+              request,
+              params );
         request.clear();
         request.Sender = Qry.FieldAsString( "point_addr" );
         params.clear();
@@ -1356,17 +1282,37 @@ namespace MQRABBIT_TRANSPORT {
       }
     }
     if ( !request.Sender.empty() ) {
-      if ( std::string( task ) == "paxs" ) {
-        tst();
-        putMQRabbitPaxs( request, params );
-      }
-      else {
-        tst();
-        putMQRabbitFlights( request, params );
-      }
+      send( senderType,
+            request,
+            params );
       request.clear();
     }
+  }
 
+  static void exch_Checkin_or_Flights_result_handler(const char* handler_id, const char* task)
+  {
+    LogTrace(TRACE5) << "exch_Checkin_or_Flights_result_handler started, handler_id=" << handler_id << ",task=" << task;
+    TReqInfo::Instance()->clear();
+    TReqInfo::Instance()->user.sets.time = ustTimeUTC;
+    emptyHookTables();
+    TDateTime nowUTC=NowUTC();
+
+    class ExchMQRSender: public MQRABBIT_TRANSPORT::MQRSender {
+     public:
+      virtual void send( const std::string& senderType,
+                         const MQRABBIT_TRANSPORT::MQRabbitRequest &request,
+                         std::map<std::string,std::string>& params ) {
+        EXCH_CHECKIN_RESULT::Request req(request);
+        if ( senderType == MQRABBIT_TRANSPORT::MQRABBIT_CHECK_IN_RESULT_OUT_TYPE ) {
+          putMQRabbitPaxs( req, params );
+        }
+        else {
+          putMQRabbitFlights( req, params );
+        }
+      }
+    };
+    ExchMQRSender exchMQRSender;
+    exchMQRSender.execute( std::string( task ) == "paxs"?MQRABBIT_TRANSPORT::MQRABBIT_CHECK_IN_RESULT_OUT_TYPE:MQRABBIT_TRANSPORT::MQRABBIT_FLIGHTS_RESULT_OUT_TYPE );
     LogTrace(TRACE5) << "checkin_result_mqrabbit ended , handler_id=" << handler_id << ",task=" << task <<", executed " << DateTimeToStr( NowUTC() - nowUTC, "nn:ss" );
   }
 

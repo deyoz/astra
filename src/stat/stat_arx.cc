@@ -7,7 +7,9 @@
 #include "astra_date_time.h"
 #include "db_tquery.h"
 #include "arx_daily_pg.h"
+#include "exch_checkin_result.h"
 #include "PgOraConfig.h"
+#include "jms/jms.hpp"
 
 #define NICKNAME "DENIS"
 #define NICKTRACE SYSTEM_TRACE
@@ -38,7 +40,6 @@ std::string get_seat_no(int seats, std::string seat_no)
 
 void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList& excessNodeList, bool isPaxSearch, int pass, int &count)
 {
-    tst();
   if(Qry.Eof) return;
 
   xmlNodePtr paxListNode = GetNode("paxList", resNode);
@@ -67,7 +68,6 @@ void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList
   int col_cabin_class_grp = Qry.FieldIndex("cabin_class_grp");
   int col_ticket_no = Qry.FieldIndex("ticket_no");
   int col_hall = Qry.FieldIndex("hall");
-  tst();
   int col_seats = Qry.FieldIndex("seats");
   int col_seat_no = Qry.FieldIndex("seat_no");
 
@@ -141,7 +141,6 @@ void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList
       NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp_arv)));
       NewTextChild(paxNode, "tags", PG_ARX::get_birks2(DateTimeToBoost(part_key), grp_id, pax_id,
                                                        bag_pool_num, pr_lat).value_or(""));
-      tst();
       string status;
       if (DecodePaxStatus(Qry.FieldAsString(col_status).c_str())!=psCrew)
       {
@@ -161,11 +160,9 @@ void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList
       NewTextChild(paxNode, "class", clsGrpIdsToCodeNative(Qry.FieldAsInteger(col_class_grp),
                                                            Qry.FieldAsInteger(col_cabin_class_grp)));
       NewTextChild(paxNode, "seat_no",  get_seat_no(seats, seat_no));
-      tst();
       NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(part_key,
                                                               Qry.FieldAsInteger(col_pax_id),
                                                               true));
-      tst();
       NewTextChild(paxNode, "ticket_no", Qry.FieldAsString(col_ticket_no));
       if(Qry.FieldIsNULL(col_hall))
           NewTextChild(paxNode, "hall");
@@ -842,7 +839,6 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
 void ArxLogRun(TDateTime part_key, XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    tst();
     xmlNodePtr paramNode = reqNode->children;
     int point_id = NodeAsIntegerFast("point_id", paramNode);
     int reg_no = NodeAsIntegerFast("reg_no", paramNode);
@@ -959,7 +955,6 @@ void ArxLogRun(TDateTime part_key, XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 
 void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    tst();
     xmlNodePtr paramNode = reqNode->children;
     int point_id = NodeAsIntegerFast("point_id", paramNode);
     int reg_no = NodeAsIntegerFast("reg_no", paramNode);
@@ -1582,9 +1577,145 @@ void ArxPaxListRun(Dates::DateTime_t part_key, xmlNodePtr reqNode, xmlNodePtr re
     }
 }
 
+class MqRabbitSearchParamsSender {
+private:
+  static const std::string MQRABBIT_SEARCH_PAX_TYPE;
+public:
+  class StatMQRSender: public MQRABBIT_TRANSPORT::MQRSender {
+   private:
+      std::map<std::string,std::string> searchParams;
+   public:
+    virtual void send( const std::string& senderType,
+                       const MQRABBIT_TRANSPORT::MQRabbitRequest &request,
+                       std::map<std::string,std::string>& params ) {
+      //формирование данных для отправки в раббит
+      LogTrace(TRACE5)<< "airlines= " << GetSQLEnum( request.airlines ) << " flt_nos=" << getSQLEnum( request.flts ) << " airps=" << GetSQLEnum( request.airps );
+      stringstream sb;
+      for ( const auto& s : params ) {
+        sb << s.first << "=" << s.second << "\n";
+      }
+      LogTrace(TRACE5)<< "params " << sb.str();
+      std::map<std::string,std::string>::const_iterator iparam = params.find( MQRABBIT_TRANSPORT::PARAM_NAME_ADDR );
+      if ( iparam == params.end() ||
+           iparam->second.empty() ) {
+        ProgError( STDLOG, "putMQRabbitPaxs: invalid connect string in file_params_sets" );
+        return;
+      }
+      MQRABBIT_TRANSPORT::MQRabbitParams p( iparam->second );
+      if ( p.addr.empty() ||
+           p.queue.empty() ) {
+        LogTrace(TRACE5) << "addr is empty";
+        return;
+      }
+      XMLDoc docSearchData = NULL;
+      std::map<std::string,std::string>::const_iterator ip;
+      try {
+        docSearchData = XMLDoc( "SearchPaxParams" );
+        xmlNodePtr node = docSearchData.docPtr()->children;
+        SetProp( node, "src", "Astra" );
+        ip = searchParams.find( "request" );
+        if ( ip != searchParams.end() ) {
+          SetProp( node, "request", ip->second );
+        }
+        ip = searchParams.find( "lang" );
+        if ( ip != searchParams.end() ) {
+          SetProp( node, "lang", ip->second );
+        }
+        SetProp( node, "time", "UTC" );
+        NewTextChild( node, "requestType", senderType );
+        xmlNodePtr n = NewTextChild( node, "user" );
+        NewTextChild( n, "login", TReqInfo::Instance()->user.login );
+        NewTextChild( n, "descr", TReqInfo::Instance()->user.descr );
+        NewTextChild( node, "desk", TReqInfo::Instance()->desk.code );
+        node = NewTextChild( node, "params" );
+        for ( const auto &p : searchParams ) {
+          xmlNodePtr itemNode;
+          if ( p.first == "point_id" ||
+               p.first == "part_key" ||
+               p.first == "request" ||
+               p.first == "lang" )
+            continue;
+          itemNode = NewTextChild( node, "item" );
+          NewTextChild( itemNode, "name", p.first );
+          NewTextChild( itemNode, "value", p.second );
+        }
+        //put to queue
+        if ( docSearchData.docPtr() != nullptr ) {
+          try {
+            jms::text_message in1;
+            jms::connection cl( p.addr, false );
+            jms::text_queue queue = cl.create_text_queue( p.queue );//"astra_exch/CRM_DATA/astra.tst.crm");
+            in1.text = ConvertCodepage( docSearchData.text(), "CP866", "UTF-8" );
+            LogTrace(TRACE5) << docSearchData.text();
+            queue.enqueue(in1);
+            cl.commit();
+          }
+          catch( std::exception &E ) {
+            throw EXCEPTIONS::Exception( string(E.what()) + " mqrabbit params '" +  p.addr + ";" + p.queue + "'" );
+          }
+        }
+        else
+          throw EXCEPTIONS::Exception( "Can't create SearchData xml dcoument" );
+      }
+      catch( std::exception &E ) {
+        LogError(STDLOG) << __func__ << " Exception: "  << E.what();
+      }
+      catch(...) {
+        LogError(STDLOG) << __func__ << " unknown error";
+      }
+    }
+    StatMQRSender( const std::map<std::string,std::string>& params ):MQRSender(),searchParams(params) {
+    }
+  };
+public:
+  enum TSearchParamsSenderType { tsPaxListRun, tsPaxSrcRun };
+  static void send( const TSearchParamsSenderType &senderType, std::map<std::string,std::string>& params ) {
+    TTripInfo tripInfo;
+    std::map<std::string,std::string>::const_iterator ip;
+    switch ( senderType ) {
+      case tsPaxListRun:
+        params.insert( make_pair( "request", "PaxListRun(Поиск списка пассажиров)" ) );
+        int point_id;
+        TDateTime part_key;
+        if ( (ip=params.find( "part_key" )) != params.end() ) {
+          StrToDateTime( ip->second.c_str(), part_key );
+        }
+        else
+          part_key = NoExists;
+        StrToInt( params.find( "point_id" )->second.c_str(), point_id );
+        tripInfo.getByPointId(part_key,point_id);
+        params.insert( make_pair("airline", tripInfo.airline) );
+        params.insert( make_pair("flt_no", IntToString(tripInfo.flt_no) + tripInfo.suffix) );
+        params.insert( make_pair("scd_out", DateTimeToStr( tripInfo.scd_out ) ) );
+        break;
+      case tsPaxSrcRun:
+        params.insert( make_pair( "request", "PaxSrcRun(Поиск одного пассажира)" ) );
+        if ( (ip = params.find( "airline" )) != params.end() ) {
+          tripInfo.airline = ip->second;
+        }
+        if ( (ip=params.find( "flt_no" )) != params.end() ) {
+          StrToInt( ip->second.c_str(), tripInfo.flt_no );
+        }
+        if ( (ip=params.find( "dest" )) != params.end() ) {
+          tripInfo.airp = ip->second; //здесь направление - аэропорт прилета, а не вылета (скорее всего не будет использовано никогда)
+        }
+        break;
+      default:
+        return;
+    }
+    LogTrace(TRACE5) << "airline=" << tripInfo.airline << " flt_no=" << tripInfo.flt_no << " airp_arv=" << tripInfo.airp;
+    if ( not is_sync_FileParamSets( tripInfo, MQRABBIT_SEARCH_PAX_TYPE ) ) {
+      return;
+    }
+    StatMQRSender sender( params );
+    sender.execute( MQRABBIT_SEARCH_PAX_TYPE );
+  }
+};
+const std::string MqRabbitSearchParamsSender::MQRABBIT_SEARCH_PAX_TYPE = "MQSEARCH";
 
 void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    std::map<std::string,std::string> params;
     TReqInfo &info = *(TReqInfo::Instance());
     if (!info.user.access.rights().permitted(630))
         throw AstraLocale::UserException("MSG.PAX_LIST.VIEW_DENIED");
@@ -1593,11 +1724,15 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     xmlNodePtr paramNode = reqNode->children;
 
     int point_id = NodeAsIntegerFast("point_id", paramNode);
+    params.insert( make_pair("point_id", IntToString(point_id)) );
     TDateTime part_key = NoExists;
     xmlNodePtr partKeyNode = GetNodeFast("part_key", paramNode);
     if(partKeyNode != NULL) {
         part_key = NodeAsDateTime(partKeyNode);
+        params.insert( make_pair( "part_key", DateTimeToStr( part_key ) ) );
     }
+    params.insert( make_pair("lang", TReqInfo::Instance()->desk.lang) );
+    MqRabbitSearchParamsSender::send( MqRabbitSearchParamsSender::tsPaxListRun, params );
     if(part_key != NoExists) {
         return ArxPaxListRun(DateTimeToBoost(part_key), reqNode, resNode);
     }
@@ -1886,14 +2021,16 @@ void ArxPaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, 
 
 void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    tst();
+    std::map<std::string,std::string> params;
     TReqInfo &info = *(TReqInfo::Instance());
     if (!info.user.access.rights().permitted(620))
         throw AstraLocale::UserException("MSG.PAX_SRC.ACCESS_DENIED");
     if (info.user.access.totally_not_permitted())
         throw AstraLocale::UserException("MSG.PASSENGERS.NOT_FOUND");
     TDateTime FirstDate = NodeAsDateTime("FirstDate", reqNode);
+    params.insert( make_pair("FirstDate", DateTimeToStr(FirstDate)) );
     TDateTime LastDate = NodeAsDateTime("LastDate", reqNode);
+    params.insert( make_pair("LastDate", DateTimeToStr(LastDate)) );
     if(IncMonth(FirstDate, 1) < LastDate)
         throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_ONE_MONTH");
     TPerfTimer tm;
@@ -1901,30 +2038,41 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     Qry.CreateVariable("FirstDate", otDate, FirstDate);
     Qry.CreateVariable("LastDate", otDate, LastDate);
     Qry.CreateVariable("pr_lat", otInteger, TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU);
+    params.insert( make_pair("lang", TReqInfo::Instance()->desk.lang) );
     xmlNodePtr paramNode = reqNode->children;
     string airline = NodeAsStringFast("airline", paramNode, "");
-    if(!airline.empty())
+    if(!airline.empty()) {
         Qry.CreateVariable("airline", otString, airline);
+        params.insert( make_pair("airline", airline) );
+    }
     string city = NodeAsStringFast("dest", paramNode, "");
-    if(!city.empty())
+    if(!city.empty()) {
         Qry.CreateVariable("city", otString, city);
+        params.insert( make_pair("airp_arv", city) );
+    }
     string flt_no = NodeAsStringFast("flt_no", paramNode, "");
-    if(!flt_no.empty())
+    if(!flt_no.empty()) {
         Qry.CreateVariable("flt_no", otString, flt_no);
+        params.insert( make_pair("flt_no", flt_no) );
+    }
     string surname = NodeAsStringFast("surname", paramNode, "");
-    if(!surname.empty())
+    if(!surname.empty()) {
         Qry.CreateVariable("surname", otString, surname);
+        params.insert( make_pair("surname", surname) );
+    }
     string document = NodeAsStringFast("document", paramNode, "");
     if(!document.empty()) {
         if(document.size() < 6)
             throw AstraLocale::UserException("MSG.PAX_SRC.MIN_DOC_LENGTH");
         Qry.CreateVariable("document", otString, document);
+        params.insert( make_pair("document", document) );
     }
     string ticket_no = NodeAsStringFast("ticket_no", paramNode, "");
     if(!ticket_no.empty()) {
         if(ticket_no.size() < 6)
             throw AstraLocale::UserException("MSG.PAX_SRC.MIN_TKT_LENGTH");
         Qry.CreateVariable("ticket_no", otString, ticket_no);
+        params.insert( make_pair("ticket_no", ticket_no) );
     }
     string tag_no = NodeAsStringFast("tag_no", paramNode, "");
     if(!tag_no.empty()) {
@@ -1934,7 +2082,9 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         if ( StrToFloat( tag_no.c_str(), Value ) == EOF )
             throw Exception("Cannot convert tag no '%s' to an Float", tag_no.c_str());
         Qry.CreateVariable("tag_no", otFloat, Value);
+        params.insert( make_pair("tag_no", FloatToString(Value)) );
     }
+    MqRabbitSearchParamsSender::send( MqRabbitSearchParamsSender::tsPaxSrcRun, params );
     int count = 0;
     for(int pass = 0; pass < 1; pass++) {
         ostringstream sql;
@@ -1986,14 +2136,11 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
         fillSqlSrcRunQuery(sql, info, airline, city, surname, flt_no, ticket_no,
                            FirstDate, LastDate);
-        tst();
         //ProgTrace(TRACE5, "PaxSrcRun: pass=%d SQL=\n%s", pass, sql.str().c_str());
         Qry.SQLText = sql.str().c_str();
         try {
             tm.Init();
-            tst();
             Qry.Execute();
-            tst();
             ProgTrace(TRACE5, "EXEC QRY%d: %s", pass, tm.PrintWithMessage().c_str());
         } catch (EOracleError &E) {
             if(E.Code == 376)
