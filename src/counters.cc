@@ -1250,62 +1250,62 @@ bool compareCounters(const PointId_t& point_id,
     return false;
   }
 
-  for (auto& old_counter: old_counters) {
-    const CheckIn::TCrsCountersKey& old_key = old_counter.first;
-    const CheckIn::TCrsCountersData& old_data = old_counter.second;
-    for (auto& new_counter: new_counters) {
-      const CheckIn::TCrsCountersKey& new_key = new_counter.first;
-      const CheckIn::TCrsCountersData& new_data = new_counter.second;
-      if (old_key.point_dep != new_key.point_dep) {
-        LogTrace(TRACE1) << __func__ << ": point_id=" << point_id
-                         << ", old_key.point_dep("
-                         << old_key.point_dep
-                         << ") != new_key.point_dep("
-                         << new_key.point_dep
-                         << ")";
-        mismatched.point_dep++;
-        continue;
-      }
-      if (old_key.airp_arv != new_key.airp_arv) {
-        LogTrace(TRACE1) << __func__ << ": point_id=" << point_id
-                         << ", old_key.airp_arv("
-                         << old_key.airp_arv
-                         << ") != new_key.airp_arv("
-                         << new_key.airp_arv
-                         << ")";
-        mismatched.airp_arv++;
-        continue;
-      }
-      if (old_key.cl != new_key.cl) {
-        LogTrace(TRACE1) << __func__ << ": point_id=" << point_id
-                         << ", old_key.cl("
-                         << old_key.cl
-                         << ") != new_key.cl("
-                         << new_key.cl
-                         << ")";
-        mismatched.cl++;
-        continue;
-      }
-      if (old_data.ok != new_data.ok) {
-        LogTrace(TRACE1) << __func__ << ": point_id=" << point_id
-                         << ", old_data.ok("
-                         << old_data.ok
-                         << ") != new_data.ok("
-                         << new_data.ok
-                         << ")";
-        mismatched.ok++;
-        continue;
-      }
-      if (old_data.tranzit != new_data.tranzit) {
-        LogTrace(TRACE1) << __func__ << ": point_id=" << point_id
-                         << ", old_data.tranzit("
-                         << old_data.tranzit
-                         << ") != new_data.tranzit("
-                         << new_data.tranzit
-                         << ")";
-        mismatched.tranzit++;
-        continue;
-      }
+  map<CheckIn::TCrsCountersKey,CheckIn::TCrsCountersData>::const_iterator oc, nc;
+  for(oc = old_counters.begin(), nc = new_counters.begin(); oc != old_counters.end(); ++oc, ++nc)
+  {
+    const CheckIn::TCrsCountersKey& old_key = oc->first;
+    const CheckIn::TCrsCountersData& old_data = oc->second;
+    const CheckIn::TCrsCountersKey& new_key = nc->first;
+    const CheckIn::TCrsCountersData& new_data = nc->second;
+    if (old_key.point_dep != new_key.point_dep) {
+      LogTrace(TRACE1) << __func__ << ": point_id=" << point_id
+                       << ", old_key.point_dep("
+                       << old_key.point_dep
+                       << ") != new_key.point_dep("
+                       << new_key.point_dep
+                       << ")";
+      mismatched.point_dep++;
+      continue;
+    }
+    if (old_key.airp_arv != new_key.airp_arv) {
+      LogTrace(TRACE1) << __func__ << ": point_id=" << point_id
+                       << ", old_key.airp_arv("
+                       << old_key.airp_arv
+                       << ") != new_key.airp_arv("
+                       << new_key.airp_arv
+                       << ")";
+      mismatched.airp_arv++;
+      continue;
+    }
+    if (old_key.cl != new_key.cl) {
+      LogTrace(TRACE1) << __func__ << ": point_id=" << point_id
+                       << ", old_key.cl("
+                       << old_key.cl
+                       << ") != new_key.cl("
+                       << new_key.cl
+                       << ")";
+      mismatched.cl++;
+      continue;
+    }
+    if (old_data.ok != new_data.ok) {
+      LogTrace(TRACE1) << __func__ << ": point_id=" << point_id
+                       << ", old_data.ok("
+                       << old_data.ok
+                       << ") != new_data.ok("
+                       << new_data.ok
+                       << ")";
+      mismatched.ok++;
+      continue;
+    }
+    if (old_data.tranzit != new_data.tranzit) {
+      LogTrace(TRACE1) << __func__ << ": point_id=" << point_id
+                       << ", old_data.tranzit("
+                       << old_data.tranzit
+                       << ") != new_data.tranzit("
+                       << new_data.tranzit
+                       << ")";
+      mismatched.tranzit++;
+      continue;
     }
   }
   return true;
