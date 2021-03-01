@@ -1021,3 +1021,356 @@ int get_crs_ok(const PointId_t& point_id)
   }
   return result;
 }
+
+namespace Legacy {
+
+class TCrsCountersMap : public std::map<CheckIn::TCrsCountersKey, CheckIn::TCrsCountersData>
+{
+  public:
+    TCrsCountersMap(const TAdvTripInfo &flt) : _flt(flt) {}
+
+    boost::optional<int> getMaxCrsPriority() const;
+
+    void loadCrsDataOnly();
+    void loadSummary();
+    void loadCrsCountersOnly();
+    void saveCrsCountersOnly() const;
+
+    static void deleteCrsCountersOnly(int point_id);
+
+  private:
+    TAdvTripInfo _flt;
+};
+
+boost::optional<int> TCrsCountersMap::getMaxCrsPriority() const
+{
+  LogTrace(TRACE5) << __FUNCTION__;
+
+  boost::optional<int> max;
+
+  TCachedQuery Qry("SELECT priority, crs FROM crs_set "
+                   "WHERE airline=:airline AND "
+                   "      (flt_no=:flt_no OR flt_no IS NULL) AND "
+                   "      (airp_dep=:airp_dep OR airp_dep IS NULL) "
+                   "ORDER BY crs,flt_no,airp_dep ",
+                   QParams() << QParam("airline", otString, _flt.airline)
+                             << QParam("flt_no", otInteger, _flt.flt_no)
+                             << QParam("airp_dep", otString, _flt.airp));
+  string prior_crs;
+  Qry.get().Execute();
+  for(; !Qry.get().Eof; Qry.get().Next())
+  {
+    string curr_crs=Qry.get().FieldAsString("crs");
+    int priority=Qry.get().FieldAsInteger("priority");
+    if (prior_crs==curr_crs) continue;
+    if (!max || max.get()<priority) max=priority;
+    prior_crs=curr_crs;
+  }
+
+  return max;
+}
+
+void TCrsCountersMap::loadCrsDataOnly()
+{
+  LogTrace(TRACE5) << __FUNCTION__;
+
+  clear();
+
+  boost::optional<int> priority=getMaxCrsPriority();
+
+  DB::TCachedQuery Qry(PgOra::getROSession("ORACLE"),
+        "SELECT :point_id_spp AS point_dep, airp_arv, class, "
+        "       NVL(SUM(tranzit),0) AS crs_tranzit, NVL(SUM(resa),0) AS crs_ok "
+        "FROM "
+        "  (SELECT sender,airp_arv,class,SUM(tranzit) AS tranzit,SUM(resa) AS resa "
+        "   FROM crs_data,tlg_binding "
+        "   WHERE crs_data.point_id=tlg_binding.point_id_tlg AND "
+        "         point_id_spp=:point_id_spp AND crs_data.system='CRS' "
+        "   GROUP BY sender,airp_arv,class) "
+        "WHERE NVL(ckin.get_crs_priority(sender,:airline,:flt_no,:airp_dep),0)=NVL(:priority,0) "
+        "GROUP BY airp_arv,class "
+        "HAVING SUM(tranzit) IS NOT NULL OR SUM(resa) IS NOT NULL",
+        QParams() << QParam("point_id_spp", otInteger, _flt.point_id)
+        << QParam("airline", otString, _flt.airline)
+        << QParam("flt_no", otInteger, _flt.flt_no)
+        << QParam("airp_dep", otString, _flt.airp)
+        << QParam("priority", otInteger, FNull));
+  if (priority) Qry.get().SetVariable("priority", priority.get());
+  Qry.get().Execute();
+
+  for(; !Qry.get().Eof; Qry.get().Next())
+    insert(make_pair(CheckIn::TCrsCountersKey().fromDB(Qry.get()), CheckIn::TCrsCountersData().fromDB(Qry.get())));
+}
+
+void TCrsCountersMap::loadSummary()
+{
+  LogTrace(TRACE5) << __FUNCTION__;
+
+  clear();
+  DB::TCachedQuery Qry(PgOra::getROSession("ORACLE"),
+        "SELECT point_dep, airp_arv, class, crs_tranzit, crs_ok, 0 AS priority "
+        "FROM crs_counters "
+        "WHERE point_dep=:point_dep "
+        "UNION "
+        "SELECT point_id AS point_dep, airp_arv, class, tranzit AS crs_tranzit, resa AS crs_ok, 1 AS priority "
+        "FROM trip_data "
+        "WHERE point_id=:point_dep "
+        "ORDER BY priority DESC",
+        QParams() << QParam("point_dep", otInteger, _flt.point_id));
+  Qry.get().Execute();
+
+  for(; !Qry.get().Eof; Qry.get().Next())
+    insert(make_pair(CheckIn::TCrsCountersKey().fromDB(Qry.get()), CheckIn::TCrsCountersData().fromDB(Qry.get())));
+}
+
+void TCrsCountersMap::loadCrsCountersOnly()
+{
+  LogTrace(TRACE5) << __FUNCTION__;
+
+  clear();
+  DB::TCachedQuery Qry(PgOra::getROSession("ORACLE"),
+        "SELECT * FROM crs_counters WHERE point_dep=:point_dep",
+        QParams() << QParam("point_dep", otInteger, _flt.point_id));
+  Qry.get().Execute();
+
+  for(; !Qry.get().Eof; Qry.get().Next())
+    insert(make_pair(CheckIn::TCrsCountersKey().fromDB(Qry.get()), CheckIn::TCrsCountersData().fromDB(Qry.get())));
+}
+
+void TCrsCountersMap::deleteCrsCountersOnly(int point_id)
+{
+  LogTrace(TRACE5) << __FUNCTION__;
+
+  DB::TCachedQuery Qry(PgOra::getRWSession("ORACLE"),
+        "DELETE FROM crs_counters WHERE point_dep=:point_dep",
+        QParams() << QParam("point_dep", otInteger, point_id));
+  Qry.get().Execute();
+}
+
+void TCrsCountersMap::saveCrsCountersOnly() const
+{
+  LogTrace(TRACE5) << __FUNCTION__;
+
+  deleteCrsCountersOnly(_flt.point_id);
+
+  if (!empty())
+  {
+    DB::TCachedQuery InsQry(PgOra::getROSession("ORACLE"),
+          "INSERT INTO crs_counters(point_dep, airp_arv, class, crs_tranzit, crs_ok) "
+          "VALUES(:point_dep, :airp_arv, :class, :crs_tranzit, :crs_ok)",
+          QParams() << QParam("point_dep", otInteger)
+          << QParam("airp_arv", otString)
+          << QParam("class", otString)
+          << QParam("crs_tranzit", otInteger)
+          << QParam("crs_ok", otInteger));
+    for(const auto &i : *this)
+    {
+      i.first.toDB(InsQry.get());
+      i.second.toDB(InsQry.get());
+      InsQry.get().Execute();
+    }
+  }
+}
+
+} // LEGACY
+
+std::set<PointId_t> loadPointIdSet()
+{
+  LogTrace(TRACE6) << __func__;
+  std::set<PointId_t> result;
+  int point_id = ASTRA::NoExists;
+  auto cur = make_db_curs(
+        "SELECT POINT_ID FROM POINTS "
+        "WHERE PR_DEL>=0 AND AIRLINE IS NOT NULL",
+        PgOra::getROSession("POINTS"));
+
+  cur.stb()
+      .def(point_id)
+      .exec();
+
+  while (!cur.fen()) {
+    result.emplace(point_id);
+  }
+  LogTrace(TRACE6) << __func__
+                   << ": count=" << result.size();
+  return result;
+}
+
+struct CountersMismatched
+{
+  CountersMismatched(const std::string& name)
+    : name(name)
+  {}
+
+  std::string name;
+  int count = 0;
+  int point_dep = 0;
+  int airp_arv = 0;
+  int cl = 0;
+  int ok = 0;
+  int tranzit = 0;
+
+  bool mismatched() const
+  {
+    return (count + point_dep + airp_arv + cl + ok + tranzit) > 0;
+  }
+};
+
+std::ostream& operator<<(std::ostream& os, const CountersMismatched& mismatched)
+{
+  os << mismatched.name;
+  if (mismatched.mismatched()) {
+    os << ": count=" << mismatched.count
+       << ", point_dep=" << mismatched.point_dep
+       << ", airp_arv=" << mismatched.airp_arv
+       << ", class=" << mismatched.cl
+       << ", ok=" << mismatched.ok
+       << ", tranzit=" << mismatched.tranzit
+       << std::endl;
+  } else {
+    os << ": ok"
+       << std::endl;
+  }
+  return os;
+}
+
+bool compareCounters(const PointId_t& point_id,
+                     CountersMismatched &mismatched,
+                     const Legacy::TCrsCountersMap& old_counters,
+                     const CheckIn::TCrsCountersMap& new_counters)
+{
+  if (old_counters.size() != new_counters.size()) {
+    LogTrace(TRACE1) << __func__ << ": point_id=" << point_id
+                     << ", old_counters.size("
+                     << old_counters.size()
+                     << ") != new_counters.size("
+                     << new_counters.size()
+                     << ")";
+    mismatched.count++;
+    return false;
+  }
+
+  for (auto& old_counter: old_counters) {
+    const CheckIn::TCrsCountersKey& old_key = old_counter.first;
+    const CheckIn::TCrsCountersData& old_data = old_counter.second;
+    for (auto& new_counter: new_counters) {
+      const CheckIn::TCrsCountersKey& new_key = new_counter.first;
+      const CheckIn::TCrsCountersData& new_data = new_counter.second;
+      if (old_key.point_dep != new_key.point_dep) {
+        LogTrace(TRACE1) << __func__ << ": point_id=" << point_id
+                         << ", old_key.point_dep("
+                         << old_key.point_dep
+                         << ") != new_key.point_dep("
+                         << new_key.point_dep
+                         << ")";
+        mismatched.point_dep++;
+        continue;
+      }
+      if (old_key.airp_arv != new_key.airp_arv) {
+        LogTrace(TRACE1) << __func__ << ": point_id=" << point_id
+                         << ", old_key.airp_arv("
+                         << old_key.airp_arv
+                         << ") != new_key.airp_arv("
+                         << new_key.airp_arv
+                         << ")";
+        mismatched.airp_arv++;
+        continue;
+      }
+      if (old_key.cl != new_key.cl) {
+        LogTrace(TRACE1) << __func__ << ": point_id=" << point_id
+                         << ", old_key.cl("
+                         << old_key.cl
+                         << ") != new_key.cl("
+                         << new_key.cl
+                         << ")";
+        mismatched.cl++;
+        continue;
+      }
+      if (old_data.ok != new_data.ok) {
+        LogTrace(TRACE1) << __func__ << ": point_id=" << point_id
+                         << ", old_data.ok("
+                         << old_data.ok
+                         << ") != new_data.ok("
+                         << new_data.ok
+                         << ")";
+        mismatched.ok++;
+        continue;
+      }
+      if (old_data.tranzit != new_data.tranzit) {
+        LogTrace(TRACE1) << __func__ << ": point_id=" << point_id
+                         << ", old_data.tranzit("
+                         << old_data.tranzit
+                         << ") != new_data.tranzit("
+                         << new_data.tranzit
+                         << ")";
+        mismatched.tranzit++;
+        continue;
+      }
+    }
+  }
+  return true;
+}
+
+void nosir_wait(int processed, bool commit_before_sleep=false, int work_secs=5, int sleep_secs=5);
+
+int nosir_test_counters(int argc,char **argv)
+{
+  const std::set<PointId_t> point_id_set = loadPointIdSet();
+
+  int i = 0;
+  CountersMismatched mismatched("loadCrsCountersOnly");
+  for (const PointId_t& point_id: point_id_set) {
+    nosir_wait(i++);
+
+    TAdvTripInfo flt;
+    flt.getByPointId(point_id.get());
+    Legacy::TCrsCountersMap old_counters(flt);
+    old_counters.loadCrsCountersOnly();
+
+    CheckIn::TCrsCountersMap new_counters;
+    new_counters.loadCrsCountersOnly(point_id);
+
+    if (!compareCounters(point_id, mismatched, old_counters, new_counters)) {
+      continue;
+    }
+  }
+  std::cout << mismatched;
+
+  i = 0;
+  mismatched = CountersMismatched("loadCrsDataOnly");
+  for (const PointId_t& point_id: point_id_set) {
+    nosir_wait(i++);
+    TAdvTripInfo flt;
+    flt.getByPointId(point_id.get());
+    Legacy::TCrsCountersMap old_counters(flt);
+    old_counters.loadCrsDataOnly();
+
+    CheckIn::TCrsCountersMap new_counters;
+    new_counters.loadCrsDataOnly(flt);
+
+    if (!compareCounters(point_id, mismatched, old_counters, new_counters)) {
+      continue;
+    }
+  }
+  std::cout << mismatched;
+
+  i = 0;
+  mismatched = CountersMismatched("loadSummary");
+  for (const PointId_t& point_id: point_id_set) {
+    nosir_wait(i++);
+    TAdvTripInfo flt;
+    flt.getByPointId(point_id.get());
+    Legacy::TCrsCountersMap old_counters(flt);
+    old_counters.loadSummary();
+
+    CheckIn::TCrsCountersMap new_counters;
+    new_counters.loadSummary(point_id);
+
+    if (!compareCounters(point_id, mismatched, old_counters, new_counters)) {
+      continue;
+    }
+  }
+  std::cout << mismatched;
+
+  return 0;
+}
