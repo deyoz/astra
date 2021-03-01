@@ -38,6 +38,7 @@ void nosir_test_help(const char *name);
 int nosir_tscript(int argc, char** argv);
 int verifyHTTP(int argc,char **argv);
 int test_reprint(int argc,char **argv);
+int nosir_test_counters(int argc,char **argv);
 int get_events_stat(int argc,char **argv);
 int get_events_stat2(int argc,char **argv);
 int season_to_schedules(int argc,char **argv);
@@ -131,7 +132,7 @@ const
     {"-ego_stat",               ego_stat,               NULL,                       NULL},
     {"-rfisc_stat",             nosir_rfisc_stat,       NULL,                       NULL},
     {"-test_reprint",           test_reprint,    NULL,                       NULL},
-    {"-ffp",                    ffp,                    ffp_help,                   "getting FFP card status"},
+    {"-test_counters",          nosir_test_counters,    NULL,                       "test counters"},
     {"-departed_pax",           nosir_departed_pax,     NULL,                       NULL},
     {"-departed",               nosir_departed,         NULL,                       NULL},
     {"-sql",                    nosir_departed_sql,     NULL,                       NULL},
