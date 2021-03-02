@@ -55,6 +55,9 @@ checkresult html_to_db $?
 ( cd src && ./nosir.tcl -load_fr ../sql/nosir_load/fr_reports )
 checkresult load_fr $?
 
+( cd src && ./nosir.tcl -comp_elem_types_to_db ../sql/nosir_load/comp_elem_types.dat )
+checkresult comp_elem_types_to_db $?
+
 ( cd src && ./nosir.tcl -pg_sessions_check )
 checkresult pg_sessions_check $?
 
