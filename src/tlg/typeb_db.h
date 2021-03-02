@@ -9,6 +9,7 @@ namespace TypeB
 
 std::set<PaxId_t> loadPaxIdSet(PointIdTlg_t point_id, const std::string& system,
                                const std::optional<CrsSender_t>& sender);
+
 bool deleteCrsSeatsBlocking(PaxId_t pax_id);
 bool deleteCrsInf(PaxId_t pax_id);
 bool deleteCrsInfDeleted(PaxId_t pax_id);

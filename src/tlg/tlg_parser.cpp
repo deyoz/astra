@@ -6834,6 +6834,27 @@ bool insertCrsSet(int new_id,
   return cur.rowcount() > 0;
 }
 
+std::string getCrsTransfer_airp_arv_final(const PnrId_t& pnr_id)
+{
+  DB::TQuery Qry(PgOra::getROSession("CRS_TRANSFER"));
+  Qry.Clear();
+  Qry.SQLText=
+      "SELECT airp_arv "
+      "FROM crs_transfer "
+      "WHERE pnr_id=:pnr_id AND transfer_num= "
+      "  (SELECT MAX(transfer_num) "
+      "   FROM crs_transfer "
+      "   WHERE pnr_id=:pnr_id "
+      "   AND transfer_num>0) ";
+  Qry.CreateVariable("pnr_id",otInteger,pnr_id.get());
+  Qry.Execute();
+  if (!Qry.Eof)
+  {
+    return Qry.FieldAsString("airp_arv");
+  }
+  return {};
+}
+
 bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& con, bool forcibly)
 {
   vector<TTotalsByDest>::iterator iTotals;
@@ -7127,7 +7148,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         CrsInfInsQry.DeclareVariable("pax_id",otInteger);
         CrsInfInsQry.DeclareVariable("inf_id",otInteger);
 
-        TQuery CrsTransferQry(&OraSession);
+        DB::TQuery CrsTransferQry(PgOra::getRWSession("CRS_TRANSFER"));
         CrsTransferQry.Clear();
         CrsTransferQry.SQLText=
           "INSERT INTO crs_transfer(pnr_id,transfer_num,airline,flt_no,suffix,local_date,airp_dep,airp_arv,subclass) "
@@ -7708,13 +7729,11 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
             //запишем стыковки
             if (!pnr.ne.empty() && indicatorsPresence!=TPnrItem::OnlyDEL)
             {
+              TypeB::deleteCrsTransfer(PnrId_t(pnr_id));
               //удаляем нафиг все стыковки
               Qry.Clear();
               Qry.SQLText=
-                "BEGIN "
-                "  DELETE FROM crs_transfer WHERE pnr_id= :pnr_id; "
-                "  UPDATE crs_pnr SET tid=cycle_tid__seq.currval WHERE pnr_id= :pnr_id; "
-                "END;";
+                "UPDATE crs_pnr SET tid=cycle_tid__seq.currval WHERE pnr_id= :pnr_id ";
               Qry.CreateVariable("pnr_id",otInteger,pnr_id);
               Qry.Execute();
               CrsTransferQry.SetVariable("pnr_id",pnr_id);
@@ -7730,12 +7749,12 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                 CrsTransferQry.SetVariable("subclass",iTransfer->subcl);
                 CrsTransferQry.Execute();
               };
+              const std::string airp_arv_final = getCrsTransfer_airp_arv_final(PnrId_t(pnr_id));
               Qry.Clear();
               Qry.SQLText=
-                "UPDATE crs_pnr SET airp_arv_final= "
-                "  (SELECT airp_arv FROM crs_transfer WHERE pnr_id=:pnr_id AND transfer_num= "
-                "    (SELECT MAX(transfer_num) FROM crs_transfer WHERE pnr_id=:pnr_id AND transfer_num>0)) "
+                "UPDATE crs_pnr SET airp_arv_final=:airp_arv_final "
                 "WHERE pnr_id=:pnr_id";
+              Qry.CreateVariable("airp_arv_final",otString,airp_arv_final);
               Qry.CreateVariable("pnr_id",otInteger,pnr_id);
               Qry.Execute();
             };
@@ -7992,31 +8011,44 @@ TDateTime ParseDate(const string &buf)
     return date;
 }
 
+std::optional<PnrId_t> getPnrIdByPaxId(const PaxId_t& pax_id)
+{
+  CheckIn::TSimplePaxItem pax_item;
+  if (pax_item.getCrsByPaxId(pax_id)) {
+    return PnrId_t(pax_item.pnr_id);
+  }
+  return {};
+}
+
 void TTransferRoute::getById(int id, bool isPnrId)
 {
   clear();
 
-  TCachedQuery Qry(isPnrId?"SELECT crs_transfer.* FROM crs_transfer "
-                           "WHERE pnr_id=:id AND transfer_num>0 "
-                           "ORDER BY transfer_num":
-                           "SELECT crs_transfer.* FROM crs_pax, crs_transfer "
-                           "WHERE crs_pax.pnr_id=crs_transfer.pnr_id AND "
-                           "      crs_pax.pax_id=:id AND crs_transfer.transfer_num>0 "
-                           "ORDER BY transfer_num",
-                   QParams() << QParam("id", otInteger, id));
+  const std::optional<PnrId_t> pnr_id = isPnrId ? PnrId_t(id)
+                                                : getPnrIdByPaxId(PaxId_t(id));
+  if (!pnr_id) {
+    return;
+  }
+
+  DB::TCachedQuery Qry(PgOra::getROSession("CRS_TRANSFER"),
+        "SELECT * FROM crs_transfer "
+        "WHERE pnr_id=:id "
+        "AND transfer_num>0 "
+        "ORDER BY transfer_num",
+        QParams() << QParam("id", otInteger, pnr_id->get()));
 
   Qry.get().Execute();
   for(;!Qry.get().Eof;Qry.get().Next())
   {
     TypeB::TTransferItem trferItem;
     trferItem.num=Qry.get().FieldAsInteger("transfer_num");
-    strcpy(trferItem.airline, Qry.get().FieldAsString("airline"));
+    strcpy(trferItem.airline, Qry.get().FieldAsString("airline").c_str());
     trferItem.flt_no=Qry.get().FieldAsInteger("flt_no");
-    strcpy(trferItem.suffix, Qry.get().FieldAsString("suffix"));
+    strcpy(trferItem.suffix, Qry.get().FieldAsString("suffix").c_str());
     trferItem.local_date=Qry.get().FieldAsInteger("local_date");
-    strcpy(trferItem.airp_dep, Qry.get().FieldAsString("airp_dep"));
-    strcpy(trferItem.airp_arv, Qry.get().FieldAsString("airp_arv"));
-    strcpy(trferItem.subcl, Qry.get().FieldAsString("subclass"));
+    strcpy(trferItem.airp_dep, Qry.get().FieldAsString("airp_dep").c_str());
+    strcpy(trferItem.airp_arv, Qry.get().FieldAsString("airp_arv").c_str());
+    strcpy(trferItem.subcl, Qry.get().FieldAsString("subclass").c_str());
     push_back(trferItem);
   }
 }
