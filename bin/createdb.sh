@@ -57,3 +57,4 @@ checkresult load_fr $?
 
 ( cd src && ./nosir.tcl -pg_sessions_check )
 checkresult pg_sessions_check $?
+
