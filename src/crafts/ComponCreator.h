@@ -82,13 +82,13 @@ public:
                  time_change != ASTRA::NoExists );
       }
       void Write( TQuery& Qry );
-      void ReadFromAHMIds( int plan_id, int conf_id, TQuery& Qry );
-      void ReadFromAHMCompId( int comp_id, TQuery& Qry );
+      void ReadFromAHMIds( const std::string& bort, int plan_id, int conf_id, TQuery& Qry );
+      void ReadFromAHMCompId( const std::string& bort, int comp_id, TQuery& Qry );
   };
   static std::string getConfigSQLText( bool withConfId );
   static std::string getConvertClassSQLText();
-  static AstraSearchResult checkChangeAHMFromAHMIds( int plan_id, int conf_id, TQuery& Qry );
-  static AstraSearchResult checkChangeAHMFromCompId( int comp_id, TQuery& Qry );
+  static AstraSearchResult checkChangeAHMFromAHMIds( const std::string& bort, int plan_id, int conf_id, TQuery& Qry );
+  static AstraSearchResult checkChangeAHMFromCompId( const std::string& bort, int comp_id, TQuery& Qry );
   static int getPlanId( const std::string& bort, TQuery& Qry );
   static int getConfig( int planId,
                         const std::string& airline, const std::string& bort,
@@ -132,6 +132,9 @@ public:
   bool isLibraMode();
   int getCompId( ) {
     return fcomp_id;
+  }
+  std::string getBort() {
+    return fltInfo.bort;
   }
   static void createBaseLibraCompon( ComponLibraFinder::AstraSearchResult& res,
                                      const std::string& airline,

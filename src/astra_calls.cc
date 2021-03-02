@@ -257,7 +257,9 @@ static bool get_seating_details(xmlNodePtr reqNode, xmlNodePtr resNode)
     throw EXCEPTIONS::Exception("Mode is not Libra");
   }
   TQuery Qry(&OraSession);
-  ComponCreator::ComponLibraFinder::AstraSearchResult res = ComponCreator::ComponLibraFinder::checkChangeAHMFromCompId( componSetter.getCompId(), Qry );
+  ComponCreator::ComponLibraFinder::AstraSearchResult res =
+      ComponCreator::ComponLibraFinder::checkChangeAHMFromCompId( componSetter.getBort(),
+                                                                  componSetter.getCompId(), Qry );
   if ( !res.isOk( ) ) {
    throw EXCEPTIONS::Exception("Compon is not valid");
  }

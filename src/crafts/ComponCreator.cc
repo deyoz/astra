@@ -667,7 +667,7 @@ void ComponLibraFinder::AstraSearchResult::getLibraCompStatus( const std::string
   //!!! нет проверки на тип ВС, только борт
   plan_id = ASTRA::NoExists;
   conf_id = ASTRA::NoExists;
-  ReadFromAHMCompId( comp_id, Qry ); //прочитали конфиг, которого может и не быть
+  ReadFromAHMCompId( bort, comp_id, Qry ); //прочитали конфиг, которого может и не быть
   int p_id = ComponLibraFinder::getPlanId( bort, Qry );
   if ( p_id == ASTRA::NoExists ) {
     clear();
@@ -880,7 +880,7 @@ void ComponLibraFinder::AstraSearchResult::Write( TQuery& Qry ) {
   Qry.Execute();
 }
 
-void ComponLibraFinder::AstraSearchResult::ReadFromAHMIds( int plan_id, int conf_id, TQuery& Qry ) {
+void ComponLibraFinder::AstraSearchResult::ReadFromAHMIds( const std::string& bort, int plan_id, int conf_id, TQuery& Qry ) {
   this->plan_id = plan_id;
   this->conf_id = conf_id;
   Qry.Clear();
@@ -888,9 +888,11 @@ void ComponLibraFinder::AstraSearchResult::ReadFromAHMIds( int plan_id, int conf
     "SELECT l.time_create, l.time_change, c.comp_id FROM libra_comps l, comps c"
     " WHERE l.comp_id=c.comp_id AND "
     "       l.plan_id=:plan_id AND "
-    "       l.conf_id=:conf_id ";
+    "       l.conf_id=:conf_id AND "
+    "       c.bort=:bort";
   Qry.CreateVariable( "plan_id", otInteger, plan_id );
   Qry.CreateVariable( "conf_id", otInteger, conf_id );
+  Qry.CreateVariable( "bort", otString, bort );
   Qry.Execute();
   if ( Qry.Eof ) { //не нашли компоновки
     LogTrace(TRACE5) << __func__ << " plan_id=" << plan_id << ",conf_id=" << conf_id << " compon not found";
@@ -903,7 +905,7 @@ void ComponLibraFinder::AstraSearchResult::ReadFromAHMIds( int plan_id, int conf
   }
 }
 
-void ComponLibraFinder::AstraSearchResult::ReadFromAHMCompId( int comp_id, TQuery& Qry ) {
+void ComponLibraFinder::AstraSearchResult::ReadFromAHMCompId( const std::string& bort, int comp_id, TQuery& Qry ) {
   clear();
   this->comp_id = comp_id;
   if ( comp_id == ASTRA::NoExists ) {
@@ -913,8 +915,10 @@ void ComponLibraFinder::AstraSearchResult::ReadFromAHMCompId( int comp_id, TQuer
   Qry.SQLText =
     "SELECT l.time_create, l.time_change, l.plan_id, l.conf_id FROM libra_comps l, comps c"
     " WHERE l.comp_id=c.comp_id AND "
-    "       c.comp_id=:comp_id";
+    "       c.comp_id=:comp_id AND "
+    "       c.bort=:bort";
   Qry.CreateVariable( "comp_id", otInteger, comp_id );
+  Qry.CreateVariable( "bort", otString, bort );
   Qry.Execute();
   if ( Qry.Eof ) { //не нашли компоновки
     LogTrace(TRACE5) << __func__ << " comp_id=" << comp_id << ",conf_id=" << conf_id << " compon not found";
@@ -962,15 +966,15 @@ bool LibraComps::isLibraMode( const TTripInfo &info  ) {
   return GetTripSets( tsLIBRACent, info );
 }
 
-ComponLibraFinder::AstraSearchResult ComponLibraFinder::checkChangeAHMFromCompId( int comp_id, TQuery& Qry ) {
+ComponLibraFinder::AstraSearchResult ComponLibraFinder::checkChangeAHMFromCompId( const std::string& bort, int comp_id, TQuery& Qry ) {
   AstraSearchResult res;
-  res.ReadFromAHMCompId( comp_id, Qry );
+  res.ReadFromAHMCompId( bort, comp_id, Qry );
   return res;
 }
 
-ComponLibraFinder::AstraSearchResult ComponLibraFinder::checkChangeAHMFromAHMIds( int plan_id, int conf_id, TQuery& Qry ) {
+ComponLibraFinder::AstraSearchResult ComponLibraFinder::checkChangeAHMFromAHMIds( const std::string& bort, int plan_id, int conf_id, TQuery& Qry ) {
   AstraSearchResult res;
-  res.ReadFromAHMIds( plan_id, conf_id, Qry );
+  res.ReadFromAHMIds( bort, plan_id, conf_id, Qry );
   return res;
 }
 
@@ -1468,7 +1472,7 @@ void ComponSetter::createBaseLibraCompon( ComponLibraFinder::AstraSearchResult& 
                                           const std::string& bort,
                                           TQuery &Qry ) {
   LogTrace( TRACE5 ) << __func__ << " plan_id=" << res.plan_id << ", conf_id=" << res.conf_id << ", comp_id=" << res.conf_id;
-  res.ReadFromAHMIds( res.plan_id, res.conf_id, Qry ); //
+  res.ReadFromAHMIds( bort, res.plan_id, res.conf_id, Qry ); //
   //начитываем инфу по классах рядов
   //начитываем инфу по местам
   //создаем базовую компоновку
@@ -2039,7 +2043,7 @@ void SychAHMCompsFromBort( const std::string& airline, const std::string& craft,
   //удалим те, которые уже есть в базовых компоновках
   for ( const auto& conf_id : configs ) {
     ComponLibraFinder::AstraSearchResult res;
-    res.ReadFromAHMIds( plan_id, conf_id, Qry );
+    res.ReadFromAHMIds( bort, plan_id, conf_id, Qry );
     if ( !res.isOk() ) { //создать компоновку в базовых
       ComponSetter::createBaseLibraCompon( res, airline, craft, bort, Qry );
     }
