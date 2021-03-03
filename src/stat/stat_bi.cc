@@ -2,6 +2,7 @@
 #include "qrys.h"
 #include "report_common.h"
 #include "stat/stat_utils.h"
+#include "PgOraConfig.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -68,36 +69,31 @@ void TBIFullStat::add(const TBIStatRow &row)
     totals.add(row.print_type);
 }
 
-void RunBIStat(
+
+void ArxRunBIStat(
         const TStatParams &params,
         TBIAbstractStat &BIStat
         )
 {
-    for(int pass = 0; pass <= 2; pass++) {
+    for(int pass = 1; pass <= 2; pass++) {
         QParams QryParams;
         QryParams
             << QParam("FirstDate", otDate, params.FirstDate)
             << QParam("LastDate", otDate, params.LastDate);
-        if (pass!=0)
-            QryParams << QParam("arx_trip_date_range", otInteger, ARX_TRIP_DATE_RANGE());
-        string SQLText = "select bi_stat.* from ";
-        if(pass != 0) {
-            SQLText +=
-                "   arx_bi_stat bi_stat, "
-                "   arx_points points ";
-            if(pass == 2)
-                SQLText += ",(SELECT part_key, move_id FROM move_arx_ext \n"
-                    "  WHERE part_key >= :LastDate+:arx_trip_date_range AND part_key <= :LastDate+date_range) arx_ext \n";
-        } else {
-            SQLText +=
-                "   bi_stat, "
-                "   points ";
+        QryParams << QParam("arx_trip_date_range", otDate, params.LastDate+ARX_TRIP_DATE_RANGE());
+        string SQLText = "select arx_bi_stat.* from ";
+        SQLText +=
+                "   arx_bi_stat , "
+                "   arx_points  ";
+        if(pass == 2) {
+            SQLText += getMoveArxQuery();
         }
+
         SQLText +=
             "where "
-            "   bi_stat.point_id = points.point_id and "
-            "   bi_stat.pr_print <> 0 and "
-            "   points.pr_del >= 0 and ";
+            "   arx_bi_stat.point_id = arx_points.point_id and "
+            "   arx_bi_stat.pr_print <> 0 and "
+            "   arx_points.pr_del >= 0 and ";
         params.AccessClause(SQLText);
         if(params.flt_no != NoExists) {
             SQLText += " points.flt_no = :flt_no and ";
@@ -111,15 +107,13 @@ void RunBIStat(
             SQLText += " hall = :hall and ";
             QryParams << QParam("hall", otInteger, params.bi_hall);
         }
-        if(pass != 0)
-            SQLText +=
-                " points.part_key = bi_stat.part_key and ";
+        SQLText += " points.part_key = bi_stat.part_key and ";
         if(pass == 1)
-            SQLText += " points.part_key >= :FirstDate AND points.part_key < :LastDate + :arx_trip_date_range AND \n";
+            SQLText += " points.part_key >= :FirstDate AND points.part_key < :arx_trip_date_range AND \n";
         if(pass == 2)
             SQLText += " points.part_key=arx_ext.part_key AND points.move_id=arx_ext.move_id AND \n";
         SQLText += "   bi_stat.scd_out >= :FirstDate AND bi_stat.scd_out < :LastDate ";
-        TCachedQuery Qry(SQLText, QryParams);
+        DB::TCachedQuery Qry(PgOra::getROSession("ARX_POINTS"), SQLText, QryParams);
         Qry.get().Execute();
         if(not Qry.get().Eof) {
             int col_part_key = Qry.get().GetFieldIndex("part_key");
@@ -146,6 +140,69 @@ void RunBIStat(
             }
         }
     }
+}
+
+void RunBIStat(
+        const TStatParams &params,
+        TBIAbstractStat &BIStat
+        )
+{
+    QParams QryParams;
+    QryParams
+        << QParam("FirstDate", otDate, params.FirstDate)
+        << QParam("LastDate", otDate, params.LastDate);
+
+    string SQLText = "select bi_stat.* from ";
+    SQLText +=
+        "   bi_stat, "
+        "   points "
+        "where "
+        "   bi_stat.point_id = points.point_id and "
+        "   bi_stat.pr_print <> 0 and "
+        "   points.pr_del >= 0 and ";
+    params.AccessClause(SQLText);
+    if(params.flt_no != NoExists) {
+        SQLText += " points.flt_no = :flt_no and ";
+        QryParams << QParam("flt_no", otInteger, params.flt_no);
+    }
+    if(params.airp_terminal != NoExists) {
+        SQLText += " terminal = :terminal and ";
+        QryParams << QParam("terminal", otInteger, params.airp_terminal);
+    }
+    if(params.bi_hall != NoExists) {
+        SQLText += " hall = :hall and ";
+        QryParams << QParam("hall", otInteger, params.bi_hall);
+    }
+
+    SQLText += "   bi_stat.scd_out >= :FirstDate AND bi_stat.scd_out < :LastDate ";
+    TCachedQuery Qry(SQLText, QryParams);
+    Qry.get().Execute();
+    if(not Qry.get().Eof) {
+        int col_part_key = Qry.get().GetFieldIndex("part_key");
+        int col_point_id = Qry.get().FieldIndex("point_id");
+        int col_scd_out = Qry.get().FieldIndex("scd_out");
+        int col_pax_id = Qry.get().FieldIndex("pax_id");
+        int col_print_type = Qry.get().FieldIndex("print_type");
+        int col_terminal = Qry.get().FieldIndex("terminal");
+        int col_hall = Qry.get().FieldIndex("hall");
+        int col_op_type = Qry.get().FieldIndex("op_type");
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            TBIStatRow row;
+            if(col_part_key >= 0)
+                row.part_key = Qry.get().FieldAsDateTime(col_part_key);
+            row.point_id = Qry.get().FieldAsInteger(col_point_id);
+            row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
+            row.pax_id = Qry.get().FieldAsInteger(col_pax_id);
+            row.print_type = BIPrintRules::TPrintTypes().decode(Qry.get().FieldAsString(col_print_type));
+            row.terminal = Qry.get().FieldAsInteger(col_terminal);
+            row.hall = Qry.get().FieldAsInteger(col_hall);
+            row.op_type = ASTRA::TDevOperTypes().decode(Qry.get().FieldAsString(col_op_type));
+            BIStat.add(row);
+            params.overflow.check(BIStat.RowCount());
+        }
+    }
+
+    ArxRunBIStat(params, BIStat);
 }
 
 void createXMLBIFullStat(

@@ -74,56 +74,68 @@ void createXMLSalonStat(const TStatParams &params, const TSalonStat &SalonStat, 
     NewTextChild(variablesNode, "stat_type_caption", getLocaleText("Подробная"));
 }
 
-void get_points(const TStatParams &params, list<pair<TDateTime, TTripInfo>> &points)
+void get_arx_points(const TStatParams &params, list<pair<TDateTime, TTripInfo>> &points)
 {
-    points.clear();
-    for(int pass = 0; pass <= 2; pass++) {
+    for(int pass = 1; pass <= 2; pass++) {
         QParams QryParams;
         QryParams
             << QParam("FirstDate", otDate, params.FirstDate)
             << QParam("LastDate", otDate, params.LastDate);
-        if (pass!=0)
-            QryParams << QParam("arx_trip_date_range", otInteger, ARX_TRIP_DATE_RANGE());
-        string SQLText = "select * from ";
-        if(pass != 0) {
-            SQLText += " arx_points points ";
-            if(pass == 2)
-                SQLText += ",(SELECT part_key, move_id FROM move_arx_ext \n"
-                    "  WHERE part_key >= :LastDate+:arx_trip_date_range AND part_key <= :LastDate+date_range) arx_ext \n";
-        } else
-            SQLText += " points ";
-        SQLText +=
-            "where "
-            "   pr_del >= 0 and ";
+            QryParams << QParam("arx_trip_date_range", otDate, params.LastDate+ARX_TRIP_DATE_RANGE());
+        string SQLText = "select * from  arx_points ";
+        if(pass == 2) {
+            SQLText += getMoveArxQuery();
+        }
+        SQLText += "where pr_del >= 0 and ";
         params.AccessClause(SQLText);
         if(params.flt_no != NoExists) {
             SQLText += " points.flt_no = :flt_no and ";
             QryParams << QParam("flt_no", otInteger, params.flt_no);
         }
         if(pass == 1)
-            SQLText += " points.part_key >= :FirstDate AND points.part_key < :LastDate + :arx_trip_date_range AND \n";
+            SQLText += " arx_points.part_key >= :FirstDate AND points.part_key < :arx_trip_date_range AND \n";
         if(pass == 2)
-            SQLText += " points.part_key=arx_ext.part_key AND points.move_id=arx_ext.move_id AND \n";
+            SQLText += " arx_points.part_key=arx_ext.part_key AND arx_points.move_id=arx_ext.move_id AND \n";
         SQLText +=
-            "   points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
+            "   arx_points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
 
-        TCachedQuery Qry(SQLText, QryParams);
+        DB::TCachedQuery Qry(PgOra::getROSession("ARX_POINTS"), SQLText, QryParams);
         Qry.get().Execute();
 
         if(not Qry.get().Eof) {
-            int col_part_key = NoExists;
-            if(pass != 0)
-                col_part_key = Qry.get().FieldIndex("part_key");
+            int col_part_key = Qry.get().FieldIndex("part_key");
             for(; not Qry.get().Eof; Qry.get().Next()) {
-                points.push_back(
-                        make_pair(
-                            (pass != 0 ? Qry.get().FieldAsDateTime(col_part_key) : NoExists),
-                            TTripInfo(Qry.get())
-                            )
-                        );
+                points.push_back(make_pair(Qry.get().FieldAsDateTime(col_part_key),TTripInfo(Qry.get())));
             }
         }
     }
+}
+
+void get_points(const TStatParams &params, list<pair<TDateTime, TTripInfo>> &points)
+{
+    points.clear();
+    QParams QryParams;
+    QryParams
+        << QParam("FirstDate", otDate, params.FirstDate)
+        << QParam("LastDate", otDate, params.LastDate);
+    string SQLText = "select * from points ";
+    SQLText += "where pr_del >= 0 and ";
+    params.AccessClause(SQLText);
+    if(params.flt_no != NoExists) {
+        SQLText += " points.flt_no = :flt_no and ";
+        QryParams << QParam("flt_no", otInteger, params.flt_no);
+    }
+    SQLText += "  points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
+
+    TCachedQuery Qry(SQLText, QryParams);
+    Qry.get().Execute();
+
+    if(not Qry.get().Eof) {
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            points.push_back(make_pair(NoExists, TTripInfo(Qry.get())));
+        }
+    }
+    get_arx_points(params, points);
 }
 
 void RunSalonStat(

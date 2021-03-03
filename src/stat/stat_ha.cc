@@ -13,49 +13,41 @@ using namespace ASTRA;
 using namespace AstraLocale;
 using namespace BASIC::date_time;
 
-void RunHAStat(
+
+void ArxRunHAStat(
         const TStatParams &params,
         THAAbstractStat &HAStat
         )
 {
-    for(int pass = 0; pass <= 2; pass++) {
+    for(int pass = 1; pass <= 2; pass++) {
         QParams QryParams;
         QryParams
             << QParam("FirstDate", otDate, params.FirstDate)
             << QParam("LastDate", otDate, params.LastDate);
-        if (pass!=0)
-            QryParams << QParam("arx_trip_date_range", otInteger, ARX_TRIP_DATE_RANGE());
-        string SQLText = "select stat_ha.* from ";
-        if(pass != 0) {
-            SQLText +=
-                "   arx_stat_ha stat_ha, "
-                "   arx_points points ";
-            if(pass == 2)
-                SQLText += ",(SELECT part_key, move_id FROM move_arx_ext \n"
-                    "  WHERE part_key >= :LastDate+:arx_trip_date_range AND part_key <= :LastDate+date_range) arx_ext \n";
-        } else {
-            SQLText +=
-                "   stat_ha, "
-                "   points ";
+        QryParams << QParam("arx_trip_date_range", otDate, params.LastDate+ARX_TRIP_DATE_RANGE());
+        string SQLText =
+            "select arx_stat_ha.* from "
+            "   arx_stat_ha , "
+            "   arx_points  ";
+        if(pass == 2){
+            SQLText += getMoveArxQuery();
         }
         SQLText +=
             "where "
-            "   stat_ha.point_id = points.point_id and "
-            "   points.pr_del >= 0 and ";
+            "   arx_stat_ha.point_id = arx_points.point_id and "
+            "   arx_points.pr_del >= 0 and ";
         params.AccessClause(SQLText);
         if(params.flt_no != NoExists) {
-            SQLText += " points.flt_no = :flt_no and ";
+            SQLText += " arx_points.flt_no = :flt_no and ";
             QryParams << QParam("flt_no", otInteger, params.flt_no);
         }
-        if(pass != 0)
-            SQLText +=
-                " points.part_key = stat_ha.part_key and ";
+        SQLText += " arx_points.part_key = arx_stat_ha.part_key and ";
         if(pass == 1)
-            SQLText += " points.part_key >= :FirstDate AND points.part_key < :LastDate + :arx_trip_date_range AND \n";
+            SQLText += " arx_points.part_key >= :FirstDate AND points.part_key < :arx_trip_date_range AND \n";
         if(pass == 2)
-            SQLText += " points.part_key=arx_ext.part_key AND points.move_id=arx_ext.move_id AND \n";
-        SQLText += "   stat_ha.scd_out >= :FirstDate AND stat_ha.scd_out < :LastDate ";
-        TCachedQuery Qry(SQLText, QryParams);
+            SQLText += " arx_points.part_key=arx_ext.part_key AND arx_points.move_id=arx_ext.move_id AND \n";
+        SQLText += "   arx_stat_ha.scd_out >= :FirstDate AND arx_stat_ha.scd_out < :LastDate ";
+        DB::TCachedQuery Qry(PgOra::getROSession("ARX_STAT_HA"), SQLText, QryParams);
         Qry.get().Execute();
         if(not Qry.get().Eof) {
             int col_part_key = Qry.get().GetFieldIndex("part_key");
@@ -83,6 +75,59 @@ void RunHAStat(
             }
         }
     }
+}
+
+void RunHAStat(
+        const TStatParams &params,
+        THAAbstractStat &HAStat
+        )
+{
+    QParams QryParams;
+    QryParams
+        << QParam("FirstDate", otDate, params.FirstDate)
+        << QParam("LastDate", otDate, params.LastDate);
+    string SQLText =
+        "select stat_ha.* from "
+        "   stat_ha, "
+        "   points "
+        "where "
+        "   stat_ha.point_id = points.point_id and "
+        "   points.pr_del >= 0 and ";
+    params.AccessClause(SQLText);
+    if(params.flt_no != NoExists) {
+        SQLText += " points.flt_no = :flt_no and ";
+        QryParams << QParam("flt_no", otInteger, params.flt_no);
+    }
+    SQLText += " stat_ha.scd_out >= :FirstDate AND stat_ha.scd_out < :LastDate ";
+    TCachedQuery Qry(SQLText, QryParams);
+    Qry.get().Execute();
+    if(not Qry.get().Eof) {
+        int col_part_key = Qry.get().GetFieldIndex("part_key");
+        int col_point_id = Qry.get().FieldIndex("point_id");
+        int col_hotel_id = Qry.get().FieldIndex("hotel_id");
+        int col_room_type = Qry.get().FieldIndex("room_type");
+        int col_scd_out = Qry.get().FieldIndex("scd_out");
+        int col_adt = Qry.get().FieldIndex("adt");
+        int col_chd = Qry.get().FieldIndex("chd");
+        int col_inf = Qry.get().FieldIndex("inf");
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            THAStatRow row;
+            if(col_part_key >= 0)
+                row.part_key = Qry.get().FieldAsDateTime(col_part_key);
+            row.point_id = Qry.get().FieldAsInteger(col_point_id);
+            row.hotel_id = Qry.get().FieldAsInteger(col_hotel_id);
+            if(not Qry.get().FieldIsNULL(col_room_type))
+                row.room_type = Qry.get().FieldAsInteger(col_room_type);
+            row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
+            row.adt = Qry.get().FieldAsInteger(col_adt);
+            row.chd = Qry.get().FieldAsInteger(col_chd);
+            row.inf = Qry.get().FieldAsInteger(col_inf);
+            HAStat.add(row);
+            params.overflow.check(HAStat.RowCount());
+        }
+    }
+
+    ArxRunHAStat(params, HAStat);
 }
 
 THAFullCounters &THAFullCounters::operator +=(const THAStatRow &rhs)

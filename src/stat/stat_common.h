@@ -4,6 +4,8 @@
 #include <string>
 #include "astra_utils.h"
 #include "db_tquery.h"
+#include <optional>
+#include "arx_daily_pg.h"
 
 namespace STAT {
     static const std::string PARAM_SEANCE_TYPE           = "seance_type";
@@ -280,5 +282,46 @@ class TDeskAccess {
         bool get(const std::string &desk);
         void clear() { items.clear(); }
 };
+
+
+class UsersReader
+{
+public:
+    static UsersReader Instance() {
+        static UsersReader instance;
+        return instance;
+    }
+    void updateUsers();
+
+    std::string getDescr(int user_id) const;
+    int getUserId(const std::string& login) const;
+    const std::map<int, std::string> & getidDescriptions() const
+    {
+        return idDescriptions;
+    }
+
+private:
+    UsersReader() {
+        readAllUsers();
+    }
+    void readAllUsers();
+
+private:
+    std::map<int, std::string> idDescriptions; //user_id -> descr
+    std::map<std::string, int> loginIds;
+};
+
+inline std::string getMoveArxQuery()
+{
+    std::string res;
+    if(ARX::READ_PG()) {
+        res += " , (SELECT part_key, move_id FROM move_arx_ext \n"
+               "    WHERE part_key >= :arx_trip_date_range AND part_key <= (:LastDate+ date_range * INTERVAL '1 day')) arx_ext \n";
+    } else {
+        res += " , (SELECT part_key, move_id FROM move_arx_ext \n"
+               "    WHERE part_key >= :arx_trip_date_range AND part_key <= :LastDate+ date_range) arx_ext \n";
+    }
+    return res;
+}
 
 #endif

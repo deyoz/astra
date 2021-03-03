@@ -236,18 +236,15 @@ void ArxGetFltCBoxList(TScreenState scr, TDateTime first_date, TDateTime last_da
                    " arx_points.pr_tranzit, \n"
                    " arx_points.first_point, \n";
             sql << "    " << TTripInfo::selectedFields() << ", \n"
-                   "    point_num \n";
+                   "    point_num \n"
+                   "FROM arx_points \n";
             if (pass==1) {
-                sql << "FROM arx_points \n"
-                       "WHERE arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND \n"
+                sql << "WHERE arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND \n"
                        "      arx_points.part_key >= :FirstDate AND arx_points.part_key < :arx_trip_date_range \n";
             }
             if (pass==2) {
-                sql << "FROM arx_points, (SELECT part_key, move_id FROM move_arx_ext \n"
-                       "WHERE part_key >= :arx_trip_date_range ";
-                ARX::READ_PG() ? sql << " AND part_key <= (:LastDate + date_range * INTERVAL '1 day')) arx_ext \n"
-                               : sql << " AND part_key <= (:LastDate + date_range)) arx_ext \n";
-                sql<< "WHERE arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND \n"
+                sql << getMoveArxQuery();
+                sql<< " WHERE arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND \n"
                       "      arx_points.part_key=arx_ext.part_key AND arx_points.move_id=arx_ext.move_id \n";
             }
             if(scr == ssPaxList)

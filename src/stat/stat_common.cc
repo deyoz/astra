@@ -632,3 +632,55 @@ void TStatOverflow::check(size_t RowCount) const
 TStatParams::TStatParams(TStatOverflow::Enum apply_type): overflow(apply_type)
 {
 }
+
+std::string UsersReader::getDescr(int user_id) const
+{
+    return idDescriptions.at(user_id);
+}
+
+int UsersReader::getUserId(const std::string& login) const
+{
+    if(!login.empty()) {
+        return loginIds.at(login);
+    } else{
+        LogTrace5 << __func__ << " NOT CORRECT LOGIN!";
+        throw EXCEPTIONS::Exception("NOT FOUND USER_ID. INVALID LOGIN!");
+    }
+}
+
+void UsersReader::readAllUsers()
+{
+    int user_id;
+    std::string descr;
+    std::string login;
+    auto cur = make_db_curs("select USER_ID, DESCR, LOGIN from USERS2", PgOra::getROSession("USERS2"));
+    cur.def(user_id).def(descr).defNull(login, "").exec();
+    while(!cur.fen()) {
+        idDescriptions.insert({user_id, descr});
+        if(!login.empty()) {
+            loginIds.insert({login, user_id});
+            login = "";
+        }
+    }
+}
+
+void UsersReader::updateUsers()
+{
+    int max_user_id = 0;
+    if(!idDescriptions.empty()) {
+        max_user_id = idDescriptions.rbegin()->first;
+    }
+    int user_id;
+    std::string descr;
+    std::string login;
+    auto cur = make_db_curs("select USER_ID, DESCR, LOGIN from USERS2 where user_id > :max_user_id",
+                            PgOra::getROSession("USERS2"));
+    cur.def(user_id).def(descr).defNull(login, "").bind(":max_user_id", max_user_id).exec();
+    while(!cur.fen()) {
+        idDescriptions.insert({user_id, descr});
+        if(!login.empty()) {
+            loginIds.insert({login, user_id});
+            login = "";
+        }
+    }
+}

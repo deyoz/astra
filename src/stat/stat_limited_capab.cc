@@ -20,84 +20,137 @@ void TLimitedCapabStat::add(const TFlight &row, const string &airp_arv, const st
     rems[rem_code] = pax_amount;
 }
 
+
+void ArxRunLimitedCapabStat(
+        const TStatParams &params,
+        TLimitedCapabStat &LimitedCapabStat,
+        TPrintAirline &prn_airline
+        )
+{
+    tst();
+    QParams QryParams;
+    QryParams
+        << QParam("FirstDate", otDate, params.FirstDate)
+        << QParam("LastDate", otDate, params.LastDate);
+    string SQLText =
+        "select "
+        "   arx_points.point_id, "
+        "   arx_points.airline, "
+        "   arx_points.airp, "
+        "   arx_stat.airp_arv, "
+        "   arx_points.flt_no, "
+        "   arx_points.suffix, "
+        "   arx_points.scd_out, "
+        "   arx_stat.rem_code, "
+        "   arx_stat.pax_amount "
+        "from  "
+        "   arx_limited_capability_stat arx_stat, "
+        "   arx_points  "
+        "where "
+        "   arx_stat.point_id = arx_points.point_id and ";
+    params.AccessClause(SQLText);
+    if(params.flt_no != NoExists) {
+        SQLText += " points.flt_no = :flt_no and ";
+        QryParams << QParam("flt_no", otInteger, params.flt_no);
+    }
+    SQLText +=
+            " arx_points.part_key >= :FirstDate and arx_points.part_key < :FirstDate and "
+            " arx_stat.part_key >= :FirstDate and arx_stat.part_key < :LastDate ";
+    DB::TCachedQuery Qry(PgOra::getROSession("arx_limited_capability_stat"), SQLText, QryParams);
+    Qry.get().Execute();
+    if(not Qry.get().Eof) {
+        int col_point_id = Qry.get().FieldIndex("point_id");
+        int col_airline = Qry.get().FieldIndex("airline");
+        int col_airp = Qry.get().FieldIndex("airp");
+        int col_airp_arv = Qry.get().FieldIndex("airp_arv");
+        int col_flt_no = Qry.get().FieldIndex("flt_no");
+        int col_suffix = Qry.get().FieldIndex("suffix");
+        int col_scd_out = Qry.get().FieldIndex("scd_out");
+        int col_rem_code = Qry.get().FieldIndex("rem_code");
+        int col_pax_amount = Qry.get().FieldIndex("pax_amount");
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            prn_airline.check(Qry.get().FieldAsString(col_airline));
+            TFlight row;
+            row.point_id = Qry.get().FieldAsInteger(col_point_id);
+            row.airline = Qry.get().FieldAsString(col_airline);
+            row.airp = Qry.get().FieldAsString(col_airp);
+            row.flt_no = Qry.get().FieldAsInteger(col_flt_no);
+            row.suffix = Qry.get().FieldAsString(col_suffix);
+            row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
+
+            string airp_arv = Qry.get().FieldAsString(col_airp_arv);
+            string rem_code = Qry.get().FieldAsString(col_rem_code);
+            int pax_amount = Qry.get().FieldAsInteger(col_pax_amount);
+
+            LimitedCapabStat.add(row, airp_arv, rem_code, pax_amount);
+            params.overflow.check(LimitedCapabStat.RowCount());
+        }
+    }
+}
+
 void RunLimitedCapabStat(
         const TStatParams &params,
         TLimitedCapabStat &LimitedCapabStat,
         TPrintAirline &prn_airline
         )
 {
-    for(int pass = 0; pass <= 1; pass++) {
-        QParams QryParams;
-        QryParams
-            << QParam("FirstDate", otDate, params.FirstDate)
-            << QParam("LastDate", otDate, params.LastDate);
-        string SQLText =
-            "select "
-            "   points.point_id, "
-            "   points.airline, "
-            "   points.airp, "
-            "   stat.airp_arv, "
-            "   points.flt_no, "
-            "   points.suffix, "
-            "   points.scd_out, "
-            "   stat.rem_code, "
-            "   stat.pax_amount "
-            "from ";
-        if(pass != 0) {
-            SQLText +=
-                "   arx_limited_capability_stat stat, "
-                "   arx_points points ";
-        } else {
-            SQLText +=
-                "   limited_capability_stat stat, "
-                "   points ";
-        }
-        SQLText +=
-            "where "
-            "   stat.point_id = points.point_id and ";
-        params.AccessClause(SQLText);
-        if(params.flt_no != NoExists) {
-            SQLText += " points.flt_no = :flt_no and ";
-            QryParams << QParam("flt_no", otInteger, params.flt_no);
-        }
-        if(pass != 0)
-            SQLText +=
-                " points.part_key >= :FirstDate and points.part_key < :FirstDate and "
-                " stat.part_key >= :FirstDate and stat.part_key < :LastDate ";
-        else
-            SQLText +=
-                "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
-        TCachedQuery Qry(SQLText, QryParams);
-        Qry.get().Execute();
-        if(not Qry.get().Eof) {
-            int col_point_id = Qry.get().FieldIndex("point_id");
-            int col_airline = Qry.get().FieldIndex("airline");
-            int col_airp = Qry.get().FieldIndex("airp");
-            int col_airp_arv = Qry.get().FieldIndex("airp_arv");
-            int col_flt_no = Qry.get().FieldIndex("flt_no");
-            int col_suffix = Qry.get().FieldIndex("suffix");
-            int col_scd_out = Qry.get().FieldIndex("scd_out");
-            int col_rem_code = Qry.get().FieldIndex("rem_code");
-            int col_pax_amount = Qry.get().FieldIndex("pax_amount");
-            for(; not Qry.get().Eof; Qry.get().Next()) {
-                prn_airline.check(Qry.get().FieldAsString(col_airline));
-                TFlight row;
-                row.point_id = Qry.get().FieldAsInteger(col_point_id);
-                row.airline = Qry.get().FieldAsString(col_airline);
-                row.airp = Qry.get().FieldAsString(col_airp);
-                row.flt_no = Qry.get().FieldAsInteger(col_flt_no);
-                row.suffix = Qry.get().FieldAsString(col_suffix);
-                row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
+    QParams QryParams;
+    QryParams
+        << QParam("FirstDate", otDate, params.FirstDate)
+        << QParam("LastDate", otDate, params.LastDate);
+    string SQLText =
+        "select "
+        "   points.point_id, "
+        "   points.airline, "
+        "   points.airp, "
+        "   stat.airp_arv, "
+        "   points.flt_no, "
+        "   points.suffix, "
+        "   points.scd_out, "
+        "   stat.rem_code, "
+        "   stat.pax_amount "
+        "from "
+        "   limited_capability_stat stat, "
+        "   points "
+        "where "
+        "   stat.point_id = points.point_id and ";
+    params.AccessClause(SQLText);
+    if(params.flt_no != NoExists) {
+        SQLText += " points.flt_no = :flt_no and ";
+        QryParams << QParam("flt_no", otInteger, params.flt_no);
+    }
+    SQLText += " points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
+    TCachedQuery Qry(SQLText, QryParams);
+    Qry.get().Execute();
+    if(not Qry.get().Eof) {
+        int col_point_id = Qry.get().FieldIndex("point_id");
+        int col_airline = Qry.get().FieldIndex("airline");
+        int col_airp = Qry.get().FieldIndex("airp");
+        int col_airp_arv = Qry.get().FieldIndex("airp_arv");
+        int col_flt_no = Qry.get().FieldIndex("flt_no");
+        int col_suffix = Qry.get().FieldIndex("suffix");
+        int col_scd_out = Qry.get().FieldIndex("scd_out");
+        int col_rem_code = Qry.get().FieldIndex("rem_code");
+        int col_pax_amount = Qry.get().FieldIndex("pax_amount");
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            prn_airline.check(Qry.get().FieldAsString(col_airline));
+            TFlight row;
+            row.point_id = Qry.get().FieldAsInteger(col_point_id);
+            row.airline = Qry.get().FieldAsString(col_airline);
+            row.airp = Qry.get().FieldAsString(col_airp);
+            row.flt_no = Qry.get().FieldAsInteger(col_flt_no);
+            row.suffix = Qry.get().FieldAsString(col_suffix);
+            row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
 
-                string airp_arv = Qry.get().FieldAsString(col_airp_arv);
-                string rem_code = Qry.get().FieldAsString(col_rem_code);
-                int pax_amount = Qry.get().FieldAsInteger(col_pax_amount);
+            string airp_arv = Qry.get().FieldAsString(col_airp_arv);
+            string rem_code = Qry.get().FieldAsString(col_rem_code);
+            int pax_amount = Qry.get().FieldAsInteger(col_pax_amount);
 
-                LimitedCapabStat.add(row, airp_arv, rem_code, pax_amount);
-                params.overflow.check(LimitedCapabStat.RowCount());
-            }
+            LimitedCapabStat.add(row, airp_arv, rem_code, pax_amount);
+            params.overflow.check(LimitedCapabStat.RowCount());
         }
     }
+    ArxRunLimitedCapabStat(params, LimitedCapabStat, prn_airline);
 }
 
 void createXMLLimitedCapabStat(const TStatParams &params, const TLimitedCapabStat &LimitedCapabStat, const TPrintAirline &prn_airline, xmlNodePtr resNode)

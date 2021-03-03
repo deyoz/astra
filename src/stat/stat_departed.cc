@@ -142,7 +142,7 @@ void departed_flt(DB::TQuery &Qry, TEncodedFileStream &of)
         "   pax.grp_id, \n"
         "   pax.reg_no, \n"
         "   pax_grp.client_type, \n"
-        "   pax_grp.airp_arv, \n";
+        "   pax_grp.airp_arv, \n"
         "   (SELECT 1 FROM confirm_print cnf  "
         "   WHERE " OP_TYPE_COND("op_type")" and cnf.pax_id=pax.pax_id AND voucher is null and"
         "   client_type='TERM' AND pr_print<>0 AND rownum<2) AS term_bp, "
@@ -150,7 +150,7 @@ void departed_flt(DB::TQuery &Qry, TEncodedFileStream &of)
         "   NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_amount, \n"
         "   NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_weight \n";
         paxQry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP));
-    SQLText +=  "from pax, pax_grp \n";
+    SQLText +=  "from pax, pax_grp \n"
                 "where pax_grp.point_dep = :point_id and \n"
                 "      pax_grp.grp_id = pax.grp_id \n";
 
@@ -233,27 +233,23 @@ void departed_flt(DB::TQuery &Qry, TEncodedFileStream &of)
 void arx_departed_month(const pair<TDateTime, TDateTime> &interval, TEncodedFileStream &of)
 {
     DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"));
-    Qry.CreateVariable("first_date", otDate, interval.first);
-    Qry.CreateVariable("last_date", otDate, interval.second);
-    std::string dbDateRange = ARX::READ_PG() ? "date_range * INTERVAL '1 day' "
-                                             : "date_range ";
+    Qry.CreateVariable("FirstDate", otDate, interval.first);
+    Qry.CreateVariable("LastDate", otDate, interval.second);
     for(int pass = 1; pass <= 2; pass++) {
         Qry.CreateVariable("arx_trip_date_range", otDate,  interval.second+ARX_TRIP_DATE_RANGE());
         ostringstream sql;
         sql << "SELECT arx_points.part_key, point_id, airline, flt_no, suffix, airp, scd_out \n"
                "FROM arx_points \n";
         if (pass==2) {
-            sql << ",(SELECT part_key, move_id FROM move_arx_ext \n"
-                    "  WHERE part_key >= :arx_trip_date_range AND part_key <= (:last_date + "
-                << dbDateRange << ")) arx_ext \n";
+            sql << getMoveArxQuery();
         }
         sql << "WHERE \n";
         if (pass==1)
-            sql << " arx_points.part_key >= :first_date AND arx_points.part_key < :arx_trip_date_range AND \n";
+            sql << " arx_points.part_key >= :FirstDate AND arx_points.part_key < :arx_trip_date_range AND \n";
         if (pass==2)
             sql << " arx_points.part_key=arx_ext.part_key AND arx_points.move_id=arx_ext.move_id AND \n";
         sql <<
-            "   scd_out>=:first_date AND scd_out<:last_date AND airline='ž’' AND "
+            "   scd_out>=:FirstDate AND scd_out<:LastDate AND airline='ž’' AND "
             "      pr_reg<>0 AND pr_del>=0";
 
         Qry.SQLText = sql.str().c_str();

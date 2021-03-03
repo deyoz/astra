@@ -59,9 +59,7 @@ typedef std::variant<bool, int, long long, float, double, std::string,
                      Dates::DateTime_t, Dates::Date_t> bindedTypes;
 
 static std::string str_tolower(std::string s) {
-    std::transform(s.begin(), s.end(), s.begin(),
-                   [](unsigned char c){ return std::tolower(c); }
-    );
+    std::transform(s.begin(), s.end(), s.begin(), ::tolower);
     return s;
 }
 
@@ -169,7 +167,11 @@ public:
     void bind(DbCpp::CursCtl &cur, const T& value) const
     {
         LogTrace5 << __func__ << " name :" << name_ << " value: " << value;
-        cur.bind(":"+name_, value, isNotNull(value) ? &nnull : &null);
+        if(isNullable()) {
+            cur.bind(":"+name_, value, isNotNull(value) ? &nnull : &null);
+        } else {
+            cur.bind(":"+name_, value);
+        }
     }
 
     void def(DbCpp::CursCtl &cur) const
@@ -460,7 +462,7 @@ private:
 class Session
 {
 public:
-    Session(dbo::CurrentDb db = dbo::Config): _currentDb(db) {}
+    explicit Session(dbo::CurrentDb db = dbo::Config): _currentDb(db) {}
     Session(const Session &s) = delete;
     Session& operator=(const Session &s) = delete;
     Session(Session &&) = delete;
@@ -475,6 +477,7 @@ public:
         }
         std::shared_ptr<MappingInfo> mapInfo = Mapper::getInstance().getMapping(tableName);
         if(!mapInfo) {
+            LogTrace5 << __func__ << "Unknown table: " << tableName;
             throw EXCEPTIONS::Exception("Unknown table: " + tableName);
         }
         std::string query = mapInfo->insertColumns();
@@ -612,7 +615,6 @@ private:
         std::string query = createQuery(map_info, session->isOracle());
         LogTrace5 << " query: " << query;
         Cursor cur(session->createCursor(STDLOG, query));
-        LogTrace5 << " cursor created ";
         Result r;
         cur.bind(bindVars);
         LogTrace5 << " binded ";
@@ -623,18 +625,10 @@ private:
 
         std::vector<Result> res;
         LogTrace5 << " res created ";
-        try{
-            while(!cur.fen()) {
-                LogTrace5 << " fetched ";
-                res.push_back(r);
-                LogTrace5 << " object pushed ";
-            }
-            LogTrace5 << " loop ended ";
+        while(!cur.fen()) {
+            res.push_back(r);
+            LogTrace5 << " object pushed ";
         }
-        catch(const std::exception & e){
-            LogTrace5 << " error: " << e.what();
-        }
-
         LogTrace5 << " result vector size: " << res.size();
         m_sess->clearIgnoreErrors();
         return res;

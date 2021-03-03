@@ -171,7 +171,7 @@ $(RUN_TRFER_PAX_STAT $(date_format %d.%m.%Y -160) $(date_format %d.%m.%Y +21))
         <cap_test>ТЕСТ</cap_test>
         <page_number_fmt>Стр. %u из %u</page_number_fmt>
         <short_page_number_fmt>Стр. %u</short_page_number_fmt>
-        <oper_info>Отчет сформирован $(date_format %d.%m.%Y) $(date_format %H:%M:%S) (МОВ)
+        <oper_info>Отчет сформирован ... (МОВ)
 оператором PIKE
 с терминала МОВРОМ</oper_info>
         <skip_header>0</skip_header>
@@ -484,12 +484,12 @@ $(PAX_LIST_RUN  $(get point_dep_UT_298) $(date_format %d.%m.%Y))
           <bag_weight>0</bag_weight>
           <rk_weight>0</rk_weight>
           <excess>0</excess>
+          <tags/>
+          <seat_no>05А</seat_no>
           <grp_id>$(get grp_id)</grp_id>
           <airp_arv>ПРХ</airp_arv>
-          <tags/>
           <status>Зарег.</status>
           <class>Э</class>
-          <seat_no>05А</seat_no>
           <document>32427293 UKR</document>
           <ticket_no>2985523437721</ticket_no>
           <hall>Зал 1</hall>
@@ -509,7 +509,7 @@ $(PAX_LIST_RUN  $(get point_dep_UT_298) $(date_format %d.%m.%Y))
         <cap_test>ТЕСТ</cap_test>
         <page_number_fmt>Стр. %u из %u</page_number_fmt>
         <short_page_number_fmt>Стр. %u</short_page_number_fmt>
-        <oper_info>Отчет сформирован $(date_format %d.%m.%Y) $(date_format %H:%M:%S) (МОВ)
+        <oper_info>Отчет сформирован ... (МОВ)
 оператором PIKE
 с терминала МОВРОМ</oper_info>
         <skip_header>0</skip_header>
@@ -624,7 +624,7 @@ $(RUN_ACTUAL_DEPARTURED_STAT $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y 
         <cap_test>ТЕСТ</cap_test>
         <page_number_fmt>Стр. %u из %u</page_number_fmt>
         <short_page_number_fmt>Стр. %u</short_page_number_fmt>
-        <oper_info>Отчет сформирован $(date_format %d.%m.%Y) $(date_format %H:%M:%S) (МОВ)
+        <oper_info>Отчет сформирован ... (МОВ)
 оператором PIKE
 с терминала МОВРОМ</oper_info>
         <skip_header>0</skip_header>
@@ -642,7 +642,7 @@ $(RUN_ACTUAL_DEPARTURED_STAT $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y 
 
 ###
 #   Тест №5
-#   Чтение архива из arx_stat_services.cc
+#   Чтение архива из stat_services.cc
 #
 ######################################################
 
@@ -767,7 +767,7 @@ $(RUN_SERVICES_STAT $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21))
         <cap_test>ТЕСТ</cap_test>
         <page_number_fmt>Стр. %u из %u</page_number_fmt>
         <short_page_number_fmt>Стр. %u</short_page_number_fmt>
-        <oper_info>Отчет сформирован $(date_format %d.%m.%Y) $(date_format %H:%M:%S) (МОВ)
+        <oper_info>Отчет сформирован ... (МОВ)
 оператором PIKE
 с терминала МОВРОМ</oper_info>
         <skip_header>0</skip_header>
@@ -1013,7 +1013,7 @@ $(nosir_basel_stat $(date_format %d.%m.%Y +20) 09:00:00 $(get point_dep_UT_100))
 ??
 $(dump_table basel_stat display="on")
 >> lines=auto
-[СОЧ] [$(get pax_id_TUMALI)] [$(get point_dep_UT_100)] [...] [NULL] [NULL] [0] [NULL] [1] [$(yymmdd)] [ЭКОНОМ] [NULL] [$(yymmdd +20)] [$(yymmdd +20)] [NULL] [ЮТ100] [...] [TUMALI/VALERII] [0] [0] [NULL] [NULL] [зарегистрирован] [NULL] [NULL] [0] $()
+[СОЧ] [$(get pax_id_TUMALI)] [$(get point_dep_UT_100)] [...] [NULL] [NULL] [0] [NULL] [1] [...] [ЭКОНОМ] [NULL] [$(yymmdd +20)] [$(yymmdd +20)] [NULL] [ЮТ100] [...] [TUMALI/VALERII] [0] [0] [NULL] [NULL] [зарегистрирован] [NULL] [NULL] [0] $()
 
 
 %%
@@ -1103,12 +1103,12 @@ $(RUN_PAX_SRC_STAT $(date_format %d.%m.%Y -10) $(date_format %d.%m.%Y +10)  OZ)
           <bag_weight>0</bag_weight>
           <rk_weight>0</rk_weight>
           <excess>0</excess>
+          <tags/>
+          <seat_no>05А</seat_no>
           <grp_id>$(get grp_id)</grp_id>
           <airp_arv>ПРХ</airp_arv>
-          <tags/>
           <status>Зарег.</status>
           <class>Э</class>
-          <seat_no>05А</seat_no>
           <document>32427293 UKR</document>
           <ticket_no>2985523437721</ticket_no>
           <hall>Зал 1</hall>
@@ -1127,12 +1127,12 @@ $(RUN_PAX_SRC_STAT $(date_format %d.%m.%Y -10) $(date_format %d.%m.%Y +10)  OZ)
           <bag_weight>0</bag_weight>
           <rk_weight>0</rk_weight>
           <excess>0</excess>
+          <tags/>
+          <seat_no>05А</seat_no>
           <grp_id>$(get grp_id2)</grp_id>
           <airp_arv>АМС</airp_arv>
-          <tags/>
           <status>Зарег.</status>
           <class>Э</class>
-          <seat_no>05А</seat_no>
           <document>32427293 UKR</document>
           <ticket_no>2985523437721</ticket_no>
           <hall>Зал 1</hall>
@@ -1151,12 +1151,12 @@ $(RUN_PAX_SRC_STAT $(date_format %d.%m.%Y -10) $(date_format %d.%m.%Y +10)  OZ)
           <bag_weight>0</bag_weight>
           <rk_weight>0</rk_weight>
           <excess>0</excess>
+          <tags/>
+          <seat_no>05А</seat_no>
           <grp_id>$(get grp_id3)</grp_id>
           <airp_arv>ЛХР</airp_arv>
-          <tags/>
           <status>Зарег.</status>
           <class>Э</class>
-          <seat_no>05А</seat_no>
           <document>32427293 UKR</document>
           <ticket_no>2985523437721</ticket_no>
           <hall>Зал 1</hall>
@@ -1176,7 +1176,7 @@ $(RUN_PAX_SRC_STAT $(date_format %d.%m.%Y -10) $(date_format %d.%m.%Y +10)  OZ)
         <cap_test>ТЕСТ</cap_test>
         <page_number_fmt>Стр. %u из %u</page_number_fmt>
         <short_page_number_fmt>Стр. %u</short_page_number_fmt>
-        <oper_info>Отчет сформирован $(date_format %d.%m.%Y) $(date_format %H:%M:%S) (МОВ)
+        <oper_info>Отчет сформирован ... (МОВ)
 оператором PIKE
 с терминала МОВРОМ</oper_info>
         <skip_header>0</skip_header>
@@ -1236,7 +1236,7 @@ $(RUN_FLT_TASK_LOG $(get point_dep) $(date_format %d.%m.%Y +1))
         <cap_test>ТЕСТ</cap_test>
         <page_number_fmt>Стр. %u из %u</page_number_fmt>
         <short_page_number_fmt>Стр. %u</short_page_number_fmt>
-        <oper_info>Отчет сформирован $(date_format %d.%m.%Y) $(date_format %H:%M:)... (МОВ)
+        <oper_info>Отчет сформирован ... (МОВ)
 оператором PIKE
 с терминала МОВРОМ</oper_info>
         <skip_header>0</skip_header>
@@ -1313,7 +1313,7 @@ $(RUN_FLT_LOG $(get point_dep) $(date_format %d.%m.%Y +1))
         <cap_test>ТЕСТ</cap_test>
         <page_number_fmt>Стр. %u из %u</page_number_fmt>
         <short_page_number_fmt>Стр. %u</short_page_number_fmt>
-        <oper_info>Отчет сформирован $(date_format %d.%m.%Y) $(date_format %H:%M:%S) (МОВ)
+        <oper_info>Отчет сформирован ... (МОВ)
 оператором PIKE
 с терминала МОВРОМ</oper_info>
         <skip_header>0</skip_header>

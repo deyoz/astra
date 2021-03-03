@@ -808,6 +808,99 @@ void TRFISCStatRow::add_header(ostringstream &buf) const
 }
 
 template <class T>
+void ArxRunRFISCStat(
+        const TStatParams &params,
+        T &RFISCStat,
+        TPrintAirline &prn_airline
+        )
+{
+    QParams QryParams;
+    QryParams
+        << QParam("FirstDate", otDate, params.FirstDate)
+        << QParam("LastDate", otDate, params.LastDate);
+    string SQLText =
+        "select * from "
+        "   arx_points , \n"
+        "   arx_rfisc_stat  \n"
+        "where "
+        "   arx_rfisc_stat.point_id = arx_points.point_id and "
+        "   arx_points.pr_del >= 0 and ";
+    params.AccessClause(SQLText);
+    SQLText +=
+        "    arx_points.part_key >= :FirstDate AND arx_points.part_key < :LastDate and \n"
+        "    arx_rfisc_stat.part_key >= :FirstDate AND arx_rfisc_stat.part_key < :LastDate \n";
+
+    DB::TCachedQuery Qry(PgOra::getROSession("ARX_RFISC_STAT"), SQLText, QryParams);
+
+    Qry.get().Execute();
+    if(not Qry.get().Eof) {
+        int col_reg_no = Qry.get().GetFieldIndex("reg_no");
+        int col_ticket_no = Qry.get().GetFieldIndex("ticket_no");
+        int col_coupon_no = Qry.get().GetFieldIndex("coupon_no");
+        int col_rfisc = Qry.get().GetFieldIndex("rfisc");
+        int col_point_id = Qry.get().GetFieldIndex("point_id");
+        int col_point_num = Qry.get().GetFieldIndex("point_num");
+        int col_pr_trfer = Qry.get().GetFieldIndex("pr_trfer");
+        int col_scd_out = Qry.get().GetFieldIndex("scd_out");
+        int col_airline = Qry.get().GetFieldIndex("airline");
+        int col_flt_no = Qry.get().GetFieldIndex("flt_no");
+        int col_suffix = Qry.get().GetFieldIndex("suffix");
+        int col_airp = Qry.get().GetFieldIndex("airp");
+        int col_airp_arv = Qry.get().GetFieldIndex("airp_arv");
+        int col_craft = Qry.get().GetFieldIndex("craft");
+        int col_travel_time = Qry.get().GetFieldIndex("travel_time");
+        int col_trfer_flt_no = Qry.get().GetFieldIndex("trfer_flt_no");
+        int col_trfer_suffix = Qry.get().GetFieldIndex("trfer_suffix");
+        int col_trfer_airp_arv = Qry.get().GetFieldIndex("trfer_airp_arv");
+        int col_desk = Qry.get().GetFieldIndex("desk");
+        int col_user_login = Qry.get().GetFieldIndex("user_login");
+        int col_user_descr = Qry.get().GetFieldIndex("user_descr");
+        int col_time_create = Qry.get().GetFieldIndex("time_create");
+        int col_tag_no = Qry.get().GetFieldIndex("tag_no");
+        int col_fqt_no = Qry.get().GetFieldIndex("fqt_no");
+        int col_excess = Qry.get().GetFieldIndex("excess");
+        int col_paid = Qry.get().GetFieldIndex("paid");
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            prn_airline.check(Qry.get().FieldAsString(col_airline));
+            TRFISCStatRow row;
+            if(not Qry.get().FieldIsNULL(col_reg_no))
+                row.reg_no = Qry.get().FieldAsInteger(col_reg_no);
+            row.ticket_no = Qry.get().FieldAsString(col_ticket_no);
+            if(not Qry.get().FieldIsNULL(col_coupon_no))
+                row.coupon_no = Qry.get().FieldAsInteger(col_coupon_no);
+            row.rfisc = Qry.get().FieldAsString(col_rfisc);
+            row.point_id = Qry.get().FieldAsInteger(col_point_id);
+            row.point_num = Qry.get().FieldAsInteger(col_point_num);
+            row.pr_trfer = Qry.get().FieldAsInteger(col_pr_trfer);
+            row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
+            row.flt_no = Qry.get().FieldAsInteger(col_flt_no);
+            row.suffix = Qry.get().FieldAsString(col_suffix);
+            row.airp = Qry.get().FieldAsString(col_airp);
+            row.airp_arv = Qry.get().FieldAsString(col_airp_arv);
+            row.craft = Qry.get().FieldAsString(col_craft);
+            if(not Qry.get().FieldIsNULL(col_travel_time))
+                row.travel_time = Qry.get().FieldAsDateTime(col_travel_time);
+            row.trfer_flt_no = Qry.get().FieldAsInteger(col_trfer_flt_no);
+            row.trfer_suffix = Qry.get().FieldAsString(col_trfer_suffix);
+            row.trfer_airp_arv = Qry.get().FieldAsString(col_trfer_airp_arv);
+            row.desk = Qry.get().FieldAsString(col_desk);
+            row.user_login = Qry.get().FieldAsString(col_user_login);
+            row.user_descr = Qry.get().FieldAsString(col_user_descr);
+            if(not Qry.get().FieldIsNULL(col_time_create))
+                row.time_create = Qry.get().FieldAsDateTime(col_time_create);
+            row.tag_no = Qry.get().FieldAsFloat(col_tag_no);
+            row.fqt_no = Qry.get().FieldAsString(col_fqt_no);
+            if(not Qry.get().FieldIsNULL(col_excess))
+                row.excess = Qry.get().FieldAsInteger(col_excess);
+            if(not Qry.get().FieldIsNULL(col_paid))
+                row.paid = Qry.get().FieldAsInteger(col_paid);
+            RFISCStat.insert(row);
+            params.overflow.check(RFISCStat.size());
+        }
+    }
+}
+
+template <class T>
 void RunRFISCStat(
         const TStatParams &params,
         T &RFISCStat,
@@ -818,101 +911,86 @@ void RunRFISCStat(
     QryParams
         << QParam("FirstDate", otDate, params.FirstDate)
         << QParam("LastDate", otDate, params.LastDate);
-    for(int pass = 0; pass <= 1; pass++) {
-        string SQLText =
-            "select * from ";
-        if(pass != 0) {
-            SQLText +=
-                "   arx_points points, \n"
-                "   arx_rfisc_stat rfisc_stat \n";
-        } else {
-            SQLText +=
-                "   points, \n"
-                "   rfisc_stat \n";
-        }
-        SQLText +=
-            "where ";
-        SQLText +=
-            "   rfisc_stat.point_id = points.point_id and "
-            "   points.pr_del >= 0 and ";
-        params.AccessClause(SQLText);
-        if (pass!=0)
-          SQLText +=
-            "    points.part_key >= :FirstDate AND points.part_key < :LastDate and \n"
-            "    rfisc_stat.part_key >= :FirstDate AND rfisc_stat.part_key < :LastDate \n";
-        else
-          SQLText +=
-            "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate \n";
+    string SQLText =
+        "select * from "
+        "   points, \n"
+        "   rfisc_stat \n"
+        "where "
+        "   rfisc_stat.point_id = points.point_id and "
+        "   points.pr_del >= 0 and ";
+    params.AccessClause(SQLText);
+    SQLText +=  " points.scd_out >= :FirstDate AND points.scd_out < :LastDate \n";
 
-        TCachedQuery Qry(SQLText, QryParams);
+    TCachedQuery Qry(SQLText, QryParams);
 
-        Qry.get().Execute();
-        if(not Qry.get().Eof) {
-            int col_reg_no = Qry.get().GetFieldIndex("reg_no");
-            int col_ticket_no = Qry.get().GetFieldIndex("ticket_no");
-            int col_coupon_no = Qry.get().GetFieldIndex("coupon_no");
-            int col_rfisc = Qry.get().GetFieldIndex("rfisc");
-            int col_point_id = Qry.get().GetFieldIndex("point_id");
-            int col_point_num = Qry.get().GetFieldIndex("point_num");
-            int col_pr_trfer = Qry.get().GetFieldIndex("pr_trfer");
-            int col_scd_out = Qry.get().GetFieldIndex("scd_out");
-            int col_airline = Qry.get().GetFieldIndex("airline");
-            int col_flt_no = Qry.get().GetFieldIndex("flt_no");
-            int col_suffix = Qry.get().GetFieldIndex("suffix");
-            int col_airp = Qry.get().GetFieldIndex("airp");
-            int col_airp_arv = Qry.get().GetFieldIndex("airp_arv");
-            int col_craft = Qry.get().GetFieldIndex("craft");
-            int col_travel_time = Qry.get().GetFieldIndex("travel_time");
-            int col_trfer_flt_no = Qry.get().GetFieldIndex("trfer_flt_no");
-            int col_trfer_suffix = Qry.get().GetFieldIndex("trfer_suffix");
-            int col_trfer_airp_arv = Qry.get().GetFieldIndex("trfer_airp_arv");
-            int col_desk = Qry.get().GetFieldIndex("desk");
-            int col_user_login = Qry.get().GetFieldIndex("user_login");
-            int col_user_descr = Qry.get().GetFieldIndex("user_descr");
-            int col_time_create = Qry.get().GetFieldIndex("time_create");
-            int col_tag_no = Qry.get().GetFieldIndex("tag_no");
-            int col_fqt_no = Qry.get().GetFieldIndex("fqt_no");
-            int col_excess = Qry.get().GetFieldIndex("excess");
-            int col_paid = Qry.get().GetFieldIndex("paid");
-            for(; not Qry.get().Eof; Qry.get().Next()) {
-                prn_airline.check(Qry.get().FieldAsString(col_airline));
-                TRFISCStatRow row;
-                if(not Qry.get().FieldIsNULL(col_reg_no))
-                    row.reg_no = Qry.get().FieldAsInteger(col_reg_no);
-                row.ticket_no = Qry.get().FieldAsString(col_ticket_no);
-                if(not Qry.get().FieldIsNULL(col_coupon_no))
-                    row.coupon_no = Qry.get().FieldAsInteger(col_coupon_no);
-                row.rfisc = Qry.get().FieldAsString(col_rfisc);
-                row.point_id = Qry.get().FieldAsInteger(col_point_id);
-                row.point_num = Qry.get().FieldAsInteger(col_point_num);
-                row.pr_trfer = Qry.get().FieldAsInteger(col_pr_trfer);
-                row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
-                row.flt_no = Qry.get().FieldAsInteger(col_flt_no);
-                row.suffix = Qry.get().FieldAsString(col_suffix);
-                row.airp = Qry.get().FieldAsString(col_airp);
-                row.airp_arv = Qry.get().FieldAsString(col_airp_arv);
-                row.craft = Qry.get().FieldAsString(col_craft);
-                if(not Qry.get().FieldIsNULL(col_travel_time))
-                    row.travel_time = Qry.get().FieldAsDateTime(col_travel_time);
-                row.trfer_flt_no = Qry.get().FieldAsInteger(col_trfer_flt_no);
-                row.trfer_suffix = Qry.get().FieldAsString(col_trfer_suffix);
-                row.trfer_airp_arv = Qry.get().FieldAsString(col_trfer_airp_arv);
-                row.desk = Qry.get().FieldAsString(col_desk);
-                row.user_login = Qry.get().FieldAsString(col_user_login);
-                row.user_descr = Qry.get().FieldAsString(col_user_descr);
-                if(not Qry.get().FieldIsNULL(col_time_create))
-                    row.time_create = Qry.get().FieldAsDateTime(col_time_create);
-                row.tag_no = Qry.get().FieldAsFloat(col_tag_no);
-                row.fqt_no = Qry.get().FieldAsString(col_fqt_no);
-                if(not Qry.get().FieldIsNULL(col_excess))
-                    row.excess = Qry.get().FieldAsInteger(col_excess);
-                if(not Qry.get().FieldIsNULL(col_paid))
-                    row.paid = Qry.get().FieldAsInteger(col_paid);
-                RFISCStat.insert(row);
-                params.overflow.check(RFISCStat.size());
-            }
+    Qry.get().Execute();
+    if(not Qry.get().Eof) {
+        int col_reg_no = Qry.get().GetFieldIndex("reg_no");
+        int col_ticket_no = Qry.get().GetFieldIndex("ticket_no");
+        int col_coupon_no = Qry.get().GetFieldIndex("coupon_no");
+        int col_rfisc = Qry.get().GetFieldIndex("rfisc");
+        int col_point_id = Qry.get().GetFieldIndex("point_id");
+        int col_point_num = Qry.get().GetFieldIndex("point_num");
+        int col_pr_trfer = Qry.get().GetFieldIndex("pr_trfer");
+        int col_scd_out = Qry.get().GetFieldIndex("scd_out");
+        int col_airline = Qry.get().GetFieldIndex("airline");
+        int col_flt_no = Qry.get().GetFieldIndex("flt_no");
+        int col_suffix = Qry.get().GetFieldIndex("suffix");
+        int col_airp = Qry.get().GetFieldIndex("airp");
+        int col_airp_arv = Qry.get().GetFieldIndex("airp_arv");
+        int col_craft = Qry.get().GetFieldIndex("craft");
+        int col_travel_time = Qry.get().GetFieldIndex("travel_time");
+        int col_trfer_flt_no = Qry.get().GetFieldIndex("trfer_flt_no");
+        int col_trfer_suffix = Qry.get().GetFieldIndex("trfer_suffix");
+        int col_trfer_airp_arv = Qry.get().GetFieldIndex("trfer_airp_arv");
+        int col_desk = Qry.get().GetFieldIndex("desk");
+        int col_user_login = Qry.get().GetFieldIndex("user_login");
+        int col_user_descr = Qry.get().GetFieldIndex("user_descr");
+        int col_time_create = Qry.get().GetFieldIndex("time_create");
+        int col_tag_no = Qry.get().GetFieldIndex("tag_no");
+        int col_fqt_no = Qry.get().GetFieldIndex("fqt_no");
+        int col_excess = Qry.get().GetFieldIndex("excess");
+        int col_paid = Qry.get().GetFieldIndex("paid");
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            prn_airline.check(Qry.get().FieldAsString(col_airline));
+            TRFISCStatRow row;
+            if(not Qry.get().FieldIsNULL(col_reg_no))
+                row.reg_no = Qry.get().FieldAsInteger(col_reg_no);
+            row.ticket_no = Qry.get().FieldAsString(col_ticket_no);
+            if(not Qry.get().FieldIsNULL(col_coupon_no))
+                row.coupon_no = Qry.get().FieldAsInteger(col_coupon_no);
+            row.rfisc = Qry.get().FieldAsString(col_rfisc);
+            row.point_id = Qry.get().FieldAsInteger(col_point_id);
+            row.point_num = Qry.get().FieldAsInteger(col_point_num);
+            row.pr_trfer = Qry.get().FieldAsInteger(col_pr_trfer);
+            row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
+            row.flt_no = Qry.get().FieldAsInteger(col_flt_no);
+            row.suffix = Qry.get().FieldAsString(col_suffix);
+            row.airp = Qry.get().FieldAsString(col_airp);
+            row.airp_arv = Qry.get().FieldAsString(col_airp_arv);
+            row.craft = Qry.get().FieldAsString(col_craft);
+            if(not Qry.get().FieldIsNULL(col_travel_time))
+                row.travel_time = Qry.get().FieldAsDateTime(col_travel_time);
+            row.trfer_flt_no = Qry.get().FieldAsInteger(col_trfer_flt_no);
+            row.trfer_suffix = Qry.get().FieldAsString(col_trfer_suffix);
+            row.trfer_airp_arv = Qry.get().FieldAsString(col_trfer_airp_arv);
+            row.desk = Qry.get().FieldAsString(col_desk);
+            row.user_login = Qry.get().FieldAsString(col_user_login);
+            row.user_descr = Qry.get().FieldAsString(col_user_descr);
+            if(not Qry.get().FieldIsNULL(col_time_create))
+                row.time_create = Qry.get().FieldAsDateTime(col_time_create);
+            row.tag_no = Qry.get().FieldAsFloat(col_tag_no);
+            row.fqt_no = Qry.get().FieldAsString(col_fqt_no);
+            if(not Qry.get().FieldIsNULL(col_excess))
+                row.excess = Qry.get().FieldAsInteger(col_excess);
+            if(not Qry.get().FieldIsNULL(col_paid))
+                row.paid = Qry.get().FieldAsInteger(col_paid);
+            RFISCStat.insert(row);
+            params.overflow.check(RFISCStat.size());
         }
     }
+
+    ArxRunRFISCStat(params, RFISCStat, prn_airline);
 }
 
 void createXMLRFISCStat(const TStatParams &params, const TRFISCStat &RFISCStat, const TPrintAirline &prn_airline, xmlNodePtr resNode)

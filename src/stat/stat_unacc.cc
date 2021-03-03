@@ -4,6 +4,9 @@
 #include "astra_misc.h"
 #include "stat/stat_utils.h"
 
+#define NICKNAME "DENIS"
+#include "serverlib/slogger.h"
+
 using namespace std;
 using namespace ASTRA;
 using namespace AstraLocale;
@@ -33,120 +36,90 @@ void TUNACCFullStat::add(const TUNACCStatRow &row)
     FRowCount++;
 }
 
-void RunUNACCStat(
+void ArxRunUNACCStat(
         const TStatParams &params,
         TUNACCAbstractStat &UNACCFullStat
         )
 {
-    for(int pass = 0; pass <= 2; pass++) {
+    tst();
+    for(int pass = 1; pass <= 2; pass++) {
         QParams QryParams;
         QryParams
             << QParam("FirstDate", otDate, params.FirstDate)
             << QParam("LastDate", otDate, params.LastDate);
-        if (pass!=0)
-            QryParams << QParam("arx_trip_date_range", otInteger, ARX_TRIP_DATE_RANGE());
+        QryParams << QParam("arx_trip_date_range", otInteger, params.LastDate+ARX_TRIP_DATE_RANGE());
         string SQLText =
             "select \n"
-            "   points.point_id, \n"
-            "   points.craft, \n"
-            "   points.airline, \n"
-            "   points.flt_no, \n"
-            "   points.suffix, \n"
-            "   points.scd_out, \n"
-            "   points.airp, \n"
-            "   pax_grp.airp_arv, \n"
-            "   unaccomp.original_tag_no, \n"
-            "   unaccomp.surname, \n"
-            "   unaccomp.name, \n"
-            "   unaccomp.airline prev_airline, \n"
-            "   unaccomp.flt_no prev_flt_no, \n"
-            "   unaccomp.suffix prev_suffix, \n"
-            "   unaccomp.scd prev_scd, \n"
-            "   pax_grp.grp_id, \n"
-            "   users2.descr, \n"
-            "   pax_grp.desk, \n"
-            "   pax_grp.time_create, \n"
-            "   bag2.bag_type, \n"
-            "   bag2.num, \n"
-            "   bag2.amount, \n"
-            "   bag2.weight, \n"
-            "   bag_tags.no, \n";
-        if(pass != 0)
-            SQLText +=
-                "   transfer.airline trfer_airline, \n"
-                "   transfer.airp_dep trfer_airp_dep, \n"
-                "   transfer.flt_no trfer_flt_no, \n"
-                "   transfer.suffix trfer_suffix, \n"
-                "   transfer.scd trfer_scd, \n"
-                "   transfer.airp_arv trfer_airp_arv \n";
-        else
-            SQLText +=
-                "   trfer_trips.airline trfer_airline, \n"
-                "   trfer_trips.airp_dep trfer_airp_dep, \n"
-                "   trfer_trips.flt_no trfer_flt_no, \n"
-                "   trfer_trips.suffix trfer_suffix, \n"
-                "   trfer_trips.scd trfer_scd, \n"
-                "   transfer.airp_arv trfer_airp_arv \n";
+            "   arx_points.point_id, \n"
+            "   arx_points.craft, \n"
+            "   arx_points.airline, \n"
+            "   arx_points.flt_no, \n"
+            "   arx_points.suffix, \n"
+            "   arx_points.scd_out, \n"
+            "   arx_points.airp, \n"
+            "   arx_pax_grp.airp_arv, \n"
+            "   arx_unaccomp.original_tag_no, \n"
+            "   arx_unaccomp.surname, \n"
+            "   arx_unaccomp.name, \n"
+            "   arx_unaccomp.airline prev_airline, \n"
+            "   arx_unaccomp.flt_no prev_flt_no, \n"
+            "   arx_unaccomp.suffix prev_suffix, \n"
+            "   arx_unaccomp.scd prev_scd, \n"
+            "   arx_pax_grp.grp_id, \n"
+            "   arx_pax_grp.desk, \n"
+            "   arx_pax_grp.time_create, \n"
+            "   arx_pax_grp.user_id, \n" //for join with users2
+            "   arx_bag2.bag_type, \n"
+            "   arx_bag2.num, \n"
+            "   arx_bag2.amount, \n"
+            "   arx_bag2.weight, \n"
+            "   arx_bag_tags.no, \n"
+            "   arx_transfer.airline trfer_airline, \n"
+            "   arx_transfer.airp_dep trfer_airp_dep, \n"
+            "   arx_transfer.flt_no trfer_flt_no, \n"
+            "   arx_transfer.suffix trfer_suffix, \n"
+            "   arx_transfer.scd trfer_scd, \n"
+            "   arx_transfer.airp_arv trfer_airp_arv \n"
+            "from \n"
+            "   arx_points , \n"
+            "   arx_bag_tags , \n"
+            "   arx_pax_grp "
+            "       LEFT JOIN arx_transfer ON arx_pax_grp.part_key = arx_transfer.part_key AND "
+            "                                 arx_pax_grp.grp_id   = arx_transfer.grp_id AND"
+            "                                 arx_transfer.pr_final <> 0,  \n"
+            "   arx_unaccomp_bag_info arx_unaccomp "
+            "       RIGHT JOIN arx_bag2 ON arx_unaccomp.part_key = arx_bag2.part_key AND "
+            "                              arx_unaccomp.grp_id   = arx_bag2.grp_id AND "
+            "                              arx_unaccomp.num      = arx_bag2.num \n";
+        if(pass == 2) {
+            SQLText += getMoveArxQuery();
+        }
         SQLText +=
-            "from \n";
-        if(pass != 0) {
-            SQLText +=
-                "   arx_points points, \n"
-                "   arx_pax_grp pax_grp, \n"
-                "   arx_bag2 bag2, \n"
-                "   arx_bag_tags bag_tags, \n"
-                "   users2, \n"
-                "   arx_unaccomp_bag_info unaccomp, \n"
-                "   arx_transfer transfer \n";
-            if(pass == 2)
-                SQLText += ",(SELECT part_key, move_id FROM move_arx_ext \n"
-                    "  WHERE part_key >= :LastDate+:arx_trip_date_range AND part_key <= :LastDate+date_range) arx_ext \n";
-        } else
-            SQLText +=
-                "   points, \n"
-                "   pax_grp, \n"
-                "   bag2, \n"
-                "   bag_tags, \n"
-                "   users2, \n"
-                "   unaccomp_bag_info unaccomp, \n"
-                "   transfer, \n"
-                "   trfer_trips \n";
-        SQLText +=
-            "where \n";
-        if(pass != 0)
-            SQLText +=
-                "   bag2.part_key = bag_tags.part_key and \n"
-                "   pax_grp.part_key = points.part_key and \n"
-                "   bag2.part_key = pax_grp.part_key and \n"
-                "   unaccomp.part_key(+) = bag2.part_key and \n" // не забываем про плюсики...
-                "   pax_grp.part_key = transfer.part_key(+) and \n";
+            "where \n"
+            "   arx_bag2.part_key    = arx_bag_tags.part_key and \n"
+            "   arx_bag2.part_key    = arx_pax_grp.part_key and \n"
+            "   arx_bag2.grp_id      = arx_bag_tags.grp_id and \n"
+            "   arx_bag2.num         = arx_bag_tags.bag_num and \n"
+            "   arx_pax_grp.part_key = arx_points.part_key and \n"
+            "   arx_points.scd_out  >= :FirstDate AND points.scd_out < :LastDate and \n";
         if(pass == 1)
-            SQLText += " points.part_key >= :FirstDate AND points.part_key < :LastDate + :arx_trip_date_range AND \n";
+            SQLText += " arx_points.part_key >= :FirstDate AND arx_points.part_key < :arx_trip_date_range AND \n";
         if(pass == 2)
-            SQLText += " points.part_key=arx_ext.part_key AND points.move_id=arx_ext.move_id AND \n";
-        SQLText +=
-            "   points.scd_out >= :FirstDate AND points.scd_out < :LastDate and \n"
-            "   pax_grp.user_id = users2.user_id(+) and \n"
-            "   bag2.grp_id = bag_tags.grp_id and \n"
-            "   bag2.num = bag_tags.bag_num and \n";
+            SQLText += " arx_points.part_key=arx_ext.part_key AND arx_points.move_id=arx_ext.move_id AND \n";
+
         params.AccessClause(SQLText);
         if(params.flt_no != NoExists) {
             SQLText += " points.flt_no = :flt_no and \n";
             QryParams << QParam("flt_no", otInteger, params.flt_no);
         }
         SQLText +=
-            "   pax_grp.point_dep = points.point_id and \n"
-            "   pax_grp.class is null and \n"
-            "   bag2.grp_id = pax_grp.grp_id and \n"
-            "   unaccomp.grp_id(+) = bag2.grp_id and \n"
-            "   unaccomp.num(+) = bag2.num and \n"
-            "   pax_grp.grp_id = transfer.grp_id(+) and \n"
-            "   transfer.pr_final(+) <> 0 \n";
-        if(pass == 0)
-            SQLText +=
-                "   and transfer.point_id_trfer = trfer_trips.point_id(+) \n";
+            "   arx_pax_grp.point_dep = arx_points.point_id and \n"
+            "   arx_pax_grp.class is null and \n"
+            "   arx_bag2.grp_id = arx_pax_grp.grp_id and \n";
 
-        TCachedQuery Qry(SQLText, QryParams);
+        UsersReader::Instance().updateUsers();
+
+        DB::TCachedQuery Qry(PgOra::getROSession("ARX_UNACCOMP_BAG_INFO"), SQLText, QryParams);
         Qry.get().Execute();
         if(not Qry.get().Eof) {
             TAirpArvInfo airp_arv_info;
@@ -165,9 +138,9 @@ void RunUNACCStat(
             int col_prev_suffix = Qry.get().FieldIndex("prev_suffix");
             int col_prev_scd = Qry.get().FieldIndex("prev_scd");
             int col_grp_id = Qry.get().FieldIndex("grp_id");
-            int col_descr = Qry.get().FieldIndex("descr");
             int col_desk = Qry.get().FieldIndex("desk");
             int col_time_create = Qry.get().FieldIndex("time_create");
+            int col_user_id = Qry.get().FieldIndex("user_id");
             int col_bag_type = Qry.get().FieldIndex("bag_type");
             int col_num = Qry.get().FieldIndex("num");
             int col_amount = Qry.get().FieldIndex("amount");
@@ -201,7 +174,8 @@ void RunUNACCStat(
                 if(not Qry.get().FieldIsNULL(col_prev_scd))
                     row.prev_scd = Qry.get().FieldAsDateTime(col_prev_scd);
                 row.grp_id = Qry.get().FieldAsInteger(col_grp_id);
-                row.descr = Qry.get().FieldAsString(col_descr);
+                int pax_grp_user_id = Qry.get().FieldAsInteger(col_user_id);
+                row.descr = UsersReader::Instance().getDescr(pax_grp_user_id);
                 row.desk = Qry.get().FieldAsString(col_desk);
                 if(not Qry.get().FieldIsNULL(col_time_create))
                     row.time_create = Qry.get().FieldAsDateTime(col_time_create);
@@ -226,6 +200,160 @@ void RunUNACCStat(
             }
         }
     }
+}
+
+
+void RunUNACCStat(
+        const TStatParams &params,
+        TUNACCAbstractStat &UNACCFullStat
+        )
+{
+    QParams QryParams;
+    QryParams
+        << QParam("FirstDate", otDate, params.FirstDate)
+        << QParam("LastDate", otDate, params.LastDate);
+    string SQLText =
+        "select \n"
+        "   points.point_id, \n"
+        "   points.craft, \n"
+        "   points.airline, \n"
+        "   points.flt_no, \n"
+        "   points.suffix, \n"
+        "   points.scd_out, \n"
+        "   points.airp, \n"
+        "   pax_grp.airp_arv, \n"
+        "   unaccomp.original_tag_no, \n"
+        "   unaccomp.surname, \n"
+        "   unaccomp.name, \n"
+        "   unaccomp.airline prev_airline, \n"
+        "   unaccomp.flt_no prev_flt_no, \n"
+        "   unaccomp.suffix prev_suffix, \n"
+        "   unaccomp.scd prev_scd, \n"
+        "   pax_grp.grp_id, \n"
+        "   users2.descr, \n"
+        "   pax_grp.desk, \n"
+        "   pax_grp.time_create, \n"
+        "   bag2.bag_type, \n"
+        "   bag2.num, \n"
+        "   bag2.amount, \n"
+        "   bag2.weight, \n"
+        "   bag_tags.no, \n"
+        "   trfer_trips.airline trfer_airline, \n"
+        "   trfer_trips.airp_dep trfer_airp_dep, \n"
+        "   trfer_trips.flt_no trfer_flt_no, \n"
+        "   trfer_trips.suffix trfer_suffix, \n"
+        "   trfer_trips.scd trfer_scd, \n"
+        "   transfer.airp_arv trfer_airp_arv \n"
+        "from \n"
+        "   points, \n"
+        "   pax_grp, \n"
+        "   bag2, \n"
+        "   bag_tags, \n"
+        "   users2, \n"
+        "   unaccomp_bag_info unaccomp, \n"
+        "   transfer, \n"
+        "   trfer_trips \n"
+        "where \n"
+        "   points.scd_out >= :FirstDate AND points.scd_out < :LastDate and \n"
+        "   pax_grp.user_id = users2.user_id(+) and \n"
+        "   bag2.grp_id = bag_tags.grp_id and \n"
+        "   bag2.num = bag_tags.bag_num and \n";
+    params.AccessClause(SQLText);
+    if(params.flt_no != NoExists) {
+        SQLText += " points.flt_no = :flt_no and \n";
+        QryParams << QParam("flt_no", otInteger, params.flt_no);
+    }
+    SQLText +=
+        "   pax_grp.point_dep = points.point_id and \n"
+        "   pax_grp.class is null and \n"
+        "   bag2.grp_id = pax_grp.grp_id and \n"
+        "   unaccomp.grp_id(+) = bag2.grp_id and \n"
+        "   unaccomp.num(+) = bag2.num and \n"
+        "   pax_grp.grp_id = transfer.grp_id(+) and \n"
+        "   transfer.pr_final(+) <> 0 \n"
+        "   and transfer.point_id_trfer = trfer_trips.point_id(+) \n";
+
+    TCachedQuery Qry(SQLText, QryParams);
+    Qry.get().Execute();
+    if(not Qry.get().Eof) {
+        TAirpArvInfo airp_arv_info;
+        int col_point_id = Qry.get().FieldIndex("point_id");
+        int col_craft = Qry.get().FieldIndex("craft");
+        int col_airline = Qry.get().FieldIndex("airline");
+        int col_flt_no = Qry.get().FieldIndex("flt_no");
+        int col_suffix = Qry.get().FieldIndex("suffix");
+        int col_scd_out = Qry.get().FieldIndex("scd_out");
+        int col_airp = Qry.get().FieldIndex("airp");
+        int col_original_tag_no = Qry.get().FieldIndex("original_tag_no");
+        int col_surname = Qry.get().FieldIndex("surname");
+        int col_name = Qry.get().FieldIndex("name");
+        int col_prev_airline = Qry.get().FieldIndex("prev_airline");
+        int col_prev_flt_no = Qry.get().FieldIndex("prev_flt_no");
+        int col_prev_suffix = Qry.get().FieldIndex("prev_suffix");
+        int col_prev_scd = Qry.get().FieldIndex("prev_scd");
+        int col_grp_id = Qry.get().FieldIndex("grp_id");
+        int col_descr = Qry.get().FieldIndex("descr");
+        int col_desk = Qry.get().FieldIndex("desk");
+        int col_time_create = Qry.get().FieldIndex("time_create");
+        int col_bag_type = Qry.get().FieldIndex("bag_type");
+        int col_num = Qry.get().FieldIndex("num");
+        int col_amount = Qry.get().FieldIndex("amount");
+        int col_weight = Qry.get().FieldIndex("weight");
+        int col_no = Qry.get().FieldIndex("no");
+
+        int col_trfer_airline = Qry.get().FieldIndex("trfer_airline");
+        int col_trfer_airp_dep = Qry.get().FieldIndex("trfer_airp_dep");
+        int col_trfer_flt_no = Qry.get().FieldIndex("trfer_flt_no");
+        int col_trfer_suffix = Qry.get().FieldIndex("trfer_suffix");
+        int col_trfer_scd = Qry.get().FieldIndex("trfer_scd");
+        int col_trfer_airp_arv = Qry.get().FieldIndex("trfer_airp_arv");
+
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            TUNACCStatRow row;
+            row.point_id = Qry.get().FieldAsInteger(col_point_id);
+            row.craft = Qry.get().FieldAsString(col_craft);
+            row.airline = Qry.get().FieldAsString(col_airline);
+            row.flt_no = Qry.get().FieldAsInteger(col_flt_no);
+            row.suffix = Qry.get().FieldAsString(col_suffix);
+            row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
+            row.airp = Qry.get().FieldAsString(col_airp);
+            row.airp_arv = airp_arv_info.get(Qry.get());
+            row.original_tag_no = Qry.get().FieldAsString(col_original_tag_no);
+            row.surname = Qry.get().FieldAsString(col_surname);
+            row.name = Qry.get().FieldAsString(col_name);
+            row.prev_airline = Qry.get().FieldAsString(col_prev_airline);
+            if(not Qry.get().FieldIsNULL(col_prev_flt_no))
+                row.prev_flt_no = Qry.get().FieldAsInteger(col_prev_flt_no);
+            row.prev_suffix = Qry.get().FieldAsString(col_prev_suffix);
+            if(not Qry.get().FieldIsNULL(col_prev_scd))
+                row.prev_scd = Qry.get().FieldAsDateTime(col_prev_scd);
+            row.grp_id = Qry.get().FieldAsInteger(col_grp_id);
+            row.descr = Qry.get().FieldAsString(col_descr);
+            row.desk = Qry.get().FieldAsString(col_desk);
+            if(not Qry.get().FieldIsNULL(col_time_create))
+                row.time_create = Qry.get().FieldAsDateTime(col_time_create);
+            if(not Qry.get().FieldIsNULL(col_bag_type))
+                row.bag_type = Qry.get().FieldAsInteger(col_bag_type);
+            row.num = Qry.get().FieldAsInteger(col_num);
+            row.amount = Qry.get().FieldAsInteger(col_amount);
+            row.weight = Qry.get().FieldAsInteger(col_weight);
+            row.no = Qry.get().FieldAsFloat(col_no);
+
+            row.trfer_airline = Qry.get().FieldAsString(col_trfer_airline);
+            row.trfer_airp_dep = Qry.get().FieldAsString(col_trfer_airp_dep);
+            if(not Qry.get().FieldIsNULL(col_trfer_flt_no))
+                row.trfer_flt_no = Qry.get().FieldAsInteger(col_trfer_flt_no);
+            row.trfer_suffix = Qry.get().FieldAsString(col_trfer_suffix);
+            if(not Qry.get().FieldIsNULL(col_trfer_scd))
+                row.trfer_scd = Qry.get().FieldAsDateTime(col_trfer_scd);
+            row.trfer_airp_arv = Qry.get().FieldAsString(col_trfer_airp_arv);
+
+            UNACCFullStat.add(row);
+            params.overflow.check(UNACCFullStat.RowCount());
+        }
+    }
+
+    ArxRunUNACCStat(params, UNACCFullStat);
 }
 
 string TUNACCFullStat::getBagWeight(TUNACCFullStat::const_iterator &row) const

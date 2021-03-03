@@ -266,20 +266,10 @@ void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
             "   act_out, "
             "   scd_out "
             "from ";
-        if(part_key == NoExists) {
-            SQLText +=
-                "   points "
-                "where "
-                "   point_id = :point_id AND pr_del>=0 ";
-        }
-        else {
-            SQLText +=
-                "   arx_points "
-                "where "
-                "   part_key = :part_key and "
-                "   point_id = :point_id AND pr_del>=0 ";
-            Qry.CreateVariable("part_key", otDate, part_key);
-        }
+        SQLText +=
+            "   points "
+            "where "
+            "   point_id = :point_id AND pr_del>=0 ";
         Qry.SQLText = SQLText;
         Qry.CreateVariable("point_id", otInteger, point_id);
         Qry.Execute();

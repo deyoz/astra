@@ -50,7 +50,7 @@ void TPFSShortStat::add(const TPFSStatRow &row)
     status[row.status]++;
 }
 
-void RunPFSStat(
+void ArxRunPFSStat(
         const TStatParams &params,
         TPFSAbstractStat &PFSStat,
         TPrintAirline &prn_airline
@@ -62,68 +62,53 @@ void RunPFSStat(
         first_date -= 1;
         last_date += 1;
     };
-    for(int pass = 0; pass <= 2; pass++) {
+    for(int pass = 1; pass <= 2; pass++) {
         QParams QryParams;
         QryParams
             << QParam("FirstDate", otDate, first_date)
             << QParam("LastDate", otDate, last_date);
-        if (pass!=0)
-            QryParams << QParam("arx_trip_date_range", otInteger, ARX_TRIP_DATE_RANGE());
+        QryParams << QParam("arx_trip_date_range", otDate, last_date + ARX_TRIP_DATE_RANGE());
         string SQLText =
-            "select ";
-        if(pass != 0)
-            SQLText += " points.part_key, ";
-        else
-            SQLText += " null part_key, ";
-        SQLText +=
-            "   points.point_id, "
-            "   points.scd_out, "
-            "   points.airline, "
-            "   points.flt_no, "
-            "   points.suffix, "
-            "   points.airp, "
-            "   pfs_stat.pax_id, "
-            "   pfs_stat.status, "
-            "   pfs_stat.airp_arv, "
-            "   pfs_stat.seats, "
-            "   pfs_stat.subcls, "
-            "   pfs_stat.pnr, "
-            "   pfs_stat.surname, "
-            "   pfs_stat.name, "
-            "   pfs_stat.gender, "
-            "   pfs_stat.birth_date "
-            "from ";
-        if(pass != 0) {
-            SQLText +=
-                "   arx_pfs_stat pfs_stat, "
-                "   arx_points points ";
-            if(pass == 2)
-                SQLText += ",(SELECT part_key, move_id FROM move_arx_ext \n"
-                    "  WHERE part_key >= :LastDate+:arx_trip_date_range AND part_key <= :LastDate+date_range) arx_ext \n";
-        } else {
-            SQLText +=
-                "   pfs_stat, "
-                "   points ";
-        }
+            "select  "
+            "   arx_points.part_key, "
+            "   arx_points.point_id, "
+            "   arx_points.scd_out, "
+            "   arx_points.airline, "
+            "   arx_points.flt_no, "
+            "   arx_points.suffix, "
+            "   arx_points.airp, "
+            "   arx_pfs_stat.pax_id, "
+            "   arx_pfs_stat.status, "
+            "   arx_pfs_stat.airp_arv, "
+            "   arx_pfs_stat.seats, "
+            "   arx_pfs_stat.subcls, "
+            "   arx_pfs_stat.pnr, "
+            "   arx_pfs_stat.surname, "
+            "   arx_pfs_stat.name, "
+            "   arx_pfs_stat.gender, "
+            "   arx_pfs_stat.birth_date "
+            "from "
+                "   arx_pfs_stat , "
+                "   arx_points  ";
+            if(pass == 2) {
+                SQLText += getMoveArxQuery();
+            }
         SQLText +=
             "where "
-            "   pfs_stat.point_id = points.point_id and "
-            "   points.pr_del >= 0 and ";
+            "   arx_pfs_stat.point_id = arx_points.point_id and "
+            "   arx_points.pr_del >= 0 and ";
         params.AccessClause(SQLText);
         if(params.flt_no != NoExists) {
-            SQLText += " points.flt_no = :flt_no and ";
+            SQLText += " arx_points.flt_no = :flt_no and ";
             QryParams << QParam("flt_no", otInteger, params.flt_no);
         }
-        if(pass != 0)
-            SQLText +=
-                " points.part_key = pfs_stat.part_key and ";
+        SQLText += " arx_points.part_key = arx_pfs_stat.part_key and ";
         if(pass == 1)
-            SQLText += " points.part_key >= :FirstDate AND points.part_key < :LastDate + :arx_trip_date_range AND \n";
+            SQLText += " arx_points.part_key >= :FirstDate AND arx_points.part_key < :arx_trip_date_range AND \n";
         if(pass == 2)
-            SQLText += " points.part_key=arx_ext.part_key AND points.move_id=arx_ext.move_id AND \n";
-        SQLText +=
-            "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
-        TCachedQuery Qry(SQLText, QryParams);
+            SQLText += " arx_points.part_key=arx_ext.part_key AND arx_points.move_id=arx_ext.move_id AND \n";
+        SQLText += " points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
+        DB::TCachedQuery Qry(PgOra::getROSession("ARX_POINTS"), SQLText, QryParams);
         Qry.get().Execute();
         if(not Qry.get().Eof) {
             int col_part_key = Qry.get().FieldIndex("part_key");
@@ -212,6 +197,145 @@ void RunPFSStat(
             }
         }
     }
+}
+
+void RunPFSStat(
+        const TStatParams &params,
+        TPFSAbstractStat &PFSStat,
+        TPrintAirline &prn_airline
+        )
+{
+    TDateTime first_date = params.FirstDate;
+    TDateTime last_date = params.LastDate;
+    if(params.LT) {
+        first_date -= 1;
+        last_date += 1;
+    };
+
+    QParams QryParams;
+    QryParams
+        << QParam("FirstDate", otDate, first_date)
+        << QParam("LastDate", otDate, last_date);
+    string SQLText = "select "
+        " null part_key, "
+        " points.point_id, "
+        " points.scd_out, "
+        " points.airline, "
+        " points.flt_no, "
+        " points.suffix, "
+        " points.airp, "
+        " pfs_stat.pax_id, "
+        " pfs_stat.status, "
+        " pfs_stat.airp_arv, "
+        " pfs_stat.seats, "
+        " pfs_stat.subcls, "
+        " pfs_stat.pnr, "
+        " pfs_stat.surname, "
+        " pfs_stat.name, "
+        " pfs_stat.gender, "
+        " pfs_stat.birth_date "
+        "from "
+        "   pfs_stat, "
+        "   points "
+        "where "
+        "   pfs_stat.point_id = points.point_id and "
+        "   points.pr_del >= 0 and ";
+    params.AccessClause(SQLText);
+    if(params.flt_no != NoExists) {
+        SQLText += " points.flt_no = :flt_no and ";
+        QryParams << QParam("flt_no", otInteger, params.flt_no);
+    }
+    SQLText += " points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
+    TCachedQuery Qry(SQLText, QryParams);
+    Qry.get().Execute();
+    if(not Qry.get().Eof) {
+        int col_part_key = Qry.get().FieldIndex("part_key");
+        int col_point_id = Qry.get().FieldIndex("point_id");
+        int col_scd_out = Qry.get().FieldIndex("scd_out");
+        int col_airline = Qry.get().FieldIndex("airline");
+        int col_flt_no = Qry.get().FieldIndex("flt_no");
+        int col_suffix = Qry.get().FieldIndex("suffix");
+        int col_airp = Qry.get().FieldIndex("airp");
+        int col_pax_id = Qry.get().FieldIndex("pax_id");
+        int col_status = Qry.get().FieldIndex("status");
+        // int col_airp_arv = Qry.get().FieldIndex("airp_arv");
+        int col_seats = Qry.get().FieldIndex("seats");
+        int col_subcls = Qry.get().FieldIndex("subcls");
+        int col_pnr = Qry.get().FieldIndex("pnr");
+        int col_surname = Qry.get().FieldIndex("surname");
+        int col_name = Qry.get().FieldIndex("name");
+        int col_gender = Qry.get().FieldIndex("gender");
+        int col_birth_date = Qry.get().FieldIndex("birth_date");
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            TDateTime local_scd_out = Qry.get().FieldAsDateTime(col_scd_out);
+            if(params.LT) {
+                local_scd_out = UTCToLocal(local_scd_out,
+                        AirpTZRegion(Qry.get().FieldAsString(col_airp)));
+                if(not(local_scd_out >= params.FirstDate and local_scd_out < params.LastDate))
+                    continue;
+            }
+            prn_airline.check(Qry.get().FieldAsString(col_airline));
+            TPFSStatRow row;
+            row.point_id = Qry.get().FieldAsInteger(col_point_id);
+            row.pax_id = Qry.get().FieldAsInteger(col_pax_id);
+            row.status = Qry.get().FieldAsString(col_status);
+            row.scd_out = local_scd_out;
+            ostringstream buf;
+            buf
+                << ElemIdToCodeNative(etAirline, Qry.get().FieldAsString(col_airline))
+                << setw(3) << setfill('0') << Qry.get().FieldAsInteger(col_flt_no)
+                << ElemIdToCodeNative(etSuffix, Qry.get().FieldAsString(col_suffix));
+            row.flt = buf.str();
+            /*
+               buf.str("");
+               buf
+               << ElemIdToCodeNative(etAirp, Qry.get().FieldAsString(col_airp)) << "-"
+               << ElemIdToCodeNative(etAirp, Qry.get().FieldAsString(col_airp_arv));
+               row.route = buf.str();
+               */
+
+
+            /*
+               route.set(GetRouteAfterStr( col_part_key>=0?Qry.FieldAsDateTime(col_part_key):NoExists,
+               Qry.FieldAsInteger(col_point_id),
+               trtNotCurrent,
+               trtNotCancelled),
+               */
+
+            TDateTime part_key = Qry.get().FieldIsNULL(col_part_key) ? NoExists : Qry.get().FieldAsDateTime(col_part_key);
+            row.route = GetRouteAfterStr(part_key, row.point_id, trtWithCurrent, trtNotCancelled);
+
+
+            row.seats = Qry.get().FieldAsInteger(col_seats);
+            row.subcls = ElemIdToCodeNative(etSubcls, Qry.get().FieldAsString(col_subcls));
+            row.pnr = Qry.get().FieldAsString(col_pnr);
+            row.surname = transliter(Qry.get().FieldAsString(col_surname), 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
+            row.name = transliter(Qry.get().FieldAsString(col_name), 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
+
+            row.gender = Qry.get().FieldAsString(col_gender);
+            switch(CheckIn::is_female(row.gender, row.name)) {
+                case NoExists:
+                    row.gender.clear();
+                    break;
+                case 0:
+                    row.gender = getLocaleText("CAP.DOC.MALE");
+                    break;
+                case 1:
+                    row.gender = getLocaleText("CAP.DOC.FEMALE");
+                    break;
+            }
+
+            if(Qry.get().FieldIsNULL(col_birth_date))
+                row.birth_date = NoExists;
+            else
+                row.birth_date = Qry.get().FieldAsDateTime(col_birth_date);
+            PFSStat.add(row);
+
+            params.overflow.check(PFSStat.RowCount());
+        }
+    }
+
+    ArxRunPFSStat(params, PFSStat, prn_airline);
 }
 
 void createXMLPFSStat(

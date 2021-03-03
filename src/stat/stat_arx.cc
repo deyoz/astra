@@ -38,7 +38,8 @@ std::string get_seat_no(int seats, std::string seat_no)
     return res;
 }
 
-void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList& excessNodeList, bool isPaxSearch, int pass, int &count)
+void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList& excessNodeList,
+                  bool isPaxSearch, int pass, int &count, bool isArch)
 {
   if(Qry.Eof) return;
 
@@ -70,7 +71,6 @@ void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList
   int col_hall = Qry.FieldIndex("hall");
   int col_seats = Qry.FieldIndex("seats");
   int col_seat_no = Qry.FieldIndex("seat_no");
-
   int col_status=Qry.FieldIndex("status");
 
   map<int, TTripItem> TripItems;
@@ -84,7 +84,6 @@ void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList
       int point_id = Qry.FieldAsInteger(col_point_id);
       int grp_id = Qry.FieldAsInteger(col_grp_id);
       int pax_id =  Qry.FieldAsInteger(col_pax_id);
-      int bag_pool_num = Qry.FieldAsInteger(col_bag_pool_num);
       int excess_pc = Qry.FieldAsInteger("excess_pc");
       int excess_wt =  Qry.FieldAsInteger("excess_wt");
       int excess = Qry.FieldAsInteger("excess");
@@ -123,24 +122,36 @@ void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList
       NewTextChild(paxNode, "reg_no", Qry.FieldAsInteger(col_reg_no));
       NewTextChild(paxNode, "full_name", Qry.FieldAsString(col_full_name));
 
-      //  " NVL(arch.get_bagAmount2(pax.part_key,pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_amount, \n"
-      //  " NVL(arch.get_bagWeight2(pax.part_key,pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_weight, \n"
-      //  " NVL(arch.get_rkWeight2(pax.part_key,pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) rk_weight, \n"
-      //  " arch.get_excess_wt(pax.part_key, pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.excess, pax_grp.bag_refuse) AS excess_wt, "
-      //  " arch.get_birks2(pax.part_key,pax.grp_id,pax.pax_id,pax.bag_pool_num,:pr_lat) tags, \n"
-      //  " LPAD(seat_no,3,'0')|| DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, \n";
+      if(isArch) {
+          int bag_pool_num = Qry.FieldAsInteger(col_bag_pool_num);
+          Dates::DateTime_t b_part_key = DateTimeToBoost(part_key);
+          NewTextChild(paxNode, "bag_amount", PG_ARX::get_bagAmount2(b_part_key,
+                                                grp_id, pax_id, bag_pool_num).value_or(0));
+          NewTextChild(paxNode, "bag_weight", PG_ARX::get_bagWeight2(b_part_key,
+                                                grp_id, pax_id, bag_pool_num).value_or(0));
+          NewTextChild(paxNode, "rk_weight",  PG_ARX::get_rkWeight2(b_part_key,
+                                                grp_id, pax_id, bag_pool_num).value_or(0));
 
-      NewTextChild(paxNode, "bag_amount", PG_ARX::get_bagAmount2(DateTimeToBoost(part_key), grp_id, pax_id, bag_pool_num).value_or(0));
-      NewTextChild(paxNode, "bag_weight", PG_ARX::get_bagWeight2(DateTimeToBoost(part_key), grp_id, pax_id, bag_pool_num).value_or(0));
-      NewTextChild(paxNode, "rk_weight",  PG_ARX::get_rkWeight2(DateTimeToBoost(part_key), grp_id, pax_id, bag_pool_num).value_or(0));
+          excessNodeList.add(paxNode, "excess", TBagPieces(excess_pc),
+            TBagKilos(PG_ARX::get_excess_wt(b_part_key, grp_id, pax_id, excess_wt,
+                                            excess, bag_refuse).value_or(0)));
+          NewTextChild(paxNode, "tags", PG_ARX::get_birks2(b_part_key, grp_id, pax_id,
+                                                           bag_pool_num, pr_lat).value_or(""));
+          NewTextChild(paxNode, "seat_no",  get_seat_no(seats, seat_no));
+      } else {
+          NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
+          NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
+          NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
 
-      excessNodeList.add(paxNode, "excess", TBagPieces(excess_pc),
-        TBagKilos(PG_ARX::get_excess_wt(DateTimeToBoost(part_key), grp_id, pax_id, excess_wt, excess, bag_refuse).value_or(0)));
+          excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger("excess_pc")),
+                                                    TBagKilos(Qry.FieldAsInteger("excess_wt")));
+          NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
+          NewTextChild(paxNode, "seat_no", Qry.FieldAsString("seat_no"));
+      }
 
       NewTextChild(paxNode, "grp_id", grp_id);
       NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp_arv)));
-      NewTextChild(paxNode, "tags", PG_ARX::get_birks2(DateTimeToBoost(part_key), grp_id, pax_id,
-                                                       bag_pool_num, pr_lat).value_or(""));
+
       string status;
       if (DecodePaxStatus(Qry.FieldAsString(col_status).c_str())!=psCrew)
       {
@@ -159,7 +170,7 @@ void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList
       NewTextChild(paxNode, "status", status);
       NewTextChild(paxNode, "class", clsGrpIdsToCodeNative(Qry.FieldAsInteger(col_class_grp),
                                                            Qry.FieldAsInteger(col_cabin_class_grp)));
-      NewTextChild(paxNode, "seat_no",  get_seat_no(seats, seat_no));
+
       NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(part_key,
                                                               Qry.FieldAsInteger(col_pax_id),
                                                               true));
@@ -1080,6 +1091,235 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         throw AstraLocale::UserException("MSG.OPERATIONS_NOT_FOUND");
 }
 
+void ArxSystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, int & count,
+                     std::string agent, std::string station, std::string module)
+{
+    tst();
+    TReqInfo *reqInfo = TReqInfo::Instance();
+
+//    string module;
+
+//    DB::TQuery Qry(PgOra::getROSession("screen"));
+//    xmlNodePtr moduleNode = GetNode("module", reqNode);
+//    if(not moduleNode)
+//        ;
+//    else if(NodeIsNULL(moduleNode))
+//        module = SYSTEM_USER;
+//    else {
+//        Qry.SQLText = "select exe from screen where id = :module";
+//        Qry.CreateVariable("module", otInteger, NodeAsInteger(moduleNode));
+//        Qry.Execute();
+//        if(!Qry.Eof) module = Qry.FieldAsString("exe");
+//    }
+
+//    string agent, station;
+//    xmlNodePtr agentNode = GetNode("agent", reqNode);
+//    if(not agentNode)
+//        ;
+//    else if(NodeIsNULL(agentNode))
+//        agent = SYSTEM_USER;
+//    else
+//        agent = NodeAsString(agentNode);
+
+//    xmlNodePtr stationNode = GetNode("station", reqNode);
+//    if(not stationNode)
+//        ;
+//    else if(NodeIsNULL(stationNode))
+//        station = SYSTEM_USER;
+//    else
+//        station = NodeAsString(stationNode);
+
+//    ProgTrace(TRACE5, "module: '%s'", module.c_str());
+//    ProgTrace(TRACE5, "agent: '%s'", agent.c_str());
+//    ProgTrace(TRACE5, "station: '%s'", station.c_str());
+
+//    int count = 0;
+
+    xmlNodePtr paxLogNode = NewTextChild(resNode, "PaxLog");
+    xmlNodePtr headerNode = NewTextChild(paxLogNode, "header");
+    NewTextChild(headerNode, "col", "Агент"); // для совместимости со старой версией терминала
+
+    DB::TQuery Qry(PgOra::getROSession("ARX_EVENTS"));
+    map<int, string> TripItems;
+    xmlNodePtr rowsNode = NULL;
+    TDeskAccess desk_access;
+    Qry.Clear();
+        if(ARX_EVENTS_DISABLED())
+            throw UserException("MSG.ERR_MSG.ARX_EVENTS_DISABLED");
+        Qry.SQLText =
+            "SELECT msg, time, "
+            "       CASE(WHEN type IN (:evtFlt, :evtFltTask, :evtPax, :evtPay,:evtGraph, :evtTlg) THEN id1 "
+            "                    WHEN type = :evtDisp THEN id2 ELSE NULL END) AS point_id, "
+            "       screen, "
+            "       CASE (WHEN type IN(:evtPax,:evtPay) THEN id2 ELSE NULL END) AS reg_no, "
+            "       CASE(WHEN type IN(:evtPax,:evtPay) THEN id3 ELSE NULL END) AS grp_id, "
+            "  ev_user, station, ev_order, COALESCE(part_num, 1) AS part_num, part_key "
+            "FROM "
+            "   arx_events "
+            "WHERE "
+            "  arx_events.part_key >= :FirstDateMINUS10 and " // time и part_key не совпадают для
+            "  arx_events.part_key < :LastDatePLUS10 and "   // разных типов событий
+            "  (arx_events.lang = :lang OR arx_events.lang = :lang_undef) and "
+            "  arx_events.time >= :FirstDate and "         // поэтому для part_key берем больший диапазон time
+            "  arx_events.time < :LastDate and "
+            "  (:agent is null or COALESCE(ev_user, :system_user) = :agent) and "
+            "  (:module is null or COALESCE(screen, :system_user) = :module) and "
+            "  (:station is null or COALESCE(station, :system_user) = :station) and "
+            "  arx_events.type IN ( "
+            "    :evtFlt, "
+            "    :evtFltTask, "
+            "    :evtPax, "
+            "    :evtPay, "
+            "    :evtGraph, "
+            "    :evtTimatic, "
+            "    :evtTlg, "
+            "    :evtComp, "
+            "    :evtAccess, "
+            "    :evtSystem, "
+            "    :evtCodif, "
+            "    :evtSeason, "
+            "    :evtDisp, "
+            "    :evtPeriod, "
+            "    :evtAhm "
+            "          ) ";
+        Qry.CreateVariable("lang_undef", otString, "ZZ");
+
+
+        Qry.CreateVariable("lang", otString, TReqInfo::Instance()->desk.lang);
+        Qry.CreateVariable("evtFlt", otString, NodeAsString("evtFlt", reqNode));
+        Qry.CreateVariable("evtPax", otString, NodeAsString("evtPax", reqNode));
+        Qry.CreateVariable("system_user", otString, SYSTEM_USER);
+
+        Qry.CreateVariable("evtFltTask", otString, NodeAsString("evtFltTask", reqNode, {}));
+        Qry.CreateVariable("evtPay", otString, NodeAsString("evtPay", reqNode, {}));
+        Qry.CreateVariable("evtDisp", otString, NodeAsString("evtDisp", reqNode, {}));
+        Qry.CreateVariable("evtSeason", otString, NodeAsString("evtSeason", reqNode, {}));
+        Qry.CreateVariable("evtAhm", otString, NodeAsString("evtAhm", reqNode, {}));
+        Qry.CreateVariable("evtTimatic", otString, NodeAsString("evtTimatic", reqNode, {}));
+
+        Qry.CreateVariable("evtGraph", otString, NodeAsString("evtGraph", reqNode));
+        Qry.CreateVariable("evtTlg", otString, NodeAsString("evtTlg", reqNode));
+        Qry.CreateVariable("evtComp", otString, NodeAsString("evtComp", reqNode));
+        Qry.CreateVariable("evtAccess", otString, NodeAsString("evtAccess", reqNode));
+        Qry.CreateVariable("evtSystem", otString, NodeAsString("evtSystem", reqNode));
+        Qry.CreateVariable("evtCodif", otString, NodeAsString("evtCodif", reqNode));
+        Qry.CreateVariable("evtPeriod", otString, NodeAsString("evtPeriod", reqNode));
+
+        Qry.CreateVariable("FirstDate", otDate, NodeAsDateTime("FirstDate", reqNode));
+        Qry.CreateVariable("LastDate", otDate, NodeAsDateTime("LastDate", reqNode));
+        Qry.CreateVariable("FirstDateMINUS10", otDate, NodeAsDateTime("FirstDate", reqNode)-10);
+        Qry.CreateVariable("LastDatePLUS10", otDate, NodeAsDateTime("LastDate", reqNode)+10);
+        Qry.CreateVariable("agent", otString, agent);
+        Qry.CreateVariable("station", otString, station);
+        Qry.CreateVariable("module", otString, module);
+
+        TPerfTimer tm;
+        tm.Init();
+        try {
+            Qry.Execute();
+        } catch (EOracleError &E) {
+            if(E.Code == 376)
+                throw AstraLocale::UserException("MSG.ONE_OF_DB_FILES_UNAVAILABLE.CALL_ADMIN");
+            else
+                throw;
+        }
+        LogTrace5 << __func__ << "     " << tm.PrintWithMessage().c_str();
+
+        typedef map<string, bool> TAccessMap;
+        TAccessMap user_access;
+        if(!Qry.Eof) {
+            int col_point_id=Qry.FieldIndex("point_id");
+            int col_ev_user=Qry.FieldIndex("ev_user");
+            int col_station=Qry.FieldIndex("station");
+            int col_time=Qry.FieldIndex("time");
+            int col_grp_id=Qry.FieldIndex("grp_id");
+            int col_reg_no=Qry.FieldIndex("reg_no");
+            int col_msg=Qry.FieldIndex("msg");
+            int col_ev_order=Qry.FieldIndex("ev_order");
+            int col_part_num=Qry.FieldIndex("part_num");
+            int col_screen=Qry.FieldIndex("screen");
+            int col_part_key=Qry.FieldIndex("part_key");
+
+            if(not rowsNode)
+                rowsNode = NewTextChild(paxLogNode, "rows");
+            for( ; !Qry.Eof; Qry.Next()) {
+                string ev_user = Qry.FieldAsString(col_ev_user);
+                string station = Qry.FieldAsString(col_station);
+
+                if(ev_user != "") {
+                    if(user_access.find(ev_user) == user_access.end()) {
+                        TQuery Qry(&OraSession);
+                        Qry.SQLText =
+                            "select descr from users2 where "
+                            "   (user_id = :SYS_user_id or adm.check_user_access(user_id,:SYS_user_id)<>0) and "
+                            "   descr = :ev_user";
+                        Qry.CreateVariable("ev_user", otString, ev_user);
+                        Qry.CreateVariable("SYS_user_id", otInteger, reqInfo->user.user_id);
+                        Qry.Execute();
+                        user_access[ev_user] = !Qry.Eof;
+                    }
+                    if(!user_access[ev_user]) continue;
+                }
+
+                if(not station.empty() and not desk_access.get(station))
+                    continue;
+
+                xmlNodePtr rowNode = NewTextChild(rowsNode, "row");
+                NewTextChild(rowNode, "point_id", Qry.FieldAsInteger(col_point_id));
+                NewTextChild( rowNode, "time",
+                        DateTimeToStr(
+                            UTCToClient( Qry.FieldAsDateTime(col_time), reqInfo->desk.tz_region),
+                            ServerFormatDateTimeAsString
+                            )
+                        );
+                NewTextChild(rowNode, "msg", Qry.FieldAsString(col_msg));
+                NewTextChild(rowNode, "ev_order", Qry.FieldAsInteger(col_ev_order));
+                NewTextChild(rowNode, "part_num", Qry.FieldAsInteger(col_part_num), 1);
+                if(!Qry.FieldIsNULL(col_point_id)) {
+                    int point_id = Qry.FieldAsInteger(col_point_id);
+                    if(TripItems.find(point_id) == TripItems.end()) {
+                        DB::TQuery tripQry(PgOra::getROSession("ARX_POINTS"));
+                        string SQLText =
+                            "select " + TTripInfo::selectedFields() +
+                            "from arx_points ";
+                        SQLText +=
+                            " where point_id = :point_id and part_key = :part_key ";
+                        tripQry.CreateVariable("part_key", otDate,  Qry.FieldAsDateTime(col_part_key));
+                        tripQry.SQLText = SQLText;
+                        tripQry.CreateVariable("point_id", otInteger,  point_id);
+                        tripQry.Execute();
+                        if(tripQry.Eof)
+                            TripItems[point_id]; // записываем пустую строку для данного point_id
+                        else {
+                            if(tripQry.FieldIsNULL("flt_no")) { // если нет инфы по номеру рейса, ничего не выводим
+                                TripItems[point_id]; // записываем пустую строку для данного point_id
+                            } else {
+                                TTripInfo trip_info(tripQry);
+                                TripItems[point_id] = GetTripName(trip_info, ecCkin);
+                            }
+                        }
+                    }
+                    NewTextChild(rowNode, "trip", TripItems[point_id]);
+                }
+                if(!Qry.FieldIsNULL(col_grp_id))
+                    NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
+                if(!Qry.FieldIsNULL(col_reg_no))
+                    NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger(col_reg_no));
+                NewTextChild(rowNode, "ev_user", ev_user, "");
+                NewTextChild(rowNode, "station", station, "");
+                NewTextChild(rowNode, "screen", Qry.FieldAsString(col_screen), "");
+
+                count++;
+                if(count >= MAX_STAT_ROWS()) {
+                    AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
+                            LParams() << LParam("num", MAX_STAT_ROWS()));
+                    break;
+                }
+            }
+        }
+}
+
+
 void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
@@ -1142,228 +1382,181 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     map<int, string> TripItems;
     xmlNodePtr rowsNode = NULL;
     TDeskAccess desk_access;
-    for(int j = 0; j < 2; j++) {
-        Qry.Clear();
-        if (j==0) {
-            Qry.SQLText =
-                "SELECT msg, time, "
-                "       DECODE(type, :evtFlt, id1, :evtFltTask, id1, :evtPax, id1, :evtPay, id1, :evtGraph, id1, :evtTlg, id1, "
-                "                    :evtDisp, id2, NULL) AS point_id, "
-                "       screen, "
-                "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no, "
-                "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
-                "  ev_user, station, ev_order, NVL(part_num, 1) AS part_num, null part_key "
-                "FROM "
-                "  events_bilingual "
-                "WHERE "
-                "  events_bilingual.lang = :lang AND "
-                "  events_bilingual.time >= :FirstDate and "
-                "  events_bilingual.time < :LastDate and "
-                "  (:agent is null or nvl(ev_user, :system_user) = :agent) and "
-                "  (:module is null or nvl(screen, :system_user) = :module) and "
-                "  (:station is null or nvl(station, :system_user) = :station) and "
-                "  events_bilingual.type IN ( "
-                "    :evtFlt, "
-                "    :evtFltTask, "
-                "    :evtPax, "
-                "    :evtPay, "
-                "    :evtGraph, "
-                "    :evtTimatic, "
-                "    :evtTlg, "
-                "    :evtComp, "
-                "    :evtAccess, "
-                "    :evtSystem, "
-                "    :evtCodif, "
-                "    :evtSeason, "
-                "    :evtDisp, "
-                "    :evtPeriod, "
-                "    :evtAhm "
-                "          ) ";
-        } else {
-            if(ARX_EVENTS_DISABLED())
-                throw UserException("MSG.ERR_MSG.ARX_EVENTS_DISABLED");
-            Qry.SQLText =
-                "SELECT msg, time, "
-                "       DECODE(type, :evtFlt, id1, :evtFltTask, id1, :evtPax, id1, :evtPay, id1, :evtGraph, id1, :evtTlg, id1, "
-                "                    :evtDisp, id2, NULL) AS point_id, "
-                "       screen, "
-                "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no, "
-                "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
-                "  ev_user, station, ev_order, NVL(part_num, 1) AS part_num, part_key "
-                "FROM "
-                "   arx_events "
-                "WHERE "
-                "  arx_events.part_key >= :FirstDate - 10 and " // time и part_key не совпадают для
-                "  arx_events.part_key < :LastDate + 10 and "   // разных типов событий
-                "  (arx_events.lang = :lang OR arx_events.lang = :lang_undef) and "
-                "  arx_events.time >= :FirstDate and "         // поэтому для part_key берем больший диапазон time
-                "  arx_events.time < :LastDate and "
-                "  (:agent is null or nvl(ev_user, :system_user) = :agent) and "
-                "  (:module is null or nvl(screen, :system_user) = :module) and "
-                "  (:station is null or nvl(station, :system_user) = :station) and "
-                "  arx_events.type IN ( "
-                "    :evtFlt, "
-                "    :evtFltTask, "
-                "    :evtPax, "
-                "    :evtPay, "
-                "    :evtGraph, "
-                "    :evtTimatic, "
-                "    :evtTlg, "
-                "    :evtComp, "
-                "    :evtAccess, "
-                "    :evtSystem, "
-                "    :evtCodif, "
-                "    :evtSeason, "
-                "    :evtDisp, "
-                "    :evtPeriod, "
-                "    :evtAhm "
-                "          ) ";
-            Qry.CreateVariable("lang_undef", otString, "ZZ");
-        }
+    Qry.Clear();
+    Qry.SQLText =
+        "SELECT msg, time, "
+        "       DECODE(type, :evtFlt, id1, :evtFltTask, id1, :evtPax, id1, :evtPay, id1, :evtGraph, id1, :evtTlg, id1, "
+        "                    :evtDisp, id2, NULL) AS point_id, "
+        "       screen, "
+        "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no, "
+        "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
+        "  ev_user, station, ev_order, NVL(part_num, 1) AS part_num, null part_key "
+        "FROM "
+        "  events_bilingual "
+        "WHERE "
+        "  events_bilingual.lang = :lang AND "
+        "  events_bilingual.time >= :FirstDate and "
+        "  events_bilingual.time < :LastDate and "
+        "  (:agent is null or nvl(ev_user, :system_user) = :agent) and "
+        "  (:module is null or nvl(screen, :system_user) = :module) and "
+        "  (:station is null or nvl(station, :system_user) = :station) and "
+        "  events_bilingual.type IN ( "
+        "    :evtFlt, "
+        "    :evtFltTask, "
+        "    :evtPax, "
+        "    :evtPay, "
+        "    :evtGraph, "
+        "    :evtTimatic, "
+        "    :evtTlg, "
+        "    :evtComp, "
+        "    :evtAccess, "
+        "    :evtSystem, "
+        "    :evtCodif, "
+        "    :evtSeason, "
+        "    :evtDisp, "
+        "    :evtPeriod, "
+        "    :evtAhm "
+        "          ) ";
 
-        Qry.CreateVariable("lang", otString, TReqInfo::Instance()->desk.lang);
-        Qry.CreateVariable("evtFlt", otString, NodeAsString("evtFlt", reqNode));
-        Qry.CreateVariable("evtPax", otString, NodeAsString("evtPax", reqNode));
-        Qry.CreateVariable("system_user", otString, SYSTEM_USER);
+    Qry.CreateVariable("lang", otString, TReqInfo::Instance()->desk.lang);
+    Qry.CreateVariable("evtFlt", otString, NodeAsString("evtFlt", reqNode));
+    Qry.CreateVariable("evtPax", otString, NodeAsString("evtPax", reqNode));
+    Qry.CreateVariable("system_user", otString, SYSTEM_USER);
 
-        Qry.CreateVariable("evtFltTask", otString, NodeAsString("evtFltTask", reqNode, {}));
-        Qry.CreateVariable("evtPay", otString, NodeAsString("evtPay", reqNode, {}));
-        Qry.CreateVariable("evtDisp", otString, NodeAsString("evtDisp", reqNode, {}));
-        Qry.CreateVariable("evtSeason", otString, NodeAsString("evtSeason", reqNode, {}));
-        Qry.CreateVariable("evtAhm", otString, NodeAsString("evtAhm", reqNode, {}));
-        Qry.CreateVariable("evtTimatic", otString, NodeAsString("evtTimatic", reqNode, {}));
+    Qry.CreateVariable("evtFltTask", otString, NodeAsString("evtFltTask", reqNode, {}));
+    Qry.CreateVariable("evtPay", otString, NodeAsString("evtPay", reqNode, {}));
+    Qry.CreateVariable("evtDisp", otString, NodeAsString("evtDisp", reqNode, {}));
+    Qry.CreateVariable("evtSeason", otString, NodeAsString("evtSeason", reqNode, {}));
+    Qry.CreateVariable("evtAhm", otString, NodeAsString("evtAhm", reqNode, {}));
+    Qry.CreateVariable("evtTimatic", otString, NodeAsString("evtTimatic", reqNode, {}));
 
-        Qry.CreateVariable("evtGraph", otString, NodeAsString("evtGraph", reqNode));
-        Qry.CreateVariable("evtTlg", otString, NodeAsString("evtTlg", reqNode));
-        Qry.CreateVariable("evtComp", otString, NodeAsString("evtComp", reqNode));
-        Qry.CreateVariable("evtAccess", otString, NodeAsString("evtAccess", reqNode));
-        Qry.CreateVariable("evtSystem", otString, NodeAsString("evtSystem", reqNode));
-        Qry.CreateVariable("evtCodif", otString, NodeAsString("evtCodif", reqNode));
-        Qry.CreateVariable("evtPeriod", otString, NodeAsString("evtPeriod", reqNode));
+    Qry.CreateVariable("evtGraph", otString, NodeAsString("evtGraph", reqNode));
+    Qry.CreateVariable("evtTlg", otString, NodeAsString("evtTlg", reqNode));
+    Qry.CreateVariable("evtComp", otString, NodeAsString("evtComp", reqNode));
+    Qry.CreateVariable("evtAccess", otString, NodeAsString("evtAccess", reqNode));
+    Qry.CreateVariable("evtSystem", otString, NodeAsString("evtSystem", reqNode));
+    Qry.CreateVariable("evtCodif", otString, NodeAsString("evtCodif", reqNode));
+    Qry.CreateVariable("evtPeriod", otString, NodeAsString("evtPeriod", reqNode));
 
-        Qry.CreateVariable("FirstDate", otDate, NodeAsDateTime("FirstDate", reqNode));
-        Qry.CreateVariable("LastDate", otDate, NodeAsDateTime("LastDate", reqNode));
-        Qry.CreateVariable("agent", otString, agent);
-        Qry.CreateVariable("station", otString, station);
-        Qry.CreateVariable("module", otString, module);
+    Qry.CreateVariable("FirstDate", otDate, NodeAsDateTime("FirstDate", reqNode));
+    Qry.CreateVariable("LastDate", otDate, NodeAsDateTime("LastDate", reqNode));
+    Qry.CreateVariable("agent", otString, agent);
+    Qry.CreateVariable("station", otString, station);
+    Qry.CreateVariable("module", otString, module);
 
-        TPerfTimer tm;
-        tm.Init();
-        try {
-            Qry.Execute();
-        } catch (EOracleError &E) {
-            if(E.Code == 376)
-                throw AstraLocale::UserException("MSG.ONE_OF_DB_FILES_UNAVAILABLE.CALL_ADMIN");
-            else
-                throw;
-        }
-        ProgTrace(TRACE5, "SystemLogRun%d EXEC QRY: %s, Qry.Eof: %d", j, tm.PrintWithMessage().c_str(), Qry.Eof);
+    TPerfTimer tm;
+    tm.Init();
+    try {
+        Qry.Execute();
+    } catch (EOracleError &E) {
+        if(E.Code == 376)
+            throw AstraLocale::UserException("MSG.ONE_OF_DB_FILES_UNAVAILABLE.CALL_ADMIN");
+        else
+            throw;
+    }
+    LogTrace5 << __func__ << "     " << tm.PrintWithMessage().c_str();
 
-        typedef map<string, bool> TAccessMap;
-        TAccessMap user_access;
-        if(!Qry.Eof) {
-            int col_point_id=Qry.FieldIndex("point_id");
-            int col_ev_user=Qry.FieldIndex("ev_user");
-            int col_station=Qry.FieldIndex("station");
-            int col_time=Qry.FieldIndex("time");
-            int col_grp_id=Qry.FieldIndex("grp_id");
-            int col_reg_no=Qry.FieldIndex("reg_no");
-            int col_msg=Qry.FieldIndex("msg");
-            int col_ev_order=Qry.FieldIndex("ev_order");
-            int col_part_num=Qry.FieldIndex("part_num");
-            int col_screen=Qry.FieldIndex("screen");
-            int col_part_key=Qry.FieldIndex("part_key");
+    typedef map<string, bool> TAccessMap;
+    TAccessMap user_access;
+    if(!Qry.Eof) {
+        int col_point_id=Qry.FieldIndex("point_id");
+        int col_ev_user=Qry.FieldIndex("ev_user");
+        int col_station=Qry.FieldIndex("station");
+        int col_time=Qry.FieldIndex("time");
+        int col_grp_id=Qry.FieldIndex("grp_id");
+        int col_reg_no=Qry.FieldIndex("reg_no");
+        int col_msg=Qry.FieldIndex("msg");
+        int col_ev_order=Qry.FieldIndex("ev_order");
+        int col_part_num=Qry.FieldIndex("part_num");
+        int col_screen=Qry.FieldIndex("screen");
 
-            if(not rowsNode)
-                rowsNode = NewTextChild(paxLogNode, "rows");
-            for( ; !Qry.Eof; Qry.Next()) {
-                string ev_user = Qry.FieldAsString(col_ev_user);
-                string station = Qry.FieldAsString(col_station);
+        if(not rowsNode)
+            rowsNode = NewTextChild(paxLogNode, "rows");
+        for( ; !Qry.Eof; Qry.Next()) {
+            string ev_user = Qry.FieldAsString(col_ev_user);
+            string station = Qry.FieldAsString(col_station);
 
-                if(ev_user != "") {
-                    if(user_access.find(ev_user) == user_access.end()) {
-                        TQuery Qry(&OraSession);
-                        Qry.SQLText =
-                            "select descr from users2 where "
-                            "   (user_id = :SYS_user_id or adm.check_user_access(user_id,:SYS_user_id)<>0) and "
-                            "   descr = :ev_user";
-                        Qry.CreateVariable("ev_user", otString, ev_user);
-                        Qry.CreateVariable("SYS_user_id", otInteger, reqInfo->user.user_id);
-                        Qry.Execute();
-                        user_access[ev_user] = !Qry.Eof;
-                    }
-                    if(!user_access[ev_user]) continue;
+            if(ev_user != "") {
+                if(user_access.find(ev_user) == user_access.end()) {
+                    TQuery Qry(&OraSession);
+                    Qry.SQLText =
+                        "select descr from users2 where "
+                        "   (user_id = :SYS_user_id or adm.check_user_access(user_id,:SYS_user_id)<>0) and "
+                        "   descr = :ev_user";
+                    Qry.CreateVariable("ev_user", otString, ev_user);
+                    Qry.CreateVariable("SYS_user_id", otInteger, reqInfo->user.user_id);
+                    Qry.Execute();
+                    user_access[ev_user] = !Qry.Eof;
                 }
+                if(!user_access[ev_user]) continue;
+            }
 
-                if(not station.empty() and not desk_access.get(station))
-                    continue;
+            if(not station.empty() and not desk_access.get(station))
+                continue;
 
-                xmlNodePtr rowNode = NewTextChild(rowsNode, "row");
-                NewTextChild(rowNode, "point_id", Qry.FieldAsInteger(col_point_id));
-                NewTextChild( rowNode, "time",
-                        DateTimeToStr(
-                            UTCToClient( Qry.FieldAsDateTime(col_time), reqInfo->desk.tz_region),
-                            ServerFormatDateTimeAsString
-                            )
-                        );
-                NewTextChild(rowNode, "msg", Qry.FieldAsString(col_msg));
-                NewTextChild(rowNode, "ev_order", Qry.FieldAsInteger(col_ev_order));
-                NewTextChild(rowNode, "part_num", Qry.FieldAsInteger(col_part_num), 1);
-                if(!Qry.FieldIsNULL(col_point_id)) {
-                    int point_id = Qry.FieldAsInteger(col_point_id);
-                    if(TripItems.find(point_id) == TripItems.end()) {
-                        TQuery tripQry(&OraSession);
-                        string SQLText =
-                            "select " + TTripInfo::selectedFields() +
-                            "from ";
-                        SQLText += (j == 0 ? "points" : "arx_points");
-                        SQLText +=
-                            " where "
-                            "   point_id = :point_id ";
-                        if(j == 1) {
-                            SQLText += " and part_key = :part_key ";
-                            tripQry.CreateVariable("part_key", otDate,  Qry.FieldAsDateTime(col_part_key));
-                        }
-                        tripQry.SQLText = SQLText;
-                        tripQry.CreateVariable("point_id", otInteger,  point_id);
-                        tripQry.Execute();
-                        if(tripQry.Eof)
+            xmlNodePtr rowNode = NewTextChild(rowsNode, "row");
+            NewTextChild(rowNode, "point_id", Qry.FieldAsInteger(col_point_id));
+            NewTextChild( rowNode, "time",
+                    DateTimeToStr(
+                        UTCToClient( Qry.FieldAsDateTime(col_time), reqInfo->desk.tz_region),
+                        ServerFormatDateTimeAsString
+                        )
+                    );
+            NewTextChild(rowNode, "msg", Qry.FieldAsString(col_msg));
+            NewTextChild(rowNode, "ev_order", Qry.FieldAsInteger(col_ev_order));
+            NewTextChild(rowNode, "part_num", Qry.FieldAsInteger(col_part_num), 1);
+            if(!Qry.FieldIsNULL(col_point_id)) {
+                int point_id = Qry.FieldAsInteger(col_point_id);
+                if(TripItems.find(point_id) == TripItems.end()) {
+                    TQuery tripQry(&OraSession);
+                    string SQLText =
+                        "select " + TTripInfo::selectedFields() +
+                        "from points "
+                        " where "
+                        "   point_id = :point_id ";
+
+                    tripQry.SQLText = SQLText;
+                    tripQry.CreateVariable("point_id", otInteger,  point_id);
+                    tripQry.Execute();
+                    if(tripQry.Eof)
+                        TripItems[point_id]; // записываем пустую строку для данного point_id
+                    else {
+                        if(tripQry.FieldIsNULL("flt_no")) { // если нет инфы по номеру рейса, ничего не выводим
                             TripItems[point_id]; // записываем пустую строку для данного point_id
-                        else {
-                            if(tripQry.FieldIsNULL("flt_no")) { // если нет инфы по номеру рейса, ничего не выводим
-                                TripItems[point_id]; // записываем пустую строку для данного point_id
-                            } else {
-                                TTripInfo trip_info(tripQry);
-                                TripItems[point_id] = GetTripName(trip_info, ecCkin);
-                            }
+                        } else {
+                            TTripInfo trip_info(tripQry);
+                            TripItems[point_id] = GetTripName(trip_info, ecCkin);
                         }
                     }
-                    NewTextChild(rowNode, "trip", TripItems[point_id]);
                 }
-                if(!Qry.FieldIsNULL(col_grp_id))
-                    NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
-                if(!Qry.FieldIsNULL(col_reg_no))
-                    NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger(col_reg_no));
-                NewTextChild(rowNode, "ev_user", ev_user, "");
-                NewTextChild(rowNode, "station", station, "");
-                NewTextChild(rowNode, "screen", Qry.FieldAsString(col_screen), "");
+                NewTextChild(rowNode, "trip", TripItems[point_id]);
+            }
+            if(!Qry.FieldIsNULL(col_grp_id))
+                NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
+            if(!Qry.FieldIsNULL(col_reg_no))
+                NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger(col_reg_no));
+            NewTextChild(rowNode, "ev_user", ev_user, "");
+            NewTextChild(rowNode, "station", station, "");
+            NewTextChild(rowNode, "screen", Qry.FieldAsString(col_screen), "");
 
-                count++;
-                if(count >= MAX_STAT_ROWS()) {
-                    AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
-                            LParams() << LParam("num", MAX_STAT_ROWS()));
-                    break;
-                }
+            count++;
+            if(count >= MAX_STAT_ROWS()) {
+                AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
+                        LParams() << LParam("num", MAX_STAT_ROWS()));
+                break;
             }
         }
-        ProgTrace(TRACE5, "FORM XML2: %s", tm.PrintWithMessage().c_str());
     }
+    ProgTrace(TRACE5, "FORM XML2: %s", tm.PrintWithMessage().c_str());
+
+    ArxSystemLogRun(ctxt, reqNode, resNode, count, agent, station, module);
+
     if(!count)
         throw AstraLocale::UserException("MSG.OPERATIONS_NOT_FOUND");
 }
 
 void UnaccompListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList &excessNodeList,
-                       bool isPaxSearch, int pass, int &count)
+                       bool isPaxSearch, int pass, int &count, bool isArch)
 {
   if(Qry.Eof) return;
 
@@ -1428,16 +1621,30 @@ void UnaccompListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNod
       NewTextChild(paxNode, "reg_no", 0);
       NewTextChild(paxNode, "full_name", getLocaleText("Багаж без сопровождения"));
 
-      NewTextChild(paxNode, "bag_amount", PG_ARX::get_bagAmount2(DateTimeToBoost(part_key), grp_id, std::nullopt, 0).value_or(0));
-      NewTextChild(paxNode, "bag_weight", PG_ARX::get_bagWeight2(DateTimeToBoost(part_key), grp_id, std::nullopt, 0).value_or(0));
-      NewTextChild(paxNode, "rk_weight",  PG_ARX::get_rkWeight2(DateTimeToBoost(part_key), grp_id, std::nullopt, 0).value_or(0));
-
-      excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger(col_excess_pc)),
-              TBagKilos(PG_ARX::get_excess_wt(DateTimeToBoost(part_key), grp_id, std::nullopt, excess_wt, excess, bag_refuse).value_or(0)));
-
+      if(isArch) {
+          Dates::DateTime_t b_part_key = DateTimeToBoost(part_key);
+          NewTextChild(paxNode, "bag_amount", PG_ARX::get_bagAmount2(b_part_key,
+                                                grp_id, std::nullopt, 0).value_or(0));
+          NewTextChild(paxNode, "bag_weight", PG_ARX::get_bagWeight2(b_part_key,
+                                                grp_id, std::nullopt, 0).value_or(0));
+          NewTextChild(paxNode, "rk_weight",  PG_ARX::get_rkWeight2(b_part_key,
+                                                grp_id, std::nullopt, 0).value_or(0));
+          excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger(col_excess_pc)),
+                  TBagKilos(PG_ARX::get_excess_wt(b_part_key,
+                            grp_id, std::nullopt, excess_wt, excess, bag_refuse).value_or(0)));
+          NewTextChild(paxNode, "tags", PG_ARX::get_birks2(b_part_key,
+                                            grp_id, std::nullopt, 0, pr_lat).value_or(""));
+      } else {
+          NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
+          NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
+          NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
+          excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger("excess_pc")),
+                                                TBagKilos(Qry.FieldAsInteger("excess_wt")));
+          NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
+      }
       NewTextChild(paxNode, "grp_id", grp_id);
       NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp_arv)));
-      NewTextChild(paxNode, "tags", PG_ARX::get_birks2(DateTimeToBoost(part_key), grp_id, std::nullopt, 0, pr_lat).value_or(""));
+
       NewTextChild(paxNode, "status");
       NewTextChild(paxNode, "class");
       NewTextChild(paxNode, "seat_no");
@@ -1463,118 +1670,117 @@ void UnaccompListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNod
 
 void ArxPaxListRun(Dates::DateTime_t part_key, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-
+    tst();
     xmlNodePtr paramNode = reqNode->children;
     int point_id = NodeAsIntegerFast("point_id", paramNode);
     get_compatible_report_form("ArxPaxList", reqNode, resNode);
-    {
-        DB::TQuery Qry(PgOra::getROSession("ARX_PAX_GRP"));
-        string SQLText;
-        SQLText =
-            "SELECT "
-            "   arx_points.part_key, " +
-            TTripInfo::selectedFields("arx_points") + ", "
-            "   arx_pax.reg_no, "
-            "   arx_pax.surname||' '||arx_pax.name full_name, "
-            "   arx_pax.excess_pc, "
-            "   arx_pax.refuse, "
-            "   arx_pax.pr_brd, "
-            "   arx_pax.ticket_no, "
-            "   arx_pax.pax_id, "
-            "   arx_pax.bag_pool_num, "
-            "   arx_pax.seats, "
-            "   arx_pax.seat_no, "
-            "   COALESCE(arx_pax.cabin_class_grp, arx_pax_grp.class_grp) AS cabin_class_grp, "
-            "   arx_pax_grp.grp_id, "
-            "   arx_pax_grp.airp_arv, "
-            "   arx_pax_grp.status, "
-            "   arx_pax_grp.class_grp, "
-            "   arx_pax_grp.hall, "
-            "   arx_pax_grp.excess_wt, "
-            "   arx_pax_grp.excess, "
-            "   arx_pax_grp.bag_refuse "
-            "FROM arx_pax_grp, arx_pax, arx_points "
-            "WHERE "
-            "   arx_points.point_id = :point_id and arx_points.pr_del>=0 and "
-            "   arx_points.part_key = arx_pax_grp.part_key AND "
-            "   arx_points.point_id = arx_pax_grp.point_dep and "
-            "   arx_pax_grp.part_key = arx_pax.part_key AND "
-            "   arx_pax_grp.grp_id = arx_pax.grp_id AND "
-            "   arx_points.part_key = :part_key and "
-            "   arx_pax.pr_brd IS NOT NULL  ";
-        TReqInfo &info = *(TReqInfo::Instance());
-        if (!info.user.access.airps().elems().empty()) {
-            if (info.user.access.airps().elems_permit())
-                SQLText += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps().elems());
-            else
-                SQLText += " AND arx_points.airp NOT IN "+GetSQLEnum(info.user.access.airps().elems());
-        }
-        if (!info.user.access.airlines().elems().empty()) {
-            if (info.user.access.airlines().elems_permit())
-                SQLText += " AND arx_points.airline IN "+GetSQLEnum(info.user.access.airlines().elems());
-            else
-                SQLText += " AND arx_points.airline NOT IN "+GetSQLEnum(info.user.access.airlines().elems());
-        }
-        Qry.CreateVariable("part_key", otDate, BoostToDateTime(part_key));
 
-        Qry.SQLText = SQLText;
-        Qry.CreateVariable("point_id", otInteger, point_id);
-        //Qry.CreateVariable("pr_lat", otInteger, TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU);
-
-        TPerfTimer tm;
-        tm.Init();
-        Qry.Execute();
-        ProgTrace(TRACE5, "Qry.Execute: %s", tm.PrintWithMessage().c_str());
-
-        int count=0;
-        TComplexBagExcessNodeList excessNodeList(OutputLang(), {});
-        PaxListToXML(Qry, resNode, excessNodeList, false, 0, count);
-
-        ProgTrace(TRACE5, "XML: %s", tm.PrintWithMessage().c_str());
-
-        //несопровождаемый багаж
-        Qry.SQLText=
-            "SELECT "
-            "  arx_pax_grp.part_key, " +
-            TTripInfo::selectedFields("arx_points") + ", "
-            "  arx_pax_grp.airp_arv, "
-            "  arx_pax_grp.excess_pc, "
-            "  arx_pax_grp.grp_id, "
-            "  arx_pax_grp.hall "
-            "FROM arx_pax_grp, arx_points "
-            "WHERE point_dep=:point_id AND class IS NULL and "
-            "   arx_pax_grp.status NOT IN ('E') AND "
-            "   arx_pax_grp.part_key = arx_points.part_key and "
-            "   arx_pax_grp.point_dep = arx_points.point_id and arx_points.pr_del>=0 and "
-            "   arx_pax_grp.part_key = :part_key ";
-        if (!info.user.access.airps().elems().empty()) {
-            if (info.user.access.airps().elems_permit())
-                SQLText += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps().elems());
-            else
-                SQLText += " AND arx_points.airp NOT IN "+GetSQLEnum(info.user.access.airps().elems());
-        }
-        if (!info.user.access.airlines().elems().empty()) {
-            if (info.user.access.airlines().elems_permit())
-                SQLText += " AND arx_points.airline IN "+GetSQLEnum(info.user.access.airlines().elems());
-            else
-                SQLText += " AND arx_points.airline NOT IN "+GetSQLEnum(info.user.access.airlines().elems());
-        }
-        Qry.CreateVariable("part_key", otDate, BoostToDateTime(part_key));
-        Qry.Execute();
-        UnaccompListToXML(Qry, resNode, excessNodeList, false, 0, count);
-
-        xmlNodePtr paxListNode = GetNode("paxList", resNode);
-        if(paxListNode!=NULL) { // для совместимости со старой версией терминала
-            xmlNodePtr headerNode = NewTextChild(paxListNode, "header");
-            NewTextChild(headerNode, "col", "Рейс");
-        } else
-            throw AstraLocale::UserException("MSG.PASSENGERS.NOT_FOUND");
-        tm.Init();
-        STAT::set_variables(resNode);
-        ProgTrace(TRACE5, "set_variables: %s", tm.PrintWithMessage().c_str());
-        tm.Init();
-        return;
+    DB::TQuery Qry(PgOra::getROSession("ARX_PAX_GRP"));
+    string SQLText;
+    SQLText =
+        "SELECT "
+        "   arx_points.part_key, " +
+        TTripInfo::selectedFields("arx_points") + ", "
+        "   arx_pax.reg_no, "
+        "   arx_pax.surname||' '||arx_pax.name full_name, "
+        "   arx_pax.excess_pc, "
+        "   arx_pax.refuse, "
+        "   arx_pax.pr_brd, "
+        "   arx_pax.ticket_no, "
+        "   arx_pax.pax_id, "
+        "   arx_pax.bag_pool_num, "
+        "   arx_pax.seats, "
+        "   arx_pax.seat_no, "
+        "   COALESCE(arx_pax.cabin_class_grp, arx_pax_grp.class_grp) AS cabin_class_grp, "
+        "   arx_pax_grp.grp_id, "
+        "   arx_pax_grp.airp_arv, "
+        "   arx_pax_grp.status, "
+        "   arx_pax_grp.class_grp, "
+        "   arx_pax_grp.hall, "
+        "   arx_pax_grp.excess_wt, "
+        "   arx_pax_grp.excess, "
+        "   arx_pax_grp.bag_refuse "
+        "FROM arx_pax_grp, arx_pax, arx_points "
+        "WHERE "
+        "   arx_points.point_id = :point_id and arx_points.pr_del>=0 and "
+        "   arx_points.part_key = arx_pax_grp.part_key AND "
+        "   arx_points.point_id = arx_pax_grp.point_dep and "
+        "   arx_pax_grp.part_key = arx_pax.part_key AND "
+        "   arx_pax_grp.grp_id = arx_pax.grp_id AND "
+        "   arx_points.part_key = :part_key and "
+        "   arx_pax.pr_brd IS NOT NULL  ";
+    TReqInfo &info = *(TReqInfo::Instance());
+    if (!info.user.access.airps().elems().empty()) {
+        if (info.user.access.airps().elems_permit())
+            SQLText += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps().elems());
+        else
+            SQLText += " AND arx_points.airp NOT IN "+GetSQLEnum(info.user.access.airps().elems());
     }
+    if (!info.user.access.airlines().elems().empty()) {
+        if (info.user.access.airlines().elems_permit())
+            SQLText += " AND arx_points.airline IN "+GetSQLEnum(info.user.access.airlines().elems());
+        else
+            SQLText += " AND arx_points.airline NOT IN "+GetSQLEnum(info.user.access.airlines().elems());
+    }
+    Qry.CreateVariable("part_key", otDate, BoostToDateTime(part_key));
+
+    Qry.SQLText = SQLText;
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    //Qry.CreateVariable("pr_lat", otInteger, TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU);
+
+    TPerfTimer tm;
+    tm.Init();
+    Qry.Execute();
+    ProgTrace(TRACE5, "Qry.Execute: %s", tm.PrintWithMessage().c_str());
+
+    int count=0;
+    TComplexBagExcessNodeList excessNodeList(OutputLang(), {});
+    PaxListToXML(Qry, resNode, excessNodeList, false, 0, count, true);
+
+    ProgTrace(TRACE5, "XML: %s", tm.PrintWithMessage().c_str());
+
+    //несопровождаемый багаж
+    Qry.SQLText=
+        "SELECT "
+        "  arx_pax_grp.part_key, " +
+        TTripInfo::selectedFields("arx_points") + ", "
+        "  arx_pax_grp.airp_arv, "
+        "  arx_pax_grp.excess_pc, "
+        "  arx_pax_grp.grp_id, "
+        "  arx_pax_grp.hall "
+        "FROM arx_pax_grp, arx_points "
+        "WHERE point_dep=:point_id AND class IS NULL and "
+        "   arx_pax_grp.status NOT IN ('E') AND "
+        "   arx_pax_grp.part_key = arx_points.part_key and "
+        "   arx_pax_grp.point_dep = arx_points.point_id and arx_points.pr_del>=0 and "
+        "   arx_pax_grp.part_key = :part_key ";
+    if (!info.user.access.airps().elems().empty()) {
+        if (info.user.access.airps().elems_permit())
+            SQLText += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps().elems());
+        else
+            SQLText += " AND arx_points.airp NOT IN "+GetSQLEnum(info.user.access.airps().elems());
+    }
+    if (!info.user.access.airlines().elems().empty()) {
+        if (info.user.access.airlines().elems_permit())
+            SQLText += " AND arx_points.airline IN "+GetSQLEnum(info.user.access.airlines().elems());
+        else
+            SQLText += " AND arx_points.airline NOT IN "+GetSQLEnum(info.user.access.airlines().elems());
+    }
+    Qry.CreateVariable("part_key", otDate, BoostToDateTime(part_key));
+    Qry.Execute();
+    UnaccompListToXML(Qry, resNode, excessNodeList, false, 0, count, true);
+
+    xmlNodePtr paxListNode = GetNode("paxList", resNode);
+    if(paxListNode!=NULL) { // для совместимости со старой версией терминала
+        xmlNodePtr headerNode = NewTextChild(paxListNode, "header");
+        NewTextChild(headerNode, "col", "Рейс");
+    } else
+        throw AstraLocale::UserException("MSG.PASSENGERS.NOT_FOUND");
+    tm.Init();
+    STAT::set_variables(resNode);
+    ProgTrace(TRACE5, "set_variables: %s", tm.PrintWithMessage().c_str());
+    tm.Init();
+    return;
 }
 
 class MqRabbitSearchParamsSender {
@@ -1792,7 +1998,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
         int count=0;
         TComplexBagExcessNodeList excessNodeList(OutputLang(), {});
-        PaxListToXML(Qry, resNode, excessNodeList, false, 0, count);
+        PaxListToXML(Qry, resNode, excessNodeList, false, 0, count, false);
 
         ProgTrace(TRACE5, "XML: %s", tm.PrintWithMessage().c_str());
 
@@ -1831,7 +2037,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             }
         }
         Qry.Execute();
-        UnaccompListToXML(Qry, resNode, excessNodeList, false, 0, count);
+        UnaccompListToXML(Qry, resNode, excessNodeList, false, 0, count, false);
 
         xmlNodePtr paxListNode = GetNode("paxList", resNode);
         if(paxListNode!=NULL) { // для совместимости со старой версией терминала
@@ -1955,13 +2161,7 @@ void ArxPaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, 
                " arx_pax_grp.bag_refuse \n"
                "FROM arx_pax_grp , arx_pax , arx_points \n";
         if (pass==2) {
-            if(ARX::READ_PG()) {
-                sql << " , (SELECT part_key, move_id FROM move_arx_ext \n"
-                       "    WHERE part_key >= :arx_trip_date_range AND part_key <= (:LastDate+ date_range * INTERVAL '1 day')) arx_ext \n";
-            } else {
-                sql << " , (SELECT part_key, move_id FROM move_arx_ext \n"
-                       "    WHERE part_key >= :arx_trip_date_range AND part_key <= :LastDate+ date_range) arx_ext \n";
-            }
+            sql << getMoveArxQuery();
         }
         if(!document.empty())
         {
@@ -2014,7 +2214,7 @@ void ArxPaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, 
                 throw;
         }
         TComplexBagExcessNodeList excessNodeList(OutputLang(), {});
-        PaxListToXML(Qry, resNode, excessNodeList, true, pass, count);
+        PaxListToXML(Qry, resNode, excessNodeList, true, pass, count, true);
 
     }
 }
@@ -2149,7 +2349,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 throw;
         }
         TComplexBagExcessNodeList excessNodeList(OutputLang(), {});
-        PaxListToXML(Qry, resNode, excessNodeList, true, pass, count);
+        PaxListToXML(Qry, resNode, excessNodeList, true, pass, count, false);
 
     }
     ArxPaxSrcRun(ctxt, reqNode, resNode,count);
