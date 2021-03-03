@@ -10,6 +10,8 @@
 #include "file_queue.h"
 #include "jxtlib/zip.h"
 #include "serverlib/str_utils.h"
+#include "PgOraConfig.h"
+#include "db_tquery.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
