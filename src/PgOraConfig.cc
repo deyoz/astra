@@ -28,8 +28,8 @@ namespace PgOra
 
     static const GroupsType sGroups {
         { "SP_PG_GROUP_JXTCONT", {"CONT"} },
-        { "SP_PG_GROUP_FILE", {"FILE_ERROR", "FILE_QUEUE", "FILES"} },
-        { "SP_PG_GROUP_FILE_CFG", {"FILE_ENCODING", "FILE_PARAMS", "FILE_TYPES"} },
+        { "SP_PG_GROUP_FILE", {"FILE_ERROR", "FILE_QUEUE", "FILES", "FILE_PARAMS"} },
+        { "SP_PG_GROUP_FILE_CFG", {"FILE_ENCODING", "FILE_TYPES"} },
         { "SP_PG_GROUP_IAPI",  { "IAPI_PAX_DATA" } },
         { "SP_PG_GROUP_IATCI", { "IATCI_TABS_SEQ", "IATCI_TABS", "IATCI_SETTINGS", "GRP_IATCI_XML", "DEFERRED_CKI_DATA", "CKI_DATA" } },
         { "SP_PG_GROUP_WC",    { "RL_SEQ", "WC_PNR", "WC_TICKET", "WC_COUPON", "AIRPORT_CONTROLS" } },

@@ -6,6 +6,7 @@
 #include "file_queue.h"
 #include "exceptions.h"
 #include "astra_utils.h"
+#include "stat/stat_orders.h"
 #include "stl_utils.h"
 #include "qrys.h"
 #include "astra_dates.h"
@@ -188,13 +189,10 @@ bool TFileQueue::getparam_value( int id, const std::string &param_name, std::str
 void TFileQueue::getparams( int id, std::map<std::string, std::string> &params )
 {
   params.clear();
-  DB::TQuery Qry( PgOra::getROSession("FILE_PARAMS") );
-  Qry.SQLText = "SELECT name, value FROM file_params WHERE id=:id";
-  Qry.CreateVariable( "id", otInteger, id );
-  Qry.Execute();
-  for( ; !Qry.Eof; Qry.Next() ) {
-    params[ string( Qry.FieldAsString( "name" ) ) ] = Qry.FieldAsString( "value" );
-  }
+
+  TFileParams tfp;
+  tfp.get(id);
+  params = tfp.items;
 };
 
 void TFileQueue::add_sets_params( const std::string &airp,

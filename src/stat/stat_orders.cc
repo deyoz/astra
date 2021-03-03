@@ -322,7 +322,7 @@ string TFileParams::get_name()
 void TFileParams::get(int file_id)
 {
     items.clear();
-    TCachedQuery Qry(
+    DB::TCachedQuery Qry(PgOra::getROSession("FILE_PARAMS"),
             "select name, value from file_params where id = :file_id", QParams() << QParam("file_id", otInteger, file_id)
             );
     Qry.get().Execute();
