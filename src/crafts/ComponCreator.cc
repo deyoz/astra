@@ -1560,9 +1560,9 @@ void ComponSetter::createBaseLibraCompon( ComponLibraFinder::AstraSearchResult& 
       std::string prior_lines;
       std::string intLines( const std::string& l ) {
         bool startIdx, stopIdx;
-        startIdx = ( !lines.empty() && lines.front() == '=' );
-        stopIdx  = ( !lines.empty() && lines.back() == '=' );
-        return lines.substr( startIdx, lines.length() - startIdx - stopIdx );
+        startIdx = ( !l.empty() && l.front() == '=' );
+        stopIdx  = ( !l.empty() && l.back() == '=' );
+        return l.substr( startIdx, l.length() - startIdx - stopIdx );
       }
     public:
       Aisle() {
@@ -1620,7 +1620,6 @@ void ComponSetter::createBaseLibraCompon( ComponLibraFinder::AstraSearchResult& 
           res += ( *s == '=' );
         }
         res -= ( l.back() == '=' );
-        //LogTrace(TRACE5) << l << " " << res;
         return res;
       }
       void AddSeat( const SALONS2::TPlace& seat ) {
@@ -1742,6 +1741,7 @@ void ComponSetter::createBaseLibraCompon( ComponLibraFinder::AstraSearchResult& 
         tprops::iterator im = props.find( Qry.FieldAsInteger( "id" ) );
         if ( find( im->second.begin(), im->second.end(), AISLE_LEFT_CODE_SEAT ) != im->second.end() ) {
           aisle.AddLeft( );
+          seat.x++;
         }
         if ( find( im->second.begin(), im->second.end(), AISLE_RIGHT_CODE_SEAT ) != im->second.end() ) {
            aisle.AddRight( );
@@ -1755,7 +1755,20 @@ void ComponSetter::createBaseLibraCompon( ComponLibraFinder::AstraSearchResult& 
     aisle.AddSeat(seat);
   } // end for
   if ( seatSalon != nullptr ) {
-    aisle.PutSeats( seatSalon );
+    std::string plines = aisle.getPriorLines(), lines = aisle.getCurrLines();
+    bool prChangeLines = ( !plines.empty() &&
+                           plines != lines );
+    LogTrace(TRACE5) << "prChangeLines=" << prChangeLines << " prior=" << plines << " lines=" << lines;
+    if ( !prChangeLines ) {
+      aisle.PutSeats( seatSalon );
+    }
+    else {
+      seatSalon = new SALONS2::TPlaceList;
+      salon_num++;
+      seatSalon->num = salon_num;
+      seats.push_back( seatSalon );
+      aisle.PutSeats( seatSalon );
+    }
     if ( seatSalon->isEmpty() ) {
       delete seatSalon;
       seats.pop_back( );
