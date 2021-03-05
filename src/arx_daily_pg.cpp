@@ -1800,6 +1800,7 @@ std::vector<dbo::TCKIN_SEGMENTS> arx_tckin_segments(const GrpId_t& grp_id, const
 
 size_t delete_trfer_trips(const std::vector<dbo::TRANSFER> & transfers, const std::vector<dbo::TCKIN_SEGMENTS> & segments)
 {
+    LogTrace5 << __func__;
     size_t row_count = 0;
     if(ARX::CLEANUP_PG()) {
         std::set<int> tr_point_ids   = algo::transform<std::set>(transfers,[&](const dbo::TRANSFER & tr){return tr.point_id_trfer;});
@@ -1807,7 +1808,7 @@ size_t delete_trfer_trips(const std::vector<dbo::TRANSFER> & transfers, const st
         tr_point_ids.insert(begin(segm_point_ids), end(segm_point_ids));
 
         for(const auto & point_id_trfer : tr_point_ids) {
-            auto cur = make_db_curs("delete from TRFER_TRIPS where "
+            auto cur = make_db_curs("delete from TRFER_TRIPS where POINT_ID=:point_id_trfer AND "
             "NOT EXISTS (SELECT transfer.point_id_trfer FROM transfer WHERE  transfer.point_id_trfer=:point_id_trfer) AND "
             "NOT EXISTS (SELECT tckin_segments.point_id_trfer FROM tckin_segments WHERE  tckin_segments.point_id_trfer=:point_id_trfer) ",
                          PgOra::getRWSession("TRFER_TRIPS"));
@@ -3150,6 +3151,7 @@ bool cmpTlgQueue(const int tlg_num, const char* withSender, const char* withType
         && withType == type
         && withStatus == status;
 }
+
 
 START_TEST(check_getTlgText)
 {

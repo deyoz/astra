@@ -442,7 +442,7 @@ public:
     template<typename Container>
     void ignoreErrors(Container errors)
     {
-        ignore_errors = std::set(begin(errors), end(errors));
+        ignore_errors.insert(begin(errors), end(errors));
         for(const auto& err: ignore_errors) {
             noThrowError(err);
         }
@@ -568,7 +568,7 @@ public:
 
     std::vector<DbCpp::ResultCode> moveErrors()
     {
-        auto ret(std::move(_ignoreErrors));
+        auto ret = std::move(_ignoreErrors);
         _ignoreErrors.clear();
         return ret;
     }
