@@ -404,13 +404,36 @@ START_TEST(test_bag_value)
 }
 END_TEST;
 
+START_TEST(test_unique_constraint)
+{
+    dbo::Session session;
+    std::vector<dbo::Mark_Trips> mark_trips;
+    Dates::DateTime_t part_key = Dates::time_from_string("2011-08-05 08:00:00");
+    mark_trips.push_back(dbo::Mark_Trips{"ЮТ", "ДМД", 1, 704837, Dates::time_from_string("2011-08-05 00:00:00"), "" });
+    //вторая строка c point_id = 704837 вызывает constraint error при попытке insert
+    mark_trips.push_back(dbo::Mark_Trips{"ЮТ", "ДМД", 1, 704837, Dates::time_from_string("2016-11-25 00:00:00"), "" });
+    mark_trips.push_back(dbo::Mark_Trips{"ЮТ", "ДМД", 1, 25,     Dates::time_from_string("2016-11-25 00:00:00"), "" });
+
+    for(const auto & mark_trip : mark_trips) {
+        dbo::Arx_Mark_Trips amt(mark_trip,part_key);
+        session.noThrowError(DbCpp::ResultCode::ConstraintFail).insert(amt);
+    }
+    //После исключения constraint error сессия пг продолжает работать , проверяем наличие arx_mark_trips c point_id = 25
+    std::optional<dbo::Arx_Mark_Trips> amt = session.query<dbo::Arx_Mark_Trips>().where("point_id = 25");
+    fail_unless(amt && amt->point_id==25);     // если записи нет optional пуст и возвращает false
+}
+END_TEST;
+
+
 
 #define SUITENAME "dbo_tests"
 TCASEREGISTER( nullptr, nullptr)
 {
+    dbo::initStructures();
     ADD_TEST( test_bag_prepay );
     ADD_TEST( test_bag_pay_types );
     ADD_TEST( test_bag_value );
+    ADD_TEST( test_unique_constraint);
 }
 TCASEFINISH;
 #undef SUITENAME

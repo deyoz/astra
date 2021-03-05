@@ -172,11 +172,6 @@ std::string MappingInfo::stringColumns(const vector<std::string>& fields) const
     return  result;
 }
 
-void Session::clearIgnoreErrors()
-{
-    ignoreErrors.clear();
-}
-
 std::string Session::dump(const string &db, const std::string &tableName, const vector<std::string> &tokens,
                           const std::string &query)
 {
@@ -203,7 +198,7 @@ std::string Session::dump(const string &db, const std::string &tableName, const 
     }
     LogTrace1 << "---------------- " << tableName << " " << DB << " DUMP ----------------------";
     LogTrace1 << result_query;
-    Cursor cur(session->createCursor(STDLOG, result_query));
+    Cursor cur(session->createCursor(STDLOG, result_query), Transaction(*session));
     std::string dump = cur.dump(size);
     LogTrace1 << dump;
     return dump;

@@ -1058,6 +1058,7 @@ void arx_events_by_point_id(const PointId_t& point_id, const Dates::DateTime_t& 
 
 void arx_mark_trips(const PointId_t& point_id, const Dates::DateTime_t& part_key)
 {
+    LogTrace5 << __func__ << " point_id: " << point_id << " part_key: " << part_key;
     dbo::Session session;
     std::vector<int> pax_grp_id_marks = session.query<int>("SELECT DISTINCT point_id_mark")
             .from("pax_grp")
@@ -2314,7 +2315,7 @@ void arx_tlg_trip(const PointId_t& point_id)
         dbo::Session session;
         std::vector<int> pnrids = session.query<int>("SELECT trfer_id")
                 .from("tlg_transfer")
-                .where("point_id = :point_id")
+                .where("point_id_out = :point_id")
                 .setBind({{":point_id", point_id.get()}});
         std::vector<int> grpids = session.query<int>("SELECT grp_id")
                 .from("trfer_grp, tlg_transfer")

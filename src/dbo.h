@@ -4,6 +4,7 @@
 #include <variant>
 #include <optional>
 #include <map>
+#include <set>
 
 #include "exceptions.h"
 #include "astra_consts.h"
@@ -315,17 +316,51 @@ struct typecomp {
     }
 };
 
-//Функтор наследующий все переданные ламбды и использующий их операторы ()
-template<class... Ts> struct overload : Ts... { using Ts::operator()...; };
-template<class... Ts> overload(Ts...) -> overload<Ts...>;
+class Transaction
+{
+public:
+    enum class Policy{
+        AutoCommit,
+        Managed
+    };
+
+    explicit Transaction(DbCpp::Session& s, Policy tr = Policy::AutoCommit)
+        :session(s), policy(tr)
+    {
+    }
+
+    bool isManaged() const {
+        return policy==Policy::Managed;
+    }
+
+    void make_savepoint()
+    {
+        make_db_curs(savepointQuery, session).exec();
+    }
+    void rollback_savepoint()
+    {
+        make_db_curs(rollbackQuery, session).exec();
+    }
+    void release_savepoint()
+    {
+        make_db_curs(releaseQuery, session).exec();
+    }
+private:
+    DbCpp::Session& session;
+    Policy policy;
+    static constexpr const char* savepointQuery = "SAVEPOINT SP_EXEC_SQL";
+    static constexpr const char* rollbackQuery = "ROLLBACK TO SAVEPOINT SP_EXEC_SQL";
+    static constexpr const char* releaseQuery = "RELEASE SAVEPOINT SP_EXEC_SQL";
+};
 
 class Cursor
 {
     DbCpp::CursCtl cur_;
-
+    std::set<DbCpp::ResultCode> ignore_errors;
+    Transaction transaction;
 public:
-    Cursor(DbCpp::CursCtl&& cur)
-        : cur_(std::move(cur))
+    Cursor(DbCpp::CursCtl&& cur, Transaction tr)
+        : cur_(std::move(cur)), transaction(tr)
     {
         cur_.unstb();
     }
@@ -373,9 +408,21 @@ public:
         return *this;
     }
 
+
     Cursor& exec()
     {
-        cur_.exec();
+        if(transaction.isManaged()) {
+            transaction.make_savepoint();
+            cur_.exec();
+            if(ignore_errors.find(cur_.err()) != ignore_errors.end()) {
+                transaction.rollback_savepoint();
+                LogTrace5 << __func__ << " rollback. transaction error: " << cur_.err();
+            } else {
+                transaction.release_savepoint();
+            }
+        } else {
+            cur_.exec();
+        }
         return *this;
     }
 
@@ -388,8 +435,17 @@ public:
     bool fen()
     {
         DbCpp::ResultCode res = cur_.fen();
-        LogTrace5 << " fen returned: " << static_cast<int>(res);
+        LogTrace5 << " fen returned: " << res;
         return res != DbCpp::ResultCode::Ok;
+    }
+
+    template<typename Container>
+    void ignoreErrors(Container errors)
+    {
+        ignore_errors = std::set(begin(errors), end(errors));
+        for(const auto& err: ignore_errors) {
+            noThrowError(err);
+        }
     }
 
 };
@@ -482,12 +538,17 @@ public:
         }
         std::string query = mapInfo->insertColumns();
         DbCpp::Session& session = PgOra::getRWSession(mapInfo->tableName());
-        Cursor cur(session.createCursor(STDLOG, query));
-        for(const auto & err : ignoreErrors) {
-            cur.noThrowError(err);
-        }
+        Cursor cur(session.createCursor(STDLOG, query), transactPolicy(session));
+        cur.ignoreErrors(moveErrors());
         cur.bindAll(obj).exec();
-        ignoreErrors.clear();
+    }
+
+    Transaction transactPolicy(DbCpp::Session& session)
+    {
+        if(!session.isOracle() && !_ignoreErrors.empty()) {
+            return Transaction(session, Transaction::Policy::Managed);
+        }
+        return Transaction(session, Transaction::Policy::AutoCommit);
     }
 
     std::string dump(const std::string& db, const std::string& tableName,
@@ -501,11 +562,16 @@ public:
 
     Session & noThrowError(DbCpp::ResultCode err)
     {
-        ignoreErrors.push_back(err);
+        _ignoreErrors.push_back(err);
         return *this;
     }
 
-    void clearIgnoreErrors();
+    std::vector<DbCpp::ResultCode> moveErrors()
+    {
+        auto ret(std::move(_ignoreErrors));
+        _ignoreErrors.clear();
+        return ret;
+    }
     dbo::CurrentDb currentDb() const
     {
         return _currentDb;
@@ -513,7 +579,7 @@ public:
 
 private:
     dbo::CurrentDb _currentDb;
-    std::vector<DbCpp::ResultCode> ignoreErrors;
+    std::vector<DbCpp::ResultCode> _ignoreErrors;
 };
 
 class InitSchema
@@ -614,7 +680,8 @@ private:
         ASSERT(session);
         std::string query = createQuery(map_info, session->isOracle());
         LogTrace5 << " query: " << query;
-        Cursor cur(session->createCursor(STDLOG, query));
+        Cursor cur(session->createCursor(STDLOG, query), Transaction(m_sess->transactPolicy(*session)));
+        cur.ignoreErrors(m_sess->moveErrors());
         Result r;
         cur.bind(bindVars);
         LogTrace5 << " binded ";
@@ -630,7 +697,6 @@ private:
             LogTrace5 << " object pushed ";
         }
         LogTrace5 << " result vector size: " << res.size();
-        m_sess->clearIgnoreErrors();
         return res;
     }
 };
