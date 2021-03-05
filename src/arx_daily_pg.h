@@ -115,7 +115,7 @@ class TArxTlgTrips : public TArxMove
   private:
     int step, point_ids_count;
   public:
-    std::vector<PointId_t> getTlgTripPoints(const Dates::DateTime_t &arx_date, size_t max_rows);
+    std::vector<PointIdTlg_t> getTlgTripPoints(const Dates::DateTime_t &arx_date, size_t max_rows);
     TArxTlgTrips(const Dates::DateTime_t& utc_date);
     virtual bool Next(size_t max_rows, int duration);
     virtual std::string TraceCaption();

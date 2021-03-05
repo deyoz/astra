@@ -2926,7 +2926,7 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
   SQry.DeclareVariable( "is_jmp", otInteger );
 
   //рейс пассажиров
-  TQuery TlgTripsQry( &OraSession );
+  DB::TQuery TlgTripsQry( PgOra::getROSession("TLG_TRIPS") );
   TlgTripsQry.SQLText=
     "SELECT airline,flt_no,suffix,scd,airp_dep "
     "FROM tlg_trips WHERE point_id=:point_id ";

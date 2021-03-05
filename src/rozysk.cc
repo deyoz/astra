@@ -90,7 +90,7 @@ struct TRow {
       reg_no=NoExists;
       pax_id=NoExists;
     };
-    TRow& fltFromDB(TQuery &Qry);
+    TRow& fltFromDB(DB::TQuery &Qry);
     TRow& paxFromDB(TQuery &Qry);
     TRow& setPnr(const TPnrAddrs &pnrs);
     TRow& setDoc(const CheckIn::TPaxDocItem &_doc);
@@ -99,7 +99,7 @@ struct TRow {
     bool isCrew() const { return !(reg_no==NoExists || reg_no>0); }
 };
 
-TRow& TRow::fltFromDB(TQuery &Qry)
+TRow& TRow::fltFromDB(DB::TQuery &Qry)
 {
   airline=Qry.FieldAsString("airline");
   flt_no=Qry.FieldIsNULL("flt_no")?NoExists:Qry.FieldAsInteger("flt_no");
@@ -410,7 +410,7 @@ const TRow& TRow::toDB(TRowType type, TQuery &Qry, bool check_sql) const
   return *this;
 };
 
-void check_flight(TQuery &Qry, int point_id)
+void check_flight(DB::TQuery &Qry, int point_id)
 {
   if (Qry.Eof) throw Exception("flight not found (point_id=%d)", point_id);
   if (Qry.FieldIsNULL("airline")) throw Exception("empty airline (point_id=%d)", point_id);
@@ -421,11 +421,10 @@ void check_flight(TQuery &Qry, int point_id)
 
 void get_flight(int point_id, TRow &r)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("POINTS"));
   Qry.SQLText =
     "SELECT airline, flt_no, suffix, "
-    "       NVL(scd_out,NVL(est_out,act_out)) AS takeoff, 1 AS is_utc, "
+    "       COALESCE(scd_out,COALESCE(est_out,act_out)) AS takeoff, 1 AS is_utc, "
     "       airp AS airp_dep "
     "FROM points WHERE point_id=:point_id";
   Qry.CreateVariable("point_id", otInteger, point_id);
@@ -436,8 +435,7 @@ void get_flight(int point_id, TRow &r)
 
 void get_crs_flight(int point_id, TRow &r)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("TLG_TRIPS"));
   Qry.SQLText =
     "SELECT airline, flt_no, suffix, scd AS takeoff, 0 AS is_utc, airp_dep "
     "FROM tlg_trips WHERE point_id=:point_id";

@@ -1474,7 +1474,6 @@ string internal_ReadData_N( TSOPPTrips &trips, long int &exec_time, int point_id
   RegQry.SQLText = regSQL;
   RegQry.DeclareVariable( "point_id", otInteger );
 
-  TQuery Trfer_outQry( &OraSession );
   TQuery Trfer_inQry( &OraSession );
 
   TQuery CRS_DispltoQry( &OraSession );
@@ -1786,7 +1785,7 @@ string internal_ReadData_N( TSOPPTrips &trips, long int &exec_time, int point_id
         }
       } // end if (!place_out.empty())
       if ( trips.module != TSOPPTrips::tISG && tr->trfer_out_point_id != -1 ) {
-        if (TrferList::trferInExists( tr->point_id, tr->trfer_out_point_id, Trfer_outQry))
+        if (TrferList::trferInExists( tr->point_id, tr->trfer_out_point_id))
           tr->TrferType.setFlag( trferIn );
       }
       if ( trips.module == TSOPPTrips::tSOPP && tr->pr_reg ) {
@@ -2167,7 +2166,6 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
   RegQry.SQLText = regSQL;
   RegQry.DeclareVariable( "point_id", otInteger );
 
-  TQuery Trfer_outQry( &OraSession );
   TQuery Trfer_inQry( &OraSession );
 
   TQuery CRS_DispltoQry( &OraSession );
@@ -2463,7 +2461,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
      }
     } // end if (!place_out.empty())
     if (module != TSOPPTrips::tISG && tr->trfer_out_point_id != -1 ) {
-      if (TrferList::trferInExists( tr->point_id, tr->trfer_out_point_id, Trfer_outQry))
+      if (TrferList::trferInExists( tr->point_id, tr->trfer_out_point_id))
         tr->TrferType.setFlag( trferIn );
     }
     if (module == TSOPPTrips::tSOPP && tr->pr_reg ) {

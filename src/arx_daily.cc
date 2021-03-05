@@ -7,6 +7,7 @@
 #include "qrys.h"
 #include "stat/stat_main.h"
 #include "tlg/typeb_db.h"
+#include "transfer.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -584,6 +585,9 @@ bool TArxTlgTrips::Next(int max_rows, int duration)
         //в архив
         Qry->SetVariable("point_id",point_id);
         Qry->Execute();
+
+        TrferList::deleteTransferData(PointIdTlg_t(point_id));
+
         ASTRA::commitAndCallCommitHooks();
         proc_count++;
       }

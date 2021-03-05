@@ -1652,8 +1652,7 @@ static int CreateSearchResponse(int point_dep,
                                                    FlightProps::WithCheckIn)))
     throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
 
-  TQuery FltQry(&OraSession);
-  FltQry.Clear();
+  DB::TQuery FltQry(PgOra::getROSession("TLG_TRIPS"));
   FltQry.SQLText=
     "SELECT airline,flt_no,suffix,airp_dep AS airp,TRUNC(scd) AS scd_out "
     "FROM tlg_trips WHERE point_id=:point_id";

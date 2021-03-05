@@ -7,6 +7,7 @@
 #include "alarms.h"
 #include "qrys.h"
 #include "typeb_utils.h"
+#include "tlg/typeb_db.h"
 
 #define NICKNAME "VLAD"
 #include <serverlib/slogger.h>
@@ -372,7 +373,7 @@ TBagItem& TBagItem::setZero()
   return *this;
 };
 
-TBagItem& TBagItem::fromDB(TQuery &Qry, TQuery &TagQry, bool fromTlg, bool loadTags)
+TBagItem& TBagItem::fromDB(DB::TQuery &Qry, bool fromTlg, bool loadTags)
 {
   clear();
   bag_amount=!Qry.FieldIsNULL("bag_amount")?Qry.FieldAsInteger("bag_amount"):NoExists;
@@ -386,47 +387,42 @@ TBagItem& TBagItem::fromDB(TQuery &Qry, TQuery &TagQry, bool fromTlg, bool loadT
   {
     if (fromTlg)
     {
-      const char* tag_sql=
-        "SELECT no FROM trfer_tags WHERE grp_id=:grp_id";
-      if (strcmp(TagQry.SQLText.SQLText(),tag_sql)!=0)
-      {
-        TagQry.Clear();
-        TagQry.SQLText=tag_sql;
-        TagQry.DeclareVariable("grp_id", otInteger);
-      };
+      DB::TQuery TagQry(PgOra::getROSession("TRFER_TAGS"));
+      TagQry.SQLText="SELECT no FROM trfer_tags "
+                     "WHERE grp_id=:grp_id";
+      TagQry.DeclareVariable("grp_id", otInteger);
+      TagQry.SetVariable("grp_id", Qry.FieldAsInteger("grp_id"));
+      TagQry.Execute();
+      for(;!TagQry.Eof;TagQry.Next())
+        tags.insert(TBagTagNumber("",TagQry.FieldAsFloat("no")));
     }
     else
     {
       if (Qry.FieldIsNULL("bag_pool_num")) return *this;
 
-      const char* tag_sql=
-        "SELECT bag_tags.no "
-        "FROM bag_tags, bag2 "
-        "WHERE bag_tags.grp_id=bag2.grp_id(+) AND "
-        "      bag_tags.bag_num=bag2.num(+) AND "
-        "      bag_tags.grp_id=:grp_id AND "
-        "      NVL(bag2.bag_pool_num,1)=:bag_pool_num";
-      if (strcmp(TagQry.SQLText.SQLText(),tag_sql)!=0)
-      {
-        TagQry.Clear();
-        TagQry.SQLText=tag_sql;
-        TagQry.DeclareVariable("grp_id", otInteger);
-        TagQry.DeclareVariable("bag_pool_num", otInteger);
-      };
+      DB::TQuery TagQry(PgOra::getROSession("ORACLE"));
+      TagQry.SQLText="SELECT bag_tags.no "
+                     "FROM bag_tags, bag2 "
+                     "WHERE bag_tags.grp_id=bag2.grp_id(+) AND "
+                     "      bag_tags.bag_num=bag2.num(+) AND "
+                     "      bag_tags.grp_id=:grp_id AND "
+                     "      COALESCE(bag2.bag_pool_num,1)=:bag_pool_num";
+      TagQry.DeclareVariable("grp_id", otInteger);
+      TagQry.DeclareVariable("bag_pool_num", otInteger);
       if (!Qry.FieldIsNULL("bag_pool_num"))
         TagQry.SetVariable("bag_pool_num", Qry.FieldAsInteger("bag_pool_num"));
       else
         TagQry.SetVariable("bag_pool_num", FNull);
+      TagQry.SetVariable("grp_id", Qry.FieldAsInteger("grp_id"));
+      TagQry.Execute();
+      for(;!TagQry.Eof;TagQry.Next())
+        tags.insert(TBagTagNumber("",TagQry.FieldAsFloat("no")));
     };
-    TagQry.SetVariable("grp_id", Qry.FieldAsInteger("grp_id"));
-    TagQry.Execute();
-    for(;!TagQry.Eof;TagQry.Next())
-      tags.insert(TBagTagNumber("",TagQry.FieldAsFloat("no")));
   };
   return *this;
 };
 
-TPaxItem& TPaxItem::fromDB(TQuery &Qry, TQuery &RemQry, bool fromTlg)
+TPaxItem& TPaxItem::fromDB(DB::TQuery &Qry, bool fromTlg)
 {
   clear();
   surname=Qry.FieldAsString("surname");
@@ -436,16 +432,13 @@ TPaxItem& TPaxItem::fromDB(TQuery &Qry, TQuery &RemQry, bool fromTlg)
     seats=Qry.FieldAsInteger("seats");
     if (seats>1)
     {
-      const char* rem_sql=
-        "SELECT rem_code FROM pax_rem "
-        "WHERE pax_id=:pax_id AND rem_code IN ('STCR', 'EXST') "
-        "ORDER BY DECODE(rem_code,'STCR',0,'EXST',1,2)";
-      if (strcmp(RemQry.SQLText.SQLText(),rem_sql)!=0)
-      {
-        RemQry.Clear();
-        RemQry.SQLText=rem_sql;
-        RemQry.DeclareVariable("pax_id", otInteger);
-      };
+      DB::TQuery RemQry(PgOra::getROSession("PAX_REM"));
+      RemQry.SQLText="SELECT rem_code FROM pax_rem "
+                     "WHERE pax_id=:pax_id AND rem_code IN ('STCR', 'EXST') "
+                     "ORDER BY CASE WHEN rem_code='STCR' THEN 0 "
+                     "              WHEN rem_code='EXST' THEN 1 "
+                     "              ELSE 2 END ";
+      RemQry.DeclareVariable("pax_id", otInteger);
       RemQry.SetVariable("pax_id", Qry.FieldAsInteger("pax_id"));
       RemQry.Execute();
       for(int i=2; i<=seats; i++)
@@ -470,11 +463,11 @@ TPaxItem& TPaxItem::setUnaccomp()
   return *this;
 };
 
-TGrpItem& TGrpItem::paxFromDB(TQuery &PaxQry, TQuery &RemQry, bool fromTlg)
+TGrpItem& TGrpItem::paxFromDB(DB::TQuery &PaxQry, bool fromTlg)
 {
   paxs.clear();
   for(;!PaxQry.Eof;PaxQry.Next())
-    paxs.push_back(TPaxItem().fromDB(PaxQry, RemQry, fromTlg));
+    paxs.push_back(TPaxItem().fromDB(PaxQry, fromTlg));
 
   if (!fromTlg)
   {
@@ -516,7 +509,7 @@ TGrpItem& TGrpItem::paxFromDB(TQuery &PaxQry, TQuery &RemQry, bool fromTlg)
   return *this;
 };
 
-TGrpItem& TGrpItem::trferFromDB(TQuery &TrferQry, bool fromTlg)
+TGrpItem& TGrpItem::trferFromDB(bool fromTlg)
 {
   trfer.clear();
 
@@ -532,12 +525,12 @@ TGrpItem& TGrpItem::trferFromDB(TQuery &TrferQry, bool fromTlg)
       "WHERE transfer.point_id_trfer=trfer_trips.point_id AND "
       "      grp_id=:grp_id AND transfer_num>1";
 
-  if (strcmp(TrferQry.SQLText.SQLText(),fromTlg?trfer_sql_tlg:trfer_sql_ckin)!=0)
-  {
-    TrferQry.Clear();
-    TrferQry.SQLText=fromTlg?trfer_sql_tlg:trfer_sql_ckin;
-    TrferQry.DeclareVariable("grp_id", otInteger);
-  };
+  DB::TQuery TrferQry(
+        PgOra::getROSession(fromTlg ? "TLG_TRFER_ONWARDS"
+                                    : "ORACLE")
+        );
+  TrferQry.SQLText=fromTlg?trfer_sql_tlg:trfer_sql_ckin;
+  TrferQry.DeclareVariable("grp_id", otInteger);
   TrferQry.SetVariable("grp_id", grp_id);
   TrferQry.Execute();
   for(;!TrferQry.Eof;TrferQry.Next())
@@ -560,6 +553,469 @@ TGrpItem& TGrpItem::setPaxUnaccomp()
   return *this;
 };
 
+namespace {
+
+struct TlgTransfer
+{
+  TrferId_t trfer_id;
+  TlgId_t tlg_id;
+  PointIdTlg_t point_id_in;
+  PointIdTlg_t point_id_out;
+  std::string subcl_in;
+  std::string subcl_out;
+};
+
+enum class TrferPointType
+{
+  IN,
+  OUT
+};
+
+std::vector<TlgTransfer> loadTlgTransfer(const PointIdTlg_t& point_id,
+                                         TrferPointType point_type)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": point_id=" << point_id;
+  std::vector<TlgTransfer> result;
+  int trfer_id = ASTRA::NoExists;
+  int tlg_id = ASTRA::NoExists;
+  int point_id_in = ASTRA::NoExists;
+  int point_id_out = ASTRA::NoExists;
+  std::string subcl_in;
+  std::string subcl_out;
+  auto cur = make_db_curs(
+        "SELECT trfer_id, tlg_id, point_id_in, point_id_out, subcl_in, subcl_out "
+        "FROM tlg_transfer "
+        "WHERE " +
+        std::string(point_type == TrferPointType::IN ? "point_id_in=:point_id "
+                                                     : "point_id_out=:point_id "),
+        PgOra::getROSession("TLG_TRANSFER"));
+
+  cur.stb()
+      .def(trfer_id)
+      .def(tlg_id)
+      .def(point_id_in)
+      .def(point_id_out)
+      .defNull(subcl_in, std::string())
+      .defNull(subcl_out, std::string())
+      .bind(":point_id", point_id.get())
+      .exec();
+
+  while (!cur.fen()) {
+    result.push_back(
+          TlgTransfer{
+            TrferId_t(trfer_id),
+            TlgId_t(tlg_id),
+            PointIdTlg_t(point_id_in),
+            PointIdTlg_t(point_id_out),
+            subcl_in,
+            subcl_out
+          });
+  }
+  LogTrace(TRACE6) << __func__
+                   << ": count=" << result.size();
+  return result;
+}
+
+bool existsTlgIn(const TlgId_t& tlg_id, const std::string& tlg_type)
+{
+  auto cur = make_db_curs(
+        "SELECT 1 FROM tlgs_in "
+        "WHERE id=:tlg_id "
+        "AND type=:tlg_type "
+        "FETCH FIRST 1 ROWS ONLY ",
+        PgOra::getROSession("TLGS_IN"));
+  cur.bind(":tlg_id", tlg_id.get())
+     .bind(":tlg_type", tlg_type)
+     .EXfet();
+  return cur.err() != DbCpp::ResultCode::NoDataFound;
+}
+
+std::vector<TlgTransfer> loadTlgTransfer(const PointIdTlg_t& point_id,
+                                         TrferPointType point_type,
+                                         const std::string& tlg_type)
+{
+  std::vector<TlgTransfer> result;
+  const std::vector<TlgTransfer> tlg_transfers = loadTlgTransfer(point_id, point_type);
+  for (const TlgTransfer& tlg_transfer: tlg_transfers) {
+    if (existsTlgIn(tlg_transfer.tlg_id, tlg_type)) {
+      result.push_back(tlg_transfer);
+    }
+  }
+  return result;
+}
+
+struct TlgTrip
+{
+  std::string airline;
+  std::string airp_arv;
+  std::string airp_dep;
+  int bind_type;
+  int flt_no;
+  PointIdTlg_t point_id;
+  int pr_utc;
+  TDateTime scd;
+  std::string suffix;
+
+  static std::optional<TlgTrip> load(const PointIdTlg_t& point_id);
+};
+
+std::optional<TlgTrip> TlgTrip::load(const PointIdTlg_t& point_id)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": point_id=" << point_id;
+  std::string airline;
+  std::string airp_arv;
+  std::string airp_dep;
+  int bind_type = ASTRA::NoExists;
+  int flt_no = ASTRA::NoExists;
+  int pr_utc = ASTRA::NoExists;
+  Dates::DateTime_t scd;
+  std::string suffix;
+
+  auto cur = make_db_curs(
+        "SELECT airline, airp_arv, airp_dep, bind_type, flt_no, pr_utc, scd, suffix "
+        "FROM tlg_trips "
+        "WHERE point_id=:point_id ",
+        PgOra::getROSession("TLG_TRIPS"));
+
+  cur.stb()
+      .def(airline)
+      .defNull(airp_arv, std::string())
+      .defNull(airp_dep, std::string())
+      .def(bind_type)
+      .def(flt_no)
+      .def(pr_utc)
+      .def(scd)
+      .defNull(suffix, std::string())
+      .bind(":point_id", point_id.get())
+      .EXfet();
+
+  if (cur.err() == DbCpp::ResultCode::NoDataFound) {
+    return {};
+  }
+  return TlgTrip {
+    airline,
+    airp_arv,
+    airp_dep,
+    bind_type,
+    flt_no,
+    point_id,
+    pr_utc,
+    scd.is_special() ? ASTRA::NoExists : BoostToDateTime(scd),
+    suffix
+  };
+}
+
+struct TrferGrp
+{
+  int bag_amount;
+  int bag_weight;
+  TrferGrpId_t grp_id;
+  int rk_weight;
+  int seats;
+  TrferId_t trfer_id;
+  std::string weight_unit;
+
+  static std::vector<TrferGrp> load(const TrferId_t& trfer_id);
+};
+
+std::vector<TrferGrp> TrferGrp::load(const TrferId_t& trfer_id)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": trfer_id=" << trfer_id;
+  std::vector<TrferGrp> result;
+  int bag_amount = ASTRA::NoExists;
+  int bag_weight = ASTRA::NoExists;
+  int grp_id = ASTRA::NoExists;
+  int rk_weight = ASTRA::NoExists;
+  int seats = ASTRA::NoExists;
+  std::string weight_unit;
+
+  auto cur = make_db_curs(
+        "SELECT bag_amount, bag_weight, grp_id, rk_weight, seats, weight_unit "
+        "FROM trfer_grp "
+        "WHERE trfer_id=:trfer_id ",
+        PgOra::getROSession("TRFER_GRP"));
+
+  cur.stb()
+      .defNull(bag_amount, ASTRA::NoExists)
+      .defNull(bag_weight, ASTRA::NoExists)
+      .def(grp_id)
+      .defNull(rk_weight, ASTRA::NoExists)
+      .defNull(seats, ASTRA::NoExists)
+      .defNull(weight_unit, std::string())
+      .bind(":trfer_id", trfer_id.get())
+      .exec();
+
+  while (!cur.fen()) {
+    result.push_back(
+          TrferGrp{
+            bag_amount,
+            bag_weight,
+            TrferGrpId_t(grp_id),
+            rk_weight,
+            seats,
+            trfer_id,
+            weight_unit
+          });
+  }
+  LogTrace(TRACE6) << __func__
+                   << ": count=" << result.size();
+  return result;
+}
+
+struct TlgTransferGrpData {
+  TlgTransfer tlg_transfer;
+  TlgTrip tlg_trip_in;
+  TlgTrip tlg_trip_out;
+  TrferGrp trfer_grp;
+
+  static std::vector<TlgTransferGrpData> load(const PointId_t& point_id,
+                                              TrferPointType point_type,
+                                              const string& tlg_type);
+};
+
+std::vector<TlgTransferGrpData> TlgTransferGrpData::load(const PointId_t& point_id,
+                                                         TrferPointType point_type,
+                                                         const std::string& tlg_type)
+{
+  std::vector<TlgTransferGrpData> result;
+  const std::set<PointIdTlg_t> point_ids_tlg =
+      getPointIdTlgByPointIdsSpp(PointId_t(point_id));
+  for (const PointIdTlg_t& point_id_tlg: point_ids_tlg) {
+    const std::vector<TlgTransfer> tlg_transfers = loadTlgTransfer(PointIdTlg_t(point_id_tlg),
+                                                                   point_type);
+    for (const TlgTransfer& tlg_transfer: tlg_transfers) {
+      if (!existsTlgIn(tlg_transfer.tlg_id, tlg_type)) {
+        continue;
+      }
+      const std::optional<TlgTrip> tlg_trip_in  = TlgTrip::load(tlg_transfer.point_id_in);
+      if (!tlg_trip_in) {
+        continue;
+      }
+      const std::optional<TlgTrip> tlg_trip_out = TlgTrip::load(tlg_transfer.point_id_out);
+      if (!tlg_trip_out) {
+        continue;
+      }
+      const std::vector<TrferGrp> trfer_grps = TrferGrp::load(tlg_transfer.trfer_id);
+      for (const TrferGrp& trfer_grp: trfer_grps) {
+        const TlgTransferGrpData item = {
+          tlg_transfer,
+          *tlg_trip_in,
+          *tlg_trip_out,
+          trfer_grp
+        };
+        result.push_back(item);
+      }
+    }
+  }
+  return result;
+}
+
+std::optional<TrferPointType> getPointType(TTrferType type)
+{
+  if (type==trferOut || type==trferOutForCkin) {
+    return TrferPointType::OUT;
+  }
+  if (type==trferIn) {
+    return TrferPointType::IN;
+  }
+  return {};
+}
+
+TFltInfo makeFltInfo(const TlgTrip& tlg_trip)
+{
+  TFltInfo result;
+  result.airline = tlg_trip.airline;
+  result.flt_no = tlg_trip.flt_no;
+  result.suffix = tlg_trip.suffix;
+  result.airp = tlg_trip.airp_dep;
+  result.scd_out = tlg_trip.scd;
+  result.point_id = tlg_trip.point_id.get();
+  return result;
+}
+
+const std::vector<TlgTransferGrpData> filterTlgTransferGrp(
+    const std::vector<TlgTransferGrpData> &items,
+    TTrferType type,
+    std::set<TFltInfo>& flts_from_ckin)
+{
+  std::vector<TlgTransferGrpData> result;
+  std::set<TFltInfo> flts_from_tlg;
+  for(const TlgTransferGrpData& item: items)
+  {
+    TFltInfo flt1 = makeFltInfo(item.tlg_trip_in);
+    if (type==trferIn) {
+      flt1.point_id = item.tlg_trip_out.point_id.get();
+    }
+    std::set<TFltInfo>::const_iterator id;
+    id=flts_from_ckin.find(flt1);
+    if (id!=flts_from_ckin.end())
+    {
+      //данный телеграммный рейс обслуживается в Астре
+      continue;
+    };
+
+    id=flts_from_tlg.find(flt1);
+    if (id==flts_from_tlg.end())
+    {
+      //нету информации про flt1 - требуется проверка обслуживания в Астре
+      TSearchFltInfo filter;
+      filter.airline=flt1.airline;
+      filter.flt_no=flt1.flt_no;
+      filter.suffix=flt1.suffix;
+      filter.airp_dep=flt1.airp;
+      filter.scd_out=flt1.scd_out;
+      filter.scd_out_in_utc=false;
+      filter.additional_where=
+        " AND EXISTS(SELECT pax_grp.point_dep "
+        "            FROM pax_grp "
+        "            WHERE pax_grp.point_dep=points.point_id AND pax_grp.status NOT IN ('E'))";
+
+      //ищем рейс в СПП
+      std::list<TAdvTripInfo> flts;
+      SearchFlt(filter, flts);
+      std::list<TAdvTripInfo>::const_iterator f=flts.begin();
+      for(; f!=flts.end(); ++f)
+      {
+        TFltInfo flt2(*f, true);
+        if (!(flt1<flt2) && !(flt2<flt1)) break;
+      };
+
+      if (f==flts.end())
+        //не нашли рейс - значит не обслуживается в Астре
+        id=flts_from_tlg.insert(flt1).first;
+      else
+        //данный телеграммный рейс обслуживается в Астре
+        flts_from_ckin.insert(flt1);
+    };
+    if (id==flts_from_tlg.end()) continue;
+
+    result.push_back(item);
+  }
+  return result;
+}
+
+bool isUnaccompGrp(int grp_id)
+{
+  DB::TQuery ExceptQry(PgOra::getROSession("TLG_TRFER_EXCEPTS"));
+  ExceptQry.SQLText=
+    "SELECT type "
+    "FROM tlg_trfer_excepts "
+    "WHERE grp_id=:grp_id "
+    "AND type IN ('UNAC') "
+    "FETCH FIRST 1 ROWS ONLY ";
+  ExceptQry.DeclareVariable("grp_id", otInteger);
+  ExceptQry.SetVariable("grp_id", grp_id);
+  ExceptQry.Execute();
+  return !ExceptQry.Eof;
+}
+
+std::vector<TPaxItem> loadTrferPax(const TrferGrpId_t& grp_id)
+{
+  std::vector<TPaxItem> result;
+  DB::TQuery PaxQry(PgOra::getROSession("TRFER_PAX"));
+  PaxQry.SQLText=
+    "SELECT surname, name "
+    "FROM trfer_pax "
+    "WHERE grp_id=:grp_id";
+  PaxQry.DeclareVariable("grp_id", otInteger);
+  PaxQry.SetVariable("grp_id", grp_id.get());
+  PaxQry.Execute();
+  for(;!PaxQry.Eof;PaxQry.Next()) {
+    result.push_back(TPaxItem().fromDB(PaxQry, true));
+  }
+  //даже если пустая группа - помещаем в paxs пустой surname
+  if (result.empty()) {
+    result.push_back(TPaxItem());
+  }
+  return result;
+}
+
+std::multiset<TBagTagNumber> loadTrferTag(const TrferGrpId_t& grp_id)
+{
+  std::multiset<TBagTagNumber> result;
+  DB::TQuery TagQry(PgOra::getROSession("TRFER_TAGS"));
+  TagQry.SQLText="SELECT no FROM trfer_tags "
+                 "WHERE grp_id=:grp_id";
+  TagQry.DeclareVariable("grp_id", otInteger);
+  TagQry.SetVariable("grp_id", grp_id.get());
+  TagQry.Execute();
+  for(;!TagQry.Eof;TagQry.Next()) {
+    result.insert(TBagTagNumber("",TagQry.FieldAsFloat("no")));
+  }
+  return result;
+}
+
+} // namespace
+
+std::vector<TGrpItem> TlgTransferGrpFromDB(TTrferType type,
+                                           int point_id,
+                                           bool pr_bag,
+                                           std::set<TFltInfo>& flts_from_ckin,
+                                           const TTripRouteItem& priorAirp)
+{
+  //point_id содержит пункт прилета для trferIn
+  std::vector<TGrpItem> result;
+  const std::optional<TrferPointType> point_type = getPointType(type);
+  if (!point_type) {
+    return {};
+  }
+  const PointId_t point_id_spp(*point_type == TrferPointType::OUT ? point_id
+                                                                  : priorAirp.point_id);
+  const std::string tlg_type = pr_bag ? "BTM" : "PTM";
+  const std::vector<TlgTransferGrpData> items =
+      filterTlgTransferGrp(TlgTransferGrpData::load(point_id_spp, *point_type, tlg_type),
+                           type,
+                           flts_from_ckin);
+
+  for(const TlgTransferGrpData& item: items)
+  {
+    TGrpItem grp;
+    grp.grp_id=item.trfer_grp.grp_id.get();
+    if (type==trferOut || type==trferOutForCkin) {
+      grp.point_id=item.tlg_trip_in.point_id.get();
+      grp.airp_arv=item.tlg_trip_in.airp_arv;
+      grp.last_airp_arv=item.tlg_trip_out.airp_arv;
+      grp.subcl=item.tlg_transfer.subcl_in;
+    } else if (type==trferIn) {
+      grp.point_id=item.tlg_trip_out.point_id.get();
+      grp.airp_arv=item.tlg_trip_out.airp_arv;
+      grp.subcl=item.tlg_transfer.subcl_out;
+    }
+    grp.bag_amount=item.trfer_grp.bag_amount;
+    grp.bag_weight=item.trfer_grp.bag_weight;
+    grp.rk_weight=item.trfer_grp.rk_weight;
+    grp.weight_unit=item.trfer_grp.weight_unit;
+    grp.seats=item.trfer_grp.seats;
+    //пассажиры группы
+    //даже если пустая группа - помещаем в paxs пустой surname
+    grp.paxs = loadTrferPax(TrferGrpId_t(grp.grp_id));
+    if (pr_bag)
+    {
+      grp.tags = loadTrferTag(TrferGrpId_t(grp.grp_id));
+      //определяем несопровождаемый багаж - он может быть только в BTM
+      grp.is_unaccomp = isUnaccompGrp(grp.grp_id);
+      if (!grp.is_unaccomp) {
+        //проверим UNACCOMPANIED
+        if (grp.subcl.empty() &&
+            grp.paxs.size()==1 &&
+            grp.paxs.begin()->surname=="UNACCOMPANIED" &&
+            grp.paxs.begin()->name.empty())
+        {
+          grp.is_unaccomp=true;
+        }
+      }
+    }
+    if (type==trferOutForCkin) {
+      grp.trferFromDB(true);
+    }
+    result.push_back(grp);
+  };
+  return result;
+}
+
 void TrferFromDB(TTrferType type,
                  int point_id,   //point_id содержит пункт прилета для trferIn
                  bool pr_bag,
@@ -572,14 +1028,9 @@ void TrferFromDB(TTrferType type,
   grps_tlg.clear();
 
   set<TFltInfo> flts_from_ckin;
-  set<TFltInfo> flts_from_tlg;
   map<int, TFltInfo> spp_point_ids_from_ckin;
 
-  TQuery Qry(&OraSession);
-  TQuery PaxQry(&OraSession);
-  TQuery RemQry(&OraSession);
-  TQuery TagQry(&OraSession);
-  TQuery TrferQry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("ORACLE"));
 
   TTripRouteItem priorAirp;
   if (type==trferIn)
@@ -596,7 +1047,6 @@ void TrferFromDB(TTrferType type,
       throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND");
   };
 
-  Qry.Clear();
   ostringstream sql;
   sql << "SELECT pax_grp.point_dep, pax_grp.grp_id, DECODE(pax.grp_id, NULL, bag2.bag_pool_num, pax.bag_pool_num) AS bag_pool_num, NVL(pax.cabin_class, pax_grp.class) AS class, \n"
 //         "       SUM(DECODE(bag2.pr_cabin,NULL,0,0,bag2.amount,0)) AS bag_amount, \n" //могло бы быть проще, но все из-за 11-го оракла
@@ -685,7 +1135,7 @@ void TrferFromDB(TTrferType type,
   Qry.SQLText=sql.str().c_str();
   //ProgTrace(TRACE5, "point_id=%d\nQry.SQLText=\n%s", point_id, sql.str().c_str());
 
-  PaxQry.Clear();
+  DB::TQuery PaxQry(PgOra::getROSession("ORACLE"));
   sql.str("");
   sql << "SELECT pax.pax_id, pax.surname, pax.name, pax.seats, \n";
   if (type==trferOut || type==trferOutForCkin || type==tckinInbound)
@@ -703,7 +1153,7 @@ void TrferFromDB(TTrferType type,
 
   sql << "      pax.grp_id=pax_grp.grp_id AND \n"
          "      pax.grp_id=:grp_id AND \n"
-         "      NVL(pax.cabin_class, pax_grp.class)=:cabin_class AND \n"
+         "      COALESCE(pax.cabin_class, pax_grp.class)=:cabin_class AND \n"
          "      (pax.bag_pool_num=:bag_pool_num OR pax.bag_pool_num IS NULL AND :bag_pool_num IS NULL) AND \n";
   if (type==trferIn || type==trferOut || type==trferOutForCkin)
     sql << "      pax.pr_brd=1 \n";
@@ -763,10 +1213,10 @@ void TrferFromDB(TTrferType type,
     std::string cabinClass=Qry.FieldAsString("class");
     if (cabinClass.empty())
     {
-      grp.fromDB(Qry, TagQry, false, pr_bag);
+      grp.fromDB(Qry, false, pr_bag);
       grp.setPaxUnaccomp();
       if (type==trferOutForCkin)
-        grp.trferFromDB(TrferQry, false);
+        grp.trferFromDB(false);
       grps_ckin.push_back(grp);
     }
     else
@@ -781,7 +1231,7 @@ void TrferFromDB(TTrferType type,
         };
 
         if (grp.bag_pool_num!=NoExists)
-          grp.fromDB(Qry, TagQry, false, pr_bag);
+          grp.fromDB(Qry, false, pr_bag);
         else
           grp.setZero();
 
@@ -794,9 +1244,9 @@ void TrferFromDB(TTrferType type,
           PaxQry.SetVariable("bag_pool_num", FNull);
         PaxQry.Execute();
         if (PaxQry.Eof) continue; //пустая группа - не помещаем в grps
-        grp.paxFromDB(PaxQry, RemQry, false);
+        grp.paxFromDB(PaxQry, false);
         if (type==trferOutForCkin)
-          grp.trferFromDB(TrferQry, false);
+          grp.trferFromDB(false);
         grps_ckin.push_back(grp);
       };
     };
@@ -806,153 +1256,7 @@ void TrferFromDB(TTrferType type,
 
   if (!(type==trferOut || type==trferOutForCkin || type==trferIn)) return;
 
-  Qry.Clear();
-  if (type==trferOut || type==trferOutForCkin)
-  {
-    //Информация о трансферном багаже/пассажирах, отправляющемся рейсом
-    Qry.SQLText=
-      "SELECT tlg_trips_in.airline, tlg_trips_in.flt_no, tlg_trips_in.suffix, \n"
-      "       tlg_trips_in.airp_dep AS airp, tlg_trips_in.scd AS scd_out, \n"
-      "       tlg_trips_in.point_id AS point_id_tlg_in, tlg_trips_in.airp_arv, \n"
-      "       tlg_trips_out.airp_arv AS last_airp_arv, \n"
-      "       tlg_transfer.subcl_in AS subcl, \n"
-      "       trfer_grp.grp_id, trfer_grp.seats, \n"
-      "       trfer_grp.bag_amount, trfer_grp.bag_weight, trfer_grp.rk_weight, trfer_grp.weight_unit \n"
-      "FROM tlg_binding tlg_binding_out, tlg_transfer, tlgs_in, trfer_grp, \n"
-      "     tlg_trips tlg_trips_in, tlg_trips tlg_trips_out \n"
-      "WHERE tlg_binding_out.point_id_tlg=tlg_transfer.point_id_out AND \n"
-      "      tlg_binding_out.point_id_spp=:point_id AND \n"
-      "      tlg_transfer.tlg_id=tlgs_in.id AND tlgs_in.num=1 AND \n"
-      "      tlgs_in.type=:tlg_type AND \n"
-      "      tlg_transfer.trfer_id=trfer_grp.trfer_id AND \n"
-      "      tlg_transfer.point_id_in=tlg_trips_in.point_id AND \n"
-      "      tlg_transfer.point_id_out=tlg_trips_out.point_id \n";
-    Qry.CreateVariable("point_id", otInteger, point_id);
-    //ProgTrace(TRACE5, "point_id=%d\nQry.SQLText=\n%s", point_id, Qry.SQLText.SQLText());
-  };
-  if (type==trferIn)
-  {
-    //Информация о трансферном багаже/пассажирах, прибывающем рейсом
-    Qry.SQLText=
-      "SELECT tlg_trips_in.airline, tlg_trips_in.flt_no, tlg_trips_in.suffix, \n"
-      "       tlg_trips_in.airp_dep AS airp, tlg_trips_in.scd AS scd_out, \n"
-      "       tlg_trips_out.point_id AS point_id_tlg_out, tlg_trips_out.airp_arv, \n"
-      "       tlg_transfer.subcl_out AS subcl, \n"
-      "       trfer_grp.grp_id, trfer_grp.seats, \n"
-      "       trfer_grp.bag_amount, trfer_grp.bag_weight, trfer_grp.rk_weight, trfer_grp.weight_unit \n"
-      "FROM tlg_binding tlg_binding_in, tlg_transfer, tlgs_in, trfer_grp, tlg_trips tlg_trips_out, \n"
-      "     tlg_trips tlg_trips_in \n"
-      "WHERE tlg_binding_in.point_id_tlg=tlg_transfer.point_id_in AND \n"
-      "      tlg_binding_in.point_id_spp=:point_id AND \n"
-      "      tlg_transfer.tlg_id=tlgs_in.id AND tlgs_in.num=1 AND \n"
-      "      tlgs_in.type=:tlg_type AND \n"
-      "      tlg_transfer.trfer_id=trfer_grp.trfer_id AND \n"
-      "      tlg_transfer.point_id_out=tlg_trips_out.point_id AND \n"
-      "      tlg_transfer.point_id_in=tlg_trips_in.point_id \n";
-    Qry.CreateVariable("point_id", otInteger, priorAirp.point_id);
-    //ProgTrace(TRACE5, "point_id=%d\nQry.SQLText=\n%s", priorAirp.point_id, Qry.SQLText.SQLText());
-  };
-  if (pr_bag)
-    Qry.CreateVariable("tlg_type", otString, "BTM");
-  else
-    Qry.CreateVariable("tlg_type", otString, "PTM");
-
-  PaxQry.Clear();
-  PaxQry.SQLText=
-    "SELECT surname, name FROM trfer_pax WHERE grp_id=:grp_id";
-  PaxQry.DeclareVariable("grp_id", otInteger);
-
-  TQuery ExceptQry(&OraSession);
-  ExceptQry.SQLText=
-    "SELECT type FROM tlg_trfer_excepts WHERE grp_id=:grp_id AND type IN ('UNAC') AND rownum<2";
-  ExceptQry.DeclareVariable("grp_id", otInteger);
-
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
-  {
-    TFltInfo flt1(Qry, false);
-    set<TFltInfo>::const_iterator id;
-    id=flts_from_ckin.find(flt1);
-    if (id!=flts_from_ckin.end())
-    {
-      //данный телеграммный рейс обслуживается в Астре
-      continue;
-    };
-
-    id=flts_from_tlg.find(flt1);
-    if (id==flts_from_tlg.end())
-    {
-      //нету информации про flt1 - требуется проверка обслуживания в Астре
-      TSearchFltInfo filter;
-      filter.airline=flt1.airline;
-      filter.flt_no=flt1.flt_no;
-      filter.suffix=flt1.suffix;
-      filter.airp_dep=flt1.airp;
-      filter.scd_out=flt1.scd_out;
-      filter.scd_out_in_utc=false;
-      filter.additional_where=
-        " AND EXISTS(SELECT pax_grp.point_dep "
-        "            FROM pax_grp "
-        "            WHERE pax_grp.point_dep=points.point_id AND pax_grp.status NOT IN ('E'))";
-
-      //ищем рейс в СПП
-      list<TAdvTripInfo> flts;
-      SearchFlt(filter, flts);
-      list<TAdvTripInfo>::const_iterator f=flts.begin();
-      for(; f!=flts.end(); ++f)
-      {
-        TFltInfo flt2(*f, true);
-        if (!(flt1<flt2) && !(flt2<flt1)) break;
-      };
-
-      if (f==flts.end())
-        //не нашли рейс - значит не обслуживается в Астре
-        id=flts_from_tlg.insert(flt1).first;
-      else
-        //данный телеграммный рейс обслуживается в Астре
-        flts_from_ckin.insert(flt1);
-    };
-    if (id==flts_from_tlg.end()) continue;
-
-    TGrpItem grp;
-    if (type==trferOut || type==trferOutForCkin)
-      grp.point_id=Qry.FieldAsInteger("point_id_tlg_in");
-    if (type==trferIn)
-      grp.point_id=Qry.FieldAsInteger("point_id_tlg_out");
-    grp.grp_id=Qry.FieldAsInteger("grp_id");
-    grp.airp_arv=Qry.FieldAsString("airp_arv");
-    if (type==trferOut || type==trferOutForCkin)
-      grp.last_airp_arv=Qry.FieldAsString("last_airp_arv");
-    grp.subcl=Qry.FieldAsString("subcl");
-    grp.fromDB(Qry, TagQry, true, pr_bag);
-    grp.seats=Qry.FieldIsNULL("seats")?NoExists:Qry.FieldAsInteger("seats");
-    //пассажиры группы
-    PaxQry.SetVariable("grp_id", grp.grp_id);
-    PaxQry.Execute();
-    //даже если пустая группа - помещаем в paxs пустой surname
-    grp.paxFromDB(PaxQry, RemQry, true);
-    if (pr_bag)
-    {
-      //определяем несопровождаемый багаж - он может быть только в BTM
-      ExceptQry.SetVariable("grp_id", grp.grp_id);
-      ExceptQry.Execute();
-      if (!ExceptQry.Eof)
-        grp.is_unaccomp=true;
-      else
-      {
-        //проверим UNACCOMPANIED
-        if (grp.subcl.empty() &&
-            grp.paxs.size()==1 &&
-            grp.paxs.begin()->surname=="UNACCOMPANIED" &&
-            grp.paxs.begin()->name.empty())
-          grp.is_unaccomp=true;
-      };
-    };
-    if (type==trferOutForCkin)
-      grp.trferFromDB(TrferQry, true);
-    grps_tlg.push_back(grp);
-  };
-  //ProgTrace(TRACE5, "grps_tlg.size()=%zu", grps_tlg.size());
+  grps_tlg = TlgTransferGrpFromDB(type, point_id, pr_bag, flts_from_ckin, priorAirp);
 }
 
 void TrferToXML(TTrferType type,
@@ -1311,36 +1615,35 @@ void TrferConfirmFromXML(xmlNodePtr trferNode,
   };
 };
 
-bool trferInExists(int point_arv, int prior_point_arv, TQuery& Qry)
+bool existsTlgTransfer(int prior_point_arv, TrferPointType point_type)
 {
-  const char *sql =
-    "SELECT 1 "
-    "FROM pax_grp, transfer, pax "
-    "WHERE pax_grp.grp_id=transfer.grp_id AND "
-    "      pax_grp.grp_id=pax.grp_id(+) AND "
-    "      pax_grp.point_arv=:point_arv AND "
-    "      transfer.transfer_num=1 AND "
-    "      pax_grp.bag_refuse=0 AND pax_grp.status NOT IN ('T', 'E') AND "
-    "      (pax_grp.class IS NULL OR pax.pr_brd=1) AND "
-    "      rownum<2 "
-    "UNION "
-    "SELECT 2 "
-    "FROM tlg_binding tlg_binding_in, tlg_transfer "
-    "WHERE tlg_binding_in.point_id_tlg=tlg_transfer.point_id_in AND "
-    "      tlg_binding_in.point_id_spp=:prior_point_arv AND "
-    "      rownum<2 ";
-  if (strcmp(Qry.SQLText.SQLText(),sql)!=0)
-  {
-    Qry.Clear();
-    Qry.SQLText=sql;
-    Qry.DeclareVariable("point_arv", otInteger);
-    Qry.DeclareVariable("prior_point_arv", otInteger);
-  };
-  Qry.SetVariable("point_arv", point_arv);
-  Qry.SetVariable("prior_point_arv", prior_point_arv);
+  const std::set<PointIdTlg_t> point_ids_tlg =
+      getPointIdTlgByPointIdsSpp(PointId_t(prior_point_arv));
+  for (const PointIdTlg_t& point_id_tlg: point_ids_tlg) {
+    if (!loadTlgTransfer(PointIdTlg_t(point_id_tlg), point_type).empty()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool trferInExists(int point_arv, int prior_point_arv)
+{
+  TQuery Qry( &OraSession );
+  Qry.SQLText=
+      "SELECT 1 "
+      "FROM pax_grp, transfer, pax "
+      "WHERE pax_grp.grp_id=transfer.grp_id AND "
+      "      pax_grp.grp_id=pax.grp_id(+) AND "
+      "      pax_grp.point_arv=:point_arv AND "
+      "      transfer.transfer_num=1 AND "
+      "      pax_grp.bag_refuse=0 AND pax_grp.status NOT IN ('T', 'E') AND "
+      "      (pax_grp.class IS NULL OR pax.pr_brd=1) AND "
+      "      rownum<2 ";
+  Qry.CreateVariable("point_arv", otInteger, point_arv);
   Qry.Execute();
-  return !Qry.Eof;
-};
+  return !Qry.Eof || existsTlgTransfer(prior_point_arv, TrferPointType::IN);
+}
 
 bool trferOutExists(int point_dep, TQuery& Qry)
 {
@@ -1354,12 +1657,6 @@ bool trferOutExists(int point_dep, TQuery& Qry)
     "      transfer.transfer_num=1 AND "
     "      pax_grp.bag_refuse=0 AND pax_grp.status NOT IN ('T', 'E') AND "
     "      (pax_grp.class IS NULL OR pax.pr_brd=1) AND "
-    "      rownum<2 "
-    "UNION "
-    "SELECT 2 "
-    "FROM tlg_binding tlg_binding_out, tlg_transfer "
-    "WHERE tlg_binding_out.point_id_tlg=tlg_transfer.point_id_out AND "
-    "      tlg_binding_out.point_id_spp=:point_dep AND "
     "      rownum<2 ";
   if (strcmp(Qry.SQLText.SQLText(),sql)!=0)
   {
@@ -1369,7 +1666,7 @@ bool trferOutExists(int point_dep, TQuery& Qry)
   };
   Qry.SetVariable("point_dep", point_dep);
   Qry.Execute();
-  return !Qry.Eof;
+  return !Qry.Eof || existsTlgTransfer(point_dep, TrferPointType::OUT);
 };
 
 bool trferCkinExists(int point_dep, TQuery& Qry)
@@ -1394,6 +1691,220 @@ bool trferCkinExists(int point_dep, TQuery& Qry)
   Qry.Execute();
   return !Qry.Eof;
 };
+
+std::set<TrferId_t> loadTrferIdSet(const PointIdTlg_t& point_id)
+{
+  dbo::Session session;
+  const std::vector<int> trfer_ids =
+      session.query<int>("SELECT trfer_id")
+      .from("tlg_transfer")
+      .where("point_id_out = :point_id")
+      .setBind({{":point_id", point_id.get()}});
+  return algo::transform<std::set>(trfer_ids, [](int id) { return TrferId_t(id); });
+}
+
+std::set<TlgId_t> loadTrferTlgIdSet(const PointIdTlg_t& point_id)
+{
+  dbo::Session session;
+  const std::vector<int> tlg_ids =
+      session.query<int>("SELECT tlg_id")
+      .from("tlg_transfer")
+      .where("point_id = :point_id")
+      .setBind({{":point_id", point_id.get()}});
+  return algo::transform<std::set>(tlg_ids, [](int id) { return TlgId_t(id); });
+}
+
+std::set<TrferGrpId_t> loadTrferGrpIdSet(const TrferId_t& trfer_id)
+{
+  dbo::Session session;
+  const std::vector<int> grp_ids =
+      session.query<int>("SELECT grp_id").from("trfer_grp")
+      .where("trfer_id = :trfer_id")
+      .setBind({{":trfer_id", trfer_id.get()}});
+  return algo::transform<std::set>(grp_ids, [](int id) { return TrferGrpId_t(id); });
+}
+
+std::set<TrferGrpId_t> loadTrferGrpIdSet(const PointIdTlg_t& point_id)
+{
+  dbo::Session session;
+  const std::vector<int> grp_ids =
+      session.query<int>("SELECT grp_id").from("trfer_grp, tlg_transfer")
+      .where("tlg_transfer.trfer_id = trfer_grp.trfer_id AND "
+             "tlg_transfer.point_id_out = :point_id")
+      .setBind({{":point_id", point_id.get()}});
+  return algo::transform<std::set>(grp_ids, [](int id) { return TrferGrpId_t(id); });
+}
+
+std::set<TrferId_t> loadTrferIdsByTlgTransferIn(const PointIdTlg_t& point_id_in,
+                                                const std::string& tlg_type)
+{
+  std::set<TrferId_t> result;
+  const std::vector<TlgTransfer> tlg_transfers = loadTlgTransfer(PointIdTlg_t(point_id_in),
+                                                                 TrferPointType::IN,
+                                                                 tlg_type);
+  for (const TlgTransfer& tlg_transfer: tlg_transfers) {
+    result.insert(tlg_transfer.trfer_id);
+  }
+  return result;
+}
+
+std::set<PointId_t> loadPointIdsSppByTlgTransferIn(const PointIdTlg_t& point_id_in)
+{
+  std::set<PointIdTlg_t> point_ids_out;
+  const std::vector<TlgTransfer> tlg_transfers = loadTlgTransfer(point_id_in,
+                                                                 TrferPointType::IN,
+                                                                 "BTM");
+  for (const TlgTransfer& tlg_transfer: tlg_transfers) {
+    point_ids_out.insert(tlg_transfer.point_id_out);
+  }
+  std::set<PointId_t> point_ids_spp;
+  for (const PointIdTlg_t& point_id_out: point_ids_out) {
+    getPointIdsSppByPointIdTlg(point_id_out, point_ids_spp, false /*clear*/);
+  }
+  return point_ids_spp;
+}
+
+bool deleteTrferPax(const TrferGrpId_t& grp_id)
+{
+  auto cur = make_db_curs(
+        "DELETE FROM trfer_pax "
+        "WHERE grp_id = :grp_id ",
+        PgOra::getRWSession("TRFER_PAX"));
+  cur.bind(":grp_id", grp_id.get()).exec();
+  return cur.rowcount() > 0;
+}
+
+bool deleteTrferTags(const TrferGrpId_t& grp_id)
+{
+  auto cur = make_db_curs(
+        "DELETE FROM trfer_tags "
+        "WHERE grp_id = :grp_id ",
+        PgOra::getRWSession("TRFER_TAGS"));
+  cur.bind(":grp_id", grp_id.get()).exec();
+  return cur.rowcount() > 0;
+}
+
+bool deleteTlgTrferOnwards(const TrferGrpId_t& grp_id)
+{
+  auto cur = make_db_curs(
+        "DELETE FROM tlg_trfer_onwards "
+        "WHERE grp_id = :grp_id ",
+        PgOra::getRWSession("TLG_TRFER_ONWARDS"));
+  cur.bind(":grp_id", grp_id.get()).exec();
+  return cur.rowcount() > 0;
+}
+
+bool deleteTlgTrferExcepts(const TrferGrpId_t& grp_id)
+{
+  auto cur = make_db_curs(
+        "DELETE FROM tlg_trfer_excepts "
+        "WHERE grp_id = :grp_id ",
+        PgOra::getRWSession("TLG_TRFER_EXCEPTS"));
+  cur.bind(":grp_id", grp_id.get()).exec();
+  return cur.rowcount() > 0;
+}
+
+bool deleteTrferGrp(const TrferId_t& trfer_id)
+{
+  auto cur = make_db_curs(
+        "DELETE FROM trfer_grp "
+        "WHERE trfer_id = :trfer_id ",
+        PgOra::getRWSession("TRFER_GRP"));
+  cur.bind(":trfer_id", trfer_id.get()).exec();
+  return cur.rowcount() > 0;
+}
+
+bool deleteTlgTransfer(const TrferId_t& trfer_id)
+{
+  auto cur = make_db_curs(
+        "DELETE FROM tlg_transfer "
+        "WHERE trfer_id = :trfer_id ",
+        PgOra::getRWSession("TLG_TRANSFER"));
+  cur.bind(":trfer_id", trfer_id.get()).exec();
+  return cur.rowcount() > 0;
+}
+
+bool deleteTlgTransfer(const PointIdTlg_t& point_id)
+{
+  auto cur = make_db_curs(
+        "DELETE FROM tlg_transfer "
+        "WHERE point_id_out= :point_id ",
+        PgOra::getRWSession("TLG_TRANSFER"));
+  cur.bind(":point_id", point_id.get()).exec();
+  return cur.rowcount() > 0;
+}
+
+int countTlgTransfer(const PointIdTlg_t& point_id)
+{
+    int result = 0;
+    auto cur = make_db_curs(
+          "SELECT COUNT(*) FROM tlg_transfer "
+          "WHERE point_id_in=:point_id "
+          "AND point_id_in<>point_id_out ",
+          PgOra::getROSession("TLG_TRANSFER"));
+    cur.def(result)
+        .bind(":point_id", point_id.get())
+        .EXfet();
+    return result;
+}
+
+bool existsTlgTransfer(const PointIdTlg_t& point_id, const TlgId_t& tlg_id)
+{
+    auto cur = make_db_curs(
+          "SELECT 1 FROM tlg_transfer "
+          "WHERE point_id_in=:point_id "
+          "AND tlg_id=:tlg_id "
+          "FETCH FIRST 1 ROWS ONLY ",
+          PgOra::getROSession("TLG_TRANSFER"));
+    cur.bind(":point_id", point_id.get())
+       .bind(":tlg_id", tlg_id.get())
+       .EXfet();
+    return cur.err() != DbCpp::ResultCode::NoDataFound;
+}
+
+bool deleteTlgSource(const PointIdTlg_t& point_id, const TlgId_t& tlg_id)
+{
+  auto cur = make_db_curs(
+        "DELETE FROM tlg_source "
+        "WHERE point_id_tlg=:point_id "
+        "AND tlg_id=:tlg_id ",
+        PgOra::getRWSession("TLG_SOURCE"));
+  cur.bind(":point_id", point_id.get())
+     .bind(":tlg_id", tlg_id.get())
+     .exec();
+  return cur.rowcount() > 0;
+}
+
+void deleteTransferData(const PointIdTlg_t& point_id)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": point_id=" << point_id;
+  const std::set<TrferId_t> trfer_ids = loadTrferIdSet(point_id);
+  const std::set<TrferGrpId_t> grp_ids = loadTrferGrpIdSet(point_id);
+  for (const TrferGrpId_t& grp_id: grp_ids) {
+      deleteTrferPax(grp_id);
+      deleteTrferTags(grp_id);
+      deleteTlgTrferOnwards(grp_id);
+      deleteTlgTrferExcepts(grp_id);
+  }
+  for (const TrferId_t& trfer_id: trfer_ids) {
+      deleteTrferGrp(trfer_id);
+  }
+  deleteTlgTransfer(point_id);
+
+  const int count = countTlgTransfer(point_id);
+  if (count == 0) {
+    TypeB::deleteTlgSource(point_id);
+    TypeB::deleteTlgTrips(point_id);
+  } else {
+    const std::set<TlgId_t> tlg_ids = loadTrferTlgIdSet(point_id);
+    for (const TlgId_t& tlg_id: tlg_ids) {
+      if (!existsTlgTransfer(point_id, tlg_id)) {
+        deleteTlgSource(point_id, tlg_id);
+      }
+    }
+  }
+}
 
 }; //namespace TrferList
 

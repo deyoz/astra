@@ -579,7 +579,7 @@ $(BTM_UT_576_KRR $(get time_create2))
 $(set btm_id2 $(last_typeb_in_id))
 
 ??
-$(dump_table tlg_transfer fields="tlg_id" order="tlg_id" display="on")
+$(pg_dump_table tlg_transfer fields="tlg_id" order="tlg_id" display="on")
 
 >>
 --------------------- tlg_transfer DUMP ---------------------
@@ -596,7 +596,7 @@ $(BTM_UT_576_KRR $(get time_create3))
 $(set btm_id3 $(last_typeb_in_id))
 
 ??
-$(dump_table tlg_transfer fields="tlg_id" order="tlg_id" display="on")
+$(pg_dump_table tlg_transfer fields="tlg_id" order="tlg_id" display="on")
 
 >>
 --------------------- tlg_transfer DUMP ---------------------

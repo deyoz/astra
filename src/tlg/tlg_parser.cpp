@@ -5902,85 +5902,72 @@ bool DeletePRLContent(int point_id, const THeadingInfo& info)
 
 bool DeletePTMBTMContent(int point_id_in, const THeadingInfo& info)
 {
+  LogTrace(TRACE6) << __func__
+                   << ": point_id=" << point_id_in;
   if (isDeleteTypeBContent(point_id_in, info))
   {
-    TQuery TrferQry(&OraSession);
-    TrferQry.SQLText=
-      "SELECT tlg_transfer.trfer_id "
-      "FROM tlgs_in,tlg_transfer "
-      "WHERE tlgs_in.id=tlg_transfer.tlg_id AND tlgs_in.type=:tlg_type AND "
-      "      tlg_transfer.point_id_in=:point_id_in ";
-    TrferQry.CreateVariable("point_id_in",otInteger,point_id_in);
-    TrferQry.CreateVariable("tlg_type",otString,info.tlg_type);
-    TrferQry.Execute();
+    const std::set<TrferId_t> trfer_ids =
+        TrferList::loadTrferIdsByTlgTransferIn(PointIdTlg_t(point_id_in),
+                                               info.tlg_type);
 
-    TQuery Qry(&OraSession);
-    Qry.Clear();
-    Qry.SQLText=
-      "BEGIN "
-      "  DELETE FROM "
-      "    (SELECT * FROM trfer_grp,trfer_pax "
-      "     WHERE trfer_grp.grp_id=trfer_pax.grp_id AND trfer_grp.trfer_id=:trfer_id); "
-      "  DELETE FROM "
-      "    (SELECT * FROM trfer_grp,trfer_tags "
-      "     WHERE trfer_grp.grp_id=trfer_tags.grp_id AND trfer_grp.trfer_id=:trfer_id); "
-      "  DELETE FROM "
-      "    (SELECT * FROM trfer_grp,tlg_trfer_onwards "
-      "     WHERE trfer_grp.grp_id=tlg_trfer_onwards.grp_id AND trfer_grp.trfer_id=:trfer_id); "
-      "  DELETE FROM "
-      "    (SELECT * FROM trfer_grp,tlg_trfer_excepts "
-      "     WHERE trfer_grp.grp_id=tlg_trfer_excepts.grp_id AND trfer_grp.trfer_id=:trfer_id); "
-      "  DELETE FROM trfer_grp WHERE trfer_id=:trfer_id; "
-      "  DELETE FROM tlg_transfer WHERE trfer_id=:trfer_id; "
-      "END;";
-    Qry.DeclareVariable("trfer_id",otInteger);
-
-    for(;!TrferQry.Eof;TrferQry.Next())
+    for(const TrferId_t& trfer_id: trfer_ids)
     {
-      Qry.SetVariable("trfer_id",TrferQry.FieldAsInteger("trfer_id"));
-      Qry.Execute();
-    };
+      const std::set<TrferGrpId_t> grp_ids = TrferList::loadTrferGrpIdSet(trfer_id);
+      for(const TrferGrpId_t& grp_id: grp_ids) {
+        TrferList::deleteTrferPax(grp_id);
+        TrferList::deleteTrferTags(grp_id);
+        TrferList::deleteTlgTrferOnwards(grp_id);
+        TrferList::deleteTlgTrferExcepts(grp_id);
+      }
+      TrferList::deleteTrferGrp(trfer_id);
+      TrferList::deleteTlgTransfer(trfer_id);
+    }
     return true;
-  };
+  }
   return false;
-};
+}
 
 void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, const TBtmContent& con)
 {
-  TQuery TrferQry(&OraSession);
+  DB::TQuery TrferQry(PgOra::getRWSession("TLG_TRANSFER"));
   TrferQry.SQLText=
     "INSERT INTO tlg_transfer(trfer_id,point_id_in,subcl_in,point_id_out,subcl_out,tlg_id) "
-    "VALUES(cycle_id__seq.nextval,:point_id_in,:subcl_in,:point_id_out,:subcl_out,:tlg_id)";
+    "VALUES(:trfer_id,:point_id_in,:subcl_in,:point_id_out,:subcl_out,:tlg_id)";
+  TrferQry.DeclareVariable("trfer_id",otInteger);
   TrferQry.DeclareVariable("point_id_in",otInteger);
   TrferQry.DeclareVariable("subcl_in",otString);
   TrferQry.DeclareVariable("point_id_out",otInteger);
   TrferQry.DeclareVariable("subcl_out",otString);
   TrferQry.CreateVariable("tlg_id",otInteger,tlg_id);
 
-  TQuery GrpQry(&OraSession);
+  DB::TQuery GrpQry(PgOra::getRWSession("TRFER_GRP"));
   GrpQry.SQLText=
     "INSERT INTO trfer_grp(grp_id,trfer_id,seats,bag_amount,bag_weight,rk_weight,weight_unit) "
-    "VALUES(pax_grp__seq.nextval,cycle_id__seq.currval,NULL,:bag_amount,:bag_weight,:rk_weight,:weight_unit) ";
+    "VALUES(:grp_id,:trfer_id,NULL,:bag_amount,:bag_weight,:rk_weight,:weight_unit) ";
   GrpQry.DeclareVariable("bag_amount",otInteger);
   GrpQry.DeclareVariable("bag_weight",otInteger);
   GrpQry.DeclareVariable("rk_weight",otInteger);
   GrpQry.DeclareVariable("weight_unit",otString);
+  GrpQry.DeclareVariable("trfer_id",otInteger);
+  GrpQry.DeclareVariable("grp_id",otInteger);
 
-  TQuery PaxQry(&OraSession);
+  DB::TQuery PaxQry(PgOra::getRWSession("TRFER_PAX"));
   PaxQry.SQLText=
-    "INSERT INTO trfer_pax(grp_id,surname,name) VALUES(pax_grp__seq.currval,:surname,:name)";
+    "INSERT INTO trfer_pax(grp_id,surname,name) VALUES(:grp_id,:surname,:name)";
   PaxQry.DeclareVariable("surname",otString);
   PaxQry.DeclareVariable("name",otString);
+  PaxQry.DeclareVariable("grp_id",otInteger);
 
-  TQuery TagQry(&OraSession);
+  DB::TQuery TagQry(PgOra::getRWSession("TRFER_TAGS"));
   TagQry.SQLText=
-    "INSERT INTO trfer_tags(grp_id,no) VALUES(pax_grp__seq.currval,:no)";
+    "INSERT INTO trfer_tags(grp_id,no) VALUES(:grp_id,:no)";
   TagQry.DeclareVariable("no",otFloat);
+  TagQry.DeclareVariable("grp_id",otInteger);
 
-  TQuery OnwardQry(&OraSession);
+  DB::TQuery OnwardQry(PgOra::getRWSession("TLG_TRFER_ONWARDS"));
   OnwardQry.SQLText=
     "INSERT INTO tlg_trfer_onwards(grp_id, num, airline, flt_no, suffix, local_date, airp_dep, airp_arv, subclass) "
-    "VALUES(pax_grp__seq.currval, :num, :airline, :flt_no, :suffix, :local_date, :airp_dep, :airp_arv, :subclass)";
+    "VALUES(:grp_id, :num, :airline, :flt_no, :suffix, :local_date, :airp_dep, :airp_arv, :subclass)";
   OnwardQry.DeclareVariable("num", otInteger);
   OnwardQry.DeclareVariable("airline", otString);
   OnwardQry.DeclareVariable("flt_no", otInteger);
@@ -5989,34 +5976,23 @@ void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, const TBtmContent& con)
   OnwardQry.DeclareVariable("airp_dep", otString);
   OnwardQry.DeclareVariable("airp_arv", otString);
   OnwardQry.DeclareVariable("subclass", otString);
+  OnwardQry.DeclareVariable("grp_id",otInteger);
 
-  TQuery ExceptQry(&OraSession);
+  DB::TQuery ExceptQry(PgOra::getRWSession("TLG_TRFER_EXCEPTS"));
   ExceptQry.SQLText=
-    "INSERT INTO tlg_trfer_excepts(grp_id, type) VALUES(pax_grp__seq.currval, :type)";
+    "INSERT INTO tlg_trfer_excepts(grp_id, type) VALUES(:grp_id, :type)";
   ExceptQry.DeclareVariable("type", otString);
-
-  TQuery AlarmQry(&OraSession);
-  AlarmQry.Clear();
-  AlarmQry.SQLText=
-    "SELECT DISTINCT tlg_binding_out.point_id_spp "
-    "FROM tlgs_in, tlg_transfer, tlg_binding tlg_binding_out "
-    "WHERE tlgs_in.id=tlg_transfer.tlg_id AND tlgs_in.type=:tlg_type AND "
-    "      tlg_transfer.point_id_in=:point_id_in AND "
-    "      tlg_transfer.point_id_out=tlg_binding_out.point_id_tlg ";
-  AlarmQry.CreateVariable("tlg_type", otString, "BTM");
-  AlarmQry.DeclareVariable("point_id_in", otInteger);
+  ExceptQry.DeclareVariable("grp_id",otInteger);
 
   int point_id_in,point_id_out;
-  set<int> alarm_point_ids;
+  std::set<PointId_t> alarm_point_ids;
   for(vector<TBtmTransferInfo>::const_iterator iIn=con.Transfer.begin();iIn!=con.Transfer.end();++iIn)
   {
     point_id_in=SaveFlt(tlg_id,iIn->InFlt,btLastSeg,TSearchFltInfoPtr());
     //найдем point_id_spp рейсов, которым отправляется трансфер
-    set<int> point_ids;
-    AlarmQry.SetVariable("point_id_in", point_id_in);
-    AlarmQry.Execute();
-    for(;!AlarmQry.Eof;AlarmQry.Next())
-      point_ids.insert(AlarmQry.FieldAsInteger("point_id_spp"));
+    std::set<PointId_t> point_ids_spp
+        = TrferList::loadPointIdsSppByTlgTransferIn(PointIdTlg_t(point_id_in));
+    alarm_point_ids.insert(point_ids_spp.begin(), point_ids_spp.end());
 
     if (!DeletePTMBTMContent(point_id_in,info)) continue;
     TrferQry.SetVariable("point_id_in",point_id_in);
@@ -6026,6 +6002,8 @@ void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, const TBtmContent& con)
       point_id_out=SaveFlt(tlg_id,*iOut,btFirstSeg,TSearchFltInfoPtr());
       TrferQry.SetVariable("point_id_out",point_id_out);
       TrferQry.SetVariable("subcl_out",iOut->subcl);
+      const int new_trfer_id = PgOra::getSeqNextVal_int("CYCLE_ID__SEQ");
+      TrferQry.SetVariable("trfer_id", new_trfer_id);
       TrferQry.Execute();
       for(vector<TBtmGrpItem>::const_iterator iGrp=iOut->grp.begin();iGrp!=iOut->grp.end();++iGrp)
       {
@@ -6042,7 +6020,11 @@ void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, const TBtmContent& con)
           GrpQry.SetVariable("rk_weight",FNull);
         };
         GrpQry.SetVariable("weight_unit",iGrp->weight_unit);
+        GrpQry.SetVariable("trfer_id",new_trfer_id);
+        const int new_grp_id = PgOra::getSeqNextVal_int("PAX_GRP__SEQ");
+        GrpQry.SetVariable("grp_id",new_grp_id);
         GrpQry.Execute();
+        PaxQry.SetVariable("grp_id",new_grp_id);
         for(vector<TBtmPaxItem>::const_iterator iPax=iGrp->pax.begin();iPax!=iGrp->pax.end();++iPax)
         {
           PaxQry.SetVariable("surname",iPax->surname);
@@ -6060,6 +6042,7 @@ void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, const TBtmContent& con)
             PaxQry.Execute();
           };
         };
+        TagQry.SetVariable("grp_id",new_grp_id);
         for(vector<TBSMTagItem>::const_iterator iTag=iGrp->tags.begin();iTag!=iGrp->tags.end();++iTag)
           for(int j=0;j<iTag->num;j++)
           {
@@ -6068,6 +6051,7 @@ void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, const TBtmContent& con)
           };
         int num=1;
         string prior_airp_arv=iOut->airp_arv;
+        OnwardQry.SetVariable("grp_id",new_grp_id);
         for(vector<TSegmentItem>::const_iterator iOnward=iGrp->OnwardFlt.begin();iOnward!=iGrp->OnwardFlt.end();++iOnward,num++)
         {
           OnwardQry.SetVariable("num", num);
@@ -6081,29 +6065,26 @@ void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, const TBtmContent& con)
           OnwardQry.Execute();
           prior_airp_arv=iOnward->airp_arv;
         };
+        ExceptQry.SetVariable("grp_id",new_grp_id);
         for(set<string>::const_iterator iExcept=iGrp->excepts.begin();iExcept!=iGrp->excepts.end();++iExcept)
         {
           ExceptQry.SetVariable("type", *iExcept);
           ExceptQry.Execute();
-        };
-      };
-    };
+        }
+      }
+    }
 
     //найдем point_id_spp рейсов, которым отправляется трансфер
-    AlarmQry.SetVariable("point_id_in", point_id_in);
-    AlarmQry.Execute();
-    for(;!AlarmQry.Eof;AlarmQry.Next())
-      point_ids.insert(AlarmQry.FieldAsInteger("point_id_spp"));
-
-    alarm_point_ids.insert(point_ids.begin(), point_ids.end());
+    point_ids_spp = TrferList::loadPointIdsSppByTlgTransferIn(PointIdTlg_t(point_id_in));
+    alarm_point_ids.insert(point_ids_spp.begin(), point_ids_spp.end());
   };
 
-  for(set<int>::const_iterator id=alarm_point_ids.begin(); id!=alarm_point_ids.end(); ++id)
+  for(std::set<PointId_t>::const_iterator id=alarm_point_ids.begin(); id!=alarm_point_ids.end(); ++id)
   {
-    check_unattached_trfer_alarm(*id);
+    check_unattached_trfer_alarm(id->get());
     //ProgTrace(TRACE5, "SaveBTMContent: check_unattached_trfer_alarm(%d)", *id);
-  };
-};
+  }
+}
 
 void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con)
 {
@@ -6115,36 +6096,42 @@ void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con)
   point_id_in=SaveFlt(tlg_id,dynamic_cast<TFltInfo&>(con.InFlt),btLastSeg,TSearchFltInfoPtr());
   if (!DeletePTMBTMContent(point_id_in,info)) return;
 
-  TQuery TrferQry(&OraSession);
+  DB::TQuery TrferQry(PgOra::getRWSession("TLG_TRANSFER"));
   TrferQry.SQLText=
     "INSERT INTO tlg_transfer(trfer_id,point_id_in,subcl_in,point_id_out,subcl_out,tlg_id) "
-    "VALUES(cycle_id__seq.nextval,:point_id_in,:subcl_in,:point_id_out,:subcl_out,:tlg_id)";
+    "VALUES(:trfer_id,:point_id_in,:subcl_in,:point_id_out,:subcl_out,:tlg_id)";
+  TrferQry.DeclareVariable("trfer_id",otInteger);
   TrferQry.CreateVariable("point_id_in",otInteger,point_id_in);
   TrferQry.CreateVariable("subcl_in",otString,FNull); //подкласс прилета неизвестен
   TrferQry.DeclareVariable("point_id_out",otInteger);
   TrferQry.DeclareVariable("subcl_out",otString);
   TrferQry.CreateVariable("tlg_id",otInteger,tlg_id);
 
-  TQuery GrpQry(&OraSession);
+  DB::TQuery GrpQry(PgOra::getRWSession("TRFER_GRP"));
   GrpQry.SQLText=
     "INSERT INTO trfer_grp(grp_id,trfer_id,seats,bag_amount,bag_weight,rk_weight,weight_unit) "
-    "VALUES(pax_grp__seq.nextval,cycle_id__seq.currval,:seats,:bag_amount,:bag_weight,NULL,:weight_unit) ";
+    "VALUES(:grp_id,:trfer_id,:seats,:bag_amount,:bag_weight,NULL,:weight_unit) ";
   GrpQry.DeclareVariable("seats",otInteger);
   GrpQry.DeclareVariable("bag_amount",otInteger);
   GrpQry.DeclareVariable("bag_weight",otInteger);
   GrpQry.DeclareVariable("weight_unit",otString);
+  GrpQry.DeclareVariable("grp_id",otInteger);
+  GrpQry.DeclareVariable("trfer_id",otInteger);
 
-  TQuery PaxQry(&OraSession);
+  DB::TQuery PaxQry(PgOra::getRWSession("TRFER_PAX"));
   PaxQry.SQLText=
-    "INSERT INTO trfer_pax(grp_id,surname,name) VALUES(pax_grp__seq.currval,:surname,:name)";
+    "INSERT INTO trfer_pax(grp_id,surname,name) VALUES(:grp_id,:surname,:name)";
   PaxQry.DeclareVariable("surname",otString);
   PaxQry.DeclareVariable("name",otString);
+  PaxQry.DeclareVariable("grp_id",otInteger);
 
   for(iOut=con.OutFlt.begin();iOut!=con.OutFlt.end();iOut++)
   {
     point_id_out=SaveFlt(tlg_id,dynamic_cast<TFltInfo&>(*iOut),btFirstSeg,TSearchFltInfoPtr());
     TrferQry.SetVariable("point_id_out",point_id_out);
     TrferQry.SetVariable("subcl_out",iOut->subcl);
+    const int new_trfer_id = PgOra::getSeqNextVal_int("CYCLE_ID__SEQ");
+    TrferQry.SetVariable("trfer_id", new_trfer_id);
     TrferQry.Execute();
     for(iData=iOut->data.begin();iData!=iOut->data.end();iData++)
     {
@@ -6155,9 +6142,13 @@ void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con)
       else
         GrpQry.SetVariable("bag_weight",FNull);
       GrpQry.SetVariable("weight_unit",iData->weight_unit);
+      GrpQry.SetVariable("trfer_id",new_trfer_id);
+      const int new_grp_id = PgOra::getSeqNextVal_int("PAX_GRP__SEQ");
+      GrpQry.SetVariable("grp_id",new_grp_id);
       GrpQry.Execute();
       if (iData->surname.empty()) continue;
       PaxQry.SetVariable("surname",iData->surname);
+      PaxQry.SetVariable("grp_id",new_grp_id);
       if (!iData->name.empty())
       {
         for(i=iData->name.begin();i!=iData->name.end();i++)

@@ -141,7 +141,7 @@ class TBagItem
       tags.clear();
       trfer.clear();
     };
-    TBagItem& fromDB(TQuery &Qry, TQuery &TagQry, bool fromTlg, bool loadTags);
+    TBagItem& fromDB(DB::TQuery &Qry, bool fromTlg, bool loadTags);
     TBagItem& setZero();
 };
 
@@ -178,7 +178,7 @@ class TPaxItem
         return name<pax.name;
       return name_extra<pax.name_extra;
     };
-    TPaxItem& fromDB(TQuery &Qry, TQuery &RemQry, bool fromTlg);
+    TPaxItem& fromDB(DB::TQuery &Qry, bool fromTlg);
     TPaxItem& setUnaccomp();
 };
 
@@ -210,8 +210,8 @@ class TGrpItem : public TBagItem
       paxs.clear();
       seats=ASTRA::NoExists;
     };
-    TGrpItem& paxFromDB(TQuery &PaxQry, TQuery &RemQry, bool fromTlg);
-    TGrpItem& trferFromDB(TQuery &TrferQry, bool fromTlg);
+    TGrpItem& paxFromDB(DB::TQuery &PaxQry, bool fromTlg);
+    TGrpItem& trferFromDB(bool fromTlg);
     TGrpItem& setPaxUnaccomp();
 };
 
@@ -226,17 +226,21 @@ class TFltInfo : public TTripInfo
           scd_out = BASIC::date_time::UTCToLocal(scd_out,AirpTZRegion(airp));
         modf(scd_out,&scd_out);
       };
-    };
+    }
   public:
     TFltInfo( const TAdvTripInfo &flt, bool calc_local_time  ) : TTripInfo(flt)
     {
       trunc_scd_out(calc_local_time);
-    };
+    }
     TFltInfo( TQuery &Qry, bool calc_local_time ) : TTripInfo(Qry)
     {
       trunc_scd_out(calc_local_time);
-    };
-    TFltInfo() : TTripInfo() {};
+    }
+    TFltInfo( DB::TQuery &Qry, bool calc_local_time ) : TTripInfo(Qry)
+    {
+      trunc_scd_out(calc_local_time);
+    }
+    TFltInfo() : TTripInfo() {}
     bool operator < (const TFltInfo &flt) const
     {
       if (scd_out!=flt.scd_out)
@@ -397,9 +401,27 @@ void TrferToXML(TTrferType type,
 void TrferConfirmFromXML(xmlNodePtr trferNode,
                          std::map<TGrpId, TGrpConfirmItem> &grps);
 
-bool trferInExists(int point_arv, int prior_point_arv, TQuery& Qry);
+bool trferInExists(int point_arv, int prior_point_arv);
 bool trferOutExists(int point_dep, TQuery& Qry);
 bool trferCkinExists(int point_dep, TQuery& Qry);
+
+std::set<TrferId_t> loadTrferIdSet(const PointIdTlg_t& point_id);
+std::set<TrferGrpId_t> loadTrferGrpIdSet(const TrferId_t& trfer_id);
+std::set<TrferGrpId_t> loadTrferGrpIdSet(const PointIdTlg_t& point_id);
+
+std::set<TrferId_t> loadTrferIdsByTlgTransferIn(const PointIdTlg_t& point_id_in,
+                                                const std::string& tlg_type);
+std::set<PointId_t> loadPointIdsSppByTlgTransferIn(const PointIdTlg_t& point_id_in);
+
+bool deleteTrferPax(const TrferGrpId_t& grp_id);
+bool deleteTrferTags(const TrferGrpId_t& grp_id);
+bool deleteTlgTrferOnwards(const TrferGrpId_t& grp_id);
+bool deleteTlgTrferExcepts(const TrferGrpId_t& grp_id);
+bool deleteTrferGrp(const TrferId_t& trfer_id);
+bool deleteTlgTransfer(const TrferId_t& trfer_id);
+bool deleteTlgTransfer(const PointIdTlg_t& point_id);
+
+void deleteTransferData(const PointIdTlg_t& point_id);
 
 }; //namespace TrferList
 

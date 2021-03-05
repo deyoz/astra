@@ -369,8 +369,7 @@ void TBagMap::procInboundTrferFromBTM(const TrferList::TGrpItem &grp)
     if (bag.wt && bag.wt.get().airline.empty())
     {
       bag.wt.get().list_id=ASTRA::NoExists;
-      TQuery Qry(&OraSession);
-      Qry.Clear();
+      DB::TQuery Qry(PgOra::getROSession("TLG_TRIPS"));
       Qry.SQLText=
           "SELECT airline FROM tlg_trips WHERE point_id=:point_id";
       Qry.CreateVariable("point_id", otInteger, grp.point_id);

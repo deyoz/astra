@@ -226,7 +226,7 @@ int arx_events_noflt3(const Dates::DateTime_t& arx_date, int remain_rows);
 int arx_stat_zamar(const Dates::DateTime_t& arx_date, int remain_rows);
 void move_noflt(const Dates::DateTime_t& arx_date, int max_rows, int time_duration, int& step);
 //step3
-void arx_tlg_trip(const PointId_t& point_id);
+void arx_tlg_trip(const PointIdTlg_t& point_id);
 //step 4
 void move_typeb_in(int tlg_id);
 //step 5
@@ -2206,14 +2206,14 @@ TArxTlgTrips::TArxTlgTrips(const Dates::DateTime_t& utc_date):TArxMove(utc_date)
     point_ids_count=0;
 };
 
-std::vector<PointId_t> TArxTlgTrips::getTlgTripPoints(const Dates::DateTime_t& arx_date, size_t max_rows)
+std::vector<PointIdTlg_t> TArxTlgTrips::getTlgTripPoints(const Dates::DateTime_t& arx_date, size_t max_rows)
 {
-    std::vector<PointId_t> points;
+    std::vector<PointIdTlg_t> points;
     int point_id;
     auto cur = make_db_curs("SELECT point_id FROM tlg_trips "
                             "   LEFT JOIN tlg_binding ON tlg_trips.point_id = tlg_binding.point_id_tlg "
                             "WHERE tlg_binding.point_id_tlg IS NULL AND tlg_trips.scd < :arx_date",
-                            PgOra::getROSession("TLG_TRIPS"));
+                            PgOra::getROSession("ORACLE"));
     cur.def(point_id)
             .bind(":arx_date", arx_date)
             .exec();
@@ -2221,60 +2221,21 @@ std::vector<PointId_t> TArxTlgTrips::getTlgTripPoints(const Dates::DateTime_t& a
         if(points.size() == max_rows) {
             break;
         }
-        points.push_back(PointId_t(point_id));
+        points.emplace_back(point_id);
     }
     return points;
 }
 
-
-void arx_tlg_trip(const PointId_t& point_id)
+void arx_tlg_trip(const PointIdTlg_t& point_id)
 {
     if(ARX::CLEANUP_PG()) {
         LogTrace5 << __func__ << " point_id: " << point_id;
-        TypeB::deleteTypeBData(PointIdTlg_t(point_id.get()));
-        make_db_curs("DELETE FROM typeb_data_stat WHERE point_id = :point_id; ", PgOra::getRWSession("TYPEB_DATA_STAT")).bind(":point_id", point_id.get()).exec();
-        make_db_curs("DELETE FROM tlg_comp_layers WHERE point_id = :point_id; ", PgOra::getRWSession("TLG_COMP_LAYERS")).bind(":point_id", point_id.get()).exec();
-        make_db_curs("UPDATE crs_displace2 SET point_id_tlg=NULL WHERE point_id_tlg = :point_id;", PgOra::getRWSession("CRS_DISPLACE2")).bind(":point_id", point_id.get()).exec();
-
-        TypeB::deleteCrsDataStat(PointIdTlg_t(point_id.get()));
-        dbo::Session session;
-        std::vector<int> pnrids = session.query<int>("SELECT trfer_id")
-                .from("tlg_transfer")
-                .where("point_id_out = :point_id")
-                .setBind({{":point_id", point_id.get()}});
-        std::vector<int> grpids = session.query<int>("SELECT grp_id")
-                .from("trfer_grp, tlg_transfer")
-                .where("tlg_transfer.trfer_id = trfer_grp.trfer_id AND tlg_transfer.point_id_out = :point_id")
-                .setBind({{":point_id", point_id.get()}});
-        for(const int grp_id : grpids) {
-            make_db_curs("DELETE FROM trfer_pax WHERE grp_id = :grp_id; ",  PgOra::getRWSession("TRFER_PAX")).bind(":grp_id", grp_id).exec();
-            make_db_curs("DELETE FROM trfer_tags WHERE grp_id = :grp_id; ", PgOra::getRWSession("TRFER_TAGS")).bind(":grp_id", grp_id).exec();
-            make_db_curs("DELETE FROM tlg_trfer_onwards WHERE grp_id = :grp_id; ", PgOra::getRWSession("TLG_TRFER_ONWARDS")).bind(":grp_id", grp_id).exec();
-            make_db_curs("DELETE FROM tlg_trfer_excepts WHERE grp_id = :grp_id; ", PgOra::getRWSession("TLG_TRFER_EXCEPTS")).bind(":grp_id", grp_id).exec();
-        }
-        for(const int trfer_id : pnrids) {
-            make_db_curs("DELETE FROM trfer_grp WHERE trfer_id= :trfer_id", PgOra::getRWSession("TRFER_GRP")).bind(":trfer_id", trfer_id).exec();
-        }
-
-        make_db_curs("DELETE FROM tlg_transfer WHERE point_id_out= :point_id;", PgOra::getRWSession("TLG_TRANSFER")).bind(":point_id", point_id.get()).exec();
-
-        int n = 0;
-        make_db_curs("SELECT COUNT(*) FROM tlg_transfer "
-                     "WHERE point_id_in = :point_id AND point_id_in<>point_id_out;" ).def(n).bind(":point_id", point_id.get()).EXfet();
-
-        if(n==0) {
-            make_db_curs("DELETE FROM tlg_source WHERE point_id_tlg = :point_id; ", PgOra::getRWSession("TLG_SOURCE")).bind(":point_id", point_id.get()).exec();
-            make_db_curs("DELETE FROM tlg_trips WHERE point_id_tlg = :point_id; ",  PgOra::getRWSession("TLG_TRIPS")).bind(":point_id", point_id.get()).exec();
-        } else {
-            /* удаляем только те ссылки на телеграммы которых нет в tlg_transfer */
-            make_db_curs( "DELETE FROM tlg_source "
-                          "  WHERE point_id_tlg = :point_id AND "
-                          "  NOT EXISTS (SELECT * FROM tlg_transfer "
-                          "    WHERE tlg_transfer.point_id_in=tlg_source.point_id_tlg AND "
-                          "    tlg_transfer.tlg_id=tlg_source.tlg_id "
-                          "FETCH FIRST 1 ROWS ONLY); ",
-                          PgOra::getRWSession("TLG_SOURCE")).bind(":point_id", point_id.get()).exec();
-        }
+        TypeB::deleteTypeBData(point_id);
+        TypeB::deleteTypeBDataStat(point_id);
+        TypeB::nullCrsDisplace2_point_id_tlg(point_id);
+        TypeB::deleteTlgCompLayers(point_id);
+        TypeB::deleteCrsDataStat(point_id);
+        TrferList::deleteTransferData(point_id);
     }
 }
 
@@ -2286,7 +2247,7 @@ bool TArxTlgTrips::Next(size_t max_rows, int duration)
 
     while (!points.empty())
     {
-        PointId_t point_id = points.front();
+        PointIdTlg_t point_id = points.front();
         points.erase(points.begin());
         try
         {

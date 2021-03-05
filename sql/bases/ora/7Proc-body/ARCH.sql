@@ -1397,41 +1397,6 @@ BEGIN
   DELETE FROM typeb_data_stat WHERE point_id=vpoint_id;
   DELETE FROM tlg_comp_layers WHERE point_id=vpoint_id;
   UPDATE crs_displace2 SET point_id_tlg=NULL WHERE point_id_tlg=vpoint_id;
-
-  SELECT trfer_id BULK COLLECT INTO pnrids
-  FROM tlg_transfer
-  WHERE point_id_out=vpoint_id;
-  SELECT trfer_grp.grp_id BULK COLLECT INTO paxids
-  FROM tlg_transfer,trfer_grp
-  WHERE tlg_transfer.trfer_id=trfer_grp.trfer_id AND
-        tlg_transfer.point_id_out=vpoint_id;
-
-  FORALL i IN 1..paxids.COUNT
-    DELETE FROM trfer_pax WHERE grp_id=paxids(i);
-  FORALL i IN 1..paxids.COUNT
-    DELETE FROM trfer_tags WHERE grp_id=paxids(i);
-  FORALL i IN 1..paxids.COUNT
-    DELETE FROM tlg_trfer_onwards WHERE grp_id=paxids(i);
-  FORALL i IN 1..paxids.COUNT
-    DELETE FROM tlg_trfer_excepts WHERE grp_id=paxids(i);
-  FORALL i IN 1..pnrids.COUNT
-    DELETE FROM trfer_grp WHERE trfer_id=pnrids(i);
-
-  DELETE FROM tlg_transfer WHERE point_id_out=vpoint_id;
-
-  SELECT COUNT(*) INTO n FROM tlg_transfer
-  WHERE point_id_in=vpoint_id AND point_id_in<>point_id_out;
-  IF n=0 THEN
-    DELETE FROM tlg_source WHERE point_id_tlg=vpoint_id;
-    DELETE FROM tlg_trips WHERE point_id=vpoint_id;
-  ELSE
-    /* удаляем только те ссылки на телеграммы которых нет в tlg_transfer */
-    DELETE FROM tlg_source
-    WHERE point_id_tlg=vpoint_id AND
-          NOT EXISTS (SELECT * FROM tlg_transfer
-                      WHERE tlg_transfer.point_id_in=tlg_source.point_id_tlg AND
-                            tlg_transfer.tlg_id=tlg_source.tlg_id AND rownum<2);
-  END IF;
 END tlg_trip;
 
 PROCEDURE norms_rates_etc(arx_date DATE, max_rows INTEGER, time_duration INTEGER, step IN OUT INTEGER)

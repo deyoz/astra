@@ -236,10 +236,13 @@ bool TTripInfo::getByGrpId ( const int grp_id )
   return getByPointId( Qry.FieldAsInteger( "point_dep" ) );
 }
 
-void getPointIdsSppByPointIdTlg(const PointIdTlg_t point_id_tlg,
-                                std::set<PointId_t>& point_ids_spp)
+void getPointIdsSppByPointIdTlg(const PointIdTlg_t& point_id_tlg,
+                                std::set<PointId_t>& point_ids_spp,
+                                bool clear)
 {
-  point_ids_spp.clear();
+  if (clear) {
+    point_ids_spp.clear();
+  }
 
   TQuery Qry( &OraSession );
   Qry.SQLText =

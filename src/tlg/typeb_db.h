@@ -7,34 +7,40 @@
 namespace TypeB
 {
 
-std::set<PaxId_t> loadPaxIdSet(PointIdTlg_t point_id, const std::string& system,
+std::set<PaxId_t> loadPaxIdSet(const PointIdTlg_t& point_id, const std::string& system,
                                const std::optional<CrsSender_t>& sender);
 
-bool deleteCrsSeatsBlocking(PaxId_t pax_id);
-bool deleteCrsInf(PaxId_t pax_id);
-bool deleteCrsInfDeleted(PaxId_t pax_id);
-bool deleteCrsPaxRem(PaxId_t pax_id);
-bool deleteCrsPaxDoco(PaxId_t pax_id);
-bool deleteCrsPaxDoca(PaxId_t pax_id);
-bool deleteCrsPaxTkn(PaxId_t pax_id);
-bool deleteCrsPaxFqt(PaxId_t pax_id);
-bool deleteCrsPaxChkd(PaxId_t pax_id);
-bool deleteCrsPaxAsvc(PaxId_t pax_id);
-bool deleteCrsPaxRefuse(PaxId_t pax_id);
-bool deleteCrsPaxAlarms(PaxId_t pax_id);
-bool deleteCrsPaxContext(PaxId_t pax_id);
-bool deleteCrsPaxContext(PaxId_t pax_id, const std::string& key);
-bool deleteDcsBag(PaxId_t pax_id);
-bool deleteDcsTags(PaxId_t pax_id);
-bool deleteTripCompLayers(PaxId_t pax_id);
-bool deleteTlgCompLayers(PaxId_t pax_id);
-bool deletePaxCalcData(PaxId_t pax_id);
-bool deleteCrsDataStat(PointIdTlg_t point_id);
+bool deleteCrsSeatsBlocking(const PaxId_t& pax_id);
+bool deleteCrsInf(const PaxId_t& pax_id);
+bool deleteCrsInfDeleted(const PaxId_t& pax_id);
+bool deleteCrsPaxRem(const PaxId_t& pax_id);
+bool deleteCrsPaxDoco(const PaxId_t& pax_id);
+bool deleteCrsPaxDoca(const PaxId_t& pax_id);
+bool deleteCrsPaxTkn(const PaxId_t& pax_id);
+bool deleteCrsPaxFqt(const PaxId_t& pax_id);
+bool deleteCrsPaxChkd(const PaxId_t& pax_id);
+bool deleteCrsPaxAsvc(const PaxId_t& pax_id);
+bool deleteCrsPaxRefuse(const PaxId_t& pax_id);
+bool deleteCrsPaxAlarms(const PaxId_t& pax_id);
+bool deleteCrsPaxContext(const PaxId_t& pax_id);
+bool deleteCrsPaxContext(const PaxId_t& pax_id, const std::string& key);
+bool deleteDcsBag(const PaxId_t& pax_id);
+bool deleteDcsTags(const PaxId_t& pax_id);
+bool deleteTripCompLayers(const PaxId_t& pax_id);
+bool deleteTlgCompLayers(const PaxId_t& pax_id);
+bool deleteTlgCompLayers(const PointIdTlg_t& point_id);
+bool deleteTlgSource(const PointIdTlg_t& point_id);
+bool deleteTlgTrips(const PointIdTlg_t& point_id);
+bool deletePaxCalcData(const PaxId_t& pax_id);
+bool deleteCrsDataStat(const PointIdTlg_t& point_id);
+bool deleteTypeBDataStat(const PointIdTlg_t& point_id);
 
-bool deletePnrAddrs(PnrId_t pnr_id);
-bool deleteCrsTransfer(PnrId_t pnr_id);
-bool deleteCrsPax(PnrId_t pnr_id);
-bool deletePnrMarketFlt(PnrId_t pnr_id);
+bool nullCrsDisplace2_point_id_tlg(const PointIdTlg_t& point_id);
+
+bool deletePnrAddrs(const PnrId_t& pnr_id);
+bool deleteCrsTransfer(const PnrId_t& pnr_id);
+bool deleteCrsPax(const PnrId_t& pnr_id);
+bool deletePnrMarketFlt(const PnrId_t& pnr_id);
 
 bool deleteCrsPnr(const PointIdTlg_t& point_id,
                   const std::string& system, const std::optional<CrsSender_t>& sender);
@@ -43,7 +49,7 @@ bool deleteCrsData(const PointIdTlg_t& point_id,
 bool deleteCrsRbd(const PointIdTlg_t& point_id,
                   const std::string& system, const std::optional<CrsSender_t>& sender);
 
-bool deleteTypeBData(PointIdTlg_t point_id, const std::string& system = "",
+bool deleteTypeBData(const PointIdTlg_t& point_id, const std::string& system = "",
                      const std::optional<CrsSender_t>& sender = {},
                      bool delete_trip_comp_layers = false);
 
