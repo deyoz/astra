@@ -1994,7 +1994,7 @@ void deleteByPaxes(const PaxId_t& pax_id)
         make_db_curs("DELETE FROM paid_rfisc WHERE pax_id=:pax_id ",         PgOra::getRWSession("PAID_RFISC")).bind(":pax_id", pax_id.get()).exec();
         make_db_curs("DELETE FROM pax_norms_text WHERE pax_id=:pax_id ",     PgOra::getRWSession("PAX_NORMS_TEXT")).bind(":pax_id", pax_id.get()).exec();
         make_db_curs("DELETE FROM sbdo_tags_generated WHERE pax_id=:pax_id ",PgOra::getRWSession("SBDO_TAGS_GENERATED")).bind(":pax_id", pax_id.get()).exec();
-        make_db_curs("DELETE FROM pax_calc_data WHERE pax_id=:pax_id ",      PgOra::getRWSession("PAX_CALC_DATA")).bind(":pax_id", pax_id.get()).exec();
+        make_db_curs("DELETE FROM pax_calc_data WHERE pax_calc_data_id=:pax_id ",PgOra::getRWSession("PAX_CALC_DATA")).bind(":pax_id", pax_id.get()).exec();
         make_db_curs("DELETE FROM pax_confirmations WHERE pax_id=:pax_id ",  PgOra::getRWSession("PAX_CONFIRMATIONS")).bind(":pax_id", pax_id.get()).exec();
         make_db_curs("UPDATE service_payment SET pax_id=NULL WHERE pax_id=:pax_id ",PgOra::getRWSession("SERVICE_PAYMENT")).bind(":pax_id", pax_id.get()).exec();
         make_db_curs("DELETE FROM pax WHERE pax_id=:pax_id ",                PgOra::getRWSession("PAX")).bind(":pax_id", pax_id.get()).exec();
