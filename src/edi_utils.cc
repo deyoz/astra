@@ -497,7 +497,7 @@ string make_xml_kick(const edifact::KickInfo &kickInfo)
   std::string redisplay = ConvertCodepage(XMLTreeToText(kickDoc.docPtr()),"CP866","UTF-8");
 #ifdef XP_TESTING
   if(inTestMode()) {
-      if(kickInfo.jxt.get().iface == "SvcSirena") {
+      if(kickInfo.jxt.get().iface == "SvcSirena" || kickInfo.jxt.get().iface == "libra") {
           ServerFramework::setRedisplay(redisplay);
       }
   }

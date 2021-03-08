@@ -1,8 +1,17 @@
 #include "httpClient.h"
 #include "file_queue.h"
 #include "astra_utils.h"
+#include "edi_utils.h"
 #include "misc.h"
-#include "serverlib/str_utils.h"
+#include "tlg/request_params.h"
+
+#include <libtlg/tlg_outbox.h>
+#include <serverlib/str_utils.h>
+#include <serverlib/testmode.h>
+#include <serverlib/xml_stuff.h>
+#include <serverlib/query_runner.h>
+#include <serverlib/EdiHelpManager.h>
+
 #include <fstream>
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
@@ -12,7 +21,7 @@
 #include <stdlib.h>
 
 #define NICKNAME "ANNA"
-#include "serverlib/test.h"
+#include <serverlib/slogger.h>
 #include "exceptions.h"
 
 using namespace EXCEPTIONS;
@@ -401,3 +410,94 @@ void httpClient_main(const RequestInfo& request, ResponseInfo& response)
     throw Exception("httpClient_main: %s",e.what());
   }
 }
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+namespace Http {
+
+static std::string makeHttpPostRequest(const std::string& resource,
+                                       const std::string& host,
+                                       const std::string& postbody)
+{
+    return "POST " + resource + " HTTP/1.1\r\n"
+             "Host: " + host + "\r\n"
+             "Content-Type: application/xml; charset=utf-8\r\n"
+             "Content-Length: " + HelpCpp::string_cast(postbody.size()) + "\r\n"
+             "\r\n" +
+             postbody;
+}
+
+//---------------------------------------------------------------------------------------
+
+void Client::sendRequest(const std::string& reqText, const std::string& reqPath,
+                         const edifact::KickInfo& kickInfo) const
+{
+    sendRequest_(reqText, reqPath, kickInfo);
+}
+
+void Client::sendRequest(const std::string& reqText, const std::string& reqPath) const
+{
+    sendRequest_(reqText, reqPath, {});
+}
+
+void Client::sendRequest_(const std::string& reqText, const std::string& reqPath,
+                          const boost::optional<edifact::KickInfo>& kickInfo) const
+{
+    const std::string httpPost = makeHttpPostRequest(reqPath, addr().host, reqText);
+
+    LogTrace(TRACE5) << "HTTP Request, text:\n" << reqText;
+
+    httpsrv::DoHttpRequest req(ServerFramework::getQueryRunner().getEdiHelpManager().msgId(),
+                               domain(), addr(), httpPost);
+    req.setTimeout(timeout())
+       .setMaxTryCount(1)
+       .setSSL(useSsl());
+
+    if(kickInfo) {
+        req.setPeresprosReq(AstraEdifact::make_xml_kick(*kickInfo))
+           .setDeffered(true);
+    }
+
+#ifdef XP_TESTING
+    if (inTestMode()) {
+        const std::string httpPostCP866 = UTF8toCP866(httpPost);
+        LogTrace(TRACE1) << "request: " << httpPostCP866;
+        xp_testing::TlgOutbox::getInstance().push(tlgnum_t("httpreq"),
+                        StrUtils::replaceSubstrCopy(httpPostCP866, "\r", ""), 0 /* h2h */);
+    }
+#endif // XP_TESTING
+
+    req();
+}
+
+boost::optional<httpsrv::HttpResp> Client::receive() const
+{
+    const std::vector<httpsrv::HttpResp> responses = httpsrv::FetchHttpResponses(
+                ServerFramework::getQueryRunner().getEdiHelpManager().msgId(),
+                domain());
+
+    for (const httpsrv::HttpResp& httpResp: responses)
+    {
+        LogTrace(TRACE1) << "httpResp text: '" << httpResp.text << "'";
+    }
+
+    const size_t responseCount = responses.size();
+    if (responseCount == 0)
+    {
+        LogTrace(TRACE1) << "FetchHttpResponses: hasn't got any responses yet";
+        return {};
+    }
+    if (responseCount > 1)
+    {
+        LogError(STDLOG) << "FetchHttpResponses: " << responseCount << " responses!";
+    }
+
+    return responses.front();
+}
+
+httpsrv::UseSSLFlag Client::useSsl() const
+{
+    return httpsrv::UseSSLFlag(false);
+}
+
+}//namespace Http

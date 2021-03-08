@@ -1,13 +1,8 @@
 #include "sirena_exchange.h"
 #include "astra_context.h"
-#include "edi_utils.h"
 #include "xp_testing.h"
 
-#include <libtlg/tlg_outbox.h>
-#include <serverlib/testmode.h>
 #include <serverlib/xml_stuff.h>
-#include <serverlib/query_runner.h>
-#include <serverlib/EdiHelpManager.h>
 
 #include <boost/asio.hpp>
 
@@ -359,83 +354,19 @@ void SendTestRequest(const string &req)
 
 //---------------------------------------------------------------------------------------
 
-static std::string makeHttpPostRequest(const std::string& resource,
-                                       const std::string& host,
-                                       const std::string& postbody)
+httpsrv::HostAndPort SirenaClient::addr() const
 {
-    return "POST " + resource + " HTTP/1.1\r\n"
-             "Host: " + host + "\r\n"
-             "Content-Type: application/xml; charset=utf-8\r\n"
-             "Content-Length: " + HelpCpp::string_cast(postbody.size()) + "\r\n"
-             "\r\n" +
-             postbody;
+    return httpsrv::HostAndPort(SIRENA_HOST(), SIRENA_PORT());
 }
 
-SirenaClient::SirenaClient()
-    : m_addr(SIRENA_HOST(), SIRENA_PORT()),
-      m_timeout(SIRENA_REQ_TIMEOUT()/1000),
-      m_useSsl(false)
-{}
-
-void SirenaClient::sendRequest(const std::string& reqText, const edifact::KickInfo& kickInfo)
+httpsrv::Domain SirenaClient::domain() const
 {
-    std::string desk = kickInfo.desk.empty() ? "SYSPUL" : kickInfo.desk;
-
-    const std::string path = "/astra";
-    const std::string httpPost = makeHttpPostRequest(path, m_addr.host, reqText);
-
-    LogTrace(TRACE5) << "HTTP Request from [" << desk << "], text:\n" << reqText;
-
-    const httpsrv::Pult pul(desk);
-    const httpsrv::Domain domain("ASTRA");
-    const std::string kick(AstraEdifact::make_xml_kick(kickInfo));
-
-    httpsrv::DoHttpRequest req(ServerFramework::getQueryRunner().getEdiHelpManager().msgId(),
-                               domain, m_addr, httpPost);
-    req.setTimeout(boost::posix_time::seconds(m_timeout))
-        .setMaxTryCount(1/*SIRENA_REQ_ATTEMPTS()*/)
-        .setSSL(m_useSsl)
-        .setPeresprosReq(kick)
-        .setDeffered(true);
-
-#ifdef XP_TESTING
-    if (inTestMode()) {
-        const std::string httpPostCP866 = UTF8toCP866(httpPost);
-        LogTrace(TRACE1) << "request: " << httpPostCP866;
-        xp_testing::TlgOutbox::getInstance().push(tlgnum_t("httpreq"),
-                        StrUtils::replaceSubstrCopy(httpPostCP866, "\r", ""), 0 /* h2h */);
-    }
-#endif // XP_TESTING
-
-    req();
+    return httpsrv::Domain("SIRENA");
 }
 
-boost::optional<httpsrv::HttpResp> SirenaClient::receive(const std::string& pult)
+boost::posix_time::seconds SirenaClient::timeout() const
 {
-    const httpsrv::Pult pul(pult);
-    const httpsrv::Domain domain("ASTRA");
-
-    const std::vector<httpsrv::HttpResp> responses = httpsrv::FetchHttpResponses(
-                ServerFramework::getQueryRunner().getEdiHelpManager().msgId(),
-                domain);
-
-    for (const httpsrv::HttpResp& httpResp: responses)
-    {
-        LogTrace(TRACE1) << "httpResp text: '" << httpResp.text << "'";
-    }
-
-    const size_t responseCount = responses.size();
-    if (responseCount == 0)
-    {
-        LogTrace(TRACE1) << "FetchHttpResponses: hasn't got any responses yet";
-        return {};
-    }
-    if (responseCount > 1)
-    {
-        LogError(STDLOG) << "FetchHttpResponses: " << responseCount << " responses!";
-    }
-
-    return responses.front();
+    return boost::posix_time::seconds(SIRENA_REQ_TIMEOUT()/1000);
 }
 
 } //namespace SirenaExchange

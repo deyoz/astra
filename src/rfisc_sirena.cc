@@ -1272,9 +1272,10 @@ void SvcSirenaInterface::DoRequest(xmlNodePtr reqNode,
       addToEdiResponseCtxt(reqCtxtId, externalSysResNode->children, "");
 
     SirenaExchange::SirenaClient sirClient;
+    const std::string reqPath = "/astra";
     std::string reqText;
     req.build(reqText);
-    sirClient.sendRequest(reqText, createKickInfo(reqCtxtId, SvcSirenaInterface::name()));
+    sirClient.sendRequest(reqText, reqPath, createKickInfo(reqCtxtId, SvcSirenaInterface::name()));
 
 //    SvcSirenaInterface* iface=dynamic_cast<SvcSirenaInterface*>(JxtInterfaceMng::Instance()->GetInterface(SvcSirenaInterface::name()));
 //    if (iface!=nullptr && iface->addResponseHandler(res))
@@ -1291,7 +1292,8 @@ void SvcSirenaInterface::KickHandler(XMLRequestCtxt *ctxt,
     std::string pult = TReqInfo::Instance()->desk.code;
     LogTrace(TRACE3) << __FUNCTION__ << " for pult [" << pult << "]";
 
-    boost::optional<httpsrv::HttpResp> resp = SirenaExchange::SirenaClient::receive(pult);
+    SirenaExchange::SirenaClient sirClient;
+    boost::optional<httpsrv::HttpResp> resp = sirClient.receive();
     if(resp) {
         //LogTrace(TRACE3) << "req:\n" << resp->req.text;
         if(resp->commErr) {
@@ -1346,4 +1348,3 @@ void SvcSirenaInterface::KickHandler(XMLRequestCtxt *ctxt,
         handleResponse(termReqNode, answerResNode, resNode);
     }
 }
-

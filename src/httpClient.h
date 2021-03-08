@@ -5,6 +5,9 @@
 #include <string>
 #include <vector>
 #include <map>
+
+#include <serverlib/httpsrv.h>
+
 #include "astra_utils.h"
 
 struct RequestInfo
@@ -73,5 +76,39 @@ struct ResponseInfo
 };
 
 void httpClient_main(const RequestInfo& request, ResponseInfo& response);
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+namespace edifact { class KickInfo; }
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+namespace Http {
+
+class Client
+{
+public:
+    // асинхрон
+    void sendRequest(const std::string& reqText, const std::string& reqPath,
+                     const edifact::KickInfo& kickInfo) const;
+    // синхрон
+    void sendRequest(const std::string& reqText, const std::string& reqPath) const;
+
+    boost::optional<httpsrv::HttpResp> receive() const;
+
+    virtual ~Client() {}
+
+protected:
+    virtual httpsrv::HostAndPort          addr() const = 0;
+    virtual httpsrv::Domain             domain() const = 0;
+    virtual boost::posix_time::seconds timeout() const = 0;
+    virtual httpsrv::UseSSLFlag         useSsl() const;
+
+private:
+    void sendRequest_(const std::string& reqText, const std::string& reqPath,
+                      const boost::optional<edifact::KickInfo>& kickInfo) const;
+};
+
+}//namespace Http
 
 #endif // HTTPCLIENT_H

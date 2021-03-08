@@ -140,20 +140,12 @@ void SendTestRequest(const std::string &req);
 
 //---------------------------------------------------------------------------------------
 
-class SirenaClient
+class SirenaClient: public Http::Client
 {
-private:
-    httpsrv::HostAndPort m_addr;
-    int                  m_timeout;
-    httpsrv::UseSSLFlag  m_useSsl;
-
-public:
-    void sendRequest(const std::string& reqText, const edifact::KickInfo& kickInfo);
-
-    static boost::optional<httpsrv::HttpResp> receive(const std::string& pult);
-
-public:
-    SirenaClient();
+protected:
+    virtual httpsrv::HostAndPort          addr() const;
+    virtual httpsrv::Domain             domain() const;
+    virtual boost::posix_time::seconds timeout() const;
 };
 
 } //namespace SirenaExchange
