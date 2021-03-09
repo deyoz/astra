@@ -904,21 +904,21 @@ class TClientTypes: public TCodeBaseTable {
     }
 };
 
-// class TCompLayerTypesRow: public TCodeBaseTableRow {
-//   public:
-//     const char *get_row_name() const { return "TCompLayerTypesRow"; };
-// };
+class TCompLayerTypesRow: public TCodeBaseTableRow {
+  public:
+    const char *get_row_name() const { return "TCompLayerTypesRow"; };
+};
 
-// class TCompLayerTypes: public TCodeBaseTable {
-//   protected:
-//     const char *get_table_name() { return "TCompLayerTypes"; };
-//     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
-//     void Invalidate() {}; //всегда актуальна
-//   public:
-//     TCompLayerTypes() {
-//         Init( "comp_layer_types" );
-//     }
-// };
+class TCompLayerTypes: public TCodeBaseTable {
+  protected:
+    const char *get_table_name() { return "TCompLayerTypes"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void Invalidate() {}; //всегда актуальна
+  public:
+    TCompLayerTypes() {
+        Init( "comp_layer_types" );
+    }
+};
 
 class TGraphStagesRow: public TIdBaseTableRow {
       public:
