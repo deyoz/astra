@@ -2975,12 +2975,16 @@ bool arx_daily(const Dates::DateTime_t& utcdate)
 #include "tlg/tlg.h"
 #include "dbostructures.h"
 #include "tlg/postpone_edifact.h"
+#include "telegram.h"
+#include <serverlib/TlgLogger.h>
 
 bool del_from_tlg_queue(const AIRSRV_MSG& tlg_in);
 bool del_from_tlg_queue_by_status(const AIRSRV_MSG& tlg_in, const std::string& status);
 bool upd_tlg_queue_status(const AIRSRV_MSG& tlg_in,
                           const std::string& curStatus, const std::string& newStatus);
 bool upd_tlgs_by_error(const AIRSRV_MSG& tlg_in, const std::string& error);
+bool update_tlg_stat_time_send(const AIRSRV_MSG& tlg_in);
+bool update_tlg_stat_time_receive(const AIRSRV_MSG& tlg_in);
 
 // namespace TlgHandling {
 // void updateTlgToPostponed(const tlgnum_t& tnum);
@@ -3229,6 +3233,50 @@ START_TEST(check_putTlgToOutQue)
 }
 END_TEST;
 
+START_TEST(check_sendTlg)
+{
+    TlgLogger::setLogging();
+
+    std::string tlg_text = "SOME ANSWER";
+
+    const int tlg_id = sendTlg(
+        "RECVR",
+        "SENDR",
+        qpOutB,
+        20,
+        tlg_text,
+        ASTRA::NoExists,
+        ASTRA::NoExists
+    );
+
+    TTripInfo fltInfo;
+
+    TTlgStat().putTypeBOut(
+        tlg_id,
+        ASTRA::NoExists,
+        ASTRA::NoExists,
+        TTlgStatPoint("SENDRSI", "SENDR", "SENB", ""),
+        TTlgStatPoint("RECVRSI", "RECVR", "RECVR", ""),
+        NowUTC(),
+        "OAPP",
+        tlg_text.size(),
+        fltInfo,
+        "MRK",
+        "EXTRA"
+    );
+
+    AIRSRV_MSG tlg_in = {
+        .num = tlg_id,
+        .type = {},
+        .Sender = {},
+        .Receiver = "SENDR",
+    };
+
+    fail_unless(update_tlg_stat_time_send(tlg_in));
+    fail_unless(update_tlg_stat_time_receive(tlg_in));
+}
+END_TEST;
+
 START_TEST(check_arx_tlgs)
 {
     const int tlg_id = loadTlg(tlgText());                // src/tlg/tlg.cpp
@@ -3262,6 +3310,7 @@ TCASEREGISTER(testInitDB, testShutDBConnection)
     ADD_TEST(check_saveTlg);
     ADD_TEST(check_arx_tlgs);
     ADD_TEST(check_putTlgToOutQue);
+    ADD_TEST(check_sendTlg);
     ADD_TEST(check_isTlgPostponed);
 }
 TCASEFINISH;

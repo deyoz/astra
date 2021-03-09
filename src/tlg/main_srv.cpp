@@ -123,9 +123,11 @@ int main_srv_tcl(int supervisorSocket, int argc, char *argv[])
 bool update_tlg_stat_time_send(const AIRSRV_MSG& tlg_in)
 {
     DB::TQuery TlgUpdQry(PgOra::getRWSession("TLG_STAT"));
+    TDateTime nowUTC = NowUTC();
     TlgUpdQry.SQLText=
-      "UPDATE tlg_stat SET time_send=SYSTEM.UTCSYSDATE "
+      "UPDATE tlg_stat SET time_send=:utc "
       "WHERE queue_tlg_id=:tlg_num AND sender_canon_name=:sender";
+    TlgUpdQry.CreateVariable("utc",otDate,nowUTC);
     TlgUpdQry.CreateVariable("sender",otString,tlg_in.Receiver); //OWN_CANON_NAME
     TlgUpdQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
     TlgUpdQry.Execute();
@@ -135,9 +137,11 @@ bool update_tlg_stat_time_send(const AIRSRV_MSG& tlg_in)
 bool update_tlg_stat_time_receive(const AIRSRV_MSG& tlg_in)
 {
     DB::TQuery TlgUpdQry(PgOra::getRWSession("TLG_STAT"));
+    TDateTime nowUTC = NowUTC();
     TlgUpdQry.SQLText=
-      "UPDATE tlg_stat SET time_receive=SYSTEM.UTCSYSDATE "
+      "UPDATE tlg_stat SET time_receive=:utc "
       "WHERE queue_tlg_id=:tlg_num AND sender_canon_name=:sender";
+    TlgUpdQry.CreateVariable("utc",otDate,nowUTC);
     TlgUpdQry.CreateVariable("sender",otString,tlg_in.Receiver); //OWN_CANON_NAME
     TlgUpdQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
     TlgUpdQry.Execute();
