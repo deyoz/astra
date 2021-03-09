@@ -16,7 +16,11 @@ bool WRITE_ORA();
 bool READ_PG();
 bool READ_ORA();
 bool CLEANUP_PG();
-
+int ARX_DAYS();
+int ARX_DURATION();
+int ARX_SLEEP();
+int ARX_MAX_ROWS();
+int ARX_MAX_DATE_RANGE();
 }//namespace ARX
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -26,10 +30,6 @@ bool arx_daily_pg(TDateTime utcdate);
 /////////////////////////////////////////////////////////////////////////////////////////
 
 namespace PG_ARX {
-int ARX_DAYS();
-int ARX_DURATION();
-int ARX_SLEEP();
-int ARX_MAX_ROWS();
 
 struct TBagInfo
 {

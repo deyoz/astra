@@ -117,6 +117,13 @@ int ARX_MAX_ROWS()
     return VAR;
 };
 
+int ARX_MAX_DATE_RANGE()
+{
+    static int VAR=NoExists;
+    if (VAR==NoExists)
+        VAR=getTCLParam("ARX_MAX_DATE_RANGE",400,NoExists,10000);
+    return VAR;
+};
 
 }//namespace ARX
 
@@ -845,7 +852,7 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
                     {
                         date_range_int=(int)ceil(date_range);
                         LogTrace(TRACE5) << " date_range_int = " << date_range_int;
-                        if (date_range_int>999) throw Exception("date_range_int=%d", date_range_int);
+                        if (date_range_int > ARX::ARX_MAX_DATE_RANGE()) throw Exception("date_range_int=%d", date_range_int);
                     };
                 } else {
                     LogTrace(TRACE5) << " date_range = " << NoExists;
