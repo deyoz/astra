@@ -852,7 +852,10 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
                     {
                         date_range_int=(int)ceil(date_range);
                         LogTrace(TRACE5) << " date_range_int = " << date_range_int;
-                        if (date_range_int > ARX::ARX_MAX_DATE_RANGE()) throw Exception("date_range_int=%d", date_range_int);
+                        if (date_range_int > ARX::ARX_MAX_DATE_RANGE()) {
+                            //throw Exception("date_range_int=%d", date_range_int);
+                            continue;
+                        }
                     };
                 } else {
                     LogTrace(TRACE5) << " date_range = " << NoExists;
