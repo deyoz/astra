@@ -5943,7 +5943,7 @@ struct TLDMCFG:TCFG {
         ostringstream buf;
         buf
             << info.flight_view() << "/"
-            << DateTimeToStr(info.scd_utc, "dd", 1)
+            << DateTimeToStr(info.scd_utc_first_point, "dd", 1)
             << "." << (info.bort.empty() ? "??" : info.bort)
             << "." << (cfg.str().empty() ? "?" : cfg.str())
             << "." << (cockpit==NoExists ? "?" : IntToString(cockpit))
@@ -6153,6 +6153,15 @@ void fillFltDetails(TypeB::TDetailCreateInfo &info)
         DecodeDate(info.scd_local, Year, Month, Day);
         info.scd_local_day = Day;
     };
+
+    TTripRoute route;
+    if(
+            route.GetRouteBefore(NoExists, info.point_id, trtWithCurrent, trtNotCancelled) and
+            route.getFirstAirp()
+      )
+        info.scd_utc_first_point = getReportSCDOut(route.getFirstAirp()->point_id);
+    if(info.scd_utc_first_point == NoExists)
+        throw AstraLocale::UserException("MSG.FLIGHT_DATE.NOT_SET");
 
     if(!Qry.get().FieldIsNULL("est_out"))
         info.est_utc = Qry.get().FieldAsDateTime("est_out");
