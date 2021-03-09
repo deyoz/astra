@@ -2273,6 +2273,7 @@ class TDetailCreateInfo : public TOptionsInfo
     std::string suffix;
     std::string airp_dep;
     std::string airp_arv;
+    TDateTime scd_utc_first_point;
     TDateTime scd_utc;
     TDateTime est_utc;
     TDateTime scd_local;
@@ -2315,6 +2316,7 @@ class TDetailCreateInfo : public TOptionsInfo
         time_create = ASTRA::NoExists;
         point_id = ASTRA::NoExists;
         flt_no = ASTRA::NoExists;
+        scd_utc_first_point = ASTRA::NoExists;
         scd_utc = ASTRA::NoExists;
         est_utc = ASTRA::NoExists;
         scd_local = ASTRA::NoExists;
