@@ -214,8 +214,15 @@ std::string receiveHttpResponse()
     xmlNodePtr rootNode = findNode(answerNode, "root");
     ASSERT(rootNode);
 
-    XMLDoc doc = ASTRA::createXmlDoc2("<root/>");
-    CopyNode(NodeAsNode("/root", doc.docPtr()), rootNode);
+
+    // следующие строки нужны только лишь для того,
+    // чтобы создать новый xml-документ, содержащий rootNode без его родителя answerNode
+    // не придумал ничего лучше..(
+    XMLDoc doc = ASTRA::createXmlDoc2("<tmp/>");
+    auto tmpNode = NodeAsNode("/tmp", doc.docPtr());
+    CopyNode(tmpNode->parent, rootNode);
+    RemoveNode(tmpNode);
+
     return doc.text();
 }
 
