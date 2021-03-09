@@ -871,12 +871,14 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
                     }
                     arx_move_ref(move_id, part_key);
                     arx_events_by_move_id(move_id, part_key);
+                    LogTrace(TRACE5) << " arx loop step 1";
                     for(const auto &p : points)
                     {
                         PointId_t point_id(p.point_id);
                         if(p.pr_del != -1)
                         {
-                            //LogTrace(TRACE5) << "P.PR_DEL = " << p.pr_del << " P.POINT_ID = " << p.point_id << " move_id: " << move_id;
+                            LogTrace(TRACE5) << "P.PR_DEL = " << p.pr_del << " P.POINT_ID = "
+                                             << p.point_id << " MOVE_ID: " << move_id;
                             arx_events_by_point_id(point_id, part_key);
                             arx_mark_trips(point_id, part_key);
                             auto pax_grps = arx_pax_grp(point_id, part_key);
@@ -907,10 +909,11 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
                                 arx_bag_pay_types(b.receipt_id, part_key);
                                 delete_bag_receipt_kits(b.kit_id);
                             }
+                            LogTrace(TRACE5) << "arx lopp grps ";
                             for(const auto &grp : pax_grps)
                             {
                                 GrpId_t grp_id(grp.m_grp_id);
-                                //LogTrace(TRACE5) << " PAX_GRP_ID : " << grp_id;
+                                LogTrace(TRACE5) << " PAX_GRP_ID : " << grp_id;
                                 arx_annul_bags_tags(grp_id, part_key);
                                 arx_unaccomp_bag_info(grp_id, part_key);
                                 arx_bag2(grp_id, part_key);
@@ -924,9 +927,10 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
                                 delete_trfer_trips(transfers, tckin_segments);
                                 arx_value_bag(grp_id, part_key);
                                 arx_grp_norms(grp_id, part_key);
+                                LogTrace(TRACE5) << "arx loop paxes ";
                                 for(const auto & pax : paxes) {
                                     PaxId_t pax_id(pax.pax_id);
-                                    //LogTrace(TRACE5) << " PAX_ID : " << pax_id;
+                                    LogTrace(TRACE5) << " PAX_ID : " << pax_id;
                                     arx_pax_norms(pax_id, part_key);
                                     arx_pax_rem(pax_id, part_key);
                                     arx_transfer_subcls(pax_id, part_key);
@@ -2039,6 +2043,7 @@ void deleteAodbBag(const PointId_t& point_id)
 
 void deleteByPointId(const PointId_t& point_id)
 {
+    LogTrace5 << __func__ << " point_id: " << point_id;
     deleteAodbBag(point_id);
     CheckIn::TCrsCountersMap::deleteCrsCountersOnly(point_id);
     if(ARX::CLEANUP_PG()) {
@@ -2099,6 +2104,7 @@ void deleteByPointId(const PointId_t& point_id)
 
 void deleteByMoveId(const MoveId_t & move_id)
 {
+    LogTrace5 << __func__ << " move_id: " << move_id;
     if(ARX::CLEANUP_PG()) {
         make_db_curs("DELETE FROM points WHERE move_id=:move_id",   PgOra::getRWSession("POINTS")).bind(":move_id", move_id.get()).exec();
         make_db_curs("DELETE FROM move_ref WHERE move_id=:move_id", PgOra::getRWSession("MOVE_REF")).bind(":move_id", move_id.get()).exec();
