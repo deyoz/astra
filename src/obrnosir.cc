@@ -51,6 +51,7 @@ int stat_belgorod(int argc, char **argv);
 int rbd_test(int argc, char **argv);
 int tzdump(int argc, char **argv);
 int tzdiff(int argc, char **argv);
+int print_pg_tables(int argc, char **argv);
 
 void init_edilib_callbacks();
 
@@ -116,6 +117,7 @@ const
     {"-create_tlg",             nosir_create_tlg,       NULL,                       NULL},
     {"-comp_elem_types_to_db",  comp_elem_types_to_db,  NULL,                       NULL},
     {"-comp_elem_types_from_db",comp_elem_types_from_db,NULL,                       NULL},
+    {"-pg-tables",              print_pg_tables,        NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)

@@ -232,3 +232,31 @@ namespace PgOra
     }
 
 } // namespace PgOra
+
+#include "stdio.h"
+#include <serverlib/cursctl.h>
+
+static int count_ora_tabs() 
+{
+    int cnt=0;
+    auto cur = make_curs("select count(*) from user_tables");
+    cur.def(cnt).EXfet();
+    return cnt;
+}
+
+int print_pg_tables(int argc, char **argv)
+{
+    int tab_cnt = 0;
+    std::vector<std::string> tabs;
+    for(const auto &gr: PgOra::sGroups) {
+        for(const auto &tab: gr.second) {
+            tabs.push_back(tab);
+            tab_cnt ++;
+        }
+    }
+    const auto tab_ora_count = count_ora_tabs();
+    std::cout << "total tabs in pg: " << tab_cnt 
+              << ", total in ora: " << tab_ora_count 
+              << " " << ((1.0 * tab_cnt)/tab_ora_count)*100 << "% moved." << std::endl;
+    return 0;
+}
