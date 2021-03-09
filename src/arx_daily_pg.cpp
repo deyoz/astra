@@ -997,13 +997,15 @@ std::vector<dbo::Points> arx_points(const MoveId_t & vmove_id, const Dates::Date
     LogTrace(TRACE5) << __FUNCTION__ << " vmove_id : "<< vmove_id << " part_key: " << part_key;
     dbo::Session session;
     std::vector<dbo::Points> points = session.query<dbo::Points>()
-            .where(" MOVE_ID = :move_id and PR_DEL<>-1")
+            .where(" MOVE_ID = :move_id")
             .for_update(true)
             .setBind({{"move_id",vmove_id.get()} });
 
     for(const auto &p : points) {
-        dbo::Arx_Points ap(p, part_key);
-        session.insert(ap);
+        if(p.pr_del != -1) {
+            dbo::Arx_Points ap(p, part_key);
+            session.insert(ap);
+        }
     }
     return points;
 }
