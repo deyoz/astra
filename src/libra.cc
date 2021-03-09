@@ -115,13 +115,14 @@ boost::optional<LibraHttpResponse> LibraHttpResponse::read()
         return {};
     }
 
-    const auto fnd = resp->text.find("<result>");
+    const std::string respText = ConvertCodepage(resp->text, "UTF-8", "CP866");
+    const auto fnd = respText.find("<result>");
     if(fnd == std::string::npos) {
         LogWarning(STDLOG) << "Invalid Http response from Libra!";
         return {};
     }
 
-    return LibraHttpResponse(resp->text.substr(fnd));
+    return LibraHttpResponse(respText.substr(fnd));
 }
 
 //---------------------------------------------------------------------------------------
@@ -218,7 +219,7 @@ std::string receiveHttpResponse()
     // следующие строки нужны только лишь для того,
     // чтобы создать новый xml-документ, содержащий rootNode без его родителя answerNode
     // не придумал ничего лучше..(
-    XMLDoc doc = ASTRA::createXmlDoc2("<tmp/>");
+    XMLDoc doc = ASTRA::createXmlDoc("<tmp/>");
     auto tmpNode = NodeAsNode("/tmp", doc.docPtr());
     CopyNode(tmpNode->parent, rootNode);
     RemoveNode(tmpNode);

@@ -14,7 +14,7 @@ $(desc_test 1)
 
 $(init_term)
 
-$(http_forecast content="<result><status>OK</status><answer><root name=\"get_schedule\" result=\"ok\"><block name=\"Первый\"/></root></answer></result>")
+$(http_forecast content="<result><status>OK</status><answer><root name=\"get_schedule\" result=\"ok\"><block name=\"Text\"/></root></answer></result>")
 
 # $(http_forecast content="<result><status>ERR</status><code>DB-01</code><reason>Exception happened</reason></result>")
 
