@@ -6,6 +6,8 @@
 #include "astra_utils.h"
 #include "base_tables.h"
 #include "exceptions.h"
+#include "db_tquery.h"
+#include "PgOraConfig.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -468,7 +470,8 @@ string ElemToElemId(TElemType type, const string &elem, TElemFmt &fmt, bool with
   return ElemToElemId(type, elem, fmt, "", with_deleted);
 };
 
-void getElem(TElemFmt fmt, const std::string &lang, TQuery& Qry, string &elem)
+template<class TQueryT>
+void getElem(TElemFmt fmt, const std::string &lang, TQueryT& Qry, string &elem)
 {
   elem.clear();
   if(Qry.Eof)
@@ -607,58 +610,188 @@ void getElem(TElemFmt fmt, const std::string &lang, const TBaseTableRow& BaseTab
   };
 };
 
-string ElemIdToElem(TElemType type, const string &id, const vector< pair<TElemFmt,string> > &fmts, bool with_deleted)
+static const string& GetElemByElemIdQueryText(const TElemType& type)
 {
-  if (id.empty()) return "";
-
-  string elem;
-
-  string table_name=getTableName(type);
-
-  if (!table_name.empty())
-  {
-    try
-    {
-      const TBaseTableRow& BaseTableRow=base_tables.get(table_name).get_row("code",id,with_deleted);
-
-      for(vector< pair<TElemFmt,string> >::const_iterator i=fmts.begin();i!=fmts.end();i++)
-      {
-        getElem(i->first, i->second, BaseTableRow, elem);
-        if (!elem.empty()) break;
-      };
+    switch(type) {
+    case etTypeBSender: {
+        static const string text =
+            "SELECT name, name_lat"
+            "  FROM typeb_senders"
+            "    WHERE code=:id";
+        return text;
     }
-    catch (const EBaseTableError&) {};
-  }
-  else
-  {
-    TQuery Qry(&OraSession);
-    //не base_table
-    switch(type)
-    {
-        case etTypeBSender: Qry.SQLText="SELECT name,name_lat FROM typeb_senders WHERE code=:id"; break;
-          case etDelayType: Qry.SQLText="SELECT code,code_lat,name,name_lat FROM delays WHERE code=:id";break;
-          case etTripLiter: Qry.SQLText="SELECT code,code_lat,name,name_lat FROM trip_liters WHERE code=:id";break;
-      case etValidatorType: Qry.SQLText="SELECT code,code_lat,name,name_lat FROM validator_types WHERE code=:id";break;
-          case etSalePoint: Qry.SQLText="SELECT code,descr name,descr_lat name_lat FROM sale_points WHERE code=:id";break;
-             case etAgency: Qry.SQLText="SELECT code,code_lat,name,name_lat FROM agencies WHERE code=:id";break;
-       case etCompElemType: Qry.SQLText="SELECT name,name_lat FROM comp_elem_types WHERE code=:id"; break;
-             case etBPType: Qry.SQLText="SELECT name AS name, name AS name_lat FROM bp_types WHERE code=:id AND op_type='PRINT_BP'"; break;
-             case etBIType: Qry.SQLText="SELECT name AS name, name AS name_lat FROM bp_types WHERE code=:id AND op_type='PRINT_BI'"; break;
-             case etVOType: Qry.SQLText="SELECT name AS name, name AS name_lat FROM bp_types WHERE code=:id AND op_type='PRINT_VO'"; break;
-           case etEMDAType: Qry.SQLText="SELECT name AS name, name AS name_lat FROM bp_types WHERE code=:id AND op_type='PRINT_EMDA'"; break;
-             case etBTType: Qry.SQLText="SELECT name AS name, name AS name_lat FROM tag_types WHERE code=:id"; break;
-      default: throw Exception("Unexpected elem type %s", EncodeElemType(type));
-    };
-    Qry.CreateVariable("id",otString,id);
-    Qry.Execute();
-    for(vector< pair<TElemFmt,string> >::const_iterator i=fmts.begin();i!=fmts.end();i++)
-    {
-      getElem(i->first, i->second, Qry, elem);
-      if (!elem.empty()) break;
-    };
-  };
+    case etDelayType: {
+        static const string text =
+            "SELECT code, code_lat, name, name_lat"
+            "  FROM delays"
+            "    WHERE code=:id";
+        return text;
+    }
+    case etTripLiter: {
+        static const string text =
+            "SELECT code, code_lat, name, name_lat"
+            "  FROM trip_liters"
+            "    WHERE code=:id";
+        return text;
+    }
+    case etValidatorType: {
+        static const string text =
+            "SELECT code, code_lat, name, name_lat"
+            "  FROM validator_types"
+            "    WHERE code=:id";
+        return text;
+    }
+    case etSalePoint: {
+        static const string text =
+            "SELECT code, descr name, descr_lat name_lat"
+            "  FROM sale_points"
+            "    WHERE code=:id";
+        return text;
+    }
+    case etAgency: {
+        static const string text =
+            "SELECT code, code_lat, name, name_lat"
+            "  FROM agencies"
+            "    WHERE code=:id";
+        return text;
+    }
+    case etCompElemType: {
+        static const string text =
+            "SELECT name, name_lat"
+            "  FROM comp_elem_types"
+            "    WHERE code=:id";
+        return text;
+    }
+    case etBPType: {
+        static const string text =
+            "SELECT name AS name, name AS name_lat"
+            "  FROM bp_types"
+            "    WHERE code=:id AND op_type='PRINT_BP'";
+        return text;
+    }
+    case etBIType: {
+        static const string text =
+            "SELECT name AS name, name AS name_lat"
+            "  FROM bp_types"
+            "    WHERE code=:id AND op_type='PRINT_BI'";
+        return text;
+    }
+    case etVOType: {
+        static const string text =
+            "SELECT name AS name, name AS name_lat"
+            "  FROM bp_types"
+            "    WHERE code=:id AND op_type='PRINT_VO'";
+        return text;
+    }
+    case etEMDAType: {
+        static const string text =
+            "SELECT name AS name, name AS name_lat"
+            "  FROM bp_types"
+            "    WHERE code=:id AND op_type='PRINT_EMDA'";
+        return text;
+    }
+    case etBTType: {
+        static const string text =
+            "SELECT name AS name, name AS name_lat"
+            "  FROM tag_types"
+            "    WHERE code=:id";
+        return text;
+    }
+    default: {
+        break;
+    }}
+    throw Exception("Unexpected elem type %s", EncodeElemType(type));
+}
 
-  return elem;
+template<class RowOrQueryT>
+static string GetElem(const TElemFmt& fmt, const std::string &lang, RowOrQueryT&& rowOrQuery)
+{
+    string elem;
+    getElem(fmt, lang, std::forward<RowOrQueryT>(rowOrQuery), elem);
+    return elem;
+}
+
+static string GetElemByTableNameFromBaseTables(
+    const string& table_name,
+    const string& id,
+    const vector<pair<TElemFmt, string>>& fmts,
+    const bool with_deleted)
+{
+    try {
+        const TBaseTableRow& BaseTableRow = base_tables.get(table_name).get_row("code", id, with_deleted);
+        for (const auto& [fmt, lang] : fmts) {
+            const string elem = GetElem(fmt, lang, BaseTableRow);
+            if (!elem.empty()) {
+                return elem;
+            }
+        };
+    }
+    catch (const EBaseTableError&) {
+    };
+    return "";
+}
+
+static string GetOraPgTableNameFromType(const TElemType& type)
+{
+    switch(type) {
+    case etCompElemType: return "COMP_ELEM_TYPES";
+    default: break;
+    }
+    return "";
+}
+
+template<class TQueryT>
+static string GetElemByTypeFromDB_(
+    TQueryT& Qry,
+    const TElemType& type,
+    const string& id,
+    const vector<pair<TElemFmt, string>>& fmts,
+    const bool with_deleted)
+{
+    Qry.SQLText = GetElemByElemIdQueryText(type);
+    Qry.CreateVariable("id", otString, id);
+    Qry.Execute();
+    for (const auto& [fmt, lang] : fmts) {
+        const string elem = GetElem(fmt, lang, Qry);
+        if (!elem.empty()) {
+            return elem;
+        }
+    };
+    return "";
+}
+
+static string GetElemByTypeFromDB(
+    const TElemType& type,
+    const string& id,
+    const vector<pair<TElemFmt, string>>& fmts,
+    const bool with_deleted)
+{
+    const string table_name = GetOraPgTableNameFromType(type);
+    if (!table_name.empty()) {
+        DB::TQuery Qry(PgOra::getROSession(table_name));
+        return GetElemByTypeFromDB_(Qry, type, id, fmts, with_deleted);
+    }
+    else {
+        TQuery Qry(&OraSession);
+        return GetElemByTypeFromDB_(Qry, type, id, fmts, with_deleted);
+    }
+}
+
+string ElemIdToElem(
+    TElemType type,
+    const string& id,
+    const vector<pair<TElemFmt, string>>& fmts,
+    bool with_deleted)
+{
+    if (id.empty()) {
+        return "";
+    }
+
+    const string table_name = getTableName(type);
+    if (!table_name.empty()) {
+        return GetElemByTableNameFromBaseTables(table_name, id, fmts, with_deleted);
+    }
+    return GetElemByTypeFromDB(type, id, fmts, with_deleted);
 };
 
 string ElemIdToElem(TElemType type, const string &id, TElemFmt fmt, const std::string &lang, bool with_deleted)

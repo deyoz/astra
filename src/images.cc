@@ -12,6 +12,7 @@
 #include "term_version.h"
 #include "db_tquery.h"
 #include "PgOraConfig.h"
+#include "pg_session.h"
 #include "serverlib/str_utils.h"
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/classification.hpp>
@@ -27,64 +28,141 @@ namespace BASIC_SALONS {
 
 const std::string default_elem_type = "К";  //!!!здесь определяем
 
+template<class IsPlacesT, class MaxTimeCreateT, class DefaultElemCodeT>
+static void UpdatePg(
+    const string& query,
+    IsPlacesT& is_places,
+    MaxTimeCreateT& max_time_create,
+    DefaultElemCodeT& default_elem_code)
+{
+    string code;
+    string filename;
+    string name;
+    string name_lat;
+    int pr_seat = 0;
+    int pr_del = 0;
+    boost::posix_time::ptime time_create_;
+    string image;
+    PgCpp::BinaryDefHelper<string> imageDef{image};
+
+    PgCpp::CursCtl curs = make_pg_curs(PgCpp::getPgReadOnly(), query);
+    curs.def(code)
+        .def(filename)
+        .def(name)
+        .def(name_lat)
+        .def(pr_seat)
+        .defNull(pr_del, 0)
+        .def(time_create_)
+        .def(imageDef)
+        .exec();
+
+    LogTrace(TRACE3) << __func__ << ":";
+
+    while (not curs.fen()) {
+        if (pr_del != 0) {
+            continue;
+        }
+
+        const bool is_default_element = code == default_elem_type;
+        if (is_default_element) {
+            default_elem_code = default_elem_type;
+        }
+
+        TDateTime time_create = BoostToDateTime(time_create_);
+        max_time_create = std::max(max_time_create, time_create);
+
+        string image_;
+        StringToHex(image, image_);
+
+        LogTrace(TRACE3) << __func__ << ": image.substr(10) = " << image.substr(10);
+
+        is_places.emplace(code, TCompElemType{
+            code,
+            name,
+            name_lat,
+            pr_seat,
+            is_default_element,
+            time_create,
+            image_,
+            filename
+        });
+    }
+}
+
+template<class IsPlacesT, class MaxTimeCreateT, class DefaultElemCodeT>
+static void UpdateOra(
+    const string& query,
+    IsPlacesT& is_places,
+    MaxTimeCreateT& max_time_create,
+    DefaultElemCodeT& default_elem_code)
+{
+    TQuery Qry( &OraSession );
+    Qry.SQLText = query;
+    Qry.Execute();
+    int len = 0;
+    void *data = NULL;
+    try {
+        for ( ;!Qry.Eof; Qry.Next() ) {
+            if ( Qry.FieldIsNULL( "pr_del" ) || Qry.FieldAsInteger( "pr_del" ) == 0 ) {
+                string code = Qry.FieldAsString( "code" );
+                string filename = Qry.FieldAsString( "filename" );
+                string name = Qry.FieldAsString( "name" );
+                string name_lat = Qry.FieldAsString( "name_lat" );
+                TDateTime time_create = Qry.FieldAsDateTime( "time_create" );
+                string image;
+                if ( name_lat.empty() )
+                    name_lat = name;
+                if ( len != Qry.GetSizeLongField( "image" ) ) {
+                    len = Qry.GetSizeLongField( "image" );
+                    if ( data == NULL )
+                        data = malloc( len );
+                    else
+                        data = realloc( data, len );
+                }
+                if ( data == NULL )
+                    throw Exception( "Ошибка программы" );
+                Qry.FieldAsLong( "image", data );
+                StringToHex( string((char*)data, len), image );
+                bool is_default_element = code == default_elem_type;
+                if ( is_default_element )
+                    default_elem_code = default_elem_type;
+                TCompElemType comp_elem( code,
+                                         name,
+                                         name_lat,
+                                         Qry.FieldAsInteger( "pr_seat" ),
+                                         is_default_element,
+                                         time_create,
+                                         image,
+                                         filename );
+                if ( max_time_create < time_create )
+                    max_time_create = time_create;
+                is_places.insert( make_pair( code, comp_elem ) );
+            }
+        }
+        if ( data != NULL )
+            free( data );
+    }
+    catch(...) {
+        if ( data != NULL )
+            free( data );
+        throw;
+    }
+}
+
 void TCompElemTypes::Update()
 {
-  is_places.clear();
-  max_time_create = -1;
-  default_elem_code.clear();
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
-    "SELECT code, filename, name, name_lat, pr_seat, pr_del, time_create, image "
-    " FROM comp_elem_types";
-  Qry.Execute();
-  int len = 0;
-  void *data = NULL;
-  try {
-    for ( ;!Qry.Eof; Qry.Next() ) {
-      if ( Qry.FieldIsNULL( "pr_del" ) || Qry.FieldAsInteger( "pr_del" ) == 0 ) {
-        string code = Qry.FieldAsString( "code" );
-        string filename = Qry.FieldAsString( "filename" );
-        string name = Qry.FieldAsString( "name" );
-        string name_lat = Qry.FieldAsString( "name_lat" );
-        TDateTime time_create = Qry.FieldAsDateTime( "time_create" );
-        string image;
-        if ( name_lat.empty() )
-          name_lat = name;
-        if ( len != Qry.GetSizeLongField( "image" ) ) {
-          len = Qry.GetSizeLongField( "image" );
-          if ( data == NULL )
-            data = malloc( len );
-          else
-            data = realloc( data, len );
-        }
-        if ( data == NULL )
-          throw Exception( "Ошибка программы" );
-        Qry.FieldAsLong( "image", data );
-        StringToHex( string((char*)data, len), image );
-        bool is_default_element = code == default_elem_type;
-        if ( is_default_element )
-          default_elem_code = default_elem_type;
-        TCompElemType comp_elem( code,
-                                 name,
-                                 name_lat,
-                                 Qry.FieldAsInteger( "pr_seat" ),
-                                 is_default_element,
-                                 time_create,
-                                 image,
-                                 filename );
-        if ( max_time_create < time_create )
-          max_time_create = time_create;
-        is_places.insert( make_pair( code, comp_elem ) );
-      }
+    static const string QUERY =
+        "SELECT code, filename, name, name_lat, pr_seat, pr_del, time_create, image "
+        "  FROM comp_elem_types";
+
+    is_places.clear();
+    max_time_create = -1;
+    default_elem_code.clear();
+
+    if (PgOra::supportsPg("COMP_ELEM_TYPES")) {
+        UpdatePg(QUERY, is_places, max_time_create, default_elem_code);
     }
-    if ( data != NULL )
-      free( data );
-  }
-  catch(...) {
-    if ( data != NULL )
-      free( data );
-    throw;
-  }
+    UpdateOra(QUERY, is_places, max_time_create, default_elem_code);
 }
 
 TCompElemTypes::TCompElemTypes()
@@ -109,7 +187,35 @@ void TCompElemTypes::toFile(const string &file_name) const
     }
 }
 
-void TCompElemTypes::toDB()
+template<class IsPlacesT>
+static void ToDbPg(const IsPlacesT& is_places)
+{
+    static const string PG_QUERY =
+        "INSERT INTO comp_elem_types(code,name,name_lat,pr_seat,time_create,image,pr_del,filename)"
+            "  VALUES(:code,:name,:name_lat,:pr_seat,:time_create,:image,0,:filename)"
+            "    ON CONFLICT(code) DO"
+            "      UPDATE SET name=:name,name_lat=:name_lat,pr_seat=:pr_seat,time_create=:time_create,image=:image, pr_del=0, filename = :filename;";
+
+    for(const auto &i : is_places) {
+        string image;
+        HexToString(i.second.getImage(), image);
+
+        auto cur = DbCpp::mainPgManagedSession(STDLOG).createPgCursor(STDLOG, PG_QUERY, true);
+
+        cur.
+            bind(":code", i.first).
+            bind(":name", i.second.getName()).
+            bind(":name_lat", i.second.getNameLat()).
+            bind(":pr_seat", static_cast<int>(i.second.isSeat())).
+            bind(":time_create", DateTimeToBoost(i.second.getTimeCreate())).
+            bind(":image", PgCpp::BinaryBindHelper({image.data(), image.size()})).
+            bind(":filename", i.second.getFilename()).
+            exec();
+    }
+}
+
+template<class IsPlacesT>
+static void ToDbOra(const IsPlacesT& is_places)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -140,6 +246,19 @@ void TCompElemTypes::toDB()
         Qry.SetLongVariable( "image", const_cast<void*>(reinterpret_cast<const void*>(StrDec.c_str())), StrDec.length() );
         Qry.SetVariable("filename", i.second.getFilename());
         Qry.Execute();
+    }
+}
+
+void TCompElemTypes::toDB()
+{
+    try {
+        if (PgOra::supportsPg("COMP_ELEM_TYPES")) {
+            ToDbPg(is_places);
+        }
+        ToDbOra(is_places);
+    } catch (const std::exception& e) {
+        cout << e.what() << endl;
+        throw e;
     }
 }
 
