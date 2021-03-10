@@ -1275,7 +1275,7 @@ void SvcSirenaInterface::DoRequest(xmlNodePtr reqNode,
     const std::string reqPath = "/astra";
     std::string reqText;
     req.build(reqText);
-    sirClient.sendRequest(reqText, reqPath, createKickInfo(reqCtxtId, SvcSirenaInterface::name()));
+    sirClient.sendPostRequest(reqText, reqPath, createKickInfo(reqCtxtId, SvcSirenaInterface::name()));
 
 //    SvcSirenaInterface* iface=dynamic_cast<SvcSirenaInterface*>(JxtInterfaceMng::Instance()->GetInterface(SvcSirenaInterface::name()));
 //    if (iface!=nullptr && iface->addResponseHandler(res))

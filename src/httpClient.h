@@ -89,10 +89,17 @@ class Client
 {
 public:
     // асинхрон
-    void sendRequest(const std::string& reqText, const std::string& reqPath,
-                     const edifact::KickInfo& kickInfo) const;
+    void sendGetRequest(const std::string& reqText,
+                        const std::string& reqPath,
+                        const edifact::KickInfo& kickInfo) const;
+    void sendPostRequest(const std::string& reqText,
+                         const std::string& reqPath,
+                         const edifact::KickInfo& kickInfo) const;
     // синхрон
-    void sendRequest(const std::string& reqText, const std::string& reqPath) const;
+    void sendGetRequest(const std::string& reqText,
+                        const std::string& reqPath) const;
+    void sendPostRequest(const std::string& reqText,
+                         const std::string& reqPath) const;
 
     boost::optional<httpsrv::HttpResp> receive() const;
 
@@ -105,7 +112,8 @@ protected:
     virtual httpsrv::UseSSLFlag         useSsl() const;
 
 private:
-    void sendRequest_(const std::string& reqText, const std::string& reqPath,
+    void sendRequest_(const std::string& reqType, const std::string& reqText,
+                      const std::string& reqPath,
                       const boost::optional<edifact::KickInfo>& kickInfo) const;
 };
 

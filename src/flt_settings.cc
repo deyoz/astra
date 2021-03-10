@@ -19,6 +19,7 @@ bool DefaultTripSets( const TTripSetType setType )
 bool GetTripSets( const TTripSetType setType,
                   const TTripInfo &info )
 {
+  LogTrace(TRACE5) << __func__;
   if (!(setType>=0 && setType<100))
     throw Exception("%s: wrong setType=%d", __FUNCTION__, (int)setType);
 

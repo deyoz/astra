@@ -89,15 +89,15 @@ public:
   static std::string getConvertClassSQLText();
   static AstraSearchResult checkChangeAHMFromAHMIds( const std::string& bort, int plan_id, int conf_id, TQuery& Qry );
   static AstraSearchResult checkChangeAHMFromCompId( const std::string& bort, int comp_id, TQuery& Qry );
-  static int getPlanId( const std::string& bort, TQuery& Qry );
+  static int getPlanId(const std::string& bort);
   static int getConfig( int planId,
                         const std::string& airline, const std::string& bort,
                         int f, int c, int y,
                         bool pr_ignore_fcy, TQuery& Qry );
   static void SetChanges( int plan_id );
   static void SetChanges( int plan_id, int comp_id );
-  static int GetLibraConfigs( const std::string& airline, const std::string& bort,
-                              int conf_id, std::vector<int>& configs, TQuery& Qry );
+  static std::vector<int> getLibraConfigs( const std::string& airline, const std::string& bort,
+                                           int conf_id, int plan_id );
 };
 
 class ComponSetter: public TSetsCraftPoints {
@@ -136,11 +136,10 @@ public:
   std::string getBort() {
     return fltInfo.bort;
   }
-  static void createBaseLibraCompon( ComponLibraFinder::AstraSearchResult& res,
+  static void createBaseLibraCompon(ComponLibraFinder::AstraSearchResult& res,
                                      const std::string& airline,
                                      const std::string& craft,
-                                     const std::string& bort,
-                                     TQuery &Qry );
+                                     const std::string& bort);
   void setCompId( int comp_id ) {
     fcomp_id = comp_id;
   }

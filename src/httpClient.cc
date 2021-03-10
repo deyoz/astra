@@ -415,11 +415,12 @@ void httpClient_main(const RequestInfo& request, ResponseInfo& response)
 
 namespace Http {
 
-static std::string makeHttpPostRequest(const std::string& resource,
-                                       const std::string& host,
-                                       const std::string& postbody)
+static std::string makeHttpRequest(const std::string& request,
+                                   const std::string& resource,
+                                   const std::string& host,
+                                   const std::string& postbody)
 {
-    return "POST " + resource + " HTTP/1.1\r\n"
+    return request + " " + resource + " HTTP/1.1\r\n"
              "Host: " + host + "\r\n"
              "Content-Type: application/xml; charset=utf-8\r\n"
              "Content-Length: " + HelpCpp::string_cast(postbody.size()) + "\r\n"
@@ -429,26 +430,40 @@ static std::string makeHttpPostRequest(const std::string& resource,
 
 //---------------------------------------------------------------------------------------
 
-void Client::sendRequest(const std::string& reqText, const std::string& reqPath,
-                         const edifact::KickInfo& kickInfo) const
+void Client::sendGetRequest(const std::string& reqText,
+                            const std::string& reqPath,
+                            const edifact::KickInfo& kickInfo) const
 {
-    sendRequest_(reqText, reqPath, kickInfo);
+    sendRequest_("GET", reqText, reqPath, kickInfo);
 }
 
-void Client::sendRequest(const std::string& reqText, const std::string& reqPath) const
+void Client::sendPostRequest(const std::string& reqText,
+                             const std::string& reqPath,
+                             const edifact::KickInfo& kickInfo) const
 {
-    sendRequest_(reqText, reqPath, {});
+    sendRequest_("POST", reqText, reqPath, kickInfo);
 }
 
-void Client::sendRequest_(const std::string& reqText, const std::string& reqPath,
+void Client::sendGetRequest(const std::string& reqText, const std::string& reqPath) const
+{
+    sendRequest_("GET", reqText, reqPath, {});
+}
+
+void Client::sendPostRequest(const std::string& reqText, const std::string& reqPath) const
+{
+    sendRequest_("POST", reqText, reqPath, {});
+}
+
+void Client::sendRequest_(const std::string& reqType, const std::string& reqText,
+                          const std::string& reqPath,
                           const boost::optional<edifact::KickInfo>& kickInfo) const
 {
-    const std::string httpPost = makeHttpPostRequest(reqPath, addr().host, reqText);
+    const std::string http = makeHttpRequest(reqType, reqPath, addr().host, reqText);
 
-    LogTrace(TRACE5) << "HTTP Request, text:\n" << reqText;
+    LogTrace(TRACE5) << "HTTP " << reqType <<  " Request, text:\n" << reqText;
 
     httpsrv::DoHttpRequest req(ServerFramework::getQueryRunner().getEdiHelpManager().msgId(),
-                               domain(), addr(), httpPost);
+                               domain(), addr(), http);
     req.setTimeout(timeout())
        .setMaxTryCount(1)
        .setSSL(useSsl());
@@ -460,7 +475,7 @@ void Client::sendRequest_(const std::string& reqText, const std::string& reqPath
 
 #ifdef XP_TESTING
     if (inTestMode()) {
-        const std::string httpPostCP866 = UTF8toCP866(httpPost);
+        const std::string httpPostCP866 = UTF8toCP866(http);
         LogTrace(TRACE1) << "request: " << httpPostCP866;
         xp_testing::TlgOutbox::getInstance().push(tlgnum_t("httpreq"),
                         StrUtils::replaceSubstrCopy(httpPostCP866, "\r", ""), 0 /* h2h */);

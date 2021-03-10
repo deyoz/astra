@@ -227,3 +227,86 @@ $(dump_table AHM_DICT display="on" fields="AIRLINE, CATEGORY, BORT_NUM" order="I
 [226] [DOW] [NULL] $()
 [226] [TOW] [ZZ-738] $()
 [226] [NULL] [BB-321] $()
+
+
+%%
+###
+#   Описание: get_schedule
+#
+###
+#########################################################################################
+
+$(desc_test 8)
+
+$(init_term)
+
+include(ts/spp/write_dests_macro.ts)
+include(ts/spp/write_trips_macro.ts)
+include(ts/spp/read_trips_macro.ts)
+include(ts/pax/checkin_macro.ts)
+include(ts/pax/boarding_macro.ts)
+
+$(init_term)
+$(set_user_time_type LocalAirp PIKE)
+
+$(set airline UT)
+$(set flt_no 280)
+$(set craft TU5)
+$(set airp_dep DME)
+$(set time_dep "$(date_format %d.%m.%Y -1) 07:00")
+$(set time_arv "$(date_format %d.%m.%Y -1) 10:00")
+$(set airp_arv AER)
+
+$(cache PIKE RU MISC_SET $(cache_iface_ver MISC_SET) ""
+  insert type_code:66
+         airline:$(get_elem_id etAirline $(get airline))
+         pr_misc:1)
+
+$(http_forecast content=$(utf8
+{<result>
+    <status>OK</status>
+    <answer>
+        <root>
+            <row num=\"1\">
+                <plan_id type=\"int\">561</plan_id>
+            </row>
+        </root>
+    </answer>
+</result>}))
+
+$(http_forecast content=$(utf8
+{<result>
+    <status>OK</status>
+    <answer>
+        <root>
+            <row num=\"1\">
+                <comp_id type=\"int\">461</comp_id>
+                <F type=\"int\">0</F>
+                <C type=\"int\">30</C>
+                <Y type=\"int\">270</Y>
+                <invalid_class type=\"int\">0</invalid_class>
+            </row>
+        </root>
+    </answer>
+</result>}))
+
+$(set tomor $(date_format %d.%m.%Y +0))
+$(NEW_SPP_FLIGHT_REQUEST
+{ $(new_spp_point UT 111 100 44444 ""                   DME "$(get tomor) 07:00")
+  $(new_spp_point_last             "$(get tomor) 15:00" TJM ) })
+
+>>
+GET /libra/get_plan_id?bort=44444 HTTP/1.1
+Host: $()
+Content-Type: application/xml; charset=utf-8
+Content-Length: 0
+$()
+;;
+
+>>
+GET /libra/get_config?airline=%9E%92&bort=44444&plan_id=561 HTTP/1.1
+Host: $()
+Content-Type: application/xml; charset=utf-8
+Content-Length: 0
+$()
+;;

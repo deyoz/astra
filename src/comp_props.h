@@ -211,7 +211,7 @@ struct less_than_SimpleProp
 
 class seacherProps: public std::vector<SimpleProp> {
   public:
-    bool get( int row, std::string& code ) {
+    bool get( int row, std::string& code ) const {
       code.clear();
       for ( const auto& p : *this ) {
         if ( p.inSection( row ) ) {

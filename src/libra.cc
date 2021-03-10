@@ -142,36 +142,69 @@ bool needSendHttpRequest()
     return desk.substr(0, 3) == "ŒŽ‚";
 }
 
-void synchronousHttpRequest(const std::string& req, const std::string& path)
+void synchronousHttpGetRequest(const std::string& req, const std::string& path)
 {
     const std::string reqText = ConvertCodepage(req, "CP866", "UTF-8");
 
     LIBRA::LibraHttpClient libraClient;
-    libraClient.sendRequest(reqText, path);
+    libraClient.sendGetRequest(reqText, path);
 }
 
-void synchronousHttpRequest(xmlDocPtr reqDoc, const std::string& path)
+void synchronousHttpPostRequest(const std::string& req, const std::string& path)
+{
+    const std::string reqText = ConvertCodepage(req, "CP866", "UTF-8");
+
+    LIBRA::LibraHttpClient libraClient;
+    libraClient.sendPostRequest(reqText, path);
+}
+
+void synchronousHttpGetRequest(xmlDocPtr reqDoc, const std::string& path)
 {
     const std::string reqText = ConvertCodepage(XMLTreeToText(reqDoc), "CP866", "UTF-8");
 
     LIBRA::LibraHttpClient libraClient;
-    libraClient.sendRequest(reqText, path);
+    libraClient.sendGetRequest(reqText, path);
 }
 
-std::string synchronousHttpExchange(const std::string& req, const std::string& path)
+void synchronousHttpPostRequest(xmlDocPtr reqDoc, const std::string& path)
 {
-    synchronousHttpRequest(req, path);
+    const std::string reqText = ConvertCodepage(XMLTreeToText(reqDoc), "CP866", "UTF-8");
+
+    LIBRA::LibraHttpClient libraClient;
+    libraClient.sendPostRequest(reqText, path);
+}
+
+std::string synchronousHttpGetExchange(const std::string& req, const std::string& path)
+{
+    synchronousHttpGetRequest(req, path);
     return LIBRA::receiveHttpResponse();
 }
 
-void asynchronousHttpRequest(const std::string& req, const std::string& path)
+std::string synchronousHttpPostExchange(const std::string& req, const std::string& path)
+{
+    synchronousHttpPostRequest(req, path);
+    return LIBRA::receiveHttpResponse();
+}
+
+void asynchronousHttpGetRequest(const std::string& req, const std::string& path)
 {
     int reqCtxtId = AstraContext::SetContext("TERM_REQUEST", req);
 
     const std::string reqText = ConvertCodepage(req, "CP866", "UTF-8");
 
     LIBRA::LibraHttpClient libraClient;
-    libraClient.sendRequest(reqText, path, AstraEdifact::createKickInfo(reqCtxtId, "libra"));
+    libraClient.sendGetRequest(reqText, path, AstraEdifact::createKickInfo(reqCtxtId, "libra"));
+    throw LIBRA::HttpAsyncRequestWasSent();
+}
+
+void asynchronousHttpPostRequest(const std::string& req, const std::string& path)
+{
+    int reqCtxtId = AstraContext::SetContext("TERM_REQUEST", req);
+
+    const std::string reqText = ConvertCodepage(req, "CP866", "UTF-8");
+
+    LIBRA::LibraHttpClient libraClient;
+    libraClient.sendPostRequest(reqText, path, AstraEdifact::createKickInfo(reqCtxtId, "libra"));
     throw LIBRA::HttpAsyncRequestWasSent();
 }
 
@@ -225,6 +258,121 @@ std::string receiveHttpResponse()
     RemoveNode(tmpNode);
 
     return doc.text();
+}
+
+FieldData::Type FieldData::getDataType(const std::string& date_type)
+{
+    if (date_type == "int") {
+        return Type::Integer;
+    }
+    if (date_type == "date") {
+        return Type::DateTime;
+    }
+    return Type::String;
+}
+
+bool FieldData::getIsNull(const std::string& is_null)
+{
+    return is_null == "true";
+}
+
+int FieldData::fieldAsInteger() const
+{
+    if (data_type != Type::Integer) {
+        throw EXMLError("Field is not integer");
+    }
+    return std::stoi(value);
+}
+
+const std::string& FieldData::fieldAsString() const
+{
+    if (data_type != Type::String) {
+        throw EXMLError("Field is not string");
+    }
+    return value;
+}
+
+BASIC::date_time::TDateTime FieldData::fieldAsDateTime() const
+{
+    if (data_type != Type::DateTime) {
+        throw EXMLError("Field is not DateTime");
+    }
+    BASIC::date_time::TDateTime result;
+    if (BASIC::date_time::StrToDateTime(value.c_str(), date_format.c_str(), result) == EOF) {
+        throw EXMLError("Cannot convert field to DateTime, format=" + date_format);
+    }
+    return result;
+}
+
+std::string makeHttpQueryString(const std::map<std::string,std::string>& dict)
+{
+    std::ostringstream result;
+    bool first = true;
+    for (const auto& item: dict) {
+        const std::string key = StrUtils::url_encode(item.first);
+        const std::string value = StrUtils::url_encode(item.second);
+        if (first) {
+            result << "?";
+            first = false;
+        } else {
+            result << "&";
+        }
+        result << key << "=" << value;
+    }
+    return result.str();
+}
+
+std::vector<RowData> getHttpRequestDataRows(const std::string& request,
+                                            const std::string& params)
+{
+    LogTrace(TRACE6) << __func__
+                    << ": request='" << request << "'"
+                    << ", params='" << params << "'";
+    std::vector<RowData> result;
+    const std::string answer = synchronousHttpGetExchange("", request + params);
+    LogTrace(TRACE6) << __func__
+                     << ": answer='" << answer << "'";
+    if (answer.empty()) {
+        throw EXMLError(std::string(__func__) + ": Empty answer");
+    }
+    XMLDoc data = ASTRA::createXmlDoc(answer);
+    xmlNodePtr root = findNodeR(data.docPtr()->children, "root");
+    if (root == NULL) {
+        throw EXMLError(std::string(__func__) + ": Root node not found");
+    }
+
+    int row_count = 0;
+    for (xmlNodePtr row_node = root->children; row_node != NULL;
+         row_node = row_node->next, row_count++)
+    {
+        const int row_number = getIntPropFromXml(row_node, "row_number");
+        RowData row;
+        int col_count = 0;
+        for (xmlNodePtr col_node = row_node->children; col_node != NULL;
+             col_node = col_node->next, col_count++)
+        {
+            const FieldName_t field_name = reinterpret_cast<const char*>(col_node->name);
+            const bool success = row.emplace(field_name,
+                                             FieldData(row_number, col_node)).second;
+            if (!success) {
+                throw EXMLError("Duplicate field " + field_name);
+            }
+        }
+        result.push_back(row);
+    }
+    return result;
+}
+
+RowData getHttpRequestDataRow(const std::string& request, const std::string& params)
+{
+    const std::vector<RowData> rows = getHttpRequestDataRows(request, params);
+    if (rows.empty()) {
+        throw EXMLError(std::string(__func__) + ": Data not found");
+    }
+    if (rows.size() != 1) {
+        throw EXMLError(std::string(__func__) + ": More than one row");
+    }
+    return rows.front();
 }
 
 }//namespace LIBRA
@@ -297,9 +445,9 @@ std::string callLibraHttp(const std::string& reqText)
     const std::string path = "/call";
 
     if(LIBRA::asyncHttpMode()) {
-        LIBRA::asynchronousHttpRequest(reqText, path);
+        LIBRA::asynchronousHttpPostRequest(reqText, path);
     } else {
-        return LIBRA::synchronousHttpExchange(reqText, path);
+        return LIBRA::synchronousHttpPostExchange(reqText, path);
     }
 
     return ""; // can't be here never
@@ -377,7 +525,7 @@ void LibraInterface::RequestHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         auto exceptionMsg = "unknown error";
         LogError(STDLOG) << __func__ << " : " << exceptionMsg;
         data = fillErrorData(requestName, exceptionMsg);
-    }  
+    }
 
     NewTextChild(resNode, "data", data);
 }

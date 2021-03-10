@@ -10,6 +10,7 @@
 #include "points.h"
 #include "seat_number.h"
 #include "astra_locale_adv.h"
+#include "libra.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/slogger.h"
@@ -75,6 +76,7 @@ struct CompRoute {
 
 bool isAutoCompChg( int point_id )
 {
+  LogTrace(TRACE5) << __func__;
   TQuery Qry(&OraSession);
   Qry.SQLText = "SELECT auto_comp_chg FROM trip_sets WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -668,7 +670,7 @@ void ComponLibraFinder::AstraSearchResult::getLibraCompStatus( const std::string
   plan_id = ASTRA::NoExists;
   conf_id = ASTRA::NoExists;
   ReadFromAHMCompId( bort, comp_id, Qry ); //прочитали конфиг, которого может и не быть
-  int p_id = ComponLibraFinder::getPlanId( bort, Qry );
+  int p_id = ComponLibraFinder::getPlanId( bort );
   if ( p_id == ASTRA::NoExists ) {
     clear();
     return;
@@ -678,8 +680,7 @@ void ComponLibraFinder::AstraSearchResult::getLibraCompStatus( const std::string
     plan_id = p_id;
     conf_id = ASTRA::NoExists;
   }
-  std::vector<int> configs;
-  ComponLibraFinder::GetLibraConfigs( airline, bort, conf_id, configs, Qry );
+  const std::vector<int> configs = ComponLibraFinder::getLibraConfigs( airline, bort, conf_id, plan_id );
   for ( const auto& vconf_id : configs )  {
     evtStatus = TEventLibraStatus::evChange;
     if ( vconf_id == conf_id ) {
@@ -691,12 +692,20 @@ void ComponLibraFinder::AstraSearchResult::getLibraCompStatus( const std::string
   return;
 }
 
-int ComponLibraFinder::getPlanId( const std::string& bort, TQuery& Qry ) {
+int ComponLibraFinder::getPlanId( const std::string& bort ) {
+  LogTrace(TRACE5) << __func__ << ": bort=" << bort;
   if ( bort.empty() ) {
       return ASTRA::NoExists;
   }
+
   //!!! нет проверки на тип ВС, только борт. Здесь выбирается компоновка по расписанию поэтому такое условие по дате + сортировка. Не изменять!!!
-  Qry.Clear();
+  if (LIBRA::needSendHttpRequest()) {
+    const std::string params = LIBRA::makeHttpQueryString({{"bort", bort}});
+    const LIBRA::RowData data = LIBRA::getHttpRequestDataRow("/libra/get_plan_id", params);
+    return data.at("plan_id").fieldAsInteger();
+  }
+
+  TQuery Qry(&OraSession);
   Qry.SQLText =
   "SELECT brw.S_L_ADV_ID AS PLAN_ID "
   "  FROM WB_REF_AIRCO_WS_BORTS b join WB_REF_WS_AIR_REG_WGT brw "
@@ -709,16 +718,38 @@ int ComponLibraFinder::getPlanId( const std::string& bort, TQuery& Qry ) {
   return Qry.Eof?ASTRA::NoExists:Qry.FieldAsInteger( "plan_id" );
 }
 
-int ComponLibraFinder::GetLibraConfigs( const std::string& airline, const std::string& bort,
-                                        int conf_id, std::vector<int>& configs, TQuery& Qry )
+std::vector<int> ComponLibraFinder::getLibraConfigs(const std::string& airline,
+                                                    const std::string& bort,
+                                                    int conf_id, int plan_id)
 {
-  configs.clear();
-  Qry.Clear();
-  int plan_id = ComponLibraFinder::getPlanId( bort, Qry );
   if ( plan_id == ASTRA::NoExists ) {
-    return plan_id;
+    return {};
   }
-  Qry.Clear();
+  std::vector<int> result;
+
+  if (LIBRA::needSendHttpRequest()) {
+    std::map<std::string,std::string> params = {
+      {"plan_id", std::to_string(plan_id)},
+      {"airline", airline},
+      {"bort", bort}
+    };
+    if (conf_id != ASTRA::NoExists) {
+      params.emplace("conf_id", std::to_string(conf_id));
+    }
+    const std::vector<LIBRA::RowData> rows =
+        LIBRA::getHttpRequestDataRows("/libra/get_config",
+                                      LIBRA::makeHttpQueryString(params));
+    for (const LIBRA::RowData& row: rows) {
+      const bool invalid_class = row.at("invalid_class").fieldAsInteger() != 0;
+      if (invalid_class) {
+        continue;
+      }
+      result.push_back(row.at("comp_id").fieldAsInteger());
+    }
+    return result;
+  }
+
+  TQuery Qry(&OraSession);
   Qry.SQLText = getConfigSQLText( conf_id != ASTRA::NoExists );
   Qry.CreateVariable( "plan_id", otInteger, plan_id );
   if ( conf_id != ASTRA::NoExists ) {
@@ -732,9 +763,9 @@ int ComponLibraFinder::GetLibraConfigs( const std::string& airline, const std::s
       continue;
     }
     LogTrace(TRACE5) << "plan_id=" << plan_id << " conf_id=" << Qry.FieldAsInteger( "comp_id" );
-    configs.emplace_back( Qry.FieldAsInteger( "comp_id" ) );
+    result.emplace_back( Qry.FieldAsInteger( "comp_id" ) );
   }
-  return plan_id;
+  return result;
 }
 
 std::string ComponLibraFinder::getConvertClassSQLText() {
@@ -1466,67 +1497,189 @@ std::string getLibraCfg( int plan_id, int conf_id,
   return res;
 }
 
-void ComponSetter::createBaseLibraCompon( ComponLibraFinder::AstraSearchResult& res,
-                                          const std::string& airline,
-                                          const std::string& craft,
-                                          const std::string& bort,
-                                          TQuery &Qry ) {
-  LogTrace( TRACE5 ) << __func__ << " plan_id=" << res.plan_id << ", conf_id=" << res.conf_id << ", comp_id=" << res.conf_id;
-  res.ReadFromAHMIds( bort, res.plan_id, res.conf_id, Qry ); //
-  //начитываем инфу по классах рядов
-  //начитываем инфу по местам
-  //создаем базовую компоновку
-  Qry.Clear();
+std::map<std::string,std::string> getLibraClassMapping(const std::string& airline,
+                                                       const std::string& bort)
+{
+  TQuery Qry(&OraSession);
   Qry.SQLText = ComponLibraFinder::getConvertClassSQLText();
   Qry.CreateVariable( "airline", otString, airline );
   Qry.CreateVariable( "bort", otString, bort );
   Qry.Execute();
-  std::map<std::string,std::string> cls;
+  std::map<std::string,std::string> result;
   for ( ; !Qry.Eof; Qry.Next() ) {
-    cls[ Qry.FieldAsString( "libra_class" ) ] = Qry.FieldAsString( "class" );
+    result[ Qry.FieldAsString( "libra_class" ) ] = Qry.FieldAsString( "class" );
   }
-  Qry.Clear();
+  return result;
+}
+
+std::string getAstraClass(const std::string& libra_class,
+                          const std::map<std::string,std::string>& cls,
+                          int conf_id)
+{
+  if ( cls.find( libra_class ) == cls.end() ) {
+    EXCEPTIONS::Exception( "createBaseLibraCompon: invalid class %s in compon, confId=%d", libra_class.c_str(), conf_id );
+  }
+  return cls.at(libra_class);
+}
+
+SALONS2::seacherProps getLibraClassRows(const std::string& airline,
+                                        const std::string& bort,
+                                        int conf_id)
+{
+  LogTrace(TRACE1) << __func__;
+  const std::map<std::string,std::string> cls = getLibraClassMapping(airline, bort);
+
+  TQuery Qry(&OraSession);
   Qry.SQLText =
     "SELECT class_code,first_row,last_row "
     " FROM WB_REF_WS_AIR_SL_CI_T "
     " WHERE adv_id=:conf_id";
-  Qry.CreateVariable( "conf_id", otInteger, res.conf_id );
+  Qry.CreateVariable( "conf_id", otInteger, conf_id );
   Qry.Execute();
   if ( Qry.Eof ) {
-    throw EXCEPTIONS::Exception( "createBaseLibraCompon: data not found in  WB_REF_WS_AIR_SL_CI_T, confId=%d", res.conf_id );
+    throw EXCEPTIONS::Exception( "createBaseLibraCompon: data not found in  WB_REF_WS_AIR_SL_CI_T, confId=%d", conf_id );
   }
+
   SALONS2::seacherProps classProps;
   for (; !Qry.Eof; Qry.Next() ) {
-    std::string libra_class = Qry.FieldAsString( "class_code" );
-    if ( cls.find( libra_class ) != cls.end() ) {
-      libra_class = cls[ libra_class ];
-    }
-    else
-      EXCEPTIONS::Exception( "createBaseLibraCompon: invalid class %s in compon, confId=%d", libra_class.c_str(), res.conf_id );
-    SALONS2::SimpleProp p( libra_class,
-                           Qry.FieldAsInteger( "first_row"),
-                           Qry.FieldAsInteger( "last_row") );
     LogTrace(TRACE5) << Qry.FieldAsString( "class_code" ) << " " <<  Qry.FieldAsInteger( "first_row") << "-" << Qry.FieldAsInteger( "last_row");
-    classProps.emplace_back( p );
+    const std::string libra_class = Qry.FieldAsString( "class_code" );
+    const int first_row = Qry.FieldAsInteger( "first_row" );
+    const int last_row  = Qry.FieldAsInteger( "last_row" );
+    const std::string astra_class = getAstraClass(libra_class, cls, conf_id);
+    classProps.emplace_back(astra_class, first_row, last_row);
   }
-  Qry.Clear();
+  return classProps;
+}
+
+tprops getLibraSeatProps(int plan_id)
+{
+  tprops props; //свойства мест
+  TQuery Qry(&OraSession);
   Qry.SQLText =
     "SELECT S_SEAT_ID, u.name "
     " FROM WB_REF_WS_AIR_S_L_P_S_P t join WB_REF_WS_SEATS_PARAMS u "
     "on t.ADV_ID=:plan_id AND "
     "   u.id=t.PARAM_ID "
     " ORDER by S_SEAT_ID, u.name ";
-  Qry.CreateVariable( "plan_id", otInteger, res.plan_id );
+  Qry.CreateVariable( "plan_id", otInteger, plan_id );
   Qry.Execute();
-  tprops props; //свойства мест
-  tseat_props seat_props; //ссылка индекса места на ид. свойства
   for ( ; !Qry.Eof; Qry.Next() ) {
+    const int seat_id = Qry.FieldAsInteger( "s_seat_id" );
+    const std::string seat_props = Qry.FieldAsString( "name" );
     std::pair<tprops::iterator,bool> im =
-                            props.insert( std::make_pair( Qry.FieldAsInteger( "s_seat_id" ),
+                            props.insert( std::make_pair( seat_id,
                                           std::vector<std::string>() ) );
-    im.first->second.emplace_back( Qry.FieldAsString( "name" ) );
+    im.first->second.emplace_back( seat_props );
   }
-  Qry.Clear();
+  return props;
+}
+
+namespace {
+
+struct AisleDataItem
+{
+  int id = ASTRA::NoExists;
+  std::string cabin_section;
+  int row_number = ASTRA::NoExists;
+  std::string name;
+};
+
+class Aisle {
+  private:
+    bool useInvisibleSeat;
+    std::vector<SALONS2::TPlace> rowseats;
+    std::string lines;
+    std::string prior_lines;
+    std::string intLines( const std::string& l ) {
+      bool startIdx, stopIdx;
+      startIdx = ( !l.empty() && l.front() == '=' );
+      stopIdx  = ( !l.empty() && l.back() == '=' );
+      return l.substr( startIdx, l.length() - startIdx - stopIdx );
+    }
+  public:
+    Aisle() {
+      useInvisibleSeat = true; //false - игнорирование невидимых мест не сделано!
+      clear();
+    }
+    void clear() {
+      prior_lines.clear();
+      lines.clear();
+    }
+    void AddRight() {
+      if ( lines.back() != '=' ) {
+        lines += "=";
+        LogTrace(TRACE5) << "add right " << lines;
+      }
+    }
+    void AddLeft() {
+      int idx = lines.length() - 2;
+      if (idx < 0) {
+        idx = 0;
+      }
+     if ( lines.substr( idx, 1 ) != "=" ) {
+        lines.insert( idx, "=" );
+        LogTrace(TRACE5) << "add left " << lines;
+      }
+    }
+    void Add( const SALONS2::TPlace &p ) {
+      if ( useInvisibleSeat || p.visible ) {
+        lines += p.xname;
+      }
+    }
+    std::string getPriorLines() {
+      return intLines( prior_lines );
+    }
+    std::string getCurrLines() {
+      return intLines( lines );
+    }
+    void SetPriorLines() {
+      prior_lines = lines;
+      lines.clear();
+    }
+    int CurrX(int x) {
+     if ( useInvisibleSeat ) {
+        return x+1;
+      }
+      return getCurrLines().size();
+    }
+    int getDiff() {
+      int res = 0;
+      if ( !useInvisibleSeat ) {
+        return res;
+      }
+      std::string l = getCurrLines();
+      for ( std::string::const_iterator s = l.begin(); s != l.end(); s++ ) {
+        res += ( *s == '=' );
+      }
+      res -= ( l.back() == '=' );
+      return res;
+    }
+    void AddSeat( const SALONS2::TPlace& seat ) {
+      if ( useInvisibleSeat || seat.visible ) {
+        rowseats.emplace_back( seat );
+      }
+    }
+    void PutSeats( SALONS2::TPlaceList* seats ) {
+      if ( seats == nullptr ) {
+        return;
+      }
+      bool isEmpty = seats->isEmpty();
+      LogTrace(TRACE5) << __func__ << " add rows isEmpty=" << isEmpty;
+      for ( auto &p : rowseats ) {
+        if ( isEmpty ) {
+          p.y = 0;
+        }
+        seats->Add( p );
+      }
+      rowseats.clear();
+    }
+};
+
+std::vector<AisleDataItem> getLibraAisleData(int plan_id)
+{
+  std::vector<AisleDataItem> result;
+  TQuery Qry(&OraSession);
   Qry.SQLText =
     "SELECT s.id, cabin_section, row_number, name "
     " FROM WB_REF_WS_AIR_S_L_PLAN p  join WB_REF_WS_AIR_S_L_A_U_S slaus "
@@ -1539,8 +1692,36 @@ void ComponSetter::createBaseLibraCompon( ComponLibraFinder::AstraSearchResult& 
     " ORDER BY p.CABIN_SECTION, "
     " p.ROW_NUMBER, "
     "sn.SORT_PRIOR";
-  Qry.CreateVariable( "plan_id", otInteger, res.plan_id );
+  Qry.CreateVariable( "plan_id", otInteger, plan_id );
   Qry.Execute();
+  for ( ; !Qry.Eof; Qry.Next() ) {
+    const AisleDataItem data = {
+      Qry.FieldAsInteger( "id" ),
+      Qry.FieldAsString( "cabin_section" ),
+      Qry.FieldAsInteger( "row_number" ),
+      Qry.FieldAsString( "name" )
+    };
+    result.push_back(data);
+  }
+  return result;
+}
+
+} // namespace
+
+void ComponSetter::createBaseLibraCompon( ComponLibraFinder::AstraSearchResult& res,
+                                          const std::string& airline,
+                                          const std::string& craft,
+                                          const std::string& bort ) {
+  LogTrace( TRACE5 ) << __func__ << " plan_id=" << res.plan_id << ", conf_id=" << res.conf_id << ", comp_id=" << res.conf_id;
+  TQuery Qry(&OraSession);
+  res.ReadFromAHMIds( bort, res.plan_id, res.conf_id, Qry ); //
+  //начитываем инфу по классах рядов
+  //начитываем инфу по местам
+  //создаем базовую компоновку
+
+  const SALONS2::seacherProps classProps = getLibraClassRows(airline, bort, res.conf_id);
+  const tprops props = getLibraSeatProps(res.plan_id);
+
   SALONS2::simpleProps sections( SALONS2::SECTION );
   std::string lastSectionName;
   int first_row = -1, last_row = -1;
@@ -1551,102 +1732,14 @@ void ComponSetter::createBaseLibraCompon( ComponLibraFinder::AstraSearchResult& 
   SALONS2::TSalonList salonList;
   SALONS2::CraftSeats seats;
   SALONS2::TPlaceList* seatSalon = nullptr;
+  tseat_props seat_props; //ссылка индекса места на ид. свойства
 
-  class Aisle {
-    private:
-      bool useInvisibleSeat;
-      std::vector<SALONS2::TPlace> rowseats;
-      std::string lines;
-      std::string prior_lines;
-      std::string intLines( const std::string& l ) {
-        bool startIdx, stopIdx;
-        startIdx = ( !l.empty() && l.front() == '=' );
-        stopIdx  = ( !l.empty() && l.back() == '=' );
-        return l.substr( startIdx, l.length() - startIdx - stopIdx );
-      }
-    public:
-      Aisle() {
-        useInvisibleSeat = true; //false - игнорирование невидимых мест не сделано!
-        clear();
-      }
-      void clear() {
-        prior_lines.clear();
-        lines.clear();
-      }
-      void AddRight() {
-        if ( lines.back() != '=' ) {
-          lines += "=";
-          LogTrace(TRACE5) << "add right " << lines;
-        }
-      }
-      void AddLeft() {
-        int idx = lines.length() - 2;
-        if (idx < 0) {
-          idx = 0;
-        }
-       if ( lines.substr( idx, 1 ) != "=" ) {
-          lines.insert( idx, "=" );
-          LogTrace(TRACE5) << "add left " << lines;
-        }
-      }
-      void Add( const SALONS2::TPlace &p ) {
-        if ( useInvisibleSeat || p.visible ) {
-          lines += p.xname;
-        }
-      }
-      std::string getPriorLines() {
-        return intLines( prior_lines );
-      }
-      std::string getCurrLines() {
-        return intLines( lines );
-      }
-      void SetPriorLines() {
-        prior_lines = lines;
-        lines.clear();
-      }
-      int CurrX(int x) {
-       if ( useInvisibleSeat ) {
-          return x+1;
-        }
-        return getCurrLines().size();
-      }
-      int getDiff() {
-        int res = 0;
-        if ( !useInvisibleSeat ) {
-          return res;
-        }
-        std::string l = getCurrLines();
-        for ( std::string::const_iterator s = l.begin(); s != l.end(); s++ ) {
-          res += ( *s == '=' );
-        }
-        res -= ( l.back() == '=' );
-        return res;
-      }
-      void AddSeat( const SALONS2::TPlace& seat ) {
-        if ( useInvisibleSeat || seat.visible ) {
-          rowseats.emplace_back( seat );
-        }
-      }
-      void PutSeats( SALONS2::TPlaceList* seats ) {
-        if ( seats == nullptr ) {
-          return;
-        }
-        bool isEmpty = seats->isEmpty();
-        LogTrace(TRACE5) << __func__ << " add rows isEmpty=" << isEmpty;
-        for ( auto &p : rowseats ) {
-          if ( isEmpty ) {
-            p.y = 0;
-          }
-          seats->Add( p );
-        }
-        rowseats.clear();
-      }
-  };
+  const std::vector<AisleDataItem> aisle_data = getLibraAisleData(res.plan_id);
   Aisle aisle;
   int first_rowidx = 0, last_rowidx = 0;
-  for ( ; !Qry.Eof; Qry.Next() ) {
-    LogTrace(TRACE5) << Qry.FieldAsString( "cabin_section" ) << " " << Qry.FieldAsInteger( "row_number" );
-    if ( lastSectionName != Qry.FieldAsString( "cabin_section" ) ) {
+  for (const AisleDataItem& item: aisle_data) {
+    LogTrace(TRACE5) << item.cabin_section << " " << item.row_number;
+    if ( lastSectionName != item.cabin_section ) {
       if ( !lastSectionName.empty() &&
            first_rowidx <= last_rowidx  ) {
         //LogTrace(TRACE5) << lastSectionName << " " << first_row  << "-" << last_row << " rowidx=" << first_rowidx << "-" << last_rowidx;
@@ -1655,10 +1748,10 @@ void ComponSetter::createBaseLibraCompon( ComponLibraFinder::AstraSearchResult& 
                                                     last_rowidx - 1 ) );
         first_rowidx = last_rowidx;
       }
-      lastSectionName = Qry.FieldAsString( "cabin_section" );
-      first_row = Qry.FieldAsInteger( "row_number" );
+      lastSectionName = item.cabin_section;
+      first_row = item.row_number;
     }
-    if ( last_row != Qry.FieldAsInteger( "row_number" ) ) { //новый ряд
+    if ( last_row != item.row_number ) { //новый ряд
       std::string plines = aisle.getPriorLines(), lines = aisle.getCurrLines();
       bool prChangeLines = ( !plines.empty() &&
                              plines != lines );
@@ -1667,7 +1760,7 @@ void ComponSetter::createBaseLibraCompon( ComponLibraFinder::AstraSearchResult& 
         aisle.PutSeats( seatSalon );
       }
       last_rowidx++;
-      last_row = Qry.FieldAsInteger( "row_number" );
+      last_row = item.row_number;
       classProps.get( last_row, class_code );
       if ( prior_class_code != class_code || prChangeLines ) { //новый салон
         //LogTrace(TRACE5) << plines << " " << lines;
@@ -1702,27 +1795,27 @@ void ComponSetter::createBaseLibraCompon( ComponLibraFinder::AstraSearchResult& 
       x = aisle.CurrX(x);
     }
     //add seat
-    //LogTrace(TRACE5) << "x=" << x << " id=" << Qry.FieldAsInteger( "id" );
-    /*if ( Qry.FieldIsNULL( "id" ) ) {
-      LogTrace(TRACE5) << Qry.FieldAsString( "name" ) << Qry.FieldAsInteger( "row_number" );
+    //LogTrace(TRACE5) << "x=" << x << " id=" << item.id;
+    /*if ( !item.id ) { // is null
+      LogTrace(TRACE5) << item.name << item.row_number;
       continue; //а могут быть салоны с линией, у которой нет вообще мест???
     }*/
     SALONS2::TPlace seat;
     seat.x = x;
     seat.y = y;
-    seat.isplace = !Qry.FieldIsNULL( "id" );
+    seat.isplace = item.id != 0; // is null
     seat.visible = seat.isplace;
     seat.elem_type = SALONS2::ARMCHAIR_ELEM_TYPE;
     if ( seat.visible ) {
-      LogTrace(TRACE5) << Qry.FieldAsInteger( "row_number" ) << Qry.FieldAsString( "name" ) << ",id=" << Qry.FieldAsInteger( "id" );
+      LogTrace(TRACE5) << item.row_number << item.name << ",id=" << item.id;
       TElemFmt fmt;
       seat.clname = ElemToElemId(etClass, class_code, fmt);
       if ( seat.clname.empty() ) {
         throw EXCEPTIONS::Exception( "createBaseLibraCompon: invalid seat class '%s'", class_code.c_str() );
       }
     }
-    seat.xname = Qry.FieldAsString( "name" );
-    seat.yname = IntToString( Qry.FieldAsInteger( "row_number" ) );
+    seat.xname = item.name;
+    seat.yname = IntToString( item.row_number );
     boost::optional<bool> isLatin=SeatNumber::isLatinIataLine(seat.xname);
     if (isLatin) {
       isLatin.get()?lat_count++:rus_count++;
@@ -1738,7 +1831,7 @@ void ComponSetter::createBaseLibraCompon( ComponLibraFinder::AstraSearchResult& 
     seat.x += aisle.getDiff( );
     if ( seat.visible ) {
       if ( seat.isplace ) {
-        tprops::iterator im = props.find( Qry.FieldAsInteger( "id" ) );
+        auto im = props.find( item.id );
         if ( find( im->second.begin(), im->second.end(), AISLE_LEFT_CODE_SEAT ) != im->second.end() ) {
           aisle.AddLeft( );
           seat.x++;
@@ -1989,7 +2082,7 @@ ComponSetter::TStatus ComponSetter::IntSetCraft( bool pr_tranzit_routes ) {
   if ( isLibraMode() ) { // search_comp_id = conf_id - попытаемся найти в базовых компоновках Астры компоновку Либры и поверить ее на изменения
     if ( compState.evtStatus == ComponLibraFinder::AstraSearchResult::evChange ) {
       compState.conf_id = search_comp_id;
-      createBaseLibraCompon( compState, fltInfo.airline, fltInfo.craft, fltInfo.bort, Qry  );
+      createBaseLibraCompon( compState, fltInfo.airline, fltInfo.craft, fltInfo.bort  );
       if ( compState.comp_id == ASTRA::NoExists ) {
         LogTrace( TRACE5 ) << __func__ << " invalid comps in libra plan_id=" << compState.plan_id << ", conf_id=" << compState.conf_id;
         return NotCrafts;
@@ -2013,6 +2106,7 @@ ComponSetter::TStatus ComponSetter::IntSetCraft( bool pr_tranzit_routes ) {
 }
 
 ComponSetter::TStatus ComponSetter::SetCraft( bool pr_tranzit_routes ) {
+  LogTrace( TRACE5 ) << __func__;
   TFlights flights;
   flights.Get( fltInfo.point_id, ftTranzit );
   flights.Lock(__FUNCTION__);
@@ -2034,10 +2128,13 @@ ComponSetter::TStatus ComponSetter::AutoSetCraft( bool pr_tranzit_routes ) {
     return NoChanges; // не требуется назначение компоновки
   }
   catch( EXCEPTIONS::Exception &e ) {
-    LogError( STDLOG ) << __func__ << ", point_id=" << fltInfo.point_id << ",error=" << e.what();
+    LogError( STDLOG ) << __func__ << ", point_id=" << fltInfo.point_id << ", error=" << e.what();
+  }
+  catch( EXMLError &e ) {
+    LogError( STDLOG ) << __func__ << ", point_id=" << fltInfo.point_id << ", error=" << e.what();
   }
   catch( ... ) {
-   LogError( STDLOG ) << __func__ << " unknown error, point_id" << fltInfo.point_id;
+   LogError( STDLOG ) << __func__ << " unknown error, point_id=" << fltInfo.point_id;
   }
   return NoChanges;
 }
@@ -2050,15 +2147,15 @@ void SychAHMCompsFromBort( const std::string& airline, const std::string& craft,
 {
   LogTrace(TRACE5) << __func__ << " airline=" <<airline << " craft=" << craft << " bort=" << bort;
   TQuery Qry(&OraSession);
-  std::vector<int> configs;
   //выбрали все конфиги
-  int plan_id = ComponLibraFinder::GetLibraConfigs( airline, bort, ASTRA::NoExists, configs, Qry );
+  const int plan_id = ComponLibraFinder::getPlanId( bort );
+  const std::vector<int> configs = ComponLibraFinder::getLibraConfigs( airline, bort, ASTRA::NoExists, plan_id );
   //удалим те, которые уже есть в базовых компоновках
   for ( const auto& conf_id : configs ) {
     ComponLibraFinder::AstraSearchResult res;
     res.ReadFromAHMIds( bort, plan_id, conf_id, Qry );
     if ( !res.isOk() ) { //создать компоновку в базовых
-      ComponSetter::createBaseLibraCompon( res, airline, craft, bort, Qry );
+      ComponSetter::createBaseLibraCompon( res, airline, craft, bort );
     }
   }
 }
