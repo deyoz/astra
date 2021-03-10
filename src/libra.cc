@@ -279,7 +279,8 @@ std::string callLibraPkg(const std::string& xml_in)
 "   SP_WB_ASTRA_CALLS(:clob_in, CLOB_OUT);\n"
 "   insert into WB_REF_ASTRA_TMP(CLOB_OUT) values (CLOB_OUT);\n"
 "end;", &os);
-    cur.bindClob(":clob_in", xml_in)
+    cur.throwError(NO_DATA_FOUND)
+       .bindClob(":clob_in", xml_in)
        .exec();
 
     Curs8Ctl selCur(STDLOG,
