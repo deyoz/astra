@@ -1,5 +1,6 @@
 /usr/include/c++/8/
 /usr/include/tcl
+externallibs/libxml2/include/libxml2
 locallibs/edilib/include
 locallibs/eticklib/include
 locallibs/jxtlib/include
@@ -21,3 +22,4 @@ src/kiosk
 src/stat
 src/tests/icu
 src/tlg
+
