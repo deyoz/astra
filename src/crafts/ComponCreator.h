@@ -81,7 +81,7 @@ public:
         return ( comp_id != ASTRA::NoExists &&
                  time_change != ASTRA::NoExists );
       }
-      void Write( TQuery& Qry );
+      void Write();
       void ReadFromAHMIds( const std::string& bort, int plan_id, int conf_id, TQuery& Qry );
       void ReadFromAHMCompId( const std::string& bort, int comp_id, TQuery& Qry );
   };
@@ -90,10 +90,10 @@ public:
   static AstraSearchResult checkChangeAHMFromAHMIds( const std::string& bort, int plan_id, int conf_id, TQuery& Qry );
   static AstraSearchResult checkChangeAHMFromCompId( const std::string& bort, int comp_id, TQuery& Qry );
   static int getPlanId(const std::string& bort);
-  static int getConfig( int planId,
+  static int getConfig(int planId,
                         const std::string& airline, const std::string& bort,
                         int f, int c, int y,
-                        bool pr_ignore_fcy, TQuery& Qry );
+                        bool pr_ignore_fcy);
   static void SetChanges( int plan_id );
   static void SetChanges( int plan_id, int comp_id );
   static std::vector<int> getLibraConfigs( const std::string& airline, const std::string& bort,

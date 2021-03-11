@@ -290,6 +290,60 @@ $(http_forecast content=$(utf8
     </answer>
 </result>}))
 
+$(http_forecast content=$(utf8
+{<result>
+    <status>OK</status>
+    <answer>
+        <root>
+            <row num=\"1\">
+                <comp_id type=\"int\">461</comp_id>
+                <F type=\"int\">0</F>
+                <C type=\"int\">30</C>
+                <Y type=\"int\">270</Y>
+                <invalid_class type=\"int\">0</invalid_class>
+            </row>
+        </root>
+    </answer>
+</result>}))
+
+$(http_forecast content=$(utf8
+{<result>
+    <status>OK</status>
+    <answer>
+        <root>
+            <row num=\"1\">
+                <class_code type=\"str\">C</class_code>
+                <first_row type=\"int\">1</first_row>
+                <last_row type=\"int\">8</last_row>
+            </row>
+            <row num=\"2\">
+                <class_code type=\"str\">Y</class_code>
+                <first_row type=\"int\">9</first_row>
+                <last_row type=\"int\">40</last_row>
+            </row>
+        </root>
+    </answer>
+</result>}))
+
+$(http_forecast file="ts/libra/get_seat_props_response.xml")
+$(http_forecast file="ts/libra/get_aisle_data_response.xml")
+
+$(http_forecast content=$(utf8
+{<result>
+    <status>OK</status>
+    <answer>
+        <root>
+            <row num=\"1\">
+                <comp_id type=\"int\">461</comp_id>
+                <F type=\"int\">0</F>
+                <C type=\"int\">30</C>
+                <Y type=\"int\">270</Y>
+                <invalid_class type=\"int\">0</invalid_class>
+            </row>
+        </root>
+    </answer>
+</result>}))
+
 $(set tomor $(date_format %d.%m.%Y +0))
 $(NEW_SPP_FLIGHT_REQUEST
 { $(new_spp_point UT 111 100 44444 ""                   DME "$(get tomor) 07:00")
@@ -317,4 +371,55 @@ Host: $()
 Content-Type: application/xml; charset=utf-8
 Content-Length: 0
 $()
+;;
+
+>>
+GET /libra/get_class_rows?conf_id=270 HTTP/1.1
+Host: $()
+Content-Type: application/xml; charset=utf-8
+Content-Length: 0
+$()
+;;
+
+>>
+GET /libra/get_seat_props?plan_id=561 HTTP/1.1
+Host: $()
+Content-Type: application/xml; charset=utf-8
+Content-Length: 0
+$()
+;;
+
+>>
+GET /libra/get_aisle_data?plan_id=561 HTTP/1.1
+Host: $()
+Content-Type: application/xml; charset=utf-8
+Content-Length: 0
+$()
+;;
+
+>>
+GET /libra/get_config?airline=%9E%92&bort=44444&conf_id=270&plan_id=561 HTTP/1.1
+Host: $()
+Content-Type: application/xml; charset=utf-8
+Content-Length: 0
+$()
+;;
+
+??
+$(dump_table TRIP_COMP_ELEMS display="on")
+
+>> lines=auto
+...
+[0] [Å] [ä] [NULL] [0] [...] [NULL] [13] [K] [NULL] [5] [006] [NULL] $()
+[0] [Å] [ä] [NULL] [0] [...] [NULL] [13] [K] [NULL] [6] [007] [NULL] $()
+[0] [Å] [ä] [NULL] [0] [...] [NULL] [13] [K] [NULL] [7] [008] [NULL] $()
+[0] [ù] [ä] [NULL] [1] [...] [NULL] [11] [K] [NULL] [0] [009] [NULL] $()
+[0] [ù] [ä] [NULL] [1] [...] [NULL] [11] [K] [NULL] [1] [010] [NULL] $()
+[0] [ù] [ä] [NULL] [1] [...] [NULL] [11] [K] [NULL] [2] [011] [NULL] $()
+[0] [ù] [ä] [NULL] [1] [...] [NULL] [11] [K] [NULL] [3] [012] [NULL] $()
+[0] [ù] [ä] [NULL] [1] [...] [NULL] [11] [K] [NULL] [4] [013] [NULL] $()
+[0] [ù] [ä] [NULL] [1] [...] [NULL] [11] [K] [NULL] [5] [014] [NULL] $()
+[0] [ù] [ä] [NULL] [1] [...] [NULL] [11] [K] [NULL] [6] [015] [NULL] $()
+[0] [ù] [ä] [NULL] [1] [...] [NULL] [11] [K] [NULL] [7] [016] [NULL] $()
+------------------- END TRIP_COMP_ELEMS DUMP COUNT=244 -------------------
 ;;

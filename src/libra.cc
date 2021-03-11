@@ -305,6 +305,9 @@ int FieldData::fieldAsInteger() const
     if (data_type != Type::Integer) {
         throw EXMLError("Field is not integer");
     }
+    if (is_null) {
+      return 0;
+    }
     return std::stoi(value);
 }
 

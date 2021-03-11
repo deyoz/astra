@@ -736,7 +736,7 @@ std::vector<int> ComponLibraFinder::getLibraConfigs(const std::string& airline,
     if (conf_id != ASTRA::NoExists) {
       params.emplace("conf_id", std::to_string(conf_id));
     }
-    const std::vector<LIBRA::RowData> rows =
+    const auto rows =
         LIBRA::getHttpRequestDataRows("/libra/get_config",
                                       LIBRA::makeHttpQueryString(params));
     for (const LIBRA::RowData& row: rows) {
@@ -818,7 +818,7 @@ std::string ComponLibraFinder::getConfigSQLText( bool withConfId ) {
 int ComponLibraFinder::getConfig( int planId,
                                   const std::string& airline, const std::string& bort,
                                   int f, int c, int y,
-                                  bool pr_ignore_fcy, TQuery& Qry ) {
+                                  bool pr_ignore_fcy ) {
   LogTrace(TRACE5) << __func__ << " planId=" << planId;
   if ( planId == ASTRA::NoExists ) {
       return planId;
@@ -918,7 +918,7 @@ int ComponLibraFinder::getConfig( int planId,
         "        F < 1000 AND C < 1000 AND Y < 1000 "
         " ORDER BY comp_id ";
 
-    Qry.Clear();
+    TQuery Qry(&OraSession);
     Qry.SQLText = sql;
     Qry.CreateVariable("plan_id", otInteger, planId);
     Qry.CreateVariable("airline", otString, airline);
@@ -972,8 +972,8 @@ int ComponLibraFinder::getConfig( int planId,
   }
 }
 
-void ComponLibraFinder::AstraSearchResult::Write( TQuery& Qry ) {
-  Qry.Clear();
+void ComponLibraFinder::AstraSearchResult::Write() {
+  TQuery Qry(&OraSession);
   Qry.SQLText =
     "BEGIN "
     "UPDATE libra_comps SET plan_id=:plan_id, conf_id=:conf_id, time_change=system.UTCSYSDATE "
@@ -1360,7 +1360,7 @@ int ComponSetter::SearchCompon( bool pr_tranzit_routes,
                                                                fltInfo.airline,
                                                                fltInfo.bort,
                                                                i.second.f, i.second.c, i.second.y,
-                                                               pr_ignore_fcy, Qry );
+                                                               pr_ignore_fcy );
       }
       else {
         comp_id = ComponCreator::ComponFinder::GetCompId( fltInfo.craft, fltInfo.bort, fltInfo.airline, airps,
@@ -1382,7 +1382,7 @@ int ComponSetter::SearchCompon( bool pr_tranzit_routes,
         return ComponCreator::ComponLibraFinder::getConfig( libra_plan_id,
                                                             fltInfo.airline,
                                                             fltInfo.bort,
-                                                            0, 0, 1, true, Qry );
+                                                            0, 0, 1, true );
       }
       else {
         return ComponCreator::ComponFinder::GetCompId( fltInfo.craft, fltInfo.bort, fltInfo.airline,
@@ -1540,11 +1540,56 @@ void setLibraProps( SALONS2::CraftSeats& seats, const tprops& props, const tseat
   }
 }
 
+std::string makeLibraCfgString(int f, int c, int y)
+{
+  std::string result;
+  if (f > 0) {
+    result += 'П' + std::to_string(f);
+  }
+  if (c > 0) {
+    if (!result.empty()) {
+      result += " ";
+    }
+    result += 'Б' + std::to_string(c);
+  }
+  if (y > 0) {
+    if (!result.empty()) {
+      result += " ";
+    }
+    result += 'Э' + std::to_string(y);
+  }
+
+  return result;
+}
+
 std::string getLibraCfg( int plan_id, int conf_id,
                          const std::string& airline,
-                         const std::string& bort,
-                         TQuery &Qry ) {
-  Qry.Clear();
+                         const std::string& bort )
+{
+  if (LIBRA::needSendHttpRequest()) {
+    const std::map<std::string,std::string> params = {
+      {"plan_id", std::to_string(plan_id)},
+      {"conf_id", std::to_string(conf_id)},
+      {"airline", airline},
+      {"bort", bort}
+    };
+    const auto rows =
+        LIBRA::getHttpRequestDataRows("/libra/get_config",
+                                      LIBRA::makeHttpQueryString(params));
+    if ( rows.empty() ) {
+      throw EXCEPTIONS::Exception( "getLibraCfg: conf not found, conf_id=%d", conf_id );
+    }
+    const LIBRA::RowData& row = rows.front();
+    const bool invalid_class = row.at("invalid_class").fieldAsInteger() != 0;
+    if (invalid_class) {
+      throw EXCEPTIONS::Exception( "getLibraCfg: conf has invalid clases, conf_id=%d", conf_id );
+    }
+    return makeLibraCfgString(row.at("F").fieldAsInteger(),
+                              row.at("C").fieldAsInteger(),
+                              row.at("Y").fieldAsInteger());
+  }
+
+  TQuery Qry(&OraSession);
   Qry.SQLText = ComponLibraFinder::getConfigSQLText( true );
   Qry.CreateVariable( "plan_id", otInteger, plan_id );
   Qry.CreateVariable( "conf_id", otInteger, conf_id );
@@ -1557,23 +1602,9 @@ std::string getLibraCfg( int plan_id, int conf_id,
   if ( Qry.FieldAsInteger( "invalid_class" ) != 0 ) {
     throw EXCEPTIONS::Exception( "getLibraCfg: conf has invalid clases, conf_id=%d", conf_id );
   }
-  std::string res;
-  if ( Qry.FieldAsInteger( "F" ) > 0 ) {
-    res += 'П' + IntToString( Qry.FieldAsInteger( "F" ) );
-  }
-  if ( Qry.FieldAsInteger( "C" ) > 0 ) {
-    if ( !res.empty() ) {
-      res += " ";
-    }
-    res += 'Б' + IntToString( Qry.FieldAsInteger( "C" ) );
-  }
-  if ( Qry.FieldAsInteger( "Y" ) > 0 ) {
-    if ( !res.empty() ) {
-      res += " ";
-    }
-    res += 'Э' + IntToString( Qry.FieldAsInteger( "Y" ) );
-  };
-  return res;
+  return makeLibraCfgString(Qry.FieldAsInteger( "F" ),
+                            Qry.FieldAsInteger( "C" ),
+                            Qry.FieldAsInteger( "Y" ));
 }
 
 std::map<std::string,std::string> getLibraClassMapping(const std::string& airline,
@@ -1608,6 +1639,21 @@ SALONS2::seacherProps getLibraClassRows(const std::string& airline,
   LogTrace(TRACE1) << __func__;
   const std::map<std::string,std::string> cls = getLibraClassMapping(airline, bort);
 
+  SALONS2::seacherProps result;
+  if (LIBRA::needSendHttpRequest()) {
+    const std::string params = LIBRA::makeHttpQueryString({{"conf_id", std::to_string(conf_id)}});
+    const auto rows = LIBRA::getHttpRequestDataRows("/libra/get_class_rows", params);
+    for (const LIBRA::RowData& row: rows) {
+      const std::string libra_class = row.at("class_code").fieldAsString();
+      const int first_row = row.at("first_row").fieldAsInteger();
+      const int last_row  = row.at("last_row").fieldAsInteger();
+      LogTrace(TRACE5) << libra_class << " " << first_row << "-" << last_row;
+      const std::string astra_class = getAstraClass(libra_class, cls, conf_id);
+      result.emplace_back(astra_class, first_row, last_row);
+    }
+    return result;
+  }
+
   TQuery Qry(&OraSession);
   Qry.SQLText =
     "SELECT class_code,first_row,last_row "
@@ -1619,21 +1665,31 @@ SALONS2::seacherProps getLibraClassRows(const std::string& airline,
     throw EXCEPTIONS::Exception( "createBaseLibraCompon: data not found in  WB_REF_WS_AIR_SL_CI_T, confId=%d", conf_id );
   }
 
-  SALONS2::seacherProps classProps;
   for (; !Qry.Eof; Qry.Next() ) {
-    LogTrace(TRACE5) << Qry.FieldAsString( "class_code" ) << " " <<  Qry.FieldAsInteger( "first_row") << "-" << Qry.FieldAsInteger( "last_row");
     const std::string libra_class = Qry.FieldAsString( "class_code" );
     const int first_row = Qry.FieldAsInteger( "first_row" );
     const int last_row  = Qry.FieldAsInteger( "last_row" );
+    LogTrace(TRACE5) << libra_class << " " << first_row << "-" << last_row;
     const std::string astra_class = getAstraClass(libra_class, cls, conf_id);
-    classProps.emplace_back(astra_class, first_row, last_row);
+    result.emplace_back(astra_class, first_row, last_row);
   }
-  return classProps;
+  return result;
 }
 
 tprops getLibraSeatProps(int plan_id)
 {
-  tprops props; //свойства мест
+  tprops result; //свойства мест
+  if (LIBRA::needSendHttpRequest()) {
+    const std::string params = LIBRA::makeHttpQueryString({{"plan_id", std::to_string(plan_id)}});
+    const auto rows = LIBRA::getHttpRequestDataRows("/libra/get_seat_props", params);
+    for (const LIBRA::RowData& row: rows) {
+      const int seat_id = row.at("seat_id").fieldAsInteger();
+      const std::string seat_props = row.at("props").fieldAsString();
+      result[seat_id].push_back(seat_props);
+    }
+    return result;
+  }
+
   TQuery Qry(&OraSession);
   Qry.SQLText =
     "SELECT S_SEAT_ID, u.name "
@@ -1646,12 +1702,9 @@ tprops getLibraSeatProps(int plan_id)
   for ( ; !Qry.Eof; Qry.Next() ) {
     const int seat_id = Qry.FieldAsInteger( "s_seat_id" );
     const std::string seat_props = Qry.FieldAsString( "name" );
-    std::pair<tprops::iterator,bool> im =
-                            props.insert( std::make_pair( seat_id,
-                                          std::vector<std::string>() ) );
-    im.first->second.emplace_back( seat_props );
+    result[seat_id].push_back(seat_props);
   }
-  return props;
+  return result;
 }
 
 namespace {
@@ -1758,6 +1811,22 @@ class Aisle {
 std::vector<AisleDataItem> getLibraAisleData(int plan_id)
 {
   std::vector<AisleDataItem> result;
+
+  if (LIBRA::needSendHttpRequest()) {
+    const std::string params = LIBRA::makeHttpQueryString({{"plan_id", std::to_string(plan_id)}});
+    const auto rows = LIBRA::getHttpRequestDataRows("/libra/get_aisle_data", params);
+    for (const LIBRA::RowData& row: rows) {
+      const AisleDataItem data = {
+        row.at("id").fieldAsInteger(),
+        row.at("cabin_section").fieldAsString(),
+        row.at("row_number").fieldAsInteger(),
+        row.at("name").fieldAsString()
+      };
+      result.push_back(data);
+    }
+    return result;
+  }
+
   TQuery Qry(&OraSession);
   Qry.SQLText =
     "SELECT s.id, cabin_section, row_number, name "
@@ -1962,14 +2031,13 @@ void ComponSetter::createBaseLibraCompon( ComponLibraFinder::AstraSearchResult& 
   componSets.airline = airline;
   componSets.classes = getLibraCfg( res.plan_id, res.conf_id,
                                     airline,
-                                    bort,
-                                    Qry );
+                                    bort );
   componSets.descr = "AHM Либра";
   componSets.craft = craft;
   componSets.modify = (res.comp_id != ASTRA::NoExists)?SALONS2::mChange:SALONS2::mAdd;
   salonList.WriteCompon( res.comp_id, componSets, true );
   sections.write( res.comp_id );
-  res.Write( Qry );
+  res.Write();
 }
 
 void CreateFlightCompon( const TCompsRoutes &routes, int comp_id, TQuery &Qry ) {
