@@ -310,3 +310,11 @@ Content-Type: application/xml; charset=utf-8
 Content-Length: 0
 $()
 ;;
+
+>>
+GET /libra/get_config?airline=%9E%92&bort=44444&plan_id=561 HTTP/1.1
+Host: $()
+Content-Type: application/xml; charset=utf-8
+Content-Length: 0
+$()
+;;

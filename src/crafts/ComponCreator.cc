@@ -834,56 +834,135 @@ int ComponLibraFinder::getConfig( int planId,
   std::map<int,TComp,std::less<int> > CompMap;
   int idx;
 
-  std::string sql =
-    " SELECT * FROM ( ";
-  sql += getConfigSQLText( false );
-  sql +=
-    ") WHERE invalid_class = 0 AND "
-    "        F - :vf >= 0 AND "
-    "        C - :vc >= 0 AND "
-    "        Y - :vy >= 0 AND "
-    "        F < 1000 AND C < 1000 AND Y < 1000 "
-    " ORDER BY comp_id ";
+  if (LIBRA::needSendHttpRequest())
+  {
+    std::map<std::string, std::string> params = {
+        {"plan_id", std::to_string(planId)},
+        {"airline", airline},
+        {"bort", bort},
+    };
 
-  Qry.Clear();
-  Qry.SQLText = sql;
-  Qry.CreateVariable( "plan_id", otInteger, planId );
-  Qry.CreateVariable( "airline", otString, airline );
-  Qry.CreateVariable( "bort", otString, bort );
-  Qry.CreateVariable( "vf", otString, f );
-  Qry.CreateVariable( "vc", otString, c );
-  Qry.CreateVariable( "vy", otString, y );
-  Qry.Execute();
-  for ( ;!Qry.Eof; Qry.Next() ) {
-    idx = 0; // когда совпадает борт+авиакомпания OR аэропорт
-    // совпадение по кол-ву мест для каждого класса
-    if ( SIGN( Qry.FieldAsInteger( "f" ) ) == SIGN( f ) &&
-         SIGN( Qry.FieldAsInteger( "c" ) ) == SIGN( c ) &&
-         SIGN( Qry.FieldAsInteger( "y" ) ) == SIGN( y ) &&
-         Qry.FieldAsInteger( "f" ) >= f &&
-         Qry.FieldAsInteger( "c" ) >= c &&
-         Qry.FieldAsInteger( "y" ) >= y &&
-         CompMap[ idx ].sum > Qry.FieldAsInteger( "f" ) + Qry.FieldAsInteger( "c" ) + Qry.FieldAsInteger( "y" ) - f - c - y ) {
-      CompMap[ idx ].sum = Qry.FieldAsInteger( "f" ) + Qry.FieldAsInteger( "c" ) + Qry.FieldAsInteger( "y" ) - f - c - y;
-      CompMap[ idx ].comp_id = Qry.FieldAsInteger( "comp_id" );
-    }
+    // ") WHERE invalid_class = 0 AND "
+    // "        F - :vf >= 0 AND "
+    // "        C - :vc >= 0 AND "
+    // "        Y - :vy >= 0 AND "
+    // "        F < 1000 AND C < 1000 AND Y < 1000 "
+    // " ORDER BY comp_id ";
 
-    idx += 3;
-    // совпадение по классам и количеству мест >= общее кол-во мест
-    if ( SIGN( Qry.FieldAsInteger( "f" ) ) == SIGN( f ) &&
-         SIGN( Qry.FieldAsInteger( "c" ) ) == SIGN( c ) &&
-         SIGN( Qry.FieldAsInteger( "y" ) ) == SIGN( y ) &&
-         CompMap[ idx ].sum > Qry.FieldAsInteger( "f" ) + Qry.FieldAsInteger( "c" ) + Qry.FieldAsInteger( "y" ) - f - c - y ) {
-      CompMap[ idx ].sum = Qry.FieldAsInteger( "f" ) + Qry.FieldAsInteger( "c" ) + Qry.FieldAsInteger( "y" ) - f - c - y;
-      CompMap[ idx ].comp_id = Qry.FieldAsInteger( "comp_id" );
+    const auto rows = LIBRA::getHttpRequestDataRows("/libra/get_config",
+                                                    LIBRA::makeHttpQueryString(params));
+
+    const auto filtered = algo::filter(rows, [f, c, y](const auto &row) {
+      const int invalid_class = row.at("invalid_class").fieldAsInteger();
+      const int F = row.at("F").fieldAsInteger();
+      const int C = row.at("C").fieldAsInteger();
+      const int Y = row.at("Y").fieldAsInteger();
+      return invalid_class == 0 &&
+               (F - f) >= 0 &&
+               (C - c) >= 0 &&
+               (Y - y) >= 0 &&
+               F < 1000 && C < 1000 && Y < 1000;
+    });
+    const auto sorted_rows = algo::sort(filtered, [](const auto &r1, const auto &r2) {
+      return r1.at("comp_id").fieldAsInteger() < r2.at("comp_id").fieldAsInteger();
+    });
+
+    for (const LIBRA::RowData &row : sorted_rows)
+    {
+        idx = 0; // когда совпадает борт+авиакомпания OR аэропорт
+        const int F = row.at("F").fieldAsInteger();
+        const int C = row.at("C").fieldAsInteger();
+        const int Y = row.at("Y").fieldAsInteger();
+        const int COMP_ID = row.at("Y").fieldAsInteger();
+
+        // совпадение по кол-ву мест для каждого класса
+        if (SIGN(F) == SIGN(f) &&
+            SIGN(C) == SIGN(c) &&
+            SIGN(Y) == SIGN(y) &&
+            F >= f &&
+            C >= c &&
+            Y >= y &&
+            CompMap[idx].sum > F + C + Y - f - c - y)
+        {
+          CompMap[idx].sum = F + C + Y - f - c - y;
+          CompMap[idx].comp_id = COMP_ID;
+        }
+
+        idx += 3;
+        // совпадение по классам и количеству мест >= общее кол-во мест
+        if (SIGN(F) == SIGN(f) &&
+            SIGN(C) == SIGN(c) &&
+            SIGN(Y) == SIGN(y) &&
+            CompMap[idx].sum > F + C + Y - f - c - y)
+        {
+          CompMap[idx].sum = F + C + Y - f - c - y;
+          CompMap[idx].comp_id = COMP_ID;
+        }
+        // совпадение по количеству мест >= общее кол-во мест
+        idx += 3;
+        if (CompMap[idx].sum > F + C + Y - f - c - y)
+        {
+          CompMap[idx].sum = F + C + Y - f - c - y;
+          CompMap[idx].comp_id = COMP_ID;
+        }
     }
-    // совпадение по количеству мест >= общее кол-во мест
-    idx += 3;
-    if ( CompMap[ idx ].sum > Qry.FieldAsInteger( "f" ) + Qry.FieldAsInteger( "c" ) + Qry.FieldAsInteger( "y" ) - f - c - y ) {
-      CompMap[ idx ].sum = Qry.FieldAsInteger( "f" ) + Qry.FieldAsInteger( "c" ) + Qry.FieldAsInteger( "y" ) - f - c - y;
-      CompMap[ idx ].comp_id = Qry.FieldAsInteger( "comp_id" );
+  } else {
+    std::string sql =
+        " SELECT * FROM ( ";
+    sql += getConfigSQLText(false);
+    sql +=
+        ") WHERE invalid_class = 0 AND "
+        "        F - :vf >= 0 AND "
+        "        C - :vc >= 0 AND "
+        "        Y - :vy >= 0 AND "
+        "        F < 1000 AND C < 1000 AND Y < 1000 "
+        " ORDER BY comp_id ";
+
+    Qry.Clear();
+    Qry.SQLText = sql;
+    Qry.CreateVariable("plan_id", otInteger, planId);
+    Qry.CreateVariable("airline", otString, airline);
+    Qry.CreateVariable("bort", otString, bort);
+    Qry.CreateVariable("vf", otString, f);
+    Qry.CreateVariable("vc", otString, c);
+    Qry.CreateVariable("vy", otString, y);
+    Qry.Execute();
+    for (; !Qry.Eof; Qry.Next())
+    {
+      idx = 0; // когда совпадает борт+авиакомпания OR аэропорт
+      // совпадение по кол-ву мест для каждого класса
+      if (SIGN(Qry.FieldAsInteger("f")) == SIGN(f) &&
+          SIGN(Qry.FieldAsInteger("c")) == SIGN(c) &&
+          SIGN(Qry.FieldAsInteger("y")) == SIGN(y) &&
+          Qry.FieldAsInteger("f") >= f &&
+          Qry.FieldAsInteger("c") >= c &&
+          Qry.FieldAsInteger("y") >= y &&
+          CompMap[idx].sum > Qry.FieldAsInteger("f") + Qry.FieldAsInteger("c") + Qry.FieldAsInteger("y") - f - c - y)
+      {
+        CompMap[idx].sum = Qry.FieldAsInteger("f") + Qry.FieldAsInteger("c") + Qry.FieldAsInteger("y") - f - c - y;
+        CompMap[idx].comp_id = Qry.FieldAsInteger("comp_id");
+      }
+
+      idx += 3;
+      // совпадение по классам и количеству мест >= общее кол-во мест
+      if (SIGN(Qry.FieldAsInteger("f")) == SIGN(f) &&
+          SIGN(Qry.FieldAsInteger("c")) == SIGN(c) &&
+          SIGN(Qry.FieldAsInteger("y")) == SIGN(y) &&
+          CompMap[idx].sum > Qry.FieldAsInteger("f") + Qry.FieldAsInteger("c") + Qry.FieldAsInteger("y") - f - c - y)
+      {
+        CompMap[idx].sum = Qry.FieldAsInteger("f") + Qry.FieldAsInteger("c") + Qry.FieldAsInteger("y") - f - c - y;
+        CompMap[idx].comp_id = Qry.FieldAsInteger("comp_id");
+      }
+      // совпадение по количеству мест >= общее кол-во мест
+      idx += 3;
+      if (CompMap[idx].sum > Qry.FieldAsInteger("f") + Qry.FieldAsInteger("c") + Qry.FieldAsInteger("y") - f - c - y)
+      {
+        CompMap[idx].sum = Qry.FieldAsInteger("f") + Qry.FieldAsInteger("c") + Qry.FieldAsInteger("y") - f - c - y;
+        CompMap[idx].comp_id = Qry.FieldAsInteger("comp_id");
+      }
     }
   }
+
   if ( !CompMap.size() ) {
     return ASTRA::NoExists;
   }
