@@ -426,3 +426,37 @@ $(defmacro NEW_CHECKIN_2986145212943
     <transfer/>}
 )
 
+$(defmacro NEW_CHECKIN_NOREC
+  surname
+  name
+  pers_type=Çá
+  seats=1
+  subclass=ù
+  document
+{   <pax_id/>
+   <surname>$(surname)</surname>
+   <name>$(name)</name>
+   <pers_type>$(pers_type)</pers_type>
+   <seat_no/>
+   <preseat_no/>
+   <seat_type/>
+   <seats>$(seats)</seats>
+   <ticket_no/>
+   <coupon_no/>
+   <ticket_rem/>
+   <ticket_confirm>0</ticket_confirm>
+$(if $(eq $(document) "") <document/> $(document))
+   <doco/>
+   <addresses/>
+   <subclass>$(subclass)</subclass>
+   <bag_pool_num/>
+   <transfer/>
+   <rems/>
+   <fqt_rems/>
+   <norms/>}
+)
+
+
+
+
+

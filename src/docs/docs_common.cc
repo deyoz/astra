@@ -3,6 +3,8 @@
 #include "stat/stat_utils.h"
 #include "season.h"
 #include "aodb.h"
+#include "db_tquery.h"
+#include "PgOraConfig.h"
 #include <boost/shared_array.hpp>
 
 #define NICKNAME "DENIS"
@@ -695,7 +697,7 @@ string get_hall_list(string airp, TRptParams &rpt_params)
 void trip_rpt_person(xmlNodePtr resNode, TRptParams &rpt_params)
 {
     xmlNodePtr variablesNode = STAT::getVariablesNode(resNode);
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("TRIP_RPT_PERSON"));
     Qry.SQLText = "select * from trip_rpt_person where point_id = :point_id";
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
     Qry.Execute();

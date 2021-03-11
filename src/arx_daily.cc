@@ -6,6 +6,7 @@
 #include "astra_utils.h"
 #include "qrys.h"
 #include "stat/stat_main.h"
+#include "tlg/typeb_db.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -579,6 +580,8 @@ bool TArxTlgTrips::Next(int max_rows, int duration)
 
       try
       {
+        TypeB::deleteTypeBData(PointIdTlg_t(point_id), "", "", false/*delete_trip_comp_layers*/);
+
         //в архив
         Qry->SetVariable("point_id",point_id);
         Qry->Execute();

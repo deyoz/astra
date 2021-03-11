@@ -10,13 +10,16 @@
 #include "serverlib/internal_msgid.h" 
 #include "serverlib/posthooks.h"
 
-#define NICKNAME "DENIS"
-#include "serverlib/test.h"
+#include "PgOraConfig.h"
+#include "db_tquery.h"
 
 #include "qrys.h"
 #include "astra_utils.h"
 #include "edi_utils.h"
 #include "exceptions.h"
+
+#define NICKNAME "DENIS"
+#include "serverlib/test.h"
 
 namespace TypeBHelpMng {
 
@@ -73,7 +76,13 @@ int TypeBHelp::getTlgsId(int typeb_in_id)
     int result = ASTRA::NoExists;
     QParams QryParams;
     QryParams << QParam("typeb_in_id", otInteger, typeb_in_id);
-    TCachedQuery Qry("select id from tlgs where typeb_tlg_id = :typeb_in_id", QryParams);
+
+    DB::TCachedQuery Qry(
+        PgOra::getROSession("TLGS"),
+       "select id from tlgs where typeb_tlg_id = :typeb_in_id",
+        QryParams
+    );
+
     Qry.get().Execute();
     for(; not Qry.get().Eof; Qry.get().Next()) {
         if(result == ASTRA::NoExists)

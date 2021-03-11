@@ -11,6 +11,7 @@
 using BASIC::date_time::TDateTime;
 
 int main_timer_tcl(int supervisorSocket, int argc, char *argv[]);
+void cleanOldRecords();
 void ETCheckStatusFlt(void);
 void utg(void);
 void sync_mvd(void);

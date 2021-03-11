@@ -40,6 +40,11 @@ namespace PgOra
 
     std::string makeSeqNextVal(const std::string& sequenceName);
     long getSeqNextVal(const std::string& sequenceName);
+    int getSeqNextVal_int(const std::string& sequenceName);
     unsigned long getSeqNextVal_ul(const std::string& sequenceName);
 
+    std::string makeSeqCurrVal(const std::string& sequenceName);
+    long getSeqCurrVal(const std::string& sequenceName);
+    int getSeqCurrVal_int(const std::string& sequenceName);
+    unsigned long getSeqCurrVal_ul(const std::string& sequenceName);
 }// namespace PgOra

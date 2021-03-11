@@ -622,6 +622,12 @@ static std::string FP_settcl(const std::vector<std::string>& par)
     return std::string();
 }
 
+static std::string FP_gettcl(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() == 1);
+    return readStringFromTcl(par.at(0));
+}
+
 static std::string FP_lastGeneratedPaxId(const std::vector<std::string>& par)
 {
     int lgpid = lastGeneratedPaxId();
@@ -824,26 +830,43 @@ static std::string FP_runResendTlg(const std::vector<std::string>& par)
     return "";
 }
 
-static std::string FP_dump_db_table(const std::vector<tok::Param>& params)
+static std::string FP_dump_table_astra(const std::vector<tok::Param> &params)
 {
     ASSERT(params.size() > 0);
-    std::string tableName = params[0].value;
 
-    std::string db = "pg";
+    std::string tableName = params[0].value;
+    std::string session, fields, where, order;
+    bool display = false;
     for (size_t i = 1; i < params.size(); ++i) {
-        if(params[i].name == "db") {
-            db = params[i].value;
+        if (params[i].name == "session") {
+            session = params[i].value;
+        } else if (params[i].name == "fields") {
+            fields = params[i].value;
+        } else if (params[i].name == "where") {
+            where = params[i].value;
+        } else if (params[i].name == "order") {
+            order = params[i].value;
+        } else if (params[i].name == "display") {
+            if (params[i].value == "on") {
+                display = true;
+            }
         }
     }
+    auto dt = std::make_shared<ServerFramework::DbDumpTable>(PgOra::getRWSession(tableName), tableName);
 
-    std::string dump;
-    if(db == "pg") {
-        DbCpp::DumpTable(*get_main_pg_rw_sess(STDLOG), tableName).exec(dump);
-    } else if(db == "ora") {
-        DbCpp::DumpTable(*get_main_ora_sess(STDLOG), tableName).exec(dump);
+    if (!fields.empty()) {
+        dt->addFld(fields);
     }
-    LogTrace(TRACE3) << dump;
-    return "";
+    dt->where(where);
+    dt->order(order);
+    std::string answer;
+    if (display) {
+        dt->exec(answer);
+    } else {
+        dt->exec(TRACE5);
+    }
+
+    return answer;
 }
 
 static std::vector<string> getPaxAlarms(const std::string& table_name, int pax_id)
@@ -873,8 +896,9 @@ static std::string formatPaxAlarms(const std::vector<std::string>& alarms)
 static std::vector<string> getTripAlarms(const std::string& table_name, int point_id)
 {
     std::string alarm;
-    auto cur = make_curs(
-               "select ALARM_TYPE from "+table_name+" where POINT_ID=:point_id");
+    auto cur = make_db_curs(
+               "select ALARM_TYPE from "+table_name+" where POINT_ID=:point_id",
+                PgOra::getROSession(table_name));
     cur.def(alarm)
             .bind(":point_id", point_id)
             .exec();
@@ -1004,6 +1028,73 @@ static std::string FP_runEtFltTask(const std::vector<std::string> &par)
   return "";
 }
 
+static std::string FP_cleanOldRecords(const std::vector<std::string> &par)
+{
+  cleanOldRecords();
+  return "";
+}
+
+enum class TlgIdent { TlgId, TlgNum, TypeBInId };
+
+static std::string getTlgIdent(TlgIdent tlgIdent, const std::vector<std::string> &par)
+{
+  int rowNumRequired=0;
+  if (par.size() > 0) rowNumRequired=std::stoi(par.at(0));
+
+  ASSERT(rowNumRequired<=0);
+
+  std::string sql;
+
+  DbCpp::CursCtl cur = [](TlgIdent tlgIdent) {
+    switch (tlgIdent)
+    {
+    case TlgIdent::TlgId:
+      return make_db_curs(
+       "SELECT id FROM tlgs ORDER BY id DESC"
+        , PgOra::getRWSession("TLGS")
+      );
+    case TlgIdent::TlgNum:
+      return make_db_curs(
+       "SELECT tlg_num FROM tlgs ORDER BY tlg_num DESC"
+        , PgOra::getRWSession("TLGS")
+      );
+    default: //TlgIdent::TypeBInId:
+      return make_db_curs(
+       "SELECT id FROM typeb_in ORDER BY id DESC"
+        , PgOra::getRWSession("TYPEB_IN")
+      );
+    }
+  }(tlgIdent);
+
+  int tlgNum;
+  cur.def(tlgNum)
+     .exec();
+
+  int rowNum=0;
+  while (!cur.fen()) {
+    if ((rowNum--)==rowNumRequired) return std::to_string(tlgNum);
+  }
+
+  if (rowNumRequired==0) throw EXCEPTIONS::Exception("Empty table TLGS!");
+
+  return "";
+}
+
+static std::string FP_lastTlgId(const std::vector<std::string> &par)
+{
+  return getTlgIdent(TlgIdent::TlgId, par);
+}
+
+static std::string FP_lastTlgNum(const std::vector<std::string> &par)
+{
+  return getTlgIdent(TlgIdent::TlgNum, par);
+}
+
+static std::string FP_lastTypeBInId(const std::vector<std::string> &par)
+{
+  return getTlgIdent(TlgIdent::TypeBInId, par);
+}
+
 FP_REGISTER("<<", FP_tlg_in);
 FP_REGISTER("!!", FP_req);
 FP_REGISTER("astra_hello", FP_astra_hello);
@@ -1032,6 +1123,7 @@ FP_REGISTER("get_lat_code", FP_get_lat_code);
 FP_REGISTER("get_elem_id", FP_getElemId);
 FP_REGISTER("get_random_bp_type", FP_getRandomBpTypeCode);
 FP_REGISTER("settcl", FP_settcl);
+FP_REGISTER("gettcl", FP_gettcl);
 FP_REGISTER("last_generated_pax_id", FP_lastGeneratedPaxId);
 FP_REGISTER("substr", FP_substr);
 FP_REGISTER("set_desk_version", FP_setDeskVersion);
@@ -1046,12 +1138,39 @@ FP_REGISTER("check_flight_tasks", FP_checkFlightTasks);
 FP_REGISTER("update_msg", FP_runUpdateMsg);
 FP_REGISTER("resend", FP_runResendTlg);
 FP_REGISTER("update_pg_coupon", FP_runUpdateCoupon);
+FP_REGISTER("db_dump_table", FP_dump_table_astra);
 FP_REGISTER("init_iapi_request_id", FP_initIapiRequestId);
 FP_REGISTER("get_bcbp", FP_getBCBP);
 FP_REGISTER("cache", FP_cache);
 FP_REGISTER("cache_iface_ver", FP_getCacheIfaceVer);
 FP_REGISTER("cache_sql_param", FP_getCacheSQLParam);
-FP_REGISTER("dump_db_table", FP_dump_db_table);
 FP_REGISTER("run_et_flt_task", FP_runEtFltTask);
+FP_REGISTER("clean_old_records", FP_cleanOldRecords);
+FP_REGISTER("last_tlg_id", FP_lastTlgId);
+FP_REGISTER("last_tlg_num", FP_lastTlgNum);
+FP_REGISTER("last_typeb_in_id", FP_lastTypeBInId);
+
+#include "xp_testing.h"
+
+START_TEST(check_getTlgIdent)
+{
+    const int first_tlg_id = saveTlg("RECVR", "SENDR", "OUTA", "test1");
+    const int second_tlg_id = saveTlg("RECVR", "SENDR", "OUTB", "test2");
+    const int third_tlg_id = saveTlg("RECVR", "SENDR", "OAPP", "test3");
+
+    fail_unless(getTlgIdent(TlgIdent::TlgId, {"-2"}) == std::to_string(first_tlg_id));
+    fail_unless(getTlgIdent(TlgIdent::TlgId, {"-1"}) == std::to_string(second_tlg_id));
+    fail_unless(getTlgIdent(TlgIdent::TlgId, {"0"}) == std::to_string(third_tlg_id));
+}
+END_TEST;
+
+#define SUITENAME "tlg_queue"
+TCASEREGISTER(testInitDB, testShutDBConnection)
+{
+    ADD_TEST(check_getTlgIdent);
+}
+TCASEFINISH;
+#undef SUITENAME
+
 
 #endif /* XP_TESTING */

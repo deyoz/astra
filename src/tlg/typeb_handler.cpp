@@ -32,6 +32,7 @@
 #include "remote_system_context.h"
 #include "astra_context.h"
 #include "astra_ssim.h"
+#include "db_tquery.h"
 
 #include <serverlib/posthooks.h>
 #include <serverlib/ourtime.h>
@@ -46,6 +47,8 @@
 #include <math.h>
 #include <iostream>
 #include <regex>
+
+#include "PgOraConfig.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -354,15 +357,15 @@ bool handle_tlg(void)
 
   TMemoryManager mem(STDLOG);
 
-  static TQuery TlgQry(&OraSession);
-  if (TlgQry.SQLText.IsEmpty())
+  static DB::TQuery TlgQry(PgOra::getROSession("TLG_QUEUE"));
+  if (TlgQry.SQLText.empty())
   {
     //внимание порядок объединения таблиц важен!
     TlgQry.Clear();
     TlgQry.SQLText=
       "SELECT tlg_queue.id,tlg_queue.time,ttl, "
       "       tlg_queue.tlg_num,tlg_queue.sender, "
-      "       NVL(tlg_queue.proc_attempt,0) AS proc_attempt "
+      "       COALESCE(tlg_queue.proc_attempt,0) AS proc_attempt "
       "FROM tlg_queue "
       "WHERE tlg_queue.receiver=:receiver AND "
       "      tlg_queue.type='INB' AND tlg_queue.status='PUT' "
@@ -412,6 +415,17 @@ void prehandle_tpb_tlg(tlg_info &tlg)
 {
   std::regex re("^(([^\\n\\r]+(\\n|\\r\\n)){1,8}\\.\\w{7}[^\\n\\r]*(\\n|\\r\\n))PDM(\\n|\\r\\n)");
   tlg.text=std::regex_replace(tlg.text, re, "$1");
+}
+
+void set_tlg_part_no_tlgs_id(const int id, const int part_no, const int tlg_id)
+{
+  make_db_curs(
+     "UPDATE tlgs SET typeb_tlg_id=:id, typeb_tlg_num=:part_no WHERE id=:tlgs_id",
+      PgOra::getRWSession("TLGS"))
+     .bind(":id", id)
+     .bind(":part_no", part_no)
+     .bind(":tlgs_id", tlg_id)
+     .exec();
 }
 
 void handle_tpb_tlg(const tlg_info &tlg)
@@ -488,7 +502,6 @@ void handle_tpb_tlg(const tlg_info &tlg)
       "  VALUES(:id,:part_no,:tlg_type,:addr,:heading,:ending,:is_final_part, "
       "    :merge_key,:time_create,vnow,vtime_parse,vtime_receive_not_parse); "
       "  UPDATE typeb_in_history SET tlg_id=:id WHERE id=:tlgs_id; "
-      "  UPDATE tlgs SET typeb_tlg_id=:id, typeb_tlg_num=:part_no WHERE id=:tlgs_id; "
       "END;";
     QParams QryParams;
     QryParams << QParam("id",otInteger)
@@ -674,6 +687,13 @@ void handle_tpb_tlg(const tlg_info &tlg)
         if (typeb_tlg_id!=NoExists)
           procTypeB(typeb_tlg_id, 0); //лочка
         InsQry.get().Execute();
+
+        set_tlg_part_no_tlgs_id(
+          InsQry.get().GetVariableAsInteger("id"),
+          InsQry.get().GetVariableAsInteger("part_no"),
+          tlg.id
+        );
+
         socket_name = getSocketName(InsQry.get().GetVariableAsString("proc_name"));
         insert_typeb=true;
       }
@@ -701,6 +721,13 @@ void handle_tpb_tlg(const tlg_info &tlg)
           InsQry.get().SetVariable("id",FNull);
           InsQry.get().SetVariable("merge_key",FNull);
           InsQry.get().Execute();
+
+          set_tlg_part_no_tlgs_id(
+            InsQry.get().GetVariableAsInteger("id"),
+            InsQry.get().GetVariableAsInteger("part_no"),
+            tlg.id
+          );
+
           socket_name = getSocketName(InsQry.get().GetVariableAsString("proc_name"));
           insert_typeb=true;
 

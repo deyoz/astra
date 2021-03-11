@@ -27,13 +27,22 @@ namespace PgOra
     using GroupsType = std::vector<std::pair<std::string, std::vector<std::string>>>;
 
     static const GroupsType sGroups {
+        { "SP_PG_GROUP_JXTCONT", {"CONT"} },
+        { "SP_PG_GROUP_FILE", {"FILE_ERROR", "FILE_QUEUE", "FILES", "FILE_PARAMS"} },
+        { "SP_PG_GROUP_FILE_CFG", {"FILE_ENCODING", "FILE_TYPES"} },
         { "SP_PG_GROUP_IAPI",  { "IAPI_PAX_DATA" } },
         { "SP_PG_GROUP_IATCI", { "IATCI_TABS_SEQ", "IATCI_TABS", "IATCI_SETTINGS", "GRP_IATCI_XML", "DEFERRED_CKI_DATA", "CKI_DATA" } },
         { "SP_PG_GROUP_WC",    { "RL_SEQ", "WC_PNR", "WC_TICKET", "WC_COUPON", "AIRPORT_CONTROLS" } },
         { "SP_PG_GROUP_ET",    { "ETICKETS", "ETICKS_DISPLAY", "ETICKS_DISPLAY_TLGS" } },
         { "SP_PG_GROUP_EMD",   { "EMDOCS", "EMDOCS_DISPLAY" } },
+        { "SP_PG_GROUP_CRS_SVC",{ "CRS_PAX_ASVC", "CRS_PAX_REM" } },
+        { "SP_PG_GROUP_CRS_DOC",{ "CRS_PAX_DOC", "CRS_PAX_DOCA", "CRS_PAX_DOCO" } },
         { "SP_PG_GROUP_SCHED", { "SCHED_DAYS", "SEASON_SPP", "ROUTES", "SSM_SCHEDULE"} },
-        { "SP_PG_GROUP_SCHED_SEQ", {"ROUTES_MOVE_ID", "ROUTES_TRIP_ID", "SSM_ID"} }
+        { "SP_PG_GROUP_SCHED_SEQ", {"ROUTES_MOVE_ID", "ROUTES_TRIP_ID", "SSM_ID"} },
+        { "SP_PG_GROUP_SPPCKIN", {"TRIP_ALARMS", "TRIP_APIS_PARAMS", "TRIP_RPT_PERSON", "UTG_PRL"} },
+        { "SP_PG_GROUP_WB",    { "WB_MSG", "WB_MSG_TEXT" } },
+        { "SP_PG_GROUP_CONTEXT", {"CONTEXT", "CONTEXT__SEQ"} },
+        { "SP_PG_GROUP_TLG_QUE",   { "TLGS", "TLGS_TEXT", "TLG_QUEUE", "TLG_ERROR", "TLG_STAT" } },
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
@@ -133,6 +142,14 @@ namespace PgOra
         return ("SELECT " + sequenceName + ".NEXTVAL FROM DUAL");
     }
 
+    std::string makeSeqCurrVal(const std::string& sequenceName)
+    {
+        if (supportsPg(sequenceName)) {
+            return ("SELECT CURRVAL('" + sequenceName + "')");
+        }
+        return ("SELECT " + sequenceName + ".CURRVAL FROM DUAL");
+    }
+
     template<class T>
     T getSeqNextValInner(const std::string& sequenceName)
     {
@@ -149,9 +166,40 @@ namespace PgOra
         return getSeqNextValInner<long>(sequenceName);
     }
 
+    int getSeqNextVal_int(const std::string& sequenceName)
+    {
+        return getSeqNextValInner<int>(sequenceName);
+    }
+
     unsigned long getSeqNextVal_ul(const std::string& sequenceName)
     {
         return getSeqNextValInner<unsigned long>(sequenceName);
+    }
+
+    template<class T>
+    T getSeqCurrValInner(const std::string& sequenceName)
+    {
+        T result;
+        make_db_curs(makeSeqCurrVal(sequenceName),
+                     getRWSession(sequenceName))
+                .def(result)
+                .EXfet();
+        return result;
+    }
+
+    long getSeqCurrVal(const std::string& sequenceName)
+    {
+        return getSeqCurrValInner<long>(sequenceName);
+    }
+
+    int getSeqCurrVal_int(const std::string& sequenceName)
+    {
+        return getSeqNextValInner<int>(sequenceName);
+    }
+
+    unsigned long getSeqCurrVal_ul(const std::string& sequenceName)
+    {
+        return getSeqCurrValInner<unsigned long>(sequenceName);
     }
 
 } // namespace PgOra

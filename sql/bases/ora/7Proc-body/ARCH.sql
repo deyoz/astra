@@ -1252,24 +1252,17 @@ BEGIN
     DELETE FROM trip_stations WHERE point_id=curRow.point_id;
     DELETE FROM trip_paid_ckin WHERE point_id=curRow.point_id;
     DELETE FROM trip_calc_data WHERE point_id=curRow.point_id;
-    DELETE FROM trip_alarms WHERE point_id=curRow.point_id;
     DELETE FROM trip_pers_weights WHERE point_id=curRow.point_id;
     DELETE FROM trip_auto_weighing WHERE point_id=curRow.point_id;
-    DELETE FROM trip_rpt_person WHERE point_id=curRow.point_id;
     UPDATE trfer_trips SET point_id_spp=NULL WHERE point_id_spp=curRow.point_id;
     DELETE FROM pax_seats WHERE point_id=curRow.point_id;
-    DELETE FROM utg_prl WHERE point_id=curRow.point_id;
     DELETE FROM trip_tasks WHERE point_id=curRow.point_id;
-    DELETE FROM trip_apis_params WHERE point_id=curRow.point_id;
     DELETE FROM counters_by_subcls WHERE point_id=curRow.point_id;
     DELETE FROM apps_messages WHERE msg_id in (SELECT cirq_msg_id FROM apps_pax_data where point_id=curRow.point_id);
     DELETE FROM apps_messages WHERE msg_id in (SELECT cicx_msg_id FROM apps_pax_data where point_id=curRow.point_id);
     DELETE FROM apps_messages WHERE msg_id in (SELECT msg_id FROM apps_manifest_data where point_id=curRow.point_id);
     DELETE FROM apps_pax_data WHERE point_id=curRow.point_id;
     DELETE FROM apps_manifest_data WHERE point_id=curRow.point_id;
---    DELETE FROM iapi_pax_data WHERE point_id=curRow.point_id;
-    DELETE FROM wb_msg_text where id in(SELECT id FROM wb_msg WHERE point_id = curRow.point_id);
-    DELETE FROM wb_msg where point_id = curRow.point_id;
     DELETE FROM trip_vouchers WHERE point_id=curRow.point_id;
     DELETE FROM confirm_print_vo_unreg WHERE point_id = curRow.point_id;
     DELETE FROM del_vo WHERE point_id = curRow.point_id;
@@ -1598,14 +1591,8 @@ BEGIN
   remain_rows:=max_rows;
   time_finish:=SYSDATE+time_duration/86400;
 
-  WHILE step>=1 AND step<=8 LOOP
+  WHILE step>=2 AND step<=8 LOOP
     IF SYSDATE>time_finish THEN RETURN; END IF;
-    IF step=1 THEN
-      OPEN cur FOR
-        SELECT rowid,id
-        FROM tlgs
-        WHERE time<arx_date AND rownum<=remain_rows FOR UPDATE;
-    END IF;
     IF step=2 THEN
       OPEN cur FOR
         SELECT rowid,id
@@ -1620,48 +1607,11 @@ BEGIN
         WHERE time<arx_date AND rownum<=remain_rows FOR UPDATE;
     END IF;
 
-    IF step=1 OR step=2 OR step=8 THEN
+    IF step=2 OR step=8 THEN
       LOOP
         FETCH cur BULK COLLECT INTO rowids,ids LIMIT BULK_COLLECT_LIMIT;
-        IF step=1 THEN
-          FORALL i IN 1..ids.COUNT
-            INSERT INTO arx_tlg_stat
-              (queue_tlg_id, typeb_tlg_id, typeb_tlg_num,
-               sender_sita_addr, sender_canon_name, sender_descr, sender_country,
-               receiver_sita_addr, receiver_canon_name, receiver_descr, receiver_country,
-               time_create, time_send, time_receive, tlg_type, tlg_len,
-               airline, flt_no, suffix, scd_local_date, airp_dep, airline_mark, extra, part_key)
-            SELECT
-               queue_tlg_id, typeb_tlg_id, typeb_tlg_num,
-               sender_sita_addr, sender_canon_name, sender_descr, sender_country,
-               receiver_sita_addr, receiver_canon_name, receiver_descr, receiver_country,
-               time_create, time_send, time_receive, tlg_type, tlg_len,
-               airline, flt_no, suffix, scd_local_date, airp_dep, airline_mark, extra, time_send
-            FROM tlg_stat
-            WHERE queue_tlg_id=ids(i) AND time_send IS NOT NULL;
-          FORALL i IN 1..ids.COUNT
-            DELETE FROM tlg_stat WHERE queue_tlg_id=ids(i);
-
-          FORALL i IN 1..ids.COUNT
-            DELETE FROM tlg_error WHERE id=ids(i);
-          FORALL i IN 1..ids.COUNT
-            DELETE FROM tlg_queue WHERE id=ids(i);
-          FORALL i IN 1..ids.COUNT
-            DELETE FROM tlgs_text WHERE id=ids(i);
-
-          FORALL i IN 1..rowids.COUNT
-            DELETE FROM tlgs WHERE rowid=rowids(i);
-        END IF;
         IF step=2 THEN
-          FORALL i IN 1..ids.COUNT
-            DELETE FROM file_queue WHERE id=ids(i);
-          FORALL i IN 1..ids.COUNT
-            DELETE FROM file_params WHERE id=ids(i);
-          FORALL i IN 1..ids.COUNT
-            DELETE FROM file_error WHERE id=ids(i);
-
-          FORALL i IN 1..rowids.COUNT
-            DELETE FROM files WHERE rowid=rowids(i);
+          NULL;
         END IF;
         IF step=8 THEN
           FORALL i IN 1..ids.COUNT

@@ -406,7 +406,10 @@ class TPaxASVCItem : public TPaxRemBasic, public TServiceBasic
 
 typedef std::multiset<TPaxRemItem> PaxRems;
 bool LoadPaxRem(int pax_id, std::multiset<TPaxRemItem> &rems);
-bool LoadCrsPaxRem(int pax_id, std::multiset<TPaxRemItem> &rems);
+bool LoadPaxRem(bool is_crs, int pax_id, std::multiset<TPaxRemItem> &rems, bool onlyPD = false,
+                const std::string& code = "");
+bool LoadCrsPaxRem(int pax_id, std::multiset<TPaxRemItem> &rems, bool onlyPD = false,
+                   const std::string& code = "");
 bool LoadPaxFQT(int pax_id, std::set<TPaxFQTItem> &fqts);
 std::set<TPaxFQTItem> getPaxFQTNotEmptyTierLevel(const PaxOrigin& origin, const PaxId_t& paxId, bool onlyFQTV);
 bool LoadCrsPaxFQT(int pax_id, std::set<TPaxFQTItem> &fqts);

@@ -3,6 +3,11 @@
 #include "stat_utils.h"
 #include "report_common.h"
 
+#include "hooked_session.h"
+#include "PgOraConfig.h"
+
+#define NICKNAME "DENIS"
+
 using namespace std;
 using namespace AstraLocale;
 using namespace ASTRA;
@@ -57,8 +62,10 @@ void RunTlgOutStat(const TStatParams &params,
                    TTlgOutStat &TlgOutStat, TTlgOutStatRow &TlgOutStatTotal,
                    TPrintAirline &prn_airline)
 {
-    TQuery Qry(&OraSession);
     for(int pass = 0; pass <= 1; pass++) {
+        DB::TQuery Qry(pass != 0
+          ? *get_main_ora_sess(STDLOG)
+          : PgOra::getROSession("TLG_STAT"));
         string SQLText =
             "SELECT \n"
             "  tlg_stat.sender_sita_addr, \n"

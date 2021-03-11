@@ -73,14 +73,7 @@ void BM_OUTPUT_QUEUE::sendFile( int tlg_id )
 
 void BM_OUTPUT_QUEUE::unSendFile( int tlg_id )
 {
-  TQuery Qry(&OraSession);
-  Qry.SQLText = "UPDATE file_queue SET status='PUT', time=system.UTCSYSDATE WHERE id= :id";
-  Qry.CreateVariable( "id", otInteger, tlg_id );
-  Qry.Execute();
-  bool res = ( Qry.RowsProcessed() > 0 );
-  if ( res ) {
-    ProgTrace( TRACE5, "unSendFile id=%d", tlg_id );
-  }
+  TFileQueue::unsendFile( tlg_id );
   ASTRA::commit();
 }
 

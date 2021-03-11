@@ -11,10 +11,6 @@ if [ ! -f "nosir.tcl" ]; then
     cp ../RUN_EXAMPLE/nosir.tcl nosir.tcl
 fi
 
-if [ ! -f "supervisor.tcl" ]; then
-    cp ../RUN_EXAMPLE/supervisor.tcl supervisor.tcl
-fi
-
 if [ ! -f "date_time_zonespec.csv" ]; then
     cp ../RUN_EXAMPLE/date_time_zonespec.csv date_time_zonespec.csv
 fi
@@ -102,11 +98,22 @@ set ALWAYS_OCI8 0
 
 set SP_PG_GROUP_ET 3
 set SP_PG_GROUP_EMD 3
+set SP_PG_GROUP_CRS_SVC 3
+set SP_PG_GROUP_CRS_DOC 3
 
+set SP_PG_GROUP_JXTCONT 3
+set SP_PG_GROUP_FILE 3
+# only after cache_tables migrated
+set SP_PG_GROUP_FILE_CFG 0
 set SP_PG_GROUP_IAPI 3
 set SP_PG_GROUP_IATCI 3
 set SP_PG_GROUP_WC 3
+set SP_PG_GROUP_WB 3
 
 set SP_PG_GROUP_SCHED 3
 set SP_PG_GROUP_SCHED_SEQ 3
+
+set SP_PG_GROUP_SPPCKIN 3
+set SP_PG_GROUP_CONTEXT 3
+set SP_PG_GROUP_TLG_QUE 3
 EOF

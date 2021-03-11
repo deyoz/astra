@@ -127,3 +127,48 @@ $(defmacro BOARDING_REQUEST_BY_SCAN_DATA
 </term>}
 
 })
+
+$(defmacro LOAD_APIS_REQUEST
+  point_dep
+  pax_id
+  pax_tid
+  capture=off
+{
+
+!! capture=$(capture)
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='brd' ver='1' opr='PIKE' screen='BRDBUS.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <LoadPaxAPIS>
+      <point_id>$(point_dep)</point_id>
+      <pax_id>$(pax_id)</pax_id>
+      <tid>$(pax_tid)</tid>
+    </LoadPaxAPIS>
+  </query>
+</term>}
+
+}) #end-of-macro LOAD_APIS_REQUEST
+
+$(defmacro SAVE_APIS_REQUEST
+  point_dep
+  pax_id
+  pax_tid
+  apis
+  capture=off
+{
+
+!! capture=$(capture)
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='brd' ver='1' opr='PIKE' screen='BRDBUS.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <SavePaxAPIS>
+      <point_id>$(point_dep)</point_id>
+      <pax_id>$(pax_id)</pax_id>
+      <tid>$(pax_tid)</tid>
+$(apis)
+    </SavePaxAPIS>
+  </query>
+</term>}
+
+}) #end-of-macro SAVE_APIS_REQUEST
+

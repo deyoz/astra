@@ -1,6 +1,7 @@
 include(ts/macro.ts)
 include(ts/adm_macro.ts)
 include(ts/spp/write_dests_macro.ts)
+include(ts/spp/write_trips_macro.ts)
 include(ts/pax/checkin_macro.ts)
 include(ts/pax/boarding_macro.ts)
 

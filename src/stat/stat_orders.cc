@@ -7,8 +7,11 @@
 #include "stat_utils.h"
 #include "report_common.h"
 #include "astra_misc.h"
+#include "file_queue.h"
 #include "jxtlib/zip.h"
 #include "serverlib/str_utils.h"
+#include "PgOraConfig.h"
+#include "db_tquery.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -120,6 +123,7 @@ void TStatOrder::del() const
 
 void TStatOrder::toDB()
 {
+    const auto file_time = TFileQueue::getwait_time(file_id).second;
     TCachedQuery Qry(
             "insert into stat_orders( "
             "   file_id, "
@@ -131,7 +135,7 @@ void TStatOrder::toDB()
             ") values ( "
             "   :file_id, "
             "   :user_id, "
-            "   (select time from files where id = :file_id), "
+            "   :file_time, "
             "   :os, "
             "   :status, "
             "   0 "
@@ -139,6 +143,7 @@ void TStatOrder::toDB()
             QParams()
             << QParam("file_id", otInteger, file_id)
             << QParam("user_id", otInteger, user_id)
+            << QParam("file_time", otDate, file_time)
             << QParam("os", otString, EncodeOrderSource(source))
             << QParam("status", otInteger, stRunning)
             );
@@ -319,7 +324,7 @@ string TFileParams::get_name()
 void TFileParams::get(int file_id)
 {
     items.clear();
-    TCachedQuery Qry(
+    DB::TCachedQuery Qry(PgOra::getROSession("FILE_PARAMS"),
             "select name, value from file_params where id = :file_id", QParams() << QParam("file_id", otInteger, file_id)
             );
     Qry.get().Execute();

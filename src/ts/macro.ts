@@ -1062,42 +1062,6 @@ $(TKCRES_ET_DISP_1CPN UTET UTDC $(get edi_ref0) $(airl1) $(inftTickno) I $(inftS
 
 #########################################################################################
 
-$(defmacro OPEN_CHECKIN
-    point_id
-{
-!! capture=on
-{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='sopp' ver='1' opr='PIKE' screen='SOPP.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-    <WriteTrips>
-      <trips>
-        <trip>
-          <point_id>$(point_id)</point_id>
-          <tripstages>
-            <stage>
-              <stage_id>10</stage_id>
-              <act>$(date_format %d.%m.%Y -24h) 00:41:00</act>
-            </stage>
-            <stage>
-              <stage_id>20</stage_id>
-              <act>$(date_format %d.%m.%Y -24h) 00:41:00</act>
-            </stage>
-          </tripstages>
-        </trip>
-      </trips>
-    </WriteTrips>
-  </query>
-</term>}
-
->> lines=auto
-    <command>
-      <message lexema_id='MSG.DATA_SAVED' code='0'>Данные успешно сохранены</message>
-    </command>
-
-}) #end-of-macro
-
-#########################################################################################
-
 $(defmacro SEARCH_EMD_BY_DOC_NO
     point_dep
     emd_no
@@ -2058,50 +2022,6 @@ $(defmacro UPDATE_PAX_REM
 }) #end-of-macro UPDATE_PAX_REM
 
 #########################################################################################
-
-$(defmacro LOAD_APIS_REQUEST
-  point_dep
-  pax_id
-  pax_tid
-  capture=off
-{
-
-!! capture=$(capture)
-{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='brd' ver='1' opr='PIKE' screen='BRDBUS.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-    <LoadPaxAPIS>
-      <point_id>$(point_dep)</point_id>
-      <pax_id>$(pax_id)</pax_id>
-      <tid>$(pax_tid)</tid>
-    </LoadPaxAPIS>
-  </query>
-</term>}
-
-}) #end-of-macro LOAD_APIS_REQUEST
-
-$(defmacro SAVE_APIS_REQUEST
-  point_dep
-  pax_id
-  pax_tid
-  apis
-  capture=off
-{
-
-!! capture=$(capture)
-{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='brd' ver='1' opr='PIKE' screen='BRDBUS.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-    <SavePaxAPIS>
-      <point_id>$(point_dep)</point_id>
-      <pax_id>$(pax_id)</pax_id>
-      <tid>$(pax_tid)</tid>
-$(apis)
-    </SavePaxAPIS>
-  </query>
-</term>}
-
-}) #end-of-macro SAVE_APIS_REQUEST
 
 $(defmacro UPDATE_PAX_ON_BOARDING
     pax_id

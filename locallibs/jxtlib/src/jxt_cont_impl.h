@@ -30,8 +30,9 @@ class JxtContSir : public JxtCont
     static const int RowNameLength=50;
     //void checkRowName(const std::string &name);
     void saveRow(const JxtContRow *row);
-    void addRow(const JxtContRow *row);
-    void deleteRow(const JxtContRow *row);
+  protected:
+    virtual void addRow(const JxtContRow *row);
+    virtual void deleteRow(const JxtContRow *row);
   public:
     virtual ~JxtContSir() = default;
     explicit JxtContSir(const std::string &pult, int hnd,
