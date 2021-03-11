@@ -118,7 +118,7 @@ static void scan_tlg(void)
   file_queue.get( TFilterQueue( OWN_POINT_ADDR(), FILE_HTTP_TYPEB_TYPE ) );
   int trace_count=0;
   for ( TFileQueue::iterator item=file_queue.begin();
-        item!=file_queue.end(); item++, trace_count++ , ASTRA::commit() ) {
+        item!=file_queue.end(); item++, trace_count++, ASTRA::commit() ) {
     try {
       TTlgOutPartInfo p;
       p.addFromFileParams(item->params); //вначале читаем параметры, так как в этой процедуре TTlgOutPartInfo чистится

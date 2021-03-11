@@ -2,6 +2,7 @@
 #define _ASTRA_CALLBACKS_H_
 
 #include "jxtlib/jxtlib.h"
+#include "jxtlib/jxt_cont_impl.h"
 #include "string"
 
 class AstraJxtCallbacks : public jxtlib::JXTLibCallbacks
@@ -21,6 +22,30 @@ class AstraJxtCallbacks : public jxtlib::JXTLibCallbacks
     virtual void HandleException(ServerFramework::Exception *e);
     virtual void UserBefore(const std::string &head, const std::string &body);
     virtual void UserAfter();
+    virtual void initJxtContext(const std::string &pult) override;
+};
+
+class AstraJxtContHandlerSir : public JxtContext::JxtContHandlerSir
+{
+  private:
+    virtual JxtContext::JxtCont *createContext(int handle) override;
+  public:
+    AstraJxtContHandlerSir(const std::string &pult)
+        : JxtContext::JxtContHandlerSir(pult)
+    {
+    }
+};
+
+class AstraJxtContSir : public JxtContext::JxtContSir
+{
+  public:
+    explicit AstraJxtContSir(const std::string &pult, int hnd,
+                             const JxtContext::JxtContStatus &stat = JxtContext::UNCHANGED)
+        : JxtContext::JxtContSir(pult, hnd, stat) {}
+
+  private:
+    virtual void addRow(const JxtContext::JxtContRow *row) override;
+    virtual void deleteRow(const JxtContext::JxtContRow *row) override;
 };
 
 /*****************************************************************************/
@@ -28,7 +53,7 @@ class AstraJxtCallbacks : public jxtlib::JXTLibCallbacks
 /*****************************************************************************/
 #include "jxtlib/gettext.h"
 
-class AstraLocaleCallbacks : public loclib::LocaleLibCallbacks
+    class AstraLocaleCallbacks : public loclib::LocaleLibCallbacks
 {
   public:
     AstraLocaleCallbacks() : loclib::LocaleLibCallbacks()

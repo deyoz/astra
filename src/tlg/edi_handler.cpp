@@ -26,6 +26,9 @@
 #include <serverlib/testmode.h>
 #include <edilib/edi_func_cpp.h>
 #include <libtlg/telegrams.h>
+#include "db_tquery.h"
+
+#include "PgOraConfig.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -263,15 +266,15 @@ bool handle_tlg(const std::string& handler_id)
 
   time_t time_start=time(NULL);
 
-  static TQuery TlgQry(&OraSession);
-  if (TlgQry.SQLText.IsEmpty())
+  static DB::TQuery TlgQry(PgOra::getROSession("TLG_QUEUE"));
+  if (TlgQry.SQLText.empty())
   {
     //внимание порядок объединения таблиц важен!
     TlgQry.Clear();
     TlgQry.SQLText=
       "SELECT tlg_queue.id,tlg_queue.time,ttl, "
       "       tlg_queue.tlg_num,tlg_queue.sender, "
-      "       NVL(tlg_queue.proc_attempt,0) AS proc_attempt "
+      "       COALESCE(tlg_queue.proc_attempt,0) AS proc_attempt "
       "FROM tlg_queue "
       "WHERE tlg_queue.receiver=:receiver AND "
       "      tlg_queue.type='INA' AND tlg_queue.status='PUT' AND "

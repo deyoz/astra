@@ -47,7 +47,7 @@ CURSOR TKNCur IS
   WHERE pax_id=vpax_id AND (NVL(only_TKNE,0)=0 OR rem_code='TKNE')
   ORDER BY DECODE(rem_code,'TKNE',0,'TKNA',1,'TKNO',2,3),ticket_no,coupon_no;
 TKNCurRow TKNCur%ROWTYPE;
-result  crs_pax_rem.rem%TYPE;
+result VARCHAR2(250);
 BEGIN
   result:=NULL;
   OPEN TKNCur;
@@ -61,31 +61,6 @@ BEGIN
   CLOSE TKNCur;
   RETURN result;
 END get_TKNO;
-
-FUNCTION get_PSPT(vpax_id IN crs_pax.pax_id%TYPE,
-                  with_issue_country IN NUMBER DEFAULT 0,
-                  vlang   IN lang_types.code%TYPE DEFAULT 'RU') RETURN VARCHAR2
-IS
-CURSOR DocCur IS
-  SELECT issue_country,no FROM crs_pax_doc
-  WHERE pax_id=vpax_id
-  ORDER BY DECODE(type,'P',0,NULL,2,1),DECODE(rem_code,'DOCS',0,1),no NULLS LAST;
-DocCurRow DocCur%ROWTYPE;
-result          crs_pax_rem.rem%TYPE;
-BEGIN
-  result:=NULL;
-  OPEN DocCur;
-  FETCH DocCur INTO DocCurRow;
-  IF DocCur%FOUND THEN
-    result:=DocCurRow.no;
-    IF result IS NOT NULL AND with_issue_country<>0 AND
-       DocCurRow.issue_country IS NOT NULL THEN
-      result:=result||' '||DocCurRow.issue_country;
-    END IF;
-  END IF;
-  CLOSE DocCur;
-  RETURN result;
-END get_PSPT;
 
 FUNCTION get_trfer_airline(str	      IN airlines.code%TYPE,
                            pr_lat     IN INTEGER) RETURN airlines.code%TYPE

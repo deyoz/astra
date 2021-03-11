@@ -23,6 +23,10 @@
 #include "serverlib/logger.h"
 #include "serverlib/posthooks.h"
 #include "TypeBHelpMng.h"
+#include "db_tquery.h"
+
+#include "hooked_session.h"
+#include "PgOraConfig.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -332,7 +336,7 @@ void TTlgSearchParams::get(xmlNodePtr reqNode)
     }
 }
 
-void set_ids_search_params(const set<int> &ids, ostringstream &sql, TQuery &Qry)
+void set_ids_search_params(const set<int> &ids, ostringstream &sql, DB::TQuery &Qry)
 {
   int i=1;
   for(set<int>::const_iterator id=ids.begin(); id!=ids.end(); ++id)
@@ -349,7 +353,7 @@ void set_ids_search_params(const set<int> &ids, ostringstream &sql, TQuery &Qry)
   };
 }
 
-void set_tlgs_in_search_params(const TTlgSearchParams &search_params, ostringstream &sql, TQuery &Qry)
+void set_tlgs_in_search_params(const TTlgSearchParams &search_params, ostringstream &sql, DB::TQuery &Qry)
 {
     bool filtered=false;
 
@@ -384,7 +388,7 @@ void set_tlgs_in_search_params(const TTlgSearchParams &search_params, ostringstr
     if (!filtered) throw Exception("set_tlgs_in_search_params: bad situation!");
 }
 
-void set_tlg_trips_search_params(const TTlgSearchParams &search_params, ostringstream &sql, TQuery &Qry)
+void set_tlg_trips_search_params(const TTlgSearchParams &search_params, ostringstream &sql, DB::TQuery &Qry)
 {
     TReqInfo &info = *(TReqInfo::Instance());
 
@@ -469,7 +473,7 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     search_params.get(reqNode);
     search_params.dump();
 
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("TLGS"));
     if (search_params.tlg_id!=NoExists)
     {
       search_params.typeb_in_ids.insert(search_params.tlg_id);
@@ -522,7 +526,10 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
         if (pass==2 && search_params.tlgs_ids.empty()) continue;
       };
 
-      Qry.Clear();
+      DB::TQuery Qry(1 == pass
+        ? *get_main_ora_sess(STDLOG)
+        : PgOra::getROSession("TLGS")
+      );
       ostringstream sql;
       if (pass==1)
       {
@@ -2244,7 +2251,7 @@ void TTlgStat::putTypeBOut(const int queue_tlg_id,
                            const std::string &airline_mark,
                            const std::string &extra)
 {
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getRWSession("TLG_STAT"));
   Qry.Clear();
   Qry.SQLText=
     "INSERT INTO tlg_stat(queue_tlg_id, typeb_tlg_id, typeb_tlg_num, "

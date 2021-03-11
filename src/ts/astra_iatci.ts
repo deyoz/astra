@@ -1,5 +1,6 @@
 include(ts/macro.ts)
 include(ts/adm_macro.ts)
+include(ts/spp/write_trips_macro.ts)
 
 # meta: suite iatci
 

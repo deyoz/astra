@@ -70,8 +70,6 @@ static void watchDog(TDateTime* ptimer)
   }
 }
 
-void cleanOldRecords();
-
 int main_timer_tcl(int supervisorSocket, int argc, char *argv[])
 {
   try
@@ -320,7 +318,6 @@ void cleanOldRecords()
     AstraEdifact::cleanOldRecords(120);
     TGeneratedTags::cleanOldRecords(2*24*60); //2 суток
     cleanForeignScan(365);
-    ASTRA::commit();
 }
 
 using namespace AstraEdifact;

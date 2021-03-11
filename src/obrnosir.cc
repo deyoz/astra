@@ -39,7 +39,6 @@ int season_to_schedules(int argc,char **argv);
 int test_typeb_utils(int argc,char **argv);
 int test_typeb_utils2(int argc,char **argv);
 int test_sopp_sql(int argc,char **argv);
-int test_file_queue(int argc,char **argv);
 int ego_stat(int argc,char **argv);
 int tst_vo(int, char**);
 int prn_tags(int argc, char **argv);
@@ -70,7 +69,6 @@ const
     {"-testsalons",             testsalons,             NULL,                       NULL},
     {"-test_typeb_utils",       test_typeb_utils,       NULL,                       NULL},
     {"-test_sopp_sql",          test_sopp_sql,          NULL,                       NULL},
-    {"-test_file_queue",        test_file_queue,        NULL,                       NULL},
 #ifdef XP_TESTING
     {"-tscript",                nosir_tscript,          NULL,                       NULL},
 #endif//XP_TESTING

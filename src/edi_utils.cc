@@ -21,6 +21,9 @@
 #include <edilib/EdiSessionTimeOut.h>
 #include <edilib/edi_session.h>
 #include <edilib/edilib_db_callbacks.h>
+#include "db_tquery.h"
+
+#include "PgOraConfig.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -31,6 +34,7 @@ using namespace Ticketing;
 using namespace BASIC::date_time;
 using namespace ASTRA;
 using namespace AstraLocale;
+using namespace Dates;
 
 namespace AstraEdifact
 {
@@ -651,14 +655,18 @@ void cleanOldRecords(int min_ago)
   AstraContext::ClearContext("EDI_RESPONSE",min_time);
   AstraContext::ClearContext("LCI",min_time);
 
+  const auto tlg_queue_clear_time = second_clock::universal_time() - hours(1) - minutes(min_ago);
+
+  DbCpp::CursCtl cur = make_db_curs(
+   "DELETE FROM tlg_queue WHERE status='SEND' AND time<:time",
+    PgOra::getRWSession("TLG_QUEUE")
+  );
+
+  cur.stb()
+     .bind(":time", tlg_queue_clear_time)
+     .exec();
+
   TQuery Qry(&OraSession);
-
-  Qry.Clear();
-  Qry.SQLText="DELETE FROM tlg_queue WHERE status='SEND' AND time<:time";
-  Qry.CreateVariable("time", otDate, now-(min_ago+60)/1440.0);
-  Qry.Execute();
-
-  Qry.Clear();
   Qry.SQLText="SELECT ida FROM edisession WHERE sessdatecr<SYSDATE-:min_ago/1440 FOR UPDATE";
   Qry.CreateVariable("min_ago", otInteger, min_ago);
   Qry.Execute();
