@@ -167,7 +167,7 @@ public:
     template<typename T>
     void bind(DbCpp::CursCtl &cur, const T& value) const
     {
-        LogTrace5 << __func__ << " name :" << name_ << " value: " << value;
+        //LogTrace5 << __func__ << " name :" << name_ << " value: " << value;
         if(isNullable()) {
             cur.bind(":"+name_, value, isNotNull(value) ? &nnull : &null);
         } else {
@@ -178,10 +178,10 @@ public:
     void def(DbCpp::CursCtl &cur) const
     {
         if(isNullable()) {
-            LogTrace5 << __func__ << " nullable: " << name_ <<  " value: " << nullValue(value_);
+            //LogTrace5 << __func__ << " nullable: " << name_ <<  " value: " << nullValue(value_);
             cur.defNull(value_, nullValue(value_));
         } else {
-            LogTrace5 << __func__ << "NOT nullable: " << name_;
+            //LogTrace5 << __func__ << "NOT nullable: " << name_;
             cur.def(value_);
         }
     }
@@ -392,7 +392,6 @@ public:
     template<typename Object>
     Cursor& bindAll(Object & obj)
     {
-        LogTrace5 << __func__;
         Binder b(cur_);
         b.visit(obj);
         return *this;
@@ -435,7 +434,7 @@ public:
     bool fen()
     {
         DbCpp::ResultCode res = cur_.fen();
-        LogTrace5 << " fen returned: " << res;
+        //LogTrace5 << " fen returned: " << res;
         return res != DbCpp::ResultCode::Ok;
     }
 
@@ -684,19 +683,14 @@ private:
         cur.ignoreErrors(m_sess->moveErrors());
         Result r;
         cur.bind(bindVars);
-        LogTrace5 << " binded ";
         cur.defAll(r);
-        LogTrace5 << " defined ";
         cur.exec();
-        LogTrace5 << " executed ";
 
         std::vector<Result> res;
-        LogTrace5 << " res created ";
         while(!cur.fen()) {
             res.push_back(r);
-            LogTrace5 << " object pushed ";
         }
-        LogTrace5 << " result vector size: " << res.size();
+        //LogTrace5 << " result vector size: " << res.size();
         return res;
     }
 };

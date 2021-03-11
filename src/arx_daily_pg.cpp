@@ -79,9 +79,9 @@ bool CLEANUP_PG()
 {
     // Если читаем из PG, то пусть и PG-архиватор занимается удалением данных
     // из неархивных таблиц
-    #ifdef XP_TESTING
+#ifdef XP_TESTING
     return false;
-    #endif
+#endif
     return READ_PG();
 }
 
@@ -144,65 +144,75 @@ bool arx_daily_pg(TDateTime utcdate)
 namespace  PG_ARX
 {
 //by move_id
-std::vector<dbo::Points> arx_points(const MoveId_t & vmove_id, const Dates::DateTime_t& part_key);
-void arx_move_ref(const MoveId_t & vmove_id, const Dates::DateTime_t& part_key);
-void arx_move_ext(const MoveId_t & vmove_id, const Dates::DateTime_t& part_key, int date_range);
-void arx_events_by_move_id(const MoveId_t & vmove_id, const Dates::DateTime_t& part_key);
+std::vector<dbo::Points> read_points(const MoveId_t & move_id);
+std::vector<dbo::Points> arx_points(const std::vector<dbo::Points> &points, const Dates::DateTime_t &part_key);
+void arx_move_ref(const MoveId_t & vmove_id, const Dates::DateTime_t & part_key);
+void arx_move_ext(const MoveId_t & vmove_id, const Dates::DateTime_t & part_key, double date_range);
+void arx_events_by_move_id(const MoveId_t & vmove_id, const Dates::DateTime_t & part_key);
 //by point_id
-void arx_events_by_point_id(const PointId_t& point_id, const Dates::DateTime_t& part_key);
-void arx_mark_trips(const PointId_t& point_id, const Dates::DateTime_t& part_key);
-std::vector<dbo::Pax_Grp> arx_pax_grp(const PointId_t& point_id, const Dates::DateTime_t& part_key);
-void arx_self_ckin_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key);
-void arx_rfisc_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key);
-void arx_stat_services(const PointId_t& point_id, const Dates::DateTime_t& part_key);
-void arx_stat_rem(const PointId_t& point_id, const Dates::DateTime_t& part_key);
-void arx_limited_cap_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key);
-void arx_pfs_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key);
-void arx_stat_ad(const PointId_t& point_id, const Dates::DateTime_t& part_key);
-void arx_stat_ha(const PointId_t& point_id, const Dates::DateTime_t& part_key);
-void arx_stat_vo(const PointId_t& point_id, const Dates::DateTime_t& part_key);
-void arx_stat_reprint(const PointId_t& point_id, const Dates::DateTime_t& part_key);
-void arx_trfer_pax_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key);
-void arx_bi_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key);
-void arx_agent_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key);
-void arx_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key);
-void arx_trfer_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key);
-void arx_tlg_out(const PointId_t& point_id, const Dates::DateTime_t& part_key);
-void arx_trip_classes(const PointId_t& point_id, const Dates::DateTime_t& part_key);
-void arx_trip_delays(const PointId_t& point_id, const Dates::DateTime_t& part_key);
-void arx_trip_load(const PointId_t& point_id, const Dates::DateTime_t& part_key);
-void arx_trip_sets(const PointId_t& point_id, const Dates::DateTime_t& part_key);
-void arx_trip_crs_displace2(const PointId_t& point_id, const Dates::DateTime_t& part_key);
-void arx_trip_stages(const PointId_t& point_id, const Dates::DateTime_t& part_key);
-std::vector<dbo::BAG_RECEIPTS> arx_bag_receipts(const PointId_t& point_id, const Dates::DateTime_t& part_key);
-void arx_bag_pay_types(int receipt_id, const Dates::DateTime_t &part_key);
+std::vector<dbo::Pax_Grp> read_pax_grp(const PointId_t& point_id, const Dates::DateTime_t & part_key);
+void arx_pax_grp(const std::vector<dbo::Pax_Grp> & pax_grps, const Dates::DateTime_t & part_key);
+void arx_events_by_point_id(const PointId_t& point_id, const Dates::DateTime_t & part_key);
+void arx_mark_trips(const PointId_t& point_id, const Dates::DateTime_t & part_key);
+void arx_self_ckin_stat(const PointId_t& point_id, const Dates::DateTime_t & part_key);
+void arx_rfisc_stat(const PointId_t& point_id, const Dates::DateTime_t & part_key);
+void arx_stat_services(const PointId_t& point_id, const Dates::DateTime_t & part_key);
+void arx_stat_rem(const PointId_t& point_id, const Dates::DateTime_t & part_key);
+void arx_limited_cap_stat(const PointId_t& point_id, const Dates::DateTime_t & part_key);
+void arx_pfs_stat(const PointId_t& point_id, const Dates::DateTime_t & part_key);
+void arx_stat_ad(const PointId_t& point_id, const Dates::DateTime_t & part_key);
+void arx_stat_ha(const PointId_t& point_id, const Dates::DateTime_t & part_key);
+void arx_stat_vo(const PointId_t& point_id, const Dates::DateTime_t & part_key);
+void arx_stat_reprint(const PointId_t& point_id, const Dates::DateTime_t & part_key);
+void arx_trfer_pax_stat(const PointId_t& point_id, const Dates::DateTime_t & part_key);
+void arx_bi_stat(const PointId_t& point_id, const Dates::DateTime_t & part_key);
+void arx_agent_stat(const PointId_t& point_id, const Dates::DateTime_t & part_key);
+void arx_stat(const PointId_t& point_id, const Dates::DateTime_t & part_key);
+void arx_trfer_stat(const PointId_t& point_id, const Dates::DateTime_t & part_key);
+void arx_tlg_out(const PointId_t& point_id, const Dates::DateTime_t & part_key);
+void arx_trip_classes(const PointId_t& point_id, const Dates::DateTime_t & part_key);
+void arx_trip_delays(const PointId_t& point_id, const Dates::DateTime_t & part_key);
+void arx_trip_load(const PointId_t& point_id, const Dates::DateTime_t & part_key);
+void arx_trip_sets(const PointId_t& point_id, const Dates::DateTime_t & part_key);
+void arx_crs_displace2(const PointId_t& point_id, const Dates::DateTime_t & part_key);
+void arx_trip_stages(const PointId_t& point_id, const Dates::DateTime_t & part_key);
+void arx_bag_receipts(const PointId_t& point_id, const Dates::DateTime_t & part_key);
+void arx_bag_pay_types(int receipt_id, const Dates::DateTime_t & part_key);
 void delete_bag_receipt_kits(int kit_id);
 //by grp_id
-void arx_annul_bags_tags(const GrpId_t& grp_id, const Dates::DateTime_t& part_key);
-void arx_unaccomp_bag_info(const GrpId_t& grp_id, const Dates::DateTime_t& part_key);
-void arx_bag2(const GrpId_t& grp_id, const Dates::DateTime_t& part_key);
-void arx_bag_prepay(const GrpId_t& grp_id, const Dates::DateTime_t& part_key);
-void arx_bag_tags(const GrpId_t& grp_id, const Dates::DateTime_t& part_key);
-void arx_paid_bag(const GrpId_t& grp_id, const Dates::DateTime_t& part_key);
-void arx_pay_services(const GrpId_t& grp_id, const Dates::DateTime_t& part_key);
-std::vector<dbo::PAX> arx_pax(const PointId_t& point_id, const GrpId_t& grp_id, const Dates::DateTime_t& part_key);
-std::vector<dbo::TRANSFER> arx_transfer(const GrpId_t& grp_id, const Dates::DateTime_t& part_key);
-std::vector<dbo::TCKIN_SEGMENTS> arx_tckin_segments(const GrpId_t& grp_id, const Dates::DateTime_t& part_key);
-size_t delete_trfer_trips(const std::vector<dbo::TRANSFER> & transfers, const std::vector<dbo::TCKIN_SEGMENTS> & segments);
-void arx_value_bag(const GrpId_t& grp_id, const Dates::DateTime_t& part_key);
-void arx_grp_norms(const GrpId_t& grp_id, const Dates::DateTime_t& part_key);
+std::vector<dbo::PAX> read_pax(const GrpId_t& grp_id);
+void arx_pax(const std::vector<dbo::PAX>& paxes, const GrpId_t& grp_id,
+             const PointId_t& point_id, const Dates::DateTime_t & part_key);
+void arx_annul_bags_tags(const GrpId_t& grp_id, const Dates::DateTime_t & part_key);
+void arx_unaccomp_bag_info(const GrpId_t& grp_id, const Dates::DateTime_t & part_key);
+void arx_bag2(const GrpId_t& grp_id, const Dates::DateTime_t & part_key);
+void arx_bag_prepay(const GrpId_t& grp_id, const Dates::DateTime_t & part_key);
+void arx_bag_tags(const GrpId_t& grp_id, const Dates::DateTime_t & part_key);
+void arx_paid_bag(const GrpId_t& grp_id, const Dates::DateTime_t & part_key);
+void arx_pay_services(const GrpId_t& grp_id, const Dates::DateTime_t & part_key);
+void arx_transfer(const GrpId_t& grp_id, const Dates::DateTime_t & part_key);
+void arx_tckin_segments(const GrpId_t& grp_id, const Dates::DateTime_t & part_key);
+void arx_value_bag(const GrpId_t& grp_id, const Dates::DateTime_t & part_key);
+void arx_grp_norms(const GrpId_t& grp_id, const Dates::DateTime_t & part_key);
 //by pax_id
-void arx_pax_norms(const PaxId_t& pax_id, const Dates::DateTime_t& part_key);
-void arx_pax_rem(const PaxId_t& pax_id, const Dates::DateTime_t& part_key);
-void arx_transfer_subcls(const PaxId_t& pax_id, const Dates::DateTime_t& part_key);
-void arx_pax_doc(const PaxId_t& pax_id, const Dates::DateTime_t& part_key);
-void arx_pax_doco(const PaxId_t& pax_id, const Dates::DateTime_t& part_key);
-void arx_pax_doca(const PaxId_t& pax_id, const Dates::DateTime_t& part_key);
+void arx_pax_norms(const PaxId_t& pax_id, const Dates::DateTime_t & part_key);
+void arx_pax_rem(const PaxId_t& pax_id, const Dates::DateTime_t & part_key);
+void arx_transfer_subcls(const PaxId_t& pax_id, const Dates::DateTime_t & part_key);
+void arx_pax_doc(const PaxId_t& pax_id, const Dates::DateTime_t & part_key);
+void arx_pax_doco(const PaxId_t& pax_id, const Dates::DateTime_t & part_key);
+void arx_pax_doca(const PaxId_t& pax_id, const Dates::DateTime_t & part_key);
+
 void deleteByPaxes(const PaxId_t& pax_id);
 void deleteByGrpId(const GrpId_t& grp_id);
+size_t delete_trfer_trips(const GrpId_t& grp_id);
 void deleteAodbBag(const PointId_t& point_id);
+void deleteTlgOut(const PointId_t& point_id);
 void deleteByPointId(const PointId_t& point_id);
+void deleteEventsByPointId(const PointId_t& point_id);
+void deleteBagReceipts(const PointId_t& point_id);
 void deleteByMoveId(const MoveId_t & move_id);
+void deleteEventsByMoveId(const MoveId_t & move_id);
+
 //step2
 int arx_tlgout_noflt(const Dates::DateTime_t& arx_date, int remain_rows);
 int arx_events_noflt2(const Dates::DateTime_t& arx_date, int remain_rows);
@@ -292,17 +302,17 @@ std::optional<std::string> build_birks_str(const std::set<birks_row> & birks)
         oldRow = curRow;
         oldRow2 = {};
         if(oldRow.tag_type == curRow.tag_type  &&
-                   ((!oldRow.color.empty() && !curRow.color.empty() &&
-                    oldRow.color==curRow.color) ||
-                    (oldRow.color.empty() && curRow.color.empty())) &&
-                    oldRow.first==curRow.first &&
-                    oldRow.last+diff==curRow.last)
+                ((!oldRow.color.empty() && !curRow.color.empty() &&
+                  oldRow.color==curRow.color) ||
+                 (oldRow.color.empty() && curRow.color.empty())) &&
+                oldRow.first==curRow.first &&
+                oldRow.last+diff==curRow.last)
         {
             diff += 1;
         } else {
             if(oldRow2.tag_type==oldRow.tag_type &&
-              ((!oldRow2.color.empty() && !oldRow.color.empty() && oldRow2.color==oldRow.color) ||
-               (oldRow2.color.empty() && oldRow.color.empty())) && oldRow2.first==oldRow.first ) {
+                    ((!oldRow2.color.empty() && !oldRow.color.empty() && oldRow2.color==oldRow.color) ||
+                     (oldRow2.color.empty() && oldRow.color.empty())) && oldRow2.first==oldRow.first ) {
                 firstStr = StrUtils::lpad(std::to_string(oldRow.last),3,'0');
                 if(!res.empty()) {
                     res+=",";
@@ -311,9 +321,9 @@ std::optional<std::string> build_birks_str(const std::set<birks_row> & birks)
                 firstStr = oldRow.color_view;
                 noStr = std::to_string(oldRow.first*1000+oldRow.last);
                 if (noStr.length() < oldRow.no_len) {
-                  firstStr += StrUtils::lpad(noStr,oldRow.no_len,'0');
+                    firstStr += StrUtils::lpad(noStr,oldRow.no_len,'0');
                 } else {
-                  firstStr += noStr;
+                    firstStr += noStr;
                 }
                 oldRow2 = oldRow;
                 if(!res.empty()) {
@@ -322,10 +332,10 @@ std::optional<std::string> build_birks_str(const std::set<birks_row> & birks)
             }
 
             if(diff != 1) {
-              lastStr = StrUtils::lpad(std::to_string(oldRow.last+diff-1),3,'0');
-              res = res + firstStr + '-' + lastStr;
+                lastStr = StrUtils::lpad(std::to_string(oldRow.last+diff-1),3,'0');
+                res = res + firstStr + '-' + lastStr;
             } else {
-              res += firstStr;
+                res += firstStr;
             }
             diff = 1;
             oldRow = curRow;
@@ -372,12 +382,12 @@ std::optional<int> get_bag_pool_pax_id(Dates::DateTime_t part_key, int grp_id,
                 "          reg_no ",
                 PgOra::getROSession("ARX_PAX"));
     cur.stb()
-       .def(pax_id)
-       .defNull(refuse, "")
-       .bind(":part_key", part_key)
-       .bind(":grp_id", grp_id)
-       .bind(":bag_pool_num", bag_pool_num.value_or(0))
-       .exec();
+            .def(pax_id)
+            .defNull(refuse, "")
+            .bind(":part_key", part_key)
+            .bind(":grp_id", grp_id)
+            .bind(":bag_pool_num", bag_pool_num.value_or(0))
+            .exec();
     if(!cur.fen()) {
         res = pax_id;
         if(include_refused == 0 && !refuse.empty()) {
@@ -388,7 +398,7 @@ std::optional<int> get_bag_pool_pax_id(Dates::DateTime_t part_key, int grp_id,
 }
 
 TBagInfo get_bagInfo2(Dates::DateTime_t part_key, int grp_id, std::optional<int> pax_id,
-                       std::optional<int> bag_pool_num)
+                      std::optional<int> bag_pool_num)
 {
     TBagInfo bagInfo{};
     bagInfo.grp_id = grp_id;
@@ -413,12 +423,12 @@ TBagInfo get_bagInfo2(Dates::DateTime_t part_key, int grp_id, std::optional<int>
         query += pax_id ? " AND bag_pool_num=:bag_pool_num " : "";
         auto cur = make_db_curs(query, PgOra::getROSession("ARX_BAG2"));
         cur.stb()
-           .defNull(bagInfo.bagAmount,ASTRA::NoExists)
-           .defNull(bagInfo.bagWeight,ASTRA::NoExists)
-           .defNull(bagInfo.rkAmount,ASTRA::NoExists)
-           .defNull(bagInfo.rkWeight,ASTRA::NoExists)
-           .bind(":part_key", part_key)
-           .bind(":grp_id", grp_id);
+                .defNull(bagInfo.bagAmount,ASTRA::NoExists)
+                .defNull(bagInfo.bagWeight,ASTRA::NoExists)
+                .defNull(bagInfo.rkAmount,ASTRA::NoExists)
+                .defNull(bagInfo.rkWeight,ASTRA::NoExists)
+                .bind(":part_key", part_key)
+                .bind(":grp_id", grp_id);
         if(pax_id) {
             cur.bind(":bag_pool_num", bag_pool_num.value_or(0));
         }
@@ -433,8 +443,8 @@ TBagInfo get_bagInfo2(Dates::DateTime_t part_key, int grp_id, std::optional<int>
 }
 
 std::optional<int> get_bagAmount2(Dates::DateTime_t part_key, int grp_id,
-                    std::optional<int> pax_id,
-                    std::optional<int> bag_pool_num)
+                                  std::optional<int> pax_id,
+                                  std::optional<int> bag_pool_num)
 {
     TBagInfo bagInfo = get_bagInfo2(part_key, grp_id, pax_id, bag_pool_num);
     return bagInfo.bagAmount;
@@ -449,8 +459,8 @@ std::optional<int> get_bagWeight2(Dates::DateTime_t part_key, int grp_id,
 }
 
 std::optional<int> get_rkAmount2(Dates::DateTime_t part_key, int grp_id,
-                    std::optional<int> pax_id,
-                    std::optional<int> bag_pool_num)
+                                 std::optional<int> pax_id,
+                                 std::optional<int> bag_pool_num)
 {
     TBagInfo bagInfo = get_bagInfo2(part_key, grp_id, pax_id, bag_pool_num);
     return bagInfo.rkAmount;
@@ -473,13 +483,13 @@ std::optional<int> get_excess_wt(Dates::DateTime_t part_key, int grp_id,
     std::optional<int> main_pax_id;
     if((!excess_wt && !excess_nvl) || !bag_refuse) {
         auto cur = make_db_curs("SELECT (CASE WHEN BAG_REFUSE=0 THEN COALESCE(EXCESS_WT, EXCESS) ELSE 0 END) "
-                                   "FROM ARX_PAX_GRP "
-                                   "WHERE part_key=:part_key AND grp_id=:grp_id ",
-                                   PgOra::getROSession("ARX_PAX_GRP"));
+                                "FROM ARX_PAX_GRP "
+                                "WHERE part_key=:part_key AND grp_id=:grp_id ",
+                                PgOra::getROSession("ARX_PAX_GRP"));
         cur.def(excess)
-           .bind(":part_key", part_key)
-           .bind(":grp_id", grp_id)
-           .EXfet();
+                .bind(":part_key", part_key)
+                .bind(":grp_id", grp_id)
+                .EXfet();
         if(cur.err() == DbCpp::ResultCode::NoDataFound) {
             LogTrace(TRACE5) << __FUNCTION__ << " Query error. Not found data by grp_id: " << grp_id
                              << " part_key: " << part_key ;
@@ -510,19 +520,19 @@ std::optional<int> get_main_pax_id2(Dates::DateTime_t part_key, int grp_id, int 
     int pax_id;
     std::string refuse;
     auto cur = make_db_curs("select PAX_ID, REFUSE from ARX_PAX "
-                               "where PART_KEY=:part_key and GRP_ID=:grp_id "
-                               "order by case when BAG_POOL_NUM is null  then 1 else 0 end, "
-                               "         case when PERS_TYPE='ВЗ' then 0 when pers_type='РБ' then 0 else 1 end, "
-                               "         case when SEATS=0 THEN 1 else 0 end, "
-                               "         case when REFUSE is null then 0 else 1 end, "
-                               "         case when PERS_TYPE='ВЗ' then 0 when PERS_TYPE='РБ' then 1 else 2 end, "
-                               "         reg_no",
-                               PgOra::getROSession("ARX_PAX"));
+                            "where PART_KEY=:part_key and GRP_ID=:grp_id "
+                            "order by case when BAG_POOL_NUM is null  then 1 else 0 end, "
+                            "         case when PERS_TYPE='ВЗ' then 0 when pers_type='РБ' then 0 else 1 end, "
+                            "         case when SEATS=0 THEN 1 else 0 end, "
+                            "         case when REFUSE is null then 0 else 1 end, "
+                            "         case when PERS_TYPE='ВЗ' then 0 when PERS_TYPE='РБ' then 1 else 2 end, "
+                            "         reg_no",
+                            PgOra::getROSession("ARX_PAX"));
     cur.def(pax_id)
-       .defNull(refuse, "")
-       .bind(":part_key", part_key)
-       .bind(":grp_id", grp_id)
-       .exec();
+            .defNull(refuse, "")
+            .bind(":part_key", part_key)
+            .bind(":grp_id", grp_id)
+            .exec();
     if(!cur.fen()) {
         res = pax_id;
         if(include_refused == 0 && !refuse.empty()) {
@@ -539,13 +549,13 @@ int bag_pool_refused(Dates::DateTime_t part_key, int grp_id, int bag_pool_num,
     if(!vclass) return 0;
     int n = 0;
     auto cur = make_db_curs("select sum(case when REFUSE is null then 1 else 0 end) from ARX_PAX "
-                               "where PART_KEY=:part_key and GRP_ID=:grp_id and BAG_POOL_NUM=:bag_pool_num; ",
-                               PgOra::getROSession("ARX_PAX"));
+                            "where PART_KEY=:part_key and GRP_ID=:grp_id and BAG_POOL_NUM=:bag_pool_num; ",
+                            PgOra::getROSession("ARX_PAX"));
     cur.def(n)
-       .bind(":part_key", part_key)
-       .bind(":grp_id", grp_id)
-       .bind(":bag_pool_num", bag_pool_num)
-       .EXfet();
+            .bind(":part_key", part_key)
+            .bind(":grp_id", grp_id)
+            .bind(":bag_pool_num", bag_pool_num)
+            .EXfet();
     if(cur.err() == DbCpp::ResultCode::NoDataFound || n==0) {
         return 1;
     } else
@@ -558,31 +568,31 @@ std::set<ckin::birks_row> read_birks(Dates::DateTime_t part_key, int grp_id, con
     ckin::birks_row row;
     std::string pg_select = "select TAG_TYPE, COLOR, TRUNC(NO/1000) AS first, MOD(NO,1000) AS last, no ";
     std::string ora_select = "select NO_LEN, case :lang when 'RU' then TAG_COLORS.CODE else "
-                "  coalesce(TAG_COLORS.CODE_LAT,TAG_COLORS.CODE) end as COLOR_VIEW ";
+                             "  coalesce(TAG_COLORS.CODE_LAT,TAG_COLORS.CODE) end as COLOR_VIEW ";
 
     auto cur = make_db_curs(pg_select + " from ARX_BAG_TAGS "
-                               "where PART_KEY=:part_key AND grp_id=:grp_id " +
-                               (bag_num ? "" : " AND BAG_NUM is null "),
+                                        "where PART_KEY=:part_key AND grp_id=:grp_id " +
+                            (bag_num ? "" : " AND BAG_NUM is null "),
                             PgOra::getROSession("ARX_PAX_GRP"));
     cur.def(row.tag_type)
-       .def(row.color)
-       .def(row.first)
-       .def(row.last)
-       .def(row.no)
-       .bind(":part_key", part_key)
-       .bind(":grp_id", grp_id)
-       .exec();
+            .def(row.color)
+            .def(row.first)
+            .def(row.last)
+            .def(row.no)
+            .bind(":part_key", part_key)
+            .bind(":grp_id", grp_id)
+            .exec();
     while(!cur.fen()) {
         auto cur2 = make_db_curs(ora_select + " from TAG_TYPES,TAG_COLORS "
-                             "where TAG_TYPES.CODE = :TAG_TYPE and "
-                             "TAG_COLORS.CODE = :color; ",
-                             PgOra::getROSession("TAG_TYPES"));
+                                              "where TAG_TYPES.CODE = :TAG_TYPE and "
+                                              "TAG_COLORS.CODE = :color; ",
+                                 PgOra::getROSession("TAG_TYPES"));
         cur2.def(row.no_len)
-            .def(row.color_view)
-            .bind(":lang", lang)
-            .bind(":tag_type", row.tag_type)
-            .bind(":color", row.color)
-            .EXfet();
+                .def(row.color_view)
+                .bind(":lang", lang)
+                .bind(":tag_type", row.tag_type)
+                .bind(":color", row.color)
+                .EXfet();
         birks.insert(row);
     }
     return birks;
@@ -594,35 +604,35 @@ std::set<ckin::birks_row> read_birks(Dates::DateTime_t part_key, int grp_id, int
     ckin::birks_row row;
     std::string pg_select = "select TAG_TYPE, COLOR, TRUNC(NO/1000) AS first, MOD(NO,1000) AS last, no ";
     std::string ora_select = "select NO_LEN, case :lang when 'RU' then TAG_COLORS.CODE else "
-                "  coalesce(TAG_COLORS.CODE_LAT,TAG_COLORS.CODE) end as COLOR_VIEW ";
+                             "  coalesce(TAG_COLORS.CODE_LAT,TAG_COLORS.CODE) end as COLOR_VIEW ";
     auto cur = make_db_curs(pg_select + " from ARX_BAG2, ARX_BAG_TAGS "
-                               "where ARX_BAG2.PART_KEY=ARX_BAG_TAGS.PART_KEY and "
-                               "    ARX_BAG2.GRP_ID=ARX_BAG_TAGS.GRP_ID and "
-                               "    ARX_BAG2.NUM=ARX_BAG_TAGS.BAG_NUM and "
-                               "    ARX_BAG2.PART_KEY=:part_key and "
-                               "    ARX_BAG2.GRP_ID=:grp_id and "
-                               "    ARX_BAG2.BAG_POOL_NUM=:bag_pool_num",
-                               PgOra::getROSession("ARX_BAG2"));
+                                        "where ARX_BAG2.PART_KEY=ARX_BAG_TAGS.PART_KEY and "
+                                        "    ARX_BAG2.GRP_ID=ARX_BAG_TAGS.GRP_ID and "
+                                        "    ARX_BAG2.NUM=ARX_BAG_TAGS.BAG_NUM and "
+                                        "    ARX_BAG2.PART_KEY=:part_key and "
+                                        "    ARX_BAG2.GRP_ID=:grp_id and "
+                                        "    ARX_BAG2.BAG_POOL_NUM=:bag_pool_num",
+                            PgOra::getROSession("ARX_BAG2"));
     cur.def(row.tag_type)
-       .def(row.color)
-       .def(row.first)
-       .def(row.last)
-       .def(row.no)
-       .bind(":part_key", part_key)
-       .bind(":grp_id", grp_id)
-       .bind(":bag_pool_num", bag_pool_num)
-       .exec();
+            .def(row.color)
+            .def(row.first)
+            .def(row.last)
+            .def(row.no)
+            .bind(":part_key", part_key)
+            .bind(":grp_id", grp_id)
+            .bind(":bag_pool_num", bag_pool_num)
+            .exec();
     while(!cur.fen()) {
         auto cur = make_db_curs(ora_select + " from TAG_TYPES,TAG_COLORS "
-                             "where TAG_TYPES.CODE = :TAG_TYPE and "
-                             "TAG_COLORS.CODE = :color; ",
-                             PgOra::getROSession("TAG_TYPES"));
+                                             "where TAG_TYPES.CODE = :TAG_TYPE and "
+                                             "TAG_COLORS.CODE = :color; ",
+                                PgOra::getROSession("TAG_TYPES"));
         cur.def(row.no_len)
-            .def(row.color_view)
-            .bind(":lang", lang)
-            .bind(":tag_type", row.tag_type)
-            .bind(":color", row.color)
-            .EXfet();
+                .def(row.color_view)
+                .bind(":lang", lang)
+                .bind(":tag_type", row.tag_type)
+                .bind(":color", row.color)
+                .EXfet();
 
         birks.insert(row);
     }
@@ -630,7 +640,7 @@ std::set<ckin::birks_row> read_birks(Dates::DateTime_t part_key, int grp_id, int
 }
 
 std::optional<std::string> get_birks2(Dates::DateTime_t part_key, int grp_id, std::optional<int> pax_id,
-                       int bag_pool_num, const std::string& lang)
+                                      int bag_pool_num, const std::string& lang)
 {
     std::optional<int> pool_pax_id;
     if(pax_id) {
@@ -641,12 +651,12 @@ std::optional<std::string> get_birks2(Dates::DateTime_t part_key, int grp_id, st
     std::set<ckin::birks_row> birks;
     if(!pax_id || (pool_pax_id && pool_pax_id==pax_id)) {
         if(!pax_id) {
-                birks = read_birks(part_key, grp_id, lang);
+            birks = read_birks(part_key, grp_id, lang);
         }else {
             if(bag_pool_num==1) {
                 /*для тех групп которые регистрировались с терминала без обязательной привязки */
-                 std::set<ckin::birks_row> birks1 = read_birks(part_key, grp_id, bag_pool_num, lang);
-                 std::set<ckin::birks_row> birks2 = read_birks(part_key, grp_id, lang, false);
+                std::set<ckin::birks_row> birks1 = read_birks(part_key, grp_id, bag_pool_num, lang);
+                std::set<ckin::birks_row> birks2 = read_birks(part_key, grp_id, lang, false);
                 //вместо SQL UNION
                 std::merge(birks1.begin(), birks1.end(), birks2.begin(), birks2.end(),
                            std::inserter(birks, birks.begin()));
@@ -659,7 +669,7 @@ std::optional<std::string> get_birks2(Dates::DateTime_t part_key, int grp_id, st
 }
 
 std::optional<std::string> get_birks2(Dates::DateTime_t part_key, int grp_id, std::optional<int> pax_id,
-                       int bag_pool_num, int pr_lat)
+                                      int bag_pool_num, int pr_lat)
 {
     if(pr_lat!=1)  {
         return get_birks2(part_key, grp_id, pax_id, bag_pool_num, "");
@@ -703,84 +713,13 @@ TArxMoveFlt::~TArxMoveFlt()
 {
 };
 
-bool TArxMoveFlt::GetPartKey(const MoveId_t &move_id, Dates::DateTime_t &part_key, double &date_range)
-{
-    LogTrace(TRACE5) << __FUNCTION__ << " move_id: " << move_id << " part_key: " << part_key;
-    part_key=Dates::not_a_date_time;
-    date_range=NoExists;
-
-
-    dbo::Session session;
-    std::vector<dbo::Points> points = session.query<dbo::Points>().where(" MOVE_ID = :move_id ORDER BY point_num ")
-            .setBind({{":move_id", move_id.get()}});
-    LogTrace5 << " points size : " << points.size();
-    Dates::DateTime_t first_date = Dates::not_a_date_time;
-    Dates::DateTime_t last_date = Dates::not_a_date_time;
-    bool deleted=true;
-
-    for(size_t i = 0; i<points.size(); i++)
-    {
-        dbo::Points & p = points[i];
-        if (p.pr_del != -1) {
-            deleted=false;
-        }
-        std::vector<Dates::DateTime_t> temp;
-        if(i%2 == 0) {
-            temp = {first_date,last_date, p.scd_out, p.est_out, p.act_out};
-        } else {
-            temp = {first_date,last_date, p.scd_in, p.est_in, p.act_in};
-        }
-        auto fdates = algo::filter(temp, dbo::isNotNull<Dates::DateTime_t>);
-        for(const auto & t : fdates) LogTrace(TRACE5) << " FILTER: " << t;
-        if(auto minIt = std::min_element(fdates.begin(), fdates.end()); minIt != fdates.end()) {
-            first_date = *minIt;
-        }
-        if(auto maxIt = std::max_element(fdates.begin(), fdates.end()); maxIt != fdates.end()) {
-            last_date = *maxIt;
-        }
-        LogTrace(TRACE5) << " myfirst_date: " << first_date << " mylast_date: " << last_date;
-    }
-
-    if (!deleted)
-    {
-        tst();
-        if (first_date!=Dates::not_a_date_time && last_date!=Dates::not_a_date_time)
-        {
-            tst();
-            if (last_date < utcdate - Dates::days(ARX::ARX_DAYS()))
-            {
-                LogTrace5 << " в архив";
-                //переместить в архив
-                part_key = last_date;
-                date_range = BoostToDateTime(last_date) - BoostToDateTime(first_date);
-                LogTrace5 << " date_range : " << date_range << " last_date: " << last_date
-                          << " first_date: " << first_date;
-                return true;
-            };
-        };
-    }
-    else
-    {
-        tst();
-        //полностью удаленный рейс
-        if (last_date == Dates::not_a_date_time || last_date < (utcdate-Dates::days(ARX::ARX_DAYS())))
-        {
-            LogTrace5 << "удаленный рейс";
-            //удалить
-            part_key = Dates::not_a_date_time;
-            date_range = NoExists;
-            return true;
-        };
-    };
-    return false;
-}
-
 void TArxMoveFlt::LockAndCollectStat(const MoveId_t & move_id)
 {
     LogTrace(TRACE5) << __FUNCTION__ << " move_id: " << move_id;
     dbo::Session session;
     std::vector<dbo::Points> points = session.query<dbo::Points>()
             .where(" MOVE_ID = :move_id ")
+            .for_update(true)
             .setBind({{":move_id",move_id.get()} });
     for(const auto & p : points) {
         bool pr_reg = p.pr_reg != 0;
@@ -791,175 +730,205 @@ void TArxMoveFlt::LockAndCollectStat(const MoveId_t & move_id)
 };
 
 
+Dates::time_period tripDatePeriod(const std::vector<dbo::Points> & points)
+{
+    Dates::DateTime_t first_date, last_date;
+    for(size_t i = 0; i<points.size(); i++)
+    {
+        const dbo::Points & p = points[i];
+        std::vector<Dates::DateTime_t> temp;
+        if(i%2 == 0) {
+            temp = {first_date,last_date, p.scd_out, p.est_out, p.act_out};
+        } else {
+            temp = {first_date,last_date, p.scd_in, p.est_in, p.act_in};
+        }
+        auto fdates = algo::filter(temp, dbo::isNotNull<Dates::DateTime_t>);
+        if(auto minIt = std::min_element(fdates.begin(), fdates.end()); minIt != fdates.end()) {
+            first_date = *minIt;
+        }
+        if(auto maxIt = std::max_element(fdates.begin(), fdates.end()); maxIt != fdates.end()) {
+            last_date = *maxIt;
+        }
+        LogTrace(TRACE5) << " myfirst_date: " << first_date << " mylast_date: " << last_date;
+    }
+    return Dates::time_period(first_date, last_date);
+}
+
+void checkDateRange(double date_range)
+{
+    LogTrace(TRACE5) << " date_range = " << date_range;
+    if(date_range < 0) {
+        throw Exception("date_range < 0 ", date_range);
+    }
+    if (date_range > ARX::ARX_MAX_DATE_RANGE()) {
+        //throw Exception("date_range_int=%d", date_range_int);
+        return;
+    }
+}
+
+double getDateRange(const Dates::time_period& date_period)
+{
+    if(date_period.is_null()) {
+        LogTrace5 << __func__ << " date_period: " << date_period;
+        throw Exception("date_period invalid ");
+    }
+    double date_range = BoostToDateTime(date_period.end()) - BoostToDateTime(date_period.begin());
+    checkDateRange(date_range);
+    return date_range;
+}
+
+Dates::DateTime_t TArxMoveFlt::GetPartKey(const Dates::time_period& date_period)
+{
+    Dates::DateTime_t first_date = date_period.begin();
+    Dates::DateTime_t last_date = date_period.end();
+
+    if (first_date != Dates::not_a_date_time && last_date != Dates::not_a_date_time)
+    {
+        if (first_date < utcdate - Dates::days(ARX::ARX_DAYS()))
+        {
+            return last_date;
+        };
+    };
+    return Dates::not_a_date_time;
+}
+
 void TArxMoveFlt::readMoveIds(size_t max_rows)
 {
     LogTrace(TRACE5) << __func__;
     int move_id;
-    Dates::DateTime_t part_key;
-    double date_range;
     auto cur = make_db_curs("SELECT move_id FROM points "
-                         "WHERE (time_in > TO_DATE('01.01.1900','DD.MM.YYYY') AND time_in<:arx_date)"
-                         " OR (time_out > TO_DATE('01.01.1900','DD.MM.YYYY') AND time_out<:arx_date)"
-                         " OR (time_in  = TO_DATE('01.01.1900','DD.MM.YYYY') AND "
-                         "      time_out = TO_DATE('01.01.1900','DD.MM.YYYY'))",
-                         PgOra::getROSession("points"));
+                            "WHERE (time_in > TO_DATE('01.01.1900','DD.MM.YYYY') AND time_in<:arx_date)"
+                            " OR (time_out > TO_DATE('01.01.1900','DD.MM.YYYY') AND time_out<:arx_date)"
+                            " OR (time_in  = TO_DATE('01.01.1900','DD.MM.YYYY') AND "
+                            "      time_out = TO_DATE('01.01.1900','DD.MM.YYYY'))",
+                            PgOra::getROSession("points"));
     cur.stb()
-       .def(move_id)
-       .bind(":arx_date", utcdate-Dates::days(ARX::ARX_DAYS()))
-       .exec();
+            .def(move_id)
+            .bind(":arx_date", utcdate-Dates::days(ARX::ARX_DAYS()))
+            .exec();
 
     while(!cur.fen() && (move_ids.size() < max_rows)) {
-        if (GetPartKey(MoveId_t(move_id), part_key,date_range))
-        {
-            move_ids.try_emplace(MoveId_t(move_id), part_key);
-        }
+        std::vector<dbo::Points> points = read_points(MoveId_t(move_id));
+        move_ids.try_emplace(MoveId_t(move_id), tripDatePeriod(points));
     }
+}
+
+bool isTripDeleted(const std::vector<dbo::Points>& points)
+{
+    return std::all_of(begin(points), end(points), [](const dbo::Points & p){return p.pr_del == -1;});
 }
 
 bool TArxMoveFlt::Next(size_t max_rows, int duration)
 {
-    LogTrace(TRACE5) << __func__;
     readMoveIds(max_rows);
-    if(move_ids.empty()) {
-        LogTrace5 << " moveids empty";
-    }
     while (!move_ids.empty())
     {
-        LogTrace(TRACE5) << "MOVE_IDS count: " << move_ids.size();
         MoveId_t move_id = move_ids.begin()->first;
-        LogTrace5 << __FUNCTION__ << " move_id: " << move_id;
+        Dates::time_period date_range = move_ids.begin()->second;
+        LogTrace5 << __func__ << " move_id: " << move_id;
         move_ids.erase(move_ids.begin());
         move_ids_count--;
-        Dates::DateTime_t part_key;
-        double date_range;
-
-        if (GetPartKey(move_id, part_key, date_range))
+        Dates::DateTime_t part_key = GetPartKey(date_range);
+        //LogTrace5 << " part_key: " << part_key;
+        try
         {
-            try
+            LockAndCollectStat(move_id);
+            std::vector<dbo::Points> points = read_points(move_id);
+            if(isTripDeleted(points))
             {
-                int date_range_int = 0;
-                if (date_range != NoExists)
-                {
-                    if (date_range<0) {
-                        LogTrace(TRACE5) << " date_range < 0 :" << date_range;
-                        throw Exception("date_range=%f", date_range);
-                    }
-                    if (date_range<1)
-                    {
-                        LogTrace(TRACE5) << " date_range < 1 :" << date_range;
-                    }
-                    else
-                    {
-                        date_range_int=(int)ceil(date_range);
-                        LogTrace(TRACE5) << " date_range_int = " << date_range_int;
-                        if (date_range_int > ARX::ARX_MAX_DATE_RANGE()) {
-                            //throw Exception("date_range_int=%d", date_range_int);
-                            continue;
-                        }
-                    };
-                } else {
-                    LogTrace(TRACE5) << " date_range = " << NoExists;
-                }
-
-                LockAndCollectStat(move_id);
-                auto points =  arx_points(move_id, part_key);
-                LogTrace(TRACE5) << " points size: " << points.size();
-                if(points.size() > 0) {
-                    //LogTrace(TRACE5) << " OUT_DATE_RANGE = " << date_range << " range_int: " << date_range_int;
-                    if(date_range >= 1) {
-                        arx_move_ext(move_id, part_key, date_range_int);
-                    }
-                    arx_move_ref(move_id, part_key);
-                    arx_events_by_move_id(move_id, part_key);
-                    LogTrace(TRACE5) << " arx loop step 1";
-                    for(const auto &p : points)
-                    {
-                        PointId_t point_id(p.point_id);
-                        if(p.pr_del != -1)
-                        {
-                            LogTrace(TRACE5) << "P.PR_DEL = " << p.pr_del << " P.POINT_ID = "
-                                             << p.point_id << " MOVE_ID: " << move_id;
-                            arx_events_by_point_id(point_id, part_key);
-                            arx_mark_trips(point_id, part_key);
-                            auto pax_grps = arx_pax_grp(point_id, part_key);
-                            arx_self_ckin_stat(point_id, part_key);
-                            arx_rfisc_stat(point_id, part_key);
-                            arx_stat_services(point_id, part_key);
-                            arx_stat_rem(point_id, part_key);
-                            arx_pfs_stat(point_id, part_key);
-                            arx_stat_ad(point_id, part_key);
-                            arx_stat_ha(point_id, part_key);
-                            arx_stat_vo(point_id, part_key);
-                            arx_stat_reprint(point_id, part_key);
-                            arx_trfer_pax_stat(point_id, part_key);
-                            arx_bi_stat(point_id, part_key);
-                            arx_agent_stat(point_id, part_key);
-                            arx_stat(point_id, part_key);
-                            arx_trfer_stat(point_id, part_key);
-                            arx_tlg_out(point_id, part_key);
-
-                            arx_trip_classes(point_id,  part_key);
-                            arx_trip_delays(point_id,  part_key);
-                            arx_trip_load(point_id,  part_key);
-                            arx_trip_sets(point_id,  part_key);
-                            arx_trip_crs_displace2(point_id,  part_key);
-                            arx_trip_stages(point_id, part_key);
-                            auto bag_receipts = arx_bag_receipts(point_id, part_key);
-                            for(const auto& b: bag_receipts) {
-                                arx_bag_pay_types(b.receipt_id, part_key);
-                                delete_bag_receipt_kits(b.kit_id);
-                            }
-                            LogTrace(TRACE5) << "arx lopp grps ";
-                            for(const auto &grp : pax_grps)
-                            {
-                                GrpId_t grp_id(grp.m_grp_id);
-                                LogTrace(TRACE5) << " PAX_GRP_ID : " << grp_id;
-                                arx_annul_bags_tags(grp_id, part_key);
-                                arx_unaccomp_bag_info(grp_id, part_key);
-                                arx_bag2(grp_id, part_key);
-                                arx_bag_prepay(grp_id, part_key);
-                                arx_bag_tags(grp_id, part_key);
-                                arx_paid_bag(grp_id, part_key);
-                                arx_pay_services(grp_id, part_key);
-                                auto paxes = arx_pax(point_id, grp_id, part_key);
-                                auto transfers = arx_transfer(grp_id, part_key);
-                                auto tckin_segments = arx_tckin_segments(grp_id, part_key);
-                                delete_trfer_trips(transfers, tckin_segments);
-                                arx_value_bag(grp_id, part_key);
-                                arx_grp_norms(grp_id, part_key);
-                                LogTrace(TRACE5) << "arx loop paxes ";
-                                for(const auto & pax : paxes) {
-                                    PaxId_t pax_id(pax.pax_id);
-                                    LogTrace(TRACE5) << " PAX_ID : " << pax_id;
-                                    arx_pax_norms(pax_id, part_key);
-                                    arx_pax_rem(pax_id, part_key);
-                                    arx_transfer_subcls(pax_id, part_key);
-                                    arx_pax_doc(pax_id, part_key);
-                                    arx_pax_doco(pax_id, part_key);
-                                    arx_pax_doca(pax_id, part_key);
-                                    deleteByPaxes(pax_id);
-                                }
-                                deleteByGrpId(grp_id);
-                            }
-                            deleteByPointId(point_id);
-                        }
-                    }
-                    deleteByMoveId(move_id);
-                }
-                ASTRA::commitAndCallCommitHooks();
-                proc_count++;
+                continue;
             }
-            catch(...)
+            if(dbo::isNotNull(part_key)) {
+                arx_move_ext(move_id, part_key, getDateRange(date_range));
+                arx_move_ref(move_id, part_key);
+                arx_events_by_move_id(move_id, part_key);
+                arx_points(points, part_key);
+            }
+            for(const auto &p : points)
             {
-                if (part_key != Dates::not_a_date_time)
-                    ProgError( STDLOG, "move_id=%d, part_key=%s", move_id.get(), HelpCpp::string_cast(part_key, "dd.mm.yy").c_str() );
-                else
-                    ProgError( STDLOG, "move_id=%d, part_key=not_a_date_time", move_id.get() );
-                throw;
-            };
-        } else {
-            LogTrace5 << __FUNCTION__ << " GetPartKey return false";
+                bool use_insert = p.pr_del != -1 && dbo::isNotNull(part_key);
+                PointId_t point_id(p.point_id);
+                LogTrace(TRACE5) << " P.POINT_ID = "  << p.point_id;
+                auto pax_grps = read_pax_grp(point_id, part_key);
+                if(use_insert) {
+                    arx_pax_grp(pax_grps, part_key);
+                    arx_mark_trips(point_id, part_key);
+                    arx_events_by_point_id(point_id, part_key);
+                    arx_self_ckin_stat(point_id, part_key);
+                    arx_rfisc_stat(point_id, part_key);
+                    arx_stat_services(point_id, part_key);
+                    arx_stat_rem(point_id, part_key);
+                    arx_limited_cap_stat(point_id, part_key);
+                    arx_pfs_stat(point_id, part_key);
+                    arx_stat_ad(point_id, part_key);
+                    arx_stat_ha(point_id, part_key);
+                    arx_stat_vo(point_id, part_key);
+                    arx_stat_reprint(point_id, part_key);
+                    arx_trfer_pax_stat(point_id, part_key);
+                    arx_bi_stat(point_id, part_key);
+                    arx_agent_stat(point_id, part_key);
+                    arx_stat(point_id, part_key);
+                    arx_trfer_stat(point_id, part_key);
+                    arx_trip_classes(point_id,  part_key);
+                    arx_trip_delays(point_id,  part_key);
+                    arx_trip_load(point_id,  part_key);
+                    arx_trip_sets(point_id,  part_key);
+                    arx_crs_displace2(point_id,  part_key);
+                    arx_trip_stages(point_id, part_key);
+                    arx_tlg_out(point_id, part_key);
+                    arx_bag_receipts(point_id, part_key);
+                }
+
+                for(const auto &grp : pax_grps)
+                {
+                    GrpId_t grp_id(grp.m_grp_id);
+                    LogTrace(TRACE5) << " PAX_GRP_ID : " << grp_id;
+                    auto paxes = read_pax(grp_id);
+                    if(use_insert) {
+                        arx_pax(paxes, grp_id, point_id, part_key);
+                        arx_annul_bags_tags(grp_id, part_key);
+                        arx_unaccomp_bag_info(grp_id, part_key);
+                        arx_bag2(grp_id, part_key);
+                        arx_bag_prepay(grp_id, part_key);
+                        arx_bag_tags(grp_id, part_key);
+                        arx_paid_bag(grp_id, part_key);
+                        arx_pay_services(grp_id, part_key);
+                        arx_value_bag(grp_id, part_key);
+                        arx_grp_norms(grp_id, part_key);
+                        arx_transfer(grp_id, part_key);
+                        arx_tckin_segments(grp_id, part_key);
+                    }
+                    for(const auto & pax : paxes) {
+                        PaxId_t pax_id(pax.pax_id);
+                        LogTrace(TRACE5) << " PAX_ID : " << pax_id;
+                        if(use_insert) {
+                            arx_pax_norms(pax_id, part_key);
+                            arx_pax_rem(pax_id, part_key);
+                            arx_transfer_subcls(pax_id, part_key);
+                            arx_pax_doc(pax_id, part_key);
+                            arx_pax_doco(pax_id, part_key);
+                            arx_pax_doca(pax_id, part_key);
+                        }
+                        deleteByPaxes(pax_id);
+                    }
+                    deleteByGrpId(grp_id);
+                }
+                deleteByPointId(point_id);
+            }
+            deleteByMoveId(move_id);
+
+            ASTRA::commitAndCallCommitHooks();
+            proc_count++;
         }
+        catch(...)
+        {
+            if (part_key != Dates::not_a_date_time)
+                ProgError( STDLOG, "move_id=%d, part_key=%s", move_id.get(),
+                           HelpCpp::string_cast(part_key, "dd.mm.yy").c_str() );
+            else
+                ProgError( STDLOG, "move_id=%d, part_key=not_a_date_time", move_id.get() );
+            throw;
+        };
     };
     return false;
 };
@@ -969,86 +938,99 @@ string TArxMoveFlt::TraceCaption()
     return "TArxMoveFlt";
 };
 
-void arx_move_ext(const MoveId_t & vmove_id, const Dates::DateTime_t& part_key, int date_range)
+std::vector<dbo::Points> read_points(const MoveId_t & move_id)
 {
-    LogTrace(TRACE5) << __FUNCTION__ << " move_id: " << vmove_id << " date_range: " << date_range;
-    if(date_range > 0) {
+    LogTrace(TRACE5) << __FUNCTION__ << " move_id : "<< move_id;
+    dbo::Session session;
+    std::vector<dbo::Points> points = session.query<dbo::Points>()
+            .where(" MOVE_ID = :move_id ORDER BY point_num ")
+            .for_update(true)
+            .setBind({{"move_id",move_id.get()} });
+    return points;
+}
+
+std::vector<dbo::Points> arx_points(const std::vector<dbo::Points> & points, const Dates::DateTime_t & part_key)
+{
+    LogTrace(TRACE5) << __func__ << " part_key: " << part_key;
+    auto move_points = algo::filter(points, [&](const dbo::Points & point){return point.pr_del!=-1;});
+    dbo::Session session;
+    for(const auto &p : move_points) {
+        dbo::Arx_Points ap(p, part_key);
+        session.insert(ap);
+    }
+    return move_points;
+}
+
+void arx_move_ext(const MoveId_t & vmove_id, const Dates::DateTime_t & part_key, double date_range)
+{
+    int date_range_int = (date_range >= 1) ? (int)ceil(date_range) : 0;
+    LogTrace(TRACE5) << __FUNCTION__ << " move_id: " << vmove_id << " date_range_int: " << date_range_int;
+    if(date_range_int > 0) {
         dbo::Session session;
-        dbo::Move_Arx_Ext ext{date_range, vmove_id.get(), part_key};
+        dbo::Move_Arx_Ext ext{date_range_int, vmove_id.get(), part_key};
         session.insert(ext);
     }
 }
 
-void arx_move_ref(const MoveId_t & vmove_id, const Dates::DateTime_t& part_key)
+void arx_move_ref(const MoveId_t & vmove_id, const Dates::DateTime_t & part_key)
 {
     LogTrace(TRACE5) << __FUNCTION__ << " move_id: " << vmove_id;
     dbo::Session session;
     std::vector<dbo::Move_Ref> move_refs = session.query<dbo::Move_Ref>()
-            .where(" MOVE_ID = :move_id")
-            .setBind({{"move_id",vmove_id.get()} });
+        .where(" MOVE_ID = :move_id")
+        .setBind({{"move_id",vmove_id.get()} });
     for(const auto & mr : move_refs) {
-        dbo::Arx_Move_Ref amr(mr,part_key);
+        dbo::Arx_Move_Ref amr(mr, part_key);
         session.insert(amr);
     }
 }
 
-std::vector<dbo::Points> arx_points(const MoveId_t & vmove_id, const Dates::DateTime_t& part_key)
+void arx_events_by_move_id(const MoveId_t & move_id, const Dates::DateTime_t & part_key)
 {
-    LogTrace(TRACE5) << __FUNCTION__ << " vmove_id : "<< vmove_id << " part_key: " << part_key;
+    LogTrace5 << __FUNCTION__ << " move_id: " << move_id;
     dbo::Session session;
-    std::vector<dbo::Points> points = session.query<dbo::Points>()
-            .where(" MOVE_ID = :move_id")
+    std::vector<dbo::Lang_Types> langs = session.query<dbo::Lang_Types>();
+    for(const auto & lang : langs) {
+        std::vector<dbo::Events_Bilingual> events =  session.query<dbo::Events_Bilingual>()
+            .where(" id1 = :move_id and lang = :l and type = :evtDisp")
             .for_update(true)
-            .setBind({{"move_id",vmove_id.get()} });
-
-    for(const auto &p : points) {
-        if(p.pr_del != -1) {
-            dbo::Arx_Points ap(p, part_key);
-            session.insert(ap);
-        }
-    }
-    return points;
-}
-
-void arx_events_by_move_id(const MoveId_t & vmove_id, const Dates::DateTime_t& part_key)
-{
-    LogTrace5 << __FUNCTION__ << " move_id: " << vmove_id << " part_key: " << part_key;
-    dbo::Session session;
-    std::vector<dbo::Lang_Types> langs = session.query<dbo::Lang_Types>();
-    for(const auto & lang : langs) {
-        std::vector<dbo::Events_Bilingual> events =  session.query<dbo::Events_Bilingual>()
-                .where(" id1 = :move_id and lang = :l and type = :evtDisp")
-                .for_update(true)
-                .setBind({{"move_id",vmove_id.get()},
-                          {"l",lang.code},
-                          {"evtDisp", EncodeEventType(evtDisp)}});
+            .setBind({{"move_id",move_id.get()},
+                      {"l",lang.code},
+                      {"evtDisp", EncodeEventType(evtDisp)}});
         for(const auto & ev : events) {
-            dbo::Arx_Events aev(ev,part_key);
+            dbo::Arx_Events aev(ev, part_key);
             session.insert(aev);
-            if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from events_bilingual where id1 = :id1 and lang = :lang and type = :type ",
-                         PgOra::getRWSession("EVENTS_BILINGUAL"))
-                    .bind(":id1", aev.id1)
-                    .bind(":lang", aev.lang)
-                    .bind(":type", aev.type)
-                    .exec();
-            }
         }
     }
 }
 
-void arx_events_by_point_id(const PointId_t& point_id, const Dates::DateTime_t& part_key)
+void deleteEventsByMoveId(const MoveId_t & move_id)
 {
-    LogTrace5 << __FUNCTION__ << " point_id: " << point_id << " part_key: " << part_key;
+    LogTrace5 << __FUNCTION__ << " move_id: " << move_id ;
+    dbo::Session session;
+    std::vector<dbo::Lang_Types> langs = session.query<dbo::Lang_Types>();
+    for(const auto & lang : langs) {
+        make_db_curs("delete from EVENTS_BILINGUAL where id1 = :move_id and lang = :lang and type = :evtDisp ",
+            PgOra::getRWSession("EVENTS_BILINGUAL"))
+            .bind(":move_id", move_id.get())
+            .bind(":lang", lang.code)
+            .bind(":evtDisp", EncodeEventType(evtDisp))
+            .exec();
+    }
+}
+
+void arx_events_by_point_id(const PointId_t& point_id, const Dates::DateTime_t & part_key)
+{
+    LogTrace5 << __FUNCTION__ << " point_id: " << point_id ;
     dbo::Session session;
     std::vector<dbo::Lang_Types> langs = session.query<dbo::Lang_Types>();
     for(const auto & lang : langs) {
         std::vector<dbo::Events_Bilingual> events =  session.query<dbo::Events_Bilingual>()
-                .where(" id1 = :point_id and lang = :l and type in "
+                .where(" id1 = :point_id and lang = :lang and type in "
                        " (:evtFlt, :evtGraph, :evtFltTask, :evtPax, :evtPay, :evtTlg, :evtPrn)")
                 .for_update(true)
-                .setBind({{"l",lang.code},
-                          {"point_id", point_id.get()},
+                .setBind({{"lang",       lang.code},
+                          {"point_id",   point_id.get()},
                           {"evtFlt",     EncodeEventType(evtFlt)},
                           {"evtGraph",   EncodeEventType(evtGraph)},
                           {"evtFltTask", EncodeEventType(evtFltTask)},
@@ -1058,23 +1040,37 @@ void arx_events_by_point_id(const PointId_t& point_id, const Dates::DateTime_t& 
                           {"evtPrn",     EncodeEventType(evtPrn)},
                          });
         for(const auto & ev : events) {
-            dbo::Arx_Events aev(ev,part_key);
+            dbo::Arx_Events aev(ev, part_key);
             session.insert(aev);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from events_bilingual where id1 = :id1 and lang = :lang and type = :type ",
-                         PgOra::getRWSession("EVENTS_BILINGUAL"))
-                    .bind(":id1", aev.id1)
-                    .bind(":lang", aev.lang)
-                    .bind(":type", aev.type)
-                    .exec();
-        }
         }
     }
 }
 
-void arx_mark_trips(const PointId_t& point_id, const Dates::DateTime_t& part_key)
+void deleteEventsByPointId(const PointId_t& point_id)
 {
-    LogTrace5 << __func__ << " point_id: " << point_id << " part_key: " << part_key;
+    LogTrace5 << __FUNCTION__ << " point_id: " << point_id ;
+    dbo::Session session;
+    std::vector<dbo::Lang_Types> langs = session.query<dbo::Lang_Types>();
+    for(const auto & lang : langs) {
+        make_db_curs("delete from EVENTS_BILINGUAL where id1 = :point_id and lang = :lang "
+                     "and type in (:evtFlt, :evtGraph, :evtFltTask, :evtPax, :evtPay, :evtTlg, :evtPrn) ",
+                     PgOra::getRWSession("EVENTS_BILINGUAL"))
+                .bind(":point_id",   point_id.get())
+                .bind(":lang",       lang.code)
+                .bind(":evtFlt",     EncodeEventType(evtFlt))
+                .bind(":evtGraph",   EncodeEventType(evtGraph))
+                .bind(":evtFltTask", EncodeEventType(evtFltTask))
+                .bind(":evtPax",     EncodeEventType(evtPax))
+                .bind(":evtPay",     EncodeEventType(evtPay))
+                .bind(":evtTlg",     EncodeEventType(evtTlg))
+                .bind(":evtPrn",     EncodeEventType(evtPrn))
+                .exec();
+    }
+}
+
+void arx_mark_trips(const PointId_t& point_id, const Dates::DateTime_t & part_key)
+{
+    LogTrace5 << __func__ << " point_id: " << point_id ;
     dbo::Session session;
     std::vector<int> pax_grp_id_marks = session.query<int>("SELECT DISTINCT point_id_mark")
             .from("pax_grp")
@@ -1090,28 +1086,31 @@ void arx_mark_trips(const PointId_t& point_id, const Dates::DateTime_t& part_key
         }
     }
     for(const auto & mark_trip : mark_trips) {
-        dbo::Arx_Mark_Trips amt(mark_trip,part_key);
+        dbo::Arx_Mark_Trips amt(mark_trip, part_key);
         session.noThrowError(DbCpp::ResultCode::ConstraintFail).insert(amt);
     }
 }
 
-std::vector<dbo::Pax_Grp> arx_pax_grp(const PointId_t& point_id, const Dates::DateTime_t& part_key)
+void arx_pax_grp(const std::vector<dbo::Pax_Grp> & pax_grps, const Dates::DateTime_t & part_key)
 {
-    LogTrace(TRACE3) << __FUNCTION__ << " point_id: " << point_id << " part_key: " << part_key;
     dbo::Session session;
-    std::vector<dbo::Pax_Grp> pax_grps = session.query<dbo::Pax_Grp>()
-            .where("point_dep = :point_id")
-            .for_update(true)
-            .setBind({{"point_id", point_id.get()}});
-
     for(const auto &gr : pax_grps) {
-        dbo::Arx_Pax_Grp apg(gr,part_key);
+        dbo::Arx_Pax_Grp apg(gr, part_key);
         session.insert(apg);
     }
+}
+
+std::vector<dbo::Pax_Grp> read_pax_grp(const PointId_t& point_id, const Dates::DateTime_t & part_key)
+{
+    dbo::Session session;
+    std::vector<dbo::Pax_Grp> pax_grps = session.query<dbo::Pax_Grp>()
+        .where("point_dep = :point_id")
+        .for_update(true)
+        .setBind({{"point_id", point_id.get()}});
     return pax_grps;
 }
 
-void arx_self_ckin_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key)
+void arx_self_ckin_stat(const PointId_t& point_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::Self_Ckin_Stat> ckin_stats = session.query<dbo::Self_Ckin_Stat>()
@@ -1120,18 +1119,12 @@ void arx_self_ckin_stat(const PointId_t& point_id, const Dates::DateTime_t& part
             .setBind({{"point_id", point_id.get()}});
 
     for(const auto &cs : ckin_stats) {
-        dbo::Arx_Self_Ckin_Stat ascs(cs,part_key);
+        dbo::Arx_Self_Ckin_Stat ascs(cs, part_key);
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from self_ckin_stat where point_id = :point_id ",
-                         PgOra::getRWSession("SELF_CKIN_STAT"))
-                    .bind(":point_id", cs.point_id)
-                    .exec();
-        }
     }
 }
 
-void arx_rfisc_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key)
+void arx_rfisc_stat(const PointId_t& point_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::RFISC_STAT> rfisc_stats = session.query<dbo::RFISC_STAT>()
@@ -1140,18 +1133,12 @@ void arx_rfisc_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key
             .setBind({{"point_id", point_id.get()}});
 
     for(const auto &cs : rfisc_stats) {
-        dbo::ARX_RFISC_STAT ascs(cs,part_key);
+        dbo::ARX_RFISC_STAT ascs(cs, part_key);
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from RFISC_STAT where point_id = :point_id ",
-                         PgOra::getRWSession("RFISC_STAT"))
-                    .bind(":point_id", cs.point_id)
-                    .exec();
-        }
     }
 }
 
-void arx_stat_services(const PointId_t& point_id, const Dates::DateTime_t& part_key)
+void arx_stat_services(const PointId_t& point_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::STAT_SERVICES> stat_services = session.query<dbo::STAT_SERVICES>()
@@ -1160,18 +1147,12 @@ void arx_stat_services(const PointId_t& point_id, const Dates::DateTime_t& part_
             .setBind({{"point_id", point_id.get()}});
 
     for(const auto &cs : stat_services) {
-        dbo::ARX_STAT_SERVICES ascs(cs,part_key);
+        dbo::ARX_STAT_SERVICES ascs(cs, part_key);
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from STAT_SERVICES where point_id = :point_id ",
-                         PgOra::getRWSession("STAT_SERVICES"))
-                    .bind(":point_id", cs.point_id)
-                    .exec();
-        }
     }
 }
 
-void arx_stat_rem(const PointId_t& point_id, const Dates::DateTime_t& part_key)
+void arx_stat_rem(const PointId_t& point_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::STAT_REM> stat_rems = session.query<dbo::STAT_REM>()
@@ -1180,18 +1161,12 @@ void arx_stat_rem(const PointId_t& point_id, const Dates::DateTime_t& part_key)
             .setBind({{"point_id", point_id.get()}});
 
     for(const auto &cs : stat_rems) {
-        dbo::ARX_STAT_REM ascs(cs,part_key);
+        dbo::ARX_STAT_REM ascs(cs, part_key);
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from STAT_REM where point_id = :point_id ",
-                         PgOra::getRWSession("STAT_REM"))
-                    .bind(":point_id", cs.point_id)
-                    .exec();
-        }
     }
 }
 
-void arx_limited_cap_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key)
+void arx_limited_cap_stat(const PointId_t& point_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::LIMITED_CAPABILITY_STAT> stat_lcs = session.query<dbo::LIMITED_CAPABILITY_STAT>()
@@ -1200,18 +1175,12 @@ void arx_limited_cap_stat(const PointId_t& point_id, const Dates::DateTime_t& pa
             .setBind({{"point_id", point_id.get()}});
 
     for(const auto &cs : stat_lcs) {
-        dbo::ARX_LIMITED_CAPABILITY_STAT ascs(cs,part_key);
+        dbo::ARX_LIMITED_CAPABILITY_STAT ascs(cs, part_key);
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from LIMITED_CAPABILITY_STAT where point_id = :point_id ",
-                         PgOra::getRWSession("LIMITED_CAPABILITY_STAT"))
-                    .bind(":point_id", cs.point_id)
-                    .exec();
-        }
     }
 }
 
-void arx_pfs_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key)
+void arx_pfs_stat(const PointId_t& point_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::PFS_STAT> stat_pfs = session.query<dbo::PFS_STAT>()
@@ -1220,18 +1189,12 @@ void arx_pfs_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key)
             .setBind({{"point_id", point_id.get()}});
 
     for(const auto &cs : stat_pfs) {
-        dbo::ARX_PFS_STAT ascs(cs,part_key);
+        dbo::ARX_PFS_STAT ascs(cs, part_key);
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from PFS_STAT where point_id = :point_id ",
-                         PgOra::getRWSession("PFS_STAT"))
-                    .bind(":point_id", cs.point_id)
-                    .exec();
-        }
     }
 }
 
-void arx_stat_ad(const PointId_t& point_id, const Dates::DateTime_t& part_key)
+void arx_stat_ad(const PointId_t& point_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::STAT_AD> stat_ad = session.query<dbo::STAT_AD>()
@@ -1240,18 +1203,12 @@ void arx_stat_ad(const PointId_t& point_id, const Dates::DateTime_t& part_key)
             .setBind({{"point_id", point_id.get()}});
 
     for(const auto &cs : stat_ad) {
-        dbo::ARX_STAT_AD ascs(cs,part_key);
+        dbo::ARX_STAT_AD ascs(cs, part_key);
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from STAT_AD where point_id = :point_id ",
-                         PgOra::getRWSession("STAT_AD"))
-                    .bind(":point_id", cs.point_id)
-                    .exec();
-        }
     }
 }
 
-void arx_stat_ha(const PointId_t& point_id, const Dates::DateTime_t& part_key)
+void arx_stat_ha(const PointId_t& point_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::STAT_HA> stat_ha = session.query<dbo::STAT_HA>()
@@ -1260,18 +1217,12 @@ void arx_stat_ha(const PointId_t& point_id, const Dates::DateTime_t& part_key)
             .setBind({{"point_id", point_id.get()}});
 
     for(const auto &cs : stat_ha) {
-        dbo::ARX_STAT_HA ascs(cs,part_key);
+        dbo::ARX_STAT_HA ascs(cs, part_key);
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from STAT_HA where point_id = :point_id ",
-                         PgOra::getRWSession("STAT_HA"))
-                    .bind(":point_id", cs.point_id)
-                    .exec();
-        }
     }
 }
 
-void arx_stat_vo(const PointId_t& point_id, const Dates::DateTime_t& part_key)
+void arx_stat_vo(const PointId_t& point_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::STAT_VO> stat_vo = session.query<dbo::STAT_VO>()
@@ -1280,18 +1231,12 @@ void arx_stat_vo(const PointId_t& point_id, const Dates::DateTime_t& part_key)
             .setBind({{"point_id", point_id.get()}});
 
     for(const auto &cs : stat_vo) {
-        dbo::ARX_STAT_VO ascs(cs,part_key);
+        dbo::ARX_STAT_VO ascs(cs, part_key);
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from STAT_VO where point_id = :point_id ",
-                         PgOra::getRWSession("STAT_VO"))
-                    .bind(":point_id", cs.point_id)
-                    .exec();
-        }
     }
 }
 
-void arx_stat_reprint(const PointId_t& point_id, const Dates::DateTime_t& part_key)
+void arx_stat_reprint(const PointId_t& point_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::STAT_REPRINT> stat_reprint = session.query<dbo::STAT_REPRINT>()
@@ -1300,18 +1245,12 @@ void arx_stat_reprint(const PointId_t& point_id, const Dates::DateTime_t& part_k
             .setBind({{"point_id", point_id.get()}});
 
     for(const auto &cs : stat_reprint) {
-        dbo::ARX_STAT_REPRINT ascs(cs,part_key);
+        dbo::ARX_STAT_REPRINT ascs(cs, part_key);
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from STAT_REPRINT where point_id = :point_id ",
-                         PgOra::getRWSession("STAT_REPRINT"))
-                    .bind(":point_id", cs.point_id)
-                    .exec();
-        }
     }
 }
 
-void arx_trfer_pax_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key)
+void arx_trfer_pax_stat(const PointId_t& point_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::TRFER_PAX_STAT> stat_reprint = session.query<dbo::TRFER_PAX_STAT>()
@@ -1320,18 +1259,12 @@ void arx_trfer_pax_stat(const PointId_t& point_id, const Dates::DateTime_t& part
             .setBind({{"point_id", point_id.get()}});
 
     for(const auto &cs : stat_reprint) {
-        dbo::ARX_TRFER_PAX_STAT ascs(cs,part_key);
+        dbo::ARX_TRFER_PAX_STAT ascs(cs, part_key);
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from TRFER_PAX_STAT where point_id = :point_id ",
-                         PgOra::getRWSession("TRFER_PAX_STAT"))
-                    .bind(":point_id", cs.point_id)
-                    .exec();
-        }
     }
 }
 
-void arx_bi_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key)
+void arx_bi_stat(const PointId_t& point_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::BI_STAT> bi_stats = session.query<dbo::BI_STAT>()
@@ -1340,44 +1273,32 @@ void arx_bi_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key)
             .setBind({{"point_id", point_id.get()}});
 
     for(const auto &cs : bi_stats) {
-        dbo::ARX_BI_STAT ascs(cs,part_key);
+        dbo::ARX_BI_STAT ascs(cs, part_key);
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from BI_STAT where point_id = :point_id ",
-                         PgOra::getRWSession("BI_STAT"))
-                    .bind(":point_id", cs.point_id)
-                    .exec();
-        }
     }
 }
 
 
 
-void arx_agent_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key)
+void arx_agent_stat(const PointId_t& point_id, const Dates::DateTime_t & part_key)
 {
     std::vector<dbo::AGENT_STAT> agents_stat{};
     dbo::Session session(dbo::Postgres);
     PgOra::supportsPg("AGENT_STAT") ?  agents_stat = session.query<dbo::AGENT_STAT>()
-                                                        .where("point_id = :point_id")
-                                                        .for_update(true)
-                                                        .setBind({{"point_id", point_id.get()}})
-                                    :  agents_stat = dbo::readOraAgentsStat(point_id);
+            .where("point_id = :point_id")
+            .for_update(true)
+            .setBind({{"point_id", point_id.get()}})
+            :  agents_stat = dbo::readOraAgentsStat(point_id);
 
     for(const auto &as : agents_stat) {
-        dbo::ARX_AGENT_STAT ascs(as,part_key);
+        dbo::ARX_AGENT_STAT ascs(as, part_key);
         ascs.part_key = ascs.ondate;
-        ascs.point_part_key =part_key;
+        ascs.point_part_key = part_key;
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from AGENT_STAT where point_id = :point_id ",
-                         PgOra::getRWSession("AGENT_STAT"))
-                    .bind(":point_id", as.point_id)
-                    .exec();
-        }
     }
 }
 
-void arx_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key)
+void arx_stat(const PointId_t& point_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::STAT> stats = session.query<dbo::STAT>()
@@ -1386,18 +1307,12 @@ void arx_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key)
             .setBind({{"point_id", point_id.get()}});
 
     for(const auto &cs : stats) {
-        dbo::ARX_STAT ascs(cs,part_key);
+        dbo::ARX_STAT ascs(cs, part_key);
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from STAT where point_id = :point_id ",
-                         PgOra::getRWSession("STAT"))
-                    .bind(":point_id", cs.point_id)
-                    .exec();
-        }
     }
 }
 
-void arx_trfer_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key)
+void arx_trfer_stat(const PointId_t& point_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::TRFER_STAT> stats = session.query<dbo::TRFER_STAT>()
@@ -1406,74 +1321,80 @@ void arx_trfer_stat(const PointId_t& point_id, const Dates::DateTime_t& part_key
             .setBind({{"point_id", point_id.get()}});
 
     for(const auto &cs : stats) {
-        dbo::ARX_TRFER_STAT ascs(cs,part_key);
+        dbo::ARX_TRFER_STAT ascs(cs, part_key);
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from TRFER_STAT where point_id = :point_id ",
-                         PgOra::getRWSession("TRFER_STAT"))
-                    .bind(":point_id", cs.point_id)
-                    .exec();
-        }
     }
 }
 
-void arx_tlg_out(const PointId_t& point_id, const Dates::DateTime_t& part_key)
+void arx_tlg_out(const PointId_t& point_id, const Dates::DateTime_t & part_key)
+{
+    dbo::Session session;
+    std::vector<dbo::TLG_OUT> stats = session.query<dbo::TLG_OUT>()
+        .where("point_id = :point_id AND type<>'LCI'")
+        .for_update(true)
+        .setBind({{"point_id", point_id.get()}});
+
+    for(const auto &cs : stats) {
+        Dates::DateTime_t part_key_nvl = dbo::coalesce(cs.time_send_act, cs.time_send_scd, cs.time_create);
+        dbo::ARX_TLG_OUT ascs(cs, part_key_nvl);
+        session.insert(ascs);
+    }
+}
+
+void deleteTlgOut(const PointId_t& point_id)
 {
     dbo::Session session;
     std::vector<dbo::TLG_OUT> stats = session.query<dbo::TLG_OUT>()
             .where("point_id = :point_id AND type<>'LCI'")
             .for_update(true)
             .setBind({{"point_id", point_id.get()}});
-
     for(const auto &cs : stats) {
-        Dates::DateTime_t part_key_nvl = dbo::coalesce(cs.time_send_act, cs.time_send_scd, cs.time_create);
-        dbo::ARX_TLG_OUT ascs(cs, part_key_nvl);
-        session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from typeb_out_extra where tlg_id = :tlg_id ",  PgOra::getRWSession("TYPEB_OUT_EXTRA")).bind(":tlg_id", cs.id).exec();
-            make_db_curs("delete from typeb_out_errors where tlg_id = :tlg_id ", PgOra::getRWSession("TYPEB_OUT_ERRORS")).bind(":tlg_id", cs.id).exec();
-            make_db_curs("delete from tlg_out where id = :id ",                  PgOra::getRWSession("TLG_OUT")).bind(":id", cs.id).exec();
-        }
+        make_db_curs("delete from TYPEB_OUT_EXTRA where tlg_id = :tlg_id ",
+                     PgOra::getRWSession("TYPEB_OUT_EXTRA")).bind(":tlg_id", cs.id).exec();
+        make_db_curs("delete from TYPEB_OUT_ERRORS where tlg_id = :tlg_id ",
+                     PgOra::getRWSession("TYPEB_OUT_ERRORS")).bind(":tlg_id", cs.id).exec();
+        make_db_curs("delete from TLG_OUT where id = :id ",
+                     PgOra::getRWSession("TLG_OUT")).bind(":id", cs.id).exec();
     }
 }
 
-void arx_trip_classes(const PointId_t& point_id, const Dates::DateTime_t& part_key)
+void arx_trip_classes(const PointId_t& point_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::TRIP_CLASSES> stats = session.query<dbo::TRIP_CLASSES>()
             .where("point_id = :point_id").setBind({{"point_id", point_id.get()}});
 
     for(const auto &cs : stats) {
-        dbo::ARX_TRIP_CLASSES ascs(cs,part_key);
+        dbo::ARX_TRIP_CLASSES ascs(cs, part_key);
         session.insert(ascs);
     }
 }
 
-void arx_trip_delays(const PointId_t& point_id, const Dates::DateTime_t& part_key)
+void arx_trip_delays(const PointId_t& point_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::TRIP_DELAYS> stats = session.query<dbo::TRIP_DELAYS>()
             .where("point_id = :point_id").setBind({{"point_id", point_id.get()}});
 
     for(const auto &cs : stats) {
-        dbo::ARX_TRIP_DELAYS ascs(cs,part_key);
+        dbo::ARX_TRIP_DELAYS ascs(cs, part_key);
         session.insert(ascs);
     }
 }
 
-void arx_trip_load(const PointId_t& point_id, const Dates::DateTime_t& part_key)
+void arx_trip_load(const PointId_t& point_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::TRIP_LOAD> stats = session.query<dbo::TRIP_LOAD>()
             .where("point_dep = :point_id").setBind({{"point_id", point_id.get()}});
 
     for(const auto &cs : stats) {
-        dbo::ARX_TRIP_LOAD ascs(cs,part_key);
+        dbo::ARX_TRIP_LOAD ascs(cs, part_key);
         session.insert(ascs);
     }
 }
 
-void arx_trip_sets(const PointId_t& point_id, const Dates::DateTime_t& part_key)
+void arx_trip_sets(const PointId_t& point_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::TRIP_SETS> trip_sets = session.query<dbo::TRIP_SETS>()
@@ -1491,25 +1412,25 @@ void arx_trip_sets(const PointId_t& point_id, const Dates::DateTime_t& part_key)
         ats.f = ts.f;
         ats.c = ts.c;
         ats.y = ts.y;
-        ats.part_key =part_key;
+        ats.part_key = part_key;
         session.insert(ats);
     }
 }
 
-void arx_trip_crs_displace2(const PointId_t& point_id, const Dates::DateTime_t& part_key)
+void arx_crs_displace2(const PointId_t& point_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::CRS_DISPLACE2> stats = session.query<dbo::CRS_DISPLACE2>()
             .where("point_id_spp = :point_id").setBind({{"point_id", point_id.get()}});
 
     for(const auto &cs : stats) {
-        dbo::ARX_CRS_DISPLACE2 ascs(cs,part_key);
+        dbo::ARX_CRS_DISPLACE2 ascs(cs, part_key);
         ascs.point_id_tlg = ASTRA::NoExists;
         session.insert(ascs);
     }
 }
 
-void arx_trip_stages(const PointId_t& point_id, const Dates::DateTime_t& part_key)
+void arx_trip_stages(const PointId_t& point_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::TRIP_STAGES> stats = session.query<dbo::TRIP_STAGES>()
@@ -1518,18 +1439,12 @@ void arx_trip_stages(const PointId_t& point_id, const Dates::DateTime_t& part_ke
             .setBind({{"point_id", point_id.get()}});
 
     for(const auto &cs : stats) {
-        dbo::ARX_TRIP_STAGES ascs(cs,part_key);
+        dbo::ARX_TRIP_STAGES ascs(cs, part_key);
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from TRIP_STAGES where point_id = :point_id ",
-                         PgOra::getRWSession("TRIP_STAGES"))
-                    .bind(":point_id", cs.point_id)
-                    .exec();
-        }
     }
 }
 
-std::vector<dbo::BAG_RECEIPTS> arx_bag_receipts(const PointId_t& point_id, const Dates::DateTime_t& part_key)
+void arx_bag_receipts(const PointId_t& point_id, const Dates::DateTime_t & part_key)
 {
     LogTrace1 <<__FUNCTION__ << " point_id: " << point_id;
     std::vector<dbo::BAG_RECEIPTS> bag_receipts;
@@ -1545,19 +1460,13 @@ std::vector<dbo::BAG_RECEIPTS> arx_bag_receipts(const PointId_t& point_id, const
 
     dbo::Session session;
     for(const auto &br : bag_receipts) {
-        dbo::ARX_BAG_RECEIPTS abr(br,part_key);
+        dbo::ARX_BAG_RECEIPTS abr(br, part_key);
         session.insert(abr);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from BAG_RECEIPTS where receipt_id = :receipt_id ",
-                         PgOra::getRWSession("BAG_RECEIPTS"))
-                    .bind(":receipt_id", br.receipt_id)
-                    .exec();
-        }
+        arx_bag_pay_types(br.receipt_id, part_key);
     }
-    return bag_receipts;
 }
 
-void arx_bag_pay_types(int receipt_id , const Dates::DateTime_t& part_key)
+void arx_bag_pay_types(int receipt_id , const Dates::DateTime_t & part_key)
 {
     if(receipt_id != ASTRA::NoExists) {
         dbo::Session session;
@@ -1566,66 +1475,69 @@ void arx_bag_pay_types(int receipt_id , const Dates::DateTime_t& part_key)
                 .for_update(true)
                 .setBind({{"receipt_id", receipt_id}});
 
-
         for(const auto &bpt : bag_receipts) {
-            dbo::ARX_BAG_PAY_TYPES abpt(bpt,part_key);
+            dbo::ARX_BAG_PAY_TYPES abpt(bpt, part_key);
             session.insert(abpt);
-            if(ARX::CLEANUP_PG()) {
-                make_db_curs("delete from BAG_PAY_TYPES where receipt_id = :receipt_id ",
-                             PgOra::getRWSession("BAG_PAY_TYPES"))
-                        .bind(":receipt_id", bpt.receipt_id)
-                        .exec();
-            }
         }
     }
 }
 
-void delete_bag_receipt_kits(int kit_id)
+void deleteBagReceipts(const PointId_t& point_id)
 {
-    if(ARX::CLEANUP_PG()) {
-        if(kit_id != ASTRA::NoExists) {
-            make_db_curs("delete from bag_rcpt_kits where kit_id = :kit_id ",
-                         PgOra::getRWSession("BAG_RCPT_KITS"))
-                    .bind(":kit_id", kit_id)
-                    .exec();
-        }
+    LogTrace1 <<__FUNCTION__ << " point_id: " << point_id;
+    std::vector<dbo::BAG_RECEIPTS> bag_receipts;
+    dbo::BAG_RECEIPTS bag;
+    auto cur = make_db_curs("select bag_receipts.receipt_id, bag_receipts.kit_id from BAG_RECEIPTS "
+                            " left join BAG_RCPT_KITS on bag_receipts.kit_id = bag_rcpt_kits.kit_id AND "
+                            " bag_receipts.kit_num = bag_rcpt_kits.kit_num "
+                            " WHERE bag_receipts.point_id = :point_id FOR UPDATE");
+    cur.def(bag.receipt_id).defNull(bag.kit_id, ASTRA::NoExists).bind(":point_id", point_id.get()).exec();
+    while(!cur.fen()) {
+        bag_receipts.push_back(bag);
     }
+
+    for(const auto &br : bag_receipts) {
+        make_db_curs("delete from BAG_RECEIPTS where receipt_id = :receipt_id",
+                     PgOra::getRWSession("BAG_RECEIPTS")).bind(":receipt_id", br.receipt_id).exec();
+        make_db_curs("delete from BAG_PAY_TYPES where receipt_id = :receipt_id",
+                     PgOra::getRWSession("BAG_PAY_TYPES")).bind(":receipt_id", br.receipt_id).exec();
+        make_db_curs("delete from BAG_RCPT_KITS where kit_id = :kit_id ",
+                     PgOra::getRWSession("BAG_RCPT_KITS")).bind(":kit_id", br.kit_id).exec();
+    }
+
 }
 
-void arx_annul_bags_tags(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
+void arx_annul_bags_tags(const GrpId_t& grp_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::ANNUL_BAG> annul_bags = session.query<dbo::ANNUL_BAG>()
-            .where("grp_id = :grp_id")
-            .for_update(true)
-            .setBind({{"grp_id", grp_id.get()}});
+        .where("grp_id = :grp_id")
+        .for_update(true)
+        .setBind({{"grp_id", grp_id.get()}});
     std::vector<dbo::ANNUL_TAGS> annul_tags = session.query<dbo::ANNUL_TAGS>()
-            .where("id = :grp_id")
-            .for_update(true)
-            .setBind({{"grp_id", grp_id.get()}});
+        .where("id = :grp_id")
+        .for_update(true)
+        .setBind({{"grp_id", grp_id.get()}});
 
     for(const auto &cs : annul_bags) {
-        dbo::ARX_ANNUL_BAG ascs(cs,part_key);
+        dbo::ARX_ANNUL_BAG ascs(cs, part_key);
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from ANNUL_BAG where id = :id ", PgOra::getRWSession("ANNUL_BAG"))
-                    .bind(":id", cs.id)
-                    .exec();
-        }
     }
-
     for(const auto &cs : annul_tags) {
-        dbo::ARX_ANNUL_TAGS ascs(cs,part_key);
+        dbo::ARX_ANNUL_TAGS ascs(cs, part_key);
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from ANNUL_BAG where id = :id ", PgOra::getRWSession("ANNUL_TAGS"))
-                    .bind(":id", cs.id)
-                    .exec();
-        }
     }
 }
 
-void arx_unaccomp_bag_info(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
+void delete_annul_bags_tags(const GrpId_t& grp_id)
+{
+    make_db_curs("delete from ANNUL_BAG where grp_id = :grp_id ", PgOra::getRWSession("ANNUL_BAG"))
+            .bind(":grp_id", grp_id.get()).exec();
+    make_db_curs("delete from ANNUL_BAG where id = :grp_id ", PgOra::getRWSession("ANNUL_TAGS"))
+            .bind(":grp_id", grp_id.get()).exec();
+}
+
+void arx_unaccomp_bag_info(const GrpId_t& grp_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::UNACCOMP_BAG_INFO> bag_infos = session.query<dbo::UNACCOMP_BAG_INFO>()
@@ -1634,17 +1546,12 @@ void arx_unaccomp_bag_info(const GrpId_t& grp_id, const Dates::DateTime_t& part_
             .setBind({{"grp_id", grp_id.get()}});
 
     for(const auto &cs : bag_infos) {
-        dbo::ARX_UNACCOMP_BAG_INFO ascs(cs,part_key);
+        dbo::ARX_UNACCOMP_BAG_INFO ascs(cs, part_key);
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from UNACCOMP_BAG_INFO where grp_id = :grp_id ", PgOra::getRWSession("UNACCOMP_BAG_INFO"))
-                    .bind(":grp_id", cs.grp_id)
-                    .exec();
-        }
     }
 }
 
-void arx_bag2(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
+void arx_bag2(const GrpId_t& grp_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::BAG2> bags2 = session.query<dbo::BAG2>()
@@ -1653,17 +1560,12 @@ void arx_bag2(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
             .setBind({{"grp_id", grp_id.get()}});
 
     for(const auto &cs : bags2) {
-        dbo::ARX_BAG2 ascs(cs,part_key);
+        dbo::ARX_BAG2 ascs(cs, part_key);
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from BAG2 where grp_id = :grp_id ", PgOra::getRWSession("BAG2"))
-                    .bind(":grp_id", cs.grp_id)
-                    .exec();
-        }
     }
 }
 
-void arx_bag_prepay(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
+void arx_bag_prepay(const GrpId_t& grp_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::BAG_PREPAY> bag_prepay = session.query<dbo::BAG_PREPAY>()
@@ -1674,15 +1576,10 @@ void arx_bag_prepay(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
     for(const auto &cs : bag_prepay) {
         dbo::ARX_BAG_PREPAY ascs(cs, part_key);
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from BAG_PREPAY where grp_id = :grp_id ", PgOra::getRWSession("BAG_PREPAY"))
-                    .bind(":grp_id", cs.grp_id)
-                    .exec();
-        }
     }
 }
 
-void arx_bag_tags(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
+void arx_bag_tags(const GrpId_t& grp_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::BAG_TAGS> bag_tags = session.query<dbo::BAG_TAGS>()
@@ -1691,17 +1588,12 @@ void arx_bag_tags(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
             .setBind({{"grp_id", grp_id.get()}});
 
     for(const auto &cs : bag_tags) {
-        dbo::ARX_BAG_TAGS ascs(cs,part_key);
+        dbo::ARX_BAG_TAGS ascs(cs, part_key);
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from BAG_TAGS where grp_id = :grp_id ", PgOra::getRWSession("BAG_TAGS"))
-                    .bind(":grp_id", cs.grp_id)
-                    .exec();
-        }
     }
 }
 
-void arx_paid_bag(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
+void arx_paid_bag(const GrpId_t& grp_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::PAID_BAG> paid_bag = session.query<dbo::PAID_BAG>()
@@ -1710,17 +1602,12 @@ void arx_paid_bag(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
             .setBind({{"grp_id", grp_id.get()}});
 
     for(const auto &cs : paid_bag) {
-        dbo::ARX_PAID_BAG ascs(cs,part_key);
+        dbo::ARX_PAID_BAG ascs(cs, part_key);
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from PAID_BAG where grp_id = :grp_id ", PgOra::getRWSession("PAID_BAG"))
-                    .bind(":grp_id", cs.grp_id)
-                    .exec();
-        }
     }
 }
 
-void arx_pay_services(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
+void arx_pay_services(const GrpId_t& grp_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::PAY_SERVICES> services = session.query<dbo::PAY_SERVICES>()
@@ -1729,40 +1616,41 @@ void arx_pay_services(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
             .setBind({{"grp_id", grp_id.get()}});
 
     for(const auto &s : services) {
-        dbo::ARX_PAY_SERVICES ascs(s,part_key);
+        dbo::ARX_PAY_SERVICES ascs(s, part_key);
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from PAY_SERVICES where grp_id = :grp_id ", PgOra::getRWSession("PAY_SERVICES"))
-                    .bind(":grp_id", s.grp_id)
-                    .exec();
-        }
     }
 }
 
-std::vector<dbo::PAX> arx_pax(const PointId_t& point_id, const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
+void arx_pax(const std::vector<dbo::PAX>& paxes, const GrpId_t& grp_id,  const PointId_t& point_id,
+             const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
-    std::vector<dbo::PAX> paxes = session.query<dbo::PAX>()
-            .where("grp_id = :grp_id")
-            .for_update(true)
-            .setBind({{"grp_id", grp_id.get()}});
-
     for(const auto &cs : paxes) {
         std::string seat_no = salons::get_seat_no(PaxId_t(cs.pax_id), cs.seats, cs.is_jmp, "", point_id, "one" );
         int excess_pc = ckin::get_excess_pc(grp_id, PaxId_t(cs.pax_id));
         dbo::ARX_PAX ascs(cs, part_key, excess_pc, seat_no);
         session.insert(ascs);
     }
+}
+
+std::vector<dbo::PAX> read_pax(const GrpId_t& grp_id)
+{
+    dbo::Session session;
+    std::vector<dbo::PAX> paxes = session.query<dbo::PAX>()
+            .where("grp_id = :grp_id")
+            .for_update(true)
+            .setBind({{"grp_id", grp_id.get()}});
     return paxes;
 }
 
-std::vector<dbo::TRANSFER> arx_transfer(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
+void arx_transfer(const GrpId_t& grp_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::TRANSFER> trfer = session.query<dbo::TRANSFER>()
             .where("grp_id = :grp_id ")
             .for_update(true)
             .setBind({{":grp_id", grp_id.get()}});
+
     for(const auto& tr : trfer) {
         if(tr.transfer_num > 0) {
             std::optional<dbo::TRFER_TRIPS> trip = session.query<dbo::TRFER_TRIPS>()
@@ -1771,19 +1659,14 @@ std::vector<dbo::TRANSFER> arx_transfer(const GrpId_t& grp_id, const Dates::Date
                     .setBind({{":tp", tr.point_id_trfer}});
 
             if(trip){
-                dbo::ARX_TRANSFER atr(tr, *trip,part_key);
+                dbo::ARX_TRANSFER atr(tr, *trip, part_key);
                 session.insert(atr);
             }
         }
     }
-    if(ARX::CLEANUP_PG()) {
-        make_db_curs("delete from TRANSFER where grp_id = :grp_id ",
-                     PgOra::getRWSession("TRANSFER")).bind(":grp_id", grp_id.get()).exec();
-    }
-    return trfer;
 }
 
-std::vector<dbo::TCKIN_SEGMENTS> arx_tckin_segments(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
+void arx_tckin_segments(const GrpId_t& grp_id, const Dates::DateTime_t & part_key)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " grp_id: " << grp_id;
     dbo::Session session;
@@ -1794,48 +1677,51 @@ std::vector<dbo::TCKIN_SEGMENTS> arx_tckin_segments(const GrpId_t& grp_id, const
 
     for(const auto& s : segs) {
         if(s.seg_no > 0) {
-            static int added = 0;
             std::optional<dbo::TRFER_TRIPS> trip = session.query<dbo::TRFER_TRIPS>()
                     .where("point_id = :tp")
                     .for_update(true)
                     .setBind({{":tp", s.point_id_trfer}});
 
             if(trip) {
-                dbo::ARX_TCKIN_SEGMENTS atr(s, *trip,part_key);
+                dbo::ARX_TCKIN_SEGMENTS atr(s, *trip, part_key);
                 session.insert(atr);
-                added++;
             }
         }
     }
-    if(ARX::CLEANUP_PG()) {
-        make_db_curs("delete from TCKIN_SEGMENTS where grp_id = :grp_id ",
-                     PgOra::getRWSession("TCKIN_SEGMENTS")).bind(":grp_id", grp_id.get()).exec();
-    }
-    return segs;
 }
 
-size_t delete_trfer_trips(const std::vector<dbo::TRANSFER> & transfers, const std::vector<dbo::TCKIN_SEGMENTS> & segments)
+size_t delete_trfer_trips(const GrpId_t& grp_id)
 {
     LogTrace5 << __func__;
     size_t row_count = 0;
-    if(ARX::CLEANUP_PG()) {
-        std::set<int> tr_point_ids   = algo::transform<std::set>(transfers,[&](const dbo::TRANSFER & tr){return tr.point_id_trfer;});
-        std::set<int> segm_point_ids = algo::transform<std::set>(segments, [&](const dbo::TCKIN_SEGMENTS & ts){return ts.point_id_trfer;});
-        tr_point_ids.insert(begin(segm_point_ids), end(segm_point_ids));
+    dbo::Session session;
+    std::vector<dbo::TRANSFER> trfers = session.query<dbo::TRANSFER>().where("grp_id = :grp_id ")
+        .for_update(true).setBind({{":grp_id", grp_id.get()}});
+    std::vector<dbo::TCKIN_SEGMENTS> segs = session.query<dbo::TCKIN_SEGMENTS>().where("grp_id = :grp_id")
+        .for_update(true).setBind({{":grp_id", grp_id.get()}});
 
-        for(const auto & point_id_trfer : tr_point_ids) {
-            auto cur = make_db_curs("delete from TRFER_TRIPS where POINT_ID=:point_id_trfer AND "
-            "NOT EXISTS (SELECT transfer.point_id_trfer FROM transfer WHERE  transfer.point_id_trfer=:point_id_trfer) AND "
-            "NOT EXISTS (SELECT tckin_segments.point_id_trfer FROM tckin_segments WHERE  tckin_segments.point_id_trfer=:point_id_trfer) ",
-                         PgOra::getRWSession("TRFER_TRIPS"));
-            cur.bind(":point_id_trfer", point_id_trfer).exec();
-            row_count += cur.rowcount();
-        }
+    std::set<int> tr_point_ids   = algo::transform<std::set>(trfers, [&](auto tr){return tr.point_id_trfer;});
+    std::set<int> segm_point_ids = algo::transform<std::set>(segs,   [&](auto ts){return ts.point_id_trfer;});
+    tr_point_ids.insert(begin(segm_point_ids), end(segm_point_ids));
+
+    make_db_curs("delete from TRANSFER where grp_id = :grp_id ",
+                 PgOra::getRWSession("TRANSFER")).bind(":grp_id", grp_id.get()).exec();
+    make_db_curs("delete from TCKIN_SEGMENTS where grp_id = :grp_id ",
+                 PgOra::getRWSession("TCKIN_SEGMENTS")).bind(":grp_id", grp_id.get()).exec();
+
+    for(const auto & point_id_trfer : tr_point_ids) {
+        auto cur = make_db_curs(
+"delete from TRFER_TRIPS where POINT_ID=:point_id_trfer AND "
+"NOT EXISTS (SELECT transfer.point_id_trfer FROM transfer WHERE  transfer.point_id_trfer=:point_id_trfer) AND "
+"NOT EXISTS (SELECT tckin_segments.point_id_trfer FROM tckin_segments WHERE  tckin_segments.point_id_trfer=:point_id_trfer) ",
+    PgOra::getRWSession("TRFER_TRIPS"));
+        cur.bind(":point_id_trfer", point_id_trfer).exec();
+        row_count += cur.rowcount();
     }
     return row_count;
 }
 
-void arx_value_bag(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
+void arx_value_bag(const GrpId_t& grp_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::VALUE_BAG> bags2 = session.query<dbo::VALUE_BAG>()
@@ -1844,17 +1730,12 @@ void arx_value_bag(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
             .setBind({{"grp_id", grp_id.get()}});
 
     for(const auto &cs : bags2) {
-        dbo::ARX_VALUE_BAG ascs(cs,part_key);
+        dbo::ARX_VALUE_BAG ascs(cs, part_key);
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from VALUE_BAG where grp_id = :grp_id ", PgOra::getRWSession("VALUE_BAG"))
-                    .bind(":grp_id", cs.grp_id)
-                    .exec();
-        }
     }
 }
 
-void arx_grp_norms(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
+void arx_grp_norms(const GrpId_t& grp_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::GRP_NORMS> norms = session.query<dbo::GRP_NORMS>()
@@ -1863,17 +1744,12 @@ void arx_grp_norms(const GrpId_t& grp_id, const Dates::DateTime_t& part_key)
             .setBind({{"grp_id", grp_id.get()}});
 
     for(const auto &cs : norms) {
-        dbo::ARX_GRP_NORMS ascs(cs,part_key);
+        dbo::ARX_GRP_NORMS ascs(cs, part_key);
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from GRP_NORMS where grp_id = :grp_id ", PgOra::getRWSession("GRP_NORMS"))
-                    .bind(":grp_id", cs.grp_id)
-                    .exec();
-        }
     }
 }
 
-void arx_pax_norms(const PaxId_t& pax_id, const Dates::DateTime_t& part_key)
+void arx_pax_norms(const PaxId_t& pax_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::PAX_NORMS> norms = session.query<dbo::PAX_NORMS>()
@@ -1882,18 +1758,13 @@ void arx_pax_norms(const PaxId_t& pax_id, const Dates::DateTime_t& part_key)
             .setBind({{"pax_id", pax_id.get()}});
 
     for(const auto &cs : norms) {
-        dbo::ARX_PAX_NORMS ascs(cs,part_key);
+        dbo::ARX_PAX_NORMS ascs(cs, part_key);
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from PAX_NORMS where pax_id = :pax_id ", PgOra::getRWSession("PAX_NORMS"))
-                    .bind(":pax_id", cs.pax_id)
-                    .exec();
-        }
     }
 }
 
 
-void arx_pax_rem(const PaxId_t& pax_id, const Dates::DateTime_t& part_key)
+void arx_pax_rem(const PaxId_t& pax_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::PAX_REM> norms = session.query<dbo::PAX_REM>()
@@ -1902,17 +1773,12 @@ void arx_pax_rem(const PaxId_t& pax_id, const Dates::DateTime_t& part_key)
             .setBind({{"pax_id", pax_id.get()}});
 
     for(const auto &cs : norms) {
-        dbo::ARX_PAX_REM ascs(cs,part_key);
+        dbo::ARX_PAX_REM ascs(cs, part_key);
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from PAX_REM where pax_id = :pax_id ", PgOra::getRWSession("PAX_REM"))
-                    .bind(":pax_id", cs.pax_id)
-                    .exec();
-        }
     }
 }
 
-void arx_transfer_subcls(const PaxId_t& pax_id, const Dates::DateTime_t& part_key)
+void arx_transfer_subcls(const PaxId_t& pax_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::TRANSFER_SUBCLS> norms = session.query<dbo::TRANSFER_SUBCLS>()
@@ -1921,19 +1787,13 @@ void arx_transfer_subcls(const PaxId_t& pax_id, const Dates::DateTime_t& part_ke
             .setBind({{"pax_id", pax_id.get()}});
 
     for(const auto &cs : norms) {
-        dbo::ARX_TRANSFER_SUBCLS ascs(cs,part_key);
+        dbo::ARX_TRANSFER_SUBCLS ascs(cs, part_key);
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from TRANSFER_SUBCLS where pax_id = :pax_id ", PgOra::getRWSession("TRANSFER_SUBCLS"))
-                    .bind(":pax_id", cs.pax_id)
-                    .exec();
-        }
     }
 }
 
-void arx_pax_doc(const PaxId_t& pax_id, const Dates::DateTime_t& part_key)
+void arx_pax_doc(const PaxId_t& pax_id, const Dates::DateTime_t & part_key)
 {
-    LogTrace(TRACE5) << __FUNCTION__ << " pax_id:" << pax_id;
     dbo::Session session;
     std::vector<dbo::PAX_DOC> docs = session.query<dbo::PAX_DOC>()
             .where("pax_id = :pax_id")
@@ -1942,17 +1802,12 @@ void arx_pax_doc(const PaxId_t& pax_id, const Dates::DateTime_t& part_key)
     LogTrace(TRACE5) << " docs found : " << docs.size();
 
     for(const auto &d : docs) {
-        dbo::ARX_PAX_DOC ad(d,part_key);
+        dbo::ARX_PAX_DOC ad(d, part_key);
         session.insert(ad);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from PAX_DOC where pax_id = :pax_id ", PgOra::getRWSession("PAX_DOC"))
-                    .bind(":pax_id", d.pax_id)
-                    .exec();
-        }
     }
 }
 
-void arx_pax_doco(const PaxId_t& pax_id, const Dates::DateTime_t& part_key)
+void arx_pax_doco(const PaxId_t& pax_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::PAX_DOCO> norms = session.query<dbo::PAX_DOCO>()
@@ -1961,17 +1816,12 @@ void arx_pax_doco(const PaxId_t& pax_id, const Dates::DateTime_t& part_key)
             .setBind({{"pax_id", pax_id.get()}});
 
     for(const auto &cs : norms) {
-        dbo::ARX_PAX_DOCO ascs(cs,part_key);
+        dbo::ARX_PAX_DOCO ascs(cs, part_key);
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from PAX_DOCO where pax_id = :pax_id ", PgOra::getRWSession("PAX_DOCO"))
-                    .bind(":pax_id", cs.pax_id)
-                    .exec();
-        }
     }
 }
 
-void arx_pax_doca(const PaxId_t& pax_id, const Dates::DateTime_t& part_key)
+void arx_pax_doca(const PaxId_t& pax_id, const Dates::DateTime_t & part_key)
 {
     dbo::Session session;
     std::vector<dbo::PAX_DOCA> norms = session.query<dbo::PAX_DOCA>()
@@ -1980,47 +1830,61 @@ void arx_pax_doca(const PaxId_t& pax_id, const Dates::DateTime_t& part_key)
             .setBind({{"pax_id", pax_id.get()}});
 
     for(const auto &cs : norms) {
-        dbo::ARX_PAX_DOCA ascs(cs,part_key);
+        dbo::ARX_PAX_DOCA ascs(cs, part_key);
         session.insert(ascs);
-        if(ARX::CLEANUP_PG()) {
-            make_db_curs("delete from PAX_DOCA where pax_id = :pax_id ", PgOra::getRWSession("PAX_DOCA"))
-                    .bind(":pax_id", cs.pax_id)
-                    .exec();
-        }
     }
 }
 
 void deleteByPaxes(const PaxId_t& pax_id)
 {
     if(ARX::CLEANUP_PG()) {
-        make_db_curs("DELETE FROM pax_events WHERE pax_id=:pax_id ",         PgOra::getRWSession("PAX_EVENTS")).bind(":pax_id", pax_id.get()).exec();
-        make_db_curs("DELETE FROM stat_ad WHERE pax_id=:pax_id ",            PgOra::getRWSession("STAT_AD")).bind(":pax_id", pax_id.get()).exec();
-        make_db_curs("DELETE FROM confirm_print WHERE pax_id=:pax_id ",      PgOra::getRWSession("CONFIRM_PRINT")).bind(":pax_id", pax_id.get()).exec();
-        make_db_curs("DELETE FROM pax_fqt WHERE pax_id=:pax_id ",            PgOra::getRWSession("PAX_FQT")).bind(":pax_id", pax_id.get()).exec();
-        make_db_curs("DELETE FROM pax_asvc WHERE pax_id=:pax_id ",           PgOra::getRWSession("PAX_ASVC")).bind(":pax_id", pax_id.get()).exec();
-        make_db_curs("DELETE FROM pax_emd WHERE pax_id=:pax_id ",            PgOra::getRWSession("PAX_EMD")).bind(":pax_id", pax_id.get()).exec();
-        make_db_curs("DELETE FROM pax_brands WHERE pax_id=:pax_id ",         PgOra::getRWSession("PAX_BRANDS")).bind(":pax_id", pax_id.get()).exec();
-        make_db_curs("DELETE FROM pax_rem_origin WHERE pax_id=:pax_id ",     PgOra::getRWSession("PAX_REM_ORIGIN")).bind(":pax_id", pax_id.get()).exec();
-        make_db_curs("DELETE FROM pax_seats WHERE pax_id=:pax_id ",          PgOra::getRWSession("PAX_SEATS")).bind(":pax_id", pax_id.get()).exec();
-        make_db_curs("DELETE FROM rozysk WHERE pax_id=:pax_id ",             PgOra::getRWSession("ROZYSK")).bind(":pax_id", pax_id.get()).exec();
-        make_db_curs("DELETE FROM trip_comp_layers WHERE pax_id=:pax_id ",   PgOra::getRWSession("TRIP_COMP_LAYERS")).bind(":pax_id", pax_id.get()).exec();
-        make_db_curs("DELETE FROM pax_custom_alarms WHERE pax_id=:pax_id ",  PgOra::getRWSession("PAX_CUSTOM_ALARMS")).bind(":pax_id", pax_id.get()).exec();
-        make_db_curs("DELETE FROM pax_service_lists WHERE pax_id=:pax_id ",  PgOra::getRWSession("PAX_SERVICE_LISTS")).bind(":pax_id", pax_id.get()).exec();
-        make_db_curs("DELETE FROM pax_services WHERE pax_id=:pax_id ",       PgOra::getRWSession("PAX_SERVICES")).bind(":pax_id", pax_id.get()).exec();
-        make_db_curs("DELETE FROM pax_services_auto WHERE pax_id=:pax_id ",  PgOra::getRWSession("PAX_SERVICES_AUTO")).bind(":pax_id", pax_id.get()).exec();
-        make_db_curs("DELETE FROM paid_rfisc WHERE pax_id=:pax_id ",         PgOra::getRWSession("PAID_RFISC")).bind(":pax_id", pax_id.get()).exec();
-        make_db_curs("DELETE FROM pax_norms_text WHERE pax_id=:pax_id ",     PgOra::getRWSession("PAX_NORMS_TEXT")).bind(":pax_id", pax_id.get()).exec();
-        make_db_curs("DELETE FROM sbdo_tags_generated WHERE pax_id=:pax_id ",PgOra::getRWSession("SBDO_TAGS_GENERATED")).bind(":pax_id", pax_id.get()).exec();
-        make_db_curs("DELETE FROM pax_calc_data WHERE pax_calc_data_id=:pax_id ",PgOra::getRWSession("PAX_CALC_DATA")).bind(":pax_id", pax_id.get()).exec();
-        make_db_curs("DELETE FROM pax_confirmations WHERE pax_id=:pax_id ",  PgOra::getRWSession("PAX_CONFIRMATIONS")).bind(":pax_id", pax_id.get()).exec();
-        make_db_curs("UPDATE service_payment SET pax_id=NULL WHERE pax_id=:pax_id ",PgOra::getRWSession("SERVICE_PAYMENT")).bind(":pax_id", pax_id.get()).exec();
-        make_db_curs("DELETE FROM pax WHERE pax_id=:pax_id ",                PgOra::getRWSession("PAX")).bind(":pax_id", pax_id.get()).exec();
+        make_db_curs("delete from PAX_NORMS where pax_id = :pax_id ",        PgOra::getRWSession("PAX_NORMS")).bind(":pax_id", pax_id.get()).exec();
+        make_db_curs("delete from PAX_REM where pax_id = :pax_id ",          PgOra::getRWSession("PAX_REM")).bind(":pax_id", pax_id.get()).exec();
+        make_db_curs("delete from TRANSFER_SUBCLS where pax_id = :pax_id ",  PgOra::getRWSession("TRANSFER_SUBCLS")).bind(":pax_id", pax_id.get()).exec();
+        make_db_curs("delete from PAX_DOC where pax_id = :pax_id ",          PgOra::getRWSession("PAX_DOC")).bind(":pax_id", pax_id.get()).exec();
+        make_db_curs("delete from PAX_DOCO where pax_id = :pax_id ",         PgOra::getRWSession("PAX_DOCO")).bind(":pax_id", pax_id.get()).exec();
+        make_db_curs("delete from PAX_DOCA where pax_id = :pax_id ",         PgOra::getRWSession("PAX_DOCA")).bind(":pax_id", pax_id.get()).exec();
+
+        make_db_curs("delete from PAX_EVENTS WHERE pax_id=:pax_id ",         PgOra::getRWSession("PAX_EVENTS")).bind(":pax_id", pax_id.get()).exec();
+        make_db_curs("delete from STAT_AD WHERE pax_id=:pax_id ",            PgOra::getRWSession("STAT_AD")).bind(":pax_id", pax_id.get()).exec();
+        make_db_curs("delete from CONFIRM_PRINT WHERE pax_id=:pax_id ",      PgOra::getRWSession("CONFIRM_PRINT")).bind(":pax_id", pax_id.get()).exec();
+        make_db_curs("delete from PAX_FQT WHERE pax_id=:pax_id ",            PgOra::getRWSession("PAX_FQT")).bind(":pax_id", pax_id.get()).exec();
+        make_db_curs("delete from PAX_ASVC WHERE pax_id=:pax_id ",           PgOra::getRWSession("PAX_ASVC")).bind(":pax_id", pax_id.get()).exec();
+        make_db_curs("delete from PAX_EMD WHERE pax_id=:pax_id ",            PgOra::getRWSession("PAX_EMD")).bind(":pax_id", pax_id.get()).exec();
+        make_db_curs("delete from PAX_BRANDS WHERE pax_id=:pax_id ",         PgOra::getRWSession("PAX_BRANDS")).bind(":pax_id", pax_id.get()).exec();
+        make_db_curs("delete from PAX_REM_ORIGIN WHERE pax_id=:pax_id ",     PgOra::getRWSession("PAX_REM_ORIGIN")).bind(":pax_id", pax_id.get()).exec();
+        make_db_curs("delete from PAX_SEATS WHERE pax_id=:pax_id ",          PgOra::getRWSession("PAX_SEATS")).bind(":pax_id", pax_id.get()).exec();
+        make_db_curs("delete from ROZYSK WHERE pax_id=:pax_id ",             PgOra::getRWSession("ROZYSK")).bind(":pax_id", pax_id.get()).exec();
+        make_db_curs("delete from TRIP_COMP_LAYERS WHERE pax_id=:pax_id ",   PgOra::getRWSession("TRIP_COMP_LAYERS")).bind(":pax_id", pax_id.get()).exec();
+        make_db_curs("delete from PAX_CUSTOM_ALARMS WHERE pax_id=:pax_id ",  PgOra::getRWSession("PAX_CUSTOM_ALARMS")).bind(":pax_id", pax_id.get()).exec();
+        make_db_curs("delete from PAX_SERVICE_LISTS WHERE pax_id=:pax_id ",  PgOra::getRWSession("PAX_SERVICE_LISTS")).bind(":pax_id", pax_id.get()).exec();
+        make_db_curs("delete from PAX_SERVICES WHERE pax_id=:pax_id ",       PgOra::getRWSession("PAX_SERVICES")).bind(":pax_id", pax_id.get()).exec();
+        make_db_curs("delete from PAX_SERVICES_AUTO WHERE pax_id=:pax_id ",  PgOra::getRWSession("PAX_SERVICES_AUTO")).bind(":pax_id", pax_id.get()).exec();
+        make_db_curs("delete from PAID_RFISC WHERE pax_id=:pax_id ",         PgOra::getRWSession("PAID_RFISC")).bind(":pax_id", pax_id.get()).exec();
+        make_db_curs("delete from PAX_NORMS_TEXT WHERE pax_id=:pax_id ",     PgOra::getRWSession("PAX_NORMS_TEXT")).bind(":pax_id", pax_id.get()).exec();
+        make_db_curs("delete from SBDO_TAGS_GENERATED WHERE pax_id=:pax_id ",PgOra::getRWSession("SBDO_TAGS_GENERATED")).bind(":pax_id", pax_id.get()).exec();
+        make_db_curs("delete from PAX_CALC_DATA WHERE pax_calc_data_id=:pax_id ",PgOra::getRWSession("PAX_CALC_DATA")).bind(":pax_id", pax_id.get()).exec();
+        make_db_curs("delete from PAX_CONFIRMATIONS WHERE pax_id=:pax_id ",  PgOra::getRWSession("PAX_CONFIRMATIONS")).bind(":pax_id", pax_id.get()).exec();
+        make_db_curs("update SERVICE_PAYMENT SET pax_id=NULL WHERE pax_id=:pax_id ",PgOra::getRWSession("SERVICE_PAYMENT")).bind(":pax_id", pax_id.get()).exec();
+        make_db_curs("delete from PAX WHERE pax_id=:pax_id ",                PgOra::getRWSession("PAX")).bind(":pax_id", pax_id.get()).exec();
     }
 }
 
 void deleteByGrpId(const GrpId_t& grp_id)
 {
     if(ARX::CLEANUP_PG()) {
+        delete_annul_bags_tags(grp_id);
+        delete_trfer_trips(grp_id);
+
+        make_db_curs("delete from UNACCOMP_BAG_INFO where grp_id = :grp_id ",PgOra::getRWSession("UNACCOMP_BAG_INFO")).bind(":grp_id", grp_id.get()).exec();
+        make_db_curs("delete from BAG2 where grp_id = :grp_id ",             PgOra::getRWSession("BAG2")).bind(":grp_id", grp_id.get()).exec();
+        make_db_curs("delete from BAG_PREPAY where grp_id = :grp_id ",       PgOra::getRWSession("BAG_PREPAY")).bind(":grp_id", grp_id.get()).exec();
+        make_db_curs("delete from BAG_TAGS where grp_id = :grp_id ",         PgOra::getRWSession("BAG_TAGS")).bind(":grp_id", grp_id.get()).exec();
+        make_db_curs("delete from PAID_BAG where grp_id = :grp_id ",         PgOra::getRWSession("PAID_BAG")).bind(":grp_id", grp_id.get()).exec();
+        make_db_curs("delete from PAY_SERVICES where grp_id = :grp_id ",     PgOra::getRWSession("PAY_SERVICES")).bind(":grp_id", grp_id.get()).exec();
+        make_db_curs("delete from VALUE_BAG where grp_id = :grp_id ",        PgOra::getRWSession("VALUE_BAG")).bind(":grp_id", grp_id.get()).exec();
+        make_db_curs("delete from GRP_NORMS where grp_id = :grp_id ",        PgOra::getRWSession("GRP_NORMS")).bind(":grp_id", grp_id.get()).exec();
+
         make_db_curs("DELETE FROM paid_bag_emd_props WHERE grp_id=:grp_id ", PgOra::getRWSession("PAID_BAG_EMD_PROPS")).bind(":grp_id", grp_id.get()).exec();
         make_db_curs("DELETE FROM service_payment WHERE grp_id=:grp_id ",    PgOra::getRWSession("SERVICE_PAYMENT")).bind(":grp_id", grp_id.get()).exec();
         make_db_curs("DELETE FROM tckin_pax_grp WHERE grp_id=:grp_id ",      PgOra::getRWSession("TCKIN_PAX_GRP")).bind(":grp_id", grp_id.get()).exec();
@@ -2035,28 +1899,52 @@ void deleteByGrpId(const GrpId_t& grp_id)
 
 void deleteAodbBag(const PointId_t& point_id)
 {
-   if(ARX::CLEANUP_PG()) {
-       make_db_curs("delete from AODB_BAG where EXISTS (select AODB_PAX.PAX_ID, AODB_PAX.POINT_ADDR "
-                    "from AODB_PAX where AODB_PAX.POINT_ID=:point_id AND AODB_PAX.PAX_ID = AODB_BAG.PAX_ID "
-                    "AND AODB_PAX.POINT_ADDR = AODB_BAG.POINT_ADDR) ",
-                    PgOra::getRWSession("AODB_BAG")).bind(":point_id", point_id.get()).exec();
-   }
+    if(ARX::CLEANUP_PG()) {
+        make_db_curs("delete from AODB_BAG where EXISTS (select AODB_PAX.PAX_ID, AODB_PAX.POINT_ADDR "
+                     "from AODB_PAX where AODB_PAX.POINT_ID=:point_id AND AODB_PAX.PAX_ID = AODB_BAG.PAX_ID "
+                     "AND AODB_PAX.POINT_ADDR = AODB_BAG.POINT_ADDR) ",
+                     PgOra::getRWSession("AODB_BAG")).bind(":point_id", point_id.get()).exec();
+    }
 }
 
 void deleteByPointId(const PointId_t& point_id)
 {
     LogTrace5 << __func__ << " point_id: " << point_id;
-    deleteAodbBag(point_id);
     CheckIn::TCrsCountersMap::deleteCrsCountersOnly(point_id);
     if(ARX::CLEANUP_PG()) {
         deleteAodbBag(point_id);
-        make_db_curs("DELETE FROM aodb_pax_change WHERE point_id=:point_id" , PgOra::getRWSession("aodb_pax_change")).bind(":point_id", point_id.get()).exec();
-        make_db_curs("DELETE FROM aodb_unaccomp WHERE point_id=:point_id" , PgOra::getRWSession("aodb_unaccomp")).bind(":point_id", point_id.get()).exec();
-        make_db_curs("DELETE FROM aodb_pax WHERE point_id=:point_id" , PgOra::getRWSession("aodb_pax")).bind(":point_id", point_id.get()).exec();
-        make_db_curs("DELETE FROM aodb_points WHERE point_id=:point_id" , PgOra::getRWSession("aodb_points")).bind(":point_id", point_id.get()).exec();
-        make_db_curs("DELETE FROM exch_flights WHERE point_id=:point_id" , PgOra::getRWSession("exch_flights")).bind(":point_id", point_id.get()).exec();
-        make_db_curs("DELETE FROM counters2 WHERE point_dep=:point_id" , PgOra::getRWSession("counters2")).bind(":point_id", point_id.get()).exec();
-        make_db_curs("DELETE FROM crs_displace2 WHERE point_id_spp=:point_id" , PgOra::getRWSession("crs_displace2")).bind(":point_id", point_id.get()).exec();
+        deleteTlgOut(point_id);
+        deleteEventsByPointId(point_id);
+        deleteBagReceipts(point_id);
+        make_db_curs("delete from SELF_CKIN_STAT where point_id = :point_id ",PgOra::getRWSession("SELF_CKIN_STAT")).bind(":point_id", point_id.get()).exec();
+        make_db_curs("delete from RFISC_STAT where point_id = :point_id ",PgOra::getRWSession("RFISC_STAT")).bind(":point_id", point_id.get()).exec();
+        make_db_curs("delete from STAT_SERVICES where point_id = :point_id ",PgOra::getRWSession("STAT_SERVICES")).bind(":point_id", point_id.get()).exec();
+        make_db_curs("delete from STAT_REM where point_id = :point_id ",PgOra::getRWSession("STAT_REM")).bind(":point_id", point_id.get()).exec();
+        make_db_curs("delete from LIMITED_CAPABILITY_STAT where point_id = :point_id ",PgOra::getRWSession("LIMITED_CAPABILITY_STAT")).bind(":point_id", point_id.get()).exec();
+        make_db_curs("delete from PFS_STAT where point_id = :point_id ",PgOra::getRWSession("PFS_STAT")).bind(":point_id", point_id.get()).exec();
+        make_db_curs("delete from STAT_AD where point_id = :point_id ",PgOra::getRWSession("STAT_AD")).bind(":point_id", point_id.get()).exec();
+        make_db_curs("delete from STAT_HA where point_id = :point_id ",PgOra::getRWSession("STAT_HA")).bind(":point_id", point_id.get()).exec();
+        make_db_curs("delete from STAT_VO where point_id = :point_id ",PgOra::getRWSession("STAT_VO")).bind(":point_id", point_id.get()).exec();
+        make_db_curs("delete from STAT_REPRINT where point_id = :point_id ",PgOra::getRWSession("STAT_REPRINT")).bind(":point_id", point_id.get()).exec();
+        make_db_curs("delete from TRFER_PAX_STAT where point_id = :point_id ",PgOra::getRWSession("TRFER_PAX_STAT")).bind(":point_id", point_id.get()).exec();
+        make_db_curs("delete from BI_STAT where point_id = :point_id ",PgOra::getRWSession("BI_STAT")).bind(":point_id", point_id.get()).exec();
+        make_db_curs("delete from AGENT_STAT where point_id = :point_id ",PgOra::getRWSession("AGENT_STAT")).bind(":point_id", point_id.get()).exec();
+        make_db_curs("delete from STAT where point_id = :point_id ",PgOra::getRWSession("STAT")).bind(":point_id", point_id.get()).exec();
+        make_db_curs("delete from TRFER_STAT where point_id = :point_id ",PgOra::getRWSession("TRFER_STAT")).bind(":point_id", point_id.get()).exec();
+        make_db_curs("delete from TRIP_CLASSES WHERE point_id=:point_id" , PgOra::getRWSession("trip_classes")).bind(":point_id", point_id.get()).exec();
+        make_db_curs("delete from TRIP_DELAYS WHERE point_id=:point_id" , PgOra::getRWSession("trip_delays")).bind(":point_id", point_id.get()).exec();
+        make_db_curs("delete from TRIP_LOAD WHERE point_dep=:point_id" , PgOra::getRWSession("trip_load")).bind(":point_id", point_id.get()).exec();
+        make_db_curs("delete from TRIP_SETS WHERE point_id=:point_id" , PgOra::getRWSession("trip_sets")).bind(":point_id", point_id.get()).exec();
+        make_db_curs("delete from CRS_DISPLACE2 WHERE point_id_spp=:point_id" , PgOra::getRWSession("crs_displace2")).bind(":point_id", point_id.get()).exec();
+        make_db_curs("delete from TRIP_STAGES where point_id = :point_id ",PgOra::getRWSession("TRIP_STAGES")).bind(":point_id", point_id.get()).exec();
+
+        make_db_curs("delete from aodb_pax_change WHERE point_id=:point_id" , PgOra::getRWSession("aodb_pax_change")).bind(":point_id", point_id.get()).exec();
+        make_db_curs("delete from aodb_unaccomp WHERE point_id=:point_id" , PgOra::getRWSession("aodb_unaccomp")).bind(":point_id", point_id.get()).exec();
+        make_db_curs("delete from aodb_pax WHERE point_id=:point_id" , PgOra::getRWSession("aodb_pax")).bind(":point_id", point_id.get()).exec();
+        make_db_curs("delete from aodb_points WHERE point_id=:point_id" , PgOra::getRWSession("aodb_points")).bind(":point_id", point_id.get()).exec();
+        make_db_curs("delete from exch_flights WHERE point_id=:point_id" , PgOra::getRWSession("exch_flights")).bind(":point_id", point_id.get()).exec();
+        make_db_curs("delete from counters2 WHERE point_dep=:point_id" , PgOra::getRWSession("counters2")).bind(":point_id", point_id.get()).exec();
+
         make_db_curs("DELETE FROM snapshot_points WHERE point_id=:point_id" , PgOra::getRWSession("snapshot_points")).bind(":point_id", point_id.get()).exec();
         make_db_curs("UPDATE tag_ranges2 SET point_id=NULL WHERE point_id=:point_id" , PgOra::getRWSession("tag_ranges2")).bind(":point_id", point_id.get()).exec();
         make_db_curs("DELETE FROM tlg_binding WHERE point_id_spp=:point_id" , PgOra::getRWSession("tlg_binding")).bind(":point_id", point_id.get()).exec();
@@ -2064,7 +1952,7 @@ void deleteByPointId(const PointId_t& point_id)
         make_db_curs("DELETE FROM trip_hall WHERE point_id=:point_id" , PgOra::getRWSession("trip_hall")).bind(":point_id", point_id.get()).exec();
         make_db_curs("DELETE FROM trip_bt WHERE point_id=:point_id" , PgOra::getRWSession("trip_bt")).bind(":point_id", point_id.get()).exec();
         make_db_curs("DELETE FROM trip_ckin_client WHERE point_id=:point_id" , PgOra::getRWSession("trip_ckin_client")).bind(":point_id", point_id.get()).exec();
-        make_db_curs("DELETE FROM trip_classes WHERE point_id=:point_id" , PgOra::getRWSession("trip_classes")).bind(":point_id", point_id.get()).exec();
+
         make_db_curs("DELETE FROM trip_comp_rem WHERE point_id=:point_id" , PgOra::getRWSession("trip_comp_rem")).bind(":point_id", point_id.get()).exec();
         make_db_curs("DELETE FROM trip_comp_rates WHERE point_id=:point_id" , PgOra::getRWSession("trip_comp_rates")).bind(":point_id", point_id.get()).exec();
         make_db_curs("DELETE FROM trip_comp_rfisc WHERE point_id=:point_id" , PgOra::getRWSession("trip_comp_rfisc")).bind(":point_id", point_id.get()).exec();
@@ -2073,9 +1961,7 @@ void deleteByPointId(const PointId_t& point_id)
         make_db_curs("DELETE FROM trip_comp_layers WHERE point_id=:point_id" , PgOra::getRWSession("trip_comp_layers")).bind(":point_id", point_id.get()).exec();
         make_db_curs("DELETE FROM trip_crew WHERE point_id=:point_id" , PgOra::getRWSession("trip_crew")).bind(":point_id", point_id.get()).exec();
         make_db_curs("DELETE FROM trip_data WHERE point_id=:point_id" , PgOra::getRWSession("trip_data")).bind(":point_id", point_id.get()).exec();
-        make_db_curs("DELETE FROM trip_delays WHERE point_id=:point_id" , PgOra::getRWSession("trip_delays")).bind(":point_id", point_id.get()).exec();
-        make_db_curs("DELETE FROM trip_load WHERE point_dep=:point_id" , PgOra::getRWSession("trip_load")).bind(":point_id", point_id.get()).exec();
-        make_db_curs("DELETE FROM trip_sets WHERE point_id=:point_id" , PgOra::getRWSession("trip_sets")).bind(":point_id", point_id.get()).exec();
+
         make_db_curs("DELETE FROM trip_final_stages WHERE point_id=:point_id" , PgOra::getRWSession("trip_final_stages")).bind(":point_id", point_id.get()).exec();
         make_db_curs("DELETE FROM trip_stations WHERE point_id=:point_id" , PgOra::getRWSession("trip_stations")).bind(":point_id", point_id.get()).exec();
         make_db_curs("DELETE FROM trip_paid_ckin WHERE point_id=:point_id" , PgOra::getRWSession("trip_paid_ckin")).bind(":point_id", point_id.get()).exec();
@@ -2110,6 +1996,7 @@ void deleteByMoveId(const MoveId_t & move_id)
     if(ARX::CLEANUP_PG()) {
         make_db_curs("DELETE FROM points WHERE move_id=:move_id",   PgOra::getRWSession("POINTS")).bind(":move_id", move_id.get()).exec();
         make_db_curs("DELETE FROM move_ref WHERE move_id=:move_id", PgOra::getRWSession("MOVE_REF")).bind(":move_id", move_id.get()).exec();
+        deleteEventsByMoveId(move_id);
     }
 }
 
@@ -2165,9 +2052,9 @@ int arx_events_noflt2(const Dates::DateTime_t& arx_date, int remain_rows)
         for(const auto & ev : events) {
             make_db_curs("DELETE FROM events_bilingual WHERE ID1 is NULL  and type = :type and TIME = :time",
                          PgOra::getRWSession("EVENTS_BILINGUAL"))
-            .bind(":type", ev.type)
-            .bind(":time", ev.time)
-            .exec();
+                    .bind(":type", ev.type)
+                    .bind(":time", ev.time)
+                    .exec();
         }
     }
     return events.size();
@@ -2201,9 +2088,9 @@ int arx_events_noflt3(const Dates::DateTime_t& arx_date, int remain_rows)
         for(const auto & ev : events) {
             make_db_curs("DELETE FROM events_bilingual WHERE type = :type and TIME = :time",
                          PgOra::getRWSession("EVENTS_BILINGUAL"))
-            .bind(":type", ev.type)
-            .bind(":time", ev.time)
-            .exec();
+                    .bind(":type", ev.type)
+                    .bind(":time", ev.time)
+                    .exec();
         }
     }
     return events.size();
@@ -2225,8 +2112,8 @@ int arx_stat_zamar(const Dates::DateTime_t& arx_date, int remain_rows)
     if(ARX::CLEANUP_PG()) {
         for(const auto & s : stats) {
             make_db_curs("DELETE FROM STAT_ZAMAR WHERE TIME = :time",PgOra::getRWSession("STAT_ZAMAR"))
-            .bind(":time", s.time)
-            .exec();
+                    .bind(":time", s.time)
+                    .exec();
         }
     }
 
@@ -2309,8 +2196,8 @@ std::vector<PointId_t> TArxTlgTrips::getTlgTripPoints(const Dates::DateTime_t& a
                             "WHERE tlg_binding.point_id_tlg IS NULL AND tlg_trips.scd < :arx_date",
                             PgOra::getROSession("TLG_TRIPS"));
     cur.def(point_id)
-       .bind(":arx_date", arx_date)
-       .exec();
+            .bind(":arx_date", arx_date)
+            .exec();
     while(!cur.fen()) {
         if(points.size() == max_rows) {
             break;
@@ -2367,7 +2254,7 @@ void arx_tlg_trip(const PointId_t& point_id)
                           "    WHERE tlg_transfer.point_id_in=tlg_source.point_id_tlg AND "
                           "    tlg_transfer.tlg_id=tlg_source.tlg_id "
                           "FETCH FIRST 1 ROWS ONLY); ",
-                PgOra::getRWSession("TLG_SOURCE")).bind(":point_id", point_id.get()).exec();
+                          PgOra::getRWSession("TLG_SOURCE")).bind(":point_id", point_id.get()).exec();
         }
     }
 }
@@ -2423,9 +2310,9 @@ std::map<int, Dates::DateTime_t> getTlgIds(const Dates::DateTime_t& arx_date, si
                 "      NOT EXISTS(SELECT * FROM tlgs_in a WHERE a.id=tlgs_in.id AND time_receive >= :arx_date FETCH FIRST 1 ROWS ONLY) ",
                 PgOra::getROSession("TLGS_IN"));
     cur.def(tlg_id)
-       .def(time_receive)
-       .bind(":arx_date", arx_date)
-       .exec();
+            .def(time_receive)
+            .bind(":arx_date", arx_date)
+            .exec();
     while(!cur.fen()) {
         if(res.size() == max_rows) {
             break;
@@ -2583,8 +2470,8 @@ int delete_from_mark_trips(const Dates::DateTime_t& arx_date, int remain_rows)
         for(const auto & m : mark_trips) {
             make_db_curs("delete from MARK_TRIPS where POINT_ID = :point_id AND "
                          "NOT EXISTS (SELECT PAX_GRP.point_id_mark from PAX_GRP WHERE PAX_GRP.point_id_mark = :point_id) ",
-                     PgOra::getRWSession("MARK_TRIPS")).bind(":point_id", m.point_id)
-                                                       .exec();
+                         PgOra::getRWSession("MARK_TRIPS")).bind(":point_id", m.point_id)
+                    .exec();
         }
     }
     return mark_trips.size();
@@ -2652,14 +2539,14 @@ std::vector<int> get_tlgs(const Dates::DateTime_t& arx_date, int remain_rows)
 {
     int id{};
     DbCpp::CursCtl cur = make_db_curs(
-        "SELECT ID FROM TLGS WHERE time < :arx_date FETCH FIRST :remain_rows ROWS ONLY",
-        PgOra::getROSession("TLGS")
-    );
+                "SELECT ID FROM TLGS WHERE time < :arx_date FETCH FIRST :remain_rows ROWS ONLY",
+                PgOra::getROSession("TLGS")
+                );
 
     cur.bind(":arx_date", arx_date)
-       .bind(":remain_rows", remain_rows)
-       .def(id)
-       .exec();
+            .bind(":remain_rows", remain_rows)
+            .def(id)
+            .exec();
 
     std::vector<int> ids;
 
@@ -2678,9 +2565,9 @@ void arx_tlg_stat(const std::vector<int>& ids)
 
     for (int id : ids) {
         allStats.emplace_back(session.query<dbo::TLG_STAT>()
-           .where("QUEUE_TLG_ID = :id and TIME_SEND is not null")
-           .setBind({{":id", id}})
-        );
+                              .where("QUEUE_TLG_ID = :id and TIME_SEND is not null")
+                              .setBind({{":id", id}})
+                              );
     }
 
     for (const auto& stats: allStats) {
@@ -2704,7 +2591,7 @@ void del_tlgs(const std::vector<int>& ids)
 int arx_tlgs(const Dates::DateTime_t& arx_date, int remain_rows)
 {
     const std::vector<int> tlgs
-      = get_tlgs(arx_date, remain_rows);
+            = get_tlgs(arx_date, remain_rows);
 
     arx_tlg_stat(tlgs);
 
@@ -2783,20 +2670,20 @@ int delete_aodb_spp_files(const Dates::DateTime_t& arx_date, int remain_rows)
                                     "FETCH FIRST :remain_rows ROWS ONLY",
                                     PgOra::getRWSession("AODB_EVENTS"));
             cur.bind(":filename", f.filename)
-               .bind(":point_addr", f.point_addr)
-               .bind(":airline", f.airline)
-               .bind(":remain_rows", remain_rows)
-               .exec();
+                    .bind(":point_addr", f.point_addr)
+                    .bind(":airline", f.airline)
+                    .bind(":remain_rows", remain_rows)
+                    .exec();
             rowsize += cur.rowcount();
 
             auto cur2 = make_db_curs("delete from AODB_SPP_FILES "
-                                    "where filename= :filename and point_addr= :point_addr "
-                                    "and airline= :airline;",
-                                    PgOra::getRWSession("AODB_SPP_FILES"));
+                                     "where filename= :filename and point_addr= :point_addr "
+                                     "and airline= :airline;",
+                                     PgOra::getRWSession("AODB_SPP_FILES"));
             cur2.bind(":filename", f.filename)
-                .bind(":point_addr", f.point_addr)
-                .bind(":airline", f.airline)
-                .exec();
+                    .bind(":point_addr", f.point_addr)
+                    .bind(":airline", f.airline)
+                    .exec();
             rowsize += cur2.rowcount();
 
         }
@@ -2807,13 +2694,13 @@ int delete_aodb_spp_files(const Dates::DateTime_t& arx_date, int remain_rows)
 int delete_eticks_display(const Dates::DateTime_t& arx_date, int remain_rows)
 {
     auto cur = make_db_curs(
-          "delete from ETICKS_DISPLAY "
-          "where (TICKET_NO, COUPON_NO) in ("
-          "select TICKET_NO, COUPON_NO "
-          "from ETICKS_DISPLAY "
-          "where LAST_DISPLAY < :arx_date "
-          "FETCH FIRST :remain_rows ROWS ONLY) ",
-          PgOra::getRWSession("ETICKS_DISPLAY"));
+                "delete from ETICKS_DISPLAY "
+                "where (TICKET_NO, COUPON_NO) in ("
+                "select TICKET_NO, COUPON_NO "
+                "from ETICKS_DISPLAY "
+                "where LAST_DISPLAY < :arx_date "
+                "FETCH FIRST :remain_rows ROWS ONLY) ",
+                PgOra::getRWSession("ETICKS_DISPLAY"));
     cur.bind(":arx_date", arx_date).bind(":remain_rows", remain_rows).exec();
     return cur.rowcount();
 }
@@ -2821,13 +2708,13 @@ int delete_eticks_display(const Dates::DateTime_t& arx_date, int remain_rows)
 int delete_eticks_display_tlgs(const Dates::DateTime_t& arx_date, int remain_rows)
 {
     auto cur = make_db_curs(
-          "delete from ETICKS_DISPLAY_TLGS "
-          "where (TICKET_NO, COUPON_NO) in ("
-          "select TICKET_NO, COUPON_NO "
-          "from ETICKS_DISPLAY_TLGS "
-          "where LAST_DISPLAY < :arx_date "
-          "FETCH FIRST :remain_rows ROWS ONLY) ",
-          PgOra::getRWSession("ETICKS_DISPLAY_TLGS"));
+                "delete from ETICKS_DISPLAY_TLGS "
+                "where (TICKET_NO, COUPON_NO) in ("
+                "select TICKET_NO, COUPON_NO "
+                "from ETICKS_DISPLAY_TLGS "
+                "where LAST_DISPLAY < :arx_date "
+                "FETCH FIRST :remain_rows ROWS ONLY) ",
+                PgOra::getRWSession("ETICKS_DISPLAY_TLGS"));
     cur.bind(":arx_date", arx_date).bind(":remain_rows", remain_rows).exec();
     return cur.rowcount();
 }
@@ -2835,13 +2722,13 @@ int delete_eticks_display_tlgs(const Dates::DateTime_t& arx_date, int remain_row
 int delete_emdocs_display(const Dates::DateTime_t& arx_date, int remain_rows)
 {
     auto cur = make_db_curs(
-          "delete from EMDOCS_DISPLAY "
-          "where (EMD_NO, EMD_COUPON) in ("
-          "select EMD_NO, EMD_COUPON "
-          "from EMDOCS_DISPLAY "
-          "where LAST_DISPLAY < :arx_date "
-          "FETCH FIRST :remain_rows ROWS ONLY) ",
-          PgOra::getRWSession("EMDOCS_DISPLAY"));
+                "delete from EMDOCS_DISPLAY "
+                "where (EMD_NO, EMD_COUPON) in ("
+                "select EMD_NO, EMD_COUPON "
+                "from EMDOCS_DISPLAY "
+                "where LAST_DISPLAY < :arx_date "
+                "FETCH FIRST :remain_rows ROWS ONLY) ",
+                PgOra::getRWSession("EMDOCS_DISPLAY"));
     cur.bind(":arx_date", arx_date).bind(":remain_rows", remain_rows).exec();
     return cur.rowcount();
 }
@@ -3077,17 +2964,17 @@ bool cmpTlgErrorMsg(int tlg_num, const std::string& compareWith)
     std::string data;
 
     DbCpp::CursCtl cur = make_db_curs(
-       "SELECT MSG FROM TLG_ERROR WHERE ID=:id",
-        PgOra::getROSession("TLG_ERROR")
-    );
+                "SELECT MSG FROM TLG_ERROR WHERE ID=:id",
+                PgOra::getROSession("TLG_ERROR")
+                );
     cur.stb()
-       .bind(":id", tlg_num)
-       .def(data)
-       .EXfet();
+            .bind(":id", tlg_num)
+            .def(data)
+            .EXfet();
 
     return DbCpp::ResultCode::NoDataFound != cur.err()
-        && 1 == cur.rowcount()
-        && compareWith == data;
+            && 1 == cur.rowcount()
+            && compareWith == data;
 }
 
 bool cmpTlgError(int tlg_num, const std::string& compareWith)
@@ -3095,17 +2982,17 @@ bool cmpTlgError(int tlg_num, const std::string& compareWith)
     std::string data;
 
     DbCpp::CursCtl cur = make_db_curs(
-       "SELECT ERROR FROM TLGS WHERE ID=:id",
-        PgOra::getROSession("TLGS")
-    );
+                "SELECT ERROR FROM TLGS WHERE ID=:id",
+                PgOra::getROSession("TLGS")
+                );
     cur.stb()
-       .bind(":id", tlg_num)
-       .def(data)
-       .EXfet();
+            .bind(":id", tlg_num)
+            .def(data)
+            .EXfet();
 
     return DbCpp::ResultCode::NoDataFound != cur.err()
-        && 1 == cur.rowcount()
-        && compareWith == data;
+            && 1 == cur.rowcount()
+            && compareWith == data;
 }
 
 bool cmpTlgQueueProcAttempt(int tlg_num, const int compareWith)
@@ -3113,17 +3000,17 @@ bool cmpTlgQueueProcAttempt(int tlg_num, const int compareWith)
     int data;
 
     DbCpp::CursCtl cur = make_db_curs(
-       "SELECT PROC_ATTEMPT FROM TLG_QUEUE WHERE ID=:id",
-        PgOra::getROSession("TLG_QUEUE")
-    );
+                "SELECT PROC_ATTEMPT FROM TLG_QUEUE WHERE ID=:id",
+                PgOra::getROSession("TLG_QUEUE")
+                );
     cur.stb()
-       .bind(":id", tlg_num)
-       .def(data)
-       .EXfet();
+            .bind(":id", tlg_num)
+            .def(data)
+            .EXfet();
 
     return DbCpp::ResultCode::NoDataFound != cur.err()
-        && 1 == cur.rowcount()
-        && compareWith == data;
+            && 1 == cur.rowcount()
+            && compareWith == data;
 }
 
 bool cmpTlg(const int tlg_num, const char* withReceiver, const char* withSender, const char* withType)
@@ -3133,21 +3020,21 @@ bool cmpTlg(const int tlg_num, const char* withReceiver, const char* withSender,
     std::string type;
 
     DbCpp::CursCtl cur = make_db_curs(
-       "SELECT RECEIVER, SENDER, TYPE FROM TLGS WHERE ID=:id",
-        PgOra::getROSession("TLGS")
-    );
+                "SELECT RECEIVER, SENDER, TYPE FROM TLGS WHERE ID=:id",
+                PgOra::getROSession("TLGS")
+                );
     cur.stb()
-       .bind(":id", tlg_num)
-       .def(receiver)
-       .def(sender)
-       .def(type)
-       .EXfet();
+            .bind(":id", tlg_num)
+            .def(receiver)
+            .def(sender)
+            .def(type)
+            .EXfet();
 
     return DbCpp::ResultCode::NoDataFound != cur.err()
-        && 1 == cur.rowcount()
-        && withReceiver == receiver
-        && withSender == sender
-        && withType == type;
+            && 1 == cur.rowcount()
+            && withReceiver == receiver
+            && withSender == sender
+            && withType == type;
 }
 
 bool cmpTlgQueue(const int tlg_num, const char* withSender, const char* withType, const char* withStatus)
@@ -3157,21 +3044,21 @@ bool cmpTlgQueue(const int tlg_num, const char* withSender, const char* withType
     std::string sender;
 
     DbCpp::CursCtl cur = make_db_curs(
-       "SELECT STATUS, TYPE, SENDER FROM TLG_QUEUE WHERE ID=:id",
-        PgOra::getROSession("TLG_QUEUE")
-    );
+                "SELECT STATUS, TYPE, SENDER FROM TLG_QUEUE WHERE ID=:id",
+                PgOra::getROSession("TLG_QUEUE")
+                );
     cur.stb()
-       .bind(":id", tlg_num)
-       .def(status)
-       .def(type)
-       .def(sender)
-       .EXfet();
+            .bind(":id", tlg_num)
+            .def(status)
+            .def(type)
+            .def(sender)
+            .EXfet();
 
     return DbCpp::ResultCode::NoDataFound != cur.err()
-        && 1 == cur.rowcount()
-        && withSender == sender
-        && withType == type
-        && withStatus == status;
+            && 1 == cur.rowcount()
+            && withSender == sender
+            && withType == type
+            && withStatus == status;
 }
 
 
@@ -3204,11 +3091,11 @@ END_TEST;
 START_TEST(check_saveTlg)
 {
     const int tlg_id = saveTlg(
-        "RECVR",
-        "SENDR",
-        "INB",
-        tlgText()
-    );                                                    // src/tlg/tlg.cpp
+                "RECVR",
+                "SENDR",
+                "INB",
+                tlgText()
+                );                                                    // src/tlg/tlg.cpp
     fail_unless(getTlgText(tlg_id) == tlgText());         // src/tlg/tlg.cpp
     fail_unless(cmpTlg(tlg_id, "RECVR", "SENDR", "INB")); // current
 }
@@ -3217,11 +3104,11 @@ END_TEST;
 START_TEST(check_putTlgToOutQue)
 {
     const int tlg_id = saveTlg(
-        "RECVR",
-        "SENDR",
-        "OUTA",
-        "test"
-    );                                                    // src/tlg/tlg.cpp
+                "RECVR",
+                "SENDR",
+                "OUTA",
+                "test"
+                );                                                    // src/tlg/tlg.cpp
     const int priority = 0;
     const int ttl = 0;
     putTlg2OutQueue_wrap("RECVR", "SENDR", "OUTA", "test", priority, tlg_id, ttl);
@@ -3258,30 +3145,30 @@ START_TEST(check_sendTlg)
     std::string tlg_text = "SOME ANSWER";
 
     const int tlg_id = sendTlg(
-        "RECVR",
-        "SENDR",
-        qpOutB,
-        20,
-        tlg_text,
-        ASTRA::NoExists,
-        ASTRA::NoExists
-    );
+                "RECVR",
+                "SENDR",
+                qpOutB,
+                20,
+                tlg_text,
+                ASTRA::NoExists,
+                ASTRA::NoExists
+                );
 
     TTripInfo fltInfo;
 
     TTlgStat().putTypeBOut(
-        tlg_id,
-        ASTRA::NoExists,
-        ASTRA::NoExists,
-        TTlgStatPoint("SENDRSI", "SENDR", "SENB", ""),
-        TTlgStatPoint("RECVRSI", "RECVR", "RECVR", ""),
-        NowUTC(),
-        "OAPP",
-        tlg_text.size(),
-        fltInfo,
-        "MRK",
-        "EXTRA"
-    );
+                tlg_id,
+                ASTRA::NoExists,
+                ASTRA::NoExists,
+                TTlgStatPoint("SENDRSI", "SENDR", "SENB", ""),
+                TTlgStatPoint("RECVRSI", "RECVR", "RECVR", ""),
+                NowUTC(),
+                "OAPP",
+                tlg_text.size(),
+                fltInfo,
+                "MRK",
+                "EXTRA"
+                );
 
     AIRSRV_MSG tlg_in = {
         .num = tlg_id,
