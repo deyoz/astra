@@ -406,20 +406,18 @@ $()
 ;;
 
 ??
-$(dump_table TRIP_COMP_ELEMS display="on")
+$(dump_table TRIP_COMP_ELEMS display="on" order="x,y,yname")
 
 >> lines=auto
 ...
+[0] [ù] [ä] [NULL] [1] [...] [NULL] [11] [K] [NULL] [15] [024] [NULL] $()
+[0] [Å] [ä] [NULL] [0] [...] [NULL] [13] [K] [NULL] [0] [001] [NULL] $()
+[0] [Å] [ä] [NULL] [0] [...] [NULL] [13] [K] [NULL] [1] [002] [NULL] $()
+[0] [Å] [ä] [NULL] [0] [...] [NULL] [13] [K] [NULL] [2] [003] [NULL] $()
+[0] [Å] [ä] [NULL] [0] [...] [NULL] [13] [K] [NULL] [3] [004] [NULL] $()
+[0] [Å] [ä] [NULL] [0] [...] [NULL] [13] [K] [NULL] [4] [005] [NULL] $()
 [0] [Å] [ä] [NULL] [0] [...] [NULL] [13] [K] [NULL] [5] [006] [NULL] $()
 [0] [Å] [ä] [NULL] [0] [...] [NULL] [13] [K] [NULL] [6] [007] [NULL] $()
-[0] [Å] [ä] [NULL] [0] [...] [NULL] [13] [K] [NULL] [7] [008] [NULL] $()
-[0] [ù] [ä] [NULL] [1] [...] [NULL] [11] [K] [NULL] [0] [009] [NULL] $()
-[0] [ù] [ä] [NULL] [1] [...] [NULL] [11] [K] [NULL] [1] [010] [NULL] $()
-[0] [ù] [ä] [NULL] [1] [...] [NULL] [11] [K] [NULL] [2] [011] [NULL] $()
-[0] [ù] [ä] [NULL] [1] [...] [NULL] [11] [K] [NULL] [3] [012] [NULL] $()
-[0] [ù] [ä] [NULL] [1] [...] [NULL] [11] [K] [NULL] [4] [013] [NULL] $()
-[0] [ù] [ä] [NULL] [1] [...] [NULL] [11] [K] [NULL] [5] [014] [NULL] $()
-[0] [ù] [ä] [NULL] [1] [...] [NULL] [11] [K] [NULL] [6] [015] [NULL] $()
-[0] [ù] [ä] [NULL] [1] [...] [NULL] [11] [K] [NULL] [7] [016] [NULL] $()
+...
 ------------------- END TRIP_COMP_ELEMS DUMP COUNT=244 -------------------
 ;;

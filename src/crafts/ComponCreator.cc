@@ -703,19 +703,19 @@ int ComponLibraFinder::getPlanId( const std::string& bort ) {
     const std::string params = LIBRA::makeHttpQueryString({{"bort", bort}});
     const LIBRA::RowData data = LIBRA::getHttpRequestDataRow("/libra/get_plan_id", params);
     return data.at("plan_id").fieldAsInteger();
+  } else {
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+    "SELECT brw.S_L_ADV_ID AS PLAN_ID "
+    "  FROM WB_REF_AIRCO_WS_BORTS b join WB_REF_WS_AIR_REG_WGT brw "
+    "    on b.bort_num=:bort AND "
+    "       brw.id_bort=b.id AND "
+    "       brw.date_from<=system.UTCSYSDATE "
+    " ORDER BY brw.date_from desc";
+    Qry.CreateVariable( "bort", otString, bort );
+    Qry.Execute();
+    return Qry.Eof?ASTRA::NoExists:Qry.FieldAsInteger( "plan_id" );
   }
-
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-  "SELECT brw.S_L_ADV_ID AS PLAN_ID "
-  "  FROM WB_REF_AIRCO_WS_BORTS b join WB_REF_WS_AIR_REG_WGT brw "
-  "    on b.bort_num=:bort AND "
-  "       brw.id_bort=b.id AND "
-  "       brw.date_from<=system.UTCSYSDATE "
-  " ORDER BY brw.date_from desc";
-  Qry.CreateVariable( "bort", otString, bort );
-  Qry.Execute();
-  return Qry.Eof?ASTRA::NoExists:Qry.FieldAsInteger( "plan_id" );
 }
 
 std::vector<int> ComponLibraFinder::getLibraConfigs(const std::string& airline,
@@ -747,25 +747,25 @@ std::vector<int> ComponLibraFinder::getLibraConfigs(const std::string& airline,
       result.push_back(row.at("comp_id").fieldAsInteger());
     }
     return result;
-  }
-
-  TQuery Qry(&OraSession);
-  Qry.SQLText = getConfigSQLText( conf_id != ASTRA::NoExists );
-  Qry.CreateVariable( "plan_id", otInteger, plan_id );
-  if ( conf_id != ASTRA::NoExists ) {
-    Qry.CreateVariable( "conf_id", otInteger, conf_id );
-  }
-  Qry.CreateVariable( "airline", otString, airline ); //для проверки валидных классов
-  Qry.CreateVariable( "bort", otString, bort );
-  Qry.Execute();
-  for ( ; !Qry.Eof; Qry.Next() ) {
-    if ( Qry.FieldAsInteger( "invalid_class" ) ) {
-      continue;
+  } else {
+    TQuery Qry(&OraSession);
+    Qry.SQLText = getConfigSQLText( conf_id != ASTRA::NoExists );
+    Qry.CreateVariable( "plan_id", otInteger, plan_id );
+    if ( conf_id != ASTRA::NoExists ) {
+      Qry.CreateVariable( "conf_id", otInteger, conf_id );
     }
-    LogTrace(TRACE5) << "plan_id=" << plan_id << " conf_id=" << Qry.FieldAsInteger( "comp_id" );
-    result.emplace_back( Qry.FieldAsInteger( "comp_id" ) );
+    Qry.CreateVariable( "airline", otString, airline ); //для проверки валидных классов
+    Qry.CreateVariable( "bort", otString, bort );
+    Qry.Execute();
+    for ( ; !Qry.Eof; Qry.Next() ) {
+      if ( Qry.FieldAsInteger( "invalid_class" ) ) {
+        continue;
+      }
+      LogTrace(TRACE5) << "plan_id=" << plan_id << " conf_id=" << Qry.FieldAsInteger( "comp_id" );
+      result.emplace_back( Qry.FieldAsInteger( "comp_id" ) );
+    }
+    return result;
   }
-  return result;
 }
 
 std::string ComponLibraFinder::getConvertClassSQLText() {
@@ -1564,47 +1564,63 @@ std::string makeLibraCfgString(int f, int c, int y)
 
 std::string getLibraCfg( int plan_id, int conf_id,
                          const std::string& airline,
-                         const std::string& bort )
+                         const std::string& bort)
 {
   if (LIBRA::needSendHttpRequest()) {
-    const std::map<std::string,std::string> params = {
+    const std::map<std::string, std::string> params = {
       {"plan_id", std::to_string(plan_id)},
-      {"conf_id", std::to_string(conf_id)},
       {"airline", airline},
-      {"bort", bort}
+      {"bort", bort},
+      {"conf_id", std::to_string(conf_id)},
     };
     const auto rows =
         LIBRA::getHttpRequestDataRows("/libra/get_config",
                                       LIBRA::makeHttpQueryString(params));
-    if ( rows.empty() ) {
-      throw EXCEPTIONS::Exception( "getLibraCfg: conf not found, conf_id=%d", conf_id );
+
+    if (rows.size() != 1) {
+      throw EXCEPTIONS::Exception( "getLibraCfg: conf not found or found more then one, conf_id=%d", conf_id );
     }
-    const LIBRA::RowData& row = rows.front();
-    const bool invalid_class = row.at("invalid_class").fieldAsInteger() != 0;
-    if (invalid_class) {
+
+    const int F = rows[0].at("F").fieldAsInteger();
+    const int C = rows[0].at("C").fieldAsInteger();
+    const int Y = rows[0].at("Y").fieldAsInteger();
+
+    if ( rows[0].at("invalid_class").fieldAsInteger() != 0 ) {
       throw EXCEPTIONS::Exception( "getLibraCfg: conf has invalid clases, conf_id=%d", conf_id );
     }
-    return makeLibraCfgString(row.at("F").fieldAsInteger(),
-                              row.at("C").fieldAsInteger(),
-                              row.at("Y").fieldAsInteger());
+    return makeLibraCfgString(F, C, Y);
+  } else {
+    TQuery Qry(&OraSession);
+    Qry.SQLText = ComponLibraFinder::getConfigSQLText( true );
+    Qry.CreateVariable( "plan_id", otInteger, plan_id );
+    Qry.CreateVariable( "conf_id", otInteger, conf_id );
+    Qry.CreateVariable( "airline", otString, airline );
+    Qry.CreateVariable( "bort", otString, bort );
+    Qry.Execute();
+    if ( Qry.Eof ) {
+      throw EXCEPTIONS::Exception( "getLibraCfg: conf not found, conf_id=%d", conf_id );
+    }
+    if ( Qry.FieldAsInteger( "invalid_class" ) != 0 ) {
+      throw EXCEPTIONS::Exception( "getLibraCfg: conf has invalid clases, conf_id=%d", conf_id );
+    }
+    std::string res;
+    if ( Qry.FieldAsInteger( "F" ) > 0 ) {
+      res += 'П' + IntToString( Qry.FieldAsInteger( "F" ) );
+    }
+    if ( Qry.FieldAsInteger( "C" ) > 0 ) {
+      if ( !res.empty() ) {
+        res += " ";
+      }
+      res += 'Б' + IntToString( Qry.FieldAsInteger( "C" ) );
+    }
+    if ( Qry.FieldAsInteger( "Y" ) > 0 ) {
+      if ( !res.empty() ) {
+        res += " ";
+      }
+      res += 'Э' + IntToString( Qry.FieldAsInteger( "Y" ) );
+    };
+    return res;
   }
-
-  TQuery Qry(&OraSession);
-  Qry.SQLText = ComponLibraFinder::getConfigSQLText( true );
-  Qry.CreateVariable( "plan_id", otInteger, plan_id );
-  Qry.CreateVariable( "conf_id", otInteger, conf_id );
-  Qry.CreateVariable( "airline", otString, airline );
-  Qry.CreateVariable( "bort", otString, bort );
-  Qry.Execute();
-  if ( Qry.Eof ) {
-    throw EXCEPTIONS::Exception( "getLibraCfg: conf not found, conf_id=%d", conf_id );
-  }
-  if ( Qry.FieldAsInteger( "invalid_class" ) != 0 ) {
-    throw EXCEPTIONS::Exception( "getLibraCfg: conf has invalid clases, conf_id=%d", conf_id );
-  }
-  return makeLibraCfgString(Qry.FieldAsInteger( "F" ),
-                            Qry.FieldAsInteger( "C" ),
-                            Qry.FieldAsInteger( "Y" ));
 }
 
 std::map<std::string,std::string> getLibraClassMapping(const std::string& airline,
