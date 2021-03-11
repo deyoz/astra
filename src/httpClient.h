@@ -109,6 +109,7 @@ protected:
     virtual httpsrv::HostAndPort          addr() const = 0;
     virtual httpsrv::Domain             domain() const = 0;
     virtual boost::posix_time::seconds timeout() const = 0;
+    virtual unsigned               maxTryCount() const;
     virtual httpsrv::UseSSLFlag         useSsl() const;
 
 private:

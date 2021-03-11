@@ -369,4 +369,11 @@ boost::posix_time::seconds SirenaClient::timeout() const
     return boost::posix_time::seconds(SIRENA_REQ_TIMEOUT()/1000);
 }
 
+unsigned SirenaClient::maxTryCount() const
+{
+    int tryCount = SIRENA_REQ_ATTEMPTS();
+    ASSERT(tryCount > 0);
+    return static_cast<unsigned>(tryCount);
+}
+
 } //namespace SirenaExchange

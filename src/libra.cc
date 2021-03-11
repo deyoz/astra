@@ -40,10 +40,22 @@ static int LIBRA_HTTP_TIMEOUT()
     return to;
 }
 
+static int LIBRA_HTTP_TRYCOUNT()
+{
+    static int tc = readIntFromTcl("LIBRA_HTTP_TRYCOUNT", 1);
+    return tc;
+}
+
 static int LIBRA_HTTP_MODE()
 {
     static int am = readIntFromTcl("LIBRA_HTTP_MODE", 0);
     return am;
+}
+
+static bool LIBRA_HTTP_STAT()
+{
+    static int stat = readIntFromTcl("LIBRA_HTTP_STAT", 0);
+    return static_cast<bool>(stat);
 }
 
 //---------------------------------------------------------------------------------------
@@ -76,6 +88,13 @@ protected:
     {
         return boost::posix_time::seconds(LIBRA_HTTP_TIMEOUT());
     }
+
+    virtual unsigned maxTryCount() const
+    {
+        int tryCount = LIBRA_HTTP_TRYCOUNT();
+        ASSERT(tryCount > 0);
+        return static_cast<unsigned>(tryCount);
+    }
 };
 
 //---------------------------------------------------------------------------------------
@@ -102,6 +121,11 @@ xmlNodePtr LibraHttpResponse::resultNode() const
 
 boost::optional<LibraHttpResponse> LibraHttpResponse::read()
 {
+    if(LIBRA_HTTP_STAT()) {
+        if(auto stat = httpsrv::GetStat()) {
+            LogTrace(TRACE1) << stat.get();
+        }
+    }
     LibraHttpClient libraClient;
     boost::optional<httpsrv::HttpResp> resp = libraClient.receive();
     if(!resp) {

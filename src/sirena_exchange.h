@@ -146,6 +146,7 @@ protected:
     virtual httpsrv::HostAndPort          addr() const;
     virtual httpsrv::Domain             domain() const;
     virtual boost::posix_time::seconds timeout() const;
+    virtual unsigned               maxTryCount() const;
 };
 
 } //namespace SirenaExchange

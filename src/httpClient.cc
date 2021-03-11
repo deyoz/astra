@@ -465,7 +465,7 @@ void Client::sendRequest_(const std::string& reqType, const std::string& reqText
     httpsrv::DoHttpRequest req(ServerFramework::getQueryRunner().getEdiHelpManager().msgId(),
                                domain(), addr(), http);
     req.setTimeout(timeout())
-       .setMaxTryCount(1)
+       .setMaxTryCount(maxTryCount())
        .setSSL(useSsl());
 
     if(kickInfo) {
@@ -508,6 +508,11 @@ boost::optional<httpsrv::HttpResp> Client::receive() const
     }
 
     return responses.front();
+}
+
+unsigned Client::maxTryCount() const
+{
+    return 1;
 }
 
 httpsrv::UseSSLFlag Client::useSsl() const
