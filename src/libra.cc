@@ -437,9 +437,38 @@ void addOprPult2Req(xmlNodePtr rootNode)
     NewTextChild(rootNode, "pult",  TReqInfo::Instance()->desk.code);
 }
 
+void accessRightstoXML(const TAccess& access, xmlNodePtr accessNode)
+{
+    if(accessNode==NULL) return;
+
+    //права доступа к операциям
+    xmlNodePtr rightsNode = NewTextChild(accessNode, "rights");
+    const std::set<int> wbAccessRights = { 1010, 1011, 1012, 1013 };
+    for(auto right: access.rights().elems()) {
+        if(algo::contains(wbAccessRights, right)) {
+            NewTextChild(rightsNode, "right", right);
+        }
+    }
+
+    //права доступа к авиакомпаниям
+    xmlNodePtr airlinesNode = NewTextChild(accessNode, "airlines");
+    for(auto airline: access.airlines().elems()) {
+        NewTextChild(airlinesNode, "airline", airline);
+    }
+    NewTextChild(accessNode, "airlines_permit", static_cast<int>(access.airlines().elems_permit()));
+
+    //права доступа к аэропортам
+    xmlNodePtr airpsNode = NewTextChild(accessNode, "airps");
+    for(auto airp: access.airps().elems()) {
+        NewTextChild(airpsNode, "airp", airp);
+    }
+    NewTextChild(accessNode, "airps_permit", static_cast<int>(access.airps().elems_permit()));
+}
+
 void addRights2Req(xmlNodePtr rootNode)
 {
-    TReqInfo::Instance()->user.access.toXML(NewTextChild(rootNode, "access"));
+    xmlNodePtr accessNode = NewTextChild(rootNode, "access");
+    accessRightstoXML(TReqInfo::Instance()->user.access, accessNode);
 }
 
 std::string callLibraPkg(const std::string& xml_in)
