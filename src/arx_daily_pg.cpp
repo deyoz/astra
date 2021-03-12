@@ -1012,6 +1012,7 @@ void deleteEventsByMoveId(const MoveId_t & move_id)
     for(const auto & lang : langs) {
         make_db_curs("delete from EVENTS_BILINGUAL where id1 = :move_id and lang = :lang and type = :evtDisp ",
             PgOra::getRWSession("EVENTS_BILINGUAL"))
+            .stb()
             .bind(":move_id", move_id.get())
             .bind(":lang", lang.code)
             .bind(":evtDisp", EncodeEventType(evtDisp))
