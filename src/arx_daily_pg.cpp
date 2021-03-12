@@ -204,12 +204,18 @@ void arx_pax_doca(const PaxId_t& pax_id, const Dates::DateTime_t & part_key);
 
 void deleteByPaxes(const PaxId_t& pax_id);
 void deleteByGrpId(const GrpId_t& grp_id);
+void delete_annul_bags_tags(const GrpId_t& grp_id);
 size_t delete_trfer_trips(const GrpId_t& grp_id);
 void deleteAodbBag(const PointId_t& point_id);
+void deleteTransferPaxStat(const PointId_t& point_id);
 void deleteTlgOut(const PointId_t& point_id);
 void deleteByPointId(const PointId_t& point_id);
 void deleteEventsByPointId(const PointId_t& point_id);
 void deleteBagReceipts(const PointId_t& point_id);
+void deleteStatServices(const PointId_t& point_id);
+void deleteStatAd(const PointId_t& point_id);
+void deleteBiStat(const PointId_t& point_id);
+
 void deleteByMoveId(const MoveId_t & move_id);
 void deleteEventsByMoveId(const MoveId_t & move_id);
 
@@ -840,17 +846,17 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
             }
             if(dbo::isNotNull(part_key)) {
                 arx_move_ext(move_id, part_key, getDateRange(date_range));
+                arx_points(points, part_key);
                 arx_move_ref(move_id, part_key);
                 arx_events_by_move_id(move_id, part_key);
-                arx_points(points, part_key);
             }
             for(const auto &p : points)
             {
-                bool use_insert = p.pr_del != -1 && dbo::isNotNull(part_key);
+                bool need_arch = p.pr_del != -1 && dbo::isNotNull(part_key);
                 PointId_t point_id(p.point_id);
                 LogTrace(TRACE5) << " P.POINT_ID = "  << p.point_id;
                 auto pax_grps = read_pax_grp(point_id, part_key);
-                if(use_insert) {
+                if(need_arch) {
                     arx_pax_grp(pax_grps, part_key);
                     arx_mark_trips(point_id, part_key);
                     arx_events_by_point_id(point_id, part_key);
@@ -878,13 +884,21 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
                     arx_tlg_out(point_id, part_key);
                     arx_bag_receipts(point_id, part_key);
                 }
+                //FK to PAX need delete before delete from PAX
+                if(ARX::CLEANUP_PG()) {
+                    deleteTransferPaxStat(point_id);
+                    deleteStatServices(point_id);
+                    deleteStatAd(point_id);
+                    deleteBiStat(point_id);
+                    deleteBagReceipts(point_id); //FK TO PAX_GRP
+                }
 
                 for(const auto &grp : pax_grps)
                 {
                     GrpId_t grp_id(grp.m_grp_id);
                     LogTrace(TRACE5) << " PAX_GRP_ID : " << grp_id;
                     auto paxes = read_pax(grp_id);
-                    if(use_insert) {
+                    if(need_arch) {
                         arx_pax(paxes, grp_id, point_id, part_key);
                         arx_annul_bags_tags(grp_id, part_key);
                         arx_unaccomp_bag_info(grp_id, part_key);
@@ -898,10 +912,13 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
                         arx_transfer(grp_id, part_key);
                         arx_tckin_segments(grp_id, part_key);
                     }
+                    if(ARX::CLEANUP_PG()) {
+                        delete_annul_bags_tags(grp_id); //FK TO PAX and FK TO PAX_GRP
+                    }
                     for(const auto & pax : paxes) {
                         PaxId_t pax_id(pax.pax_id);
                         LogTrace(TRACE5) << " PAX_ID : " << pax_id;
-                        if(use_insert) {
+                        if(need_arch) {
                             arx_pax_norms(pax_id, part_key);
                             arx_pax_rem(pax_id, part_key);
                             arx_transfer_subcls(pax_id, part_key);
@@ -1484,6 +1501,23 @@ void arx_bag_pay_types(int receipt_id , const Dates::DateTime_t & part_key)
     }
 }
 
+void deleteStatServices(const PointId_t& point_id)
+{
+    make_db_curs("delete from STAT_SERVICES where point_id = :point_id ",
+        PgOra::getRWSession("STAT_SERVICES")).bind(":point_id", point_id.get()).exec();
+}
+
+void deleteStatAd(const PointId_t& point_id)
+{
+    make_db_curs("delete from STAT_AD where point_id = :point_id ",
+        PgOra::getRWSession("STAT_AD")).bind(":point_id", point_id.get()).exec();
+}
+void deleteBiStat(const PointId_t& point_id)
+{
+    make_db_curs("delete from BI_STAT where point_id = :point_id ",
+        PgOra::getRWSession("BI_STAT")).bind(":point_id", point_id.get()).exec();
+}
+
 void deleteBagReceipts(const PointId_t& point_id)
 {
     LogTrace1 <<__FUNCTION__ << " point_id: " << point_id;
@@ -1499,10 +1533,10 @@ void deleteBagReceipts(const PointId_t& point_id)
     }
 
     for(const auto &br : bag_receipts) {
-        make_db_curs("delete from BAG_RECEIPTS where receipt_id = :receipt_id",
-                     PgOra::getRWSession("BAG_RECEIPTS")).bind(":receipt_id", br.receipt_id).exec();
         make_db_curs("delete from BAG_PAY_TYPES where receipt_id = :receipt_id",
                      PgOra::getRWSession("BAG_PAY_TYPES")).bind(":receipt_id", br.receipt_id).exec();
+        make_db_curs("delete from BAG_RECEIPTS where receipt_id = :receipt_id",
+                     PgOra::getRWSession("BAG_RECEIPTS")).bind(":receipt_id", br.receipt_id).exec();
         make_db_curs("delete from BAG_RCPT_KITS where kit_id = :kit_id ",
                      PgOra::getRWSession("BAG_RCPT_KITS")).bind(":kit_id", br.kit_id).exec();
     }
@@ -1533,9 +1567,9 @@ void arx_annul_bags_tags(const GrpId_t& grp_id, const Dates::DateTime_t & part_k
 
 void delete_annul_bags_tags(const GrpId_t& grp_id)
 {
-    make_db_curs("delete from ANNUL_BAG where grp_id = :grp_id ", PgOra::getRWSession("ANNUL_BAG"))
+    make_db_curs("delete from ANNUL_TAGS where id = :grp_id ", PgOra::getRWSession("ANNUL_TAGS"))
             .bind(":grp_id", grp_id.get()).exec();
-    make_db_curs("delete from ANNUL_BAG where id = :grp_id ", PgOra::getRWSession("ANNUL_TAGS"))
+    make_db_curs("delete from ANNUL_BAG where grp_id = :grp_id ", PgOra::getRWSession("ANNUL_BAG"))
             .bind(":grp_id", grp_id.get()).exec();
 }
 
@@ -1875,7 +1909,6 @@ void deleteByPaxes(const PaxId_t& pax_id)
 void deleteByGrpId(const GrpId_t& grp_id)
 {
     if(ARX::CLEANUP_PG()) {
-        delete_annul_bags_tags(grp_id);
         delete_trfer_trips(grp_id);
 
         make_db_curs("delete from UNACCOMP_BAG_INFO where grp_id = :grp_id ",PgOra::getRWSession("UNACCOMP_BAG_INFO")).bind(":grp_id", grp_id.get()).exec();
@@ -1887,15 +1920,15 @@ void deleteByGrpId(const GrpId_t& grp_id)
         make_db_curs("delete from VALUE_BAG where grp_id = :grp_id ",        PgOra::getRWSession("VALUE_BAG")).bind(":grp_id", grp_id.get()).exec();
         make_db_curs("delete from GRP_NORMS where grp_id = :grp_id ",        PgOra::getRWSession("GRP_NORMS")).bind(":grp_id", grp_id.get()).exec();
 
-        make_db_curs("DELETE FROM paid_bag_emd_props WHERE grp_id=:grp_id ", PgOra::getRWSession("PAID_BAG_EMD_PROPS")).bind(":grp_id", grp_id.get()).exec();
-        make_db_curs("DELETE FROM service_payment WHERE grp_id=:grp_id ",    PgOra::getRWSession("SERVICE_PAYMENT")).bind(":grp_id", grp_id.get()).exec();
-        make_db_curs("DELETE FROM tckin_pax_grp WHERE grp_id=:grp_id ",      PgOra::getRWSession("TCKIN_PAX_GRP")).bind(":grp_id", grp_id.get()).exec();
-        make_db_curs("DELETE FROM pnr_addrs_pc WHERE grp_id=:grp_id ",       PgOra::getRWSession("PNR_ADDRS_PC")).bind(":grp_id", grp_id.get()).exec();
-        make_db_curs("DELETE FROM grp_service_lists WHERE grp_id=:grp_id ",  PgOra::getRWSession("GRP_SERVICE_LISTS")).bind(":grp_id", grp_id.get()).exec();
-        make_db_curs("DELETE FROM bag_tags_generated WHERE grp_id=:grp_id ", PgOra::getRWSession("BAG_TAGS_GENERATED")).bind(":grp_id", grp_id.get()).exec();
-        make_db_curs("DELETE FROM mps_exchange WHERE grp_id=:grp_id",        PgOra::getRWSession("MPS_EXCHANGE")).bind(":grp_id", grp_id.get()).exec();
-        make_db_curs("DELETE FROM svc_prices WHERE grp_id=:grp_id",          PgOra::getRWSession("SVC_PRICES")).bind(":grp_id", grp_id.get()).exec();
-        make_db_curs("DELETE FROM pax_grp WHERE grp_id=:grp_id",             PgOra::getRWSession("PAX_GRP")).bind(":grp_id", grp_id.get()).exec();
+        make_db_curs("delete from PAID_BAG_EMD_PROPS where grp_id=:grp_id ", PgOra::getRWSession("PAID_BAG_EMD_PROPS")).bind(":grp_id", grp_id.get()).exec();
+        make_db_curs("delete from SERVICE_PAYMENT where grp_id=:grp_id ",    PgOra::getRWSession("SERVICE_PAYMENT")).bind(":grp_id", grp_id.get()).exec();
+        make_db_curs("delete from TCKIN_PAX_GRP where grp_id=:grp_id ",      PgOra::getRWSession("TCKIN_PAX_GRP")).bind(":grp_id", grp_id.get()).exec();
+        make_db_curs("delete from PNR_ADDRS_PC where grp_id=:grp_id ",       PgOra::getRWSession("PNR_ADDRS_PC")).bind(":grp_id", grp_id.get()).exec();
+        make_db_curs("delete from GRP_SERVICE_LISTS where grp_id=:grp_id ",  PgOra::getRWSession("GRP_SERVICE_LISTS")).bind(":grp_id", grp_id.get()).exec();
+        make_db_curs("delete from BAG_TAGS_GENERATED where grp_id=:grp_id ", PgOra::getRWSession("BAG_TAGS_GENERATED")).bind(":grp_id", grp_id.get()).exec();
+        make_db_curs("delete from MPS_EXCHANGE where grp_id=:grp_id",        PgOra::getRWSession("MPS_EXCHANGE")).bind(":grp_id", grp_id.get()).exec();
+        make_db_curs("delete from SVC_PRICES where grp_id=:grp_id",          PgOra::getRWSession("SVC_PRICES")).bind(":grp_id", grp_id.get()).exec();
+        make_db_curs("delete from PAX_GRP where grp_id=:grp_id",             PgOra::getRWSession("PAX_GRP")).bind(":grp_id", grp_id.get()).exec();
     }
 }
 
@@ -1909,6 +1942,12 @@ void deleteAodbBag(const PointId_t& point_id)
     }
 }
 
+void deleteTransferPaxStat(const PointId_t& point_id)
+{
+    make_db_curs("delete from TRFER_PAX_STAT where point_id = :point_id ",
+                 PgOra::getRWSession("TRFER_PAX_STAT")).bind(":point_id", point_id.get()).exec();
+}
+
 void deleteByPointId(const PointId_t& point_id)
 {
     LogTrace5 << __func__ << " point_id: " << point_id;
@@ -1917,19 +1956,15 @@ void deleteByPointId(const PointId_t& point_id)
         deleteAodbBag(point_id);
         deleteTlgOut(point_id);
         deleteEventsByPointId(point_id);
-        deleteBagReceipts(point_id);
         make_db_curs("delete from SELF_CKIN_STAT where point_id = :point_id ",PgOra::getRWSession("SELF_CKIN_STAT")).bind(":point_id", point_id.get()).exec();
         make_db_curs("delete from RFISC_STAT where point_id = :point_id ",PgOra::getRWSession("RFISC_STAT")).bind(":point_id", point_id.get()).exec();
-        make_db_curs("delete from STAT_SERVICES where point_id = :point_id ",PgOra::getRWSession("STAT_SERVICES")).bind(":point_id", point_id.get()).exec();
         make_db_curs("delete from STAT_REM where point_id = :point_id ",PgOra::getRWSession("STAT_REM")).bind(":point_id", point_id.get()).exec();
         make_db_curs("delete from LIMITED_CAPABILITY_STAT where point_id = :point_id ",PgOra::getRWSession("LIMITED_CAPABILITY_STAT")).bind(":point_id", point_id.get()).exec();
         make_db_curs("delete from PFS_STAT where point_id = :point_id ",PgOra::getRWSession("PFS_STAT")).bind(":point_id", point_id.get()).exec();
-        make_db_curs("delete from STAT_AD where point_id = :point_id ",PgOra::getRWSession("STAT_AD")).bind(":point_id", point_id.get()).exec();
         make_db_curs("delete from STAT_HA where point_id = :point_id ",PgOra::getRWSession("STAT_HA")).bind(":point_id", point_id.get()).exec();
         make_db_curs("delete from STAT_VO where point_id = :point_id ",PgOra::getRWSession("STAT_VO")).bind(":point_id", point_id.get()).exec();
         make_db_curs("delete from STAT_REPRINT where point_id = :point_id ",PgOra::getRWSession("STAT_REPRINT")).bind(":point_id", point_id.get()).exec();
-        make_db_curs("delete from TRFER_PAX_STAT where point_id = :point_id ",PgOra::getRWSession("TRFER_PAX_STAT")).bind(":point_id", point_id.get()).exec();
-        make_db_curs("delete from BI_STAT where point_id = :point_id ",PgOra::getRWSession("BI_STAT")).bind(":point_id", point_id.get()).exec();
+
         make_db_curs("delete from AGENT_STAT where point_id = :point_id ",PgOra::getRWSession("AGENT_STAT")).bind(":point_id", point_id.get()).exec();
         make_db_curs("delete from STAT where point_id = :point_id ",PgOra::getRWSession("STAT")).bind(":point_id", point_id.get()).exec();
         make_db_curs("delete from TRFER_STAT where point_id = :point_id ",PgOra::getRWSession("TRFER_STAT")).bind(":point_id", point_id.get()).exec();
