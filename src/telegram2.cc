@@ -6663,7 +6663,7 @@ int MVT(TypeB::TDetailCreateInfo &info)
     buf.str("");
     buf
         << info.flight_view() << "/"
-        << DateTimeToStr(info.scd_utc, "dd", 1)
+        << DateTimeToStr(info.scd_utc_first_point, "dd", 1)
         << "." << (info.bort.empty() ? "??" : info.bort);
     if(info.get_tlg_type() == "MVTA")
       buf << "." << info.airp_dep_view();
