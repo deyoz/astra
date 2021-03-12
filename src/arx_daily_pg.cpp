@@ -1055,6 +1055,7 @@ void deleteEventsByPointId(const PointId_t& point_id)
         make_db_curs("delete from EVENTS_BILINGUAL where id1 = :point_id and lang = :lang "
                      "and type in (:evtFlt, :evtGraph, :evtFltTask, :evtPax, :evtPay, :evtTlg, :evtPrn) ",
                      PgOra::getRWSession("EVENTS_BILINGUAL"))
+                .stb()
                 .bind(":point_id",   point_id.get())
                 .bind(":lang",       lang.code)
                 .bind(":evtFlt",     EncodeEventType(evtFlt))
