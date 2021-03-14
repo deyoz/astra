@@ -1040,7 +1040,7 @@ static void CheckPieceConceptAllowance(const CheckIn::TSimplePaxItem& pax,
     additionalBaggage.emplace_back(b.first, b.second.pc.get());
   }
 
-  TCkinGrpIds tckin_grp_ids;
+  TCkinGrpIds tckinGrpIds;
   TPaidRFISCList paidAfter; //сюда будут входить все зарегистрированные и оцененные услуги группы
                             //(в т.ч. зарегистрированный=активированный багаж)
                             //(в т.ч. сгенерированный багаж=бирки всех пассажиров группы)
@@ -1055,7 +1055,7 @@ static void CheckPieceConceptAllowance(const CheckIn::TSimplePaxItem& pax,
                             externalSysResNode,
                             ASTRA::rollback,
                             SirenaExchangeList,
-                            tckin_grp_ids,
+                            tckinGrpIds,
                             paidAfter,
                             httpWasSent))
     {

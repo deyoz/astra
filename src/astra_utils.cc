@@ -1725,7 +1725,7 @@ string convert_char_view(const string &value, bool pr_lat)
 
 };
 
-string& EOracleError2UserException(string& msg)
+AstraLocale::UserException EOracleError2UserException(string& msg)
 {
   //ProgTrace(TRACE5,"EOracleError2UserException: msg=%s",msg.c_str());
   size_t p;
@@ -1756,9 +1756,12 @@ string& EOracleError2UserException(string& msg)
   {
     ProgTrace(TRACE5,"EOracleError2UserException: msg=%s",msg.c_str());
     xml_decode_nodelist(msgDoc.docPtr()->children);
-    msg=getLocaleText(NodeAsNode("/lexeme_data",msgDoc.docPtr()));
+
+    LexemaData lexemeData;
+    LexemeDataFromXML(NodeAsNode("/lexeme_data",msgDoc.docPtr()), lexemeData);
+    return AstraLocale::UserException(lexemeData.lexema_id, lexemeData.lparams);
   };
-  return msg;
+  return AstraLocale::UserException(msg);
 };
 
 bool isIgnoredEOracleError(const std::exception& e)

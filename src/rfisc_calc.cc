@@ -95,7 +95,7 @@ class TQuantityPerSeg : public map<int/*trfer_num*/, int/*кол-во*/>
 bool tryEnlargeServicePayment(TPaidRFISCList &paid_rfisc,
                               CheckIn::TServicePaymentList &payment,
                               const TGrpServiceAutoList &svcsAuto,
-                              const TCkinGrpIds &tckin_grp_ids,
+                              const TCkinGrpIds &tckinGrpIds,
                               const CheckIn::TGrpEMDProps &emdProps,
                               const boost::optional< std::list<TEMDCtxtItem> > &confirmed_emd)
 {
@@ -233,7 +233,7 @@ bool tryEnlargeServicePayment(TPaidRFISCList &paid_rfisc,
   for(TNeedMap::iterator i=need.begin(); i!=need.end(); ++i)
   {
     TPaxEMDList emds;
-    emds.getAllPaxEMD(i->first, tckin_grp_ids.size()==1);
+    emds.getAllPaxEMD(i->first, tckinGrpIds.size()==1);
     for(const TGrpServiceAutoItem& svcAuto : svcsAuto)
       if (svcAuto.withEMD())
         emds.erase(TPaxEMDItem(svcAuto)); //удаляем уже автопривязанные
@@ -343,7 +343,7 @@ bool tryEnlargeServicePayment(TPaidRFISCList &paid_rfisc,
 
 bool tryCheckinServicesAuto(TGrpServiceAutoList &svcsAuto,
                             const CheckIn::TServicePaymentList &payment,
-                            const TCkinGrpIds &tckin_grp_ids,
+                            const TCkinGrpIds &tckinGrpIds,
                             const CheckIn::TGrpEMDProps &emdProps,
                             const boost::optional< std::list<TEMDCtxtItem> > &confirmed_emd)
 {
@@ -353,11 +353,11 @@ bool tryCheckinServicesAuto(TGrpServiceAutoList &svcsAuto,
   bool result=false;
 
   TPaxEMDList emds;
-  emds.getAllEMD(tckin_grp_ids);
+  emds.getAllEMD(tckinGrpIds);
 
-  vector< pair< int/*grp_id*/, boost::optional<TTripInfo> > > flts;
-  for(const int& grp_id : tckin_grp_ids)
-    flts.emplace_back(grp_id, boost::none);
+  vector< pair< GrpId_t, boost::optional<TTripInfo> > > flts;
+  for(const GrpId_t& grpId : tckinGrpIds)
+    flts.emplace_back(grpId, boost::none);
 
   //попробуем автоматически зарегистрировать
   for(const TPaxEMDItem& emd : emds)
@@ -374,7 +374,7 @@ bool tryCheckinServicesAuto(TGrpServiceAutoList &svcsAuto,
     if (!flt.second)
     {
       flt.second=boost::in_place();
-      flt.second.get().getByGrpId(flt.first);
+      flt.second.get().getByGrpId(flt.first.get());
     }
     if (!svcAuto.permittedForAutoCheckin(flt.second.get())) continue;
     svcsAuto.push_back(svcAuto);
@@ -382,7 +382,7 @@ bool tryCheckinServicesAuto(TGrpServiceAutoList &svcsAuto,
   }
 
   TGrpServiceAutoList asvcWithoutEMD;
-  PaxASVCList::getWithoutEMD(tckin_grp_ids.front(), asvcWithoutEMD, false);
+  PaxASVCList::getWithoutEMD(tckinGrpIds.front().get(), asvcWithoutEMD, false);
   //формируем новый список с подходящими
   TGrpServiceAutoList actualWithoutEMD;
   for(const TGrpServiceAutoItem& svcAuto : asvcWithoutEMD)
@@ -393,7 +393,7 @@ bool tryCheckinServicesAuto(TGrpServiceAutoList &svcsAuto,
     if (!flt.second)
     {
       flt.second=boost::in_place();
-      flt.second.get().getByGrpId(flt.first);
+      flt.second.get().getByGrpId(flt.first.get());
     }
     if (!svcAuto.permittedForAutoCheckin(flt.second.get())) continue;
 
@@ -417,11 +417,11 @@ bool getSvcPaymentStatus(int first_grp_id,
                          xmlNodePtr externalSysResNode,
                          const RollbackBeforeRequestFunction& rollbackFunction,
                          SirenaExchange::TLastExchangeList &SirenaExchangeList,
-                         TCkinGrpIds& tckin_grp_ids,
+                         TCkinGrpIds& tckinGrpIds,
                          TPaidRFISCList& paid,
                          bool& httpWasSent)
 {
-  tckin_grp_ids.clear();
+  tckinGrpIds.clear();
   paid.clear();
 
   if (TReqInfo::Instance()->api_mode)
@@ -436,9 +436,9 @@ bool getSvcPaymentStatus(int first_grp_id,
     for(const auto& i : additionalBaggage.get())
       svcSection.svcs.addBaggageOrCarryOn(i.first, i.second);
   }
-  SirenaExchange::fillPaxsBags(first_grp_id, req, grp_cat, tckin_grp_ids);
+  SirenaExchange::fillPaxsBags(first_grp_id, req, grp_cat, tckinGrpIds);
 
-  if (tckin_grp_ids.empty() || grp_cat!=CheckIn::TPaxGrpCategory::Passenges)
+  if (tckinGrpIds.empty() || grp_cat!=CheckIn::TPaxGrpCategory::Passenges)
     throw SvcPaymentStatusNotApplicable(first_grp_id);
 
   LogTrace(TRACE5) << __FUNCTION__ << ": req.svcs.size()=" << req.svcs.size();
@@ -515,7 +515,7 @@ bool getSvcPaymentStatus(int first_grp_id,
       if (i->status==TServiceStatus::Unknown)
         throw EXCEPTIONS::Exception("%s: strange situation: TServiceStatus::Unknown for trfer_num=%d", __FUNCTION__, i->trfer_num);
 
-    res.normsToDB(tckin_grp_ids);
+    res.normsToDB(tckinGrpIds);
     res.svcs.get(req.svcs.autoChecked(), paid);
   }
   catch(UserException &e)

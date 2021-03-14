@@ -664,11 +664,16 @@ $(CHANGE_TRIP_SETS $(get point_dep_UT_100) piece_concept=1)
 $(settcl SIRENA_HOST localhost)
 $(settcl SIRENA_PORT 8008)
 
-$(sql {INSERT INTO rfic_types(id, code, name, name_lat)
-       VALUES(id__seq.nextval, 'A', '¯à®', 'pro')})
+!! capture=on
+$(cache PIKE RU RFISC_SETS $(cache_iface_ver RFISC_SETS) ""
+  insert airline:$(get_elem_id etAirline ž’)
+         rfic:A
+         rfisc:0B5
+         auto_checkin:1)
 
-$(sql {INSERT INTO rfisc_sets(id, airline, flt_no, airp_dep, rfic, rfisc, auto_checkin)
-       VALUES(id__seq.nextval, 'ž’', NULL, NULL, 'A', '0B5', 1)})
+>> lines=auto
+$(MESSAGE_TAG MSG.CHANGED_DATA_COMMIT)
+
 
 $(http_forecast content=$(get_svc_availability_resp))
 

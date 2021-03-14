@@ -417,16 +417,16 @@ void TServicePaymentListWithAuto::fromDB(int grp_id)
       push_back(TServicePaymentItem(i));
 }
 
-void TServicePaymentList::clearDB(int grp_id)
+void TServicePaymentList::clearDB(const GrpId_t& grpId)
 {
   TCachedQuery Qry("DELETE FROM service_payment WHERE grp_id=:grp_id",
-                   QParams() << QParam("grp_id", otInteger, grp_id));
+                   QParams() << QParam("grp_id", otInteger, grpId.get()));
   Qry.get().Execute();
 }
 
 void TServicePaymentList::toDB(int grp_id) const
 {
-  clearDB(grp_id);
+  clearDB(GrpId_t(grp_id));
   TCachedQuery Qry("INSERT INTO service_payment(grp_id, pax_id, transfer_num, list_id, bag_type, rfisc, service_type, airline, service_quantity, "
                    "  doc_type, doc_aircode, doc_no, doc_coupon, doc_weight) "
                    "VALUES(:grp_id, :pax_id, :transfer_num, :list_id, :bag_type, :rfisc, :service_type, :airline, :service_quantity, "
@@ -512,23 +512,23 @@ std::string TServicePaymentList::copySelectSQL2()
       "      AND service_payment.pax_id IS NULL AND service_payment.doc_weight IS NULL ";
 }
 
-void TServicePaymentList::copyDBOneByOne(int grp_id_src, int grp_id_dest)
+void TServicePaymentList::copyDBOneByOne(const GrpId_t& grpIdSrc, const GrpId_t& grpIdDest)
 {
   TServicePaymentList list;
 
   TCachedQuery Qry(copySelectSQL()+" UNION ALL "+copySelectSQL2(),
-                   QParams() << QParam("grp_id_src", otInteger, grp_id_src)
-                             << QParam("grp_id_dest", otInteger, grp_id_dest));
+                   QParams() << QParam("grp_id_src", otInteger, grpIdSrc.get())
+                             << QParam("grp_id_dest", otInteger, grpIdDest.get()));
   Qry.get().Execute();
   for(; !Qry.get().Eof; Qry.get().Next())
     list.push_back(TServicePaymentItem().fromDB(Qry.get()));
 
-  list.toDB(grp_id_dest);
+  list.toDB(grpIdDest.get());
 }
 
-void TServicePaymentList::copyDB(int grp_id_src, int grp_id_dest)
+void TServicePaymentList::copyDB(const GrpId_t& grpIdSrc, const GrpId_t& grpIdDest)
 {
-  clearDB(grp_id_dest);
+  clearDB(grpIdDest);
   TCachedQuery Qry(
     "INSERT INTO service_payment(grp_id, pax_id, transfer_num, list_id, bag_type, rfisc, service_type, airline, service_quantity, "
     "  doc_type, doc_aircode, doc_no, doc_coupon, doc_weight) " +
@@ -538,8 +538,8 @@ void TServicePaymentList::copyDB(int grp_id_src, int grp_id_dest)
     //непривязанные к pax_id:
     //неправильный расчет платности багажа при wt на последующих сегментах. Надо вводить is_trfer возможно, аналогично багажу
     copySelectSQL2(),
-    QParams() << QParam("grp_id_src", otInteger, grp_id_src)
-              << QParam("grp_id_dest", otInteger, grp_id_dest));
+    QParams() << QParam("grp_id_src", otInteger, grpIdSrc.get())
+              << QParam("grp_id_dest", otInteger, grpIdDest.get()));
 
   try
   {
@@ -548,12 +548,12 @@ void TServicePaymentList::copyDB(int grp_id_src, int grp_id_dest)
   catch(const EOracleError& E)
   {
     if (E.Code==1)
-      copyDBOneByOne(grp_id_src, grp_id_dest);
+      copyDBOneByOne(grpIdSrc, grpIdDest);
     else
       throw;
   };
 
-  TGrpAlarmHook::set(Alarm::UnboundEMD, grp_id_dest);
+  TGrpAlarmHook::set(Alarm::UnboundEMD, grpIdDest.get());
 }
 
 void TServicePaymentListWithAuto::toXML(xmlNodePtr node) const

@@ -1,4 +1,5 @@
 include(ts/macro.ts)
+include(ts/adm_macro.ts)
 include(ts/sirena_exchange_macro.ts)
 include(ts/spp/write_trips_macro.ts)
 
@@ -13,14 +14,14 @@ $(init_eds ’ UTET UTDC)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ’ 103 „Œ„ ‹Š …ˆ ˆ‚€)
 
-$(sql "update TRIP_SETS set PIECE_CONCEPT=1")
-
 $(settcl SIRENA_HOST localhost)
 $(settcl SIRENA_PORT 8008)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
 $(set pax_id $(get_pax_id $(get point_dep) …ˆ ˆ‚€))
+
+$(CHANGE_TRIP_SETS $(get point_dep) piece_concept=1)
 
 $(OPEN_CHECKIN $(get point_dep))
 
@@ -143,7 +144,7 @@ $(lastRedisplay)
 $(set grp_id $(get_single_grp_id $(get point_dep) …ˆ ˆ‚€))
 $(set tid $(get_single_tid $(get point_dep) …ˆ ˆ‚€))
 
-$(sql "insert into TRIP_BT(POINT_ID, TAG_TYPE) values($(get point_dep), '‚Š‘')")
+$(prepare_bt_for_flight $(get point_dep) ‚Š‘)
 
 
 # ¤®¡ ¢«¥­¨¥ ¡ £ ¦  c ®è¨¡ª®©
@@ -397,8 +398,6 @@ $(init_term 201509-0173355)
 $(init_eds ’ UTET UTDC)
 
 $(PREPARE_FLIGHT_2PAXES_1SEG ’ 103 „Œ„ ‹Š …ˆ ‚€‘ˆ‹ˆ‰ …ˆ€ €€)
-
-$(dump_table CRS_PAX)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
@@ -777,14 +776,14 @@ $(init_eds ’ UTET UTDC)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ’ 103 „Œ„ ‹Š …ˆ ˆ‚€)
 
-$(sql "update TRIP_SETS set PIECE_CONCEPT=1")
-
 $(settcl SIRENA_HOST localhost)
 $(settcl SIRENA_PORT 8008)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
 $(set pax_id $(get_pax_id $(get point_dep) …ˆ ˆ‚€))
+
+$(CHANGE_TRIP_SETS $(get point_dep) piece_concept=1)
 
 $(OPEN_CHECKIN $(get point_dep))
 

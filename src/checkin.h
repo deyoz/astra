@@ -191,7 +191,7 @@ public:
   static void AfterSaveAction(CheckIn::TAfterSaveInfoData& data);
   static void tryChangeFlight(const CheckIn::TSimplePaxGrpItem& grp,
                               xmlNodePtr reqNode, xmlNodePtr resNode);
-  static void LoadPaxByGrpId(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNode, bool afterSavePax);
+  static void LoadPaxByGrpId(const GrpId_t& grpId, xmlNodePtr reqNode, xmlNodePtr resNode, bool afterSavePax);
   static void LoadPax(xmlNodePtr reqNode, xmlNodePtr resNode);
   static void LoadIatciPax(xmlNodePtr reqNode, xmlNodePtr resNode, const GrpId_t& grpId, bool needSync);
   static void PaxRemToXML(xmlNodePtr paxNode);

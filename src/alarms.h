@@ -225,10 +225,9 @@ bool existsAlarmByGrpId(const GrpId_t grpId, const Alarm::Enum alarmType);
 bool existsAlarmByPointId(const PointId_t pointId,
                           const std::initializer_list<Alarm::Enum>& alarms,
                           const std::initializer_list<PaxOrigin>& origins);
-void getAlarmByPointId(const PointId_t pointId, const Alarm::Enum alarmType,
-                       std::set<PaxId_t>& paxIds);
-std::set<PaxId_t> getAlarmByPointId(const PointId_t pointId, const Alarm::Enum alarmType,
-                                    const PaxOrigin origin);
+std::set<PaxId_t> getPaxIdsWithAlarm(const PointId_t pointId,
+                                     const Alarm::Enum alarmType,
+                                     const PaxOrigin origin);
 
 #endif
 

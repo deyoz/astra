@@ -970,27 +970,9 @@ bool existsAlarmByPointId(const PointId_t pointId,
   return false;
 }
 
-void getAlarmByPointId(const PointId_t pointId, const Alarm::Enum alarmType,
-                       std::set<PaxId_t>& paxIds)
-{
-  paxIds.clear();
-
-  DB::TCachedQuery Qry(
-        PgOra::getROSession("PAX_ALARMS"),
-        "SELECT pax_id "
-        "FROM pax_alarms "
-        "WHERE point_id=:point_id "
-        "AND alarm_type=:alarm_type",
-        QParams()
-        << QParam("point_id", otInteger, pointId.get())
-        << QParam("alarm_type", otString, AlarmTypes().encode(alarmType)));
-  Qry.get().Execute();
-  for(; !Qry.get().Eof; Qry.get().Next())
-    paxIds.emplace(Qry.get().FieldAsInteger("pax_id"));
-}
-
-std::set<PaxId_t> getAlarmByPointId(const PointId_t pointId, const Alarm::Enum alarmType,
-                                    const PaxOrigin origin)
+std::set<PaxId_t> getPaxIdsWithAlarm(const PointId_t pointId,
+                                     const Alarm::Enum alarmType,
+                                     const PaxOrigin origin)
 {
     std::set<PaxId_t> paxIds;
     const std::string alarm = AlarmTypes().encode(alarmType);

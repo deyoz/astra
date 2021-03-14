@@ -904,8 +904,7 @@ struct TCkinRouteItem
   TCkinRouteItem(TQuery &Qry);
 };
 
-typedef std::list<GrpId_t> GrpIds;
-typedef std::list<int> TCkinGrpIds;
+using TCkinGrpIds = std::list<GrpId_t>;
 
 class TCkinRouteInsertItem
 {
@@ -980,11 +979,9 @@ class TCkinRoute : public std::vector<TCkinRouteItem>
                                                       const Dependence dependence,
                                                       const GroupStatus groupStatus);
 
-    void get(TCkinGrpIds &tckin_grp_ids) const
+    TCkinGrpIds getTCkinGrpIds() const
     {
-      tckin_grp_ids.clear();
-      for(TCkinRoute::const_iterator i=begin(); i!=end(); ++i)
-        tckin_grp_ids.push_back(i->grp_id);
+      return algo::transform<TCkinGrpIds>(*this, [](const auto& i) { return GrpId_t(i.grp_id); });
     }
 
     static boost::optional<GrpId_t> toDB(const std::list<TCkinRouteInsertItem>& tckinGroups);

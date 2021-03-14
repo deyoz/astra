@@ -232,8 +232,7 @@ void newCabinClassMsgToLog(int point_id,
 
 void syncCabinClass(const TTripTaskKey &task)
 {
-  std::set<PaxId_t> paxIds;
-  getAlarmByPointId(PointId_t(task.point_id), Alarm::SyncCabinClass, paxIds);
+  std::set<PaxId_t> paxIds=getPaxIdsWithAlarm(PointId_t(task.point_id), Alarm::SyncCabinClass, PaxOrigin::paxCheckIn);
   if (paxIds.empty()) return;
 
   TFlights flightsForLock;

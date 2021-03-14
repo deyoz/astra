@@ -517,8 +517,7 @@ void TPrPrint::fromDB(int grp_id, int pax_id, TQuery &Qry)
     for(; not grpQry.get().Eof; grpQry.get().Next()) {
         int grp_pax_id = grpQry.get().FieldAsInteger("pax_id");
 
-        map<int, CheckIn::TCkinPaxTknItem> pax_list;
-        CheckIn::GetTCkinTickets(grp_pax_id, pax_list);
+        map<SegNo_t, CheckIn::TCkinPaxTknItem> pax_list=CheckIn::GetTCkinTickets(PaxId_t(grp_pax_id));
 
         if(pax_list.empty()) {
             Qry.SetVariable("pax_id", grp_pax_id);
@@ -526,17 +525,17 @@ void TPrPrint::fromDB(int grp_id, int pax_id, TQuery &Qry)
             paxs[1][grp_pax_id] = not Qry.Eof;
             grps.insert(grp_id);
         } else {
-            for(map<int, CheckIn::TCkinPaxTknItem>::iterator i = pax_list.begin(); i != pax_list.end(); i++) {
+            for(map<SegNo_t, CheckIn::TCkinPaxTknItem>::iterator i = pax_list.begin(); i != pax_list.end(); i++) {
                 bool pr_print;
-                if(i->first == 1) { // первый сегмент
-                    Qry.SetVariable("pax_id", i->second.pax_id);
+                if(i->first.get() == 1) { // первый сегмент
+                    Qry.SetVariable("pax_id", i->second.paxId().get());
                     Qry.Execute();
                     pr_print = not Qry.Eof;
                 } else { // остальные
                     pr_print = true;
                 }
-                paxs[i->first][i->second.pax_id] = pr_print;
-                grps.insert(i->second.grp_id);
+                paxs[i->first.get()][i->second.paxId().get()] = pr_print;
+                grps.insert(i->second.grpId().get());
             }
         }
     }

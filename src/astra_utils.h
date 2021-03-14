@@ -618,7 +618,7 @@ double ORDERS_MAX_SIZE();
 double ORDERS_MAX_TOTAL_SIZE();
 int ORDERS_TIMEOUT();
 
-std::string& EOracleError2UserException(std::string& msg);
+AstraLocale::UserException EOracleError2UserException(std::string& msg);
 bool isIgnoredEOracleError(const std::exception& e);
 bool clearResponseAndRollbackIfDeadlock(const std::exception& e, xmlNodePtr resNode);
 

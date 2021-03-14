@@ -183,6 +183,9 @@ void addPaxEvent(const PaxIdWithSegmentPair& paxId,
 void synchronizePaxEvents(const ModifiedPax& modifiedPax,
                           ModifiedPaxRem& modifiedPaxRem);
 
+using GrpIds = std::set<GrpId_t>;
+using PaxIds = std::set<PaxId_t>;
+
 std::set<PaxId_t> loadPaxIdSet(GrpId_t grp_id);
 bool existsPax(PaxId_t pax_id);
 
@@ -745,6 +748,10 @@ class TSimplePaxItem
     {
       clear();
     }
+    TSimplePaxItem(TQuery &Qry)
+    {
+      fromDB(Qry);
+    }
     void clear()
     {
       id=ASTRA::NoExists;
@@ -1231,27 +1238,26 @@ void CalcGrpEMDProps(const T &prior,
 
 class TCkinPaxTknItem : public TPaxTknItem
 {
+  private:
+    GrpId_t grpId_;
+    PaxId_t paxId_;
+
   public:
-    int grp_id;
-    int pax_id;
-    TCkinPaxTknItem()
+    TCkinPaxTknItem(TQuery &Qry) :
+      grpId_(Qry.FieldAsInteger("grp_id")),
+      paxId_(Qry.FieldAsInteger("pax_id"))
     {
-      clear();
-    }
-    void clear()
-    {
-      TPaxTknItem::clear();
-      grp_id=ASTRA::NoExists;
-      pax_id=ASTRA::NoExists;
+      TPaxTknItem::fromDB(Qry);
     }
 
-    TCkinPaxTknItem& fromDB(TQuery &Qry);
+    const GrpId_t& grpId() const { return grpId_; }
+    const PaxId_t& paxId() const { return paxId_; }
 };
 
-void GetTCkinPassengers(int pax_id, std::map<int, TSimplePaxItem> &paxs);
-void GetTCkinTickets(int pax_id, std::map<int, TCkinPaxTknItem> &tkns);
-void GetTCkinTicketsBefore(int pax_id, std::map<int, TCkinPaxTknItem> &tkns);
-void GetTCkinTicketsAfter(int pax_id, std::map<int, TCkinPaxTknItem> &tkns);
+std::map<SegNo_t, TSimplePaxItem> GetTCkinPassengers(const PaxId_t& paxId);
+std::map<SegNo_t, TCkinPaxTknItem> GetTCkinTickets(const PaxId_t& paxId);
+std::map<SegNo_t, TCkinPaxTknItem> GetTCkinTicketsBefore(const PaxId_t& paxId);
+std::map<SegNo_t, TCkinPaxTknItem> GetTCkinTicketsAfter(const PaxId_t& paxId);
 
 std::string isFemaleStr( int is_female );
 
@@ -1385,7 +1391,7 @@ class TPnrAddrs : public std::vector<TPnrAddrInfo>
     }
 };
 
-typedef ASTRA::Cache<int/*grp_id*/, CheckIn::TSimplePaxGrpItem> PaxGrpCache;
+using PaxGrpCache = ASTRA::Cache<GrpId_t, CheckIn::TSimplePaxGrpItem>;
 
 #endif
 

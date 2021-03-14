@@ -2975,12 +2975,10 @@ void TFlights::Get( const std::vector<int> &points, TFlightType flightType )
   }
 }
 
-void TFlights::GetForTCkinRouteDependent(const int grp_id, const TFlightType flightType, TCkinGrpIds &tckin_grp_ids)
+TCkinGrpIds TFlights::GetForTCkinRouteDependent(const GrpId_t& grpId, const TFlightType flightType)
 {
-  tckin_grp_ids.clear();
-
   TCkinRoute route;
-  route.getRoute(GrpId_t(grp_id),
+  route.getRoute(grpId,
                  TCkinRoute::WithCurrent,
                  TCkinRoute::OnlyDependent,
                  TCkinRoute::WithoutTransit);
@@ -2988,16 +2986,16 @@ void TFlights::GetForTCkinRouteDependent(const int grp_id, const TFlightType fli
   if (!route.empty())
   {
     for(const TCkinRouteItem& i : route)
-    {
       Get(i.point_dep, flightType);
-      tckin_grp_ids.push_back(i.grp_id);
-    }
+
+    return route.getTCkinGrpIds();
   }
   else
   {
     TAdvTripInfo flt;
-    if (flt.getByGrpId(grp_id)) Get(flt.point_id, flightType);
-    tckin_grp_ids.push_back(grp_id);
+    if (flt.getByGrpId(grpId.get())) Get(flt.point_id, flightType);
+
+    return {grpId};
   }
 }
 

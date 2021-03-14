@@ -1555,23 +1555,23 @@ void TPaidRFISCListWithAuto::fromDB(int id, bool is_grp_id, bool squeeze)
   set(list1, list2, squeeze);
 }
 
-void TGrpServiceList::clearDB(int grp_id)
+void TGrpServiceList::clearDB(const GrpId_t& grpId)
 {
   TCachedQuery Qry("DELETE FROM (SELECT * FROM pax, pax_services WHERE pax_services.pax_id=pax.pax_id AND pax.grp_id=:grp_id)",
-                   QParams() << QParam("grp_id", otInteger, grp_id));
+                   QParams() << QParam("grp_id", otInteger, grpId.get()));
   Qry.get().Execute();
 }
 
-void TGrpServiceAutoList::clearDB(int grp_id)
+void TGrpServiceAutoList::clearDB(const GrpId_t& grpId)
 {
   TCachedQuery Qry("DELETE FROM (SELECT * FROM pax, pax_services_auto WHERE pax_services_auto.pax_id=pax.pax_id AND pax.grp_id=:grp_id)",
-                   QParams() << QParam("grp_id", otInteger, grp_id));
+                   QParams() << QParam("grp_id", otInteger, grpId.get()));
   Qry.get().Execute();
 }
 
 void TGrpServiceList::toDB(int grp_id) const
 {
-  clearDB(grp_id);
+  clearDB(GrpId_t(grp_id));
   TCachedQuery Qry("INSERT INTO pax_services(pax_id, transfer_num, list_id, rfisc, service_type, airline, service_quantity) "
                    "VALUES(:pax_id, :transfer_num, :list_id, :rfisc, :service_type, :airline, :service_quantity)",
                    QParams() << QParam("pax_id", otInteger)
@@ -1590,7 +1590,7 @@ void TGrpServiceList::toDB(int grp_id) const
 
 void TGrpServiceAutoList::toDB(int grp_id) const
 {
-  clearDB(grp_id);
+  clearDB(GrpId_t(grp_id));
   TCachedQuery Qry("INSERT INTO pax_services_auto(pax_id, transfer_num, rfic, rfisc, service_quantity, ssr_code, service_name, emd_type, emd_no, emd_coupon) "
                    "VALUES(:pax_id, :transfer_num, :rfic, :rfisc, :service_quantity, :ssr_code, :service_name, :emd_type, :emd_no, :emd_coupon)",
                    QParams() << QParam("pax_id", otInteger)
@@ -1626,9 +1626,9 @@ void TGrpServiceAutoList::toDB(int grp_id) const
   }
 }
 
-void TGrpServiceList::copyDB(int grp_id_src, int grp_id_dest)
+void TGrpServiceList::copyDB(const GrpId_t& grpIdSrc, const GrpId_t& grpIdDest)
 {
-  clearDB(grp_id_dest);
+  clearDB(grpIdDest);
   TCachedQuery Qry(
     "INSERT INTO pax_services(pax_id, transfer_num, list_id, rfisc, service_type, airline, service_quantity) "
     "SELECT dest.pax_id, "
@@ -1639,14 +1639,14 @@ void TGrpServiceList::copyDB(int grp_id_src, int grp_id_dest)
     "       pax_services.airline, "
     "       pax_services.service_quantity " +
     TCkinRoute::copySubselectSQL("pax_services", {}, true),
-    QParams() << QParam("grp_id_src", otInteger, grp_id_src)
-              << QParam("grp_id_dest", otInteger, grp_id_dest));
+    QParams() << QParam("grp_id_src", otInteger, grpIdSrc.get())
+              << QParam("grp_id_dest", otInteger, grpIdDest.get()));
   Qry.get().Execute();
 }
 
-void TGrpServiceAutoList::copyDB(int grp_id_src, int grp_id_dest, bool not_clear)
+void TGrpServiceAutoList::copyDB(const GrpId_t& grpIdSrc, const GrpId_t& grpIdDest, bool not_clear)
 {
-  if (!not_clear) clearDB(grp_id_dest);
+  if (!not_clear) clearDB(grpIdDest);
   TCachedQuery Qry(
     "INSERT INTO pax_services_auto(pax_id, transfer_num, rfic, rfisc, service_quantity, ssr_code, service_name, emd_type, emd_no, emd_coupon) "
     "SELECT dest.pax_id, "
@@ -1660,11 +1660,11 @@ void TGrpServiceAutoList::copyDB(int grp_id_src, int grp_id_dest, bool not_clear
     "       pax_services_auto.emd_no, "
     "       pax_services_auto.emd_coupon " +
     TCkinRoute::copySubselectSQL("pax_services_auto", {}, true),
-    QParams() << QParam("grp_id_src", otInteger, grp_id_src)
-              << QParam("grp_id_dest", otInteger, grp_id_dest));
+    QParams() << QParam("grp_id_src", otInteger, grpIdSrc.get())
+              << QParam("grp_id_dest", otInteger, grpIdDest.get()));
   Qry.get().Execute();
   try {
-      callbacks<RFISCCallbacks>()->afterRFISCChange(TRACE5, grp_id_dest);
+      callbacks<RFISCCallbacks>()->afterRFISCChange(TRACE5, grpIdDest.get());
   } catch(...) {
       CallbacksExceptionFilter(STDLOG);
   }
@@ -1767,16 +1767,16 @@ void TGrpServiceList::moveFrom(TGrpServiceAutoList& list)
   }
 }
 
-void TPaidRFISCList::clearDB(int grp_id)
+void TPaidRFISCList::clearDB(const GrpId_t& grpId)
 {
   TCachedQuery Qry("DELETE FROM (SELECT * FROM pax, paid_rfisc WHERE paid_rfisc.pax_id=pax.pax_id AND pax.grp_id=:grp_id)",
-                   QParams() << QParam("grp_id", otInteger, grp_id));
+                   QParams() << QParam("grp_id", otInteger, grpId.get()));
   Qry.get().Execute();
 }
 
 void TPaidRFISCList::toDB(int grp_id) const
 {
-  clearDB(grp_id);
+  clearDB(GrpId_t(grp_id));
   TCachedQuery Qry("INSERT INTO paid_rfisc(pax_id, transfer_num, list_id, rfisc, service_type, airline, service_quantity, paid, need) "
                    "VALUES(:pax_id, :transfer_num, :list_id, :rfisc, :service_type, :airline, :service_quantity, :paid, :need)",
                    QParams() << QParam("pax_id", otInteger)
@@ -1828,9 +1828,9 @@ void TPaidRFISCList::updateExcess(int grp_id)
   Qry.get().Execute();
 }
 
-void TPaidRFISCList::copyDB(int grp_id_src, int grp_id_dest)
+void TPaidRFISCList::copyDB(const GrpId_t& grpIdSrc, const GrpId_t& grpIdDest)
 {
-  clearDB(grp_id_dest);
+  clearDB(grpIdDest);
   TCachedQuery Qry(
     "INSERT INTO paid_rfisc(pax_id, transfer_num, list_id, rfisc, service_type, airline, service_quantity, paid, need) "
     "SELECT dest.pax_id, "
@@ -1843,13 +1843,13 @@ void TPaidRFISCList::copyDB(int grp_id_src, int grp_id_dest)
     "       paid_rfisc.paid, "
     "       paid_rfisc.need " +
     TCkinRoute::copySubselectSQL("paid_rfisc", {}, true),
-    QParams() << QParam("grp_id_src", otInteger, grp_id_src)
-              << QParam("grp_id_dest", otInteger, grp_id_dest));
+    QParams() << QParam("grp_id_src", otInteger, grpIdSrc.get())
+              << QParam("grp_id_dest", otInteger, grpIdDest.get()));
   Qry.get().Execute();
 
-  updateExcess(grp_id_dest);
+  updateExcess(grpIdDest.get());
   try {
-      callbacks<RFISCCallbacks>()->afterRFISCChange(TRACE5, grp_id_dest);
+      callbacks<RFISCCallbacks>()->afterRFISCChange(TRACE5, grpIdDest.get());
   } catch(...) {
       CallbacksExceptionFilter(STDLOG);
   }

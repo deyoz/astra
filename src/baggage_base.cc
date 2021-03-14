@@ -351,12 +351,12 @@ void TSimplePaxBrandItem::fromSirenaXMLAdv(xmlNodePtr node)
   };
 }
 
-void CopyPaxNorms(int grp_id_src, int grp_id_dest)
+void CopyPaxNorms(const GrpId_t& grpIdSrc, const GrpId_t& grpIdDest)
 {
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText="DELETE FROM (SELECT * FROM pax, pax_norms_text WHERE pax.pax_id=pax_norms_text.pax_id AND pax.grp_id=:grp_id)";
-  Qry.CreateVariable("grp_id", otInteger, grp_id_dest);
+  Qry.CreateVariable("grp_id", otInteger, grpIdDest.get());
   Qry.Execute();
   Qry.Clear();
   Qry.SQLText=
@@ -371,17 +371,17 @@ void CopyPaxNorms(int grp_id_src, int grp_id_dest)
     "       pax_norms_text.rfiscs, "
     "       pax_norms_text.text " +
     TCkinRoute::copySubselectSQL("pax_norms_text", {}, true);
-  Qry.CreateVariable("grp_id_src", otInteger, grp_id_src);
-  Qry.CreateVariable("grp_id_dest", otInteger, grp_id_dest);
+  Qry.CreateVariable("grp_id_src", otInteger, grpIdSrc.get());
+  Qry.CreateVariable("grp_id_dest", otInteger, grpIdDest.get());
   Qry.Execute();
 }
 
-void CopyPaxBrands(int grp_id_src, int grp_id_dest)
+void CopyPaxBrands(const GrpId_t& grpIdSrc, const GrpId_t& grpIdDest)
 {
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText="DELETE FROM (SELECT * FROM pax, pax_brands WHERE pax.pax_id=pax_brands.pax_id AND pax.grp_id=:grp_id)";
-  Qry.CreateVariable("grp_id", otInteger, grp_id_dest);
+  Qry.CreateVariable("grp_id", otInteger, grpIdDest.get());
   Qry.Execute();
   Qry.Clear();
   Qry.SQLText=
@@ -392,17 +392,17 @@ void CopyPaxBrands(int grp_id_src, int grp_id_dest)
     "       pax_brands.page_no, "
     "       pax_brands.text " +
     TCkinRoute::copySubselectSQL("pax_brands", {}, true);
-  Qry.CreateVariable("grp_id_src", otInteger, grp_id_src);
-  Qry.CreateVariable("grp_id_dest", otInteger, grp_id_dest);
+  Qry.CreateVariable("grp_id_src", otInteger, grpIdSrc.get());
+  Qry.CreateVariable("grp_id_dest", otInteger, grpIdDest.get());
   Qry.Execute();
 }
 
-void PaxNormsToDB(int grp_id, const list<TPaxNormItem> &norms)
+void PaxNormsToDB(const GrpId_t& grpId, const list<TPaxNormItem> &norms)
 {
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText="DELETE FROM (SELECT * FROM pax, pax_norms_text WHERE pax.pax_id=pax_norms_text.pax_id AND pax.grp_id=:grp_id)";
-  Qry.CreateVariable("grp_id", otInteger, grp_id);
+  Qry.CreateVariable("grp_id", otInteger, grpId.get());
   Qry.Execute();
   Qry.Clear();
   Qry.SQLText=
@@ -430,12 +430,12 @@ void PaxNormsToDB(int grp_id, const list<TPaxNormItem> &norms)
   };
 };
 
-void PaxBrandsToDB(int grp_id, const list<TPaxBrandItem> &norms)
+void PaxBrandsToDB(const GrpId_t& grpId, const list<TPaxBrandItem> &norms)
 {
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText="DELETE FROM (SELECT * FROM pax, pax_brands WHERE pax.pax_id=pax_brands.pax_id AND pax.grp_id=:grp_id)";
-  Qry.CreateVariable("grp_id", otInteger, grp_id);
+  Qry.CreateVariable("grp_id", otInteger, grpId.get());
   Qry.Execute();
   Qry.Clear();
   Qry.SQLText=
@@ -458,25 +458,25 @@ void PaxBrandsToDB(int grp_id, const list<TPaxBrandItem> &norms)
   };
 };
 
-void PaxNormsToDB(const TCkinGrpIds &tckin_grp_ids, const list<TPaxNormItem> &norms)
+void PaxNormsToDB(const TCkinGrpIds &tckinGrpIds, const list<TPaxNormItem> &norms)
 {
-  for(TCkinGrpIds::const_iterator i=tckin_grp_ids.begin(); i!=tckin_grp_ids.end(); ++i)
+  for(TCkinGrpIds::const_iterator i=tckinGrpIds.begin(); i!=tckinGrpIds.end(); ++i)
   {
-    if (i==tckin_grp_ids.begin())
+    if (i==tckinGrpIds.begin())
       PaxNormsToDB(*i, norms);
     else
-      CopyPaxNorms(*tckin_grp_ids.begin(), *i);
+      CopyPaxNorms(*tckinGrpIds.begin(), *i);
   }
 }
 
-void PaxBrandsToDB(const TCkinGrpIds &tckin_grp_ids, const list<TPaxBrandItem> &norms)
+void PaxBrandsToDB(const TCkinGrpIds &tckinGrpIds, const list<TPaxBrandItem> &norms)
 {
-  for(TCkinGrpIds::const_iterator i=tckin_grp_ids.begin(); i!=tckin_grp_ids.end(); ++i)
+  for(TCkinGrpIds::const_iterator i=tckinGrpIds.begin(); i!=tckinGrpIds.end(); ++i)
   {
-    if (i==tckin_grp_ids.begin())
+    if (i==tckinGrpIds.begin())
       PaxBrandsToDB(*i, norms);
     else
-      CopyPaxBrands(*tckin_grp_ids.begin(), *i);
+      CopyPaxBrands(*tckinGrpIds.begin(), *i);
   }
 }
 

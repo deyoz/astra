@@ -79,6 +79,34 @@ $(lastRedisplay)
 
 #########################################################################################
 
+$(defmacro KICK_IN_AFTER_HTTP
+{
+$(pg_sql {delete from edi_help where session_id=0})
+
+>> lines=auto
+    <kick req_ctxt_id...
+
+!! capture=on
+$(lastRedisplay)
+
+}) #end-of-macro KICK_IN
+
+#########################################################################################
+
+$(defmacro KICK_IN_SILENT_AFTER_HTTP
+{
+$(pg_sql {delete from edi_help where session_id=0})
+
+>> lines=auto
+    <kick req_ctxt_id...
+
+!!
+$(lastRedisplay)
+
+}) #end-of-macro KICK_IN_SILENT
+
+#########################################################################################
+
 $(defmacro PREPARE_SEASON_SCD
   airl
   depp
@@ -3814,60 +3842,6 @@ $(defmacro RUN_SERVICES_STAT
 }) #end_of_macro
 
 ####################################################################################
-$(defmacro LOAD_PAX_BY_GRP_ID
-    point_dep
-    grp_id
-{{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-    <TCkinLoadPax>
-      <point_id>$(point_dep)</point_id>
-      <grp_id>$(grp_id)</grp_id>
-    </TCkinLoadPax>
-  </query>
-</term>}
-
-}) #end-of-macro
-
-#########################################################################################
-
-$(defmacro LOAD_PAX_BY_REG_NO
-    point_dep
-    reg_no
-{
-!! err=ignore
-{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-    <TCkinLoadPax>
-      <point_id>$(point_dep)</point_id>
-      <reg_no>$(reg_no)</reg_no>
-    </TCkinLoadPax>
-  </query>
-</term>}
-
-}) #end-of-macro
-
-#########################################################################################
-
-$(defmacro LOAD_PAX_BY_PAX_ID
-    point_dep
-    pax_id
-{
-!! err=ignore
-{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-    <TCkinLoadPax>
-      <point_id>$(point_dep)</point_id>
-      <pax_id>$(pax_id)</pax_id>
-    </TCkinLoadPax>
-  </query>
-</term>}
-
-}) #end-of-macro
-
-#########################################################################################
 ### изменение настроек рейса в trip_sets (галочки в главном экране "Подготовки")
 
 $(defmacro CHANGE_TRIP_SETS
@@ -3970,9 +3944,10 @@ $(defmacro get_point_dep_for_flight
 #########################################################################################
 ### разнообразные сообщения в терминал
 
-$(defmacro USER_ERROR_RESPONSE
+$(defmacro ERROR_RESPONSE
   lexema_id
   code=0
+  message=...
 {
 
 >>
@@ -3980,27 +3955,46 @@ $(defmacro USER_ERROR_RESPONSE
 <term>
   <answer...
     <command>
-      <user_error lexema_id='$(lexema_id)' code='$(code)'>...</user_error>
+      <error lexema_id='$(lexema_id)' code='$(code)'>$(message)</error>
     </command>
   </answer>
 </term>
 
+})
+
+$(defmacro USER_ERROR_RESPONSE
+  lexema_id
+  code=0
+  message=...
+{
+
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer...
+    <command>
+      <user_error lexema_id='$(lexema_id)' code='$(code)'>$(message)</user_error>
+    </command>
+  </answer>
+</term>
 
 })
 
 $(defmacro USER_ERROR_MESSAGE_TAG
   lexema_id
   code=0
+  message=...
 {    <command>
-      <user_error_message lexema_id='$(lexema_id)' code='$(code)'>...</user_error_message>
+      <user_error_message lexema_id='$(lexema_id)' code='$(code)'>$(message)</user_error_message>
     </command>}
 )
 
 $(defmacro MESSAGE_TAG
   lexema_id
   code=0
+  message=...
 {    <command>
-      <message lexema_id='$(lexema_id)' code='$(code)'>...</message>
+      <message lexema_id='$(lexema_id)' code='$(code)'>$(message)</message>
     </command>}
 )
 
