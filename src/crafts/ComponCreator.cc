@@ -1998,7 +1998,7 @@ void ComponSetter::createBaseLibraCompon( ComponLibraFinder::AstraSearchResult& 
         auto im = props.find( item.id );
         if ( find( im->second.begin(), im->second.end(), AISLE_LEFT_CODE_SEAT ) != im->second.end() ) {
           aisle.AddLeft( );
-          seat.x++;
+          //seat.x++;
         }
         if ( find( im->second.begin(), im->second.end(), AISLE_RIGHT_CODE_SEAT ) != im->second.end() ) {
            aisle.AddRight( );
