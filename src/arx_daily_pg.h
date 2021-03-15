@@ -87,10 +87,9 @@ class TArxMove
 class TArxMoveFlt : public TArxMove
 {
   private:
-    int step, move_ids_count;
+    int step;
     std::map<MoveId_t, Dates::time_period> move_ids;
   protected:
-    Dates::DateTime_t GetPartKey(const Dates::time_period& date_period);
     void LockAndCollectStat(const MoveId_t& move_id);
     void readMoveIds(size_t max_rows);
   public:

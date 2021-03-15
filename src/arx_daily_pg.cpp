@@ -712,7 +712,6 @@ TArxMove::~TArxMove()
 TArxMoveFlt::TArxMoveFlt(const Dates::DateTime_t& utc_date):TArxMove(utc_date)
 {
     step=0;
-    move_ids_count=0;
 };
 
 TArxMoveFlt::~TArxMoveFlt()
@@ -760,42 +759,25 @@ Dates::time_period tripDatePeriod(const std::vector<dbo::Points> & points)
     return Dates::time_period(first_date, last_date);
 }
 
-void checkDateRange(double date_range)
+bool validDatePeriod(const Dates::time_period& date_period, Dates::DateTime_t utcdate)
 {
-    LogTrace(TRACE5) << " date_range = " << date_range;
-    if(date_range < 0) {
-        throw Exception("date_range < 0 ", date_range);
+    if(date_period.is_null()) {
+        LogTrace5 << __func__ << "WRONG date_period: " << date_period;
+        return false;
     }
-    if (date_range > ARX::ARX_MAX_DATE_RANGE()) {
-        //throw Exception("date_range_int=%d", date_range_int);
-        return;
-    }
+    Dates::DateTime_t first_date = date_period.begin();
+    Dates::DateTime_t last_date = date_period.end();
+    if (first_date == Dates::not_a_date_time && last_date == Dates::not_a_date_time) return false;
+    return first_date < (utcdate - Dates::days(ARX::ARX_DAYS()));
 }
 
 double getDateRange(const Dates::time_period& date_period)
 {
-    if(date_period.is_null()) {
-        LogTrace5 << __func__ << " date_period: " << date_period;
-        throw Exception("date_period invalid ");
-    }
     double date_range = BoostToDateTime(date_period.end()) - BoostToDateTime(date_period.begin());
-    checkDateRange(date_range);
+    if (date_range > ARX::ARX_MAX_DATE_RANGE()) {
+        return 0;
+    }
     return date_range;
-}
-
-Dates::DateTime_t TArxMoveFlt::GetPartKey(const Dates::time_period& date_period)
-{
-    Dates::DateTime_t first_date = date_period.begin();
-    Dates::DateTime_t last_date = date_period.end();
-
-    if (first_date != Dates::not_a_date_time && last_date != Dates::not_a_date_time)
-    {
-        if (first_date < utcdate - Dates::days(ARX::ARX_DAYS()))
-        {
-            return last_date;
-        };
-    };
-    return Dates::not_a_date_time;
 }
 
 void TArxMoveFlt::readMoveIds(size_t max_rows)
@@ -830,12 +812,12 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
     while (!move_ids.empty())
     {
         MoveId_t move_id = move_ids.begin()->first;
-        Dates::time_period date_range = move_ids.begin()->second;
+        Dates::time_period date_period = move_ids.begin()->second;
         LogTrace5 << __func__ << " move_id: " << move_id;
         move_ids.erase(move_ids.begin());
-        move_ids_count--;
-        Dates::DateTime_t part_key = GetPartKey(date_range);
-        //LogTrace5 << " part_key: " << part_key;
+        bool isValidPeriod = validDatePeriod(date_period, utcdate);
+        Dates::DateTime_t part_key = isValidPeriod ? date_period.end() : Dates::not_a_date_time;
+        LogTrace5 << " part_key: " << part_key;
         try
         {
             LockAndCollectStat(move_id);
@@ -845,7 +827,7 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
                 continue;
             }
             if(dbo::isNotNull(part_key)) {
-                arx_move_ext(move_id, part_key, getDateRange(date_range));
+                arx_move_ext(move_id, part_key, getDateRange(date_period));
                 arx_points(points, part_key);
                 arx_move_ref(move_id, part_key);
                 arx_events_by_move_id(move_id, part_key);
@@ -980,11 +962,11 @@ std::vector<dbo::Points> arx_points(const std::vector<dbo::Points> & points, con
 
 void arx_move_ext(const MoveId_t & vmove_id, const Dates::DateTime_t & part_key, double date_range)
 {
-    int date_range_int = (date_range >= 1) ? (int)ceil(date_range) : 0;
-    LogTrace(TRACE5) << __FUNCTION__ << " move_id: " << vmove_id << " date_range_int: " << date_range_int;
-    if(date_range_int > 0) {
+    int days = (date_range >= 1) ? (int)ceil(date_range) : 0;
+    LogTrace(TRACE5) << __FUNCTION__ << " move_id: " << vmove_id << " days: " << days;
+    if(days >= 1) {
         dbo::Session session;
-        dbo::Move_Arx_Ext ext{date_range_int, vmove_id.get(), part_key};
+        dbo::Move_Arx_Ext ext{days, vmove_id.get(), part_key};
         session.insert(ext);
     }
 }
