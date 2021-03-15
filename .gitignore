@@ -72,6 +72,7 @@ sirena_run_time.txt
 config.guess
 config.sub
 oldlog*
+xp-tests.bak
 autom4te.cache
 Makefile
 locallibs/eticklib/config.status
