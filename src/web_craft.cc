@@ -89,10 +89,6 @@ namespace WebCraft {
     bool pr_first = true;
     for( std::vector<TPlaceLayer>::iterator ilayer=seat->layers.begin(); ilayer!=seat->layers.end(); ilayer++ ) { // сортировка по приоритетам
       LogTrace(TRACE5) << "TWebPlace::" <<__FUNCTION__ << ": " << EncodeCompLayerType(ilayer->layer_type) << "," << string(seat->yname+seat->xname).c_str();
-      if ( layer_type == cltUnknown ) { //задаем самый вверхний и приоритетный слой
-        layer_type = ilayer->layer_type;
-        layer_pax_id = ilayer->pax_id;
-      }
       if ( pr_first &&
            ilayer->layer_type != cltUncomfort &&
            ilayer->layer_type != cltSmoke &&
@@ -141,6 +137,11 @@ namespace WebCraft {
     pax_id = NoExists;
     SeatTariff = seat->SeatTariff;
     rfisc = seat->getRFISC( filterWebSeat.point_id );
+    if ( !seat->layers.empty() ) {
+      layer_type = seat->layers.begin()->layer_type;
+      layer_pax_id = seat->layers.begin()->pax_id;
+    }
+    LogTrace(TRACE5) << seat->clname << " filterWebSeat.cabin_classes.empty()=" <<filterWebSeat.cabin_classes.empty();
     if ( seat->isplace &&
          !seat->clname.empty() &&
          filterWebSeat.cabin_classes.find( seat->clname ) != filterWebSeat.cabin_classes.end() ) {
@@ -223,7 +224,8 @@ namespace WebCraft {
     LogTrace(TRACE5) << "WebCraft:" <<__FUNCTION__ << " point_id=" << point_id << ",version=" << version;
     clear();
     WebCraftFilters filters( point_id, crs_pax_id, pnr );
-    if ( filters.filterWebSeat.cabin_classes.empty() ) {
+    if ( version == FIRST_VERSION &&
+         filters.filterWebSeat.cabin_classes.empty() ) {
       throw UserException( "MSG.CLASS.NOT_SET" );
     }
     if ( version == FIRST_VERSION &&
