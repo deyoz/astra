@@ -230,10 +230,7 @@ const long int DOCO_APPS_26_FIELDS=DOCO_TYPE_FIELD|
                                    DOCO_ISSUE_PLACE_FIELD;
 
 const long int DOCA_D_APPS_26_FIELDS=DOCA_TYPE_FIELD|
-                                     DOCA_ADDRESS_FIELD|
                                      DOCA_CITY_FIELD|
-                                     DOCA_REGION_FIELD|
-                                     DOCA_POSTAL_CODE_FIELD|
                                      DOCA_COUNTRY_FIELD;
 
 //==============================================================================
