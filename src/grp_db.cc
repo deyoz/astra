@@ -183,8 +183,8 @@ bool deleteTransfers(GrpId_t grp_id)
   const std::vector<TransferData> transfers = loadTransfers(grp_id);
   for (const TransferData& transfer: transfers) {
     result += deleteTransfer(grp_id, transfer.num) ? 1 : 0;
-    result += deleteTransferTrips(PointId_t(transfer.point_id)) ? 1 : 0;
   }
+  result += deleteTCkinSegments(grp_id) ? 1 : 0;
   return result > 0;
 }
 
@@ -404,7 +404,6 @@ bool deleteGroupData(GrpId_t grp_id)
   result += deleteServicePayment(grp_id) ? 1 : 0;
   result += deleteTckinPaxGrp(grp_id) ? 1 : 0;
   result += deleteTransfers(grp_id) ? 1 : 0;
-  result += deleteTCkinSegments(grp_id) ? 1 : 0;
   result += deleteValueBag(grp_id) ? 1 : 0;
   result += deletePnrAddrsPC(grp_id) ? 1 : 0;
   result += deleteGrpServiceLists(grp_id) ? 1 : 0;
