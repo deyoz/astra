@@ -2697,6 +2697,70 @@ $(PAID_BAG_VIEW_AFTER_EN)
 
 $(CHECK_SERVICES_REPORT_AFTER)
 
+$(set pax_tid_1479_1 $(get_single_pax_tid $(get pax_id_1479_1)))
+$(set pax_tid_1480_1 $(get_single_pax_tid $(get pax_id_1480_1)))
+$(set pax_tid_1479_2 $(get_single_pax_tid $(get pax_id_1479_2)))
+$(set pax_tid_1480_2 $(get_single_pax_tid $(get pax_id_1480_2)))
+
+$(CHANGE_TCHECKIN_REQUEST capture=on lang=EN hall=1
+{$(CHANGE_CHECKIN_SEGMENT $(get point_dep1) $(get point_arv1) ëéó Ççä
+                          $(get grp_id_1479_1) $(get_single_grp_tid $(get pax_id_1479_1))
+{<passengers>
+  <pax>
+$(CHANGE_CHECKIN_2982410821479 $(get pax_id_1479_1) $(get pax_tid_1479_1) 1 bag_pool_num="" refuse=Ä)
+  </pax>
+  <pax>
+$(CHANGE_CHECKIN_2982410821480 $(get pax_id_1480_1) $(get pax_tid_1480_1) 1 bag_pool_num="" refuse=Ä)
+  </pax>
+</passengers>})
+$(CHANGE_CHECKIN_SEGMENT $(get point_dep2) $(get point_arv2) Ççä êôç
+                         $(get grp_id_1479_2) $(get_single_grp_tid $(get pax_id_1479_2))
+{<passengers>
+  <pax>
+$(CHANGE_CHECKIN_2982410821479 $(get pax_id_1479_2) $(get pax_tid_1479_2) 2 bag_pool_num="" refuse=Ä)
+  </pax>
+  <pax>
+$(CHANGE_CHECKIN_2982410821480 $(get pax_id_1480_2) $(get pax_tid_1480_2) 2 bag_pool_num="" refuse=Ä)
+  </pax>
+</passengers>})}
+)
+
+$(ERROR_RESPONSE MSG.ETS_CONNECT_ERROR)
+
+$(set edi_ref3 $(last_edifact_ref 3))
+$(set edi_ref2 $(last_edifact_ref 2))
+$(set edi_ref1 $(last_edifact_ref 1))
+$(set edi_ref0 $(last_edifact_ref 0))
+
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref3) ûí 2982410821479 2 I xxxxxx Ççä êôç 461 depd=$(ddmmyy +1))
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref2) ûí 2982410821480 2 I xxxxxx Ççä êôç 461 depd=$(ddmmyy +1))
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) ûí 2982410821479 1 I xxxxxx ëéó Ççä 580 depd=$(ddmmyy +1))
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ûí 2982410821480 1 I xxxxxx ëéó Ççä 580 depd=$(ddmmyy +1))
+
+<<
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref3) 2982410821479 2 I)
+<<
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref2) 2982410821480 2 I)
+<<
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref1) 2982410821479 1 I)
+<<
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref0) 2982410821480 1 I)
+
+$(KICK_IN)
+
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer ...>
+    <segments/>
+  </answer>
+</term>
+
+
 %%
 
 ### test 5 - †¢‚ÆØ‡®¢Ôß™† ® †¢‚Æ‡•£®·‚‡†Ê®Ô EMD Ø‡® ØÆ·†§™•
