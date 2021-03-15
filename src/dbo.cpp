@@ -172,6 +172,21 @@ std::string MappingInfo::stringColumns(const vector<std::string>& fields) const
     return  result;
 }
 
+Transaction Session::transactPolicy(DbCpp::Session &session)
+{
+    if(!session.isOracle() && !_ignoreErrors.empty()) {
+        return Transaction(session, Transaction::Policy::Managed);
+    }
+    return Transaction(session, Transaction::Policy::AutoCommit);
+}
+
+std::vector<DbCpp::ResultCode> Session::moveErrors()
+{
+    auto ret = std::move(_ignoreErrors);
+    _ignoreErrors.clear();
+    return ret;
+}
+
 std::string Session::dump(const string &db, const std::string &tableName, const vector<std::string> &tokens,
                           const std::string &query)
 {

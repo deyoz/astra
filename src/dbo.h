@@ -56,7 +56,7 @@ DbCpp::Session* getSession(CurrentDb db, const std::shared_ptr<MappingInfo>& map
 std::string buildQuery(const std::shared_ptr<MappingInfo> &mapInfo, const QueryOps & ops,
                        bool isOracle);
 
-typedef std::variant<bool, int, long long, float, double, std::string,
+typedef std::variant<bool, int, short, long, long long, float, double, std::string,
                      Dates::DateTime_t, Dates::Date_t> bindedTypes;
 
 static std::string str_tolower(std::string s) {
@@ -70,43 +70,45 @@ enum Flag {
 
 template<typename T>
 constexpr bool isSimpleType =
-    std::is_same<T, bool>::value ||
-    std::is_same<T, Dates::DateTime_t>::value ||
-    std::is_same<T, Dates::Date_t>::value ||
-    std::is_same<T, std::string>::value ||
-    std::is_same<T, int>::value ||
-    std::is_same<T, short>::value ||
-    std::is_same<T, double>::value ||
-    std::is_same<T, float>::value;
+    std::is_same_v<T, bool> ||
+    std::is_same_v<T, Dates::DateTime_t> ||
+    std::is_same_v<T, Dates::Date_t> ||
+    std::is_same_v<T, std::string> ||
+    std::is_same_v<T, int> ||
+    std::is_same_v<T, long> ||
+    std::is_same_v<T, long long> ||
+    std::is_same_v<T, short> ||
+    std::is_same_v<T, double> ||
+    std::is_same_v<T, float>;
 
-template<typename V>
-constexpr V nullValue(const V& val)
+template<typename T>
+constexpr T nullValue(const T& val)
 {
-    //    if constexpr (std::is_same<V, bool>::value) {
+    //    if constexpr (std::is_same_v<V, bool>) {
     //        return false;
     //    }
-    if constexpr (std::is_same<V, Dates::DateTime_t>::value) {
+    if constexpr (std::is_same_v<T, Dates::DateTime_t>) {
         return Dates::not_a_date_time;
     }
-    else if constexpr (std::is_same<V, Dates::Date_t>::value) {
+    else if constexpr (std::is_same_v<T, Dates::Date_t>) {
         return Dates::date{};
     }
-    else if constexpr (std::is_same<V, std::string>::value) {
+    else if constexpr (std::is_same_v<T, std::string>) {
         return std::string("");
     }
-    else if constexpr (std::is_same<V, int>::value) {
+    else if constexpr (std::is_same_v<T, int> || std::is_same_v<T, long> || std::is_same_v<T, long long>) {
         return ASTRA::NoExists;
     }
-    else if constexpr (std::is_same<V, double>::value) {
+    else if constexpr (std::is_same_v<T, double>) {
         return ASTRA::NoExists;
     }
-    else if constexpr (std::is_same<V, float>::value) {
+    else if constexpr (std::is_same_v<T, float>) {
         return ASTRA::NoExists;
     }
-    else if constexpr (std::is_same<V, short>::value) {
+    else if constexpr (std::is_same_v<T, short>) {
         return -1;
     }
-    else if constexpr (std::is_same<V, BASIC::date_time::TDateTime>::value) {
+    else if constexpr (std::is_same_v<T, BASIC::date_time::TDateTime>) {
         return ASTRA::NoExists;
     }
     else return val;
@@ -542,14 +544,6 @@ public:
         cur.bindAll(obj).exec();
     }
 
-    Transaction transactPolicy(DbCpp::Session& session)
-    {
-        if(!session.isOracle() && !_ignoreErrors.empty()) {
-            return Transaction(session, Transaction::Policy::Managed);
-        }
-        return Transaction(session, Transaction::Policy::AutoCommit);
-    }
-
     std::string dump(const std::string& db, const std::string& tableName,
                      const std::vector<std::string>& tokens, const std::string& query);
 
@@ -565,17 +559,12 @@ public:
         return *this;
     }
 
-    std::vector<DbCpp::ResultCode> moveErrors()
-    {
-        auto ret = std::move(_ignoreErrors);
-        _ignoreErrors.clear();
-        return ret;
-    }
     dbo::CurrentDb currentDb() const
     {
         return _currentDb;
     }
-
+    Transaction transactPolicy(DbCpp::Session& session);
+    std::vector<DbCpp::ResultCode> moveErrors();
 private:
     dbo::CurrentDb _currentDb;
     std::vector<DbCpp::ResultCode> _ignoreErrors;
@@ -672,14 +661,24 @@ private:
         return buildQuery(mapInfo, m_ops, isOracle);
     }
 
-    std::vector<Result> resultList()
+    Cursor getCursor(std::shared_ptr<MappingInfo> map_info)
     {
-        const auto& map_info = Mapper::getInstance().getMapping<Result>();
         DbCpp::Session* session = getSession(m_sess->currentDb(), map_info, m_ops.for_update, m_ops.from);
         ASSERT(session);
         std::string query = createQuery(map_info, session->isOracle());
         LogTrace5 << " query: " << query;
-        Cursor cur(session->createCursor(STDLOG, query), Transaction(m_sess->transactPolicy(*session)));
+        return Cursor(session->createCursor(STDLOG, query), Transaction(m_sess->transactPolicy(*session)));
+    }
+
+    std::vector<Result> resultList()
+    {
+        const auto& map_info = Mapper::getInstance().getMapping<Result>();
+        Cursor cur = getCursor(map_info);
+//        DbCpp::Session* session = getSession(m_sess->currentDb(), map_info, m_ops.for_update, m_ops.from);
+//        ASSERT(session);
+//        std::string query = createQuery(map_info, session->isOracle());
+//        LogTrace5 << " query: " << query;
+//        Cursor cur(session->createCursor(STDLOG, query), Transaction(m_sess->transactPolicy(*session)));
         cur.ignoreErrors(m_sess->moveErrors());
         Result r;
         cur.bind(bindVars);

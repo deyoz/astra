@@ -332,7 +332,7 @@ struct Mark_Trips
 {
     std::string airline ;//varchar2(3) not null,
     std::string airp_dep ;//varchar2(3) not null,
-    int flt_no ;//number not null,
+    long long flt_no ;//number not null,
     int point_id ;//number(9) not null,
     Dates::DateTime_t scd ;//date not null,
     std::string suffix ;//varchar2(1)
@@ -421,7 +421,7 @@ struct RFISC_STAT
     int point_num;
     int pr_trfer;
     std::string rfisc;
-    int tag_no;
+    long long tag_no;
     Dates::DateTime_t time_create;
     Dates::DateTime_t travel_time;
     std::string trfer_airline;
@@ -1469,7 +1469,7 @@ struct BAG_RECEIPTS
     int kit_num = ASTRA::NoExists;
     double nds= ASTRA::NoExists;
     std::string nds_cur;
-    int no;
+    long long no;
     std::string pax_doc;
     std::string pax_name;
     std::string pay_rate_cur;
@@ -1666,7 +1666,7 @@ struct ARX_ANNUL_BAG : public ANNUL_BAG
 struct ANNUL_TAGS
 {
     int id;
-    int no;
+    long long no;
 
     template<typename Action>
     void persist(Action & a) {
@@ -1841,7 +1841,7 @@ struct BAG_TAGS
     int bag_num = ASTRA::NoExists;
     std::string color;
     int grp_id;
-    int no;
+    long long no;
     int num;
     int pr_print;
     std::string tag_type;
