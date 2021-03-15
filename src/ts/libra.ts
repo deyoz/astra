@@ -281,9 +281,9 @@ $(http_forecast content=$(utf8
         <root>
             <row num=\"1\">
                 <comp_id type=\"int\">461</comp_id>
-                <F type=\"int\">0</F>
-                <C type=\"int\">30</C>
-                <Y type=\"int\">270</Y>
+                <f type=\"int\">0</f>
+                <c type=\"int\">30</c>
+                <y type=\"int\">270</y>
                 <invalid_class type=\"int\">0</invalid_class>
             </row>
         </root>
@@ -297,9 +297,9 @@ $(http_forecast content=$(utf8
         <root>
             <row num=\"1\">
                 <comp_id type=\"int\">461</comp_id>
-                <F type=\"int\">0</F>
-                <C type=\"int\">30</C>
-                <Y type=\"int\">270</Y>
+                <f type=\"int\">0</f>
+                <c type=\"int\">30</c>
+                <y type=\"int\">270</y>
                 <invalid_class type=\"int\">0</invalid_class>
             </row>
         </root>
@@ -335,9 +335,9 @@ $(http_forecast content=$(utf8
         <root>
             <row num=\"1\">
                 <comp_id type=\"int\">461</comp_id>
-                <F type=\"int\">0</F>
-                <C type=\"int\">30</C>
-                <Y type=\"int\">270</Y>
+                <f type=\"int\">0</f>
+                <c type=\"int\">30</c>
+                <y type=\"int\">270</y>
                 <invalid_class type=\"int\">0</invalid_class>
             </row>
         </root>
@@ -374,7 +374,7 @@ $()
 ;;
 
 >>
-GET /libra/get_class_rows?conf_id=270 HTTP/1.1
+GET /libra/get_class_rows?conf_id=461 HTTP/1.1
 Host: $()
 Content-Type: application/xml; charset=utf-8
 Content-Length: 0
@@ -398,7 +398,7 @@ $()
 ;;
 
 >>
-GET /libra/get_config?airline=%9E%92&bort=44444&conf_id=270&plan_id=561 HTTP/1.1
+GET /libra/get_config?airline=%9E%92&bort=44444&conf_id=461&plan_id=561 HTTP/1.1
 Host: $()
 Content-Type: application/xml; charset=utf-8
 Content-Length: 0

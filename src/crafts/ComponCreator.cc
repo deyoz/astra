@@ -854,9 +854,9 @@ int ComponLibraFinder::getConfig( int planId,
 
     const auto filtered = algo::filter(rows, [f, c, y](const auto &row) {
       const int invalid_class = row.at("invalid_class").fieldAsInteger();
-      const int F = row.at("F").fieldAsInteger();
-      const int C = row.at("C").fieldAsInteger();
-      const int Y = row.at("Y").fieldAsInteger();
+      const int F = row.at("f").fieldAsInteger();
+      const int C = row.at("c").fieldAsInteger();
+      const int Y = row.at("y").fieldAsInteger();
       return invalid_class == 0 &&
                (F - f) >= 0 &&
                (C - c) >= 0 &&
@@ -870,10 +870,10 @@ int ComponLibraFinder::getConfig( int planId,
     for (const LIBRA::RowData &row : sorted_rows)
     {
         idx = 0; // когда совпадает борт+авиакомпания OR аэропорт
-        const int F = row.at("F").fieldAsInteger();
-        const int C = row.at("C").fieldAsInteger();
-        const int Y = row.at("Y").fieldAsInteger();
-        const int COMP_ID = row.at("Y").fieldAsInteger();
+        const int F = row.at("f").fieldAsInteger();
+        const int C = row.at("c").fieldAsInteger();
+        const int Y = row.at("y").fieldAsInteger();
+        const int COMP_ID = row.at("comp_id").fieldAsInteger();
 
         // совпадение по кол-ву мест для каждого класса
         if (SIGN(F) == SIGN(f) &&
@@ -1581,9 +1581,9 @@ std::string getLibraCfg( int plan_id, int conf_id,
       throw EXCEPTIONS::Exception( "getLibraCfg: conf not found or found more then one, conf_id=%d", conf_id );
     }
 
-    const int F = rows[0].at("F").fieldAsInteger();
-    const int C = rows[0].at("C").fieldAsInteger();
-    const int Y = rows[0].at("Y").fieldAsInteger();
+    const int F = rows[0].at("f").fieldAsInteger();
+    const int C = rows[0].at("c").fieldAsInteger();
+    const int Y = rows[0].at("y").fieldAsInteger();
 
     if ( rows[0].at("invalid_class").fieldAsInteger() != 0 ) {
       throw EXCEPTIONS::Exception( "getLibraCfg: conf has invalid clases, conf_id=%d", conf_id );
