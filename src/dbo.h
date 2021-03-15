@@ -171,8 +171,11 @@ public:
     {
         //LogTrace5 << __func__ << " name :" << name_ << " value: " << value;
         if(isNullable()) {
+            LogTrace5 << isNotNull(value) ? " NOT NULL" : "NULL";
+            LogTrace5 << __func__ << name_ << " value: " << (isNotNull(value) ? value : nullValue(value_));
             cur.bind(":"+name_, value, isNotNull(value) ? &nnull : &null);
         } else {
+            LogTrace5 << __func__ << " name :" << name_ << " value: " << value;
             cur.bind(":"+name_, value);
         }
     }
@@ -674,11 +677,6 @@ private:
     {
         const auto& map_info = Mapper::getInstance().getMapping<Result>();
         Cursor cur = getCursor(map_info);
-//        DbCpp::Session* session = getSession(m_sess->currentDb(), map_info, m_ops.for_update, m_ops.from);
-//        ASSERT(session);
-//        std::string query = createQuery(map_info, session->isOracle());
-//        LogTrace5 << " query: " << query;
-//        Cursor cur(session->createCursor(STDLOG, query), Transaction(m_sess->transactPolicy(*session)));
         cur.ignoreErrors(m_sess->moveErrors());
         Result r;
         cur.bind(bindVars);

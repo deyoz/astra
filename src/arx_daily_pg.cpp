@@ -765,6 +765,7 @@ bool validDatePeriod(const Dates::time_period& date_period, Dates::DateTime_t ut
         LogTrace5 << __func__ << "WRONG date_period: " << date_period;
         return false;
     }
+    LogTrace5 << __func__ << date_period;
     Dates::DateTime_t first_date = date_period.begin();
     Dates::DateTime_t last_date = date_period.end();
     if (first_date == Dates::not_a_date_time && last_date == Dates::not_a_date_time) return false;

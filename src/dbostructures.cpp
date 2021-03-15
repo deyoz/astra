@@ -424,6 +424,23 @@ START_TEST(test_unique_constraint)
 }
 END_TEST;
 
+START_TEST(test_arx_bag_receipts)
+{
+    const auto date = Dates::second_clock::universal_time() + Dates::days(15);
+    dbo::Session session;
+
+    dbo::ARX_BAG_RECEIPTS br;
+    br.bag_type = 1; br.ex_amount = 1; br.ex_weight=20; br.is_inter=0; br.service_type=2;
+    br.aircode ="1"; br.annul_date = date; br.annul_desk = "2"; br.bag_name = "3"; br.desk_lang = "4";
+    br.airline="1";  br.form_type="5"; br.issue_date = date; br.issue_desk = "6"; br.issue_place = "7";
+    br.airp_arv="1"; br.issue_user_id = 10; br.no=100000000000001; br.pax_doc = "7"; br.pax_name = "8";
+    br.pay_rate_cur = "9"; br.point_id = 12345; br.prev_no = "10"; br.rate = 123.554; br.rate_cur = "11";
+    br.airp_dep="1";  br.receipt_id = 123;  br.remarks = "KU";  br.scd_local_date = date;
+    br.status = "1"; br.suffix = "1"; br.tickets = "14"; br.part_key = date;
+    session.insert(br);
+}
+END_TEST;
+
 
 
 #define SUITENAME "dbo_tests"
@@ -434,6 +451,7 @@ TCASEREGISTER( nullptr, nullptr)
     ADD_TEST( test_bag_pay_types );
     ADD_TEST( test_bag_value );
     ADD_TEST( test_unique_constraint);
+    ADD_TEST( test_arx_bag_receipts);
 }
 TCASEFINISH;
 #undef SUITENAME
