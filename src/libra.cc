@@ -535,7 +535,7 @@ std::string callAstra(xmlNodePtr reqRootNode)
     bool result = AstraCalls::callByLibra(reqRootNode, resRootNode);
 
     xmlSetProp(resRootNode, "name", "astra_call");
-    xmlSetProp(resRootNode, "func", getStrFromXml(reqNode, "func"));
+    xmlSetProp(resRootNode, "func", getStrFromXml(reqRootNode, "func"));
     xmlSetProp(resRootNode, "result", result ? "ok" : "err");
 
     std::string xml_out = resultXmlDoc.text();
