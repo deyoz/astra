@@ -171,7 +171,7 @@ public:
     {
         //LogTrace5 << __func__ << " name :" << name_ << " value: " << value;
         if(isNullable()) {
-            LogTrace5 << isNotNull(value) ? " NOT NULL" : "NULL";
+            LogTrace5 << (isNotNull(value) ? " NOT NULL" : "NULL");
             LogTrace5 << __func__ << name_ << " value: " << (isNotNull(value) ? value : nullValue(value_));
             cur.bind(":"+name_, value, isNotNull(value) ? &nnull : &null);
         } else {
