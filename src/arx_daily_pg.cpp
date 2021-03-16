@@ -1526,30 +1526,32 @@ void arx_annul_bags_tags(const GrpId_t& grp_id, const Dates::DateTime_t & part_k
 {
     dbo::Session session;
     std::vector<dbo::ANNUL_BAG> annul_bags = session.query<dbo::ANNUL_BAG>()
-        .where("grp_id = :grp_id")
-        .for_update(true)
-        .setBind({{"grp_id", grp_id.get()}});
-    std::vector<dbo::ANNUL_TAGS> annul_tags = session.query<dbo::ANNUL_TAGS>()
-        .where("id = :grp_id")
-        .for_update(true)
-        .setBind({{"grp_id", grp_id.get()}});
+        .where("grp_id = :grp_id").for_update(true).setBind({{"grp_id", grp_id.get()}});
 
-    for(const auto &cs : annul_bags) {
-        dbo::ARX_ANNUL_BAG ascs(cs, part_key);
-        session.insert(ascs);
-    }
-    for(const auto &cs : annul_tags) {
-        dbo::ARX_ANNUL_TAGS ascs(cs, part_key);
+    for(const auto& ab : annul_bags) {
+        std::vector<dbo::ANNUL_TAGS> annul_tags = session.query<dbo::ANNUL_TAGS>()
+            .where("id = :id").for_update(true).setBind({{"id", ab.id}});
+        for(const auto &at : annul_tags) {
+            dbo::ARX_ANNUL_TAGS aat(at, part_key);
+            session.insert(aat);
+        }
+
+        dbo::ARX_ANNUL_BAG ascs(ab, part_key);
         session.insert(ascs);
     }
 }
 
 void delete_annul_bags_tags(const GrpId_t& grp_id)
 {
-    make_db_curs("delete from ANNUL_TAGS where id = :grp_id ", PgOra::getRWSession("ANNUL_TAGS"))
-            .bind(":grp_id", grp_id.get()).exec();
-    make_db_curs("delete from ANNUL_BAG where grp_id = :grp_id ", PgOra::getRWSession("ANNUL_BAG"))
-            .bind(":grp_id", grp_id.get()).exec();
+    std::vector<dbo::ANNUL_BAG> annul_bags = dbo::Session().query<dbo::ANNUL_BAG>()
+        .where("grp_id = :grp_id").for_update(true).setBind({{"grp_id", grp_id.get()}});
+
+    for(const auto &ab : annul_bags) {
+        make_db_curs("delete from ANNUL_TAGS where id = :grp_id ", PgOra::getRWSession("ANNUL_TAGS"))
+                .bind(":id", ab.id).exec();
+        make_db_curs("delete from ANNUL_BAG where grp_id = :grp_id ", PgOra::getRWSession("ANNUL_BAG"))
+                .bind(":id", ab.id).exec();
+    }
 }
 
 void arx_unaccomp_bag_info(const GrpId_t& grp_id, const Dates::DateTime_t & part_key)
