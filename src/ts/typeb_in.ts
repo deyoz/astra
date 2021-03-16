@@ -1,6 +1,7 @@
 include(ts/macro.ts)
 include(ts/adm_macro.ts)
 include(ts/spp/write_dests_macro.ts)
+include(ts/pnl/btm_ptm.ts)
 
 # meta: suite typeb
 
@@ -555,4 +556,77 @@ UNZ+1+1569312526531'
 
 $(clean_old_records)
 
+%%
+
+### test 6
+### входные BTM/PTM
+#########################################################################################
+
+$(init_term)
+
+$(set time_create1 $(dd)$(hhmi))       ### время создания первоначальных PTM/BTM
+$(set time_create2 $(dd)$(hhmi -1m))   ### более ранние PTM/BTM - оставляем данные первоначальных PTM/BTM
+$(set time_create3 $(dd)$(hhmi +1m))   ### более поздние PTM/BTM - удаляем данные первоначальных PTM/BTM, добавляем данные текущих
+
+$(PTM_UT_576_KRR $(get time_create1))
+$(BTM_UT_576_KRR $(get time_create1))
+
+$(PTM_UT_576_KRR $(get time_create2))
+$(BTM_UT_576_KRR $(get time_create2))
+
+$(PTM_UT_576_KRR $(get time_create3))
+$(BTM_UT_576_KRR $(get time_create3))
+
+$(set today $(date_format %d.%m.%Y +0))
+$(NEW_SPP_FLIGHT_REQUEST
+{ $(new_spp_point UT 576 100 44444 ""                   KRR "$(get today) 07:00")
+  $(new_spp_point_last             "$(get today) 15:00" VKO ) })
+
+$(set point_dep $(get_point_dep_for_flight UT 576 "" $(yymmdd) KRR))
+
+!! capture=on err=ignore
+<?xml version='1.0' encoding='UTF-8'?>
+<term>
+  <query handle='0' id='Telegram' ver='1' opr='PIKE' screen='TLG.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <GetTlgIn>
+      <point_id>$(get point_dep)</point_id>
+    </GetTlgIn>
+  </query>
+</term>
+
+>> mode=regex
+.*
+        <heading>.TJMDCUT $(get time_create1)
+PTM
+UT576/$(ddmon 0 en) KRRVKO PART1
+</heading>
+.*
+        <heading>.TJMDCUT $(get time_create1)
+BTM
+.V/1TVKO
+</heading>
+        <body>.I/UT576/$(ddmon 0 en)/KRR
+.*
+        <heading>.TJMDCUT $(get time_create2)
+PTM
+UT576/$(ddmon 0 en) KRRVKO PART1
+</heading>
+.*
+        <heading>.TJMDCUT $(get time_create2)
+BTM
+.V/1TVKO
+</heading>
+        <body>.I/UT576/$(ddmon 0 en)/KRR
+.*
+        <heading>.TJMDCUT $(get time_create3)
+PTM
+UT576/$(ddmon 0 en) KRRVKO PART1
+</heading>
+.*
+        <heading>.TJMDCUT $(get time_create3)
+BTM
+.V/1TVKO
+</heading>
+        <body>.I/UT576/$(ddmon 0 en)/KRR
+.*
 
