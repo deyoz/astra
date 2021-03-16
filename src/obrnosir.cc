@@ -37,7 +37,6 @@ int edi_load_messages_local(int argc, char** argv);
 int nosir_tscript(int argc, char** argv);
 int verifyHTTP(int argc,char **argv);
 int test_reprint(int argc,char **argv);
-int nosir_test_counters(int argc,char **argv);
 int get_events_stat(int argc,char **argv);
 int get_events_stat2(int argc,char **argv);
 int season_to_schedules(int argc,char **argv);
@@ -89,7 +88,6 @@ const
     {"-rfisc_stat",             nosir_rfisc_stat,       NULL,                       NULL},
     {"-rfisc_all",              nosir_rfisc_all,        NULL,                       NULL},
     {"-test_reprint",           test_reprint,    NULL,                       NULL},
-    {"-test_counters",          nosir_test_counters,    NULL,                       "test counters"},
     {"-self_ckin",              nosir_self_ckin,        NULL,                       NULL},
     {"-ffp",                    ffp,                    ffp_help,                   "getting FFP card status"},
     {"-parse_bcbp",             nosir_parse_bcbp,       NULL,                       NULL},

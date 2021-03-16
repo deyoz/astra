@@ -1226,7 +1226,6 @@ BEGIN
     DELETE FROM aodb_points WHERE point_id=curRow.point_id;
     DELETE FROM exch_flights WHERE point_id=curRow.point_id;
     DELETE FROM counters2 WHERE point_dep=curRow.point_id;
-    DELETE FROM crs_counters WHERE point_dep=curRow.point_id;
     DELETE FROM crs_displace2 WHERE point_id_spp=curRow.point_id;
     DELETE FROM snapshot_points WHERE point_id=curRow.point_id;
     UPDATE tag_ranges2 SET point_id=NULL WHERE point_id=curRow.point_id;
