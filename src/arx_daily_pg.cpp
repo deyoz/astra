@@ -1883,6 +1883,7 @@ void deleteByPaxes(const PaxId_t& pax_id)
         make_db_curs("delete from PAX_CALC_DATA WHERE pax_calc_data_id=:pax_id ",PgOra::getRWSession("PAX_CALC_DATA")).bind(":pax_id", pax_id.get()).exec();
         make_db_curs("delete from PAX_CONFIRMATIONS WHERE pax_id=:pax_id ",  PgOra::getRWSession("PAX_CONFIRMATIONS")).bind(":pax_id", pax_id.get()).exec();
         make_db_curs("update SERVICE_PAYMENT SET pax_id=NULL WHERE pax_id=:pax_id ",PgOra::getRWSession("SERVICE_PAYMENT")).bind(":pax_id", pax_id.get()).exec();
+        make_db_curs("delete from PAX_ALARMS where pax_id=:pax_id ",         PgOra::getRWSession("PAX_ALARMS")).bind(":pax_id", pax_id.get()).exec();
         make_db_curs("delete from PAX WHERE pax_id=:pax_id ",                PgOra::getRWSession("PAX")).bind(":pax_id", pax_id.get()).exec();
     }
 }
