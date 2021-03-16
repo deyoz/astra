@@ -786,7 +786,7 @@ bool LoadPaxRem(bool is_crs, int pax_id, multiset<TPaxRemItem> &rems, bool onlyP
 
   cur.stb()
       .def(rem_text)
-      .def(rem_code)
+      .defNull(rem_code, "")
       .bind(":pax_id", pax_id);
   if (!code.empty()) {
     cur.bind(":rem_code", code);
