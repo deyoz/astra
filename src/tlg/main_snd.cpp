@@ -76,10 +76,64 @@ static int PUT_TIMEOUT()          //кол-во посылаемых телеграмм за одно сканиров
   return VAR;
 };
 
+static int ROT_UPDATE_INTERVAL() //секунды
+{
+    static int VAR = getTCLParam("ROT_UPDATE_INTERVAL", 0, 600, 60);
+    return VAR;
+}
+
 static int sockfd=-1;
 
-static bool scan_tlg(bool sendOutAStepByStep);
+using AddrMap = std::map<pair<std::string, std::string>, sockaddr_in>;
+
+static bool scan_tlg(bool sendOutAStepByStep, const AddrMap& addrMap);
 //int h2h_out(H2H_MSG *h2h_msg);
+
+AddrMap getAddrMap()
+{
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT CANON_NAME, OWN_CANON_NAME, IP_ADDRESS, IP_PORT "
+       "FROM ROT",
+        PgOra::getROSession("ROT")
+    );
+
+    std::string receiver; // canon_name
+    std::string sender; // own_canon_name
+    std::string ip_address;
+    int ip_port;
+
+    cur.def(receiver)
+       .def(sender)
+       .def(ip_address)
+       .def(ip_port)
+       .exec();
+
+    AddrMap addrMap;
+
+    while (!cur.fen()) {
+        sockaddr_in& to_addr = addrMap[std::make_pair(receiver, sender)];
+        to_addr.sin_family = AF_INET;
+        to_addr.sin_port = htons(ip_port);
+
+        if (!inet_aton(ip_address.data(), &to_addr.sin_addr)) {
+            throw Exception("'inet_aton' error %d: %s",errno,strerror(errno));
+        }
+    }
+
+    return addrMap;
+}
+
+const sockaddr_in* getAddrByName(
+    const AddrMap& map,
+    const std::string& receiver,
+    const std::string& sender)
+{
+    const auto& it = map.find(std::make_pair(receiver, sender));
+    if (map.end() != it) {
+        return &it->second;
+    }
+    return nullptr;
+}
 
 int main_snd_tcl(int supervisorSocket, int argc, char *argv[])
 {
@@ -111,6 +165,8 @@ int main_snd_tcl(int supervisorSocket, int argc, char *argv[])
     char buf[10];
     bool receivedCmdTlgSndStepByStep=false;
     TDateTime lastSendOutAStepByStep=NoExists;
+    std::time_t lastRotUpdate = std::time(nullptr);
+    AddrMap addrMap = getAddrMap();
     for (;;)
     {
       InitLogTime(argc>0?argv[0]:NULL);
@@ -118,12 +174,17 @@ int main_snd_tcl(int supervisorSocket, int argc, char *argv[])
                               lastSendOutAStepByStep==NoExists ||
                               (lastSendOutAStepByStep<NowUTC()-((double)TLG_STEP_BY_STEP_TIMEOUT())/MSecsPerDay);
 
-      bool queue_not_empty=scan_tlg(sendOutAStepByStep);
+      bool queue_not_empty=scan_tlg(sendOutAStepByStep, addrMap);
       if (sendOutAStepByStep) lastSendOutAStepByStep=NowUTC();
 
       *buf=0;
       waitCmd("CMD_TLG_SND",queue_not_empty?PROC_INTERVAL():WAIT_INTERVAL(),buf,sizeof(buf));
       receivedCmdTlgSndStepByStep=(strchr(buf,'S')!=NULL); //true только тогда когда пришел ответ на предыдущую OutAStepByStep
+      // обновление кеша ROT
+      if (ROT_UPDATE_INTERVAL() <= std::difftime(std::time(nullptr), lastRotUpdate)) {
+        lastRotUpdate = std::time(nullptr);
+        addrMap = getAddrMap();
+      }
     }; // end of loop
   }
   catch(EOracleError &E)
@@ -152,53 +213,7 @@ int main_snd_tcl(int supervisorSocket, int argc, char *argv[])
   return 0;
 };
 
-std::map<pair<std::string, std::string>, sockaddr_in> getAddrMap()
-{
-    DbCpp::CursCtl cur = make_db_curs(
-       "SELECT CANON_NAME, OWN_CANON_NAME, IP_ADDRESS, IP_PORT "
-       "FROM ROT",
-        PgOra::getROSession("ROT")
-    );
-
-    std::string receiver; // canon_name
-    std::string sender; // own_canon_name
-    std::string ip_address;
-    int ip_port;
-
-    cur.def(receiver)
-       .def(sender)
-       .def(ip_address)
-       .def(ip_port)
-       .exec();
-
-    std::map<pair<std::string, std::string>, sockaddr_in> addrMap;
-
-    while (!cur.fen()) {
-        sockaddr_in& to_addr = addrMap[std::make_pair(receiver, sender)];
-        to_addr.sin_family = AF_INET;
-        to_addr.sin_port = htons(ip_port);
-
-        if (!inet_aton(ip_address.data(), &to_addr.sin_addr)) {
-            throw Exception("'inet_aton' error %d: %s",errno,strerror(errno));
-        }
-    }
-
-    return addrMap;
-}
-
-const sockaddr_in* getAddrByName(
-    const std::map<pair<std::string, std::string>, sockaddr_in>& map,
-    const std::string& receiver,
-    const std::string& sender)
-{
-    const auto& it = map.find(std::make_pair(receiver, sender));
-    if (map.end() != it) {
-        return &it->second;
-    }
-    return nullptr;
-}
-
-bool scan_tlg(bool sendOutAStepByStep)
+bool scan_tlg(bool sendOutAStepByStep, const AddrMap& addrMap)
 {
   time_t time_start=time(NULL);
 
@@ -206,13 +221,21 @@ bool scan_tlg(bool sendOutAStepByStep)
   if (TlgQry.SQLText.empty())
   {
     TlgQry.Clear();
-    TlgQry.SQLText=
-    // INDEX (tlg_queue tlg_queue__IDX2)
-      "SELECT tlg_queue.id,tlg_queue.tlg_num,tlg_queue.sender,tlg_queue.receiver,tlg_queue.priority, "
-      "       tlg_queue.time,tlg_queue.last_send,ttl "
-      "FROM tlg_queue "
-      "WHERE tlg_queue.type IN ('OUTA','OUTB','OAPP') AND tlg_queue.status='PUT' "
-      "ORDER BY tlg_queue.priority, tlg_queue.time_msec, tlg_queue.tlg_num";
+
+    TlgQry.SQLText = PgOra::supportsPg("TLG_QUEUE")
+
+     ? "SELECT   id, tlg_num, sender, receiver, priority, "
+                "time, last_send, ttl "
+       "FROM     tlg_queue "
+       "WHERE    type IN ('OUTA','OUTB','OAPP') AND status='PUT' "
+       "ORDER BY priority, time_msec, tlg_num"
+
+     : "SELECT /*+ INDEX (tlg_queue tlg_queue__idx2)*/ "
+                "id, tlg_num, sender, receiver, priority, "
+                "time, last_send, ttl "
+       "FROM     tlg_queue "
+       "WHERE    type IN ('OUTA','OUTB','OAPP') AND status='PUT' "
+       "ORDER BY priority, time_msec, tlg_num";
   };
 
   static DB::TQuery TlgUpdQry(PgOra::getRWSession("TLG_QUEUE"));
@@ -226,8 +249,6 @@ bool scan_tlg(bool sendOutAStepByStep)
     TlgUpdQry.DeclareVariable("last_send", otFloat);
     TlgUpdQry.DeclareVariable("id", otInteger);
   };
-
-  std::map<pair<std::string, std::string>, sockaddr_in> addrMap = getAddrMap();
 
   struct addrComparator {
     bool operator() (const sockaddr_in& lhs, const sockaddr_in& rhs) const {
@@ -355,7 +376,7 @@ bool scan_tlg(bool sendOutAStepByStep)
           };
         };
 
-        if (addrCount.end() == iCount) {
+        if (addrCount.end() != iCount) {
           iCount->second++;
         } else {
           addrCount.insert(iCount, std::make_pair(*addrPtr, 1));
