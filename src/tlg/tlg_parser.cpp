@@ -5814,7 +5814,7 @@ bool isDeleteTypeBContent(int point_id, const THeadingInfo& info)
       "FROM tlgs_in,tlg_source "
       "WHERE tlg_source.tlg_id=tlgs_in.id AND "
       "      tlg_source.point_id_tlg=:point_id AND "
-      "      NVL(tlg_source.has_errors,0)=0 AND "
+      "      COALESCE(tlg_source.has_errors,0)=0 AND "
       "      tlgs_in.type=:tlg_type";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.CreateVariable("tlg_type",otString,info.tlg_type);
@@ -5827,7 +5827,7 @@ bool isDeleteTypeBContent(int point_id, const THeadingInfo& info)
       "FROM tlgs_in,tlg_source "
       "WHERE tlg_source.tlg_id=tlgs_in.id AND "
       "      tlg_source.point_id_tlg=:point_id_in AND "
-      "      NVL(tlg_source.has_errors,0)=0 AND "
+      "      COALESCE(tlg_source.has_errors,0)=0 AND "
       "      tlgs_in.type=:tlg_type";
     Qry.CreateVariable("point_id_in",otInteger,point_id);
     Qry.CreateVariable("tlg_type",otString,info.tlg_type);
@@ -6416,8 +6416,8 @@ bool updateCrsData_Resa(const PointIdTlg_t& point_id,
                    << ", pad= " << totals.pad;
   auto cur = make_db_curs(
         "UPDATE crs_data "
-        "SET resa=NVL(resa+:resa,:resa), "
-        "pad=NVL(pad+:pad,:pad) "
+        "SET resa=COALESCE(resa+:resa,:resa), "
+        "pad=COALESCE(pad+:pad,:pad) "
         "WHERE point_id=:point_id "
         "AND system=:system "
         "AND sender=:sender "
@@ -6506,7 +6506,7 @@ bool updateCrsData(const TTlgElement element,
   const std::string field_name = makeCrsDataSqlField(element);
   auto cur = make_db_curs(
         "UPDATE crs_data "
-        "SET " + field_name +  "=NVL("+ field_name +"+:seats,:seats) "
+        "SET " + field_name +  "=COALESCE("+ field_name +"+:seats,:seats) "
         "WHERE point_id=:point_id "
         "AND system=:system "
         "AND sender=:sender "
