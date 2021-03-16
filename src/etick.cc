@@ -2675,7 +2675,6 @@ void TEMDChangeStatusList::addEMD(const TEMDChangeStatusKey &key,
   item.toXML(NewTextChild(emdocsNode, "emdoc"));
 }
 
-
 void EMDStatusInterface::EMDCheckStatus(const int grp_id,
                                         const CheckIn::TServicePaymentListWithAuto &prior_payment,
                                         TEMDChangeStatusList &emdList)
@@ -2690,6 +2689,10 @@ void EMDStatusInterface::EMDCheckStatus(const int grp_id,
 
   list<TEMDCtxtItem> added_emds, deleted_emds;
   GetEMDStatusList(grp_id, fltParams.in_final_status, prior_payment, added_emds, deleted_emds);
+  //сортируем, иначе в тестах произвольный порядок
+  added_emds.sort([](const auto& ctxt1, const auto& ctxt2) { return ctxt1.emd<ctxt2.emd; });
+  deleted_emds.sort([](const auto& ctxt1, const auto& ctxt2) { return ctxt1.emd<ctxt2.emd; });
+
   string flight=GetTripName(fltParams.fltInfo,ecNone,true,false);
 
   for(int pass=0; pass<2; pass++)
