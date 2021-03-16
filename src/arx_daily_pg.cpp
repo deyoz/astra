@@ -1547,9 +1547,9 @@ void delete_annul_bags_tags(const GrpId_t& grp_id)
         .where("grp_id = :grp_id").for_update(true).setBind({{"grp_id", grp_id.get()}});
 
     for(const auto &ab : annul_bags) {
-        make_db_curs("delete from ANNUL_TAGS where id = :grp_id ", PgOra::getRWSession("ANNUL_TAGS"))
+        make_db_curs("delete from ANNUL_TAGS where id = :id ", PgOra::getRWSession("ANNUL_TAGS"))
                 .bind(":id", ab.id).exec();
-        make_db_curs("delete from ANNUL_BAG where grp_id = :grp_id ", PgOra::getRWSession("ANNUL_BAG"))
+        make_db_curs("delete from ANNUL_BAG where id = :id ", PgOra::getRWSession("ANNUL_BAG"))
                 .bind(":id", ab.id).exec();
     }
 }
