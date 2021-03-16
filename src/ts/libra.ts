@@ -419,5 +419,4 @@ $(dump_table TRIP_COMP_ELEMS display="on" order="x,y,yname")
 [0] [Å] [ä] [NULL] [0] [...] [NULL] [13] [K] [NULL] [5] [006] [NULL] $()
 [0] [Å] [ä] [NULL] [0] [...] [NULL] [13] [K] [NULL] [6] [007] [NULL] $()
 ...
-------------------- END TRIP_COMP_ELEMS DUMP COUNT=244 -------------------
 ;;
