@@ -30,6 +30,7 @@ namespace PgOra
         { "SP_PG_GROUP_JXTCONT", {"CONT"} },
         { "SP_PG_GROUP_FILE", {"FILE_ERROR", "FILE_QUEUE", "FILES", "FILE_PARAMS"} },
         { "SP_PG_GROUP_FILE_CFG", {"FILE_ENCODING", "FILE_TYPES"} },
+        { "SP_PG_GROUP_PP_TRIP_TASK", {"POSTPONED_TRIP_TASK"} },
         { "SP_PG_GROUP_IAPI",  { "IAPI_PAX_DATA" } },
         { "SP_PG_GROUP_APPS",  { "APPS_MESSAGES", "APPS_PAX_DATA", "APPS_MANIFEST_DATA"}},
         { "SP_PG_GROUP_IATCI", { "IATCI_TABS_SEQ", "IATCI_TABS", "IATCI_SETTINGS", "GRP_IATCI_XML", "DEFERRED_CKI_DATA", "CKI_DATA" } },
@@ -237,7 +238,7 @@ namespace PgOra
 #include "stdio.h"
 #include <serverlib/cursctl.h>
 
-static int count_ora_tabs() 
+static int count_ora_tabs()
 {
     int cnt=0;
     auto cur = make_curs("select count(*) from user_tables");
@@ -256,8 +257,8 @@ int print_pg_tables(int argc, char **argv)
         }
     }
     const auto tab_ora_count = count_ora_tabs();
-    std::cout << "total tabs in pg: " << tab_cnt 
-              << ", total in ora: " << tab_ora_count 
+    std::cout << "total tabs in pg: " << tab_cnt
+              << ", total in ora: " << tab_ora_count
               << " " << ((1.0 * tab_cnt)/tab_ora_count)*100 << "% moved." << std::endl;
     return 0;
 }

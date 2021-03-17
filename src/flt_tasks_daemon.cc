@@ -89,8 +89,14 @@ void check_trip_tasks(const std::string& handler_id)
       Qry.CreateVariable("now_utc", otDate, nowUTC);
       Qry.CreateVariable("proc_name", otString, handler_id);
       Qry.Execute();
-      for(;!Qry.Eof;Qry.Next())
-        tasks.emplace_back(Qry.FieldAsInteger("id"), TTripTaskKey(Qry));
+      for(;!Qry.Eof;Qry.Next()) {
+        const int point_id = Qry.FieldIsNULL("point_id") ? ASTRA::NoExists : Qry.FieldAsInteger("point_id");
+        const std::string name = Qry.FieldAsString("name");
+        const std::string params = Qry.FieldAsString("params");
+
+        const auto task = TTripTaskKey(point_id, name, params);
+        tasks.emplace_back(Qry.FieldAsInteger("id"), task);
+      }
     }
 
     if (tasks.empty())
