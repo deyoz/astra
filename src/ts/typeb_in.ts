@@ -569,13 +569,43 @@ $(set time_create2 $(dd)$(hhmi -1m))   ### более ранние PTM/BTM - оставляем данн
 $(set time_create3 $(dd)$(hhmi +1m))   ### более поздние PTM/BTM - удаляем данные первоначальных PTM/BTM, добавляем данные текущих
 
 $(PTM_UT_576_KRR $(get time_create1))
+$(set ptm_id1 $(last_typeb_in_id))
 $(BTM_UT_576_KRR $(get time_create1))
+$(set btm_id1 $(last_typeb_in_id))
 
 $(PTM_UT_576_KRR $(get time_create2))
+$(set ptm_id2 $(last_typeb_in_id))
 $(BTM_UT_576_KRR $(get time_create2))
+$(set btm_id2 $(last_typeb_in_id))
+
+??
+$(dump_table tlg_transfer fields="tlg_id" order="tlg_id" display="on")
+
+>>
+--------------------- tlg_transfer DUMP ---------------------
+SELECT tlg_id FROM tlg_transfer ORDER BY tlg_id
+$(echo "[$(get ptm_id1)] $(lf)" 6)\
+$(echo "[$(get btm_id1)] $(lf)" 6)\
+------------------- END tlg_transfer DUMP COUNT=12 -------------------
+$()
+
 
 $(PTM_UT_576_KRR $(get time_create3))
+$(set ptm_id3 $(last_typeb_in_id))
 $(BTM_UT_576_KRR $(get time_create3))
+$(set btm_id3 $(last_typeb_in_id))
+
+??
+$(dump_table tlg_transfer fields="tlg_id" order="tlg_id" display="on")
+
+>>
+--------------------- tlg_transfer DUMP ---------------------
+SELECT tlg_id FROM tlg_transfer ORDER BY tlg_id
+$(echo "[$(get ptm_id3)] $(lf)" 6)\
+$(echo "[$(get btm_id3)] $(lf)" 6)\
+------------------- END tlg_transfer DUMP COUNT=12 -------------------
+$()
+
 
 $(set today $(date_format %d.%m.%Y +0))
 $(NEW_SPP_FLIGHT_REQUEST
@@ -596,37 +626,76 @@ $(set point_dep $(get_point_dep_for_flight UT 576 "" $(yymmdd) KRR))
 
 >> mode=regex
 .*
-        <heading>.TJMDCUT $(get time_create1)
-PTM
-UT576/$(ddmon 0 en) KRRVKO PART1
-</heading>
+      <tlg>
+        <err_lst/>
+        <id>$(get ptm_id1)</id>
+        <num>1</num>
+        <type>PTM</type>
 .*
-        <heading>.TJMDCUT $(get time_create1)
-BTM
-.V/1TVKO
-</heading>
-        <body>.I/UT576/$(ddmon 0 en)/KRR
+      <tlg>
+        <err_lst/>
+        <id>$(get ptm_id1)</id>
+        <num>2</num>
+        <type>PTM</type>
 .*
-        <heading>.TJMDCUT $(get time_create2)
-PTM
-UT576/$(ddmon 0 en) KRRVKO PART1
-</heading>
+      <tlg>
+        <err_lst/>
+        <id>$(get btm_id1)</id>
+        <num>1</num>
+        <type>BTM</type>
 .*
-        <heading>.TJMDCUT $(get time_create2)
-BTM
-.V/1TVKO
-</heading>
-        <body>.I/UT576/$(ddmon 0 en)/KRR
+      <tlg>
+        <err_lst/>
+        <id>$(get btm_id1)</id>
+        <num>2</num>
+        <type>BTM</type>
 .*
-        <heading>.TJMDCUT $(get time_create3)
-PTM
-UT576/$(ddmon 0 en) KRRVKO PART1
-</heading>
+      <tlg>
+        <err_lst/>
+        <id>$(get ptm_id2)</id>
+        <num>1</num>
+        <type>PTM</type>
 .*
-        <heading>.TJMDCUT $(get time_create3)
-BTM
-.V/1TVKO
-</heading>
-        <body>.I/UT576/$(ddmon 0 en)/KRR
+      <tlg>
+        <err_lst/>
+        <id>$(get ptm_id2)</id>
+        <num>2</num>
+        <type>PTM</type>
+.*
+      <tlg>
+        <err_lst/>
+        <id>$(get btm_id2)</id>
+        <num>1</num>
+        <type>BTM</type>
+.*
+      <tlg>
+        <err_lst/>
+        <id>$(get btm_id2)</id>
+        <num>2</num>
+        <type>BTM</type>
+.*
+      <tlg>
+        <err_lst/>
+        <id>$(get ptm_id3)</id>
+        <num>1</num>
+        <type>PTM</type>
+.*
+      <tlg>
+        <err_lst/>
+        <id>$(get ptm_id3)</id>
+        <num>2</num>
+        <type>PTM</type>
+.*
+      <tlg>
+        <err_lst/>
+        <id>$(get btm_id3)</id>
+        <num>1</num>
+        <type>BTM</type>
+.*
+      <tlg>
+        <err_lst/>
+        <id>$(get btm_id3)</id>
+        <num>2</num>
+        <type>BTM</type>
 .*
 

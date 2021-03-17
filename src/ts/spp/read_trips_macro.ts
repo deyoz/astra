@@ -2,22 +2,23 @@
 
 $(defmacro READ_TRIPS
   date=$(date_format %d.%m.%Y)
-{{<?xml version='1.0' encoding='CP866'?>
+  lang=RU
+{<?xml version='1.0' encoding='CP866'?>
 <term>
-  <query handle='0' id='sopp' ver='1' opr='PIKE' screen='SOPP.EXE' mode='STAND' lang='EN' term_id='2479792165'>
+  <query handle='0' id='sopp' ver='1' opr='PIKE' screen='SOPP.EXE' mode='STAND' lang='$(lang)' term_id='2479792165'>
     <ReadTrips>
       <flight_date>$(date) 00:00:00</flight_date>
     </ReadTrips>
   </query>
 </term>}
-}) #end_of_macro
+) #end_of_macro
 
 ######################################################################################################
 
 $(defmacro READ_ARX_TRIPS
     arx_date=$(date_format %d.%m.%Y)
 
-{{<?xml version='1.0' encoding='CP866'?>
+{<?xml version='1.0' encoding='CP866'?>
 <term>
   <query handle='0' id='sopp' ver='1' opr='PIKE' screen='STAT.EXE' mode='STAND' lang='RU' term_id='2479792165'>
     <ReadTrips>
@@ -25,7 +26,7 @@ $(defmacro READ_ARX_TRIPS
     </ReadTrips>
   </query>
 </term>}
-}) #end_of_macro
+) #end_of_macro
 
 ######################################################################################################
 
@@ -39,7 +40,7 @@ $(defmacro CHECK_TRIP_ALARMS
 {
 
 !! capture=on
-$(READ_TRIPS $(date))
+$(READ_TRIPS $(date) EN)
 
 >> lines=auto
           <alarms>
@@ -83,4 +84,64 @@ $(READ_TRIPS $(date))
 .*
 
 })
+
+$(defmacro GET_PAX_TRANSFER_REQUEST
+  point_id
+  pr_out
+  pr_tlg
+  lang=RU
+  capture=off
+{
+!! capture=$(capture)
+<?xml version='1.0' encoding='UTF-8'?>
+<term>
+  <query handle='0' id='sopp' ver='1' opr='PIKE' screen='SOPP.EXE' mode='STAND' lang='$(lang)' term_id='2479792165'>
+    <GetPaxTransfer>
+      <point_id>$(point_id)</point_id>
+      <dev_model/>
+      <fmt_type/>
+      <prnParams>
+        <pr_lat>0</pr_lat>
+        <encoding>UTF-16LE</encoding>
+        <offset>20</offset>
+        <top>0</top>
+      </prnParams>
+      <pr_out>$(pr_out)</pr_out>
+      <pr_tlg>$(pr_tlg)</pr_tlg>
+    </GetPaxTransfer>
+  </query>
+</term>
+
+})
+
+$(defmacro GET_BAG_TRANSFER_REQUEST
+  point_id
+  pr_out
+  pr_tlg
+  lang=RU
+  capture=off
+{
+!! capture=$(capture)
+<?xml version='1.0' encoding='UTF-8'?>
+<term>
+  <query handle='0' id='sopp' ver='1' opr='PIKE' screen='SOPP.EXE' mode='STAND' lang='$(lang)' term_id='2479792165'>
+    <GetBagTransfer>
+      <point_id>$(point_id)</point_id>
+      <dev_model/>
+      <fmt_type/>
+      <prnParams>
+        <pr_lat>0</pr_lat>
+        <encoding>UTF-16LE</encoding>
+        <offset>20</offset>
+        <top>0</top>
+      </prnParams>
+      <pr_out>$(pr_out)</pr_out>
+      <pr_tlg>$(pr_tlg)</pr_tlg>
+    </GetBagTransfer>
+  </query>
+</term>
+
+})
+
+
 

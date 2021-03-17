@@ -212,7 +212,7 @@ $(tripcounters_item €Ÿ’    68   30       0     0    38    0)
 </term>
 
 !! capture=on
-$(READ_TRIPS $(date_format %d.%m.%Y +1))
+$(READ_TRIPS $(date_format %d.%m.%Y +1) EN)
 
 >> lines=auto
           <places_out>
@@ -342,7 +342,7 @@ $(crsdata_item ""        €Ÿ’  17  0)
       </tripdata>
 
 !! capture=on
-$(READ_TRIPS $(date_format %d.%m.%Y +1))
+$(READ_TRIPS $(date_format %d.%m.%Y +1) EN)
 
 >> lines=auto
           <places_out>
@@ -716,7 +716,7 @@ $(crs_item "" "¡é¨¥ ¤ ­­ë¥" "" "" "")
       </tripdata>
 
 !! capture=on
-$(READ_TRIPS $(date_format %d.%m.%Y +1))
+$(READ_TRIPS $(date_format %d.%m.%Y +1) EN)
 
 >> mode=regex
 .*
@@ -951,7 +951,7 @@ $(crsdata_item ""        ‘“  10 20)
       </tripdata>
 
 !! capture=on
-$(READ_TRIPS $(date_format %d.%m.%Y +1))
+$(READ_TRIPS $(date_format %d.%m.%Y +1) EN)
 
 >> mode=regex
 .*
@@ -1112,7 +1112,7 @@ $(crsdata_item ""        ‘“  10 20)
       </tripdata>
 
 !! capture=on
-$(READ_TRIPS $(date_format %d.%m.%Y +1))
+$(READ_TRIPS $(date_format %d.%m.%Y +1) EN)
 
 >> mode=regex
 .*
@@ -1223,7 +1223,7 @@ $(crsdata_item ""        ‘“  10  4)
       </tripdata>
 
 !! capture=on
-$(READ_TRIPS $(date_format %d.%m.%Y +1))
+$(READ_TRIPS $(date_format %d.%m.%Y +1) EN)
 
 >> mode=regex
 .*
@@ -1265,7 +1265,7 @@ $(tripcounters_item AER   188   22      13     0   113    0)
 </term>
 
 !! capture=on
-$(READ_TRIPS $(date_format %d.%m.%Y +1))
+$(READ_TRIPS $(date_format %d.%m.%Y +1) EN)
 
 >> mode=regex
 .*
