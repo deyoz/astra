@@ -110,6 +110,7 @@ set SP_PG_GROUP_PAX_1 3
 set SP_PG_GROUP_DCS_BAG 3
 
 set SP_PG_GROUP_JXTCONT 3
+set SP_PG_GROUP_PP_TRIP_TASK 3
 set SP_PG_GROUP_FILE 3
 set SP_PG_CONVERT_TABS 3
 # only after cache_tables migrated
