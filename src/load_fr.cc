@@ -9,6 +9,9 @@
 #include "stl_utils.h"
 #include "oralib.h"
 #include "exceptions.h"
+#include "PgOraConfig.h"
+
+#include <serverlib/dbcpp_cursctl.h>
 
 
 using namespace std;
@@ -19,6 +22,83 @@ using namespace EXCEPTIONS;
 const string FALSE_LOCALE = "0";
 
 // тест
+
+static void save_fr_ora(const std::string& name,
+                        const std::string& version,
+                        const std::string& form,
+                        int locale)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "update fr_forms2 set form = :form where name = :name and version = :version and pr_locale = :pr_locale";
+    Qry.CreateVariable("name", otString, name);
+    Qry.CreateVariable("version", otString, version);
+    Qry.CreateLongVariable("form", otLong, (void *)form.c_str(), form.size());
+    Qry.CreateVariable("pr_locale", otInteger, locale);
+    Qry.Execute();
+    if(!Qry.RowsProcessed()) {
+        Qry.SQLText = "insert into fr_forms2(name, version, form, pr_locale) values(:name, :version, :form, :pr_locale)";
+        Qry.Execute();
+    }
+}
+
+static int upd_fr_pg(const std::string& name,
+                     const std::string& version,
+                     const std::string& form,
+                     int locale)
+{
+    auto cur = make_db_curs(
+"update FR_FORMS2 set FORM = :form "
+"where NAME = :name and VERSION = :version and PR_LOCALE = :pr_locale",
+                PgOra::getRWSession("FR_FORMS2"));
+    cur
+            .bind(":name",      name)
+            .bind(":version",   version)
+            .bind(":form",      form)
+            .bind(":pr_locale", locale)
+            .exec();
+    return cur.rowcount();
+}
+
+static int ins_fr_pg(const std::string& name,
+                     const std::string& version,
+                     const std::string& form,
+                     int locale)
+{
+    auto cur = make_db_curs(
+"insert into FR_FORMS2(NAME, VERSION, FORM, PR_LOCALE) values(:name, :version, :form, :pr_locale)",
+                PgOra::getRWSession("FR_FORMS2"));
+    cur
+            .bind(":name",      name)
+            .bind(":version",   version)
+            .bind(":form",      form)
+            .bind(":pr_locale", locale)
+            .exec();
+    return cur.rowcount();
+}
+
+static void save_fr_pg(const std::string& name,
+                       const std::string& version,
+                       const std::string& form,
+                       int locale)
+{
+
+
+    if(!upd_fr_pg(name, version, form, locale)) {
+        ins_fr_pg(name, version, form, locale);
+    }
+}
+
+static void save_fr(const std::string& name,
+                    const std::string& version,
+                    const std::string& form,
+                    int locale)
+{
+    if(PgOra::supportsPg("FR_FORMS2")) {
+        save_fr_pg(name, version, form, locale);
+    } else {
+        save_fr_ora(name, version, form, locale);
+    }
+}
 
 void my(const fs::path &apath)
 {
@@ -83,17 +163,7 @@ void my(const fs::path &apath)
         locale = 1;
     }
 
-    TQuery Qry(&OraSession);
-    Qry.SQLText = "update fr_forms2 set form = :form where name = :name and version = :version and pr_locale = :pr_locale";
-    Qry.CreateVariable("name", otString, name);
-    Qry.CreateVariable("version", otString, version);
-    Qry.CreateLongVariable("form", otLong, (void *)form.c_str(), form.size());
-    Qry.CreateVariable("pr_locale", otInteger, locale);
-    Qry.Execute();
-    if(!Qry.RowsProcessed()) {
-        Qry.SQLText = "insert into fr_forms2(name, version, form, pr_locale) values(:name, :version, :form, :pr_locale)";
-        Qry.Execute();
-    }
+    save_fr(name, version, form, locale);
     cout << fname.str() << "  ok." << endl;
 }
 
@@ -115,6 +185,65 @@ void usage(string name, string what)
 
 }
 
+namespace {
+    struct Fr
+    {
+        std::string name;
+        std::string version;
+        std::string form;
+        int         pr_locale;
+    };
+
+    std::vector<Fr> load_fr_ora()
+    {
+        std::vector<Fr> vFr;
+        TQuery Qry(&OraSession);
+        Qry.SQLText = "select name, version, form, pr_locale from fr_forms2";
+        Qry.Execute();
+        for(; not Qry.Eof; Qry.Next()) {
+            string name = Qry.FieldAsString("name");
+            string version = Qry.FieldAsString("version");
+            int pr_locale = Qry.FieldAsInteger("pr_locale");
+            int len = Qry.GetSizeLongField("form");
+            shared_array<char> data (new char[len]);
+            Qry.FieldAsLong("form", data.get());
+            string form;
+            form.append(data.get(), len);
+
+            vFr.emplace_back(Fr{name, version, form, pr_locale});
+        }
+        return vFr;
+    }
+
+    std::vector<Fr> load_fr_pg()
+    {
+        std::vector<Fr> vFr;
+        auto cur = make_db_curs(
+"select NAME, VERSION, FORM, PR_LOCALE from FR_FORMS2",
+                    PgOra::getROSession("FR_FORMS2"));
+        Fr fr = {};
+        cur
+                .def(fr.name)
+                .def(fr.version)
+                .def(fr.form)
+                .def(fr.pr_locale)
+                .exec();
+        while(!cur.fen()) {
+            vFr.emplace_back(fr);
+        }
+        return vFr;
+    }
+
+    std::vector<Fr> load_fr()
+    {
+        if(PgOra::supportsPg("FR_FORMS2")) {
+            return load_fr_pg();
+        } else {
+            return load_fr_ora();
+        }
+    }
+}//namespace
+
 int get_fr(int argc,char **argv)
 {
     try {
@@ -128,31 +257,23 @@ int get_fr(int argc,char **argv)
         if ( not fs::is_directory( full_path ) )
             throw Exception("path is not a directory: %s", full_path.string().c_str());
 
-        TQuery Qry(&OraSession);
-        Qry.SQLText = "select name, version, form, pr_locale from fr_forms2";
-        Qry.Execute();
-        for(; not Qry.Eof; Qry.Next()) {
-            string fname = Qry.FieldAsString("name");
-            string version = Qry.FieldAsString("version");
-            string pr_locale = Qry.FieldAsString("pr_locale");
+        auto vFr = load_fr();
+        for(auto fr: vFr) {
+            std::string fname = fr.name;
+            std::string version = fr.version;
+            std::string pr_locale = std::to_string(fr.pr_locale);
             if(version != DEF_VERS)
                 fname += "." + version;
             if(pr_locale == FALSE_LOCALE)
                 fname += "." + pr_locale;
             fname += ".fr3";
 
-            int len = Qry.GetSizeLongField("form");
-            shared_array<char> data (new char[len]);
-            Qry.FieldAsLong("form", data.get());
-            string form;
-            form.append(data.get(), len);
-
             cout << "getting " << fname.c_str() << endl;
             fs::path apath = full_path / fname;
-            ofstream out(apath.string().c_str());
+            std::ofstream out(apath.string().c_str());
             if(!out.good())
                 throw Exception("Cannot open file %s", apath.string().c_str());
-            out << form;
+            out << fr.form;
         }
         cout << "The templates were fetched successfully" << endl;
     } catch(Exception &E) {
