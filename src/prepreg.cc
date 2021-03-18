@@ -160,7 +160,6 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
   xmlNodePtr itemNode;
   TQuery Qry( &OraSession );
 
-  Qry.Clear();
   Qry.SQLText =
     "SELECT airline, flt_no, suffix, airp, scd_out, "
     "       point_id, point_num, first_point, pr_tranzit "

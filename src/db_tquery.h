@@ -27,7 +27,7 @@ public:
     void Close();
     void Execute();
     void Next();
-    void Clear();
+    void ClearParams();
 
     int RowsProcessed();
     int RowCount();

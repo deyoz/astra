@@ -146,7 +146,6 @@ bool handle_tlg(void)
   if (TlgQry.SQLText.empty())
   {
     //внимание порядок объединения таблиц важен!
-    TlgQry.Clear();
     TlgQry.SQLText=
       "SELECT tlg_queue.id,tlg_queue.time,ttl, "
       "       tlg_queue.tlg_num,tlg_queue.sender, "

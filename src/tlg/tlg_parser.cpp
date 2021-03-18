@@ -6177,10 +6177,9 @@ static void onChangeClass(int pax_id, ASTRA::TClass cl)
 void SaveDCSBaggage(int pax_id, const TNameElement &ne)
 {
   if (ne.bag.Empty() && ne.tags.empty()) return;
-  DB::TQuery QryBag(PgOra::getRWSession("DCS_BAG"));
   if (!ne.bag.Empty())
   {
-    QryBag.Clear();
+    DB::TQuery QryBag(PgOra::getRWSession("DCS_BAG"));
     QryBag.SQLText=
       "INSERT INTO dcs_bag(pax_id, bag_amount, bag_weight, rk_weight, weight_unit) "
       "VALUES(:pax_id, :bag_amount, :bag_weight, :rk_weight, :weight_unit)";
@@ -6194,7 +6193,6 @@ void SaveDCSBaggage(int pax_id, const TNameElement &ne)
   if (!ne.tags.empty())
   {
     DB::TQuery QryTags(PgOra::getRWSession("DCS_TAGS"));
-    QryTags.Clear();
     QryTags.SQLText=
       "INSERT INTO dcs_tags(pax_id, alpha_no, numeric_no, airp_arv_final) "
       "VALUES(:pax_id, :alpha_no, :numeric_no, :airp_arv_final)";
@@ -6839,7 +6837,6 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         CrsInfInsQry.DeclareVariable("inf_id",otInteger);
 
         TQuery CrsTransferQry(&OraSession);
-        CrsTransferQry.Clear();
         CrsTransferQry.SQLText=
           "INSERT INTO crs_transfer(pnr_id,transfer_num,airline,flt_no,suffix,local_date,airp_dep,airp_arv,subclass) "
           "VALUES(:pnr_id,:transfer_num,:airline,:flt_no,:suffix,:local_date,:airp_dep,:airp_arv,:subclass)";

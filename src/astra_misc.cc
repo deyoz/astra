@@ -2119,7 +2119,6 @@ void GetCrsList(int point_id, std::vector<std::string> &crs)
 {
   crs.clear();
   TQuery Qry(&OraSession);
-  Qry.Clear();
   Qry.SQLText=
     "SELECT DISTINCT crs FROM tlg_binding,crs_data_stat "
     "WHERE tlg_binding.point_id_tlg=crs_data_stat.point_id AND "
@@ -2233,7 +2232,6 @@ bool is_sync_flights( int point_id )
 bool is_sync_FileParamSets( const TTripInfo &tripInfo, const std::string& syncType )
 {
   DB::TQuery Qry(PgOra::getROSession("FILE_PARAM_SETS"));
-  Qry.Clear();
   Qry.SQLText =
       "SELECT id FROM file_param_sets "
       " WHERE ( file_param_sets.airp IS NULL OR file_param_sets.airp=:airp ) AND "

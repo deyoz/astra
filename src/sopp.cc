@@ -1121,7 +1121,7 @@ string internal_ReadData_N( TSOPPTrips &trips, TDateTime first_date, TDateTime n
             PointsQry.CreateVariable( "point_id", otInteger, point_id );
       }
     }
-  
+
   if ( !pr_addCondition_N ) {
     if ( point_id == NoExists ) {
       if ( first_date != NoExists ) {
@@ -3991,7 +3991,7 @@ void arx_internal_ReadDests( int move_id, TSOPPDests &dests, string &reference, 
     Qry.Execute();
     if ( !Qry.Eof )  reference = Qry.FieldAsString( "reference" );
     dests.clear();
-    Qry.Clear();
+    Qry.ClearParams();
     DB::TQuery MQry(PgOra::getROSession("ARX_MOVE_REF"));
       MQry.SQLText =
     "SELECT point_id,point_num,first_point,airp,airp_fmt,airline,airline_fmt,flt_no,suffix,suffix_fmt,craft,craft_fmt,bort,"
@@ -5425,7 +5425,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
 
     check_layer_change(point_ids_spp, __FUNCTION__);
   }
-  
+
   //тревога ЛО
   SALONS2::check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, __FUNCTION__ );
 
@@ -6787,7 +6787,7 @@ void SoppInterface::ReadDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
 }
 
 void SoppInterface::WriteDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{     
+{
     xmlNodePtr dataNode = NodeAsNode( "data/doc", reqNode );
     validateField( NodeAsString( "loader", dataNode ), "Грузчик" );
     validateField( NodeAsString( "pts_agent ", dataNode ), "Агент СОПП" );

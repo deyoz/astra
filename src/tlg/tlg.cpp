@@ -360,7 +360,7 @@ static void LogTlgOutTypeB(const std::string& text)
 }
 
 static void LogTlgOutTypeAPP(const std::string& text)
-{   
+{
     const size_t stxPos = text.find(0x02);
     LogTlg() << StrUtils::replaceSubstrCopy(text.substr(0, stxPos), "\r", "\\") << "\n"
              << APPS::appsTextAsHumanReadable(text.substr(stxPos + 1));
@@ -661,7 +661,6 @@ bool deleteTlg(int tlg_id)
   try
   {
     DB::TQuery TlgQry(PgOra::getRWSession("TLG_QUEUE"));
-    TlgQry.Clear();
     TlgQry.SQLText=
            "DELETE FROM tlg_queue WHERE id= :id";
     TlgQry.CreateVariable("id",otInteger,tlg_id);
@@ -685,10 +684,9 @@ bool errorTlg(int tlg_id, const string &type, const string &msg)
   try
   {
     deleteTlg(tlg_id);
-    DB::TQuery TlgQry(PgOra::getRWSession("TLG_ERROR"));
     if (!msg.empty())
     {
-      TlgQry.Clear();
+      DB::TQuery TlgQry(PgOra::getRWSession("TLG_ERROR"));
       TlgQry.SQLText = PgOra::supportsPg("TLG_ERROR")
         ? "INSERT INTO tlg_error(id, msg) VALUES(:id, :msg) "
           "ON CONFLICT(id) DO UPDATE SET msg=:msg;"
@@ -702,7 +700,8 @@ bool errorTlg(int tlg_id, const string &type, const string &msg)
       TlgQry.CreateVariable("id",otInteger,tlg_id);
       TlgQry.Execute();
     };
-    TlgQry.Clear();
+
+    DB::TQuery TlgQry(PgOra::getRWSession("TLGS"));
     TlgQry.SQLText="UPDATE tlgs SET error= :error WHERE id= :id";
     TlgQry.CreateVariable("error",otString,type.substr(0,4));
     TlgQry.CreateVariable("id",otInteger,tlg_id);
@@ -824,7 +823,6 @@ bool procTlg(int tlg_id)
   try
   {
     DB::TQuery TlgQry(PgOra::getRWSession("TLG_QUEUE"));
-    TlgQry.Clear();
     TlgQry.SQLText=
            "UPDATE tlg_queue SET proc_attempt=COALESCE(proc_attempt,0)+1 WHERE id= :id";
     TlgQry.CreateVariable("id",otInteger,tlg_id);

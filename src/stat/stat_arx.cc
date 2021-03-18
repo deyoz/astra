@@ -307,7 +307,6 @@ void ArxFltTaskLogRun(TDateTime part_key, XMLRequestCtxt *ctxt,
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
     NewTextChild(variablesNode, "report_title", getLocaleText("Журнал задач рейса"));
 
-
     int count = 0;
 
     xmlNodePtr paxLogNode = NewTextChild(resNode, "PaxLog");
@@ -617,7 +616,7 @@ void ArxFltLogRun(TDateTime part_key, XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     tm.Init();
     xmlNodePtr rowsNode = NULL;
     for(int i = 0; i < 2; i++) {
-        Qry.Clear();
+        Qry.ClearParams();
         if(i == 0) {
             Qry.SQLText = qry1;
             Qry.CreateVariable("point_id", otInteger, point_id);
@@ -2226,7 +2225,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     Qry.CreateVariable("LastDate", otDate, LastDate);
     Qry.CreateVariable("pr_lat", otInteger, TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU);
     params.insert( make_pair("lang", TReqInfo::Instance()->desk.lang) );
-    
+
     xmlNodePtr paramNode = reqNode->children;
     string airline = NodeAsStringFast("airline", paramNode, "");
     if(!airline.empty()) {
