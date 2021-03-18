@@ -85,10 +85,6 @@ static int ROT_UPDATE_INTERVAL() //секунды
 
 static int sockfd=-1;
 
-using AddrMap = std::map<std::string, std::pair<std::time_t, sockaddr_in>>;
-
-static AddrMap ROT_MAP;
-
 static bool scan_tlg(bool sendOutAStepByStep);
 //int h2h_out(H2H_MSG *h2h_msg);
 
@@ -107,8 +103,9 @@ sockaddr_in getAddrFromRot(const std::string& canon_name) {
 }
 
 static const sockaddr_in& getAddrByName(const std::string& can_name) {
-    const auto lb = ROT_MAP.lower_bound(can_name);
-    if (end(ROT_MAP) != lb && !(ROT_MAP.key_comp()(can_name, lb->first))) {
+    static std::map<std::string, std::pair<std::time_t, sockaddr_in>> addrMap;
+    const auto lb = addrMap.lower_bound(can_name);
+    if (end(addrMap) != lb && !(addrMap.key_comp()(can_name, lb->first))) {
         // can_name exists
         if (ROT_UPDATE_INTERVAL() <= std::difftime(std::time(nullptr), lb->second.first)) {
             // тут обновление записи
@@ -117,7 +114,7 @@ static const sockaddr_in& getAddrByName(const std::string& can_name) {
         }
         return lb->second.second;
     } else {
-        const auto it = ROT_MAP.insert(lb, {can_name, std::make_pair(std::time(nullptr), getAddrFromRot(can_name))});
+        const auto it = addrMap.insert(lb, {can_name, std::make_pair(std::time(nullptr), getAddrFromRot(can_name))});
         return it->second.second;
     }
 }
