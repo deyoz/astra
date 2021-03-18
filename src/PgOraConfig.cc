@@ -53,6 +53,7 @@ namespace PgOra
                               "ARX_BAG_PREPAY"    , "ARX_EXCHANGE_RATES" , "ARX_PAX_DOCO"   , "ARX_POINTS"          , "ARX_STAT_SERVICES" , "ARX_TRANSFER"        , "ARX_TRIP_SETS"         ,
                               "MOVE_ARX_EXT"      , "ARX_VALUE_BAG"      , "ARX_TRIP_STAGES", "ARX_VALUE_BAG_TAXES" , "ARX_LIMITED_CAPABILITY_STAT", "ARX_PAY_SERVICES" } },
         { "SP_PG_GROUP_HTML", { "HTML_PAGES", "HTML_PAGES_TEXT" } },
+        { "SP_PG_GROUP_FR", { "FR_FORMS2" } },
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)

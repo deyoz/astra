@@ -17,9 +17,12 @@
 #include "docs_reseat.h"
 #include "docs_komplekt.h"
 #include "docs_com.h"
+#include "PgOraConfig.h"
+
+#include <serverlib/dbcpp_cursctl.h>
 
 #define NICKNAME "DENIS"
-#include "serverlib/slogger.h"
+#include <serverlib/slogger.h>
 
 using namespace std;
 using namespace ASTRA;
@@ -212,25 +215,61 @@ void  DocsInterface::LogExportEvent(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                                        ASTRA::evtPrn, NodeAsInteger("point_id", reqNode));
 }
 
-void  DocsInterface::SaveReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+static int saveReportOra(const std::string& name,
+                         const std::string& version,
+                         const std::string& form)
 {
     TQuery Qry(&OraSession);
-    if(NodeIsNULL("name", reqNode))
-        throw UserException("Form name can't be null");
-    string name = NodeAsString("name", reqNode);
-    string version = NodeAsString("version", reqNode, "");
-    ProgTrace(TRACE5, "VER. %s", version.c_str());
-    if(version == "")
-        version = get_report_version(name);
-
-    string form = NodeAsString("form", reqNode);
     Qry.SQLText = "update fr_forms2 set form = :form where name = :name and version = :version";
     Qry.CreateVariable("version", otString, version);
     Qry.CreateVariable("name", otString, name);
     Qry.CreateLongVariable("form", otLong, (void *)form.c_str(), form.size());
     Qry.Execute();
-    if(!Qry.RowsProcessed())
-      throw UserException("MSG.REPORT_UPDATE_FAILED.NOT_FOUND", LParams() << LParam("report_name", name));
+    return Qry.RowsProcessed();
+
+}
+
+static int saveReportPg(const std::string& name,
+                        const std::string& version,
+                        const std::string& form)
+{
+    auto cur = make_db_curs(
+"update FR_FORMS2 set FORM = :form where NAME = :name and VERSION = :version",
+                PgOra::getRWSession("FR_FORMS2"));
+
+    cur
+            .bind(":form", form)
+            .bind(":name", name)
+            .bind(":version", version)
+            .exec();
+    return cur.rowcount();
+}
+
+static int saveReport(const std::string& name,
+                       const std::string& version,
+                       const std::string& form)
+{
+    if(PgOra::supportsPg("FR_FORMS2")) {
+        return saveReportPg(name, version, form);
+    } else {
+        return saveReportOra(name, version, form);
+    }
+}
+
+void  DocsInterface::SaveReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    if(NodeIsNULL("name", reqNode))
+        throw UserException("Form name can't be null");
+    std::string name = NodeAsString("name", reqNode);
+    std::string version = NodeAsString("version", reqNode, "");
+    ProgTrace(TRACE5, "VER. %s", version.c_str());
+    if(version == "")
+        version = get_report_version(name);
+    std::string form = NodeAsString("form", reqNode);
+
+    if(!saveReport(name, version, form)) {
+        throw UserException("MSG.REPORT_UPDATE_FAILED.NOT_FOUND", LParams() << LParam("report_name", name));
+    }
     TReqInfo::Instance()->LocaleToLog("EVT.UPDATE_REPORT", LEvntPrms() << PrmSmpl<std::string>("name", name), evtSystem);
 }
 
