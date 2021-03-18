@@ -2,6 +2,9 @@ include(ts/macro.ts)
 include(ts/adm_macro.ts)
 include(ts/sirena_exchange_macro.ts)
 include(ts/spp/write_trips_macro.ts)
+include(ts/spp/write_dests_macro.ts)
+include(ts/pnl/pnl_ut_580_461.ts)
+include(ts/pax/checkin_macro.ts)
 
 # meta: suite checkin
 
@@ -1026,4 +1029,297 @@ $(lastRedisplay)
 >> lines=auto
     <ets_error>Пассажир РЕПИН ИВАН (ВЗ):
      Ошибка при изменении статуса эл. билета 2981212121212/1: 401.
+
+%%
+
+### test 5 - отмена регистрации с трансфером багажа и/или сквозной регистрацией (проверка очистки trfer_trips)
+### два пассажира летят на первом сегменте разными рейсами, на втором сегменте на одном и том же
+### 1 часть теста:
+###    регистрируем пассажира на два сегмента (заполняется transfer+tckin_segments),
+###    регистрируем пассажира на один сегмент с трансфером багажа (заполняется только transfer)
+###    отменяем певого
+###    отменяем второго - только в этот момент чистится trfer_trips
+### 2 часть теста:
+###    регистрируем пассажира на два сегмента (заполняется transfer+tckin_segments),
+###    регистрируем пассажира на два сегмента без трансфера багажа (заполняется только tckin_segments)
+###    отменяем певого
+###    отменяем второго - только в этот момент чистится trfer_trips
+#########################################################################################
+
+$(init_term)
+$(set_user_time_type LocalAirp PIKE)
+
+$(set today $(date_format %d.%m.%Y +0))
+$(set tomor $(date_format %d.%m.%Y +1))
+
+### два рейса с одинаковым номером и маршрутом с разницей в день
+### с каждого рейса трансфер или сквозная регистрация на общий третий рейс
+
+$(NEW_SPP_FLIGHT_REQUEST
+{ $(new_spp_point ЮТ 580 TU3 65021 ""                   СОЧ "$(get today) 12:00")
+  $(new_spp_point_last             "$(get today) 15:00" ВНК ) })
+
+$(NEW_SPP_FLIGHT_REQUEST
+{ $(new_spp_point ЮТ 580 TU3 65021 ""                   СОЧ "$(get tomor) 12:00")
+  $(new_spp_point_last             "$(get tomor) 15:00" ВНК ) })
+
+$(NEW_SPP_FLIGHT_REQUEST
+{ $(new_spp_point ЮТ 461 TU3 65021 ""                   ВНК "$(get tomor) 16:00")
+  $(new_spp_point_last             "$(get tomor) 21:20" РЩН ) })
+
+
+$(set point_dep1 $(get_point_dep_for_flight ЮТ 580 "" $(yymmdd +0) СОЧ))
+$(set point_arv1 $(get_next_trip_point_id $(get point_dep1)))
+$(set point_dep2 $(get_point_dep_for_flight ЮТ 580 "" $(yymmdd +1) СОЧ))
+$(set point_arv2 $(get_next_trip_point_id $(get point_dep2)))
+$(set point_dep3 $(get_point_dep_for_flight ЮТ 461 "" $(yymmdd +1) ВНК))
+$(set point_arv3 $(get_next_trip_point_id $(get point_dep3)))
+
+$(PNL_UT_580 date_dep=$(ddmon +0 en))
+$(PNL_UT_580 date_dep=$(ddmon +1 en))
+$(PNL_UT_461 date_dep=$(ddmon +1 en))
+
+$(set pax_id_1479_1 $(get_pax_id $(get point_dep1) KOTOVA IRINA))
+$(set pax_id_1480_1 $(get_pax_id $(get point_dep1) MOTOVA IRINA))
+$(set pax_id_1479_2 $(get_pax_id $(get point_dep2) KOTOVA IRINA))
+$(set pax_id_1480_2 $(get_pax_id $(get point_dep2) MOTOVA IRINA))
+$(set pax_id_1479_3 $(get_pax_id $(get point_dep3) KOTOVA IRINA))
+$(set pax_id_1480_3 $(get_pax_id $(get point_dep3) MOTOVA IRINA))
+
+$(deny_ets_interactive UT)
+
+###############################
+###         1 часть         ###
+###############################
+
+$(NEW_TCHECKIN_REQUEST capture=on lang=EN hall=1
+$(TRANSFER_SEGMENT ЮТ 461 "" $(dd +1) ВНК РЩН)
+{$(NEW_CHECKIN_SEGMENT $(get point_dep1) $(get point_arv1) СОЧ ВНК
+{<passengers>
+  <pax>
+$(NEW_CHECKIN_2982410821479 $(get pax_id_1479_1) 1 Y)
+  </pax>
+</passengers>})
+$(NEW_CHECKIN_SEGMENT $(get point_dep3) $(get point_arv3) ВНК РЩН
+{<passengers>
+  <pax>
+$(NEW_CHECKIN_2982410821479 $(get pax_id_1479_3) 2)
+  </pax>
+</passengers>})})
+
+>> mode=regex
+.*
+            <reg_no>1</reg_no>.*
+            <reg_no>1</reg_no>.*
+
+### второму пассажиру оформляем трансфер багажа без сквозной регистрации
+
+$(NEW_TCHECKIN_REQUEST capture=on lang=EN hall=1
+$(TRANSFER_SEGMENT ЮТ 461 "" $(dd +1) ВНК РЩН)
+{$(NEW_CHECKIN_SEGMENT $(get point_dep2) $(get point_arv2) СОЧ ВНК
+{<passengers>
+  <pax>
+$(NEW_CHECKIN_2982410821480 $(get pax_id_1480_2) 1 Y)
+  </pax>
+</passengers>})})
+
+>> mode=regex
+.*
+            <reg_no>1</reg_no>.*
+
+
+$(set grp_id_1479_1 $(get_single_grp_id $(get pax_id_1479_1)))
+$(set grp_id_1480_2 $(get_single_grp_id $(get pax_id_1480_2)))
+$(set grp_id_1479_3 $(get_single_grp_id $(get pax_id_1479_3)))
+
+$(set pax_tid_1479_1 $(get_single_pax_tid $(get pax_id_1479_1)))
+$(set pax_tid_1480_2 $(get_single_pax_tid $(get pax_id_1480_2)))
+$(set pax_tid_1479_3 $(get_single_pax_tid $(get pax_id_1479_3)))
+
+$(CHANGE_TCHECKIN_REQUEST capture=on lang=EN hall=1
+{$(CHANGE_CHECKIN_SEGMENT $(get point_dep1) $(get point_arv1) СОЧ ВНК
+                          $(get grp_id_1479_1) $(get_single_grp_tid $(get pax_id_1479_1))
+{<passengers>
+  <pax>
+$(CHANGE_CHECKIN_2982410821479 $(get pax_id_1479_1) $(get pax_tid_1479_1) 1 refuse=А)
+  </pax>
+</passengers>})
+$(CHANGE_CHECKIN_SEGMENT $(get point_dep3) $(get point_arv3) ВНК РЩН
+                         $(get grp_id_1479_3) $(get_single_grp_tid $(get pax_id_1479_3))
+{<passengers>
+  <pax>
+$(CHANGE_CHECKIN_2982410821479 $(get pax_id_1479_3) $(get pax_tid_1479_3) 2 refuse=А)
+  </pax>
+</passengers>})}
+)
+
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer ...>
+    <segments/>
+  </answer>
+</term>
+
+
+??
+$(dump_table trfer_trips display=on)
+
+>> lines=auto
+------------------- END trfer_trips DUMP COUNT=1 -------------------
+
+
+$(CHANGE_TCHECKIN_REQUEST capture=on lang=EN hall=1
+{$(CHANGE_CHECKIN_SEGMENT $(get point_dep2) $(get point_arv2) СОЧ ВНК
+                          $(get grp_id_1480_2) $(get_single_grp_tid $(get pax_id_1480_2))
+{<passengers>
+  <pax>
+$(CHANGE_CHECKIN_2982410821480 $(get pax_id_1480_2) $(get pax_tid_1480_2) 1 refuse=А)
+  </pax>
+</passengers>})}
+)
+
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer ...>
+    <segments/>
+  </answer>
+</term>
+
+
+### разрегистрировали по ошибке агента всех
+
+??
+$(dump_table trfer_trips display=on)
+
+>> lines=auto
+------------------- END trfer_trips DUMP COUNT=0 -------------------
+
+
+###############################
+###         2 часть         ###
+###############################
+
+$(NEW_TCHECKIN_REQUEST capture=on lang=EN hall=1
+$(TRANSFER_SEGMENT ЮТ 461 "" $(dd +1) ВНК РЩН)
+{$(NEW_CHECKIN_SEGMENT $(get point_dep1) $(get point_arv1) СОЧ ВНК
+{<passengers>
+  <pax>
+$(NEW_CHECKIN_2982410821479 $(get pax_id_1479_1) 1 Y)
+  </pax>
+</passengers>})
+$(NEW_CHECKIN_SEGMENT $(get point_dep3) $(get point_arv3) ВНК РЩН
+{<passengers>
+  <pax>
+$(NEW_CHECKIN_2982410821479 $(get pax_id_1479_3) 2)
+  </pax>
+</passengers>})})
+
+>> mode=regex
+.*
+            <reg_no>1</reg_no>.*
+            <reg_no>1</reg_no>.*
+
+### второму пассажиру оформляем сквозную регистрацию без трансфера багажа
+
+$(NEW_TCHECKIN_REQUEST capture=on lang=EN hall=1
+""
+{$(NEW_CHECKIN_SEGMENT $(get point_dep2) $(get point_arv2) СОЧ ВНК
+{<passengers>
+  <pax>
+$(NEW_CHECKIN_2982410821480 $(get pax_id_1480_2) 1)
+  </pax>
+</passengers>})
+$(NEW_CHECKIN_SEGMENT $(get point_dep3) $(get point_arv3) ВНК РЩН
+{<passengers>
+  <pax>
+$(NEW_CHECKIN_2982410821480 $(get pax_id_1480_3) 2)
+  </pax>
+</passengers>})})
+
+>> mode=regex
+.*
+            <reg_no>1</reg_no>.*
+            <reg_no>2</reg_no>.*
+
+$(set grp_id_1479_1 $(get_single_grp_id $(get pax_id_1479_1)))
+$(set grp_id_1480_2 $(get_single_grp_id $(get pax_id_1480_2)))
+$(set grp_id_1479_3 $(get_single_grp_id $(get pax_id_1479_3)))
+$(set grp_id_1480_3 $(get_single_grp_id $(get pax_id_1480_3)))
+
+$(set pax_tid_1479_1 $(get_single_pax_tid $(get pax_id_1479_1)))
+$(set pax_tid_1480_2 $(get_single_pax_tid $(get pax_id_1480_2)))
+$(set pax_tid_1479_3 $(get_single_pax_tid $(get pax_id_1479_3)))
+$(set pax_tid_1480_3 $(get_single_pax_tid $(get pax_id_1480_3)))
+
+$(CHANGE_TCHECKIN_REQUEST capture=on lang=EN hall=1
+{$(CHANGE_CHECKIN_SEGMENT $(get point_dep1) $(get point_arv1) СОЧ ВНК
+                          $(get grp_id_1479_1) $(get_single_grp_tid $(get pax_id_1479_1))
+{<passengers>
+  <pax>
+$(CHANGE_CHECKIN_2982410821479 $(get pax_id_1479_1) $(get pax_tid_1479_1) 1 refuse=А)
+  </pax>
+</passengers>})
+$(CHANGE_CHECKIN_SEGMENT $(get point_dep3) $(get point_arv3) ВНК РЩН
+                         $(get grp_id_1479_3) $(get_single_grp_tid $(get pax_id_1479_3))
+{<passengers>
+  <pax>
+$(CHANGE_CHECKIN_2982410821479 $(get pax_id_1479_3) $(get pax_tid_1479_3) 2 refuse=А)
+  </pax>
+</passengers>})}
+)
+
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer ...>
+    <segments/>
+  </answer>
+</term>
+
+
+??
+$(dump_table trfer_trips display=on)
+
+>> lines=auto
+------------------- END trfer_trips DUMP COUNT=1 -------------------
+
+
+$(CHANGE_TCHECKIN_REQUEST capture=on lang=EN hall=1
+{$(CHANGE_CHECKIN_SEGMENT $(get point_dep2) $(get point_arv2) СОЧ ВНК
+                          $(get grp_id_1480_2) $(get_single_grp_tid $(get pax_id_1480_2))
+{<passengers>
+  <pax>
+$(CHANGE_CHECKIN_2982410821480 $(get pax_id_1480_2) $(get pax_tid_1480_2) 1 refuse=А)
+  </pax>
+</passengers>})
+$(CHANGE_CHECKIN_SEGMENT $(get point_dep3) $(get point_arv3) ВНК РЩН
+                         $(get grp_id_1480_3) $(get_single_grp_tid $(get pax_id_1480_3))
+{<passengers>
+  <pax>
+$(CHANGE_CHECKIN_2982410821480 $(get pax_id_1480_3) $(get pax_tid_1480_3) 2 refuse=А)
+  </pax>
+</passengers>})}
+)
+
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer ...>
+    <segments/>
+  </answer>
+</term>
+
+
+### разрегистрировали по ошибке агента всех
+
+??
+$(dump_table trfer_trips display=on)
+
+>> lines=auto
+------------------- END trfer_trips DUMP COUNT=0 -------------------
+
+
+
 
