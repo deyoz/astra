@@ -584,9 +584,9 @@ $(dump_table tlg_transfer fields="tlg_id" order="tlg_id" display="on")
 >>
 --------------------- tlg_transfer DUMP ---------------------
 SELECT tlg_id FROM tlg_transfer ORDER BY tlg_id
-$(echo "[$(get ptm_id1)] $(lf)" 6)\
-$(echo "[$(get btm_id1)] $(lf)" 6)\
-------------------- END tlg_transfer DUMP COUNT=12 -------------------
+$(echo "[$(get ptm_id1)] $(lf)"  9)\
+$(echo "[$(get btm_id1)] $(lf)" 10)\
+------------------- END tlg_transfer DUMP COUNT=19 -------------------
 $()
 
 
@@ -601,9 +601,9 @@ $(dump_table tlg_transfer fields="tlg_id" order="tlg_id" display="on")
 >>
 --------------------- tlg_transfer DUMP ---------------------
 SELECT tlg_id FROM tlg_transfer ORDER BY tlg_id
-$(echo "[$(get ptm_id3)] $(lf)" 6)\
-$(echo "[$(get btm_id3)] $(lf)" 6)\
-------------------- END tlg_transfer DUMP COUNT=12 -------------------
+$(echo "[$(get ptm_id3)] $(lf)"  9)\
+$(echo "[$(get btm_id3)] $(lf)" 10)\
+------------------- END tlg_transfer DUMP COUNT=19 -------------------
 $()
 
 
