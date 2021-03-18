@@ -29,6 +29,7 @@ namespace PgOra
     static const GroupsType sGroups {
         { "SP_PG_GROUP_JXTCONT", {"CONT"} },
         { "SP_PG_GROUP_FILE", {"FILE_ERROR", "FILE_QUEUE", "FILES", "FILE_PARAMS"} },
+        { "SP_PG_GROUP_FILE2", {"FILE_SETS"} },
         { "SP_PG_GROUP_FILE_CFG", {"FILE_ENCODING", "FILE_TYPES"} },
         { "SP_PG_GROUP_PP_TRIP_TASK", {"POSTPONED_TRIP_TASK"} },
         { "SP_PG_GROUP_IAPI",  { "IAPI_PAX_DATA" } },
