@@ -3169,16 +3169,16 @@ START_TEST(check_sendTlg)
                 qpOutB,
                 20,
                 tlg_text,
-                ASTRA::NoExists,
-                ASTRA::NoExists
+                11,
+                11
                 );
 
     TTripInfo fltInfo;
 
     TTlgStat().putTypeBOut(
                 tlg_id,
-                ASTRA::NoExists,
-                ASTRA::NoExists,
+                11,
+                11,
                 TTlgStatPoint("SENDRSI", "SENDR", "SENB", ""),
                 TTlgStatPoint("RECVRSI", "RECVR", "RECVR", ""),
                 NowUTC(),
