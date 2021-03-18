@@ -460,10 +460,13 @@ private:
     short resp_timeout_;
     std::string H2hSrcAddr_;
     std::string H2hDestAddr_;
+    std::string ipAddress_;
+    int ipPort_;
     char H2hRemAddrNum_;
     bool IsH2h_;
     bool Translit_;
     bool Loopback_;
+
 public:
     typedef noSuchRouter NoSuchThing;
     typedef Ticketing::RouterId_t IdaType;
@@ -489,6 +492,18 @@ public:
      * @return
      */
     const std::string &h2hDestAddr() const { return H2hDestAddr_; }
+
+    /**
+     * @brief IP address
+     * @return
+     */
+    const std::string &ipAddress() const { return ipAddress_; }
+
+    /**
+     * @brief IP port
+     * @return
+     */
+    int ipPort() const { return ipPort_; }
 
     /**
      * @brief h2h layer5 remote addr number

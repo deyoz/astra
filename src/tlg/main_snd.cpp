@@ -85,60 +85,41 @@ static int ROT_UPDATE_INTERVAL() //секунды
 
 static int sockfd=-1;
 
-using AddrMap = std::map<std::string, sockaddr_in>;
+using AddrMap = std::map<std::string, std::pair<std::time_t, sockaddr_in>>;
 
 static AddrMap ROT_MAP;
-static std::time_t lastRotUpdate;
 
 static bool scan_tlg(bool sendOutAStepByStep);
 //int h2h_out(H2H_MSG *h2h_msg);
 
-void updateAddrMap()
-{
-    HelpCpp::Timer timer;
+sockaddr_in getAddrFromRot(const std::string& canon_name) {
+    BaseTables::Router rot(canon_name);
 
-    DbCpp::CursCtl cur = make_db_curs(
-       "SELECT CANON_NAME, OWN_CANON_NAME, IP_ADDRESS, IP_PORT "
-       "FROM ROT",
-        PgOra::getROSession("ROT")
-    );
+    sockaddr_in to_addr;
+    to_addr.sin_family = AF_INET;
+    to_addr.sin_port = htons(rot->ipPort());
 
-    std::string receiver; // canon_name
-    std::string sender; // own_canon_name
-    std::string ip_address;
-    int ip_port;
-
-    cur.def(receiver)
-       .def(sender)
-       .def(ip_address)
-       .def(ip_port)
-       .exec();
-
-    AddrMap addrMap;
-
-    while (!cur.fen()) {
-        sockaddr_in& to_addr = addrMap[receiver];
-        to_addr.sin_family = AF_INET;
-        to_addr.sin_port = htons(ip_port);
-
-        if (!inet_aton(ip_address.data(), &to_addr.sin_addr)) {
-            throw Exception("'inet_aton' error %d: %s",errno,strerror(errno));
-        }
+    if (!inet_aton(rot->ipAddress().data(), &to_addr.sin_addr)) {
+        throw Exception("'inet_aton' error %d: %s",errno,strerror(errno));
     }
 
-    LogTrace(TRACE6) << __FUNCTION__ << ": " << timer;
-
-    ROT_MAP = addrMap;
-    lastRotUpdate = std::time(nullptr);
+    return to_addr;
 }
 
-const sockaddr_in* getAddrByName(const std::string& receiver)
-{
-    const auto& it = ROT_MAP.find(receiver);
-    if (ROT_MAP.end() != it) {
-        return &it->second;
+static const sockaddr_in& getAddrByName(const std::string& can_name) {
+    const auto lb = ROT_MAP.lower_bound(can_name);
+    if (end(ROT_MAP) != lb && !(ROT_MAP.key_comp()(can_name, lb->first))) {
+        // can_name exists
+        if (ROT_UPDATE_INTERVAL() <= std::difftime(std::time(nullptr), lb->second.first)) {
+            // тут обновление записи
+            lb->second.first = std::time(nullptr);
+            lb->second.second = getAddrFromRot(can_name);
+        }
+        return lb->second.second;
+    } else {
+        const auto it = ROT_MAP.insert(lb, {can_name, std::make_pair(std::time(nullptr), getAddrFromRot(can_name))});
+        return it->second.second;
     }
-    return nullptr;
 }
 
 int main_snd_tcl(int supervisorSocket, int argc, char *argv[])
@@ -171,13 +152,8 @@ int main_snd_tcl(int supervisorSocket, int argc, char *argv[])
     char buf[10];
     bool receivedCmdTlgSndStepByStep=false;
     TDateTime lastSendOutAStepByStep=NoExists;
-
     for (;;)
     {
-      if (ROT_UPDATE_INTERVAL() <= std::difftime(std::time(nullptr), lastRotUpdate)) {
-          updateAddrMap();
-      }
-
       InitLogTime(argc>0?argv[0]:NULL);
       bool sendOutAStepByStep=receivedCmdTlgSndStepByStep ||
                               lastSendOutAStepByStep==NoExists ||
@@ -189,7 +165,6 @@ int main_snd_tcl(int supervisorSocket, int argc, char *argv[])
       *buf=0;
       waitCmd("CMD_TLG_SND",queue_not_empty?PROC_INTERVAL():WAIT_INTERVAL(),buf,sizeof(buf));
       receivedCmdTlgSndStepByStep=(strchr(buf,'S')!=NULL); //true только тогда когда пришел ответ на предыдущую OutAStepByStep
-      // обновление кеша ROT
     }; // end of loop
   }
   catch(EOracleError &E)
@@ -298,18 +273,14 @@ bool scan_tlg(bool sendOutAStepByStep)
           firstStepByStepTlgId=tlg_id;
         }
 
-        // if (TlgQry.FieldIsNULL("ip_address")||TlgQry.FieldIsNULL("ip_port"))
-        //   throw Exception("Unknown receiver %s", TlgQry.FieldAsString("receiver"));
-
-        const sockaddr_in * addrPtr = nullptr;
-
         if (TlgQry.FieldIsNULL("receiver")
-         || TlgQry.FieldIsNULL("sender")
-         || nullptr == (addrPtr = getAddrByName(TlgQry.FieldAsString("receiver")))) {
+         || TlgQry.FieldIsNULL("sender")) {
           throw Exception("Unknown receiver %s", TlgQry.FieldAsString("receiver"));
         }
 
-        const auto iCount = addrCount.find(*addrPtr);
+        const sockaddr_in addr_to = getAddrByName(TlgQry.FieldAsString("receiver"));
+
+        const auto iCount = addrCount.find(addr_to);
 
         if (iCount!=addrCount.end() && iCount->second>=PROC_COUNT()) continue;
 
@@ -366,7 +337,7 @@ bool scan_tlg(bool sendOutAStepByStep)
             tlg_out.TTL=htons(ttl16);
 
             if (sendto(sockfd,(char*)&tlg_out,sizeof(tlg_out)-sizeof(tlg_out.body)+len,0,
-                       (const sockaddr*)addrPtr,sizeof(sockaddr_in))==-1)
+                       (const sockaddr*)&addr_to,sizeof(sockaddr_in))==-1)
               throw Exception("'sendto' error %d: %s",errno,strerror(errno));
             monitor_idle_zapr_type(1, QUEPOT_NULL);
             TlgUpdQry.SetVariable("id", tlg_id);
@@ -384,7 +355,7 @@ bool scan_tlg(bool sendOutAStepByStep)
         if (addrCount.end() != iCount) {
           iCount->second++;
         } else {
-          addrCount.insert(iCount, std::make_pair(*addrPtr, 1));
+          addrCount.insert(iCount, std::make_pair(addr_to, 1));
         }
       }
       catch(EXCEPTIONS::Exception &E)
