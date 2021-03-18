@@ -3901,7 +3901,7 @@ void arx_internal_ReadDests( int move_id, TSOPPDests &dests, string &reference, 
     Qry.Execute();
     if ( !Qry.Eof )  reference = Qry.FieldAsString( "reference" );
     dests.clear();
-    Qry.Clear();
+    Qry.ClearParams();
     DB::TQuery MQry(PgOra::getROSession("ARX_MOVE_REF"));
       MQry.SQLText =
     "SELECT point_id,point_num,first_point,airp,airp_fmt,airline,airline_fmt,flt_no,suffix,suffix_fmt,craft,craft_fmt,bort,"
@@ -3933,7 +3933,7 @@ void internal_ReadDests( int move_id, TSOPPDests &dests, string &reference, TDat
   Qry.Execute();
   if ( !Qry.Eof )  reference = Qry.FieldAsString( "reference" );
   dests.clear();
-  Qry.Clear();
+  Qry.ClearParams();
   Qry.SQLText =
     "SELECT point_id,point_num,first_point,airp,airp_fmt,airline,airline_fmt,flt_no,suffix,suffix_fmt,craft,craft_fmt,bort,"\
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"\
@@ -6566,7 +6566,7 @@ void SoppInterface::ReadDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
 }
 
 void SoppInterface::WriteDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{     
+{
     xmlNodePtr dataNode = NodeAsNode( "data/doc", reqNode );
     validateField( NodeAsString( "loader", dataNode ), "É‡„ßÁ®™" );
     validateField( NodeAsString( "pts_agent ", dataNode ), "Ä£•≠‚ ëéèè" );

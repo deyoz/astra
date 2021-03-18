@@ -284,7 +284,6 @@ void ArxFltTaskLogRun(TDateTime part_key, XMLRequestCtxt *ctxt,
     STAT::set_variables(resNode);
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
     NewTextChild(variablesNode, "report_title", getLocaleText("Журнал задач рейса"));
-    DB::TQuery Qry(PgOra::getROSession("ARX_EVENTS"));
 
     int count = 0;
 
@@ -292,7 +291,6 @@ void ArxFltTaskLogRun(TDateTime part_key, XMLRequestCtxt *ctxt,
     xmlNodePtr headerNode = NewTextChild(paxLogNode, "header");
     NewTextChild(headerNode, "col", "Агент"); // для совместимости со старой версией терминала
 
-    Qry.Clear();
     string SQLQuery;
     string airline;
 
@@ -327,7 +325,7 @@ void ArxFltTaskLogRun(TDateTime part_key, XMLRequestCtxt *ctxt,
     TPerfTimer tm;
     tm.Init();
     xmlNodePtr rowsNode = NULL;
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession("ARX_EVENTS"));
     Qry.SQLText = SQLQuery;
     Qry.CreateVariable("lang", otString, TReqInfo::Instance()->desk.lang);
     Qry.CreateVariable("point_id", otInteger, point_id);
@@ -543,7 +541,6 @@ void ArxFltLogRun(TDateTime part_key, XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     xmlNodePtr headerNode = NewTextChild(paxLogNode, "header");
     NewTextChild(headerNode, "col", "Агент"); // для совместимости со старой версией терминала
 
-    Qry.Clear();
     string qry1, qry2;
     int move_id = 0;
     string airline;
@@ -596,7 +593,7 @@ void ArxFltLogRun(TDateTime part_key, XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     tm.Init();
     xmlNodePtr rowsNode = NULL;
     for(int i = 0; i < 2; i++) {
-        Qry.Clear();
+        Qry.ClearParams();
         if(i == 0) {
             Qry.SQLText = qry1;
             Qry.CreateVariable("point_id", otInteger, point_id);
@@ -864,13 +861,11 @@ void ArxLogRun(TDateTime part_key, XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
     NewTextChild(variablesNode, "report_title", getLocaleText("Операции по пассажиру"));
     TReqInfo *reqInfo = TReqInfo::Instance();
-    DB::TQuery Qry(PgOra::getROSession("ARX_EVENTS"));
     int count = 0;
 
     xmlNodePtr paxLogNode = NewTextChild(resNode, "PaxLog");
     xmlNodePtr headerNode = NewTextChild(paxLogNode, "header");
     NewTextChild(headerNode, "col", "Агент"); // Для совместимости со старой версией терминала
-    Qry.Clear();
     DB::TQuery AirlineQry(PgOra::getROSession("ARX_POINTS"));
     AirlineQry.CreateVariable("point_id", otInteger, point_id);
 
@@ -878,6 +873,8 @@ void ArxLogRun(TDateTime part_key, XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
         throw UserException("MSG.ERR_MSG.ARX_EVENTS_DISABLED");
     AirlineQry.SQLText = "select airline from arx_points where point_id = :point_id and part_key = :part_key and pr_del >= 0";
     AirlineQry.CreateVariable("part_key", otDate, part_key);
+
+    DB::TQuery Qry(PgOra::getROSession("ARX_EVENTS"));
     Qry.SQLText =
         "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
         "       ev_user, station, ev_order, COALESCE(part_num, 1) AS part_num "
@@ -1143,7 +1140,6 @@ void ArxSystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNod
     map<int, string> TripItems;
     xmlNodePtr rowsNode = NULL;
     TDeskAccess desk_access;
-    Qry.Clear();
         if(ARX_EVENTS_DISABLED())
             throw UserException("MSG.ERR_MSG.ARX_EVENTS_DISABLED");
         Qry.SQLText =

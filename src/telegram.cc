@@ -473,11 +473,10 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     search_params.get(reqNode);
     search_params.dump();
 
-    DB::TQuery Qry(PgOra::getROSession("TLGS"));
     if (search_params.tlg_id!=NoExists)
     {
       search_params.typeb_in_ids.insert(search_params.tlg_id);
-      Qry.Clear();
+      DB::TQuery Qry(PgOra::getROSession("TLGS"));
       Qry.SQLText="SELECT id, typeb_tlg_id FROM tlgs WHERE id=:tlg_id";
       Qry.CreateVariable("tlg_id", otInteger, search_params.tlg_id);
       Qry.Execute();
@@ -491,7 +490,7 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     };
     if (search_params.tlg_num!=NoExists)
     {
-      Qry.Clear();
+      DB::TQuery Qry(PgOra::getROSession("TLGS"));
       Qry.SQLText="SELECT id, typeb_tlg_id FROM tlgs WHERE tlg_num=:tlg_num";
       Qry.CreateVariable("tlg_num", otFloat, search_params.tlg_num);
       Qry.Execute();
@@ -2252,7 +2251,6 @@ void TTlgStat::putTypeBOut(const int queue_tlg_id,
                            const std::string &extra)
 {
   DB::TQuery Qry(PgOra::getRWSession("TLG_STAT"));
-  Qry.Clear();
   Qry.SQLText=
     "INSERT INTO tlg_stat(queue_tlg_id, typeb_tlg_id, typeb_tlg_num, "
     "  sender_sita_addr, sender_canon_name, sender_descr, sender_country, "

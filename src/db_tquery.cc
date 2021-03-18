@@ -82,7 +82,7 @@ public:
     virtual void Close() = 0;
     virtual void Execute() = 0;
     virtual void Next() = 0;
-    virtual void Clear() = 0;
+    virtual void ClearParams() = 0;
     virtual int RowsProcessed() = 0;
     virtual int RowCount() = 0;
     virtual int FieldsCount() = 0;
@@ -141,7 +141,7 @@ public:
     virtual void Close() override;
     virtual void Execute() override;
     virtual void Next() override;
-    virtual void Clear() override;
+    virtual void ClearParams() override;
     virtual int RowsProcessed() override;
     virtual int RowCount() override;
     virtual int FieldsCount() override;
@@ -246,7 +246,7 @@ void TQueryIfaceDbCppImpl::Next()
     }
 }
 
-void TQueryIfaceDbCppImpl::Clear()
+void TQueryIfaceDbCppImpl::ClearParams()
 {
     m_variables.clear();
     m_sqlText.clear();
@@ -666,7 +666,7 @@ public:
     virtual void Close() override;
     virtual void Execute() override;
     virtual void Next() override;
-    virtual void Clear() override;
+    virtual void ClearParams() override;
     virtual int RowsProcessed() override;
     virtual int RowCount() override;
     virtual int FieldsCount() override;
@@ -756,7 +756,7 @@ void TQueryIfaceNativeImpl::Next()
     __NATIVE_CALL_WITHOUT_ARGS__(Next);
 }
 
-void TQueryIfaceNativeImpl::Clear()
+void TQueryIfaceNativeImpl::ClearParams()
 {
     __NATIVE_CALL_WITHOUT_ARGS__(Clear);
 }
@@ -949,7 +949,7 @@ TQuery::~TQuery()
 void TQuery::Close() { m_impl->Close(); }
 void TQuery::Execute() { m_impl->Execute(); }
 void TQuery::Next() { m_impl->Next(); }
-void TQuery::Clear() { m_impl->Clear(); }
+void TQuery::ClearParams() { m_impl->ClearParams(); }
 
 int TQuery::RowsProcessed() { return m_impl->RowsProcessed(); }
 int TQuery::RowCount() { return m_impl->RowCount(); }
@@ -1096,7 +1096,7 @@ START_TEST(common_usage)
 
     Qry.Execute();
 
-    Qry.Clear();
+    Qry.ClearParams();
 
     Qry.SQLText = "select FLD1, FLD2, FLD3, FLD4, 3.14159 as FLD5 from TEST_TQUERY where FLD1=:fld1 and FLD2=:fld2 and FLD3=:fld3";
 
@@ -1146,19 +1146,19 @@ START_TEST(common_usage)
         fail_unless(Qry.FieldName(4) == "FLD5", "FieldName failed");
     }
 
-    Qry.Clear();
+    Qry.ClearParams();
     Qry.SQLText = "insert into TEST_TQUERY(FLD1, FLD3) values (:fld1, :fld3)";
     Qry.CreateVariable("fld1", otInteger, 101);
     Qry.CreateVariable("fld3", otString,  "");
     Qry.Execute();
 
-    Qry.Clear();
+    Qry.ClearParams();
     Qry.SQLText = "insert into TEST_TQUERY(FLD1, FLD3) values (:fld1, :fld3)";
     Qry.CreateVariable("fld1", otInteger, 102);
     Qry.CreateVariable("fld3", otString,  FNull);
     Qry.Execute();
 
-    Qry.Clear();
+    Qry.ClearParams();
     Qry.SQLText = "select FLD1, FLD3 from TEST_TQUERY where FLD1 > 100";
     Qry.Execute();
     std::vector<int> ids1, ids2;
@@ -1218,13 +1218,13 @@ START_TEST(rowcount_rowsprocessed_eof)
                          << "rc=" << OraQry.RowCount();
     }
 
-    OraQry.Clear();
+    OraQry.ClearParams();
     OraQry.SQLText = "delete from TEST_ORA_ROWCOUNT where ID < 15";
     OraQry.Execute();
     int oraRp2 = OraQry.RowsProcessed();
     int oraRc2 = OraQry.RowCount();
 
-    OraQry.Clear();
+    OraQry.ClearParams();
     OraQry.SQLText = "select ID from TEST_ORA_ROWCOUNT";
     OraQry.Execute();
     int oraRp3 = OraQry.RowsProcessed();
@@ -1241,7 +1241,7 @@ START_TEST(rowcount_rowsprocessed_eof)
                          << "rc=" << OraQry.RowCount();
     }
 
-    OraQry.Clear();
+    OraQry.ClearParams();
     OraQry.SQLText = "update TEST_ORA_ROWCOUNT set ID=100 where ID=9999";
     OraQry.Execute();
     fail_unless(OraQry.RowsProcessed() == 0);
@@ -1270,13 +1270,13 @@ START_TEST(rowcount_rowsprocessed_eof)
 
     }
 
-    PgQry.Clear();
+    PgQry.ClearParams();
     PgQry.SQLText = "delete from TEST_PG_ROWCOUNT where ID < 15";
     PgQry.Execute();
     int pgRp2 = PgQry.RowsProcessed();
     int pgRc2 = PgQry.RowCount();
 
-    PgQry.Clear();
+    PgQry.ClearParams();
     PgQry.SQLText = "select ID from TEST_PG_ROWCOUNT";
     PgQry.Execute();
     int pgRp3 = PgQry.RowsProcessed();
@@ -1293,7 +1293,7 @@ START_TEST(rowcount_rowsprocessed_eof)
                          << "rc=" << PgQry.RowCount();
     }
 
-    PgQry.Clear();
+    PgQry.ClearParams();
     PgQry.SQLText = "update TEST_PG_ROWCOUNT set ID=100 where ID=9999";
     PgQry.Execute();
     fail_unless(PgQry.RowsProcessed() == 0);
@@ -1313,12 +1313,12 @@ START_TEST(rowcount_rowsprocessed_eof)
     fail_unless(OraRpVec2 == PgRpVec2);
     fail_unless(OraRcVec2 == PgRcVec2);
 
-    OraQry.Clear();
+    OraQry.ClearParams();
     OraQry.SQLText = "select ID from TEST_ORA_ROWCOUNT where ID=16";
     OraQry.Execute();
     int OraEof = OraQry.Eof;
 
-    PgQry.Clear();
+    PgQry.ClearParams();
     PgQry.SQLText = "select ID from TEST_PG_ROWCOUNT where ID=16";
     PgQry.Execute();
     int PgEof = PgQry.Eof;
@@ -1393,7 +1393,7 @@ START_TEST(compare_empty_string_behavior)
     Qry.CreateVariable("fld2", otString, "");
     Qry.Execute();
 
-    Qry.Clear();
+    Qry.ClearParams();
     Qry.SQLText = "select FLD1, FLD2 from TEST_EMPTY_STRING";
     Qry.Execute();
     for(; !Qry.Eof; Qry.Next()) {
@@ -1422,7 +1422,7 @@ START_TEST(throw_errors)
         fail_unless(e.Code == 1, "Invalid EOracleError error code!");
     }
 
-    Qry.Clear();
+    Qry.ClearParams();
     Qry.SQLText = "delete from TEST_THROW_ERRORS";
     // any query after exception
     Qry.Execute();

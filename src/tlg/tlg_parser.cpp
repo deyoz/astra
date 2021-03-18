@@ -6184,10 +6184,9 @@ static void onChangeClass(int pax_id, ASTRA::TClass cl)
 void SaveDCSBaggage(int pax_id, const TNameElement &ne)
 {
   if (ne.bag.Empty() && ne.tags.empty()) return;
-  DB::TQuery QryBag(PgOra::getRWSession("DCS_BAG"));
   if (!ne.bag.Empty())
   {
-    QryBag.Clear();
+    DB::TQuery QryBag(PgOra::getRWSession("DCS_BAG"));
     QryBag.SQLText=
       "INSERT INTO dcs_bag(pax_id, bag_amount, bag_weight, rk_weight, weight_unit) "
       "VALUES(:pax_id, :bag_amount, :bag_weight, :rk_weight, :weight_unit)";
@@ -6201,7 +6200,6 @@ void SaveDCSBaggage(int pax_id, const TNameElement &ne)
   if (!ne.tags.empty())
   {
     DB::TQuery QryTags(PgOra::getRWSession("DCS_TAGS"));
-    QryTags.Clear();
     QryTags.SQLText=
       "INSERT INTO dcs_tags(pax_id, alpha_no, numeric_no, airp_arv_final) "
       "VALUES(:pax_id, :alpha_no, :numeric_no, :airp_arv_final)";
@@ -6760,7 +6758,6 @@ void loadCrsDataStat(int point_id, const std::string& sender,
                      int& pr_pnl)
 {
   DB::TQuery Qry(PgOra::getRWSession("CRS_DATA_STAT"));
-  Qry.Clear();
   Qry.SQLText=
     "SELECT last_resa,last_tranzit,last_avail,last_cfg,last_rbd,pr_pnl "
     "FROM crs_data_stat "
@@ -6790,7 +6787,6 @@ std::optional<bool> getCrsSet_pr_numeric_pnl(const std::string& sender,
                                              const TFltInfo& flt)
 {
   DB::TQuery Qry(PgOra::getROSession("CRS_SET"));
-  Qry.Clear();
   Qry.SQLText=
     "SELECT pr_numeric_pnl FROM crs_set "
     "WHERE crs=:crs AND airline=:airline AND "
@@ -6837,7 +6833,6 @@ bool insertCrsSet(int new_id,
 std::string getCrsTransfer_airp_arv_final(const PnrId_t& pnr_id)
 {
   DB::TQuery Qry(PgOra::getROSession("CRS_TRANSFER"));
-  Qry.Clear();
   Qry.SQLText=
       "SELECT airp_arv "
       "FROM crs_transfer "
@@ -7149,7 +7144,6 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         CrsInfInsQry.DeclareVariable("inf_id",otInteger);
 
         DB::TQuery CrsTransferQry(PgOra::getRWSession("CRS_TRANSFER"));
-        CrsTransferQry.Clear();
         CrsTransferQry.SQLText=
           "INSERT INTO crs_transfer(pnr_id,transfer_num,airline,flt_no,suffix,local_date,airp_dep,airp_arv,subclass) "
           "VALUES(:pnr_id,:transfer_num,:airline,:flt_no,:suffix,:local_date,:airp_dep,:airp_arv,:subclass)";

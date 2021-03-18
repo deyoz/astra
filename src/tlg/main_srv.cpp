@@ -363,7 +363,6 @@ void process_tlg(void)
             int tlg_id = getNextTlgNum();
 
             DB::TQuery TlgInsQry(PgOra::getRWSession("TLGS"));
-            TlgInsQry.Clear();
             TlgInsQry.CreateVariable("id",otInteger,tlg_id);
             TlgInsQry.CreateVariable("sender",otString,tlg_in.Sender);
             TlgInsQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);

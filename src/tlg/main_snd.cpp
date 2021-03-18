@@ -197,8 +197,6 @@ bool scan_tlg(bool sendOutAStepByStep)
   static DB::TQuery TlgQry(PgOra::getROSession("TLG_QUEUE"));
   if (TlgQry.SQLText.empty())
   {
-    TlgQry.Clear();
-
     TlgQry.SQLText = PgOra::supportsPg("TLG_QUEUE")
 
      ? "SELECT   id, tlg_num, sender, receiver, priority, "
@@ -218,7 +216,6 @@ bool scan_tlg(bool sendOutAStepByStep)
   static DB::TQuery TlgUpdQry(PgOra::getRWSession("TLG_QUEUE"));
   if (TlgUpdQry.SQLText.empty())
   {
-    TlgUpdQry.Clear();
     TlgUpdQry.SQLText=
       "UPDATE tlg_queue SET last_send=:last_send "
       "WHERE id=:id AND "
