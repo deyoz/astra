@@ -158,8 +158,50 @@ bool deleteTCkinSegment(GrpId_t grp_id, int num)
   return cur.rowcount() > 0;
 }
 
+bool existsTransfer(PointId_t point_id)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": point_id=" << point_id;
+  auto cur = make_db_curs(
+        "SELECT 1 FROM TRANSFER "
+        "WHERE POINT_ID_TRFER = :point_id "
+        "FETCH FIRST 1 ROWS ONLY ",
+        PgOra::getRWSession("TRFER_TRIPS"));
+  cur.stb()
+      .bind(":point_id", point_id.get())
+      .EXfet();
+
+  LogTrace(TRACE6) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
+bool existsTCkinSegments(PointId_t point_id)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": point_id=" << point_id;
+  auto cur = make_db_curs(
+        "SELECT 1 FROM TCKIN_SEGMENTS "
+        "WHERE POINT_ID_TRFER = :point_id "
+        "FETCH FIRST 1 ROWS ONLY ",
+        PgOra::getRWSession("TRFER_TRIPS"));
+  cur.stb()
+      .bind(":point_id", point_id.get())
+      .EXfet();
+
+  LogTrace(TRACE6) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
 bool deleteTransferTrips(PointId_t point_id)
 {
+  if (existsTransfer(point_id)) {
+    return false;
+  }
+  if (existsTCkinSegments(point_id)) {
+    return false;
+  }
   LogTrace(TRACE6) << __func__
                    << ": point_id=" << point_id;
   auto cur = make_db_curs(
@@ -179,10 +221,12 @@ bool deleteTransferTrips(PointId_t point_id)
 
 bool deleteTransfers(GrpId_t grp_id)
 {
+  LogTrace(TRACE6) << __func__ << ": grp_id=" << grp_id;
   int result = 0;
   const std::vector<TransferData> transfers = loadTransfers(grp_id);
   for (const TransferData& transfer: transfers) {
     result += deleteTransfer(grp_id, transfer.num) ? 1 : 0;
+    result += deleteTransferTrips(PointId_t(transfer.point_id)) ? 1 : 0;
   }
   result += deleteTCkinSegments(grp_id) ? 1 : 0;
   return result > 0;
