@@ -15,6 +15,7 @@
 #include "term_version.h"
 #include "dev_utils.h"
 #include "qrys.h"
+#include "astra_calls.h"
 
 #include <jxtlib/jxt_cont.h>
 #include <serverlib/testmode.h>
@@ -1461,6 +1462,12 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       }
     }
     showBasicInfo();
+
+    vector<string> paramsList;
+    GetTerminalParams(reqNode,paramsList);
+    if ( AstraCalls::isUserLogonWithBalance( paramsList ) ) {
+       AstraCalls::SetAstraSpecMarkLibraRequest( resNode );
+    }
 }
 
 void MainDCSInterface::UserLogoff(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

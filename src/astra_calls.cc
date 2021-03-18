@@ -58,6 +58,23 @@ using namespace BASIC::date_time;
     }
 
 //---------------------------------------------------------------------------------------
+bool isUserLogonWithBalance( const std::vector<std::string>& run_params) {
+  for ( const auto& s : run_params ) {
+      if ( s.find( BALANCE_RUN_PARAM ) != std::string::npos ) {
+        return true;
+      }
+  }
+  return false;
+}
+
+void SetAstraSpecMarkLibraRequest( xmlNodePtr resNode )
+{
+  xmlNodePtr n = NewTextChild( resNode, "TAstraSpecMarkRequestSets" );
+  n = NewTextChild( n, "item" );
+  NewTextChild( n, "SpecMarkRequestType", "asrLibra" );
+  NewTextChild( n, "flag", 1 );
+  NewTextChild( n, "offset", 87 );
+}
 
 static std::string make_full_tlg_text(const std::string& source,
                                       const std::string& content)
