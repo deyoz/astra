@@ -5823,10 +5823,9 @@ int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type, TSearchFltInfo
 
 bool isDeleteTypeBContent(int point_id, const THeadingInfo& info)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
   if (strcmp(info.tlg_type,"SOM")==0)
   {
+    DB::TQuery Qry(PgOra::getROSession("ORACLE"));
     Qry.SQLText=
       "SELECT MAX(time_create) AS max_time_create "
       "FROM tlgs_in,tlg_source "
@@ -5836,10 +5835,16 @@ bool isDeleteTypeBContent(int point_id, const THeadingInfo& info)
       "      tlgs_in.type=:tlg_type";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.CreateVariable("tlg_type",otString,info.tlg_type);
-  } else
+    Qry.Execute();
+    return Qry.Eof ||
+           Qry.FieldIsNULL("max_time_create") ||
+           Qry.FieldAsDateTime("max_time_create") <= info.time_create;
+  }
+
   if (strcmp(info.tlg_type,"BTM")==0 ||
       strcmp(info.tlg_type,"PTM")==0)
   {
+    DB::TQuery Qry(PgOra::getROSession("ORACLE"));
     Qry.SQLText=
       "SELECT MAX(time_create) AS max_time_create "
       "FROM tlgs_in,tlg_source "
@@ -5849,9 +5854,15 @@ bool isDeleteTypeBContent(int point_id, const THeadingInfo& info)
       "      tlgs_in.type=:tlg_type";
     Qry.CreateVariable("point_id_in",otInteger,point_id);
     Qry.CreateVariable("tlg_type",otString,info.tlg_type);
-  } else
+    Qry.Execute();
+    return Qry.Eof ||
+           Qry.FieldIsNULL("max_time_create") ||
+           Qry.FieldAsDateTime("max_time_create") <= info.time_create;
+  }
+
   if (strcmp(info.tlg_type,"PRL")==0)
   {
+    DB::TQuery Qry(PgOra::getROSession("TYPEB_DATA_STAT"));
     Qry.SQLText=
       "SELECT last_data AS max_time_create "
       "FROM typeb_data_stat "
@@ -5859,12 +5870,14 @@ bool isDeleteTypeBContent(int point_id, const THeadingInfo& info)
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.CreateVariable("system",otString,"DCS");
     Qry.CreateVariable("sender",otString,info.sender);
-  } else return false;
-  Qry.Execute();
-  return Qry.Eof ||
-         Qry.FieldIsNULL("max_time_create") ||
-         Qry.FieldAsDateTime("max_time_create") <= info.time_create;
-};
+    Qry.Execute();
+    return Qry.Eof ||
+           Qry.FieldIsNULL("max_time_create") ||
+           Qry.FieldAsDateTime("max_time_create") <= info.time_create;
+  }
+
+  return false;
+}
 
 bool DeleteSOMContent(int point_id, const THeadingInfo& info)
 {
@@ -6841,6 +6854,38 @@ std::string getCrsTransfer_airp_arv_final(const PnrId_t& pnr_id)
   return {};
 }
 
+bool saveTypeBDataStat(const PointIdTlg_t& point_id, const std::string& system,
+                       const std::string& sender,
+                       const TDateTime& time_create)
+{
+  QParams QryParams;
+  QryParams << QParam("point_id", otInteger, point_id.get())
+            << QParam("system", otString, system)
+            << QParam("sender", otString, sender)
+            << QParam("time_create", otDate, time_create);
+
+  DB::TCachedQuery update(
+        PgOra::getRWSession("TYPEB_DATA_STAT"),
+        "UPDATE typeb_data_stat "
+        "SET last_data=GREATEST(last_data,:time_create) "
+        "WHERE point_id=:point_id "
+        "AND system=:system "
+        "AND sender=:sender ",
+        QryParams);
+  update.get().Execute();
+
+  if (update.get().RowsProcessed()) {
+    return true;
+  }
+  DB::TCachedQuery insert(
+        PgOra::getRWSession("TYPEB_DATA_STAT"),
+        "INSERT INTO typeb_data_stat(point_id,system,sender,last_data) "
+        "VALUES(:point_id,:system,:sender,:time_create) ",
+        QryParams);
+  insert.get().Execute();
+  return bool(insert.get().RowsProcessed());
+}
+
 bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& con, bool forcibly)
 {
   vector<TTotalsByDest>::iterator iTotals;
@@ -6886,22 +6931,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
   {
     if (E.Code!=1) throw;
   };
-
-  Qry.Clear();
-  Qry.SQLText=
-    "BEGIN "
-    "  UPDATE typeb_data_stat SET last_data=GREATEST(last_data,:time_create) "
-    "  WHERE point_id=:point_id AND system=:system AND sender=:sender; "
-    "  IF SQL%NOTFOUND THEN "
-    "    INSERT INTO typeb_data_stat(point_id,system,sender,last_data) "
-    "    VALUES(:point_id,:system,:sender,:time_create); "
-    "  END IF; "
-    "END;";
-  Qry.CreateVariable("point_id",otInteger,point_id);
-  Qry.CreateVariable("system",otString,system);
-  Qry.CreateVariable("sender",otString,info.sender);
-  Qry.CreateVariable("time_create",otDate,info.time_create);
-  Qry.Execute();
+  saveTypeBDataStat(PointIdTlg_t(point_id), system, info.sender, info.time_create);
 
   bool pr_numeric_pnl=false;
   TDateTime last_resa=NoExists,

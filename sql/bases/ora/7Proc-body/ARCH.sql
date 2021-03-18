@@ -1394,7 +1394,6 @@ pnrids  TIdsTable;
 paxids  TIdsTable;
 i       BINARY_INTEGER;
 BEGIN
-  DELETE FROM typeb_data_stat WHERE point_id=vpoint_id;
   DELETE FROM tlg_comp_layers WHERE point_id=vpoint_id;
   UPDATE crs_displace2 SET point_id_tlg=NULL WHERE point_id_tlg=vpoint_id;
 END tlg_trip;

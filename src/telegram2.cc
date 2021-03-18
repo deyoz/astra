@@ -8973,6 +8973,21 @@ class TRBD:list<pair<string, list<string> > > {
         void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
 };
 
+bool existsTypeBDataStat(const PointIdTlg_t& point_id_tlg)
+{
+  QParams QryParams;
+  QryParams << QParam("point_id_tlg", otInteger, point_id_tlg.get());
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("TYPEB_DATA_STAT"),
+        "SELECT 1 FROM TYPEB_DATA_STAT "
+        "WHERE POINT_ID = :point_id_tlg "
+        "AND SYSTEM = 'CRS' "
+        "FETCH FIRST 1 ROWS ONLY ",
+        QryParams);
+  Qry.get().Execute();
+  return not Qry.get().Eof;
+}
+
 void TRBD::get(TypeB::TDetailCreateInfo &info)
 {
     const TypeB::TPRLOptions *PRLOptions=NULL;
@@ -8986,38 +9001,40 @@ void TRBD::get(TypeB::TDetailCreateInfo &info)
         // 1. шаг - определить crs_rbd.point_id (который есть tlg_trips.point_id)
         int crs_rbd_point_id_mark = NoExists;
         int crs_rbd_point_id_oper = NoExists;
-        QParams QryParams;
-        QryParams << QParam("point_id", otInteger, info.point_id);
-        TCachedQuery Qry(
-                "SELECT tlg_trips.point_id, tlg_trips.airline, tlg_trips.flt_no, tlg_trips.suffix "
-                "FROM tlg_trips, tlg_binding "
-                "WHERE tlg_trips.point_id=tlg_binding.point_id_tlg AND "
-                "             tlg_binding.point_id_spp=:point_id and exists ( "
-                "               select * from typeb_data_stat where "
-                "                   typeb_data_stat.point_id = tlg_trips.point_id and "
-                "                   typeb_data_stat.system = 'CRS' and rownum < 2)",
+        const std::set<PointIdTlg_t> point_id_tlg_set =
+            getPointIdTlgByPointIdsSpp(PointId_t(info.point_id));
+        for (const PointIdTlg_t& point_id_tlg: point_id_tlg_set) {
+          if (!existsTypeBDataStat(point_id_tlg)) {
+            continue;
+          }
+          QParams QryParams;
+          QryParams << QParam("point_id_tlg", otInteger, point_id_tlg.get());
+          DB::TCachedQuery Qry(
+                PgOra::getROSession("TLG_TRIPS"),
+                "SELECT point_id, airline, flt_no, suffix "
+                "FROM tlg_trips "
+                "WHERE tlg_trips.point_id=:point_id_tlg ",
                 QryParams);
-        Qry.get().Execute();
-        if(not Qry.get().Eof) {
-            for(; not Qry.get().Eof; Qry.get().Next()) {
-                TMktFlight flt;
-                int tlg_trips_point_id = Qry.get().FieldAsInteger("point_id");
-                flt.airline = Qry.get().FieldAsString("airline");
-                flt.flt_no = Qry.get().FieldAsInteger("flt_no");
-                flt.suffix = Qry.get().FieldAsString("suffix");
-                if(markOptions and not markOptions->mark_info.empty()) {
-                    if(flt == markOptions->mark_info) {
-                        crs_rbd_point_id_mark = tlg_trips_point_id;
-                    }
-                }
-                if(
-                        info.airline == flt.airline and
-                        info.flt_no == flt.flt_no and
-                        info.suffix == flt.suffix
-                        ) {
-                    crs_rbd_point_id_oper = tlg_trips_point_id;
+          Qry.get().Execute();
+          if(not Qry.get().Eof) {
+            TMktFlight flt;
+            int tlg_trips_point_id = Qry.get().FieldAsInteger("point_id");
+            flt.airline = Qry.get().FieldAsString("airline");
+            flt.flt_no = Qry.get().FieldAsInteger("flt_no");
+            flt.suffix = Qry.get().FieldAsString("suffix");
+            if(markOptions and not markOptions->mark_info.empty()) {
+                if(flt == markOptions->mark_info) {
+                    crs_rbd_point_id_mark = tlg_trips_point_id;
                 }
             }
+            if(
+                    info.airline == flt.airline and
+                    info.flt_no == flt.flt_no and
+                    info.suffix == flt.suffix
+                    ) {
+                crs_rbd_point_id_oper = tlg_trips_point_id;
+            }
+          }
         }
         // 2. шаг. Определить crs_rbd.sender
         string crs_rbd_sender;
@@ -9025,7 +9042,7 @@ void TRBD::get(TypeB::TDetailCreateInfo &info)
             crs_rbd_sender = markOptions->crs;
 
         // 3. шаг. Выбор наиболее подходящих point_id и sender из CRS_RBD
-        QryParams.clear();
+        QParams QryParams;
 
         if(crs_rbd_point_id_mark == NoExists)
             QryParams << QParam("point_id_tlg_mark", otInteger, FNull);
