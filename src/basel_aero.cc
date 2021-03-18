@@ -40,7 +40,7 @@ TBaselAeroAirps *TBaselAeroAirps::Instance()
 
 TBaselAeroAirps::TBaselAeroAirps()
 {
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("FILE_SETS"));
   Qry.SQLText =
     "SELECT airp, dir FROM file_sets WHERE code=:code AND pr_denial=0";
   Qry.CreateVariable( "code", otString, BASEL_AERO );
@@ -112,16 +112,19 @@ void sych_basel_aero_stat( TDateTime utcdate )
   TripSetsQry.SQLText =
     "UPDATE trip_sets SET pr_basel_stat=1 WHERE point_id=:point_id";
   TripSetsQry.DeclareVariable( "point_id", otInteger );
-  TQuery ReWriteQry(&OraSession);
+
+  DB::TQuery ReWriteQry(PgOra::getRWSession("FILE_SETS"));
   ReWriteQry.SQLText =
     "SELECT last_create FROM file_sets WHERE airp=:airp AND code=:code";
   ReWriteQry.DeclareVariable( "airp", otString );
   ReWriteQry.CreateVariable( "code", otString, BASEL_AERO );
+
   TQuery DeleteQry(&OraSession);
   DeleteQry.SQLText =
     "DELETE basel_stat WHERE airp=:airp AND rownum <= 10000";
   DeleteQry.DeclareVariable( "airp", otString );
-  TQuery FileSetsQry(&OraSession);
+
+  DB::TQuery FileSetsQry(PgOra::getRWSession("FILE_SETS"));
   FileSetsQry.SQLText =
     "UPDATE file_sets SET last_create=:vdate WHERE code=:code AND airp=:airp";
   FileSetsQry.CreateVariable( "vdate", otDate, utcdate );

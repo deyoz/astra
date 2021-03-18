@@ -2232,7 +2232,7 @@ bool is_sync_flights( int point_id )
 
 bool is_sync_FileParamSets( const TTripInfo &tripInfo, const std::string& syncType )
 {
-  TQuery Qry( &OraSession );
+  DB::TQuery Qry(PgOra::getROSession("FILE_PARAM_SETS"));
   Qry.Clear();
   Qry.SQLText =
       "SELECT id FROM file_param_sets "

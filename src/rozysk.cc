@@ -1463,7 +1463,7 @@ void sync_mvd(void)
   if (Min%15!=2) return;
   Min-=2;
 
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getRWSession("FILE_SETS"));
   Qry.SQLText =
     "UPDATE file_sets SET last_create=:now WHERE code=:code AND "
     "                 (airp=:airp OR airp IS NULL AND :airp IS NULL)";
@@ -1471,8 +1471,7 @@ void sync_mvd(void)
   Qry.DeclareVariable("airp",otString);
   Qry.DeclareVariable("now",otDate);
 
-  TQuery FilesQry(&OraSession);
-  FilesQry.Clear();
+  DB::TQuery FilesQry(PgOra::getRWSession("FILE_SETS"));
   FilesQry.SQLText=
     "SELECT name,dir,last_create,airp "
     "FROM file_sets "
@@ -1502,7 +1501,7 @@ void sync_mvd(void)
 
     FilesQry.SetVariable("code",format);
 
-    Qry.SetVariable("code",FilesQry.GetVariableAsString("code"));
+    Qry.SetVariable("code", format);
     Qry.SetVariable("now",now);
 
     FilesQry.Execute();
@@ -1530,13 +1529,13 @@ void sync_mvd(void)
       if (FilesQry.FieldIsNULL("last_create"))
         create_file(format,
                     now-1,now,
-                    FilesQry.FieldAsString("airp"),
+                    FilesQry.FieldAsString("airp").c_str(),
                     tz_region.c_str(),
                     file_name.str().c_str());
       else
         create_file(format,
                     FilesQry.FieldAsDateTime("last_create"),now,
-                    FilesQry.FieldAsString("airp"),
+                    FilesQry.FieldAsString("airp").c_str(),
                     tz_region.c_str(),
                     file_name.str().c_str());
 
