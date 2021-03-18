@@ -14,6 +14,7 @@
 #include "tlg.h"
 #include <serverlib/query_runner.h>
 #include <serverlib/ourtime.h>
+#include <serverlib/timer.h>
 #include <libtlg/hth.h>
 #include <libtlg/telegrams.h>
 #include "db_tquery.h"
@@ -21,7 +22,7 @@
 #include "PgOraConfig.h"
 
 #define NICKNAME "VLAD"
-#include <serverlib/test.h>
+#include <serverlib/slogger.h>
 
 using namespace ASTRA;
 using namespace BASIC::date_time;
@@ -84,13 +85,18 @@ static int ROT_UPDATE_INTERVAL() //секунды
 
 static int sockfd=-1;
 
-using AddrMap = std::map<pair<std::string, std::string>, sockaddr_in>;
+using AddrMap = std::map<std::string, sockaddr_in>;
 
-static bool scan_tlg(bool sendOutAStepByStep, const AddrMap& addrMap);
+static AddrMap ROT_MAP;
+static std::time_t lastRotUpdate;
+
+static bool scan_tlg(bool sendOutAStepByStep);
 //int h2h_out(H2H_MSG *h2h_msg);
 
-AddrMap getAddrMap()
+void updateAddrMap()
 {
+    HelpCpp::Timer timer;
+
     DbCpp::CursCtl cur = make_db_curs(
        "SELECT CANON_NAME, OWN_CANON_NAME, IP_ADDRESS, IP_PORT "
        "FROM ROT",
@@ -111,7 +117,7 @@ AddrMap getAddrMap()
     AddrMap addrMap;
 
     while (!cur.fen()) {
-        sockaddr_in& to_addr = addrMap[std::make_pair(receiver, sender)];
+        sockaddr_in& to_addr = addrMap[receiver];
         to_addr.sin_family = AF_INET;
         to_addr.sin_port = htons(ip_port);
 
@@ -120,16 +126,16 @@ AddrMap getAddrMap()
         }
     }
 
-    return addrMap;
+    LogTrace(TRACE6) << __FUNCTION__ << ": " << timer;
+
+    ROT_MAP = addrMap;
+    lastRotUpdate = std::time(nullptr);
 }
 
-const sockaddr_in* getAddrByName(
-    const AddrMap& map,
-    const std::string& receiver,
-    const std::string& sender)
+const sockaddr_in* getAddrByName(const std::string& receiver)
 {
-    const auto& it = map.find(std::make_pair(receiver, sender));
-    if (map.end() != it) {
+    const auto& it = ROT_MAP.find(receiver);
+    if (ROT_MAP.end() != it) {
         return &it->second;
     }
     return nullptr;
@@ -165,26 +171,25 @@ int main_snd_tcl(int supervisorSocket, int argc, char *argv[])
     char buf[10];
     bool receivedCmdTlgSndStepByStep=false;
     TDateTime lastSendOutAStepByStep=NoExists;
-    std::time_t lastRotUpdate = std::time(nullptr);
-    AddrMap addrMap = getAddrMap();
+
     for (;;)
     {
+      if (ROT_UPDATE_INTERVAL() <= std::difftime(std::time(nullptr), lastRotUpdate)) {
+          updateAddrMap();
+      }
+
       InitLogTime(argc>0?argv[0]:NULL);
       bool sendOutAStepByStep=receivedCmdTlgSndStepByStep ||
                               lastSendOutAStepByStep==NoExists ||
                               (lastSendOutAStepByStep<NowUTC()-((double)TLG_STEP_BY_STEP_TIMEOUT())/MSecsPerDay);
 
-      bool queue_not_empty=scan_tlg(sendOutAStepByStep, addrMap);
+      bool queue_not_empty=scan_tlg(sendOutAStepByStep);
       if (sendOutAStepByStep) lastSendOutAStepByStep=NowUTC();
 
       *buf=0;
       waitCmd("CMD_TLG_SND",queue_not_empty?PROC_INTERVAL():WAIT_INTERVAL(),buf,sizeof(buf));
       receivedCmdTlgSndStepByStep=(strchr(buf,'S')!=NULL); //true только тогда когда пришел ответ на предыдущую OutAStepByStep
       // обновление кеша ROT
-      if (ROT_UPDATE_INTERVAL() <= std::difftime(std::time(nullptr), lastRotUpdate)) {
-        lastRotUpdate = std::time(nullptr);
-        addrMap = getAddrMap();
-      }
     }; // end of loop
   }
   catch(EOracleError &E)
@@ -213,7 +218,7 @@ int main_snd_tcl(int supervisorSocket, int argc, char *argv[])
   return 0;
 };
 
-bool scan_tlg(bool sendOutAStepByStep, const AddrMap& addrMap)
+bool scan_tlg(bool sendOutAStepByStep)
 {
   time_t time_start=time(NULL);
 
@@ -300,7 +305,7 @@ bool scan_tlg(bool sendOutAStepByStep, const AddrMap& addrMap)
 
         if (TlgQry.FieldIsNULL("receiver")
          || TlgQry.FieldIsNULL("sender")
-         || nullptr == (addrPtr = getAddrByName(addrMap, TlgQry.FieldAsString("receiver"), TlgQry.FieldAsString("sender")))) {
+         || nullptr == (addrPtr = getAddrByName(TlgQry.FieldAsString("receiver")))) {
           throw Exception("Unknown receiver %s", TlgQry.FieldAsString("receiver"));
         }
 
