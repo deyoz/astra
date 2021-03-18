@@ -185,6 +185,7 @@ Router_impl::Router_impl(IdaType ida)
     int remAddrNumTmp = 0;
     OciCpp::CursCtl c = make_curs(
             "SELECT CANON_NAME, OWN_CANON_NAME, RESP_TIMEOUT, "
+            "IP_ADDRESS, IP_PORT, "
             "H2H, H2H_ADDR, OUR_H2H_ADDR, H2H_REM_ADDR_NUM, ROUTER_TRANSLIT, LOOPBACK "
             "FROM ROT "
             "WHERE ID=:ida");
@@ -192,6 +193,8 @@ Router_impl::Router_impl(IdaType ida)
             def(canon_name_).
             def(own_canon_name_).
             defNull(resp_timeout_, (short)15).
+            def(ipAddress_).
+            def(ipPort_).
             defNull(H2H, defval).
             defNull(H2hDestAddr_, "").
             defNull(H2hSrcAddr_, "").
