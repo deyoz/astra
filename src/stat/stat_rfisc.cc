@@ -814,6 +814,7 @@ void ArxRunRFISCStat(
         TPrintAirline &prn_airline
         )
 {
+    tst();
     QParams QryParams;
     QryParams
         << QParam("FirstDate", otDate, params.FirstDate)

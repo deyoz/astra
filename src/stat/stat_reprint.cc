@@ -102,6 +102,7 @@ void ArxRunReprintStat(
         TReprintAbstractStat &ReprintStat
         )
 {
+    tst();
     TFltInfoCache flt_cache;
     TDeskAccess desk_access;
     for(int pass = 1; pass <= 2; pass++) {

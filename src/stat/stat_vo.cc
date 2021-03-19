@@ -19,13 +19,14 @@ void ArxRunVOStat(
         TVOAbstractStat &VOStat
         )
 {
+    tst();
     for(int pass = 1; pass <= 2; pass++) {
         QParams QryParams;
         QryParams
             << QParam("FirstDate", otDate, params.FirstDate)
             << QParam("LastDate", otDate, params.LastDate);
         QryParams << QParam("arx_trip_date_range", otDate, params.LastDate+ARX_TRIP_DATE_RANGE());
-        string SQLText = "select arx_stat_vo.* from ";
+        string SQLText = "select arx_stat_vo.* from "
             "   arx_stat_vo , "
             "   arx_points ";
         if(pass == 2) {
