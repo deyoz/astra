@@ -1969,7 +1969,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   pax_grp.hall, "
                 "   pax.ticket_no, "
                 "   pax.pax_id, "
-                "   pax_grp.status "
+                "   pax_grp.status, "
                 "   pax.bag_pool_num "
                 "FROM  pax_grp,pax, points "
                 "WHERE "
