@@ -402,7 +402,7 @@ $(GET_ARX_EVENTS $(get point_dep) $(date_format %d.%m.%Y +1))
 
 ###
 #   Тест №3
-#   Чтение архива из stat_arx.cc Функция PaxListRun
+#   Чтение архива из stat_arx.cc Функция ArxPaxListRun
 #
 ###
 

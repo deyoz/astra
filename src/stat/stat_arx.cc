@@ -41,7 +41,11 @@ std::string get_seat_no(int seats, std::string seat_no)
 void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList& excessNodeList,
                   bool isPaxSearch, int pass, int &count, bool isArch)
 {
-  if(Qry.Eof) return;
+  LogTrace5 << __func__ << " isArch: " << isArch << " isPaxSearch: " << isPaxSearch;
+  if(Qry.Eof) {
+      LogTrace5 << __func__ << " NO Data found";
+      return;
+  }
 
   xmlNodePtr paxListNode = GetNode("paxList", resNode);
   if (paxListNode==NULL)
@@ -69,6 +73,8 @@ void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList
   int col_ticket_no = Qry.FieldIndex("ticket_no");
   int col_hall = Qry.FieldIndex("hall");
   int col_status=Qry.FieldIndex("status");
+
+
 
   map<int, TTripItem> TripItems;
 
@@ -139,14 +145,31 @@ void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList
                                                            bag_pool_num, pr_lat).value_or(""));
           NewTextChild(paxNode, "seat_no",  get_seat_no(seats, seat_no));
       } else {
-          NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
-          NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
-          NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
+          int col_bag_amount = Qry.FieldIndex("bag_amount");
+          int col_bag_weight = Qry.FieldIndex("bag_weight");
+          int col_rk_weight = Qry.FieldIndex("rk_weight");
+          int col_excess_wt = Qry.FieldIndex("excess_wt");
+          int col_excess_pc = Qry.FieldIndex("excess_pc");
+          int col_seat_no = Qry.FieldIndex("seat_no");
+          int col_tags = Qry.FieldIndex("tags");
 
-          excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger("excess_pc")),
-                                                    TBagKilos(Qry.FieldAsInteger("excess_wt")));
-          NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
-          NewTextChild(paxNode, "seat_no", Qry.FieldAsString("seat_no"));
+          NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger(col_bag_amount));
+          NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger(col_bag_weight));
+          NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger(col_rk_weight));
+
+          excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger(col_excess_pc)),
+                                                TBagKilos(Qry.FieldAsInteger(col_excess_wt)));
+          NewTextChild(paxNode, "tags", Qry.FieldAsString(col_tags));
+          NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
+
+//          NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
+//          NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
+//          NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
+
+//          excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger("excess_pc")),
+//                                                TBagKilos(Qry.FieldAsInteger("excess_wt")));
+//          NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
+//          NewTextChild(paxNode, "seat_no", Qry.FieldAsString("seat_no"));
       }
 
       NewTextChild(paxNode, "grp_id", grp_id);
@@ -1558,7 +1581,11 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 void UnaccompListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList &excessNodeList,
                        bool isPaxSearch, int pass, int &count, bool isArch)
 {
-  if(Qry.Eof) return;
+  LogTrace5 << __func__ << " isArch: " << isArch << " isPaxSearch: " << isPaxSearch;
+  if(Qry.Eof) {
+      LogTrace5 << __func__ << " No Data found";
+      return;
+  }
 
   xmlNodePtr paxListNode = GetNode("paxList", resNode);
   if (paxListNode==NULL)
