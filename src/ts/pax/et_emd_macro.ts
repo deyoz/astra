@@ -380,3 +380,57 @@ $(defmacro CHANGE_PAX_STATUS_REQUEST
 
 })
 
+$(defmacro TKCREQ_EMD_DISP
+    from
+    to
+    ediref
+    airl
+    tickno
+{UNB+SIRE:1+$(from)+$(to)+xxxxxx:xxxx+$(ediref)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(ediref)"
+MSG+:791"
+ORG+1H:xxx+++$(airl)+Y+::xx+xxxxxx"
+TKT+$(tickno)"
+UNT+5+1"
+UNZ+1+$(ediref)0001"}
+) # end-of-macro TKCREQ_EMD_DISP
+
+$(defmacro TKCREQ_EMD_COS
+    from
+    to
+    ediref
+    airl
+    tickno
+    cpnno
+    status
+    pult=xxxxxx
+{UNB+SIRE:1+$(from)+$(to)+xxxxxx:xxxx+$(ediref)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(ediref)"
+MSG+:793"
+ORG+1H:ŒŽ‚+++$(airl)+Y+::xx+$(pult)"
+EQN+1:TD"
+TKT+$(tickno):J::3"
+CPN+$(cpnno):$(status)"
+UNT+7+1"
+UNZ+1+$(ediref)0001"}
+) # end-of-macro TKCREQ_EMD_COS
+
+$(defmacro TKCRES_EMD_COS
+    from
+    to
+    ediref
+    tickno
+    cpnno
+    status
+{UNB+SIRE:1+$(from)+$(to)+$(yymmdd):$(hhmi)+$(ediref)0001+++T"
+UNH+1+TKCRES:06:1:IA+$(ediref)"
+MSG+:793+3"
+EQN+1:TD"
+TKT+$(tickno):J::3"
+CPN+$(cpnno):$(status)::E"
+UNT+6+1"
+UNZ+1+$(ediref)0001"}
+) # end-of-macro TKCRES_EMD_COS
+
+
+

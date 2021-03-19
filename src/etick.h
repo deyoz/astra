@@ -597,7 +597,20 @@ void ContinueCheckin(xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodeP
 class EMDAutoBoundInterface: public AstraJxtIface
 {
   private:
-    static bool BeforeLock(const EMDAutoBoundId &id, int &point_id, GrpIds &grpIds);
+    static bool allowed(const EMDAutoBoundId &id);
+
+    static GrpIds searchEmd(const EMDAutoBoundId &id,
+                            xmlNodePtr reqNode,
+                            const GrpIds& grpIds,
+                            const PaxIds& paxIds);
+    static void tryBindEmd(const TCkinGrpIds &tckinGrpIds,
+                           const boost::optional< std::list<TEMDCtxtItem> > &confirmed_emd,
+                           TEMDChangeStatusList &emdList);
+    static bool lockSingleFlight(const EMDAutoBoundId &id, const std::string &whence);
+    static bool lockTCkinFlights(const EMDAutoBoundId &id, TCkinGrpIds &tckinGrpIds, const std::string &whence);
+
+    static void addEmdTryBindTasks(const EMDAutoBoundId &id,
+                                   const GrpIds& grpIdsForExcluding);
   public:
     EMDAutoBoundInterface(): AstraJxtIface("EMDAutoBound")
     {
@@ -607,20 +620,12 @@ class EMDAutoBoundInterface: public AstraJxtIface
     void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
     virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
 
-    static bool Lock(const EMDAutoBoundId &id, int &point_id, GrpIds &grpIds, const std::string &whence);
-    static bool Lock(const EMDAutoBoundId &id, int &point_id, TCkinGrpIds &tckin_grp_ids, const std::string &whence);
-    static void EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqNode);
-    static void EMDTryBind(const TCkinGrpIds &tckin_grp_ids,
-                           xmlNodePtr termReqNode,
-                           xmlNodePtr ediResNode,
-                           const boost::optional<edifact::TripTaskForPostpone> &task=boost::none);
-    static void EMDTryBind(const TCkinGrpIds &tckin_grp_ids,
-                           const boost::optional< std::list<TEMDCtxtItem> > &confirmed_emd,
-                           TEMDChangeStatusList &emdList);
-    static void EMDSearch(const EMDAutoBoundId &id,
-                          xmlNodePtr reqNode,
-                          int point_id,
-                          const boost::optional< std::set<int> > &pax_ids);
+    static void refreshEmd(const EMDAutoBoundId &id, xmlNodePtr reqNode);
+    static void lockAndTryBindEmd(const EMDAutoBoundId &id,
+                                  xmlNodePtr termReqNode,
+                                  xmlNodePtr ediResNode,
+                                  const std::string &whence,
+                                  const std::string &taskName="");
 };
 
 void emd_refresh_task(const TTripTaskKey &task);

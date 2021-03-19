@@ -48,19 +48,27 @@ $(cache PIKE RU TRIP_EXAM_WITH_BRD $(cache_iface_ver TRIP_EXAM_WITH_BRD) ""
   insert point_id:$(point_dep) type:102 pr_misc:1 hall:$(hall))
 })
 
+$(defmacro prepare_bt_for_flight
+  point_dep
+  bt_code
+{
+$(cache PIKE RU TRIP_BT $(cache_iface_ver TRIP_BT) ""
+  $(cache_sql_param point_id integer $(point_dep))
+  insert point_id:$(point_dep)
+         bt_code:$(bt_code))
+})
+
 $(defmacro deny_ets_interactive
   airline
   flt_no
   airp_dep
-{
-$(cache PIKE RU MISC_SET $(cache_iface_ver MISC_SET) ""
+  deny=1
+{$(cache PIKE RU MISC_SET $(cache_iface_ver MISC_SET) ""
   insert type_code:11
          airline:$(get_elem_id etAirline $(airline))
          flt_no:$(flt_no)
          airp_dep:$(get_elem_id etAirp $(airp_dep))
-         pr_misc:1
- )
-})
+         pr_misc:$(deny))})
 
 $(defmacro prepare_bp_printing
   airline
@@ -75,6 +83,21 @@ $(cache PIKE RU AIRLINE_BP_SET $(cache_iface_ver AIRLINE_BP_SET) ""
          airp_dep:$(get_elem_id etAirp $(airp_dep))
          class:$(get_elem_id etClass $(class))
          bp_code:$(if $(eq $(bp_type) "") $(get_random_bp_type) $(bp_type))
+ )
+})
+
+$(defmacro allow_gds_exchange
+  airline
+  flt_no
+  airp_dep
+  allow=1
+{
+$(cache PIKE RU MISC_SET $(cache_iface_ver MISC_SET) ""
+  insert type_code:30
+         airline:$(get_elem_id etAirline $(airline))
+         flt_no:$(flt_no)
+         airp_dep:$(get_elem_id etAirp $(airp_dep))
+         pr_misc:$(allow)
  )
 })
 

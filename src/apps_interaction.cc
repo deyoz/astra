@@ -3192,7 +3192,7 @@ void sendAllInfo(const TTripTaskKey &task)
 void sendNewInfo(const TTripTaskKey &task)
 {
     LogTrace(TRACE5) << __FUNCTION__;
-    auto paxIds = getAlarmByPointId(PointId_t(task.point_id), Alarm::SyncAPPS, PaxOrigin::paxPnl);
+    auto paxIds = getPaxIdsWithAlarm(PointId_t(task.point_id), Alarm::SyncAPPS, PaxOrigin::paxPnl);
     TFlights flightsForLock;
     flightsForLock.Get(task.point_id, ftTranzit);
     flightsForLock.Lock(__FUNCTION__);

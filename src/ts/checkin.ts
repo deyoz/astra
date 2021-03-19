@@ -1,4 +1,5 @@
 include(ts/macro.ts)
+include(ts/adm_macro.ts)
 include(ts/sirena_exchange_macro.ts)
 include(ts/spp/write_trips_macro.ts)
 
@@ -8,15 +9,10 @@ include(ts/spp/write_trips_macro.ts)
 ### test 1 - регистрация одного пассажира на одном сегменте
 #########################################################################################
 
-$(init)
-$(init_jxt_pult МОВРОМ)
-$(login)
+$(init_term)
 $(init_eds ЮТ UTET UTDC)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ЮТ 103 ДМД ПЛК РЕПИН ИВАН)
-
-$(sql "update TRIP_SETS set PIECE_CONCEPT=1")
-$(sql "update DESKS set VERSION='201707-0195750'")
 
 $(settcl SIRENA_HOST localhost)
 $(settcl SIRENA_PORT 8008)
@@ -24,6 +20,8 @@ $(settcl SIRENA_PORT 8008)
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
 $(set pax_id $(get_pax_id $(get point_dep) РЕПИН ИВАН))
+
+$(CHANGE_TRIP_SETS $(get point_dep) piece_concept=1)
 
 $(OPEN_CHECKIN $(get point_dep))
 
@@ -146,7 +144,7 @@ $(lastRedisplay)
 $(set grp_id $(get_single_grp_id $(get point_dep) РЕПИН ИВАН))
 $(set tid $(get_single_tid $(get point_dep) РЕПИН ИВАН))
 
-$(sql "insert into TRIP_BT(POINT_ID, TAG_TYPE) values($(get point_dep), 'ВНКС')")
+$(prepare_bt_for_flight $(get point_dep) ВНКС)
 
 
 # добавление багажа c ошибкой
@@ -395,14 +393,11 @@ $(KICK_IN)
 ### test 2 - регистрация группы из двух пассажиров на одном сегменте
 #########################################################################################
 
-$(init)
-$(init_jxt_pult МОВРОМ)
-$(login)
+$(init_term 201509-0173355)
+
 $(init_eds ЮТ UTET UTDC)
 
 $(PREPARE_FLIGHT_2PAXES_1SEG ЮТ 103 ДМД ПЛК РЕПИН ВАСИЛИЙ РЕПИНА АННА)
-
-$(dump_table CRS_PAX)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
@@ -775,15 +770,11 @@ $(KICK_IN)
 ### test 3 - регистрация одного пассажира на одном сегменте с ошибкой обмена с Сиреной
 #########################################################################################
 
-$(init)
-$(init_jxt_pult МОВРОМ)
-$(login)
+$(init_term)
+
 $(init_eds ЮТ UTET UTDC)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ЮТ 103 ДМД ПЛК РЕПИН ИВАН)
-
-$(sql "update TRIP_SETS set PIECE_CONCEPT=1")
-$(sql "update DESKS set VERSION='201707-0195750'")
 
 $(settcl SIRENA_HOST localhost)
 $(settcl SIRENA_PORT 8008)
@@ -791,6 +782,8 @@ $(settcl SIRENA_PORT 8008)
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
 $(set pax_id $(get_pax_id $(get point_dep) РЕПИН ИВАН))
+
+$(CHANGE_TRIP_SETS $(get point_dep) piece_concept=1)
 
 $(OPEN_CHECKIN $(get point_dep))
 
@@ -921,14 +914,11 @@ $(lastRedisplay)
 ### test 4 - регистрация одного пассажира на одном сегменте с ошибкой обмена с СЭБ
 #########################################################################################
 
-$(init)
-$(init_jxt_pult МОВРОМ)
-$(login)
+$(init_term)
+
 $(init_eds ЮТ UTET UTDC)
 
 $(PREPARE_FLIGHT_1PAX_1SEG ЮТ 103 ДМД ПЛК РЕПИН ИВАН)
-
-$(sql "update DESKS set VERSION='201707-0195750'")
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
@@ -1024,6 +1014,7 @@ $(SAVE_ET_DISP $(get point_dep) 2981212121212 РЕПИН ИВАН)
 $(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref) ЮТ 2981212121212 1 CK)
 <<
 $(TKCRES_ET_COS_FAKE_ERR UTET UTDC $(last_edifact_ref) 2981212121212 1 CK 401)
+
 
 
 >> lines=auto

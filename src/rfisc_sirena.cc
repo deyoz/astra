@@ -334,7 +334,7 @@ bool TAvailabilityRes::identical_concept(int seg_id, bool carry_on, boost::optio
   return true;
 }
 
-void TAvailabilityRes::rfiscsToDB(const TCkinGrpIds &tckin_grp_ids, TBagConcept::Enum bag_concept, bool old_version) const
+void TAvailabilityRes::rfiscsToDB(const TCkinGrpIds &tckinGrpIds, TBagConcept::Enum bag_concept, bool old_version) const
 {
   TPaxServiceLists serviceLists;
   for(TAvailabilityRes::const_iterator i=begin(); i!=end(); ++i)
@@ -395,31 +395,31 @@ void TAvailabilityRes::rfiscsToDB(const TCkinGrpIds &tckin_grp_ids, TBagConcept:
       }
     };
   }
-  for(TCkinGrpIds::const_iterator i=tckin_grp_ids.begin(); i!=tckin_grp_ids.end(); ++i)
+  for(TCkinGrpIds::const_iterator iGrpId=tckinGrpIds.begin(); iGrpId!=tckinGrpIds.end(); ++iGrpId)
   {
-    if (i==tckin_grp_ids.begin())
+    if (iGrpId==tckinGrpIds.begin())
       serviceLists.toDB(false);
     else
-      CopyPaxServiceLists(*tckin_grp_ids.begin(), *i, false, true);
+      CopyPaxServiceLists(*tckinGrpIds.begin(), *iGrpId, false, true);
   }
 }
 
-void TAvailabilityRes::setAdditionalListId(const TCkinGrpIds &tckin_grp_ids) const
+void TAvailabilityRes::setAdditionalListId(const TCkinGrpIds &tckinGrpIds) const
 {
-  if (tckin_grp_ids.size()<=1) return;
+  if (tckinGrpIds.size()<=1) return;
 
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText = "BEGIN ckin.set_additional_list_id(:grp_id); END;";
   Qry.DeclareVariable("grp_id", otInteger);
-  for(int grp_id : tckin_grp_ids)
+  for(const GrpId_t& grpId : tckinGrpIds)
   {
-    Qry.SetVariable("grp_id", grp_id);
+    Qry.SetVariable("grp_id", grpId.get());
     Qry.Execute();
   }
 }
 
-void TAvailabilityRes::normsToDB(const TCkinGrpIds &tckin_grp_ids) const
+void TAvailabilityRes::normsToDB(const TCkinGrpIds &tckinGrpIds) const
 {
   list<Sirena::TPaxNormItem> normsList;
   for(TAvailabilityResMap::const_iterator i=begin(); i!=end(); ++i)
@@ -436,10 +436,10 @@ void TAvailabilityRes::normsToDB(const TCkinGrpIds &tckin_grp_ids) const
       if (carry_on) break;
     };
   }
-  Sirena::PaxNormsToDB(tckin_grp_ids, normsList);
+  Sirena::PaxNormsToDB(tckinGrpIds, normsList);
 }
 
-void TAvailabilityRes::brandsToDB(const TCkinGrpIds &tckin_grp_ids) const
+void TAvailabilityRes::brandsToDB(const TCkinGrpIds &tckinGrpIds) const
 {
   list<Sirena::TPaxBrandItem> brandsList;
   for(TAvailabilityResMap::const_iterator i=begin(); i!=end(); ++i)
@@ -451,7 +451,7 @@ void TAvailabilityRes::brandsToDB(const TCkinGrpIds &tckin_grp_ids) const
     item.trfer_num=i->first.trfer_num;
     brandsList.push_back(item);
   }
-  Sirena::PaxBrandsToDB(tckin_grp_ids, brandsList);
+  Sirena::PaxBrandsToDB(tckinGrpIds, brandsList);
 }
 
 void TSvcList::get(const std::list<TSvcItem>& svcsAuto, TPaidRFISCList &paid) const
@@ -632,7 +632,7 @@ void TPaymentStatusRes::fromXML(xmlNodePtr node)
   };
 }
 
-void TPaymentStatusRes::normsToDB(const TCkinGrpIds &tckin_grp_ids) const
+void TPaymentStatusRes::normsToDB(const TCkinGrpIds &tckinGrpIds) const
 {
   list<Sirena::TPaxNormItem> normsList;
   for(Sirena::TPaxNormList::const_iterator i=norms.begin(); i!=norms.end(); ++i)
@@ -643,7 +643,7 @@ void TPaymentStatusRes::normsToDB(const TCkinGrpIds &tckin_grp_ids) const
     item.trfer_num=i->first.trfer_num;
     normsList.push_back(item);
   }
-  Sirena::PaxNormsToDB(tckin_grp_ids, normsList);
+  Sirena::PaxNormsToDB(tckinGrpIds, normsList);
 }
 
 void TPaymentStatusRes::check_unknown_status(int seg_id, std::set<TRFISCListKey> &rfiscs) const
@@ -931,8 +931,8 @@ void SvcSirenaInterface::procGroupInfo( const SirenaExchange::TGroupInfoReq &req
   Qry.Execute();
 
   CheckIn::TPaxGrpCategory::Enum grp_cat;
-  TCkinGrpIds tckin_grp_ids;
-  SirenaExchange::fillPaxsBags(req.grp_id, res, grp_cat, tckin_grp_ids);
+  TCkinGrpIds tckinGrpIds;
+  SirenaExchange::fillPaxsBags(req.grp_id, res, grp_cat, tckinGrpIds);
 }
 
 void SvcSirenaInterface::procPseudoGroupInfo( const SirenaExchange::TPseudoGroupInfoReq &req,
@@ -1043,14 +1043,14 @@ int verifyHTTP(int argc,char **argv)
 namespace SirenaExchange
 {
 
-void TAvailabilityReq::bagTypesToDB(const TCkinGrpIds &tckin_grp_ids, bool copy_all_segs) const
+void TAvailabilityReq::bagTypesToDB(const TCkinGrpIds &tckinGrpIds, bool copy_all_segs) const
 {
-  if (tckin_grp_ids.empty()) return;
+  if (tckinGrpIds.empty()) return;
 
   TTripInfo operFlt;
-  if (!operFlt.getByGrpId(tckin_grp_ids.front())) return;
+  if (!operFlt.getByGrpId(tckinGrpIds.front().get())) return;
 
-  string airline=WeightConcept::GetCurrSegBagAirline(tckin_grp_ids.front()); //bagTypesToDB - checked!
+  string airline=WeightConcept::GetCurrSegBagAirline(tckinGrpIds.front().get()); //bagTypesToDB - checked!
   if (airline.empty()) return;
 
   TPaxServiceLists serviceLists;
@@ -1082,12 +1082,12 @@ void TAvailabilityReq::bagTypesToDB(const TCkinGrpIds &tckin_grp_ids, bool copy_
       };
     }
   }
-  for(TCkinGrpIds::const_iterator i=tckin_grp_ids.begin(); i!=tckin_grp_ids.end(); ++i)
+  for(TCkinGrpIds::const_iterator iGrpId=tckinGrpIds.begin(); iGrpId!=tckinGrpIds.end(); ++iGrpId)
   {
-    if (i==tckin_grp_ids.begin())
+    if (iGrpId==tckinGrpIds.begin())
       serviceLists.toDB(false);
     else if (copy_all_segs)
-      CopyPaxServiceLists(*tckin_grp_ids.begin(), *i, false, false);
+      CopyPaxServiceLists(*tckinGrpIds.begin(), *iGrpId, false, false);
   }
 }
 
@@ -1143,19 +1143,19 @@ void unaccBagTypesToDB(int grp_id, bool ignore_unaccomp_sets) //!!! потом удалит
   serviceLists.toDB(true);
 }
 
-void CopyPaxServiceLists(int grp_id_src, int grp_id_dest, bool is_grp_id, bool rfisc_used)
+void CopyPaxServiceLists(const GrpId_t& grpIdSrc, const GrpId_t& grpIdDest, bool is_grp_id, bool rfisc_used)
 {
   if (is_grp_id)
-    throw Exception("%s: not supported! (grp_id_src=%d, grp_id_dest=%d, is_grp_id=%d rfisc_used=%d)",
-                    grp_id_src, grp_id_dest, (int)is_grp_id, (int)rfisc_used);
+    throw Exception("%s: not supported! (grpIdSrc=%d, grpIdDest=%d, is_grp_id=%d rfisc_used=%d)",
+                    grpIdSrc.get(), grpIdDest.get(), (int)is_grp_id, (int)rfisc_used);
 
   int list_id=ASTRA::NoExists;
   if (!rfisc_used)
   {
     TTripInfo operFlt;
-    if (!operFlt.getByGrpId(grp_id_dest)) return;
+    if (!operFlt.getByGrpId(grpIdDest.get())) return;
 
-    string airline=WeightConcept::GetCurrSegBagAirline(grp_id_dest); //CopyPaxServiceLists - checked!
+    string airline=WeightConcept::GetCurrSegBagAirline(grpIdDest.get()); //CopyPaxServiceLists - checked!
     if (airline.empty()) return;
 
     TBagTypeList list;
@@ -1175,7 +1175,7 @@ void CopyPaxServiceLists(int grp_id_src, int grp_id_dest, bool is_grp_id, bool r
                         "   WHERE pax_service_lists.list_id=service_lists.id AND "
                         "         pax_service_lists.pax_id=pax.pax_id AND "
                         "         pax.grp_id=:grp_id AND service_lists.rfisc_used=:rfisc_used)";
-  Qry.CreateVariable("grp_id", otInteger, grp_id_dest);
+  Qry.CreateVariable("grp_id", otInteger, grpIdDest.get());
   Qry.CreateVariable("rfisc_used", otInteger, (int)rfisc_used);
   Qry.Execute();
 
@@ -1196,8 +1196,8 @@ void CopyPaxServiceLists(int grp_id_src, int grp_id_dest, bool is_grp_id, bool r
   Qry.SQLText=sql.str();
   if (!rfisc_used)
     Qry.CreateVariable("list_id", otInteger, list_id);
-  Qry.CreateVariable("grp_id_src", otInteger, grp_id_src);
-  Qry.CreateVariable("grp_id_dest", otInteger, grp_id_dest);
+  Qry.CreateVariable("grp_id_src", otInteger, grpIdSrc.get());
+  Qry.CreateVariable("grp_id_dest", otInteger, grpIdDest.get());
   Qry.CreateVariable("rfisc_used", otInteger, (int)rfisc_used);
   Qry.Execute();
 }

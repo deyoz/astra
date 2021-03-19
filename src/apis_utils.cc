@@ -302,7 +302,7 @@ const TCompleteAPICheckInfo& APICheckInfoForPassenger::get(const PaxId_t& paxId,
       grpId_=GrpId_t(pax.grp_id);
     }
 
-    const CheckIn::TSimplePaxGrpItem& grp=grps.get(grpId_.get().get());
+    const CheckIn::TSimplePaxGrpItem& grp=grps.get(grpId_.get());
 
     return checkInfo.get(grp.getSegmentPair());
   }

@@ -3135,21 +3135,10 @@ bool TPaxGrpItem::allPassengersRefused(int grp_id)
   return Qry.get().Eof;
 }
 
-TCkinPaxTknItem& TCkinPaxTknItem::fromDB(TQuery &Qry)
-{
-  clear();
-  TPaxTknItem::fromDB(Qry);
-  if (!Qry.FieldIsNULL("grp_id"))
-    grp_id=Qry.FieldAsInteger("grp_id");
-  if (!Qry.FieldIsNULL("pax_id"))
-    pax_id=Qry.FieldAsInteger("pax_id");
-  return *this;
-}
-
 template<class T>
-void getTCkinInfo(int pax_id, map<int, T> &container)
+map<SegNo_t, T> getTCkinInfo(const PaxId_t& paxId)
 {
-  container.clear();
+  map<SegNo_t, T> result;
 
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -3163,20 +3152,22 @@ void getTCkinInfo(int pax_id, map<int, T> &container)
     "WHERE tckin_pax_grp.tckin_id=p.tckin_id AND "
     "      pax.grp_id=tckin_pax_grp.grp_id AND "
     "      tckin_pax_grp.first_reg_no-pax.reg_no=p.distance AND tckin_pax_grp.transit_num=0";
-  Qry.CreateVariable("pax_id", otInteger, pax_id);
+  Qry.CreateVariable("pax_id", otInteger, paxId.get());
   Qry.Execute();
   for(; !Qry.Eof; Qry.Next())
-    container.emplace(Qry.FieldAsInteger("seg_no"), T().fromDB(Qry));
+    result.emplace(SegNo_t(Qry.FieldAsInteger("seg_no")), T(Qry));
+
+  return result;
 }
 
-void GetTCkinPassengers(int pax_id, map<int, TSimplePaxItem> &paxs)
+map<SegNo_t, TSimplePaxItem> GetTCkinPassengers(const PaxId_t& paxId)
 {
-  return getTCkinInfo(pax_id, paxs);
+  return getTCkinInfo<TSimplePaxItem>(paxId);
 }
 
-void GetTCkinTickets(int pax_id, map<int, TCkinPaxTknItem> &tkns)
+map<SegNo_t, TCkinPaxTknItem> GetTCkinTickets(const PaxId_t& paxId)
 {
-  return getTCkinInfo(pax_id, tkns);
+  return getTCkinInfo<TCkinPaxTknItem>(paxId);
 }
 
 // Ф-я возвращает непрерывный список сегментов до или после pax_id, в зав-ти от after_current
@@ -3184,61 +3175,61 @@ void GetTCkinTickets(int pax_id, map<int, TCkinPaxTknItem> &tkns)
 // Напр. если список такой 1, 2, 4, 5, 7, 8
 // То в случае after_current = true вернется 7, 8 (непрерывность с конца)
 // При after_current = false вернется 1, 2 (с начала)
-void GetTCkinTickets(int pax_id, map<int, TCkinPaxTknItem> &tkns, bool after_current)
+map<SegNo_t, TCkinPaxTknItem> GetTCkinTickets(const PaxId_t& paxId, bool after_current)
 {
-    tkns.clear();
-    map<int, TCkinPaxTknItem> _tkns;
-    GetTCkinTickets(pax_id, _tkns);
+    map<SegNo_t, TCkinPaxTknItem> result;
+    map<SegNo_t, TCkinPaxTknItem> tkns_=GetTCkinTickets(paxId);
 
     // Находим в мепе элемент с тек. pax_id
-    auto current = _tkns.begin();
-    for(; current != _tkns.end(); current++) {
-        if(current->second.pax_id == pax_id) break;
+    auto current = tkns_.begin();
+    for(; current != tkns_.end(); current++) {
+        if(current->second.paxId() == paxId) break;
     }
 
-    if(current != _tkns.end()) {
-        auto curr_idx = current->first;
+    if(current != tkns_.end()) {
+        auto curr_idx = current->first.get();
         // в зав-ти от after_current в result помещаем часть слева или справа от pax_id
         if(after_current) {
             current++;
-            tkns.insert(current, _tkns.end());
+            result.insert(current, tkns_.end());
         } else {
-            tkns.insert(_tkns.begin(), current);
+            result.insert(tkns_.begin(), current);
         }
 
         // а здесь происходит удаление элементов, seg_no которых не подряд
         // Напр.:
         // (1,2,3,5,6,10) -> (1,2,3)
         if(after_current) {
-            auto ri = tkns.begin();
+            auto ri = result.begin();
             curr_idx++;
-            for(; ri != tkns.end(); ri++, curr_idx++) {
-                if(ri->first != curr_idx) break;
+            for(; ri != result.end(); ri++, curr_idx++) {
+                if(ri->first.get() != curr_idx) break;
             }
-            if(ri != tkns.end())
-                tkns.erase(ri, tkns.end());
+            if(ri != result.end())
+                result.erase(ri, result.end());
         } else {
-            auto ri = tkns.rbegin();
+            auto ri = result.rbegin();
             curr_idx--;
-            for(; ri != tkns.rend(); ri++, curr_idx--) {
-                if(ri->first != curr_idx) break;
+            for(; ri != result.rend(); ri++, curr_idx--) {
+                if(ri->first.get() != curr_idx) break;
             }
-            if(ri != tkns.rend()) {
+            if(ri != result.rend()) {
                 auto i = ri.base();
-                tkns.erase(tkns.begin(), i);
+                result.erase(result.begin(), i);
             }
         }
     }
+    return result;
 }
 
-void GetTCkinTicketsBefore(int pax_id, map<int, TCkinPaxTknItem> &tkns)
+map<SegNo_t, TCkinPaxTknItem> GetTCkinTicketsBefore(const PaxId_t& paxId)
 {
-    GetTCkinTickets(pax_id, tkns, false);
+    return GetTCkinTickets(paxId, false);
 }
 
-void GetTCkinTicketsAfter(int pax_id, map<int, TCkinPaxTknItem> &tkns)
+map<SegNo_t, TCkinPaxTknItem> GetTCkinTicketsAfter(const PaxId_t& paxId)
 {
-    GetTCkinTickets(pax_id, tkns, true);
+    return GetTCkinTickets(paxId, true);
 }
 
 std::string isFemaleStr( int is_female )
@@ -3810,10 +3801,10 @@ std::string TPnrAddrs::getByPaxId(int pax_id, string &airline)
 namespace ASTRA
 {
 
-template<> const CheckIn::TSimplePaxGrpItem& PaxGrpCache::add(const int& grpId) const
+template<> const CheckIn::TSimplePaxGrpItem& PaxGrpCache::add(const GrpId_t& grpId) const
 {
   CheckIn::TSimplePaxGrpItem grp;
-  if (!grp.getByGrpId(grpId)) throw NotFound();
+  if (!grp.getByGrpId(grpId.get())) throw NotFound();
 
   return items.emplace(grpId, grp).first->second;
 }

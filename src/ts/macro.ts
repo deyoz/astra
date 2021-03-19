@@ -71,6 +71,34 @@ $(lastRedisplay)
 
 #########################################################################################
 
+$(defmacro KICK_IN_AFTER_HTTP
+{
+$(sql {delete from edi_help where session_id=0})
+
+>> lines=auto
+    <kick req_ctxt_id...
+
+!! capture=on
+$(lastRedisplay)
+
+}) #end-of-macro KICK_IN
+
+#########################################################################################
+
+$(defmacro KICK_IN_SILENT_AFTER_HTTP
+{
+$(sql {delete from edi_help where session_id=0})
+
+>> lines=auto
+    <kick req_ctxt_id...
+
+!!
+$(lastRedisplay)
+
+}) #end-of-macro KICK_IN_SILENT
+
+#########################################################################################
+
 $(defmacro PREPARE_SEASON_SCD
   airl
   depp
@@ -3504,8 +3532,7 @@ $(set msg_id61 $(capture 1))
 
 }) #end-if-macro CIRQ_61_UT_REQS
 
-
-#########################################################################################
+####################################################################################
 ### изменение настроек рейса в trip_sets (галочки в главном экране "Подготовки")
 
 $(defmacro CHANGE_TRIP_SETS
@@ -3591,11 +3618,27 @@ $(if $(eq $(jmp_cfg) "") "" {
 })
 
 #########################################################################################
+### поиск point_dep по рейсу
+
+$(defmacro get_point_dep_for_flight
+  airline
+  flt_no
+  suffix
+  scd_out_local #yyddmm
+  airp_dep
+{$(get_dep_point_id
+  $(get_elem_id etAirp $(airp_dep))
+  $(get_elem_id etAirline $(airline))
+  $(flt_no)
+  $(scd_out_local))})
+
+#########################################################################################
 ### разнообразные сообщения в терминал
 
-$(defmacro USER_ERROR_RESPONSE
+$(defmacro ERROR_RESPONSE
   lexema_id
   code=0
+  message=...
 {
 
 >>
@@ -3603,27 +3646,46 @@ $(defmacro USER_ERROR_RESPONSE
 <term>
   <answer...
     <command>
-      <user_error lexema_id='$(lexema_id)' code='$(code)'>...</user_error>
+      <error lexema_id='$(lexema_id)' code='$(code)'>$(message)</error>
     </command>
   </answer>
 </term>
 
+})
+
+$(defmacro USER_ERROR_RESPONSE
+  lexema_id
+  code=0
+  message=...
+{
+
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer...
+    <command>
+      <user_error lexema_id='$(lexema_id)' code='$(code)'>$(message)</user_error>
+    </command>
+  </answer>
+</term>
 
 })
 
 $(defmacro USER_ERROR_MESSAGE_TAG
   lexema_id
   code=0
+  message=...
 {    <command>
-      <user_error_message lexema_id='$(lexema_id)' code='$(code)'>...</user_error_message>
+      <user_error_message lexema_id='$(lexema_id)' code='$(code)'>$(message)</user_error_message>
     </command>}
 )
 
 $(defmacro MESSAGE_TAG
   lexema_id
   code=0
+  message=...
 {    <command>
-      <message lexema_id='$(lexema_id)' code='$(code)'>...</message>
+      <message lexema_id='$(lexema_id)' code='$(code)'>$(message)</message>
     </command>}
 )
 

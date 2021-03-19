@@ -268,7 +268,7 @@ class TServicePaymentList : public std::list<TServicePaymentItem>
   private:
     static std::string copySelectSQL();
     static std::string copySelectSQL2();
-    static void copyDBOneByOne(int grp_id_src, int grp_id_dest);
+    static void copyDBOneByOne(const GrpId_t& grpIdSrc, const GrpId_t& grpIdDest);
   public:
     void getCompatibleWithPriorTermVersions(TServicePaymentList &compatible,
                                             TServicePaymentList &not_compatible,
@@ -284,8 +284,8 @@ class TServicePaymentList : public std::list<TServicePaymentItem>
     bool equal(const TServicePaymentList &list) const;
     bool sameDocExists(const CheckIn::TPaxASVCItem& asvc) const;
     void dump(const std::string &where) const;
-    static void clearDB(int grp_id);
-    static void copyDB(int grp_id_src, int grp_id_dest);
+    static void clearDB(const GrpId_t& grpId);
+    static void copyDB(const GrpId_t& grpIdSrc, const GrpId_t& grpIdDest);
 };
 
 class TServicePaymentListWithAuto : public std::list<TServicePaymentItem>, public TRFISCListItemsCache

@@ -1,3 +1,125 @@
+$(defmacro LOAD_PAX_BY_GRP_ID
+    point_dep
+    grp_id
+    lang=RU
+    capture=off
+{
+!! capture=$(capture) err=ignore
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='$(lang)' term_id='2479792165'>
+    <TCkinLoadPax>
+      <point_id>$(point_dep)</point_id>
+      <grp_id>$(grp_id)</grp_id>
+    </TCkinLoadPax>
+  </query>
+</term>
+
+}) #end-of-macro
+
+#########################################################################################
+
+$(defmacro LOAD_PAX_BY_REG_NO
+    point_dep
+    reg_no
+    lang=RU
+    capture=off
+{
+!! capture=$(capture) err=ignore
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='$(lang)' term_id='2479792165'>
+    <TCkinLoadPax>
+      <point_id>$(point_dep)</point_id>
+      <reg_no>$(reg_no)</reg_no>
+    </TCkinLoadPax>
+  </query>
+</term>
+
+}) #end-of-macro
+
+#########################################################################################
+
+$(defmacro LOAD_PAX_BY_PAX_ID
+    point_dep
+    pax_id
+    lang=RU
+    capture=off
+{
+!! capture=$(capture) err=ignore
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='$(lang)' term_id='2479792165'>
+    <TCkinLoadPax>
+      <point_id>$(point_dep)</point_id>
+      <pax_id>$(pax_id)</pax_id>
+    </TCkinLoadPax>
+  </query>
+</term>
+
+}) #end-of-macro
+
+#########################################################################################
+
+$(defmacro NEW_CHECKIN_SEGMENT
+  point_dep
+  point_arv
+  airp_dep
+  airp_arv
+  passengers
+  class=Э
+  status=K
+{        <segment>
+          <point_dep>$(point_dep)</point_dep>
+          <point_arv>$(point_arv)</point_arv>
+          <airp_dep>$(get_elem_id etAirp $(airp_dep))</airp_dep>
+          <airp_arv>$(get_elem_id etAirp $(airp_arv))</airp_arv>
+          <class>$(get_elem_id etClass $(class))</class>
+          <status>$(status)</status>
+          <wl_type/>
+$(passengers)
+        </segment>}
+)
+
+$(defmacro CHANGE_CHECKIN_SEGMENT
+  point_dep
+  point_arv
+  airp_dep
+  airp_arv
+  grp_id
+  grp_tid
+  passengers
+  class=Э
+{        <segment>
+          <point_dep>$(point_dep)</point_dep>
+          <point_arv>$(point_arv)</point_arv>
+          <airp_dep>$(get_elem_id etAirp $(airp_dep))</airp_dep>
+          <airp_arv>$(get_elem_id etAirp $(airp_arv))</airp_arv>
+          <class>$(get_elem_id etClass $(class))</class>
+          <grp_id>$(grp_id)</grp_id>
+          <tid>$(grp_tid)</tid>
+$(passengers)
+        </segment>}
+)
+
+$(defmacro TRANSFER_SEGMENT
+  airline
+  flt_no
+  suffix
+  local_date
+  airp_dep
+  airp_arv
+{        <segment>
+          <airline>$(get_elem_id etAirline $(airline))</airline>
+          <flt_no>$(flt_no)</flt_no>\
+$(if $(eq $(suffix) "") {
+          <suffix/>} {
+          <suffix>$(suffix)</suffix>})
+          <local_date>$(local_date)</local_date>
+          <airp_dep>$(get_elem_id etAirp $(airp_dep))</airp_dep>
+          <airp_arv>$(get_elem_id etAirp $(airp_arv))</airp_arv>
+        </segment>}
+)
 
 #########################################################################################
 ### возможность регистрации группы из любого кол-ва участников в секции passengers
@@ -9,27 +131,19 @@ $(defmacro NEW_CHECKIN_REQUEST
   airp_arv
   passengers
   hall=777
+  lang=RU
   capture=off
 {
 
 !! capture=$(capture) err=ignore
 {<?xml version='1.0' encoding='CP866'?>
 <term>
-  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='EN' term_id='2479792165'>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='$(lang)' term_id='2479792165'>
     <TCkinSavePax>
       <agent_stat_period>3</agent_stat_period>
       <transfer/>
       <segments>
-        <segment>
-          <point_dep>$(point_dep)</point_dep>
-          <point_arv>$(point_arv)</point_arv>
-          <airp_dep>$(get_elem_id etAirp $(airp_dep))</airp_dep>
-          <airp_arv>$(get_elem_id etAirp $(airp_arv))</airp_arv>
-          <class>Э</class>
-          <status>K</status>
-          <wl_type/>
-$(passengers)
-        </segment>
+$(NEW_CHECKIN_SEGMENT $(point_dep) $(point_arv) $(airp_dep) $(airp_arv) $(passengers))
       </segments>
       <hall>$(hall)</hall>
     </TCkinSavePax>
@@ -37,6 +151,35 @@ $(passengers)
 </term>}
 
 }) #end defmacro NEW_CHECKIN_REQUEST
+
+$(defmacro NEW_TCHECKIN_REQUEST
+  transfer
+  segments
+  hall=777
+  lang=RU
+  capture=off
+{
+
+!! capture=$(capture) err=ignore
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='$(lang)' term_id='2479792165'>
+    <TCkinSavePax>
+      <agent_stat_period>3</agent_stat_period>\
+$(if $(eq $(transfer) "") {
+    <transfer/>} {
+    <transfer>
+$(transfer)
+    </transfer>})
+      <segments>
+$(segments)
+      </segments>
+      <hall>$(hall)</hall>
+    </TCkinSavePax>
+  </query>
+</term>
+
+})
 
 #########################################################################################
 ### возможность записи изменений по любому кол-ву участников в секции passengers
@@ -50,26 +193,18 @@ $(defmacro CHANGE_CHECKIN_REQUEST
   grp_tid
   passengers
   hall=777
+  lang=RU
   capture=off
 {
 
 !! capture=$(capture) err=ignore
 {<?xml version='1.0' encoding='CP866'?>
 <term>
-  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='EN' term_id='2479792165'>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='$(lang)' term_id='2479792165'>
     <TCkinSavePax>
       <agent_stat_period>3</agent_stat_period>
       <segments>
-        <segment>
-          <point_dep>$(point_dep)</point_dep>
-          <point_arv>$(point_arv)</point_arv>
-          <airp_dep>$(get_elem_id etAirp $(airp_dep))</airp_dep>
-          <airp_arv>$(get_elem_id etAirp $(airp_arv))</airp_arv>
-          <class>Э</class>
-          <grp_id>$(grp_id)</grp_id>
-          <tid>$(grp_tid)</tid>
-$(passengers)
-        </segment>
+$(CHANGE_CHECKIN_SEGMENT $(point_dep) $(point_arv) $(airp_dep) $(airp_arv) $(grp_id) $(grp_tid) $(passengers))
       </segments>
       <hall>$(hall)</hall>
       <bag_refuse/>
@@ -78,6 +213,32 @@ $(passengers)
 </term>}
 
 }) #end defmacro CHANGE_CHECKIN_REQUEST
+
+$(defmacro CHANGE_TCHECKIN_REQUEST
+  segments
+  bags_tags_etc
+  hall=777
+  lang=RU
+  capture=off
+{
+
+!! capture=$(capture) err=ignore
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='$(lang)' term_id='2479792165'>
+    <TCkinSavePax>
+      <agent_stat_period>3</agent_stat_period>
+      <segments>
+$(segments)
+      </segments>
+      <hall>$(hall)</hall>
+      <bag_refuse/>
+$(bags_tags_etc)
+    </TCkinSavePax>
+  </query>
+</term>
+
+})
 
 $(defmacro NEW_CHECKIN_2982425618100
   pax_id
@@ -189,7 +350,7 @@ $(if $(eq $(refuse) "") {
     <ticket_no>2982425618102</ticket_no>
     <coupon_no>1</coupon_no>
     <ticket_rem>TKNE</ticket_rem>
-    <ticket_confirm>0</ticket_confirm>
+    <ticket_confirm>$(ticket_confirm)</ticket_confirm>
     <document>
       <type>F</type>
       <issue_country>RUS</issue_country>
@@ -253,7 +414,7 @@ $(if $(eq $(refuse) "") {
     <ticket_no>2982425618101</ticket_no>
     <coupon_no>1</coupon_no>
     <ticket_rem>TKNE</ticket_rem>
-    <ticket_confirm>0</ticket_confirm>
+    <ticket_confirm>$(ticket_confirm)</ticket_confirm>
     <document>
       <type>F</type>
       <issue_country>RUS</issue_country>
@@ -409,7 +570,7 @@ $(defmacro NEW_CHECKIN_2986145212943
     <ticket_no>2986145212943</ticket_no>
     <coupon_no>1</coupon_no>
     <ticket_rem>TKNE</ticket_rem>
-    <ticket_confirm>0</ticket_confirm>
+    <ticket_confirm>$(ticket_confirm)</ticket_confirm>
     <document>
       <type>P</type>
       <issue_country>RU</issue_country>
@@ -456,7 +617,194 @@ $(if $(eq $(document) "") <document/> $(document))
    <norms/>}
 )
 
+$(defmacro NEW_CHECKIN_2982410821479
+  pax_id
+  coupon_no
+  transfer_subclass
+{    <pax_id>$(pax_id)</pax_id>
+    <surname>KOTOVA</surname>
+    <name>IRINA</name>
+    <pers_type>ВЗ</pers_type>
+    <seat_no/>
+    <preseat_no/>
+    <seat_type/>
+    <seats>1</seats>
+    <ticket_no>2982410821479</ticket_no>
+    <coupon_no>$(coupon_no)</coupon_no>
+    <ticket_rem>TKNE</ticket_rem>
+    <ticket_confirm>0</ticket_confirm>
+    <document>
+      <type>P</type>
+      <issue_country>RU</issue_country>
+      <no>7774441110</no>
+      <nationality>RU</nationality>
+      <birth_date>01.05.1976 00:00:00</birth_date>
+      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
+      <gender>F</gender>
+      <surname>KOTOVA</surname>
+      <first_name>IRINA</first_name>
+    </document>
+    <subclass>Э</subclass>
+    <bag_pool_num/>\
+$(if $(eq $(transfer_subclass) "") {
+    <transfer/>} {
+    <transfer>
+      <segment>
+         <subclass>$(get_elem_id etSubcls $(transfer_subclass))</subclass>
+      </segment>
+    </transfer>})}
+)
+
+$(defmacro CHANGE_CHECKIN_2982410821479
+  pax_id
+  pax_tid
+  coupon_no
+  ticket_confirm=1
+  bag_pool_num
+  refuse
+{    <pax_id>$(pax_id)</pax_id>
+    <surname>KOTOVA</surname>
+    <name>IRINA</name>
+    <pers_type>ВЗ</pers_type>\
+$(if $(eq $(refuse) "") {
+    <refuse/>} {
+    <refuse>$(refuse)</refuse>})
+    <ticket_no>2982410821479</ticket_no>
+    <coupon_no>$(coupon_no)</coupon_no>
+    <ticket_rem>TKNE</ticket_rem>
+    <ticket_confirm>$(ticket_confirm)</ticket_confirm>
+    <document>
+      <type>P</type>
+      <issue_country>RU</issue_country>
+      <no>7774441110</no>
+      <nationality>RU</nationality>
+      <birth_date>01.05.1976 00:00:00</birth_date>
+      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
+      <gender>F</gender>
+      <surname>KOTOVA</surname>
+      <first_name>IRINA</first_name>
+    </document>\
+$(if $(eq $(bag_pool_num) "") {
+    <bag_pool_num/>} {
+    <bag_pool_num>$(bag_pool_num)</bag_pool_num>})
+    <subclass>Э</subclass>
+    <tid>$(pax_tid)</tid>}
+)
 
 
+$(defmacro NEW_CHECKIN_2982410821480
+  pax_id
+  coupon_no
+  transfer_subclass
+{    <pax_id>$(pax_id)</pax_id>
+    <surname>MOTOVA</surname>
+    <name>IRINA</name>
+    <pers_type>ВЗ</pers_type>
+    <seat_no/>
+    <preseat_no/>
+    <seat_type/>
+    <seats>1</seats>
+    <ticket_no>2982410821480</ticket_no>
+    <coupon_no>$(coupon_no)</coupon_no>
+    <ticket_rem>TKNE</ticket_rem>
+    <ticket_confirm>0</ticket_confirm>
+    <document>
+      <type>P</type>
+      <issue_country>RU</issue_country>
+      <no>7774441110</no>
+      <nationality>RU</nationality>
+      <birth_date>01.05.1976 00:00:00</birth_date>
+      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
+      <gender>F</gender>
+      <surname>MOTOVA</surname>
+      <first_name>IRINA</first_name>
+    </document>
+    <subclass>Э</subclass>
+    <bag_pool_num/>\
+$(if $(eq $(transfer_subclass) "") {
+    <transfer/>} {
+    <transfer>
+      <segment>
+         <subclass>$(get_elem_id etSubcls $(transfer_subclass))</subclass>
+      </segment>
+    </transfer>})}
+)
 
+$(defmacro CHANGE_CHECKIN_2982410821480
+  pax_id
+  pax_tid
+  coupon_no
+  ticket_confirm=1
+  bag_pool_num
+  refuse
+{    <pax_id>$(pax_id)</pax_id>
+    <surname>MOTOVA</surname>
+    <name>IRINA</name>
+    <pers_type>ВЗ</pers_type>\
+$(if $(eq $(refuse) "") {
+    <refuse/>} {
+    <refuse>$(refuse)</refuse>})
+    <ticket_no>2982410821480</ticket_no>
+    <coupon_no>$(coupon_no)</coupon_no>
+    <ticket_rem>TKNE</ticket_rem>
+    <ticket_confirm>$(ticket_confirm)</ticket_confirm>
+    <document>
+      <type>P</type>
+      <issue_country>RU</issue_country>
+      <no>7774441110</no>
+      <nationality>RU</nationality>
+      <birth_date>01.05.1976 00:00:00</birth_date>
+      <expiry_date>$(date_format %d.%m.%Y +1y) 00:00:00</expiry_date>
+      <gender>F</gender>
+      <surname>MOTOVA</surname>
+      <first_name>IRINA</first_name>
+    </document>\
+$(if $(eq $(bag_pool_num) "") {
+    <bag_pool_num/>} {
+    <bag_pool_num>$(bag_pool_num)</bag_pool_num>})
+    <subclass>Э</subclass>
+    <tid>$(pax_tid)</tid>}
+)
+
+$(defmacro SVC_REQUEST_2982410821479
+  pax_id
+  display_id
+  segment1_props
+  segment2_props
+{    <passenger id=\"$(pax_id)\" surname=\"КОТОВА\" name=\"ИРИНА\" category=\"ADT\" birthdate=\"1976-05-01\" sex=\"female\">
+      <document number=\"7774441110\" expiration_date=\"$(date_format %Y-%m-%d +1y)\" country=\"RUS\"/>
+      <segment id=\"0\" $(segment1_props) subclass=\"Y\">
+        <ticket number=\"2982410821479\" coupon_num=\"1\" display_id=\"$(display_id)\"/>
+        <recloc crs=\"DT\">04VSFC</recloc>
+        <recloc crs=\"UT\">054C82</recloc>
+      </segment>
+      <segment id=\"1\" $(segment2_props) subclass=\"Y\">
+        <ticket number=\"2982410821479\" coupon_num=\"2\" display_id=\"$(display_id)\"/>
+        <recloc crs=\"DT\">04VSFC</recloc>
+        <recloc crs=\"UT\">054C82</recloc>
+      </segment>
+    </passenger>}
+)
+
+$(defmacro SVC_REQUEST_2982410821480
+  pax_id
+  display_id
+  segment1_props
+  segment2_props
+  trfer_only=false
+{    <passenger id=\"$(pax_id)\" surname=\"МОТОВА\" name=\"ИРИНА\" category=\"ADT\" birthdate=\"1976-05-01\" sex=\"female\">
+      <document number=\"7774441110\" expiration_date=\"$(date_format %Y-%m-%d +1y)\" country=\"RUS\"/>
+      <segment id=\"0\" $(segment1_props) subclass=\"Y\">
+        <ticket number=\"2982410821480\" coupon_num=\"1\" display_id=\"$(display_id)\"/>
+        <recloc crs=\"DT\">04VSFC</recloc>
+        <recloc crs=\"UT\">054C82</recloc>
+      </segment>
+      <segment id=\"1\" $(segment2_props) subclass=\"Y\">
+        <ticket number=\"2982410821480\" coupon_num=\"2\" display_id=\"$(display_id)\"/>\
+$(if $(eq $(trfer_only) "true") "" {
+        <recloc crs=\"DT\">04VSFC</recloc>
+        <recloc crs=\"UT\">054C82</recloc>})
+      </segment>
+    </passenger>}
+)
 
