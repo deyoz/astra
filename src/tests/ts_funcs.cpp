@@ -29,6 +29,7 @@
 #include "PgOraConfig.h"
 #include "timer.h"
 #include "passenger.h"
+#include "trip_tasks.h"
 
 #include <queue>
 #include <fstream>
@@ -768,6 +769,16 @@ void checkPresenceTask(const PointId_t& pointId, const std::string & taskName)
     }
 }
 
+static std::string FP_kick_flt_tasks_daemon(const std::vector<std::string>& par)
+{
+  string handler_id=all_other_handler_id;
+  if (par.size()>0) handler_id=par.at(0);
+
+  check_trip_tasks(handler_id);
+
+  return "";
+}
+
 static std::string FP_run_trip_task(const std::vector<std::string>& par)
 {
     ASSERT(par.size() <= 3);
@@ -1130,6 +1141,7 @@ FP_REGISTER("set_desk_version", FP_setDeskVersion);
 FP_REGISTER("set_user_time_type", FP_setUserTime);
 FP_REGISTER("init_apps", FP_initApps);
 FP_REGISTER("translit", FP_translit);
+FP_REGISTER("kick_flt_tasks_daemon", FP_kick_flt_tasks_daemon);
 FP_REGISTER("run_trip_task", FP_run_trip_task);
 FP_REGISTER("check_pax_alarms", FP_checkPaxAlarms);
 FP_REGISTER("check_crs_pax_alarms", FP_checkCrsPaxAlarms);

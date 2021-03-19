@@ -1977,7 +1977,7 @@ void PrintInterface::BPPax::checkBPPrintAllowed(boost::optional<SEATPAX::paxSeat
 
 void checkBeforePrintBP(const PrintInterface::BPPax &pax, IAPI::PassengerStatusInspector &iapiInspector)
 {
-    if (!iapiInspector.allowedToPrintBP(pax.pax_id, pax.grp_id))
+    if (!iapiInspector.allowedToPrintBP(PaxId_t(pax.pax_id), GrpId_t(pax.grp_id)))
         throw UserException("MSG.BP_PRINT_NOT_ALLOWED.APPS_PROBLEM");
     DCSServiceApplying::RequiredRfiscs(DCSAction::PrintBPOnDesk, PaxId_t(pax.pax_id)).throwIfNotExists();
 }
