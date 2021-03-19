@@ -61,7 +61,6 @@ void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList
   int col_reg_no = Qry.FieldIndex("reg_no");
   int col_full_name = Qry.FieldIndex("full_name");
   int col_part_key=Qry.FieldIndex("part_key");
-  int col_bag_pool_num=Qry.FieldIndex("bag_pool_num");
   int col_airp_arv = Qry.FieldIndex("airp_arv");
   int col_pr_brd = Qry.FieldIndex("pr_brd");
   int col_refuse = Qry.FieldIndex("refuse");
@@ -69,8 +68,6 @@ void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList
   int col_cabin_class_grp = Qry.FieldIndex("cabin_class_grp");
   int col_ticket_no = Qry.FieldIndex("ticket_no");
   int col_hall = Qry.FieldIndex("hall");
-  int col_seats = Qry.FieldIndex("seats");
-  int col_seat_no = Qry.FieldIndex("seat_no");
   int col_status=Qry.FieldIndex("status");
 
   map<int, TTripItem> TripItems;
@@ -84,13 +81,6 @@ void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList
       int point_id = Qry.FieldAsInteger(col_point_id);
       int grp_id = Qry.FieldAsInteger(col_grp_id);
       int pax_id =  Qry.FieldAsInteger(col_pax_id);
-      int excess_pc = Qry.FieldAsInteger("excess_pc");
-      int excess_wt =  Qry.FieldAsInteger("excess_wt");
-      int excess = Qry.FieldAsInteger("excess");
-      int bag_refuse = Qry.FieldAsInteger("bag_refuse");
-      int seats = Qry.FieldAsInteger(col_seats);
-      int pr_lat =  TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU;
-      std::string seat_no = Qry.FieldAsString(col_seat_no);
       TDateTime part_key=NoExists;
       if(!Qry.FieldIsNULL(col_part_key)) part_key=Qry.FieldAsDateTime(col_part_key);
 
@@ -123,7 +113,17 @@ void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList
       NewTextChild(paxNode, "full_name", Qry.FieldAsString(col_full_name));
 
       if(isArch) {
+          int col_bag_pool_num=Qry.FieldIndex("bag_pool_num");
+          int col_seat_no = Qry.FieldIndex("seat_no");
+          int col_seats = Qry.FieldIndex("seats");
+          int bag_refuse = Qry.FieldAsInteger("bag_refuse");
+          int seats = Qry.FieldAsInteger(col_seats);
+          int excess_pc = Qry.FieldAsInteger("excess_pc");
+          int excess_wt =  Qry.FieldAsInteger("excess_wt");
+          int excess = Qry.FieldAsInteger("excess");
           int bag_pool_num = Qry.FieldAsInteger(col_bag_pool_num);
+          int pr_lat =  TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU;
+          std::string seat_no = Qry.FieldAsString(col_seat_no);
           Dates::DateTime_t b_part_key = DateTimeToBoost(part_key);
           NewTextChild(paxNode, "bag_amount", PG_ARX::get_bagAmount2(b_part_key,
                                                 grp_id, pax_id, bag_pool_num).value_or(0));
@@ -1585,10 +1585,6 @@ void UnaccompListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNod
 
       int point_id = Qry.FieldAsInteger(col_point_id);
       int grp_id = Qry.FieldAsInteger(col_grp_id);
-      int excess_wt =  Qry.FieldAsInteger("excess_wt");
-      int excess = Qry.FieldAsInteger("excess");
-      int bag_refuse = Qry.FieldAsInteger("bag_refuse");
-      int pr_lat = TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU;
 
       TDateTime part_key=NoExists;
       if(!Qry.FieldIsNULL(col_part_key)) part_key=Qry.FieldAsDateTime(col_part_key);
@@ -1622,6 +1618,10 @@ void UnaccompListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNod
       NewTextChild(paxNode, "full_name", getLocaleText("Багаж без сопровождения"));
 
       if(isArch) {
+          int excess_wt =  Qry.FieldAsInteger("excess_wt");
+          int excess = Qry.FieldAsInteger("excess");
+          int bag_refuse = Qry.FieldAsInteger("bag_refuse");
+          int pr_lat = TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU;
           Dates::DateTime_t b_part_key = DateTimeToBoost(part_key);
           NewTextChild(paxNode, "bag_amount", PG_ARX::get_bagAmount2(b_part_key,
                                                 grp_id, std::nullopt, 0).value_or(0));
@@ -1969,9 +1969,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   pax_grp.hall, "
                 "   pax.ticket_no, "
                 "   pax.pax_id, "
-                "   pax_grp.status, "
-                "   pax.bag_pool_num, "
-                "   pax.seats "
+                "   pax_grp.status "
                 "FROM  pax_grp,pax, points "
                 "WHERE "
                 "   points.point_id = :point_id and points.pr_del>=0 and "
