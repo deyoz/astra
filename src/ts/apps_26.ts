@@ -143,7 +143,6 @@ $(run_trip_task send_apps $(get point_dep))
 # уходят CIRQ-запросы
 $(CIRQ_61_UT_REQS_APPS_VERSION_26 UT 298 PRG AER $(yyyymmdd) $(yyyymmdd) 0[0-9]?1500 1[0-9]?0000)
 
-
 # Эмулируем приход нескольких apps-ответов:
 
 # по пассажиру KURGINSKAYA/ANNA GRIGOREVNA
@@ -837,3 +836,140 @@ $(CHECKIN_PAX_WITH_DOCA $(get pax_id) $(get point_dep) $(get point_arv)
 
 >> lines=auto mode=regex
 .*CIRQ:([0-9]+)/UTUTA1/N//26/INT/8/S/UT298/PRG/AER/$(yyyymmdd)/0[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PRQ/34/1/P/UKR/UKR/FA144642//P//20250625////TUMALI/VALERII/19680416/M///N/N///////00011////////.*
+
+
+###################################################################################################
+%%
+###
+#   Тест №11
+#
+#   Описание: пассажиров: 61,
+#             интерактив: выкл
+#            версия apps: 26
+#
+#   При получении некорректного кода DOCO country_issuance из PNL и отсутствии DOCA ,
+#   APPS не отправляется без PAD(нет doco и doca)
+#
+###
+#########################################################################################
+
+$(settcl APPS_H2H_ADDR APTXS)
+$(settcl APPS_ROT_NAME APPGT)
+
+$(init_term)
+
+$(init_apps ЮТ ЦЗ APPS_26 closeout=true inbound=true outbound=false)
+
+$(PREPARE_SEASON_SCD ЮТ СОЧ ПРХ 298)
+$(make_spp)
+$(deny_ets_interactive ЮТ 298 СОЧ)
+
+
+$(defmacro PNL_SVX
+    depp=AER
+    arrp=PRG
+    fltno=298
+    depd=$(ddmon +0 en)
+    addr_to=MOWKK1H
+    addr_from=TJMRMUT
+{$(addr_to)
+.$(addr_from) 091320
+PNL
+UT$(fltno)/$(depd) $(depp) PART1
+-$(arrp)006L
+1TUMALI/VALERII
+.L/F50CF0/UT
+.L/5Z21M5/1H
+.R/TKNE HK1 2986145115578/1
+.R/DOCS HK1/P/UA/FA144642/UA/16APR68/M/$(ddmonyy +1y)/TUMALI/VALERII
+.R/DOCO HK1//V/5576/SVX
+.R/PSPT HK1 ZAFA144642/UA/16APR68/TUMALI/VALERII/M
+.R/FOID PPZAFA144642
+ENDPNL}
+)
+
+<<
+$(PNL_SVX AER PRG 298 $(ddmon +0 en))
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set move_id $(get_move_id $(get point_dep)))
+
+$(combine_brd_with_reg $(get point_dep))
+$(auto_set_craft $(get point_dep))
+$(run_trip_task send_apps $(get point_dep))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/1[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PRQ/34/1/P/UKR/UKR/FA144642//P//$(yyyymmdd +1y)////TUMALI/VALERII/19680416/M///N/N///////00001////////.*
+
+<< h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
+CIRS:([0-9]+)/PRS/27/001/CZ/P/UA/UA/FA144642//P//20250625////TUMALI/VALERII/19680416/M//8501/B/1////////
+
+
+###################################################################################################
+%%
+###
+#   Тест №12
+#
+#   Описание: пассажиров: 61,
+#             интерактив: выкл
+#            версия apps: 26
+#
+#   Есть doca D но doco(виза) c некорректным полем country_issuance, APPS отправляется с PAD(только doca)
+#
+###
+#########################################################################################
+
+$(settcl APPS_H2H_ADDR APTXS)
+$(settcl APPS_ROT_NAME APPGT)
+
+$(init_term)
+
+$(init_apps ЮТ ЦЗ APPS_26 closeout=true inbound=true outbound=false)
+
+$(PREPARE_SEASON_SCD ЮТ СОЧ ПРХ 298)
+$(make_spp)
+$(deny_ets_interactive ЮТ 298 СОЧ)
+
+
+$(defmacro PNL_DOCA
+    depp=AER
+    arrp=PRG
+    fltno=298
+    depd=$(ddmon +0 en)
+    addr_to=MOWKK1H
+    addr_from=TJMRMUT
+{$(addr_to)
+.$(addr_from) 091320
+PNL
+UT$(fltno)/$(depd) $(depp) PART1
+-$(arrp)006L
+1TUMALI/VALERII
+.L/F50CF0/UT
+.L/5Z21M5/1H
+.R/TKNE HK1 2986145115578/1
+.R/DOCS HK1/P/UA/FA144642/UA/16APR68/M/$(ddmonyy +1y)/TUMALI/VALERII
+.R/DOCA HK1/D/UA
+.R/DOCO HK1//V/5576/SVX
+.R/PSPT HK1 ZAFA144642/UA/16APR68/TUMALI/VALERII/M
+.R/FOID PPZAFA144642
+ENDPNL}
+)
+
+<<
+$(PNL_DOCA AER PRG 298 $(ddmon +0 en))
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set move_id $(get_move_id $(get point_dep)))
+
+$(combine_brd_with_reg $(get point_dep))
+$(auto_set_craft $(get point_dep))
+$(run_trip_task send_apps $(get point_dep))
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N/P/26/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/1[0-9]?1500/$(yyyymmdd)/1[0-9]?0000/PRQ/34/1/P/UKR/UKR/FA144642//P//$(yyyymmdd +1y)////TUMALI/VALERII/19680416/M///N/N///////00001////////PAD/13/1/UA////////////.*
+
+<< h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
+CIRS:([0-9]+)/PRS/27/001/CZ/P/UA/UA/FA144642//P//20250625////TUMALI/VALERII/19680416/M//8501/B/1////////
+
