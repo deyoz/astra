@@ -14,6 +14,7 @@ using namespace BASIC::date_time;
 
 void arx_departed_flt(DB::TQuery &Qry, TEncodedFileStream &of)
 {
+    LogTrace5 << __func__;
     int point_id = Qry.FieldAsInteger("point_id");
     TDateTime part_key = NoExists;
     if(!Qry.FieldIsNULL("part_key")) {
@@ -232,6 +233,7 @@ void departed_flt(DB::TQuery &Qry, TEncodedFileStream &of)
 
 void arx_departed_month(const pair<TDateTime, TDateTime> &interval, TEncodedFileStream &of)
 {
+    LogTrace5 << __func__;
     DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"));
     Qry.CreateVariable("FirstDate", otDate, interval.first);
     Qry.CreateVariable("LastDate", otDate, interval.second);

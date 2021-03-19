@@ -35,6 +35,7 @@ void TMoveIds::get_for_airp(TDateTime first_date, TDateTime last_date, const std
 int arx_stat_belgorod(TDateTime part_key, int move_id, int& processed,
                       std::ofstream& farv, std::ofstream& fdep)
 {
+    LogTrace5 << " part_key : " << part_key << " move_id: " << move_id;
     std::string arx_pax_grp_airp_dep, arx_pax_grp_airp_arv;
     int arx_points_point_id, arx_pax_grp_grp_id, arx_pax_doc_pax_id;
     Dates::DateTime_t arx_pax_grp_part_key, arx_pax_doc_part_key;
@@ -52,15 +53,15 @@ int arx_stat_belgorod(TDateTime part_key, int move_id, int& processed,
                 "      AND arx_pax_doc.issue_country<>'RUS' ",
                 PgOra::getROSession("ARX_POINTS"));
     cur.def(arx_pax_grp_airp_dep)
-            .def(arx_pax_grp_airp_arv)
-            .def(arx_points_point_id)
-            .def(arx_pax_grp_part_key)
-            .def(arx_pax_grp_grp_id)
-            .def(arx_pax_doc_part_key)
-            .def(arx_pax_doc_pax_id)
-            .bind(":part_key", part_key)
-            .bind(":move_id", move_id)
-            .exec();
+       .def(arx_pax_grp_airp_arv)
+       .def(arx_points_point_id)
+       .def(arx_pax_grp_part_key)
+       .def(arx_pax_grp_grp_id)
+       .def(arx_pax_doc_part_key)
+       .def(arx_pax_doc_pax_id)
+       .bind(":part_key", part_key)
+       .bind(":move_id", move_id)
+       .exec();
 
     map< pair<TDateTime, int>, TTripInfo > flights;
     const string delim="\t";
@@ -291,6 +292,109 @@ int stat_belgorod(int argc, char **argv)
     return 1;
 }
 
+
+int arx_ego_stat(int argc,char **argv)
+{
+    tst();
+    TDateTime FirstDate, LastDate;
+    if (!getDateRangeFromArgs(argc, argv, FirstDate, LastDate))
+        return 1;
+
+    DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"));
+    int processed=0;
+
+    const string delim = ";";
+    TEncodedFileStream of("cp1251",
+                          (string)"ego_stat." +
+                          DateTimeToStr(FirstDate, "ddmmyy") + "-" +
+                          DateTimeToStr(LastDate, "ddmmyy") +
+                          ".csv");
+    of
+            << "ФИО" << delim
+            << "Дата рождения" << delim
+            << "Паспорт" << delim
+            << "Направление полета" << delim
+            << "Дата перелета" << endl;
+
+    for(int step = 1; step < 2; step++) {
+        string SQLText =
+                "SELECT point_id, scd_out ";
+        if(step == 1)
+            SQLText += "   ,part_key ";
+        SQLText += "FROM arx_points "
+                   "WHERE scd_out>=:FirstDate AND scd_out<:LastDate AND pr_reg<>0 AND pr_del>=0";
+        Qry.ClearParams();
+        Qry.SQLText= SQLText;
+        Qry.CreateVariable("FirstDate", otDate, FirstDate);
+        Qry.CreateVariable("LastDate", otDate, LastDate);
+        Qry.Execute();
+        list< pair<int, pair<TDateTime, TDateTime> > > point_ids;
+        for(;!Qry.Eof;Qry.Next()) {
+            TDateTime part_key = ASTRA::NoExists;
+            if(step == 1)
+                part_key = Qry.FieldAsDateTime("part_key");
+            point_ids.push_back(
+                        make_pair(
+                            Qry.FieldAsInteger("point_id"),
+                            make_pair(
+                                Qry.FieldAsDateTime("scd_out"),
+                                part_key
+                                )
+                            )
+                        );
+        }
+
+        Qry.ClearParams();
+        SQLText =
+                "SELECT "
+                "   arx_pax.surname, "
+                "   arx_pax.name, "
+                "   arx_pax_doc.birth_date, "
+                "   arx_pax_doc.no, "
+                "   arx_pax_grp.airp_arv "
+                "FROM "
+                "   arx_pax_grp , "
+                "   arx_pax , "
+                "   arx_pax_doc  "
+                "WHERE ";
+        if(step == 1) {
+            SQLText +=
+                    "   arx_pax_grp.part_key = :part_key and "
+                    "   arx_pax.part_key = :part_key and "
+                    "   arx_pax_doc.part_key = :part_key and ";
+            Qry.DeclareVariable("part_key", otDate);
+        }
+        SQLText +=
+                "   arx_pax_grp.grp_id=pax.grp_id AND arx_pax.pax_id=arx_pax_doc.pax_id AND "
+                "   arx_pax_grp.airp_dep = 'БЕД' and "
+                "   arx_pax_doc.no like '20%' and "
+                "   arx_pax_grp.status NOT IN ('E') AND arx_pax_grp.point_dep=:point_id ";
+
+        Qry.SQLText= SQLText;
+        Qry.DeclareVariable("point_id", otInteger);
+        for(auto && [point_id, date_pair] :  point_ids)
+        {
+            Qry.SetVariable("point_id", point_id);
+            if(step == 1) {
+                Qry.SetVariable("part_key", date_pair.second);
+            }
+            Qry.Execute();
+            for(;!Qry.Eof;Qry.Next())
+            {
+                of
+                        << (string) Qry.FieldAsString("surname") + " " +Qry.FieldAsString("name") << delim
+                        << DateTimeToStr(Qry.FieldAsDateTime("birth_date"), "dd.mm.yyyy") << delim
+                        << Qry.FieldAsString("no") << delim
+                        << ElemIdToNameLong(etAirp, Qry.FieldAsString("airp_arv")) << delim
+                        << DateTimeToStr(date_pair.first, "dd.mm.yyyy") << endl;
+            }
+            processed++;
+            nosir_wait(processed, false, 10, 0);
+        }
+    }
+    return 0;
+}
+
 int ego_stat(int argc,char **argv)
 {
     TDateTime FirstDate, LastDate;
@@ -313,102 +417,68 @@ int ego_stat(int argc,char **argv)
             << "Направление полета" << delim
             << "Дата перелета" << endl;
 
-    for(int step = 0; step < 2; step++) {
-        string SQLText =
-                "SELECT point_id, scd_out ";
-        if(step == 1)
-            SQLText +=
-                    "   ,part_key ";
-        SQLText +=
-                "FROM ";
-        if(step == 0)
-            SQLText +=
-                    "   points ";
-        else
-            SQLText +=
-                    "   arx_points ";
-        SQLText +=
-                "WHERE scd_out>=:FirstDate AND scd_out<:LastDate AND "
-                "      pr_reg<>0 AND pr_del>=0";
-        Qry.Clear();
-        Qry.SQLText= SQLText;
-        Qry.CreateVariable("FirstDate", otDate, FirstDate);
-        Qry.CreateVariable("LastDate", otDate, LastDate);
-        Qry.Execute();
-        list< pair<int, pair<TDateTime, TDateTime> > > point_ids;
-        for(;!Qry.Eof;Qry.Next()) {
-            TDateTime part_key = ASTRA::NoExists;
-            if(step == 1)
-                part_key = Qry.FieldAsDateTime("part_key");
-            point_ids.push_back(
+    string SQLText = "SELECT point_id, scd_out "
+                     "FROM points "
+                     "WHERE scd_out>=:FirstDate AND scd_out<:LastDate AND pr_reg<>0 AND pr_del>=0";
+    Qry.Clear();
+    Qry.SQLText= SQLText;
+    Qry.CreateVariable("FirstDate", otDate, FirstDate);
+    Qry.CreateVariable("LastDate", otDate, LastDate);
+    Qry.Execute();
+    list< pair<int, pair<TDateTime, TDateTime> > > point_ids;
+    for(;!Qry.Eof;Qry.Next()) {
+        TDateTime part_key = ASTRA::NoExists;
+        point_ids.push_back(
+                    make_pair(
+                        Qry.FieldAsInteger("point_id"),
                         make_pair(
-                            Qry.FieldAsInteger("point_id"),
-                            make_pair(
-                                Qry.FieldAsDateTime("scd_out"),
-                                part_key
-                                )
+                            Qry.FieldAsDateTime("scd_out"),
+                            part_key
                             )
-                        );
-        }
-
-        Qry.Clear();
-        SQLText =
-                "SELECT "
-                "   pax.surname, "
-                "   pax.name, "
-                "   pax_doc.birth_date, "
-                "   pax_doc.no, "
-                "   pax_grp.airp_arv "
-                "FROM ";
-        if(step == 0)
-            SQLText +=
-                    "   pax_grp, "
-                    "   pax, "
-                    "   pax_doc ";
-        else
-            SQLText +=
-                    "   arx_pax_grp pax_grp, "
-                    "   arx_pax pax, "
-                    "   arx_pax_doc pax_doc ";
-        SQLText +=
-                "WHERE ";
-        if(step == 1) {
-            SQLText +=
-                    "   pax_grp.part_key = :part_key and "
-                    "   pax.part_key = :part_key and "
-                    "   pax_doc.part_key = :part_key and ";
-            Qry.DeclareVariable("part_key", otDate);
-        }
-        SQLText +=
-                "   pax_grp.grp_id=pax.grp_id AND pax.pax_id=pax_doc.pax_id AND "
-                "   pax_grp.airp_dep = 'БЕД' and "
-                "   pax_doc.no like '20%' and "
-                "   pax_grp.status NOT IN ('E') AND pax_grp.point_dep=:point_id ";
-
-        Qry.SQLText= SQLText;
-        Qry.DeclareVariable("point_id", otInteger);
-        for(list< pair<int, pair<TDateTime, TDateTime> > >::const_iterator i=point_ids.begin(); i!=point_ids.end(); ++i)
-        {
-            Qry.SetVariable("point_id", i->first);
-            if(step == 1) {
-                Qry.SetVariable("part_key", i->second.second);
-            }
-            Qry.Execute();
-            for(;!Qry.Eof;Qry.Next())
-            {
-                of
-                        << (string)
-                           Qry.FieldAsString("surname") + " " +
-                           Qry.FieldAsString("name") << delim
-                        << DateTimeToStr(Qry.FieldAsDateTime("birth_date"), "dd.mm.yyyy") << delim
-                        << Qry.FieldAsString("no") << delim
-                        << ElemIdToNameLong(etAirp, Qry.FieldAsString("airp_arv")) << delim
-                        << DateTimeToStr(i->second.first, "dd.mm.yyyy") << endl;
-            }
-            processed++;
-            nosir_wait(processed, false, 10, 0);
-        }
+                        )
+                    );
     }
+
+    Qry.Clear();
+    SQLText =
+            "SELECT "
+            "   pax.surname, "
+            "   pax.name, "
+            "   pax_doc.birth_date, "
+            "   pax_doc.no, "
+            "   pax_grp.airp_arv "
+            "FROM "
+            "   pax_grp, "
+            "   pax, "
+            "   pax_doc "
+            "WHERE "
+            "   pax_grp.grp_id=pax.grp_id AND pax.pax_id=pax_doc.pax_id AND "
+            "   pax_grp.airp_dep = 'БЕД' and "
+            "   pax_doc.no like '20%' and "
+            "   pax_grp.status NOT IN ('E') AND pax_grp.point_dep=:point_id ";
+
+    Qry.SQLText= SQLText;
+    Qry.DeclareVariable("point_id", otInteger);
+    for(list< pair<int, pair<TDateTime, TDateTime> > >::const_iterator i=point_ids.begin(); i!=point_ids.end(); ++i)
+    {
+        Qry.SetVariable("point_id", i->first);
+        Qry.Execute();
+        for(;!Qry.Eof;Qry.Next())
+        {
+            of
+                    << (string)
+                       Qry.FieldAsString("surname") + " " +
+                       Qry.FieldAsString("name") << delim
+                    << DateTimeToStr(Qry.FieldAsDateTime("birth_date"), "dd.mm.yyyy") << delim
+                    << Qry.FieldAsString("no") << delim
+                    << ElemIdToNameLong(etAirp, Qry.FieldAsString("airp_arv")) << delim
+                    << DateTimeToStr(i->second.first, "dd.mm.yyyy") << endl;
+        }
+        processed++;
+        nosir_wait(processed, false, 10, 0);
+    }
+
+    arx_ego_stat(argc, argv);
 
     return 0;
 }

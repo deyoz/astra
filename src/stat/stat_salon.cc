@@ -89,15 +89,15 @@ void get_arx_points(const TStatParams &params, list<pair<TDateTime, TTripInfo>> 
         SQLText += "where pr_del >= 0 and ";
         params.AccessClause(SQLText);
         if(params.flt_no != NoExists) {
-            SQLText += " points.flt_no = :flt_no and ";
+            SQLText += " arx_points.flt_no = :flt_no and ";
             QryParams << QParam("flt_no", otInteger, params.flt_no);
         }
         if(pass == 1)
-            SQLText += " arx_points.part_key >= :FirstDate AND points.part_key < :arx_trip_date_range AND \n";
+            SQLText += " arx_points.part_key >= :FirstDate AND arx_points.part_key < :arx_trip_date_range AND \n";
         if(pass == 2)
             SQLText += " arx_points.part_key=arx_ext.part_key AND arx_points.move_id=arx_ext.move_id AND \n";
         SQLText +=
-            "   arx_points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
+            "   arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate ";
 
         DB::TCachedQuery Qry(PgOra::getROSession("ARX_POINTS"), SQLText, QryParams);
         Qry.get().Execute();
@@ -143,10 +143,11 @@ void RunSalonStat(
         TSalonStat &SalonStat
         )
 {
+    tst();
     list<pair<TDateTime, TTripInfo>> points;
     get_points(params, points);
-    boost::optional<TCachedQuery> operQry;
-    boost::optional<TCachedQuery> arxQry;
+    boost::optional<DB::TCachedQuery> operQry;
+    boost::optional<DB::TCachedQuery> arxQry;
     for(const auto &point: points) {
         auto &Qry = (point.first == NoExists ? operQry : arxQry);
         if(not Qry) {
@@ -157,9 +158,9 @@ void RunSalonStat(
                 << QParam("point_id", otInteger);
             string SQLText = "select * from ";
             if(point.first != NoExists)
-                SQLText += "arx_events ";
+                SQLText += "ARX_EVENTS ";
             else
-                SQLText += "events_bilingual ";
+                SQLText += "EVENTS_BILINGUAL ";
             SQLText += "where ";
             if(point.first != NoExists) {
                 SQLText += "part_key = :part_key and ";
@@ -174,7 +175,9 @@ void RunSalonStat(
                 " lang = :lang and "
                 " type = :type and "
                 " id1 = :point_id ";
-            Qry = boost::in_place(SQLText, QryParams);
+            DbCpp::Session &sess = (point.first == NoExists ? PgOra::getROSession("EVENTS_BILINGUAL")
+                                                            : PgOra::getROSession("ARX_EVENTS"));
+            Qry = DB::TCachedQuery(sess , SQLText, QryParams);
         }
 
         Qry->get().SetVariable("point_id", point.second.point_id);

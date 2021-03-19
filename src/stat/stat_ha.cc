@@ -19,6 +19,7 @@ void ArxRunHAStat(
         THAAbstractStat &HAStat
         )
 {
+    tst();
     for(int pass = 1; pass <= 2; pass++) {
         QParams QryParams;
         QryParams
@@ -43,7 +44,7 @@ void ArxRunHAStat(
         }
         SQLText += " arx_points.part_key = arx_stat_ha.part_key and ";
         if(pass == 1)
-            SQLText += " arx_points.part_key >= :FirstDate AND points.part_key < :arx_trip_date_range AND \n";
+            SQLText += " arx_points.part_key >= :FirstDate AND arx_points.part_key < :arx_trip_date_range AND \n";
         if(pass == 2)
             SQLText += " arx_points.part_key=arx_ext.part_key AND arx_points.move_id=arx_ext.move_id AND \n";
         SQLText += "   arx_stat_ha.scd_out >= :FirstDate AND arx_stat_ha.scd_out < :LastDate ";

@@ -56,6 +56,7 @@ void ArxRunPFSStat(
         TPrintAirline &prn_airline
         )
 {
+    tst();
     TDateTime first_date = params.FirstDate;
     TDateTime last_date = params.LastDate;
     if(params.LT) {
@@ -107,7 +108,7 @@ void ArxRunPFSStat(
             SQLText += " arx_points.part_key >= :FirstDate AND arx_points.part_key < :arx_trip_date_range AND \n";
         if(pass == 2)
             SQLText += " arx_points.part_key=arx_ext.part_key AND arx_points.move_id=arx_ext.move_id AND \n";
-        SQLText += " points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
+        SQLText += " arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate ";
         DB::TCachedQuery Qry(PgOra::getROSession("ARX_POINTS"), SQLText, QryParams);
         Qry.get().Execute();
         if(not Qry.get().Eof) {

@@ -56,6 +56,7 @@ void ArxRunADStat(
         TADAbstractStat &ADStat
         )
 {
+    LogTrace5 << __func__;
     for(int pass = 1; pass <= 2; pass++) {
         QParams QryParams;
         QryParams

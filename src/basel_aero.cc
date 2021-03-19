@@ -460,6 +460,7 @@ CheckIn::TBagItem fromDBO(const dbo::ARX_BAG2 & bag)
 std::string baselStatPaidInfo(const TBaselStat & stat, TDateTime part_key, int point_id, int grp_id,
                               bool piece_concept)
 {
+    LogTrace5 << " part_key: " << DateTimeToBoost(part_key) << " point_id: " << point_id;
     TPaidToLogInfo paidInfo;
     dbo::Session session;
     std::vector<dbo::ARX_BAG2> arx_bags = session.query<dbo::ARX_BAG2>()
@@ -511,6 +512,7 @@ std::string baselStatPaidInfo(const TBaselStat & stat, TDateTime part_key, int p
 
 void get_basel_aero_arx_flight_stat(TDateTime part_key, int point_id, std::vector<TBaselStat> &stats )
 {
+    LogTrace5 << " part_key: " << DateTimeToBoost(part_key) << " point_id: " << point_id;
     stats.clear();
     TTripInfo operFlt;
     if (!operFlt.getByPointId(part_key, point_id, FlightProps(FlightProps::NotCancelled,

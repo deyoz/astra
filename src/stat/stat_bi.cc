@@ -75,6 +75,7 @@ void ArxRunBIStat(
         TBIAbstractStat &BIStat
         )
 {
+    tst();
     for(int pass = 1; pass <= 2; pass++) {
         QParams QryParams;
         QryParams
@@ -107,13 +108,13 @@ void ArxRunBIStat(
             SQLText += " hall = :hall and ";
             QryParams << QParam("hall", otInteger, params.bi_hall);
         }
-        SQLText += " points.part_key = bi_stat.part_key and ";
+        SQLText += " arx_points.part_key = arx_bi_stat.part_key and ";
         if(pass == 1)
-            SQLText += " points.part_key >= :FirstDate AND points.part_key < :arx_trip_date_range AND \n";
+            SQLText += " arx_points.part_key >= :FirstDate AND arx_points.part_key < :arx_trip_date_range AND \n";
         if(pass == 2)
-            SQLText += " points.part_key=arx_ext.part_key AND points.move_id=arx_ext.move_id AND \n";
-        SQLText += "   bi_stat.scd_out >= :FirstDate AND bi_stat.scd_out < :LastDate ";
-        DB::TCachedQuery Qry(PgOra::getROSession("ARX_POINTS"), SQLText, QryParams);
+            SQLText += " arx_points.part_key=arx_ext.part_key AND arx_points.move_id=arx_ext.move_id AND \n";
+        SQLText += "   arx_bi_stat.scd_out >= :FirstDate AND arx_bi_stat.scd_out < :LastDate ";
+        DB::TCachedQuery Qry(PgOra::getROSession("ARX_BI_STAT"), SQLText, QryParams);
         Qry.get().Execute();
         if(not Qry.get().Eof) {
             int col_part_key = Qry.get().GetFieldIndex("part_key");

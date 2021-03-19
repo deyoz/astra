@@ -564,6 +564,7 @@ bool FilterFlightDate( TSOPPTrip &tr, TDateTime first_date, TDateTime next_date,
 
 void arx_read_TripStages( vector<TSoppStage> &stages, TDateTime part_key, int point_id )
 {
+  LogTrace5 << __func__ << " part_key: " << part_key << " point_id: " << point_id;
   TCkinClients ckin_clients;
   stages.clear();
   DB::TQuery StagesQry(PgOra::getROSession("ARX_TRIP_STAGES"));
@@ -1083,6 +1084,7 @@ void tstations::toDB( const std::string& whereabouts, int point_id, toDbMode mod
 
 string arx_internal_ReadData_N(TSOPPTrips &trips, long int &exec_time, int point_id)
 {
+  LogTrace5 << __func__ << " point_id: " << point_id;
   string errcity;
   TReqInfo *reqInfo = TReqInfo::Instance();
 

@@ -7,6 +7,9 @@
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/classification.hpp>
 
+#define NICKNAME "DENIS"
+#include "serverlib/slogger.h"
+
 template void RunRemStat(TStatParams const&, TOrderStatWriter&, TPrintAirline&);
 template void RunRemStat(TStatParams const&, TRemStat&, TPrintAirline&);
 
@@ -87,6 +90,7 @@ string TRemStatRow::rate_str() const
 template <class T>
 void ArxRemStat(const TStatParams &params, T &RemStat,TPrintAirline &prn_airline)
 {
+    tst();
         QParams QryParams;
         QryParams
             << QParam("FirstDate", otDate, params.FirstDate)

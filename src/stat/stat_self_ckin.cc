@@ -3,6 +3,9 @@
 #include "astra_date_time.h"
 #include "report_common.h"
 
+#define NICKNAME "DENIS"
+#include "serverlib/slogger.h"
+
 using namespace std;
 using namespace ASTRA;
 using namespace ASTRA::date_time;
@@ -65,21 +68,21 @@ bool TKioskCmp::operator() (const TSelfCkinStatKey &lr, const TSelfCkinStatKey &
         return lr.client_type < rr.client_type;
 }
 
-
-void RunSelfCkinStat(const TStatParams &params,
+void ArxRunSelfCkinStat(const TStatParams &params,
                   TSelfCkinStat &SelfCkinStat, TSelfCkinStatRow &SelfCkinStatTotal,
                   TPrintAirline &prn_airline)
 {
-    TQuery Qry(&OraSession);
-    for(int pass = 0; pass <= 2; pass++) {
+    tst();
+    DB::TQuery Qry(PgOra::getROSession("ARX_SELF_CKIN_STAT"));
+    for(int pass = 1; pass <= 2; pass++) {
         string SQLText =
             "select "
-            "    points.airline, "
-            "    points.airp, "
-            "    points.scd_out, "
-            "    points.flt_no, "
-            "    self_ckin_stat.point_id, "
-            "    self_ckin_stat.client_type, "
+            "    arx_points.airline, "
+            "    arx_points.airp, "
+            "    arx_points.scd_out, "
+            "    arx_points.flt_no, "
+            "    arx_self_ckin_stat.point_id, "
+            "    arx_self_ckin_stat.client_type, "
             "    desk, "
             "    desk_airp, "
             "    descr, "
@@ -90,53 +93,43 @@ void RunSelfCkinStat(const TStatParams &params,
             "    term_bag, "
             "    term_ckin_service, "
             "    tckin "
-            "from ";
-        if(pass != 0) {
-            SQLText +=
-                " arx_points points, "
-                " arx_self_ckin_stat self_ckin_stat ";
+            "from "
+            " arx_points , "
+            " arx_self_ckin_stat ";
             if(pass == 2)
-                SQLText +=
-                    ",(SELECT part_key, move_id FROM move_arx_ext \n"
-                    "  WHERE part_key >= :LastDate+:arx_trip_date_range AND part_key <= :LastDate+date_range) arx_ext \n";
-        } else {
-            SQLText +=
-                " points, "
-                " self_ckin_stat ";
-        }
+                SQLText += getMoveArxQuery();
+
         SQLText += "where ";
         if (pass==1)
-            SQLText += " points.part_key >= :FirstDate AND points.part_key < :LastDate + :arx_trip_date_range AND \n";
+            SQLText += " arx_points.part_key >= :FirstDate AND arx_points.part_key < :arx_trip_date_range AND \n";
         if (pass==2)
-            SQLText += " points.part_key=arx_ext.part_key AND points.move_id=arx_ext.move_id AND \n";
-        if (pass!=0)
-            SQLText += " self_ckin_stat.part_key = points.part_key AND \n";
+            SQLText += " arx_points.part_key=arx_ext.part_key AND arx_points.move_id=arx_ext.move_id AND \n";
+        SQLText += " arx_self_ckin_stat.part_key = arx_points.part_key AND \n";
 
         params.AccessClause(SQLText);
 
         SQLText +=
-            "    self_ckin_stat.point_id = points.point_id and "
-            "    points.pr_del >= 0 and "
-            "    points.scd_out >= :FirstDate and "
-            "    points.scd_out < :LastDate ";
+            "    arx_self_ckin_stat.point_id = arx_points.point_id and "
+            "    arx_points.pr_del >= 0 and "
+            "    arx_points.scd_out >= :FirstDate and "
+            "    arx_points.scd_out < :LastDate ";
 
         if(not params.reg_type.empty()) {
-            SQLText += " and self_ckin_stat.client_type = :reg_type ";
+            SQLText += " and arx_self_ckin_stat.client_type = :reg_type ";
             Qry.CreateVariable("reg_type", otString, params.reg_type);
         }
         if(params.flt_no != NoExists) {
-            SQLText += " and points.flt_no = :flt_no ";
+            SQLText += " and arx_points.flt_no = :flt_no ";
             Qry.CreateVariable("flt_no", otInteger, params.flt_no);
         }
         if(!params.desk.empty()) {
-            SQLText += "and self_ckin_stat.desk = :desk ";
+            SQLText += "and arx_self_ckin_stat.desk = :desk ";
             Qry.CreateVariable("desk", otString, params.desk);
         }
         Qry.SQLText = SQLText;
         Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
         Qry.CreateVariable("LastDate", otDate, params.LastDate);
-        if (pass!=0)
-            Qry.CreateVariable("arx_trip_date_range", otInteger, ARX_TRIP_DATE_RANGE());
+        Qry.CreateVariable("arx_trip_date_range", otDate, params.LastDate+ARX_TRIP_DATE_RANGE());
         Qry.Execute();
         if(not Qry.Eof) {
             int col_airline = Qry.FieldIndex("airline");
@@ -207,6 +200,131 @@ void RunSelfCkinStat(const TStatParams &params,
             }
         }
     }
+}
+
+
+void RunSelfCkinStat(const TStatParams &params,
+                  TSelfCkinStat &SelfCkinStat, TSelfCkinStatRow &SelfCkinStatTotal,
+                  TPrintAirline &prn_airline)
+{
+    TQuery Qry(&OraSession);
+    string SQLText =
+        "select "
+        "    points.airline, "
+        "    points.airp, "
+        "    points.scd_out, "
+        "    points.flt_no, "
+        "    self_ckin_stat.point_id, "
+        "    self_ckin_stat.client_type, "
+        "    desk, "
+        "    desk_airp, "
+        "    descr, "
+        "    adult, "
+        "    child, "
+        "    baby, "
+        "    term_bp, "
+        "    term_bag, "
+        "    term_ckin_service, "
+        "    tckin "
+        "from "
+        "   points, "
+        "   self_ckin_stat "
+        "where ";
+
+    params.AccessClause(SQLText);
+
+    SQLText +=
+        "    self_ckin_stat.point_id = points.point_id and "
+        "    points.pr_del >= 0 and "
+        "    points.scd_out >= :FirstDate and "
+        "    points.scd_out < :LastDate ";
+
+    if(not params.reg_type.empty()) {
+        SQLText += " and self_ckin_stat.client_type = :reg_type ";
+        Qry.CreateVariable("reg_type", otString, params.reg_type);
+    }
+    if(params.flt_no != NoExists) {
+        SQLText += " and points.flt_no = :flt_no ";
+        Qry.CreateVariable("flt_no", otInteger, params.flt_no);
+    }
+    if(!params.desk.empty()) {
+        SQLText += "and self_ckin_stat.desk = :desk ";
+        Qry.CreateVariable("desk", otString, params.desk);
+    }
+    Qry.SQLText = SQLText;
+    Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
+    Qry.CreateVariable("LastDate", otDate, params.LastDate);
+    Qry.Execute();
+    if(not Qry.Eof) {
+        int col_airline = Qry.FieldIndex("airline");
+        int col_airp = Qry.FieldIndex("airp");
+        int col_scd_out = Qry.FieldIndex("scd_out");
+        int col_flt_no = Qry.FieldIndex("flt_no");
+        int col_point_id = Qry.FieldIndex("point_id");
+        int col_client_type = Qry.FieldIndex("client_type");
+        int col_desk = Qry.FieldIndex("desk");
+        int col_desk_airp = Qry.FieldIndex("desk_airp");
+        int col_descr = Qry.FieldIndex("descr");
+        int col_adult = Qry.FieldIndex("adult");
+        int col_child = Qry.FieldIndex("child");
+        int col_term_bp = Qry.FieldIndex("term_bp");
+        int col_term_bag = Qry.FieldIndex("term_bag");
+        int col_term_ckin_service = Qry.FieldIndex("term_ckin_service");
+        int col_baby = Qry.FieldIndex("baby");
+        int col_tckin = Qry.FieldIndex("tckin");
+        for(; not Qry.Eof; Qry.Next())
+        {
+          string airline = Qry.FieldAsString(col_airline);
+          prn_airline.check(airline);
+
+          TSelfCkinStatRow row;
+          row.adult = Qry.FieldAsInteger(col_adult);
+          row.child = Qry.FieldAsInteger(col_child);
+          row.baby = Qry.FieldAsInteger(col_baby);
+          row.tckin = Qry.FieldAsInteger(col_tckin);
+          row.pax_amount = row.adult + row.child + row.baby;
+          row.term_bp = Qry.FieldAsInteger(col_term_bp);
+          row.term_bag = Qry.FieldAsInteger(col_term_bag);
+          if (Qry.FieldIsNULL(col_term_ckin_service))
+            row.term_ckin_service = row.pax_amount;
+          else
+            row.term_ckin_service = Qry.FieldAsInteger(col_term_ckin_service);
+          int point_id=Qry.FieldAsInteger(col_point_id);
+          row.flts.insert(point_id);
+          if (!params.skip_rows)
+          {
+            string airp = Qry.FieldAsString(col_airp);
+            TDateTime scd_out = Qry.FieldAsDateTime(col_scd_out);
+            int flt_no = Qry.FieldAsInteger(col_flt_no);
+            TSelfCkinStatKey key;
+            key.client_type = Qry.FieldAsString(col_client_type);
+            key.desk = Qry.FieldAsString(col_desk);
+            key.desk_airp = ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_desk_airp));
+            key.descr = Qry.FieldAsString(col_descr);
+
+            key.ak = ElemIdToCodeNative(etAirline, airline);
+            if(
+                    params.statType == statSelfCkinDetail or
+                    params.statType == statSelfCkinFull
+              )
+                key.ap = airp;
+            if(params.statType == statSelfCkinFull) {
+                key.flt_no = flt_no;
+                key.scd_out = scd_out;
+                key.point_id = point_id;
+                key.places.set(GetRouteAfterStr( NoExists, point_id, trtNotCurrent, trtNotCancelled), false);
+            }
+
+            AddStatRow(params.overflow, key, row, SelfCkinStat);
+          }
+          else
+          {
+            SelfCkinStatTotal+=row;
+          };
+        }
+    }
+
+    ArxRunSelfCkinStat(params, SelfCkinStat, SelfCkinStatTotal, prn_airline);
 }
 
 void createXMLSelfCkinStat(const TStatParams &params,

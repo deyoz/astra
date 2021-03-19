@@ -127,6 +127,7 @@ bool lessPointsRow(const TPointsRow& item1,const TPointsRow& item2)
 bool ArxValidateByAirp(const TDateTime& part_key, const int point_id,
                       const std::string& airp, int point_num)
 {
+    LogTrace5 << __func__ << " part_key: " << part_key << " point_id: " << point_id << " airp: " << airp;
     TReqInfo &reqInfo = *(TReqInfo::Instance());
     if (!reqInfo.user.access.airps().elems().empty()) {
         std::optional<std::string> next_airp = PG_ARX::next_airp(DateTimeToBoost(part_key), point_id, point_num);
@@ -218,6 +219,8 @@ void FltCBoxListRead(DB::TQuery& Qry, vector<TPointsRow> &points, int& count)
 void ArxGetFltCBoxList(TScreenState scr, TDateTime first_date, TDateTime last_date, bool pr_show_del,
                        vector<TPointsRow> &points, int &count)
 {
+    LogTrace5 << __func__ << " first_date: " << DateTimeToBoost(first_date)
+              << " last_date: " << DateTimeToBoost(last_date);
     TReqInfo &reqInfo = *(TReqInfo::Instance());
     DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"));
     Qry.CreateVariable("FirstDate", otDate, first_date);
@@ -374,6 +377,7 @@ int nosir_months(int argc,char **argv)
 
 void GetMinMaxPartKey(const string &where, TDateTime &min_part_key, TDateTime &max_part_key)
 {
+  LogTrace5 << __func__ ;
   DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"));
   if(ARX::READ_PG()) {
     Qry.SQLText="SELECT DATE_TRUNC('day',MIN(part_key)) AS min_part_key FROM arx_points";

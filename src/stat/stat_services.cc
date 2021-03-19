@@ -101,6 +101,7 @@ void ArxRunServicesStat(
         TServicesAbstractStat &ServicesStat
         )
 {
+    LogTrace5 << __func__;
     TFltInfoCache flt_cache;
     for(int pass = 1; pass <= 2; pass++) {
         QParams QryParams;

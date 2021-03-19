@@ -276,6 +276,7 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 void ArxFltTaskLogRun(TDateTime part_key, XMLRequestCtxt *ctxt,
                       xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    LogTrace5 << __func__ << " part_key: " << DateTimeToBoost(part_key);
     TReqInfo *reqInfo = TReqInfo::Instance();
     xmlNodePtr paramNode = reqNode->children;
     int point_id = NodeAsIntegerFast("point_id", paramNode);
@@ -523,6 +524,7 @@ void StatInterface::FltTaskLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 
 void ArxFltLogRun(TDateTime part_key, XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    LogTrace5 << __func__ << " part_key: " << DateTimeToBoost(part_key);
     TReqInfo *reqInfo = TReqInfo::Instance();
     xmlNodePtr paramNode = reqNode->children;
     int point_id = NodeAsIntegerFast("point_id", paramNode);
@@ -847,6 +849,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
 void ArxLogRun(TDateTime part_key, XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    LogTrace5 << __func__ << " part_key: " << DateTimeToBoost(part_key);
     xmlNodePtr paramNode = reqNode->children;
     int point_id = NodeAsIntegerFast("point_id", paramNode);
     int reg_no = NodeAsIntegerFast("reg_no", paramNode);
@@ -1091,7 +1094,8 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 void ArxSystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, int & count,
                      std::string agent, std::string station, std::string module)
 {
-    tst();
+    LogTrace5 << __func__ << " agent: " << agent << " station: " << station
+              << " module: " << module;
     TReqInfo *reqInfo = TReqInfo::Instance();
 
 //    string module;
@@ -1666,7 +1670,7 @@ void UnaccompListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNod
 
 void ArxPaxListRun(Dates::DateTime_t part_key, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    tst();
+    LogTrace5 << __func__ << " part_key: " << part_key;
     xmlNodePtr paramNode = reqNode->children;
     int point_id = NodeAsIntegerFast("point_id", paramNode);
     get_compatible_report_form("ArxPaxList", reqNode, resNode);
@@ -1966,6 +1970,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   pax.ticket_no, "
                 "   pax.pax_id, "
                 "   pax_grp.status "
+                "   pax.bag_pool_num "
                 "FROM  pax_grp,pax, points "
                 "WHERE "
                 "   points.point_id = :point_id and points.pr_del>=0 and "
@@ -2084,6 +2089,7 @@ void fillSqlSrcRunQuery(ostringstream & sql, const TReqInfo & info, const std::s
 
 void ArxPaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, int & count)
 {
+    LogTrace5 << __func__;
     TReqInfo &info = *(TReqInfo::Instance());
     if (!info.user.access.rights().permitted(620))
         throw AstraLocale::UserException("MSG.PAX_SRC.ACCESS_DENIED");

@@ -1026,7 +1026,7 @@ $(dump_table basel_stat display="on")
 
 ###
 #   Тест №9
-#   Чтение архива из stat_arx.cc Функция PaxListRun
+#   Чтение архива из stat_arx.cc Функция PAX_SRC_RUN
 #
 ###
 
