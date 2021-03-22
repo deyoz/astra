@@ -1415,8 +1415,8 @@ void readPactDetailStat(DB::TQuery & Qry, const vector<TPact>& result_pacts, con
                         TPrintAirline &prn_airline)
 {
     tst();
-    Qry.CreateVariable("first_date", otDate, params.FirstDate);
-    Qry.CreateVariable("last_date", otDate, params.LastDate);
+    Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
+    Qry.CreateVariable("LastDate", otDate, params.LastDate);
     Qry.Execute();
     if(not Qry.Eof) {
         int col_airline = Qry.FieldIndex("airline");

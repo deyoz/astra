@@ -826,7 +826,7 @@ void ArxRunRFISCStat(
         "where "
         "   arx_rfisc_stat.point_id = arx_points.point_id and "
         "   arx_points.pr_del >= 0 and ";
-    params.AccessClause(SQLText);
+    params.AccessClause(SQLText, "arx_points");
     SQLText +=
         "    arx_points.part_key >= :FirstDate AND arx_points.part_key < :LastDate and \n"
         "    arx_rfisc_stat.part_key >= :FirstDate AND arx_rfisc_stat.part_key < :LastDate \n";

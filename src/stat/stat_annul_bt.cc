@@ -104,7 +104,7 @@ void ArxRunAnnulBTStat(
             SQLText += " arx_points.part_key = arx_ext.part_key AND arx_points.move_id = arx_ext.move_id AND \n";
         }
 
-        params.AccessClause(SQLText);
+        params.AccessClause(SQLText, "arx_points");
 
         if(params.flt_no != NoExists) {
             SQLText += " and arx_points.flt_no = :flt_no \n";

@@ -111,11 +111,11 @@ void ArxRemStat(const TStatParams &params, T &RemStat,TPrintAirline &prn_airline
             "   asr.desk, "
             "   asr.rfisc, "
             "   asr.rate, "
-            "   asr.rate_cur "
+            "   asr.rate_cur, "
             "   asr.user_id" //for joining with users2 table after split for queries for pg
             "from  arx_stat_rem asr, arx_points "
             "where asr.point_id = arx_points.point_id and ";
-        params.AccessClause(SQLText);
+        params.AccessClause(SQLText, "arx_points");
         if(params.flt_no != NoExists) {
             SQLText += " arx_points.flt_no = :flt_no and ";
             QryParams << QParam("flt_no", otInteger, params.flt_no);

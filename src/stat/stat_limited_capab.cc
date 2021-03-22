@@ -48,7 +48,7 @@ void ArxRunLimitedCapabStat(
         "   arx_points  "
         "where "
         "   arx_stat.point_id = arx_points.point_id and ";
-    params.AccessClause(SQLText);
+    params.AccessClause(SQLText, "arx_points");
     if(params.flt_no != NoExists) {
         SQLText += " points.flt_no = :flt_no and ";
         QryParams << QParam("flt_no", otInteger, params.flt_no);

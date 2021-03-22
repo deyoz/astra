@@ -98,7 +98,7 @@ void ArxRunPFSStat(
             "where "
             "   arx_pfs_stat.point_id = arx_points.point_id and "
             "   arx_points.pr_del >= 0 and ";
-        params.AccessClause(SQLText);
+        params.AccessClause(SQLText, "arx_points");
         if(params.flt_no != NoExists) {
             SQLText += " arx_points.flt_no = :flt_no and ";
             QryParams << QParam("flt_no", otInteger, params.flt_no);

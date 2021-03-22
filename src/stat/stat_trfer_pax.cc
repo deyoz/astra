@@ -195,7 +195,7 @@ void ArxRunTrferPaxStat(
             SQLText += " arx_points.part_key=arx_ext.part_key AND arx_points.move_id=arx_ext.move_id AND ";
         }
         SQLText += "   arx_trfer_pax_stat.point_id = arx_points.point_id and ";
-        params.AccessClause(SQLText);
+        params.AccessClause(SQLText, "arx_points");
         SQLText +=
             "   arx_trfer_pax_stat.scd_out >= :FirstDate AND arx_trfer_pax_stat.scd_out < :LastDate and "
             "   arx_trfer_pax_stat.pax_id = arx_pax.pax_id ";

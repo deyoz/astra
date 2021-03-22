@@ -106,7 +106,7 @@ void ArxRunSelfCkinStat(const TStatParams &params,
             SQLText += " arx_points.part_key=arx_ext.part_key AND arx_points.move_id=arx_ext.move_id AND \n";
         SQLText += " arx_self_ckin_stat.part_key = arx_points.part_key AND \n";
 
-        params.AccessClause(SQLText);
+        params.AccessClause(SQLText, "arx_points");
 
         SQLText +=
             "    arx_self_ckin_stat.point_id = arx_points.point_id and "

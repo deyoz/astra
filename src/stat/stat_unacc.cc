@@ -107,7 +107,7 @@ void ArxRunUNACCStat(
         if(pass == 2)
             SQLText += " arx_points.part_key=arx_ext.part_key AND arx_points.move_id=arx_ext.move_id AND \n";
 
-        params.AccessClause(SQLText);
+        params.AccessClause(SQLText, "arx_points");
         if(params.flt_no != NoExists) {
             SQLText += " points.flt_no = :flt_no and \n";
             QryParams << QParam("flt_no", otInteger, params.flt_no);

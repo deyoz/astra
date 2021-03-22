@@ -93,7 +93,7 @@ void ArxRunAgentStat(const TStatParams &params,
         "  ags.drk_amount.inc rk_am_inc, \n"
         "  ags.drk_amount.dec rk_am_dec, \n"
         "  ags.drk_weight.inc rk_we_inc, \n"
-        "  ags.drk_weight.dec rk_we_dec \n"
+        "  ags.drk_weight.dec rk_we_dec, \n"
         "  ags.user_id \n"
         "FROM \n"
         "   arx_points , \n"
@@ -103,7 +103,7 @@ void ArxRunAgentStat(const TStatParams &params,
         "   ags.point_id = arx_points.point_id AND \n"
         "   arx_points.pr_del >= 0 AND \n";
 
-    params.AccessClause(SQLText);
+    params.AccessClause(SQLText, "arx_points");
     SQLText += " ags.part_key >= :FirstDate AND ags.part_key < :LastDate \n";
 
     if(params.flt_no != NoExists) {

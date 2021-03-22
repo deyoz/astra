@@ -87,7 +87,7 @@ void get_arx_points(const TStatParams &params, list<pair<TDateTime, TTripInfo>> 
             SQLText += getMoveArxQuery();
         }
         SQLText += "where pr_del >= 0 and ";
-        params.AccessClause(SQLText);
+        params.AccessClause(SQLText, "arx_points");
         if(params.flt_no != NoExists) {
             SQLText += " arx_points.flt_no = :flt_no and ";
             QryParams << QParam("flt_no", otInteger, params.flt_no);
