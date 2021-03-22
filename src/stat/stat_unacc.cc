@@ -47,7 +47,7 @@ void ArxRunUNACCStat(
         QryParams
             << QParam("FirstDate", otDate, params.FirstDate)
             << QParam("LastDate", otDate, params.LastDate);
-        QryParams << QParam("arx_trip_date_range", otInteger, params.LastDate+ARX_TRIP_DATE_RANGE());
+        QryParams << QParam("arx_trip_date_range", otDate, params.LastDate+ARX_TRIP_DATE_RANGE());
         string SQLText =
             "select \n"
             "   arx_points.point_id, \n"
@@ -101,7 +101,7 @@ void ArxRunUNACCStat(
             "   arx_bag2.grp_id      = arx_bag_tags.grp_id and \n"
             "   arx_bag2.num         = arx_bag_tags.bag_num and \n"
             "   arx_pax_grp.part_key = arx_points.part_key and \n"
-            "   arx_points.scd_out  >= :FirstDate AND points.scd_out < :LastDate and \n";
+            "   arx_points.scd_out  >= :FirstDate AND arx_points.scd_out < :LastDate and \n";
         if(pass == 1)
             SQLText += " arx_points.part_key >= :FirstDate AND arx_points.part_key < :arx_trip_date_range AND \n";
         if(pass == 2)
@@ -115,7 +115,7 @@ void ArxRunUNACCStat(
         SQLText +=
             "   arx_pax_grp.point_dep = arx_points.point_id and \n"
             "   arx_pax_grp.class is null and \n"
-            "   arx_bag2.grp_id = arx_pax_grp.grp_id and \n";
+            "   arx_bag2.grp_id = arx_pax_grp.grp_id \n";
 
         UsersReader::Instance().updateUsers();
 

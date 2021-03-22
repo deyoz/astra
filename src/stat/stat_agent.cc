@@ -4,6 +4,9 @@
 #include "report_common.h"
 #include "PgOraConfig.h"
 
+#define NICKNAME "DENIS"
+#include "serverlib/slogger.h"
+
 using namespace std;
 using namespace ASTRA;
 using namespace ASTRA::date_time;
@@ -68,6 +71,7 @@ void ArxRunAgentStat(const TStatParams &params,
                   TAgentStat &AgentStat, TAgentStatRow &AgentStatTotal,
                   TPrintAirline &prn_airline)
 {
+    tst();
     UsersReader::Instance().updateUsers();
 
     DB::TQuery Qry(PgOra::getROSession("ARX_AGENT_STAT"));
@@ -82,18 +86,18 @@ void ArxRunAgentStat(const TStatParams &params,
         "  ags.desk, \n"
         "  ags.pax_time, \n"
         "  ags.pax_amount, \n"
-        "  ags.dpax_amount.inc pax_am_inc, \n"
-        "  ags.dpax_amount.dec pax_am_dec, \n"
-        "  ags.dtckin_amount.inc tckin_am_inc, \n"
-        "  ags.dtckin_amount.dec tckin_am_dec, \n"
-        "  ags.dbag_amount.inc bag_am_inc, \n"
-        "  ags.dbag_amount.dec bag_am_dec, \n"
-        "  ags.dbag_weight.inc bag_we_inc, \n"
-        "  ags.dbag_weight.dec bag_we_dec, \n"
-        "  ags.drk_amount.inc rk_am_inc, \n"
-        "  ags.drk_amount.dec rk_am_dec, \n"
-        "  ags.drk_weight.inc rk_we_inc, \n"
-        "  ags.drk_weight.dec rk_we_dec, \n"
+        "  ags.dpax_amount_inc pax_am_inc, \n"
+        "  ags.dpax_amount_dec pax_am_dec, \n"
+        "  ags.dtckin_amount_inc tckin_am_inc, \n"
+        "  ags.dtckin_amount_dec tckin_am_dec, \n"
+        "  ags.dbag_amount_inc bag_am_inc, \n"
+        "  ags.dbag_amount_dec bag_am_dec, \n"
+        "  ags.dbag_weight_inc bag_we_inc, \n"
+        "  ags.dbag_weight_dec bag_we_dec, \n"
+        "  ags.drk_amount_inc rk_am_inc, \n"
+        "  ags.drk_amount_dec rk_am_dec, \n"
+        "  ags.drk_weight_inc rk_we_inc, \n"
+        "  ags.drk_weight_dec rk_we_dec, \n"
         "  ags.user_id \n"
         "FROM \n"
         "   arx_points , \n"

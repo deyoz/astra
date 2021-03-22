@@ -112,7 +112,7 @@ void ArxRemStat(const TStatParams &params, T &RemStat,TPrintAirline &prn_airline
             "   asr.rfisc, "
             "   asr.rate, "
             "   asr.rate_cur, "
-            "   asr.user_id" //for joining with users2 table after split for queries for pg
+            "   asr.user_id " //for joining with users2 table after split for queries for pg
             "from  arx_stat_rem asr, arx_points "
             "where asr.point_id = arx_points.point_id and ";
         params.AccessClause(SQLText, "arx_points");

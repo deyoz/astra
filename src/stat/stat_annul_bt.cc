@@ -96,15 +96,14 @@ void ArxRunAnnulBTStat(
             " arx_points.part_key = arx_pax_grp.part_key     and \n"
             " arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and \n"
             " arx_points.point_id = arx_pax_grp.point_dep and \n"
-            " arx_pax_grp.grp_id = arx_annul_bag.grp_id and";
+            " arx_pax_grp.grp_id = arx_annul_bag.grp_id and ";
+        params.AccessClause(SQLText, "arx_points");
         if(pass == 1) {
-            SQLText += " arx_points.part_key >= :FirstDate AND arx_points.part_key < :arx_trip_date_range AND \n";
+            SQLText += " arx_points.part_key >= :FirstDate AND arx_points.part_key < :arx_trip_date_range \n";
         }
         if(pass == 2) {
-            SQLText += " arx_points.part_key = arx_ext.part_key AND arx_points.move_id = arx_ext.move_id AND \n";
+            SQLText += " arx_points.part_key = arx_ext.part_key AND arx_points.move_id = arx_ext.move_id \n";
         }
-
-        params.AccessClause(SQLText, "arx_points");
 
         if(params.flt_no != NoExists) {
             SQLText += " and arx_points.flt_no = :flt_no \n";

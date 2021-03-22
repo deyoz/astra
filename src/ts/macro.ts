@@ -3775,6 +3775,38 @@ $(defmacro RUN_FLT_CBOX_DROP_DOWN
   </query>
 </term> }
 }) #end_of_macro
+#########################################################################
+
+$(defmacro RUN_GENERAL_STAT
+    first_date
+    last_date
+    stat_mode
+    stat_type
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='stat' ver='1' opr='PIKE' screen='STAT.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <run_stat>
+      <dev_model/>
+      <fmt_type/>
+      <prnParams>
+        <pr_lat>0</pr_lat>
+        <encoding>UTF-16LE</encoding>
+        <offset>20</offset>
+        <top>0</top>
+      </prnParams>
+      <stat_mode>$(stat_mode)</stat_mode>
+      <stat_type>$(stat_type)</stat_type>
+      <FirstDate>$(first_date) 00:00:00</FirstDate>
+      <LastDate>$(last_date) 00:00:00</LastDate>
+      <ak/>
+      <ap/>
+      <flt_no/>
+      <source>STAT</source>
+      <LoadForm/>
+    </run_stat>
+  </query>
+</term>}
+})  #end_of_macro
 
 #########################################################################################
 

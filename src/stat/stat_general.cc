@@ -198,15 +198,15 @@ string ArxGetStatSQLText(const TStatParams &params, int pass, const std::string&
                          const std::string& airp_list)
 {
     static const string sum_pax_by_client_type =
-        " SUM(CASE(WHEN client_type = :web     THEN (adult + child + baby) ELSE 0)) web, \n"
-        " SUM(CASE(WHEN client_type = :web     THEN term_bag               ELSE 0)) web_bag, \n"
-        " SUM(CASE(WHEN client_type = :web     THEN term_bp                ELSE 0)) web_bp, \n"
-        " SUM(CASE(WHEN client_type = :kiosk   THEN (adult + child + baby) ELSE 0)) kiosk, \n"
-        " SUM(CASE(WHEN client_type = :kiosk   THEN term_bag               ELSE 0)) kiosk_bag, \n"
-        " SUM(CASE(WHEN client_type = :kiosk   THEN term_bp                ELSE 0)) kiosk_bp, \n"
-        " SUM(CASE(WHEN client_type = :mobile  THEN (adult + child + baby) ELSE 0)) mobile, \n"
-        " SUM(CASE(WHEN client_type = :mobile  THEN term_bp                ELSE 0)) mobile_bp, \n"
-        " SUM(CASE(WHEN client_type = :mobile  THEN term_bag               ELSE 0)) mobile_bag \n";
+        " SUM(CASE WHEN client_type = :web     THEN (adult + child + baby) ELSE 0 END) web, \n"
+        " SUM(CASE WHEN client_type = :web     THEN term_bag               ELSE 0 END) web_bag, \n"
+        " SUM(CASE WHEN client_type = :web     THEN term_bp                ELSE 0 END) web_bp, \n"
+        " SUM(CASE WHEN client_type = :kiosk   THEN (adult + child + baby) ELSE 0 END) kiosk, \n"
+        " SUM(CASE WHEN client_type = :kiosk   THEN term_bag               ELSE 0 END) kiosk_bag, \n"
+        " SUM(CASE WHEN client_type = :kiosk   THEN term_bp                ELSE 0 END) kiosk_bp, \n"
+        " SUM(CASE WHEN client_type = :mobile  THEN (adult + child + baby) ELSE 0 END) mobile, \n"
+        " SUM(CASE WHEN client_type = :mobile  THEN term_bp                ELSE 0 END) mobile_bp, \n"
+        " SUM(CASE WHEN client_type = :mobile  THEN term_bag               ELSE 0 END) mobile_bag \n";
 
     static const string sum_pax_by_class =
         " sum(f) f, \n"
@@ -848,6 +848,7 @@ void GetFullStat(const TStatParams &params, DB::TQuery &Qry,
                  TFullStat &FullStat, TFullStatRow &FullStatTotal,
                  TPrintAirline &airline)
 {
+    tst();
   Qry.Execute();
   if(!Qry.Eof) {
       int col_point_id = Qry.FieldIndex("point_id");
@@ -1543,13 +1544,13 @@ void ArxRunPactDetailStat(const vector<TPact>& result_pacts, const TStatParams &
             sql << getMoveArxQuery();
         sql << "WHERE \n";
         if (pass==1)
-            sql << " arx_points.part_key >= :first_date AND arx_points.part_key < :arx_trip_date_range AND \n";
+            sql << " arx_points.part_key >= :FirstDate AND arx_points.part_key < :arx_trip_date_range AND \n";
         if (pass==2)
             sql << " arx_points.part_key=arx_ext.part_key AND arx_points.move_id=arx_ext.move_id AND \n";
         sql << " arx_stat.part_key = arx_points.part_key AND \n"
                " arx_stat.point_id = arx_points.point_id AND \n"
                " arx_points.pr_del>=0 AND \n"
-               " arx_points.scd_out >= :first_date AND arx_points.scd_out < :last_date \n";
+               " arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate \n";
 
         if(params.flt_no != NoExists) {
             sql << " AND arx_points.flt_no = :flt_no \n";
@@ -1680,7 +1681,7 @@ void RunPactDetailStat(const TStatParams &params,
         "WHERE \n"
         " stat.point_id = points.point_id AND \n"
         " points.pr_del>=0 AND \n"
-        " points.scd_out >= :first_date AND points.scd_out < :last_date \n";
+        " points.scd_out >= :FirstDate AND points.scd_out < :LastDate \n";
 
     if(params.flt_no != NoExists) {
         sql << " AND points.flt_no = :flt_no \n";
@@ -1722,11 +1723,12 @@ void ArxRunDetailStat(const TStatParams &params,
     if (params.seance==seanceAirport) Qry.DeclareVariable("ap",otString);
     if(params.flt_no != NoExists)  Qry.CreateVariable("flt_no", otString, params.flt_no);
     Qry.CreateVariable("arx_trip_date_range", otDate, params.LastDate + ARX_TRIP_DATE_RANGE());
-    Qry.CreateVariable("arx_date_range", otDate, ARX_TRIP_DATE_RANGE());
-
-
 
     for(int pass = 1; pass <= 2; pass++) {
+        Qry.SQLText = ArxGetStatSQLText(params,pass, "", "").c_str();
+        if (params.seance==seanceAirport || params.seance==seanceAirline) {
+            Qry.CreateVariable("arx_date_range", otDate, ARX_TRIP_DATE_RANGE());
+        }
         if (params.seance==seanceAirline)
         {
           //цикл по компаниям
@@ -1948,24 +1950,29 @@ void ArxRunFullStat(const TStatParams &params,
     if(params.flt_no != NoExists)
         Qry.CreateVariable("flt_no", otString, params.flt_no);
     Qry.CreateVariable("arx_trip_date_range", otDate, params.LastDate+ARX_TRIP_DATE_RANGE());
-    Qry.CreateVariable("arx_date_range", otDate, ARX_TRIP_DATE_RANGE());
 
     for(int pass = 1; pass <= 2; pass++) {
+        Qry.SQLText = ArxGetStatSQLText(params,pass, "", "");
             //ProgTrace(TRACE5, "RunFullStat: pass=%d SQL=\n%s", pass, Qry.SQLText.SQLText());
-
+        if (params.seance==seanceAirport || params.seance==seanceAirline) {
+            Qry.CreateVariable("arx_date_range", otDate, ARX_TRIP_DATE_RANGE());
+        }
         if (params.seance==seanceAirline)
         {
+            tst();
             //цикл по компаниям
             if (params.airlines.elems_permit())
             {
                 for(const auto &airl : params.airlines.elems())
                 {
+                  tst();
                   Qry.SetVariable("ak", airl);
                   auto periods = (params.seance==seanceAirline)
                           ? get_airline_periods(params.FirstDate, params.LastDate, airl)
                           : get_airp_periods(params.FirstDate, params.LastDate, airl);
 
                   for(const auto & period : periods) {
+                      tst();
                       Qry.CreateVariable(":period_first_date", otDate, BoostToDateTime(period.begin()));
                       Qry.CreateVariable(":period_last_date", otDate, BoostToDateTime(period.end()));
 
@@ -1981,17 +1988,20 @@ void ArxRunFullStat(const TStatParams &params,
 
         if (params.seance==seanceAirport)
         {
+            tst();
             //цикл по портам
             if (params.airps.elems_permit())
             {
                 for(const auto &airp : params.airps.elems())
                 {
+                  tst();
                   Qry.SetVariable("ap", airp);
                   auto periods = (params.seance==seanceAirline)
                           ? get_airline_periods(params.FirstDate, params.LastDate, airp)
                           : get_airp_periods(params.FirstDate, params.LastDate, airp);
 
                   for(const auto & period : periods) {
+                      tst();
                       Qry.CreateVariable(":period_first_date", otDate, BoostToDateTime(period.begin()));
                       Qry.CreateVariable(":period_last_date", otDate, BoostToDateTime(period.end()));
 
@@ -2004,6 +2014,7 @@ void ArxRunFullStat(const TStatParams &params,
             };
             continue;
         };
+        tst();
         GetFullStat(params, Qry, FullStat, FullStatTotal, airline);
     }
 }
