@@ -22,7 +22,6 @@
 #include <serverlib/tcl_utils.h>
 #include <serverlib/rip_oci.h>
 #include <serverlib/oci_rowid.h>
-
 #include <serverlib/dbcpp_cursctl.h>
 #include "PgOraConfig.h"
 #include "tlg/typeb_db.h"
@@ -2561,6 +2560,7 @@ void arx_tlg_stat(const std::vector<int>& ids)
 void del_tlgs(const std::vector<int>& ids)
 {
     for (int id : ids) {
+        make_db_curs("DELETE FROM TEXT_TLG_H2H WHERE MSG_ID = :id", PgOra::getRWSession("TEXT_TLG_H2H")).stb().bind(":id", std::to_string(id)).exec();
         make_db_curs("DELETE FROM TLG_STAT WHERE QUEUE_TLG_ID = :id", PgOra::getRWSession("TLG_STAT")).bind(":id", id).exec();
         make_db_curs("DELETE FROM TLG_ERROR WHERE ID = :id", PgOra::getRWSession("TLG_ERROR")).bind(":id", id).exec();
         make_db_curs("DELETE FROM TLG_QUEUE WHERE ID = :id", PgOra::getRWSession("TLG_QUEUE")).bind(":id", id).exec();

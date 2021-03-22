@@ -75,6 +75,7 @@ namespace PgOra
         }},
         { "SP_PG_GROUP_HTML", { "HTML_PAGES", "HTML_PAGES_TEXT" } },
         { "SP_PG_GROUP_FR", { "FR_FORMS2" } },
+        { "SP_PG_GROUP_LIBTLG", { "TEXT_TLG_H2H" } },
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)

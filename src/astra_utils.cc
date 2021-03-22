@@ -1879,7 +1879,7 @@ void afterSoftError()
 
 tlgnum_t make_tlgnum(int n)
 {
-  return tlgnum_t(boost::lexical_cast<std::string>(n));
+  return tlgnum_t(std::to_string(n));
 }
 
 XMLDoc createXmlDoc(const std::string& xml)

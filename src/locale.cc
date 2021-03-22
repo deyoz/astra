@@ -17,9 +17,10 @@
 #include "dbostructures.h"
 
 #include <jxtlib/JxtInterface.h>
-#include "jxtlib/jxtlib_dbpg_callbacks.h"
-#include "jxtlib/jxtlib_dbora_callbacks.h"
+#include <jxtlib/jxtlib_dbpg_callbacks.h>
+#include <jxtlib/jxtlib_dbora_callbacks.h>
 #include <serverlib/ocilocal.h>
+#include <serverlib/dbcpp_cursctl.h>
 #include <serverlib/TlgLogger.h>
 #include <serverlib/EdiHelpDbPgCallbacks.h>
 #include <libtlg/telegrams.h>
@@ -50,6 +51,10 @@ public:
     virtual bool ttlExpired(const std::string& tlgText, bool from_our, int router, boost::optional<hth::HthInfo> hthInfo);
     virtual void readAllRouters(std::list<telegrams::RouterInfo>& routers);
 
+    virtual bool tlgIsHth(const tlgnum_t&) override;
+    virtual int readHthInfo(const tlgnum_t&, hth::HthInfo& hthInfo) override;
+    virtual int writeHthInfo(const tlgnum_t&, const hth::HthInfo& hthInfo) override;
+    virtual void deleteHth(const tlgnum_t&) override;
 };
 
 //
@@ -99,6 +104,101 @@ bool AstraTlgCallbacks::ttlExpired(const std::string& tlgText, bool from_our, in
 void AstraTlgCallbacks::readAllRouters(std::list<telegrams::RouterInfo>& routers)
 {
     NON_IMPLEMENTED_CALL
+}
+
+bool AstraTlgCallbacks::tlgIsHth(const tlgnum_t& msgId)
+{
+    DbCpp::CursCtl cur = make_db_curs(
+"select 1 from TEXT_TLG_H2H where MSG_ID = :id",
+                PgOra::getROSession("TEXT_TLG_H2H"));
+    cur
+            .bind(":id", msgId.num.get())
+            .EXfet();
+    if(cur.err() == DbCpp::ResultCode::NoDataFound) {
+        return false;
+    }
+
+    return true;
+}
+
+int AstraTlgCallbacks::readHthInfo(const tlgnum_t& msgId, hth::HthInfo& hthInfo)
+{
+    std::string type, qri5, qri6, remAddrNum, part;
+    int end = 0;
+    DbCpp::CursCtl cur = make_db_curs(
+"select TYPE, SNDR, RCVR, TPR, ERR, PART, \"END\", QRI5, QRI6, REM_ADDR_NUM "
+"from TEXT_TLG_H2H where MSG_ID = :id",
+                PgOra::getROSession("TEXT_TLG_H2H"));
+    cur
+            .autoNull()
+            .bind(":id", msgId.num.get())
+            .def(type)
+            .def(hthInfo.sender)
+            .def(hthInfo.receiver)
+            .def(hthInfo.tpr)
+            .def(hthInfo.why)
+            .defNull(part, std::string())
+            .defNull(end, 0)
+            .def(qri5)
+            .def(qri6)
+            .def(remAddrNum)
+            .EXfet();
+    if(cur.err() == DbCpp::ResultCode::NoDataFound) {
+        LogTrace(TRACE5) << "Can't get header param of HTH tlg NO_DATA_FOUND for msg_id: " <<  msgId;
+        return -1;
+    }
+    ASSERT(part.length() == 1 || part.length() == 0);
+    hthInfo.type = type[0];
+    hthInfo.part = part.empty() ? 0 : part[0];
+    hthInfo.end  = end;
+    hthInfo.qri5 = qri5[0];
+    hthInfo.qri6 = qri6[0];
+    hthInfo.remAddrNum = remAddrNum[0];
+
+    hth::trace(TRACE5, hthInfo);
+
+    return 0;
+}
+
+int AstraTlgCallbacks::writeHthInfo(const tlgnum_t& msgId, const hth::HthInfo& hthInfo)
+{
+    LogTrace(TRACE5) << hthInfo;
+    try {
+        Dates::ptime curr_tm = Dates::currentDateTime();
+        make_db_curs(
+"insert into TEXT_TLG_H2H (MSG_ID, TYPE, RCVR, SNDR, TPR, QRI5, QRI6,"
+" PART, \"END\", REM_ADDR_NUM, ERR, TIMESTAMP) "
+"values (:msg_id, :hth_type, :hth_rcvr, :hth_sndr, :hth_tpr, :hth_qri5, :hth_qri6,"
+" :hth_part, :hth_end, :rem_addr_num, :hth_err, :curr_tm)",
+                    PgOra::getRWSession("TEXT_TLG_H2H"))
+                .stb()
+                .bind(":msg_id", msgId.num.get())
+                .bind(":hth_type", std::string(1, hthInfo.type))
+                .bind(":hth_rcvr", hthInfo.receiver).bind(":hth_sndr", hthInfo.sender)
+                .bind(":hth_tpr", hthInfo.tpr)
+                .bind(":hth_part", std::string(1, hthInfo.part))
+                .bind(":hth_end", (int)hthInfo.end)
+                .bind(":hth_qri5", std::string(1, hthInfo.qri5))
+                .bind(":hth_qri6", std::string(1, hthInfo.qri6))
+                .bind(":rem_addr_num", std::string(1, hthInfo.remAddrNum))
+                .bind(":hth_err", hthInfo.why)
+                .bind(":curr_tm", curr_tm)
+                .exec();
+    } catch (const comtech::Exception& e) {
+        LogTrace(TRACE0) << hthInfo;
+        LogError(STDLOG) << "writeHthInfo failed " << msgId << " : " << e.what();
+        return 1;
+    }
+    return 0;
+}
+
+void AstraTlgCallbacks::deleteHth(const tlgnum_t& msgId)
+{
+    make_db_curs(
+"delete from TEXT_TLG_H2H where MSG_ID = :msg_id",
+                PgOra::getRWSession("TEXT_TLG_H2H"))
+            .bind(":msg_id", msgId.num.get())
+            .exec();
 }
 
 #undef NON_IMPLEMENTED_CALL
