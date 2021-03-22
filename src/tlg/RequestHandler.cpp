@@ -45,10 +45,10 @@ void AstraEdiRequestHandler::onHandlerError(const std::exception *e)
         }
         saveErrorInfo(exc->errCode(), exc->errText());
     } else if(__CAST(EXCEPTIONS::Exception, exc, e)) {
-        WriteLog(STDLOG, "%s", exc->what());
+        ProgError(STDLOG, "%s", exc->what());
         saveErrorInfo(AstraErr::EDI_PROC_ERR, "Unable to process - internal error");
     } else {
-        WriteLog(STDLOG,"std::exception: %s", e->what());
+        ProgError(STDLOG,"std::exception: %s", e->what());
         saveErrorInfo(AstraErr::EDI_PROC_ERR, "");
     }
 }
