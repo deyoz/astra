@@ -257,15 +257,15 @@ std::string get_seat_no(const PaxId_t& pax_id, int seats, int is_jmp, std::strin
                 "   :result := salons.get_seat_no(:pax_id, :seats, :is_jmp, :status, :point_id, :fmt, :rownum, :only_lat); \n"
                 "END;");
     cur.bind(":pax_id", pax_id )
-            .bind(":seats", seats)
-            .bind(":is_jmp", is_jmp)
-            .bind(":status", status, status.empty() ? &null : &nnull)
-            .bind(":point_id", point_id)
-            .bind(":fmt", fmt)
-            .bind(":rownum", row)
-            .bind(":only_lat", only_lat)
-            .bindOutNull(":result", result, "")
-            .exec();
+       .bind(":seats", seats)
+       .bind(":is_jmp", is_jmp)
+       .bind(":status", status, status.empty() ? &null : &nnull)
+       .bind(":point_id", point_id)
+       .bind(":fmt", fmt)
+       .bind(":rownum", row)
+       .bind(":only_lat", only_lat)
+       .bindOutNull(":result", result, "")
+       .exec();
     return std::string(result);
 }
 
@@ -291,6 +291,7 @@ bool operator <(const birks_row & ls, const birks_row & rs)
 
 std::optional<std::string> build_birks_str(const std::set<birks_row> & birks)
 {
+    LogTrace5 << __func__;
     std::string res; //VARCHAR2(4000)
     std::string noStr; //VARCHAR2(15);
     std::string firstStr; //VARCHAR2(17)
@@ -357,10 +358,10 @@ int get_excess_pc(const GrpId_t& grp_id, const PaxId_t& pax_id, int include_all_
                 "   :excess := ckin.get_excess_pc(:grp_id, :pax_id, :inc_svc); \n"
                 "END;");
     cur.bind(":grp_id", grp_id)
-            .bind(":pax_id", pax_id)
-            .bind(":inc_svc", include_all_svc)
-            .bindOutNull(":excess", excess_pc, ASTRA::NoExists)
-            .exec();
+       .bind(":pax_id", pax_id)
+       .bind(":inc_svc", include_all_svc)
+       .bindOutNull(":excess", excess_pc, ASTRA::NoExists)
+       .exec();
     return excess_pc;
 }
 }
@@ -369,6 +370,9 @@ int get_excess_pc(const GrpId_t& grp_id, const PaxId_t& pax_id, int include_all_
 std::optional<int> get_bag_pool_pax_id(Dates::DateTime_t part_key, int grp_id,
                                        std::optional<int> bag_pool_num, int include_refused)
 {
+    LogTrace5 << __func__ << " part_key: " << part_key << " grp_id: " << grp_id
+              << " bag_pool_num: " << bag_pool_num.value_or(0)
+              << " include_refused: " << include_refused;
     if(!bag_pool_num) {
         return std::nullopt;
     }
@@ -387,12 +391,12 @@ std::optional<int> get_bag_pool_pax_id(Dates::DateTime_t part_key, int grp_id,
                 "          reg_no ",
                 PgOra::getROSession("ARX_PAX"));
     cur.stb()
-            .def(pax_id)
-            .defNull(refuse, "")
-            .bind(":part_key", part_key)
-            .bind(":grp_id", grp_id)
-            .bind(":bag_pool_num", bag_pool_num.value_or(0))
-            .exec();
+       .def(pax_id)
+       .defNull(refuse, "")
+       .bind(":part_key", part_key)
+       .bind(":grp_id", grp_id)
+       .bind(":bag_pool_num", bag_pool_num.value_or(0))
+       .exec();
     if(!cur.fen()) {
         res = pax_id;
         if(include_refused == 0 && !refuse.empty()) {
@@ -405,6 +409,8 @@ std::optional<int> get_bag_pool_pax_id(Dates::DateTime_t part_key, int grp_id,
 TBagInfo get_bagInfo2(Dates::DateTime_t part_key, int grp_id, std::optional<int> pax_id,
                       std::optional<int> bag_pool_num)
 {
+    LogTrace5 << __func__ << " part_key: " << part_key << " grp_id: " << grp_id
+              << " bag_pool_num: " << bag_pool_num.value_or(0) << " pax_id: " << pax_id.value_or(0);
     TBagInfo bagInfo{};
     bagInfo.grp_id = grp_id;
     bagInfo.pax_id = pax_id;
@@ -428,12 +434,12 @@ TBagInfo get_bagInfo2(Dates::DateTime_t part_key, int grp_id, std::optional<int>
         query += pax_id ? " AND bag_pool_num=:bag_pool_num " : "";
         auto cur = make_db_curs(query, PgOra::getROSession("ARX_BAG2"));
         cur.stb()
-                .defNull(bagInfo.bagAmount,ASTRA::NoExists)
-                .defNull(bagInfo.bagWeight,ASTRA::NoExists)
-                .defNull(bagInfo.rkAmount,ASTRA::NoExists)
-                .defNull(bagInfo.rkWeight,ASTRA::NoExists)
-                .bind(":part_key", part_key)
-                .bind(":grp_id", grp_id);
+           .defNull(bagInfo.bagAmount,ASTRA::NoExists)
+           .defNull(bagInfo.bagWeight,ASTRA::NoExists)
+           .defNull(bagInfo.rkAmount,ASTRA::NoExists)
+           .defNull(bagInfo.rkWeight,ASTRA::NoExists)
+           .bind(":part_key", part_key)
+           .bind(":grp_id", grp_id);
         if(pax_id) {
             cur.bind(":bag_pool_num", bag_pool_num.value_or(0));
         }
@@ -484,6 +490,10 @@ std::optional<int> get_excess_wt(Dates::DateTime_t part_key, int grp_id,
                                  std::optional<int> excess_wt, std::optional<int> excess_nvl,
                                  int bag_refuse)
 {
+    LogTrace5 << __func__ << " part_key: " << part_key << " grp_id: " << grp_id << " bag_refuse: " << bag_refuse
+              << " pax_id: " << (pax_id.value_or(0)) << " excess_wt: " << excess_wt.value_or(0)
+              << " excess_nvl: " << excess_nvl.value_or(0);
+
     int excess = 0 ;
     std::optional<int> main_pax_id;
     if((!excess_wt && !excess_nvl) || !bag_refuse) {
@@ -492,9 +502,9 @@ std::optional<int> get_excess_wt(Dates::DateTime_t part_key, int grp_id,
                                 "WHERE part_key=:part_key AND grp_id=:grp_id ",
                                 PgOra::getROSession("ARX_PAX_GRP"));
         cur.def(excess)
-                .bind(":part_key", part_key)
-                .bind(":grp_id", grp_id)
-                .EXfet();
+           .bind(":part_key", part_key)
+           .bind(":grp_id", grp_id)
+           .EXfet();
         if(cur.err() == DbCpp::ResultCode::NoDataFound) {
             LogTrace5 << __FUNCTION__ << " Query error. Not found data by grp_id: " << grp_id
                       << " part_key: " << part_key ;
@@ -521,6 +531,8 @@ std::optional<int> get_excess_wt(Dates::DateTime_t part_key, int grp_id,
 
 std::optional<int> get_main_pax_id2(Dates::DateTime_t part_key, int grp_id, int include_refused)
 {
+    LogTrace5 << __func__ << " part_key: " << part_key << " grp_id: " << grp_id
+              << " include_refused: " << include_refused;
     std::optional<int> res;
     int pax_id;
     std::string refuse;
@@ -534,10 +546,10 @@ std::optional<int> get_main_pax_id2(Dates::DateTime_t part_key, int grp_id, int 
                             "         reg_no",
                             PgOra::getROSession("ARX_PAX"));
     cur.def(pax_id)
-         .defNull(refuse, "")
-         .bind(":part_key", part_key)
-         .bind(":grp_id", grp_id)
-         .exec();
+       .defNull(refuse, "")
+       .bind(":part_key", part_key)
+       .bind(":grp_id", grp_id)
+       .exec();
     if(!cur.fen()) {
         res = pax_id;
         if(include_refused == 0 && !refuse.empty()) {
@@ -550,6 +562,8 @@ std::optional<int> get_main_pax_id2(Dates::DateTime_t part_key, int grp_id, int 
 int bag_pool_refused(Dates::DateTime_t part_key, int grp_id, int bag_pool_num,
                      std::optional<std::string> vclass, int bag_refuse)
 {
+    LogTrace5 << __func__ << " part_key: " << part_key << " grp_id: " << grp_id
+              << " bag_pool_num: " << bag_pool_num << " bag_refuse: " << bag_refuse;
     if(bag_refuse != 0) return 1;
     if(!vclass) return 0;
     int n = 0;
@@ -557,10 +571,10 @@ int bag_pool_refused(Dates::DateTime_t part_key, int grp_id, int bag_pool_num,
                             "where PART_KEY=:part_key and GRP_ID=:grp_id and BAG_POOL_NUM=:bag_pool_num ",
                             PgOra::getROSession("ARX_PAX"));
     cur.def(n)
-            .bind(":part_key", part_key)
-            .bind(":grp_id", grp_id)
-            .bind(":bag_pool_num", bag_pool_num)
-            .EXfet();
+       .bind(":part_key", part_key)
+       .bind(":grp_id", grp_id)
+       .bind(":bag_pool_num", bag_pool_num)
+       .EXfet();
     if(cur.err() == DbCpp::ResultCode::NoDataFound || n==0) {
         return 1;
     } else
@@ -569,6 +583,7 @@ int bag_pool_refused(Dates::DateTime_t part_key, int grp_id, int bag_pool_num,
 
 std::set<ckin::birks_row> read_birks(Dates::DateTime_t part_key, int grp_id, const std::string& lang, bool bag_num=true)
 {
+    LogTrace5 << __func__ << " part_key: " << part_key << " grp_id: " << grp_id;
     std::set<ckin::birks_row> birks;
     ckin::birks_row row;
     std::string pg_select = "select TAG_TYPE, COLOR, TRUNC(NO/1000) AS first, MOD(NO,1000) AS last, no ";
@@ -580,24 +595,24 @@ std::set<ckin::birks_row> read_birks(Dates::DateTime_t part_key, int grp_id, con
                             (bag_num ? "" : " AND BAG_NUM is null "),
                             PgOra::getROSession("ARX_PAX_GRP"));
     cur.def(row.tag_type)
-            .def(row.color)
-            .def(row.first)
-            .def(row.last)
-            .def(row.no)
-            .bind(":part_key", part_key)
-            .bind(":grp_id", grp_id)
-            .exec();
+       .defNull(row.color, "")
+       .def(row.first)
+       .def(row.last)
+       .def(row.no)
+       .bind(":part_key", part_key)
+       .bind(":grp_id", grp_id)
+       .exec();
     while(!cur.fen()) {
         auto cur2 = make_db_curs(ora_select + " from TAG_TYPES,TAG_COLORS "
                                               " where TAG_TYPES.CODE = :tag_type and "
                                               "       TAG_COLORS.CODE = :color ",
                                  PgOra::getROSession("TAG_TYPES"));
         cur2.def(row.no_len)
-                .def(row.color_view)
-                .bind(":lang", lang)
-                .bind(":tag_type", row.tag_type)
-                .bind(":color", row.color)
-                .EXfet();
+            .def(row.color_view)
+            .bind(":lang", lang)
+            .bind(":tag_type", row.tag_type)
+            .bind(":color", row.color)
+            .EXfet();
         birks.insert(row);
     }
     return birks;
@@ -605,6 +620,7 @@ std::set<ckin::birks_row> read_birks(Dates::DateTime_t part_key, int grp_id, con
 
 std::set<ckin::birks_row> read_birks(Dates::DateTime_t part_key, int grp_id, int bag_pool_num, const std::string& lang)
 {
+    LogTrace5 << __func__ << " part_key: " << part_key << " grp_id: " << grp_id << " bag_pool_num: " << bag_pool_num;
     std::set<ckin::birks_row> birks;
     ckin::birks_row row;
     std::string pg_select = "select TAG_TYPE, COLOR, TRUNC(NO/1000) AS first, MOD(NO,1000) AS last, no ";
@@ -612,32 +628,32 @@ std::set<ckin::birks_row> read_birks(Dates::DateTime_t part_key, int grp_id, int
                              "  coalesce(TAG_COLORS.CODE_LAT,TAG_COLORS.CODE) end as COLOR_VIEW ";
     auto cur = make_db_curs(pg_select + " from ARX_BAG2, ARX_BAG_TAGS "
                                         "where ARX_BAG2.PART_KEY=ARX_BAG_TAGS.PART_KEY and "
-                                        "    ARX_BAG2.GRP_ID=ARX_BAG_TAGS.GRP_ID and "
-                                        "    ARX_BAG2.NUM=ARX_BAG_TAGS.BAG_NUM and "
-                                        "    ARX_BAG2.PART_KEY=:part_key and "
-                                        "    ARX_BAG2.GRP_ID=:grp_id and "
-                                        "    ARX_BAG2.BAG_POOL_NUM=:bag_pool_num",
+                                        "      ARX_BAG2.GRP_ID=ARX_BAG_TAGS.GRP_ID and "
+                                        "      ARX_BAG2.NUM=ARX_BAG_TAGS.BAG_NUM and "
+                                        "      ARX_BAG2.PART_KEY=:part_key and "
+                                        "      ARX_BAG2.GRP_ID=:grp_id and "
+                                        "      ARX_BAG2.BAG_POOL_NUM=:bag_pool_num",
                             PgOra::getROSession("ARX_BAG2"));
     cur.def(row.tag_type)
-            .def(row.color)
-            .def(row.first)
-            .def(row.last)
-            .def(row.no)
-            .bind(":part_key", part_key)
-            .bind(":grp_id", grp_id)
-            .bind(":bag_pool_num", bag_pool_num)
-            .exec();
+       .defNull(row.color, "")
+       .def(row.first)
+       .def(row.last)
+       .def(row.no)
+       .bind(":part_key", part_key)
+       .bind(":grp_id", grp_id)
+       .bind(":bag_pool_num", bag_pool_num)
+       .exec();
     while(!cur.fen()) {
         auto cur = make_db_curs(ora_select + " from TAG_TYPES,TAG_COLORS "
                                              " where TAG_TYPES.CODE = :tag_type and "
                                              "       TAG_COLORS.CODE = :color ",
                                 PgOra::getROSession("TAG_TYPES"));
         cur.def(row.no_len)
-                .def(row.color_view)
-                .bind(":lang", lang)
-                .bind(":tag_type", row.tag_type)
-                .bind(":color", row.color)
-                .EXfet();
+           .def(row.color_view)
+           .bind(":lang", lang)
+           .bind(":tag_type", row.tag_type)
+           .bind(":color", row.color)
+           .EXfet();
 
         birks.insert(row);
     }
@@ -647,6 +663,7 @@ std::set<ckin::birks_row> read_birks(Dates::DateTime_t part_key, int grp_id, int
 std::optional<std::string> get_birks2(Dates::DateTime_t part_key, int grp_id, std::optional<int> pax_id,
                                       int bag_pool_num, const std::string& lang)
 {
+    tst();
     std::optional<int> pool_pax_id;
     if(pax_id) {
         if(!bag_pool_num) return std::nullopt;
@@ -685,6 +702,8 @@ std::optional<std::string> get_birks2(Dates::DateTime_t part_key, int grp_id, st
 
 std::optional<std::string> next_airp(Dates::DateTime_t part_key, int first_point, int point_num)
 {
+    LogTrace5 << __func__ << " part_key: " << part_key << " first_point: " << first_point
+              << " point_num: " << point_num;
     dbo::Session session;
     std::optional<std::string> airp = session.query<std::string>("SELECT airp")
             .from("arx_points")
@@ -753,7 +772,7 @@ Dates::time_period tripDatePeriod(const std::vector<dbo::Points> & points)
         if(auto maxIt = std::max_element(fdates.begin(), fdates.end()); maxIt != fdates.end()) {
             last_date = *maxIt;
         }
-        LogTrace(TRACE5) << " myfirst_date: " << first_date << " mylast_date: " << last_date;
+        LogTrace(TRACE5) << __func__ << " first_date: " << first_date << " last_date: " << last_date;
     }
     return Dates::time_period(first_date, last_date);
 }
@@ -817,7 +836,7 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
         move_ids.erase(move_ids.begin());
         bool isValidPeriod = validDatePeriod(date_period, utcdate);
         Dates::DateTime_t part_key = isValidPeriod ? date_period.end() : Dates::not_a_date_time;
-        LogTrace5 << " part_key: " << part_key;
+        LogTrace5 << __func__ << " part_key: " << part_key;
         try
         {
             LockAndCollectStat(move_id);
@@ -836,7 +855,7 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
             {
                 bool need_arch = p.pr_del != -1 && dbo::isNotNull(part_key);
                 PointId_t point_id(p.point_id);
-                LogTrace(TRACE5) << " P.POINT_ID = "  << p.point_id;
+                LogTrace5 << __func__ << " P.POINT_ID = "  << p.point_id;
                 auto pax_grps = read_pax_grp(point_id, part_key);
                 if(need_arch) {
                     arx_pax_grp(pax_grps, part_key);
