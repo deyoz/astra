@@ -76,7 +76,7 @@ if [[ -n "$WITH_MESPRO" ]] ; then
     MESPRO_HOME="$EXTERNALLIBS_DIR/mespro"
     export MESPRO_CFLAGS="-DUSE_MESPRO -I$MESPRO_HOME/include"
     export MESPRO_CXXFLAGS="-DUSE_MESPRO -I$MESPRO_HOME/include"
-    export MESPRO_LDFLAGS="-L$MESPRO_HOME -lmesprox"
+    export MESPRO_LDFLAGS="-L$MESPRO_HOME"
                     
     if [[ -n $EMBEDDED_RPATH ]] ; then
          MESPRO_LDFLAGS="$MESPRO_LDFLAGS -Wl,-rpath=$MESPRO_HOME"
