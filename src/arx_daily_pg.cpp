@@ -629,8 +629,8 @@ std::set<ckin::birks_row> read_birks(Dates::DateTime_t part_key, int grp_id, int
             .exec();
     while(!cur.fen()) {
         auto cur = make_db_curs(ora_select + " from TAG_TYPES,TAG_COLORS "
-                                             "where TAG_TYPES.CODE = :TAG_TYPE and "
-                                             "TAG_COLORS.CODE = :color; ",
+                                             "where TAG_TYPES.CODE = :tag_type and "
+                                             "      TAG_COLORS.CODE = :color; ",
                                 PgOra::getROSession("TAG_TYPES"));
         cur.def(row.no_len)
                 .def(row.color_view)
@@ -2565,6 +2565,7 @@ void del_tlgs(const std::vector<int>& ids)
         make_db_curs("DELETE FROM TLG_ERROR WHERE ID = :id", PgOra::getRWSession("TLG_ERROR")).bind(":id", id).exec();
         make_db_curs("DELETE FROM TLG_QUEUE WHERE ID = :id", PgOra::getRWSession("TLG_QUEUE")).bind(":id", id).exec();
         make_db_curs("DELETE FROM TLGS_TEXT WHERE ID = :id", PgOra::getRWSession("TLGS_TEXT")).bind(":id", id).exec();
+        make_db_curs("DELETE FROM TLGS WHERE ID = :id",      PgOra::getRWSession("TLGS")).bind(":id", id).exec();
     }
 }
 

@@ -175,7 +175,7 @@ void ArxRunUNACCStat(
                     row.prev_scd = Qry.get().FieldAsDateTime(col_prev_scd);
                 row.grp_id = Qry.get().FieldAsInteger(col_grp_id);
                 int pax_grp_user_id = Qry.get().FieldAsInteger(col_user_id);
-                row.descr = UsersReader::Instance().getDescr(pax_grp_user_id);
+                row.descr = UsersReader::Instance().getDescr(pax_grp_user_id).value_or("");
                 row.desk = Qry.get().FieldAsString(col_desk);
                 if(not Qry.get().FieldIsNULL(col_time_create))
                     row.time_create = Qry.get().FieldAsDateTime(col_time_create);

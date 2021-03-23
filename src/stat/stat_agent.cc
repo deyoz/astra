@@ -6,6 +6,7 @@
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
+#include <serverlib/slogger_nonick.h>
 
 using namespace std;
 using namespace ASTRA;
@@ -72,7 +73,8 @@ void ArxRunAgentStat(const TStatParams &params,
                   TPrintAirline &prn_airline)
 {
     tst();
-    UsersReader::Instance().updateUsers();
+    auto & Users =  UsersReader::Instance();
+    Users.updateUsers();
 
     DB::TQuery Qry(PgOra::getROSession("ARX_AGENT_STAT"));
     string SQLText =
@@ -98,7 +100,7 @@ void ArxRunAgentStat(const TStatParams &params,
         "  ags.drk_amount_dec rk_am_dec, \n"
         "  ags.drk_weight_inc rk_we_inc, \n"
         "  ags.drk_weight_dec rk_we_dec, \n"
-        "  ags.user_id \n"
+        "  ags.user_id \n"  //for join with users2
         "FROM \n"
         "   arx_points , \n"
         "   arx_agent_stat ags \n"
@@ -119,9 +121,14 @@ void ArxRunAgentStat(const TStatParams &params,
         Qry.CreateVariable("desk", otString, params.desk);
     }
     if(!params.user_login.empty()) {
-        int user_id = UsersReader::Instance().getUserId(params.user_login);
-        SQLText += " AND ags.user_id = :user_id \n";
-        Qry.CreateVariable("user_id", otInteger, user_id);
+        tst();
+        std::optional<int> user_id = Users.getUserId(params.user_login);
+        if(user_id) {
+            SQLText += " AND ags.user_id = :user_id \n";
+            Qry.CreateVariable("user_id", otInteger, *user_id);
+        } else {
+            LogTrace5 << __func__  << " Not found user_id by login: " << params.user_login;
+        }
     }
     //ProgTrace(TRACE5, "RunAgentStat: pass=%d SQL=\n%s", pass, SQLText.c_str());
     Qry.SQLText = SQLText;
@@ -129,6 +136,7 @@ void ArxRunAgentStat(const TStatParams &params,
     Qry.CreateVariable("LastDate", otDate, params.LastDate);
     Qry.Execute();
     if(not Qry.Eof) {
+        tst();
         int col_point_id = Qry.FieldIndex("point_id");
         int col_airline = Qry.FieldIndex("airline");
         int col_flt_no = Qry.FieldIndex("flt_no");
@@ -153,6 +161,9 @@ void ArxRunAgentStat(const TStatParams &params,
         int col_rk_we_dec = Qry.FieldIndex("rk_we_dec");
         for(; not Qry.Eof; Qry.Next())
         {
+          if(!Users.containsUser(Qry.FieldAsInteger(col_user_id))) {
+              continue;
+          }
           string airline = Qry.FieldAsString(col_airline);
           prn_airline.check(airline);
 
@@ -213,14 +224,10 @@ void ArxRunAgentStat(const TStatParams &params,
             if(params.statType == statAgentFull) {
                 key.desk = Qry.FieldAsString(col_desk);
             }
-            if(
-                    params.statType == statAgentFull or
-                    params.statType == statAgentTotal
-              ) {
+            if(params.statType == statAgentFull || params.statType == statAgentTotal) {
                 key.user_id = Qry.FieldAsInteger(col_user_id);
-                key.user_descr = UsersReader::Instance().getDescr(key.user_id);
+                key.user_descr = Users.getDescr(key.user_id).value_or("");
             }
-
             AddStatRow(params.overflow, key, row, AgentStat);
           }
           else

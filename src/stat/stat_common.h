@@ -6,6 +6,7 @@
 #include "db_tquery.h"
 #include <optional>
 #include "arx_daily_pg.h"
+#include <optional>
 
 namespace STAT {
     static const std::string PARAM_SEANCE_TYPE           = "seance_type";
@@ -287,14 +288,15 @@ class TDeskAccess {
 class UsersReader
 {
 public:
-    static UsersReader Instance() {
+    static UsersReader& Instance() {
         static UsersReader instance;
         return instance;
     }
     void updateUsers();
 
-    std::string getDescr(int user_id) const;
-    int getUserId(const std::string& login) const;
+    std::optional<std::string> getDescr(int user_id) const;
+    std::optional<int> getUserId(const std::string& login) const;
+    bool containsUser(int user_id) const;
     const std::map<int, std::string> & getidDescriptions() const
     {
         return idDescriptions;

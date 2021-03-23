@@ -122,9 +122,9 @@ void ArxRemStat(const TStatParams &params, T &RemStat,TPrintAirline &prn_airline
         }
         SQLText +=
             " arx_points.part_key >= :FirstDate and arx_points.part_key < :LastDate and "
-            " asr.part_key >= :FirstDate and asr.part_key < :LastDate and ";
-
-        UsersReader::Instance().updateUsers();
+            " asr.part_key >= :FirstDate and asr.part_key < :LastDate ";
+        auto& Users = UsersReader::Instance();
+        Users.updateUsers();
 
         DB::TCachedQuery Qry(PgOra::getROSession("arx_points"), SQLText, QryParams);
         Qry.get().Execute();
@@ -145,8 +145,12 @@ void ArxRemStat(const TStatParams &params, T &RemStat,TPrintAirline &prn_airline
             int col_rate = Qry.get().GetFieldIndex("rate");
             int col_rate_cur = Qry.get().GetFieldIndex("rate_cur");
             int col_user_id = Qry.get().GetFieldIndex("user_id");
+
             for(; not Qry.get().Eof; Qry.get().Next()) {
                 int stat_rem_user_id = Qry.get().FieldAsInteger(col_user_id);
+                if(!Users.containsUser(stat_rem_user_id)) {
+                    continue;
+                }
                 prn_airline.check(Qry.get().FieldAsString(col_airline));
                 TRemStatRow row;
                 row.point_id = Qry.get().FieldAsInteger(col_point_id);
@@ -160,7 +164,7 @@ void ArxRemStat(const TStatParams &params, T &RemStat,TPrintAirline &prn_airline
                 if(not Qry.get().FieldIsNULL(col_travel_time))
                     row.travel_time = Qry.get().FieldAsDateTime(col_travel_time);
                 row.rem_code = Qry.get().FieldAsString(col_rem_code);
-                row.user = UsersReader::Instance().getDescr(stat_rem_user_id);
+                row.user = Users.getDescr(stat_rem_user_id).value_or("");
                 row.desk = Qry.get().FieldAsString(col_desk);
                 row.rfisc = Qry.get().FieldAsString(col_rfisc);
                 if(not Qry.get().FieldIsNULL(col_rate))
@@ -201,11 +205,9 @@ void RunRemStat(
             "   cs.rfisc, "
             "   cs.rate, "
             "   cs.rate_cur "
-            "from ";
-        SQLText +=
+            "from "
             "   stat_rem cs, "
-            "   points, ";
-        SQLText +=
+            "   points, "
             "   users2 "
             "where "
             "   cs.point_id = points.point_id and ";
@@ -214,10 +216,8 @@ void RunRemStat(
             SQLText += " points.flt_no = :flt_no and ";
             QryParams << QParam("flt_no", otInteger, params.flt_no);
         }
-        SQLText +=
-            "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate and ";
-        SQLText +=
-            "    cs.user_id = users2.user_id ";
+        SQLText += " points.scd_out >= :FirstDate AND points.scd_out < :LastDate and "
+                   " cs.user_id = users2.user_id ";
         TCachedQuery Qry(SQLText, QryParams);
         Qry.get().Execute();
         if(not Qry.get().Eof) {

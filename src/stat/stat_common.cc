@@ -633,19 +633,25 @@ TStatParams::TStatParams(TStatOverflow::Enum apply_type): overflow(apply_type)
 {
 }
 
-std::string UsersReader::getDescr(int user_id) const
+std::optional<std::string> UsersReader::getDescr(int user_id) const
 {
-    return idDescriptions.at(user_id);
+    return algo::find_opt<std::optional>(idDescriptions, user_id);
 }
 
-int UsersReader::getUserId(const std::string& login) const
+std::optional<int> UsersReader::getUserId(const std::string& login) const
 {
     if(!login.empty()) {
-        return loginIds.at(login);
+        return algo::find_opt<std::optional>(loginIds,login);
     } else{
-        LogTrace5 << __func__ << " NOT CORRECT LOGIN!";
-        throw EXCEPTIONS::Exception("NOT FOUND USER_ID. INVALID LOGIN!");
+        LogTrace5 << __func__ << " Empty login!";
+        //throw EXCEPTIONS::Exception("NOT FOUND USER_ID. INVALID LOGIN!");
+        return std::nullopt;
     }
+}
+
+bool UsersReader::containsUser(int user_id) const
+{
+    return algo::contains(idDescriptions, user_id);
 }
 
 void UsersReader::readAllUsers()
@@ -669,6 +675,7 @@ void UsersReader::updateUsers()
     int max_user_id = 0;
     if(!idDescriptions.empty()) {
         max_user_id = idDescriptions.rbegin()->first;
+        LogTrace5 << " max_user: " << max_user_id;
     }
     int user_id;
     std::string descr;

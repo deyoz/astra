@@ -169,7 +169,7 @@ void ArxRunAnnulBTStat(
                 if(not Qry.get().FieldIsNULL(col_user_id))
                     row.user_id = Qry.get().FieldAsInteger(col_user_id);
                 if(row.user_id != NoExists) {
-                    row.agent = UsersReader::Instance().getDescr(row.user_id);
+                    row.agent = UsersReader::Instance().getDescr(row.user_id).value_or("");
                 }
                 row.trfer_airline = Qry.get().FieldAsString(col_trfer_airline);
                 if(not Qry.get().FieldIsNULL(col_trfer_flt_no))
@@ -196,6 +196,7 @@ void RunAnnulBTStat(
         int point_id
         )
 {
+    tst();
     map<int, string> agents;
     TCachedQuery agentQry("select descr from users2 where user_id = :user_id",
             QParams() << QParam("user_id", otInteger));
@@ -243,8 +244,11 @@ void RunAnnulBTStat(
         "   and transfer.point_id_trfer = trfer_trips.point_id(+) \n";
 
     TCachedQuery Qry(SQLText, QryParams);
+    tst();
     Qry.get().Execute();
+    tst();
     if(not Qry.get().Eof) {
+        tst();
         int col_part_key = Qry.get().FieldIndex("part_key");
         int col_airline = Qry.get().FieldIndex("airline");
         int col_airp = Qry.get().FieldIndex("airp");
@@ -269,6 +273,7 @@ void RunAnnulBTStat(
         int col_trfer_airp_arv = Qry.get().FieldIndex("trfer_airp_arv");
 
         for(; not Qry.get().Eof; Qry.get().Next()) {
+            tst();
             prn_airline.check(Qry.get().FieldAsString(col_airline));
 
             TDateTime part_key = NoExists;
