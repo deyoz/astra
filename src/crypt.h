@@ -71,13 +71,13 @@ public:
      AddEvent("SetCertificates",evHandle);
      evHandle=JxtHandler<CryptInterface>::CreateHandler(&CryptInterface::CertificatesInfo);
      AddEvent("CertificatesInfo",evHandle);
-     #ifdef USE_MESPRO
      evHandle=JxtHandler<CryptInterface>::CreateHandler(&CryptInterface::RequestPSE);
      AddEvent("RequestPSE",evHandle);
+     #ifdef USE_MESPRO
      evHandle=JxtHandler<CryptInterface>::CreateHandler(&CryptInterface::CryptValidateServerKey);
      AddEvent("CryptValidateServerKey",evHandle);
      #endif //USE_MESPRO
-  };
+  }
 
   void GetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void RequestCertificateData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -85,8 +85,8 @@ public:
   void GetRequestsCertificate(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void SetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void CertificatesInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  #ifdef USE_MESPRO
   void RequestPSE(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+ #ifdef USE_MESPRO
   void CryptValidateServerKey(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   #endif //USE_MESPRO
 };

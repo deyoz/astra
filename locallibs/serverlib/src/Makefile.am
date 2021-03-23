@@ -22,7 +22,7 @@ libserver_la_SOURCES = addr2line.cc cache.cc checkunit.cc crypting.cc daemon_eve
 					   EdiHelpDbCallbacks.cc EdiHelpDbOraCallbacks.cc EdiHelpDbPgCallbacks.cc ehelpsig.cc \
 					   exception.cc guarantee_write.cc helpcpp.cc internal_msgid.cc int_parameters.cc \
 					   local_tcp_event.cc logger.cc log_queue.cc logwriter.cc lwriter.cc md5.cc memcached_api.cc \
-					   memmap.cc mes.cc mespro_crypt.cc monitor.cc monitor_ctl.cc new_daemon.cc base64.cc \
+					   memmap.cc mes.cc mespro_crypt.cc mespro_api.cc monitor.cc monitor_ctl.cc new_daemon.cc base64.cc \
 					   object.cc oci8.cc ocilocal.cc ourtime.cc posthooks.cc potok.cc profiler.cc crc32.cc \
 					   pg_cursctl.cc dbcpp_cursctl.cc dbcpp_session.cc commit_rollback.cc attempts.cc \
 					   query_runner.cc queue.cc queue_proc.cc savepoint.cc shmserv_hash.cc signal.cc simplelog.cc \

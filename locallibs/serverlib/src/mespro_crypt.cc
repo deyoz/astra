@@ -9,58 +9,52 @@
 #include "mespro_crypt.h"
 #include "tcl_utils.h"
 #include "tclmon.h"
+#include "mespro_api.h"
 
 #define NICKNAME "ILYA"
 #include "test.h"
-
-static bool CryptingInitialized=false;
+#include "serverlib/test.h"
+#include <serverlib/slogger.h>
 
 const int INPUT_FMT=FORMAT_ASN1;
 const int OUTPUT_FMT=FORMAT_ASN1;
-const char CIPHER_ALGORITHM[]="RUS-GAMMAR";
-
-static int init_rand_callback(int c, int step, int from, char *userdata)
-{
-	char cc[64];
-	sprintf(cc,"%c",c);
-	return *cc;
-}
+const char CIPHER_ALGORITHM[]=MP_CIPHER_ALG_NAME_RUS_GAMMAR;
 
 bool initMesProCrypting(MPCryptParams &params)
 {
-  if(!CryptingInitialized)
+  if( !MESPRO_API::isInitLib() )
   {
     ProgTrace( TRACE5, "mespro init" );
-    SetRandInitCallbackFun(init_rand_callback);
-    int err=PKCS7Init(0,0);
+    MESPRO_API::SetRandInitCallbackFun(init_rand_callback);
+    int err=MESPRO_API::PKCS7Init(0,0);
     if(err)
     {
       ProgError(STDLOG, "PKCS7Init() failed with code %i\n",err);
       return false;
     }
 
-    err=SetInputFormat(INPUT_FMT);
+    err=MESPRO_API::SetInputFormat(INPUT_FMT);
     if(err)
     {
       ProgError(STDLOG, "SetInputFormat(FORMAT_ASN1) failed with code %i\n",err);
       return false;
     }
 
-    err=SetOutputFormat(OUTPUT_FMT);
+    err=MESPRO_API::SetOutputFormat(OUTPUT_FMT);
     if(err)
     {
       ProgError(STDLOG, "SetOutputFormat(FORMAT_ASN1) failed with code %i\n",err);
       return false;
     }
 
-    err=SetCipherAlgorithm((char *)CIPHER_ALGORITHM);
+    err=MESPRO_API::SetCipherAlgorithm((char *)CIPHER_ALGORITHM);
     if(err)
     {
       ProgError(STDLOG, "SetCipherAlgorithm(\"RUS-GAMMAR\") failed with code %i\n",err);
       return false;
     }
 
-    err=AddCAFromBuffer((char *)params.CA.data(),params.CA.size());
+    err=MESPRO_API::AddCAFromBuffer((char *)params.CA.data(),params.CA.size());
     if(err)
     {
       ProgError(STDLOG, "AddCAFromBuffer() failed with code %i\n",err);
@@ -70,16 +64,19 @@ bool initMesProCrypting(MPCryptParams &params)
     // Проверим тип сертификата сервера:
     // Если RSA/DSA - для загрузки секретного ключа используем AddPrivateKeyFromBuffer()
     // Если ГОСТ - используем AddPSEPrivateKeyEx
-    char *cert_algo=GetCertPublicKeyAlgorithmBuffer((char *)params.server_cert.data(),params.server_cert.size());
+    char *cert_algo=MESPRO_API::GetCertPublicKeyAlgorithmBuffer((char *)params.server_cert.data(),params.server_cert.size());
     if(!cert_algo)
     {
       ProgError(STDLOG, "GetCertPublicKeyAlgorithmBuffer() failed\n");
       return false;
     }
-    if(strcmp(cert_algo,MP_KEY_ALG_NAME_RSA)!=0 && strcmp(cert_algo,MP_KEY_ALG_NAME_DSA)!=0) // ГОСТ
+    LogTrace(TRACE5) << cert_algo;
+    bool pr_gost = (strcmp(cert_algo,MP_KEY_ALG_NAME_RSA)!=0 && strcmp(cert_algo,MP_KEY_ALG_NAME_DSA)!=0);
+    MESPRO_API::FreeBuffer( cert_algo );
+    if(pr_gost) // ГОСТ
     {
-      std::string PSEpath=readStringFromTcl("MESPRO_PSE_PATH","./crypt");
-      err=AddPSEPrivateKeyFromBufferEx((char *)PSEpath.c_str(),0,(char *)params.PKey.data(),params.PKey.size(),params.PKeyPass.empty()?0:((char *)params.PKeyPass.c_str()));
+      std::string PSEpath=MESPRO_API::getLibPath();
+      err=MESPRO_API::AddPSEPrivateKeyFromBufferEx((char *)PSEpath.c_str(),0,(char *)params.PKey.data(),params.PKey.size(),params.PKeyPass.empty()?0:((char *)params.PKeyPass.c_str()));
       if(err)
       {
         ProgError(STDLOG, "AddPSEPrivateKeyFromBufferEx() failed with code %i, PSEpath='%s'\n",err,PSEpath.c_str());
@@ -88,7 +85,7 @@ bool initMesProCrypting(MPCryptParams &params)
     }
     else
     {
-      err=AddPrivateKeyFromBuffer((char *)params.PKey.data(),params.PKey.size(),params.PKeyPass.empty()?0:((char *)params.PKeyPass.c_str()));
+      err=MESPRO_API::AddPrivateKeyFromBuffer((char *)params.PKey.data(),params.PKey.size(),params.PKeyPass.empty()?0:((char *)params.PKeyPass.c_str()));
       if(err)
       {
         ProgError(STDLOG, "AddPrivateKeyFromBuffer() failed with code %i\n",err);
@@ -96,7 +93,7 @@ bool initMesProCrypting(MPCryptParams &params)
       }
     }
 
-    CryptingInitialized=true;
+    MESPRO_API::setInitLib( true );
   }
   return true;
 }
@@ -128,8 +125,8 @@ int mespro_decrypt_internal(const void* head, size_t hlen, const std::vector<uin
     {
         int error = 0;
         if ( pr_init ) { // reinit crypt library variables
-          PKCS7Final();
-          CryptingInitialized = false;
+          MESPRO_API::PKCS7Final();
+          MESPRO_API::setInitLib( false );
         }
         std::string cl_cert = prepareCrypting((const char*)head,hlen,&error,0);
         if(error!=0)
@@ -138,7 +135,7 @@ int mespro_decrypt_internal(const void* head, size_t hlen, const std::vector<uin
             throw error;
         }
 
-        error = AddCertificateFromBuffer((char*)cl_cert.data(), cl_cert.size());
+        error = MESPRO_API::AddCertificateFromBuffer((char*)cl_cert.data(), cl_cert.size());
         if(error!=0)
         {
             ProgError(STDLOG, "AddCertificateFromBuffer() returned error=%d\n",error);
@@ -148,7 +145,7 @@ int mespro_decrypt_internal(const void* head, size_t hlen, const std::vector<uin
 
         int out_len = 0;
 
-        error = DecryptBuffer((void*)in.data(), in.size(), &out_buf, &out_len);
+        error = MESPRO_API::DecryptBuffer((void*)in.data(), in.size(), &out_buf, &out_len);
         if(error!=0)
         {
             ProgError(STDLOG, "DecryptBuffer() returned error=%d\n",error);
@@ -160,7 +157,7 @@ int mespro_decrypt_internal(const void* head, size_t hlen, const std::vector<uin
             ProgError(STDLOG, "DecryptBuffer() is good\n");
         }
 
-        error = ClearCertificates();
+        error = MESPRO_API::ClearCertificates();
         if(error!=0)
         {
             ProgError(STDLOG, "ClearCertificates() returned error=%d\n",error);
@@ -174,19 +171,19 @@ int mespro_decrypt_internal(const void* head, size_t hlen, const std::vector<uin
             memcpy(out.data(), out_buf, out_len);
         }
         else out.clear();
-        if (out_buf != NULL) FreeBuffer(out_buf);
+        if (out_buf != NULL) MESPRO_API::FreeBuffer(out_buf);
         return 0;
     }
     catch(int err)
     {
         out.clear();
-        if (out_buf != NULL) FreeBuffer(out_buf);
+        if (out_buf != NULL) MESPRO_API::FreeBuffer(out_buf);
         return err;
     }
     catch(...)
     {
         out.clear();
-        if (out_buf != NULL) FreeBuffer(out_buf);
+        if (out_buf != NULL) MESPRO_API::FreeBuffer(out_buf);
         return UNKNOWN_ERR;
     }
 }
@@ -209,8 +206,8 @@ int mespro_encrypt_internal(const void* head, size_t hlen, const std::vector<uin
     {
         int error = 0;
         if ( pr_init ) { // reinit crypt library variables
-          PKCS7Final();
-          CryptingInitialized = false;
+          MESPRO_API::PKCS7Final();
+          MESPRO_API::setInitLib( false );
         }
         std::string cl_cert = prepareCrypting((const char*)head,hlen,&error,1);
         if(error!=0)
@@ -219,7 +216,7 @@ int mespro_encrypt_internal(const void* head, size_t hlen, const std::vector<uin
             throw error;
         }
 
-        CTX = GetCipherCTX();
+        CTX = MESPRO_API::GetCipherCTX();
 
         if(CTX == NULL)
         {
@@ -229,7 +226,7 @@ int mespro_encrypt_internal(const void* head, size_t hlen, const std::vector<uin
         }
 
         long cert_size=cl_cert.size();
-        error=AddRecipient(CTX,BY_BUFFER,(void *)cl_cert.data(),&cert_size);
+        error=MESPRO_API::AddRecipient(CTX,BY_BUFFER,(void *)cl_cert.data(),&cert_size);
         if(error!=0)
         {
             ProgError(STDLOG, "AddRecipient() failed with %d\n",error);
@@ -239,7 +236,7 @@ int mespro_encrypt_internal(const void* head, size_t hlen, const std::vector<uin
 
         int out_len = 0;
 
-        error=EncryptBuffer(CTX, (void*)in.data(), in.size(), &out_buf, &out_len);
+        error=MESPRO_API::EncryptBuffer(CTX, (void*)in.data(), in.size(), &out_buf, &out_len);
         if(error!=0)
         {
             ProgError(STDLOG, "EncryptBuffer() returned error=%d\n",error);
@@ -257,22 +254,22 @@ int mespro_encrypt_internal(const void* head, size_t hlen, const std::vector<uin
             memcpy(out.data(), out_buf, out_len);
         }
         else out.clear();
-        if (CTX!=NULL) FreeCipherCTX(CTX);
-        if (out_buf != NULL) FreeBuffer(out_buf);
+        if (CTX!=NULL) MESPRO_API::FreeCipherCTX(CTX);
+        if (out_buf != NULL) MESPRO_API::FreeBuffer(out_buf);
         return 0;
     }
     catch(int err)
     {
         out.clear();
-        if (CTX!=NULL) FreeCipherCTX(CTX);
-        if (out_buf != NULL) FreeBuffer(out_buf);
+        if (CTX!=NULL) MESPRO_API::FreeCipherCTX(CTX);
+        if (out_buf != NULL) MESPRO_API::FreeBuffer(out_buf);
         return err;
     }
     catch(...)
     {
         out.clear();
-        if (CTX!=NULL) FreeCipherCTX(CTX);
-        if (out_buf != NULL) FreeBuffer(out_buf);
+        if (CTX!=NULL) MESPRO_API::FreeCipherCTX(CTX);
+        if (out_buf != NULL) MESPRO_API::FreeBuffer(out_buf);
         return UNKNOWN_ERR;
     }
 }
