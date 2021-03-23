@@ -36,7 +36,7 @@ public:
     for ( const auto& h : handles ) {
       dlclose(h.second);
     }
-    LogError(STDLOG) << "WrapperMesProFuncs destroy";
+    //LogError(STDLOG) << "WrapperMesProFuncs destroy";
   }
   void setLibNameFromAlgo( const std::string& algo ) {
     if ( algo.empty() /*||
