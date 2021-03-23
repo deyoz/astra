@@ -496,8 +496,8 @@ std::optional<int> get_excess_wt(Dates::DateTime_t part_key, int grp_id,
                 .bind(":grp_id", grp_id)
                 .EXfet();
         if(cur.err() == DbCpp::ResultCode::NoDataFound) {
-            LogTrace(TRACE5) << __FUNCTION__ << " Query error. Not found data by grp_id: " << grp_id
-                             << " part_key: " << part_key ;
+            LogTrace5 << __FUNCTION__ << " Query error. Not found data by grp_id: " << grp_id
+                      << " part_key: " << part_key ;
             return std::nullopt;
         }
     } else {
@@ -534,10 +534,10 @@ std::optional<int> get_main_pax_id2(Dates::DateTime_t part_key, int grp_id, int 
                             "         reg_no",
                             PgOra::getROSession("ARX_PAX"));
     cur.def(pax_id)
-            .defNull(refuse, "")
-            .bind(":part_key", part_key)
-            .bind(":grp_id", grp_id)
-            .exec();
+         .defNull(refuse, "")
+         .bind(":part_key", part_key)
+         .bind(":grp_id", grp_id)
+         .exec();
     if(!cur.fen()) {
         res = pax_id;
         if(include_refused == 0 && !refuse.empty()) {
@@ -554,7 +554,7 @@ int bag_pool_refused(Dates::DateTime_t part_key, int grp_id, int bag_pool_num,
     if(!vclass) return 0;
     int n = 0;
     auto cur = make_db_curs("select sum(case when REFUSE is null then 1 else 0 end) from ARX_PAX "
-                            "where PART_KEY=:part_key and GRP_ID=:grp_id and BAG_POOL_NUM=:bag_pool_num; ",
+                            "where PART_KEY=:part_key and GRP_ID=:grp_id and BAG_POOL_NUM=:bag_pool_num ",
                             PgOra::getROSession("ARX_PAX"));
     cur.def(n)
             .bind(":part_key", part_key)
@@ -589,8 +589,8 @@ std::set<ckin::birks_row> read_birks(Dates::DateTime_t part_key, int grp_id, con
             .exec();
     while(!cur.fen()) {
         auto cur2 = make_db_curs(ora_select + " from TAG_TYPES,TAG_COLORS "
-                                              "where TAG_TYPES.CODE = :TAG_TYPE and "
-                                              "TAG_COLORS.CODE = :color; ",
+                                              " where TAG_TYPES.CODE = :tag_type and "
+                                              "       TAG_COLORS.CODE = :color ",
                                  PgOra::getROSession("TAG_TYPES"));
         cur2.def(row.no_len)
                 .def(row.color_view)
@@ -629,8 +629,8 @@ std::set<ckin::birks_row> read_birks(Dates::DateTime_t part_key, int grp_id, int
             .exec();
     while(!cur.fen()) {
         auto cur = make_db_curs(ora_select + " from TAG_TYPES,TAG_COLORS "
-                                             "where TAG_TYPES.CODE = :tag_type and "
-                                             "      TAG_COLORS.CODE = :color; ",
+                                             " where TAG_TYPES.CODE = :tag_type and "
+                                             "       TAG_COLORS.CODE = :color ",
                                 PgOra::getROSession("TAG_TYPES"));
         cur.def(row.no_len)
                 .def(row.color_view)
@@ -2040,9 +2040,9 @@ int arx_tlgout_noflt(const Dates::DateTime_t& arx_date, int remain_rows)
 
     if(ARX::CLEANUP_PG()) {
         for(const auto & tg: tlg_outs) {
-            make_db_curs("DELETE FROM typeb_out_extra WHERE tlg_id=:id;", PgOra::getRWSession("TYPEB_OUT_EXTRA")).bind(":id", tg.id).exec();
-            make_db_curs("DELETE FROM typeb_out_errors WHERE tlg_id=:id;", PgOra::getRWSession("TYPEB_OUT_ERRORS")).bind(":id", tg.id).exec();
-            make_db_curs("DELETE FROM tlg_out WHERE id=:id;", PgOra::getRWSession("TLG_OUT")).bind(":id", tg.id).exec();
+            make_db_curs("DELETE FROM typeb_out_extra WHERE tlg_id=:id", PgOra::getRWSession("TYPEB_OUT_EXTRA")).bind(":id", tg.id).exec();
+            make_db_curs("DELETE FROM typeb_out_errors WHERE tlg_id=:id", PgOra::getRWSession("TYPEB_OUT_ERRORS")).bind(":id", tg.id).exec();
+            make_db_curs("DELETE FROM tlg_out WHERE id=:id", PgOra::getRWSession("TLG_OUT")).bind(":id", tg.id).exec();
         }
     }
 
@@ -2304,12 +2304,12 @@ std::map<int, Dates::DateTime_t> getTlgIds(const Dates::DateTime_t& arx_date, si
 void move_typeb_in(int tlg_id)
 {
     if(ARX::CLEANUP_PG()) {
-        make_db_curs("DELETE FROM typeb_in_body WHERE id=:id;",            PgOra::getRWSession("TYPEB_IN_BODY")).bind(":id", tlg_id).exec();
-        make_db_curs("DELETE FROM typeb_in_errors WHERE tlg_id=:id;",      PgOra::getRWSession("TYPEB_IN_ERRORS")).bind(":id", tlg_id).exec();
-        make_db_curs("DELETE FROM typeb_in_history WHERE prev_tlg_id=:id;",PgOra::getRWSession("TYPEB_IN_HISTORY")).bind(":id", tlg_id).exec();
-        make_db_curs("DELETE FROM typeb_in_history WHERE tlg_id=:id;",     PgOra::getRWSession("TYPEB_IN_HISTORY")).bind(":id", tlg_id).exec();
-        make_db_curs("DELETE FROM tlgs_in WHERE id=:id;",                  PgOra::getRWSession("TLGS_IN")).bind(":id", tlg_id).exec();
-        make_db_curs("DELETE FROM typeb_in WHERE id=:id;",                 PgOra::getRWSession("TYPEB_IN")).bind(":id", tlg_id).exec();
+        make_db_curs("DELETE FROM typeb_in_body WHERE id=:id",            PgOra::getRWSession("TYPEB_IN_BODY")).bind(":id", tlg_id).exec();
+        make_db_curs("DELETE FROM typeb_in_errors WHERE tlg_id=:id",      PgOra::getRWSession("TYPEB_IN_ERRORS")).bind(":id", tlg_id).exec();
+        make_db_curs("DELETE FROM typeb_in_history WHERE prev_tlg_id=:id",PgOra::getRWSession("TYPEB_IN_HISTORY")).bind(":id", tlg_id).exec();
+        make_db_curs("DELETE FROM typeb_in_history WHERE tlg_id=:id",     PgOra::getRWSession("TYPEB_IN_HISTORY")).bind(":id", tlg_id).exec();
+        make_db_curs("DELETE FROM tlgs_in WHERE id=:id",                  PgOra::getRWSession("TLGS_IN")).bind(":id", tlg_id).exec();
+        make_db_curs("DELETE FROM typeb_in WHERE id=:id",                 PgOra::getRWSession("TYPEB_IN")).bind(":id", tlg_id).exec();
     }
 }
 
@@ -2614,8 +2614,8 @@ int delete_kiosk_events(const Dates::DateTime_t& arx_date, int remain_rows)
 
     if(ARX::CLEANUP_PG()) {
         for(const auto & ev : events) {
-            make_db_curs("delete from KIOSK_EVENTS where ID = :id; ", PgOra::getRWSession("KIOSK_EVENTS")).bind(":id", ev.id).exec();
-            make_db_curs("delete from KIOSK_EVENT_PARAMS where EVENT_ID = :id;", PgOra::getRWSession("KIOSK_EVENT_PARAMS")).bind(":id", ev.id).exec();
+            make_db_curs("delete from KIOSK_EVENTS where ID = :id ", PgOra::getRWSession("KIOSK_EVENTS")).bind(":id", ev.id).exec();
+            make_db_curs("delete from KIOSK_EVENT_PARAMS where EVENT_ID = :id", PgOra::getRWSession("KIOSK_EVENT_PARAMS")).bind(":id", ev.id).exec();
         }
     }
     return events.size();
@@ -2659,7 +2659,7 @@ int delete_aodb_spp_files(const Dates::DateTime_t& arx_date, int remain_rows)
 
             auto cur2 = make_db_curs("delete from AODB_SPP_FILES "
                                      "where filename= :filename and point_addr= :point_addr "
-                                     "and airline= :airline;",
+                                     "and airline= :airline",
                                      PgOra::getRWSession("AODB_SPP_FILES"));
             cur2.bind(":filename", f.filename)
                     .bind(":point_addr", f.point_addr)

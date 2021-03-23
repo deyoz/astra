@@ -203,6 +203,7 @@ void RunAnnulBTStat(
 
     QParams QryParams;
     QryParams << QParam("point_id", otInteger, point_id);
+    LogTrace5 << __func__ << " point_id: " << point_id;
     string SQLText =
         "select null part_key, "
         "   points.airline, "
