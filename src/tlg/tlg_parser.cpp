@@ -5791,12 +5791,11 @@ int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type, TSearchFltInfo
     /* но только для PNL/ADL */
     if (!flt.pr_utc && bind_type==btFirstSeg && *flt.airp_arv==0)
     {
-      TQuery Qry(&OraSession);
-      Qry.Clear();
+      DB::TQuery Qry(PgOra::getRWSession("CRS_DISPLACE2"));
       Qry.SQLText=
         "UPDATE crs_displace2 SET point_id_tlg=:point_id "
         "WHERE airline=:airline AND flt_no=:flt_no AND "
-        "      NVL(suffix,' ')=NVL(:suffix,' ') AND "
+        "      COALESCE(suffix,' ')=COALESCE(:suffix,' ') AND "
         "      TRUNC(scd)=TRUNC(:scd) AND "
         "      airp_dep=:airp_dep AND "
         "      point_id_tlg IS NULL";

@@ -780,14 +780,6 @@ BEGIN
       FROM trip_sets
       WHERE point_id=curRow.point_id;
 
-      INSERT INTO arx_crs_displace2
-        (point_id_spp,airp_arv_spp,class_spp,airline,flt_no,suffix,scd,airp_dep,
-         point_id_tlg,airp_arv_tlg,class_tlg,status,part_key)
-      SELECT
-         point_id_spp,airp_arv_spp,class_spp,airline,flt_no,suffix,scd,airp_dep,
-         NULL,        airp_arv_tlg,class_tlg,status,vpart_key
-      FROM crs_displace2
-      WHERE point_id_spp=curRow.point_id;
     END IF;
 
     SELECT rowid BULK COLLECT INTO rowids
@@ -1226,7 +1218,6 @@ BEGIN
     DELETE FROM aodb_points WHERE point_id=curRow.point_id;
     DELETE FROM exch_flights WHERE point_id=curRow.point_id;
     DELETE FROM counters2 WHERE point_dep=curRow.point_id;
-    DELETE FROM crs_displace2 WHERE point_id_spp=curRow.point_id;
     DELETE FROM snapshot_points WHERE point_id=curRow.point_id;
     UPDATE tag_ranges2 SET point_id=NULL WHERE point_id=curRow.point_id;
     DELETE FROM tlg_binding WHERE point_id_spp=curRow.point_id;
@@ -1395,7 +1386,6 @@ paxids  TIdsTable;
 i       BINARY_INTEGER;
 BEGIN
   DELETE FROM tlg_comp_layers WHERE point_id=vpoint_id;
-  UPDATE crs_displace2 SET point_id_tlg=NULL WHERE point_id_tlg=vpoint_id;
 END tlg_trip;
 
 PROCEDURE norms_rates_etc(arx_date DATE, max_rows INTEGER, time_duration INTEGER, step IN OUT INTEGER)

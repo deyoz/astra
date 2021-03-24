@@ -154,6 +154,19 @@ void PrepRegInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
   }
 }
 
+TAdvTripInfo loadFltInfo(const PointId_t& point_id)
+{
+  DB::TQuery Qry(PgOra::getROSession("POINTS"));
+  Qry.SQLText =
+    "SELECT airline, flt_no, suffix, airp, scd_out, "
+    "       point_id, point_num, first_point, pr_tranzit "
+    "FROM points WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
+  Qry.CreateVariable( "point_id", otInteger, point_id.get() );
+  Qry.Execute();
+  if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
+  return TAdvTripInfo(Qry);
+}
+
 namespace {
 
 struct SenderPriority
@@ -362,19 +375,6 @@ std::vector<SenderInfo> getSenderInfoList(const std::string& airline,
     result.push_back(info);
   }
   return result;
-}
-
-TAdvTripInfo loadFltInfo(const PointId_t& point_id)
-{
-  DB::TQuery Qry(PgOra::getROSession("POINTS"));
-  Qry.SQLText =
-    "SELECT airline, flt_no, suffix, airp, scd_out, "
-    "       point_id, point_num, first_point, pr_tranzit "
-    "FROM points WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
-  Qry.CreateVariable( "point_id", otInteger, point_id.get() );
-  Qry.Execute();
-  if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
-  return TAdvTripInfo(Qry);
 }
 
 std::map<AirportCode_t, int> loadAirportPointNumMap(int point_num, int first_point)

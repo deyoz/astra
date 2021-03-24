@@ -253,6 +253,13 @@ void getPointIdsSppByPointIdTlg(const PointIdTlg_t& point_id_tlg,
     point_ids_spp.insert(PointId_t(Qry.FieldAsInteger( "point_id_spp" )));
 }
 
+std::set<PointId_t> getPointIdsSppByPointIdTlg(const PointIdTlg_t& point_id_tlg)
+{
+  std::set<PointId_t> point_ids_spp;
+  getPointIdsSppByPointIdTlg(point_id_tlg, point_ids_spp);
+  return point_ids_spp;
+}
+
 void getTripsByPointIdTlg( const int point_id_tlg, TAdvTripInfoList &trips )
 {
   trips.clear();

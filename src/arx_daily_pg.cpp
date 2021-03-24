@@ -1972,7 +1972,7 @@ void deleteByPointId(const PointId_t& point_id)
         make_db_curs("delete from TRIP_DELAYS WHERE point_id=:point_id" , PgOra::getRWSession("trip_delays")).bind(":point_id", point_id.get()).exec();
         make_db_curs("delete from TRIP_LOAD WHERE point_dep=:point_id" , PgOra::getRWSession("trip_load")).bind(":point_id", point_id.get()).exec();
         make_db_curs("delete from TRIP_SETS WHERE point_id=:point_id" , PgOra::getRWSession("trip_sets")).bind(":point_id", point_id.get()).exec();
-        make_db_curs("delete from CRS_DISPLACE2 WHERE point_id_spp=:point_id" , PgOra::getRWSession("crs_displace2")).bind(":point_id", point_id.get()).exec();
+        make_db_curs("delete from CRS_DISPLACE2 WHERE point_id_spp=:point_id" , PgOra::getRWSession("CRS_DISPLACE2")).bind(":point_id", point_id.get()).exec();
         make_db_curs("delete from TRIP_STAGES where point_id = :point_id ",PgOra::getRWSession("TRIP_STAGES")).bind(":point_id", point_id.get()).exec();
 
         make_db_curs("delete from aodb_pax_change WHERE point_id=:point_id" , PgOra::getRWSession("aodb_pax_change")).bind(":point_id", point_id.get()).exec();

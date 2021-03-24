@@ -579,6 +579,7 @@ bool TArxTlgTrips::Next(int max_rows, int duration)
 
       try
       {
+        TypeB::nullCrsDisplace2_point_id_tlg(PointIdTlg_t(point_id));
         TypeB::deleteTypeBData(PointIdTlg_t(point_id));
         TypeB::deleteTypeBDataStat(PointIdTlg_t(point_id));
         TypeB::deleteCrsDataStat(PointIdTlg_t(point_id));

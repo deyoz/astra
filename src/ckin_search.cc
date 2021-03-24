@@ -149,31 +149,23 @@ std::string getSearchPaxSubquery(const TPaxStatus& pax_status,
     if (exclude_checked)
       sql << ", pax";
 
-    sql <<   ", \n";
 
-    sql <<   "    (SELECT b2.point_id_tlg, \n"
-             "            airp_arv_tlg,class_tlg,status \n"
-             "     FROM crs_displace2,tlg_binding b1,tlg_binding b2 \n"
-             "     WHERE crs_displace2.point_id_tlg=b1.point_id_tlg AND \n"
-             "           b1.point_id_spp=b2.point_id_spp AND \n"
-             "           crs_displace2.point_id_spp=:point_id AND \n"
-             "           b1.point_id_spp<>:point_id) crs_displace \n"
-             "   WHERE crs_pnr.point_id=crs_displace.point_id_tlg AND \n"
+    sql <<   "   WHERE crs_pnr.point_id=:point_id_tlg AND \n"
              "         crs_pnr.system='CRS' AND \n"
-             "         crs_pnr.airp_arv=crs_displace.airp_arv_tlg AND \n"
-             "         crs_pnr.class=crs_displace.class_tlg \n";
+             "         crs_pnr.airp_arv=:airp_arv_tlg AND \n"
+             "         crs_pnr.class=:class_tlg \n";
 
     if (!return_pnr_ids || exclude_checked || exclude_deleted)
       sql << "         AND crs_pnr.pnr_id=crs_pax.pnr_id \n";
 
     if (pass==1)
-      sql << "         AND crs_displace.status= " << status_param << " \n";
+      sql << "         AND :status= " << status_param << " \n";
 
     if (pass==1 && pax_status==psCheckin && !select_pad_with_ok)
       sql << "         AND (crs_pnr.status IS NULL OR crs_pnr.status NOT IN ('DG2','RG2','ID2','WL')) \n";
 
     if (pass==2 && pax_status==psGoshow)
-      sql << "         AND crs_displace.status= :ps_ok \n"
+      sql << "         AND :status= :ps_ok \n"
              "         AND crs_pnr.status IN ('DG2','RG2','ID2','WL') \n";
 
     if (exclude_checked)
@@ -315,11 +307,9 @@ void executeSearchPaxQuery(const int& pnr_id,
   Qry.Execute();
 }
 
-void executeSearchPaxQuery(const int& point_dep,
-                           const TPaxStatus& pax_status,
-                           const bool& return_pnr_ids,
-                           const std::string& sql_filter,
-                           TQuery& Qry)
+std::string makeSearchPaxQuery(const TPaxStatus& pax_status,
+                               const bool& return_pnr_ids,
+                               const std::string& sql_filter)
 {
   //обычный поиск
   ostringstream sql;
@@ -352,8 +342,65 @@ void executeSearchPaxQuery(const int& point_dep,
 //  ProgTrace(TRACE5,"CheckInInterface::SearchPax: status=%s",EncodePaxStatus(pax_status));
 //  ProgTrace(TRACE5,"CheckInInterface::SearchPax: sql=\n%s",sql.c_str());
 
+  return sql.str();
+}
+
+struct CrsDisplaceData
+{
+  PointIdTlg_t point_id_tlg;
+  std::string airp_arv_tlg;
+  std::string class_tlg;
+  std::string status;
+
+  static std::vector<CrsDisplaceData> load(const PointId_t& point_id);
+};
+
+std::vector<CrsDisplaceData> CrsDisplaceData::load(const PointId_t& point_id)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": point_id=" << point_id;
+  std::vector<CrsDisplaceData> result;
+
+  DB::TQuery Qry(PgOra::getROSession("CRS_DISPLACE2"));
+  Qry.SQLText =
+      "SELECT point_id_tlg, airp_arv_tlg, class_tlg, status "
+      "FROM crs_displace2 "
+      "WHERE point_id_spp=:point_id ";
+  Qry.CreateVariable("point_id", otInteger, point_id.get());
+  Qry.Execute();
+  for(; !Qry.Eof; Qry.Next()) {
+    const std::set<PointId_t> b1_point_id_set = getPointIdsSppByPointIdTlg(
+          PointIdTlg_t(Qry.FieldAsInteger("point_id_tlg")));
+    for (const PointId_t& b1_point_id: b1_point_id_set) {
+      if (b1_point_id == point_id) {
+        continue;
+      }
+      const std::set<PointIdTlg_t> b2_point_id_tlg_set = getPointIdTlgByPointIdsSpp(b1_point_id);
+      for (const PointIdTlg_t& b2_point_id_tlg: b2_point_id_tlg_set) {
+        const CrsDisplaceData data = {
+          b2_point_id_tlg,
+          Qry.FieldAsString("airp_arv_tlg"),
+          Qry.FieldAsString("class_tlg"),
+          Qry.FieldAsString("status")
+        };
+        result.push_back(data);
+      }
+    }
+  }
+  LogTrace(TRACE6) << __func__
+                   << ": result.size=" << result.size();
+  return result;
+}
+
+void executeSearchPaxQuery(const int& point_dep,
+                           const TPaxStatus& pax_status,
+                           const bool& return_pnr_ids,
+                           const std::string& sql_filter,
+                           TQuery& Qry)
+{
+  LogTrace(TRACE6) << __func__;
   Qry.Clear();
-  Qry.SQLText = sql.str().c_str();
+  Qry.SQLText = makeSearchPaxQuery(pax_status, return_pnr_ids, sql_filter);
   Qry.CreateVariable("point_id", otInteger, point_dep);
   switch (pax_status)
   {
@@ -364,7 +411,25 @@ void executeSearchPaxQuery(const int& point_dep,
                     [[fallthrough]];
            default: Qry.CreateVariable( "ps_ok", otString, EncodePaxStatus(ASTRA::psCheckin) );
   }
-  Qry.Execute();
+  Qry.DeclareVariable("point_id_tlg", otInteger);
+  Qry.DeclareVariable("airp_arv_tlg", otString);
+  Qry.DeclareVariable("class_tlg", otString);
+  Qry.DeclareVariable("status", otString);
+  const std::vector<CrsDisplaceData> items = CrsDisplaceData::load(PointId_t(point_dep));
+  for (const CrsDisplaceData& item: items) {
+    Qry.SetVariable("point_id_tlg", item.point_id_tlg.get());
+    Qry.SetVariable("airp_arv_tlg", item.airp_arv_tlg);
+    Qry.SetVariable("class_tlg", item.class_tlg);
+    Qry.SetVariable("status", item.status);
+    Qry.Execute();
+  }
+  if (items.empty()) {
+    Qry.SetVariable("point_id_tlg", FNull);
+    Qry.SetVariable("airp_arv_tlg", FNull);
+    Qry.SetVariable("class_tlg", FNull);
+    Qry.SetVariable("status", FNull);
+    Qry.Execute();
+  }
 }
 
 namespace CheckIn
@@ -928,4 +993,3 @@ bool BarcodeFilter::suitable(const TAdvTripRouteItem& departure,
 
   return false;
 }
-
