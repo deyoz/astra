@@ -202,7 +202,12 @@ void RunAnnulBTStat(
             QParams() << QParam("user_id", otInteger));
 
     QParams QryParams;
-    QryParams << QParam("point_id", otInteger, point_id);
+    if(point_id == NoExists) {
+        QryParams << QParam("FirstDate", otDate, params.FirstDate)
+                  << QParam("LastDate", otDate, params.LastDate);
+    } else {
+        QryParams << QParam("point_id", otInteger, point_id);
+    }
     LogTrace5 << __func__ << " point_id: " << point_id;
     string SQLText =
         "select null part_key, "
@@ -235,21 +240,23 @@ void RunAnnulBTStat(
         "   transfer, \n"
         "   trfer_trips, \n"
         "   points "
-        "where "
-        "   points.point_id = :point_id and "
-        "   points.point_id = pax_grp.point_dep and "
-        "   pax_grp.grp_id = annul_bag.grp_id and "
-        "   annul_bag.pax_id = pax.pax_id(+) and "
-        "   pax_grp.grp_id = transfer.grp_id(+) and \n"
-        "   transfer.pr_final(+) <> 0 \n"
-        "   and transfer.point_id_trfer = trfer_trips.point_id(+) \n";
+        "where ";
+        if(point_id == NoExists) {
+            params.AccessClause(SQLText);
+            SQLText += " points.scd_out >= :FirstDate AND points.scd_out < :LastDate and \n";
+        } else {
+            SQLText += " points.point_id = :point_id and \n";
+        }
+        SQLText += "   points.point_id = pax_grp.point_dep and "
+                   "   pax_grp.grp_id = annul_bag.grp_id and "
+                   "   annul_bag.pax_id = pax.pax_id(+) and "
+                   "   pax_grp.grp_id = transfer.grp_id(+) and \n"
+                   "   transfer.pr_final(+) <> 0 and \n"
+                   "   transfer.point_id_trfer = trfer_trips.point_id(+) \n";
 
     TCachedQuery Qry(SQLText, QryParams);
-    tst();
     Qry.get().Execute();
-    tst();
     if(not Qry.get().Eof) {
-        tst();
         int col_part_key = Qry.get().FieldIndex("part_key");
         int col_airline = Qry.get().FieldIndex("airline");
         int col_airp = Qry.get().FieldIndex("airp");
