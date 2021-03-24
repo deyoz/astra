@@ -131,7 +131,7 @@ typedef std::vector<TSimpleMktFlight> TSimpleMktFlights;
 class TMktFlight : public TSimpleMktFlight
 {
   private:
-    void get(TQuery &Qry, int id);
+    void get(DB::TQuery &Qry, int id);
     void init()
     {
       subcls.clear();

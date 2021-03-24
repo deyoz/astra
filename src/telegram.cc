@@ -24,6 +24,7 @@
 #include "serverlib/posthooks.h"
 #include "TypeBHelpMng.h"
 #include "db_tquery.h"
+#include "checkin.h"
 
 #include "hooked_session.h"
 #include "PgOraConfig.h"
@@ -388,48 +389,6 @@ void set_tlgs_in_search_params(const TTlgSearchParams &search_params, ostringstr
     if (!filtered) throw Exception("set_tlgs_in_search_params: bad situation!");
 }
 
-void set_tlg_trips_search_params(const TTlgSearchParams &search_params, ostringstream &sql, DB::TQuery &Qry)
-{
-    TReqInfo &info = *(TReqInfo::Instance());
-
-    if (!info.user.access.airlines().elems().empty()) {
-        if (info.user.access.airlines().elems_permit())
-            sql << " AND tlg_trips.airline IN " << GetSQLEnum(info.user.access.airlines().elems()) << " \n";
-        else
-            sql << " AND tlg_trips.airline NOT IN " << GetSQLEnum(info.user.access.airlines().elems()) << " \n";
-    }
-
-    if (!info.user.access.airps().elems().empty()) {
-        if (info.user.access.airps().elems_permit())
-            sql << " AND (tlg_trips.airp_dep IS NULL AND tlg_trips.airp_arv IS NULL OR \n"
-                << "      tlg_trips.airp_dep IN " << GetSQLEnum(info.user.access.airps().elems()) << " OR \n"
-                << "      tlg_trips.airp_arv IN " << GetSQLEnum(info.user.access.airps().elems()) << ") \n" ;
-        else
-            sql << " AND (tlg_trips.airp_dep IS NULL AND tlg_trips.airp_arv IS NULL OR \n"
-                << "      tlg_trips.airp_dep NOT IN " << GetSQLEnum(info.user.access.airps().elems()) << " OR \n"
-                << "      tlg_trips.airp_arv NOT IN " << GetSQLEnum(info.user.access.airps().elems()) << ") \n" ;
-    }
-
-    if(!search_params.airline.empty()) {
-        sql << " AND tlg_trips.airline = :airline \n";
-        Qry.CreateVariable("airline", otString, search_params.airline);
-    }
-
-    if(!search_params.airp.empty()) {
-        sql << " AND tlg_trips.airp_dep = :airp \n";
-        Qry.CreateVariable("airp", otString, search_params.airp);
-    }
-
-    if(search_params.flt_no != NoExists) {
-        sql << " AND tlg_trips.flt_no = :flt_no \n";
-        Qry.CreateVariable("flt_no", otInteger, search_params.flt_no);
-        if(!search_params.suffix.empty()) {
-            sql << " AND tlg_trips.suffix = :suffix \n";
-            Qry.CreateVariable("suffix", otString, search_params.suffix);
-        }
-    }
-};
-
 string GetValidXMLString(const std::string& str)
 {
   ostringstream result;
@@ -463,240 +422,465 @@ struct TTlgInPart {
     {}
 };
 
+struct FailedTlgKey
+{
+  TlgId_t tlg_id;
+  PointIdTlg_t point_id_tlg;
+
+  bool operator <(const FailedTlgKey& key) const;
+};
+
+bool FailedTlgKey::operator <(const FailedTlgKey& key) const
+{
+  if (tlg_id != key.tlg_id) {
+    return tlg_id < key.tlg_id;
+  }
+  return point_id_tlg < key.point_id_tlg;
+}
+
+std::set<FailedTlgKey> loadFailedTlgIds(const TTlgSearchParams& search_params)
+{
+  std::set<FailedTlgKey> result;
+
+  DB::TQuery Qry(PgOra::getROSession("TLGS_IN-TLG_SOURCE"));
+  std::ostringstream sql;
+  sql << " SELECT DISTINCT tlgs_in.id, tlg_source.point_id_tlg "
+      << " FROM tlgs_in, tlg_source "
+         " WHERE tlgs_in.id=tlg_source.tlg_id AND "
+         "       COALESCE(tlg_source.has_errors,0)<>0 ";
+  set_tlgs_in_search_params(search_params, sql, Qry);
+  sql << " ORDER BY tlgs_in.id ";
+  ProgTrace(TRACE5, "sql: %s", sql.str().c_str());
+  Qry.SQLText=sql.str();
+  Qry.Execute();
+
+  for(;!Qry.Eof;Qry.Next()) {
+    const FailedTlgKey failed_tlg_key = {
+      TlgId_t(Qry.FieldAsInteger("id")),
+      PointIdTlg_t(Qry.FieldAsInteger("point_id_tlg"))
+    };
+    result.insert(failed_tlg_key);
+  }
+  return result;
+}
+
+std::set<TlgId_t> loadFailedTlgIdsWOSource(const TTlgSearchParams& search_params)
+{
+  std::set<TlgId_t> result;
+  DB::TQuery Qry(PgOra::getROSession("TLGS_IN-TLG_SOURCE"));
+  std::ostringstream sql;
+  sql << "SELECT DISTINCT tlgs_in.id "
+         "FROM tlgs_in, tlg_source "
+         "WHERE NOT EXISTS ( "
+         "  SELECT 1 FROM tlg_source "
+         "  WHERE tlg_source.tlg_id = tlgs_in.id "
+         ") ";
+  set_tlgs_in_search_params(search_params, sql, Qry);
+
+  return result;
+}
+
+bool checkUserAccess(const TlgTripsData& trips_data, const TReqInfo &info,
+                     const TTlgSearchParams& search_params)
+{
+  if (!info.user.access.airlines().elems().empty()) {
+    const auto allowed_airlines = info.user.access.airlines().elems();
+    if (info.user.access.airlines().elems_permit()) {
+      if (allowed_airlines.find(trips_data.airline) == allowed_airlines.end()) {
+        return false;
+      }
+    } else {
+      if (allowed_airlines.find(trips_data.airline) != allowed_airlines.end()) {
+        return false;
+      }
+    }
+  }
+
+  if (!info.user.access.airps().elems().empty()) {
+    if (!trips_data.airp_dep.empty() && !trips_data.airp_arv.empty()) {
+      const auto allowed_airports = info.user.access.airps().elems();
+      if (info.user.access.airps().elems_permit()) {
+        if (allowed_airports.find(trips_data.airp_dep) == allowed_airports.end()) {
+          return false;
+        }
+        if (allowed_airports.find(trips_data.airp_arv) == allowed_airports.end()) {
+          return false;
+        }
+      } else {
+        if (allowed_airports.find(trips_data.airp_dep) != allowed_airports.end()) {
+          return false;
+        }
+        if (allowed_airports.find(trips_data.airp_arv) != allowed_airports.end()) {
+          return false;
+        }
+      }
+    }
+  }
+
+  if (!search_params.airline.empty()) {
+    if (trips_data.airline != search_params.airline) {
+      return false;
+    }
+  }
+
+  if (!search_params.airp.empty()) {
+    if (trips_data.airp_dep != search_params.airp) {
+      return false;
+    }
+  }
+
+  if (search_params.flt_no != ASTRA::NoExists) {
+    if (trips_data.flt_no != search_params.flt_no) {
+      return false;
+    }
+    if (!search_params.suffix.empty()) {
+      if (trips_data.suffix != search_params.suffix) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+bool isHistoryTlg(const TlgId_t& tlg_id)
+{
+  DB::TQuery Qry(PgOra::getROSession("TYPEB_IN_HISTORY"));
+  Qry.CreateVariable("tlg_id", otInteger, tlg_id.get());
+  Qry.SQLText =
+      "SELECT prev_tlg_id "
+      "FROM typeb_in_history "
+      "WHERE prev_tlg_id=:tlg_id ";
+  Qry.Execute();
+  return !Qry.Eof && not Qry.FieldIsNULL("prev_tlg_id");
+}
+
+std::vector<TTlgInPart> loadTlgsInParts(const TlgId_t& tlg_id,
+                                        const std::string& tz_region)
+{
+  std::vector<TTlgInPart> result;
+  const bool is_history = isHistoryTlg(tlg_id);
+  DB::TQuery Qry(PgOra::getROSession("TLGS_IN"));
+  Qry.CreateVariable("tlg_id", otInteger, tlg_id.get());
+  Qry.SQLText =
+      "SELECT id, num, type, addr, heading, ending, time_receive, is_final_part "
+      "FROM tlgs_in "
+      "WHERE id=:tlg_id "
+      "ORDER BY id, num ";
+  Qry.Execute();
+
+  for(;!Qry.Eof;Qry.Next()) {
+    TTlgInPart tlg;
+    tlg.id = Qry.FieldAsInteger("id");
+    tlg.num = Qry.FieldAsInteger("num");
+    tlg.type = Qry.FieldAsString("type");
+    tlg.draft.addr = Qry.FieldAsString("addr");
+    tlg.draft.heading = Qry.FieldAsString("heading");
+    tlg.draft.ending = Qry.FieldAsString("ending");
+    tlg.time_receive = UTCToClient( Qry.FieldAsDateTime("time_receive"), tz_region );
+    tlg.is_final_part = Qry.FieldAsInteger("is_final_part")!=0;
+    tlg.is_history = is_history;
+    tlg.draft.body = getTypeBBody(tlg.id, tlg.num);
+    result.push_back(tlg);
+  }
+  return result;
+}
+
+std::map<PointIdTlg_t, TlgTripsData> loadTlgTripsMap(const std::set<FailedTlgKey>& failed_tlg_key_set)
+{
+  std::map<PointIdTlg_t, TlgTripsData> result;
+  std::set<PointIdTlg_t> point_id_tlg_set;
+  for (const FailedTlgKey& failed_tlg_key: failed_tlg_key_set) {
+    point_id_tlg_set.insert(failed_tlg_key.point_id_tlg);
+  }
+  for (const PointIdTlg_t& point_id_tlg: point_id_tlg_set) {
+    const std::optional<TlgTripsData> tlg_trips_data = TlgTripsData::load(point_id_tlg);
+    if (tlg_trips_data) {
+      result.insert(std::make_pair(point_id_tlg, *tlg_trips_data));
+    }
+  }
+  return result;
+}
+
+std::set<TlgId_t> getFilteredTlgIdSet(const TTlgSearchParams& search_params,
+                                      const std::set<FailedTlgKey>& failed_tlg_key_set,
+                                      const std::map<PointIdTlg_t, TlgTripsData>& tlg_trips_map)
+{
+  std::set<TlgId_t> result;
+  for (const FailedTlgKey& failed_tlg_key: failed_tlg_key_set) {
+    if (!tlg_trips_map.empty()) {
+      auto pos = tlg_trips_map.find(failed_tlg_key.point_id_tlg);
+      if (pos == tlg_trips_map.end()) {
+        continue;
+      }
+      const TlgTripsData& trips_data = pos->second;
+      const TReqInfo &info = *(TReqInfo::Instance());
+
+      if (!checkUserAccess(trips_data, info, search_params)) {
+        continue;
+      }
+    }
+    result.insert(failed_tlg_key.tlg_id);
+  }
+  return result;
+}
+
+std::vector<TTlgInPart> loadTlgsWithParseFail(const TTlgSearchParams& search_params,
+                                              bool limited_access,
+                                              bool need_check_tlg_trips,
+                                              const std::string& tz_region)
+{
+  std::vector<TTlgInPart> tlgs;
+
+  const std::set<FailedTlgKey> failed_tlg_key_set = loadFailedTlgIds(search_params);
+  std::map<PointIdTlg_t, TlgTripsData> tlg_trips_map;
+  if (need_check_tlg_trips) {
+    tlg_trips_map = loadTlgTripsMap(failed_tlg_key_set);
+  }
+
+  std::set<TlgId_t> tlg_id_set;
+  if (!limited_access) {
+    tlg_id_set = loadFailedTlgIdsWOSource(search_params);
+  }
+  const std::set<TlgId_t> filtered = getFilteredTlgIdSet(search_params,
+                                                         failed_tlg_key_set,
+                                                         tlg_trips_map);
+  tlg_id_set.insert(filtered.begin(), filtered.end());
+
+  for (const TlgId_t& tlg_id: tlg_id_set) {
+    const std::vector<TTlgInPart> tlg_parts = loadTlgsInParts(tlg_id, tz_region);
+    tlgs.insert(tlgs.begin(), tlg_parts.begin(), tlg_parts.end());
+  }
+  return tlgs;
+}
+
+std::set<FailedTlgKey> loadFailedTlgIdsWOBind(const TTlgSearchParams& search_params)
+{
+  std::set<FailedTlgKey> result;
+  DB::TQuery Qry(PgOra::getROSession("TLGS_IN-TLG_SOURCE-TLG_BINDING"));
+  std::ostringstream sql;
+  sql << "SELECT DISTINCT tlgs_in.id, tlg_source.point_id_tlg "
+         "FROM tlgs_in, tlg_source, tlg_binding "
+         "WHERE tlgs_in.id=tlg_source.tlg_id "
+         "AND NOT EXISTS ( "
+         "  SELECT 1 FROM tlg_binding "
+         "  WHERE tlg_binding.point_id_tlg=tlg_source.point_id_tlg "
+         ") ";
+  set_tlgs_in_search_params(search_params, sql, Qry);
+
+  for(;!Qry.Eof;Qry.Next()) {
+    const FailedTlgKey failed_tlg_key = {
+      TlgId_t(Qry.FieldAsInteger("id")),
+      PointIdTlg_t(Qry.FieldAsInteger("point_id_tlg"))
+    };
+    result.insert(failed_tlg_key);
+  }
+  return result;
+}
+
+std::vector<TTlgInPart> loadTlgsWithBindFail(const TTlgSearchParams& search_params,
+                                             bool need_check_tlg_trips,
+                                             const std::string& tz_region)
+{
+  std::vector<TTlgInPart> tlgs;
+
+  const std::set<FailedTlgKey> failed_tlg_key_set = loadFailedTlgIdsWOBind(search_params);
+  std::map<PointIdTlg_t, TlgTripsData> tlg_trips_map;
+  if (need_check_tlg_trips) {
+    tlg_trips_map = loadTlgTripsMap(failed_tlg_key_set);
+  }
+
+  const std::set<TlgId_t> tlg_id_set = getFilteredTlgIdSet(search_params,
+                                                           failed_tlg_key_set,
+                                                           tlg_trips_map);
+  for (const TlgId_t& tlg_id: tlg_id_set) {
+    const std::vector<TTlgInPart> tlg_parts = loadTlgsInParts(tlg_id, tz_region);
+    tlgs.insert(tlgs.begin(), tlg_parts.begin(), tlg_parts.end());
+  }
+
+  return tlgs;
+}
+
+std::vector<TTlgInPart> loadTlgsWithErrors(const set<int>& tlgs_ids,
+                                           const std::string& tz_region)
+{
+  std::vector<TTlgInPart> tlgs;
+  DB::TQuery Qry(PgOra::getROSession("TLGS"));
+  std::ostringstream sql;
+  sql << "SELECT \n"
+         "   tlgs.id, \n"
+         "   1 AS num, \n"
+         "   NULL AS type, \n"
+         "   NULL AS addr, \n"
+         "   NULL AS heading, \n"
+         "   NULL AS ending, \n"
+         "   time AS time_receive \n"
+         "FROM tlgs \n"
+         "WHERE type IN ('INA','INB') AND \n"
+         "      id IN (";
+  set_ids_search_params(tlgs_ids, sql, Qry);
+  sql << ") \n";
+  ProgTrace(TRACE5, "sql: %s", sql.str().c_str());
+  Qry.SQLText=sql.str();
+  Qry.Execute();
+  if(!Qry.Eof) {
+      int col_type = Qry.FieldIndex("type");
+      int col_id = Qry.FieldIndex("id");
+      int col_num = Qry.FieldIndex("num");
+      int col_addr = Qry.FieldIndex("addr");
+      int col_heading = Qry.FieldIndex("heading");
+      int col_ending = Qry.FieldIndex("ending");
+      int col_time_receive = Qry.FieldIndex("time_receive");
+
+      for(;!Qry.Eof;Qry.Next()) {
+          TTlgInPart tlg;
+          tlg.id = Qry.FieldAsInteger(col_id);
+          tlg.num = Qry.FieldAsInteger(col_num);
+          tlg.type = Qry.FieldAsString(col_type);
+          tlg.draft.addr = Qry.FieldAsString(col_addr);
+          tlg.draft.heading = Qry.FieldAsString(col_heading);
+          tlg.draft.ending = Qry.FieldAsString(col_ending);
+          tlg.time_receive = UTCToClient( Qry.FieldAsDateTime(col_time_receive), tz_region );
+          tlg.is_final_part = false;
+          tlg.is_history = false;
+          tlg.draft.body = getTlgText(tlg.id);
+          tlgs.push_back(tlg);
+      };
+      if(tlgs.size() >= 4000)
+          throw AstraLocale::UserException("MSG.TOO_MANY_DATA.ADJUST_SEARCH_PARAMS");
+  }
+  return tlgs;
+}
+
 void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    TReqInfo &info = *(TReqInfo::Instance());
-    xmlNodePtr tlgsNode = NewTextChild( resNode, "tlgs" );
-    if (info.user.access.totally_not_permitted()) return;
+  TReqInfo &info = *(TReqInfo::Instance());
+  xmlNodePtr tlgsNode = NewTextChild( resNode, "tlgs" );
+  if (info.user.access.totally_not_permitted()) return;
 
-    TTlgSearchParams search_params;
-    search_params.get(reqNode);
-    search_params.dump();
+  TTlgSearchParams search_params;
+  search_params.get(reqNode);
+  search_params.dump();
 
-    if (search_params.tlg_id!=NoExists)
+  if (search_params.tlg_id!=NoExists)
+  {
+    search_params.typeb_in_ids.insert(search_params.tlg_id);
+    DB::TQuery Qry(PgOra::getROSession("TLGS"));
+    Qry.SQLText="SELECT id, typeb_tlg_id FROM tlgs WHERE id=:tlg_id";
+    Qry.CreateVariable("tlg_id", otInteger, search_params.tlg_id);
+    Qry.Execute();
+    if (!Qry.Eof)
     {
-      search_params.typeb_in_ids.insert(search_params.tlg_id);
-      DB::TQuery Qry(PgOra::getROSession("TLGS"));
-      Qry.SQLText="SELECT id, typeb_tlg_id FROM tlgs WHERE id=:tlg_id";
-      Qry.CreateVariable("tlg_id", otInteger, search_params.tlg_id);
-      Qry.Execute();
-      if (!Qry.Eof)
-      {
-        if (!Qry.FieldIsNULL("typeb_tlg_id"))
-          search_params.typeb_in_ids.insert(Qry.FieldAsInteger("typeb_tlg_id"));
-        else
-          search_params.tlgs_ids.insert(Qry.FieldAsInteger("id"));
-      };
+      if (!Qry.FieldIsNULL("typeb_tlg_id"))
+        search_params.typeb_in_ids.insert(Qry.FieldAsInteger("typeb_tlg_id"));
+      else
+        search_params.tlgs_ids.insert(Qry.FieldAsInteger("id"));
     };
-    if (search_params.tlg_num!=NoExists)
+  };
+  if (search_params.tlg_num!=NoExists)
+  {
+    DB::TQuery Qry(PgOra::getROSession("TLGS"));
+    Qry.SQLText="SELECT id, typeb_tlg_id FROM tlgs WHERE tlg_num=:tlg_num";
+    Qry.CreateVariable("tlg_num", otFloat, search_params.tlg_num);
+    Qry.Execute();
+    if (!Qry.Eof)
     {
-      DB::TQuery Qry(PgOra::getROSession("TLGS"));
-      Qry.SQLText="SELECT id, typeb_tlg_id FROM tlgs WHERE tlg_num=:tlg_num";
-      Qry.CreateVariable("tlg_num", otFloat, search_params.tlg_num);
-      Qry.Execute();
-      if (!Qry.Eof)
-      {
-        if (!Qry.FieldIsNULL("typeb_tlg_id"))
-          search_params.typeb_in_ids.insert(Qry.FieldAsInteger("typeb_tlg_id"));
-        else
-          search_params.tlgs_ids.insert(Qry.FieldAsInteger("id"));
-      };
+      if (!Qry.FieldIsNULL("typeb_tlg_id"))
+        search_params.typeb_in_ids.insert(Qry.FieldAsInteger("typeb_tlg_id"));
+      else
+        search_params.tlgs_ids.insert(Qry.FieldAsInteger("id"));
+    };
+  };
+
+
+  bool limited_access=!info.user.access.airlines().elems().empty() ||
+      !info.user.access.airps().elems().empty();
+
+  bool need_check_tlg_trips = !search_params.airline.empty() ||
+      !search_params.airp.empty() ||
+      search_params.flt_no != NoExists ||
+      !info.user.access.airlines().elems().empty() ||
+      !info.user.access.airps().elems().empty();
+
+
+  const std::string tz_region = info.desk.tz_region;
+
+  vector<TTlgInPart> tlgs;
+  for(int pass=1; pass<=2; pass++)
+  {
+    if (search_params.tlg_id!=NoExists || search_params.tlg_num!=NoExists)
+    {
+      if (pass==1 && search_params.typeb_in_ids.empty()) continue;
+      if (pass==2 && search_params.tlgs_ids.empty()) continue;
     };
 
-
-    bool limited_access=!info.user.access.airlines().elems().empty() ||
-                        !info.user.access.airps().elems().empty();
-
-    bool need_check_tlg_trips = !search_params.airline.empty() ||
-                                !search_params.airp.empty() ||
-                                search_params.flt_no != NoExists ||
-                                !info.user.access.airlines().elems().empty() ||
-                                !info.user.access.airps().elems().empty();
-
-
-    string tz_region =  info.desk.tz_region;
-
-    vector<TTlgInPart> tlgs;
-    for(int pass=1; pass<=2; pass++)
+    if (pass==1)
     {
-      if (search_params.tlg_id!=NoExists || search_params.tlg_num!=NoExists)
+      if(search_params.err_cls == 1)
       {
-        if (pass==1 && search_params.typeb_in_ids.empty()) continue;
-        if (pass==2 && search_params.tlgs_ids.empty()) continue;
-      };
-
-      DB::TQuery Qry(1 == pass
-        ? *get_main_ora_sess(STDLOG)
-        : PgOra::getROSession("TLGS")
-      );
-      ostringstream sql;
-      if (pass==1)
-      {
-        sql << "SELECT \n"
-               "   tlgs_in.id, \n"
-               "   tlgs_in.num, \n"
-               "   tlgs_in.type, \n"
-               "   tlgs_in.addr, \n"
-               "   tlgs_in.heading, \n"
-               "   tlgs_in.ending, \n"
-               "   tlgs_in.time_receive, \n"
-               "   tlgs_in.is_final_part, \n"
-               "   typeb_in_history.prev_tlg_id \n"
-               "FROM tlgs_in, typeb_in_history, \n"
-               "( \n";
-        if(search_params.err_cls == 1)
-        {
-            //неразобранные (содержащие ошибки)
-            if (!limited_access)
-            {
-              sql << " SELECT DISTINCT tlgs_in.id \n"
-                     " FROM tlgs_in, tlg_source \n"
-                     " WHERE tlgs_in.id=tlg_source.tlg_id(+) AND tlg_source.tlg_id IS NULL \n";
-              set_tlgs_in_search_params(search_params, sql, Qry);
-              sql << " UNION \n";
-            };
-
-            if (need_check_tlg_trips)
-            {
-              sql << " SELECT DISTINCT ids.id \n"
-                     " FROM tlg_trips, (\n";
-            };
-
-            sql << " SELECT DISTINCT tlgs_in.id"
-                << (need_check_tlg_trips?", tlg_source.point_id_tlg \n":" \n")
-                << " FROM tlgs_in, tlg_source \n"
-                   " WHERE tlgs_in.id=tlg_source.tlg_id AND \n"
-                   "       NVL(tlg_source.has_errors,0)<>0 \n";
-            set_tlgs_in_search_params(search_params, sql, Qry);
-
-            if (need_check_tlg_trips)
-            {
-              sql << " ORDER BY tlgs_in.id) ids \n"
-                     " WHERE ids.point_id_tlg=tlg_trips.point_id \n";
-              set_tlg_trips_search_params(search_params, sql, Qry);
-            };
-        }
-        else
-        {
-            //непривязанные (в том числе и содержащие ошибки)
-            if (need_check_tlg_trips)
-            {
-              sql << " SELECT DISTINCT ids.id \n"
-                     " FROM tlg_trips, (\n";
-            };
-
-            sql << " SELECT DISTINCT tlgs_in.id"
-                << (need_check_tlg_trips?", tlg_source.point_id_tlg \n":" \n")
-                << " FROM tlgs_in, tlg_source, tlg_binding \n"
-                   " WHERE tlgs_in.id=tlg_source.tlg_id AND \n"
-                   "       tlg_source.point_id_tlg=tlg_binding.point_id_tlg(+) AND \n"
-                   "       tlg_binding.point_id_tlg IS NULL \n";
-            set_tlgs_in_search_params(search_params, sql, Qry);
-
-            if (need_check_tlg_trips)
-            {
-              sql << " ORDER BY tlgs_in.id) ids \n"
-                     " WHERE ids.point_id_tlg=tlg_trips.point_id \n";
-              set_tlg_trips_search_params(search_params, sql, Qry);
-            };
-        }
-
-        sql << ") ids \n"
-               "WHERE tlgs_in.id=ids.id and tlgs_in.id = typeb_in_history.prev_tlg_id(+) \n"
-               "ORDER BY id,num \n";
+        //неразобранные (содержащие ошибки)
+        const std::vector<TTlgInPart> tlgs_w_parse_fail =
+            loadTlgsWithParseFail(search_params,
+                                  limited_access,
+                                  need_check_tlg_trips,
+                                  tz_region);
+        tlgs.insert(tlgs.begin(), tlgs_w_parse_fail.begin(), tlgs_w_parse_fail.end());
       }
       else
       {
-        if (search_params.err_cls == 1 &&
-            !limited_access &&
-            !search_params.tlgs_ids.empty())
-        {
-          //неразобранные (содержащие ошибки)
-          sql << "SELECT \n"
-                 "   tlgs.id, \n"
-                 "   1 AS num, \n"
-                 "   NULL AS type, \n"
-                 "   NULL AS addr, \n"
-                 "   NULL AS heading, \n"
-                 "   NULL AS ending, \n"
-                 "   time AS time_receive \n"
-                 "FROM tlgs \n"
-                 "WHERE type IN ('INA','INB') AND \n"
-                 "      id IN (";
-          set_ids_search_params(search_params.tlgs_ids, sql, Qry);
-          sql << ") \n";
-        }
-        else continue;
-      };
-
-      ProgTrace(TRACE5, "sql: %s", sql.str().c_str());
-      Qry.SQLText=sql.str();
-      Qry.Execute();
-
-      if(!Qry.Eof) {
-          int col_type = Qry.FieldIndex("type");
-          int col_id = Qry.FieldIndex("id");
-          int col_num = Qry.FieldIndex("num");
-          int col_addr = Qry.FieldIndex("addr");
-          int col_heading = Qry.FieldIndex("heading");
-          int col_ending = Qry.FieldIndex("ending");
-          int col_time_receive = Qry.FieldIndex("time_receive");
-
-          for(;!Qry.Eof;Qry.Next()) {
-              TTlgInPart tlg;
-              tlg.id = Qry.FieldAsInteger(col_id);
-              tlg.num = Qry.FieldAsInteger(col_num);
-              tlg.type = Qry.FieldAsString(col_type);
-              tlg.draft.addr = Qry.FieldAsString(col_addr);
-              tlg.draft.heading = Qry.FieldAsString(col_heading);
-              tlg.draft.ending = Qry.FieldAsString(col_ending);
-              tlg.time_receive = UTCToClient( Qry.FieldAsDateTime(col_time_receive), tz_region );
-              if (pass==1)
-              {
-                tlg.is_final_part = Qry.FieldAsInteger("is_final_part")!=0;
-                tlg.is_history = not Qry.FieldIsNULL("prev_tlg_id");
-                tlg.draft.body = getTypeBBody(tlg.id, tlg.num);
-              }
-              else
-              {
-                tlg.is_final_part = false;
-                tlg.is_history = false;
-                tlg.draft.body = getTlgText(tlg.id);
-              };
-              tlgs.push_back(tlg);
-          };
-          if(tlgs.size() >= 4000)
-              throw AstraLocale::UserException("MSG.TOO_MANY_DATA.ADJUST_SEARCH_PARAMS");
+        //непривязанные (в том числе и содержащие ошибки)
+        const std::vector<TTlgInPart> tlgs_w_bind_fail =
+            loadTlgsWithBindFail(search_params,
+                                 need_check_tlg_trips,
+                                 tz_region);
+        tlgs.insert(tlgs.begin(), tlgs_w_bind_fail.begin(), tlgs_w_bind_fail.end());
       }
-    };
+    }
+    else
+    {
+      if (search_params.err_cls == 1 &&
+          !limited_access &&
+          !search_params.tlgs_ids.empty())
+      {
+        //неразобранные (содержащие ошибки)
+        const std::vector<TTlgInPart> tlgs_w_errors =
+            loadTlgsWithErrors(search_params.tlgs_ids, tz_region);
+        tlgs.insert(tlgs.end(), tlgs_w_errors.begin(), tlgs_w_errors.end());
+      }
+      else continue;
+    }
+  }
+
+  if(tlgs.size() >= 4000)
+    throw AstraLocale::UserException("MSG.TOO_MANY_DATA.ADJUST_SEARCH_PARAMS");
 
   TypeB::TErrLst err_lst(TypeB::tioIn);
   xmlNodePtr node;
   for(vector<TTlgInPart>::iterator iv = tlgs.begin(); iv != tlgs.end(); iv++)
   {
-      node = NewTextChild( tlgsNode, "tlg" );
+    node = NewTextChild( tlgsNode, "tlg" );
 
-      try {
-          err_lst.fromDB(iv->id, iv->num);
-          bool is_first_part = iv == tlgs.begin() or (iv - 1)->id != iv->id;
-          bool is_last_part = (iv + 1 == tlgs.end() or (iv + 1)->id != iv->id);
-          err_lst.toXML(node, iv->draft, is_first_part, is_last_part, TReqInfo::Instance()->desk.lang);
-      } catch(const Exception &E) {
-          ProgError(STDLOG, "ErrLst: tlg_id = %d, num = %d; %s", iv->id, iv->num, E.what());
-      } catch(...) {
-          ProgError(STDLOG, "ErrLst: tlg_id = %d, num = %d; unknown exception", iv->id, iv->num);
-      }
+    try {
+      err_lst.fromDB(iv->id, iv->num);
+      bool is_first_part = iv == tlgs.begin() or (iv - 1)->id != iv->id;
+      bool is_last_part = (iv + 1 == tlgs.end() or (iv + 1)->id != iv->id);
+      err_lst.toXML(node, iv->draft, is_first_part, is_last_part, TReqInfo::Instance()->desk.lang);
+    } catch(const Exception &E) {
+      ProgError(STDLOG, "ErrLst: tlg_id = %d, num = %d; %s", iv->id, iv->num, E.what());
+    } catch(...) {
+      ProgError(STDLOG, "ErrLst: tlg_id = %d, num = %d; unknown exception", iv->id, iv->num);
+    }
 
-      NewTextChild( node, "id", iv->id);
-      NewTextChild( node, "num", iv->num);
-      NewTextChild( node, "type", iv->type);
-      NewTextChild( node, "addr", GetValidXMLString(iv->draft.addr));
-      NewTextChild( node, "heading", GetValidXMLString(iv->draft.heading));
-      NewTextChild( node, "body", GetValidXMLString(iv->draft.body));
-      NewTextChild( node, "ending", GetValidXMLString(iv->draft.ending));
-      NewTextChild( node, "time_receive", DateTimeToStr( iv->time_receive ) );
-      NewTextChild( node, "is_final_part", (int)iv->is_final_part, (int)false);
-      NewTextChild( node, "is_history", (int)iv->is_history);
+    NewTextChild( node, "id", iv->id);
+    NewTextChild( node, "num", iv->num);
+    NewTextChild( node, "type", iv->type);
+    NewTextChild( node, "addr", GetValidXMLString(iv->draft.addr));
+    NewTextChild( node, "heading", GetValidXMLString(iv->draft.heading));
+    NewTextChild( node, "body", GetValidXMLString(iv->draft.body));
+    NewTextChild( node, "ending", GetValidXMLString(iv->draft.ending));
+    NewTextChild( node, "time_receive", DateTimeToStr( iv->time_receive ) );
+    NewTextChild( node, "is_final_part", (int)iv->is_final_part, (int)false);
+    NewTextChild( node, "is_history", (int)iv->is_history);
   };
 }
 

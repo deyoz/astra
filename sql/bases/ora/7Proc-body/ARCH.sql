@@ -1378,16 +1378,6 @@ BEGIN
   step:=0;
 END;
 
-PROCEDURE tlg_trip(vpoint_id  tlg_trips.point_id%TYPE)
-IS
-n       INTEGER;
-pnrids  TIdsTable;
-paxids  TIdsTable;
-i       BINARY_INTEGER;
-BEGIN
-  DELETE FROM tlg_comp_layers WHERE point_id=vpoint_id;
-END tlg_trip;
-
 PROCEDURE norms_rates_etc(arx_date DATE, max_rows INTEGER, time_duration INTEGER, step IN OUT INTEGER)
 IS
 i               BINARY_INTEGER;

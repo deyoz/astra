@@ -1261,6 +1261,28 @@ bool EqualCrsTransfer(const map<int, CheckIn::TTransferItem> &trfer1,
   return i1==trfer1.end() && i2==trfer2.end();
 }
 
+std::optional<TlgTripsData> TlgTripsData::load(const PointIdTlg_t& point_id)
+{
+  DB::TQuery Qry(PgOra::getROSession("TLG_TRIPS"));
+  Qry.SQLText =
+      "SELECT airline,airp_dep,airp_arv,flt_no,scd,suffix "
+      "FROM tlg_trips "
+      "WHERE point_id=:point_id ";
+  Qry.CreateVariable("point_id",otInteger,point_id.get());
+  Qry.Execute();
+  if(!Qry.Eof) {
+    return TlgTripsData {
+      Qry.FieldAsString("airline"),
+      Qry.FieldAsString("airp_dep"),
+      Qry.FieldAsString("airp_arv"),
+      Qry.FieldAsInteger("flt_no"),
+      Qry.FieldAsDateTime("scd"),
+      Qry.FieldAsString("suffix")
+    };
+  }
+  return {};
+}
+
 bool LoadUnconfirmedTransfer(const CheckIn::TTransferList &segs, xmlNodePtr transferNode)
 {
   if (segs.empty() || transferNode==NULL) return false;
@@ -1270,11 +1292,10 @@ bool LoadUnconfirmedTransfer(const CheckIn::TTransferList &segs, xmlNodePtr tran
   TQuery PaxQry(&OraSession);
   PaxQry.Clear();
   PaxQry.SQLText=
-   "SELECT crs_pnr.pnr_id, tlg_trips.airp_dep AS tlg_airp_dep, crs_pax.pax_id "
-   "FROM pax,crs_pax,crs_pnr,tlg_trips "
+   "SELECT crs_pnr.pnr_id, crs_pnr.point_id, crs_pax.pax_id "
+   "FROM pax,crs_pax,crs_pnr "
    "WHERE crs_pax.pax_id=pax.pax_id AND "
    "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
-   "      tlg_trips.point_id=crs_pnr.point_id AND "
    "      crs_pax.pr_del=0 AND "
    "      pax.grp_id=:grp_id "
    "ORDER BY crs_pnr.pnr_id";
@@ -1288,13 +1309,18 @@ bool LoadUnconfirmedTransfer(const CheckIn::TTransferList &segs, xmlNodePtr tran
   {
     if (PaxQry.FieldAsInteger("pnr_id")!=pnr_id)
     {
+      const std::optional<TlgTripsData> tlg_trips_data =
+          TlgTripsData::load(PointIdTlg_t(PaxQry.FieldAsInteger("point_id")));
+      if (!tlg_trips_data) {
+        continue;
+      }
       pnr_id=PaxQry.FieldAsInteger("pnr_id");
 
       crs_trfer.push_back( make_pair( make_pair( string(), map<int, CheckIn::TTransferItem>() ), vector<int>() ) );
 
       pair< pair< string, map<int, CheckIn::TTransferItem> >, vector<int> > &last_crs_trfer=crs_trfer.back();
 
-      last_crs_trfer.first.first=PaxQry.FieldAsString("tlg_airp_dep");
+      last_crs_trfer.first.first=tlg_trips_data->airp_dep;
       CheckInInterface::GetOnwardCrsTransfer(pnr_id, true, firstSeg.operFlt, firstSeg.airp_arv, last_crs_trfer.first.second); //зачитаем из таблицы crs_transfer
     }
 
@@ -1654,7 +1680,7 @@ static int CreateSearchResponse(int point_dep,
 
   DB::TQuery FltQry(PgOra::getROSession("TLG_TRIPS"));
   FltQry.SQLText=
-    "SELECT airline,flt_no,suffix,airp_dep AS airp,TRUNC(scd) AS scd_out "
+    "SELECT airline,flt_no,suffix,airp_dep AS airp,scd AS scd_out "
     "FROM tlg_trips WHERE point_id=:point_id";
   FltQry.DeclareVariable("point_id",otInteger);
 
@@ -1692,6 +1718,9 @@ static int CreateSearchResponse(int point_dep,
         throw EXCEPTIONS::Exception("Flight not found in tlg_trips (point_id=%d)",curr_point_id);
       tlgTripsFlt.Init(FltQry);
 
+      TDateTime scd_tmp;
+      modf(tlgTripsFlt.scd_out, &scd_tmp);
+      tlgTripsFlt.scd_out = scd_tmp;
       node=NewTextChild(tripNode,"trip");
       NewTextChild(node,"point_id",curr_point_id);
       NewTextChild(node,"airline",tlgTripsFlt.airline);
@@ -2219,15 +2248,13 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                                                                         pax_status);
     if (!searchResults.empty())
     {
-      TQuery PnrAddrQry(&OraSession);
-      PnrAddrQry.SQLText = //pnr_market_flt
-        "SELECT DECODE(pnr_addrs.airline,tlg_trips.airline,NULL,pnr_addrs.airline) AS airline, "
-        "       pnr_addrs.addr "
-        "FROM tlg_trips,crs_pnr,pnr_addrs "
-        "WHERE tlg_trips.point_id=crs_pnr.point_id AND "
-        "      crs_pnr.pnr_id=pnr_addrs.pnr_id AND "
-        "      pnr_addrs.pnr_id=:pnr_id "
-        "ORDER BY DECODE(pnr_addrs.airline,tlg_trips.airline,0,1),pnr_addrs.airline";
+      DB::TQuery PnrAddrQry(PgOra::getROSession("ORACLE"));
+      PnrAddrQry.SQLText =
+        "SELECT crs_pnr.point_id, pnr_addrs.airline, pnr_addrs.addr "
+        "FROM crs_pnr,pnr_addrs "
+        "WHERE crs_pnr.pnr_id=pnr_addrs.pnr_id "
+        "AND pnr_addrs.pnr_id=:pnr_id "
+        "ORDER BY pnr_addrs.airline";
       PnrAddrQry.DeclareVariable("pnr_id",otInteger);
 
       xmlNodePtr pnrNode=NewTextChild(resNode,"groups");
@@ -2242,16 +2269,37 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
         PnrAddrQry.SetVariable("pnr_id",searchResult.pnr_id.get());
         PnrAddrQry.Execute();
-        if (!PnrAddrQry.Eof)
+        std::vector<std::pair<std::string,std::string>> pnr_addr_data;
+        for(;!PnrAddrQry.Eof;PnrAddrQry.Next())
         {
-          if (!PnrAddrQry.FieldIsNULL("airline"))
+          const std::optional<TlgTripsData> tlg_trips_data =
+              TlgTripsData::load(PointIdTlg_t(PnrAddrQry.FieldAsInteger("point_id")));
+          if (!tlg_trips_data) {
+            continue;
+          }
+          if (PnrAddrQry.FieldAsString("airline") == tlg_trips_data->airline) {
+            pnr_addr_data.insert(pnr_addr_data.begin(),
+                                 std::make_pair(PnrAddrQry.FieldAsString("airline"),
+                                                PnrAddrQry.FieldAsString("addr")));
+          } else {
+            pnr_addr_data.push_back(std::make_pair("",
+                                                   PnrAddrQry.FieldAsString("addr")));
+          }
+        }
+        for (const auto& item: pnr_addr_data) {
+          const std::string& airline = item.first;
+          const std::string& addr = item.second;
+          if (!airline.empty())
           {
             node=NewTextChild(node,"pnr_addr");
-            NewTextChild(node,"airline",PnrAddrQry.FieldAsString("airline"));
-            NewTextChild(node,"addr",PnrAddrQry.FieldAsString("addr"));
+            NewTextChild(node,"airline",airline);
+            NewTextChild(node,"addr",addr);
           }
           else
-            NewTextChild(node,"pnr_addr",PnrAddrQry.FieldAsString("addr"));
+          {
+            NewTextChild(node,"pnr_addr",addr);
+          }
+          break;
         }
       }
       //строка NoRec
@@ -7264,7 +7312,7 @@ void CheckInInterface::SaveTCkinSegs(int grp_id,
             if (Qry.GetVariableAsInteger("bind_flt")!=0)
             {
               int point_id_trfer=Qry.GetVariableAsInteger("point_id_trfer");
-              TTrferBinding().bind_flt(point_id_trfer);
+              TTrferBinding().bind_flt_by_point_id(point_id_trfer);
             }
 
             segment.formatToLog(route);
@@ -7391,7 +7439,7 @@ void CheckInInterface::SaveTransfer(int grp_id,
     if (TrferQry.GetVariableAsInteger("bind_flt")!=0)
     {
       int point_id_trfer=TrferQry.GetVariableAsInteger("point_id_trfer");
-      TTrferBinding().bind_flt(point_id_trfer);
+      TTrferBinding().bind_flt_by_point_id(point_id_trfer);
     }
 
     tlocale.lexema_id = "EVT.CHECKIN.TRANSFER_BAGGAGE_REGISTER";

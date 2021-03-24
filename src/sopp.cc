@@ -5967,9 +5967,9 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   DB::TQuery TQry(PgOra::getROSession("TLG_TRIPS"));
   TQry.SQLText =
    "SELECT point_id FROM tlg_trips "
-   " WHERE pr_utc=0 AND bind_type=0 AND airp_dep=:airp_dep AND airp_arv IS NULL AND "
-   "       airline=:airline AND flt_no=:flt_no AND COALESCE(suffix,' ')=COALESCE(:suffix,' ') AND "
-   "       scd >= :scd AND scd < :scd_tomorrow";
+   "WHERE pr_utc=0 AND bind_type=0 AND airp_dep=:airp_dep AND airp_arv IS NULL AND "
+   "      airline=:airline AND flt_no=:flt_no AND COALESCE(suffix,' ')=COALESCE(:suffix,' ') AND "
+   "      scd >= :scd AND scd < :scd_tomorrow";
   TQry.DeclareVariable( "airp_dep", otString );
   TQry.DeclareVariable( "airline", otString );
   TQry.DeclareVariable( "flt_no", otInteger );

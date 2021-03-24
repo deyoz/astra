@@ -438,7 +438,8 @@ void get_crs_flight(int point_id, TRow &r)
   DB::TQuery Qry(PgOra::getROSession("TLG_TRIPS"));
   Qry.SQLText =
     "SELECT airline, flt_no, suffix, scd AS takeoff, 0 AS is_utc, airp_dep "
-    "FROM tlg_trips WHERE point_id=:point_id";
+    "FROM tlg_trips "
+    "WHERE point_id=:point_id";
   Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.Execute();
   check_flight(Qry, point_id);

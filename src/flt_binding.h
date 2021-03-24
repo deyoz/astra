@@ -99,29 +99,26 @@ void crs_recount(int point_id_tlg, int point_id_spp, bool check_comp);
 
 class TFltBinding
 {
-  private:
+  protected:
     void unbind_flt(int point_id, int point_id_spp);
-    bool bind_flt(TQuery &Qry);
-    bool bind_check(TQuery &Qry, int point_id_spp);
-    bool bind_flt_or_bind_check(TQuery &Qry, int point_id_spp);
-    void bind_or_unbind_flt(const std::vector<TTripInfo> &flts, bool unbind, bool use_scd_utc);
+    bool bind_check(DB::TQuery &Qry, int point_id_spp);
+    bool bind_flt_inner(DB::TQuery &Qry);
+    bool bind_flt_or_bind_check(DB::TQuery &Qry, int point_id_spp);
+    virtual void bind_or_unbind_flt(const std::vector<TTripInfo> &flts, bool unbind, bool use_scd_utc)=0;
     void bind_or_unbind_flt_oper(const std::vector<TTripInfo> &operFlts, bool unbind);
     void unbind_flt_oper(const std::vector<TTripInfo> &operFlts);
 
     virtual void unbind_flt_virt(int point_id, int point_id_spp, bool try_bind_again)=0; //возвращает true если реально была отвязка
-    virtual std::string bind_flt_sql()=0;
     virtual void bind_flt_virt(int point_id, const std::vector<int> &spp_point_ids)=0;
-    virtual std::string bind_or_unbind_flt_sql(bool unbind, bool use_scd_utc)=0;
-    virtual std::string unbind_flt_sql()=0;
     virtual TSearchFltInfoPtr get_search_params() { return TSearchFltInfoPtr(); }
 
   public:
+    virtual bool bind_flt_by_point_id(int point_id)=0;
     void bind_flt(const TFltInfo &flt, TBindType bind_type, std::vector<int> &spp_point_ids);
-    bool bind_flt(int point_id);
     void bind_flt_oper(const std::vector<TTripInfo> &operFlts);
     void bind_flt(const std::vector<TTripInfo> &flts, bool use_scd_utc);
     void unbind_flt(const std::vector<TTripInfo> &flts, bool use_scd_utc);
-    void unbind_flt(const std::vector<int> &spp_point_ids);
+    virtual void unbind_flt_by_point_ids(const std::vector<int> &spp_point_ids)=0;
     void trace_for_bind(const std::vector<TTripInfo> &flts, const std::string &where);
     void trace_for_bind(const std::vector<int> &point_ids, const std::string &where);
     virtual ~TFltBinding() {};
@@ -134,14 +131,15 @@ class TTlgBinding : public TFltBinding
     TSearchFltInfoPtr search_params;
 
     void unbind_flt_virt(int point_id, int point_id_spp, bool try_bind_again);
-    std::string bind_flt_sql();
     void bind_flt_virt(int point_id, const std::vector<int> &spp_point_ids);
-    std::string bind_or_unbind_flt_sql(bool unbind, bool use_scd_utc);
-    std::string unbind_flt_sql();
+    void bind_or_unbind_flt(const std::vector<TTripInfo> &flts, bool unbind, bool use_scd_utc);
     void after_bind_or_unbind_flt(int point_id_tlg, int point_id_spp, bool unbind);
     virtual TSearchFltInfoPtr get_search_params() { return search_params; }
 
   public:
+    virtual bool bind_flt_by_point_id(int point_id);
+    virtual void unbind_flt_by_point_ids(const std::vector<int> &spp_point_ids);
+
     TTlgBinding(bool pcheck_comp):check_comp(pcheck_comp), search_params(TSearchFltInfoPtr()) {};
     TTlgBinding(bool pcheck_comp, TSearchFltInfoPtr psearch_params):check_comp(pcheck_comp), search_params(psearch_params) {};
 };
@@ -151,12 +149,13 @@ class TTrferBinding : public TFltBinding
   private:
     bool check_alarm;
     void unbind_flt_virt(int point_id, int point_id_spp, bool try_bind_again);
-    std::string bind_flt_sql();
     void bind_flt_virt(int point_id, const std::vector<int> &spp_point_ids);
-    std::string bind_or_unbind_flt_sql(bool unbind, bool use_scd_utc);
-    std::string unbind_flt_sql();
+    void bind_or_unbind_flt(const std::vector<TTripInfo> &flts, bool unbind, bool use_scd_utc);
     void after_bind_or_unbind_flt(int point_id_trfer, int point_id_spp, bool unbind);
   public:
+    virtual bool bind_flt_by_point_id(int point_id);
+    virtual void unbind_flt_by_point_ids(const std::vector<int> &spp_point_ids);
+
     TTrferBinding():check_alarm(true) {};
     TTrferBinding(bool pcheck_alarm):check_alarm(pcheck_alarm) {};
 };

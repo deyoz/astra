@@ -3991,30 +3991,50 @@ std::string TPnrAddrs::getByPnrId(int pnr_id, string &airline)
 
   QParams QryParams;
   QryParams << QParam("pnr_id", otInteger, pnr_id);
-  if (!airline.empty())
+  if (!airline.empty()) {
     QryParams << QParam("airline", otString, airline);
-
-  TCachedQuery CachedQry(airline.empty()?
-                         "SELECT pnr_addrs.airline, pnr_addrs.addr, tlg_trips.airline AS priority_airline "
-                         "FROM pnr_addrs, crs_pnr, tlg_trips "
-                         "WHERE pnr_addrs.pnr_id=crs_pnr.pnr_id AND "
-                         "      crs_pnr.point_id=tlg_trips.point_id AND "
-                         "      pnr_addrs.pnr_id=:pnr_id "
-                         "ORDER BY DECODE(pnr_addrs.airline, tlg_trips.airline, 0, 1), pnr_addrs.airline":
-                         "SELECT pnr_addrs.airline, pnr_addrs.addr, :airline AS priority_airline "
-                         "FROM pnr_addrs "
-                         "WHERE pnr_addrs.pnr_id=:pnr_id "
-                         "ORDER BY DECODE(pnr_addrs.airline, :airline, 0, 1), pnr_addrs.airline",
-                         QryParams);
-
-  TQuery &Qry=CachedQry.get();
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
-  {
-    if (airline.empty())
-      airline=Qry.FieldAsString("priority_airline");
-    emplace_back(Qry.FieldAsString("airline"),
-                 Qry.FieldAsString("addr"));
+    DB::TCachedQuery CachedQry(
+          PgOra::getROSession("PNR_ADDRS"),
+          "SELECT airline, addr "
+          "FROM pnr_addrs "
+          "WHERE pnr_id=:pnr_id "
+          "ORDER BY CASE WHEN pnr_addrs.airline=:airline THEN 0 ELSE 1 END, "
+          "         pnr_addrs.airline",
+          QryParams);
+    DB::TQuery &Qry=CachedQry.get();
+    Qry.Execute();
+    for (;!Qry.Eof;Qry.Next()) {
+      emplace_back(Qry.FieldAsString("airline"),
+                   Qry.FieldAsString("addr"));
+    }
+  } else {
+    DB::TCachedQuery CachedQry(
+          PgOra::getROSession("ORACLE"),
+          "SELECT crs_pnr.point_id, pnr_addrs.airline, pnr_addrs.addr "
+          "FROM pnr_addrs, crs_pnr "
+          "WHERE pnr_addrs.pnr_id=crs_pnr.pnr_id AND "
+          "      pnr_addrs.pnr_id=:pnr_id "
+          "ORDER BY pnr_addrs.airline",
+          QryParams);
+    DB::TQuery &Qry=CachedQry.get();
+    Qry.Execute();
+    for(;!Qry.Eof;Qry.Next())
+    {
+      const std::optional<TlgTripsData> tlg_trips =
+          TlgTripsData::load(PointIdTlg_t(Qry.FieldAsInteger("point_id")));
+      if (!tlg_trips) {
+        continue;
+      }
+      airline = tlg_trips->airline;
+      if (tlg_trips->airline == Qry.FieldAsString("airline")) {
+        emplace(begin(),
+                Qry.FieldAsString("airline"),
+                Qry.FieldAsString("addr"));
+      } else {
+        emplace_back(Qry.FieldAsString("airline"),
+                     Qry.FieldAsString("addr"));
+      }
+    }
   }
 
   if (!empty() && begin()->airline==airline)

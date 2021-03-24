@@ -9017,7 +9017,7 @@ void TRBD::get(TypeB::TDetailCreateInfo &info)
                 PgOra::getROSession("TLG_TRIPS"),
                 "SELECT point_id, airline, flt_no, suffix "
                 "FROM tlg_trips "
-                "WHERE tlg_trips.point_id=:point_id_tlg ",
+                "WHERE point_id=:point_id_tlg ",
                 QryParams);
           Qry.get().Execute();
           if(not Qry.get().Eof) {

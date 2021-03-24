@@ -1908,8 +1908,8 @@ void ReBindTlgs( int move_id, const std::vector<int> &oldPointsId )
 {
   TTlgBinding tlgBinding(true);
   TTrferBinding trferBinding;
-  tlgBinding.unbind_flt(oldPointsId);
-  trferBinding.unbind_flt(oldPointsId);
+  tlgBinding.unbind_flt_by_point_ids(oldPointsId);
+  trferBinding.unbind_flt_by_point_ids(oldPointsId);
 
   vector<TTripInfo> flts;
     TPointDests vdests;

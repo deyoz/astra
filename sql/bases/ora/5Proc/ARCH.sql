@@ -84,7 +84,6 @@ PROCEDURE move(vmove_id  points.move_id%TYPE,
                vpart_key DATE,
                vdate_range move_arx_ext.date_range%TYPE);
 PROCEDURE move(arx_date DATE, max_rows INTEGER, time_duration INTEGER, step IN OUT INTEGER);
-PROCEDURE tlg_trip(vpoint_id  tlg_trips.point_id%TYPE);
 PROCEDURE norms_rates_etc(arx_date DATE, max_rows INTEGER, time_duration INTEGER, step IN OUT INTEGER);
 PROCEDURE tlgs_files_etc(arx_date DATE, max_rows INTEGER, time_duration INTEGER, step IN OUT INTEGER);
 PROCEDURE move_typeb_in(vid tlgs_in.id%TYPE);

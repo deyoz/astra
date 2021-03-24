@@ -528,49 +528,39 @@ bool TArxTlgTrips::Next(int max_rows, int duration)
 {
   if (step==0)
   {
-    if (Qry->SQLText.IsEmpty())
-    {
-      Qry->Clear();
-      Qry->SQLText =
-          "SELECT point_id "
-          "FROM tlg_trips,tlg_binding "
-          "WHERE tlg_trips.point_id=tlg_binding.point_id_tlg(+) AND tlg_binding.point_id_tlg IS NULL AND "
-          "      tlg_trips.scd<:arx_date";
-      Qry->CreateVariable("arx_date",otDate,utcdate-ARX_DAYS());
-      Qry->Execute();
-    };
+    DB::TQuery QryTrips(PgOra::getROSession("TLG_TRIPS"));
+    QryTrips.SQLText =
+        "SELECT point_id "
+        "FROM tlg_trips "
+        "WHERE scd<:arx_date";
+    QryTrips.CreateVariable("arx_date",otDate,utcdate-ARX_DAYS());
+    QryTrips.Execute();
 
-    for(;!Qry->Eof;Qry->Next())
+    for(;!QryTrips.Eof;QryTrips.Next())
     {
-      int point_id=Qry->FieldAsInteger("point_id");
+      int point_id=QryTrips.FieldAsInteger("point_id");
+      const std::set<PointId_t> point_id_set = getPointIdsSppByPointIdTlg(PointIdTlg_t(point_id));
+      if (!point_id_set.empty()) {
+        continue;
+      }
 
       point_ids.push_back(point_id);
       point_ids_count++;
-      Qry->Next();
+      QryTrips.Next();
       if (point_ids_count<max_rows)
         return true;
       else
         break;
     };
-    if (!Qry->Eof)
+    if (!QryTrips.Eof)
       step+=1;
     else
       step+=2;
-    Qry->Clear();
     return true;
   };
 
   if (step==1 || step==2)
   {
-    if (Qry->SQLText.IsEmpty())
-    {
-      Qry->Clear();
-      Qry->SQLText=
-        "BEGIN "
-        "  arch.tlg_trip(:point_id); "
-        "END;";
-      Qry->DeclareVariable("point_id",otInteger);
-    };
     while (!point_ids.empty())
     {
       int point_id=*(point_ids.begin());
@@ -579,15 +569,11 @@ bool TArxTlgTrips::Next(int max_rows, int duration)
 
       try
       {
+        TypeB::deleteTlgCompLayers(PointIdTlg_t(point_id));
         TypeB::nullCrsDisplace2_point_id_tlg(PointIdTlg_t(point_id));
         TypeB::deleteTypeBData(PointIdTlg_t(point_id));
         TypeB::deleteTypeBDataStat(PointIdTlg_t(point_id));
         TypeB::deleteCrsDataStat(PointIdTlg_t(point_id));
-
-        //в архив
-        Qry->SetVariable("point_id",point_id);
-        Qry->Execute();
-
         TrferList::deleteTransferData(PointIdTlg_t(point_id));
 
         ASTRA::commitAndCallCommitHooks();
@@ -604,7 +590,6 @@ bool TArxTlgTrips::Next(int max_rows, int duration)
       step--;
     else
       step++;
-    Qry->Clear();
     return true;
   };
   return false;

@@ -141,9 +141,7 @@ class ETRequestControlParams : public ETWideSearchParams
 namespace PaxETList
 {
 
-enum TListType {notDisplayedByPointIdTlg,
-                notDisplayedByPaxIdTlg,
-                allStatusesByPointIdFromTlg,
+enum TListType {allStatusesByPointIdFromTlg,
                 allByPointIdAndTickNoFromTlg,
                 allByTickNoAndCouponNoFromTlg,
                 allNotCheckedStatusesByPointId,

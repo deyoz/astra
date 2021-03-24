@@ -2241,19 +2241,24 @@ TArxTlgTrips::TArxTlgTrips(const Dates::DateTime_t& utc_date):TArxMove(utc_date)
 std::vector<PointIdTlg_t> TArxTlgTrips::getTlgTripPoints(const Dates::DateTime_t& arx_date, size_t max_rows)
 {
     std::vector<PointIdTlg_t> points;
-    int point_id;
-    auto cur = make_db_curs("SELECT point_id FROM tlg_trips "
-                            "   LEFT JOIN tlg_binding ON tlg_trips.point_id = tlg_binding.point_id_tlg "
-                            "WHERE tlg_binding.point_id_tlg IS NULL AND tlg_trips.scd < :arx_date",
-                            PgOra::getROSession("ORACLE"));
-    cur.def(point_id)
+    int point_id_tlg;
+    auto cur = make_db_curs("SELECT point_id "
+                            "FROM tlg_trips "
+                            "WHERE scd<:arx_date",
+                            PgOra::getROSession("TLG_TRIPS"));
+    cur.def(point_id_tlg)
             .bind(":arx_date", arx_date)
             .exec();
     while(!cur.fen()) {
+        const std::set<PointId_t> point_id_set =
+            getPointIdsSppByPointIdTlg(PointIdTlg_t(point_id_tlg));
+        if(!point_id_set.empty()) {
+            continue;
+        }
         if(points.size() == max_rows) {
             break;
         }
-        points.emplace_back(point_id);
+        points.emplace_back(point_id_tlg);
     }
     return points;
 }

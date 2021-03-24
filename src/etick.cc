@@ -104,25 +104,6 @@ std::string GetSQL(const TListType ltype)
 {
   ostringstream sql;
 
-  if (ltype==notDisplayedByPointIdTlg ||
-      ltype==notDisplayedByPaxIdTlg)
-  {
-    sql << "SELECT tlg_binding.point_id_spp AS point_id, crs_pax_tkn.ticket_no, crs_pax_tkn.coupon_no, \n"
-           "       tlg_trips.airline, tlg_trips.flt_no, tlg_trips.airp_dep \n"
-           "FROM crs_pax_tkn, crs_pax, crs_pnr, tlg_trips, tlg_binding \n"
-           "WHERE crs_pax_tkn.pax_id=crs_pax.pax_id AND \n"
-           "      crs_pax.pnr_id=crs_pnr.pnr_id AND \n"
-           "      crs_pnr.point_id=tlg_binding.point_id_tlg AND \n"
-           "      crs_pnr.point_id=tlg_trips.point_id AND \n"
-           "      tlg_binding.point_id_tlg=:point_id_tlg AND \n";
-    if (ltype==notDisplayedByPointIdTlg) {
-      sql << "      tlg_binding.point_id_spp=:id AND \n";
-    }
-    if (ltype==notDisplayedByPaxIdTlg) {
-      sql << "      crs_pax.pax_id=:id AND \n";
-    }
-  };
-
   if (ltype==allByPointIdAndTickNoFromTlg ||
       ltype==allByTickNoAndCouponNoFromTlg)
   {
@@ -145,9 +126,7 @@ std::string GetSQL(const TListType ltype)
     }
   }
 
-  if (ltype==notDisplayedByPointIdTlg ||
-      ltype==notDisplayedByPaxIdTlg ||
-      ltype==allByPointIdAndTickNoFromTlg ||
+  if (ltype==allByPointIdAndTickNoFromTlg ||
       ltype==allByTickNoAndCouponNoFromTlg)
   {
     sql << "      crs_pnr.system='CRS' AND \n"
@@ -173,26 +152,48 @@ void GetNotDisplayedET(int point_id_tlg, int id, bool is_pax_id, std::set<ETSear
 {
   TQuery Qry(&OraSession);
   Qry.Clear();
-  Qry.SQLText = GetSQL(is_pax_id?notDisplayedByPaxIdTlg:
-                                 notDisplayedByPointIdTlg);
-  Qry.CreateVariable( "id", otInteger, id );
-  Qry.CreateVariable( "point_id_tlg", otInteger, point_id_tlg );
+
+  ostringstream sql;
+  sql << "SELECT tlg_binding.point_id_spp AS point_id, crs_pax_tkn.ticket_no, crs_pax_tkn.coupon_no \n"
+         "FROM crs_pax_tkn, crs_pax, crs_pnr, tlg_binding \n"
+         "WHERE crs_pax_tkn.pax_id=crs_pax.pax_id AND \n"
+         "      crs_pax_tkn.rem_code='TKNE' AND \n"
+         "      crs_pax.pr_del=0 AND \n"
+         "      crs_pax.pnr_id=crs_pnr.pnr_id AND \n"
+         "      crs_pnr.system='CRS' AND \n"
+         "      crs_pnr.point_id=tlg_binding.point_id_tlg AND \n"
+         "      tlg_binding.point_id_tlg=:point_id_tlg AND \n";
+  if (is_pax_id) {
+    sql << "      crs_pax.pax_id=:id \n";
+  } else {
+    sql << "      tlg_binding.point_id_spp=:id \n";
+  }
+
+  Qry.SQLText = sql.str();
+  Qry.CreateVariable("id", otInteger, id);
+  Qry.CreateVariable("point_id_tlg", otInteger, point_id_tlg);
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
   {
+    const std::optional<TlgTripsData> tlg_trips_data =
+        TlgTripsData::load(PointIdTlg_t(point_id_tlg));
+    if (!tlg_trips_data) {
+      continue;
+    }
     if (isDisplayedEt(Qry.FieldAsString("ticket_no"),
                       Qry.FieldAsInteger("coupon_no")))
     {
       continue;
     }
-    ETSearchByTickNoParams params(Qry.FieldAsInteger("point_id"), Qry.FieldAsString("ticket_no"));
+    ETSearchByTickNoParams params(Qry.FieldAsInteger("point_id"),
+                                  Qry.FieldAsString("ticket_no"));
     searchParams.insert(params);
     //добавляем телеграммный рейс
-    params.airline=Qry.FieldAsString("airline");
-    params.flt_no=Qry.FieldIsNULL("flt_no")?ASTRA::NoExists:Qry.FieldAsInteger("flt_no");
-    params.airp_dep=Qry.FieldAsString("airp_dep");
+    params.airline=tlg_trips_data->airline;
+    params.flt_no=!tlg_trips_data->flt_no ? ASTRA::NoExists : tlg_trips_data->flt_no;
+    params.airp_dep=tlg_trips_data->airp_dep;
     searchParams.insert(params);
-  };
+  }
 }
 
 bool existsPaxWithEt(const std::string& ticket_no, int coupon_no)
@@ -223,13 +224,13 @@ void GetAllStatusesByPointId(TListType type, int point_id, std::set<TETickItem> 
     Qry.Clear();
     Qry.SQLText =
         "SELECT crs_pax_tkn.ticket_no, crs_pax_tkn.coupon_no, \n"
-        "       tlg_trips.airp_dep, crs_pnr.airp_arv, \n"
+        "       crs_pnr.airp_arv, \n"
+        "       crs_pnr.point_id AS point_id_tlg, \n"
         "       tlg_binding.point_id_spp AS point_id \n"
-        "FROM crs_pax_tkn, crs_pax, crs_pnr, tlg_trips, tlg_binding \n"
+        "FROM crs_pax_tkn, crs_pax, crs_pnr, tlg_binding \n"
         "WHERE crs_pax_tkn.pax_id=crs_pax.pax_id AND \n"
         "      crs_pax.pnr_id=crs_pnr.pnr_id AND \n"
         "      crs_pnr.point_id=tlg_binding.point_id_tlg AND \n"
-        "      crs_pnr.point_id=tlg_trips.point_id AND \n"
         "      tlg_binding.point_id_spp=:point_id AND \n"
         "      crs_pnr.system='CRS' AND \n"
         "      crs_pax.pr_del=0 AND \n"
@@ -244,7 +245,12 @@ void GetAllStatusesByPointId(TListType type, int point_id, std::set<TETickItem> 
       item.et.fromDB(Qry);
       item.point_id=Qry.FieldIsNULL("point_id")?ASTRA::NoExists:
                                            Qry.FieldAsInteger("point_id");
-      item.airp_dep=Qry.FieldAsString("airp_dep");
+      const std::optional<TlgTripsData> tlg_trips_data =
+          TlgTripsData::load(PointIdTlg_t(Qry.FieldAsInteger("point_id_tlg")));
+      if (!tlg_trips_data) {
+        continue;
+      }
+      item.airp_dep=tlg_trips_data->airp_dep;
       item.airp_arv=Qry.FieldAsString("airp_arv");
 
       TETickItem eticket;

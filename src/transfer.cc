@@ -1414,24 +1414,25 @@ void GrpsToGrpsView(TTrferType type,
 {
   grps.clear();
 
-  TQuery FltQry(&OraSession);
 
   for(int from_tlg=0; from_tlg<2; from_tlg++)
   {
-    map<int, TFltInfo> point_ids;
-    FltQry.Clear();
+    std::string table_name;
+    std::string sql;
     if (!from_tlg)
     {
       if (type==trferOut || type==trferOutForCkin || type==tckinInbound)
       {
-        FltQry.SQLText=
+        table_name = "POINTS";
+        sql =
           "SELECT airline, flt_no, suffix, scd_out, airp "
           "FROM points "
           "WHERE point_id=:point_id";
       };
       if (type==trferIn || type==trferCkin)
       {
-        FltQry.SQLText=
+        table_name = "TRFER_TRIPS";
+        sql =
           "SELECT airline, flt_no, suffix, scd AS scd_out, airp_dep AS airp "
           "FROM trfer_trips "
           "WHERE point_id=:point_id";
@@ -1439,12 +1440,16 @@ void GrpsToGrpsView(TTrferType type,
     }
     else
     {
-      FltQry.SQLText=
+      table_name = "TLG_TRIPS";
+      sql =
         "SELECT airline, flt_no, suffix, scd AS scd_out, airp_dep AS airp "
         "FROM tlg_trips "
         "WHERE point_id=:point_id";
     };
 
+    map<int, TFltInfo> point_ids;
+    DB::TQuery FltQry(PgOra::getROSession(table_name));
+    FltQry.SQLText=sql;
     FltQry.DeclareVariable("point_id", otInteger);
 
     vector<TGrpItem>::const_iterator g=from_tlg?grps_tlg.begin():grps_ckin.begin();

@@ -5783,7 +5783,7 @@ int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type, TSearchFltInfo
 {
   const auto res=flt.getPointId(bind_type);
   int point_id=res.first;
-  TTlgBinding(false, search_params).bind_flt(point_id);
+  TTlgBinding(false, search_params).bind_flt_by_point_id(point_id);
 
   if (res.second)
   {
