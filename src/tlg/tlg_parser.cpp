@@ -5791,19 +5791,25 @@ int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type, TSearchFltInfo
     /* но только для PNL/ADL */
     if (!flt.pr_utc && bind_type==btFirstSeg && *flt.airp_arv==0)
     {
+      TDateTime scd;
+      modf(flt.scd,&scd);
       DB::TQuery Qry(PgOra::getRWSession("CRS_DISPLACE2"));
       Qry.SQLText=
         "UPDATE crs_displace2 SET point_id_tlg=:point_id "
-        "WHERE airline=:airline AND flt_no=:flt_no AND "
-        "      COALESCE(suffix,' ')=COALESCE(:suffix,' ') AND "
-        "      TRUNC(scd)=TRUNC(:scd) AND "
-        "      airp_dep=:airp_dep AND "
-        "      point_id_tlg IS NULL";
+        "WHERE airline=:airline AND flt_no=:flt_no "
+        "AND COALESCE(suffix,' ')=COALESCE(:suffix,' ') "
+        "AND airp_dep=:airp_dep "
+        "AND point_id_tlg IS NULL ";
+      if (PgOra::supportsPg("CRS_DISPLACE2")) {
+        Qry.SQLText+="AND date_trunc('day', scd)=:scd ";
+      } else {
+        Qry.SQLText+="AND TRUNC(scd)=:scd ";
+      }
       Qry.CreateVariable("point_id",otInteger,point_id);
       Qry.CreateVariable("airline",otString,flt.airline);
       Qry.CreateVariable("flt_no",otInteger,(int)flt.flt_no);
       Qry.CreateVariable("suffix",otString,flt.suffix);
-      Qry.CreateVariable("scd",otDate,flt.scd);
+      Qry.CreateVariable("scd",otDate,scd);
       Qry.CreateVariable("airp_dep",otString,flt.airp_dep);
       Qry.Execute();
     };
