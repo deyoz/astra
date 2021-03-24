@@ -725,7 +725,7 @@ struct TWebGrp {
   }
 
   void addPnr(int pnr_id, bool pr_throw, bool afterSave);
-  string seat_status(const ASTRA::TCompLayerType& crs_seat_layer) const;
+  string seat_status(const TAdvTripInfo& fltInfo,const ASTRA::TCompLayerType& crs_seat_layer) const;
   void toXML(xmlNodePtr segParentNode) const;
 };
 
@@ -902,7 +902,7 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
           SeatQry.SetVariable("layer_type", FNull);
           SeatQry.SetVariable("crs_seat_no", FNull);
           SeatQry.Execute();
-          pax.seat_status=seat_status(DecodeCompLayerType(SeatQry.GetVariableAsString("layer_type")));
+          pax.seat_status=seat_status(flt.oper, DecodeCompLayerType(SeatQry.GetVariableAsString("layer_type")));
           pax.crs_seat_no=SeatQry.GetVariableAsString("crs_seat_no");
           pax.seats = Qry.FieldAsInteger( "seats" );
           pax.orig_class = Qry.FieldAsString( "class" );
@@ -1179,7 +1179,7 @@ void IntLoadPnr( const TIdsPnrDataSegs &ids,
   };
 }
 
-string TWebGrp::seat_status(const ASTRA::TCompLayerType& crs_seat_layer) const
+string TWebGrp::seat_status(const TAdvTripInfo& fltInfo,const ASTRA::TCompLayerType& crs_seat_layer) const
 {
   string result;
   if (flt.pr_paid_ckin)
@@ -1192,6 +1192,10 @@ string TWebGrp::seat_status(const ASTRA::TCompLayerType& crs_seat_layer) const
       case cltProtAfterPay:  result="ProtAfterPay";  break;
       default: break;
     };
+  }
+  if ( crs_seat_layer == cltProtCkin &&
+       GetTripSets( tsAirlineCompLayerPriority, fltInfo ) ) {
+    result = "ProtCkin";
   }
   if ( result.empty() && crs_seat_layer == cltProtSelfCkin ) {
      result="ProtSelfCkin";
@@ -1354,14 +1358,15 @@ void WebRequestsIface::IntViewCraft(xmlNodePtr reqNode, xmlNodePtr resNode)
   if ( SALONS2::isFreeSeating( point_id ) ) { //???
     throw UserException( "MSG.SALONS.FREE_SEATING" );
   }
-
   WebSearch::TFlightInfo flt;
   flt.fromDB(point_id, true);
-
-  int pnr_id=TIdsPnrData(flt).fromXML(reqNode).getStrictlySinglePnrId();
-
   TWebGrp grp(flt);
-  grp.addPnr(pnr_id, true, false );
+
+  if ( GetNode( "pnr_id", reqNode ) != nullptr ||
+       GetNode( "crs_pax_id", reqNode ) != nullptr ) {
+    int pnr_id=TIdsPnrData(flt).fromXML(reqNode).getStrictlySinglePnrId();
+    grp.addPnr(pnr_id, true, false );
+  }
   AstraWeb::WebCraft::ViewCraft( grp.paxs, reqNode, resNode );
 }
 
