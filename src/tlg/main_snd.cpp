@@ -83,6 +83,12 @@ static int ROT_UPDATE_INTERVAL() //секунды
     return VAR;
 }
 
+static int SCAN_TLG_FETCH_LIMIT()
+{
+    static int VAR = getTCLParam("SCAN_TLG_FETCH_LIMIT", 1, 10000, 10);
+    return VAR;
+}
+
 static int sockfd=-1;
 
 static bool scan_tlg(bool sendOutAStepByStep);
@@ -137,8 +143,7 @@ int main_snd_tcl(int supervisorSocket, int argc, char *argv[])
 
     if ((sockfd=socket(AF_INET,SOCK_DGRAM,0))==-1)
       throw Exception("'socket' error %d: %s",errno,strerror(errno));
-    sockaddr_in adr;
-    memset(&adr,0,sizeof(adr));
+    sockaddr_in adr{};
     adr.sin_family=AF_INET;
     adr.sin_addr.s_addr=/*htonl(*/INADDR_ANY/*)*/; //???
     adr.sin_port=htons(SND_PORT);
@@ -190,39 +195,49 @@ int main_snd_tcl(int supervisorSocket, int argc, char *argv[])
   return 0;
 };
 
+void updateTlgQueRenewLastSend(TDateTime time, int id)
+{
+    static auto& session = PgOra::getRWSession("TLG_QUEUE");
+    make_db_curs(
+       "UPDATE tlg_queue "
+          "SET last_send = :last_send "
+       "WHERE  id = :id "
+          "AND type IN ('OUTA','OUTB','OAPP') "
+          "AND status = 'PUT'",
+        session)
+       .stb()
+       .bind(":last_send", time)
+       .bind(":id", id)
+       .exec();
+}
+
 bool scan_tlg(bool sendOutAStepByStep)
 {
   time_t time_start=time(NULL);
 
-  static DB::TQuery TlgQry(PgOra::getROSession("TLG_QUEUE"));
+  static DB::TQuery TlgQry(PgOra::getRWSession("TLG_QUEUE"));
   if (TlgQry.SQLText.empty())
   {
-    TlgQry.SQLText = PgOra::supportsPg("TLG_QUEUE")
-
-     ? "SELECT   id, tlg_num, sender, receiver, priority, "
-                "time, last_send, ttl "
-       "FROM     tlg_queue "
-       "WHERE    type IN ('OUTA','OUTB','OAPP') AND status='PUT' "
-       "ORDER BY priority, time_msec, tlg_num"
-
-     : "SELECT /*+ INDEX (tlg_queue tlg_queue__idx2)*/ "
-                "id, tlg_num, sender, receiver, priority, "
-                "time, last_send, ttl "
-       "FROM     tlg_queue "
-       "WHERE    type IN ('OUTA','OUTB','OAPP') AND status='PUT' "
-       "ORDER BY priority, time_msec, tlg_num";
-  };
-
-  static DB::TQuery TlgUpdQry(PgOra::getRWSession("TLG_QUEUE"));
-  if (TlgUpdQry.SQLText.empty())
-  {
-    TlgUpdQry.SQLText=
-      "UPDATE tlg_queue SET last_send=:last_send "
-      "WHERE id=:id AND "
-      "      type IN ('OUTA','OUTB','OAPP') AND status='PUT' ";
-    TlgUpdQry.DeclareVariable("last_send", otFloat);
-    TlgUpdQry.DeclareVariable("id", otInteger);
-  };
+    if (PgOra::supportsPg("TLG_QUEUE")) {
+        TlgQry.SQLText =
+           "SELECT /*+ IndexScan(tlg_queue tlg_queue__idx2) */ "
+                    "id, tlg_num, sender, receiver, priority, "
+                    "time, last_send, ttl "
+           "FROM     tlg_queue "
+           "WHERE    type IN ('OUTA','OUTB','OAPP') AND status='PUT' "
+           "ORDER BY priority, time_msec, tlg_num "
+           "LIMIT    :limit";
+        TlgQry.CreateVariable("limit", otInteger, SCAN_TLG_FETCH_LIMIT());
+    } else {
+        TlgQry.SQLText =
+           "SELECT /*+ INDEX(tlg_queue tlg_queue__idx2) */ "
+                    "id, tlg_num, sender, receiver, priority, "
+                    "time, last_send, ttl "
+           "FROM     tlg_queue "
+           "WHERE    type IN ('OUTA','OUTB','OAPP') AND status='PUT' "
+           "ORDER BY priority, time_msec, tlg_num";
+    }
+  }
 
   struct addrComparator {
     bool operator() (const sockaddr_in& lhs, const sockaddr_in& rhs) const {
@@ -232,7 +247,7 @@ bool scan_tlg(bool sendOutAStepByStep)
   std::map<sockaddr_in, int, addrComparator> addrCount;
 
   //считаем все телеграммы, которые еще не отправлены
-  AIRSRV_MSG tlg_out = {};
+  AIRSRV_MSG tlg_out{};
   size_t len = 0;
   int ttl = 0;
   uint16_t ttl16 = 0;
@@ -247,7 +262,10 @@ bool scan_tlg(bool sendOutAStepByStep)
   {
     for(;!TlgQry.Eof;trace_count++,TlgQry.Next(),ASTRA::commit())
     {
-      if (strcmp(TlgQry.FieldAsString("sender").data(), OWN_CANON_NAME())!=0) continue; //не добавлять критерий "tlg_queue.sender=:sender" в TlgQry - плохой план разбора
+      if (TlgQry.FieldAsString("sender") != OWN_CANON_NAME()) {
+        //не добавлять критерий "tlg_queue.sender=:sender" в TlgQry - плохой план разбора
+        continue;
+      }
       int tlg_id=TlgQry.FieldAsInteger("id");
       int priority=TlgQry.FieldAsInteger("priority");
       try
@@ -330,13 +348,12 @@ bool scan_tlg(bool sendOutAStepByStep)
             ttl16=ttl;
             tlg_out.TTL=htons(ttl16);
 
-            if (sendto(sockfd,(char*)&tlg_out,sizeof(tlg_out)-sizeof(tlg_out.body)+len,0,
-                       (const sockaddr*)&addr_to,sizeof(sockaddr_in))==-1)
+            if (-1 == sendto(sockfd,(char*)&tlg_out,sizeof(tlg_out)-sizeof(tlg_out.body)+len,0,
+                       (const sockaddr*)&addr_to,sizeof(sockaddr_in))) {
               throw Exception("'sendto' error %d: %s",errno,strerror(errno));
+            }
             monitor_idle_zapr_type(1, QUEPOT_NULL);
-            TlgUpdQry.SetVariable("id", tlg_id);
-            TlgUpdQry.SetVariable("last_send", nowUTC);
-            TlgUpdQry.Execute();
+            updateTlgQueRenewLastSend(nowUTC, tlg_id);
             ProgTrace(TRACE5,"Attempt %s telegram (sender=%s, tlg_num=%ld, time=%.10f, priority=%d)",
                              last_send==0?"send":"resend",
                              tlg_out.Sender,
@@ -488,3 +505,353 @@ bool scan_tlg(bool sendOutAStepByStep)
 //  return TRUE;
 //}
 
+
+#ifdef XP_TESTING
+
+#include "xp_testing.h"
+#include <serverlib/TlgLogger.h>
+#include <serverlib/timer.h>
+#include <serverlib/dbcpp_cursctl.h>
+#include <serverlib/pg_cursctl.h>
+#include <serverlib/cursctl.h>
+#include <serverlib/ocilocal.h>
+#include <serverlib/dbcpp_session.h>
+#include <random>
+
+static long long scan_tlg_model_index()
+{
+    static DB::TQuery TlgQry(PgOra::getROSession("TLG_QUEUE"));
+
+    if (TlgQry.SQLText.empty()) {
+
+        TlgQry.SQLText = PgOra::supportsPg("TLG_QUEUE")
+
+         ? "SELECT /*+ IndexScan(tlg_queue tlg_queue__idx2) */ "
+                    "id, tlg_num, sender, receiver, priority, "
+                    "time, last_send, ttl "
+           "FROM     tlg_queue "
+           "WHERE    type IN ('OUTA','OUTB','OAPP') AND status='PUT' "
+           "ORDER BY priority, time_msec, tlg_num"
+
+         : "SELECT /*+ INDEX(tlg_queue tlg_queue__idx2) */ "
+                     "id, tlg_num, sender, receiver, priority, "
+                     "time, last_send, ttl "
+           "FROM     tlg_queue "
+           "WHERE    type IN ('OUTA','OUTB','OAPP') AND status='PUT' "
+           "ORDER BY priority, time_msec, tlg_num";
+    }
+
+    long long c = 0;
+
+    for (TlgQry.Execute(); !TlgQry.Eof; TlgQry.Next()) {
+        ++c;
+    }
+
+    return c;
+}
+
+static long long scan_tlg_model_default()
+{
+    static DB::TQuery TlgQry(PgOra::getROSession("TLG_QUEUE"));
+
+    if (TlgQry.SQLText.empty()) {
+
+        TlgQry.SQLText =
+
+           "SELECT   id, tlg_num, sender, receiver, priority, "
+                    "time, last_send, ttl "
+           "FROM     tlg_queue "
+           "WHERE    type IN ('OUTA','OUTB','OAPP') AND status='PUT' "
+           "ORDER BY priority, time_msec, tlg_num";
+    }
+
+    long long c = 0;
+
+    for (TlgQry.Execute(); !TlgQry.Eof; TlgQry.Next()) {
+        ++c;
+    }
+
+    return c;
+}
+
+std::vector<std::string> createRots()
+{
+    std::vector<std::string> rots;
+
+    std::string localhost = "127.0.0.1";
+    const int ip_port = 8888;
+
+    for (int i = 0; i < 5; ++i) {
+        const int id = PgOra::getSeqNextVal("ID__SEQ");
+        const std::string canon_name = "RCVR" + std::to_string(i);
+
+        rots.push_back(canon_name);
+
+        DbCpp::CursCtl cur = make_db_curs(
+           "INSERT INTO ROT(  canon_name,  id,  ip_address,  ip_port, loopback,  own_canon_name ) "
+           "VALUES         ( :canon_name, :id, :ip_address, :ip_port,        1, :own_canon_name )",
+            PgOra::getRWSession("ROT")
+        );
+
+        cur.stb()
+           .bind(":canon_name", canon_name)
+           .bind(":id", id)
+           .bind(":ip_address", localhost)
+           .bind(":ip_port", ip_port)
+           .bind(":own_canon_name", OWN_CANON_NAME())
+           .exec();
+    }
+
+    return rots;
+}
+
+
+void fillTlgQueue(const long long maxRecords, DbCpp::Session& session)
+{
+    LogTrace(TRACE6) << __FUNCTION__  << "Filling tlg_queue with " << maxRecords << " records." << std::endl;
+
+    std::vector<std::string> rots = createRots();
+
+    std::srand(0);
+
+    const auto nowUTC    = boost::posix_time::second_clock::universal_time();
+    // телеграммы которые находяться более 24 часов в очереди, удаляются в scan_tlg
+    // если выставить границу в 48 часов - половина тлг будет созданно уже просроченными.
+    const auto timeBound = boost::posix_time::hours(24);
+
+    for (long long i = 0; i < maxRecords; ++i) {
+        const std::string& receiver  = rots[rand() % rots.size()];
+        const char*        sender    = OWN_CANON_NAME();
+        const char*        type      = "OUTA";
+        const std::string  text      = "TLG " + std::to_string(i);
+        const int          tlgNum    = saveTlg(receiver.data(), sender, type, text, ASTRA::NoExists, ASTRA::NoExists);
+        const int          priority  = 4;
+        const char*        status    = "PUT";
+        const int          time_msec = rand() % 1000;
+        const auto         delta     = (timeBound.total_seconds() * (i - maxRecords))/maxRecords;
+        const auto         time      = nowUTC + boost::posix_time::seconds(delta);
+
+        DbCpp::CursCtl cur = make_db_curs(
+           "INSERT INTO TLG_QUEUE( id,  sender,  tlg_num,  receiver,  type,  priority,  status,  time, ttl,  time_msec) "
+           "VALUES               (:id, :sender, :tlg_num, :receiver, :type, :priority, :status, :time,  10, :time_msec)",
+            session
+        );
+
+        cur.stb()
+           .bind(":id", tlgNum)
+           .bind(":sender", sender)
+           .bind(":tlg_num", tlgNum)
+           .bind(":receiver", receiver)
+           .bind(":type", type)
+           .bind(":priority", priority)
+           .bind(":status", status)
+           .bind(":time", time)
+           .bind(":time_msec", time_msec)
+           .exec();
+
+        if (i % 1000 == 999) {
+            session.commitInTestMode();
+        }
+    }
+}
+
+void truncate() {
+    static auto& queue_session = PgOra::getRWSession("SP_PG_GROUP_TLG_QUE");
+    static auto& rot_session = PgOra::getRWSession("ROT");
+
+    make_db_curs("DELETE FROM TLGS_TEXT", queue_session).exec();
+    make_db_curs("DELETE FROM TLG_QUEUE", queue_session).exec();
+    make_db_curs("DELETE FROM TLGS", queue_session).exec();
+    make_db_curs("DELETE FROM ROT", rot_session).exec();
+    queue_session.commitInTestMode();
+    queue_session.commit();
+    rot_session.commitInTestMode();
+    rot_session.commit();
+}
+
+void test2Body(const char* caption, long long (* func)(), const long long iterations)
+{
+    long long count = 0;
+
+    HelpCpp::Timer timer;
+
+    for (long long i = 0; i < iterations; ++i) {
+        count += func();
+    }
+
+    LogTrace(TRACE6) << __FUNCTION__ << " " << caption << ": " << timer << "; count: " << count;
+}
+
+START_TEST(benchmark_scan_tlg_query_tquery)
+{
+    constexpr long long maxRecords = 1000;
+    constexpr long long iterations = 100;
+
+    auto& session = PgOra::getRWSession("TLG_QUEUE");
+
+    truncate();
+
+    fillTlgQueue(maxRecords, session);
+
+    test2Body("TQuery - Default request", scan_tlg_model_default, iterations);
+
+    test2Body("TQuery - Force using tlg_queue__idx2", scan_tlg_model_index, iterations);
+
+    truncate();
+}
+END_TEST;
+
+void testBody(const char* sql, DbCpp::Session& session, const char* caption, const long long iterations)
+{
+    long long count = 0;
+
+    HelpCpp::Timer timer;
+
+    for (long long i = 0; i < iterations; ++i) {
+        DbCpp::CursCtl cur = make_db_curs(sql, session);
+        int id;
+        int tlg_num;
+        std::string sender;
+        std::string receiver;
+        int priority;
+        Dates::DateTime_t time;
+        std::string last_send;
+        int ttl;
+
+        cur.def(id)
+           .def(tlg_num)
+           .def(sender)
+           .def(receiver)
+           .def(priority)
+           .def(time)
+           .defNull(last_send, "(null)")
+           .def(ttl)
+           .exec();
+
+        while (!cur.fen()) {
+            ++count;
+        }
+    }
+    LogTrace(TRACE6) << __FUNCTION__ << " " << caption << ": " << timer << "; count: " << count;
+}
+
+START_TEST(benchmark_scan_tlg_query)
+{
+    constexpr long long maxRecords = 1000;
+    constexpr long long iterations = 100;
+
+    auto& session = PgOra::getRWSession("TLG_QUEUE");
+
+    truncate();
+
+    fillTlgQueue(maxRecords, session);
+
+    try
+    {
+        {
+            const char* caption = "DbCpp::CursCtl - Default request";
+            const char* sql =
+               "SELECT   id, tlg_num, sender, receiver, priority, "
+                        "time, last_send, ttl "
+               "FROM     tlg_queue "
+               "WHERE    type IN ('OUTA','OUTB','OAPP') AND status='PUT' "
+               "ORDER BY priority, time_msec, tlg_num";
+            testBody(sql, session, caption, iterations);
+        }
+
+        {
+            const char* caption = "DbCpp::CursCtl - Force using tlg_queue__idx2";
+            const char* sql =
+                PgOra::supportsPg("TLG_QUEUE")
+
+                 ? "SELECT /*+ IndexScan (tlg_queue tlg_queue__idx2) */ "
+                            "id, tlg_num, sender, receiver, priority, "
+                            "time, last_send, ttl "
+                   "FROM     tlg_queue "
+                   "WHERE    type IN ('OUTA','OUTB','OAPP') AND status='PUT' "
+                   "ORDER BY priority, time_msec, tlg_num"
+
+                 : "SELECT /*+ INDEX (tlg_queue tlg_queue__idx2) */ "
+                            "id, tlg_num, sender, receiver, priority, "
+                            "time, last_send, ttl "
+                   "FROM     tlg_queue "
+                   "WHERE    type IN ('OUTA','OUTB','OAPP') AND status='PUT' "
+                   "ORDER BY priority, time_msec, tlg_num";
+
+            testBody(sql, session, caption, iterations);
+        }
+    } catch (const std::exception& e) {
+        LogTrace(TRACE6) << __FUNCTION__ << ": Exception: " << e.what();
+    }
+
+    truncate();
+}
+END_TEST;
+
+int getNumberOfRecords(DbCpp::Session& session) {
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT COUNT(*) FROM TLG_QUEUE",
+        session
+    );
+
+    int count = 0;
+    cur.stb()
+       .def(count)
+       .exec();
+
+    if (!cur.fen()) {
+        return count;
+    }
+    return 0;
+}
+
+START_TEST(check_scan_tlg)
+{
+    init_tlg_callbacks();
+
+    int SND_PORT;
+    const char *port_tcl=Tcl_GetVar(getTclInterpretator(),"SND_PORT",TCL_GLOBAL_ONLY);
+    if (port_tcl==NULL||StrToInt(port_tcl,SND_PORT)==EOF)
+      throw Exception("Unknown or wrong SND_PORT");
+
+    if ((sockfd=socket(AF_INET,SOCK_DGRAM,0))==-1)
+      throw Exception("'socket' error %d: %s",errno,strerror(errno));
+    sockaddr_in adr{};
+    adr.sin_family=AF_INET;
+    adr.sin_addr.s_addr=/*htonl(*/INADDR_ANY/*)*/; //???
+    adr.sin_port=htons(SND_PORT);
+
+    if (bind(sockfd,(struct sockaddr*)&adr,sizeof(adr))==-1)
+      throw Exception("'bind' error %d: %s",errno,strerror(errno));
+
+    auto& session = PgOra::getRWSession("SP_PG_GROUP_TLG_QUE");
+
+    constexpr long long maxRecords = 10000;
+    constexpr long long iterations = 1000;
+
+    truncate();
+    fillTlgQueue(maxRecords, session);
+
+    HelpCpp::Timer timer;
+    for (long long i = 0; i < iterations; ++i) {
+        scan_tlg(true);
+        session.commitInTestMode();
+    }
+
+    LogTrace(TRACE6) << __FUNCTION__ << ": " << timer;
+    truncate();
+}
+END_TEST;
+
+#define SUITENAME "tlg_queue"
+TCASEREGISTER(testInitDB, testShutDBConnection)
+{
+    SET_TIMEOUT(3000);
+    ADD_TEST(benchmark_scan_tlg_query_tquery);
+    ADD_TEST(benchmark_scan_tlg_query);
+    ADD_TEST(check_scan_tlg);
+}
+TCASEFINISH;
+#undef SUITENAME
+
+#endif //XP_TESTING

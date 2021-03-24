@@ -45,6 +45,9 @@ namespace DbCpp
         virtual DbType getType() const = 0;
         virtual void commit()          = 0;
         virtual void rollback()        = 0;
+#ifdef XP_TESTING
+        virtual void commitInTestMode() = 0;
+#endif // XP_TESTING
 
         virtual std::string getConnectString() const = 0;
 
@@ -80,6 +83,9 @@ namespace DbCpp
         virtual DbType getType() const override { return DbType::Oracle; }
         virtual void commit() override;
         virtual void rollback() override;
+#ifdef XP_TESTING
+        virtual void commitInTestMode() override;
+#endif // XP_TESTING
         virtual std::string getConnectString() const override;
         virtual CopyResult copyDataFrom(const std::string& sql, const char* data,
                                         size_t size) override;
@@ -120,6 +126,7 @@ namespace DbCpp
         virtual void commit() override;
         virtual void rollback() override;
 #ifdef XP_TESTING
+        virtual void commitInTestMode() override;
         void rollbackInTestMode();
 #endif // XP_TESTING
         virtual std::string getConnectString() const override { return mConnectString; }
@@ -176,6 +183,7 @@ namespace DbCpp
         virtual void commit() override { return mPgSession->commit(); }
         virtual void rollback() override { return mPgSession->rollback(); }
 #ifdef XP_TESTING
+        virtual void commitInTestMode() override { return mPgSession->commitInTestMode(); }
         void rollbackInTestMode() { return mPgSession->rollbackInTestMode(); }
 #endif // XP_TESTING
 

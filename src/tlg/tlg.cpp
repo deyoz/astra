@@ -319,13 +319,14 @@ void putTlgText(int tlg_id, const string &tlg_text)
 
 std::string getTlgText(int tlg_id)
 {
+    static auto& session = PgOra::getROSession("TLGS_TEXT");
     std::string text;
 
     QParams QryParams;
     QryParams << QParam("id", otInteger, tlg_id);
 
     DB::TCachedQuery TextQry(
-        PgOra::getROSession("TLGS_TEXT"),
+        session,
        "SELECT text FROM tlgs_text WHERE id=:id ORDER BY page_no",
         QryParams
     );
