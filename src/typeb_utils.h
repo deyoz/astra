@@ -933,13 +933,14 @@ class TLDMOptions : public TFranchiseOptions
     void init()
     {
       version = "CEK";
+      cfg = "Seats";
       cabin_baggage=false;
       gender=false;
       exb=true;
       noend=false;
     };
   public:
-    std::string version;
+    std::string version, cfg;
     bool cabin_baggage, gender, exb, noend;
     TLDMOptions() {init();};
     virtual ~TLDMOptions() {};
@@ -954,6 +955,7 @@ class TLDMOptions : public TFranchiseOptions
       if (node==NULL) return;
       xmlNodePtr node2=node->children;
       version=NodeAsStringFast("version", node2, version.c_str());
+      cfg=NodeAsStringFast("cfg", node2, cfg.c_str());
       cabin_baggage=NodeAsBooleanFast("cabin_baggage", node2, cabin_baggage);
       gender=NodeAsBooleanFast("gender", node2, gender);
       exb=NodeAsBooleanFast("exb", node2, exb);
@@ -971,6 +973,11 @@ class TLDMOptions : public TFranchiseOptions
         if (cat=="VERSION")
         {
           version=OptionsQry.FieldAsString("value");
+          continue;
+        };
+        if (cat=="CFG")
+        {
+          cfg=OptionsQry.FieldAsString("value");
           continue;
         };
         if (cat=="CABIN_BAGGAGE")
@@ -1002,6 +1009,9 @@ class TLDMOptions : public TFranchiseOptions
         << s("CAP.TYPEB_OPTIONS.VERSION") << ": "
         << s.ElemIdToNameShort(etTypeBOptionValue, "LDM+VERSION+"+version)
         << ", "
+        << "Cfg: "
+        << s.ElemIdToNameShort(etTypeBOptionValue, "LDM+CFG+"+cfg)
+        << ", "
         << s("CAP.TYPEB_OPTIONS.LDM.CABIN_BAGGAGE") << ": "
         << s(cabin_baggage)
         << ", "
@@ -1020,6 +1030,9 @@ class TLDMOptions : public TFranchiseOptions
       TFranchiseOptions::extraStr(s);
       s << s("CAP.TYPEB_OPTIONS.VERSION") << ": "
         << s.ElemIdToNameShort(etTypeBOptionValue, "LDM+VERSION+"+version)
+        << endl
+        << "Cfg: "
+        << s.ElemIdToNameShort(etTypeBOptionValue, "LDM+CFG+"+cfg)
         << endl
         << s("CAP.TYPEB_OPTIONS.LDM.CABIN_BAGGAGE") << ": "
         << s(cabin_baggage)
@@ -1049,7 +1062,8 @@ class TLDMOptions : public TFranchiseOptions
             gender==opt.gender &&
             exb==opt.exb &&
             noend==opt.noend &&
-            version == opt.version;
+            version == opt.version &&
+            cfg == opt.cfg;
       }
       catch(std::bad_cast&)
       {
@@ -1066,7 +1080,8 @@ class TLDMOptions : public TFranchiseOptions
             gender==opt.gender &&
             exb==opt.exb &&
             noend==opt.noend &&
-            version == opt.version;
+            version == opt.version &&
+            cfg == opt.cfg;
       }
       catch(std::bad_cast&)
       {
@@ -1084,6 +1099,7 @@ class TLDMOptions : public TFranchiseOptions
         exb=opt.exb;
         noend=opt.noend;
         version = opt.version;
+        cfg = opt.cfg;
       }
       catch(std::bad_cast&) {};
     };

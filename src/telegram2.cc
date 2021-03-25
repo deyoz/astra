@@ -5913,16 +5913,20 @@ struct TLDMCFG:TCFG {
     {};
     void ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<string> &body)
     {
+        const TypeB::TLDMOptions &options = *info.optionsAs<TypeB::TLDMOptions>();
         ostringstream cfg;
-        for(vector<TCFGItem>::iterator iv = begin(); iv != end(); iv++)
-        {
-            if(not cfg.str().empty())
-                cfg << "/";
-            cfg << iv->cfg;
-            if(iv->cls == "è") pr_f = true;
-            if(iv->cls == "Å") pr_c = true;
-            if(iv->cls == "ù") pr_y = true;
-        }
+        if(options.cfg == "Classes")
+            cfg << str(options.is_lat ? LANG_EN : LANG_RU, "");
+        else
+            for(vector<TCFGItem>::iterator iv = begin(); iv != end(); iv++)
+            {
+                if(not cfg.str().empty())
+                    cfg << "/";
+                cfg << iv->cfg;
+                if(iv->cls == "è") pr_f = true;
+                if(iv->cls == "Å") pr_c = true;
+                if(iv->cls == "ù") pr_y = true;
+            }
         if (info.bort.empty() ||
                 cfg.str().empty() ||
                 (crew.cockpit==NoExists and
