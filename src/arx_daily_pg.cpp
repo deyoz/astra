@@ -1527,6 +1527,7 @@ void deleteBagReceipts(const PointId_t& point_id)
     cur.def(bag.receipt_id).defNull(bag.kit_id, ASTRA::NoExists).bind(":point_id", point_id.get()).exec();
     while(!cur.fen()) {
         bag_receipts.push_back(bag);
+        bag = {};
     }
 
     for(const auto &br : bag_receipts) {
@@ -1534,10 +1535,12 @@ void deleteBagReceipts(const PointId_t& point_id)
                      PgOra::getRWSession("BAG_PAY_TYPES")).bind(":receipt_id", br.receipt_id).exec();
         make_db_curs("delete from BAG_RECEIPTS where receipt_id = :receipt_id",
                      PgOra::getRWSession("BAG_RECEIPTS")).bind(":receipt_id", br.receipt_id).exec();
+    }
+
+    for(const auto & br: bag_receipts) {
         make_db_curs("delete from BAG_RCPT_KITS where kit_id = :kit_id ",
                      PgOra::getRWSession("BAG_RCPT_KITS")).bind(":kit_id", br.kit_id).exec();
     }
-
 }
 
 void arx_annul_bags_tags(const GrpId_t& grp_id, const Dates::DateTime_t & part_key)
