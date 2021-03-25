@@ -249,8 +249,11 @@ int delete_emdocs_display(const Dates::DateTime_t& arx_date, int remain_rows);
 namespace salons {
 
 std::string get_seat_no(const PaxId_t& pax_id, int seats, int is_jmp, std::string status, const PointId_t& point_id,
-                        std::string fmt, int row = 1, int only_lat = 0) {
-    char result[41] = {};
+                        std::string fmt, int row = 1, int only_lat = 0)
+{
+    LogTrace5 << " pax_id: " << pax_id << " seats: " << seats << " is_jmpg: " << is_jmp << " status: "
+              << status << " point_id: " << point_id << " fmt: " << fmt;
+    char result[50] = {};
     short null = -1, nnull = 0; //-1 - NULL , 0 - value
     auto cur = make_curs(
                 "BEGIN \n"
@@ -260,7 +263,7 @@ std::string get_seat_no(const PaxId_t& pax_id, int seats, int is_jmp, std::strin
        .bind(":seats", seats)
        .bind(":is_jmp", is_jmp)
        .bind(":status", status, status.empty() ? &null : &nnull)
-       .bind(":point_id", point_id)
+       .bind(":point_id", point_id.get())
        .bind(":fmt", fmt)
        .bind(":rownum", row)
        .bind(":only_lat", only_lat)
@@ -942,7 +945,7 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
         {
             if (part_key != Dates::not_a_date_time)
                 ProgError( STDLOG, "move_id=%d, part_key=%s", move_id.get(),
-                           HelpCpp::string_cast(part_key, "dd.mm.yy").c_str() );
+                           HelpCpp::string_cast(part_key, "%Y%m%d").c_str() );
             else
                 ProgError( STDLOG, "move_id=%d, part_key=not_a_date_time", move_id.get() );
             throw;
