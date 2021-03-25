@@ -242,6 +242,14 @@ uint8_t* BLev::prepare_proxy_head(std::vector<uint8_t>& h) const
     h.resize(hlen(), 0);
     return h.data();
 }
+
+//-----------------------------------------------------------------------
+
+uint32_t BLev::limit_key(const uint8_t* const h, const size_t hs) const
+{
+    return uint32_t { 0 };
+}
+
 //-----------------------------------------------------------------------
 
 struct B1Lev : public BLev
@@ -342,6 +350,7 @@ struct B3Lev : public BLev
     {
         return BLev::prepare_head(h) + 1;
     }
+    uint32_t limit_key(const uint8_t* const h, const size_t hs) const override;
 };
 
 void B3Lev::make_expired(std::vector<uint8_t>& head, std::vector<uint8_t>& data) const
@@ -361,6 +370,16 @@ size_t B3Lev::filter( std::vector<uint8_t>& m ) const
     }
 
     return 0;
+}
+
+uint32_t B3Lev::limit_key(const uint8_t* const h, const size_t hs) const
+{
+    if (hs < hlen()) {
+        LogError(STDLOG) << "Invalid header size : " << hs;
+        return BLev::limit_key(h, hs);
+    }
+
+    return h[ GRP3_LIMIT_KEY_BYTE ];
 }
 
 //-----------------------------------------------------------------------

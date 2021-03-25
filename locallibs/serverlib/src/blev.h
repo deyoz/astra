@@ -55,6 +55,7 @@ public:
             std::vector<uint8_t>& ansData) const;
     void fill_with_msgid( std::vector<uint8_t>& h, const MsgId& m );
     const MsgId& signal_msgid(const std::vector<uint8_t>& m) const;
+    virtual uint32_t limit_key(const uint8_t* const h, const size_t hs) const;
     static uint8_t bhead() {  return 205;  }
     virtual ~BLev() {}
     BLev();

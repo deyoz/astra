@@ -6,8 +6,8 @@ namespace export *
 variable FIND_PROC_NAME "obrzap" 
 
 variable GRPPATTERN_NAME "grp"
+variable GRPPATTERN_LEN [ string length $GRPPATTERN_NAME ]
 variable BALANCER_PATTERN_NAME "balancer"
-variable GRPPATTERN_BEG  0
 
 variable counter_no 0
 variable counter_pid 0
@@ -22,8 +22,8 @@ proc create_arr_no { no action cmds } {
     variable array_pid
     variable array_grp
     variable GRPPATTERN_NAME
+    variable GRPPATTERN_LEN
     variable BALANCER_PATTERN_NAME
-    variable GRPPATTERN_BEG
 
 #    variable entry_$counter_no
     upvar #0 entry_no_$counter_no arr_no
@@ -42,12 +42,8 @@ proc create_arr_no { no action cmds } {
             set arr_no(proc_grp_name) $ttt
             lappend array_grp($arr_no(proc_grp_name)) $no
 
-            set grppattern_len [ expr [string length $GRPPATTERN_NAME ] -1 ]
-            set grp_3char [ string range $arr_no(proc_grp_name) $GRPPATTERN_BEG $grppattern_len ]
-
-            if { 0 == [ string compare $grp_3char "grp" ] } then {
-                set arr_no(proc_grp_num) [ get_que_num_by_grp_name $arr_no(proc_grp_name) ]
-
+            if { 0 == [ string compare -length $GRPPATTERN_LEN $arr_no(proc_grp_name) $GRPPATTERN_NAME ] } then {
+                set arr_no(proc_grp_num) [ dict create "0" [ get_que_num_by_grp_name $arr_no(proc_grp_name) ] ]
             } elseif { 0 == [ string compare $arr_no(proc_name) $BALANCER_PATTERN_NAME ] } then {
                 set arr_no(proc_grp_num) [ dict create ]
             }
@@ -211,6 +207,8 @@ proc set_flag_arr_no { pid to_rst n_zapr type_zapr subgroup } {
     variable counter_pid
     variable array_no
     variable array_pid
+    variable GRPPATTERN_NAME
+    variable GRPPATTERN_LEN
     variable BALANCER_PATTERN_NAME
 
     if { [ info exists array_pid($pid) ] != 1} then {
@@ -240,13 +238,23 @@ proc set_flag_arr_no { pid to_rst n_zapr type_zapr subgroup } {
        set arr_no(n_zapr)  [expr { $arr_no(n_zapr) + $n_zapr } ]
 
        if { 0 == [ string compare $arr_no(proc_name) $BALANCER_PATTERN_NAME ] } then {
-           if { 1 != [ dict exists $arr_no(proc_grp_num) $subgroup ] } then {
-               dict append arr_no(proc_grp_num) $subgroup [ get_que_num_by_grp_name $arr_no(proc_grp_name)($subgroup) ]
+           if { 1 != [ dict exists $arr_no(proc_grp_num) "$subgroup" ] } then {
+               dict append arr_no(proc_grp_num) "$subgroup" [ get_que_num_by_grp_name $arr_no(proc_grp_name)($subgroup) ]
            }
 
            add_zapr_to_potok $n_zapr $type_zapr [ dict get $arr_no(proc_grp_num) $subgroup ]
+        } elseif { 0 == [ string compare -length $GRPPATTERN_LEN $arr_no(proc_grp_name) $GRPPATTERN_NAME] } then {
+            set sg "0"
+            if { 0 != [ string length $subgroup ] } {
+                set sg $subgroup
+                if { 1 != [ dict exists $arr_no(proc_grp_num) "$sg" ] } then {
+                    dict append arr_no(proc_grp_num) "$sg" [ get_que_num_by_grp_name $arr_no(proc_grp_name)($sg) ]
+                }
+            }
+
+            add_zapr_to_potok $n_zapr $type_zapr [ dict get $arr_no(proc_grp_num) $sg ]
        } else {
-           add_zapr_to_potok $n_zapr $type_zapr $arr_no(proc_grp_num)
+            add_zapr_to_potok $n_zapr $type_zapr $arr_no(proc_grp_num)
        }
     }
 }

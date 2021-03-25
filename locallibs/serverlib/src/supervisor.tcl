@@ -62,6 +62,8 @@ proc app_init {} {
 
         create_dispatcher 1 [ list logger loginet $::SOCKDIR/loginet-signal ] 0
 
+        create_dispatcher 1 [ list logger logjxt $::SOCKDIR/logjxt-signal ] 0
+
         create_dispatcher 1 [ list logger logtlg $::SOCKDIR/logtlg-signal ] 0
     }
 
@@ -75,6 +77,10 @@ proc app_init {} {
     if { $::grp2_Inet(OBRZAP_NUM) > 0 } {
         create_dispatcher 1 [ list leva grp2_Inet ] 1
         create_proc_grp  $::grp2_Inet(OBRZAP_NUM) [ list obrzap grp2_Inet ] 2
+    }
+    if { $::grp3_Jxt(OBRZAP_NUM) > 0 } {
+        create_dispatcher 1 [list leva grp3_Jxt] 1
+        create_proc_grp $::grp3_Jxt(OBRZAP_NUM) [list obrzap grp3_Jxt ] 2
     }
     if { $::grp8_Http(OBRZAP_NUM) > 0 } {
         create_dispatcher 1 [ list levh grp8_Http] 1

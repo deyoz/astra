@@ -57,6 +57,7 @@
 
 #define COMM_PARAMS_BYTE 84  // 84
 #define GRP3_PARAMS_BYTE 85  // 85/86
+#define GRP3_LIMIT_KEY_BYTE 87  // 87
 #define GRP2_PARAMS_BYTE 47  // 47/48
 
 

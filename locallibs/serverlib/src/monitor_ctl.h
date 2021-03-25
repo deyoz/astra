@@ -1,5 +1,5 @@
-#ifndef _MONITOR_CTL_
-#define _MONITOR_CTL_
+#pragma once
+
 #include <tcl.h>
 #include <signal.h>
 #ifdef __cplusplus
@@ -10,29 +10,6 @@ void addTimeStat(const char *name,long ticks);
 void addTimeStatNoCount(const char *name,long ticks);
 
 void check_risc_order();
-/*вывести процесс из состояния работа + увеличить счетчик*/
-void monitor_idle_zapr(int cnt);
-
-/*перевести процесс в состояние работа*/
-void monitor_beg_work();
-
-/* информирует о работоспособности */
-void monitor_working();
-
-void monitor_working_zapr_type(int cnt, int type_zapr);
-
-/*вывести процесс из состояния работа*/
-void monitor_idle();
-
-void monitor_idle_zapr_type(int cnt, int type_zapr);
-
-/* установить код запроса, который сейчас обрабатывается процессом*/
-void monitor_set_request(const char *req);
-
-/* очистить код запроса, который сейчас обрабатывается процессом */
-/* (очистка производится автоматически при вызове monitor_idle() ) */
-void monitor_clear_request(void);
-
 /*попросить перезапустить процесс как можно раньше*/
 void monitor_restart();
 /*выставить признак - мы обычный обработчик*/
@@ -90,5 +67,29 @@ std::string get_signalsock_name(Tcl_Interp *interp,Tcl_Obj * var1,Tcl_Obj *var2,
 int makeSignalSocket(const std::string & name);
 std::string current_group2();
 
-#endif
-#endif
+/*вывести процесс из состояния работа + увеличить счетчик*/
+void monitor_idle_zapr(int cnt);
+void monitor_idle_zapr(int cnt, const char* const subgroup);
+
+/*перевести процесс в состояние работа*/
+void monitor_beg_work();
+
+/* информирует о работоспособности */
+void monitor_working();
+
+void monitor_working_zapr_type(int cnt, int type_zapr);
+
+/*вывести процесс из состояния работа*/
+void monitor_idle();
+
+void monitor_idle_zapr_type(int cnt, int type_zapr);
+void monitor_idle_zapr_type(int cnt, int type_zapr, const char* const subgroup);
+
+/* установить код запроса, который сейчас обрабатывается процессом*/
+void monitor_set_request(const char *req);
+
+/* очистить код запроса, который сейчас обрабатывается процессом */
+/* (очистка производится автоматически при вызове monitor_idle() ) */
+void monitor_clear_request(void);
+
+#endif // __cplusplus

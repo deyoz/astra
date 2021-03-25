@@ -7,6 +7,8 @@
 #include <fstream>
 #include <memory>
 #include <chrono>
+#include <unordered_set>
+#include <unordered_map>
 
 #include <boost/asio.hpp>
 #include <boost/optional.hpp>
@@ -27,16 +29,48 @@ typedef boost::asio::local::stream_protocol::socket WorkerSocket;
 typedef boost::asio::local::stream_protocol::socket SignalSocket;
 
 //-----------------------------------------------------------------------
+struct LimitDesc
+{
+    const uint32_t key;
+    const std::shared_ptr< size_t > limit;
+
+    size_t residual() const {
+        return limit
+            ? static_cast< size_t >(std::max(0l, static_cast< long >(*(limit) + 1 - limit.use_count())))
+            : std::numeric_limits< size_t >::max();
+    }
+
+    bool limited() const {
+        return limit && (*(limit) < static_cast< size_t >(limit.use_count()));
+    }
+
+    friend bool operator==(const LimitDesc& lhs, const LimitDesc& rhs);
+};
+//-----------------------------------------------------------------------
+struct LimitDescHash
+{
+    decltype(std::hash< uint32_t >()(uint32_t { })) operator()(const LimitDesc& l) const {
+        return std::hash< uint32_t >()(l.key);
+    }
+
+    decltype(std::hash< uint32_t >()(uint32_t { })) operator()(const uint32_t k) const {
+        return std::hash< uint32_t >()(k);
+    }
+};
+//-----------------------------------------------------------------------
 template<typename K>
 class WorkerMsg
 {
 public:
     WorkerMsg(const uint64_t bi /*balancer id*/,
               const K& clientConnectionId,
+              const LimitDesc& limitDesc,
               std::vector<uint8_t>& head,
               std::vector<uint8_t>& data) :
         blncrId_(bi),
         cltConnId_(clientConnectionId),
+        counter_ { },
+        limit_ { limitDesc },
         headSize_(htonl(head.size())),
         dataSize_(htonl(data.size())),
         reqHead_(),
@@ -44,7 +78,8 @@ public:
         ansHead_(),
         ansData_(),
         time_(std::time(0)),
-        recall_(false)
+        recall_(false),
+        uniqueId_ { WorkerMsg< K >::nextId_++ }
     {
         reqHead_.swap(head);
         reqData_.swap(data);
@@ -130,10 +165,33 @@ public:
         recall_ = value;
     }
     //-----------------------------------------------------------------------
+    const LimitDesc& limit() {
+        return limit_;
+    }
+    //-----------------------------------------------------------------------
+    void reduceLimit() {
+        assert(!counter_);
+
+        counter_ = limit_.limit;
+    }
+    //-----------------------------------------------------------------------
+    void increaseLimit() {
+        counter_.reset();
+    }
+    //-----------------------------------------------------------------------
+    uint64_t uniqueId() const {
+        return uniqueId_;
+    }
+    //-----------------------------------------------------------------------
+
+private:
+    static uint64_t nextId_;
 
 private:
     const uint64_t blncrId_;
     const K cltConnId_;
+    std::shared_ptr< size_t > counter_;
+    const LimitDesc& limit_;
     uint32_t headSize_;
     uint32_t dataSize_;
     std::vector<uint8_t> reqHead_;
@@ -142,7 +200,11 @@ private:
     std::vector<uint8_t> ansData_;
     std::time_t time_;
     bool recall_;
+    const uint64_t uniqueId_;
 };
+//-----------------------------------------------------------------------
+template< typename K >
+uint64_t WorkerMsg< K >::nextId_ { 0 };
 //-----------------------------------------------------------------------
 class Signal
 {
@@ -207,6 +269,187 @@ private:
     T socket_;
 };
 //-----------------------------------------------------------------------
+template< typename T >
+class MessageQueue
+{
+public:
+    MessageQueue(const std::vector< std::pair< uint32_t, size_t > >& limits)
+        : stats_ { { 0, 0 } },
+          waitTime_ { 0 },
+          lastWriteTime_ { std::chrono::steady_clock::now() },
+          limits_ { { { 0, nullptr } }, limits.size() + 1 },
+          queues_ { { { 0, { } } }, limits.size() + 1 }
+    {
+        for (const auto& l : limits) {
+            limits_.insert({ l.first, std::make_shared< size_t >(l.second) });
+            queues_.insert({ l.first, { } });
+
+            LogTrace(TRACE5) << "{ key: " << l.first << ", limit: " << l.second << " }";
+        }
+
+        assert(0 < limits_.size());
+        assert(0 < queues_.size());
+    }
+
+    uint32_t msgWaitTime()
+    {
+        assert(0 < queues_.size());
+
+        using duration = std::chrono::duration< int64_t, std::ratio< 1, 64 > >;
+
+        return queues_[ 0 ].size()
+            ? std::chrono::duration_cast< duration >(waitTime_).count()
+            : 0;
+    }
+
+    void updateWaitTime() {
+        auto now = std::chrono::steady_clock::now();
+        waitTime_ = now - lastWriteTime_;
+        lastWriteTime_ = now;
+    }
+
+    bool empty() {
+        return 0 == size();
+    }
+
+    size_t masterQueueSize() {
+        assert(0 < queues_.size());
+
+        return queues_[ 0 ].size();
+    }
+
+    size_t size() {
+        size_t s { 0 };
+        for (const auto& l : limits_) {
+            size_t residual { l.residual() };
+            if (0 < residual) {
+                s += std::min(residual, queues_[ l.key ].size());
+            }
+        }
+
+        return s;
+    }
+
+    size_t size(const uint32_t limitKey) {
+        return queues_[ key(limitKey) ].size();
+    }
+
+    std::shared_ptr< WorkerMsg< typename T::KeyType > > front() {
+        auto oldestQueueIt { queues_.find(0) };
+
+        assert(std::end(queues_) != oldestQueueIt);
+
+        for (auto qIt = std::begin(queues_); qIt != std::end(queues_); ++qIt) {
+            if (!qIt->second.empty()
+                    && !qIt->second.front()->limit().limited()
+                    && (oldestQueueIt->second.empty()
+                        || (qIt->second.front()->uniqueId() < oldestQueueIt->second.front()->uniqueId())))
+            {
+                oldestQueueIt = qIt;
+            }
+        }
+
+        assert(!oldestQueueIt->second.empty());
+
+        auto msg { oldestQueueIt->second.front() };
+
+        msg->reduceLimit();
+
+        oldestQueueIt->second.pop_front();
+
+        return msg;
+    }
+
+    std::shared_ptr< WorkerMsg< typename T::KeyType > > front(const uint32_t limitKey) {
+        auto q { queues_.find(key(limitKey)) };
+
+        assert(std::end(queues_) != q);
+
+        for (auto msgIt = std::begin(q->second); msgIt != std::end(q->second); ++msgIt) {
+            if (!(*msgIt)->recall()) {
+                auto msg { *msgIt };
+                msgIt = q->second.erase(msgIt); // std::list
+                return msg;
+            }
+        }
+
+        return nullptr;
+    }
+
+    void pushFront(const std::shared_ptr< WorkerMsg< typename T::KeyType > >& m) {
+        auto qIt { queues_.find(m->limit().key) };
+        if (std::end(queues_) == qIt) {
+            LogError(STDLOG) << "Unknown limit key: " << m->limit().key;
+            qIt = std::begin(queues_);
+        }
+
+        qIt->second.push_front(m);
+    }
+
+    void pushBack(const uint64_t balancerId,
+                  const typename T::KeyType& clientConnectionId,
+                  const uint32_t limitKey,
+                  std::vector<uint8_t>& head,
+                  std::vector<uint8_t>& data)
+    {
+        const uint32_t k { key(limitKey) };
+        auto limitIt { limits_.find(LimitDesc { k, nullptr }) };
+
+        assert(std::cend(limits_) != limitIt);
+
+        auto& q { queues_[ k ] };
+
+        if ((0 == k) && q.empty()) {
+            lastWriteTime_ = std::chrono::steady_clock::now();
+        }
+
+        q.push_back(std::make_shared< WorkerMsg< typename T::KeyType > >(balancerId, clientConnectionId, *limitIt, head, data));
+    }
+
+    void removeExpiredMessages(const std::time_t& expiredTime,
+                               std::function< void (const std::shared_ptr< WorkerMsg< typename T::KeyType > >& ,
+                                                    const size_t ,
+                                                    const uint32_t) > func)
+    {
+        for (auto& q : queues_) {
+            for (auto m = std::begin(q.second); m != std::end(q.second); ) {
+                if (!(*m)->recall() && ((*m)->createTime() < expiredTime)) {
+                    func(*m, masterQueueSize(), msgWaitTime());
+
+                    m = q.second.erase(m);
+                } else {
+                    ++m;
+                }
+            }
+        }
+    }
+
+    void publishStats() {
+        for (auto& s : stats_) {
+            if (0 != s.second) {
+                write_set_flag_type(0, s.second, QUEPOT_LEVB, (0 != s.first) ? std::to_string(s.first).c_str() : nullptr);
+                s.second = 0;
+            }
+        }
+    }
+
+    void incStats(const uint32_t limitKey) {
+        stats_[ key(limitKey) ] += 1;
+    }
+
+private:
+    uint32_t key(const uint32_t k) const {
+        return limits_.count(LimitDesc { k, nullptr }) ? k : 0;
+    }
+
+private:
+    std::unordered_map< uint32_t, size_t > stats_;
+    std::chrono::steady_clock::duration waitTime_;
+    std::chrono::steady_clock::time_point lastWriteTime_;
+    std::unordered_set< LimitDesc, LimitDescHash > limits_;
+    std::unordered_map< uint32_t, std::list< std::shared_ptr< WorkerMsg< typename T::KeyType > > > > queues_;
+};
+//-----------------------------------------------------------------------
 template<typename T>
 class Dispatcher
 {
@@ -227,7 +470,6 @@ class Dispatcher
                          std::shared_ptr<boost::asio::deadline_timer>
                      >
             > WaitMsgStorage;
-    typedef std::list<std::shared_ptr<WorkerMsg<typename T::KeyType> > > MessageQueue;
 public:
     enum class WHAT_DROP_IF_QUEUE_FULL {FRONT = 0, BACK = 1};
 
@@ -254,15 +496,14 @@ public:
         protocol_(io_s, headType, addr, port, *this, maxOpenConnections),
         idle_(),
         waitMsgMap_(),
-        msgQueue_(),
-        lastWriteTime_(std::chrono::steady_clock::now()),
-        waitTime_(0),
+        msgQueue_ { { } },
         attemptAcceptWorkerCount_(ATTEMPT_ACCEPT_WORKER_COUNT),
         attemptAcceptSignalCount_(ATTEMPT_ACCEPT_SIGNAL_COUNT),
         control_(new ServerFramework::ControlPipeEvent()),
         queueTimer_(io_s),
         MESSAGE_EXPIRED_TIMEOUT(msgExpTimeout),
-        queueTraits_(queueWarn, queueWarnLog, queueDrop, queueFullTimeStamp)
+        queueTraits_(queueWarn, queueWarnLog, queueDrop, queueFullTimeStamp),
+        statsTimer_ { io_s }
     {
         init(workerSockName, signalSockName);
     }
@@ -280,7 +521,8 @@ public:
             const uint16_t queueDrop,
             const bool queueFullTimeStamp,
             const size_t maxOpenConnections,
-            const time_t msgExpTimeout) :
+            const time_t msgExpTimeout,
+            const std::vector< std::pair< uint32_t, size_t > >& limits) :
         service_(io_s),
         workerAcceptor_(io_s),
         signalAcceptor_(io_s),
@@ -289,15 +531,14 @@ public:
         protocol_(io_s, headType, addr, balancerAddr, *this, maxOpenConnections),
         idle_(),
         waitMsgMap_(),
-        msgQueue_(),
-        lastWriteTime_(std::chrono::steady_clock::now()),
-        waitTime_(0),
+        msgQueue_ { limits },
         attemptAcceptWorkerCount_(ATTEMPT_ACCEPT_WORKER_COUNT),
         attemptAcceptSignalCount_(ATTEMPT_ACCEPT_SIGNAL_COUNT),
         control_(new ServerFramework::ControlPipeEvent()),
         queueTimer_(io_s),
         MESSAGE_EXPIRED_TIMEOUT(msgExpTimeout),
-        queueTraits_(queueWarn, queueWarnLog, queueDrop, queueFullTimeStamp)
+        queueTraits_(queueWarn, queueWarnLog, queueDrop, queueFullTimeStamp),
+        statsTimer_ { io_s }
     {
         init(workerSockName, signalSockName);
     }
@@ -326,15 +567,14 @@ public:
         protocol_(io_s, headType, addr, port, *this, certificateFileName, privateKeyFileName, dhParamsFileName),
         idle_(),
         waitMsgMap_(),
-        msgQueue_(),
-        lastWriteTime_(std::chrono::steady_clock::now()),
-        waitTime_(0),
+        msgQueue_ { { } },
         attemptAcceptWorkerCount_(ATTEMPT_ACCEPT_WORKER_COUNT),
         attemptAcceptSignalCount_(ATTEMPT_ACCEPT_SIGNAL_COUNT),
         control_(new ServerFramework::ControlPipeEvent()),
         queueTimer_(io_s),
         MESSAGE_EXPIRED_TIMEOUT(msgExpTimeout),
-        queueTraits_(queueWarn, queueWarnLog, queueDrop, queueFullTimeStamp)
+        queueTraits_(queueWarn, queueWarnLog, queueDrop, queueFullTimeStamp),
+        statsTimer_ { io_s }
     {
         init(workerSockName, signalSockName);
     }
@@ -358,15 +598,14 @@ public:
         protocol_(io_s, clientSockName, *this),
         idle_(),
         waitMsgMap_(),
-        msgQueue_(),
-        lastWriteTime_(std::chrono::steady_clock::now()),
-        waitTime_(0),
+        msgQueue_ { { } },
         attemptAcceptWorkerCount_(ATTEMPT_ACCEPT_WORKER_COUNT),
         attemptAcceptSignalCount_(ATTEMPT_ACCEPT_SIGNAL_COUNT),
         control_(new ServerFramework::ControlPipeEvent()),
         queueTimer_(io_s),
         MESSAGE_EXPIRED_TIMEOUT(msgExpTimeout),
-        queueTraits_(queueWarn, queueWarnLog, queueDrop, queueFullTimeStamp)
+        queueTraits_(queueWarn, queueWarnLog, queueDrop, queueFullTimeStamp),
+        statsTimer_ { io_s }
     {
         init(workerSockName, signalSockName);
     }
@@ -397,8 +636,6 @@ public:
 
 private:
     void init(const char* workerSockName, const char* signalSockName);
-
-    uint32_t msgWaitTime();
 
     void workerAsyncAccept();
 
@@ -460,6 +697,8 @@ private:
 
     void handleQueueTimerExpire(const boost::system::error_code& e);
 
+    void handleStatsTimerExpired(const boost::system::error_code& e);
+
 private:
     static const int ATTEMPT_ACCEPT_WORKER_COUNT = 7;
     static const int ATTEMPT_ACCEPT_SIGNAL_COUNT = 7;
@@ -473,9 +712,7 @@ private:
     T protocol_;
     WorkerList idle_;
     WaitMsgStorage waitMsgMap_;
-    MessageQueue msgQueue_;
-    std::chrono::steady_clock::time_point lastWriteTime_;
-    std::chrono::steady_clock::duration waitTime_;
+    MessageQueue< T > msgQueue_;
     int attemptAcceptWorkerCount_;
     int attemptAcceptSignalCount_;
     std::unique_ptr<ServerFramework::ControlPipeEvent> control_;
@@ -494,6 +731,7 @@ private:
         uint16_t drop_;
         bool fullTimestamp_;
     } queueTraits_;
+    boost::asio::deadline_timer statsTimer_;
 };
 //-----------------------------------------------------------------------
 template<typename T>
@@ -518,6 +756,8 @@ void Dispatcher<T>::init(const char* workerSockName, const char* signalSockName)
     queueTimer_.expires_from_now(boost::posix_time::seconds(MESSAGE_EXPIRED_TIMEOUT));
     queueTimer_.async_wait(boost::bind(&Dispatcher::handleQueueTimerExpire, this, boost::asio::placeholders::error));
 
+    handleStatsTimerExpired(boost::system::error_code { });
+
     control_->init();
 }
 //-----------------------------------------------------------------------
@@ -529,16 +769,6 @@ int Dispatcher<T>::run()
     ServerFramework::Run();
 
     return 0;
-}
-//-----------------------------------------------------------------------
-template<typename T>
-uint32_t Dispatcher<T>::msgWaitTime()
-{
-    using duration = std::chrono::duration<int64_t, std::ratio<1, 64> >;
-
-    return msgQueue_.size()
-        ? std::chrono::duration_cast<duration>(waitTime_).count()
-        : 0;
 }
 //-----------------------------------------------------------------------
 template<typename T>
@@ -585,7 +815,8 @@ void Dispatcher<T>::workerAsyncWrite(const WorkerConnectionPtr& conn)
 
         return;
     }
-    std::shared_ptr<WorkerMsg<typename T::KeyType> > msg = msgQueue_.front();
+
+    std::shared_ptr< WorkerMsg< typename T::KeyType > > msg = msgQueue_.front();
 
     boost::asio::async_write(conn->socket(),
             msg->requestToBuffers(),
@@ -596,7 +827,6 @@ void Dispatcher<T>::workerAsyncWrite(const WorkerConnectionPtr& conn)
                 boost::asio::placeholders::error
             )
     );
-    msgQueue_.pop_front();
 }
 //-----------------------------------------------------------------------
 template<typename T>
@@ -607,7 +837,6 @@ void Dispatcher<T>::handleWorkerAsyncWrite(const WorkerConnectionPtr& conn,
     LogTrace(TRACE5) << __FUNCTION__ << ": " << conn->socket().native_handle();
 
     if (!e) {
-        write_set_flag_type(0, 1, QUEPOT_LEVB, nullptr);
         boost::asio::async_read(conn->socket(),
                 msg->answerSizeToBuffers(),
                 boost::bind(&Dispatcher::handleWorkerReadSize,
@@ -618,11 +847,10 @@ void Dispatcher<T>::handleWorkerAsyncWrite(const WorkerConnectionPtr& conn,
                 )
         );
 
-        auto now = std::chrono::steady_clock::now();
-        waitTime_ = now - lastWriteTime_;
-        lastWriteTime_ = now;
+        msgQueue_.updateWaitTime();
     } else {
-        msgQueue_.emplace_front(msg);
+        msg->increaseLimit();
+        msgQueue_.pushFront(msg);
         LogTrace(TRACE0) << __FUNCTION__ << ": error  on " << conn->socket().native_handle() << ": ( " << e << ") - " << e.message();
         workerAsyncWriteNextMessage();
     }
@@ -660,6 +888,8 @@ void Dispatcher<T>::handleWorkerReadAnswer(
     LogTrace(TRACE5) << __FUNCTION__ << ": " << conn->socket().native_handle();
 
     if (!e) {
+        msg->increaseLimit();
+
         //protocol_.answeringNow(...) должна вернуть значение таймаута, в течение которого нужно ждать
         //сигнала с тем же MsgId, что и у msg. Если возвращаемое значение равно нулю,
         //то это означает, что ответ готов  и ждать не нужно
@@ -678,7 +908,7 @@ void Dispatcher<T>::handleWorkerReadAnswer(
             workerAsyncWrite(conn);
         } else {
             protocol_.sendAnswer(msg->balancerId(), msg->clientConnectionId(), msg->answerHeader(),
-                                 msg->answerData(), msgQueue_.size(), msgWaitTime());
+                                 msg->answerData(), msgQueue_.masterQueueSize(), msgQueue_.msgWaitTime());
             workerAsyncWrite(conn);
         }
     } else {
@@ -839,7 +1069,7 @@ bool Dispatcher<T>::handleSignal(const std::vector<uint8_t>& signal, const struc
         protocol_.makeSignalSendable(signal, msg.requestHeader(), msg.requestData());
         msg.requestResetSize();
         msg.recall(true);
-        msgQueue_.emplace_front(i->second.first);
+        msgQueue_.pushFront(i->second.first);
         waitMsgMap_.erase(i);
         workerAsyncWriteNextMessage();
 
@@ -848,7 +1078,7 @@ bool Dispatcher<T>::handleSignal(const std::vector<uint8_t>& signal, const struc
         const uint32_t* d = reinterpret_cast<const uint32_t*>(signal.data());
 
         LogTrace(TRACE5) << __FUNCTION__
-            << " : couldn't find matching for { " 
+            << " : couldn't find matching for { "
             << d[1] << ' ' << d[2] << ' ' << d[3]
             << " }";
 
@@ -862,17 +1092,17 @@ void Dispatcher<T>::workerAsyncWriteNextMessage()
     //Если сообщений больше чем обработчиков, то отправить все сообщения сейчас не удастся,
     //аналогично, если обработчиков больше чем сообщений, то найти для всех "работу" не получится,
     //часть останется ожидать
-    size_t maybeSend = std::min(msgQueue_.size(), idle_.size());
+    size_t maybeSent = std::min(msgQueue_.size(), idle_.size());
 
     LogTrace(TRACE5) << __FUNCTION__;
 
-    if (!maybeSend) {
+    if (!maybeSent) {
         LogTrace(TRACE5) << "Wait messages in queue: " << msgQueue_.size() << ", idling handlers: " << idle_.size();
 
         return;
     }
 
-    for(WorkerList::iterator i = idle_.begin(); maybeSend--; i = idle_.erase(i)) {
+    for(WorkerList::iterator i = idle_.begin(); maybeSent--; i = idle_.erase(i)) {
         workerAsyncWrite(*i);
     }
 }
@@ -928,10 +1158,15 @@ void Dispatcher<T>::takeRequest(
 {
     LogTrace(TRACE5) << __FUNCTION__ << ": " << clientConnectionId;
 
-    if ((queueTraits_.warn_ < msgQueue_.size()) && (msgQueue_.size() < queueTraits_.warnLog_)) {
-        write_set_queue_size(msgQueue_.size(),queueTraits_.drop_, 0);
-    } else if (queueTraits_.warnLog_ <= msgQueue_.size()){
-        write_set_queue_size(msgQueue_.size(),queueTraits_.drop_,1);
+    const uint32_t limitKey { protocol_.limitKeyFromHeader(head) };
+    const size_t queueSize { msgQueue_.size(limitKey) };
+
+    msgQueue_.incStats(limitKey);
+
+    if ((queueTraits_.warn_ < queueSize) && (queueSize < queueTraits_.warnLog_)) {
+        write_set_queue_size(queueSize, queueTraits_.drop_, 0);
+    } else if (queueTraits_.warnLog_ <= queueSize){
+        write_set_queue_size(queueSize, queueTraits_.drop_, 1);
 
         if (queueTraits_.fullTimestamp_) try {
             static std::ofstream file("que_full_timestamp.txt", std::ios::out|std::ios::app);
@@ -941,30 +1176,32 @@ void Dispatcher<T>::takeRequest(
             LogError(STDLOG) << "cannot work with QUEUE_FULL_TIMESTAMP_FILE";
         }
 
-        if (queueTraits_.drop_ < msgQueue_.size()) {
+        if (queueTraits_.drop_ < queueSize) {
             if (WHAT_DROP_IF_QUEUE_FULL::BACK == whatDropIfQueueFull) {
-                protocol_.queueOverflow(balancerId, clientConnectionId, head, data, msgQueue_.size(), msgWaitTime());
+                protocol_.queueOverflow(balancerId, clientConnectionId, head, data, msgQueue_.masterQueueSize(), msgQueue_.msgWaitTime());
 
                 return;
             } else {
+                std::shared_ptr< WorkerMsg< typename T::KeyType > > msg { msgQueue_.front(limitKey) };
+                if (!msg) {
+                    protocol_.queueOverflow(balancerId, clientConnectionId, head, data, msgQueue_.masterQueueSize(), msgQueue_.msgWaitTime());
+
+                    return;
+                }
+
                 protocol_.queueOverflow(
-                        balancerId,
-                        msgQueue_.front()->clientConnectionId(),
-                        msgQueue_.front()->requestHeader(),
-                        msgQueue_.front()->requestData(),
-                        msgQueue_.size(),
-                        msgWaitTime()
+                        msg->balancerId(),
+                        msg->clientConnectionId(),
+                        msg->requestHeader(),
+                        msg->requestData(),
+                        msgQueue_.masterQueueSize(),
+                        msgQueue_.msgWaitTime()
                 );
-                msgQueue_.pop_front();
             }
         }
     }
 
-    if (msgQueue_.empty()) {
-        lastWriteTime_ = std::chrono::steady_clock::now();
-    }
-
-    msgQueue_.emplace_back(std::make_shared<WorkerMsg<typename T::KeyType> >(balancerId, clientConnectionId, head, data));
+    msgQueue_.pushBack(balancerId, clientConnectionId, limitKey, head, data);
     workerAsyncWriteNextMessage();
 }
 //-----------------------------------------------------------------------
@@ -981,7 +1218,7 @@ void Dispatcher<T>::waitMessageTimerExpire(std::weak_ptr<WorkerMsg<typename T::K
     } else if (std::shared_ptr<WorkerMsg<typename T::KeyType> > msg = w.lock()) {
         waitMsgMap_.erase(protocol_.msgIdFromHeader(msg->requestHeader()));
         protocol_.sendAnswer(msg->balancerId(), msg->clientConnectionId(), msg->answerHeader(),
-                             msg->answerData(), msgQueue_.size(), msgWaitTime());
+                             msg->answerData(), msgQueue_.masterQueueSize(), msgQueue_.msgWaitTime());
     }
 }
 //-----------------------------------------------------------------------
@@ -990,24 +1227,39 @@ void Dispatcher<T>::handleQueueTimerExpire(const boost::system::error_code& e)
 {
     if (!e) {
         const std::time_t expiredTime = std::time(0) - MESSAGE_EXPIRED_TIMEOUT;
-        typename MessageQueue::iterator tmp;
-        for (typename MessageQueue::iterator i = msgQueue_.begin(); i != msgQueue_.end(); ) {
-            if (!(*i)->recall() && ((*i)->createTime() < expiredTime)) {
-                protocol_.timeoutExpired((*i)->balancerId(), (*i)->clientConnectionId(), (*i)->requestHeader(),
-                                         (*i)->requestData(), msgQueue_.size(), msgWaitTime());
-                tmp = i;
-                ++i;
-                msgQueue_.erase(tmp);
-            } else {
-                ++i;
-            }
-        }
+
+        auto f { [ this ](const std::shared_ptr< WorkerMsg< typename T::KeyType > >& msg, const size_t queueSize, const uint32_t waitTime) {
+                     protocol_.timeoutExpired(msg->balancerId(), msg->clientConnectionId(),
+                                              msg->requestHeader(), msg->requestData(),
+                                              queueSize, waitTime);
+                 }
+        };
+
+        msgQueue_.removeExpiredMessages(expiredTime, f);
+
         queueTimer_.expires_from_now(boost::posix_time::seconds(1));
         queueTimer_.async_wait(boost::bind(&Dispatcher::handleQueueTimerExpire, this, boost::asio::placeholders::error));
     } else {
         LogError(STDLOG) << __FUNCTION__ << " (" << e << "): " << e.message();
     }
 }
+//-----------------------------------------------------------------------
+template<typename T>
+void Dispatcher<T>::handleStatsTimerExpired(const boost::system::error_code& e)
+{
+    if (!e) {
+        msgQueue_.publishStats();
+    } else if (boost::asio::error::operation_aborted == e) {
+        LogTrace(TRACE0) << __FUNCTION__ << " (" << e << "): " << e.message();
+        return;
+    } else {
+        LogError(STDLOG) << __FUNCTION__ << " (" << e << "): " << e.message();
+    }
+
+    statsTimer_.expires_from_now(boost::posix_time::seconds { 1 });
+    statsTimer_.async_wait(boost::bind(&Dispatcher::handleStatsTimerExpired, this, boost::asio::placeholders::error));
+}
+
 //-----------------------------------------------------------------------
 class Worker
 {

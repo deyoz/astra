@@ -25,6 +25,7 @@ struct ATcpParams : public Aparams
 {
     size_t max_connections;
     std::pair<std::string, uint16_t> balancerAddr;
+    std::vector< std::pair< uint32_t, size_t > > limits;
 };
 
 int proc_ab_tcp_impl(int control_pipe, const ATcpParams& p);

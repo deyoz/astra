@@ -17,6 +17,12 @@ set grp2_Inet(HEADTYPE) 2
 set grp2_Inet(APORT) 8001
 set grp2_Inet(MAX_CONNECTIONS) 5
 
+set grp3_Jxt(BIN) $SOCKDIR/sirena-BIN3
+set grp3_Jxt(SIGNAL) $SOCKDIR/sirena-BSIG3
+set grp3_Jxt(HEADTYPE) 3
+set grp3_Jxt(REDISPLAY) 1 ;#any value is equivalent to 1 !!! Don't set to 0 or NO
+set grp3_Jxt(APORT) 8002
+
 set grp4_Fcgi(BIN) $SOCKDIR/sirena-BIN4
 set grp4_Fcgi(SIGNAL) $SOCKDIR/sirena-BSIG4
 set grp4_Fcgi(HEADTYPE) 4
@@ -52,6 +58,11 @@ set loginet(SOCKET_SHM) $SOCKDIR/loginet-socket-shm
 set loginet(FILE) internet.log
 set loginet(LEVEL) 19
 
+set logjxt(SOCKET) $SOCKDIR/logjxt-socket
+set logjxt(SOCKET_SHM) $SOCKDIR/logjxt-socket-shm
+set logjxt(FILE) jxt.log
+set logjxt(LEVEL) 19
+
 set logtlg(SOCKET) $SOCKDIR/logtlg-socket
 set logtlg(SOCKET_SHM) $SOCKDIR/logtlg-socket-shm
 set logtlg(FILE) airimp.log
@@ -66,7 +77,7 @@ set MONITOR_LOG monitor.log
 set MONITOR_PORT_FILE "./monitor.port"
 set SSL_CERTIFICATE "certificate.pem"
 set SSL_PRIVATE_KEY "private.key.pem"
-set DIFFIE_HELLMAN_PARAMS "dh1024.pem"
+set DIFFIE_HELLMAN_PARAMS "dh4096.pem"
 set HTTPSRV_CMD $SOCKDIR/.httpsrv_cmd
 
 if { ! [ info exists ::monitor1(TCP_PORT) ] } {

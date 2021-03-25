@@ -68,11 +68,20 @@ void monitor_working_zapr_type(int cnt, int type_zapr)
     return;
 }
 
+void monitor_idle_zapr_type(int cnt, int type_zapr, const char* const subgroup)
+{
+    write_set_flag_type(0, cnt, type_zapr, subgroup);
+    working = 0;
+}
+
 void monitor_idle_zapr_type(int cnt, int type_zapr)
 {
-    write_set_flag_type(0, cnt, type_zapr, nullptr);
-    working = 0;
-    return;
+    monitor_idle_zapr_type(cnt, type_zapr, nullptr);
+}
+
+void monitor_idle_zapr(int cnt, const char* const subgroup)
+{
+    monitor_idle_zapr_type(cnt, QUEPOT_ZAPR, subgroup);
 }
 
 void monitor_idle_zapr(int cnt)

@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
 #include <cstring>
+#include <unordered_set>
 #include "tcl_utils.h"
 #include "query_runner.h"
 #include "msg_framework.h"
@@ -32,6 +33,8 @@
 #include "helpcpp.h"
 #include "dates_io.h"
 #include "xml_stuff.h"
+#include "tcl_list_utils.h"
+#include "algo.h"
 
 #define NICKNAME "KONST"
 #include "slogger.h"
@@ -49,6 +52,8 @@ int main_balancer_clients_stats(int supervisorSocket, int argc, char* argv[]);
 size_t getGrp2ParamsByte() {  return GRP2_PARAMS_BYTE;  }
 
 size_t getGrp3ParamsByte() {  return GRP3_PARAMS_BYTE;  }
+
+size_t getGrp3LimitKeyByte() { return GRP3_LIMIT_KEY_BYTE; }
 
 size_t getParamsByteByGrp(int grp)
 {
@@ -377,6 +382,50 @@ void ServerFramework::http_main_for_test(std::string const &in, std::string &out
 }
 #endif /* XP_TESTING */
 
+Tcl_Obj* obj_tcl_arg(Tcl_Interp* interp, Tcl_Obj* grp, const char* name, bool throw_if_notf)
+{
+    if(Tcl_Obj* ptr = Tcl_ObjGetVar2(interp, grp, Tcl_NewStringObj(name,-1), TCL_GLOBAL_ONLY|TCL_LEAVE_ERR_MSG))
+        return ptr;
+    else if(throw_if_notf)
+        throw std::runtime_error(Tcl_GetString(Tcl_GetObjResult(interp)));
+    else
+        return 0;
+}
+
+template< typename F,
+          typename S,
+          typename = std::enable_if_t< std::is_integral< F >::value >,
+          typename = std::enable_if_t< std::is_integral< S >::value > >
+std::vector< std::pair< F, S > > list_of_pair_tcl_arg(Tcl_Interp* const interp, Tcl_Obj* const grp,
+                                                      const char* const name, const std::vector< std::pair< F, S > >* const nvl)
+{
+    if (Tcl_Obj* obj = obj_tcl_arg(interp, grp, name, nullptr == nvl)) {
+        return tcl_utils::readListFromTcl< std::pair< F, S > >(obj);
+    }
+
+    return *nvl;
+}
+
+static std::vector< std::pair< uint32_t, size_t > > worker_limits(Tcl_Interp* const interp, Tcl_Obj* const grp)
+{
+    static const std::vector< std::pair< uint32_t, size_t > > limits { };
+
+    return list_of_pair_tcl_arg< uint32_t, size_t >(interp, grp, "WORKER_LIMITS", &limits);
+}
+
+static uint32_t normalized_limit_key(const uint32_t original)
+{
+    static const auto keys {
+        algo::transform< std::unordered_set< uint32_t > >(worker_limits(getTclInterpretator(), current_group()),
+                                                          [](const auto& v) {
+                                                              return v.first;
+                                                          }
+        )
+    };
+
+    return keys.count(original) ? original : 0;
+}
+
 void levC_compose(const char *head, size_t hlen, const std::vector<uint8_t>& body, std::vector<uint8_t>& a_head, std::vector<uint8_t>& a_body)
 {
   ProgTrace(TRACE7,"levC_compose(hlen=%zu, blen=%zu)",hlen,body.size());
@@ -418,6 +467,8 @@ void levC_compose(const char *head, size_t hlen, const std::vector<uint8_t>& bod
 
   memcpy(msgid_,head+LEVBDATAOFF,12);
   ProgTrace(TRACE7,"hdr=%i { %u %u %u } ",hdr,msgid_[0],msgid_[1],msgid_[2]);
+
+  std::string subgroup { };
 
   // TODO make *_proc have a signature as fcgi does
   switch(hdr)
@@ -487,6 +538,8 @@ void levC_compose(const char *head, size_t hlen, const std::vector<uint8_t>& bod
       }
       case 3: // XML_TERMINAL
           {
+              subgroup = std::to_string(normalized_limit_key(head[ 1 + getGrp3LimitKeyByte() ]));
+
               char* res = 0;
               int newlen = applicationCallbacks()->jxt_proc(reinterpret_cast<const char*>(body.data()),body.size(),head,hlen,&res,0);
               if(newlen<=0)
@@ -538,7 +591,7 @@ void levC_compose(const char *head, size_t hlen, const std::vector<uint8_t>& bod
 
   applicationCallbacks()->message_control(1, reinterpret_cast<const char*>(a_head.data()), a_head.size(),
                                              reinterpret_cast<const char*>(a_body.data()), a_body.size());
-  monitor_idle_zapr(1);
+  monitor_idle_zapr(1, subgroup.empty() ? nullptr : subgroup.c_str());
 }
 
 namespace ServerFramework {
@@ -910,16 +963,6 @@ size_t ApplicationCallbacks::form_crypt_error(char* res, size_t res_len, const c
 
 //-----------------------------------------------------------------------
 
-Tcl_Obj* obj_tcl_arg(Tcl_Interp* interp, Tcl_Obj* grp, const char* name, bool throw_if_notf)
-{
-    if(Tcl_Obj* ptr = Tcl_ObjGetVar2(interp, grp, Tcl_NewStringObj(name,-1), TCL_GLOBAL_ONLY|TCL_LEAVE_ERR_MSG))
-        return ptr;
-    else if(throw_if_notf)
-        throw std::runtime_error(Tcl_GetString(Tcl_GetObjResult(interp)));
-    else
-        return 0;
-}
-
 const char* str_tcl_arg(Tcl_Interp* interp, Tcl_Obj* grp, const char* name, const char* nvl)
 {
     if(Tcl_Obj* obj = obj_tcl_arg(interp, grp, name, nvl==NULL))
@@ -1045,6 +1088,7 @@ static ATcpParams atcp_tcl_params(Tcl_Interp* interp, Tcl_Obj* grp)
     p.max_connections     = int_tcl_arg(interp, grp, "MAX_CONNECTIONS", "0");
     p.balancerAddr.first  = str_tcl_arg(interp, grp, "BALANCER_IP_ADDRESS", "0.0.0.0");
     p.balancerAddr.second = int_tcl_arg(interp, grp, "BALANCER_PORT", "0");
+    p.limits              = worker_limits(interp, grp);
 
     return p;
 }

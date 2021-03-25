@@ -76,6 +76,10 @@ public:
         return id;
     }
     //-----------------------------------------------------------------------
+    uint32_t limitKeyFromHeader(const std::vector<uint8_t>& head) {
+        return uint32_t { 0 };
+    }
+    //-----------------------------------------------------------------------
     void makeSignalSendable(const std::vector<uint8_t>& signal,
             std::vector<uint8_t>& ansHead, std::vector<uint8_t>& ansData) {
         blev_->make_signal_sendable(signal, ansHead, ansData);
@@ -164,6 +168,10 @@ public:
         static const ServerFramework::MsgId id;
 
         return id;
+    }
+    //-----------------------------------------------------------------------
+    uint32_t limitKeyFromHeader(const std::vector<uint8_t>& head) {
+        return uint32_t { 0 };
     }
     //-----------------------------------------------------------------------
     void makeSignalSendable(const std::vector<uint8_t>& signal,

@@ -1,4 +1,3 @@
-
 #include <arpa/inet.h>
 #include <time.h>
 
@@ -17,6 +16,11 @@ namespace Dispatcher {
 #define NICKNAME "MIXA"
 #include "slogger.h"
 
+//-----------------------------------------------------------------------
+bool operator==(const LimitDesc& lhs, const LimitDesc& rhs)
+{
+    return lhs.key == rhs.key;
+}
 //-----------------------------------------------------------------------
 template<typename K>
 const std::vector<boost::asio::const_buffers_1>& WorkerMsg<K>::requestToBuffers()
@@ -199,7 +203,8 @@ int proc_ab_tcp_impl(int control, const ATcpParams& p)
             p.queue.drop,
             p.queue.full_timestamp,
             p.max_connections,
-            p.msg_expired_timeout
+            p.msg_expired_timeout,
+            p.limits
     );
 
     return dispatcher.run();

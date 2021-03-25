@@ -13,6 +13,7 @@
 #include "exception.h"
 #include "tcl_utils.h"
 #include "str_utils.h"
+#include "tcl_list_utils.h"
 
 #define NICKNAME "KONST"
 #include "slogger.h"
@@ -277,3 +278,12 @@ void setTclVar(const string& varname, const string& value, const char* encoding)
     Tcl_SetVar(getTclInterpretator(), varname.c_str(), Tcl_DStringValue(&s), TCL_GLOBAL_ONLY);
     Tcl_DStringFree(&s);
 }
+
+namespace tcl_utils {
+
+std::vector<std::string> readListOfStringsFromTcl(const std::string& varname)
+{
+    return tcl_utils::readListFromTcl<std::string>(varname);
+}
+
+} // namespace tcl_utils

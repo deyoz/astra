@@ -479,6 +479,10 @@ public:
         return blev_->message_id(head.data());
     }
     //-----------------------------------------------------------------------
+    uint32_t limitKeyFromHeader(const std::vector< uint8_t >& head) {
+        return blev_->limit_key(head.data() + 1, head.size() - 1);
+    }
+    //-----------------------------------------------------------------------
     bool validateMsgSize(const uint32_t l) {
         return !(l < blev_->hlen());
     }
@@ -1027,6 +1031,8 @@ public:
     //-----------------------------------------------------------------------
     const ServerFramework::MsgId& msgIdFromHeader(const std::vector<uint8_t>& head);
     //-----------------------------------------------------------------------
+    uint32_t limitKeyFromHeader(const std::vector<uint8_t>& head);
+    //-----------------------------------------------------------------------
     void makeSignalSendable(const std::vector<uint8_t>& signal,
             std::vector<uint8_t>& ansHead, std::vector<uint8_t>& ansData);
     //-----------------------------------------------------------------------
@@ -1237,6 +1243,12 @@ const ServerFramework::MsgId& BaseHttpFrontend<T, D>::msgIdFromHeader(const std:
     memcpy(id.b, head.data() + 1, sizeof(id.b));
 
     return id;
+}
+//-----------------------------------------------------------------------
+template<typename T, typename D>
+uint32_t BaseHttpFrontend< T, D >::limitKeyFromHeader(const std::vector<uint8_t>& head)
+{
+    return uint32_t { 0 };
 }
 //-----------------------------------------------------------------------
 template<typename T, typename D>
