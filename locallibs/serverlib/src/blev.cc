@@ -379,7 +379,7 @@ uint32_t B3Lev::limit_key(const uint8_t* const h, const size_t hs) const
         return BLev::limit_key(h, hs);
     }
 
-    return h[ GRP3_LIMIT_KEY_BYTE ];
+    return ntohl(h[ GRP3_LIMIT_KEY_BYTE ]);
 }
 
 //-----------------------------------------------------------------------
