@@ -103,6 +103,7 @@ const
                          {"TYPEB_LCI_SEAT_RESTRICT", etTypeBOptionValue},
                          {"TYPEB_LCI_WEIGHT_AVAIL",  etTypeBOptionValue},
                          {"TYPEB_LDM_VERSION",       etTypeBOptionValue},
+                         {"TYPEB_LDM_CFG",           etTypeBOptionValue},
                          {"TYPEB_PRL_CREATE_POINT",  etTypeBOptionValue},
                          {"TYPEB_PRL_PAX_STATE",     etTypeBOptionValue},
                          {"TYPEB_TRANSPORTS_OTHERS", etMsgTransport},
