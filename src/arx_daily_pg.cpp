@@ -251,7 +251,7 @@ namespace salons {
 std::string get_seat_no(const PaxId_t& pax_id, int seats, int is_jmp, std::string status, const PointId_t& point_id,
                         std::string fmt, int row = 1, int only_lat = 0)
 {
-    LogTrace5 << " pax_id: " << pax_id << " seats: " << seats << " is_jmpg: " << is_jmp << " status: "
+    LogTrace5 << __func__<< " pax_id: " << pax_id << " seats: " << seats << " is_jmpg: " << is_jmp << " status: "
               << status << " point_id: " << point_id << " fmt: " << fmt;
     char result[50] = {};
     short null = -1, nnull = 0; //-1 - NULL , 0 - value
@@ -259,7 +259,8 @@ std::string get_seat_no(const PaxId_t& pax_id, int seats, int is_jmp, std::strin
                 "BEGIN \n"
                 "   :result := salons.get_seat_no(:pax_id, :seats, :is_jmp, :status, :point_id, :fmt, :rownum, :only_lat); \n"
                 "END;");
-    cur.bind(":pax_id", pax_id )
+    cur.autoNull()
+       .bind(":pax_id", pax_id.get() )
        .bind(":seats", seats)
        .bind(":is_jmp", is_jmp)
        .bind(":status", status, status.empty() ? &null : &nnull)
@@ -1665,6 +1666,7 @@ void arx_pay_services(const GrpId_t& grp_id, const Dates::DateTime_t & part_key)
 void arx_pax(const std::vector<dbo::PAX>& paxes, const GrpId_t& grp_id,  const PointId_t& point_id,
              const Dates::DateTime_t & part_key)
 {
+    LogTrace5 << __func__ << " grp_id: " << grp_id << " point_id: " << point_id << " part_key: " << part_key;
     dbo::Session session;
     for(const auto &cs : paxes) {
         std::string seat_no = salons::get_seat_no(PaxId_t(cs.pax_id), cs.seats, cs.is_jmp, "", point_id, "one" );
@@ -3066,7 +3068,6 @@ bool cmpTlgQueue(const int tlg_num, const char* withSender, const char* withType
             && withType == type
             && withStatus == status;
 }
-
 
 START_TEST(check_getTlgText)
 {
