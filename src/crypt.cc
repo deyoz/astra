@@ -1002,7 +1002,6 @@ void CreatePSE( const string &desk, bool pr_grp, int password_len, TPKCS &pkcs )
   try {
     string file_key = PSEpath + "/pkey.key";
     string file_req = PSEpath + "/request.req";
-    GetError( "SetNewKeysAlgorithm", MESPRO_API::SetNewKeysAlgorithm( (char*)MESPRO_API::GetAlgo( req.Algo ).c_str() ) );
     GetError( "SetNewKeysAlgorithm", MESPRO_API::SetNewKeysAlgorithm( req.Algo.empty()?(char*)MP_KEY_ALG_NAME_ECR3410:(char*)MESPRO_API::GetAlgo( req.Algo ).c_str() ) );
     GetError( "SetCertificateRequestFlags", MESPRO_API::SetCertificateRequestFlags( CERT_REQ_DONT_PRINT_TEXT ) );
     GetError( "SetCountry", MESPRO_API::SetCountry( CP866toUTF8Char( req.Country ) ) );
