@@ -149,5 +149,7 @@ class TSyncTlgOutMng {
 
 void deferOrExecuteFlightTask(const TTripTaskKey& task, int paxCount);
 
+void check_trip_tasks(const std::string& handler_id);
+
 #endif
 

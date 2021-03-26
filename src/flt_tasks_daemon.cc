@@ -30,8 +30,6 @@ static int WAIT_INTERVAL()       //миллисекунды
   return VAR;
 }
 
-static void check_trip_tasks(const std::string& handler_id);
-
 int main_flight_tasks_tcl( int supervisorSocket, int argc, char *argv[] )
 {
   try
@@ -68,7 +66,7 @@ int main_flight_tasks_tcl( int supervisorSocket, int argc, char *argv[] )
   return 0;
 }
 
-static void check_trip_tasks(const std::string& handler_id)
+void check_trip_tasks(const std::string& handler_id)
 {
     LogTrace(TRACE5) << "check_trip_tasks started, handler_id=" << handler_id;
     TDateTime nowUTC=NowUTC();
@@ -140,7 +138,7 @@ static void check_trip_tasks(const std::string& handler_id)
             if(iTask == TTripTasks::Instance()->items.end())
               throw EXCEPTIONS::Exception("task %s not found", task.name.c_str());
 
-            if (last_exec==ASTRA::NoExists || last_exec<next_exec)
+            if (last_exec==ASTRA::NoExists || last_exec<=next_exec)
             {
               ProgTrace(TRACE5, "%s: task started (%s)",
                         __FUNCTION__, task.traceStr().c_str());

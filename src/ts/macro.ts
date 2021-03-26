@@ -9,9 +9,8 @@ $(defmacro login
    <query handle='0' id='MainDCS' ver='1' opr='' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
      <UserLogon>
        <term_version>201509-0173355</term_version>
-       <userr>PIKE</userr>
-       <passwd>PIKE</passwd>
-       <airlines/>
+       <userr>$(user)</userr>
+       <passwd>$(passwd)</passwd>
        <devices/>
        <command_line_params>
          <param>RESTART</param>
@@ -25,29 +24,16 @@ $(defmacro login
 
 #########################################################################################
 
-$(defmacro login2
+$(defmacro logoff
   user=PIKE
-  passwd=PIKE
 {
 {<?xml version='1.0' encoding='CP866'?>
 <term>
-  <query handle='0' id='MainDCS' ver='1' opr='' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-    <UserLogon>
-      <term_version>201509-0173355</term_version>
-      <lang dictionary_lang='RU' dictionary_checksum='622046546'>RU</lang>
-      <userr>PIKE</userr>
-      <passwd>PIKE</passwd>
-      <airlines/>
-      <devices/>
-      <command_line_params>
-        <param>RESTART</param>
-        <param>NOCUTE</param>
-        <param>LANGRU</param>
-      </command_line_params>
-    </UserLogon>
+  <query handle='0' id='MainDCS' ver='1' opr='$(user)' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <UserLogoff/>
   </query>
 </term>}
-}) #end-of-defmacro login2
+}) #end-of-defmacro logoff
 
 #########################################################################################
 
@@ -3634,3 +3620,5 @@ $(defmacro MESSAGE_TAG
       <message lexema_id='$(lexema_id)' code='$(code)'>...</message>
     </command>}
 )
+
+
