@@ -1,4 +1,5 @@
 #include "et_request.h"
+#include "edi_tlg.h"
 #include "remote_system_context.h"
 
 #define NICKNAME "ANTON"
@@ -22,6 +23,10 @@ EtRequest::EtRequest(const EtRequestParams& params)
                      params.kickInfo(),
                      TKCREQ,
                      params.readSysCont())
-{}
+{
+    if(params.specBaseOurrefName()) {
+        dynamic_cast<AstraEdiSessWR*>(ediSess())->setBaseOurrefName(params.specBaseOurrefName().get());
+    }
+}
 
 }//namespace edifact

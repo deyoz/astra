@@ -48,11 +48,13 @@ EmdCosParams::EmdCosParams(const Ticketing::OrigOfRequest& org,
                            const edifact::KickInfo& kickInfo,
                            const std::string& airline,
                            const Ticketing::FlightNum_t& flNum,
+                           const boost::optional<std::string>& specBaseOurrefName,
                            const Ticketing::TicketNum_t& tickNum,
                            const Ticketing::CouponNum_t& cpnNum,
                            const Ticketing::CouponStatus& status,
                            const boost::optional<Ticketing::Itin>& itin)
-    : EmdRequestParams(org, ctxt, kickInfo, airline, flNum), m_globalItin(itin)
+    : EmdRequestParams(org, ctxt, kickInfo, airline, flNum, specBaseOurrefName),
+      m_globalItin(itin)
 {
     m_cosItems.push_back(EmdCosParams::EmdCOSItem(Ticketing::TicketCpn_t(tickNum, cpnNum),
                                                   status));
@@ -62,8 +64,9 @@ EmdCosParams::EmdCosParams(const Ticketing::OrigOfRequest& org,
                            const std::string& ctxt,
                            const edifact::KickInfo& kickInfo,
                            const std::string& airline,
-                           const Ticketing::FlightNum_t& flNum)
-    : EmdRequestParams(org, ctxt, kickInfo, airline, flNum)
+                           const Ticketing::FlightNum_t& flNum,
+                           const boost::optional<std::string>& specBaseOurrefName)
+    : EmdRequestParams(org, ctxt, kickInfo, airline, flNum, specBaseOurrefName)
 {
 }
 

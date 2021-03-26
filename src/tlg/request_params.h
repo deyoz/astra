@@ -91,21 +91,25 @@ class RequestParams: public edi_common_data
 {
     std::string m_airline;
     Ticketing::FlightNum_t m_flNum;
+    boost::optional<std::string> m_specBaseOurrefName;
 
 public:
     RequestParams(const Ticketing::OrigOfRequest& org,
                   const std::string& ctxt,
                   const edifact::KickInfo& kickInfo,
                   const std::string& airline,
-                  const Ticketing::FlightNum_t& flNum)
+                  const Ticketing::FlightNum_t& flNum,
+                  const boost::optional<std::string>& specBaseOurrefName = boost::none)
         : edi_common_data(org, ctxt, kickInfo),
-          m_airline(airline), m_flNum(flNum)
+          m_airline(airline), m_flNum(flNum),
+          m_specBaseOurrefName(specBaseOurrefName)
     {}
 
     virtual ~RequestParams() {}
 
-    const std::string& airline() const { return m_airline; }
-    const Ticketing::FlightNum_t& flightNum() const { return m_flNum; }
+    const std::string&                            airline() const { return m_airline; }
+    const Ticketing::FlightNum_t&               flightNum() const { return m_flNum; }
+    const boost::optional<std::string> specBaseOurrefName() const { return m_specBaseOurrefName; }
 
     virtual const Ticketing::RemoteSystemContext::SystemContext* readSysCont() const = 0;
 };

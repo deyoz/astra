@@ -12,8 +12,9 @@ public:
                      const std::string& ctxt,
                      const edifact::KickInfo &kickInfo,
                      const std::string& airline,
-                     const Ticketing::FlightNum_t& flNum)
-        : RequestParams(org, ctxt, kickInfo, airline, flNum)
+                     const Ticketing::FlightNum_t& flNum,
+                     const boost::optional<std::string>& specBaseOurrefName = boost::none)
+        : RequestParams(org, ctxt, kickInfo, airline, flNum, specBaseOurrefName)
     {}
 
     virtual ~EmdRequestParams() {}

@@ -2751,6 +2751,7 @@ bool EMDStatusInterface::EMDChangeStatus(const edifact::KickInfo &kickInfo,
                                         kickInfo,
                                         i->first.airline_oper,
                                         Ticketing::FlightNum_t(i->first.flt_no_oper),
+                                        boost::none,
                                         j->emd.ticket(),
                                         j->emd.cpn(),
                                         i->first.coupon_status);
@@ -3274,7 +3275,15 @@ void EMDStatusInterface::ChangeStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     OrigOfRequest org(airlineToXML(airline), *TReqInfo::Instance());
     edifact::KickInfo kickInfo=createKickInfo(ASTRA::NoExists, "EMDStatus");
 
-    edifact::EmdCosParams cosParams(org, "", kickInfo, airline, flNum, emdDocNum, emdCpnNum, emdCpnStatus);
+    edifact::EmdCosParams cosParams(org,
+                                    "",
+                                    kickInfo,
+                                    airline,
+                                    flNum,
+                                    boost::none,
+                                    emdDocNum,
+                                    emdCpnNum,
+                                    emdCpnStatus);
     edifact::EmdCosRequest ediReq(cosParams);
     //throw_if_request_dup("EMDStatusInterface::ChangeStatus");
     ediReq.sendTlg();
