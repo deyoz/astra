@@ -2822,12 +2822,99 @@ void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
   PaxLoadtoXML(datasetsNode, bag_info, paxRemCounters, total.bags);
 }
 
-void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePtr dataNode )
+struct SearchCrsResult
 {
-  bool pr_free_seating = SALONS2::isFreeSeating( point_id );
-  TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
-  TPaxSeats priorSeats( point_id );
-  bool apis_generation = TRouteAPICheckInfo(point_id).apis_generation();
+  std::string pnr_status;
+  std::string pnr_priority;
+  std::string full_name;
+  std::string pers_type;
+  std::string editable_cabin_class;
+  std::string cabin_class;
+  std::string cabin_subclass;
+  std::string orig_class;
+  std::string seat_xname;
+  std::string seat_yname;
+  int seats;
+  int bag_norm;
+  std::string bag_norm_unit;
+  std::string airp_arv;
+  std::string airp_arv_final;
+  std::string ticket;
+  PaxId_t pax_id;
+  int tid;
+  PnrId_t pnr_id;
+  PointIdTlg_t point_id_tlg;
+  std::string status;
+  int reg_no;
+  std::string refuse;
+  std::optional<GrpId_t> grp_id;
+  std::string grp_status;
+  std::string client_type;
+  int pax_seats;
+  std::string wl_type;
+  int is_jmp;
+  std::string crs_doc_no;
+  std::string crs_fqt_tier_level;
+  std::string apis;
+};
+
+std::vector<SearchCrsResult> fetchSearchCrsResults(TQuery& Qry, bool apis_generation,
+                                                   AllAPIAttrs& allAPIAttrs)
+{
+  std::vector<SearchCrsResult> result;
+  for(;!Qry.Eof;Qry.Next()) {
+    std::string apis;
+    if ( apis_generation )
+    {
+      const bool paxNotRefused=!Qry.FieldIsNULL("grp_id") && Qry.FieldIsNULL("refuse");
+      apis = allAPIAttrs.view(Qry, paxNotRefused);
+    }
+    SearchCrsResult data = {
+      Qry.FieldAsString("pnr_status"),
+      Qry.FieldAsString("pnr_priority"),
+      Qry.FieldAsString("full_name"),
+      Qry.FieldAsString("pers_type"),
+      Qry.FieldAsString("editable_cabin_class"),
+      Qry.FieldAsString("cabin_class"),
+      Qry.FieldAsString("cabin_subclass"),
+      Qry.FieldAsString("orig_class"),
+      Qry.FieldAsString("seat_xname"),
+      Qry.FieldAsString("seat_yname"),
+      Qry.FieldAsInteger("seats"),
+      Qry.FieldAsInteger("bag_norm"),
+      Qry.FieldAsString("bag_norm_unit"),
+      Qry.FieldAsString("airp_arv"),
+      Qry.FieldAsString("airp_arv_final"),
+      Qry.FieldAsString("ticket"),
+      PaxId_t(Qry.FieldAsInteger("pax_id")),
+      Qry.FieldAsInteger("tid"),
+      PnrId_t(Qry.FieldAsInteger("pnr_id")),
+      PointIdTlg_t(Qry.FieldAsInteger("point_id_tlg")),
+      Qry.FieldAsString("status"),
+      Qry.FieldAsInteger("reg_no"),
+      Qry.FieldAsString("refuse"),
+      Qry.FieldIsNULL("grp_id") ? std::nullopt : std::make_optional(GrpId_t(Qry.FieldAsInteger("grp_id"))),
+      Qry.FieldAsString("grp_status"),
+      Qry.FieldAsString("client_type"),
+      Qry.FieldAsInteger("pax_seats"),
+      Qry.FieldAsString("wl_type"),
+      Qry.FieldAsInteger("is_jmp"),
+      Qry.FieldAsString("crs_doc_no"),
+      Qry.FieldAsString("crs_fqt_tier_level"),
+      apis
+    };
+    result.push_back(data);
+  }
+  return result;
+}
+
+std::vector<SearchCrsResult> runSearchCrs(const PointId_t& point_id,
+                                          const boost::optional<PaxId_t>& paxId,
+                                          bool apis_generation,
+                                          AllAPIAttrs& allAPIAttrs)
+{
+  LogTrace(TRACE6) << __func__;
+  std::vector<SearchCrsResult> result;
 
   ostringstream sql;
 
@@ -2896,13 +2983,37 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
      "ORDER BY crs_pnr.point_id";
 
   TQuery Qry( &OraSession );
-  Qry.Clear();
   Qry.SQLText=sql.str().c_str();
-  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.CreateVariable( "point_id", otInteger, point_id.get() );
   Qry.CreateVariable( "ps_ok", otString, EncodePaxStatus(ASTRA::psCheckin) );
   Qry.CreateVariable( "ps_goshow", otString, EncodePaxStatus(ASTRA::psGoshow) );
   Qry.CreateVariable( "ps_transit", otString, EncodePaxStatus(ASTRA::psTransit) );
-  Qry.Execute();
+
+  const std::vector<CrsDisplaceData> items = CrsDisplaceData::load(point_id);
+  if (items.empty()) {
+    Qry.Execute();
+    return fetchSearchCrsResults(Qry, apis_generation, allAPIAttrs);
+  }
+  for (const CrsDisplaceData& item: items) {
+    Qry.SetVariable("point_id_tlg", item.point_id_tlg.get());
+    Qry.SetVariable("airp_arv_tlg", item.airp_arv_tlg);
+    Qry.SetVariable("class_tlg", item.class_tlg);
+    Qry.SetVariable("status", item.status);
+    Qry.Execute();
+    const std::vector<SearchCrsResult> data = fetchSearchCrsResults(Qry, apis_generation,
+                                                                    allAPIAttrs);
+    result.insert(result.end(), data.begin(), data.end());
+  }
+  return result;
+}
+
+void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePtr dataNode )
+{
+  bool pr_free_seating = SALONS2::isFreeSeating( point_id );
+  TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
+  TPaxSeats priorSeats( point_id );
+  bool apis_generation = TRouteAPICheckInfo(point_id).apis_generation();
+
   // места пассажира
   TQuery SQry( &OraSession );
   SQry.SQLText =
@@ -2938,8 +3049,14 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
   PointsQry.DeclareVariable("grp_id",otInteger);
 
   xmlNodePtr tripsNode = NewTextChild( dataNode, "tlg_trips" );
-  Qry.Execute();
-  if (Qry.Eof) return;
+  TTripInfo flt;
+  flt.getByPointId(point_id);
+  AllAPIAttrs allAPIAttrs(flt.scd_out);
+  const std::vector<SearchCrsResult> searchCrsResults = runSearchCrs(PointId_t(point_id), paxId,
+                                                                     apis_generation, allAPIAttrs);
+  if (searchCrsResults.empty()) {
+    return;
+  }
 
   string def_pers_type=EncodePerson(ASTRA::adult); //специально не перекодируем, так как идет подсчет по типам
   string def_class=ElemIdToCodeNative(etClass, EncodeClass(ASTRA::Y));
@@ -2994,58 +3111,23 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
   TRemGrp rem_grp;
   rem_grp.Load(retPNL_SEL, point_id);
 
-  TTripInfo flt;
-  flt.getByPointId(point_id);
-
   int point_id_tlg=-1;
   xmlNodePtr tripNode=NULL,paxNode=NULL,node=NULL;
-  int col_pnr_status=Qry.FieldIndex("pnr_status");
-  int col_pnr_priority=Qry.FieldIndex("pnr_priority");
-  int col_full_name=Qry.FieldIndex("full_name");
-  int col_pers_type=Qry.FieldIndex("pers_type");
-  int col_editable_cabin_class=Qry.FieldIndex("editable_cabin_class");
-  int col_cabin_class=Qry.FieldIndex("cabin_class");
-  int col_cabin_subclass=Qry.FieldIndex("cabin_subclass");
-  int col_orig_class=Qry.FieldIndex("orig_class");
-  int col_seat_xname=Qry.FieldIndex("seat_xname");
-  int col_seat_yname=Qry.FieldIndex("seat_yname");
-  int col_seats=Qry.FieldIndex("seats");
-  int col_bag_norm=Qry.FieldIndex("bag_norm");
-  int col_bag_norm_unit=Qry.FieldIndex("bag_norm_unit");
-  int col_airp_arv=Qry.FieldIndex("airp_arv");
-  int col_airp_arv_final=Qry.FieldIndex("airp_arv_final");
-  int col_ticket=Qry.FieldIndex("ticket");
-  int col_pax_id=Qry.FieldIndex("pax_id");
-  int col_tid=Qry.FieldIndex("tid");
-  int col_pnr_id=Qry.FieldIndex("pnr_id");
-  int col_point_id_tlg=Qry.FieldIndex("point_id_tlg");
-  int col_status=Qry.FieldIndex("status");
-  int col_reg_no=Qry.FieldIndex("reg_no");
-  int col_refuse=Qry.FieldIndex("refuse");
-  int col_grp_id=Qry.FieldIndex("grp_id");
-  int col_grp_status=Qry.FieldIndex("grp_status");
-  int col_client_type=Qry.FieldIndex("client_type");
-  int col_pax_seats=Qry.FieldIndex("pax_seats");
-  int col_wl_type=Qry.FieldIndex("wl_type");
-  int col_is_jmp=Qry.FieldIndex("is_jmp");
-  int col_crs_doc_no=Qry.FieldIndex("crs_doc_no");
-  int col_crs_fqt_tier_level=Qry.FieldIndex("crs_fqt_tier_level");
   int crs_row=1, pax_row=1;
   TBrands brands; //объявляем здесь, чтобы задействовать кэширование брендов
-  AllAPIAttrs allAPIAttrs(flt.scd_out);
   AstraLocale::OutputLang outputLang;
-  for(;!Qry.Eof;Qry.Next())
+  for(const SearchCrsResult& searchResult: searchCrsResults)
   {
-    if (!Qry.FieldIsNULL(col_grp_id))
+    if (searchResult.grp_id)
     {
-      PointsQry.SetVariable("grp_id",Qry.FieldAsInteger(col_grp_id));
+      PointsQry.SetVariable("grp_id",searchResult.grp_id->get());
       PointsQry.Execute();
       if (!PointsQry.Eof&&point_id!=PointsQry.FieldAsInteger("point_id")) continue;
     };
 
-    if (point_id_tlg!=Qry.FieldAsInteger(col_point_id_tlg))
+    if (point_id_tlg!=searchResult.point_id_tlg.get())
     {
-      point_id_tlg=Qry.FieldAsInteger(col_point_id_tlg);
+      point_id_tlg=searchResult.point_id_tlg.get();
       tripNode = NewTextChild( tripsNode, "tlg_trip" );
       TlgTripsQry.SetVariable("point_id",point_id_tlg);
       TlgTripsQry.Execute();
@@ -3061,54 +3143,54 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
     };
     node = NewTextChild(paxNode,"pax");
 
-    string pnr_addr=TPnrAddrs().firstAddrByPnrId(Qry.FieldAsInteger( col_pnr_id ), TPnrAddrInfo::AddrAndAirline);
+    string pnr_addr=TPnrAddrs().firstAddrByPnrId(searchResult.pnr_id.get(), TPnrAddrInfo::AddrAndAirline);
     NewTextChild( node, "pnr_ref", pnr_addr, "" );
-    NewTextChild( node, "pnr_status", Qry.FieldAsString( col_pnr_status ), "" );
-    NewTextChild( node, "pnr_priority", Qry.FieldAsString( col_pnr_priority ), "" );
-    NewTextChild( node, "full_name", Qry.FieldAsString( col_full_name ) );
-    NewTextChild( node, "pers_type", Qry.FieldAsString( col_pers_type ), def_pers_type ); //специально не перекодируем, так как идет подсчет по типам
-    if (!Qry.FieldIsNULL(col_editable_cabin_class))
+    NewTextChild( node, "pnr_status", searchResult.pnr_status, "" );
+    NewTextChild( node, "pnr_priority", searchResult.pnr_priority, "" );
+    NewTextChild( node, "full_name", searchResult.full_name );
+    NewTextChild( node, "pers_type", searchResult.pers_type, def_pers_type ); //специально не перекодируем, так как идет подсчет по типам
+    if (!searchResult.editable_cabin_class.empty())
     {
-      xmlNodePtr classNode=NewTextChild( node, "class", classIdsToCodeNative(Qry.FieldAsString( col_orig_class ),
-                                                                             Qry.FieldAsString( col_cabin_class )) );
-      SetProp(classNode, "edit_value", ElemIdToCodeNative(etClass, Qry.FieldAsString( col_editable_cabin_class )));
+      xmlNodePtr classNode=NewTextChild( node, "class", classIdsToCodeNative(searchResult.orig_class,
+                                                                             searchResult.cabin_class) );
+      SetProp(classNode, "edit_value", ElemIdToCodeNative(etClass, searchResult.editable_cabin_class));
     }
     else
-      NewTextChild( node, "class", classIdsToCodeNative(Qry.FieldAsString( col_orig_class ),
-                                                        Qry.FieldAsString( col_cabin_class )), def_class );
+      NewTextChild( node, "class", classIdsToCodeNative(searchResult.orig_class,
+                                                        searchResult.cabin_class), def_class );
 
-    NewTextChild( node, "subclass", ElemIdToCodeNative(etSubcls, Qry.FieldAsString( col_cabin_subclass )) );
+    NewTextChild( node, "subclass", ElemIdToCodeNative(etSubcls, searchResult.cabin_subclass ) );
 
-    int pax_id=Qry.FieldAsInteger( col_pax_id );
+    int pax_id=searchResult.pax_id.get();
 
     std::string seat_no;
     std::string layer_type;
 
     int mode = -1; // не надо искать место // режим для поиска мест 0 - регистрация иначе список pnl
-    if (!Qry.FieldIsNULL(col_grp_id))
+    if (searchResult.grp_id)
     {
-      if ( Qry.FieldIsNULL( col_refuse ) )
+      if ( searchResult.refuse.empty() )
       {
         mode = 0;
-        SQry.SetVariable( "layer_type", Qry.FieldAsString( col_grp_status ) );
-        SQry.SetVariable( "seats", Qry.FieldAsInteger(col_pax_seats)  );
+        SQry.SetVariable( "layer_type", searchResult.grp_status  );
+        SQry.SetVariable( "seats", searchResult.pax_seats  );
         SQry.SetVariable( "point_id", point_id );
         SQry.SetVariable( "pax_row", pax_row );
 //        ProgTrace( TRACE5, "mode=%d, pax_id=%d, seats=%d, point_id=%d, pax_row=%d, layer_type=%s",
-//                           mode, pax_id, Qry.FieldAsInteger(col_pax_seats), point_id,
-//                           pax_row, Qry.FieldAsString( col_grp_status ) );
+//                           mode, pax_id, searchResult.pax_seats, point_id,
+//                           pax_row, searchResult.grp_status );
       }
     }
     else {
       mode = 1;
-      SQry.SetVariable( "xname", Qry.FieldAsString( col_seat_xname ) );
-      SQry.SetVariable( "yname", Qry.FieldAsString( col_seat_yname ) );
+      SQry.SetVariable( "xname", searchResult.seat_xname );
+      SQry.SetVariable( "yname", searchResult.seat_yname );
       SQry.SetVariable( "layer_type", FNull );
-      SQry.SetVariable( "seats", Qry.FieldAsInteger(col_seats)  );
-      SQry.SetVariable( "point_id", Qry.FieldAsInteger(col_point_id_tlg) );
+      SQry.SetVariable( "seats", searchResult.seats );
+      SQry.SetVariable( "point_id", searchResult.point_id_tlg.get() );
       SQry.SetVariable( "crs_row", crs_row );
 //      ProgTrace( TRACE5, "mode=%d, pax_id=%d, seats=%d, point_id=%d, crs_row=%d, layer_type=%s",
-//                         mode, pax_id, Qry.FieldAsInteger(col_seats), point_id,
+//                         mode, pax_id, searchResult.seats, point_id,
 //                         crs_row, "" );
     }
 
@@ -3116,7 +3198,7 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
     {
       SQry.SetVariable( "mode", mode );
       SQry.SetVariable( "pax_id", pax_id );
-      SQry.SetVariable( "is_jmp", (int)(Qry.FieldAsInteger(col_is_jmp)!=0) );
+      SQry.SetVariable( "is_jmp", (int)(searchResult.is_jmp!=0) );
       SQry.SetVariable( "seat_no", FNull );
       SQry.Execute();
       if ( mode == 0 )
@@ -3127,7 +3209,7 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
       if ( !SQry.VariableIsNULL( "seat_no" ) ) {
           seat_no = SQry.GetVariableAsString( "seat_no" );
           if ( mode == 0 ) {
-              layer_type = ((const TGrpStatusTypesRow&)grp_status_types.get_row("code",Qry.FieldAsString( col_grp_status ))).layer_type;
+              layer_type = ((const TGrpStatusTypesRow&)grp_status_types.get_row("code",searchResult.grp_status)).layer_type;
           }
           else {
               layer_type = SQry.GetVariableAsString( "layer_type" );
@@ -3135,10 +3217,10 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
       } // не задано место
       else {
           if ( mode == 0 &&
-             Qry.FieldAsInteger( col_seats ) &&
+             searchResult.seats &&
              !pr_free_seating ) {
               string old_seat_no;
-              if ( Qry.FieldIsNULL( col_wl_type ) ) {
+              if ( searchResult.wl_type.empty() ) {
                 old_seat_no = priorSeats.getSeats( pax_id, "seats" );
                 if ( !old_seat_no.empty() )
                   old_seat_no = "(" + old_seat_no + ")";
@@ -3151,35 +3233,34 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
     }
 
     NewTextChild( node, "nseat_no", seat_no, "" );
-    if ( !Qry.FieldIsNULL( col_wl_type ) )
-      NewTextChild( node, "wl_type", Qry.FieldAsString( col_wl_type ) );
+    if ( !searchResult.wl_type.empty() )
+      NewTextChild( node, "wl_type", searchResult.wl_type );
     NewTextChild( node, "layer_type", layer_type, "" );
-    NewTextChild( node, "isseat", ( pr_free_seating || !SQry.VariableIsNULL( "seat_no" ) || !Qry.FieldAsInteger( col_seats ) ) );
-    NewTextChild( node, "seats", Qry.FieldAsInteger( col_seats ), 1 );
-    NewTextChild( node, "target", ElemIdToCodeNative(etAirp,Qry.FieldAsString( col_airp_arv ) ));
-    if (!Qry.FieldIsNULL(col_airp_arv_final))
+    NewTextChild( node, "isseat", ( pr_free_seating || !SQry.VariableIsNULL( "seat_no" ) || !searchResult.seats ) );
+    NewTextChild( node, "seats", searchResult.seats, 1 );
+    NewTextChild( node, "target", ElemIdToCodeNative(etAirp,searchResult.airp_arv ));
+    if (!searchResult.airp_arv_final.empty())
     {
       try
       {
-        const TAirpsRow &row=(const TAirpsRow&)(base_tables.get("airps").get_row("code/code_lat",Qry.FieldAsString( col_airp_arv_final )));
+        const TAirpsRow &row=(const TAirpsRow&)(base_tables.get("airps").get_row("code/code_lat",searchResult.airp_arv_final));
         NewTextChild( node, "last_target", ElemIdToCodeNative(etAirp,row.code));
       }
       catch(EBaseTableError&)
       {
-        NewTextChild( node, "last_target", Qry.FieldAsString( col_airp_arv_final ));
+        NewTextChild( node, "last_target", searchResult.airp_arv_final);
       };
     };
 
-    NewTextChild( node, "client_type", ElemIdToNameShort(etClientType, Qry.FieldAsString(col_client_type)), "" );
+    NewTextChild( node, "client_type", ElemIdToNameShort(etClientType, searchResult.client_type), "" );
 
     if ( apis_generation )
     {
-      bool paxNotRefused=!Qry.FieldIsNULL(col_grp_id) && Qry.FieldIsNULL(col_refuse);
-      NewTextChild( node, "apis", allAPIAttrs.view(Qry, paxNotRefused), "" );
+      NewTextChild( node, "apis", searchResult.apis, "" );
     }
 
-    NewTextChild( node, "ticket", Qry.FieldAsString( col_ticket ), "" );
-    std::string pspt = Qry.FieldAsString( col_crs_doc_no );
+    NewTextChild( node, "ticket", searchResult.ticket, "" );
+    std::string pspt = searchResult.crs_doc_no;
     if (pspt.empty()) {
       pspt = TypeB::getPSPT(pax_id, true /*with_issue_country*/, TReqInfo::Instance()->desk.lang);
     }
@@ -3192,7 +3273,9 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
      rems.insert( apps_satus_rem );
     NewTextChild( node, "rems", GetRemarkStr(rem_grp, rems), "" );
 
-    boost::optional<TBagQuantity> crsBagNorm=CheckIn::TSimplePaxItem::getCrsBagNorm(Qry, col_bag_norm, col_bag_norm_unit);
+    boost::optional<TBagQuantity> crsBagNorm;
+    if (!searchResult.bag_norm && searchResult.bag_norm_unit.empty())
+      crsBagNorm = TBagQuantity(searchResult.bag_norm, searchResult.bag_norm_unit);
 
     CheckIn::TPaxTknItem tkn;
     CheckIn::LoadCrsPaxTkn(pax_id, tkn);
@@ -3225,9 +3308,9 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
     }
     else
     {
-      NewTextChild( node, "fqt", Qry.FieldAsString(col_crs_fqt_tier_level), "" );
+      NewTextChild( node, "fqt", searchResult.crs_fqt_tier_level, "" );
     }
-    NewTextChild( node, "status", Qry.FieldAsString( col_status ), def_status );
+    NewTextChild( node, "status", searchResult.status, def_status );
 
     ostringstream rem_detail;
     xmlNodePtr stcrNode = nullptr;
@@ -3242,13 +3325,13 @@ void viewCRSList( int point_id, const boost::optional<PaxId_t>& paxId, xmlNodePt
     NewTextChild( node, "rem", rem_detail.str(), "" );
 
     NewTextChild( node, "pax_id", pax_id );
-    NewTextChild( node, "pnr_id", Qry.FieldAsInteger( col_pnr_id ) );
-    NewTextChild( node, "tid", Qry.FieldAsInteger( col_tid ) );
+    NewTextChild( node, "pnr_id", searchResult.pnr_id.get() );
+    NewTextChild( node, "tid", searchResult.tid );
 
-    if (!Qry.FieldIsNULL(col_grp_id))
+    if (searchResult.grp_id)
     {
-      NewTextChild( node, "reg_no", Qry.FieldAsInteger( col_reg_no ) );
-      NewTextChild( node, "refuse", Qry.FieldAsString( col_refuse ), "" );
+      NewTextChild( node, "reg_no", searchResult.reg_no );
+      NewTextChild( node, "refuse", searchResult.refuse, "" );
     }
   } //end for
   brands.traceCaching();

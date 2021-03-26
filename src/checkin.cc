@@ -1643,7 +1643,7 @@ void LoadPaxFQT(int pax_id, xmlNodePtr node, bool from_crs)
 }
 
 static int CreateSearchResponse(int point_dep,
-                                TQuery &PaxQry,
+                                const std::vector<SearchPaxResult>& searchPaxResults,
                                 const set<int>& selectedPaxIds,
                                 xmlNodePtr resNode)
 {
@@ -1676,13 +1676,13 @@ static int CreateSearchResponse(int point_dep,
   tripNode=GetNode("trips",resNode);
   if (tripNode==NULL)
     tripNode=NewTextChild(resNode,"trips");
-  for(;!PaxQry.Eof;PaxQry.Next())
+  for(const SearchPaxResult& searchResult: searchPaxResults)
   {
     count++;
-    int curr_point_id=PaxQry.FieldAsInteger("point_id");
-    int curr_pnr_id=PaxQry.FieldAsInteger("pnr_id");
-    std::string curr_orig_subclass=PaxQry.FieldAsString("subclass");
-    std::string curr_orig_class=PaxQry.FieldAsString("class");
+    int curr_point_id=searchResult.point_id.get();
+    int curr_pnr_id=searchResult.pnr_id.get();
+    std::string curr_orig_subclass=searchResult.subclass;
+    std::string curr_orig_class=searchResult.cls;
 
     if (curr_point_id!=prior_point_id)
     {
@@ -1723,13 +1723,13 @@ static int CreateSearchResponse(int point_dep,
       trfer_segs.clear();
       CheckInInterface::GetOnwardCrsTransfer(curr_pnr_id, true,
                                              operFlt,
-                                             PaxQry.FieldAsString("airp_arv"),
+                                             searchResult.airp_arv,
                                              trfer);
       traceTrfer( TRACE5, "CreateSearchResponse: trfer", trfer );
       if (!trfer.empty())
       {
         CheckInInterface::GetTrferSets(operFlt,
-                                       PaxQry.FieldAsString("airp_arv"),
+                                       searchResult.airp_arv,
                                        tlgTripsFlt.airp,
                                        trfer,
                                        true,
@@ -1746,13 +1746,13 @@ static int CreateSearchResponse(int point_dep,
     {
       node=NewTextChild(pnrNode,"pnr");
       NewTextChild(node,"pnr_id",curr_pnr_id);
-      NewTextChild(node,"airp_arv",PaxQry.FieldAsString("airp_arv"));
+      NewTextChild(node,"airp_arv",searchResult.airp_arv);
       NewTextChild(node,"subclass",curr_orig_subclass);
       NewTextChild(node,"class",curr_orig_class);
-      NewTextChild(node,"cabin_class",PaxQry.FieldAsString("cabin_class"));
-      string pnr_status=PaxQry.FieldAsString("pnr_status");
+      NewTextChild(node,"cabin_class",searchResult.cabin_class);
+      string pnr_status=searchResult.pnr_status;
       NewTextChild(node,"pnr_status",pnr_status,"");
-      NewTextChild(node,"pnr_priority",PaxQry.FieldAsString("pnr_priority"),"");
+      NewTextChild(node,"pnr_priority",searchResult.pnr_priority,"");
       NewTextChild(node,"pad",(int)(pnr_status=="DG2"||
                                     pnr_status=="RG2"||
                                     pnr_status=="ID2"||
@@ -1793,14 +1793,14 @@ static int CreateSearchResponse(int point_dep,
       pnrAddrs.toXML(node);
     }
     node=NewTextChild(paxNode,"pax");
-    pax_id=PaxQry.FieldAsInteger("pax_id");
+    pax_id=searchResult.pax_id.get();
     NewTextChild(node,"pax_id",pax_id);
-    NewTextChild(node,"surname",PaxQry.FieldAsString("surname"));
-    NewTextChild(node,"name",PaxQry.FieldAsString("name"),"");
-    NewTextChild(node,"pers_type",PaxQry.FieldAsString("pers_type"),EncodePerson(ASTRA::adult));
-    NewTextChild(node,"seat_no",PaxQry.FieldAsString("seat_no"),"");
-    NewTextChild(node,"seat_type",PaxQry.FieldAsString("seat_type"),"");
-    NewTextChild(node,"seats",PaxQry.FieldAsInteger("seats"),1);
+    NewTextChild(node,"surname",searchResult.surname);
+    NewTextChild(node,"name",searchResult.name,"");
+    NewTextChild(node,"pers_type",searchResult.pers_type,EncodePerson(ASTRA::adult));
+    NewTextChild(node,"seat_no",searchResult.seat_no,"");
+    NewTextChild(node,"seat_type",searchResult.seat_type,"");
+    NewTextChild(node,"seats",searchResult.seats,1);
     //обработка документов
     CheckIn::TPaxDocItem doc;
     if (LoadCrsPaxDoc(pax_id, doc)) doc.toXML(node);
@@ -1813,10 +1813,10 @@ static int CreateSearchResponse(int point_dep,
 
     //обработка билетов
     string ticket_no;
-    if (!PaxQry.FieldIsNULL("eticket"))
+    if (!searchResult.eticket.empty())
     {
       //билет TKNE
-      ticket_no=PaxQry.FieldAsString("eticket");
+      ticket_no=searchResult.eticket;
       int coupon_no=NoExists;
       string::size_type pos=ticket_no.find_last_of('/');
       if (pos!=string::npos)
@@ -1834,10 +1834,10 @@ static int CreateSearchResponse(int point_dep,
     }
     else
     {
-      if (!PaxQry.FieldIsNULL("ticket"))
+      if (!searchResult.ticket.empty())
       {
         //билет TKNA
-        ticket_no=PaxQry.FieldAsString("ticket");
+        ticket_no=searchResult.ticket;
         NewTextChild(node,"ticket_no",ticket_no);
         NewTextChild(node,"ticket_rem","TKNA");
       }
@@ -1857,10 +1857,10 @@ static int CreateSearchResponse(int point_dep,
 }
 
 static int CreateSearchResponse(int point_dep,
-                                TQuery &PaxQry,
+                                const std::vector<SearchPaxResult>& searchResults,
                                 xmlNodePtr resNode)
 {
-  return CreateSearchResponse(point_dep, PaxQry, set<int>(), resNode);
+  return CreateSearchResponse(point_dep, searchResults, set<int>(), resNode);
 }
 
 void CheckInInterface::SearchGrp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1888,9 +1888,9 @@ void CheckInInterface::SearchGrp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
   if (GetNode("pnr_id",reqNode)!=NULL)
   {
-    TQuery PaxQry(&OraSession);
-    executeSearchPaxQuery(NodeAsInteger("pnr_id",reqNode), PaxQry);
-    CreateSearchResponse(point_dep,PaxQry,resNode);
+    const std::vector<SearchPaxResult> searchPaxResult =
+        runSearchPax(PnrId_t(NodeAsInteger("pnr_id",reqNode)));
+    CreateSearchResponse(point_dep,searchPaxResult,resNode);
     CreateNoRecResponse(sum,resNode);
     NewTextChild(resNode,"ckin_state","Choice");
     return;
@@ -2009,23 +2009,99 @@ void CheckInInterface::SearchPaxByDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 
   ostringstream sql_filter;
   sql_filter << "crs_pax.pax_id=" << found.pax.id;
-  TQuery Qry(&OraSession);
-  executeSearchPaxQuery(point_id, ASTRA::psCheckin, true, sql_filter.str(), Qry);
-  if (Qry.Eof)
+  const std::vector<SearchPaxResult> searchPaxResults =
+      runSearchPax(PointId_t(point_id), ASTRA::psCheckin, true, sql_filter.str());
+  if (searchPaxResults.empty())
     throw AstraLocale::UserException("MSG.PASSENGER.FROM_FLIGHT",
                                      LParams() << LParam("flt", GetTripName(found.flt.get(),ecCkin)));
 
   set<int> selectedPaxIds;
   selectedPaxIds.insert(found.pax.id);
 
-  int count=CreateSearchResponse(point_id, Qry, selectedPaxIds, resNode);
+  int count=CreateSearchResponse(point_id, searchPaxResults, selectedPaxIds, resNode);
   if (count>1)
     NewTextChild(resNode, "ckin_state", "Choice");
   else
     NewTextChild(resNode, "ckin_state", "BeforeReg");
 }
 
+struct SearchGroupResult
+{
+  PnrId_t pnr_id;
+  std::string grp_name;
+  std::string pax_name;
+  int seats_all;
+  int seats;
+};
 
+std::vector<SearchGroupResult> fetchSearchGroupResult(TQuery& Qry)
+{
+  std::vector<SearchGroupResult> result;
+  for(;!Qry.Eof;Qry.Next()) {
+    const SearchGroupResult data = {
+      PnrId_t(Qry.FieldAsInteger("pnr_id")),
+      Qry.FieldAsString("grp_name"),
+      Qry.FieldAsString("pax_name"),
+      Qry.FieldAsInteger("seats_all"),
+      Qry.FieldAsInteger("seats")
+    };
+    result.push_back(data);
+  }
+  return result;
+}
+
+std::vector<SearchGroupResult> runSearchGroup(const PointId_t& point_dep, int seats,
+                                              const TPaxStatus& pax_status)
+{
+  TQuery Qry(&OraSession);
+  string sql;
+  sql=  "SELECT crs_pnr.pnr_id, \n"
+        "       MIN(crs_pnr.grp_name) AS grp_name, \n"
+        "       MIN(DECODE(crs_pax.pers_type,'ВЗ', \n"
+        "                  crs_pax.surname||' '||crs_pax.name,'')) AS pax_name, \n"
+        "       COUNT(*) AS seats_all, \n"
+        "       SUM(DECODE(pax.pax_id,NULL,1,0)) AS seats \n"
+        "FROM crs_pnr,crs_pax,pax,( \n";
+
+  sql+= getSearchPaxSubquery(pax_status,
+                             true,
+                             false,
+                             false,
+                             true,
+                             "");
+
+  sql+= "  ) ids  \n"
+        "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND \n"
+        "      crs_pax.pax_id=pax.pax_id(+) AND \n"
+        "      ids.pnr_id=crs_pnr.pnr_id AND \n"
+        "      crs_pax.pr_del=0 AND \n"
+        "      crs_pax.seats>0 \n"
+        "GROUP BY crs_pnr.pnr_id \n"
+        "HAVING COUNT(*)>= :seats \n";
+
+  ProgTrace(TRACE5,"CheckInInterface::SearchPax (large): status=%s",EncodePaxStatus(pax_status));
+  ProgTrace(TRACE5,"CheckInInterface::SearchPax (large): sql=\n%s",sql.c_str());
+
+  Qry.SQLText = sql;
+  Qry.CreateVariable("seats",otInteger,seats);
+  bindSearchPaxQuery(Qry, PointId_t(point_dep), pax_status);
+  const std::vector<CrsDisplaceData> items = CrsDisplaceData::load(PointId_t(point_dep));
+  if (items.empty()) {
+    Qry.Execute();
+    return fetchSearchGroupResult(Qry);
+  }
+  std::vector<SearchGroupResult> result;
+  for (const CrsDisplaceData& item: items) {
+    Qry.SetVariable("point_id_tlg", item.point_id_tlg.get());
+    Qry.SetVariable("airp_arv_tlg", item.airp_arv_tlg);
+    Qry.SetVariable("class_tlg", item.class_tlg);
+    Qry.SetVariable("status", item.status);
+    Qry.Execute();
+    const std::vector<SearchGroupResult> data = fetchSearchGroupResult(Qry);
+    result.insert(result.end(), data.begin(), data.end());
+  }
+  return result;
+}
 
 void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -2135,53 +2211,13 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     return;
   }
 
-  TQuery PaxQry(&OraSession);
-  PaxQry.Clear();
-  string sql;
-
   if (grp.large)
   {
     //большая группа
-    sql=  "SELECT crs_pnr.pnr_id, \n"
-          "       MIN(crs_pnr.grp_name) AS grp_name, \n"
-          "       MIN(DECODE(crs_pax.pers_type,'ВЗ', \n"
-          "                  crs_pax.surname||' '||crs_pax.name,'')) AS pax_name, \n"
-          "       COUNT(*) AS seats_all, \n"
-          "       SUM(DECODE(pax.pax_id,NULL,1,0)) AS seats \n"
-          "FROM crs_pnr,crs_pax,pax,( \n";
-
-    sql+= getSearchPaxSubquery(pax_status,
-                               true,
-                               false,
-                               false,
-                               true,
-                               "");
-
-    sql+= "  ) ids  \n"
-          "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND \n"
-          "      crs_pax.pax_id=pax.pax_id(+) AND \n"
-          "      ids.pnr_id=crs_pnr.pnr_id AND \n"
-          "      crs_pax.pr_del=0 AND \n"
-          "      crs_pax.seats>0 \n"
-          "GROUP BY crs_pnr.pnr_id \n"
-          "HAVING COUNT(*)>= :seats \n";
-
-    ProgTrace(TRACE5,"CheckInInterface::SearchPax (large): status=%s",EncodePaxStatus(pax_status));
-    ProgTrace(TRACE5,"CheckInInterface::SearchPax (large): sql=\n%s",sql.c_str());
-
-    PaxQry.SQLText = sql;
-    PaxQry.CreateVariable("point_id",otInteger,point_dep);
-    switch (pax_status)
-    {
-      case psTransit: PaxQry.CreateVariable( "ps_transit", otString, EncodePaxStatus(ASTRA::psTransit) );
-                      break;
-       case psGoshow: PaxQry.CreateVariable( "ps_goshow", otString, EncodePaxStatus(ASTRA::psGoshow) );
-                      [[fallthrough]];
-             default: PaxQry.CreateVariable( "ps_ok", otString, EncodePaxStatus(ASTRA::psCheckin) );
-    }
-    PaxQry.CreateVariable("seats",otInteger,sum.nPaxWithPlace);
-    PaxQry.Execute();
-    if (!PaxQry.Eof)
+    const std::vector<SearchGroupResult> searchResults = runSearchGroup(PointId_t(point_dep),
+                                                                        sum.nPaxWithPlace,
+                                                                        pax_status);
+    if (!searchResults.empty())
     {
       TQuery PnrAddrQry(&OraSession);
       PnrAddrQry.SQLText = //pnr_market_flt
@@ -2195,16 +2231,16 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       PnrAddrQry.DeclareVariable("pnr_id",otInteger);
 
       xmlNodePtr pnrNode=NewTextChild(resNode,"groups");
-      for(;!PaxQry.Eof;PaxQry.Next())
+      for(const SearchGroupResult& searchResult: searchResults)
       {
         node=NewTextChild(pnrNode,"pnr");
-        NewTextChild(node,"pnr_id",PaxQry.FieldAsInteger("pnr_id"));
-        NewTextChild(node,"pax_name",PaxQry.FieldAsString("pax_name"));
-        NewTextChild(node,"grp_name",PaxQry.FieldAsString("grp_name"));
-        NewTextChild(node,"seats",PaxQry.FieldAsInteger("seats"));
-        NewTextChild(node,"seats_all",PaxQry.FieldAsInteger("seats_all"));
+        NewTextChild(node,"pnr_id",searchResult.pnr_id.get());
+        NewTextChild(node,"pax_name",searchResult.pax_name);
+        NewTextChild(node,"grp_name",searchResult.grp_name);
+        NewTextChild(node,"seats",searchResult.seats);
+        NewTextChild(node,"seats_all",searchResult.seats_all);
 
-        PnrAddrQry.SetVariable("pnr_id",PaxQry.FieldAsInteger("pnr_id"));
+        PnrAddrQry.SetVariable("pnr_id",searchResult.pnr_id.get());
         PnrAddrQry.Execute();
         if (!PnrAddrQry.Eof)
         {
@@ -2233,6 +2269,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     return;
   }
 
+  std::vector<SearchPaxResult> searchPaxResults;
   for(int pass=0;pass<2;pass++)
   {
     string surnames;
@@ -2242,22 +2279,25 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       surnames=surnames+"crs_pax.surname LIKE '"+f->surname.substr(0,pass==0?4:1)+"%'";
     }
 
-    executeSearchPaxQuery(point_dep,
-                          pax_status,
-                          sum.nPax>1 && !charter_search,
-                          surnames,
-                          PaxQry);
+    const std::vector<SearchPaxResult> results =
+        runSearchPax(PointId_t(point_dep),
+                     pax_status,
+                     sum.nPax>1 && !charter_search,
+                     surnames);
 
-    if (!PaxQry.Eof) break;
+    if (!results.empty()) {
+      searchPaxResults = results;
+      break;
+    }
   }
-  if (PaxQry.Eof)
+  if (searchPaxResults.empty())
   {
     CreateNoRecResponse(sum,resNode);
     NewTextChild(resNode,"ckin_state","BeforeReg");
     return;
   }
 
-  CreateSearchResponse(point_dep,PaxQry,resNode);
+  CreateSearchResponse(point_dep,searchPaxResults,resNode);
 
 
 //  if (fmt.persCountFmt==0)
@@ -8100,7 +8140,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
             if (tckin_route_confirm)
             {
               //это уже после подтверждения маршрута
-              iPax->resCount=CreateSearchResponse(currSeg.flt.point_id,CrsQry,iPax->node);
+              iPax->resCount=CreateSearchResponse(currSeg.flt.point_id,fetchSearchPaxResults(CrsQry),iPax->node);
               if (iPax->resCount>0)
               {
                 for(xmlNodePtr tripNode=NodeAsNode("trips",iPax->node)->children;

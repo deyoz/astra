@@ -48,23 +48,54 @@ class ClassesList
     }
 };
 
+struct SearchPaxResult
+{
+  PaxId_t pax_id;
+  PointIdTlg_t point_id;
+  std::string airp_arv;
+  std::string cls;
+  std::string subclass;
+  std::string cabin_class;
+  std::string pnr_status;
+  std::string pnr_priority;
+  std::string surname;
+  std::string name;
+  std::string pers_type;
+  std::string seat_no;
+  std::string seat_type;
+  int seats;
+  PnrId_t pnr_id;
+  std::string ticket;
+  std::string eticket;
+};
+
 std::string getSearchPaxSubquery(const ASTRA::TPaxStatus& pax_status,
                                  const bool& return_pnr_ids,
                                  const bool& exclude_checked,
                                  const bool& exclude_deleted,
                                  const bool& select_pad_with_ok,
                                  const std::string& sql_filter);
+void bindSearchPaxQuery(TQuery& Qry, const PointId_t& point_dep,
+                        const ASTRA::TPaxStatus& pax_status);
+std::vector<SearchPaxResult> fetchSearchPaxResults(TQuery& Qry);
 
 void getTCkinSearchPaxQuery(TQuery& Qry);
 
-void executeSearchPaxQuery(const int& pnr_id,
-                           TQuery& Qry);
+std::vector<SearchPaxResult> runSearchPax(const PnrId_t& pnr_id);
+std::vector<SearchPaxResult> runSearchPax(const PointId_t& point_dep,
+                                          const ASTRA::TPaxStatus& pax_status,
+                                          const bool& return_pnr_ids,
+                                          const std::string& sql_filter);
 
-void executeSearchPaxQuery(const int& point_dep,
-                           const ASTRA::TPaxStatus& pax_status,
-                           const bool& return_pnr_ids,
-                           const std::string& sql_filter,
-                           TQuery& Qry);
+struct CrsDisplaceData
+{
+  PointIdTlg_t point_id_tlg;
+  std::string airp_arv_tlg;
+  std::string class_tlg;
+  std::string status;
+
+  static std::vector<CrsDisplaceData> load(const PointId_t& point_id);
+};
 
 namespace CheckIn
 {

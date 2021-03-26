@@ -230,6 +230,24 @@ std::string getSearchPaxSubquery(const TPaxStatus& pax_status,
   return sql.str();
 }
 
+void bindSearchPaxQuery(TQuery& Qry, const PointId_t& point_id, const TPaxStatus& pax_status)
+{
+  switch (pax_status)
+  {
+    case psTransit: Qry.CreateVariable( "ps_transit", otString, EncodePaxStatus(ASTRA::psTransit) );
+                    break;
+     case psGoshow: Qry.CreateVariable( "ps_goshow", otString, EncodePaxStatus(ASTRA::psGoshow) );
+                    //break не надо!
+                    [[fallthrough]];
+           default: Qry.CreateVariable( "ps_ok", otString, EncodePaxStatus(ASTRA::psCheckin) );
+  }
+  Qry.CreateVariable("point_id", otInteger, point_id.get());
+  Qry.CreateVariable("point_id_tlg", otInteger, FNull);
+  Qry.CreateVariable("airp_arv_tlg", otString, FNull);
+  Qry.CreateVariable("class_tlg", otString, FNull);
+  Qry.CreateVariable("status", otString, FNull);
+}
+
 static const std::string& getSearchPaxQuerySelectPart()
 {
   static const std::string result=
@@ -287,9 +305,9 @@ void getTCkinSearchPaxQuery(TQuery& Qry)
     Qry.DeclareVariable("surname",otString);
     Qry.DeclareVariable("name",otString);}
 
-void executeSearchPaxQuery(const int& pnr_id,
-                           TQuery& Qry)
+std::vector<SearchPaxResult> runSearchPax(const PnrId_t& pnr_id)
 {
+  TQuery Qry(&OraSession);
   ostringstream sql;
 
   sql << getSearchPaxQuerySelectPart()
@@ -301,10 +319,10 @@ void executeSearchPaxQuery(const int& pnr_id,
          "      pax.pax_id IS NULL "
       << getSearchPaxQueryOrderByPart();
 
-  Qry.Clear();
   Qry.SQLText = sql.str().c_str();
-  Qry.CreateVariable("pnr_id", otInteger, pnr_id);
+  Qry.CreateVariable("pnr_id", otInteger, pnr_id.get());
   Qry.Execute();
+  return fetchSearchPaxResults(Qry);
 }
 
 std::string makeSearchPaxQuery(const TPaxStatus& pax_status,
@@ -345,16 +363,6 @@ std::string makeSearchPaxQuery(const TPaxStatus& pax_status,
   return sql.str();
 }
 
-struct CrsDisplaceData
-{
-  PointIdTlg_t point_id_tlg;
-  std::string airp_arv_tlg;
-  std::string class_tlg;
-  std::string status;
-
-  static std::vector<CrsDisplaceData> load(const PointId_t& point_id);
-};
-
 std::vector<CrsDisplaceData> CrsDisplaceData::load(const PointId_t& point_id)
 {
   LogTrace(TRACE6) << __func__
@@ -392,44 +400,59 @@ std::vector<CrsDisplaceData> CrsDisplaceData::load(const PointId_t& point_id)
   return result;
 }
 
-void executeSearchPaxQuery(const int& point_dep,
-                           const TPaxStatus& pax_status,
-                           const bool& return_pnr_ids,
-                           const std::string& sql_filter,
-                           TQuery& Qry)
+std::vector<SearchPaxResult> fetchSearchPaxResults(TQuery& Qry)
+{
+  std::vector<SearchPaxResult> result;
+  for(;!Qry.Eof;Qry.Next()) {
+    SearchPaxResult data = {
+      PaxId_t(Qry.FieldAsInteger("pax_id")),
+      PointIdTlg_t(Qry.FieldAsInteger("point_id")),
+      Qry.FieldAsString("airp_arv"),
+      Qry.FieldAsString("class"),
+      Qry.FieldAsString("subclass"),
+      Qry.FieldAsString("cabin_class"),
+      Qry.FieldAsString("pnr_status"),
+      Qry.FieldAsString("pnr_priority"),
+      Qry.FieldAsString("surname"),
+      Qry.FieldAsString("name"),
+      Qry.FieldAsString("pers_type"),
+      Qry.FieldAsString("seat_no"),
+      Qry.FieldAsString("seat_type"),
+      Qry.FieldAsInteger("seats"),
+      PnrId_t(Qry.FieldAsInteger("pnr_id")),
+      Qry.FieldAsString("ticket"),
+      Qry.FieldAsString("eticket")
+    };
+    result.push_back(data);
+  }
+  return result;
+}
+
+std::vector<SearchPaxResult> runSearchPax(const PointId_t& point_dep,
+                                          const TPaxStatus& pax_status,
+                                          const bool& return_pnr_ids,
+                                          const std::string& sql_filter)
 {
   LogTrace(TRACE6) << __func__;
-  Qry.Clear();
+  std::vector<SearchPaxResult> result;
+  TQuery Qry(&OraSession);
   Qry.SQLText = makeSearchPaxQuery(pax_status, return_pnr_ids, sql_filter);
-  Qry.CreateVariable("point_id", otInteger, point_dep);
-  switch (pax_status)
-  {
-    case psTransit: Qry.CreateVariable( "ps_transit", otString, EncodePaxStatus(ASTRA::psTransit) );
-                    break;
-     case psGoshow: Qry.CreateVariable( "ps_goshow", otString, EncodePaxStatus(ASTRA::psGoshow) );
-                    //break не надо!
-                    [[fallthrough]];
-           default: Qry.CreateVariable( "ps_ok", otString, EncodePaxStatus(ASTRA::psCheckin) );
+  bindSearchPaxQuery(Qry, point_dep, pax_status);
+  const std::vector<CrsDisplaceData> items = CrsDisplaceData::load(point_dep);
+  if (items.empty()) {
+    Qry.Execute();
+    return fetchSearchPaxResults(Qry);
   }
-  Qry.DeclareVariable("point_id_tlg", otInteger);
-  Qry.DeclareVariable("airp_arv_tlg", otString);
-  Qry.DeclareVariable("class_tlg", otString);
-  Qry.DeclareVariable("status", otString);
-  const std::vector<CrsDisplaceData> items = CrsDisplaceData::load(PointId_t(point_dep));
   for (const CrsDisplaceData& item: items) {
     Qry.SetVariable("point_id_tlg", item.point_id_tlg.get());
     Qry.SetVariable("airp_arv_tlg", item.airp_arv_tlg);
     Qry.SetVariable("class_tlg", item.class_tlg);
     Qry.SetVariable("status", item.status);
     Qry.Execute();
+    const std::vector<SearchPaxResult> data = fetchSearchPaxResults(Qry);
+    result.insert(result.end(), data.begin(), data.end());
   }
-  if (items.empty()) {
-    Qry.SetVariable("point_id_tlg", FNull);
-    Qry.SetVariable("airp_arv_tlg", FNull);
-    Qry.SetVariable("class_tlg", FNull);
-    Qry.SetVariable("status", FNull);
-    Qry.Execute();
-  }
+  return result;
 }
 
 namespace CheckIn
