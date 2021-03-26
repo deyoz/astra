@@ -51,7 +51,7 @@ public:
       TCLLibPath = readStringFromTcl( "MESPRO_LIBS_PATH", "./crypt/libs" ) + "/";
     }
     libsPath = TCLLibPath + lib_name;
-    LogTrace(TRACE5) << "set mespro lib " << libsPath << lib_name;
+    LogTrace(TRACE5) << "set mespro lib " << libsPath << "/" + lib_name;
     MapStrVoid::const_iterator ih = handles.find( lib_name );
     if ( handles.end() == ih ) {
       void *_handle = dlopen((libsPath + "/" + lib_name).c_str(),RTLD_LAZY|RTLD_LOCAL); //???
@@ -61,6 +61,8 @@ public:
       }
       dlerror(); /* Clear any existing error */
       ih = handles.emplace( lib_name, _handle ).first;
+      LogTrace(TRACE5) << "lib mespro opened ok";
+      setInit(false);
     }
     _lib_name = ih->first;
   }
@@ -82,7 +84,7 @@ public:
   }
   void *get( const std::string& func_name ) {
     if ( _lib_name.empty() ) {
-      LogError(STDLOG) << "Error lib not defined, func" << func_name;
+      LogError(STDLOG) << "Error lib not defined, func " << func_name;
       return nullptr;
     }
     void *_handle =  handles[ _lib_name ];

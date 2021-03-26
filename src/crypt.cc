@@ -49,7 +49,7 @@ struct TCertRequest {
 
 #ifdef USE_MESPRO
 
-void GetCertRequestInfo( const string &desk, bool pr_grp, TCertRequest &req );
+void GetCertRequestInfo( const string &desk, bool pr_grp, TCertRequest &req, bool ignoreException );
 #endif //USE_MESPRO
 
 size_t form_crypt_error(char* res, size_t res_len, const char* head, size_t hlen, int error)
@@ -347,8 +347,10 @@ bool isRightCert( const std::string& cert )
 {
   std::string algo;
   char *buf = MESPRO_API::GetCertPublicKeyAlgorithmBuffer( (char*)cert.c_str(), cert.size() );
-  if ( buf == nullptr )
-    throw Exception( "Ошибка программы" );
+  if ( buf == nullptr ) {
+    LogTrace(TRACE5) << cert;
+    return false;
+  }
   algo = buf;
   MESPRO_API::FreeBuffer( buf );
   return ( (!isMespro_V1() && (std::string(MP_KEY_ALG_NAME_GOST_12_256) == algo)) ||
@@ -357,6 +359,7 @@ bool isRightCert( const std::string& cert )
 
 void GetServerCertificate( TQuery &Qry, std::string &ca, std::string &pk, std::string &server )
 {
+  tst();
   Qry.Clear();
   Qry.SQLText =
     "SELECT id,certificate,private_key,first_date,last_date,pr_ca FROM crypt_server "
@@ -409,7 +412,7 @@ void getMesProParams(const char *head, int hlen, int *error, MPCryptParams &para
     return;
   }
   TCertRequest req;
-  GetCertRequestInfo( desk, pr_grp, req );
+  GetCertRequestInfo( desk, pr_grp, req, true );
   MESPRO_API::setLibNameFromAlgo( req.Algo );
   GetServerCertificate( Qry, params.CA, params.PKey, params.server_cert );
   if ( params.PKey.empty() ) {
@@ -450,7 +453,7 @@ void TCrypt::Init( const std::string &desk )
     return;
   ProgTrace( TRACE5, "grp_id=%d,pr_grp=%d", grp_id, pr_grp );
   TCertRequest req;
-  GetCertRequestInfo( desk, pr_grp, req );
+  GetCertRequestInfo( desk, pr_grp, req, true );
   MESPRO_API::setLibNameFromAlgo( req.Algo );
 
   string pk;
@@ -556,7 +559,7 @@ void CryptInterface::GetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
    IntGetCertificates(ctxt, reqNode, resNode);
 }
 
-void GetCertRequestInfo( const string &desk, bool pr_grp, TCertRequest &req )
+void GetCertRequestInfo( const string &desk, bool pr_grp, TCertRequest &req, bool ignoreException )
 {
   ProgTrace( TRACE5, "GetCertRequestInfo, desk=%s, pr_grp=%d", desk.c_str(), pr_grp );
   TQuery Qry(&OraSession);
@@ -584,8 +587,10 @@ void GetCertRequestInfo( const string &desk, bool pr_grp, TCertRequest &req )
       "       crypt_req_data.pr_denial=0 ";
   Qry.CreateVariable( "desk", otString, desk );
   Qry.Execute();
-  if ( Qry.Eof )
+  if ( Qry.Eof ) {
+    if ( ignoreException ) return;
     throw AstraLocale::UserException( "MSG.MESSAGEPRO.NO_DATA_FOR_CERT_QRY" );
+  }
   req.FileKey = "astra"+DateTimeToStr( udate, "ddmmyyhhnn" );
   req.Country =	Qry.FieldAsString( "country" );
   req.Algo = Qry.FieldAsString( "key_algo" );
@@ -663,7 +668,7 @@ void IntRequestCertificateData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   ValidateCertificateRequest( TReqInfo::Instance()->desk.code, pr_grp );
 
   TCertRequest req;
-  GetCertRequestInfo( TReqInfo::Instance()->desk.code, pr_grp, req );
+  GetCertRequestInfo( TReqInfo::Instance()->desk.code, pr_grp, req, false );
   xmlNodePtr node = NewTextChild( resNode, "RequestCertificateData" );
   NewTextChild( node, "server_id", SERVER_ID() );
   NewTextChild( node, "FileKey", req.FileKey );
@@ -977,7 +982,7 @@ void CreatePSE( const string &desk, bool pr_grp, int password_len, TPKCS &pkcs )
   ValidateCertificateRequest( desk, pr_grp );
   ValidatePKCSData( desk, pr_grp ); //нельзя создавать несколько PKCS для одного пульта или группы пультов
   TCertRequest req;
-  GetCertRequestInfo( desk, pr_grp, req );
+  GetCertRequestInfo( desk, pr_grp, req, false );
   pkcs.key_filename = req.FileKey + ".key";
   pkcs.cert_filename = req.FileKey + ".pem";
   pkcs.password = getPassword( );
@@ -998,6 +1003,7 @@ void CreatePSE( const string &desk, bool pr_grp, int password_len, TPKCS &pkcs )
     string file_key = PSEpath + "/pkey.key";
     string file_req = PSEpath + "/request.req";
     GetError( "SetNewKeysAlgorithm", MESPRO_API::SetNewKeysAlgorithm( (char*)MESPRO_API::GetAlgo( req.Algo ).c_str() ) );
+    GetError( "SetNewKeysAlgorithm", MESPRO_API::SetNewKeysAlgorithm( req.Algo.empty()?(char*)MP_KEY_ALG_NAME_ECR3410:(char*)MESPRO_API::GetAlgo( req.Algo ).c_str() ) );
     GetError( "SetCertificateRequestFlags", MESPRO_API::SetCertificateRequestFlags( CERT_REQ_DONT_PRINT_TEXT ) );
     GetError( "SetCountry", MESPRO_API::SetCountry( CP866toUTF8Char( req.Country ) ) );
     GetError( "SetStateOrProvince", MESPRO_API::SetStateOrProvince( CP866toUTF8Char(req.StateOrProvince ) ) );
