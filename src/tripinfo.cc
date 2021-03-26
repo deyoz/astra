@@ -2984,10 +2984,14 @@ std::vector<SearchCrsResult> runSearchCrs(const PointId_t& point_id,
 
   TQuery Qry( &OraSession );
   Qry.SQLText=sql.str().c_str();
-  Qry.CreateVariable( "point_id", otInteger, point_id.get() );
-  Qry.CreateVariable( "ps_ok", otString, EncodePaxStatus(ASTRA::psCheckin) );
-  Qry.CreateVariable( "ps_goshow", otString, EncodePaxStatus(ASTRA::psGoshow) );
-  Qry.CreateVariable( "ps_transit", otString, EncodePaxStatus(ASTRA::psTransit) );
+  Qry.CreateVariable("point_id", otInteger, point_id.get());
+  Qry.CreateVariable("ps_ok", otString, EncodePaxStatus(ASTRA::psCheckin));
+  Qry.CreateVariable("ps_goshow", otString, EncodePaxStatus(ASTRA::psGoshow));
+  Qry.CreateVariable("ps_transit", otString, EncodePaxStatus(ASTRA::psTransit));
+  Qry.CreateVariable("point_id_tlg", otInteger, FNull);
+  Qry.CreateVariable("airp_arv_tlg", otString, FNull);
+  Qry.CreateVariable("class_tlg", otString, FNull);
+  Qry.CreateVariable("status", otString, FNull);
 
   const std::vector<CrsDisplaceData> items = CrsDisplaceData::load(point_id);
   if (items.empty()) {
