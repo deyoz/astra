@@ -1576,63 +1576,6 @@ $(defmacro REMOVE_PAX_DOC
 
 #########################################################################################
 
-$(defmacro LOAD_PAX_BY_GRP_ID
-    point_dep
-    grp_id
-{
-!! err=ignore
-{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-    <TCkinLoadPax>
-      <point_id>$(point_dep)</point_id>
-      <grp_id>$(grp_id)</grp_id>
-    </TCkinLoadPax>
-  </query>
-</term>}
-
-}) #end-of-macro
-
-#########################################################################################
-
-$(defmacro LOAD_PAX_BY_REG_NO
-    point_dep
-    reg_no
-{
-!! err=ignore
-{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-    <TCkinLoadPax>
-      <point_id>$(point_dep)</point_id>
-      <reg_no>$(reg_no)</reg_no>
-    </TCkinLoadPax>
-  </query>
-</term>}
-
-}) #end-of-macro
-
-#########################################################################################
-
-$(defmacro LOAD_PAX_BY_PAX_ID
-    point_dep
-    pax_id
-{
-!! err=ignore
-{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-    <TCkinLoadPax>
-      <point_id>$(point_dep)</point_id>
-      <pax_id>$(pax_id)</pax_id>
-    </TCkinLoadPax>
-  </query>
-</term>}
-
-}) #end-of-macro
-
-#########################################################################################
-
 $(defmacro ETS_COS_EXCHANGE
     tickno
     cpnno

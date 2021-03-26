@@ -868,11 +868,10 @@ bool TPriceRFISCList::filterFromTerminal(const TPriceRFISCList& list)
 
 int getKeyPaxId( int pax_id )
 {
-  std::map<int, CheckIn::TCkinPaxTknItem> tkns;
-  GetTCkinTickets(pax_id, tkns);
-  boost::optional<CheckIn::TCkinPaxTknItem> tkn=algo::find_opt<boost::optional>(tkns, 1);
+  std::map<SegNo_t, CheckIn::TCkinPaxTknItem> tkns=CheckIn::GetTCkinTickets(PaxId_t(pax_id));
+  boost::optional<CheckIn::TCkinPaxTknItem> tkn=algo::find_opt<boost::optional>(tkns, SegNo_t(1));
 
-  return tkn?tkn.get().pax_id:pax_id;
+  return tkn?tkn.get().paxId().get():pax_id;
 }
 
 

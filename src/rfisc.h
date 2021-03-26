@@ -594,8 +594,8 @@ class TGrpServiceAutoList : public std::list<TGrpServiceAutoItem>
   public:
     TGrpServiceAutoList& fromDB(int id, bool is_grp_id, bool without_refused=false);
     void toDB(int grp_id) const;
-    static void clearDB(int grp_id);
-    static void copyDB(int grp_id_src, int grp_id_dest, bool not_clear=false);
+    static void clearDB(const GrpId_t& grpId);
+    static void copyDB(const GrpId_t& grpIdSrc, const GrpId_t& grpIdDest, bool not_clear=false);
     bool sameDocExists(const CheckIn::TPaxASVCItem& asvc) const;
     bool removeEqualWithoutEMD(const TGrpServiceAutoItem& item);
     void replaceWithoutEMDFrom(const TGrpServiceAutoList& list);
@@ -616,8 +616,8 @@ class TGrpServiceList : public std::list<TGrpServiceItem>
                     int trfer_seg_count);
     void addTrueBagInfo(const TGrpServiceItem& item);
     void getAllListItems();
-    static void clearDB(int grp_id);
-    static void copyDB(int grp_id_src, int grp_id_dest);
+    static void clearDB(const GrpId_t& grpId);
+    static void copyDB(const GrpId_t& grpIdSrc, const GrpId_t& grpIdDest);
     void mergeWith(const TGrpServiceAutoList& list);
     void moveFrom(TGrpServiceAutoList& list);
 };
@@ -704,8 +704,8 @@ class TPaidRFISCList : public std::map<TPaxSegRFISCKey, TPaidRFISCItem>
     boost::optional<TRFISCKey> getKeyIfSingleRFISC(int pax_id, int trfer_num, const std::string &rfisc) const;
     void getAllListItems();
     bool becamePaid(int grp_id) const;
-    static void clearDB(int grp_id);
-    static void copyDB(int grp_id_src, int grp_id_dest);
+    static void clearDB(const GrpId_t& grpId);
+    static void copyDB(const GrpId_t& grpIdSrc, const GrpId_t& grpIdDest);
     static void updateExcess(int grp_id);
 };
 

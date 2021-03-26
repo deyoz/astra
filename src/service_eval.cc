@@ -1221,7 +1221,7 @@ void ServiceEvalInterface::response_order(const std::string& exchangeId, xmlNode
       MPS::DBExchanger dbChanger( prices.getMPSOrderId() );
       std::string xml;
       if ( !dbChanger.check_msg( xml, MPS::DBExchanger::rtRequest, MPS::DBExchanger::stComplete ) ) {
-        EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);
+        EMDAutoBoundInterface::refreshEmd(EMDAutoBoundGrpId(GrpId_t(grp_id)), reqNode);
         if ( !isDoomedToWait() ) {
           AfterPaid( reqNode, resNode );
           return;
@@ -1511,7 +1511,7 @@ void ServiceEvalInterface::CheckPaid(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     if ( currStatus == MPS::DBExchanger::stComplete ) {
       if ( event.isGood() ) {
         tst();
-        //EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);
+        //EMDAutoBoundInterface::refreshEmd(EMDAutoBoundGrpId(GrpId_t(grp_id)), reqNode);
         AfterPaid( reqNode, resNode );
        // AstraLocale::showMessage( "MSG.MPS_COMPLETED" );
       }
@@ -1647,7 +1647,7 @@ void ServiceEvalInterface::continuePaidRequest(xmlNodePtr reqNode, xmlNodePtr re
     //prices.SvcEmdCost::clear();
     prices.SvcEmdTimeout::clear();
     prices.toContextDB(grp_id);
-    EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);
+    EMDAutoBoundInterface::refreshEmd(EMDAutoBoundGrpId(GrpId_t(grp_id)), reqNode);
     return;
   }
   LogTrace(TRACE5) << "svcs.size=" << svcs.size();

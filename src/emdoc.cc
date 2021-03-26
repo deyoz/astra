@@ -1027,15 +1027,15 @@ void TPaxEMDList::getAllPaxEMD(int pax_id, bool singleSegment)
     getPaxEMD(pax_id, PaxASVCList::asvcByPaxIdWithEMD, true);
 }
 
-void TPaxEMDList::getAllEMD(const TCkinGrpIds &tckin_grp_ids)
+void TPaxEMDList::getAllEMD(const TCkinGrpIds &tckinGrpIds)
 {
   clear();
-  if (tckin_grp_ids.empty()) return;
-  getPaxEMD(tckin_grp_ids.front(), PaxASVCList::allByGrpId, true);
-  if (tckin_grp_ids.size()>1)
+  if (tckinGrpIds.empty()) return;
+  getPaxEMD(tckinGrpIds.front().get(), PaxASVCList::allByGrpId, true);
+  if (tckinGrpIds.size()>1)
     //pax_asvc содержит только текущий сегмент,
     //поэтому при сквозной регистрации надо начитать asvc по всем сквозным сегментам
-    getPaxEMD(tckin_grp_ids.front(), PaxASVCList::asvcByGrpIdWithEMD, true);
+    getPaxEMD(tckinGrpIds.front().get(), PaxASVCList::asvcByGrpIdWithEMD, true);
 }
 
 void TPaxEMDList::toDB() const
@@ -1105,7 +1105,7 @@ void SyncPaxEMD(const CheckIn::TTransferItem &trfer,
       emd_status!=CouponStatus::Flown &&
       emd_status!=CouponStatus::Notification) return;
 
-  set< pair<int/*grp_id*/, int/*pax_id*/> > ids;
+  set< pair<GrpId_t, PaxId_t> > ids;
 
   Qry.Clear();
   Qry.SQLText="SELECT grp_id, pax_id FROM pax WHERE ticket_no=:et_no";
@@ -1116,22 +1116,21 @@ void SyncPaxEMD(const CheckIn::TTransferItem &trfer,
     Qry.Execute();
     for(; !Qry.Eof; Qry.Next())
     {
-      int grp_id=Qry.FieldAsInteger("grp_id");
-      int pax_id=Qry.FieldAsInteger("pax_id");
-      ids.insert(make_pair(grp_id, pax_id));
-      map<int, CheckIn::TCkinPaxTknItem> tkns;
-      CheckIn::GetTCkinTickets(pax_id, tkns);
-      for(map<int, CheckIn::TCkinPaxTknItem>::const_iterator i=tkns.begin(); i!=tkns.end(); ++i)
-        ids.insert(make_pair(i->second.grp_id, i->second.pax_id));
+      GrpId_t grpId(Qry.FieldAsInteger("grp_id"));
+      PaxId_t paxId(Qry.FieldAsInteger("pax_id"));
+      ids.emplace(grpId, paxId);
+      map<SegNo_t, CheckIn::TCkinPaxTknItem> tkns=CheckIn::GetTCkinTickets(paxId);
+      for(const auto& i : tkns)
+        ids.emplace(i.second.grpId(), i.second.paxId());
     };
   };
 
-  for(set< pair<int/*grp_id*/, int/*pax_id*/> >::const_iterator i=ids.begin(); i!=ids.end(); ++i)
+  for(const auto& i : ids)
   {
     try
     {
       TTrferRoute route;
-      route.GetRoute(i->first, trtWithFirstSeg);
+      route.GetRoute(i.first.get(), trtWithFirstSeg);
       int trfer_num=0;
       for(TTrferRoute::iterator t=route.begin(); t!=route.end(); ++t, trfer_num++)
       {
@@ -1140,7 +1139,7 @@ void SyncPaxEMD(const CheckIn::TTransferItem &trfer,
             t->operFlt.scd_out==trfer.operFlt.scd_out &&
             t->airp_arv==trfer.airp_arv)
         {
-          emd.pax_id=i->second;;
+          emd.pax_id=i.second.get();
           emd.trfer_num=trfer_num;
           TPaxEMDList(emd).toDB();
           break;
@@ -1260,4 +1259,66 @@ void handleEmdDispResponse(const edifact::RemoteResults& remRes)
   }
 }
 
+void EMDAutoBoundId::loadGrpIds() const
+{
+  if (grpIds_) return;
+  grpIds_.emplace();
+  QParams params;
+  setSQLParams(params);
+  TCachedQuery Qry(grpSQL(), params);
+  Qry.get().Execute();
+  for(; !Qry.get().Eof; Qry.get().Next())
+  {
+    if (!pointId_) pointId_.emplace(Qry.get().FieldAsInteger("point_dep"));
+    grpIds_.value().emplace(Qry.get().FieldAsInteger("grp_id"));
+  }
+}
+
+void EMDAutoBoundId::loadPaxList() const
+{
+  if (paxList_) return;
+  paxList_.emplace();
+  QParams params;
+  setSQLParams(params);
+  TCachedQuery Qry(paxSQL(), params);
+  Qry.get().Execute();
+  for(; !Qry.get().Eof; Qry.get().Next())
+    paxList_.value().emplace_back(Qry.get());
+}
+
+const std::optional<PointId_t>& EMDAutoBoundId::pointIdOpt() const
+{
+  loadGrpIds();
+  return pointId_;
+}
+
+const GrpIds& EMDAutoBoundId::grpIds() const
+{
+  loadGrpIds();
+  return grpIds_.value();
+}
+
+const std::list<CheckIn::TCkinPaxTknItem>& EMDAutoBoundId::paxList() const
+{
+  loadPaxList();
+  return paxList_.value();
+}
+
+std::set<PaxId_t> EMDAutoBoundId::paxIdsWithSyncEmdsAlarm() const
+{
+  std::set<PaxId_t> paxIds;
+
+  const auto& paxs=paxList();
+  for(const CheckIn::TCkinPaxTknItem& pax : paxs)
+  {
+    if (existsAlarmByPaxId(pax.paxId().get(), Alarm::SyncEmds, paxCheckIn)) paxIds.insert(pax.paxId());
+  }
+
+  return paxIds;
+}
+
+std::set<PaxId_t> EMDAutoBoundPointId::paxIdsWithSyncEmdsAlarm() const
+{
+  return getPaxIdsWithAlarm(pointId_, Alarm::SyncEmds, paxCheckIn);
+}
 

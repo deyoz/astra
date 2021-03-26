@@ -14,6 +14,7 @@ DECL_RIP(RouteIdScd_t, int);
 
 DECL_RIP_RANGED(PaxId_t, int,    1, 2000000000);
 DECL_RIP_RANGED(RegNo_t, int, -999, 999);
+DECL_RIP_RANGED(SegNo_t, int,    1, 9);
 
 DECL_RIP_LENGTH(AirlineCode_t, std::string, 2, 3);
 DECL_RIP_LENGTH(AirportCode_t, std::string, 3, 3);

@@ -53,7 +53,7 @@ class TCheckedResPassengersItem
 {
   public:
     CheckIn::TPaxGrpCategory::Enum grp_cat;
-    TCkinGrpIds tckin_grp_ids;
+    TCkinGrpIds tckinGrpIds;
     TCheckedResPassengersItem() : grp_cat(CheckIn::TPaxGrpCategory::Unknown) {}
 };
 
@@ -418,7 +418,7 @@ class TAvailabilityReq : public TAvailability, public TPaxSection
       TPaxSection::clear();
     }
     virtual void toXML(xmlNodePtr node) const;
-    void bagTypesToDB(const TCkinGrpIds &tckin_grp_ids, bool copy_all_segs=true) const;
+    void bagTypesToDB(const TCkinGrpIds &tckinGrpIds, bool copy_all_segs=true) const;
 };
 
 class TAvailabilityResItem
@@ -465,10 +465,10 @@ class TAvailabilityRes : public TAvailability, public TAvailabilityResMap
       };
       return false;
     }
-    void rfiscsToDB(const TCkinGrpIds &tckin_grp_ids, TBagConcept::Enum bag_concept, bool old_version) const;
-    void normsToDB(const TCkinGrpIds &tckin_grp_ids) const;
-    void brandsToDB(const TCkinGrpIds &tckin_grp_ids) const;
-    void setAdditionalListId(const TCkinGrpIds &tckin_grp_ids) const;
+    void rfiscsToDB(const TCkinGrpIds &tckinGrpIds, TBagConcept::Enum bag_concept, bool old_version) const;
+    void normsToDB(const TCkinGrpIds &tckinGrpIds) const;
+    void brandsToDB(const TCkinGrpIds &tckinGrpIds) const;
+    void setAdditionalListId(const TCkinGrpIds &tckinGrpIds) const;
 };
 
 class TPaymentStatusReq : public TPaymentStatus, public TPaxSection, public TSvcSection
@@ -498,7 +498,7 @@ class TPaymentStatusRes : public TPaymentStatus
       norms.clear();
     }
     virtual void fromXML(xmlNodePtr node);
-    void normsToDB(const TCkinGrpIds &tckin_grp_ids) const;
+    void normsToDB(const TCkinGrpIds &tckinGrpIds) const;
     void check_unknown_status(int seg_id, std::set<TRFISCListKey> &rfiscs) const;
 };
 
@@ -605,7 +605,7 @@ void SendRequest(const TExchange &request, TExchange &response,
                  RequestInfo &requestInfo, ResponseInfo &responseInfo);
 void SendRequest(const TExchange &request, TExchange &response);
 
-void fillPaxsBags(int first_grp_id, TExchange &exch, CheckIn::TPaxGrpCategory::Enum &grp_cat, TCkinGrpIds &tckin_grp_ids,
+void fillPaxsBags(int first_grp_id, TExchange &exch, CheckIn::TPaxGrpCategory::Enum &grp_cat, TCkinGrpIds &tckinGrpIds,
                   bool include_refused=false);
 void fillPaxsBags(const TCheckedReqPassengers &req_grps, TExchange &exch, TCheckedResPassengers &res_grps);
 void fillPaxsSvcs(const TNotCheckedReqPassengers &req_grps, TExchange &exch);
@@ -620,7 +620,7 @@ xmlNodePtr findAnswerNode(xmlNodePtr answerResNode);
 } //namespace SirenaExchange
 
 void unaccBagTypesToDB(int grp_id, bool ignore_unaccomp_sets=false);
-void CopyPaxServiceLists(int grp_id_src, int grp_id_dest, bool is_grp_id, bool rfisc_used);
+void CopyPaxServiceLists(const GrpId_t& grpIdSrc, const GrpId_t& grpIdDest, bool is_grp_id, bool rfisc_used);
 
 class ServicePaymentInterface : public JxtInterface
 {

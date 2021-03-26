@@ -312,7 +312,7 @@ void SearchPassengersResponse::add(const CheckIn::TSimplePaxItem& pax,
     else if (pax.origin()==paxCheckIn)
     {
       //зарегистрированные пассажиры
-      const CheckIn::TSimplePaxGrpItem& grp=PaxGrpCache::get(pax.grp_id);
+      const CheckIn::TSimplePaxGrpItem& grp=PaxGrpCache::get(GrpId_t(pax.grp_id));
 
       if (grp.airp_dep!=reqDeparture) return;
 
@@ -684,14 +684,13 @@ void GetPassengerInfoResponse::prepareEntities(const PaxId_t& paxId)
 
   if (pax.origin()==paxCheckIn)
   {
-    map<int, CheckIn::TSimplePaxItem> tckinPaxs;
-    GetTCkinPassengers(pax.id, tckinPaxs);
+    map<SegNo_t, CheckIn::TSimplePaxItem> tckinPaxs=CheckIn::GetTCkinPassengers(PaxId_t(pax.id));
     int segShift=ASTRA::NoExists;
     for(const auto& p : tckinPaxs)
     {
-      if (p.second.id==pax.id) segShift=p.first;
+      if (p.second.id==pax.id) segShift=p.first.get();
       if (segShift!=ASTRA::NoExists)
-        segKeys.add(TRACE5, Sirena::TPaxSegKey(p.second.id, p.first-segShift));
+        segKeys.add(TRACE5, Sirena::TPaxSegKey(p.second.id, p.first.get()-segShift));
     }
   }
 

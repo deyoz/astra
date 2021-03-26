@@ -1,0 +1,22 @@
+LOAD DATA
+INFILE *
+INTO TABLE rfic_types
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,name
+,name_lat
+,id
+)
+BEGINDATA
+"A"|"Воздушный транспорт"|"Air Transportation"|518002
+"B"|"Наземный транспорт"|"Surface Transportation/Non Air Services"|518003
+"C"|"Багаж"|"Baggage"|518004
+"D"|"Финансовые последствия"|"Financial Impact"|518005
+"E"|"Услуги в аэропорту"|"Airport Services"|518006
+"F"|"Товар"|"Merchandise"|518007
+"G"|"Сервис на борту"|"In-flight Services"|518008
+"H"|"Резервирование услуги"|"Reserved for future ATPCO use"|518009
+"I"|"Индивидуальные услуги АК"|"Individual Airline Use"|518010

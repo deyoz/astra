@@ -2756,9 +2756,9 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
                          TCkinRoute::OnlyDependent,
                          TCkinRoute::WithTransit);
         if (!cr.empty())
-          cr.get(grps);
+          grps=cr.getTCkinGrpIds();
         else
-          grps.push_back(first_seg_grp_id);
+          grps.push_back(GrpId_t(first_seg_grp_id));
 
         Qry.Clear();
         if ( pr_all )
@@ -2785,8 +2785,8 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
             Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
         }
         Qry.DeclareVariable( "grp_id", otInteger );
-        for( TCkinGrpIds::const_iterator igrp=grps.begin(); igrp!=grps.end(); ++igrp ) {
-            Qry.SetVariable( "grp_id", *igrp );
+        for(const GrpId_t& grpId : grps) {
+            Qry.SetVariable( "grp_id", grpId.get() );
             Qry.Execute();
 
             if ( Qry.Eof && pr_all ) // анализ на клиенте по сегментам, значит и мы должны анализировать по сегментам

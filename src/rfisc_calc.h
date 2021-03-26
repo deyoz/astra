@@ -11,13 +11,13 @@
 bool tryEnlargeServicePayment(TPaidRFISCList &paid_bag,
                               CheckIn::TServicePaymentList &payment,
                               const TGrpServiceAutoList &svcsAuto,
-                              const TCkinGrpIds &tckin_grp_ids,
+                              const TCkinGrpIds &tckinGrpIds,
                               const CheckIn::TGrpEMDProps &grp_emd_props,
                               const boost::optional< std::list<TEMDCtxtItem> > &confirmed_emd);
 
 bool tryCheckinServicesAuto(TGrpServiceAutoList &svcsAuto,
                             const CheckIn::TServicePaymentList &payment,
-                            const TCkinGrpIds &tckin_grp_ids,
+                            const TCkinGrpIds &tckinGrpIds,
                             const CheckIn::TGrpEMDProps &emdProps,
                             const boost::optional< std::list<TEMDCtxtItem> > &confirmed_emd);
 
@@ -38,7 +38,7 @@ bool getSvcPaymentStatus(int first_grp_id,
                          xmlNodePtr externalSysResNode,
                          const RollbackBeforeRequestFunction& rollbackFunction,
                          SirenaExchange::TLastExchangeList &SirenaExchangeList,
-                         TCkinGrpIds& tckin_grp_ids,
+                         TCkinGrpIds& tckinGrpIds,
                          TPaidRFISCList& paid,
                          bool& httpWasSent);
 

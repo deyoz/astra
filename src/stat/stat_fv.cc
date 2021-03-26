@@ -116,18 +116,18 @@ struct TTrferInfo {
 
 void TTrferInfo::get(int pax_id, const TTripRoute &route, const CheckIn::TTransferList &trfer)
 {
-    map<int, CheckIn::TCkinPaxTknItem> tkns;
+    map<SegNo_t, CheckIn::TCkinPaxTknItem> tkns;
 
-    GetTCkinTicketsBefore(pax_id, tkns);
+    tkns=CheckIn::GetTCkinTicketsBefore(PaxId_t(pax_id));
     pr_trfer_dep = not tkns.empty();
 
-    GetTCkinTicketsAfter(pax_id, tkns);
+    tkns=CheckIn::GetTCkinTicketsAfter(PaxId_t(pax_id));
     pr_trfer_arv = not tkns.empty();
 
     if(pr_trfer_arv) {
         LogTrace(TRACE5) << "pax_id: " << pax_id << "; trfer by GetTCkinTickets";
         CheckIn::TSimplePaxItem pax;
-        pax.getByPaxId(tkns.rbegin()->second.pax_id);
+        pax.getByPaxId(tkns.rbegin()->second.paxId().get());
         CheckIn::TSimplePaxGrpItem grp;
         grp.getByGrpId(pax.grp_id);
         airp_arv = grp.airp_arv;
