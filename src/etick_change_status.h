@@ -62,6 +62,7 @@ namespace ChangeStatus
                                           const edifact::KickInfo &kickInfo,
                                           const std::string& airline,
                                           const Ticketing::FlightNum_t& flNum,
+                                          const edifact::SpecBaseOurrefName_t& specBaseOurrefName,
                                           Ticketing::Itin* itin=NULL);
 }
 }

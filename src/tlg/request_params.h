@@ -6,6 +6,8 @@
 
 namespace edifact {
 
+DECL_RIP_LENGTH(SpecBaseOurrefName_t, std::string, 5, 5);
+
 struct JxtHandlerForKick
 {
     std::string iface;

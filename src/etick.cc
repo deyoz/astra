@@ -2332,6 +2332,7 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
     only_one=true;
   }
   TETChangeStatusList mtick;
+  size_t commonIdsCount=0;
   for(;segNode!=NULL;segNode=segNode->next)
   {
     set<int> ids;
@@ -2362,7 +2363,7 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
     xmlNodePtr node=GetNode("check_point_id",segNode);
     int check_point_id=(node==NULL?NoExists:NodeAsInteger(node));
 
-    for(set<int>::const_iterator i=ids.begin(); i!=ids.end(); ++i)
+    for(set<int>::const_iterator i=ids.begin(); i!=ids.end(); ++i, ++commonIdsCount)
     try
     {
       ETStatusInterface::ETCheckStatus(*i,
@@ -2422,7 +2423,8 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
 
   if (!mtick.empty())
   {
-    if (!ETStatusInterface::ETChangeStatus(reqNode,mtick))
+    if (!ETStatusInterface::ETChangeStatus(reqNode, mtick, commonIdsCount==1?SpecBaseOurrefNameRule::Different:
+                                                                             SpecBaseOurrefNameRule::Single))
       throw EXCEPTIONS::Exception("ChangeAreaStatus: Wrong mtick");
 
 /*  это позже, когда терминалы будут отложенное подтверждение тоже обрабатывать через ets_connect_error!!!
@@ -2485,7 +2487,7 @@ void ETStatusInterface::ETRollbackStatus(xmlDocPtr ediResDocPtr,
     ProgTrace(TRACE5,"ETRollbackStatus: rollback point_id=%d",*i);
     ETStatusInterface::ETCheckStatusForRollback(*i,ediResDocPtr,false,mtick);
   }
-  ETStatusInterface::ETChangeStatus(NULL,mtick);
+  ETStatusInterface::ETChangeStatus(NULL, mtick, SpecBaseOurrefNameRule::Single);
 }
 
 xmlNodePtr TETChangeStatusList::addTicket(const TETChangeStatusKey &key,
@@ -2728,7 +2730,8 @@ void EMDStatusInterface::EMDCheckStatus(const int grp_id,
 }
 
 bool EMDStatusInterface::EMDChangeStatus(const edifact::KickInfo &kickInfo,
-                                         const TEMDChangeStatusList &emdList)
+                                         const TEMDChangeStatusList &emdList,
+                                         const std::optional<edifact::SpecBaseOurrefName_t>& specBaseOurrefNameOpt)
 {
   bool result=false;
 
@@ -2746,12 +2749,15 @@ bool EMDStatusInterface::EMDChangeStatus(const edifact::KickInfo &kickInfo,
         string ediCtxt=XMLTreeToText(j->ctxt.docPtr());
         //ProgTrace(TRACE5, "ediCosCtxt=%s", ediCtxt.c_str());
 
+        edifact::SpecBaseOurrefName_t specBaseOurrefName=specBaseOurrefNameOpt?specBaseOurrefNameOpt.value():
+                                                                               nextSpecBaseOurrefName();
+
         edifact::EmdCosParams cosParams(OrigOfRequest(airlineToXML(i->first.airline_oper), *TReqInfo::Instance()),
                                         ediCtxt,
                                         kickInfo,
                                         i->first.airline_oper,
                                         Ticketing::FlightNum_t(i->first.flt_no_oper),
-                                        boost::none,
+                                        specBaseOurrefName.get(),
                                         j->emd.ticket(),
                                         j->emd.cpn(),
                                         i->first.coupon_status);
@@ -3148,7 +3154,8 @@ void ETStatusInterface::ETCheckStatus(int id,
 }
 
 bool ETStatusInterface::ETChangeStatus(const xmlNodePtr reqNode,
-                                       const TETChangeStatusList &mtick)
+                                       const TETChangeStatusList &mtick,
+                                       const SpecBaseOurrefNameRule rule)
 {
   bool result=false;
 
@@ -3157,7 +3164,9 @@ bool ETStatusInterface::ETChangeStatus(const xmlNodePtr reqNode,
     const edifact::KickInfo &kickInfo=
         reqNode!=NULL?createKickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc)), "ChangeStatus"):
                       edifact::KickInfo();
-    result=ETChangeStatus(kickInfo, mtick);
+    std::optional<edifact::SpecBaseOurrefName_t> specBaseOurrefNameOpt;
+    if (rule==SpecBaseOurrefNameRule::Single) specBaseOurrefNameOpt=nextSpecBaseOurrefName();
+    result=ETChangeStatus(kickInfo, mtick, specBaseOurrefNameOpt);
   }
   return result;
 }
@@ -3174,7 +3183,8 @@ struct TlgHaveSent
 };
 
 bool ETStatusInterface::ETChangeStatus(const edifact::KickInfo &kickInfo,
-                                       const TETChangeStatusList &mtick)
+                                       const TETChangeStatusList &mtick,
+                                       const std::optional<edifact::SpecBaseOurrefName_t>& specBaseOurrefNameOpt)
 {
   bool result=false;
 
@@ -3221,13 +3231,17 @@ bool ETStatusInterface::ETChangeStatus(const edifact::KickInfo &kickInfo,
         const OrigOfRequest &org=kickInfo.background_mode()?OrigOfRequest(airlineToXML(oper_carrier)):
                                                             OrigOfRequest(airlineToXML(oper_carrier), *TReqInfo::Instance());
 
+        edifact::SpecBaseOurrefName_t specBaseOurrefName=specBaseOurrefNameOpt?specBaseOurrefNameOpt.value():
+                                                                               nextSpecBaseOurrefName();
+
         //throw_if_request_dup("ETStatusInterface::ETChangeStatus");
         edilib::EdiSessionId_t sessId = ChangeStatus::ETChangeStatus(org,
                                                                      ltick,
                                                                      ediCtxt,
                                                                      kickInfo,
                                                                      oper_carrier,
-                                                                     Ticketing::FlightNum_t(oper_flight_no));
+                                                                     Ticketing::FlightNum_t(oper_flight_no),
+                                                                     specBaseOurrefName);
         if(kickInfo.reqCtxtId != ASTRA::NoExists) {
             ths.push_back(TlgHaveSent(sessId, kickInfo.reqCtxtId));
         } else {
@@ -3280,7 +3294,7 @@ void EMDStatusInterface::ChangeStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
                                     kickInfo,
                                     airline,
                                     flNum,
-                                    boost::none,
+                                    nextSpecBaseOurrefName().get(),
                                     emdDocNum,
                                     emdCpnNum,
                                     emdCpnStatus);
@@ -3307,8 +3321,9 @@ void ChangeStatusInterface::ChangeStatus(const xmlNodePtr reqNode,
     const edifact::KickInfo &kickInfo=
         reqNode!=NULL?createKickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc)), "ChangeStatus"):
                       edifact::KickInfo();
-    existsET=ETStatusInterface::ETChangeStatus(kickInfo,info.ET);
-    existsEMD=EMDStatusInterface::EMDChangeStatus(kickInfo,info.EMD);
+    edifact::SpecBaseOurrefName_t specBaseOurrefName=nextSpecBaseOurrefName();
+    existsET=ETStatusInterface::ETChangeStatus(kickInfo, info.ET, specBaseOurrefName);
+    existsEMD=EMDStatusInterface::EMDChangeStatus(kickInfo, info.EMD, specBaseOurrefName);
   };
   if (existsET)
   {
@@ -3999,7 +4014,7 @@ void EMDAutoBoundInterface::EMDTryBind(const TCkinGrpIds &tckin_grp_ids,
                                        AstraEdifact::createKickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(termReqNode->doc)),
                                                                     task.get().point_id, task.get().name);
 
-      EMDStatusInterface::EMDChangeStatus(kickInfo,EMDList);
+      EMDStatusInterface::EMDChangeStatus(kickInfo, EMDList, nextSpecBaseOurrefName());
       return;
     };
 
