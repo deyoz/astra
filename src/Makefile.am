@@ -335,7 +335,6 @@ noinst_HEADERS = \
   flt_settings.h \
   file_queue.h \
   hist.h \
-  hist_interface.h \
   http_io.h \
   http_main.h \
   httpClient.h \
