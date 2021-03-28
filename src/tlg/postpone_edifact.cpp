@@ -2,10 +2,9 @@
 #include <config.h>
 #endif
 #include "postpone_edifact.h"
-#include "edi_handler.h" // TODO
-#include "remote_system_context.h" // TODO
+#include "edi_handler.h"
+#include "remote_system_context.h"
 #include "tlg_source_edifact.h"
-
 #include "tlg.h"
 
 #include <serverlib/cursctl.h>
@@ -43,34 +42,37 @@ int TlgToBePostponed::tlgnum() const
 void PostponeEdiHandling::insertDb(const tlgnum_t& tnum, edilib::EdiSessionId_t sessId)
 {
     LogTrace(TRACE3) << "add session " << sessId << " for postpone tlg " << tnum;
-    OciCpp::CursCtl cur = make_curs(
+    auto cur = make_db_curs(
 "insert into POSTPONED_TLG(MSG_ID, EDISESS_ID) "
-"values(:msg, :edisess)");
+"values(:msg, :edisess)",
+                PgOra::getRWSession("POSTPONED_TLG"));
 
-    cur.bind(":msg", tnum.num)
-       .bind(":edisess", sessId)
-       .exec();
+    cur
+            .bind(":msg", tnum.num.get())
+            .bind(":edisess", sessId.get())
+            .exec();
 
     LogTrace(TRACE1) << "insert into POSTPONED_TLG for edisess=" << sessId << "; msg_id=" << tnum;
 }
 
-boost::optional<tlgnum_t> PostponeEdiHandling::deleteDb(edilib::EdiSessionId_t sessId)
+static boost::optional<tlgnum_t> deleteDbOra(edilib::EdiSessionId_t sessId)
 {
     char tnum[telegrams::TLG_NUM_LENGTH + 1] = {};
-    OciCpp::CursCtl cur = make_curs(
-            "begin\n"
-            ":msg:=NULL;\n"
-            "delete from POSTPONED_TLG where EDISESS_ID=:edisess "
-            "returning MSG_ID into :msg; \n"
-            "select count(*) into :remained from POSTPONED_TLG "
-            "where MSG_ID=:msg; \n "
-            "end;");
+    auto cur = make_curs(
+"begin\n"
+":msg:=NULL;\n"
+"delete from POSTPONED_TLG where EDISESS_ID=:edisess "
+"returning MSG_ID into :msg; \n"
+"select count(*) into :remained from POSTPONED_TLG "
+"where MSG_ID=:msg; \n "
+"end;");
 
     int remained = 0;
-    cur.bind(":edisess", sessId)
-       .bindOutNull(":msg", tnum, "")
-       .bindOutNull(":remained", remained, -1)
-       .exec();
+    cur
+            .bind(":edisess", sessId)
+            .bindOutNull(":msg", tnum, "")
+            .bindOutNull(":remained", remained, -1)
+            .exec();
 
     std::string tmpNum(tnum);
 
@@ -90,6 +92,49 @@ boost::optional<tlgnum_t> PostponeEdiHandling::deleteDb(edilib::EdiSessionId_t s
     }
 
     return boost::none;
+}
+
+static boost::optional<tlgnum_t> deleteDbPg(edilib::EdiSessionId_t sessId)
+{
+    auto cur = make_db_curs(
+"delete from POSTPONED_TLG where EDISESS_ID = :sess_id "
+"returning MSG_ID",
+                PgOra::getRWSession("POSTPONED_TLG"));
+
+    tlgnum_t::num_t::base_type msg_id;
+    cur
+            .def(msg_id)
+            .bind(":sess_id", sessId.get())
+            .exfet();
+
+    if(cur.err() != DbCpp::ResultCode::NoDataFound) {
+        auto cur = make_db_curs(
+"select count(*) from POSTPONED_TLG where MSG_ID = :msg_id",
+                    PgOra::getRWSession("POSTPONED_TLG"));
+
+        int remained = 0;
+        cur
+                .def(remained)
+                .bind(":msg_id", msg_id)
+                .EXfet();
+
+        if(remained == 0) {
+            LogTrace(TRACE1) << "delete from POSTPONED_TLG for edisess=" << sessId << "; "
+                             << "got msg_id=" << msg_id;
+            return tlgnum_t(msg_id);
+        }
+    }
+
+    return {};
+}
+
+boost::optional<tlgnum_t> PostponeEdiHandling::deleteDb(edilib::EdiSessionId_t sessId)
+{
+    if(PgOra::supportsPg("POSTPONED_TLG")) {
+        return deleteDbPg(sessId);
+    } else {
+        return deleteDbOra(sessId);
+    }
 }
 
 void sendCmdToHandler(const std::string& ediText)
@@ -136,18 +181,19 @@ void PostponeEdiHandling::addToQueue(const tlgnum_t& tnum)
     TEdiTlgSubtype tlgSubtype = specifyEdiTlgSubtype(tlg.text());
 
     DbCpp::CursCtl cur = make_db_curs(
-       "insert into TLG_QUEUE(ID, SENDER, TLG_NUM, RECEIVER, TYPE, SUBTYPE, PRIORITY, STATUS, TIME, TTL, TIME_MSEC) "
-       "values(:id, :sender, :tlg_num, :receiver, 'INA', :subtype, 1, 'PUT', :time, 10, 0)",
+"insert into TLG_QUEUE(ID, SENDER, TLG_NUM, RECEIVER, TYPE, SUBTYPE, PRIORITY, STATUS, TIME, TTL, TIME_MSEC) "
+"values(:id, :sender, :tlg_num, :receiver, 'INA', :subtype, 1, 'PUT', :time, 10, 0)",
         PgOra::getRWSession("TLG_QUEUE"));
 
-    cur.stb()
-       .bind(":id", std::stoull(tnum.num.get()))
-       .bind(":sender", tlg.fromRot())
-       .bind(":tlg_num", tlg.gatewayNum())
-       .bind(":receiver", tlg.toRot())
-       .bind(":subtype", getEdiTlgSubtypeName(tlgSubtype))
-       .bind(":time", Dates::currentDate())
-       .exec();
+    cur
+            .stb()
+            .bind(":id", std::stoull(tnum.num.get()))
+            .bind(":sender", tlg.fromRot())
+            .bind(":tlg_num", tlg.gatewayNum())
+            .bind(":receiver", tlg.toRot())
+            .bind(":subtype", getEdiTlgSubtypeName(tlgSubtype))
+            .bind(":time", Dates::currentDate())
+            .exec();
 
 #ifdef XP_TESTING
     if(inTestMode())
@@ -168,10 +214,11 @@ void PostponeEdiHandling::addToQueue(const tlgnum_t& tnum)
 void PostponeEdiHandling::deleteWaiting(const tlgnum_t& tnum)
 {
     LogTrace(TRACE3) << "delete postponed records for tlgnum: " << tnum;
-    make_curs(
-"delete from POSTPONED_TLG where MSG_ID=:msg")
-       .bind(":msg", tnum.num)
-       .exec();
+    make_db_curs(
+"delete from POSTPONED_TLG where MSG_ID = :msg",
+               PgOra::getRWSession("POSTPONED_TLG"))
+            .bind(":msg", tnum.num.get())
+            .exec();
 }
 
 void PostponeEdiHandling::postpone(const tlgnum_t& tnum, edilib::EdiSessionId_t sessId)
@@ -191,7 +238,6 @@ boost::optional<tlgnum_t> PostponeEdiHandling::deleteWaiting(edilib::EdiSessionI
     LogTrace(TRACE3) << "try to find postponed tlg for session: " << sessId;
     boost::optional<tlgnum_t> tnum = deleteDb(sessId);
     if(tnum) {
-        tst();
         addToQueue(*tnum);
     }
     return tnum;
@@ -199,18 +245,19 @@ boost::optional<tlgnum_t> PostponeEdiHandling::deleteWaiting(edilib::EdiSessionI
 
 boost::optional<tlgnum_t> PostponeEdiHandling::findPostponeTlg(edilib::EdiSessionId_t sessId)
 {
-    char tnum[telegrams::TLG_NUM_LENGTH + 1] = {};
-    OciCpp::CursCtl cur = make_curs(
-"select MSG_ID from POSTPONED_TLG where EDISESS_ID=:edisess");
-    cur.bind(":edisess", sessId)
-       .def(tnum)
-       .EXfet();
-    if(cur.err() != NO_DATA_FOUND) {
-        tst();
-        return tlgnum_t(tnum);
+    tlgnum_t::num_t::base_type msg_id;
+    auto cur = make_db_curs(
+"select MSG_ID from POSTPONED_TLG where EDISESS_ID = :sess_id",
+                PgOra::getROSession("POSTPONED_TLG"));
+    cur
+            .bind(":sess_id", sessId.get())
+            .def(msg_id)
+            .EXfet();
+    if(cur.err() != DbCpp::ResultCode::NoDataFound) {
+        return tlgnum_t(msg_id);
     }
 
-    return boost::none;
+    return {};
 }
 
 //---------------------------------------------------------------------------------------
@@ -218,25 +265,27 @@ boost::optional<tlgnum_t> PostponeEdiHandling::findPostponeTlg(edilib::EdiSessio
 void updateTlgToPostponed(const tlgnum_t& tnum)
 {
     DbCpp::CursCtl cur = make_db_curs(
-       "update TLGS set POSTPONED=1 where ID=:msg_id",
+"update TLGS set POSTPONED=1 where ID=:msg_id",
         PgOra::getRWSession("TLGS"));
-    cur.stb()
-       .bind(":msg_id", std::stoull(tnum.num.get()))
-       .exec();
+    cur
+            .stb()
+            .bind(":msg_id", std::stoull(tnum.num.get()))
+            .exec();
 }
 
 bool isTlgPostponed(const tlgnum_t& tnum)
 {
     bool postponed = false;
     DbCpp::CursCtl cur = make_db_curs(
-       "select POSTPONED from TLGS where ID=:msg_id",
+"select POSTPONED from TLGS where ID=:msg_id",
         PgOra::getROSession("TLGS"));
-    cur.stb()
-       .bind(":msg_id", std::stoull(tnum.num.get()))
-       .defNull(postponed, false)
-       .EXfet();
+    cur
+            .stb()
+            .bind(":msg_id", std::stoull(tnum.num.get()))
+            .defNull(postponed, false)
+            .EXfet();
 
-    if (DbCpp::ResultCode::NoDataFound == cur.err()) {
+    if(DbCpp::ResultCode::NoDataFound == cur.err()) {
         return false;
     }
 
