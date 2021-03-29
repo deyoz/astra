@@ -218,20 +218,6 @@ std::string getEdiTlgSubtypeName(TEdiTlgSubtype st)
     return str;
 }
 
-int getNextTlgNum()
-{
-  int tlg_num = 0;
-  TQuery Qry(&OraSession);
-  Qry.SQLText = "SELECT tlgs_id.nextval as tlg_num FROM dual";
-  Qry.Execute();
-
-  tlg_num = Qry.FieldAsInteger("tlg_num");
-
-  Qry.Close();
-
-  return tlg_num;
-}
-
 int saveTlg(const char * receiver,
             const char * sender,
             const char * type,
@@ -240,7 +226,7 @@ int saveTlg(const char * receiver,
 {
   TDateTime nowUTC=NowUTC();
 
-  int tlg_num = getNextTlgNum();
+  int tlg_num = PgOra::getSeqNextVal("TLGS_ID");
 
   DB::TQuery Qry(PgOra::getRWSession("TLGS"));
 
@@ -600,7 +586,7 @@ int loadTlg(const std::string &text, int prev_typeb_tlg_id, bool &hist_uniq_erro
         hist_uniq_error = false;
 
         TDateTime nowUTC=NowUTC();
-        int tlg_id = getNextTlgNum();
+        int tlg_id = PgOra::getSeqNextVal("TLGS_ID");
 
         DB::TQuery Qry(PgOra::getRWSession("SP_PG_GROUP_TLG_QUE"));
         Qry.SQLText=
