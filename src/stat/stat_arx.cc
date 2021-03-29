@@ -2082,7 +2082,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 }
 
 void fillSqlSrcRunQuery(ostringstream & sql, const TReqInfo & info, const std::string& airline,
-                         const std::string& city, const std::string& surname, const std::string& flt_no,
+                         const std::string& city, const std::string& surname, int flt_no,
                          const std::string& ticket_no, TDateTime FirstDate, TDateTime LastDate)
 {
     if (!info.user.access.airps().elems().empty()) {
@@ -2101,7 +2101,7 @@ void fillSqlSrcRunQuery(ostringstream & sql, const TReqInfo & info, const std::s
       sql << " AND airline = :airline \n";
     if(!city.empty())
       sql << " AND airp_arv = :city \n";
-    if(!flt_no.empty())
+    if(flt_no != NoExists)
       sql << " AND flt_no = :flt_no \n";
     if(!surname.empty()) {
       if(FirstDate + 1 < LastDate && surname.size() < 4)
@@ -2137,9 +2137,9 @@ void ArxPaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, 
     string city = NodeAsStringFast("dest", paramNode, "");
     if(!city.empty())
         Qry.CreateVariable("city", otString, city);
-    string flt_no = NodeAsStringFast("flt_no", paramNode, "");
-    if(!flt_no.empty())
-        Qry.CreateVariable("flt_no", otString, flt_no);
+    int flt_no = NodeAsInteger("flt_no", paramNode, NoExists);
+    if(flt_no != NoExists)
+        Qry.CreateVariable("flt_no", otInteger, flt_no);
     string surname = NodeAsStringFast("surname", paramNode, "");
     if(!surname.empty())
         Qry.CreateVariable("surname", otString, surname);
@@ -2279,10 +2279,10 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         Qry.CreateVariable("city", otString, city);
         params.insert( make_pair("airp_arv", city) );
     }
-    string flt_no = NodeAsStringFast("flt_no", paramNode, "");
-    if(!flt_no.empty()) {
-        Qry.CreateVariable("flt_no", otString, flt_no);
-        params.insert( make_pair("flt_no", flt_no) );
+    int flt_no = NodeAsInteger("flt_no", paramNode, NoExists);
+    if(flt_no != NoExists) {
+        Qry.CreateVariable("flt_no", otInteger, flt_no);
+        params.insert( make_pair("flt_no", IntToString(flt_no)));
     }
     string surname = NodeAsStringFast("surname", paramNode, "");
     if(!surname.empty()) {
