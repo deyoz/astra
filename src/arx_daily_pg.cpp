@@ -845,11 +845,8 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
         {
             LockAndCollectStat(move_id);
             std::vector<dbo::Points> points = read_points(move_id);
-            if(isTripDeleted(points))
-            {
-                continue;
-            }
-            if(dbo::isNotNull(part_key)) {
+            bool isTripDel = isTripDeleted(points);
+            if(dbo::isNotNull(part_key) && !isTripDel) {
                 arx_move_ext(move_id, part_key, getDateRange(date_period));
                 arx_points(points, part_key);
                 arx_move_ref(move_id, part_key);
