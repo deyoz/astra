@@ -13,19 +13,15 @@ void TAnnulBTStatRow::get_tags(TDateTime part_key, int id)
 {
     QParams QryParams;
     QryParams << QParam("id", otInteger, id);
-
     string SQLText = "select no from ";
-    if(part_key != NoExists)
-        SQLText += "arx_annul_tags annul_tags ";
-    else
-        SQLText += "annul_tags ";
-    SQLText += "where ";
+    std::string table = (part_key != NoExists) ? "arx_annul_tags" : "annul_tags";
+    SQLText += table + " where ";
     if(part_key != NoExists) {
         SQLText += " part_key = :part_key and ";
         QryParams << QParam("part_key", otDate, part_key);
     }
     SQLText += " id = :id order by no";
-    TCachedQuery Qry(SQLText, QryParams);
+    DB::TCachedQuery Qry(PgOra::getROSession(table), SQLText, QryParams);
     Qry.get().Execute();
     for(; not Qry.get().Eof; Qry.get().Next()) {
         t_tag_nos_row tag;
