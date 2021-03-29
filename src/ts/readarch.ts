@@ -213,9 +213,6 @@ $(dump_table POINTS fields="point_id, move_id, airline, flt_no, airp, scd_in, sc
 
 $(run_arch_step $(ddmmyy +387))
 
-#$(dump_pg_table ARX_POINTS)
-#$(dump_pg_table ARX_EVENTS order="ev_order, lang")
-
 #!! capture=on
 #$(GET_EVENTS $(get point_dep))
 
@@ -1684,4 +1681,371 @@ $(RUN_GENERAL_STAT  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подр
 $(RUN_GENERAL_STAT  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "SBDO (Zamar)")
 $(RUN_GENERAL_STAT  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Итого "По агентам")
 $(RUN_GENERAL_STAT  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Несопр. багаж")
+
+
+%%
+#########################################################################################
+
+###
+#   Тест №15
+#
+#   Описание: пассажиров: 61,
+#             интерактив: выкл
+#
+#   Чтение архива из stat_arx.cc функции SystemLogRun
+###
+#########################################################################################
+
+$(init_jxt_pult МОВРОМ)
+$(set_desk_version 201707-0195750)
+$(login)
+
+################################################################################
+
+$(PREPARE_SEASON_SCD ЮТ СОЧ ЛХР 100 -1 TU5 $(date_format %d.%m.%Y +0) $(date_format %d.%m.%Y +5))
+$(make_spp $(ddmmyy +1))
+$(deny_ets_interactive ЮТ 100 СОЧ)
+$(INB_PNL_UT AER LHR 100 $(ddmon +1 en))
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set pax_id_TUMALI $(get_pax_id $(get point_dep) TUMALI VALERII))
+
+!!
+$(CHECKIN_PAX $(get pax_id_TUMALI) $(get point_dep) $(get point_arv) ЮТ 100 СОЧ ЛХР TUMALI VALERII 2986145115578 ВЗ UA FA144642 UA 16.04.1968 25.06.2025 M)
+
+$(set grp_id $(get_single_grp_id $(get point_dep) TUMALI VALERII))
+
+#$(dump_table POINTS fields="point_id, move_id, airline, flt_no, airp, scd_in, scd_out, est_in, est_out, act_in, act_out, time_in, time_out, airp_fmt")
+
+$(run_arch_step $(ddmmyy +140))
+
+#$(dump_table ARX_EVENTS order="ev_order, lang")
+
+!! capture=on
+$(RUN_SYSTEM_LOG $(date_format %d.%m.%Y +0 ) $(date_format %d.%m.%Y +1))
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer...>
+    <form name='SystemLog'...>$(SystemLogForm)
+</form>
+    <form_data>
+      <variables>
+        <print_date>...</print_date>
+        <print_oper>PIKE</print_oper>
+        <print_term>МОВРОМ</print_term>
+        <use_seances>0</use_seances>
+        <test_server>1</test_server>
+        <cap_test>ТЕСТ</cap_test>
+        <page_number_fmt>Стр. %u из %u</page_number_fmt>
+        <short_page_number_fmt>Стр. %u</short_page_number_fmt>
+        <oper_info>Отчет сформирован ... (МОВ)
+оператором PIKE
+с терминала МОВРОМ</oper_info>
+        <skip_header>0</skip_header>
+        <report_title>Операции в системе</report_title>
+      </variables>
+    </form_data>
+    <PaxLog>
+      <header>
+        <col>Агент</col>
+      </header>
+      <rows>
+        <row>
+          <point_id>0</point_id>
+          <time>...</time>
+          <msg>Ввод нового рейса</msg>
+          <ev_order>...</ev_order>
+          <ev_user>КОВАЛЕВ Р.А.</ev_user>
+          <station>МОВРОМ</station>
+          <screen>AIR.EXE</screen>
+        </row>
+        <row>
+          <point_id>0</point_id>
+          <time>...</time>
+          <msg>Ввод нового периода $(date_format %d.%m.%y +0) $(date_format %d.%m.%y +5) 1234567 (ид. рейса=...,ид. маршрута=...)</msg>
+          <ev_order>...</ev_order>
+          <ev_user>КОВАЛЕВ Р.А.</ev_user>
+          <station>МОВРОМ</station>
+          <screen>AIR.EXE</screen>
+        </row>
+        <row>
+          <point_id>0</point_id>
+          <time>...</time>
+          <msg>Маршрут: ЮТ100,ТУ5,СОЧ07:15(UTC)-09:00(UTC)ЛХР</msg>
+          <ev_order>...</ev_order>
+          <ev_user>КОВАЛЕВ Р.А.</ev_user>
+          <station>МОВРОМ</station>
+          <screen>AIR.EXE</screen>
+        </row>
+        <row>
+          <point_id>0</point_id>
+          <time>...</time>
+          <msg>Получение СПП за $(date_format %d.%m.%y +1)</msg>
+          <ev_order>...</ev_order>
+          <ev_user>КОВАЛЕВ Р.А.</ev_user>
+          <station>МОВРОМ</station>
+          <screen>AIR.EXE</screen>
+        </row>
+        <row>
+          <point_id>0</point_id>
+          <time>...</time>
+          <msg>Ввод строки в таблице 'Настройки рейсов разные': TYPE_CODE='11',AIRLINE='ЮТ',А/к='',AIRP_DEP='СОЧ',А/п вылета='',Рейс='100',Значение='1'. Идентификатор: TYPE_CODE='11',AIRLINE='ЮТ',А/к='',AIRP_DEP='СОЧ',А/п вылета='',Рейс='100',Значение='1'</msg>
+          <ev_order>...</ev_order>
+          <ev_user>КОВАЛЕВ Р.А.</ev_user>
+          <station>МОВРОМ</station>
+          <screen>MAINDCS.EXE</screen>
+        </row>
+      </rows>
+    </PaxLog>
+    <PaxLog>
+      <header>
+        <col>Агент</col>
+      </header>
+      <rows>
+        <row>
+          <point_id>$(get point_dep)</point_id>
+          <time>...</time>
+          <msg>Этап 'отгон трапа': план. время 07:00 $(date_format %d.%m.%y +1) (UTC)</msg>
+          <ev_order>...</ev_order>
+          <trip>ЮТ100/30 СОЧ</trip>
+          <ev_user>КОВАЛЕВ Р.А.</ev_user>
+          <station>МОВРОМ</station>
+          <screen>AIR.EXE</screen>
+        </row>
+        <row>
+          <point_id>$(get point_dep)</point_id>
+          <time>...</time>
+          <msg>Этап 'Окончание посадки (оформление докум.)': план. время 06:50 $(date_format %d.%m.%y +1) (UTC)</msg>
+          <ev_order>...</ev_order>
+          <trip>ЮТ100/30 СОЧ</trip>
+          <ev_user>КОВАЛЕВ Р.А.</ev_user>
+          <station>МОВРОМ</station>
+          <screen>AIR.EXE</screen>
+        </row>
+        <row>
+          <point_id>$(get point_dep)</point_id>
+          <time>...</time>
+          <msg>Этап 'Готовность ВС к посадке': план. время 06:30 $(date_format %d.%m.%y +1) (UTC)</msg>
+          <ev_order>...</ev_order>
+          <trip>ЮТ100/30 СОЧ</trip>
+          <ev_user>КОВАЛЕВ Р.А.</ev_user>
+          <station>МОВРОМ</station>
+          <screen>AIR.EXE</screen>
+        </row>
+        <row>
+          <point_id>$(get point_dep)</point_id>
+          <time>...</time>
+          <msg>Этап 'Закрытие kiosk-регистрации': план. время 05:15 $(date_format %d.%m.%y +1) (UTC)</msg>
+          <ev_order>...</ev_order>
+          <trip>ЮТ100/30 СОЧ</trip>
+          <ev_user>КОВАЛЕВ Р.А.</ev_user>
+          <station>МОВРОМ</station>
+          <screen>AIR.EXE</screen>
+        </row>
+        <row>
+          <point_id>$(get point_dep)</point_id>
+          <time>...</time>
+          <msg>Этап 'Закрытие web-регистрации': план. время 04:15 $(date_format %d.%m.%y +1) (UTC)</msg>
+          <ev_order>...</ev_order>
+          <trip>ЮТ100/30 СОЧ</trip>
+          <ev_user>КОВАЛЕВ Р.А.</ev_user>
+          <station>МОВРОМ</station>
+          <screen>AIR.EXE</screen>
+        </row>
+        <row>
+          <point_id>$(get point_dep)</point_id>
+          <time>...</time>
+          <msg>Этап 'Запрет отмены web-регистрации': план. время 06:25 $(date_format %d.%m.%y +1) (UTC)</msg>
+          <ev_order>...</ev_order>
+          <trip>ЮТ100/30 СОЧ</trip>
+          <ev_user>КОВАЛЕВ Р.А.</ev_user>
+          <station>МОВРОМ</station>
+          <screen>AIR.EXE</screen>
+        </row>
+        <row>
+          <point_id>$(get point_dep)</point_id>
+          <time>...</time>
+          <msg>Этап 'Закрытие регистрации': план. время 06:35 $(date_format %d.%m.%y +1) (UTC)</msg>
+          <ev_order>...</ev_order>
+          <trip>ЮТ100/30 СОЧ</trip>
+          <ev_user>КОВАЛЕВ Р.А.</ev_user>
+          <station>МОВРОМ</station>
+          <screen>AIR.EXE</screen>
+        </row>
+        <row>
+          <point_id>$(get point_dep)</point_id>
+          <time>...</time>
+          <msg>Этап 'Открытие kiosk-регистрации': план. время 07:15 $(date_format %d.%m.%y +0) (UTC)</msg>
+          <ev_order>...</ev_order>
+          <trip>ЮТ100/30 СОЧ</trip>
+          <ev_user>КОВАЛЕВ Р.А.</ev_user>
+          <station>МОВРОМ</station>
+          <screen>AIR.EXE</screen>
+        </row>
+        <row>
+          <point_id>$(get point_dep)</point_id>
+          <time>...</time>
+          <msg>Этап 'Открытие web-регистрации': план. время 07:15 $(date_format %d.%m.%y +0) (UTC)</msg>
+          <ev_order>...</ev_order>
+          <trip>ЮТ100/30 СОЧ</trip>
+          <ev_user>КОВАЛЕВ Р.А.</ev_user>
+          <station>МОВРОМ</station>
+          <screen>AIR.EXE</screen>
+        </row>
+        <row>
+          <point_id>$(get point_dep)</point_id>
+          <time>...</time>
+          <msg>Этап 'Открытие регистрации': план. время 04:14 $(date_format %d.%m.%y +1) (UTC)</msg>
+          <ev_order>...</ev_order>
+          <trip>ЮТ100/30 СОЧ</trip>
+          <ev_user>КОВАЛЕВ Р.А.</ev_user>
+          <station>МОВРОМ</station>
+          <screen>AIR.EXE</screen>
+        </row>
+        <row>
+          <point_id>$(get point_dep)</point_id>
+          <time>...</time>
+          <msg>Этап 'Подготовка к регистрации': план. время 00:15 $(date_format %d.%m.%y +1) (UTC)</msg>
+          <ev_order>...</ev_order>
+          <trip>ЮТ100/30 СОЧ</trip>
+          <ev_user>КОВАЛЕВ Р.А.</ev_user>
+          <station>МОВРОМ</station>
+          <screen>AIR.EXE</screen>
+        </row>
+        <row>
+          <point_id>$(get point_dep)</point_id>
+          <time>...</time>
+          <msg>Задача SYNC_ALL_CHKD &lt;&gt; создана; План. вр.: $(date_format %d.%m.%y +0) ... (UTC)</msg>
+          <ev_order>...</ev_order>
+          <trip>ЮТ100/30 СОЧ</trip>
+          <ev_user>КОВАЛЕВ Р.А.</ev_user>
+          <station>МОВРОМ</station>
+          <screen>MAINDCS.EXE</screen>
+        </row>
+        <row>
+          <point_id>$(get point_dep)</point_id>
+          <time>...</time>
+          <msg>Задача EMD_REFRESH &lt;CloseCheckIn 0&gt; создана; План. вр.: $(date_format %d.%m.%y +1) 06:35:00 (UTC)</msg>
+          <ev_order>...</ev_order>
+          <trip>ЮТ100/30 СОЧ</trip>
+          <ev_user>КОВАЛЕВ Р.А.</ev_user>
+          <station>МОВРОМ</station>
+          <screen>AIR.EXE</screen>
+        </row>
+        <row>
+          <point_id>$(get point_dep)</point_id>
+          <time>...</time>
+          <msg>Пассажир TUMALI VALERII (ВЗ). DOCS: P/UKR/FA144642/UKR/16APR68/M/25JUN25/TUMALI/VALERII/. Ручной ввод</msg>
+          <ev_order>...</ev_order>
+          <trip>ЮТ100/30 СОЧ</trip>
+          <grp_id>$(get grp_id)</grp_id>
+          <reg_no>1</reg_no>
+          <ev_user>КОВАЛЕВ Р.А.</ev_user>
+          <station>МОВРОМ</station>
+          <screen>AIR.EXE</screen>
+        </row>
+        <row>
+          <point_id>$(get point_dep)</point_id>
+          <time>...</time>
+          <msg>Пассажир TUMALI VALERII (ВЗ) зарегистрирован. П/н: ЛХР, класс: Э, статус: Бронь, место: 5Г. Баг.нормы: нет</msg>
+          <ev_order>...</ev_order>
+          <trip>ЮТ100/30 СОЧ</trip>
+          <grp_id>$(get grp_id)</grp_id>
+          <reg_no>1</reg_no>
+          <ev_user>КОВАЛЕВ Р.А.</ev_user>
+          <station>МОВРОМ</station>
+          <screen>AIR.EXE</screen>
+        </row>
+        <row>
+          <point_id>$(get point_dep)</point_id>
+          <time>...</time>
+          <msg>Рейс перемещен в архив</msg>
+          <ev_order>...</ev_order>
+          <trip>ЮТ100/30 СОЧ</trip>
+          <station>IATCIP</station>
+          <screen>AIR.EXE</screen>
+        </row>
+        <row>
+          <point_id>$(get point_dep)</point_id>
+          <time>...</time>
+          <msg>Сбор статистики по рейсу</msg>
+          <ev_order>...</ev_order>
+          <trip>ЮТ100/30 СОЧ</trip>
+          <station>IATCIP</station>
+          <screen>AIR.EXE</screen>
+        </row>
+        <row>
+          <point_id>$(get point_dep)</point_id>
+          <time>...</time>
+          <msg>Назначение весов пассажиров на рейс: </msg>
+          <ev_order>...</ev_order>
+          <trip>ЮТ100/30 СОЧ</trip>
+          <ev_user>КОВАЛЕВ Р.А.</ev_user>
+          <station>МОВРОМ</station>
+          <screen>AIR.EXE</screen>
+        </row>
+        <row>
+          <point_id>$(get point_dep)</point_id>
+          <time>...</time>
+          <msg>Назначение весов пассажиров на рейс: </msg>
+          <ev_order>...</ev_order>
+          <trip>ЮТ100/30 СОЧ</trip>
+          <ev_user>КОВАЛЕВ Р.А.</ev_user>
+          <station>МОВРОМ</station>
+          <screen>AIR.EXE</screen>
+        </row>
+        <row>
+          <point_id>$(get point_dep)</point_id>
+          <time>...</time>
+          <msg>Назначение весов пассажиров на рейс: </msg>
+          <ev_order>...</ev_order>
+          <trip>ЮТ100/30 СОЧ</trip>
+          <station>IATCIP</station>
+          <screen>AIR.EXE</screen>
+        </row>
+        <row>
+          <point_id>$(get point_dep)</point_id>
+          <time>...</time>
+          <msg>Назначена базовая компоновка (ид=43345). Классы: Б11 Э63</msg>
+          <ev_order>...</ev_order>
+          <trip>ЮТ100/30 СОЧ</trip>
+          <ev_user>КОВАЛЕВ Р.А.</ev_user>
+          <station>МОВРОМ</station>
+          <screen>MAINDCS.EXE</screen>
+        </row>
+        <row>
+          <point_id>$(get point_dep)</point_id>
+          <time>...</time>
+          <msg>Назначение весов пассажиров на рейс: </msg>
+          <ev_order>...</ev_order>
+          <trip>ЮТ100/30 СОЧ</trip>
+          <ev_user>КОВАЛЕВ Р.А.</ev_user>
+          <station>МОВРОМ</station>
+          <screen>AIR.EXE</screen>
+        </row>
+        <row>
+          <point_id>$(get point_dep)</point_id>
+          <time>...</time>
+          <msg>На рейсе запрещена web-регистрация.</msg>
+          <ev_order>...</ev_order>
+          <trip>ЮТ100/30 СОЧ</trip>
+          <ev_user>КОВАЛЕВ Р.А.</ev_user>
+          <station>МОВРОМ</station>
+          <screen>AIR.EXE</screen>
+        </row>
+        <row>
+          <point_id>...</point_id>
+          <time>...</time>
+          <msg>Рейс перемещен в архив</msg>
+          <ev_order>...</ev_order>
+          <trip/>
+          <station>IATCIP</station>
+          <screen>AIR.EXE</screen>
+        </row>
+      </rows>
+    </PaxLog>
+  </answer>
+</term>
 

@@ -3758,6 +3758,45 @@ $(defmacro RUN_FLT_LOG
 </term> }
 }) #end_of_macro
 
+####################################################################################
+
+$(defmacro RUN_SYSTEM_LOG
+    first_date
+    last_date
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='stat' ver='1' opr='PIKE' screen='STAT.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <SystemLogRun>
+      <dev_model/>
+      <fmt_type/>
+      <prnParams>
+        <pr_lat>0</pr_lat>
+        <encoding>UTF-16LE</encoding>
+        <offset>20</offset>
+        <top>0</top>
+      </prnParams>
+      <FirstDate>$(first_date) 09:00:00</FirstDate>
+      <LastDate>$(last_date) 09:00:00</LastDate>
+      <evtFlt>РЕЙ</evtFlt>
+      <evtPax>ПАС</evtPax>
+      <evtPay>ОПЛ</evtPay>
+      <evtGraph>ГРФ</evtGraph>
+      <evtFltTask>ЗДЧ</evtFltTask>
+      <evtTlg>ТЛГ</evtTlg>
+      <evtComp>КМП</evtComp>
+      <evtAccess>ДСТ</evtAccess>
+      <evtSystem>СИС</evtSystem>
+      <evtCodif>КОД</evtCodif>
+      <evtPeriod>ПРД</evtPeriod>
+      <evtSeason>СЕЗ</evtSeason>
+      <evtDisp>ДИС</evtDisp>
+      <client_with_trip_col_in_SysLog/>
+      <LoadForm/>
+    </SystemLogRun>
+  </query>
+</term>}
+}) #end_of_macro
+
 #######################################################################################
 
 $(defmacro RUN_FLT_CBOX_DROP_DOWN
