@@ -1709,7 +1709,7 @@ std::set<TlgId_t> loadTrferTlgIdSet(const PointIdTlg_t& point_id)
   const std::vector<int> tlg_ids =
       session.query<int>("SELECT tlg_id")
       .from("tlg_transfer")
-      .where("point_id = :point_id")
+      .where("point_id_out = :point_id")
       .setBind({{":point_id", point_id.get()}});
   return algo::transform<std::set>(tlg_ids, [](int id) { return TlgId_t(id); });
 }
