@@ -101,6 +101,7 @@ public:
     virtual double FieldAsFloat(int ind) = 0;
     virtual void CreateVariable(const std::string& vname, otFieldType vtype, int vdata) = 0;
     virtual void CreateVariable(const std::string& vname, otFieldType vtype, const std::string& vdata) = 0;
+    virtual void CreateVariable(const std::string& vname, otFieldType vtype, const char* vdata) = 0;
     virtual void CreateVariable(const std::string& vname, otFieldType vtype, double vdata) = 0;
     virtual void CreateVariable(const std::string& vname, otFieldType vtype, tnull vdata) = 0;
     virtual int VariablesCount() = 0;
@@ -111,6 +112,7 @@ public:
     virtual void DeclareVariable(const std::string& vname, otFieldType vtype) = 0;
     virtual void SetVariable(const std::string& vname, int vdata) = 0;
     virtual void SetVariable(const std::string& vname, const std::string& vdata) = 0;
+    virtual void SetVariable(const std::string& vname, const char* vdata) = 0;
     virtual void SetVariable(const std::string& vname, double vdata) = 0;
     virtual void SetVariable(const std::string& vname, tnull vdata) = 0;
 };
@@ -160,6 +162,7 @@ public:
     virtual double FieldAsFloat(int ind) override;
     virtual void CreateVariable(const std::string& vname, otFieldType vtype, int vdata) override;
     virtual void CreateVariable(const std::string& vname, otFieldType vtype, const std::string& vdata) override;
+    virtual void CreateVariable(const std::string& vname, otFieldType vtype, const char* vdata) override;
     virtual void CreateVariable(const std::string& vname, otFieldType vtype, double vdata) override;
     virtual void CreateVariable(const std::string& vname, otFieldType vtype, tnull vdata) override;
     virtual int VariablesCount() override;
@@ -170,6 +173,7 @@ public:
     virtual void DeclareVariable(const std::string& vname, otFieldType vtype) override;
     virtual void SetVariable(const std::string& vname, int vdata) override;
     virtual void SetVariable(const std::string& vname, const std::string& vdata) override;
+    virtual void SetVariable(const std::string& vname, const char* vdata) override;
     virtual void SetVariable(const std::string& vname, double vdata) override;
     virtual void SetVariable(const std::string& vname, tnull vdata) override;
 
@@ -449,6 +453,12 @@ void TQueryIfaceDbCppImpl::CreateVariable(const std::string& vname, otFieldType 
     m_variables.emplace(vname, Variable{vdata, vtype, false/*IsNull*/});
 }
 
+void TQueryIfaceDbCppImpl::CreateVariable(const std::string& vname, otFieldType vtype, const char* vdata)
+{
+    const std::string sdata = vdata ? std::string(vdata) : std::string();
+    return CreateVariable(vname, vtype, sdata);
+}
+
 void TQueryIfaceDbCppImpl::CreateVariable(const std::string& vname, otFieldType vtype, double vdata)
 {
     if(vtype == otDate) {
@@ -552,6 +562,12 @@ void TQueryIfaceDbCppImpl::SetVariable(const std::string& vname, const std::stri
     checkVariable4Set(vname);
     DeleteVariable(vname);
     CreateVariable(vname, otString, vdata);
+}
+
+void TQueryIfaceDbCppImpl::SetVariable(const std::string& vname, const char* vdata)
+{
+    const std::string sdata = vdata ? std::string(vdata) : std::string();
+    SetVariable(vname, sdata);
 }
 
 void TQueryIfaceDbCppImpl::SetVariable(const std::string& vname, double vdata)
@@ -685,6 +701,7 @@ public:
     virtual double FieldAsFloat(int ind) override;
     virtual void CreateVariable(const std::string& vname, otFieldType vtype, int vdata) override;
     virtual void CreateVariable(const std::string& vname, otFieldType vtype, const std::string& vdata) override;
+    virtual void CreateVariable(const std::string& vname, otFieldType vtype, const char* vdata) override;
     virtual void CreateVariable(const std::string& vname, otFieldType vtype, double vdata) override;
     virtual void CreateVariable(const std::string& vname, otFieldType vtype, tnull vdata) override;
     virtual int VariablesCount() override;
@@ -695,6 +712,7 @@ public:
     virtual void DeclareVariable(const std::string& vname, otFieldType vtype) override;
     virtual void SetVariable(const std::string& vname, int vdata) override;
     virtual void SetVariable(const std::string& vname, const std::string& vdata) override;
+    virtual void SetVariable(const std::string& vname, const char* vdata) override;
     virtual void SetVariable(const std::string& vname, double vdata) override;
     virtual void SetVariable(const std::string& vname, tnull vdata) override;
 
@@ -851,6 +869,11 @@ void TQueryIfaceNativeImpl::CreateVariable(const std::string& vname, otFieldType
     __NATIVE_CALL_WITH_ARGS__(CreateVariable, vname, vtype, vdata);
 }
 
+void TQueryIfaceNativeImpl::CreateVariable(const std::string& vname, otFieldType vtype, const char* vdata)
+{
+    __NATIVE_CALL_WITH_ARGS__(CreateVariable, vname, vtype, vdata);
+}
+
 void TQueryIfaceNativeImpl::CreateVariable(const std::string& vname, otFieldType vtype, double vdata)
 {
     __NATIVE_CALL_WITH_ARGS__(CreateVariable, vname, vtype, vdata);
@@ -897,6 +920,11 @@ void TQueryIfaceNativeImpl::SetVariable(const std::string& vname, int vdata)
 }
 
 void TQueryIfaceNativeImpl::SetVariable(const std::string& vname, const std::string& vdata)
+{
+    __NATIVE_CALL_WITH_ARGS__(SetVariable, vname, vdata);
+}
+
+void TQueryIfaceNativeImpl::SetVariable(const std::string& vname, const char* vdata)
 {
     __NATIVE_CALL_WITH_ARGS__(SetVariable, vname, vdata);
 }
@@ -983,6 +1011,10 @@ void TQuery::CreateVariable(const std::string& vname, otFieldType vtype, const s
     m_impl->CreateVariable(vname, vtype, vdata);
 }
 
+void TQuery::CreateVariable(const std::string& vname, otFieldType vtype, const char* vdata) {
+    m_impl->CreateVariable(vname, vtype, vdata);
+}
+
 void TQuery::CreateVariable(const std::string& vname, otFieldType vtype, double vdata) {
     m_impl->CreateVariable(vname, vtype, vdata);
 }
@@ -1000,6 +1032,7 @@ void TQuery::DeclareVariable(const std::string& vname, otFieldType vtype) { m_im
 
 void TQuery::SetVariable(const std::string& vname, int vdata) { m_impl->SetVariable(vname, vdata); }
 void TQuery::SetVariable(const std::string& vname, const std::string& vdata) { m_impl->SetVariable(vname, vdata); }
+void TQuery::SetVariable(const std::string& vname, const char* vdata) { m_impl->SetVariable(vname, vdata); }
 void TQuery::SetVariable(const std::string& vname, double vdata) { m_impl->SetVariable(vname, vdata); }
 void TQuery::SetVariable(const std::string& vname, tnull vdata) { m_impl->SetVariable(vname, vdata); }
 
@@ -1075,7 +1108,7 @@ START_TEST(common_usage)
     get_pg_curs_autocommit("create table TEST_TQUERY(FLD1 integer, FLD2 timestamp, FLD3 varchar(20), FLD4 integer)").exec();
 
     DB::TQuery Qry(*get_main_pg_rw_sess(STDLOG));
-    Qry.SQLText = "insert into TEST_TQUERY(FLD1, FLD2 , FLD3, FLD4) values (:fld1, :fld2, :fld3, :fld4)";
+    Qry.SQLText = "insert into TEST_TQUERY(FLD1, FLD2, FLD3, FLD4) values (:fld1, :fld2, :fld3, :fld4)";
     Qry.DeclareVariable("fld1", otInteger);
     Qry.SetVariable("fld1", intval);
 
@@ -1334,6 +1367,7 @@ START_TEST(compare_empty_string_behavior)
 
     const char* emptyCharStar = "";
     const std::string emptyString = "";
+    const char* nullCharStar = nullptr;
 
     get_pg_curs("insert into TEST_EMPTY_STRING(FLD1, FLD2) values(:fld1, :fld2)")
             .bind(":fld1", "pgcpp")
@@ -1391,6 +1425,9 @@ START_TEST(compare_empty_string_behavior)
     Qry.SQLText = "insert into TEST_EMPTY_STRING(FLD1, FLD2) values(:fld1, :fld2)";
     Qry.CreateVariable("fld1", otString, "tquery");
     Qry.CreateVariable("fld2", otString, "");
+    Qry.Execute();
+
+    Qry.SetVariable("fld2", nullCharStar);
     Qry.Execute();
 
     Qry.ClearParams();
