@@ -117,13 +117,6 @@ void TlgSource::setTlgNum(int tnum_deprecated)
     setTlgNum(tlgnum_t(boost::lexical_cast<std::string>(tnum_deprecated)));
 }
 
-tlgnum_t TlgSource::genNextTlgNum()
-{
-    std::string num;
-    make_curs("SELECT TLGS_ID.NEXTVAL FROM DUAL").def(num).EXfet();
-    return tlgnum_t(num);
-}
-
 boost::posix_time::ptime TlgSource::receiveDate(const tlgnum_t& tnum)
 {
 //    oracle_datetime date1;

@@ -360,7 +360,7 @@ void process_tlg(void)
           {
             ProgTrace(TRACE5,"IN: PUT (sender=%s, tlg_num=%d, time=%.10f)", tlg_in.Sender, tlg_in.num, nowUTC);
 
-            int tlg_id = getNextTlgNum();
+            int tlg_id = PgOra::getSeqNextVal("TLGS_ID");
 
             DB::TQuery TlgInsQry(PgOra::getRWSession("TLGS"));
             TlgInsQry.CreateVariable("id",otInteger,tlg_id);

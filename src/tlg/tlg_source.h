@@ -243,12 +243,6 @@ public:
     static TlgSource readFromDb(const tlgnum_t& num);
 
     /**
-     * Генерировать след номер телеграммы
-     * @return tlgnum_t
-     */
-    static tlgnum_t genNextTlgNum();
-
-    /**
      * Читает из базы дату получения тлг по ее номеру
      * @param  tlgnum_t - номер
      * @return boost::posix_time::ptime - дата получения
