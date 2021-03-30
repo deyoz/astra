@@ -846,14 +846,13 @@ void get_full_stat(TDateTime utcdate)
 
 void get_flight_stat(int point_id, bool final_collection)
 {
-    tst();
+   LogTrace5 << " point_id: " << point_id;
    Timing::Points timing("Timing::get_flight_stat");
    timing.start("get_flight_stat", point_id);
 
    TFlights flightsForLock;
    flightsForLock.Get( point_id, ftTranzit );
    flightsForLock.Lock(__FUNCTION__);
-    tst();
    {
      QParams QryParams;
      QryParams << QParam("point_id", otInteger, point_id);
@@ -862,7 +861,6 @@ void get_flight_stat(int point_id, bool final_collection)
      Qry.get().Execute();
      if (Qry.get().RowsProcessed()<=0) return; //статистику не собираем
    };
-    tst();
    {
      QParams QryParams;
      QryParams << QParam("point_id", otInteger, point_id);
@@ -876,7 +874,6 @@ void get_flight_stat(int point_id, bool final_collection)
      timing.start("statist");
      Qry.get().Execute();
      timing.finish("statist");
-    tst();
      typedef void  (*TStatFunction)(int);
      static const map<string, TStatFunction> m =
      {
@@ -892,20 +889,17 @@ void get_flight_stat(int point_id, bool final_collection)
          {"stat_reprint",           get_stat_reprint},
          {"stat_services",          get_stat_services}
      };
-    tst();
      for(const auto &i: m) {
          LogTrace(TRACE5) << i.first;
          timing.start(i.first);
          (*i.second)(point_id);
          timing.finish(i.first);
      }
-     tst();
    };
 
    TReqInfo::Instance()->LocaleToLog("EVT.COLLECT_STATISTIC", evtFlt, point_id);
 
    timing.finish("get_flight_stat", point_id);
-   tst();
 };
 
 void collectStatTask(const TTripTaskKey &task)

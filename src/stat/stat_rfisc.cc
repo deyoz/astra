@@ -381,7 +381,7 @@ void get_rfisc_stat(int point_id)
                             if(not extra.empty())
                                 item += "-" + transliter(extra, 1, true);
                         }
-                        fqt_no = item;
+                        fqt_no = item.substr(0, 50);;
                         break;
                     }
                 }
@@ -814,7 +814,7 @@ void ArxRunRFISCStat(
         TPrintAirline &prn_airline
         )
 {
-    tst();
+    LogTrace5 << __func__;
     QParams QryParams;
     QryParams
         << QParam("FirstDate", otDate, params.FirstDate)

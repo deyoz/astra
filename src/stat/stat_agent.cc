@@ -72,7 +72,7 @@ void ArxRunAgentStat(const TStatParams &params,
                   TAgentStat &AgentStat, TAgentStatRow &AgentStatTotal,
                   TPrintAirline &prn_airline)
 {
-    tst();
+    LogTrace5 << __func__;
     auto & Users =  UsersReader::Instance();
     Users.updateUsers();
 
@@ -121,7 +121,6 @@ void ArxRunAgentStat(const TStatParams &params,
         Qry.CreateVariable("desk", otString, params.desk);
     }
     if(!params.user_login.empty()) {
-        tst();
         std::optional<int> user_id = Users.getUserId(params.user_login);
         if(user_id) {
             SQLText += " AND ags.user_id = :user_id \n";
@@ -136,7 +135,6 @@ void ArxRunAgentStat(const TStatParams &params,
     Qry.CreateVariable("LastDate", otDate, params.LastDate);
     Qry.Execute();
     if(not Qry.Eof) {
-        tst();
         int col_point_id = Qry.FieldIndex("point_id");
         int col_airline = Qry.FieldIndex("airline");
         int col_flt_no = Qry.FieldIndex("flt_no");

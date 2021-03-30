@@ -295,7 +295,7 @@ int stat_belgorod(int argc, char **argv)
 
 int arx_ego_stat(int argc,char **argv)
 {
-    tst();
+    LogTrace5 << __func__;
     TDateTime FirstDate, LastDate;
     if (!getDateRangeFromArgs(argc, argv, FirstDate, LastDate))
         return 1;

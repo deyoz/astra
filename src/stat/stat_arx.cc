@@ -1121,44 +1121,6 @@ void ArxSystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNod
               << " module: " << module;
     TReqInfo *reqInfo = TReqInfo::Instance();
 
-//    string module;
-
-//    DB::TQuery Qry(PgOra::getROSession("screen"));
-//    xmlNodePtr moduleNode = GetNode("module", reqNode);
-//    if(not moduleNode)
-//        ;
-//    else if(NodeIsNULL(moduleNode))
-//        module = SYSTEM_USER;
-//    else {
-//        Qry.SQLText = "select exe from screen where id = :module";
-//        Qry.CreateVariable("module", otInteger, NodeAsInteger(moduleNode));
-//        Qry.Execute();
-//        if(!Qry.Eof) module = Qry.FieldAsString("exe");
-//    }
-
-//    string agent, station;
-//    xmlNodePtr agentNode = GetNode("agent", reqNode);
-//    if(not agentNode)
-//        ;
-//    else if(NodeIsNULL(agentNode))
-//        agent = SYSTEM_USER;
-//    else
-//        agent = NodeAsString(agentNode);
-
-//    xmlNodePtr stationNode = GetNode("station", reqNode);
-//    if(not stationNode)
-//        ;
-//    else if(NodeIsNULL(stationNode))
-//        station = SYSTEM_USER;
-//    else
-//        station = NodeAsString(stationNode);
-
-//    ProgTrace(TRACE5, "module: '%s'", module.c_str());
-//    ProgTrace(TRACE5, "agent: '%s'", agent.c_str());
-//    ProgTrace(TRACE5, "station: '%s'", station.c_str());
-
-//    int count = 0;
-
     xmlNodePtr paxLogNode = NewTextChild(resNode, "PaxLog");
     xmlNodePtr headerNode = NewTextChild(paxLogNode, "header");
     NewTextChild(headerNode, "col", "Агент"); // для совместимости со старой версией терминала
@@ -1236,23 +1198,18 @@ void ArxSystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNod
 
     TPerfTimer tm;
     tm.Init();
-    tst();
     try {
         Qry.Execute();
     } catch (EOracleError &E) {
-        tst();
         if(E.Code == 376)
             throw AstraLocale::UserException("MSG.ONE_OF_DB_FILES_UNAVAILABLE.CALL_ADMIN");
         else
             throw;
     }
     LogTrace5 << __func__ << "     " << tm.PrintWithMessage().c_str();
-        tst();
     typedef map<string, bool> TAccessMap;
     TAccessMap user_access;
-        tst();
     if(!Qry.Eof) {
-            tst();
         int col_point_id=Qry.FieldIndex("point_id");
         int col_ev_user=Qry.FieldIndex("ev_user");
         int col_station=Qry.FieldIndex("station");
@@ -1268,7 +1225,6 @@ void ArxSystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNod
         if(not rowsNode)
             rowsNode = NewTextChild(paxLogNode, "rows");
         for( ; !Qry.Eof; Qry.Next()) {
-                tst();
             string ev_user = Qry.FieldAsString(col_ev_user);
             string station = Qry.FieldAsString(col_station);
 

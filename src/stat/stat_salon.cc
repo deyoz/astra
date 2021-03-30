@@ -143,7 +143,7 @@ void RunSalonStat(
         TSalonStat &SalonStat
         )
 {
-    tst();
+    LogTrace5 << __func__;
     list<pair<TDateTime, TTripInfo>> points;
     get_points(params, points);
     boost::optional<DB::TCachedQuery> operQry;

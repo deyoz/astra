@@ -332,7 +332,6 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
   Qry.Execute();
   string region, airp;
   airp = Qry.FieldAsString( "airp" );
-  tst();
     if ( reqInfo->user.sets.time == ustTimeLocalAirp )
       region = AirpTZRegion( airp );
   for ( TMapTripStages::iterator i=ts.begin(); i!=ts.end(); i++ ) {

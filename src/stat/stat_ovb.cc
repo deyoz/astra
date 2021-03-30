@@ -13,7 +13,7 @@ using namespace EXCEPTIONS;
 
 string getCountryARX(int point_id, TDateTime part_key, TDateTime &scd_in, TDateTime &scd_out, string &airp)
 {
-    tst();
+    LogTrace5 << __func__ << " point_id: " << point_id << " part_key: " << part_key;
     QParams QryParams;
     QryParams << QParam("point_id", otInteger, point_id);
     QryParams << QParam("part_key", otDate, part_key);
@@ -68,7 +68,6 @@ string getCountry(int point_id, TDateTime part_key, TDateTime &scd_in, TDateTime
 
 void collectArx(map<string, int> &result, TDateTime from, TDateTime to)
 {
-    tst();
     TPerfTimer tm;
     tm.Init();
     cout << "process archive tables" << endl;

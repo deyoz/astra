@@ -19,7 +19,6 @@ void ArxRunHAStat(
         THAAbstractStat &HAStat
         )
 {
-    tst();
     for(int pass = 1; pass <= 2; pass++) {
         QParams QryParams;
         QryParams

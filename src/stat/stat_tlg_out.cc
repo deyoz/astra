@@ -8,6 +8,7 @@
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
+#include <serverlib/slogger_nonick.h>
 
 using namespace std;
 using namespace AstraLocale;
@@ -62,7 +63,7 @@ void ArxRunTlgOutStat(const TStatParams &params,
                    TTlgOutStat &TlgOutStat, TTlgOutStatRow &TlgOutStatTotal,
                    TPrintAirline &prn_airline)
 {
-    tst();
+    LogTrace5 << __func__;
     DB::TQuery Qry(PgOra::getROSession("ARX_TLG_STAT"));
     string SQLText =
         "SELECT \n"

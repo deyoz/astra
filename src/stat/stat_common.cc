@@ -517,7 +517,6 @@ void TOrderStatWriter::insert(const TOrderStatItem &row)
 
 const TFltInfoCacheItem &TFltInfoCache::get(int point_id, TDateTime part_key)
 {
-    tst();
     TFltInfoCache::iterator i = this->find(point_id);
     if(i == this->end()) {
         TTripInfo info;

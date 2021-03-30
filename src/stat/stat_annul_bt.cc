@@ -43,8 +43,7 @@ void ArxRunAnnulBTStat(
         TAnnulBTStat &AnnulBTStat,
         TPrintAirline &prn_airline)
 {
-    tst();
-
+    LogTrace5 << __func__;
     for(int pass = 1; pass <= 2; pass++) {
         QParams QryParams;
         QryParams << QParam("FirstDate", otDate, params.FirstDate)
@@ -192,7 +191,6 @@ void RunAnnulBTStat(
         int point_id
         )
 {
-    tst();
     map<int, string> agents;
     TCachedQuery agentQry("select descr from users2 where user_id = :user_id",
             QParams() << QParam("user_id", otInteger));
@@ -277,7 +275,6 @@ void RunAnnulBTStat(
         int col_trfer_airp_arv = Qry.get().FieldIndex("trfer_airp_arv");
 
         for(; not Qry.get().Eof; Qry.get().Next()) {
-            tst();
             prn_airline.check(Qry.get().FieldAsString(col_airline));
 
             TDateTime part_key = NoExists;

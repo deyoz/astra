@@ -165,7 +165,7 @@ void ArxRunTrferPaxStat(
         TPrintAirline &prn_airline
         )
 {
-    tst();
+    LogTrace5 << __func__;
     QParams QryParams;
     QryParams
         << QParam("FirstDate", otDate, params.FirstDate)
@@ -390,7 +390,6 @@ void RunTrferPaxStat(
 
             TTrferPaxStat tmp_stat;
             TTrferPaxStatItem item;
-            tst();
             for(list<pair<TTripInfo, string> >::iterator flt = seg_list.begin();
                     flt != seg_list.end(); flt++) {
                 if(item.airline.empty()) {

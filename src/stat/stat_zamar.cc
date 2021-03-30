@@ -71,7 +71,7 @@ void ArxRunZamarStat(
         TZamarAbstractStat &ZamarStat
         )
 {
-    tst();
+    LogTrace5 << __func__;
     QParams QryParams;
     QryParams
         << QParam("FirstDate", otDate, params.FirstDate)

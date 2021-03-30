@@ -90,7 +90,7 @@ string TRemStatRow::rate_str() const
 template <class T>
 void ArxRemStat(const TStatParams &params, T &RemStat,TPrintAirline &prn_airline)
 {
-    tst();
+    LogTrace5 << __func__;
         QParams QryParams;
         QryParams
             << QParam("FirstDate", otDate, params.FirstDate)

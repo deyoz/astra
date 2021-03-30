@@ -41,7 +41,7 @@ void ArxRunUNACCStat(
         TUNACCAbstractStat &UNACCFullStat
         )
 {
-    tst();
+    LogTrace5 << __func__;
     for(int pass = 1; pass <= 2; pass++) {
         QParams QryParams;
         QryParams

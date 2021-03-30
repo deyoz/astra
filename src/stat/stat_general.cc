@@ -848,7 +848,6 @@ void GetFullStat(const TStatParams &params, DB::TQuery &Qry,
                  TFullStat &FullStat, TFullStatRow &FullStatTotal,
                  TPrintAirline &airline)
 {
-    tst();
   Qry.Execute();
   if(!Qry.Eof) {
       int col_point_id = Qry.FieldIndex("point_id");
@@ -1415,7 +1414,7 @@ void readPactDetailStat(DB::TQuery & Qry, const vector<TPact>& result_pacts, con
                         TDetailStat &DetailStat, TDetailStatRow &DetailStatTotal,
                         TPrintAirline &prn_airline)
 {
-    tst();
+    LogTrace5 << __func__;
     Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
     Qry.CreateVariable("LastDate", otDate, params.LastDate);
     Qry.Execute();
@@ -1521,7 +1520,7 @@ void ArxRunPactDetailStat(const vector<TPact>& result_pacts, const TStatParams &
                           TDetailStat &DetailStat, TDetailStatRow &DetailStatTotal,
                           TPrintAirline &prn_airline)
 {
-    tst();
+    LogTrace5 << __func__;
     DB::TQuery Qry(PgOra::getROSession("ARX_STAT"));
     for(int pass = 1; pass<=2; pass++) {
         ostringstream sql;
@@ -1712,7 +1711,7 @@ void ArxRunDetailStat(const TStatParams &params,
                    TDetailStat &DetailStat, TDetailStatRow &DetailStatTotal,
                    TPrintAirline &airline)
 {
-    tst();
+    LogTrace5 << __func__;
     DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"));
     Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
     Qry.CreateVariable("LastDate", otDate, params.LastDate);
@@ -1935,7 +1934,7 @@ void ArxRunFullStat(const TStatParams &params,
                  TFullStat &FullStat, TFullStatRow &FullStatTotal,
                  TPrintAirline &airline)
 {
-    tst();
+    LogTrace5 << __func__;
     DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"));
     Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
     Qry.CreateVariable("LastDate", otDate, params.LastDate);
@@ -1959,20 +1958,17 @@ void ArxRunFullStat(const TStatParams &params,
         }
         if (params.seance==seanceAirline)
         {
-            tst();
             //цикл по компаниям
             if (params.airlines.elems_permit())
             {
                 for(const auto &airl : params.airlines.elems())
                 {
-                  tst();
                   Qry.SetVariable("ak", airl);
                   auto periods = (params.seance==seanceAirline)
                           ? get_airline_periods(params.FirstDate, params.LastDate, airl)
                           : get_airp_periods(params.FirstDate, params.LastDate, airl);
 
                   for(const auto & period : periods) {
-                      tst();
                       Qry.CreateVariable(":period_first_date", otDate, BoostToDateTime(period.begin()));
                       Qry.CreateVariable(":period_last_date", otDate, BoostToDateTime(period.end()));
 
@@ -1988,20 +1984,17 @@ void ArxRunFullStat(const TStatParams &params,
 
         if (params.seance==seanceAirport)
         {
-            tst();
             //цикл по портам
             if (params.airps.elems_permit())
             {
                 for(const auto &airp : params.airps.elems())
                 {
-                  tst();
                   Qry.SetVariable("ap", airp);
                   auto periods = (params.seance==seanceAirline)
                           ? get_airline_periods(params.FirstDate, params.LastDate, airp)
                           : get_airp_periods(params.FirstDate, params.LastDate, airp);
 
                   for(const auto & period : periods) {
-                      tst();
                       Qry.CreateVariable(":period_first_date", otDate, BoostToDateTime(period.begin()));
                       Qry.CreateVariable(":period_last_date", otDate, BoostToDateTime(period.end()));
 
@@ -2014,7 +2007,6 @@ void ArxRunFullStat(const TStatParams &params,
             };
             continue;
         };
-        tst();
         GetFullStat(params, Qry, FullStat, FullStatTotal, airline);
     }
 }
