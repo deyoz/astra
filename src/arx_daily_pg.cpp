@@ -2026,10 +2026,10 @@ void deleteByPointId(const PointId_t& point_id)
                      PgOra::getRWSession("APPS_MESSAGES")).bind(":point_id", point_id.get()).exec();
         make_db_curs("DELETE FROM apps_messages WHERE msg_id in (SELECT cicx_msg_id FROM apps_pax_data where point_id=:point_id)",
                      PgOra::getRWSession("APPS_MESSAGES")).bind(":point_id", point_id.get()).exec();
-        make_db_curs("DELETE FROM apps_messages WHERE msg_id in (SELECT msg_id FROM apps_manifest_data where point_id=:point_id);",
+        make_db_curs("DELETE FROM apps_messages WHERE msg_id in (SELECT msg_id FROM apps_manifest_data where point_id=:point_id)",
                      PgOra::getRWSession("APPS_MESSAGES")).bind(":point_id", point_id.get()).exec();
         make_db_curs("DELETE FROM apps_pax_data WHERE point_id=:point_id", PgOra::getRWSession("APPS_PAX_DATA")).bind(":point_id", point_id.get()).exec();
-        make_db_curs("DELETE FROM apps_manifest_data WHERE point_id=curRow.point_id", PgOra::getRWSession("APPS_MANIFEST_DATA")).bind(":point_id", point_id.get()).exec();
+        make_db_curs("DELETE FROM apps_manifest_data WHERE point_id=:point_id", PgOra::getRWSession("APPS_MANIFEST_DATA")).bind(":point_id", point_id.get()).exec();
         make_db_curs("DELETE FROM iapi_pax_data WHERE point_id=:point_id"             , PgOra::getRWSession("IAPI_PAX_DATA")).bind(":point_id", point_id.get()).exec();
         make_db_curs("DELETE FROM utg_prl WHERE point_id=:point_id"                   , PgOra::getRWSession("UTG_PRL")).bind(":point_id", point_id.get()).exec();
         make_db_curs("DELETE FROM wb_msg_text where id in (SELECT id FROM wb_msg WHERE point_id = :point_id)", PgOra::getRWSession("WB_MSG_TEXT")).bind(":point_id", point_id.get()).exec();
