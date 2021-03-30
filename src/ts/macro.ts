@@ -3775,8 +3775,8 @@ $(defmacro RUN_SYSTEM_LOG
         <offset>20</offset>
         <top>0</top>
       </prnParams>
-      <FirstDate>$(first_date) 09:00:00</FirstDate>
-      <LastDate>$(last_date) 09:00:00</LastDate>
+      <FirstDate>$(first_date) 00:00:00</FirstDate>
+      <LastDate>$(last_date) 00:00:00</LastDate>
       <evtFlt>…‰</evtFlt>
       <evtPax>€‘</evtPax>
       <evtPay>‹</evtPay>

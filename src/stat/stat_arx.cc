@@ -1203,7 +1203,8 @@ void ArxSystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNod
         "    :evtSeason, "
         "    :evtDisp, "
         "    :evtPeriod, "
-        "    :evtAhm )";
+        "    :evtAhm ) "
+        "ORDER BY ev_order";
     Qry.CreateVariable("lang_undef", otString, "ZZ");
     Qry.CreateVariable("lang", otString, TReqInfo::Instance()->desk.lang);
     Qry.CreateVariable("evtFlt", otString, NodeAsString("evtFlt", reqNode));
@@ -1439,8 +1440,8 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         "    :evtSeason, "
         "    :evtDisp, "
         "    :evtPeriod, "
-        "    :evtAhm "
-        "          ) ";
+        "    :evtAhm) "
+        " ORDER BY ev_order";
 
     Qry.CreateVariable("lang", otString, TReqInfo::Instance()->desk.lang);
     Qry.CreateVariable("evtFlt", otString, NodeAsString("evtFlt", reqNode));
