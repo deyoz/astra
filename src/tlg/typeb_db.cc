@@ -162,6 +162,11 @@ bool deleteCrsPaxRem(const PaxId_t& pax_id)
   return deleteByPaxId("CRS_PAX_REM", pax_id);
 }
 
+bool deleteCrsPaxDoc(const PaxId_t& pax_id)
+{
+  return deleteByPaxId("CRS_PAX_DOC", pax_id);
+}
+
 bool deleteCrsPaxDoco(const PaxId_t& pax_id)
 {
   return deleteByPaxId("CRS_PAX_DOCO", pax_id);
@@ -441,6 +446,7 @@ bool deleteTypeBData(const PointIdTlg_t& point_id, const std::string& system,
       result += deleteCrsInf(pax_id) ? 1 : 0;
       result += deleteCrsInfDeleted(pax_id) ? 1 : 0;
       result += deleteCrsPaxRem(pax_id) ? 1 : 0;
+      result += deleteCrsPaxDoc(pax_id) ? 1 : 0;
       result += deleteCrsPaxDoco(pax_id) ? 1 : 0;
       result += deleteCrsPaxDoca(pax_id) ? 1 : 0;
       result += deleteCrsPaxTkn(pax_id) ? 1 : 0;

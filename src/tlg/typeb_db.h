@@ -14,6 +14,7 @@ bool deleteCrsSeatsBlocking(const PaxId_t& pax_id);
 bool deleteCrsInf(const PaxId_t& pax_id);
 bool deleteCrsInfDeleted(const PaxId_t& pax_id);
 bool deleteCrsPaxRem(const PaxId_t& pax_id);
+bool deleteCrsPaxDoc(const PaxId_t& pax_id);
 bool deleteCrsPaxDoco(const PaxId_t& pax_id);
 bool deleteCrsPaxDoca(const PaxId_t& pax_id);
 bool deleteCrsPaxTkn(const PaxId_t& pax_id);
