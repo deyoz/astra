@@ -13,6 +13,7 @@ bool deleteCrsSeatsBlocking(PaxId_t pax_id);
 bool deleteCrsInf(PaxId_t pax_id);
 bool deleteCrsInfDeleted(PaxId_t pax_id);
 bool deleteCrsPaxRem(PaxId_t pax_id);
+bool deleteCrsPaxDoc(PaxId_t pax_id);
 bool deleteCrsPaxDoco(PaxId_t pax_id);
 bool deleteCrsPaxDoca(PaxId_t pax_id);
 bool deleteCrsPaxTkn(PaxId_t pax_id);
