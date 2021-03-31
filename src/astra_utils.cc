@@ -459,95 +459,94 @@ void TReqInfo::traceToMonitor( TRACE_SIGNATURE, const char *format,  ...)
   va_end(ap);
 }
 
-void TProfiledRights::toXML(xmlNodePtr node)
+void TProfiledRights::toXML(xmlNodePtr node) const
 {
-    xmlNodePtr lstNode = NULL;
-    for(set<int>::iterator i = items.begin(); i != items.end(); i++) {
+    xmlNodePtr lstNode = nullptr;
+    for(const int& item : items) {
         if(not lstNode)
             lstNode = NewTextChild(node, "profile_rights");
-        NewTextChild(lstNode, "item", *i);
+        NewTextChild(lstNode, "item", item);
     }
 }
 
-void TProfiledRights::fromDB(const string &airline, const string &airp)
+void TProfiledRights::fromDB(const AirlineCode_t &airline, const AirportCode_t &airp)
+{
+  if(TReqInfo::Instance()->user.user_type != utAirport) return;
+
+  auto cur = make_db_curs(
+    "SELECT profile_rights.right_id FROM airline_profiles, profile_rights "
+    "WHERE airline_profiles.profile_id=profile_rights.profile_id AND "
+    "      airline_profiles.airline = :airline AND "
+    "      airline_profiles.airp = :airp",
+    PgOra::getRWSession("PROFILE_RIGHTS"));
+
+  int rightId;
+
+  cur.stb()
+     .def(rightId)
+     .bind(":airline", airline.get())
+     .bind(":airp", airp.get())
+     .exec();
+
+  while (!cur.fen())
+    items.insert(rightId);
+}
+
+TProfiledRights::TProfiledRights(const AirlineCode_t &airline, const AirportCode_t &airp)
 {
     if(TReqInfo::Instance()->user.user_type != utAirport) return;
 
-    TCachedQuery Qry(
-            "select profile_id from airline_profiles where "
-            "   airline = :airline and "
-            "   (airp is null or airp = :airp) "
-            "order by airp nulls last ",
-            QParams()
-            << QParam("airline", otString, airline)
-            << QParam("airp", otString, airp));
-    Qry.get().Execute();
-    if(not Qry.get().Eof) {
-        TCachedQuery rightQry(
-                "select right_id from profile_rights where "
-                "   profile_id = :profile_id ",
-                QParams()
-                << QParam("profile_id", otInteger, Qry.get().FieldAsInteger("profile_id")));
-        rightQry.get().Execute();
-        for(; not rightQry.get().Eof; rightQry.get().Next())
-            items.insert(rightQry.get().FieldAsInteger("right_id"));
-    }
-}
-
-TProfiledRights::TProfiledRights(const string &airline, const string &airp)
-{
     fromDB(airline, airp);
 }
 
-TProfiledRights::TProfiledRights(int point_id)
+TProfiledRights::TProfiledRights(const PointId_t& pointId)
 {
+    if(TReqInfo::Instance()->user.user_type != utAirport) return;
+
     TTripInfo flt;
-    flt.getByPointId(point_id);
-    fromDB(flt.airline, flt.airp);
+    flt.getByPointId(pointId.get());
+    fromDB(AirlineCode_t(flt.airline), AirportCode_t(flt.airp));
 }
 
-bool TAccess::check_profile(const string &airp, const string &airline, int right_id)
+bool TAccess::check_profile(const AirportCode_t &airp, const AirlineCode_t &airline, const int right_id)
 {
-    bool result = true;
-    if(TReqInfo::Instance()->user.user_type == utAirport) {
-        TCachedQuery Qry(
-                "select profile_id from airline_profiles where "
-                "   airline = :airline and "
-                "   (airp is null or airp = :airp) "
-                "order by airp nulls last ",
-                QParams()
-                << QParam("airline", otString, airline)
-                << QParam("airp", otString, airp));
-        Qry.get().Execute();
-        if(not Qry.get().Eof) {
-            TCachedQuery rightQry(
-                    "select * from profile_rights where "
-                    "   profile_id = :profile_id and "
-                    "   right_id = :right_id ",
-                    QParams()
-                    << QParam("profile_id", otInteger, Qry.get().FieldAsInteger("profile_id"))
-                    << QParam("right_id", otInteger, right_id));
-            rightQry.get().Execute();
-            result = rightQry.get().Eof;
+  bool result = true;
+  if(TReqInfo::Instance()->user.user_type == utAirport)
+  {
+    auto cur = make_db_curs(
+      "SELECT profile_rights.right_id FROM airline_profiles, profile_rights "
+      "WHERE airline_profiles.profile_id=profile_rights.profile_id AND "
+      "      airline_profiles.airline = :airline AND "
+      "      airline_profiles.airp = :airp AND "
+      "      profile_rights.right_id = :right_id",
+      PgOra::getRWSession("PROFILE_RIGHTS"));
 
-        }
-    }
-    if(result) result = TReqInfo::Instance()->user.access.rights().permitted(right_id);
-    return result;
+    int rightId;
+
+    cur.stb()
+       .def(rightId)
+       .bind(":airline", airline.get())
+       .bind(":airp", airp.get())
+       .EXfet();
+
+    result= (cur.err() == DbCpp::ResultCode::NoDataFound);
+  }
+  if(result) result = TReqInfo::Instance()->user.access.rights().permitted(right_id);
+  return result;
 }
 
-bool TAccess::check_profile_by_crs_pax(int pax_id, int right_id)
+bool TAccess::check_profile_by_crs_pax(const PaxId_t& paxId, const int right_id)
 {
     TTripInfo flt;
-    flt.getByCRSPaxId(pax_id);
-    return check_profile(flt.airp, flt.airline, right_id);
+    flt.getByCRSPaxId(paxId.get());
+    return check_profile(AirportCode_t(flt.airp), AirlineCode_t(flt.airline), right_id);
 }
 
-bool TAccess::check_profile(int point_id, int right_id)
+bool TAccess::check_profile(const PointId_t& pointId, int right_id)
 {
     TTripInfo flt;
-    flt.getByPointId(point_id);
-    return check_profile(flt.airp, flt.airline, right_id);
+    flt.getByPointId(pointId.get());
+    return check_profile(AirportCode_t(flt.airp), AirlineCode_t(flt.airline), right_id);
 }
 
 void TAccess::fromDB(int user_id, TUserType user_type)
@@ -596,7 +595,9 @@ void TAccess::toXML(xmlNodePtr accessNode)
   node = NewTextChild(accessNode, "rights");
   for(set<int>::const_iterator i=_rights.elems().begin();
       i!=_rights.elems().end();++i)
-    NewTextChild(node,"right",*i);
+    NewTextChild(node, "right", *i);
+  if (_rights.elems().count(191)>0 && _rights.elems().count(192)==0)
+    NewTextChild(node, "right", 192);
   //NewTextChild(accessNode, "rights_permit", (int)_rights.elems_permit());
   //права доступа к авиакомпаниям
   node = NewTextChild(accessNode, "airlines");

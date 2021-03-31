@@ -33,6 +33,7 @@ using namespace std;
 using namespace AstraLocale;
 using namespace ASTRA;
 using namespace SEATS2;
+using namespace BASIC::date_time;
 
 void ZoneLoads(int point_id, map<string, int> &zones, bool occupied)
 {
@@ -1408,7 +1409,7 @@ void CheckResetLayer( const std::string& airline,
   if ( layer_type_out == cltProtAfterPay || layer_type_out == cltPNLAfterPay ) {
     //проверка прав изменения платного слоя
     TReqInfo *reqInfo = TReqInfo::Instance();
-    if ( !reqInfo->user.access.check_profile_by_crs_pax(crs_pax_id, 193) ) {
+    if ( !reqInfo->user.access.check_profile_by_crs_pax(PaxId_t(crs_pax_id), 193) ) {
       throw UserException( "MSG.SEATS.CHANGE_PAY_SEATS_DENIED" );
     }
     if ( BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, layer_type_out ), flag ) <
@@ -1417,6 +1418,19 @@ void CheckResetLayer( const std::string& airline,
     }
   }
   ProgTrace( TRACE5, "CheckResetLayer return layer_type=%s", EncodeCompLayerType(layer_type) );
+}
+
+static void CheckPreseatingAccess(const TTripInfo& flt, const TCompLayerType layer_type)
+{
+  if (layer_type!=cltProtCkin) return;
+
+  if (TAccess::check_profile(AirportCode_t(flt.airp), AirlineCode_t(flt.airline), 192)) return;
+
+  if (flt.airline=="ФВ" &&
+      flt.scd_out-NowUTC()>(6/24) &&
+      TAccess::check_profile(AirportCode_t(flt.airp), AirlineCode_t(flt.airline), 191) ) return;
+
+  throw UserException("MSG.PRESEATING.ACCESS_DENIED");
 }
 
 void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType seat_type )
@@ -1431,8 +1445,14 @@ void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType sea
   int tid = NodeAsInteger( "tid", reqNode );
   int comp_crc = NodeAsInteger( "comp_crc", reqNode, 0 );
   int tariff_pax_id = NodeAsInteger( "tariff_pax_id", reqNode, NoExists );
+  TCompLayerType layer_type = DecodeCompLayerType( NodeAsString( "layer", reqNode, "" ) );
+
   ProgTrace( TRACE5, "ChangeSeats: point_id=%d, comp_crc=%d, pax_id=%d, tariff_pax_id=%d",
              point_id, comp_crc, pax_id, tariff_pax_id );
+
+  if (seat_type==stReseat)
+    CheckPreseatingAccess(fltInfo, layer_type);
+
   string xname;
   string yname;
   if ( seat_type != SEATS2::stDropseat ) {
@@ -1447,7 +1467,6 @@ void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType sea
     change_layer_flags.setFlag( flQuestionReseat );
   }
   // если пришел слой cltProtCkin а есть более приоритетный clt..AfterPay то надо подменить слой
-  TCompLayerType layer_type = DecodeCompLayerType( NodeAsString( "layer", reqNode, "" ) );
   BASIC_SALONS::TCompLayerTypes::Enum flag = (GetTripSets( tsAirlineCompLayerPriority, fltInfo )?
                                                   BASIC_SALONS::TCompLayerTypes::Enum::useAirline:
                                                   BASIC_SALONS::TCompLayerTypes::Enum::ignoreAirline);
@@ -1482,7 +1501,11 @@ void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr req
   bool pr_update_salons = GetNode( "update_salons", reqNode );
   int comp_crc = NodeAsInteger( "comp_crc", reqNode, 0 );
   int tariff_pax_id = NodeAsInteger( "tariff_pax_id", reqNode, NoExists );
-  TQuery Qry( &OraSession );
+
+  TTripInfo fltInfo;
+  fltInfo.getByPointId( point_id );
+  CheckPreseatingAccess(fltInfo, cltProtCkin);
+
   ProgTrace( TRACE5, "SalonsInterface::DeleteProtCkinSeat, point_id=%d, pax_id=%d, tid=%d, pr_update_salons=%d, tariff_pax_id=%d, crc=%d",
              point_id, pax_id, tid, pr_update_salons, tariff_pax_id, comp_crc );
 
@@ -1539,9 +1562,7 @@ void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr req
       salonList.Build( salonsNode );
       comp_id = salonList.getCompId();
       if ( comp_id > 0 ) { //строго завязать базовые компоновки с назначенными на рейс
-        TTripInfo info;
-        info.getByPointId( point_id );
-        if ( isComponSeatsNoChanges( info ) ) {
+        if ( isComponSeatsNoChanges( fltInfo ) ) {
           componPropCodes::Instance()->buildSections( comp_id, TReqInfo::Instance()->desk.lang, dataNode, TAdjustmentRows().get( salonList ) );
         }
       }

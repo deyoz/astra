@@ -637,16 +637,16 @@ void buildMenuLayers( bool isTripCraft,
     if ( ilayer->second.editable ) { // надо еще проверить на права редактирования того или иного слоя
       bool pr_edit = true;
       if ( (ilayer->first == cltBlockTrzt || ilayer->first == cltProtTrzt )&&
-           !r->user.access.check_profile(point_id, 430) )
+           !r->user.access.check_profile(PointId_t(point_id), 430) )
         pr_edit = false;
       if ( ilayer->first == cltBlockCent &&
-           !r->user.access.check_profile(point_id, 420) )
+           !r->user.access.check_profile(PointId_t(point_id), 420) )
         pr_edit = false;
       if ( (ilayer->first == cltUncomfort || ilayer->first == cltProtect || ilayer->first == cltSmoke) &&
-           !r->user.access.check_profile(point_id, 410) )
+           !r->user.access.check_profile(PointId_t(point_id), 410) )
         pr_edit = false;
       if ( ilayer->first == cltDisable &&
-           (!r->user.access.check_profile(point_id, 425)) ) {
+           (!r->user.access.check_profile(PointId_t(point_id), 425)) ) {
         pr_edit = false;
       }
       if ( pr_edit ) {

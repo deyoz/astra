@@ -2598,8 +2598,10 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
         // АП, АК для проверки профилей
         NewTextChild(tripNode, "airp_id", tr->airp);
         NewTextChild(tripNode, "airline_id", tr->airline_out.empty() ? tr->airline_in : tr->airline_out);
-    } else
-        TProfiledRights((tr->airline_out.empty() ? tr->airline_in : tr->airline_out), tr->airp).toXML(tripNode);
+    } else {
+        if(TReqInfo::Instance()->desk.compatible(PROFILE_RIGHTS_VERSION))
+            TProfiledRights(AirlineCode_t(tr->airline_out.empty() ? tr->airline_in : tr->airline_out), AirportCode_t(tr->airp)).toXML(tripNode);
+    }
 
     NewTextChild( tripNode, "move_id", tr->move_id );
     NewTextChild( tripNode, "point_id", tr->point_id );
@@ -2840,8 +2842,10 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
         // АП, АК для проверки профилей
         NewTextChild(tripNode, "airp_id", tr->airp);
         NewTextChild(tripNode, "airline_id", tr->airline_out.empty() ? tr->airline_in : tr->airline_out);
-    } else
-        TProfiledRights(tr->point_id).toXML(tripNode);
+    } else {
+        if(TReqInfo::Instance()->desk.compatible(PROFILE_RIGHTS_VERSION))
+            TProfiledRights(PointId_t(tr->point_id)).toXML(tripNode);
+    }
 
     if ( tr->part_key > NoExists )
       NewTextChild( tripNode, "part_key", DateTimeToStr( tr->part_key, ServerFormatDateTimeAsString ) );
@@ -4052,8 +4056,10 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         if(airlineId.empty() and d != dests.begin())
             airlineId = (d - 1)->airline;
         NewTextChild( snode, "airlineId", airlineId);
-    } else
-        TProfiledRights(d->point_id).toXML(snode);
+    } else {
+        if(TReqInfo::Instance()->desk.compatible(PROFILE_RIGHTS_VERSION))
+            TProfiledRights(PointId_t(d->point_id)).toXML(snode);
+    }
 
     NewTextChild( snode, "point_id", d->point_id );
     NewTextChild( snode, "point_num", d->point_num );
