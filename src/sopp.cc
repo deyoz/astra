@@ -1474,25 +1474,34 @@ string makeXmlCrsDisplaceFrom(const PointId_t& point_id, TDateTime local_time)
   bool ch_dest = false;
   string result;
   while ( !Qry.Eof ) {
+    const std::string trip = makeTripString(Qry.FieldAsString("airline"),
+                                            Qry.FieldAsString("flt_no"),
+                                            Qry.FieldAsString("suffix"),
+                                            Qry.FieldAsDateTime("scd"),
+                                            local_time);
     const std::set<PointId_t> point_id_spp_set =
         getPointIdsSppByPointIdTlg(PointIdTlg_t(Qry.FieldAsInteger( "point_id_tlg" )));
-    for (const PointId_t& point_id_spp: point_id_spp_set) {
-      if ( point_id_spp == point_id ) {
-        if ( string(Qry.FieldAsString( "class_spp" )) != string(Qry.FieldAsString( "class_tlg" )) )
-          ch_class = true;
-        if ( string(Qry.FieldAsString( "airp_arv_spp" )) != string(Qry.FieldAsString( "airp_arv_tlg" )) )
-          ch_dest = true;
-      } else {
-        const std::string trip = makeTripString(Qry.FieldAsString("airline"),
-                                                Qry.FieldAsString("flt_no"),
-                                                Qry.FieldAsString("suffix"),
-                                                Qry.FieldAsDateTime("scd"),
-                                                local_time);
-        if ( result.find( trip ) == string::npos ) {
-          if ( !result.empty() ) {
-            result += " ";
+    if (point_id_spp_set.empty()) {
+      if ( result.find( trip ) == string::npos ) {
+        if ( !result.empty() ) {
+          result += " ";
+        }
+        result += trip;
+      }
+    } else {
+      for (const PointId_t& point_id_spp: point_id_spp_set) {
+        if ( point_id_spp == point_id ) {
+          if ( string(Qry.FieldAsString( "class_spp" )) != string(Qry.FieldAsString( "class_tlg" )) )
+            ch_class = true;
+          if ( string(Qry.FieldAsString( "airp_arv_spp" )) != string(Qry.FieldAsString( "airp_arv_tlg" )) )
+            ch_dest = true;
+        } else {
+          if ( result.find( trip ) == string::npos ) {
+            if ( !result.empty() ) {
+              result += " ";
+            }
+            result += trip;
           }
-          result += trip;
         }
       }
     }
