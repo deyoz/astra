@@ -1436,7 +1436,7 @@ string makeXmlCrsDisplaceTo(const PointId_t& point_id, TDateTime local_time)
         "WHERE point_id_tlg=:point_id_tlg";
     Qry.CreateVariable( "point_id_tlg", otInteger, point_id_tlg.get() );
     Qry.Execute();
-    while ( !Qry.Eof ) {
+    for(;!Qry.Eof;Qry.Next()) {
       const PointId_t point_id_spp(Qry.FieldAsInteger( "point_id_spp" ));
       const TAdvTripInfo fltInfo = loadFltInfo(point_id_spp);
       if ( point_id_spp != point_id ) {
@@ -1454,7 +1454,6 @@ string makeXmlCrsDisplaceTo(const PointId_t& point_id, TDateTime local_time)
         }
       }
     }
-    Qry.Next();
   }
   return result;
 }
@@ -1473,7 +1472,7 @@ string makeXmlCrsDisplaceFrom(const PointId_t& point_id, TDateTime local_time)
   bool ch_class = false;
   bool ch_dest = false;
   string result;
-  while ( !Qry.Eof ) {
+  for(;!Qry.Eof;Qry.Next()) {
     const std::string trip = makeTripString(Qry.FieldAsString("airline"),
                                             Qry.FieldAsString("flt_no"),
                                             Qry.FieldAsString("suffix"),
@@ -1505,7 +1504,6 @@ string makeXmlCrsDisplaceFrom(const PointId_t& point_id, TDateTime local_time)
         }
       }
     }
-    Qry.Next();
   }
   if ( ch_class ) {
     result = AstraLocale::getLocaleText("Изм. класса") + " " + result;
@@ -5927,7 +5925,7 @@ std::vector<tcrs_displ> loadCrsDisplaces(const PointId_t& point_id)
    " FROM crs_displace2 WHERE point_id_spp=:point_id_spp";
   Qry.CreateVariable( "point_id_spp", otInteger, point_id.get() );
   Qry.Execute();
-  while ( !Qry.Eof ) {
+  for(;!Qry.Eof;Qry.Next()) {
     tcrs_displ t;
     t.point_id_spp = Qry.FieldAsInteger( "point_id_spp" );
     t.airp_arv_spp = Qry.FieldAsString( "airp_arv_spp" );
@@ -5945,7 +5943,6 @@ std::vector<tcrs_displ> loadCrsDisplaces(const PointId_t& point_id)
     t.class_tlg = Qry.FieldAsString( "class_tlg" );
     t.status = Qry.FieldAsString( "status" );
     result.push_back( t );
-    Qry.Next();
   }
   return result;
 }
