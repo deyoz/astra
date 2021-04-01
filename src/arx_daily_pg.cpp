@@ -777,7 +777,7 @@ Dates::time_period tripDatePeriod(const std::vector<dbo::Points> & points)
         if(auto maxIt = std::max_element(fdates.begin(), fdates.end()); maxIt != fdates.end()) {
             last_date = *maxIt;
         }
-        LogTrace(TRACE5) << __func__ << " first_date: " << first_date << " last_date: " << last_date;
+        //LogTrace(TRACE5) << __func__ << " first_date: " << first_date << " last_date: " << last_date;
     }
     return Dates::time_period(first_date, last_date);
 }
@@ -815,9 +815,9 @@ void TArxMoveFlt::readMoveIds(size_t max_rows)
                             "      time_out = TO_DATE('01.01.1900','DD.MM.YYYY'))",
                             PgOra::getROSession("points"));
     cur.stb()
-            .def(move_id)
-            .bind(":arx_date", utcdate-Dates::days(ARX::ARX_DAYS()))
-            .exec();
+       .def(move_id)
+       .bind(":arx_date", utcdate-Dates::days(ARX::ARX_DAYS()))
+       .exec();
 
     while(!cur.fen() && (move_ids.size() < max_rows)) {
         std::vector<dbo::Points> points = read_points(MoveId_t(move_id));
@@ -857,7 +857,7 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
             {
                 bool need_arch = p.pr_del != -1 && dbo::isNotNull(part_key);
                 PointId_t point_id(p.point_id);
-                LogTrace5 << __func__ << " P.POINT_ID = "  << p.point_id;
+                LogTrace5 << __func__ << " POINT_ID = "  << p.point_id;
                 auto pax_grps = read_pax_grp(point_id, part_key);
                 if(need_arch) {
                     arx_pax_grp(pax_grps, part_key);

@@ -1508,12 +1508,12 @@ $(RUN_FLT_CBOX_DROP_DOWN $(date_format %d.%m.%Y ) $(date_format %d.%m.%Y +266))
   <answer...>
     <cbox>
       <f>
-        <name>ЮТ100  /$(date_format %d.%m +265 ) СОЧ</name>
+        <name>ЮТ100  /... СОЧ</name>
         <point_id>$(get point_dep_100)</point_id>
         <part_key>$(date_format %d.%m.%Y +265) 09:00:00</part_key>
       </f>
       <f>
-        <name>ЮТ300  /$(date_format %d.%m +1) АМС</name>
+        <name>ЮТ300  /... АМС</name>
         <point_id>$(get point_dep_300)</point_id>
         <part_key>$(date_format %d.%m.%Y +1) 09:00:00</part_key>
       </f>
@@ -1782,7 +1782,7 @@ $(RUN_SYSTEM_LOG $(date_format %d.%m.%Y +0 ) $(date_format %d.%m.%Y +1))
         <row>
           <point_id>0</point_id>
           <time>...</time>
-          <msg>Получение СПП за $(date_format %d.%m.%y +1)</msg>
+          <msg>Получение СПП за ...</msg>
           <ev_order>...</ev_order>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
           <station>МОВРОМ</station>
@@ -1809,7 +1809,7 @@ $(RUN_SYSTEM_LOG $(date_format %d.%m.%Y +0 ) $(date_format %d.%m.%Y +1))
           <time>...</time>
           <msg>На рейсе запрещена web-регистрация.</msg>
           <ev_order>...</ev_order>
-          <trip>ЮТ100/$(date_format %d.%m +1) СОЧ</trip>
+          <trip>ЮТ100/... СОЧ</trip>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
           <station>МОВРОМ</station>
           <screen>AIR.EXE</screen>
@@ -1819,7 +1819,7 @@ $(RUN_SYSTEM_LOG $(date_format %d.%m.%Y +0 ) $(date_format %d.%m.%Y +1))
           <time>...</time>
           <msg>Этап 'Подготовка к регистрации': план. время 00:15 $(date_format %d.%m.%y +1) (UTC)</msg>
           <ev_order>...</ev_order>
-          <trip>ЮТ100/$(date_format %d.%m +1) СОЧ</trip>
+          <trip>ЮТ100/... СОЧ</trip>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
           <station>МОВРОМ</station>
           <screen>AIR.EXE</screen>
@@ -1829,7 +1829,7 @@ $(RUN_SYSTEM_LOG $(date_format %d.%m.%Y +0 ) $(date_format %d.%m.%Y +1))
           <time>...</time>
           <msg>Этап 'Открытие регистрации': план. время 04:14 $(date_format %d.%m.%y +1) (UTC)</msg>
           <ev_order>...</ev_order>
-          <trip>ЮТ100/$(date_format %d.%m +1) СОЧ</trip>
+          <trip>ЮТ100/... СОЧ</trip>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
           <station>МОВРОМ</station>
           <screen>AIR.EXE</screen>
@@ -1839,7 +1839,7 @@ $(RUN_SYSTEM_LOG $(date_format %d.%m.%Y +0 ) $(date_format %d.%m.%Y +1))
           <time>...</time>
           <msg>Этап 'Открытие web-регистрации': план. время 07:15 $(date_format %d.%m.%y +0) (UTC)</msg>
           <ev_order>...</ev_order>
-          <trip>ЮТ100/$(date_format %d.%m +1) СОЧ</trip>
+          <trip>ЮТ100/... СОЧ</trip>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
           <station>МОВРОМ</station>
           <screen>AIR.EXE</screen>
@@ -1849,7 +1849,7 @@ $(RUN_SYSTEM_LOG $(date_format %d.%m.%Y +0 ) $(date_format %d.%m.%Y +1))
           <time>...</time>
           <msg>Этап 'Открытие kiosk-регистрации': план. время 07:15 $(date_format %d.%m.%y +0) (UTC)</msg>
           <ev_order>...</ev_order>
-          <trip>ЮТ100/$(date_format %d.%m +1) СОЧ</trip>
+          <trip>ЮТ100/... СОЧ</trip>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
           <station>МОВРОМ</station>
           <screen>AIR.EXE</screen>
@@ -1859,7 +1859,7 @@ $(RUN_SYSTEM_LOG $(date_format %d.%m.%Y +0 ) $(date_format %d.%m.%Y +1))
           <time>...</time>
           <msg>Этап 'Закрытие регистрации': план. время 06:35 $(date_format %d.%m.%y +1) (UTC)</msg>
           <ev_order>...</ev_order>
-          <trip>ЮТ100/$(date_format %d.%m +1) СОЧ</trip>
+          <trip>ЮТ100/... СОЧ</trip>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
           <station>МОВРОМ</station>
           <screen>AIR.EXE</screen>
@@ -1869,7 +1869,7 @@ $(RUN_SYSTEM_LOG $(date_format %d.%m.%Y +0 ) $(date_format %d.%m.%Y +1))
           <time>...</time>
           <msg>Этап 'Запрет отмены web-регистрации': план. время 06:25 $(date_format %d.%m.%y +1) (UTC)</msg>
           <ev_order>...</ev_order>
-          <trip>ЮТ100/$(date_format %d.%m +1) СОЧ</trip>
+          <trip>ЮТ100/... СОЧ</trip>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
           <station>МОВРОМ</station>
           <screen>AIR.EXE</screen>
@@ -1879,7 +1879,7 @@ $(RUN_SYSTEM_LOG $(date_format %d.%m.%Y +0 ) $(date_format %d.%m.%Y +1))
           <time>...</time>
           <msg>Этап 'Закрытие web-регистрации': план. время 04:15 $(date_format %d.%m.%y +1) (UTC)</msg>
           <ev_order>...</ev_order>
-          <trip>ЮТ100/$(date_format %d.%m +1) СОЧ</trip>
+          <trip>ЮТ100/... СОЧ</trip>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
           <station>МОВРОМ</station>
           <screen>AIR.EXE</screen>
@@ -1889,7 +1889,7 @@ $(RUN_SYSTEM_LOG $(date_format %d.%m.%Y +0 ) $(date_format %d.%m.%Y +1))
           <time>...</time>
           <msg>Этап 'Закрытие kiosk-регистрации': план. время 05:15 $(date_format %d.%m.%y +1) (UTC)</msg>
           <ev_order>...</ev_order>
-          <trip>ЮТ100/$(date_format %d.%m +1) СОЧ</trip>
+          <trip>ЮТ100/... СОЧ</trip>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
           <station>МОВРОМ</station>
           <screen>AIR.EXE</screen>
@@ -1899,7 +1899,7 @@ $(RUN_SYSTEM_LOG $(date_format %d.%m.%Y +0 ) $(date_format %d.%m.%Y +1))
           <time>...</time>
           <msg>Этап 'Готовность ВС к посадке': план. время 06:30 $(date_format %d.%m.%y +1) (UTC)</msg>
           <ev_order>...</ev_order>
-          <trip>ЮТ100/$(date_format %d.%m +1) СОЧ</trip>
+          <trip>ЮТ100/... СОЧ</trip>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
           <station>МОВРОМ</station>
           <screen>AIR.EXE</screen>
@@ -1909,7 +1909,7 @@ $(RUN_SYSTEM_LOG $(date_format %d.%m.%Y +0 ) $(date_format %d.%m.%Y +1))
           <time>...</time>
           <msg>Этап 'Окончание посадки (оформление докум.)': план. время 06:50 $(date_format %d.%m.%y +1) (UTC)</msg>
           <ev_order>...</ev_order>
-          <trip>ЮТ100/$(date_format %d.%m +1) СОЧ</trip>
+          <trip>ЮТ100/... СОЧ</trip>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
           <station>МОВРОМ</station>
           <screen>AIR.EXE</screen>
@@ -1919,7 +1919,7 @@ $(RUN_SYSTEM_LOG $(date_format %d.%m.%Y +0 ) $(date_format %d.%m.%Y +1))
           <time>...</time>
           <msg>Этап 'отгон трапа': план. время 07:00 $(date_format %d.%m.%y +1) (UTC)</msg>
           <ev_order>...</ev_order>
-          <trip>ЮТ100/$(date_format %d.%m +1) СОЧ</trip>
+          <trip>ЮТ100/... СОЧ</trip>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
           <station>МОВРОМ</station>
           <screen>AIR.EXE</screen>
@@ -1929,7 +1929,7 @@ $(RUN_SYSTEM_LOG $(date_format %d.%m.%Y +0 ) $(date_format %d.%m.%Y +1))
           <time>...</time>
           <msg>Назначение весов пассажиров на рейс: </msg>
           <ev_order>...</ev_order>
-          <trip>ЮТ100/$(date_format %d.%m +1) СОЧ</trip>
+          <trip>ЮТ100/... СОЧ</trip>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
           <station>МОВРОМ</station>
           <screen>AIR.EXE</screen>
@@ -1939,7 +1939,7 @@ $(RUN_SYSTEM_LOG $(date_format %d.%m.%Y +0 ) $(date_format %d.%m.%Y +1))
           <time>...</time>
           <msg>Задача EMD_REFRESH &lt;CloseCheckIn 0&gt; создана; План. вр.: $(date_format %d.%m.%y +1) 06:35:00 (UTC)</msg>
           <ev_order>...</ev_order>
-          <trip>ЮТ100/$(date_format %d.%m +1) СОЧ</trip>
+          <trip>ЮТ100/... СОЧ</trip>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
           <station>МОВРОМ</station>
           <screen>AIR.EXE</screen>
@@ -1949,7 +1949,7 @@ $(RUN_SYSTEM_LOG $(date_format %d.%m.%Y +0 ) $(date_format %d.%m.%Y +1))
           <time>...</time>
           <msg>Задача SYNC_ALL_CHKD &lt;&gt; создана; План. вр.: $(date_format %d.%m.%y +0) ... (UTC)</msg>
           <ev_order>...</ev_order>
-          <trip>ЮТ100/$(date_format %d.%m +1) СОЧ</trip>
+          <trip>ЮТ100/... СОЧ</trip>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
           <station>МОВРОМ</station>
           <screen>MAINDCS.EXE</screen>
@@ -1959,7 +1959,7 @@ $(RUN_SYSTEM_LOG $(date_format %d.%m.%Y +0 ) $(date_format %d.%m.%Y +1))
           <time>...</time>
           <msg>Назначена базовая компоновка (ид=43345). Классы: Б11 Э63</msg>
           <ev_order>...</ev_order>
-          <trip>ЮТ100/$(date_format %d.%m +1) СОЧ</trip>
+          <trip>ЮТ100/... СОЧ</trip>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
           <station>МОВРОМ</station>
           <screen>MAINDCS.EXE</screen>
@@ -1969,7 +1969,7 @@ $(RUN_SYSTEM_LOG $(date_format %d.%m.%Y +0 ) $(date_format %d.%m.%Y +1))
           <time>...</time>
           <msg>Назначение весов пассажиров на рейс: </msg>
           <ev_order>...</ev_order>
-          <trip>ЮТ100/$(date_format %d.%m +1) СОЧ</trip>
+          <trip>ЮТ100/... СОЧ</trip>
           <station>IATCIP</station>
           <screen>AIR.EXE</screen>
         </row>
@@ -1978,7 +1978,7 @@ $(RUN_SYSTEM_LOG $(date_format %d.%m.%Y +0 ) $(date_format %d.%m.%Y +1))
           <time>...</time>
           <msg>Пассажир TUMALI VALERII (ВЗ) зарегистрирован. П/н: ЛХР, класс: Э, статус: Бронь, место: 5Г. Баг.нормы: нет</msg>
           <ev_order>...</ev_order>
-          <trip>ЮТ100/$(date_format %d.%m +1) СОЧ</trip>
+          <trip>ЮТ100/... СОЧ</trip>
           <grp_id>$(get grp_id)</grp_id>
           <reg_no>1</reg_no>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
@@ -1990,7 +1990,7 @@ $(RUN_SYSTEM_LOG $(date_format %d.%m.%Y +0 ) $(date_format %d.%m.%Y +1))
           <time>...</time>
           <msg>Пассажир TUMALI VALERII (ВЗ). DOCS: P/UKR/FA144642/UKR/16APR68/M/25JUN25/TUMALI/VALERII/. Ручной ввод</msg>
           <ev_order>...</ev_order>
-          <trip>ЮТ100/$(date_format %d.%m +1) СОЧ</trip>
+          <trip>ЮТ100/... СОЧ</trip>
           <grp_id>$(get grp_id)</grp_id>
           <reg_no>1</reg_no>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
@@ -2002,7 +2002,7 @@ $(RUN_SYSTEM_LOG $(date_format %d.%m.%Y +0 ) $(date_format %d.%m.%Y +1))
           <time>...</time>
           <msg>Назначение весов пассажиров на рейс: </msg>
           <ev_order>...</ev_order>
-          <trip>ЮТ100/$(date_format %d.%m +1) СОЧ</trip>
+          <trip>ЮТ100/... СОЧ</trip>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
           <station>МОВРОМ</station>
           <screen>AIR.EXE</screen>
@@ -2012,7 +2012,7 @@ $(RUN_SYSTEM_LOG $(date_format %d.%m.%Y +0 ) $(date_format %d.%m.%Y +1))
           <time>...</time>
           <msg>Назначение весов пассажиров на рейс: </msg>
           <ev_order>...</ev_order>
-          <trip>ЮТ100/$(date_format %d.%m +1) СОЧ</trip>
+          <trip>ЮТ100/... СОЧ</trip>
           <ev_user>КОВАЛЕВ Р.А.</ev_user>
           <station>МОВРОМ</station>
           <screen>AIR.EXE</screen>
@@ -2022,7 +2022,7 @@ $(RUN_SYSTEM_LOG $(date_format %d.%m.%Y +0 ) $(date_format %d.%m.%Y +1))
           <time>...</time>
           <msg>Сбор статистики по рейсу</msg>
           <ev_order>...</ev_order>
-          <trip>ЮТ100/$(date_format %d.%m +1) СОЧ</trip>
+          <trip>ЮТ100/... СОЧ</trip>
           <station>IATCIP</station>
           <screen>AIR.EXE</screen>
         </row>
@@ -2031,7 +2031,7 @@ $(RUN_SYSTEM_LOG $(date_format %d.%m.%Y +0 ) $(date_format %d.%m.%Y +1))
           <time>...</time>
           <msg>Рейс перемещен в архив</msg>
           <ev_order>...</ev_order>
-          <trip>ЮТ100/$(date_format %d.%m +1) СОЧ</trip>
+          <trip>ЮТ100/... СОЧ</trip>
           <station>IATCIP</station>
           <screen>AIR.EXE</screen>
         </row>
