@@ -637,16 +637,16 @@ void buildMenuLayers( bool isTripCraft,
     if ( ilayer->second.editable ) { // надо еще проверить на права редактирования того или иного слоя
       bool pr_edit = true;
       if ( (ilayer->first == cltBlockTrzt || ilayer->first == cltProtTrzt )&&
-           !r->user.access.check_profile(PointId_t(point_id), 430) )
+           !r->user.access.profiledRightPermitted(PointId_t(point_id), 430) )
         pr_edit = false;
       if ( ilayer->first == cltBlockCent &&
-           !r->user.access.check_profile(PointId_t(point_id), 420) )
+           !r->user.access.profiledRightPermitted(PointId_t(point_id), 420) )
         pr_edit = false;
       if ( (ilayer->first == cltUncomfort || ilayer->first == cltProtect || ilayer->first == cltSmoke) &&
-           !r->user.access.check_profile(PointId_t(point_id), 410) )
+           !r->user.access.profiledRightPermitted(PointId_t(point_id), 410) )
         pr_edit = false;
       if ( ilayer->first == cltDisable &&
-           (!r->user.access.check_profile(PointId_t(point_id), 425)) ) {
+           (!r->user.access.profiledRightPermitted(PointId_t(point_id), 425)) ) {
         pr_edit = false;
       }
       if ( pr_edit ) {
@@ -1869,16 +1869,16 @@ xmlNodePtr TPlace::Build( xmlNodePtr node, bool pr_lat_seat, bool pr_update ) co
     if ( i->second.editable ) { // надо еще проверить на права редактирования того или иного слоя
       bool pr_edit = true;
       if ( (i->first == cltBlockTrzt || i->first == cltProtTrzt )&&
-           !r->user.access.check_profile(trip_id, 430) )
+           !r->user.access.profiledRightPermitted(trip_id, 430) )
         pr_edit = false;
       if ( i->first == cltBlockCent &&
-           !r->user.access.check_profile(trip_id, 420) )
+           !r->user.access.profiledRightPermitted(trip_id, 420) )
         pr_edit = false;
       if ( (i->first == cltUncomfort || i->first == cltProtect || i->first == cltSmoke) &&
-           !r->user.access.check_profile(trip_id, 410) )
+           !r->user.access.profiledRightPermitted(trip_id, 410) )
         pr_edit = false;
       if ( i->first == cltDisable &&
-           !r->user.access.check_profile(trip_id, 425) ) {
+           !r->user.access.profiledRightPermitted(trip_id, 425) ) {
         pr_edit = false;
       }
       if ( pr_edit ) {

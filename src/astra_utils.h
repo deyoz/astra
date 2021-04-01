@@ -337,9 +337,9 @@ class TAccess {
     void fromDB(int user_id, TUserType user_type);
     void toXML(xmlNodePtr accessNode);
     void fromXML(xmlNodePtr accessNode);
-    static bool check_profile_by_crs_pax(const PaxId_t& paxId, int right_id);
-    static bool check_profile(const PointId_t& pointId, int right_id);
-    static bool check_profile(const AirportCode_t &airp, const AirlineCode_t &airline, const int right_id);
+    static bool profiledRightPermittedForCrsPax(const PaxId_t& paxId, const int right_id);
+    static bool profiledRightPermitted(const PointId_t& pointId, const int right_id);
+    static bool profiledRightPermitted(const AirportCode_t &airp, const AirlineCode_t &airline, const int right_id);
 };
 
 class TUserSettings {

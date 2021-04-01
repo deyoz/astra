@@ -508,8 +508,10 @@ TProfiledRights::TProfiledRights(const PointId_t& pointId)
     fromDB(AirlineCode_t(flt.airline), AirportCode_t(flt.airp));
 }
 
-bool TAccess::check_profile(const AirportCode_t &airp, const AirlineCode_t &airline, const int right_id)
+bool TAccess::profiledRightPermitted(const AirportCode_t &airp, const AirlineCode_t &airline, const int right_id)
 {
+  if (!TReqInfo::Instance()->user.access.rights().permitted(right_id)) return false;
+
   bool result = true;
   if(TReqInfo::Instance()->user.user_type == utAirport)
   {
@@ -531,22 +533,21 @@ bool TAccess::check_profile(const AirportCode_t &airp, const AirlineCode_t &airl
 
     result= (cur.err() == DbCpp::ResultCode::NoDataFound);
   }
-  if(result) result = TReqInfo::Instance()->user.access.rights().permitted(right_id);
   return result;
 }
 
-bool TAccess::check_profile_by_crs_pax(const PaxId_t& paxId, const int right_id)
+bool TAccess::profiledRightPermittedForCrsPax(const PaxId_t& paxId, const int right_id)
 {
     TTripInfo flt;
     flt.getByCRSPaxId(paxId.get());
-    return check_profile(AirportCode_t(flt.airp), AirlineCode_t(flt.airline), right_id);
+    return profiledRightPermitted(AirportCode_t(flt.airp), AirlineCode_t(flt.airline), right_id);
 }
 
-bool TAccess::check_profile(const PointId_t& pointId, int right_id)
+bool TAccess::profiledRightPermitted(const PointId_t& pointId, const int right_id)
 {
     TTripInfo flt;
     flt.getByPointId(pointId.get());
-    return check_profile(AirportCode_t(flt.airp), AirlineCode_t(flt.airline), right_id);
+    return profiledRightPermitted(AirportCode_t(flt.airp), AirlineCode_t(flt.airline), right_id);
 }
 
 void TAccess::fromDB(int user_id, TUserType user_type)

@@ -1409,7 +1409,7 @@ void CheckResetLayer( const std::string& airline,
   if ( layer_type_out == cltProtAfterPay || layer_type_out == cltPNLAfterPay ) {
     //проверка прав изменения платного слоя
     TReqInfo *reqInfo = TReqInfo::Instance();
-    if ( !reqInfo->user.access.check_profile_by_crs_pax(PaxId_t(crs_pax_id), 193) ) {
+    if ( !reqInfo->user.access.profiledRightPermittedForCrsPax(PaxId_t(crs_pax_id), 193) ) {
       throw UserException( "MSG.SEATS.CHANGE_PAY_SEATS_DENIED" );
     }
     if ( BASIC_SALONS::TCompLayerTypes::Instance()->priority( BASIC_SALONS::TCompLayerTypes::LayerKey( airline, layer_type_out ), flag ) <
@@ -1424,11 +1424,11 @@ static void CheckPreseatingAccess(const TTripInfo& flt, const TCompLayerType lay
 {
   if (layer_type!=cltProtCkin) return;
 
-  if (TAccess::check_profile(AirportCode_t(flt.airp), AirlineCode_t(flt.airline), 192)) return;
+  if (TAccess::profiledRightPermitted(AirportCode_t(flt.airp), AirlineCode_t(flt.airline), 192)) return;
 
   if (flt.airline=="ФВ" &&
       flt.scd_out-NowUTC()>(6/24) &&
-      TAccess::check_profile(AirportCode_t(flt.airp), AirlineCode_t(flt.airline), 191) ) return;
+      TAccess::profiledRightPermitted(AirportCode_t(flt.airp), AirlineCode_t(flt.airline), 191) ) return;
 
   throw UserException("MSG.PRESEATING.ACCESS_DENIED");
 }
