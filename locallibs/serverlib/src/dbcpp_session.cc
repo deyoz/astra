@@ -135,6 +135,9 @@ namespace DbCpp
 
     void OraSession::commit() { mSession->commit(); }
     void OraSession::rollback() { mSession->rollback(); }
+#ifdef XP_TESTING
+    void OraSession::commitInTestMode() { mSession->commitInTestMode(); }
+#endif // XP_TESTING
     std::string OraSession::getConnectString() const { return mSession->getConnectString(); }
     CopyResult OraSession::copyDataFrom(const std::string& sql, const char* data, size_t size)
     {
@@ -374,8 +377,19 @@ namespace DbCpp
         setSessionType(DbCpp::DbSessionType::Autonomous,false/*no_throw*/);
       }
     }
-    
+
 #ifdef XP_TESTING
+    void PgSession_wo_CheckSQL::commitInTestMode()
+    {
+        if (inTestMode())
+        {
+            mSession->commitInTestMode();
+            beginManagedTransaction(STDLOG, *mSession);
+            mIsActive = true;
+        }
+        mIsActive_test=false;
+    }
+
     void PgSession_wo_CheckSQL::rollbackInTestMode()
     {
         if (inTestMode())
