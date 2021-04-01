@@ -2037,7 +2037,7 @@ void ComponSetter::createBaseLibraCompon( ComponLibraFinder::AstraSearchResult& 
     LogTrace(TRACE5) << lastSectionName << " " << first_row  << "-" << last_row;
     sections.emplace_back( SALONS2::SimpleProp( lastSectionName,
                                                 first_rowidx,
-                                                last_rowidx ) );
+                                                last_rowidx - 1 ) );
   }
   //получили места и теперь играем в сапера - пробуем добавить туалеты, аварийные выходы, проходы и прочее, реализовать!!!
   setLibraProps( seats, props, seat_props  );
