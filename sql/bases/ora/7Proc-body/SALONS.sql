@@ -740,7 +740,7 @@ BEGIN
              END;
              IF ind_layer IS NOT NULL AND
                 ( vpriority_seats < 2 OR
-                  get_seat_no(cur2Row.pax_id,vpriority_seats,NULL,NULL,fmt,row+1,only_lat) IS NOT NULL ) THEN
+                  get_seat_no(cur2Row.pax_id,vpriority_seats,NULL,NULL,NULL,fmt,row+1,only_lat) IS NOT NULL ) THEN
                 CLOSE cur;
                 RETURN NULL;
              END IF;
