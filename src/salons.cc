@@ -636,18 +636,33 @@ void buildMenuLayers( bool isTripCraft,
       max_priority = priority;
     if ( ilayer->second.editable ) { // надо еще проверить на права редактирования того или иного слоя
       bool pr_edit = true;
-      if ( (ilayer->first == cltBlockTrzt || ilayer->first == cltProtTrzt )&&
-           !r->user.access.profiledRightPermitted(PointId_t(point_id), 430) )
-        pr_edit = false;
-      if ( ilayer->first == cltBlockCent &&
-           !r->user.access.profiledRightPermitted(PointId_t(point_id), 420) )
-        pr_edit = false;
-      if ( (ilayer->first == cltUncomfort || ilayer->first == cltProtect || ilayer->first == cltSmoke) &&
-           !r->user.access.profiledRightPermitted(PointId_t(point_id), 410) )
-        pr_edit = false;
-      if ( ilayer->first == cltDisable &&
-           (!r->user.access.profiledRightPermitted(PointId_t(point_id), 425)) ) {
-        pr_edit = false;
+      if ( point_id == ASTRA::NoExists ) {
+          if ( (ilayer->first == cltBlockTrzt || ilayer->first == cltProtTrzt )&&
+               !TReqInfo::Instance()->user.access.rights().permitted(430) )
+            pr_edit = false;
+          if ( ilayer->first == cltBlockCent &&
+               !TReqInfo::Instance()->user.access.rights().permitted(420) )
+            pr_edit = false;
+          if ( (ilayer->first == cltUncomfort || ilayer->first == cltProtect || ilayer->first == cltSmoke) &&
+               !TReqInfo::Instance()->user.access.rights().permitted(410) )
+            pr_edit = false;
+          if ( ilayer->first == cltDisable &&
+               !TReqInfo::Instance()->user.access.rights().permitted(425) )
+            pr_edit = false;
+      }
+      else {
+        if ( (ilayer->first == cltBlockTrzt || ilayer->first == cltProtTrzt )&&
+             !r->user.access.profiledRightPermitted(PointId_t(point_id), 430) )
+          pr_edit = false;
+        if ( ilayer->first == cltBlockCent &&
+             !r->user.access.profiledRightPermitted(PointId_t(point_id), 420) )
+          pr_edit = false;
+        if ( (ilayer->first == cltUncomfort || ilayer->first == cltProtect || ilayer->first == cltSmoke) &&
+             !r->user.access.profiledRightPermitted(PointId_t(point_id), 410) )
+          pr_edit = false;
+        if ( ilayer->first == cltDisable &&
+             (!r->user.access.profiledRightPermitted(PointId_t(point_id), 425)) )
+          pr_edit = false;
       }
       if ( pr_edit ) {
         SetProp( n, "edit", 1 );

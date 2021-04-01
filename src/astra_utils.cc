@@ -539,14 +539,14 @@ bool TAccess::profiledRightPermitted(const AirportCode_t &airp, const AirlineCod
 bool TAccess::profiledRightPermittedForCrsPax(const PaxId_t& paxId, const int right_id)
 {
     TTripInfo flt;
-    flt.getByCRSPaxId(paxId.get());
+    if ( !flt.getByCRSPaxId(paxId.get()) ) return false;
     return profiledRightPermitted(AirportCode_t(flt.airp), AirlineCode_t(flt.airline), right_id);
 }
 
 bool TAccess::profiledRightPermitted(const PointId_t& pointId, const int right_id)
 {
     TTripInfo flt;
-    flt.getByPointId(pointId.get());
+    if ( !flt.getByPointId(pointId.get()) ) return false;
     return profiledRightPermitted(AirportCode_t(flt.airp), AirlineCode_t(flt.airline), right_id);
 }
 
