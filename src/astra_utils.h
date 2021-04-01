@@ -337,9 +337,9 @@ class TAccess {
     void fromDB(int user_id, TUserType user_type);
     void toXML(xmlNodePtr accessNode);
     void fromXML(xmlNodePtr accessNode);
-    bool check_profile_by_crs_pax(int pax_id, int right_id);
-    bool check_profile(int point_id, int right_id);
-    bool check_profile(const std::string &airp, const std::string &airline, int right_id);
+    static bool profiledRightPermittedForCrsPax(const PaxId_t& paxId, const int right_id);
+    static bool profiledRightPermitted(const PointId_t& pointId, const int right_id);
+    static bool profiledRightPermitted(const AirportCode_t &airp, const AirlineCode_t &airline, const int right_id);
 };
 
 class TUserSettings {
@@ -779,13 +779,16 @@ void longToDB(TQueryT &Qry, const std::string &column_name, const std::string &s
 
 void traceXML(const xmlDocPtr doc);
 
-struct TProfiledRights {
-
-    void fromDB(const std::string &airline, const std::string &airp);
+class TProfiledRights
+{
+  private:
     std::set<int> items;
-    TProfiledRights(const std::string &airline, const std::string &airp);
-    TProfiledRights(int point_id);
-    void toXML(xmlNodePtr node);
+    void fromDB(const AirlineCode_t &airline, const AirportCode_t &airp);
+  public:
+
+    TProfiledRights(const AirlineCode_t &airline, const AirportCode_t &airp);
+    TProfiledRights(const PointId_t& pointId);
+    void toXML(xmlNodePtr node) const;
 };
 
 bool rus_airp(const std::string &airp);

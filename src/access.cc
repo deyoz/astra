@@ -302,7 +302,7 @@ void AccessInterface::Clone(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
 
 void AccessInterface::GetProfileRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    TProfiledRights(NodeAsInteger("point_id", reqNode)).toXML(resNode);
+    TProfiledRights(PointId_t(NodeAsInteger("point_id", reqNode))).toXML(resNode);
 }
 
 void AccessInterface::ProfileRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
