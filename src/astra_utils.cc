@@ -462,10 +462,12 @@ void TReqInfo::traceToMonitor( TRACE_SIGNATURE, const char *format,  ...)
 void TProfiledRights::toXML(xmlNodePtr node) const
 {
     xmlNodePtr lstNode = nullptr;
-    for(const int& item : items) {
+    for(const int& rightId : items)
+    {
+        if (rightId==191 || rightId==192) continue; //проверяем запрет этих прав только на сервере
         if(not lstNode)
             lstNode = NewTextChild(node, "profile_rights");
-        NewTextChild(lstNode, "item", item);
+        NewTextChild(lstNode, "item", rightId);
     }
 }
 
@@ -529,6 +531,7 @@ bool TAccess::profiledRightPermitted(const AirportCode_t &airp, const AirlineCod
        .def(rightId)
        .bind(":airline", airline.get())
        .bind(":airp", airp.get())
+       .bind(":right_id", right_id)
        .EXfet();
 
     result= (cur.err() == DbCpp::ResultCode::NoDataFound);
