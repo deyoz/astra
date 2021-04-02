@@ -1380,9 +1380,16 @@ static void CheckPreseatingAccess(const TTripInfo& flt, const TCompLayerType lay
 
   if (TAccess::profiledRightPermitted(AirportCode_t(flt.airp), AirlineCode_t(flt.airline), 192)) return;
 
-  if (flt.airline=="ФВ" &&
-      flt.scd_out-NowUTC()>(6/24.0) &&
-      TAccess::profiledRightPermitted(AirportCode_t(flt.airp), AirlineCode_t(flt.airline), 191) ) return;
+  if (TAccess::profiledRightPermitted(AirportCode_t(flt.airp), AirlineCode_t(flt.airline), 191))
+  {
+    if (flt.airline=="ФВ") {
+      //правило для ФВ: разрешаем не ранее, чем за 6 часов до вылета
+      if (flt.scd_out-NowUTC()<=(6/24.0)) return;
+    } else {
+      //для остальных компаний предварительная рассадка разрешена
+      return;
+    }
+  }
 
   throw UserException("MSG.PRESEATING.ACCESS_DENIED");
 }
