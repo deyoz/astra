@@ -1427,7 +1427,7 @@ static void CheckPreseatingAccess(const TTripInfo& flt, const TCompLayerType lay
   if (TAccess::profiledRightPermitted(AirportCode_t(flt.airp), AirlineCode_t(flt.airline), 192)) return;
 
   if (flt.airline=="”‚" &&
-      flt.scd_out-NowUTC()>(6/24.0) &&
+      flt.scd_out-NowUTC()<=(6/24.0) &&
       TAccess::profiledRightPermitted(AirportCode_t(flt.airp), AirlineCode_t(flt.airline), 191) ) return;
 
   throw UserException("MSG.PRESEATING.ACCESS_DENIED");
