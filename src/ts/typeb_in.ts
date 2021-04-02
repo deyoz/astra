@@ -2,6 +2,7 @@ include(ts/macro.ts)
 include(ts/adm_macro.ts)
 include(ts/spp/write_dests_macro.ts)
 include(ts/pnl/btm_ptm.ts)
+include(ts/pnl/prl.ts)
 
 # meta: suite typeb
 
@@ -698,4 +699,102 @@ $(set point_dep $(get_point_dep_for_flight UT 576 "" $(yymmdd) KRR))
         <num>2</num>
         <type>BTM</type>
 .*
+
+%%
+
+### test 7
+### входные PRL
+#########################################################################################
+
+$(init_term)
+
+$(set time_create1 $(dd)$(hhmi))       ### время создания первоначальных PRL
+$(set time_create2 $(dd)$(hhmi -1m))   ### более ранние PRL - оставляем данные первоначальных PRL
+$(set time_create3 $(dd)$(hhmi +1m))   ### более поздние PRL - удаляем данные первоначальных PRL, добавляем данные текущих
+
+$(PRL_EK_9455_UFA $(get time_create1))
+$(set prl_id1 $(last_typeb_in_id))
+
+$(PRL_EK_9455_UFA $(get time_create2))
+$(set prl_id2 $(last_typeb_in_id))
+
+??
+$(dump_table tlg_comp_layers fields="layer_type,tlg_id" display="on")
+
+>>
+--------------------- tlg_comp_layers DUMP ---------------------
+SELECT layer_type, tlg_id FROM tlg_comp_layers
+$(echo "[PRL_TRZT] [$(get prl_id1)] $(lf)"  115)\
+------------------- END tlg_comp_layers DUMP COUNT=115 -------------------
+$()
+
+
+$(PRL_EK_9455_UFA $(get time_create3))
+$(set prl_id3 $(last_typeb_in_id))
+
+??
+$(dump_table tlg_comp_layers fields="layer_type,tlg_id" display="on")
+
+>>
+--------------------- tlg_comp_layers DUMP ---------------------
+SELECT layer_type, tlg_id FROM tlg_comp_layers
+$(echo "[PRL_TRZT] [$(get prl_id3)] $(lf)"  115)\
+------------------- END tlg_comp_layers DUMP COUNT=115 -------------------
+$()
+
+
+$(set today $(date_format %d.%m.%Y +0))
+$(NEW_SPP_FLIGHT_REQUEST
+{ $(new_spp_point ЭК 9455 100 44444 ""                   УФА "$(get today) 07:00")
+  $(new_spp_point_last              "$(get today) 15:00" ННР ) })
+
+$(set point_dep $(get_point_dep_for_flight ЭК 9455 "" $(yymmdd) УФА))
+
+!! capture=on err=ignore
+<?xml version='1.0' encoding='UTF-8'?>
+<term>
+  <query handle='0' id='Telegram' ver='1' opr='PIKE' screen='TLG.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <GetTlgIn>
+      <point_id>$(get point_dep)</point_id>
+    </GetTlgIn>
+  </query>
+</term>
+
+>> mode=regex
+<\?xml version='1.0' encoding='CP866'\?>
+<term>
+  <answer .*>
+    <tlgs>
+      <tlg>
+        <err_lst/>
+        <id>$(get prl_id1)</id>
+        <num>1</num>
+        <type>PRL</type>
+.*
+        <is_final_part>1</is_final_part>
+        <is_history>0</is_history>
+      </tlg>
+      <tlg>
+        <err_lst/>
+        <id>$(get prl_id2)</id>
+        <num>1</num>
+        <type>PRL</type>
+.*
+        <is_final_part>1</is_final_part>
+        <is_history>0</is_history>
+      </tlg>
+      <tlg>
+        <err_lst/>
+        <id>$(get prl_id3)</id>
+        <num>1</num>
+        <type>PRL</type>
+.*
+        <is_final_part>1</is_final_part>
+        <is_history>0</is_history>
+      </tlg>
+    </tlgs>
+  </answer>
+</term>
+$()
+
 
