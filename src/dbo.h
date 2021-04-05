@@ -23,8 +23,6 @@ namespace DbCpp {
     class CursCtl;
 }
 
-using namespace ASTRA;
-
 namespace dbo
 {
 

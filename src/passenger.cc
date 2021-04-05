@@ -373,6 +373,9 @@ TPaxTknItem fromPax(const dbo::PAX &pax){
 
 bool LoadPaxTkn(TDateTime part_key, int pax_id, TPaxTknItem &tkn)
 {
+    if(part_key == ASTRA::NoExists) {
+        return LoadPaxTkn(pax_id, tkn);
+    }
     tkn.clear();
 
     dbo::Session session;
@@ -1515,10 +1518,10 @@ TPaxDocaItem fromPaxDoca(const dbo::PAX_DOCA & pax_doca)
 
 bool LoadPaxDoca(TDateTime part_key, int pax_id, CheckIn::TDocaMap &doca_map)
 {
-  doca_map.clear();
   if(part_key == ASTRA::NoExists) {
       return LoadPaxDoca(pax_id, doca_map);
   }
+  doca_map.clear();
   dbo::Session session;
   std::vector<dbo::ARX_PAX_DOCA> pax_docs = session.query<dbo::ARX_PAX_DOCA>()
           .where("part_key=:part_key AND pax_id=:pax_id")
