@@ -1150,7 +1150,7 @@ public:
     virtual void send( const std::string& senderType,
                        const MQRABBIT_TRANSPORT::MQRabbitRequest &request,
                        std::map<std::string,std::string>& params ) {
-      //д?а?Ёа?ў ?Ё? ¤ ??ле ¤?п ?вЇа ўЄЁ ў а ЎЎЁв
+      //формирование данных для отправки в раббит
       LogTrace(TRACE5)<< "airlines= " << GetSQLEnum( request.airlines ) << " flt_nos=" << getSQLEnum( request.flts ) << " airps=" << GetSQLEnum( request.airps );
       stringstream sb;
       for ( const auto& s : params ) {
@@ -1236,7 +1236,7 @@ public:
     std::map<std::string,std::string>::const_iterator ip;
     switch ( senderType ) {
       case tsPaxListRun:
-        params.insert( make_pair( "request", "PaxListRun(??ЁбЄ бЇЁбЄ  Ї бб ?Ёа?ў)" ) );
+        params.insert( make_pair( "request", "PaxListRun(Поиск списка пассажиров)" ) );
         int point_id;
         TDateTime part_key;
         if ( (ip=params.find( "part_key" )) != params.end() ) {
@@ -1251,7 +1251,7 @@ public:
         params.insert( make_pair("scd_out", DateTimeToStr( tripInfo.scd_out ) ) );
         break;
       case tsPaxSrcRun:
-        params.insert( make_pair( "request", "PaxSrcRun(??ЁбЄ ?¤???? Ї бб ?Ёа )" ) );
+        params.insert( make_pair( "request", "PaxSrcRun(Поиск одного пассажира)" ) );
         if ( (ip = params.find( "airline" )) != params.end() ) {
           tripInfo.airline = ip->second;
         }
@@ -1259,7 +1259,7 @@ public:
           StrToInt( ip->second.c_str(), tripInfo.flt_no );
         }
         if ( (ip=params.find( "dest" )) != params.end() ) {
-          tripInfo.airp = ip->second; //?¤?бм ? Їа ў???Ё? -  на?Ї?ав ЇаЁ??в ,   ?? ўл??в  (бЄ?а?? ўб??? ?? Ўг¤?в ЁбЇ??м??ў ?? ?ЁЄ??¤ )
+          tripInfo.airp = ip->second; //здесь направление - аэропорт прилета, а не вылета (скорее всего не будет использовано никогда)
         }
         break;
       default:
