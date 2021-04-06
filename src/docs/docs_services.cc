@@ -1,6 +1,7 @@
 #include "docs_services.h"
 #include "stat/stat_utils.h"
 #include "docs_utils.h"
+#include "docs_text_grid.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -183,68 +184,53 @@ void SERVICESTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
     xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
     int page_width=80;
-    int max_symb_count=rpt_params.IsInter()?page_width:60;
     NewTextChild(variablesNode, "page_width", page_width);
     NewTextChild(variablesNode, "test_server", STAT::bad_client_img_version() ? 2 : get_test_server());
     if(STAT::bad_client_img_version())
         NewTextChild(variablesNode, "doc_cap_test", " ");
     NewTextChild(variablesNode, "test_str", get_test_str(page_width, rpt_params.GetLang()));
     ostringstream s;
+    vector<string> rows;
+    string str;
+    SeparateString(NodeAsString("caption", variablesNode), page_width, rows);
     s.str("");
-    s << NodeAsString("caption", variablesNode);
-    string str = s.str().substr(0, max_symb_count);
-    s.str("");
-    s << right << setw(((page_width - str.size()) / 2) + str.size()) << str;
+    for(vector<string>::iterator iv = rows.begin(); iv != rows.end(); iv++) {
+        if(iv != rows.begin())
+            s << endl;
+        s << right << setw(((page_width - iv->size()) / 2) + iv->size()) << *iv;
+    }
     NewTextChild(variablesNode, "page_header_top", s.str());
     s.str("");
-    s   << left
-        << setw(8)  << getLocaleText("№ м", rpt_params.GetLang())
-        << setw(20) << getLocaleText("Ф.И.О.", rpt_params.GetLang())
-        << setw(3)  << getLocaleText("№", rpt_params.GetLang()) << " "
-        << setw(5)  << getLocaleText("RFIC", rpt_params.GetLang())
-        << setw(5)  << getLocaleText("Код", rpt_params.GetLang())
-        << setw(20)  << getLocaleText("Описание", rpt_params.GetLang())
-        << setw(20) << getLocaleText("№ квитанции", rpt_params.GetLang());
-    NewTextChild(variablesNode, "page_header_bottom", s.str() );
     NewTextChild(variablesNode, "page_footer_top",
             getLocaleText("CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)), rpt_params.GetLang()));
+
+    TTextGrid tab;
+
+    tab.addCol(getLocaleText("№ м", rpt_params.GetLang()),          8);
+    tab.addCol(getLocaleText("Ф.И.О.", rpt_params.GetLang()),       19);
+    tab.addCol(getLocaleText("№", rpt_params.GetLang()),            3);
+    tab.addCol(getLocaleText("RFIC", rpt_params.GetLang()),         5);
+    tab.addCol(getLocaleText("Код", rpt_params.GetLang()),          5);
+    tab.addCol(getLocaleText("Описание", rpt_params.GetLang()),     20);
+    tab.addCol(getLocaleText("№ квитанции", rpt_params.GetLang()),  20);
+    tab.headerToXML(variablesNode);
+
     xmlNodePtr dataSetNode = NodeAsNode("v_services", dataSetsNode);
     xmlNodeSetName(dataSetNode, "table");
-    vector<string> rows;
-    map< string, vector<string> > fields;
-    int row;
     xmlNodePtr rowNode=dataSetNode->children;
-    const char col_sym = ' ';
+
     for(; rowNode != NULL; rowNode = rowNode->next)
     {
-        SeparateString(NodeAsString("family", rowNode), 37, rows);
-        fields["surname"]=rows;
-        SeparateString(NodeAsString("desc", rowNode), 19, rows);
-        fields["desc"]=rows;
-        SeparateString(NodeAsString("num", rowNode), 19, rows);
-        fields["num"]=rows;
-
-        row=0;
-        s.str("");
-        do
-        {
-            if (row != 0) s << endl;
-            s   << left <<  setw(7) << (row == 0 ? NodeAsString("seat_no", rowNode, "") : "") << col_sym
-                << setw(19) << (!fields["surname"].empty() ? *(fields["surname"].begin()) : "") << col_sym
-                << setw(3) << (row == 0 ? NodeAsString("reg_no", rowNode) : "") << col_sym
-                << setw(4) << (row == 0 ? NodeAsString("RFIC", rowNode) : "") << col_sym
-                << setw(4) << (row == 0 ? NodeAsString("RFISC", rowNode) : "") << col_sym
-                << setw(19) << (!fields["desc"].empty() ? *(fields["desc"].begin()) : "") << col_sym
-                << setw(19) << (!fields["num"].empty() ? *(fields["num"].begin()) : "");
-            for(map< string, vector<string> >::iterator f = fields.begin(); f != fields.end(); f++)
-                if (!f->second.empty()) f->second.erase(f->second.begin());
-            row++;
-        }
-        while(
-                !fields["surname"].empty() ||
-                !fields["desc"].empty() ||
-                !fields["num"].empty()
-             );
-        NewTextChild(rowNode,"str",s.str());
+        xmlNodePtr curNode = rowNode->children;
+        auto &row = tab.addRow();
+        row
+            .add(NodeAsStringFast("seat_no", curNode))
+            .add(NodeAsStringFast("family", curNode))
+            .add(NodeAsStringFast("reg_no", curNode))
+            .add(NodeAsStringFast("RFIC", curNode))
+            .add(NodeAsStringFast("RFISC", curNode))
+            .add(NodeAsStringFast("desc", curNode))
+            .add(NodeAsStringFast("num", curNode));
+        row.toXML(rowNode);
     }
 }
