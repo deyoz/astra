@@ -2279,11 +2279,15 @@ void arx_tlg_trip(const PointIdTlg_t& point_id)
 
 bool TArxTlgTrips::Next(size_t max_rows, int duration)
 {
-    LogTrace5 << __func__;
+    time_t time_start = time(NULL);
     auto points = getTlgTripPoints(utcdate-Dates::days(ARX::ARX_DAYS()), max_rows);
-
+    LogTrace5 << __func__ << " tlg trip points size: " << points.size();
     while (!points.empty())
     {
+        if(time(NULL) - time_start > duration/2) { // на этот шаг не более половины оставшегося времени по задаче
+            LogTrace5 << __func__ << " end time for task";
+            return false;
+        }
         PointIdTlg_t point_id = points.front();
         points.erase(points.begin());
         try
