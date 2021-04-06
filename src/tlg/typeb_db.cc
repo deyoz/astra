@@ -310,7 +310,7 @@ bool deleteTlgSource(const PointIdTlg_t& point_id)
 
 bool deleteTlgTrips(const PointIdTlg_t& point_id)
 {
-  LogTrace(TRACE6) << __func__
+  LogTrace(TRACE5) << __func__
                    << ": point_id=" << point_id;
   auto cur = make_db_curs(
         "DELETE FROM tlg_trips "

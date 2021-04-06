@@ -675,6 +675,7 @@ private:
     {
         const auto& map_info = Mapper::getInstance().getMapping<Result>();
         Cursor cur = getCursor(map_info);
+        LogTrace5 << __func__ << " cursor created";
         cur.ignoreErrors(m_sess->moveErrors());
         Result r;
         cur.bind(bindVars);
@@ -685,7 +686,7 @@ private:
         while(!cur.fen()) {
             res.push_back(r);
         }
-        //LogTrace5 << " result vector size: " << res.size();
+        LogTrace5 << __func__ << " result vector size: " << res.size();
         return res;
     }
 };

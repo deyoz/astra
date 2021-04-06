@@ -1699,6 +1699,7 @@ bool trferCkinExists(int point_dep, TQuery& Qry)
 
 std::set<TrferId_t> loadTrferIdSet(const PointIdTlg_t& point_id)
 {
+    LogTrace5 << __func__ << " point_id: " << point_id;
   dbo::Session session;
   const std::vector<int> trfer_ids =
       session.query<int>("SELECT trfer_id")
@@ -1710,6 +1711,7 @@ std::set<TrferId_t> loadTrferIdSet(const PointIdTlg_t& point_id)
 
 std::set<TlgId_t> loadTrferTlgIdSet(const PointIdTlg_t& point_id)
 {
+    LogTrace5 << __func__ << " point_id: " << point_id;
   dbo::Session session;
   const std::vector<int> tlg_ids =
       session.query<int>("SELECT tlg_id")
@@ -1721,6 +1723,7 @@ std::set<TlgId_t> loadTrferTlgIdSet(const PointIdTlg_t& point_id)
 
 std::set<TrferGrpId_t> loadTrferGrpIdSet(const TrferId_t& trfer_id)
 {
+    LogTrace5 << __func__ << " trfer_id: " << trfer_id;
   dbo::Session session;
   const std::vector<int> grp_ids =
       session.query<int>("SELECT grp_id").from("trfer_grp")
@@ -1731,12 +1734,14 @@ std::set<TrferGrpId_t> loadTrferGrpIdSet(const TrferId_t& trfer_id)
 
 std::set<TrferGrpId_t> loadTrferGrpIdSet(const PointIdTlg_t& point_id)
 {
+    LogTrace5 << __func__ << " point_id: " << point_id;
   dbo::Session session;
   const std::vector<int> grp_ids =
       session.query<int>("SELECT grp_id").from("trfer_grp, tlg_transfer")
       .where("tlg_transfer.trfer_id = trfer_grp.trfer_id AND "
              "tlg_transfer.point_id_out = :point_id")
       .setBind({{":point_id", point_id.get()}});
+  LogTrace5 << __func__ << " grp_ids size: " << grp_ids.size();
   return algo::transform<std::set>(grp_ids, [](int id) { return TrferGrpId_t(id); });
 }
 
@@ -1811,6 +1816,7 @@ bool deleteTlgTrferExcepts(const TrferGrpId_t& grp_id)
 
 bool deleteTrferGrp(const TrferId_t& trfer_id)
 {
+    LogTrace5 << __func__ << " trfer_id: " << trfer_id;
   auto cur = make_db_curs(
         "DELETE FROM trfer_grp "
         "WHERE trfer_id = :trfer_id ",
@@ -1821,6 +1827,7 @@ bool deleteTrferGrp(const TrferId_t& trfer_id)
 
 bool deleteTlgTransfer(const TrferId_t& trfer_id)
 {
+    LogTrace5 << __func__ << " trfer_id: " << trfer_id;
   auto cur = make_db_curs(
         "DELETE FROM tlg_transfer "
         "WHERE trfer_id = :trfer_id ",
@@ -1831,6 +1838,7 @@ bool deleteTlgTransfer(const TrferId_t& trfer_id)
 
 bool deleteTlgTransfer(const PointIdTlg_t& point_id)
 {
+    LogTrace5 << __func__ << " point_id: " << point_id;
   auto cur = make_db_curs(
         "DELETE FROM tlg_transfer "
         "WHERE point_id_out= :point_id ",
@@ -1886,12 +1894,14 @@ void deleteTransferData(const PointIdTlg_t& point_id)
                    << ": point_id=" << point_id;
   const std::set<TrferId_t> trfer_ids = loadTrferIdSet(point_id);
   const std::set<TrferGrpId_t> grp_ids = loadTrferGrpIdSet(point_id);
+  LogTrace5 << __func__ << " grp_ids size: " << grp_ids.size();
   for (const TrferGrpId_t& grp_id: grp_ids) {
       deleteTrferPax(grp_id);
       deleteTrferTags(grp_id);
       deleteTlgTrferOnwards(grp_id);
       deleteTlgTrferExcepts(grp_id);
   }
+  LogTrace5 << __func__ << " trfer_ids size: " << trfer_ids.size();
   for (const TrferId_t& trfer_id: trfer_ids) {
       deleteTrferGrp(trfer_id);
   }

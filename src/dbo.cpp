@@ -55,20 +55,28 @@ std::string firstTableFrom(const std::string& from)
 {
     std::vector<std::string> tableNames;
     StrUtils::split_string(tableNames, from);
-    if(!tableNames.empty()) return tableNames[0];
+    if(!tableNames.empty()) {
+        LogTrace5 << __func__ << " first table:" << tableNames[0] << "$";
+        return tableNames[0];
+    } else {
+        LogTrace5 << __func__ << " WRONG empty name of table";
+    }
     return "";
 }
 
 DbCpp::Session* getSession(CurrentDb db, const std::shared_ptr<MappingInfo>& mapInfo,
                            bool isForUpdate, const std::string& from)
 {
+    LogTrace5 << __func__;
     DbCpp::Session* session = nullptr;
     std::string tableName = mapInfo ? mapInfo->tableName() : firstTableFrom(from);
     if(db==Config) {
+        LogTrace5 << " dbo config";
         if(isForUpdate) {session = &PgOra::getRWSession(tableName);}
         else            {session = &PgOra::getROSession(tableName);}
     }
     else if(db==Postgres) {
+        LogTrace5 << " dbo Postgres";
         bool isGroupArx = (PgOra::getGroup(tableName) == "SP_PG_GROUP_ARX");
         if(isForUpdate) {
             if(isGroupArx)  {session = get_arx_pg_rw_sess(STDLOG);}
@@ -78,7 +86,13 @@ DbCpp::Session* getSession(CurrentDb db, const std::shared_ptr<MappingInfo>& map
             else            {session = get_main_pg_ro_sess(STDLOG);}
         }
     }
-    else if(db==Oracle) {session = get_main_ora_sess(STDLOG);}
+    else if(db==Oracle) {
+        LogTrace5 << " dbo Oracle";
+        session = get_main_ora_sess(STDLOG);
+    }
+    if(!session) {
+        LogTrace5 << __func__ << " session nullptr!!!";
+    }
     return session;
 }
 
