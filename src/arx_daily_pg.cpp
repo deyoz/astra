@@ -2667,7 +2667,10 @@ int delete_kiosk_events(const Dates::DateTime_t& arx_date, int remain_rows)
 int delete_rozysk(const Dates::DateTime_t& arx_date, int remain_rows)
 {
     if(ARX::CLEANUP_PG()) {
-        auto cur = make_db_curs("delete from ROZYSK where TIME < :arx_date FETCH FIRST :remain_rows ROWS ONLY", PgOra::getRWSession("ROZYSK"));
+        auto cur = make_db_curs(
+            "delete from ROZYSK where TIME in "
+            "(SELECT TIME FROM ROZYSK where TIME < :arx_date FETCH FIRST :remain_rows ROWS ONLY)",
+                    PgOra::getRWSession("ROZYSK"));
         cur.bind(":arx_date", arx_date).bind(":remain_rows", remain_rows).exec();
         return cur.rowcount();
     }
@@ -2689,9 +2692,10 @@ int delete_aodb_spp_files(const Dates::DateTime_t& arx_date, int remain_rows)
 
         for(const auto & f : files) {
             auto cur = make_db_curs("delete from AODB_EVENTS "
-                                    "where filename= :filename and point_addr= :point_addr "
-                                    "and airline= :airline "
-                                    "FETCH FIRST :remain_rows ROWS ONLY",
+                                    "where (filename, point_addr, airline) in ( "
+                                    "select filename,point_addr, airline from AODB_EVENTS "
+                                    "where filename= :filename and point_addr=:point_addr and airline= :airline "
+                                    "FETCH FIRST :remain_rows ROWS ONLY)",
                                     PgOra::getRWSession("AODB_EVENTS"));
             cur.bind(":filename", f.filename)
                     .bind(":point_addr", f.point_addr)
@@ -2701,12 +2705,15 @@ int delete_aodb_spp_files(const Dates::DateTime_t& arx_date, int remain_rows)
             rowsize += cur.rowcount();
 
             auto cur2 = make_db_curs("delete from AODB_SPP_FILES "
-                                     "where filename= :filename and point_addr= :point_addr "
-                                     "and airline= :airline",
+                                     "where (filename, point_addr, airline) in ( "
+                                     "select filename,point_addr, airline from AODB_SPP_FILES "
+                                     "where filename= :filename and point_addr= :point_addr and airline= :airline "
+                                     "FETCH FIRST :remain_rows ROWS ONLY)",
                                      PgOra::getRWSession("AODB_SPP_FILES"));
             cur2.bind(":filename", f.filename)
                     .bind(":point_addr", f.point_addr)
                     .bind(":airline", f.airline)
+                    .bind(":remain_rows", remain_rows)
                     .exec();
             rowsize += cur2.rowcount();
 
