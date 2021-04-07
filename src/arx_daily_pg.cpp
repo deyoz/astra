@@ -2355,6 +2355,7 @@ void move_typeb_in(int tlg_id)
 bool TArxTypeBIn::Next(size_t max_rows, int duration)
 {
     LogTrace5 << __func__;
+    time_t time_start = time(NULL);
     std::map<int, Dates::DateTime_t> tlg_ids = getTlgIds(utcdate - Dates::days(ARX::ARX_DAYS()), max_rows);
     while (!tlg_ids.empty())
     {
@@ -2363,6 +2364,9 @@ bool TArxTypeBIn::Next(size_t max_rows, int duration)
 
         try
         {
+            if(time(NULL) - time_start > duration/2) {
+                return false;
+            }
             //в архив
             move_typeb_in(tlg_id);
             ASTRA::commitAndCallCommitHooks();
@@ -2538,7 +2542,7 @@ bool TArxNormsRatesEtc::Next(size_t max_rows, int duration)
         step = 1;
     }
     Dates::DateTime_t arx_date = utcdate-Dates::days(ARX::ARX_DAYS());
-    norms_rates_etc(arx_date, max_rows, duration, step);
+    norms_rates_etc(arx_date, max_rows, duration/2, step);
     ASTRA::commitAndCallCommitHooks();
     proc_count++;
     return step > 0;
