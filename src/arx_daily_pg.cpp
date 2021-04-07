@@ -2242,24 +2242,21 @@ TArxTlgTrips::TArxTlgTrips(const Dates::DateTime_t& utc_date):TArxMove(utc_date)
 std::vector<PointIdTlg_t> TArxTlgTrips::getTlgTripPoints(const Dates::DateTime_t& arx_date, size_t max_rows)
 {
     std::vector<PointIdTlg_t> points;
+    points.reserve(max_rows);
     int point_id_tlg;
     auto cur = make_db_curs("SELECT point_id "
                             "FROM tlg_trips "
-                            "WHERE scd<:arx_date",
+                            "WHERE scd<:arx_date FETCH FIRST :max_rows ROWS ONLY ",
                             PgOra::getROSession("TLG_TRIPS"));
     cur.def(point_id_tlg)
-            .bind(":arx_date", arx_date)
-            .exec();
+       .bind(":arx_date", arx_date)
+       .bind(":max_rows", max_rows)
+       .exec();
     while(!cur.fen()) {
-        const std::set<PointId_t> point_id_set =
-            getPointIdsSppByPointIdTlg(PointIdTlg_t(point_id_tlg));
-        if(!point_id_set.empty()) {
-            continue;
+        const std::set<PointId_t> point_id_set = getPointIdsSppByPointIdTlg(PointIdTlg_t(point_id_tlg));
+        if(point_id_set.empty()) {
+            points.emplace_back(point_id_tlg);
         }
-        if(points.size() == max_rows) {
-            break;
-        }
-        points.emplace_back(point_id_tlg);
     }
     return points;
 }
@@ -2270,15 +2267,15 @@ void arx_tlg_trip(const PointIdTlg_t& point_id)
     if(ARX::CLEANUP_PG()) {
         LogTrace5 << __func__ << " point_id: " << point_id;
         TypeB::deleteTypeBData(point_id);
-        LogTrace5 << timer.elapsedMilliseconds() << "ms";
+        LogTrace5 << timer.elapsedMilliseconds() << "ms"; timer.restart();
         TypeB::deleteTypeBDataStat(point_id);
-        LogTrace5 << timer.elapsedMilliseconds() << "ms";
+        LogTrace5 << timer.elapsedMilliseconds() << "ms"; timer.restart();
         TypeB::nullCrsDisplace2_point_id_tlg(point_id);
-        LogTrace5 << timer.elapsedMilliseconds() << "ms";
+        LogTrace5 << timer.elapsedMilliseconds() << "ms"; timer.restart();
         TypeB::deleteTlgCompLayers(point_id);
-        LogTrace5 << timer.elapsedMilliseconds() << "ms";
+        LogTrace5 << timer.elapsedMilliseconds() << "ms"; timer.restart();
         TypeB::deleteCrsDataStat(point_id);
-        LogTrace5 << timer.elapsedMilliseconds() << "ms";
+        LogTrace5 << timer.elapsedMilliseconds() << "ms"; timer.restart();
         TrferList::deleteTransferData(point_id);
         LogTrace5 << timer.elapsedMilliseconds() << "ms";
     }
@@ -2287,17 +2284,17 @@ void arx_tlg_trip(const PointIdTlg_t& point_id)
 
 bool TArxTlgTrips::Next(size_t max_rows, int duration)
 {
+    std::ios::sync_with_stdio(false);
     time_t time_start = time(NULL);
     HelpCpp::Timer timer;
-    auto points = getTlgTripPoints(utcdate-Dates::days(ARX::ARX_DAYS()), max_rows);
+    auto points = getTlgTripPoints(utcdate-Dates::days(ARX::ARX_DAYS()), max_rows/4);
     LogTrace5 << "ReadTlgTripPoints time: " << timer.elapsedMilliseconds() << "ms" << " size: "<< points.size();
 
     HelpCpp::Timer total_timer;
     while (!points.empty())
     {
-        if(time(NULL) - time_start > duration/2) { // на этот шаг не более половины оставшегося времени по задаче
-            LogTrace5 << __func__ << " end time for task";
-            LogTrace5 << "total time: " << total_timer.elapsedSeconds() << "s";
+        if(time(NULL) - time_start > duration) {
+            LogTrace5 << __func__ << " end time for task"  << total_timer.elapsedSeconds() << "s";
             return false;
         }
         PointIdTlg_t point_id = points.front();
@@ -2308,7 +2305,7 @@ bool TArxTlgTrips::Next(size_t max_rows, int duration)
             arx_tlg_trip(point_id);
             ASTRA::commitAndCallCommitHooks();
             proc_count++;
-            LogTrace5 << "iteration time: " << timer.elapsedSeconds() << "s";
+            LogTrace5 << "iteration time: " << timer.elapsedMilliseconds() << "ms";
         }
         catch(...)
         {
