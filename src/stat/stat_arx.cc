@@ -1812,7 +1812,8 @@ public:
         if ( ip != searchParams.end() ) {
           SetProp( node, "lang", ip->second );
         }
-        SetProp( node, "time", "UTC" );
+        SetProp( node, "time", DateTimeToStr( NowUTC(), ServerFormatDateTimeAsString )  );
+        SetProp( node, "time_fmt", "UTC" );
         NewTextChild( node, "requestType", senderType );
         xmlNodePtr n = NewTextChild( node, "user" );
         NewTextChild( n, "login", TReqInfo::Instance()->user.login );
