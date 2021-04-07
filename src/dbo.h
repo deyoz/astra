@@ -17,6 +17,7 @@
 
 #define NICKNAME "FELIX"
 #include <serverlib/slogger_nonick.h>
+#include <serverlib/test.h>
 
 namespace DbCpp {
     class Session;
@@ -667,7 +668,7 @@ private:
         DbCpp::Session* session = getSession(m_sess->currentDb(), map_info, m_ops.for_update, m_ops.from);
         ASSERT(session);
         std::string query = createQuery(map_info, session->isOracle());
-        LogTrace5 << " query: " << query;
+        LogTrace(TRACE6) << " query: " << query;
         return Cursor(session->createCursor(STDLOG, query), Transaction(m_sess->transactPolicy(*session)));
     }
 

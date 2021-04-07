@@ -131,9 +131,9 @@ int ARX_MAX_DATE_RANGE()
 
 bool arx_daily_pg(TDateTime utcdate)
 {
-    LogTrace5 << __func__ << " utcdate: " << utcdate;
+    LogTrace(TRACE6) << __func__ << " utcdate: " << utcdate;
     if(utcdate == ASTRA::NoExists) {
-        LogTrace5 << " utcdate incorrect";
+        LogTrace(TRACE6) << " utcdate incorrect";
         return false;
     }
     return PG_ARX::arx_daily(DateTimeToBoost(utcdate));
@@ -252,7 +252,7 @@ namespace salons {
 std::string get_seat_no(const PaxId_t& pax_id, int seats, int is_jmp, std::string status, const PointId_t& point_id,
                         std::string fmt, int row = 1, int only_lat = 0)
 {
-    LogTrace5 << __func__<< " pax_id: " << pax_id << " seats: " << seats << " is_jmpg: " << is_jmp << " status: "
+    LogTrace(TRACE6) << __func__<< " pax_id: " << pax_id << " seats: " << seats << " is_jmpg: " << is_jmp << " status: "
               << status << " point_id: " << point_id << " fmt: " << fmt;
     char result[50] = {};
     short null = -1, nnull = 0; //-1 - NULL , 0 - value
@@ -296,7 +296,7 @@ bool operator <(const birks_row & ls, const birks_row & rs)
 
 std::optional<std::string> build_birks_str(const std::set<birks_row> & birks)
 {
-    LogTrace5 << __func__;
+    LogTrace(TRACE6) << __func__;
     std::string res; //VARCHAR2(4000)
     std::string noStr; //VARCHAR2(15);
     std::string firstStr; //VARCHAR2(17)
@@ -375,7 +375,7 @@ int get_excess_pc(const GrpId_t& grp_id, const PaxId_t& pax_id, int include_all_
 std::optional<int> get_bag_pool_pax_id(Dates::DateTime_t part_key, int grp_id,
                                        std::optional<int> bag_pool_num, int include_refused)
 {
-    LogTrace5 << __func__ << " part_key: " << part_key << " grp_id: " << grp_id
+    LogTrace(TRACE6) << __func__ << " part_key: " << part_key << " grp_id: " << grp_id
               << " bag_pool_num: " << bag_pool_num.value_or(0)
               << " include_refused: " << include_refused;
     if(!bag_pool_num) {
@@ -414,7 +414,7 @@ std::optional<int> get_bag_pool_pax_id(Dates::DateTime_t part_key, int grp_id,
 TBagInfo get_bagInfo2(Dates::DateTime_t part_key, int grp_id, std::optional<int> pax_id,
                       std::optional<int> bag_pool_num)
 {
-    LogTrace5 << __func__ << " part_key: " << part_key << " grp_id: " << grp_id
+    LogTrace(TRACE6) << __func__ << " part_key: " << part_key << " grp_id: " << grp_id
               << " bag_pool_num: " << bag_pool_num.value_or(0) << " pax_id: " << pax_id.value_or(0);
     TBagInfo bagInfo{};
     bagInfo.grp_id = grp_id;
@@ -450,7 +450,7 @@ TBagInfo get_bagInfo2(Dates::DateTime_t part_key, int grp_id, std::optional<int>
         }
         cur.EXfet();
         if(cur.err() == DbCpp::ResultCode::NoDataFound) {
-            LogTrace(TRACE5) << __FUNCTION__ << " Query error. Not found data by grp_id: " << grp_id
+            LogTrace(TRACE6) << __func__ << " Query error. Not found data by grp_id: " << grp_id
                              << " part_key: " << part_key ;
             return bagInfo;
         }
@@ -495,7 +495,7 @@ std::optional<int> get_excess_wt(Dates::DateTime_t part_key, int grp_id,
                                  std::optional<int> excess_wt, std::optional<int> excess_nvl,
                                  int bag_refuse)
 {
-    LogTrace5 << __func__ << " part_key: " << part_key << " grp_id: " << grp_id << " bag_refuse: " << bag_refuse
+    LogTrace(TRACE6) << __func__ << " part_key: " << part_key << " grp_id: " << grp_id << " bag_refuse: " << bag_refuse
               << " pax_id: " << (pax_id.value_or(0)) << " excess_wt: " << excess_wt.value_or(0)
               << " excess_nvl: " << excess_nvl.value_or(0);
 
@@ -511,7 +511,7 @@ std::optional<int> get_excess_wt(Dates::DateTime_t part_key, int grp_id,
            .bind(":grp_id", grp_id)
            .EXfet();
         if(cur.err() == DbCpp::ResultCode::NoDataFound) {
-            LogTrace5 << __FUNCTION__ << " Query error. Not found data by grp_id: " << grp_id
+            LogTrace(TRACE6) << __FUNCTION__ << " Query error. Not found data by grp_id: " << grp_id
                       << " part_key: " << part_key ;
             return std::nullopt;
         }
@@ -536,7 +536,7 @@ std::optional<int> get_excess_wt(Dates::DateTime_t part_key, int grp_id,
 
 std::optional<int> get_main_pax_id2(Dates::DateTime_t part_key, int grp_id, int include_refused)
 {
-    LogTrace5 << __func__ << " part_key: " << part_key << " grp_id: " << grp_id
+    LogTrace(TRACE6) << __func__ << " part_key: " << part_key << " grp_id: " << grp_id
               << " include_refused: " << include_refused;
     std::optional<int> res;
     int pax_id;
@@ -567,7 +567,7 @@ std::optional<int> get_main_pax_id2(Dates::DateTime_t part_key, int grp_id, int 
 int bag_pool_refused(Dates::DateTime_t part_key, int grp_id, int bag_pool_num,
                      std::optional<std::string> vclass, int bag_refuse)
 {
-    LogTrace5 << __func__ << " part_key: " << part_key << " grp_id: " << grp_id
+    LogTrace(TRACE6) << __func__ << " part_key: " << part_key << " grp_id: " << grp_id
               << " bag_pool_num: " << bag_pool_num << " bag_refuse: " << bag_refuse;
     if(bag_refuse != 0) return 1;
     if(!vclass) return 0;
@@ -588,7 +588,7 @@ int bag_pool_refused(Dates::DateTime_t part_key, int grp_id, int bag_pool_num,
 
 std::set<ckin::birks_row> read_birks(Dates::DateTime_t part_key, int grp_id, const std::string& lang, bool bag_num=true)
 {
-    LogTrace5 << __func__ << " part_key: " << part_key << " grp_id: " << grp_id;
+    LogTrace(TRACE6) << __func__ << " part_key: " << part_key << " grp_id: " << grp_id;
     std::set<ckin::birks_row> birks;
     ckin::birks_row row;
     std::string pg_select = "select TAG_TYPE, COLOR, TRUNC(NO/1000) AS first, MOD(NO,1000) AS last, no ";
@@ -625,7 +625,7 @@ std::set<ckin::birks_row> read_birks(Dates::DateTime_t part_key, int grp_id, con
 
 std::set<ckin::birks_row> read_birks(Dates::DateTime_t part_key, int grp_id, int bag_pool_num, const std::string& lang)
 {
-    LogTrace5 << __func__ << " part_key: " << part_key << " grp_id: " << grp_id << " bag_pool_num: " << bag_pool_num;
+    LogTrace(TRACE6) << __func__ << " part_key: " << part_key << " grp_id: " << grp_id << " bag_pool_num: " << bag_pool_num;
     std::set<ckin::birks_row> birks;
     ckin::birks_row row;
     std::string pg_select = "select TAG_TYPE, COLOR, TRUNC(NO/1000) AS first, MOD(NO,1000) AS last, no ";
@@ -668,7 +668,7 @@ std::set<ckin::birks_row> read_birks(Dates::DateTime_t part_key, int grp_id, int
 std::optional<std::string> get_birks2(Dates::DateTime_t part_key, int grp_id, std::optional<int> pax_id,
                                       int bag_pool_num, const std::string& lang)
 {
-    LogTrace5 << __func__ << " part_key: " << part_key << " grp_id: "<<grp_id
+    LogTrace(TRACE6) << __func__ << " part_key: " << part_key << " grp_id: "<<grp_id
               << " bag_pool_num: " << bag_pool_num;
     std::optional<int> pool_pax_id;
     if(pax_id) {
@@ -708,7 +708,7 @@ std::optional<std::string> get_birks2(Dates::DateTime_t part_key, int grp_id, st
 
 std::optional<std::string> next_airp(Dates::DateTime_t part_key, int first_point, int point_num)
 {
-    LogTrace5 << __func__ << " part_key: " << part_key << " first_point: " << first_point
+    LogTrace(TRACE6) << __func__ << " part_key: " << part_key << " first_point: " << first_point
               << " point_num: " << point_num;
     dbo::Session session;
     std::optional<std::string> airp = session.query<std::string>("SELECT airp")
@@ -744,7 +744,7 @@ TArxMoveFlt::~TArxMoveFlt()
 
 void TArxMoveFlt::LockAndCollectStat(const MoveId_t & move_id)
 {
-    LogTrace(TRACE5) << __FUNCTION__ << " move_id: " << move_id;
+    LogTrace(TRACE6) << __FUNCTION__ << " move_id: " << move_id;
     dbo::Session session;
     std::vector<dbo::Points> points = session.query<dbo::Points>()
             .where(" MOVE_ID = :move_id ")
@@ -778,7 +778,7 @@ Dates::time_period tripDatePeriod(const std::vector<dbo::Points> & points)
         if(auto maxIt = std::max_element(fdates.begin(), fdates.end()); maxIt != fdates.end()) {
             last_date = *maxIt;
         }
-        //LogTrace(TRACE5) << __func__ << " first_date: " << first_date << " last_date: " << last_date;
+        //LogTrace(TRACE6) << __func__ << " first_date: " << first_date << " last_date: " << last_date;
     }
     return Dates::time_period(first_date, last_date);
 }
@@ -786,10 +786,10 @@ Dates::time_period tripDatePeriod(const std::vector<dbo::Points> & points)
 bool validDatePeriod(const Dates::time_period& date_period, Dates::DateTime_t utcdate)
 {
     if(date_period.is_null()) {
-        LogTrace5 << __func__ << "WRONG date_period: " << date_period;
+        LogTrace(TRACE6) << __func__ << "WRONG date_period: " << date_period;
         return false;
     }
-    LogTrace5 << __func__ << date_period;
+    LogTrace(TRACE6) << __func__ << date_period;
     Dates::DateTime_t first_date = date_period.begin();
     Dates::DateTime_t last_date = date_period.end();
     if (first_date == Dates::not_a_date_time && last_date == Dates::not_a_date_time) return false;
@@ -807,7 +807,7 @@ double getDateRange(const Dates::time_period& date_period)
 
 void TArxMoveFlt::readMoveIds(size_t max_rows)
 {
-    LogTrace(TRACE5) << __func__;
+    LogTrace(TRACE6) << __func__;
     int move_id;
     auto cur = make_db_curs("SELECT move_id FROM points "
                             "WHERE (time_in > TO_DATE('01.01.1900','DD.MM.YYYY') AND time_in<:arx_date)"
@@ -838,11 +838,11 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
     {
         MoveId_t move_id = move_ids.begin()->first;
         Dates::time_period date_period = move_ids.begin()->second;
-        LogTrace5 << __func__ << " move_id: " << move_id;
+        LogTrace(TRACE6) << __func__ << " move_id: " << move_id;
         move_ids.erase(move_ids.begin());
         bool isValidPeriod = validDatePeriod(date_period, utcdate);
         Dates::DateTime_t part_key = isValidPeriod ? date_period.end() : Dates::not_a_date_time;
-        LogTrace5 << __func__ << " part_key: " << part_key;
+        LogTrace(TRACE6) << __func__ << " part_key: " << part_key;
         try
         {
             LockAndCollectStat(move_id);
@@ -858,7 +858,7 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
             {
                 bool need_arch = p.pr_del != -1 && dbo::isNotNull(part_key);
                 PointId_t point_id(p.point_id);
-                LogTrace5 << __func__ << " POINT_ID = "  << p.point_id;
+                LogTrace(TRACE6) << __func__ << " POINT_ID = "  << p.point_id;
                 auto pax_grps = read_pax_grp(point_id, part_key);
                 if(need_arch) {
                     arx_pax_grp(pax_grps, part_key);
@@ -900,7 +900,7 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
                 for(const auto &grp : pax_grps)
                 {
                     GrpId_t grp_id(grp.m_grp_id);
-                    LogTrace(TRACE5) << " PAX_GRP_ID : " << grp_id;
+                    LogTrace(TRACE6) << " PAX_GRP_ID : " << grp_id;
                     auto paxes = read_pax(grp_id);
                     if(need_arch) {
                         arx_pax(paxes, grp_id, point_id, part_key);
@@ -921,7 +921,7 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
                     }
                     for(const auto & pax : paxes) {
                         PaxId_t pax_id(pax.pax_id);
-                        LogTrace(TRACE5) << " PAX_ID : " << pax_id;
+                        LogTrace(TRACE6) << " PAX_ID : " << pax_id;
                         if(need_arch) {
                             arx_pax_norms(pax_id, part_key);
                             arx_pax_rem(pax_id, part_key);
@@ -961,7 +961,7 @@ string TArxMoveFlt::TraceCaption()
 
 std::vector<dbo::Points> read_points(const MoveId_t & move_id)
 {
-    LogTrace(TRACE5) << __FUNCTION__ << " move_id : "<< move_id;
+    LogTrace(TRACE6) << __FUNCTION__ << " move_id : "<< move_id;
     dbo::Session session;
     std::vector<dbo::Points> points = session.query<dbo::Points>()
             .where(" MOVE_ID = :move_id ORDER BY point_num ")
@@ -972,7 +972,7 @@ std::vector<dbo::Points> read_points(const MoveId_t & move_id)
 
 std::vector<dbo::Points> arx_points(const std::vector<dbo::Points> & points, const Dates::DateTime_t & part_key)
 {
-    LogTrace(TRACE5) << __func__ << " part_key: " << part_key;
+    LogTrace(TRACE6) << __func__ << " part_key: " << part_key;
     auto move_points = algo::filter(points, [&](const dbo::Points & point){return point.pr_del!=-1;});
     dbo::Session session;
     for(const auto &p : move_points) {
@@ -985,7 +985,7 @@ std::vector<dbo::Points> arx_points(const std::vector<dbo::Points> & points, con
 void arx_move_ext(const MoveId_t & vmove_id, const Dates::DateTime_t & part_key, double date_range)
 {
     int days = (date_range >= 1) ? (int)ceil(date_range) : 0;
-    LogTrace(TRACE5) << __FUNCTION__ << " move_id: " << vmove_id << " days: " << days;
+    LogTrace(TRACE6) << __FUNCTION__ << " move_id: " << vmove_id << " days: " << days;
     if(days >= 1) {
         dbo::Session session;
         dbo::Move_Arx_Ext ext{days, vmove_id.get(), part_key};
@@ -995,7 +995,7 @@ void arx_move_ext(const MoveId_t & vmove_id, const Dates::DateTime_t & part_key,
 
 void arx_move_ref(const MoveId_t & vmove_id, const Dates::DateTime_t & part_key)
 {
-    LogTrace(TRACE5) << __FUNCTION__ << " move_id: " << vmove_id;
+    LogTrace(TRACE6) << __FUNCTION__ << " move_id: " << vmove_id;
     dbo::Session session;
     std::vector<dbo::Move_Ref> move_refs = session.query<dbo::Move_Ref>()
         .where(" MOVE_ID = :move_id")
@@ -1008,7 +1008,7 @@ void arx_move_ref(const MoveId_t & vmove_id, const Dates::DateTime_t & part_key)
 
 void arx_events_by_move_id(const MoveId_t & move_id, const Dates::DateTime_t & part_key)
 {
-    LogTrace5 << __FUNCTION__ << " move_id: " << move_id;
+    LogTrace(TRACE6) << __FUNCTION__ << " move_id: " << move_id;
     dbo::Session session;
     std::vector<dbo::Lang_Types> langs = session.query<dbo::Lang_Types>();
     for(const auto & lang : langs) {
@@ -1027,7 +1027,7 @@ void arx_events_by_move_id(const MoveId_t & move_id, const Dates::DateTime_t & p
 
 void deleteEventsByMoveId(const MoveId_t & move_id)
 {
-    LogTrace5 << __FUNCTION__ << " move_id: " << move_id ;
+    LogTrace(TRACE6) << __FUNCTION__ << " move_id: " << move_id ;
     dbo::Session session;
     std::vector<dbo::Lang_Types> langs = session.query<dbo::Lang_Types>();
     for(const auto & lang : langs) {
@@ -1043,7 +1043,7 @@ void deleteEventsByMoveId(const MoveId_t & move_id)
 
 void arx_events_by_point_id(const PointId_t& point_id, const Dates::DateTime_t & part_key)
 {
-    LogTrace5 << __FUNCTION__ << " point_id: " << point_id ;
+    LogTrace(TRACE6) << __FUNCTION__ << " point_id: " << point_id ;
     dbo::Session session;
     std::vector<dbo::Lang_Types> langs = session.query<dbo::Lang_Types>();
     for(const auto & lang : langs) {
@@ -1070,7 +1070,7 @@ void arx_events_by_point_id(const PointId_t& point_id, const Dates::DateTime_t &
 
 void deleteEventsByPointId(const PointId_t& point_id)
 {
-    LogTrace5 << __FUNCTION__ << " point_id: " << point_id ;
+    LogTrace(TRACE6) << __FUNCTION__ << " point_id: " << point_id ;
     dbo::Session session;
     std::vector<dbo::Lang_Types> langs = session.query<dbo::Lang_Types>();
     for(const auto & lang : langs) {
@@ -1093,7 +1093,7 @@ void deleteEventsByPointId(const PointId_t& point_id)
 
 void arx_mark_trips(const PointId_t& point_id, const Dates::DateTime_t & part_key)
 {
-    LogTrace5 << __func__ << " point_id: " << point_id ;
+    LogTrace(TRACE6) << __func__ << " point_id: " << point_id ;
     dbo::Session session;
     std::vector<int> pax_grp_id_marks = session.query<int>("SELECT DISTINCT point_id_mark")
             .from("pax_grp")
@@ -1665,7 +1665,7 @@ void arx_pay_services(const GrpId_t& grp_id, const Dates::DateTime_t & part_key)
 void arx_pax(const std::vector<dbo::PAX>& paxes, const GrpId_t& grp_id,  const PointId_t& point_id,
              const Dates::DateTime_t & part_key)
 {
-    LogTrace5 << __func__ << " grp_id: " << grp_id << " point_id: " << point_id << " part_key: " << part_key;
+    LogTrace(TRACE6) << __func__ << " grp_id: " << grp_id << " point_id: " << point_id << " part_key: " << part_key;
     dbo::Session session;
     for(const auto &cs : paxes) {
         std::string seat_no = salons::get_seat_no(PaxId_t(cs.pax_id), cs.seats, cs.is_jmp, "", point_id, "one" );
@@ -1734,7 +1734,7 @@ void arx_tckin_segments(const GrpId_t& grp_id, const Dates::DateTime_t & part_ke
 
 size_t delete_trfer_trips(const GrpId_t& grp_id)
 {
-    LogTrace5 << __func__;
+    LogTrace(TRACE6) << __func__;
     size_t row_count = 0;
     dbo::Session session;
     std::vector<dbo::TRANSFER> trfers = session.query<dbo::TRANSFER>().where("grp_id = :grp_id ")
@@ -1841,7 +1841,7 @@ void arx_pax_doc(const PaxId_t& pax_id, const Dates::DateTime_t & part_key)
             .where("pax_id = :pax_id")
             .for_update(true)
             .setBind({{"pax_id", pax_id.get()}});
-    LogTrace(TRACE5) << " docs found : " << docs.size();
+    LogTrace(TRACE6) << " docs found : " << docs.size();
 
     for(const auto &d : docs) {
         dbo::ARX_PAX_DOC ad(d, part_key);
@@ -1957,7 +1957,7 @@ void deleteTransferPaxStat(const PointId_t& point_id)
 
 void deleteByPointId(const PointId_t& point_id)
 {
-    LogTrace5 << __func__ << " point_id: " << point_id;
+    LogTrace(TRACE6) << __func__ << " point_id: " << point_id;
     CheckIn::TCrsCountersMap::deleteCrsCountersOnly(point_id);
     if(ARX::CLEANUP_PG()) {
         deleteAodbBag(point_id);
@@ -2044,7 +2044,7 @@ void deleteByPointId(const PointId_t& point_id)
 
 void deleteByMoveId(const MoveId_t & move_id)
 {
-    LogTrace5 << __func__ << " move_id: " << move_id;
+    LogTrace(TRACE6) << __func__ << " move_id: " << move_id;
     if(ARX::CLEANUP_PG()) {
         make_db_curs("DELETE FROM points WHERE move_id=:move_id",   PgOra::getRWSession("POINTS")).bind(":move_id", move_id.get()).exec();
         make_db_curs("DELETE FROM move_ref WHERE move_id=:move_id", PgOra::getRWSession("MOVE_REF")).bind(":move_id", move_id.get()).exec();
@@ -2056,7 +2056,7 @@ void deleteByMoveId(const MoveId_t & move_id)
 //STEP 2
 int arx_tlgout_noflt(const Dates::DateTime_t& arx_date, int remain_rows)
 {
-    LogTrace(TRACE5) << __func__ << " arx_date: " << arx_date;
+    LogTrace(TRACE6) << __func__ << " arx_date: " << arx_date;
     dbo::Session session;
 
     std::vector<dbo::TLG_OUT> tlg_outs = session.query<dbo::TLG_OUT>()
@@ -2085,7 +2085,7 @@ int arx_tlgout_noflt(const Dates::DateTime_t& arx_date, int remain_rows)
 
 int arx_events_noflt2(const Dates::DateTime_t& arx_date, int remain_rows)
 {
-    LogTrace(TRACE5) << __func__ << " arx_date: " << arx_date;
+    LogTrace(TRACE6) << __func__ << " arx_date: " << arx_date;
     dbo::Session session;
     std::vector<dbo::Events_Bilingual> events =  session.query<dbo::Events_Bilingual>()
             .where("ID1 is NULL  and TYPE = :evtTlg and TIME >= :elapsed and TIME < :arx_date")
@@ -2114,7 +2114,7 @@ int arx_events_noflt2(const Dates::DateTime_t& arx_date, int remain_rows)
 
 int arx_events_noflt3(const Dates::DateTime_t& arx_date, int remain_rows)
 {
-    LogTrace(TRACE5) << __func__ << " arx_date: " << arx_date;
+    LogTrace(TRACE6) << __func__ << " arx_date: " << arx_date;
     dbo::Session session;
     std::vector<dbo::Events_Bilingual> events =  session.query<dbo::Events_Bilingual>()
             .where("TIME >= :arx_date - 30 and TIME < :arx_date and type not in "
@@ -2150,7 +2150,7 @@ int arx_events_noflt3(const Dates::DateTime_t& arx_date, int remain_rows)
 
 int arx_stat_zamar(const Dates::DateTime_t& arx_date, int remain_rows)
 {
-    LogTrace(TRACE5) << __func__ << " arx_date: " << arx_date;
+    LogTrace(TRACE6) << __func__ << " arx_date: " << arx_date;
     dbo::Session session;
     std::vector<dbo::STAT_ZAMAR> stats =  session.query<dbo::STAT_ZAMAR>()
             .where("TIME < :arx_date")
@@ -2174,7 +2174,7 @@ int arx_stat_zamar(const Dates::DateTime_t& arx_date, int remain_rows)
 
 void move_noflt(const Dates::DateTime_t& arx_date, int max_rows, int time_duration, int& step)
 {
-    LogTrace(TRACE5) << __FUNCTION__ << " arx_date: " << arx_date;
+    LogTrace(TRACE6) << __FUNCTION__ << " arx_date: " << arx_date;
     int remain_rows = max_rows;
     Dates::DateTime_t local_time = Dates::second_clock::local_time();
     Dates::DateTime_t time_finish = local_time + Dates::seconds(time_duration);
@@ -2214,7 +2214,7 @@ TArxMoveNoFlt::~TArxMoveNoFlt()
 
 bool TArxMoveNoFlt::Next(size_t max_rows, int duration)
 {
-    LogTrace5 << __func__;
+    LogTrace(TRACE6) << __func__;
     if(step <= 0) {
         step = 1;
     }
@@ -2316,7 +2316,7 @@ TArxTypeBIn::TArxTypeBIn(const Dates::DateTime_t &utc_date):TArxMove(utc_date)
 
 std::map<int, Dates::DateTime_t> getTlgIds(const Dates::DateTime_t& arx_date, size_t max_rows)
 {
-    LogTrace5 << __func__ << " arx_date: " << arx_date;
+    LogTrace(TRACE6) << __func__ << " arx_date: " << arx_date;
     std::map<int, Dates::DateTime_t> res;
     int tlg_id;
     Dates::DateTime_t time_receive;
@@ -2354,7 +2354,7 @@ void move_typeb_in(int tlg_id)
 
 bool TArxTypeBIn::Next(size_t max_rows, int duration)
 {
-    LogTrace5 << __func__;
+    LogTrace(TRACE6) << __func__;
     time_t time_start = time(NULL);
     std::map<int, Dates::DateTime_t> tlg_ids = getTlgIds(utcdate - Dates::days(ARX::ARX_DAYS()), max_rows);
     while (!tlg_ids.empty())
@@ -2501,7 +2501,7 @@ int delete_from_mark_trips(const Dates::DateTime_t& arx_date, int remain_rows)
 
 void norms_rates_etc(const Dates::DateTime_t& arx_date, int max_rows, int time_duration, int& step)
 {
-    LogTrace5 << __func__ << " arx_date: " << arx_date;
+    LogTrace(TRACE6) << __func__ << " arx_date: " << arx_date;
     int remain_rows = max_rows;
     Dates::DateTime_t local_time = Dates::second_clock::local_time();
     Dates::DateTime_t time_finish = local_time + Dates::seconds(time_duration);
@@ -2537,7 +2537,7 @@ TArxNormsRatesEtc::TArxNormsRatesEtc(const Dates::DateTime_t& utc_date):TArxMove
 
 bool TArxNormsRatesEtc::Next(size_t max_rows, int duration)
 {
-    LogTrace5 << __func__;
+    LogTrace(TRACE6) << __func__;
     if(step <= 0) {
         step = 1;
     }
@@ -2759,7 +2759,7 @@ int delete_emdocs_display(const Dates::DateTime_t& arx_date, int remain_rows)
 
 void tlgs_files_etc(const Dates::DateTime_t& arx_date, int max_rows, int time_duration, int& step)
 {
-    LogTrace5 << __func__ << " arx_date: " << arx_date;
+    LogTrace(TRACE6) << __func__ << " arx_date: " << arx_date;
     int remain_rows = max_rows;
     Dates::DateTime_t local_time = Dates::second_clock::local_time();
     Dates::DateTime_t time_finish = local_time + Dates::seconds(time_duration);
@@ -2801,12 +2801,12 @@ TArxTlgsFilesEtc::TArxTlgsFilesEtc(const Dates::DateTime_t &utc_date):TArxMove(u
 
 bool TArxTlgsFilesEtc::Next(size_t max_rows, int duration)
 {
-    LogTrace5 << __func__;
+    LogTrace(TRACE6) << __func__;
     if(step <= 0) {
         step = 1;
     }
     Dates::DateTime_t arx_date = utcdate - Dates::days(ARX::ARX_DAYS());
-    tlgs_files_etc(arx_date, max_rows, duration, step);
+    tlgs_files_etc(arx_date, max_rows, duration/2, step);
     ASTRA::commitAndCallCommitHooks();
     proc_count++;
     return step > 0;
@@ -2927,12 +2927,12 @@ namespace PG_ARX {
 
 bool test_arx_daily(const Dates::DateTime_t& utcdate, int step)
 {
-    LogTrace(TRACE5) << __FUNCTION__ << " step: " << step;
+    LogTrace(TRACE6) << __FUNCTION__ << " step: " << step;
 
     dbo::initStructures();
     auto arxMove = create_arx_manager(utcdate, step);
 
-    LogTrace(TRACE5) << "arx_daily_pg: "
+    LogTrace(TRACE6) << "arx_daily_pg: "
                      << arxMove->TraceCaption()
                      << " started";
 
@@ -2943,14 +2943,14 @@ bool test_arx_daily(const Dates::DateTime_t& utcdate, int step)
         duration = time_finish - time(NULL);
         if (duration<=0)
         {
-            LogTrace(TRACE5) << "arx_daily_pg: "
+            LogTrace(TRACE6) << "arx_daily_pg: "
                              << arxMove->Processed()
                              << " iterations processed";
             return false;
         };
     }
     while(arxMove->Next(ARX::ARX_MAX_ROWS(), duration));
-    LogTrace(TRACE5) << "arx_daily_pg: "
+    LogTrace(TRACE6) << "arx_daily_pg: "
                      << arxMove->TraceCaption()
                      << " finished";
 

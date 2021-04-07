@@ -142,7 +142,7 @@ std::string MappingInfo::insertColumns() const
         result += ":" + col;
     }
     st << result << ")";
-    LogTrace5 << " INSERT: " << st.str();
+    LogTrace(TRACE6) << " INSERT: " << st.str();
     return st.str();
 }
 
@@ -211,11 +211,11 @@ std::string Session::dump(const string &db, const std::string &tableName, const 
         DB = "ORACLE";
         session = get_main_ora_sess(STDLOG);
     }
-    LogTrace1 << "---------------- " << tableName << " " << DB << " DUMP ----------------------";
-    LogTrace1 << result_query;
+    LogTrace(TRACE6) << "---------------- " << tableName << " " << DB << " DUMP ----------------------";
+    LogTrace(TRACE5) << result_query;
     Cursor cur(session->createCursor(STDLOG, result_query), Transaction(*session));
     std::string dump = cur.dump(size);
-    LogTrace1 << dump;
+    LogTrace(TRACE6) << dump;
     return dump;
 }
 
