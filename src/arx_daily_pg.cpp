@@ -2263,49 +2263,35 @@ std::vector<PointIdTlg_t> TArxTlgTrips::getTlgTripPoints(const Dates::DateTime_t
 
 void arx_tlg_trip(const PointIdTlg_t& point_id)
 {
-    HelpCpp::Timer timer;
     if(ARX::CLEANUP_PG()) {
-        LogTrace5 << __func__ << " point_id: " << point_id;
+        LogTrace(TRACE6) << __func__ << " point_id: " << point_id;
         TypeB::deleteTypeBData(point_id);
-        LogTrace5 << timer.elapsedMilliseconds() << "ms"; timer.restart();
         TypeB::deleteTypeBDataStat(point_id);
-        LogTrace5 << timer.elapsedMilliseconds() << "ms"; timer.restart();
         TypeB::nullCrsDisplace2_point_id_tlg(point_id);
-        LogTrace5 << timer.elapsedMilliseconds() << "ms"; timer.restart();
         TypeB::deleteTlgCompLayers(point_id);
-        LogTrace5 << timer.elapsedMilliseconds() << "ms"; timer.restart();
         TypeB::deleteCrsDataStat(point_id);
-        LogTrace5 << timer.elapsedMilliseconds() << "ms"; timer.restart();
         TrferList::deleteTransferData(point_id);
-        LogTrace5 << timer.elapsedMilliseconds() << "ms";
     }
 }
 
 
 bool TArxTlgTrips::Next(size_t max_rows, int duration)
 {
-    std::ios::sync_with_stdio(false);
     time_t time_start = time(NULL);
-    HelpCpp::Timer timer;
-    auto points = getTlgTripPoints(utcdate-Dates::days(ARX::ARX_DAYS()), max_rows/4);
-    LogTrace5 << "ReadTlgTripPoints time: " << timer.elapsedMilliseconds() << "ms" << " size: "<< points.size();
+    auto points = getTlgTripPoints(utcdate-Dates::days(ARX::ARX_DAYS()), max_rows/2);
 
-    HelpCpp::Timer total_timer;
     while (!points.empty())
     {
-        if(time(NULL) - time_start > duration) {
-            LogTrace5 << __func__ << " end time for task"  << total_timer.elapsedSeconds() << "s";
+        if(time(NULL) - time_start > duration/2) {
             return false;
         }
         PointIdTlg_t point_id = points.front();
         points.erase(points.begin());
         try
         {
-            HelpCpp::Timer timer;
             arx_tlg_trip(point_id);
             ASTRA::commitAndCallCommitHooks();
             proc_count++;
-            LogTrace5 << "iteration time: " << timer.elapsedMilliseconds() << "ms";
         }
         catch(...)
         {
@@ -2313,7 +2299,6 @@ bool TArxTlgTrips::Next(size_t max_rows, int duration)
             throw;
         };
     };
-    LogTrace5 << "total time: " << total_timer.elapsedSeconds() << "s";
     return true;
 };
 
