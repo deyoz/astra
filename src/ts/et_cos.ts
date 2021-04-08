@@ -426,6 +426,9 @@ $(TKCRES_ET_COS UTET UTDC $(get edi_ref0) 2986145143703 2 B)
 %%
 
 ### test 6 - изменение статусов при отложенной смене статуса ЭБ
+### технология отложенной смены статуса ЭБ в модуле Регистрация удалена
+### тест переделан для случая, когда серверная часть уже не поддерживает технологию,
+### а терминал не перелогинился и использует отложенную смену статуса ЭБ
 #########################################################################################
 
 $(init_term)
@@ -445,8 +448,6 @@ $(NEW_SPP_FLIGHT_ONE_LEG $(get airline) $(get flt_no) $(get craft) $(get airp_de
 $(INB_PNL_UT $(get airp_dep) $(get airp_arv) $(get flt_no) $(ddmon -1))
 
 $(init_eds ЮТ UTET UTDC)
-$(cache PIKE RU DESK_GRP_SETS $(cache_iface_ver DESK_GRP_SETS) ""
-  insert grp_id:1 defer_etstatus:1)
 
 $(set point_dep $(last_point_id_spp))
 
@@ -477,26 +478,6 @@ $(NEW_CHECKIN_2982425618101 $(get pax_id_08) ticket_confirm=1)
 </passengers>
 })
 
-$(set grp_id $(get_single_grp_id $(get pax_id_06)))
-$(set grp_tid $(get_single_tid $(get pax_id_06)))
-$(set pax_tid_06 $(get_single_pax_tid $(get pax_id_06)))
-$(set pax_tid_07 $(get_single_pax_tid $(get pax_id_07)))
-$(set pax_tid_08 $(get_single_pax_tid $(get pax_id_08)))
-
-!! err=ignore
-{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='ETStatus' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-    <ChangeGrpStatus>
-      <segments>
-        <segment>
-          <grp_id>$(get grp_id)</grp_id>
-        </segment>
-      </segments>
-    </ChangeGrpStatus>
-  </query>
-</term>}
-
 $(set edi_ref2 $(last_edifact_ref 2))
 $(set edi_ref1 $(last_edifact_ref 1))
 $(set edi_ref0 $(last_edifact_ref 0))
@@ -517,6 +498,33 @@ $(TKCRES_ET_COS UTET UTDC $(get edi_ref0) 2982425618102 1 CK)
 
 $(KICK_IN_SILENT)
 
+$(set grp_id $(get_single_grp_id $(get pax_id_06)))
+$(set grp_tid $(get_single_tid $(get pax_id_06)))
+$(set pax_tid_06 $(get_single_pax_tid $(get pax_id_06)))
+$(set pax_tid_07 $(get_single_pax_tid $(get pax_id_07)))
+$(set pax_tid_08 $(get_single_pax_tid $(get pax_id_08)))
+
+!! capture=on err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='ETStatus' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <ChangeGrpStatus>
+      <segments>
+        <segment>
+          <grp_id>$(get grp_id)</grp_id>
+        </segment>
+      </segments>
+    </ChangeGrpStatus>
+  </query>
+</term>}
+
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer ...>
+</term>
+
+
 $(CHANGE_CHECKIN_REQUEST $(get point_dep) $(get point_arv) $(get airp_dep) $(get airp_arv) $(get grp_id) $(get grp_tid) hall=1
 {
 <passengers>
@@ -532,7 +540,22 @@ $(CHANGE_CHECKIN_2982425618101 $(get pax_id_08) $(get pax_tid_08) refuse=А)
 </passengers>
 })
 
-!! err=ignore
+$(set edi_ref1 $(last_edifact_ref 1))
+$(set edi_ref0 $(last_edifact_ref 0))
+
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) ЮТ 2982425618101 1 I xxxxxx ДМД СОЧ 280 depd=$(ddmmyy -1))
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ЮТ 2982425618102 1 I xxxxxx ДМД СОЧ 280 depd=$(ddmmyy -1))
+
+<<
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref1) 2982425618101 1 I)
+<<
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref0) 2982425618102 1 I)
+
+$(KICK_IN_SILENT)
+
+!! capture=on err=ignore
 {<?xml version='1.0' encoding='CP866'?>
 <term>
   <query handle='0' id='ETStatus' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
@@ -547,20 +570,11 @@ $(CHANGE_CHECKIN_2982425618101 $(get pax_id_08) $(get pax_tid_08) refuse=А)
   </query>
 </term>}
 
-$(set edi_ref1 $(last_edifact_ref 1))
-$(set edi_ref0 $(last_edifact_ref 0))
-
 >>
-$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) ЮТ 2982425618102 1 I xxxxxx ДМД СОЧ 280 depd=$(ddmmyy -1))
->>
-$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ЮТ 2982425618101 1 I xxxxxx ДМД СОЧ 280 depd=$(ddmmyy -1))
-
-<<
-$(TKCRES_ET_COS UTET UTDC $(get edi_ref1) 2982425618102 1 I)
-<<
-$(TKCRES_ET_COS UTET UTDC $(get edi_ref0) 2982425618101 1 I)
-
-$(KICK_IN_SILENT)
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer ...>
+</term>
 
 
 

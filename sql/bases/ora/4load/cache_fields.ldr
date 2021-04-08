@@ -686,7 +686,6 @@ BEGINDATA
 "DESK_GRP_SETS"|2|"DESCR_VIEW"|"Группа пультов"|30|||"S"|50||0|0|1|"DESK_GRP"|"NAME/NAME_LAT"|1|"RU"|
 "DESK_GRP_SETS"|3|"PERS_COUNT_FMT"|"Формат кол-ва пас."||||"NU"|1||1|0|0|||||
 "DESK_GRP_SETS"|4|"INF_SEATS_FMT"|"Формат РМ"||||"NU"|1||1|0|0|||||
-"DESK_GRP_SETS"|5|"DEFER_ETSTATUS"|"Отлож. подтв. ЭБ"||||"B"|1||0|0|0|||||
 "DESK_LOGGING"|1|"DESK"|"Пульт"||"U"||"S"|6||0|1|0|"DESKS"|"CODE"|||
 "DESK_LOGGING"|2|"FILE_SIZE"|"Размер файла (байт)"||||"NU"|9||0|0|0|||||
 "DESK_LOGGING"|3|"BACKUP_NUM"|"Кол-во бэкапов"||||"NU"|2||0|0|0|||||

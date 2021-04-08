@@ -4085,33 +4085,6 @@ void CheckServicePayment(int grp_id,
   }
 }
 
-static bool GetDeferEtStatusFlag(xmlNodePtr ediResNode)
-{
-    LogTrace(TRACE3) << __FUNCTION__;
-    TReqInfo *reqInfo = TReqInfo::Instance();
-    if(reqInfo->api_mode) {
-        LogTrace(TRACE3) << "defer_etstatus is false in api_mode";
-        return false;
-    }
-    bool defer_etstatus=false;
-    TQuery Qry(&OraSession);
-
-    if (needSyncEdsEts(ediResNode) && reqInfo->client_type == ctTerm) //для web-регистрации нераздельное подтверждение ЭБ
-    {
-      Qry.Clear();
-      Qry.SQLText=
-          "SELECT defer_etstatus FROM desk_grp_sets WHERE grp_id=:grp_id";
-      Qry.CreateVariable("grp_id",otInteger,reqInfo->desk.grp_id);
-      Qry.Execute();
-      if (!Qry.Eof && !Qry.FieldIsNULL("defer_etstatus"))
-        defer_etstatus=Qry.FieldAsInteger("defer_etstatus")!=0;
-      else
-        defer_etstatus=!inTestMode(); //по умолчанию в рабочем режиме раздельное подтверждение, в тестовом нераздельное
-    }
-
-    return defer_etstatus;
-}
-
 #ifdef XP_TESTING
 static int LastGeneratedPaxId = ASTRA::NoExists;
 
@@ -4184,8 +4157,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   if (reqInfo->client_type == ctPNL && pointIds.size()>1)
     //для ctPNL никакой сквозной регистрации!
     throw EXCEPTIONS::Exception("SavePax: through check-in not supported for ctPNL");
-
-  bool defer_etstatus = GetDeferEtStatusFlag(ediResNode);
 
 
   timing.finish("BeforeLock");
@@ -4664,11 +4635,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   throw UserException("MSG.ETICK.NUMBER_NOT_SET");
                 if (pax.tkn.coupon==NoExists)
                   throw UserException("MSG.ETICK.COUPON_NOT_SET", LParams()<<LParam("etick", pax.tkn.no ) );
-
-                if (!ediFltParams.control_method && defer_etstatus && !pax.tkn.confirm)
-                  //возможно это произошло в ситуации, когда изменился у пульта defer_etstatus в true,
-                  //а пульт не успел перечитать эту настройку
-                  throw UserException("MSG.ETICK.NOT_CONFIRM.NEED_RELOGIN");
 
                 if (ediFltParams.control_method && ediFltParams.in_final_status) //не позволяем заново регистрировать если находимся в финальном статусе при контрольном методе
                   throw UserException("MSG.ETICK.FLIGHT_IN_FINAL_STATUS_CHECKIN_DENIAL",
@@ -5854,8 +5820,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         //обязательно до ckin.check_grp
         if (needSyncEdsEts(ediResNode) && reqInfo->client_type!=ctPNL)
         {
-          if (ediFltParams.control_method || !defer_etstatus)
-            ETStatusInterface::ETCheckStatus(grp.id, csaGrp, NoExists, false, ChangeStatusInfo.ET, true);
+          ETStatusInterface::ETCheckStatus(grp.id, csaGrp, NoExists, false, ChangeStatusInfo.ET, true);
           EMDStatusInterface::EMDCheckStatus(grp.id, paymentBeforeWithAuto, ChangeStatusInfo.EMD);
         }
       }

@@ -1445,15 +1445,7 @@ void showBasicInfo(void)
     NewTextChild(node,"time_utc",DateTimeToStr(NowUTC()) );
     //настройки пульта
     xmlNodePtr setsNode = NewTextChild(node, "settings");
-
-    Qry.Clear();
-    Qry.SQLText="SELECT defer_etstatus FROM desk_grp_sets WHERE grp_id=:grp_id";
-    Qry.CreateVariable("grp_id",otInteger,reqInfo->desk.grp_id);
-    Qry.Execute();
-    if (!Qry.Eof && !Qry.FieldIsNULL("defer_etstatus"))
-      NewTextChild(setsNode,"defer_etstatus",(int)(Qry.FieldAsInteger("defer_etstatus")!=0));
-    else
-      NewTextChild(setsNode,"defer_etstatus",(int)true);
+    NewTextChild(setsNode,"defer_etstatus",(int)false);  //устаревшая технология отложенного подтверждения ЭБ удалена
 
     Qry.Clear();
     Qry.SQLText="SELECT file_size,send_size,send_portion,backup_num FROM desk_logging WHERE desk=:desk";

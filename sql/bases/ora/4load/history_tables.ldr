@@ -31,7 +31,7 @@ BEGINDATA
 29|"misc_set"|"id"|"type, airline, flt_no, airp_dep, pr_misc"
 30|"pax_cats"|"id"|"code, name, name_lat"
 31|"desk_grp"|"grp_id"|"descr, city, airline, airp, descr_lat"
-32|"desk_grp_sets"|"grp_id"|"pers_count_fmt, inf_seats_fmt, defer_etstatus"
+32|"desk_grp_sets"|"grp_id"|"pers_count_fmt, inf_seats_fmt"
 33|"trfer_sets"|"id"|"airline_in, airp, airline_out, trfer_permit, tckin_permit, tckin_waitlist, tckin_norec, min_interval, max_interval, trfer_outboard"
 35|"cities"|"id"|"code, code_lat, country, name, name_lat, tz_region, pr_del"
 36|"airps"|"id"|"code, code_lat, city, name, name_lat, pr_del, code_icao, code_icao_lat"
