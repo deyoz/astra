@@ -28,13 +28,14 @@ using namespace BASIC::date_time;
 static std::string getFileDataPg(int id)
 {
   std::string data;
+  short data_ind = 0;
   PgCpp::BinaryDefHelper<std::string> defdata{data};
   auto cur = DbCpp::mainPgReadOnlySession(STDLOG).createPgCursor(
       STDLOG,
       "select data from files where id = :id",
       true);
-  cur.bind(":id", id).def(defdata).EXfet();
-  return data;
+  cur.bind(":id", id).def(defdata, &data_ind).EXfet();
+  return data_ind ? "" : data;
 }
 
 static std::string getFileDataOra(int id)
@@ -1219,8 +1220,10 @@ START_TEST(check_get_file_data)
 {
   const auto utc = Dates::second_clock::universal_time();
   insert_files(1, "snd", "rcv", "file", utc, std::string(10 * 1024, '\x4'));
+  insert_files(2, "snd", "rcv", "file", utc, std::string());
   fail_unless(TFileQueue::getFileData(1) == std::string(10 * 1024, '\x4'));
   fail_unless(TFileQueue::getFileData(2) == "");
+  fail_unless(TFileQueue::getFileData(3) == "");
   fail_unless(TFileQueue::getwait_time(1).first < 1);
 }
 END_TEST;
