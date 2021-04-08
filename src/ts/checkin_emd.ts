@@ -1191,7 +1191,7 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep1) SERVICES 1 EN)
             <RFISC>0BS</RFISC>
             <desc>PET IN HOLD</desc>
             <num/>
-            <str>  1A    KOTOVA IRINA        1   C    0BS  PET IN HOLD                            </str>
+            <str>  1A    KOTOVA IRINA       1  C    0BS  PET IN HOLD                             </str>
           </row>
           <row>
             <seat_no>  1B</seat_no>
@@ -1201,7 +1201,7 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep1) SERVICES 1 EN)
             <RFISC>04V</RFISC>
             <desc>FIREARMS UP TO 32KG</desc>
             <num/>
-            <str>  1B    MOTOVA IRINA        2   C    04V  FIREARMS UP TO 32KG                    </str>
+            <str>  1B    MOTOVA IRINA       2  C    04V  FIREARMS UP TO 32KG                     </str>
           </row>
         </table>
       </datasets>
@@ -1221,8 +1221,8 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep2) SERVICES 1 RU)
             <RFISC>0BS</RFISC>
             <desc>ÜàÇéíçéÖ Ç ÅÄÉÄÜ éíÑÖã Ñé 23äÉ</desc>
             <num/>
-            <str>  1Ä    KOTOVA IRINA        1   C    0BS  ÜàÇéíçéÖ Ç ÅÄÉÄÜ                       $()
-                                          éíÑÖã Ñé 23äÉ                          </str>
+            <str>  1Ä    KOTOVA IRINA       1  C    0BS  ÜàÇéíçéÖ Ç ÅÄÉÄÜ                        $()
+                                        éíÑÖã Ñé 23äÉ                           </str>
           </row>
           <row>
             <seat_no>  1Å</seat_no>
@@ -1232,8 +1232,8 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep2) SERVICES 1 RU)
             <RFISC>04V</RFISC>
             <desc>éÉçÖëíêÖãúçéÖ éêìÜàÖ Ñé 32äÉ</desc>
             <num/>
-            <str>  1Å    MOTOVA IRINA        2   C    04V  éÉçÖëíêÖãúçéÖ                          $()
-                                          éêìÜàÖ Ñé 32äÉ                         </str>
+            <str>  1Å    MOTOVA IRINA       2  C    04V  éÉçÖëíêÖãúçéÖ                           $()
+                                        éêìÜàÖ Ñé 32äÉ                          </str>
           </row>
           <row>
             <seat_no>  1Å</seat_no>
@@ -1243,7 +1243,7 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep2) SERVICES 1 RU)
             <RFISC>SPF</RFISC>
             <desc>ÇõÅéê åÖëíÄ</desc>
             <num/>
-            <str>  1Å    MOTOVA IRINA        2   A    SPF  ÇõÅéê åÖëíÄ                            </str>
+            <str>  1Å    MOTOVA IRINA       2  A    SPF  ÇõÅéê åÖëíÄ                             </str>
           </row>
         </table>
       </datasets>
@@ -1268,7 +1268,7 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep1) SERVICES 1 EN)
             <RFISC>0AI</RFISC>
             <desc>BREAKFAST</desc>
             <num>2988200015229/1</num>
-            <str>  1A    KOTOVA IRINA        1   G    0AI  BREAKFAST           2988200015229/1    </str>
+            <str>  1A    KOTOVA IRINA       1  G    0AI  BREAKFAST           2988200015229/1     </str>
           </row>
           <row>
             <seat_no>  1A</seat_no>
@@ -1278,7 +1278,7 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep1) SERVICES 1 EN)
             <RFISC>0BS</RFISC>
             <desc>PET IN HOLD</desc>
             <num>2988200015233/1</num>
-            <str>  1A    KOTOVA IRINA        1   C    0BS  PET IN HOLD         2988200015233/1    </str>
+            <str>  1A    KOTOVA IRINA       1  C    0BS  PET IN HOLD         2988200015233/1     </str>
           </row>
           <row>
             <seat_no>  1B</seat_no>
@@ -1288,7 +1288,7 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep1) SERVICES 1 EN)
             <RFISC>04V</RFISC>
             <desc>FIREARMS UP TO 32KG</desc>
             <num>2988200015234/1</num>
-            <str>  1B    MOTOVA IRINA        2   C    04V  FIREARMS UP TO 32KG 2988200015234/1    </str>
+            <str>  1B    MOTOVA IRINA       2  C    04V  FIREARMS UP TO 32KG 2988200015234/1     </str>
           </row>
           <row>
             <seat_no>  1B</seat_no>
@@ -1298,7 +1298,7 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep1) SERVICES 1 EN)
             <RFISC>0AI</RFISC>
             <desc>BREAKFAST</desc>
             <num>2988200015230/1</num>
-            <str>  1B    MOTOVA IRINA        2   G    0AI  BREAKFAST           2988200015230/1    </str>
+            <str>  1B    MOTOVA IRINA       2  G    0AI  BREAKFAST           2988200015230/1     </str>
           </row>
         </table>
       </datasets>
@@ -1316,7 +1316,7 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep2) SERVICES 1 RU)
             <RFISC>0AI</RFISC>
             <desc>áÄÇíêÄä</desc>
             <num>2988200015229/2</num>
-            <str>  1Ä    KOTOVA IRINA        1   G    0AI  áÄÇíêÄä             2988200015229/2    </str>
+            <str>  1Ä    KOTOVA IRINA       1  G    0AI  áÄÇíêÄä             2988200015229/2     </str>
           </row>
           <row>
             <seat_no>  1Ä</seat_no>
@@ -1326,8 +1326,8 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep2) SERVICES 1 RU)
             <RFISC>0BS</RFISC>
             <desc>ÜàÇéíçéÖ Ç ÅÄÉÄÜ éíÑÖã Ñé 23äÉ</desc>
             <num>2988200015233/2</num>
-            <str>  1Ä    KOTOVA IRINA        1   C    0BS  ÜàÇéíçéÖ Ç ÅÄÉÄÜ    2988200015233/2    $()
-                                          éíÑÖã Ñé 23äÉ                          </str>
+            <str>  1Ä    KOTOVA IRINA       1  C    0BS  ÜàÇéíçéÖ Ç ÅÄÉÄÜ    2988200015233/2     $()
+                                        éíÑÖã Ñé 23äÉ                           </str>
           </row>
           <row>
             <seat_no>  1Å</seat_no>
@@ -1337,8 +1337,8 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep2) SERVICES 1 RU)
             <RFISC>04V</RFISC>
             <desc>éÉçÖëíêÖãúçéÖ éêìÜàÖ Ñé 32äÉ</desc>
             <num>2988200015234/2</num>
-            <str>  1Å    MOTOVA IRINA        2   C    04V  éÉçÖëíêÖãúçéÖ       2988200015234/2    $()
-                                          éêìÜàÖ Ñé 32äÉ                         </str>
+            <str>  1Å    MOTOVA IRINA       2  C    04V  éÉçÖëíêÖãúçéÖ       2988200015234/2     $()
+                                        éêìÜàÖ Ñé 32äÉ                          </str>
           </row>
           <row>
             <seat_no>  1Å</seat_no>
@@ -1348,7 +1348,7 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep2) SERVICES 1 RU)
             <RFISC>0AI</RFISC>
             <desc>áÄÇíêÄä</desc>
             <num>2988200015230/2</num>
-            <str>  1Å    MOTOVA IRINA        2   G    0AI  áÄÇíêÄä             2988200015230/2    </str>
+            <str>  1Å    MOTOVA IRINA       2  G    0AI  áÄÇíêÄä             2988200015230/2     </str>
           </row>
           <row>
             <seat_no>  1Å</seat_no>
@@ -1358,7 +1358,7 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep2) SERVICES 1 RU)
             <RFISC>SPF</RFISC>
             <desc>ÇõÅéê åÖëíÄ</desc>
             <num>2988200015232/1</num>
-            <str>  1Å    MOTOVA IRINA        2   A    SPF  ÇõÅéê åÖëíÄ         2988200015232/1    </str>
+            <str>  1Å    MOTOVA IRINA       2  A    SPF  ÇõÅéê åÖëíÄ         2988200015232/1     </str>
           </row>
         </table>
       </datasets>
@@ -2034,7 +2034,7 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep1) SERVICES 1 EN)
             <RFISC>0AI</RFISC>
             <desc>BREAKFAST</desc>
             <num>2988200015229/1</num>
-            <str>  1A    KOTOVA IRINA        1   G    0AI  BREAKFAST           2988200015229/1    </str>
+            <str>  1A    KOTOVA IRINA       1  G    0AI  BREAKFAST           2988200015229/1     </str>
           </row>
           <row>
             <seat_no>  1B</seat_no>
@@ -2044,7 +2044,7 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep1) SERVICES 1 EN)
             <RFISC>0AI</RFISC>
             <desc>BREAKFAST</desc>
             <num>2988200015230/1</num>
-            <str>  1B    MOTOVA IRINA        2   G    0AI  BREAKFAST           2988200015230/1    </str>
+            <str>  1B    MOTOVA IRINA       2  G    0AI  BREAKFAST           2988200015230/1     </str>
           </row>
         </table>
       </datasets>
@@ -2062,7 +2062,7 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep2) SERVICES 1 RU)
             <RFISC>0AI</RFISC>
             <desc>áÄÇíêÄä</desc>
             <num>2988200015229/2</num>
-            <str>  1Ä    KOTOVA IRINA        1   G    0AI  áÄÇíêÄä             2988200015229/2    </str>
+            <str>  1Ä    KOTOVA IRINA       1  G    0AI  áÄÇíêÄä             2988200015229/2     </str>
           </row>
           <row>
             <seat_no>  1Å</seat_no>
@@ -2072,7 +2072,7 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep2) SERVICES 1 RU)
             <RFISC>0AI</RFISC>
             <desc>áÄÇíêÄä</desc>
             <num>2988200015230/2</num>
-            <str>  1Å    MOTOVA IRINA        2   G    0AI  áÄÇíêÄä             2988200015230/2    </str>
+            <str>  1Å    MOTOVA IRINA       2  G    0AI  áÄÇíêÄä             2988200015230/2     </str>
           </row>
         </table>
       </datasets>
@@ -2426,7 +2426,7 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep1) SERVICES 1 EN)
             <RFISC>0AI</RFISC>
             <desc>áÄÇíêÄä</desc>
             <num>2988200015229/1</num>
-            <str>  1A    KOTOVA IRINA        1   G    0AI  áÄÇíêÄä             2988200015229/1    </str>
+            <str>  1A    KOTOVA IRINA       1  G    0AI  áÄÇíêÄä             2988200015229/1     </str>
           </row>
           <row>
             <seat_no>  1B</seat_no>
@@ -2436,7 +2436,7 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep1) SERVICES 1 EN)
             <RFISC>0AI</RFISC>
             <desc>áÄÇíêÄä</desc>
             <num>2988200015230/1</num>
-            <str>  1B    MOTOVA IRINA        2   G    0AI  áÄÇíêÄä             2988200015230/1    </str>
+            <str>  1B    MOTOVA IRINA       2  G    0AI  áÄÇíêÄä             2988200015230/1     </str>
           </row>
         </table>
       </datasets>
@@ -2454,7 +2454,7 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep2) SERVICES 1 RU)
             <RFISC>0AI</RFISC>
             <desc>áÄÇíêÄä</desc>
             <num>2988200015229/2</num>
-            <str>  1Ä    KOTOVA IRINA        1   G    0AI  áÄÇíêÄä             2988200015229/2    </str>
+            <str>  1Ä    KOTOVA IRINA       1  G    0AI  áÄÇíêÄä             2988200015229/2     </str>
           </row>
           <row>
             <seat_no>  1Å</seat_no>
@@ -2464,7 +2464,7 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep2) SERVICES 1 RU)
             <RFISC>0AI</RFISC>
             <desc>áÄÇíêÄä</desc>
             <num>2988200015230/2</num>
-            <str>  1Å    MOTOVA IRINA        2   G    0AI  áÄÇíêÄä             2988200015230/2    </str>
+            <str>  1Å    MOTOVA IRINA       2  G    0AI  áÄÇíêÄä             2988200015230/2     </str>
           </row>
         </table>
       </datasets>
@@ -3058,7 +3058,7 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep1) SERVICES 1 EN)
             <RFISC>04V</RFISC>
             <desc>FIREARMS UP TO 32KG</desc>
             <num/>
-            <str>  1B    MOTOVA IRINA        2   C    04V  FIREARMS UP TO 32KG                    </str>
+            <str>  1B    MOTOVA IRINA       2  C    04V  FIREARMS UP TO 32KG                     </str>
           </row>
         </table>
       </datasets>
@@ -3077,8 +3077,8 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep2) SERVICES 1 RU)
             <RFISC>04V</RFISC>
             <desc>éÉçÖëíêÖãúçéÖ éêìÜàÖ Ñé 32äÉ</desc>
             <num/>
-            <str>  1Å    MOTOVA IRINA        2   C    04V  éÉçÖëíêÖãúçéÖ                          $()
-                                          éêìÜàÖ Ñé 32äÉ                         </str>
+            <str>  1Å    MOTOVA IRINA       2  C    04V  éÉçÖëíêÖãúçéÖ                           $()
+                                        éêìÜàÖ Ñé 32äÉ                          </str>
           </row>
           <row>
             <seat_no>  1Å</seat_no>
@@ -3088,7 +3088,7 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep2) SERVICES 1 RU)
             <RFISC>SPF</RFISC>
             <desc>ÇõÅéê åÖëíÄ</desc>
             <num/>
-            <str>  1Å    MOTOVA IRINA        2   A    SPF  ÇõÅéê åÖëíÄ                            </str>
+            <str>  1Å    MOTOVA IRINA       2  A    SPF  ÇõÅéê åÖëíÄ                             </str>
           </row>
         </table>
       </datasets>
@@ -3108,7 +3108,7 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep1) SERVICES 1 EN)
             <RFISC>0AI</RFISC>
             <desc>BREAKFAST</desc>
             <num>2988200015229/1</num>
-            <str>  1A    KOTOVA IRINA        1   G    0AI  BREAKFAST           2988200015229/1    </str>
+            <str>  1A    KOTOVA IRINA       1  G    0AI  BREAKFAST           2988200015229/1     </str>
           </row>
           <row>
             <seat_no>  1B</seat_no>
@@ -3118,7 +3118,7 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep1) SERVICES 1 EN)
             <RFISC>04V</RFISC>
             <desc>FIREARMS UP TO 32KG</desc>
             <num>2988200015234/1</num>
-            <str>  1B    MOTOVA IRINA        2   C    04V  FIREARMS UP TO 32KG 2988200015234/1    </str>
+            <str>  1B    MOTOVA IRINA       2  C    04V  FIREARMS UP TO 32KG 2988200015234/1     </str>
           </row>
           <row>
             <seat_no>  1B</seat_no>
@@ -3128,7 +3128,7 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep1) SERVICES 1 EN)
             <RFISC>0AI</RFISC>
             <desc>BREAKFAST</desc>
             <num>2988200015230/1</num>
-            <str>  1B    MOTOVA IRINA        2   G    0AI  BREAKFAST           2988200015230/1    </str>
+            <str>  1B    MOTOVA IRINA       2  G    0AI  BREAKFAST           2988200015230/1     </str>
           </row>
         </table>
       </datasets>
@@ -3147,7 +3147,7 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep2) SERVICES 1 RU)
             <RFISC>0AI</RFISC>
             <desc>áÄÇíêÄä</desc>
             <num>2988200015229/2</num>
-            <str>  1Ä    KOTOVA IRINA        1   G    0AI  áÄÇíêÄä             2988200015229/2    </str>
+            <str>  1Ä    KOTOVA IRINA       1  G    0AI  áÄÇíêÄä             2988200015229/2     </str>
           </row>
           <row>
             <seat_no>  1Å</seat_no>
@@ -3157,8 +3157,8 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep2) SERVICES 1 RU)
             <RFISC>04V</RFISC>
             <desc>éÉçÖëíêÖãúçéÖ éêìÜàÖ Ñé 32äÉ</desc>
             <num>2988200015234/2</num>
-            <str>  1Å    MOTOVA IRINA        2   C    04V  éÉçÖëíêÖãúçéÖ       2988200015234/2    $()
-                                          éêìÜàÖ Ñé 32äÉ                         </str>
+            <str>  1Å    MOTOVA IRINA       2  C    04V  éÉçÖëíêÖãúçéÖ       2988200015234/2     $()
+                                        éêìÜàÖ Ñé 32äÉ                          </str>
           </row>
           <row>
             <seat_no>  1Å</seat_no>
@@ -3168,7 +3168,7 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep2) SERVICES 1 RU)
             <RFISC>0AI</RFISC>
             <desc>áÄÇíêÄä</desc>
             <num>2988200015230/2</num>
-            <str>  1Å    MOTOVA IRINA        2   G    0AI  áÄÇíêÄä             2988200015230/2    </str>
+            <str>  1Å    MOTOVA IRINA       2  G    0AI  áÄÇíêÄä             2988200015230/2     </str>
           </row>
           <row>
             <seat_no>  1Å</seat_no>
@@ -3178,7 +3178,7 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep2) SERVICES 1 RU)
             <RFISC>SPF</RFISC>
             <desc>ÇõÅéê åÖëíÄ</desc>
             <num>2988200015232/1</num>
-            <str>  1Å    MOTOVA IRINA        2   A    SPF  ÇõÅéê åÖëíÄ         2988200015232/1    </str>
+            <str>  1Å    MOTOVA IRINA       2  A    SPF  ÇõÅéê åÖëíÄ         2988200015232/1     </str>
           </row>
         </table>
       </datasets>
