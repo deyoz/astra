@@ -6,7 +6,6 @@
 #include "qrys.h"
 #include "exceptions.h"
 #include "astra_utils.h"
-#include "serverlib/str_utils.h"
 #include "xml_unit.h"
 #include "md5_sum.h"
 #include "stl_utils.h"
@@ -14,7 +13,9 @@
 #include "db_tquery.h"
 #include <boost/regex.hpp>
 
+#include <serverlib/dbcpp_cursctl.h>
 #include <serverlib/dates_io.h>
+#include <serverlib/str_utils.h>
 
 #define NICKNAME "KOSHKIN"
 #include "serverlib/slogger.h"
@@ -63,19 +64,28 @@ void file_to_db(const string& init_path, const string& file_path)
     string file_data =  file_to_string(init_path + file_path);
 
     int existingId = 0;
-    make_db_curs(
+    auto cur = make_db_curs(
 "select ID from HTML_PAGES where name = :name",
-                PgOra::getRWSession("HTML_PAGES"))
+                PgOra::getRWSession("HTML_PAGES"));
+
+    cur
             .def(existingId)
             .bind(":name", file_path)
-            .EXfet();
-    if(existingId) {
+            .exec();
+
+    while(!cur.fen()) {
         make_db_curs(
 "delete from HTML_PAGES_TEXT where ID = :id",
                     PgOra::getRWSession("HTML_PAGES_TEXT"))
                 .bind(":id", existingId)
                 .exec();
     }
+
+    make_db_curs(
+"delete from HTML_PAGES where name = :name",
+                PgOra::getRWSession("HTML_PAGES"))
+            .bind(":name", file_path)
+            .exec();
 
     int id = PgOra::getSeqCurrVal_int("TID__SEQ");
     make_db_curs(
