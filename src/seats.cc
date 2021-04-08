@@ -584,6 +584,9 @@ bool TSeatCoordsSalon::addSeat( TPlaceList *placeList, int x, int xlen, int y,
   if ( icoord == coords.end() ) {
     icoord = coords.insert( make_pair(prioritySeats,TSeatCoords()) ).first;
   }
+  if ( pr_seats ) {
+    LogTrace(TRACE5) << "prioritySeats=" << prioritySeats << " (x=" << p.x <<",y=" << p.y << ")";
+  }
   icoord->second.push_back( p );
   return true;
 }
@@ -607,27 +610,39 @@ void TSeatCoordsClass::addBaseSeat( TPlaceList* placeList, TPoint &p, std::set<i
     return;
   }
   passCoord.insert( key );
-  for ( vecSeatCoordsVars::iterator ilist=vecSeatCoords.begin(); ilist!=vecSeatCoords.end(); ilist++ ) {
+  /*???for ( vecSeatCoordsVars::iterator ilist=vecSeatCoords.begin(); ilist!=vecSeatCoords.end(); ilist++ ) {
     if ( ilist->placeList->num == placeList->num ) {
       if ( ilist->addSeat( placeList, p.x, 0, p.y, false, false, true ) ) {
         ProgTrace( TRACE5, "addBaseSeat: x=%d, y=%d", p.x, p.y );
       }
       return;
     }
-  }
+  }*/
   TSeatCoordsSalon coordSalon;
   coordSalon.placeList = placeList;
+  LogTrace(TRACE5) << coordSalon.placeList->num;
   if ( coordSalon.addSeat( placeList, p.x, 0, p.y, false, false, true ) ) {
     ProgTrace( TRACE5, "addBaseSeat: x=%d, y=%d", p.x, p.y );
   }
-  vecSeatCoords.push_back( coordSalon );
+  vecSeatCoords.emplace( vecSeatCoords.begin(), coordSalon );
+}
+
+bool SortPaxSeats( TCoordSeat item1, TCoordSeat item2 )
+{
+  return (
+           getSeatKey::get( item1.placeListIdx, item1.p.x, item1.p.y ) <
+           getSeatKey::get( item2.placeListIdx, item2.p.x, item2.p.y )
+          );
 }
 
 void TSeatCoordsClass::addBaseSeats( const std::vector<TCoordSeat> &paxSeats )
 {
+  std::vector<TCoordSeat> paxS = paxSeats;
+  sort( paxS.begin(), paxS.end(), SortPaxSeats );
+  TSeatCoordsSalon passCoordSeats;
   std::set<int> passCoord;
   for ( int step=0; step<2; step++ ) {
-    for ( std::vector<TCoordSeat>::const_iterator iseat=paxSeats.begin(); iseat!=paxSeats.end(); iseat++ ) {
+    for ( std::vector<TCoordSeat>::const_iterator iseat=paxS.begin(); iseat!=paxS.end(); iseat++ ) {
       //находим свободные места вокруг
       for ( std::vector<TPlaceList*>::iterator item=CurrSalon::get().placelists.begin(); item!=CurrSalon::get().placelists.end(); item++ ) {
         if ( iseat->placeListIdx == (*item)->num ) {
@@ -681,6 +696,7 @@ void TSeatCoordsClass::refreshCoords( TSeatAlgoTypes ASeatAlgoType,
                                       const std::vector<TCoordSeat> &paxsSeats )
 {
   SeatsStat.start(__FUNCTION__);
+  LogTrace(TRACE5) << paxsSeats.size();
   clear();
   int xlen, ylen;
   // сверху вниз
@@ -1927,7 +1943,7 @@ void TSeatPlaces::operator >> ( VSeatPlaces &items )
 bool TSeatPlaces::SeatsGrp_On( SALONS2::TPoint FP  )
 {
   SeatsStat.start(__FUNCTION__);
-//  ProgTrace( TRACE5, "FP(x=%d, y=%d)", FP.x, FP.y );
+  ProgTrace( TRACE5, "FP(x=%d, y=%d)", FP.x, FP.y );
   /* очистить помеченные места */
   RollBack( );
   /* если есть пассажиры в группе с вертикальной рассадкой, то пробуем их рассадить */
@@ -2028,7 +2044,7 @@ inline void getRemarks( TPassenger &pass )
 bool TSeatPlaces::SeatGrpOnBasePlace( )
 {
   SeatsStat.start(__FUNCTION__);
-//  ProgTrace( TRACE5, "SeatGrpOnBasePlace( )" );
+  ProgTrace( TRACE5, "SeatGrpOnBasePlace( )" );
   int G3 = Passengers.counters.p_Count_3( sRight );
   int G2 = Passengers.counters.p_Count_2( sRight );
   int G = Passengers.counters.p_Count( sRight );
@@ -2060,6 +2076,7 @@ bool TSeatPlaces::SeatGrpOnBasePlace( )
         for ( int Where=sLeftRight; Where<=sUpDown; Where++ ) {
           /* варианты поиска возле найденного места */
           for( vecSeatCoordsVars::iterator icoord=CoordsVars.begin(); icoord!=CoordsVars.end(); icoord++ ) {
+            LogTrace(TRACE5) << icoord->placeList->num;
             CurrSalon::get().SetCurrPlaceList( icoord->placeList );
             for ( map<int,TSeatCoords>::iterator ivariant=icoord->coords.begin(); ivariant!=icoord->coords.end(); ivariant++ ) {
               for ( vector<TPoint>::iterator ic=ivariant->second.begin(); ic!=ivariant->second.end(); ic++ ) {
@@ -2112,9 +2129,11 @@ bool TSeatPlaces::SeatsGrp( )
   RollBack( );
   vecSeatCoordsVars CoordsVars = seatCoords.getSeatCoordsVars( );
   for( vecSeatCoordsVars::iterator icoord=CoordsVars.begin(); icoord!=CoordsVars.end(); icoord++ ) {
+    LogTrace(TRACE5) << icoord->placeList->num;
     CurrSalon::get().SetCurrPlaceList( icoord->placeList );
     for ( map<int,TSeatCoords>::iterator ivariant=icoord->coords.begin(); ivariant!=icoord->coords.end(); ivariant++ ) {
       for ( vector<TPoint>::iterator ic=ivariant->second.begin(); ic!=ivariant->second.end(); ic++ ) {
+        LogTrace(TRACE5) << "x=" << ic->x << " y=" << ic->y;
         if ( SeatsGrp_On( *ic ) ) {
           SeatsStat.stop(__FUNCTION__);
           return true;
@@ -2440,18 +2459,14 @@ void TPassenger::calc_priority( const std::map<std::string, int> &remarks )
   //???  priority += priority*countPlace;
 }
 
-void TPassenger::get_remarks( std::vector<std::string> &vrems )
+void TPassenger::get_remarks( std::vector<std::string> &vrems ) const
 {
   vrems = rems;
 }
 
-bool TPassenger::isRemark( std::string code )
+bool TPassenger::isRemark( std::string code ) const
 {
-  for (std::vector<string>::iterator irem=rems.begin(); irem!=rems.end(); irem++ ) {
-    if ( *irem == code )
-        return true;
-  }
-    return false;
+  return ( std::find( rems.begin(), rems.end(), code ) != rems.end() );
 }
 
 bool TPassenger::is_valid_seats( const std::vector<SALONS2::TPlace> &places )
@@ -2494,6 +2509,8 @@ void TPassengers::Clear()
   UseSmoke = false;
   SeatDescription = false;
   counters.Clear();
+  wo_aisle = false;
+  issubgrp = false;
 }
 
 void TPassengers::copyTo( VPassengers &npass )
@@ -3103,17 +3120,176 @@ void SeatsPassengers( SALONS2::TSalonList &salonList,
   throw UserException( "MSG.SEATS.NOT_AVAIL_AUTO_SEATS" );
 }
 
-std::string separatelyRem( const std::string &rem, const std::vector<std::string> &rems, int idx )
+std::string separatelyRem( const std::string &rem, int idx )
 {
   ostringstream rem_variant;
-  if ( std::find( rems.begin(), rems.end(), rem ) != rems.end() ) {
-    rem_variant << rem <<  setw(3) << idx;
+  if ( rem.empty() ) {
+    rem_variant << "ZZZZ" << "999";
   }
   else {
-    rem_variant << "ZZZZ" << "999";
+    rem_variant << rem <<  setw(3) << idx;
   }
   return rem_variant.str();
 }
+
+bool isPassPay( const TCompLayerType& comp_layer_type )
+{
+  if ( SALONS2::isUserProtectLayer( comp_layer_type ) ) {
+    if ( comp_layer_type == cltProtBeforePay ||
+         comp_layer_type == cltPNLBeforePay ||
+         comp_layer_type == cltProtAfterPay ||
+         comp_layer_type == cltPNLAfterPay )
+      return true;
+  }
+  return false;
+}
+
+struct TAdultWithBabys {
+  int index;
+  std::vector<int> indexs_childs;
+  int infts;
+  TAdultWithBabys( int vindex ) {
+    index = vindex;
+    infts = 0;
+  }
+  int priority() {
+    return (int)indexs_childs.size() + infts*10;
+  }
+};
+
+struct CompareGrp {
+  bool operator() ( const std::string grp_status1, const std::string grp_status2  ) const {
+    TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
+     const TGrpStatusTypesRow &row1 = (const TGrpStatusTypesRow&)grp_status_types.get_row( "code", grp_status1 );
+     const TGrpStatusTypesRow &row2 = (const TGrpStatusTypesRow&)grp_status_types.get_row( "code", grp_status2 );
+    if ( row1.priority != row2.priority ) {
+      return ( row1.priority < row2.priority );
+    }
+    return false;
+  }
+};
+
+class TAdulstWithBabys:public std::map<std::string,std::vector<TAdultWithBabys>>
+{
+  private:
+    bool separately_seat_adult_with_baby;
+    bool separately_seat_chin_emergency;
+  public:
+    TAdulstWithBabys() {
+      separately_seat_adult_with_baby = false;
+      separately_seat_chin_emergency = false;
+    }
+    TAdulstWithBabys( bool vseparately_seat_adult_with_baby,
+                      bool vseparately_seat_chin_emergency ) {
+      separately_seat_adult_with_baby = vseparately_seat_adult_with_baby;
+      vseparately_seat_chin_emergency = vseparately_seat_chin_emergency;
+    }
+    void setAdultToGrp( const TPassenger& pass ) {
+      tst();
+      TAdultWithBabys adult( pass.index );
+      ostringstream grp_variant;
+      bool ignoreINFT = !AllowedAttrsSeat.pr_isWorkINFT;
+      bool pr_pay = isPassPay( pass.preseat_layer );
+      tst();
+      grp_variant << pass.cabin_clname;
+      bool isInft = pass.isRemark("INFT");
+      grp_variant << separatelyRem( isInft && separately_seat_adult_with_baby?"INFT":"", pass.index );
+      tst();
+      if (isInft) adult.infts++;
+      bool isChin = pass.isRemark("CHIN");
+      grp_variant << separatelyRem( isChin && separately_seat_adult_with_baby?"CHIN":"", pass.index );
+      tst();
+      //дети и оплата
+      grp_variant << pr_pay << pass.ignore_tariff << (ignoreINFT || pass.isRemark( "INFT" ));
+      //тариф
+      grp_variant << pass.tariffs.key() << EncodeCompLayerType(pass.preseat_layer) << pass.dont_check_payment;
+      ProgTrace( TRACE5, "grp_variant=%s, pax=%s", grp_variant.str().c_str(), pass.toString().c_str() );
+      ProgTrace( TRACE5, "adult.index=%d, infts=%d", adult.index, adult.infts );
+      this->emplace( make_pair(grp_variant.str(), std::vector<TAdultWithBabys>() ) ).first->second.push_back(adult);
+    }
+    void addAdult( const TPassenger& pass ) {
+      setAdultToGrp( pass );
+    }
+    void setChildToAdult( const TPassenger& child_pass ) {
+      int pos_adult_priority = -1;
+      int priority = 100;
+      std::string Key;
+      ProgTrace(TRACE5, "setChildToAdult child index=%d",child_pass.index);
+      //пробег по группам
+      for ( auto adults : *this ) {
+        for ( std::vector<TAdultWithBabys>::iterator iadult=adults.second.begin(); iadult!=adults.second.end(); iadult++ ) {
+          int apriority = iadult->priority();
+          ProgTrace(TRACE5, "adult index=%d, priority=%d",iadult->index, apriority);
+          if ( apriority < priority ) {
+            Key = adults.first;
+            pos_adult_priority = std::distance( adults.second.begin(), iadult );
+            priority = apriority;
+            ProgTrace(TRACE5, "set adult Key grp %s priority %d  index=%d", Key.c_str(), priority, adults.second.at(pos_adult_priority).index);
+          }
+        }
+      }
+      tst();
+      if ( pos_adult_priority >= 0 ) {
+        auto& i = (*this)[ Key ];
+        ProgTrace(TRACE5, "set adult(%d) child index=%d",i.at(pos_adult_priority).index,child_pass.index);
+        i.at(pos_adult_priority).indexs_childs.emplace_back( child_pass.index );
+        ProgTrace(TRACE5, "%s", Key.c_str() );
+        ProgTrace(TRACE5, " adults vector size=%lu, adult index=%d", i.size(), i.at(pos_adult_priority).index );
+        //в группе больше одного человека, тогда выделяем этого взрослого в отдельную группу
+        if ( i.size() > 1 ) {
+          //удаляем из общей группы и делаем отдельную
+          ProgTrace(TRACE5, "%d, %lu", i.at(pos_adult_priority).index, i.size() );
+          Key = Key + std::to_string( i.at(pos_adult_priority).index );
+          ProgTrace(TRACE5, "%s", Key.c_str() );
+          this->emplace( make_pair(Key, std::vector<TAdultWithBabys>() ) ).first->second.push_back(i.at(pos_adult_priority));
+          i.erase( i.begin() + pos_adult_priority );
+        }
+      }
+      else {
+         ProgError(STDLOG, "setChildToAdult error");
+         addAdult( child_pass );
+      }
+    }
+
+    void getGrps( vector<TPassengers> &passGrps,
+                  TPassengers &passengers ) {
+
+      std::map<int,TPassengers,std::greater<int>> sortByCountPassengers;
+      for ( const auto& igrp : *this ) {
+        TPassengers ps;
+        for ( const auto& p : igrp.second ) {
+         TPassenger pass = passengers.Get( p.index );
+          ps.Add( pass, pass.index );
+          ps.issubgrp = true;
+          for ( const auto &idx : p.indexs_childs ) {
+            TPassenger pass = passengers.Get( idx );
+            ps.Add( pass, pass.index );
+            ps.wo_aisle = true;
+          }
+        }
+        sortByCountPassengers.emplace( ps.getCount(), ps );
+      }
+      //по убыванию
+      using Map = std::map<int, TPassengers>;
+      passGrps = algo::transform<std::vector>(sortByCountPassengers, [](const Map::value_type& kv) { return kv.second; });
+      // а это всегда в конце
+      if ( passengers.getCount() > 0 ) { //??? делается на всякий случай, чтобы сработал старый алгоритм без разбивки на подгруппы
+        passGrps.emplace_back( passengers );
+        ProgTrace( TRACE5, "all grp, count=%d", passengers.getCount() );
+      }
+
+      int i = 0;
+      ostringstream grp;
+      for ( auto& g : passGrps ) {
+        i++;
+        grp << i << " wo_aisle=" << g.wo_aisle << std::endl;
+        for ( int c=0; c<g.getCount(); c++ ) {
+          grp << g.Get(c).toString() << std::endl;
+        }
+      }
+      LogTrace(TRACE5) << grp.str();
+    }
+};
 
 void dividePassengersToGrps( TPassengers &passengers, vector<TPassengers> &passGrps,
                              bool separately_seat_adult_with_baby,
@@ -3123,22 +3299,24 @@ void dividePassengersToGrps( TPassengers &passengers, vector<TPassengers> &passG
   SeatsStat.start(__FUNCTION__);
   passGrps.clear();
   TPassengers p;
-  boolean ignoreINFT = !AllowedAttrsSeat.pr_isWorkINFT;
   //std::set<int> addedPasses;
   //for ( int icond=0; icond<4; icond++ ) { // AllowedAttrsSeat.pr_isWorkINFT делим на: 0=платный ребенок и 1=платный взрослый , 2=бесплатный ребеной, 3=бесплатный взрослый
-    std::map<std::string,TPassengers> v; //делим по тарифам
+  //std::map<std::string,TPassengers> v; //делим по тарифам
+  TAdulstWithBabys adults(separately_seat_adult_with_baby,separately_seat_chin_emergency);
+  for ( int ichild=0; ichild<=1; ichild++ ) {
     for ( int i=0; i<passengers.getCount(); i++ ) {
       TPassenger &pass = passengers.Get( i );
-      bool pr_pay = false;
-      if ( SALONS2::isUserProtectLayer( pass.preseat_layer ) ) {
-        if ( pass.preseat_layer == cltProtBeforePay ||
-             pass.preseat_layer == cltPNLBeforePay ||
-             pass.preseat_layer == cltProtAfterPay ||
-             pass.preseat_layer == cltPNLAfterPay )
-          pr_pay = true;
+      if ( (pass.pers_type  == "ВЗ" && ichild == 1)||
+           (pass.pers_type  != "ВЗ" && ichild == 0)) {
+        continue;
       }
-      //взрослые и взрослые с младенцами + ремарки с возможностью сесть на платные ма
-      ostringstream grp_variant;
+      if ( ichild == 0 ) {
+        adults.addAdult( pass );
+      }
+      else {
+        adults.setChildToAdult( pass );
+      }
+/*      ostringstream grp_variant;
       std::vector<std::string> vrems;
       pass.get_remarks( vrems );
       grp_variant << pass.cabin_clname
@@ -3148,8 +3326,8 @@ void dividePassengersToGrps( TPassengers &passengers, vector<TPassengers> &passG
       grp_variant << pr_pay << pass.ignore_tariff << (ignoreINFT || pass.isRemark( "INFT" ));
       //тариф
       grp_variant << pass.tariffs.key() << EncodeCompLayerType(pass.preseat_layer) << pass.dont_check_payment;
-//      ProgTrace( TRACE5, "grp_variant=%s, pax=%s", grp_variant.str().c_str(), pass.toString().c_str() );
-      v[ grp_variant.str() ].Add( pass, pass.index );
+      ProgTrace( TRACE5, "grp_variant=%s, pax=%s", grp_variant.str().c_str(), pass.toString().c_str() );
+      v[ grp_variant.str() ].Add( pass, pass.index );*/
 /*      if (
            (icond == 0 && pr_pay && (ignoreINFT || pass.isRemark( "INFT" ))) ||
            (icond == 1 && pr_pay && (ignoreINFT || !pass.isRemark( "INFT" ))) ||
@@ -3167,29 +3345,27 @@ void dividePassengersToGrps( TPassengers &passengers, vector<TPassengers> &passG
 //          ProgTrace( TRACE5, "dividePassengersToGrps: j=%d, i=%d, pass.idx=%d, pass.pax_id=%d, INFT=%d", j,i, pass.paxId, pass.index, pass.isRemark( "INFT") );
       //}
     } // passs
-    int grp_idx = 0;
-    for ( std::map<std::string,TPassengers>::iterator ip = v.begin(); ip!=v.end(); ip++ ) {
-      if ( ip->second.getCount() > 0 ) {
-        passGrps.push_back( ip->second );
+  } //ichild
+  //int grp_idx = 0;
+  adults.getGrps( passGrps, passengers );
+/*  for ( TAdulstWithBabys::iterator ip = adults.begin(); ip!=adults.end(); ip++ ) {
+    if ( !ip->second.empty() ) {
+      passGrps.push_back( adults.getPassengers(passengers) );
+    //if ( ip->second.getCount() > 0 ) {
+      passGrps.push_back( ip->second );*/
 /*        ProgTrace( TRACE5, "grp_num=%d, variant=%s, count=%d", grp_idx, ip->first.c_str(), ip->second.getCount() );
-        for ( int jk=0; jk<ip->second.getCount(); jk++ ) {
-          ProgTrace( TRACE5, "%s", ip->second.Get( jk ).toString().c_str() );
-        }
-        ProgTrace( TRACE5, "=================================================" );*/
-        grp_idx++;
+      for ( int jk=0; jk<ip->second.getCount(); jk++ ) {
+        ProgTrace( TRACE5, "%s", ip->second.Get( jk ).toString().c_str() );
       }
-    }
-  //} //cond
-  if ( passengers.getCount() > 0 ) {
-//    ProgTrace( TRACE5, "add all grp: passGrps.push_back( %d )", passengers.getCount() );
+      ProgTrace( TRACE5, "=================================================" );*/
+      //grp_idx++;
+//    }
+//  }
+/*  if ( passengers.getCount() > 0 ) {
     p = passengers;
     passGrps.push_back( p ); //last element contain prior passengers variant
-    ProgTrace( TRACE5, "all grp, count=%d", p.getCount() );
-/*    for ( int jk=0; jk<p.getCount(); jk++ ) {
-      ProgTrace( TRACE5, "%s", p.Get( jk ).toString().c_str() );
-    }
-    ProgTrace( TRACE5, "=================================================" );*/
-  }
+
+  }*/
   SeatsStat.stop(__FUNCTION__);
 }
 
@@ -3239,6 +3415,9 @@ void SeatsPassengersGrps( SALONS2::TSalons *Salons,
   VSeatPlaces seatsGrps;
   for ( std::vector<TPassengers>::iterator ipassGrp=passGrps.begin(); ipassGrp!=passGrps.end(); ) {
     passengers = *ipassGrp;
+    passengers.wo_aisle = ipassGrp->wo_aisle; //???
+    passengers.issubgrp = ipassGrp->issubgrp; //???
+    ProgTrace(TRACE5, "wo_aisle=%d, issubgrp=%d", passengers.wo_aisle, passengers.issubgrp );
     babyZoness.clear();
     emergencySeats.clear();
     bool separately_seats_adult_with_baby = babyZoness.useInfantSection() && passengers.withBaby();
@@ -3315,7 +3494,7 @@ void SeatsPassengersGrps( SALONS2::TSalons *Salons,
           }
         }
         if ( ipassGrp == passGrps.end() - 1 ) {
-          tst();
+          ProgError(STDLOG, "couldn't assign seats to subgrp passengers, but assign seats to old algo");
           break;
         }
       }
@@ -3640,8 +3819,8 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                       const std::vector<TCoordSeat> &paxsSeats,
                       const TRemGrp& remGrp )
 {
-  ProgTrace( TRACE5, "NEWSEATS, ASeatAlgoParams=%d, Salons->placelists.size()=%zu, passengers.getCount()=%d, paxsSeats.size()=%zu, separately_seats_adult_with_baby=%d, denial_emergency_seats=%d",
-            (int)ASeatAlgoParams.SeatAlgoType, Salons->placelists.size(), passengers.getCount(), paxsSeats.size(), separately_seats_adult_with_baby, denial_emergency_seats );
+  ProgTrace( TRACE5, "NEWSEATS, ASeatAlgoParams=%d, Salons->placelists.size()=%zu, passengers.getCount()=%d, paxsSeats.size()=%zu, separately_seats_adult_with_baby=%d, denial_emergency_seats=%d, wo_aisle=%d, issubgrp=%d, paxsSeats.size()=%lu",
+            (int)ASeatAlgoParams.SeatAlgoType, Salons->placelists.size(), passengers.getCount(), paxsSeats.size(), separately_seats_adult_with_baby, denial_emergency_seats, passengers.wo_aisle, passengers.issubgrp, paxsSeats.size());
   if ( !passengers.getCount() ) {
     return;
   }
@@ -3927,9 +4106,15 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                      for ( int FCanUseOneRow=getCanUseOneRow(); FCanUseOneRow>=0; FCanUseOneRow-- ) {
                        canUseOneRow = FCanUseOneRow;
                        /* учет проходов */
-                       for ( int FCanUseTube=0; FCanUseTube<=1; FCanUseTube++ ) {
+                       for ( int FCanUseTube=0; FCanUseTube<=(passengers.wo_aisle?0:1); FCanUseTube++ ) {
+                         ProgTrace(TRACE5, "wo_aisle=%d", passengers.wo_aisle );
                          /* для рассадки отдельных пассажиров не надо учитывать проходы */
-                         if ( !FCanUseTube && !paxsSeats.empty() && !separately_seats_adult_with_baby  ) {
+                         if ( !FCanUseTube &&
+                              !paxsSeats.empty() &&
+                              !separately_seats_adult_with_baby &&
+                              !passengers.wo_aisle &&
+                              !passengers.issubgrp) {
+                           ProgTrace(TRACE5, "paxsSeats.size()=%lu", paxsSeats.size() );
                            //ProgTrace( TRACE5, "separately_seats_adult_with_baby");
                            continue;
                          }
@@ -3938,9 +4123,11 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                            continue;
                          }*/
                          if ( FCanUseTube && CanUseAlone == uFalse3 && !canUseOneRow ) {
+                           tst();
                            continue;
                          }
                          if ( canUseOneRow && !FCanUseTube ) {
+                           tst();
                            continue;
                          }
                          CanUseTube = FCanUseTube;
@@ -3978,8 +4165,8 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                                }
                                break;
                            } /* end switch SeatAlg */
-//                           ProgTrace( TRACE5, "seats with:SeatAlg=%d,FCanUseElem_Type=%d,FCanUseRems=%s,FCanUseAlone=%d,KeyLayers=%d,FCanUseTube=%d,FCanUseSmoke=%d,PlaceLayer=%s, MAXPLACE=%d,canUseOneRow=%d, CanUseSUBCLS=%d, SUBCLS_REM=%s",
-//                                      param1,param2,param3.c_str(),param4,param5,param6,param7,param8.c_str(),param9,param10,param11,param12.c_str());
+                           ProgTrace( TRACE5, "seats with:SeatAlg=%d,FCanUseElem_Type=%d,FCanUseRems=%s,FCanUseAlone=%d,KeyLayers=%d,FCanUseTube=%d,FCanUseSmoke=%d,PlaceLayer=%s, MAXPLACE=%d,canUseOneRow=%d, CanUseSUBCLS=%d, SUBCLS_REM=%s",
+                                      param1,param2,param3.c_str(),param4,param5,param6,param7,param8.c_str(),param9,param10,param11,param12.c_str());
 
                          } /* end for FCanUseSmoke */
                        } /* end for FCanUseTube */
