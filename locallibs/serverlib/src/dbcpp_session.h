@@ -134,9 +134,9 @@ namespace DbCpp
 
         virtual CopyResult copyDataFrom(const std::string& sql, const char* data,
                                         size_t size) override;
-        
+
         void activateSession();
-        
+
         void setForReading();
         void setForManagedReadWrite();
         void setForAutonomousReadWrite();
@@ -153,7 +153,7 @@ namespace DbCpp
         DbSessionForType mForType;
         std::string mConnectString;
         std::shared_ptr<PgCpp::Session> mSession;
-        
+
         bool setSessionType(DbSessionType type, bool no_throw);
     };
 
@@ -190,24 +190,24 @@ namespace DbCpp
         virtual CopyResult copyDataFrom(const std::string& sql, const char* data,
                                         size_t size) override {
                 return mPgSession->copyDataFrom(sql,data,size); }
-        
+
         void activateSession() { mPgSession->activateSession(); }
 
         virtual std::string getConnectString() const override { return mPgSession->getConnectString(); }
 
         PgCpp::CursCtl createPgCursor(const char* n, const char* f, int l, const std::string& sql,
                                       bool cacheit);
-    private:                                    
+    private:
         DbSessionForType mForType;
         PgSession_wo_CheckSQL* mPgSession;
         void prepareSession(const char* nick, const char* file, int line);
         void prepareCursor(const char* nick, const char* file, int line,const std::string& sql);
         bool mDelete;
     };
-    
+
     OraSession& mainOraSession(const char* nick, const char* file, int line);
     OraSession* mainOraSessionPtr(const char* nick, const char* file, int line);
-    
+
     PgSession& mainPgManagedSession(const char* nick, const char* file, int line);
     PgSession* mainPgManagedSessionPtr(const char* nick, const char* file, int line,
                                 bool createIfNotExist = true);
@@ -227,7 +227,30 @@ namespace DbCpp
     PgSession* mainPgAutonomousSessionPtr(const char* nick, const char* file, int line,
                                 bool createIfNotExist = true);
 
-    
+    class PgAutonomousSessionManager
+    {
+    public:
+        static PgAutonomousSessionManager start(const char* nick, const char* file, int line);
+        ~PgAutonomousSessionManager();
+
+        PgAutonomousSessionManager(const PgAutonomousSessionManager&) = delete;
+        PgAutonomousSessionManager(PgAutonomousSessionManager&&) = delete;
+        PgAutonomousSessionManager& operator=(const PgAutonomousSessionManager&) = delete;
+        PgAutonomousSessionManager& operator=(Session&&) = delete;
+
+        PgSession& session();
+
+        void commit();
+        void rollback();
+
+    private:
+        PgAutonomousSessionManager(PgSession& session);
+        PgSession& mSession;
+    };
+
+    PgAutonomousSessionManager mainPgAutonomousSessionManager(const char* nick, const char* file, int line);
+
+
 } // namespace DbCpp
 
 #endif // ENABLE_PG

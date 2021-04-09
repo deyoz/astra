@@ -23,6 +23,7 @@ namespace DbCpp
         Reading    = 0, // session type Managed/Autonomous not determinated  
         ManagedReadWrite  = 1, // session type Managed
         AutonomousReadWrite = 2, // session type Autonomous
+        AutonomousManagedReadWrite = 3, // session type Managed-Autonomous
     };
     std::ostream & operator << (std::ostream& os,const DbSessionForType x);    
 } // DbCpp
