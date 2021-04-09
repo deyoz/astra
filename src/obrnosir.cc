@@ -47,6 +47,11 @@ int rbd_test(int argc, char **argv);
 int tzdump(int argc, char **argv);
 int tzdiff(int argc, char **argv);
 
+#ifdef XP_TESTING
+int test_autonomous_session(int argc, char **argv);
+#endif
+
+
 const
   struct {
     const char *name;
@@ -102,6 +107,9 @@ const
     {"-tzdump",                 tzdump,                 NULL,                       NULL},
     {"-tzdiff",                 tzdiff,                 NULL,                       NULL},
     {"-create_tlg",             nosir_create_tlg,       NULL,                       NULL},
+#ifdef XP_TESTING
+    {"-test_autonomous_session",test_autonomous_session,NULL,                       NULL},
+#endif
   };
 
 int nosir_test(int argc,char **argv)

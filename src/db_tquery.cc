@@ -1574,6 +1574,214 @@ START_TEST(cast_to_integer)
 }
 END_TEST;
 
+#define TESTLOG __FUNCTION__,__FILE__,__LINE__
+
+static bool checkTestRowCount(const char *testname, const char *filename, int line,
+                              DbCpp::Session& session, int value, const std::string& error)
+{
+  DB::TQuery Qry(session);
+  Qry.SQLText = "select count(1) as count from TEST_AUTONOMOUS_SESSION";
+  Qry.Execute();
+
+  if (Qry.FieldAsInteger("count") != value) {
+    std::cerr << filename << ":" << line << ": " << testname << ": Failed" << std::endl;
+    std::cerr << "db row count(" << Qry.FieldAsInteger("count") << ") != "
+              << value << std::endl;
+    std::cerr << error << std::endl;
+    return false;
+  }
+  return true;
+}
+
+int test_autonomous_session(int argc, char **argv)
+{
+  get_pg_curs_autocommit("drop table if exists TEST_AUTONOMOUS_SESSION").exec();
+  get_pg_curs_autocommit("create table TEST_AUTONOMOUS_SESSION ( FLD1 varchar(1) not null );").exec();
+  get_pg_curs_autocommit("insert into TEST_AUTONOMOUS_SESSION(FLD1) VALUES ('1')").exec();
+
+  // 1
+  if (!checkTestRowCount(TESTLOG, *get_main_pg_ro_sess(STDLOG), 1,
+                         "Main Session: First record"))
+  {
+    return 1;
+  }
+
+  {
+    DB::TQuery QryMain(*get_main_pg_rw_sess(STDLOG));
+    QryMain.SQLText = "insert into TEST_AUTONOMOUS_SESSION(FLD1) VALUES ('2')";
+    QryMain.Execute();
+  }
+
+  // 1, Main: 2
+  if (!checkTestRowCount(TESTLOG, *get_main_pg_ro_sess(STDLOG), 2,
+                         "Main Session: After insert record"))
+  {
+    return 1;
+  }
+
+  DbCpp::PgAutonomousSessionManager mngr1 = DbCpp::mainPgAutonomousSessionManager(STDLOG);
+  DB::TQuery QryAuto1(mngr1.session());
+  QryAuto1.SQLText = "insert into TEST_AUTONOMOUS_SESSION(FLD1) VALUES ('A')";
+  QryAuto1.Execute();
+  DB::TQuery QryAuto2(mngr1.session());
+  QryAuto2.SQLText = "insert into TEST_AUTONOMOUS_SESSION(FLD1) VALUES ('B')";
+  QryAuto2.Execute();
+
+  // 1, Auto: A, B
+  if (!checkTestRowCount(TESTLOG, *get_main_pg_au_sess(STDLOG), 3,
+                         "Auto Session: Before commit"))
+  {
+    return 1;
+  }
+
+  // 1, Main: 2
+  if (!checkTestRowCount(TESTLOG, *get_main_pg_ro_sess(STDLOG), 2,
+                         "Main Session: Before commit"))
+  {
+    return 1;
+  }
+
+  // Commit autonomous session
+  mngr1.commit();
+
+  // 1, A, B
+  if (!checkTestRowCount(TESTLOG, *get_main_pg_au_sess(STDLOG), 3,
+                         "Auto Session: After commit"))
+  {
+    return 1;
+  }
+
+  // 1, A, B, Main: 2
+  if (!checkTestRowCount(TESTLOG, *get_main_pg_ro_sess(STDLOG), 4,
+                         "Main Session: After commit"))
+  {
+    return 1;
+  }
+
+  {
+    DbCpp::PgAutonomousSessionManager mngr2 = DbCpp::mainPgAutonomousSessionManager(STDLOG);
+    DB::TQuery QryAuto1(mngr2.session());
+    QryAuto1.SQLText = "insert into TEST_AUTONOMOUS_SESSION(FLD1) VALUES ('C')";
+    QryAuto1.Execute();
+    DB::TQuery QryAuto2(mngr2.session());
+    QryAuto2.SQLText = "insert into TEST_AUTONOMOUS_SESSION(FLD1) VALUES ('D')";
+    QryAuto2.Execute();
+
+    // 1, A, B, Auto: C, D
+    if (!checkTestRowCount(TESTLOG, *get_main_pg_au_sess(STDLOG), 5,
+                           "Auto Session: Before auto rollback"))
+    {
+      return 1;
+    }
+
+    // 1, A, B, Main: 2
+    if (!checkTestRowCount(TESTLOG, *get_main_pg_ro_sess(STDLOG), 4,
+                           "Main Session: Before auto rollback"))
+    {
+      return 1;
+    }
+  }
+  // Rollback autonomous session on destroy
+
+  // 1, A, B, Main: 2
+  if (!checkTestRowCount(TESTLOG, *get_main_pg_ro_sess(STDLOG), 4,
+                         "Main Session: After auto rollback"))
+  {
+    return 1;
+  }
+
+  // Rollback main session
+  get_main_pg_ro_sess(STDLOG)->rollback();
+
+  // 1, A, B
+  if (!checkTestRowCount(TESTLOG, *get_main_pg_ro_sess(STDLOG), 3,
+                         "Main Session: After main rollback"))
+  {
+    return 1;
+  }
+
+  // 1, A, B
+  if (!checkTestRowCount(TESTLOG, *get_main_pg_au_sess(STDLOG), 3,
+                         "Auto Session: After main rollback"))
+  {
+    return 1;
+  }
+
+  std::cout << __func__ << ": Success" << std::endl;
+  return 0;
+}
+
+START_TEST(autonomous_session)
+{
+  // in test mode AUTO == MAIN !!!
+
+  get_pg_curs_autocommit("drop table if exists TEST_AUTONOMOUS_SESSION").exec();
+  get_pg_curs_autocommit("create table TEST_AUTONOMOUS_SESSION ( FLD1 varchar(1) not null );").exec();
+  get_pg_curs_autocommit("insert into TEST_AUTONOMOUS_SESSION(FLD1) VALUES ('1')").exec();
+
+  DB::TQuery QryMain1(*get_main_pg_ro_sess(STDLOG));
+  QryMain1.SQLText = "select FLD1 from TEST_AUTONOMOUS_SESSION";
+  QryMain1.Execute();
+
+  // 1
+  fail_unless(QryMain1.FieldAsString("FLD1") == "1",
+              "Main Session: First record=%s", QryMain1.FieldAsString("FLD1"));
+
+  DB::TQuery QryMain2(*get_main_pg_rw_sess(STDLOG));
+  QryMain2.SQLText = "insert into TEST_AUTONOMOUS_SESSION(FLD1) VALUES ('2')";
+  QryMain2.Execute();
+
+  DB::TQuery QryMain3(*get_main_pg_ro_sess(STDLOG));
+  QryMain3.SQLText = "select count(1) as count from TEST_AUTONOMOUS_SESSION";
+  QryMain3.Execute();
+
+  // 1, 2
+  fail_unless(QryMain3.FieldAsInteger("count") == 2,
+              "Main Session: After insert count=%d", QryMain3.FieldAsInteger("count"));
+
+  DbCpp::PgAutonomousSessionManager mngr = DbCpp::mainPgAutonomousSessionManager(STDLOG);
+  DB::TQuery QryAuto1(mngr.session());
+  QryAuto1.SQLText = "insert into TEST_AUTONOMOUS_SESSION(FLD1) VALUES ('A')";
+  QryAuto1.Execute();
+  DB::TQuery QryAuto2(mngr.session());
+  QryAuto2.SQLText = "insert into TEST_AUTONOMOUS_SESSION(FLD1) VALUES ('B')";
+  QryAuto2.Execute();
+
+  DB::TQuery QryAuto3(*get_main_pg_au_sess(STDLOG));
+  QryAuto3.SQLText = "select count(1) as count from TEST_AUTONOMOUS_SESSION";
+  QryAuto3.Execute();
+
+  // 1, 2, A, B
+  fail_unless(QryAuto3.FieldAsInteger("count") == 4,
+              "Auto Session: Before commit count=%d", QryAuto3.FieldAsInteger("count"));
+
+  DB::TQuery QryMain4(*get_main_pg_ro_sess(STDLOG));
+  QryMain4.SQLText = "select count(1) as count from TEST_AUTONOMOUS_SESSION";
+  QryMain4.Execute();
+
+  // 1, 2, A, B
+  fail_unless(QryMain4.FieldAsInteger("count") == 4,
+              "Main Session: Before commit count=%d", QryMain4.FieldAsInteger("count"));
+
+  mngr.commit();
+
+  DB::TQuery QryAuto4(*get_main_pg_au_sess(STDLOG));
+  QryAuto4.SQLText = "select count(1) as count from TEST_AUTONOMOUS_SESSION";
+  QryAuto4.Execute();
+
+  // 1, 2, A, B
+  fail_unless(QryAuto4.FieldAsInteger("count") == 4,
+              "Auto Session: After commit count=%d", QryAuto4.FieldAsInteger("count"));
+
+  DB::TQuery QryMain5(*get_main_pg_ro_sess(STDLOG));
+  QryMain5.SQLText = "select count(1) as count from TEST_AUTONOMOUS_SESSION";
+  QryMain5.Execute();
+
+  // 1, 2, A, B
+  fail_unless(QryMain5.FieldAsInteger("count") == 4,
+              "Main Session: After commit count=%d", QryMain5.FieldAsInteger("count"));
+}
+END_TEST;
 
 #define SUITENAME "db_tquery"
 TCASEREGISTER(testInitDB, testShutDBConnection)
@@ -1582,6 +1790,7 @@ TCASEREGISTER(testInitDB, testShutDBConnection)
     ADD_TEST(compare_empty_string_behavior);
     ADD_TEST(throw_errors);
     ADD_TEST(sqltext_with_spaces);
+    ADD_TEST(autonomous_session);
 }
 TCASEFINISH;
 #undef SUITENAME
