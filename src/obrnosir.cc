@@ -51,6 +51,9 @@ int rbd_test(int argc, char **argv);
 int tzdump(int argc, char **argv);
 int tzdiff(int argc, char **argv);
 int print_pg_tables(int argc, char **argv);
+#ifdef XP_TESTING
+int test_autonomous_session(int argc, char **argv);
+#endif
 
 void init_edilib_callbacks();
 
@@ -116,6 +119,9 @@ const
     {"-comp_elem_types_to_db",  comp_elem_types_to_db,  NULL,                       NULL},
     {"-comp_elem_types_from_db",comp_elem_types_from_db,NULL,                       NULL},
     {"-pg-tables",              print_pg_tables,        NULL,                       NULL},
+#ifdef XP_TESTING
+    {"-test_autonomous_session",test_autonomous_session,NULL,                       NULL},
+#endif
   };
 
 int nosir_test(int argc,char **argv)

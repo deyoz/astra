@@ -57,3 +57,7 @@ checkresult load_fr $?
 
 ( cd src && ./nosir.tcl -comp_elem_types_to_db ../sql/nosir_load/comp_elem_types.dat )
 checkresult comp_elem_types_to_db $?
+
+( cd src && ./nosir.tcl -test_autonomous_session )
+checkresult test_autonomous_session $?
+
