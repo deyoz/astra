@@ -726,9 +726,9 @@ void TFltInfo::dump() const
     LogTrace(TRACE5) << "----------------------";
 }
 
-void lockTlgBind(TBindType bind_type)
+void lockTlgBind(DbCpp::Session& session, TBindType bind_type)
 {
-  DB::TQuery Qry(PgOra::getRWSession("TLG_BIND_TYPES"));
+  DB::TQuery Qry(session);
   Qry.SQLText = "SELECT code FROM tlg_bind_types "
                 "WHERE code=:bind_type "
                 "FOR UPDATE ";
@@ -736,7 +736,36 @@ void lockTlgBind(TBindType bind_type)
   Qry.Execute();
 }
 
-std::optional<PointIdTlg_t> getMinPointIdTlg(const std::string& airline,
+PointIdTlg_t getNextPointIdTlg(DbCpp::Session& session)
+{
+  if (!PgOra::supportsPg("POINT_ID")) {
+    std::string sql;
+    TQuery Qry(&OraSession);
+    sql = "DECLARE \n";
+    if (!inTestMode()) {
+      sql += "  PRAGMA AUTONOMOUS_TRANSACTION; \n";
+    }
+    sql += "BEGIN \n"
+           "  SELECT point_id.nextval INTO :point_id FROM dual; \n";
+    if(!inTestMode()) {
+      sql += "  COMMIT; \n";
+    }
+    sql += "END; \n";
+    Qry.SQLText = sql;
+    Qry.CreateVariable("point_id", otInteger, FNull);
+    Qry.Execute();
+    return PointIdTlg_t(Qry.GetVariableAsInteger("point_id"));
+  }
+
+  int result = 0;
+  make_db_curs("SELECT NEXTVAL(POINT_ID)", session)
+          .def(result)
+          .EXfet();
+  return PointIdTlg_t(result);
+}
+
+std::optional<PointIdTlg_t> getMinPointIdTlg(DbCpp::Session& session,
+                                             const std::string& airline,
                                              int flt_no,
                                              const std::string& suffix,
                                              TDateTime scd,
@@ -745,7 +774,7 @@ std::optional<PointIdTlg_t> getMinPointIdTlg(const std::string& airline,
                                              const std::string&airp_arv,
                                              TBindType bind_type)
 {
-  DB::TQuery Qry(PgOra::getRWSession("TLG_BIND_TYPES"));
+  DB::TQuery Qry(session);
   Qry.SQLText = "SELECT MIN(point_id) AS point_id FROM tlg_trips "
                 "WHERE airline=:airline AND flt_no=:flt_no AND "
                 "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
@@ -770,7 +799,9 @@ std::optional<PointIdTlg_t> getMinPointIdTlg(const std::string& airline,
 
 std::pair<int, bool> TFltInfo::getPointId(TBindType bind_type) const
 {
-  if (!PgOra::supportsPg("TLG_TRIPS")) {
+  if (!PgOra::supportsPg("TLG_TRIPS")
+      && !PgOra::supportsPg("TLG_BIND_TYPES"))
+  {
     TQuery Qry(&OraSession);
     std::string sql =
         "DECLARE \n";
@@ -830,16 +861,24 @@ std::pair<int, bool> TFltInfo::getPointId(TBindType bind_type) const
     return make_pair(point_id, inserted);
   }
 
-  // TODO PG AUTONOMOUS TRANSACTION
-  lockTlgBind(bind_type);
+  if (PgOra::supportsPg("TLG_TRIPS") != PgOra::supportsPg("TLG_BIND_TYPES"))
+  {
+    throw Exception("%s: Diff db for TLG_TRIPS and TLG_BIND_TYPES", __FUNCTION__);
+  }
+
+  DbCpp::PgAutonomousSessionManager mngr = DbCpp::mainPgAutonomousSessionManager(STDLOG);
+  lockTlgBind(mngr.session(), bind_type);
   const std::optional<PointIdTlg_t> min_point_id_tlg =
-      getMinPointIdTlg(airline, flt_no, suffix, scd, pr_utc,
+      getMinPointIdTlg(mngr.session(),
+                       airline, flt_no, suffix, scd, pr_utc,
                        airp_dep, airp_arv, bind_type);
   if (min_point_id_tlg) {
+    mngr.commit();
     return make_pair(min_point_id_tlg->get(), false);
   }
-  const PointIdTlg_t point_id_tlg(PgOra::getSeqNextVal_int("POINT_ID"));
-  DB::TQuery Qry(PgOra::getRWSession("TLG_TRIPS"));
+
+  const PointIdTlg_t point_id_tlg = getNextPointIdTlg(mngr.session());
+  DB::TQuery Qry(mngr.session());
   Qry.SQLText =
       "INSERT INTO tlg_trips "
       "(point_id,airline,flt_no,suffix,scd,pr_utc,airp_dep,airp_arv,bind_type) "
@@ -861,6 +900,7 @@ std::pair<int, bool> TFltInfo::getPointId(TBindType bind_type) const
   if (inserted) {
     LogTrace(TRACE5) << __func__ << ": point_id=" << point_id_tlg << " inserted";
   }
+  mngr.commit();
 
   return make_pair(point_id_tlg.get(), inserted);
 }
