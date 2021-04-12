@@ -584,9 +584,6 @@ bool TSeatCoordsSalon::addSeat( TPlaceList *placeList, int x, int xlen, int y,
   if ( icoord == coords.end() ) {
     icoord = coords.insert( make_pair(prioritySeats,TSeatCoords()) ).first;
   }
-  if ( pr_seats ) {
-    LogTrace(TRACE5) << "prioritySeats=" << prioritySeats << " (x=" << p.x <<",y=" << p.y << ")";
-  }
   icoord->second.push_back( p );
   return true;
 }
@@ -620,7 +617,7 @@ void TSeatCoordsClass::addBaseSeat( TPlaceList* placeList, TPoint &p, std::set<i
   }*/
   TSeatCoordsSalon coordSalon;
   coordSalon.placeList = placeList;
-  LogTrace(TRACE5) << coordSalon.placeList->num;
+  //LogTrace(TRACE5) << coordSalon.placeList->num;
   if ( coordSalon.addSeat( placeList, p.x, 0, p.y, false, false, true ) ) {
     ProgTrace( TRACE5, "addBaseSeat: x=%d, y=%d", p.x, p.y );
   }
@@ -630,7 +627,7 @@ void TSeatCoordsClass::addBaseSeat( TPlaceList* placeList, TPoint &p, std::set<i
 bool SortPaxSeats( TCoordSeat item1, TCoordSeat item2 )
 {
   return (
-           getSeatKey::get( item1.placeListIdx, item1.p.x, item1.p.y ) <
+           getSeatKey::get( item1.placeListIdx, item1.p.x, item1.p.y ) >
            getSeatKey::get( item2.placeListIdx, item2.p.x, item2.p.y )
           );
 }
@@ -696,7 +693,7 @@ void TSeatCoordsClass::refreshCoords( TSeatAlgoTypes ASeatAlgoType,
                                       const std::vector<TCoordSeat> &paxsSeats )
 {
   SeatsStat.start(__FUNCTION__);
-  LogTrace(TRACE5) << paxsSeats.size();
+//  LogTrace(TRACE5) << paxsSeats.size();
   clear();
   int xlen, ylen;
   // сверху вниз
@@ -1943,7 +1940,7 @@ void TSeatPlaces::operator >> ( VSeatPlaces &items )
 bool TSeatPlaces::SeatsGrp_On( SALONS2::TPoint FP  )
 {
   SeatsStat.start(__FUNCTION__);
-  ProgTrace( TRACE5, "FP(x=%d, y=%d)", FP.x, FP.y );
+  //ProgTrace( TRACE5, "FP(x=%d, y=%d)", FP.x, FP.y );
   /* очистить помеченные места */
   RollBack( );
   /* если есть пассажиры в группе с вертикальной рассадкой, то пробуем их рассадить */
@@ -2044,7 +2041,7 @@ inline void getRemarks( TPassenger &pass )
 bool TSeatPlaces::SeatGrpOnBasePlace( )
 {
   SeatsStat.start(__FUNCTION__);
-  ProgTrace( TRACE5, "SeatGrpOnBasePlace( )" );
+  //ProgTrace( TRACE5, "SeatGrpOnBasePlace( )" );
   int G3 = Passengers.counters.p_Count_3( sRight );
   int G2 = Passengers.counters.p_Count_2( sRight );
   int G = Passengers.counters.p_Count( sRight );
@@ -2076,7 +2073,7 @@ bool TSeatPlaces::SeatGrpOnBasePlace( )
         for ( int Where=sLeftRight; Where<=sUpDown; Where++ ) {
           /* варианты поиска возле найденного места */
           for( vecSeatCoordsVars::iterator icoord=CoordsVars.begin(); icoord!=CoordsVars.end(); icoord++ ) {
-            LogTrace(TRACE5) << icoord->placeList->num;
+            //LogTrace(TRACE5) << icoord->placeList->num;
             CurrSalon::get().SetCurrPlaceList( icoord->placeList );
             for ( map<int,TSeatCoords>::iterator ivariant=icoord->coords.begin(); ivariant!=icoord->coords.end(); ivariant++ ) {
               for ( vector<TPoint>::iterator ic=ivariant->second.begin(); ic!=ivariant->second.end(); ic++ ) {
@@ -2129,11 +2126,11 @@ bool TSeatPlaces::SeatsGrp( )
   RollBack( );
   vecSeatCoordsVars CoordsVars = seatCoords.getSeatCoordsVars( );
   for( vecSeatCoordsVars::iterator icoord=CoordsVars.begin(); icoord!=CoordsVars.end(); icoord++ ) {
-    LogTrace(TRACE5) << icoord->placeList->num;
+    //LogTrace(TRACE5) << icoord->placeList->num;
     CurrSalon::get().SetCurrPlaceList( icoord->placeList );
     for ( map<int,TSeatCoords>::iterator ivariant=icoord->coords.begin(); ivariant!=icoord->coords.end(); ivariant++ ) {
       for ( vector<TPoint>::iterator ic=ivariant->second.begin(); ic!=ivariant->second.end(); ic++ ) {
-        LogTrace(TRACE5) << "x=" << ic->x << " y=" << ic->y;
+        //LogTrace(TRACE5) << "x=" << ic->x << " y=" << ic->y;
         if ( SeatsGrp_On( *ic ) ) {
           SeatsStat.stop(__FUNCTION__);
           return true;
@@ -3174,10 +3171,12 @@ class TAdulstWithBabys:public std::map<std::string,std::vector<TAdultWithBabys>>
   private:
     bool separately_seat_adult_with_baby;
     bool separately_seat_chin_emergency;
+    bool issubgrp;
   public:
     TAdulstWithBabys() {
       separately_seat_adult_with_baby = false;
       separately_seat_chin_emergency = false;
+      issubgrp = false;
     }
     TAdulstWithBabys( bool vseparately_seat_adult_with_baby,
                       bool vseparately_seat_chin_emergency ) {
@@ -3185,20 +3184,16 @@ class TAdulstWithBabys:public std::map<std::string,std::vector<TAdultWithBabys>>
       vseparately_seat_chin_emergency = vseparately_seat_chin_emergency;
     }
     void setAdultToGrp( const TPassenger& pass ) {
-      tst();
       TAdultWithBabys adult( pass.index );
       ostringstream grp_variant;
       bool ignoreINFT = !AllowedAttrsSeat.pr_isWorkINFT;
       bool pr_pay = isPassPay( pass.preseat_layer );
-      tst();
       grp_variant << pass.cabin_clname;
       bool isInft = pass.isRemark("INFT");
       grp_variant << separatelyRem( isInft && separately_seat_adult_with_baby?"INFT":"", pass.index );
-      tst();
       if (isInft) adult.infts++;
       bool isChin = pass.isRemark("CHIN");
       grp_variant << separatelyRem( isChin && separately_seat_adult_with_baby?"CHIN":"", pass.index );
-      tst();
       //дети и оплата
       grp_variant << pr_pay << pass.ignore_tariff << (ignoreINFT || pass.isRemark( "INFT" ));
       //тариф
@@ -3211,6 +3206,7 @@ class TAdulstWithBabys:public std::map<std::string,std::vector<TAdultWithBabys>>
       setAdultToGrp( pass );
     }
     void setChildToAdult( const TPassenger& child_pass ) {
+      issubgrp = true;
       int pos_adult_priority = -1;
       int priority = 100;
       std::string Key;
@@ -3219,7 +3215,7 @@ class TAdulstWithBabys:public std::map<std::string,std::vector<TAdultWithBabys>>
       for ( auto adults : *this ) {
         for ( std::vector<TAdultWithBabys>::iterator iadult=adults.second.begin(); iadult!=adults.second.end(); iadult++ ) {
           int apriority = iadult->priority();
-          ProgTrace(TRACE5, "adult index=%d, priority=%d",iadult->index, apriority);
+      //    ProgTrace(TRACE5, "adult index=%d, priority=%d",iadult->index, apriority);
           if ( apriority < priority ) {
             Key = adults.first;
             pos_adult_priority = std::distance( adults.second.begin(), iadult );
@@ -3254,24 +3250,30 @@ class TAdulstWithBabys:public std::map<std::string,std::vector<TAdultWithBabys>>
     void getGrps( vector<TPassengers> &passGrps,
                   TPassengers &passengers ) {
 
-      std::map<int,TPassengers,std::greater<int>> sortByCountPassengers;
+      passGrps.clear();
+      std::map<int,std::vector<TPassengers>,std::greater<int>> sortByCountPassengers;
       for ( const auto& igrp : *this ) {
         TPassengers ps;
         for ( const auto& p : igrp.second ) {
          TPassenger pass = passengers.Get( p.index );
           ps.Add( pass, pass.index );
-          ps.issubgrp = true;
+          ps.issubgrp = issubgrp;
           for ( const auto &idx : p.indexs_childs ) {
             TPassenger pass = passengers.Get( idx );
             ps.Add( pass, pass.index );
             ps.wo_aisle = true;
           }
         }
-        sortByCountPassengers.emplace( ps.getCount(), ps );
+        sortByCountPassengers.emplace( ps.getCount(), std::vector<TPassengers>() ).first->second.emplace_back(ps);
       }
       //по убыванию
-      using Map = std::map<int, TPassengers>;
-      passGrps = algo::transform<std::vector>(sortByCountPassengers, [](const Map::value_type& kv) { return kv.second; });
+      for ( const auto& vp : sortByCountPassengers ) {
+        for ( const auto & p : vp.second ) {
+          passGrps.emplace_back( p );
+        }
+      }
+      //using Map = std::map<int, std::vector<TPassengers>>;
+      //passGrps = algo::transform<std::vector>(sortByCountPassengers, [](const Map::value_type& kv) { return kv.second; });
       // а это всегда в конце
       if ( passengers.getCount() > 0 ) { //??? делается на всякий случай, чтобы сработал старый алгоритм без разбивки на подгруппы
         passGrps.emplace_back( passengers );
@@ -3279,15 +3281,16 @@ class TAdulstWithBabys:public std::map<std::string,std::vector<TAdultWithBabys>>
       }
 
       int i = 0;
-      ostringstream grp;
+      ostringstream logm;
+      logm << "passGrps.size=" << passGrps.size() << "issubgrp=" << issubgrp << std::endl;
       for ( auto& g : passGrps ) {
         i++;
-        grp << i << " wo_aisle=" << g.wo_aisle << std::endl;
+        logm << i << " wo_aisle=" << g.wo_aisle << std::endl;
         for ( int c=0; c<g.getCount(); c++ ) {
-          grp << g.Get(c).toString() << std::endl;
+          logm << g.Get(c).toString() << std::endl;
         }
       }
-      LogTrace(TRACE5) << grp.str();
+      LogTrace(TRACE5) << logm.str();
     }
 };
 
@@ -4018,11 +4021,12 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
              /* использование платных мест */
              bool ignore_rate = condRates.ignore_rate;
              for ( condRates.current_rate = condRates.rates.begin(); condRates.current_rate != condRates.rates.end(); condRates.current_rate++ ) {
-//               ProgTrace( TRACE5, "current_rate=condRates.rates.current_rate=%s", condRates.current_rate->str().c_str() );
+               //ProgTrace( TRACE5, "current_rate=condRates.rates.current_rate=%s", condRates.current_rate->str().c_str() );
                if ( condRates.current_rate->rate != 0.0   &&
+                    !passengers.issubgrp &&
                     ( SeatAlg != sSeatPassengers || SeatOnlyBasePlace )
                       ) { //рассадка на платные места только по одному SeatAlg=1 и надо игнорировать рассадку на базовые места, если они стоят денег
-//                 ProgTrace( TRACE5, "condRates.current_rate=%f continue", condRates.current_rate->rate );
+                 //ProgTrace( TRACE5, "condRates.current_rate=%f continue", condRates.current_rate->rate );
                  continue;
                }
                if ( use_preseat_layer && SeatAlg == sSeatPassengers ) {
@@ -4114,7 +4118,6 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                               !separately_seats_adult_with_baby &&
                               !passengers.wo_aisle &&
                               !passengers.issubgrp) {
-                           ProgTrace(TRACE5, "paxsSeats.size()=%lu", paxsSeats.size() );
                            //ProgTrace( TRACE5, "separately_seats_adult_with_baby");
                            continue;
                          }
@@ -4123,11 +4126,9 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                            continue;
                          }*/
                          if ( FCanUseTube && CanUseAlone == uFalse3 && !canUseOneRow ) {
-                           tst();
                            continue;
                          }
                          if ( canUseOneRow && !FCanUseTube ) {
-                           tst();
                            continue;
                          }
                          CanUseTube = FCanUseTube;
@@ -4165,8 +4166,8 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                                }
                                break;
                            } /* end switch SeatAlg */
-                           ProgTrace( TRACE5, "seats with:SeatAlg=%d,FCanUseElem_Type=%d,FCanUseRems=%s,FCanUseAlone=%d,KeyLayers=%d,FCanUseTube=%d,FCanUseSmoke=%d,PlaceLayer=%s, MAXPLACE=%d,canUseOneRow=%d, CanUseSUBCLS=%d, SUBCLS_REM=%s",
-                                      param1,param2,param3.c_str(),param4,param5,param6,param7,param8.c_str(),param9,param10,param11,param12.c_str());
+                           //ProgTrace( TRACE5, "seats with:SeatAlg=%d,FCanUseElem_Type=%d,FCanUseRems=%s,FCanUseAlone=%d,KeyLayers=%d,FCanUseTube=%d,FCanUseSmoke=%d,PlaceLayer=%s, MAXPLACE=%d,canUseOneRow=%d, CanUseSUBCLS=%d, SUBCLS_REM=%s",
+//                                      param1,param2,param3.c_str(),param4,param5,param6,param7,param8.c_str(),param9,param10,param11,param12.c_str());
 
                          } /* end for FCanUseSmoke */
                        } /* end for FCanUseTube */
