@@ -14,6 +14,9 @@
 #include "stages.h"
 #include "xml_unit.h"
 #include "astra_types.h"
+#include "db_tquery.h"
+#include "arx_daily_pg.h"
+#include "dbostructures.h"
 
 using BASIC::date_time::TDateTime;
 
@@ -238,7 +241,9 @@ class TTripInfo
       airp_fmt = efmtUnknown;
       craft_fmt = efmtUnknown;
     };
-    void init( TQuery &Qry )
+
+    template<typename Query>
+    void init( Query &Qry )
     {
       init();
       airline=Qry.FieldAsString("airline");
@@ -275,6 +280,7 @@ class TTripInfo
           point_id = Qry.FieldAsInteger("point_id");
     };
   public:
+    void fromArxPoint(const dbo::Arx_Points &arx_point);
     static bool match(TQuery &Qry, const FlightProps& props)
     {
       if (props.cancellation()==FlightProps::NotCancelled && Qry.FieldAsInteger("pr_del")!=0) return false;
@@ -320,6 +326,10 @@ class TTripInfo
     {
       init(Qry);
     };
+    TTripInfo( DB::TQuery &Qry )
+    {
+      init(Qry);
+    };
     virtual ~TTripInfo() {};
     virtual void Clear()
     {
@@ -330,11 +340,9 @@ class TTripInfo
       init(Qry);
     };
   public:
-    virtual bool getByPointId ( const TDateTime part_key,
-                                const int point_id,
-                                const FlightProps& props = FlightProps() );
-    virtual bool getByPointId ( const int point_id,
-                                const FlightProps& props = FlightProps() );
+    virtual bool getByPointId (const TDateTime part_key, const int point_id,
+                               const FlightProps& props = FlightProps() );
+    virtual bool getByPointId ( const int point_id, const FlightProps& props = FlightProps() );
     virtual bool getByPointIdTlg ( const int point_id_tlg );
     virtual bool getByPaxId ( const int pax_id );
     virtual bool getByGrpId ( const int grp_id );
@@ -453,8 +461,7 @@ class TAdvTripInfo : public TTripInfo
     virtual bool getByPointId ( const TDateTime part_key,
                                 const int point_id,
                                 const FlightProps& props = FlightProps() );
-    virtual bool getByPointId ( const int point_id,
-                                const FlightProps& props = FlightProps() );
+    virtual bool getByPointId ( const int point_id, const FlightProps& props = FlightProps() );
     static bool transitable(const PointId_t& pointId);
     bool transitable() const
     {
@@ -466,7 +473,11 @@ class TAdvTripInfo : public TTripInfo
 typedef std::list<TAdvTripInfo> TAdvTripInfoList;
 typedef ASTRA::Cache<int/*pnr_id*/, TAdvTripInfoList> PnrFlightsCache;
 
-void getPointIdsSppByPointIdTlg(const int point_id_tlg, std::set<int>& point_ids_spp);
+void getPointIdsSppByPointIdTlg(const PointIdTlg_t& point_id_tlg,
+                                std::set<PointId_t>& point_ids_spp,
+                                bool clear = true);
+std::set<PointId_t> getPointIdsSppByPointIdTlg(const PointIdTlg_t& point_id_tlg);
+
 void getTripsByPointIdTlg(const int point_id_tlg, TAdvTripInfoList &trips);
 void getTripsByCRSPnrId(const int pnr_id, TAdvTripInfoList &trips);
 void getTripsByCRSPaxId(const int pax_id, TAdvTripInfoList &trips);
@@ -705,11 +716,25 @@ class TTripRoute : public TTripBase, public std::vector<TTripRouteItem>
                   TTripRouteType1 route_type1,
                   TTripRouteType2 route_type2,
                   TQuery& Qry);
+    void GetArxRoute(TDateTime part_key,
+                     int point_id,
+                     int point_num,
+                     int first_point,
+                     bool pr_tranzit,
+                     bool after_current,
+                     TTripRouteType1 route_type1,
+                     TTripRouteType2 route_type2);
+
     virtual bool GetRoute(TDateTime part_key,
                 int point_id,
                 bool after_current,
                 TTripRouteType1 route_type1,
                 TTripRouteType2 route_type2);
+    bool GetArxRoute(TDateTime part_key,
+                     int point_id,
+                     bool after_current,
+                     TTripRouteType1 route_type1,
+                     TTripRouteType2 route_type2);
   public:
     //возвращает следующий пункт маршрута
     void GetNextAirp(TDateTime part_key,
@@ -764,11 +789,26 @@ class TAdvTripRoute : public TTripBase, public std::vector<TAdvTripRouteItem>
                   TTripRouteType1 route_type1,
                   TTripRouteType2 route_type2,
                   TQuery& Qry);
+
+    void GetArxRoute(TDateTime part_key,
+                        int point_id,
+                        int point_num,
+                        int first_point,
+                        bool pr_tranzit,
+                        bool after_current,
+                        TTripRouteType1 route_type1,
+                        TTripRouteType2 route_type2);
+
     virtual bool GetRoute(TDateTime part_key,
                 int point_id,
                 bool after_current,
                 TTripRouteType1 route_type1,
                 TTripRouteType2 route_type2);
+    bool GetArxRoute(TDateTime part_key,
+                     int point_id,
+                     bool after_current,
+                     TTripRouteType1 route_type1,
+                     TTripRouteType2 route_type2);
 
     template <class T>
     void trimRoute(const T& criterion)
@@ -1123,6 +1163,7 @@ struct TCFGItem {
 
 struct TCFG:public std::vector<TCFGItem> {
     void get(int point_id, TDateTime part_key = ASTRA::NoExists); //NoExists если в оперативной базе, иначе в архивной
+    void get_arx(int point_id, TDateTime part_key);
     std::string str(const std::string &lang="", const std::string &separator=" ");
     void param(LEvntPrms& params);
     TCFG(int point_id, TDateTime part_key = ASTRA::NoExists) { get(point_id, part_key); };

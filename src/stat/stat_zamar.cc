@@ -66,56 +66,85 @@ void TZamarFullStat::add(const TZamarStatRow &row)
     totals.add(row);
 }
 
+void ArxRunZamarStat(
+        const TStatParams &params,
+        TZamarAbstractStat &ZamarStat
+        )
+{
+    LogTrace5 << __func__;
+    QParams QryParams;
+    QryParams
+        << QParam("FirstDate", otDate, params.FirstDate)
+        << QParam("LastDate", otDate, params.LastDate)
+        << QParam("sbdo_type", otString, EncodeZamarType(ZamarType::SBDO));
+
+    string SQLText = "select arx_stat_zamar.* "
+                     "from arx_stat_zamar "
+                     "where ";
+    params.AccessClause(SQLText, "arx_stat_zamar");
+    SQLText += "   arx_stat_zamar.part_key >= :FirstDate AND arx_stat_zamar.part_key < :LastDate and \n"
+               "   arx_stat_zamar.time >= :FirstDate AND arx_stat_zamar.time < :LastDate and "
+               "   arx_stat_zamar.sbdo_type = :sbdo_type ";
+    DB::TCachedQuery Qry(PgOra::getROSession("ARX_STAT_ZAMAR"), SQLText, QryParams);
+
+    Qry.get().Execute();
+    if(not Qry.get().Eof) {
+        int col_airline = Qry.get().GetFieldIndex("airline");
+        int col_airp = Qry.get().GetFieldIndex("airp");
+        int col_amount_ok = Qry.get().GetFieldIndex("amount_ok");
+        int col_amount_fault = Qry.get().GetFieldIndex("amount_fault");
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            TZamarStatRow row(
+                    AirportCode_t(ElemIdToCodeNative(etAirp, Qry.get().FieldAsString(col_airp))),
+                    AirlineCode_t(ElemIdToCodeNative(etAirline, Qry.get().FieldAsString(col_airline))),
+                    Qry.get().FieldAsInteger(col_amount_ok),
+                    Qry.get().FieldAsInteger(col_amount_fault)
+                    );
+            ZamarStat.add(row);
+            params.overflow.check(ZamarStat.RowCount());
+        }
+    }
+}
+
 void RunZamarStat(
         const TStatParams &params,
         TZamarAbstractStat &ZamarStat
         )
 {
-    for(int pass = 0; pass <= 1; pass++) {
-        QParams QryParams;
-        QryParams
-            << QParam("FirstDate", otDate, params.FirstDate)
-            << QParam("LastDate", otDate, params.LastDate)
-            << QParam("sbdo_type", otString, EncodeZamarType(ZamarType::SBDO));
+    QParams QryParams;
+    QryParams
+        << QParam("FirstDate", otDate, params.FirstDate)
+        << QParam("LastDate", otDate, params.LastDate)
+        << QParam("sbdo_type", otString, EncodeZamarType(ZamarType::SBDO));
 
-        string SQLText = "select stat_zamar.* from ";
-        if(pass != 0) {
-            SQLText +=
-                "   arx_stat_zamar stat_zamar ";
-        } else {
-            SQLText +=
-                "   stat_zamar ";
-        }
-        SQLText +=
-            "where ";
-        params.AccessClause(SQLText, "stat_zamar");
+    string SQLText = "select stat_zamar.* "
+                     "from  stat_zamar "
+                     "where ";
+    params.AccessClause(SQLText, "stat_zamar");
+    SQLText +=
+        "   stat_zamar.time >= :FirstDate AND stat_zamar.time < :LastDate and "
+        "   stat_zamar.sbdo_type = :sbdo_type ";
+    TCachedQuery Qry(SQLText, QryParams);
 
-        if(pass != 0)
-            SQLText +=
-                "    stat_zamar.part_key >= :FirstDate AND stat_zamar.part_key < :LastDate and \n";
-        SQLText +=
-            "   stat_zamar.time >= :FirstDate AND stat_zamar.time < :LastDate and "
-            "   stat_zamar.sbdo_type = :sbdo_type ";
-        TCachedQuery Qry(SQLText, QryParams);
-
-        Qry.get().Execute();
-        if(not Qry.get().Eof) {
-            int col_airline = Qry.get().GetFieldIndex("airline");
-            int col_airp = Qry.get().GetFieldIndex("airp");
-            int col_amount_ok = Qry.get().GetFieldIndex("amount_ok");
-            int col_amount_fault = Qry.get().GetFieldIndex("amount_fault");
-            for(; not Qry.get().Eof; Qry.get().Next()) {
-                TZamarStatRow row(
-                        AirportCode_t(ElemIdToCodeNative(etAirp, Qry.get().FieldAsString(col_airp))),
-                        AirlineCode_t(ElemIdToCodeNative(etAirline, Qry.get().FieldAsString(col_airline))),
-                        Qry.get().FieldAsInteger(col_amount_ok),
-                        Qry.get().FieldAsInteger(col_amount_fault)
-                        );
-                ZamarStat.add(row);
-                params.overflow.check(ZamarStat.RowCount());
-            }
+    Qry.get().Execute();
+    if(not Qry.get().Eof) {
+        int col_airline = Qry.get().GetFieldIndex("airline");
+        int col_airp = Qry.get().GetFieldIndex("airp");
+        int col_amount_ok = Qry.get().GetFieldIndex("amount_ok");
+        int col_amount_fault = Qry.get().GetFieldIndex("amount_fault");
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            TZamarStatRow row(
+                    AirportCode_t(ElemIdToCodeNative(etAirp, Qry.get().FieldAsString(col_airp))),
+                    AirlineCode_t(ElemIdToCodeNative(etAirline, Qry.get().FieldAsString(col_airline))),
+                    Qry.get().FieldAsInteger(col_amount_ok),
+                    Qry.get().FieldAsInteger(col_amount_fault)
+                    );
+            ZamarStat.add(row);
+            params.overflow.check(ZamarStat.RowCount());
         }
     }
+
+    ArxRunZamarStat(params, ZamarStat);
 }
 
 void createXMLZamarFullStat(

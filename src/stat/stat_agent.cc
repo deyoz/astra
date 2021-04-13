@@ -2,6 +2,11 @@
 #include "astra_date_time.h"
 #include "stat_utils.h"
 #include "report_common.h"
+#include "PgOraConfig.h"
+
+#define NICKNAME "DENIS"
+#include "serverlib/slogger.h"
+#include <serverlib/slogger_nonick.h>
 
 using namespace std;
 using namespace ASTRA;
@@ -63,182 +68,337 @@ bool TAgentCmp::operator() (const TAgentStatKey &lr, const TAgentStatKey &rr) co
         return lr.airline_view < rr.airline_view;
 }
 
+void ArxRunAgentStat(const TStatParams &params,
+                  TAgentStat &AgentStat, TAgentStatRow &AgentStatTotal,
+                  TPrintAirline &prn_airline)
+{
+    LogTrace5 << __func__;
+    auto & Users =  UsersReader::Instance();
+    Users.updateUsers();
+
+    DB::TQuery Qry(PgOra::getROSession("ARX_AGENT_STAT"));
+    string SQLText =
+        "SELECT \n"
+        "  arx_points.point_id, \n"
+        "  arx_points.airline, \n"
+        "  arx_points.flt_no, \n"
+        "  arx_points.suffix, \n"
+        "  arx_points.airp, \n"
+        "  arx_points.scd_out, \n"
+        "  ags.desk, \n"
+        "  ags.pax_time, \n"
+        "  ags.pax_amount, \n"
+        "  ags.dpax_amount_inc pax_am_inc, \n"
+        "  ags.dpax_amount_dec pax_am_dec, \n"
+        "  ags.dtckin_amount_inc tckin_am_inc, \n"
+        "  ags.dtckin_amount_dec tckin_am_dec, \n"
+        "  ags.dbag_amount_inc bag_am_inc, \n"
+        "  ags.dbag_amount_dec bag_am_dec, \n"
+        "  ags.dbag_weight_inc bag_we_inc, \n"
+        "  ags.dbag_weight_dec bag_we_dec, \n"
+        "  ags.drk_amount_inc rk_am_inc, \n"
+        "  ags.drk_amount_dec rk_am_dec, \n"
+        "  ags.drk_weight_inc rk_we_inc, \n"
+        "  ags.drk_weight_dec rk_we_dec, \n"
+        "  ags.user_id \n"  //for join with users2
+        "FROM \n"
+        "   arx_points , \n"
+        "   arx_agent_stat ags \n"
+        "WHERE \n"
+        "   ags.point_part_key = arx_points.part_key AND \n"
+        "   ags.point_id = arx_points.point_id AND \n"
+        "   arx_points.pr_del >= 0 AND \n";
+
+    params.AccessClause(SQLText, "arx_points");
+    SQLText += " ags.part_key >= :FirstDate AND ags.part_key < :LastDate \n";
+
+    if(params.flt_no != NoExists) {
+        SQLText += " AND arx_points.flt_no = :flt_no \n";
+        Qry.CreateVariable("flt_no", otInteger, params.flt_no);
+    }
+    if(!params.desk.empty()) {
+        SQLText += " AND ags.desk = :desk \n";
+        Qry.CreateVariable("desk", otString, params.desk);
+    }
+    if(!params.user_login.empty()) {
+        std::optional<int> user_id = Users.getUserId(params.user_login);
+        if(user_id) {
+            SQLText += " AND ags.user_id = :user_id \n";
+            Qry.CreateVariable("user_id", otInteger, *user_id);
+        } else {
+            LogTrace5 << __func__  << " Not found user_id by login: " << params.user_login;
+        }
+    }
+    //ProgTrace(TRACE5, "RunAgentStat: pass=%d SQL=\n%s", pass, SQLText.c_str());
+    Qry.SQLText = SQLText;
+    Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
+    Qry.CreateVariable("LastDate", otDate, params.LastDate);
+    Qry.Execute();
+    if(not Qry.Eof) {
+        int col_point_id = Qry.FieldIndex("point_id");
+        int col_airline = Qry.FieldIndex("airline");
+        int col_flt_no = Qry.FieldIndex("flt_no");
+        int col_suffix = Qry.FieldIndex("suffix");
+        int col_airp = Qry.FieldIndex("airp");
+        int col_scd_out = Qry.FieldIndex("scd_out");
+        int col_user_id = Qry.FieldIndex("user_id");
+        int col_desk = Qry.FieldIndex("desk");
+        int col_pax_time = Qry.FieldIndex("pax_time");
+        int col_pax_amount = Qry.FieldIndex("pax_amount");
+        int col_pax_am_inc = Qry.FieldIndex("pax_am_inc");
+        int col_pax_am_dec = Qry.FieldIndex("pax_am_dec");
+        int col_tckin_am_inc = Qry.FieldIndex("tckin_am_inc");
+        int col_tckin_am_dec = Qry.FieldIndex("tckin_am_dec");
+        int col_bag_am_inc = Qry.FieldIndex("bag_am_inc");
+        int col_bag_am_dec = Qry.FieldIndex("bag_am_dec");
+        int col_bag_we_inc = Qry.FieldIndex("bag_we_inc");
+        int col_bag_we_dec = Qry.FieldIndex("bag_we_dec");
+        int col_rk_am_inc = Qry.FieldIndex("rk_am_inc");
+        int col_rk_am_dec = Qry.FieldIndex("rk_am_dec");
+        int col_rk_we_inc = Qry.FieldIndex("rk_we_inc");
+        int col_rk_we_dec = Qry.FieldIndex("rk_we_dec");
+        for(; not Qry.Eof; Qry.Next())
+        {
+          if(!Users.containsUser(Qry.FieldAsInteger(col_user_id))) {
+              continue;
+          }
+          string airline = Qry.FieldAsString(col_airline);
+          prn_airline.check(airline);
+
+          TAgentStatRow row;
+          row.processed_pax = Qry.FieldAsInteger(col_pax_amount);
+          row.time = Qry.FieldAsInteger(col_pax_time);
+          row.dpax_amount.inc = Qry.FieldAsInteger(col_pax_am_inc);
+          row.dpax_amount.dec = Qry.FieldAsInteger(col_pax_am_dec);
+          row.dtckin_amount.inc = Qry.FieldAsInteger(col_tckin_am_inc);
+          row.dtckin_amount.dec = Qry.FieldAsInteger(col_tckin_am_dec);
+          row.dbag_amount.inc = Qry.FieldAsInteger(col_bag_am_inc);
+          row.dbag_amount.dec = Qry.FieldAsInteger(col_bag_am_dec);
+          row.dbag_weight.inc = Qry.FieldAsInteger(col_bag_we_inc);
+          row.dbag_weight.dec = Qry.FieldAsInteger(col_bag_we_dec);
+          row.drk_amount.inc = Qry.FieldAsInteger(col_rk_am_inc);
+          row.drk_amount.dec = Qry.FieldAsInteger(col_rk_am_dec);
+          row.drk_weight.inc = Qry.FieldAsInteger(col_rk_we_inc);
+          row.drk_weight.dec = Qry.FieldAsInteger(col_rk_we_dec);
+
+          if (params.statType == statAgentTotal)
+          {
+            row.dpax_amount.inc -= row.dpax_amount.dec; //сухой остаток (не суммируем)
+            row.dpax_amount.dec = 0;
+            row.dtckin_amount.inc -= row.dtckin_amount.dec;
+            row.dtckin_amount.dec = 0;
+            row.dbag_amount.inc -= row.dbag_amount.dec;
+            row.dbag_amount.dec = 0;
+            row.dbag_weight.inc -= row.dbag_weight.dec;
+            row.dbag_weight.dec = 0;
+            row.drk_amount.inc -= row.drk_amount.dec;
+            row.drk_amount.dec = 0;
+            row.drk_weight.inc -= row.drk_weight.dec;
+            row.drk_weight.dec = 0;
+          };
+
+          if (!params.skip_rows)
+          {
+            string airp = Qry.FieldAsString(col_airp);
+            TAgentStatKey key;
+            if(
+                    params.statType == statAgentFull or
+                    params.statType == statAgentShort
+                    ) {
+                key.point_id = Qry.FieldAsInteger(col_point_id);
+                key.airline_view = ElemIdToCodeNative(etAirline, airline);
+                key.flt_no = Qry.FieldAsInteger(col_flt_no);
+                key.suffix_view = ElemIdToCodeNative(etSuffix, Qry.FieldAsString(col_suffix));
+                key.airp = Qry.FieldAsString(col_airp);
+                key.airp_view = ElemIdToCodeNative(etAirp, key.airp);
+                key.scd_out = Qry.FieldAsDateTime(col_scd_out);
+                try
+                {
+                    key.scd_out_local = UTCToClient(key.scd_out, AirpTZRegion(key.airp));
+                }
+                catch(AstraLocale::UserException &E) {};
+            }
+
+            if(params.statType == statAgentFull) {
+                key.desk = Qry.FieldAsString(col_desk);
+            }
+            if(params.statType == statAgentFull || params.statType == statAgentTotal) {
+                key.user_id = Qry.FieldAsInteger(col_user_id);
+                key.user_descr = Users.getDescr(key.user_id).value_or("");
+            }
+            AddStatRow(params.overflow, key, row, AgentStat);
+          }
+          else
+          {
+            AgentStatTotal+=row;
+          };
+        }
+    }
+
+    return;
+}
+
 void RunAgentStat(const TStatParams &params,
                   TAgentStat &AgentStat, TAgentStatRow &AgentStatTotal,
                   TPrintAirline &prn_airline)
 {
     TQuery Qry(&OraSession);
-    for(int pass = 0; pass <= 1; pass++) {
-        string SQLText =
-            "SELECT \n"
-            "  points.point_id, \n"
-            "  points.airline, \n"
-            "  points.flt_no, \n"
-            "  points.suffix, \n"
-            "  points.airp, \n"
-            "  points.scd_out, \n"
-            "  users2.user_id, \n"
-            "  users2.descr AS user_descr, \n"
-            "  ags.desk, \n"
-            "  pax_time, \n"
-            "  pax_amount, \n"
-            "  ags.dpax_amount.inc pax_am_inc, \n"
-            "  ags.dpax_amount.dec pax_am_dec, \n"
-            "  ags.dtckin_amount.inc tckin_am_inc, \n"
-            "  ags.dtckin_amount.dec tckin_am_dec, \n"
-            "  ags.dbag_amount.inc bag_am_inc, \n"
-            "  ags.dbag_amount.dec bag_am_dec, \n"
-            "  ags.dbag_weight.inc bag_we_inc, \n"
-            "  ags.dbag_weight.dec bag_we_dec, \n"
-            "  ags.drk_amount.inc rk_am_inc, \n"
-            "  ags.drk_amount.dec rk_am_dec, \n"
-            "  ags.drk_weight.inc rk_we_inc, \n"
-            "  ags.drk_weight.dec rk_we_dec \n"
-            "FROM \n"
-            "   users2, \n";
-        if(pass != 0) {
-            SQLText +=
-                "   arx_points points, \n"
-                "   arx_agent_stat ags \n";
-        } else {
-            SQLText +=
-                "   points, \n"
-                "   agent_stat ags \n";
-        }
-        SQLText += "WHERE \n";
-        if (pass!=0)
-            SQLText += "    ags.point_part_key = points.part_key AND \n";
-        SQLText +=
-            "    ags.point_id = points.point_id AND \n"
-            "    points.pr_del >= 0 AND \n"
-            "    ags.user_id = users2.user_id AND \n";
-        params.AccessClause(SQLText);
-        if (pass!=0)
-          SQLText +=
-            "    ags.part_key >= :FirstDate AND ags.part_key < :LastDate \n";
-        else
-          SQLText +=
-            "    ags.ondate >= :FirstDate AND ags.ondate < :LastDate \n";
-        if(params.flt_no != NoExists) {
-            SQLText += " AND points.flt_no = :flt_no \n";
-            Qry.CreateVariable("flt_no", otInteger, params.flt_no);
-        }
-        if(!params.desk.empty()) {
-            SQLText += " AND ags.desk = :desk \n";
-            Qry.CreateVariable("desk", otString, params.desk);
-        }
-        if(!params.user_login.empty()) {
-            SQLText += " AND users2.login = :user_login \n";
-            Qry.CreateVariable("user_login", otString, params.user_login);
-        }
-        //ProgTrace(TRACE5, "RunAgentStat: pass=%d SQL=\n%s", pass, SQLText.c_str());
-        Qry.SQLText = SQLText;
-        Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
-        Qry.CreateVariable("LastDate", otDate, params.LastDate);
-        Qry.Execute();
-        if(not Qry.Eof) {
-            int col_point_id = Qry.FieldIndex("point_id");
-            int col_airline = Qry.FieldIndex("airline");
-            int col_flt_no = Qry.FieldIndex("flt_no");
-            int col_suffix = Qry.FieldIndex("suffix");
-            int col_airp = Qry.FieldIndex("airp");
-            int col_scd_out = Qry.FieldIndex("scd_out");
-            int col_user_id = Qry.FieldIndex("user_id");
-            int col_user_descr = Qry.FieldIndex("user_descr");
-            int col_desk = Qry.FieldIndex("desk");
-            int col_pax_time = Qry.FieldIndex("pax_time");
-            int col_pax_amount = Qry.FieldIndex("pax_amount");
-            int col_pax_am_inc = Qry.FieldIndex("pax_am_inc");
-            int col_pax_am_dec = Qry.FieldIndex("pax_am_dec");
-            int col_tckin_am_inc = Qry.FieldIndex("tckin_am_inc");
-            int col_tckin_am_dec = Qry.FieldIndex("tckin_am_dec");
-            int col_bag_am_inc = Qry.FieldIndex("bag_am_inc");
-            int col_bag_am_dec = Qry.FieldIndex("bag_am_dec");
-            int col_bag_we_inc = Qry.FieldIndex("bag_we_inc");
-            int col_bag_we_dec = Qry.FieldIndex("bag_we_dec");
-            int col_rk_am_inc = Qry.FieldIndex("rk_am_inc");
-            int col_rk_am_dec = Qry.FieldIndex("rk_am_dec");
-            int col_rk_we_inc = Qry.FieldIndex("rk_we_inc");
-            int col_rk_we_dec = Qry.FieldIndex("rk_we_dec");
-            for(; not Qry.Eof; Qry.Next())
-            {
-              string airline = Qry.FieldAsString(col_airline);
-              prn_airline.check(airline);
+    string SQLText =
+        "SELECT \n"
+        "  points.point_id, \n"
+        "  points.airline, \n"
+        "  points.flt_no, \n"
+        "  points.suffix, \n"
+        "  points.airp, \n"
+        "  points.scd_out, \n"
+        "  users2.user_id, \n"
+        "  users2.descr AS user_descr, \n"
+        "  ags.desk, \n"
+        "  pax_time, \n"
+        "  pax_amount, \n"
+        "  ags.dpax_amount.inc pax_am_inc, \n"
+        "  ags.dpax_amount.dec pax_am_dec, \n"
+        "  ags.dtckin_amount.inc tckin_am_inc, \n"
+        "  ags.dtckin_amount.dec tckin_am_dec, \n"
+        "  ags.dbag_amount.inc bag_am_inc, \n"
+        "  ags.dbag_amount.dec bag_am_dec, \n"
+        "  ags.dbag_weight.inc bag_we_inc, \n"
+        "  ags.dbag_weight.dec bag_we_dec, \n"
+        "  ags.drk_amount.inc rk_am_inc, \n"
+        "  ags.drk_amount.dec rk_am_dec, \n"
+        "  ags.drk_weight.inc rk_we_inc, \n"
+        "  ags.drk_weight.dec rk_we_dec \n"
+        "FROM \n"
+        "   users2, \n"
+        "   points, \n"
+        "   agent_stat ags \n"
+        "WHERE \n"
+        "    ags.point_id = points.point_id AND \n"
+        "    points.pr_del >= 0 AND \n"
+        "    ags.user_id = users2.user_id AND \n";
+    params.AccessClause(SQLText);
+    SQLText += "    ags.ondate >= :FirstDate AND ags.ondate < :LastDate \n";
+    if(params.flt_no != NoExists) {
+        SQLText += " AND points.flt_no = :flt_no \n";
+        Qry.CreateVariable("flt_no", otInteger, params.flt_no);
+    }
+    if(!params.desk.empty()) {
+        SQLText += " AND ags.desk = :desk \n";
+        Qry.CreateVariable("desk", otString, params.desk);
+    }
+    if(!params.user_login.empty()) {
+        SQLText += " AND users2.login = :user_login \n";
+        Qry.CreateVariable("user_login", otString, params.user_login);
+    }
+    //ProgTrace(TRACE5, "RunAgentStat: pass=%d SQL=\n%s", pass, SQLText.c_str());
+    Qry.SQLText = SQLText;
+    Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
+    Qry.CreateVariable("LastDate", otDate, params.LastDate);
+    Qry.Execute();
+    if(not Qry.Eof) {
+        int col_point_id = Qry.FieldIndex("point_id");
+        int col_airline = Qry.FieldIndex("airline");
+        int col_flt_no = Qry.FieldIndex("flt_no");
+        int col_suffix = Qry.FieldIndex("suffix");
+        int col_airp = Qry.FieldIndex("airp");
+        int col_scd_out = Qry.FieldIndex("scd_out");
+        int col_user_id = Qry.FieldIndex("user_id");
+        int col_user_descr = Qry.FieldIndex("user_descr");
+        int col_desk = Qry.FieldIndex("desk");
+        int col_pax_time = Qry.FieldIndex("pax_time");
+        int col_pax_amount = Qry.FieldIndex("pax_amount");
+        int col_pax_am_inc = Qry.FieldIndex("pax_am_inc");
+        int col_pax_am_dec = Qry.FieldIndex("pax_am_dec");
+        int col_tckin_am_inc = Qry.FieldIndex("tckin_am_inc");
+        int col_tckin_am_dec = Qry.FieldIndex("tckin_am_dec");
+        int col_bag_am_inc = Qry.FieldIndex("bag_am_inc");
+        int col_bag_am_dec = Qry.FieldIndex("bag_am_dec");
+        int col_bag_we_inc = Qry.FieldIndex("bag_we_inc");
+        int col_bag_we_dec = Qry.FieldIndex("bag_we_dec");
+        int col_rk_am_inc = Qry.FieldIndex("rk_am_inc");
+        int col_rk_am_dec = Qry.FieldIndex("rk_am_dec");
+        int col_rk_we_inc = Qry.FieldIndex("rk_we_inc");
+        int col_rk_we_dec = Qry.FieldIndex("rk_we_dec");
+        for(; not Qry.Eof; Qry.Next())
+        {
+          string airline = Qry.FieldAsString(col_airline);
+          prn_airline.check(airline);
 
-              TAgentStatRow row;
-              row.processed_pax = Qry.FieldAsInteger(col_pax_amount);
-              row.time = Qry.FieldAsInteger(col_pax_time);
-              row.dpax_amount.inc = Qry.FieldAsInteger(col_pax_am_inc);
-              row.dpax_amount.dec = Qry.FieldAsInteger(col_pax_am_dec);
-              row.dtckin_amount.inc = Qry.FieldAsInteger(col_tckin_am_inc);
-              row.dtckin_amount.dec = Qry.FieldAsInteger(col_tckin_am_dec);
-              row.dbag_amount.inc = Qry.FieldAsInteger(col_bag_am_inc);
-              row.dbag_amount.dec = Qry.FieldAsInteger(col_bag_am_dec);
-              row.dbag_weight.inc = Qry.FieldAsInteger(col_bag_we_inc);
-              row.dbag_weight.dec = Qry.FieldAsInteger(col_bag_we_dec);
-              row.drk_amount.inc = Qry.FieldAsInteger(col_rk_am_inc);
-              row.drk_amount.dec = Qry.FieldAsInteger(col_rk_am_dec);
-              row.drk_weight.inc = Qry.FieldAsInteger(col_rk_we_inc);
-              row.drk_weight.dec = Qry.FieldAsInteger(col_rk_we_dec);
+          TAgentStatRow row;
+          row.processed_pax = Qry.FieldAsInteger(col_pax_amount);
+          row.time = Qry.FieldAsInteger(col_pax_time);
+          row.dpax_amount.inc = Qry.FieldAsInteger(col_pax_am_inc);
+          row.dpax_amount.dec = Qry.FieldAsInteger(col_pax_am_dec);
+          row.dtckin_amount.inc = Qry.FieldAsInteger(col_tckin_am_inc);
+          row.dtckin_amount.dec = Qry.FieldAsInteger(col_tckin_am_dec);
+          row.dbag_amount.inc = Qry.FieldAsInteger(col_bag_am_inc);
+          row.dbag_amount.dec = Qry.FieldAsInteger(col_bag_am_dec);
+          row.dbag_weight.inc = Qry.FieldAsInteger(col_bag_we_inc);
+          row.dbag_weight.dec = Qry.FieldAsInteger(col_bag_we_dec);
+          row.drk_amount.inc = Qry.FieldAsInteger(col_rk_am_inc);
+          row.drk_amount.dec = Qry.FieldAsInteger(col_rk_am_dec);
+          row.drk_weight.inc = Qry.FieldAsInteger(col_rk_we_inc);
+          row.drk_weight.dec = Qry.FieldAsInteger(col_rk_we_dec);
 
-              if (params.statType == statAgentTotal)
-              {
-                row.dpax_amount.inc -= row.dpax_amount.dec; //сухой остаток (не суммируем)
-                row.dpax_amount.dec = 0;
-                row.dtckin_amount.inc -= row.dtckin_amount.dec;
-                row.dtckin_amount.dec = 0;
-                row.dbag_amount.inc -= row.dbag_amount.dec;
-                row.dbag_amount.dec = 0;
-                row.dbag_weight.inc -= row.dbag_weight.dec;
-                row.dbag_weight.dec = 0;
-                row.drk_amount.inc -= row.drk_amount.dec;
-                row.drk_amount.dec = 0;
-                row.drk_weight.inc -= row.drk_weight.dec;
-                row.drk_weight.dec = 0;
-              };
+          if (params.statType == statAgentTotal)
+          {
+            row.dpax_amount.inc -= row.dpax_amount.dec; //сухой остаток (не суммируем)
+            row.dpax_amount.dec = 0;
+            row.dtckin_amount.inc -= row.dtckin_amount.dec;
+            row.dtckin_amount.dec = 0;
+            row.dbag_amount.inc -= row.dbag_amount.dec;
+            row.dbag_amount.dec = 0;
+            row.dbag_weight.inc -= row.dbag_weight.dec;
+            row.dbag_weight.dec = 0;
+            row.drk_amount.inc -= row.drk_amount.dec;
+            row.drk_amount.dec = 0;
+            row.drk_weight.inc -= row.drk_weight.dec;
+            row.drk_weight.dec = 0;
+          };
 
-              if (!params.skip_rows)
-              {
-                string airp = Qry.FieldAsString(col_airp);
-                TAgentStatKey key;
-                if(
-                        params.statType == statAgentFull or
-                        params.statType == statAgentShort
-                        ) {
-                    key.point_id = Qry.FieldAsInteger(col_point_id);
-                    key.airline_view = ElemIdToCodeNative(etAirline, airline);
-                    key.flt_no = Qry.FieldAsInteger(col_flt_no);
-                    key.suffix_view = ElemIdToCodeNative(etSuffix, Qry.FieldAsString(col_suffix));
-                    key.airp = Qry.FieldAsString(col_airp);
-                    key.airp_view = ElemIdToCodeNative(etAirp, key.airp);
-                    key.scd_out = Qry.FieldAsDateTime(col_scd_out);
-                    try
-                    {
-                        key.scd_out_local = UTCToClient(key.scd_out, AirpTZRegion(key.airp));
-                    }
-                    catch(AstraLocale::UserException &E) {};
+          if (!params.skip_rows)
+          {
+            string airp = Qry.FieldAsString(col_airp);
+            TAgentStatKey key;
+            if(
+                    params.statType == statAgentFull or
+                    params.statType == statAgentShort
+                    ) {
+                key.point_id = Qry.FieldAsInteger(col_point_id);
+                key.airline_view = ElemIdToCodeNative(etAirline, airline);
+                key.flt_no = Qry.FieldAsInteger(col_flt_no);
+                key.suffix_view = ElemIdToCodeNative(etSuffix, Qry.FieldAsString(col_suffix));
+                key.airp = Qry.FieldAsString(col_airp);
+                key.airp_view = ElemIdToCodeNative(etAirp, key.airp);
+                key.scd_out = Qry.FieldAsDateTime(col_scd_out);
+                try
+                {
+                    key.scd_out_local = UTCToClient(key.scd_out, AirpTZRegion(key.airp));
                 }
-
-                if(params.statType == statAgentFull) {
-                    key.desk = Qry.FieldAsString(col_desk);
-                }
-                if(
-                        params.statType == statAgentFull or
-                        params.statType == statAgentTotal
-                  ) {
-                    key.user_id = Qry.FieldAsInteger(col_user_id);
-                    key.user_descr = Qry.FieldAsString(col_user_descr);
-                }
-
-                AddStatRow(params.overflow, key, row, AgentStat);
-              }
-              else
-              {
-                AgentStatTotal+=row;
-              };
+                catch(AstraLocale::UserException &E) {};
             }
+
+            if(params.statType == statAgentFull) {
+                key.desk = Qry.FieldAsString(col_desk);
+            }
+            if(
+                    params.statType == statAgentFull or
+                    params.statType == statAgentTotal
+              ) {
+                key.user_id = Qry.FieldAsInteger(col_user_id);
+                key.user_descr = Qry.FieldAsString(col_user_descr);
+            }
+
+            AddStatRow(params.overflow, key, row, AgentStat);
+          }
+          else
+          {
+            AgentStatTotal+=row;
+          };
         }
     }
+
+    ArxRunAgentStat(params, AgentStat, AgentStatTotal, prn_airline);
     return;
 }
 

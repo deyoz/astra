@@ -15,6 +15,7 @@
 #include "astra_misc.h"
 #include "base_callbacks.h"
 #include "db_tquery.h"
+#include "dbostructures.h"
 
 using BASIC::date_time::TDateTime;
 
@@ -784,6 +785,8 @@ class TSimplePaxItem
     static const std::string& cabinSubclassFromCrsSQL();
 
     const TSimplePaxItem& toEmulXML(xmlNodePtr node, bool PaxUpdatesPending) const;
+    TSimplePaxItem& fromPax(const dbo::PAX &pax);
+    TSimplePaxItem& fromPax(const dbo::ARX_PAX &arx_pax);
     TSimplePaxItem& fromDB(TQuery &Qry);
     TSimplePaxItem& fromDBCrs(TQuery &Qry, bool withTkn);
     bool getByPaxId(int pax_id, TDateTime part_key = ASTRA::NoExists);

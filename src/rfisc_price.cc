@@ -1,12 +1,13 @@
 #include "rfisc_price.h"
-#define NICKNAME "DJEK"
-#define NICKTRACE SYSTEM_TRACE
-#include <serverlib/slogger.h>
 #include "xml_unit.h"
 #include "oralib.h"
 #include "date_time.h"
 #include "serverlib/xml_stuff.h" // для xml_decode_nodelist
 #include "passenger.h"
+
+#define NICKNAME "DJEK"
+#define NICKTRACE SYSTEM_TRACE
+#include <serverlib/slogger.h>
 
 void SvcFromSirena::fromContextXML(xmlNodePtr node) {
   clear();

@@ -224,7 +224,8 @@ display_all_stage_flags
 
 user=`echo ${CONNECT_STRING} | awk -F '/' '{print $1}'`
 password=`echo ${CONNECT_STRING} | awk -F '/' '{print $2}' | awk -F '@' '{print $1}'`
-PG_CONNECT_STRING="postgresql://$user:$password@localhost/${user}"
+PG_CONNECT_STRING="postgresql://${user}:$password@localhost/${user}"
+PG_CONNECT_STRING_ARX="postgresql://${user}_arx:$password@localhost/${user}_arx"
 
 
 #echo MAKE_J=${MAKE_J} TEST_J=${TEST_J}
@@ -284,12 +285,14 @@ if [ "$createtcl" = "1" ]; then
         XP_TESTING_FILES="$ASTRA_HOME/src/tests" \
         XP_TESTING_FILES_SERVERLIB="$ASTRA_HOME/locallibs/serverlib/src/testdata" \
         OURNAME='ASTRA' \
+        PG_CONNECT_STRING_ARX=$PG_CONNECT_STRING_ARX \
         PG_CONNECT_STRING=$PG_CONNECT_STRING \
         ./create_local_tcl.sh)
     checkresult createtcl $?
 fi
 if [ "$createdb" = "1" ]; then
     PG_CONNECT_STRING=$PG_CONNECT_STRING \
+    PG_CONNECT_STRING_ARX=$PG_CONNECT_STRING_ARX \
     bin/createdb.sh ${TEST_J:-1}
     checkresult bin/createdb.sh $?
 fi
