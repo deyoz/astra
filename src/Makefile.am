@@ -214,6 +214,7 @@ astra_SOURCES = \
   pg_session.cc \
   db_tquery.cc \
   db_savepoint.cc \
+  dbcpp_nosir_check.cc \
   base_callbacks.cpp \
   hooked_session.cc \
   PgOraConfig.cc \
@@ -434,6 +435,7 @@ noinst_HEADERS = \
   pg_session.h \
   db_tquery.h \
   db_savepoint.h \
+  dbcpp_nosir_check.h \
   base_callbacks.h \
   hooked_session.h \
   PgOraConfig.h \

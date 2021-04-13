@@ -203,6 +203,8 @@ namespace DbCpp
         void prepareSession(const char* nick, const char* file, int line);
         void prepareCursor(const char* nick, const char* file, int line,const std::string& sql);
         bool mDelete;
+
+        friend class PgAutonomousSessionManager;
     };
 
     OraSession& mainOraSession(const char* nick, const char* file, int line);
