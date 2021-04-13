@@ -11,6 +11,7 @@
 #include "pg_session.h"
 
 #include <serverlib/query_runner.h>
+#include <serverlib/testmode.h>
 #include <edilib/edilib_dbpg_callbacks.h>
 #include <edilib/edi_loading.h>
 
@@ -29,6 +30,7 @@
 #include "stat/stat_seDCSAddReport.h"
 #include "stat/stat_departed.h"
 #include "stat/stat_ovb.h"
+#include "dbcpp_nosir_check.h"
 
 int nosir_test(int argc,char **argv);
 void nosir_test_help(const char *name);
@@ -51,8 +53,49 @@ int rbd_test(int argc, char **argv);
 int tzdump(int argc, char **argv);
 int tzdiff(int argc, char **argv);
 int print_pg_tables(int argc, char **argv);
+
 #ifdef XP_TESTING
-int test_autonomous_session(int argc, char **argv);
+
+void NosirTrace(int l, const char *nickname, const char *filename,int line, const char *format,  ...)
+{
+  LogTrace(l,nickname,filename,line)<<"NosirTrace";
+  va_list ap;
+  va_start(ap, format);
+  if(inTestMode()) {
+    //LogTrace(l,nickname,filename,line)<<"inTestMode";
+  }
+  else {
+    //LogTrace(l,nickname,filename,line)<<"not inTestMode";
+    vfprintf(stdout,format,ap);
+    fputc('\n',stdout);
+  }
+  va_end(ap);
+}
+
+int pg_sessions_check(int argc,char **argv)
+{
+  NosirTrace(TRACE1,"\npg_sessions_check started..." );
+  {
+    NosirTrace(TRACE1,"check_autonomous_sessions_load_save_consistency started..." );
+    std::vector<DbCpp::TCheckSessionsLoadSaveConsistency> res
+          =DbCpp::check_autonomous_sessions_load_save_consistency();
+
+    if(!res.empty())
+    {
+      for(auto const& i : res)
+      {
+        NosirTrace(TRACE1,"  %s:%zi %s",i.file,i.line,i.text_error.c_str());
+      }
+      NosirTrace(TRACE1,"pg_autonomous_session_check process finished with error(s)...\n" );
+      return 1;
+    }
+    NosirTrace(TRACE1,"check_autonomous_sessions_load_save_consistency finished successfully" );
+  }
+
+  NosirTrace(TRACE1,"pg_sessions_check process finished successfully\n" );
+
+  return 0;
+}
 #endif
 
 void init_edilib_callbacks();
@@ -120,7 +163,7 @@ const
     {"-comp_elem_types_from_db",comp_elem_types_from_db,NULL,                       NULL},
     {"-pg-tables",              print_pg_tables,        NULL,                       NULL},
 #ifdef XP_TESTING
-    {"-test_autonomous_session",test_autonomous_session,NULL,                       NULL},
+    {"-pg_sessions_check", pg_sessions_check, NULL, "Check main PG session consistency for different methods of usage PG" },
 #endif
   };
 

@@ -271,7 +271,7 @@ namespace DbCpp
 
     void PgSession_wo_CheckSQL::commit()
     {
-        //LogTrace(TRACE5) << "commit mIsActive=" << mIsActive << " mSession="<<mSession<<" mConnectString="<<mConnectString<<" this="<<this;
+        // LogTrace(TRACE5) << "commit mIsActive=" << mIsActive << " mSession="<<mSession<<" mConnectString="<<mConnectString<<" this="<<this;
         if (mIsActive)
         {
             mSession->commit();
@@ -280,16 +280,11 @@ namespace DbCpp
 #ifdef XP_TESTING
         mIsActive_test=mIsActive;
 #endif // XP_TESTING
-        if (mForType == DbSessionForType::AutonomousManagedReadWrite
-            && mType == DbSessionType::Managed)
-        {
-            setForAutonomousReadWrite();
-        }
     }
 
     void PgSession_wo_CheckSQL::rollback()
     {
-        //LogTrace(TRACE5) << "rollback mIsActive=" << mIsActive << " mSession="<<mSession<<" mConnectString="<<mConnectString<<" this="<<this;
+        // LogTrace(TRACE5) << "rollback mIsActive=" << mIsActive << " mSession="<<mSession<<" mConnectString="<<mConnectString<<" this="<<this;
         if (mIsActive)
         {
             mSession->rollback();
@@ -298,11 +293,6 @@ namespace DbCpp
 #ifdef XP_TESTING
         mIsActive_test=mIsActive;
 #endif // XP_TESTING
-        if (mForType == DbSessionForType::AutonomousManagedReadWrite
-            && mType == DbSessionType::Managed)
-        {
-            setForAutonomousReadWrite();
-        }
     }
 
     bool PgSession_wo_CheckSQL::setSessionType(DbSessionType type, bool no_throw)
@@ -363,6 +353,7 @@ namespace DbCpp
 
     void PgSession_wo_CheckSQL::setForReading()
     {
+    //   LogTrace(TRACE6) << __func__;
       // если сессия неактивна, сделаем её автономной.
       // если активна - она останется managed
       setSessionType(DbSessionType::Autonomous, true/*no_throw*/);
@@ -370,6 +361,7 @@ namespace DbCpp
 
     void PgSession_wo_CheckSQL::setForManagedReadWrite()
     {
+    //   LogTrace(TRACE6) << __func__;
       // переведём сессию в режим managed на всякий случай
       setSessionType(DbSessionType::Managed, false/*no_throw*/);
       activateSession();
@@ -377,6 +369,7 @@ namespace DbCpp
 
     void PgSession_wo_CheckSQL::setForAutonomousReadWrite()
     {
+    //   LogTrace(TRACE6) << __func__;
       if (inTestMode())
       {
         setSessionType(DbCpp::DbSessionType::Managed,false/*no_throw*/);
@@ -485,18 +478,15 @@ namespace DbCpp
 #endif // XP_TESTING
     }
 
-
-
     void PgSession::prepareSession(const char* nick, const char* file, int line)
     {
+    //   LogTrace(TRACE6) << "PgSession::" << __func__<< ": forType=" << mForType;
       if (mForType==DbSessionForType::Reading) {
         mPgSession->setForReading();
       } else if (mForType==DbSessionForType::ManagedReadWrite) {
         mPgSession->setForManagedReadWrite();
       } else if (mForType==DbSessionForType::AutonomousReadWrite) {
         mPgSession->setForAutonomousReadWrite();
-      } else if (mForType==DbSessionForType::AutonomousManagedReadWrite) {
-        mPgSession->setForManagedReadWrite();
       } else {
           LogError(STDLOG_VARIABLE)<<mForType;
           throw comtech::Exception(STDLOG_VARIABLE, __func__,
@@ -552,11 +542,13 @@ namespace DbCpp
         auto pos_beg = sql.find_first_not_of(' ');
         if (pos_beg == std::string::npos)
         {
+            tst();
             return false;
         }
         auto pos = sql.find_first_of(" (+-'\n", pos_beg);
         if (pos == std::string::npos)
         {
+            tst();
             return false;
         }
         std::string cmd = sql.substr(pos_beg, pos);
@@ -564,6 +556,7 @@ namespace DbCpp
 
         if (cmd == "INSERT" || cmd == "UPDATE" || cmd == "DELETE")
         {
+            tst();
             return false;
         }
 
@@ -572,6 +565,7 @@ namespace DbCpp
             std::string s2 = sql.substr(pos);
             if (word_exists(s2, "NEXTVAL") || (word_exists(s2, "FOR") && word_exists(s2, "UPDATE")))
             {
+                tst();
                 return false;
             }
             return true;
@@ -583,11 +577,13 @@ namespace DbCpp
             if (word_exists(s2, "INSERT") || word_exists(s2, "UPDATE") || word_exists(s2, "DELETE")
                 || word_exists(s2, "NEXTVAL"))
             {
+                tst();
                 return false;
             }
             return true;
         }
 
+        tst();
         return false;
     }
 
@@ -762,6 +758,7 @@ namespace DbCpp
     static std::unique_ptr<PgSession_wo_CheckSQL, RollbackOnDestruction> mainPg2AutonomousSessPtr;
     static bool mainPg2AutonomousSessionReaded = false;
     static std::unique_ptr<PgSession> mainPgAutonomousSessPtr;
+    static bool lockAutonomousSessionByManager = false;
 
     static PgSession_wo_CheckSQL* mainPgSessionPtrAutonomousCommon(STDLOG_SIGNATURE, bool createIfNotExist)
     {
@@ -781,25 +778,24 @@ namespace DbCpp
         return mainPg2AutonomousSessPtr.get();
     }
 
-    PgSession* mainPgAutonomousSessionPtrInner(STDLOG_SIGNATURE, DbSessionForType type,
-                                               bool createIfNotExist = true)
-    {
-      if(inTestMode())
-      {
-          return mainPgManagedSessionPtr(STDLOG_VARIABLE,createIfNotExist);
-      }
-      if (!mainPgAutonomousSessPtr)
-      {
-          auto ptr = mainPgSessionPtrAutonomousCommon(STDLOG_VARIABLE,createIfNotExist);
-          if (ptr)
-              mainPgAutonomousSessPtr.reset(new PgSession(ptr, type));
-      }
-      return mainPgAutonomousSessPtr.get();
-    }
-
     PgSession* mainPgAutonomousSessionPtr(STDLOG_SIGNATURE, bool createIfNotExist)
     {
-        return mainPgAutonomousSessionPtrInner(STDLOG_VARIABLE, DbSessionForType::AutonomousReadWrite);
+        if (lockAutonomousSessionByManager) {
+            throw comtech::Exception(STDLOG_VARIABLE, __func__,
+                                     "Autonomous session in managed mode, use autonomous session manager");
+        }
+        if(inTestMode())
+        {
+            return mainPgManagedSessionPtr(STDLOG_VARIABLE,createIfNotExist);
+        }
+        if (!mainPgAutonomousSessPtr)
+        {
+            auto ptr = mainPgSessionPtrAutonomousCommon(STDLOG_VARIABLE,createIfNotExist);
+            if (ptr) {
+                mainPgAutonomousSessPtr.reset(new PgSession(ptr, DbSessionForType::AutonomousReadWrite));
+            }
+        }
+        return mainPgAutonomousSessPtr.get();
     }
 
     PgSession& mainPgAutonomousSession(STDLOG_SIGNATURE)
@@ -816,14 +812,16 @@ namespace DbCpp
     PgAutonomousSessionManager::PgAutonomousSessionManager(PgSession& session)
       : mSession(session)
     {
-        LogTrace(TRACE6) << "PgAutonomousSessionManager create";
+        // LogTrace(TRACE6) << "PgAutonomousSessionManager create";
+        session.mForType = DbSessionForType::ManagedReadWrite;
+        session.mPgSession->setForManagedReadWrite();
+        lockAutonomousSessionByManager = true;
     }
 
     PgAutonomousSessionManager PgAutonomousSessionManager::start(STDLOG_SIGNATURE)
     {
-        LogTrace(TRACE6) << "PgAutonomousSessionManager::start";
-        PgSession* ptr = mainPgAutonomousSessionPtrInner(STDLOG_VARIABLE,
-                                                         DbSessionForType::AutonomousManagedReadWrite);
+        // LogTrace(TRACE6) << "PgAutonomousSessionManager::start";
+        PgSession* ptr = mainPgAutonomousSessionPtr(STDLOG_VARIABLE);
         if (!ptr) {
             throw comtech::Exception(STDLOG_VARIABLE, __func__,
                                      "Failed to create main PostgreSQL session");
@@ -835,6 +833,9 @@ namespace DbCpp
     {
         // LogTrace(TRACE6) << "PgAutonomousSessionManager::rollback on destroy";
         mSession.rollback();
+        mSession.mForType = DbSessionForType::AutonomousReadWrite;
+        mSession.mPgSession->setForAutonomousReadWrite();
+        lockAutonomousSessionByManager = false;
     }
 
     PgSession& PgAutonomousSessionManager::session()
