@@ -87,6 +87,8 @@ static const int MaxCicxPaxNum = 10;
 
 const std::string APPS_FORMAT_21 = "APPS_21";
 const std::string APPS_FORMAT_26 = "APPS_26";
+const std::string APPS_FORMAT_26_TH = "APPS_26_TH";
+
 const int APPS_VERSION_21 = 21;
 const int APPS_VERSION_26 = 26;
 const int APPS_VERSION_27 = 27;
@@ -174,7 +176,7 @@ std::string givenNames(const CheckIn::TPaxDocItem& doc, const Name_t& name);
 std::string familyName(const CheckIn::TPaxDocItem& doc, const Surname_t& surname);
 std::string passReference(const ASTRA::TTrickyGender::Enum tricky_gender, bool isCrew, const Opt<RegNo_t> &reg_no);
 // PaxAddData
-std::string issuePlaceToCountry(const std::string& issue_place);
+std::string issuePlaceToCountry(const std::string& issue_place, PaxOrigin origin);
 // Ž¡é¨¥
 bool isInternationalFlight(const AirportCode_t& airp_dep, const AirportCode_t& airp_arv);
 bool isInternationalFlight(const TPaxSegmentPair& seg);
@@ -333,19 +335,24 @@ struct Doco
     //visa_issue_date int version >= 27
 };
 
-Doco createDoco(const CheckIn::TPaxDocoItem& pax_doco)
+static std::string getDocCountryCode(const std::string& country)
+{
+    std::string country_code = ((const TPaxDocCountriesRow&)base_tables.get("pax_doc_countries").
+                                get_row("code", country)).country;
+    return (country_code.empty() ? "" : BaseTables::Country(country_code)->lcode());
+}
+
+Doco createDoco(const CheckIn::TPaxDocoItem& pax_doco, PaxOrigin origin)
 {
     Doco res;
     if (!pax_doco.applic_country.empty())
     {
-        std::string country_code = ((const TPaxDocCountriesRow&)base_tables.get("pax_doc_countries").
-                                    get_row("code", pax_doco.applic_country)).country;
-        res.country = (country_code.empty() ? "" : BaseTables::Country(country_code)->lcode());
+        res.country = getDocCountryCode(pax_doco.applic_country);
     }
 
     res.doco_type = pax_doco.type;
     res.doco_no = pax_doco.no.substr(0,20);// ¢ „ doco.no VARCHAR2(25 BYTE)
-    res.country_issuance = issuePlaceToCountry(pax_doco.issue_place);
+    res.country_issuance = issuePlaceToCountry(pax_doco.issue_place, origin);
     if(pax_doco.expiry_date != ASTRA::NoExists) {
         res.doco_expiry_date = DateTimeToStr(pax_doco.expiry_date, "yyyymmdd");
     }
@@ -354,6 +361,7 @@ Doco createDoco(const CheckIn::TPaxDocoItem& pax_doco)
 
 struct Doca
 {
+    std::string country;
     std::string num_street;
     std::string city;
     std::string state;
@@ -363,6 +371,11 @@ struct Doca
 Doca createDoca(const CheckIn::TPaxDocaItem & docaD)
 {
     Doca res;
+    if (!docaD.country.empty())
+    {
+        res.country = getDocCountryCode(docaD.country);
+    }
+
     res.num_street  = docaD.address;
     res.city        = docaD.city;
     res.state       = docaD.region.substr(0, 20);
@@ -386,6 +399,7 @@ public:
             doco_expiry_date = doco->doco_expiry_date;
         }
         if(doca) {
+            country_for_data = doca->country;
             num_street = doca->num_street;
             city = doca->city;
             state = doca->state;
@@ -1208,7 +1222,7 @@ int versionByFormat(const std::string& fmt)
     if (fmt == APPS_FORMAT_21) {
         return APPS_VERSION_21;
     }
-    if (fmt == APPS_FORMAT_26) {
+    if (fmt == APPS_FORMAT_26 || fmt == APPS_FORMAT_26_TH) {
         return APPS_VERSION_26;
     }
     throw Exception("cannot get version, format %s", fmt.c_str());
@@ -1395,15 +1409,19 @@ TDateTime getStartTime(const PointId_t& point_id)
     return start_time;
 }
 
-std::string issuePlaceToCountry(const std::string& issue_place)
+std::string issuePlaceToCountry(const std::string& issue_place , PaxOrigin origin)
 {
     if (issue_place.empty()) {
         return issue_place;
     }
     TElemFmt elem_fmt;
     std::string country_id = issuePlaceToPaxDocCountryId(issue_place, elem_fmt);
+
     if (elem_fmt == efmtUnknown) {
-        throw Exception("IssuePlaceToCountry failed: issue_place=\"%s\"", issue_place.c_str());
+        if(origin == PaxOrigin::paxPnl) return "";
+        else {
+            throw Exception("IssuePlaceToCountry failed: issue_place=\"%s\"", issue_place.c_str());
+        }
     }
     return country_id;
 }
@@ -1961,13 +1979,13 @@ Opt<PaxAddData> createPaxAddData(const PaxId_t& pax_id, PaxOrigin origin)
     switch (origin) {
     case paxCheckIn:
         if(CheckIn::LoadPaxDoco(pax_id.get(), paxDoco)) {
-            doco = createDoco(paxDoco);
+            doco = createDoco(paxDoco, paxCheckIn);
         }
         CheckIn::LoadPaxDoca(pax_id.get(), docaMap);
         break;
     case paxPnl:
         if(CheckIn::LoadCrsPaxVisa(pax_id.get(), paxDoco)) {
-            doco = createDoco(paxDoco);
+            doco = createDoco(paxDoco, paxPnl);
         }
         CheckIn::LoadCrsPaxDoca(pax_id.get(), docaMap);
         break;
@@ -1979,10 +1997,15 @@ Opt<PaxAddData> createPaxAddData(const PaxId_t& pax_id, PaxOrigin origin)
     if(docaOpt) {
         doca = createDoca(*docaOpt);
     }
-    if(!doca && !doco) {
+    if(doco && (doco->country.empty() || doco->country_issuance.empty())){
+        doco=std::nullopt;
+    }
+    if(doca && doca->country.empty()){
+        doca=std::nullopt;
+    }
+    if(!doco && !doca) {
         return std::nullopt;
     }
-
     return PaxAddData{doco, doca};
 }
 
