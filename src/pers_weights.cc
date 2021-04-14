@@ -234,8 +234,9 @@ bool PersWeightRules::really_write(int point_id, string &source)
     TCachedQuery setsQry("select lci_pers_weights from trip_sets where point_id = :point_id",
             QParams() << QParam("point_id", otInteger, point_id));
     setsQry.get().Execute();
+    if(setsQry.get().Eof) return false;
     bool set_by_lci = false;
-    if(not setsQry.get().Eof and not setsQry.get().FieldIsNULL(0))
+    if(not setsQry.get().FieldIsNULL(0))
         set_by_lci = setsQry.get().FieldAsInteger(0) != 0;
 
     TCachedQuery updSetsQry("update trip_sets set lci_pers_weights = :lci_pers_weights where point_id = :point_id",
