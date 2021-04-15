@@ -3305,26 +3305,39 @@ void TInfList::setSurnameIfEmpty(const std::string &surname)
 
 void TSeatsBlockingList::toDB(const int& paxId) const
 {
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "BEGIN "
-    "  UPDATE crs_seats_blocking SET pr_del=0 "
-    "  WHERE pax_id=:pax_id AND surname=:surname AND name=:name AND pr_del<>0 AND rownum<2; "
-    "  IF SQL%NOTFOUND THEN "
-    "    INSERT INTO crs_seats_blocking(seat_id, surname, name, pax_id, pr_del) "
-    "    VALUES(pax_id.nextval, :surname, :name, :pax_id, 0);"
-    "  END IF; "
-    "END; ";
-  Qry.DeclareVariable("surname", otString);
-  Qry.DeclareVariable("name", otString);
-  paxId!=NoExists?
-    Qry.CreateVariable("pax_id", otInteger, paxId):
-    Qry.CreateVariable("pax_id", otInteger, FNull);
   for(const TSeatsBlockingItem& i : *this)
   {
-    Qry.SetVariable("surname", i.surname);
-    Qry.SetVariable("name", i.name);
-    Qry.Execute();
+    QParams params;
+    params << QParam("surname", otString, i.surname)
+           << QParam("name", otString, i.name)
+           << (paxId != ASTRA::NoExists ? QParam("pax_id", otInteger, paxId)
+                                        : QParam("pax_id", otInteger, FNull));
+    DB::TCachedQuery QryUpdate(
+          PgOra::getRWSession("CRS_SEATS_BLOCKING"),
+          "UPDATE crs_seats_blocking SET pr_del=0 "
+          "WHERE seat_id IN ( "
+          "  SELECT seat_id "
+          "  FROM crs_seats_blocking "
+          "  WHERE pax_id=:pax_id "
+          "  AND surname=:surname "
+          "  AND name=:name "
+          "  AND pr_del<>0 "
+          "  FETCH FIRST 1 ROWS ONLY) ",
+          params);
+    QryUpdate.get().Execute();
+    if (QryUpdate.get().RowsProcessed() == 0) {
+      const int new_pax_id = PgOra::getSeqNextVal_int("PAX_ID");
+      params << QParam("new_pax_id", otInteger, new_pax_id);
+      DB::TCachedQuery QryInsert(
+            PgOra::getRWSession("CRS_SEATS_BLOCKING"),
+            "INSERT INTO crs_seats_blocking("
+            "seat_id, surname, name, pax_id, pr_del"
+            ") VALUES("
+            ":new_pax_id, :surname, :name, :pax_id, 0"
+            ")",
+            params);
+      QryInsert.get().Execute();
+    }
   }
 }
 
@@ -3332,8 +3345,11 @@ void TSeatsBlockingList::fromDB(const int& paxId)
 {
   clear();
 
-  TQuery Qry(&OraSession);
-  Qry.SQLText="SELECT * FROM crs_seats_blocking WHERE pax_id=:pax_id AND pr_del=0 ORDER BY seat_id";
+  DB::TQuery Qry(PgOra::getROSession("CRS_SEATS_BLOCKING"));
+  Qry.SQLText="SELECT * FROM crs_seats_blocking "
+              "WHERE pax_id=:pax_id "
+              "AND pr_del=0 "
+              "ORDER BY seat_id";
   Qry.CreateVariable("pax_id", otInteger, paxId);
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
@@ -3861,27 +3877,44 @@ bool TPaxItem::isSeatBlockingRem(const string &rem_code)
          rem_code=="CBBG";
 }
 
+static bool existsCrsPaxId(const PaxId_t& paxId)
+{
+  DB::TQuery Qry(PgOra::getROSession("CRS_PAX"));
+  Qry.SQLText =
+    "SELECT 1 FROM crs_pax "
+    "WHERE pax_id=:pax_id "
+    "AND pr_del=0 ";
+  Qry.CreateVariable("pax_id", otInteger, paxId.get());
+  Qry.Execute();
+  return !Qry.Eof;
+}
+
 boost::optional<PaxId_t> TPaxItem::getNotUsedSeatBlockingId(const PaxId_t& paxId)
 {
   TQuery Qry(&OraSession);
   Qry.SQLText =
     "SELECT seat_id "
     "FROM crs_seats_blocking "
-    "WHERE pax_id=:pax_id AND pr_del=0 AND "
-    "      NOT EXISTS(SELECT crs_pax.pax_id FROM crs_pax WHERE crs_pax.pax_id=crs_seats_blocking.seat_id AND crs_pax.pr_del=0) "
+    "WHERE pax_id=:pax_id AND pr_del=0 "
     "ORDER BY seat_id ";
   Qry.CreateVariable("pax_id", otInteger, paxId.get());
   Qry.Execute();
-  if (Qry.Eof) return boost::none;
-  return PaxId_t(Qry.FieldAsInteger("seat_id"));
+  if (Qry.Eof)
+    return boost::none;
+  const PaxId_t seatId(Qry.FieldAsInteger("seat_id"));
+  if (existsCrsPaxId(seatId))
+      return boost::none;
+  return seatId;
 }
 
 std::map<PaxId_t, TSeatsBlockingItem> TPaxItem::getAndLockSeatBlockingItems(const PaxId_t& paxId)
 {
   std::map<PaxId_t, TSeatsBlockingItem> result;
 
-  TQuery Qry(&OraSession);
-  Qry.SQLText = "SELECT * FROM crs_seats_blocking WHERE pax_id=:pax_id AND pr_del=0 FOR UPDATE";
+  DB::TQuery Qry(PgOra::getRWSession("CRS_SEATS_BLOCKING"));
+  Qry.SQLText = "SELECT * FROM crs_seats_blocking "
+                "WHERE pax_id=:pax_id AND pr_del=0 "
+                "FOR UPDATE";
   Qry.CreateVariable("pax_id", otInteger, paxId.get());
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
@@ -6683,6 +6716,17 @@ class SuitablePaxList : public list<SuitablePax>
              const bool& isInfant);
 };
 
+static bool existsCrsSeatsBlocking(const PaxId_t& seatId)
+{
+  DB::TQuery Qry(PgOra::getROSession("CRS_SEATS_BLOCKING"));
+  Qry.SQLText =
+    "SELECT 1 FROM crs_seats_blocking "
+    "WHERE seat_id=:seat_id ";
+  Qry.CreateVariable("seat_id", otInteger, seatId.get());
+  Qry.Execute();
+  return !Qry.Eof;
+}
+
 void SuitablePaxList::get(const int& pnr_id,
                           const std::string& surname,
                           const std::string& name,
@@ -6697,16 +6741,19 @@ void SuitablePaxList::get(const int& pnr_id,
                    "      crs_pax.pnr_id= :pnr_id AND "
                    "      crs_pax.surname= :surname AND "
                    "      (crs_pax.name= :name OR :name IS NULL AND crs_pax.name IS NULL) AND "
-                   "      DECODE(crs_pax.seats,0,0,1)=:seats AND "
-                   "      NOT EXISTS(SELECT seat_id FROM crs_seats_blocking WHERE crs_seats_blocking.seat_id=crs_pax.pax_id) "
+                   "      DECODE(crs_pax.seats,0,0,1)=:seats "
                    "ORDER BY crs_pax.last_op DESC, crs_pax.pax_id DESC",
                    QParams() << QParam("pnr_id", otInteger, pnr_id)
                              << QParam("surname", otString, surname)
                              << QParam("name", otString, name)
                              << QParam("seats", otInteger, isInfant?0:1));
   Qry.get().Execute();
-  for(; !Qry.get().Eof; Qry.get().Next())
+  for(; !Qry.get().Eof; Qry.get().Next()) {
+    if (existsCrsSeatsBlocking(PaxId_t(Qry.get().FieldAsInteger("pax_id")))) {
+      continue;
+    }
     emplace_back(Qry);
+  }
 }
 
 void SuitablePaxList::get(const std::vector<TTKNItem>& tkn,
@@ -6734,8 +6781,7 @@ void SuitablePaxList::get(const std::vector<TTKNItem>& tkn,
                    "      crs_pnr.airp_arv=:airp_arv AND "
                    "      crs_pax.surname= :surname AND "
                    "      (crs_pax.name= :name OR :name IS NULL AND crs_pax.name IS NULL) AND "
-                   "      DECODE(crs_pax.seats,0,0,1)=:seats AND "
-                   "      NOT EXISTS(SELECT seat_id FROM crs_seats_blocking WHERE crs_seats_blocking.seat_id=crs_pax.pax_id) "
+                   "      DECODE(crs_pax.seats,0,0,1)=:seats "
                    "ORDER BY crs_pax.last_op DESC, crs_pax.pax_id DESC",
                    QParams() << QParam("point_id", otInteger, point_id)
                              << QParam("system", otString, system)
@@ -6753,6 +6799,9 @@ void SuitablePaxList::get(const std::vector<TTKNItem>& tkn,
       Qry.get().SetVariable("pax_id", pax_id.get());
       Qry.get().Execute();
       for(; !Qry.get().Eof; Qry.get().Next()) {
+        if (existsCrsSeatsBlocking(PaxId_t(Qry.get().FieldAsInteger("pax_id")))) {
+          continue;
+        }
         emplace_back(Qry, totalsByDest.cl);
       }
     }
@@ -6891,6 +6940,103 @@ bool saveTypeBDataStat(const PointIdTlg_t& point_id, const std::string& system,
         QryParams);
   insert.get().Execute();
   return bool(insert.get().RowsProcessed());
+}
+
+std::set<PaxId_t> loadCrsInfIdSet(const PaxId_t& pax_id, bool lock)
+{
+  std::set<PaxId_t> result;
+  DB::TQuery Qry(lock ? PgOra::getRWSession("CRS_INF")
+                      : PgOra::getROSession("CRS_INF"));
+  Qry.SQLText="SELECT inf_id FROM crs_inf "
+              "WHERE pax_id=:pax_id "
+              + std::string(lock ? "FOR UPDATE" : "");
+  Qry.CreateVariable("pax_id", otInteger, pax_id.get());
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next()) {
+    result.emplace(Qry.FieldAsInteger("inf_id"));
+  }
+  return result;
+}
+
+void insertCrsInfDeleted(const PaxId_t& inf_id)
+{
+  DB::TQuery Qry(PgOra::getRWSession("CRS_INF-CRS_INF_DELETED"));
+  Qry.SQLText=
+      "INSERT INTO crs_inf_deleted(inf_id, pax_id) "
+      "SELECT inf_id, pax_id FROM crs_inf WHERE inf_id=:inf_id ";
+  Qry.CreateVariable("inf_id",otInteger,inf_id.get());
+  Qry.Execute();
+}
+
+void updateCrsPaxAsDeleted(const PaxId_t& pax_id, int tid, TDateTime datetime)
+{
+  DB::TQuery Qry(PgOra::getRWSession("CRS_PAX"));
+  Qry.SQLText=
+      "UPDATE crs_pax "
+      "SET pr_del=1, last_op=:last_op, tid=:tid "
+      "WHERE pax_id=:pax_id AND pr_del=0 ";
+  Qry.CreateVariable("pax_id",otInteger,pax_id.get());
+  Qry.CreateVariable("tid",otInteger,tid);
+  Qry.CreateVariable("last_op", otDate, datetime);
+  Qry.Execute();
+}
+
+void updateCrsPax_InfIdToNull(const PaxId_t& pax_id)
+{
+  DB::TQuery Qry(PgOra::getRWSession("CRS_PAX"));
+  Qry.SQLText="UPDATE crs_pax "
+              "SET inf_id=NULL "
+              "WHERE pax_id=:pax_id ";
+  Qry.CreateVariable("pax_id", otInteger, pax_id.get());
+  Qry.Execute();
+}
+
+std::set<PaxId_t> loadCrsBlockingSeatIdSet(const PaxId_t& pax_id, bool lock)
+{
+  std::set<PaxId_t> result;
+  DB::TQuery Qry(lock ? PgOra::getRWSession("CRS_SEATS_BLOCKING")
+                      : PgOra::getROSession("CRS_SEATS_BLOCKING"));
+  Qry.SQLText="SELECT seat_id FROM crs_seats_blocking "
+              "WHERE pax_id=:pax_id "
+              "AND pr_del=0 "
+              + std::string(lock ? "FOR UPDATE" : "");
+  Qry.CreateVariable("pax_id", otInteger, pax_id.get());
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next()) {
+    result.emplace(Qry.FieldAsInteger("seat_id"));
+  }
+  return result;
+}
+
+void updateCrsSeatsBlockingAsDeleted(const PaxId_t& seat_id)
+{
+  DB::TQuery Qry(PgOra::getRWSession("CRS_SEATS_BLOCKING"));
+  Qry.SQLText=
+      "UPDATE crs_seats_blocking "
+      "SET pr_del=1 "
+      "WHERE seat_id=:seat_id ";
+  Qry.CreateVariable("seat_id",otInteger,seat_id.get());
+  Qry.Execute();
+}
+
+void deleteAllByPax(const PaxId_t& pax_id, TDateTime datetime)
+{
+  const std::set<PaxId_t> inf_id_set = loadCrsInfIdSet(pax_id, true /*lock*/);
+  for (const PaxId_t& inf_id: inf_id_set) {
+    insertCrsInfDeleted(inf_id);
+    deleteCrsInf(inf_id);
+    const int tid = PgOra::getSeqCurrVal_int("cycle_tid__seq");
+    updateCrsPaxAsDeleted(inf_id, tid, datetime);
+  }
+
+  const std::set<PaxId_t> seat_id_set = loadCrsBlockingSeatIdSet(pax_id, true /*lock*/);
+  for (const PaxId_t& seat_id: seat_id_set) {
+    updateCrsSeatsBlockingAsDeleted(seat_id);
+    const int tid = PgOra::getSeqCurrVal_int("cycle_tid__seq");
+    updateCrsPaxAsDeleted(seat_id, tid, datetime);
+  }
+
+  updateCrsPax_InfIdToNull(pax_id);
 }
 
 bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& con, bool forcibly)
@@ -7574,33 +7720,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     DeleteFreeRem(paxId().get());
 
                     //удаляем все по пассажиру
-                    Qry.Clear();
-                    Qry.SQLText=
-                      "DECLARE "
-                      "  CURSOR cur IS "
-                      "    SELECT inf_id FROM crs_inf WHERE pax_id=:pax_id FOR UPDATE; "
-                      "  CURSOR cur2 IS "
-                      "    SELECT seat_id FROM crs_seats_blocking WHERE pax_id=:pax_id AND pr_del=0 FOR UPDATE; "
-                      "BEGIN "
-                      "  FOR curRow IN cur LOOP "
-                      "    INSERT INTO crs_inf_deleted(inf_id, pax_id) "
-                      "    SELECT inf_id, pax_id FROM crs_inf WHERE inf_id=curRow.inf_id; "
-                      "    DELETE FROM crs_inf WHERE inf_id=curRow.inf_id; "
-                      "    UPDATE crs_pax "
-                      "    SET pr_del=1, last_op=:last_op, tid=cycle_tid__seq.currval "
-                      "    WHERE pax_id=curRow.inf_id AND pr_del=0; "
-                      "  END LOOP; "
-                      "  FOR curRow IN cur2 LOOP "
-                      "    UPDATE crs_seats_blocking SET pr_del=1 WHERE seat_id=curRow.seat_id; "
-                      "    UPDATE crs_pax "
-                      "    SET pr_del=1, last_op=:last_op, tid=cycle_tid__seq.currval "
-                      "    WHERE pax_id=curRow.seat_id AND pr_del=0; "
-                      "  END LOOP; "
-                      "  UPDATE crs_pax SET inf_id=NULL WHERE pax_id=:pax_id; "
-                      "END;";
-                    Qry.CreateVariable("pax_id", otInteger, paxId().get());
-                    Qry.CreateVariable("last_op", otDate, info.time_create);
-                    Qry.Execute();
+                    deleteAllByPax(paxId(), info.time_create);
                   };
                   if (ne.indicator!=DEL)
                   {

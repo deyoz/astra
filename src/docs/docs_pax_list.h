@@ -74,7 +74,7 @@ namespace REPORTS {
             pax_id = ASTRA::NoExists;
             pax_info.reset();
         }
-        void fromDB(TQuery &Qry);
+        void fromDB(DB::TQuery &Qry);
 
         TCrsSeatsBlockingItem() { clear(); }
     };
