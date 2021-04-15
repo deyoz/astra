@@ -51,7 +51,7 @@ namespace PgOra
         { "SP_PG_GROUP_CRS_DISPLACE2", { "CRS_DISPLACE2" } },
         { "SP_PG_GROUP_TLG_TRIPS", { "TLG_TRIPS", "TLG_BIND_TYPES" } },
         { "SP_PG_GROUP_CRS_TKN",{ "CRS_PAX_TKN" } },
-        { "SP_PG_GROUP_TYPEB_1",{ "CRS_SEATS_BLOCKING" } },
+        { "SP_PG_GROUP_TYPEB_1",{ "CRS_SEATS_BLOCKING", "PNR_MARKET_FLT" } },
         { "SP_PG_GROUP_WB",    { "WB_MSG", "WB_MSG_TEXT" } },
         { "SP_PG_GROUP_SCHED", { "SCHED_DAYS", "SEASON_SPP", "ROUTES", "SSM_SCHEDULE"} },
         { "SP_PG_GROUP_SCHED_SEQ", {"ROUTES_MOVE_ID", "ROUTES_TRIP_ID", "SSM_ID"} },

@@ -1575,7 +1575,17 @@ void TMktFlight::get(DB::TQuery &Qry, int id)
     return;
   }
 
-  if(Qry.FieldIsNULL("pax_airline")) {
+  const int pnr_id = Qry.FieldAsInteger("pnr_id");
+  DB::TQuery QryMrkt(PgOra::getROSession("PNR_MARKET_FLT"));
+  QryMrkt.SQLText =
+      "SELECT airline, flt_no, suffix, subclass, "
+      "local_date, airp_dep, airp_arv "
+      "FROM pnr_market_flt "
+      "WHERE pnr_id = :pnr_id ";
+  QryMrkt.CreateVariable("pnr_id",otInteger,pnr_id);
+  QryMrkt.Execute();
+
+  if(QryMrkt.Eof) {
     airline = QryTrips.FieldAsString("airline");
     flt_no = QryTrips.FieldAsInteger("flt_no");
     suffix = QryTrips.FieldAsString("suffix");
@@ -1588,16 +1598,16 @@ void TMktFlight::get(DB::TQuery &Qry, int id)
     airp_dep = QryTrips.FieldAsString("airp_dep");
     airp_arv = Qry.FieldAsString("tlg_airp_arv");
   } else {
-    airline = Qry.FieldAsString("pax_airline");
-    flt_no = Qry.FieldAsInteger("pax_flt_no");
-    suffix = Qry.FieldAsString("pax_suffix");
-    subcls = Qry.FieldAsString("pax_subcls");
-    scd_day_local = Qry.FieldAsInteger("pax_scd");
+    airline = QryMrkt.FieldAsString("airline");
+    flt_no = QryMrkt.FieldAsInteger("flt_no");
+    suffix = QryMrkt.FieldAsString("suffix");
+    subcls = QryMrkt.FieldAsString("subclass");
+    scd_day_local = QryMrkt.FieldAsInteger("local_date");
     scd_date_local = DayToDate(scd_day_local,QryTrips.FieldAsDateTime("scd"),true);
-    airp_dep = Qry.FieldAsString("pax_airp_dep");
-    airp_arv = Qry.FieldAsString("pax_airp_arv");
+    airp_dep = QryMrkt.FieldAsString("airp_dep");
+    airp_arv = QryMrkt.FieldAsString("airp_arv");
   }
-};
+}
 
 void TMktFlight::getByPaxId(int pax_id)
 {
@@ -1646,48 +1656,32 @@ void TMktFlight::getByCrsPaxId(int pax_id)
     DB::TQuery Qry(PgOra::getROSession("ORACLE"));
     Qry.SQLText =
         "select "
+        "    crs_pnr.pnr_id, "
         "    crs_pnr.point_id, "
         "    crs_pnr.subclass tlg_subcls, "
-        "    crs_pnr.airp_arv tlg_airp_arv, "
-        "    pnr_market_flt.airline pax_airline, "
-        "    pnr_market_flt.flt_no pax_flt_no, "
-        "    pnr_market_flt.suffix pax_suffix, "
-        "    pnr_market_flt.subclass pax_subcls, "
-        "    pnr_market_flt.local_date pax_scd, "
-        "    pnr_market_flt.airp_dep pax_airp_dep, "
-        "    pnr_market_flt.airp_arv pax_airp_arv "
+        "    crs_pnr.airp_arv tlg_airp_arv "
         "from "
         "   crs_pax, "
-        "   crs_pnr, "
-        "   pnr_market_flt "
+        "   crs_pnr "
         "where "
         "    crs_pax.pax_id = :id and crs_pax.pr_del=0 and "
-        "    crs_pax.pnr_id = crs_pnr.pnr_id and "
-        "    crs_pax.pnr_id = pnr_market_flt.pnr_id(+) ";
+        "    crs_pax.pnr_id = crs_pnr.pnr_id ";
     get(Qry, pax_id);
 }
 
 void TMktFlight::getByPnrId(int pnr_id)
 {
-    DB::TQuery Qry(PgOra::getROSession("ORACLE"));
+    DB::TQuery Qry(PgOra::getROSession("CRS_PNR"));
     Qry.SQLText =
         "select "
-        "    crs_pnr.point_id, "
-        "    crs_pnr.subclass tlg_subcls, "
-        "    crs_pnr.airp_arv tlg_airp_arv, "
-        "    pnr_market_flt.airline pax_airline, "
-        "    pnr_market_flt.flt_no pax_flt_no, "
-        "    pnr_market_flt.suffix pax_suffix, "
-        "    pnr_market_flt.subclass pax_subcls, "
-        "    pnr_market_flt.local_date pax_scd, "
-        "    pnr_market_flt.airp_dep pax_airp_dep, "
-        "    pnr_market_flt.airp_arv pax_airp_arv "
+        "    pnr_id, "
+        "    point_id, "
+        "    subclass tlg_subcls, "
+        "    airp_arv tlg_airp_arv "
         "from "
-        "   crs_pnr, "
-        "   pnr_market_flt "
+        "   crs_pnr "
         "where "
-        "    crs_pnr.pnr_id = :id and "
-        "    crs_pnr.pnr_id = pnr_market_flt.pnr_id(+) ";
+        "    pnr_id = :id ";
     get(Qry, pnr_id);
 }
 

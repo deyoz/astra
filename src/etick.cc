@@ -1414,22 +1414,34 @@ struct PaxData4Sync
   static std::vector<PaxData4Sync> load(int pax_id);
 };
 
+static bool existsPnrMarketFlt(const PnrId_t& pnr_id)
+{
+  LogTrace(TRACE6) << __func__ << ": pnr_id=" << pnr_id;
+  DB::TQuery Qry(PgOra::getROSession("PNR_MARKET_FLT"));
+  Qry.SQLText =
+    "SELECT 1 FROM pnr_market_flt "
+    "WHERE pnr_id=:pnr_id ";
+  Qry.CreateVariable("pnr_id", otInteger, pnr_id.get());
+  Qry.Execute();
+  return !Qry.Eof;
+}
+
 std::vector<PaxData4Sync> PaxData4Sync::load(int pax_id)
 {
   LogTrace(TRACE6) << __func__
                    << ": pax_id=" << pax_id;
   std::vector<PaxData4Sync> result;
+  int pnr_id = ASTRA::NoExists;
   PaxData4Sync item;
   auto cur = make_db_curs(
         "SELECT 1 AS view_order, "
+        "       crs_pnr.pnr_id, "
         "       crs_rbd.fare_class AS etick_subclass, "
         "       classes.code AS etick_class, "
         "       classes.priority AS class_priority "
-        "FROM crs_pax, crs_pnr, pnr_market_flt, crs_rbd, subcls, classes "
+        "FROM crs_pax, crs_pnr, crs_rbd, subcls, classes "
         "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
         "      crs_pnr.system='CRS' AND "
-        "      crs_pnr.pnr_id=pnr_market_flt.pnr_id(+) AND "
-        "      pnr_market_flt.pnr_id IS NULL AND "
         "      crs_rbd.point_id=crs_pnr.point_id AND "
         "      crs_rbd.sender=crs_pnr.sender AND "
         "      crs_rbd.system=crs_pnr.system AND "
@@ -1438,20 +1450,20 @@ std::vector<PaxData4Sync> PaxData4Sync::load(int pax_id)
         "      crs_pax.pax_id=:pax_id "
         "UNION ALL "
         "SELECT 2 AS view_order, "
+        "       crs_pnr.pnr_id, "
         "       subcls.code AS etick_subclass, "
         "       classes.code AS etick_class, "
         "       classes.priority AS class_priority "
-        "FROM crs_pax, crs_pnr, pnr_market_flt, subcls, classes "
+        "FROM crs_pax, crs_pnr, subcls, classes "
         "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
         "      crs_pnr.system='CRS' AND "
-        "      crs_pnr.pnr_id=pnr_market_flt.pnr_id(+) AND "
-        "      pnr_market_flt.pnr_id IS NULL AND "
         "      classes.code=subcls.class AND "
         "      crs_pax.pax_id=:pax_id "
         "ORDER BY view_order, class_priority, etick_subclass ",
         *get_main_ora_sess(STDLOG));
   cur.stb()
       .def(item.view_order)
+      .def(pnr_id)
       .def(item.etick_subclass)
       .def(item.etick_class)
       .def(item.class_priority)
@@ -1460,6 +1472,9 @@ std::vector<PaxData4Sync> PaxData4Sync::load(int pax_id)
 
   const std::vector<TkneData> tkne_items = loadCrsPaxTKN(PaxId_t(pax_id));
   while (!cur.fen()) {
+    if (existsPnrMarketFlt(PnrId_t(pnr_id))) {
+      continue;
+    }
     for (const TkneData& tkne_item: tkne_items) {
       item.ticket_no = tkne_item.ticket_no;
       item.coupon_no = tkne_item.coupon_no;
