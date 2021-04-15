@@ -33,6 +33,7 @@ libstat_a_SOURCES = \
   stat_ovb.cc \
   stat_salon.cc \
   stat_zamar.cc \
+  stat_ahm.cc \
   stat_vo.cc
         
 

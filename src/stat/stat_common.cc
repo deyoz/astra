@@ -58,7 +58,8 @@ const char *TStatTypeS[statNum] = {
     "statServicesShort",
     "statServicesDetail",
     "statSalonFull",
-    "statZamarFull"
+    "statZamarFull",
+    "statAHM"
 };
 
 void TStatParams::fromFileParams(map<string, string> &file_params)

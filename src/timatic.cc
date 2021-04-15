@@ -61,7 +61,8 @@ void TimaticInterface::TimaticDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 
 void TimaticInterface::layout(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    XMLDoc layout = XMLDoc(StrUtils::b64_decode(getResource(TIMATIC_XML_RESOURCE)));
+    XMLDoc layout = XMLDoc(StrUtils::b64_decode(
+                getResource(NodeAsString("src", reqNode, TIMATIC_XML_RESOURCE.c_str()))));
     xml_decode_nodelist(layout.docPtr()->children);
 
     xmlNodePtr curNode = layout.docPtr()->children;

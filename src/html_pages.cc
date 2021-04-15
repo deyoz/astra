@@ -226,7 +226,8 @@ void THTMLResource::get(const string &aname)
             }
             data += Qry.get().FieldAsString("text");
         }
-    }
+    } else
+        throw Exception("resource not found: '%s'", aname.c_str());
 }
 
 string getResource(const string &file_path)
