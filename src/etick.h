@@ -142,8 +142,6 @@ namespace PaxETList
 {
 
 enum TListType {allStatusesByPointIdFromTlg,
-                allByPointIdAndTickNoFromTlg,
-                allByTickNoAndCouponNoFromTlg,
                 allNotCheckedStatusesByPointId,
                 allCheckedByTickNoAndCouponNo};
 std::string GetSQL(const TListType ltype);

@@ -9,6 +9,7 @@ namespace TypeB
 
 std::set<PaxId_t> loadPaxIdSet(const PointIdTlg_t& point_id, const std::string& system,
                                const std::optional<CrsSender_t>& sender);
+std::set<PaxId_t> loadPaxIdSet(const PnrId_t& pnr_id, bool skip_deleted);
 
 bool deleteCrsSeatsBlocking(const PaxId_t& pax_id);
 bool deleteCrsInf(const PaxId_t& pax_id);
@@ -54,6 +55,7 @@ bool deleteTypeBData(const PointIdTlg_t& point_id, const std::string& system = "
                      const std::optional<CrsSender_t>& sender = {},
                      bool delete_trip_comp_layers = false);
 
+std::string getTKNO(int pax_id, const std::string& et_term = "/", bool only_TKNE = false);
 std::string getPSPT(int pax_id, bool with_issue_country = false,
                     const std::string& language = "RU");
 

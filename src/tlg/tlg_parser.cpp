@@ -43,6 +43,8 @@ using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
 using namespace std;
 
+std::set<PaxId_t> loadCrsPaxTKN(const std::string& tick_no, int coupon_no, const std::string& rem_code);
+
 namespace TypeB
 {
 
@@ -6722,17 +6724,14 @@ void SuitablePaxList::get(const std::vector<TTKNItem>& tkn,
   TCachedQuery Qry("SELECT crs_pax.pax_id, crs_pax.pr_del, crs_pax.last_op, "
                    "       crs_pnr.class, "
                    "       crs_inf_deleted.pax_id AS parent_pax_id "
-                   "FROM crs_pnr, crs_pax, crs_pax_tkn, crs_inf_deleted "
+                   "FROM crs_pnr, crs_pax, crs_inf_deleted "
                    "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
-                   "      crs_pax.pax_id=crs_pax_tkn.pax_id AND "
+                   "      crs_pax.pax_id=:pax_id AND "
                    "      crs_pax.pax_id=crs_inf_deleted.inf_id(+) AND "
                    "      crs_pnr.point_id=:point_id AND "
                    "      crs_pnr.system=:system AND "
                    "      crs_pnr.sender=:sender AND "
                    "      crs_pnr.airp_arv=:airp_arv AND "
-                   "      crs_pax_tkn.rem_code=:rem_code AND "
-                   "      crs_pax_tkn.ticket_no=:ticket_no AND "
-                   "      (crs_pax_tkn.coupon_no IS NULL AND :coupon_no IS NULL OR crs_pax_tkn.coupon_no=:coupon_no) AND "
                    "      crs_pax.surname= :surname AND "
                    "      (crs_pax.name= :name OR :name IS NULL AND crs_pax.name IS NULL) AND "
                    "      DECODE(crs_pax.seats,0,0,1)=:seats AND "
@@ -6742,18 +6741,21 @@ void SuitablePaxList::get(const std::vector<TTKNItem>& tkn,
                              << QParam("system", otString, system)
                              << QParam("sender", otString, sender)
                              << QParam("airp_arv", otString, totalsByDest.dest)
-                             << QParam("rem_code", otString)
-                             << QParam("ticket_no", otString)
-                             << QParam("coupon_no", otInteger)
+                             << QParam("pax_id", otInteger)
                              << QParam("surname", otString, surname)
                              << QParam("name", otString, name)
                              << QParam("seats", otInteger, isInfant?0:1));
+
   for(const TTKNItem& t : tkn)
   {
-    t.toDB(Qry.get());
-    Qry.get().Execute();
-    for(; !Qry.get().Eof; Qry.get().Next())
-      emplace_back(Qry, totalsByDest.cl);
+    const std::set<PaxId_t> pax_id_set = loadCrsPaxTKN(t.ticket_no, t.coupon_no, t.rem_code);
+    for (const PaxId_t& pax_id: pax_id_set) {
+      Qry.get().SetVariable("pax_id", pax_id.get());
+      Qry.get().Execute();
+      for(; !Qry.get().Eof; Qry.get().Next()) {
+        emplace_back(Qry, totalsByDest.cl);
+      }
+    }
     if (!empty()) break;
   }
 }

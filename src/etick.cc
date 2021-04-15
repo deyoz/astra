@@ -79,6 +79,99 @@ using namespace AstraEdifact;
 
 #define MAX_TICKETS_IN_TLG 5
 
+namespace {
+
+struct TkneData
+{
+  std::string ticket_no;
+  int coupon_no;
+  PaxId_t pax_id;
+};
+
+std::vector<TkneData> loadCrsPaxTKN(const std::string& tick_no)
+{
+  LogTrace(TRACE6) << __func__ << ": tick_no=" << tick_no;
+  std::vector<TkneData> result;
+  DB::TQuery Qry(PgOra::getROSession("CRS_PAX_TKN"));
+  Qry.SQLText="SELECT ticket_no, coupon_no, pax_id "
+              "FROM crs_pax_tkn "
+              "WHERE ticket_no=:ticket_no "
+              "AND rem_code=:rem_code ";
+  Qry.CreateVariable("ticket_no", otString, tick_no);
+  Qry.CreateVariable("rem_code", otString, "TKNE");
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next()) {
+    result.push_back(TkneData{
+      Qry.FieldAsString("ticket_no"),
+      Qry.FieldAsInteger("coupon_no"),
+      PaxId_t(Qry.FieldAsInteger("pax_id"))
+    });
+  }
+  return result;
+}
+
+std::vector<TkneData> loadCrsPaxTKN(const PaxId_t& pax_id)
+{
+  LogTrace(TRACE6) << __func__ << ": pax_id=" << pax_id;
+  std::vector<TkneData> result;
+  DB::TQuery Qry(PgOra::getROSession("CRS_PAX_TKN"));
+  Qry.SQLText="SELECT ticket_no, coupon_no, pax_id "
+              "FROM crs_pax_tkn "
+              "WHERE pax_id=:pax_id "
+              "AND rem_code=:rem_code ";
+  Qry.CreateVariable("pax_id", otString, pax_id.get());
+  Qry.CreateVariable("rem_code", otString, "TKNE");
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next()) {
+    result.push_back(TkneData{
+      Qry.FieldAsString("ticket_no"),
+      Qry.FieldAsInteger("coupon_no"),
+      PaxId_t(Qry.FieldAsInteger("pax_id"))
+    });
+  }
+  return result;
+}
+
+} // namespace
+
+std::set<PaxId_t> loadCrsPaxTKN(const std::string& tick_no, int coupon_no,
+                                const std::string& rem_code = "TKNE")
+{
+  LogTrace(TRACE6) << __func__
+                   << ": tick_no=" << tick_no
+                   << ", coupon_no=" << coupon_no
+                   << ", rem_code=" << rem_code;
+  std::set<PaxId_t> result;
+  DB::TQuery Qry(PgOra::getROSession("CRS_PAX_TKN"));
+  Qry.SQLText="SELECT pax_id "
+              "FROM crs_pax_tkn "
+              "WHERE ticket_no=:ticket_no "
+              "AND rem_code=:rem_code "
+              "AND (coupon_no IS NULL AND :coupon_no IS NULL OR coupon_no=:coupon_no) ";
+  Qry.CreateVariable("ticket_no", otString, tick_no);
+  Qry.CreateVariable("rem_code", otString, rem_code);
+  if (coupon_no != ASTRA::NoExists) {
+    Qry.CreateVariable("coupon_no", otInteger, coupon_no);
+  } else {
+    Qry.CreateVariable("coupon_no", otInteger, FNull);
+  }
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next()) {
+    result.emplace(Qry.FieldAsInteger("pax_id"));
+  }
+  return result;
+}
+
+std::vector<std::pair<std::string, int>> loadCrsPaxET(const PaxId_t& pax_id)
+{
+  std::vector<std::pair<std::string, int>> result;
+  const std::vector<TkneData> tkne_data = loadCrsPaxTKN(pax_id);
+  for (const TkneData& tkne_item: tkne_data) {
+    result.emplace_back(tkne_item.ticket_no, tkne_item.coupon_no);
+  }
+  return result;
+}
+
 namespace PaxETList
 {
 
@@ -104,36 +197,6 @@ std::string GetSQL(const TListType ltype)
 {
   ostringstream sql;
 
-  if (ltype==allByPointIdAndTickNoFromTlg ||
-      ltype==allByTickNoAndCouponNoFromTlg)
-  {
-    sql << "SELECT crs_pax_tkn.ticket_no, crs_pax_tkn.coupon_no, \n"
-           "       tlg_binding.point_id_spp AS point_id, \n"
-           "       crs_pax.* \n"
-           "FROM crs_pax_tkn, crs_pax, crs_pnr, tlg_binding \n"
-           "WHERE crs_pax_tkn.pax_id=crs_pax.pax_id AND \n"
-           "      crs_pax.pnr_id=crs_pnr.pnr_id AND \n"
-           "      crs_pnr.point_id=tlg_binding.point_id_tlg AND \n";
-    if (ltype==allByPointIdAndTickNoFromTlg) {
-      sql <<
-           "      tlg_binding.point_id_spp=:point_id AND \n"
-           "      crs_pax_tkn.ticket_no=:ticket_no AND \n";
-    }
-    if (ltype==allByTickNoAndCouponNoFromTlg) {
-      sql <<
-           "      crs_pax_tkn.ticket_no=:ticket_no AND \n"
-           "      crs_pax_tkn.coupon_no=:coupon_no AND \n";
-    }
-  }
-
-  if (ltype==allByPointIdAndTickNoFromTlg ||
-      ltype==allByTickNoAndCouponNoFromTlg)
-  {
-    sql << "      crs_pnr.system='CRS' AND \n"
-           "      crs_pax.pr_del=0 AND \n"
-           "      crs_pax_tkn.rem_code='TKNE'\n";
-  };
-
   if (ltype==allCheckedByTickNoAndCouponNo)
   {
     sql << "SELECT pax_grp.point_dep AS point_id, \n"
@@ -150,15 +213,17 @@ std::string GetSQL(const TListType ltype)
 
 void GetNotDisplayedET(int point_id_tlg, int id, bool is_pax_id, std::set<ETSearchByTickNoParams> &searchParams)
 {
+  LogTrace(TRACE6) << __func__
+                   << ": point_id_tlg=" << point_id_tlg
+                   << ", id=" << id
+                   << ", is_pax_id=" << is_pax_id;
   TQuery Qry(&OraSession);
   Qry.Clear();
 
   ostringstream sql;
-  sql << "SELECT tlg_binding.point_id_spp AS point_id, crs_pax_tkn.ticket_no, crs_pax_tkn.coupon_no \n"
-         "FROM crs_pax_tkn, crs_pax, crs_pnr, tlg_binding \n"
-         "WHERE crs_pax_tkn.pax_id=crs_pax.pax_id AND \n"
-         "      crs_pax_tkn.rem_code='TKNE' AND \n"
-         "      crs_pax.pr_del=0 AND \n"
+  sql << "SELECT crs_pax.pax_id, tlg_binding.point_id_spp AS point_id \n"
+         "FROM crs_pax, crs_pnr, tlg_binding \n"
+         "WHERE crs_pax.pr_del=0 AND \n"
          "      crs_pax.pnr_id=crs_pnr.pnr_id AND \n"
          "      crs_pnr.system='CRS' AND \n"
          "      crs_pnr.point_id=tlg_binding.point_id_tlg AND \n"
@@ -180,19 +245,22 @@ void GetNotDisplayedET(int point_id_tlg, int id, bool is_pax_id, std::set<ETSear
     if (!tlg_trips_data) {
       continue;
     }
-    if (isDisplayedEt(Qry.FieldAsString("ticket_no"),
-                      Qry.FieldAsInteger("coupon_no")))
-    {
-      continue;
+    const std::vector<TkneData> tkne_data = loadCrsPaxTKN(PaxId_t(Qry.FieldAsInteger("pax_id")));
+    for (const TkneData& tkne_item: tkne_data) {
+      if (isDisplayedEt(tkne_item.ticket_no,
+                        tkne_item.coupon_no))
+      {
+        continue;
+      }
+      ETSearchByTickNoParams params(Qry.FieldAsInteger("point_id"),
+                                    tkne_item.ticket_no);
+      searchParams.insert(params);
+      //добавляем телеграммный рейс
+      params.airline=tlg_trips_data->airline;
+      params.flt_no=!tlg_trips_data->flt_no ? ASTRA::NoExists : tlg_trips_data->flt_no;
+      params.airp_dep=tlg_trips_data->airp_dep;
+      searchParams.insert(params);
     }
-    ETSearchByTickNoParams params(Qry.FieldAsInteger("point_id"),
-                                  Qry.FieldAsString("ticket_no"));
-    searchParams.insert(params);
-    //добавляем телеграммный рейс
-    params.airline=tlg_trips_data->airline;
-    params.flt_no=!tlg_trips_data->flt_no ? ASTRA::NoExists : tlg_trips_data->flt_no;
-    params.airp_dep=tlg_trips_data->airp_dep;
-    searchParams.insert(params);
   }
 }
 
@@ -217,47 +285,52 @@ bool existsPaxWithEt(const std::string& ticket_no, int coupon_no)
 
 void GetAllStatusesByPointId(TListType type, int point_id, std::set<TETickItem> &list, bool clear_list=true)
 {
+  LogTrace(TRACE6) << __func__
+                   << ": point_id=" << point_id;
   if (clear_list) list.clear();
 
   if (type==allStatusesByPointIdFromTlg) {
     TQuery Qry(&OraSession);
     Qry.Clear();
     Qry.SQLText =
-        "SELECT crs_pax_tkn.ticket_no, crs_pax_tkn.coupon_no, \n"
+        "SELECT crs_pax.pax_id, \n"
         "       crs_pnr.airp_arv, \n"
         "       crs_pnr.point_id AS point_id_tlg, \n"
         "       tlg_binding.point_id_spp AS point_id \n"
-        "FROM crs_pax_tkn, crs_pax, crs_pnr, tlg_binding \n"
-        "WHERE crs_pax_tkn.pax_id=crs_pax.pax_id AND \n"
-        "      crs_pax.pnr_id=crs_pnr.pnr_id AND \n"
+        "FROM crs_pax, crs_pnr, tlg_binding \n"
+        "WHERE crs_pax.pnr_id=crs_pnr.pnr_id AND \n"
         "      crs_pnr.point_id=tlg_binding.point_id_tlg AND \n"
         "      tlg_binding.point_id_spp=:point_id AND \n"
         "      crs_pnr.system='CRS' AND \n"
-        "      crs_pax.pr_del=0 AND \n"
-        "      crs_pax_tkn.rem_code='TKNE'\n";
+        "      crs_pax.pr_del=0 \n";
     Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.Execute();
     for(;!Qry.Eof;Qry.Next())
     {
-      TETickItem item;
-      item.clear();
-
-      item.et.fromDB(Qry);
-      item.point_id=Qry.FieldIsNULL("point_id")?ASTRA::NoExists:
-                                           Qry.FieldAsInteger("point_id");
       const std::optional<TlgTripsData> tlg_trips_data =
           TlgTripsData::load(PointIdTlg_t(Qry.FieldAsInteger("point_id_tlg")));
       if (!tlg_trips_data) {
         continue;
       }
-      item.airp_dep=tlg_trips_data->airp_dep;
-      item.airp_arv=Qry.FieldAsString("airp_arv");
+      const std::vector<TkneData> tkne_data = loadCrsPaxTKN(PaxId_t(Qry.FieldAsInteger("pax_id")));
 
-      TETickItem eticket;
-      eticket.fromDB(item.et.no, item.et.coupon, TETickItem::ChangeOfStatus, false /*lock*/);
-      if (!eticket.empty() &&
-          eticket.et.status != CouponStatus(CouponStatus::Unavailable)) continue;
-      list.insert(item);
+      for (const TkneData& tkne_item: tkne_data) {
+        TETickItem item;
+        item.clear();
+
+        item.point_id=Qry.FieldIsNULL("point_id")?ASTRA::NoExists:
+                                                  Qry.FieldAsInteger("point_id");
+        item.et.no = tkne_item.ticket_no;
+        item.et.coupon = tkne_item.coupon_no;
+        item.airp_dep=tlg_trips_data->airp_dep;
+        item.airp_arv=Qry.FieldAsString("airp_arv");
+
+        TETickItem eticket;
+        eticket.fromDB(item.et.no, item.et.coupon, TETickItem::ChangeOfStatus, false /*lock*/);
+        if (!eticket.empty() &&
+            eticket.et.status != CouponStatus(CouponStatus::Unavailable)) continue;
+        list.insert(item);
+      }
     };
   }
 
@@ -274,37 +347,103 @@ void GetAllStatusesByPointId(TListType type, int point_id, std::set<TETickItem> 
   }
 }
 
+struct PnrPaxData
+{
+  CheckIn::TSimplePaxItem pax;
+  CheckIn::TSimplePnrItem pnr;
+};
+
+std::set<PaxId_t> getPaxIdSet(const std::vector<TkneData>& tkne_items)
+{
+  std::set<PaxId_t> result;
+  for (const TkneData& tkne_item: tkne_items) {
+    result.emplace(tkne_item.pax_id);
+  }
+  return result;
+}
+
+std::map<PaxId_t,PnrPaxData> loadPaxItems(const std::set<PaxId_t>& pax_id_set)
+{
+  std::map<PaxId_t,PnrPaxData> result;
+  for (const PaxId_t& pax_id: pax_id_set) {
+    CheckIn::TSimplePaxItem pax_item;
+    if (!pax_item.getCrsByPaxId(pax_id, true /*skip_deleted*/)) {
+      continue;
+    }
+    CheckIn::TSimplePnrItem pnr_item;
+    if (!pnr_item.getByPnrId(PnrId_t(pax_item.pnr_id), "CRS")) {
+      continue;
+    }
+    result.emplace(pax_id, PnrPaxData{pax_item,pnr_item});
+  }
+  return result;
+}
+
 void GetByTickNoFromTlg(int point_id, const std::string& tick_no, std::set<TETCtxtItem> &items)
 {
+  LogTrace(TRACE6) << __func__
+                   << ": point_id=" << point_id
+                   << ", tick_no=" << tick_no;
   items.clear();
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=GetSQL(allByPointIdAndTickNoFromTlg);
-  Qry.CreateVariable("point_id", otInteger, point_id);
-  Qry.CreateVariable("ticket_no", otString, tick_no);
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
-  {
-    if (Qry.FieldIsNULL("coupon_no")) continue;
-    items.insert(TETCtxtItem().fromDB(Qry, true));
-  };
+  const std::vector<TkneData> tkne_items = loadCrsPaxTKN(tick_no);
+  const std::set<PointIdTlg_t> point_id_tlg_set =
+      getPointIdTlgByPointIdsSpp(PointId_t(point_id));
+
+  const std::map<PaxId_t,PnrPaxData> pax_items_map = loadPaxItems(getPaxIdSet(tkne_items));
+  for (const TkneData& tkne_item: tkne_items) {
+    auto pos = pax_items_map.find(tkne_item.pax_id);
+    if (pos == pax_items_map.end()) {
+      continue;
+    }
+    const PnrPaxData& data = pos->second;
+    for (const PointIdTlg_t& point_id_tlg: point_id_tlg_set) {
+      if (data.pnr.point_id_tlg != point_id_tlg.get()) {
+        continue;
+      }
+      TETCtxtItem item;
+      item.et.no = tkne_item.ticket_no;
+      item.et.coupon = tkne_item.coupon_no;
+      item.point_id = point_id;
+      item.pax = data.pax;
+      items.insert(item);
+    }
+  }
 }
 
 void GetByCouponNoFromTlg(const std::string& tick_no, int coupon_no, std::list<TETCtxtItem> &items) //list не просто так. Один и тот же купон может быть привязан ко многим рейсам
 {
+  LogTrace(TRACE6) << __func__
+                   << ": tick_no=" << tick_no
+                   << ", coupon_no=" << coupon_no;
   items.clear();
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=GetSQL(allByTickNoAndCouponNoFromTlg);
-  Qry.CreateVariable("ticket_no", otString, tick_no);
-  Qry.CreateVariable("coupon_no", otInteger, coupon_no);
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
-    items.push_back(TETCtxtItem().fromDB(Qry, true));
+  const std::set<PaxId_t> pax_id_set = loadCrsPaxTKN(tick_no, coupon_no);
+  for (const PaxId_t& pax_id: pax_id_set) {
+    CheckIn::TSimplePaxItem pax_item;
+    if (!pax_item.getCrsByPaxId(pax_id, true /*skip_deleted*/)) {
+      continue;
+    }
+    CheckIn::TSimplePnrItem pnr_item;
+    if (!pnr_item.getByPnrId(PnrId_t(pax_item.pnr_id), "CRS")) {
+      continue;
+    }
+    const std::set<PointId_t> point_id_set =
+        getPointIdsSppByPointIdTlg(PointIdTlg_t(pnr_item.point_id_tlg));
+    for (const PointId_t& point_id: point_id_set) {
+      TETCtxtItem item;
+      item.et.no = tick_no;
+      item.et.coupon = coupon_no;
+      item.point_id = point_id.get();
+      item.pax = pax_item;
+      items.push_back(item);
+    }
+  }
 }
 
 void GetCheckedByCouponNo(const std::string& tick_no, int coupon_no, std::list<TETCtxtItem> &items)
 {
+  LogTrace(TRACE6) << __func__
+                   << ": tick_no=" << tick_no
+                   << ", coupon_no=" << coupon_no;
   items.clear();
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -369,6 +508,8 @@ class ETDisplayProps
 
 void TlgETDisplay(int point_id_tlg, const set<int> &ids, bool is_pax_id)
 {
+  LogTrace(TRACE6) << __func__
+                   << ": point_id_tlg=" << point_id_tlg;
   map<ETWideSearchParams, ETDisplayProps> ets_props;
   set<ETDisplayKey> eticks;
 
@@ -1283,13 +1424,9 @@ std::vector<PaxData4Sync> PaxData4Sync::load(int pax_id)
         "SELECT 1 AS view_order, "
         "       crs_rbd.fare_class AS etick_subclass, "
         "       classes.code AS etick_class, "
-        "       classes.priority AS class_priority,"
-        "       crs_pax_tkn.ticket_no AS ticket_no, "
-        "       crs_pax_tkn.coupon_no AS coupon_no "
-        "FROM crs_pax, crs_pax_tkn, crs_pnr, pnr_market_flt, crs_rbd, subcls, classes "
-        "WHERE crs_pax_tkn.pax_id=crs_pax.pax_id AND "
-        "      crs_pax_tkn.rem_code='TKNE' AND "
-        "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
+        "       classes.priority AS class_priority "
+        "FROM crs_pax, crs_pnr, pnr_market_flt, crs_rbd, subcls, classes "
+        "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
         "      crs_pnr.system='CRS' AND "
         "      crs_pnr.pnr_id=pnr_market_flt.pnr_id(+) AND "
         "      pnr_market_flt.pnr_id IS NULL AND "
@@ -1303,13 +1440,9 @@ std::vector<PaxData4Sync> PaxData4Sync::load(int pax_id)
         "SELECT 2 AS view_order, "
         "       subcls.code AS etick_subclass, "
         "       classes.code AS etick_class, "
-        "       classes.priority AS class_priority, "
-        "       crs_pax_tkn.ticket_no AS ticket_no, "
-        "       crs_pax_tkn.coupon_no AS coupon_no "
-        "FROM crs_pax, crs_pax_tkn, crs_pnr, pnr_market_flt, subcls, classes "
-        "WHERE crs_pax_tkn.pax_id=crs_pax.pax_id AND "
-        "      crs_pax_tkn.rem_code='TKNE' AND "
-        "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
+        "       classes.priority AS class_priority "
+        "FROM crs_pax, crs_pnr, pnr_market_flt, subcls, classes "
+        "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
         "      crs_pnr.system='CRS' AND "
         "      crs_pnr.pnr_id=pnr_market_flt.pnr_id(+) AND "
         "      pnr_market_flt.pnr_id IS NULL AND "
@@ -1322,13 +1455,16 @@ std::vector<PaxData4Sync> PaxData4Sync::load(int pax_id)
       .def(item.etick_subclass)
       .def(item.etick_class)
       .def(item.class_priority)
-      .def(item.ticket_no)
-      .def(item.coupon_no)
       .bind(":pax_id", pax_id)
       .exec();
 
+  const std::vector<TkneData> tkne_items = loadCrsPaxTKN(PaxId_t(pax_id));
   while (!cur.fen()) {
-    result.push_back(item);
+    for (const TkneData& tkne_item: tkne_items) {
+      item.ticket_no = tkne_item.ticket_no;
+      item.coupon_no = tkne_item.coupon_no;
+      result.push_back(item);
+    }
   }
 
   LogTrace(TRACE6) << __func__

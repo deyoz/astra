@@ -386,7 +386,7 @@ void SaveDOCARem(const PaxIdWithSegmentPair& paxId,
     modifiedPaxRem.add(remDOCA, paxId);
 }
 
-void TTKNItem::toDB(TQuery &Qry) const
+void TTKNItem::toDB(DB::TQuery &Qry) const
 {
   Qry.SetVariable("rem_code", rem_code);
   Qry.SetVariable("ticket_no", ticket_no);
@@ -396,11 +396,11 @@ void TTKNItem::toDB(TQuery &Qry) const
     Qry.SetVariable("coupon_no", FNull);
 }
 
-void TTKNItem::fromDB(TQuery &Qry)
+void TTKNItem::fromDB(DB::TQuery &Qry)
 {
   Clear();
-  strcpy(rem_code, Qry.FieldAsString("rem_code"));
-  strcpy(ticket_no, Qry.FieldAsString("ticket_no"));
+  strcpy(rem_code, Qry.FieldAsString("rem_code").c_str());
+  strcpy(ticket_no, Qry.FieldAsString("ticket_no").c_str());
   if (!Qry.FieldIsNULL("coupon_no"))
     coupon_no=Qry.FieldAsInteger("coupon_no");
 }
@@ -410,8 +410,7 @@ static void LoadTKNRem(const PaxId_t& paxId,
 {
   tkn.clear();
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("CRS_PAX_TKN"));
   Qry.SQLText="SELECT * FROM crs_pax_tkn WHERE pax_id=:pax_id";
   Qry.CreateVariable("pax_id",otInteger,paxId.get());
   Qry.Execute();
@@ -436,8 +435,7 @@ void SaveTKNRem(const PaxIdWithSegmentPair& paxId,
 
   bool modified=false;
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getRWSession("CRS_PAX_TKN"));
   Qry.CreateVariable("pax_id",otInteger,paxId().get());
   if (deleteFromDB)
   {
@@ -448,11 +446,13 @@ void SaveTKNRem(const PaxIdWithSegmentPair& paxId,
 
   if (!tkn.empty())
   {
+    DB::TQuery Qry(PgOra::getRWSession("CRS_PAX_TKN"));
     Qry.SQLText=
         "INSERT INTO crs_pax_tkn "
         "  (pax_id,rem_code,ticket_no,coupon_no) "
         "VALUES "
         "  (:pax_id,:rem_code,:ticket_no,:coupon_no) ";
+    Qry.CreateVariable("pax_id",otInteger,paxId().get());
     Qry.DeclareVariable("rem_code",otString);
     Qry.DeclareVariable("ticket_no",otString);
     Qry.DeclareVariable("coupon_no",otInteger);

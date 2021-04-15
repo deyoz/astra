@@ -37,31 +37,6 @@ BEGIN
   RETURN res;
 END;
 
-FUNCTION get_TKNO(vpax_id IN crs_pax.pax_id%TYPE,
-                  et_term IN CHAR DEFAULT '/',
-                  only_TKNE IN NUMBER DEFAULT NULL) RETURN VARCHAR2
-IS
-CURSOR TKNCur IS
-  SELECT ticket_no,DECODE(rem_code,'TKNE',coupon_no,NULL) AS coupon_no
-  FROM crs_pax_tkn
-  WHERE pax_id=vpax_id AND (NVL(only_TKNE,0)=0 OR rem_code='TKNE')
-  ORDER BY DECODE(rem_code,'TKNE',0,'TKNA',1,'TKNO',2,3),ticket_no,coupon_no;
-TKNCurRow TKNCur%ROWTYPE;
-result VARCHAR2(250);
-BEGIN
-  result:=NULL;
-  OPEN TKNCur;
-  FETCH TKNCur INTO TKNCurRow;
-  IF TKNCur%FOUND THEN
-    result:=TKNCurRow.ticket_no;
-    IF TKNCurRow.coupon_no IS NOT NULL THEN
-      result:=result||et_term||TKNCurRow.coupon_no;
-    END IF;
-  END IF;
-  CLOSE TKNCur;
-  RETURN result;
-END get_TKNO;
-
 FUNCTION get_trfer_airline(str	      IN airlines.code%TYPE,
                            pr_lat     IN INTEGER) RETURN airlines.code%TYPE
 IS

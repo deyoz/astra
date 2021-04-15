@@ -2,6 +2,7 @@
 
 #include "astra_utils.h"
 #include "date_time.h"
+#include "tlg/typeb_db.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -259,9 +260,7 @@ static const std::string& getSearchPaxQuerySelectPart()
          "       crs_pax.surname,crs_pax.name,crs_pax.pers_type, \n"
          "       salons.get_crs_seat_no(crs_pax.pax_id,crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, \n"
          "       crs_pax.seat_type,crs_pax.seats, \n"
-         "       crs_pnr.pnr_id, \n"
-         "       report.get_TKNO(crs_pax.pax_id,'/',0) AS ticket, \n"
-         "       report.get_TKNO(crs_pax.pax_id,'/',1) AS eticket \n";
+         "       crs_pnr.pnr_id \n";
   return result;
 }
 
@@ -420,8 +419,8 @@ std::vector<SearchPaxResult> fetchSearchPaxResults(TQuery& Qry)
       Qry.FieldAsString("seat_type"),
       Qry.FieldAsInteger("seats"),
       PnrId_t(Qry.FieldAsInteger("pnr_id")),
-      Qry.FieldAsString("ticket"),
-      Qry.FieldAsString("eticket")
+      TypeB::getTKNO(Qry.FieldAsInteger("pax_id"), "/", false /*only_TKNE*/),
+      TypeB::getTKNO(Qry.FieldAsInteger("pax_id"), "/", true /*only_TKNE*/)
     };
     result.push_back(data);
   }

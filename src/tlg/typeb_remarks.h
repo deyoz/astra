@@ -233,7 +233,7 @@ class TTKNItem : public TDetailRemAncestor
     {
       Clear();
     }
-    TTKNItem(TQuery &Qry)
+    TTKNItem(DB::TQuery &Qry)
     {
       fromDB(Qry);
     }
@@ -256,8 +256,8 @@ class TTKNItem : public TDetailRemAncestor
              coupon_no==item.coupon_no;
     }
     bool suitableForDB() const { return !Empty(); }
-    void toDB(TQuery &Qry) const;
-    void fromDB(TQuery &Qry);
+    void toDB(DB::TQuery &Qry) const;
+    void fromDB(DB::TQuery &Qry);
 };
 
 class TFQTItem

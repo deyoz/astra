@@ -2886,7 +2886,7 @@ std::vector<SearchCrsResult> fetchSearchCrsResults(TQuery& Qry, bool apis_genera
       Qry.FieldAsString("bag_norm_unit"),
       Qry.FieldAsString("airp_arv"),
       Qry.FieldAsString("airp_arv_final"),
-      Qry.FieldAsString("ticket"),
+      TypeB::getTKNO(Qry.FieldAsInteger("pax_id")),
       PaxId_t(Qry.FieldAsInteger("pax_id")),
       Qry.FieldAsInteger("tid"),
       PnrId_t(Qry.FieldAsInteger("pnr_id")),
@@ -2936,7 +2936,6 @@ std::vector<SearchCrsResult> runSearchCrs(const PointId_t& point_id,
      "      crs_pax.bag_norm_unit, "
      "      crs_pnr.airp_arv, "
      "      crs_pnr.airp_arv_final, "
-     "      report.get_TKNO(crs_pax.pax_id) AS ticket, "
      "      crs_pax.pax_id, "
      "      crs_pax.tid, "
      "      crs_pnr.pnr_id, "

@@ -31,6 +31,8 @@ using namespace std;
 using namespace BASIC::date_time;
 using namespace AstraLocale;
 
+std::vector<std::pair<std::string, int>> loadCrsPaxET(const PaxId_t& pax_id);
+
 std::ostream& operator << (std::ostream& os, const PaxChanges& value)
 {
   switch(value)
@@ -319,6 +321,20 @@ TPaxTknItem& TPaxTknItem::fromDB(DB::TQuery &Qry)
   return *this;
 }
 
+std::vector<TPaxTknItem> TPaxTknItem::loadTKNE(const PaxId_t& pax_id)
+{
+  std::vector<TPaxTknItem> result;
+  const std::vector<std::pair<std::string, int>> ets = loadCrsPaxET(pax_id);
+  for (const auto& et: ets) {
+    TPaxTknItem item;
+    item.no = et.first;
+    item.coupon = et.second;
+    item.rem = "TKNE";
+    result.push_back(item);
+  }
+  return result;
+}
+
 long int TPaxTknItem::getNotEmptyFieldsMask() const
 {
   long int result=NO_FIELDS;
@@ -410,13 +426,20 @@ bool LoadCrsPaxTkn(int pax_id, TPaxTknItem &tkn)
     "SELECT ticket_no, coupon_no, rem_code AS ticket_rem, 0 AS ticket_confirm "
     "FROM crs_pax_tkn "
     "WHERE pax_id=:pax_id "
-    "ORDER BY DECODE(rem_code,'TKNE',0,'TKNA',1,'TKNO',2,3),ticket_no,coupon_no ";
+    "ORDER BY "
+    "CASE WHEN rem_code='TKNE' THEN 0 "
+    "     WHEN rem_code='TKNA' THEN 1 "
+    "     WHEN rem_code='TKNO' THEN 2 "
+    "     ELSE 3 END, "
+    "     ticket_no,coupon_no ";
 
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, pax_id);
-  TCachedQuery PaxTknQry(sql, QryParams);
+  DB::TCachedQuery PaxTknQry(PgOra::getROSession("CRS_PAX_TKN"), sql, QryParams);
   PaxTknQry.get().Execute();
-  if (!PaxTknQry.get().Eof) tkn.fromDB(PaxTknQry.get());
+  if (!PaxTknQry.get().Eof) {
+    tkn.fromDB(PaxTknQry.get());
+  }
   return !tkn.empty();
 };
 
@@ -2420,7 +2443,7 @@ bool TSimplePaxItem::getByPaxId(int pax_id, TDateTime part_key)
   return true;
 }
 
-bool TSimplePaxItem::getCrsByPaxId(PaxId_t pax_id)
+bool TSimplePaxItem::getCrsByPaxId(PaxId_t pax_id, bool skip_deleted)
 {
   clear();
   QParams QryParams;
@@ -2428,7 +2451,8 @@ bool TSimplePaxItem::getCrsByPaxId(PaxId_t pax_id)
   DB::TCachedQuery PaxQry(
         PgOra::getROSession("CRS_PAX"),
         "SELECT * FROM crs_pax "
-        "WHERE pax_id=:pax_id ",
+        "WHERE pax_id=:pax_id "
+        + std::string(skip_deleted ? "AND pr_del=0 " : ""),
         QryParams);
   PaxQry.get().Execute();
   if (PaxQry.get().Eof) return false;
@@ -3094,6 +3118,7 @@ TSimplePnrItem& TSimplePnrItem::fromDB(TQuery &Qry)
   cl=Qry.FieldAsString("class");
   cabin_cl=Qry.FieldAsString("cabin_class");
   status=Qry.FieldAsString("status");
+  point_id_tlg=Qry.FieldAsInteger("point_id");
   return *this;
 }
 
@@ -3156,10 +3181,30 @@ bool TSimplePnrItem::getByPaxId(int pax_id)
                    "       crs_pnr.airp_arv, "+
                    TSimplePaxItem::origClassFromCrsSQL()+" AS class, "+
                    TSimplePaxItem::cabinClassFromCrsSQL()+" AS cabin_class, "
-                   "       crs_pnr.status "
+                   "       crs_pnr.status, "
+                   "       crs_pnr.point_id, "
                    "FROM crs_pnr, crs_pax "
                    "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND crs_pax.pax_id=:pax_id",
                    QParams() << QParam("pax_id", otInteger, pax_id));
+  Qry.get().Execute();
+  if (Qry.get().Eof) return false;
+  fromDB(Qry.get());
+  return true;
+}
+
+bool TSimplePnrItem::getByPnrId(const PnrId_t& pnr_id, const std::string& system)
+{
+  clear();
+  QParams params;
+  params << QParam("pnr_id", otInteger, pnr_id.get());
+  if (!system.empty()) {
+    params << QParam("system", otString, system);
+  }
+  TCachedQuery Qry("SELECT pnr_id, airp_arv, class, cabin_class, status, point_id, "
+                   "FROM crs_pnr "
+                   "WHERE pnr_id=:pnr_id "
+                   + (system.empty() ? std::string("") : "AND system=:system "),
+                   params);
   Qry.get().Execute();
   if (Qry.get().Eof) return false;
   fromDB(Qry.get());
@@ -3516,7 +3561,6 @@ void TPaxTknItem::addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::s
     case paxCheckIn:
       break;
     case paxPnl:
-      tables.insert("crs_pax_tkn");
       break;
     case paxTest:
       break;
@@ -3536,13 +3580,6 @@ void TPaxTknItem::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<s
         conditions.push_back("pax.coupon_no=:tkn_coupon");
       break;
     case paxPnl:
-      conditions.push_back("crs_pax.pax_id=crs_pax_tkn.pax_id");
-      if (no.size()==14)
-        conditions.push_back("crs_pax_tkn.ticket_no IN (:tkn_no, :tkn_no_13)");
-      else
-        conditions.push_back("crs_pax_tkn.ticket_no=:tkn_no");
-      if (coupon!=ASTRA::NoExists)
-        conditions.push_back("crs_pax_tkn.coupon_no=:tkn_coupon");
       break;
     case paxTest:
       if (no.size()==14)
@@ -3555,11 +3592,45 @@ void TPaxTknItem::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<s
 
 void TPaxTknItem::addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const
 {
-  params << QParam("tkn_no", otString, no);
-  if (no.size()==14)
-    params << QParam("tkn_no_13", otString, no.substr(0,13));
-  if (coupon!=ASTRA::NoExists)
-    params << QParam("tkn_coupon", otInteger, coupon);
+
+}
+
+std::set<PaxId_t> loadCrsPaxTKN_ext(const std::string& tick_no, int coupon_no)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": tick_no=" << tick_no
+                   << ", coupon_no=" << coupon_no;
+  std::set<PaxId_t> result;
+  DB::TQuery Qry(PgOra::getROSession("CRS_PAX_TKN"));
+  Qry.SQLText="SELECT pax_id "
+              "FROM crs_pax_tkn "
+              "WHERE ticket_no IN (:ticket_no, :ticket_no_13) "
+              + std::string(coupon_no != ASTRA::NoExists
+              ? "AND coupon_no=:coupon_no "
+              : "");
+  Qry.CreateVariable("ticket_no", otString, tick_no);
+  Qry.CreateVariable("ticket_no_13", otString, tick_no.size() == 14 ? tick_no.substr(0,13)
+                                                                    : tick_no);
+  if (coupon_no != ASTRA::NoExists) {
+    Qry.CreateVariable("coupon_no", otInteger, coupon_no);
+  } else {
+    Qry.CreateVariable("coupon_no", otInteger, FNull);
+  }
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next()) {
+    result.emplace(Qry.FieldAsInteger("pax_id"));
+  }
+  return result;
+}
+
+void TPaxTknItem::addSearchPaxIds(const PaxOrigin& origin, std::set<PaxId_t>& searchPaxIds) const
+{
+  searchPaxIds = loadCrsPaxTKN_ext(no, coupon);
+}
+
+bool TPaxTknItem::useSearchPaxIds(const PaxOrigin& origin) const
+{
+  return origin == paxPnl;
 }
 
 bool TPaxTknItem::suitable(const TPaxTknItem& tkn) const

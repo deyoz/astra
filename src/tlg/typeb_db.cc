@@ -45,6 +45,33 @@ std::set<PaxId_t> loadPaxIdSet(const PointIdTlg_t& point_id, const std::string& 
   return result;
 }
 
+std::set<PaxId_t> loadPaxIdSet(const PnrId_t& pnr_id, bool skip_deleted)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": pnr_id=" << pnr_id
+                   << ", skip_deleted=" << skip_deleted;
+  std::set<PaxId_t> result;
+  int pax_id = ASTRA::NoExists;
+  auto cur = make_db_curs(
+        "SELECT pax_id "
+        "FROM crs_pax "
+        "WHERE pnr_id=:pnr_id "
+        + std::string(skip_deleted ? "AND pr_del=0 " : ""),
+        PgOra::getROSession("CRS_PAX"));
+
+  cur.stb()
+      .def(pax_id)
+      .bind(":pnr_id", pnr_id.get())
+      .exec();
+
+  while (!cur.fen()) {
+    result.emplace(pax_id);
+  }
+  LogTrace(TRACE6) << __func__
+                   << ": count=" << result.size();
+  return result;
+}
+
 std::set<PnrId_t> loadPnrIdSet(const PointIdTlg_t& point_id, const std::string& system,
                                const std::optional<CrsSender_t>& sender)
 {
@@ -482,47 +509,49 @@ bool deleteTypeBData(const PointIdTlg_t& point_id, const std::string& system,
   return result > 0;
 }
 
-typedef std::pair<std::string,int> TicketCoupon;
+std::string getTKNO(int pax_id, const std::string& et_term, bool only_TKNE)
+{
+    LogTrace(TRACE6) << __func__
+                     << ": pax_id=" << pax_id
+                     << ": et_term=" << et_term
+                     << ": only_TKNE=" << only_TKNE;
+    std::string ticket_no;
+    int coupon_no = ASTRA::NoExists;
+    auto cur = make_db_curs(
+                "SELECT "
+                "ticket_no, "
+                "(CASE WHEN rem_code='TKNE' THEN coupon_no ELSE NULL END) AS coupon_no "
+                "FROM crs_pax_tkn "
+                "WHERE pax_id=:pax_id "
+                "AND (COALESCE(:only_tkne,0)=0 OR rem_code='TKNE') "
+                "ORDER BY "
+                "CASE WHEN rem_code='TKNE' THEN 0 "
+                "     WHEN rem_code='TKNA' THEN 1 "
+                "     WHEN rem_code='TKNO' THEN 2 "
+                "     ELSE 3 END, "
+                "ticket_no,coupon_no ",
+          PgOra::getROSession("CRS_PAX_TKN"));
 
-//std::string getTKNO(int pax_id, const std::string& et_term = "/",
-//                    bool only_TKNE)
-//{
-//    LogTrace(TRACE6) << __func__
-//                     << ": pax_id=" << pax_id
-//                     << ": et_term=" << et_term
-//                     << ": only_TKNE=" << only_TKNE;
-//    std::set<TicketCoupon> result;
-//    std::string ticket_no;
-//    int coupon_no = ASTRA::NoExists;
-//    auto cur = make_db_curs(
-//                "SELECT "
-//                "ticket_no, "
-//                "CASE WHEN rem_code='TKNE' THEN coupon_no ELSE NULL END) AS coupon_no "
-//                "FROM crs_pax_tkn "
-//                "WHERE pax_id=:pax_id "
-//                "AND (COALESCE(:only_tkne,0)=0 OR rem_code='TKNE') "
-//                "ORDER BY "
-//                "CASE WHEN rem_code='TKNE' THEN 0 "
-//                "     WHEN rem_code='TKNA' THEN 1 "
-//                "     WHEN rem_code='TKNO' THEN 2 "
-//                "     ELSE 3 END, "
-//                "ticket_no,coupon_no ",
-//          PgOra::getROSession("CRS_PAX_TKN"));
+    cur.stb()
+        .def(ticket_no)
+        .defNull(coupon_no, ASTRA::NoExists)
+        .bind(":pax_id", pax_id)
+        .bind(":only_tkne", only_TKNE ? 1 : 0)
+        .exfet();
 
-//    cur.stb()
-//        .def(ticket_no)
-//        .defNull(coupon_no, ASTRA::NoExists)
-//        .bind(":pax_id", pax_id)
-//        .bind(":only_tkne", only_TKNE ? 1 : 0)
-//        .exec();
+    LogTrace(TRACE6) << __func__
+                     << ": count=" << cur.rowcount();
+    if (cur.err() == DbCpp::ResultCode::NoDataFound) {
+      return std::string();
+    }
 
-//    while (!cur.fen()) {
-//      result.insert(std::make_pair(ticket_no, coupon_no));
-//    }
-//    LogTrace(TRACE6) << __func__
-//                     << ": count=" << result.size();
-//    return result;
-//}
+    std::string result = ticket_no;
+    if (coupon_no != ASTRA::NoExists)
+    {
+        result += et_term + std::to_string(coupon_no);
+    }
+    return result;
+}
 
 std::string getPSPT(int pax_id, bool with_issue_country, const std::string& language)
 {

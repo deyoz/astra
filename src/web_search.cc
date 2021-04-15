@@ -13,6 +13,7 @@
 #include "sopp.h"
 #include "salons.h"
 #include <serverlib/algo.h>
+#include "tlg/typeb_db.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/slogger.h"
@@ -1603,24 +1604,12 @@ boost::optional<CheckIn::TPaxTknItem> TPNRInfo::getAnyValidET() const
 
 boost::optional<CheckIn::TPaxTknItem> TPNRSegInfo::getAnyValidET() const
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT crs_pax_tkn.ticket_no, "
-    "       crs_pax_tkn.coupon_no, "
-    "       crs_pax_tkn.rem_code AS ticket_rem, "
-    "       0 AS ticket_confirm "
-    "FROM crs_pax, crs_pax_tkn "
-    "WHERE crs_pax.pax_id=crs_pax_tkn.pax_id AND "
-    "      crs_pax.pnr_id=:pnr_id AND "
-    "      crs_pax.pr_del=0";
-  Qry.CreateVariable("pnr_id", otInteger, pnr_id);
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
-  {
-    CheckIn::TPaxTknItem tkn;
-    tkn.fromDB(Qry);
-    if (tkn.validET()) return tkn;
+  const std::set<PaxId_t> pax_id_set = TypeB::loadPaxIdSet(PnrId_t(pnr_id), true /*skip_deleted*/);
+  for (const PaxId_t& pax_id: pax_id_set) {
+    const std::vector<CheckIn::TPaxTknItem> items = CheckIn::TPaxTknItem::loadTKNE(pax_id);
+    for (const CheckIn::TPaxTknItem& item: items) {
+      if (item.validET()) return item;
+    }
   }
 
   return {};

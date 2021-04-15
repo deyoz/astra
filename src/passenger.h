@@ -304,6 +304,8 @@ class TPaxTknItem : public TPaxAPIItem, public TPaxRemBasic
     TPaxTknItem& fromDB(TQuery &Qry);
     TPaxTknItem& fromDB(DB::TQuery &Qry);
 
+    static std::vector<TPaxTknItem> loadTKNE(const PaxId_t& pax_id);
+
     long int getNotEmptyFieldsMask() const;
     TAPIType apiType() const { return apiTkn; }
     bool validET() const { return rem=="TKNE" && !no.empty() && coupon!=ASTRA::NoExists; }
@@ -330,8 +332,8 @@ class TPaxTknItem : public TPaxAPIItem, public TPaxRemBasic
     void addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const;
     void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
     void addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const;
-    void addSearchPaxIds(const PaxOrigin&, std::set<PaxId_t>&) const { return; }
-    bool useSearchPaxIds(const PaxOrigin&) const { return false; }
+    void addSearchPaxIds(const PaxOrigin& origin, std::set<PaxId_t>& searchPaxIds) const;
+    bool useSearchPaxIds(const PaxOrigin& origin) const;
     bool finalPassengerCheck(const TSimplePaxItem& pax) const { return true; }
     bool suitable(const TPaxTknItem& tkn) const;
 };
@@ -795,7 +797,7 @@ class TSimplePaxItem
     TSimplePaxItem& fromDBCrs(TQuery &Qry, bool withTkn);
     TSimplePaxItem& fromDBCrs(DB::TQuery &Qry, bool withTkn);
     bool getByPaxId(int pax_id, TDateTime part_key = ASTRA::NoExists);
-    bool getCrsByPaxId(PaxId_t pax_id);
+    bool getCrsByPaxId(PaxId_t pax_id, bool skip_deleted = false);
     static std::list<TSimplePaxItem> getByGrpId(GrpId_t grp_id);
     std::string full_name() const;
     bool isCBBG() const;
@@ -1010,6 +1012,7 @@ class TSimplePnrItem
     std::string cl;
     std::string cabin_cl;
     std::string status;
+    int point_id_tlg;
 
     TSimplePnrItem() { clear(); }
 
@@ -1020,10 +1023,12 @@ class TSimplePnrItem
       cl.clear();
       cabin_cl.clear();
       status.clear();
+      point_id_tlg=ASTRA::NoExists;
     }
 
     TSimplePnrItem& fromDB(TQuery &Qry);
     bool getByPaxId(int pax_id);
+    bool getByPnrId(const PnrId_t& pnr_id, const std::string& system);
 
     int pnrId() const { return id; }
 };

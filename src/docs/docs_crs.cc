@@ -35,8 +35,7 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             "      salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'_seats',rownum) AS seat_no, "
             "      crs_pnr.airp_arv AS target, "
             "      crs_pnr.airp_arv_final AS last_target, "
-            "      crs_pnr.pnr_id, "
-            "      report.get_TKNO(crs_pax.pax_id) ticket_no ";
+            "      crs_pnr.pnr_id ";
     }
     SQLText +=
         "FROM crs_pnr,tlg_binding,crs_pax ";
@@ -84,6 +83,7 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         int pax_id=Qry.FieldAsInteger("pax_id");
         const std::string pspt = TypeB::getPSPT(pax_id, true /*with_issue_country*/,
                                                 rpt_params.GetLang());
+        const std::string tkno = TypeB::getTKNO(pax_id);
         if(
                 rpt_params.rpt_type == rtBDOCS or
                 rpt_params.rpt_type == rtBDOCSTXT
@@ -140,7 +140,7 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                 last_target = rpt_params.ElemIdToReportElem(etAirp, last_target_id, efmtCodeNative);
 
             NewTextChild(rowNode, "last_target", last_target);
-            NewTextChild(rowNode, "ticket_no", Qry.FieldAsString("ticket_no"));
+            NewTextChild(rowNode, "ticket_no", tkno);
             NewTextChild(rowNode, "document", pspt);
             NewTextChild(rowNode, "remarks", GetCrsRemarkStr(rem_grp, pax_id));
         }
