@@ -440,6 +440,7 @@ bool FailedTlgKey::operator <(const FailedTlgKey& key) const
 
 std::set<FailedTlgKey> loadFailedTlgIds(const TTlgSearchParams& search_params)
 {
+  LogTrace(TRACE6) << __func__;
   std::set<FailedTlgKey> result;
 
   DB::TQuery Qry(PgOra::getROSession("TLGS_IN-TLG_SOURCE"));
@@ -450,7 +451,7 @@ std::set<FailedTlgKey> loadFailedTlgIds(const TTlgSearchParams& search_params)
          "       COALESCE(tlg_source.has_errors,0)<>0 ";
   set_tlgs_in_search_params(search_params, sql, Qry);
   sql << " ORDER BY tlgs_in.id ";
-  ProgTrace(TRACE5, "sql: %s", sql.str().c_str());
+  ProgTrace(TRACE6, "sql: %s", sql.str().c_str());
   Qry.SQLText=sql.str();
   Qry.Execute();
 
@@ -466,6 +467,7 @@ std::set<FailedTlgKey> loadFailedTlgIds(const TTlgSearchParams& search_params)
 
 std::set<TlgId_t> loadFailedTlgIdsWOSource(const TTlgSearchParams& search_params)
 {
+  LogTrace(TRACE6) << __func__;
   std::set<TlgId_t> result;
   DB::TQuery Qry(PgOra::getROSession("TLGS_IN-TLG_SOURCE"));
   std::ostringstream sql;
@@ -476,7 +478,14 @@ std::set<TlgId_t> loadFailedTlgIdsWOSource(const TTlgSearchParams& search_params
          "  WHERE tlg_source.tlg_id = tlgs_in.id "
          ") ";
   set_tlgs_in_search_params(search_params, sql, Qry);
+  sql << " ORDER BY tlgs_in.id ";
+  ProgTrace(TRACE5, "sql: %s", sql.str().c_str());
+  Qry.SQLText=sql.str();
+  Qry.Execute();
 
+  for(;!Qry.Eof;Qry.Next()) {
+    result.emplace(Qry.FieldAsInteger("id"));
+  }
   return result;
 }
 
@@ -656,6 +665,7 @@ std::vector<TTlgInPart> loadTlgsWithParseFail(const TTlgSearchParams& search_par
 
 std::set<FailedTlgKey> loadFailedTlgIdsWOBind(const TTlgSearchParams& search_params)
 {
+  LogTrace(TRACE6) << __func__;
   std::set<FailedTlgKey> result;
   DB::TQuery Qry(PgOra::getROSession("TLGS_IN-TLG_SOURCE-TLG_BINDING"));
   std::ostringstream sql;
@@ -667,6 +677,10 @@ std::set<FailedTlgKey> loadFailedTlgIdsWOBind(const TTlgSearchParams& search_par
          "  WHERE tlg_binding.point_id_tlg=tlg_source.point_id_tlg "
          ") ";
   set_tlgs_in_search_params(search_params, sql, Qry);
+  sql << " ORDER BY tlgs_in.id ";
+  ProgTrace(TRACE6, "sql: %s", sql.str().c_str());
+  Qry.SQLText=sql.str();
+  Qry.Execute();
 
   for(;!Qry.Eof;Qry.Next()) {
     const FailedTlgKey failed_tlg_key = {
