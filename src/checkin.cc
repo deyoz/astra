@@ -3607,7 +3607,10 @@ bool FilterInboundConfirmation(xmlNodePtr trferNode,
   {
     InboundTrfer::TNewGrpTagMap::iterator j=filtered_trfer.tag_map.find(i->first);
     if (j!=filtered_trfer.tag_map.end())
+    {
       j->second.first.bag_weight=i->second;
+      j->second.first.weight_unit="K";
+    }
   }
   return true;
 }
