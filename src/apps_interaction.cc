@@ -219,7 +219,7 @@ bool allowedToBoarding(const PaxId_t& paxId)
     if (statuses.empty() || algo::any_of(statuses, [](auto & st){return st!="B";})) {
         return false;
     }
-    return !existsAlarmByPaxId(paxId, Alarm::APPSConflict, PaxOrigin::paxCheckIn);
+    return true;
 }
 
 class AppsSettings
