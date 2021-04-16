@@ -490,7 +490,8 @@ TProfiledRights::TProfiledRights(const PointId_t& pointId)
     if(TReqInfo::Instance()->user.user_type != utAirport) return;
 
     TTripInfo flt;
-    flt.getByPointId(pointId.get());
+    if (!flt.getByPointId(pointId.get())) return;
+    if (flt.airline.empty()) return; //такое бывает, когда последний пункт в маршруте. Может надо брать а/к на прилет?
     fromDB(AirlineCode_t(flt.airline), AirportCode_t(flt.airp));
 }
 
