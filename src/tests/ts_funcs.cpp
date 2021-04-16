@@ -757,7 +757,7 @@ void checkPresenceTask(const PointId_t& pointId, const std::string & taskName)
         nameOfTask = "SEND_NEW_APPS_INFO";
     } else if(taskName == "send_all_apps") {
         nameOfTask = "SEND_ALL_APPS_INFO";
-    } else if(taskName == "check_trip_alarms") {
+    } else if(taskName == "check_alarm_apps_scdtime" || taskName == "check_alarm_apps_problem") {
         nameOfTask = "CHECK_ALARM";
     } else {
         LogTrace(TRACE3) << __FUNCTION__ << " Unknown task: " << taskName;
@@ -797,8 +797,10 @@ static std::string FP_run_trip_task(const std::vector<std::string>& par)
             APPS::sendNewInfo(TTripTaskKey(pointId, "SEND_NEW_APPS_INFO", ""));
         } else if(taskName == "send_all_apps") {
             APPS::sendAllInfo(TTripTaskKey(pointId, "SEND_ALL_APPS_INFO", ""));
-        } else if(taskName == "check_trip_alarms") {
-            checkAlarm(TTripTaskKey(pointId.get(), "CHECK_ALARM" , "APPS_NOT_SCD_IN_TIME"));
+        } else if(taskName == "check_alarm_apps_scdtime") {
+            checkAlarm(TTripTaskKey(pointId, "CHECK_ALARM" , "APPS_NOT_SCD_IN_TIME"));
+        } else if(taskName == "check_alarm_apps_problem") {
+            checkAlarm(TTripTaskKey(pointId, "CHECK_ALARM" , "APPS_PROBLEM"));
         }
     }
     catch(EXCEPTIONS::Exception &E) {

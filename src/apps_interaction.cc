@@ -210,6 +210,15 @@ std::unique_ptr<PaxReqAnswer> createPaxReqAnswer(const std::string& code, const 
 std::unique_ptr<ManifestAnswer> createManifestAnswer(const std::string& code, const std::string& source);
 
 
+bool allowedToBoarding(const PaxId_t& paxId)
+{
+    auto statuses = APPS::statusesFromDb(paxId);
+    if (statuses.empty() || algo::any_of(statuses, [](auto & st){return st!="B";})) {
+        return false;
+    }
+    return true;
+}
+
 class AppsSettings
 {
 public:
