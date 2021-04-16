@@ -7019,12 +7019,29 @@ void updateCrsSeatsBlockingAsDeleted(const PaxId_t& seat_id)
   Qry.Execute();
 }
 
+bool deleteCrsInfByInfId(const PaxId_t& inf_id)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": inf_id=" << inf_id;
+  auto cur = make_db_curs(
+        "DELETE FROM CRS_INF "
+        "WHERE inf_id=:inf_id ",
+        PgOra::getRWSession("CRS_INF"));
+  cur.stb()
+      .bind(":inf_id", inf_id.get())
+      .exec();
+
+  LogTrace(TRACE6) << __func__
+                   << ": rowcount=" << cur.rowcount();
+  return cur.rowcount() > 0;
+}
+
 void deleteAllByPax(const PaxId_t& pax_id, TDateTime datetime)
 {
   const std::set<PaxId_t> inf_id_set = loadCrsInfIdSet(pax_id, true /*lock*/);
   for (const PaxId_t& inf_id: inf_id_set) {
     insertCrsInfDeleted(inf_id);
-    deleteCrsInf(inf_id);
+    deleteCrsInfByInfId(inf_id);
     const int tid = PgOra::getSeqCurrVal_int("cycle_tid__seq");
     updateCrsPaxAsDeleted(inf_id, tid, datetime);
   }
