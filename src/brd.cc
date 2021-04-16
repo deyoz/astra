@@ -1401,15 +1401,10 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         if (set_mark)
         {
           if (APPS::checkAPPSSets(PointId_t(point_id), PointId_t(point_arv))) {
-            for(int pass=0;pass<2;pass++)
-            {
-              const TPaxItem &pax=(pass==0?paxWithSeat:paxWithoutSeat);
-              if (!pax.exists()) continue;
-              auto statuses = APPS::statusesFromDb(PaxId_t(pax.pax_id));
-              if (algo::any_of(statuses, [](auto & st){return st!="B";})) {
+              if((paxWithSeat.exists()    && !APPS::allowedToBoarding(PaxId_t(paxWithSeat.pax_id))) ||
+                 (paxWithoutSeat.exists() && !APPS::allowedToBoarding(PaxId_t(paxWithoutSeat.pax_id)))) {
                   throw AstraLocale::UserException("MSG.PASSENGER.APPS_PROBLEM");
               }
-            }
           }
 
           boost::optional<const TCompleteAPICheckInfo &> check_info=route_check_info.get(airp_arv);

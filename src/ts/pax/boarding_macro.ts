@@ -1,3 +1,5 @@
+include(ts/macro.ts)
+
 $(defmacro PREPARE_HALLS_FOR_BOARDING
   airp_dep
 {
@@ -26,6 +28,70 @@ $(defmacro DEPLANE_ALL_REQUEST
     </DeplaneAll>
   </query>
 </term>}
+
+})
+
+$(defmacro BOARDING_REQUEST
+  point_dep
+  pax_id
+  hall
+{
+
+!! capture=on err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='brd' ver='1' opr='PIKE' screen='BRDBUS.EXE' mode='STAND' lang='EN' term_id='2479792165'>
+    <PaxByPaxId>
+      <col_excess_type>0</col_excess_type>
+      <point_id>$(point_dep)</point_id>
+      <hall>$(hall)</hall>
+      <pax_id>$(pax_id)</pax_id>
+      <boarding>1</boarding>
+      <dev_model/>
+      <fmt_type/>
+    </PaxByPaxId>
+  </query>
+</term>}
+
+})
+
+$(defmacro OK_TO_BOARD
+  point_dep
+  pax_id
+  hall=777
+{
+
+$(BOARDING_REQUEST $(point_dep) $(pax_id) $(hall))
+
+>> lines=auto
+      <updated>
+        <pax_id>$(pax_id)</pax_id>
+      </updated>
+
+})
+
+$(defmacro NO_BOARD
+  point_dep
+  pax_id
+  hall=777
+{
+
+$(BOARDING_REQUEST $(point_dep) $(pax_id) $(hall))
+
+$(USER_ERROR_RESPONSE MSG.PASSENGER.APPS_PROBLEM)
+
+})
+
+$(defmacro APIS_INCOMPLETE_ON_BOARDING
+  point_dep
+  pax_id
+  hall=777
+{
+
+$(BOARDING_REQUEST $(point_dep) $(pax_id) $(hall))
+
+>> lines=auto
+$(USER_ERROR_MESSAGE_TAG MSG.PASSENGER.APIS_INCOMPLETE 128)
 
 })
 
