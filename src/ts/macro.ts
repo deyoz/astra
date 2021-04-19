@@ -69,6 +69,22 @@ $(lastRedisplay)
 
 }) #end-of-macro KICK_IN_SILENT
 
+########################################################
+$(defmacro PREPARE_FLIGHT
+point_dep
+airp_dep
+airl
+fltno
+ru_airp_dep
+{
+
+$(CHANGE_TRIP_SETS $(point_dep) apis_manual_input=1)
+$(PREPARE_HALLS_FOR_BOARDING $(airp_dep))
+$(deny_ets_interactive $(airl) $(fltno) $(ru_airp_dep))
+$(auto_set_craft $(point_dep))
+
+})
+
 #########################################################################################
 
 $(defmacro KICK_IN_AFTER_HTTP
@@ -1983,7 +1999,8 @@ $(defmacro UPDATE_PAX_PASSPORT
 $(defmacro UPDATE_PAX_REM
     pax_id
     grp_id
-    tid
+    grp_tid
+    pax_tid
     point_dep
     point_arv
     airl
@@ -2008,13 +2025,13 @@ $(defmacro UPDATE_PAX_REM
           <airp_arv>$(airp_arv)</airp_arv>
           <class>ù</class>
           <grp_id>$(grp_id)</grp_id>
-          <tid>$(tid)</tid>
+          <tid>$(grp_tid)</tid>
           <passengers>
             <pax>
               <pax_id>$(pax_id)</pax_id>
               <surname>$(surname)</surname>
               <name>$(name)</name>
-              <tid>$(tid)</tid>
+              <tid>$(pax_tid)</tid>
               <rems>
                 <rem>
                   <rem_code>$(rem_code)</rem_code>

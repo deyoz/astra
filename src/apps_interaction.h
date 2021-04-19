@@ -48,6 +48,7 @@ bool checkTime(const PointId_t& point_id);
 void sendAllInfo(const TTripTaskKey& task);
 void sendNewInfo(const TTripTaskKey& task);
 
+bool allowedToBoarding(const PaxId_t& paxId);
 void init_callbacks();
 
 class AppsCollector

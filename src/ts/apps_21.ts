@@ -1,6 +1,7 @@
 include(ts/macro.ts)
 include(ts/adm_macro.ts)
 include(ts/pax/boarding_macro.ts)
+include(ts/spp/read_trips_macro.ts)
 
 # meta: suite apps
 
@@ -987,7 +988,6 @@ $(init_apps ЮТ ЦЗ APPS_21 closeout=false inbound=true outbound=false)
 
 $(PREPARE_SEASON_SCD ЮТ СОЧ ПРХ 298)
 $(make_spp)
-$(deny_ets_interactive ЮТ 298 СОЧ)
 
 $(INB_PNL_UT AER PRG 298 $(ddmon +0 en))
 
@@ -995,12 +995,11 @@ $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
 $(set move_id $(get_move_id $(get point_dep)))
 
+$(PREPARE_FLIGHT $(get point_dep) AER ЮТ 298 СОЧ)
+
 $(run_trip_task send_apps $(get point_dep))
 
 $(CIRQ_61_UT_REQS_APPS_VERSION_21 UT 298 AER PRG)
-
-$(combine_brd_with_reg $(get point_dep))
-$(auto_set_craft $(get point_dep))
 
 $(set pax_id_ALIMOV $(get_pax_id $(get point_dep) ALIMOV TALGAT))
 
@@ -1038,6 +1037,7 @@ $(run_trip_task send_apps $(get point_dep))
 >> lines=auto mode=regex
 .*CICX:([0-9]+)/UTUTA1/N/P/21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PCX/20/1/5/P/KAZ/KAZ/N07298275//P/$(yyyymmdd +1y)////KHASSENOVA/ZULFIYA/19741106/F///N/N/.*
 
+$(OK_TO_BOARD $(get point_dep) $(get pax_id_ALIMOV))
 
 %%
 #########################################################################################
@@ -1066,7 +1066,6 @@ $(init_apps ЮТ ЦЗ APPS_21 closeout=false inbound=true outbound=false)
 
 $(PREPARE_SEASON_SCD ЮТ СОЧ ПРХ 298)
 $(make_spp)
-$(deny_ets_interactive ЮТ 298 СОЧ)
 
 $(INB_PNL_UT AER PRG 298 $(ddmon +0 en))
 
@@ -1074,8 +1073,7 @@ $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
 $(set move_id $(get_move_id $(get point_dep)))
 
-$(combine_brd_with_reg $(get point_dep))
-$(auto_set_craft $(get point_dep))
+$(PREPARE_FLIGHT $(get point_dep) AER ЮТ 298 СОЧ)
 
 $(run_trip_task send_apps $(get point_dep))
 
@@ -1104,7 +1102,7 @@ $(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUM
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
 CIRS:$(capture 1)/PRS/27/001/CZ/P/UA/UA/FA144642//P//20250625////TUMALI/VALERII/19680416/U//8509/X/////////
 
-
+$(NO_BOARD $(get point_dep) $(get pax_id))
 
 %%
 ##########################################################################################################
@@ -1440,17 +1438,13 @@ $(init_apps ЮТ ЦЗ APPS_21 closeout=true inbound=true outbound=false )
 
 $(PREPARE_SEASON_SCD ЮТ СОЧ ПРХ 298)
 $(make_spp)
-$(deny_ets_interactive ЮТ 298 СОЧ)
 
 $(INB_PNL_UT AER PRG 298 $(ddmon +0 en))
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
 
-# Не происходит одновременная регистрация вместе с посадкой
-# $(combine_brd_with_reg $(get point_dep))
-
-$(auto_set_craft $(get point_dep))
+$(PREPARE_FLIGHT $(get point_dep) AER ЮТ 298 СОЧ)
 
 $(set move_id $(get_move_id $(get point_dep)))
 
@@ -1565,6 +1559,8 @@ $(CICX_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
 >> lines=auto mode=regex
 .*CIMR:([0-9]+)/UTUTA1/21/INM/3/UT298/AER/$(yyyymmdd)/MRQ/3/CZ/C/C/.*
 
+$(OK_TO_BOARD $(get point_dep) $(get pax_id))
+$(OK_TO_BOARD $(get point_dep) $(get pax_id_SELIVANOV))
 
 %%
 #########################################################################################
@@ -1630,18 +1626,15 @@ $(init_apps ЮТ НЛ APPS_21 closeout=false inbound=false outbound=false)
 
 $(PREPARE_SEASON_SCD_TRANSIT ЮТ СОЧ АМС ПРХ 298) #сочи внуково прага
 $(make_spp)
-$(deny_ets_interactive ЮТ 298 СОЧ)
 
 $(INB_PNL_UT AER PRG 298 $(ddmon +0 en))
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get_next_trip_point_id $(get point_dep))))
 
-$(combine_brd_with_reg $(get point_dep))
-$(auto_set_craft $(get point_dep))
+$(PREPARE_FLIGHT $(get point_dep) AER ЮТ 298 СОЧ)
 
 $(set move_id $(get_move_id $(get point_dep)))
-
 $(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
 
 #$(dump_table POINTS fields="point_id, airline, flt_no, airp, scd_out, suffix")
@@ -1722,7 +1715,7 @@ $(set move_id $(get_move_id $(get point_dep)))
 $(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
 
 $(run_trip_task send_apps $(get point_dep))
-$(run_trip_task check_trip_alarms $(get point_dep))
+$(run_trip_task check_alarm_apps_scdtime $(get point_dep))
 
 # Проверяем есть ли в базе Алармы для пассажира. Должен быть APPS_NOT_SCD_IN_TIME
 ??
@@ -1734,7 +1727,7 @@ $()
 # Добавили дату, только для суточного плана полета
 $(UPDATE_SPP_FLIGHT $(get point_dep) $(get point_arv) ЮТ СОЧ ПРХ 298 $(get move_id))
 
-$(run_trip_task check_trip_alarms $(get point_dep))
+$(run_trip_task check_alarm_apps_scdtime $(get point_dep))
 
 # Проверяем есть ли в базе Алармы для пассажира. Не должен быть APPS_NOT_SCD_IN_TIME
 ??
@@ -1992,8 +1985,7 @@ $(INB_PNL_UT AER PRG 298 $(ddmon +0 en))
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
 
-$(combine_brd_with_reg $(get point_dep))
-$(auto_set_craft $(get point_dep))
+$(PREPARE_FLIGHT $(get point_dep) AER ЮТ 298 СОЧ)
 
 $(set move_id $(get_move_id $(get point_dep)))
 $(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
@@ -2010,6 +2002,8 @@ $(set tid $(get_single_tid $(get point_dep) TUMALI VALERII))
 
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
 CIRS:$(capture 1)/PRS/27/001/CZ/P/UA/UA/FA144642//P//20250625////TUMALI/VALERII/19680416/M//8501/B/3////////
+
+#$(OK_TO_BOARD $(get point_dep) $(get pax_id))
 
 # измененение по пассажиру FA144642 -> FA144643
 $(UPDATE_PAX_ON_BOARDING $(get pax_id) $(get point_dep) $(get tid) RUS FA144643 UA 16.04.1968 25.06.2025 M TUMALI VALERII)
@@ -2047,15 +2041,14 @@ $(init_apps ЮТ ЦЗ APPS_21 closeout=true inbound=true outbound=true)
 
 $(PREPARE_SEASON_SCD ЮТ СОЧ ПРХ 298)
 $(make_spp)
-$(deny_ets_interactive ЮТ 298 СОЧ)
+
 
 $(INB_PNL_UT AER PRG 298 $(ddmon +0 en))
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
 
-$(combine_brd_with_reg $(get point_dep))
-$(auto_set_craft $(get point_dep))
+$(PREPARE_FLIGHT $(get point_dep) AER ЮТ 298 СОЧ)
 
 $(set move_id $(get_move_id $(get point_dep)))
 $(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
@@ -2094,6 +2087,8 @@ $(check_trip_alarms $(get point_dep))
 APPS_OUTAGE
 $()
 
+$(NO_BOARD $(get point_dep) $(get pax_id))
+
 #Не должна происходить перепосылка , потому что количество отправок равно 99
 $(update_msg $(get msg_id1) 30 99)
 $(resend)
@@ -2123,19 +2118,15 @@ $(init_apps ЮТ ЦЗ APPS_21 closeout=true inbound=true outbound=false)
 
 $(PREPARE_SEASON_SCD ЮТ СОЧ ПРХ 298)
 $(make_spp)
-$(deny_ets_interactive ЮТ 298 СОЧ)
 
 $(INB_PNL_UT AER PRG 298 $(ddmon +0 en))
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
-
-$(combine_brd_with_reg $(get point_dep))
-$(auto_set_craft $(get point_dep))
-
 $(set move_id $(get_move_id $(get point_dep)))
-
 $(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
+
+$(PREPARE_FLIGHT $(get point_dep) AER ЮТ 298 СОЧ)
 
 !!
 $(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII 2986145115578 ВЗ UA FA144642 UA 16.04.1968 25.06.2025 M)
@@ -2145,6 +2136,24 @@ P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N N)
 
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
 CIRS:$(capture 1)/PRS/27/001/CZ/P/UKR/UKR/FA144642//P//20250625////TUMALI/VALERII/19680416/M//8507/U/1/////////
+
+# Проверяем есть ли в базе Алармы для пассажира. Должен быть APPS_ERROR
+??
+$(check_pax_alarms $(get pax_id))
+>>
+APPS_ERROR
+$()
+
+$(run_trip_task check_alarm_apps_problem $(get point_dep))
+# Проверяем есть ли в базе Алармы для рейса.
+??
+$(check_trip_alarms $(get point_dep))
+>>
+APPS_PROBLEM
+$()
+
+
+$(NO_BOARD $(get point_dep) $(get pax_id))
 
 $(set grp_id $(get_single_grp_id $(get point_dep) TUMALI VALERII))
 $(set pax_id $(get_single_pax_id $(get point_dep) TUMALI VALERII))
@@ -2160,11 +2169,29 @@ $(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
 CIRS:$(capture 1)/PRS/27/001/CZ/P/UKR/UKR/FA144777//P//20250625////TUMALI/VALERII/19680416/M//8507/U/1/////////
 
-$(set tid    $(get_single_tid    $(get point_dep) TUMALI VALERII))
+# Проверяем есть ли в базе Алармы для пассажира. Должен быть APPS_ERROR
+??
+$(check_pax_alarms $(get pax_id))
+>>
+APPS_ERROR
+$()
+
+$(run_trip_task check_alarm_apps_problem $(get point_dep))
+??
+$(check_trip_alarms $(get point_dep))
+>>
+APPS_PROBLEM
+$()
+
+$(NO_BOARD $(get point_dep) $(get pax_id))
+
+
+$(set grp_tid    $(get_single_grp_tid    $(get point_dep) TUMALI VALERII))
+$(set pax_tid    $(get_single_pax_tid    $(get point_dep) TUMALI VALERII))
 
 #Принудительная перепосылка apps по тому же пассажиру , ответ со статусом B
 !!
-$(UPDATE_PAX_REM $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII OVRG "OVRG AE")
+$(UPDATE_PAX_REM $(get pax_id) $(get grp_id) $(get grp_tid) $(get pax_tid) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII OVRG "OVRG AE")
 
 $(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
           P UKR UKR FA144777 P 20250625 TUMALI VALERII 19680416 M N N "" GAE)
@@ -2172,11 +2199,27 @@ $(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
 CIRS:$(capture 1)/PRS/27/001/CZ/P/UKR/UKR/FA144777//P//20250625////TUMALI/VALERII/19680416/M//8501/B/1/////////
 
-$(set tid    $(get_single_tid    $(get point_dep) TUMALI VALERII))
+#Должны быть погашены все тревоги
+??
+$(check_pax_alarms $(get pax_id))
+>>
+$()
+
+$(run_trip_task check_alarm_apps_problem $(get point_dep))
+??
+$(check_trip_alarms $(get point_dep))
+>>
+$()
+
+$(OK_TO_BOARD $(get point_dep) $(get pax_id))
+#$(BOARDING_REQUEST_BY_PAX_ID $(get point_dep) $(get pax_id) 777 "" 0)
+
+$(set grp_tid    $(get_single_grp_tid    $(get point_dep) TUMALI VALERII))
+$(set pax_tid    $(get_single_pax_tid    $(get point_dep) TUMALI VALERII))
 
 #Принудительная перепосылка apps по тому же  пассажиру и изменением ремарки
 !!
-$(UPDATE_PAX_REM $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII OVRA "OVRA AE")
+$(UPDATE_PAX_REM $(get pax_id) $(get grp_id) $(get grp_tid) $(get pax_tid) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII OVRA "OVRA AE")
 
 
 $(CICX_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
@@ -2184,6 +2227,8 @@ $(CICX_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
 
 $(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
           P UKR UKR FA144777 P 20250625 TUMALI VALERII 19680416 M N N "" AAE)
+
+#$(OK_TO_BOARD $(get point_dep) $(get pax_id))
 
 #####################################################################
 %%
@@ -2372,7 +2417,155 @@ $(GET_EVENTS $(get point_dep))
 >> lines=auto
         <msg>Запрос на закрытие рейса. Результатдля страны ЦЗ: Запрос отклонен. Причина:No movements found for this flight</msg>
 
-??
-$(dump_table apps_messages display=on)
+
+%%
+#########################################################################################
+###
+#   Тест №30
+#
+#   Описание: пассажиров: 61,
+#             интерактив: выкл
+#            версия apps: 21
+#
+#   Ответ CIRS возвращает ошибку.  Создается Alarm APPSCONFlICT. Поэтому пасадка паксу запрещена
+###
+#########################################################################################
+
+$(settcl APPS_H2H_ADDR APTXS)
+$(settcl APPS_ROT_NAME APPGT)
+
+$(init_term)
+
+$(init_apps ЮТ ЦЗ APPS_21 closeout=true inbound=true outbound=false)
+
+$(PREPARE_SEASON_SCD ЮТ СОЧ ПРХ 298)
+$(make_spp)
+
+$(INB_PNL_UT AER PRG 298 $(ddmon +0 en))
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+
+$(PREPARE_FLIGHT $(get point_dep) AER ЮТ 298 СОЧ)
+
+$(set move_id $(get_move_id $(get point_dep)))
+$(set pax_id_1 $(get_pax_id $(get point_dep) TUMALI VALERII))
+
+!!
+$(CHECKIN_PAX $(get pax_id_1) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII 2986145115578 ВЗ UA FA144642 UA 16.04.1968 25.06.2025 M)
+
+$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
+          P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N N)
+
+<< h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
+CIRS:$(capture 1)/ERR/3/CZ/6999/AP ERROR: PL-SQL FAILED/
+
+!! capture=on
+$(GET_EVENTS $(get point_dep))
 >> lines=auto
+        <msg>Запрос на посадкудля пассажира TUMALI. Результатдля страны ЦЗ: Ошибка AP: не удалось выполнить PL-SQL запрос</msg>
+
+$(NO_BOARD $(get point_dep) $(get pax_id_1))
+
+# Проверяем есть ли в базе Алармы для пассажира. Должен быть APPS_CONFLICT
+??
+$(check_pax_alarms $(get pax_id_1))
+>>
+APPS_CONFLICT
 $()
+
+$(run_trip_task check_alarm_apps_problem $(get point_dep))
+??
+$(check_trip_alarms $(get point_dep))
+>>
+APPS_PROBLEM
+$()
+
+#############################################################################
+
+$(set pax_id_SELIVANOV $(get_pax_id $(get point_dep) SELIVANOV "RUSLAN NAILYEVICH MR"))
+
+!!
+$(CHECKIN_PAX $(get pax_id_SELIVANOV) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ SELIVANOV "RUSLAN NAILYEVICH" 2985085963078 ВЗ UA 12342131 UA 23.09.1983 $(date_format %d.%m.%Y +1y) M)
+
+>> lines=auto mode=regex
+.*CIRQ:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PRQ/22/1/P/UKR/UKR/12342131//P/$(yyyymmdd +1y)////SELIVANOV/RUSLAN NAILYEVICH/19830923/M///N/N////.*
+
+<< h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
+CIRS:$(capture 1)/PRS/27/001/CZ/P/RU/RU/9205589611//P//20251220////SELIVANOV/RUSLAN NAILYEVICH/19830923/M//8501/B/////////
+
+$(OK_TO_BOARD $(get point_dep) $(get pax_id_SELIVANOV))
+
+!! capture=on
+$(GET_EVENTS $(get point_dep))
+>> lines=auto
+        <msg>Запрос на посадкудля пассажира SELIVANOV. Результатдля страны ЦЗ: Посадка разрешена.</msg>
+
+??
+$(check_pax_alarms $(get pax_id_SELIVANOV))
+>>
+$()
+
+$(run_trip_task check_alarm_apps_problem $(get point_dep))
+??
+$(check_trip_alarms $(get point_dep))
+>>
+APPS_PROBLEM
+$()
+
+###########################################################################
+
+$(set pax_id_ALIMOV $(get_pax_id $(get point_dep) ALIMOV TALGAT))
+!!
+$(CHECKIN_PAX $(get pax_id_ALIMOV) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ ALIMOV TALGAT 2982425696898 ВЗ KZ N11024936 KZ 11.05.1996 04.10.2026 M)
+
+$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
+P KAZ KAZ N11024936 P 20261004 ALIMOV TALGAT 19960511 M N N)
+
+#ответ не пришел
+$(NO_BOARD $(get point_dep) $(get pax_id_ALIMOV))
+
+??
+$(check_pax_alarms $(get pax_id_ALIMOV))
+>>
+$()
+
+$(run_trip_task check_alarm_apps_problem $(get point_dep))
+??
+$(check_trip_alarms $(get point_dep))
+>>
+APPS_PROBLEM
+$()
+
+##########################################################################
+
+$(set grp_id $(get_single_grp_id $(get point_dep) TUMALI VALERII))
+$(set grp_tid    $(get_single_grp_tid    $(get point_dep) TUMALI VALERII))
+$(set pax_tid    $(get_single_pax_tid    $(get point_dep) TUMALI VALERII))
+
+#Обновление информации по пассажиру с ремаркой ORVG AE и ответ со статусом B
+!!
+$(UPDATE_PAX_REM $(get pax_id_1) $(get grp_id) $(get grp_tid) $(get pax_tid) $(get point_dep) $(get point_arv) ЮТ 298 СОЧ ПРХ TUMALI VALERII OVRG "OVRG AE")
+
+$(CIRQ_21 "" UT 298 AER PRG $(yyyymmdd) 101500 $(yyyymmdd) 1[0-9]?0000
+          P UKR UKR FA144642 P 20250625 TUMALI VALERII 19680416 M N N "" GAE)
+
+<< h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
+CIRS:$(capture 1)/PRS/27/001/CZ/P/UKR/UKR/FA144642//P//20250625////TUMALI/VALERII/19680416/M//8501/B/1/////////
+
+# Проверяем есть ли в базе Алармы для пассажира. APPS_CONFLICT должен быть погашен , нужно доработать
+??
+$(check_pax_alarms $(get pax_id_1))
+>>
+APPS_CONFLICT
+$()
+
+$(run_trip_task check_alarm_apps_problem $(get point_dep))
+??
+$(check_trip_alarms $(get point_dep))
+>>
+APPS_PROBLEM
+$()
+
+
+$(OK_TO_BOARD $(get point_dep) $(get pax_id_1))
