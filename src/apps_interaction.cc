@@ -160,7 +160,6 @@ static void addAlarm(const PaxId_t &pax_id, const std::initializer_list<Alarm::E
 static void deleteAlarm(const PaxId_t& pax_id, const std::initializer_list<Alarm::Enum>& alarms,
                             const PointId_t& point_id_spp = PointId_t(ASTRA::NoExists));
 
-void deleteAlarms(const PaxId_t &pax_id, const PointId_t &point_id_spp);
 /* Утилиты для заполнения данных PaxRequest и др.*/
 // TransactionData
 static int getIdent();
@@ -677,6 +676,10 @@ public:
         cur.exec();
     }
 
+    PointId_t paxPointId() const
+    {
+        return PointId_t(point_id);
+    }
     std::string  paxStatus() const
     {
         return status;
@@ -1505,23 +1508,6 @@ void deleteAlarm(const PaxId_t &pax_id,
     }
 }
 
-void deleteAlarms(const PaxId_t& pax_id, const PointId_t& point_id_spp)
-{
-    LogTrace(TRACE5) << __FUNCTION__ << " pax_id: " << pax_id;
-    if (deleteAlarmByPaxId(
-                pax_id,
-                {Alarm::APPSNegativeDirective, Alarm::APPSError,Alarm::APPSConflict},
-                {paxCheckIn, paxPnl}))
-    {
-        if (point_id_spp.get() != ASTRA::NoExists) {
-            syncAlarms(pax_id, point_id_spp);
-        }
-        else {
-            LogError(STDLOG) << __FUNCTION__ << ": point_id_spp==ASTRA::NoExists";
-        }
-    }
-}
-
 void AppsCollector::addPaxItem(const PaxId_t &pax_id, const std::string &override, bool is_forced)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " "
@@ -2124,7 +2110,8 @@ bool PaxRequest::isNeedNew(bool is_exists, const std::string& status, bool is_th
 void PaxRequest::ifNeedDeleteAlarms(bool is_exists, const std::string& status) const
 {
     if(trans.code=="CICX" && (!is_exists || !status.empty())) {
-        deleteAlarms(pax.pax_id,  int_flt.point_id);
+        deleteAlarm(pax.pax_id, {Alarm::APPSNegativeDirective, Alarm::APPSError, Alarm::APPSConflict},
+                    int_flt.point_id);
     }
 }
 
@@ -2923,8 +2910,8 @@ void PaxReqAnswer::processErrors() const
         addAlarm(pax_id, {Alarm::APPSConflict}); // рассинхронизация
         // удаляем apps_pax_data cirq_msg_id
         AppsPaxDTO::deleteAPPSData("CIRQ_MSG_ID", msg.getMsgId());
-        deleteMsg(msg.getMsgId());
     }
+    deleteMsg(msg.getMsgId());
 }
 
 
@@ -2933,6 +2920,7 @@ void PaxReqAnswer::processAnswer() const
 {
     LogTrace(TRACE5) << __FUNCTION__;
     if (passengers.empty()) {
+        LogTrace5 << " zero passengers";
         return;
     }
 
@@ -2988,8 +2976,8 @@ void PaxReqAnswer::processAnswer() const
             status = "X";
         }
     }
-    LogTrace(TRACE5) << " IF code = CICC Delete apps data" << " code: " << code;
     if (code == "CICC") {
+        LogTrace(TRACE5) << " IF code = CICC Delete apps data" << " code: " << code;
         if(result) {
             // Пассажир отменен. Удалим его из apps_pax_data
             AppsPaxDTO::deleteAPPSData("CICX_MSG_ID", msg.getMsgId());
@@ -2998,21 +2986,16 @@ void PaxReqAnswer::processAnswer() const
         return;
     }
     // сохраним полученный статус
-    auto paxData = AppsPaxDTO::load(msg.getMsgId());
+    Opt<AppsPaxDTO> paxData = AppsPaxDTO::load(msg.getMsgId());
     paxData->updateStatus(status, apps_pax_id, msg.getMsgId());
 
     // погасим тревоги
     if (status == "B") {
         LogTrace(TRACE5) << __FUNCTION__ << " погасим тревоги";
-        deleteAlarm(pax_id, {Alarm::APPSNegativeDirective, Alarm::APPSError});
+        deleteAlarm(pax_id, {Alarm::APPSNegativeDirective, Alarm::APPSError, Alarm::APPSConflict},
+                    PointId_t(paxData->paxPointId()));
     }
-    // проверим, нужно ли гасить тревогу "рассинхронизация"
-    Opt<PaxRequest> actual;
-    actual = isAlreadyCheckedIn(pax_id) ? PaxRequest::createFromPaxDB(Pax, pax_id)
-                                        : PaxRequest::createFromPaxDB(Crs, pax_id);
-    if(!actual || actual->msg(msg.getVersion(), CIRQ) == msg.getMsg()) {
-        deleteAlarm(pax_id, {Alarm::APPSConflict});
-    }
+
     deleteMsg(msg.getMsgId());
 }
 
@@ -3164,8 +3147,6 @@ std::string emulateAnswer(const std::string& request)
     return "";
 }
 
-
-
 void deleteMsg(int msg_id)
 {
     LogTrace(TRACE5) << __FUNCTION__ << " msg_id: " << msg_id;
@@ -3250,7 +3231,7 @@ void sendAllInfo(const TTripTaskKey &task)
 void sendNewInfo(const TTripTaskKey &task)
 {
     LogTrace(TRACE5) << __FUNCTION__;
-    auto paxIds = getPaxIdsWithAlarm(PointId_t(task.point_id), Alarm::SyncAPPS, PaxOrigin::paxPnl);
+    std::set<PaxId_t> paxIds = getPaxIdsWithAlarm(PointId_t(task.point_id), Alarm::SyncAPPS, PaxOrigin::paxPnl);
     TFlights flightsForLock;
     flightsForLock.Get(task.point_id, ftTranzit);
     flightsForLock.Lock(__FUNCTION__);
