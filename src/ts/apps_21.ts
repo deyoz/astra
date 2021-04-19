@@ -1978,7 +1978,6 @@ $(init_apps ЮТ ЦЗ APPS_21 closeout=true inbound=true outbound=true)
 
 $(PREPARE_SEASON_SCD ЮТ СОЧ ПРХ 298)
 $(make_spp)
-$(deny_ets_interactive ЮТ 298 СОЧ)
 
 $(INB_PNL_UT AER PRG 298 $(ddmon +0 en))
 
@@ -2003,7 +2002,6 @@ $(set tid $(get_single_tid $(get point_dep) TUMALI VALERII))
 << h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
 CIRS:$(capture 1)/PRS/27/001/CZ/P/UA/UA/FA144642//P//20250625////TUMALI/VALERII/19680416/M//8501/B/3////////
 
-#$(OK_TO_BOARD $(get point_dep) $(get pax_id))
 
 # измененение по пассажиру FA144642 -> FA144643
 $(UPDATE_PAX_ON_BOARDING $(get pax_id) $(get point_dep) $(get tid) RUS FA144643 UA 16.04.1968 25.06.2025 M TUMALI VALERII)
@@ -2011,8 +2009,20 @@ $(UPDATE_PAX_ON_BOARDING $(get pax_id) $(get point_dep) $(get tid) RUS FA144643 
 >> lines=auto mode=regex
 .*CICX:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PCX/20/1/3/P/UKR/UKR/FA144642//P/20250625////TUMALI/VALERII/19680416/M///N/N/.*
 
+$(set cicx_msg_id $(capture 1))
+
 >> lines=auto mode=regex
 .*CIRQ:([0-9]+)/UTUTA1/N//21/INT/8/S/UT298/AER/PRG/$(yyyymmdd)/101500/$(yyyymmdd)/1[0-9]?0000/PRQ/22/1/P/UKR/RUS/FA144643//P/20250625////TUMALI/VALERII/19680416/M///N/N////.*
+
+<< h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
+CICC:$(get cicx_msg_id)/PCC/26/001/CZ/P/UKR/UKR/FA144642//P//$(yyyymmdd +1y)////TUMALI/VALERII/19680416/M//8505/C///////
+
+$(NO_BOARD $(get point_dep) $(get pax_id))
+
+<< h2h=V.\VHLG.WA/I5APTXS/E5ASTRA/P002D\VGZ.\VUT/MOW/////////RU\$()
+CIRS:$(capture 1)/PRS/27/001/CZ/P/UKR/UKR/FA144643//P//20250625////TUMALI/VALERII/19680416/M//8501/B/1/////////
+
+$(OK_TO_BOARD $(get point_dep) $(get pax_id))
 
 #####################################################################
 
@@ -2557,14 +2567,12 @@ CIRS:$(capture 1)/PRS/27/001/CZ/P/UKR/UKR/FA144642//P//20250625////TUMALI/VALERI
 ??
 $(check_pax_alarms $(get pax_id_1))
 >>
-APPS_CONFLICT
 $()
 
 $(run_trip_task check_alarm_apps_problem $(get point_dep))
 ??
 $(check_trip_alarms $(get point_dep))
 >>
-APPS_PROBLEM
 $()
 
 
