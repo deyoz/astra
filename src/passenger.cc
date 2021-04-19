@@ -3956,15 +3956,6 @@ bool TPnrAddrInfo::validForSearch() const
 
 void TPnrAddrInfo::addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::string>& tables) const
 {
-  switch(origin)
-  {
-    case paxCheckIn:
-      break;
-    case paxPnl:
-      break;
-    case paxTest:
-      break;
-  }
 }
 
 void TPnrAddrInfo::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const
@@ -3972,8 +3963,10 @@ void TPnrAddrInfo::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<
   switch(origin)
   {
     case paxCheckIn:
+      conditions.push_back("pax.pax_id=:pax_id");
       break;
     case paxPnl:
+      conditions.push_back("crs_pax.pax_id=:pax_id");
       break;
     case paxTest:
       conditions.push_back("test_pax.pnr_addr IN (:addr_rus, :addr_lat)");
@@ -3983,6 +3976,9 @@ void TPnrAddrInfo::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<
 
 void TPnrAddrInfo::addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const
 {
+  if (origin == paxCheckIn || origin == paxPnl) {
+    return;
+  }
   std::string addr_rus(addr), addr_lat(addr);
   transform(addr_rus.begin(), addr_rus.end(), addr_rus.begin(), toRusPnrChar);
   transform(addr_lat.begin(), addr_lat.end(), addr_lat.begin(), toLatPnrChar);
