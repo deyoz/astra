@@ -81,6 +81,7 @@ namespace PgOra
         { "SP_PG_GROUP_FR", { "FR_FORMS2" } },
         { "SP_PG_GROUP_LIBTLG", { "TEXT_TLG_H2H" } },
         { "SP_PG_GROUP_PP_TLG", { "POSTPONED_TLG", "POSTPONED_TLG_CONTEXT" } },
+        { "SP_PG_GROUP_CRYPT", { "CRYPT_FILE_PARAMS", "CRYPT_FILES", "CRYPT_REQ_DATA", "CRYPT_SERVER", "CRYPT_SETS", "CRYPT_TERM_CERT", "CRYPT_TERM_REQ" } },
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
