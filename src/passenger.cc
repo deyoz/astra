@@ -3614,8 +3614,6 @@ std::set<PaxId_t> loadCrsPaxTKN_ext(const std::string& tick_no, int coupon_no)
                                                                     : tick_no);
   if (coupon_no != ASTRA::NoExists) {
     Qry.CreateVariable("coupon_no", otInteger, coupon_no);
-  } else {
-    Qry.CreateVariable("coupon_no", otInteger, FNull);
   }
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next()) {
