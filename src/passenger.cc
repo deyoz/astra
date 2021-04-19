@@ -3183,7 +3183,7 @@ bool TSimplePnrItem::getByPaxId(int pax_id)
                    TSimplePaxItem::origClassFromCrsSQL()+" AS class, "+
                    TSimplePaxItem::cabinClassFromCrsSQL()+" AS cabin_class, "
                    "       crs_pnr.status, "
-                   "       crs_pnr.point_id, "
+                   "       crs_pnr.point_id "
                    "FROM crs_pnr, crs_pax "
                    "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND crs_pax.pax_id=:pax_id",
                    QParams() << QParam("pax_id", otInteger, pax_id));
@@ -3201,7 +3201,7 @@ bool TSimplePnrItem::getByPnrId(const PnrId_t& pnr_id, const std::string& system
   if (!system.empty()) {
     params << QParam("system", otString, system);
   }
-  TCachedQuery Qry("SELECT pnr_id, airp_arv, class, cabin_class, status, point_id, "
+  TCachedQuery Qry("SELECT pnr_id, airp_arv, class, cabin_class, status, point_id "
                    "FROM crs_pnr "
                    "WHERE pnr_id=:pnr_id "
                    + (system.empty() ? std::string("") : "AND system=:system "),
@@ -3581,6 +3581,7 @@ void TPaxTknItem::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<s
         conditions.push_back("pax.coupon_no=:tkn_coupon");
       break;
     case paxPnl:
+      conditions.push_back("crs_pax.pax_id=:pax_id");
       break;
     case paxTest:
       if (no.size()==14)
@@ -3593,7 +3594,14 @@ void TPaxTknItem::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<s
 
 void TPaxTknItem::addSQLParamsForSearch(const PaxOrigin& origin, QParams& params) const
 {
-
+  if (origin == paxPnl) {
+    return;
+  }
+  params << QParam("tkn_no", otString, no);
+  if (no.size()==14)
+    params << QParam("tkn_no_13", otString, no.substr(0,13));
+  if (coupon!=ASTRA::NoExists)
+    params << QParam("tkn_coupon", otInteger, coupon);
 }
 
 std::set<PaxId_t> loadCrsPaxTKN_ext(const std::string& tick_no, int coupon_no)

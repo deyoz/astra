@@ -136,9 +136,20 @@ class Search
         criterion.addSQLTablesForSearch(origin, tables);
         criterion.addSQLConditionsForSearch(origin, conditions);
         criterion.addSQLParamsForSearch(origin, params);
-        useSearchPaxIds = criterion.useSearchPaxIds(origin);
+        if (!useSearchPaxIds) {
+          useSearchPaxIds = criterion.useSearchPaxIds(origin);
+        }
         if (useSearchPaxIds) {
-          criterion.addSearchPaxIds(origin, searchPaxIds);
+          if (searchPaxIds.empty()) {
+            criterion.addSearchPaxIds(origin, searchPaxIds);
+          } else {
+            std::set<PaxId_t> result;
+            std::set<PaxId_t> searchPaxIdsNew;
+            criterion.addSearchPaxIds(origin, searchPaxIdsNew);
+            std::set_intersection(searchPaxIds.begin(), searchPaxIds.end(),
+                                  searchPaxIdsNew.begin(), searchPaxIdsNew.end(),
+                                  std::inserter(result,result.begin()));
+          }
         }
       }
 
