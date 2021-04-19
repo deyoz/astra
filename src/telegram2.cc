@@ -618,10 +618,17 @@ namespace PRL_SPACE {
 
     void TPNRList::get(int pnr_id)
     {
+        LogTrace(TRACE6) << "TPNRList::" << __func__ << ": pnr_id=" << pnr_id;
         if(pnr_id == NoExists) return;
         QParams QryParams;
         QryParams << QParam("pnr_id", otInteger, pnr_id);
-        TCachedQuery Qry("SELECT airline,addr FROM pnr_addrs WHERE pnr_id=:pnr_id ORDER BY addr,airline", QryParams);
+        DB::TCachedQuery Qry(
+              PgOra::getROSession("PNR_ADDRS"),
+              "SELECT airline,addr "
+              "FROM pnr_addrs "
+              "WHERE pnr_id=:pnr_id "
+              "ORDER BY addr,airline",
+              QryParams);
         Qry.get().Execute();
         for(; !Qry.get().Eof; Qry.get().Next()) {
             TPNRItem pnr;

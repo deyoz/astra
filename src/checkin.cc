@@ -2132,6 +2132,61 @@ std::vector<SearchGroupResult> runSearchGroup(const PointId_t& point_dep, int se
   return result;
 }
 
+std::set<PointIdTlg_t> getPointIdTlgSetByCrsPnr(const PnrId_t& pnr_id)
+{
+  LogTrace(TRACE6) << __func__ << ": pnr_id=" << pnr_id;
+  std::set<PointIdTlg_t> result;
+  DB::TQuery Qry(PgOra::getROSession("CRS_PNR"));
+  Qry.SQLText =
+      "SELECT point_id "
+      "FROM crs_pnr "
+      "WHERE pnr_id=:pnr_id ";
+  Qry.CreateVariable("pnr_id", otInteger, pnr_id.get());
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next()) {
+    result.emplace(Qry.FieldAsInteger("point_id"));
+  }
+  return result;
+}
+
+std::vector<std::pair<std::string,std::string>> loadPnrAddrData(const PnrId_t& pnr_id)
+{
+  LogTrace(TRACE6) << __func__ << ": pnr_id=" << pnr_id;
+  std::vector<std::pair<std::string,std::string>> result;
+  const std::set<PointIdTlg_t> point_id_tlg_set = getPointIdTlgSetByCrsPnr(pnr_id);
+  DB::TQuery PnrAddrQry(PgOra::getROSession("PNR_ADDRS"));
+  PnrAddrQry.SQLText =
+    "SELECT airline, addr "
+    "FROM pnr_addrs "
+    "WHERE pnr_id=:pnr_id "
+    "ORDER BY airline";
+  PnrAddrQry.CreateVariable("pnr_id",otInteger,pnr_id.get());
+  PnrAddrQry.Execute();
+  for(;!PnrAddrQry.Eof;PnrAddrQry.Next())
+    for (const PointIdTlg_t& point_id_tlg: point_id_tlg_set) {
+    {
+      const std::optional<TlgTripsData> tlg_trips_data =
+          TlgTripsData::load(point_id_tlg);
+      if (!tlg_trips_data) {
+        continue;
+      }
+      if (PnrAddrQry.FieldAsString("airline") == tlg_trips_data->airline) {
+        LogTrace(TRACE1) << "airline=" << PnrAddrQry.FieldAsString("airline");
+        LogTrace(TRACE1) << "addr=" << PnrAddrQry.FieldAsString("addr");
+        result.emplace(result.begin(),
+                       PnrAddrQry.FieldAsString("airline"),
+                       PnrAddrQry.FieldAsString("addr"));
+      } else {
+        LogTrace(TRACE1) << "airline=empty";
+        LogTrace(TRACE1) << "addr=" << PnrAddrQry.FieldAsString("addr");
+        result.emplace_back("", PnrAddrQry.FieldAsString("addr"));
+      }
+    }
+  }
+  LogTrace(TRACE1) << __func__ << ": result.size()=" << result.size();
+  return result;
+}
+
 void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int point_dep = NodeAsInteger("point_dep",reqNode);
@@ -2248,15 +2303,6 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                                                                         pax_status);
     if (!searchResults.empty())
     {
-      DB::TQuery PnrAddrQry(PgOra::getROSession("ORACLE"));
-      PnrAddrQry.SQLText =
-        "SELECT crs_pnr.point_id, pnr_addrs.airline, pnr_addrs.addr "
-        "FROM crs_pnr,pnr_addrs "
-        "WHERE crs_pnr.pnr_id=pnr_addrs.pnr_id "
-        "AND pnr_addrs.pnr_id=:pnr_id "
-        "ORDER BY pnr_addrs.airline";
-      PnrAddrQry.DeclareVariable("pnr_id",otInteger);
-
       xmlNodePtr pnrNode=NewTextChild(resNode,"groups");
       for(const SearchGroupResult& searchResult: searchResults)
       {
@@ -2267,25 +2313,8 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         NewTextChild(node,"seats",searchResult.seats);
         NewTextChild(node,"seats_all",searchResult.seats_all);
 
-        PnrAddrQry.SetVariable("pnr_id",searchResult.pnr_id.get());
-        PnrAddrQry.Execute();
-        std::vector<std::pair<std::string,std::string>> pnr_addr_data;
-        for(;!PnrAddrQry.Eof;PnrAddrQry.Next())
-        {
-          const std::optional<TlgTripsData> tlg_trips_data =
-              TlgTripsData::load(PointIdTlg_t(PnrAddrQry.FieldAsInteger("point_id")));
-          if (!tlg_trips_data) {
-            continue;
-          }
-          if (PnrAddrQry.FieldAsString("airline") == tlg_trips_data->airline) {
-            pnr_addr_data.insert(pnr_addr_data.begin(),
-                                 std::make_pair(PnrAddrQry.FieldAsString("airline"),
-                                                PnrAddrQry.FieldAsString("addr")));
-          } else {
-            pnr_addr_data.push_back(std::make_pair("",
-                                                   PnrAddrQry.FieldAsString("addr")));
-          }
-        }
+        const std::vector<std::pair<std::string,std::string>> pnr_addr_data
+            = loadPnrAddrData(searchResult.pnr_id);
         for (const auto& item: pnr_addr_data) {
           const std::string& airline = item.first;
           const std::string& addr = item.second;

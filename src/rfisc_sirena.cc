@@ -910,25 +910,29 @@ void SvcSirenaInterface::procGroupInfo( const SirenaExchange::TGroupInfoReq &req
                                         SirenaExchange::TGroupInfoRes &res )
 {
   res.clear();
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText =
+  DB::TQuery QryGrp(PgOra::getROSession("PAX_GRP"));
+  QryGrp.SQLText =
     "SELECT grp_id FROM pax_grp WHERE grp_id=:grp_id";
-  Qry.CreateVariable("grp_id", otInteger, req.grp_id);
-  Qry.Execute();
-  if (Qry.Eof) throw Exception("%s: Unknown <group_id> '%d'", __FUNCTION__, req.grp_id);
+  QryGrp.CreateVariable("grp_id", otInteger, req.grp_id);
+  QryGrp.Execute();
+  if (QryGrp.Eof) throw Exception("%s: Unknown <group_id> '%d'", __FUNCTION__, req.grp_id);
 
-  Qry.Clear();
-  Qry.SQLText =
-    "BEGIN "
-    "  UPDATE pnr_addrs_pc SET grp_id=:grp_id WHERE addr=:pnr_addr; "
-    "  IF SQL%NOTFOUND THEN "
-    "    INSERT INTO pnr_addrs_pc(addr, grp_id) VALUES(:pnr_addr, :grp_id); "
-    "  END IF; "
-    "END;";
-  Qry.CreateVariable("pnr_addr", otString, req.pnr_addr);
-  Qry.CreateVariable("grp_id", otInteger, req.grp_id);
-  Qry.Execute();
+  QParams QryParams;
+  QryParams << QParam("grp_id", otInteger, req.grp_id)
+            << QParam("pnr_addr", otString, req.pnr_addr);
+
+  DB::TCachedQuery QryUpdate(PgOra::getRWSession("PNR_ADDRS_PC"),
+                             "UPDATE pnr_addrs_pc SET grp_id=:grp_id "
+                             "WHERE addr=:pnr_addr",
+                             QryParams);
+  QryUpdate.get().Execute();
+  if (QryUpdate.get().RowsProcessed() == 0) {
+    DB::TCachedQuery QryInsert(PgOra::getRWSession("PNR_ADDRS_PC"),
+                               "INSERT INTO pnr_addrs_pc(addr, grp_id) "
+                               "VALUES(:pnr_addr, :grp_id)",
+                               QryParams);
+    QryInsert.get().Execute();
+  }
 
   CheckIn::TPaxGrpCategory::Enum grp_cat;
   TCkinGrpIds tckinGrpIds;

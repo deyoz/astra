@@ -7056,6 +7056,64 @@ void deleteAllByPax(const PaxId_t& pax_id, TDateTime datetime)
   updateCrsPax_InfIdToNull(pax_id);
 }
 
+std::set<PnrId_t> loadPnrIdSetByPnrAddr(const std::string& airline, const std::string& addr)
+{
+  std::set<PnrId_t> result;
+  DB::TQuery Qry(PgOra::getROSession("PNR_ADDRS"));
+  Qry.SQLText=
+    "SELECT pnr_id FROM pnr_addrs "
+    "WHERE airline=:airline "
+    "AND addr=:addr";
+  Qry.CreateVariable("airline",otString,airline);
+  Qry.CreateVariable("addr",otString,addr);
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next()) {
+    result.emplace(Qry.FieldAsInteger("pnr_id"));
+  }
+  return result;
+}
+
+bool existsCrsPnr(const PnrId_t& pnr_id, const PointIdTlg_t& point_id,
+                  const std::string& system, const std::string& sender,
+                  const std::string& airp_arv, const std::string& subclass)
+{
+  DB::TQuery Qry(PgOra::getROSession("CRS_PNR"));
+  Qry.SQLText=
+    "SELECT crs_pnr.pnr_id FROM crs_pnr "
+    "WHERE crs_pnr.pnr_id=:pnr_id AND "
+    "      point_id=:point_id AND system=:system AND sender=:sender AND "
+    "      airp_arv=:airp_arv AND subclass=:subclass ";
+  Qry.CreateVariable("pnr_id",otInteger,pnr_id.get());
+  Qry.CreateVariable("point_id",otInteger,point_id.get());
+  Qry.CreateVariable("sender",otString,sender);
+  Qry.CreateVariable("system",otString,system);
+  Qry.CreateVariable("airp_arv",otString, airp_arv);
+  Qry.CreateVariable("subclass",otString, subclass);
+  Qry.Execute();
+  return !Qry.Eof;
+}
+
+void savePnrAddrs(const PnrId_t& pnr_id, const std::string& airline, const std::string& addr)
+{
+  QParams QryParams;
+  QryParams << QParam("pnr_id", otInteger, pnr_id.get())
+            << QParam("airline", otString, airline)
+            << QParam("addr", otString, addr);
+
+  DB::TCachedQuery QryUpdate(PgOra::getRWSession("PNR_ADDRS"),
+                             "UPDATE pnr_addrs SET addr=:addr "
+                             "WHERE pnr_id=:pnr_id AND airline=:airline",
+                             QryParams);
+  QryUpdate.get().Execute();
+  if (QryUpdate.get().RowsProcessed() == 0) {
+    DB::TCachedQuery QryInsert(PgOra::getRWSession("PNR_ADDRS"),
+                               "INSERT INTO pnr_addrs(pnr_id,airline,addr) "
+                               "VALUES(:pnr_id,:airline,:addr)",
+                               QryParams);
+    QryInsert.get().Execute();
+  }
+}
+
 bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& con, bool forcibly)
 {
   vector<TTotalsByDest>::iterator iTotals;
@@ -7246,22 +7304,6 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         Qry.Execute();
         int tid=Qry.FieldAsInteger("tid");
 
-        TQuery CrsPnrQry(&OraSession);
-        CrsPnrQry.Clear();
-        CrsPnrQry.SQLText=
-          "SELECT crs_pnr.pnr_id FROM pnr_addrs,crs_pnr "
-          "WHERE crs_pnr.pnr_id=pnr_addrs.pnr_id AND "
-          "      point_id=:point_id AND system=:system AND sender=:sender AND "
-          "      airp_arv=:airp_arv AND subclass=:subclass AND "
-          "      pnr_addrs.airline=:pnr_airline AND pnr_addrs.addr=:pnr_addr";
-        CrsPnrQry.CreateVariable("point_id",otInteger,point_id);
-        CrsPnrQry.CreateVariable("sender",otString,info.sender);
-        CrsPnrQry.CreateVariable("system",otString,system);
-        CrsPnrQry.DeclareVariable("airp_arv",otString);
-        CrsPnrQry.DeclareVariable("subclass",otString);
-        CrsPnrQry.DeclareVariable("pnr_airline",otString);
-        CrsPnrQry.DeclareVariable("pnr_addr",otString);
-
         TQuery CrsPnrInsQry(&OraSession);
         CrsPnrInsQry.Clear();
         CrsPnrInsQry.SQLText=
@@ -7361,19 +7403,6 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         PnrMarketFltQry.DeclareVariable("airp_arv",otString);
         PnrMarketFltQry.DeclareVariable("subclass",otString);
 
-        TQuery PnrAddrsQry(&OraSession);
-        PnrAddrsQry.Clear();
-        PnrAddrsQry.SQLText=
-          "BEGIN "
-          "  UPDATE pnr_addrs SET addr=:addr WHERE pnr_id=:pnr_id AND airline=:airline; "
-          "  IF SQL%NOTFOUND THEN "
-          "    INSERT INTO pnr_addrs(pnr_id,airline,addr) VALUES(:pnr_id,:airline,:addr); "
-          "  END IF; "
-          "END;";
-        PnrAddrsQry.DeclareVariable("pnr_id",otInteger);
-        PnrAddrsQry.DeclareVariable("airline",otString);
-        PnrAddrsQry.DeclareVariable("addr",otString);
-
         int pnr_id;
         bool pr_sync_pnr;
         set<int> paxIdsModified;
@@ -7398,8 +7427,6 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
           if (point_id_spp != ASTRA::NoExists)
             segmentPair=boost::in_place(point_id_spp, iTotals->dest);
 
-          CrsPnrQry.SetVariable("airp_arv",iTotals->dest);
-          CrsPnrQry.SetVariable("subclass",iTotals->subcl);
           CrsPnrInsQry.SetVariable("airp_arv",iTotals->dest);
           CrsPnrInsQry.SetVariable("subclass",iTotals->subcl);
           CrsPnrInsQry.SetVariable("class",EncodeClass(iTotals->cl));
@@ -7417,21 +7444,26 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
             //попробовать найти pnr_id по PNR reference
             for(iPnrAddr=pnr.addrs.begin();iPnrAddr!=pnr.addrs.end();iPnrAddr++)
             {
-              CrsPnrQry.SetVariable("pnr_airline",iPnrAddr->airline);
-              CrsPnrQry.SetVariable("pnr_addr",iPnrAddr->addr);
-              CrsPnrQry.Execute();
-              if (CrsPnrQry.RowCount()>0)
-              {
-                pr_sync_pnr=false;
-                if (pnr_id!=0&&pnr_id!=CrsPnrQry.FieldAsInteger("pnr_id"))
-                  throw ETlgError("More than one group found (PNR=%s/%s)",
-                                  iPnrAddr->airline,iPnrAddr->addr);
-                pnr_id=CrsPnrQry.FieldAsInteger("pnr_id");
-                CrsPnrQry.Next();
-                if (!CrsPnrQry.Eof)
-                  throw ETlgError("More than one group found (PNR=%s/%s)",
-                                  iPnrAddr->airline,iPnrAddr->addr);
-              };
+              size_t found = 0;
+              const std::set<PnrId_t> pnr_id_set_by_addr = loadPnrIdSetByPnrAddr(iPnrAddr->airline,
+                                                                                 iPnrAddr->addr);
+              for (const PnrId_t& pnr_id_by_addr: pnr_id_set_by_addr) {
+                if (existsCrsPnr(pnr_id_by_addr, PointIdTlg_t(point_id), system, info.sender,
+                                 iTotals->dest, iTotals->subcl))
+                {
+                  if (found > 1) {
+                    throw ETlgError("More than one group found (PNR=%s/%s)",
+                                    iPnrAddr->airline,iPnrAddr->addr);
+                  }
+                  if (pnr_id != 0 && pnr_id != pnr_id_by_addr.get()) {
+                    throw ETlgError("More than one group found (PNR=%s/%s)",
+                                    iPnrAddr->airline,iPnrAddr->addr);
+                  }
+                  pnr_id = pnr_id_by_addr.get();
+                  pr_sync_pnr = false;
+                  found++;
+                }
+              }
             };
             if (pnr_id==0)
             {
@@ -7546,14 +7578,10 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
             CrsPnrInsQry.Execute();
             pnr_id=CrsPnrInsQry.GetVariableAsInteger("pnr_id");
             CrsPaxInsQry.SetVariable("pnr_id",pnr_id);
-            PnrAddrsQry.SetVariable("pnr_id",pnr_id);
-
 
             for(iPnrAddr=pnr.addrs.begin();iPnrAddr!=pnr.addrs.end();iPnrAddr++)
             {
-              PnrAddrsQry.SetVariable("airline",iPnrAddr->airline);
-              PnrAddrsQry.SetVariable("addr",iPnrAddr->addr);
-              PnrAddrsQry.Execute();
+              savePnrAddrs(PnrId_t(pnr_id), iPnrAddr->airline, iPnrAddr->addr);
             };
 
             for(iNameElement=pnr.ne.begin();iNameElement!=pnr.ne.end();iNameElement++)

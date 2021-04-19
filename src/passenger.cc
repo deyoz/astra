@@ -19,6 +19,7 @@
 #include "PgOraConfig.h"
 #include "db_tquery.h"
 #include "arx_daily_pg.h"
+#include "tlg/typeb_db.h"
 
 #include <regex>
 
@@ -3952,12 +3953,8 @@ void TPnrAddrInfo::addSQLTablesForSearch(const PaxOrigin& origin, std::set<std::
   switch(origin)
   {
     case paxCheckIn:
-      tables.insert("crs_pax");
-      tables.insert("crs_pnr");
-      tables.insert("pnr_addrs");
       break;
     case paxPnl:
-      tables.insert("pnr_addrs");
       break;
     case paxTest:
       break;
@@ -3969,16 +3966,8 @@ void TPnrAddrInfo::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<
   switch(origin)
   {
     case paxCheckIn:
-      conditions.push_back("pax.pax_id=crs_pax.pax_id");
-      conditions.push_back("crs_pax.pnr_id=crs_pnr.pnr_id");
-      conditions.push_back("crs_pnr.system='CRS'");
-      conditions.push_back("crs_pax.pr_del=0");
-      conditions.push_back("pnr_addrs.pnr_id=crs_pax.pnr_id");
-      conditions.push_back("pnr_addrs.addr IN (:addr_rus, :addr_lat)");
       break;
     case paxPnl:
-      conditions.push_back("pnr_addrs.pnr_id=crs_pax.pnr_id");
-      conditions.push_back("pnr_addrs.addr IN (:addr_rus, :addr_lat)");
       break;
     case paxTest:
       conditions.push_back("test_pax.pnr_addr IN (:addr_rus, :addr_lat)");
@@ -3993,6 +3982,84 @@ void TPnrAddrInfo::addSQLParamsForSearch(const PaxOrigin& origin, QParams& param
   transform(addr_lat.begin(), addr_lat.end(), addr_lat.begin(), toLatPnrChar);
   params << QParam("addr_rus", otString, addr_rus)
          << QParam("addr_lat", otString, addr_lat);
+}
+
+std::set<PnrId_t> loadPnrIdSetByPnrAddrs(const std::string& addr)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": addr=" << addr;
+  std::string addr_rus(addr), addr_lat(addr);
+  transform(addr_rus.begin(), addr_rus.end(), addr_rus.begin(), toRusPnrChar);
+  transform(addr_lat.begin(), addr_lat.end(), addr_lat.begin(), toLatPnrChar);
+  std::set<PnrId_t> result;
+  DB::TQuery Qry(PgOra::getROSession("pnr_addrs"));
+  Qry.SQLText="SELECT pnr_id "
+              "FROM pnr_addrs "
+              "WHERE addr IN (:addr_rus, :addr_lat) ";
+  Qry.CreateVariable("addr_rus", otString, addr_rus);
+  Qry.CreateVariable("addr_lat", otString, addr_lat);
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next()) {
+    result.emplace(Qry.FieldAsInteger("pnr_id"));
+  }
+  return result;
+}
+
+std::set<PaxId_t> loadPaxIdSetByPnrAddrs(const std::string& addr, bool skip_deleted)
+{
+  std::set<PaxId_t> result;
+  const std::set<PnrId_t> pnr_id_set = loadPnrIdSetByPnrAddrs(addr);
+  for (const PnrId_t& pnr_id: pnr_id_set) {
+    const std::set<PaxId_t> pax_id_set = TypeB::loadPaxIdSet(pnr_id, skip_deleted);
+    result.insert(pax_id_set.begin(), pax_id_set.end());
+  }
+  return result;
+}
+
+std::set<PaxId_t> loadCrsPnrPaxIdSet(const PnrId_t& pnr_id)
+{
+  std::set<PaxId_t> result;
+  DB::TQuery Qry(PgOra::getROSession("ORACLE"));
+  Qry.SQLText="SELECT pax_id "
+              "FROM crs_pax, crs_pnr "
+              "WHERE crs_pax.pnr_id=crs_pnr.pnr_id "
+              "AND crs_pnr.system='CRS' "
+              "AND crs_pax.pr_del=0 "
+              "AND crs_pax.pnr_id=:pnr_id ";
+  Qry.CreateVariable("pnr_id", otInteger, pnr_id.get());
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next()) {
+    result.emplace(Qry.FieldAsInteger("pnr_id"));
+  }
+  return result;
+}
+
+std::set<PaxId_t> loadCrsPnrPaxIdSetByPnrAddrs(const std::string& addr)
+{
+  std::set<PaxId_t> result;
+  const std::set<PnrId_t> pnr_id_set = loadPnrIdSetByPnrAddrs(addr);
+  for (const PnrId_t& pnr_id: pnr_id_set) {
+    const std::set<PaxId_t> pax_id_set = loadCrsPnrPaxIdSet(pnr_id);
+    result.insert(pax_id_set.begin(), pax_id_set.end());
+  }
+  return result;
+}
+
+void TPnrAddrInfo::addSearchPaxIds(const PaxOrigin& origin, std::set<PaxId_t>& searchPaxIds) const
+{
+  if (origin == paxPnl) {
+    searchPaxIds = loadPaxIdSetByPnrAddrs(addr, false /*skip_deleted*/);
+    return;
+  }
+  if (origin == paxCheckIn) {
+    searchPaxIds = loadCrsPnrPaxIdSetByPnrAddrs(addr);
+    return;
+  }
+}
+
+bool TPnrAddrInfo::useSearchPaxIds(const PaxOrigin& origin) const
+{
+  return origin == paxCheckIn || origin == paxPnl;
 }
 
 bool TPnrAddrInfo::suitable(const TPnrAddrInfo& pnr) const
@@ -4059,6 +4126,8 @@ void TPnrAddrs::getByPnrIdFast(int pnr_id)
   getByPnrId(pnr_id, airline);
 }
 
+std::vector<std::pair<std::string,std::string>> loadPnrAddrData(const PnrId_t& pnr_id);
+
 std::string TPnrAddrs::getByPnrId(int pnr_id, string &airline)
 {
   clear();
@@ -4072,8 +4141,8 @@ std::string TPnrAddrs::getByPnrId(int pnr_id, string &airline)
           "SELECT airline, addr "
           "FROM pnr_addrs "
           "WHERE pnr_id=:pnr_id "
-          "ORDER BY CASE WHEN pnr_addrs.airline=:airline THEN 0 ELSE 1 END, "
-          "         pnr_addrs.airline",
+          "ORDER BY CASE WHEN airline=:airline THEN 0 ELSE 1 END, "
+          "         airline",
           QryParams);
     DB::TQuery &Qry=CachedQry.get();
     Qry.Execute();
@@ -4082,36 +4151,16 @@ std::string TPnrAddrs::getByPnrId(int pnr_id, string &airline)
                    Qry.FieldAsString("addr"));
     }
   } else {
-    DB::TCachedQuery CachedQry(
-          PgOra::getROSession("ORACLE"),
-          "SELECT crs_pnr.point_id, pnr_addrs.airline, pnr_addrs.addr "
-          "FROM pnr_addrs, crs_pnr "
-          "WHERE pnr_addrs.pnr_id=crs_pnr.pnr_id AND "
-          "      pnr_addrs.pnr_id=:pnr_id "
-          "ORDER BY pnr_addrs.airline",
-          QryParams);
-    DB::TQuery &Qry=CachedQry.get();
-    Qry.Execute();
-    for(;!Qry.Eof;Qry.Next())
-    {
-      const std::optional<TlgTripsData> tlg_trips =
-          TlgTripsData::load(PointIdTlg_t(Qry.FieldAsInteger("point_id")));
-      if (!tlg_trips) {
-        continue;
-      }
-      airline = tlg_trips->airline;
-      if (tlg_trips->airline == Qry.FieldAsString("airline")) {
-        emplace(begin(),
-                Qry.FieldAsString("airline"),
-                Qry.FieldAsString("addr"));
-      } else {
-        emplace_back(Qry.FieldAsString("airline"),
-                     Qry.FieldAsString("addr"));
-      }
+     const std::vector<std::pair<std::string,std::string>> pnr_addr_data
+         = loadPnrAddrData(PnrId_t(pnr_id));
+     for (const auto& item: pnr_addr_data) {
+       const std::string& airline = item.first;
+       const std::string& addr = item.second;
+       emplace_back(airline, addr);
     }
   }
 
-  if (!empty() && begin()->airline==airline)
+  if (!empty() && !begin()->airline.empty())
     return begin()->addr;
   else
     return "";
