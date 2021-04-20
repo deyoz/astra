@@ -915,14 +915,9 @@ void ProcEvent(const TLogLocale &event,
 
 edifact::SpecBaseOurrefName_t nextSpecBaseOurrefName()
 {
-  int result;
-  make_db_curs("SELECT spec_base_ourref__seq.nextval FROM dual",
-               PgOra::getRWSession("SPEC_BASE_OURREF__SEQ"))
-    .def(result)
-    .EXfet();
-
   ostringstream s;
-  s << std::setw(5) << std::setfill('0') << result;
+  s << std::setw(5) << std::setfill('0')
+    << PgOra::getSeqNextVal_int("SPEC_BASE_OURREF__SEQ");
 
   return edifact::SpecBaseOurrefName_t(s.str());
 }
