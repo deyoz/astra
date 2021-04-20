@@ -259,18 +259,18 @@ bool TArxMoveFlt::Next(int max_rows, int duration)
         case 0:
           Qry->SQLText=
             "SELECT move_id FROM points "
-            "WHERE time_in > TO_DATE('01.01.0001','DD.MM.YYYY') AND time_in<:arx_date ";
+            "WHERE time_in > TO_DATE('01.01.1900','DD.MM.YYYY') AND time_in<:arx_date ";
           break;
         case 3:
           Qry->SQLText=
             "SELECT move_id FROM points "
-            "WHERE time_out > TO_DATE('01.01.0001','DD.MM.YYYY') AND time_out<:arx_date ";
+            "WHERE time_out > TO_DATE('01.01.1900','DD.MM.YYYY') AND time_out<:arx_date ";
           break;
         case 6:
           Qry->SQLText=
             "SELECT move_id FROM points "
-            "WHERE time_in  = TO_DATE('01.01.0001','DD.MM.YYYY') AND "
-            "      time_out = TO_DATE('01.01.0001','DD.MM.YYYY') ";
+            "WHERE time_in  = TO_DATE('01.01.1900','DD.MM.YYYY') AND "
+            "      time_out = TO_DATE('01.01.1900','DD.MM.YYYY') ";
           break;
       };
       if (step!=6)
