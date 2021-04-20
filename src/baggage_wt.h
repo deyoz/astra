@@ -145,6 +145,7 @@ class TBagTypeKey : public TBagTypeListKey
     const TBagTypeKey& toDBcompatible(TQuery &Qry, const std::string &where) const;
     TBagTypeKey& fromDB(TQuery &Qry);
     TBagTypeKey& fromDBcompatible(TQuery &Qry);
+    TBagTypeKey& fromDBcompatible(DB::TQuery &Qry);
     void getListItemIfNone();
     void getListItem();
     void getListItemUnaccomp (int grp_id, int transfer_num, boost::optional<TServiceCategory::Enum> category, const std::string &where)

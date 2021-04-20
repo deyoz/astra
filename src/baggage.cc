@@ -242,6 +242,26 @@ TSimpleBagItem& TSimpleBagItem::fromDB(TQuery &Qry)
   return *this;
 }
 
+TSimpleBagItem& TSimpleBagItem::fromDB(DB::TQuery &Qry)
+{
+  clear();
+  if (!Qry.FieldIsNULL("rfisc"))
+  {
+    pc=TRFISCKey();
+    pc.get().fromDB(Qry);
+    pc.get().getListItem();
+  }
+  else
+  {
+    wt=TBagTypeKey();
+    wt.get().fromDBcompatible(Qry);
+    wt.get().getListItem();
+  }
+  amount=Qry.FieldAsInteger("amount");
+  weight=Qry.FieldAsInteger("weight");
+  return *this;
+}
+
 TBagItem& TBagItem::fromDB(TQuery &Qry)
 {
   clear();
@@ -266,6 +286,31 @@ TBagItem& TBagItem::fromDB(TQuery &Qry)
   handmade=Qry.FieldAsInteger("handmade")!=0;
   return *this;
 };
+
+TBagItem& TBagItem::fromDB(DB::TQuery &Qry)
+{
+  clear();
+  TSimpleBagItem::fromDB(Qry);
+  id=Qry.FieldAsInteger("id");
+  num=Qry.FieldAsInteger("num");
+  pr_cabin=Qry.FieldAsInteger("pr_cabin")!=0;
+  if (!Qry.FieldIsNULL("value_bag_num"))
+    value_bag_num=Qry.FieldAsInteger("value_bag_num");
+  pr_liab_limit=Qry.FieldAsInteger("pr_liab_limit")!=0;
+  to_ramp=Qry.FieldAsInteger("to_ramp")!=0;
+  using_scales=Qry.FieldAsInteger("using_scales")!=0;
+  bag_pool_num=Qry.FieldAsInteger("bag_pool_num");
+  if (!Qry.FieldIsNULL("hall"))
+    hall=Qry.FieldAsInteger("hall");
+  if (!Qry.FieldIsNULL("user_id"))
+    user_id=Qry.FieldAsInteger("user_id");
+  desk=Qry.FieldAsString("desk");
+  if (!Qry.FieldIsNULL("time_create"))
+    time_create=Qry.FieldAsDateTime("time_create");
+  is_trfer=Qry.FieldAsInteger("is_trfer")!=0;
+  handmade=Qry.FieldAsInteger("handmade")!=0;
+  return *this;
+}
 
 void TBagItem::check(const TRFISCBagPropsList &list) const
 {
@@ -460,6 +505,23 @@ TTagItem& TTagItem::fromDB(TQuery &Qry)
   pr_print=Qry.FieldAsInteger("pr_print")!=0;
   return *this;
 };
+
+TTagItem& TTagItem::fromDB(DB::TQuery &Qry)
+{
+  clear();
+  num=Qry.FieldAsInteger("num");
+  tag_type=Qry.FieldAsString("tag_type");
+  if (Qry.GetFieldIndex("no_len")>=0)
+    no_len=Qry.FieldAsInteger("no_len");
+  no=Qry.FieldAsFloat("no");
+  color=Qry.FieldAsString("color");
+  if (!Qry.FieldIsNULL("bag_num"))
+    bag_num=Qry.FieldAsInteger("bag_num");
+  if (Qry.GetFieldIndex("printable")>=0)
+    printable=Qry.FieldAsInteger("printable")!=0;
+  pr_print=Qry.FieldAsInteger("pr_print")!=0;
+  return *this;
+}
 
 const TUnaccompInfoItem& TUnaccompInfoItem::toXML(xmlNodePtr node) const
 {

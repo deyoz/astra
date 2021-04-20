@@ -298,30 +298,32 @@ namespace BIPrintRules {
                     QryParams << QParam("terminal", otInteger, bi_rule.halls.begin()->second);
                 else
                     QryParams << QParam("terminal", otInteger, FNull);
-                TCachedQuery Qry(
-                        "insert into bi_stat ( "
-                        "   point_id, "
-                        "   scd_out, "
-                        "   pax_id, "
-                        "   print_type, "
-                        "   terminal, "
-                        "   hall, "
-                        "   op_type, "
-                        "   pr_print, "
-                        "   time_print, "
-                        "   desk "
-                        ") values ( "
-                        "   :point_id, "
-                        "   :scd_out, "
-                        "   :pax_id, "
-                        "   :print_type, "
-                        "   :terminal, "
-                        "   :hall, "
-                        "   :op_type, "
-                        "   0, "
-                        "   :time_print, "
-                        "   :desk "
-                        ") ", QryParams);
+                DB::TCachedQuery Qry(
+                      PgOra::getRWSession("BI_STAT"),
+                      "INSERT INTO bi_stat ( "
+                      "   point_id, "
+                      "   scd_out, "
+                      "   pax_id, "
+                      "   print_type, "
+                      "   terminal, "
+                      "   hall, "
+                      "   op_type, "
+                      "   pr_print, "
+                      "   time_print, "
+                      "   desk "
+                      ") VALUES ( "
+                      "   :point_id, "
+                      "   :scd_out, "
+                      "   :pax_id, "
+                      "   :print_type, "
+                      "   :terminal, "
+                      "   :hall, "
+                      "   :op_type, "
+                      "   0, "
+                      "   :time_print, "
+                      "   :desk "
+                      ") ",
+                      QryParams);
                 try {
                     Qry.get().Execute();
                 } catch(const EOracleError &E) {

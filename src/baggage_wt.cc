@@ -402,6 +402,16 @@ TBagTypeKey& TBagTypeKey::fromDBcompatible(TQuery &Qry)
   return *this;
 }
 
+TBagTypeKey& TBagTypeKey::fromDBcompatible(DB::TQuery &Qry)
+{
+  clear();
+  bag_type=BagTypeFromDB(Qry);
+  airline=Qry.FieldAsString("airline");
+  if (!Qry.FieldIsNULL("list_id"))
+    list_id=Qry.FieldAsInteger("list_id");
+  return *this;
+}
+
 bool TBagTypeListItem::isBaggageOrCarryOn() const
 {
   return category!=TServiceCategory::Other;

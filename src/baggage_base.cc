@@ -576,7 +576,37 @@ std::string BagTypeFromDB(TQuery &Qry)
   return "";
 }
 
+std::string BagTypeFromDB(DB::TQuery &Qry)
+{
+  if (Qry.GetFieldIndex("bag_type_str")>=0 &&
+      !Qry.FieldIsNULL("bag_type_str"))
+    return Qry.FieldAsString("bag_type_str");
+
+  if (!Qry.FieldIsNULL("bag_type"))
+  {
+    ostringstream s;
+    s << setw(2) << setfill('0') << Qry.FieldAsInteger("bag_type");
+    return s.str();
+  };
+  return "";
+}
+
 void BagTypeToDB(TQuery &Qry, const std::string& bag_type, const std::string &where)
+{
+  if (bag_type.empty())
+    Qry.SetVariable("bag_type",FNull);
+  else
+  {
+    int result;
+    if (StrToInt(bag_type.c_str(), result)==EOF)
+      throw EConvertError("%s: can't convert bag_type='%s' to int", where.c_str(), bag_type.c_str());
+    Qry.SetVariable("bag_type",result);
+  }
+  if (Qry.GetVariableIndex("bag_type_str")>=0)
+    Qry.SetVariable("bag_type_str",bag_type);
+}
+
+void BagTypeToDB(DB::TQuery &Qry, const std::string& bag_type, const std::string &where)
 {
   if (bag_type.empty())
     Qry.SetVariable("bag_type",FNull);

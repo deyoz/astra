@@ -143,6 +143,7 @@ class TSimpleBagItem
 
     const TSimpleBagItem& toDB(TQuery &Qry) const;
     TSimpleBagItem& fromDB(TQuery &Qry);
+    TSimpleBagItem& fromDB(DB::TQuery &Qry);
     std::string get_rem_code_lci(TRFISCListWithPropsCache &lists) const;
     std::string get_rem_code_ldm(TRFISCListWithPropsCache &lists) const;
 };
@@ -188,6 +189,7 @@ class TBagItem : public TSimpleBagItem
     TBagItem& fromXML(xmlNodePtr node, bool baggage_pc);
     const TBagItem& toDB(TQuery &Qry) const;
     TBagItem& fromDB(TQuery &Qry);
+    TBagItem& fromDB(DB::TQuery &Qry);
     bool basicallyEqual(const TBagItem& item) const
     {
       return TSimpleBagItem::operator ==(item) &&
@@ -234,6 +236,7 @@ class TTagItem
     TTagItem& fromXML(xmlNodePtr node);
     const TTagItem& toDB(TQuery &Qry) const;
     TTagItem& fromDB(TQuery &Qry);
+    TTagItem& fromDB(DB::TQuery &Qry);
 };
 
 class TValueBagMap : public std::map<int /*num*/, TValueBagItem>

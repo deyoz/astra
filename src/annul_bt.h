@@ -16,6 +16,8 @@ struct TAnnulBT {
         };
         typedef std::map<int, TBagTags> TBagIdMap;
         int grp_id;
+        int point_id;
+        TDateTime scd_out;
         TBagIdMap items;
 
         TBagIdMap backup_items;

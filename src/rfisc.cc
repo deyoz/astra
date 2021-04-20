@@ -655,7 +655,25 @@ TRFISCListKey& TRFISCListKey::fromDB(TQuery &Qry)
   return *this;
 }
 
+TRFISCListKey& TRFISCListKey::fromDB(DB::TQuery &Qry)
+{
+  clear();
+  RFISC=Qry.FieldAsString("rfisc");
+  service_type=ServiceTypes().decode(Qry.FieldAsString("service_type"));
+  airline=Qry.FieldAsString("airline");
+  return *this;
+}
+
 TRFISCKey& TRFISCKey::fromDB(TQuery &Qry)
+{
+  clear();
+  TRFISCListKey::fromDB(Qry);
+  if (!Qry.FieldIsNULL("list_id"))
+    list_id=Qry.FieldAsInteger("list_id");
+  return *this;
+}
+
+TRFISCKey& TRFISCKey::fromDB(DB::TQuery &Qry)
 {
   clear();
   TRFISCListKey::fromDB(Qry);

@@ -191,76 +191,54 @@ void RunAnnulBTStat(
         int point_id
         )
 {
+    LogTrace(TRACE6) << __func__;
     map<int, string> agents;
-    TCachedQuery agentQry("select descr from users2 where user_id = :user_id",
-            QParams() << QParam("user_id", otInteger));
+    DB::TCachedQuery agentQry(
+          PgOra::getROSession("USERS2"),
+          "SELECT descr FROM users2 WHERE user_id = :user_id",
+          QParams() << QParam("user_id", otInteger));
 
     QParams QryParams;
     if(point_id == NoExists) {
-        QryParams << QParam("FirstDate", otDate, params.FirstDate)
-                  << QParam("LastDate", otDate, params.LastDate);
+        QryParams << QParam("first_date", otDate, params.FirstDate)
+                       << QParam("last_date", otDate, params.LastDate);
     } else {
         QryParams << QParam("point_id", otInteger, point_id);
     }
-    LogTrace5 << __func__ << " point_id: " << point_id;
-    string SQLText =
-        "select null part_key, "
-        "   points.airline, "
-        "   points.airp, "
-        "   points.flt_no, "
-        "   points.suffix, "
-        "   annul_bag.id, "
-        "   pax_grp.airp_dep, "
-        "   pax_grp.airp_arv, "
-        "   pax.surname||' '||pax.name full_name, "
-        "   annul_bag.pax_id, "
-        "   annul_bag.bag_type, "
-        "   annul_bag.rfisc, "
-        "   annul_bag.time_create, "
-        "   annul_bag.time_annul, "
-        "   annul_bag.amount, "
-        "   annul_bag.weight, "
-        "   annul_bag.user_id, "
-        "   trfer_trips.airline trfer_airline, \n"
-        "   trfer_trips.airp_dep trfer_airp_dep, \n"
-        "   trfer_trips.flt_no trfer_flt_no, \n"
-        "   trfer_trips.suffix trfer_suffix, \n"
-        "   trfer_trips.scd trfer_scd, \n"
-        "   transfer.airp_arv trfer_airp_arv \n"
-        "from "
-        "   annul_bag, "
-        "   pax_grp, \n"
-        "   pax, \n"
-        "   transfer, \n"
-        "   trfer_trips, \n"
-        "   points "
-        "where ";
-        if(point_id == NoExists) {
-            params.AccessClause(SQLText);
-            SQLText += " points.scd_out >= :FirstDate AND points.scd_out < :LastDate and \n";
-        } else {
-            SQLText += " points.point_id = :point_id and \n";
-        }
-        SQLText += "   points.point_id = pax_grp.point_dep and "
-                   "   pax_grp.grp_id = annul_bag.grp_id and "
-                   "   annul_bag.pax_id = pax.pax_id(+) and "
-                   "   pax_grp.grp_id = transfer.grp_id(+) and \n"
-                   "   transfer.pr_final(+) <> 0 and \n"
-                   "   transfer.point_id_trfer = trfer_trips.point_id(+) \n";
+    std::string SQLText =
+        "SELECT "
+        "   id, "
+        "   pax_id, "
+        "   grp_id, "
+        "   point_id, "
+        "   bag_type, "
+        "   rfisc, "
+        "   time_create, "
+        "   time_annul, "
+        "   amount, "
+        "   weight, "
+        "   user_id "
+        "FROM annul_bag ";
 
-    TCachedQuery Qry(SQLText, QryParams);
+    LogTrace5 << __func__ << " point_id: " << point_id;
+    if(point_id == ASTRA::NoExists) {
+        params.AccessClause(SQLText);
+        SQLText += "WHERE scd_out >= :first_date AND scd_out < :last_date ";
+    } else {
+        SQLText += "WHERE point_id = :point_id ";
+    }
+
+    DB::TCachedQuery Qry(
+          PgOra::getROSession("ANNUL_BAG"),
+          SQLText,
+          QryParams);
+
     Qry.get().Execute();
     if(not Qry.get().Eof) {
-        int col_part_key = Qry.get().FieldIndex("part_key");
-        int col_airline = Qry.get().FieldIndex("airline");
-        int col_airp = Qry.get().FieldIndex("airp");
-        int col_flt_no = Qry.get().FieldIndex("flt_no");
-        int col_suffix = Qry.get().FieldIndex("suffix");
         int col_id = Qry.get().FieldIndex("id");
-        int col_airp_dep = Qry.get().FieldIndex("airp_dep");
-        int col_airp_arv = Qry.get().FieldIndex("airp_arv");
-        int col_full_name = Qry.get().FieldIndex("full_name");
         int col_pax_id = Qry.get().FieldIndex("pax_id");
+        int col_grp_id = Qry.get().FieldIndex("grp_id");
+        int col_point_id = Qry.get().FieldIndex("point_id");
         int col_bag_type = Qry.get().FieldIndex("bag_type");
         int col_rfisc = Qry.get().FieldIndex("rfisc");
         int col_time_create = Qry.get().FieldIndex("time_create");
@@ -268,31 +246,54 @@ void RunAnnulBTStat(
         int col_amount = Qry.get().FieldIndex("amount");
         int col_weight = Qry.get().FieldIndex("weight");
         int col_user_id = Qry.get().FieldIndex("user_id");
-        int col_trfer_airline = Qry.get().FieldIndex("trfer_airline");
-        int col_trfer_flt_no = Qry.get().FieldIndex("trfer_flt_no");
-        int col_trfer_suffix = Qry.get().FieldIndex("trfer_suffix");
-        int col_trfer_scd = Qry.get().FieldIndex("trfer_scd");
-        int col_trfer_airp_arv = Qry.get().FieldIndex("trfer_airp_arv");
+
+        DB::TCachedQuery trferQry(
+              PgOra::getROSession("TRANSFER-TRFER_TRIPS"),
+              "SELECT \n"
+              "   trfer_trips.airline trfer_airline, \n"
+              "   trfer_trips.airp_dep trfer_airp_dep, \n"
+              "   trfer_trips.flt_no trfer_flt_no, \n"
+              "   trfer_trips.suffix trfer_suffix, \n"
+              "   trfer_trips.scd trfer_scd, \n"
+              "   transfer.airp_arv trfer_airp_arv \n"
+              "FROM \n"
+              "   transfer, \n"
+              "   trfer_trips \n"
+              "WHERE \n"
+              "   transfer.grp_id = :grp_id AND \n"
+              "   transfer.pr_final <> 0 AND \n"
+              "   transfer.point_id_trfer = trfer_trips.point_id(+) ",
+              QParams() << QParam("grp_id", otInteger));
 
         for(; not Qry.get().Eof; Qry.get().Next()) {
-            prn_airline.check(Qry.get().FieldAsString(col_airline));
+            TTripInfo fltInfo;
+            if (!fltInfo.getByPointId(Qry.get().FieldAsInteger(col_point_id))) {
+              continue;
+            }
+            CheckIn::TSimplePaxGrpItem grpItem;
+            if (!grpItem.getByGrpId(Qry.get().FieldAsInteger(col_grp_id))) {
+              continue;
+            }
 
-            TDateTime part_key = NoExists;
-            if(not Qry.get().FieldIsNULL(col_part_key))
-                part_key = Qry.get().FieldAsDateTime(col_part_key);
+            prn_airline.check(fltInfo.airline);
+
+            const TDateTime part_key = ASTRA::NoExists;
 
             TAnnulBTStatRow row;
-            row.airline = Qry.get().FieldAsString(col_airline);
-            row.airp = Qry.get().FieldAsString(col_airp);
-            row.flt_no = Qry.get().FieldAsInteger(col_flt_no);
-            row.suffix = Qry.get().FieldAsString(col_suffix);
+            row.airline = fltInfo.airline;
+            row.airp = fltInfo.airp;
+            row.flt_no = fltInfo.flt_no;
+            row.suffix = fltInfo.suffix;
             row.id = Qry.get().FieldAsInteger(col_id);
-            row.airp_dep = Qry.get().FieldAsString(col_airp_dep);
-            row.airp_arv = Qry.get().FieldAsString(col_airp_arv);
-            if(not Qry.get().FieldIsNULL(col_pax_id)) {
+            row.airp_dep = grpItem.airp_dep;
+            row.airp_arv = grpItem.airp_arv;
+
+            CheckIn::TSimplePaxItem paxItem;
+            if (paxItem.getByPaxId(Qry.get().FieldAsInteger(col_pax_id))) {
                 row.pax_id = Qry.get().FieldAsInteger(col_pax_id);
-                row.full_name = Qry.get().FieldAsString(col_full_name);
+                row.full_name = paxItem.full_name();
             }
+
             if(not Qry.get().FieldIsNULL(col_bag_type))
                 row.bag_type = Qry.get().FieldAsInteger(col_bag_type);
             row.rfisc = Qry.get().FieldAsString(col_rfisc);
@@ -319,19 +320,35 @@ void RunAnnulBTStat(
                 }
                 row.agent = agent->second;
             }
-            row.trfer_airline = Qry.get().FieldAsString(col_trfer_airline);
-            if(not Qry.get().FieldIsNULL(col_trfer_flt_no))
-                row.trfer_flt_no = Qry.get().FieldAsInteger(col_trfer_flt_no);
-            row.trfer_suffix = Qry.get().FieldAsString(col_trfer_suffix);
-            if(not Qry.get().FieldIsNULL(col_trfer_scd))
-                row.trfer_scd = Qry.get().FieldAsDateTime(col_trfer_scd);
-            row.trfer_airp_arv = Qry.get().FieldAsString(col_trfer_airp_arv);
 
-            LogTrace(TRACE5) << "trfer_airp_arv: " << row.trfer_airp_arv;
+            trferQry.get().SetVariable("grp_id", Qry.get().FieldAsInteger(col_grp_id));
+            trferQry.get().Execute();
+            if (!trferQry.get().Eof) {
+                int col_trfer_airline = Qry.get().FieldIndex("trfer_airline");
+                int col_trfer_flt_no = Qry.get().FieldIndex("trfer_flt_no");
+                int col_trfer_suffix = Qry.get().FieldIndex("trfer_suffix");
+                int col_trfer_scd = Qry.get().FieldIndex("trfer_scd");
+                int col_trfer_airp_arv = Qry.get().FieldIndex("trfer_airp_arv");
 
-            row.get_tags(part_key, row.id);
-            AnnulBTStat.rows.push_back(row);
-            params.overflow.check(AnnulBTStat.rows.size());
+                for(; not trferQry.get().Eof; trferQry.get().Next()) {
+                    row.trfer_airline = Qry.get().FieldAsString(col_trfer_airline);
+                    if(not Qry.get().FieldIsNULL(col_trfer_flt_no))
+                        row.trfer_flt_no = Qry.get().FieldAsInteger(col_trfer_flt_no);
+                    row.trfer_suffix = Qry.get().FieldAsString(col_trfer_suffix);
+                    if(not Qry.get().FieldIsNULL(col_trfer_scd))
+                        row.trfer_scd = Qry.get().FieldAsDateTime(col_trfer_scd);
+                    row.trfer_airp_arv = Qry.get().FieldAsString(col_trfer_airp_arv);
+                    LogTrace(TRACE5) << "trfer_airp_arv: " << row.trfer_airp_arv;
+
+                    row.get_tags(part_key, row.id);
+                    AnnulBTStat.rows.push_back(row);
+                    params.overflow.check(AnnulBTStat.rows.size());
+                }
+            } else {
+                row.get_tags(part_key, row.id);
+                AnnulBTStat.rows.push_back(row);
+                params.overflow.check(AnnulBTStat.rows.size());
+            }
         }
     }
 

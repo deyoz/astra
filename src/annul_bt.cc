@@ -27,59 +27,56 @@ int get_pax_id(int grp_id, int bag_pool_num)
 
 void TAnnulBT::toDB(const TBagIdMap &items, TDateTime time_annul)
 {
-    if(grp_id == ASTRA::NoExists) return;
+    if(grp_id == ASTRA::NoExists
+       || point_id == ASTRA::NoExists
+       || scd_out == ASTRA::NoExists)
+    {
+      return;
+    }
 
     try {
-        TCachedQuery paxQry("select * from pax where pax_id = :pax_id",
-                QParams() << QParam("pax_id", otInteger));
+        DB::TCachedQuery paxQry(
+              PgOra::getROSession("PAX"),
+              "SELECT * FROM pax WHERE pax_id = :pax_id",
+              QParams() << QParam("pax_id", otInteger)
+              );
 
         QParams qryParams;
         qryParams
             << QParam("id", otInteger)
             << QParam("grp_id", otInteger, grp_id)
             << QParam("pax_id", otInteger)
+            << QParam("point_id", otInteger, point_id)
             << QParam("bag_type", otInteger)
             << QParam("rfisc", otString)
+            << QParam("scd_out", otDate, scd_out)
             << QParam("time_create", otDate)
             << QParam("time_annul", otDate)
             << QParam("amount", otInteger)
             << QParam("weight", otInteger)
             << QParam("user_id", otInteger);
 
-        TCachedQuery Qry(
-                "begin "
-                "   insert into annul_bag ( "
-                "      id, "
-                "      grp_id, "
-                "      pax_id, "
-                "      bag_type, "
-                "      rfisc, "
-                "      time_create, "
-                "      time_annul, "
-                "      amount, "
-                "      weight, "
-                "      user_id "
-                "   ) values ( "
-                "      cycle_id__seq.nextval, "
-                "      :grp_id, "
-                "      :pax_id, "
-                "      :bag_type, "
-                "      :rfisc, "
-                "      :time_create, "
-                "      :time_annul, "
-                "      :amount, "
-                "      :weight, "
-                "      :user_id "
-                "   ) returning id into :id; "
-                "end; ",
-            qryParams
-                );
-        TCachedQuery tagsQry(
-                "insert into annul_tags(id, no) "
-                "   values(:id, :no)",
-                QParams()
-                << QParam("id", otInteger)
-                << QParam("no", otFloat));
+        DB::TCachedQuery Qry(
+              PgOra::getRWSession("ANNUL_BAG"),
+              "INSERT INTO annul_bag ( "
+              "id, grp_id, pax_id, point_id, bag_type, rfisc, scd_out, "
+              "time_create, time_annul, amount, weight, user_id "
+              ") VALUES ("
+              ":id, :grp_id, :pax_id, :point_id, :bag_type, :rfisc, :scd_out, "
+              ":time_create, :time_annul, :amount, :weight, :user_id "
+              ") ",
+              qryParams
+              );
+        DB::TCachedQuery tagsQry(
+              PgOra::getRWSession("ANNUL_TAGS"),
+              "INSERT INTO ANNUL_TAGS("
+              "id, no"
+              ") VALUES("
+              ":id, :no"
+              ")",
+              QParams() << QParam("id", otInteger)
+                        << QParam("no", otFloat)
+              );
         for(TBagIdMap::const_iterator
                 bag_id = items.begin();
                 bag_id != items.end();
@@ -91,6 +88,9 @@ void TAnnulBT::toDB(const TBagIdMap &items, TDateTime time_annul)
                 // Если пакса нету в базе, то нефиг писать по нему статистику
                 if(paxQry.get().Eof) continue;
             }
+
+            const int id = PgOra::getSeqNextVal_int("CYCLE_ID__SEQ");
+            Qry.get().SetVariable("id", id);
 
             if(bag_id->second.pax_id == ASTRA::NoExists)
                 Qry.get().SetVariable("pax_id", FNull);
@@ -124,7 +124,6 @@ void TAnnulBT::toDB(const TBagIdMap &items, TDateTime time_annul)
                 Qry.get().SetVariable("user_id", bag_id->second.bag_item.user_id);
 
             Qry.get().Execute();
-            int id = Qry.get().GetVariableAsInteger("id");
             for(list<CheckIn::TTagItem>::const_iterator
                     bag_tag = bag_id->second.bag_tags.begin();
                     bag_tag != bag_id->second.bag_tags.end();
@@ -231,6 +230,8 @@ void TAnnulBT::dump() const
 void TAnnulBT::clear()
 {
     grp_id = ASTRA::NoExists;
+    point_id = ASTRA::NoExists;
+    scd_out = ASTRA::NoExists;
     items.clear();
     backup_items.clear();
 }
@@ -270,10 +271,14 @@ void TAnnulBT::backup()
 {
     if(grp_id == ASTRA::NoExists) return;
 
-    TCachedQuery Qry("select * from annul_bag where grp_id = :grp_id",
-            QParams() << QParam("grp_id", otInteger, grp_id));
-    TCachedQuery tagsQry("select * from annul_tags where id = :id",
-            QParams() << QParam("id", otInteger));
+    DB::TCachedQuery Qry(
+          PgOra::getROSession("ANNUL_BAG"),
+          "SELECT * FROM annul_bag WHERE grp_id = :grp_id",
+          QParams() << QParam("grp_id", otInteger, grp_id));
+    DB::TCachedQuery tagsQry(
+          PgOra::getROSession("ANNUL_TAGS"),
+          "SELECT * FROM annul_tags WHERE id = :id",
+          QParams() << QParam("id", otInteger));
     Qry.get().Execute();
     list<int> ids;
     if(not Qry.get().Eof) {
@@ -324,35 +329,54 @@ void TAnnulBT::backup()
             }
         }
     }
-    TCachedQuery delTagsQry("delete from annul_tags where id = :id",
-            QParams() << QParam("id", otInteger));
+    DB::TCachedQuery delTagsQry(
+          PgOra::getRWSession("ANNUL_TAGS"),
+          "DELETE FROM annul_tags WHERE id = :id",
+          QParams() << QParam("id", otInteger));
     for(list<int>::iterator id = ids.begin(); id != ids.end(); id++)
     {
         delTagsQry.get().SetVariable("id", *id);
         delTagsQry.get().Execute();
     }
-    TCachedQuery delBagQry("delete from annul_bag where grp_id = :grp_id",
-            QParams() << QParam("grp_id", otInteger, grp_id));
+    DB::TCachedQuery delBagQry(
+          PgOra::getRWSession("ANNUL_BAG"),
+          "DELETE FROM annul_bag WHERE grp_id = :grp_id",
+          QParams() << QParam("grp_id", otInteger, grp_id));
     delBagQry.get().Execute();
 }
 
 void TAnnulBT::get(int grp_id)
 {
+    LogTrace(TRACE6) << "TAnnulBT::" << __func__ << ": grp_id=" << grp_id;
     clear();
 
-    TCachedQuery grpQry("select * from pax_grp where grp_id = :grp_id",
-            QParams() << QParam("grp_id", otInteger, grp_id));
+    DB::TCachedQuery grpQry(
+          PgOra::getROSession("PAX_GRP"),
+          "SELECT * FROM pax_grp WHERE grp_id = :grp_id",
+          QParams() << QParam("grp_id", otInteger, grp_id)
+          );
     grpQry.get().Execute();
     if(grpQry.get().Eof) return;
 
     this->grp_id = grp_id;
+    this->point_id = grpQry.get().FieldAsInteger("point_dep");
+
+    DB::TCachedQuery pointQry(
+          PgOra::getROSession("POINTS"),
+          "SELECT * FROM points WHERE point_id = :point_id",
+          QParams() << QParam("point_id", otInteger, this->point_id)
+          );
+    pointQry.get().Execute();
+    if(pointQry.get().Eof) return;
+    this->scd_out = pointQry.get().FieldAsInteger("scd_out");
 
     backup();
 
     try {
-        TCachedQuery bagQry(
-                "SELECT * FROM bag2 WHERE grp_id=:grp_id",
-                QParams() << QParam("grp_id", otInteger, grp_id));
+        DB::TCachedQuery bagQry(
+              PgOra::getROSession("BAG2"),
+              "SELECT * FROM bag2 WHERE grp_id=:grp_id",
+              QParams() << QParam("grp_id", otInteger, grp_id));
         bagQry.get().Execute();
         for(; not bagQry.get().Eof; bagQry.get().Next()) {
 
@@ -365,10 +389,12 @@ void TAnnulBT::get(int grp_id)
             bag_tags.pax_id = get_pax_id(grp_id, bag_item.bag_pool_num);
             bag_tags.bag_item = bag_item;
 
-            TCachedQuery tagQry("SELECT * FROM bag_tags WHERE grp_id=:grp_id and bag_num = :bag_num ",
-                    QParams()
-                    << QParam("grp_id", otInteger, grp_id)
-                    << QParam("bag_num", otInteger, bag_item.num));
+            DB::TCachedQuery tagQry(
+                  PgOra::getROSession("BAG_TAGS"),
+                  "SELECT * FROM bag_tags WHERE grp_id=:grp_id and bag_num = :bag_num ",
+                  QParams()
+                  << QParam("grp_id", otInteger, grp_id)
+                  << QParam("bag_num", otInteger, bag_item.num));
             tagQry.get().Execute();
             for(; not tagQry.get().Eof; tagQry.get().Next()) {
                 CheckIn::TTagItem tag_item;

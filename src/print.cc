@@ -1433,9 +1433,10 @@ void PrintInterface::ConfirmPrintBP(TDevOper::Enum op_type,
                                     const std::vector<BPPax> &paxs,
                                     CheckIn::UserException &ue)
 {
-    TCachedQuery BIStatQry(
-        "update bi_stat set pr_print = 1 where pax_id = :pax_id",
-        QParams() << QParam("pax_id", otInteger));
+    DB::TCachedQuery BIStatQry(
+          PgOra::getRWSession("BI_STAT"),
+          "UPDATE bi_stat SET pr_print = 1 WHERE pax_id = :pax_id",
+          QParams() << QParam("pax_id", otInteger));
 
     TQuery Qry(&OraSession);
     Qry.SQLText =

@@ -1893,13 +1893,13 @@ void LoadContent(int id, bool pr_grp, TTlgContent& con)
   for(;!Qry.Eof;Qry.Next())
     con.addBag(CheckIn::TBagItem().fromDB(Qry));
 
-  Qry.Clear();
-  Qry.SQLText=
+  DB::TQuery QryTags(PgOra::getROSession("BAG_TAGS"));
+  QryTags.SQLText=
     "SELECT * FROM bag_tags WHERE grp_id=:grp_id";
-  Qry.CreateVariable("grp_id",otInteger,grp_id);
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
-    con.addTag(CheckIn::TTagItem().fromDB(Qry));
+  QryTags.CreateVariable("grp_id",otInteger,grp_id);
+  QryTags.Execute();
+  for(;!QryTags.Eof;QryTags.Next())
+    con.addTag(CheckIn::TTagItem().fromDB(QryTags));
 };
 
 void CompareContent(const TTlgContent& con1, const TTlgContent& con2, vector<TTlgContent>& bsms)

@@ -170,6 +170,7 @@ class TRFISCListKey
     TRFISCListKey& fromXMLcompatible(xmlNodePtr node);
     const TRFISCListKey& toDB(TQuery &Qry) const;
     TRFISCListKey& fromDB(TQuery &Qry);
+    TRFISCListKey& fromDB(DB::TQuery &Qry);
     const TRFISCListKey& key() const { return *this; }
     void key(const TRFISCListKey& _key) { *this=_key; }
 };
@@ -289,6 +290,7 @@ class TRFISCKey : public TRFISCListKey
     const TRFISCKey& toXML(xmlNodePtr node) const;
     const TRFISCKey& toDB(TQuery &Qry) const;
     TRFISCKey& fromDB(TQuery &Qry);
+    TRFISCKey& fromDB(DB::TQuery &Qry);
     void getListItemIfNone();
     void getListItem();
     void getListItemUnaccomp (int grp_id, int transfer_num, boost::optional<TServiceCategory::Enum> category, const std::string &where)

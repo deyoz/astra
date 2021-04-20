@@ -332,7 +332,9 @@ std::string getRFISCsFromBaggageNorm(int pax_id);
 
 std::string BagTypeFromXML(const std::string& bag_type);
 std::string BagTypeFromDB(TQuery &Qry);
+std::string BagTypeFromDB(DB::TQuery &Qry);
 void BagTypeToDB(TQuery &Qry, const std::string& bag_type, const std::string &where);
+void BagTypeToDB(DB::TQuery &Qry, const std::string& bag_type, const std::string &where);
 
 int get_max_tckin_num(int grp_id);
 
