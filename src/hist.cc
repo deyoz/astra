@@ -12,7 +12,7 @@ using namespace std;
 using namespace EXCEPTIONS;
 
 HistoryEventId::HistoryEventId() :
-  order_(PgOra::getSeqNextVal("events__seq")),
+  order_(PgOra::getSeqNextVal_int("events__seq")),
   time_(Dates::second_clock::universal_time()) {}
 
 HistoryTable::HistoryTable(const std::string& tableName)
@@ -20,7 +20,7 @@ HistoryTable::HistoryTable(const std::string& tableName)
   auto cur = make_db_curs("SELECT id, code, ident_field, history_fields "
                           "FROM history_tables "
                           "WHERE code=:code",
-                          PgOra::getRWSession("HISTORY_TABLES"));
+                          PgOra::getROSession("HISTORY_TABLES"));
   cur.stb()
      .def(tableId_)
      .def(tableName_)
@@ -101,7 +101,7 @@ std::optional<HistoryEventId> HistoryTable::getLastEventId(const RowId_t& rowId)
   auto cur = make_db_curs("SELECT hist_order, open_time "
                           "FROM history_events "
                           "WHERE row_ident=:row_ident AND table_id=:table_id AND close_time=:upper_bound_time",
-                          PgOra::getRWSession("HISTORY_EVENTS"));
+                          PgOra::getROSession("HISTORY_EVENTS"));
 
   int histOrder;
   Dates::DateTime_t openTime;
