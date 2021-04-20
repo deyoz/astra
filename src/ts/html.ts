@@ -5,7 +5,6 @@ include(ts/macro.ts)
 $(init)
 
 !! capture=on req_type=http
-$(http_wrap
 {GET /web_srv.html?CLIENT-ID=HTML&login=HTML&password=HTMLPWD HTTP/1.1
 Host: astrabeta.komtex:8782
 Connection: keep-alive
@@ -15,10 +14,9 @@ User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9
 Accept-Encoding: gzip, deflate
 Accept-Language: ru,en;q=0.9
-$()})
+$()}
 
 >> lines=auto
-$(http_wrap
 {HTTP/1.1 200 OK
 Content-Length: 4604
 Content-Type: $()
@@ -135,4 +133,4 @@ $()
 </form>
 </center>
 </body>
-</html>})
+</html>}

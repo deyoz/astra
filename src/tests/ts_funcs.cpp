@@ -40,7 +40,7 @@
 #include <queue>
 #include <fstream>
 #include <sstream>
-#include <boost/regex.hpp>
+#include <regex>
 #include <boost/foreach.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/algorithm/string.hpp>
@@ -77,11 +77,21 @@ static std::vector<string> getFlightTasks(const std::string& table_name, const P
 using namespace xp_testing;
 using namespace xp_testing::tscript;
 
+static std::string LF2CRLF(const string &par)
+{
+    return regex_replace(par, regex(LF), CR + LF) + CR + LF;
+}
+
+static std::string CRLF2LF(const string &par)
+{
+    return regex_replace(par, regex(CR + LF), LF) + LF;
+}
+
 static std::string executeHttpRequest(const std::string &request)
 {
     string answer;
-    ServerFramework::http_main_for_test(request, answer);
-    return answer;
+    ServerFramework::http_main_for_test(LF2CRLF(request), answer);
+    return CRLF2LF(answer);
 }
 
 static std::string executeAstraRequest(const std::string &request,
@@ -843,16 +853,6 @@ static std::string FP_initApps(const std::vector<tok::Param>& par)
     return "";
 }
 
-static std::string FP_http_wrap(const std::vector<std::string>& par)
-{
-    ASSERT(par.size() == 1);
-    vector<string> lines;
-    boost::split(lines, par.at(0), boost::is_any_of(LF));
-    string result;
-    for(const auto &i: lines) result += i + CR + LF;
-    return result.substr(0, result.length() - 1);
-}
-
 static std::string FP_translit(const std::vector<std::string>& par)
 {
     ASSERT(par.size() == 1);
@@ -1418,7 +1418,6 @@ FP_REGISTER("set_desk_version", FP_setDeskVersion);
 FP_REGISTER("set_user_time_type", FP_setUserTime);
 FP_REGISTER("init_apps", FP_initApps);
 FP_REGISTER("translit", FP_translit);
-FP_REGISTER("http_wrap", FP_http_wrap);
 FP_REGISTER("kick_flt_tasks_daemon", FP_kick_flt_tasks_daemon);
 FP_REGISTER("run_trip_task", FP_run_trip_task);
 FP_REGISTER("check_pax_alarms", FP_checkPaxAlarms);
