@@ -16,7 +16,6 @@
 
 #include "daemon_event.h"
 #include "blev.h"
-#include "monitor_ctl.h"
 #include "tclmon.h"
 #include "daemon_impl.h"
 
@@ -274,11 +273,11 @@ class MessageQueue
 {
 public:
     MessageQueue(const std::vector< std::pair< uint32_t, size_t > >& limits)
-        : stats_ { { 0, 0 } },
+        : stats_ { { MASTER_QUEUE_KEY, 0 } },
           waitTime_ { 0 },
           lastWriteTime_ { std::chrono::steady_clock::now() },
-          limits_ { { { 0, nullptr } }, limits.size() + 1 },
-          queues_ { { { 0, { } } }, limits.size() + 1 }
+          limits_ { { { MASTER_QUEUE_KEY, nullptr } }, limits.size() + 1 },
+          queues_ { { { MASTER_QUEUE_KEY, { } } }, limits.size() + 1 }
     {
         for (const auto& l : limits) {
             limits_.insert({ l.first, std::make_shared< size_t >(l.second) });
@@ -297,7 +296,7 @@ public:
 
         using duration = std::chrono::duration< int64_t, std::ratio< 1, 64 > >;
 
-        return queues_[ 0 ].size()
+        return queues_[ MASTER_QUEUE_KEY ].size()
             ? std::chrono::duration_cast< duration >(waitTime_).count()
             : 0;
     }
@@ -315,7 +314,7 @@ public:
     size_t masterQueueSize() {
         assert(0 < queues_.size());
 
-        return queues_[ 0 ].size();
+        return queues_[ MASTER_QUEUE_KEY ].size();
     }
 
     size_t size() {
@@ -335,7 +334,7 @@ public:
     }
 
     std::shared_ptr< WorkerMsg< typename T::KeyType > > front() {
-        auto oldestQueueIt { queues_.find(0) };
+        auto oldestQueueIt { queues_.find(MASTER_QUEUE_KEY) };
 
         assert(std::end(queues_) != oldestQueueIt);
 
@@ -399,7 +398,7 @@ public:
 
         auto& q { queues_[ k ] };
 
-        if ((0 == k) && q.empty()) {
+        if ((MASTER_QUEUE_KEY == k) && q.empty()) {
             lastWriteTime_ = std::chrono::steady_clock::now();
         }
 
@@ -427,10 +426,15 @@ public:
     void publishStats() {
         for (auto& s : stats_) {
             if (0 != s.second) {
-                write_set_flag_type(0, s.second, QUEPOT_LEVB, (0 != s.first) ? std::to_string(s.first).c_str() : nullptr);
+                write_set_flag_type(0, s.second, QUEPOT_LEVB, (MASTER_QUEUE_KEY != s.first) ? std::to_string(s.first).c_str() : nullptr);
                 s.second = 0;
             }
         }
+    }
+
+    std::string keyToString(const uint32_t k) {
+        const uint32_t normalizedKey { key(k) };
+        return (MASTER_QUEUE_KEY != normalizedKey) ? std::to_string(normalizedKey) : std::string { };
     }
 
     void incStats(const uint32_t limitKey) {
@@ -439,8 +443,11 @@ public:
 
 private:
     uint32_t key(const uint32_t k) const {
-        return limits_.count(LimitDesc { k, nullptr }) ? k : 0;
+        return limits_.count(LimitDesc { k, nullptr }) ? k : MASTER_QUEUE_KEY;
     }
+
+private:
+    static constexpr uint32_t MASTER_QUEUE_KEY { 0 };
 
 private:
     std::unordered_map< uint32_t, size_t > stats_;
@@ -1160,13 +1167,14 @@ void Dispatcher<T>::takeRequest(
 
     const uint32_t limitKey { protocol_.limitKeyFromHeader(head) };
     const size_t queueSize { msgQueue_.size(limitKey) };
+    const std::string keyStr { msgQueue_.keyToString(limitKey) };
 
     msgQueue_.incStats(limitKey);
 
     if ((queueTraits_.warn_ < queueSize) && (queueSize < queueTraits_.warnLog_)) {
-        write_set_queue_size(queueSize, queueTraits_.drop_, 0);
+        write_set_queue_size(keyStr.empty() ? nullptr : keyStr.c_str(), queueSize, queueTraits_.drop_, 0);
     } else if (queueTraits_.warnLog_ <= queueSize){
-        write_set_queue_size(queueSize, queueTraits_.drop_, 1);
+        write_set_queue_size(keyStr.empty() ? nullptr : keyStr.c_str(), queueSize, queueTraits_.drop_, 1);
 
         if (queueTraits_.fullTimestamp_) try {
             static std::ofstream file("que_full_timestamp.txt", std::ios::out|std::ios::app);

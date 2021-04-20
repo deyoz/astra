@@ -58,6 +58,7 @@ proc create_arr_no { no action cmds } {
     set arr_no(to_restart) 0
     set arr_no(n_zapr) 0
     set arr_no(last_answer) [ clock seconds ]
+    set arr_no(subgroup_input_que) ""
     set arr_no(nmes_input_que) 0
     set arr_no(max_input_que) 0
     set arr_no(write_que_to_log_flag) 0
@@ -245,10 +246,10 @@ proc set_flag_arr_no { pid to_rst n_zapr type_zapr subgroup } {
            add_zapr_to_potok $n_zapr $type_zapr [ dict get $arr_no(proc_grp_num) $subgroup ]
         } elseif { 0 == [ string compare -length $GRPPATTERN_LEN $arr_no(proc_grp_name) $GRPPATTERN_NAME] } then {
             set sg "0"
-            if { 0 != [ string length $subgroup ] } {
+            if { "" ne $subgroup } {
                 set sg $subgroup
                 if { 1 != [ dict exists $arr_no(proc_grp_num) "$sg" ] } then {
-                    dict append arr_no(proc_grp_num) "$sg" [ get_que_num_by_grp_name $arr_no(proc_grp_name)($sg) ]
+                    dict append arr_no(proc_grp_num) "$sg" [ get_que_num_by_grp_name "$arr_no(proc_grp_name){ $sg }" ]
                 }
             }
 
@@ -259,26 +260,36 @@ proc set_flag_arr_no { pid to_rst n_zapr type_zapr subgroup } {
     }
 }
 
-proc arr_set_queue_size_proc { pid nmes_input_que max_input_que write_to_log_flag} {
-variable counter_no 
-variable counter_pid 
-variable array_no
-variable array_pid
+proc arr_set_queue_size_proc { pid subgroup nmes_input_que max_input_que write_to_log_flag } {
+    variable counter_no
+    variable counter_pid
+    variable array_no
+    variable array_pid
+    variable GRPPATTERN_NAME
+    variable GRPPATTERN_LEN
 
-  if { [ info exists array_pid($pid) ] != 1} then {
-    error "array_pid($pid) not exists"
-  }
-  upvar #0 $array_pid($pid) arr_pid
+    if { [ info exists array_pid($pid) ] != 1 } then {
+        error "array_pid($pid) not exists"
+    }
 
-  set no $arr_pid(no)
-  if { [ info exists array_no($no) ] != 1} then {
-    error "array_no($no) for pid $pid not exists"
-  }
-  upvar #0 $array_no($no) arr_no
-  set arr_no(nmes_input_que) $nmes_input_que
-  set arr_no(max_input_que) $max_input_que
-  set arr_no(write_que_to_log_flag) $write_to_log_flag
-  set arr_no(time_input_que) [ clock seconds ]
+    upvar #0 $array_pid($pid) arr_pid
+
+    set no $arr_pid(no)
+    if { [ info exists array_no($no) ] != 1 } then {
+        error "array_no($no) for pid $pid not exists"
+    }
+
+    upvar #0 $array_no($no) arr_no
+
+    if { 0 == [ string compare -length $GRPPATTERN_LEN $arr_no(proc_grp_name) $GRPPATTERN_NAME] } then {
+        set arr_no(subgroup_input_que) $subgroup
+    }
+    set arr_no(nmes_input_que) $nmes_input_que
+    set arr_no(max_input_que) $max_input_que
+    set arr_no(write_que_to_log_flag) $write_to_log_flag
+    set arr_no(time_input_que) [ clock seconds ]
+
+    return {}
 }
 
 proc arr_get_queue_size_proc_for_log {} {
@@ -287,38 +298,47 @@ proc arr_get_queue_size_proc_for_log {} {
 }
 
 proc arr_get_queue_size_proc { log_flag } {
-variable counter_no 
-variable counter_pid 
-variable array_no
-variable array_pid
+    variable counter_no
+    variable counter_pid
+    variable array_no
+    variable array_pid
 
-  set str_queue {}
-  foreach {no name} [array get array_no] {
-     upvar #0  $name  arr_no
-     if { $arr_no(nmes_input_que) > 0  } then {
-        set diff_times  [expr { [ clock seconds] - $arr_no(time_input_que) } ]
-        if { $diff_times > 2 } then {
-           set arr_no(nmes_input_que) 0
-           set arr_no(write_que_to_log_flag) 0
-        } else {
-           if {  $arr_no(write_que_to_log_flag)==0 && $log_flag==1  } then {
-              continue;
-           } else {
-              if { $log_flag==1 } then {
-                append str_queue "\n"
-              }
-              append str_queue "$arr_no(proc_grp_name)($arr_no(nmes_input_que) of $arr_no(max_input_que)) "
-              if { $log_flag==1 } then {
-                set str_potok [ get_potok_by_que_name $arr_no(proc_grp_name)]
-                if { [ string length $str_potok ] != 0 } then {
-                  append  str_queue " $str_potok"
+    set str_queue {}
+    foreach {no name} [array get array_no] {
+        upvar #0  $name  arr_no
+        if { $arr_no(nmes_input_que) > 0  } then {
+            set diff_times  [expr { [ clock seconds] - $arr_no(time_input_que) } ]
+            if { $diff_times > 2 } then {
+                set arr_no(subgroup_input_que) ""
+                set arr_no(nmes_input_que) 0
+                set arr_no(write_que_to_log_flag) 0
+            } else {
+                if { 0 == $arr_no(write_que_to_log_flag) && 1 == $log_flag } then {
+                    continue;
+                } else {
+                    if { 1 == $log_flag } then {
+                        append str_queue "\n"
+                    }
+
+                    set full_name "$arr_no(proc_grp_name)"
+                    if { "" ne $arr_no(subgroup_input_que) } then {
+                        append full_name "{ $arr_no(subgroup_input_que) }"
+                    }
+
+                    append str_queue "$full_name ($arr_no(nmes_input_que) of $arr_no(max_input_que)) "
+
+                    if { 1 == $log_flag } then {
+                        set str_potok [ get_potok_by_que_name $full_name ]
+                        if { [ string length $str_potok ] != 0 } then {
+                            append str_queue " $str_potok"
+                        }
+                    }
                 }
-              }
-           }
+            }
         }
-     }
-  }
- return $str_queue
+    }
+
+    return $str_queue
 }
 
 proc arr_set_cur_req_proc { pid a_cur_req} {

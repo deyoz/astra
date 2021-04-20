@@ -1756,7 +1756,7 @@ const char* read_cur_req(Tcl_Interp* interp, int pid)
         return req;
     }
     if (res_ptr != NULL) {
-        strncpy(req, res_ptr, sizeof(req));
+        strncpy(req, res_ptr, sizeof(req) - 1);
     }
 
     return req;

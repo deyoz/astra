@@ -111,7 +111,7 @@ int getControlPipe();
 
 void Abort(int i);
 int main_monitor(int supervisorSocket, int argc, char *argv[]);
-int write_set_queue_size(int nmes_que,int max_nmes_que, int write_to_log_flag);
+int write_set_queue_size(const char* const subgroup, int nmes_que, int max_nmes_que, int write_to_log_flag);
 int write_set_cur_req(const char *cur_req);
 int write_clear_cur_req(void);
 int set_logging(ClientData cl, Tcl_Interp *interp, int objc, Tcl_Obj* CONST objv[]);

@@ -294,12 +294,12 @@ int Tcl_AppInit(Tcl_Interp *interp)
     return TCL_OK;
 }
 /*****************************************************************/
-int write_set_queue_size(int nmes_que, int max_nmes_que, int write_to_log_flag)
-    {
+int write_set_queue_size(const char* const subgroup, int nmes_que, int max_nmes_que, int write_to_log_flag)
+{
     _Message_ mes;
     mes.set_mes_len(
-            snprintf(mes.get_mes_text(), mes.get_text_size(), "%s %d %d %d %d",
-                ARRCMD_SET_QUEUE_SIZE , Pid_p, nmes_que, max_nmes_que, write_to_log_flag));
+            snprintf(mes.get_mes_text(), mes.get_text_size(), "%s %d %s %d %d %d",
+                ARRCMD_SET_QUEUE_SIZE , Pid_p, subgroup ? subgroup : "{}", nmes_que, max_nmes_que, write_to_log_flag));
     mes.set_mes_fd(Pid_p);
     mes.set_mes_cmd(TCLCMD_COMMAND);
 
