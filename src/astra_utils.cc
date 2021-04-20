@@ -528,7 +528,7 @@ void TProfiledRights::fromDB(const AirlineCode_t &airline, const AirportCode_t &
     "WHERE airline_profiles.profile_id=profile_rights.profile_id AND "
     "      airline_profiles.airline = :airline AND "
     "      airline_profiles.airp = :airp",
-    PgOra::getRWSession("PROFILE_RIGHTS"));
+    PgOra::getROSession("PROFILE_RIGHTS"));
 
   int rightId;
 
@@ -572,7 +572,7 @@ bool TAccess::profiledRightPermitted(const AirportCode_t &airp, const AirlineCod
       "      airline_profiles.airline = :airline AND "
       "      airline_profiles.airp = :airp AND "
       "      profile_rights.right_id = :right_id",
-      PgOra::getRWSession("PROFILE_RIGHTS"));
+      PgOra::getROSession("PROFILE_RIGHTS"));
 
     int rightId;
 
