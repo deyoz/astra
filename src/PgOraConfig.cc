@@ -51,23 +51,7 @@ namespace PgOra
                               "ARX_BAG_NORMS"     , "ARX_CRS_DISPLACE2"  , "ARX_PAID_BAG"   , "ARX_PAX"             , "ARX_STAT_REM"      , "ARX_TLG_OUT"         , "ARX_TRIP_DELAYS"       ,
                               "ARX_BAG_PAY_TYPES" , "ARX_EVENTS"         , "ARX_PAX_DOCA"   , "ARX_PFS_STAT"        , "ARX_STAT_REPRINT"  , "ARX_TLG_STAT"        , "ARX_TRIP_LOAD"         ,
                               "ARX_BAG_PREPAY"    , "ARX_EXCHANGE_RATES" , "ARX_PAX_DOCO"   , "ARX_POINTS"          , "ARX_STAT_SERVICES" , "ARX_TRANSFER"        , "ARX_TRIP_SETS"         ,
-                              "MOVE_ARX_EXT"      , "ARX_VALUE_BAG"      , "ARX_TRIP_STAGES", "ARX_VALUE_BAG_TAXES" , "ARX_LIMITED_CAPABILITY_STAT", "ARX_PAY_SERVICES" }},
-        { "SP_PG_GROUP_SPPCKIN", {"TRIP_ALARMS", "TRIP_APIS_PARAMS", "TRIP_RPT_PERSON", "UTG_PRL"} },
-        { "SP_PG_GROUP_TLG_QUE",   { "TLGS", "TLGS_TEXT", "TLG_QUEUE", "TLG_ERROR", "TLG_STAT" } },
-        { "SP_PG_GROUP_COMP_1", {
-            "COMPARE_COMP_LAYERS",
-            "COMP_LAYER_TYPES",
-            "COMP_LAYER_PRIORITIES",
-            "COMPART_DESC_TYPES",
-            "COMPART_DESC_SETS",
-            "COMP_LAYER_RULES",
-            "COMP_TARIFF_COLORS",
-            "COMP_ELEM_TYPES",
-        }},
-        { "SP_PG_GROUP_HTML", { "HTML_PAGES", "HTML_PAGES_TEXT" } },
-        { "SP_PG_GROUP_FR", { "FR_FORMS2" } },
-        { "SP_PG_GROUP_LIBTLG", { "TEXT_TLG_H2H" } },
-        { "SP_PG_GROUP_PP_TLG", { "POSTPONED_TLG", "POSTPONED_TLG_CONTEXT" } },
+                              "MOVE_ARX_EXT"      , "ARX_VALUE_BAG"      , "ARX_TRIP_STAGES", "ARX_VALUE_BAG_TAXES" , "ARX_LIMITED_CAPABILITY_STAT", "ARX_PAY_SERVICES" }}
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)

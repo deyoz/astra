@@ -1296,6 +1296,9 @@ bool checkAPPSFormats(const PointId_t& point_dep, const AirportCode_t& airp_arv,
     if(route.empty()) {
         return false;
     }
+    if(route.size() < 2) {
+        return false;
+    }
     if(!isInternationalFlight(AirportCode_t(route.front().airp), AirportCode_t(route.back().airp)))
     {
         return false;

@@ -349,10 +349,6 @@ bool TArxMoveFlt::Next(int max_rows, int duration)
             };
           }
           else Qry->SetVariable("date_range",FNull);
-          //Статистика обрабатывается в arx_daily_pg , добавляя при этом события в таблицы events
-          // поэтому если повторно запускать сбор статистики и в оракле, то таблицы events для pg и ora
-          //после архивации не будут эквивалентны
-          //LockAndCollectStat(move_id);
           Qry->Execute();
           ASTRA::commitAndCallCommitHooks();
           proc_count++;

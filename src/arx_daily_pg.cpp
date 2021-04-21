@@ -699,7 +699,7 @@ std::optional<std::string> get_birks2(Dates::DateTime_t part_key, int grp_id, st
 std::optional<std::string> get_birks2(Dates::DateTime_t part_key, int grp_id, std::optional<int> pax_id,
                                       int bag_pool_num, int pr_lat)
 {
-    if(pr_lat!=1)  {
+    if(pr_lat != 0)  {
         return get_birks2(part_key, grp_id, pax_id, bag_pool_num, "");
     } else {
         return get_birks2(part_key, grp_id, pax_id, bag_pool_num, "RU");
