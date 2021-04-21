@@ -789,7 +789,7 @@ static bool setAlarmByPaxId(const PaxId_t paxId, const Alarm::Enum alarmType,
   string table_name=getPaxAlarmTable(paxOrigin);
   if (table_name.empty()) return false;
 
-  DB::TQuery Qry(PgOra::getRWSession(table_name));
+  DB::TQuery Qry(PgOra::getRWSession(table_name), STDLOG);
   if(alarmValue) {
       Qry.SQLText =
           "INSERT INTO " + table_name + "("
@@ -865,8 +865,10 @@ bool deleteAlarmByGrpId(const GrpId_t grpId, const Alarm::Enum alarmType)
           "DELETE FROM pax_alarms "
           "WHERE alarm_type=:alarm_type "
           "AND pax_id = :pax_id",
-          QParams() << QParam("pax_id", otInteger, paxId.get())
-          << QParam("alarm_type", otString, AlarmTypes().encode(alarmType)));
+          QParams()
+          << QParam("pax_id", otInteger, paxId.get())
+          << QParam("alarm_type", otString, AlarmTypes().encode(alarmType)),
+          STDLOG);
     Qry.get().Execute();
     result += Qry.get().RowsProcessed();
   }
@@ -901,7 +903,8 @@ bool existsAlarmByGrpId(const GrpId_t grpId, const Alarm::Enum alarmType)
           "AND pax_alarms.alarm_type=:alarm_type ",
           QParams()
           << QParam("pax_id", otInteger, paxId.get())
-          << QParam("alarm_type", otString, AlarmTypes().encode(alarmType)));
+          << QParam("alarm_type", otString, AlarmTypes().encode(alarmType)),
+          STDLOG);
     Qry.get().Execute();
     if ((!Qry.get().Eof)) {
       return true;
@@ -928,7 +931,8 @@ bool existsPaxAlarmsByPointId(const PointId_t pointId,
   DB::TCachedQuery Qry(
         PgOra::getROSession("PAX_ALARMS"),
         sql,
-        QParams() << QParam("point_id", otInteger, pointId.get()));
+        QParams() << QParam("point_id", otInteger, pointId.get()),
+        STDLOG);
 
   Qry.get().Execute();
   if (!Qry.get().Eof) return true;
@@ -947,7 +951,8 @@ bool existsCrsPaxAlarmsByPointId(const PointId_t pointId,
     DB::TCachedQuery Qry(
           PgOra::getROSession("CRS_PAX_ALARMS"),
           sql,
-          QParams() << QParam("point_id", otInteger, pointIdTlg.get()));
+          QParams() << QParam("point_id", otInteger, pointIdTlg.get()),
+          STDLOG);
     Qry.get().Execute();
     if (!Qry.get().Eof) return true;
   }
