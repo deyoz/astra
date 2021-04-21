@@ -1,0 +1,52 @@
+LOAD DATA
+INFILE *
+INTO TABLE TYPEB_TYPES
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,basic_type
+,short_name
+,short_name_lat
+,name
+,name_lat
+,pr_dep
+,editable
+)
+BEGINDATA
+"LCI"|"LCI"|"LCI"|"LCI"|"Телеграмма взаимодействия Центровки и Регистрации"|"Load control/Check-in Interface Message"|1|1
+"PNL"|"PNL"|"PNL"|"PNL"|"Список пассажиров бронирования"|"Passenger Name List"|1|0
+"PIM"|"PIM"|"PIM"|"PIM"|"Информация по пассажирам"|"Passenger Information List"|1|0
+"CPM"|"CPM"|"CPM"|"CPM"|"Телеграмма о распределении багажа"|"Container/Pallet Distribution Message"|1|1
+"ADL"|"PNL"|"ADL"|"ADL"|"Удаление/добавление пассажиров бронирования"|"Additions and Deletions List"|1|0
+"ETLD"|"ETL"|"ETL по вылету"|"ETL departure"|"Список электронных билетов"|"Electronic Ticket List"|1|0
+"MVTC"|"MVT"|"MVT задержка"|"MVT delay"|"Телеграмма о задержке борта"|"Aircraft Movement Message. Delay message"|1|1
+"PFS"|"PFS"|"PFS поименный"|"PFS nominal"|"Телеграмма, завершающая продажу (поименная)"|"Passenger Final Sales (nominal list)"|1|0
+"PFSN"|"PFS"|"PFS цифровой"|"PFS numeric"|"Телеграмма, завершающая продажу (цифровая)"|"Passenger Final Sales (numeric list)"|1|0
+"PTM"|"PTM"|"PTM поименный"|"PTM nominal"|"Телеграмма о трансферных пассажирах (поименная)"|"Passenger Transfer Message (nominal list)"|1|0
+"PTMN"|"PTM"|"PTM цифровой"|"PTM numeric"|"Телеграмма о трансферных пассажирах (цифровая)"|"Passenger Transfer Message (numeric list)"|1|0
+"BTM"|"BTM"|"BTM"|"BTM"|"Телеграмма о трансферном багаже"|"Baggage Transfer Message"|1|0
+"BSM"|"BSM"|"BSM"|"BSM"|"Телеграмма об исходном багаже"|"Baggage Source Message"|1|0
+"PSM"|"PSM"|"PSM"|"PSM"|"Телеграмма о спецобслуживании пассажиров"|"Passenger Services Message"|1|0
+"FTL"|"FTL"|"FTL"|"FTL"|"Список часто летающих пассажиров"|"Frequent Traveller List"|1|0
+"ETL"|"ETL"|"ETL"|"ETL"|"Список электронных билетов"|"Electronic Ticket List"|1|0
+"PRL"|"PRL"|"PRL"|"PRL"|"Согласующий список пассажиров"|"Passenger Reconcile List"|1|0
+"COM"|"COM"|"COM"|"COM"|"Закрывающая телеграмма DCS SITA"|"DCS SITA Closeout Message"|1|0
+"AHL"|"AHL"|"AHL"|"AHL"|"Телеграмма на неприбытие багажа"|"Telegram for non-arrival of baggage"|0|1
+"MVTA"|"MVT"|"MVT на взлет"|"MVT departure"|"Телеграмма о взлете борта"|"Aircraft Movement Message. Departure Message"|1|1
+"MVTB"|"MVT"|"MVT на посадку"|"MVT arrival"|"Телеграмма о посадке борта"|"Aircraft Movement Message. Arrival Message"|0|1
+"LDM"|"LDM"|"LDM"|"LDM"|"Телеграмма о загрузке"|"Load Message"|1|1
+"???"|"???"|"Неизв. формат"|"Unknown format"|"Телеграмма неизвестного формата"|"Unknown Format Message"||1
+"SOM"|"SOM"|"SOM"|"SOM"|"Телеграмма о занятых местах"|"Seats Occupied Message"|1|0
+"TPM"|"TPM"|"TPM"|"TPM"|"Пассажирский манифест"|"Teletype Passenger Manifest"|1|0
+"PIL"|"PIL"|"PIL"|"PIL"|"Информация по пассажирам"|"Passenger Information List"|1|0
+"PNLADL"|"PNL"|"PNL/ADL"|"PNL/ADL"|"PNL и ADL"|"PNL & ADL"|1|0
+"IDM"|"IDM"|"IDM"|"IDM"|"Industry Discount Message"|"Industry Discount Message"|1|0
+"NTM->>"|"->>"|"NTM пересылка"|"NTM пересылка"|"NOTOC MESSAGE"|"NOTOC MESSAGE"|1|0
+"CPM->>"|"->>"|"CPM пересылка"|"CPM forwarding"|"Телеграмма о распределении багажа"|"Container/Pallet Distribution Message"|1|0
+"TPL"|"TPL"|"TPL"|"TPL"|"Ticketless Product List"|"Ticketless Product List"|1|0
+"UCM->>"|"->>"|"UCM пересылка"|"UCM forwarding"|"Unit Load Device Control Message"|"Unit Load Device Control Message"|1|0
+"SLS->>"|"->>"|"SLS пересылка"|"SLS forwarding"|"Statistical Load Summary"|"Statistical Load Summary"|1|0
+"LDM->>"|"->>"|"LDM пересылка"|"LDM forwarding"|"Телеграмма о загрузке"|"Load Message"|1|0
+"ASL"|"ASL"|"ASL"|"ASL"|"Список дополнительных услуг"|"Additional Service List"|1|0

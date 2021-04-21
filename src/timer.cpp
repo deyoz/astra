@@ -155,7 +155,14 @@ void exec_tasks( const char *proc_name, int argc, char *argv[] )
         else
         if ( name == "sync_mvd" ) sync_mvd();
         else
-        if ( name == "arx_daily" ) Result = arx_daily( utcdate );
+        if ( name == "arx_daily" ) {
+            if(ARX::WRITE_PG()) {
+                Result = arx_daily_pg(utcdate);
+            }
+            if(ARX::WRITE_ORA()) {
+                Result = arx_daily( utcdate );
+            }
+        }
         else
         if ( name == "sync_aodb" ) sync_aodb( );
         else

@@ -27,10 +27,19 @@ bool deleteDcsBag(PaxId_t pax_id);
 bool deleteDcsTags(PaxId_t pax_id);
 bool deleteTripCompLayers(PaxId_t pax_id);
 bool deleteTlgCompLayers(PaxId_t pax_id);
+bool deleteTlgCompLayers(const PointIdTlg_t& point_id);
+bool deleteTlgSource(const PointIdTlg_t& point_id);
+bool deleteTlgTrips(const PointIdTlg_t& point_id);
 bool deletePaxCalcData(PaxId_t pax_id);
+bool deleteCrsDataStat(const PointIdTlg_t& point_id);
+bool deleteTypeBDataStat(const PointIdTlg_t& point_id);
 
-bool deleteTypeBData(PointIdTlg_t point_id, const std::string& system, const std::string& sender,
-                     bool delete_trip_comp_layers);
+bool nullCrsDisplace2_point_id_tlg(const PointIdTlg_t& point_id);
+
+
+bool deleteTypeBData(const PointIdTlg_t& point_id, const std::string& system = "",
+                     const std::optional<CrsSender_t>& sender = {},
+                     bool delete_trip_comp_layers = false);
 
 std::string getPSPT(int pax_id, bool with_issue_country = false,
                     const std::string& language = "RU");

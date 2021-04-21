@@ -7,31 +7,26 @@
 #include "qrys.h"
 #include "stat/stat_main.h"
 #include "tlg/typeb_db.h"
+#include "transfer.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
+#include <serverlib/slogger.h>
 
 using namespace ASTRA;
 using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
 using namespace std;
 
-int ARX_MIN_DAYS()
+int ARX_DAYS()
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
-    VAR=getTCLParam("ARX_MIN_DAYS",15,NoExists,NoExists);
+    VAR=getTCLParam("ARX_DAYS",15,NoExists,NoExists);
   return VAR;
 };
 
-int ARX_MAX_DAYS()
-{
-  static int VAR=NoExists;
-  if (VAR==NoExists)
-    VAR=getTCLParam("ARX_MAX_DAYS",15,NoExists,NoExists);
-  return VAR;
-};
 
 int ARX_DURATION()
 {
@@ -94,6 +89,7 @@ TArxMoveFlt::~TArxMoveFlt()
 
 bool TArxMoveFlt::GetPartKey(int move_id, TDateTime& part_key, double &date_range)
 {
+    LogTrace(TRACE5) << __FUNCTION__ << " move_id: " << move_id << " part_key: " << part_key;
   part_key=NoExists;
   date_range=NoExists;
 
@@ -106,7 +102,6 @@ bool TArxMoveFlt::GetPartKey(int move_id, TDateTime& part_key, double &date_rang
   TDateTime min_time_out=NoExists;
   TDateTime max_time_in=NoExists;
   TDateTime min_time_in=NoExists;
-  TDateTime final_act_in=NoExists;
   TDateTime max_time=NoExists;
   bool deleted=true;
 
@@ -190,13 +185,13 @@ bool TArxMoveFlt::GetPartKey(int move_id, TDateTime& part_key, double &date_rang
             (first_date==NoExists || first_date>min_time_in))
           first_date=min_time_in;
 
-        if (PointsQry->FieldAsInteger("pr_del")==0)
-        {
-       	  if (!PointsQry->FieldIsNULL("act_in"))
-            final_act_in=PointsQry->FieldAsDateTime("act_in");
-          else
-            final_act_in=NoExists;
-        };
+//        if (PointsQry->FieldAsInteger("pr_del")==0)
+//        {
+//       	  if (!PointsQry->FieldIsNULL("act_in"))
+//            final_act_in=PointsQry->FieldAsDateTime("act_in");
+//          else
+//            final_act_in=NoExists;
+//        };
       };
     };
   };
@@ -204,9 +199,7 @@ bool TArxMoveFlt::GetPartKey(int move_id, TDateTime& part_key, double &date_rang
   {
     if (first_date!=NoExists && last_date!=NoExists)
     {
-
-      if ( (final_act_in!=NoExists && last_date<utcdate-ARX_MIN_DAYS()) ||
-           (final_act_in==NoExists && last_date<utcdate-ARX_MAX_DAYS()) )
+      if (last_date < utcdate-ARX_DAYS())
       {
         //переместить в архив
         part_key=last_date;
@@ -218,7 +211,7 @@ bool TArxMoveFlt::GetPartKey(int move_id, TDateTime& part_key, double &date_rang
   else
   {
     //полностью удаленный рейс
-    if (max_time==NoExists || max_time<utcdate-ARX_MIN_DAYS())
+    if (max_time==NoExists || max_time<utcdate-ARX_DAYS())
     {
       //удалить
       part_key=NoExists;
@@ -231,24 +224,26 @@ bool TArxMoveFlt::GetPartKey(int move_id, TDateTime& part_key, double &date_rang
 
 void TArxMoveFlt::LockAndCollectStat(int move_id)
 {
-  QParams PointsQryParams;
-  PointsQryParams << QParam("move_id", otInteger, move_id);
-  TCachedQuery PointsQry("SELECT point_id,pr_del,pr_reg FROM points WHERE move_id=:move_id FOR UPDATE", PointsQryParams);
-  TQuery &Qry=PointsQry.get();
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
-  {
-    int pr_del=Qry.FieldAsInteger("pr_del");
-    bool pr_reg=Qry.FieldAsInteger("pr_reg")!=0;
-    int point_id=Qry.FieldAsInteger("point_id");
-    if (pr_del<0) continue;
-    if (pr_del==0 && pr_reg) get_flight_stat(point_id, true);
-    TReqInfo::Instance()->LocaleToLog("EVT.FLIGHT_MOOVED_TO_ARCHIVE", evtFlt, point_id);
-  };
+    LogTrace(TRACE5) << __FUNCTION__ << " move_id: " << move_id;
+    QParams PointsQryParams;
+    PointsQryParams << QParam("move_id", otInteger, move_id);
+    TCachedQuery PointsQry("SELECT point_id,pr_del,pr_reg FROM points WHERE move_id=:move_id FOR UPDATE", PointsQryParams);
+    TQuery &Qry=PointsQry.get();
+    Qry.Execute();
+    for(;!Qry.Eof;Qry.Next())
+    {
+        int pr_del=Qry.FieldAsInteger("pr_del");
+        bool pr_reg=Qry.FieldAsInteger("pr_reg")!=0;
+        int point_id=Qry.FieldAsInteger("point_id");
+        if (pr_del<0) continue;
+        if (pr_del==0 && pr_reg) get_flight_stat(point_id, true);
+        TReqInfo::Instance()->LocaleToLog("EVT.FLIGHT_MOOVED_TO_ARCHIVE", evtFlt, point_id);
+    };
 };
 
 bool TArxMoveFlt::Next(int max_rows, int duration)
 {
+    LogTrace(TRACE5) << __FUNCTION__;
   if (step==0 || step==3 || step==6)
   {
     if (Qry->SQLText.IsEmpty())
@@ -274,7 +269,7 @@ bool TArxMoveFlt::Next(int max_rows, int duration)
           break;
       };
       if (step!=6)
-        Qry->CreateVariable("arx_date",otDate,utcdate-ARX_MIN_DAYS());
+        Qry->CreateVariable("arx_date",otDate,utcdate-ARX_DAYS());
       Qry->Execute();
     };
 
@@ -342,8 +337,10 @@ bool TArxMoveFlt::Next(int max_rows, int duration)
           if (date_range!=NoExists)
           {
             if (date_range<0) throw Exception("date_range=%f", date_range);
-            if (date_range<1)
+            if (date_range<1) {
+                LogTrace(TRACE5) << " ORA DATE_RANGE = " << date_range;
               Qry->SetVariable("date_range",FNull);
+            }
             else
             {
               int date_range_int=(int)ceil(date_range);
@@ -352,9 +349,7 @@ bool TArxMoveFlt::Next(int max_rows, int duration)
             };
           }
           else Qry->SetVariable("date_range",FNull);
-          LockAndCollectStat(move_id);
           Qry->Execute();
-          tst();
           ASTRA::commitAndCallCommitHooks();
           proc_count++;
         }
@@ -403,7 +398,7 @@ TArxTypeBIn::TArxTypeBIn(TDateTime utc_date):TArxMove(utc_date)
     "SELECT time_receive FROM tlgs_in "
     "WHERE id=:id AND time_receive>=:arx_date AND rownum<2";
   TlgQry->DeclareVariable("id",otInteger);
-  TlgQry->CreateVariable("arx_date",otDate,utcdate-ARX_MAX_DAYS());
+  TlgQry->CreateVariable("arx_date",otDate,utcdate-ARX_DAYS());
 };
 
 TArxTypeBIn::~TArxTypeBIn()
@@ -431,7 +426,7 @@ bool TArxTypeBIn::Next(int max_rows, int duration)
         "WHERE time_receive<:arx_date AND "
         "      NOT EXISTS(SELECT * FROM tlg_source WHERE tlg_source.tlg_id=tlgs_in.id AND rownum<2) AND "
         "      NOT EXISTS(SELECT * FROM tlgs_in a WHERE a.id=tlgs_in.id AND time_receive>=:arx_date AND rownum<2)";
-      Qry->CreateVariable("arx_date",otDate,utcdate-ARX_MAX_DAYS());
+      Qry->CreateVariable("arx_date",otDate,utcdate-ARX_DAYS());
       Qry->Execute();
     };
 
@@ -529,49 +524,39 @@ bool TArxTlgTrips::Next(int max_rows, int duration)
 {
   if (step==0)
   {
-    if (Qry->SQLText.IsEmpty())
-    {
-      Qry->Clear();
-      Qry->SQLText =
-          "SELECT point_id "
-          "FROM tlg_trips,tlg_binding "
-          "WHERE tlg_trips.point_id=tlg_binding.point_id_tlg(+) AND tlg_binding.point_id_tlg IS NULL AND "
-          "      tlg_trips.scd<:arx_date";
-      Qry->CreateVariable("arx_date",otDate,utcdate-ARX_MAX_DAYS());
-      Qry->Execute();
-    };
+    DB::TQuery QryTrips(PgOra::getROSession("TLG_TRIPS"));
+    QryTrips.SQLText =
+        "SELECT point_id "
+        "FROM tlg_trips "
+        "WHERE scd<:arx_date";
+    QryTrips.CreateVariable("arx_date",otDate,utcdate-ARX_DAYS());
+    QryTrips.Execute();
 
-    for(;!Qry->Eof;Qry->Next())
+    for(;!QryTrips.Eof;QryTrips.Next())
     {
-      int point_id=Qry->FieldAsInteger("point_id");
+      int point_id=QryTrips.FieldAsInteger("point_id");
+      const std::set<PointId_t> point_id_set = getPointIdsSppByPointIdTlg(PointIdTlg_t(point_id));
+      if (!point_id_set.empty()) {
+        continue;
+      }
 
       point_ids.push_back(point_id);
       point_ids_count++;
-      Qry->Next();
+      QryTrips.Next();
       if (point_ids_count<max_rows)
         return true;
       else
         break;
     };
-    if (!Qry->Eof)
+    if (!QryTrips.Eof)
       step+=1;
     else
       step+=2;
-    Qry->Clear();
     return true;
   };
 
   if (step==1 || step==2)
   {
-    if (Qry->SQLText.IsEmpty())
-    {
-      Qry->Clear();
-      Qry->SQLText=
-        "BEGIN "
-        "  arch.tlg_trip(:point_id); "
-        "END;";
-      Qry->DeclareVariable("point_id",otInteger);
-    };
     while (!point_ids.empty())
     {
       int point_id=*(point_ids.begin());
@@ -580,11 +565,13 @@ bool TArxTlgTrips::Next(int max_rows, int duration)
 
       try
       {
-        TypeB::deleteTypeBData(PointIdTlg_t(point_id), "", "", false/*delete_trip_comp_layers*/);
+        TypeB::deleteTlgCompLayers(PointIdTlg_t(point_id));
+        TypeB::nullCrsDisplace2_point_id_tlg(PointIdTlg_t(point_id));
+        TypeB::deleteTypeBData(PointIdTlg_t(point_id));
+        TypeB::deleteTypeBDataStat(PointIdTlg_t(point_id));
+        TypeB::deleteCrsDataStat(PointIdTlg_t(point_id));
+        TrferList::deleteTransferData(PointIdTlg_t(point_id));
 
-        //в архив
-        Qry->SetVariable("point_id",point_id);
-        Qry->Execute();
         ASTRA::commitAndCallCommitHooks();
         proc_count++;
       }
@@ -599,7 +586,6 @@ bool TArxTlgTrips::Next(int max_rows, int duration)
       step--;
     else
       step++;
-    Qry->Clear();
     return true;
   };
   return false;
@@ -626,7 +612,7 @@ TArxMoveNoFlt::TArxMoveNoFlt(TDateTime utc_date):TArxMove(utc_date)
     "BEGIN "
     "  arch.move(:arx_date,:max_rows,:time_duration,:step); "
     "END;";
-  Qry->CreateVariable("arx_date",otDate,utcdate-ARX_MAX_DAYS());
+  Qry->CreateVariable("arx_date",otDate,utcdate-ARX_DAYS());
   Qry->DeclareVariable("max_rows",otInteger);
   Qry->DeclareVariable("time_duration",otInteger);
   Qry->DeclareVariable("step",otInteger);
@@ -667,7 +653,7 @@ TArxNormsRatesEtc::TArxNormsRatesEtc(TDateTime utc_date):TArxMoveNoFlt(utc_date)
     "BEGIN "
     "  arch.norms_rates_etc(:arx_date,:max_rows,:time_duration,:step); "
     "END;";
-  Qry->CreateVariable("arx_date",otDate,utcdate-ARX_MAX_DAYS()-15);
+  Qry->CreateVariable("arx_date",otDate,utcdate-ARX_DAYS()-15);
   Qry->DeclareVariable("max_rows",otInteger);
   Qry->DeclareVariable("time_duration",otInteger);
   Qry->DeclareVariable("step",otInteger);
@@ -688,7 +674,7 @@ TArxTlgsFilesEtc::TArxTlgsFilesEtc(TDateTime utc_date):TArxMoveNoFlt(utc_date)
     "BEGIN "
     "  arch.tlgs_files_etc(:arx_date,:max_rows,:time_duration,:step); "
     "END;";
-  Qry->CreateVariable("arx_date",otDate,utcdate-ARX_MIN_DAYS());
+  Qry->CreateVariable("arx_date",otDate,utcdate-ARX_DAYS());
   Qry->DeclareVariable("max_rows",otInteger);
   Qry->DeclareVariable("time_duration",otInteger);
   Qry->DeclareVariable("step",otInteger);
@@ -699,6 +685,20 @@ string TArxTlgsFilesEtc::TraceCaption()
   return "TArxTlgsFilesEtc";
 };
 
+std::unique_ptr<TArxMove> create_arx_manager(const TDateTime& utcdate, int step = 1)
+{
+    switch (step)
+    {
+    case 1: return std::make_unique<TArxMoveFlt>(utcdate);
+    case 2: return std::make_unique<TArxMoveNoFlt>(utcdate);
+    case 3: return std::make_unique<TArxTlgTrips>(utcdate);
+    case 4: return std::make_unique<TArxTypeBIn>(utcdate);
+    case 5: return std::make_unique<TArxNormsRatesEtc>(utcdate);
+    case 6: return std::make_unique<TArxTlgsFilesEtc>(utcdate);
+    default: return nullptr;
+    };
+    return nullptr;
+}
 
 bool arx_daily(TDateTime utcdate)
 {
@@ -706,7 +706,7 @@ bool arx_daily(TDateTime utcdate)
   static TDateTime prior_utcdate=NoExists;
   static time_t prior_exec=0;
   static int step=1;
-  static TArxMove* arxMove=NULL;
+  static std::unique_ptr<TArxMove> arxMove = nullptr;
 
   if (time(NULL)-prior_exec<ARX_SLEEP()) return false;
 
@@ -714,36 +714,21 @@ bool arx_daily(TDateTime utcdate)
 
 	if (prior_utcdate!=utcdate)
 	{
-	  if (arxMove!=NULL)
+      if (arxMove)
 	  {
-	    delete arxMove;
-	    arxMove=NULL;
+        arxMove.reset();
 	  };
-	  step=1;
+      step = 1;
 	  prior_utcdate=utcdate;
 	  ProgTrace(TRACE5,"arx_daily START");
 	};
 
 	for(;step<7;step++)
 	{
-	  if (arxMove==NULL)
+      if (!arxMove)
 	  {
-	    switch (step)
-	    {
-	      case 1: arxMove = new TArxMoveFlt(utcdate);
-	              break;
-	      case 2: arxMove = new TArxMoveNoFlt(utcdate);
-	              break;
-	      case 3: arxMove = new TArxTlgTrips(utcdate);
-	              break;
-	      case 4: arxMove = new TArxTypeBIn(utcdate);
-	              break;
-	      case 5: arxMove = new TArxNormsRatesEtc(utcdate);
-	              break;
-	      case 6: arxMove = new TArxTlgsFilesEtc(utcdate);
-	              break;
-	    };
-	    ProgTrace(TRACE5,"arx_daily: %s started",arxMove->TraceCaption().c_str());
+          arxMove = create_arx_manager(utcdate, step);
+          ProgTrace(TRACE5,"arx_daily: %s started",arxMove->TraceCaption().c_str());
 	  }
 	  else
 	  {
@@ -781,11 +766,44 @@ bool arx_daily(TDateTime utcdate)
 
     ProgTrace(TRACE5,"arx_daily: %s finished",arxMove->TraceCaption().c_str());
 
-	  delete arxMove;
-	  arxMove=NULL;
-	};
+      arxMove.reset();
+
+    }
 
   ProgTrace(TRACE5,"arx_daily FINISH");
   prior_exec=time(NULL);
   return true;
 };
+
+
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#ifdef XP_TESTING
+bool test_arx_daily(TDateTime utcdate, int step)
+{
+    modf(utcdate,&utcdate);
+    LogTrace(TRACE5) << __FUNCTION__ << " step: " << step << " date: " << utcdate;
+    auto arxMove = create_arx_manager(utcdate, step);
+
+    ProgTrace(TRACE5,"arx_daily: %s started", arxMove->TraceCaption().c_str());
+
+    arxMove->BeforeProc();
+    time_t time_finish = time(NULL)+ARX_DURATION();
+    int duration = 0;
+    do{
+        duration = time_finish - time(NULL);
+        if (duration<=0)
+        {
+            ProgTrace(TRACE5,"arx_daily: %d iterations processed", arxMove->Processed());
+            return false;
+        };
+    }
+    while(arxMove->Next(ARX_MAX_ROWS(), duration));
+
+    ProgTrace(TRACE5,"arx_daily: %s finished",arxMove->TraceCaption().c_str());
+    return true;
+}
+#endif //XP_TESTING
+

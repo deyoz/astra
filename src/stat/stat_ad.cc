@@ -51,49 +51,41 @@ void TADFullStat::add(const TADStatRow &row)
     data.gate = (row.station.empty() ? row.desk : row.station);
 }
 
-void RunADStat(
+void ArxRunADStat(
         const TStatParams &params,
         TADAbstractStat &ADStat
         )
 {
-    for(int pass = 0; pass <= 2; pass++) {
+    LogTrace5 << __func__;
+    for(int pass = 1; pass <= 2; pass++) {
         QParams QryParams;
         QryParams
             << QParam("FirstDate", otDate, params.FirstDate)
-            << QParam("LastDate", otDate, params.LastDate);
-        if (pass!=0)
-            QryParams << QParam("arx_trip_date_range", otInteger, ARX_TRIP_DATE_RANGE());
-        string SQLText = "select stat_ad.* from ";
-        if(pass != 0) {
-            SQLText +=
-                "   arx_stat_ad stat_ad, "
-                "   arx_points points ";
-            if(pass == 2)
-                SQLText += ",(SELECT part_key, move_id FROM move_arx_ext \n"
-                    "  WHERE part_key >= :LastDate+:arx_trip_date_range AND part_key <= :LastDate+date_range) arx_ext \n";
-        } else {
-            SQLText +=
-                "   stat_ad, "
-                "   points ";
+            << QParam("LastDate", otDate, params.LastDate)
+            << QParam("arx_trip_date_range", otDate, params.LastDate+ARX_TRIP_DATE_RANGE());
+        string SQLText = "select arx_stat_ad.* from "
+                         "   arx_stat_ad , "
+                         "   arx_points ";
+        if(pass == 2){
+            SQLText += getMoveArxQuery();
         }
+
         SQLText +=
             "where "
-            "   stat_ad.point_id = points.point_id and "
-            "   points.pr_del >= 0 and ";
-        params.AccessClause(SQLText);
+            "   arx_stat_ad.point_id = arx_points.point_id and "
+            "   arx_points.pr_del >= 0 and ";
+        params.AccessClause(SQLText, "arx_points");
         if(params.flt_no != NoExists) {
-            SQLText += " points.flt_no = :flt_no and ";
+            SQLText += " arx_points.flt_no = :flt_no and ";
             QryParams << QParam("flt_no", otInteger, params.flt_no);
         }
-        if(pass != 0)
-            SQLText +=
-                " points.part_key = stat_ad.part_key and ";
+        SQLText += " arx_points.part_key = arx_stat_ad.part_key and ";
         if(pass == 1)
-            SQLText += " points.part_key >= :FirstDate AND points.part_key < :LastDate + :arx_trip_date_range AND \n";
+            SQLText += " arx_points.part_key >= :FirstDate AND arx_points.part_key < :arx_trip_date_range AND \n";
         if(pass == 2)
-            SQLText += " points.part_key=arx_ext.part_key AND points.move_id=arx_ext.move_id AND \n";
-        SQLText += "   stat_ad.scd_out >= :FirstDate AND stat_ad.scd_out < :LastDate ";
-        TCachedQuery Qry(SQLText, QryParams);
+            SQLText += " arx_points.part_key=arx_ext.part_key AND arx_points.move_id=arx_ext.move_id AND \n";
+        SQLText += "   arx_stat_ad.scd_out >= :FirstDate AND arx_stat_ad.scd_out < :LastDate ";
+        DB::TCachedQuery Qry(PgOra::getROSession("ARX_STAT_AD"), SQLText, QryParams);
         Qry.get().Execute();
         if(not Qry.get().Eof) {
             int col_part_key = Qry.get().GetFieldIndex("part_key");
@@ -118,7 +110,7 @@ void RunADStat(
                 row.pax_id = Qry.get().FieldAsInteger(col_pax_id);
                 row.pnr = Qry.get().FieldAsString(col_pnr);
                 row.cls = Qry.get().FieldAsString(col_class);
-                row.client_type = DecodeClientType(Qry.get().FieldAsString(col_client_type));
+                row.client_type = DecodeClientType(Qry.get().FieldAsString(col_client_type).c_str());
                 if(not Qry.get().FieldIsNULL(col_bag_amount))
                     row.bag_amount = Qry.get().FieldAsInteger(col_bag_amount);
                 if(not Qry.get().FieldIsNULL(col_bag_weight))
@@ -132,6 +124,72 @@ void RunADStat(
             }
         }
     }
+
+}
+
+void RunADStat(
+        const TStatParams &params,
+        TADAbstractStat &ADStat
+        )
+{
+    QParams QryParams;
+    QryParams
+        << QParam("FirstDate", otDate, params.FirstDate)
+        << QParam("LastDate", otDate, params.LastDate);
+
+    string SQLText =
+        "select stat_ad.* from "
+        "   stat_ad, "
+        "   points "
+        "where "
+        "   stat_ad.point_id = points.point_id and "
+        "   points.pr_del >= 0 and ";
+    params.AccessClause(SQLText);
+    if(params.flt_no != NoExists) {
+        SQLText += " points.flt_no = :flt_no and ";
+        QryParams << QParam("flt_no", otInteger, params.flt_no);
+    }
+    SQLText += "   stat_ad.scd_out >= :FirstDate AND stat_ad.scd_out < :LastDate ";
+    TCachedQuery Qry(SQLText, QryParams);
+    Qry.get().Execute();
+    if(not Qry.get().Eof) {
+        int col_part_key = Qry.get().GetFieldIndex("part_key");
+        int col_scd_out = Qry.get().FieldIndex("scd_out");
+        int col_point_id = Qry.get().FieldIndex("point_id");
+        int col_pax_id = Qry.get().FieldIndex("pax_id");
+        int col_pnr = Qry.get().FieldIndex("pnr");
+        int col_class = Qry.get().FieldIndex("class");
+        int col_client_type = Qry.get().FieldIndex("client_type");
+        int col_bag_amount = Qry.get().FieldIndex("bag_amount");
+        int col_bag_weight = Qry.get().FieldIndex("bag_weight");
+        int col_seat_no = Qry.get().FieldIndex("seat_no");
+        int col_seat_no_lat = Qry.get().FieldIndex("seat_no_lat");
+        int col_desk = Qry.get().FieldIndex("desk");
+        int col_station = Qry.get().FieldIndex("station");
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            TADStatRow row;
+            if(col_part_key >= 0)
+                row.part_key = Qry.get().FieldAsDateTime(col_part_key);
+            row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
+            row.point_id = Qry.get().FieldAsInteger(col_point_id);
+            row.pax_id = Qry.get().FieldAsInteger(col_pax_id);
+            row.pnr = Qry.get().FieldAsString(col_pnr);
+            row.cls = Qry.get().FieldAsString(col_class);
+            row.client_type = DecodeClientType(Qry.get().FieldAsString(col_client_type));
+            if(not Qry.get().FieldIsNULL(col_bag_amount))
+                row.bag_amount = Qry.get().FieldAsInteger(col_bag_amount);
+            if(not Qry.get().FieldIsNULL(col_bag_weight))
+                row.bag_weight = Qry.get().FieldAsInteger(col_bag_weight);
+            row.seat_no = Qry.get().FieldAsString(col_seat_no);
+            row.seat_no_lat = Qry.get().FieldAsString(col_seat_no_lat);
+            row.desk = Qry.get().FieldAsString(col_desk);
+            row.station = Qry.get().FieldAsString(col_station);
+            ADStat.add(row);
+            params.overflow.check(ADStat.RowCount());
+        }
+    }
+
+    ArxRunADStat(params, ADStat);
 
 }
 

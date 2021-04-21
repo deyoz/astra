@@ -22,14 +22,19 @@
 #include "tlg/remote_system_context.h"
 #include "tlg/edi_tlg.h"
 #include "tlg/apps_handler.h"
-#include "hooked_session.h"
+#include "arx_daily.h"
+#include "arx_daily_pg.h"
+#include "dbostructures.h"
 #include "iapi_interaction.h"
 #include "prn_tag_store.h"
 #include "cache.h"
 #include "PgOraConfig.h"
 #include "timer.h"
+#include "stat/stat_departed.h"
+#include "basel_aero.h"
 #include "passenger.h"
 #include "trip_tasks.h"
+#include "stat/stat_main.h"
 
 #include <queue>
 #include <fstream>
@@ -235,7 +240,7 @@ static std::string FP_tlg_in(const std::vector<tok::Param>& params)
     std::queue<std::string>& outq = GetTestContext()->outq;
     CheckEmpty(outq);
 
-    ExecuteTlg(params); /* ®¤ ñ¬ ­  ¢å®¤ */
+    ExecuteTlg(params); /* ÂÂ®Â¤Â Ã±Â¬ Â­Â  Â¢Ã¥Â®Â¤ */
     return std::string();
 }
 
@@ -882,6 +887,77 @@ static std::string FP_dump_table_astra(const std::vector<tok::Param> &params)
     return answer;
 }
 
+static std::string FP_dump_db_table(const std::vector<tok::Param>& params)
+{
+    ASSERT(params.size() > 0);
+    std::string tableName = params[0].value;
+
+    std::string db = "pg";
+    for (size_t i = 1; i < params.size(); ++i) {
+        if(params[i].name == "db") {
+            db = params[i].value;
+        }
+    }
+
+    std::string dump;
+    if(db == "pg") {
+        DbCpp::DumpTable(*get_main_pg_rw_sess(STDLOG), tableName).exec(dump);
+    } else if(db == "ora") {
+        DbCpp::DumpTable(*get_main_ora_sess(STDLOG), tableName).exec(dump);
+    }
+    LogTrace(TRACE3) << dump;
+    return "";
+}
+
+static std::string FP_agent_stat_equal(const std::vector<tok::Param>& params)
+{
+    std::vector<dbo::ARX_AGENT_STAT> ora_arx_agents_stat = dbo::readOraArxAgentsStat();
+    std::vector<dbo::ARX_AGENT_STAT> pg_arx_agents_stats = dbo::Session(dbo::Postgres).query<dbo::ARX_AGENT_STAT>();
+    ASSERT(ora_arx_agents_stat == pg_arx_agents_stats);
+    return "";
+}
+
+static std::string FP_tables_equal(const std::vector<tok::Param>& params)
+{
+    ASSERT(params.size() > 0);
+    std::string tableName = params[0].value;
+    std::string connect, fields, where, order;
+    bool display = false;
+
+    for (size_t i = 1; i < params.size(); ++i) {
+        if (params[i].name == "connect") {
+            connect = params[i].value;
+        } else if (params[i].name == "fields") {
+            fields = params[i].value;
+        } else if (params[i].name == "where") {
+            where = params[i].value;
+        } else if (params[i].name == "order") {
+            order = params[i].value;
+        } else if (params[i].name == "display") {
+            if (params[i].value == "on") {
+                display = true;
+            }
+        }
+    }
+    std::string resultQuery;
+    if(!where.empty()) {
+        resultQuery += " where " + where;
+    }
+    if(!order.empty()) {
+        resultQuery += " order by " + order;
+    }
+    dbo::Session session;
+    std::string postgresDump = session.dump("pg", tableName, {}, resultQuery);
+    std::string oracleDump =  session.dump("ora", tableName, {}, resultQuery);
+//    LogTrace(TRACE5) << __FUNCTION__ << " :" << postgresDump;
+//    LogTrace(TRACE5) << __FUNCTION__ << " :" << oracleDump;
+    if(oracleDump != postgresDump) {
+        ProgTrace(TRACE5,"tables %s are not equal",tableName.c_str());
+    }
+    ASSERT(oracleDump == postgresDump);
+    return "";
+}
+
 static std::vector<string> getPaxAlarms(const std::string& table_name, int pax_id)
 {
     std::string alarm;
@@ -988,6 +1064,43 @@ static std::string FP_runUpdateCoupon(const std::vector<std::string>& par)
             .bind(":ticknum", ticknum)
             .bind(":num",     num)
             .exec();
+    return "";
+}
+
+static std::string FP_runArchStep(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() <= 2);
+    int step = 1;
+    //boost::gregorian::date d = boost::posix_time::second_clock::local_time().date();
+    //std::string fmt = "%d%m%y";
+    Dates::DateTime_t date = HelpCpp::time_cast(par.at(0).c_str(), "%d%m%y");
+    if(par.size() == 2) {
+        step = std::stoi(par.at(1));
+    }
+
+    //TDateTime utcdate = BASIC::date_time::BoostToDateTime(d);
+    //LogTrace(TRACE5) << __FUNCTION__ << " time: " << DateTimeToStr( utcdate, "DD.MM.YYYY" ); //HelpCpp::string_cast(send_time, "%H%M%S");
+
+    PG_ARX::test_arx_daily(date, step);
+    test_arx_daily(BoostToDateTime(date), step);
+
+    return "";
+}
+
+static std::string FP_runArch(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() == 1);
+    Dates::DateTime_t date = HelpCpp::time_cast(par.at(0).c_str(), "%d%m%y");
+    bool resultPg = PG_ARX::arx_daily(date);
+    bool result = arx_daily(BoostToDateTime(date));
+    return "";
+}
+
+static std::string FP_collectFlightStat(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() == 1);
+    PointId_t point_id(std::stoi(par.at(0)));
+    get_flight_stat(point_id.get(), true);
     return "";
 }
 
@@ -1108,6 +1221,30 @@ static std::string FP_lastTypeBInId(const std::vector<std::string> &par)
   return getTlgIdent(TlgIdent::TypeBInId, par);
 }
 
+static std::string FP_departedFlt(const std::vector<std::string> &par)
+{
+  ASSERT(par.size() >= 2);
+  char * argv[3] = {"departed", const_cast<char *>(par.at(0).c_str()), const_cast<char *>(par.at(1).c_str())};
+  nosir_departed(3, argv);
+  return "";
+}
+
+static std::string FP_baselAeroStat(const std::vector<std::string> &par)
+{
+    //ASSERT(par.size() >= 1);
+    if(par.size() <= 2) {
+        char * argv[2] = {"basel_stat", const_cast<char *>(par.at(0).c_str())};
+        basel_stat(2, argv);
+    } else {
+        char * argv[4] = {"basel_stat", const_cast<char *>(par.at(0).c_str()),
+                                        const_cast<char *>(par.at(1).c_str()),
+                                        const_cast<char *>(par.at(2).c_str())};
+        arx_basel_stat(4, argv);
+    }
+    return "";
+}
+
+
 FP_REGISTER("<<", FP_tlg_in);
 FP_REGISTER("!!", FP_req);
 FP_REGISTER("astra_hello", FP_astra_hello);
@@ -1152,7 +1289,13 @@ FP_REGISTER("check_flight_tasks", FP_checkFlightTasks);
 FP_REGISTER("update_msg", FP_runUpdateMsg);
 FP_REGISTER("resend", FP_runResendTlg);
 FP_REGISTER("update_pg_coupon", FP_runUpdateCoupon);
+FP_REGISTER("run_arch_step", FP_runArchStep);
+FP_REGISTER("run_arch", FP_runArch);
 FP_REGISTER("db_dump_table", FP_dump_table_astra);
+// FP_REGISTER("dump_db_table", FP_dump_db_table);
+FP_REGISTER("are_tables_equal", FP_tables_equal);
+FP_REGISTER("are_agent_stat_equal", FP_agent_stat_equal);
+FP_REGISTER("collect_flight_stat", FP_collectFlightStat);
 FP_REGISTER("init_iapi_request_id", FP_initIapiRequestId);
 FP_REGISTER("get_bcbp", FP_getBCBP);
 FP_REGISTER("cache", FP_cache);
@@ -1163,6 +1306,8 @@ FP_REGISTER("clean_old_records", FP_cleanOldRecords);
 FP_REGISTER("last_tlg_id", FP_lastTlgId);
 FP_REGISTER("last_tlg_num", FP_lastTlgNum);
 FP_REGISTER("last_typeb_in_id", FP_lastTypeBInId);
+FP_REGISTER("nosir_departed_flt", FP_departedFlt);
+FP_REGISTER("nosir_basel_stat", FP_baselAeroStat);
 
 #include "xp_testing.h"
 

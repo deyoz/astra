@@ -12,6 +12,7 @@
 #include <edilib/edi_func_cpp.h>
 
 #include "oralib.h"
+#include "hooked_session.h"
 #include "pg_session.h"
 #include "xp_testing.h"
 
@@ -91,6 +92,9 @@ namespace xp_testing { namespace tscript {
             LogTrace(TRACE3) << __func__ << " tscript ************* savepoint tscript";
             make_curs("rollback to savepoint tscript").exec();
             DbCpp::mainPgManagedSession(STDLOG).rollbackInTestMode();
+            if(auto arxSess = dynamic_cast<DbCpp::PgSession*>(get_arx_pg_rw_sess(STDLOG))) {
+                arxSess->rollbackInTestMode();
+            }
             PgCpp::rollbackInTestMode();
             if (nosir_mode()) {
                 rollbackInTestMode();

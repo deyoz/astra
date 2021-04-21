@@ -97,65 +97,53 @@ void TReprintShortStat::add(const TReprintStatRow &row)
     totals += row.amount;
 }
 
-void RunReprintStat(
+void ArxRunReprintStat(
         const TStatParams &params,
         TReprintAbstractStat &ReprintStat
         )
 {
+    LogTrace5 << __func__;
     TFltInfoCache flt_cache;
     TDeskAccess desk_access;
-    for(int pass = 0; pass <= 2; pass++) {
+    for(int pass = 1; pass <= 2; pass++) {
         QParams QryParams;
         QryParams
             << QParam("FirstDate", otDate, params.FirstDate)
             << QParam("LastDate", otDate, params.LastDate);
-        if (pass!=0)
-            QryParams << QParam("arx_trip_date_range", otInteger, ARX_TRIP_DATE_RANGE());
-        string SQLText = "select stat_reprint.* from ";
-        if(pass != 0) {
-            SQLText +=
-                "   arx_stat_reprint stat_reprint, "
-                "   arx_points points ";
-            if(pass == 2)
-                SQLText += ",(SELECT part_key, move_id FROM move_arx_ext \n"
-                    "  WHERE part_key >= :LastDate+:arx_trip_date_range AND part_key <= :LastDate+date_range) arx_ext \n";
-        } else {
-            SQLText +=
-                "   stat_reprint, "
-                "   points ";
+            QryParams << QParam("arx_trip_date_range", otDate, params.LastDate+ARX_TRIP_DATE_RANGE());
+        string SQLText = "select arx_stat_reprint.* from ";
+        SQLText +=
+            "   arx_stat_reprint , "
+            "   arx_points  ";
+        if(pass == 2) {
+            SQLText += getMoveArxQuery();
         }
         SQLText +=
             "where "
-            "   stat_reprint.point_id = points.point_id and "
-            "   points.pr_del >= 0 and ";
+            "   arx_stat_reprint.point_id = arx_points.point_id and "
+            "   arx_points.pr_del >= 0 and ";
 
         if(not params.ap.empty()) {
-            SQLText += " points.airp = :airp and ";
+            SQLText += " arx_points.airp = :airp and ";
             QryParams << QParam("airp", otString, params.ap);
         }
 
         if(not params.ak.empty()) {
-            SQLText += " points.airline = :airline and ";
+            SQLText += " arx_points.airline = :airline and ";
             QryParams << QParam("airline", otString, params.ak);
         }
 
         if(params.flt_no != NoExists) {
-            SQLText += " points.flt_no = :flt_no and ";
+            SQLText += " arx_points.flt_no = :flt_no and ";
             QryParams << QParam("flt_no", otInteger, params.flt_no);
         }
-        if(pass != 0)
-            SQLText +=
-                " points.part_key = stat_reprint.part_key and ";
+        SQLText += " arx_points.part_key = arx_stat_reprint.part_key and ";
         if(pass == 1)
-            SQLText += " points.part_key >= :FirstDate AND points.part_key < :LastDate + :arx_trip_date_range AND \n";
+            SQLText += " arx_points.part_key >= :FirstDate AND arx_points.part_key < :arx_trip_date_range AND \n";
         if(pass == 2)
-            SQLText += " points.part_key=arx_ext.part_key AND points.move_id=arx_ext.move_id AND \n";
-        SQLText += "   stat_reprint.scd_out >= :FirstDate AND stat_reprint.scd_out < :LastDate ";
-        TCachedQuery Qry(SQLText, QryParams);
-
-        LogTrace(TRACE5) << "reprint SQLText: " << SQLText;
-        for(int i = 0; i < Qry.get().VariablesCount(); i++)
-            LogTrace(TRACE5) << Qry.get().VariableName(i) << " = " << Qry.get().GetVariableAsString(i);
+            SQLText += " arx_points.part_key = arx_ext.part_key AND arx_points.move_id = arx_ext.move_id AND \n";
+        SQLText += "   arx_stat_reprint.scd_out >= :FirstDate AND arx_stat_reprint.scd_out < :LastDate ";
+        DB::TCachedQuery Qry(PgOra::getROSession("ARX_POINTS"), SQLText, QryParams);
 
         Qry.get().Execute();
         if(not Qry.get().Eof) {
@@ -188,6 +176,82 @@ void RunReprintStat(
             }
         }
     }
+}
+
+void RunReprintStat(
+        const TStatParams &params,
+        TReprintAbstractStat &ReprintStat
+        )
+{
+    TFltInfoCache flt_cache;
+    TDeskAccess desk_access;
+    QParams QryParams;
+    QryParams
+        << QParam("FirstDate", otDate, params.FirstDate)
+        << QParam("LastDate", otDate, params.LastDate);
+
+    string SQLText = "select stat_reprint.* from "
+        "   stat_reprint, "
+        "   points "
+        "where "
+        "   stat_reprint.point_id = points.point_id and "
+        "   points.pr_del >= 0 and ";
+
+    if(not params.ap.empty()) {
+        SQLText += " points.airp = :airp and ";
+        QryParams << QParam("airp", otString, params.ap);
+    }
+
+    if(not params.ak.empty()) {
+        SQLText += " points.airline = :airline and ";
+        QryParams << QParam("airline", otString, params.ak);
+    }
+
+    if(params.flt_no != NoExists) {
+        SQLText += " points.flt_no = :flt_no and ";
+        QryParams << QParam("flt_no", otInteger, params.flt_no);
+    }
+
+    SQLText += "   stat_reprint.scd_out >= :FirstDate AND stat_reprint.scd_out < :LastDate ";
+    TCachedQuery Qry(SQLText, QryParams);
+
+    LogTrace(TRACE5) << "reprint SQLText: " << SQLText;
+    for(int i = 0; i < Qry.get().VariablesCount(); i++)
+        LogTrace(TRACE5) << Qry.get().VariableName(i) << " = " << Qry.get().GetVariableAsString(i);
+
+    Qry.get().Execute();
+    if(not Qry.get().Eof) {
+        int col_part_key = Qry.get().GetFieldIndex("part_key");
+        int col_point_id = Qry.get().FieldIndex("point_id");
+        int col_scd_out = Qry.get().FieldIndex("scd_out");
+        int col_desk = Qry.get().FieldIndex("desk");
+        int col_ckin_type = Qry.get().FieldIndex("ckin_type");
+        int col_amount = Qry.get().FieldIndex("amount");
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            TReprintStatRow row;
+            TDateTime part_key = NoExists;
+            if(col_part_key >= 0)
+                part_key = Qry.get().FieldAsDateTime(col_part_key);
+            row.desk = Qry.get().FieldAsString(col_desk);
+
+            if(not desk_access.get(row.desk)) continue;
+
+            int point_id = Qry.get().FieldAsInteger(col_point_id);
+            const TFltInfoCacheItem &info = flt_cache.get(point_id, part_key);
+            row.airline = info.airline;
+            row.view_airline = info.view_airline;
+            row.flt = info.view_flt_no;
+            row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
+            row.route = GetRouteAfterStr(part_key, point_id, trtWithCurrent, trtNotCancelled);
+            row.ckin_type = Qry.get().FieldAsString(col_ckin_type);
+            row.amount = Qry.get().FieldAsInteger(col_amount);
+            ReprintStat.add(row);
+            params.overflow.check(ReprintStat.RowCount());
+        }
+    }
+
+    ArxRunReprintStat(params, ReprintStat);
+
     // Вытаскиваем репринт сторонних ПТ
     {
         QParams QryParams;

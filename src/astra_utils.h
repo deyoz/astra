@@ -682,6 +682,7 @@ XMLDoc createXmlDoc2(const std::string& xml);
 
 struct TRegEvents:public  std::map< std::pair<int, int>, std::pair<TDateTime, TDateTime> > {
     void fromDB(TDateTime part_key, int point_id);
+    void fromArxDB(TDateTime part_key, int point_id);
 };
 
 struct TEncodedFileStream

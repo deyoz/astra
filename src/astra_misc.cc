@@ -99,41 +99,76 @@ std::vector<int> segPoints(const TPaxSegmentPair & flight)
     return res;
 }
 
+static bool match(int pr_del, int pr_reg, const FlightProps& props)
+{
+  if (props.cancellation()==FlightProps::NotCancelled && pr_del!=0) return false;
+  if (props.checkin_ability()==FlightProps::WithCheckIn && pr_reg==0) return false;
+  return true;
+}
+
+void TTripInfo::fromArxPoint(const dbo::Arx_Points & arx_point)
+{
+    airline=arx_point.airline;
+    flt_no = dbo::isNull(arx_point.flt_no) ? 0 : arx_point.flt_no;
+    suffix=arx_point.suffix;
+    airp=arx_point.airp;
+    craft=arx_point.craft;
+    bort=arx_point.bort;
+    trip_type=arx_point.trip_type;
+    scd_out = dbo::isNull(arx_point.scd_out) ? ASTRA::NoExists:
+                                               BoostToDateTime(arx_point.scd_out);
+    est_out = dbo::isNull(arx_point.est_out) ? ASTRA::NoExists:
+                                         BoostToDateTime(arx_point.est_out);
+    act_out = dbo::isNull(arx_point.act_out) ? ASTRA::NoExists:
+                                         BoostToDateTime(arx_point.act_out);
+    pr_del = arx_point.pr_del;
+    pr_reg = arx_point.pr_reg != 0;
+    airline_fmt = static_cast<TElemFmt>(arx_point.airline_fmt);
+    suffix_fmt = static_cast<TElemFmt>(arx_point.suffix_fmt);
+    airp_fmt = static_cast<TElemFmt>(arx_point.airp_fmt);
+    craft_fmt = static_cast<TElemFmt>(arx_point.craft_fmt);
+    point_id = arx_point.point_id;
+};
+
 bool TTripInfo::getByPointId ( const TDateTime part_key,
                                const int point_id,
                                const FlightProps &props )
 {
-  TQuery Qry( &OraSession );
-  if (part_key==NoExists)
-  {
-    Qry.SQLText =
-      "SELECT " + selectedFields() +
-      "FROM points "
-      "WHERE point_id=:point_id AND pr_del>=0";
-  }
-  else
-  {
-    Qry.SQLText =
-      "SELECT " + selectedFields() +
-      "FROM arx_points "
-      "WHERE part_key=:part_key AND point_id=:point_id AND pr_del>=0";
-    Qry.CreateVariable( "part_key", otDate, part_key );
-  };
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-
-  if ( Qry.Eof ) return false;
-  if (!match(Qry, props)) return false;
-
-  init( Qry );
-  return true;
+    if (part_key==NoExists)
+    {
+        return getByPointId(point_id, props);
+    }
+    dbo::Session session;
+    std::optional<dbo::Arx_Points> arx_point = session.query<dbo::Arx_Points>()
+            .where(" part_key=:part_key AND point_id=:point_id AND pr_del>=0")
+            .setBind({{":point_id",point_id}, {":part_key", DateTimeToBoost(part_key)}});
+    if(!arx_point) {
+        LogTrace5 << " not found arx_point by point_id: " << point_id << " part_key: " << DateTimeToBoost(part_key);
+        return false;
+    }
+    if (!::match(arx_point->pr_del, arx_point->pr_reg, props)) return false;
+    fromArxPoint(*arx_point);
+    return true;
 }
 
 bool TTripInfo::getByPointId ( const int point_id,
                                const FlightProps &props )
 {
-  return getByPointId(NoExists, point_id, props);
+    TQuery Qry( &OraSession );
+    Qry.SQLText =
+      "SELECT " + selectedFields() +
+      "FROM points "
+      "WHERE point_id=:point_id AND pr_del>=0";
+    Qry.CreateVariable( "point_id", otInteger, point_id );
+    Qry.Execute();
+
+    if ( Qry.Eof ) return false;
+    if (!match(Qry, props)) return false;
+
+    init( Qry );
+    return true;
 }
+
 
 bool TTripInfo::getByPointIdTlg ( const int point_id_tlg )
 {
@@ -187,30 +222,41 @@ bool TTripInfo::getByGrpId ( const int grp_id )
   return getByPointId( Qry.FieldAsInteger( "point_dep" ) );
 }
 
-void getPointIdsSppByPointIdTlg(const int point_id_tlg, std::set<int>& point_ids_spp)
+void getPointIdsSppByPointIdTlg(const PointIdTlg_t& point_id_tlg,
+                                std::set<PointId_t>& point_ids_spp,
+                                bool clear)
 {
-  point_ids_spp.clear();
+  if (clear) {
+    point_ids_spp.clear();
+  }
 
   TQuery Qry( &OraSession );
   Qry.SQLText =
     "SELECT point_id_spp FROM tlg_binding WHERE point_id_tlg = :point_id";
-  Qry.CreateVariable( "point_id", otInteger, point_id_tlg );
+  Qry.CreateVariable( "point_id", otInteger, point_id_tlg.get() );
   Qry.Execute();
   for( ; !Qry.Eof; Qry.Next() )
-    point_ids_spp.insert(Qry.FieldAsInteger( "point_id_spp" ));
+    point_ids_spp.insert(PointId_t(Qry.FieldAsInteger( "point_id_spp" )));
+}
+
+std::set<PointId_t> getPointIdsSppByPointIdTlg(const PointIdTlg_t& point_id_tlg)
+{
+  std::set<PointId_t> point_ids_spp;
+  getPointIdsSppByPointIdTlg(point_id_tlg, point_ids_spp);
+  return point_ids_spp;
 }
 
 void getTripsByPointIdTlg( const int point_id_tlg, TAdvTripInfoList &trips )
 {
   trips.clear();
 
-  set<int> point_ids_spp;
-  getPointIdsSppByPointIdTlg(point_id_tlg, point_ids_spp);
+  std::set<PointId_t> point_ids_spp;
+  getPointIdsSppByPointIdTlg(PointIdTlg_t(point_id_tlg), point_ids_spp);
 
-  for(const int& id : point_ids_spp)
+  for(const PointId_t& id : point_ids_spp)
   {
     TAdvTripInfo info;
-    if (info.getByPointId( id ))
+    if (info.getByPointId( id.get() ))
       trips.push_back( info );
   }
 }
@@ -433,36 +479,40 @@ bool TAdvTripInfo::getByPointId ( const TDateTime part_key,
                                   const int point_id,
                                   const FlightProps &props )
 {
-  TQuery Qry( &OraSession );
-  if (part_key==NoExists)
-  {
-    Qry.SQLText =
-      "SELECT " + selectedFields() +
-      "FROM points "
-      "WHERE point_id=:point_id AND pr_del>=0 ";
-  }
-  else
-  {
-    Qry.SQLText =
-      "SELECT "  + selectedFields() +
-      "FROM arx_points "
-      "WHERE part_key=:part_key AND point_id=:point_id AND pr_del>=0 ";
-    Qry.CreateVariable( "part_key", otDate, part_key );
-  };
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
+    if (part_key==NoExists)
+    {
+        return getByPointId(point_id, props);
+    }
+    dbo::Session session;
+    std::optional<dbo::Arx_Points> arx_point = session.query<dbo::Arx_Points>()
+          .where(" part_key=:part_key AND point_id=:point_id AND pr_del>=0")
+          .setBind({{":point_id",point_id}, {":part_key", DateTimeToBoost(part_key)}});
+    if(!arx_point) return false;
+    if (!::match(arx_point->pr_del, arx_point->pr_reg, props)) return false;
 
-  if ( Qry.Eof ) return false;
-  if (!match(Qry, props)) return false;
+    fromArxPoint(*arx_point);
+    point_num = arx_point->point_num;
+    first_point = dbo::isNull(arx_point->first_point) ? ASTRA::NoExists : arx_point->first_point;
+    pr_tranzit = arx_point->pr_tranzit != 0;
 
-  Init( Qry );
-  return true;
+    return true;
 }
 
-bool TAdvTripInfo::getByPointId ( const int point_id,
-                                  const FlightProps &props )
+bool TAdvTripInfo::getByPointId(const int point_id, const FlightProps &props)
 {
-  return getByPointId(NoExists, point_id, props);
+    TQuery Qry( &OraSession );
+    Qry.SQLText =
+    "SELECT " + selectedFields() +
+    "FROM points "
+    "WHERE point_id=:point_id AND pr_del>=0 ";
+    Qry.CreateVariable( "point_id", otInteger, point_id );
+    Qry.Execute();
+
+    if ( Qry.Eof ) return false;
+    if (!match(Qry, props)) return false;
+
+    Init( Qry );
+    return true;
 }
 
 bool TAdvTripInfo::transitable(const PointId_t& pointId)
@@ -580,6 +630,70 @@ TDateTime DayToDate(int day, TDateTime base_date, bool back)
   return result;
 };
 
+std::string routeFilterConditions(bool after_current, TTripRouteType1 route_type1,
+                                  TTripRouteType2 route_type2)
+{
+    ostringstream sql;
+    if (after_current)
+    {
+      if (route_type1==trtWithCurrent)
+        sql << " :first_point IN (first_point,point_id)"
+            << "  AND point_num>=:point_num ";
+      else
+        sql << " first_point=:first_point"
+               "  AND point_num>:point_num ";
+    }
+    else
+    {
+      sql << " :first_point IN (first_point,point_id) ";
+      if (route_type1==trtWithCurrent)
+        sql << "AND point_num<=:point_num ";
+      else
+        sql << "AND point_num<:point_num ";
+    };
+
+    if (route_type2==trtWithCancelled)
+      sql << "AND pr_del>=0 ";
+    else
+      sql << "AND pr_del=0 ";
+    sql << " ORDER BY point_num";
+    return sql.str();
+}
+
+void TTripRoute::GetArxRoute(TDateTime part_key,
+                          int point_id,
+                          int point_num,
+                          int first_point,
+                          bool pr_tranzit,
+                          bool after_current,
+                          TTripRouteType1 route_type1,
+                          TTripRouteType2 route_type2)
+{
+    std::map<std::string, dbo::bindedTypes> binds{{":part_key", DateTimeToBoost(part_key)},{":point_num", point_num}};
+    if (!pr_tranzit && after_current){
+        binds[":first_point"] = point_id;
+    } else {
+        if(first_point!=NoExists)
+            binds[":first_point"] = first_point;
+        else
+            binds[":first_point"] = point_id;
+    }
+
+    dbo::Session session;
+    std::vector<dbo::Arx_Points> arx_points = session.query<dbo::Arx_Points>()
+            .where(" part_key=:part_key AND " + routeFilterConditions(after_current, route_type1, route_type2))
+            .setBind(binds);
+
+    for(const auto & point : arx_points) {
+        TTripRouteItem item;
+          item.part_key = BoostToDateTime(point.part_key);
+          item.point_id = point.point_id;
+          item.point_num = point.point_num;
+          item.airp = point.airp;
+          item.pr_cancel = point.pr_del!=0;
+        push_back(item);
+    }
+}
 void TTripRoute::GetRoute(TDateTime part_key,
                           int point_id,
                           int point_num,
@@ -592,45 +706,22 @@ void TTripRoute::GetRoute(TDateTime part_key,
 {
   clear();
   ostringstream sql;
+
   if (part_key!=NoExists)
-    sql << "SELECT part_key,point_id,point_num,airp,pr_del "
-           "FROM arx_points ";
+  {
+      GetArxRoute(part_key, point_id, point_num, first_point, pr_tranzit, after_current,
+                  route_type1, route_type2);
+  }
   else
     sql << "SELECT point_id,point_num,airp,pr_del "
         << "FROM points ";
 
-  if (after_current)
-  {
-    if (route_type1==trtWithCurrent)
-      sql << "WHERE :first_point IN (first_point,point_id)"
-          << "  AND point_num>=:point_num ";
-    else
-      sql << "WHERE first_point=:first_point"
-             "  AND point_num>:point_num ";
-  }
-  else
-  {
-    sql << "WHERE :first_point IN (first_point,point_id) ";
-    if (route_type1==trtWithCurrent)
-      sql << "AND point_num<=:point_num ";
-    else
-      sql << "AND point_num<:point_num ";
-  };
+  sql << " WHERE " << routeFilterConditions(after_current, route_type1, route_type2);
 
-  if (route_type2==trtWithCancelled)
-    sql << "AND pr_del>=0 ";
-  else
-    sql << "AND pr_del=0 ";
-
-  if (part_key!=NoExists)
-    sql << "AND part_key=:part_key ";
-
-  sql << "ORDER BY point_num";
-
+  LogTrace5 << " RESULT QUERY: " << sql.str();
   Qry.Clear();
   Qry.SQLText= sql.str().c_str();
-  if (part_key!=NoExists)
-    Qry.CreateVariable("part_key",otDate,part_key);
+
   if (!pr_tranzit && after_current)
     Qry.CreateVariable("first_point",otInteger,point_id);
   else
@@ -645,8 +736,6 @@ void TTripRoute::GetRoute(TDateTime part_key,
   for(;!Qry.Eof;Qry.Next())
   {
     TTripRouteItem item;
-    if (part_key!=NoExists)
-      item.part_key=Qry.FieldAsDateTime("part_key");
     item.point_id=Qry.FieldAsInteger("point_id");
     item.point_num=Qry.FieldAsInteger("point_num");
     item.airp=Qry.FieldAsString("airp");
@@ -654,6 +743,53 @@ void TTripRoute::GetRoute(TDateTime part_key,
     push_back(item);
   };
 };
+
+void TAdvTripRoute::GetArxRoute(TDateTime part_key,
+                    int point_id,
+                    int point_num,
+                    int first_point,
+                    bool pr_tranzit,
+                    bool after_current,
+                    TTripRouteType1 route_type1,
+                    TTripRouteType2 route_type2)
+{
+  std::map<std::string, dbo::bindedTypes> binds{{":part_key", DateTimeToBoost(part_key)},{":point_num", point_num}};
+  if (!pr_tranzit && after_current){
+      binds[":first_point"] = point_id;
+  } else {
+      if(first_point!=NoExists)
+          binds[":first_point"] = first_point;
+      else
+          binds[":first_point"] = point_id;
+  }
+  dbo::Session session;
+  std::vector<dbo::Arx_Points> arx_points = session.query<dbo::Arx_Points>()
+          .where(" part_key=:part_key AND " + routeFilterConditions(after_current, route_type1, route_type2))
+          .setBind(binds);
+
+  for(const auto & point : arx_points)
+  {
+    TAdvTripRouteItem item;
+    item.part_key= BoostToDateTime(point.part_key);
+    item.point_id = point.point_id;
+    item.point_num = point.point_num;
+    item.airp = point.airp;
+    item.pr_cancel = point.pr_del!=0;
+    if (!dbo::isNull(point.airline))
+      item.airline_out = point.airline;
+    if (!dbo::isNull(point.suffix))
+      item.suffix_out = point.suffix;
+    if (!dbo::isNull(point.flt_no))
+      item.flt_num_out = point.flt_no;
+    if (!dbo::isNull(point.scd_in))
+      item.scd_in = BoostToDateTime(point.scd_in);
+    if (!dbo::isNull(point.scd_out))
+      item.scd_out = BoostToDateTime(point.scd_out);
+    if (!dbo::isNull(point.act_out))
+      item.act_out = BoostToDateTime(point.act_out);
+    push_back(item);
+  };
+}
 
 void TAdvTripRoute::GetRoute(TDateTime part_key,
                           int point_id,
@@ -667,47 +803,19 @@ void TAdvTripRoute::GetRoute(TDateTime part_key,
 {
   clear();
   ostringstream sql;
-  if (part_key!=NoExists)
-    sql << "SELECT part_key,point_id,point_num,airp,pr_del, "
-           "airline,suffix,flt_num,scd_in,scd_out, act_out "
-           "FROM arx_points ";
+  if (part_key!=NoExists) {
+      return GetArxRoute(part_key, point_id, point_num, first_point, pr_tranzit, after_current,
+                            route_type1, route_type2);
+  }
   else
     sql << "SELECT point_id,point_num,airp,pr_del, "
            "airline,suffix,flt_no,scd_in,scd_out, act_out "
         << "FROM points ";
 
-  if (after_current)
-  {
-    if (route_type1==trtWithCurrent)
-      sql << "WHERE :first_point IN (first_point,point_id)"
-          << "  AND point_num>=:point_num ";
-    else
-      sql << "WHERE first_point=:first_point"
-             "  AND point_num>:point_num ";
-  }
-  else
-  {
-    sql << "WHERE :first_point IN (first_point,point_id) ";
-    if (route_type1==trtWithCurrent)
-      sql << "AND point_num<=:point_num ";
-    else
-      sql << "AND point_num<:point_num ";
-  };
-
-  if (route_type2==trtWithCancelled)
-    sql << "AND pr_del>=0 ";
-  else
-    sql << "AND pr_del=0 ";
-
-  if (part_key!=NoExists)
-    sql << "AND part_key=:part_key ";
-
-  sql << "ORDER BY point_num";
+  sql << " WHERE " << routeFilterConditions(after_current, route_type1, route_type2);
 
   Qry.Clear();
   Qry.SQLText= sql.str().c_str();
-  if (part_key!=NoExists)
-    Qry.CreateVariable("part_key",otDate,part_key);
   if (!pr_tranzit && after_current)
     Qry.CreateVariable("first_point",otInteger,point_id);
   else
@@ -722,8 +830,6 @@ void TAdvTripRoute::GetRoute(TDateTime part_key,
   for(;!Qry.Eof;Qry.Next())
   {
     TAdvTripRouteItem item;
-    if (part_key!=NoExists)
-      item.part_key=Qry.FieldAsDateTime("part_key");
     item.point_id=Qry.FieldAsInteger("point_id");
     item.point_num=Qry.FieldAsInteger("point_num");
     item.airp=Qry.FieldAsString("airp");
@@ -744,31 +850,44 @@ void TAdvTripRoute::GetRoute(TDateTime part_key,
   };
 }
 
+bool TTripRoute::GetArxRoute(TDateTime part_key,
+                          int point_id,
+                          bool after_current,
+                          TTripRouteType1 route_type1,
+                          TTripRouteType2 route_type2)
+{
+    dbo::Session session;
+    std::optional<dbo::Arx_Points> arx_point = session.query<dbo::Arx_Points>()
+            .where(" part_key=:part_key AND point_id=:point_id AND pr_del>=0")
+            .setBind({{":part_key", DateTimeToBoost(part_key)}, {":point_id", point_id}});
+
+  if (!arx_point) return false;
+  GetArxRoute(part_key,
+           point_id,
+           arx_point->point_num,
+           arx_point->first_point,
+           arx_point->pr_tranzit != 0,
+           after_current,route_type1,route_type2);
+  return true;
+}
+
 bool TTripRoute::GetRoute(TDateTime part_key,
                           int point_id,
                           bool after_current,
                           TTripRouteType1 route_type1,
                           TTripRouteType2 route_type2)
 {
+    if (part_key!=NoExists) {
+        return GetArxRoute(part_key, point_id, after_current, route_type1, route_type2);
+    }
   clear();
   TQuery Qry(&OraSession);
-
   ostringstream sql;
-  sql << "SELECT point_num,first_point,pr_tranzit ";
-  if (part_key!=NoExists)
-    sql << "FROM arx_points ";
-  else
-    sql << "FROM points ";
-
-  sql << "WHERE point_id=:point_id AND pr_del>=0";
-
-  if (part_key!=NoExists)
-    sql << "AND part_key=:part_key ";
+  sql << "SELECT point_num,first_point,pr_tranzit FROM points \n"
+         "WHERE point_id=:point_id AND pr_del>=0";
 
   Qry.Clear();
   Qry.SQLText= sql.str().c_str();
-  if (part_key!=NoExists)
-    Qry.CreateVariable("part_key",otDate,part_key);
   Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.Execute();
   if (Qry.Eof) return false;
@@ -778,6 +897,28 @@ bool TTripRoute::GetRoute(TDateTime part_key,
            Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point"),
            Qry.FieldAsInteger("pr_tranzit")!=0,
            after_current,route_type1,route_type2,Qry);
+  return true;
+}
+
+bool TAdvTripRoute::GetArxRoute(TDateTime part_key,
+                    int point_id,
+                    bool after_current,
+                    TTripRouteType1 route_type1,
+                    TTripRouteType2 route_type2)
+{
+    dbo::Session session;
+    std::optional<dbo::Arx_Points> arx_point = session.query<dbo::Arx_Points>()
+            .where(" part_key=:part_key AND point_id=:point_id AND pr_del>=0")
+            .setBind({{":part_key", DateTimeToBoost(part_key)}, {":point_id", point_id}});
+
+  if (!arx_point) return false;
+
+  GetArxRoute(part_key,
+           point_id,
+           arx_point->point_num,
+           arx_point->first_point,
+           arx_point->pr_tranzit != 0,
+           after_current,route_type1,route_type2);
   return true;
 }
 
@@ -793,20 +934,16 @@ bool TAdvTripRoute::GetRoute(TDateTime part_key,
 
   ostringstream sql;
   sql << "SELECT point_num,first_point,pr_tranzit ";
-  if (part_key!=NoExists)
-    sql << "FROM arx_points ";
+  if (part_key!=NoExists) {
+      return GetArxRoute(part_key, point_id, after_current, route_type1, route_type2);
+  }
   else
     sql << "FROM points ";
 
   sql << "WHERE point_id=:point_id AND pr_del>=0";
 
-  if (part_key!=NoExists)
-    sql << "AND part_key=:part_key ";
-
   Qry.Clear();
   Qry.SQLText= sql.str().c_str();
-  if (part_key!=NoExists)
-    Qry.CreateVariable("part_key",otDate,part_key);
   Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.Execute();
   if (Qry.Eof) return false;
@@ -2235,6 +2372,27 @@ void TCFG::param(LEvntPrms& params)
     params << prmenum;
 }
 
+void TCFG::get_arx(int point_id, TDateTime part_key)
+{
+    dbo::Session session;
+    std::vector<dbo::CLASSES> classes = session.query<dbo::CLASSES>().order_by("priority");
+    for(const auto &cl : classes) {
+        std::vector<dbo::ARX_TRIP_CLASSES> arx_trip_classes = session.query<dbo::ARX_TRIP_CLASSES>()
+                .where("point_id = :point_id AND cfg>0 AND part_key=:part_key AND class=:code")
+                .setBind({{"point_id", point_id}, {":part_key", DateTimeToBoost(part_key)},
+                          {":code", cl.code}});
+        for(const auto & atc : arx_trip_classes) {
+            TCFGItem item;
+            item.priority = cl.priority;
+            item.cls =  atc.m_class;
+            item.cfg = atc.cfg;
+            item.block = atc.block;
+            item.prot = atc.prot;
+            push_back(item);
+        }
+    }
+}
+
 void TCFG::get(int point_id, TDateTime part_key)
 {
     clear();
@@ -2249,24 +2407,16 @@ void TCFG::get(int point_id, TDateTime part_key)
     }
     else
     {
-      QryParams << QParam("point_id", otInteger, point_id);
-      if(part_key == NoExists)
-          SQLText =
-              "SELECT priority, class, cfg, block, prot "
-              "FROM trip_classes, classes "
-              "WHERE trip_classes.class=classes.code AND "
-              "      point_id=:point_id AND cfg>0 "
-              "ORDER BY priority ";
-      else
-      {
-          SQLText =
-              "SELECT priority, class, cfg, block, prot "
-              "FROM arx_trip_classes, classes "
-              "WHERE arx_trip_classes.class=classes.code(+) AND "
-              "      part_key=:part_key AND point_id=:point_id AND cfg>0 "
-              "ORDER BY priority";
-          QryParams << QParam("part_key", otDate, part_key);
-      };
+        if(part_key != NoExists) {
+            return get_arx(point_id, part_key);
+        }
+        QryParams << QParam("point_id", otInteger, point_id);
+        SQLText =
+          "SELECT priority, class, cfg, block, prot "
+          "FROM trip_classes, classes "
+          "WHERE trip_classes.class=classes.code AND "
+          "      point_id=:point_id AND cfg>0 "
+          "ORDER BY priority ";
     };
     TCachedQuery Qry(SQLText, QryParams);
     Qry.get().Execute();

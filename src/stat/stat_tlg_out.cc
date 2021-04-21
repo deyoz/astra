@@ -7,6 +7,8 @@
 #include "PgOraConfig.h"
 
 #define NICKNAME "DENIS"
+#include "serverlib/slogger.h"
+#include <serverlib/slogger_nonick.h>
 
 using namespace std;
 using namespace AstraLocale;
@@ -57,137 +59,245 @@ bool TTlgOutStatCmp::operator() (const TTlgOutStatKey &key1, const TTlgOutStatKe
     return key1.extra < key2.extra;
 }
 
+void ArxRunTlgOutStat(const TStatParams &params,
+                   TTlgOutStat &TlgOutStat, TTlgOutStatRow &TlgOutStatTotal,
+                   TPrintAirline &prn_airline)
+{
+    LogTrace5 << __func__;
+    DB::TQuery Qry(PgOra::getROSession("ARX_TLG_STAT"));
+    string SQLText =
+        "SELECT \n"
+        "  arx_tlg_stat.sender_sita_addr, \n"
+        "  arx_tlg_stat.receiver_descr, \n"
+        "  arx_tlg_stat.receiver_sita_addr, \n"
+        "  arx_tlg_stat.receiver_country, \n"
+        "  arx_tlg_stat.time_send, \n"
+        "  arx_tlg_stat.airline, \n"
+        "  arx_tlg_stat.flt_no, \n"
+        "  arx_tlg_stat.suffix, \n"
+        "  arx_tlg_stat.airp_dep, \n"
+        "  arx_tlg_stat.scd_local_date, \n"
+        "  arx_tlg_stat.tlg_type, \n"
+        "  arx_tlg_stat.airline_mark, \n"
+        "  arx_tlg_stat.extra, \n"
+        "  arx_tlg_stat.tlg_len \n"
+        "FROM \n"
+        "   arx_tlg_stat \n";
+
+    //SQLText += "WHERE rownum < 1000\n"; //SQLText += "WHERE \n";
+    SQLText += "WHERE sender_canon_name=:own_canon_name AND \n";
+    params.AccessClause(SQLText, "arx_tlg_stat", "airline", "airp_dep");
+    if(!params.typeb_type.empty()) {
+        SQLText += " arx_tlg_stat.tlg_type = :tlg_type and \n";
+        Qry.CreateVariable("tlg_type", otString, params.typeb_type);
+    }
+    if(!params.sender_addr.empty()) {
+        SQLText += " arx_tlg_stat.sender_sita_addr = :sender_sita_addr and \n";
+        Qry.CreateVariable("sender_sita_addr", otString, params.sender_addr);
+    }
+    if(!params.receiver_descr.empty()) {
+        SQLText += " arx_tlg_stat.receiver_descr = :receiver_descr and \n";
+        Qry.CreateVariable("receiver_descr", otString, params.receiver_descr);
+    }
+    SQLText += "    arx_tlg_stat.part_key >= :FirstDate AND arx_tlg_stat.part_key < :LastDate \n";
+
+    //ProgTrace(TRACE5, "RunTlgOutStat: pass=%d SQL=\n%s", pass, SQLText.c_str());
+    Qry.SQLText = SQLText;
+    Qry.CreateVariable("own_canon_name", otString, OWN_CANON_NAME());
+    Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
+    Qry.CreateVariable("LastDate", otDate, params.LastDate);
+    Qry.Execute();
+    if(not Qry.Eof) {
+        int col_sender_sita_addr = Qry.FieldIndex("sender_sita_addr");
+        int col_receiver_descr = Qry.FieldIndex("receiver_descr");
+        int col_receiver_sita_addr = Qry.FieldIndex("receiver_sita_addr");
+        int col_receiver_country = Qry.FieldIndex("receiver_country");
+        int col_time_send = Qry.FieldIndex("time_send");
+        int col_airline = Qry.FieldIndex("airline");
+        int col_flt_no = Qry.FieldIndex("flt_no");
+        int col_suffix = Qry.FieldIndex("suffix");
+        int col_airp_dep = Qry.FieldIndex("airp_dep");
+        int col_scd_local_date = Qry.FieldIndex("scd_local_date");
+        int col_tlg_type = Qry.FieldIndex("tlg_type");
+        int col_airline_mark = Qry.FieldIndex("airline_mark");
+        int col_extra = Qry.FieldIndex("extra");
+        int col_tlg_len = Qry.FieldIndex("tlg_len");
+        for(; not Qry.Eof; Qry.Next()) {
+          string airline = Qry.FieldAsString(col_airline);
+          prn_airline.check(airline);
+
+          TTlgOutStatRow row;
+          row.tlg_count = 1;
+          row.tlg_len = Qry.FieldAsInteger(col_tlg_len);
+          if (!params.skip_rows)
+          {
+            TTlgOutStatKey key;
+            key.sender_sita_addr = Qry.FieldAsString(col_sender_sita_addr);
+            key.receiver_descr = Qry.FieldAsString(col_receiver_descr);
+            if (params.statType == statTlgOutShort)
+            {
+              //для общей статистики выводим помимо кода гос-ва еще и полное название
+              key.receiver_country_view = ElemIdToNameLong(etCountry, Qry.FieldAsString(col_receiver_country));
+              if (!key.receiver_country_view.empty()) key.receiver_country_view += " / ";
+            };
+            key.receiver_country_view += ElemIdToCodeNative(etCountry, Qry.FieldAsString(col_receiver_country));
+            key.extra = Qry.FieldAsString(col_extra);
+            if (params.statType == statTlgOutDetail ||
+                params.statType == statTlgOutFull)
+            {
+              key.airline_view = ElemIdToCodeNative(etAirline, airline);
+              key.airline_mark_view = ElemIdToCodeNative(etAirline, Qry.FieldAsString(col_airline_mark));
+              key.airp_dep_view = ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp_dep));
+
+              if (params.statType == statTlgOutFull)
+              {
+                key.receiver_sita_addr = Qry.FieldAsString(col_receiver_sita_addr);
+                if (!Qry.FieldIsNULL(col_time_send))
+                {
+                  key.time_send = Qry.FieldAsDateTime(col_time_send);
+                  modf(key.time_send, &key.time_send);
+                };
+                if (!Qry.FieldIsNULL(col_flt_no))
+                  key.flt_no = Qry.FieldAsInteger(col_flt_no);
+                key.suffix_view = ElemIdToCodeNative(etSuffix, Qry.FieldAsString(col_suffix));
+                if (!Qry.FieldIsNULL(col_scd_local_date))
+                {
+                  key.scd_local_date = Qry.FieldAsDateTime(col_scd_local_date);
+                  modf(key.scd_local_date, &key.scd_local_date);
+                };
+                key.tlg_type=Qry.FieldAsString(col_tlg_type);
+              };
+            };
+            AddStatRow(params.overflow, key, row, TlgOutStat);
+          }
+          else
+          {
+            TlgOutStatTotal+=row;
+          };
+        }
+    }
+
+    return;
+}
 
 void RunTlgOutStat(const TStatParams &params,
                    TTlgOutStat &TlgOutStat, TTlgOutStatRow &TlgOutStatTotal,
                    TPrintAirline &prn_airline)
 {
-    for(int pass = 0; pass <= 1; pass++) {
-        DB::TQuery Qry(pass != 0
-          ? *get_main_ora_sess(STDLOG)
-          : PgOra::getROSession("TLG_STAT"));
-        string SQLText =
-            "SELECT \n"
-            "  tlg_stat.sender_sita_addr, \n"
-            "  tlg_stat.receiver_descr, \n"
-            "  tlg_stat.receiver_sita_addr, \n"
-            "  tlg_stat.receiver_country, \n"
-            "  tlg_stat.time_send, \n"
-            "  tlg_stat.airline, \n"
-            "  tlg_stat.flt_no, \n"
-            "  tlg_stat.suffix, \n"
-            "  tlg_stat.airp_dep, \n"
-            "  tlg_stat.scd_local_date, \n"
-            "  tlg_stat.tlg_type, \n"
-            "  tlg_stat.airline_mark, \n"
-            "  tlg_stat.extra, \n"
-            "  tlg_stat.tlg_len \n"
-            "FROM \n";
-        if(pass != 0) {
-            SQLText +=
-                "   arx_tlg_stat tlg_stat \n";
-        } else {
-            SQLText +=
-                "   tlg_stat \n";
-        }
-        //SQLText += "WHERE rownum < 1000\n"; //SQLText += "WHERE \n";
-        SQLText += "WHERE sender_canon_name=:own_canon_name AND \n";
-        params.AccessClause(SQLText, "tlg_stat", "airline", "airp_dep");
-        if(!params.typeb_type.empty()) {
-            SQLText += " tlg_stat.tlg_type = :tlg_type and \n";
-            Qry.CreateVariable("tlg_type", otString, params.typeb_type);
-        }
-        if(!params.sender_addr.empty()) {
-            SQLText += " tlg_stat.sender_sita_addr = :sender_sita_addr and \n";
-            Qry.CreateVariable("sender_sita_addr", otString, params.sender_addr);
-        }
-        if(!params.receiver_descr.empty()) {
-            SQLText += " tlg_stat.receiver_descr = :receiver_descr and \n";
-            Qry.CreateVariable("receiver_descr", otString, params.receiver_descr);
-        }
-        if (pass!=0)
-          SQLText +=
-            "    tlg_stat.part_key >= :FirstDate AND tlg_stat.part_key < :LastDate \n";
-        else
-          SQLText +=
-            "    tlg_stat.time_send >= :FirstDate AND tlg_stat.time_send < :LastDate \n";
+    DB::TQuery Qry(PgOra::getROSession("TLG_STAT"));
+    string SQLText =
+        "SELECT \n"
+        "  tlg_stat.sender_sita_addr, \n"
+        "  tlg_stat.receiver_descr, \n"
+        "  tlg_stat.receiver_sita_addr, \n"
+        "  tlg_stat.receiver_country, \n"
+        "  tlg_stat.time_send, \n"
+        "  tlg_stat.airline, \n"
+        "  tlg_stat.flt_no, \n"
+        "  tlg_stat.suffix, \n"
+        "  tlg_stat.airp_dep, \n"
+        "  tlg_stat.scd_local_date, \n"
+        "  tlg_stat.tlg_type, \n"
+        "  tlg_stat.airline_mark, \n"
+        "  tlg_stat.extra, \n"
+        "  tlg_stat.tlg_len \n"
+        "FROM \n"
+        "   tlg_stat \n";
 
-        //ProgTrace(TRACE5, "RunTlgOutStat: pass=%d SQL=\n%s", pass, SQLText.c_str());
-        Qry.SQLText = SQLText;
-        Qry.CreateVariable("own_canon_name", otString, OWN_CANON_NAME());
-        Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
-        Qry.CreateVariable("LastDate", otDate, params.LastDate);
-        Qry.Execute();
-        if(not Qry.Eof) {
-            int col_sender_sita_addr = Qry.FieldIndex("sender_sita_addr");
-            int col_receiver_descr = Qry.FieldIndex("receiver_descr");
-            int col_receiver_sita_addr = Qry.FieldIndex("receiver_sita_addr");
-            int col_receiver_country = Qry.FieldIndex("receiver_country");
-            int col_time_send = Qry.FieldIndex("time_send");
-            int col_airline = Qry.FieldIndex("airline");
-            int col_flt_no = Qry.FieldIndex("flt_no");
-            int col_suffix = Qry.FieldIndex("suffix");
-            int col_airp_dep = Qry.FieldIndex("airp_dep");
-            int col_scd_local_date = Qry.FieldIndex("scd_local_date");
-            int col_tlg_type = Qry.FieldIndex("tlg_type");
-            int col_airline_mark = Qry.FieldIndex("airline_mark");
-            int col_extra = Qry.FieldIndex("extra");
-            int col_tlg_len = Qry.FieldIndex("tlg_len");
-            for(; not Qry.Eof; Qry.Next()) {
-              string airline = Qry.FieldAsString(col_airline);
-              prn_airline.check(airline);
+    //SQLText += "WHERE rownum < 1000\n"; //SQLText += "WHERE \n";
+    SQLText += "WHERE sender_canon_name=:own_canon_name AND \n";
+    params.AccessClause(SQLText, "tlg_stat", "airline", "airp_dep");
+    if(!params.typeb_type.empty()) {
+        SQLText += " tlg_stat.tlg_type = :tlg_type and \n";
+        Qry.CreateVariable("tlg_type", otString, params.typeb_type);
+    }
+    if(!params.sender_addr.empty()) {
+        SQLText += " tlg_stat.sender_sita_addr = :sender_sita_addr and \n";
+        Qry.CreateVariable("sender_sita_addr", otString, params.sender_addr);
+    }
+    if(!params.receiver_descr.empty()) {
+        SQLText += " tlg_stat.receiver_descr = :receiver_descr and \n";
+        Qry.CreateVariable("receiver_descr", otString, params.receiver_descr);
+    }
+    SQLText += "    tlg_stat.time_send >= :FirstDate AND tlg_stat.time_send < :LastDate \n";
 
-              TTlgOutStatRow row;
-              row.tlg_count = 1;
-              row.tlg_len = Qry.FieldAsInteger(col_tlg_len);
-              if (!params.skip_rows)
+    //ProgTrace(TRACE5, "RunTlgOutStat: pass=%d SQL=\n%s", pass, SQLText.c_str());
+    Qry.SQLText = SQLText;
+    Qry.CreateVariable("own_canon_name", otString, OWN_CANON_NAME());
+    Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
+    Qry.CreateVariable("LastDate", otDate, params.LastDate);
+    Qry.Execute();
+    if(not Qry.Eof) {
+        int col_sender_sita_addr = Qry.FieldIndex("sender_sita_addr");
+        int col_receiver_descr = Qry.FieldIndex("receiver_descr");
+        int col_receiver_sita_addr = Qry.FieldIndex("receiver_sita_addr");
+        int col_receiver_country = Qry.FieldIndex("receiver_country");
+        int col_time_send = Qry.FieldIndex("time_send");
+        int col_airline = Qry.FieldIndex("airline");
+        int col_flt_no = Qry.FieldIndex("flt_no");
+        int col_suffix = Qry.FieldIndex("suffix");
+        int col_airp_dep = Qry.FieldIndex("airp_dep");
+        int col_scd_local_date = Qry.FieldIndex("scd_local_date");
+        int col_tlg_type = Qry.FieldIndex("tlg_type");
+        int col_airline_mark = Qry.FieldIndex("airline_mark");
+        int col_extra = Qry.FieldIndex("extra");
+        int col_tlg_len = Qry.FieldIndex("tlg_len");
+        for(; not Qry.Eof; Qry.Next()) {
+          string airline = Qry.FieldAsString(col_airline);
+          prn_airline.check(airline);
+
+          TTlgOutStatRow row;
+          row.tlg_count = 1;
+          row.tlg_len = Qry.FieldAsInteger(col_tlg_len);
+          if (!params.skip_rows)
+          {
+            TTlgOutStatKey key;
+            key.sender_sita_addr = Qry.FieldAsString(col_sender_sita_addr);
+            key.receiver_descr = Qry.FieldAsString(col_receiver_descr);
+            if (params.statType == statTlgOutShort)
+            {
+              //для общей статистики выводим помимо кода гос-ва еще и полное название
+              key.receiver_country_view = ElemIdToNameLong(etCountry, Qry.FieldAsString(col_receiver_country));
+              if (!key.receiver_country_view.empty()) key.receiver_country_view += " / ";
+            };
+            key.receiver_country_view += ElemIdToCodeNative(etCountry, Qry.FieldAsString(col_receiver_country));
+            key.extra = Qry.FieldAsString(col_extra);
+            if (params.statType == statTlgOutDetail ||
+                params.statType == statTlgOutFull)
+            {
+              key.airline_view = ElemIdToCodeNative(etAirline, airline);
+              key.airline_mark_view = ElemIdToCodeNative(etAirline, Qry.FieldAsString(col_airline_mark));
+              key.airp_dep_view = ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp_dep));
+
+              if (params.statType == statTlgOutFull)
               {
-                TTlgOutStatKey key;
-                key.sender_sita_addr = Qry.FieldAsString(col_sender_sita_addr);
-                key.receiver_descr = Qry.FieldAsString(col_receiver_descr);
-                if (params.statType == statTlgOutShort)
+                key.receiver_sita_addr = Qry.FieldAsString(col_receiver_sita_addr);
+                if (!Qry.FieldIsNULL(col_time_send))
                 {
-                  //для общей статистики выводим помимо кода гос-ва еще и полное название
-                  key.receiver_country_view = ElemIdToNameLong(etCountry, Qry.FieldAsString(col_receiver_country));
-                  if (!key.receiver_country_view.empty()) key.receiver_country_view += " / ";
+                  key.time_send = Qry.FieldAsDateTime(col_time_send);
+                  modf(key.time_send, &key.time_send);
                 };
-                key.receiver_country_view += ElemIdToCodeNative(etCountry, Qry.FieldAsString(col_receiver_country));
-                key.extra = Qry.FieldAsString(col_extra);
-                if (params.statType == statTlgOutDetail ||
-                    params.statType == statTlgOutFull)
+                if (!Qry.FieldIsNULL(col_flt_no))
+                  key.flt_no = Qry.FieldAsInteger(col_flt_no);
+                key.suffix_view = ElemIdToCodeNative(etSuffix, Qry.FieldAsString(col_suffix));
+                if (!Qry.FieldIsNULL(col_scd_local_date))
                 {
-                  key.airline_view = ElemIdToCodeNative(etAirline, airline);
-                  key.airline_mark_view = ElemIdToCodeNative(etAirline, Qry.FieldAsString(col_airline_mark));
-                  key.airp_dep_view = ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp_dep));
-
-                  if (params.statType == statTlgOutFull)
-                  {
-                    key.receiver_sita_addr = Qry.FieldAsString(col_receiver_sita_addr);
-                    if (!Qry.FieldIsNULL(col_time_send))
-                    {
-                      key.time_send = Qry.FieldAsDateTime(col_time_send);
-                      modf(key.time_send, &key.time_send);
-                    };
-                    if (!Qry.FieldIsNULL(col_flt_no))
-                      key.flt_no = Qry.FieldAsInteger(col_flt_no);
-                    key.suffix_view = ElemIdToCodeNative(etSuffix, Qry.FieldAsString(col_suffix));
-                    if (!Qry.FieldIsNULL(col_scd_local_date))
-                    {
-                      key.scd_local_date = Qry.FieldAsDateTime(col_scd_local_date);
-                      modf(key.scd_local_date, &key.scd_local_date);
-                    };
-                    key.tlg_type=Qry.FieldAsString(col_tlg_type);
-                  };
+                  key.scd_local_date = Qry.FieldAsDateTime(col_scd_local_date);
+                  modf(key.scd_local_date, &key.scd_local_date);
                 };
-                AddStatRow(params.overflow, key, row, TlgOutStat);
-              }
-              else
-              {
-                TlgOutStatTotal+=row;
+                key.tlg_type=Qry.FieldAsString(col_tlg_type);
               };
-            }
+            };
+            AddStatRow(params.overflow, key, row, TlgOutStat);
+          }
+          else
+          {
+            TlgOutStatTotal+=row;
+          };
         }
     }
+
+    ArxRunTlgOutStat(params, TlgOutStat, TlgOutStatTotal, prn_airline);
     return;
 }
 
