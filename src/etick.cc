@@ -92,7 +92,7 @@ std::vector<TkneData> loadCrsPaxTKN(const std::string& tick_no)
 {
   LogTrace(TRACE6) << __func__ << ": tick_no=" << tick_no;
   std::vector<TkneData> result;
-  DB::TQuery Qry(PgOra::getROSession("CRS_PAX_TKN"));
+  DB::TQuery Qry(PgOra::getROSession("CRS_PAX_TKN"), STDLOG);
   Qry.SQLText="SELECT ticket_no, coupon_no, pax_id "
               "FROM crs_pax_tkn "
               "WHERE ticket_no=:ticket_no "
@@ -114,7 +114,7 @@ std::vector<TkneData> loadCrsPaxTKN(const PaxId_t& pax_id)
 {
   LogTrace(TRACE6) << __func__ << ": pax_id=" << pax_id;
   std::vector<TkneData> result;
-  DB::TQuery Qry(PgOra::getROSession("CRS_PAX_TKN"));
+  DB::TQuery Qry(PgOra::getROSession("CRS_PAX_TKN"), STDLOG);
   Qry.SQLText="SELECT ticket_no, coupon_no, pax_id "
               "FROM crs_pax_tkn "
               "WHERE pax_id=:pax_id "
@@ -142,7 +142,7 @@ std::set<PaxId_t> loadCrsPaxTKN(const std::string& tick_no, int coupon_no,
                    << ", coupon_no=" << coupon_no
                    << ", rem_code=" << rem_code;
   std::set<PaxId_t> result;
-  DB::TQuery Qry(PgOra::getROSession("CRS_PAX_TKN"));
+  DB::TQuery Qry(PgOra::getROSession("CRS_PAX_TKN"), STDLOG);
   Qry.SQLText="SELECT pax_id "
               "FROM crs_pax_tkn "
               "WHERE ticket_no=:ticket_no "

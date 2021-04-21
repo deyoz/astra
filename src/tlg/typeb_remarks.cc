@@ -410,7 +410,7 @@ static void LoadTKNRem(const PaxId_t& paxId,
 {
   tkn.clear();
 
-  DB::TQuery Qry(PgOra::getROSession("CRS_PAX_TKN"));
+  DB::TQuery Qry(PgOra::getROSession("CRS_PAX_TKN"), STDLOG);
   Qry.SQLText="SELECT * FROM crs_pax_tkn WHERE pax_id=:pax_id";
   Qry.CreateVariable("pax_id",otInteger,paxId.get());
   Qry.Execute();
@@ -435,7 +435,7 @@ void SaveTKNRem(const PaxIdWithSegmentPair& paxId,
 
   bool modified=false;
 
-  DB::TQuery Qry(PgOra::getRWSession("CRS_PAX_TKN"));
+  DB::TQuery Qry(PgOra::getRWSession("CRS_PAX_TKN"), STDLOG);
   Qry.CreateVariable("pax_id",otInteger,paxId().get());
   if (deleteFromDB)
   {
@@ -446,7 +446,7 @@ void SaveTKNRem(const PaxIdWithSegmentPair& paxId,
 
   if (!tkn.empty())
   {
-    DB::TQuery Qry(PgOra::getRWSession("CRS_PAX_TKN"));
+    DB::TQuery Qry(PgOra::getRWSession("CRS_PAX_TKN"), STDLOG);
     Qry.SQLText=
         "INSERT INTO crs_pax_tkn "
         "  (pax_id,rem_code,ticket_no,coupon_no) "

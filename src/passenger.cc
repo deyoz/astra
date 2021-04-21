@@ -436,7 +436,7 @@ bool LoadCrsPaxTkn(int pax_id, TPaxTknItem &tkn)
 
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, pax_id);
-  DB::TCachedQuery PaxTknQry(PgOra::getROSession("CRS_PAX_TKN"), sql, QryParams);
+  DB::TCachedQuery PaxTknQry(PgOra::getROSession("CRS_PAX_TKN"), sql, QryParams, STDLOG);
   PaxTknQry.get().Execute();
   if (!PaxTknQry.get().Eof) {
     tkn.fromDB(PaxTknQry.get());
@@ -3119,7 +3119,9 @@ TSimplePnrItem& TSimplePnrItem::fromDB(TQuery &Qry)
   cl=Qry.FieldAsString("class");
   cabin_cl=Qry.FieldAsString("cabin_class");
   status=Qry.FieldAsString("status");
-  point_id_tlg=Qry.FieldAsInteger("point_id");
+  if(Qry.GetFieldIndex("point_id") >= 0) {
+    point_id_tlg=Qry.FieldAsInteger("point_id");
+  }
   return *this;
 }
 
@@ -3610,7 +3612,7 @@ std::set<PaxId_t> loadCrsPaxTKN_ext(const std::string& tick_no, int coupon_no)
                    << ": tick_no=" << tick_no
                    << ", coupon_no=" << coupon_no;
   std::set<PaxId_t> result;
-  DB::TQuery Qry(PgOra::getROSession("CRS_PAX_TKN"));
+  DB::TQuery Qry(PgOra::getROSession("CRS_PAX_TKN"), STDLOG);
   Qry.SQLText="SELECT pax_id "
               "FROM crs_pax_tkn "
               "WHERE ticket_no IN (:ticket_no, :ticket_no_13) "
