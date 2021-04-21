@@ -65,7 +65,7 @@ void TAnnulBT::toDB(const TBagIdMap &items, TDateTime time_annul)
               ":id, :grp_id, :pax_id, :point_id, :bag_type, :rfisc, :scd_out, "
               ":time_create, :time_annul, :amount, :weight, :user_id "
               ") ",
-              qryParams
+              qryParams, STDLOG
               );
         DB::TCachedQuery tagsQry(
               PgOra::getRWSession("ANNUL_TAGS"),
@@ -75,7 +75,8 @@ void TAnnulBT::toDB(const TBagIdMap &items, TDateTime time_annul)
               ":id, :no"
               ")",
               QParams() << QParam("id", otInteger)
-                        << QParam("no", otFloat)
+                        << QParam("no", otFloat),
+              STDLOG
               );
         for(TBagIdMap::const_iterator
                 bag_id = items.begin();
@@ -274,11 +275,11 @@ void TAnnulBT::backup()
     DB::TCachedQuery Qry(
           PgOra::getROSession("ANNUL_BAG"),
           "SELECT * FROM annul_bag WHERE grp_id = :grp_id",
-          QParams() << QParam("grp_id", otInteger, grp_id));
+          QParams() << QParam("grp_id", otInteger, grp_id), STDLOG);
     DB::TCachedQuery tagsQry(
           PgOra::getROSession("ANNUL_TAGS"),
           "SELECT * FROM annul_tags WHERE id = :id",
-          QParams() << QParam("id", otInteger));
+          QParams() << QParam("id", otInteger), STDLOG);
     Qry.get().Execute();
     list<int> ids;
     if(not Qry.get().Eof) {
@@ -332,7 +333,7 @@ void TAnnulBT::backup()
     DB::TCachedQuery delTagsQry(
           PgOra::getRWSession("ANNUL_TAGS"),
           "DELETE FROM annul_tags WHERE id = :id",
-          QParams() << QParam("id", otInteger));
+          QParams() << QParam("id", otInteger), STDLOG);
     for(list<int>::iterator id = ids.begin(); id != ids.end(); id++)
     {
         delTagsQry.get().SetVariable("id", *id);
@@ -341,7 +342,7 @@ void TAnnulBT::backup()
     DB::TCachedQuery delBagQry(
           PgOra::getRWSession("ANNUL_BAG"),
           "DELETE FROM annul_bag WHERE grp_id = :grp_id",
-          QParams() << QParam("grp_id", otInteger, grp_id));
+          QParams() << QParam("grp_id", otInteger, grp_id), STDLOG);
     delBagQry.get().Execute();
 }
 

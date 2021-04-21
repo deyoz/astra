@@ -323,7 +323,7 @@ namespace BIPrintRules {
                       "   :time_print, "
                       "   :desk "
                       ") ",
-                      QryParams);
+                      QryParams, STDLOG);
                 try {
                     Qry.get().Execute();
                 } catch(const EOracleError &E) {

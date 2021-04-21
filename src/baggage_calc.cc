@@ -2147,7 +2147,7 @@ bool BagPaymentCompleted(int grp_id, int *value_bag_count)
 {
   vector< pair< string, int> > paid_bag;      //< bag_type, weight > а хорошо бы чтобы был TBagTypeKey вместо string bag_type!
   vector< pair< double, string > > value_bag; //< value, value_cur >
-  DB::TQuery QryPaid(PgOra::getROSession("PAID_BAG"));
+  DB::TQuery QryPaid(PgOra::getROSession("PAID_BAG"), STDLOG);
   QryPaid.CreateVariable("grp_id", otInteger, grp_id);
 
   QryPaid.SQLText="SELECT bag_type, weight FROM paid_bag WHERE grp_id=:grp_id AND weight>0";
@@ -2219,7 +2219,7 @@ bool BagPaymentCompleted(int grp_id, int *value_bag_count)
                 table_name = "BAG_PREPAY";
                 break;
       };
-      DB::TQuery Qry(PgOra::getROSession(table_name));
+      DB::TQuery Qry(PgOra::getROSession(table_name), STDLOG);
       Qry.SQLText = sql;
       Qry.Execute();
       for(;!Qry.Eof;Qry.Next())

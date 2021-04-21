@@ -1893,7 +1893,7 @@ void LoadContent(int id, bool pr_grp, TTlgContent& con)
   for(;!Qry.Eof;Qry.Next())
     con.addBag(CheckIn::TBagItem().fromDB(Qry));
 
-  DB::TQuery QryTags(PgOra::getROSession("BAG_TAGS"));
+  DB::TQuery QryTags(PgOra::getROSession("BAG_TAGS"), STDLOG);
   QryTags.SQLText=
     "SELECT * FROM bag_tags WHERE grp_id=:grp_id";
   QryTags.CreateVariable("grp_id",otInteger,grp_id);
