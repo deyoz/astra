@@ -91,7 +91,8 @@ void TSQLText::Clear()
 
 /* --------------------------------- End Class TSQLTExt --------------------- */
 
-TFieldData::TFieldData( TMemoryManager *AMM )
+TFieldData::TFieldData( TMemoryManager *AMM, STDLOG_SIGNATURE )
+  : nick(nick), file(file), line(line)
 {
   MM = AMM;
   buf = NULL;
@@ -141,7 +142,8 @@ TFieldData::~TFieldData()
 }
 /* ------------------------------- End Class TFieldData --------------------- */
 
-TVariableData::TVariableData( TMemoryManager *AMM )
+TVariableData::TVariableData( TMemoryManager *AMM, STDLOG_SIGNATURE )
+  : nick(nick), file(file), line(line)
 {
   MM = AMM;
   indp = NULL;
@@ -190,7 +192,8 @@ bool TVariableData::IsOwnBuffer( )
 }
 /* ------------------------------- End Class TVariableData ------------------ */
 
-TFields::TFields( TMemoryManager *AMM )
+TFields::TFields( TMemoryManager *AMM, STDLOG_SIGNATURE )
+  : nick(nick), file(file), line(line)
 {
   MM = AMM;
 }
@@ -206,11 +209,11 @@ void TFields::PreSetFieldsCount( int AColCount )
   FFields.reserve( AColCount );
 }
 
-TFieldData *TFields::CreateFieldData( TMemoryManager *AMM )
+TFieldData *TFields::CreateFieldData( TMemoryManager *AMM, STDLOG_SIGNATURE )
 {
   TFieldData *FieldData;
   try {
-    FieldData = new TFieldData( AMM );
+    FieldData = new TFieldData( AMM, STDLOG_VARIABLE );
     AMM->create( FieldData, STDLOG );
   }
   catch( bad_alloc ) {
@@ -223,7 +226,7 @@ TFieldData *TFields::CreateFieldData( TMemoryManager *AMM )
 TFieldData* TFields::GetFieldData( int Index )
 {
   if ( Index < 0 || Index >= (int)FFields.size() )
-    throw EOracleError( "Field index out of range", 0 );
+    throw EOracleError( "Field index out of range", 0, STDLOG_VARIABLE );
   return FFields[ Index ];
 }
 
@@ -242,7 +245,8 @@ void TFields::Clear( )
 }
 /* --------------------------------- End Class TFields ---------------------- */
 
-TVariables::TVariables( TMemoryManager *AMM )
+TVariables::TVariables( TMemoryManager *AMM, STDLOG_SIGNATURE )
+  : nick(nick), file(file), line(line)
 {
   MM = AMM;
 }
@@ -283,11 +287,11 @@ int TVariables::FindVariable( const char *name )
   return Result;
 }
 
-TVariableData *TVariables::CreateVariable( )
+TVariableData *TVariables::CreateVariable( STDLOG_SIGNATURE )
 {
   TVariableData *VariableData;
   try {
-    VariableData = new TVariableData( MM );
+    VariableData = new TVariableData( MM, STDLOG_VARIABLE );
     MM->create( VariableData, STDLOG );
   }
   catch( bad_alloc ) {
@@ -300,7 +304,7 @@ TVariableData *TVariables::CreateVariable( )
 TVariableData *TVariables::GetVariableData( int Index )
 {
   if ( Index < 0 || Index >= (int)FVariables.size() )
-    throw EOracleError( "Field index out of range", 0 );
+    throw EOracleError( "Field index out of range", 0, STDLOG_VARIABLE );
   return FVariables[ Index ];
 }
 
@@ -310,7 +314,7 @@ void TVariables::DeleteVariable( int VariableId )
    {
      char serror[ 100 ];
      sprintf( serror, "Variable %d does not exists", VariableId );
-     throw EOracleError( serror, 0);
+     throw EOracleError( serror, 0, STDLOG_VARIABLE);
    }
   else
    {
@@ -599,7 +603,8 @@ bool TSession::isOCI8()
 
 
 ////////////////////////////////////////////////////////////////////
-TQuery::TQuery( TSession *ASession ):MM(STDLOG)
+TQuery::TQuery( TSession *ASession )
+  : nick(nullptr), file(nullptr), line(0), MM(STDLOG)
 {
 #ifdef SQL_COUNTERS
   queryCount++;
@@ -614,12 +619,35 @@ TQuery::TQuery( TSession *ASession ):MM(STDLOG)
   FOpened = disconnect;
   FCache = 25;
   LastOCIError = 0;
-  Fields = new TFields( &MM );
+  Fields = new TFields( &MM, STDLOG_VARIABLE );
   MM.create( Fields, STDLOG );
-  Variables = new TVariables( &MM );
+  Variables = new TVariables( &MM, STDLOG_VARIABLE );
   MM.create( Variables, STDLOG );
   Eof = 0;
-};
+}
+
+TQuery::TQuery( TSession *ASession, STDLOG_SIGNATURE )
+  : nick(nick), file(file), line(line), MM(STDLOG)
+{
+#ifdef SQL_COUNTERS
+  queryCount++;
+#endif
+  MM.create( this, STDLOG );
+  errhp = NULL;
+  secerrhp = NULL;
+  stmthp = NULL;
+  defhp = NULL;
+  FFunctionType = 0;
+  Session = ASession;
+  FOpened = disconnect;
+  FCache = 25;
+  LastOCIError = 0;
+  Fields = new TFields( &MM, STDLOG_VARIABLE );
+  MM.create( Fields, STDLOG );
+  Variables = new TVariables( &MM, STDLOG_VARIABLE );
+  MM.create( Variables, STDLOG );
+  Eof = 0;
+}
 
 TQuery::~TQuery( )
 {
@@ -732,7 +760,7 @@ void TQuery::RaiseOracleError( )
      Result = cda.rc;
      oerhms( &cda, cda.rc, (text*)texterror, texterror_size );
    };
-  throw EOracleError( texterror, Result, SQLText.SQLText() );
+  throw EOracleError( texterror, Result, SQLText.SQLText(), STDLOG_VARIABLE );
 };
 
 void TQuery::AllocStmthp( )
@@ -793,7 +821,7 @@ void TQuery::Parser( )
   Open( );
   Fields->Clear( );
   if ( SQLText.IsEmpty() )
-    throw EOracleError( "SQLText is empty", 0 );
+    throw EOracleError( "SQLText is empty", 0, STDLOG_VARIABLE );
   if ( stmthp && !SQLText.IsChange() )
     return;
 #ifdef SQL_COUNTERS
@@ -849,7 +877,7 @@ void TQuery::Describe( )
      if ( Session->isOCI8() )
       {
         ub4 cbufl;
-        AFieldData = AFields.CreateFieldData( &MM );
+        AFieldData = AFields.CreateFieldData( &MM, STDLOG_VARIABLE );
         OCICall( OCIParamGet( stmthp, OCI_HTYPE_STMT, errhp, (void**)&paramhp, Pos ) );
         if ( !ReturnCode( ) )
          {
@@ -870,7 +898,7 @@ void TQuery::Describe( )
              case SQLT_OSL:
              case SQLT_NTY:
              case SQLT_REF:
-               throw EOracleError( "Unsupported field type", 0, SQLText.SQLText());
+               throw EOracleError( "Unsupported field type", 0, SQLText.SQLText(), STDLOG_VARIABLE);
             };
             // определяем название поля
             cbufl = 30;
@@ -910,7 +938,7 @@ void TQuery::Describe( )
         }
         else
          {
-           AFieldData = AFields.CreateFieldData( &MM );
+           AFieldData = AFields.CreateFieldData( &MM, STDLOG_VARIABLE );
            AFieldData->dbsize = dbsize;
            AFieldData->prec = prec;
            AFieldData->scale = scale;
@@ -1085,9 +1113,9 @@ void TQuery::Execute( )
   int cerror;
   ub4 ExecMode = OCI_DEFAULT;
   if ( !Session )
-    throw EOracleError( "Session undefined", 0 );
+    throw EOracleError( "Session undefined", 0, STDLOG_VARIABLE );
   if ( !Session->isConnect() )
-   throw EOracleError( "Not logged on", 0 );
+   throw EOracleError( "Not logged on", 0, STDLOG_VARIABLE );
   Eof = 1;
   Parser( ); // разборка и привязка текста
   BindVariables( ); // создание и привязка переменных
@@ -1159,9 +1187,9 @@ void TQuery::Next( )
 {
   if ( Eof ) return;
   if ( !Session )
-   throw EOracleError( "Session undefined", 0 );
+   throw EOracleError( "Session undefined", 0, STDLOG_VARIABLE );
   if ( !Session->isConnect() )
-   throw EOracleError( "Not logged on", 0 );
+   throw EOracleError( "Not logged on", 0, STDLOG_VARIABLE );
   CacheIndex++;
   if ( CacheIndex >= Cached )
   {
@@ -1215,7 +1243,7 @@ const char *TQuery::FieldName( int FieldId )
    {
      char serror[ 100 ];
      sprintf( serror, "Field %d does not exists", FieldId );
-     throw EOracleError( serror, 0, SQLText.SQLText() );
+     throw EOracleError( serror, 0, SQLText.SQLText(), STDLOG_VARIABLE );
    }
   else return Fields->GetFieldData( FieldId )->GetName();
 };
@@ -1226,7 +1254,7 @@ otFieldType TQuery::FieldType( int FieldId )
    {
      char serror[ 100 ];
      sprintf( serror, "Field %d does not exists", FieldId );
-     throw EOracleError( serror, 0, SQLText.SQLText() );
+     throw EOracleError( serror, 0, SQLText.SQLText(), STDLOG_VARIABLE );
    }
   else return Fields->GetFieldData( FieldId )->buftype;
 };
@@ -1254,7 +1282,7 @@ int TQuery::FieldIndex( const char* name )
    {
      char serror[ 100 ];
      sprintf( serror, "Field %s does not exists", name );
-     throw EOracleError( serror, 0, SQLText.SQLText() );
+     throw EOracleError( serror, 0, SQLText.SQLText(), STDLOG_VARIABLE );
    };
   return FieldId;
 }
@@ -1270,7 +1298,7 @@ int TQuery::FieldIsNULL( int FieldId )
    {
      char serror[ 100 ];
      sprintf( serror, "Field %d does not exists", FieldId );
-     throw EOracleError( serror, 0, SQLText.SQLText() );
+     throw EOracleError( serror, 0, SQLText.SQLText(), STDLOG_VARIABLE );
    }
   else
    {
@@ -1292,7 +1320,8 @@ int TQuery::FieldIsNULL( const string &name )
 void TQuery::CheckEOF( )
 {
   if ( Eof )
-    throw EOracleError( "You cannot access field data beyond Eof ", 0, SQLText.SQLText() );
+    throw EOracleError( "You cannot access field data beyond Eof ", 0, SQLText.SQLText(),
+                        STDLOG_VARIABLE);
 }
 
 void *TQuery::FieldData( int FieldId )
@@ -1301,7 +1330,7 @@ void *TQuery::FieldData( int FieldId )
    {
      char serror[ 100 ];
      sprintf( serror, "Field %d does not exists", FieldId );
-     throw EOracleError( serror, 0, SQLText.SQLText() );
+     throw EOracleError( serror, 0, SQLText.SQLText(), STDLOG_VARIABLE );
    }
   else
    {
@@ -1584,14 +1613,14 @@ int TQuery::GetSizeLongField( int FieldId )
    {
      char serror[ 100 ];
      sprintf( serror, "Field %d does not exists", FieldId );
-     throw EOracleError( serror, 0, SQLText.SQLText() );
+     throw EOracleError( serror, 0, SQLText.SQLText(), STDLOG_VARIABLE );
    };
   TFieldData &AFieldData = *Fields->GetFieldData( FieldId );
   if ( ( AFieldData.buftype != otLong )&&( AFieldData.buftype != otLongRaw ) )
    {
      char serror[ 100 ];
      sprintf( serror, "Field %d does not type Long", FieldId );
-     throw EOracleError( serror, 0, SQLText.SQLText() );
+     throw EOracleError( serror, 0, SQLText.SQLText(), STDLOG_VARIABLE );
    };
   int Result = 0;
   TLongItems ALongValue;
@@ -1737,7 +1766,7 @@ void TQuery::CreateLongVariable( const string &name, otFieldType atype, void *Da
 void TQuery::DeclareVariable( const char *name, otFieldType atype )
 {
   if ( !strlen( name ) )
-    throw EOracleError( "You cannot declare a variable with an empty name", 1);
+    throw EOracleError( "You cannot declare a variable with an empty name", 1, STDLOG_VARIABLE);
   else
   {
     int VariableId = Variables->FindVariable( name );
@@ -1745,7 +1774,7 @@ void TQuery::DeclareVariable( const char *name, otFieldType atype )
       Variables->DeleteVariable( VariableId );
     if ( Session )
       Close( );
-    TVariableData &AVariableData = *Variables->CreateVariable( );
+    TVariableData &AVariableData = *Variables->CreateVariable( STDLOG_VARIABLE );
     AVariableData.buftype = atype;
     AVariableData.SetName( name );
     AVariableData.indp = (sb2*)MM.malloc( sizeof( sb2 ), STDLOG );
@@ -1788,12 +1817,12 @@ void TQuery::DeclareVariable( const string &name, otFieldType atype )
 void TQuery::DeleteVariable( const char *name )
 {
   if ( !strlen( name ) )
-    throw EOracleError( "You cannot delete a variable with an empty name", 1);
+    throw EOracleError( "You cannot delete a variable with an empty name", 1, STDLOG_VARIABLE);
   int VariableId = Variables->FindVariable( name );
   if ( VariableId < 0 ) {
     char serror[ 100 ];
     sprintf( serror, "Variable %s does not exists", name );
-    throw EOracleError( serror, 0, SQLText.SQLText() );
+    throw EOracleError( serror, 0, SQLText.SQLText(), STDLOG_VARIABLE );
   }
   Variables->DeleteVariable( VariableId );
   if ( Session )
@@ -1811,7 +1840,7 @@ const char *TQuery::VariableName( int VariableId )
    {
      char serror[ 100 ];
      sprintf( serror, "Variable %d does not exists", VariableId );
-     throw EOracleError( serror, 0, SQLText.SQLText() );
+     throw EOracleError( serror, 0, SQLText.SQLText(), STDLOG_VARIABLE );
    }
   else
     return Variables->GetVariableData( VariableId )->GetName();
@@ -1831,7 +1860,7 @@ int TQuery::VariableIndex( const char* name )
    {
      char serror[ 100 ];
      sprintf( serror, "Variable %s does not exists", name );
-     throw EOracleError( serror, 0, SQLText.SQLText() );
+     throw EOracleError( serror, 0, SQLText.SQLText(), STDLOG_VARIABLE );
    };
 }
 
@@ -1846,7 +1875,7 @@ int TQuery::VariableIsNULL( int VariableId )
    {
      char serror[ 100 ];
      sprintf( serror, "Variable %d does not exists", VariableId );
-     throw EOracleError( serror, 0, SQLText.SQLText() );
+     throw EOracleError( serror, 0, SQLText.SQLText(), STDLOG_VARIABLE );
    }
   else
     return ( *Variables->GetVariableData( VariableId )->indp == -1 );
@@ -1855,7 +1884,8 @@ int TQuery::VariableIsNULL( int VariableId )
 int TQuery::VariableIsNULL( const char *name )
 {
   if ( !strlen( name ) )
-    throw EOracleError( "You cannot get value to variable with an empty name", 1 );
+    throw EOracleError( "You cannot get value to variable with an empty name", 1,
+                        STDLOG_VARIABLE);
   int VariableId = VariableIndex( name );
   return VariableIsNULL( VariableId );
 }
@@ -1886,7 +1916,8 @@ int TQuery::GetVariableAsInteger( int VariableId )
 int TQuery::GetVariableAsInteger( const char *name )
 {
   if ( !strlen( name ) )
-    throw EOracleError( "You cannot get value to variable with an empty name", 1 );
+    throw EOracleError( "You cannot get value to variable with an empty name", 1,
+                        STDLOG_VARIABLE);
   int VariableId = VariableIndex( name );
   return GetVariableAsInteger( VariableId );
 }
@@ -1917,7 +1948,8 @@ double TQuery::GetVariableAsFloat( int VariableId )
 double TQuery::GetVariableAsFloat( const char *name )
 {
   if ( !strlen( name ) )
-    throw EOracleError( "You cannot get value to variable with an empty name", 1 );
+    throw EOracleError( "You cannot get value to variable with an empty name", 1,
+                        STDLOG_VARIABLE);
   int VariableId = VariableIndex( name );
   return GetVariableAsFloat( VariableId );
 }
@@ -1972,7 +2004,8 @@ char *TQuery::GetVariableAsString( int VariableId )
 char *TQuery::GetVariableAsString( const char *name )
 {
   if ( !strlen( name ) )
-    throw EOracleError( "You cannot get value to variable with an empty name", 1 );
+    throw EOracleError( "You cannot get value to variable with an empty name", 1,
+                        STDLOG_VARIABLE);
   int VariableId = VariableIndex( name );
   return GetVariableAsString( VariableId );
 }
@@ -2003,7 +2036,8 @@ TDateTime TQuery::GetVariableAsDateTime( int VariableId )
 TDateTime TQuery::GetVariableAsDateTime( const char *name )
 {
   if ( !strlen( name ) )
-    throw EOracleError( "You cannot get value to variable with an empty name", 1 );
+    throw EOracleError( "You cannot get value to variable with an empty name", 1,
+                        STDLOG_VARIABLE);
   int VariableId = VariableIndex( name );
   return GetVariableAsDateTime( VariableId );
 }
@@ -2016,14 +2050,16 @@ TDateTime TQuery::GetVariableAsDateTime( const string &name )
 int TQuery::GetSizeLongVariable( const char *name )
 {
   if ( !strlen( name ) )
-    throw EOracleError( "You cannot get size of variable with an empty name", 1 );
+    throw EOracleError( "You cannot get size of variable with an empty name", 1,
+                        STDLOG_VARIABLE);
   int VariableId = VariableIndex( name );
   TVariableData &AVariableData = *Variables->GetVariableData( VariableId );
   if ( ( AVariableData.buftype != otLong )&&( AVariableData.buftype != otLongRaw ) )
    {
      char serror[ 100 ];
      sprintf( serror, "Variable %s does not type Long", name );
-     throw EOracleError( serror, 0, SQLText.SQLText() );
+     throw EOracleError( serror, 0, SQLText.SQLText(),
+                         STDLOG_VARIABLE);
    };
   return AVariableData.len;
 }
@@ -2036,14 +2072,16 @@ int TQuery::GetSizeLongVariable( const string &name )
 int TQuery::GetVariableAsLong( const char *name, void *Value )
 {
   if ( !strlen( name ) )
-    throw EOracleError( "You cannot get value to variable with an empty name", 1 );
+    throw EOracleError( "You cannot get value to variable with an empty name", 1,
+                        STDLOG_VARIABLE);
   int VariableId = VariableIndex( name );
   TVariableData &AVariableData = *Variables->GetVariableData( VariableId );
   if ( ( AVariableData.buftype != otLong )&&( AVariableData.buftype != otLongRaw ) )
    {
      char serror[ 100 ];
      sprintf( serror, "Variable %s does not type Long",name );
-     throw EOracleError( serror, 0, SQLText.SQLText() );
+     throw EOracleError( serror, 0, SQLText.SQLText(),
+                         STDLOG_VARIABLE);
    };
   memcpy( Value, AVariableData.buf, AVariableData.len );
   return AVariableData.len;
@@ -2057,7 +2095,8 @@ int TQuery::GetVariableAsLong( const string &name, void *Value )
 void TQuery::SetVariable( const char *name, tnull Data )
 {
   if ( !strlen( name ) )
-    throw EOracleError( "You cannot set value to variable with an empty name", 1 );
+    throw EOracleError( "You cannot set value to variable with an empty name", 1,
+                        STDLOG_VARIABLE);
   int VariableId = VariableIndex( name );
   TVariableData &AVariableData = *Variables->GetVariableData( VariableId );
   *AVariableData.indp = -1;
@@ -2071,7 +2110,8 @@ void TQuery::SetVariable( const string &name, tnull Data )
 void TQuery::SetVariable( const char *name, int Data )
 {
   if ( !strlen( name ) )
-    throw EOracleError( "You cannot set value to variable with an empty name", 1 );
+    throw EOracleError( "You cannot set value to variable with an empty name", 1,
+                        STDLOG_VARIABLE);
   int VariableId = VariableIndex( name );
   TVariableData &AVariableData = *Variables->GetVariableData( VariableId );
   *AVariableData.indp = 0;
@@ -2115,7 +2155,8 @@ void TQuery::SetVariable( const string &name, int Data )
 void TQuery::SetVariable( const char *name, double Data )
 {
   if ( !strlen( name ) )
-    throw EOracleError( "You cannot set value to variable with an empty name", 1 );
+    throw EOracleError( "You cannot set value to variable with an empty name", 1,
+                        STDLOG_VARIABLE);
   int VariableId = VariableIndex( name );
   TVariableData &AVariableData = *Variables->GetVariableData( VariableId );
   *AVariableData.indp = 0;
@@ -2159,7 +2200,8 @@ void TQuery::SetVariable( const string &name, double Data )
 void TQuery::SetVariable( const char *name, const char *Data )
 {
   if ( !strlen( name ) )
-    throw EOracleError( "You cannot set value to variable with an empty name", 1 );
+    throw EOracleError( "You cannot set value to variable with an empty name", 1,
+                        STDLOG_VARIABLE);
   int VariableId = VariableIndex( name );
   TVariableData &AVariableData = *Variables->GetVariableData( VariableId );
   if ( !Data )
@@ -2247,7 +2289,8 @@ void TQuery::SetVariable( const string &name, const string &Data )
 void TQuery::SetVariable( const char *name, void *Data )
 {
   if ( !strlen( name ) )
-    throw EOracleError( "You cannot set value to variable with an empty name", 1 );
+    throw EOracleError( "You cannot set value to variable with an empty name", 1,
+                        STDLOG_VARIABLE);
   int VariableId = VariableIndex( name );
   TVariableData &AVariableData = *Variables->GetVariableData( VariableId );
   if ( !Data )
@@ -2308,14 +2351,16 @@ void TQuery::SetVariable( const string &name, void *Data )
 void TQuery::SetLongVariable( const char *name, void *Data, int Length )
 {
   if ( !strlen( name ) )
-    throw EOracleError( "You cannot set value to variable with an empty name", 1 );
+    throw EOracleError( "You cannot set value to variable with an empty name", 1,
+                        STDLOG_VARIABLE);
   int VariableId = VariableIndex( name );
   TVariableData &AVariableData = *Variables->GetVariableData( VariableId );
   if ( ( AVariableData.buftype != otLong )&&( AVariableData.buftype != otLongRaw ) )
    {
      char serror[ 100 ];
      sprintf( serror, "Variable %s does not type Long", name );
-     throw EOracleError( serror, 0, SQLText.SQLText() );
+     throw EOracleError( serror, 0, SQLText.SQLText(),
+                         STDLOG_VARIABLE);
    };
   AVariableData.FreeBuffer( );
   if ( !Data )

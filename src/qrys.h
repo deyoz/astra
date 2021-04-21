@@ -78,6 +78,7 @@ struct TQry {
     size_t count;
     bool in_use;
     TQry(): Qry(&OraSession), count(0), in_use(false) {};
+    TQry(STDLOG_SIGNATURE): Qry(&OraSession, STDLOG_VARIABLE), count(0), in_use(false) {};
 };
 
 typedef std::tr1::shared_ptr<TQry> TQry_ptr;
@@ -89,6 +90,8 @@ class TCachedQuery {
         TQuery &get();
         TCachedQuery(const std::string &SQLText, const QParams &p);
         TCachedQuery(const std::string &SQLText);
+        TCachedQuery(const std::string &SQLText, const QParams &p, STDLOG_SIGNATURE);
+        TCachedQuery(const std::string &SQLText, STDLOG_SIGNATURE);
         ~TCachedQuery();
 };
 

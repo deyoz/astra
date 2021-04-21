@@ -23,7 +23,7 @@ struct TQrys: public std::multimap<const std::string, std::list<TQry_ptr>::itera
         std::list<TQry_ptr> queue;
     public:
         long time;
-        TQry_ptr get(const std::string &SQLText, const QParams &p);
+        TQry_ptr get(const std::string &SQLText, const QParams &p, STDLOG_SIGNATURE);
         void dump_queue();
         TQrys(): time(0) {};
         static TQrys *Instance()
@@ -51,11 +51,20 @@ TQuery &TCachedQuery::get()
 
 TCachedQuery::TCachedQuery(const string &SQLText) {
     QParams p;
-    Qry = TQrys::Instance()->get(SQLText, p);
+    Qry = TQrys::Instance()->get(SQLText, p, STDLOG);
 }
 
 TCachedQuery::TCachedQuery(const string &SQLText, const QParams &p) {
-    Qry = TQrys::Instance()->get(SQLText, p);
+    Qry = TQrys::Instance()->get(SQLText, p, STDLOG);
+}
+
+TCachedQuery::TCachedQuery(const string &SQLText, STDLOG_SIGNATURE) {
+    QParams p;
+    Qry = TQrys::Instance()->get(SQLText, p, STDLOG_VARIABLE);
+}
+
+TCachedQuery::TCachedQuery(const string &SQLText, const QParams &p, STDLOG_SIGNATURE) {
+    Qry = TQrys::Instance()->get(SQLText, p, STDLOG_VARIABLE);
 }
 
 #ifdef XP_TESTING
@@ -177,7 +186,7 @@ void TQrys::dump_queue()
 #endif
 }
 
-TQry_ptr TQrys::get(const std::string &SQLText, const QParams &p)
+TQry_ptr TQrys::get(const std::string &SQLText, const QParams &p, STDLOG_SIGNATURE)
 {
     TPerfTimer tm;
     tm.Init();
@@ -197,7 +206,7 @@ TQry_ptr TQrys::get(const std::string &SQLText, const QParams &p)
         queue.splice(queue.end(), queue, i_qry);
     } else {
         if(size() < MAX_QRYS()) { // Вставляем новый запрос
-            i_qry = queue.insert(queue.end(), TQry_ptr(new TQry()));
+            i_qry = queue.insert(queue.end(), TQry_ptr(new TQry(STDLOG_VARIABLE)));
             insert(pair<string, list<TQry_ptr>::iterator>( SQLText, i_qry));
         } else { // Меняем старый
             i_qry = queue.begin();
@@ -219,7 +228,7 @@ TQry_ptr TQrys::get(const std::string &SQLText, const QParams &p)
                 (*i_qry)->Qry.Clear();
                 (*i_qry)->count = 0;
             } else { // В очереди нет свободных запросов
-                i_qry = queue.insert(queue.end(), TQry_ptr(new TQry()));
+                i_qry = queue.insert(queue.end(), TQry_ptr(new TQry(STDLOG_VARIABLE)));
                 insert(pair<string, list<TQry_ptr>::iterator>( SQLText, i_qry));
             }
         }

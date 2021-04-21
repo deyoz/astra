@@ -137,9 +137,12 @@ private:
     std::string &m_sqlText;
     int &m_eof;
     std::map<std::string, Variable> m_variables;
+    const char* m_nick;
+    const char* m_file;
+    int m_line;
 
 public:
-    TQueryIfaceDbCppImpl(DbCpp::Session& sess, std::string& sqlText, int& eof);
+    TQueryIfaceDbCppImpl(DbCpp::Session& sess, std::string& sqlText, int& eof, STDLOG_SIGNATURE);
 
     virtual void Close() override;
     virtual void Execute() override;
@@ -195,10 +198,14 @@ protected:
 
 TQueryIfaceDbCppImpl::TQueryIfaceDbCppImpl(DbCpp::Session& sess,
                                            std::string& sqlText,
-                                           int& eof)
+                                           int& eof,
+                                           STDLOG_SIGNATURE)
     : m_sess(sess),
       m_sqlText(sqlText),
-      m_eof(eof)
+      m_eof(eof),
+      m_nick(nick),
+      m_file(file),
+      m_line(line)
 {
 }
 
@@ -215,13 +222,17 @@ void TQueryIfaceDbCppImpl::Execute()
     bool isSelect = isSelectQuery(m_sqlText);
     try {
         if(!isSelect) {
-            make_db_curs_no_cache("savepoint BEFORE_INNER_CURSCTL_EXEC", m_sess)
+            DbCpp::make_curs_no_cache_(m_nick, m_file, m_line,
+                                       "savepoint BEFORE_INNER_CURSCTL_EXEC",
+                                       m_sess)
                     .exec();
         }
         m_cur->exec();
     } catch(PgCpp::PgException& e) {
         if(!isSelect) {
-            make_db_curs_no_cache("rollback to savepoint BEFORE_INNER_CURSCTL_EXEC", m_sess)
+            DbCpp::make_curs_no_cache_(m_nick, m_file, m_line,
+                                       "rollback to savepoint BEFORE_INNER_CURSCTL_EXEC",
+                                       m_sess)
                     .exec();
         }
         if(auto oraErr = oraErrorCodeMapper(e.errCode())) {
@@ -679,6 +690,7 @@ class TQueryIfaceNativeImpl final: public TQueryIfaceImpl
 {
 public:
     TQueryIfaceNativeImpl(std::string& sqlText, int& eof);
+    TQueryIfaceNativeImpl(std::string& sqlText, int& eof, STDLOG_SIGNATURE);
 
     virtual void Close() override;
     virtual void Execute() override;
@@ -758,6 +770,13 @@ TQueryIfaceNativeImpl::TQueryIfaceNativeImpl(std::string& sqlText, int& eof)
       m_eof(eof)
 {
     m_qry.reset(new ::TQuery(&OraSession));
+}
+
+TQueryIfaceNativeImpl::TQueryIfaceNativeImpl(std::string& sqlText, int& eof, STDLOG_SIGNATURE)
+    : m_sqlText(sqlText),
+      m_eof(eof)
+{
+    m_qry.reset(new ::TQuery(&OraSession, STDLOG_VARIABLE));
 }
 
 void TQueryIfaceNativeImpl::Close()
@@ -967,8 +986,18 @@ TQuery::TQuery(DbCpp::Session& sess)
     if(sess.getType() == DbCpp::DbType::Oracle) {
         m_impl.reset(new TQueryIfaceNativeImpl(SQLText, Eof));
     } else {
-        m_impl.reset(new TQueryIfaceDbCppImpl(sess, SQLText, Eof));
+        m_impl.reset(new TQueryIfaceDbCppImpl(sess, SQLText, Eof, STDLOG));
     }
+}
+
+TQuery::TQuery(DbCpp::Session& sess, STDLOG_SIGNATURE)
+      : Eof(0)
+{
+  if(sess.getType() == DbCpp::DbType::Oracle) {
+      m_impl.reset(new TQueryIfaceNativeImpl(SQLText, Eof, STDLOG_VARIABLE));
+  } else {
+      m_impl.reset(new TQueryIfaceDbCppImpl(sess, SQLText, Eof, STDLOG_VARIABLE));
+  }
 }
 
 TQuery::~TQuery()
@@ -1041,17 +1070,27 @@ void TQuery::SetVariable(const std::string& vname, tnull vdata) { m_impl->SetVar
 
 TCachedQuery::TCachedQuery(DbCpp::Session& sess, const std::string& sqlText, const QParams& params)
 {
-    init(sess, sqlText, params);
+    init(sess, sqlText, params, STDLOG);
 }
 
 TCachedQuery::TCachedQuery(DbCpp::Session& sess, const std::string& sqlText)
 {
-    init(sess, sqlText, QParams());
+    init(sess, sqlText, QParams(), STDLOG);
 }
 
-void TCachedQuery::init(DbCpp::Session& sess, const std::string& sqlText, const QParams& params)
+TCachedQuery::TCachedQuery(DbCpp::Session& sess, const std::string& sqlText, const QParams& params, STDLOG_SIGNATURE)
 {
-    m_qry.reset(new TQuery(sess));
+    init(sess, sqlText, params, STDLOG_VARIABLE);
+}
+
+TCachedQuery::TCachedQuery(DbCpp::Session& sess, const std::string& sqlText, STDLOG_SIGNATURE)
+{
+    init(sess, sqlText, QParams(), STDLOG_VARIABLE);
+}
+
+void TCachedQuery::init(DbCpp::Session& sess, const std::string& sqlText, const QParams& params, STDLOG_SIGNATURE)
+{
+    m_qry.reset(new TQuery(sess, STDLOG_VARIABLE));
     m_qry->SQLText = sqlText;
 
     for(const QParam& p: params) {
