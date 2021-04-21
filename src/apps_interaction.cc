@@ -1309,11 +1309,11 @@ bool checkAPPSFormats(const PointId_t& point_dep, const AirportCode_t& airp_arv,
     if(route.empty()) {
         return false;
     }
-    if(route.size() < 2) {
-        return false;
-    }
     if(!isInternationalFlight(AirportCode_t(route.front().airp), AirportCode_t(route.back().airp)))
     {
+        return false;
+    }
+    if(route.size() < 2) {
         return false;
     }
     auto sets = appsSetsForRoute(route);
@@ -3311,6 +3311,7 @@ public:
     }
 
     bool find(const TPaxSegmentPair& segmentPair) {
+        LogTrace(TRACE5) << __FUNCTION__ ;
         auto it = cache.find(segmentPair);
         if(it != cache.end()) {
             return it->second;

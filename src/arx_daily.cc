@@ -349,6 +349,9 @@ bool TArxMoveFlt::Next(int max_rows, int duration)
             };
           }
           else Qry->SetVariable("date_range",FNull);
+          if(!ARX::WRITE_PG) {
+            LockAndCollectStat(move_id);
+          }
           Qry->Execute();
           ASTRA::commitAndCallCommitHooks();
           proc_count++;
