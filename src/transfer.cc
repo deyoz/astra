@@ -1448,7 +1448,7 @@ void GrpsToGrpsView(TTrferType type,
     };
 
     map<int, TFltInfo> point_ids;
-    DB::TQuery FltQry(PgOra::getROSession(table_name));
+    DB::TQuery FltQry(PgOra::getROSession(table_name), STDLOG);
     FltQry.SQLText=sql;
     FltQry.DeclareVariable("point_id", otInteger);
 

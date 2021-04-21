@@ -68,7 +68,7 @@ void TTlgBinding::after_bind_or_unbind_flt(int point_id_tlg, int point_id_spp, b
 
 bool TTlgBinding::bind_flt_by_point_id(int point_id)
 {
-  DB::TQuery Qry(PgOra::getROSession("TLG_TRIPS"));
+  DB::TQuery Qry(PgOra::getROSession("TLG_TRIPS"), STDLOG);
   Qry.SQLText=
       "SELECT point_id, airline, flt_no, suffix, scd, pr_utc, "
       "       airp_dep, airp_arv, bind_type "
@@ -84,7 +84,7 @@ void TTlgBinding::unbind_flt_by_point_ids(const vector<int>& spp_point_ids)
   trace_for_bind(spp_point_ids, "unbind_flt");
 
   if (spp_point_ids.empty()) return;
-  DB::TQuery BindQry(PgOra::getROSession("TLG_TRIPS"));
+  DB::TQuery BindQry(PgOra::getROSession("TLG_TRIPS"), STDLOG);
   BindQry.SQLText=
       "SELECT point_id, airline, flt_no, suffix, scd, pr_utc, "
       "       airp_dep, airp_arv, bind_type "
@@ -488,7 +488,7 @@ void TTlgBinding::bind_or_unbind_flt(const std::vector<TTripInfo>& flts, bool un
 {
   if (flts.empty()) return;
 
-  DB::TQuery Qry(PgOra::getROSession("TLG_TRIPS"));
+  DB::TQuery Qry(PgOra::getROSession("TLG_TRIPS"), STDLOG);
   Qry.SQLText=unbind ? unbind_flt_sql(use_scd_utc)
                      : bind_flt_sql(use_scd_utc);
   if (use_scd_utc)
@@ -728,7 +728,7 @@ void TFltInfo::dump() const
 
 void lockTlgBind(DbCpp::Session& session, TBindType bind_type)
 {
-  DB::TQuery Qry(session);
+  DB::TQuery Qry(session, STDLOG);
   Qry.SQLText = "SELECT code FROM tlg_bind_types "
                 "WHERE code=:bind_type "
                 "FOR UPDATE ";
@@ -802,7 +802,7 @@ std::pair<int, bool> TFltInfo::getPointId(TBindType bind_type) const
   if (!PgOra::supportsPg("TLG_TRIPS")
       && !PgOra::supportsPg("TLG_BIND_TYPES"))
   {
-    TQuery Qry(&OraSession);
+    TQuery Qry(&OraSession, STDLOG);
     std::string sql =
         "DECLARE \n";
     if(!inTestMode()) {

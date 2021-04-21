@@ -5881,7 +5881,7 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     Qry3.Next();
   }
   /* pr_utc */
-    DB::TQuery Qry4(PgOra::getROSession("TLG_TRIPS"));
+    DB::TQuery Qry4(PgOra::getROSession("TLG_TRIPS"), STDLOG);
     Qry4.SQLText =
      "SELECT DISTINCT airline,flt_no,suffix,scd,airp_arv "
      "FROM tlg_trips "
@@ -5964,7 +5964,7 @@ void deleteCrsDisplaces(const PointId_t& point_id)
 void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   const PointId_t point_id(NodeAsInteger( "point_id", reqNode ));
-  DB::TQuery TQry(PgOra::getROSession("TLG_TRIPS"));
+  DB::TQuery TQry(PgOra::getROSession("TLG_TRIPS"), STDLOG);
   TQry.SQLText =
    "SELECT point_id FROM tlg_trips "
    "WHERE pr_utc=0 AND bind_type=0 AND airp_dep=:airp_dep AND airp_arv IS NULL AND "

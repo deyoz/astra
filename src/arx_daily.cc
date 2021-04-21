@@ -528,7 +528,7 @@ bool TArxTlgTrips::Next(int max_rows, int duration)
 {
   if (step==0)
   {
-    DB::TQuery QryTrips(PgOra::getROSession("TLG_TRIPS"));
+    DB::TQuery QryTrips(PgOra::getROSession("TLG_TRIPS"), STDLOG);
     QryTrips.SQLText =
         "SELECT point_id "
         "FROM tlg_trips "

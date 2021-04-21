@@ -1564,7 +1564,7 @@ void TMktFlight::get(DB::TQuery &Qry, int id)
     return;
   }
   const int point_id = Qry.FieldAsInteger("point_id");
-  DB::TQuery QryTrips(PgOra::getROSession("TLG_TRIPS"));
+  DB::TQuery QryTrips(PgOra::getROSession("TLG_TRIPS"), STDLOG);
   QryTrips.SQLText =
       "SELECT airline, flt_no, suffix, scd, airp_dep "
       "FROM tlg_trips "

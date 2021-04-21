@@ -1263,7 +1263,7 @@ bool EqualCrsTransfer(const map<int, CheckIn::TTransferItem> &trfer1,
 
 std::optional<TlgTripsData> TlgTripsData::load(const PointIdTlg_t& point_id)
 {
-  DB::TQuery Qry(PgOra::getROSession("TLG_TRIPS"));
+  DB::TQuery Qry(PgOra::getROSession("TLG_TRIPS"), STDLOG);
   Qry.SQLText =
       "SELECT airline,airp_dep,airp_arv,flt_no,scd,suffix "
       "FROM tlg_trips "
@@ -1678,7 +1678,7 @@ static int CreateSearchResponse(int point_dep,
                                                    FlightProps::WithCheckIn)))
     throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
 
-  DB::TQuery FltQry(PgOra::getROSession("TLG_TRIPS"));
+  DB::TQuery FltQry(PgOra::getROSession("TLG_TRIPS"), STDLOG);
   FltQry.SQLText=
     "SELECT airline,flt_no,suffix,airp_dep AS airp,scd AS scd_out "
     "FROM tlg_trips WHERE point_id=:point_id";

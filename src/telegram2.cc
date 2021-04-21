@@ -9025,7 +9025,7 @@ void TRBD::get(TypeB::TDetailCreateInfo &info)
                 "SELECT point_id, airline, flt_no, suffix "
                 "FROM tlg_trips "
                 "WHERE point_id=:point_id_tlg ",
-                QryParams);
+                QryParams, STDLOG);
           Qry.get().Execute();
           if(not Qry.get().Eof) {
             TMktFlight flt;

@@ -435,7 +435,7 @@ void get_flight(int point_id, TRow &r)
 
 void get_crs_flight(int point_id, TRow &r)
 {
-  DB::TQuery Qry(PgOra::getROSession("TLG_TRIPS"));
+  DB::TQuery Qry(PgOra::getROSession("TLG_TRIPS"), STDLOG);
   Qry.SQLText =
     "SELECT airline, flt_no, suffix, scd AS takeoff, 0 AS is_utc, airp_dep "
     "FROM tlg_trips "
