@@ -1417,7 +1417,7 @@ struct PaxData4Sync
 static bool existsPnrMarketFlt(const PnrId_t& pnr_id)
 {
   LogTrace(TRACE6) << __func__ << ": pnr_id=" << pnr_id;
-  DB::TQuery Qry(PgOra::getROSession("PNR_MARKET_FLT"));
+  DB::TQuery Qry(PgOra::getROSession("PNR_MARKET_FLT"), STDLOG);
   Qry.SQLText =
     "SELECT 1 FROM pnr_market_flt "
     "WHERE pnr_id=:pnr_id ";
@@ -1470,9 +1470,14 @@ std::vector<PaxData4Sync> PaxData4Sync::load(int pax_id)
       .bind(":pax_id", pax_id)
       .exec();
 
+  std::set<PnrId_t> pnrsWithMarketFlight;
   const std::vector<TkneData> tkne_items = loadCrsPaxTKN(PaxId_t(pax_id));
   while (!cur.fen()) {
+    if (pnrsWithMarketFlight.find(PnrId_t(pnr_id)) != pnrsWithMarketFlight.end()) {
+      continue;
+    }
     if (existsPnrMarketFlt(PnrId_t(pnr_id))) {
+      pnrsWithMarketFlight.emplace(pnr_id);
       continue;
     }
     for (const TkneData& tkne_item: tkne_items) {

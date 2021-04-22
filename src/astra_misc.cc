@@ -1576,7 +1576,7 @@ void TMktFlight::get(DB::TQuery &Qry, int id)
   }
 
   const int pnr_id = Qry.FieldAsInteger("pnr_id");
-  DB::TQuery QryMrkt(PgOra::getROSession("PNR_MARKET_FLT"));
+  DB::TQuery QryMrkt(PgOra::getROSession("PNR_MARKET_FLT"), STDLOG);
   QryMrkt.SQLText =
       "SELECT airline, flt_no, suffix, subclass, "
       "local_date, airp_dep, airp_arv "

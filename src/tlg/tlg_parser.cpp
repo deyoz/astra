@@ -7390,7 +7390,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         CrsTransferQry.DeclareVariable("airp_arv",otString);
         CrsTransferQry.DeclareVariable("subclass",otString);
 
-        DB::TQuery PnrMarketFltQry(PgOra::getRWSession("PNR_MARKET_FLT"));
+        DB::TQuery PnrMarketFltQry(PgOra::getRWSession("PNR_MARKET_FLT"), STDLOG);
         PnrMarketFltQry.SQLText=
           "INSERT INTO pnr_market_flt(pnr_id,airline,flt_no,suffix,local_date,airp_dep,airp_arv,subclass) "
           "VALUES(:pnr_id,:airline,:flt_no,:suffix,:local_date,:airp_dep,:airp_arv,:subclass)";
@@ -7948,14 +7948,14 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
             if (!pnr.ne.empty() && indicatorsPresence!=TPnrItem::OnlyDEL)
             {
               //удаляем нафиг предыдущий
-              DB::TQuery QryDelete(PgOra::getRWSession("PNR_MARKET_FLT"));
+              DB::TQuery QryDelete(PgOra::getRWSession("PNR_MARKET_FLT"), STDLOG);
               QryDelete.SQLText=
                 "DELETE FROM pnr_market_flt WHERE pnr_id= :pnr_id ";
               QryDelete.CreateVariable("pnr_id",otInteger,pnr_id);
               QryDelete.Execute();
 
               const int tid = PgOra::getSeqCurrVal("cycle_tid__seq");
-              DB::TQuery QryUpdate(PgOra::getRWSession("CRS_PNR"));
+              DB::TQuery QryUpdate(PgOra::getRWSession("CRS_PNR"), STDLOG);
               QryUpdate.SQLText=
                 "UPDATE crs_pnr SET tid=:tid WHERE pnr_id= :pnr_id ";
               QryUpdate.CreateVariable("tid",otInteger,tid);
