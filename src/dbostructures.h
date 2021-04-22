@@ -978,7 +978,7 @@ struct STAT
         dbo::field(a,child,"CHILD", dbo::NotNull);
         dbo::field(a,child_wop,"CHILD_WOP", dbo::NotNull);
         dbo::field(a,client_type,"CLIENT_TYPE", dbo::NotNull);
-        dbo::field(a,excess_pc,"EXCESS_PC", dbo::NotNull);
+        dbo::field(a,excess_pc,"EXCESS_PC");
         dbo::field(a,excess_wt,"EXCESS_WT", dbo::NotNull);
         dbo::field(a,f,"F", dbo::NotNull);
         dbo::field(a,hall,"HALL");
@@ -1036,7 +1036,7 @@ struct TRFER_STAT
         dbo::field(a,child,"CHILD", dbo::NotNull);
         dbo::field(a,child_wop,"CHILD_WOP", dbo::NotNull);
         dbo::field(a,client_type,"CLIENT_TYPE", dbo::NotNull);
-        dbo::field(a,excess_pc,"EXCESS_PC", dbo::NotNull);
+        dbo::field(a,excess_pc,"EXCESS_PC");
         dbo::field(a,excess_wt,"EXCESS_WT", dbo::NotNull);
         dbo::field(a,f,"F", dbo::NotNull);
         dbo::field(a,pcs,"PCS", dbo::NotNull);
@@ -1118,7 +1118,6 @@ struct ARX_TLG_OUT : public TLG_OUT
     template<typename Action>
     void persist(Action & a) {
         TLG_OUT::persist(a);
-        dbo::field(a,extra,"EXTRA");
         dbo::field(a,part_key,"PART_KEY", dbo::NotNull);
     }
 };
@@ -1340,7 +1339,6 @@ struct ARX_TRIP_SETS
         dbo::field(a,max_commerce,"MAX_COMMERCE");
         dbo::field(a,part_key,"PART_KEY", dbo::NotNull);
         dbo::field(a,point_id,"POINT_ID", dbo::NotNull);
-        dbo::field(a,pr_airp_seance,"PR_AIRP_SEANCE");
         dbo::field(a,pr_etstatus,"PR_ETSTATUS", dbo::NotNull);
         dbo::field(a,pr_stat,"PR_STAT", dbo::NotNull);
         dbo::field(a,pr_tranz_reg,"PR_TRANZ_REG");
