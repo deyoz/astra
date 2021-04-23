@@ -313,7 +313,7 @@ bool GetCryptGrp(const std::string& desk, int& grp_id, bool& pr_grp)
 
     std::optional<int> group = getDeskGroupByCode(deskUpper);
 
-    if (!deskGroupExists(group)) {
+    if (!group.has_value()) {
         return false;
     }
 
@@ -385,6 +385,9 @@ bool GetClientCertificate( int grp_id, bool pr_grp, const std::string &desk, std
 #ifdef USE_MESPRO
 bool isRightCert( const std::string& cert )
 {
+#ifdef XP_TESTING
+  return true;
+#else
   std::string algo;
   char *buf = MESPRO_API::GetCertPublicKeyAlgorithmBuffer( (char*)cert.c_str(), cert.size() );
   if ( buf == nullptr ) {
@@ -395,6 +398,7 @@ bool isRightCert( const std::string& cert )
   MESPRO_API::FreeBuffer( buf );
   return ( (!isMespro_V1() && (std::string(MP_KEY_ALG_NAME_GOST_12_256) == algo)) ||
            (isMespro_V1() && (std::string(MP_KEY_ALG_NAME_GOST_12_256) != algo)) );
+#endif // XP_TESTING
 }
 
 void GetServerCertificate( std::string &ca, std::string &pk, std::string &server )
@@ -489,7 +493,7 @@ void TCrypt::Init( const std::string &desk )
   TQuery Qry(&OraSession);
   int grp_id;
   bool pr_grp;
-  if ( !GetCryptGrp( Qry, desk, grp_id, pr_grp ) )
+  if ( !GetCryptGrp( desk, grp_id, pr_grp ) )
     return;
   ProgTrace( TRACE5, "grp_id=%d,pr_grp=%d", grp_id, pr_grp );
   TCertRequest req;
@@ -497,11 +501,11 @@ void TCrypt::Init( const std::string &desk )
   MESPRO_API::setLibNameFromAlgo( req.Algo );
 
   string pk;
-  GetServerCertificate( Qry, ca_cert, pk, server_cert );
+  GetServerCertificate( ca_cert, pk, server_cert );
   if ( ca_cert.empty() || server_cert.empty() )
     throw Exception("ca or server certificate not found");
 
-  bool pr_exists = GetClientCertificate( Qry, grp_id, pr_grp, desk, client_cert, pkcs_id );
+  bool pr_exists = GetClientCertificate( grp_id, pr_grp, desk, client_cert, pkcs_id );
   if ( client_cert.empty() ) {
     if ( !pr_exists )
       AstraLocale::showProgError("MSG.MESSAGEPRO.CRYPT_CONNECT_CERT_NOT_FOUND.CALL_ADMIN");
@@ -624,7 +628,7 @@ void IntGetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr res
   NewTextChild( node, "MIN_DAYS_CERT_WARRNING", MIN_DAYS_CERT_WARRNING );
   //проверка на режим инициализации шифрования с клиента
   if ( Crypt.pkcs_id >= 0 ) {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("CRYPT_FILE_PARAMS"));
     Qry.SQLText =
       "SELECT keyname, certname, password, desk, desk_grp_id, send_count "
       " FROM crypt_file_params "
@@ -662,7 +666,7 @@ void GetCertRequestInfo( const string &desk, bool pr_grp, TCertRequest &req, boo
   DB::TQuery Qry(PgOra::getROSession("CRYPT_REQ_DATA"));
   if ( pr_grp ) {
     std::optional<int> group = getDeskGroupByCode(desk);
-    if (!deskGroupExists(group)) {
+    if (!group.has_value()) {
       throw AstraLocale::UserException( "MSG.MESSAGEPRO.NO_DATA_FOR_CERT_QRY" );
     }
     Qry.SQLText =
@@ -715,7 +719,7 @@ void ValidateCertificateRequest( const string &desk, bool pr_grp )
 {
     std::optional<int> group = getDeskGroupByCode(desk);
 
-    if (!deskGroupExists(group)) {
+    if (!group.has_value()) {
         return;
     }
     DbCpp::CursCtl cur = make_db_curs(
@@ -749,7 +753,7 @@ void ValidatePKCSData( const string &desk, bool pr_grp )
 
     std::optional<int> group = getDeskGroupByCode(desk);
 
-    if (!deskGroupExists(group)) {
+    if (!group.has_value()) {
         return;
     }
 
@@ -820,7 +824,7 @@ void IntPutRequestCertificate( const string &request, const string &desk, bool p
     int id = PgOra::getSeqNextVal_int("ID__SEQ");
     std::optional<int> group = getDeskGroupByCode(desk);
 
-    if (!deskGroupExists(group)) {
+    if (!group.has_value()) {
         // что в этом случае мы должны сделать?
         LogTrace(TRACE5) << "Desk group for desk: " << desk << " not found";
         return;
@@ -1245,9 +1249,9 @@ std::string getCertificate(int pkcs_id)
     return certificate;
 }
 
-void fillTpkcsWithFiles(TPKCS& pkcs, int pkcs_id)
+void fillTpkcsWithFilesOra(TPKCS& pkcs, int pkcs_id)
 {
-    DB::TQuery Qry(PgOra::getRWSession("CRYPT_FILES"));
+    TQuery Qry(&OraSession);
     Qry.SQLText =
        "SELECT name, data "
        "FROM crypt_files "
@@ -1258,8 +1262,9 @@ void fillTpkcsWithFiles(TPKCS& pkcs, int pkcs_id)
     RawBuffer pkey;
 
     while (!Qry.Eof) {
-        int len = Qry.GetSizeLongField("data");
-        rawBuffer.increaseCapacity(len * 2);
+        size_t len = Qry.GetSizeLongField("data");
+
+        pkey.increaseCapacity(len * 2);
 
         Qry.FieldAsLong("data", pkey.buffer);
         TPSEFile psefile;
@@ -1275,6 +1280,69 @@ void fillTpkcsWithFiles(TPKCS& pkcs, int pkcs_id)
     }
 }
 
+void fillTpkcsWithFiles(TPKCS& pkcs, int pkcs_id)
+{
+    std::string data;
+    std::string name;
+
+    PgCpp::BinaryDefHelper<std::string> defdata{data};
+
+    PgCpp::CursCtl cur = DbCpp::mainPgReadOnlySession(STDLOG)
+       .createPgCursor(STDLOG,
+       "SELECT name, data from crypt_files WHERE pkcs_id=:pkcs_id",
+        true
+    );
+
+    cur.bind(":pkcs_id", pkcs_id)
+       .def(name)
+       .def(defdata)
+       .exec();
+
+    if (0 == cur.rowcount()) {
+        throw Exception("CryptValidateServerKey: keys not found");
+    }
+
+    while (!cur.fen()) {
+        TPSEFile psefile;
+        psefile.filename = name;
+        ProgTrace(TRACE5, "psefile.filename=%s", psefile.filename.c_str());
+        psefile.data = data;
+        pkcs.pse_files.push_back(psefile);
+    }
+}
+
+void updatePkcsDataOra(int pkcs_id, const std::string& name, const std::string& data)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+       "UPDATE crypt_files "
+       "SET data =: data "
+       "WHERE pkcs_id =: pkcs_id "
+       "AND name =: name";
+    Qry.CreateVariable("pkcs_id", otInteger, pkcs_id);
+    Qry.CreateVariable("name", otString, name);
+    Qry.DeclareVariable("data", otLongRaw);
+    Qry.SetLongVariable("data", (void*)data.c_str(), data.size());
+    Qry.Execute();
+}
+
+void updatePkcsData(int pkcs_id, const std::string& name, const std::string& data)
+{
+    PgCpp::CursCtl cur = DbCpp::mainPgManagedSession(STDLOG).createPgCursor(STDLOG,
+       "UPDATE crypt_files "
+       "SET data = :data "
+       "WHERE pkcs_id = :pkcs_id "
+       "AND name = :name",
+       true
+    );
+
+    cur.stb()
+       .bind(":data", PgCpp::BinaryBindHelper({data.data(), data.size()}))
+       .bind(":pkcs_id", pkcs_id)
+       .bind(":name", name)
+       .exec();
+}
+
 void CryptInterface::CryptValidateServerKey(XMLRequestCtxt*, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     //пришло подтверждение авторизации - удаление из БД всей информации по PSE
@@ -1288,7 +1356,9 @@ void CryptInterface::CryptValidateServerKey(XMLRequestCtxt*, xmlNodePtr reqNode,
     TPKCS pkcs;
     bool pr_GOST;
 
-    fillTpkcsWithFiles(pkcs, pkcs_id);
+    PgOra::supportsPg("CRYPT_FILES")
+     ? fillTpkcsWithFiles(pkcs, pkcs_id)
+     : fillTpkcsWithFilesOra(pkcs, pkcs_id);
 
     string cert = getCertificate(pkcs_id);
     char* buf = MESPRO_API::GetCertPublicKeyAlgorithmBuffer((char*)cert.c_str(), cert.size());
@@ -1300,7 +1370,7 @@ void CryptInterface::CryptValidateServerKey(XMLRequestCtxt*, xmlNodePtr reqNode,
     pr_GOST = (algo != MP_KEY_ALG_NAME_RSA && algo != MP_KEY_ALG_NAME_DSA);
     ProgTrace(TRACE5, "pr_GOST=%d, algo=%s", pr_GOST, algo.c_str());
 
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession("crypt_file_params"));
     Qry.SQLText = "SELECT keyname,certname,password FROM crypt_file_params "
                   " WHERE pkcs_id=:pkcs_id";
     Qry.CreateVariable("pkcs_id", otInteger, pkcs_id);
@@ -1343,21 +1413,18 @@ void CryptInterface::CryptValidateServerKey(XMLRequestCtxt*, xmlNodePtr reqNode,
                 GetError("ChangePrivateKeyPassword",
                     MESPRO_API::ChangePrivateKeyPassword((char*)PSEpath.c_str(), (char*)pkcs.password.c_str(), (char*)newpassword.c_str()));
             tst();
-            pkcs.password = newpassword;
-            Qry.Clear();
-            Qry.SQLText = "UPDATE crypt_files SET data=:data WHERE pkcs_id=:pkcs_id AND name=:name";
-            Qry.CreateVariable("pkcs_id", otInteger, pkcs_id);
-            Qry.DeclareVariable("name", otString);
-            Qry.DeclareVariable("data", otLongRaw);
             for (vector<TPSEFile>::iterator i = pkcs.pse_files.begin(); i != pkcs.pse_files.end(); i++) {
                 TPSEFile pse_file;
                 readPSEFile(PSEpath + "/" + i->filename, i->filename, *i);
-                Qry.SetVariable("name", i->filename);
-                Qry.SetLongVariable("data", (void*)i->data.c_str(), i->data.size());
-                ProgTrace(TRACE5, "filename=%s", i->filename.c_str());
-                Qry.Execute();
+
+                PgOra::supportsPg("CRYPT_FILES")
+                 ? updatePkcsData(pkcs_id, i->filename, i->data)
+                 : updatePkcsDataOra(pkcs_id, i->filename, i->data);
+
+                LogTrace(TRACE5) << "filename=" << i->filename;
             }
             tst();
+            pkcs.password = newpassword;
             make_db_curs(
                 "UPDATE crypt_file_params SET password=:password, send_count=send_count+1 WHERE pkcs_id=:pkcs_id",
                 PgOra::getRWSession("CRYPT_FILES"))
@@ -1803,6 +1870,7 @@ START_TEST(check_GetServerCertificate)
        .exec();
 
     GetServerCertificate(ca, pk, server);
+
     fail_unless(ca.empty() && pk == "Private Key" && server == "Certificate");
 
     make_db_curs("UPDATE crypt_server SET pr_ca = 1 WHERE id = 777", PgOra::getRWSession("CRYPT_SERVER")).exec();

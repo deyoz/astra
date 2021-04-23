@@ -61,29 +61,6 @@ namespace xp_testing {
 }//namespace xp_testing
 #endif//XP_TESTING
 
-bool desk_grpContainsGroup(const int grp_id)
-{
-    DbCpp::CursCtl cur = make_db_curs(
-       "SELECT 1 FROM desk_grp WHERE grp_id=:grp_id",
-        PgOra::getROSession("DESK_GRP")
-    );
-
-    cur.stb()
-       .bind(":grp_id", grp_id)
-       .exfet();
-
-    if (DbCpp::ResultCode::NoDataFound == cur.err()) {
-        return false;
-    }
-
-    return true;
-}
-
-bool deskGroupExists(std::optional<int> group)
-{
-    return group.has_value() && desk_grpContainsGroup(*group);
-}
-
 std::optional<int> getDeskGroupByCode(const std::string& desk)
 {
     DbCpp::CursCtl cur = make_db_curs(
@@ -218,7 +195,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
 
   if (InitData.checkCrypt
    && !InitData.duplicate
-   && deskGroupExists(deskGroup)) { // пришло не зашифрованное сообщение - проверка на то, что пользователь шифруется
+   && deskGroup.has_value()) { // пришло не зашифрованное сообщение - проверка на то, что пользователь шифруется
     DB::TQuery Qry(PgOra::getROSession("CRYPT_SETS"));
     Qry.SQLText =
      "SELECT pr_crypt FROM crypt_sets "

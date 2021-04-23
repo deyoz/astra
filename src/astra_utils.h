@@ -848,8 +848,6 @@ class Cache
 
 } //namespace ASTRA
 
-bool desk_grpContainsGroup(const int grp_id);
-bool deskGroupExists(std::optional<int> group);
 std::optional<int> getDeskGroupByCode(const std::string& desk);
 
 #endif /*_ASTRA_UTILS_H_*/
