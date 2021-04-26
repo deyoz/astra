@@ -1488,7 +1488,7 @@ void addCertificate(const int reqId, const std::string& certificate, const TDate
 
     make_db_curs(
        "INSERT INTO crypt_term_cert"
-           "(certId, desk_grp_id, desk, certificate, first_date, last_date, pr_denial, pkcs_id) "
+           "(id, desk_grp_id, desk, certificate, first_date, last_date, pr_denial, pkcs_id) "
        "SELECT :certId, desk_grp_id, desk, :certificate, :first_date, :last_date, 0, pkcs_id "
            "FROM crypt_term_req "
            "WHERE id = :reqId",
