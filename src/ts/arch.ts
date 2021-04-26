@@ -65,9 +65,6 @@ $(make_spp $(ddmmyy +1))
 $(PREPARE_SEASON_SCD ’ ‘— ‹• 100 -1 TU5 $(date_format %d.%m.%Y +10) $(date_format %d.%m.%Y +30) 30.12.1899 31.12.1899)
 $(make_spp $(ddmmyy +20))
 
-$(dump_table POINTS fields="point_id, move_id, pr_del, airline, flt_no, airp, scd_in, scd_out, est_in, est_out, act_in, act_out, time_in, time_out, airp_fmt")
-$(dump_table MOVE_ARX_EXT fields = "date_range, move_id, part_key")
-
 #$(run_arch_step $(ddmmyy +121))
 
 #$(dump_table MOVE_ARX_EXT fields = "move_id, part_key, date_range")
@@ -113,10 +110,6 @@ $(PREPARE_SEASON_SCD ’ €Œ‘ • 300 -1 TU5 $(date_format %d.%m.%Y +1) $(date_for
 $(make_spp $(ddmmyy +1))
 $(PREPARE_SEASON_SCD ’ ‘— ‹• 100 -1 TU5 $(date_format %d.%m.%Y +12) $(date_format %d.%m.%Y +267))
 $(make_spp $(ddmmyy +265))
-
-$(dump_table POINTS fields="point_id, move_id, airline, flt_no, airp, scd_in, scd_out, est_in, est_out, act_in, act_out, time_in, time_out, airp_fmt")
-$(dump_table ARX_EVENTS)
-$(dump_table Events_Bilingual)
 
 #$(run_arch_step $(ddmmyy +221))
 #$(run_arch_step $(ddmmyy +386))
