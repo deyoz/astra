@@ -55,6 +55,8 @@ void ArxRunVOStat(
             int col_voucher = Qry.get().FieldIndex("voucher");
             int col_scd_out = Qry.get().FieldIndex("scd_out");
             int col_amount = Qry.get().FieldIndex("amount");
+            LogTrace5 << "MYVO col_part_key: " << col_part_key << " col_point_id: " << col_point_id <<
+                         " col_vouch: " << col_voucher << " col_scd_out: " << col_scd_out << " col_amount: " << col_amount;
             for(; not Qry.get().Eof; Qry.get().Next()) {
                 TVOStatRow row;
                 if(col_part_key >= 0)
