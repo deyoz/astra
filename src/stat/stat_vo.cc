@@ -55,8 +55,6 @@ void ArxRunVOStat(
             int col_voucher = Qry.get().FieldIndex("voucher");
             int col_scd_out = Qry.get().FieldIndex("scd_out");
             int col_amount = Qry.get().FieldIndex("amount");
-            LogTrace5 << "MYVO col_part_key: " << col_part_key << " col_point_id: " << col_point_id <<
-                         " col_vouch: " << col_voucher << " col_scd_out: " << col_scd_out << " col_amount: " << col_amount;
             for(; not Qry.get().Eof; Qry.get().Next()) {
                 TVOStatRow row;
                 if(col_part_key >= 0)
@@ -64,7 +62,7 @@ void ArxRunVOStat(
                 row.point_id = Qry.get().FieldAsInteger(col_point_id);
                 row.voucher = Qry.get().FieldAsString(col_voucher);
                 row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
-                row.amount = Qry.get().FieldAsDateTime(col_amount);
+                row.amount = Qry.get().FieldAsInteger(col_amount);
                 VOStat.add(row);
                 params.overflow.check(VOStat.RowCount());
             }
@@ -111,7 +109,7 @@ void RunVOStat(
             row.point_id = Qry.get().FieldAsInteger(col_point_id);
             row.voucher = Qry.get().FieldAsString(col_voucher);
             row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
-            row.amount = Qry.get().FieldAsDateTime(col_amount);
+            row.amount = Qry.get().FieldAsInteger(col_amount);
             VOStat.add(row);
             params.overflow.check(VOStat.RowCount());
         }
