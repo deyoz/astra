@@ -549,11 +549,11 @@ $(dump_table points)
 
 $(run_arch_step $(ddmmyy +141))
 
-$(are_tables_equal ARX_PAX)
-$(are_tables_equal ARX_PAX_GRP)
-$(are_tables_equal ARX_STAT_AD)
-$(are_tables_equal ARX_STAT_SERVICES)
-$(are_tables_equal ARX_POINTS)
+$(dump_table ARX_PAX)
+$(dump_table ARX_PAX_GRP)
+$(dump_table ARX_STAT_AD)
+$(dump_table ARX_STAT_SERVICES)
+$(dump_table ARX_POINTS)
 
 !! capture=on
 $(RUN_ACTUAL_DEPARTURED_STAT $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21))
@@ -719,7 +719,7 @@ $(dump_table points)
 
 $(run_arch_step $(ddmmyy +141))
 
-$(are_tables_equal ARX_STAT_SERVICES)
+$(dump_table ARX_STAT_SERVICES)
 
 !!capture = on
 $(RUN_SERVICES_STAT $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21))
@@ -812,8 +812,8 @@ $(CHECKIN_PAX $(get pax_id_TUMALI) $(get point_dep_UT_100) $(get point_arv_UT_10
 $(dump_table points)
 $(run_arch_step $(ddmmyy +141))
 
-$(are_tables_equal ARX_POINTS)
-$(are_tables_equal MOVE_ARX_EXT)
+$(dump_table ARX_POINTS)
+$(dump_table MOVE_ARX_EXT)
 
 $(nosir_departed_flt $(yyyymmdd +10) $(yyyymmdd +30))
 
@@ -858,9 +858,9 @@ $(dump_table airlines)
 
 $(run_arch_step $(ddmmyy +141))
 
-$(are_tables_equal ARX_POINTS)
-$(are_tables_equal ARX_TRIP_CLASSES)
-#$(are_tables_equal ARX_EVENTS order="ev_order, lang")
+$(dump_table ARX_POINTS)
+$(dump_table ARX_TRIP_CLASSES)
+#$(dump_table ARX_EVENTS order="ev_order, lang")
 
 !!capture = on
 $(READ_ARX_TRIPS $(date_format %d.%m.%Y +20))
@@ -1013,10 +1013,10 @@ $(run_arch_step $(ddmmyy +141))
 $(nosir_basel_stat $(date_format %d.%m.%Y +20) 09:00:00 $(get point_dep_UT_100))
 
 ??
-$(dump_table basel_stat display="on")
->> lines=auto
-[СОЧ] [$(get pax_id_TUMALI)] [$(get point_dep_UT_100)] [...] [NULL] [NULL] [0] [NULL] [1] [...] [ЭКОНОМ] [NULL] [$(yymmdd +20)] [$(yymmdd +20)] [NULL] [ЮТ100] [...] [TUMALI/VALERII] [0] [0] [NULL] [NULL] [зарегистрирован] [NULL] [NULL] [0] $()
-
+$(check_dump basel_stat)
+>>
+[СОЧ] [$(get pax_id_TUMALI)] [$(get point_dep_UT_100)] [$(date_format %d.%m.%Y)] [NULL] [NULL] [0] [NULL] [1] [$(date_format %d.%m.%Y)] [ЭКОНОМ] [NULL] [$(date_format %d.%m.%Y +20)] [$(date_format %d.%m.%Y +20)] [NULL] [ЮТ100] [...] [TUMALI/VALERII] [0] [0] [NULL] [NULL] [зарегистрирован] [NULL] [NULL] [0] $()
+$()
 
 %%
 #########################################################################################

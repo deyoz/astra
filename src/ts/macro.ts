@@ -4086,4 +4086,13 @@ $(defmacro MESSAGE_TAG
     </command>}
 )
 
+$(defmacro CHECK_DUMP
+    tablename
+    textdump=""
+{
+    $(dump_table $(tablename) display="on")
+    >> lines=auto
+    textdump
+}
+)
 

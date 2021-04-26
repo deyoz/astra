@@ -141,10 +141,10 @@ void initStructures()
         INIT_DBO(AODB_SPP_FILES);
         INIT_DBO(APPS_MANIFEST_DATA);
         INIT_DBO(APPS_MESSAGES);
+        INIT_DBO(BASEL_STAT);
     }
     initialized = true;
 }
-
 
 std::vector<dbo::AGENT_STAT> readOraAgentsStat(PointId_t point_id)
 {
@@ -211,75 +211,6 @@ std::vector<dbo::AGENT_STAT> readOraAgentsStat(PointId_t point_id)
     return agents_stat;
 }
 
-std::vector<dbo::ARX_AGENT_STAT> readOraArxAgentsStat()
-{
-    int point_id;
-    int dbag_amount_inc = 0;
-    int dbag_amount_dec = 0;
-    int dbag_weight_inc = 0;
-    int dbag_weight_dec = 0;
-    std::string desk;
-    int dpax_amount_inc = 0;
-    int dpax_amount_dec = 0;
-    int drk_amount_inc = 0;
-    int drk_amount_dec = 0;
-    int drk_weight_inc = 0;
-    int drk_weight_dec = 0;
-    int dtckin_amount_inc = 0;
-    int dtckin_amount_dec = 0;
-    Dates::DateTime_t ondate;
-    int pax_amount = 0;
-    int pax_time = 0;
-    int user_id = 0;
-    Dates::DateTime_t part_key;
-    Dates::DateTime_t point_part_key;
-
-    auto cur = get_main_ora_sess(STDLOG)->createCursor(STDLOG, "select "
-    "  ast.point_id, ast.user_id, ast.desk, ast.ondate, ast.pax_time, ast.pax_amount, "
-    "  ast.dpax_amount.inc, ast.dpax_amount.dec, "
-    "  ast.dtckin_amount.inc, ast.dtckin_amount.dec, "
-    "  ast.dbag_amount.inc, ast.dbag_amount.dec, "
-    "  ast.dbag_weight.inc, ast.dbag_weight.dec, "
-    "  ast.drk_amount.inc, ast.drk_amount.dec, "
-    "  ast.drk_weight.inc, ast.drk_weight.dec, "
-    "  ast.part_key, ast.point_part_key "
-    " from arx_agent_stat ast");
-    cur.def(point_id).def(user_id).def(desk).def(ondate).def(pax_time).def(pax_amount)
-       .def(dpax_amount_inc).def(dpax_amount_dec)
-       .def(dtckin_amount_inc).def(dtckin_amount_dec)
-       .def(dbag_amount_inc).def(dbag_amount_dec)
-       .def(dbag_weight_inc).def(dbag_weight_dec)
-       .def(drk_amount_inc).def(drk_amount_dec)
-       .def(drk_weight_inc).def(drk_weight_dec)
-       .def(part_key).def(point_part_key)
-       .exec();
-
-    std::vector<dbo::ARX_AGENT_STAT> agents_stat;
-    while(!cur.fen()) {
-        dbo::ARX_AGENT_STAT as;
-        as.point_id = point_id;
-        as.dpax_amount_inc = dpax_amount_inc;
-        as.dpax_amount_dec = dpax_amount_dec;
-        as.dtckin_amount_inc = dtckin_amount_inc;
-        as.dtckin_amount_dec = dtckin_amount_dec;
-        as.dbag_amount_dec = dbag_amount_dec;
-        as.dbag_amount_inc = dbag_amount_inc;
-        as.dbag_weight_dec = dbag_weight_dec;
-        as.dbag_weight_inc = dbag_weight_inc;
-        as.drk_amount_inc = drk_amount_inc;
-        as.drk_amount_dec = drk_amount_dec;
-        as.drk_weight_inc = drk_weight_inc;
-        as.drk_weight_dec = drk_weight_dec;
-        as.desk = desk;
-        as.ondate = ondate;
-        as.pax_time = pax_time;
-        as.pax_amount = pax_amount;
-        as.part_key = part_key;
-        as.point_part_key = point_part_key;
-        agents_stat.push_back(std::move(as));
-    }
-    return agents_stat;
-}
 
 }
 
