@@ -324,20 +324,20 @@ void RunAnnulBTStat(
             trferQry.get().SetVariable("grp_id", Qry.get().FieldAsInteger(col_grp_id));
             trferQry.get().Execute();
             if (!trferQry.get().Eof) {
-                int col_trfer_airline = Qry.get().FieldIndex("trfer_airline");
-                int col_trfer_flt_no = Qry.get().FieldIndex("trfer_flt_no");
-                int col_trfer_suffix = Qry.get().FieldIndex("trfer_suffix");
-                int col_trfer_scd = Qry.get().FieldIndex("trfer_scd");
-                int col_trfer_airp_arv = Qry.get().FieldIndex("trfer_airp_arv");
+                int col_trfer_airline = trferQry.get().FieldIndex("trfer_airline");
+                int col_trfer_flt_no = trferQry.get().FieldIndex("trfer_flt_no");
+                int col_trfer_suffix = trferQry.get().FieldIndex("trfer_suffix");
+                int col_trfer_scd = trferQry.get().FieldIndex("trfer_scd");
+                int col_trfer_airp_arv = trferQry.get().FieldIndex("trfer_airp_arv");
 
                 for(; not trferQry.get().Eof; trferQry.get().Next()) {
-                    row.trfer_airline = Qry.get().FieldAsString(col_trfer_airline);
-                    if(not Qry.get().FieldIsNULL(col_trfer_flt_no))
-                        row.trfer_flt_no = Qry.get().FieldAsInteger(col_trfer_flt_no);
-                    row.trfer_suffix = Qry.get().FieldAsString(col_trfer_suffix);
-                    if(not Qry.get().FieldIsNULL(col_trfer_scd))
-                        row.trfer_scd = Qry.get().FieldAsDateTime(col_trfer_scd);
-                    row.trfer_airp_arv = Qry.get().FieldAsString(col_trfer_airp_arv);
+                    row.trfer_airline = trferQry.get().FieldAsString(col_trfer_airline);
+                    if(not trferQry.get().FieldIsNULL(col_trfer_flt_no))
+                        row.trfer_flt_no = trferQry.get().FieldAsInteger(col_trfer_flt_no);
+                    row.trfer_suffix = trferQry.get().FieldAsString(col_trfer_suffix);
+                    if(not trferQry.get().FieldIsNULL(col_trfer_scd))
+                        row.trfer_scd = trferQry.get().FieldAsDateTime(col_trfer_scd);
+                    row.trfer_airp_arv = trferQry.get().FieldAsString(col_trfer_airp_arv);
                     LogTrace(TRACE5) << "trfer_airp_arv: " << row.trfer_airp_arv;
 
                     row.get_tags(part_key, row.id);

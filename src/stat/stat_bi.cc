@@ -153,19 +153,11 @@ void RunBIStat(
         << QParam("FirstDate", otDate, params.FirstDate)
         << QParam("LastDate", otDate, params.LastDate);
 
-    string SQLText = "select bi_stat.* from ";
-    SQLText +=
-        "   bi_stat, "
-        "   points "
-        "where "
-        "   bi_stat.point_id = points.point_id and "
-        "   bi_stat.pr_print <> 0 and "
-        "   points.pr_del >= 0 and ";
-    params.AccessClause(SQLText);
-    if(params.flt_no != NoExists) {
-        SQLText += " points.flt_no = :flt_no and ";
-        QryParams << QParam("flt_no", otInteger, params.flt_no);
-    }
+    std::string SQLText =
+        "SELECT * FROM "
+        "   bi_stat "
+        "WHERE "
+        "   pr_print <> 0 and ";
     if(params.airp_terminal != NoExists) {
         SQLText += " terminal = :terminal and ";
         QryParams << QParam("terminal", otInteger, params.airp_terminal);
@@ -175,8 +167,8 @@ void RunBIStat(
         QryParams << QParam("hall", otInteger, params.bi_hall);
     }
 
-    SQLText += "   bi_stat.scd_out >= :FirstDate AND bi_stat.scd_out < :LastDate ";
-    TCachedQuery Qry(SQLText, QryParams);
+    SQLText += "   scd_out >= :FirstDate AND scd_out < :LastDate ";
+    DB::TCachedQuery Qry(PgOra::getROSession("BI_STAT"), SQLText, QryParams, STDLOG);
     Qry.get().Execute();
     if(not Qry.get().Eof) {
         int col_part_key = Qry.get().GetFieldIndex("part_key");
@@ -188,10 +180,41 @@ void RunBIStat(
         int col_hall = Qry.get().FieldIndex("hall");
         int col_op_type = Qry.get().FieldIndex("op_type");
         for(; not Qry.get().Eof; Qry.get().Next()) {
+            const PointId_t point_id(Qry.get().FieldAsInteger(col_point_id));
+            TAdvTripInfo fltInfo;
+            if (!fltInfo.getByPointId(point_id.get())) {
+                continue;
+            }
+            if(params.flt_no != ASTRA::NoExists && params.flt_no != fltInfo.flt_no) {
+                continue;
+            }
+            if (!params.airps.elems().empty()) {
+                if (params.airps.elems_permit()) {
+                    if (params.airps.elems().find(fltInfo.airp) == params.airps.elems().end()) {
+                        continue;
+                    }
+                } else {
+                    if (params.airps.elems().find(fltInfo.airp) != params.airps.elems().end()) {
+                        continue;
+                    }
+                }
+            }
+            if (!params.airlines.elems().empty()) {
+                if (params.airlines.elems_permit()) {
+                   if (params.airlines.elems().find(fltInfo.airline) == params.airlines.elems().end()) {
+                       continue;
+                   }
+                } else {
+                   if (params.airlines.elems().find(fltInfo.airline) != params.airlines.elems().end()) {
+                       continue;
+                   }
+                }
+            };
+
             TBIStatRow row;
             if(col_part_key >= 0)
                 row.part_key = Qry.get().FieldAsDateTime(col_part_key);
-            row.point_id = Qry.get().FieldAsInteger(col_point_id);
+            row.point_id = point_id.get();
             row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
             row.pax_id = Qry.get().FieldAsInteger(col_pax_id);
             row.print_type = BIPrintRules::TPrintTypes().decode(Qry.get().FieldAsString(col_print_type));
