@@ -1458,6 +1458,60 @@ void CryptInterface::RequestPSE(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   AstraLocale::showMessage( "MSG.MESSAGE_PRO.KEY_AND_REQUEST_OK" );
 }
 
+std::vector<TRequest> getRequests()
+{
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT id, request FROM crypt_term_req",
+        PgOra::getROSession("CRYPT_TERM_REQ")
+    );
+
+    TRequest request;
+
+    cur.def(request.id)
+       .def(request.cert)
+       .exec();
+
+    std::vector<TRequest> result;
+
+    while (!cur.fen()) {
+        result.push_back(request);
+    }
+
+    LogTrace(TRACE5) << "requests count=" << result.size();
+
+    return result;
+}
+
+void addCertificate(const int reqId, const std::string& certificate, const TDateTime firstDate, const TDateTime lastDate)
+{
+    const int certId = PgOra::getSeqNextVal_int("ID__SEQ");
+
+    make_db_curs(
+       "INSERT INTO crypt_term_cert"
+           "(certId, desk_grp_id, desk, certificate, first_date, last_date, pr_denial, pkcs_id) "
+       "SELECT :certId, desk_grp_id, desk, :certificate, :first_date, :last_date, 0, pkcs_id "
+           "FROM crypt_term_req "
+           "WHERE id = :reqId",
+        PgOra::getRWSession("SP_PG_GROUP_CRYPT"))
+       .stb()
+       .bind(":certId", certId)
+       .bind(":certificate", certificate)
+       .bind(":first_date", firstDate)
+       .bind(":last_date", lastDate)
+       .bind(":reqId", reqId)
+       .exec();
+}
+
+void deleteTermRequest(const int id)
+{
+    make_db_curs(
+       "DELETE crypt_term_req WHERE id=:id",
+        PgOra::getRWSession("CRYPT_TERM_REQ"))
+       .stb()
+       .bind(":id", id)
+       .exec();
+}
+
 void CryptInterface::SetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   tst();
@@ -1468,51 +1522,25 @@ void CryptInterface::SetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   MESPRO_API::setLibNameFromAlgo( MP_KEY_ALG_NAME_GOST_12_256 );
   GetError( "PKCS7Init", MESPRO_API::PKCS7Init( 0, 0 ) );
   MESPRO_API::setInitLib( true );
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "SELECT id, request FROM crypt_term_req";
-  Qry.Execute();
-  vector<TRequest> requests;
-  while ( !Qry.Eof ) {
-    TRequest r;
-    r.id = Qry.FieldAsInteger( "id" );
-    r.cert = Qry.FieldAsString( "request" );
-    requests.push_back( r );
-    Qry.Next();
-  }
-  ProgTrace( TRACE5, "requests count=%zu", requests.size() );
-  Qry.Clear();
-  const int new_id = PgOra::getSeqNextVal_int("ID__SEQ");
-  Qry.SQLText =
-    "BEGIN "
-    " INSERT INTO crypt_term_cert(id,desk_grp_id,desk,certificate,first_date,last_date,pr_denial,pkcs_id) "
-    " SELECT :new_id,desk_grp_id,desk,:certificate,:first_date,:last_date,0,pkcs_id FROM crypt_term_req "
-    "  WHERE id=:id; "
-    " DELETE crypt_term_req WHERE id=:id; "
-    "END;";
-  Qry.DeclareVariable( "new_id", otInteger );
-  Qry.DeclareVariable( "id", otInteger );
-  Qry.DeclareVariable( "certificate", otString );
-  Qry.DeclareVariable( "first_date", otDate );
-  Qry.DeclareVariable( "last_date", otDate );
-  Qry.SetVariable( "new_id", new_id );
-  string cert;
+  std::vector<TRequest> requests = getRequests();
   try {
     node = GetNode( "certificate", node );
     while ( node ) {
-      cert = NodeAsString( node );
-      ProgTrace( TRACE5, "certificate=%s, requests count=%zu", cert.c_str(), requests.size() );
+      const std::string cert = NodeAsString( node );
+      LogTrace(TRACE5) << "certificate=" << cert << ", requests count=" << requests.size();
       for ( vector<TRequest>::iterator i=requests.begin(); i!=requests.end(); i++ ) {
         int err = MESPRO_API::CertAndRequestMatchBuffer( (char*)cert.data(), cert.size(), (char*)i->cert.data(), i->cert.size() );
         if ( err ) {
           CERTIFICATE_INFO info;
           GetError( "GetCertificateInfoBufferEx", MESPRO_API::GetCertificateInfoBufferEx( (char*)cert.data(), cert.size(), &info ) );
           try {
-            Qry.SetVariable( "id", i->id );
-            Qry.SetVariable( "certificate", cert );
-            Qry.SetVariable( "first_date", ConvertCertificateDate( info.NotBefore ) );
-            Qry.SetVariable( "last_date", ConvertCertificateDate( info.NotAfter ) );
-            Qry.Execute();
+            addCertificate(
+              i->id,
+              cert,
+              ConvertCertificateDate(info.NotBefore),
+              ConvertCertificateDate(info.NotAfter)
+            );
+            deleteTermRequest(i->id);
           }
           catch( ... ) {
             MESPRO_API::FreeCertificateInfo( &info );
