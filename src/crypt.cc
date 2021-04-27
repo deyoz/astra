@@ -1,6 +1,7 @@
 #include <string>
 #include <stdio.h>
 #include <optional>
+#include <sstream>
 #include "tclmon/mespro_crypt.h"
 #include "serverlib/mespro_api.h"
 #include "tclmon/tclmon.h"
@@ -1482,7 +1483,28 @@ std::vector<TRequest> getRequests()
     return result;
 }
 
-void addCertificate(const int reqId, const std::string& certificate, const TDateTime firstDate, const TDateTime lastDate)
+boost::posix_time::ptime convertTime(const char* certificate_date)
+{
+    static std::stringstream iss;
+    static auto locale = std::locale(std::locale::classic(), new boost::posix_time::time_input_facet("%d.%m.%Y %H:%M:%S"));
+
+    iss.clear();
+    iss.imbue(locale);
+
+    iss << certificate_date;
+
+    boost::posix_time::ptime time;
+
+    iss >> time;
+
+    if (time.is_not_a_date_time()) {
+        throw Exception( "Invalid Certificate date=%s", certificate_date );
+    }
+
+    return time;
+}
+
+void addCertificate(const int reqId, const std::string& certificate, const boost::posix_time::ptime firstDate, const boost::posix_time::ptime lastDate)
 {
     const int certId = PgOra::getSeqNextVal_int("ID__SEQ");
 
@@ -1505,7 +1527,7 @@ void addCertificate(const int reqId, const std::string& certificate, const TDate
 void deleteTermRequest(const int id)
 {
     make_db_curs(
-       "DELETE crypt_term_req WHERE id=:id",
+       "DELETE FROM crypt_term_req WHERE id=:id",
         PgOra::getRWSession("CRYPT_TERM_REQ"))
        .stb()
        .bind(":id", id)
@@ -1537,8 +1559,8 @@ void CryptInterface::SetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
             addCertificate(
               i->id,
               cert,
-              ConvertCertificateDate(info.NotBefore),
-              ConvertCertificateDate(info.NotAfter)
+              convertTime(info.NotBefore),
+              convertTime(info.NotAfter)
             );
             deleteTermRequest(i->id);
           }
@@ -1831,55 +1853,6 @@ START_TEST(check_IntPutRequestCertificate)
 }
 END_TEST
 
-/*
-std::vector<std::pair<int, std::string>> cfprequest(const std::string& desk) {
-    DbCpp::CursCtl cur = make_db_curs(
-       "SELECT "
-               "crypt_file_params.desk_grp_id   grp_id, "
-               "crypt_file_params.desk          desk "
-       "FROM "
-               "crypt_file_params, "
-               "desks, "
-               "desk_grp "
-       "WHERE "
-               "send_count = 0 "
-           "AND desks.code = :desk "
-           "AND desks.grp_id = desk_grp.grp_id "
-           "AND crypt_file_params.desk_grp_id = desk_grp.grp_id "
-           "AND ( crypt_file_params.desk IS NULL "
-              "OR crypt_file_params.desk = desks.code ) "
-       "ORDER BY "
-           "desk, "
-           "grp_id",
-        PgOra::getROSession("crypt_file_params")
-    );
-    std::pair<int, std::string> row;
-    cur.bind(":desk", desk)
-       .def(row.first)
-       .defNull(row.second, "NULL")
-       .exec();
-
-    std::vector<std::pair<int, std::string>> result;
-
-    while (!cur.fen()) {
-        result.push_back(row);
-    }
-
-    return result;
-}
-
-START_TEST(check_ValidatePKCSData_additional)
-{
-    fill_desk_grp();
-    fill_desks();
-    fill_crypt_file_params();
-
-    std::vector<std::pair<int, std::string>> bb = {{123001, "DSK1G1"}};
-    fail_unless(cfprequest("DSK1G1") == bb);
-}
-END_TEST
-*/
-
 #ifdef USE_MESPRO
 START_TEST(check_GetServerCertificate)
 {
@@ -1954,6 +1927,41 @@ START_TEST(check_GetCryptGrp)
 }
 END_TEST
 
+START_TEST(check_addCertificate)
+{
+    fill_desk_grp();
+    fill_desks();
+    fill_crypt_term_req();
+
+    const int reqId = 567001;
+    const std::string certificate = "CERTIFICATE1G1";
+    boost::posix_time::ptime firstDate = boost::posix_time::second_clock::universal_time();
+    boost::posix_time::ptime lastDate = boost::posix_time::second_clock::local_time();
+    addCertificate(reqId, certificate, firstDate, lastDate);
+
+    boost::posix_time::ptime first;
+    boost::posix_time::ptime last;
+
+    auto cur = make_db_curs(
+       "SELECT first_date, last_date "
+       "FROM crypt_term_cert "
+       "WHERE certificate = 'CERTIFICATE1G1'",
+        PgOra::getROSession("CRYPT_TERM_CERT"));
+
+    cur.def(first)
+       .def(last)
+       .exec();
+
+    fail_unless(!cur.fen());
+    fail_unless(firstDate == first);
+    fail_unless(lastDate == last);
+
+    convertTime("11.12.1973 23:32:59");
+    fail_unless((expectToThrow<Exception, decltype(convertTime), const char*>(convertTime, "11.12.1973 a3:32:59")));
+
+    deleteTermRequest(reqId);
+}
+END_TEST
 
 void checkNode(xmlNodePtr node, size_t otstup = 0) {
     std::cout << std::string(otstup, ' ') << "Node: " << node->name << " contains: [" << NodeAsString(node) << "]" << std::endl;
@@ -2003,18 +2011,6 @@ START_TEST(check_fillNodeWithFiles)
 }
 END_TEST
 
-    // checkNode(root);
-
-    // TQuery Qry(&OraSession);
-    // Qry.SQLText = "SELECT SYSDATE FROM DUAL";
-    // Qry.Execute();
-    // if ( !Qry.Eof ) {
-    //     TDateTime sysdate = Qry.FieldAsDateTime( "SYSDATE" );
-    //     TDateTime now     = Now();
-    //     std::cout << DateTimeToStr(sysdate) << " " << DateTimeToStr(now) << std::endl;
-    // }
-
-
 #define SUITENAME "crypt"
 TCASEREGISTER(testInitDB, testShutDBConnection)
 {
@@ -2027,6 +2023,7 @@ TCASEREGISTER(testInitDB, testShutDBConnection)
     ADD_TEST(check_GetClientCertificate);
     ADD_TEST(check_GetCryptGrp);
     ADD_TEST(check_fillNodeWithFiles);
+    ADD_TEST(check_addCertificate)
 }
 TCASEFINISH;
 #undef SUITENAME // "crypt"
