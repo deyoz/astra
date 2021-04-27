@@ -62,7 +62,7 @@ void ArxRunVOStat(
                 row.point_id = Qry.get().FieldAsInteger(col_point_id);
                 row.voucher = Qry.get().FieldAsString(col_voucher);
                 row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
-                row.amount = Qry.get().FieldAsDateTime(col_amount);
+                row.amount = Qry.get().FieldAsInteger(col_amount);
                 VOStat.add(row);
                 params.overflow.check(VOStat.RowCount());
             }
@@ -109,7 +109,7 @@ void RunVOStat(
             row.point_id = Qry.get().FieldAsInteger(col_point_id);
             row.voucher = Qry.get().FieldAsString(col_voucher);
             row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
-            row.amount = Qry.get().FieldAsDateTime(col_amount);
+            row.amount = Qry.get().FieldAsInteger(col_amount);
             VOStat.add(row);
             params.overflow.check(VOStat.RowCount());
         }

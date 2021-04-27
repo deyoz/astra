@@ -900,14 +900,14 @@ bool PaxNormsFromDBArx(TDateTime part_key, int pax_id, TPaxNormComplexContainer 
 
   for(const auto &apn :  arx_pax_norms) {
       std::optional<dbo::BAG_NORMS> bag_norm = session.query<dbo::BAG_NORMS>()
-              .where(" ID = :apn_norm_id ")
+              .where(" ID = :apn_norm_id")
               .setBind({{":apn_norm_id", apn.norm_id}});
       if(bag_norm) {
           norms.insert(fromDBO(apn, dbo::ARX_BAG_NORMS(*bag_norm)));
       }
       std::optional<dbo::ARX_BAG_NORMS> arx_bag_norm = session.query<dbo::ARX_BAG_NORMS>()
-              .where(" ID = :apn_norm_id ")
-              .setBind({{":apn_norm_id", apn.norm_id}});
+              .where(" ID = :apn_norm_id and PART_KEY = :part_key")
+              .setBind({{":apn_norm_id", apn.norm_id}, {":part_key", apn.part_key}});
 
       if(arx_bag_norm) {
           norms.insert(fromDBO(apn, *arx_bag_norm));
@@ -1360,7 +1360,8 @@ void PaidBagFromDBArx(TDateTime part_key, int grp_id, TPaidBagList &paid)
       std::optional<dbo::BAG_RATES> bag_rate = session.query<dbo::BAG_RATES>()
               .where(" ID = :apb_rate_id ").setBind({{":apb_rate_id", apb.rate_id}});
       std::optional<dbo::ARX_BAG_RATES> arx_bag_rate = session.query<dbo::ARX_BAG_RATES>()
-              .where(" ID = :apb_rate_id ").setBind({{":apb_rate_id", apb.rate_id}});
+              .where(" ID = :apb_rate_id and PART_KEY = :part_key")
+              .setBind({{":apb_rate_id", apb.rate_id}, {":part_key", apb.part_key}});
 
       if(bag_rate && arx_bag_rate) {
           //если строки прочитанные из bag_rates и arx_bag_rates равны,то не нужно добавлять
