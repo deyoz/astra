@@ -102,3 +102,81 @@ $(cache PIKE RU MISC_SET $(cache_iface_ver MISC_SET) ""
 })
 
 
+$(defmacro CREATE_USER
+  login
+  descr
+  user_type=0
+  lang=RU
+{
+
+!! capture=on
+<term>
+  <query handle='0' id='access' ver='1' opr='PIKE' screen='ACCESS.EXE' mode='STAND' lang='$(lang)' term_id='2479792165'>
+    <save_user>
+      <descr>$(descr)</descr>
+      <login>$(login)</login>
+      <user_type>$(user_type)</user_type>
+      <pr_denial>0</pr_denial>
+    </save_user>
+  </query>
+</term>
+
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer ...>
+    <user_id>...</user_id>
+    <descr>$(descr)</descr>
+    <login>$(login)</login>
+    <type>$(user_type)</type>
+    <pr_denial>0</pr_denial>
+    <time_fmt_code>1</time_fmt_code>
+    <disp_airline_fmt_code>9</disp_airline_fmt_code>
+    <disp_airp_fmt_code>9</disp_airp_fmt_code>
+    <disp_craft_fmt_code>9</disp_craft_fmt_code>
+    <disp_suffix_fmt_code>17</disp_suffix_fmt_code>
+  </answer>
+</term>
+
+})
+
+$(defmacro CREATE_DESK
+  code
+  grp_id
+{
+
+$(cache PIKE RU DESKS $(cache_iface_ver DESKS) ""
+  insert code:$(code)
+         grp_id:$(grp_id)
+ )
+
+$(cache PIKE RU DESK_OWNERS $(cache_iface_ver DESK_OWNERS) ""
+  insert desk:$(code)
+         pr_denial:0
+ )
+
+$(dump_table desks where="code='$(code)'")
+$(dump_table desk_owners where="desk='$(code)'")
+
+})
+
+$(defmacro ADD_HTTP_CLIENT
+  exchange_type
+  client_id
+  user_login
+  desk
+  http_user
+  http_pswd
+{
+
+$(sql {INSERT INTO web_clients(client_id, client_type, descr, desk, user_id, tracing_search, id)
+       SELECT '$(client_id)', 'HTTP', '$(client_id)', '$(desk)', user_id, 0, id__seq.nextval
+       FROM users2 WHERE login='$(user_login)'})
+
+$(sql {INSERT INTO http_clients(id, http_user, http_pswd, exchange_type)
+       VALUES('$(client_id)', '$(http_user)', '$(http_pswd)', '$(exchange_type)')})
+
+$(dump_table web_clients where="client_id='$(client_id)'")
+$(dump_table http_clients)
+
+})

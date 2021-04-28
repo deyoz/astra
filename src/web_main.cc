@@ -3430,7 +3430,7 @@ void fillPaxsSvcs(const TNotCheckedReqPassengers &req_pnrs, TExchange &exch)
       SirenaExchange::TPaxSegItem &reqSeg=iReqSeg->second;
       TMktFlight mktFlight;
       mktFlight.getByCrsPaxId(pax.id);
-      reqSeg.set(0, operFlt.get(), airp_arv, mktFlight, operFlt.get().get_scd_in(airp_arv));
+      reqSeg.set(0, operFlt.get(), airp_arv, mktFlight, operFlt.get().get_times_in(airp_arv));
       reqSeg.subcl=mktFlight.subcls;
       reqSeg.setTicket(pax.tkn, paxSection);
       CheckIn::LoadPaxFQT(pax.id, reqSeg.fqts);

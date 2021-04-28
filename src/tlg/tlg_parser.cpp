@@ -261,7 +261,7 @@ string GetAirp(const string &airp, bool with_icao, bool throwIfUnknown)
     {
         return TlgElemToElemId(etAirp,airp,with_icao);
     }
-    catch (EBaseTableError)
+    catch (const EBaseTableError&)
     {
         if (throwIfUnknown)
             throw ETlgError("Unknown airport code '%s'", airp.c_str());
@@ -275,7 +275,7 @@ string GetAirline(const string &airline, bool with_icao, bool throwIfUnknown)
     {
         return TlgElemToElemId(etAirline,airline,with_icao);
     }
-    catch (EBaseTableError)
+    catch (const EBaseTableError&)
     {
         if (throwIfUnknown)
             throw ETlgError("Unknown airline code '%s'", airline.c_str());
@@ -292,7 +292,7 @@ string GetSuffix(const string &suffix, bool throwIfUnknown)
         {
             result = TlgElemToElemId(etSuffix,suffix);
         }
-        catch (EBaseTableError)
+        catch (const EBaseTableError&)
         {
             if (throwIfUnknown)
                 throw ETlgError("Unknown flight number suffix '%s'", suffix.c_str());
@@ -1086,7 +1086,7 @@ TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, TDCSHeadingInfo &info, TFligh
                 if (c!=0||res!=1) throw ETlgError("Wrong boarding point");
               }
               else throw ETlgError("Wrong boarding point");
-              flts.push_back(TFltForBind(info.flt,  btFirstSeg, TSearchFltInfoPtr()));
+              flts.emplace_back(info.flt,  btFirstSeg);
             };
             if (strcmp(info.tlg_type,"PTM")==0)
             {
@@ -1097,7 +1097,7 @@ TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, TDCSHeadingInfo &info, TFligh
                 if (c!=0||res!=2) throw ETlgError("Wrong boarding/transfer point");
               }
               else throw ETlgError("Wrong bording/transfer point");
-              flts.push_back(TFltForBind(info.flt,  btLastSeg, TSearchFltInfoPtr()));
+              flts.emplace_back(info.flt,  btLastSeg);
             };
 
             if ((p=tlg.GetLexeme(p))!=NULL)
@@ -5814,11 +5814,11 @@ void GetParts(const char* tlg_p, TTlgPartsText &text, THeadingInfo* &info, TFlig
   };
 };
 
-int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type, TSearchFltInfoPtr search_params, ETlgErrorType error_type)
+int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type, const FltOperFilter::DateFlags& dateFlags, ETlgErrorType error_type)
 {
   const auto res=flt.getPointId(bind_type);
   int point_id=res.first;
-  TTlgBinding(false, search_params).bind_flt_by_point_id(point_id);
+  TTlgBinding(false, dateFlags).bind_flt_by_point_id(point_id);
 
   if (res.second)
   {
@@ -6041,7 +6041,7 @@ void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, const TBtmContent& con)
   std::set<PointId_t> alarm_point_ids;
   for(vector<TBtmTransferInfo>::const_iterator iIn=con.Transfer.begin();iIn!=con.Transfer.end();++iIn)
   {
-    point_id_in=SaveFlt(tlg_id,iIn->InFlt,btLastSeg,TSearchFltInfoPtr());
+    point_id_in=SaveFlt(tlg_id,iIn->InFlt,btLastSeg);
     //найдем point_id_spp рейсов, которым отправляется трансфер
     std::set<PointId_t> point_ids_spp
         = TrferList::loadPointIdsSppByTlgTransferIn(PointIdTlg_t(point_id_in));
@@ -6052,7 +6052,7 @@ void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, const TBtmContent& con)
     TrferQry.SetVariable("subcl_in",iIn->InFlt.subcl);
     for(vector<TBtmOutFltInfo>::const_iterator iOut=iIn->OutFlt.begin();iOut!=iIn->OutFlt.end();++iOut)
     {
-      point_id_out=SaveFlt(tlg_id,*iOut,btFirstSeg,TSearchFltInfoPtr());
+      point_id_out=SaveFlt(tlg_id,*iOut,btFirstSeg);
       TrferQry.SetVariable("point_id_out",point_id_out);
       TrferQry.SetVariable("subcl_out",iOut->subcl);
       const int new_trfer_id = PgOra::getSeqNextVal_int("CYCLE_ID__SEQ");
@@ -6146,7 +6146,7 @@ void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con)
   vector<string>::iterator i;
   int point_id_in,point_id_out;
 
-  point_id_in=SaveFlt(tlg_id,dynamic_cast<TFltInfo&>(con.InFlt),btLastSeg,TSearchFltInfoPtr());
+  point_id_in=SaveFlt(tlg_id,dynamic_cast<TFltInfo&>(con.InFlt),btLastSeg);
   if (!DeletePTMBTMContent(point_id_in,info)) return;
 
   DB::TQuery TrferQry(PgOra::getRWSession("TLG_TRANSFER"));
@@ -6180,7 +6180,7 @@ void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con)
 
   for(iOut=con.OutFlt.begin();iOut!=con.OutFlt.end();iOut++)
   {
-    point_id_out=SaveFlt(tlg_id,dynamic_cast<TFltInfo&>(*iOut),btFirstSeg,TSearchFltInfoPtr());
+    point_id_out=SaveFlt(tlg_id,dynamic_cast<TFltInfo&>(*iOut),btFirstSeg);
     TrferQry.SetVariable("point_id_out",point_id_out);
     TrferQry.SetVariable("subcl_out",iOut->subcl);
     const int new_trfer_id = PgOra::getSeqNextVal_int("CYCLE_ID__SEQ");
@@ -6267,7 +6267,7 @@ void SaveDCSBaggage(int pax_id, const TNameElement &ne)
 void SaveSOMContent(int tlg_id, TDCSHeadingInfo& info, TSOMContent& con)
 {
   //vector<TSeatsByDest>::iterator iSeats;
-  int point_id=SaveFlt(tlg_id,con.flt,btFirstSeg,TSearchFltInfoPtr());
+  int point_id=SaveFlt(tlg_id,con.flt,btFirstSeg);
   if (!DeleteSOMContent(point_id,info)) return;
 
   bool usePriorContext=false;
@@ -7127,7 +7127,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
 
   if (info.time_create==0) throw ETlgError("Creation time not defined");
 
-  int point_id=SaveFlt(tlg_id,con.flt,btFirstSeg,TSearchFltInfoPtr());
+  int point_id=SaveFlt(tlg_id,con.flt,btFirstSeg);
 
   //идентифицируем систему бронирования
   bool isPRL=strcmp(info.tlg_type,"PRL")==0;

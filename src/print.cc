@@ -2943,18 +2943,20 @@ void PrintInterface::print_bp2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     xmlNodePtr contentNode = NodeAsNode("content", reqNode)->children;
     if(not contentNode) throw Exception("content is null");
 
-    TSearchFltInfo filter;
-    filter.airline = getElemId(etAirline, NodeAsString("airline", contentNode));
-    filter.flt_no = NodeAsInteger("flt_no", contentNode);
-    filter.airp_dep = getElemId(etAirp,NodeAsString("airp_dep", contentNode));
-    if(StrToDateTime(NodeAsString("scd_out", contentNode), "dd.mm.yy", filter.scd_out) == EOF)
+    TDateTime scd_out;
+    if(StrToDateTime(NodeAsString("scd_out", contentNode), "dd.mm.yy", scd_out) == EOF)
         throw Exception("print_bp: can't convert scd_out: %s", NodeAsString("scd_Out", contentNode));
-    filter.scd_out_in_utc = true;
 
-    list<TAdvTripInfo> flts;
-    SearchFlt(filter, flts);
+    FltOperFilter filter(AirlineCode_t(getElemId(etAirline, NodeAsString("airline", contentNode))),
+                         FlightNumber_t(NodeAsInteger("flt_no", contentNode)),
+                         FlightSuffix_t(""),
+                         AirportCode_t(getElemId(etAirp,NodeAsString("airp_dep", contentNode))),
+                         scd_out,
+                         FltOperFilter::DateType::UTC);
 
-    TNearestDate nd(filter.scd_out);
+    list<TAdvTripInfo> flts=filter.search();
+
+    TNearestDate nd(filter.dateDep());
     for(list<TAdvTripInfo>::iterator i = flts.begin(); i != flts.end(); ++i)
         nd.sorted_points[i->scd_out] = i->point_id;
     int point_id = nd.get();
@@ -3015,18 +3017,20 @@ void PrintInterface::print_bp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             throw Exception("print_bp: wrong params");
         content.erase(0, idx + 1);
 
-        TSearchFltInfo filter;
-        filter.airline = getElemId(etAirline, params[0]);
-        filter.flt_no = ToInt(params[1]);
-        filter.airp_dep = getElemId(etAirp, params[3]);
-        if(StrToDateTime(params[2].c_str(), "dd.mm.yy", filter.scd_out) == EOF)
+        TDateTime scd_out;
+        if(StrToDateTime(params[2].c_str(), "dd.mm.yy", scd_out) == EOF)
             throw Exception("print_bp: can't convert scd_out: %s", params[2].c_str());
-        filter.scd_out_in_utc = true;
 
-        list<TAdvTripInfo> flts;
-        SearchFlt(filter, flts);
+        FltOperFilter filter(AirlineCode_t(getElemId(etAirline, params[0])),
+                             FlightNumber_t(ToInt(params[1])),
+                             FlightSuffix_t(""),
+                             AirportCode_t(getElemId(etAirp, params[3])),
+                             scd_out,
+                             FltOperFilter::DateType::UTC);
 
-        TNearestDate nd(filter.scd_out);
+        list<TAdvTripInfo> flts=filter.search();
+
+        TNearestDate nd(filter.dateDep());
         for(list<TAdvTripInfo>::iterator i = flts.begin(); i != flts.end(); ++i)
             nd.sorted_points[i->scd_out] = i->point_id;
         int point_id = nd.get();

@@ -495,7 +495,7 @@ bool SearchPaxByScanData(const std::string& bcbp,
                          int &reg_no,
                          int &pax_id,
                          bool &isBoardingPass,
-                         boost::optional<TSearchFltInfo>& searchFltInfo);
+                         boost::optional<FltOperFilter>& fltOperFilter);
 
 #endif // __WEB_SEARCH_H__
 

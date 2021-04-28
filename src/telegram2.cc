@@ -9487,16 +9487,14 @@ namespace WBMessages {
         vector<TTripInfo> franchise_flts;
         get_wb_franchise_flts(trip_info, franchise_flts);
         for(const auto &f: franchise_flts) {
-            TSearchFltInfo filter;
-            filter.airline = f.airline;
-            filter.flt_no = f.flt_no;
-            filter.suffix = f.suffix;
-            filter.airp_dep = f.airp;
-            filter.scd_out = f.scd_out;
-            filter.scd_out_in_utc = true;
+            FltOperFilter filter(AirlineCode_t(f.airline),
+                                 FlightNumber_t(f.flt_no),
+                                 FlightSuffix_t(f.suffix),
+                                 AirportCode_t(f.airp),
+                                 f.scd_out,
+                                 FltOperFilter::DateType::UTC);
 
-            list<TAdvTripInfo> flts;
-            SearchFlt(filter, flts);
+            list<TAdvTripInfo> flts=filter.search();
 
             if(flts.empty())
                 throw Exception("flight not found: %s", flight.c_str());
@@ -9606,12 +9604,11 @@ namespace CKIN_REPORT {
         return 1;
     }
 
-    int get_point_id(TSearchFltInfo &filter)
+    int get_point_id(const FltOperFilter &filter)
     {
-        list<TAdvTripInfo> flts;
-        SearchFlt(filter, flts);
+        list<TAdvTripInfo> flts=filter.search();
 
-        TNearestDate nd(filter.scd_out);
+        TNearestDate nd(filter.dateDep());
         for(list<TAdvTripInfo>::iterator i = flts.begin(); i != flts.end(); ++i)
             nd.sorted_points[i->scd_out] = i->point_id;
         int point_id = nd.get();
@@ -9623,14 +9620,13 @@ namespace CKIN_REPORT {
         TypeB::TFlightIdentifier flt;
         flt.parse(val.c_str());
 
-        TSearchFltInfo filter;
-        filter.airline = flt.airline;
-        filter.flt_no = flt.flt_no;
-        if(flt.suffix)
-            filter.suffix.append(1, flt.suffix);
-        filter.airp_dep = getElemId(etAirp, airp);
-        filter.scd_out = flt.date;
-        filter.scd_out_in_utc = true;
+        FltOperFilter filter(AirlineCode_t(flt.airline),
+                             FlightNumber_t(flt.flt_no),
+                             FlightSuffix_t(flt.suffix?string(1, flt.suffix):""),
+                             AirportCode_t(getElemId(etAirp, airp)),
+                             flt.date,
+                             FltOperFilter::DateType::UTC);
+
         int point_id = get_point_id(filter);
         if(point_id == NoExists)
             throw Exception("flight not found: %s", val.c_str());
@@ -10743,19 +10739,21 @@ void TelegramInterface::kuf_file(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         if(items.size() != 5 or not items[0].empty())
             throw Exception("kuf_file: wrong query format");
         int qry_file_type = ToInt(items[1]);
-        TSearchFltInfo filter;
-        filter.airline = "ž’";
-        filter.flt_no = ToInt(items[2]);
-        filter.airp_dep = getElemId(etAirp, items[4]);
 
-        if(StrToDateTime(items[3].c_str(), "dd.mm.yy", filter.scd_out) == EOF)
+        TDateTime scd_out;
+        if(StrToDateTime(items[3].c_str(), "dd.mm.yy", scd_out) == EOF)
             throw Exception("kuf_file: can't convert scd_out: %s", items[3].c_str());
-        filter.scd_out_in_utc = true;
 
-        list<TAdvTripInfo> flts;
-        SearchFlt(filter, flts);
+        FltOperFilter filter(AirlineCode_t("ž’"),
+                             FlightNumber_t(ToInt(items[2])),
+                             FlightSuffix_t(""),
+                             AirportCode_t(getElemId(etAirp, items[4])),
+                             scd_out,
+                             FltOperFilter::DateType::UTC);
 
-        TNearestDate nd(filter.scd_out);
+        list<TAdvTripInfo> flts=filter.search();
+
+        TNearestDate nd(filter.dateDep());
         for(list<TAdvTripInfo>::iterator i = flts.begin(); i != flts.end(); ++i)
             nd.sorted_points[i->scd_out] = i->point_id;
         int point_id = nd.get();
