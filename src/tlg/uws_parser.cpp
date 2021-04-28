@@ -77,7 +77,7 @@ namespace TypeB
         }
 
         void SaveUWSContent(int tlg_id, TAHMHeadingInfo& info, TUWSContent& con) {
-            int point_id_tlg=SaveFlt(tlg_id,info.flt,info.bind_type,TSearchFltInfoPtr());
+            int point_id_tlg=SaveFlt(tlg_id,info.flt,info.bind_type);
 
             TQuery Qry(&OraSession);
             Qry.SQLText =

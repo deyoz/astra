@@ -1,0 +1,15 @@
+LOAD DATA
+INFILE *
+INTO TABLE user_types
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,name
+,name_lat
+)
+BEGINDATA
+0|"Cлужба поддержки"|"Support service"
+1|"Служащий аэропорта"|"Airport employee"
+2|"Служащий авиакомпании"|"Airline employee"

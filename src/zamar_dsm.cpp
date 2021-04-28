@@ -178,7 +178,7 @@ void PassengerSearchResult::fromXML(xmlNodePtr reqNode, xmlNodePtr externalSysRe
   // bcbp or paxId
   bool isBoardingPass = false;
   int reg_no = NoExists;
-  boost::optional<TSearchFltInfo> bcbpFltInfo;
+  boost::optional<FltOperFilter> bcbpFilter;
   try
   {
     if (nullptr != GetNode("bcbp", reqNode))
@@ -186,7 +186,7 @@ void PassengerSearchResult::fromXML(xmlNodePtr reqNode, xmlNodePtr externalSysRe
       string bcbp = NodeAsString( "bcbp", reqNode);
       if (bcbp.empty())
         ZamarException(STR_INCORRECT_DATA_IN_XML, "Empty <bcbp>", __func__);
-      SearchPaxByScanData(bcbp, point_id, reg_no, pax_id, isBoardingPass, bcbpFltInfo);
+      SearchPaxByScanData(bcbp, point_id, reg_no, pax_id, isBoardingPass, bcbpFilter);
       if (point_id==NoExists || reg_no==NoExists || pax_id==NoExists || !isBoardingPass)
       {
         LogTrace(TRACE5) << __FUNCTION__
@@ -281,19 +281,17 @@ void PassengerSearchResult::fromXML(xmlNodePtr reqNode, xmlNodePtr externalSysRe
       }
     }
 
-    if ((type == ZamarType::SBDO or type == ZamarType::CUWS) && bcbpFltInfo)
-      set_stat_zamar(type, AirlineCode_t(bcbpFltInfo.get().airline),
-                     AirportCode_t(bcbpFltInfo.get().airp_dep), true);
+    if ((type == ZamarType::SBDO or type == ZamarType::CUWS) && bcbpFilter)
+      set_stat_zamar(type, bcbpFilter.get().airline(), bcbpFilter.get().airpDep().value(), true);
   }
   catch(const AstraLocale::UserException& e)
   {
     AstraLocale::LexemaData lexemeData=e.getLexemaData();
-    if ((type == ZamarType::SBDO or type == ZamarType::CUWS) && bcbpFltInfo &&
+    if ((type == ZamarType::SBDO or type == ZamarType::CUWS) && bcbpFilter &&
         lexemeData.lexema_id!=STR_INTERNAL_ERROR &&
         lexemeData.lexema_id!=STR_INCORRECT_DATA_IN_XML)
     {
-      set_stat_zamar(type, AirlineCode_t(bcbpFltInfo.get().airline),
-                     AirportCode_t(bcbpFltInfo.get().airp_dep), false);
+      set_stat_zamar(type, bcbpFilter.get().airline(), bcbpFilter.get().airpDep().value(), false);
     }
     throw;
   }
@@ -509,7 +507,7 @@ void PassengerSearchResult::toXML(xmlNodePtr resNode, ZamarType type) const
       if(trip_info.act_out_exists()) DateTimeToXML(resNode, "act_out", trip_info.act_out.get());
 
       TDateTime scd_in, est_in, act_in;
-      TTripInfo::get_times_in(grp_item.point_arv, scd_in, est_in, act_in);
+      std::tie(scd_in, est_in, act_in) = TTripInfo::get_times_in(grp_item.point_arv);
       DateTimeToXML(resNode, "scd_arv", scd_in, grp_item.airp_arv);
       DateTimeToXML(resNode, "est_arv", est_in, grp_item.airp_arv);
       DateTimeToXML(resNode, "act_arv", act_in, grp_item.airp_arv);

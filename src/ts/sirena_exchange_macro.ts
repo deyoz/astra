@@ -86,9 +86,9 @@ $(utf8 invalid_answer)
 }
 )
 
-$(defmacro SVC_LIST_UT_1PAX_2SEGS
+$(defmacro SVC_LIST_UT_1PAX_SEG0
   pax_id
-{<svc_list passenger-id=\"$(pax_id)\" segment-id=\"0\">
+{    <svc_list passenger-id=\"$(pax_id)\" segment-id=\"0\">
       <svc company=\"UT\" service_type=\"C\" rfic=\"C\" rfisc=\"0L1\" emd_type=\"EMD-A\" carry_on=\"false\" group=\"BG\" subgroup=\"SP\">
         <name language=\"en\">FISHING EQUIPMENT UPTO44LB20KG</name>
         <name language=\"ru\">êõÅéãéÇçõÖ ëçÄëíà Ñé 44î 20äÉ</name>
@@ -618,8 +618,11 @@ Carry-on exception:  CARRY ON BAGGAGE (08A)
                 PLEASE REFER TO WWW.UTAIR.RU FOR FULL DETAILS OF
                 UT BAGGAGE POLICY.</text>
       </free_carry_on_norm>
-    </svc_list>
-    <svc_list passenger-id=\"$(pax_id)\" segment-id=\"1\">
+    </svc_list>})
+
+$(defmacro SVC_LIST_UT_1PAX_SEG1
+  pax_id
+{    <svc_list passenger-id=\"$(pax_id)\" segment-id=\"1\">
       <svc company=\"UT\" service_type=\"C\" rfic=\"C\" rfisc=\"0L1\" emd_type=\"EMD-A\" carry_on=\"false\" group=\"BG\" subgroup=\"SP\">
         <name language=\"en\">FISHING EQUIPMENT UPTO44LB20KG</name>
         <name language=\"ru\">êõÅéãéÇçõÖ ëçÄëíà Ñé 44î 20äÉ</name>
@@ -1436,7 +1439,12 @@ Carry-on exception:  CARRY ON BAGGAGE (08A)
       </free_carry_on_norm>
     </svc_list>})
 
-$(defmacro FREE_NORMS_UT_1PAX_2SEGS
+$(defmacro SVC_LIST_UT_1PAX_2SEGS
+  pax_id
+{$(SVC_LIST_UT_1PAX_SEG0 $(pax_id))
+$(SVC_LIST_UT_1PAX_SEG1 $(pax_id))})
+
+$(defmacro FREE_NORMS_UT_1PAX_SEG0
   pax_id
 {    <free_baggage_norm passenger-id=\"$(pax_id)\" segment-id=\"0\" company=\"UT\" type=\"piece\" rfiscs=\"0C2,0C4,0DD\">
       <text language=\"en\">Free baggage allowance 1PC
@@ -1472,8 +1480,11 @@ Carry-on exception:  CARRY ON BAGGAGE (08A)
                 -SIZE 40X30X20CM
                 PLEASE REFER TO WWW.UTAIR.RU FOR FULL DETAILS OF
                 UT BAGGAGE POLICY.</text>
-    </free_carry_on_norm>
-    <free_baggage_norm passenger-id=\"$(pax_id)\" segment-id=\"1\" company=\"UT\" type=\"piece\" rfiscs=\"0C2,0C4,0DD\">
+    </free_carry_on_norm>})
+
+$(defmacro FREE_NORMS_UT_1PAX_SEG1
+  pax_id
+{    <free_baggage_norm passenger-id=\"$(pax_id)\" segment-id=\"1\" company=\"UT\" type=\"piece\" rfiscs=\"0C2,0C4,0DD\">
       <text language=\"en\">Free baggage allowance 1PC
 1ST checked bag:         UPTO50LB 23KG AND62LI 158LCM , PIECE OF BAG UPTO20KG
                            203LCM (0C2)
@@ -1510,6 +1521,24 @@ Carry-on exception:  CARRY ON BAGGAGE (08A)
     </free_carry_on_norm>})
 
 
+$(defmacro FREE_NORMS_UT_1PAX_2SEGS
+  pax_id
+{$(FREE_NORMS_UT_1PAX_SEG0 $(pax_id))
+$(FREE_NORMS_UT_1PAX_SEG1 $(pax_id))})
+
+
+$(defmacro SVC_AVAILABILITY_RESPONSE_UT_1PAX_1SEG
+  pax_id
+{
+$(utf8 {<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<answer>
+  <svc_availability>
+$(SVC_LIST_UT_1PAX_SEG0 $(pax_id))
+  </svc_availability>
+</answer>})
+}
+)
+
 $(defmacro SVC_AVAILABILITY_RESPONSE_UT_1PAX_2SEGS
   pax_id
 {
@@ -1532,6 +1561,20 @@ $(utf8 {<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 $(SVC_LIST_UT_1PAX_2SEGS $(pax_id1))
 $(SVC_LIST_UT_1PAX_2SEGS $(pax_id2))
   </svc_availability>
+</answer>})
+}
+)
+
+$(defmacro SVC_PAYMENT_STATUS_RESPONSE_UT_1PAX_1SEG
+  pax_id
+  svc_list
+{
+$(utf8 {<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<answer>
+  <svc_payment_status>
+$(FREE_NORMS_UT_1PAX_SEG0 $(pax_id))
+$(svc_list)
+  </svc_payment_status>
 </answer>})
 }
 )

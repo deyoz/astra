@@ -326,54 +326,55 @@ void TTripInfo::get_client_dates(TDateTime &scd_out_client, TDateTime &real_out_
     real_out_client=scd_out_client;
 };
 
-void TTripInfo::get_times_in(const int &point_arv,
-                             TDateTime &scd_in,
-                             TDateTime &est_in,
-                             TDateTime &act_in)
+std::tuple<TDateTime, TDateTime, TDateTime> TTripInfo::get_times_in(const int &point_arv)
 {
-  scd_in=ASTRA::NoExists;
-  est_in=ASTRA::NoExists;
-  act_in=ASTRA::NoExists;
+  TDateTime scd_in=ASTRA::NoExists;
+  TDateTime est_in=ASTRA::NoExists;
+  TDateTime act_in=ASTRA::NoExists;
 
   TCachedQuery PointsQry("SELECT scd_in, est_in, act_in FROM points WHERE point_id=:point_arv AND pr_del>=0",
                          QParams() << QParam("point_arv", otInteger, point_arv));
   PointsQry.get().Execute();
-  if (PointsQry.get().Eof) return;
-  if (!PointsQry.get().FieldIsNULL("scd_in"))
-    scd_in=PointsQry.get().FieldAsDateTime("scd_in");
-  if (!PointsQry.get().FieldIsNULL("est_in"))
-    est_in=PointsQry.get().FieldAsDateTime("est_in");
-  if (!PointsQry.get().FieldIsNULL("act_in"))
-    act_in=PointsQry.get().FieldAsDateTime("act_in");
+  if (!PointsQry.get().Eof)
+  {
+    if (!PointsQry.get().FieldIsNULL("scd_in"))
+      scd_in=PointsQry.get().FieldAsDateTime("scd_in");
+    if (!PointsQry.get().FieldIsNULL("est_in"))
+      est_in=PointsQry.get().FieldAsDateTime("est_in");
+    if (!PointsQry.get().FieldIsNULL("act_in"))
+      act_in=PointsQry.get().FieldAsDateTime("act_in");
+  }
+
+  return {scd_in, est_in, act_in};
 }
 
 TDateTime TTripInfo::get_scd_in(const int &point_arv)
 {
-  TDateTime scd_in, est_in, act_in;
-  get_times_in(point_arv, scd_in, est_in, act_in);
-  return scd_in;
+  return std::get<0>(get_times_in(point_arv));
 }
 
 TDateTime TTripInfo::act_est_scd_in(const int &point_arv)
 {
   TDateTime scd_in, est_in, act_in;
-  get_times_in(point_arv, scd_in, est_in, act_in);
+  std::tie(scd_in, est_in, act_in) = get_times_in(point_arv);
   return act_in!=ASTRA::NoExists?act_in:
          est_in!=ASTRA::NoExists?est_in:
                                  scd_in;
 }
 
-TDateTime TTripInfo::get_scd_in(const std::string &airp_arv) const
+std::tuple<TDateTime, TDateTime, TDateTime> TTripInfo::get_times_in(const std::string &airp_arv) const
 {
-  if (point_id==ASTRA::NoExists) return ASTRA::NoExists;
-  TTripRoute route;
-  route.GetRouteAfter( NoExists,
-                       point_id,
-                       trtNotCurrent, trtWithCancelled );
-  for( TTripRoute::const_iterator iroute=route.begin(); iroute!=route.end(); ++iroute )
-    if ( iroute->airp == airp_arv )
-      return TTripInfo::get_scd_in(iroute->point_id);
-  return ASTRA::NoExists;
+  if (point_id!=ASTRA::NoExists)
+  {
+    TTripRoute route;
+    route.GetRouteAfter( NoExists,
+                         point_id,
+                         trtNotCurrent, trtWithCancelled );
+    for( TTripRoute::const_iterator iroute=route.begin(); iroute!=route.end(); ++iroute )
+      if ( iroute->airp == airp_arv )
+        return TTripInfo::get_times_in(iroute->point_id);
+  }
+  return {ASTRA::NoExists, ASTRA::NoExists, ASTRA::NoExists};
 }
 
 std::string TTripInfo::flight_view(TElemContext ctxt, bool showScdOut, bool showAirp) const
@@ -2431,60 +2432,113 @@ void TCFG::get(int point_id, TDateTime part_key)
     }
 }
 
-void SearchMktFlt(const TSearchFltInfo &filter, set<int/*mark_trips.point_id*/> &point_ids)
+FltMarkFilter::FltMarkFilter(const AirlineCode_t& airline,
+                             const FlightNumber_t& fltNumber,
+                             const FlightSuffix_t& suffix,
+                             const AirportCode_t& airpDep,
+                             const TDateTime scdDateDep,
+                             const DateType scdDateDepInUTC) :
+  airline_(airline),
+  fltNumber_(fltNumber),
+  suffix_(suffix),
+  airpDep_(airpDep)
 {
-  if ( filter.scd_out_in_utc ) {
-    throw Exception("%s: filter.scd_out_in_utc=true not supported", __FUNCTION__);
-  }
-  point_ids.clear();
+  if (scdDateDep==NoExists)
+    throw Exception("%s: scdDateDep==NoExists!", __func__);
+  if (scdDateDepInUTC)
+    throw Exception("%s: scdDateDepInUTC=true not supported!", __func__);
+  modf(scdDateDep, &scdDateDepLocalTruncated_);
+}
+
+std::set<PointIdMkt_t> FltMarkFilter::search() const
+{
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
     "SELECT DISTINCT point_id FROM mark_trips "
-    " WHERE airline=:airline AND flt_no=:flt_no AND "
-    "       (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
-    "       scd=:scd AND airp_dep=:airp_dep";
-  Qry.CreateVariable( "airline", otString, filter.airline );
-  Qry.CreateVariable( "flt_no", otInteger, filter.flt_no );
-  Qry.CreateVariable( "suffix", otString, filter.suffix );
-  Qry.CreateVariable( "scd", otDate, filter.scd_out );
-  Qry.CreateVariable( "airp_dep", otString, filter.airp_dep );
+    "WHERE airline=:airline AND flt_no=:flt_no AND "
+    "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
+    "      scd=:scd AND airp_dep=:airp_dep";
+  Qry.CreateVariable( "airline", otString, airline_.get() );
+  Qry.CreateVariable( "flt_no", otInteger, fltNumber_.get() );
+  Qry.CreateVariable( "suffix", otString, suffix_.get() );
+  Qry.CreateVariable( "scd", otDate, scdDateDepLocalTruncated_ );
+  Qry.CreateVariable( "airp_dep", otString, airpDep_.get() );
   Qry.Execute();
+  set<PointIdMkt_t> result;
   for ( ; !Qry.Eof; Qry.Next() ) {
-    point_ids.insert( Qry.FieldAsInteger( "point_id") );
+    result.emplace( Qry.FieldAsInteger( "point_id") );
   }
+
+  return result;
 }
 
-void SearchFlt(const TSearchFltInfo &filter, list<TAdvTripInfo> &flts)
+FltOperFilter::FltOperFilter(const AirlineCode_t& airline,
+                             const FlightNumber_t& fltNumber,
+                             const FlightSuffix_t& suffix,
+                             const std::optional<AirportCode_t>& airpDep,
+                             const TDateTime dateDep,
+                             const DateType dateDepType,
+                             const std::set<DateFlag>& dateDepFlags,
+                             const FlightProps& fltProps) :
+  airline_(airline),
+  fltNumber_(fltNumber),
+  suffix_(suffix),
+  airpDepOpt_(airpDep),
+  dateDepInUTC_(dateDepType==UTC),
+  dateDepFlags_(dateDepFlags),
+  fltProps_(fltProps)
 {
-  flts.clear();
+  if (dateDep==NoExists)
+    throw Exception("%s: dateDep==NoExists!", __func__);
+  modf(dateDep, &dateDepTruncated_);
+}
+
+bool FltOperFilter::suitable(const AirportCode_t& airpDep,
+                             const TDateTime timeDepInUTC) const
+{
+  if (timeDepInUTC==NoExists) return false;
+
+  TDateTime dateForCompare=timeDepInUTC;
+  if (!dateDepInUTC_)
+  {
+    string region=AirpTZRegion(airpDep.get(), false);
+    if (region.empty()) return false;
+    dateForCompare=UTCToLocal(timeDepInUTC, region);
+  }
+  modf(dateForCompare, &dateForCompare);
+
+  return dateDepTruncated_==dateForCompare;
+}
+
+std::list<TAdvTripInfo> FltOperFilter::search() const
+{
+  std::list<TAdvTripInfo> result;
 
   QParams QryParams;
-  QryParams << QParam("airline", otString, filter.airline)
-            << (filter.flt_no!=NoExists?QParam("flt_no", otInteger, (int)filter.flt_no):
-                                        QParam("flt_no", otInteger, FNull))
-            << QParam("suffix", otString, filter.suffix)
-            << QParam("airp_dep", otString, filter.airp_dep)
-            << (filter.scd_out!=NoExists?QParam("scd", otDate, filter.scd_out):
-                                         QParam("scd", otDate, FNull));
+  QryParams << QParam("airline", otString, airline_.get())
+            << QParam("flt_no", otInteger, fltNumber_.get())
+            << QParam("suffix", otString, suffix_.get())
+            << QParam("airp_dep", otString, airpDepOpt_?airpDepOpt_.value().get():"")
+            << QParam("date_dep", otDate, dateDepTruncated_);
 
   ostringstream sql;
   sql <<
     "SELECT " << TAdvTripInfo::selectedFields() << " FROM points \n";
 
-  if (!filter.scd_out_in_utc)
+  if (!dateDepInUTC_)
   {
     //перевод UTCToLocal(points.scd)
     sql <<
       "WHERE airline=:airline AND flt_no=:flt_no AND airp=:airp_dep AND \n"
       "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND \n"
-      "      (scd_out >= TO_DATE(:scd)-1 AND scd_out < TO_DATE(:scd)+2 \n ";
-    if(filter.dep_date_flags.isFlag(ddtEST))
+      "      (scd_out >= TO_DATE(:date_dep)-1 AND scd_out < TO_DATE(:date_dep)+2 \n ";
+    if(dateDepFlags_.count(Est)>0)
     sql <<
-      "      or est_out >= TO_DATE(:scd)-1 AND est_out < TO_DATE(:scd)+2 \n ";
-    if(filter.dep_date_flags.isFlag(ddtACT))
+      "      or est_out >= TO_DATE(:date_dep)-1 AND est_out < TO_DATE(:date_dep)+2 \n ";
+    if(dateDepFlags_.count(Act)>0)
     sql <<
-      "      or act_out >= TO_DATE(:scd)-1 AND act_out < TO_DATE(:scd)+2 \n ";
+      "      or act_out >= TO_DATE(:date_dep)-1 AND act_out < TO_DATE(:date_dep)+2 \n ";
     sql <<
       "      ) AND \n"
       "      pr_del>=0 \n";
@@ -2495,40 +2549,50 @@ void SearchFlt(const TSearchFltInfo &filter, list<TAdvTripInfo> &flts)
       "WHERE airline=:airline AND flt_no=:flt_no AND \n"
       "      (:airp_dep IS NULL OR airp=:airp_dep) AND \n"
       "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND \n"
-      "      (scd_out >= TO_DATE(:scd) AND scd_out < TO_DATE(:scd)+1 \n";
-    if(filter.dep_date_flags.isFlag(ddtEST))
+      "      (scd_out >= TO_DATE(:date_dep) AND scd_out < TO_DATE(:date_dep)+1 \n";
+    if(dateDepFlags_.count(Est)>0)
     sql <<
-      "      or est_out >= TO_DATE(:scd) AND est_out < TO_DATE(:scd)+1 \n";
-    if(filter.dep_date_flags.isFlag(ddtACT))
+      "      or est_out >= TO_DATE(:date_dep) AND est_out < TO_DATE(:date_dep)+1 \n";
+    if(dateDepFlags_.count(Act)>0)
     sql <<
-      "      or act_out >= TO_DATE(:scd) AND act_out < TO_DATE(:scd)+1 \n";
+      "      or act_out >= TO_DATE(:date_dep) AND act_out < TO_DATE(:date_dep)+1 \n";
     sql <<
       "      ) AND \n"
       "      pr_del>=0 \n";
   };
 
-  sql << " " << filter.additional_where;
+  sql << " " << additionalWhere_;
 
   TCachedQuery PointsQry(sql.str(), QryParams);
   PointsQry.get().Execute();
   for(;!PointsQry.get().Eof;PointsQry.get().Next())
   {
-    if (!TAdvTripInfo::match(PointsQry.get(), filter.flightProps)) continue;
+    if (!TAdvTripInfo::match(PointsQry.get(), fltProps_)) continue;
     TAdvTripInfo flt(PointsQry.get());
-    if (!filter.scd_out_in_utc)
+
+    if (suitable(AirportCode_t(flt.airp), flt.scd_out))
     {
-      TDateTime scd=flt.scd_out;
-      string tz_region=AirpTZRegion(flt.airp,false);
-      if (tz_region.empty()) continue;
-      scd=UTCToLocal(scd,tz_region);
-      modf(scd,&scd);
-      if (scd!=filter.scd_out) continue;
-    };
-    if(filter.before_add(flt))
-        flts.push_back(flt);
-  };
-  filter.before_exit(flts);
-};
+      result.push_back(flt);
+      continue;
+    }
+
+    if (dateDepFlags_.count(Est)>0 && flt.est_out &&
+        suitable(AirportCode_t(flt.airp), flt.est_out.get()))
+    {
+      result.push_back(flt);
+      continue;
+    }
+
+    if (dateDepFlags_.count(Act)>0 && flt.act_out &&
+        suitable(AirportCode_t(flt.airp), flt.act_out.get()))
+    {
+      result.push_back(flt);
+      continue;
+    }
+  }
+
+  return result;
+}
 
 TDateTime getTimeTravel(const string &craft, const string &airp, const string &airp_last)
 {

@@ -64,11 +64,10 @@ class TSegItem
   public:
     int id;
     TTripInfo operFlt;
-    bool scd_out_contain_time;
     boost::optional<TSimpleMktFlight> markFlt;
     std::string airp_arv;
-    TDateTime scd_in;
-    bool scd_in_contain_time;
+    TDateTime scd_in, est_in, act_in;
+    bool datesContainTime;
     TSegItem()
     {
       clear();
@@ -82,44 +81,53 @@ class TSegItem
       airp_arv=item.airp_arv;
     }
     void set(int seg_id,
-             const TTripInfo &_operFlt,
-             const std::string &_airp_arv,
+             const TTripInfo &operFlt_,
+             const std::string &airp_arv_,
              const TSimpleMktFlight &mktFlight,
-             const TDateTime &_scd_in)
+             const std::tuple<TDateTime, TDateTime, TDateTime> times_in)
     {
       clear();
       id=seg_id;
-      operFlt=_operFlt;
-      if (operFlt.scd_out!=ASTRA::NoExists)
-      {
+      operFlt=operFlt_;
+      if (operFlt.scd_out_exists())
         operFlt.scd_out=UTCToLocal(operFlt.scd_out, AirpTZRegion(operFlt.airp));
-        scd_out_contain_time=true;
-      };
-      airp_arv=_airp_arv;
-      scd_in=_scd_in;
+      if (operFlt.est_out_exists())
+        operFlt.est_out.get()=UTCToLocal(operFlt.est_out.get(), AirpTZRegion(operFlt.airp));
+      if (operFlt.act_out_exists())
+        operFlt.act_out.get()=UTCToLocal(operFlt.act_out.get(), AirpTZRegion(operFlt.airp));
+      airp_arv=airp_arv_;
+      std::tie(scd_in, est_in, act_in)=times_in;
       if (scd_in!=ASTRA::NoExists)
-      {
         scd_in=UTCToLocal(scd_in, AirpTZRegion(airp_arv));
-        scd_in_contain_time=true;
-      };
+      if (est_in!=ASTRA::NoExists)
+        est_in=UTCToLocal(est_in, AirpTZRegion(airp_arv));
+      if (act_in!=ASTRA::NoExists)
+        act_in=UTCToLocal(act_in, AirpTZRegion(airp_arv));
       markFlt=boost::none;
       if (!mktFlight.empty()) markFlt=mktFlight;
+      datesContainTime=true;
     }
 
     void clear()
     {
       id=ASTRA::NoExists;
       operFlt.Clear();
-      scd_out_contain_time=false;
       markFlt=boost::none;
       airp_arv.clear();
       scd_in=ASTRA::NoExists;
-      scd_in_contain_time=false;
+      est_in=ASTRA::NoExists;
+      act_in=ASTRA::NoExists;
+      datesContainTime=false;
     }
 
+    void dateTimeToSirenaXML(xmlNodePtr node,
+                             const std::string& propNameWithoutSuffix,
+                             const TDateTime dt) const;
     const TSegItem& toSirenaXML(xmlNodePtr node,
                                 const boost::optional<CheckIn::TPaxTknItem>& tkn,
                                 const AstraLocale::OutputLang &lang) const;
+
+    TDateTime est_scd_in() const { return est_in!=ASTRA::NoExists?est_in:scd_in; }
 };
 
 class TPaxSection;

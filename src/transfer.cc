@@ -327,24 +327,21 @@ void TTransferList::parseSubclasses(xmlNodePtr paxNode)
   }
 }
 
-TSearchFltInfo createSearchFlt(const CheckIn::TTransferItem &item)
+FltOperFilter createFltOperFilter(const CheckIn::TTransferItem &item)
 {
-    TSearchFltInfo filter;
-    filter.airline  = item.operFlt.airline;
-    filter.suffix   = item.operFlt.suffix;
-    filter.airp_dep = item.operFlt.airp;
-    filter.flt_no   = item.operFlt.flt_no;
-    filter.scd_out  = item.operFlt.scd_out;
-    filter.scd_out_in_utc  = false; //локальное время порта
-    filter.flightProps     = FlightProps(FlightProps::NotCancelled, FlightProps::WithCheckIn);
-    return filter;
+    return {AirlineCode_t(item.operFlt.airline),
+            FlightNumber_t(item.operFlt.flt_no),
+            FlightSuffix_t(item.operFlt.suffix),
+            AirportCode_t(item.operFlt.airp),
+            item.operFlt.scd_out,
+            FltOperFilter::DateType::Local,
+            {},
+            FlightProps(FlightProps::NotCancelled, FlightProps::WithCheckIn)};
 }
 
 TAdvTripInfo routeInfoFromTrfr(const CheckIn::TTransferItem& seg)
 {
-    TSearchFltInfo searchFilter = CheckIn::createSearchFlt(seg);
-    std::list<TAdvTripInfo> flt;
-    SearchFlt(searchFilter, flt);
+    std::list<TAdvTripInfo> flt=createFltOperFilter(seg).search();
     if(flt.empty() || flt.size() > 1) {
         LogTrace(TRACE5) << __FUNCTION__ << " Search filter error: ";
         throw Exception("Search error");
@@ -980,22 +977,21 @@ void TrferFromDB(TTrferType type,
     if (id==flts_from_tlg.end())
     {
       //нету информации про flt1 - требуется проверка обслуживания в Астре
-      TSearchFltInfo filter;
-      filter.airline=flt1.airline;
-      filter.flt_no=flt1.flt_no;
-      filter.suffix=flt1.suffix;
-      filter.airp_dep=flt1.airp;
-      filter.scd_out=flt1.scd_out;
-      filter.scd_out_in_utc=false;
-      filter.additional_where=
+      FltOperFilter filter(AirlineCode_t(flt1.airline),
+                           FlightNumber_t(flt1.flt_no),
+                           FlightSuffix_t(flt1.suffix),
+                           AirportCode_t(flt1.airp),
+                           flt1.scd_out,
+                           FltOperFilter::DateType::Local);
+
+      filter.setAdditionalWhere(
         " AND EXISTS(SELECT pax_grp.point_dep "
         "            FROM pax_grp "
-        "            WHERE pax_grp.point_dep=points.point_id AND pax_grp.status NOT IN ('E'))";
+        "            WHERE pax_grp.point_dep=points.point_id AND pax_grp.status NOT IN ('E'))");
 
       //ищем рейс в СПП
-      list<TAdvTripInfo> flts;
-      SearchFlt(filter, flts);
-      list<TAdvTripInfo>::const_iterator f=flts.begin();
+      std::list<TAdvTripInfo> flts=filter.search();
+      std::list<TAdvTripInfo>::const_iterator f=flts.begin();
       for(; f!=flts.end(); ++f)
       {
         TFltInfo flt2(*f, true);
