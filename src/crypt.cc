@@ -1396,38 +1396,6 @@ void fillTpkcsWithFiles(TPKCS& pkcs, int pkcs_id)
     }
 }
 
-void updatePkcsDataOra(int pkcs_id, const std::string& name, const std::string& data)
-{
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-       "UPDATE crypt_files "
-       "SET data =: data "
-       "WHERE pkcs_id =: pkcs_id "
-       "AND name =: name";
-    Qry.CreateVariable("pkcs_id", otInteger, pkcs_id);
-    Qry.CreateVariable("name", otString, name);
-    Qry.DeclareVariable("data", otLongRaw);
-    Qry.SetLongVariable("data", (void*)data.c_str(), data.size());
-    Qry.Execute();
-}
-
-void updatePkcsData(int pkcs_id, const std::string& name, const std::string& data)
-{
-    PgCpp::CursCtl cur = DbCpp::mainPgManagedSession(STDLOG).createPgCursor(STDLOG,
-       "UPDATE crypt_files "
-       "SET data = :data "
-       "WHERE pkcs_id = :pkcs_id "
-       "AND name = :name",
-       true
-    );
-
-    cur.stb()
-       .bind(":data", PgCpp::BinaryBindHelper({data.data(), data.size()}))
-       .bind(":pkcs_id", pkcs_id)
-       .bind(":name", name)
-       .exec();
-}
-
 void CryptInterface::CryptValidateServerKey(XMLRequestCtxt*, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     //пришло подтверждение авторизации - удаление из БД всей информации по PSE
