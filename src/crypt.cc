@@ -1051,71 +1051,155 @@ void writePSEFile( const string &dirname, TPSEFile &pse_file )
   };
 }
 
-void WritePSEFiles( const TPKCS &pkcs, const string &desk, bool pr_grp )
+void deleteCryptFiles(int pkcs_id)
 {
-  TQuery Qry(&OraSession);
-  std::string certificate;
-  int pkcs_id;
-  Qry.SQLText =
-   "SELECT grp_id FROM desks WHERE code=:code";
-  Qry.CreateVariable( "code", otString, desk );
-  Qry.Execute();
-  if ( Qry.Eof )
-    throw Exception( "invalid desk: %s", desk.c_str() );
-  int grp_id = Qry.FieldAsInteger( "grp_id" );
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT pkcs_id FROM crypt_file_params "
-    " WHERE desk_grp_id=:grp_id AND ( :pr_grp!=0 AND desk IS NULL OR :pr_grp=0 AND desk=:desk )";
-  Qry.CreateVariable( "grp_id", otInteger, grp_id );
-  Qry.CreateVariable( "desk", otString, desk );
-  Qry.CreateVariable( "pr_grp", otInteger, pr_grp );
-  Qry.Execute();
-  ProgTrace( TRACE5, "grp_id=%d, desk=%s, pr_grp=%d, Qry.Eof=%d", grp_id, desk.c_str(), pr_grp, Qry.Eof );
-  if ( !Qry.Eof ) {
-    pkcs_id = Qry.FieldAsInteger( "pkcs_id" );
-    ProgTrace( TRACE5, "pkcs_id=%d", pkcs_id );
-    Qry.Clear(); //!!! удаляем
+    make_db_curs(
+       "UPDATE crypt_term_cert SET pkcs_id = NULL WHERE pkcs_id = :pkcs_id",
+        PgOra::getRWSession("CRYPT_TERM_CERT"))
+       .stb().bind("pkcs_id", pkcs_id).exec();
+
+    make_db_curs(
+       "DELETE FROM crypt_files WHERE pkcs_id = :pkcs_id",
+        PgOra::getRWSession("CRYPT_FILES"))
+       .stb().bind("pkcs_id", pkcs_id).exec();
+
+    make_db_curs(
+       "DELETE FROM crypt_file_params WHERE pkcs_id = :pkcs_id",
+        PgOra::getRWSession("CRYPT_FILE_PARAMS"))
+       .stb().bind("pkcs_id", pkcs_id).exec();
+}
+
+void updatePkcsDataOra(int pkcs_id, const std::string& name, const std::string& data)
+{
+    TQuery Qry(&OraSession);
     Qry.SQLText =
-            "BEGIN "
-      " UPDATE crypt_term_cert SET pkcs_id=NULL WHERE pkcs_id=:pkcs_id;"
-            " DELETE crypt_files WHERE pkcs_id=:pkcs_id;"
-            " DELETE crypt_file_params WHERE pkcs_id=:pkcs_id;"
-            "END;";
-          Qry.CreateVariable( "pkcs_id", otInteger, pkcs_id );
-          Qry.Execute();
-  }
-  Qry.Clear();
-  pkcs_id = PgOra::getSeqNextVal_int("ID__SEQ");
-  Qry.SQLText =
-    "INSERT INTO crypt_file_params(pkcs_id,keyname,certname,password,desk,desk_grp_id,send_count)"
-    " SELECT :pkcs_id,:keyname,:certname,:password,DECODE(:pr_grp,0,:desk,NULL),grp_id,0 FROM desks"
-    "  WHERE code=:desk";
-  Qry.CreateVariable( "pkcs_id", otInteger, pkcs_id );
-  Qry.CreateVariable( "keyname", otString, pkcs.key_filename );
-  Qry.CreateVariable( "certname", otString, pkcs.cert_filename );
-  Qry.CreateVariable( "password", otString, pkcs.password );
-  Qry.CreateVariable( "pr_grp", otInteger, pr_grp );
-  Qry.CreateVariable( "desk", otString, desk );
-  Qry.Execute();
-  Qry.Clear();
-  Qry.SQLText =
-    "INSERT INTO crypt_files(pkcs_id,name,data) VALUES(:pkcs_id,:name,:data)";
-  Qry.CreateVariable( "pkcs_id", otInteger, pkcs_id );
-  Qry.DeclareVariable( "name", otString );
-  Qry.DeclareVariable( "data", otLongRaw );
-  vector<TPSEFile>::const_iterator ireq;
-  for ( vector<TPSEFile>::const_iterator i=pkcs.pse_files.begin(); i!=pkcs.pse_files.end(); i++ ) {
-        if ( i->filename == pkcs.cert_filename ) {
-                ireq = i;
-                continue;
-    }
-    Qry.SetVariable( "name", i->filename );
-    Qry.SetLongVariable( "data", (void*)i->data.c_str(), i->data.size() );
+       "UPDATE crypt_files "
+       "SET data =: data "
+       "WHERE pkcs_id =: pkcs_id "
+       "AND name =: name";
+    Qry.CreateVariable("pkcs_id", otInteger, pkcs_id);
+    Qry.CreateVariable("name", otString, name);
+    Qry.DeclareVariable("data", otLongRaw);
+    Qry.SetLongVariable("data", (void*)data.c_str(), data.size());
     Qry.Execute();
-  }
-  // записываем запрос на сертификат
-  IntPutRequestCertificate( ireq->data, desk, pr_grp, pkcs_id );
+}
+
+void updatePkcsData(int pkcs_id, const std::string& name, const std::string& data)
+{
+    PgCpp::CursCtl cur = DbCpp::mainPgManagedSession(STDLOG).createPgCursor(STDLOG,
+       "UPDATE crypt_files "
+       "SET data = :data "
+       "WHERE pkcs_id = :pkcs_id "
+       "AND name = :name",
+       true
+    );
+
+    cur.stb()
+       .bind(":data", PgCpp::BinaryBindHelper({data.data(), data.size()}))
+       .bind(":pkcs_id", pkcs_id)
+       .bind(":name", name)
+       .exec();
+}
+
+void addCryptFileOra(const int pkcs_id, const string& name, const string& data)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+       "INSERT INTO crypt_files(pkcs_id, name, data) "
+       "VALUES(:pkcs_id, :name, :data)";
+    Qry.CreateVariable("pkcs_id", otInteger, pkcs_id);
+    Qry.CreateVariable("name", otString, name);
+    Qry.DeclareVariable("data", otLongRaw);
+    Qry.SetLongVariable("data", (void*)data.c_str(), data.size());
+    Qry.Execute();
+}
+
+void addCryptFile(const int pkcs_id, const string& name, const string& data)
+{
+    PgCpp::CursCtl cur = DbCpp::mainPgManagedSession(STDLOG).createPgCursor(STDLOG,
+       "INSERT INTO crypt_files(pkcs_id, name, data) "
+                       "VALUES(:pkcs_id, :name, :data)",
+       true
+    );
+
+    cur.stb()
+       .bind(":pkcs_id", pkcs_id)
+       .bind(":name", name)
+       .bind(":data", PgCpp::BinaryBindHelper({data.data(), data.size()}))
+       .exec();
+}
+
+int addCryptFileParams(
+    const std::string& key_filename,
+    const std::string& cert_filename,
+    const std::string& password,
+    const int grp_id,
+    const std::string& desk,
+    const bool pr_grp)
+{
+    const int pkcs_id = PgOra::getSeqNextVal_int("ID__SEQ");
+    DB::TQuery Qry(PgOra::getRWSession("CRYPT_FILE_PARAMS"));
+    Qry.SQLText = pr_grp
+     ? "INSERT INTO crypt_file_params(pkcs_id, keyname, certname, password, desk, desk_grp_id, send_count)"
+                             "VALUES(:pkcs_id,:keyname,:certname,:password, NULL,:grp_id, 0)"
+     : "INSERT INTO crypt_file_params(pkcs_id, keyname, certname, password, desk, desk_grp_id, send_count)"
+                             "VALUES(:pkcs_id,:keyname,:certname,:password,:desk,:grp_id, 0)";
+
+    Qry.CreateVariable("pkcs_id", otInteger, pkcs_id);
+    Qry.CreateVariable("keyname", otString, key_filename);
+    Qry.CreateVariable("certname", otString, cert_filename);
+    Qry.CreateVariable("password", otString, password);
+    if (!pr_grp) {
+        Qry.CreateVariable("grp_id", otInteger, grp_id);
+    }
+    Qry.CreateVariable("desk", otString, desk);
+    Qry.Execute();
+
+    return pkcs_id;
+}
+
+void WritePSEFiles(const TPKCS& pkcs, const string& desk, bool pr_grp)
+{
+    std::optional<int> grp_id = getDeskGroupByCode(desk);
+
+    if (!grp_id.has_value()) {
+        throw Exception("invalid desk: %s", desk.c_str());
+    }
+
+    DB::TQuery Qry(PgOra::getROSession("CRYPT_FILE_PARAMS"));
+    Qry.SQLText = pr_grp
+     ? "SELECT pkcs_id FROM crypt_file_params "
+       "WHERE desk_grp_id = :grp_id AND desk IS NULL"
+     : "SELECT pkcs_id FROM crypt_file_params "
+       "WHERE desk_grp_id = :grp_id AND desk = :desk";
+
+    Qry.CreateVariable("grp_id", otInteger, *grp_id);
+    if (!pr_grp) {
+        Qry.CreateVariable("desk", otString, desk);
+    }
+    Qry.Execute();
+
+    LogTrace(TRACE5) << "grp_id=" << *grp_id << ", desk=" << desk << ", pr_grp=" << pr_grp << ", Qry.Eof=" << Qry.Eof;
+    if (!Qry.Eof) {
+        int pkcs_id = Qry.FieldAsInteger("pkcs_id");
+        ProgTrace(TRACE5, "pkcs_id=%d", pkcs_id);
+        deleteCryptFiles(pkcs_id);
+    }
+
+    const int pkcs_id = addCryptFileParams(pkcs.key_filename, pkcs.cert_filename, pkcs.password, *grp_id, desk, pr_grp);
+
+    vector<TPSEFile>::const_iterator ireq;
+    for (vector<TPSEFile>::const_iterator i = pkcs.pse_files.begin(); i != pkcs.pse_files.end(); i++) {
+        if (i->filename == pkcs.cert_filename) {
+            ireq = i;
+            continue;
+        }
+        PgOra::supportsPg("CRYPT_FILES")
+          ? addCryptFile(pkcs_id, i->filename, i->data)
+          : addCryptFileOra(pkcs_id, i->filename, i->data);
+    }
+    // записываем запрос на сертификат
+    IntPutRequestCertificate(ireq->data, desk, pr_grp, pkcs_id);
 }
 
 string getPassword( )
@@ -1960,6 +2044,18 @@ START_TEST(check_addCertificate)
     fail_unless((expectToThrow<Exception, decltype(convertTime), const char*>(convertTime, "11.12.1973 a3:32:59")));
 
     deleteTermRequest(reqId);
+
+    int pkcs_id = addCryptFileParams("key_filename", "cert_filename", "password", 123001, "DSK1G1", false);
+
+    PgOra::supportsPg("CRYPT_FILES")
+      ? addCryptFile(pkcs_id, "readme.md", "some data")
+      : addCryptFileOra(pkcs_id, "readme.md", "some data");
+
+    PgOra::supportsPg("CRYPT_FILES")
+      ? updatePkcsData(pkcs_id, "readme.md", "some new data")
+      : updatePkcsDataOra(pkcs_id, "readme.md", "some new data");
+
+    deleteCryptFiles(pkcs_id);
 }
 END_TEST
 
