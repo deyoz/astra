@@ -907,6 +907,19 @@ static std::vector<FltOperFilter> getFltOperFilterList(const SirenaExchange::TPa
   return result;
 }
 
+bool existsPaidRfisc(const PaxId_t& pax_id)
+{
+  TPaidRFISCList PaidRFISCList;
+  PaidRFISCList.fromDB(pax_id);
+  for (const auto& PaidRFISC: PaidRFISCList) {
+    const TPaidRFISCItem& item = PaidRFISC.second;
+    if (item.need > 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void SvcSirenaInterface::procPassengers( const SirenaExchange::TPassengersReq &req, SirenaExchange::TPassengersRes &res )
 {
   res.clear();
@@ -940,16 +953,16 @@ void SvcSirenaInterface::procPassengers( const SirenaExchange::TPassengersReq &r
     }
   }
 
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("PAX-PAX_GRP"), STDLOG);
   Qry.SQLText="SELECT pax.*, pax_grp.point_id_mark "
               "FROM pax, pax_grp "
               "WHERE pax_grp.grp_id=pax.grp_id AND "
               "      pax_grp.point_dep=:point_id AND "
-              "      pax.refuse IS NULL AND pax_grp.status NOT IN ('E') AND "
-              "      EXISTS(SELECT pax_id FROM paid_rfisc WHERE pax_id=pax.pax_id AND need>0 AND rownum<2) ";
+              "      pax.refuse IS NULL AND pax_grp.status NOT IN ('E') ";
   Qry.DeclareVariable("point_id", otInteger);
 
   map<PaxId_t, CheckIn::TSimplePaxItem> paxs;
+  std::set<PaxId_t> notPaid;
 
   for(const auto& i : operatingPointIds)
   {
@@ -958,6 +971,15 @@ void SvcSirenaInterface::procPassengers( const SirenaExchange::TPassengersReq &r
     Qry.Execute();
     for ( ; !Qry.Eof; Qry.Next() )
     {
+      const PaxId_t paxId(Qry.FieldAsInteger("pax_id"));
+      if (notPaid.find(paxId) != notPaid.end()) {
+        continue;
+      }
+      if (!existsPaidRfisc(paxId)) {
+        notPaid.insert(paxId);
+        continue;
+      }
+
       if (i.second)
       {
         //надо проверить, что коммерческий рейс подходит
@@ -966,7 +988,6 @@ void SvcSirenaInterface::procPassengers( const SirenaExchange::TPassengersReq &r
         if (pointIdsMkt.find(pointIdMkt)==pointIdsMkt.end()) continue;
       }
 
-      PaxId_t paxId(Qry.FieldAsInteger( "pax_id" ));
       if (paxs.find(paxId)!=paxs.end()) continue;
       paxs.emplace(paxId, CheckIn::TSimplePaxItem().fromDB(Qry));
     }

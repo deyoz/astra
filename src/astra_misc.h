@@ -904,6 +904,26 @@ struct TCkinRouteItem
   TCkinRouteItem(TQuery &Qry);
 };
 
+struct PaxGrpRouteItem
+{
+  PaxId_t pax_id;
+  GrpId_t grp_id;
+  int tckin_id;
+  int seg_no;
+  int distance;
+};
+
+struct PaxGrpRoute
+{
+  PaxGrpRouteItem src;
+  PaxGrpRouteItem dest;
+
+  static std::vector<PaxGrpRoute> load(const PaxId_t& pax_id,
+                                       int transfer_num,
+                                       const GrpId_t& grp_id_src,
+                                       const GrpId_t& grp_id_dest);
+};
+
 using TCkinGrpIds = std::list<GrpId_t>;
 
 class TCkinRouteInsertItem

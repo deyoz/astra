@@ -205,7 +205,22 @@ const TPaxSegKey& TPaxSegKey::toDB(TQuery &Qry) const
   return *this;
 }
 
+const TPaxSegKey& TPaxSegKey::toDB(DB::TQuery &Qry) const
+{
+  Qry.SetVariable("pax_id", pax_id);
+  Qry.SetVariable("transfer_num", trfer_num);
+  return *this;
+}
+
 TPaxSegKey& TPaxSegKey::fromDB(TQuery &Qry)
+{
+  clear();
+  pax_id=Qry.FieldAsInteger("pax_id");
+  trfer_num=Qry.FieldAsInteger("transfer_num");
+  return *this;
+}
+
+TPaxSegKey& TPaxSegKey::fromDB(DB::TQuery &Qry)
 {
   clear();
   pax_id=Qry.FieldAsInteger("pax_id");

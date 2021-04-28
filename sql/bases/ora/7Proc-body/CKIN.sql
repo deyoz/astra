@@ -226,42 +226,6 @@ BEGIN
   RETURN res;
 END get_birks2;
 
-FUNCTION need_for_payment(vgrp_id        IN pax_grp.grp_id%TYPE,
-                          vclass         IN pax_grp.class%TYPE,
-                          vbag_refuse    IN pax_grp.bag_refuse%TYPE,
-                          vpiece_concept IN pax_grp.piece_concept%TYPE,
-                          vexcess_wt     IN pax_grp.excess_wt%TYPE,
-                          vexcess_pc     IN pax_grp.excess_pc%TYPE,
-                          vpax_id        IN pax.pax_id%TYPE) RETURN NUMBER
-IS
-res NUMBER;
-BEGIN
-  IF vbag_refuse<>0 THEN RETURN 0; END IF;
-
-  IF vpiece_concept=0 THEN
-    IF vexcess_wt>0 THEN RETURN 1; END IF;
-  ELSE
-    IF vpax_id IS NOT NULL THEN
-      SELECT COUNT(*)
-      INTO res
-      FROM paid_rfisc
-      WHERE pax_id=vpax_id AND paid>0 AND rownum<2;
-
-      IF res>0 THEN RETURN 1; END IF;
-    END IF;
-  END IF;
-
-  SELECT COUNT(*)
-  INTO res
-  FROM value_bag, bag2
-  WHERE value_bag.grp_id=bag2.grp_id(+) AND
-        value_bag.num=bag2.value_bag_num(+) AND
-        (bag2.grp_id IS NULL OR
-         ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,vclass,vbag_refuse)=0) AND
-        value_bag.grp_id=vgrp_id AND value_bag.value>0 AND rownum<2;
-  RETURN res;
-END need_for_payment;
-
 FUNCTION get_bagInfo2(vgrp_id       IN pax.grp_id%TYPE,
                       vpax_id 	    IN pax.pax_id%TYPE,
                       vbag_pool_num IN pax.bag_pool_num%TYPE) RETURN TBagInfo
@@ -404,39 +368,6 @@ BEGIN
   IF vexcess=0 THEN vexcess:=NULL; END IF;
   RETURN vexcess;
 END get_excess_wt;
-
-FUNCTION get_excess_pc(vgrp_id         IN pax.grp_id%TYPE,
-                       vpax_id         IN pax.pax_id%TYPE,
-                       include_all_svc IN NUMBER DEFAULT 0) RETURN NUMBER
-IS
-vexcess         pax_grp.excess_pc%TYPE;
-BEGIN
-  vexcess:=0;
-
-  IF vpax_id IS NOT NULL THEN
-    IF include_all_svc=0 THEN
-      SELECT NVL(SUM(paid_rfisc.paid), 0)
-      INTO vexcess
-      FROM paid_rfisc, rfisc_list_items
-      WHERE paid_rfisc.list_id=rfisc_list_items.list_id AND
-            paid_rfisc.rfisc=rfisc_list_items.rfisc AND
-            paid_rfisc.service_type=rfisc_list_items.service_type AND
-            paid_rfisc.airline=rfisc_list_items.airline AND
-            paid_rfisc.pax_id=vpax_id AND
-            paid_rfisc.transfer_num=0 AND
-            paid_rfisc.paid>0 AND
-            rfisc_list_items.category IN (1/*baggage*/, 2/*carry_on*/);
-    ELSE
-      SELECT NVL(SUM(paid), 0)
-      INTO vexcess
-      FROM paid_rfisc
-      WHERE pax_id=vpax_id AND paid>0 AND transfer_num=0;
-    END IF;
-  END IF;
-
-  IF vexcess=0 THEN vexcess:=NULL; END IF;
-  RETURN vexcess;
-END get_excess_pc;
 
 FUNCTION get_main_pax_id2(vgrp_id IN pax_grp.grp_id%TYPE,
                           include_refused IN NUMBER DEFAULT 1) RETURN pax.pax_id%TYPE

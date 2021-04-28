@@ -4058,7 +4058,7 @@ void EMDAutoBoundInterface::tryBindEmd(const TCkinGrpIds &tckinGrpIds,
       {
         if (enlargedServicePayment)
         {
-          paid_rfisc.toDB(grpId.get());
+          paid_rfisc.toDB(grpId);
           payment.toDB(grpId.get());
         }
         if (checkinServicesAuto)

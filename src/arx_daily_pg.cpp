@@ -352,20 +352,6 @@ std::optional<std::string> build_birks_str(const std::set<birks_row> & birks)
     return res;
 }
 
-int get_excess_pc(const GrpId_t& grp_id, const PaxId_t& pax_id, int include_all_svc = 0)
-{
-    int excess_pc = 0;
-    auto cur = make_curs(
-                "BEGIN \n"
-                "   :excess := ckin.get_excess_pc(:grp_id, :pax_id, :inc_svc); \n"
-                "END;");
-    cur.bind(":grp_id", grp_id)
-       .bind(":pax_id", pax_id)
-       .bind(":inc_svc", include_all_svc)
-       .bindOutNull(":excess", excess_pc, ASTRA::NoExists)
-       .exec();
-    return excess_pc;
-}
 }
 
 
@@ -1664,7 +1650,10 @@ void arx_pax(const std::vector<dbo::PAX>& paxes, const GrpId_t& grp_id,  const P
     dbo::Session session;
     for(const auto &cs : paxes) {
         std::string seat_no = salons::get_seat_no(PaxId_t(cs.pax_id), cs.seats, cs.is_jmp, "", point_id, "one" );
-        int excess_pc = ckin::get_excess_pc(grp_id, PaxId_t(cs.pax_id));
+        int excess_pc = countPaidExcessPC(PaxId_t(cs.pax_id));
+        if (excess_pc == 0) {
+          excess_pc = ASTRA::NoExists;
+        }
         dbo::ARX_PAX ascs(cs, part_key, excess_pc, seat_no);
         session.insert(ascs);
     }

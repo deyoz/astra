@@ -316,6 +316,16 @@ const TRFISCListKey& TRFISCListKey::toDB(TQuery &Qry) const
   return *this;
 }
 
+const TRFISCListKey& TRFISCListKey::toDB(DB::TQuery &Qry) const
+{
+  Qry.SetVariable("rfisc", RFISC);
+  service_type!=TServiceType::Unknown?
+    Qry.SetVariable("service_type", ServiceTypes().encode(service_type)):
+    Qry.SetVariable("service_type", FNull);
+  Qry.SetVariable("airline", airline);
+  return *this;
+}
+
 const TRFISCKey& TRFISCKey::toDB(TQuery &Qry) const
 {
   TRFISCListKey::toDB(Qry);
@@ -323,6 +333,19 @@ const TRFISCKey& TRFISCKey::toDB(TQuery &Qry) const
   {
     ProgError(STDLOG, "TRFISCKey::toDB: list_id==%d! (%s)", list_id, traceStr().c_str());
     ProgError(STDLOG, "SQL=%s", Qry.SQLText.SQLText());
+  }
+  list_id!=ASTRA::NoExists?Qry.SetVariable("list_id", list_id):
+                           Qry.SetVariable("list_id", FNull);
+  return *this;
+}
+
+const TRFISCKey& TRFISCKey::toDB(DB::TQuery &Qry) const
+{
+  TRFISCListKey::toDB(Qry);
+  if (!(*this==TRFISCKey()) && list_id==ASTRA::NoExists) //!!!vlad
+  {
+    ProgError(STDLOG, "TRFISCKey::toDB: list_id==%d! (%s)", list_id, traceStr().c_str());
+    ProgError(STDLOG, "SQL=%s", Qry.SQLText.c_str());
   }
   list_id!=ASTRA::NoExists?Qry.SetVariable("list_id", list_id):
                            Qry.SetVariable("list_id", FNull);
@@ -636,6 +659,25 @@ TRFISCListItem& TRFISCListItem::fromDB(TQuery &Qry)
   return *this;
 }
 
+TRFISCListItem& TRFISCListItem::fromDB(DB::TQuery &Qry)
+{
+  clear();
+  TRFISCListKey::fromDB(Qry);
+  RFIC=Qry.FieldAsString("rfic");
+  emd_type=Qry.FieldAsString("emd_type");
+  grp=Qry.FieldAsString("grp");
+  subgrp=Qry.FieldAsString("subgrp");
+  name=Qry.FieldAsString("name");
+  name_lat=Qry.FieldAsString("name_lat");
+  descr1=Qry.FieldAsString("descr1");
+  descr2=Qry.FieldAsString("descr2");
+  category=TServiceCategory::Enum(Qry.FieldAsInteger("category"));
+  visible=Qry.FieldAsInteger("visible")!=0;
+  if (Qry.GetFieldIndex("priority")>=0 && !Qry.FieldIsNULL("priority"))
+    priority=Qry.FieldAsInteger("priority");
+  return *this;
+}
+
 std::string TRFISCListItem::traceStr() const
 {
   ostringstream s;
@@ -644,6 +686,29 @@ std::string TRFISCListItem::traceStr() const
     << ", grp=" << grp
     << ", subgrp=" << subgrp;
   return s.str();
+}
+
+std::optional<TRFISCListItem> TRFISCListItem::load(int list_id, const string& rfisc,
+                                                   TServiceType::Enum service_type,
+                                                   const string& airline)
+{
+  DB::TQuery Qry(PgOra::getROSession("RFISC_LIST_ITEMS"), STDLOG);
+  Qry.SQLText = "SELECT * FROM rfisc_list_items "
+                "WHERE list_id = :list_id "
+                "AND rfisc = :rfisc "
+                "AND service_type = :service_type "
+                "AND airline = :airline ";
+  Qry.CreateVariable("list_id", otInteger, list_id);
+  Qry.CreateVariable("rfisc", otString, rfisc);
+  Qry.CreateVariable("service_type", otString, ServiceTypes().encode(service_type));
+  Qry.CreateVariable("airline", otString, airline);
+  Qry.Execute();
+  if (!Qry.Eof) {
+    TRFISCListItem item;
+    item.fromDB(Qry);
+    return item;
+  }
+  return {};
 }
 
 TRFISCListKey& TRFISCListKey::fromDB(TQuery &Qry)
@@ -1196,7 +1261,21 @@ const TPaxSegRFISCKey& TPaxSegRFISCKey::toDB(TQuery &Qry) const
   return *this;
 }
 
+const TPaxSegRFISCKey& TPaxSegRFISCKey::toDB(DB::TQuery &Qry) const
+{
+  TPaxSegKey::toDB(Qry);
+  TRFISCKey::toDB(Qry);
+  return *this;
+}
+
 const TGrpServiceItem& TGrpServiceItem::toDB(TQuery &Qry) const
+{
+  TPaxSegRFISCKey::toDB(Qry);
+  Qry.SetVariable("service_quantity",service_quantity);
+  return *this;
+}
+
+const TGrpServiceItem& TGrpServiceItem::toDB(DB::TQuery &Qry) const
 {
   TPaxSegRFISCKey::toDB(Qry);
   Qry.SetVariable("service_quantity",service_quantity);
@@ -1211,7 +1290,24 @@ TPaxSegRFISCKey& TPaxSegRFISCKey::fromDB(TQuery &Qry)
   return *this;
 }
 
+TPaxSegRFISCKey& TPaxSegRFISCKey::fromDB(DB::TQuery &Qry)
+{
+  clear();
+  TPaxSegKey::fromDB(Qry);
+  TRFISCKey::fromDB(Qry);
+  return *this;
+}
+
 TGrpServiceItem& TGrpServiceItem::fromDB(TQuery &Qry)
+{
+  clear();
+  TPaxSegRFISCKey::fromDB(Qry);
+  getListItem();
+  service_quantity=Qry.FieldAsInteger("service_quantity");
+  return *this;
+}
+
+TGrpServiceItem& TGrpServiceItem::fromDB(DB::TQuery &Qry)
 {
   clear();
   TPaxSegRFISCKey::fromDB(Qry);
@@ -1534,12 +1630,37 @@ void TPaidRFISCListWithAuto::addItem(const TGrpServiceAutoItem &svcAuto, bool sq
   else insert( make_pair(item, item) );
 }
 
+std::set<PaxId_t> loadPaxIdSet(GrpId_t grp_id);
+
 void TPaidRFISCList::fromDB(int id, bool is_grp_id)
 {
   clear();
-  TCachedQuery Qry(is_grp_id?"SELECT paid_rfisc.* FROM pax, paid_rfisc WHERE paid_rfisc.pax_id=pax.pax_id AND pax.grp_id=:id":
-                             "SELECT * FROM paid_rfisc WHERE paid_rfisc.pax_id=:id",
-                   QParams() << QParam("id", otInteger, id));
+  if (is_grp_id) {
+    const std::set<PaxId_t> pax_id_set = loadPaxIdSet(GrpId_t(id));
+    for (const PaxId_t& pax_id: pax_id_set) {
+      fromDB(pax_id, false /*need_clear*/);
+    }
+  } else {
+    fromDB(PaxId_t(id), false /*need_clear*/);
+  }
+}
+
+void TPaidRFISCList::fromDB(const GrpId_t& grp_id)
+{
+  fromDB(grp_id.get(), true /*is_grp_id*/);
+}
+
+void TPaidRFISCList::fromDB(const PaxId_t& pax_id, bool need_clear)
+{
+  if (need_clear) {
+    clear();
+  }
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("PAID_RFISC"),
+        "SELECT * FROM paid_rfisc "
+        "WHERE pax_id=:pax_id",
+        QParams() << QParam("pax_id", otInteger, pax_id.get()),
+        STDLOG);
   Qry.get().Execute();
   for(; !Qry.get().Eof; Qry.get().Next())
   {
@@ -1787,25 +1908,39 @@ void TGrpServiceList::moveFrom(TGrpServiceAutoList& list)
 
 void TPaidRFISCList::clearDB(const GrpId_t& grpId)
 {
-  TCachedQuery Qry("DELETE FROM (SELECT * FROM pax, paid_rfisc WHERE paid_rfisc.pax_id=pax.pax_id AND pax.grp_id=:grp_id)",
-                   QParams() << QParam("grp_id", otInteger, grpId.get()));
-  Qry.get().Execute();
+  const std::set<PaxId_t> pax_id_set = loadPaxIdSet(grpId);
+  for (const PaxId_t& pax_id: pax_id_set) {
+    DB::TCachedQuery Qry(
+          PgOra::getRWSession("PAID_RFISC"),
+          "DELETE FROM paid_rfisc "
+          "WHERE pax_id=:pax_id",
+          QParams() << QParam("pax_id", otInteger, pax_id.get()),
+          STDLOG);
+    Qry.get().Execute();
+  }
 }
 
-void TPaidRFISCList::toDB(int grp_id) const
+void TPaidRFISCList::toDB(const GrpId_t& grp_id) const
 {
-  clearDB(GrpId_t(grp_id));
-  TCachedQuery Qry("INSERT INTO paid_rfisc(pax_id, transfer_num, list_id, rfisc, service_type, airline, service_quantity, paid, need) "
-                   "VALUES(:pax_id, :transfer_num, :list_id, :rfisc, :service_type, :airline, :service_quantity, :paid, :need)",
-                   QParams() << QParam("pax_id", otInteger)
-                             << QParam("transfer_num", otInteger)
-                             << QParam("list_id", otInteger)
-                             << QParam("rfisc", otString)
-                             << QParam("service_type", otString)
-                             << QParam("airline", otString)
-                             << QParam("service_quantity", otInteger)
-                             << QParam("paid", otInteger)
-                             << QParam("need", otInteger));
+  clearDB(grp_id);
+  DB::TCachedQuery Qry(
+        PgOra::getRWSession("PAID_RFISC"),
+        "INSERT INTO paid_rfisc("
+        "pax_id, transfer_num, list_id, rfisc, service_type, airline, service_quantity, paid, need"
+        ") VALUES ("
+        ":pax_id, :transfer_num, :list_id, :rfisc, :service_type, :airline, :service_quantity, :paid, :need"
+        ")",
+        QParams()
+        << QParam("pax_id", otInteger)
+        << QParam("transfer_num", otInteger)
+        << QParam("list_id", otInteger)
+        << QParam("rfisc", otString)
+        << QParam("service_type", otString)
+        << QParam("airline", otString)
+        << QParam("service_quantity", otInteger)
+        << QParam("paid", otInteger)
+        << QParam("need", otInteger),
+        STDLOG);
   for(TPaidRFISCList::const_iterator i=begin(); i!=end(); ++i)
   {
     i->second.toDB(Qry.get());
@@ -1814,63 +1949,102 @@ void TPaidRFISCList::toDB(int grp_id) const
 
   updateExcess(grp_id);
   try {
-      callbacks<RFISCCallbacks>()->afterRFISCChange(TRACE5, grp_id);
+      callbacks<RFISCCallbacks>()->afterRFISCChange(TRACE5, grp_id.get());
   } catch(...) {
       CallbacksExceptionFilter(STDLOG);
   }
 }
 
-void TPaidRFISCList::updateExcess(int grp_id)
+void TPaidRFISCList::updateExcess(const GrpId_t& grp_id)
 {
-  TCachedQuery Qry(
-    "BEGIN "
-    "  SELECT NVL(SUM(paid_rfisc.paid),0) INTO :excess_pc "
-    "  FROM paid_rfisc, pax, rfisc_list_items "
-    "  WHERE paid_rfisc.pax_id=pax.pax_id AND "
-    "        paid_rfisc.list_id=rfisc_list_items.list_id AND "
-    "        paid_rfisc.rfisc=rfisc_list_items.rfisc AND "
-    "        paid_rfisc.service_type=rfisc_list_items.service_type AND "
-    "        paid_rfisc.airline=rfisc_list_items.airline AND "
-    "        pax.grp_id=:grp_id AND "
-    "        paid_rfisc.transfer_num=0 AND "
-    "        paid_rfisc.paid>0 AND "
-    "        rfisc_list_items.category IN (:baggage, :carry_on); "
-    "  UPDATE pax_grp "
-    "  SET excess_pc=:excess_pc "
-    "  WHERE grp_id=:grp_id; "
-    "END; ",
-    QParams() << QParam("grp_id", otInteger, grp_id)
-              << QParam("excess_pc", otInteger, FNull)
-              << QParam("baggage", otInteger, (int)TServiceCategory::BaggageInHold)
-              << QParam("carry_on", otInteger, (int)TServiceCategory::BaggageInCabinOrCarryOn));
+  const int excess_pc = countPaidExcessPC(grp_id);
+  DB::TCachedQuery Qry(
+        PgOra::getRWSession("PAX_GRP"),
+        "UPDATE pax_grp "
+        "SET excess_pc=:excess_pc "
+        "WHERE grp_id=:grp_id ",
+        QParams()
+        << QParam("grp_id", otInteger, grp_id.get())
+        << QParam("excess_pc", otInteger, excess_pc),
+        STDLOG);
   Qry.get().Execute();
 }
 
 void TPaidRFISCList::copyDB(const GrpId_t& grpIdSrc, const GrpId_t& grpIdDest)
 {
-  clearDB(grpIdDest);
-  TCachedQuery Qry(
-    "INSERT INTO paid_rfisc(pax_id, transfer_num, list_id, rfisc, service_type, airline, service_quantity, paid, need) "
-    "SELECT dest.pax_id, "
-    "       paid_rfisc.transfer_num+src.seg_no-dest.seg_no, "
-    "       paid_rfisc.list_id, "
-    "       paid_rfisc.rfisc, "
-    "       paid_rfisc.service_type, "
-    "       paid_rfisc.airline, "
-    "       paid_rfisc.service_quantity, "
-    "       paid_rfisc.paid, "
-    "       paid_rfisc.need " +
-    TCkinRoute::copySubselectSQL("paid_rfisc", {}, true),
-    QParams() << QParam("grp_id_src", otInteger, grpIdSrc.get())
-              << QParam("grp_id_dest", otInteger, grpIdDest.get()));
-  Qry.get().Execute();
-
-  updateExcess(grpIdDest.get());
+  LogTrace(TRACE6) << "TPaidRFISCList::" << __func__
+                   << ": grpIdSrc=" << grpIdSrc
+                   << ", grpIdDest=" << grpIdDest;
+  TPaidRFISCList PaidRFISCListDest;
+  TPaidRFISCList PaidRFISCListSrc;
+  PaidRFISCListSrc.fromDB(grpIdSrc);
+  for (const auto& PaidRFISC: PaidRFISCListSrc) {
+    const TPaxSegRFISCKey& key = PaidRFISC.first;
+    const TPaidRFISCItem& item = PaidRFISC.second;
+    const std::vector<PaxGrpRoute> routes = PaxGrpRoute::load(PaxId_t(key.pax_id),
+                                                              key.trfer_num,
+                                                              grpIdSrc,
+                                                              grpIdDest);
+    for (const PaxGrpRoute& route: routes) {
+      const int pax_id = route.dest.pax_id.get();
+      const int transfer_num = key.trfer_num + route.src.seg_no - route.dest.seg_no;
+      const Sirena::TPaxSegKey new_paxseg_key(pax_id, transfer_num);
+      TPaidRFISCItem new_item = item;
+      Sirena::TPaxSegKey& old_paxseg_key = new_item;
+      old_paxseg_key = new_paxseg_key;
+      const TPaxSegRFISCKey& new_key = new_item;
+      PaidRFISCListDest.emplace(new_key, new_item);
+    }
+  }
+  PaidRFISCListDest.toDB(grpIdDest);
   try {
       callbacks<RFISCCallbacks>()->afterRFISCChange(TRACE5, grpIdDest.get());
   } catch(...) {
       CallbacksExceptionFilter(STDLOG);
   }
+}
+
+int countPaidExcessPC(const TPaidRFISCList& PaidRFISCList, bool include_all_svc)
+{
+  int excess_pc = 0;
+  for (const auto& PaidRFISC: PaidRFISCList) {
+    const TPaxSegRFISCKey& key = PaidRFISC.first;
+    const TPaidRFISCItem& item = PaidRFISC.second;
+    if (item.paid <= 0) {
+      continue;
+    }
+    if (item.trfer_num != 0) {
+      continue;
+    }
+    const std::optional<TRFISCListItem> rfisc_item = TRFISCListItem::load(
+          item.list_id, key.RFISC, key.service_type, key.airline);
+    if (!rfisc_item) {
+      continue;
+    }
+    if (!include_all_svc) {
+      if (rfisc_item->category != TServiceCategory::BaggageInHold
+          || rfisc_item->category != TServiceCategory::BaggageInCabinOrCarryOn)
+      {
+        continue;
+      }
+    }
+    excess_pc += item.paid;
+  }
+  return excess_pc;
+}
+
+int countPaidExcessPC(const GrpId_t& grp_id, bool include_all_svc)
+{
+  TPaidRFISCList PaidRFISCList;
+  PaidRFISCList.fromDB(grp_id);
+  return countPaidExcessPC(PaidRFISCList);
+}
+
+int countPaidExcessPC(const PaxId_t& pax_id, bool include_all_svc)
+{
+  TPaidRFISCList PaidRFISCList;
+  PaidRFISCList.fromDB(pax_id);
+  return countPaidExcessPC(PaidRFISCList);
 }
 
 void TGrpServiceList::addBagInfo(int grp_id,
@@ -1994,7 +2168,7 @@ const TPaidRFISCItem& TPaidRFISCItem::toXML(xmlNodePtr node) const
   return *this;
 }
 
-const TPaidRFISCItem& TPaidRFISCItem::toDB(TQuery &Qry) const
+const TPaidRFISCItem& TPaidRFISCItem::toDB(DB::TQuery &Qry) const
 {
   TGrpServiceItem::toDB(Qry);
   Qry.SetVariable("paid",paid);
@@ -2002,7 +2176,7 @@ const TPaidRFISCItem& TPaidRFISCItem::toDB(TQuery &Qry) const
   return *this;
 }
 
-TPaidRFISCItem& TPaidRFISCItem::fromDB(TQuery &Qry)
+TPaidRFISCItem& TPaidRFISCItem::fromDB(DB::TQuery &Qry)
 {
   clear();
   TGrpServiceItem::fromDB(Qry);
@@ -2344,3 +2518,50 @@ void GetBagConcepts(int grp_id, bool &pc, bool &wt, bool &rfisc_used)
     };
   }
 }
+
+bool need_for_payment(const GrpId_t& grp_id,
+                      const std::string& cls,
+                      int bag_refuse,
+                      bool piece_concept,
+                      int excess_wt,
+                      const std::optional<PaxId_t>& pax_id)
+{
+  if (bag_refuse != 0) return false;
+
+  if (piece_concept == 0) {
+    if (excess_wt > 0) return true;
+  } else {
+    if (pax_id) {
+      DB::TQuery Qry(PgOra::getROSession("PAID_RFISC"), STDLOG);
+      Qry.SQLText = "SELECT 1 "
+                    "FROM paid_rfisc "
+                    "WHERE pax_id=:pax_id AND paid>0 "
+                    "FETCH FIRST 1 ROWS ONLY ";
+      Qry.CreateVariable("pax_id", otInteger, pax_id->get());
+      Qry.Execute();
+      if (!Qry.Eof) return true;
+    }
+  }
+
+  DB::TQuery Qry(PgOra::getROSession("VALUE_BAG-BAG2"), STDLOG);
+  Qry.SQLText = "SELECT 1 "
+                "FROM value_bag "
+                "LEFT OUTER JOIN bag2 ON ( "
+                "     value_bag.grp_id = bag2.grp_id "
+                "     AND value_bag.num = bag2.value_bag_num "
+                ") "
+                "WHERE "
+                "(bag2.grp_id IS NULL "
+                " OR ckin.bag_pool_refused(bag2.grp_id, bag2.bag_pool_num, :class, :bag_refuse) = 0) "
+                "AND value_bag.grp_id = :grp_id "
+                "AND value_bag.value > 0 "
+                "FETCH FIRST 1 ROWS ONLY ";
+  Qry.CreateVariable("grp_id", otInteger, grp_id.get());
+  Qry.CreateVariable("class", otString, cls);
+  Qry.CreateVariable("bag_refuse", otInteger, bag_refuse);
+  Qry.Execute();
+  if (!Qry.Eof) return true;
+
+  return false;
+}
+

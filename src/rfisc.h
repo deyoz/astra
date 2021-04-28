@@ -169,6 +169,7 @@ class TRFISCListKey
     TRFISCListKey& fromXML(xmlNodePtr node);
     TRFISCListKey& fromXMLcompatible(xmlNodePtr node);
     const TRFISCListKey& toDB(TQuery &Qry) const;
+    const TRFISCListKey& toDB(DB::TQuery &Qry) const;
     TRFISCListKey& fromDB(TQuery &Qry);
     TRFISCListKey& fromDB(DB::TQuery &Qry);
     const TRFISCListKey& key() const { return *this; }
@@ -250,7 +251,12 @@ class TRFISCListItem : public TRFISCListKey
     const TRFISCListItem& toXML(xmlNodePtr node, const boost::optional<TRFISCListItem> &def=boost::none) const;
     const TRFISCListItem& toDB(TQuery &Qry) const;
     TRFISCListItem& fromDB(TQuery &Qry);
+    TRFISCListItem& fromDB(DB::TQuery &Qry);
     std::string traceStr() const;
+
+    static std::optional<TRFISCListItem> load(int list_id, const std::string& rfisc,
+                                              TServiceType::Enum service_type,
+                                              const std::string& airline);
 };
 
 typedef std::list<TRFISCListItem> TRFISCListItems;
@@ -289,6 +295,7 @@ class TRFISCKey : public TRFISCListKey
 
     const TRFISCKey& toXML(xmlNodePtr node) const;
     const TRFISCKey& toDB(TQuery &Qry) const;
+    const TRFISCKey& toDB(DB::TQuery &Qry) const;
     TRFISCKey& fromDB(TQuery &Qry);
     TRFISCKey& fromDB(DB::TQuery &Qry);
     void getListItemIfNone();
@@ -536,7 +543,9 @@ class TPaxSegRFISCKey : public Sirena::TPaxSegKey, public TRFISCKey
     const TPaxSegRFISCKey& toXML(xmlNodePtr node) const;
     TPaxSegRFISCKey& fromXML(xmlNodePtr node);
     const TPaxSegRFISCKey& toDB(TQuery &Qry) const;
+    const TPaxSegRFISCKey& toDB(DB::TQuery &Qry) const;
     TPaxSegRFISCKey& fromDB(TQuery &Qry);
+    TPaxSegRFISCKey& fromDB(DB::TQuery &Qry);
     std::string traceStr() const;
 };
 
@@ -580,7 +589,9 @@ class TGrpServiceItem : public TPaxSegRFISCKey
     const TGrpServiceItem& toXML(xmlNodePtr node) const;
     TGrpServiceItem& fromXML(xmlNodePtr node);
     const TGrpServiceItem& toDB(TQuery &Qry) const;
+    const TGrpServiceItem& toDB(DB::TQuery &Qry) const;
     TGrpServiceItem& fromDB(TQuery &Qry);
+    TGrpServiceItem& fromDB(DB::TQuery &Qry);
     bool service_quantity_valid() const { return service_quantity!=ASTRA::NoExists && service_quantity>0; }
     bool similar(const TGrpServiceAutoItem& item) const
     {
@@ -678,8 +689,8 @@ class TPaidRFISCItem : public TGrpServiceItem
     }
 
     const TPaidRFISCItem& toXML(xmlNodePtr node) const;
-    const TPaidRFISCItem& toDB(TQuery &Qry) const;
-    TPaidRFISCItem& fromDB(TQuery &Qry);
+    const TPaidRFISCItem& toDB(DB::TQuery &Qry) const;
+    TPaidRFISCItem& fromDB(DB::TQuery &Qry);
     bool paid_positive() const { return paid!=ASTRA::NoExists && paid>0; }
     bool need_positive() const { return need!=ASTRA::NoExists && need>0; }
 };
@@ -701,15 +712,21 @@ class TPaidRFISCList : public std::map<TPaxSegRFISCKey, TPaidRFISCItem>
 {
   public:
     void fromDB(int id, bool is_grp_id);
-    void toDB(int grp_id) const;
+    void fromDB(const GrpId_t& grp_id);
+    void fromDB(const PaxId_t& pax_id, bool need_clear = true);
+    void toDB(const GrpId_t& grp_id) const;
     void inc(const TPaxSegRFISCKey& key, const TServiceStatus::Enum status);
     boost::optional<TRFISCKey> getKeyIfSingleRFISC(int pax_id, int trfer_num, const std::string &rfisc) const;
     void getAllListItems();
     bool becamePaid(int grp_id) const;
     static void clearDB(const GrpId_t& grpId);
     static void copyDB(const GrpId_t& grpIdSrc, const GrpId_t& grpIdDest);
-    static void updateExcess(int grp_id);
+    static void updateExcess(const GrpId_t& grp_id);
 };
+
+int countPaidExcessPC(const TPaidRFISCList& PaidRFISCList, bool include_all_svc = false);
+int countPaidExcessPC(const GrpId_t& grp_id, bool include_all_svc = false);
+int countPaidExcessPC(const PaxId_t& pax_id, bool include_all_svc = false);
 
 class TRFISCListItemsCache
 {
@@ -806,5 +823,12 @@ class RFISCCallbacks
         virtual ~RFISCCallbacks() {}
         virtual void afterRFISCChange(TRACE_SIGNATURE, int grp_id) = 0;
 };
+
+bool need_for_payment(const GrpId_t& grp_id,
+                      const std::string& cls,
+                      int bag_refuse,
+                      bool piece_concept,
+                      int excess_wt,
+                      const std::optional<PaxId_t>& pax_id);
 
 #endif

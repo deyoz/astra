@@ -692,7 +692,6 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
     "ckin.get_bagWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight, "
     "ckin.get_rkWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS rk_weight, "
     "ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
-    "ckin.get_excess_pc(pax.grp_id, pax.pax_id) AS excess_pc, "
     "ckin.get_birks2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,'RU') AS tags, "
     "ckin.get_main_pax_id2(pax_grp.grp_id) AS main_pax_id "
     "FROM pax_grp, pax "
@@ -727,7 +726,7 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
     stat.viewPCT = Qry.FieldAsInteger("bag_amount");
     stat.viewWeight = Qry.FieldAsInteger("bag_weight");
     stat.viewCarryon = Qry.FieldAsInteger("rk_weight");
-    stat.viewPayWeight = TComplexBagExcess(TBagPieces(Qry.FieldAsInteger("excess_pc")),
+    stat.viewPayWeight = TComplexBagExcess(TBagPieces(countPaidExcessPC(PaxId_t(Qry.FieldAsInteger( "pax_id" )))),
                                            TBagKilos(Qry.FieldAsInteger("excess_wt"))).getDeprecatedInt();
     stat.viewTag = string(Qry.FieldAsString("tags")).substr(0,100);
     pair<TDateTime, TDateTime> times(NoExists, NoExists);

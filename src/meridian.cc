@@ -236,7 +236,6 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
        "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,pax_grp.point_dep,'tlg',rownum) AS seat_no, "
        "       pax.seats seats, "
        "       ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
-       "       ckin.get_excess_pc(pax.grp_id, pax.pax_id) AS excess_pc, "
        "       ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkamount,"
        "       ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkweight,"
        "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bagamount,"
@@ -280,7 +279,6 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
   int col_seat_no = -1;
   int col_seats = -1;
   int col_excess_wt = -1;
-  int col_excess_pc = -1;
   int col_rkamount = -1;
   int col_rkweight = -1;
   int col_bagamount = -1;
@@ -343,7 +341,6 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
       col_seat_no = PaxQry.GetFieldIndex( "seat_no" );
       col_seats = PaxQry.GetFieldIndex( "seats" );
       col_excess_wt = PaxQry.GetFieldIndex( "excess_wt" );
-      col_excess_pc = PaxQry.GetFieldIndex( "excess_pc" );
       col_rkamount = PaxQry.GetFieldIndex( "rkamount" );
       col_rkweight = PaxQry.GetFieldIndex( "rkweight" );
       col_bagamount = PaxQry.GetFieldIndex( "bagamount" );
@@ -390,7 +387,7 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
     NewTextChild( paxNode, "airp_arv", PaxQry.FieldAsString( col_airp_arv ) );
     NewTextChild( paxNode, "seat_no", PaxQry.FieldAsString( col_seat_no ) );
     NewTextChild( paxNode, "seats", PaxQry.FieldAsInteger( col_seats ) );
-    NewTextChild( paxNode, "excess", TComplexBagExcess(TBagPieces(PaxQry.FieldAsInteger( col_excess_pc )),
+    NewTextChild( paxNode, "excess", TComplexBagExcess(TBagPieces(countPaidExcessPC(PaxId_t(PaxQry.FieldAsInteger("pax_id")))),
                                                        TBagKilos(PaxQry.FieldAsInteger( col_excess_wt ))).deprecatedView(outputLang) );
     NewTextChild( paxNode, "rkamount", PaxQry.FieldAsInteger( col_rkamount ) );
     NewTextChild( paxNode, "rkweight", PaxQry.FieldAsInteger( col_rkweight ) );

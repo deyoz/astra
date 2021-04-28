@@ -1099,7 +1099,6 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
                 "   ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rk_amount, "
                 "   ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rk_weight, "
                 "   ckin.get_excess_wt(pax.grp_id, NULL) AS excess_wt, "
-                "   ckin.get_excess_pc(pax.grp_id, pax.pax_id) AS excess_pc, "
                 "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags, "
                 "   pax.subclass, "
                 "   nvl(pax.cabin_class, pax_grp.class) cabin_class, "
@@ -1141,7 +1140,6 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
                 "   0 AS rk_amount, "
                 "   0 AS rk_weight, "
                 "   0 AS excess_wt, "
-                "   0 AS excess_pc, "
                 "   NULL AS tags, "
                 "   test_pax.subclass, "
                 "   subcls.class cabin_class, "
@@ -1186,7 +1184,7 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
         rk_amount = Qry.FieldAsInteger("rk_amount");
         rk_weight = Qry.FieldAsInteger("rk_weight");
         excess_wt = Qry.FieldAsInteger("excess_wt");
-        excess_pc = Qry.FieldAsInteger("excess_pc");
+        excess_pc = !isTestPaxId(pax_id) ? countPaidExcessPC(PaxId_t(pax_id)) : 0;
         tags = Qry.FieldAsString("tags");
         subcls = Qry.FieldAsString("subclass");
         crs_cls = Qry.FieldAsString("crs_cls");

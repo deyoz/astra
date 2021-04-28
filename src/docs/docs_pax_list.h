@@ -213,7 +213,7 @@ namespace REPORTS {
         void clear();
         void trace(TRACE_SIGNATURE);
         // внешний запрос
-        void fromDB(TQuery &Qry);
+        void fromDB(TQuery &Qry, bool countExcessPC);
         // клеится свой, внутренний
         void fromDB();
         virtual TPaxPtr getPaxPtr();

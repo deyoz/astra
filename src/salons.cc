@@ -8263,7 +8263,6 @@ bool _TSalonPassengers::BuildWaitList( bool prSeatDescription, xmlNodePtr dataNo
     "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:rnum) AS bag_weight, "
     "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:rnum) AS bag_amount, "
     "       ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
-    "       ckin.get_excess_pc(pax.grp_id, pax.pax_id) AS excess_pc, "
     "       tckin_pax_grp.tckin_id, tckin_pax_grp.grp_num "
     "FROM pax, tckin_pax_grp, pax_grp "
     "WHERE pax_grp.grp_id=pax.grp_id AND "
@@ -8375,7 +8374,7 @@ bool _TSalonPassengers::BuildWaitList( bool prSeatDescription, xmlNodePtr dataNo
                     def.document );
       NewTextChild( passNode, "bag_weight", Qry.FieldAsInteger( "bag_weight" ), def.bag_weight );
       NewTextChild( passNode, "bag_amount", Qry.FieldAsInteger( "bag_amount" ), def.bag_amount );
-      excessNodeList.add(passNode, "excess", TBagPieces(Qry.FieldAsInteger( "excess_pc" )),
+      excessNodeList.add(passNode, "excess", TBagPieces(countPaidExcessPC(PaxId_t(ipass->pax_id))),
                                              TBagKilos(Qry.FieldAsInteger( "excess_wt" )));
       ostringstream trip;
       if ( !Qry.FieldIsNULL("tckin_id") ) {

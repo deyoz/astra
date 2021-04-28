@@ -2559,7 +2559,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight, "
     "  ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS rk_weight, "
     "  ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
-    "  ckin.get_excess_pc(pax.grp_id, pax.pax_id) AS excess_pc, "
+    "  pax_grp.excess_wt AS excess_wt_raw, "
     "  pax_grp.piece_concept, "
     "  ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags, "
     "  mark_trips.airline AS airline_mark, "
@@ -2571,7 +2571,8 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  pax.pax_id, "
     "  NVL(pax.cabin_class_grp, pax_grp.class_grp) AS cl_grp_id, "
     "  pax_grp.hall AS hall_id, "
-    "  pax_grp.point_arv,pax_grp.user_id,pax_grp.client_type "
+    "  pax_grp.point_arv,pax_grp.user_id,pax_grp.client_type, "
+    "  pax_grp.bag_refuse "
     "FROM pax_grp,pax,mark_trips, "
     "     (SELECT trfer_trips.airline,trfer_trips.flt_no,trfer_trips.suffix,transfer.airp_arv, "
     "             transfer.grp_id "
@@ -2592,13 +2593,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "      pax_grp.grp_id=last_trfer.grp_id(+) AND "
     "      pax_grp.grp_id=last_tckin_seg.grp_id(+) AND "
     "      point_dep=:point_id AND "
-    "      pr_brd IS NOT NULL ";
-  if (with_rcpt_info)
-    sql <<
-    "  AND pax_grp.status NOT IN ('E') "
-    "  AND ckin.need_for_payment(pax_grp.grp_id, pax_grp.class, pax_grp.bag_refuse, "
-    "                            pax_grp.piece_concept, pax_grp.excess_wt, pax_grp.excess_pc, pax.pax_id)<>0 ";
-  sql <<
+    "      pr_brd IS NOT NULL "
     "ORDER BY pax.reg_no, pax.seats DESC"; //в будущем убрать ORDER BY
 
   //ProgTrace(TRACE5, "%s", sql.str().c_str());
@@ -2631,9 +2626,9 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     int col_ticket_no=Qry.FieldIndex("ticket_no");
     int col_bag_amount=Qry.FieldIndex("bag_amount");
     int col_bag_weight=Qry.FieldIndex("bag_weight");
+    int col_bag_refuse=Qry.FieldIndex("bag_refuse");
     int col_rk_weight=Qry.FieldIndex("rk_weight");
     int col_excess_wt=Qry.FieldIndex("excess_wt");
-    int col_excess_pc=Qry.FieldIndex("excess_pc");
     int col_piece_concept=Qry.FieldIndex("piece_concept");
     int col_tags=Qry.FieldIndex("tags");
 
@@ -2649,6 +2644,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     int col_point_arv=Qry.FieldIndex("point_arv");
     int col_user_id=Qry.FieldIndex("user_id");
     int col_client_type=Qry.FieldIndex("client_type");
+    int col_excess_wt_raw=Qry.FieldIndex("excess_wt_raw");
 
     map< pair<int/*grp_id*/, int/*pax_id*/>, pair<bool/*pr_payment*/, bool/*pr_receipts*/> > rcpt_complete_map;
     TPaxSeats priorSeats(point_id);
@@ -2660,8 +2656,25 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       int grp_id = Qry.FieldAsInteger(col_grp_id);
       int pax_id = Qry.FieldAsInteger(col_pax_id);
       int reg_no = Qry.FieldAsInteger(col_reg_no);
+      int bag_refuse = Qry.FieldAsInteger(col_bag_refuse);
       string cl = Qry.FieldAsString(col_class);
       string cabin_cl = Qry.FieldAsString(col_cabin_class);
+      TPaxStatus status_id=DecodePaxStatus(Qry.FieldAsString(col_status));
+      bool piece_concept=Qry.FieldAsInteger(col_piece_concept)!=0;
+      int excess_wt_raw = Qry.FieldAsInteger(col_excess_wt_raw);
+
+      if (with_rcpt_info) {
+        if (status_id == psCrew) {
+          continue;
+        }
+        if (!need_for_payment(GrpId_t(grp_id), cl, bag_refuse,
+                              piece_concept, excess_wt_raw,
+                              pax_id > 0 ? std::optional<PaxId_t>(pax_id)
+                                         : std::optional<PaxId_t>()))
+        {
+          continue;
+        }
+      }
 
       xmlNodePtr paxNode=NewTextChild(node,"pax");
       NewTextChild(paxNode,"pax_id",pax_id);
@@ -2676,7 +2689,6 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       TLastTCkinSegInfo tckinSegInfo(Qry);
       NewTextChild(paxNode,"last_tckin_seg",tckinSegInfo.str(),"");
 
-      TPaxStatus status_id=DecodePaxStatus(Qry.FieldAsString(col_status));
       std::string class_change_str;
       if (status_id!=psCrew)
       {
@@ -2732,10 +2744,8 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       NewTextChild(paxNode,"bag_weight",Qry.FieldAsInteger(col_bag_weight),0);
       NewTextChild(paxNode,"rk_weight",Qry.FieldAsInteger(col_rk_weight),0);
 
-      excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger(col_excess_pc)),
+      excessNodeList.add(paxNode, "excess", TBagPieces(countPaidExcessPC(PaxId_t(Qry.FieldAsInteger( col_pax_id )))),
                                             TBagKilos(Qry.FieldAsInteger(col_excess_wt)));
-
-      bool piece_concept=Qry.FieldAsInteger(col_piece_concept)!=0;
 
       NewTextChild(paxNode,"tags",Qry.FieldAsString(col_tags),"");
       NewTextChild(paxNode,"rems",GetRemarkStr(rem_grp, pax_id, reqInfo->desk.lang),"");
@@ -2838,11 +2848,13 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  ckin.get_bagWeight2(pax_grp.grp_id,NULL,NULL) AS bag_weight, "
     "  ckin.get_rkWeight2(pax_grp.grp_id,NULL,NULL) AS rk_weight, "
     "  ckin.get_excess_wt(pax_grp.grp_id, NULL, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
-    "  ckin.get_excess_pc(pax_grp.grp_id, NULL) AS excess_pc, "
     "  ckin.get_birks2(pax_grp.grp_id,NULL,NULL,:lang) AS tags, "
     "  pax_grp.grp_id, "
     "  pax_grp.hall AS hall_id, "
-    "  pax_grp.point_arv,pax_grp.user_id,pax_grp.client_type "
+    "  pax_grp.point_arv,pax_grp.user_id,pax_grp.client_type, "
+    "  pax_grp.class, "
+    "  pax_grp.bag_refuse, "
+    "  pax_grp.excess_wt AS excess_wt_raw "
     "FROM pax_grp, "
     "     (SELECT trfer_trips.airline,trfer_trips.flt_no,trfer_trips.suffix,transfer.airp_arv, "
     "             transfer.grp_id "
@@ -2862,11 +2874,6 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "      pax_grp.grp_id=last_tckin_seg.grp_id(+) AND "
     "      point_dep=:point_id AND class IS NULL AND status NOT IN ('E') ";
 
-  if (with_rcpt_info)
-    sql <<
-    "  AND ckin.need_for_payment(pax_grp.grp_id, pax_grp.class, pax_grp.bag_refuse, "
-    "                            pax_grp.piece_concept, pax_grp.excess_wt, pax_grp.excess_pc, NULL)<>0 ";
-
   //ProgTrace(TRACE5, "%s", sql.str().c_str());
 
   Qry.Clear();
@@ -2881,6 +2888,18 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     for(;!Qry.Eof;Qry.Next())
     {
       int grp_id=Qry.FieldAsInteger("grp_id");
+      const std::string cl = Qry.FieldAsString("class");
+      int bag_refuse = Qry.FieldAsInteger("bag_refuse");
+      bool piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
+      int excess_wt_raw = Qry.FieldAsInteger("excess_wt_raw");
+
+      if (with_rcpt_info) {
+        if (!need_for_payment(GrpId_t(grp_id), cl, bag_refuse,
+                              piece_concept, excess_wt_raw, {}))
+        {
+          continue;
+        }
+      }
 
       xmlNodePtr paxNode=NewTextChild(node,"bag");
       NewTextChild(paxNode,"airp_arv",ElemIdToCodeNative(etAirp, Qry.FieldAsString("airp_arv")));
@@ -2894,10 +2913,9 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       NewTextChild(paxNode,"bag_weight",Qry.FieldAsInteger("bag_weight"),0);
       NewTextChild(paxNode,"rk_weight",Qry.FieldAsInteger("rk_weight"),0);
 
-      excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger("excess_pc")),
+      excessNodeList.add(paxNode, "excess", TBagPieces(0),
                                             TBagKilos(Qry.FieldAsInteger("excess_wt")));
 
-      bool piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
 
       NewTextChild(paxNode,"tags",Qry.FieldAsString("tags"),"");
       if (with_rcpt_info)
@@ -6237,7 +6255,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           paymentBeforeWithAuto.fromDB(grpId.get());
         if (iGrpId==tckinGrpIds.begin())
         {
-          paid.toDB(grpId.get());
+          paid.toDB(grpId);
           CheckIn::TServicePaymentList payment;
           payment.fromDB(grpId.get());
           update_payment=CheckIn::TryCleanServicePayment(paid, payment);

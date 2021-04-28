@@ -94,7 +94,7 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             pax_list.options.flags.setFlag(REPORTS::oeSeatNo);
             pax_list.options.flags.setFlag(REPORTS::oeTags);
 
-            pax_list.fromDB(Qry);
+            pax_list.fromDB(Qry, true /*calcExcessPC*/);
 
             for(const auto &pax: pax_list) {
                 xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");

@@ -149,7 +149,6 @@ void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList
           int col_bag_weight = Qry.FieldIndex("bag_weight");
           int col_rk_weight = Qry.FieldIndex("rk_weight");
           int col_excess_wt = Qry.FieldIndex("excess_wt");
-          int col_excess_pc = Qry.FieldIndex("excess_pc");
           int col_seat_no = Qry.FieldIndex("seat_no");
           int col_tags = Qry.FieldIndex("tags");
 
@@ -157,7 +156,7 @@ void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList
           NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger(col_bag_weight));
           NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger(col_rk_weight));
 
-          excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger(col_excess_pc)),
+          excessNodeList.add(paxNode, "excess", TBagPieces(countPaidExcessPC(PaxId_t(Qry.FieldAsInteger("pax_id")))),
                                                 TBagKilos(Qry.FieldAsInteger(col_excess_wt)));
           NewTextChild(paxNode, "tags", Qry.FieldAsString(col_tags));
           NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
@@ -1555,7 +1554,6 @@ void UnaccompListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNod
 
   int col_point_id = Qry.FieldIndex("point_id");
   int col_scd_out = Qry.FieldIndex("scd_out");
-  int col_excess_pc = Qry.FieldIndex("excess_pc");
   int col_grp_id = Qry.FieldIndex("grp_id");
   int col_airp_arv = Qry.FieldIndex("airp_arv");
   int col_hall = Qry.FieldIndex("hall");
@@ -1614,7 +1612,7 @@ void UnaccompListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNod
                                                 grp_id, std::nullopt, 0).value_or(0));
           NewTextChild(paxNode, "rk_weight",  PG_ARX::get_rkWeight2(b_part_key,
                                                 grp_id, std::nullopt, 0).value_or(0));
-          excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger(col_excess_pc)),
+          excessNodeList.add(paxNode, "excess", TBagPieces(0),
                   TBagKilos(PG_ARX::get_excess_wt(b_part_key,
                             grp_id, std::nullopt, excess_wt, excess, bag_refuse).value_or(0)));
           NewTextChild(paxNode, "tags", PG_ARX::get_birks2(b_part_key,
@@ -1623,7 +1621,7 @@ void UnaccompListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNod
           NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
           NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
           NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
-          excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger("excess_pc")),
+          excessNodeList.add(paxNode, "excess", TBagPieces(0),
                                                 TBagKilos(Qry.FieldAsInteger("excess_wt")));
           NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
       }
@@ -1730,7 +1728,6 @@ void ArxPaxListRun(Dates::DateTime_t part_key, xmlNodePtr reqNode, xmlNodePtr re
         "  arx_pax_grp.part_key, " +
         TTripInfo::selectedFields("arx_points") + ", "
         "  arx_pax_grp.airp_arv, "
-        "  arx_pax_grp.excess_pc, "
         "  arx_pax_grp.grp_id, "
         "  arx_pax_grp.hall "
         "FROM arx_pax_grp, arx_points "
@@ -1930,7 +1927,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     }
     get_compatible_report_form("ArxPaxList", reqNode, resNode);
     {
-        DB::TQuery Qry(*get_main_ora_sess(STDLOG));
+        DB::TQuery Qry(*get_main_ora_sess(STDLOG), STDLOG);
         string SQLText;
         if(part_key == NoExists)  {
             SQLText =
@@ -1944,7 +1941,6 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_weight, "
                 "   NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) rk_weight, "
                 "   ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
-                "   ckin.get_excess_pc(pax.grp_id, pax.pax_id) AS excess_pc, "
                 "   pax_grp.grp_id, "
                 "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:pr_lat) tags, "
                 "   pax.refuse, "
@@ -2000,7 +1996,6 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   ckin.get_bagWeight2(pax_grp.grp_id,NULL,NULL) AS bag_weight, "
                 "   ckin.get_rkWeight2(pax_grp.grp_id,NULL,NULL) AS rk_weight, "
                 "   ckin.get_excess_wt(pax_grp.grp_id, NULL, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
-                "   ckin.get_excess_pc(pax_grp.grp_id, NULL) AS excess_pc, "
                 "   ckin.get_birks2(pax_grp.grp_id,NULL,NULL,:pr_lat) AS tags, "
                 "   pax_grp.grp_id, "
                 "   pax_grp.hall "
@@ -2285,7 +2280,6 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                " NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_weight, \n"
                " NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) rk_weight, \n"
                " ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
-               " ckin.get_excess_pc(pax.grp_id, pax.pax_id) AS excess_pc, "
                " ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:pr_lat) tags, \n"
                " salons.get_seat_no(pax.pax_id, pax.seats, pax.is_jmp, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, \n"
                " pax_grp.grp_id, \n"

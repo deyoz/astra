@@ -2180,7 +2180,7 @@ void TWItem::get(int grp_id, int bag_pool_num)
             "   :rkAmount := ckin.get_rkAmount2(:grp_id, bag_pool_pax_id, :bag_pool_num); "
             "   :rkWeight := ckin.get_rkWeight2(:grp_id, bag_pool_pax_id, :bag_pool_num); "
             "   :excess_wt := ckin.get_excess_wt(:grp_id, bag_pool_pax_id); "
-            "   :excess_pc := ckin.get_excess_pc(:grp_id, bag_pool_pax_id); "
+            "   :pax_id := bag_pool_pax_id; "
             "end;",
             QryParams);
     Qry.get().Execute();
@@ -2189,7 +2189,7 @@ void TWItem::get(int grp_id, int bag_pool_num)
     rkAmount = Qry.get().GetVariableAsInteger("rkAmount");
     rkWeight = Qry.get().GetVariableAsInteger("rkWeight");
     excess_wt = Qry.get().GetVariableAsInteger("excess_wt");
-    excess_pc = Qry.get().GetVariableAsInteger("excess_pc");
+    excess_pc = countPaidExcessPC(PaxId_t(Qry.get().GetVariableAsInteger("pax_id")));
 }
 
 struct TBTMGrpList;

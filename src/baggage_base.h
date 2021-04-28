@@ -252,7 +252,9 @@ class TPaxSegKey
     TPaxSegKey& fromSirenaXML(xmlNodePtr node);
 
     const TPaxSegKey& toDB(TQuery &Qry) const;
+    const TPaxSegKey& toDB(DB::TQuery &Qry) const;
     TPaxSegKey& fromDB(TQuery &Qry);
+    TPaxSegKey& fromDB(DB::TQuery &Qry);
     const TPaxSegKey& toXML(xmlNodePtr node) const;
     TPaxSegKey& fromXML(xmlNodePtr node);
 };

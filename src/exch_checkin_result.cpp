@@ -255,7 +255,6 @@ namespace EXCH_CHECKIN_RESULT
     int col_seat_no;
     int col_seats;
     int col_excess_wt;
-    int col_excess_pc;
     int col_bag_pool_num;
     int col_rkamount;
     int col_rkweight;
@@ -290,7 +289,6 @@ namespace EXCH_CHECKIN_RESULT
       col_seat_no = ASTRA::NoExists;
       col_seats = ASTRA::NoExists;
       col_excess_wt = ASTRA::NoExists;
-      col_excess_pc = ASTRA::NoExists;
       col_bag_pool_num = ASTRA::NoExists;
       col_rkamount = ASTRA::NoExists;
       col_rkweight = ASTRA::NoExists;
@@ -314,7 +312,6 @@ namespace EXCH_CHECKIN_RESULT
           "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,pax_grp.point_dep,'tlg',rownum) AS seat_no, "
           "       pax.seats seats, "
           "       ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
-          "       ckin.get_excess_pc(pax.grp_id, pax.pax_id) AS excess_pc, "
           "       ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkamount,"
           "       ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkweight,"
           "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bagamount,"
@@ -378,7 +375,6 @@ namespace EXCH_CHECKIN_RESULT
     col_seat_no = (col_seat_no = PaxQry.GetFieldIndex( "seat_no" )) >= 0 ?col_seat_no:ASTRA::NoExists;
     col_seats = (col_seats = PaxQry.GetFieldIndex( "seats" )) >= 0 ?col_seats:ASTRA::NoExists;
     col_excess_wt = (col_excess_wt = PaxQry.GetFieldIndex( "excess_wt" )) >= 0 ?col_excess_wt:ASTRA::NoExists;
-    col_excess_pc = (col_excess_pc = PaxQry.GetFieldIndex( "excess_pc" )) >= 0 ?col_excess_pc:ASTRA::NoExists;
     col_bag_pool_num = ( col_bag_pool_num = PaxQry.GetFieldIndex( "bag_pool_num" )) >= 0 ?col_bag_pool_num:ASTRA::NoExists;
     col_rkamount = (col_rkamount = PaxQry.GetFieldIndex( "rkamount" )) >= 0 ?col_rkamount:ASTRA::NoExists;
     col_rkweight = (col_rkweight = PaxQry.GetFieldIndex( "rkweight" )) >= 0 ?col_rkweight:ASTRA::NoExists;
@@ -534,7 +530,7 @@ namespace EXCH_CHECKIN_RESULT
     paxData.seat_no = PaxQry.FieldAsString( col_seat_no );
     paxData.seats = PaxQry.FieldAsInteger( col_seats );
     paxData.excess_wt = PaxQry.FieldAsInteger( col_excess_wt );
-    paxData.excess_pc = PaxQry.FieldAsInteger( col_excess_pc );
+    paxData.excess_pc = countPaidExcessPC(PaxId_t(PaxQry.FieldAsInteger(col_pax_id)));
     paxData.bag_pool_num = PaxQry.FieldAsInteger( col_bag_pool_num );
     paxData.rkamount = PaxQry.FieldAsInteger( col_rkamount );
     paxData.rkweight = PaxQry.FieldAsInteger( col_rkweight );

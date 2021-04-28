@@ -549,7 +549,7 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
         "    NVL(ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_amount, "
         "    NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_weight, "
         "    ckin.get_excess_wt(pax.grp_id, NULL, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
-        "    ckin.get_excess_pc(pax.grp_id, pax.pax_id, 1) AS excess_pc, "
+        "    NULL AS excess_pc, "
         "    ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags ";
     if (used_for_brd_and_exam)
         sql << ", tckin_pax_grp.tckin_id "
@@ -1697,7 +1697,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       int col_rk_amount=Qry.FieldIndex("rk_amount");
       int col_rk_weight=Qry.FieldIndex("rk_weight");
       int col_excess_wt=Qry.FieldIndex("excess_wt");
-      int col_excess_pc=Qry.FieldIndex("excess_pc");
       int col_tags=Qry.FieldIndex("tags");
       int col_client_type=Qry.FieldIndex("client_type");
       int col_tckin_id=Qry.FieldIndex("tckin_id");
@@ -1784,7 +1783,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(NoExists, pax_id, false), "");
           NewTextChild(paxNode, "tid", Qry.FieldAsInteger(col_tid));
 
-          excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger(col_excess_pc)),
+          excessNodeList.add(paxNode, "excess", TBagPieces(countPaidExcessPC(PaxId_t(Qry.FieldAsInteger( col_pax_id )), true /*include_all_svc*/)),
                                                 TBagKilos(Qry.FieldAsInteger(col_excess_wt)));
 
           int value_bag_count=0;

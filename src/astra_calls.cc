@@ -308,10 +308,9 @@ static bool get_seating_details(xmlNodePtr reqNode, xmlNodePtr resNode)
   Qry.Clear();
   Qry.SQLText =
     "SELECT "
-    "       pax_grp.airp_arv,pax_grp.airp_dep, "
+    "       pax.pax_id,pax_grp.airp_arv,pax_grp.airp_dep, "
     "       pax_grp.class, NVL(pax.cabin_class, pax_grp.class) AS cabin_class, "
     "       ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
-    "       ckin.get_excess_pc(pax.grp_id, pax.pax_id) AS excess_pc, "
     "       ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkamount,"
     "       ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkweight,"
     "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bagamount,"
@@ -398,7 +397,7 @@ static bool get_seating_details(xmlNodePtr reqNode, xmlNodePtr resNode)
     weights[Qry.FieldAsString( "airp_arv" )][Qry.FieldAsString( "class" )].amount += Qry.FieldAsInteger( "bagamount" );
     weights[Qry.FieldAsString( "airp_arv" )][Qry.FieldAsString( "class" )].weight += Qry.FieldAsInteger( "bagweight" );
     weights[Qry.FieldAsString( "airp_arv" )][Qry.FieldAsString( "class" )].excess_wt += TBagKilos( Qry.FieldAsInteger( "excess_wt" ) );
-    weights[Qry.FieldAsString( "airp_arv" )][Qry.FieldAsString( "class" )].excess_pc += TBagPieces( Qry.FieldAsInteger( "excess_pc" ) );
+    weights[Qry.FieldAsString( "airp_arv" )][Qry.FieldAsString( "class" )].excess_pc += TBagPieces( countPaidExcessPC(PaxId_t(Qry.FieldAsInteger( "pax_id" ))) );
 
 
     n = NewTextChild( n, "pax_seats" );

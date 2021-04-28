@@ -73,7 +73,7 @@ void TPaxList::fromDB()
     if(options.flags.isFlag(oeExcess))
         SQLText +=
             "   ,NVL(ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse),0) AS excess_wt "
-            "   ,NVL(ckin.get_excess_pc(pax.grp_id, pax.pax_id),0) AS excess_pc ";
+            "   ,0 AS excess_pc ";
     SQLText +=
         "from pax_grp, pax where "
         "   pax_grp.point_dep = :point_id and "
@@ -101,14 +101,17 @@ void TPaxList::fromDB()
         SQLText += (string)"and salons.is_waitlist(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,rownum)"  + (options.wait_list.get() ? "<>" : "=") + "0 ";
     TCachedQuery Qry(SQLText, QryParams);
     Qry.get().Execute();
-    fromDB(Qry.get());
+    fromDB(Qry.get(), true /*calcExcessPc*/);
 }
 
-void TPaxList::fromDB(TQuery &Qry)
+void TPaxList::fromDB(TQuery &Qry, bool countExcessPC)
 {
     for(; !Qry.Eof; Qry.Next()) {
         TPaxPtr pax = getPaxPtr();
         pax->fromDB(Qry);
+        if (countExcessPC) {
+          pax->baggage.excess_pc = countPaidExcessPC(PaxId_t(Qry.FieldAsInteger("pax_id")));
+        }
 
         if(options.mkt_flt and not options.mkt_flt.get().empty()) {
             TMktFlight db_mkt_flt;

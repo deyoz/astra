@@ -62,7 +62,7 @@ int REPORTS::nosir_cbbg(int argc, char** argv)
     Qry.CreateVariable("point_id", otInteger, pax_list.point_id);
     Qry.Execute();
     for(; not Qry.Eof; Qry.Next())
-        pax_list.fromDB(Qry);
+        pax_list.fromDB(Qry, false /*calcExcessPC*/);
     pax_list.sort(pax_compare);
     pax_list.trace(TRACE5);
 
@@ -406,7 +406,7 @@ void REPORTS::PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode
         "   NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_amount, \n"
         "   NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_weight, \n"
         "   NVL(ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse),0) AS excess_wt, \n"
-        "   NVL(ckin.get_excess_pc(pax.grp_id, pax.pax_id),0) AS excess_pc, \n"
+        "   0 AS excess_pc, \n"
         "   pax_grp.grp_id \n"
         "FROM  \n"
         "   pax_grp, \n"
@@ -486,7 +486,7 @@ void REPORTS::PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode
 
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     REPORTS::TPMPaxList pax_list(rpt_params);
-    pax_list.fromDB(Qry);
+    pax_list.fromDB(Qry, true /*calcExcessPC*/);
     pax_list.sort(REPORTS::pax_compare);
     PaxListToXML(pax_list, dataSetsNode, rpt_params);
 
