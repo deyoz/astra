@@ -2277,14 +2277,10 @@ void arx_tlg_trip(const PointIdTlg_t& point_id)
 
 bool TArxTlgTrips::Next(size_t max_rows, int duration)
 {
-    time_t time_start = time(NULL);
-    auto points = getTlgTripPoints(utcdate-Dates::days(ARX::ARX_DAYS()), max_rows/2);
+    auto points = getTlgTripPoints(utcdate-Dates::days(ARX::ARX_DAYS()), max_rows);
 
     while (!points.empty())
     {
-        if(time(NULL) - time_start > duration/2) {
-            return false;
-        }
         PointIdTlg_t point_id = points.front();
         points.erase(points.begin());
         try
@@ -2355,7 +2351,6 @@ void move_typeb_in(int tlg_id)
 bool TArxTypeBIn::Next(size_t max_rows, int duration)
 {
     LogTrace(TRACE6) << __func__;
-    time_t time_start = time(NULL);
     std::map<int, Dates::DateTime_t> tlg_ids = getTlgIds(utcdate - Dates::days(ARX::ARX_DAYS()), max_rows);
     while (!tlg_ids.empty())
     {
@@ -2364,9 +2359,6 @@ bool TArxTypeBIn::Next(size_t max_rows, int duration)
 
         try
         {
-            if(time(NULL) - time_start > duration/2) {
-                return false;
-            }
             //в архив
             move_typeb_in(tlg_id);
             ASTRA::commitAndCallCommitHooks();
@@ -2541,8 +2533,8 @@ bool TArxNormsRatesEtc::Next(size_t max_rows, int duration)
     if(step <= 0) {
         step = 1;
     }
-    Dates::DateTime_t arx_date = utcdate-Dates::days(ARX::ARX_DAYS());
-    norms_rates_etc(arx_date, max_rows, duration/2, step);
+    Dates::DateTime_t arx_date = utcdate-Dates::days(ARX::ARX_DAYS()-15);
+    norms_rates_etc(arx_date, max_rows, duration, step);
     ASTRA::commitAndCallCommitHooks();
     proc_count++;
     return step > 0;
@@ -2813,7 +2805,7 @@ bool TArxTlgsFilesEtc::Next(size_t max_rows, int duration)
         step = 1;
     }
     Dates::DateTime_t arx_date = utcdate - Dates::days(ARX::ARX_DAYS());
-    tlgs_files_etc(arx_date, max_rows, duration/2, step);
+    tlgs_files_etc(arx_date, max_rows, duration, step);
     ASTRA::commitAndCallCommitHooks();
     proc_count++;
     return step > 0;
