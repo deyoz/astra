@@ -43,8 +43,8 @@ std::vector<Dates::time_period> get_airp_periods(TDateTime firstDate, TDateTime 
 
     auto cur = make_db_curs(
 "(SELECT "
-"   CASE(WHEN SIGN(period_first_date-:FirstDate) = 1 THEN period_first_date ELSE :FirstDate END) AS period_first_date, \n"
-"   CASE(WHEN SIGN(period_last_date- :LastDate) = -1 THEN period_last_date ELSE :LastDate END) AS period_last_date \n"
+"   CASE WHEN SIGN(period_first_date-:FirstDate) = 1 THEN period_first_date ELSE :FirstDate END AS period_first_date, \n"
+"   CASE WHEN SIGN(period_last_date- :LastDate) = -1 THEN period_last_date ELSE :LastDate END AS period_last_date \n"
 "  FROM \n"
 "   (SELECT distinct change_point AS period_first_date, \n"
 "           report.get_airp_period_last_date(:ap,change_point) AS period_last_date \n"
@@ -106,8 +106,8 @@ std::vector<Dates::time_period> get_airline_periods(TDateTime firstDate, TDateTi
 
     auto cur = make_db_curs(
 "(SELECT "
-"   CASE(WHEN SIGN(period_first_date - :FirstDate) = 1 THEN period_first_date ELSE :FirstDate END) AS period_first_date, \n"
-"   CASE(WHEN SIGN(period_last_date - :LastDate) = -1 THEN period_last_date ELSE :LastDate END) AS period_last_date \n"
+"   CASE WHEN SIGN(period_first_date - :FirstDate) = 1 THEN period_first_date ELSE :FirstDate END AS period_first_date, \n"
+"   CASE WHEN SIGN(period_last_date - :LastDate) = -1 THEN period_last_date ELSE :LastDate END AS period_last_date \n"
 "  FROM \n"
 "   (SELECT distinct change_point AS period_first_date, \n"
 "           report.get_airline_period_last_date(:ak,change_point) AS period_last_date \n"
