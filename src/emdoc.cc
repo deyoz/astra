@@ -1131,19 +1131,24 @@ void SyncPaxEMD(const CheckIn::TTransferItem &trfer,
     {
       TTrferRoute route;
       route.GetRoute(i.first.get(), trtWithFirstSeg);
-      int trfer_num=0;
-      for(TTrferRoute::iterator t=route.begin(); t!=route.end(); ++t, trfer_num++)
+      for(bool ignoreDate : {false, true})
       {
-        modf(t->operFlt.scd_out, &(t->operFlt.scd_out));
-        if (t->operFlt.airp==trfer.operFlt.airp &&
-            t->operFlt.scd_out==trfer.operFlt.scd_out &&
-            t->airp_arv==trfer.airp_arv)
+        int trfer_num=0;
+        TTrferRoute::iterator t=route.begin();
+        for(; t!=route.end(); ++t, trfer_num++)
         {
-          emd.pax_id=i.second.get();
-          emd.trfer_num=trfer_num;
-          TPaxEMDList(emd).toDB();
-          break;
-        };
+          modf(t->operFlt.scd_out, &(t->operFlt.scd_out));
+          if (t->operFlt.airp==trfer.operFlt.airp &&
+              (t->operFlt.scd_out==trfer.operFlt.scd_out || ignoreDate) &&
+              t->airp_arv==trfer.airp_arv)
+          {
+            emd.pax_id=i.second.get();
+            emd.trfer_num=trfer_num;
+            TPaxEMDList(emd).toDB();
+            break;
+          }
+        }
+        if (t!=route.end()) break;
       }
     }
     catch(std::exception &e)

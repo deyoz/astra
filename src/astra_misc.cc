@@ -1158,11 +1158,11 @@ bool TTrferRoute::GetRoute(int grp_id,
     push_back(TTrferRouteItem());
     TTrferRouteItem &item=back();
     item.operFlt.Init(Qry);
-    if (item.operFlt.scd_out!=NoExists)
+    if (item.operFlt.scd_out_exists())
       item.operFlt.scd_out=UTCToLocal(item.operFlt.scd_out, AirpTZRegion(item.operFlt.airp));
-    if (item.operFlt.est_out && item.operFlt.est_out.get()!=NoExists)
+    if (item.operFlt.est_out_exists())
       item.operFlt.est_out=UTCToLocal(item.operFlt.est_out.get(), AirpTZRegion(item.operFlt.airp));
-    if (item.operFlt.act_out && item.operFlt.act_out.get()!=NoExists)
+    if (item.operFlt.act_out_exists())
       item.operFlt.act_out=UTCToLocal(item.operFlt.act_out.get(), AirpTZRegion(item.operFlt.airp));
     item.airp_arv=Qry.FieldAsString("airp_arv");
     if (!Qry.FieldIsNULL("piece_concept"))
