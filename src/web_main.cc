@@ -170,6 +170,9 @@ std::tuple<std::vector<uint8_t>, std::vector<uint8_t>> internet_main(const std::
     char* res = nullptr;
     auto newlen=ac->jxt_proc(new_body.data(),new_body.size(),new_header.data(),new_header.size(),&res,0);
     std::unique_ptr<char, void (*)(void*)> res_holder(res,free);
+
+    astra_cb_ptr->ResetPostProcessXMLAnswerCallback();
+
     ProgTrace(TRACE1,"newlen=%i",newlen);
 //    if(newlen < hlen)
 //        throw

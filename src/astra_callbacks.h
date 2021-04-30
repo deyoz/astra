@@ -10,14 +10,10 @@ class AstraJxtCallbacks : public jxtlib::JXTLibCallbacks
   private:
     void (*fp_post_process)();
   public:
-    AstraJxtCallbacks() : JXTLibCallbacks()
-    {
-        fp_post_process = NULL;
-    }
-    void SetPostProcessXMLAnswerCallback(void (*post_process_ptr)())
-    {
-        fp_post_process = post_process_ptr;
-    }
+    AstraJxtCallbacks();
+    void SetPostProcessXMLAnswerCallback(void (*post_process_ptr)());
+    void ResetPostProcessXMLAnswerCallback();
+
     virtual void InitInterfaces();
     virtual void HandleException(ServerFramework::Exception *e);
     virtual void UserBefore(const std::string &head, const std::string &body);

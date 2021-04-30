@@ -154,8 +154,6 @@ class AstraApplication : public ServerFramework::ApplicationCallbacks
     {
       ApplicationCallbacks::tcl_init(interp);
       jxtlib::JXTLib::Instance()->SetCallbacks(std::make_unique<AstraJxtCallbacks>());
-      AstraJxtCallbacks* astra_cb_ptr = dynamic_cast<AstraJxtCallbacks*>(jxtlib::JXTLib::Instance()->GetCallbacks());
-      astra_cb_ptr->SetPostProcessXMLAnswerCallback(CheckTermResDoc);
       return 0;
     }
 

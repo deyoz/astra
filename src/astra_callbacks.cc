@@ -64,6 +64,21 @@
 
 using namespace jxtlib;
 
+AstraJxtCallbacks::AstraJxtCallbacks() : JXTLibCallbacks()
+{
+    fp_post_process = CheckTermResDoc;
+}
+
+void AstraJxtCallbacks::SetPostProcessXMLAnswerCallback(void (*post_process_ptr)())
+{
+    fp_post_process = post_process_ptr;
+}
+
+void AstraJxtCallbacks::ResetPostProcessXMLAnswerCallback()
+{
+    fp_post_process = CheckTermResDoc;
+}
+
 void AstraJxtCallbacks::InitInterfaces()
 {
     ProgTrace(TRACE3, "AstraJxtCallbacks::InitInterfaces");
@@ -177,7 +192,7 @@ void AstraJxtCallbacks::UserBefore(const std::string &head, const std::string &b
           if (AstraLocale::TLocaleMessages::Instance()->checksum( reqInfoData.lang ) == 0) // нет данных для словаря
             throw EBaseTableError("");
         }
-        catch( EBaseTableError ) {
+        catch(const EBaseTableError&) {
             ProgTrace( TRACE5, "Unknown client lang=%s", reqInfoData.lang.c_str() );
             reqInfoData.lang = AstraLocale::LANG_DEFAULT;
         }
@@ -216,7 +231,7 @@ void AstraJxtCallbacks::UserBefore(const std::string &head, const std::string &b
     {
       reqInfo->Initialize( reqInfoData );
     }
-    catch(AstraLocale::UserException)
+    catch(const AstraLocale::UserException&)
     {
       if (GetNode( "UserLogoff", node ) != NULL)
       {
@@ -443,7 +458,7 @@ void AstraJxtCallbacks::HandleException(ServerFramework::Exception *e)
     catch( int ) {
         UserAfter();
     }
-    catch(ServerFramework::Exception &localException)
+    catch(const ServerFramework::Exception &localException)
     {
       ProgError(STDLOG,"AstraJxtCallbacks::HandleException: %s", localException.what());
       throw;

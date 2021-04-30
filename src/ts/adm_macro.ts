@@ -155,9 +155,6 @@ $(cache PIKE RU DESK_OWNERS $(cache_iface_ver DESK_OWNERS) ""
          pr_denial:0
  )
 
-$(dump_table desks where="code='$(code)'")
-$(dump_table desk_owners where="desk='$(code)'")
-
 })
 
 $(defmacro ADD_HTTP_CLIENT
@@ -170,13 +167,9 @@ $(defmacro ADD_HTTP_CLIENT
 {
 
 $(sql {INSERT INTO web_clients(client_id, client_type, descr, desk, user_id, tracing_search, id)
-       SELECT '$(client_id)', 'HTTP', '$(client_id)', '$(desk)', user_id, 0, id__seq.nextval
-       FROM users2 WHERE login='$(user_login)'})
+       VALUES('$(client_id)', 'HTTP', '$(client_id)', '$(desk)', $(get_user_id $(user_login)), 0, id__seq.nextval)})
 
 $(sql {INSERT INTO http_clients(id, http_user, http_pswd, exchange_type)
        VALUES('$(client_id)', '$(http_user)', '$(http_pswd)', '$(exchange_type)')})
-
-$(dump_table web_clients where="client_id='$(client_id)'")
-$(dump_table http_clients)
 
 })

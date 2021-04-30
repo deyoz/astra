@@ -1320,6 +1320,505 @@ $(dump_table trfer_trips display=on)
 >> lines=auto
 ------------------- END trfer_trips DUMP COUNT=0 -------------------
 
+%%
+
+
+$(defmacro PAX_LIST_2CREWMEN
+  user_id
+  point_dep
+  point_arv
+  surname1
+  grp_id1
+  pax_id1
+  surname2
+  grp_id2
+  pax_id2
+{
+
+!! capture=on
+<?xml version='1.0' encoding='UTF-8'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <PaxList>
+      <dev_model/>
+      <fmt_type/>
+      <prnParams>
+        <pr_lat>0</pr_lat>
+        <encoding>UTF-16LE</encoding>
+        <offset>20</offset>
+        <top>0</top>
+      </prnParams>
+      <point_id>$(point_dep)</point_id>
+      <tripcounters>
+        <fields>
+          <class/>
+        </fields>
+      </tripcounters>
+      <LoadForm/>
+    </PaxList>
+  </query>
+</term>
+
+>> lines=auto
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer ...>
+    <tripcounters>
+      <fields>
+        <field>title</field>
+        <field>class</field>
+        <field>cfg</field>
+        <field>crs_ok</field>
+        <field>crs_tranzit</field>
+        <field>seats</field>
+        <field>adult_m</field>
+        <field>adult_f</field>
+        <field>child</field>
+        <field>baby</field>
+        <field>rk_weight</field>
+        <field>bag_amount</field>
+        <field>bag_weight</field>
+        <field>excess</field>
+        <field>load</field>
+      </fields>
+      <rows>
+        <row>
+          <title>Всего</title>
+        </row>
+        <row>
+          <seats>2</seats>
+          <adult_m>2</adult_m>
+          <class> </class>
+          <title>Экипаж</title>
+        </row>
+      </rows>
+    </tripcounters>
+    <flight>6В776/$(date_format %d.%m +1) СРО</flight>
+    <passengers>
+      <pax>
+        <pax_id>$(pax_id2)</pax_id>
+        <reg_no>-2</reg_no>
+        <surname>$(surname2)</surname>
+        <name>DIMA</name>
+        <airp_arv>ДМД</airp_arv>
+        <class> </class>
+        <subclass/>
+        <seat_no/>
+        <document>99988887774 RUS</document>
+        <grp_id>$(grp_id2)</grp_id>
+        <cl_grp_id>1000000000</cl_grp_id>
+        <hall_id>-1</hall_id>
+        <point_arv>$(point_arv)</point_arv>
+        <user_id>$(user_id)</user_id>
+        <client_type_id>4</client_type_id>
+        <status_id>4</status_id>
+      </pax>
+      <pax>
+        <pax_id>$(pax_id1)</pax_id>
+        <reg_no>-1</reg_no>
+        <surname>$(surname1)</surname>
+        <name>IVAN ROMANOVIC</name>
+        <airp_arv>ДМД</airp_arv>
+        <class> </class>
+        <subclass/>
+        <seat_no/>
+        <document>1234567891 RUS</document>
+        <grp_id>$(grp_id1)</grp_id>
+        <cl_grp_id>1000000000</cl_grp_id>
+        <hall_id>-1</hall_id>
+        <point_arv>$(point_arv)</point_arv>
+        <user_id>$(user_id)</user_id>
+        <client_type_id>4</client_type_id>
+        <status_id>4</status_id>
+      </pax>
+    </passengers>
+    <unaccomp_bag/>
+    <defaults>
+      <last_trfer/>
+      <last_tckin_seg/>
+      <bag_amount>0</bag_amount>
+      <bag_weight>0</bag_weight>
+      <rk_weight>0</rk_weight>
+      <excess>0</excess>
+      <tags/>
+      <name/>
+      <class>Э</class>
+      <brand/>
+      <seats>1</seats>
+      <seat_no_alarm>0</seat_no_alarm>
+      <pers_type>ВЗ</pers_type>
+      <document/>
+      <ticket_rem/>
+      <ticket_no/>
+      <rems/>
+      <mark_flt_str/>
+      <client_type_id>0</client_type_id>
+      <status_id>0</status_id>
+    </defaults>
+
+})
+
+### test 6 - регистрация экипажа, повторная регистрация экипажа
+### 1. Сначала регистрируем 2 члена экипажа единой группой
+### 2. Потом регистрируем 2 члена экипажа разными группами с другими фамилиями (зарегистрированные ранее должны удалиться)
+#########################################################################################
+
+$(init_term)
+$(set_user_time_type LocalAirp PIKE)
+
+$(set tomor $(date_format %d.%m.%Y +1))
+
+$(NEW_SPP_FLIGHT_ONE_LEG 6W 776 TU3 RTW "$(get tomor) 12:00" "$(get tomor) 15:00" DME)
+
+
+### доступ для входящих http-запросов от Меридиана
+
+$(CREATE_USER CREW6WUSER CREW6WUSER)
+$(CREATE_DESK CREW6W 1)
+$(ADD_HTTP_CLIENT CREWCHECKIN CREW6W CREW6WUSER CREW6W HTTPUSER yhjdx5r0)
+
+$(set http_user_id $(get_user_id CREW6WUSER))
+
+#########################################################################################
+### регистрируем экипаж единой группой
+
+!! capture=on req_type=http
+POST / HTTP/1.0
+Host: /
+X-Real-IP: 146.120.94.7
+Connection: close
+Content-Length: 5301
+Authorization: Basic SFRUUFVTRVI6eWhqZHg1cjA=
+User-Agent: Meridian.DB
+CLIENT-ID: CREW6W
+Accept-Encoding: gzip,deflate
+Content-Type: application/x-www-form-urlencoded; charset=utf-8
+$()
+<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<term>
+  <query lang=\"RU\">
+    <CREWCHECKIN>
+      <FLIGHT>
+        <AIRLINE>6W</AIRLINE>
+        <FLT_NO>776</FLT_NO>
+        <SUFFIX/>
+        <SCD>$(get tomor)</SCD>
+        <AIRP_DEP>RTW</AIRP_DEP>
+      </FLIGHT>
+      <CREW_GROUPS>
+        <CREW_GROUP>
+          <AIRP_ARV>DME</AIRP_ARV>
+          <CREW_MEMBERS>
+            <CREW_MEMBER>
+                <CREW_TYPE>CR1</CREW_TYPE>
+                <DUTY>PIC</DUTY>
+                <ORDER>1</ORDER>
+                <PERSONAL_DATA>
+                    <DOCS>
+                        <NO>1234567891</NO>
+                        <TYPE>P</TYPE>
+                        <ISSUE_COUNTRY>RUS</ISSUE_COUNTRY>
+                        <NO>1234567891</NO>
+                        <NATIONALITY>RUS</NATIONALITY>
+                        <BIRTH_DATE>01.05.1976</BIRTH_DATE>
+                        <GENDER>M</GENDER>
+                        <EXPIRY_DATE>12.05.$(date_format %Y +1y)</EXPIRY_DATE>
+                        <SURNAME>IVANOV</SURNAME>
+                        <FIRST_NAME>IVAN</FIRST_NAME>
+                        <SECOND_NAME>ROMANOVIC</SECOND_NAME>
+                    </DOCS>
+                    <DOCO>
+                        <BIRTH_PLACE>MOSKVA RUSSIY</BIRTH_PLACE>
+                        <TYPE>V</TYPE>
+                        <NO>VI78787787878</NO>
+                        <ISSUE_PLACE>MOSKVA TURISTKAY STRIT 25</ISSUE_PLACE>
+                        <ISSUE_DATE>12.02.2014</ISSUE_DATE>
+                        <EXPIRY_DATE>15.12.$(date_format %Y +1y)</EXPIRY_DATE>
+                        <APPLIC_COUNTRY>USA</APPLIC_COUNTRY>
+                    </DOCO>
+                    <DOCA>
+                        <TYPE>B</TYPE>
+                        <COUNTRY>RUS</COUNTRY>
+                        <ADDRESS>DUBROVCA CTRIT 25 256</ADDRESS>
+                        <CITY>MOSKVA</CITY>
+                        <REGION>MOSKVA</REGION>
+                        <POSTAL_CODE>125373</POSTAL_CODE>
+                    </DOCA>
+                    <DOCA>
+                        <TYPE>R</TYPE>
+                        <COUNTRY>RUS</COUNTRY>
+                        <ADDRESS>POPOVCA CTRIT 48</ADDRESS>
+                        <CITY>MOSKVA</CITY>
+                        <REGION>MOSKVA</REGION>
+                        <POSTAL_CODE>266373</POSTAL_CODE>
+                    </DOCA>
+                    <DOCA>
+                        <TYPE>D</TYPE>
+                        <COUNTRY>USA</COUNTRY>
+                        <ADDRESS>FIFTH AVENUE</ADDRESS>
+                        <CITY>NY</CITY>
+                        <REGION>NY</REGION>
+                        <POSTAL_CODE>9999</POSTAL_CODE>
+                    </DOCA>
+                </PERSONAL_DATA>
+            </CREW_MEMBER>
+            <CREW_MEMBER>
+                <CREW_TYPE>CR1</CREW_TYPE>
+                <DUTY>PIC</DUTY>
+                <ORDER>2</ORDER>
+                <PERSONAL_DATA>
+                    <DOCS>
+                        <NO>7778889991</NO>
+                        <TYPE>P</TYPE>
+                        <ISSUE_COUNTRY>RUS</ISSUE_COUNTRY>
+                        <NO>99988887774</NO>
+                        <NATIONALITY>RUS</NATIONALITY>
+                        <BIRTH_DATE>02.05.1976</BIRTH_DATE>
+                        <GENDER>M</GENDER>
+                        <EXPIRY_DATE>22.05.$(date_format %Y +1y)</EXPIRY_DATE>
+                        <SURNAME>REPIN</SURNAME>
+                        <FIRST_NAME>DIMA</FIRST_NAME>
+                        <SECOND_NAME></SECOND_NAME>
+                    </DOCS>
+                    <DOCO>
+                        <BIRTH_PLACE>MOSKVA RUSSIY</BIRTH_PLACE>
+                        <TYPE>V</TYPE>
+                        <NO>VI78787787878</NO>
+                        <ISSUE_PLACE>MOSKVA POLKA STRIT 25</ISSUE_PLACE>
+                        <ISSUE_DATE>15.02.2014</ISSUE_DATE>
+                        <EXPIRY_DATE>19.12.$(date_format %Y +1y)</EXPIRY_DATE>
+                        <APPLIC_COUNTRY>USA</APPLIC_COUNTRY>
+                    </DOCO>
+                    <DOCA>
+                        <TYPE>B</TYPE>
+                        <COUNTRY>RUS</COUNTRY>
+                        <ADDRESS>DUBROVCA CTRIT 25 256</ADDRESS>
+                        <CITY>MOSKVA</CITY>
+                        <REGION>MOSKVA</REGION>
+                        <POSTAL_CODE>125373</POSTAL_CODE>
+                    </DOCA>
+                    <DOCA>
+                        <TYPE>R</TYPE>
+                        <COUNTRY>RUS</COUNTRY>
+                        <ADDRESS>POPOVCA CTRIT 48</ADDRESS>
+                        <CITY>MOSKVA</CITY>
+                        <REGION>MOSKVA</REGION>
+                        <POSTAL_CODE>266373</POSTAL_CODE>
+                    </DOCA>
+                    <DOCA>
+                        <TYPE>D</TYPE>
+                        <COUNTRY>USA</COUNTRY>
+                        <ADDRESS>FIFTH AVENUE</ADDRESS>
+                        <CITY>NY</CITY>
+                        <REGION>NY</REGION>
+                        <POSTAL_CODE>9999</POSTAL_CODE>
+                    </DOCA>
+                </PERSONAL_DATA>
+            </CREW_MEMBER>
+          </CREW_MEMBERS>
+        </CREW_GROUP>
+      </CREW_GROUPS>
+    </CREWCHECKIN>
+  </query>
+</term>
+
+>> lines=auto
+<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<term>
+  <answer ...>
+    <CREWCHECKIN>
+      <proc_status>OK</proc_status>
+    </CREWCHECKIN>
+  </answer>
+</term>
+
+$(set point_dep $(get_point_dep_for_flight 6W 776 "" $(yymmdd +1) RTW))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set pax_id1 $(get_pax_id $(get point_dep) -1))
+$(set pax_id2 $(get_pax_id $(get point_dep) -2))
+$(set grp_id1 $(get_single_grp_id $(get pax_id1)))
+$(set grp_id2 $(get_single_grp_id $(get pax_id2)))
+
+??
+$(eq $(get grp_id1) $(get grp_id2))
+>>
+true
+
+$(PAX_LIST_2CREWMEN $(get http_user_id) $(get point_dep) $(get point_arv)
+  IVANOV $(get grp_id1) $(get pax_id1)
+  REPIN  $(get grp_id1) $(get pax_id2))
+
+#########################################################################################
+### регистрируем экипаж разными группами и меняем фамилии
+
+!! capture=on req_type=http
+POST / HTTP/1.0
+Host: /
+X-Real-IP: 146.120.94.7
+Connection: close
+Content-Length: 5438
+Authorization: Basic SFRUUFVTRVI6eWhqZHg1cjA=
+User-Agent: Meridian.DB
+CLIENT-ID: CREW6W
+Accept-Encoding: gzip,deflate
+Content-Type: application/x-www-form-urlencoded; charset=utf-8
+$()
+<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<term>
+  <query lang=\"RU\">
+    <CREWCHECKIN>
+      <FLIGHT>
+        <AIRLINE>6W</AIRLINE>
+        <FLT_NO>776</FLT_NO>
+        <SUFFIX/>
+        <SCD>$(get tomor)</SCD>
+        <AIRP_DEP>RTW</AIRP_DEP>
+      </FLIGHT>
+      <CREW_GROUPS>
+        <CREW_GROUP>
+          <AIRP_ARV>DME</AIRP_ARV>
+          <CREW_MEMBERS>
+            <CREW_MEMBER>
+                <CREW_TYPE>CR1</CREW_TYPE>
+                <DUTY>PIC</DUTY>
+                <ORDER>1</ORDER>
+                <PERSONAL_DATA>
+                    <DOCS>
+                        <NO>1234567891</NO>
+                        <TYPE>P</TYPE>
+                        <ISSUE_COUNTRY>RUS</ISSUE_COUNTRY>
+                        <NO>1234567891</NO>
+                        <NATIONALITY>RUS</NATIONALITY>
+                        <BIRTH_DATE>01.05.1976</BIRTH_DATE>
+                        <GENDER>M</GENDER>
+                        <EXPIRY_DATE>12.05.$(date_format %Y +1y)</EXPIRY_DATE>
+                        <SURNAME>IVASHKIN</SURNAME>
+                        <FIRST_NAME>IVAN</FIRST_NAME>
+                        <SECOND_NAME>ROMANOVIC</SECOND_NAME>
+                    </DOCS>
+                    <DOCO>
+                        <BIRTH_PLACE>MOSKVA RUSSIY</BIRTH_PLACE>
+                        <TYPE>V</TYPE>
+                        <NO>VI78787787878</NO>
+                        <ISSUE_PLACE>MOSKVA TURISTKAY STRIT 25</ISSUE_PLACE>
+                        <ISSUE_DATE>12.02.2014</ISSUE_DATE>
+                        <EXPIRY_DATE>15.12.$(date_format %Y +1y)</EXPIRY_DATE>
+                        <APPLIC_COUNTRY>USA</APPLIC_COUNTRY>
+                    </DOCO>
+                    <DOCA>
+                        <TYPE>B</TYPE>
+                        <COUNTRY>RUS</COUNTRY>
+                        <ADDRESS>DUBROVCA CTRIT 25 256</ADDRESS>
+                        <CITY>MOSKVA</CITY>
+                        <REGION>MOSKVA</REGION>
+                        <POSTAL_CODE>125373</POSTAL_CODE>
+                    </DOCA>
+                    <DOCA>
+                        <TYPE>R</TYPE>
+                        <COUNTRY>RUS</COUNTRY>
+                        <ADDRESS>POPOVCA CTRIT 48</ADDRESS>
+                        <CITY>MOSKVA</CITY>
+                        <REGION>MOSKVA</REGION>
+                        <POSTAL_CODE>266373</POSTAL_CODE>
+                    </DOCA>
+                    <DOCA>
+                        <TYPE>D</TYPE>
+                        <COUNTRY>USA</COUNTRY>
+                        <ADDRESS>FIFTH AVENUE</ADDRESS>
+                        <CITY>NY</CITY>
+                        <REGION>NY</REGION>
+                        <POSTAL_CODE>9999</POSTAL_CODE>
+                    </DOCA>
+                </PERSONAL_DATA>
+            </CREW_MEMBER>
+          </CREW_MEMBERS>
+        </CREW_GROUP>
+        <CREW_GROUP>
+          <AIRP_ARV>DME</AIRP_ARV>
+          <CREW_MEMBERS>
+            <CREW_MEMBER>
+                <CREW_TYPE>CR1</CREW_TYPE>
+                <DUTY>PIC</DUTY>
+                <ORDER>2</ORDER>
+                <PERSONAL_DATA>
+                    <DOCS>
+                        <NO>7778889991</NO>
+                        <TYPE>P</TYPE>
+                        <ISSUE_COUNTRY>RUS</ISSUE_COUNTRY>
+                        <NO>99988887774</NO>
+                        <NATIONALITY>RUS</NATIONALITY>
+                        <BIRTH_DATE>02.05.1976</BIRTH_DATE>
+                        <GENDER>M</GENDER>
+                        <EXPIRY_DATE>22.05.$(date_format %Y +1y)</EXPIRY_DATE>
+                        <SURNAME>REPKIN</SURNAME>
+                        <FIRST_NAME>DIMA</FIRST_NAME>
+                        <SECOND_NAME></SECOND_NAME>
+                    </DOCS>
+                    <DOCO>
+                        <BIRTH_PLACE>MOSKVA RUSSIY</BIRTH_PLACE>
+                        <TYPE>V</TYPE>
+                        <NO>VI78787787878</NO>
+                        <ISSUE_PLACE>MOSKVA POLKA STRIT 25</ISSUE_PLACE>
+                        <ISSUE_DATE>15.02.2014</ISSUE_DATE>
+                        <EXPIRY_DATE>19.12.$(date_format %Y +1y)</EXPIRY_DATE>
+                        <APPLIC_COUNTRY>USA</APPLIC_COUNTRY>
+                    </DOCO>
+                    <DOCA>
+                        <TYPE>B</TYPE>
+                        <COUNTRY>RUS</COUNTRY>
+                        <ADDRESS>DUBROVCA CTRIT 25 256</ADDRESS>
+                        <CITY>MOSKVA</CITY>
+                        <REGION>MOSKVA</REGION>
+                        <POSTAL_CODE>125373</POSTAL_CODE>
+                    </DOCA>
+                    <DOCA>
+                        <TYPE>R</TYPE>
+                        <COUNTRY>RUS</COUNTRY>
+                        <ADDRESS>POPOVCA CTRIT 48</ADDRESS>
+                        <CITY>MOSKVA</CITY>
+                        <REGION>MOSKVA</REGION>
+                        <POSTAL_CODE>266373</POSTAL_CODE>
+                    </DOCA>
+                    <DOCA>
+                        <TYPE>D</TYPE>
+                        <COUNTRY>USA</COUNTRY>
+                        <ADDRESS>FIFTH AVENUE</ADDRESS>
+                        <CITY>NY</CITY>
+                        <REGION>NY</REGION>
+                        <POSTAL_CODE>9999</POSTAL_CODE>
+                    </DOCA>
+                </PERSONAL_DATA>
+            </CREW_MEMBER>
+          </CREW_MEMBERS>
+        </CREW_GROUP>
+      </CREW_GROUPS>
+    </CREWCHECKIN>
+  </query>
+</term>
+
+>> lines=auto
+<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<term>
+  <answer ...>
+    <CREWCHECKIN>
+      <proc_status>OK</proc_status>
+    </CREWCHECKIN>
+  </answer>
+</term>
+
+$(set pax_id1 $(get_pax_id $(get point_dep) -1))
+$(set pax_id2 $(get_pax_id $(get point_dep) -2))
+$(set grp_id1 $(get_single_grp_id $(get pax_id1)))
+$(set grp_id2 $(get_single_grp_id $(get pax_id2)))
+
+??
+$(eq $(get grp_id1) $(get grp_id2))
+>>
+false
+
+$(PAX_LIST_2CREWMEN $(get http_user_id) $(get point_dep) $(get point_arv)
+  IVASHKIN $(get grp_id1) $(get pax_id1)
+  REPKIN   $(get grp_id2) $(get pax_id2))
 
 
 
