@@ -36,7 +36,7 @@ $(dump_table POINTS fields="point_id, move_id, airline, flt_no, airp, scd_in, sc
 $(run_arch_step $(ddmmyy +133))
 
 ??
-$(check_dump ARX_POINTS display="on")
+$(check_dump ARX_POINTS order="point_id" display="on")
 >>
 [$(get point_dep)] [$(get move_id)] [0] [€Œ‘] [0] [NULL] [’] [300] [NULL] [’“5] [NULL] [NULL] [NULL] [NULL] [$(date_format %d.%m.%Y +1)] [NULL] [NULL] [¯] [NULL] [NULL] [NULL] [NULL] [1] [0] [0] [0] [1] [NULL] [...] [$(date_format %d.%m.%Y +1)] $()
 [$(get point_arv)] [$(get move_id)] [1] [•] [0] [$(get point_dep)] [NULL] [NULL] [NULL] [NULL] [NULL] [$(date_format %d.%m.%Y +1)] [NULL] [NULL] [NULL] [NULL] [NULL] [NULL] [NULL] [NULL] [NULL] [NULL] [0] [0] [0] [NULL] [NULL] [NULL] [...] [$(date_format %d.%m.%Y +1)] $()
@@ -76,14 +76,14 @@ $(make_spp $(ddmmyy +20))
 $(run_arch_step $(ddmmyy +151))
 
 ??
-$(check_dump MOVE_ARX_EXT display="on")
+$(check_dump MOVE_ARX_EXT order="part_key" display="on")
 >>
 [2] [...] [$(date_format %d.%m.%Y +20)] $()
 [2] [...] [$(date_format %d.%m.%Y +21)] $()
 $()
 
 ??
-$(check_dump ARX_MOVE_REF display="on")
+$(check_dump ARX_MOVE_REF order="part_key" display="on")
 >>
 [...] [$(date_format %d.%m.%Y +1)] [NULL] $()
 [...] [$(date_format %d.%m.%Y +20)] [NULL] $()
@@ -306,8 +306,40 @@ $()
 
 
 ??
-$(check_dump ARX_PFS_STAT display="on")
+$(check_dump ARX_PFS_STAT order="pax_id" display="on")
 >>
+[‹•] [04.11.1960] [M] [VASILII LEONIDOVICH] [...] [F58457] [$(get point_dep_UT_100)] [1] [NOSHO] [] [VERGUNOV] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [11.05.1996] [M] [TALGAT] [...] [F57K6C] [$(get point_dep_UT_100)] [1] [NOSHO] [“] [ALIMOV] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [06.11.1974] [F] [ZULFIYA] [...] [F57K6C] [$(get point_dep_UT_100)] [1] [NOSHO] [“] [KHASSENOVA] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [23.09.1983] [M] [RUSLAN NAILYEVICH MR] [...] [F56KFM] [$(get point_dep_UT_100)] [1] [NOSHO] [] [SELIVANOV] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [03.10.1972] [F] [ˆˆ€ ƒ…€„œ…‚€] [...] [F58262] [$(get point_dep_UT_100)] [1] [NOSHO] [] [Ÿ‡€‚€] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [21.06.1993] [M] [ANDREI] [...] [F522FC] [$(get point_dep_UT_100)] [1] [NOSHO] [‚] [AKOPOV] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [05.04.2010] [F] [KIRA] [...] [F522FC] [$(get point_dep_UT_100)] [1] [NOSHO] [‚] [BABAKHANOVA] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [23.07.1982] [F] [ANGELINA] [...] [F522FC] [$(get point_dep_UT_100)] [1] [NOSHO] [‚] [STIPIDI] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [31.12.1986] [M] [ALEKSEY MR] [...] [F55681] [$(get point_dep_UT_100)] [1] [NOSHO] [‚] [KOBYLINSKIY] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [NULL] [NULL] [OFER] [...] [F554G3] [$(get point_dep_UT_100)] [1] [NOSHO] [‚] [OZ] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [22.10.1977] [F] [Š‘€€] [...] [F543BB] [$(get point_dep_UT_100)] [1] [NOSHO] [‚] [‹“—€Š] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [02.06.1987] [F] [ANNA GRIGOREVNA] [...] [F5659B] [$(get point_dep_UT_100)] [1] [NOSHO] [–] [KURGINSKAYA] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [14.05.1951] [M] [ODISSEI AFANASEVICH] [...] [F50266] [$(get point_dep_UT_100)] [1] [NOSHO] [‹] [BUMBURIDI] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [17.03.1990] [M] [KONSTANTIN ALEKSANDROVICH] [...] [F52MLM] [$(get point_dep_UT_100)] [1] [NOSHO] [‹] [CHEKMAREV] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [13.09.1984] [F] [KSENIYA VALEREVNA] [...] [F52MM0] [$(get point_dep_UT_100)] [1] [NOSHO] [‹] [VASILIADI] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [02.01.1959] [F] [RAISA GRIGOREVNA] [...] [F5203D] [$(get point_dep_UT_100)] [1] [NOSHO] [‹] [ZAINULLINA] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [17.01.1966] [M] [‚‹€„ˆŒˆ ˆŠ‹€…‚ˆ—] [...] [F514B8] [$(get point_dep_UT_100)] [1] [NOSHO] [‹] [Š’‹Ÿ] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [30.12.1988] [M] [DENIS DMITRIEVICH] [...] [F4F4F0] [$(get point_dep_UT_100)] [1] [NOSHO] [Š] [AGAFONOV] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [07.08.1993] [F] [MARIIA DMITRIEVNA] [...] [F4F4F0] [$(get point_dep_UT_100)] [1] [NOSHO] [Š] [POLETAEVA] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [07.07.1979] [M] [DMITRII VLADIMIROVICH] [...] [F4F2D2] [$(get point_dep_UT_100)] [1] [NOSHO] [Š] [ASTAFEV] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [13.09.1987] [F] [KRISTINA VALEREVNA] [...] [F4F2D2] [$(get point_dep_UT_100)] [1] [NOSHO] [Š] [TIKHOMIROVA] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [31.08.1951] [M] [SERGEI MIKHAILOVICH] [...] [F4F617] [$(get point_dep_UT_100)] [1] [NOSHO] [Š] [BALASHOV] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [31.03.1952] [F] [EKATERINA SERGEEVNA] [...] [F50234] [$(get point_dep_UT_100)] [1] [NOSHO] [Š] [BUMBURIDI] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [03.02.2011] [M] [OLEG VIKTOROVICH] [...] [F4L8L3] [$(get point_dep_UT_100)] [1] [NOSHO] [Š] [MOKSOKHOEV] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [07.09.1981] [M] [VICTOR SERGEEVICH] [...] [F4L8L3] [$(get point_dep_UT_100)] [1] [NOSHO] [Š] [MOKSOKHOEV] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [12.10.1980] [F] [MARINA MRS] [...] [F4C271] [$(get point_dep_UT_100)] [1] [NOSHO] [Š] [RUBLEVA] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [24.08.1972] [F] [‘‚…’‹€€ ‚‹€„ˆ‘‹€‚‚€] [...] [F4DM92] [$(get point_dep_UT_100)] [1] [NOSHO] [Š] [Š€€‚€] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [27.06.1973] [F] […‹…€ ‚‹€„ˆŒˆ‚€] [...] [F4B34L] [$(get point_dep_UT_100)] [1] [NOSHO] [Š] [Š€‚–‚€] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [04.08.1978] [M] [ˆ‹œŸ ‚‹€„ˆŒˆ‚ˆ—] [...] [F4D1G4] [$(get point_dep_UT_100)] [1] [NOSHO] [Š] [Š“‡…–‚] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [06.09.1974] [M] [‘…ƒ…‰] [...] [F4CMMB] [$(get point_dep_UT_100)] [1] [NOSHO] [Š] [’€ƒˆ‚] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [07.02.1968] [M] […‚ƒ…ˆ‰ ‚‹€„ˆŒˆ‚ˆ—] [...] [F4K2C3] [$(get point_dep_UT_100)] [1] [NOSHO] [Š] [—…’‚…’Š‚] [$(date_format %d.%m.%Y +20)] $()
+[‹•] [30.04.1979] [M] [Œ€Š‘ˆŒ €‹…Š‘……‚ˆ—] [...] [F4BG9L] [$(get point_dep_UT_100)] [1] [NOSHO] [Š] [Ÿˆ…Š] [$(date_format %d.%m.%Y +20)] $()
 [‹•] [02.02.1982] [M] [PAVEL VALEREVICH MR] [...] [F0K77C] [$(get point_dep_UT_100)] [1] [NOSHO] [”] [BUGAEV] [$(date_format %d.%m.%Y +20)] $()
 [‹•] [21.12.1979] [F] [JULIA RAVILEVNA MS] [...] [F0K77C] [$(get point_dep_UT_100)] [1] [NOSHO] [”] [CHETVERIKOVA] [$(date_format %d.%m.%Y +20)] $()
 [‹•] [07.07.1990] [F] [LIUDMILA MS] [...] [F4828M] [$(get point_dep_UT_100)] [1] [NOSHO] [”] [FUKS] [$(date_format %d.%m.%Y +20)] $()
@@ -333,38 +365,6 @@ $(check_dump ARX_PFS_STAT display="on")
 [‹•] [14.07.2015] [F] [Œ€ˆŸ ‘…Œ…‚€] [...] [F2L743] [$(get point_dep_UT_100)] [1] [NOSHO] [”] [•€—…Š] [$(date_format %d.%m.%Y +20)] $()
 [‹•] [12.04.1991] [F] [€’€‹œŸ €‹…Š‘€„‚€] [...] [F2L743] [$(get point_dep_UT_100)] [1] [NOSHO] [”] [•€—…Š] [$(date_format %d.%m.%Y +20)] $()
 [‹•] [25.05.1980] [M] [‘…Œ… ‚Ÿ—…‘‹€‚‚ˆ—] [...] [F2KFMB] [$(get point_dep_UT_100)] [1] [NOSHO] [”] [•€—…Š] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [21.06.1993] [M] [ANDREI] [...] [F522FC] [$(get point_dep_UT_100)] [1] [NOSHO] [‚] [AKOPOV] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [05.04.2010] [F] [KIRA] [...] [F522FC] [$(get point_dep_UT_100)] [1] [NOSHO] [‚] [BABAKHANOVA] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [23.07.1982] [F] [ANGELINA] [...] [F522FC] [$(get point_dep_UT_100)] [1] [NOSHO] [‚] [STIPIDI] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [31.12.1986] [M] [ALEKSEY MR] [...] [F55681] [$(get point_dep_UT_100)] [1] [NOSHO] [‚] [KOBYLINSKIY] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [NULL] [NULL] [OFER] [...] [F554G3] [$(get point_dep_UT_100)] [1] [NOSHO] [‚] [OZ] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [22.10.1977] [F] [Š‘€€] [...] [F543BB] [$(get point_dep_UT_100)] [1] [NOSHO] [‚] [‹“—€Š] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [30.12.1988] [M] [DENIS DMITRIEVICH] [...] [F4F4F0] [$(get point_dep_UT_100)] [1] [NOSHO] [Š] [AGAFONOV] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [07.08.1993] [F] [MARIIA DMITRIEVNA] [...] [F4F4F0] [$(get point_dep_UT_100)] [1] [NOSHO] [Š] [POLETAEVA] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [07.07.1979] [M] [DMITRII VLADIMIROVICH] [...] [F4F2D2] [$(get point_dep_UT_100)] [1] [NOSHO] [Š] [ASTAFEV] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [13.09.1987] [F] [KRISTINA VALEREVNA] [...] [F4F2D2] [$(get point_dep_UT_100)] [1] [NOSHO] [Š] [TIKHOMIROVA] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [31.08.1951] [M] [SERGEI MIKHAILOVICH] [...] [F4F617] [$(get point_dep_UT_100)] [1] [NOSHO] [Š] [BALASHOV] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [31.03.1952] [F] [EKATERINA SERGEEVNA] [...] [F50234] [$(get point_dep_UT_100)] [1] [NOSHO] [Š] [BUMBURIDI] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [03.02.2011] [M] [OLEG VIKTOROVICH] [...] [F4L8L3] [$(get point_dep_UT_100)] [1] [NOSHO] [Š] [MOKSOKHOEV] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [07.09.1981] [M] [VICTOR SERGEEVICH] [...] [F4L8L3] [$(get point_dep_UT_100)] [1] [NOSHO] [Š] [MOKSOKHOEV] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [12.10.1980] [F] [MARINA MRS] [...] [F4C271] [$(get point_dep_UT_100)] [1] [NOSHO] [Š] [RUBLEVA] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [24.08.1972] [F] [‘‚…’‹€€ ‚‹€„ˆ‘‹€‚‚€] [...] [F4DM92] [$(get point_dep_UT_100)] [1] [NOSHO] [Š] [Š€€‚€] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [27.06.1973] [F] […‹…€ ‚‹€„ˆŒˆ‚€] [...] [F4B34L] [$(get point_dep_UT_100)] [1] [NOSHO] [Š] [Š€‚–‚€] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [04.08.1978] [M] [ˆ‹œŸ ‚‹€„ˆŒˆ‚ˆ—] [...] [F4D1G4] [$(get point_dep_UT_100)] [1] [NOSHO] [Š] [Š“‡…–‚] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [06.09.1974] [M] [‘…ƒ…‰] [...] [F4CMMB] [$(get point_dep_UT_100)] [1] [NOSHO] [Š] [’€ƒˆ‚] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [07.02.1968] [M] […‚ƒ…ˆ‰ ‚‹€„ˆŒˆ‚ˆ—] [...] [F4K2C3] [$(get point_dep_UT_100)] [1] [NOSHO] [Š] [—…’‚…’Š‚] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [30.04.1979] [M] [Œ€Š‘ˆŒ €‹…Š‘……‚ˆ—] [...] [F4BG9L] [$(get point_dep_UT_100)] [1] [NOSHO] [Š] [Ÿˆ…Š] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [14.05.1951] [M] [ODISSEI AFANASEVICH] [...] [F50266] [$(get point_dep_UT_100)] [1] [NOSHO] [‹] [BUMBURIDI] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [17.03.1990] [M] [KONSTANTIN ALEKSANDROVICH] [...] [F52MLM] [$(get point_dep_UT_100)] [1] [NOSHO] [‹] [CHEKMAREV] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [13.09.1984] [F] [KSENIYA VALEREVNA] [...] [F52MM0] [$(get point_dep_UT_100)] [1] [NOSHO] [‹] [VASILIADI] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [02.01.1959] [F] [RAISA GRIGOREVNA] [...] [F5203D] [$(get point_dep_UT_100)] [1] [NOSHO] [‹] [ZAINULLINA] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [17.01.1966] [M] [‚‹€„ˆŒˆ ˆŠ‹€…‚ˆ—] [...] [F514B8] [$(get point_dep_UT_100)] [1] [NOSHO] [‹] [Š’‹Ÿ] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [23.09.1983] [M] [RUSLAN NAILYEVICH MR] [...] [F56KFM] [$(get point_dep_UT_100)] [1] [NOSHO] [] [SELIVANOV] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [03.10.1972] [F] [ˆˆ€ ƒ…€„œ…‚€] [...] [F58262] [$(get point_dep_UT_100)] [1] [NOSHO] [] [Ÿ‡€‚€] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [11.05.1996] [M] [TALGAT] [...] [F57K6C] [$(get point_dep_UT_100)] [1] [NOSHO] [“] [ALIMOV] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [06.11.1974] [F] [ZULFIYA] [...] [F57K6C] [$(get point_dep_UT_100)] [1] [NOSHO] [“] [KHASSENOVA] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [02.06.1987] [F] [ANNA GRIGOREVNA] [...] [F5659B] [$(get point_dep_UT_100)] [1] [NOSHO] [–] [KURGINSKAYA] [$(date_format %d.%m.%Y +20)] $()
-[‹•] [04.11.1960] [M] [VASILII LEONIDOVICH] [...] [F58457] [$(get point_dep_UT_100)] [1] [NOSHO] [] [VERGUNOV] [$(date_format %d.%m.%Y +20)] $()
 $()
 
 ??
@@ -446,7 +446,7 @@ $(CHECKIN_PAX $(get pax_id_TUMALI) $(get point_dep_UT_100) $(get point_arv_UT_10
 $(run_arch_step $(ddmmyy +141))
 
 ??
-$(check_dump ARX_TRIP_CLASSES  display="on")
+$(check_dump ARX_TRIP_CLASSES  order="cfg" display="on")
 >>
 [0] [11] [] [$(get point_dep_UT_100)] [0] [$(date_format %d.%m.%Y +20)] $()
 [0] [63] [] [$(get point_dep_UT_100)] [0] [$(date_format %d.%m.%Y +20)] $()
@@ -459,7 +459,7 @@ $(check_dump ARX_TRIP_SETS  display="on")
 $()
 
 ??
-$(check_dump ARX_TRIP_STAGES  display="on")
+$(check_dump ARX_TRIP_STAGES  order="stage_id" display="on")
 >>
 [NULL] [NULL] [$(date_format %d.%m.%Y +20)] [$(get point_dep_UT_100)] [0] [0] [$(date_format %d.%m.%Y +20)] [10] $()
 [NULL] [NULL] [$(date_format %d.%m.%Y +20)] [$(get point_dep_UT_100)] [0] [0] [$(date_format %d.%m.%Y +20)] [20] $()
@@ -547,7 +547,7 @@ $(set grp_id3 $(get_single_grp_id $(get point_dep_UT_450) OZ OFER))
 $(run_arch_step $(ddmmyy +141))
 
 ??
-$(check_dump ARX_TCKIN_SEGMENTS)
+$(check_dump ARX_TCKIN_SEGMENTS order="grp_id, seg_no")
 >>
 [’] [€Œ‘] [•] [190] [$(get grp_id1)] [$(date_format %d.%m.%Y)] [0] [$(date_format %d.%m.%Y)] [1] [NULL] $()
 [’] [‹•] [€Œ‘] [450] [$(get grp_id1)] [$(date_format %d.%m.%Y)] [1] [$(date_format %d.%m.%Y)] [2] [NULL] $()
@@ -728,7 +728,7 @@ $(run_arch $(ddmmyy +151))
 $(dump_table POINTS fields="point_id, move_id, airline, flt_no, airp, scd_in, scd_out, est_in, est_out, act_in, act_out, time_in, time_out, airp_fmt")
 
 ??
-$(check_dump ARX_PAX)
+$(check_dump ARX_PAX order="coupon_no" )
 >>
 [NULL] [] [12] [] [1] [0] [NULL] [...] [0] [0] [OFER] [$(date_format %d.%m.%Y )] [$(get pax_id1)] [‚‡] [0] [0] [NULL] [1] [1] [5€] [NULL] [] [OZ] [0] [2985523437721] [TKNE] [...] [NULL] $()
 [NULL] [] [12] [] [2] [0] [NULL] [...] [0] [0] [OFER] [$(date_format %d.%m.%Y )] [$(get pax_id2)] [‚‡] [0] [0] [NULL] [1] [1] [5€] [NULL] [] [OZ] [0] [2985523437721] [TKNE] [...] [NULL] $()
@@ -863,14 +863,14 @@ $(set pax_tid2 $(get_single_pax_tid  $(get point_dep_UT_300) OZ OFER))
 
 $(run_arch_step $(ddmmyy +141))
 ??
-$(check_dump ARX_MARK_TRIPS)
+$(check_dump ARX_MARK_TRIPS order="point_id")
 >>
 [’] [‘—] [298] [$(get point_dep_UT_298)] [$(date_format %d.%m.%Y)] [NULL] [$(date_format %d.%m.%Y)] $()
 [’] [‘—] [300] [$(get point_dep_UT_300)] [$(date_format %d.%m.%Y)] [NULL] [$(date_format %d.%m.%Y)] $()
 $()
 
 ??
-$(check_dump ARX_PAX_GRP)
+$(check_dump ARX_PAX_GRP order="point_dep,grp_id")
 >>
 [•] [‘—] [0] [] [12] [TERM] [Œ‚Œ] [0] [0] [...] [1] [0] [$(get point_arv_UT_298)] [$(get point_dep_UT_298)] [$(get point_dep_UT_298)] [0] [K] [$(get pax_tid1)] [$(date_format %d.%m.%Y)] [5] [NULL] [NULL] [$(date_format %d.%m.%Y)] $()
 [•] [‘—] [0] [] [12] [TERM] [Œ‚Œ] [0] [0] [...] [1] [0] [$(get point_arv_UT_300)] [$(get point_dep_UT_300)] [$(get point_dep_UT_300)] [0] [K] [$(get pax_tid2)] [$(date_format %d.%m.%Y)] [5] [NULL] [NULL] [$(date_format %d.%m.%Y)] $()

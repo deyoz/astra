@@ -1668,8 +1668,12 @@ $(set grp_id $(get_single_grp_id $(get point_dep) TUMALI VALERII))
 
 $(run_arch_step $(ddmmyy +140))
 
+$(set first_date "$(date_format %d.%m.%Y +0) 08:00:00")
+$(set last_date "$(date_format %d.%m.%Y +1) 08:00:00")
+
+
 !! capture=on
-$(RUN_SYSTEM_LOG $(date_format %d.%m.%Y +0 ) $(date_format %d.%m.%Y +1))
+$(RUN_SYSTEM_LOG $(get first_date) $(get last_date))
 >>
 <?xml version='1.0' encoding='CP866'?>
 <term>
