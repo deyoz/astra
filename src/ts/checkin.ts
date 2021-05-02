@@ -1336,7 +1336,7 @@ $(defmacro PAX_LIST_2CREWMEN
 {
 
 !! capture=on
-<?xml version='1.0' encoding='UTF-8'?>
+<?xml version='1.0' encoding='CP866'?>
 <term>
   <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
     <PaxList>
@@ -1393,7 +1393,7 @@ $(defmacro PAX_LIST_2CREWMEN
         </row>
       </rows>
     </tripcounters>
-    <flight>6В776/$(date_format %d.%m +1) СРО</flight>
+    <flight>6В776/$(date_format %d +1)... СРО</flight>
     <passengers>
       <pax>
         <pax_id>$(pax_id2)</pax_id>
@@ -1479,24 +1479,26 @@ $(ADD_HTTP_CLIENT CREWCHECKIN CREW6W CREW6WUSER CREW6W HTTPUSER yhjdx5r0)
 
 $(set http_user_id $(get_user_id CREW6WUSER))
 
-#########################################################################################
-### регистрируем экипаж единой группой
-
-!! capture=on req_type=http
-POST / HTTP/1.0
+$(set http_heading
+{POST / HTTP/1.0
 Host: /
 X-Real-IP: 146.120.94.7
 Connection: close
-Content-Length: 5301
+Content-Length: $()
 Authorization: Basic SFRUUFVTRVI6eWhqZHg1cjA=
 User-Agent: Meridian.DB
 CLIENT-ID: CREW6W
 Accept-Encoding: gzip,deflate
 Content-Type: application/x-www-form-urlencoded; charset=utf-8
-$()
-<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+})
+
+#########################################################################################
+### регистрируем экипаж единой группой
+
+!! capture=on http_heading=$(get http_heading)
+<?xml version='1.0' encoding='CP866'?>
 <term>
-  <query lang=\"RU\">
+  <query lang='RU'>
     <CREWCHECKIN>
       <FLIGHT>
         <AIRLINE>6W</AIRLINE>
@@ -1623,7 +1625,7 @@ $()
 </term>
 
 >> lines=auto
-<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<?xml version='1.0' encoding='CP866'?>
 <term>
   <answer ...>
     <CREWCHECKIN>
@@ -1651,21 +1653,10 @@ $(PAX_LIST_2CREWMEN $(get http_user_id) $(get point_dep) $(get point_arv)
 #########################################################################################
 ### регистрируем экипаж разными группами и меняем фамилии
 
-!! capture=on req_type=http
-POST / HTTP/1.0
-Host: /
-X-Real-IP: 146.120.94.7
-Connection: close
-Content-Length: 5438
-Authorization: Basic SFRUUFVTRVI6eWhqZHg1cjA=
-User-Agent: Meridian.DB
-CLIENT-ID: CREW6W
-Accept-Encoding: gzip,deflate
-Content-Type: application/x-www-form-urlencoded; charset=utf-8
-$()
-<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+!! capture=on http_heading=$(get http_heading)
+<?xml version='1.0' encoding='CP866'?>
 <term>
-  <query lang=\"RU\">
+  <query lang='RU'>
     <CREWCHECKIN>
       <FLIGHT>
         <AIRLINE>6W</AIRLINE>
@@ -1797,7 +1788,7 @@ $()
 </term>
 
 >> lines=auto
-<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<?xml version='1.0' encoding='CP866'?>
 <term>
   <answer ...>
     <CREWCHECKIN>

@@ -110,6 +110,7 @@ $(defmacro CREATE_USER
 {
 
 !! capture=on
+<?xml version='1.0' encoding='CP866'?>
 <term>
   <query handle='0' id='access' ver='1' opr='PIKE' screen='ACCESS.EXE' mode='STAND' lang='$(lang)' term_id='2479792165'>
     <save_user>
@@ -125,7 +126,7 @@ $(defmacro CREATE_USER
 <?xml version='1.0' encoding='CP866'?>
 <term>
   <answer ...>
-    <user_id>...</user_id>
+    <user_id>$(get_user_id $(login))</user_id>
     <descr>$(descr)</descr>
     <login>$(login)</login>
     <type>$(user_type)</type>
@@ -139,6 +140,67 @@ $(defmacro CREATE_USER
 </term>
 
 })
+
+$(defmacro UPDATE_USER
+  login
+  descr
+  user_type=0
+  airps
+  airlines
+  roles
+  lang=RU
+{
+
+!! capture=on
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='access' ver='1' opr='PIKE' screen='ACCESS.EXE' mode='STAND' lang='$(lang)' term_id='2479792165'>
+    <apply_updates>
+      <users>
+        <item index='0' status='modified'>
+          <user_id>$(get_user_id $(login))</user_id>
+          <descr>$(descr)</descr>
+          <login>$(login)</login>
+          <user_type>$(user_type)</user_type>
+          <time_fmt>0</time_fmt>
+          <airline_fmt>9</airline_fmt>
+          <airp_fmt>9</airp_fmt>
+          <craft_fmt>9</craft_fmt>
+          <suff_fmt>17</suff_fmt>\
+$(if $(eq $(airps) "") "" {
+$(airps)})\
+$(if $(eq $(airlines) "") "" {
+$(airlines)})\
+$(if $(eq $(roles) "") "" {
+$(roles)})
+          <pr_denial>0</pr_denial>
+        </item>
+      </users>
+    </apply_updates>
+  </query>
+</term>
+
+>> lines=auto
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer ...>
+    <users>
+      <item index='0' delete='0'>
+        <user_id>$(get_user_id $(login))</user_id>
+        <user_id>$(get_user_id $(login))</user_id>
+        <descr>$(descr)</descr>
+        <login>$(login)</login>
+        <type>$(user_type)</type>
+        <pr_denial>0</pr_denial>
+        <time_fmt_code>0</time_fmt_code>
+        <disp_airline_fmt_code>9</disp_airline_fmt_code>
+        <disp_airp_fmt_code>9</disp_airp_fmt_code>
+        <disp_craft_fmt_code>9</disp_craft_fmt_code>
+        <disp_suffix_fmt_code>17</disp_suffix_fmt_code>
+
+
+})
+
 
 $(defmacro CREATE_DESK
   code

@@ -86,11 +86,26 @@ static std::string CRLF2LF(const string &par)
     return regex_replace(par, regex(CR + LF), LF) + LF;
 }
 
-static std::string executeHttpRequest(const std::string &request)
+static std::string executeHttpRequest(const std::string& heading, const std::string &body)
 {
+    static const std::string ContentLength="Content-Length";
+
+    ServerFramework::HTTP::request_parser parser;
+    ServerFramework::HTTP::request rq;
+    const auto result=parser.parse(rq, heading.begin(), heading.end());
+
+    if (!boost::get<0>(result))
+      throw EXCEPTIONS::Exception("executeHttpRequest: wrong heading");
+
+    const auto cl = std::find(rq.headers.begin(), rq.headers.end(), ContentLength);
+    if (cl != rq.headers.end())
+      cl->value = std::to_string(body.size());
+    else
+      rq.headers.push_back({ContentLength, std::to_string(body.size())});
+
     string answer;
-    ServerFramework::http_main_for_test(LF2CRLF(request), answer);
-    return CRLF2LF(answer);
+    ServerFramework::http_main_for_test(rq.to_string()+body, answer);
+    return answer;
 }
 
 static std::string executeAstraRequest(const std::string &request,
@@ -147,14 +162,31 @@ static void executeRequest(
             std::queue<std::string>& outq /* io */)
 {
     const std::string capture = tok::Validate(tok::GetValue(params, "capture", "off"), "noformat on off");
-    const std::string req_type = tok::Validate(tok::GetValue(params, "req_type", "xml"), "xml http");
     const std::string errStr = tok::GetValue(params, "err");
+    const std::string http_heading = tok::GetValue(params, "http_heading", "");
 
-
-    if(req_type == "http") {
-        reply = executeHttpRequest(req);
+    if(!http_heading.empty()) {
+        reply = executeHttpRequest(LF2CRLF(http_heading), req);
         if (capture == "on") {
-            reply = UTF8toCP866(reply);
+            size_t pos=reply.find("\r\n\r\n");
+            if (pos!=string::npos)
+            {
+              pos+=4;
+              if (reply.compare(pos, 15, "<!doctype html>")==0)
+              {
+                //это html
+                reply = CRLF2LF(reply);
+                reply = UTF8toCP866(reply);
+              }
+              if (reply.compare(pos, 6, "<?xml ")==0)
+              {
+                //это xml
+                reply = CRLF2LF(reply);
+                reply = UTF8toCP866(reply);
+                reply = StrUtils::replaceSubstrCopy(reply, "\"", "'");
+                reply = StrUtils::replaceSubstrCopy(reply, "encoding='UTF-8'", "encoding='CP866'");
+              }
+            }
             outq.push(reply);
         }
     } else {
@@ -194,12 +226,15 @@ static std::string FP_lastRedisplay(const std::vector<std::string> &args)
 static std::string FP_req(const std::vector<tok::Param>& params)
 {
     std::queue<std::string>& outq = GetTestContext()->outq;
-    tok::ValidateParams(params, 1, 1, "err ignore pages capture ws req_type");
+    tok::ValidateParams(params, 1, 1, "err ignore pages capture ws http_heading");
     const std::string text = tok::PositionalValues(params).at(0);
 
     if (text.empty()) {
+      if (tok::GetValue(params, "http_heading", "").empty())
+      {
         LogTrace(TRACE5) << __FUNCTION__ << ": skipping empty request";
         return std::string();
+      }
     }
 
     LogTrace(TRACE5) << __FUNCTION__ << ": top";

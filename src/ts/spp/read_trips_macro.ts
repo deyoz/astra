@@ -93,7 +93,7 @@ $(defmacro GET_PAX_TRANSFER_REQUEST
   capture=off
 {
 !! capture=$(capture)
-<?xml version='1.0' encoding='UTF-8'?>
+<?xml version='1.0' encoding='CP866'?>
 <term>
   <query handle='0' id='sopp' ver='1' opr='PIKE' screen='SOPP.EXE' mode='STAND' lang='$(lang)' term_id='2479792165'>
     <GetPaxTransfer>
@@ -122,7 +122,7 @@ $(defmacro GET_BAG_TRANSFER_REQUEST
   capture=off
 {
 !! capture=$(capture)
-<?xml version='1.0' encoding='UTF-8'?>
+<?xml version='1.0' encoding='CP866'?>
 <term>
   <query handle='0' id='sopp' ver='1' opr='PIKE' screen='SOPP.EXE' mode='STAND' lang='$(lang)' term_id='2479792165'>
     <GetBagTransfer>
