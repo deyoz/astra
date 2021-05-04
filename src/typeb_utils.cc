@@ -229,7 +229,8 @@ void TErrLst::fromDB(int tlg_id, int num)
     QryParams
         << QParam("tlg_id", otInteger, tlg_id)
         << QParam("num", otInteger, num);
-    string SQLText =
+    std::string tableName;
+    std::string SQLText =
             "select "
             "   part_no, "
             "   error_no, "
@@ -240,19 +241,20 @@ void TErrLst::fromDB(int tlg_id, int num)
             "from ";
     switch(tio) {
         case tioOut:
-            SQLText += "typeb_out_errors";
+            tableName = "typeb_out_errors";
             break;
         case tioIn:
-            SQLText += "typeb_in_errors";
+            tableName = "typeb_in_errors";
             break;
         default:
             throw Exception("TErrLst::fromDB: wrong tio: %d", tio);
     }
+    SQLText += tableName;
     SQLText +=
             " where "
             "   tlg_id = :tlg_id and "
             "   (part_no is null or part_no = :num) ";
-    TCachedQuery Qry(SQLText, QryParams);
+    DB::TCachedQuery Qry(PgOra::getROSession(tableName), SQLText, QryParams);
     Qry.get().Execute();
     if(not Qry.get().Eof) {
         int col_part_no = Qry.get().GetFieldIndex("part_no");

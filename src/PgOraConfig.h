@@ -1,6 +1,8 @@
 #pragma once
 
 #include <string>
+#include <list>
+#include <initializer_list>
 
 namespace DbCpp
 {
@@ -37,6 +39,14 @@ namespace PgOra
     DbCpp::Session& getAutoSession(const std::string& objectName);
     bool supportsPg(const std::string& objectName);
     std::string getGroup(const std::string& objectName);
+
+    bool areROSessionsEqual(const std::list<std::string>& objects);
+    bool areRWSessionsEqual(const std::list<std::string>& objects);
+    bool areAutoSessionsEqual(const std::list<std::string>& objects);
+
+    DbCpp::Session& getROSession(const std::initializer_list<std::string>& objects);
+    DbCpp::Session& getRWSession(const std::initializer_list<std::string>& objects);
+    DbCpp::Session& getAutoSession(const std::initializer_list<std::string>& objects);
 
     std::string makeSeqNextVal(const std::string& sequenceName);
     long getSeqNextVal(const std::string& sequenceName);

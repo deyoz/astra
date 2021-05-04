@@ -443,7 +443,7 @@ std::set<FailedTlgKey> loadFailedTlgIds(const TTlgSearchParams& search_params)
   LogTrace(TRACE6) << __func__;
   std::set<FailedTlgKey> result;
 
-  DB::TQuery Qry(PgOra::getROSession("TLGS_IN-TLG_SOURCE"));
+  DB::TQuery Qry(PgOra::getROSession({"TLGS_IN", "TLG_SOURCE"}));
   std::ostringstream sql;
   sql << " SELECT DISTINCT tlgs_in.id, tlg_source.point_id_tlg "
       << " FROM tlgs_in, tlg_source "
@@ -469,7 +469,7 @@ std::set<TlgId_t> loadFailedTlgIdsWOSource(const TTlgSearchParams& search_params
 {
   LogTrace(TRACE6) << __func__;
   std::set<TlgId_t> result;
-  DB::TQuery Qry(PgOra::getROSession("TLGS_IN-TLG_SOURCE"));
+  DB::TQuery Qry(PgOra::getROSession({"TLGS_IN", "TLG_SOURCE"}));
   std::ostringstream sql;
   sql << "SELECT DISTINCT tlgs_in.id "
          "FROM tlgs_in, tlg_source "
@@ -667,7 +667,7 @@ std::set<FailedTlgKey> loadFailedTlgIdsWOBind(const TTlgSearchParams& search_par
 {
   LogTrace(TRACE6) << __func__;
   std::set<FailedTlgKey> result;
-  DB::TQuery Qry(PgOra::getROSession("TLGS_IN-TLG_SOURCE-TLG_BINDING"));
+  DB::TQuery Qry(PgOra::getROSession({"TLGS_IN", "TLG_SOURCE", "TLG_BINDING"}));
   std::ostringstream sql;
   sql << "SELECT DISTINCT tlgs_in.id, tlg_source.point_id_tlg "
          "FROM tlgs_in, tlg_source, tlg_binding "
@@ -913,25 +913,29 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   if (RegionQry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
   string tz_region = AirpTZRegion(RegionQry.FieldAsString("airp"));
 
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession({"TLGS_IN", "TYPEB_IN_HISTORY", "TLG_SOURCE", "TLG_BINDING"}));
   Qry.SQLText=
-    "SELECT "
-    " tlgs_in.id, "
-    " tlgs_in.num, "
-    " tlgs_in.type, "
-    " tlgs_in.addr, "
-    " tlgs_in.heading, "
-    " tlgs_in.ending, "
-    " tlgs_in.time_receive, "
-    " tlgs_in.is_final_part, "
-    " typeb_in_history.prev_tlg_id "
-    "FROM tlgs_in, typeb_in_history, "
-    "     (SELECT DISTINCT tlg_source.tlg_id AS id "
-    "      FROM tlg_source,tlg_binding "
-    "      WHERE tlg_source.point_id_tlg=tlg_binding.point_id_tlg AND "
-    "            tlg_binding.point_id_spp=:point_id) ids "
-    "WHERE tlgs_in.id=ids.id AND tlgs_in.id = typeb_in_history.prev_tlg_id(+) "
-    "ORDER BY id,num ";
+      "SELECT "
+      "tlgs_in.id, "
+      "tlgs_in.num, "
+      "tlgs_in.type, "
+      "tlgs_in.addr, "
+      "tlgs_in.heading,"
+      "tlgs_in.ending, "
+      "tlgs_in.time_receive, "
+      "tlgs_in.is_final_part, "
+      "typeb_in_history.prev_tlg_id "
+      "FROM tlgs_in "
+      "  JOIN "
+      "    (SELECT DISTINCT tlg_source.tlg_id id "
+      "     FROM tlg_source JOIN tlg_binding "
+      "     ON tlg_source.point_id_tlg = tlg_binding.point_id_tlg "
+      "     WHERE tlg_binding.point_id_spp = :point_id "
+      "    ) ids "
+      "  ON tlgs_in.id = ids.id "
+      "LEFT OUTER JOIN typeb_in_history "
+      "ON tlgs_in.id = typeb_in_history.prev_tlg_id "
+      "ORDER BY id, num";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
 

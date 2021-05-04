@@ -2304,9 +2304,9 @@ std::map<int, Dates::DateTime_t> getTlgIds(const Dates::DateTime_t& arx_date, si
                 "SELECT id,time_receive "
                 "FROM tlgs_in "
                 "WHERE time_receive < :arx_date AND "
-                "      NOT EXISTS(SELECT * FROM tlg_source WHERE tlg_source.tlg_id=tlgs_in.id FETCH FIRST 1 ROWS ONLY) AND "
-                "      NOT EXISTS(SELECT * FROM tlgs_in a WHERE a.id=tlgs_in.id AND time_receive >= :arx_date FETCH FIRST 1 ROWS ONLY) ",
-                PgOra::getROSession("TLGS_IN"));
+                "      NOT EXISTS(SELECT * FROM tlg_source WHERE tlg_source.tlg_id=tlgs_in.id) AND "
+                "      NOT EXISTS(SELECT * FROM tlgs_in a WHERE a.id=tlgs_in.id AND time_receive >= :arx_date) ",
+                PgOra::getROSession({"TLGS_IN", "TLG_SOURCE"}));
     cur.def(tlg_id)
             .def(time_receive)
             .bind(":arx_date", arx_date)

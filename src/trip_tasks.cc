@@ -671,7 +671,8 @@ void check_tlg_out(const TTripTaskKey& task)
 {
     if(is_fwd_tlg(task.name)) {
         string tlg_type = task.name.substr(0, 3);
-        TQuery Qry(&OraSession);
+
+        DB::TQuery Qry(PgOra::getROSession({"TLGS_IN", "TLG_SOURCE", "TLG_BINDING"}));
         Qry.SQLText=
             "SELECT "
             " tlgs_in.id, "
@@ -684,8 +685,8 @@ void check_tlg_out(const TTripTaskKey& task)
             "            tlg_source.has_errors = 0 and "
             "            tlg_source.has_alarm_errors = 0 "
             "     ) ids "
-            "WHERE tlgs_in.id=ids.id and tlgs_in.type = :tlg_type "
-            "ORDER BY id desc, num ";
+            "WHERE tlgs_in.id = ids.id and tlgs_in.type = :tlg_type "
+            "ORDER BY id desc, num";
         Qry.CreateVariable("point_id",otInteger,task.point_id);
         Qry.CreateVariable("tlg_type",otString,tlg_type);
         Qry.Execute();

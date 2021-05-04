@@ -84,6 +84,7 @@ namespace PgOra
         { "SP_PG_GROUP_LIBTLG", { "TEXT_TLG_H2H" } },
         { "SP_PG_GROUP_PP_TLG", { "POSTPONED_TLG", "POSTPONED_TLG_CONTEXT" } },
         { "SP_PG_GROUP_CRYPT", { "CRYPT_FILE_PARAMS", "CRYPT_FILES", "CRYPT_REQ_DATA", "CRYPT_SERVER", "CRYPT_SETS", "CRYPT_TERM_CERT", "CRYPT_TERM_REQ" } },
+        { "SP_PG_GROUP_TYPEB_IN", { "TLGS_IN", "TYPEB_PARSE_PROCESSES", "TYPEB_IN_HISTORY", "TYPEB_IN_ERRORS", "TYPEB_IN_BODY", "TYPEB_IN" } },
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
@@ -177,6 +178,66 @@ namespace PgOra
             return *get_main_pg_au_sess(STDLOG);
         }
         return *get_main_ora_sess(STDLOG);
+    }
+
+    bool areROSessionsEqual(const std::list<std::string>& objects)
+    {
+        ASSERT(!objects.empty());
+        auto dbType = getROSession(objects.front()).getType();
+        for(auto obj: objects) {
+            if(getROSession(obj).getType() != dbType) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    bool areRWSessionsEqual(const std::list<std::string>& objects)
+    {
+        ASSERT(!objects.empty());
+        auto dbType = getRWSession(objects.front()).getType();
+        for(auto obj: objects) {
+            if(getRWSession(obj).getType() != dbType) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    bool areAutoSessionsEqual(const std::list<std::string>& objects)
+    {
+        ASSERT(!objects.empty());
+        auto dbType = getAutoSession(objects.front()).getType();
+        for(auto obj: objects) {
+            if(getAutoSession(obj).getType() != dbType) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    DbCpp::Session& getROSession(const std::initializer_list<std::string>& objects)
+    {
+        std::list<std::string> objectList(objects);
+        ASSERT(areROSessionsEqual(objectList));
+        return getROSession(objectList.front());
+    }
+
+    DbCpp::Session& getRWSession(const std::initializer_list<std::string>& objects)
+    {
+        std::list<std::string> objectList(objects);
+        ASSERT(areRWSessionsEqual(objectList));
+        return getRWSession(objectList.front());
+    }
+
+    DbCpp::Session& getAutoSession(const std::initializer_list<std::string>& objects)
+    {
+        std::list<std::string> objectList(objects);
+        ASSERT(areAutoSessionsEqual(objectList));
+        return getAutoSession(objectList.front());
     }
 
     std::string makeSeqNextVal(const std::string& sequenceName)

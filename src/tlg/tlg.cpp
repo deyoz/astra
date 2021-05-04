@@ -276,10 +276,10 @@ void putTypeBBody(int tlg_id, int tlg_num, const string &tlg_body)
   QryParams << QParam("num", otInteger, tlg_num);
   QryParams << QParam("page_no", otInteger);
   QryParams << QParam("text", otString);
-  TCachedQuery TextQry(sql, QryParams);
+  DB::TCachedQuery TextQry(PgOra::getRWSession("TYPEB_IN_BODY"), sql, QryParams);
 
   longToDB(TextQry.get(), "text", tlg_body);
-};
+}
 
 string getTypeBBody(int tlg_id, int tlg_num)
 {
@@ -290,7 +290,7 @@ string getTypeBBody(int tlg_id, int tlg_num)
   QParams QryParams;
   QryParams << QParam("id", otInteger, tlg_id);
   QryParams << QParam("num", otInteger, tlg_num);
-  TCachedQuery TextQry(sql, QryParams);
+  DB::TCachedQuery TextQry(PgOra::getROSession("TYPEB_IN_BODY"), sql, QryParams);
   TextQry.get().Execute();
   for(;!TextQry.get().Eof;TextQry.get().Next())
     result+=TextQry.get().FieldAsString("text");
@@ -725,13 +725,15 @@ void parseTypeB(int tlg_id)
   try
   {
     const char* sql=
-      "UPDATE tlgs_in SET time_parse=system.UTCSYSDATE, time_receive_not_parse=NULL "
+      "UPDATE tlgs_in SET time_parse = :now_utc, time_receive_not_parse = NULL "
       "WHERE id=:id AND time_parse IS NULL";
 
+    TDateTime now_utc = NowUTC();
     QParams QryParams;
-    QryParams << QParam("id", otInteger, tlg_id);
+    QryParams << QParam("id",   otInteger, tlg_id)
+              << QParam("now_utc", otDate, now_utc);
 
-    TCachedQuery Qry(sql, QryParams);
+    DB::TCachedQuery Qry(PgOra::getRWSession("TLGS_IN"), sql, QryParams);
     Qry.get().Execute();
   }
   catch( std::exception &e)
@@ -743,8 +745,8 @@ void parseTypeB(int tlg_id)
   {
       ProgError(STDLOG, "parseTypeB: Unknown error");
       throw;
-  };
-};
+  }
+}
 
 void errorTypeB(int tlg_id,
                 int part_no,
@@ -772,7 +774,7 @@ void errorTypeB(int tlg_id,
     QryParams << QParam("lang", otString);
     QryParams << QParam("text", otString, text.substr(0, 250));
 
-    TCachedQuery ErrQry(sql, QryParams);
+    DB::TCachedQuery ErrQry(PgOra::getRWSession("TYPEB_IN_ERRORS"), sql, QryParams);
 
     for(int pass=0; pass<2; pass++)
     {
@@ -797,13 +799,13 @@ void procTypeB(int tlg_id, int inc)
   try
   {
     const char* sql=
-      "UPDATE typeb_in SET proc_attempt=NVL(proc_attempt,0)+SIGN(:d) WHERE id=:id ";
+      "UPDATE typeb_in SET proc_attempt=COALESCE(proc_attempt,0)+SIGN(:d) WHERE id=:id ";
 
     QParams QryParams;
     QryParams << QParam("id", otInteger, tlg_id);
     QryParams << QParam("d", otInteger, inc);
 
-    TCachedQuery Qry(sql, QryParams);
+    DB::TCachedQuery Qry(PgOra::getRWSession("TYPEB_IN"), sql, QryParams);
     Qry.get().Execute();
   }
   catch( std::exception &e)

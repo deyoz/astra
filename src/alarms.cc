@@ -233,46 +233,72 @@ bool check_tlg_in_alarm(int point_id_tlg, int point_id_spp) // point_id_spp м.б.
   bool result = false;
   if (point_id_spp!=NoExists)
   {
-    const char* sql=
-      "SELECT tlg_binding.point_id_tlg "
-      "FROM tlg_binding, tlg_source, typeb_in_history "
-      "WHERE tlg_binding.point_id_tlg=tlg_source.point_id_tlg AND "
-      "      tlg_source.tlg_id=typeb_in_history.prev_tlg_id(+) AND "
-      "      typeb_in_history.prev_tlg_id IS NULL AND "
-      "      tlg_binding.point_id_spp=:point_id_spp AND "
-      "      NVL(tlg_source.has_alarm_errors,0)<>0 AND rownum<2 ";
+    const std::string sql =
+"SELECT 1 FROM tlg_binding "
+"JOIN (tlg_source LEFT OUTER JOIN typeb_in_history"
+"                 ON tlg_source.tlg_id = typeb_in_history.prev_tlg_id) "
+"ON tlg_binding.point_id_tlg = tlg_source.point_id_tlg "
+"WHERE typeb_in_history.prev_tlg_id IS NULL "
+"AND tlg_binding.point_id_spp = :point_id_spp "
+"AND tlg_source.has_alarm_errors <> 0 "
+"FETCH FIRST 1 ROW ONLY";
+
+    // ora was
+//    "SELECT tlg_binding.point_id_tlg "
+//    "FROM tlg_binding, tlg_source, typeb_in_history "
+//    "WHERE tlg_binding.point_id_tlg=tlg_source.point_id_tlg AND "
+//    "      tlg_source.tlg_id=typeb_in_history.prev_tlg_id(+) AND "
+//    "      typeb_in_history.prev_tlg_id IS NULL AND "
+//    "      tlg_binding.point_id_spp=:point_id_spp AND "
+//    "      tlg_source.has_alarm_errors<>0 AND rownum<2 ";
+
     QParams QryParams;
     QryParams << QParam("point_id_spp", otInteger, point_id_spp);
-    TCachedQuery CachedQry(sql, QryParams);
-    TQuery &Qry=CachedQry.get();
+    DB::TCachedQuery CachedQry(PgOra::getROSession({"TLG_BINDING", "TLG_SOURCE", "TYPEB_IN_HISTORY"}),
+                                                   sql, QryParams);
+    DB::TQuery& Qry = CachedQry.get();
     Qry.Execute();
     result = !Qry.Eof;
     set_alarm(point_id_spp, Alarm::TlgIn, result);
   }
   else
   {
-    const char* sql=
-      "SELECT tlg_binding.point_id_spp, tlg_source.has_alarm_errors "
-      "FROM tlg_binding, "
-      "     (SELECT MAX(DECODE(NVL(tlg_source.has_alarm_errors,0), 0, 0, 1)) AS has_alarm_errors "
-      "      FROM tlg_source, typeb_in_history "
-      "      WHERE tlg_source.tlg_id=typeb_in_history.prev_tlg_id(+) AND "
-      "            typeb_in_history.prev_tlg_id IS NULL AND "
-      "            tlg_source.point_id_tlg=:point_id_tlg) tlg_source "
-      "WHERE tlg_binding.point_id_tlg=:point_id_tlg";
+    const std::string sql =
+"SELECT tlg_binding.point_id_spp, tls.has_alarm_errors "
+"FROM tlg_binding, "
+"  (SELECT MAX(CASE WHEN tlg_source.has_alarm_errors = 0 THEN 0 ELSE 1 END) AS has_alarm_errors "
+"   FROM tlg_source "
+"   LEFT OUTER JOIN typeb_in_history "
+"   ON tlg_source.tlg_id = typeb_in_history.prev_tlg_id "
+"   WHERE typeb_in_history.prev_tlg_id IS NULL "
+"   AND tlg_source.point_id_tlg = :point_id_tlg) tls "
+"WHERE tlg_binding.point_id_tlg = :point_id_tlg";
+
+    // ora was
+//    "SELECT tlg_binding.point_id_spp, tlg_source.has_alarm_errors "
+//    "FROM tlg_binding, "
+//    "     (SELECT MAX(DECODE(NVL(tlg_source.has_alarm_errors,0), 0, 0, 1)) AS has_alarm_errors "
+//    "      FROM tlg_source, typeb_in_history "
+//    "      WHERE tlg_source.tlg_id=typeb_in_history.prev_tlg_id(+) AND "
+//    "            typeb_in_history.prev_tlg_id IS NULL AND "
+//    "            tlg_source.point_id_tlg=:point_id_tlg) tlg_source "
+//    "WHERE tlg_binding.point_id_tlg=:point_id_tlg";
+
     QParams QryParams;
     QryParams << QParam("point_id_tlg", otInteger, point_id_tlg);
-    TCachedQuery CachedQry(sql, QryParams);
-    TQuery &Qry=CachedQry.get();
+
+    DB::TCachedQuery CachedQry(PgOra::getROSession({"TLG_BINDING", "TLG_SOURCE", "TYPEB_IN_HISTORY"}),
+                               sql, QryParams);
+    DB::TQuery& Qry = CachedQry.get();
     Qry.Execute();
-    for(;!Qry.Eof;Qry.Next())
+    for(;!Qry.Eof; Qry.Next())
     {
       result=Qry.FieldAsInteger("has_alarm_errors")!=0;
       set_alarm(Qry.FieldAsInteger("point_id_spp"), Alarm::TlgIn, result);
-    };
-  };
+    }
+  }
   return result;
-};
+}
 
 /* есть ошибочные или требующие коррекции телеграммы */
 bool check_tlg_out_alarm(int point_id)

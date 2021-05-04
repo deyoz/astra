@@ -5863,36 +5863,19 @@ int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type, const FltOperF
 
 bool isDeleteTypeBContent(int point_id, const THeadingInfo& info)
 {
-  if (strcmp(info.tlg_type,"SOM")==0)
+  if (strcmp(info.tlg_type,"BTM")==0 ||
+      strcmp(info.tlg_type,"PTM")==0 ||
+      strcmp(info.tlg_type,"SOM")==0)
   {
-    DB::TQuery Qry(PgOra::getROSession("ORACLE"));
+    DB::TQuery Qry(PgOra::getROSession({"TLGS_IN", "TLG_SOURCE"}));
     Qry.SQLText=
       "SELECT MAX(time_create) AS max_time_create "
       "FROM tlgs_in,tlg_source "
       "WHERE tlg_source.tlg_id=tlgs_in.id AND "
       "      tlg_source.point_id_tlg=:point_id AND "
-      "      COALESCE(tlg_source.has_errors,0)=0 AND "
+      "      tlg_source.has_errors=0 AND "
       "      tlgs_in.type=:tlg_type";
     Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.CreateVariable("tlg_type",otString,info.tlg_type);
-    Qry.Execute();
-    return Qry.Eof ||
-           Qry.FieldIsNULL("max_time_create") ||
-           Qry.FieldAsDateTime("max_time_create") <= info.time_create;
-  }
-
-  if (strcmp(info.tlg_type,"BTM")==0 ||
-      strcmp(info.tlg_type,"PTM")==0)
-  {
-    DB::TQuery Qry(PgOra::getROSession("ORACLE"));
-    Qry.SQLText=
-      "SELECT MAX(time_create) AS max_time_create "
-      "FROM tlgs_in,tlg_source "
-      "WHERE tlg_source.tlg_id=tlgs_in.id AND "
-      "      tlg_source.point_id_tlg=:point_id_in AND "
-      "      COALESCE(tlg_source.has_errors,0)=0 AND "
-      "      tlgs_in.type=:tlg_type";
-    Qry.CreateVariable("point_id_in",otInteger,point_id);
     Qry.CreateVariable("tlg_type",otString,info.tlg_type);
     Qry.Execute();
     return Qry.Eof ||

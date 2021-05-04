@@ -757,22 +757,17 @@ void TFilterLayer_SOM_PRL::IntRead( int point_id, const std::vector<TTripRouteIt
   int first_point = Qry.FieldAsInteger( "first_point" );
   Qry.Clear();
   Qry.SQLText =
-    "SELECT points.point_id AS point_dep, points.point_num AS point_num_dep,"
-    "       DECODE(tlgs_in.type,'PRL',:prl_layer,:som_layer) AS layer_type "
-    "FROM tlg_binding,tlg_source,tlgs_in, "
+    "SELECT points.point_id AS point_dep, points.point_num AS point_num_dep "
+    "FROM "
     "     (SELECT point_id,point_num FROM points "
     "      WHERE :first_point IN (first_point,point_id) AND point_num<:point_num AND pr_del=0 "
     "      ORDER BY point_num "
     "     ) points "
-    "WHERE tlg_binding.point_id_spp=points.point_id AND "
-    "      tlg_source.point_id_tlg=tlg_binding.point_id_tlg AND "
-    "      NVL(tlg_source.has_errors,0)=0 AND "
-    "      tlgs_in.id=tlg_source.tlg_id AND tlgs_in.num=1 AND tlgs_in.type IN ('PRL','SOM') "
-    "ORDER BY point_num DESC,DECODE(tlgs_in.type,'PRL',1,0)";
+    "ORDER BY point_num DESC";
+
   Qry.CreateVariable( "first_point", otInteger, first_point );
   Qry.CreateVariable( "point_num", otInteger, point_num );
-  Qry.CreateVariable( "som_layer", otString, EncodeCompLayerType( cltSOMTrzt ) );
-  Qry.CreateVariable( "prl_layer", otString, EncodeCompLayerType( cltPRLTrzt ) );
+  tst();
   Qry.Execute();
   TQuery PaxQry( &OraSession );
   PaxQry.SQLText =
@@ -791,7 +786,31 @@ void TFilterLayer_SOM_PRL::IntRead( int point_id, const std::vector<TTripRouteIt
   TranzQry.CreateVariable( "move_id", otInteger, move_id );
   TranzQry.CreateVariable( "point_num", otInteger, point_num );
   TranzQry.DeclareVariable( "point_num_dep", otInteger );
+
+  DB::TQuery TlgQry(PgOra::getROSession({"TLGS_IN", "TLG_SOURCE", "TLG_BINDNING"}));
+  TlgQry.SQLText =
+    "SELECT (CASE WHEN tlgs_in.type = 'PRL' THEN :prl_layer ELSE :som_layer END) AS layer_type "
+    "FROM tlg_binding,tlg_source,tlgs_in "
+    "WHERE tlg_binding.point_id_spp=:point_dep AND "
+    "      tlg_source.point_id_tlg=tlg_binding.point_id_tlg AND "
+    "      tlg_source.has_errors=0 AND "
+    "      tlgs_in.id=tlg_source.tlg_id AND tlgs_in.num=1 AND tlgs_in.type IN ('PRL','SOM') "
+    "ORDER BY (CASE WHEN tlgs_in.type = 'PRL' THEN 1 ELSE 0 END)";
+  TlgQry.DeclareVariable("point_dep", otInteger);
+  TlgQry.CreateVariable( "som_layer", otString, EncodeCompLayerType( cltSOMTrzt ) );
+  TlgQry.CreateVariable( "prl_layer", otString, EncodeCompLayerType( cltPRLTrzt ) );
+
   for ( ; !Qry.Eof; Qry.Next() ) {
+    int point_dep1 = Qry.FieldAsInteger( "point_dep" );
+    TlgQry.SetVariable( "point_dep", point_dep1 );
+    tst();
+    TlgQry.Execute();
+    if(TlgQry.Eof) {
+        // Ничего не нашли в телеграммах
+        tst();
+        continue;
+    }
+
     TranzQry.SetVariable( "point_num_dep", Qry.FieldAsInteger( "point_num_dep" ) );
     TranzQry.Execute();
     ProgTrace( TRACE5, "move_id=%d, point_num=%d, point_num_dep=%d",
@@ -801,7 +820,6 @@ void TFilterLayer_SOM_PRL::IntRead( int point_id, const std::vector<TTripRouteIt
       continue;
     }
     bool pr_find = false;
-    int point_dep1 = Qry.FieldAsInteger( "point_dep" );
     //пробег по маршруту, если в пункте есть зарегистр. пассажиры то ищем далее
     for ( std::vector<TTripRouteItem>::const_iterator item=routes.begin();
           item!=routes.end(); item++ ) {
@@ -823,7 +841,11 @@ void TFilterLayer_SOM_PRL::IntRead( int point_id, const std::vector<TTripRouteIt
     return;
   }
   point_dep = Qry.FieldAsInteger( "point_dep" );
-  layer_type = DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) );
+
+  TlgQry.SetVariable( "point_dep", point_dep );
+  TlgQry.Execute();
+
+  layer_type = DecodeCompLayerType( TlgQry.FieldAsString( "layer_type" ).c_str() );
   ProgTrace( TRACE5, "TFilterLayer_SOM_PRL::Read point_id=%d, point_dep=%d, layer_type=%s",
              point_id, point_dep, EncodeCompLayerType( layer_type ) );
   return;

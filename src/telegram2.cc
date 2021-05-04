@@ -7604,9 +7604,10 @@ int FWD(TypeB::TDetailCreateInfo &info)
     if (forwarderOptions==NULL) throw Exception("%s: forwarderOptions expected", __FUNCTION__);
     if (forwarderOptions->typeb_in_id==NoExists ||
             forwarderOptions->typeb_in_num==NoExists) throw Exception("%s: forwarderOptions not defined", __FUNCTION__);
-    TCachedQuery Qry("SELECT heading, ending FROM tlgs_in WHERE id=:tlg_id AND num=:tlg_num",
+    DB::TCachedQuery Qry(PgOra::getROSession("TLGS_IN"),
+            "SELECT heading, ending FROM tlgs_in WHERE id=:tlg_id AND num=:tlg_num",
             QParams() << QParam("tlg_id", otInteger, forwarderOptions->typeb_in_id)
-            << QParam("tlg_num", otInteger, forwarderOptions->typeb_in_num));
+                      << QParam("tlg_num", otInteger, forwarderOptions->typeb_in_num));
     Qry.get().Execute();
     if (Qry.get().Eof) throw Exception("%s: forwarded telegram not found", __FUNCTION__);
     TTlgDraft tlg_draft(info);
@@ -7967,7 +7968,7 @@ int PNL(TypeB::TDetailCreateInfo &info)
   if (forwarderOptions->typeb_in_id==NoExists ||
       forwarderOptions->typeb_in_num==NoExists) throw Exception("%s: forwarderOptions not defined", __FUNCTION__);
 
-  TCachedQuery Qry("SELECT heading, ending FROM tlgs_in WHERE id=:tlg_id AND num=:tlg_num",
+  DB::TCachedQuery Qry(PgOra::getROSession("TLGS_IN"), "SELECT heading, ending FROM tlgs_in WHERE id=:tlg_id AND num=:tlg_num",
                    QParams() << QParam("tlg_id", otInteger, forwarderOptions->typeb_in_id)
                              << QParam("tlg_num", otInteger, forwarderOptions->typeb_in_num));
   Qry.get().Execute();
