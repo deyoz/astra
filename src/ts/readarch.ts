@@ -981,10 +981,11 @@ $(run_arch_step $(ddmmyy +141))
 
 $(nosir_basel_stat $(date_format %d.%m.%Y +20) 09:00:00 $(get point_dep_UT_100))
 
+#-3h потому что utc время
 ??
 $(check_dump basel_stat)
 >>
-[СОЧ] [$(get pax_id_TUMALI)] [$(get point_dep_UT_100)] [$(date_format %d.%m.%Y)] [NULL] [NULL] [0] [NULL] [1] [$(date_format %d.%m.%Y)] [ЭКОНОМ] [NULL] [$(date_format %d.%m.%Y +20)] [$(date_format %d.%m.%Y +20)] [NULL] [ЮТ100] [...] [TUMALI/VALERII] [0] [0] [NULL] [NULL] [зарегистрирован] [NULL] [NULL] [0] $()
+[СОЧ] [$(get pax_id_TUMALI)] [$(get point_dep_UT_100)] [$(date_format %d.%m.%Y -3h)] [NULL] [NULL] [0] [NULL] [1] [$(date_format %d.%m.%Y -3h)] [ЭКОНОМ] [NULL] [$(date_format %d.%m.%Y +20)] [$(date_format %d.%m.%Y +20)] [NULL] [ЮТ100] [...] [TUMALI/VALERII] [0] [0] [NULL] [NULL] [зарегистрирован] [NULL] [NULL] [0] $()
 $()
 
 %%
@@ -1668,9 +1669,10 @@ $(set grp_id $(get_single_grp_id $(get point_dep) TUMALI VALERII))
 
 $(run_arch_step $(ddmmyy +140))
 
-$(set first_date "$(date_format %d.%m.%Y +0) 08:00:00")
-$(set last_date "$(date_format %d.%m.%Y +1) 08:00:00")
+$(set first_date "$(date_format %d.%m.%Y +0) $(date_format %H:%M:%S -4h)")
+$(set last_date "$(date_format %d.%m.%Y +1) $(date_format %H:%M:%S -4h)")
 
+$(db_dump_table ARX_EVENTS)
 
 !! capture=on
 $(RUN_SYSTEM_LOG $(get first_date) $(get last_date))
