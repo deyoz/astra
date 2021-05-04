@@ -993,20 +993,6 @@ static std::string FP_run_trip_task(const std::vector<std::string>& par)
     return "";
 }
 
-void updateAppsMsg(int msg_id, Dates::DateTime_t send_time, int send_attempts)
-{
-    LogTrace(TRACE5) << __FUNCTION__ << " send_time: " << send_time << " send_attempts:" << send_attempts;
-    auto cur = get_pg_curs(
-               "update APPS_MESSAGES "
-               "set SEND_ATTEMPTS = :send_attempts, SEND_TIME = :send_time "
-               "where MSG_ID = :msg_id ");
-    cur
-        .bind(":send_attempts", send_attempts)
-        .bind(":send_time", send_time)
-        .bind(":msg_id", msg_id)
-        .exec();
-}
-
 static std::string FP_runUpdateMsg(const std::vector<std::string>& par)
 {
     ASSERT(par.size() == 3);
@@ -1016,7 +1002,7 @@ static std::string FP_runUpdateMsg(const std::vector<std::string>& par)
     Dates::DateTime_t send_time = Dates::second_clock::universal_time() - seconds(send_time_after);
 
     LogTrace(TRACE5) << __FUNCTION__ << " time: " << HelpCpp::string_cast(send_time, "%H%M%S");
-    updateAppsMsg(msg_id, send_time, send_attempts);
+    APPS::updateAppsMsg(msg_id, send_time, send_attempts);
     return "";
 }
 

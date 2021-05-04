@@ -70,6 +70,9 @@ private:
     std::vector<PaxItem> m_paxItems;
 };
 
+#ifdef XP_TESTING
+void updateAppsMsg(int msg_id, Dates::DateTime_t send_time, int send_attempts);
+#endif
 
 } //namespace APPS
 

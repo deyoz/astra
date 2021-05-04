@@ -636,13 +636,13 @@ void AppsManifestDTO::save(const ManifestRequest &request, const std::string& ms
     LogTrace(TRACE5) << __FUNCTION__ << " " << request.getTrans().code << ":" << msg_id;
 
     //Dates::DateTime_t nowUtc = Dates::second_clock::universal_time();
-    auto cur = get_pg_curs(
-               "INSERT INTO apps_manifest_data "
+    auto cur = make_db_curs(
+               "INSERT INTO APPS_MANIFEST_DATA "
                "(point_id, msg_id, msg_text) "
-               "VALUES (:point_id, :msg_id, :msg_text)");
+               "VALUES (:point_id, :msg_id, :msg_text)", PgOra::getRWSession("APPS_MANIFEST_DATA"));
     cur
         .bind(":msg_id",      msg_id)
-        .bind(":point_id",    request.getPointId())
+        .bind(":point_id",    request.getPointId().get())
         .bind(":msg_text",    msg_text)
         //.bind(":send_time",        nowUtc)
         .exec();
@@ -651,15 +651,16 @@ void AppsManifestDTO::save(const ManifestRequest &request, const std::string& ms
 void AppsManifestDTO::deleteAPPSData(const std::string & field,  int value)
 {
     LogTrace(TRACE5) << __FUNCTION__ << " field: " << field << " value: " << value;
-    auto cur = get_pg_curs(
-               "delete from APPS_MANIFEST_DATA where "+field+ "= :val");
+    auto cur = make_db_curs(
+               "delete from APPS_MANIFEST_DATA where "+field+ "= :val",
+                PgOra::getRWSession("APPS_MANIFEST_DATA"));
     cur.bind(":val", value).exec();
 }
 
 class AppsPaxDTO
 {
 public:
-    explicit AppsPaxDTO(PgCpp::CursCtl &cursor) : cur(cursor)
+    explicit AppsPaxDTO(DbCpp::CursCtl &cursor) : cur(cursor)
     {
     }
 
@@ -667,7 +668,7 @@ public:
     {
         define();
         cur.EXfet();
-        return cur.err() != PgCpp::NoDataFound;
+        return cur.err() != DbCpp::ResultCode::NoDataFound;
     }
 
     void exec()
@@ -714,7 +715,7 @@ public:
     }
     static const std::string readQuery;
 private:
-    PgCpp::CursCtl &cur;
+    DbCpp::CursCtl &cur;
     std::string apps_pax_id;     // только для "PCX". Уникальный ID пассажира. Получаем в ответ на CIRQ запрос
     std::string status;
     std::string cirq_msg_text;
@@ -730,12 +731,13 @@ private:
 Opt<PointId_t> paxDataPointId(int msg_id)
 {
     int point_id = 0;
-    auto cur = get_pg_curs("select POINT_ID from APPS_PAX_DATA where (CIRQ_MSG_ID = :msg_id or CICX_MSG_ID = :msg_id) ");
+    auto cur = make_db_curs("select POINT_ID from APPS_PAX_DATA where (CIRQ_MSG_ID = :msg_id or CICX_MSG_ID = :msg_id) ",
+                            PgOra::getROSession("APPS_PAX_DATA"));
     cur
         .def(point_id)
         .bind(":msg_id", msg_id)
         .EXfet();
-    if(cur.err() == PgCpp::NoDataFound) {
+    if(cur.err() == DbCpp::ResultCode::NoDataFound) {
         LogTrace(TRACE5) << __FUNCTION__ << " Query error. Not found data by msg_id: " << msg_id;
         return std::nullopt;
     }
@@ -745,12 +747,13 @@ Opt<PointId_t> paxDataPointId(int msg_id)
 Opt<PointId_t> manifestDataPointId(int msg_id)
 {
     int point_id = 0;
-    auto cur = get_pg_curs("select POINT_ID from APPS_MANIFEST_DATA where MSG_ID = :msg_id ");
+    auto cur = make_db_curs("select POINT_ID from APPS_MANIFEST_DATA where MSG_ID = :msg_id ",
+                            PgOra::getROSession("APPS_MANIFEST_DATA"));
     cur
         .def(point_id)
         .bind(":msg_id", msg_id)
         .EXfet();
-    if(cur.err() == PgCpp::NoDataFound) {
+    if(cur.err() == DbCpp::ResultCode::NoDataFound) {
         LogTrace(TRACE5) << __FUNCTION__ << " Query error. Not found data by msg_id: " << msg_id;
         return std::nullopt;
     }
@@ -777,17 +780,18 @@ void AppsPaxDTO::save(const PaxRequest & request, const std::string& cirq_msg_te
     LogTrace(TRACE5) << __FUNCTION__ << " " << request.getTrans().code << ":" << cirq_msg_id;
 
     Dates::DateTime_t nowUtc = Dates::second_clock::universal_time();
-    auto cur = get_pg_curs(
-               "INSERT INTO apps_pax_data "
+    auto cur = make_db_curs(
+               "INSERT INTO APPS_PAX_DATA "
                "(pax_id, point_id, cirq_msg_id, cirq_msg_text, cicx_msg_text, settings_id, send_time, family_name) "
-               "VALUES (:pax_id, :point_id, :cirq_msg_id, :cirq_msg_text, :cicx_msg_text, :settings_id, :send_time, :family_name)");
+               "VALUES (:pax_id, :point_id, :cirq_msg_id, :cirq_msg_text, :cicx_msg_text, :settings_id, :send_time, :family_name)",
+                PgOra::getRWSession("APPS_PAX_DATA"));
     cur.stb()
         .bind(":cirq_msg_id",      cirq_msg_id)
-        .bind(":pax_id",           request.getPax().pax_id)
-        .bind(":point_id",         request.getPointId())
+        .bind(":pax_id",           request.getPax().pax_id.get())
+        .bind(":point_id",         request.getPointId().get())
         .bind(":cirq_msg_text",    cirq_msg_text)
         .bind(":cicx_msg_text",    cicx_msg_text)
-        .bind(":settings_id",      settings_id)
+        .bind(":settings_id",      settings_id.get())
         .bind(":send_time",        nowUtc)
         .bind(":family_name",      request.getPax().family_name)
         .exec();
@@ -796,17 +800,19 @@ void AppsPaxDTO::save(const PaxRequest & request, const std::string& cirq_msg_te
 void AppsPaxDTO::deleteAPPSData(const std::string & field,  int value)
 {
     LogTrace(TRACE5) << __FUNCTION__ << " field: " << field << " value: " << value;
-    auto cur = get_pg_curs("delete from APPS_PAX_DATA where "+field+ "= :val");
+    auto cur = make_db_curs("delete from APPS_PAX_DATA where "+field+ "= :val",
+                            PgOra::getRWSession("APPS_PAX_DATA"));
     cur.bind(":val", value).exec();
 }
 
 Opt<AppsPaxDTO> AppsPaxDTO::load(const PaxId_t& pax_id, const AppsSettingsId_t& settings_id)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " by pax_id:" << pax_id;
-    auto cur = get_pg_curs(
-               readQuery + "where PAX_ID = :pax_id and SETTINGS_ID = :settings_id");
-    cur.bind(":pax_id", pax_id)
-       .bind(":settings_id", settings_id);
+    auto cur = make_db_curs(
+               readQuery + "where PAX_ID = :pax_id and SETTINGS_ID = :settings_id",
+                PgOra::getROSession("APPS_PAX_DATA"));
+    cur.bind(":pax_id", pax_id.get())
+       .bind(":settings_id", settings_id.get());
     AppsPaxDTO appsReader(cur);
     if(!appsReader.execute())
     {
@@ -819,7 +825,7 @@ Opt<AppsPaxDTO> AppsPaxDTO::load(const PaxId_t& pax_id, const AppsSettingsId_t& 
 Opt<AppsPaxDTO> AppsPaxDTO::load(int msg_id)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " by msg_id:" << msg_id;
-    auto cur = get_pg_curs(readQuery + "where CIRQ_MSG_ID = :msg_id");
+    auto cur = make_db_curs(readQuery + "where CIRQ_MSG_ID = :msg_id", PgOra::getROSession("APPS_PAX_DATA"));
     cur.bind(":msg_id", msg_id);
     AppsPaxDTO appsReader(cur);
     if(!appsReader.execute())
@@ -841,9 +847,9 @@ std::string AppsPaxDTO::createCicxText()
 void AppsPaxDTO::updateCicxMsgId(const int msg_id)
 {
     LogTrace(TRACE5) << __FUNCTION__ << " msg_id: "<< msg_id;
-    auto cur = get_pg_curs(
+    auto cur = make_db_curs(
                "update APPS_PAX_DATA set CICX_MSG_ID = :cicx_msg_id "
-               " where CIRQ_MSG_ID = :cirq_msg_id ");
+               " where CIRQ_MSG_ID = :cirq_msg_id ", PgOra::getRWSession("APPS_PAX_DATA"));
     cur
        .bind(":cicx_msg_id", msg_id)
        .bind(":cirq_msg_id", cirq_msg_id)
@@ -855,9 +861,9 @@ void AppsPaxDTO::updateStatus(const std::string& new_status, const std::string& 
     LogTrace(TRACE5) << __FUNCTION__ << " msg_id: " << msg_id << " status: " << status
                      << " apps_pax_id: " << new_apps_pax_id;
 
-    auto cur = get_pg_curs(
+    auto cur = make_db_curs(
                "update APPS_PAX_DATA set STATUS = :status, APPS_PAX_ID = :apps_pax_id "
-               " where CIRQ_MSG_ID = :cirq_msg_id ");
+               " where CIRQ_MSG_ID = :cirq_msg_id ", PgOra::getRWSession("APPS_PAX_DATA"));
     cur.bind(":status", new_status)
        .bind(":apps_pax_id", new_apps_pax_id)
        .bind(":cirq_msg_id", msg_id)
@@ -871,7 +877,8 @@ void dumpAppsMsg()
     int msg_id;
     int send_attempts;
 
-    auto cur = get_pg_curs("select SEND_TIME, MSG_ID, SEND_ATTEMPTS from APPS_MESSAGES");
+    auto cur = make_db_curs("select SEND_TIME, MSG_ID, SEND_ATTEMPTS from APPS_MESSAGES",
+                            PgOra::getROSession("APPS_MESSAGES"));
     cur.def(send_time).def(msg_id).def(send_attempts).exec();
     while(!cur.fen()) {
         LogTrace(TRACE5) << "DUMP MSGS: " << " time: " << send_time << " msg_id: " << msg_id << " attempts: " << send_attempts;
@@ -882,8 +889,8 @@ void dumpAppsPaxData()
 {
     int pax_id, point_id, cirq_msg_id, cicx_msg_id, settings_id;
     std::string status, apps_pax_id, family;
-    auto cur = get_pg_curs("select PAX_ID, FAMILY_NAME, POINT_ID, APPS_PAX_ID, STATUS, CIRQ_MSG_ID, CICX_MSG_ID, "
-                           " SETTINGS_ID from APPS_PAX_DATA ");
+    auto cur = make_db_curs("select PAX_ID, FAMILY_NAME, POINT_ID, APPS_PAX_ID, STATUS, CIRQ_MSG_ID, CICX_MSG_ID, "
+                           " SETTINGS_ID from APPS_PAX_DATA ", PgOra::getROSession("APPS_PAX_DATA"));
     cur.def(pax_id).def(family).def(point_id).defNull(apps_pax_id, "NULL")
             .defNull(status, "NULL").def(cirq_msg_id).defNull(cicx_msg_id, 0).defNull(settings_id,0).exec();
     while(!cur.fen()) {
@@ -1000,17 +1007,18 @@ struct MsgData
 Opt<MsgData> read_pax_data(int msg_id)
 {
     MsgData msg;
-    auto cur2 = get_pg_curs(
+    auto cur2 = make_db_curs(
                 "select POINT_ID, case when CICX_MSG_ID = :msg_id then CICX_MSG_TEXT "
                 " else CIRQ_MSG_TEXT end "
                 " from APPS_PAX_DATA "
-                " where CIRQ_MSG_ID=:msg_id or CICX_MSG_ID=:msg_id");
+                " where CIRQ_MSG_ID=:msg_id or CICX_MSG_ID=:msg_id",
+                PgOra::getROSession("APPS_PAX_DATA"));
     cur2
         .def(msg.point_id)
         .def(msg.msg_text)
         .bind(":msg_id", msg_id)
         .EXfet();
-    if(cur2.err() == PgCpp::NoDataFound) {
+    if(cur2.err() == DbCpp::ResultCode::NoDataFound) {
         LogTrace(TRACE5) << __FUNCTION__ << " No data found in APPS_PAX_DATA by msg_id: " << msg_id;
         return std::nullopt;
     }
@@ -1020,14 +1028,15 @@ Opt<MsgData> read_pax_data(int msg_id)
 Opt<MsgData> read_manifest_data(int msg_id)
 {
     MsgData msg;
-    auto cur2 = get_pg_curs(
-                "select POINT_ID, MSG_TEXT from APPS_MANIFEST_DATA where MSG_ID=:msg_id");
+    auto cur2 = make_db_curs(
+                "select POINT_ID, MSG_TEXT from APPS_MANIFEST_DATA where MSG_ID=:msg_id",
+                PgOra::getROSession("APPS_MANIFEST_DATA"));
     cur2
         .def(msg.point_id)
         .def(msg.msg_text)
         .bind(":msg_id", msg_id)
         .EXfet();
-    if(cur2.err() == PgCpp::NoDataFound) {
+    if(cur2.err() == DbCpp::ResultCode::NoDataFound) {
         LogTrace(TRACE5) << __FUNCTION__ << " No data found in APPS_MANIFEST_DATA by msg_id: " << msg_id;
         return std::nullopt;
     }
@@ -1041,16 +1050,16 @@ Opt<APPSMessage> APPSMessage::readAppsMsg(int msg_id)
     Dates::DateTime_t send_time;
     Opt<MsgData> msg;
 
-    auto cur = get_pg_curs(
+    auto cur = make_db_curs(
                 "select SEND_ATTEMPTS, SEND_TIME, SETTINGS_ID from APPS_MESSAGES "
-                "where MSG_ID=:msg_id");
+                "where MSG_ID=:msg_id", PgOra::getROSession("APPS_MESSAGES"));
     cur
        .def(send_attempts)
        .def(send_time)
        .defNull(settings_id, ASTRA::NoExists)
        .bind(":msg_id", msg_id)
        .EXfet();
-    if(cur.err() == PgCpp::NoDataFound) {
+    if(cur.err() == DbCpp::ResultCode::NoDataFound) {
         LogTrace(TRACE5) << __FUNCTION__ << " No data found in APPS_MESSAGES by msg_id: " << msg_id;
         return std::nullopt;
     }
@@ -1090,9 +1099,10 @@ void APPSMessage::save() const
                      << "text: " << msg << " point_id: " << point_id;
     // сохраним информацию о сообщении
     Dates::DateTime_t nowUtc = Dates::second_clock::universal_time();
-    auto cur = get_pg_curs(
+    auto cur = make_db_curs(
                "insert into APPS_MESSAGES(MSG_ID, SEND_ATTEMPTS, SEND_TIME, SETTINGS_ID) "
-               "values (:msg_id, :send_attempts, :send_time, :settings_id)");
+               "values (:msg_id, :send_attempts, :send_time, :settings_id)",
+                PgOra::getRWSession("APPS_MESSAGES"));
     cur
             .stb()
             .bind(":msg_id", msg_id)
@@ -1107,10 +1117,10 @@ void APPSMessage::incAttempts()
     this->send_time = Dates::second_clock::universal_time();
     this->send_attempts++;
 
-    auto cur = get_pg_curs(
+    auto cur = make_db_curs(
                "update APPS_MESSAGES "
                "set SEND_ATTEMPTS = :send_attempts, SEND_TIME = :send_time "
-               "where MSG_ID = :msg_id ");
+               "where MSG_ID = :msg_id ", PgOra::getRWSession("APPS_MESSAGES"));
     cur
         .bind(":send_attempts", send_attempts)
         .bind(":send_time", send_time)
@@ -1317,12 +1327,13 @@ std::string getUserId(const AirlineCode_t &airl)
 
 int getIdent()
 {
-    int vid = 0;
-    auto cur = get_pg_curs("select nextval('APPS_MSG_ID__SEQ')");
-    cur
-       .def(vid)
-       .EXfet();
-    return vid;
+    return PgOra::getSeqNextVal_int("APPS_MSG_ID__SEQ");
+//    int vid = 0;
+//    auto cur = make_db_curs("select nextval('APPS_MSG_ID__SEQ')", PgOra::getROSession("APPS_MESSAGES"));
+//    cur
+//       .def(vid)
+//       .EXfet();
+//    return vid;
 }
 
 const char* getAPPSRotName()
@@ -2484,9 +2495,9 @@ bool isPointTransferOrigin(const GrpId_t& pax_grp_id, const AirportCode_t &airp_
 std::vector<std::string> statusesFromDb(const PaxId_t& pax_id)
 {
     std::vector<std::string> res;
-    auto cur = get_pg_curs(
+    auto cur = make_db_curs(
                "select STATUS from APPS_PAX_DATA "
-               "where PAX_ID = :pax_id order by SEND_TIME desc");
+               "where PAX_ID = :pax_id order by SEND_TIME desc", PgOra::getROSession("APPS_PAX_DATA"));
     std::string status;
     cur
         .defNull(status,"")
@@ -2826,13 +2837,13 @@ std::unique_ptr<PaxReqAnswer> createPaxReqAnswer(const std::string& code, const 
     int pax_id = 0;
     std::string family_name = "";
 
-    auto cur = get_pg_curs(sql.str());
+    auto cur = make_db_curs(sql.str(), PgOra::getROSession("APPS_PAX_DATA"));
     cur.stb()
        .def(pax_id)
        .def(family_name)
        .bind(":msg_id", msg->getMsgId())
        .EXfet();
-    if(cur.err() == PgCpp::NoDataFound) {
+    if(cur.err() == DbCpp::ResultCode::NoDataFound) {
         LogTrace(TRACE5) << " NO DATA FOUND by msg_id: " << msg->getMsgId() << " code: " << code;
         return nullptr;
     }
@@ -3048,11 +3059,12 @@ std::vector<PaxId_t> paxesToCancel(const PointId_t& point_dep, const PointId_t& 
 int msgIdToCancel(const PaxId_t &pax_id, const std::string & status)
 {
     int cirq_msg_id;
-    auto cur = get_pg_curs("select CIRQ_MSG_ID from APPS_PAX_DATA "
-                         "where PAX_ID = :pax_id and STATUS = :status and CICX_MSG_ID is NULL");
+    auto cur = make_db_curs("select CIRQ_MSG_ID from APPS_PAX_DATA "
+                            "where PAX_ID = :pax_id and STATUS = :status and CICX_MSG_ID is NULL",
+                            PgOra::getROSession("APPS_PAX_DATA"));
     cur
         .def(cirq_msg_id)
-        .bind(":pax_id", pax_id)
+        .bind(":pax_id", pax_id.get())
         .bind(":status", status)
         .exfet();
     return cirq_msg_id;
@@ -3150,8 +3162,8 @@ std::string emulateAnswer(const std::string& request)
 void deleteMsg(int msg_id)
 {
     LogTrace(TRACE5) << __FUNCTION__ << " msg_id: " << msg_id;
-    auto cur = get_pg_curs(
-               "delete from APPS_MESSAGES where MSG_ID = :msg_id ");
+    auto cur = make_db_curs(
+               "delete from APPS_MESSAGES where MSG_ID = :msg_id ", PgOra::getRWSession("APPS_MESSAGES"));
     cur
         .bind(":msg_id", msg_id)
         .exec();
@@ -3487,5 +3499,21 @@ void init_callbacks()
     CallbacksSuite<PaxEventCallbacks<TRemCategory>>::Instance()->addCallbacks(new PaxRemCallbacks);
     init = true;
 }
+
+#ifdef XP_TESTING
+void updateAppsMsg(int msg_id, Dates::DateTime_t send_time, int send_attempts)
+{
+    LogTrace(TRACE5) << __FUNCTION__ << " send_time: " << send_time << " send_attempts:" << send_attempts;
+    auto cur = make_db_curs(
+               "update APPS_MESSAGES "
+               "set SEND_ATTEMPTS = :send_attempts, SEND_TIME = :send_time "
+               "where MSG_ID = :msg_id ", PgOra::getRWSession("APPS_MESSAGES"));
+    cur
+        .bind(":send_attempts", send_attempts)
+        .bind(":send_time", send_time)
+        .bind(":msg_id", msg_id)
+        .exec();
+}
+#endif
 
 } //namespace APPS
