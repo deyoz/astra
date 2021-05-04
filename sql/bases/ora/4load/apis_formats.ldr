@@ -33,3 +33,4 @@ BEGINDATA
 "IAPI_CN"|"IAPI формат (Китай)"|"IAPI format (China)"
 "EDI_AE"|"EDIFACT формат (Объединенные Арабские Эмираты)"|"EDIFACT format (United Arab Emirates)"
 "EDI_AZ"|"EDIFACT формат (Азербайджан)"|"EDIFACT format (Azerbaijan)"
+"EDI_SA"|"EDIFACT формат (Саудовская Аравия)"|"EDIFACT format (Saudi Arabia)"
