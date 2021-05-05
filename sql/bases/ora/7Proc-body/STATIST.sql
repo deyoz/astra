@@ -256,8 +256,12 @@ BEGIN
                   stations.work_mode='ê' AND
                   lang='RU' AND type IN (system.evtPax, system.evtPay) AND
                   id1=pax_grp.point_dep AND id2=pax.reg_no AND rownum<2) AS term_ckin_service
-    FROM pax_grp,pax
+    FROM pax_grp,pax,tckin_pax_grp
     WHERE pax_grp.grp_id=pax.grp_id AND point_dep=vpoint_id AND pax_grp.status NOT IN ('E') and
+          tckin_pax_grp.grp_id(+)=pax_grp.grp_id AND
+          tckin_pax_grp.transit_num(+)<>0 and
+          not (pax_grp.status IN ('T') and
+          tckin_pax_grp.grp_id is not null) and
           pax.refuse is null
   )
   GROUP BY airp_arv,hall,DECODE(status,'T','T','N'),client_type;
