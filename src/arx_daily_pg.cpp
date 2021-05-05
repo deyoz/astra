@@ -727,18 +727,9 @@ TArxMove::TArxMove(const Dates::DateTime_t &utc_date)
     utcdate = utc_date;
 };
 
-TArxMove::~TArxMove()
-{
-};
-
 //============================= TArxMoveFlt =============================
 //STEP 1
 TArxMoveFlt::TArxMoveFlt(const Dates::DateTime_t& utc_date):TArxMove(utc_date)
-{
-    step=0;
-};
-
-TArxMoveFlt::~TArxMoveFlt()
 {
 };
 
@@ -765,35 +756,37 @@ Dates::time_period tripDatePeriod(const std::vector<dbo::Points> & points)
     for(size_t i = 0; i<points.size(); i++)
     {
         const dbo::Points & p = points[i];
-        std::vector<Dates::DateTime_t> temp;
-        if(i%2 == 0) {
-            temp = {first_date,last_date, p.scd_out, p.est_out, p.act_out};
-        } else {
-            temp = {first_date,last_date, p.scd_in, p.est_in, p.act_in};
+        if(p.pr_del != -1) {
+            std::vector<Dates::DateTime_t> temp;
+            if(i%2 == 0) {
+                temp = {first_date,last_date, p.scd_out, p.est_out, p.act_out};
+            } else {
+                temp = {first_date,last_date, p.scd_in, p.est_in, p.act_in};
+            }
+            auto fdates = algo::filter(temp, dbo::isNotNull<Dates::DateTime_t>);
+            if(auto minIt = std::min_element(fdates.begin(), fdates.end()); minIt != fdates.end()) {
+                first_date = *minIt;
+            }
+            if(auto maxIt = std::max_element(fdates.begin(), fdates.end()); maxIt != fdates.end()) {
+                last_date = *maxIt;
+            }
+            //LogTrace(TRACE6) << __func__ << " first_date: " << first_date << " last_date: " << last_date;
         }
-        auto fdates = algo::filter(temp, dbo::isNotNull<Dates::DateTime_t>);
-        if(auto minIt = std::min_element(fdates.begin(), fdates.end()); minIt != fdates.end()) {
-            first_date = *minIt;
-        }
-        if(auto maxIt = std::max_element(fdates.begin(), fdates.end()); maxIt != fdates.end()) {
-            last_date = *maxIt;
-        }
-        //LogTrace(TRACE6) << __func__ << " first_date: " << first_date << " last_date: " << last_date;
     }
     return Dates::time_period(first_date, last_date);
 }
 
 bool validDatePeriod(const Dates::time_period& date_period, Dates::DateTime_t utcdate)
 {
-    if(date_period.is_null()) {
-        LogTrace(TRACE6) << __func__ << "WRONG date_period: " << date_period;
-        return false;
-    }
     LogTrace(TRACE6) << __func__ << date_period;
+//    if(date_period.is_null()) {
+//        LogTrace(TRACE6) << " wrong date_period: " << date_period;
+//        return false;
+//    }
     Dates::DateTime_t first_date = date_period.begin();
     Dates::DateTime_t last_date = date_period.end();
     if (first_date == Dates::not_a_date_time && last_date == Dates::not_a_date_time) return false;
-    return first_date < (utcdate - Dates::days(ARX::ARX_DAYS()));
+    return last_date < (utcdate - Dates::days(ARX::ARX_DAYS()));
 }
 
 double getDateRange(const Dates::time_period& date_period)
@@ -817,7 +810,7 @@ void TArxMoveFlt::readMoveIds(size_t max_rows)
                             PgOra::getROSession("points"));
     cur.stb()
        .def(move_id)
-       .bind(":arx_date", utcdate-Dates::days(ARX::ARX_DAYS()))
+       .bind(":arx_date", utcdate - Dates::days(ARX::ARX_DAYS()))
        .exec();
 
     while(!cur.fen() && (move_ids.size() < max_rows)) {
@@ -840,14 +833,18 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
         Dates::time_period date_period = move_ids.begin()->second;
         LogTrace(TRACE6) << __func__ << " move_id: " << move_id;
         move_ids.erase(move_ids.begin());
+
+        std::vector<dbo::Points> points = read_points(move_id);
+        bool isTripDel = isTripDeleted(points);
         bool isValidPeriod = validDatePeriod(date_period, utcdate);
+        if(!isValidPeriod && !isTripDel) continue; // если период дат невалидный и маршрут неудаленный то игнорируем
+
         Dates::DateTime_t part_key = isValidPeriod ? date_period.end() : Dates::not_a_date_time;
         LogTrace(TRACE6) << __func__ << " part_key: " << part_key;
         try
         {
             LockAndCollectStat(move_id);
-            std::vector<dbo::Points> points = read_points(move_id);
-            bool isTripDel = isTripDeleted(points);
+
             if(dbo::isNotNull(part_key) && !isTripDel) {
                 arx_move_ext(move_id, part_key, getDateRange(date_period));
                 arx_points(points, part_key);
@@ -856,7 +853,7 @@ bool TArxMoveFlt::Next(size_t max_rows, int duration)
             }
             for(const auto &p : points)
             {
-                bool need_arch = p.pr_del != -1 && dbo::isNotNull(part_key);
+                bool need_arch = p.pr_del != -1;
                 PointId_t point_id(p.point_id);
                 LogTrace(TRACE6) << __func__ << " POINT_ID = "  << p.point_id;
                 auto pax_grps = read_pax_grp(point_id, part_key);
@@ -2207,11 +2204,6 @@ TArxMoveNoFlt::TArxMoveNoFlt(const Dates::DateTime_t &utc_date):TArxMove(utc_dat
 {
 };
 
-TArxMoveNoFlt::~TArxMoveNoFlt()
-{
-    //
-};
-
 bool TArxMoveNoFlt::Next(size_t max_rows, int duration)
 {
     LogTrace(TRACE6) << __func__;
@@ -2235,7 +2227,6 @@ string TArxMoveNoFlt::TraceCaption()
 //STEP 3
 TArxTlgTrips::TArxTlgTrips(const Dates::DateTime_t& utc_date):TArxMove(utc_date)
 {
-    step=0;
     point_ids_count=0;
 };
 
