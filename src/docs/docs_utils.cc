@@ -32,9 +32,10 @@ namespace REPORT_PAX_REMS {
         return true;
     }
 
-    void get(TQuery &Qry, const string &lang, const map< TRemCategory, vector<string> > &filter, multiset<CheckIn::TPaxRemItem> &final_rems)
+    void get(int pax_id, TPerson pers_type, int seats,
+             const CheckIn::TPaxTknItem& tkn,
+             const string &lang, const map< TRemCategory, vector<string> > &filter, multiset<CheckIn::TPaxRemItem> &final_rems)
     {
-        CheckIn::TPaxTknItem tkn;
         CheckIn::TPaxDocItem doc;
         CheckIn::TPaxDocoItem doco;
         CheckIn::TDocaMap doca_map;
@@ -49,8 +50,7 @@ namespace REPORT_PAX_REMS {
         cats[remFQT]=false;
         cats[remASVC]=false;
         cats[remUnknown]=false;
-        int pax_id=Qry.FieldAsInteger("pax_id");
-        bool inf_indicator=DecodePerson(Qry.FieldAsString("pers_type"))==ASTRA::baby && Qry.FieldAsInteger("seats")==0;
+        bool inf_indicator=pers_type==ASTRA::baby && seats==0;
         bool pr_find=true;
         if (!filter.empty())
         {
@@ -62,7 +62,6 @@ namespace REPORT_PAX_REMS {
                 switch(iRem->first)
                 {
                     case remTKN:
-                        tkn.fromDB(Qry);
                         if (!tkn.empty() && !tkn.rem.empty() &&
                                 find(iRem->second.begin(),iRem->second.end(),tkn.rem)!=iRem->second.end())
                             pr_find=true;
@@ -135,7 +134,7 @@ namespace REPORT_PAX_REMS {
                 if (getPaxRem(lang, *r, inf_indicator, rem)) final_rems.insert(rem);
 
             //билет
-            if (!cats[remTKN]) tkn.fromDB(Qry);
+            if (!cats[remTKN]) tkn;
             if (getPaxRem(lang, tkn, inf_indicator, rem)) final_rems.insert(rem);
             //документ
             if (!cats[remDOC]) LoadPaxDoc(pax_id, doc);
@@ -158,6 +157,38 @@ namespace REPORT_PAX_REMS {
         }
     }
 
+    void get(DB::TQuery &Qry, const string &lang, const map< TRemCategory, vector<string> > &filter, multiset<CheckIn::TPaxRemItem> &final_rems)
+    {
+        int pax_id=Qry.FieldAsInteger("pax_id");
+        TPerson pers_type = DecodePerson(Qry.FieldAsString("pers_type").c_str());
+        int seats = Qry.FieldAsInteger("seats");
+        CheckIn::TPaxTknItem tkn;
+        if (Qry.GetFieldIndex("ticket_no")>=0
+            && Qry.GetFieldIndex("coupon_no")>=0
+            && Qry.GetFieldIndex("ticket_rem")>=0
+            && Qry.GetFieldIndex("ticket_confirm")>=0)
+        {
+          tkn.fromDB(Qry);
+        }
+        get(pax_id, pers_type, seats, tkn, lang, filter, final_rems);
+    }
+
+    void get(TQuery &Qry, const string &lang, const map< TRemCategory, vector<string> > &filter, multiset<CheckIn::TPaxRemItem> &final_rems)
+    {
+        int pax_id=Qry.FieldAsInteger("pax_id");
+        TPerson pers_type = DecodePerson(Qry.FieldAsString("pers_type"));
+        int seats = Qry.FieldAsInteger("seats");
+        CheckIn::TPaxTknItem tkn;
+        if (Qry.GetFieldIndex("ticket_no")>=0
+            && Qry.GetFieldIndex("coupon_no")>=0
+            && Qry.GetFieldIndex("ticket_rem")>=0
+            && Qry.GetFieldIndex("ticket_confirm")>=0)
+        {
+          tkn.fromDB(Qry);
+        }
+        get(pax_id, pers_type, seats, tkn, lang, filter, final_rems);
+    }
+
     void get(TQuery &Qry, const string &lang, multiset<CheckIn::TPaxRemItem> &final_rems)
     {
         return get(Qry, lang, map< TRemCategory, vector<string> >(), final_rems);
@@ -169,6 +200,25 @@ namespace REPORT_PAX_REMS {
         get(Qry, lang, map< TRemCategory, vector<string> >(), final_rems);
         for(multiset<CheckIn::TPaxRemItem>::iterator i = final_rems.begin(); i != final_rems.end(); i++)
             rem_codes.insert(i->code);
+    }
+
+    void get_rem_codes(DB::TQuery &Qry, const string &lang, set<string> &rem_codes)
+    {
+        multiset<CheckIn::TPaxRemItem> final_rems;
+        get(Qry, lang, map< TRemCategory, vector<string> >(), final_rems);
+        for(multiset<CheckIn::TPaxRemItem>::iterator i = final_rems.begin(); i != final_rems.end(); i++)
+            rem_codes.insert(i->code);
+    }
+
+    void get_rem_codes(int pax_id, TPerson pers_type, int seats,
+                       const CheckIn::TPaxTknItem& tkn,
+                       const string &lang, set<string> &rem_codes)
+    {
+      multiset<CheckIn::TPaxRemItem> final_rems;
+      get(pax_id, pers_type, seats, tkn, lang,
+          map< TRemCategory, vector<string> >(), final_rems);
+      for(multiset<CheckIn::TPaxRemItem>::iterator i = final_rems.begin(); i != final_rems.end(); i++)
+        rem_codes.insert(i->code);
     }
 }
 

@@ -2,6 +2,7 @@
 #include "qrys.h"
 #include "astra_misc.h"
 #include "report_common.h"
+#include "passenger.h"
 #include "stat/stat_utils.h"
 
 #define NICKNAME "DENIS"
@@ -19,62 +20,101 @@ void cleanForeignScan(int days)
     Qry.get().Execute();
 }
 
+namespace {
+
+struct ReprintMapKey
+{
+    TDateTime scd_out;
+    std::string desk;
+    std::string ckin_type;
+
+    bool operator <(const ReprintMapKey& key) const;
+};
+
+bool ReprintMapKey::operator <(const ReprintMapKey& key) const
+{
+    if (scd_out != key.scd_out) {
+        return scd_out < key.scd_out;
+    }
+    if (desk != key.desk) {
+        return desk < key.desk;
+    }
+    return ckin_type < key.ckin_type;
+}
+
+} // namespace
+
 void get_stat_reprint(int point_id)
 {
-    TCachedQuery delQry("delete from stat_reprint where point_id = :point_id", QParams() << QParam("point_id", otInteger, point_id));
+    DB::TCachedQuery delQry(
+        PgOra::getRWSession("STAT_REPRINT"),
+        "DELETE FROM stat_reprint WHERE point_id = :point_id",
+        QParams() << QParam("point_id", otInteger, point_id),
+        STDLOG);
     delQry.get().Execute();
 
-    TCachedQuery Qry(
-            "select "
-            "    points.scd_out, "
-            "    confirm_print.desk, "
-            "    pax_grp.client_type ckin_type, "
-            "    count(*) amount "
-            "from "
-            "    points, "
-            "    pax_grp, "
-            "    pax, "
-            "    confirm_print "
-            "where "
-            "    points.point_id = :point_id and "
-            "    points.point_id = pax_grp.point_dep and "
-            "    pax_grp.grp_id = pax.grp_id and "
-            "    pax.pax_id = confirm_print.pax_id and "
-            "    confirm_print.from_scan_code <> 0 "
-            "group by "
-            "    points.scd_out, "
-            "    confirm_print.desk, "
-            "    pax_grp.client_type ",
-            QParams() << QParam("point_id", otInteger, point_id));
-    Qry.get().Execute();
+    std::map<ReprintMapKey,int> reprint_map;
+    TTripInfo flt;
+    flt.getByPointId(point_id);
+    const std::list<CheckIn::TSimplePaxGrpItem> groups
+        = CheckIn::TSimplePaxGrpItem::getByDepPointId(PointId_t(point_id));
+    for (const CheckIn::TSimplePaxGrpItem& grp: groups) {
+        DB::TCachedQuery Qry(
+              PgOra::getROSession("CONFIRM_PRINT"),
+              "SELECT desk "
+              "FROM confirm_print "
+              "WHERE grp_id = :grp_id "
+              "AND from_scan_code <> 0 ",
+              QParams() << QParam("grp_id", otInteger, grp.id),
+              STDLOG);
+        Qry.get().Execute();
+        for (; not Qry.get().Eof; Qry.get().Next()) {
+            const ReprintMapKey key = {
+              flt.scd_out,
+              Qry.get().FieldAsString("desk"),
+              EncodeClientType(grp.client_type)
+            };
+            auto res = reprint_map.emplace(key, 1);
+            const bool reprint_exists = !res.second;
+            if (reprint_exists) {
+              int& amount = res.first->second;
+              amount += 1;
+            }
+        }
 
-    TCachedQuery insQry(
-            "insert into stat_reprint ( "
-            "   point_id, "
-            "   scd_out, "
-            "   desk, "
-            "   ckin_type, "
-            "   amount "
-            ") values ( "
-            "   :point_id, "
-            "   :scd_out, "
-            "   :desk, "
-            "   :ckin_type, "
-            "   :amount) ",
-            QParams()
-            << QParam("point_id", otInteger, point_id)
-            << QParam("scd_out", otDate)
-            << QParam("desk", otString)
-            << QParam("ckin_type", otString)
-            << QParam("amount", otInteger));
+        DB::TCachedQuery insQry(
+              PgOra::getRWSession("STAT_REPRINT"),
+              "INSERT INTO stat_reprint ( "
+              "    point_id, "
+              "    scd_out, "
+              "    desk, "
+              "    ckin_type, "
+              "    amount "
+              ") VALUES ( "
+              "    :point_id, "
+              "    :scd_out, "
+              "    :desk, "
+              "    :ckin_type, "
+              "    :amount) ",
+              QParams()
+              << QParam("point_id", otInteger, point_id)
+              << QParam("scd_out", otDate)
+              << QParam("desk", otString)
+              << QParam("ckin_type", otString)
+              << QParam("amount", otInteger),
+              STDLOG);
 
-    for(; not Qry.get().Eof; Qry.get().Next()) {
-        insQry.get().SetVariable("scd_out", Qry.get().FieldAsDateTime("scd_out"));
-        insQry.get().SetVariable("desk", Qry.get().FieldAsString("desk"));
-        insQry.get().SetVariable("ckin_type", Qry.get().FieldAsString("ckin_type"));
-        insQry.get().SetVariable("amount", Qry.get().FieldAsInteger("amount"));
-        insQry.get().Execute();
+        for (const auto& item: reprint_map) {
+            const ReprintMapKey& key = item.first;
+            const int amount = item.second;
+            insQry.get().SetVariable("scd_out", key.scd_out);
+            insQry.get().SetVariable("desk", key.desk);
+            insQry.get().SetVariable("ckin_type", key.ckin_type);
+            insQry.get().SetVariable("amount", amount);
+            insQry.get().Execute();
+        }
     }
+
 }
 
 void TReprintFullStat::add(const TReprintStatRow &row)
@@ -190,34 +230,13 @@ void RunReprintStat(
         << QParam("FirstDate", otDate, params.FirstDate)
         << QParam("LastDate", otDate, params.LastDate);
 
-    string SQLText = "select stat_reprint.* from "
-        "   stat_reprint, "
-        "   points "
-        "where "
-        "   stat_reprint.point_id = points.point_id and "
-        "   points.pr_del >= 0 and ";
-
-    if(not params.ap.empty()) {
-        SQLText += " points.airp = :airp and ";
-        QryParams << QParam("airp", otString, params.ap);
-    }
-
-    if(not params.ak.empty()) {
-        SQLText += " points.airline = :airline and ";
-        QryParams << QParam("airline", otString, params.ak);
-    }
-
-    if(params.flt_no != NoExists) {
-        SQLText += " points.flt_no = :flt_no and ";
-        QryParams << QParam("flt_no", otInteger, params.flt_no);
-    }
-
-    SQLText += "   stat_reprint.scd_out >= :FirstDate AND stat_reprint.scd_out < :LastDate ";
-    TCachedQuery Qry(SQLText, QryParams);
-
-    LogTrace(TRACE5) << "reprint SQLText: " << SQLText;
-    for(int i = 0; i < Qry.get().VariablesCount(); i++)
-        LogTrace(TRACE5) << Qry.get().VariableName(i) << " = " << Qry.get().GetVariableAsString(i);
+    DB::TCachedQuery Qry(
+          PgOra::getROSession("STAT_REPRINT"),
+          "SELECT * FROM stat_reprint "
+          "WHERE scd_out >= :FirstDate "
+          "AND scd_out < :LastDate ",
+          QryParams,
+          STDLOG);
 
     Qry.get().Execute();
     if(not Qry.get().Eof) {
@@ -228,6 +247,24 @@ void RunReprintStat(
         int col_ckin_type = Qry.get().FieldIndex("ckin_type");
         int col_amount = Qry.get().FieldIndex("amount");
         for(; not Qry.get().Eof; Qry.get().Next()) {
+            int point_id = Qry.get().FieldAsInteger(col_point_id);
+            TTripInfo flt;
+            flt.getByPointId(point_id);
+            if (flt.pr_del >= 0) {
+                continue;
+            }
+            if(not params.ap.empty() && flt.airp != params.ap) {
+                continue;
+            }
+
+            if(not params.ak.empty() && flt.airline != params.ak) {
+                continue;
+            }
+
+            if(params.flt_no != NoExists && flt.flt_no != params.flt_no) {
+                continue;
+            }
+
             TReprintStatRow row;
             TDateTime part_key = NoExists;
             if(col_part_key >= 0)
@@ -236,7 +273,6 @@ void RunReprintStat(
 
             if(not desk_access.get(row.desk)) continue;
 
-            int point_id = Qry.get().FieldAsInteger(col_point_id);
             const TFltInfoCacheItem &info = flt_cache.get(point_id, part_key);
             row.airline = info.airline;
             row.view_airline = info.view_airline;

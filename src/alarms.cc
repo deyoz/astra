@@ -851,7 +851,7 @@ static bool setAlarmByPaxId(const PaxId_t paxId, const Alarm::Enum alarmType,
       if(Qry.RowsProcessed()>0) return true;
 
   } catch (EOracleError &E) {
-      if(E.Code != 1 && E.Code != 2291) throw; // parent key not found, unique constraint violated
+      if(E.Code != CERR_U_CONSTRAINT && E.Code != CERR_I_CONSTRAINT) throw; // parent key not found, unique constraint violated
   }
 
   return false;

@@ -843,6 +843,511 @@ void get_full_stat(TDateTime utcdate)
   };
 };
 
+namespace {
+
+struct StatKey
+{
+  PointId_t point_id;
+  std::string airp_arv;
+  int hall;
+  std::string status;
+  std::string client_type;
+
+  bool operator <(const StatKey& key) const;
+};
+
+bool StatKey::operator <(const StatKey& key) const
+{
+  if (point_id != key.point_id)
+    return point_id < key.point_id;
+  if (airp_arv != key.airp_arv)
+    return airp_arv < key.airp_arv;
+  if (hall != key.hall)
+    return hall < key.hall;
+  if (status != key.status)
+    return status < key.status;
+  return client_type < key.client_type;
+}
+
+struct StatData
+{
+  int f;
+  int c;
+  int y;
+  int adult;
+  int child;
+  int baby;
+  int child_wop;
+  int baby_wop;
+  int term_bp;
+  int term_bag;
+  int term_ckin_service;
+
+  StatData operator +(const StatData& data);
+};
+
+StatData StatData::operator +(const StatData& data)
+{
+  f += data.f;
+  c += data.c;
+  y += data.y;
+  adult += data.adult;
+  child += data.child;
+  baby += data.baby;
+  child_wop += data.child_wop;
+  baby_wop += data.baby_wop;
+  term_bp += data.term_bp;
+  term_bag += data.term_bag;
+  term_ckin_service += data.term_ckin_service;
+  return *this;
+}
+
+struct SelfCkinStatKey
+{
+  PointId_t point_id;
+  std::string client_type;
+  std::string desk;
+  std::string airp;
+  std::string descr;
+
+  bool operator <(const SelfCkinStatKey& key) const;
+};
+
+bool SelfCkinStatKey::operator <(const SelfCkinStatKey& key) const
+{
+  if (point_id != key.point_id)
+    return point_id < key.point_id;
+  if (client_type != key.client_type)
+    return client_type < key.client_type;
+  if (desk != key.desk)
+    return desk < key.desk;
+  if (airp != key.airp)
+    return airp < key.airp;
+  return descr < key.descr;
+}
+
+struct SelfCkinStatData
+{
+  int adult;
+  int child;
+  int baby;
+  int tckin;
+  int term_bp;
+  int term_bag;
+  int term_ckin_service;
+
+  SelfCkinStatData operator +(const SelfCkinStatData& data);
+};
+
+SelfCkinStatData SelfCkinStatData::operator +(const SelfCkinStatData& data)
+{
+  adult += data.adult;
+  child += data.child;
+  baby += data.baby;
+  tckin += data.tckin;
+  term_bp += data.term_bp;
+  term_bag += data.term_bag;
+  term_ckin_service += data.term_ckin_service;
+  return *this;
+}
+
+} // namespace
+
+bool existsConfirmPrint(TDevOper::Enum op_type, int pax_id);
+
+void get_stat(const PointId_t& point_id)
+{
+  DB::TQuery QryDel(PgOra::getRWSession("STAT"), STDLOG);
+  QryDel.SQLText = "DELETE FROM stat WHERE point_id=:point_id";
+  QryDel.CreateVariable("point_id", otInteger, point_id.get());
+  QryDel.Execute();
+
+  std::map<StatKey,StatData> stat_map;
+  DB::TQuery Qry(PgOra::getROSession("ORACLE"), STDLOG);
+  Qry.SQLText =
+      "SELECT "
+      "    pax.pax_id, "
+      "    airp_arv, "
+      "    hall, "
+      "    status, "
+      "    client_type, "
+      "    class, "
+      "    pers_type, "
+      "    seats, "
+      "    (SELECT 1 FROM bag2 "
+      "     WHERE bag2.grp_id=pax.grp_id AND pax.bag_pool_num IS NOT NULL AND "
+      "           ckin.get_bag_pool_pax_id(bag2.grp_id,bag2.bag_pool_num)=pax.pax_id AND "
+      "           (bag2.is_trfer=0 OR NVL(bag2.handmade,0)<>0) AND "
+      "           bag2.hall IS NOT NULL AND rownum<2) AS term_bag, "
+      "    (SELECT 1 FROM events_bilingual, stations "
+      "     WHERE events_bilingual.station=stations.desk AND "
+      "           stations.work_mode='Р' AND "
+      "           lang='RU' AND type IN (:evt_pax, :evt_pay) AND "
+      "           id1=pax_grp.point_dep AND id2=pax.reg_no AND rownum<2) AS term_ckin_service "
+      "FROM pax_grp,pax "
+      "WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND pax_grp.status NOT IN ('E') and "
+      "      pax.refuse is null ";
+  Qry.CreateVariable("point_id", otInteger, point_id.get());
+  Qry.CreateVariable("evt_pax", otString, EncodeEventType(evtPax));
+  Qry.CreateVariable("evt_pay", otString, EncodeEventType(evtPay));
+  Qry.Execute();
+
+  for (;!Qry.Eof;Qry.Next()) {
+    const int term_bp = existsConfirmPrint(TDevOper::PrnBP, Qry.FieldAsInteger("pax_id")) ? 1 : 0;
+    std::string status = Qry.FieldAsString("status");
+    if (status != "T") {
+      status  = "N";
+    }
+    const TClass cls = DecodeClass(Qry.FieldAsString("class").c_str());
+    const StatKey key = {
+      point_id,
+      Qry.FieldAsString("airp_arv"),
+      Qry.FieldAsInteger("hall"),
+      status,
+      Qry.FieldAsString("client_type")
+    };
+    const int seats = Qry.FieldAsInteger("seats");
+    const TPerson pers_type = DecodePerson(Qry.FieldAsString("pers_type").c_str());
+    const StatData data = {
+      cls == F ? 1 : 0,
+      cls == C ? 1 : 0,
+      cls == Y ? 1 : 0,
+      pers_type == adult ? 1 : 0,
+      pers_type == child ? 1 : 0,
+      pers_type == baby  ? 1 : 0,
+      seats ? 0 : (pers_type == child ? 1 : 0),
+      seats ? 0 : (pers_type == baby ? 1 : 0),
+      term_bp,
+      Qry.FieldAsInteger("term_bag"),
+      Qry.FieldAsInteger("term_ckin_service")
+    };
+    auto res = stat_map.emplace(key, data);
+    const bool item_exists = !res.second;
+    if (item_exists) {
+      StatData& exists_data = res.first->second;
+      exists_data = exists_data + data;
+    }
+  }
+
+  for (const auto& item: stat_map) {
+    const StatKey& key = item.first;
+    const StatData& data = item.second;
+
+    DB::TQuery QryIns(PgOra::getRWSession("STAT"), STDLOG);
+    QryIns.SQLText =
+        "INSERT INTO stat ( "
+        "point_id,airp_arv,hall,status,client_type, "
+        "f,c,y,adult,child,baby,child_wop,baby_wop, "
+        "pcs,weight,unchecked,excess_wt,excess_pc, "
+        "term_bp, term_bag, term_ckin_service "
+        ") VALUES ("
+        ":point_id,:airp_arv,:hall,:status,:client_type, "
+        ":f,:c,:y,:adult,:child,:baby,:child_wop,:baby_wop, "
+        ":pcs,:weight,:unchecked,:excess_wt,:excess_pc, "
+        ":term_bp, :term_bag, :term_ckin_service "
+        ")";
+    QryIns.CreateVariable("point_id", otInteger, point_id.get());
+    QryIns.CreateVariable("airp_arv", otString, key.airp_arv);
+    QryIns.CreateVariable("hall", otInteger, key.hall);
+    QryIns.CreateVariable("status", otString, key.status);
+    QryIns.CreateVariable("client_type", otString, key.client_type);
+    QryIns.CreateVariable("f", otInteger, data.f);
+    QryIns.CreateVariable("c", otInteger, data.c);
+    QryIns.CreateVariable("y", otInteger, data.y);
+    QryIns.CreateVariable("adult", otInteger, data.adult);
+    QryIns.CreateVariable("child", otInteger, data.child);
+    QryIns.CreateVariable("baby", otInteger, data.baby);
+    QryIns.CreateVariable("child_wop", otInteger, data.child_wop);
+    QryIns.CreateVariable("baby_wop", otInteger, data.baby_wop);
+    QryIns.CreateVariable("pcs", otInteger, 0);
+    QryIns.CreateVariable("weight", otInteger, 0);
+    QryIns.CreateVariable("unchecked", otInteger, 0);
+    QryIns.CreateVariable("excess_wt", otInteger, 0);
+    QryIns.CreateVariable("excess_pc", otInteger, 0);
+    QryIns.CreateVariable("term_bp", otInteger, data.term_bp);
+    QryIns.CreateVariable("term_bag", otInteger, data.term_bag);
+    QryIns.CreateVariable("term_ckin_service", otInteger, data.term_ckin_service);
+    QryIns.Execute();
+  }
+
+  DB::TQuery cur1(PgOra::getROSession("PAX_GRP-BAG2"), STDLOG);
+  cur1.SQLText =
+      "SELECT "
+      "  airp_arv, "
+      "  bag2.hall, "
+      "  DECODE(status,'T','T','N') AS status, "
+      "  client_type, "
+      "  SUM(DECODE(pr_cabin,0,amount,0)) AS pcs, "
+      "  SUM(DECODE(pr_cabin,0,weight,0)) AS weight, "
+      "  SUM(DECODE(pr_cabin,1,weight,0)) AS unchecked "
+      "FROM pax_grp,bag2 "
+      "WHERE pax_grp.grp_id=bag2.grp_id "
+      "AND point_dep=:point_id "
+      "AND pax_grp.status NOT IN ('E') "
+      "AND ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 "
+      "GROUP BY airp_arv,bag2.hall,DECODE(status,'T','T','N'),client_type ";
+  cur1.CreateVariable("point_id", otInteger, point_id.get());
+  cur1.Execute();
+
+  for (;!cur1.Eof;cur1.Next()) {
+    if (cur1.FieldAsInteger("pcs") == 0
+        && cur1.FieldAsInteger("weight") == 0
+        && cur1.FieldAsInteger("unchecked") == 0)
+    {
+      continue;
+    }
+    QParams params;
+    params << QParam("point_id", otInteger, point_id.get())
+           << QParam("airp_arv", otString, cur1.FieldAsString("airp_arv"))
+           << QParam("hall", otInteger, cur1.FieldAsInteger("hall"))
+           << QParam("status", otString, cur1.FieldAsString("status"))
+           << QParam("client_type", otString, cur1.FieldAsString("client_type"))
+           << QParam("pcs", otInteger, cur1.FieldAsInteger("pcs"))
+           << QParam("weight", otInteger, cur1.FieldAsInteger("weight"))
+           << QParam("unchecked", otInteger, cur1.FieldAsInteger("unchecked"));
+    DB::TCachedQuery QryUpd(
+          PgOra::getRWSession("STAT"),
+          "UPDATE stat "
+          "SET pcs=pcs+:pcs, "
+          "    weight=weight+:weight, "
+          "    unchecked=unchecked+:unchecked "
+          "WHERE point_id=:point_id AND "
+          "      airp_arv=:airp_arv AND "
+          "      (hall IS NULL AND :hall IS NULL OR hall=:hall) AND "
+          "      status=:status AND "
+          "      client_type=:client_type ",
+          params,
+          STDLOG);
+    QryUpd.get().Execute();
+    if (QryUpd.get().RowsProcessed() == 0) {
+      DB::TCachedQuery QryIns(
+            PgOra::getRWSession("STAT"),
+            "INSERT INTO stat ("
+            "point_id,airp_arv,hall,status,client_type, "
+            "f,c,y,adult,child,baby,child_wop,baby_wop, "
+            "pcs,weight,unchecked,excess_wt,excess_pc "
+            ") VALUES ( "
+            ":point_id,:airp_arv,:hall,:status,:client_type, "
+            "0,0,0,0,0,0,0,0, "
+            ":pcs,:weight,:unchecked,0,0 "
+            ") ",
+            params,
+            STDLOG);
+      QryIns.get().Execute();
+    }
+  }
+
+  DB::TQuery cur2(PgOra::getROSession("PAX_GRP-BAG2"), STDLOG);
+  cur2.SQLText =
+      "SELECT "
+      "  airp_arv, "
+      "  NVL(bag2.hall,pax_grp.hall) AS hall, "
+      "  DECODE(status,'T','T','N') AS status, "
+      "  client_type, "
+      "  SUM(DECODE(bag_refuse,0,excess_wt,0)) AS excess_wt, "
+      "  SUM(DECODE(bag_refuse,0,excess_pc,0)) AS excess_pc "
+      "FROM pax_grp, "
+      "     (SELECT bag2.grp_id,bag2.hall "
+      "      FROM bag2, "
+      "           (SELECT bag2.grp_id,MAX(bag2.num) AS num "
+      "            FROM pax_grp,bag2 "
+      "            WHERE pax_grp.grp_id=bag2.grp_id "
+      "            AND point_dep=:point_id "
+      "            AND ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 "
+      "            GROUP BY bag2.grp_id) last_bag "
+      "      WHERE bag2.grp_id=last_bag.grp_id AND bag2.num=last_bag.num) bag2 "
+      "WHERE pax_grp.grp_id=bag2.grp_id(+) AND point_dep=:point_id AND pax_grp.status NOT IN ('E') "
+      "GROUP BY airp_arv,NVL(bag2.hall,pax_grp.hall),DECODE(status,'T','T','N'),client_type ";
+  cur2.CreateVariable("point_id", otInteger, point_id.get());
+  cur2.Execute();
+
+  for (;!cur2.Eof;cur2.Next()) {
+    if (cur2.FieldAsInteger("excess_wt") == 0
+        && cur2.FieldAsInteger("excess_pc") == 0)
+    {
+      continue;
+    }
+
+    QParams params;
+    params << QParam("point_id", otInteger, point_id.get())
+           << QParam("airp_arv", otString, cur2.FieldAsString("airp_arv"))
+           << QParam("hall", otInteger, cur2.FieldAsInteger("hall"))
+           << QParam("status", otString, cur2.FieldAsString("status"))
+           << QParam("client_type", otString, cur2.FieldAsString("client_type"))
+           << QParam("excess_wt", otInteger, cur2.FieldAsInteger("excess_wt"))
+           << QParam("excess_pc", otInteger, cur2.FieldAsInteger("excess_pc"));
+    DB::TCachedQuery QryUpd(
+          PgOra::getRWSession("STAT"),
+          "UPDATE stat "
+          "SET excess_wt=excess_wt+:excess_wt, excess_pc=excess_pc + :excess_pc "
+          "WHERE point_id=:point_id AND "
+          "      airp_arv=:airp_arv AND "
+          "      (hall IS NULL AND :hall IS NULL OR hall=:hall) AND "
+          "      status=:status AND "
+          "      client_type=:client_type ",
+          params,
+          STDLOG);
+    QryUpd.get().Execute();
+    if (QryUpd.get().RowsProcessed() == 0) {
+      DB::TCachedQuery QryIns(
+            PgOra::getRWSession("STAT"),
+            "INSERT INTO stat ( "
+            "point_id,airp_arv,hall,status,client_type, "
+            "f,c,y,adult,child,baby,child_wop,baby_wop, "
+            "pcs,weight,unchecked,excess_wt,excess_pc "
+            ") VALUES ( "
+            ":point_id,:airp_arv,:hall,:status,:client_type, "
+            "0,0,0,0,0,0,0,0, "
+            "0,0,0,:excess_wt,:excess_pc "
+            ") ",
+            params,
+            STDLOG);
+      QryIns.get().Execute();
+    }
+  }
+}
+
+void get_trfer_stat(const PointId_t& point_id)
+{
+  QParams QryParams;
+  QryParams << QParam("point_id", otInteger, point_id.get());
+  TCachedQuery Qry("BEGIN "
+                   "  statist.get_trfer_stat(:point_id); "
+                   "END;",
+                   QryParams);
+
+  Qry.get().Execute();
+}
+
+void get_self_ckin_stat(const PointId_t& point_id)
+{
+  LogTrace(TRACE6) << __func__ << ": point_id=" << point_id;
+  DB::TQuery QryDel(PgOra::getRWSession("SELF_CKIN_STAT"), STDLOG);
+  QryDel.SQLText = "DELETE FROM self_ckin_stat "
+                   "WHERE point_id = :point_id ";
+  QryDel.CreateVariable("point_id", otInteger, point_id.get());
+  QryDel.Execute();
+
+  std::map<SelfCkinStatKey,SelfCkinStatData> self_ckin_stat_map;
+  DB::TQuery Qry(PgOra::getRWSession("ORACLE"), STDLOG);
+  Qry.SQLText =
+      "SELECT "
+      "  pax.pax_id, "
+      "  point_dep, "
+      "  web_clients.client_type, "
+      "  web_clients.desk, "
+      "  desk_grp.airp, "
+      "  web_clients.descr, "
+      "  pax.pers_type, "
+      "  tckin_pax_grp.grp_id AS tckin_grp_id, "
+      "  (SELECT 1 FROM bag2 "
+      "   WHERE bag2.grp_id=pax.grp_id AND pax.bag_pool_num IS NOT NULL AND "
+      "         ckin.get_bag_pool_pax_id(bag2.grp_id,bag2.bag_pool_num)=pax.pax_id AND "
+      "         (bag2.is_trfer=0 OR NVL(bag2.handmade,0)<>0) AND "
+      "         bag2.hall IS NOT NULL AND rownum<2) AS term_bag, "
+      "  (SELECT 1 FROM events_bilingual, stations "
+      "   WHERE events_bilingual.station=stations.desk AND "
+      "         stations.work_mode='Р' AND "
+      "         lang='RU' AND type IN (:evt_pax, :evt_pay) AND "
+      "         id1=pax_grp.point_dep AND id2=pax.reg_no AND rownum<2) AS term_ckin_service "
+      "FROM "
+      "  pax_grp, "
+      "  pax, "
+      "  tckin_pax_grp, "
+      "  web_clients, "
+      "  desks, "
+      "  desk_grp "
+      "WHERE "
+      "  pax_grp.point_dep = :point_id and "
+      "  pax_grp.status NOT IN ('E') and "
+      "  pax_grp.grp_id = pax.grp_id and "
+      "  pax_grp.user_id = web_clients.user_id and "
+      "  web_clients.client_type in ('KIOSK', 'WEB', 'MOBIL') and "
+      "  web_clients.desk = desks.code and "
+      "  desks.grp_id = desk_grp.grp_id and "
+      "  pax_grp.grp_id = tckin_pax_grp.grp_id(+) and "
+      "  tckin_pax_grp.seg_no(+) = 1 and "
+      "  tckin_pax_grp.transit_num(+) = 0 ";
+  Qry.CreateVariable("point_id", otInteger, point_id.get());
+  Qry.CreateVariable("evt_pax", otString, EncodeEventType(evtPax));
+  Qry.CreateVariable("evt_pay", otString, EncodeEventType(evtPay));
+  Qry.Execute();
+  for (;!Qry.Eof;Qry.Next()) {
+    const int term_bp = existsConfirmPrint(TDevOper::PrnBP, Qry.FieldAsInteger("pax_id")) ? 1 : 0;
+
+    const SelfCkinStatKey key = {
+      point_id,
+      Qry.FieldAsString("client_type"),
+      Qry.FieldAsString("desk"),
+      Qry.FieldAsString("airp"),
+      Qry.FieldAsString("descr")
+    };
+    const TPerson pers_type = DecodePerson(Qry.FieldAsString("pers_type").c_str());
+    const SelfCkinStatData data = {
+      pers_type == adult ? 1 : 0,
+      pers_type == child ? 1 : 0,
+      pers_type == baby  ? 1 : 0,
+      !Qry.FieldIsNULL("tckin_grp_id") ? 1 : 0,
+      term_bp,
+      Qry.FieldAsInteger("term_bag"),
+      Qry.FieldAsInteger("term_ckin_service")
+    };
+    auto res = self_ckin_stat_map.emplace(key, data);
+    const bool item_exists = !res.second;
+    if (item_exists) {
+      SelfCkinStatData& exists_data = res.first->second;
+      exists_data = exists_data + data;
+    }
+  }
+
+  for (const auto& item: self_ckin_stat_map) {
+    const SelfCkinStatKey& key = item.first;
+    const SelfCkinStatData& data = item.second;
+
+    DB::TQuery QryIns(PgOra::getRWSession("SELF_CKIN_STAT"), STDLOG);
+    QryIns.SQLText =
+        "INSERT INTO self_ckin_stat ( "
+        "  point_id, "
+        "  client_type, "
+        "  desk, "
+        "  desk_airp, "
+        "  descr, "
+        "  adult, "
+        "  child, "
+        "  baby, "
+        "  tckin, "
+        "  term_bp, "
+        "  term_bag, "
+        "  term_ckin_service "
+        ") VALUES ( "
+        "  :point_id, "
+        "  :client_type, "
+        "  :desk, "
+        "  :desk_airp, "
+        "  :descr, "
+        "  :adult, "
+        "  :child, "
+        "  :baby, "
+        "  :tckin, "
+        "  :term_bp, "
+        "  :term_bag, "
+        "  :term_ckin_service "
+        ")";
+    QryIns.CreateVariable("point_id", otInteger, point_id.get());
+    QryIns.CreateVariable("client_type", otString, key.client_type);
+    QryIns.CreateVariable("desk", otString, key.desk);
+    QryIns.CreateVariable("desk_airp", otString, key.airp);
+    QryIns.CreateVariable("descr", otString, key.descr);
+    QryIns.CreateVariable("adult", otInteger, data.adult);
+    QryIns.CreateVariable("child", otInteger, data.child);
+    QryIns.CreateVariable("baby", otInteger, data.baby);
+    QryIns.CreateVariable("tckin", otInteger, data.tckin);
+    QryIns.CreateVariable("term_bp", otInteger, data.term_bp);
+    QryIns.CreateVariable("term_bag", otInteger, data.term_bag);
+    QryIns.CreateVariable("term_ckin_service", otInteger, data.term_ckin_service);
+    QryIns.Execute();
+  }
+}
 
 void get_flight_stat(int point_id, bool final_collection)
 {
@@ -862,17 +1367,10 @@ void get_flight_stat(int point_id, bool final_collection)
      if (Qry.get().RowsProcessed()<=0) return; //статистику не собираем
    };
    {
-     QParams QryParams;
-     QryParams << QParam("point_id", otInteger, point_id);
-     TCachedQuery Qry("BEGIN "
-                      "  statist.get_stat(:point_id); "
-                      "  statist.get_trfer_stat(:point_id); "
-                      "  statist.get_self_ckin_stat(:point_id); "
-                      "END;",
-                      QryParams);
-
      timing.start("statist");
-     Qry.get().Execute();
+     get_stat(PointId_t(point_id));
+     get_trfer_stat(PointId_t(point_id));
+     get_self_ckin_stat(PointId_t(point_id));
      timing.finish("statist");
      typedef void  (*TStatFunction)(int);
      static const map<string, TStatFunction> m =
@@ -911,9 +1409,17 @@ void collectStatTask(const TTripTaskKey &task)
   {
     get_flight_stat(task.point_id, false);
   }
-  catch(const EOracleError &E) {
-    ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
-    ProgError(STDLOG,"SQL: %s",E.SQLText());
+  catch(const EOracleError &orae) {
+    if (orae.Nick != nullptr
+        && orae.File != nullptr)
+    {
+      ProgError(orae.Nick, orae.File, orae.Line,
+                "EOracleError %d: %s\nSQL: %s",
+                orae.Code,orae.what(),orae.SQLText());
+    } else {
+      ProgError(STDLOG,"EOracleError %d: %s\nSQL: %s",
+                orae.Code,orae.what(),orae.SQLText());
+    }
   }
   catch(std::exception &E)
   {

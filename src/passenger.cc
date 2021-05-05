@@ -2477,6 +2477,25 @@ std::list<TSimplePaxItem> TSimplePaxItem::getByGrpId(GrpId_t grp_id)
   return result;
 }
 
+std::list<TSimplePaxItem> TSimplePaxItem::getByDepPointId(const PointId_t& point_id)
+{
+  std::list<TSimplePaxItem> result;
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("PAX-PAX_GRP"),
+        "SELECT pax.* FROM pax, pax_grp "
+        "WHERE pax_grp.point_dep=:point_id "
+        "AND pax.grp_id = pax_grp.grp_id ",
+        QParams() << QParam("point_id", otInteger, point_id.get()),
+        STDLOG);
+  Qry.get().Execute();
+  for(; !Qry.get().Eof; Qry.get().Next()) {
+    TSimplePaxItem item;
+    item.fromDB(Qry.get());
+    result.push_back(item);
+  }
+  return result;
+}
+
 TPaxItem& TPaxItem::fromDB(TQuery &Qry)
 {
   clear();
@@ -3149,6 +3168,30 @@ TSimplePaxGrpItem& TSimplePaxGrpItem::fromDB(TQuery &Qry)
   return *this;
 }
 
+TSimplePaxGrpItem& TSimplePaxGrpItem::fromDB(DB::TQuery &Qry)
+{
+  clear();
+  id=Qry.FieldAsInteger("grp_id");
+  point_dep=Qry.FieldAsInteger("point_dep");
+  point_arv=Qry.FieldAsInteger("point_arv");
+  airp_dep=Qry.FieldAsString("airp_dep");
+  airp_arv=Qry.FieldAsString("airp_arv");
+  cl=Qry.FieldAsString("class");
+  status=DecodePaxStatus(Qry.FieldAsString("status").c_str());
+  if (!Qry.FieldIsNULL("hall"))
+    hall=Qry.FieldAsInteger("hall");
+  if (Qry.FieldAsInteger("bag_refuse")!=0)
+    bag_refuse=ASTRA::refuseAgentError;
+  trfer_confirm=Qry.FieldAsInteger("trfer_confirm")!=0;
+  is_mark_norms=Qry.FieldAsInteger("pr_mark_norms")!=0;
+  if (Qry.GetFieldIndex("client_type")>=0)
+    client_type = DecodeClientType(Qry.FieldAsString("client_type").c_str());
+  tid=Qry.FieldAsInteger("tid");
+
+  baggage_pc=Qry.FieldAsInteger("piece_concept")!=0;
+  return *this;
+}
+
 bool TSimplePaxGrpItem::getByGrpId(int grp_id)
 {
   clear();
@@ -3171,6 +3214,23 @@ bool TSimplePaxGrpItem::getByPaxId(int pax_id)
   return true;
 }
 
+std::list<TSimplePaxGrpItem> TSimplePaxGrpItem::getByDepPointId(const PointId_t& point_id)
+{
+  std::list<TSimplePaxGrpItem> result;
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("PAX_GRP"),
+        "SELECT * FROM pax_grp "
+        "WHERE point_dep=:point_id ",
+        QParams() << QParam("point_id", otInteger, point_id.get()),
+        STDLOG);
+  Qry.get().Execute();
+  for(; !Qry.get().Eof; Qry.get().Next()) {
+    TSimplePaxGrpItem item;
+    item.fromDB(Qry.get());
+    result.push_back(item);
+  }
+  return result;
+}
 
 ASTRA::TCompLayerType TSimplePaxGrpItem::getCheckInLayerType() const
 {

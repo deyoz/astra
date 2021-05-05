@@ -140,7 +140,7 @@ class TPrPrint {
 
         TPaxMap paxs;
 
-        void fromDB(int grp_id, int pax_id, TQuery &Qry);
+        void fromDB(int grp_id, int pax_id, DB::TQuery &Qry);
         bool get_pr_print(int pax_id);
     public:
         void get_pr_print(int grp_id, int pax_id, bool &pr_bp_print, bool &pr_bi_print);

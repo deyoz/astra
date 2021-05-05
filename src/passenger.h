@@ -799,6 +799,7 @@ class TSimplePaxItem
     bool getByPaxId(int pax_id, TDateTime part_key = ASTRA::NoExists);
     bool getCrsByPaxId(PaxId_t pax_id, bool skip_deleted = false);
     static std::list<TSimplePaxItem> getByGrpId(GrpId_t grp_id);
+    static std::list<TSimplePaxItem> getByDepPointId(const PointId_t& point_id);
     std::string full_name() const;
     bool isCBBG() const;
     bool api_doc_applied() const;
@@ -1078,10 +1079,12 @@ class TSimplePaxGrpItem
       return grpCategory()==TPaxGrpCategory::UnnacompBag;
     }
     TSimplePaxGrpItem& fromDB(TQuery &Qry);
+    TSimplePaxGrpItem& fromDB(DB::TQuery &Qry);
     const TSimplePaxGrpItem& toXML(xmlNodePtr node) const;
     const TSimplePaxGrpItem& toEmulXML(xmlNodePtr emulReqNode, xmlNodePtr emulSegNode) const;
     bool getByGrpId(int grp_id);
     bool getByPaxId(int pax_id);
+    static std::list<TSimplePaxGrpItem> getByDepPointId(const PointId_t& point_id);
 
     bool allowToBagCheckIn() const { return trfer_confirm; }
 

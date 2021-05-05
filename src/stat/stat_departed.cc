@@ -117,6 +117,24 @@ void arx_departed_flt(DB::TQuery &Qry, TEncodedFileStream &of)
     }
 }
 
+bool existsConfirmPrint(TDevOper::Enum op_type, int pax_id)
+{
+    DB::TCachedQuery Qry(
+            PgOra::getROSession("CONFIRM_PRINT"),
+            "SELECT 1 "
+            "FROM confirm_print "
+            "WHERE pax_id=:pax_id "
+            "AND voucher IS NULL "
+            "AND pr_print<>0 "
+            "AND op_type = :op_type "
+            "AND client_type='TERM' "
+            "FETCH FIRST 1 ROWS ONLY ",
+            QParams() << QParam("pax_id", otInteger, pax_id) << QParam("op_type", otString, DevOperTypes().encode(op_type)),
+            STDLOG);
+    Qry.get().Execute();
+    return (not Qry.get().Eof);
+}
+
 void departed_flt(DB::TQuery &Qry, TEncodedFileStream &of)
 {
     int point_id = Qry.FieldAsInteger("point_id");
@@ -144,13 +162,9 @@ void departed_flt(DB::TQuery &Qry, TEncodedFileStream &of)
         "   pax.reg_no, \n"
         "   pax_grp.client_type, \n"
         "   pax_grp.airp_arv, \n"
-        "   (SELECT 1 FROM confirm_print cnf  "
-        "   WHERE " OP_TYPE_COND("op_type")" and cnf.pax_id=pax.pax_id AND voucher is null and"
-        "   client_type='TERM' AND pr_print<>0 AND rownum<2) AS term_bp, "
         "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,NULL,'list',NULL,0) AS seat_no, "
         "   NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_amount, \n"
         "   NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_weight \n";
-        paxQry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP));
     SQLText +=  "from pax, pax_grp \n"
                 "where pax_grp.point_dep = :point_id and \n"
                 "      pax_grp.grp_id = pax.grp_id \n";
@@ -185,6 +199,8 @@ void departed_flt(DB::TQuery &Qry, TEncodedFileStream &of)
 
         string pnr_addr;
         pnr_addr=TPnrAddrs().firstAddrByPaxId(paxQry.FieldAsInteger("pax_id"), TPnrAddrInfo::AddrAndAirline);
+
+        const bool term_bp = existsConfirmPrint(TDevOper::PrnBP, paxQry.FieldAsInteger("pax_id"));
 
         CheckIn::TPaxDocItem doc;
         LoadPaxDoc(part_key, paxQry.FieldAsInteger("pax_id"), doc);
@@ -227,7 +243,7 @@ void departed_flt(DB::TQuery &Qry, TEncodedFileStream &of)
         // Способ регистрации
         of << paxQry.FieldAsString("client_type") << delim;
         // Печать ПТ на стойке
-        of << (paxQry.FieldAsInteger("term_bp") == 0 ? "НЕТ" : "ДА") << endl;
+        of << (!term_bp ? "НЕТ" : "ДА") << endl;
     }
 }
 

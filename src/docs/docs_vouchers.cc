@@ -8,7 +8,7 @@ using namespace std;
 using namespace ASTRA;
 using namespace AstraLocale;
 
-void TVouchers::TItems::add(TQuery &Qry, bool pr_del)
+void TVouchers::TItems::add(DB::TQuery &Qry, bool pr_del)
 {
     Qry.Execute();
     for(; not Qry.Eof; Qry.Next()) {
@@ -31,7 +31,32 @@ void TVouchers::TPaxInfo::clear()
     pr_del = false;
 }
 
-void TVouchers::TPaxInfo::fromDB(TQuery &Qry, bool pr_del)
+TVouchers::TPaxInfo::TPaxInfo(const CheckIn::TSimplePaxItem& pax,
+                              const string& voucher)
+{
+  clear();
+  if (pax.reg_no >= 0) {
+      pers_type = EncodePerson(pax.pers_type);
+      reg_no = pax.reg_no;
+      ticket_no = pax.tkn.no;
+      if (not pax.tkn.coupon != ASTRA::NoExists and pax.tkn.coupon > 0) {
+          coupon_no = pax.tkn.coupon;
+      }
+      std::set<std::string> rems;
+      REPORT_PAX_REMS::get_rem_codes(pax.paxId(), pax.pers_type, pax.seats,
+                                     pax.tkn, LANG_EN, rems);
+      for(set<string>::iterator i = rems.begin(); i != rems.end(); i++) {
+          if(rem_codes.size() != 0)
+              rem_codes += " ";
+          rem_codes += *i;
+      }
+  }
+  full_name = pax.full_name();
+  this->voucher = voucher;
+  this->pr_del = false;
+}
+
+void TVouchers::TPaxInfo::fromDB(DB::TQuery &Qry, bool pr_del)
 {
     clear();
     if(Qry.Eof) return;
@@ -154,77 +179,77 @@ const TVouchers &TVouchers::fromDB(int point_id)
 
 const TVouchers &TVouchers::fromDB(int point_id, int grp_id)
 {
-    tst();
     clear();
-    this->point_id = point_id;
-    string SQLText =
-        "select "
-        "    confirm_print.pax_id, "
-        "    pax.surname||' '||pax.name AS full_name, "
-        "    pax.pers_type, "
-        "    pax.reg_no, "
-        "    pax.ticket_no, "
-        "    pax.coupon_no, "
-        "    pax.ticket_rem, "
-        "    pax.ticket_confirm, "
-        "    pax.seats, "
-        "    confirm_print.voucher, "
-        "    count(*) total "
-        "from ";
-    if(grp_id == NoExists)
-        SQLText += "    pax_grp, ";
-    SQLText +=
-        "    pax, "
-        "    confirm_print "
-        "where ";
-    if(grp_id == NoExists)
-        SQLText +=
-            "    pax_grp.point_dep = :id and "
-            "    pax_grp.grp_id = pax.grp_id and ";
-    else
-        SQLText +=
-            "    pax.grp_id = :id and "
-            "    pax.refuse = '€' and ";
-    SQLText +=
-        "    pax.pax_id = confirm_print.pax_id and "
-        "    confirm_print.voucher is not null and "
-        "    confirm_print.pr_print <> 0 "
-        "group by "
-        "    confirm_print.pax_id, "
-        "    pax.surname||' '||pax.name, "
-        "    pax.pers_type, "
-        "    pax.reg_no, "
-        "    pax.ticket_no, "
-        "    pax.coupon_no, "
-        "    pax.ticket_rem, "
-        "    pax.ticket_confirm, "
-        "    pax.seats, "
-        "    confirm_print.voucher ";
-    TCachedQuery Qry(SQLText, QParams() << QParam("id", otInteger, (grp_id == NoExists ? point_id : grp_id)));
-    items.add(Qry.get(), false);
+    const std::list<CheckIn::TSimplePaxItem> paxes =
+        grp_id == ASTRA::NoExists
+        ? CheckIn::TSimplePaxItem::getByDepPointId(PointId_t(point_id))
+        : CheckIn::TSimplePaxItem::getByGrpId(GrpId_t(grp_id));
+    std::map<PaxId_t, CheckIn::TSimplePaxItem> pax_map;
+    for (const CheckIn::TSimplePaxItem& pax: paxes) {
+        if (pax.refuse != "A") {
+          continue;
+        }
+        pax_map.emplace(PaxId_t(pax.paxId()), pax);
+    }
+
+    DB::TQuery QryConfirm(PgOra::getROSession("CONFIRM_PRINT"), STDLOG);
+    QryConfirm.SQLText = "SELECT pax_id, voucher "
+                         "FROM confirm_print "
+                         "WHERE voucher IS NOT NULL "
+                         "AND pr_print <> 0 ";
+    if (grp_id == ASTRA::NoExists) {
+        QryConfirm.SQLText += "AND point_id = :point_id ";
+        QryConfirm.CreateVariable("point_id", otInteger, point_id);
+    } else {
+        QryConfirm.SQLText += "AND grp_id = :grp_id ";
+        QryConfirm.CreateVariable("grp_id", otInteger, grp_id);
+    }
+    QryConfirm.Execute();
+
+    for(; !QryConfirm.Eof; QryConfirm.Next()) {
+        const PaxId_t pax_id(QryConfirm.FieldAsInteger("pax_id"));
+        auto pax_pos = pax_map.find(pax_id);
+        if (pax_pos == pax_map.end()) {
+            continue;
+        }
+        const CheckIn::TSimplePaxItem& pax = pax_pos->second;
+        const std::string& voucher = QryConfirm.FieldAsString("voucher");
+        auto item_pos = items.emplace(TPaxInfo(pax, voucher), 1);
+        const bool item_exists = !item_pos.second;
+        if (item_exists) {
+            int& total = item_pos.first->second;
+            total += 1;
+        }
+    }
     tst();
-    if(grp_id == NoExists) {
+    if (grp_id == ASTRA::NoExists) {
         tst();
-        TCachedQuery delVoQry("select * from del_vo where point_id = :point_id",
-                QParams() << QParam("point_id", otInteger, point_id));
+        DB::TCachedQuery delVoQry(
+              PgOra::getROSession("DEL_VO"),
+              "SELECT * FROM del_vo "
+              "WHERE point_id = :point_id",
+              QParams() << QParam("point_id", otInteger, point_id),
+              STDLOG);
         delVoQry.get().Execute();
         items.add(delVoQry.get(), true);
     tst();
-        TCachedQuery unregQry(
-                "select "
-                "   surname||' '||name AS full_name, "
-                "   voucher, "
-                "   count(*) total "
-                "from "
-                "  confirm_print_vo_unreg "
-                "where "
-                "   point_id = :point_id and "
-                "   pr_print <> 0 "
-                "group by "
-                "   surname, "
-                "   name, "
-                "   voucher ",
-                QParams() << QParam("point_id", otInteger, point_id));
+        DB::TCachedQuery unregQry(
+              PgOra::getROSession("CONFIRM_PRINT_VO_UNREG"),
+              "SELECT "
+              "   surname||' '||name AS full_name, "
+              "   voucher, "
+              "   count(*) total "
+              "FROM "
+              "  confirm_print_vo_unreg "
+              "WHERE "
+              "   point_id = :point_id AND "
+              "   pr_print <> 0 "
+              "GROUP BY "
+              "   surname, "
+              "   name, "
+              "   voucher ",
+              QParams() << QParam("point_id", otInteger, point_id),
+              STDLOG);
         unregQry.get().Execute();
         items.add(unregQry.get(), false);
     }

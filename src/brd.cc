@@ -443,6 +443,30 @@ bool PaxUpdate(int point_id, int pax_id, int tid, bool mark, bool pr_exam_with_b
   return true;
 }
 
+std::string get_bp_seat_no_lat(TDevOper::Enum op_type, int pax_id)
+{
+    DB::TCachedQuery Qry(
+            PgOra::getROSession("CONFIRM_PRINT"),
+            "SELECT confirm_print.seat_no_lat "
+            "FROM confirm_print, "
+            "     (SELECT MAX(time_print) AS time_print FROM confirm_print "
+            "      WHERE pax_id=:pax_id "
+            "      AND voucher IS NULL "
+            "      AND pr_print<>0 "
+            "      AND op_type = :op_type) a "
+            "WHERE confirm_print.time_print=a.time_print "
+            "AND confirm_print.pax_id=:pax_id "
+            "AND voucher IS NULL "
+            "AND confirm_print.op_type = :op_type ",
+            QParams() << QParam("pax_id", otInteger, pax_id) << QParam("op_type", otString, DevOperTypes().encode(op_type)),
+            STDLOG);
+    Qry.get().Execute();
+    std::string result;
+    if(not Qry.get().Eof)
+        result = Qry.get().FieldAsString("seat_no_lat");
+    return result;
+}
+
 bool CheckSeat(int pax_id, const string& scan_data)
 {
     string scan_seat_no;
@@ -464,23 +488,21 @@ bool CheckSeat(int pax_id, const string& scan_data)
     if (scan_seat_no.empty())
     {
       //пытаемся сравнить с последним номером места, который отдали на печать
-      TQuery Qry(&OraSession);
+      DB::TQuery Qry(PgOra::getROSession("PAX-salons.get_seat_no"), STDLOG);
       Qry.SQLText =
-        "SELECT salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,NULL,NULL,'list',1,1) AS curr_seat_no_list_lat, "
-        "       confirm_print.seat_no_lat AS bp_seat_no_lat "
-        "FROM confirm_print,pax, "
-        "     (SELECT MAX(time_print) AS time_print FROM confirm_print WHERE pax_id=:pax_id AND voucher is null and pr_print<>0 and " OP_TYPE_COND("op_type")") a "
-        "WHERE confirm_print.time_print=a.time_print AND confirm_print.pax_id=:pax_id AND voucher is null and "
-        "      " OP_TYPE_COND("confirm_print.op_type")" and "
-        "      pax.pax_id=:pax_id";
-      Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP));
+        "SELECT salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,NULL,NULL,'list',1,1) AS curr_seat_no_list_lat "
+        "FROM pax "
+        "WHERE pax.pax_id=:pax_id";
       Qry.CreateVariable("pax_id", otInteger, pax_id);
       Qry.Execute();
       if (!Qry.Eof)
       {
-        if (!Qry.FieldIsNULL("bp_seat_no_lat") &&
-            strcmp(Qry.FieldAsString("curr_seat_no_list_lat"), Qry.FieldAsString("bp_seat_no_lat"))!=0)
+        const std::string bp_seat_no_lat = get_bp_seat_no_lat(TDevOper::PrnBP, pax_id);
+        if (!bp_seat_no_lat.empty() &&
+            bp_seat_no_lat != Qry.FieldAsString("curr_seat_no_list_lat"))
+        {
           return false;
+        }
       }
     }
     else

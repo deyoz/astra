@@ -329,9 +329,6 @@ const ASTRA::TDocTrickyGenders& DocTrickyGenders();
 const std::string TIMEOUT_OCCURRED = "Timeout occurred";
 const std::string ACCESS_DENIED = "Access denied";
 
-// TODO: get rid of this outrageous define
-#define OP_TYPE_COND(COL) "nvl(" COL", :op_type) = :op_type" // c++11 standard requires space before identifier: ..." COL"...
-
 class DCSAction
 {
   public:

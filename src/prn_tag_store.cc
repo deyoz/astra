@@ -747,89 +747,6 @@ string TPrnTagStore::get_field(std::string name, size_t len, const std::string &
     }
 }
 
-void add_part(string &tag, std::string &part1, std::string &part2)
-{
-    part1 += tag + ", ";
-    part2 += ":" + tag + ", ";
-}
-
-class TPrnQryBuilder {
-    private:
-        TQuery &Qry;
-        string part1, part2;
-        void add_parts(string name);
-    public:
-        TPrnQryBuilder(TQuery &aQry);
-        string text();
-        void add_part(string name, int value);
-        void add_part(string name, string value);
-        void add_part(string name, TDateTime value);
-};
-
-string TPrnQryBuilder::text()
-{
-    return part1 + part2 +
-        "   ); "
-        "end;";
-}
-void TPrnQryBuilder::add_parts(string name)
-{
-    part1 += ", " + name;
-    part2 += ", :" + name;
-}
-
-void TPrnQryBuilder::add_part(string name, int value)
-{
-    if(value == NoExists)
-        Qry.CreateVariable(name, otInteger, FNull);
-    else
-        Qry.CreateVariable(name, otInteger, value);
-    add_parts(name);
-}
-
-void TPrnQryBuilder::add_part(string name, TDateTime value)
-{
-    Qry.CreateVariable(name, otDate, value);
-    add_parts(name);
-}
-
-void TPrnQryBuilder::add_part(string name, string value)
-{
-    Qry.CreateVariable(name, otString, value);
-    add_parts(name);
-}
-
-TPrnQryBuilder::TPrnQryBuilder(TQuery &aQry): Qry(aQry)
-{
-    part1 =
-        "begin "
-        "   delete from confirm_print where "
-        "       pax_id = :pax_id and "
-        "       pr_print = 0 and "
-        "       desk=:desk and "
-        "       (voucher = :voucher OR voucher IS NULL AND :voucher IS NULL) and "
-        "       (emd_no = :emd_no OR emd_no IS NULL AND :emd_no IS NULL) and "
-        "       (emd_coupon = :emd_coupon OR emd_coupon IS NULL AND :emd_coupon IS NULL) and "
-        OP_TYPE_COND("op_type")"; "
-        "   insert into confirm_print( "
-        "       pax_id, "
-        "       time_print, "
-        "       pr_print, "
-        "       desk, "
-        "       client_type, "
-        "       from_scan_code, "
-        "       op_type ";
-    part2 =
-        "   ) values( "
-        "       :pax_id, "
-        "       :now_utc, "
-        "       :pr_print, "
-        "       :desk, "
-        "       :client_type, "
-        "       :from_scan_code, "
-        "       :op_type ";
-};
-
 TDateTime get_date_from_bcbp(int julian_date)
 {
     //вообще-то здесь нужно различать TDirection
@@ -909,16 +826,38 @@ void TPrnTagStore::confirm_print(bool pr_print, TDevOper::Enum op_type)
     if (isTestPaxId(pax_id)) return;
     if(not prn_test_tags.items.empty())
         throw Exception("confirm_print can't be called in test mode");
-    TQuery Qry(&OraSession);
-    TPrnQryBuilder prnQry(Qry);
-    Qry.CreateVariable("pax_id", otInteger, pax_id);
-    Qry.CreateVariable("now_utc", otDate, time_print.val);
-    // Если печать с киоска, подтверждаем сразу.
-    Qry.CreateVariable("pr_print", otInteger, (pr_print ? pr_print : TReqInfo::Instance()->client_type == ctKiosk));
-    Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
-    Qry.CreateVariable("client_type", otString, EncodeClientType(TReqInfo::Instance()->client_type));
-    Qry.CreateVariable("from_scan_code", otInteger, from_scan_code);
-    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
+    if(grpInfo.point_dep == ASTRA::NoExists)
+        throw Exception("confirm_print point_id not found");
+    if(grpInfo.grp_id == ASTRA::NoExists)
+        throw Exception("confirm_print grp_id not found");
+
+    QParams paramsDel;
+    paramsDel << QParam("pax_id", otInteger, pax_id)
+              << QParam("desk", otString, TReqInfo::Instance()->desk.code)
+              << QParam("op_type", otString, DevOperTypes().encode(op_type))
+              << QParam("voucher", otString, (tag_list[TAG::VOUCHER_CODE].TagInfo.empty()
+                        ? string()
+                        : boost::any_cast<string>(tag_list[TAG::VOUCHER_CODE].TagInfo)))
+              << QParam("emd_no", otString, (tag_list[TAG::EMD_NO].TagInfo.empty()
+                        ? string()
+                        : boost::any_cast<string>(tag_list[TAG::EMD_NO].TagInfo)))
+              << (tag_list[TAG::EMD_COUPON].TagInfo.empty()
+                  ? QParam("emd_coupon", otInteger, FNull)
+                  : QParam("emd_coupon", otInteger, boost::any_cast<int>(tag_list[TAG::EMD_COUPON].TagInfo)));
+
+    QParams paramsIns = paramsDel;
+    paramsIns << QParam("grp_id", otInteger, grpInfo.grp_id)
+              << QParam("point_id", otInteger, grpInfo.point_dep)
+              << QParam("now_utc", otDate, time_print.val)
+                 // Если печать с киоска, подтверждаем сразу.
+              << QParam("pr_print", otInteger, (pr_print ? pr_print : TReqInfo::Instance()->client_type == ctKiosk))
+              << QParam("client_type", otString, EncodeClientType(TReqInfo::Instance()->client_type))
+              << QParam("from_scan_code", otInteger, from_scan_code);
+
+    std::string fields  = "pax_id, grp_id, point_id, time_print, pr_print, desk, "
+                          "client_type, from_scan_code, op_type, voucher, emd_no, emd_coupon";
+    std::string holders = ":pax_id, :grp_id, :point_id, :now_utc, :pr_print, :desk, "
+                          ":client_type, :from_scan_code, :op_type, :voucher, :emd_no, :emd_coupon";
 
     if(
             tag_list[TAG::SEAT_NO].processed or
@@ -937,31 +876,41 @@ void TPrnTagStore::confirm_print(bool pr_print, TDevOper::Enum op_type)
         if(tag_list[TAG::LIST_SEAT_NO].processed)
             seat_no_lat &= tag_list[TAG::LIST_SEAT_NO].english_only;
 
-        prnQry.add_part("seat_no", get_fmt_seat("list", seat_no_lat));
-        prnQry.add_part("seat_no_lat", get_fmt_seat("list", true));
+        fields += ", seat_no, seat_no_lat";
+        holders += ", :seat_no, :seat_no_lat";
+        paramsIns << QParam("seat_no", otString, get_fmt_seat("list", seat_no_lat))
+               << QParam("seat_no_lat", otString, get_fmt_seat("list", true));
     }
     if(tag_list[TAG::BI_HALL].processed) {
-        prnQry.add_part("hall_id", BIHallInfo.hall_id);
+        fields += ", hall_id";
+        holders += ", :hall_id";
+        paramsIns << QParam("hall_id", otInteger, BIHallInfo.hall_id);
     }
 
-    prnQry.add_part("voucher",
-            (tag_list[TAG::VOUCHER_CODE].TagInfo.empty() ? string() :
-             boost::any_cast<string>(tag_list[TAG::VOUCHER_CODE].TagInfo)));
-
-    prnQry.add_part("emd_no",
-            (tag_list[TAG::EMD_NO].TagInfo.empty() ? string() :
-             boost::any_cast<string>(tag_list[TAG::EMD_NO].TagInfo)));
-
-    prnQry.add_part("emd_coupon",
-            (tag_list[TAG::EMD_COUPON].TagInfo.empty() ? NoExists :
-             boost::any_cast<int>(tag_list[TAG::EMD_COUPON].TagInfo)));
-
-    Qry.SQLText = prnQry.text();
-
     try {
-        Qry.Execute();
+        DB::TCachedQuery QryDel(PgOra::getRWSession("CONFIRM_PRINT"),
+                                "DELETE FROM confirm_print "
+                                "WHERE pax_id = :pax_id "
+                                "AND pr_print = 0 "
+                                "AND desk = :desk "
+                                "AND (voucher = :voucher OR voucher IS NULL AND :voucher IS NULL) "
+                                "AND (emd_no = :emd_no OR emd_no IS NULL AND :emd_no IS NULL) "
+                                "AND (emd_coupon = :emd_coupon OR emd_coupon IS NULL AND :emd_coupon IS NULL) "
+                                "AND op_type = :op_type ",
+                                paramsDel,
+                                STDLOG);
+        QryDel.get().Execute();
+        DB::TCachedQuery QryIns(PgOra::getRWSession("CONFIRM_PRINT"),
+                                "INSERT INTO confirm_print( "
+                                + fields +
+                                ") VALUES ( "
+                                + holders +
+                                ")",
+                                paramsIns,
+                                STDLOG);
+        QryIns.get().Execute();
     } catch(EOracleError &E) {
-        if(E.Code == 1) {
+        if(E.Code == CERR_U_CONSTRAINT) {
             if(TReqInfo::Instance()->client_type == ctTerm and op_type == TDevOper::PrnBP)
                 throw UserException("MSG.PRINT.BP_ALREADY_PRODUCED");
         } else

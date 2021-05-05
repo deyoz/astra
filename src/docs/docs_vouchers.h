@@ -3,6 +3,7 @@
 
 #include <map>
 #include "oralib.h"
+#include "passenger.h"
 
 struct TVouchers {
 
@@ -18,13 +19,14 @@ struct TVouchers {
 
         void clear();
 
-        TPaxInfo(TQuery &Qry, bool pr_del) { fromDB(Qry, pr_del); }
-        void fromDB(TQuery &Qry, bool pr_del);
+        TPaxInfo(DB::TQuery &Qry, bool pr_del) { fromDB(Qry, pr_del); }
+        TPaxInfo(const CheckIn::TSimplePaxItem& pax, const std::string& voucher);
+        void fromDB(DB::TQuery &Qry, bool pr_del);
         bool operator < (const TPaxInfo &item) const;
     };
 
     struct TItems: public std::map<TPaxInfo, int> {
-        void add(TQuery &Qry, bool pr_del);
+        void add(DB::TQuery &Qry, bool pr_del);
     };
 
     int point_id;

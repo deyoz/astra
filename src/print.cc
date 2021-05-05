@@ -1410,8 +1410,13 @@ void PrintInterface::ConfirmPrintUnregVO(
         const std::vector<BPPax> &paxs,
         CheckIn::UserException &ue)
 {
-    TCachedQuery unregVOConfirmQry("update confirm_print_vo_unreg set pr_print = 1 where id = :pax_id ",
-            QParams() << QParam("pax_id", otInteger));
+    DB::TCachedQuery unregVOConfirmQry(
+            PgOra::getRWSession("CONFIRM_PRINT_VO_UNREG"),
+            "UPDATE confirm_print_vo_unreg "
+            "SET pr_print = 1 "
+            "WHERE id = :pax_id ",
+            QParams() << QParam("pax_id", otInteger),
+            STDLOG);
     for (std::vector<BPPax>::const_iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
         try
         {
@@ -1438,32 +1443,40 @@ void PrintInterface::ConfirmPrintBP(TDevOper::Enum op_type,
           "UPDATE bi_stat SET pr_print = 1 WHERE pax_id = :pax_id",
           QParams() << QParam("pax_id", otInteger));
 
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "BEGIN "
-        "  UPDATE confirm_print "
-        "  SET pr_print = 1 "
-        "  WHERE "
-        "   pax_id = :pax_id AND "
-        "   time_print = :time_print AND "
-        "   pr_print = 0 AND "
-        "   desk=:desk and "
-        "   (voucher = :voucher OR voucher IS NULL AND :voucher IS NULL) and "
-        "   (emd_no = :emd_no OR emd_no IS NULL AND :emd_no IS NULL) and "
-        "   (emd_coupon = :emd_coupon OR emd_coupon IS NULL AND :emd_coupon IS NULL) and "
-        OP_TYPE_COND("op_type")
-        "  RETURNING seat_no INTO :seat_no; "
-        "  :rows:=SQL%ROWCOUNT; "
-        "END;";
-    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
-    Qry.DeclareVariable("rows", otInteger);
-    Qry.DeclareVariable("seat_no", otString);
-    Qry.DeclareVariable("pax_id", otInteger);
-    Qry.DeclareVariable("time_print", otDate);
-    Qry.DeclareVariable("voucher", otString);
-    Qry.DeclareVariable("emd_no", otString);
-    Qry.DeclareVariable("emd_coupon", otInteger);
-    Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
+    QParams params;
+    params << QParam("op_type", otString, DevOperTypes().encode(op_type))
+           << QParam("pax_id", otInteger)
+           << QParam("time_print", otDate)
+           << QParam("voucher", otString)
+           << QParam("emd_no", otString)
+           << QParam("emd_coupon", otInteger)
+           << QParam("desk", otString, TReqInfo::Instance()->desk.code);
+
+    const std::string sqlWhere =
+        "WHERE pax_id = :pax_id "
+        "AND time_print = :time_print "
+        "AND pr_print = 0 "
+        "AND desk=:desk "
+        "AND (voucher = :voucher OR voucher IS NULL AND :voucher IS NULL) "
+        "AND (emd_no = :emd_no OR emd_no IS NULL AND :emd_no IS NULL) "
+        "AND (emd_coupon = :emd_coupon OR emd_coupon IS NULL AND :emd_coupon IS NULL) "
+        "AND op_type = :op_type ";
+
+    DB::TCachedQuery Qry(
+          PgOra::getRWSession("CONFIRM_PRINT"),
+          "SELECT seat_no FROM confirm_print "
+           + sqlWhere +
+          "FOR UPDATE ",
+          params,
+          STDLOG);
+
+    DB::TCachedQuery QryUpd(
+          PgOra::getRWSession("CONFIRM_PRINT"),
+          "UPDATE confirm_print "
+          "SET pr_print = 1 "
+          + sqlWhere,
+          params,
+          STDLOG);
     for (std::vector<BPPax>::const_iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
     {
         try
@@ -1471,18 +1484,28 @@ void PrintInterface::ConfirmPrintBP(TDevOper::Enum op_type,
             BIStatQry.get().SetVariable("pax_id", iPax->pax_id);
             BIStatQry.get().Execute();
 
-            Qry.SetVariable("pax_id", iPax->pax_id);
-            Qry.SetVariable("time_print", iPax->time_print);
-            Qry.SetVariable("voucher", iPax->voucher);
-            Qry.SetVariable("emd_no", iPax->emd_no);
-            if(iPax->emd_coupon == NoExists)
-                Qry.SetVariable("emd_coupon", FNull);
-            else
-                Qry.SetVariable("emd_coupon", iPax->emd_coupon);
-            Qry.Execute();
-            if (Qry.GetVariableAsInteger("rows")==0)
+            Qry.get().SetVariable("pax_id", iPax->pax_id);
+            Qry.get().SetVariable("time_print", iPax->time_print);
+            Qry.get().SetVariable("voucher", iPax->voucher);
+            Qry.get().SetVariable("emd_no", iPax->emd_no);
+            QryUpd.get().SetVariable("pax_id", iPax->pax_id);
+            QryUpd.get().SetVariable("time_print", iPax->time_print);
+            QryUpd.get().SetVariable("voucher", iPax->voucher);
+            QryUpd.get().SetVariable("emd_no", iPax->emd_no);
+            if(iPax->emd_coupon == ASTRA::NoExists) {
+                Qry.get().SetVariable("emd_coupon", FNull);
+                QryUpd.get().SetVariable("emd_coupon", FNull);
+            } else {
+                Qry.get().SetVariable("emd_coupon", iPax->emd_coupon);
+                QryUpd.get().SetVariable("emd_coupon", iPax->emd_coupon);
+            }
+
+            Qry.get().Execute();
+            QryUpd.get().Execute();
+            if (QryUpd.get().RowsProcessed() == 0) {
                 throw AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
-            string seat_no = Qry.GetVariableAsString("seat_no");
+            }
+            string seat_no = Qry.get().FieldAsString("seat_no");
 
             LEvntPrms params;
             params << PrmSmpl<std::string>("full_name", iPax->full_name);
@@ -1559,8 +1582,13 @@ void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         "WHERE pax.grp_id = pax_grp.grp_id AND pax_id=:pax_id";
     PaxQry.DeclareVariable("pax_id",otInteger);
 
-    TCachedQuery unregVOConfirmQry("   select point_id, surname||' '||name full_name from confirm_print_vo_unreg where id = :pax_id ",
-            QParams() << QParam("pax_id", otInteger));
+    DB::TCachedQuery unregVOConfirmQry(
+          PgOra::getROSession("CONFIRM_PRINT_VO_UNREG"),
+          "SELECT point_id, surname, name "
+          "FROM confirm_print_vo_unreg "
+          "WHERE id = :pax_id ",
+          QParams() << QParam("pax_id", otInteger),
+          STDLOG);
 
     std::vector<BPPax> paxs, unreg_vo;
     xmlNodePtr curNode = NodeAsNode("passengers/pax", reqNode);
@@ -1584,7 +1612,10 @@ void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             unregVOConfirmQry.get().Execute();
             if(not unregVOConfirmQry.get().Eof) {
                 pax.point_dep = unregVOConfirmQry.get().FieldAsInteger("point_id");
-                pax.full_name = unregVOConfirmQry.get().FieldAsString("full_name");
+                pax.full_name =
+                    unregVOConfirmQry.get().FieldAsString("surname")
+                    + " "
+                    + unregVOConfirmQry.get().FieldAsString("name");
                 unreg_vo.push_back(pax);
             }
             continue;
@@ -2580,31 +2611,30 @@ void PrintInterface::GetPrintDataVOUnregistered(
             << QParam("desk", otString, TReqInfo::Instance()->desk.code)
             // В версиях ранее VO_STAT_VERSION печать подтверждается сразу
             << QParam("pr_print", otInteger, not TReqInfo::Instance()->desk.compatible(VO_STAT_VERSION));
-        TCachedQuery confirmQry(
-                "begin "
-                "  insert into confirm_print_vo_unreg ( "
-                "     id, "
-                "     time_print, "
-                "     point_id, "
-                "     scd_out, "
-                "     surname, "
-                "     name, "
-                "     voucher, "
-                "     desk, "
-                "     pr_print "
-                "  ) values ( "
-                "     id__seq.nextval, "
-                "     :time_print, "
-                "     :point_id, "
-                "     :scd_out, "
-                "     :surname, "
-                "     :name, "
-                "     :voucher, "
-                "     :desk, "
-                "     :pr_print "
-                "  ) returning id into :id; "
-                "end; ",
-            qryParams);
+        DB::TCachedQuery confirmQry(
+              PgOra::getRWSession("CONFIRM_PRINT_VO_UNREG"),
+              "INSERT INTO confirm_print_vo_unreg ( "
+              "   id, "
+              "   time_print, "
+              "   point_id, "
+              "   scd_out, "
+              "   surname, "
+              "   name, "
+              "   voucher, "
+              "   desk, "
+              "   pr_print "
+              ") VALUES ( "
+              "   :id, "
+              "   :time_print, "
+              "   :point_id, "
+              "   :scd_out, "
+              "   :surname, "
+              "   :name, "
+              "   :voucher, "
+              "   :desk, "
+              "   :pr_print "
+              ") ",
+              qryParams);
         for(TPaxList::iterator
                 pax = pax_list.begin();
                 pax != pax_list.end();
@@ -2645,6 +2675,8 @@ void PrintInterface::GetPrintDataVOUnregistered(
                 confirmQry.get().SetVariable("surname", pax->first.surname);
                 confirmQry.get().SetVariable("name", pax->first.name);
                 confirmQry.get().SetVariable("voucher", v->first);
+                const int confirm_id = PgOra::getSeqNextVal_int("ID__SEQ");
+                confirmQry.get().SetVariable("id", confirm_id);
                 confirmQry.get().Execute();
 
                 if(not TReqInfo::Instance()->desk.compatible(VO_STAT_VERSION)) {
@@ -2654,10 +2686,8 @@ void PrintInterface::GetPrintDataVOUnregistered(
                     TReqInfo::Instance()->LocaleToLog("EVT.PRINT_VOUCHER", params, ASTRA::evtPax, point_id);
                 }
 
-
-
                 xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
-                SetProp(paxNode, "pax_id", confirmQry.get().GetVariableAsInteger("id"));
+                SetProp(paxNode, "pax_id", confirm_id);
                 SetProp(paxNode, "id", pax->first.id);
                 SetProp(paxNode, "reg_no", 0);
                 SetProp(paxNode, "pr_print", true);
@@ -2761,57 +2791,49 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
         else
           grps.push_back(GrpId_t(first_seg_grp_id));
 
-        Qry.Clear();
-        if ( pr_all )
-            Qry.SQLText =
-                "SELECT pax_id, grp_id, reg_no "
-                " FROM pax "
-                "WHERE grp_id = :grp_id AND "
-                "      refuse IS NULL "
-                "ORDER BY pax.reg_no, pax.seats DESC";
-        else {
-            // Если не все билеты (приглашения) отпечатаны
-            // запрос должен возвращать паксов у которых есть неотпечанные билеты (приглашения)
-            Qry.SQLText =
-                "SELECT pax.pax_id, pax.grp_id, pax.reg_no "
-                " FROM pax, confirm_print cp "
-                "WHERE  pax.grp_id = :grp_id AND "
-                "       pax.refuse IS NULL AND "
-                "       pax.pax_id = cp.pax_id(+) AND "
-                "       cp.voucher(+) is null and "
-                "       nvl(cp.op_type(+), :op_type) = :op_type and " // дефайн OP_TYPE_COND здесь не катит, т.к. плюсик.
-                "       cp.pr_print(+) <> 0 AND "
-                "       cp.pax_id IS NULL "
-                "ORDER BY pax.reg_no, pax.seats DESC";
-            Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
-        }
-        Qry.DeclareVariable( "grp_id", otInteger );
         for(const GrpId_t& grpId : grps) {
-            Qry.SetVariable( "grp_id", grpId.get() );
-            Qry.Execute();
-
-            if ( Qry.Eof && pr_all ) // анализ на клиенте по сегментам, значит и мы должны анализировать по сегментам
-                throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA"); //все посадочные отпечатаны
-            while ( !Qry.Eof ) {
-                paxs.push_back( BPPax( Qry.FieldAsInteger("grp_id"),
-                                       Qry.FieldAsInteger("pax_id"),
-                                       Qry.FieldAsInteger("reg_no") ) );
-                Qry.Next();
+            const std::list<CheckIn::TSimplePaxItem> paxes
+                = CheckIn::TSimplePaxItem::getByGrpId(grpId);
+            for (const CheckIn::TSimplePaxItem& pax: paxes) {
+                if (!pax.refuse.empty()) {
+                    continue;
+                }
+                // Если не все билеты (приглашения) отпечатаны
+                // запрос должен возвращать паксов у которых есть неотпечанные билеты (приглашения)
+                if (!pr_all) {
+                    DB::TQuery QryConfirm(PgOra::getROSession("CONFIRM_PRINT"), STDLOG);
+                    QryConfirm.SQLText = "SELECT * FROM confirm_print "
+                                         "WHERE pax_id = :pax_id "
+                                         "AND pr_print <> 0 "
+                                         "AND voucher IS NOT NULL "
+                                         "AND op_type = :op_type "
+                                         "FETCH FIRST 1 ROWS ONLY ";
+                    QryConfirm.CreateVariable("pax_id", otInteger, pax.paxId());
+                    QryConfirm.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
+                    QryConfirm.Execute();
+                    if (!QryConfirm.Eof) {
+                        continue;
+                    }
+                }
+                paxs.push_back( BPPax( pax.grp_id,
+                                       pax.paxId(),
+                                       pax.reg_no ) );
             }
+
+            if ( paxs.empty() && pr_all ) // анализ на клиенте по сегментам, значит и мы должны анализировать по сегментам
+                throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA"); //все посадочные отпечатаны
         }
         if ( !pr_all && paxs.empty() ) //все посадочные отпечатаны, но при этом надо было напечатать те, которые были не напечатанны
             throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
     }
     else if(pax_id > 0) { // печать конкретного пассажира. Если < 0, то это пакс iatci, его начитывает GetIatciPrintDataBP ниже
-        Qry.SQLText =
-            "SELECT grp_id, pax_id, reg_no FROM pax where pax_id = :pax_id";
-        Qry.CreateVariable("pax_id", otInteger, pax_id);
-        Qry.Execute();
-        if ( Qry.Eof )
+        CheckIn::TSimplePaxItem pax;
+        if (!pax.getByPaxId(pax_id)) {
             throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
-        paxs.push_back( BPPax( Qry.FieldAsInteger("grp_id"),
-                               Qry.FieldAsInteger("pax_id"),
-                               Qry.FieldAsInteger("reg_no") ) );
+        }
+        paxs.push_back( BPPax( pax.grp_id,
+                               pax.paxId(),
+                               pax.reg_no ) );
     };
 
     for (std::vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )

@@ -4,6 +4,7 @@
 #include "etick.h"
 #include "term_version.h"
 #include "brands.h"
+#include "serverlib/oci_err.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -213,14 +214,21 @@ namespace BIPrintRules {
 
     int Holder::get_hall_id(TDevOper::Enum op_type, int pax_id)
     {
-        TCachedQuery Qry(
+        DB::TCachedQuery Qry(
+                PgOra::getROSession("CONFIRM_PRINT"),
                 "select confirm_print.hall_id "
                 "FROM confirm_print, "
-                "     (SELECT MAX(time_print) AS time_print FROM confirm_print WHERE pax_id=:pax_id and voucher is null AND pr_print<>0 and " OP_TYPE_COND("op_type")") a "
-                "WHERE confirm_print.time_print=a.time_print AND confirm_print.pax_id=:pax_id AND voucher is null and "
-                "      " OP_TYPE_COND("confirm_print.op_type"),
-                QParams() << QParam("pax_id", otInteger, pax_id) << QParam("op_type", otString, DevOperTypes().encode(op_type))
-                );
+                "     (SELECT MAX(time_print) AS time_print FROM confirm_print "
+                "      WHERE pax_id=:pax_id "
+                "      AND voucher IS NULL "
+                "      AND pr_print<>0 "
+                "      AND op_type = :op_type) a "
+                "WHERE confirm_print.time_print=a.time_print "
+                "AND confirm_print.pax_id=:pax_id "
+                "AND voucher IS NULL "
+                "AND confirm_print.op_type = :op_type ",
+                QParams() << QParam("pax_id", otInteger, pax_id) << QParam("op_type", otString, DevOperTypes().encode(op_type)),
+                STDLOG);
         Qry.get().Execute();
         int result = NoExists;
         if(not Qry.get().Eof)
@@ -327,7 +335,7 @@ namespace BIPrintRules {
                 try {
                     Qry.get().Execute();
                 } catch(const EOracleError &E) {
-                    if(E.Code != 1) throw; // ignore unique constraint violated
+                    if(E.Code != CERR_U_CONSTRAINT) throw; // ignore unique constraint violated
                 }
             }
         }
@@ -507,7 +515,7 @@ bool TPrPrint::get_pr_print(int pax_id)
     return result;
 }
 
-void TPrPrint::fromDB(int grp_id, int pax_id, TQuery &Qry)
+void TPrPrint::fromDB(int grp_id, int pax_id, DB::TQuery &Qry)
 {
     // А вот теперь определение pr_bi_print
     TCachedQuery grpQry("select pax_id from pax where grp_id = :grp_id",
@@ -572,10 +580,16 @@ void TPrPrint::fromDB(int grp_id, int pax_id, TQuery &Qry)
 
 void TPrPrint::get_pr_print(int grp_id, int pax_id, bool &pr_bp_print, bool &pr_bi_print)
 {
-    TCachedQuery Qry(
-            "SELECT pax_id FROM confirm_print WHERE pax_id=:pax_id and voucher is null AND pr_print<>0 AND rownum=1 and " OP_TYPE_COND("op_type"),
-            QParams() << QParam("pax_id", otInteger, pax_id) << QParam("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP))
-            );
+    DB::TCachedQuery Qry(
+            PgOra::getROSession("CONFIRM_PRINT"),
+            "SELECT pax_id FROM confirm_print "
+            "WHERE pax_id=:pax_id "
+            "AND voucher IS NULL "
+            "AND pr_print<>0 "
+            "AND op_type = :op_type "
+            "FETCH FIRST 1 ROWS ONLY ",
+            QParams() << QParam("pax_id", otInteger, pax_id) << QParam("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP)),
+            STDLOG);
     Qry.get().Execute();
     pr_bp_print = not Qry.get().Eof;
 
