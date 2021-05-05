@@ -2001,3 +2001,52 @@ $(RUN_SYSTEM_LOG $(get first_date) $(get last_date))
   </answer>
 </term>
 
+%%
+#########################################################################################
+###
+#   Тест №16
+#
+#   Описание: пассажиров: 61,
+#             интерактив: выкл
+#
+#   Чтение архива из рейса без времени прилета. Данные не должны удаляться если время прилета не задано
+#
+###
+#########################################################################################
+
+$(init_term)
+
+$(init_apps ЮТ ЦЗ APPS_21 closeout=false inbound=true outbound=true)
+$(init_apps ЮТ ГБ APPS_21 closeout=false inbound=true outbound=true)
+
+$(PREPARE_SEASON_SCD_WITHOUT_ARRIVE_TIME ЮТ СОЧ ЛХР 100  -1 TU5 $(date_format %d.%m.%Y +0) $(date_format %d.%m.%Y +5))
+
+$(make_spp $(ddmmyy +1))
+$(deny_ets_interactive ЮТ 100 СОЧ)
+
+$(INB_PNL_UT AER LHR 100 $(ddmon +1 en))
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+
+$(set move_id $(get_move_id $(get point_dep)))
+$(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
+
+$(auto_set_craft $(get point_dep))
+
+$(db_dump_table POINTS)
+
+$(run_arch_step $(ddmmyy +1))
+
+??
+$(check_dump POINTS)
+>>
+[...] [...] [0] [СОЧ] [0] [NULL] [ЮТ] [100] [NULL] [ТУ5] [NULL] [NULL] [NULL] [NULL] [$(date_format %d.%m.%Y +1)] [NULL] [NULL] [NULL] [$(date_format %d.%m.%Y +1)] [п] [NULL] [NULL] [NULL] [NULL] [1] [0] [0] [0] [1] [NULL] [...] $()
+[...] [...] [1] [ЛХР] [0] [...] [NULL] [NULL] [NULL] [NULL] [NULL] [NULL] [NULL] [NULL] [NULL] [NULL] [NULL] [01.01.1900] [01.01.1900] [NULL] [NULL] [NULL] [NULL] [NULL] [0] [0] [0] [NULL] [NULL] [NULL] [...] $()
+$()
+
+$(run_arch_step $(ddmmyy +122))
+??
+$(check_dump POINTS)
+>>
+$()

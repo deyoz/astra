@@ -77,7 +77,7 @@ class TArxMove
     Dates::DateTime_t utcdate;
   public:
     TArxMove(const Dates::DateTime_t& utc_date);
-    virtual ~TArxMove();
+    virtual ~TArxMove() = default;
     virtual void BeforeProc() { proc_count=0; }
     virtual bool Next(size_t max_rows, int duration) = 0; //duration - длительность итерации в сек.
     virtual std::string TraceCaption() = 0;
@@ -87,14 +87,13 @@ class TArxMove
 class TArxMoveFlt : public TArxMove
 {
   private:
-    int step;
     std::map<MoveId_t, Dates::time_period> move_ids;
   protected:
     void LockAndCollectStat(const MoveId_t& move_id);
     void readMoveIds(size_t max_rows);
   public:
     TArxMoveFlt(const Dates::DateTime_t& utc_date);
-    virtual ~TArxMoveFlt();
+    virtual ~TArxMoveFlt() = default;
     virtual bool Next(size_t max_rows, int duration);
     virtual std::string TraceCaption();
 
@@ -113,7 +112,7 @@ class TArxTypeBIn : public TArxMove
 class TArxTlgTrips : public TArxMove
 {
   private:
-    int step, point_ids_count;
+    int point_ids_count;
   public:
     std::vector<PointIdTlg_t> getTlgTripPoints(const Dates::DateTime_t &arx_date, size_t max_rows);
     TArxTlgTrips(const Dates::DateTime_t& utc_date);
@@ -127,7 +126,7 @@ protected:
     int step;
 public:
     TArxMoveNoFlt(const Dates::DateTime_t& utc_date);
-    virtual ~TArxMoveNoFlt();
+    virtual ~TArxMoveNoFlt() = default;
     virtual bool Next(size_t max_rows, int duration);
     virtual std::string TraceCaption();
 };
