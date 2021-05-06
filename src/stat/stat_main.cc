@@ -984,8 +984,12 @@ void get_stat(const PointId_t& point_id)
       "           stations.work_mode='ê' AND "
       "           lang='RU' AND type IN (:evt_pax, :evt_pay) AND "
       "           id1=pax_grp.point_dep AND id2=pax.reg_no AND rownum<2) AS term_ckin_service "
-      "FROM pax_grp,pax "
+      "FROM pax_grp,pax,tckin_pax_grp "
       "WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND pax_grp.status NOT IN ('E') and "
+      "      tckin_pax_grp.grp_id(+)=pax_grp.grp_id AND "
+      "      tckin_pax_grp.transit_num(+)<>0 AND "
+      "      not (pax_grp.status IN ('T') AND "
+      "      tckin_pax_grp.grp_id is not null) AND "
       "      pax.refuse is null ";
   Qry.CreateVariable("point_id", otInteger, point_id.get());
   Qry.CreateVariable("evt_pax", otString, EncodeEventType(evtPax));
