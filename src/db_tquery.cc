@@ -1114,7 +1114,26 @@ void TCachedQuery::init(DbCpp::Session& sess, const std::string& sqlText, const 
 
 TQuery& TCachedQuery::get()
 {
-    return *m_qry.get();
+  return *m_qry.get();
+}
+
+bool concurrentSave(TQuery& qryUpd, TQuery& qryIns)
+{
+  for (int step = 1; step <= 2; ++step) {
+    qryUpd.Execute();
+    if (qryUpd.RowsProcessed() > 0) {
+      return true;
+    }
+    try {
+      qryIns.Execute();
+      return (qryIns.RowsProcessed() > 0);
+    } catch (EOracleError &error) {
+        if (step > 1 || error.Code != CERR_U_CONSTRAINT) {
+          throw;
+        }
+    }
+  }
+  return false;
 }
 
 }//namespace DB

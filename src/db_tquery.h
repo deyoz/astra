@@ -96,4 +96,6 @@ private:
     std::shared_ptr<TQuery> m_qry;
 };
 
+bool concurrentSave(TQuery& qryUpd, TQuery& qryIns);
+
 }//namespace DB
