@@ -140,13 +140,16 @@ void TTlgOutPartInfo::getExtra()
     extra.clear();
     QParams QryParams;
     QryParams << QParam("tlg_id", otInteger, id);
-    TCachedQuery Qry("select * from typeb_out_extra where tlg_id = :tlg_id", QryParams);
+    DB::TCachedQuery Qry(PgOra::getROSession("TYPEB_OUT_EXTRA"),
+                         "select * from typeb_out_extra where tlg_id = :tlg_id",
+                         QryParams);
     Qry.get().Execute();
     for(; !Qry.get().Eof; Qry.get().Next())
-        extra.insert(make_pair(Qry.get().FieldAsString("lang"), Qry.get().FieldAsString("text")));
+        extra.insert(make_pair(Qry.get().FieldAsString("lang"),
+                               Qry.get().FieldAsString("text")));
 }
 
-TTlgOutPartInfo& TTlgOutPartInfo::fromDB(TQuery &Qry)
+TTlgOutPartInfo& TTlgOutPartInfo::fromDB(DB::TQuery &Qry)
 {
   clear();
   id=Qry.FieldAsInteger("id");
@@ -1013,21 +1016,36 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 {
   xmlNodePtr node = GetNode( "point_id", reqNode );
   int point_id;
-  TQuery Qry(&OraSession);
+  auto& sess = PgOra::getROSession({"TLG_OUT", "TYPEB_OUT_EXTRA"});
+  DB::TQuery Qry(sess, STDLOG);
   string tz_region;
-  ostringstream sql;
+
+  std::ostringstream sql;
   sql << "SELECT point_id,id,num,addr,origin,heading,body,ending, "
          "       pr_lat,completed,has_errors,time_create,time_send_scd,time_send_act, "
          "       type AS tlg_type, "
          "       typeb_out_extra.text AS extra "
-         "FROM tlg_out, typeb_out_extra "
-         "WHERE tlg_out.id=typeb_out_extra.tlg_id(+) AND "
-         "      typeb_out_extra.lang(+)=:lang ";
+         "FROM tlg_out "
+         "LEFT OUTER JOIN typeb_out_extra "
+         "ON ( "
+         "       tlg_out.id = typeb_out_extra.tlg_id "
+         "       AND typeb_out_extra.lang = :LANG "
+         ") ";
+
+  // ora was
+//  ostringstream sql;
+//  sql << "SELECT point_id,id,num,addr,origin,heading,body,ending, "
+//         "       pr_lat,completed,has_errors,time_create,time_send_scd,time_send_act, "
+//         "       type AS tlg_type, "
+//         "       typeb_out_extra.text AS extra "
+//         "FROM tlg_out, typeb_out_extra "
+//         "WHERE tlg_out.id=typeb_out_extra.tlg_id(+) AND "
+//         "      typeb_out_extra.lang(+)=:lang ";
   Qry.CreateVariable("lang", otString, TReqInfo::Instance()->desk.lang);
   if (node==NULL)
   {
     int tlg_id = NodeAsInteger( "tlg_id", reqNode );
-    sql << " AND id=:tlg_id ";
+    sql << " WHERE id=:tlg_id ";
     Qry.CreateVariable("tlg_id",otInteger,tlg_id);
   }
   else
@@ -1035,15 +1053,21 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     point_id = NodeAsInteger( node );
     if (point_id!=-1)
     {
-      sql << " AND point_id=:point_id ";
+      sql << " WHERE point_id=:point_id ";
       Qry.CreateVariable("point_id",otInteger,point_id);
     }
     else
     {
-      sql << " AND point_id IS NULL AND time_create>=TRUNC(system.UTCSYSDATE)-2 ";
-    };
+      sql << " WHERE point_id IS NULL ";
+      if(sess.isOracle()) {
+          sql << " AND time_create >= trunc(:two_days_ago) ";
+      } else {
+          sql << " AND time_create >= date_trunc('day', :two_days_ago) ";
+      }
+      Qry.CreateVariable(":two_days_ago", otDate, NowUTC()-2.0);
+    }
 
-  };
+  }
   sql << "ORDER BY id,num";
 
   Qry.SQLText=sql.str();
@@ -1214,15 +1238,16 @@ void TelegramInterface::SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   string tlg_body = NodeAsString( "tlg_body", reqNode );
   if (tlg_body.size()>PART_SIZE)
     throw AstraLocale::UserException("MSG.TLG.MAX_LENGTH", LParams() << LParam("count", (int)PART_SIZE));
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+
+  auto& sess = PgOra::getRWSession("TLG_OUT");
+  DB::TQuery Qry(sess, STDLOG);
   Qry.SQLText=
     "SELECT tlg_out.type AS code, "
     "       point_id, "
-    "       NVL(LENGTH(addr),0)+ "
-    "       NVL(LENGTH(origin),0)+ "
-    "       NVL(LENGTH(heading),0)+ "
-    "       NVL(LENGTH(ending),0) AS len "
+    "       COALESCE(LENGTH(addr),0)+ "
+    "       COALESCE(LENGTH(origin),0)+ "
+    "       COALESCE(LENGTH(heading),0)+ "
+    "       COALESCE(LENGTH(ending),0) AS len "
     "FROM tlg_out "
     "WHERE id=:id AND num=1 FOR UPDATE";
   Qry.CreateVariable( "id", otInteger, tlg_id);
@@ -1235,25 +1260,28 @@ void TelegramInterface::SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   string tlg_code=Qry.FieldAsString("code");
   int point_id=Qry.FieldAsInteger("point_id");
 
-  Qry.Clear();
-  Qry.SQLText=
-    "BEGIN "
-    "  DELETE FROM tlg_out WHERE id=:id AND num<>1; "
-    "  UPDATE tlg_out SET body=:body,completed=1 WHERE id=:id; "
-    "END;";
-  Qry.CreateVariable( "id", otInteger, tlg_id);
   // Если в конце телеграммы нет перевода строки, добавим его
   if(tlg_body.size() > 2 and tlg_body.substr(tlg_body.size() - 2) != "\xd\xa")
       tlg_body += "\xd\xa";
-  Qry.CreateVariable( "body", otString, tlg_body );
-  Qry.Execute();
+
+  DB::TQuery DelQry(sess, STDLOG);
+  DelQry.SQLText=
+    "DELETE FROM tlg_out WHERE id=:id AND num<>1";
+  DelQry.CreateVariable("id", otInteger, tlg_id);
+
+  DB::TQuery UpdQry(sess, STDLOG);
+  UpdQry.CreateVariable("id", otInteger, tlg_id);
+  UpdQry.CreateVariable("body", otString, tlg_body);
+
+  DelQry.Execute();
+  UpdQry.Execute();
 
   check_tlg_out_alarm(point_id);
 
   TReqInfo::Instance()->LocaleToLog("EVT.TLG.MODIFIED", LEvntPrms() << PrmElem<std::string>("tlg_name", etTypeBType, tlg_code, efmtNameShort)
                                     << PrmSmpl<int>("tlg_id", tlg_id), evtTlg, point_id, tlg_id);
   AstraLocale::showMessage("MSG.TLG.SAVED");
-};
+}
 
 namespace TypeB
 {
@@ -1338,14 +1366,13 @@ string GetOutputGateway(const string &orig_canon_name,
   Qry.get().Execute();
   if (Qry.get().Eof) return dest_canon_name;
   return Qry.get().FieldAsString("out_canon_name");
-};
+}
 
 void TelegramInterface::SendTlg(int tlg_id, bool forwarded)
 {
   try
   {
-    TQuery TlgQry(&OraSession);
-    TlgQry.Clear();
+    DB::TQuery TlgQry(PgOra::getROSession("TLG_OUT"), STDLOG);
     TlgQry.SQLText=
       "SELECT * FROM tlg_out WHERE id=:id FOR UPDATE";
     TlgQry.CreateVariable( "id", otInteger, tlg_id);
@@ -1575,25 +1602,30 @@ void TelegramInterface::SendTlg(int tlg_id, bool forwarded)
 
 void markTlgAsSent(int tlg_id)
 {
-    QParams QryParams;
-    QryParams
-        << QParam("tlg_type", otString)
-        << QParam("point_id", otInteger)
-        << QParam("id", otInteger, tlg_id);
-    TCachedQuery Qry(
-            "declare "
-            "  curRow tlg_out%rowtype; "
-            "begin "
-            "  select * into curRow from tlg_out where id = :id and rownum < 2; "
-            "  :tlg_type := curRow.type; "
-            "  :point_id := curRow.point_id; "
-            "  UPDATE tlg_out SET time_send_act=system.UTCSYSDATE WHERE id=:id; "
-            "end; ",
-            QryParams);
-    Qry.get().Execute();
+    auto& sess = PgOra::getRWSession("TLG_OUT");
+    DB::TQuery SelQry(sess, STDLOG);
+    SelQry.SQLText =
+            "SELECT type, point_id FROM tlg_out WHERE id=:id "
+            "FETCH FIRST 1 ROWS ONLY";
+    SelQry.CreateVariable("id", otInteger, tlg_id);
+    SelQry.Execute();
+
+    DB::TQuery UpdQry(sess, STDLOG);
+    UpdQry.SQLText =
+            "UPDATE tlg_out SET time_send_act=:nowutc WHERE id=:id";
+    UpdQry.CreateVariable("nowutc", otDate,    NowUTC());
+    UpdQry.CreateVariable("id",     otInteger, tlg_id);
+    UpdQry.Execute();
+
     TReqInfo::Instance()->LocaleToLog("EVT.TLG.SENT", LEvntPrms()
-            << PrmElem<std::string>("tlg_name", etTypeBType, Qry.get().GetVariableAsString("tlg_type"), efmtNameShort)
-            << PrmSmpl<int>("tlg_id", tlg_id), evtTlg, Qry.get().GetVariableAsInteger("point_id"), tlg_id);
+            << PrmElem<std::string>("tlg_name",
+                                    etTypeBType,
+                                    SelQry.FieldAsString("type"),
+                                    efmtNameShort)
+            << PrmSmpl<int>("tlg_id", tlg_id),
+                                      evtTlg,
+                                      SelQry.FieldAsInteger("point_id"),
+                                      tlg_id);
 }
 
 void TelegramInterface::SendTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1605,9 +1637,9 @@ void TelegramInterface::SendTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 
 void TelegramInterface::DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    int tlg_id = NodeAsInteger( "tlg_id", reqNode );
-    TQuery Qry(&OraSession);
-    Qry.Clear();
+    int tlg_id = NodeAsInteger("tlg_id", reqNode);
+    auto& sess = PgOra::getRWSession({"TLG_OUT", "TYPEB_OUT_EXTRA", "TYPEB_OUT_ERRORS"});
+    DB::TQuery Qry(sess, STDLOG);
     Qry.SQLText=
         "SELECT tlg_out.type AS code, "
         "       point_id "
@@ -1620,19 +1652,28 @@ void TelegramInterface::DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     string tlg_code=Qry.FieldAsString("code");
     int point_id=Qry.FieldAsInteger("point_id");
 
-    Qry.Clear();
-    Qry.SQLText=
-        "DELETE FROM tlg_out WHERE id=:id AND time_send_act IS NULL ";
-    Qry.CreateVariable( "id", otInteger, tlg_id);
-    Qry.Execute();
-    if (Qry.RowsProcessed()>0)
+    QParams DelQryParams;
+    DelQryParams
+            << QParam("id", otInteger, tlg_id);
+    DB::TCachedQuery DelQry(sess,
+                            "DELETE FROM tlg_out WHERE id = :id AND time_send_act IS NULL",
+                            DelQryParams,
+                            STDLOG);
+
+    DelQry.get().Execute();
+    if (DelQry.get().RowsProcessed()>0)
     {
-        Qry.SQLText=
-            "begin "
-            "   DELETE FROM typeb_out_extra WHERE tlg_id=:id; "
-            "   delete from typeb_out_errors where tlg_id = :id; "
-            "end;";
-        Qry.Execute();
+        DB::TCachedQuery DelQry1(sess,
+                                 "DELETE FROM typeb_out_extra WHERE tlg_id = :id",
+                                 DelQryParams,
+                                 STDLOG);
+        DB::TCachedQuery DelQry2(sess,
+                                 "DELETE FROM typeb_out_errors where tlg_id = :id",
+                                 DelQryParams,
+                                 STDLOG);
+        DelQry1.get().Execute();
+        DelQry2.get().Execute();
+
         TReqInfo::Instance()->LocaleToLog("EVT.TLG.DELETED", LEvntPrms()
                                           << PrmElem<std::string>("tlg_name", etTypeBType, tlg_code, efmtNameShort)
                                           << PrmSmpl<int>("tlg_id", tlg_id), evtTlg, point_id, tlg_id);
@@ -1640,7 +1681,7 @@ void TelegramInterface::DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     };
     check_tlg_out_alarm(point_id);
     GetTlgOut(ctxt,reqNode,resNode);
-};
+}
 
 // В ответ кладется id созданной тлг или текст ошибки
 // Используется при формировании ответа по HTTP
@@ -2285,25 +2326,18 @@ void Send( int point_dep, int id, bool pr_grp, const TTlgContent &con1, const TB
 
 void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info, bool completed, bool has_errors )
 {
-  TQuery Qry(&OraSession);
-
   if (info.id==NoExists)
   {
-    Qry.Clear();
-    Qry.SQLText=
-      "SELECT tlg_in_out__seq.nextval AS id FROM dual";
-    Qry.Execute();
-    if (Qry.Eof) return;
-    info.id=Qry.FieldAsInteger("id");
-  };
+    info.id=PgOra::getSeqNextVal_int("TLG_IN_OUT__SEQ");
+  }
 
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getRWSession("TLG_OUT"), STDLOG);
   Qry.SQLText=
     "INSERT INTO tlg_out(id,num,type,point_id,addr,origin,heading,body,ending,pr_lat, "
     "  completed,has_errors,time_create,time_send_scd,time_send_act, "
     "  originator_id,airline_mark,manual_creation) "
     "VALUES(:id,:num,:type,:point_id,:addr,:origin,:heading,:body,:ending,:pr_lat, "
-    "  :completed,:has_errors,NVL(:time_create,system.UTCSYSDATE),:time_send_scd,NULL, "
+    "  :completed,:has_errors,COALESCE(:time_create,:nowutc),:time_send_scd,NULL, "
     "  :originator_id,:airline_mark,:manual_creation)";
 
   /*
@@ -2339,6 +2373,9 @@ void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info, bool completed, b
     Qry.CreateVariable("time_create",otDate,info.time_create);
   else
     Qry.CreateVariable("time_create",otDate,FNull);
+
+  Qry.CreateVariable("nowutc",otDate, NowUTC());
+
   if (info.time_send_scd!=NoExists)
     Qry.CreateVariable("time_send_scd",otDate,info.time_send_scd);
   else
@@ -2354,7 +2391,7 @@ void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info, bool completed, b
 
   if (info.num==1)
   {
-    Qry.Clear();
+    DB::TQuery InsQry(PgOra::getRWSession("TYPEB_OUT_EXTRA"), STDLOG);
     Qry.SQLText=
       "INSERT INTO typeb_out_extra(tlg_id, lang, text) "
       "VALUES(:tlg_id, :lang, :text)";
@@ -2371,7 +2408,7 @@ void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info, bool completed, b
   };
 
   info.num++;
-};
+}
 
 void TelegramInterface::TestSeatRanges(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {

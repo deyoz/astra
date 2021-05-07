@@ -239,109 +239,109 @@ ORDER BY type
 );
 
 */
-int test_typeb_utils2(int argc,char **argv)
-{
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText="DELETE FROM drop_test_typeb_utils1";
-  Qry.Execute();
+//int test_typeb_utils2(int argc,char **argv)
+//{
+//  TQuery Qry(&OraSession);
+//  Qry.Clear();
+//  Qry.SQLText="DELETE FROM drop_test_typeb_utils1";
+//  Qry.Execute();
 
-  Qry.Clear();
-  Qry.SQLText="DELETE FROM drop_test_typeb_utils2";
-  Qry.Execute();
+//  Qry.Clear();
+//  Qry.SQLText="DELETE FROM drop_test_typeb_utils2";
+//  Qry.Execute();
 
-  ASTRA::commit();
+//  ASTRA::commit();
 
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT airline,flt_no,suffix,airp,scd_out,act_out, "
-    "       point_id,point_num,first_point,pr_tranzit "
-    "FROM points "
-//    "WHERE point_id=3977047";
-    "WHERE scd_out BETWEEN TRUNC(SYSDATE-1) AND TRUNC(SYSDATE) AND act_out IS NOT NULL AND pr_del=0";
+//  Qry.Clear();
+//  Qry.SQLText=
+//    "SELECT airline,flt_no,suffix,airp,scd_out,act_out, "
+//    "       point_id,point_num,first_point,pr_tranzit "
+//    "FROM points "
+////    "WHERE point_id=3977047";
+//    "WHERE scd_out BETWEEN TRUNC(SYSDATE-1) AND TRUNC(SYSDATE) AND act_out IS NOT NULL AND pr_del=0";
 
-  TQuery TlgQry(&OraSession);
-  TlgQry.Clear();
-  TlgQry.SQLText=
-    "INSERT INTO drop_test_typeb_utils1(point_id, tlg_id, type, addr, pr_lat, extra) "
-    "SELECT tlg_out.point_id, tlg_out.id AS tlg_id, tlg_out.type, tlg_out.addr, tlg_out.pr_lat, tlg_out.extra "
-    "FROM tlg_out "
-    "WHERE tlg_out.point_id=:point_id AND tlg_out.num=1 ";
-    //"   AND tlg_out.time_create BETWEEN :act_out-1/1440 AND :act_out+1/1440";
-  TlgQry.DeclareVariable("point_id", otInteger);
-  //TlgQry.DeclareVariable("act_out", otDate);
+//  TQuery TlgQry(&OraSession);
+//  TlgQry.Clear();
+//  TlgQry.SQLText=
+//    "INSERT INTO drop_test_typeb_utils1(point_id, tlg_id, type, addr, pr_lat, extra) "
+//    "SELECT tlg_out.point_id, tlg_out.id AS tlg_id, tlg_out.type, tlg_out.addr, tlg_out.pr_lat, tlg_out.extra "
+//    "FROM tlg_out "
+//    "WHERE tlg_out.point_id=:point_id AND tlg_out.num=1 ";
+//    //"   AND tlg_out.time_create BETWEEN :act_out-1/1440 AND :act_out+1/1440";
+//  TlgQry.DeclareVariable("point_id", otInteger);
+//  //TlgQry.DeclareVariable("act_out", otDate);
 
-  TQuery Tlg2Qry(&OraSession);
-  Tlg2Qry.Clear();
-  Tlg2Qry.SQLText=
-    "INSERT INTO drop_test_typeb_utils2(point_id, type, addr, addr_normal, pr_lat, extra) "
-    "VALUES(:point_id, :type, :addr, :addr, :pr_lat, :extra) ";
-  Tlg2Qry.DeclareVariable("point_id", otInteger);
-  Tlg2Qry.DeclareVariable("type", otString);
-  Tlg2Qry.DeclareVariable("addr", otString);
-  Tlg2Qry.DeclareVariable("pr_lat", otInteger);
-  Tlg2Qry.DeclareVariable("extra", otString);
+//  TQuery Tlg2Qry(&OraSession);
+//  Tlg2Qry.Clear();
+//  Tlg2Qry.SQLText=
+//    "INSERT INTO drop_test_typeb_utils2(point_id, type, addr, addr_normal, pr_lat, extra) "
+//    "VALUES(:point_id, :type, :addr, :addr, :pr_lat, :extra) ";
+//  Tlg2Qry.DeclareVariable("point_id", otInteger);
+//  Tlg2Qry.DeclareVariable("type", otString);
+//  Tlg2Qry.DeclareVariable("addr", otString);
+//  Tlg2Qry.DeclareVariable("pr_lat", otInteger);
+//  Tlg2Qry.DeclareVariable("extra", otString);
 
 
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
-  {
-    try
-    {
-      TAdvTripInfo fltInfo(Qry);
-      TlgQry.SetVariable("point_id", fltInfo.point_id);
-      //TlgQry.SetVariable("act_out", Qry.FieldAsDateTime("act_out"));
-      TlgQry.Execute();
+//  Qry.Execute();
+//  for(;!Qry.Eof;Qry.Next())
+//  {
+//    try
+//    {
+//      TAdvTripInfo fltInfo(Qry);
+//      TlgQry.SetVariable("point_id", fltInfo.point_id);
+//      //TlgQry.SetVariable("act_out", Qry.FieldAsDateTime("act_out"));
+//      TlgQry.Execute();
 
-      Tlg2Qry.SetVariable("point_id", fltInfo.point_id);
-      TypeB::TTakeoffCreator creator(fltInfo.point_id);
-      creator << "MVTA";
-      vector<TypeB::TCreateInfo> createInfo;
-      creator.getInfo(createInfo);
-      for(vector<TypeB::TCreateInfo>::const_iterator i=createInfo.begin(); i!=createInfo.end(); ++i)
-      {
-  /*      ProgTrace(TRACE5, "point_id=%d tlg_type=%s addr=%s",
-                          i->point_id, i->get_tlg_type().c_str(), i->get_addrs().c_str());*/
+//      Tlg2Qry.SetVariable("point_id", fltInfo.point_id);
+//      TypeB::TTakeoffCreator creator(fltInfo.point_id);
+//      creator << "MVTA";
+//      vector<TypeB::TCreateInfo> createInfo;
+//      creator.getInfo(createInfo);
+//      for(vector<TypeB::TCreateInfo>::const_iterator i=createInfo.begin(); i!=createInfo.end(); ++i)
+//      {
+//  /*      ProgTrace(TRACE5, "point_id=%d tlg_type=%s addr=%s",
+//                          i->point_id, i->get_tlg_type().c_str(), i->get_addrs().c_str());*/
 
-          //if (!TypeB::TSendInfo(i->get_tlg_type(), fltInfo).isSend()) continue;
+//          //if (!TypeB::TSendInfo(i->get_tlg_type(), fltInfo).isSend()) continue;
 
-          Tlg2Qry.SetVariable("type", i->get_tlg_type());
-          Tlg2Qry.SetVariable("addr", i->get_addrs());
-          Tlg2Qry.SetVariable("pr_lat", (int)i->get_options().is_lat);
-          localizedstream extra(AstraLocale::LANG_RU);
-          Tlg2Qry.SetVariable("extra", i->get_options().extraStr(extra).str());
-          Tlg2Qry.Execute();
-      };
-    }
-    catch(...)
-    {
-      ASTRA::rollback();
-      ProgTrace(TRACE5, "ERROR! point_id=%d", Qry.FieldAsInteger("point_id"));
-    };
-    ASTRA::commit();
-  };
+//          Tlg2Qry.SetVariable("type", i->get_tlg_type());
+//          Tlg2Qry.SetVariable("addr", i->get_addrs());
+//          Tlg2Qry.SetVariable("pr_lat", (int)i->get_options().is_lat);
+//          localizedstream extra(AstraLocale::LANG_RU);
+//          Tlg2Qry.SetVariable("extra", i->get_options().extraStr(extra).str());
+//          Tlg2Qry.Execute();
+//      };
+//    }
+//    catch(...)
+//    {
+//      ASTRA::rollback();
+//      ProgTrace(TRACE5, "ERROR! point_id=%d", Qry.FieldAsInteger("point_id"));
+//    };
+//    ASTRA::commit();
+//  };
 
-  Qry.Clear();
-  Qry.SQLText="SELECT tlg_id, addr FROM drop_test_typeb_utils1";
-  Qry.Execute();
+//  Qry.Clear();
+//  Qry.SQLText="SELECT tlg_id, addr FROM drop_test_typeb_utils1";
+//  Qry.Execute();
 
-  TlgQry.Clear();
-  TlgQry.SQLText="UPDATE drop_test_typeb_utils1 SET addr_normal=:addr_normal WHERE tlg_id=:tlg_id";
-  TlgQry.DeclareVariable("addr_normal", otString);
-  TlgQry.DeclareVariable("tlg_id", otInteger);
-  TypeB::TCreateInfo ci;
-  for(;!Qry.Eof;Qry.Next())
-  {
-    ci.set_addrs(Qry.FieldAsString("addr"));
-    TlgQry.SetVariable("tlg_id", Qry.FieldAsInteger("tlg_id"));
-    TlgQry.SetVariable("addr_normal", ci.get_addrs());
-    TlgQry.Execute();
-  };
+//  TlgQry.Clear();
+//  TlgQry.SQLText="UPDATE drop_test_typeb_utils1 SET addr_normal=:addr_normal WHERE tlg_id=:tlg_id";
+//  TlgQry.DeclareVariable("addr_normal", otString);
+//  TlgQry.DeclareVariable("tlg_id", otInteger);
+//  TypeB::TCreateInfo ci;
+//  for(;!Qry.Eof;Qry.Next())
+//  {
+//    ci.set_addrs(Qry.FieldAsString("addr"));
+//    TlgQry.SetVariable("tlg_id", Qry.FieldAsInteger("tlg_id"));
+//    TlgQry.SetVariable("addr_normal", ci.get_addrs());
+//    TlgQry.Execute();
+//  };
 
-  ASTRA::commit();
+//  ASTRA::commit();
 
-  return 0;
-};
+//  return 0;
+//};
 
 void filter(vector<TypeB::TCreateInfo> &createInfo, set<string> tlg_types)
 {
@@ -426,16 +426,22 @@ int test_typeb_utils(int argc,char **argv)
             "WHERE scd_out BETWEEN " + interval + " AND act_out IS NOT NULL AND pr_del=0";
 
         Qry.SQLText= SQLText;
-        TQuery TlgQry(&OraSession);
-        TlgQry.Clear();
+
+        DB::TQuery TlgQry(PgOra::getROSession({ "TLG_OUT", "TYPEB_OUT_EXTRA"}), STDLOG);
         string sql =
-            "SELECT * "
-            "FROM tlg_out, typeb_out_extra "
-            "WHERE point_id=:point_id AND manual_creation=0 AND "
-            "      tlg_out.id=typeb_out_extra.tlg_id(+) AND typeb_out_extra.lang(+)='EN' ";
+                "SELECT * "
+                "FROM tlg_out "
+                "  LEFT OUTER JOIN typeb_out_extra "
+                "    ON ("
+                "      tlg_out.id = typeb_out_extra.tlg_id "
+                "      AND typeb_out_extra.lang = 'EN' "
+                "    ) "
+                "WHERE "
+                " point_id = :POINT_ID "
+                " AND manual_creation = 0";
 
         if ( !tlg_types.empty() ) {
-            sql += " and type in " + GetSQLEnum(tlg_types);
+            sql += " AND type IN " + GetSQLEnum(tlg_types);
         }
         sql += " ORDER BY type, typeb_out_extra.text, addr, id, num";
         TlgQry.SQLText=sql;

@@ -88,6 +88,8 @@ namespace PgOra
         { "SP_PG_GROUP_PP_TLG", { "POSTPONED_TLG", "POSTPONED_TLG_CONTEXT" } },
         { "SP_PG_GROUP_CRYPT", { "CRYPT_FILE_PARAMS", "CRYPT_FILES", "CRYPT_REQ_DATA", "CRYPT_SERVER", "CRYPT_SETS", "CRYPT_TERM_CERT", "CRYPT_TERM_REQ" } },
         { "SP_PG_GROUP_TYPEB_IN", { "TLGS_IN", "TYPEB_PARSE_PROCESSES", "TYPEB_IN_HISTORY", "TYPEB_IN_ERRORS", "TYPEB_IN_BODY", "TYPEB_IN" } },
+        { "SP_PG_GROUP_TYPEB_OUT", { "TLG_OUT", "TYPEB_OUT_ERRORS", "TYPEB_OUT_EXTRA" } },
+        { "SP_PG_GROUP_TLG_IN_OUT_SEQ", { "TLG_IN_OUT__SEQ" } },
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)

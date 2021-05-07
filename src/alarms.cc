@@ -303,12 +303,12 @@ bool check_tlg_in_alarm(int point_id_tlg, int point_id_spp) // point_id_spp м.б.
 /* есть ошибочные или требующие коррекции телеграммы */
 bool check_tlg_out_alarm(int point_id)
 {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("TLG_OUT"), STDLOG);
     Qry.SQLText =
         "select * from tlg_out where "
         "   point_id = :point_id and "
-        "   (has_errors <> 0 or completed = 0) and "
-        "   rownum < 2";
+        "   (has_errors <> 0 or completed = 0) "
+        "   fetch first 1 rows only";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
     bool result = not Qry.Eof;

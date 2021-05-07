@@ -43,7 +43,7 @@ int get_events_stat(int argc,char **argv);
 int get_events_stat2(int argc,char **argv);
 int season_to_schedules(int argc,char **argv);
 int test_typeb_utils(int argc,char **argv);
-int test_typeb_utils2(int argc,char **argv);
+//int test_typeb_utils2(int argc,char **argv);
 int test_sopp_sql(int argc,char **argv);
 int ego_stat(int argc,char **argv);
 int tst_vo(int, char**);

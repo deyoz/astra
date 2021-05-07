@@ -187,7 +187,8 @@ void TErrLst::toDB(int tlg_id)
         << QParam("error_len", otInteger)
         << QParam("lang", otString)
         << QParam("text", otString);
-    TCachedQuery Qry(
+    DB::TCachedQuery Qry(
+            PgOra::getRWSession("TYPEB_OUT_ERRORS"),
             "insert into typeb_out_errors( "
             "   tlg_id, "
             "   error_no, "
@@ -203,7 +204,8 @@ void TErrLst::toDB(int tlg_id)
             "   :lang, "
             "   :text "
             ") ",
-            QryParams);
+            QryParams,
+            STDLOG);
     for(TErrLst::iterator im = begin(); im != end(); im++) {
         Qry.get().SetVariable("error_no", im->first);
         Qry.get().SetVariable("error_pos", im->second.err_pos);

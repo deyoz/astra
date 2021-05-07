@@ -35,18 +35,25 @@ int nosir_create_tlg(int argc, char **argv)
             throw Exception("wrong date format");
         int interval_hours = ToInt(argv[2]);
 
-        TCachedQuery TlgQry("SELECT * FROM tlg_out WHERE id=:id ORDER BY num",
-                QParams() << QParam("id", otInteger));
+        DB::TCachedQuery TlgQry(
+                    PgOra::getROSession("TLG_OUT"),
+                    "SELECT * FROM tlg_out WHERE id=:id ORDER BY num",
+                    QParams() << QParam("id", otInteger),
+                    STDLOG);
 
-        TCachedQuery Qry(
-                "select distinct point_id, type from tlg_out where "
-                "   time_create > :time_create and "
-                "   time_create <= :time_create + :interval_hours/24 and "
-                "   type not in ('BTM') "
-                "order by point_id, type ",
-                QParams()
-                << QParam("time_create", otDate, time_create)
-                << QParam("interval_hours", otInteger, interval_hours));
+        boost::posix_time::ptime time1 = DateTimeToBoost(time_create);
+        boost::posix_time::ptime time2 = time1 + boost::posix_time::hours(interval_hours);
+        DB::TCachedQuery Qry(
+                    PgOra::getROSession("TLG_OUT"),
+                    "SELECT distinct point_id, type FROM tlg_out WHERE "
+                    "   time_create > :time1 AND "
+                    "   time_create <= :time2 AND "
+                    "   type NOT IN ('BTM') "
+                    "ORDER BY point_id, type ",
+                    QParams()
+                    << QParam("time1", otDate, BoostToDateTime(time1))
+                    << QParam("time2", otDate, BoostToDateTime(time2)),
+                    STDLOG);
 
         Qry.get().Execute();
         boost::optional<ofstream> file;

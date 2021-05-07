@@ -313,7 +313,8 @@ int TTlgDraft::find_duplicate(TTlgOutPartInfo &tlg_row)
         << QParam("addr", otString, tlg_row.addr)
         << QParam("pr_lat", otInteger, tlg_row.pr_lat);
 
-    TCachedQuery Qry(
+    DB::TCachedQuery Qry(
+            PgOra::getROSession("TLG_OUT"),
             "SELECT * from "
             "    tlg_out "
             "where "
@@ -9306,12 +9307,12 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
       info.err_lst.dump();
       info.err_lst.toDB(vid);
 
-      Qry.Clear();
-      Qry.SQLText = "update tlg_out set completed = :vcompleted, has_errors = :vhas_errors where id = :vid";
-      Qry.CreateVariable("vcompleted", otInteger, info.vcompleted);
-      Qry.CreateVariable("vhas_errors", otInteger, not info.err_lst.empty());
-      Qry.CreateVariable("vid", otInteger, vid);
-      Qry.Execute();
+      DB::TQuery TlgOutQry(PgOra::getRWSession("TLG_OUT"), STDLOG);
+      TlgOutQry.SQLText = "update tlg_out set completed = :vcompleted, has_errors = :vhas_errors where id = :vid";
+      TlgOutQry.CreateVariable("vcompleted", otInteger, info.vcompleted);
+      TlgOutQry.CreateVariable("vhas_errors", otInteger, not info.err_lst.empty());
+      TlgOutQry.CreateVariable("vid", otInteger, vid);
+      TlgOutQry.Execute();
       if (info.point_id!=NoExists)
         check_tlg_out_alarm(info.point_id);
     };
@@ -9403,10 +9404,11 @@ void TelegramInterface::kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     if(tlg_id != ASTRA::NoExists) {
         QParams QryParams;
         QryParams << QParam("id", otInteger, tlg_id);
-        TCachedQuery Qry(
+        DB::TCachedQuery Qry(
+                PgOra::getROSession("TLG_OUT"),
                 "SELECT heading, body, ending, has_errors FROM tlg_out WHERE id=:id ORDER BY num",
-                QryParams
-                );
+                QryParams,
+                STDLOG);
         Qry.get().Execute();
         string heading, ending;
         bool has_errors = false;
@@ -9417,11 +9419,13 @@ void TelegramInterface::kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
             res += Qry.get().FieldAsString("body");
         }
         if(has_errors) {
-            TCachedQuery errQry("select text from typeb_out_errors where tlg_id = :tlg_id and lang = :lang order by part_no",
-                    QParams()
-                    << QParam("tlg_id", otInteger, tlg_id)
-                    << QParam("lang", otString, AstraLocale::LANG_EN)
-                    );
+            DB::TCachedQuery errQry(
+                        PgOra::getROSession("TYPEB_OUT_ERRORS"),
+                        "SELECT text FROM typeb_out_errors WHERE tlg_id = :tlg_id and lang = :lang ORDER BY part_no",
+                        QParams()
+                            << QParam("tlg_id", otInteger, tlg_id)
+                            << QParam("lang", otString, AstraLocale::LANG_EN),
+                        STDLOG);
             errQry.get().Execute();
             ostringstream err_text;
             for(; not errQry.get().Eof; errQry.get().Next()) {

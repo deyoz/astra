@@ -254,7 +254,7 @@ void my_test()
     TBSMList bsm_list;
 
 
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("TLG_OUT"), STDLOG);
     Qry.SQLText = "select * from tlg_out where type = 'BSM' and point_id = :point_id";
     Qry.CreateVariable("point_id", otInteger, 2042638);
     Qry.Execute();

@@ -210,7 +210,7 @@ struct TTlgOutPartInfo
   TTlgOutPartInfo (const TypeB::TDetailCreateInfo &info);
   void addToFileParams(std::map<std::string, std::string> &params) const;
   void addFromFileParams(const std::map<std::string, std::string> &params);
-  TTlgOutPartInfo& fromDB(TQuery &Qry);
+  TTlgOutPartInfo& fromDB(DB::TQuery &Qry);
   void getExtra();
 };
 

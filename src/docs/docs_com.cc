@@ -23,8 +23,10 @@ void COM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     info.point_id = rpt_params.point_id;
     TTypeBTypesRow tlgTypeInfo;
     int tlg_id = TelegramInterface::create_tlg(info, ASTRA::NoExists, tlgTypeInfo, true);
-    TCachedQuery TlgQry("SELECT * FROM tlg_out WHERE id=:id ORDER BY num",
-            QParams() << QParam("id", otInteger, tlg_id));
+    DB::TCachedQuery TlgQry(PgOra::getROSession("TLG_OUT"),
+                            "SELECT * FROM tlg_out WHERE id=:id ORDER BY num",
+                            QParams() << QParam("id", otInteger, tlg_id),
+                            STDLOG);
     TlgQry.get().Execute();
     for(;!TlgQry.get().Eof;TlgQry.get().Next())
     {

@@ -1534,10 +1534,11 @@ bool createUTGDataFiles( int point_id, const std::string &point_addr, TFileDatas
 
     QryParams.clear();
     QryParams << QParam("id", otInteger);
-    TCachedQuery TlgQry(
+    DB::TCachedQuery TlgQry(
+            PgOra::getROSession("TLG_OUT"),
             "SELECT * FROM tlg_out WHERE id=:id ORDER BY num",
-            QryParams
-            );
+            QryParams,
+            STDLOG);
 
     QryParams.clear();
     QryParams << QParam("point_id", otInteger)
@@ -1545,7 +1546,8 @@ bool createUTGDataFiles( int point_id, const std::string &point_addr, TFileDatas
     DB::TCachedQuery updQry(
             PgOra::getRWSession("UTG_PRL"),
             "UPDATE utg_prl set last_tlg_create_tid = :last_flt_change_tid where point_id = :point_id",
-            QryParams);
+            QryParams,
+            STDLOG);
 
     QryParams.clear();
     QryParams << QParam("point_id", otInteger);
@@ -1553,8 +1555,8 @@ bool createUTGDataFiles( int point_id, const std::string &point_addr, TFileDatas
             PgOra::getRWSession("UTG_PRL"), // RW специально из-за update-а выше
             "select last_flt_change_tid from utg_prl where point_id = :point_id and "
             "(last_tlg_create_tid is null or last_tlg_create_tid <> last_flt_change_tid)",
-            QryParams
-            );
+            QryParams,
+            STDLOG);
 
     TTripInfo flt;
     flt.Init(fltQry.get());
