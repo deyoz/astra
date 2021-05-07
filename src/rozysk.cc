@@ -14,6 +14,7 @@
 #include "file_queue.h"
 #include "jxtlib/xml_stuff.h"
 #include "serverlib/logger.h"
+#include "serverlib/oci_err.h"
 #include "franchise.h"
 #include "flt_settings.h"
 
@@ -70,6 +71,7 @@ struct TRow {
     bool transfer_route;
     int reg_no;
     int pax_id;
+    int point_id;
     //документ
     CheckIn::TPaxDocItem doc;
     //виза
@@ -89,13 +91,14 @@ struct TRow {
       transfer_route=false;
       reg_no=NoExists;
       pax_id=NoExists;
+      point_id=NoExists;
     };
     TRow& fltFromDB(DB::TQuery &Qry);
     TRow& paxFromDB(TQuery &Qry);
     TRow& setPnr(const TPnrAddrs &pnrs);
     TRow& setDoc(const CheckIn::TPaxDocItem &_doc);
     TRow& setVisa(const CheckIn::TPaxDocoItem &_visa);
-    const TRow& toDB(TRowType type, TQuery &Qry, bool check_sql=true) const;
+    const TRow& toDB(TRowType type) const;
     bool isCrew() const { return !(reg_no==NoExists || reg_no>0); }
 };
 
@@ -203,212 +206,152 @@ TRow& TRow::setVisa(const CheckIn::TPaxDocoItem &_visa)
   return *this;
 };
 
-const TRow& TRow::toDB(TRowType type, TQuery &Qry, bool check_sql) const
+const TRow& TRow::toDB(TRowType type) const
 {
-  const char* sql=
-    "DECLARE "
-    "  pass BINARY_INTEGER; "
-    "BEGIN "
-    "  FOR pass IN 1..2 LOOP "
-    "    IF :pax_id IS NOT NULL THEN "
-    "      UPDATE rozysk "
-    "      SET time=:time, "
-    "          term=:term, "
-    "          airline=:airline, "
-    "          flt_no=:flt_no, "
-    "          suffix=:suffix, "
-    "          takeoff=:takeoff, "
-    "          landing=:landing, "
-    "          airp_dep=:airp_dep, "
-    "          airp_arv=:airp_arv, "
-    "          surname=:surname, "
-    "          name=:name, "
-    "          seat_no=:seat_no, "
-    "          bag_weight=:bag_weight, "
-    "          rk_weight=:rk_weight, "
-    "          tags=:tags, "
-    "          pnr=:pnr, "
-    "          operation=:operation, "
-    "          route_type=:route_type, "
-    "          route_type2=:route_type2, "
-    "          reg_no=:reg_no, "
-    "          doc_type=:doc_type, "
-    "          doc_issue_country=:doc_issue_country, "
-    "          doc_no=:doc_no, "
-    "          doc_nationality=:doc_nationality, "
-    "          doc_gender=:doc_gender, "
-    "          doc_birth_date=:doc_birth_date, "
-    "          doc_type_rcpt=:doc_type_rcpt, "
-    "          doc_surname=:doc_surname, "
-    "          doc_first_name=:doc_first_name, "
-    "          doc_second_name=:doc_second_name, "
-    "          visa_no=:visa_no, "
-    "          visa_issue_place=:visa_issue_place, "
-    "          visa_issue_date=:visa_issue_date, "
-    "          visa_applic_country=:visa_applic_country "
-    "      WHERE pax_id=:pax_id; "
-    "      IF SQL%FOUND THEN EXIT; END IF;"
-    "    END IF; "
-    "    BEGIN "
-    "      INSERT INTO rozysk "
-    "        (time, term, "
-    "         airline, flt_no, suffix, takeoff, landing, airp_dep, "
-    "         airp_arv, surname, name, seat_no, bag_weight, rk_weight, "
-    "         tags, pnr, operation, route_type, route_type2, reg_no, pax_id, "
-    "         doc_type, doc_issue_country, doc_no, doc_nationality, doc_gender, doc_birth_date, doc_type_rcpt, "
-    "         doc_surname, doc_first_name, doc_second_name, "
-    "         visa_no, visa_issue_place, visa_issue_date, visa_applic_country) "
-    "      VALUES "
-    "        (:time, :term, "
-    "         :airline, :flt_no, :suffix, :takeoff, :landing, :airp_dep, "
-    "         :airp_arv, :surname, :name, :seat_no, :bag_weight, :rk_weight, "
-    "         :tags, :pnr, :operation, :route_type, :route_type2, :reg_no, :pax_id, "
-    "         :doc_type, :doc_issue_country, :doc_no, :doc_nationality, :doc_gender, :doc_birth_date, :doc_type_rcpt, "
-    "         :doc_surname, :doc_first_name, :doc_second_name, "
-    "         :visa_no, :visa_issue_place, :visa_issue_date, :visa_applic_country); "
-    "      EXIT; "
-    "    EXCEPTION "
-    "      WHEN DUP_VAL_ON_INDEX THEN "
-    "        IF pass=1 AND :pax_id IS NOT NULL THEN NULL; ELSE RAISE; END IF; "
-    "    END; "
-    "  END LOOP; "
-    "END; ";
-  if (check_sql)
-  {
-    if (strcmp(Qry.SQLText.SQLText(),sql)!=0)
-    {
-      Qry.Clear();
-      Qry.SQLText=sql;
-      //дополнительно
-      Qry.DeclareVariable("time", otDate);
-      Qry.DeclareVariable("term", otString);
-      //рейс
-      Qry.DeclareVariable("airline", otString);
-      Qry.DeclareVariable("flt_no", otInteger);
-      Qry.DeclareVariable("suffix", otString);
-      Qry.DeclareVariable("takeoff", otDate);
-      Qry.DeclareVariable("airp_dep", otString);
-      //пассажир
-      Qry.DeclareVariable("landing", otDate);
-      Qry.DeclareVariable("airp_arv", otString);
-      Qry.DeclareVariable("surname", otString);
-      Qry.DeclareVariable("name", otString);
-      Qry.DeclareVariable("seat_no", otString);
-      Qry.DeclareVariable("bag_weight", otInteger);
-      Qry.DeclareVariable("rk_weight", otInteger);
-      Qry.DeclareVariable("tags", otString);
-      Qry.DeclareVariable("pnr", otString);
-      Qry.DeclareVariable("operation", otString);
-      Qry.DeclareVariable("route_type", otInteger);
-      Qry.DeclareVariable("route_type2", otInteger);
-      Qry.DeclareVariable("reg_no", otInteger);
-      Qry.DeclareVariable("pax_id", otInteger);
-      //документ
-      Qry.DeclareVariable("doc_type", otString);
-      Qry.DeclareVariable("doc_issue_country", otString);
-      Qry.DeclareVariable("doc_no", otString);
-      Qry.DeclareVariable("doc_nationality", otString);
-      Qry.DeclareVariable("doc_gender", otString);
-      Qry.DeclareVariable("doc_birth_date", otDate);
-      Qry.DeclareVariable("doc_type_rcpt", otString);
-      Qry.DeclareVariable("doc_surname", otString);
-      Qry.DeclareVariable("doc_first_name", otString);
-      Qry.DeclareVariable("doc_second_name", otString);
-      //виза
-      Qry.DeclareVariable("visa_no", otString);
-      Qry.DeclareVariable("visa_issue_place", otString);
-      Qry.DeclareVariable("visa_issue_date", otDate);
-      Qry.DeclareVariable("visa_applic_country", otString);
-    };
-  };
+  QParams params;
   //дополнительно
-  time!=NoExists?Qry.SetVariable("time", time):
-                 Qry.SetVariable("time", FNull);
-  Qry.SetVariable("term", term);
+  params << QParam("time", otDate, time, QParam::NullOnEmpty);
+  params << QParam("term", otString, term);
   //рейс
-  Qry.SetVariable("airline", airline);
-  flt_no!=NoExists?Qry.SetVariable("flt_no", flt_no):
-                   Qry.SetVariable("flt_no", FNull);
-  Qry.SetVariable("suffix", suffix);
+  params << QParam("airline", otString, airline);
+  params << QParam("flt_no", otInteger, flt_no, QParam::NullOnEmpty);
+  params << QParam("suffix", otString, suffix);
 
-  if (type==rowMagistral)
+  if (type == rowMagistral)
   {
-    takeoff_local!=NoExists?Qry.SetVariable("takeoff", takeoff_local):
-                            Qry.SetVariable("takeoff", FNull);
-    landing_local!=NoExists?Qry.SetVariable("landing", landing_local):
-                            Qry.SetVariable("landing", FNull);
-  };
-  if (type==rowMintrans)
+    params << QParam("takeoff", otDate, takeoff_local, QParam::NullOnEmpty);
+    params << QParam("landing", otDate, landing_local, QParam::NullOnEmpty);
+    params << QParam("operation", otString, operation);
+    params << QParam("pax_id", otInteger, FNull);
+    params << QParam("point_id", otInteger, FNull);
+  }
+  if (type == rowMintrans)
   {
-    takeoff_utc!=NoExists?Qry.SetVariable("takeoff", takeoff_utc):
-                          Qry.SetVariable("takeoff", FNull);
-    landing_utc!=NoExists?Qry.SetVariable("landing", landing_utc):
-                          Qry.SetVariable("landing", FNull);
-  };
+    params << QParam("takeoff", otDate, takeoff_utc, QParam::NullOnEmpty);
+    params << QParam("landing", otDate, landing_utc, QParam::NullOnEmpty);
+    if (operation == "K1") {
+      params << QParam("operation", otString, isCrew() ? "50" : "04");
+    } else if (operation == "K2") {
+      params << QParam("operation", otString, isCrew() ? "50" : "05");
+    } else if (operation == "K3") {
+      params << QParam("operation", otString, isCrew() ? "50" : "06");
+    } else if (operation == "K0") {
+      params << QParam("operation", otString, isCrew() ? "51" : "16");
+    } else {
+      return *this;
+    }
+    params << QParam("pax_id", otInteger, pax_id, QParam::NullOnEmpty);
+    params << QParam("point_id", otInteger, point_id, QParam::NullOnEmpty);
+  }
 
-  Qry.SetVariable("airp_dep", airp_dep);
+  params << QParam("airp_dep", otString, airp_dep);
+  params << QParam("airp_arv", otString, airp_arv);
+
   //пассажир
-  Qry.SetVariable("airp_arv", airp_arv);
-  Qry.SetVariable("surname", surname);
-  Qry.SetVariable("name", name);
-  Qry.SetVariable("seat_no", seat_no);
-  bag_weight!=NoExists?Qry.SetVariable("bag_weight", bag_weight):
-                       Qry.SetVariable("bag_weight", FNull);
-  rk_weight!=NoExists?Qry.SetVariable("rk_weight", rk_weight):
-                      Qry.SetVariable("rk_weight", FNull);
-  Qry.SetVariable("tags", tags.substr(0,250));
-  Qry.SetVariable("pnr", pnr);
-  if (type==rowMagistral)
-    Qry.SetVariable("operation", operation);
-  if (type==rowMintrans)
-  {
-    if (operation=="K1")
-      Qry.SetVariable("operation", isCrew()?"50":"04");
-    else if (operation=="K2")
-      Qry.SetVariable("operation", isCrew()?"50":"05");
-    else if (operation=="K3")
-      Qry.SetVariable("operation", isCrew()?"50":"06");
-    else if (operation=="K0")
-      Qry.SetVariable("operation", isCrew()?"51":"16");
-    else return *this;
-  };
-  if (transfer_route)
-    Qry.SetVariable("route_type", 2);
-  else
-    Qry.SetVariable("route_type", 0);
+  params << QParam("surname", otString, surname);
+  params << QParam("name", otString, name);
+  params << QParam("seat_no", otString, seat_no);
+  params << QParam("bag_weight", otInteger, bag_weight, QParam::NullOnEmpty);
+  params << QParam("rk_weight", otInteger, rk_weight, QParam::NullOnEmpty);
+  params << QParam("tags", otString, tags.substr(0,250));
+  params << QParam("pnr", otString, pnr);
+  params << QParam("route_type", otInteger, transfer_route ? 2 : 0);
+  params << QParam("route_type2", otInteger, whole_route_not_rus, QParam::NullOnEmpty);
+  params << QParam("reg_no", otInteger, reg_no, QParam::NullOnEmpty);
 
-  if (whole_route_not_rus==NoExists)
-    Qry.SetVariable("route_type2", FNull);
-  else
-    Qry.SetVariable("route_type2", whole_route_not_rus);
-
-  reg_no!=NoExists?Qry.SetVariable("reg_no", reg_no):
-                   Qry.SetVariable("reg_no", FNull);
-  pax_id!=NoExists?Qry.SetVariable("pax_id", pax_id):
-                   Qry.SetVariable("pax_id", FNull);
-  if (type==rowMagistral) Qry.SetVariable("pax_id", FNull);
   //документ
-  Qry.SetVariable("doc_type", doc.type);
-  Qry.SetVariable("doc_issue_country", doc.issue_country);
-  Qry.SetVariable("doc_no", doc.no);
-  Qry.SetVariable("doc_nationality", doc.nationality);
-  Qry.SetVariable("doc_gender", doc.gender);
-  doc.birth_date!=NoExists?Qry.SetVariable("doc_birth_date", doc.birth_date):
-                           Qry.SetVariable("doc_birth_date", FNull);
-  Qry.SetVariable("doc_type_rcpt", doc.type_rcpt);
-  Qry.SetVariable("doc_surname", doc.surname);
-  Qry.SetVariable("doc_first_name", doc.first_name);
-  Qry.SetVariable("doc_second_name", doc.second_name);
+  params << QParam("doc_type", otString, doc.type);
+  params << QParam("doc_issue_country", otString, doc.issue_country);
+  params << QParam("doc_no", otString, doc.no);
+  params << QParam("doc_nationality", otString, doc.nationality);
+  params << QParam("doc_gender", otString, doc.gender);
+  params << QParam("doc_birth_date", otDate, doc.birth_date, QParam::NullOnEmpty);
+  params << QParam("doc_type_rcpt", otString, doc.type_rcpt);
+  params << QParam("doc_surname", otString, doc.surname);
+  params << QParam("doc_first_name", otString, doc.first_name);
+  params << QParam("doc_second_name", otString, doc.second_name);
 
   //виза
-  Qry.SetVariable("visa_no", visa.no);
-  Qry.SetVariable("visa_issue_place", visa.issue_place);
-  visa.issue_date!=NoExists?Qry.SetVariable("visa_issue_date", visa.issue_date):
-                            Qry.SetVariable("visa_issue_date", FNull);
-  Qry.SetVariable("visa_applic_country", visa.applic_country);
-  Qry.Execute();
+  params << QParam("visa_no", otString, visa.no);
+  params << QParam("visa_issue_place", otString, visa.issue_place);
+  params << QParam("visa_issue_date", otDate, visa.issue_date, QParam::NullOnEmpty);
+  params << QParam("visa_applic_country", otString, visa.applic_country);
+
+  DB::TCachedQuery QryIns(
+        PgOra::getRWSession("ROZYSK"),
+        "INSERT INTO rozysk ( "
+        "    time, term, "
+        "    airline, flt_no, suffix, takeoff, landing, airp_dep, "
+        "    airp_arv, surname, name, seat_no, bag_weight, rk_weight, "
+        "    tags, pnr, operation, route_type, route_type2, reg_no, pax_id, "
+        "    doc_type, doc_issue_country, doc_no, doc_nationality, doc_gender, "
+        "    doc_birth_date, doc_type_rcpt, doc_surname, "
+        "    doc_first_name, doc_second_name, "
+        "    visa_no, visa_issue_place, visa_issue_date, visa_applic_country "
+        ") VALUES ( "
+        "    :time, :term, "
+        "    :airline, :flt_no, :suffix, :takeoff, :landing, :airp_dep, "
+        "    :airp_arv, :surname, :name, :seat_no, :bag_weight, :rk_weight, "
+        "    :tags, :pnr, :operation, :route_type, :route_type2, :reg_no, :pax_id, "
+        "    :doc_type, :doc_issue_country, :doc_no, :doc_nationality, :doc_gender, "
+        "    :doc_birth_date, :doc_type_rcpt, :doc_surname, "
+        "    :doc_first_name, "":doc_second_name, "
+        "    :visa_no, :visa_issue_place, :visa_issue_date, :visa_applic_country) ",
+        params,
+        STDLOG
+        );
+
+  if (type == rowMagistral
+      || pax_id == ASTRA::NoExists)
+  {
+    QryIns.get().Execute();
+  } else {
+    DB::TCachedQuery QryUpd(
+          PgOra::getRWSession("ROZYSK"),
+          "UPDATE rozysk "
+          "SET time=:time, "
+          "    term=:term, "
+          "    airline=:airline, "
+          "    flt_no=:flt_no, "
+          "    suffix=:suffix, "
+          "    takeoff=:takeoff, "
+          "    landing=:landing, "
+          "    airp_dep=:airp_dep, "
+          "    airp_arv=:airp_arv, "
+          "    surname=:surname, "
+          "    name=:name, "
+          "    seat_no=:seat_no, "
+          "    bag_weight=:bag_weight, "
+          "    rk_weight=:rk_weight, "
+          "    tags=:tags, "
+          "    pnr=:pnr, "
+          "    operation=:operation, "
+          "    route_type=:route_type, "
+          "    route_type2=:route_type2, "
+          "    reg_no=:reg_no, "
+          "    doc_type=:doc_type, "
+          "    doc_issue_country=:doc_issue_country, "
+          "    doc_no=:doc_no, "
+          "    doc_nationality=:doc_nationality, "
+          "    doc_gender=:doc_gender, "
+          "    doc_birth_date=:doc_birth_date, "
+          "    doc_type_rcpt=:doc_type_rcpt, "
+          "    doc_surname=:doc_surname, "
+          "    doc_first_name=:doc_first_name, "
+          "    doc_second_name=:doc_second_name, "
+          "    visa_no=:visa_no, "
+          "    visa_issue_place=:visa_issue_place, "
+          "    visa_issue_date=:visa_issue_date, "
+          "    visa_applic_country=:visa_applic_country "
+          "WHERE pax_id=:pax_id ",
+          params,
+          STDLOG
+          );
+
+    DB::concurrentSave(QryUpd.get(), QryIns.get());
+  }
   return *this;
-};
+}
 
 void check_flight(DB::TQuery &Qry, int point_id)
 {
@@ -431,6 +374,7 @@ void get_flight(int point_id, TRow &r)
   Qry.Execute();
   check_flight(Qry, point_id);
   r.fltFromDB(Qry);
+  r.point_id = point_id;
 };
 
 void get_crs_flight(int point_id, TRow &r)
@@ -528,7 +472,6 @@ void check_pax(TQuery &Qry, int pax_id)
 
 void sync_pax_internal(int id,
                        const string &term,
-                       const string &user_descr,
                        bool is_grp_id)
 {
   TQuery Qry(&OraSession);
@@ -551,7 +494,6 @@ void sync_pax_internal(int id,
     else
       throw Exception("passenger not found (pax_id=%d)", id);
   };
-  TQuery InsQry(&OraSession);
   TRow row;
   //дополнительно
   row.time=NowUTC();
@@ -560,7 +502,6 @@ void sync_pax_internal(int id,
   int point_id=Qry.FieldAsInteger("point_id");
   get_flight(point_id, row);
 
-  bool check_sql=true;
   if (!Qry.Eof)
   {
     get_route_not_rus(point_id, Qry.FieldAsInteger("point_arv"), row);
@@ -583,13 +524,8 @@ void sync_pax_internal(int id,
       CheckIn::TPaxDocoItem doco;
       LoadPaxDoco(pax_id, doco);
       row.setVisa(doco);
-
-      for(int pass=0; pass<2; pass++)
-      {
-        TRowType type=(pass==0?rowMagistral:rowMintrans);
-        row.toDB(type, InsQry, check_sql);
-        check_sql=false;
-      };
+      row.toDB(rowMagistral);
+      row.toDB(rowMintrans);
     };
   };
 };
@@ -598,7 +534,7 @@ void sync_pax(int pax_id, const string &term, const string &user_descr)
 {
   try
   {
-    sync_pax_internal(pax_id, term, user_descr, false);
+    sync_pax_internal(pax_id, term, false);
   }
   catch(const Exception &e)
   {
@@ -614,7 +550,7 @@ void sync_pax_grp(int grp_id, const string &term, const string &user_descr)
 {
   try
   {
-    sync_pax_internal(grp_id, term, user_descr, true);
+    sync_pax_internal(grp_id, term, true);
   }
   catch(const Exception &e)
   {
@@ -646,7 +582,6 @@ void sync_crs_pax_internal(int id,
   Qry.Execute();
   if (Qry.Eof) return;
 
-  TQuery InsQry(&OraSession);
   TRow row;
   //дополнительно
   row.time=NowUTC();
@@ -659,7 +594,6 @@ void sync_crs_pax_internal(int id,
   pnrs.getByPnrId(Qry.FieldAsInteger("pnr_id"));
   row.setPnr(pnrs);
 
-  bool check_sql=true;
   for(;!Qry.Eof;Qry.Next())
   {
     int pax_id=Qry.FieldAsInteger("pax_id");
@@ -675,8 +609,7 @@ void sync_crs_pax_internal(int id,
     LoadCrsPaxVisa(pax_id, doco);
     row.setVisa(doco);
 
-    row.toDB(rowMagistral, InsQry, check_sql);
-    check_sql=false;
+    row.toDB(rowMagistral);
   };
 };
 
@@ -841,8 +774,7 @@ void get_pax_list(const TPaxListFilter &filter,
       filter.last_time_utc==NoExists)
     throw Exception("rozysk::get_pax_list: first_time_utc and last_time_utc not defined");
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("ROZYSK"));
   ostringstream sql;
   sql << "SELECT time, term, "
          "       airline, flt_no, suffix, takeoff, airp_dep, "
@@ -984,20 +916,18 @@ void get_pax_list(int point_id,
 
   OutputLang outputLang(LANG_EN, {OutputLang::OnlyTrueIataCodes});
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("ROZYSK"));
   ostringstream sql;
-  sql << "SELECT r.time, "
-         "       r.airline, r.flt_no, r.suffix, r.takeoff, r.airp_dep, "
-         "       r.landing, r.airp_arv, r.surname, r.name, "
-         "       r.seat_no, r.pnr, r.operation, "
-         "       r.route_type, r.route_type2, r.reg_no, "
-         "       r.doc_type, r.doc_issue_country, r.doc_no, r.doc_nationality, r.doc_gender, "
-         "       r.doc_birth_date, r.doc_type_rcpt, r.doc_surname, r.doc_first_name, r.doc_second_name "
-         "FROM pax_grp, pax, rozysk r "
-         "WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=r.pax_id AND "
-         "      pax_grp.point_dep=:point_id AND "
-         "      (r.name IS NULL OR r.name<>'CBBG') "
+  sql << "SELECT time, "
+         "       airline, flt_no, suffix, takeoff, airp_dep, "
+         "       landing, airp_arv, surname, name, "
+         "       seat_no, pnr, operation, "
+         "       route_type, route_type2, reg_no, "
+         "       doc_type, doc_issue_country, doc_no, doc_nationality, doc_gender, "
+         "       doc_birth_date, doc_type_rcpt, doc_surname, doc_first_name, doc_second_name "
+         "FROM rozysk "
+         "WHERE point_id=:point_id "
+         "AND (name IS NULL OR name<>'CBBG') "
          "ORDER BY time";
   Qry.SQLText=sql.str();
   Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -1060,12 +990,12 @@ void get_pax_list(int point_id,
         {
           const TRcptDocTypesRow &doc_type_rcpt_row = (const TRcptDocTypesRow&)base_tables.get("rcpt_doc_types").get_row("code",Qry.FieldAsString( idx_doc_type_rcpt ));
           pax.docType = doc_type_rcpt_row.code_mintrans;
-          if (strcmp(Qry.FieldAsString( idx_doc_issue_country ),"RUS")!=0)
+          if (Qry.FieldAsString(idx_doc_issue_country) != "RUS")
           {
             if (pax.docType=="00") pax.docType="99";
             if (pax.docType=="02")
             {
-              if (Qry.FieldIsNULL( idx_doc_issue_country ))
+              if (Qry.FieldIsNULL(idx_doc_issue_country))
                 pax.docType="99";
               else
                 pax.docType="03";
