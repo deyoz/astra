@@ -55,6 +55,7 @@ namespace PgOra
         { "SP_PG_GROUP_ANNUL_BAG",{ "ANNUL_BAG", "ANNUL_TAGS", "BI_STAT" } },
         { "SP_PG_GROUP_PAID_RFISC",{ "PAID_RFISC" } },
         { "SP_PG_GROUP_CONFIRM_PRINT",{ "CONFIRM_PRINT", "CONFIRM_PRINT_VO_UNREG", "STAT_REPRINT" } },
+        { "SP_PG_GROUP_ROZYSK",{ "ROZYSK" } },
         { "SP_PG_GROUP_WB",    { "WB_MSG", "WB_MSG_TEXT" } },
         { "SP_PG_GROUP_SCHED", { "SCHED_DAYS", "SEASON_SPP", "ROUTES", "SSM_SCHEDULE"} },
         { "SP_PG_GROUP_SCHED_SEQ", {"ROUTES_MOVE_ID", "ROUTES_TRIP_ID", "SSM_ID"} },
