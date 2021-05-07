@@ -265,8 +265,12 @@ void PassengerSearchResult::fromXML(xmlNodePtr reqNode, xmlNodePtr externalSysRe
     if (type == ZamarType::SBDO or type == ZamarType::CUWS)
     {
       // generated
-      TQuery Qry( &OraSession );
-      Qry.SQLText="SELECT no, weight FROM sbdo_tags_generated WHERE pax_id = :pax_id AND deactivated = 0 and sbdo_type = :type";
+      DB::TQuery Qry(PgOra::getROSession("SBDO_TAGS_GENERATED"), STDLOG);
+      Qry.SQLText="SELECT no, weight "
+                  "FROM sbdo_tags_generated "
+                  "WHERE pax_id = :pax_id "
+                  "AND deactivated = 0 "
+                  "AND sbdo_type = :type";
       Qry.CreateVariable( "pax_id", otInteger, pax_id );
       Qry.CreateVariable( "type", otString, EncodeZamarType(type) );
       Qry.Execute();
@@ -677,13 +681,13 @@ std::string ZamarBagTag::tagNumber() const
   return tagNumber_.get().str();
 }
 
-void ZamarBagTag::tagNumberToDB(TQuery &Qry) const
+void ZamarBagTag::tagNumberToDB(DB::TQuery &Qry) const
 {
   tagNumber_?Qry.CreateVariable("no", otFloat, tagNumber_.get().numeric_part):
              Qry.CreateVariable("no", otFloat, FNull);
 }
 
-void ZamarBagTag::paxIdToDB(TQuery &Qry) const
+void ZamarBagTag::paxIdToDB(DB::TQuery &Qry) const
 {
   pax_id_!=NoExists?Qry.CreateVariable("pax_id", otInteger, pax_id_):
                     Qry.CreateVariable("pax_id", otInteger, FNull);
@@ -848,11 +852,14 @@ void ZamarBagTag::toDB_generated(ZamarType type) const
 {
   if (not generated_)
     ZamarException(STR_INTERNAL_ERROR, "Tag not generated", __func__);
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getRWSession("SBDO_TAGS_GENERATED"), STDLOG);
   Qry.SQLText =
-    "INSERT INTO sbdo_tags_generated(no, pax_id, weight, list_id, bag_type, rfisc, service_type, airline, deactivated, sbdo_type) "
-    "VALUES(:no, :pax_id, :weight, :list_id, :bag_type, :rfisc, :service_type, :airline, 0, :sbdo_type) ";
+    "INSERT INTO sbdo_tags_generated("
+    "no, pax_id, weight, list_id, bag_type, rfisc, service_type, "
+    "airline, deactivated, sbdo_type "
+    ") VALUES ( "
+    ":no, :pax_id, :weight, :list_id, :bag_type, :rfisc, :service_type, "
+    ":airline, 0, :sbdo_type) ";
 
   tagNumberToDB(Qry);
   paxIdToDB(Qry);
@@ -926,20 +933,23 @@ void ZamarBagTag::toDB_deactivated(xmlNodePtr reqNode, xmlNodePtr externalSysRes
   }
 
   // выставляем статус деактивирована в таблице сгенерированных
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText = "UPDATE sbdo_tags_generated SET deactivated = 1 WHERE no = :no";
+  DB::TQuery Qry(PgOra::getRWSession("SBDO_TAGS_GENERATED"), STDLOG);
+  Qry.SQLText = "UPDATE sbdo_tags_generated "
+                "SET deactivated = 1 "
+                "WHERE no = :no";
   tagNumberToDB(Qry);
   Qry.Execute();
 }
 
 void ZamarBagTag::fromDB(ZamarType type, ZamarActionType actionType)
 {
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("SBDO_TAGS_GENERATED"), STDLOG);
   //сначала всегда ищем в сгенерированных
-  Qry.Clear();
   Qry.SQLText =
-      "SELECT sbdo_tags_generated.*, 1 AS amount FROM sbdo_tags_generated WHERE no = :no and sbdo_type = :type";
+      "SELECT sbdo_tags_generated.*, 1 AS amount "
+      "FROM sbdo_tags_generated "
+      "WHERE no = :no "
+      "AND sbdo_type = :type";
   Qry.CreateVariable("type", otString, EncodeZamarType(type));
   tagNumberToDB(Qry);
   Qry.Execute();
@@ -1001,24 +1011,48 @@ void ZamarBagTag::Deactivate(xmlNodePtr reqNode, xmlNodePtr externalSysResNode, 
 //-----------------------------------------------------------------------------------
 // PassengerBaggageTagAdd
 
+static bool existsBagTags(const GrpId_t& grp_id, int no)
+{
+  DB::TQuery Qry(PgOra::getROSession("BAG_TAGS"), STDLOG);
+  Qry.SQLText = "SELECT 1 "
+                "FROM bag_tags "
+                "WHERE grp_id=:grp_id "
+                "AND no=:no "
+                "FETCH FIRST 1 ROWS ONLY ";
+  Qry.CreateVariable("grp_id", otInteger, grp_id.get());
+  Qry.CreateVariable("no", otInteger, no);
+  Qry.Execute();
+  return !Qry.Eof;
+}
+
 static void getAdditionalBagItems(const CheckIn::TSimplePaxItem& pax,
                                   const CheckIn::TSimpleBagItem& bag,
                                   list< pair<int/*pax_id*/, CheckIn::TSimpleBagItem> >& items)
 {
   items.clear();
   items.emplace_back(pax.id, bag);
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText = "SELECT sbdo_tags_generated.*, 1 AS amount FROM sbdo_tags_generated, pax "
-                "WHERE sbdo_tags_generated.pax_id=pax.pax_id AND pax.grp_id=:grp_id AND "
-                "      pax.refuse IS NULL AND deactivated=0 AND "
-                "      NOT EXISTS (SELECT * FROM bag_tags WHERE bag_tags.grp_id=:grp_id AND bag_tags.no=sbdo_tags_generated.no)";
-  Qry.CreateVariable("grp_id", otInteger, pax.grp_id);
-  Qry.Execute();
-  for(; !Qry.Eof; Qry.Next())
-  {
-    int pax_id=Qry.FieldAsInteger("pax_id");
-    items.emplace_back(pax_id, CheckIn::TSimpleBagItem().fromDB(Qry));
+  const std::list<CheckIn::TSimplePaxItem> paxes
+      = CheckIn::TSimplePaxItem::getByGrpId(GrpId_t(pax.grp_id));
+  for (const CheckIn::TSimplePaxItem& pax_by_grp: paxes) {
+    if (!pax_by_grp.refuse.empty()) {
+      continue;
+    }
+    DB::TQuery Qry(PgOra::getROSession("SBDO_TAGS_GENERATED"), STDLOG);
+    Qry.SQLText = "SELECT sbdo_tags_generated.*, 1 AS amount "
+                  "FROM sbdo_tags_generated "
+                  "WHERE pax_id=:pax_id "
+                  "AND deactivated=0 ";
+    Qry.CreateVariable("grp_id", otInteger, pax_by_grp.id);
+    Qry.Execute();
+    for(; !Qry.Eof; Qry.Next())
+    {
+      const int no=Qry.FieldAsInteger("no");
+      if (existsBagTags(GrpId_t(pax.grp_id), no)) {
+        continue;
+      }
+      int pax_id=Qry.FieldAsInteger("pax_id");
+      items.emplace_back(pax_id, CheckIn::TSimpleBagItem().fromDB(Qry));
+    }
   }
 }
 

@@ -53,6 +53,7 @@ class TBagTypeListKey
     TBagTypeListKey& fromXML(xmlNodePtr node);
     TBagTypeListKey& fromXMLcompatible(xmlNodePtr node);
     const TBagTypeListKey& toDB(TQuery &Qry) const;
+    const TBagTypeListKey& toDB(DB::TQuery &Qry) const;
     TBagTypeListKey& fromDB(TQuery &Qry);
     const TBagTypeListKey& key() const { return *this; }
     void key(const TBagTypeListKey& _key) { *this=_key; }
@@ -142,6 +143,7 @@ class TBagTypeKey : public TBagTypeListKey
 
     const TBagTypeKey& toXML(xmlNodePtr node) const;
     const TBagTypeKey& toDB(TQuery &Qry) const;
+    const TBagTypeKey& toDB(DB::TQuery &Qry) const;
     const TBagTypeKey& toDBcompatible(TQuery &Qry, const std::string &where) const;
     TBagTypeKey& fromDB(TQuery &Qry);
     TBagTypeKey& fromDBcompatible(TQuery &Qry);

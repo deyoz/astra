@@ -107,8 +107,8 @@ struct ZamarBagTag
   boost::optional<TBagTagNumber> tagNumber_;
 
   std::string tagNumber() const;
-  void tagNumberToDB(TQuery &Qry) const;
-  void paxIdToDB(TQuery &Qry) const;
+  void tagNumberToDB(DB::TQuery &Qry) const;
+  void paxIdToDB(DB::TQuery &Qry) const;
   TBagConcept::Enum bagConcept() const;
   void Generate(int grp_id, ZamarType type);
   void SetListId();

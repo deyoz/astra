@@ -106,6 +106,13 @@ const TBagTypeListKey& TBagTypeListKey::toDB(TQuery &Qry) const
   return *this;
 }
 
+const TBagTypeListKey& TBagTypeListKey::toDB(DB::TQuery &Qry) const
+{
+  Qry.SetVariable("bag_type", bag_type);
+  Qry.SetVariable("airline", airline);
+  return *this;
+}
+
 const TBagTypeKey& TBagTypeKey::toDB(TQuery &Qry) const
 {
   TBagTypeListKey::toDB(Qry);
@@ -113,6 +120,19 @@ const TBagTypeKey& TBagTypeKey::toDB(TQuery &Qry) const
   {
     ProgError(STDLOG, "TBagTypeKey::toDB: list_id==ASTRA::NoExists! (%s)", traceStr().c_str());
     ProgError(STDLOG, "SQL=%s", Qry.SQLText.SQLText());
+  };
+  list_id!=ASTRA::NoExists?Qry.SetVariable("list_id", list_id):
+                           Qry.SetVariable("list_id", FNull);
+  return *this;
+}
+
+const TBagTypeKey& TBagTypeKey::toDB(DB::TQuery &Qry) const
+{
+  TBagTypeListKey::toDB(Qry);
+  if (!(*this==TBagTypeKey()) && list_id==ASTRA::NoExists) //!!!vlad
+  {
+    ProgError(STDLOG, "TBagTypeKey::toDB: list_id==ASTRA::NoExists! (%s)\nSQL=%s",
+              traceStr().c_str(), Qry.SQLText.c_str());
   };
   list_id!=ASTRA::NoExists?Qry.SetVariable("list_id", list_id):
                            Qry.SetVariable("list_id", FNull);
