@@ -208,6 +208,9 @@ TRow& TRow::setVisa(const CheckIn::TPaxDocoItem &_visa)
 
 const TRow& TRow::toDB(TRowType type) const
 {
+  LogTrace(TRACE6) << __func__
+                   << "type=" << (type == rowMagistral ? "rowMagistral"
+                                                       : "rowMintrans");
   QParams params;
   //дополнительно
   params << QParam("time", otDate, time, QParam::NullOnEmpty);
@@ -280,7 +283,7 @@ const TRow& TRow::toDB(TRowType type) const
   DB::TCachedQuery QryIns(
         PgOra::getRWSession("ROZYSK"),
         "INSERT INTO rozysk ( "
-        "    time, term, "
+        "    time, term, point_id, "
         "    airline, flt_no, suffix, takeoff, landing, airp_dep, "
         "    airp_arv, surname, name, seat_no, bag_weight, rk_weight, "
         "    tags, pnr, operation, route_type, route_type2, reg_no, pax_id, "
@@ -289,7 +292,7 @@ const TRow& TRow::toDB(TRowType type) const
         "    doc_first_name, doc_second_name, "
         "    visa_no, visa_issue_place, visa_issue_date, visa_applic_country "
         ") VALUES ( "
-        "    :time, :term, "
+        "    :time, :term, :point_id, "
         "    :airline, :flt_no, :suffix, :takeoff, :landing, :airp_dep, "
         "    :airp_arv, :surname, :name, :seat_no, :bag_weight, :rk_weight, "
         "    :tags, :pnr, :operation, :route_type, :route_type2, :reg_no, :pax_id, "
@@ -311,6 +314,7 @@ const TRow& TRow::toDB(TRowType type) const
           "UPDATE rozysk "
           "SET time=:time, "
           "    term=:term, "
+          "    point_id=:point_id, "
           "    airline=:airline, "
           "    flt_no=:flt_no, "
           "    suffix=:suffix, "
@@ -364,7 +368,7 @@ void check_flight(DB::TQuery &Qry, int point_id)
 
 void get_flight(int point_id, TRow &r)
 {
-  DB::TQuery Qry(PgOra::getROSession("POINTS"));
+  DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
   Qry.SQLText =
     "SELECT airline, flt_no, suffix, "
     "       COALESCE(scd_out,COALESCE(est_out,act_out)) AS takeoff, 1 AS is_utc, "
@@ -474,7 +478,7 @@ void sync_pax_internal(int id,
                        const string &term,
                        bool is_grp_id)
 {
-  TQuery Qry(&OraSession);
+  TQuery Qry(&OraSession, STDLOG);
   Qry.Clear();
   ostringstream sql;
   if (is_grp_id)
@@ -536,6 +540,19 @@ void sync_pax(int pax_id, const string &term, const string &user_descr)
   {
     sync_pax_internal(pax_id, term, false);
   }
+  catch(const EOracleError &orae)
+  {
+    if (orae.Nick != nullptr
+        && orae.File != nullptr)
+    {
+      ProgError(orae.Nick, orae.File, orae.Line,
+                "EOracleError %d: %s\nSQL: %s",
+                orae.Code,orae.what(),orae.SQLText());
+    } else {
+      ProgError(STDLOG,"EOracleError %d: %s\nSQL: %s",
+                orae.Code,orae.what(),orae.SQLText());
+    }
+  }
   catch(const Exception &e)
   {
     ProgError(STDLOG, "rozysk::sync_pax: %s", e.what());
@@ -551,6 +568,19 @@ void sync_pax_grp(int grp_id, const string &term, const string &user_descr)
   try
   {
     sync_pax_internal(grp_id, term, true);
+  }
+  catch(const EOracleError &orae)
+  {
+    if (orae.Nick != nullptr
+        && orae.File != nullptr)
+    {
+      ProgError(orae.Nick, orae.File, orae.Line,
+                "EOracleError %d: %s\nSQL: %s",
+                orae.Code,orae.what(),orae.SQLText());
+    } else {
+      ProgError(STDLOG,"EOracleError %d: %s\nSQL: %s",
+                orae.Code,orae.what(),orae.SQLText());
+    }
   }
   catch(const Exception &e)
   {
@@ -1137,6 +1167,7 @@ void sync_sirena_rozysk( TDateTime utcdate )
 
 void create_mintrans_file(int point_id)
 {
+  LogTrace(TRACE6) << __func__ << ": point_id=" << point_id;
   TTripInfo fltInfo;
   if (!fltInfo.getByPointId(point_id)) return;
   if (!GetTripSets(tsMintransFile, fltInfo)) return;
