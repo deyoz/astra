@@ -15,6 +15,7 @@
 #include "astra_misc.h"
 #include "dev_consts.h"
 #include "dev_utils.h"
+#include "db_savepoint.h"
 
 #include <serverlib/tcl_utils.h>
 #include <serverlib/monitor_ctl.h>
@@ -1886,20 +1887,20 @@ void rollbackAndCallRollbackHooks()
 void rollbackSavePax()
 {
     LogTrace(TRACE3) << "ASTRA::rollbackSavePax()";
-    make_curs("rollback to savepoint sp_savepax").exec();
+    DB::execSpCmd("rollback to savepoint sp_savepax");
 }
 
 void beforeSoftError()
 {
     const std::string sp_name("SavePointNum1");
-    make_curs(("savepoint " + sp_name)).exec();
+    DB::execSpCmd("savepoint " + sp_name);
     ProgTrace(TRACE1, "Making savepoint - %s", sp_name.c_str());
 }
 
 void afterSoftError()
 {
     std::string sp_name("SavePointNum1");
-    make_curs(("rollback to savepoint " + sp_name)).exec();
+    DB::execSpCmd("rollback to savepoint " + sp_name);
     ProgTrace(TRACE1, "RollBacking to savepoint - %s", sp_name.c_str());
 }
 

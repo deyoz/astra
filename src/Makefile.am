@@ -218,6 +218,7 @@ astra_SOURCES = \
   zamar_dsm.cpp \
   pg_session.cc \
   db_tquery.cc \
+  db_savepoint.cc \
   dbcpp_nosir_check.cc \
   base_callbacks.cpp \
   dbo.cpp \
@@ -444,6 +445,7 @@ noinst_HEADERS = \
   astra_types.h \
   pg_session.h \
   db_tquery.h \
+  db_savepoint.h \
   dbcpp_nosir_check.h \
   base_callbacks.h \
   dbo.h \

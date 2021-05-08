@@ -8,11 +8,11 @@
 #include "alarms.h"
 #include "points.h"
 #include "counters.h"
+#include "db_savepoint.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "ANNA"
 #include <serverlib/slogger.h>
-#include <serverlib/savepoint.h>
 #include <serverlib/algo.h>
 
 using namespace std;
@@ -251,7 +251,7 @@ void syncCabinClass(const TTripTaskKey &task)
     LogTrace(TRACE5) << __FUNCTION__ << ": paxId=" << paxId;
     deleteAlarmByPaxId(paxId, {Alarm::SyncCabinClass}, {paxCheckIn});
 
-    OciCpp::Savepoint spSyncCabinClass("sync_cabin_class");
+    DB::Savepoint spSyncCabinClass("sync_cabin_class");
 
     TSimplePaxItem pax;
     if (!pax.getByPaxId(paxId.get())) continue;
@@ -300,7 +300,7 @@ void syncCabinClass(const TTripTaskKey &task)
   {
     const SeatingGroup& seatingGroup=g.second;
 
-    OciCpp::Savepoint spSyncCabinClass("sync_cabin_class");
+    DB::Savepoint spSyncCabinClass("sync_cabin_class");
 
     try
     {
