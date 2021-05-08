@@ -7,10 +7,10 @@
 #include "astra_api.h"
 #include "astra_msg.h"
 #include "edi_utils.h"
+#include "db_savepoint.h"
 #include "tlg/postpone_edifact.h"
 
 #include <serverlib/xml_stuff.h>
-#include <serverlib/savepoint.h>
 #include <etick/exceptions.h>
 
 #include <sstream>
@@ -287,7 +287,7 @@ std::list<dcrcka::Result> checkin(tlgnum_t postponeTlgNum)
     ASSERT(ediResNode != NULL);
 
     std::list<dcrcka::Result> lRes = {};
-    OciCpp::Savepoint sp("iatci_checkin");
+    DB::Savepoint sp("iatci_checkin");
     try {
         auto defferedData = loadDeferredData(postponeTlgNum);
         auto segNode = astra_api::xml_entities::XmlEntityReader::readSeg(findNodeR(termReqNode, "segment"));
@@ -339,7 +339,7 @@ std::list<dcrcka::Result> cancelCheckin(tlgnum_t postponeTlgNum)
     ASSERT(ediResNode != NULL);
     
     std::list<dcrcka::Result> lRes = {};
-    OciCpp::Savepoint sp("iatci_checkin");
+    DB::Savepoint sp("iatci_checkin");
     try {
         auto defferedData = loadDeferredData(postponeTlgNum);
         auto cancelResWithGrpId = astra_api::cancelCheckinIatciPax(termReqNode, ediResNode);
