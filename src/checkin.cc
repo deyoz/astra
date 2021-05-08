@@ -2,6 +2,7 @@
 #include "exceptions.h"
 #include "astra_locale.h"
 #include "db_tquery.h"
+#include "db_savepoint.h"
 #include "PgOraConfig.h"
 #include "stl_utils.h"
 #include "xml_unit.h"
@@ -3312,7 +3313,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
       ASTRA::commit();
     }
 
-    OciCpp::Savepoint sp("sp_savepax");
+    DB::Savepoint sp("sp_savepax");
     if(ediResNode == NULL && IatciInterface::MayNeedSendIatci(reqNode))
     {
         if(!ReqParams(reqNode).getBoolParam("may_need_send_iatci"))
@@ -4102,7 +4103,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   }
 
   //savepoint для отката при превышении загрузки (важно что после лочки)
-  OciCpp::Savepoint sp("sp_checkin");
+  DB::Savepoint sp("sp_checkin");
 
   bool pr_unaccomp=strcmp((const char*)reqNode->name, "TCkinSaveUnaccompBag") == 0;
 

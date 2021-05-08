@@ -211,6 +211,7 @@ astra_SOURCES = \
   zamar_dsm.cpp \
   pg_session.cc \
   db_tquery.cc \
+  db_savepoint.cc \
   base_callbacks.cpp \
   hooked_session.cc \
   PgOraConfig.cc \
@@ -425,6 +426,7 @@ noinst_HEADERS = \
   astra_types.h \
   pg_session.h \
   db_tquery.h \
+  db_savepoint.h \
   base_callbacks.h \
   hooked_session.h \
   PgOraConfig.h \
