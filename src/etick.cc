@@ -55,6 +55,7 @@
 #include "PgOraConfig.h"
 #include "db_tquery.h"
 #include "hooked_session.h"
+#include "tlg/typeb_db.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -241,7 +242,7 @@ void GetNotDisplayedET(int point_id_tlg, int id, bool is_pax_id, std::set<ETSear
   for(;!Qry.Eof;Qry.Next())
   {
     const std::optional<TlgTripsData> tlg_trips_data =
-        TlgTripsData::load(PointIdTlg_t(point_id_tlg));
+        TlgTripsData::loadFromPnl(PointIdTlg_t(point_id_tlg));
     if (!tlg_trips_data) {
       continue;
     }
@@ -256,9 +257,9 @@ void GetNotDisplayedET(int point_id_tlg, int id, bool is_pax_id, std::set<ETSear
                                     tkne_item.ticket_no);
       searchParams.insert(params);
       //добавляем телеграммный рейс
-      params.airline=tlg_trips_data->airline;
-      params.flt_no=!tlg_trips_data->flt_no ? ASTRA::NoExists : tlg_trips_data->flt_no;
-      params.airp_dep=tlg_trips_data->airp_dep;
+      params.airline=tlg_trips_data->airline.get();
+      params.flt_no=tlg_trips_data->fltNumber.get();
+      params.airp_dep=tlg_trips_data->airpDep.value().get();
       searchParams.insert(params);
     }
   }
@@ -308,7 +309,7 @@ void GetAllStatusesByPointId(TListType type, int point_id, std::set<TETickItem> 
     for(;!Qry.Eof;Qry.Next())
     {
       const std::optional<TlgTripsData> tlg_trips_data =
-          TlgTripsData::load(PointIdTlg_t(Qry.FieldAsInteger("point_id_tlg")));
+          TlgTripsData::loadFromPnl(PointIdTlg_t(Qry.FieldAsInteger("point_id_tlg")));
       if (!tlg_trips_data) {
         continue;
       }
@@ -322,7 +323,7 @@ void GetAllStatusesByPointId(TListType type, int point_id, std::set<TETickItem> 
                                                   Qry.FieldAsInteger("point_id");
         item.et.no = tkne_item.ticket_no;
         item.et.coupon = tkne_item.coupon_no;
-        item.airp_dep=tlg_trips_data->airp_dep;
+        item.airp_dep=tlg_trips_data->airpDep.value().get();
         item.airp_arv=Qry.FieldAsString("airp_arv");
 
         TETickItem eticket;

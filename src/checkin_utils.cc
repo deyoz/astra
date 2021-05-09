@@ -1019,7 +1019,7 @@ TWebPaxForCkin& TWebPaxForCkin::fromDB(TQuery &Qry)
   }
   else
   {
-    pnr_addrs.getByPaxId(paxId());
+    pnr_addrs.getByPaxIdFast(paxId());
     CheckIn::LoadCrsPaxDoc(paxId(), apis.doc);
     CheckIn::LoadCrsPaxVisa(paxId(), apis.doco);
     CheckIn::LoadCrsPaxDoca(paxId(), apis.doca_map);

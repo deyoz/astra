@@ -10341,7 +10341,7 @@ namespace CKIN_REPORT {
             int bag_pool_num = get_bag_pool_num(iPax->pax_id);
 
             xmlNodePtr itemNode = NewTextChild(paxNode, "passenger");
-            NewTextChild(itemNode, "pnr", TPnrAddrs().getByPaxId(iPax->pax_id));
+            NewTextChild(itemNode, "pnr", TPnrAddrs().firstAddrByPaxId(iPax->pax_id, TPnrAddrInfo::AddrOnly));
             NewTextChild(itemNode, "name", iPax->name + " " + iPax->surname);
             NewTextChild(itemNode, "del");
             NewTextChild(itemNode, "grp");
@@ -10896,7 +10896,7 @@ namespace PFS_STAT {
                             Qry.get().SetVariable("airp_arv", pax->target);
                             Qry.get().SetVariable("seats", pax->seats);
                             Qry.get().SetVariable("subcls", pax->subcls);
-                            Qry.get().SetVariable("pnr", TPnrAddrs().getByPaxId(pax->pax_id));
+                            Qry.get().SetVariable("pnr", TPnrAddrs().firstAddrByPaxId(pax->pax_id, TPnrAddrInfo::AddrOnly));
                             Qry.get().SetVariable("surname", pax->surname);
                             Qry.get().SetVariable("name", pax->name);
 

@@ -24,7 +24,7 @@
 #include "serverlib/posthooks.h"
 #include "TypeBHelpMng.h"
 #include "db_tquery.h"
-#include "checkin.h"
+#include "tlg/typeb_db.h"
 
 #include "hooked_session.h"
 #include "PgOraConfig.h"
@@ -498,31 +498,31 @@ bool checkUserAccess(const TlgTripsData& trips_data, const TReqInfo &info,
   if (!info.user.access.airlines().elems().empty()) {
     const auto allowed_airlines = info.user.access.airlines().elems();
     if (info.user.access.airlines().elems_permit()) {
-      if (allowed_airlines.find(trips_data.airline) == allowed_airlines.end()) {
+      if (allowed_airlines.find(trips_data.airline.get()) == allowed_airlines.end()) {
         return false;
       }
     } else {
-      if (allowed_airlines.find(trips_data.airline) != allowed_airlines.end()) {
+      if (allowed_airlines.find(trips_data.airline.get()) != allowed_airlines.end()) {
         return false;
       }
     }
   }
 
   if (!info.user.access.airps().elems().empty()) {
-    if (!trips_data.airp_dep.empty() && !trips_data.airp_arv.empty()) {
+    if (trips_data.airpDep && trips_data.airpArv) {
       const auto allowed_airports = info.user.access.airps().elems();
       if (info.user.access.airps().elems_permit()) {
-        if (allowed_airports.find(trips_data.airp_dep) == allowed_airports.end()) {
+        if (allowed_airports.find(trips_data.airpDep.value().get()) == allowed_airports.end()) {
           return false;
         }
-        if (allowed_airports.find(trips_data.airp_arv) == allowed_airports.end()) {
+        if (allowed_airports.find(trips_data.airpArv.value().get()) == allowed_airports.end()) {
           return false;
         }
       } else {
-        if (allowed_airports.find(trips_data.airp_dep) != allowed_airports.end()) {
+        if (allowed_airports.find(trips_data.airpDep.value().get()) != allowed_airports.end()) {
           return false;
         }
-        if (allowed_airports.find(trips_data.airp_arv) != allowed_airports.end()) {
+        if (allowed_airports.find(trips_data.airpArv.value().get()) != allowed_airports.end()) {
           return false;
         }
       }
@@ -530,23 +530,25 @@ bool checkUserAccess(const TlgTripsData& trips_data, const TReqInfo &info,
   }
 
   if (!search_params.airline.empty()) {
-    if (trips_data.airline != search_params.airline) {
+    if (trips_data.airline.get() != search_params.airline) {
       return false;
     }
   }
 
   if (!search_params.airp.empty()) {
-    if (trips_data.airp_dep != search_params.airp) {
+    if (!trips_data.airpDep)
+      return false;
+    if (trips_data.airpDep.value().get() != search_params.airp) {
       return false;
     }
   }
 
   if (search_params.flt_no != ASTRA::NoExists) {
-    if (trips_data.flt_no != search_params.flt_no) {
+    if (trips_data.fltNumber.get() != search_params.flt_no) {
       return false;
     }
     if (!search_params.suffix.empty()) {
-      if (trips_data.suffix != search_params.suffix) {
+      if (trips_data.suffix.get() != search_params.suffix) {
         return false;
       }
     }
@@ -606,7 +608,7 @@ std::map<PointIdTlg_t, TlgTripsData> loadTlgTripsMap(const std::set<FailedTlgKey
     point_id_tlg_set.insert(failed_tlg_key.point_id_tlg);
   }
   for (const PointIdTlg_t& point_id_tlg: point_id_tlg_set) {
-    const std::optional<TlgTripsData> tlg_trips_data = TlgTripsData::load(point_id_tlg);
+    const std::optional<TlgTripsData> tlg_trips_data = TlgTripsData::loadFromAnyTlg(point_id_tlg);
     if (tlg_trips_data) {
       result.insert(std::make_pair(point_id_tlg, *tlg_trips_data));
     }
@@ -1917,7 +1919,7 @@ void LoadContent(int id, bool pr_grp, TTlgContent& con)
       pax.status=Qry.FieldAsString("status");
       pax.seat_no=Qry.FieldAsString("seat_no");
       pax.seat_no_lat=Qry.FieldAsString("seat_no_lat");
-      pax.pnr_addr=TPnrAddrs().getByPaxId(pax_id);
+      pax.pnr_addr=TPnrAddrs().firstAddrByPaxId(pax_id, TPnrAddrInfo::AddrOnly);
       pax.bag_pool_num=Qry.FieldAsInteger("bag_pool_num");
       con.pax[pax.bag_pool_num]=pax;
     };

@@ -60,3 +60,32 @@ std::string getPSPT(int pax_id, bool with_issue_country = false,
                     const std::string& language = "RU");
 
 } //namespace TypeB
+
+struct TlgTripsData
+{
+  AirlineCode_t airline;
+  FlightNumber_t fltNumber;
+  FlightSuffix_t suffix;
+  std::optional<AirportCode_t> airpDep;
+  std::optional<AirportCode_t> airpArv;
+
+  TlgTripsData(const std::string& airline_,
+               const int flt_no_,
+               const std::string& suffix_,
+               const std::string& airp_dep_,
+               const std::string& airp_arv_) :
+    airline(airline_),
+    fltNumber(flt_no_),
+    suffix(suffix_)
+  {
+    if (!airp_dep_.empty()) airpDep.emplace(airp_dep_);
+    if (!airp_arv_.empty()) airpArv.emplace(airp_arv_);
+  }
+
+  static std::optional<TlgTripsData> loadFromAnyTlg(const PointIdTlg_t& pointId);
+
+  //возвратит nullopt в дополнение еще, если аэропорт вылета неизвестен (рейс не из PNL)
+  static std::optional<TlgTripsData> loadFromPnl(const PointIdTlg_t& pointId);
+};
+
+

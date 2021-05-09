@@ -4178,68 +4178,77 @@ const TPnrAddrs& TPnrAddrs::toSirenaXML(xmlNodePtr addrParentNode,
   return *this;
 }
 
-std::string TPnrAddrs::getByPnrId(int pnr_id)
-{
-  string airline;
-  return getByPnrId(pnr_id, airline);
-}
-
-void TPnrAddrs::getByPnrIdFast(int pnr_id)
+TPnrAddrs& TPnrAddrs::getByPnrIdFast(int pnr_id)
 {
   string airline("No matter");
   getByPnrId(pnr_id, airline);
+  return *this;
 }
 
-std::vector<std::pair<std::string,std::string>> loadPnrAddrData(const PnrId_t& pnr_id);
+std::optional<AirlineCode_t> getTlgAirline(const PnrId_t& pnr_id)
+{
+  LogTrace(TRACE6) << __func__ << ": pnr_id=" << pnr_id;
+  std::set<PointIdTlg_t> result;
+  DB::TQuery Qry(PgOra::getROSession("CRS_PNR"));
+  Qry.SQLText =
+      "SELECT point_id "
+      "FROM crs_pnr "
+      "WHERE pnr_id=:pnr_id ";
+  Qry.CreateVariable("pnr_id", otInteger, pnr_id.get());
+  Qry.Execute();
+
+  if (Qry.Eof) return {};
+
+  PointIdTlg_t pointIdTlg(Qry.FieldAsInteger("point_id"));
+
+  const std::optional<TlgTripsData> tlg_trips_data = TlgTripsData::loadFromPnl(pointIdTlg);
+
+  if (!tlg_trips_data) return {};
+
+  return tlg_trips_data->airline;
+}
 
 std::string TPnrAddrs::getByPnrId(int pnr_id, string &airline)
 {
   clear();
 
-  QParams QryParams;
-  QryParams << QParam("pnr_id", otInteger, pnr_id);
-  if (!airline.empty()) {
-    QryParams << QParam("airline", otString, airline);
-    DB::TCachedQuery CachedQry(
-          PgOra::getROSession("PNR_ADDRS"),
-          "SELECT airline, addr "
-          "FROM pnr_addrs "
-          "WHERE pnr_id=:pnr_id "
-          "ORDER BY CASE WHEN airline=:airline THEN 0 ELSE 1 END, "
-          "         airline",
-          QryParams);
-    DB::TQuery &Qry=CachedQry.get();
-    Qry.Execute();
-    for (;!Qry.Eof;Qry.Next()) {
-      emplace_back(Qry.FieldAsString("airline"),
-                   Qry.FieldAsString("addr"));
-    }
-  } else {
-     const std::vector<std::pair<std::string,std::string>> pnr_addr_data
-         = loadPnrAddrData(PnrId_t(pnr_id));
-     for (const auto& item: pnr_addr_data) {
-       const std::string& airline = item.first;
-       const std::string& addr = item.second;
-       emplace_back(airline, addr);
-    }
+  if (airline.empty())
+  {
+    const std::optional<AirlineCode_t> tlgAirline=getTlgAirline(PnrId_t(pnr_id));
+    if (!tlgAirline) return "";
+    airline=tlgAirline.value().get();
   }
 
-  if (!empty() && !begin()->airline.empty())
+  QParams QryParams;
+  QryParams << QParam("pnr_id", otInteger, pnr_id);
+  QryParams << QParam("airline", otString, airline);
+
+  DB::TCachedQuery CachedQry(
+        PgOra::getROSession("PNR_ADDRS"),
+        "SELECT airline, addr "
+        "FROM pnr_addrs "
+        "WHERE pnr_id=:pnr_id "
+        "ORDER BY CASE WHEN airline=:airline THEN 0 ELSE 1 END, "
+        "         airline",
+        QryParams);
+  DB::TQuery &Qry=CachedQry.get();
+  Qry.Execute();
+  for (;!Qry.Eof;Qry.Next()) {
+    emplace_back(Qry.FieldAsString("airline"),
+                 Qry.FieldAsString("addr"));
+  }
+
+  if (!empty() && begin()->airline==airline)
     return begin()->addr;
   else
     return "";
 }
 
-std::string TPnrAddrs::getByPaxId(int pax_id)
-{
-  string airline;
-  return getByPaxId(pax_id, airline);
-}
-
-void TPnrAddrs::getByPaxIdFast(int pax_id)
+TPnrAddrs& TPnrAddrs::getByPaxIdFast(int pax_id)
 {
   string airline("No matter");
   getByPaxId(pax_id, airline);
+  return *this;
 }
 
 std::string TPnrAddrs::getByPaxId(int pax_id, string &airline)

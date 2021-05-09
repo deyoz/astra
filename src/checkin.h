@@ -126,18 +126,6 @@ class TAfterSaveInfoList : public std::list<TAfterSaveInfo>
 
 } //namespace CheckIn
 
-struct TlgTripsData
-{
-  std::string airline;
-  std::string airp_dep;
-  std::string airp_arv;
-  int flt_no = ASTRA::NoExists;
-  TDateTime scd = ASTRA::NoExists;
-  std::string suffix;
-
-  static std::optional<TlgTripsData> load(const PointIdTlg_t& point_id);
-};
-
 class CheckInInterface : public JxtInterface
 {
 public:

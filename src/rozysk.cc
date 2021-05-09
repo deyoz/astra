@@ -517,9 +517,7 @@ void sync_pax_internal(int id,
       check_pax(Qry, pax_id);
       row.paxFromDB(Qry);
       //pnr
-      TPnrAddrs pnrs;
-      pnrs.getByPaxId(pax_id);
-      row.setPnr(pnrs);
+      row.setPnr(TPnrAddrs().getByPaxIdFast(pax_id));
       //документ
       CheckIn::TPaxDocItem doc;
       LoadPaxDoc(pax_id, doc);
@@ -620,9 +618,7 @@ void sync_crs_pax_internal(int id,
   int point_id=Qry.FieldAsInteger("point_id");
   get_crs_flight(point_id, row);
   //pnr
-  TPnrAddrs pnrs;
-  pnrs.getByPnrId(Qry.FieldAsInteger("pnr_id"));
-  row.setPnr(pnrs);
+  row.setPnr(TPnrAddrs().getByPnrIdFast(Qry.FieldAsInteger("pnr_id")));
 
   for(;!Qry.Eof;Qry.Next())
   {

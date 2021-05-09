@@ -594,3 +594,40 @@ std::string getPSPT(int pax_id, bool with_issue_country, const std::string& lang
 }
 
 } //namespace TypeB
+
+std::optional<TlgTripsData> TlgTripsData::loadFromAnyTlg(const PointIdTlg_t& pointId)
+{
+  auto cur = make_db_curs(
+        "SELECT airline, flt_no, suffix, airp_dep, airp_arv "
+        "FROM tlg_trips "
+        "WHERE point_id=:point_id ",
+        PgOra::getROSession("TLG_TRIPS"));
+
+  std::string airline;
+  int flt_no;
+  std::string suffix;
+  std::string airp_dep;
+  std::string airp_arv;
+
+  cur.stb()
+     .def(airline)
+     .def(flt_no)
+     .defNull(suffix, "")
+     .defNull(airp_dep, "")
+     .defNull(airp_arv, "")
+     .bind(":point_id", pointId.get())
+     .EXfet();
+
+  if (cur.err() == DbCpp::ResultCode::NoDataFound) return {};
+
+  return TlgTripsData { airline, flt_no, suffix, airp_dep, airp_arv };
+}
+
+std::optional<TlgTripsData> TlgTripsData::loadFromPnl(const PointIdTlg_t& pointId)
+{
+  const auto result=loadFromAnyTlg(pointId);
+  if (result && result.value().airpDep) return result;
+
+  return {};
+}
+

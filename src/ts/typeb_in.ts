@@ -797,4 +797,106 @@ $(set point_dep $(get_point_dep_for_flight Š 9455 "" $(yymmdd) “”€))
 </term>
 $()
 
+%%
+
+### test 8
+### â¥áâ¨à®¢ ­¨¥ äã­ªæ¨¨ ¢ë¢®¤  ­®¬¥à®¢ PNR ¨§ PNL
+#########################################################################################
+
+$(init_term)
+
+$(defmacro CHECK_PNR_ADDR_BY_PAX_ID
+  surname
+  name
+  result1
+  result2
+  result3
+  result4
+{
+
+$(set pax_id_ $(get_pax_id $(last_point_id_spp) $(surname) $(name)))
+
+??
+$(pnr_addr_by_pax_id $(get pax_id_) "‘“")
+>>
+$(result1)
+
+??
+$(pnr_addr_by_pax_id $(get pax_id_) "’")
+>>
+$(result2)
+
+??
+$(pnr_addr_by_pax_id $(get pax_id_) "”‚")
+>>
+$(result3)
+
+??
+$(pnr_addr_by_pax_id $(get pax_id_) "")
+>>
+$(result4)
+
+
+})
+
+$(defmacro CHECK_FIRST_PNR_ADDR_BY_PAX_ID
+  surname
+  name
+  result1
+  result2
+{
+
+$(set pax_id_ $(get_pax_id $(last_point_id_spp) $(surname) $(name)))
+
+??
+$(first_pnr_addr_by_pax_id $(get pax_id_) "AddrOnly")
+>>
+$(result1)
+
+??
+$(first_pnr_addr_by_pax_id $(get pax_id_) "AddrAndAirline")
+>>
+$(result2)
+
+})
+
+<<
+MOWKK1H
+.TJMRM1T $(dd)1200
+PNL
+FV465/$(ddmon +1 en) VKO PART1
+-GOI006Y
+1€‘‘…‡PNR/A
+1€‘‘„PNR„…/A
+.L/”‚1234/FV
+1€‘‘„PNR…„…/A
+.L/’9876/UT
+1€‘‘’ˆPNR‘„›Œ/A
+.L/’9875/UT
+.L/”‚1235/FV
+.L/‘“4567/SU
+1€‘‘’ˆPNR…‡„ƒ/…‚›‰-A2
+.L/’9874/UT
+.L/S75555/S7
+.L/‘“4568/SU
+1€‘‘’ˆPNR…‡„ƒ/‚’‰-A2
+ENDPNL
+
+$(set tomor $(date_format %d.%m.%Y +1))
+
+$(NEW_SPP_FLIGHT_ONE_LEG FV 465 "" VKO "$(get tomor) 07:00" "" GOI)
+
+$(CHECK_PNR_ADDR_BY_PAX_ID €‘‘…‡PNR A                "| ‘“|"       "| ’|"       "| ”‚|"       "| ”‚|"      )
+$(CHECK_PNR_ADDR_BY_PAX_ID €‘‘„PNR„… A         "| ‘“|"       "| ’|"       "|”‚1234 ”‚|" "|”‚1234 ”‚|")
+$(CHECK_PNR_ADDR_BY_PAX_ID €‘‘„PNR…„… A       "| ‘“|"       "|’9876 ’|" "| ”‚|"       "| ”‚|"      )
+$(CHECK_PNR_ADDR_BY_PAX_ID €‘‘’ˆPNR‘„›Œ A         "|‘“4567 ‘“|" "|’9875 ’|" "|”‚1235 ”‚|" "|”‚1235 ”‚|")
+$(CHECK_PNR_ADDR_BY_PAX_ID €‘‘’ˆPNR…‡„ƒ …‚›‰ "|‘“4568 ‘“|" "|’9874 ’|" "| ”‚|"       "| ”‚|"      )
+$(CHECK_PNR_ADDR_BY_PAX_ID €‘‘’ˆPNR…‡„ƒ ‚’‰ "|‘“4568 ‘“|" "|’9874 ’|" "| ”‚|"       "| ”‚|"      )
+
+$(CHECK_FIRST_PNR_ADDR_BY_PAX_ID €‘‘…‡PNR A                "||" "||")
+$(CHECK_FIRST_PNR_ADDR_BY_PAX_ID €‘‘„PNR„… A         "|”‚1234|" "|”‚1234/”‚|")
+$(CHECK_FIRST_PNR_ADDR_BY_PAX_ID €‘‘„PNR…„… A       "|’9876|" "|’9876/’|")
+$(CHECK_FIRST_PNR_ADDR_BY_PAX_ID €‘‘’ˆPNR‘„›Œ A         "|”‚1235|" "|”‚1235/”‚|")
+$(CHECK_FIRST_PNR_ADDR_BY_PAX_ID €‘‘’ˆPNR…‡„ƒ …‚›‰ "|S75555|" "|S75555/‘7|")
+$(CHECK_FIRST_PNR_ADDR_BY_PAX_ID €‘‘’ˆPNR…‡„ƒ ‚’‰ "|S75555|" "|S75555/‘7|")
 

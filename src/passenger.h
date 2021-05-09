@@ -1349,20 +1349,19 @@ class TPnrAddrs : public std::vector<TPnrAddrInfo>
     std::string getByPnrId(int pnr_id, std::string &airline);
     std::string getByPaxId(int pax_id, std::string &airline);
 
-    std::string getByPnrId(int pnr_id);
-    std::string getByPaxId(int pax_id);
-
-    void getByPnrIdFast(int pnr_id);
-    void getByPaxIdFast(int pax_id);
+    TPnrAddrs& getByPnrIdFast(int pnr_id);
+    TPnrAddrs& getByPaxIdFast(int pax_id);
 
     std::string firstAddrByPnrId(int pnr_id, TPnrAddrInfo::Format format)
     {
-      getByPnrId(pnr_id);
+      std::string airline;
+      getByPnrId(pnr_id, airline);
       return empty()?"":front().str(format);
     }
     std::string firstAddrByPaxId(int pax_id, TPnrAddrInfo::Format format)
     {
-      getByPaxId(pax_id);
+      std::string airline;
+      getByPaxId(pax_id, airline);
       return empty()?"":front().str(format);
     }
     bool equalPnrExists(const TPnrAddrs& pnrAddrs) const

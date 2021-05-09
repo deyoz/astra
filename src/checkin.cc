@@ -67,6 +67,7 @@
 #include "pax_calc_data.h"
 #include "grp_db.h"
 #include "check_grp_unification.h"
+#include "tlg/typeb_db.h"
 
 #include <jxtlib/jxt_cont.h>
 #include <serverlib/cursctl.h>
@@ -1262,28 +1263,6 @@ bool EqualCrsTransfer(const map<int, CheckIn::TTransferItem> &trfer1,
   return i1==trfer1.end() && i2==trfer2.end();
 }
 
-std::optional<TlgTripsData> TlgTripsData::load(const PointIdTlg_t& point_id)
-{
-  DB::TQuery Qry(PgOra::getROSession("TLG_TRIPS"), STDLOG);
-  Qry.SQLText =
-      "SELECT airline,airp_dep,airp_arv,flt_no,scd,suffix "
-      "FROM tlg_trips "
-      "WHERE point_id=:point_id ";
-  Qry.CreateVariable("point_id",otInteger,point_id.get());
-  Qry.Execute();
-  if(!Qry.Eof) {
-    return TlgTripsData {
-      Qry.FieldAsString("airline"),
-      Qry.FieldAsString("airp_dep"),
-      Qry.FieldAsString("airp_arv"),
-      Qry.FieldAsInteger("flt_no"),
-      Qry.FieldAsDateTime("scd"),
-      Qry.FieldAsString("suffix")
-    };
-  }
-  return {};
-}
-
 bool LoadUnconfirmedTransfer(const CheckIn::TTransferList &segs, xmlNodePtr transferNode)
 {
   if (segs.empty() || transferNode==NULL) return false;
@@ -1311,7 +1290,7 @@ bool LoadUnconfirmedTransfer(const CheckIn::TTransferList &segs, xmlNodePtr tran
     if (PaxQry.FieldAsInteger("pnr_id")!=pnr_id)
     {
       const std::optional<TlgTripsData> tlg_trips_data =
-          TlgTripsData::load(PointIdTlg_t(PaxQry.FieldAsInteger("point_id")));
+          TlgTripsData::loadFromPnl(PointIdTlg_t(PaxQry.FieldAsInteger("point_id")));
       if (!tlg_trips_data) {
         continue;
       }
@@ -1321,7 +1300,7 @@ bool LoadUnconfirmedTransfer(const CheckIn::TTransferList &segs, xmlNodePtr tran
 
       pair< pair< string, map<int, CheckIn::TTransferItem> >, vector<int> > &last_crs_trfer=crs_trfer.back();
 
-      last_crs_trfer.first.first=tlg_trips_data->airp_dep;
+      last_crs_trfer.first.first=tlg_trips_data->airpDep.value().get();
       CheckInInterface::GetOnwardCrsTransfer(pnr_id, true, firstSeg.operFlt, firstSeg.airp_arv, last_crs_trfer.first.second); //зачитаем из таблицы crs_transfer
     }
 
@@ -2133,61 +2112,6 @@ std::vector<SearchGroupResult> runSearchGroup(const PointId_t& point_dep, int se
   return result;
 }
 
-std::set<PointIdTlg_t> getPointIdTlgSetByCrsPnr(const PnrId_t& pnr_id)
-{
-  LogTrace(TRACE6) << __func__ << ": pnr_id=" << pnr_id;
-  std::set<PointIdTlg_t> result;
-  DB::TQuery Qry(PgOra::getROSession("CRS_PNR"));
-  Qry.SQLText =
-      "SELECT point_id "
-      "FROM crs_pnr "
-      "WHERE pnr_id=:pnr_id ";
-  Qry.CreateVariable("pnr_id", otInteger, pnr_id.get());
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next()) {
-    result.emplace(Qry.FieldAsInteger("point_id"));
-  }
-  return result;
-}
-
-std::vector<std::pair<std::string,std::string>> loadPnrAddrData(const PnrId_t& pnr_id)
-{
-  LogTrace(TRACE6) << __func__ << ": pnr_id=" << pnr_id;
-  std::vector<std::pair<std::string,std::string>> result;
-  const std::set<PointIdTlg_t> point_id_tlg_set = getPointIdTlgSetByCrsPnr(pnr_id);
-  DB::TQuery PnrAddrQry(PgOra::getROSession("PNR_ADDRS"));
-  PnrAddrQry.SQLText =
-    "SELECT airline, addr "
-    "FROM pnr_addrs "
-    "WHERE pnr_id=:pnr_id "
-    "ORDER BY airline";
-  PnrAddrQry.CreateVariable("pnr_id",otInteger,pnr_id.get());
-  PnrAddrQry.Execute();
-  for(;!PnrAddrQry.Eof;PnrAddrQry.Next())
-    for (const PointIdTlg_t& point_id_tlg: point_id_tlg_set) {
-    {
-      const std::optional<TlgTripsData> tlg_trips_data =
-          TlgTripsData::load(point_id_tlg);
-      if (!tlg_trips_data) {
-        continue;
-      }
-      if (PnrAddrQry.FieldAsString("airline") == tlg_trips_data->airline) {
-        LogTrace(TRACE1) << "airline=" << PnrAddrQry.FieldAsString("airline");
-        LogTrace(TRACE1) << "addr=" << PnrAddrQry.FieldAsString("addr");
-        result.emplace(result.begin(),
-                       PnrAddrQry.FieldAsString("airline"),
-                       PnrAddrQry.FieldAsString("addr"));
-      } else {
-        LogTrace(TRACE1) << "airline=empty";
-        LogTrace(TRACE1) << "addr=" << PnrAddrQry.FieldAsString("addr");
-        result.emplace_back("", PnrAddrQry.FieldAsString("addr"));
-      }
-    }
-  }
-  LogTrace(TRACE1) << __func__ << ": result.size()=" << result.size();
-  return result;
-}
-
 void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int point_dep = NodeAsInteger("point_dep",reqNode);
@@ -2314,22 +2238,16 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         NewTextChild(node,"seats",searchResult.seats);
         NewTextChild(node,"seats_all",searchResult.seats_all);
 
-        const std::vector<std::pair<std::string,std::string>> pnr_addr_data
-            = loadPnrAddrData(searchResult.pnr_id);
-        for (const auto& item: pnr_addr_data) {
-          const std::string& airline = item.first;
-          const std::string& addr = item.second;
-          if (!airline.empty())
-          {
-            node=NewTextChild(node,"pnr_addr");
-            NewTextChild(node,"airline",airline);
-            NewTextChild(node,"addr",addr);
-          }
-          else
-          {
-            NewTextChild(node,"pnr_addr",addr);
-          }
-          break;
+        //выводим в терминал первое приорететное PNR всегда с кодом компании
+        std::string tlg_airline;
+        TPnrAddrs pnrs;
+        pnrs.getByPnrId(searchResult.pnr_id.get(), tlg_airline);
+        if (!pnrs.empty())
+        {
+          const TPnrAddrInfo& pnr=pnrs.front();
+          node=NewTextChild(node,"pnr_addr");
+          NewTextChild(node,"airline",pnr.airline);
+          NewTextChild(node,"addr",pnr.addr);
         }
       }
       //строка NoRec
@@ -4663,7 +4581,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             {
               if (pax.id!=NoExists && checkInfo.pnrAddrRequired())
               {
-                if (TPnrAddrs().getByPaxId(pax.id).empty())
+                if (TPnrAddrs().getByPaxIdFast(pax.id).empty())
                   throw UserException("MSG.CHECKIN.PNR_ADDR_REQUIRED");
               }
               if (pax.id==NoExists && checkInfo.norecNotAllowed())

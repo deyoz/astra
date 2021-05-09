@@ -1422,6 +1422,28 @@ static std::string FP_baselAeroStat(const std::vector<std::string> &par)
     return "";
 }
 
+static std::string FP_pnrAddrByPaxId(const std::vector<std::string> &p)
+{
+  assert(p.size() == 2);
+
+  PaxId_t paxId(std::stoi(p.at(0)));
+  std::string airline(p.at(1));
+  std::string result=TPnrAddrs().getByPaxId(paxId.get(), airline);
+  return "|"+result+" "+airline+"|";
+}
+
+static std::string FP_firstPnrAddrByPaxId(const std::vector<std::string> &p)
+{
+  assert(p.size() == 2);
+  assert(p.at(1)=="AddrOnly" || p.at(1)=="AddrAndAirline");
+
+  PaxId_t paxId(std::stoi(p.at(0)));
+
+  return "|"+TPnrAddrs().firstAddrByPaxId(paxId.get(),
+                                          p.at(1)=="AddrOnly"?TPnrAddrInfo::AddrOnly:
+                                                              TPnrAddrInfo::AddrAndAirline) +"|";
+}
+
 FP_REGISTER("<<", FP_tlg_in);
 FP_REGISTER("!!", FP_req);
 FP_REGISTER("astra_hello", FP_astra_hello);
@@ -1491,6 +1513,8 @@ FP_REGISTER("last_typeb_in_id", FP_lastTypeBInId);
 FP_REGISTER("nosir_departed_flt", FP_departedFlt);
 FP_REGISTER("nosir_basel_stat", FP_baselAeroStat);
 FP_REGISTER("check_dump", FP_check_dump);
+FP_REGISTER("pnr_addr_by_pax_id", FP_pnrAddrByPaxId);
+FP_REGISTER("first_pnr_addr_by_pax_id", FP_firstPnrAddrByPaxId);
 
 #include "xp_testing.h"
 
