@@ -846,6 +846,41 @@ class Cache
     };
 };
 
+template <typename KeyT, typename ItemT>
+class CacheOpt
+{
+  private:
+    mutable int totalGet=0;
+    mutable int totalAdd=0;
+    mutable std::map<KeyT, ItemT> items;
+  public:
+    static std::string traceTitle();
+    std::optional<ItemT> add(const KeyT& key) const;
+    std::optional<ItemT> get(const KeyT& key) const
+    {
+      totalGet++;
+
+      auto i=items.find(key);
+      if (i!=items.end()) return i->second;
+
+      totalAdd++;
+
+      return add(key);
+    }
+    std::string traceTotals() const
+    {
+      std::ostringstream s;
+      s << traceTitle() << " total: get - " << totalGet << ", add - " << totalAdd;
+      return s.str();
+    }
+    void clear()
+    {
+      totalGet=0;
+      totalAdd=0;
+      items.clear();
+    }
+};
+
 } //namespace ASTRA
 
 std::optional<int> getDeskGroupByCode(const std::string& desk);
