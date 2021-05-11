@@ -1051,7 +1051,7 @@ std::string TBagMap::clearSQLText()
          "DELETE FROM bag2 WHERE grp_id=:grp_id; ";
 }
 
-void TBagMap::toDB(int grp_id) const
+void TBagMap::toDB(int grp_id, int point_dep) const
 {
   if (empty()) return;
 
@@ -1064,12 +1064,13 @@ void TBagMap::toDB(int grp_id) const
     "  END IF; "
     "  INSERT INTO bag2 (grp_id, num, id, list_id, bag_type, bag_type_str, rfisc, service_type, airline, "
     "    pr_cabin,amount,weight,value_bag_num, "
-    "    pr_liab_limit,to_ramp,using_scales,bag_pool_num,hall,user_id,desk,time_create,is_trfer,handmade) "
+    "    pr_liab_limit,to_ramp,using_scales,bag_pool_num,hall,user_id,desk,time_create,is_trfer,handmade, point_dep) "
     "  VALUES (:grp_id, :num, :id, :list_id, :bag_type, :bag_type_str, :rfisc, :service_type, :airline, "
     "    :pr_cabin,:amount,:weight,:value_bag_num, "
-    "    :pr_liab_limit,:to_ramp,:using_scales,:bag_pool_num,:hall,:user_id,:desk,:time_create,:is_trfer,:handmade); "
+    "    :pr_liab_limit,:to_ramp,:using_scales,:bag_pool_num,:hall,:user_id,:desk,:time_create,:is_trfer,:handmade, :point_dep); "
     "END;";
   BagQry.CreateVariable("grp_id",otInteger,grp_id);
+  BagQry.CreateVariable("point_dep",otInteger, point_dep);
   BagQry.DeclareVariable("num",otInteger);
   BagQry.DeclareVariable("id",otInteger);
   BagQry.DeclareVariable("list_id", otInteger);
@@ -1148,16 +1149,17 @@ std::string TTagMap::clearSQLText()
   return "DELETE FROM bag_tags WHERE grp_id=:grp_id; ";
 }
 
-void TTagMap::toDB(int grp_id) const
+void TTagMap::toDB(int grp_id, int point_dep) const
 {
   if (empty()) return;
 
   TQuery BagQry(&OraSession);
   BagQry.Clear();
   BagQry.SQLText=
-    "INSERT INTO bag_tags(grp_id,num,tag_type,no,color,bag_num,pr_print) "
-    "VALUES (:grp_id,:num,:tag_type,:no,:color,:bag_num,:pr_print)";
+    "INSERT INTO bag_tags(grp_id,num,tag_type,no,color,bag_num,pr_print,point_dep) "
+    "VALUES (:grp_id,:num,:tag_type,:no,:color,:bag_num,:pr_print,:point_dep)";
   BagQry.CreateVariable("grp_id",otInteger,grp_id);
+  BagQry.CreateVariable("point_dep",otInteger,point_dep);
   BagQry.DeclareVariable("num",otInteger);
   BagQry.DeclareVariable("tag_type",otString);
   BagQry.DeclareVariable("no",otFloat);
@@ -1196,7 +1198,7 @@ void TGroupBagItem::clearDB(int grp_id, bool isPayment)
   DelQry.Execute();
 }
 
-void TGroupBagItem::toDB(int grp_id) const
+void TGroupBagItem::toDB(int grp_id, int point_dep) const
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
   bool isPayment=reqInfo->client_type == ASTRA::ctTerm && reqInfo->screen.name != "AIR.EXE";
@@ -1204,10 +1206,10 @@ void TGroupBagItem::toDB(int grp_id) const
   clearDB(grp_id, isPayment);
 
   vals.toDB(grp_id);
-  bags.toDB(grp_id);
+  bags.toDB(grp_id, point_dep);
   if (!isPayment)
   {
-    tags.toDB(grp_id);
+    tags.toDB(grp_id, point_dep);
     checkTagUniquenessOnFlight(grp_id);
   }
 }
@@ -1258,13 +1260,13 @@ void TGroupBagItem::copyDB(const GrpId_t& src, const GrpId_t& dest)
                      "  FROM value_bag WHERE grp_id=:grp_id_src; "
                      "  INSERT INTO bag2(grp_id,num,id,bag_type,rfisc,pr_cabin,amount,weight,value_bag_num, "
                      "    pr_liab_limit,to_ramp,using_scales,bag_pool_num,hall,user_id,desk,time_create,is_trfer,handmade,"
-                     "    list_id, bag_type_str, service_type, airline) "
+                     "    list_id, bag_type_str, service_type, airline, point_dep) "
                      "  SELECT :grp_id_dest,num,id,bag_type,rfisc,pr_cabin,amount,weight,value_bag_num, "
                      "    pr_liab_limit,0,using_scales,bag_pool_num,hall,user_id,desk,time_create,1,0, "
-                     "    list_id, bag_type_str, service_type, airline "
+                     "    list_id, bag_type_str, service_type, airline, point_dep "
                      "  FROM bag2 WHERE grp_id=:grp_id_src; "
-                     "  INSERT INTO bag_tags(grp_id,num,tag_type,no,color,bag_num,pr_print) "
-                     "  SELECT :grp_id_dest,num,tag_type,no,color,bag_num,pr_print "
+                     "  INSERT INTO bag_tags(grp_id,num,tag_type,no,color,bag_num,pr_print,point_dep) "
+                     "  SELECT :grp_id_dest,num,tag_type,no,color,bag_num,pr_print,point_dep "
                      "  FROM bag_tags WHERE grp_id=:grp_id_src; "
                      "  INSERT INTO unaccomp_bag_info(grp_id,num,original_tag_no,surname,name,airline,flt_no,suffix,scd) "
                      "  SELECT :grp_id_dest,num,original_tag_no,surname,name,airline,flt_no,suffix,scd "

@@ -1086,7 +1086,7 @@ void get_stat(const PointId_t& point_id)
       "  SUM(DECODE(pr_cabin,1,weight,0)) AS unchecked "
       "FROM pax_grp,bag2 "
       "WHERE pax_grp.grp_id=bag2.grp_id "
-      "AND point_dep=:point_id "
+      "AND pax_grp.point_dep=:point_id "
       "AND pax_grp.status NOT IN ('E') "
       "AND ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 "
       "GROUP BY airp_arv,bag2.hall,DECODE(status,'T','T','N'),client_type ";
@@ -1156,7 +1156,7 @@ void get_stat(const PointId_t& point_id)
       "           (SELECT bag2.grp_id,MAX(bag2.num) AS num "
       "            FROM pax_grp,bag2 "
       "            WHERE pax_grp.grp_id=bag2.grp_id "
-      "            AND point_dep=:point_id "
+      "            AND pax_grp.point_dep=:point_id "
       "            AND ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 "
       "            GROUP BY bag2.grp_id) last_bag "
       "      WHERE bag2.grp_id=last_bag.grp_id AND bag2.num=last_bag.num) bag2 "

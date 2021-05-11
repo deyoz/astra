@@ -732,7 +732,7 @@ void PaymentInterface::SaveBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                            grp.is_unaccomp(), grp.baggage_pc, grp.trfer_confirm))
   {
     group_bag.checkAndGenerateTags(point_dep, grp_id);
-    group_bag.toDB(grp_id);
+    group_bag.toDB(grp_id, point_dep);
   };
 
   boost::optional< WeightConcept::TPaidBagList > paid;

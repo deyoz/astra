@@ -252,7 +252,7 @@ class TBagMap : public std::map<int /*num*/, TBagItem>
 {
   public:
     static std::string clearSQLText();
-    void toDB(int grp_id) const;
+    void toDB(int grp_id, int point_dep) const;
     void fromDB(int grp_id);
     void toXML(xmlNodePtr bagtagNode) const;
     void procInboundTrferFromBTM(const TrferList::TGrpItem &grp);
@@ -264,7 +264,7 @@ class TTagMap : public std::map<int /*num*/, TTagItem>
 {
   public:
     static std::string clearSQLText();
-    void toDB(int grp_id) const;
+    void toDB(int grp_id, int point_dep) const;
     void fromDB(int grp_id);
     void toXML(xmlNodePtr bagtagNode) const;
 };
@@ -325,7 +325,7 @@ class TGroupBagItem
     bool fromXML(xmlNodePtr bagtagNode, int grp_id, int hall, bool is_unaccomp, bool baggage_pc, bool trfer_confirm);
     void checkAndGenerateTags(int point_id, int grp_id, bool generateAndDefer=false);
     static void clearDB(int grp_id, bool isPayment);
-    void toDB(int grp_id) const;
+    void toDB(int grp_id, int point_dep) const;
     void fromDB(int grp_id, int bag_pool_num, bool without_refused);
     void generatedToXML(xmlNodePtr bagtagNode) const;
     void toXML(xmlNodePtr bagtagNode, bool is_unaccomp) const;

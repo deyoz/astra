@@ -5524,7 +5524,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         {
           if (!inbound_group_bag.empty())
           {
-            inbound_group_bag.toDB(grp.id);
+            inbound_group_bag.toDB(grp.id, grp.point_dep);
             if (grp.group_bag)
               showErrorMessage("MSG.CHECKIN.BAGGAGE_NOT_REGISTERED_DUE_INBOUND_TRFER");
           }
@@ -5543,7 +5543,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             grp.group_bag.get().checkAndGenerateTags(grp.point_dep, grp.id);
             grp.group_bag.get().getAllListItems(grp.id, pr_unaccomp, 0);
             CheckBagChanges(grpInfoBefore, grp);
-            grp.group_bag.get().toDB(grp.id);
+            grp.group_bag.get().toDB(grp.id, grp.point_dep);
           }
 
           CheckServicePayment(grp.id, paymentBefore, grp.payment);

@@ -1743,6 +1743,7 @@ struct BAG2
     int is_trfer;
     int list_id;
     int num;
+    int point_dep;
     int pr_cabin;
     int pr_liab_limit;
     std::string rfisc;
@@ -1769,6 +1770,7 @@ struct BAG2
         dbo::field(a,is_trfer,"IS_TRFER", dbo::NotNull);
         dbo::field(a,list_id,"LIST_ID", dbo::NotNull);
         dbo::field(a,num,"NUM", dbo::NotNull);
+        dbo::field(a,point_dep, "POINT_DEP", dbo::NotNull);
         dbo::field(a,pr_cabin,"PR_CABIN", dbo::NotNull);
         dbo::field(a,pr_liab_limit,"PR_LIAB_LIMIT", dbo::NotNull);
         dbo::field(a,rfisc,"RFISC");
@@ -1841,6 +1843,7 @@ struct BAG_TAGS
     int grp_id;
     long long no;
     int num;
+    int point_dep;
     int pr_print;
     std::string tag_type;
 
@@ -1851,6 +1854,7 @@ struct BAG_TAGS
         dbo::field(a,grp_id,"GRP_ID", dbo::NotNull);
         dbo::field(a,no,"NO", dbo::NotNull);
         dbo::field(a,num,"NUM", dbo::NotNull);
+        dbo::field(a,point_dep, "POINT_DEP", dbo::NotNull);
         dbo::field(a,pr_print,"PR_PRINT", dbo::NotNull);
         dbo::field(a,tag_type,"TAG_TYPE", dbo::NotNull);
     }
