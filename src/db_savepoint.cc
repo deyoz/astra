@@ -32,7 +32,7 @@ void execSpCmd(const std::string& cmd)
     // pgcpp
     make_pg_curs_nocache(PgCpp::getPgManaged(), cmd).exec();
     // dbcpp
-    make_db_curs_no_cache(cmd, *get_main_pg_rw_sess(STDLOG));
+    make_db_curs_no_cache(cmd, *get_main_pg_rw_sess(STDLOG)).exec();
 }
 
 }//namespace DB
