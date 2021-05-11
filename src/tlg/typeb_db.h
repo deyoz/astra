@@ -3,6 +3,7 @@
 #include <set>
 #include <string>
 #include "astra_types.h"
+#include "astra_misc.h"
 
 namespace TypeB
 {
@@ -88,4 +89,5 @@ struct TlgTripsData
   static std::optional<TlgTripsData> loadFromPnl(const PointIdTlg_t& pointId);
 };
 
+typedef ASTRA::CacheOpt<PointIdTlg_t, TlgTripsData> TlgTripsPnlCacheOpt;
 

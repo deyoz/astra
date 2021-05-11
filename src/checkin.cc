@@ -1285,12 +1285,13 @@ bool LoadUnconfirmedTransfer(const CheckIn::TTransferList &segs, xmlNodePtr tran
   vector< pair< pair< string, map<int, CheckIn::TTransferItem> >, vector<int> > > crs_trfer, trfer; //вектор пар <tlg_airp_dep+трансферный маршрут, вектор ид. пассажиров>
 
   int pnr_id=NoExists;
+  TlgTripsPnlCacheOpt tlg_trips_pnl_cached;
   for(;!PaxQry.Eof;PaxQry.Next())
   {
     if (PaxQry.FieldAsInteger("pnr_id")!=pnr_id)
     {
       const std::optional<TlgTripsData> tlg_trips_data =
-          TlgTripsData::loadFromPnl(PointIdTlg_t(PaxQry.FieldAsInteger("point_id")));
+          tlg_trips_pnl_cached.get(PointIdTlg_t(PaxQry.FieldAsInteger("point_id")));
       if (!tlg_trips_data) {
         continue;
       }

@@ -239,10 +239,11 @@ void GetNotDisplayedET(int point_id_tlg, int id, bool is_pax_id, std::set<ETSear
   Qry.CreateVariable("id", otInteger, id);
   Qry.CreateVariable("point_id_tlg", otInteger, point_id_tlg);
   Qry.Execute();
+  TlgTripsPnlCacheOpt tlg_trips_pnl_cached;
   for(;!Qry.Eof;Qry.Next())
   {
     const std::optional<TlgTripsData> tlg_trips_data =
-        TlgTripsData::loadFromPnl(PointIdTlg_t(point_id_tlg));
+        tlg_trips_pnl_cached.get(PointIdTlg_t(point_id_tlg));
     if (!tlg_trips_data) {
       continue;
     }
@@ -306,10 +307,11 @@ void GetAllStatusesByPointId(TListType type, int point_id, std::set<TETickItem> 
         "      crs_pax.pr_del=0 \n";
     Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.Execute();
+    TlgTripsPnlCacheOpt tlg_trips_pnl_cached;
     for(;!Qry.Eof;Qry.Next())
     {
       const std::optional<TlgTripsData> tlg_trips_data =
-          TlgTripsData::loadFromPnl(PointIdTlg_t(Qry.FieldAsInteger("point_id_tlg")));
+          tlg_trips_pnl_cached.get(PointIdTlg_t(Qry.FieldAsInteger("point_id_tlg")));
       if (!tlg_trips_data) {
         continue;
       }

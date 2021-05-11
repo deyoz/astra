@@ -631,3 +631,21 @@ std::optional<TlgTripsData> TlgTripsData::loadFromPnl(const PointIdTlg_t& pointI
   return {};
 }
 
+namespace ASTRA
+{
+
+template<> std::optional<TlgTripsData> TlgTripsPnlCacheOpt::add(const PointIdTlg_t& key) const
+{
+  const std::optional<TlgTripsData> data = TlgTripsData::loadFromPnl(key);
+  if (!data) {
+      return {};
+  }
+  return items.emplace(key, *data).first->second;
+}
+
+template<> std::string TlgTripsPnlCacheOpt::traceTitle()
+{
+  return "TlgTripsPnlCacheOpt";
+}
+
+} // namespace ASTRA
