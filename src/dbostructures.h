@@ -978,7 +978,7 @@ struct STAT
         dbo::field(a,child,"CHILD", dbo::NotNull);
         dbo::field(a,child_wop,"CHILD_WOP", dbo::NotNull);
         dbo::field(a,client_type,"CLIENT_TYPE", dbo::NotNull);
-        dbo::field(a,excess_pc,"EXCESS_PC", dbo::NotNull);
+        dbo::field(a,excess_pc,"EXCESS_PC");
         dbo::field(a,excess_wt,"EXCESS_WT", dbo::NotNull);
         dbo::field(a,f,"F", dbo::NotNull);
         dbo::field(a,hall,"HALL");
@@ -1036,7 +1036,7 @@ struct TRFER_STAT
         dbo::field(a,child,"CHILD", dbo::NotNull);
         dbo::field(a,child_wop,"CHILD_WOP", dbo::NotNull);
         dbo::field(a,client_type,"CLIENT_TYPE", dbo::NotNull);
-        dbo::field(a,excess_pc,"EXCESS_PC", dbo::NotNull);
+        dbo::field(a,excess_pc,"EXCESS_PC");
         dbo::field(a,excess_wt,"EXCESS_WT", dbo::NotNull);
         dbo::field(a,f,"F", dbo::NotNull);
         dbo::field(a,pcs,"PCS", dbo::NotNull);
