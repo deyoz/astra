@@ -104,9 +104,10 @@ string GetTagRangesStr(const TBagTagNumber &tag)
 
 void TGeneratedTags::cleanOldRecords(int min_ago)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText="DELETE FROM bag_tags_generated WHERE time_create<=:time";
+  LogTrace(TRACE6) << __func__;
+  DB::TQuery Qry(PgOra::getRWSession("BAG_TAGS_GENERATED"), STDLOG);
+  Qry.SQLText="DELETE FROM bag_tags_generated "
+              "WHERE time_create <= :time";
   Qry.CreateVariable("time", otDate, BASIC::date_time::NowUTC()-min_ago/1440.0);
   Qry.Execute();
 }
@@ -119,9 +120,11 @@ void TGeneratedTags::useDeferred(int grp_id, int tag_count)
 
   if (tag_count<=0) return;
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText="SELECT no FROM bag_tags_generated WHERE grp_id=:grp_id FOR UPDATE";
+  DB::TQuery Qry(PgOra::getRWSession("BAG_TAGS_GENERATED"), STDLOG);
+  Qry.SQLText="SELECT no FROM "
+              "bag_tags_generated "
+              "WHERE grp_id=:grp_id "
+              "FOR UPDATE";
   Qry.CreateVariable("grp_id", otInteger, grp_id);
   Qry.Execute();
   if (Qry.Eof) return;
@@ -137,14 +140,16 @@ void TGeneratedTags::useDeferred(int grp_id, int tag_count)
   for(int j=tag_count; j>0 && i!=_tags.end(); ++i, --j) ;
   _tags.erase(i, _tags.end());
 
-  Qry.Clear();
-  Qry.SQLText="DELETE FROM bag_tags_generated WHERE grp_id=:grp_id AND no=:no";
-  Qry.CreateVariable("grp_id", otInteger, grp_id);
-  Qry.DeclareVariable("no", otFloat);
+  DB::TQuery QryDel(PgOra::getRWSession("BAG_TAGS_GENERATED"), STDLOG);
+  QryDel.SQLText="DELETE FROM bag_tags_generated "
+                 "WHERE grp_id=:grp_id "
+                 "AND no=:no";
+  QryDel.CreateVariable("grp_id", otInteger, grp_id);
+  QryDel.DeclareVariable("no", otFloat);
   for(const TBagTagNumber& tag : _tags)
   {
-    Qry.SetVariable("no", tag.numeric_part);
-    Qry.Execute();
+    QryDel.SetVariable("no", tag.numeric_part);
+    QryDel.Execute();
   }
 }
 
@@ -154,10 +159,13 @@ void TGeneratedTags::defer()
 
   if (!_grp_id) return;
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getRWSession("BAG_TAGS_GENERATED"), STDLOG);
   Qry.SQLText=
-    "INSERT INTO bag_tags_generated(grp_id, no, time_create) VALUES(:grp_id, :no, :time_create) ";
+    "INSERT INTO bag_tags_generated( "
+    "grp_id, no, time_create "
+    ") VALUES( "
+    ":grp_id, :no, :time_create "
+    ") ";
   Qry.CreateVariable("grp_id", otInteger, _grp_id.get());
   Qry.DeclareVariable("no", otFloat);
   Qry.CreateVariable("time_create", otDate, BASIC::date_time::NowUTC());
@@ -437,7 +445,7 @@ void GetTagsByBagNum(int grp_id, int bag_num, std::multiset<TBagTagNumber> &tags
     for(; not Qry.get().Eof; Qry.get().Next())
         tags.insert(
                 TBagTagNumber(
-                    includeTagColor ? ElemIdToCodeNative(etTagColor, Qry.get().FieldAsString("color")) : "",                    
+                    includeTagColor ? ElemIdToCodeNative(etTagColor, Qry.get().FieldAsString("color")) : "",
                     Qry.get().FieldAsFloat("no")));
 }
 

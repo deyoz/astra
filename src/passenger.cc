@@ -4210,6 +4210,9 @@ std::optional<AirlineCode_t> getTlgAirline(const PnrId_t& pnr_id)
 
 std::string TPnrAddrs::getByPnrId(int pnr_id, string &airline)
 {
+  LogTrace(TRACE6) << __func__
+                   << ": pnr_id=" << pnr_id
+                   << ", airline=" << airline;
   clear();
 
   if (airline.empty())
