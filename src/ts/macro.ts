@@ -51,7 +51,7 @@ $(defmacro init_kiosk
 {
 $(init_jxt_pult KIOSK2)
 $(login KIOSK2 ПАРОЛЬ)
-}) #end-of-defmacro init_kiosk
+}) #end-of-defmacro init_term
 
 #########################################################################################
 
@@ -1263,7 +1263,7 @@ $(defmacro CHECKIN_PAX
     opr=PIKE
 {{<?xml version='1.0' encoding='CP866'?>
 <term>
-  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+  <query handle='0' id='CheckIn' ver='1' opr='$(opr)' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
     <TCkinSavePax>
       <agent_stat_period>3</agent_stat_period>
       <transfer/>
@@ -3930,140 +3930,6 @@ $(defmacro RUN_SERVICES_STAT
 }) #end_of_macro
 
 ####################################################################################
-$(defmacro LOAD_PAX_BY_GRP_ID
-    point_dep
-    grp_id
-{{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-    <TCkinLoadPax>
-      <point_id>$(point_dep)</point_id>
-      <grp_id>$(grp_id)</grp_id>
-    </TCkinLoadPax>
-  </query>
-</term>}
-
-}) #end-of-macro
-
-#########################################################################################
-
-$(defmacro LOAD_PAX_BY_REG_NO
-    point_dep
-    reg_no
-{
-!! err=ignore
-{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-    <TCkinLoadPax>
-      <point_id>$(point_dep)</point_id>
-      <reg_no>$(reg_no)</reg_no>
-    </TCkinLoadPax>
-  </query>
-</term>}
-
-}) #end-of-macro
-
-#########################################################################################
-
-$(defmacro LOAD_PAX_BY_PAX_ID
-    point_dep
-    pax_id
-{
-!! err=ignore
-{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-    <TCkinLoadPax>
-      <point_id>$(point_dep)</point_id>
-      <pax_id>$(pax_id)</pax_id>
-    </TCkinLoadPax>
-  </query>
-</term>}
-
-}) #end-of-macro
-
-#########################################################################################
-### возможность регистрации группы из любого кол-ва участников в секции passengers
-
-$(defmacro NEW_CHECKIN_REQUEST
-  point_dep
-  point_arv
-  airp_dep
-  airp_arv
-  passengers
-  hall=777
-  capture=off
-{
-
-!! capture=$(capture) err=ignore
-{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='EN' term_id='2479792165'>
-    <TCkinSavePax>
-      <agent_stat_period>3</agent_stat_period>
-      <transfer/>
-      <segments>
-        <segment>
-          <point_dep>$(point_dep)</point_dep>
-          <point_arv>$(point_arv)</point_arv>
-          <airp_dep>$(get_elem_id etAirp $(airp_dep))</airp_dep>
-          <airp_arv>$(get_elem_id etAirp $(airp_arv))</airp_arv>
-          <class>Э</class>
-          <status>K</status>
-          <wl_type/>
-$(passengers)
-        </segment>
-      </segments>
-      <hall>$(hall)</hall>
-    </TCkinSavePax>
-  </query>
-</term>}
-
-}) #end defmacro NEW_CHECKIN_REQUEST
-
-#########################################################################################
-### возможность записи изменений по любому кол-ву участников в секции passengers
-
-$(defmacro CHANGE_CHECKIN_REQUEST
-  point_dep
-  point_arv
-  airp_dep
-  airp_arv
-  grp_id
-  grp_tid
-  passengers
-  hall=777
-  capture=off
-{
-
-!! capture=$(capture) err=ignore
-{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='EN' term_id='2479792165'>
-    <TCkinSavePax>
-      <agent_stat_period>3</agent_stat_period>
-      <segments>
-        <segment>
-          <point_dep>$(point_dep)</point_dep>
-          <point_arv>$(point_arv)</point_arv>
-          <airp_dep>$(get_elem_id etAirp $(airp_dep))</airp_dep>
-          <airp_arv>$(get_elem_id etAirp $(airp_arv))</airp_arv>
-          <class>Э</class>
-          <grp_id>$(grp_id)</grp_id>
-          <tid>$(grp_tid)</tid>
-$(passengers)
-        </segment>
-      </segments>
-      <hall>$(hall)</hall>
-      <bag_refuse/>
-    </TCkinSavePax>
-  </query>
-</term>}
-
-}) #end defmacro CHANGE_CHECKIN_REQUEST
-
-#########################################################################################
 ### изменение настроек рейса в trip_sets (галочки в главном экране "Подготовки")
 
 $(defmacro CHANGE_TRIP_SETS
@@ -4220,19 +4086,4 @@ $(defmacro MESSAGE_TAG
     </command>}
 )
 
-######################################################################################################
 
-$(defmacro READ_ARX_TRIPS
-    arx_date=$(date_format %d.%m.%Y)
-
-{{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='sopp' ver='1' opr='PIKE' screen='STAT.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-    <ReadTrips>
-      <arx_date>$(arx_date) 00:00:00</arx_date>
-    </ReadTrips>
-  </query>
-</term>}
-}) #end_of_macro
-
-#########################################################################################
