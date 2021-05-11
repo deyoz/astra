@@ -787,7 +787,7 @@ void TFilterLayer_SOM_PRL::IntRead( int point_id, const std::vector<TTripRouteIt
   TranzQry.CreateVariable( "point_num", otInteger, point_num );
   TranzQry.DeclareVariable( "point_num_dep", otInteger );
 
-  DB::TQuery TlgQry(PgOra::getROSession({"TLGS_IN", "TLG_SOURCE", "TLG_BINDNING"}));
+  DB::TQuery TlgQry(PgOra::getROSession({"TLGS_IN", "TLG_SOURCE", "TLG_BINDNING"}), STDLOG);
   TlgQry.SQLText =
     "SELECT (CASE WHEN tlgs_in.type = 'PRL' THEN :prl_layer ELSE :som_layer END) AS layer_type "
     "FROM tlg_binding,tlg_source,tlgs_in "
@@ -8602,7 +8602,7 @@ static void FillSalonDescrs(
     const string& craft,
     const string& bort)
 {
-    DB::TQuery Qry(PgOra::getROSession("COMPART_DESC_SETS"));
+    DB::TQuery Qry(PgOra::getROSession("COMPART_DESC_SETS"), STDLOG);
     Qry.SQLText =
         "SELECT desc_code,salon_num,bort FROM compart_desc_sets "
         "WHERE airline=:airline AND craft=:craft AND (bort IS NULL OR bort=:bort) "

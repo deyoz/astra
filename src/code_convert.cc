@@ -32,7 +32,7 @@ RESULT ConvertCode(const SOURCE& source, EDirection direction, const string& tab
 // string, int
 template <> int ConvertCode(const string& source, EDirection direction, const string& table_name, const string& system_name)
 {
-  DB::TQuery Qry(PgOra::getROSession(table_name));
+  DB::TQuery Qry(PgOra::getROSession(table_name), STDLOG);
   InitQry(Qry, direction, table_name, system_name);
   Qry.CreateVariable("source", otString, source);
   Qry.Execute();
@@ -43,7 +43,7 @@ template <> int ConvertCode(const string& source, EDirection direction, const st
 // int, string
 template <> string ConvertCode(const int& source, EDirection direction, const string& table_name, const string& system_name)
 {
-  DB::TQuery Qry(PgOra::getROSession(table_name));
+  DB::TQuery Qry(PgOra::getROSession(table_name), STDLOG);
   InitQry(Qry, direction, table_name, system_name);
   Qry.CreateVariable("source", otInteger, source);
   Qry.Execute();
@@ -54,7 +54,7 @@ template <> string ConvertCode(const int& source, EDirection direction, const st
 // string, string
 template <> string ConvertCode(const string& source, EDirection direction, const string& table_name, const string& system_name)
 {
-  DB::TQuery Qry(PgOra::getROSession(table_name));
+  DB::TQuery Qry(PgOra::getROSession(table_name), STDLOG);
   InitQry(Qry, direction, table_name, system_name);
   Qry.CreateVariable("source", otString, source);
   Qry.Execute();

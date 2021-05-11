@@ -85,7 +85,7 @@ int putMail( const string &receiver,
     throw Exception( "Can't find param FileName" );
   filename = params[ PARAM_FILE_NAME ];
 
-  DB::TQuery FilesQry(PgOra::getROSession("FILE_SETS"));
+  DB::TQuery FilesQry(PgOra::getROSession("FILE_SETS"), STDLOG);
   FilesQry.SQLText=
     "SELECT name,dir,last_create,airp "
     "FROM file_sets "
@@ -398,7 +398,7 @@ void buildLoadFileData( xmlNodePtr resNode, const std::string &client_canon_name
     JxtContext::JxtCont *sysCont = JxtContext::getJxtContHandler()->sysContext();
     int prior_id = sysCont->readInt( client_canon_name + "_" + OWN_POINT_ADDR() + "_file_param_sets.id", -1 ); // for sort request
     ProgTrace( TRACE5, "get prior_id=%d", prior_id );
-    DB::TQuery QryFile(PgOra::getROSession("FILE_PARAM_SETS"));
+    DB::TQuery QryFile(PgOra::getROSession("FILE_PARAM_SETS"), STDLOG);
     QryFile.SQLText =
      "SELECT type,airline,param_name,param_value FROM file_param_sets "
      " WHERE point_addr=:point_addr AND own_point_addr=:own_point_addr AND pr_send=:send "
@@ -1095,7 +1095,7 @@ void AstraServiceInterface::saveFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
 
 static int update_file_sets(const std::string &code, const std::string &airp, int interval)
 {
-  DB::TQuery QryFileSets(PgOra::getRWSession("FILE_SETS"));
+  DB::TQuery QryFileSets(PgOra::getRWSession("FILE_SETS"), STDLOG);
   if (PgOra::supportsPg("FILE_SETS"))
   {
     QryFileSets.SQLText =
@@ -1614,7 +1614,7 @@ bool createUTGDataFiles( int point_id, const std::string &point_addr, TFileDatas
 
 void AstraServiceInterface::getFileParams( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
-    DB::TQuery Qry( PgOra::getROSession("FILE_TYPES") );
+    DB::TQuery Qry( PgOra::getROSession("FILE_TYPES"), STDLOG );
     Qry.SQLText = "SELECT code, name from file_types";
     Qry.Execute();
     xmlNodePtr node = NewTextChild( resNode, "file_types" );
@@ -1625,7 +1625,7 @@ void AstraServiceInterface::getFileParams( XMLRequestCtxt *ctxt, xmlNodePtr reqN
         Qry.Next();
     }
 
-    DB::TQuery Qry2( PgOra::getROSession("FILES"));
+    DB::TQuery Qry2( PgOra::getROSession("FILES"), STDLOG );
 
     Qry2.SQLText = "SELECT DISTINCT type, receiver FROM files";
     Qry2.Execute();
@@ -1793,7 +1793,7 @@ void AstraServiceInterface::viewFileIds( XMLRequestCtxt *ctxt, xmlNodePtr reqNod
     TDateTime first_day = NodeAsDateTime( "first_day", reqNode );
     TDateTime last_day = NodeAsDateTime( "last_day", reqNode );
     ProgTrace( TRACE5, "type=%s, receiver=%s, first_day=%f, last_day=%f", type.c_str(), receiver.c_str(), first_day, last_day );
-    DB::TQuery Qry(PgOra::getROSession("FILES"));
+    DB::TQuery Qry(PgOra::getROSession("FILES"), STDLOG);
     Qry.SQLText =
     "SELECT id, time FROM files "
     " WHERE type=:type AND receiver=:receiver AND time>=:first_day AND time<=:last_day";
@@ -1819,7 +1819,7 @@ void AstraServiceInterface::viewFileIds( XMLRequestCtxt *ctxt, xmlNodePtr reqNod
 void AstraServiceInterface::viewFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
   int file_id = NodeAsInteger( "file_id", reqNode );
-  DB::TQuery Qry( PgOra::getROSession("FILES") );
+  DB::TQuery Qry( PgOra::getROSession("FILES"), STDLOG );
   Qry.SQLText = "SELECT type, receiver, error FROM files WHERE id=:file_id";
   Qry.CreateVariable( "file_id", otInteger, file_id );
   Qry.Execute();

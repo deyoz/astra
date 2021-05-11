@@ -142,7 +142,8 @@ void TTlgOutPartInfo::getExtra()
     QryParams << QParam("tlg_id", otInteger, id);
     DB::TCachedQuery Qry(PgOra::getROSession("TYPEB_OUT_EXTRA"),
                          "select * from typeb_out_extra where tlg_id = :tlg_id",
-                         QryParams);
+                         QryParams,
+                         STDLOG);
     Qry.get().Execute();
     for(; !Qry.get().Eof; Qry.get().Next())
         extra.insert(make_pair(Qry.get().FieldAsString("lang"),
@@ -446,7 +447,7 @@ std::set<FailedTlgKey> loadFailedTlgIds(const TTlgSearchParams& search_params)
   LogTrace(TRACE6) << __func__;
   std::set<FailedTlgKey> result;
 
-  DB::TQuery Qry(PgOra::getROSession({"TLGS_IN", "TLG_SOURCE"}));
+  DB::TQuery Qry(PgOra::getROSession({"TLGS_IN", "TLG_SOURCE"}), STDLOG);
   std::ostringstream sql;
   sql << " SELECT DISTINCT tlgs_in.id, tlg_source.point_id_tlg "
       << " FROM tlgs_in, tlg_source "
@@ -472,7 +473,7 @@ std::set<TlgId_t> loadFailedTlgIdsWOSource(const TTlgSearchParams& search_params
 {
   LogTrace(TRACE6) << __func__;
   std::set<TlgId_t> result;
-  DB::TQuery Qry(PgOra::getROSession({"TLGS_IN", "TLG_SOURCE"}));
+  DB::TQuery Qry(PgOra::getROSession({"TLGS_IN", "TLG_SOURCE"}), STDLOG);
   std::ostringstream sql;
   sql << "SELECT DISTINCT tlgs_in.id "
          "FROM tlgs_in, tlg_source "
@@ -559,7 +560,7 @@ bool checkUserAccess(const TlgTripsData& trips_data, const TReqInfo &info,
 
 bool isHistoryTlg(const TlgId_t& tlg_id)
 {
-  DB::TQuery Qry(PgOra::getROSession("TYPEB_IN_HISTORY"));
+  DB::TQuery Qry(PgOra::getROSession("TYPEB_IN_HISTORY"), STDLOG);
   Qry.CreateVariable("tlg_id", otInteger, tlg_id.get());
   Qry.SQLText =
       "SELECT prev_tlg_id "
@@ -574,7 +575,7 @@ std::vector<TTlgInPart> loadTlgsInParts(const TlgId_t& tlg_id,
 {
   std::vector<TTlgInPart> result;
   const bool is_history = isHistoryTlg(tlg_id);
-  DB::TQuery Qry(PgOra::getROSession("TLGS_IN"));
+  DB::TQuery Qry(PgOra::getROSession("TLGS_IN"), STDLOG);
   Qry.CreateVariable("tlg_id", otInteger, tlg_id.get());
   Qry.SQLText =
       "SELECT id, num, type, addr, heading, ending, time_receive, is_final_part "
@@ -672,7 +673,7 @@ std::set<FailedTlgKey> loadFailedTlgIdsWOBind(const TTlgSearchParams& search_par
 {
   LogTrace(TRACE6) << __func__;
   std::set<FailedTlgKey> result;
-  DB::TQuery Qry(PgOra::getROSession({"TLGS_IN", "TLG_SOURCE", "TLG_BINDING"}));
+  DB::TQuery Qry(PgOra::getROSession({"TLGS_IN", "TLG_SOURCE", "TLG_BINDING"}), STDLOG);
   std::ostringstream sql;
   sql << "SELECT DISTINCT tlgs_in.id, tlg_source.point_id_tlg "
          "FROM tlgs_in, tlg_source, tlg_binding "
@@ -724,7 +725,7 @@ std::vector<TTlgInPart> loadTlgsWithErrors(const set<int>& tlgs_ids,
                                            const std::string& tz_region)
 {
   std::vector<TTlgInPart> tlgs;
-  DB::TQuery Qry(PgOra::getROSession("TLGS"));
+  DB::TQuery Qry(PgOra::getROSession("TLGS"), STDLOG);
   std::ostringstream sql;
   sql << "SELECT \n"
          "   tlgs.id, \n"
@@ -784,7 +785,7 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   if (search_params.tlg_id!=NoExists)
   {
     search_params.typeb_in_ids.insert(search_params.tlg_id);
-    DB::TQuery Qry(PgOra::getROSession("TLGS"));
+    DB::TQuery Qry(PgOra::getROSession("TLGS"), STDLOG);
     Qry.SQLText="SELECT id, typeb_tlg_id FROM tlgs WHERE id=:tlg_id";
     Qry.CreateVariable("tlg_id", otInteger, search_params.tlg_id);
     Qry.Execute();
@@ -798,7 +799,7 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   };
   if (search_params.tlg_num!=NoExists)
   {
-    DB::TQuery Qry(PgOra::getROSession("TLGS"));
+    DB::TQuery Qry(PgOra::getROSession("TLGS"), STDLOG);
     Qry.SQLText="SELECT id, typeb_tlg_id FROM tlgs WHERE tlg_num=:tlg_num";
     Qry.CreateVariable("tlg_num", otFloat, search_params.tlg_num);
     Qry.Execute();
@@ -918,7 +919,7 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   if (RegionQry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
   string tz_region = AirpTZRegion(RegionQry.FieldAsString("airp"));
 
-  DB::TQuery Qry(PgOra::getROSession({"TLGS_IN", "TYPEB_IN_HISTORY", "TLG_SOURCE", "TLG_BINDING"}));
+  DB::TQuery Qry(PgOra::getROSession({"TLGS_IN", "TYPEB_IN_HISTORY", "TLG_SOURCE", "TLG_BINDING"}), STDLOG);
   Qry.SQLText=
       "SELECT "
       "tlgs_in.id, "
@@ -2491,7 +2492,7 @@ void TTlgStat::putTypeBOut(const int queue_tlg_id,
                            const std::string &airline_mark,
                            const std::string &extra)
 {
-  DB::TQuery Qry(PgOra::getRWSession("TLG_STAT"));
+  DB::TQuery Qry(PgOra::getRWSession("TLG_STAT"), STDLOG);
   Qry.SQLText=
     "INSERT INTO tlg_stat(queue_tlg_id, typeb_tlg_id, typeb_tlg_num, "
     "  sender_sita_addr, sender_canon_name, sender_descr, sender_country, "

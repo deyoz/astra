@@ -368,7 +368,7 @@ std::vector<CrsDisplaceData> CrsDisplaceData::load(const PointId_t& point_id)
                    << ": point_id=" << point_id;
   std::vector<CrsDisplaceData> result;
 
-  DB::TQuery Qry(PgOra::getROSession("CRS_DISPLACE2"));
+  DB::TQuery Qry(PgOra::getROSession("CRS_DISPLACE2"), STDLOG);
   Qry.SQLText =
       "SELECT point_id_tlg, airp_arv_tlg, class_tlg, status "
       "FROM crs_displace2 "

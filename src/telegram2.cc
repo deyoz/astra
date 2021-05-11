@@ -322,7 +322,7 @@ int TTlgDraft::find_duplicate(TTlgOutPartInfo &tlg_row)
             "   type = :type and "
             "   addr = :addr and "
             "   pr_lat = :pr_lat ",
-            QryParams
+            QryParams, STDLOG
             );
 
     Qry.get().Execute();
@@ -629,7 +629,7 @@ namespace PRL_SPACE {
               "FROM pnr_addrs "
               "WHERE pnr_id=:pnr_id "
               "ORDER BY addr,airline",
-              QryParams);
+              QryParams, STDLOG);
         Qry.get().Execute();
         for(; !Qry.get().Eof; Qry.get().Next()) {
             TPNRItem pnr;
@@ -2232,7 +2232,7 @@ struct TExtraSeatName {
         LogTrace(TRACE6) << __func__
                          << ": pax_id=" << pax_id
                          << ", pr_crs=" << pr_crs;
-        DB::TQuery Qry(PgOra::getROSession(pr_crs ? "CRS_PAX_REM" : "PAX_REM"));
+        DB::TQuery Qry(PgOra::getROSession(pr_crs ? "CRS_PAX_REM" : "PAX_REM"), STDLOG);
         string SQLText = (string)
             "select distinct "
             "   rem_code "
@@ -7608,7 +7608,8 @@ int FWD(TypeB::TDetailCreateInfo &info)
     DB::TCachedQuery Qry(PgOra::getROSession("TLGS_IN"),
             "SELECT heading, ending FROM tlgs_in WHERE id=:tlg_id AND num=:tlg_num",
             QParams() << QParam("tlg_id", otInteger, forwarderOptions->typeb_in_id)
-                      << QParam("tlg_num", otInteger, forwarderOptions->typeb_in_num));
+                      << QParam("tlg_num", otInteger, forwarderOptions->typeb_in_num),
+            STDLOG);
     Qry.get().Execute();
     if (Qry.get().Eof) throw Exception("%s: forwarded telegram not found", __FUNCTION__);
     TTlgDraft tlg_draft(info);
@@ -7971,7 +7972,8 @@ int PNL(TypeB::TDetailCreateInfo &info)
 
   DB::TCachedQuery Qry(PgOra::getROSession("TLGS_IN"), "SELECT heading, ending FROM tlgs_in WHERE id=:tlg_id AND num=:tlg_num",
                    QParams() << QParam("tlg_id", otInteger, forwarderOptions->typeb_in_id)
-                             << QParam("tlg_num", otInteger, forwarderOptions->typeb_in_num));
+                             << QParam("tlg_num", otInteger, forwarderOptions->typeb_in_num),
+                   STDLOG);
   Qry.get().Execute();
   if (Qry.get().Eof) throw Exception("%s: forwarded telegram not found", __FUNCTION__);
 
@@ -8996,7 +8998,7 @@ bool existsTypeBDataStat(const PointIdTlg_t& point_id_tlg)
         "WHERE POINT_ID = :point_id_tlg "
         "AND SYSTEM = 'CRS' "
         "FETCH FIRST 1 ROWS ONLY ",
-        QryParams);
+        QryParams, STDLOG);
   Qry.get().Execute();
   return not Qry.get().Eof;
 }

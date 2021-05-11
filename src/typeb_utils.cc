@@ -256,7 +256,7 @@ void TErrLst::fromDB(int tlg_id, int num)
             " where "
             "   tlg_id = :tlg_id and "
             "   (part_no is null or part_no = :num) ";
-    DB::TCachedQuery Qry(PgOra::getROSession(tableName), SQLText, QryParams);
+    DB::TCachedQuery Qry(PgOra::getROSession(tableName), SQLText, QryParams, STDLOG);
     Qry.get().Execute();
     if(not Qry.get().Eof) {
         int col_part_no = Qry.get().GetFieldIndex("part_no");

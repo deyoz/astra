@@ -55,7 +55,7 @@ void ArxRunLimitedCapabStat(
     SQLText +=
             " arx_points.part_key >= :FirstDate and arx_points.part_key < :FirstDate and "
             " arx_stat.part_key >= :FirstDate and arx_stat.part_key < :LastDate ";
-    DB::TCachedQuery Qry(PgOra::getROSession("arx_limited_capability_stat"), SQLText, QryParams);
+    DB::TCachedQuery Qry(PgOra::getROSession("arx_limited_capability_stat"), SQLText, QryParams, STDLOG);
     Qry.get().Execute();
     if(not Qry.get().Eof) {
         int col_point_id = Qry.get().FieldIndex("point_id");

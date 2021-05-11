@@ -1010,7 +1010,7 @@ void SvcSirenaInterface::procGroupInfo( const SirenaExchange::TGroupInfoReq &req
                                         SirenaExchange::TGroupInfoRes &res )
 {
   res.clear();
-  DB::TQuery QryGrp(PgOra::getROSession("PAX_GRP"));
+  DB::TQuery QryGrp(PgOra::getROSession("PAX_GRP"), STDLOG);
   QryGrp.SQLText =
     "SELECT grp_id FROM pax_grp WHERE grp_id=:grp_id";
   QryGrp.CreateVariable("grp_id", otInteger, req.grp_id);
@@ -1024,13 +1024,13 @@ void SvcSirenaInterface::procGroupInfo( const SirenaExchange::TGroupInfoReq &req
   DB::TCachedQuery QryUpdate(PgOra::getRWSession("PNR_ADDRS_PC"),
                              "UPDATE pnr_addrs_pc SET grp_id=:grp_id "
                              "WHERE addr=:pnr_addr",
-                             QryParams);
+                             QryParams, STDLOG);
   QryUpdate.get().Execute();
   if (QryUpdate.get().RowsProcessed() == 0) {
     DB::TCachedQuery QryInsert(PgOra::getRWSession("PNR_ADDRS_PC"),
                                "INSERT INTO pnr_addrs_pc(addr, grp_id) "
                                "VALUES(:pnr_addr, :grp_id)",
-                               QryParams);
+                               QryParams, STDLOG);
     QryInsert.get().Execute();
   }
 

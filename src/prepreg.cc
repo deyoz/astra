@@ -156,7 +156,7 @@ void PrepRegInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
 
 TAdvTripInfo loadFltInfo(const PointId_t& point_id)
 {
-  DB::TQuery Qry(PgOra::getROSession("POINTS"));
+  DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
   Qry.SQLText =
     "SELECT airline, flt_no, suffix, airp, scd_out, "
     "       point_id, point_num, first_point, pr_tranzit "
@@ -491,7 +491,7 @@ std::map<CrsDataNumKey, CrsDataValue> getCrsDataGroupBySender(const TAdvTripInfo
 std::map<CrsDataSegKey, CrsDataValue> loadTripData(const PointId_t& point_id)
 {
   std::map<CrsDataSegKey, CrsDataValue> result;
-  DB::TQuery Qry(PgOra::getROSession("TRIP_DATA"));
+  DB::TQuery Qry(PgOra::getROSession("TRIP_DATA"), STDLOG);
   Qry.SQLText =
       "SELECT airp_arv,class,resa,tranzit "
       "FROM trip_data "

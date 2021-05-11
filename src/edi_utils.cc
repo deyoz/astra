@@ -699,7 +699,7 @@ void cleanOldRecords(int min_ago)
      .exec();
 
   const auto amin_ago = BoostToDateTime(second_clock::local_time() - minutes(min_ago));
-  DB::TQuery EdiSessQry(PgOra::getROSession("EDISESSION"));
+  DB::TQuery EdiSessQry(PgOra::getROSession("EDISESSION"), STDLOG);
   EdiSessQry.SQLText="SELECT ida FROM edisession WHERE sessdatecr<:date_min_ago";
   EdiSessQry.CreateVariable("date_min_ago", otDate, amin_ago);
   EdiSessQry.Execute();

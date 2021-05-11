@@ -123,7 +123,7 @@ static void deleteRoutesByMoveid(const std::list<int> &lmove_id)
 
 bool SsmIdExists(int trip_id)
 {
-  DB::TQuery QryCheck(PgOra::getROSession("SCHED_DAYS"));
+  DB::TQuery QryCheck(PgOra::getROSession("SCHED_DAYS"), STDLOG);
   QryCheck.SQLText = "SELECT ssm_id from sched_days where trip_id = :trip_id";
   QryCheck.CreateVariable("trip_id", otInteger, trip_id);
   QryCheck.Execute();
@@ -797,7 +797,7 @@ struct CreatorSPPLocker {
      if ( islock ) {
        return;
      }
-     DB::TQuery Qry(PgOra::getRWSession("SEASON_SPP"));
+     DB::TQuery Qry(PgOra::getRWSession("SEASON_SPP"), STDLOG);
      Qry.SQLText = "SELECT lock_spp FROM season_spp FOR UPDATE";
      Qry.Execute();
      ASSERT(Qry.RowCount() == 1);
@@ -1065,7 +1065,7 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
   // имеем move_id, vd на период выполнения
   // получим маршрут и проверим на права доступа к этому маршруту
   const auto boost_vd = DateTimeToBoost(vd);
-  DB::TQuery Qry(PgOra::getROSession("ROUTES"));
+  DB::TQuery Qry(PgOra::getROSession("ROUTES"), STDLOG);
 
   Qry.SQLText =
     "SELECT num, routes.airp, routes.airp_fmt, scd_in, "
@@ -1210,7 +1210,7 @@ void createSPP( TDateTime ldt_SPPStart, TSpp &spp, bool createViewer, string &er
   TFilter filter;
   filter.GetSeason();
 
-  DB::TQuery Qry(PgOra::getROSession("SCHED_DAYS"));
+  DB::TQuery Qry(PgOra::getROSession("SCHED_DAYS"), STDLOG);
 
   double udt_SppStart, udt_SppEnd;
   udt_SppStart = ClientToUTC( ldt_SPPStart, filter.filter_tz_region, false );
@@ -1881,7 +1881,7 @@ void SEASON::int_write(const TFilter &filter, int ssm_id, vector<TPeriod> &speri
 {
   LogTrace(TRACE5) << __func__ << " ssm_id=" << ssm_id << " trip_id=" << trip_id;
   vector<TPeriod> oldperiods;
-  DB::TQuery SQrySched(PgOra::getROSession("SCHED_DAYS"));
+  DB::TQuery SQrySched(PgOra::getROSession("SCHED_DAYS"), STDLOG);
   SQrySched.SQLText =
     "SELECT first_day, last_day, days, pr_del, tlg, reference, trip_id, move_id "
     " FROM sched_days "
@@ -1922,7 +1922,7 @@ void SEASON::int_write(const TFilter &filter, int ssm_id, vector<TPeriod> &speri
   }
 
   LogTrace(TRACE3) << "INSERT INTO sched_days";
-  auto InsSched = DB::TQuery(PgOra::getRWSession("SCHED_DAYS"));
+  auto InsSched = DB::TQuery(PgOra::getRWSession("SCHED_DAYS"), STDLOG);
   InsSched.SQLText =
       "INSERT INTO sched_days(trip_id,move_id,num,first_day,last_day,days,pr_del,tlg,reference,region,ssm_id,delta) "
       "VALUES(:trip_id,:move_id,:num,:first_day,:last_day,:days,:pr_del,:tlg,:reference,:region,:ssm_id,:delta) ";
@@ -1939,7 +1939,7 @@ void SEASON::int_write(const TFilter &filter, int ssm_id, vector<TPeriod> &speri
   InsSched.CreateVariable( "ssm_id", otInteger, ssm_id==ASTRA::NoExists?FNull:ssm_id );
   InsSched.DeclareVariable( "delta", otInteger );
 
-  DB::TQuery RQry(PgOra::getRWSession("ROUTES"));
+  DB::TQuery RQry(PgOra::getRWSession("ROUTES"), STDLOG);
   RQry.SQLText =
   "INSERT INTO routes(move_id,num,airp,airp_fmt,pr_del,scd_in,airline,airline_fmt,flt_no,craft,craft_fmt,scd_out,litera, "
   "                   trip_type,rbd_order,f,c,y,unitrip,delta_in,delta_out,suffix,suffix_fmt) "
@@ -2824,7 +2824,7 @@ void GetDests( map<int,TDestList> &mapds, const TFilter &filter, int vmove_id )
   LogTrace(TRACE3) << __FUNCTION__;
   HelpCpp::Timer tm1;
   TReqInfo *reqInfo = TReqInfo::Instance();
-  DB::TQuery RQry(PgOra::getROSession("ROUTES"));
+  DB::TQuery RQry(PgOra::getROSession("ROUTES"), STDLOG);
   string sql =
   "SELECT move_id,num,routes.airp airp,airp_fmt, "
   "       routes.pr_del,scd_in, delta_in, airline,airline_fmt,"
@@ -3017,7 +3017,7 @@ void internalRead( TFilter &filter, vector<TViewPeriod> &viewp, int trip_id = No
   map<int,string> mapreg;
   map<string,TTimeDiff> v;
   map<int,TDestList> mapds;
-  DB::TQuery SQry(PgOra::getROSession("SCHED_DAYS"));
+  DB::TQuery SQry(PgOra::getROSession("SCHED_DAYS"), STDLOG);
   string sql =
   "SELECT trip_id,move_id,first_day,last_day,days,pr_del,tlg,region "
   " FROM sched_days WHERE last_day>=:begin_date_season ";
@@ -3855,7 +3855,7 @@ START_TEST(check_boost_datetime_logic)
     "(1, 0, 0, :dt, -1)", PgOra::getRWSession("ROUTES"));
   cur.bind("dt", dt).exec();
 
-  DB::TQuery RQry(PgOra::getROSession("ROUTES"));
+  DB::TQuery RQry(PgOra::getROSession("ROUTES"), STDLOG);
   string sql =
       "SELECT scd_out, delta_out "
       " FROM routes where move_id=1";

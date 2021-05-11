@@ -598,7 +598,7 @@ void ScdPeriodToDb( const ssim::ScdPeriod &scd )
   TDateTime last = BoostToDateTime(scd.period.end);
   string days = scd.period.freq.str();
   // запись в ssm_schedule
-  DB::TQuery QryIns(PgOra::getRWSession("SSM_SCHEDULE"));
+  DB::TQuery QryIns(PgOra::getRWSession("SSM_SCHEDULE"), STDLOG);
   QryIns.SQLText =
       "INSERT INTO ssm_schedule(ssm_id, flight, first, last, days) "
       " VALUES(:ssm_id, :flight, :first, :last, :days) ";
@@ -610,7 +610,7 @@ void ScdPeriodToDb( const ssim::ScdPeriod &scd )
   QryIns.Execute();
 
   // запись в sched_days
-  auto SchdQry = DB::TQuery(PgOra::getROSession("SCHED_DAYS"));
+  auto SchdQry = DB::TQuery(PgOra::getROSession("SCHED_DAYS"), STDLOG);
   SchdQry.SQLText = "SELECT trip_id FROM sched_days s, ssm_schedule m WHERE m.flight=:flight and s.ssm_id=m.ssm_id FETCH FIRST 1 ROWS ONLY";
   SchdQry.CreateVariable("flight", otString, flight);
   SchdQry.Execute();
@@ -720,7 +720,7 @@ ssim::Route RouteFromDb(int move_id, TDateTime first)
   TReqInfo *reqInfo = TReqInfo::Instance(); // ??? уже есть в вызывающей функции
   reqInfo->user.sets.time = ustTimeLocalAirp; // останется на рабочем
 //  reqInfo->desk.code = "MOVGRG"; // удалить
-  DB::TQuery Qry(PgOra::getROSession("ROUTES"));
+  DB::TQuery Qry(PgOra::getROSession("ROUTES"), STDLOG);
   Qry.SQLText =
     "SELECT num,airp,airp_fmt,flt_no,suffix,scd_in,craft,craft_fmt,scd_out,delta_in,delta_out,f,c,y,rbd_order "
     " FROM routes WHERE move_id=:move_id "
@@ -812,7 +812,7 @@ ssim::ScdPeriods ScdPeriodsFromDb( const ct::Flight& flt, const Period& prd )
   // если у периода нет второй даты, то end = pos_infin
   TDateTime start = BoostToDateTimeCorrectInfinity(prd.start);
   TDateTime end = BoostToDateTimeCorrectInfinity(prd.end);
-  DB::TQuery Qry(PgOra::getROSession("SCHED_DAYS"));
+  DB::TQuery Qry(PgOra::getROSession("SCHED_DAYS"), STDLOG);
   Qry.SQLText =
       "SELECT s.move_id move_id, m.first as first, m.last as last, m.days days "
       " FROM sched_days s, ssm_schedule m "

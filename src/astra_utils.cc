@@ -199,7 +199,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   if (InitData.checkCrypt
    && !InitData.duplicate
    && deskGroup.has_value()) { // пришло не зашифрованное сообщение - проверка на то, что пользователь шифруется
-    DB::TQuery Qry(PgOra::getROSession("CRYPT_SETS"));
+    DB::TQuery Qry(PgOra::getROSession("CRYPT_SETS"), STDLOG);
     Qry.SQLText =
      "SELECT pr_crypt FROM crypt_sets "
      "WHERE desk_grp_id = :grp_id "

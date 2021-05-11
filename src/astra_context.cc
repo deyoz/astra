@@ -36,7 +36,7 @@ int SetContext(const std::string &name,
       throw EXCEPTIONS::Exception("AstraContext::SetContext: context name %s too long",name.c_str());
 
     const int contextId = GetContextId(id);
-    DB::TQuery Qry(PgOra::getRWSession("CONTEXT"));
+    DB::TQuery Qry(PgOra::getRWSession("CONTEXT"), STDLOG);
     Qry.SQLText=
         "INSERT INTO context(name,id,page_no,time_create,value) "
         "  VALUES(:name,:id,:page_no,:time_create,:value)";
@@ -68,7 +68,7 @@ TDateTime GetContext(const std::string &name,
                             std::string &value)
 {
   value.clear();
-  DB::TQuery Qry(PgOra::getROSession("CONTEXT"));
+  DB::TQuery Qry(PgOra::getROSession("CONTEXT"), STDLOG);
   Qry.SQLText=
     "SELECT value,time_create FROM context "
     "WHERE name=:name AND id=:id ORDER BY page_no";
@@ -87,7 +87,7 @@ TDateTime GetContext(const std::string &name,
 void ClearContext(const std::string &name,
                   const TDateTime time_create)
 {
-  DB::TQuery Qry(PgOra::getRWSession("CONTEXT"));
+  DB::TQuery Qry(PgOra::getRWSession("CONTEXT"), STDLOG);
   if (time_create != ASTRA::NoExists)
   {
     Qry.SQLText=
@@ -107,7 +107,7 @@ void ClearContext(const std::string &name,
 void ClearContext(const std::string &name,
                   const int id)
 {
-  DB::TQuery Qry(PgOra::getRWSession("CONTEXT"));
+  DB::TQuery Qry(PgOra::getRWSession("CONTEXT"), STDLOG);
   Qry.SQLText=
     "DELETE FROM context WHERE name=:name AND id=:id";
   Qry.CreateVariable("name",otString,name);

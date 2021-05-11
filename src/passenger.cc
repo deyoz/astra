@@ -1292,7 +1292,7 @@ bool LoadPaxDoc(int pax_id, TPaxDocItem &doc)
     const char* sql = "SELECT * FROM pax_doc WHERE pax_id=:pax_id";
     QParams QryParams;
     QryParams << QParam("pax_id", otInteger, pax_id);
-    DB::TCachedQuery PaxDocQry(PgOra::getROSession("PAX_DOC"),sql, QryParams);
+    DB::TCachedQuery PaxDocQry(PgOra::getROSession("PAX_DOC"),sql, QryParams, STDLOG);
     PaxDocQry.get().Execute();
     if (!PaxDocQry.get().Eof) doc.fromDB(PaxDocQry.get());
     return !doc.empty();
@@ -1339,7 +1339,7 @@ bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc)
 
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, pax_id);
-  DB::TCachedQuery PaxDocQry(PgOra::getROSession("CRS_PAX_DOC"), sql, QryParams);
+  DB::TCachedQuery PaxDocQry(PgOra::getROSession("CRS_PAX_DOC"), sql, QryParams, STDLOG);
   PaxDocQry.get().Execute();
   if (!PaxDocQry.get().Eof) doc.fromDB(PaxDocQry.get());
   return !doc.empty();
@@ -1425,7 +1425,9 @@ bool LoadPaxDoco(int pax_id, TPaxDocoItem &doc)
     doc.doco_confirm=PaxQry.get().FieldIsNULL("doco_confirm") ||
                  PaxQry.get().FieldAsInteger("doco_confirm")!=0;
 
-    DB::TCachedQuery PaxDocQry(PgOra::getROSession("PAX_DOCO"), "SELECT * FROM pax_doco WHERE pax_id=:pax_id", QryParams);
+    DB::TCachedQuery PaxDocQry(PgOra::getROSession("PAX_DOCO"),
+                               "SELECT * FROM pax_doco WHERE pax_id=:pax_id",
+                               QryParams, STDLOG);
     PaxDocQry.get().Execute();
     if (!PaxDocQry.get().Eof) doc.fromDB(PaxDocQry.get());
     return !doc.empty();
@@ -1446,7 +1448,8 @@ bool LoadCrsPaxDoco(int pax_id, TPaxDocoItem &doc)
 
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, pax_id);
-  DB::TCachedQuery PaxDocQry(PgOra::getROSession("CRS_PAX_DOCO"), sql, QryParams);
+  DB::TCachedQuery PaxDocQry(PgOra::getROSession("CRS_PAX_DOCO"),
+                             sql, QryParams, STDLOG);
   PaxDocQry.get().Execute();
   if (!PaxDocQry.get().Eof) doc.fromDB(PaxDocQry.get());
   return !doc.empty();
@@ -1565,7 +1568,7 @@ bool LoadPaxDoca(int pax_id, CheckIn::TDocaMap &doca_map)
     const char* sql = "SELECT * FROM pax_doca WHERE pax_id=:pax_id";
     QParams QryParams;
     QryParams << QParam("pax_id", otInteger, pax_id);
-    DB::TCachedQuery PaxDocQry(PgOra::getROSession("PAX_DOCA"), sql, QryParams);
+    DB::TCachedQuery PaxDocQry(PgOra::getROSession("PAX_DOCA"), sql, QryParams, STDLOG);
     for(PaxDocQry.get().Execute(); !PaxDocQry.get().Eof; PaxDocQry.get().Next())
     {
         TPaxDocaItem docaItem;
@@ -1585,7 +1588,7 @@ bool LoadCrsPaxDoca(int pax_id, CheckIn::TDocaMap &doca_map)
     "ORDER BY type, address ";
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, pax_id);
-  DB::TCachedQuery PaxDocaQry(PgOra::getROSession("CRS_PAX_DOCA"), sql, QryParams);
+  DB::TCachedQuery PaxDocaQry(PgOra::getROSession("CRS_PAX_DOCA"), sql, QryParams, STDLOG);
   PaxDocaQry.get().Execute();
   string prior_type;
   for(;!PaxDocaQry.get().Eof;PaxDocaQry.get().Next())
@@ -2454,7 +2457,7 @@ bool TSimplePaxItem::getCrsByPaxId(PaxId_t pax_id, bool skip_deleted)
         "SELECT * FROM crs_pax "
         "WHERE pax_id=:pax_id "
         + std::string(skip_deleted ? "AND pr_del=0 " : ""),
-        QryParams);
+        QryParams, STDLOG);
   PaxQry.get().Execute();
   if (PaxQry.get().Eof) return false;
   fromDBCrs(PaxQry.get(), false /*withTkn*/);
@@ -2464,7 +2467,7 @@ bool TSimplePaxItem::getCrsByPaxId(PaxId_t pax_id, bool skip_deleted)
 std::list<TSimplePaxItem> TSimplePaxItem::getByGrpId(GrpId_t grp_id)
 {
   TSimplePaxList result;
-  DB::TQuery Qry(PgOra::getROSession("PAX"));
+  DB::TQuery Qry(PgOra::getROSession("PAX"), STDLOG);
   Qry.SQLText = "SELECT * FROM pax "
                 "WHERE grp_id=:grp_id";
   Qry.CreateVariable("grp_id", otInteger, grp_id.get());
@@ -4056,7 +4059,7 @@ std::set<PnrId_t> loadPnrIdSetByPnrAddrs(const std::string& addr)
   transform(addr_rus.begin(), addr_rus.end(), addr_rus.begin(), toRusPnrChar);
   transform(addr_lat.begin(), addr_lat.end(), addr_lat.begin(), toLatPnrChar);
   std::set<PnrId_t> result;
-  DB::TQuery Qry(PgOra::getROSession("pnr_addrs"));
+  DB::TQuery Qry(PgOra::getROSession("pnr_addrs"), STDLOG);
   Qry.SQLText="SELECT pnr_id "
               "FROM pnr_addrs "
               "WHERE addr IN (:addr_rus, :addr_lat) ";
@@ -4083,7 +4086,7 @@ std::set<PaxId_t> loadPaxIdSetByPnrAddrs(const std::string& addr, bool skip_dele
 std::set<PaxId_t> loadCrsPnrPaxIdSet(const PnrId_t& pnr_id)
 {
   std::set<PaxId_t> result;
-  DB::TQuery Qry(PgOra::getROSession("ORACLE"));
+  DB::TQuery Qry(PgOra::getROSession("ORACLE"), STDLOG);
   Qry.SQLText="SELECT pax_id "
               "FROM crs_pax, crs_pnr "
               "WHERE crs_pax.pnr_id=crs_pnr.pnr_id "
@@ -4189,7 +4192,7 @@ std::optional<AirlineCode_t> getTlgAirline(const PnrId_t& pnr_id)
 {
   LogTrace(TRACE6) << __func__ << ": pnr_id=" << pnr_id;
   std::set<PointIdTlg_t> result;
-  DB::TQuery Qry(PgOra::getROSession("CRS_PNR"));
+  DB::TQuery Qry(PgOra::getROSession("CRS_PNR"), STDLOG);
   Qry.SQLText =
       "SELECT point_id "
       "FROM crs_pnr "
@@ -4233,7 +4236,7 @@ std::string TPnrAddrs::getByPnrId(int pnr_id, string &airline)
         "WHERE pnr_id=:pnr_id "
         "ORDER BY CASE WHEN airline=:airline THEN 0 ELSE 1 END, "
         "         airline",
-        QryParams);
+        QryParams, STDLOG);
   DB::TQuery &Qry=CachedQry.get();
   Qry.Execute();
   for (;!Qry.Eof;Qry.Next()) {

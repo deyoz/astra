@@ -384,7 +384,7 @@ TBagItem& TBagItem::fromDB(DB::TQuery &Qry, bool fromTlg, bool loadTags)
   {
     if (fromTlg)
     {
-      DB::TQuery TagQry(PgOra::getROSession("TRFER_TAGS"));
+      DB::TQuery TagQry(PgOra::getROSession("TRFER_TAGS"), STDLOG);
       TagQry.SQLText="SELECT no FROM trfer_tags "
                      "WHERE grp_id=:grp_id";
       TagQry.DeclareVariable("grp_id", otInteger);
@@ -397,7 +397,7 @@ TBagItem& TBagItem::fromDB(DB::TQuery &Qry, bool fromTlg, bool loadTags)
     {
       if (Qry.FieldIsNULL("bag_pool_num")) return *this;
 
-      DB::TQuery TagQry(PgOra::getROSession("ORACLE"));
+      DB::TQuery TagQry(PgOra::getROSession("ORACLE"), STDLOG);
       TagQry.SQLText="SELECT bag_tags.no "
                      "FROM bag_tags, bag2 "
                      "WHERE bag_tags.grp_id=bag2.grp_id(+) AND "
@@ -429,7 +429,7 @@ TPaxItem& TPaxItem::fromDB(DB::TQuery &Qry, bool fromTlg)
     seats=Qry.FieldAsInteger("seats");
     if (seats>1)
     {
-      DB::TQuery RemQry(PgOra::getROSession("PAX_REM"));
+      DB::TQuery RemQry(PgOra::getROSession("PAX_REM"), STDLOG);
       RemQry.SQLText="SELECT rem_code FROM pax_rem "
                      "WHERE pax_id=:pax_id AND rem_code IN ('STCR', 'EXST') "
                      "ORDER BY CASE WHEN rem_code='STCR' THEN 0 "
@@ -524,7 +524,7 @@ TGrpItem& TGrpItem::trferFromDB(bool fromTlg)
 
   DB::TQuery TrferQry(
         PgOra::getROSession(fromTlg ? "TLG_TRFER_ONWARDS"
-                                    : "ORACLE")
+                                    : "ORACLE"), STDLOG
         );
   TrferQry.SQLText=fromTlg?trfer_sql_tlg:trfer_sql_ckin;
   TrferQry.DeclareVariable("grp_id", otInteger);
@@ -895,7 +895,7 @@ const std::vector<TlgTransferGrpData> filterTlgTransferGrp(
 
 bool isUnaccompGrp(int grp_id)
 {
-  DB::TQuery ExceptQry(PgOra::getROSession("TLG_TRFER_EXCEPTS"));
+  DB::TQuery ExceptQry(PgOra::getROSession("TLG_TRFER_EXCEPTS"), STDLOG);
   ExceptQry.SQLText=
     "SELECT type "
     "FROM tlg_trfer_excepts "
@@ -911,7 +911,7 @@ bool isUnaccompGrp(int grp_id)
 std::vector<TPaxItem> loadTrferPax(const TrferGrpId_t& grp_id)
 {
   std::vector<TPaxItem> result;
-  DB::TQuery PaxQry(PgOra::getROSession("TRFER_PAX"));
+  DB::TQuery PaxQry(PgOra::getROSession("TRFER_PAX"), STDLOG);
   PaxQry.SQLText=
     "SELECT surname, name "
     "FROM trfer_pax "
@@ -932,7 +932,7 @@ std::vector<TPaxItem> loadTrferPax(const TrferGrpId_t& grp_id)
 std::multiset<TBagTagNumber> loadTrferTag(const TrferGrpId_t& grp_id)
 {
   std::multiset<TBagTagNumber> result;
-  DB::TQuery TagQry(PgOra::getROSession("TRFER_TAGS"));
+  DB::TQuery TagQry(PgOra::getROSession("TRFER_TAGS"), STDLOG);
   TagQry.SQLText="SELECT no FROM trfer_tags "
                  "WHERE grp_id=:grp_id";
   TagQry.DeclareVariable("grp_id", otInteger);
@@ -1026,7 +1026,7 @@ void TrferFromDB(TTrferType type,
   set<TFltInfo> flts_from_ckin;
   map<int, TFltInfo> spp_point_ids_from_ckin;
 
-  DB::TQuery Qry(PgOra::getROSession("ORACLE"));
+  DB::TQuery Qry(PgOra::getROSession("ORACLE"), STDLOG);
 
   TTripRouteItem priorAirp;
   if (type==trferIn)
@@ -1131,7 +1131,7 @@ void TrferFromDB(TTrferType type,
   Qry.SQLText=sql.str().c_str();
   //ProgTrace(TRACE5, "point_id=%d\nQry.SQLText=\n%s", point_id, sql.str().c_str());
 
-  DB::TQuery PaxQry(PgOra::getROSession("ORACLE"));
+  DB::TQuery PaxQry(PgOra::getROSession("ORACLE"), STDLOG);
   sql.str("");
   sql << "SELECT pax.pax_id, pax.surname, pax.name, pax.seats, \n";
   if (type==trferOut || type==trferOutForCkin || type==tckinInbound)

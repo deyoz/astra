@@ -705,7 +705,8 @@ void Context::fromDB(int paxId)
   DB::TCachedQuery Qry(
         PgOra::getROSession("CRS_PAX_CONTEXT"),
         "SELECT * FROM crs_pax_context WHERE pax_id=:pax_id",
-        QParams() << QParam("pax_id", otInteger, paxId));
+        QParams() << QParam("pax_id", otInteger, paxId),
+        STDLOG);
   Qry.get().Execute();
   for(; !Qry.get().Eof; Qry.get().Next())
   {

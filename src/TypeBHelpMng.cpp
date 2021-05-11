@@ -80,7 +80,7 @@ int TypeBHelp::getTlgsId(int typeb_in_id)
     DB::TCachedQuery Qry(
         PgOra::getROSession("TLGS"),
        "select id from tlgs where typeb_tlg_id = :typeb_in_id",
-        QryParams
+        QryParams, STDLOG
     );
 
     Qry.get().Execute();

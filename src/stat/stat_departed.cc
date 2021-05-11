@@ -23,7 +23,7 @@ void arx_departed_flt(DB::TQuery &Qry, TEncodedFileStream &of)
     TRegEvents events;
     events.fromArxDB(part_key, point_id);
     LogTrace5 << " reg_events size: " << events.size();
-    DB::TQuery paxQry(PgOra::getROSession("ARX_PAX_GRP"));
+    DB::TQuery paxQry(PgOra::getROSession("ARX_PAX_GRP"), STDLOG);
     paxQry.CreateVariable("point_id", otInteger, point_id);
     paxQry.CreateVariable("part_key", otDate, part_key);
 
@@ -250,7 +250,7 @@ void departed_flt(DB::TQuery &Qry, TEncodedFileStream &of)
 void arx_departed_month(const pair<TDateTime, TDateTime> &interval, TEncodedFileStream &of)
 {
     LogTrace5 << __func__;
-    DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"));
+    DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"), STDLOG);
     Qry.CreateVariable("FirstDate", otDate, interval.first);
     Qry.CreateVariable("LastDate", otDate, interval.second);
     for(int pass = 1; pass <= 2; pass++) {
@@ -280,7 +280,7 @@ void arx_departed_month(const pair<TDateTime, TDateTime> &interval, TEncodedFile
 
 void departed_month(const pair<TDateTime, TDateTime> &interval, TEncodedFileStream &of)
 {
-    DB::TQuery Qry(*get_main_ora_sess(STDLOG));
+    DB::TQuery Qry(*get_main_ora_sess(STDLOG), STDLOG);
     Qry.CreateVariable("first_date", otDate, interval.first);
     Qry.CreateVariable("last_date", otDate, interval.second);
     ostringstream sql;

@@ -73,7 +73,7 @@ void ArxRunSelfCkinStat(const TStatParams &params,
                   TPrintAirline &prn_airline)
 {
     LogTrace5 << __func__;
-    DB::TQuery Qry(PgOra::getROSession("ARX_SELF_CKIN_STAT"));
+    DB::TQuery Qry(PgOra::getROSession("ARX_SELF_CKIN_STAT"), STDLOG);
     for(int pass = 1; pass <= 2; pass++) {
         string SQLText =
             "select "

@@ -800,7 +800,7 @@ void get_pax_list(const TPaxListFilter &filter,
       filter.last_time_utc==NoExists)
     throw Exception("rozysk::get_pax_list: first_time_utc and last_time_utc not defined");
 
-  DB::TQuery Qry(PgOra::getROSession("ROZYSK"));
+  DB::TQuery Qry(PgOra::getROSession("ROZYSK"), STDLOG);
   ostringstream sql;
   sql << "SELECT time, term, "
          "       airline, flt_no, suffix, takeoff, airp_dep, "
@@ -942,7 +942,7 @@ void get_pax_list(int point_id,
 
   OutputLang outputLang(LANG_EN, {OutputLang::OnlyTrueIataCodes});
 
-  DB::TQuery Qry(PgOra::getROSession("ROZYSK"));
+  DB::TQuery Qry(PgOra::getROSession("ROZYSK"), STDLOG);
   ostringstream sql;
   sql << "SELECT time, "
          "       airline, flt_no, suffix, takeoff, airp_dep, "
@@ -1419,7 +1419,7 @@ void sync_mvd(void)
   if (Min%15!=2) return;
   Min-=2;
 
-  DB::TQuery Qry(PgOra::getRWSession("FILE_SETS"));
+  DB::TQuery Qry(PgOra::getRWSession("FILE_SETS"), STDLOG);
   Qry.SQLText =
     "UPDATE file_sets SET last_create=:now WHERE code=:code AND "
     "                 (airp=:airp OR airp IS NULL AND :airp IS NULL)";
@@ -1427,7 +1427,7 @@ void sync_mvd(void)
   Qry.DeclareVariable("airp",otString);
   Qry.DeclareVariable("now",otDate);
 
-  DB::TQuery FilesQry(PgOra::getRWSession("FILE_SETS"));
+  DB::TQuery FilesQry(PgOra::getRWSession("FILE_SETS"), STDLOG);
   FilesQry.SQLText=
     "SELECT name,dir,last_create,airp "
     "FROM file_sets "

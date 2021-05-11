@@ -6050,8 +6050,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               "INSERT INTO utg_prl(point_id, last_tlg_create_tid, last_flt_change_tid) "
               "VALUES (:point_id, NULL, :last_flt_change_tid) ";
 
-          DB::TCachedQuery UpdQry(PgOra::getRWSession("UTG_PRL"), UpdSql, QryParams);
-          DB::TCachedQuery InsQry(PgOra::getRWSession("UTG_PRL"), InsSql, QryParams);
+          DB::TCachedQuery UpdQry(PgOra::getRWSession("UTG_PRL"), UpdSql, QryParams, STDLOG);
+          DB::TCachedQuery InsQry(PgOra::getRWSession("UTG_PRL"), InsSql, QryParams, STDLOG);
 
           UpdQry.get().Execute();
           if(UpdQry.get().RowsProcessed() == 0) {

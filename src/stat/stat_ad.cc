@@ -5,6 +5,9 @@
 #include "report_common.h"
 #include "stat/stat_utils.h"
 
+#define NICKNAME "DENIS"
+#include <serverlib/slogger.h>
+
 using namespace std;
 using namespace ASTRA;
 using namespace AstraLocale;
@@ -85,7 +88,7 @@ void ArxRunADStat(
         if(pass == 2)
             SQLText += " arx_points.part_key=arx_ext.part_key AND arx_points.move_id=arx_ext.move_id AND \n";
         SQLText += "   arx_stat_ad.scd_out >= :FirstDate AND arx_stat_ad.scd_out < :LastDate ";
-        DB::TCachedQuery Qry(PgOra::getROSession("ARX_STAT_AD"), SQLText, QryParams);
+        DB::TCachedQuery Qry(PgOra::getROSession("ARX_STAT_AD"), SQLText, QryParams, STDLOG);
         Qry.get().Execute();
         if(not Qry.get().Eof) {
             int col_part_key = Qry.get().GetFieldIndex("part_key");

@@ -233,7 +233,8 @@ void TCrsSeatsBlockingList::fromDB(int _pax_id)
     DB::TCachedQuery Qry(
           PgOra::getROSession("CRS_SEATS_BLOCKING"),
           "select * from crs_seats_blocking where pax_id = :pax_id",
-          QParams() << QParam("pax_id", otInteger, pax_id));
+          QParams() << QParam("pax_id", otInteger, pax_id),
+          STDLOG);
     Qry.get().Execute();
     for(; not Qry.get().Eof; Qry.get().Next()) {
         emplace_back();

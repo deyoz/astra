@@ -324,7 +324,7 @@ TCompLayerTypes::TCompLayerTypes()
 template <class LayersT>
 static void FillLayers(LayersT& layers)
 {
-    DB::TQuery Qry(PgOra::getROSession("COMP_LAYER_TYPES"));
+    DB::TQuery Qry(PgOra::getROSession("COMP_LAYER_TYPES"), STDLOG);
     Qry.SQLText =
         "SELECT code, name, name_lat, del_if_comp_chg, color, figure, pr_occupy, priority"
         "  FROM comp_layer_types";
@@ -348,7 +348,7 @@ static void FillLayers(LayersT& layers)
 template <class AirlinePrioritiesT>
 static void FillAirlinePriorities(AirlinePrioritiesT& airlinePriorities)
 {
-    DB::TQuery Qry(PgOra::getROSession("COMP_LAYER_PRIORITIES"));
+    DB::TQuery Qry(PgOra::getROSession("COMP_LAYER_PRIORITIES"), STDLOG);
     Qry.SQLText =
         "SELECT airline, layer_type, priority"
         "  FROM comp_layer_priorities";
@@ -365,7 +365,7 @@ static void FillAirlinePriorities(AirlinePrioritiesT& airlinePriorities)
 template <class PriorityRoutesT>
 static void FillLayersPriorityRoutes(PriorityRoutesT& layersPriorityRoutes)
 {
-    DB::TQuery Qry(PgOra::getROSession("COMPARE_COMP_LAYERS"));
+    DB::TQuery Qry(PgOra::getROSession("COMPARE_COMP_LAYERS"), STDLOG);
     Qry.SQLText =
         "SELECT prior_layer, next_layer, prior_time_less"
         "  FROM compare_comp_layers";
@@ -543,7 +543,7 @@ void ImagesInterface::GetImages(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 void GetDrawSalonProp( xmlNodePtr reqNode, xmlNodePtr resNode )
 {
   ImagesInterface::GetImages( reqNode, resNode );
-  DB::TQuery Qry(PgOra::getROSession("COMP_LAYER_TYPES"));
+  DB::TQuery Qry(PgOra::getROSession("COMP_LAYER_TYPES"), STDLOG);
   Qry.SQLText = "SELECT code,color,figure FROM comp_layer_types";
   Qry.Execute();
   xmlNodePtr imagesNode = GetNode( "data/images", resNode );
@@ -570,7 +570,7 @@ void GetDrawSalonProp( xmlNodePtr reqNode, xmlNodePtr resNode )
 void getTariffColors( std::map<std::string,std::string> &colors )
 {
   colors.clear();
-  DB::TQuery Qry(PgOra::getROSession("COMP_TARIFF_COLORS"));
+  DB::TQuery Qry(PgOra::getROSession("COMP_TARIFF_COLORS"), STDLOG);
   Qry.SQLText = "SELECT color,figure FROM comp_tariff_colors";
   Qry.Execute();
   for ( ;!Qry.Eof; Qry.Next() ) {

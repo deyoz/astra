@@ -111,7 +111,7 @@ void TTlgBinding::unbind_flt_by_point_ids(const vector<int>& spp_point_ids)
 void TTlgBinding::unbind_flt_virt(int point_id, int point_id_spp, bool try_bind_again)
 {
   int point_id_tlg=point_id;
-  DB::TQuery BindQry(PgOra::getRWSession("TLG_BINDING"));
+  DB::TQuery BindQry(PgOra::getRWSession("TLG_BINDING"), STDLOG);
   BindQry.SQLText=
     "DELETE FROM tlg_binding "
     "WHERE point_id_tlg=:point_id_tlg AND point_id_spp=:point_id_spp";
@@ -135,7 +135,7 @@ void TTrferBinding::after_bind_or_unbind_flt(int point_id_trfer, int point_id_sp
 
 bool TTrferBinding::bind_flt_by_point_id(int point_id)
 {
-  DB::TQuery Qry(PgOra::getROSession("TRFER_TRIPS"));
+  DB::TQuery Qry(PgOra::getROSession("TRFER_TRIPS"), STDLOG);
   Qry.SQLText=
       "SELECT point_id, airline, flt_no, suffix, scd, 0 AS pr_utc, "
       "       airp_dep, NULL AS airp_arv, 0 AS bind_type "
@@ -151,7 +151,7 @@ void TTrferBinding::unbind_flt_by_point_ids(const vector<int>& spp_point_ids)
   trace_for_bind(spp_point_ids, "unbind_flt");
 
   if (spp_point_ids.empty()) return;
-  DB::TQuery BindQry(PgOra::getROSession("TRFER_TRIPS"));
+  DB::TQuery BindQry(PgOra::getROSession("TRFER_TRIPS"), STDLOG);
   BindQry.SQLText=
       "SELECT point_id, airline, flt_no, suffix, scd, 0 AS pr_utc, "
       "       airp_dep, NULL AS airp_arv, 0 AS bind_type "
@@ -171,7 +171,7 @@ void TTrferBinding::unbind_flt_by_point_ids(const vector<int>& spp_point_ids)
 void TTrferBinding::unbind_flt_virt(int point_id, int point_id_spp, bool try_bind_again)
 {
   int point_id_trfer=point_id;
-  DB::TQuery BindQry(PgOra::getRWSession("TRFER_TRIPS"));
+  DB::TQuery BindQry(PgOra::getRWSession("TRFER_TRIPS"), STDLOG);
   BindQry.SQLText=
     "UPDATE trfer_trips SET point_id_spp=NULL "
     "WHERE point_id=:point_id_trfer AND point_id_spp=:point_id_spp ";
@@ -398,7 +398,7 @@ void TTlgBinding::bind_flt_virt(int point_id, const vector<int> &spp_point_ids)
 {
   if (spp_point_ids.empty()) return;
   int point_id_tlg=point_id;
-  DB::TQuery BindQry(PgOra::getRWSession("TLG_BINDING"));
+  DB::TQuery BindQry(PgOra::getRWSession("TLG_BINDING"), STDLOG);
   BindQry.SQLText=
     "INSERT INTO tlg_binding(point_id_tlg,point_id_spp) "
     "VALUES(:point_id_tlg,:point_id_spp)";
@@ -429,7 +429,7 @@ void TTrferBinding::bind_flt_virt(int point_id, const vector<int> &spp_point_ids
 {
   if (spp_point_ids.empty()) return;
   int point_id_trfer=point_id;
-  DB::TQuery BindQry(PgOra::getRWSession("TRFER_TRIPS"));
+  DB::TQuery BindQry(PgOra::getRWSession("TRFER_TRIPS"), STDLOG);
   BindQry.SQLText=
     "UPDATE trfer_trips "
     "SET point_id_spp=:point_id_spp "
@@ -570,7 +570,7 @@ void TTrferBinding::bind_or_unbind_flt(const std::vector<TTripInfo>& flts, bool 
 {
   if (flts.empty()) return;
 
-  DB::TQuery Qry(PgOra::getROSession("TRFER_TRIPS"));
+  DB::TQuery Qry(PgOra::getROSession("TRFER_TRIPS"), STDLOG);
   Qry.SQLText=bind_or_unbind_flt_sql(unbind, use_scd_utc).c_str();
   if (use_scd_utc)
     Qry.DeclareVariable("scd_utc", otDate);
@@ -772,7 +772,7 @@ std::optional<PointIdTlg_t> getMinPointIdTlg(DbCpp::Session& session,
                                              const std::string&airp_arv,
                                              TBindType bind_type)
 {
-  DB::TQuery Qry(session);
+  DB::TQuery Qry(session, STDLOG);
   Qry.SQLText = "SELECT MIN(point_id) AS point_id FROM tlg_trips "
                 "WHERE airline=:airline AND flt_no=:flt_no AND "
                 "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
@@ -876,7 +876,7 @@ std::pair<int, bool> TFltInfo::getPointId(TBindType bind_type) const
   }
 
   const PointIdTlg_t point_id_tlg = getNextPointIdTlg(mngr.session());
-  DB::TQuery Qry(mngr.session());
+  DB::TQuery Qry(mngr.session(), STDLOG);
   Qry.SQLText =
       "INSERT INTO tlg_trips "
       "(point_id,airline,flt_no,suffix,scd,pr_utc,airp_dep,airp_arv,bind_type) "

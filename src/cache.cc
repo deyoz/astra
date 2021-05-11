@@ -71,7 +71,7 @@ void TCacheTable::Init(xmlNodePtr cacheNode)
   clientVerData = -1;
   clientVerIface = -1;
 
-  DB::TQuery Qry(PgOra::getROSession("CACHE_TABLES"));
+  DB::TQuery Qry(PgOra::getROSession("CACHE_TABLES"), STDLOG);
   Qry.SQLText = "SELECT title, select_sql, refresh_sql, insert_sql, update_sql, delete_sql, "
                 "       logging, keep_locally, keep_deleted_rows, event_type, tid, need_refresh, "
                 "       select_right, insert_right, update_right, delete_right "
@@ -139,7 +139,7 @@ bool TCacheTable::refreshInterface()
 void TCacheTable::initChildTables()
 {
     string code = Params[TAG_CODE].Value;
-    DB::TQuery Qry(PgOra::getROSession("CACHE_TABLES"));
+    DB::TQuery Qry(PgOra::getROSession("CACHE_TABLES"), STDLOG);
     Qry.SQLText =
         "SELECT "
         "  cache_child_tables.cache_child, "
@@ -193,7 +193,7 @@ void TCacheTable::initFields()
 {
     string code = Params[TAG_CODE].Value;
     // считаем инфу о полях кэша
-    DB::TQuery Qry(PgOra::getROSession("CACHE_FIELDS"));
+    DB::TQuery Qry(PgOra::getROSession("CACHE_FIELDS"), STDLOG);
     Qry.SQLText =
         "SELECT name,title,width,char_case,align,data_type, "
         "       data_size,scale,nullable,pr_ident,read_only, "
@@ -1651,7 +1651,7 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
           throw;
       }
 
-  DB::TQuery Qry(PgOra::getROSession("CACHE_TABLES"));
+  DB::TQuery Qry(PgOra::getROSession("CACHE_TABLES"), STDLOG);
   Qry.SQLText =
     "SELECT tid FROM cache_tables WHERE code=:code";
   Qry.CreateVariable( "code", otString, code() );

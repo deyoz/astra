@@ -34,7 +34,7 @@ const TMsgTypes& MsgTypes()
 void toDB(int point_id, TMsgType::Enum msg_type,
           const std::string &content, const std::string &source)
 {
-    DB::TQuery Qry(PgOra::getRWSession("WB_MSG"));
+    DB::TQuery Qry(PgOra::getRWSession("WB_MSG"), STDLOG);
     Qry.SQLText =
 "insert into WB_MSG(ID, MSG_TYPE, POINT_ID, TIME_RECEIVE, SOURCE) values "
 "(:id, :msg_type, :point_id, :nowutc, :source)";
@@ -47,7 +47,7 @@ void toDB(int point_id, TMsgType::Enum msg_type,
     Qry.CreateVariable("source",   otString,  source);
     Qry.Execute();
 
-    DB::TQuery TxtQry(PgOra::getRWSession("WB_MSG_TEXT"));
+    DB::TQuery TxtQry(PgOra::getRWSession("WB_MSG_TEXT"), STDLOG);
     TxtQry.SQLText =
 "insert into WB_MSG_TEXT(ID, PAGE_NO, TEXT) values(:id, :page_no, :text)";
 

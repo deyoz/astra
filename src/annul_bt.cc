@@ -38,7 +38,8 @@ void TAnnulBT::toDB(const TBagIdMap &items, TDateTime time_annul)
         DB::TCachedQuery paxQry(
               PgOra::getROSession("PAX"),
               "SELECT * FROM pax WHERE pax_id = :pax_id",
-              QParams() << QParam("pax_id", otInteger)
+              QParams() << QParam("pax_id", otInteger),
+              STDLOG
               );
 
         QParams qryParams;
@@ -354,7 +355,8 @@ void TAnnulBT::get(int grp_id)
     DB::TCachedQuery grpQry(
           PgOra::getROSession("PAX_GRP"),
           "SELECT * FROM pax_grp WHERE grp_id = :grp_id",
-          QParams() << QParam("grp_id", otInteger, grp_id)
+          QParams() << QParam("grp_id", otInteger, grp_id),
+          STDLOG
           );
     grpQry.get().Execute();
     if(grpQry.get().Eof) return;
@@ -365,7 +367,8 @@ void TAnnulBT::get(int grp_id)
     DB::TCachedQuery pointQry(
           PgOra::getROSession("POINTS"),
           "SELECT * FROM points WHERE point_id = :point_id",
-          QParams() << QParam("point_id", otInteger, this->point_id)
+          QParams() << QParam("point_id", otInteger, this->point_id),
+          STDLOG
           );
     pointQry.get().Execute();
     if(pointQry.get().Eof) return;
@@ -377,7 +380,8 @@ void TAnnulBT::get(int grp_id)
         DB::TCachedQuery bagQry(
               PgOra::getROSession("BAG2"),
               "SELECT * FROM bag2 WHERE grp_id=:grp_id",
-              QParams() << QParam("grp_id", otInteger, grp_id));
+              QParams() << QParam("grp_id", otInteger, grp_id),
+              STDLOG);
         bagQry.get().Execute();
         for(; not bagQry.get().Eof; bagQry.get().Next()) {
 
@@ -395,7 +399,8 @@ void TAnnulBT::get(int grp_id)
                   "SELECT * FROM bag_tags WHERE grp_id=:grp_id and bag_num = :bag_num ",
                   QParams()
                   << QParam("grp_id", otInteger, grp_id)
-                  << QParam("bag_num", otInteger, bag_item.num));
+                  << QParam("bag_num", otInteger, bag_item.num),
+                  STDLOG);
             tagQry.get().Execute();
             for(; not tagQry.get().Eof; tagQry.get().Next()) {
                 CheckIn::TTagItem tag_item;

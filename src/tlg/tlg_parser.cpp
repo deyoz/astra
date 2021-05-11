@@ -3323,7 +3323,7 @@ void TSeatsBlockingList::toDB(const int& paxId) const
           "  AND name=:name "
           "  AND pr_del<>0 "
           "  FETCH FIRST 1 ROWS ONLY) ",
-          params);
+          params, STDLOG);
     QryUpdate.get().Execute();
     if (QryUpdate.get().RowsProcessed() == 0) {
       const int new_pax_id = PgOra::getSeqNextVal_int("PAX_ID");
@@ -3335,7 +3335,7 @@ void TSeatsBlockingList::toDB(const int& paxId) const
             ") VALUES("
             ":new_pax_id, :surname, :name, :pax_id, 0"
             ")",
-            params);
+            params, STDLOG);
       QryInsert.get().Execute();
     }
   }
@@ -3345,7 +3345,7 @@ void TSeatsBlockingList::fromDB(const int& paxId)
 {
   clear();
 
-  DB::TQuery Qry(PgOra::getROSession("CRS_SEATS_BLOCKING"));
+  DB::TQuery Qry(PgOra::getROSession("CRS_SEATS_BLOCKING"), STDLOG);
   Qry.SQLText="SELECT * FROM crs_seats_blocking "
               "WHERE pax_id=:pax_id "
               "AND pr_del=0 "
@@ -3879,7 +3879,7 @@ bool TPaxItem::isSeatBlockingRem(const string &rem_code)
 
 static bool existsCrsPaxId(const PaxId_t& paxId)
 {
-  DB::TQuery Qry(PgOra::getROSession("CRS_PAX"));
+  DB::TQuery Qry(PgOra::getROSession("CRS_PAX"), STDLOG);
   Qry.SQLText =
     "SELECT 1 FROM crs_pax "
     "WHERE pax_id=:pax_id "
@@ -3911,7 +3911,7 @@ std::map<PaxId_t, TSeatsBlockingItem> TPaxItem::getAndLockSeatBlockingItems(cons
 {
   std::map<PaxId_t, TSeatsBlockingItem> result;
 
-  DB::TQuery Qry(PgOra::getRWSession("CRS_SEATS_BLOCKING"));
+  DB::TQuery Qry(PgOra::getRWSession("CRS_SEATS_BLOCKING"), STDLOG);
   Qry.SQLText = "SELECT * FROM crs_seats_blocking "
                 "WHERE pax_id=:pax_id AND pr_del=0 "
                 "FOR UPDATE";
@@ -5828,7 +5828,7 @@ int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type, const FltOperF
     {
       TDateTime scd;
       modf(flt.scd,&scd);
-      DB::TQuery Qry(PgOra::getRWSession("CRS_DISPLACE2"));
+      DB::TQuery Qry(PgOra::getRWSession("CRS_DISPLACE2"), STDLOG);
       Qry.SQLText=
         "UPDATE crs_displace2 SET point_id_tlg=:point_id "
         "WHERE airline=:airline AND flt_no=:flt_no "
@@ -5867,7 +5867,7 @@ bool isDeleteTypeBContent(int point_id, const THeadingInfo& info)
       strcmp(info.tlg_type,"PTM")==0 ||
       strcmp(info.tlg_type,"SOM")==0)
   {
-    DB::TQuery Qry(PgOra::getROSession({"TLGS_IN", "TLG_SOURCE"}));
+    DB::TQuery Qry(PgOra::getROSession({"TLGS_IN", "TLG_SOURCE"}), STDLOG);
     Qry.SQLText=
       "SELECT MAX(time_create) AS max_time_create "
       "FROM tlgs_in,tlg_source "
@@ -5885,7 +5885,7 @@ bool isDeleteTypeBContent(int point_id, const THeadingInfo& info)
 
   if (strcmp(info.tlg_type,"PRL")==0)
   {
-    DB::TQuery Qry(PgOra::getROSession("TYPEB_DATA_STAT"));
+    DB::TQuery Qry(PgOra::getROSession("TYPEB_DATA_STAT"), STDLOG);
     Qry.SQLText=
       "SELECT last_data AS max_time_create "
       "FROM typeb_data_stat "
@@ -5965,7 +5965,7 @@ bool DeletePTMBTMContent(int point_id_in, const THeadingInfo& info)
 
 void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, const TBtmContent& con)
 {
-  DB::TQuery TrferQry(PgOra::getRWSession("TLG_TRANSFER"));
+  DB::TQuery TrferQry(PgOra::getRWSession("TLG_TRANSFER"), STDLOG);
   TrferQry.SQLText=
     "INSERT INTO tlg_transfer(trfer_id,point_id_in,subcl_in,point_id_out,subcl_out,tlg_id) "
     "VALUES(:trfer_id,:point_id_in,:subcl_in,:point_id_out,:subcl_out,:tlg_id)";
@@ -5976,7 +5976,7 @@ void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, const TBtmContent& con)
   TrferQry.DeclareVariable("subcl_out",otString);
   TrferQry.CreateVariable("tlg_id",otInteger,tlg_id);
 
-  DB::TQuery GrpQry(PgOra::getRWSession("TRFER_GRP"));
+  DB::TQuery GrpQry(PgOra::getRWSession("TRFER_GRP"), STDLOG);
   GrpQry.SQLText=
     "INSERT INTO trfer_grp(grp_id,trfer_id,seats,bag_amount,bag_weight,rk_weight,weight_unit) "
     "VALUES(:grp_id,:trfer_id,NULL,:bag_amount,:bag_weight,:rk_weight,:weight_unit) ";
@@ -5987,20 +5987,20 @@ void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, const TBtmContent& con)
   GrpQry.DeclareVariable("trfer_id",otInteger);
   GrpQry.DeclareVariable("grp_id",otInteger);
 
-  DB::TQuery PaxQry(PgOra::getRWSession("TRFER_PAX"));
+  DB::TQuery PaxQry(PgOra::getRWSession("TRFER_PAX"), STDLOG);
   PaxQry.SQLText=
     "INSERT INTO trfer_pax(grp_id,surname,name) VALUES(:grp_id,:surname,:name)";
   PaxQry.DeclareVariable("surname",otString);
   PaxQry.DeclareVariable("name",otString);
   PaxQry.DeclareVariable("grp_id",otInteger);
 
-  DB::TQuery TagQry(PgOra::getRWSession("TRFER_TAGS"));
+  DB::TQuery TagQry(PgOra::getRWSession("TRFER_TAGS"), STDLOG);
   TagQry.SQLText=
     "INSERT INTO trfer_tags(grp_id,no) VALUES(:grp_id,:no)";
   TagQry.DeclareVariable("no",otFloat);
   TagQry.DeclareVariable("grp_id",otInteger);
 
-  DB::TQuery OnwardQry(PgOra::getRWSession("TLG_TRFER_ONWARDS"));
+  DB::TQuery OnwardQry(PgOra::getRWSession("TLG_TRFER_ONWARDS"), STDLOG);
   OnwardQry.SQLText=
     "INSERT INTO tlg_trfer_onwards(grp_id, num, airline, flt_no, suffix, local_date, airp_dep, airp_arv, subclass) "
     "VALUES(:grp_id, :num, :airline, :flt_no, :suffix, :local_date, :airp_dep, :airp_arv, :subclass)";
@@ -6014,7 +6014,7 @@ void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, const TBtmContent& con)
   OnwardQry.DeclareVariable("subclass", otString);
   OnwardQry.DeclareVariable("grp_id",otInteger);
 
-  DB::TQuery ExceptQry(PgOra::getRWSession("TLG_TRFER_EXCEPTS"));
+  DB::TQuery ExceptQry(PgOra::getRWSession("TLG_TRFER_EXCEPTS"), STDLOG);
   ExceptQry.SQLText=
     "INSERT INTO tlg_trfer_excepts(grp_id, type) VALUES(:grp_id, :type)";
   ExceptQry.DeclareVariable("type", otString);
@@ -6132,7 +6132,7 @@ void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con)
   point_id_in=SaveFlt(tlg_id,dynamic_cast<TFltInfo&>(con.InFlt),btLastSeg);
   if (!DeletePTMBTMContent(point_id_in,info)) return;
 
-  DB::TQuery TrferQry(PgOra::getRWSession("TLG_TRANSFER"));
+  DB::TQuery TrferQry(PgOra::getRWSession("TLG_TRANSFER"), STDLOG);
   TrferQry.SQLText=
     "INSERT INTO tlg_transfer(trfer_id,point_id_in,subcl_in,point_id_out,subcl_out,tlg_id) "
     "VALUES(:trfer_id,:point_id_in,:subcl_in,:point_id_out,:subcl_out,:tlg_id)";
@@ -6143,7 +6143,7 @@ void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con)
   TrferQry.DeclareVariable("subcl_out",otString);
   TrferQry.CreateVariable("tlg_id",otInteger,tlg_id);
 
-  DB::TQuery GrpQry(PgOra::getRWSession("TRFER_GRP"));
+  DB::TQuery GrpQry(PgOra::getRWSession("TRFER_GRP"), STDLOG);
   GrpQry.SQLText=
     "INSERT INTO trfer_grp(grp_id,trfer_id,seats,bag_amount,bag_weight,rk_weight,weight_unit) "
     "VALUES(:grp_id,:trfer_id,:seats,:bag_amount,:bag_weight,NULL,:weight_unit) ";
@@ -6154,7 +6154,7 @@ void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con)
   GrpQry.DeclareVariable("grp_id",otInteger);
   GrpQry.DeclareVariable("trfer_id",otInteger);
 
-  DB::TQuery PaxQry(PgOra::getRWSession("TRFER_PAX"));
+  DB::TQuery PaxQry(PgOra::getRWSession("TRFER_PAX"), STDLOG);
   PaxQry.SQLText=
     "INSERT INTO trfer_pax(grp_id,surname,name) VALUES(:grp_id,:surname,:name)";
   PaxQry.DeclareVariable("surname",otString);
@@ -6213,7 +6213,7 @@ void SaveDCSBaggage(int pax_id, const TNameElement &ne)
   if (ne.bag.Empty() && ne.tags.empty()) return;
   if (!ne.bag.Empty())
   {
-    DB::TQuery QryBag(PgOra::getRWSession("DCS_BAG"));
+    DB::TQuery QryBag(PgOra::getRWSession("DCS_BAG"), STDLOG);
     QryBag.SQLText=
       "INSERT INTO dcs_bag(pax_id, bag_amount, bag_weight, rk_weight, weight_unit) "
       "VALUES(:pax_id, :bag_amount, :bag_weight, :rk_weight, :weight_unit)";
@@ -6226,7 +6226,7 @@ void SaveDCSBaggage(int pax_id, const TNameElement &ne)
   };
   if (!ne.tags.empty())
   {
-    DB::TQuery QryTags(PgOra::getRWSession("DCS_TAGS"));
+    DB::TQuery QryTags(PgOra::getRWSession("DCS_TAGS"), STDLOG);
     QryTags.SQLText=
       "INSERT INTO dcs_tags(pax_id, alpha_no, numeric_no, airp_arv_final) "
       "VALUES(:pax_id, :alpha_no, :numeric_no, :airp_arv_final)";
@@ -6701,7 +6701,7 @@ class SuitablePaxList : public list<SuitablePax>
 
 static bool existsCrsSeatsBlocking(const PaxId_t& seatId)
 {
-  DB::TQuery Qry(PgOra::getROSession("CRS_SEATS_BLOCKING"));
+  DB::TQuery Qry(PgOra::getROSession("CRS_SEATS_BLOCKING"), STDLOG);
   Qry.SQLText =
     "SELECT 1 FROM crs_seats_blocking "
     "WHERE seat_id=:seat_id ";
@@ -6800,7 +6800,7 @@ void loadCrsDataStat(int point_id, const std::string& sender,
                      TDateTime& last_rbd,
                      int& pr_pnl)
 {
-  DB::TQuery Qry(PgOra::getRWSession("CRS_DATA_STAT"));
+  DB::TQuery Qry(PgOra::getRWSession("CRS_DATA_STAT"), STDLOG);
   Qry.SQLText=
     "SELECT last_resa,last_tranzit,last_avail,last_cfg,last_rbd,pr_pnl "
     "FROM crs_data_stat "
@@ -6829,7 +6829,7 @@ void loadCrsDataStat(int point_id, const std::string& sender,
 std::optional<bool> getCrsSet_pr_numeric_pnl(const std::string& sender,
                                              const TFltInfo& flt)
 {
-  DB::TQuery Qry(PgOra::getROSession("CRS_SET"));
+  DB::TQuery Qry(PgOra::getROSession("CRS_SET"), STDLOG);
   Qry.SQLText=
     "SELECT pr_numeric_pnl FROM crs_set "
     "WHERE crs=:crs AND airline=:airline AND "
@@ -6875,7 +6875,7 @@ bool insertCrsSet(int new_id,
 
 std::string getCrsTransfer_airp_arv_final(const PnrId_t& pnr_id)
 {
-  DB::TQuery Qry(PgOra::getROSession("CRS_TRANSFER"));
+  DB::TQuery Qry(PgOra::getROSession("CRS_TRANSFER"), STDLOG);
   Qry.SQLText=
       "SELECT airp_arv "
       "FROM crs_transfer "
@@ -6910,7 +6910,7 @@ bool saveTypeBDataStat(const PointIdTlg_t& point_id, const std::string& system,
         "WHERE point_id=:point_id "
         "AND system=:system "
         "AND sender=:sender ",
-        QryParams);
+        QryParams, STDLOG);
   update.get().Execute();
 
   if (update.get().RowsProcessed()) {
@@ -6920,7 +6920,7 @@ bool saveTypeBDataStat(const PointIdTlg_t& point_id, const std::string& system,
         PgOra::getRWSession("TYPEB_DATA_STAT"),
         "INSERT INTO typeb_data_stat(point_id,system,sender,last_data) "
         "VALUES(:point_id,:system,:sender,:time_create) ",
-        QryParams);
+        QryParams, STDLOG);
   insert.get().Execute();
   return bool(insert.get().RowsProcessed());
 }
@@ -6929,7 +6929,7 @@ std::set<PaxId_t> loadCrsInfIdSet(const PaxId_t& pax_id, bool lock)
 {
   std::set<PaxId_t> result;
   DB::TQuery Qry(lock ? PgOra::getRWSession("CRS_INF")
-                      : PgOra::getROSession("CRS_INF"));
+                      : PgOra::getROSession("CRS_INF"), STDLOG);
   Qry.SQLText="SELECT inf_id FROM crs_inf "
               "WHERE pax_id=:pax_id "
               + std::string(lock ? "FOR UPDATE" : "");
@@ -6943,7 +6943,7 @@ std::set<PaxId_t> loadCrsInfIdSet(const PaxId_t& pax_id, bool lock)
 
 void insertCrsInfDeleted(const PaxId_t& inf_id)
 {
-  DB::TQuery Qry(PgOra::getRWSession("CRS_INF-CRS_INF_DELETED"));
+  DB::TQuery Qry(PgOra::getRWSession("CRS_INF-CRS_INF_DELETED"), STDLOG);
   Qry.SQLText=
       "INSERT INTO crs_inf_deleted(inf_id, pax_id) "
       "SELECT inf_id, pax_id FROM crs_inf WHERE inf_id=:inf_id ";
@@ -6953,7 +6953,7 @@ void insertCrsInfDeleted(const PaxId_t& inf_id)
 
 void updateCrsPaxAsDeleted(const PaxId_t& pax_id, int tid, TDateTime datetime)
 {
-  DB::TQuery Qry(PgOra::getRWSession("CRS_PAX"));
+  DB::TQuery Qry(PgOra::getRWSession("CRS_PAX"), STDLOG);
   Qry.SQLText=
       "UPDATE crs_pax "
       "SET pr_del=1, last_op=:last_op, tid=:tid "
@@ -6966,7 +6966,7 @@ void updateCrsPaxAsDeleted(const PaxId_t& pax_id, int tid, TDateTime datetime)
 
 void updateCrsPax_InfIdToNull(const PaxId_t& pax_id)
 {
-  DB::TQuery Qry(PgOra::getRWSession("CRS_PAX"));
+  DB::TQuery Qry(PgOra::getRWSession("CRS_PAX"), STDLOG);
   Qry.SQLText="UPDATE crs_pax "
               "SET inf_id=NULL "
               "WHERE pax_id=:pax_id ";
@@ -6978,7 +6978,7 @@ std::set<PaxId_t> loadCrsBlockingSeatIdSet(const PaxId_t& pax_id, bool lock)
 {
   std::set<PaxId_t> result;
   DB::TQuery Qry(lock ? PgOra::getRWSession("CRS_SEATS_BLOCKING")
-                      : PgOra::getROSession("CRS_SEATS_BLOCKING"));
+                      : PgOra::getROSession("CRS_SEATS_BLOCKING"), STDLOG);
   Qry.SQLText="SELECT seat_id FROM crs_seats_blocking "
               "WHERE pax_id=:pax_id "
               "AND pr_del=0 "
@@ -6993,7 +6993,7 @@ std::set<PaxId_t> loadCrsBlockingSeatIdSet(const PaxId_t& pax_id, bool lock)
 
 void updateCrsSeatsBlockingAsDeleted(const PaxId_t& seat_id)
 {
-  DB::TQuery Qry(PgOra::getRWSession("CRS_SEATS_BLOCKING"));
+  DB::TQuery Qry(PgOra::getRWSession("CRS_SEATS_BLOCKING"), STDLOG);
   Qry.SQLText=
       "UPDATE crs_seats_blocking "
       "SET pr_del=1 "
@@ -7042,7 +7042,7 @@ void deleteAllByPax(const PaxId_t& pax_id, TDateTime datetime)
 std::set<PnrId_t> loadPnrIdSetByPnrAddr(const std::string& airline, const std::string& addr)
 {
   std::set<PnrId_t> result;
-  DB::TQuery Qry(PgOra::getROSession("PNR_ADDRS"));
+  DB::TQuery Qry(PgOra::getROSession("PNR_ADDRS"), STDLOG);
   Qry.SQLText=
     "SELECT pnr_id FROM pnr_addrs "
     "WHERE airline=:airline "
@@ -7060,7 +7060,7 @@ bool existsCrsPnr(const PnrId_t& pnr_id, const PointIdTlg_t& point_id,
                   const std::string& system, const std::string& sender,
                   const std::string& airp_arv, const std::string& subclass)
 {
-  DB::TQuery Qry(PgOra::getROSession("CRS_PNR"));
+  DB::TQuery Qry(PgOra::getROSession("CRS_PNR"), STDLOG);
   Qry.SQLText=
     "SELECT crs_pnr.pnr_id FROM crs_pnr "
     "WHERE crs_pnr.pnr_id=:pnr_id AND "
@@ -7086,13 +7086,13 @@ void savePnrAddrs(const PnrId_t& pnr_id, const std::string& airline, const std::
   DB::TCachedQuery QryUpdate(PgOra::getRWSession("PNR_ADDRS"),
                              "UPDATE pnr_addrs SET addr=:addr "
                              "WHERE pnr_id=:pnr_id AND airline=:airline",
-                             QryParams);
+                             QryParams, STDLOG);
   QryUpdate.get().Execute();
   if (QryUpdate.get().RowsProcessed() == 0) {
     DB::TCachedQuery QryInsert(PgOra::getRWSession("PNR_ADDRS"),
                                "INSERT INTO pnr_addrs(pnr_id,airline,addr) "
                                "VALUES(:pnr_id,:airline,:addr)",
-                               QryParams);
+                               QryParams, STDLOG);
     QryInsert.get().Execute();
   }
 }
@@ -7359,7 +7359,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         CrsInfInsQry.DeclareVariable("pax_id",otInteger);
         CrsInfInsQry.DeclareVariable("inf_id",otInteger);
 
-        DB::TQuery CrsTransferQry(PgOra::getRWSession("CRS_TRANSFER"));
+        DB::TQuery CrsTransferQry(PgOra::getRWSession("CRS_TRANSFER"), STDLOG);
         CrsTransferQry.SQLText=
           "INSERT INTO crs_transfer(pnr_id,transfer_num,airline,flt_no,suffix,local_date,airp_dep,airp_arv,subclass) "
           "VALUES(:pnr_id,:transfer_num,:airline,:flt_no,:suffix,:local_date,:airp_dep,:airp_arv,:subclass)";
@@ -8209,7 +8209,8 @@ void TTransferRoute::getById(int id, bool isPnrId)
         "WHERE pnr_id=:id "
         "AND transfer_num>0 "
         "ORDER BY transfer_num",
-        QParams() << QParam("id", otInteger, pnr_id->get()));
+        QParams() << QParam("id", otInteger, pnr_id->get()),
+        STDLOG);
 
   Qry.get().Execute();
   for(;!Qry.get().Eof;Qry.get().Next())

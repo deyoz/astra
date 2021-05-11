@@ -1441,7 +1441,8 @@ void PrintInterface::ConfirmPrintBP(TDevOper::Enum op_type,
     DB::TCachedQuery BIStatQry(
           PgOra::getRWSession("BI_STAT"),
           "UPDATE bi_stat SET pr_print = 1 WHERE pax_id = :pax_id",
-          QParams() << QParam("pax_id", otInteger));
+          QParams() << QParam("pax_id", otInteger),
+          STDLOG);
 
     QParams params;
     params << QParam("op_type", otString, DevOperTypes().encode(op_type))
@@ -2634,7 +2635,7 @@ void PrintInterface::GetPrintDataVOUnregistered(
               "   :desk, "
               "   :pr_print "
               ") ",
-              qryParams);
+              qryParams, STDLOG);
         for(TPaxList::iterator
                 pax = pax_list.begin();
                 pax != pax_list.end();

@@ -646,7 +646,7 @@ static bool insertDisplayTlg(const TETickItem& item)
             << (item.ediPnr?QParam("tlg_type", otInteger, (int)item.ediPnr.get().ediType()):
                             QParam("tlg_type", otInteger, FNull))
             << QParam("last_display", otDate, NowUTC());
-  DB::TCachedQuery Qry(PgOra::getRWSession("ETICKS_DISPLAY_TLGS"), sql, QryParams);
+  DB::TCachedQuery Qry(PgOra::getRWSession("ETICKS_DISPLAY_TLGS"), sql, QryParams, STDLOG);
   longToDB(Qry.get(), "tlg_text", item.ediPnr->ediTextWithCharset("IATA"), false, 1000);
 
   LogTrace(TRACE6) << __func__

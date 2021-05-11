@@ -318,7 +318,7 @@ bool GetCryptGrp(const std::string& desk, int& grp_id, bool& pr_grp)
         return false;
     }
 
-    DB::TQuery Qry(PgOra::getROSession("CRYPT_SETS"));
+    DB::TQuery Qry(PgOra::getROSession("CRYPT_SETS"), STDLOG);
     Qry.SQLText =
        "SELECT pr_crypt, desk_grp_id, desk "
        "FROM crypt_sets "
@@ -345,7 +345,7 @@ bool GetClientCertificate( int grp_id, bool pr_grp, const std::string &desk, std
   pkcs_id = -1;
   certificate.clear();
   TDateTime nowLocal = Now();
-  DB::TQuery Qry(PgOra::getROSession("CRYPT_TERM_CERT"));
+  DB::TQuery Qry(PgOra::getROSession("CRYPT_TERM_CERT"), STDLOG);
   Qry.SQLText =
     "SELECT pkcs_id, desk, certificate, pr_denial, first_date, last_date FROM crypt_term_cert "
     " WHERE desk_grp_id=:grp_id AND ( desk IS NULL OR desk=:desk ) "
@@ -405,7 +405,7 @@ bool isRightCert( const std::string& cert )
 void GetServerCertificate( std::string &ca, std::string &pk, std::string &server )
 {
   tst();
-  DB::TQuery Qry(PgOra::getROSession("CRYPT_SERVER"));
+  DB::TQuery Qry(PgOra::getROSession("CRYPT_SERVER"), STDLOG);
   Qry.SQLText =
     "SELECT id,certificate,private_key,first_date,last_date,pr_ca FROM crypt_server "
     " WHERE pr_denial=0 AND :nowutc BETWEEN first_date AND last_date "
@@ -629,7 +629,7 @@ void IntGetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr res
   NewTextChild( node, "MIN_DAYS_CERT_WARRNING", MIN_DAYS_CERT_WARRNING );
   //проверка на режим инициализации шифрования с клиента
   if ( Crypt.pkcs_id >= 0 ) {
-    DB::TQuery Qry(PgOra::getROSession("CRYPT_FILE_PARAMS"));
+    DB::TQuery Qry(PgOra::getROSession("CRYPT_FILE_PARAMS"), STDLOG);
     Qry.SQLText =
       "SELECT keyname, certname, password, desk, desk_grp_id, send_count "
       " FROM crypt_file_params "
@@ -664,7 +664,7 @@ void GetCertRequestInfo( const string &desk, bool pr_grp, TCertRequest &req, boo
 {
   ProgTrace( TRACE5, "GetCertRequestInfo, desk=%s, pr_grp=%d", desk.c_str(), pr_grp );
   TDateTime udate = NowUTC();
-  DB::TQuery Qry(PgOra::getROSession("CRYPT_REQ_DATA"));
+  DB::TQuery Qry(PgOra::getROSession("CRYPT_REQ_DATA"), STDLOG);
   if ( pr_grp ) {
     std::optional<int> group = getDeskGroupByCode(desk);
     if (!group.has_value()) {
@@ -831,7 +831,7 @@ void IntPutRequestCertificate( const string &request, const string &desk, bool p
         return;
     }
 
-    DB::TQuery Qry(PgOra::getRWSession("CRYPT_TERM_REQ"));
+    DB::TQuery Qry(PgOra::getRWSession("CRYPT_TERM_REQ"), STDLOG);
     Qry.SQLText =
        "INSERT INTO crypt_term_req( id,  desk_grp_id,  desk,  request,  pkcs_id) "
        "VALUES "                 "(:id, :desk_grp_id, :desk, :request, :pkcs_id)";
@@ -916,7 +916,7 @@ void CryptInterface::GetRequestsCertificate(XMLRequestCtxt*, xmlNodePtr reqNode,
 {
     bool pr_search = GetNode("search", reqNode);
 
-    DB::TQuery Qry(PgOra::getROSession("CRYPT_TERM_REQ"));
+    DB::TQuery Qry(PgOra::getROSession("CRYPT_TERM_REQ"), STDLOG);
 
     if (GetNode("id", reqNode)) {
         Qry.SQLText =
@@ -1138,7 +1138,7 @@ int addCryptFileParams(
     const bool pr_grp)
 {
     const int pkcs_id = PgOra::getSeqNextVal_int("ID__SEQ");
-    DB::TQuery Qry(PgOra::getRWSession("CRYPT_FILE_PARAMS"));
+    DB::TQuery Qry(PgOra::getRWSession("CRYPT_FILE_PARAMS"), STDLOG);
     Qry.SQLText = pr_grp
      ? "INSERT INTO crypt_file_params(pkcs_id, keyname, certname, password, desk, desk_grp_id, send_count)"
                              "VALUES(:pkcs_id,:keyname,:certname,:password, NULL,:grp_id, 0)"
@@ -1166,7 +1166,7 @@ void WritePSEFiles(const TPKCS& pkcs, const string& desk, bool pr_grp)
         throw Exception("invalid desk: %s", desk.c_str());
     }
 
-    DB::TQuery Qry(PgOra::getROSession("CRYPT_FILE_PARAMS"));
+    DB::TQuery Qry(PgOra::getROSession("CRYPT_FILE_PARAMS"), STDLOG);
     Qry.SQLText = pr_grp
      ? "SELECT pkcs_id FROM crypt_file_params "
        "WHERE desk_grp_id = :grp_id AND desk IS NULL"
@@ -1423,7 +1423,7 @@ void CryptInterface::CryptValidateServerKey(XMLRequestCtxt*, xmlNodePtr reqNode,
     pr_GOST = (algo != MP_KEY_ALG_NAME_RSA && algo != MP_KEY_ALG_NAME_DSA);
     ProgTrace(TRACE5, "pr_GOST=%d, algo=%s", pr_GOST, algo.c_str());
 
-    DB::TQuery Qry(PgOra::getROSession("crypt_file_params"));
+    DB::TQuery Qry(PgOra::getROSession("crypt_file_params"), STDLOG);
     Qry.SQLText = "SELECT keyname,certname,password FROM crypt_file_params "
                   " WHERE pkcs_id=:pkcs_id";
     Qry.CreateVariable("pkcs_id", otInteger, pkcs_id);
@@ -1640,7 +1640,7 @@ void CryptInterface::CertificatesInfo(XMLRequestCtxt*, xmlNodePtr reqNode, xmlNo
 {
     bool pr_search = GetNode("search", reqNode);
 
-    DB::TQuery Qry(PgOra::getROSession("CRYPT_TERM_CERT"));
+    DB::TQuery Qry(PgOra::getROSession("CRYPT_TERM_CERT"), STDLOG);
 
     if (GetNode("id", reqNode)) {
         Qry.SQLText =

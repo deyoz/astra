@@ -768,7 +768,7 @@ string get_hall_list(string airp, TRptParams &rpt_params)
 void trip_rpt_person(xmlNodePtr resNode, TRptParams &rpt_params)
 {
     xmlNodePtr variablesNode = STAT::getVariablesNode(resNode);
-    DB::TQuery Qry(PgOra::getROSession("TRIP_RPT_PERSON"));
+    DB::TQuery Qry(PgOra::getROSession("TRIP_RPT_PERSON"), STDLOG);
     Qry.SQLText = "select * from trip_rpt_person where point_id = :point_id";
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
     Qry.Execute();
@@ -783,7 +783,7 @@ void trip_rpt_person(xmlNodePtr resNode, TRptParams &rpt_params)
 
 std::string get_report_version(const std::string& name)
 {
-    DB::TQuery Qry(PgOra::getROSession("FR_FORMS2"));
+    DB::TQuery Qry(PgOra::getROSession("FR_FORMS2"), STDLOG);
     Qry.SQLText = "select version from fr_forms2 where name = :name and version <= :version order by version desc";
     Qry.CreateVariable("name", otString, name);
     Qry.CreateVariable("version", otString, TReqInfo::Instance()->desk.version);

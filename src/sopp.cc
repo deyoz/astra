@@ -552,7 +552,7 @@ void arx_read_TripStages( vector<TSoppStage> &stages, TDateTime part_key, int po
   LogTrace5 << __func__ << " part_key: " << part_key << " point_id: " << point_id;
   TCkinClients ckin_clients;
   stages.clear();
-  DB::TQuery StagesQry(PgOra::getROSession("ARX_TRIP_STAGES"));
+  DB::TQuery StagesQry(PgOra::getROSession("ARX_TRIP_STAGES"), STDLOG);
   StagesQry.SQLText = arx_stagesSQL;
   StagesQry.CreateVariable( "part_key", otDate, part_key );
   StagesQry.CreateVariable( "point_id", otInteger, point_id );
@@ -1076,7 +1076,7 @@ string arx_internal_ReadData_N(TSOPPTrips &trips, long int &exec_time, int point
   if (reqInfo->user.access.totally_not_permitted())
     return errcity;
 
-  DB::TQuery PointsQry(PgOra::getROSession("ARX_POINTS"));
+  DB::TQuery PointsQry(PgOra::getROSession("ARX_POINTS"), STDLOG);
   TBaseTable &airps = base_tables.get( "airps" );
   TBaseTable &cities = base_tables.get( "cities" );
   bool pr_addCondition_N = false;
@@ -1114,12 +1114,12 @@ string arx_internal_ReadData_N(TSOPPTrips &trips, long int &exec_time, int point
   }
 
   TCFG cfg;
-  DB::TQuery RegQry(PgOra::getROSession("ARX_PAX_GRP"));
+  DB::TQuery RegQry(PgOra::getROSession("ARX_PAX_GRP"), STDLOG);
   RegQry.SQLText = arx_regSQL;
   RegQry.DeclareVariable( "part_key", otDate );
   RegQry.DeclareVariable( "point_id", otInteger );
 
-  DB::TQuery DelaysQry(PgOra::getROSession("ARX_TRIP_DELAYS"));
+  DB::TQuery DelaysQry(PgOra::getROSession("ARX_TRIP_DELAYS"), STDLOG);
 
   if ( trips.module == TSOPPTrips::tISG ) {
       DelaysQry.SQLText = arx_trip_delays_SQL;
@@ -1430,7 +1430,7 @@ string makeXmlCrsDisplaceTo(const PointId_t& point_id, TDateTime local_time)
   string result;
   const std::set<PointIdTlg_t> point_id_tlg_set = getPointIdTlgByPointIdsSpp(point_id);
   for (const PointIdTlg_t& point_id_tlg: point_id_tlg_set) {
-    DB::TQuery Qry(PgOra::getROSession("CRS_DISPLACE2"));
+    DB::TQuery Qry(PgOra::getROSession("CRS_DISPLACE2"), STDLOG);
     Qry.SQLText =
         "SELECT point_id_spp FROM crs_displace2 "
         "WHERE point_id_tlg=:point_id_tlg";
@@ -1460,7 +1460,7 @@ string makeXmlCrsDisplaceTo(const PointId_t& point_id, TDateTime local_time)
 
 string makeXmlCrsDisplaceFrom(const PointId_t& point_id, TDateTime local_time)
 {
-  DB::TQuery Qry(PgOra::getROSession("CRS_DISPLACE2"));
+  DB::TQuery Qry(PgOra::getROSession("CRS_DISPLACE2"), STDLOG);
   Qry.SQLText =
       "SELECT class_spp,airp_arv_spp,airline,flt_no,suffix,scd, "
       "       class_tlg,airp_arv_tlg,point_id_tlg "
@@ -1897,7 +1897,7 @@ string arx_internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime
   if (reqInfo->user.access.totally_not_permitted())
     return errcity;
 
-  DB::TQuery PointsQry(PgOra::getROSession("ARX_POINTS"));
+  DB::TQuery PointsQry(PgOra::getROSession("ARX_POINTS"), STDLOG);
   TBaseTable &airps = base_tables.get( "airps" );
   TBaseTable &cities = base_tables.get( "cities" );
 
@@ -1933,12 +1933,12 @@ string arx_internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime
       throw Exception( "internal_ReadData: invalid params" );
     }
   }
-  DB::TQuery RegQry(PgOra::getROSession("ARX_PAX_GRP"));
+  DB::TQuery RegQry(PgOra::getROSession("ARX_PAX_GRP"), STDLOG);
   RegQry.SQLText = arx_regSQL;
   RegQry.DeclareVariable( "part_key", otDate );
   RegQry.DeclareVariable( "point_id", otInteger );
 
-  DB::TQuery DelaysQry(PgOra::getROSession("ARX_TRIP_DELAYS"));
+  DB::TQuery DelaysQry(PgOra::getROSession("ARX_TRIP_DELAYS"), STDLOG);
   if ( module == TSOPPTrips::tISG ) {
     DelaysQry.SQLText = arx_trip_delays_SQL;
     DelaysQry.DeclareVariable( "part_key", otDate );
@@ -3973,7 +3973,7 @@ void readDestsFromDb(TSOPPDests &dests, DB::TQuery& Qry, DB::TQuery& DQry)
 
 void arx_internal_ReadDests( int move_id, TSOPPDests &dests, string &reference, TDateTime part_key )
 {
-    DB::TQuery Qry(PgOra::getROSession("ARX_MOVE_REF"));
+    DB::TQuery Qry(PgOra::getROSession("ARX_MOVE_REF"), STDLOG);
     Qry.SQLText =
     "SELECT reference FROM arx_move_ref WHERE part_key=:part_key AND move_id=:move_id";
     Qry.CreateVariable( "part_key", otDate, part_key );
@@ -3982,7 +3982,7 @@ void arx_internal_ReadDests( int move_id, TSOPPDests &dests, string &reference, 
     if ( !Qry.Eof )  reference = Qry.FieldAsString( "reference" );
     dests.clear();
     Qry.ClearParams();
-    DB::TQuery MQry(PgOra::getROSession("ARX_MOVE_REF"));
+    DB::TQuery MQry(PgOra::getROSession("ARX_MOVE_REF"), STDLOG);
       MQry.SQLText =
     "SELECT point_id,point_num,first_point,airp,airp_fmt,airline,airline_fmt,flt_no,suffix,suffix_fmt,craft,craft_fmt,bort,"
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
@@ -3995,7 +3995,7 @@ void arx_internal_ReadDests( int move_id, TSOPPDests &dests, string &reference, 
     MQry.CreateVariable( "move_id", otInteger, move_id );
     MQry.Execute();
 
-    DB::TQuery DQry(PgOra::getROSession("ARX_TRIP_DELAYS"));
+    DB::TQuery DQry(PgOra::getROSession("ARX_TRIP_DELAYS"), STDLOG);
     DQry.SQLText = arx_trip_delays_SQL;
     DQry.CreateVariable( "part_key", otDate, part_key );
     DQry.DeclareVariable( "point_id", otInteger );
@@ -4007,7 +4007,7 @@ void internal_ReadDests( int move_id, TSOPPDests &dests, string &reference, TDat
   if(part_key != NoExists) {
     return arx_internal_ReadDests(move_id, dests, reference, part_key);
   }
-  DB::TQuery Qry(PgOra::getROSession("MOVE_REF"));
+  DB::TQuery Qry(PgOra::getROSession("MOVE_REF"), STDLOG);
   Qry.SQLText = "SELECT reference FROM move_ref WHERE move_id=:move_id";
   Qry.CreateVariable( "move_id", otInteger, move_id );
   Qry.Execute();
@@ -4025,7 +4025,7 @@ void internal_ReadDests( int move_id, TSOPPDests &dests, string &reference, TDat
   Qry.CreateVariable( "move_id", otInteger, move_id );
   Qry.Execute();
 
-  DB::TQuery DQry(PgOra::getROSession("TRIP_DELAYS"));
+  DB::TQuery DQry(PgOra::getROSession("TRIP_DELAYS"), STDLOG);
   DQry.SQLText = trip_delays_SQL;
   DQry.DeclareVariable( "point_id", otInteger );
   readDestsFromDb(dests, Qry, DQry);
@@ -5822,7 +5822,7 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     xmlNodePtr displnode = NULL;
     NewTextChild( crsdNode, "point_id", point_id );
 
-    DB::TQuery Qry1(PgOra::getROSession("POINTS"));
+    DB::TQuery Qry1(PgOra::getROSession("POINTS"), STDLOG);
     Qry1.SQLText = "SELECT airp,first_point,pr_tranzit,airp_fmt "
                   "FROM points WHERE point_id=:point_id AND pr_del!=-1";
     Qry1.CreateVariable( "point_id", otInteger, point_id );
@@ -5836,7 +5836,7 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     modf(UTCToLocal( NowUTC(), region ),&local_time);
     NewTextChild( crsdNode, "airp_time", DateTimeToStr( local_time ) );
 
-    DB::TQuery Qry2(PgOra::getROSession("POINTS"));
+    DB::TQuery Qry2(PgOra::getROSession("POINTS"), STDLOG);
     Qry2.SQLText =
    "SELECT p2.airp FROM points p1, points p2 "
    "WHERE p1.point_id=:point_id AND p1.pr_del!=-1 AND "
@@ -5854,7 +5854,7 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     NewTextChild( crsdNode, "airp_dep", ElemIdToCodeNative( etAirp, airp_dep ) );
     if ( pr_tranzit )
       NewTextChild( crsdNode, "pr_tranzit", pr_tranzit );
-    DB::TQuery Qry3(PgOra::getROSession("CRS_DISPLACE2"));
+    DB::TQuery Qry3(PgOra::getROSession("CRS_DISPLACE2"), STDLOG);
     Qry3.SQLText =
      "SELECT airp_arv_spp,class_spp,airp_dep,"
      "       airline,flt_no,suffix,scd,"
@@ -5912,7 +5912,7 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 
 std::string getPoint_airp_dep(const PointId_t& point_id)
 {
-  DB::TQuery Qry(PgOra::getROSession("POINTS"));
+  DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
   Qry.SQLText = "SELECT airp FROM points WHERE point_id=:point_id AND pr_del!=-1";
   Qry.CreateVariable( "point_id", otInteger, point_id.get() );
   Qry.Execute();
@@ -5924,7 +5924,7 @@ std::string getPoint_airp_dep(const PointId_t& point_id)
 std::vector<tcrs_displ> loadCrsDisplaces(const PointId_t& point_id)
 {
   std::vector<tcrs_displ> result;
-  DB::TQuery Qry(PgOra::getROSession("CRS_DISPLACE2"));
+  DB::TQuery Qry(PgOra::getROSession("CRS_DISPLACE2"), STDLOG);
   Qry.SQLText =
    "SELECT point_id_spp,airp_arv_spp,class_spp,airline,flt_no,suffix,scd,"
    "       point_id_tlg,airp_arv_tlg,class_tlg,status,airp_dep "
@@ -5955,7 +5955,7 @@ std::vector<tcrs_displ> loadCrsDisplaces(const PointId_t& point_id)
 
 void deleteCrsDisplaces(const PointId_t& point_id)
 {
-  DB::TQuery Qry(PgOra::getRWSession("CRS_DISPLACE2"));
+  DB::TQuery Qry(PgOra::getRWSession("CRS_DISPLACE2"), STDLOG);
   Qry.SQLText = "DELETE crs_displace2 WHERE point_id_spp=:point_id_spp";
   Qry.CreateVariable( "point_id_spp", otInteger, point_id.get() );
   Qry.Execute();
@@ -5983,7 +5983,7 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   std::vector<tcrs_displ> crs_displaces = loadCrsDisplaces(point_id);
   deleteCrsDisplaces(point_id);
 
-  DB::TQuery QryInsert(PgOra::getRWSession("CRS_DISPLACE2"));
+  DB::TQuery QryInsert(PgOra::getRWSession("CRS_DISPLACE2"), STDLOG);
   QryInsert.SQLText =
       "INSERT INTO crs_displace2(point_id_spp,airp_arv_spp,class_spp,airline,flt_no,suffix,scd,airp_dep, "
       "                          point_id_tlg,airp_arv_tlg,class_tlg,status) "
@@ -6603,7 +6603,7 @@ void SoppInterface::WriteCrew(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 void SoppInterface::ReadDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     int point_id = NodeAsInteger( "point_id", reqNode );
-    DB::TQuery Qry(PgOra::getROSession("TRIP_RPT_PERSON"));
+    DB::TQuery Qry(PgOra::getROSession("TRIP_RPT_PERSON"), STDLOG);
     Qry.SQLText =
       "SELECT loader, pts_agent "
       "FROM trip_rpt_person WHERE point_id=:point_id";
@@ -6639,8 +6639,8 @@ void SoppInterface::WriteDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
         "INSERT INTO trip_rpt_person(point_id, loader, pts_agent) "
         "VALUES(:point_id, SUBSTR(:loader,1,100), SUBSTR(:pts_agent,1,100)) ";
 
-    DB::TCachedQuery UpdQry(PgOra::getRWSession("TRIP_RPT_PERSON"), UpdSql, QryParams);
-    DB::TCachedQuery InsQry(PgOra::getRWSession("TRIP_RPT_PERSON"), InsSql, QryParams);
+    DB::TCachedQuery UpdQry(PgOra::getRWSession("TRIP_RPT_PERSON"), UpdSql, QryParams, STDLOG);
+    DB::TCachedQuery InsQry(PgOra::getRWSession("TRIP_RPT_PERSON"), InsSql, QryParams, STDLOG);
 
     LEvntPrms params;
     params << PrmSmpl<std::string>("pts_agent", NodeAsString("pts_agent", dataNode))

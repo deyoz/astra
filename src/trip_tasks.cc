@@ -672,7 +672,7 @@ void check_tlg_out(const TTripTaskKey& task)
     if(is_fwd_tlg(task.name)) {
         string tlg_type = task.name.substr(0, 3);
 
-        DB::TQuery Qry(PgOra::getROSession({"TLGS_IN", "TLG_SOURCE", "TLG_BINDING"}));
+        DB::TQuery Qry(PgOra::getROSession({"TLGS_IN", "TLG_SOURCE", "TLG_BINDING"}), STDLOG);
         Qry.SQLText=
             "SELECT "
             " tlgs_in.id, "

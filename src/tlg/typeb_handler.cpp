@@ -351,7 +351,7 @@ bool handle_tlg(void)
 
   TMemoryManager mem(STDLOG);
 
-  static DB::TQuery TlgQry(PgOra::getROSession("TLG_QUEUE"));
+  static DB::TQuery TlgQry(PgOra::getROSession("TLG_QUEUE"), STDLOG);
   if (TlgQry.SQLText.empty())
   {
     //внимание порядок объединения таблиц важен!
@@ -475,7 +475,7 @@ static int get_tlgs_in_id(const std::string& tlg_type,
                           const TDateTime& min_time_create,
                           const TDateTime& max_time_create)
 {
-    DB::TQuery Qry(PgOra::getROSession("TLGS_IN"));
+    DB::TQuery Qry(PgOra::getROSession("TLGS_IN"), STDLOG);
     Qry.SQLText =
 "select ID from TLGS_IN "
 "where TYPE = :tlg_type "
@@ -500,7 +500,7 @@ void ins_tlg_in(int id, int part_no, const std::string& tlg_type,
                 const TDateTime& time_parse,
                 const TDateTime& time_receive_not_parse)
 {
-    DB::TQuery Qry(PgOra::getRWSession("TLGS_IN"));
+    DB::TQuery Qry(PgOra::getRWSession("TLGS_IN"), STDLOG);
     Qry.SQLText =
 "insert into TLGS_IN(ID, NUM, TYPE, ADDR, HEADING, ENDING, IS_FINAL_PART, "
 "                    MERGE_KEY, TIME_CREATE, TIME_RECEIVE, TIME_PARSE, TIME_RECEIVE_NOT_PARSE) "
@@ -792,7 +792,7 @@ void handle_tpb_tlg(const tlg_info &tlg)
           if (!errors.empty()) throw Exception("handle_tlg: strange situation");
           if (typeb_tlg_id==NoExists) throw Exception("handle_tlg: strange situation");
 
-          DB::TQuery Qry(PgOra::getRWSession("TLGS_IN"));
+          DB::TQuery Qry(PgOra::getRWSession("TLGS_IN"), STDLOG);
           Qry.SQLText=
             "SELECT addr,heading,ending FROM tlgs_in WHERE id=:id AND num=:num";
           Qry.CreateVariable("id",otInteger,typeb_tlg_id);
@@ -940,7 +940,7 @@ bool parse_tlg(const string &handler_id)
 
   TDateTime utc_date=NowUTC();
 
-  DB::TQuery TlgIdQry(PgOra::getROSession({"TLGS_IN", "TYPEB_IN"}));
+  DB::TQuery TlgIdQry(PgOra::getROSession({"TLGS_IN", "TYPEB_IN"}), STDLOG);
   if (handler_id==all_other_handler_id)
         TlgIdQry.SQLText=
             "SELECT tlgs_in.id, "
@@ -970,7 +970,7 @@ bool parse_tlg(const string &handler_id)
   TlgIdQry.CreateVariable("time_receive",otDate,utc_date-SCAN_TIMEOUT);
   TlgIdQry.CreateVariable("handler_id",otString,handler_id);
 
-  DB::TQuery TlgInQry(PgOra::getROSession("TLGS_IN"));
+  DB::TQuery TlgInQry(PgOra::getROSession("TLGS_IN"), STDLOG);
   TlgInQry.SQLText=
     "SELECT id,num,type,addr,heading,ending "
     "FROM tlgs_in "
