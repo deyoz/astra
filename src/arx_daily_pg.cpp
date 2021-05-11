@@ -2286,7 +2286,7 @@ bool TArxTlgTrips::Next(size_t max_rows, int duration)
             throw;
         };
     };
-    return true;
+    return false;
 };
 
 string TArxTlgTrips::TraceCaption()
