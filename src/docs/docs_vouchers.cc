@@ -39,7 +39,7 @@ TVouchers::TPaxInfo::TPaxInfo(const CheckIn::TSimplePaxItem& pax,
       pers_type = EncodePerson(pax.pers_type);
       reg_no = pax.reg_no;
       ticket_no = pax.tkn.no;
-      if (not pax.tkn.coupon != ASTRA::NoExists and pax.tkn.coupon > 0) {
+      if (pax.tkn.coupon != ASTRA::NoExists and pax.tkn.coupon > 0) {
           coupon_no = pax.tkn.coupon;
       }
       std::set<std::string> rems;
