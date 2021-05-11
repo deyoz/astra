@@ -74,7 +74,7 @@ BEGIN
       SUM(DECODE(pr_cabin,0,weight,0)) AS weight,
       SUM(DECODE(pr_cabin,1,weight,0)) AS unchecked
     FROM bag2,pax_grp,transfer
-    WHERE pax_grp.grp_id=bag2.grp_id AND point_dep=vpoint_id AND pax_grp.status NOT IN ('E') AND
+    WHERE pax_grp.grp_id=bag2.grp_id AND pax_grp.point_dep=vpoint_id AND pax_grp.status NOT IN ('E') AND
           ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 and
           pax_grp.grp_id=transfer.grp_id AND transfer_num=1
     GROUP BY statist.get_trfer_route(pax_grp.grp_id),client_type) c,
