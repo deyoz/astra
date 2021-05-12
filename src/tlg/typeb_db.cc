@@ -131,12 +131,14 @@ std::set<PnrId_t> loadPnrIdSet(const PointIdTlg_t& point_id, const std::string& 
 
 namespace {
 
-bool deleteByPaxId(const std::string& table_name, PaxId_t pax_id)
+
+bool deleteByPaxId(const std::string& table_name, const PaxId_t& pax_id, STDLOG_SIGNATURE)
 {
   LogTrace(TRACE6) << __func__
                    << ": table_name=" << table_name
-                   << ", pax_id=" << pax_id;
-  auto cur = make_db_curs(
+                   << ", pax_id=" << pax_id
+                   << ", called from " << file << ":" << line;
+  auto cur = DbCpp::make_curs_(STDLOG_VARIABLE,
         "DELETE FROM " + table_name + " "
         "WHERE pax_id=:pax_id ",
         PgOra::getRWSession(table_name));
@@ -196,72 +198,72 @@ bool deleteByPointId(const std::string& table_name, const PointIdTlg_t& point_id
 
 bool deleteCrsSeatsBlocking(PaxId_t pax_id)
 {
-  return deleteByPaxId("CRS_SEATS_BLOCKING", pax_id);
+  return deleteByPaxId("CRS_SEATS_BLOCKING", pax_id, STDLOG);
 }
 
 bool deleteCrsInf(PaxId_t pax_id)
 {
-  return deleteByPaxId("CRS_INF", pax_id);
+  return deleteByPaxId("CRS_INF", pax_id, STDLOG);
 }
 
 bool deleteCrsInfDeleted(PaxId_t pax_id)
 {
-  return deleteByPaxId("CRS_INF_DELETED", pax_id);
+  return deleteByPaxId("CRS_INF_DELETED", pax_id, STDLOG);
 }
 
 bool deleteCrsPaxRem(PaxId_t pax_id)
 {
-  return deleteByPaxId("CRS_PAX_REM", pax_id);
+  return deleteByPaxId("CRS_PAX_REM", pax_id, STDLOG);
 }
 
 bool deleteCrsPaxDoc(PaxId_t pax_id)
 {
-  return deleteByPaxId("CRS_PAX_DOC", pax_id);
+  return deleteByPaxId("CRS_PAX_DOC", pax_id, STDLOG);
 }
 
 bool deleteCrsPaxDoco(PaxId_t pax_id)
 {
-  return deleteByPaxId("CRS_PAX_DOCO", pax_id);
+  return deleteByPaxId("CRS_PAX_DOCO", pax_id, STDLOG);
 }
 
 bool deleteCrsPaxDoca(PaxId_t pax_id)
 {
-  return deleteByPaxId("CRS_PAX_DOCA", pax_id);
+  return deleteByPaxId("CRS_PAX_DOCA", pax_id, STDLOG);
 }
 
 bool deleteCrsPaxTkn(PaxId_t pax_id)
 {
-  return deleteByPaxId("CRS_PAX_TKN", pax_id);
+  return deleteByPaxId("CRS_PAX_TKN", pax_id, STDLOG);
 }
 
 bool deleteCrsPaxFqt(PaxId_t pax_id)
 {
-  return deleteByPaxId("CRS_PAX_FQT", pax_id);
+  return deleteByPaxId("CRS_PAX_FQT", pax_id, STDLOG);
 }
 
 bool deleteCrsPaxChkd(PaxId_t pax_id)
 {
-  return deleteByPaxId("CRS_PAX_CHKD", pax_id);
+  return deleteByPaxId("CRS_PAX_CHKD", pax_id, STDLOG);
 }
 
 bool deleteCrsPaxAsvc(PaxId_t pax_id)
 {
-  return deleteByPaxId("CRS_PAX_ASVC", pax_id);
+  return deleteByPaxId("CRS_PAX_ASVC", pax_id, STDLOG);
 }
 
 bool deleteCrsPaxRefuse(PaxId_t pax_id)
 {
-  return deleteByPaxId("CRS_PAX_REFUSE", pax_id);
+  return deleteByPaxId("CRS_PAX_REFUSE", pax_id, STDLOG);
 }
 
 bool deleteCrsPaxAlarms(PaxId_t pax_id)
 {
-  return deleteByPaxId("CRS_PAX_ALARMS", pax_id);
+  return deleteByPaxId("CRS_PAX_ALARMS", pax_id, STDLOG);
 }
 
 bool deleteCrsPaxContext(PaxId_t pax_id)
 {
-  return deleteByPaxId("CRS_PAX_CONTEXT", pax_id);
+  return deleteByPaxId("CRS_PAX_CONTEXT", pax_id, STDLOG);
 }
 
 bool deleteCrsPaxContext(PaxId_t pax_id, const std::string& key)
@@ -284,12 +286,12 @@ bool deleteCrsPaxContext(PaxId_t pax_id, const std::string& key)
 
 bool deleteDcsBag(PaxId_t pax_id)
 {
-  return deleteByPaxId("DCS_BAG", pax_id);
+  return deleteByPaxId("DCS_BAG", pax_id, STDLOG);
 }
 
 bool deleteDcsTags(PaxId_t pax_id)
 {
-  return deleteByPaxId("DCS_TAGS", pax_id);
+  return deleteByPaxId("DCS_TAGS", pax_id, STDLOG);
 }
 
 bool deleteTripCompLayers(PaxId_t pax_id)
