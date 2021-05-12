@@ -2457,7 +2457,7 @@ bool TSimplePaxItem::getCrsByPaxId(PaxId_t pax_id, bool skip_deleted)
         "SELECT crs_pax.* "
         + CheckIn::TSimplePaxItem::origSubclassFromCrsSQL() + " AS subclass, "
         + CheckIn::TSimplePaxItem::cabinSubclassFromCrsSQL() + " AS cabin_subclass, "
-        + CheckIn::TSimplePaxItem::cabinClassFromCrsSQL() + " AS cabin_class, "
+        + CheckIn::TSimplePaxItem::cabinClassFromCrsSQL() + " AS cabin_class "
         "FROM crs_pax, crs_pnr "
         "WHERE crs_pax.pax_id=:pax_id "
         "AND crs_pax.pnr_id=crs_pnr.pnr_id "
