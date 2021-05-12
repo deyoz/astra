@@ -21,6 +21,8 @@ build_ora_database()
     oradir=$1
     ( ( cd ${oradir} && ./create_database.sh ${CONNECT_STRING} )
       checkresult create_ora_db $?
+      ( cd src && ./nosir.tcl -html_to_db ../${oradir}/4load/html )
+      checkresult html_to_db $?
     )
 }
 

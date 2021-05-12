@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions name="cuws"
+  targetNamespace="http://tempuri.org/ns.xsd/cuws.wsdl"
+  xmlns:tns="http://tempuri.org/ns.xsd/cuws.wsdl"
+  xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/"
+  xmlns:SOAP-ENC="http://schemas.xmlsoap.org/soap/encoding/"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+  xmlns:ns="http://tempuri.org/ns.xsd"
+  xmlns:SOAP="http://schemas.xmlsoap.org/wsdl/soap/"
+  xmlns:HTTP="http://schemas.xmlsoap.org/wsdl/http/"
+  xmlns:MIME="http://schemas.xmlsoap.org/wsdl/mime/"
+  xmlns:DIME="http://schemas.xmlsoap.org/ws/2002/04/dime/wsdl/"
+  xmlns:WSDL="http://schemas.xmlsoap.org/wsdl/"
+  xmlns="http://schemas.xmlsoap.org/wsdl/">
+
+<types>
+
+  <schema targetNamespace="http://tempuri.org/ns.xsd"
+    xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/"
+    xmlns:SOAP-ENC="http://schemas.xmlsoap.org/soap/encoding/"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:ns="http://tempuri.org/ns.xsd"
+    xmlns="http://www.w3.org/2001/XMLSchema"
+    elementFormDefault="unqualified"
+    attributeFormDefault="unqualified">
+    <import namespace="http://schemas.xmlsoap.org/soap/encoding/"/>
+    <complexType name="displayName" mixed="true"><!-- ns__displayName -->
+      <simpleContent>
+        <extension base="xsd:string">
+          <attribute name="lang" type="xsd:string"/><!-- ns__displayName::lang -->
+        </extension>
+      </simpleContent>
+    </complexType>
+    <complexType name="type"><!-- ns__type -->
+          <sequence>
+            <element name="displayName" type="ns:displayName" minOccurs="0" maxOccurs="unbounded"/><!-- ns__type::displayName -->
+          </sequence>
+          <attribute name="airline" type="xsd:string"/><!-- ns__type::airline -->
+          <attribute name="rfisc" type="xsd:string"/><!-- ns__type::rfisc -->
+          <attribute name="serviceType" type="xsd:string"/><!-- ns__type::serviceType -->
+          <attribute name="priority" type="xsd:int"/><!-- ns__type::priority -->
+          <attribute name="minWeight" type="xsd:int"/><!-- ns__type::minWeight -->
+          <attribute name="maxWeight" type="xsd:int"/><!-- ns__type::maxWeight -->
+          <attribute name="bagType" type="xsd:string"/><!-- ns__type::bagType -->
+          <attribute name="displayDescr" type="xsd:string"/><!-- ns__type::displayDescr -->
+    </complexType>
+    <complexType name="BagAllowance"><!-- ns__BagAllowance -->
+          <sequence>
+            <element name="type" type="ns:type" minOccurs="0" maxOccurs="unbounded"/><!-- ns__BagAllowance::type_ -->
+          </sequence>
+          <attribute name="type" type="xsd:string"/><!-- ns__BagAllowance::type -->
+          <attribute name="pks" type="xsd:string"/><!-- ns__BagAllowance::pks -->
+          <attribute name="weight" type="xsd:int"/><!-- ns__BagAllowance::weight -->
+          <attribute name="unit" type="xsd:string"/><!-- ns__BagAllowance::unit -->
+          <attribute name="forEachPks" type="xsd:string"/><!-- ns__BagAllowance::forEachPks -->
+    </complexType>
+    <complexType name="segment"><!-- ns__segment -->
+          <sequence>
+          </sequence>
+          <attribute name="id" type="xsd:int"/><!-- ns__segment::id -->
+          <attribute name="airline" type="xsd:string"/><!-- ns__segment::airline -->
+          <attribute name="flightCode" type="xsd:string"/><!-- ns__segment::flightCode -->
+          <attribute name="src" type="xsd:string"/><!-- ns__segment::src -->
+          <attribute name="dst" type="xsd:string"/><!-- ns__segment::dst -->
+          <attribute name="airline_lat" type="xsd:string"/><!-- ns__segment::airline_USCORElat -->
+          <attribute name="flightCode_lat" type="xsd:string"/><!-- ns__segment::flightCode_USCORElat -->
+          <attribute name="src_lat" type="xsd:string"/><!-- ns__segment::src_USCORElat -->
+          <attribute name="dst_lat" type="xsd:string"/><!-- ns__segment::dst_USCORElat -->
+          <attribute name="scd_out" type="xsd:string"/><!-- ns__segment::scd_USCOREout -->
+    </complexType>
+    <complexType name="BagRoute"><!-- ns__BagRoute -->
+          <sequence>
+            <element name="segment" type="ns:segment" minOccurs="0" maxOccurs="unbounded"/><!-- ns__BagRoute::segment -->
+          </sequence>
+    </complexType>
+    <complexType name="baggageTag"><!-- ns__baggageTag -->
+          <sequence>
+          </sequence>
+          <attribute name="id" type="xsd:string"/><!-- ns__baggageTag::id -->
+          <attribute name="weight" type="xsd:int"/><!-- ns__baggageTag::weight -->
+          <attribute name="unit" type="xsd:string"/><!-- ns__baggageTag::unit -->
+          <attribute name="activated" type="xsd:int"/><!-- ns__baggageTag::activated -->
+    </complexType>
+    <complexType name="baggageTags"><!-- ns__baggageTags -->
+          <sequence>
+            <element name="baggageTag" type="ns:baggageTag" minOccurs="0" maxOccurs="unbounded"/><!-- ns__baggageTags::baggageTag -->
+          </sequence>
+    </complexType>
+    <complexType name="pnrItem" mixed="true"><!-- ns__pnrItem -->
+      <simpleContent>
+        <extension base="xsd:string">
+          <attribute name="airline" type="xsd:string"/><!-- ns__pnrItem::airline -->
+        </extension>
+      </simpleContent>
+    </complexType>
+    <complexType name="pnrAddrs"><!-- ns__pnrAddrs -->
+          <sequence>
+            <element name="pnr" type="ns:pnrItem" minOccurs="0" maxOccurs="unbounded"/><!-- ns__pnrAddrs::pnr -->
+          </sequence>
+    </complexType>
+    <complexType name="document"><!-- ns__document -->
+          <sequence>
+            <element name="type" type="xsd:string" minOccurs="0" maxOccurs="1"/><!-- ns__document::type -->
+            <element name="issueCountry" type="xsd:string" minOccurs="0" maxOccurs="1"/><!-- ns__document::issueCountry -->
+            <element name="no" type="xsd:string" minOccurs="0" maxOccurs="1"/><!-- ns__document::no -->
+            <element name="nationality" type="xsd:string" minOccurs="0" maxOccurs="1"/><!-- ns__document::nationality -->
+            <element name="birthDate" type="xsd:string" minOccurs="0" maxOccurs="1"/><!-- ns__document::birthDate -->
+            <element name="gender" type="xsd:string" minOccurs="0" maxOccurs="1"/><!-- ns__document::gender -->
+            <element name="expiryDate" type="xsd:string" minOccurs="0" maxOccurs="1"/><!-- ns__document::expiryDate -->
+            <element name="surname" type="xsd:string" minOccurs="0" maxOccurs="1"/><!-- ns__document::surname -->
+            <element name="firstName" type="xsd:string" minOccurs="0" maxOccurs="1"/><!-- ns__document::firstName -->
+            <element name="secondName" type="xsd:string" minOccurs="0" maxOccurs="1"/><!-- ns__document::secondName -->
+          </sequence>
+    </complexType>
+    <complexType name="baggageType"><!-- ns__baggageType -->
+          <sequence>
+          </sequence>
+          <attribute name="type" type="xsd:string"/><!-- ns__baggageType::type -->
+          <attribute name="airline" type="xsd:string"/><!-- ns__baggageType::airline -->
+          <attribute name="rfisc" type="xsd:string"/><!-- ns__baggageType::rfisc -->
+          <attribute name="serviceType" type="xsd:string"/><!-- ns__baggageType::serviceType -->
+          <attribute name="bagType" type="xsd:string"/><!-- ns__baggageType::bagType -->
+    </complexType>
+    <!-- operation request element -->
+    <element name="Get_PassengerInfo_By_BCBP">
+      <complexType>
+          <sequence>
+            <element name="bcbp" type="xsd:string" minOccurs="1" maxOccurs="1"/><!-- ns__Get_USCOREPassengerInfo_USCOREBy_USCOREBCBP::bcbp -->
+          </sequence>
+      </complexType>
+    </element>
+    <!-- operation response element and type -->
+    <element name="PassengerInfo" type="ns:PassengerInfo"/>
+    <complexType name="PassengerInfo">
+          <sequence>
+            <element name="scd_out" type="xsd:dateTime" minOccurs="1" maxOccurs="1"/><!-- ns__PassengerInfo::scd_USCOREout -->
+            <element name="est_out" type="xsd:dateTime" minOccurs="0" maxOccurs="1"/><!-- ns__PassengerInfo::est_USCOREout -->
+            <element name="act_out" type="xsd:dateTime" minOccurs="0" maxOccurs="1"/><!-- ns__PassengerInfo::act_USCOREout -->
+            <element name="scd_arv" type="xsd:dateTime" minOccurs="1" maxOccurs="1"/><!-- ns__PassengerInfo::scd_USCOREarv -->
+            <element name="est_arv" type="xsd:dateTime" minOccurs="0" maxOccurs="1"/><!-- ns__PassengerInfo::est_USCOREarv -->
+            <element name="act_arv" type="xsd:dateTime" minOccurs="0" maxOccurs="1"/><!-- ns__PassengerInfo::act_USCOREarv -->
+            <element name="allowCheckIn" type="xsd:int" minOccurs="1" maxOccurs="1"/><!-- ns__PassengerInfo::allowCheckIn -->
+            <element name="passengerId" type="xsd:int" minOccurs="0" maxOccurs="1"/><!-- ns__PassengerInfo::passengerId -->
+            <element name="sequence" type="xsd:int" minOccurs="1" maxOccurs="1"/><!-- ns__PassengerInfo::sequence -->
+            <element name="lastName" type="xsd:string" minOccurs="1" maxOccurs="1"/><!-- ns__PassengerInfo::lastName -->
+            <element name="firstName" type="xsd:string" minOccurs="1" maxOccurs="1"/><!-- ns__PassengerInfo::firstName -->
+            <element name="document" type="ns:document" minOccurs="1" maxOccurs="1"/><!-- ns__PassengerInfo::document -->
+            <element name="pnrAddrs" type="ns:pnrAddrs" minOccurs="0" maxOccurs="1"/><!-- ns__PassengerInfo::pnrAddrs -->
+            <element name="ticket" type="xsd:string" minOccurs="0" maxOccurs="1"/><!-- ns__PassengerInfo::ticket -->
+            <element name="baggageAllowance" type="ns:BagAllowance" minOccurs="0" maxOccurs="1"/><!-- ns__PassengerInfo::baggageAllowance -->
+            <element name="baggageRoute" type="ns:BagRoute" minOccurs="0" maxOccurs="1"/><!-- ns__PassengerInfo::baggageRoute -->
+            <element name="baggageTags" type="ns:baggageTags" minOccurs="0" maxOccurs="1"/><!-- ns__PassengerInfo::baggageTags -->
+          </sequence>
+    </complexType>
+    <!-- operation request element -->
+    <element name="Issue_TagNumber">
+      <complexType>
+          <sequence>
+            <element name="passengerId" type="xsd:int" minOccurs="1" maxOccurs="1"/><!-- ns__Issue_USCORETagNumber::passengerId -->
+            <element name="baggageTag" type="ns:baggageTag" minOccurs="1" maxOccurs="1"/><!-- ns__Issue_USCORETagNumber::baggageTag -->
+            <element name="baggageType" type="ns:baggageType" minOccurs="1" maxOccurs="1"/><!-- ns__Issue_USCORETagNumber::baggageType -->
+          </sequence>
+      </complexType>
+    </element>
+    <!-- operation response element and type -->
+    <element name="BagSummary" type="ns:BagSummary"/>
+    <complexType name="BagSummary">
+          <sequence>
+            <element name="passengerId" type="xsd:int" minOccurs="0" maxOccurs="1"/><!-- ns__BagSummary::passengerId -->
+            <element name="tag" type="xsd:string" minOccurs="0" maxOccurs="1"/><!-- ns__BagSummary::tag -->
+          </sequence>
+    </complexType>
+    <!-- operation request element -->
+    <element name="Set_Bag_as_Active">
+      <complexType>
+          <sequence>
+            <element name="passengerId" type="xsd:int" minOccurs="1" maxOccurs="1"/><!-- ns__Set_USCOREBag_USCOREas_USCOREActive::passengerId -->
+            <element name="tag" type="xsd:string" minOccurs="1" maxOccurs="1"/><!-- ns__Set_USCOREBag_USCOREas_USCOREActive::tag -->
+          </sequence>
+      </complexType>
+    </element>
+    <!-- operation request element -->
+    <element name="Set_Bag_as_Inactive">
+      <complexType>
+          <sequence>
+            <element name="passengerId" type="xsd:int" minOccurs="1" maxOccurs="1"/><!-- ns__Set_USCOREBag_USCOREas_USCOREInactive::passengerId -->
+            <element name="tag" type="xsd:string" minOccurs="1" maxOccurs="1"/><!-- ns__Set_USCOREBag_USCOREas_USCOREInactive::tag -->
+          </sequence>
+      </complexType>
+    </element>
+  </schema>
+
+</types>
+
+<message name="Get_PassengerInfo_By_BCBP">
+  <part name="Body" element="ns:Get_PassengerInfo_By_BCBP"/><!-- ns__Get_USCOREPassengerInfo_USCOREBy_USCOREBCBP::ns__Get_USCOREPassengerInfo_USCOREBy_USCOREBCBP -->
+</message>
+
+<message name="PassengerInfo">
+  <part name="Body" element="ns:PassengerInfo"/><!-- ns__Get_USCOREPassengerInfo_USCOREBy_USCOREBCBP::Passenger -->
+</message>
+
+<message name="Issue_TagNumber">
+  <part name="Body" element="ns:Issue_TagNumber"/><!-- ns__Issue_USCORETagNumber::ns__Issue_USCORETagNumber -->
+</message>
+
+<message name="BagSummary">
+  <part name="Body" element="ns:BagSummary"/><!-- ns__Issue_USCORETagNumber::Summary -->
+</message>
+
+<message name="Set_Bag_as_Active">
+  <part name="Body" element="ns:Set_Bag_as_Active"/><!-- ns__Set_USCOREBag_USCOREas_USCOREActive::ns__Set_USCOREBag_USCOREas_USCOREActive -->
+</message>
+
+<message name="Set_Bag_as_Inactive">
+  <part name="Body" element="ns:Set_Bag_as_Inactive"/><!-- ns__Set_USCOREBag_USCOREas_USCOREInactive::ns__Set_USCOREBag_USCOREas_USCOREInactive -->
+</message>
+
+<portType name="cuwsPortType">
+  <operation name="Get_PassengerInfo_By_BCBP">
+    <documentation>Service definition of function ns__Get_USCOREPassengerInfo_USCOREBy_USCOREBCBP</documentation>
+    <input message="tns:Get_PassengerInfo_By_BCBP"/>
+    <output message="tns:PassengerInfo"/>
+  </operation>
+  <operation name="Issue_TagNumber">
+    <documentation>Service definition of function ns__Issue_USCORETagNumber</documentation>
+    <input message="tns:Issue_TagNumber"/>
+    <output message="tns:BagSummary"/>
+  </operation>
+  <operation name="Set_Bag_as_Active">
+    <documentation>Service definition of function ns__Set_USCOREBag_USCOREas_USCOREActive</documentation>
+    <input message="tns:Set_Bag_as_Active"/>
+    <output message="tns:BagSummary"/>
+  </operation>
+  <operation name="Set_Bag_as_Inactive">
+    <documentation>Service definition of function ns__Set_USCOREBag_USCOREas_USCOREInactive</documentation>
+    <input message="tns:Set_Bag_as_Inactive"/>
+    <output message="tns:BagSummary"/>
+  </operation>
+</portType>
+
+<binding name="cuws" type="tns:cuwsPortType">
+  <SOAP:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+  <operation name="Get_PassengerInfo_By_BCBP">
+    <SOAP:operation soapAction=""/>
+    <input>
+          <SOAP:body use="literal" parts="Body"/>
+    </input>
+    <output>
+          <SOAP:body use="literal" parts="Body"/>
+    </output>
+  </operation>
+  <operation name="Issue_TagNumber">
+    <SOAP:operation soapAction=""/>
+    <input>
+          <SOAP:body use="literal" parts="Body"/>
+    </input>
+    <output>
+          <SOAP:body use="literal" parts="Body"/>
+    </output>
+  </operation>
+  <operation name="Set_Bag_as_Active">
+    <SOAP:operation soapAction=""/>
+    <input>
+          <SOAP:body use="literal" parts="Body"/>
+    </input>
+    <output>
+          <SOAP:body use="literal" parts="Body"/>
+    </output>
+  </operation>
+  <operation name="Set_Bag_as_Inactive">
+    <SOAP:operation soapAction=""/>
+    <input>
+          <SOAP:body use="literal" parts="Body"/>
+    </input>
+    <output>
+          <SOAP:body use="literal" parts="Body"/>
+    </output>
+  </operation>
+</binding>
+
+<service name="cuws">
+  <documentation>
+    cuws
+  </documentation>
+  <port name="cuws" binding="tns:cuws">
+    <SOAP:address location="ENDPOINT"/>
+  </port>
+</service>
+
+</definitions>
