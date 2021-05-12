@@ -347,7 +347,7 @@ struct OblomHolder
     }
 };
 
-void http_main_for_test(std::string const &in, std::string &out)
+void ServerFramework::http_main_for_test(std::string const &in, std::string &out)
 {
   static bool needNewMsgid = true;
   static std::string query_name;
