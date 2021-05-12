@@ -603,8 +603,10 @@ void TQueryIfaceDbCppImpl::SetVariable(const std::string& vname, tnull vdata)
 void TQueryIfaceDbCppImpl::initInnerCursCtl()
 {
     auto sql = StrUtils::trim(m_sqlText);
-    LogTrace(TRACE3) << "About to create CursCtl for sql='" << sql << "'";
-    m_cur = std::make_shared<DbCpp::CursCtl>(DbCpp::CursCtl(m_sess, STDLOG, sql.c_str()));
+    LogTrace(TRACE7) << "About to create CursCtl for sql='" << sql << "'";
+    m_cur = std::make_shared<DbCpp::CursCtl>(DbCpp::CursCtl(m_sess,
+                                                            m_nick, m_file, m_line,
+                                                            sql.c_str()));
 }
 
 void TQueryIfaceDbCppImpl::bindVariables()

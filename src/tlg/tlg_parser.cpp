@@ -6168,7 +6168,7 @@ void SaveDCSBaggage(int pax_id, const TNameElement &ne)
   if (ne.bag.Empty() && ne.tags.empty()) return;
   if (!ne.bag.Empty())
   {
-    DB::TQuery QryBag(PgOra::getRWSession("DCS_BAG"));
+    DB::TQuery QryBag(PgOra::getRWSession("DCS_BAG"), STDLOG);
     QryBag.SQLText=
       "INSERT INTO dcs_bag(pax_id, bag_amount, bag_weight, rk_weight, weight_unit) "
       "VALUES(:pax_id, :bag_amount, :bag_weight, :rk_weight, :weight_unit)";
@@ -6181,7 +6181,7 @@ void SaveDCSBaggage(int pax_id, const TNameElement &ne)
   };
   if (!ne.tags.empty())
   {
-    DB::TQuery QryTags(PgOra::getRWSession("DCS_TAGS"));
+    DB::TQuery QryTags(PgOra::getRWSession("DCS_TAGS"), STDLOG);
     QryTags.SQLText=
       "INSERT INTO dcs_tags(pax_id, alpha_no, numeric_no, airp_arv_final) "
       "VALUES(:pax_id, :alpha_no, :numeric_no, :airp_arv_final)";

@@ -2432,7 +2432,7 @@ bool TSimplePaxItem::getCrsByPaxId(PaxId_t pax_id)
         PgOra::getROSession("CRS_PAX"),
         "SELECT * FROM crs_pax "
         "WHERE pax_id=:pax_id ",
-        QryParams);
+        QryParams, STDLOG);
   PaxQry.get().Execute();
   if (PaxQry.get().Eof) return false;
   fromDBCrs(PaxQry.get(), false /*withTkn*/);

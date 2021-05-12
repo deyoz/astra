@@ -887,7 +887,8 @@ bool existsAlarmByPaxId(const PaxId_t paxId, const Alarm::Enum alarmType,
         "WHERE alarm_type=:alarm_type "
         "AND pax_id=:pax_id",
         QParams() << QParam("pax_id", otInteger, paxId.get())
-        << QParam("alarm_type", otString, AlarmTypes().encode(alarmType)));
+        << QParam("alarm_type", otString, AlarmTypes().encode(alarmType)),
+        STDLOG);
   Qry.get().Execute();
   return (!Qry.get().Eof);
 }

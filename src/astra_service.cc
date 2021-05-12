@@ -85,7 +85,7 @@ int putMail( const string &receiver,
     throw Exception( "Can't find param FileName" );
   filename = params[ PARAM_FILE_NAME ];
 
-  DB::TQuery FilesQry(PgOra::getROSession("FILE_SETS"));
+  DB::TQuery FilesQry(PgOra::getROSession("FILE_SETS"), STDLOG);
   FilesQry.SQLText=
     "SELECT name,dir,last_create,airp "
     "FROM file_sets "
@@ -398,7 +398,7 @@ void buildLoadFileData( xmlNodePtr resNode, const std::string &client_canon_name
     JxtContext::JxtCont *sysCont = JxtContext::getJxtContHandler()->sysContext();
     int prior_id = sysCont->readInt( client_canon_name + "_" + OWN_POINT_ADDR() + "_file_param_sets.id", -1 ); // for sort request
     ProgTrace( TRACE5, "get prior_id=%d", prior_id );
-    DB::TQuery QryFile(PgOra::getROSession("FILE_PARAM_SETS"));
+    DB::TQuery QryFile(PgOra::getROSession("FILE_PARAM_SETS"), STDLOG);
     QryFile.SQLText =
      "SELECT type,airline,param_name,param_value FROM file_param_sets "
      " WHERE point_addr=:point_addr AND own_point_addr=:own_point_addr AND pr_send=:send "
@@ -1095,7 +1095,7 @@ void AstraServiceInterface::saveFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
 
 static int update_file_sets(const std::string &code, const std::string &airp, int interval)
 {
-  DB::TQuery QryFileSets(PgOra::getRWSession("FILE_SETS"));
+  DB::TQuery QryFileSets(PgOra::getRWSession("FILE_SETS"), STDLOG);
   if (PgOra::supportsPg("FILE_SETS"))
   {
     QryFileSets.SQLText =
@@ -1545,7 +1545,8 @@ bool createUTGDataFiles( int point_id, const std::string &point_addr, TFileDatas
     DB::TCachedQuery updQry(
             PgOra::getRWSession("UTG_PRL"),
             "UPDATE utg_prl set last_tlg_create_tid = :last_flt_change_tid where point_id = :point_id",
-            QryParams);
+            QryParams,
+            STDLOG);
 
     QryParams.clear();
     QryParams << QParam("point_id", otInteger);
@@ -1553,8 +1554,8 @@ bool createUTGDataFiles( int point_id, const std::string &point_addr, TFileDatas
             PgOra::getRWSession("UTG_PRL"), // RW специально из-за update-а выше
             "select last_flt_change_tid from utg_prl where point_id = :point_id and "
             "(last_tlg_create_tid is null or last_tlg_create_tid <> last_flt_change_tid)",
-            QryParams
-            );
+            QryParams,
+            STDLOG);
 
     TTripInfo flt;
     flt.Init(fltQry.get());

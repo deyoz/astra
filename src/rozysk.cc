@@ -1463,7 +1463,7 @@ void sync_mvd(void)
   if (Min%15!=2) return;
   Min-=2;
 
-  DB::TQuery Qry(PgOra::getRWSession("FILE_SETS"));
+  DB::TQuery Qry(PgOra::getRWSession("FILE_SETS"), STDLOG);
   Qry.SQLText =
     "UPDATE file_sets SET last_create=:now WHERE code=:code AND "
     "                 (airp=:airp OR airp IS NULL AND :airp IS NULL)";
@@ -1471,7 +1471,7 @@ void sync_mvd(void)
   Qry.DeclareVariable("airp",otString);
   Qry.DeclareVariable("now",otDate);
 
-  DB::TQuery FilesQry(PgOra::getRWSession("FILE_SETS"));
+  DB::TQuery FilesQry(PgOra::getRWSession("FILE_SETS"), STDLOG);
   FilesQry.SQLText=
     "SELECT name,dir,last_create,airp "
     "FROM file_sets "

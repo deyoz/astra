@@ -86,7 +86,8 @@ std::optional<CrsPriority_t> TCrsCountersMap::getMaxCrsPriority(const TAdvTripIn
         "ORDER BY crs,flt_no,airp_dep ",
         QParams() << QParam("airline", otString, flt.airline)
         << QParam("flt_no", otInteger, flt.flt_no)
-        << QParam("airp_dep", otString, flt.airp));
+        << QParam("airp_dep", otString, flt.airp),
+        STDLOG);
   string prior_crs;
   Qry.get().Execute();
   for(; !Qry.get().Eof; Qry.get().Next())
@@ -246,7 +247,8 @@ void TCrsCountersMap::loadTripDataOnly(const PointId_t& point_id, bool need_clea
         "SELECT point_id AS point_dep, airp_arv, class, tranzit AS crs_tranzit, resa AS crs_ok "
         "FROM trip_data "
         "WHERE point_id=:point_dep ",
-        QParams() << QParam("point_dep", otInteger, point_id.get()));
+        QParams() << QParam("point_dep", otInteger, point_id.get()),
+        STDLOG);
   Qry.get().Execute();
 
   for(; !Qry.get().Eof; Qry.get().Next())
@@ -269,7 +271,8 @@ void TCrsCountersMap::loadCrsCountersOnly(const PointId_t& point_id, bool need_c
         "SELECT point_dep, airp_arv, class, crs_tranzit, crs_ok "
         "FROM crs_counters "
         "WHERE point_dep=:point_dep ",
-        QParams() << QParam("point_dep", otInteger, point_id.get()));
+        QParams() << QParam("point_dep", otInteger, point_id.get()),
+        STDLOG);
   Qry.get().Execute();
 
   for(; !Qry.get().Eof; Qry.get().Next())
@@ -321,7 +324,8 @@ void TCrsCountersMap::saveCrsCountersOnly(const PointId_t& point_id) const
                     << QParam("airp_arv", otString)
                     << QParam("class", otString)
                     << QParam("crs_tranzit", otInteger)
-                    << QParam("crs_ok", otInteger));
+                    << QParam("crs_ok", otInteger),
+          STDLOG);
     for(const auto &i : *this)
     {
       i.first.toDB(InsQry.get());
@@ -358,7 +362,8 @@ void TCrsFieldsMap::apply(const TAdvTripInfo &flt, const bool pr_tranz_reg) cons
 
   DB::TCachedQuery DelQry(PgOra::getRWSession("COUNTERS2"),
         "UPDATE counters2 SET crs_tranzit=0, crs_ok=0 WHERE point_dep=:point_dep",
-        QParams() << QParam("point_dep", otInteger, flt.point_id));
+        QParams() << QParam("point_dep", otInteger, flt.point_id),
+        STDLOG);
   DelQry.get().Execute();
 
   if (!empty())
@@ -376,7 +381,8 @@ void TCrsFieldsMap::apply(const TAdvTripInfo &flt, const bool pr_tranz_reg) cons
                     << QParam("point_arv", otInteger)
                     << QParam("class", otString)
                     << QParam("crs_tranzit", otInteger)
-                    << QParam("crs_ok", otInteger));
+                    << QParam("crs_ok", otInteger),
+          STDLOG);
     for(const auto &i : *this)
     {
       i.first.toDB(UpdQry.get());
@@ -479,7 +485,8 @@ void TRegDifferenceMap::apply(const TAdvTripInfo &flt, const bool pr_tranz_reg) 
                     << QParam("goshow", otInteger)
                     << QParam("jmp_tranzit", otInteger)
                     << QParam("jmp_ok", otInteger)
-                    << QParam("jmp_goshow", otInteger));
+                    << QParam("jmp_goshow", otInteger),
+          STDLOG);
     for(const auto &i : *this)
     {
       i.first.toDB(UpdQry.get());

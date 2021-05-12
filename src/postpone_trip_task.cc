@@ -20,7 +20,7 @@ void PostponeTripTaskHandling::insertDb(const TTripTaskKey& task, edilib::EdiSes
 
   DB::TCachedQuery Qry(PgOra::getRWSession("POSTPONED_TRIP_TASK"),
     "INSERT INTO postponed_trip_task(session_id, point_id, name, params) "
-    "VALUES(:session_id, :point_id, :name, :params) ");
+    "VALUES(:session_id, :point_id, :name, :params) ", STDLOG);
   Qry.get().CreateVariable("session_id", otInteger, sessId.get());
   Qry.get().CreateVariable("point_id", otInteger, task.point_id != ASTRA::NoExists ? task.point_id : FNull);
   Qry.get().CreateVariable("name", otString, task.name);
@@ -120,7 +120,7 @@ void PostponeTripTaskHandling::deleteWaiting(const TTripTaskKey &task)
 
   DB::TCachedQuery Qry(PgOra::getRWSession("POSTPONED_TRIP_TASK"),
     "DELETE FROM postponed_trip_task "
-    "WHERE point_id=:point_id AND name=:name AND params=:params");
+    "WHERE point_id=:point_id AND name=:name AND params=:params", STDLOG);
 
   Qry.get().CreateVariable("point_id", otInteger, task.point_id != ASTRA::NoExists ? task.point_id : FNull);
   Qry.get().CreateVariable("name", otString, task.name);
@@ -143,7 +143,7 @@ boost::optional<TTripTaskKey> PostponeTripTaskHandling::deleteWaiting(edilib::Ed
 boost::optional<TTripTaskKey> PostponeTripTaskHandling::findWaiting(edilib::EdiSessionId_t sessId)
 {
   DB::TCachedQuery Qry(PgOra::getROSession("POSTPONED_TRIP_TASK"),
-    "SELECT * FROM postponed_trip_task WHERE session_id=:session_id");
+    "SELECT * FROM postponed_trip_task WHERE session_id=:session_id", STDLOG);
   Qry.get().CreateVariable("session_id", otInteger, sessId.get());
   Qry.get().Execute();
 

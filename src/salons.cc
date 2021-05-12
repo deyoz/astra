@@ -8585,7 +8585,7 @@ static void FillSalonDescrs(
     const string& craft,
     const string& bort)
 {
-    DB::TQuery Qry(PgOra::getROSession("COMPART_DESC_SETS"));
+    DB::TQuery Qry(PgOra::getROSession("COMPART_DESC_SETS"), STDLOG);
     Qry.SQLText =
         "SELECT desc_code,salon_num,bort FROM compart_desc_sets "
         "WHERE airline=:airline AND craft=:craft AND (bort IS NULL OR bort=:bort) "

@@ -1928,7 +1928,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     }
     get_compatible_report_form("ArxPaxList", reqNode, resNode);
     {
-        DB::TQuery Qry(*get_main_ora_sess(STDLOG));
+        DB::TQuery Qry(*get_main_ora_sess(STDLOG), STDLOG);
         string SQLText;
         if(part_key == NoExists)  {
             SQLText =

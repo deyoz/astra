@@ -1501,7 +1501,7 @@ string arx_internal_ReadData_N( TSOPPTrips &trips, TDateTime first_date, TDateTi
   if (reqInfo->user.access.totally_not_permitted())
     return errcity;
 
-  DB::TQuery PointsQry(PgOra::getROSession("ARX_POINTS"));
+  DB::TQuery PointsQry(PgOra::getROSession("ARX_POINTS"), STDLOG);
   TBaseTable &airps = base_tables.get( "airps" );
   TBaseTable &cities = base_tables.get( "cities" );
   bool pr_addCondition_N = false;
@@ -1539,11 +1539,11 @@ string arx_internal_ReadData_N( TSOPPTrips &trips, TDateTime first_date, TDateTi
   }
 
   TCFG cfg;
-  DB::TQuery RegQry(PgOra::getROSession("ARX_PAX_GRP"));
+  DB::TQuery RegQry(PgOra::getROSession("ARX_PAX_GRP"), STDLOG);
   RegQry.SQLText = arx_regSQL;
   RegQry.DeclareVariable( "part_key", otDate );
   RegQry.DeclareVariable( "point_id", otInteger );
-  DB::TQuery DelaysQry(PgOra::getROSession("ARX_TRIP_DELAYS"));
+  DB::TQuery DelaysQry(PgOra::getROSession("ARX_TRIP_DELAYS"), STDLOG);
 
   if ( module == tISG ) {
       DelaysQry.SQLText = arx_trip_delays_SQL;
@@ -2215,7 +2215,7 @@ string arx_internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime
   if (reqInfo->user.access.totally_not_permitted())
     return errcity;
 
-  DB::TQuery PointsQry(PgOra::getROSession("ARX_POINTS"));
+  DB::TQuery PointsQry(PgOra::getROSession("ARX_POINTS"), STDLOG);
   TBaseTable &airps = base_tables.get( "airps" );
   TBaseTable &cities = base_tables.get( "cities" );
 
@@ -2249,12 +2249,12 @@ string arx_internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime
       throw Exception( "internal_ReadData: invalid params" );
     }
   }
-  DB::TQuery RegQry(PgOra::getROSession("ARX_PAX_GRP"));
+  DB::TQuery RegQry(PgOra::getROSession("ARX_PAX_GRP"), STDLOG);
   RegQry.SQLText = arx_regSQL;
   RegQry.DeclareVariable( "part_key", otDate );
   RegQry.DeclareVariable( "point_id", otInteger );
 
-  DB::TQuery DelaysQry(PgOra::getROSession("ARX_TRIP_DELAYS"));
+  DB::TQuery DelaysQry(PgOra::getROSession("ARX_TRIP_DELAYS"), STDLOG);
   if ( module == tISG ) {
       DelaysQry.SQLText = arx_trip_delays_SQL;
       DelaysQry.DeclareVariable( "part_key", otDate );
@@ -3944,7 +3944,7 @@ void internal_ReadDests( int move_id, TSOPPDests &dests, string &reference, TDat
   if(part_key != NoExists) {
     return arx_internal_ReadDests(move_id, dests, reference, part_key);
   }
-  DB::TQuery Qry(PgOra::getROSession("MOVE_REF"));
+  DB::TQuery Qry(PgOra::getROSession("MOVE_REF"), STDLOG);
   Qry.SQLText = "SELECT reference FROM move_ref WHERE move_id=:move_id";
   Qry.CreateVariable( "move_id", otInteger, move_id );
   Qry.Execute();
@@ -3962,7 +3962,7 @@ void internal_ReadDests( int move_id, TSOPPDests &dests, string &reference, TDat
   Qry.CreateVariable( "move_id", otInteger, move_id );
   Qry.Execute();
 
-  DB::TQuery DQry(PgOra::getROSession("TRIP_DELAYS"));
+  DB::TQuery DQry(PgOra::getROSession("TRIP_DELAYS"), STDLOG);
   DQry.SQLText = trip_delays_SQL;
   DQry.DeclareVariable( "point_id", otInteger );
   readDestsFromDb(dests, Qry, DQry);
@@ -3979,7 +3979,7 @@ void arx_internal_ReadDests( int move_id, TSOPPDests &dests, string &reference, 
     if ( !Qry.Eof )  reference = Qry.FieldAsString( "reference" );
     dests.clear();
     Qry.ClearParams();
-    DB::TQuery MQry(PgOra::getROSession("ARX_MOVE_REF"));
+    DB::TQuery MQry(PgOra::getROSession("ARX_MOVE_REF"), STDLOG);
       MQry.SQLText =
     "SELECT point_id,point_num,first_point,airp,airp_fmt,airline,airline_fmt,flt_no,suffix,suffix_fmt,craft,craft_fmt,bort,"
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"

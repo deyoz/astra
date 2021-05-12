@@ -768,7 +768,7 @@ static string GetElemByTypeFromDB(
 {
     const string table_name = GetOraPgTableNameFromType(type);
     if (!table_name.empty()) {
-        DB::TQuery Qry(PgOra::getROSession(table_name));
+        DB::TQuery Qry(PgOra::getROSession(table_name), STDLOG);
         return GetElemByTypeFromDB_(Qry, type, id, fmts, with_deleted);
     }
     else {

@@ -21,7 +21,7 @@ void TAnnulBTStatRow::get_tags(TDateTime part_key, int id)
         QryParams << QParam("part_key", otDate, part_key);
     }
     SQLText += " id = :id order by no";
-    DB::TCachedQuery Qry(PgOra::getROSession(table), SQLText, QryParams);
+    DB::TCachedQuery Qry(PgOra::getROSession(table), SQLText, QryParams, STDLOG);
     Qry.get().Execute();
     for(; not Qry.get().Eof; Qry.get().Next()) {
         t_tag_nos_row tag;
@@ -193,7 +193,7 @@ void RunAnnulBTStat(
 {
     map<int, string> agents;
     TCachedQuery agentQry("select descr from users2 where user_id = :user_id",
-            QParams() << QParam("user_id", otInteger));
+            QParams() << QParam("user_id", otInteger), STDLOG);
 
     QParams QryParams;
     if(point_id == NoExists) {
@@ -248,7 +248,7 @@ void RunAnnulBTStat(
                    "   transfer.pr_final(+) <> 0 and \n"
                    "   transfer.point_id_trfer = trfer_trips.point_id(+) \n";
 
-    TCachedQuery Qry(SQLText, QryParams);
+    TCachedQuery Qry(SQLText, QryParams, STDLOG);
     Qry.get().Execute();
     if(not Qry.get().Eof) {
         int col_part_key = Qry.get().FieldIndex("part_key");

@@ -598,7 +598,7 @@ void ScdPeriodToDb( const ssim::ScdPeriod &scd )
   TDateTime last = BoostToDateTime(scd.period.end);
   string days = scd.period.freq.str();
   // запись в ssm_schedule
-  DB::TQuery QryIns(PgOra::getRWSession("SSM_SCHEDULE"));
+  DB::TQuery QryIns(PgOra::getRWSession("SSM_SCHEDULE"), STDLOG);
   QryIns.SQLText =
       "INSERT INTO ssm_schedule(ssm_id, flight, first, last, days) "
       " VALUES(:ssm_id, :flight, :first, :last, :days) ";
@@ -720,7 +720,7 @@ ssim::Route RouteFromDb(int move_id, TDateTime first)
   TReqInfo *reqInfo = TReqInfo::Instance(); // ??? уже есть в вызывающей функции
   reqInfo->user.sets.time = ustTimeLocalAirp; // останется на рабочем
 //  reqInfo->desk.code = "MOVGRG"; // удалить
-  DB::TQuery Qry(PgOra::getROSession("ROUTES"));
+  DB::TQuery Qry(PgOra::getROSession("ROUTES"), STDLOG);
   Qry.SQLText =
     "SELECT num,airp,airp_fmt,flt_no,suffix,scd_in,craft,craft_fmt,scd_out,delta_in,delta_out,f,c,y,rbd_order "
     " FROM routes WHERE move_id=:move_id "

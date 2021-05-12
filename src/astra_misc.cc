@@ -2235,7 +2235,7 @@ bool is_sync_flights( int point_id )
 
 bool is_sync_FileParamSets( const TTripInfo &tripInfo, const std::string& syncType )
 {
-  DB::TQuery Qry(PgOra::getROSession("FILE_PARAM_SETS"));
+  DB::TQuery Qry(PgOra::getROSession("FILE_PARAM_SETS"), STDLOG);
   Qry.SQLText =
       "SELECT id FROM file_param_sets "
       " WHERE ( file_param_sets.airp IS NULL OR file_param_sets.airp=:airp ) AND "

@@ -762,7 +762,8 @@ bool is_forbidden_repeated_ckin(const TTripInfo &flt,
         QParams() << QParam("pax_id", otInteger, pax_id)
         << QParam("ctWeb", otString, EncodeClientType(ctWeb))
         << QParam("ctMobile", otString, EncodeClientType(ctMobile))
-        << QParam("ctKiosk", otString, EncodeClientType(ctKiosk)));
+        << QParam("ctKiosk", otString, EncodeClientType(ctKiosk)),
+        STDLOG);
   Qry.get().Execute();
   if (!Qry.get().Eof) return true;
   return false;

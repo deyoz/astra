@@ -378,7 +378,7 @@ int nosir_months(int argc,char **argv)
 void GetMinMaxPartKey(const string &where, TDateTime &min_part_key, TDateTime &max_part_key)
 {
   LogTrace5 << __func__ ;
-  DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"));
+  DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"), STDLOG);
   if(ARX::READ_PG()) {
     Qry.SQLText="SELECT DATE_TRUNC('day',MIN(part_key)) AS min_part_key FROM arx_points";
   } else {

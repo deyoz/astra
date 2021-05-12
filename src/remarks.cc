@@ -817,7 +817,7 @@ bool LoadCrsPaxFQT(int pax_id, std::set<TPaxFQTItem> &fqts)
     "FROM crs_pax_fqt WHERE pax_id=:pax_id";
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, pax_id);
-  DB::TCachedQuery PaxFQTQry(PgOra::getROSession("CRS_PAX_FQT"), sql, QryParams);
+  DB::TCachedQuery PaxFQTQry(PgOra::getROSession("CRS_PAX_FQT"), sql, QryParams, STDLOG);
   PaxFQTQry.get().Execute();
   for(;!PaxFQTQry.get().Eof;PaxFQTQry.get().Next())
     fqts.insert(TPaxFQTItem().fromDB(PaxFQTQry.get()));
@@ -832,7 +832,7 @@ bool LoadPaxFQT(int pax_id, std::set<TPaxFQTItem> &fqts)
 
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, pax_id);
-  DB::TCachedQuery PaxFQTQry(PgOra::getROSession("PAX_FQT"), sql, QryParams);
+  DB::TCachedQuery PaxFQTQry(PgOra::getROSession("PAX_FQT"), sql, QryParams, STDLOG);
   PaxFQTQry.get().Execute();
   for(;!PaxFQTQry.get().Eof;PaxFQTQry.get().Next())
     fqts.insert(TPaxFQTItem().fromDB(PaxFQTQry.get()));
