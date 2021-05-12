@@ -1285,7 +1285,7 @@ bool LoadUnconfirmedTransfer(const CheckIn::TTransferList &segs, xmlNodePtr tran
   vector< pair< pair< string, map<int, CheckIn::TTransferItem> >, vector<int> > > crs_trfer, trfer; //вектор пар <tlg_airp_dep+трансферный маршрут, вектор ид. пассажиров>
 
   int pnr_id=NoExists;
-  TlgTripsPnlCacheOpt tlg_trips_pnl_cached;
+  TlgTripsPnlCache tlg_trips_pnl_cached;
   for(;!PaxQry.Eof;PaxQry.Next())
   {
     if (PaxQry.FieldAsInteger("pnr_id")!=pnr_id)

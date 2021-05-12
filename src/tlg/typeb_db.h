@@ -89,5 +89,5 @@ struct TlgTripsData
   static std::optional<TlgTripsData> loadFromPnl(const PointIdTlg_t& pointId);
 };
 
-typedef ASTRA::CacheOpt<PointIdTlg_t, TlgTripsData> TlgTripsPnlCacheOpt;
+typedef ASTRA::Cache<PointIdTlg_t, std::optional<TlgTripsData>> TlgTripsPnlCache;
 
