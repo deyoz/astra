@@ -12,7 +12,12 @@ using namespace AstraLocale;
 
 void get_stat_services(int point_id)
 {
-    TCachedQuery delQry("delete from stat_services where point_id = :point_id", QParams() << QParam("point_id", otInteger, point_id));
+    DB::TCachedQuery delQry(
+          PgOra::getRWSession("STAT_SERVICES"),
+          "DELETE FROM stat_services "
+          "WHERE point_id = :point_id",
+          QParams() << QParam("point_id", otInteger, point_id),
+          STDLOG);
     delQry.get().Execute();
 
     TTripInfo info;
@@ -27,26 +32,29 @@ void get_stat_services(int point_id)
         << QParam("rfic", otString)
         << QParam("rfisc", otString)
         << QParam("receipt_no", otString);
-    TCachedQuery insQry(
-            "insert into stat_services( "
-            "   point_id, "
-            "   scd_out, "
-            "   pax_id, "
-            "   airp_dep, "
-            "   airp_arv, "
-            "   rfic, "
-            "   rfisc, "
-            "   receipt_no "
-            ") values ( "
-            "   :point_id, "
-            "   :scd_out, "
-            "   :pax_id, "
-            "   :airp_dep, "
-            "   :airp_arv, "
-            "   :rfic, "
-            "   :rfisc, "
-            "   :receipt_no "
-            ") ",insQryParams);
+    DB::TCachedQuery insQry(
+          PgOra::getRWSession("STAT_SERVICES"),
+          "INSERT INTO stat_services( "
+          "   point_id, "
+          "   scd_out, "
+          "   pax_id, "
+          "   airp_dep, "
+          "   airp_arv, "
+          "   rfic, "
+          "   rfisc, "
+          "   receipt_no "
+          ") VALUES ( "
+          "   :point_id, "
+          "   :scd_out, "
+          "   :pax_id, "
+          "   :airp_dep, "
+          "   :airp_arv, "
+          "   :rfic, "
+          "   :rfisc, "
+          "   :receipt_no "
+          ") ",
+          insQryParams,
+          STDLOG);
 
     TRptParams rpt_params;
     rpt_params.point_id = point_id;
@@ -182,22 +190,14 @@ void RunServicesStat(
         << QParam("FirstDate", otDate, params.FirstDate)
         << QParam("LastDate", otDate, params.LastDate);
 
-    string SQLText =
-        "select stat_services.* from "
-        "   stat_services, "
-        "   points "
-        "where "
-        "   stat_services.point_id = points.point_id and "
-        "   points.pr_del >= 0 and ";
+    DB::TCachedQuery Qry(
+          PgOra::getROSession("STAT_SERVICES"),
+          "SELECT * FROM stat_services "
+          "WHERE scd_out >= :FirstDate "
+          "AND scd_out < :LastDate ",
+          QryParams,
+          STDLOG);
 
-    params.AccessClause(SQLText);
-
-    if(params.flt_no != NoExists) {
-        SQLText += " points.flt_no = :flt_no and ";
-        QryParams << QParam("flt_no", otInteger, params.flt_no);
-    }
-    SQLText += " stat_services.scd_out >= :FirstDate AND stat_services.scd_out < :LastDate ";
-    TCachedQuery Qry(SQLText, QryParams);
     Qry.get().Execute();
     if(not Qry.get().Eof) {
         int col_part_key = Qry.get().GetFieldIndex("part_key");
@@ -210,6 +210,24 @@ void RunServicesStat(
         int col_rfisc = Qry.get().FieldIndex("rfisc");
         int col_receipt_no = Qry.get().FieldIndex("receipt_no");
         for(; not Qry.get().Eof; Qry.get().Next()) {
+            int point_id = Qry.get().FieldAsInteger(col_point_id);
+            TTripInfo flt;
+            flt.getByPointId(point_id);
+            if (flt.pr_del >= 0) {
+                continue;
+            }
+            if(not params.ap.empty() && flt.airp != params.ap) {
+                continue;
+            }
+
+            if(not params.ak.empty() && flt.airline != params.ak) {
+                continue;
+            }
+
+            if(params.flt_no != NoExists && flt.flt_no != params.flt_no) {
+                continue;
+            }
+
             TServicesStatRow row;
             if(col_part_key >= 0)
                 row.part_key = Qry.get().FieldAsDateTime(col_part_key);

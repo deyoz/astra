@@ -119,9 +119,11 @@ void sych_basel_aero_stat( TDateTime utcdate )
   ReWriteQry.DeclareVariable( "airp", otString );
   ReWriteQry.CreateVariable( "code", otString, BASEL_AERO );
 
-  TQuery DeleteQry(&OraSession);
+  DB::TQuery DeleteQry(PgOra::getRWSession("BASEL_STAT"), STDLOG);
   DeleteQry.SQLText =
-    "DELETE basel_stat WHERE airp=:airp AND rownum <= 10000";
+    "DELETE basel_stat "
+    "WHERE airp=:airp "
+    "FETCH FIRST 10000 ROWS ONLY ";
   DeleteQry.DeclareVariable( "airp", otString );
 
   DB::TQuery FileSetsQry(PgOra::getRWSession("FILE_SETS"), STDLOG);
@@ -208,20 +210,23 @@ void sych_basel_aero_stat( TDateTime utcdate )
 
 void write_basel_aero_stat( TDateTime time_create, const std::vector<TBaselStat> &stats )
 {
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getRWSession("BASEL_STAT"), STDLOG);
   Qry.SQLText =
-    "INSERT INTO basel_stat(viewdate,viewflight,viewname,viewgroup,viewpct,viewweight,"
-    "                       viewcarryon,viewpayweight,viewtag,viewuncheckin,viewstatus,"
-    "                       viewcheckinno,viewstation,viewclienttype,viewcheckintime,"
-    "                       viewcheckinduration,viewboardingtime,viewdepartureplantime,"
-    "                       viewdeparturerealtime,viewbagnorms,viewpctweightpaidbytype,"
-    "                       viewclass,point_id,airp,pax_id,time_create) "
-    "VALUES(:viewdate,:viewflight,:viewname,:viewgroup,:viewpct,:viewweight,"
-    "       :viewcarryon,:viewpayweight,:viewtag,:viewuncheckin,:viewstatus,"
-    "       :viewcheckinno,:viewstation,:viewclienttype,:viewcheckintime,"
-    "       :viewcheckinduration,:viewboardingtime,:viewdepartureplantime,"
-    "       :viewdeparturerealtime,:viewbagnorms,:viewpctweightpaidbytype,"
-    "       :viewclass,:point_id,:airp,:pax_id,:time_create)";
+    "INSERT INTO basel_stat("
+    "viewdate,viewflight,viewname,viewgroup,viewpct,viewweight,"
+    "viewcarryon,viewpayweight,viewtag,viewuncheckin,viewstatus,"
+    "viewcheckinno,viewstation,viewclienttype,viewcheckintime,"
+    "viewcheckinduration,viewboardingtime,viewdepartureplantime,"
+    "viewdeparturerealtime,viewbagnorms,viewpctweightpaidbytype,"
+    "viewclass,point_id,airp,pax_id,time_create"
+    ") VALUES("
+    ":viewdate,:viewflight,:viewname,:viewgroup,:viewpct,:viewweight,"
+    ":viewcarryon,:viewpayweight,:viewtag,:viewuncheckin,:viewstatus,"
+    ":viewcheckinno,:viewstation,:viewclienttype,:viewcheckintime,"
+    ":viewcheckinduration,:viewboardingtime,:viewdepartureplantime,"
+    ":viewdeparturerealtime,:viewbagnorms,:viewpctweightpaidbytype,"
+    ":viewclass,:point_id,:airp,:pax_id,:time_create"
+    ")";
   Qry.DeclareVariable( "viewdate", otDate );
   Qry.DeclareVariable( "viewflight", otString );
   Qry.DeclareVariable( "viewname", otString );
@@ -305,15 +310,16 @@ void write_basel_aero_stat( TDateTime time_create, const std::vector<TBaselStat>
 
 void read_basel_aero_stat( const string &airp, ofstream &f )
 {
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("BASEL_STAT"), STDLOG);
   Qry.SQLText =
     "SELECT viewdate,viewflight,viewname,viewgroup,viewpct,viewweight,"
     "       viewcarryon,viewpayweight,viewtag,viewuncheckin,viewstatus,"
     "       viewcheckinno,viewstation,viewclienttype,viewcheckintime,"
     "       viewcheckinduration,viewboardingtime,viewdepartureplantime,"
     "       viewdeparturerealtime,viewbagnorms,viewpctweightpaidbytype,"
-    "       viewclass FROM basel_stat "
-    " WHERE airp=:airp ";
+    "       viewclass "
+    "FROM basel_stat "
+    "WHERE airp=:airp ";
   Qry.CreateVariable( "airp", otString, airp );
   Qry.Execute();
   int viewdate_idx = Qry.FieldIndex( "viewdate" );

@@ -140,20 +140,14 @@ void RunADStat(
         << QParam("FirstDate", otDate, params.FirstDate)
         << QParam("LastDate", otDate, params.LastDate);
 
-    string SQLText =
-        "select stat_ad.* from "
-        "   stat_ad, "
-        "   points "
-        "where "
-        "   stat_ad.point_id = points.point_id and "
-        "   points.pr_del >= 0 and ";
-    params.AccessClause(SQLText);
-    if(params.flt_no != NoExists) {
-        SQLText += " points.flt_no = :flt_no and ";
-        QryParams << QParam("flt_no", otInteger, params.flt_no);
-    }
-    SQLText += "   stat_ad.scd_out >= :FirstDate AND stat_ad.scd_out < :LastDate ";
-    TCachedQuery Qry(SQLText, QryParams);
+    DB::TCachedQuery Qry(
+          PgOra::getROSession("STAT_AD"),
+          "SELECT * FROM stat_ad "
+          "WHERE scd_out >= :FirstDate "
+          "AND scd_out < :LastDate ",
+          QryParams,
+          STDLOG);
+
     Qry.get().Execute();
     if(not Qry.get().Eof) {
         int col_part_key = Qry.get().GetFieldIndex("part_key");
@@ -170,6 +164,24 @@ void RunADStat(
         int col_desk = Qry.get().FieldIndex("desk");
         int col_station = Qry.get().FieldIndex("station");
         for(; not Qry.get().Eof; Qry.get().Next()) {
+            int point_id = Qry.get().FieldAsInteger(col_point_id);
+            TTripInfo flt;
+            flt.getByPointId(point_id);
+            if (flt.pr_del >= 0) {
+                continue;
+            }
+            if(not params.ap.empty() && flt.airp != params.ap) {
+                continue;
+            }
+
+            if(not params.ak.empty() && flt.airline != params.ak) {
+                continue;
+            }
+
+            if(params.flt_no != NoExists && flt.flt_no != params.flt_no) {
+                continue;
+            }
+
             TADStatRow row;
             if(col_part_key >= 0)
                 row.part_key = Qry.get().FieldAsDateTime(col_part_key);
@@ -178,7 +190,7 @@ void RunADStat(
             row.pax_id = Qry.get().FieldAsInteger(col_pax_id);
             row.pnr = Qry.get().FieldAsString(col_pnr);
             row.cls = Qry.get().FieldAsString(col_class);
-            row.client_type = DecodeClientType(Qry.get().FieldAsString(col_client_type));
+            row.client_type = DecodeClientType(Qry.get().FieldAsString(col_client_type).c_str());
             if(not Qry.get().FieldIsNULL(col_bag_amount))
                 row.bag_amount = Qry.get().FieldAsInteger(col_bag_amount);
             if(not Qry.get().FieldIsNULL(col_bag_weight))
@@ -440,7 +452,12 @@ void RunADFullFile(const TStatParams &params, TOrderStatWriter &writer)
 
 void get_stat_ad(int point_id)
 {
-    TCachedQuery delQry("delete from stat_ad where point_id = :point_id", QParams() << QParam("point_id", otInteger, point_id));
+    DB::TCachedQuery delQry(
+          PgOra::getRWSession("STAT_AD"),
+          "DELETE FROM stat_ad "
+          "WHERE point_id = :point_id",
+          QParams() << QParam("point_id", otInteger, point_id),
+          STDLOG);
     delQry.get().Execute();
 
     TCachedQuery Qry(
@@ -478,34 +495,37 @@ void get_stat_ad(int point_id)
         << QParam("seat_no_lat", otString)
         << QParam("desk", otString)
         << QParam("station", otString);
-    TCachedQuery insQry(
-            "insert into stat_ad ( "
-            "   scd_out, "
-            "   point_id, "
-            "   pax_id, "
-            "   pnr, "
-            "   class, "
-            "   client_type, "
-            "   bag_amount, "
-            "   bag_weight, "
-            "   seat_no, "
-            "   seat_no_lat, "
-            "   desk, "
-            "   station "
-            ") values ( "
-            "   :scd_out, "
-            "   :point_id, "
-            "   :pax_id, "
-            "   :pnr, "
-            "   :class, "
-            "   :client_type, "
-            "   :bag_amount, "
-            "   :bag_weight, "
-            "   :seat_no, "
-            "   :seat_no_lat, "
-            "   :desk, "
-            "   :station "
-            ") ", insQryParams);
+    DB::TCachedQuery insQry(
+          PgOra::getRWSession("STAT_AD"),
+          "INSERT INTO stat_ad ( "
+          "   scd_out, "
+          "   point_id, "
+          "   pax_id, "
+          "   pnr, "
+          "   class, "
+          "   client_type, "
+          "   bag_amount, "
+          "   bag_weight, "
+          "   seat_no, "
+          "   seat_no_lat, "
+          "   desk, "
+          "   station "
+          ") VALUES ( "
+          "   :scd_out, "
+          "   :point_id, "
+          "   :pax_id, "
+          "   :pnr, "
+          "   :class, "
+          "   :client_type, "
+          "   :bag_amount, "
+          "   :bag_weight, "
+          "   :seat_no, "
+          "   :seat_no_lat, "
+          "   :desk, "
+          "   :station "
+          ") ",
+          insQryParams,
+          STDLOG);
     Qry.get().Execute();
     for(; not Qry.get().Eof; Qry.get().Next()) {
         int pax_id = Qry.get().FieldAsInteger("pax_id");

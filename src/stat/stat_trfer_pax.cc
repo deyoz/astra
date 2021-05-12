@@ -343,47 +343,64 @@ void RunTrferPaxStat(
     QParams QryParams;
     QryParams
         << QParam("FirstDate", otDate, params.FirstDate)
-        << QParam("LastDate", otDate, params.LastDate)
-        << QParam("pr_lat", otInteger, TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU);
+        << QParam("LastDate", otDate, params.LastDate);
     TTrferPaxStatItem totals;
-    string SQLText =
-        "select "
-        "null part_key, "
-        "   trfer_pax_stat.*, "
-        "   pax.surname||' '||pax.name full_name, "
-        "   pax.pers_type, "
-        " ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:pr_lat) tags "
-        "from trfer_pax_stat, pax, points "
-        "where trfer_pax_stat.point_id = points.point_id and ";
-    params.AccessClause(SQLText);
-    SQLText +=
-        "   trfer_pax_stat.scd_out>=:FirstDate AND trfer_pax_stat.scd_out<:LastDate and "
-        "   trfer_pax_stat.pax_id = pax.pax_id ";
-    TCachedQuery Qry(SQLText, QryParams);
+
+    DB::TCachedQuery Qry(
+          PgOra::getROSession("TRFER_PAX_STAT"),
+          "SELECT * FROM trfer_pax_stat "
+          "WHERE scd_out >= :FirstDate "
+          "AND scd_out < :LastDate ",
+          QryParams,
+          STDLOG);
     Qry.get().Execute();
-    LogTrace(TRACE5) << __FUNCTION__ << "    " << SQLText;
     if(not Qry.get().Eof) {
-        int col_part_key = Qry.get().FieldIndex("part_key");
+        int col_point_id = Qry.get().FieldIndex("point_id");
         int col_pax_id = Qry.get().FieldIndex("pax_id");
         int col_rk_weight = Qry.get().FieldIndex("rk_weight");
         int col_bag_weight = Qry.get().FieldIndex("bag_weight");
         int col_bag_amount = Qry.get().FieldIndex("bag_amount");
         int col_segments = Qry.get().FieldIndex("segments");
-        int col_full_name = Qry.get().FieldIndex("full_name");
-        int col_pers_type = Qry.get().FieldIndex("pers_type");
-        int col_tags = Qry.get().FieldIndex("tags");
         for(; not Qry.get().Eof; Qry.get().Next()) {
+            int point_id = Qry.get().FieldAsInteger(col_point_id);
+            TTripInfo flt;
+            flt.getByPointId(point_id);
+            if (flt.pr_del >= 0) {
+                continue;
+            }
+            if(not params.ap.empty() && flt.airp != params.ap) {
+                continue;
+            }
+
+            if(not params.ak.empty() && flt.airline != params.ak) {
+                continue;
+            }
+
+            if(params.flt_no != NoExists && flt.flt_no != params.flt_no) {
+                continue;
+            }
             TDateTime part_key = NoExists;
-            if(not Qry.get().FieldIsNULL(col_part_key))
-                part_key = Qry.get().FieldAsDateTime(col_part_key);
             int pax_id = Qry.get().FieldAsInteger(col_pax_id);
             int rk_weight = Qry.get().FieldAsInteger(col_rk_weight);
             int bag_weight = Qry.get().FieldAsInteger(col_bag_weight);
             int bag_amount = Qry.get().FieldAsInteger(col_bag_amount);
             string segments = Qry.get().FieldAsString(col_segments);
-            string full_name = Qry.get().FieldAsString(col_full_name);
-            string pers_type = Qry.get().FieldAsString(col_pers_type);
-            string tags = Qry.get().FieldAsString(col_tags);
+            CheckIn::TSimplePaxItem pax;
+            if (!pax.getByPaxId(pax_id)) {
+                continue;
+            }
+            DB::TQuery QryBricks2(PgOra::getROSession("ORACLE"), STDLOG);
+            QryBricks2.SQLText =
+                "SELECT ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:pr_lat) tags "
+                "FROM pax "
+                "WHERE pax_id = :pax_id ";
+            QryBricks2.CreateVariable("pax_id", otInteger, pax_id);
+            QryBricks2.CreateVariable("pr_lat", otInteger, TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU);
+            QryBricks2.Execute();
+            if (QryBricks2.Eof) {
+              continue;
+            }
+            string tags = QryBricks2.FieldAsString("tags");
 
             list<pair<TTripInfo, string> > seg_list;
             getSegList(segments, seg_list);
@@ -406,7 +423,7 @@ void RunTrferPaxStat(
                     item.suffix2 = flt->first.suffix;
                     item.date2 = flt->first.scd_out;
                     item.airp_arv = flt->second;
-                    item.pax_name = transliter(full_name, 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
+                    item.pax_name = transliter(pax.full_name(), 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
 
                     item.pax_doc = CheckIn::GetPaxDocStr(part_key, pax_id, false);
                     typedef map<bool, TSegCategories::Enum> TSeg2Map;
@@ -461,9 +478,9 @@ void RunTrferPaxStat(
 
             if(tmp_stat.begin() != tmp_stat.end()) {
                 tmp_stat.begin()->pax_amount = 1;
-                tmp_stat.begin()->adult = pers_type == "‚‡";
-                tmp_stat.begin()->child = pers_type == "";
-                tmp_stat.begin()->baby = pers_type == "Œ";
+                tmp_stat.begin()->adult = pax.pers_type == adult;
+                tmp_stat.begin()->child = pax.pers_type == child;
+                tmp_stat.begin()->baby = pax.pers_type == baby;
                 tmp_stat.begin()->rk_weight = rk_weight;
                 tmp_stat.begin()->bag_amount = bag_amount;
                 tmp_stat.begin()->bag_weight = bag_weight;
@@ -682,40 +699,46 @@ string segListFromDB(int tckin_id)
 
 void get_trfer_pax_stat(int point_id)
 {
-    TCachedQuery delQry("delete from trfer_pax_stat where point_id = :point_id",
-            QParams() << QParam("point_id", otInteger, point_id));
+    DB::TCachedQuery delQry(
+          PgOra::getRWSession("TRFER_PAX_STAT"),
+          "DELETE FROM trfer_pax_stat "
+          "WHERE point_id = :point_id",
+          QParams() << QParam("point_id", otInteger, point_id),
+          STDLOG);
     delQry.get().Execute();
 
     TTripInfo info;
     info.getByPointId(point_id);
 
-    TCachedQuery insQry(
-            "insert into trfer_pax_stat( "
-            "   point_id, "
-            "   scd_out, "
-            "   pax_id, "
-            "   rk_weight, "
-            "   bag_weight, "
-            "   bag_amount, "
-            "   segments "
-            ") values( "
-            "   :point_id, "
-            "   :scd_out, "
-            "   :pax_id, "
-            "   :rk_weight, "
-            "   :bag_weight, "
-            "   :bag_amount, "
-            "   :segments "
-            ")",
-            QParams()
-            << QParam("point_id", otInteger, point_id)
-            << QParam("scd_out", otDate, info.scd_out)
-            << QParam("pax_id", otInteger)
-            << QParam("rk_weight", otInteger)
-            << QParam("bag_weight", otInteger)
-            << QParam("bag_amount", otInteger)
-            << QParam("segments", otString)
-            );
+    DB::TCachedQuery insQry(
+          PgOra::getRWSession("TRFER_PAX_STAT"),
+          "INSERT INTO trfer_pax_stat( "
+          "   point_id, "
+          "   scd_out, "
+          "   pax_id, "
+          "   rk_weight, "
+          "   bag_weight, "
+          "   bag_amount, "
+          "   segments "
+          ") VALUES( "
+          "   :point_id, "
+          "   :scd_out, "
+          "   :pax_id, "
+          "   :rk_weight, "
+          "   :bag_weight, "
+          "   :bag_amount, "
+          "   :segments "
+          ")",
+          QParams()
+          << QParam("point_id", otInteger, point_id)
+          << QParam("scd_out", otDate, info.scd_out)
+          << QParam("pax_id", otInteger)
+          << QParam("rk_weight", otInteger)
+          << QParam("bag_weight", otInteger)
+          << QParam("bag_amount", otInteger)
+          << QParam("segments", otString),
+          STDLOG
+          );
 
     TCachedQuery selQry(
             "select "
