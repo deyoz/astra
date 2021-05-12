@@ -1575,6 +1575,7 @@ struct TAPISFormat_EDI_SA : public TEdiAPISFormat
       add_rule(r_bagTagSerials);
       add_rule(r_setPaxReference);
       add_rule(r_processDocNumber);
+      add_rule(r_notOmitCrew);
       file_rule = r_file_rule_1;
     }
     long int required_fields(TPaxType pax, TAPIType api) const
