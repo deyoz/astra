@@ -1,0 +1,31 @@
+div.currentmasterreport table th, div.currentchildreport table th {
+    color: #2b7c92;
+    white-space: nowrap;
+    padding: 2px 8px;
+    background-color: #cfe0f1;
+    background-image: none;
+    color: #2b7c92;
+    font-size: 14px;
+    letter-spacing: 1px;
+    text-decoration: underline;
+}
+
+div.currentmasterreport table td, div.currentchildreport table td {
+    background: none;
+    border-top: 1px #fff solid;
+    border-bottom: 1px #ccc solid;
+    font-size: 11pt;
+    padding: 3px 9px;
+    background-color: #f2f2f5;
+    border-collapse: collapse;
+}
+
+div.currentmasterreport table td.currentcell, div.currentchildreport table td.currentcell {
+    background-color: rgb(214,214,214);
+}
+
+.dest_cell {
+    vertical-align: top;
+}
+
+fieldset { display: inline-block; }

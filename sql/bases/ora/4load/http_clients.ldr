@@ -1,0 +1,14 @@
+LOAD DATA
+INFILE *
+INTO TABLE http_clients
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+id
+,http_user
+,http_pswd
+,exchange_type
+)
+BEGINDATA
+"HTML"|"HTML"|"HTMLPWD"|"HTML"
