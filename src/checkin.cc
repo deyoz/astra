@@ -6371,7 +6371,7 @@ void fillPaxsBags(const TCheckedReqPassengers &req_grps, TExchange &exch, TCheck
       TAdvTripInfo operFlt;
       operFlt.getByGrpId(grpId.get());
 
-      TDateTime scd_in=TTripInfo::get_scd_in(grp.point_arv);
+      const auto times_in=TTripInfo::get_times_in(grp.point_arv);
 
       if (iGrpId==tckinGrpIds.begin())
         grp_cat=grp.grpCategory();
@@ -6445,7 +6445,7 @@ void fillPaxsBags(const TCheckedReqPassengers &req_grps, TExchange &exch, TCheck
             pair< SirenaExchange::TPaxSegMap::iterator, bool > res=
                 reqPax.segs.insert(make_pair(seg_no,SirenaExchange::TPaxSegItem()));
             SirenaExchange::TPaxSegItem &reqSeg=res.first->second;
-            reqSeg.set(seg_no, operFlt, grp.airp_arv, mktFlight, scd_in);
+            reqSeg.set(seg_no, operFlt, grp.airp_arv, mktFlight, times_in);
             reqSeg.subcl=pax.getCabinSubclass(); //здесь хотели передать подкласс, который был изначально в билете (до изменения класса), но Сирена сказала передавать подкласс после изменения
             reqSeg.setTicket(pax.tkn, paxSection);
             CheckIn::LoadPaxFQT(pax.id, reqSeg.fqts);
@@ -7742,18 +7742,17 @@ void CheckInInterface::GetTCkinFlights(const TTripInfo &operFlt,
 
       if (!is_edi)
       {
-        TSearchFltInfo filter;
-        filter.airline=t->second.operFlt.airline;
-        filter.flt_no=t->second.operFlt.flt_no;
-        filter.suffix=t->second.operFlt.suffix;
-        filter.airp_dep=t->second.operFlt.airp;
-        filter.scd_out=t->second.operFlt.scd_out;
-        filter.scd_out_in_utc=false;
-        filter.flightProps = FlightProps(FlightProps::WithCancelled, FlightProps::WithCheckIn);
+        FltOperFilter filter(AirlineCode_t(t->second.operFlt.airline),
+                             FlightNumber_t(t->second.operFlt.flt_no),
+                             FlightSuffix_t(t->second.operFlt.suffix),
+                             AirportCode_t(t->second.operFlt.airp),
+                             t->second.operFlt.scd_out,
+                             FltOperFilter::DateType::Local,
+                             {},
+                             FlightProps(FlightProps::WithCancelled, FlightProps::WithCheckIn));
 
         //ищем рейс в СПП
-        list<TAdvTripInfo> flts;
-        SearchFlt(filter, flts);
+        list<TAdvTripInfo> flts=filter.search();
 
         for(list<TAdvTripInfo>::const_iterator f=flts.begin(); f!=flts.end(); ++f)
         {
@@ -8510,20 +8509,22 @@ void CheckInInterface::ParseScanDocData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr flightNode = NodeAsNode("FLIGHT", reqNode);
-    TSearchFltInfo filter;
-    filter.airline = airl_fromXML(NodeAsNode("AIRLINE", flightNode), cfErrorIfEmpty, __FUNCTION__, "MERIDIAN");
-    filter.flt_no = flt_no_fromXML(NodeAsString("FLT_NO", flightNode), cfErrorIfEmpty);
-    filter.suffix = suffix_fromXML(NodeAsString("SUFFIX", flightNode,""));
-    filter.airp_dep = airp_fromXML(NodeAsNode("AIRP_DEP", flightNode), cfErrorIfEmpty, __FUNCTION__, "MERIDIAN");
-    filter.scd_out = scd_out_fromXML(NodeAsString("SCD", flightNode), "dd.mm.yyyy");
-    filter.scd_out_in_utc = false;
-    filter.flightProps = FlightProps(FlightProps::WithCancelled, FlightProps::WithCheckIn);
 
-    TDateTime checkDate = UTCToLocal(NowUTC(), AirpTZRegion(filter.airp_dep)); // for HTTP
+    AirportCode_t airpDep(airp_fromXML(NodeAsNode("AIRP_DEP", flightNode), cfErrorIfEmpty, __FUNCTION__, "MERIDIAN"));
+
+    FltOperFilter filter(AirlineCode_t(airl_fromXML(NodeAsNode("AIRLINE", flightNode), cfErrorIfEmpty, __FUNCTION__, "MERIDIAN")),
+                         FlightNumber_t(flt_no_fromXML(NodeAsString("FLT_NO", flightNode), cfErrorIfEmpty)),
+                         FlightSuffix_t(suffix_fromXML(NodeAsString("SUFFIX", flightNode,""))),
+                         airpDep,
+                         scd_out_fromXML(NodeAsString("SCD", flightNode), "dd.mm.yyyy"),
+                         FltOperFilter::DateType::Local,
+                         {},
+                         FlightProps(FlightProps::WithCancelled, FlightProps::WithCheckIn));
+
+    TDateTime checkDate = UTCToLocal(NowUTC(), AirpTZRegion(airpDep.get())); // for HTTP
 
     //ищем рейс в СПП
-    list<TAdvTripInfo> flts;
-    SearchFlt(filter, flts);
+    list<TAdvTripInfo> flts=filter.search();
     if (flts.size() == 0) {
         throw AstraLocale::UserException("MSG.FLIGHTS_NOT_FOUND");
     }
