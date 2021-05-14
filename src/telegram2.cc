@@ -6117,7 +6117,7 @@ struct TMVTABody {
 struct TMVTBBody {
     TDateTime act;
     void get(TypeB::TDetailCreateInfo &info);
-    void ToTlg(bool &vcompleted, vector<string> &body);
+    void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
     TMVTBBody(): act(NoExists) {};
 };
 
@@ -6139,8 +6139,9 @@ void TMVTBBody::get(TypeB::TDetailCreateInfo &info)
 
 }
 
-void TMVTBBody::ToTlg(bool &vcompleted, vector<string> &body)
+void TMVTBBody::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 {
+    const TypeB::TMVTOptions &options = *info.optionsAs<TypeB::TMVTOptions>();
     ostringstream buf;
     if(act != NoExists) {
         TDateTime on_block = act + 5./1440;
@@ -6148,7 +6149,9 @@ void TMVTBBody::ToTlg(bool &vcompleted, vector<string> &body)
         string fmt;
         DecodeDate(act, year, month, day1);
         DecodeDate(on_block, year, month, day2);
-        if(day1 != day2)
+        if(options.version == "AHM_41ed")
+            fmt = "ddhhnn"; // 41 ed всегда с датой
+        else if(day1 != day2)
             fmt = "ddhhnn";
         else
             fmt = "hhnn";
@@ -6158,7 +6161,7 @@ void TMVTBBody::ToTlg(bool &vcompleted, vector<string> &body)
             << "/"
             << DateTimeToStr(on_block, fmt);
     } else {
-        vcompleted = false;
+        info.vcompleted = false;
         buf << "AA\?\?\?\?/\?\?\?\?";
     }
     body.push_back(buf.str());
@@ -6174,9 +6177,11 @@ bool CheckTimeToken(TDateTime scd_utc, TDateTime val, const string &token)
 
 void TMVTABody::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 {
+    const TypeB::TMVTOptions &options = *info.optionsAs<TypeB::TMVTOptions>();
     ostringstream buf;
+    int year, month, utc_day;
     if(act != NoExists) {
-        int year, month, act_day, ad_day, utc_day;
+        int act_day, ad_day;
         DecodeDate(act, year, month, act_day);
         DecodeDate(AD, year, month, ad_day);
         DecodeDate(info.scd_utc, year, month, utc_day);
@@ -6190,11 +6195,18 @@ void TMVTABody::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
         if(not CheckTimeToken(info.scd_utc, act, str_act))
             throw Exception("cannot set airborne time for %s", DateTimeToStr(act).c_str());
 
-        buf
-            << "AD"
-            << DateTimeToStr(AD, get_fmt(ad_day, utc_day))
-            << "/"
-            << DateTimeToStr(act, get_fmt(act_day, utc_day));
+        if(options.version == "AHM_41ed")
+            buf
+                << "AD"
+                << DateTimeToStr(AD, "ddhhnn")
+                << "/"
+                << DateTimeToStr(act, "ddhhnn");
+        else
+            buf
+                << "AD"
+                << DateTimeToStr(AD, get_fmt(ad_day, utc_day))
+                << "/"
+                << DateTimeToStr(act, get_fmt(act_day, utc_day));
     } else {
         info.vcompleted = false;
         buf << "AD\?\?\?\?/\?\?\?\?";
@@ -6205,8 +6217,14 @@ void TMVTABody::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
             if(i->est_in == NoExists) {
                 info.vcompleted = false;
                 buf << "????";
-            } else
-                buf << DateTimeToStr(i->est_in, "hhnn");
+            } else {
+                if(options.version == "AHM_41ed") {
+                    int ea_day;
+                    DecodeDate(i->est_in, year, month, ea_day);
+                    buf << DateTimeToStr(i->est_in, "ddhhnn");
+                } else
+                    buf << DateTimeToStr(i->est_in, "hhnn");
+            }
             buf << " " << info.TlgElemIdToElem(etAirp, i->target);
             body.push_back(buf.str());
             delays.ToTlg(info, body, false);
@@ -6345,7 +6363,7 @@ int MVT(TypeB::TDetailCreateInfo &info)
         if(info.get_tlg_type() == "MVTB") {
             TMVTBBody MVTBBody;
             MVTBBody.get(info);
-            MVTBBody.ToTlg(info.vcompleted, body);
+            MVTBBody.ToTlg(info, body);
         }
         if(info.get_tlg_type() == "MVTC") {
             TMVTCBody MVTCBody;
