@@ -56,6 +56,7 @@ void setPerespros(bool val);
 
 std::string signal_matches_config_for_perespros(const std::string& s);
 void setSavedSignal(const std::string& sigtext_);
+void http_main_for_test(std::string const &in, std::string &out);
 
 #endif // XP_TESTING
 

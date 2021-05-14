@@ -18,6 +18,7 @@
 #include "jxtlib/xml_stuff.h"
 #include "serverlib/logger.h"
 
+#include "arx_daily_pg.h"
 #define NICKNAME "DJEK"
 #define NICKTRACE DJEK_TRACE
 #include "serverlib/test.h"
@@ -129,6 +130,11 @@ void sych_basel_aero_stat( TDateTime utcdate )
 
   std::vector<TBaselStat> stats;
   TBaselAeroAirps *airps = TBaselAeroAirps::Instance();
+  if(!airps->size()) {
+      LogTrace5 << " empty aero airps";
+      return;
+  }
+  LogTrace5 << " basel airps size: " << airps->size();
   for ( map<string,string>::iterator iairp=airps->begin(); iairp!=airps->end(); iairp++ ) {
     ReWriteQry.SetVariable( "airp", iairp->first );
     ReWriteQry.Execute();
@@ -389,8 +395,253 @@ void read_basel_aero_stat( const string &airp, ofstream &f )
   }
 }
 
+CheckIn::TBagItem fromDBO(const dbo::ARX_BAG2 & bag)
+{
+    CheckIn::TBagItem bagItem;
+    if (dbo::isNotNull(bag.rfisc))
+    {
+        TRFISCKey tkey{};
+        tkey.RFISC = bag.rfisc;
+        tkey.service_type = ServiceTypes().decode(bag.service_type);
+        tkey.airline = bag.airline;
+        if (dbo::isNotNull(bag.list_id)) tkey.list_id = bag.list_id;
+        tkey.getListItem();
+        bagItem.pc = tkey;
+    }
+    else
+    {
+        TBagTypeKey bkey;
+        if(dbo::isNotNull(bag.bag_type_str)) {
+            bkey.bag_type = bag.bag_type_str;
+        } else if (dbo::isNotNull(bag.bag_type)) {
+          ostringstream s;
+          s << setw(2) << setfill('0') << bag.bag_type;
+          bkey.bag_type = s.str();
+        }
+
+        bkey.airline = bag.airline;
+        if (dbo::isNotNull(bag.list_id))
+          bkey.list_id = bag.list_id;
+
+      bkey.getListItem();
+      bagItem.wt = bkey;
+    }
+    bagItem.amount = bag.amount;
+    bagItem.weight = bag.weight;
+
+    bagItem.id = bag.id;
+    bagItem.num = bag.num;
+    bagItem.pr_cabin = bag.pr_cabin!=0;
+    if (dbo::isNotNull(bag.value_bag_num)) {
+        bagItem.value_bag_num = bag.value_bag_num;
+    }
+    bagItem.pr_liab_limit = bag.pr_liab_limit != 0;
+    bagItem.to_ramp = bag.to_ramp != 0;
+    bagItem.using_scales = bag.using_scales != 0;
+    bagItem.bag_pool_num = bag.bag_pool_num;
+    if (dbo::isNotNull(bag.hall)) {
+        bagItem.hall = bag.hall;
+    }
+    if (dbo::isNotNull(bag.user_id)) {
+        bagItem.user_id = bag.user_id;
+    }
+    bagItem.desk = bag.desk;
+    if (dbo::isNotNull(bag.time_create)) {
+        bagItem.time_create = BoostToDateTime(bag.time_create);
+    }
+    bagItem.is_trfer = bag.is_trfer != 0;
+    bagItem.handmade = bag.handmade != 0;
+    return bagItem;
+};
+
+std::string baselStatPaidInfo(const TBaselStat & stat, TDateTime part_key, int point_id, int grp_id,
+                              bool piece_concept)
+{
+    LogTrace5 << " part_key: " << DateTimeToBoost(part_key) << " point_id: " << point_id;
+    TPaidToLogInfo paidInfo;
+    dbo::Session session;
+    std::vector<dbo::ARX_BAG2> arx_bags = session.query<dbo::ARX_BAG2>()
+            .from("ARX_PAX_GRP, ARX_BAG2")
+            .where("arx_pax_grp.part_key=arx_bag2.part_key AND "
+                   "      arx_pax_grp.grp_id=arx_bag2.grp_id AND "
+                   "      arx_pax_grp.part_key=:part_key AND "
+                   "      arx_pax_grp.point_dep=:point_id AND "
+                   "      arx_pax_grp.grp_id=:grp_id ")
+            .setBind({{":part_key", DateTimeToBoost(part_key)}, {":grp_id",stat.viewGroup}, {":point_id", point_id}});
+    std::string gclass;
+    int gbag_refuse;
+    auto cur = make_db_curs("select CLASS, BAG_REFUSE from ARX_PAX_GRP "
+                               "where PART_KEY=:part_key AND POINT_DEP=:point_id AND "
+                               " GRP_ID=:grp_id",
+                               PgOra::getROSession("ARX_PAX_GRP"));
+    cur.stb()
+       .def(gclass).def(gbag_refuse)
+       .bind(":part_key", DateTimeToBoost(part_key)).bind(":point_id", point_id).bind(":grp_id",grp_id)
+       .EXfet();
+    std::vector<dbo::ARX_BAG2> ref_bags = algo::filter(arx_bags, [&](const auto & bag)
+    {return PG_ARX::bag_pool_refused(bag.part_key, bag.grp_id, bag.bag_pool_num, gclass, gbag_refuse) == 0;});
+
+    ostringstream str;
+    if(!ref_bags.empty()) {
+        for(const auto & bag : ref_bags) {
+            paidInfo.add(fromDBO(bag));
+        }
+
+        if (!piece_concept)
+        {
+          WeightConcept::TPaidBagList paid;
+          WeightConcept::PaidBagFromDB(part_key, stat.viewGroup, paid);
+          for(const auto p : paid) {
+            paidInfo.add(p);
+          }
+        }
+        for(const auto & [key, item] : paidInfo.bag) {
+            if(item.empty())                continue;
+            if (!str.str().empty())         str << ", ";
+            if (!key.bag_type_view.empty()) str << key.bag_type_view << ":";
+            if (key.is_trfer)               str << "T:";
+            str << item.amount << "/" << item.weight << "/" << item.paid;
+        }
+    }
+    return str.str();
+}
+
+
+void get_basel_aero_arx_flight_stat(TDateTime part_key, int point_id, std::vector<TBaselStat> &stats )
+{
+    LogTrace5 << " part_key: " << DateTimeToBoost(part_key) << " point_id: " << point_id;
+    stats.clear();
+    TTripInfo operFlt;
+    if (!operFlt.getByPointId(part_key, point_id, FlightProps(FlightProps::NotCancelled,
+                                                  FlightProps::WithCheckIn))) return;
+    TRegEvents events;
+    events.fromDB(part_key, point_id);
+
+    int grp_id = 0;
+    std::string grp_class;
+    int piece_concept = 0;
+    int pax_id = NoExists;
+    std::string surname;
+    std::string name;
+    std::string refuse;
+    int pr_brd;
+    int reg_no;
+    int excess_pc;
+    int bag_pool_num;
+    int excess_wt;
+    int excess;
+    int bag_refuse;
+
+    auto cur  = make_db_curs(
+"SELECT arx_pax_grp.grp_id, arx_pax_grp.class, COALESCE(arx_pax_grp.piece_concept, 0) AS piece_concept, "
+"       arx_pax.pax_id, arx_pax.surname, arx_pax.name, "
+"       arx_pax.refuse, arx_pax.pr_brd, arx_pax.reg_no, "
+"       arx_pax.excess_pc, arx_pax.bag_pool_num, arx_pax_grp.excess_wt, arx_pax_grp.excess, arx_pax_grp.bag_refuse "
+"FROM arx_pax_grp  "
+"LEFT OUTER JOIN arx_pax  ON arx_pax_grp.part_key = arx_pax.part_key AND "
+"                            arx_pax_grp.grp_id   = arx_pax.grp_id "
+"WHERE "
+"      arx_pax_grp.part_key  =:part_key AND "
+"      arx_pax_grp.point_dep =:point_id AND "
+"      arx_pax_grp.status NOT IN ('E') "
+"ORDER BY arx_pax.reg_no NULLS LAST, arx_pax.seats DESC NULLS LAST",
+                PgOra::getROSession("ARX_PAX_GRP"));
+    cur.stb()
+       .def(grp_id)
+       .defNull(grp_class, "")
+       .defNull(piece_concept, ASTRA::NoExists)
+       .defNull(pax_id, ASTRA::NoExists)
+       .def(surname)
+       .defNull(name, "")
+       .defNull(refuse,"")
+       .defNull(pr_brd, ASTRA::NoExists)
+       .def(reg_no)
+       .defNull(excess_pc, 0)
+       .defNull(bag_pool_num, ASTRA::NoExists)
+       .defNull(excess_wt, ASTRA::NoExists)
+       .defNull(excess, ASTRA::NoExists)
+       .def(bag_refuse)
+       .bind(":part_key", DateTimeToBoost(part_key))
+       .bind(":point_id", point_id)
+       .exec();
+    while(!cur.fen()) {
+        PG_ARX::TBagInfo bag_info = PG_ARX::get_bagInfo2(DateTimeToBoost(part_key), grp_id, pax_id, bag_pool_num);
+        int arch_excess_wt = PG_ARX::get_excess_wt(DateTimeToBoost(part_key), grp_id, pax_id, excess_wt, excess, bag_refuse).value_or(0);
+        std::string tags  = PG_ARX::get_birks2(DateTimeToBoost(part_key), grp_id, pax_id, bag_pool_num,"RU").value_or("");
+        TBaselStat stat;
+        stat.point_id = point_id;
+        stat.airp = operFlt.airp;
+        stat.viewGroup = grp_id;
+        stat.pax_id = pax_id;
+        stat.viewDate = operFlt.scd_out;
+        stat.viewFlight = operFlt.airline;
+        string tmp = std::to_string(operFlt.flt_no);
+        while ( tmp.size() < 3 ) tmp = "0" + tmp;
+        stat.viewFlight += tmp + operFlt.suffix;
+        if (stat.pax_id!=NoExists)
+          stat.viewName = surname + '/' + name;
+        else
+          stat.viewName = "€ƒ€† …‡ ‘ŽŽ‚Ž†„…ˆŸ";
+        stat.viewName = stat.viewName.substr(0,130);
+        stat.viewPCT = bag_info.bagAmount;
+        stat.viewWeight = bag_info.bagWeight;
+        stat.viewCarryon = bag_info.rkWeight;
+        stat.viewPayWeight = TComplexBagExcess(TBagPieces(excess_pc),TBagKilos(arch_excess_wt)).getDeprecatedInt();
+        stat.viewTag = tags.substr(0,100);
+        pair<TDateTime, TDateTime> times(NoExists, NoExists);
+        WeightConcept::TPaxNormComplexContainer norms;
+        if (stat.pax_id != NoExists)
+        {
+          stat.viewUncheckin = ElemIdToNameLong(etRefusalType, refuse).substr(0,50);
+          stat.viewStatus = std::string(refuse.empty() ? (pr_brd==0?"§ à¥£¨áâà¨à®¢ ­":"¯à®è¥« ¯®á ¤ªã")
+                                                       : "à §à¥£¨áâà¨à®¢ ­").substr(0,30);
+          stat.viewCheckinNo = reg_no;
+          if (const auto it=events.find(make_pair(stat.viewGroup,stat.viewCheckinNo)); it!=events.end()) {
+              times=it->second;
+          }
+          if (!refuse.empty() || pr_brd==0) times.second=NoExists;
+          if (!piece_concept) {
+            WeightConcept::PaxNormsFromDB(part_key, stat.pax_id, norms);
+          }
+        }
+        else
+        {
+          stat.viewCheckinNo = NoExists;
+          if (const auto it=events.find(make_pair(stat.viewGroup,NoExists)); it!=events.end()) {
+              times=it->second;
+          }
+          if (!piece_concept) {
+            WeightConcept::GrpNormsFromDB(part_key, stat.viewGroup, norms);
+          }
+        }
+        stat.viewCheckinTime = times.first;
+        stat.viewChekinDuration = NoExists;
+        stat.viewBoardingTime = times.second;
+        stat.viewDeparturePlanTime = operFlt.scd_out;
+        stat.viewDepartureRealTime = operFlt.act_out?operFlt.act_out.get():NoExists;
+
+        if (!piece_concept)
+        {
+          for(const WeightConcept::TPaxNormComplex& n : norms)
+          {
+            if (n.normNotExists()) continue;
+            if (!stat.viewBagNorms.empty()) stat.viewBagNorms += ", ";
+            if (!n.bag_type.empty()) stat.viewBagNorms += n.bag_type + ": ";
+            stat.viewBagNorms += n.normStr(AstraLocale::LANG_RU);
+          }
+        }
+        stat.viewPCTWeightPaidByType = baselStatPaidInfo(stat, part_key, point_id, grp_id, piece_concept);
+        stat.viewClass = ElemIdToNameLong(etClass, grp_class);
+        stats.push_back(stat);
+    }
+}
+
 void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TBaselStat> &stats )
 {
+    if (part_key!=NoExists)
+    {
+        return get_basel_aero_arx_flight_stat(part_key, point_id, stats);
+    }
   stats.clear();
 
   TTripInfo operFlt;
@@ -399,25 +650,11 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
 
   TRegEvents events;
   events.fromDB(part_key, point_id);
-
   string bag_sql;
   string bag_pc_sql;
   TQuery BagQry(&OraSession);
   TQuery TimeQry(&OraSession);
-  if (part_key!=NoExists)
-  {
-    bag_sql=
-      "SELECT arx_bag2.* "
-      "FROM arx_pax_grp,arx_bag2 "
-      "WHERE arx_pax_grp.part_key=arx_bag2.part_key AND "
-      "      arx_pax_grp.grp_id=arx_bag2.grp_id AND "
-      "      arx_pax_grp.part_key=:part_key AND "
-      "      arx_pax_grp.point_dep=:point_id AND "
-      "      arx_pax_grp.grp_id=:grp_id AND "
-      "      arch.bag_pool_refused(arx_bag2.part_key,arx_bag2.grp_id,arx_bag2.bag_pool_num,arx_pax_grp.class,arx_pax_grp.bag_refuse)=0";
-  }
-  else
-  {
+
     bag_sql=
       "SELECT bag2.* "
       "FROM pax_grp,bag2 "
@@ -439,7 +676,6 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
     TimeQry.DeclareVariable( "pax_id", otInteger );
     TimeQry.DeclareVariable( "reg_no", otInteger );
     TimeQry.CreateVariable( "work_mode", otString, "" );
-  };
 
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -448,42 +684,20 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
     "SELECT pax_grp.grp_id, pax_grp.class, NVL(pax_grp.piece_concept, 0) AS piece_concept, "
     "       pax.pax_id, pax.surname, pax.name, "
     "       pax.refuse, pax.pr_brd, pax.reg_no, "
-    "         ";
-  if (part_key!=NoExists)
-  {
-    sql <<
-      "arch.get_bagAmount2(pax_grp.part_key,pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, "
-      "arch.get_bagWeight2(pax_grp.part_key,pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight, "
-      "arch.get_rkWeight2(pax_grp.part_key,pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS rk_weight, "
-      "arch.get_excess_wt(pax.part_key, pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.excess, pax_grp.bag_refuse) AS excess_wt, "
-      "pax.excess_pc, "
-      "arch.get_birks2(pax_grp.part_key,pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,'RU') AS tags, "
-      "arch.get_main_pax_id2(pax_grp.part_key,pax_grp.grp_id) AS main_pax_id "
-      "FROM arx_pax_grp pax_grp, arx_pax pax "
-      "WHERE pax_grp.part_key=pax.part_key(+) AND "
-      "      pax_grp.grp_id=pax.grp_id(+) AND "
-      "      pax_grp.part_key=:part_key AND "
-      "      pax_grp.point_dep=:point_id AND "
-      "      pax_grp.status NOT IN ('E') "
-      "ORDER BY pax.reg_no NULLS LAST, pax.seats DESC NULLS LAST";
-      Qry.CreateVariable("part_key", otDate, part_key);
-  }
-  else
-  {
-    sql <<
-      "ckin.get_bagAmount2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, "
-      "ckin.get_bagWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight, "
-      "ckin.get_rkWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS rk_weight, "
-      "ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
-      "ckin.get_excess_pc(pax.grp_id, pax.pax_id) AS excess_pc, "
-      "ckin.get_birks2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,'RU') AS tags, "
-      "ckin.get_main_pax_id2(pax_grp.grp_id) AS main_pax_id "
-      "FROM pax_grp, pax "
-      "WHERE pax_grp.grp_id=pax.grp_id(+) AND "
-      "      pax_grp.point_dep=:point_id AND "
-      "      pax_grp.status NOT IN ('E') "
-      "ORDER BY pax.reg_no NULLS LAST, pax.seats DESC NULLS LAST";
-  };
+    "         "
+    "ckin.get_bagAmount2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, "
+    "ckin.get_bagWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight, "
+    "ckin.get_rkWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS rk_weight, "
+    "ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
+    "ckin.get_excess_pc(pax.grp_id, pax.pax_id) AS excess_pc, "
+    "ckin.get_birks2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,'RU') AS tags, "
+    "ckin.get_main_pax_id2(pax_grp.grp_id) AS main_pax_id "
+    "FROM pax_grp, pax "
+    "WHERE pax_grp.grp_id=pax.grp_id(+) AND "
+    "      pax_grp.point_dep=:point_id AND "
+    "      pax_grp.status NOT IN ('E') "
+    "ORDER BY pax.reg_no NULLS LAST, pax.seats DESC NULLS LAST";
+
   Qry.SQLText=sql.str().c_str();
   Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.Execute();
@@ -557,11 +771,6 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
     TPaidToLogInfo paidInfo;
     BagQry.Clear();
     BagQry.CreateVariable("grp_id", otInteger, stat.viewGroup);
-    if (part_key!=NoExists)
-    {
-      BagQry.CreateVariable("part_key", otDate, part_key);
-      BagQry.CreateVariable("point_id", otInteger, point_id);
-    };
     if (piece_concept && stat.pax_id!=NoExists)
     {
       BagQry.SQLText=bag_pc_sql;
@@ -569,7 +778,7 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
     }
     else if (stat.pax_id==NoExists || stat.pax_id==main_pax_id)
     {
-      BagQry.SQLText=bag_sql;
+      BagQry.SQLText = bag_sql;
     };
     if (!BagQry.SQLText.IsEmpty())
     {
@@ -591,8 +800,6 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
         }
         else
         {
-          if (part_key==NoExists)
-          {
             TPaidRFISCListWithAuto paid;
             paid.fromDB(stat.pax_id==NoExists?stat.viewGroup:stat.pax_id, stat.pax_id==NoExists);
             for(TPaidRFISCListWithAuto::const_iterator p=paid.begin(); p!=paid.end(); ++p)
@@ -600,7 +807,6 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
               if (p->second.trfer_num!=0) continue;
               paidInfo.add(p->second);
             };
-          };
         };
         ostringstream str;
         for(map<TEventsSumBagKey, TEventsSumBagItem>::const_iterator b=paidInfo.bag.begin(); b!=paidInfo.bag.end(); ++b)
@@ -619,7 +825,7 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
     };
 
     stat.viewClass = ElemIdToNameLong(etClass, Qry.FieldAsString("class"));
-    if ( part_key==NoExists && stat.pax_id!=NoExists ) {
+    if ( stat.pax_id!=NoExists ) {
       TimeQry.SetVariable( "pax_id", stat.pax_id );
       TimeQry.SetVariable( "reg_no", stat.viewCheckinNo );
       TimeQry.Execute();
@@ -632,6 +838,33 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
     stats.push_back( stat );
   };
 };
+
+int arx_basel_stat(int argc, char **argv)
+{
+    TDateTime part_key=ASTRA::NoExists;
+    int point_id=ASTRA::NoExists;
+    if(argc >=3) {
+        std::string date_time = std::string(argv[1]) +" "+ std::string(argv[2]);
+        if(StrToDateTime(date_time.c_str(), "dd.mm.yyyy hh:nn:ss", part_key) == EOF) {
+            cout << "wrong part_key: " << date_time << endl;
+            return 1;
+        }
+        if(StrToInt(argv[3], point_id ) == EOF) {
+            cout << "wrong integer point_id: " << argv[3] << endl;
+            return 1;
+        }
+    } else {
+        if(StrToInt(argv[1], point_id ) == EOF) {
+            cout << "wrong integer point_id: " << argv[1] << endl;
+            return 1;
+        }
+    }
+    std::vector<TBaselStat> stats;
+    get_basel_aero_flight_stat(part_key, point_id, stats);
+    write_basel_aero_stat( NowUTC(), stats);
+
+    return 0;
+}
 
 int basel_stat(int argc,char **argv)
 {

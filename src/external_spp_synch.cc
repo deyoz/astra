@@ -1083,22 +1083,20 @@ class ConnectSinchronAstraCharterFlight
 public:
    void search( int range_hours, const TAdvTripInfo &flt, TAdvTripInfo &idealFlt ) {
      idealFlt.Clear();
-     TSearchFltInfo filter;
-     filter.airline = flt.airline;
-     filter.airp_dep = flt.airp;
-     filter.flt_no = flt.flt_no;
-     filter.suffix = flt.suffix;
-     filter.dep_date_flags.setFlag(ddtEST);
-     filter.scd_out_in_utc = true;
-     filter.flightProps = FlightProps(FlightProps::WithCancelled, FlightProps::WithCheckIn);
      double f, l;
      modf( flt.scd_out - range_hours/24.0, &f );
      modf( flt.scd_out + range_hours/24.0, &l );
-     list<TAdvTripInfo> flts;
      for ( int d=(int)f; d<=l; d++ ) {
-       filter.scd_out = d;
-       flts.clear();
-       SearchFlt( filter, flts ); //utc за сутки т.к. нет времени, а только дата
+       FltOperFilter filter(AirlineCode_t(flt.airline),
+                            FlightNumber_t(flt.flt_no),
+                            FlightSuffix_t(flt.suffix),
+                            AirportCode_t(flt.airp),
+                            d,
+                            FltOperFilter::DateType::UTC,
+                            {FltOperFilter::DateFlag::Est},
+                            {FlightProps::WithCancelled, FlightProps::WithCheckIn});
+
+       list<TAdvTripInfo> flts=filter.search(); //utc за сутки т.к. нет времени, а только дата
        for ( list<TAdvTripInfo>::iterator iflt=flts.begin(); iflt!=flts.end(); iflt++ ) {
          TPointsDest dest;
          BitSet<TUseDestData> UseData;

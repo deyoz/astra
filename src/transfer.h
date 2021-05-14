@@ -92,7 +92,7 @@ void PaxTransferFromDB(int pax_id, std::list<TPaxTransferItem> &trfer);
 void PaxTransferToXML(const std::list<TPaxTransferItem> &trfer, xmlNodePtr paxNode);
 void PaxTransferToDB(int pax_id, int pax_no, const CheckIn::TTransferList &trfer, int seg_no);
 
-TSearchFltInfo createSearchFlt(const CheckIn::TTransferItem &item);
+FltOperFilter createFltOperFilter(const CheckIn::TTransferItem &item);
 
 }; //namespace CheckIn
 
@@ -400,6 +400,8 @@ void TrferConfirmFromXML(xmlNodePtr trferNode,
 bool trferInExists(int point_arv, int prior_point_arv, TQuery& Qry);
 bool trferOutExists(int point_dep, TQuery& Qry);
 bool trferCkinExists(int point_dep, TQuery& Qry);
+
+void deleteTransferData(const PointIdTlg_t& point_id);
 
 }; //namespace TrferList
 

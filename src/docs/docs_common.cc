@@ -172,44 +172,20 @@ string TRptParams::ElemIdToReportElem(TElemType type, int id, TElemFmt fmt, stri
   return ElemIdToPrefferedElem(type, id, fmt, lang, true);
 };
 
-void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode, TDateTime part_key)
+void ArxPaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode, TDateTime part_key)
 {
-    TQuery Qry(&OraSession);
-    string SQLText =
-        "select "
-        "   airp, "
-        "   airline, "
-        "   flt_no, "
-        "   suffix, "
-        "   craft, "
-        "   bort, "
-        "   park_out park, "
-        "   act_out, "
-        "   scd_out "
-        "from ";
-    if(part_key == NoExists)
-        SQLText +=
-            "   points "
-            "where "
-            "   point_id = :point_id AND pr_del>=0 ";
-    else {
-        SQLText +=
-            "   arx_points "
-            "where "
-            "   part_key = :part_key and "
-            "   point_id = :point_id AND pr_del>=0 ";
-        Qry.CreateVariable("part_key", otDate, part_key);
+    LogTrace(TRACE5) << __FUNCTION__ << " point_id: " << point_id << " part_key: " << part_key;
+    std::optional<dbo::Arx_Points> arx_points = dbo::Session().query<dbo::Arx_Points>()
+            .where(" part_key = :part_key AND point_id = :point_id AND pr_del>=0")
+            .setBind({{":part_key", DateTimeToBoost(part_key)}, {":point_id", point_id}});
+
+    if(!arx_points) {
+        throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
     }
-    Qry.SQLText = SQLText;
-    Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.Execute();
-    if(Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
 
-    string airp = Qry.FieldAsString("airp");
-    string airline = Qry.FieldAsString("airline");
-    string craft = Qry.FieldAsString("craft");
-    string tz_region = AirpTZRegion(Qry.FieldAsString("airp"));
-
+    std::string airp = arx_points->airp;
+    string tz_region = AirpTZRegion(airp);
+    string airline = arx_points->airline;
     string airline_name;
     if(airline.size()) {
         // сначала airline_name, потом airline
@@ -221,16 +197,19 @@ void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
     ostringstream trip;
     trip
         << airline
-        << setw(3) << setfill('0') << Qry.FieldAsInteger("flt_no")
-        << rpt_params.ElemIdToReportElem(etSuffix, Qry.FieldAsString("suffix"), efmtCodeNative);
+        << setw(3) << setfill('0') << arx_points->flt_no
+        << rpt_params.ElemIdToReportElem(etSuffix, arx_points->suffix, efmtCodeNative);
 
     NewTextChild(variablesNode, "trip", trip.str());
     TDateTime scd_out, real_out;
     scd_out= UTCToClient(getReportSCDOut(point_id),tz_region);
-    if(Qry.FieldIsNULL("act_out"))
+    if(dbo::isNull(arx_points->act_out))
+    {
         real_out = scd_out;
-    else
-        real_out= UTCToClient(Qry.FieldAsDateTime("act_out"),tz_region);
+    }
+    else {
+        real_out= UTCToClient(BoostToDateTime(arx_points->act_out), tz_region);
+    }
     NewTextChild(variablesNode, "scd_out", DateTimeToStr(scd_out, "dd.mm.yyyy"));
     NewTextChild(variablesNode, "real_out", DateTimeToStr(real_out, "dd.mm.yyyy"));
     NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm"));
@@ -240,16 +219,20 @@ void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
 
 
     NewTextChild(variablesNode, "lang", TReqInfo::Instance()->desk.lang );
-    NewTextChild(variablesNode, "own_airp_name", getLocaleText("CAP.DOC.AIRP_NAME",  LParams() << LParam("airp", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong, rpt_params.dup_lang())), rpt_params.dup_lang()));
-    NewTextChild(variablesNode, "own_airp_name_lat", getLocaleText("CAP.DOC.AIRP_NAME",  LParams() << LParam("airp", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong, AstraLocale::LANG_EN)), AstraLocale::LANG_EN));
+    NewTextChild(variablesNode, "own_airp_name", getLocaleText("CAP.DOC.AIRP_NAME",
+                      LParams() << LParam("airp", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong,
+                      rpt_params.dup_lang())), rpt_params.dup_lang()));
+    NewTextChild(variablesNode, "own_airp_name_lat", getLocaleText("CAP.DOC.AIRP_NAME",
+                 LParams() << LParam("airp", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong,
+                 AstraLocale::LANG_EN)), AstraLocale::LANG_EN));
     const TAirpsRow &airpRow = (const TAirpsRow&)base_tables.get("AIRPS").get_row("code",airp);
     NewTextChild(variablesNode, "airp_dep_name", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong));
     NewTextChild(variablesNode, "airp_dep_city", rpt_params.ElemIdToReportElem(etCity, airpRow.city, efmtCodeNative));
     NewTextChild(variablesNode, "airline_name", airline_name);
     NewTextChild(variablesNode, "flt", trip.str());
-    NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
-    NewTextChild(variablesNode, "craft", craft);
-    NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
+    NewTextChild(variablesNode, "bort", arx_points->bort);
+    NewTextChild(variablesNode, "craft", arx_points->craft);
+    NewTextChild(variablesNode, "park", arx_points->park_out);
     NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh:nn"));
     NewTextChild(variablesNode, "long_route", GetRouteAfterStr(part_key,
                                                                point_id,
@@ -262,6 +245,94 @@ void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
         NewTextChild(variablesNode, "doc_cap_test", " ");
     NewTextChild(variablesNode, "page_number_fmt", getLocaleText("CAP.PAGE_NUMBER_FMT", rpt_params.GetLang()));
     NewTextChild(variablesNode, "landscape", rpt_params.rpt_type == rtBDOCSTXT ? 1 : 0);
+}
+
+void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode, TDateTime part_key)
+{
+    if(part_key != NoExists) {
+        ArxPaxListVars(point_id, rpt_params, variablesNode, part_key);
+    } else {
+        LogTrace(TRACE5) << __FUNCTION__ << " point_id: " << point_id << " part_key: " << part_key;
+        TQuery Qry(&OraSession);
+        string SQLText =
+            "select "
+            "   airp, "
+            "   airline, "
+            "   flt_no, "
+            "   suffix, "
+            "   craft, "
+            "   bort, "
+            "   park_out park, "
+            "   act_out, "
+            "   scd_out "
+            "from ";
+        SQLText +=
+            "   points "
+            "where "
+            "   point_id = :point_id AND pr_del>=0 ";
+        Qry.SQLText = SQLText;
+        Qry.CreateVariable("point_id", otInteger, point_id);
+        Qry.Execute();
+        if(Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
+
+        string airp = Qry.FieldAsString("airp");
+        string airline = Qry.FieldAsString("airline");
+        string craft = Qry.FieldAsString("craft");
+        string tz_region = AirpTZRegion(Qry.FieldAsString("airp"));
+
+        string airline_name;
+        if(airline.size()) {
+            // сначала airline_name, потом airline
+            // иначе в лат варианте будет конвертится уже сконверченный airline
+            airline_name = rpt_params.ElemIdToReportElem(etAirline, airline, efmtNameLong);
+            airline = rpt_params.ElemIdToReportElem(etAirline, airline, efmtCodeNative);
+        }
+
+        ostringstream trip;
+        trip
+            << airline
+            << setw(3) << setfill('0') << Qry.FieldAsInteger("flt_no")
+            << rpt_params.ElemIdToReportElem(etSuffix, Qry.FieldAsString("suffix"), efmtCodeNative);
+
+        NewTextChild(variablesNode, "trip", trip.str());
+        TDateTime scd_out, real_out;
+        scd_out= UTCToClient(getReportSCDOut(point_id),tz_region);
+        if(Qry.FieldIsNULL("act_out"))
+            real_out = scd_out;
+        else
+            real_out= UTCToClient(Qry.FieldAsDateTime("act_out"),tz_region);
+        NewTextChild(variablesNode, "scd_out", DateTimeToStr(scd_out, "dd.mm.yyyy"));
+        NewTextChild(variablesNode, "real_out", DateTimeToStr(real_out, "dd.mm.yyyy"));
+        NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm"));
+        TDateTime issued = UTCToLocal(NowUTC(),TReqInfo::Instance()->desk.tz_region);
+        NewTextChild(variablesNode, "date_issue", DateTimeToStr(issued, "dd.mm.yy hh:nn"));
+        NewTextChild(variablesNode, "day_issue", DateTimeToStr(issued, "dd.mm.yy"));
+
+
+        NewTextChild(variablesNode, "lang", TReqInfo::Instance()->desk.lang );
+        NewTextChild(variablesNode, "own_airp_name", getLocaleText("CAP.DOC.AIRP_NAME",  LParams() << LParam("airp", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong, rpt_params.dup_lang())), rpt_params.dup_lang()));
+        NewTextChild(variablesNode, "own_airp_name_lat", getLocaleText("CAP.DOC.AIRP_NAME",  LParams() << LParam("airp", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong, AstraLocale::LANG_EN)), AstraLocale::LANG_EN));
+        const TAirpsRow &airpRow = (const TAirpsRow&)base_tables.get("AIRPS").get_row("code",airp);
+        NewTextChild(variablesNode, "airp_dep_name", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong));
+        NewTextChild(variablesNode, "airp_dep_city", rpt_params.ElemIdToReportElem(etCity, airpRow.city, efmtCodeNative));
+        NewTextChild(variablesNode, "airline_name", airline_name);
+        NewTextChild(variablesNode, "flt", trip.str());
+        NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
+        NewTextChild(variablesNode, "craft", craft);
+        NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
+        NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh:nn"));
+        NewTextChild(variablesNode, "long_route", GetRouteAfterStr(part_key,
+                                                                   point_id,
+                                                                   trtWithCurrent,
+                                                                   trtNotCancelled,
+                                                                   rpt_params.GetLang(),
+                                                                   true));
+        NewTextChild(variablesNode, "test_server", STAT::bad_client_img_version() ? 2 : get_test_server());
+        if(STAT::bad_client_img_version())
+            NewTextChild(variablesNode, "doc_cap_test", " ");
+        NewTextChild(variablesNode, "page_number_fmt", getLocaleText("CAP.PAGE_NUMBER_FMT", rpt_params.GetLang()));
+        NewTextChild(variablesNode, "landscape", rpt_params.rpt_type == rtBDOCSTXT ? 1 : 0);
+    }
 }
 
 string get_flight(xmlNodePtr variablesNode)

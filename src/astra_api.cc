@@ -914,17 +914,17 @@ static iatci::SeatmapDetails createSeatmapDetails(const std::list<XmlPlaceList>&
     return iatci::SeatmapDetails(lCabin, lRow);
 }
 
-static TSearchFltInfo MakeSearchFltFilter(const std::string& depPort,
-                                          const std::string& airline,
-                                          unsigned flNum,
-                                          const boost::posix_time::ptime& depDateTime)
+static FltOperFilter MakeSearchFltFilter(const std::string& depPort,
+                                         const std::string& airline,
+                                         unsigned flNum,
+                                         const boost::posix_time::ptime& depDateTime)
 {
-    TSearchFltInfo filter;
-    filter.airp_dep = depPort;
-    filter.airline  = airline;
-    filter.flt_no   = flNum;
-    filter.scd_out  = BoostToDateTime(depDateTime);
-    return filter;
+    return {AirlineCode_t(airline),
+            FlightNumber_t(flNum),
+            FlightSuffix_t(""),
+            AirportCode_t(depPort),
+            BoostToDateTime(depDateTime),
+            FltOperFilter::DateType::Local};
 }
 
 static PaxFilter getSearchPaxFilter(const iatci::PaxDetails& pax,
@@ -1294,12 +1294,11 @@ PointId_t findDepPointId(const std::string& depPort,
                      << "flt: " << flNum << "; "
                      << "depDate: " << depDate;
 
-    TSearchFltInfo filter = MakeSearchFltFilter(depPort,
-                                                airline,
-                                                flNum,
-                                                boost::posix_time::ptime(depDate));
-    std::list<TAdvTripInfo> lFlts;
-    SearchFlt(filter, lFlts);
+    FltOperFilter filter = MakeSearchFltFilter(depPort,
+                                               airline,
+                                               flNum,
+                                               boost::posix_time::ptime(depDate));
+    std::list<TAdvTripInfo> lFlts=filter.search();
 
     LogTrace(TRACE3) << "Found " << lFlts.size() << " flights";
 

@@ -14,6 +14,9 @@
 #include "stages.h"
 #include "xml_unit.h"
 #include "astra_types.h"
+#include "db_tquery.h"
+#include "arx_daily_pg.h"
+#include "dbostructures.h"
 
 using BASIC::date_time::TDateTime;
 
@@ -238,7 +241,9 @@ class TTripInfo
       airp_fmt = efmtUnknown;
       craft_fmt = efmtUnknown;
     };
-    void init( TQuery &Qry )
+
+    template<typename Query>
+    void init( Query &Qry )
     {
       init();
       airline=Qry.FieldAsString("airline");
@@ -275,6 +280,7 @@ class TTripInfo
           point_id = Qry.FieldAsInteger("point_id");
     };
   public:
+    void fromArxPoint(const dbo::Arx_Points &arx_point);
     static bool match(TQuery &Qry, const FlightProps& props)
     {
       if (props.cancellation()==FlightProps::NotCancelled && Qry.FieldAsInteger("pr_del")!=0) return false;
@@ -320,6 +326,10 @@ class TTripInfo
     {
       init(Qry);
     };
+    TTripInfo( DB::TQuery &Qry )
+    {
+      init(Qry);
+    };
     virtual ~TTripInfo() {};
     virtual void Clear()
     {
@@ -330,24 +340,19 @@ class TTripInfo
       init(Qry);
     };
   public:
-    virtual bool getByPointId ( const TDateTime part_key,
-                                const int point_id,
-                                const FlightProps& props = FlightProps() );
-    virtual bool getByPointId ( const int point_id,
-                                const FlightProps& props = FlightProps() );
+    virtual bool getByPointId (const TDateTime part_key, const int point_id,
+                               const FlightProps& props = FlightProps() );
+    virtual bool getByPointId ( const int point_id, const FlightProps& props = FlightProps() );
     virtual bool getByPointIdTlg ( const int point_id_tlg );
     virtual bool getByPaxId ( const int pax_id );
     virtual bool getByGrpId ( const int grp_id );
     virtual bool getByCRSPnrId ( const int pnr_id );
     virtual bool getByCRSPaxId ( const int pax_id );
     void get_client_dates(TDateTime &scd_out_client, TDateTime &real_out_client, bool trunc_time=true) const;
-    static void get_times_in(const int &point_arv,
-                             TDateTime &scd_in,
-                             TDateTime &est_in,
-                             TDateTime &act_in);
+    static std::tuple<TDateTime, TDateTime, TDateTime> get_times_in(const int &point_arv);
     static TDateTime get_scd_in(const int &point_arv);
     static TDateTime act_est_scd_in(const int &point_arv);
-    TDateTime get_scd_in(const std::string &airp_arv) const;
+    std::tuple<TDateTime, TDateTime, TDateTime> get_times_in(const std::string &airp_arv) const;
     std::string flight_view(TElemContext ctxt=ecNone, bool showScdOut=true, bool showAirp=true) const;
     TDateTime est_scd_out() const { return !est_out?ASTRA::NoExists:
                                            est_out.get()!=ASTRA::NoExists?est_out.get():
@@ -356,8 +361,9 @@ class TTripInfo
                                                act_out.get()!=ASTRA::NoExists?act_out.get():
                                                est_out.get()!=ASTRA::NoExists?est_out.get():
                                                                               scd_out; }
-    bool est_out_exists() const { return est_out && est_out.get()!=ASTRA::NoExists;  }
-    bool act_out_exists() const { return act_out && act_out.get()!=ASTRA::NoExists;  }
+    bool scd_out_exists() const { return scd_out!=ASTRA::NoExists; }
+    bool est_out_exists() const { return est_out && est_out.get()!=ASTRA::NoExists; }
+    bool act_out_exists() const { return act_out && act_out.get()!=ASTRA::NoExists; }
 
     bool match(const FlightProps& props) const
     {
@@ -453,8 +459,7 @@ class TAdvTripInfo : public TTripInfo
     virtual bool getByPointId ( const TDateTime part_key,
                                 const int point_id,
                                 const FlightProps& props = FlightProps() );
-    virtual bool getByPointId ( const int point_id,
-                                const FlightProps& props = FlightProps() );
+    virtual bool getByPointId ( const int point_id, const FlightProps& props = FlightProps() );
     static bool transitable(const PointId_t& pointId);
     bool transitable() const
     {
@@ -466,7 +471,11 @@ class TAdvTripInfo : public TTripInfo
 typedef std::list<TAdvTripInfo> TAdvTripInfoList;
 typedef ASTRA::Cache<int/*pnr_id*/, TAdvTripInfoList> PnrFlightsCache;
 
-void getPointIdsSppByPointIdTlg(const int point_id_tlg, std::set<int>& point_ids_spp);
+void getPointIdsSppByPointIdTlg(const PointIdTlg_t& point_id_tlg,
+                                std::set<PointId_t>& point_ids_spp,
+                                bool clear = true);
+std::set<PointId_t> getPointIdsSppByPointIdTlg(const PointIdTlg_t& point_id_tlg);
+
 void getTripsByPointIdTlg(const int point_id_tlg, TAdvTripInfoList &trips);
 void getTripsByCRSPnrId(const int pnr_id, TAdvTripInfoList &trips);
 void getTripsByCRSPaxId(const int pax_id, TAdvTripInfoList &trips);
@@ -705,11 +714,25 @@ class TTripRoute : public TTripBase, public std::vector<TTripRouteItem>
                   TTripRouteType1 route_type1,
                   TTripRouteType2 route_type2,
                   TQuery& Qry);
+    void GetArxRoute(TDateTime part_key,
+                     int point_id,
+                     int point_num,
+                     int first_point,
+                     bool pr_tranzit,
+                     bool after_current,
+                     TTripRouteType1 route_type1,
+                     TTripRouteType2 route_type2);
+
     virtual bool GetRoute(TDateTime part_key,
                 int point_id,
                 bool after_current,
                 TTripRouteType1 route_type1,
                 TTripRouteType2 route_type2);
+    bool GetArxRoute(TDateTime part_key,
+                     int point_id,
+                     bool after_current,
+                     TTripRouteType1 route_type1,
+                     TTripRouteType2 route_type2);
   public:
     //возвращает следующий пункт маршрута
     void GetNextAirp(TDateTime part_key,
@@ -764,11 +787,26 @@ class TAdvTripRoute : public TTripBase, public std::vector<TAdvTripRouteItem>
                   TTripRouteType1 route_type1,
                   TTripRouteType2 route_type2,
                   TQuery& Qry);
+
+    void GetArxRoute(TDateTime part_key,
+                        int point_id,
+                        int point_num,
+                        int first_point,
+                        bool pr_tranzit,
+                        bool after_current,
+                        TTripRouteType1 route_type1,
+                        TTripRouteType2 route_type2);
+
     virtual bool GetRoute(TDateTime part_key,
                 int point_id,
                 bool after_current,
                 TTripRouteType1 route_type1,
                 TTripRouteType2 route_type2);
+    bool GetArxRoute(TDateTime part_key,
+                     int point_id,
+                     bool after_current,
+                     TTripRouteType1 route_type1,
+                     TTripRouteType2 route_type2);
 
     template <class T>
     void trimRoute(const T& criterion)
@@ -1123,53 +1161,78 @@ struct TCFGItem {
 
 struct TCFG:public std::vector<TCFGItem> {
     void get(int point_id, TDateTime part_key = ASTRA::NoExists); //NoExists если в оперативной базе, иначе в архивной
+    void get_arx(int point_id, TDateTime part_key);
     std::string str(const std::string &lang="", const std::string &separator=" ");
     void param(LEvntPrms& params);
     TCFG(int point_id, TDateTime part_key = ASTRA::NoExists) { get(point_id, part_key); };
     TCFG() {};
 };
 
-enum TDepDateType {ddtEST, ddtACT}; // departure date type
-class TDepDateFlags: public BitSet<TDepDateType> {};
-
-class TSearchFltInfo
+class FltMarkFilter
 {
   public:
-    std::string airline,suffix,airp_dep;
-    int flt_no;
-    TDateTime scd_out;
-    bool scd_out_in_utc;
-    FlightProps flightProps;
-    std::string additional_where;
+    enum DateType { Local, UTC };
 
-    TDepDateFlags dep_date_flags;
-    virtual bool before_add(const TAdvTripInfo &flt) const { return true; };
-    virtual void before_exit(std::list<TAdvTripInfo> &flts) const {};
+  private:
+    AirlineCode_t airline_;
+    FlightNumber_t fltNumber_;
+    FlightSuffix_t suffix_;
+    AirportCode_t airpDep_;
+    TDateTime scdDateDepLocalTruncated_;
 
-    TSearchFltInfo()
-    {
-      flt_no=ASTRA::NoExists;
-      scd_out=ASTRA::NoExists;;
-      scd_out_in_utc=false;
-    };
+  public:
+    FltMarkFilter(const AirlineCode_t& airline,
+                  const FlightNumber_t& fltNumber,
+                  const FlightSuffix_t& suffix,
+                  const AirportCode_t& airpDep,
+                  const TDateTime scdDateDep,
+                  const DateType scdDateDepInUTC);
 
-    static TSearchFltInfo create(const TTripInfo &item);
-    virtual ~TSearchFltInfo() {}
+    std::set<PointIdMkt_t> search() const;
 };
 
-typedef std::tr1::shared_ptr<TSearchFltInfo> TSearchFltInfoPtr;
+class FltOperFilter
+{
+  public:
+    enum DateFlag { Est, Act };
+    enum DateType { Local, UTC };
 
-struct TLCISearchParams:public TSearchFltInfo {
-    TLCISearchParams() { dep_date_flags.setFlag(ddtEST); }
-    virtual bool before_add(const TAdvTripInfo &flt) const { return true; };
-    virtual void before_exit(std::list<TAdvTripInfo> &flts) const {};
+    using DateFlags = std::set<DateFlag>;
+
+  private:
+    AirlineCode_t airline_;
+    FlightNumber_t fltNumber_;
+    FlightSuffix_t suffix_;
+    std::optional<AirportCode_t> airpDepOpt_;
+    TDateTime dateDepTruncated_;
+    bool dateDepInUTC_;
+    DateFlags dateDepFlags_;
+    FlightProps fltProps_;
+    std::string additionalWhere_;
+
+    bool suitable(const AirportCode_t& airpDep,
+                  const TDateTime timeDepInUTC) const;
+
+  public:
+    FltOperFilter(const AirlineCode_t& airline,
+                  const FlightNumber_t& fltNumber,
+                  const FlightSuffix_t& suffix,
+                  const std::optional<AirportCode_t>& airpDep,
+                  const TDateTime dateDep,
+                  const DateType dateDepType,
+                  const std::set<DateFlag>& dateDepFlags={},
+                  const FlightProps& fltProps=FlightProps());
+
+    void setAdditionalWhere(const std::string& additionalWhere) { additionalWhere_=additionalWhere; }
+
+    AirlineCode_t airline() const { return airline_; }
+    std::optional<AirportCode_t> airpDep() const { return airpDepOpt_; }
+    TDateTime dateDep() const { return dateDepTruncated_; }
+
+    std::list<TAdvTripInfo> search() const;
 };
-
-void SearchFlt(const TSearchFltInfo &filter, std::list<TAdvTripInfo> &flts);
-void SearchMktFlt(const TSearchFltInfo &filter, std::set<int> &point_ids);
 
 // Функции сравнивают елементы неупорядоченного list или vector
-
 template <class T>
 bool compareVectors(std::vector<T> a, std::vector<T> b)
 {

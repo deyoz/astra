@@ -23,6 +23,18 @@ const std::string TGroupInfo::id="group_svc_info";
 const std::string TPseudoGroupInfo::id="pseudogroup_svc_info";
 const std::string TPassengers::id="passenger_with_svc";
 
+void TSegItem::dateTimeToSirenaXML(xmlNodePtr node,
+                                   const std::string& propNameWithoutSuffix,
+                                   const TDateTime dt) const
+{
+  if (node==nullptr) return;
+  if (dt==ASTRA::NoExists) return;
+  if (datesContainTime)
+    SetProp(node, string(propNameWithoutSuffix+"_time").c_str(), DateTimeToStr(dt, "yyyy-mm-ddThh:nn:ss"));
+  else
+    SetProp(node, string(propNameWithoutSuffix+"_date").c_str(), DateTimeToStr(dt, "yyyy-mm-dd"));
+}
+
 const TSegItem& TSegItem::toSirenaXML(xmlNodePtr node,
                                       const boost::optional<CheckIn::TPaxTknItem>& tkn,
                                       const OutputLang &lang) const
@@ -39,22 +51,19 @@ const TSegItem& TSegItem::toSirenaXML(xmlNodePtr node,
   SetProp(node, "operating_flight", operFlt.flight_number(lang));
   SetProp(node, "departure", airpDepToPrefferedCode(AirportCode_t(operFlt.airp), tkn, lang));
   SetProp(node, "arrival", airpArvToPrefferedCode(AirportCode_t(airp_arv), tkn, lang));
-  if (operFlt.scd_out!=ASTRA::NoExists)
-  {
-    if (scd_out_contain_time)
-      SetProp(node, "departure_time", DateTimeToStr(operFlt.scd_out, "yyyy-mm-ddThh:nn:ss")); //локальное время
-    else
-      SetProp(node, "departure_date", DateTimeToStr(operFlt.scd_out, "yyyy-mm-dd")); //локальная дата
 
-  }
-  if (scd_in!=ASTRA::NoExists)
-  {
-    if (scd_in_contain_time)
-      SetProp(node, "arrival_time", DateTimeToStr(scd_in, "yyyy-mm-ddThh:nn:ss")); //локальное время
-    else
-      SetProp(node, "arrival_date", DateTimeToStr(scd_in, "yyyy-mm-dd")); //локальная дата
+  TDateTime time_out=operFlt.est_scd_out();
+  TDateTime time_in=est_scd_in();
 
+  if (operFlt.scd_out_exists() && operFlt.scd_out!=time_out)
+  {
+    //плановая дата не совпадает с расчетной
+    dateTimeToSirenaXML(node, "scd_departure", operFlt.scd_out);
   }
+
+  dateTimeToSirenaXML(node, "departure", time_out);
+  dateTimeToSirenaXML(node, "arrival", time_in);
+
   SetProp(node, "equipment", craftToPrefferedCode(operFlt.craft, lang), "");
 
   return *this;
@@ -795,15 +804,17 @@ bool TPseudoGroupInfoRes::compareForMerge(const TPaxItem& pax1, const TPaxItem& 
 
 void SvcSirenaInterface::procRequestsFromSirena(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  ProgTrace( TRACE5, "%s: %s", __FUNCTION__, XMLTreeToText(resNode->doc).c_str());
   reqNode=NodeAsNode("content", reqNode);
-
   reqNode=NodeAsNode("query", reqNode)->children;
-  std::string exchangeId = (const char*)reqNode->name;
-  ProgTrace( TRACE5, "%s: exchangeId=<%s>", __FUNCTION__, exchangeId.c_str() );
 
   resNode=NewTextChild(resNode, "content");
   resNode=NewTextChild(resNode, "answer");
+
+  if (reqNode==nullptr) return;
+
+  std::string exchangeId = (const char*)reqNode->name;
+
+  LogTrace(TRACE5) << __func__ << ": exchangeId=<" << exchangeId << ">";
   resNode=NewTextChild(resNode, exchangeId.c_str());
 
   try
@@ -848,62 +859,130 @@ void SvcSirenaInterface::procRequestsFromSirena(XMLRequestCtxt *ctxt, xmlNodePtr
   }
 }
 
+static std::vector<FltOperFilter> getFltOperFilterList(const SirenaExchange::TPassengersReq &req,
+                                                       std::set<PointIdMkt_t>& marketingPointIds)
+{
+  marketingPointIds.clear();
+
+  std::vector<FltOperFilter> result;
+
+  //коммерческие
+  for(const auto& scd : {req.scd_out, req.scd_out - 1.0})  //минус 1 день. Считаем, что задержка максимум на 1 день
+    marketingPointIds.merge(FltMarkFilter(AirlineCode_t(req.airline),
+                                          FlightNumber_t(req.flt_no),
+                                          FlightSuffix_t(req.suffix),
+                                          AirportCode_t(req.airp),
+                                          scd,
+                                          FltMarkFilter::DateType::Local).search());
+
+  std::set<PointId_t> pointIds;
+  for(const PointIdMkt_t& pointId : marketingPointIds)
+  {
+    int point_dep;
+
+    auto cur=make_db_curs("SELECT DISTINCT point_dep FROM pax_grp WHERE point_id_mark=:point_id_mark",
+                          PgOra::getROSession("PAX_GRP"));
+    cur.stb()
+       .def(point_dep)
+       .bind(":point_id_mark", pointId.get())
+       .exec();
+
+    while(!cur.fen())
+    {
+      if (!pointIds.emplace(point_dep).second) continue;
+      TTripInfo flt;
+      if (flt.getByPointId(point_dep))
+      {
+        result.emplace_back(AirlineCode_t(flt.airline),
+                            FlightNumber_t(flt.flt_no),
+                            FlightSuffix_t(flt.suffix),
+                            AirportCode_t(flt.airp),
+                            req.scd_out,
+                            FltOperFilter::DateType::Local,
+                            FltOperFilter::DateFlags({FltOperFilter::DateFlag::Est}));
+      }
+    }
+  }
+
+  return result;
+}
+
 void SvcSirenaInterface::procPassengers( const SirenaExchange::TPassengersReq &req, SirenaExchange::TPassengersRes &res )
 {
   res.clear();
 
-  TSearchFltInfo fltInfo;
-  fltInfo.airline = req.airline;
-  fltInfo.airp_dep = req.airp;
-  fltInfo.flt_no = req.flt_no;
-  fltInfo.suffix = req.suffix;
-  fltInfo.scd_out = req.scd_out;
-  fltInfo.scd_out_in_utc = false;
-  //фактические
-  list<TAdvTripInfo> flts;
-  SearchFlt( fltInfo, flts);
-  set<int> operating_point_ids;
-  for ( list<TAdvTripInfo>::const_iterator iflt=flts.begin(); iflt!=flts.end(); iflt++ )
-    operating_point_ids.insert(iflt->point_id);
-  //коммерческие
-  set<int> marketing_point_ids;
-  SearchMktFlt( fltInfo, marketing_point_ids );
-  TQuery Qry(&OraSession);
-  set<int> paxs;
-  for(int pass=0; pass<2; pass++)
+  map< PointId_t, std::optional< set<PointIdMkt_t> > > operatingPointIds;
+
+  //оперирующие рейсы (важно, что до коммерческих)
+  list<TAdvTripInfo> flts=FltOperFilter(AirlineCode_t(req.airline),
+                                        FlightNumber_t(req.flt_no),
+                                        FlightSuffix_t(req.suffix),
+                                        AirportCode_t(req.airp),
+                                        req.scd_out,
+                                        FltOperFilter::DateType::Local,
+                                        {FltOperFilter::DateFlag::Est}).search();
+  for(const TAdvTripInfo& flt : flts)
   {
-    ostringstream sql;
-    sql << "SELECT pax.* "
-           "FROM pax, pax_grp "
-           "WHERE pax_grp.grp_id=pax.grp_id AND ";
-    if (pass==0)
-      sql << "      pax_grp.point_dep=:point_id AND ";
-    else
-      sql << "      pax_grp.point_id_mark=:point_id AND ";
-    sql << "      pax.refuse IS NULL AND pax_grp.status NOT IN ('E') AND "
-           "      EXISTS(SELECT pax_id FROM paid_rfisc WHERE pax_id=pax.pax_id AND need>0 AND rownum<2) ";
-    const set<int> &point_ids=pass==0?operating_point_ids:marketing_point_ids;
-    Qry.Clear();
-    Qry.SQLText=sql.str().c_str();
-    Qry.DeclareVariable("point_id", otInteger);
-    for(set<int>::const_iterator i=point_ids.begin(); i!=point_ids.end(); ++i)
+    if (flt.act_out_exists()) continue; //вылетевшие рейсы не обрабатываем
+    operatingPointIds.emplace(PointId_t(flt.point_id), std::nullopt);
+  }
+
+  //коммерческие рейсы
+  std::set<PointIdMkt_t> marketingPointIds;
+  std::vector<FltOperFilter> fltOperFilterList=getFltOperFilterList(req, marketingPointIds);
+  for(const FltOperFilter& fltOperFilter : fltOperFilterList)
+  {
+    list<TAdvTripInfo> flts=fltOperFilter.search();
+    for(const TAdvTripInfo& flt : flts)
     {
-      Qry.SetVariable("point_id", *i);
-      Qry.Execute();
-      for ( ; !Qry.Eof; Qry.Next() ) {
-        if (!paxs.insert( Qry.FieldAsInteger( "pax_id" ) ).second) continue;
-        CheckIn::TSimplePaxItem pax;
-        pax.fromDB(Qry);
-        TETickItem etick;
-        if (pax.tkn.validET())
-          etick.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
-        SirenaExchange::TPaxItem2 resPax;
-        resPax.set(Qry.FieldAsInteger("grp_id"), pax, etick);
-        resPax.pnrAddrs.getByPaxIdFast(pax.id);
-        res.push_back( resPax );
-      }
+      if (flt.act_out_exists()) continue; //вылетевшие рейсы не обрабатываем
+      operatingPointIds.emplace(PointId_t(flt.point_id), marketingPointIds);
     }
-  };
+  }
+
+  TQuery Qry(&OraSession);
+  Qry.SQLText="SELECT pax.*, pax_grp.point_id_mark "
+              "FROM pax, pax_grp "
+              "WHERE pax_grp.grp_id=pax.grp_id AND "
+              "      pax_grp.point_dep=:point_id AND "
+              "      pax.refuse IS NULL AND pax_grp.status NOT IN ('E') AND "
+              "      EXISTS(SELECT pax_id FROM paid_rfisc WHERE pax_id=pax.pax_id AND need>0 AND rownum<2) ";
+  Qry.DeclareVariable("point_id", otInteger);
+
+  map<PaxId_t, CheckIn::TSimplePaxItem> paxs;
+
+  for(const auto& i : operatingPointIds)
+  {
+    const PointId_t& pointId=i.first;
+    Qry.SetVariable("point_id", pointId.get());
+    Qry.Execute();
+    for ( ; !Qry.Eof; Qry.Next() )
+    {
+      if (i.second)
+      {
+        //надо проверить, что коммерческий рейс подходит
+        const set<PointIdMkt_t>& pointIdsMkt=i.second.value();
+        PointIdMkt_t pointIdMkt(Qry.FieldAsInteger("point_id_mark"));
+        if (pointIdsMkt.find(pointIdMkt)==pointIdsMkt.end()) continue;
+      }
+
+      PaxId_t paxId(Qry.FieldAsInteger( "pax_id" ));
+      if (paxs.find(paxId)!=paxs.end()) continue;
+      paxs.emplace(paxId, CheckIn::TSimplePaxItem().fromDB(Qry));
+    }
+  }
+
+  for(const auto& p : paxs)
+  {
+    const CheckIn::TSimplePaxItem& pax=p.second;
+    TETickItem etick;
+    if (pax.tkn.validET())
+      etick.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
+    SirenaExchange::TPaxItem2 resPax;
+    resPax.set(pax.grp_id, pax, etick);
+    resPax.pnrAddrs.getByPaxIdFast(pax.id);
+    res.push_back( resPax );
+  }
 }
 
 void SvcSirenaInterface::procGroupInfo( const SirenaExchange::TGroupInfoReq &req,

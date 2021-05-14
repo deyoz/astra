@@ -96,52 +96,44 @@ void TServicesShortStat::add(const TServicesStatRow &row)
     amount++;
 }
 
-void RunServicesStat(
+void ArxRunServicesStat(
         const TStatParams &params,
         TServicesAbstractStat &ServicesStat
         )
 {
+    LogTrace5 << __func__;
     TFltInfoCache flt_cache;
-    for(int pass = 0; pass <= 2; pass++) {
+    for(int pass = 1; pass <= 2; pass++) {
         QParams QryParams;
         QryParams
             << QParam("FirstDate", otDate, params.FirstDate)
-            << QParam("LastDate", otDate, params.LastDate);
-        if (pass!=0)
-            QryParams << QParam("arx_trip_date_range", otInteger, ARX_TRIP_DATE_RANGE());
-        string SQLText = "select stat_services.* from ";
-        if(pass != 0) {
-            SQLText +=
-                "   arx_stat_services stat_services, "
-                "   arx_points points ";
-            if(pass == 2)
-                SQLText += ",(SELECT part_key, move_id FROM move_arx_ext \n"
-                    "  WHERE part_key >= :LastDate+:arx_trip_date_range AND part_key <= :LastDate+date_range) arx_ext \n";
-        } else {
-            SQLText +=
-                "   stat_services, "
-                "   points ";
+            << QParam("LastDate", otDate, params.LastDate)
+            << QParam("arx_trip_date_range", otDate, params.LastDate+ARX_TRIP_DATE_RANGE());
+        string SQLText =
+            "select arx_stat_services.* from "
+            "   arx_stat_services , "
+            "   arx_points ";
+        if(pass == 2) {
+            SQLText += getMoveArxQuery();
         }
         SQLText +=
             "where "
-            "   stat_services.point_id = points.point_id and "
-            "   points.pr_del >= 0 and ";
+            "   arx_stat_services.point_id = arx_points.point_id and "
+            "   arx_points.pr_del >= 0 and ";
 
-        params.AccessClause(SQLText);
+        params.AccessClause(SQLText, "arx_points");
 
         if(params.flt_no != NoExists) {
-            SQLText += " points.flt_no = :flt_no and ";
+            SQLText += " arx_points.flt_no = :flt_no and ";
             QryParams << QParam("flt_no", otInteger, params.flt_no);
         }
-        if(pass != 0)
-            SQLText +=
-                " points.part_key = stat_services.part_key and ";
+        SQLText += " arx_points.part_key = arx_stat_services.part_key and ";
         if(pass == 1)
-            SQLText += " points.part_key >= :FirstDate AND points.part_key < :LastDate + :arx_trip_date_range AND \n";
+            SQLText += " arx_points.part_key >= :FirstDate AND arx_points.part_key < :arx_trip_date_range AND \n";
         if(pass == 2)
-            SQLText += " points.part_key=arx_ext.part_key AND points.move_id=arx_ext.move_id AND \n";
-        SQLText += "   stat_services.scd_out >= :FirstDate AND stat_services.scd_out < :LastDate ";
-        TCachedQuery Qry(SQLText, QryParams);
+            SQLText += " arx_points.part_key = arx_ext.part_key AND arx_points.move_id = arx_ext.move_id AND \n";
+        SQLText += " arx_stat_services.scd_out >= :FirstDate AND arx_stat_services.scd_out < :LastDate ";
+        DB::TCachedQuery Qry(PgOra::getROSession("ARX_POINTS"), SQLText, QryParams);
         Qry.get().Execute();
         if(not Qry.get().Eof) {
             int col_part_key = Qry.get().GetFieldIndex("part_key");
@@ -177,6 +169,71 @@ void RunServicesStat(
             }
         }
     }
+}
+
+void RunServicesStat(
+        const TStatParams &params,
+        TServicesAbstractStat &ServicesStat
+        )
+{
+    TFltInfoCache flt_cache;
+    QParams QryParams;
+    QryParams
+        << QParam("FirstDate", otDate, params.FirstDate)
+        << QParam("LastDate", otDate, params.LastDate);
+
+    string SQLText =
+        "select stat_services.* from "
+        "   stat_services, "
+        "   points "
+        "where "
+        "   stat_services.point_id = points.point_id and "
+        "   points.pr_del >= 0 and ";
+
+    params.AccessClause(SQLText);
+
+    if(params.flt_no != NoExists) {
+        SQLText += " points.flt_no = :flt_no and ";
+        QryParams << QParam("flt_no", otInteger, params.flt_no);
+    }
+    SQLText += " stat_services.scd_out >= :FirstDate AND stat_services.scd_out < :LastDate ";
+    TCachedQuery Qry(SQLText, QryParams);
+    Qry.get().Execute();
+    if(not Qry.get().Eof) {
+        int col_part_key = Qry.get().GetFieldIndex("part_key");
+        int col_point_id = Qry.get().FieldIndex("point_id");
+        int col_scd_out = Qry.get().FieldIndex("scd_out");
+        int col_pax_id = Qry.get().FieldIndex("pax_id");
+        int col_airp_dep = Qry.get().FieldIndex("airp_dep");
+        int col_airp_arv = Qry.get().FieldIndex("airp_arv");
+        int col_rfic = Qry.get().FieldIndex("rfic");
+        int col_rfisc = Qry.get().FieldIndex("rfisc");
+        int col_receipt_no = Qry.get().FieldIndex("receipt_no");
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            TServicesStatRow row;
+            if(col_part_key >= 0)
+                row.part_key = Qry.get().FieldAsDateTime(col_part_key);
+            row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
+            row.point_id = Qry.get().FieldAsInteger(col_point_id);
+            const TFltInfoCacheItem &info = flt_cache.get(row.point_id, row.part_key);
+            row.airp = info.view_airp;
+            row.airline = info.airline;
+            row.view_airline = info.view_airline;
+            row.flt_no = info.view_flt_no;
+            row.pax_id = Qry.get().FieldAsInteger(col_pax_id);
+            row.airp_dep = Qry.get().FieldAsString(col_airp_dep);
+            row.airp_arv = Qry.get().FieldAsString(col_airp_arv);
+            row.RFIC = Qry.get().FieldAsString(col_rfic);
+            row.RFISC = Qry.get().FieldAsString(col_rfisc);
+            row.receipt_no = Qry.get().FieldAsString(col_receipt_no);
+
+            ServicesStat.add(row);
+
+            params.overflow.check(ServicesStat.RowCount());
+        }
+    }
+
+    ArxRunServicesStat(params, ServicesStat);
 }
 
 void createXMLServicesFullStat(

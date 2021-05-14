@@ -685,7 +685,7 @@ void TLCIFltInfo::parse(const char *val, TFlightsForBind &flts)
     }
 
     // привязка к рейсы
-    flts.push_back(TFltForBind(toFltInfo(),  btFirstSeg, TSearchFltInfoPtr(new TLCISearchParams())));
+    flts.push_back(TFltForBind(toFltInfo(),  btFirstSeg, {FltOperFilter::DateFlag::Est}));
 }
 
 TTlgPartInfo ParseLCIHeading(TTlgPartInfo heading, TLCIHeadingInfo &info, TFlightsForBind &flts)
@@ -2928,7 +2928,7 @@ string TLCIContent::answer()
 
 void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, TLCIContent& con)
 {
-    int point_id_tlg=SaveFlt(tlg_id,info.flt_info.toFltInfo(),btFirstSeg,TSearchFltInfoPtr(new TLCISearchParams()));
+    int point_id_tlg=SaveFlt(tlg_id,info.flt_info.toFltInfo(),btFirstSeg,{FltOperFilter::DateFlag::Est});
 
     con.point_id_tlg = point_id_tlg;
     con.time_receive = time_receive;

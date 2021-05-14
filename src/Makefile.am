@@ -119,6 +119,7 @@ astra_SOURCES = \
   passenger_callbacks.cc \
   pax_calc_data.cc \
   pax_confirmations.cc \
+  pax_db.cc \
   payment.cc \
   payment_base.cc \
   pers_weights.cc \
@@ -211,10 +212,14 @@ astra_SOURCES = \
   zamar_dsm.cpp \
   pg_session.cc \
   db_tquery.cc \
+  db_savepoint.cc \
   base_callbacks.cpp \
   hooked_session.cc \
   PgOraConfig.cc \
-  wb_messages.cc
+  wb_messages.cc \
+  dbo.cpp \
+  dbostructures.cpp \
+  arx_daily_pg.cpp
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
@@ -337,6 +342,7 @@ noinst_HEADERS = \
   passenger_callbacks.h \
   pax_calc_data.h \
   pax_confirmations.h \
+  pax_db.h \
   payment.h \
   payment_base.h \
   pers_weights.h \
@@ -425,8 +431,13 @@ noinst_HEADERS = \
   astra_types.h \
   pg_session.h \
   db_tquery.h \
+  db_savepoint.h \
   base_callbacks.h \
   hooked_session.h \
   PgOraConfig.h \
-  wb_messages.h
+  wb_messages.h \
+  dbo.h \
+  dbostructures.h \
+  arx_daily_pg.h
+
   

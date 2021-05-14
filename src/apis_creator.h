@@ -1561,6 +1561,38 @@ struct TAPISFormat_EDI_AE : public TEdiAPISFormat
     string mesRelNum() const { return "05B"; }
 };
 
+// изначально основано на TAPISFormat_EDI_AE
+// -------------------------------------------------------------------------------------------------
+struct TAPISFormat_EDI_SA : public TEdiAPISFormat
+{
+    TAPISFormat_EDI_SA()
+    {
+      add_rule(r_setCBPPort); //complete clearance
+      add_rule(r_setResidCountry); //country of residence
+      add_rule(r_reservNumMandatory); //номер PNR обязателен
+      add_rule(r_setSeats);
+      add_rule(r_setBagCount);
+      add_rule(r_bagTagSerials);
+      add_rule(r_setPaxReference);
+      add_rule(r_processDocNumber);
+      add_rule(r_notOmitCrew);
+      file_rule = r_file_rule_1;
+    }
+    long int required_fields(TPaxType pax, TAPIType api) const
+    {
+      if (pax == pass && api == apiDoc) return DOC_EDI_SA_FIELDS;
+      if (pax == crew && api == apiDoc) return DOC_EDI_SA_FIELDS;
+      if (pax == pass && api == apiDocaR) return DOCA_R_EDI_SA_FIELDS;
+      if (pax == crew && api == apiDocaR) return DOCA_R_EDI_SA_FIELDS;
+      return NO_FIELDS;
+    }
+    string unknown_gender() const { return "U"; }
+    string process_doc_no(const string& no) const { return NormalizeDocNo(no, false); }
+    string respAgnCode() const { return "ZZZ"; }
+    string ProcessPhoneFax(const string& s) const { return HyphenToSpace(s); }
+    string mesRelNum() const { return "05B"; }
+};
+
 //---------------------------------------------------------------------------------------
 
 struct TAPPSVersion21 : public TAppsSitaFormat
@@ -1674,6 +1706,7 @@ inline TAPISFormat* SpawnAPISFormat(const string& fmt, bool throwIfUnhandled=tru
   if (fmt=="EDI_TR")      p = new TAPISFormat_EDI_TR; else
   if (fmt=="EDI_VN")      p = new TAPISFormat_EDI_VN; else
   if (fmt=="EDI_AE")      p = new TAPISFormat_EDI_AE; else
+  if (fmt=="EDI_SA")      p = new TAPISFormat_EDI_SA; else
 
   if (fmt=="APPS_21")     p = new TAPPSVersion21; else
   if (fmt=="APPS_26")     p = new TAPPSVersion26; else

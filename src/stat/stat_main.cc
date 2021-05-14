@@ -843,6 +843,7 @@ void get_full_stat(TDateTime utcdate)
 
 void get_flight_stat(int point_id, bool final_collection)
 {
+   LogTrace5 << " point_id: " << point_id;
    Timing::Points timing("Timing::get_flight_stat");
    timing.start("get_flight_stat", point_id);
 

@@ -28,7 +28,6 @@
 #include "serverlib/perfom.h"
 #include "serverlib/ourtime.h"
 #include "serverlib/query_runner.h"
-#include "serverlib/savepoint.h"
 #include "jxtlib/xmllibcpp.h"
 #include "jxtlib/xml_stuff.h"
 #include "checkin_utils.h"
@@ -46,6 +45,9 @@
 #include "seatPax.h"
 #include "flt_settings.h"
 #include "baggage_calc.h"
+#include "db_tquery.h"
+#include "db_savepoint.h"
+#include "PgOraConfig.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/slogger.h"
@@ -1675,7 +1677,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
 {
   ProgTrace(TRACE1,"WebRequestsIface::SavePax");
 
-  OciCpp::Savepoint sp("sp_savepax");
+  DB::Savepoint sp("sp_savepax");
   TWebPaxForSaveSegs segs;
   TFlights flightsForLock;
   xmlNodePtr segNode=NodeAsNode("segments", reqNode)->children;
@@ -3101,7 +3103,7 @@ void SyncCHKD(int point_id_tlg, int point_id_spp, bool sync_all) //регистрация C
           crs_pax_ids.push_back(crs_pax_id);
         else
         {
-          OciCpp::Savepoint spSyncCHKD("CHKD");
+          DB::Savepoint spSyncCHKD("CHKD");
           try
           {
             XMLDoc emulDocHeader;
@@ -3411,7 +3413,7 @@ void fillPaxsSvcs(const TNotCheckedReqPassengers &req_pnrs, TExchange &exch)
       SirenaExchange::TPaxSegItem &reqSeg=iReqSeg->second;
       TMktFlight mktFlight;
       mktFlight.getByCrsPaxId(pax.id);
-      reqSeg.set(0, operFlt.get(), airp_arv, mktFlight, operFlt.get().get_scd_in(airp_arv));
+      reqSeg.set(0, operFlt.get(), airp_arv, mktFlight, operFlt.get().get_times_in(airp_arv));
       reqSeg.subcl=mktFlight.subcls;
       reqSeg.setTicket(pax.tkn, paxSection);
       CheckIn::LoadPaxFQT(pax.id, reqSeg.fqts);

@@ -11,8 +11,7 @@
 #include <dirent.h>
 #include <cstdio>
 
-#define NICKNAME "DENIS"
-#include "serverlib/test.h"
+
 #include "exceptions.h"
 #include "misc.h"
 #include "oralib.h"
@@ -23,6 +22,9 @@
 #include "serverlib/posthooks.h"
 #include "xml_unit.h"
 #include "httpClient.h"
+
+#define NICKNAME "DENIS"
+#include "serverlib/test.h"
 
 using namespace std;
 using namespace EXCEPTIONS;

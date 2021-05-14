@@ -73,7 +73,7 @@ namespace TypeB
         }
 
         void SaveLDMContent(int tlg_id, TUCMHeadingInfo& info, TLDMContent& con) {
-            int point_id_tlg = SaveFlt(tlg_id,info.flt_info.toFltInfo(),btFirstSeg,TSearchFltInfoPtr());
+            int point_id_tlg = SaveFlt(tlg_id,info.flt_info.toFltInfo(),btFirstSeg);
             TCachedQuery Qry("select point_id_spp from tlg_binding where point_id_tlg = :point_id_tlg",
                     QParams() << QParam("point_id_tlg", otInteger, point_id_tlg));
             Qry.get().Execute();

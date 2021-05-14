@@ -7,6 +7,9 @@
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/classification.hpp>
 
+#define NICKNAME "DENIS"
+#include "serverlib/slogger.h"
+
 template void RunRemStat(TStatParams const&, TOrderStatWriter&, TPrintAirline&);
 template void RunRemStat(TStatParams const&, TRemStat&, TPrintAirline&);
 
@@ -83,6 +86,96 @@ string TRemStatRow::rate_str() const
     return result.str();
 }
 
+
+template <class T>
+void ArxRemStat(const TStatParams &params, T &RemStat,TPrintAirline &prn_airline)
+{
+    LogTrace5 << __func__;
+        QParams QryParams;
+        QryParams
+            << QParam("FirstDate", otDate, params.FirstDate)
+            << QParam("LastDate", otDate, params.LastDate);
+        string SQLText =
+            "select "
+            "   arx_points.point_id, "
+            "   arx_points.scd_out, "
+            "   arx_points.flt_no, "
+            "   arx_points.suffix, "
+            "   arx_points.airp, "
+            "   arx_points.airline, "
+            "   arx_points.craft, "
+            "   asr.airp_last, "
+            "   asr.travel_time, "
+            "   asr.rem_code, "
+            "   asr.ticket_no, "
+            "   asr.desk, "
+            "   asr.rfisc, "
+            "   asr.rate, "
+            "   asr.rate_cur, "
+            "   asr.user_id " //for joining with users2 table after split for queries for pg
+            "from  arx_stat_rem asr, arx_points "
+            "where asr.point_id = arx_points.point_id and ";
+        params.AccessClause(SQLText, "arx_points");
+        if(params.flt_no != NoExists) {
+            SQLText += " arx_points.flt_no = :flt_no and ";
+            QryParams << QParam("flt_no", otInteger, params.flt_no);
+        }
+        SQLText +=
+            " arx_points.part_key >= :FirstDate and arx_points.part_key < :LastDate and "
+            " asr.part_key >= :FirstDate and asr.part_key < :LastDate ";
+        auto& Users = UsersReader::Instance();
+        Users.updateUsers();
+
+        DB::TCachedQuery Qry(PgOra::getROSession("arx_points"), SQLText, QryParams);
+        Qry.get().Execute();
+        if(not Qry.get().Eof) {
+            int col_point_id = Qry.get().GetFieldIndex("point_id");
+            int col_ticket_no = Qry.get().GetFieldIndex("ticket_no");
+            int col_scd_out = Qry.get().GetFieldIndex("scd_out");
+            int col_flt_no = Qry.get().GetFieldIndex("flt_no");
+            int col_suffix = Qry.get().GetFieldIndex("suffix");
+            int col_airp = Qry.get().GetFieldIndex("airp");
+            int col_airp_last = Qry.get().GetFieldIndex("airp_last");
+            int col_craft = Qry.get().GetFieldIndex("craft");
+            int col_travel_time = Qry.get().GetFieldIndex("travel_time");
+            int col_rem_code = Qry.get().GetFieldIndex("rem_code");
+            int col_airline = Qry.get().GetFieldIndex("airline");
+            int col_desk = Qry.get().GetFieldIndex("desk");
+            int col_rfisc = Qry.get().GetFieldIndex("rfisc");
+            int col_rate = Qry.get().GetFieldIndex("rate");
+            int col_rate_cur = Qry.get().GetFieldIndex("rate_cur");
+            int col_user_id = Qry.get().GetFieldIndex("user_id");
+
+            for(; not Qry.get().Eof; Qry.get().Next()) {
+                int stat_rem_user_id = Qry.get().FieldAsInteger(col_user_id);
+                if(!Users.containsUser(stat_rem_user_id)) {
+                    continue;
+                }
+                prn_airline.check(Qry.get().FieldAsString(col_airline));
+                TRemStatRow row;
+                row.point_id = Qry.get().FieldAsInteger(col_point_id);
+                row.ticket_no = Qry.get().FieldAsString(col_ticket_no);
+                row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
+                row.flt_no = Qry.get().FieldAsInteger(col_flt_no);
+                row.suffix = Qry.get().FieldAsString(col_suffix);
+                row.airp = Qry.get().FieldAsString(col_airp);
+                row.airp_last = Qry.get().FieldAsString(col_airp_last);
+                row.craft = Qry.get().FieldAsString(col_craft);
+                if(not Qry.get().FieldIsNULL(col_travel_time))
+                    row.travel_time = Qry.get().FieldAsDateTime(col_travel_time);
+                row.rem_code = Qry.get().FieldAsString(col_rem_code);
+                row.user = Users.getDescr(stat_rem_user_id).value_or("");
+                row.desk = Qry.get().FieldAsString(col_desk);
+                row.rfisc = Qry.get().FieldAsString(col_rfisc);
+                if(not Qry.get().FieldIsNULL(col_rate))
+                    row.rate = Qry.get().FieldAsFloat(col_rate);
+                row.rate_cur = Qry.get().FieldAsString(col_rate_cur);
+                RemStat.insert(row);
+                params.overflow.check(RemStat.size());
+            }
+        }
+}
+
 template <class T>
 void RunRemStat(
         const TStatParams &params,
@@ -90,7 +183,6 @@ void RunRemStat(
         TPrintAirline &prn_airline
         )
 {
-    for(int pass = 0; pass <= 1; pass++) {
         QParams QryParams;
         QryParams
             << QParam("FirstDate", otDate, params.FirstDate)
@@ -113,17 +205,9 @@ void RunRemStat(
             "   cs.rfisc, "
             "   cs.rate, "
             "   cs.rate_cur "
-            "from ";
-        if(pass != 0) {
-            SQLText +=
-                "   arx_stat_rem cs, "
-                "   arx_points points, ";
-        } else {
-            SQLText +=
-                "   stat_rem cs, "
-                "   points, ";
-        }
-        SQLText +=
+            "from "
+            "   stat_rem cs, "
+            "   points, "
             "   users2 "
             "where "
             "   cs.point_id = points.point_id and ";
@@ -132,15 +216,8 @@ void RunRemStat(
             SQLText += " points.flt_no = :flt_no and ";
             QryParams << QParam("flt_no", otInteger, params.flt_no);
         }
-        if(pass != 0)
-            SQLText +=
-                " points.part_key >= :FirstDate and points.part_key < :LastDate and "
-                " cs.part_key >= :FirstDate and cs.part_key < :LastDate and ";
-        else
-            SQLText +=
-                "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate and ";
-        SQLText +=
-            "    cs.user_id = users2.user_id ";
+        SQLText += " points.scd_out >= :FirstDate AND points.scd_out < :LastDate and "
+                   " cs.user_id = users2.user_id ";
         TCachedQuery Qry(SQLText, QryParams);
         Qry.get().Execute();
         if(not Qry.get().Eof) {
@@ -184,7 +261,7 @@ void RunRemStat(
                 params.overflow.check(RemStat.size());
             }
         }
-    }
+        ArxRemStat(params, RemStat, prn_airline);
 }
 
 void createXMLRemStat(const TStatParams &params, const TRemStat &RemStat, const TPrintAirline &prn_airline, xmlNodePtr resNode)
