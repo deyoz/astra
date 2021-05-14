@@ -2089,7 +2089,7 @@ void TSalonList::ReadRemarks( TQuery &Qry, FilterRoutesProperty &filterRoutes,
     point_s.y = Qry.FieldAsInteger( col_y );
     if ( !findSeat( salons, &placelist, point_s ) ) {
       if ( filterSets.filterClass.empty() ) {
-        ProgError( STDLOG, "TSalonList::ReadRemarks: placelist not found num=%d", point_s.num );
+        ProgError( STDLOG, "TSalonList::ReadRemarks: placelist not found (num=%d,x=%d,y=%d)", point_s.num, point_s.x, point_s.y );
       }
       continue;
     }
@@ -3508,7 +3508,7 @@ void TSalonList::RollbackLayers( )
   }
 }
 
-void TSalonList::validateLayersSeats( )
+void TSalonList::validateLayersSeats( bool read_all_notPax_layers  )
 {
   RollbackLayers();
   std::map<int, TSetOfLayerPriority,classcomp > layers;
@@ -3556,10 +3556,12 @@ void TSalonList::validateLayersSeats( )
             setInvalidLayer( pax_lists, *ilayer, TWaitListReason( layerLess, iseatLayer->max_layer ) );
           }
           else {
-            if ( isBlockedLayer( ilayer->layerType() ) ) {
-              iseatLayer->seat->AddDropBlockedLayer( *ilayer );
+            if ( !read_all_notPax_layers ) {
+              if ( isBlockedLayer( ilayer->layerType() ) ) {
+                iseatLayer->seat->AddDropBlockedLayer( *ilayer );
+              }
+              iseatLayer->seat->ClearLayer( ilayer->point_id(), *ilayer );
             }
-            iseatLayer->seat->ClearLayer( ilayer->point_id(), *ilayer );
           }
           continue;
         }
@@ -3634,7 +3636,7 @@ void TSalonList::JumpToLeg( const FilterRoutesProperty &filterRoutesNew )
   }
   filterSets.filterRoutes = filterRoutesNew;
   ProgTrace( TRACE5, "TSalonList::JumpToLeg: getDepartureId=%d, getArrivalId=%d", getDepartureId(), getArrivalId() );
-  validateLayersSeats( );
+  validateLayersSeats( false );
 }
 
 void TSalonList::JumpToLeg( const TFilterRoutesSets &routesSets )
@@ -4135,15 +4137,27 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
                              bool for_calc_waitlist,
                              int prior_compon_props_point_id )
 {
-  if ( !for_calc_waitlist && SALONS2::isFreeSeating( filterRoutesSets.point_dep ) ) {
+  TSalonListReadParams params;
+  params.filterClass = filterClass;
+  params.tariff_pax_id = tariff_pax_id;
+  params.for_calc_waitlist = for_calc_waitlist;
+  params.prior_compon_props_point_id = prior_compon_props_point_id;
+  params.read_all_notPax_layers = false;
+  ReadFlight( filterRoutesSets, params );
+}
+
+void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
+                             const TSalonListReadParams &params )
+{
+  if ( !params.for_calc_waitlist && SALONS2::isFreeSeating( filterRoutesSets.point_dep ) ) {
     throw EXCEPTIONS::Exception( "MSG.SALONS.FREE_SEATING" );
   }
   TQuery Qry( &OraSession );
-  bool only_compon_props = ( prior_compon_props_point_id != ASTRA::NoExists );
+  bool only_compon_props = ( params.prior_compon_props_point_id != ASTRA::NoExists );
   ProgTrace( TRACE5, "TSalonList::ReadFlight(): filterClass=%s, prior_compon_props_point_id=%d",
-             filterClass.c_str(), prior_compon_props_point_id );
+             params.filterClass.c_str(), params.prior_compon_props_point_id );
   Clear();
-  filterSets.filterClass = filterClass;
+  filterSets.filterClass = params.filterClass;
   FilterRoutesProperty &filterRoutes = filterSets.filterRoutes;
   filterRoutes.Read( filterRoutesSets );
   //!logProgTrace( TRACE5, "filterRoutes.getCompId=%d", filterRoutes.getCompId() );
@@ -4210,7 +4224,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
     _seats.Clear();
     _seats.read(Qry,filterSets.filterClass);
   }
-  if ( _seats.empty() && !for_calc_waitlist ) {
+  if ( _seats.empty() && !params.for_calc_waitlist ) {
     ProgTrace( TRACE5, "point_id=%d", filterRoutes.getDepartureId() );
     throw UserException( "MSG.FLIGHT_WO_CRAFT_CONFIGURE" );
   }
@@ -4229,7 +4243,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
       }
       Qry.SetVariable( "point_id", iseg->point_id );
       Qry.Execute();
-      ReadRemarks( Qry, filterRoutes, prior_compon_props_point_id );
+      ReadRemarks( Qry, filterRoutes, params.prior_compon_props_point_id );
     }
   }
   if ( /*!for_calc_waitlist*/ true ) { //в расчете WL уже требуются тарифы
@@ -4251,7 +4265,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
            filtersLayers[ iseg->point_id ].CanUseLayer( cltPNLAfterPay, -1, -1, filterRoutes.isTakeoff( iseg->point_id ) ) ) {
         Qry.SetVariable( "point_id", iseg->point_id );
         Qry.Execute();
-        ReadTariff( Qry, filterRoutes, prior_compon_props_point_id );
+        ReadTariff( Qry, filterRoutes, params.prior_compon_props_point_id );
       }
     }
     Qry.Clear();
@@ -4266,7 +4280,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
       }
       Qry.SetVariable( "point_id", iseg->point_id );
       Qry.Execute();
-      ReadRFISCColors( Qry, filterRoutes, prior_compon_props_point_id );
+      ReadRFISCColors( Qry, filterRoutes, params.prior_compon_props_point_id );
     }
   }
   std::string pax_airp_arv;
@@ -4319,11 +4333,11 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
           iseg!=filterRoutes.end(); iseg++ ) {
       Qry.SetVariable( "point_dep", iseg->point_id );
       Qry.Execute();
-      ReadCrsPaxs( Qry, pax_lists[ iseg->point_id ], tariff_pax_id, pax_airp_arv );
+      ReadCrsPaxs( Qry, pax_lists[ iseg->point_id ], params.tariff_pax_id, pax_airp_arv );
 //      ProgTrace( TRACE5, "TSalonList::ReadFlight: crs_pax_lists[ %d ].size()=%zu", iseg->point_id, pax_lists[ iseg->point_id ].size() );
     }
   }
-  ProgTrace( TRACE5, "prior_compon_props_point_id=%d", prior_compon_props_point_id );
+  ProgTrace( TRACE5, "prior_compon_props_point_id=%d", params.prior_compon_props_point_id );
   //начитываем базовые слои по маршруту
   Qry.Clear();
   Qry.SQLText =
@@ -4343,7 +4357,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
     Qry.Execute();
     ReadLayers( Qry, filterRoutes, filtersLayers[ iseg->point_id ],
                 pax_lists[ iseg->point_id ],
-                prior_compon_props_point_id );
+                params.prior_compon_props_point_id );
   }
   //начитываем слои по маршруту, К этому моменту должен быть заполнен pax_list
   Qry.Clear();
@@ -4364,35 +4378,36 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
     Qry.Execute();
     ReadLayers( Qry, filterRoutes, filtersLayers[ iseg->point_id ],
                 pax_lists[ iseg->point_id ],
-                prior_compon_props_point_id );
+                params.prior_compon_props_point_id );
   }
   CommitLayers();
+
   if ( /*!for_calc_waitlist*/ true ) { // //в расчете WL уже требуются тарифы
     TSeatTariffMap tariffMap;
     bool paxTariff = false;
-    if ( tariff_pax_id != NoExists ) {
-      if ( SALONS2::Checkin( tariff_pax_id ) ) {
-        tariffMap.get( tariff_pax_id );
+    if ( params.tariff_pax_id != NoExists ) {
+      if ( SALONS2::Checkin( params.tariff_pax_id ) ) {
+        tariffMap.get( params.tariff_pax_id );
         paxTariff = ( tariffMap.status() == TSeatTariffMap::stUseRFISC );
-        ProgTrace( TRACE5, "RFISCMode=%d, paxTariff=%d, tariff_pax_id=%d", RFISCMode, paxTariff, tariff_pax_id );
+        ProgTrace( TRACE5, "RFISCMode=%d, paxTariff=%d, tariff_pax_id=%d", RFISCMode, paxTariff, params.tariff_pax_id );
         tariffMap.trace(TRACE5);
       }
       else {
         TAdvTripInfo operFlt;
         operFlt.getByPointId( filterRoutesSets.point_dep );
         TMktFlight mktFlight;
-        mktFlight.getByCrsPaxId( tariff_pax_id );
-        ProgTrace( TRACE5, "tariff_pax_id=%d, flight.empty()=%d", tariff_pax_id, mktFlight.empty() );
+        mktFlight.getByCrsPaxId( params.tariff_pax_id );
+        ProgTrace( TRACE5, "tariff_pax_id=%d, flight.empty()=%d", params.tariff_pax_id, mktFlight.empty() );
         if ( !mktFlight.empty() ) {
           CheckIn::TPaxTknItem tkn;
-          CheckIn::LoadCrsPaxTkn( tariff_pax_id, tkn);
+          CheckIn::LoadCrsPaxTkn( params.tariff_pax_id, tkn);
           if ( pax_airp_arv.empty() ) {
             CheckIn::TSimplePnrItem spi;
-            if ( spi.getByPaxId( tariff_pax_id ) ) {
+            if ( spi.getByPaxId( params.tariff_pax_id ) ) {
               pax_airp_arv = spi.airp_arv;
             }
             else {
-              LogError(STDLOG) << "TSimplePnrItem::getByPaxId(" << tariff_pax_id << ") return false";
+              LogError(STDLOG) << "TSimplePnrItem::getByPaxId(" << params.tariff_pax_id << ") return false";
             }
           }
           tariffMap.get( operFlt, mktFlight, tkn, pax_airp_arv );
@@ -4407,7 +4422,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
     }
 
     RFISCMode = ( tariffMap.status() == TSeatTariffMap::stUseRFISC )?rRFISC:rTariff;
-    ProgTrace( TRACE5, "RFISCMode=%d, paxTariff=%d, tariff_pax_id=%d", RFISCMode, paxTariff, tariff_pax_id );
+    ProgTrace( TRACE5, "RFISCMode=%d, paxTariff=%d, tariff_pax_id=%d", RFISCMode, paxTariff, params.tariff_pax_id );
     tariffMap.trace(TRACE5);
   //задаем тарифы
     if ( RFISCMode != rTariff ) {
@@ -4432,8 +4447,9 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
 
      надо удалить все слои с признаком vlInvalid
   */
+
   if ( !only_compon_props ) {
-    validateLayersSeats( );
+    validateLayersSeats( params.read_all_notPax_layers );
   }
 }
 

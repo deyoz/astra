@@ -1700,6 +1700,19 @@ class CraftSeats: public std::vector<TPlaceList*> {
 
 typedef std::map<bool, std::vector<std::string>> TBuildMap;
 
+struct TSalonListReadParams {
+  std::string filterClass;
+  int tariff_pax_id;
+  bool for_calc_waitlist;
+  int prior_compon_props_point_id;
+  bool read_all_notPax_layers;
+  TSalonListReadParams() {
+    for_calc_waitlist = false;
+    prior_compon_props_point_id = ASTRA::NoExists;
+    read_all_notPax_layers = false;
+  }
+};
+
 class TSalonList {
   private:
     TFilterSets filterSets;
@@ -1727,7 +1740,7 @@ class TSalonList {
     void ReadPaxs( TQuery &Qry, TPaxList &pax_list );
     void ReadCrsPaxs( TQuery &Qry, TPaxList &pax_list,
                       int pax_id, std::string &airp_arv );
-    void validateLayersSeats( );
+    void validateLayersSeats( bool read_all_notPax_layers );
     void CommitLayers();
     void RollbackLayers();
   public:
@@ -1784,6 +1797,8 @@ class TSalonList {
                      int tariff_pax_id,
                      bool for_calc_waitlist = false,  //!!!
                      int prior_compon_props_point_id = ASTRA::NoExists );
+    void ReadFlight( const TFilterRoutesSets &filterRoutesSets,
+                     const TSalonListReadParams &params );
 //    void ReadSeats( TQuery &Qry, const std::string &FilterClass );
     void Build( TBuildMap &seats);
     void Build( xmlNodePtr salonsNode );

@@ -563,7 +563,11 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
   SALONS2::TSalonList salonList(true);
   try {
-    salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), filterClass, tariff_pax_id );
+    SALONS2::TSalonListReadParams params;
+    params.filterClass = filterClass;
+    params.tariff_pax_id = tariff_pax_id;
+    params.read_all_notPax_layers = true;
+    salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), params );
   }
   catch( AstraLocale::UserException& ue ) {
     AstraLocale::showErrorMessage( ue.getLexemaData() );
@@ -619,6 +623,8 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   TTripInfo info;
   info.getByPointId( trip_id );
   SALONS2::TSalonList salonList(true), priorsalonList(true);
+  TSalonListReadParams readParams;
+  readParams.read_all_notPax_layers = true;
   salonList.Parse( info, info.airline, NodeAsNode( "salons", reqNode ) );
   //была ли до этого момента компоновка
   Qry.Clear();
@@ -630,7 +636,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   bool pr_base_change = false;
   bool saveContructivePlaces = false;
   if ( !Qry.Eof ) { // была старая компоновка
-    priorsalonList.ReadFlight( SALONS2::TFilterRoutesSets( trip_id ), "", NoExists );
+    priorsalonList.ReadFlight( SALONS2::TFilterRoutesSets( trip_id ), readParams );
     pr_base_change = salonList._seats.basechecksum() != priorsalonList._seats.basechecksum();
     if ( (!TReqInfo::Instance()->desk.compatible( SALON_SECTION_VERSION )) &&
          SALONS2::haveConstructiveCompon( trip_id, rTripSalons ) ) {
@@ -712,7 +718,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   SALONS2::GetTripParams( trip_id, dataNode );
   // надо перечитать заново
   /*всегда работаем с новой компоновкой, т.к. см. !salonChangesToText*/
-  salonList.ReadFlight( SALONS2::TFilterRoutesSets( trip_id ), "", NoExists );
+  salonList.ReadFlight( SALONS2::TFilterRoutesSets( trip_id ), readParams );
   BitSet<ASTRA::TCompLayerType> editabeLayers;
   salonList.getEditableFlightLayers( editabeLayers );
 
@@ -1093,10 +1099,11 @@ BitSet<SEATS2::TChangeLayerSeatsProps>
   }
   Qry.Clear();
   Qry.SQLText =
-   "SELECT layer_type, pax_grp.point_arv, pax_grp.status FROM grp_status_types, pax, pax_grp "
+   "SELECT layer_type, pax_grp.point_arv, pax_grp.status, pax.grp_id FROM grp_status_types, pax, pax_grp "
    " WHERE pax_id=:pax_id AND pax.grp_id=pax_grp.grp_id AND pax_grp.status=grp_status_types.code ";
   Qry.CreateVariable( "pax_id", otInteger, pax_id );
   Qry.Execute();
+  GrpId_t grp_id(ASTRA::NoExists);
   if ( !Qry.Eof ) {
     if (DecodePaxStatus(Qry.FieldAsString("status"))==psCrew)
       throw UserException("MSG.CREW.IMPOSSIBLE_CHANGE_SEAT");
@@ -1105,6 +1112,7 @@ BitSet<SEATS2::TChangeLayerSeatsProps>
     if ( flags.isFlag( flSetPayLayer ) ) {
       throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL");
     }
+    grp_id = GrpId_t(Qry.FieldAsInteger( "grp_id" ));
   }
   else {
     point_arv = SALONS2::getCrsPaxPointArv( pax_id, point_id );
@@ -1246,15 +1254,16 @@ BitSet<SEATS2::TChangeLayerSeatsProps>
       }
     }
     std::set<TCompLayerType> checkinLayers { cltGoShow, cltTranzit, cltCheckin, cltTCheckin };
+    TTripInfo fltInfo;
+    if (!fltInfo.getByPointId(point_id))
+      throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
+
     if (!pr_show_error_message &&
         TReqInfo::Instance()->client_type == ctTerm &&
         seat_type == SEATS2::stReseat && //пересадка
         propsSeatsFlags.isFlag(propRFISC) && //!!!
         !procFlags.isFlag( procWaitList ) && //  не ругаемся, если пересадка идет с ЛО
         checkinLayers.find( layer_type ) != checkinLayers.end() ) { // уже зарегистрированного
-      TTripInfo fltInfo;
-      if (!fltInfo.getByPointId(point_id))
-        throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
       if ( GetTripSets(tsReseatOnRFISC,fltInfo) ) {
         TRemGrp remGrp;
         remGrp.Load(retFORBIDDEN_FREE_SEAT, point_id);
@@ -1287,6 +1296,7 @@ BitSet<SEATS2::TChangeLayerSeatsProps>
           AstraLocale::showErrorMessage( "MSG.SEATS.SEATS_WARNING_RFISC" );
       }
     }
+
   }
   catch( UserException& ue ) {
     tst();
