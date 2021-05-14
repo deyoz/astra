@@ -1,9 +1,6 @@
 #include "MPSExchangeIface.h"
 #include "xml_unit.h"
 
-#define NICKNAME "DJEK"
-#define NICKTRACE SYSTEM_TRACE
-#include <serverlib/slogger.h>
 #include <serverlib/str_utils.h>
 #include "date_time.h"
 #include "etick/tick_data.h"
@@ -19,6 +16,9 @@
 #include "astra_utils.h"
 #include "serverlib/xml_stuff.h"
 
+#define NICKNAME "DJEK"
+#define NICKTRACE SYSTEM_TRACE
+#include <serverlib/slogger.h>
 namespace MPS
 {
 

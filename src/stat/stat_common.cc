@@ -538,6 +538,27 @@ const TFltInfoCacheItem &TFltInfoCache::get(int point_id, TDateTime part_key)
     return i->second;
 }
 
+string TAirpArvInfo::get(DB::TQuery &Qry)
+{
+    int grp_id = Qry.FieldAsInteger("grp_id");
+    map<int, string>::iterator im = items.find(grp_id);
+    if(im == items.end()) {
+        TCkinRoute tckin_route;
+        tckin_route.getRouteAfter(GrpId_t(grp_id),
+                                  TCkinRoute::WithCurrent,
+                                  TCkinRoute::IgnoreDependence,
+                                  TCkinRoute::WithoutTransit);
+        string airp_arv;
+        if(tckin_route.empty())
+            airp_arv = Qry.FieldAsString("airp_arv");
+        else
+            airp_arv = tckin_route.back().airp_arv;
+        pair<map<int, string>::iterator, bool> res = items.insert(make_pair(grp_id, airp_arv));
+        im = res.first;
+    }
+    return im->second;
+}
+
 string TAirpArvInfo::get(TQuery &Qry)
 {
     int grp_id = Qry.FieldAsInteger("grp_id");
@@ -608,4 +629,63 @@ void TStatOverflow::check(size_t RowCount) const
 
 TStatParams::TStatParams(TStatOverflow::Enum apply_type): overflow(apply_type)
 {
+}
+
+std::optional<std::string> UsersReader::getDescr(int user_id) const
+{
+    return algo::find_opt<std::optional>(idDescriptions, user_id);
+}
+
+std::optional<int> UsersReader::getUserId(const std::string& login) const
+{
+    if(!login.empty()) {
+        return algo::find_opt<std::optional>(loginIds,login);
+    } else{
+        LogTrace5 << __func__ << " Empty login!";
+        //throw EXCEPTIONS::Exception("NOT FOUND USER_ID. INVALID LOGIN!");
+        return std::nullopt;
+    }
+}
+
+bool UsersReader::containsUser(int user_id) const
+{
+    return algo::contains(idDescriptions, user_id);
+}
+
+void UsersReader::readAllUsers()
+{
+    int user_id;
+    std::string descr;
+    std::string login;
+    auto cur = make_db_curs("select USER_ID, DESCR, LOGIN from USERS2", PgOra::getROSession("USERS2"));
+    cur.def(user_id).def(descr).defNull(login, "").exec();
+    while(!cur.fen()) {
+        idDescriptions.insert({user_id, descr});
+        if(!login.empty()) {
+            loginIds.insert({login, user_id});
+            login = "";
+        }
+    }
+}
+
+void UsersReader::updateUsers()
+{
+    int max_user_id = 0;
+    if(!idDescriptions.empty()) {
+        max_user_id = idDescriptions.rbegin()->first;
+        LogTrace5 << " max_user: " << max_user_id;
+    }
+    int user_id;
+    std::string descr;
+    std::string login;
+    auto cur = make_db_curs("select USER_ID, DESCR, LOGIN from USERS2 where user_id > :max_user_id",
+                            PgOra::getROSession("USERS2"));
+    cur.def(user_id).def(descr).defNull(login, "").bind(":max_user_id", max_user_id).exec();
+    while(!cur.fen()) {
+        idDescriptions.insert({user_id, descr});
+        if(!login.empty()) {
+            loginIds.insert({login, user_id});
+            login = "";
+        }
+    }
 }

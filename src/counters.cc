@@ -163,20 +163,24 @@ void TCrsCountersMap::loadCrsCountersOnly()
     insert(make_pair(TCrsCountersKey().fromDB(Qry.get()), TCrsCountersData().fromDB(Qry.get())));
 }
 
-void TCrsCountersMap::deleteCrsCountersOnly(int point_id)
+void TCrsCountersMap::deleteCrsCountersOnly(const PointId_t& point_id)
 {
-  LogTrace(TRACE5) << __FUNCTION__;
+  LogTrace(TRACE5) << __func__
+                   << ": point_id=" << point_id;
 
-  TCachedQuery Qry("DELETE FROM crs_counters WHERE point_dep=:point_dep",
-                   QParams() << QParam("point_dep", otInteger, point_id));
+  DB::TCachedQuery Qry(PgOra::getRWSession("CRS_COUNTERS"),
+        "DELETE FROM crs_counters "
+        "WHERE point_dep=:point_dep",
+        QParams() << QParam("point_dep", otInteger, point_id.get()));
   Qry.get().Execute();
 }
 
-void TCrsCountersMap::saveCrsCountersOnly() const
+
+void TCrsCountersMap::saveCrsCountersOnly(const PointId_t& point_id) const
 {
   LogTrace(TRACE5) << __FUNCTION__;
 
-  deleteCrsCountersOnly(_flt.point_id);
+  deleteCrsCountersOnly(point_id);
 
   if (!empty())
   {
@@ -553,7 +557,7 @@ const TCounters &TCounters::recount(int point_id, RecountType type, const std::s
     if (type==Total)
       TCounters::deleteInitially(point_id);
     if (type==CrsCounters)
-      TCrsCountersMap::deleteCrsCountersOnly(point_id);
+      TCrsCountersMap::deleteCrsCountersOnly(PointId_t(point_id));
     return *this;
   }
 
@@ -568,7 +572,7 @@ const TCounters &TCounters::recount(int point_id, RecountType type, const std::s
     if (priorCrsCounters==currCrsCounters) return *this;  //счетчики брони не изменились
 
     lockInitially(point_id);
-    currCrsCounters.saveCrsCountersOnly();
+    currCrsCounters.saveCrsCountersOnly(PointId_t(flt().point_id));
   }
 
   recountCrsFields();

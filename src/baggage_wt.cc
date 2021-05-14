@@ -860,39 +860,79 @@ std::ostream& operator<<(std::ostream& os, const TPaxNormItem& item)
   return os;
 }
 
+TPaxNormComplex fromDBO(const dbo::ARX_PAX_NORMS & pax, const dbo::ARX_BAG_NORMS & bag)
+{
+    TPaxNormComplex paxNorm;
+    paxNorm.handmade = pax.handmade != 0;
+    if(dbo::isNotNull(pax.norm_id)) {
+        paxNorm.norm_id = pax.norm_id;
+        paxNorm.norm_trfer = pax.norm_trfer != 0;
+    }
+
+    //Эти поля составляют bagTypeKey который используется для сравнения при добавлении в set
+    {
+        if(dbo::isNotNull(pax.bag_type_str))
+            paxNorm.bag_type = pax.bag_type_str;
+        else if(dbo::isNotNull(pax.bag_type)) {
+            ostringstream s;
+            s << setw(2) << setfill('0') << pax.bag_type;
+            paxNorm.bag_type = s.str();
+        }
+        paxNorm.airline = pax.airline;
+        if(dbo::isNotNull(pax.list_id)) paxNorm.list_id = pax.list_id;
+    }
+
+    paxNorm.norm_type = DecodeBagNormType(bag.norm_type.c_str());
+    if(dbo::isNotNull(bag.amount)) paxNorm.amount = bag.amount;
+    if(dbo::isNotNull(bag.weight))  paxNorm.weight = bag.weight;
+    if(dbo::isNotNull(bag.per_unit)) paxNorm.per_unit = (int)(bag.per_unit != 0);
+    return paxNorm;
+}
+
+bool PaxNormsFromDBArx(TDateTime part_key, int pax_id, TPaxNormComplexContainer &norms)
+{
+  LogTrace5 << __FUNCTION__ << " part_key: " << part_key << " pax_id: " << pax_id;
+  norms.clear();
+  dbo::Session session;
+  std::vector<dbo::ARX_PAX_NORMS> arx_pax_norms = session.query<dbo::ARX_PAX_NORMS>()
+          .where(" PART_KEY=:part_key and PAX_ID=:pax_id ")
+          .setBind({{":part_key", DateTimeToBoost(part_key)}, {":pax_id", pax_id}});
+
+  for(const auto &apn :  arx_pax_norms) {
+      std::optional<dbo::BAG_NORMS> bag_norm = session.query<dbo::BAG_NORMS>()
+              .where(" ID = :apn_norm_id")
+              .setBind({{":apn_norm_id", apn.norm_id}});
+      if(bag_norm) {
+          norms.insert(fromDBO(apn, dbo::ARX_BAG_NORMS(*bag_norm)));
+      }
+      std::optional<dbo::ARX_BAG_NORMS> arx_bag_norm = session.query<dbo::ARX_BAG_NORMS>()
+              .where(" ID = :apn_norm_id and PART_KEY = :part_key")
+              .setBind({{":apn_norm_id", apn.norm_id}, {":part_key", apn.part_key}});
+
+      if(arx_bag_norm) {
+          norms.insert(fromDBO(apn, *arx_bag_norm));
+      }
+      //^^^потом удалить, когда станет pax_norms.airline NOT NULL
+  }
+  return !norms.empty();
+}
+
 bool PaxNormsFromDB(TDateTime part_key, int pax_id, TPaxNormComplexContainer &norms)
 {
   norms.clear();
+  if (part_key!=ASTRA::NoExists)
+  {
+      return PaxNormsFromDBArx(part_key, pax_id, norms);
+  }
   const char* sql=
       "SELECT pax_norms.*, "
       "       bag_norms.norm_type, bag_norms.amount, bag_norms.weight, bag_norms.per_unit "
       "FROM pax_norms,bag_norms "
       "WHERE pax_norms.norm_id=bag_norms.id(+) AND pax_norms.pax_id=:pax_id ";
-  const char* sql_arx=
-      "SELECT arx_pax_norms.*, "
-      "       bag_norms.norm_type, bag_norms.amount, bag_norms.weight, bag_norms.per_unit "
-      "FROM arx_pax_norms,bag_norms "
-      "WHERE arx_pax_norms.norm_id=bag_norms.id(+) AND "
-      "      arx_pax_norms.part_key=:part_key AND "
-      "      arx_pax_norms.pax_id=:pax_id "
-      "UNION "
-      "SELECT arx_pax_norms.*, "
-      "       arx_bag_norms.norm_type, arx_bag_norms.amount, arx_bag_norms.weight, arx_bag_norms.per_unit "
-      "FROM arx_pax_norms,arx_bag_norms "
-      "WHERE arx_pax_norms.norm_id=arx_bag_norms.id(+) AND "
-      "      arx_pax_norms.part_key=:part_key AND "
-      "      arx_pax_norms.pax_id=:pax_id ";
-  const char *result_sql = NULL;
   QParams QryParams;
-  if (part_key!=ASTRA::NoExists)
-  {
-    result_sql = sql_arx;
-    QryParams << QParam("part_key", otDate, part_key);
-  }
-  else
-    result_sql = sql;
+
   QryParams << QParam("pax_id", otInteger, pax_id);
-  TCachedQuery NormQry(result_sql, QryParams);
+  TCachedQuery NormQry(sql, QryParams);
   NormQry.get().Execute();
 
   //!!!потом удалить, когда станет pax_norms.airline NOT NULL
@@ -906,65 +946,93 @@ bool PaxNormsFromDB(TDateTime part_key, int pax_id, TPaxNormComplexContainer &no
       norms.insert(n);
     }
   }
-  else
-  //^^^потом удалить, когда станет pax_norms.airline NOT NULL
-    for(; !NormQry.get().Eof; NormQry.get().Next())
-      norms.emplace(NormQry.get());
+  return !norms.empty();
+}
 
+TPaxNormComplex fromDBO(const dbo::ARX_GRP_NORMS & pax, const dbo::ARX_BAG_NORMS & bag)
+{
+    TPaxNormComplex paxNorm;
+    paxNorm.handmade = pax.handmade != 0;
+    if(dbo::isNotNull(pax.norm_id)) {
+        paxNorm.norm_id = pax.norm_id;
+        paxNorm.norm_trfer = pax.norm_trfer != 0;
+    }
+
+    //Эти поля составляют bagTypeKey который используется для сравнения при добавлении в set
+    if(dbo::isNotNull(pax.bag_type_str)) {
+        paxNorm.bag_type = pax.bag_type_str;
+    }
+    else if(dbo::isNotNull(pax.bag_type)) {
+        ostringstream s;
+        s << setw(2) << setfill('0') << pax.bag_type;
+        paxNorm.bag_type = s.str();
+    }
+    paxNorm.airline = pax.airline;
+    if(dbo::isNotNull(pax.list_id)) paxNorm.list_id = pax.list_id;
+
+    paxNorm.norm_type = DecodeBagNormType(bag.norm_type.c_str());
+    if(dbo::isNotNull(bag.amount)) paxNorm.amount = bag.amount;
+    if(dbo::isNotNull(bag.weight)) paxNorm.weight = bag.weight;
+    if(dbo::isNotNull(bag.per_unit)) paxNorm.per_unit = (int)(bag.per_unit != 0);
+    return paxNorm;
+}
+
+bool GrpNormsFromDBArx(TDateTime part_key, int grp_id, TPaxNormComplexContainer &norms)
+{
+  LogTrace5 << __FUNCTION__ << " part_key : " << part_key << " grp_id: " << grp_id;
+  norms.clear();
+  dbo::Session session;
+  std::vector<dbo::ARX_GRP_NORMS> arx_grp_norms = session.query<dbo::ARX_GRP_NORMS>()
+          .where(" PART_KEY = :part_key AND GRP_ID=:pax_id ")
+          .setBind({{":part_key", DateTimeToBoost(part_key)}, {":grp_id", grp_id}});
+
+  for(const auto &agn :  arx_grp_norms) {
+      std::optional<dbo::BAG_NORMS> bag_norm = session.query<dbo::BAG_NORMS>()
+              .where(" ID = :agn_norm_id ")
+              .setBind({{":agn_norm_id", agn.norm_id}});
+      if(bag_norm) {
+          norms.insert(fromDBO(agn, dbo::ARX_BAG_NORMS(*bag_norm)));
+      }
+      std::optional<dbo::ARX_BAG_NORMS> arx_bag_norm = session.query<dbo::ARX_BAG_NORMS>()
+              .where(" ID = :apn_norm_id ")
+              .setBind({{":apn_norm_id", agn.norm_id}});
+
+      if(arx_bag_norm) {
+          norms.insert(fromDBO(agn, *arx_bag_norm));
+      }
+      //^^^потом удалить, когда станет pax_norms.airline NOT NULL
+  }
   return !norms.empty();
 }
 
 bool GrpNormsFromDB(TDateTime part_key, int grp_id, TPaxNormComplexContainer &norms)
 {
-  norms.clear();
-  const char* sql=
+    norms.clear();
+    if (part_key!=ASTRA::NoExists)
+    {
+        return GrpNormsFromDBArx(part_key, grp_id, norms);
+    }
+    const char* sql=
       "SELECT grp_norms.*, "
       "       bag_norms.norm_type, bag_norms.amount, bag_norms.weight, bag_norms.per_unit "
       "FROM grp_norms,bag_norms "
       "WHERE grp_norms.norm_id=bag_norms.id(+) AND grp_norms.grp_id=:grp_id ";
-  const char* sql_arx=
-      "SELECT arx_grp_norms.*, "
-      "       bag_norms.norm_type, bag_norms.amount, bag_norms.weight, bag_norms.per_unit "
-      "FROM arx_grp_norms,bag_norms "
-      "WHERE arx_grp_norms.norm_id=bag_norms.id(+) AND "
-      "      arx_grp_norms.part_key=:part_key AND "
-      "      arx_grp_norms.grp_id=:grp_id "
-      "UNION "
-      "SELECT arx_grp_norms.*, "
-      "       arx_bag_norms.norm_type, arx_bag_norms.amount, arx_bag_norms.weight, arx_bag_norms.per_unit "
-      "FROM arx_grp_norms,arx_bag_norms "
-      "WHERE arx_grp_norms.norm_id=arx_bag_norms.id(+) AND "
-      "      arx_grp_norms.part_key=:part_key AND "
-      "      arx_grp_norms.grp_id=:grp_id ";
-  const char *result_sql = NULL;
-  QParams QryParams;
-  if (part_key!=ASTRA::NoExists)
-  {
-    result_sql = sql_arx;
-    QryParams << QParam("part_key", otDate, part_key);
-  }
-  else
-    result_sql = sql;
-  QryParams << QParam("grp_id", otInteger, grp_id);
-  TCachedQuery NormQry(result_sql, QryParams);
-  NormQry.get().Execute();
-  //!!!потом удалить, когда станет grp_norms.airline NOT NULL
-  if (part_key==ASTRA::NoExists)
-  {
-    for(; !NormQry.get().Eof; NormQry.get().Next())
+    QParams QryParams;
+    QryParams << QParam("grp_id", otInteger, grp_id);
+    TCachedQuery NormQry(sql, QryParams);
+    NormQry.get().Execute();
+    //!!!потом удалить, когда станет grp_norms.airline NOT NULL
+    if (part_key==ASTRA::NoExists)
     {
-      TPaxNormComplex n;
-      n.fromDB(NormQry.get());
-      n.getListKeyUnaccomp(grp_id, 0, boost::none, __func__);
-      norms.insert(n);
+        for(; !NormQry.get().Eof; NormQry.get().Next())
+        {
+          TPaxNormComplex n;
+          n.fromDB(NormQry.get());
+          n.getListKeyUnaccomp(grp_id, 0, boost::none, __func__);
+          norms.insert(n);
+        }
     }
-  }
-  else
-  //^^^потом удалить, когда станет grp_norms.airline NOT NULL
-    for(; !NormQry.get().Eof; NormQry.get().Next())
-      norms.emplace(NormQry.get());
-
-  return !norms.empty();
+    return !norms.empty();
 };
 
 void NormsToXML(const TPaxNormComplexContainer &norms, xmlNodePtr node)
@@ -1250,40 +1318,86 @@ void PaidBagToDB(int grp_id, bool is_unaccomp,
   BagQry.Execute();
 };
 
+TPaidBagItem& TPaidBagItem::fromDBO(const dbo::ARX_PAID_BAG & apb, const dbo::ARX_BAG_RATES & bag_rate)
+{
+    TPaidBagItem paidBag;
+    //тоже самое что TBagTypeKey::fromDBcompatible(Qry);
+    if(dbo::isNotNull(apb.bag_type_str))
+        paidBag.bag_type = apb.bag_type_str;
+    else if(dbo::isNotNull(apb.bag_type)) {
+        ostringstream s;
+        s << setw(2) << setfill('0') << apb.bag_type;
+        paidBag.bag_type = s.str();
+    }
+    paidBag.airline = apb.airline;
+    if(dbo::isNotNull(apb.list_id))
+        paidBag.list_id = apb.list_id;
+    TBagTypeKey::getListItem();
+
+    paidBag.weight = apb.weight;
+    if (dbo::isNotNull(apb.rate_id))
+    {
+      paidBag.rate_id = apb.rate_id;
+      paidBag.rate_trfer = apb.rate_trfer != 0;
+      paidBag.rate = bag_rate.rate;
+      paidBag.rate_cur = bag_rate.rate_cur;
+    };
+    paidBag.handmade = apb.handmade != 0;
+    return *this;
+}
+
+void PaidBagFromDBArx(TDateTime part_key, int grp_id, TPaidBagList &paid)
+{
+  LogTrace5 << __FUNCTION__ << " part_key: " << part_key << " grp_id: " << grp_id;
+  paid.clear();
+  dbo::Session session;
+  std::vector<dbo::ARX_PAID_BAG> arx_paid_bags = session.query<dbo::ARX_PAID_BAG>()
+          .where(" PART_KEY = :part_key AND GRP_ID=:pax_id ")
+          .setBind({{":part_key", DateTimeToBoost(part_key)}, {":grp_id", grp_id}});
+
+  //BAG_RATES, ARX_BAG_RATES для полей : rate, rate_cur
+  for(const auto &apb :  arx_paid_bags) {
+      std::optional<dbo::BAG_RATES> bag_rate = session.query<dbo::BAG_RATES>()
+              .where(" ID = :apb_rate_id ").setBind({{":apb_rate_id", apb.rate_id}});
+      std::optional<dbo::ARX_BAG_RATES> arx_bag_rate = session.query<dbo::ARX_BAG_RATES>()
+              .where(" ID = :apb_rate_id and PART_KEY = :part_key")
+              .setBind({{":apb_rate_id", apb.rate_id}, {":part_key", apb.part_key}});
+
+      if(bag_rate && arx_bag_rate) {
+          //если строки прочитанные из bag_rates и arx_bag_rates равны,то не нужно добавлять
+          // 2 строки , потому что union отсекает одинаковые строки
+          if(bag_rate->rate - arx_bag_rate->rate < 0.001 &&
+                  bag_rate->rate_cur == arx_bag_rate->rate_cur)
+          {
+            paid.push_back(TPaidBagItem().fromDBO(apb, *arx_bag_rate));
+            continue;
+          }
+      }
+      if(bag_rate) {
+          paid.push_back(TPaidBagItem().fromDBO(apb, *bag_rate));
+      }
+      if(arx_bag_rate) {
+          paid.push_back(TPaidBagItem().fromDBO(apb, *arx_bag_rate));
+      }
+  }
+}
+
 void PaidBagFromDB(TDateTime part_key, int grp_id, TPaidBagList &paid)
 {
-  paid.clear();
-  const char* sql=
+    if (part_key!=ASTRA::NoExists)
+    {
+        return PaidBagFromDBArx(part_key, grp_id, paid);
+    }
+    paid.clear();
+    const char* sql=
       "SELECT paid_bag.*, bag_rates.rate, bag_rates.rate_cur "
       "FROM paid_bag,bag_rates "
       "WHERE paid_bag.rate_id=bag_rates.id(+) AND paid_bag.grp_id=:grp_id";
-  const char* sql_arx=
-      "SELECT arx_paid_bag.bag_type,arx_paid_bag.weight,arx_paid_bag.handmade, "
-      "       arx_paid_bag.rate_id,bag_rates.rate,bag_rates.rate_cur,arx_paid_bag.rate_trfer "
-      "FROM arx_paid_bag,bag_rates "
-      "WHERE arx_paid_bag.rate_id=bag_rates.id(+) AND "
-      "      arx_paid_bag.part_key=:part_key AND "
-      "      arx_paid_bag.grp_id=:grp_id "
-      "UNION "
-      "SELECT arx_paid_bag.bag_type,arx_paid_bag.weight,arx_paid_bag.handmade, "
-      "       arx_paid_bag.rate_id,arx_bag_rates.rate,arx_bag_rates.rate_cur,arx_paid_bag.rate_trfer "
-      "FROM arx_paid_bag,arx_bag_rates "
-      "WHERE arx_paid_bag.rate_id=arx_bag_rates.id(+) AND "
-      "      arx_paid_bag.part_key=:part_key AND "
-      "      arx_paid_bag.grp_id=:grp_id ";
-  const char *result_sql = NULL;
-  QParams QryParams;
-  if (part_key!=ASTRA::NoExists)
-  {
-    result_sql = sql_arx;
-    QryParams << QParam("part_key", otDate, part_key);
-  }
-  else
-    result_sql = sql;
-  QryParams << QParam("grp_id", otInteger, grp_id);
-  TCachedQuery BagQry(result_sql, QryParams);
-  BagQry.get().Execute();
-  for(;!BagQry.get().Eof;BagQry.get().Next())
+    QParams QryParams;
+    QryParams << QParam("grp_id", otInteger, grp_id);
+    TCachedQuery BagQry(sql, QryParams);
+    BagQry.get().Execute();
+    for(;!BagQry.get().Eof;BagQry.get().Next())
     paid.push_back(TPaidBagItem().fromDB(BagQry.get()));
 }
 

@@ -54,6 +54,7 @@ public:
 
     void CreateVariable(const std::string& vname, otFieldType vtype, int vdata);
     void CreateVariable(const std::string& vname, otFieldType vtype, const std::string& vdata);
+    void CreateVariable(const std::string& vname, otFieldType vtype, const char* vdata);
     void CreateVariable(const std::string& vname, otFieldType vtype, double vdata);
     void CreateVariable(const std::string& vname, otFieldType vtype, tnull vdata);
 
@@ -66,6 +67,7 @@ public:
 
     void SetVariable(const std::string& vname, int vdata);
     void SetVariable(const std::string& vname, const std::string& vdata);
+    void SetVariable(const std::string& vname, const char* vdata);
     void SetVariable(const std::string& vname, double vdata);
     void SetVariable(const std::string& vname, tnull vdata);
 

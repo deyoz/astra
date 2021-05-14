@@ -7,6 +7,7 @@
 #include "alarms.h"
 #include "qrys.h"
 #include "typeb_utils.h"
+#include "tlg/typeb_db.h"
 
 #define NICKNAME "VLAD"
 #include <serverlib/slogger.h>
@@ -556,6 +557,102 @@ TGrpItem& TGrpItem::setPaxUnaccomp()
   seats=0;
   return *this;
 };
+
+namespace {
+
+  struct TlgTransfer
+{
+  TrferId_t trfer_id;
+  TlgId_t tlg_id;
+  PointIdTlg_t point_id_in;
+  PointIdTlg_t point_id_out;
+  std::string subcl_in;
+  std::string subcl_out;
+};
+
+enum class TrferPointType
+{
+  IN,
+  OUT
+};
+
+std::vector<TlgTransfer> loadTlgTransfer(const PointIdTlg_t& point_id,
+                                         TrferPointType point_type)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": point_id=" << point_id;
+  std::vector<TlgTransfer> result;
+  int trfer_id = ASTRA::NoExists;
+  int tlg_id = ASTRA::NoExists;
+  int point_id_in = ASTRA::NoExists;
+  int point_id_out = ASTRA::NoExists;
+  std::string subcl_in;
+  std::string subcl_out;
+  auto cur = make_db_curs(
+        "SELECT trfer_id, tlg_id, point_id_in, point_id_out, subcl_in, subcl_out "
+        "FROM tlg_transfer "
+        "WHERE " +
+        std::string(point_type == TrferPointType::IN ? "point_id_in=:point_id "
+                                                     : "point_id_out=:point_id "),
+        PgOra::getROSession("TLG_TRANSFER"));
+
+  cur.stb()
+      .def(trfer_id)
+      .def(tlg_id)
+      .def(point_id_in)
+      .def(point_id_out)
+      .defNull(subcl_in, std::string())
+      .defNull(subcl_out, std::string())
+      .bind(":point_id", point_id.get())
+      .exec();
+
+  while (!cur.fen()) {
+    result.push_back(
+          TlgTransfer{
+            TrferId_t(trfer_id),
+            TlgId_t(tlg_id),
+            PointIdTlg_t(point_id_in),
+            PointIdTlg_t(point_id_out),
+            subcl_in,
+            subcl_out
+          });
+  }
+  LogTrace(TRACE6) << __func__
+                   << ": count=" << result.size();
+  return result;
+}
+
+bool existsTlgIn(const TlgId_t& tlg_id, const std::string& tlg_type)
+{
+  auto cur = make_db_curs(
+        "SELECT 1 FROM tlgs_in "
+        "WHERE id=:tlg_id "
+        "AND type=:tlg_type "
+        "FETCH FIRST 1 ROWS ONLY ",
+        PgOra::getROSession("TLGS_IN"));
+  cur.bind(":tlg_id", tlg_id.get())
+     .bind(":tlg_type", tlg_type)
+     .EXfet();
+  return cur.err() != DbCpp::ResultCode::NoDataFound;
+}
+
+
+std::vector<TlgTransfer> loadTlgTransfer(const PointIdTlg_t& point_id,
+                                         TrferPointType point_type,
+                                         const std::string& tlg_type)
+{
+  std::vector<TlgTransfer> result;
+  const std::vector<TlgTransfer> tlg_transfers = loadTlgTransfer(point_id, point_type);
+  for (const TlgTransfer& tlg_transfer: tlg_transfers) {
+    if (existsTlgIn(tlg_transfer.tlg_id, tlg_type)) {
+      result.push_back(tlg_transfer);
+    }
+  }
+  return result;
+}
+
+
+}
 
 void TrferFromDB(TTrferType type,
                  int point_id,   //point_id содержит пункт прилета для trferIn
@@ -1390,6 +1487,220 @@ bool trferCkinExists(int point_dep, TQuery& Qry)
   Qry.Execute();
   return !Qry.Eof;
 };
+
+std::set<TrferId_t> loadTrferIdSet(const PointIdTlg_t& point_id)
+{
+  dbo::Session session;
+  const std::vector<int> trfer_ids =
+      session.query<int>("SELECT trfer_id")
+      .from("tlg_transfer")
+      .where("point_id_out = :point_id")
+      .setBind({{":point_id", point_id.get()}});
+  return algo::transform<std::set>(trfer_ids, [](int id) { return TrferId_t(id); });
+}
+
+std::set<TlgId_t> loadTrferTlgIdSet(const PointIdTlg_t& point_id)
+{
+  dbo::Session session;
+  const std::vector<int> tlg_ids =
+      session.query<int>("SELECT tlg_id")
+      .from("tlg_transfer")
+      .where("point_id_out = :point_id")
+      .setBind({{":point_id", point_id.get()}});
+  return algo::transform<std::set>(tlg_ids, [](int id) { return TlgId_t(id); });
+}
+
+std::set<TrferGrpId_t> loadTrferGrpIdSet(const TrferId_t& trfer_id)
+{
+  dbo::Session session;
+  const std::vector<int> grp_ids =
+      session.query<int>("SELECT grp_id").from("trfer_grp")
+      .where("trfer_id = :trfer_id")
+      .setBind({{":trfer_id", trfer_id.get()}});
+  return algo::transform<std::set>(grp_ids, [](int id) { return TrferGrpId_t(id); });
+}
+
+std::set<TrferGrpId_t> loadTrferGrpIdSet(const PointIdTlg_t& point_id)
+{
+  dbo::Session session;
+  const std::vector<int> grp_ids =
+      session.query<int>("SELECT grp_id").from("trfer_grp, tlg_transfer")
+      .where("tlg_transfer.trfer_id = trfer_grp.trfer_id AND "
+             "tlg_transfer.point_id_out = :point_id")
+      .setBind({{":point_id", point_id.get()}});
+  return algo::transform<std::set>(grp_ids, [](int id) { return TrferGrpId_t(id); });
+}
+
+std::set<TrferId_t> loadTrferIdsByTlgTransferIn(const PointIdTlg_t& point_id_in,
+                                                const std::string& tlg_type)
+{
+  std::set<TrferId_t> result;
+  const std::vector<TlgTransfer> tlg_transfers = loadTlgTransfer(PointIdTlg_t(point_id_in),
+                                                                 TrferPointType::IN,
+                                                                 tlg_type);
+  for (const TlgTransfer& tlg_transfer: tlg_transfers) {
+    result.insert(tlg_transfer.trfer_id);
+  }
+  return result;
+}
+
+std::set<PointId_t> loadPointIdsSppByTlgTransferIn(const PointIdTlg_t& point_id_in)
+{
+  std::set<PointIdTlg_t> point_ids_out;
+  const std::vector<TlgTransfer> tlg_transfers = loadTlgTransfer(point_id_in,
+                                                                 TrferPointType::IN,
+                                                                 "BTM");
+  for (const TlgTransfer& tlg_transfer: tlg_transfers) {
+    point_ids_out.insert(tlg_transfer.point_id_out);
+  }
+  std::set<PointId_t> point_ids_spp;
+  for (const PointIdTlg_t& point_id_out: point_ids_out) {
+    getPointIdsSppByPointIdTlg(point_id_out, point_ids_spp, false /*clear*/);
+  }
+  return point_ids_spp;
+}
+
+bool deleteTrferPax(const TrferGrpId_t& grp_id)
+{
+  auto cur = make_db_curs(
+        "DELETE FROM trfer_pax "
+        "WHERE grp_id = :grp_id ",
+        PgOra::getRWSession("TRFER_PAX"));
+  cur.bind(":grp_id", grp_id.get()).exec();
+  return cur.rowcount() > 0;
+}
+
+bool deleteTrferTags(const TrferGrpId_t& grp_id)
+{
+  auto cur = make_db_curs(
+        "DELETE FROM trfer_tags "
+        "WHERE grp_id = :grp_id ",
+        PgOra::getRWSession("TRFER_TAGS"));
+  cur.bind(":grp_id", grp_id.get()).exec();
+  return cur.rowcount() > 0;
+}
+
+bool deleteTlgTrferOnwards(const TrferGrpId_t& grp_id)
+{
+  auto cur = make_db_curs(
+        "DELETE FROM tlg_trfer_onwards "
+        "WHERE grp_id = :grp_id ",
+        PgOra::getRWSession("TLG_TRFER_ONWARDS"));
+  cur.bind(":grp_id", grp_id.get()).exec();
+  return cur.rowcount() > 0;
+}
+
+bool deleteTlgTrferExcepts(const TrferGrpId_t& grp_id)
+{
+  auto cur = make_db_curs(
+        "DELETE FROM tlg_trfer_excepts "
+        "WHERE grp_id = :grp_id ",
+        PgOra::getRWSession("TLG_TRFER_EXCEPTS"));
+  cur.bind(":grp_id", grp_id.get()).exec();
+  return cur.rowcount() > 0;
+}
+
+bool deleteTrferGrp(const TrferId_t& trfer_id)
+{
+  auto cur = make_db_curs(
+        "DELETE FROM trfer_grp "
+        "WHERE trfer_id = :trfer_id ",
+        PgOra::getRWSession("TRFER_GRP"));
+  cur.bind(":trfer_id", trfer_id.get()).exec();
+  return cur.rowcount() > 0;
+}
+
+bool deleteTlgTransfer(const TrferId_t& trfer_id)
+{
+  auto cur = make_db_curs(
+        "DELETE FROM tlg_transfer "
+        "WHERE trfer_id = :trfer_id ",
+        PgOra::getRWSession("TLG_TRANSFER"));
+  cur.bind(":trfer_id", trfer_id.get()).exec();
+  return cur.rowcount() > 0;
+}
+
+bool deleteTlgTransfer(const PointIdTlg_t& point_id)
+{
+  auto cur = make_db_curs(
+        "DELETE FROM tlg_transfer "
+        "WHERE point_id_out= :point_id ",
+        PgOra::getRWSession("TLG_TRANSFER"));
+  cur.bind(":point_id", point_id.get()).exec();
+  return cur.rowcount() > 0;
+}
+
+int countTlgTransfer(const PointIdTlg_t& point_id)
+{
+    int result = 0;
+    auto cur = make_db_curs(
+          "SELECT COUNT(*) FROM tlg_transfer "
+          "WHERE point_id_in=:point_id "
+          "AND point_id_in<>point_id_out ",
+          PgOra::getROSession("TLG_TRANSFER"));
+    cur.def(result)
+        .bind(":point_id", point_id.get())
+        .EXfet();
+    return result;
+}
+
+bool existsTlgTransfer(const PointIdTlg_t& point_id, const TlgId_t& tlg_id)
+{
+    auto cur = make_db_curs(
+          "SELECT 1 FROM tlg_transfer "
+          "WHERE point_id_in=:point_id "
+          "AND tlg_id=:tlg_id "
+          "FETCH FIRST 1 ROWS ONLY ",
+          PgOra::getROSession("TLG_TRANSFER"));
+    cur.bind(":point_id", point_id.get())
+       .bind(":tlg_id", tlg_id.get())
+       .EXfet();
+    return cur.err() != DbCpp::ResultCode::NoDataFound;
+}
+
+bool deleteTlgSource(const PointIdTlg_t& point_id, const TlgId_t& tlg_id)
+{
+  auto cur = make_db_curs(
+        "DELETE FROM tlg_source "
+        "WHERE point_id_tlg=:point_id "
+        "AND tlg_id=:tlg_id ",
+        PgOra::getRWSession("TLG_SOURCE"));
+  cur.bind(":point_id", point_id.get())
+     .bind(":tlg_id", tlg_id.get())
+     .exec();
+  return cur.rowcount() > 0;
+}
+
+void deleteTransferData(const PointIdTlg_t& point_id)
+{
+  LogTrace(TRACE6) << __func__
+                   << ": point_id=" << point_id;
+  const std::set<TrferId_t> trfer_ids = loadTrferIdSet(point_id);
+  const std::set<TrferGrpId_t> grp_ids = loadTrferGrpIdSet(point_id);
+  for (const TrferGrpId_t& grp_id: grp_ids) {
+      deleteTrferPax(grp_id);
+      deleteTrferTags(grp_id);
+      deleteTlgTrferOnwards(grp_id);
+      deleteTlgTrferExcepts(grp_id);
+  }
+  for (const TrferId_t& trfer_id: trfer_ids) {
+      deleteTrferGrp(trfer_id);
+  }
+  deleteTlgTransfer(point_id);
+
+  const int count = countTlgTransfer(point_id);
+  if (count == 0) {
+    TypeB::deleteTlgSource(point_id);
+    TypeB::deleteTlgTrips(point_id);
+  } else {
+    const std::set<TlgId_t> tlg_ids = loadTrferTlgIdSet(point_id);
+    for (const TlgId_t& tlg_id: tlg_ids) {
+      if (!existsTlgTransfer(point_id, tlg_id)) {
+        deleteTlgSource(point_id, tlg_id);
+      }
+    }
+  }
+}
 
 }; //namespace TrferList
 

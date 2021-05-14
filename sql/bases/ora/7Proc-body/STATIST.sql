@@ -182,9 +182,13 @@ IS
       SUM(DECODE(pr_cabin,0,amount,0)) AS pcs,
       SUM(DECODE(pr_cabin,0,weight,0)) AS weight,
       SUM(DECODE(pr_cabin,1,weight,0)) AS unchecked
-    FROM pax_grp,bag2
+    FROM pax_grp,bag2,tckin_pax_grp
     WHERE pax_grp.grp_id=bag2.grp_id AND point_dep=vpoint_id AND pax_grp.status NOT IN ('E') and
-          ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0
+          ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 and
+          tckin_pax_grp.grp_id(+)=pax_grp.grp_id AND
+          tckin_pax_grp.transit_num(+)<>0 and
+          not (pax_grp.status IN ('T') and
+          tckin_pax_grp.grp_id is not null)
     GROUP BY airp_arv,bag2.hall,DECODE(status,'T','T','N'),client_type;
 
   CURSOR cur2 IS
@@ -195,7 +199,7 @@ IS
       client_type,
       SUM(DECODE(bag_refuse,0,excess_wt,0)) AS excess_wt,
       SUM(DECODE(bag_refuse,0,excess_pc,0)) AS excess_pc
-    FROM pax_grp,
+    FROM pax_grp, tckin_pax_grp,
          (SELECT bag2.grp_id,bag2.hall
           FROM bag2,
                (SELECT bag2.grp_id,MAX(bag2.num) AS num
@@ -204,7 +208,11 @@ IS
                       ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0
                 GROUP BY bag2.grp_id) last_bag
           WHERE bag2.grp_id=last_bag.grp_id AND bag2.num=last_bag.num) bag2
-    WHERE pax_grp.grp_id=bag2.grp_id(+) AND point_dep=vpoint_id AND pax_grp.status NOT IN ('E')
+    WHERE pax_grp.grp_id=bag2.grp_id(+) AND point_dep=vpoint_id AND pax_grp.status NOT IN ('E') and
+          tckin_pax_grp.grp_id(+)=pax_grp.grp_id AND
+          tckin_pax_grp.transit_num(+)<>0 and
+          not (pax_grp.status IN ('T') and
+          tckin_pax_grp.grp_id is not null)
     GROUP BY airp_arv,NVL(bag2.hall,pax_grp.hall),DECODE(status,'T','T','N'),client_type;
 
 BEGIN
@@ -256,8 +264,12 @@ BEGIN
                   stations.work_mode='ê' AND
                   lang='RU' AND type IN (system.evtPax, system.evtPay) AND
                   id1=pax_grp.point_dep AND id2=pax.reg_no AND rownum<2) AS term_ckin_service
-    FROM pax_grp,pax
+    FROM pax_grp,pax,tckin_pax_grp
     WHERE pax_grp.grp_id=pax.grp_id AND point_dep=vpoint_id AND pax_grp.status NOT IN ('E') and
+          tckin_pax_grp.grp_id(+)=pax_grp.grp_id AND
+          tckin_pax_grp.transit_num(+)<>0 and
+          not (pax_grp.status IN ('T') and
+          tckin_pax_grp.grp_id is not null) and
           pax.refuse is null
   )
   GROUP BY airp_arv,hall,DECODE(status,'T','T','N'),client_type;

@@ -34,6 +34,10 @@ using namespace TypeB;
 #include <serverlib/lwriter.h>
 #include <boost/scoped_ptr.hpp>
 
+#define NICKNAME "GRISHA"
+#define NICKTRACE GRISHA_TRACE
+#include <serverlib/slogger.h>
+
 using namespace nsi;
 
 //------------------------------------------------------------------------------------------

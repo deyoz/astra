@@ -1,3 +1,89 @@
+$(defmacro PNL_UT_C7Y56_MARK1
+    depp=AER
+    arrp=PRG
+    fltno=298
+    depd=$(ddmon +0 en)
+    addr_to=MOWKK1H
+    addr_from=TJMRMUT
+{$(addr_to)
+.$(addr_from) 091320
+PNL
+UT$(fltno)/$(depd) $(depp) PART1
+CFG/007C056Y
+RBD C/CJIDA Y/YSTEQGNBXWUORVHLKPZF
+AVAIL
+ $(depp)  $(arrp)
+C000
+Y014
+-$(arrp)000C
+-$(arrp)000J
+-$(arrp)000I
+-$(arrp)000D
+-$(arrp)000A
+-$(arrp)000Y
+-$(arrp)000S
+-$(arrp)000T
+-$(arrp)000E
+-$(arrp)000Q
+-$(arrp)000G
+-$(arrp)000N
+-$(arrp)000B
+-$(arrp)000X
+-$(arrp)001W
+1ALIMOV/TALGAT-A2
+.L/F57K6C/UT
+.L/5ZM3PD/1H
+.M/ž’777Y$(dd +0 en)$(depp)$(arrp)
+.R/TKNE HK1 2982425696898/1
+.R/DOCS HK1/P/KZ/N11024936/KZ/11MAY96/M/04OCT26/ALIMOV/TALGAT
+.R/PSPT HK1 NPN11024936/KZ/11MAY96/ALIMOV/TALGAT/M
+.R/FOID PPNPN11024936
+ENDPNL}
+) #end-of-macro PNL_UT_C7Y56_MARK1
+
+########################################################################################
+$(defmacro PNL_UT_C7Y56_MARK2
+    depp=AER
+    arrp=PRG
+    fltno=300
+    depd=$(ddmon +0 en)
+    addr_to=MOWKK1H
+    addr_from=TJMRMUT
+{$(addr_to)
+.$(addr_from) 091320
+PNL
+UT$(fltno)/$(depd) $(depp) PART1
+CFG/007C056Y
+RBD C/CJIDA Y/YSTEQGNBXWUORVHLKPZF
+AVAIL
+ $(depp)  $(arrp)
+C000
+Y014
+-$(arrp)000C
+-$(arrp)000J
+-$(arrp)000I
+-$(arrp)000D
+-$(arrp)000A
+-$(arrp)000Y
+-$(arrp)000S
+-$(arrp)000T
+-$(arrp)000E
+-$(arrp)000Q
+-$(arrp)000G
+-$(arrp)000N
+-$(arrp)000B
+-$(arrp)000X
+-$(arrp)001W
+1OZ/OFER
+.L/F554G3/UT
+.L/UPCN6A/1A
+.M/UT777Y$(dd +0 en)$(depp)$(arrp)
+.R/TKNE HK1 2985523437721/1
+.R/FOID HK1 PP32427293
+ENDPNL}
+) #end-of-macro PNL_UT_C7Y56_MARK2
+
+###########################################################################################
 $(defmacro PNL_UT_C7Y56_TRANSFER1
     depp=AER
     arrp=PRG

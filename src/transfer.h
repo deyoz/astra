@@ -401,6 +401,8 @@ bool trferInExists(int point_arv, int prior_point_arv, TQuery& Qry);
 bool trferOutExists(int point_dep, TQuery& Qry);
 bool trferCkinExists(int point_dep, TQuery& Qry);
 
+void deleteTransferData(const PointIdTlg_t& point_id);
+
 }; //namespace TrferList
 
 namespace InboundTrfer

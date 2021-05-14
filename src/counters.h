@@ -200,9 +200,9 @@ class TCrsCountersMap : public std::map<TCrsCountersKey, TCrsCountersData>
     void loadCrsDataOnly();
     void loadSummary();
     void loadCrsCountersOnly();
-    void saveCrsCountersOnly() const;
+    void saveCrsCountersOnly(const PointId_t& point_id) const;
 
-    static void deleteCrsCountersOnly(int point_id);
+    static void deleteCrsCountersOnly(const PointId_t& point_id);
 
   private:
     TAdvTripInfo _flt;

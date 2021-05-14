@@ -13,6 +13,7 @@
 #include "pax_calc_data.h"
 #include "pg_session.h"
 #include "PgOraConfig.h"
+#include "dbostructures.h"
 
 #include <jxtlib/JxtInterface.h>
 #include "jxtlib/jxtlib_dbpg_callbacks.h"

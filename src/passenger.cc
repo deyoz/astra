@@ -18,6 +18,7 @@
 #include <serverlib/dbcpp_cursctl.h>
 #include "PgOraConfig.h"
 #include "db_tquery.h"
+#include "arx_daily_pg.h"
 
 #include <regex>
 
@@ -348,32 +349,42 @@ int TPaxTknItem::checkedInETCount() const
   return result;
 }
 
-bool LoadPaxTkn(int pax_id, TPaxTknItem &tkn)
-{
-  return LoadPaxTkn(ASTRA::NoExists, pax_id, tkn);
-};
+TPaxTknItem fromPax(const dbo::PAX &pax){
+    TPaxTknItem paxTknItem;
+    paxTknItem.no = pax.ticket_no;
+    paxTknItem.coupon = pax.coupon_no;
+    paxTknItem.rem = pax.ticket_rem;
+    paxTknItem.confirm = pax.ticket_confirm!=0;
+    return paxTknItem;
+}
 
 bool LoadPaxTkn(TDateTime part_key, int pax_id, TPaxTknItem &tkn)
+{
+    if(part_key == ASTRA::NoExists) {
+        return LoadPaxTkn(pax_id, tkn);
+    }
+    tkn.clear();
+
+    dbo::Session session;
+    std::optional<dbo::ARX_PAX> pax = session.query<dbo::ARX_PAX>()
+            .where("part_key=:part_key AND pax_id=:pax_id")
+            .setBind({{"pax_id", pax_id}, {":part_key", DateTimeToBoost(part_key)}});
+    if(pax) {
+        tkn = fromPax(*pax);
+    }
+    return !tkn.empty();
+};
+
+bool LoadPaxTkn(int pax_id, TPaxTknItem &tkn)
 {
     tkn.clear();
 
     const char* sql=
         "SELECT ticket_no, coupon_no, ticket_rem, ticket_confirm "
         "FROM pax WHERE pax_id=:pax_id";
-    const char* sql_arx=
-        "SELECT ticket_no, coupon_no, ticket_rem, ticket_confirm "
-        "FROM arx_pax WHERE part_key=:part_key AND pax_id=:pax_id";
-    const char *result_sql = NULL;
     QParams QryParams;
-    if (part_key!=ASTRA::NoExists)
-    {
-        result_sql = sql_arx;
-        QryParams << QParam("part_key", otDate, part_key);
-    }
-    else
-        result_sql = sql;
     QryParams << QParam("pax_id", otInteger, pax_id);
-    TCachedQuery PaxTknQry(result_sql, QryParams);
+    TCachedQuery PaxTknQry(sql, QryParams);
     PaxTknQry.get().Execute();
     if (!PaxTknQry.get().Eof) tkn.fromDB(PaxTknQry.get());
     return !tkn.empty();
@@ -1193,35 +1204,63 @@ boost::optional<TPaxDocItem> TPaxDocItem::get(const PaxOrigin& origin, const Pax
   return boost::none;
 }
 
-bool LoadPaxDoc(int pax_id, TPaxDocItem &doc)
+TPaxDocItem fromPaxDoc(dbo::PAX_DOC & pax_doc)
 {
-  return LoadPaxDoc(ASTRA::NoExists, pax_id, doc);
-};
+  TPaxDocItem doc;
+  doc.type = pax_doc.type;
+  //if(pax_doc.subtype >= 0) {
+      doc.subtype = pax_doc.subtype;
+  //}
+
+  doc.issue_country = pax_doc.issue_country;
+  doc.no = pax_doc.no;
+  doc.nationality = pax_doc.nationality;
+  doc.birth_date = pax_doc.birth_date==Dates::not_a_date_time ? ASTRA::NoExists
+                                       : BoostToDateTime( pax_doc.birth_date);
+
+  doc.gender = PaxDocGenderNormalize(pax_doc.gender);
+  doc.expiry_date = pax_doc.expiry_date==Dates::not_a_date_time ? ASTRA::NoExists
+                                       : BoostToDateTime( pax_doc.expiry_date);
+  doc.surname = pax_doc.surname;
+  doc.first_name = pax_doc.first_name;
+  doc.second_name = pax_doc.second_name;
+  doc.pr_multi = pax_doc.pr_multi != 0;
+  doc.type_rcpt= pax_doc.type_rcpt;
+  if(pax_doc.scanned_attrs >= 0) {
+      doc.scanned_attrs = pax_doc.scanned_attrs;
+  }
+  return doc;
+}
 
 bool LoadPaxDoc(TDateTime part_key, int pax_id, TPaxDocItem &doc)
 {
-  doc.clear();
-  const char* sql=
-    "SELECT * FROM pax_doc WHERE pax_id=:pax_id";
-  const char* sql_arx=
-    "SELECT * FROM arx_pax_doc WHERE part_key=:part_key AND pax_id=:pax_id";
-  const char *sql_result = NULL;
-  QParams QryParams;
-  if (part_key!=ASTRA::NoExists)
+  if(part_key == ASTRA::NoExists)
   {
-      QryParams << QParam("part_key", otDate, part_key);
-      sql_result = sql_arx;
+      return LoadPaxDoc(pax_id, doc);
   }
-  else
-      sql_result = sql;
-  QryParams << QParam("pax_id", otInteger, pax_id);
-  DB::TCachedQuery PaxDocQry(part_key!=ASTRA::NoExists ? PgOra::getROSession("ARX_PAX_DOC")
-                                                       : PgOra::getROSession("PAX_DOC"),
-                             sql_result, QryParams);
-  PaxDocQry.get().Execute();
-  if (!PaxDocQry.get().Eof) doc.fromDB(PaxDocQry.get());
+  doc.clear();
+  dbo::Session session;
+  std::optional<dbo::ARX_PAX_DOC> pax_doc = session.query<dbo::ARX_PAX_DOC>()
+          .where("part_key=:part_key AND pax_id=:pax_id")
+          .setBind({{"pax_id", pax_id}, {":part_key", DateTimeToBoost(part_key)}});
+  if(pax_doc) {
+      doc = fromPaxDoc(*pax_doc);
+  }
   return !doc.empty();
 };
+
+bool LoadPaxDoc(int pax_id, TPaxDocItem &doc)
+{
+    doc.clear();
+    const char* sql = "SELECT * FROM pax_doc WHERE pax_id=:pax_id";
+    QParams QryParams;
+    QryParams << QParam("pax_id", otInteger, pax_id);
+    DB::TCachedQuery PaxDocQry(PgOra::getROSession("PAX_DOC"),sql, QryParams);
+    PaxDocQry.get().Execute();
+    if (!PaxDocQry.get().Eof) doc.fromDB(PaxDocQry.get());
+    return !doc.empty();
+};
+
 
 std::string GetPaxDocStr(TDateTime part_key,
                          int pax_id,
@@ -1288,40 +1327,72 @@ boost::optional<TPaxDocoItem> TPaxDocoItem::get(const PaxOrigin& origin, const P
   return boost::none;
 }
 
-bool LoadPaxDoco(int pax_id, TPaxDocoItem &doc)
+TPaxDocoItem fromPaxDoco(dbo::PAX_DOCO & pax_doco, std::optional<int> doco_confirm)
 {
-  return LoadPaxDoco(ASTRA::NoExists, pax_id, doc);
-};
+  TPaxDocoItem doco;
+
+  doco.doco_confirm = false;
+  if(doco_confirm){
+      doco.doco_confirm = *doco_confirm != 0;
+  }
+
+  doco.type = pax_doco.type;
+  //if(pax_doco.subtype >= 0) {
+      doco.subtype = pax_doco.subtype;
+  //}
+  doco.birth_place = pax_doco.birth_place;
+  doco.no = pax_doco.no;
+  doco.issue_place = pax_doco.issue_place;
+  doco.issue_date = pax_doco.issue_date==Dates::not_a_date_time ? ASTRA::NoExists
+                                                           : BoostToDateTime( pax_doco.issue_date);
+  doco.expiry_date = pax_doco.expiry_date==Dates::not_a_date_time ? ASTRA::NoExists
+                                                           : BoostToDateTime( pax_doco.expiry_date);
+
+  doco.applic_country = pax_doco.applic_country;
+  if(pax_doco.scanned_attrs >= 0) {
+      doco.scanned_attrs = pax_doco.scanned_attrs;
+  }
+  return doco;
+}
 
 bool LoadPaxDoco(TDateTime part_key, int pax_id, TPaxDocoItem &doc)
 {
-  doc.clear();
-  QParams QryParams;
-  if (part_key!=ASTRA::NoExists)
-    QryParams << QParam("part_key", otDate, part_key);
-  QryParams << QParam("pax_id", otInteger, pax_id);
-  TCachedQuery PaxQry(part_key!=ASTRA::NoExists?
-                      "SELECT doco_confirm FROM arx_pax WHERE part_key=:part_key AND pax_id=:pax_id":
-                      "SELECT doco_confirm FROM pax WHERE pax_id=:pax_id",
-                      QryParams);
-  doc.doco_confirm=false;
-  PaxQry.get().Execute();
-  if (!PaxQry.get().Eof)
+    doc.clear();
+    if(part_key == ASTRA::NoExists) {
+        return LoadPaxDoco(pax_id, doc);
+    }
+    dbo::Session session;
+    std::optional<int> doco_confirm = session.query<int>("SELECT doco_confirm").from("ARX_PAX")
+          .where("part_key=:part_key AND pax_id=:pax_id")
+          .setBind({{"pax_id", pax_id}, {":part_key", DateTimeToBoost(part_key)}});
+
+    std::optional<dbo::ARX_PAX_DOCO> pax_doco = session.query<dbo::ARX_PAX_DOCO>()
+          .where("part_key=:part_key AND pax_id=:pax_id")
+          .setBind({{"pax_id", pax_id}, {":part_key", DateTimeToBoost(part_key)}});
+
+    if(pax_doco) {
+        doc = fromPaxDoco(*pax_doco, doco_confirm);
+    }
+    return !doc.empty();
+}
+
+bool LoadPaxDoco(int pax_id, TPaxDocoItem &doc)
+{
+    doc.clear();
+    QParams QryParams;
+    QryParams << QParam("pax_id", otInteger, pax_id);
+    TCachedQuery PaxQry("SELECT doco_confirm FROM pax WHERE pax_id=:pax_id", QryParams);
+    doc.doco_confirm=false;
+    PaxQry.get().Execute();
+    if (!PaxQry.get().Eof)
     doc.doco_confirm=PaxQry.get().FieldIsNULL("doco_confirm") ||
                  PaxQry.get().FieldAsInteger("doco_confirm")!=0;
 
-  DB::TCachedQuery PaxDocQry(
-      part_key!=ASTRA::NoExists
-      ? PgOra::getROSession("ARX_PAX_DOCO")
-      : PgOra::getROSession("PAX_DOCO"),
-      part_key!=ASTRA::NoExists
-      ? "SELECT * FROM arx_pax_doco WHERE part_key=:part_key AND pax_id=:pax_id"
-      : "SELECT * FROM pax_doco WHERE pax_id=:pax_id",
-      QryParams);
-  PaxDocQry.get().Execute();
-  if (!PaxDocQry.get().Eof) doc.fromDB(PaxDocQry.get());
-  return !doc.empty();
-};
+    DB::TCachedQuery PaxDocQry(PgOra::getROSession("PAX_DOCO"), "SELECT * FROM pax_doco WHERE pax_id=:pax_id", QryParams);
+    PaxDocQry.get().Execute();
+    if (!PaxDocQry.get().Eof) doc.fromDB(PaxDocQry.get());
+    return !doc.empty();
+}
 
 bool LoadCrsPaxDoco(int pax_id, TPaxDocoItem &doc)
 {
@@ -1420,39 +1491,52 @@ TDocaMap TDocaMap::get(const PaxOrigin& origin, const PaxId_t& paxId)
   return result;
 }
 
-bool LoadPaxDoca(int pax_id, CheckIn::TDocaMap &doca_map)
+TPaxDocaItem fromPaxDoca(const dbo::PAX_DOCA & pax_doca)
 {
-  return LoadPaxDoca(ASTRA::NoExists, pax_id, doca_map);
-};
+    TPaxDocaItem doca_item;
+    doca_item.type = pax_doca.type;
+    doca_item.country = pax_doca.country;
+    doca_item.address = pax_doca.address;
+    doca_item.city = pax_doca.city;
+    doca_item.region = pax_doca.region;
+    doca_item.postal_code = pax_doca.postal_code;
+    return doca_item;
+}
 
 bool LoadPaxDoca(TDateTime part_key, int pax_id, CheckIn::TDocaMap &doca_map)
 {
+  if(part_key == ASTRA::NoExists) {
+      return LoadPaxDoca(pax_id, doca_map);
+  }
   doca_map.clear();
-  const char* sql = "SELECT * FROM pax_doca WHERE pax_id=:pax_id";
-  const char* sql_arx = "SELECT * FROM arx_pax_doca WHERE part_key=:part_key AND pax_id=:pax_id";
-  const char* sql_result = nullptr;
-  QParams QryParams;
-  if (part_key != ASTRA::NoExists)
+  dbo::Session session;
+  std::vector<dbo::ARX_PAX_DOCA> pax_docs = session.query<dbo::ARX_PAX_DOCA>()
+          .where("part_key=:part_key AND pax_id=:pax_id")
+          .setBind({{"pax_id", pax_id}, {":part_key", DateTimeToBoost(part_key)}});
+
+  for(const auto & doca : pax_docs)
   {
-    QryParams << QParam("part_key", otDate, part_key);
-    sql_result = sql_arx;
-  }
-  else
-  {
-    sql_result = sql;
-  }
-  QryParams << QParam("pax_id", otInteger, pax_id);
-  DB::TCachedQuery PaxDocQry(
-        PgOra::getROSession(part_key != ASTRA::NoExists ? "ARX_PAX_DOCA" : "PAX_DOCA"),
-        sql_result, QryParams);
-  for(PaxDocQry.get().Execute(); !PaxDocQry.get().Eof; PaxDocQry.get().Next())
-  {
-    TPaxDocaItem docaItem;
-    docaItem.fromDB(PaxDocQry.get());
+    TPaxDocaItem docaItem = fromPaxDoca(doca);
     doca_map[docaItem.apiType()] = docaItem;
   }
   return !doca_map.empty();
-};
+}
+
+bool LoadPaxDoca(int pax_id, CheckIn::TDocaMap &doca_map)
+{
+    doca_map.clear();
+    const char* sql = "SELECT * FROM pax_doca WHERE pax_id=:pax_id";
+    QParams QryParams;
+    QryParams << QParam("pax_id", otInteger, pax_id);
+    DB::TCachedQuery PaxDocQry(PgOra::getROSession("PAX_DOCA"), sql, QryParams);
+    for(PaxDocQry.get().Execute(); !PaxDocQry.get().Eof; PaxDocQry.get().Next())
+    {
+        TPaxDocaItem docaItem;
+        docaItem.fromDB(PaxDocQry.get());
+        doca_map[docaItem.apiType()] = docaItem;
+    }
+    return !doca_map.empty();
+}
 
 bool LoadCrsPaxDoca(int pax_id, CheckIn::TDocaMap &doca_map)
 {
@@ -2158,24 +2242,77 @@ TSimplePaxItem& TSimplePaxItem::fromDBCrs(TQuery &Qry, bool withTkn)
   return *this;
 }
 
+TSimplePaxItem& TSimplePaxItem::fromPax(const dbo::PAX &pax)
+{
+  clear();
+  id = pax.pax_id;
+  grp_id = pax.grp_id;
+  surname = pax.surname;
+  name = pax.name;
+  pers_type = DecodePerson(pax.pers_type.c_str());
+  crew_type = CrewTypes().decode(pax.crew_type);
+  is_jmp= pax.is_jmp!=0;
+
+  seat_type= pax.seat_type;
+  seats = pax.seats;
+  refuse = pax.refuse;
+  pr_brd = pax.pr_brd!=0;
+  pr_exam = pax.pr_exam!=0;
+  reg_no = pax.reg_no;
+  subcl = pax.subclass;
+
+  cabin.subcl= pax.cabin_subclass;
+  cabin.cl=pax.cabin_class;
+  cabin.cl_grp = pax.cabin_class_grp ;
+
+  bag_pool_num = pax.bag_pool_num;
+  tid = pax.tid;
+
+  tkn.no = pax.ticket_no;
+  tkn.coupon = pax.coupon_no;
+  tkn.rem = pax.ticket_rem;
+  tkn.confirm = pax.ticket_confirm!=0;
+
+  TknExists = true;
+
+  if(pax.is_female == ASTRA::NoExists) {
+      gender = ASTRA::TGender::Unknown;
+  } else if(pax.is_female !=0) {
+      gender = ASTRA::TGender::Female;
+  } else {
+      gender = ASTRA::TGender::Male;
+  }
+  return *this;
+}
+
+TSimplePaxItem& TSimplePaxItem::fromPax(const dbo::ARX_PAX &arx_pax)
+{
+    this->fromPax(static_cast<dbo::PAX>(arx_pax));
+    seat_no = arx_pax.seat_no;
+    return *this;
+}
+
 bool TSimplePaxItem::getByPaxId(int pax_id, TDateTime part_key)
 {
   clear();
-  QParams QryParams;
-  string SQLText;
-  if(part_key == ASTRA::NoExists) {
-      SQLText = "SELECT * FROM pax WHERE pax_id=:pax_id";
-      QryParams << QParam("pax_id", otInteger, pax_id);
+  if(part_key != ASTRA::NoExists) {
+      dbo::Session session;
+      std::optional<dbo::ARX_PAX> arx_pax = session.query<dbo::ARX_PAX>()
+              .where("part_key=:part_key AND pax_id=:pax_id")
+              .setBind({{"pax_id", pax_id}, {":part_key", DateTimeToBoost(part_key)}});
+      if(!arx_pax) {
+          return false;
+      }
+      fromPax(*arx_pax);
+
   } else {
-      SQLText = "SELECT * FROM arx_pax WHERE part_key = :part_key and pax_id=:pax_id";
-      QryParams
-          << QParam("pax_id", otInteger, pax_id)
-          << QParam("part_key", otDate, part_key);
+      QParams QryParams;
+      QryParams << QParam("pax_id", otInteger, pax_id);
+      TCachedQuery PaxQry("SELECT * FROM pax WHERE pax_id=:pax_id", QryParams);
+      PaxQry.get().Execute();
+      if (PaxQry.get().Eof) return false;
+      fromDB(PaxQry.get());
   }
-  TCachedQuery PaxQry(SQLText, QryParams);
-  PaxQry.get().Execute();
-  if (PaxQry.get().Eof) return false;
-  fromDB(PaxQry.get());
   return true;
 }
 
