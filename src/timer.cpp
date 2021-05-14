@@ -225,8 +225,7 @@ void exec_tasks( const char *proc_name, int argc, char *argv[] )
       catch( EOracleError &E )
     {
       try { ASTRA::rollbackAndCallRollbackHooks(); } catch(...) {};
-      ProgError( STDLOG, "EOracleError %d: %s", E.Code, E.what());
-      ProgError( STDLOG, "SQL: %s", E.SQLText());
+      E.showProgError();
       ProgError( STDLOG, "task name=%s", name.c_str() );
     }
     catch( std::exception &E )

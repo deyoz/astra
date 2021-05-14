@@ -538,18 +538,9 @@ void sync_pax(int pax_id, const string &term, const string &user_descr)
   {
     sync_pax_internal(pax_id, term, false);
   }
-  catch(const EOracleError &orae)
+  catch(const EOracleError &e)
   {
-    if (orae.Nick != nullptr
-        && orae.File != nullptr)
-    {
-      ProgError(orae.Nick, orae.File, orae.Line,
-                "EOracleError %d: %s\nSQL: %s",
-                orae.Code,orae.what(),orae.SQLText());
-    } else {
-      ProgError(STDLOG,"EOracleError %d: %s\nSQL: %s",
-                orae.Code,orae.what(),orae.SQLText());
-    }
+    e.showProgError();
   }
   catch(const Exception &e)
   {
@@ -567,18 +558,9 @@ void sync_pax_grp(int grp_id, const string &term, const string &user_descr)
   {
     sync_pax_internal(grp_id, term, true);
   }
-  catch(const EOracleError &orae)
+  catch(const EOracleError &e)
   {
-    if (orae.Nick != nullptr
-        && orae.File != nullptr)
-    {
-      ProgError(orae.Nick, orae.File, orae.Line,
-                "EOracleError %d: %s\nSQL: %s",
-                orae.Code,orae.what(),orae.SQLText());
-    } else {
-      ProgError(STDLOG,"EOracleError %d: %s\nSQL: %s",
-                orae.Code,orae.what(),orae.SQLText());
-    }
+    e.showProgError();
   }
   catch(const Exception &e)
   {

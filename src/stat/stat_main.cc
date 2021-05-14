@@ -1413,17 +1413,8 @@ void collectStatTask(const TTripTaskKey &task)
   {
     get_flight_stat(task.point_id, false);
   }
-  catch(const EOracleError &orae) {
-    if (orae.Nick != nullptr
-        && orae.File != nullptr)
-    {
-      ProgError(orae.Nick, orae.File, orae.Line,
-                "EOracleError %d: %s\nSQL: %s",
-                orae.Code,orae.what(),orae.SQLText());
-    } else {
-      ProgError(STDLOG,"EOracleError %d: %s\nSQL: %s",
-                orae.Code,orae.what(),orae.SQLText());
-    }
+  catch(const EOracleError &E) {
+    E.showProgError();
   }
   catch(std::exception &E)
   {

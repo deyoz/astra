@@ -1127,8 +1127,7 @@ namespace MQRABBIT_TRANSPORT {
     catch( EOracleError &E ) {
       try { ASTRA::rollback(); } catch(...) {};
       LogError(STDLOG) << __FUNCTION__;
-      ProgError( STDLOG, "EOracleError %d: %s", E.Code, E.what());
-      ProgError( STDLOG, "SQL: %s", E.SQLText());
+      E.showProgError();
     }
     catch( EXCEPTIONS::Exception &E ) {
       try { ASTRA::rollback(); } catch(...) {};
@@ -1216,8 +1215,7 @@ namespace MQRABBIT_TRANSPORT {
     catch( EOracleError &E ) {
       try { ASTRA::rollback(); } catch(...) {};
       LogError(STDLOG) << __FUNCTION__;
-      ProgError( STDLOG, "EOracleError %d: %s", E.Code, E.what());
-      ProgError( STDLOG, "SQL: %s", E.SQLText());
+      E.showProgError();
     }
     catch( EXCEPTIONS::Exception &E ) {
       try { ASTRA::rollback(); } catch(...) {};

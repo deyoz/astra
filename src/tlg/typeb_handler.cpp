@@ -151,7 +151,7 @@ int main_typeb_handler_tcl(int supervisorSocket, int argc, char *argv[])
   }
   catch(const EOracleError &E)
   {
-    ProgError(STDLOG,"EOracleError %d: %s\nSQL: %s)",E.Code,E.what(),E.SQLText());
+    E.showProgError();
   }
   catch(const std::exception &E)
   {
@@ -215,7 +215,7 @@ int main_typeb_parser_tcl(int supervisorSocket, int argc, char *argv[])
   }
   catch(const EOracleError &E)
   {
-    ProgError(STDLOG,"EOracleError %d: %s\nSQL: %s)",E.Code,E.what(),E.SQLText());
+    E.showProgError();
   }
   catch(const std::exception &E)
   {

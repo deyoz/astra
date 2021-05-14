@@ -97,7 +97,7 @@ int base_edi_handler_tcl(const char* cmd, int argc, char *argv[])
     }
     catch(EOracleError &E)
     {
-      ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
+      E.showProgError();
     }
     catch(std::exception &E)
     {

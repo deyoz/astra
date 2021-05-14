@@ -173,8 +173,7 @@ void check_trip_tasks(const std::string& handler_id)
         {
             try { ASTRA::rollback(); } catch(...) {};
             LogError(STDLOG) << __FUNCTION__ << ": " << task;
-            ProgError( STDLOG, "EOracleError %d: %s", E.Code, E.what());
-            ProgError( STDLOG, "SQL: %s", E.SQLText());
+            E.showProgError();
         }
         catch( EXCEPTIONS::Exception &E )
         {

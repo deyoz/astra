@@ -387,12 +387,14 @@ class EOracleError:public EXCEPTIONS::Exception
         sqlText = "";
     }
 
-    ~EOracleError() throw() {}
+    ~EOracleError() noexcept {}
 
-    const char* SQLText() const throw()
+    const char* SQLText() const noexcept
     {
       return sqlText.c_str();
     }
+
+    void showProgError() const noexcept;
 };
 
 int ConvertORACLEDate_TO_DateTime( void *Value, TDateTime &VDateTime );
