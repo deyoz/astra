@@ -2750,7 +2750,7 @@ bool processReply(const std::string& source_raw)
     }
     catch(EOracleError &E)
     {
-        ProgError(STDLOG,"EOracleError %d: %s", E.Code,E.what());
+        E.showProgError();
     }
     catch(std::exception &E)
     {

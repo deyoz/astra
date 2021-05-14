@@ -222,7 +222,7 @@ int main_nosir_user(int argc,char **argv)
   }
   catch(EOracleError &E)
   {
-    ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
+    E.showProgError();
     puts("Bad error! Contact with developers!");
   }
   catch(std::exception &E)

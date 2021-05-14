@@ -2509,3 +2509,15 @@ void FindVariables( const string &SQL, bool IncludeDuplicates, vector<string> &v
 }
 
 TSession OraSession;
+
+void EOracleError::showProgError() const noexcept
+{
+  if (Nick != nullptr && File != nullptr)
+  {
+    ProgError(Nick, File, Line, "EOracleError %d: %s; SQL: %s",
+              Code, what(), SQLText());
+  } else {
+    ProgError(STDLOG, "EOracleError %d: %s; SQL: %s",
+              Code, what(), SQLText());
+  }
+}

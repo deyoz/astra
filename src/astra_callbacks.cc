@@ -403,16 +403,7 @@ void AstraJxtCallbacks::HandleException(ServerFramework::Exception *e)
                 AstraLocale::showError("MSG.SYSTEM_VERS_UPDATED.REPEAT");
                 break;
             default:
-              if (orae->Nick != nullptr
-                  && orae->File != nullptr)
-              {
-                ProgError(orae->Nick, orae->File, orae->Line,
-                          "EOracleError %d: %s\nSQL: %s",
-                          orae->Code,orae->what(),orae->SQLText());
-              } else {
-                ProgError(STDLOG,"EOracleError %d: %s\nSQL: %s",
-                          orae->Code,orae->what(),orae->SQLText());
-              }
+              orae->showProgError();
               if (TReqInfo::Instance()->isSelfCkinClientType())
                 AstraLocale::showProgError("WRAP.QRY_HANDLER_ERR",
                                            AstraLocale::LParams() << AstraLocale::LParam("text", orae->what()));
