@@ -725,9 +725,11 @@ class TMVTOptions : public TFranchiseOptions
     void init()
     {
         noend=false;
+        version="AHM_28ed";
     };
   public:
     bool noend;
+    std::string version;
     TMVTOptions() {init();};
     virtual ~TMVTOptions() {};
     virtual void clear()
@@ -741,6 +743,7 @@ class TMVTOptions : public TFranchiseOptions
       if (node==NULL) return;
       xmlNodePtr node2=node->children;
       noend=NodeAsBooleanFast("noend", node2, noend);
+      version=NodeAsStringFast("version", node2, version.c_str());
     };
     virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
     {
@@ -764,6 +767,11 @@ class TMVTOptions : public TFranchiseOptions
       for(;!OptionsQry.Eof;OptionsQry.Next())
       {
         std::string cat=OptionsQry.FieldAsString("category");
+        if (cat=="VERSION")
+        {
+          version=OptionsQry.FieldAsString("value");
+          continue;
+        };
         if (cat=="NOEND")
         {
           noend=OptionsQry.FieldAsInteger("value")!=0;
@@ -775,6 +783,9 @@ class TMVTOptions : public TFranchiseOptions
     {
       TFranchiseOptions::logStr(s);
       s << ", "
+        << s("CAP.TYPEB_OPTIONS.VERSION") << ": "
+        << s.ElemIdToNameShort(etTypeBOptionValue, "MVT+VERSION+"+version)
+        << ", "
         << "NOEND" << ": "
         << s(noend);
       return s;
@@ -783,6 +794,9 @@ class TMVTOptions : public TFranchiseOptions
     {
       TFranchiseOptions::extraStr(s);
       s
+        << s("CAP.TYPEB_OPTIONS.VERSION") << ": "
+        << s.ElemIdToNameShort(etTypeBOptionValue, "MVT+VERSION+"+version)
+        << endl
         << "NOEND" << ": "
         << s(noend)
         << endl;
@@ -798,7 +812,9 @@ class TMVTOptions : public TFranchiseOptions
       try
       {
         const TMVTOptions &opt = dynamic_cast<const TMVTOptions&>(item);
-        return noend == opt.noend;
+        return
+            version == opt.version &&
+            noend == opt.noend;
       }
       catch(std::bad_cast&)
       {
@@ -811,7 +827,9 @@ class TMVTOptions : public TFranchiseOptions
       try
       {
         const TMVTOptions &opt = dynamic_cast<const TMVTOptions&>(item);
-        return noend == opt.noend;
+        return
+            version == opt.version &&
+            noend == opt.noend;
       }
       catch(std::bad_cast&)
       {
@@ -824,6 +842,7 @@ class TMVTOptions : public TFranchiseOptions
       try
       {
         const TMVTOptions &opt = dynamic_cast<const TMVTOptions&>(item);
+        version = opt.version;
         noend = opt.noend;
       }
       catch(std::bad_cast&) {};
