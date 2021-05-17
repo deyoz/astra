@@ -3699,6 +3699,72 @@ $()
   <passenger_with_svc/>
 </answer>
 
+%%
+
+### test 10 - запрос в Сирену при оформлении трансферного багажа, вместо полноценной сквозной регистрации
+###########################################################################################################################
+
+$(init_term)
+$(set_user_time_type LocalAirp PIKE)
+
+$(PREPARE_2PAXES_2SEGS)
+
+$(NEW_TCHECKIN_REQUEST capture=on lang=EN hall=1
+$(TRANSFER_SEGMENT ЮТ 461 "" $(dd +1) ВНК РЩН)
+{$(NEW_CHECKIN_SEGMENT $(get point_dep1) $(get point_arv1) СОЧ ВНК
+{<passengers>
+  <pax>
+$(NEW_CHECKIN_2982410821479 $(get pax_id_1479_1) 1 Y)
+  </pax>
+  <pax>
+$(NEW_CHECKIN_2982410821480 $(get pax_id_1480_1) 1 Y)
+  </pax>
+</passengers>})})
+
+$(ERROR_RESPONSE MSG.ETS_CONNECT_ERROR)
+
+$(set edi_ref1 $(last_edifact_ref 1))
+$(set edi_ref0 $(last_edifact_ref 0))
+
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) ЮТ 2982410821479 1 CK xxxxxx СОЧ ВНК 580 depd=$(ddmmyy +1))
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ЮТ 2982410821480 1 CK xxxxxx СОЧ ВНК 580 depd=$(ddmmyy +1))
+
+<<
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref1) 2982410821479 1 CK)
+<<
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref0) 2982410821480 1 CK)
+
+$(http_forecast content=$(SVC_AVAILABILITY_RESPONSE_UT_2PAXES_2SEGS $(get pax_id_1479_1) $(get pax_id_1480_1)))
+
+$(KICK_IN)
+
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer ...>
+</term>
+
+>> lines=auto
+<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<query>
+  <svc_availability show_brand_info=\"true\" show_all_svc=\"true\" show_free_carry_on_norm=\"true\">
+$(SVC_REQUEST_2982410821479 $(get pax_id_1479_1) 1 $(get svc_seg1) ""
+  {operating_company=\"UT\" operating_flight=\"461\" departure=\"VKO\" arrival=\"TJM\" departure_date=\"$(date_format %Y-%m-%d +1)\"})
+$(SVC_REQUEST_2982410821480 $(get pax_id_1480_1) 2 $(get svc_seg1) ""
+  {operating_company=\"UT\" operating_flight=\"461\" departure=\"VKO\" arrival=\"TJM\" departure_date=\"$(date_format %Y-%m-%d +1)\"})
+    <display id=\"1\">...</display>
+    <display id=\"2\">...</display>
+  </svc_availability>
+</query>
+
+$(KICK_IN_AFTER_HTTP)
+
+>> mode=regex
+.*
+            <reg_no>1</reg_no>.*
+            <reg_no>2</reg_no>.*
 
 
 

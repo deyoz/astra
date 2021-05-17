@@ -52,7 +52,7 @@ const TSegItem& TSegItem::toSirenaXML(xmlNodePtr node,
   SetProp(node, "departure", airpDepToPrefferedCode(AirportCode_t(operFlt.airp), tkn, lang));
   SetProp(node, "arrival", airpArvToPrefferedCode(AirportCode_t(airp_arv), tkn, lang));
 
-  TDateTime time_out=operFlt.est_scd_out();
+  TDateTime time_out=est_scd_out();  //стандартный operFlt.est_scd_out() не подходит!
   TDateTime time_in=est_scd_in();
 
   if (operFlt.scd_out_exists() && operFlt.scd_out!=time_out)
