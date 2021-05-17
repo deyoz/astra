@@ -3230,11 +3230,11 @@ class TAdulstWithBabys:public std::map<std::string,std::vector<TAdultWithBabys>>
         ProgTrace(TRACE5, "set adult(%d) child index=%d",i.at(pos_adult_priority).index,child_pass.index);
         i.at(pos_adult_priority).indexs_childs.emplace_back( child_pass.index );
         ProgTrace(TRACE5, "%s", Key.c_str() );
-        ProgTrace(TRACE5, " adults vector size=%lu, adult index=%d", i.size(), i.at(pos_adult_priority).index );
+        ProgTrace(TRACE5, " adults vector size=%zu, adult index=%d", i.size(), i.at(pos_adult_priority).index );
         //в группе больше одного человека, тогда выделяем этого взрослого в отдельную группу
         if ( i.size() > 1 ) {
           //удаляем из общей группы и делаем отдельную
-          ProgTrace(TRACE5, "%d, %lu", i.at(pos_adult_priority).index, i.size() );
+          ProgTrace(TRACE5, "%d, %zu", i.at(pos_adult_priority).index, i.size() );
           Key = Key + std::to_string( i.at(pos_adult_priority).index );
           ProgTrace(TRACE5, "%s", Key.c_str() );
           this->emplace( make_pair(Key, std::vector<TAdultWithBabys>() ) ).first->second.push_back(i.at(pos_adult_priority));
@@ -3822,7 +3822,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                       const std::vector<TCoordSeat> &paxsSeats,
                       const TRemGrp& remGrp )
 {
-  ProgTrace( TRACE5, "NEWSEATS, ASeatAlgoParams=%d, Salons->placelists.size()=%zu, passengers.getCount()=%d, paxsSeats.size()=%zu, separately_seats_adult_with_baby=%d, denial_emergency_seats=%d, wo_aisle=%d, issubgrp=%d, paxsSeats.size()=%lu",
+  ProgTrace( TRACE5, "NEWSEATS, ASeatAlgoParams=%d, Salons->placelists.size()=%zu, passengers.getCount()=%d, paxsSeats.size()=%zu, separately_seats_adult_with_baby=%d, denial_emergency_seats=%d, wo_aisle=%d, issubgrp=%d, paxsSeats.size()=%zu",
             (int)ASeatAlgoParams.SeatAlgoType, Salons->placelists.size(), passengers.getCount(), paxsSeats.size(), separately_seats_adult_with_baby, denial_emergency_seats, passengers.wo_aisle, passengers.issubgrp, paxsSeats.size());
   if ( !passengers.getCount() ) {
     return;
