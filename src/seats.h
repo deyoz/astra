@@ -244,8 +244,8 @@ struct TPassenger {
                      const std::map<std::string, int> &remarks,
                      const TRemGrp& remGrp );
     void calc_priority( const std::map<std::string, int> &remarks );
-    void get_remarks( std::vector<std::string> &vrems );
-    bool isRemark( std::string code );
+    void get_remarks( std::vector<std::string> &vrems ) const;
+    bool isRemark( std::string code ) const;
     bool is_valid_seats( const std::vector<SALONS2::TPlace> &places );
     std::string toString() const {
       std::ostringstream buf;
@@ -381,6 +381,8 @@ class TPassengers {
     std::map<std::string, int> remarks;
     TCounters counters;
     std::string cabin_clname;   // класс с которым мы работаем
+    bool wo_aisle;
+    bool issubgrp;
     bool KTube;
     bool KWindow;
     bool UseSmoke;
