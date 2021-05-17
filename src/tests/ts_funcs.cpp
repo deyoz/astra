@@ -25,18 +25,15 @@
 #include "prn_tag_store.h"
 #include "cache.h"
 #include "PgOraConfig.h"
-#include "cr_lf.h"
 #include "timer.h"
 #include "passenger.h"
 #include "trip_tasks.h"
 
 #include <queue>
 #include <fstream>
-#include <sstream>
-#include <regex>
+#include <boost/regex.hpp>
 #include <boost/foreach.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/algorithm/string.hpp>
 
 #include <serverlib/tscript.h>
 #include <serverlib/exception.h>
@@ -62,23 +59,6 @@ void runEdiTimer_4testsOnly();
 static std::vector<string> getFlightTasks(const std::string& table_name, const PointId_t &point_id);
 
 using namespace xp_testing::tscript;
-
-static std::string LF2CRLF(const string &par)
-{
-    return regex_replace(par, regex(LF), CR + LF) + CR + LF;
-}
-
-static std::string CRLF2LF(const string &par)
-{
-    return regex_replace(par, regex(CR + LF), LF) + LF;
-}
-
-static std::string executeHttpRequest(const std::string &request)
-{
-    string answer;
-    ServerFramework::http_main_for_test(LF2CRLF(request), answer);
-    return CRLF2LF(answer);
-}
 
 static std::string executeAstraRequest(const std::string &request,
     const std::string &ignore_err_code,
@@ -134,26 +114,15 @@ static void executeRequest(
             std::queue<std::string>& outq /* io */)
 {
     const std::string capture = tok::Validate(tok::GetValue(params, "capture", "off"), "noformat on off");
-    const std::string req_type = tok::Validate(tok::GetValue(params, "req_type", "xml"), "xml http");
     const std::string errStr = tok::GetValue(params, "err");
-
-
-    if(req_type == "http") {
-        reply = executeHttpRequest(req);
-        if (capture == "on") {
-            reply = UTF8toCP866(reply);
-            outq.push(reply);
-        }
-    } else {
-        reply = executeAstraRequest(req, errStr, errStr == "ignore");
-        if (capture == "on") {
-            reply = removeVersion(reply);
-            reply = formatXmlString(reply);
-            reply = UTF8toCP866(reply);
-            reply = StrUtils::replaceSubstrCopy(reply, "\"", "'");
-            reply = StrUtils::replaceSubstrCopy(reply, "encoding='UTF-8'", "encoding='CP866'");
-            outq.push(reply);
-        }
+    reply = executeAstraRequest(req, errStr, errStr == "ignore");
+    if (capture == "on") {
+        reply = removeVersion(reply);
+        reply = formatXmlString(reply);
+        reply = UTF8toCP866(reply);
+        reply = StrUtils::replaceSubstrCopy(reply, "\"", "'");
+        reply = StrUtils::replaceSubstrCopy(reply, "encoding='UTF-8'", "encoding='CP866'");
+        outq.push(reply);
     }
 }
 
@@ -181,7 +150,7 @@ static std::string FP_lastRedisplay(const std::vector<std::string> &args)
 static std::string FP_req(const std::vector<tok::Param>& params)
 {
     std::queue<std::string>& outq = GetTestContext()->outq;
-    tok::ValidateParams(params, 1, 1, "err ignore pages capture ws req_type");
+    tok::ValidateParams(params, 1, 1, "err ignore pages capture ws");
     const std::string text = tok::PositionalValues(params).at(0);
 
     if (text.empty()) {
