@@ -3227,6 +3227,15 @@ $(CREATE_USER SIRENATEST SIRENATEST)
 $(CREATE_DESK SIREN2 1)
 $(ADD_HTTP_CLIENT PIECE_CONCEPT SIRENATEST SIRENATEST SIREN2)
 
+$(set http_heading
+{POST / HTTP/1.1
+Host: /
+Accept-Encoding: gzip,deflate
+CLIENT-ID: SIRENATEST
+OPERATION: piece_concept
+Content-Type: text/xml;charset=UTF-8
+})
+
 ### обмен с СЭБ
 
 $(init_eds ЮТ UTET UTDC)
@@ -3546,16 +3555,8 @@ $(get paid_rfiscs_before_en_1479)
 
 ### Сирена присылает запрос на список пассажиров с неоплаченными услугами
 
-!! capture=on req_type=http
-POST / HTTP/1.1
-Host: /
-Accept-Encoding: gzip,deflate
-CLIENT-ID: SIRENATEST
-OPERATION: piece_concept
-Content-Type: text/xml;charset=UTF-8
-Content-Length: 243
-$()
-<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+!! capture=on http_heading=$(get http_heading)
+<?xml version='1.0' encoding='CP866'?>
 <query>
   <passenger_with_svc>
     <company>UT</company>
@@ -3566,7 +3567,7 @@ $()
 </query>
 
 >> lines=auto
-<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<?xml version='1.0' encoding='CP866'?>
 <answer>
   <passenger_with_svc>
     <passenger>
@@ -3575,22 +3576,14 @@ $()
       <category>ADT</category>
       <group_id>$(get grp_id_1480_1)</group_id>
       <reg_no>1</reg_no>
-      <recloc crs=\"DT\">04VSFC</recloc>
-      <recloc crs=\"UT\">054C82</recloc>
+      <recloc crs='DT'>04VSFC</recloc>
+      <recloc crs='UT'>054C82</recloc>
     </passenger>
   </passenger_with_svc>
 </answer>
 
-!! capture=on req_type=http
-POST / HTTP/1.1
-Host: /
-Accept-Encoding: gzip,deflate
-CLIENT-ID: SIRENATEST
-OPERATION: piece_concept
-Content-Type: text/xml;charset=UTF-8
-Content-Length: 243
-$()
-<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+!! capture=on http_heading=$(get http_heading)
+<?xml version='1.0' encoding='CP866'?>
 <query>
   <passenger_with_svc>
     <company>UT</company>
@@ -3601,7 +3594,7 @@ $()
 </query>
 
 >> lines=auto
-<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<?xml version='1.0' encoding='CP866'?>
 <answer>
   <passenger_with_svc>
     <passenger>
@@ -3610,8 +3603,8 @@ $()
       <category>ADT</category>
       <group_id>$(get grp_id_1480_1)</group_id>
       <reg_no>1</reg_no>
-      <recloc crs=\"DT\">04VSFC</recloc>
-      <recloc crs=\"UT\">054C82</recloc>
+      <recloc crs='DT'>04VSFC</recloc>
+      <recloc crs='UT'>054C82</recloc>
     </passenger>
     <passenger>
       <surname>КОТОВА</surname>
@@ -3619,11 +3612,50 @@ $()
       <category>ADT</category>
       <group_id>$(get grp_id_1479_1)</group_id>
       <reg_no>1</reg_no>
-      <recloc crs=\"DT\">04VSFC</recloc>
-      <recloc crs=\"UT\">054C82</recloc>
+      <recloc crs='DT'>04VSFC</recloc>
+      <recloc crs='UT'>054C82</recloc>
     </passenger>
   </passenger_with_svc>
 </answer>
+
+!! capture=on http_heading=$(get http_heading)
+<?xml version='1.0' encoding='CP866'?>
+<query>
+  <group_svc_info>
+    <regnum>123ABC</regnum>
+    <group_id>$(get grp_id_1480_1)</group_id>
+  </group_svc_info>
+</query>
+
+>> lines=auto
+<?xml version='1.0' encoding='CP866'?>
+<answer>
+  <group_svc_info>
+$(replace $(SVC_REQUEST_2982410821480 $(get pax_id_1480_1) 1 $(get svc_seg1)) {"} {'})
+    <display id='1'>...</display>
+$(replace $(SVC_PAYMENT_STATUS_REQUEST_SVC_LIST_BEFORE_1480_1SEG) {"} {'})
+  </group_svc_info>
+</answer>
+
+!! capture=on http_heading=$(get http_heading)
+<?xml version='1.0' encoding='CP866'?>
+<query>
+  <group_svc_info>
+    <regnum>QWERTY</regnum>
+    <group_id>$(get grp_id_1479_1)</group_id>
+  </group_svc_info>
+</query>
+
+>> lines=auto
+<?xml version='1.0' encoding='CP866'?>
+<answer>
+  <group_svc_info>
+$(replace $(SVC_REQUEST_2982410821479 $(get pax_id_1479_1) 1 $(get svc_seg2)) {"} {'})
+    <display id='1'>...</display>
+$(replace $(SVC_PAYMENT_STATUS_REQUEST_SVC_LIST_BEFORE_1479_1SEG) {"} {'})
+  </group_svc_info>
+</answer>
+
 
 ### проставляем вылет первому рейсу
 
@@ -3632,16 +3664,8 @@ $(CHANGE_SPP_FLIGHT_REQUEST $(get point_dep1)
   $(change_spp_point_last $(get point_arv1)             "$(get today) 15:00" "$(get tomor) 04:00" "" ВНК )
 })
 
-!! capture=on req_type=http
-POST / HTTP/1.1
-Host: /
-Accept-Encoding: gzip,deflate
-CLIENT-ID: SIRENATEST
-OPERATION: piece_concept
-Content-Type: text/xml;charset=UTF-8
-Content-Length: 243
-$()
-<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+!! capture=on http_heading=$(get http_heading)
+<?xml version='1.0' encoding='CP866'?>
 <query>
   <passenger_with_svc>
     <company>UT</company>
@@ -3652,7 +3676,7 @@ $()
 </query>
 
 >> lines=auto
-<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<?xml version='1.0' encoding='CP866'?>
 <answer>
   <passenger_with_svc>
     <passenger>
@@ -3661,8 +3685,8 @@ $()
       <category>ADT</category>
       <group_id>$(get grp_id_1479_1)</group_id>
       <reg_no>1</reg_no>
-      <recloc crs=\"DT\">04VSFC</recloc>
-      <recloc crs=\"UT\">054C82</recloc>
+      <recloc crs='DT'>04VSFC</recloc>
+      <recloc crs='UT'>054C82</recloc>
     </passenger>
   </passenger_with_svc>
 </answer>
@@ -3674,16 +3698,8 @@ $(CHANGE_SPP_FLIGHT_REQUEST $(get point_dep2)
   $(change_spp_point_last $(get point_arv2)             "$(get tomor) 15:00" "" "" ВНК )
 })
 
-!! capture=on req_type=http
-POST / HTTP/1.1
-Host: /
-Accept-Encoding: gzip,deflate
-CLIENT-ID: SIRENATEST
-OPERATION: piece_concept
-Content-Type: text/xml;charset=UTF-8
-Content-Length: 243
-$()
-<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+!! capture=on http_heading=$(get http_heading)
+<?xml version='1.0' encoding='CP866'?>
 <query>
   <passenger_with_svc>
     <company>UT</company>
@@ -3694,7 +3710,7 @@ $()
 </query>
 
 >> lines=auto
-<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<?xml version='1.0' encoding='CP866'?>
 <answer>
   <passenger_with_svc/>
 </answer>

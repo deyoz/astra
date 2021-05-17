@@ -460,23 +460,25 @@ void http_main(reply& rep, const request& req)
 
             client.InitLogTime();
 
-            char *res = 0;
-            int len = 0;
             static ServerFramework::ApplicationCallbacks *ac=
                 ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks();
 
             string header, body;
             if(client.toJXT( req, header, body )) {
-                ProgTrace( TRACE5, "body.size()=%zu, header.size()=%zu, len=%d", body.size(), header.size(), len );
-                /*!!!*/ProgTrace( TRACE5, "body=%s", body.c_str() );
+                LogTrace(TRACE5) << "body.size()=" << body.size() << ", header.size()=" << header.size();
+                /*!!!*/LogTrace(TRACE5) << body;
 
                 AstraJxtCallbacks* astra_cb_ptr = dynamic_cast<AstraJxtCallbacks*>(jxtlib::JXTLib::Instance()->GetCallbacks());
                 astra_cb_ptr->SetPostProcessXMLAnswerCallback(client.get_post_proc());
 
-                int newlen=ac->jxt_proc((const char *)body.data(),body.size(),(const char *)header.data(),header.size(), &res, len);
-                ProgTrace( TRACE5, "newlen=%d, len=%d, header.size()=%zu", newlen, len, header.size() );
-                body = string( res + header.size(), newlen - header.size() );
-                client.fromJXT( body, rep );
+                char* res = nullptr;
+                auto newlen=ac->jxt_proc(body.data(), body.size(), header.data(), header.size(), &res, 0);
+                std::unique_ptr<char, void (*)(void*)> res_holder(res,free);
+
+                astra_cb_ptr->ResetPostProcessXMLAnswerCallback();
+
+                LogTrace(TRACE5) << "newlen=" << newlen << ", header.size()=" << header.size();
+                client.fromJXT( string( res + header.size(), newlen - header.size() ), rep );
             } else {
                 rep.status = reply::forbidden;
                 rep.headers.resize(2);

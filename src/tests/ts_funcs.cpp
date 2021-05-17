@@ -81,11 +81,26 @@ static std::string CRLF2LF(const string &par)
     return regex_replace(par, regex(CR + LF), LF) + LF;
 }
 
-static std::string executeHttpRequest(const std::string &request)
+static std::string executeHttpRequest(const std::string& heading, const std::string &body)
 {
+    static const std::string ContentLength="Content-Length";
+
+    ServerFramework::HTTP::request_parser parser;
+    ServerFramework::HTTP::request rq;
+    const auto result=parser.parse(rq, heading.begin(), heading.end());
+
+    if (!boost::get<0>(result))
+      throw EXCEPTIONS::Exception("executeHttpRequest: wrong heading");
+
+    const auto cl = std::find(rq.headers.begin(), rq.headers.end(), ContentLength);
+    if (cl != rq.headers.end())
+      cl->value = std::to_string(body.size());
+    else
+      rq.headers.push_back({ContentLength, std::to_string(body.size())});
+
     string answer;
-    ServerFramework::http_main_for_test(LF2CRLF(request), answer);
-    return CRLF2LF(answer);
+    ServerFramework::http_main_for_test(rq.to_string()+body, answer);
+    return answer;
 }
 
 static std::string executeAstraRequest(const std::string &request,
@@ -142,14 +157,31 @@ static void executeRequest(
             std::queue<std::string>& outq /* io */)
 {
     const std::string capture = tok::Validate(tok::GetValue(params, "capture", "off"), "noformat on off");
-    const std::string req_type = tok::Validate(tok::GetValue(params, "req_type", "xml"), "xml http");
     const std::string errStr = tok::GetValue(params, "err");
+    const std::string http_heading = tok::GetValue(params, "http_heading", "");
 
-
-    if(req_type == "http") {
-        reply = executeHttpRequest(req);
+    if(!http_heading.empty()) {
+        reply = executeHttpRequest(LF2CRLF(http_heading), req);
         if (capture == "on") {
-            reply = UTF8toCP866(reply);
+            size_t pos=reply.find("\r\n\r\n");
+            if (pos!=string::npos)
+            {
+              pos+=4;
+              if (reply.compare(pos, 15, "<!doctype html>")==0)
+              {
+                //это html
+                reply = CRLF2LF(reply);
+                reply = UTF8toCP866(reply);
+              }
+              if (reply.compare(pos, 6, "<?xml ")==0)
+              {
+                //это xml
+                reply = CRLF2LF(reply);
+                reply = UTF8toCP866(reply);
+                reply = StrUtils::replaceSubstrCopy(reply, "\"", "'");
+                reply = StrUtils::replaceSubstrCopy(reply, "encoding='UTF-8'", "encoding='CP866'");
+              }
+            }
             outq.push(reply);
         }
     } else {
@@ -189,12 +221,15 @@ static std::string FP_lastRedisplay(const std::vector<std::string> &args)
 static std::string FP_req(const std::vector<tok::Param>& params)
 {
     std::queue<std::string>& outq = GetTestContext()->outq;
-    tok::ValidateParams(params, 1, 1, "err ignore pages capture ws req_type");
+    tok::ValidateParams(params, 1, 1, "err ignore pages capture ws http_heading");
     const std::string text = tok::PositionalValues(params).at(0);
 
     if (text.empty()) {
+      if (tok::GetValue(params, "http_heading", "").empty())
+      {
         LogTrace(TRACE5) << __FUNCTION__ << ": skipping empty request";
         return std::string();
+      }
     }
 
     LogTrace(TRACE5) << __FUNCTION__ << ": top";
@@ -448,9 +483,12 @@ static std::string FP_autoSetCraft(const std::vector<std::string>& p)
 
 static std::string FP_getPaxId(const std::vector<std::string>& p)
 {
-    using namespace astra_api::xml_entities;
-    assert(p.size() == 3);
-    PointId_t pointDep(std::stoi(p.at(0)));
+  using namespace astra_api::xml_entities;
+  assert(p.size() == 2 || p.size() == 3);
+  PointId_t pointDep(std::stoi(p.at(0)));
+
+  if (p.size() == 3)
+  {
     Surname_t paxSurname(p.at(1));
     Name_t paxName(p.at(2));
 
@@ -473,6 +511,27 @@ static std::string FP_getPaxId(const std::vector<std::string>& p)
     const XmlPax& pax = lPax.front();
     LogTrace(TRACE5) << __FUNCTION__;
     return std::to_string(pax.pax_id);
+  }
+  else
+  {
+    RegNo_t regNo(std::stoi(p.at(1)));
+
+
+    auto cur = make_curs("SELECT pax.pax_id "
+                         "FROM pax_grp, pax "
+                         "WHERE pax_grp.grp_id=pax.grp_id AND "
+                         "      pax_grp.point_dep=:point_dep AND pax.reg_no=:reg_no "
+                         "ORDER BY pax.pax_id");  //может быть РМ с рег. номером взрослого
+    int pax_id;
+    cur.def(pax_id)
+       .bind(":point_dep", pointDep)
+       .bind(":reg_no", regNo)
+       .exfet(); //может быть РМ с рег. номером взрослого (дублирование regNo)
+
+    if(cur.err() == NO_DATA_FOUND) return "";
+
+    return std::to_string(pax_id);
+  }
 }
 
 static std::string FP_getSingleGrpId(const std::vector<std::string>& p)
@@ -733,6 +792,22 @@ static std::string FP_setUserTime(const std::vector<std::string>& par)
     return "";
 }
 
+static std::string FP_getUserId(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() == 1);
+
+    auto cur = make_db_curs("SELECT user_id FROM users2 WHERE login=:login",
+                            PgOra::getROSession("USERS2"));
+
+    int user_id;
+    cur.def(user_id)
+       .bind(":login", par.at(0))
+       .EXfet();
+
+    if(cur.err() == DbCpp::ResultCode::NoDataFound) return "";
+
+    return std::to_string(user_id);
+}
 
 static std::string FP_initApps(const std::vector<tok::Param>& par)
 {
@@ -1308,6 +1383,7 @@ FP_REGISTER("last_generated_pax_id", FP_lastGeneratedPaxId);
 FP_REGISTER("substr", FP_substr);
 FP_REGISTER("set_desk_version", FP_setDeskVersion);
 FP_REGISTER("set_user_time_type", FP_setUserTime);
+FP_REGISTER("get_user_id", FP_getUserId);
 FP_REGISTER("init_apps", FP_initApps);
 FP_REGISTER("translit", FP_translit);
 FP_REGISTER("kick_flt_tasks_daemon", FP_kick_flt_tasks_daemon);

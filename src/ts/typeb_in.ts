@@ -68,7 +68,7 @@ ENDPNL
 $(set point_dep $(last_point_id_spp))
 
 !! capture=on err=ignore
-<?xml version='1.0' encoding='UTF-8'?>
+<?xml version='1.0' encoding='CP866'?>
 <term>
   <query handle='0' id='Telegram' ver='1' opr='PIKE' screen='TLG.EXE' mode='STAND' lang='RU' term_id='2479792165'>
     <GetTlgIn>
@@ -175,7 +175,7 @@ $(set pax_id_01 $(get_pax_id $(get point_dep) “Šˆ ‚€‘ˆ‹ˆ‰))
 $(set pax_id_02 $(get_pax_id $(get point_dep) ’“Šˆ ”…„))
 
 !! capture=on err=ignore
-<?xml version='1.0' encoding='UTF-8'?>
+<?xml version='1.0' encoding='CP866'?>
 <term>
   <query handle='0' id='Telegram' ver='1' opr='PIKE' screen='TLG.EXE' mode='STAND' lang='RU' term_id='2479792165'>
     <GetTlgIn>
@@ -314,7 +314,7 @@ $(set pax_id_01 $(get_pax_id $(get point_dep) “Šˆ ‚€‘Ÿ))
 $(set pax_id_02 $(get_pax_id $(get point_dep) ’“Šˆ ”…„Ÿ))
 
 !! capture=on err=ignore
-<?xml version='1.0' encoding='UTF-8'?>
+<?xml version='1.0' encoding='CP866'?>
 <term>
   <query handle='0' id='Telegram' ver='1' opr='PIKE' screen='TLG.EXE' mode='STAND' lang='RU' term_id='2479792165'>
     <GetTlgIn>

@@ -4,8 +4,7 @@ include(ts/macro.ts)
 
 $(init)
 
-!! capture=on req_type=http
-{GET /web_srv.html?CLIENT-ID=HTML&login=HTML&password=HTMLPWD HTTP/1.1
+!! capture=on http_heading={GET /web_srv.html?CLIENT-ID=HTML&login=HTML&password=HTMLPWD HTTP/1.1
 Host: astrabeta.komtex:8782
 Connection: keep-alive
 Cache-Control: max-age=0
@@ -13,11 +12,11 @@ Upgrade-Insecure-Requests: 1
 User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.60 YaBrowser/20.12.0.963 Yowser/2.5 Safari/537.36
 Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9
 Accept-Encoding: gzip, deflate
-Accept-Language: ru,en;q=0.9
-$()}
+Accept-Language: ru,en;q=0.9} ""
 
->> lines=auto
-{HTTP/1.1 200 OK
+
+>>
+HTTP/1.1 200 OK
 Content-Length: 4604
 Content-Type: $()
 Access-Control-Allow-Origin: *
@@ -133,4 +132,5 @@ $()
 </form>
 </center>
 </body>
-</html>}
+</html>
+$()

@@ -110,6 +110,7 @@ $(defmacro CREATE_USER
 {
 
 !! capture=on
+<?xml version='1.0' encoding='CP866'?>
 <term>
   <query handle='0' id='access' ver='1' opr='PIKE' screen='ACCESS.EXE' mode='STAND' lang='$(lang)' term_id='2479792165'>
     <save_user>
@@ -125,7 +126,7 @@ $(defmacro CREATE_USER
 <?xml version='1.0' encoding='CP866'?>
 <term>
   <answer ...>
-    <user_id>...</user_id>
+    <user_id>$(get_user_id $(login))</user_id>
     <descr>$(descr)</descr>
     <login>$(login)</login>
     <type>$(user_type)</type>
@@ -139,6 +140,67 @@ $(defmacro CREATE_USER
 </term>
 
 })
+
+$(defmacro UPDATE_USER
+  login
+  descr
+  user_type=0
+  airps
+  airlines
+  roles
+  lang=RU
+{
+
+!! capture=on
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='access' ver='1' opr='PIKE' screen='ACCESS.EXE' mode='STAND' lang='$(lang)' term_id='2479792165'>
+    <apply_updates>
+      <users>
+        <item index='0' status='modified'>
+          <user_id>$(get_user_id $(login))</user_id>
+          <descr>$(descr)</descr>
+          <login>$(login)</login>
+          <user_type>$(user_type)</user_type>
+          <time_fmt>0</time_fmt>
+          <airline_fmt>9</airline_fmt>
+          <airp_fmt>9</airp_fmt>
+          <craft_fmt>9</craft_fmt>
+          <suff_fmt>17</suff_fmt>\
+$(if $(eq $(airps) "") "" {
+$(airps)})\
+$(if $(eq $(airlines) "") "" {
+$(airlines)})\
+$(if $(eq $(roles) "") "" {
+$(roles)})
+          <pr_denial>0</pr_denial>
+        </item>
+      </users>
+    </apply_updates>
+  </query>
+</term>
+
+>> lines=auto
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer ...>
+    <users>
+      <item index='0' delete='0'>
+        <user_id>$(get_user_id $(login))</user_id>
+        <user_id>$(get_user_id $(login))</user_id>
+        <descr>$(descr)</descr>
+        <login>$(login)</login>
+        <type>$(user_type)</type>
+        <pr_denial>0</pr_denial>
+        <time_fmt_code>0</time_fmt_code>
+        <disp_airline_fmt_code>9</disp_airline_fmt_code>
+        <disp_airp_fmt_code>9</disp_airp_fmt_code>
+        <disp_craft_fmt_code>9</disp_craft_fmt_code>
+        <disp_suffix_fmt_code>17</disp_suffix_fmt_code>
+
+
+})
+
 
 $(defmacro CREATE_DESK
   code
@@ -155,9 +217,6 @@ $(cache PIKE RU DESK_OWNERS $(cache_iface_ver DESK_OWNERS) ""
          pr_denial:0
  )
 
-$(dump_table desks where="code='$(code)'")
-$(dump_table desk_owners where="desk='$(code)'")
-
 })
 
 $(defmacro ADD_HTTP_CLIENT
@@ -170,13 +229,9 @@ $(defmacro ADD_HTTP_CLIENT
 {
 
 $(sql {INSERT INTO web_clients(client_id, client_type, descr, desk, user_id, tracing_search, id)
-       SELECT '$(client_id)', 'HTTP', '$(client_id)', '$(desk)', user_id, 0, id__seq.nextval
-       FROM users2 WHERE login='$(user_login)'})
+       VALUES('$(client_id)', 'HTTP', '$(client_id)', '$(desk)', $(get_user_id $(user_login)), 0, id__seq.nextval)})
 
 $(sql {INSERT INTO http_clients(id, http_user, http_pswd, exchange_type)
        VALUES('$(client_id)', '$(http_user)', '$(http_pswd)', '$(exchange_type)')})
-
-$(dump_table web_clients where="client_id='$(client_id)'")
-$(dump_table http_clients)
 
 })
