@@ -3242,7 +3242,6 @@ class TAdulstWithBabys:public std::map<std::string,std::vector<TAdultWithBabys>>
         }
       }
       else {
-         ProgError(STDLOG, "setChildToAdult error");
          addAdult( child_pass );
       }
     }
