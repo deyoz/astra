@@ -30,7 +30,7 @@ TTlgPartInfo ParseUCMHeading(TTlgPartInfo heading, TUCMHeadingInfo &info, TFligh
         }
         while ((line_p=tlg.NextLine(line_p))!=NULL);
     }
-    catch(const ETlgError& E)
+    catch(ETlgError E)
     {
         throwTlgError(E.what(), heading, line_p);
     };
@@ -107,7 +107,7 @@ void TUCMFltInfo::parse(const char *val, TFlightsForBind &flts, TTlgCategory tlg
 
     // привязка к рейсы
     for(const auto &flt: franchise_flts)
-        flts.push_back(TFltForBind(TFltInfo(flt),  btFirstSeg));
+        flts.push_back(TFltForBind(TFltInfo(flt),  btFirstSeg, TSearchFltInfoPtr()));
 }
 
 TFltInfo TUCMFltInfo::toFltInfo()

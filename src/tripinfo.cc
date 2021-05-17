@@ -3284,7 +3284,7 @@ bool SearchPaxByScanData(xmlNodePtr reqNode,
   else
     bcbp=NodeAsString("scan_data", reqNode);
 
-  boost::optional<FltOperFilter> fltOperFilter;
-  return SearchPaxByScanData(bcbp, point_id, reg_no, pax_id, isBoardingPass, fltOperFilter);
+  boost::optional<TSearchFltInfo> searchFltInfo;
+  return SearchPaxByScanData(bcbp, point_id, reg_no, pax_id, isBoardingPass, searchFltInfo);
 }
 

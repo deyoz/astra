@@ -541,9 +541,9 @@ string TDetailCreateInfo::TlgElemIdToElem(TElemType type, int id, TElemFmt fmt)
         fmt = elem_fmt;
     try {
         return TypeB::TlgElemIdToElem(type, id, fmt, lang);
-    } catch(const UserException &E) {
+    } catch(UserException &E) {
         return err_lst.add_err(DEFAULT_ERR, E.getLexemaData());
-    } catch(const exception &E) {
+    } catch(exception &E) {
         return err_lst.add_err(DEFAULT_ERR, "TTlgInfo::TlgElemIdToElem: tlg_type: %s, elem_type: %s, fmt: %s, what: %s", get_tlg_type().c_str(), EncodeElemType(type), EncodeElemFmt(fmt), E.what());
     } catch(...) {
         return err_lst.add_err(DEFAULT_ERR, "TTlgInfo::TlgElemIdToElem: unknown except caught. tlg_type: %s, elem_type: %s, fmt: %s", get_tlg_type().c_str(), EncodeElemType(type), EncodeElemFmt(fmt));
@@ -556,9 +556,9 @@ string TDetailCreateInfo::TlgElemIdToElem(TElemType type, string id, TElemFmt fm
         fmt = elem_fmt;
     try {
         return TypeB::TlgElemIdToElem(type, id, fmt, lang);
-    } catch(const UserException &E) {
+    } catch(UserException &E) {
         return err_lst.add_err(id, E.getLexemaData());
-    } catch(const exception &E) {
+    } catch(exception &E) {
         return err_lst.add_err(id, "TTlgInfo::TlgElemIdToElem: tlg_type: %s, elem_type: %s, fmt: %s, what: %s", get_tlg_type().c_str(), EncodeElemType(type), EncodeElemFmt(fmt), E.what());
     } catch(...) {
         return err_lst.add_err(id, "TTlgInfo::TlgElemIdToElem: unknown except caught. tlg_type: %s, elem_type: %s, fmt: %s", get_tlg_type().c_str(), EncodeElemType(type), EncodeElemFmt(fmt));
@@ -689,12 +689,12 @@ string fetch_addr(string &addr, TDetailCreateInfo *info)
                 continue;
             throw AstraLocale::UserException("MSG.TLG.INVALID_SITA_ADDR", LParams() << LParam("addr", result));
         }
-    } catch(const UserException &E) {
+    } catch(UserException &E) {
         if(not info)
             throw;
         else
             result = info->err_lst.add_err(result, E.getLexemaData());
-    } catch(const exception &E) {
+    } catch(exception &E) {
         if(not info)
             throw;
         else
@@ -733,12 +733,12 @@ string format_addr_line(string vaddrs, TDetailCreateInfo *info)
         }
         if(!addr_line.empty())
             result += addr_line;
-    } catch(const UserException &E) {
+    } catch(UserException &E) {
         if(not info)
             throw;
         else
             result = info->err_lst.add_err(DEFAULT_ERR, E.getLexemaData());
-    } catch(const exception &E) {
+    } catch(exception &E) {
         if(not info)
             throw;
         else
@@ -835,7 +835,7 @@ tr1::shared_ptr<TCreateOptions> make_options(const string &tlg_type)
     const TTypeBTypesRow& row = (const TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg_type));
     basic_type=row.basic_type;
   }
-  catch(const EBaseTableError&)
+  catch(EBaseTableError)
   {
     throw Exception("TypeB::make_options: unknown telegram type %s", tlg_type.c_str());
   };
@@ -888,7 +888,7 @@ bool TSendInfo::isSend() const
     pr_dep=row.pr_dep==NoExists || row.pr_dep!=0;
     pr_arv=row.pr_dep==NoExists || row.pr_dep==0;
   }
-  catch(const EBaseTableError&)
+  catch(EBaseTableError)
   {
     return false;
   };
@@ -1011,7 +1011,7 @@ void filter_typeb_addrs(const TSendInfo &sendInfo,
         pr_dep=row.pr_dep==NoExists || row.pr_dep!=0;
         pr_arv=row.pr_dep==NoExists || row.pr_dep==0;
     }
-    catch(const EBaseTableError&)
+    catch(EBaseTableError)
     {
         return;
     };

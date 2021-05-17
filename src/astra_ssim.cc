@@ -878,7 +878,7 @@ void HandleSSMTlg(string body, int tlg_id, TypeB::TFlightsForBind& flightsForBin
       strcpy(flt.airline, airline.substr(0,3).c_str());
       flt.flt_no = flt_no;
       strcpy(flt.suffix, suffix.substr(0,1).c_str());
-      flightsForBind.emplace_back(flt, btNone);
+      flightsForBind.emplace_back(flt, btNone, TSearchFltInfoPtr());
     }
 
     if (!ssm)

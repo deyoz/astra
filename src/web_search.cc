@@ -2470,7 +2470,7 @@ bool SearchPaxByScanData(const std::string& bcbp,
                          int &reg_no,
                          int &pax_id,
                          bool &isBoardingPass,
-                         boost::optional<FltOperFilter>& fltOperFilter)
+                         boost::optional<TSearchFltInfo>& searchFltInfo)
 {
   bool result=false;
 
@@ -2478,7 +2478,7 @@ bool SearchPaxByScanData(const std::string& bcbp,
   reg_no=NoExists;
   pax_id=NoExists;
   isBoardingPass=false;
-  fltOperFilter=boost::none;
+  searchFltInfo=boost::none;
 
   WebSearch::TPNRFilters filters;
 
@@ -2495,18 +2495,18 @@ bool SearchPaxByScanData(const std::string& bcbp,
       throw EXCEPTIONS::EConvertError("airlines.size()!=1");
     if (filter.scd_out_local_ranges.size()!=1)
       throw EXCEPTIONS::EConvertError("scd_out_local_ranges.size()!=1");
-
-    fltOperFilter=boost::in_place(AirlineCode_t(*(filter.airlines.begin())),
-                                  FlightNumber_t(filter.flt_no),
-                                  FlightSuffix_t(filter.suffix),
-                                  AirportCode_t(filter.airp_dep),
-                                  filter.scd_out_local_ranges.begin()->first,
-                                  FltOperFilter::DateType::Local);
-
+    searchFltInfo=boost::in_place();
+    searchFltInfo.get().airline=*(filter.airlines.begin());
+    searchFltInfo.get().flt_no=filter.flt_no;
+    searchFltInfo.get().suffix=filter.suffix;
+    searchFltInfo.get().airp_dep=filter.airp_dep;
+    searchFltInfo.get().scd_out=filter.scd_out_local_ranges.begin()->first;
+    searchFltInfo.get().scd_out_in_utc=false;
     if (filter.reg_no==NoExists)
       throw EXCEPTIONS::EConvertError("filter.reg_no==NoExists");
 
-    list<TAdvTripInfo> flts=fltOperFilter.get().search();
+    list<TAdvTripInfo> flts;
+    SearchFlt(searchFltInfo.get(), flts);
 
     if (flts.empty()) return result;
 

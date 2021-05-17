@@ -6,7 +6,6 @@
 
 DECL_RIP(PointId_t,    int);
 DECL_RIP(PointIdTlg_t, int);
-DECL_RIP(PointIdMkt_t, int);
 DECL_RIP(GrpId_t,      int);
 DECL_RIP(PnrId_t,      int);
 DECL_RIP(ReqCtxtId_t,  int);
@@ -27,7 +26,3 @@ DECL_RIP_LENGTH(SubClass_t,    std::string, 1, 1);
 
 DECL_RIP_LENGTH(Surname_t,     std::string, 0, 64);
 DECL_RIP_LENGTH(Name_t,        std::string, 0, 64);
-
-DECL_RIP_RANGED(FlightNumber_t, int, 1, 99999);
-DECL_RIP_LENGTH(FlightSuffix_t, std::string, 0, 1);
-

@@ -777,13 +777,12 @@ $(defmacro SVC_REQUEST_2982410821479
         <ticket number=\"2982410821479\" coupon_num=\"1\" display_id=\"$(display_id)\"/>
         <recloc crs=\"DT\">04VSFC</recloc>
         <recloc crs=\"UT\">054C82</recloc>
-      </segment>\
-$(if $(eq $(segment2_props) "") "" {
+      </segment>
       <segment id=\"1\" $(segment2_props) subclass=\"Y\">
         <ticket number=\"2982410821479\" coupon_num=\"2\" display_id=\"$(display_id)\"/>
         <recloc crs=\"DT\">04VSFC</recloc>
         <recloc crs=\"UT\">054C82</recloc>
-      </segment>})
+      </segment>
     </passenger>}
 )
 
@@ -799,15 +798,13 @@ $(defmacro SVC_REQUEST_2982410821480
         <ticket number=\"2982410821480\" coupon_num=\"1\" display_id=\"$(display_id)\"/>
         <recloc crs=\"DT\">04VSFC</recloc>
         <recloc crs=\"UT\">054C82</recloc>
-      </segment>\
-$(if $(eq $(segment2_props) "") "" {
+      </segment>
       <segment id=\"1\" $(segment2_props) subclass=\"Y\">
         <ticket number=\"2982410821480\" coupon_num=\"2\" display_id=\"$(display_id)\"/>\
 $(if $(eq $(trfer_only) "true") "" {
         <recloc crs=\"DT\">04VSFC</recloc>
         <recloc crs=\"UT\">054C82</recloc>})
-      </segment>})
+      </segment>
     </passenger>}
 )
-
 

@@ -92,7 +92,7 @@ void PaxTransferFromDB(int pax_id, std::list<TPaxTransferItem> &trfer);
 void PaxTransferToXML(const std::list<TPaxTransferItem> &trfer, xmlNodePtr paxNode);
 void PaxTransferToDB(int pax_id, int pax_no, const CheckIn::TTransferList &trfer, int seg_no);
 
-FltOperFilter createFltOperFilter(const CheckIn::TTransferItem &item);
+TSearchFltInfo createSearchFlt(const CheckIn::TTransferItem &item);
 
 }; //namespace CheckIn
 
