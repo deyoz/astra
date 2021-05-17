@@ -208,7 +208,8 @@ void TFltBinding::bind_flt(const TFltInfo &flt, TBindType bind_type, vector<int>
   FltOperFilter filter(AirlineCode_t(flt.airline),
                        FlightNumber_t(flt.flt_no),
                        FlightSuffix_t(flt.suffix),
-                       AirportCode_t(flt.airp_dep),
+                       (*flt.airp_dep==0)?std::nullopt:
+                                          std::optional(AirportCode_t(flt.airp_dep)),
                        flt.scd,
                        flt.pr_utc?FltOperFilter::DateType::UTC:
                                   FltOperFilter::DateType::Local,

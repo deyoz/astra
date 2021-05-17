@@ -9515,7 +9515,8 @@ namespace WBMessages {
             FltOperFilter filter(AirlineCode_t(f.airline),
                                  FlightNumber_t(f.flt_no),
                                  FlightSuffix_t(f.suffix),
-                                 AirportCode_t(f.airp),
+                                 f.airp.empty()?std::nullopt:
+                                                std::optional(AirportCode_t(f.airp)),
                                  f.scd_out,
                                  FltOperFilter::DateType::UTC);
 

@@ -127,7 +127,10 @@ class TSegItem
                                 const boost::optional<CheckIn::TPaxTknItem>& tkn,
                                 const AstraLocale::OutputLang &lang) const;
 
-    TDateTime est_scd_in() const { return est_in!=ASTRA::NoExists?est_in:scd_in; }
+    TDateTime est_scd_out() const { return operFlt.est_out_exists()?operFlt.est_out.get():
+                                                                    operFlt.scd_out; }
+    TDateTime est_scd_in() const { return est_in!=ASTRA::NoExists?est_in:
+                                                                  scd_in; }
 };
 
 class TPaxSection;
