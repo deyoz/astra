@@ -158,18 +158,17 @@ void TFltBinding::bind_flt(const TFltInfo &flt, TBindType bind_type, vector<int>
   if (!flt.pr_utc && *flt.airp_dep==0) return;
   if (bind_type == btNone) return;
 
-  TSearchFltInfoPtr filter = get_search_params();
-  if(not filter)
-      filter = TSearchFltInfoPtr(new TSearchFltInfo());
-  filter->airline=flt.airline;
-  filter->flt_no=flt.flt_no;
-  filter->suffix=flt.suffix;
-  filter->airp_dep=flt.airp_dep;
-  filter->scd_out=flt.scd;
-  filter->scd_out_in_utc=flt.pr_utc;
+  FltOperFilter filter(AirlineCode_t(flt.airline),
+                       FlightNumber_t(flt.flt_no),
+                       FlightSuffix_t(flt.suffix),
+                       (*flt.airp_dep==0)?std::nullopt:
+                                          std::optional(AirportCode_t(flt.airp_dep)),
+                       flt.scd,
+                       flt.pr_utc?FltOperFilter::DateType::UTC:
+                                  FltOperFilter::DateType::Local,
+                       dateFlags());
 
-  list<TAdvTripInfo> flts;
-  SearchFlt(*filter.get(), flts);
+  list<TAdvTripInfo> flts=filter.search();
 
   // Влад !!!
   // Пусть есть рейс с 4 пунктами ДМД-ВРН-МХЛ-ПЛК-СОЧ
@@ -372,7 +371,7 @@ void TTlgBinding::bind_flt_virt(int point_id, const vector<int> &spp_point_ids)
         after_bind_or_unbind_flt(point_id_tlg,point_id_spp,false);
       };
     }
-    catch(EOracleError E)
+    catch(const EOracleError& E)
     {
       if (E.Code!=1) throw;
     };
@@ -708,7 +707,7 @@ const TlgSource& TlgSource::toDB() const
   {
     Qry.Execute();
   }
-  catch(EOracleError E)
+  catch(const EOracleError& E)
   {
     if (E.Code!=1) throw;
     if (has_errors || has_alarm_errors)

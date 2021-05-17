@@ -616,6 +616,7 @@ $(defmacro CHANGE_CHECKIN_ADD_SVC_1479
       <services/>})
 
 $(defmacro CHANGE_CHECKIN_ADD_SVC_1480
+  svc_transfer_num=1
 {      <value_bags/>
       <bags>
         <bag>
@@ -643,7 +644,7 @@ $(defmacro CHANGE_CHECKIN_ADD_SVC_1480
           <airline>ЮТ</airline>
           <service_quantity>1</service_quantity>
           <pax_id>$(get pax_id_1480_1)</pax_id>
-          <transfer_num>1</transfer_num>
+          <transfer_num>$(svc_transfer_num)</transfer_num>
         </item>
       </services>})
 
@@ -681,6 +682,12 @@ $(defmacro SVC_PAYMENT_STATUS_REQUEST_SVC_LIST_BEFORE_1479
       <name language=\"ru\">ЖИВОТНОЕ В БАГАЖ ОТДЕЛ ДО 23КГ</name>
     </svc>})
 
+$(defmacro SVC_PAYMENT_STATUS_REQUEST_SVC_LIST_BEFORE_1479_1SEG
+{    <svc passenger-id=\"$(get pax_id_1479_1)\" segment-id=\"0\" company=\"UT\" service_type=\"C\" rfisc=\"0BS\" rfic=\"C\" emd_type=\"EMD-A\">
+      <name language=\"en\">PET IN HOLD</name>
+      <name language=\"ru\">ЖИВОТНОЕ В БАГАЖ ОТДЕЛ ДО 23КГ</name>
+    </svc>})
+
 $(defmacro SVC_PAYMENT_STATUS_REQUEST_SVC_LIST_BEFORE_1480
 {    <svc passenger-id=\"$(get pax_id_1480_1)\" segment-id=\"1\" company=\"UT\" service_type=\"F\" rfisc=\"SPF\" rfic=\"A\" emd_type=\"EMD-A\">
       <name language=\"en\">SEAT ASSIGNMENT</name>
@@ -691,6 +698,16 @@ $(defmacro SVC_PAYMENT_STATUS_REQUEST_SVC_LIST_BEFORE_1480
       <name language=\"ru\">ОГНЕСТРЕЛЬНОЕ ОРУЖИЕ ДО 32КГ</name>
     </svc>
     <svc passenger-id=\"$(get pax_id_1480_1)\" segment-id=\"1\" company=\"UT\" service_type=\"C\" rfisc=\"04V\" rfic=\"C\" emd_type=\"EMD-A\">
+      <name language=\"en\">FIREARMS UP TO 32KG</name>
+      <name language=\"ru\">ОГНЕСТРЕЛЬНОЕ ОРУЖИЕ ДО 32КГ</name>
+    </svc>})
+
+$(defmacro SVC_PAYMENT_STATUS_REQUEST_SVC_LIST_BEFORE_1480_1SEG
+{    <svc passenger-id=\"$(get pax_id_1480_1)\" segment-id=\"0\" company=\"UT\" service_type=\"F\" rfisc=\"SPF\" rfic=\"A\" emd_type=\"EMD-A\">
+      <name language=\"en\">SEAT ASSIGNMENT</name>
+      <name language=\"ru\">ВЫБОР МЕСТА</name>
+    </svc>
+    <svc passenger-id=\"$(get pax_id_1480_1)\" segment-id=\"0\" company=\"UT\" service_type=\"C\" rfisc=\"04V\" rfic=\"C\" emd_type=\"EMD-A\">
       <name language=\"en\">FIREARMS UP TO 32KG</name>
       <name language=\"ru\">ОГНЕСТРЕЛЬНОЕ ОРУЖИЕ ДО 32КГ</name>
     </svc>})
@@ -744,10 +761,17 @@ $(defmacro SVC_PAYMENT_STATUS_RESPONSE_SVC_LIST_BEFORE_1479
 { <svc passenger-id=\"$(get pax_id_1479_1)\" segment-id=\"0\" rfisc=\"0BS\" service_type=\"C\" payment_status=\"need\" company=\"UT\"/>
  <svc passenger-id=\"$(get pax_id_1479_1)\" segment-id=\"1\" rfisc=\"0BS\" service_type=\"C\" payment_status=\"need\" company=\"UT\"/>})
 
+$(defmacro SVC_PAYMENT_STATUS_RESPONSE_SVC_LIST_BEFORE_1479_1SEG
+{ <svc passenger-id=\"$(get pax_id_1479_1)\" segment-id=\"0\" rfisc=\"0BS\" service_type=\"C\" payment_status=\"need\" company=\"UT\"/>})
+
 $(defmacro SVC_PAYMENT_STATUS_RESPONSE_SVC_LIST_BEFORE_1480
 { <svc passenger-id=\"$(get pax_id_1480_1)\" segment-id=\"1\" rfisc=\"SPF\" service_type=\"F\" payment_status=\"need\" company=\"UT\"/>
  <svc passenger-id=\"$(get pax_id_1480_1)\" segment-id=\"0\" rfisc=\"04V\" service_type=\"C\" payment_status=\"need\" company=\"UT\"/>
  <svc passenger-id=\"$(get pax_id_1480_1)\" segment-id=\"1\" rfisc=\"04V\" service_type=\"C\" payment_status=\"need\" company=\"UT\"/>})
+
+$(defmacro SVC_PAYMENT_STATUS_RESPONSE_SVC_LIST_BEFORE_1480_1SEG
+{ <svc passenger-id=\"$(get pax_id_1480_1)\" segment-id=\"0\" rfisc=\"SPF\" service_type=\"F\" payment_status=\"need\" company=\"UT\"/>
+ <svc passenger-id=\"$(get pax_id_1480_1)\" segment-id=\"0\" rfisc=\"04V\" service_type=\"C\" payment_status=\"need\" company=\"UT\"/>})
 
 $(defmacro SVC_PAYMENT_STATUS_RESPONSE_SVC_LIST_AFTER
 { <svc passenger-id=\"$(get pax_id_1480_1)\" segment-id=\"1\" rfisc=\"SPF\" service_type=\"F\" payment_status=\"paid\" company=\"UT\"/>
@@ -3182,6 +3206,567 @@ $(RUN_REPORT_REQUEST capture=on $(get point_dep2) SERVICES 1 RU)
           </row>
         </table>
       </datasets>
+
+%%
+
+### test 9 - запрос из Сирены пассажиров с неоплаченными услугами на задержанном рейсе
+### план такой:
+### 1. Заводим два одинаковых рейса с разницей в сутки. Более раннему проставляем задержку на следующие сутки
+### 2. Регистрируем по одному пассажиру на каждом рейсе и оформляем для каждого платный багаж
+### 3. Запрашиваем из Сирены рейс за более раннюю дату. В ответе пассажир только этого рейса
+### 4. Запрашиваем из Сирены рейс за другую дату. В ответе пассажиры обоих рейсов, в том числе и перенесенного
+### 5. Проставляем факт вылета рейсам по очереди. В ответы Сирене не попадают пассажиры вылетевших рейсов
+###########################################################################################################################
+
+$(init_term)
+$(set_user_time_type LocalAirp PIKE)
+
+### доступ для входящих http-запросов от Сирены
+
+$(CREATE_USER SIRENATEST SIRENATEST)
+$(CREATE_DESK SIREN2 1)
+$(ADD_HTTP_CLIENT PIECE_CONCEPT SIRENATEST SIRENATEST SIREN2)
+
+### обмен с СЭБ
+
+$(init_eds ЮТ UTET UTDC)
+
+### настройки для выходящих http-запросов к Сирене
+
+$(settcl SIRENA_HOST localhost)
+$(settcl SIRENA_PORT 8008)
+$(allow_gds_exchange ЮТ allow=1)
+
+$(set today $(date_format %d.%m.%Y +0))
+$(set tomor $(date_format %d.%m.%Y +1))
+
+### два одинаковых рейса с разницей в сутки
+
+$(NEW_SPP_FLIGHT_REQUEST
+{ $(new_spp_point ЮТ 580 TU3 65021 ""                   СОЧ "$(get today) 12:00")
+  $(new_spp_point_last             "$(get today) 15:00" ВНК ) })
+
+$(NEW_SPP_FLIGHT_REQUEST
+{ $(new_spp_point ЮТ 580 TU3 65021 ""                   СОЧ "$(get tomor) 12:00")
+  $(new_spp_point_last             "$(get tomor) 15:00" ВНК ) })
+
+$(set point_dep1 $(get_point_dep_for_flight ЮТ 580 "" $(yymmdd +0) СОЧ))
+$(set point_arv1 $(get_next_trip_point_id $(get point_dep1)))
+$(set point_dep2 $(get_point_dep_for_flight ЮТ 580 "" $(yymmdd +1) СОЧ))
+$(set point_arv2 $(get_next_trip_point_id $(get point_dep2)))
+
+$(prepare_bt_for_flight $(get point_dep1) ВНКС)
+$(prepare_bt_for_flight $(get point_dep2) ВНКС)
+
+### задержка одного рейса, чтобы два одинаковых рейса выполнялись в одни сутки
+
+$(CHANGE_SPP_FLIGHT_REQUEST $(get point_dep1)
+{ $(change_spp_point $(get point_dep1) ЮТ 580 TU3 65021 ""                   ""                   "" СОЧ "$(get today) 12:00" "$(get tomor) 01:00")
+  $(change_spp_point_last $(get point_arv1)             "$(get today) 15:00" "$(get tomor) 04:00" "" ВНК )
+})
+
+$(PNL_UT_580 time_create=$(dd -1)$(hhmi) date_dep=$(ddmon +0 en))
+
+$(set edi_ref_1479_1 $(last_edifact_ref 1))
+$(set edi_ref_1480_1 $(last_edifact_ref 0))
+
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(get edi_ref_1479_1) ЮТ 2982410821479)
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(get edi_ref_1480_1) ЮТ 2982410821480)
+<<
+$(TKCRES_ET_DISP_2982410821479 UTET UTDC $(get edi_ref_1479_1))
+<<
+$(TKCRES_ET_DISP_2982410821480 UTET UTDC $(get edi_ref_1480_1))
+
+$(PNL_UT_580 time_create=$(dd -0)$(hhmi) date_dep=$(ddmon +1 en))
+
+################################################################################
+### регистрируем одного пассажира на первом рейсе
+
+$(set pax_id_1480_1 $(get_pax_id $(get point_dep1) MOTOVA IRINA))
+
+$(NEW_CHECKIN_REQUEST $(get point_dep1) $(get point_arv1) СОЧ ВНК hall=1 capture=on
+{<passengers>
+  <pax>
+$(NEW_CHECKIN_2982410821480 $(get pax_id_1480_1) 1)
+  </pax>
+</passengers>})
+
+$(ERROR_RESPONSE MSG.ETS_CONNECT_ERROR)
+
+$(set edi_ref0 $(last_edifact_ref 0))
+
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ЮТ 2982410821480 1 CK xxxxxx СОЧ ВНК 580 depd=$(ddmmyy +1)) ### в COS уже перенесенная дата
+<<
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref0) 2982410821480 1 CK)
+
+$(http_forecast content=$(SVC_AVAILABILITY_RESPONSE_UT_1PAX_1SEG $(get pax_id_1480_1)))
+
+$(KICK_IN)
+
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer ...>
+</term>
+
+$(set svc_seg1
+{company=\"UT\" flight=\"580\" operating_company=\"UT\" operating_flight=\"580\" departure=\"AER\" arrival=\"VKO\" \
+scd_departure_time=\"$(date_format %Y-%m-%d +0)T12:00:00\" departure_time=\"$(date_format %Y-%m-%d +1)T01:00:00\" \
+arrival_time=\"$(date_format %Y-%m-%d +1)T04:00:00\" equipment=\"TU3\"})
+
+>> lines=auto
+<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<query>
+  <svc_availability show_brand_info=\"true\" show_all_svc=\"true\" show_free_carry_on_norm=\"true\">
+$(SVC_REQUEST_2982410821480 $(get pax_id_1480_1) 1 $(get svc_seg1))
+    <display id=\"1\">...</display>
+  </svc_availability>
+</query>
+
+$(KICK_IN_AFTER_HTTP)
+
+>> mode=regex
+.*
+            <reg_no>1</reg_no>.*
+
+$(set grp_id_1480_1 $(get_single_grp_id $(get pax_id_1480_1)))
+$(set grp_tid_1480_1 $(get_single_grp_tid $(get pax_id_1480_1)))
+$(set pax_tid_1480_1 $(get_single_pax_tid $(get pax_id_1480_1)))
+
+$(set paid_rfiscs_before_en_1480
+{    <paid_rfiscs>
+      <item>
+        <rfisc>04V</rfisc>
+        <service_type>C</service_type>
+        <airline>ЮТ</airline>
+        <name_view>firearms up to 32kg</name_view>
+        <transfer_num>0</transfer_num>
+        <service_quantity>1</service_quantity>
+        <paid>1</paid>
+        <priority>0</priority>
+        <total_view>1</total_view>
+        <paid_view>1</paid_view>
+      </item>
+      <item>
+        <rfisc>SPF</rfisc>
+        <service_type>F</service_type>
+        <airline>ЮТ</airline>
+        <name_view>seat assignment</name_view>
+        <transfer_num>0</transfer_num>
+        <service_quantity>1</service_quantity>
+        <paid>1</paid>
+        <total_view>1</total_view>
+        <paid_view>1</paid_view>
+      </item>
+    </paid_rfiscs>})
+
+
+$(http_forecast
+  content=$(SVC_PAYMENT_STATUS_RESPONSE_UT_1PAX_1SEG $(get pax_id_1480_1) $(SVC_PAYMENT_STATUS_RESPONSE_SVC_LIST_BEFORE_1480_1SEG)))
+
+$(CHANGE_TCHECKIN_REQUEST capture=on lang=EN hall=1
+{$(CHANGE_CHECKIN_SEGMENT $(get point_dep1) $(get point_arv1) СОЧ ВНК
+                          $(get grp_id_1480_1) $(get grp_tid_1480_1)
+{<passengers>
+  <pax>
+$(CHANGE_CHECKIN_2982410821480 $(get pax_id_1480_1) $(get pax_tid_1480_1) 1 bag_pool_num=1)
+  </pax>
+</passengers>})}
+$(CHANGE_CHECKIN_ADD_SVC_1480 svc_transfer_num=0)
+)
+
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer ...>
+</term>
+
+>> lines=auto
+<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<query>
+  <svc_payment_status show_free_carry_on_norm=\"true\" set_pupil=\"true\">
+$(SVC_REQUEST_2982410821480 $(get pax_id_1480_1) 1 $(get svc_seg1))
+    <display id=\"1\">...</display>
+$(SVC_PAYMENT_STATUS_REQUEST_SVC_LIST_BEFORE_1480_1SEG)
+  </svc_payment_status>
+</query>
+
+$(KICK_IN_AFTER_HTTP)
+
+>> mode=regex
+.*
+$(USER_ERROR_MESSAGE_TAG MSG.ETS_EDS_CONNECT_ERROR message=.*)
+.*
+$(get paid_rfiscs_before_en_1480)
+.*
+
+$(set edi_ref_1480 $(last_edifact_ref 0))
+
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(get edi_ref_1480) ЮТ 2982410821480)
+<<
+$(TKCRES_ET_DISP_2982410821480 UTET UTDC $(get edi_ref_1480))
+
+$(KICK_IN)
+
+>> mode=regex
+.*
+  <answer.*
+    <segments>
+.*
+$(get paid_rfiscs_before_en_1480)
+.*
+
+################################################################################
+### регистрируем одного пассажира на втором рейсе
+
+$(set pax_id_1479_1 $(get_pax_id $(get point_dep2) KOTOVA IRINA))
+
+$(NEW_CHECKIN_REQUEST $(get point_dep2) $(get point_arv2) СОЧ ВНК hall=1 capture=on
+{<passengers>
+  <pax>
+$(NEW_CHECKIN_2982410821479 $(get pax_id_1479_1) 1)
+  </pax>
+</passengers>})
+
+$(ERROR_RESPONSE MSG.ETS_CONNECT_ERROR)
+
+$(set edi_ref0 $(last_edifact_ref 0))
+
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ЮТ 2982410821479 1 CK xxxxxx СОЧ ВНК 580 depd=$(ddmmyy +1))
+<<
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref0) 2982410821479 1 CK)
+
+$(http_forecast content=$(SVC_AVAILABILITY_RESPONSE_UT_1PAX_1SEG $(get pax_id_1479_1)))
+
+$(KICK_IN)
+
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer ...>
+</term>
+
+$(set svc_seg2 {company=\"UT\" flight=\"580\" operating_company=\"UT\" operating_flight=\"580\" departure=\"AER\" arrival=\"VKO\" departure_time=\"$(date_format %Y-%m-%d +1)T12:00:00\" arrival_time=\"$(date_format %Y-%m-%d +1)T15:00:00\" equipment=\"TU3\"})
+
+>> lines=auto
+<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<query>
+  <svc_availability show_brand_info=\"true\" show_all_svc=\"true\" show_free_carry_on_norm=\"true\">
+$(SVC_REQUEST_2982410821479 $(get pax_id_1479_1) 1 $(get svc_seg2))
+    <display id=\"1\">...</display>
+  </svc_availability>
+</query>
+
+$(KICK_IN_AFTER_HTTP)
+
+>> mode=regex
+.*
+            <reg_no>1</reg_no>.*
+
+$(set grp_id_1479_1 $(get_single_grp_id $(get pax_id_1479_1)))
+$(set grp_tid_1479_1 $(get_single_grp_tid $(get pax_id_1479_1)))
+$(set pax_tid_1479_1 $(get_single_pax_tid $(get pax_id_1479_1)))
+
+$(set paid_rfiscs_before_en_1479
+{    <paid_rfiscs>
+      <item>
+        <rfisc>0BS</rfisc>
+        <service_type>C</service_type>
+        <airline>ЮТ</airline>
+        <name_view>pet in hold</name_view>
+        <transfer_num>0</transfer_num>
+        <service_quantity>1</service_quantity>
+        <paid>1</paid>
+        <priority>0</priority>
+        <total_view>1</total_view>
+        <paid_view>1</paid_view>
+      </item>
+    </paid_rfiscs>})
+
+$(http_forecast
+  content=$(SVC_PAYMENT_STATUS_RESPONSE_UT_1PAX_1SEG $(get pax_id_1479_1) $(SVC_PAYMENT_STATUS_RESPONSE_SVC_LIST_BEFORE_1479_1SEG)))
+
+$(CHANGE_TCHECKIN_REQUEST capture=on lang=EN hall=1
+{$(CHANGE_CHECKIN_SEGMENT $(get point_dep2) $(get point_arv2) СОЧ ВНК
+                          $(get grp_id_1479_1) $(get grp_tid_1479_1)
+{<passengers>
+  <pax>
+$(CHANGE_CHECKIN_2982410821479 $(get pax_id_1479_1) $(get pax_tid_1479_1) 1 bag_pool_num=1)
+  </pax>
+</passengers>})}
+$(CHANGE_CHECKIN_ADD_SVC_1479)
+)
+
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer ...>
+</term>
+
+>> lines=auto
+<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<query>
+  <svc_payment_status show_free_carry_on_norm=\"true\" set_pupil=\"true\">
+$(SVC_REQUEST_2982410821479 $(get pax_id_1479_1) 1 $(get svc_seg2))
+    <display id=\"1\">...</display>
+$(SVC_PAYMENT_STATUS_REQUEST_SVC_LIST_BEFORE_1479_1SEG)
+  </svc_payment_status>
+</query>
+
+$(KICK_IN_AFTER_HTTP)
+
+>> mode=regex
+.*
+$(USER_ERROR_MESSAGE_TAG MSG.ETS_EDS_CONNECT_ERROR message=.*)
+.*
+$(get paid_rfiscs_before_en_1479)
+.*
+
+$(set edi_ref_1479 $(last_edifact_ref 0))
+
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(get edi_ref_1479) ЮТ 2982410821479)
+<<
+$(TKCRES_ET_DISP_2982410821479 UTET UTDC $(get edi_ref_1479))
+
+$(KICK_IN)
+
+>> mode=regex
+.*
+  <answer.*
+    <segments>
+.*
+$(get paid_rfiscs_before_en_1479)
+.*
+
+### Сирена присылает запрос на список пассажиров с неоплаченными услугами
+
+!! capture=on req_type=http
+POST / HTTP/1.1
+Host: /
+Accept-Encoding: gzip,deflate
+CLIENT-ID: SIRENATEST
+OPERATION: piece_concept
+Content-Type: text/xml;charset=UTF-8
+Content-Length: 243
+$()
+<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<query>
+  <passenger_with_svc>
+    <company>UT</company>
+    <flight>580</flight>
+    <departure_date>$(date_format %Y-%m-%d +0)</departure_date>
+    <departure>AER</departure>
+  </passenger_with_svc>
+</query>
+
+>> lines=auto
+<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<answer>
+  <passenger_with_svc>
+    <passenger>
+      <surname>МОТОВА</surname>
+      <name>ИРИНА</name>
+      <category>ADT</category>
+      <group_id>$(get grp_id_1480_1)</group_id>
+      <reg_no>1</reg_no>
+      <recloc crs=\"DT\">04VSFC</recloc>
+      <recloc crs=\"UT\">054C82</recloc>
+    </passenger>
+  </passenger_with_svc>
+</answer>
+
+!! capture=on req_type=http
+POST / HTTP/1.1
+Host: /
+Accept-Encoding: gzip,deflate
+CLIENT-ID: SIRENATEST
+OPERATION: piece_concept
+Content-Type: text/xml;charset=UTF-8
+Content-Length: 243
+$()
+<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<query>
+  <passenger_with_svc>
+    <company>UT</company>
+    <flight>580</flight>
+    <departure_date>$(date_format %Y-%m-%d +1)</departure_date>
+    <departure>AER</departure>
+  </passenger_with_svc>
+</query>
+
+>> lines=auto
+<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<answer>
+  <passenger_with_svc>
+    <passenger>
+      <surname>МОТОВА</surname>
+      <name>ИРИНА</name>
+      <category>ADT</category>
+      <group_id>$(get grp_id_1480_1)</group_id>
+      <reg_no>1</reg_no>
+      <recloc crs=\"DT\">04VSFC</recloc>
+      <recloc crs=\"UT\">054C82</recloc>
+    </passenger>
+    <passenger>
+      <surname>КОТОВА</surname>
+      <name>ИРИНА</name>
+      <category>ADT</category>
+      <group_id>$(get grp_id_1479_1)</group_id>
+      <reg_no>1</reg_no>
+      <recloc crs=\"DT\">04VSFC</recloc>
+      <recloc crs=\"UT\">054C82</recloc>
+    </passenger>
+  </passenger_with_svc>
+</answer>
+
+### проставляем вылет первому рейсу
+
+$(CHANGE_SPP_FLIGHT_REQUEST $(get point_dep1)
+{ $(change_spp_point $(get point_dep1) ЮТ 580 TU3 65021 ""                   ""                   "" СОЧ "$(get today) 12:00" "$(get tomor) 01:00" "$(get tomor) 01:05")
+  $(change_spp_point_last $(get point_arv1)             "$(get today) 15:00" "$(get tomor) 04:00" "" ВНК )
+})
+
+!! capture=on req_type=http
+POST / HTTP/1.1
+Host: /
+Accept-Encoding: gzip,deflate
+CLIENT-ID: SIRENATEST
+OPERATION: piece_concept
+Content-Type: text/xml;charset=UTF-8
+Content-Length: 243
+$()
+<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<query>
+  <passenger_with_svc>
+    <company>UT</company>
+    <flight>580</flight>
+    <departure_date>$(date_format %Y-%m-%d +1)</departure_date>
+    <departure>AER</departure>
+  </passenger_with_svc>
+</query>
+
+>> lines=auto
+<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<answer>
+  <passenger_with_svc>
+    <passenger>
+      <surname>КОТОВА</surname>
+      <name>ИРИНА</name>
+      <category>ADT</category>
+      <group_id>$(get grp_id_1479_1)</group_id>
+      <reg_no>1</reg_no>
+      <recloc crs=\"DT\">04VSFC</recloc>
+      <recloc crs=\"UT\">054C82</recloc>
+    </passenger>
+  </passenger_with_svc>
+</answer>
+
+### проставляем вылет второму рейсу
+
+$(CHANGE_SPP_FLIGHT_REQUEST $(get point_dep2)
+{ $(change_spp_point $(get point_dep2) ЮТ 580 TU3 65021 ""                   "" "" СОЧ "$(get tomor) 12:00" "" "$(get tomor) 12:00")
+  $(change_spp_point_last $(get point_arv2)             "$(get tomor) 15:00" "" "" ВНК )
+})
+
+!! capture=on req_type=http
+POST / HTTP/1.1
+Host: /
+Accept-Encoding: gzip,deflate
+CLIENT-ID: SIRENATEST
+OPERATION: piece_concept
+Content-Type: text/xml;charset=UTF-8
+Content-Length: 243
+$()
+<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<query>
+  <passenger_with_svc>
+    <company>UT</company>
+    <flight>580</flight>
+    <departure_date>$(date_format %Y-%m-%d +1)</departure_date>
+    <departure>AER</departure>
+  </passenger_with_svc>
+</query>
+
+>> lines=auto
+<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<answer>
+  <passenger_with_svc/>
+</answer>
+
+%%
+
+### test 10 - запрос в Сирену при оформлении трансферного багажа, вместо полноценной сквозной регистрации
+###########################################################################################################################
+
+$(init_term)
+$(set_user_time_type LocalAirp PIKE)
+
+$(PREPARE_2PAXES_2SEGS)
+
+$(NEW_TCHECKIN_REQUEST capture=on lang=EN hall=1
+$(TRANSFER_SEGMENT ЮТ 461 "" $(dd +1) ВНК РЩН)
+{$(NEW_CHECKIN_SEGMENT $(get point_dep1) $(get point_arv1) СОЧ ВНК
+{<passengers>
+  <pax>
+$(NEW_CHECKIN_2982410821479 $(get pax_id_1479_1) 1 Y)
+  </pax>
+  <pax>
+$(NEW_CHECKIN_2982410821480 $(get pax_id_1480_1) 1 Y)
+  </pax>
+</passengers>})})
+
+$(ERROR_RESPONSE MSG.ETS_CONNECT_ERROR)
+
+$(set edi_ref1 $(last_edifact_ref 1))
+$(set edi_ref0 $(last_edifact_ref 0))
+
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) ЮТ 2982410821479 1 CK xxxxxx СОЧ ВНК 580 depd=$(ddmmyy +1))
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ЮТ 2982410821480 1 CK xxxxxx СОЧ ВНК 580 depd=$(ddmmyy +1))
+
+<<
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref1) 2982410821479 1 CK)
+<<
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref0) 2982410821480 1 CK)
+
+$(http_forecast content=$(SVC_AVAILABILITY_RESPONSE_UT_2PAXES_2SEGS $(get pax_id_1479_1) $(get pax_id_1480_1)))
+
+$(KICK_IN)
+
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer ...>
+</term>
+
+>> lines=auto
+<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<query>
+  <svc_availability show_brand_info=\"true\" show_all_svc=\"true\" show_free_carry_on_norm=\"true\">
+$(SVC_REQUEST_2982410821479 $(get pax_id_1479_1) 1 $(get svc_seg1) ""
+  {operating_company=\"UT\" operating_flight=\"461\" departure=\"VKO\" arrival=\"TJM\" departure_date=\"$(date_format %Y-%m-%d +1)\"})
+$(SVC_REQUEST_2982410821480 $(get pax_id_1480_1) 2 $(get svc_seg1) ""
+  {operating_company=\"UT\" operating_flight=\"461\" departure=\"VKO\" arrival=\"TJM\" departure_date=\"$(date_format %Y-%m-%d +1)\"})
+    <display id=\"1\">...</display>
+    <display id=\"2\">...</display>
+  </svc_availability>
+</query>
+
+$(KICK_IN_AFTER_HTTP)
+
+>> mode=regex
+.*
+            <reg_no>1</reg_no>.*
+            <reg_no>2</reg_no>.*
+
+
 
 
 

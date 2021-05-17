@@ -113,7 +113,7 @@ class TFltBinding
     virtual void bind_flt_virt(int point_id, const std::vector<int> &spp_point_ids)=0;
     virtual std::string bind_or_unbind_flt_sql(bool unbind, bool use_scd_utc)=0;
     virtual std::string unbind_flt_sql()=0;
-    virtual TSearchFltInfoPtr get_search_params() { return TSearchFltInfoPtr(); }
+    virtual FltOperFilter::DateFlags dateFlags() const { return {}; }
 
   public:
     void bind_flt(const TFltInfo &flt, TBindType bind_type, std::vector<int> &spp_point_ids);
@@ -131,7 +131,7 @@ class TTlgBinding : public TFltBinding
 {
   private:
     bool check_comp;
-    TSearchFltInfoPtr search_params;
+    FltOperFilter::DateFlags dateFlags_;
 
     void unbind_flt_virt(int point_id, int point_id_spp, bool try_bind_again);
     std::string bind_flt_sql();
@@ -139,11 +139,14 @@ class TTlgBinding : public TFltBinding
     std::string bind_or_unbind_flt_sql(bool unbind, bool use_scd_utc);
     std::string unbind_flt_sql();
     void after_bind_or_unbind_flt(int point_id_tlg, int point_id_spp, bool unbind);
-    virtual TSearchFltInfoPtr get_search_params() { return search_params; }
+    virtual FltOperFilter::DateFlags dateFlags() const { return dateFlags_; }
 
   public:
-    TTlgBinding(bool pcheck_comp):check_comp(pcheck_comp), search_params(TSearchFltInfoPtr()) {};
-    TTlgBinding(bool pcheck_comp, TSearchFltInfoPtr psearch_params):check_comp(pcheck_comp), search_params(psearch_params) {};
+    TTlgBinding(bool pcheck_comp) :
+      check_comp(pcheck_comp) {}
+    TTlgBinding(bool pcheck_comp, const FltOperFilter::DateFlags& dateFlags) :
+      check_comp(pcheck_comp),
+      dateFlags_(dateFlags) {}
 };
 
 class TTrferBinding : public TFltBinding
@@ -167,15 +170,15 @@ namespace TypeB
 struct TFltForBind {
     TFltInfo flt_info;
     TBindType bind_type;
-    TSearchFltInfoPtr search_params;
+    FltOperFilter::DateFlags dateFlags;
     TFltForBind(
             TFltInfo vflt_info,
             TBindType vbind_type,
-            TSearchFltInfoPtr vsearch_params
+            const FltOperFilter::DateFlags& vdateFlags={}
             ):
         flt_info(vflt_info),
         bind_type(vbind_type),
-        search_params(vsearch_params)
+        dateFlags(vdateFlags)
     {}
 };
 

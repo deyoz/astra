@@ -341,13 +341,10 @@ class TTripInfo
     virtual bool getByCRSPnrId ( const int pnr_id );
     virtual bool getByCRSPaxId ( const int pax_id );
     void get_client_dates(TDateTime &scd_out_client, TDateTime &real_out_client, bool trunc_time=true) const;
-    static void get_times_in(const int &point_arv,
-                             TDateTime &scd_in,
-                             TDateTime &est_in,
-                             TDateTime &act_in);
+    static std::tuple<TDateTime, TDateTime, TDateTime> get_times_in(const int &point_arv);
     static TDateTime get_scd_in(const int &point_arv);
     static TDateTime act_est_scd_in(const int &point_arv);
-    TDateTime get_scd_in(const std::string &airp_arv) const;
+    std::tuple<TDateTime, TDateTime, TDateTime> get_times_in(const std::string &airp_arv) const;
     std::string flight_view(TElemContext ctxt=ecNone, bool showScdOut=true, bool showAirp=true) const;
     TDateTime est_scd_out() const { return !est_out?ASTRA::NoExists:
                                            est_out.get()!=ASTRA::NoExists?est_out.get():
@@ -356,8 +353,9 @@ class TTripInfo
                                                act_out.get()!=ASTRA::NoExists?act_out.get():
                                                est_out.get()!=ASTRA::NoExists?est_out.get():
                                                                               scd_out; }
-    bool est_out_exists() const { return est_out && est_out.get()!=ASTRA::NoExists;  }
-    bool act_out_exists() const { return act_out && act_out.get()!=ASTRA::NoExists;  }
+    bool scd_out_exists() const { return scd_out!=ASTRA::NoExists; }
+    bool est_out_exists() const { return est_out && est_out.get()!=ASTRA::NoExists; }
+    bool act_out_exists() const { return act_out && act_out.get()!=ASTRA::NoExists; }
 
     bool match(const FlightProps& props) const
     {
@@ -1129,47 +1127,71 @@ struct TCFG:public std::vector<TCFGItem> {
     TCFG() {};
 };
 
-enum TDepDateType {ddtEST, ddtACT}; // departure date type
-class TDepDateFlags: public BitSet<TDepDateType> {};
-
-class TSearchFltInfo
+class FltMarkFilter
 {
   public:
-    std::string airline,suffix,airp_dep;
-    int flt_no;
-    TDateTime scd_out;
-    bool scd_out_in_utc;
-    FlightProps flightProps;
-    std::string additional_where;
+    enum DateType { Local, UTC };
 
-    TDepDateFlags dep_date_flags;
-    virtual bool before_add(const TAdvTripInfo &flt) const { return true; };
-    virtual void before_exit(std::list<TAdvTripInfo> &flts) const {};
+  private:
+    AirlineCode_t airline_;
+    FlightNumber_t fltNumber_;
+    FlightSuffix_t suffix_;
+    AirportCode_t airpDep_;
+    TDateTime scdDateDepLocalTruncated_;
 
-    TSearchFltInfo()
-    {
-      flt_no=ASTRA::NoExists;
-      scd_out=ASTRA::NoExists;;
-      scd_out_in_utc=false;
-    };
+  public:
+    FltMarkFilter(const AirlineCode_t& airline,
+                  const FlightNumber_t& fltNumber,
+                  const FlightSuffix_t& suffix,
+                  const AirportCode_t& airpDep,
+                  const TDateTime scdDateDep,
+                  const DateType scdDateDepInUTC);
 
-    static TSearchFltInfo create(const TTripInfo &item);
-    virtual ~TSearchFltInfo() {}
+    std::set<PointIdMkt_t> search() const;
 };
 
-typedef std::tr1::shared_ptr<TSearchFltInfo> TSearchFltInfoPtr;
+class FltOperFilter
+{
+  public:
+    enum DateFlag { Est, Act };
+    enum DateType { Local, UTC };
 
-struct TLCISearchParams:public TSearchFltInfo {
-    TLCISearchParams() { dep_date_flags.setFlag(ddtEST); }
-    virtual bool before_add(const TAdvTripInfo &flt) const { return true; };
-    virtual void before_exit(std::list<TAdvTripInfo> &flts) const {};
+    using DateFlags = std::set<DateFlag>;
+
+  private:
+    AirlineCode_t airline_;
+    FlightNumber_t fltNumber_;
+    FlightSuffix_t suffix_;
+    std::optional<AirportCode_t> airpDepOpt_;
+    TDateTime dateDepTruncated_;
+    bool dateDepInUTC_;
+    DateFlags dateDepFlags_;
+    FlightProps fltProps_;
+    std::string additionalWhere_;
+
+    bool suitable(const AirportCode_t& airpDep,
+                  const TDateTime timeDepInUTC) const;
+
+  public:
+    FltOperFilter(const AirlineCode_t& airline,
+                  const FlightNumber_t& fltNumber,
+                  const FlightSuffix_t& suffix,
+                  const std::optional<AirportCode_t>& airpDep,
+                  const TDateTime dateDep,
+                  const DateType dateDepType,
+                  const std::set<DateFlag>& dateDepFlags={},
+                  const FlightProps& fltProps=FlightProps());
+
+    void setAdditionalWhere(const std::string& additionalWhere) { additionalWhere_=additionalWhere; }
+
+    AirlineCode_t airline() const { return airline_; }
+    std::optional<AirportCode_t> airpDep() const { return airpDepOpt_; }
+    TDateTime dateDep() const { return dateDepTruncated_; }
+
+    std::list<TAdvTripInfo> search() const;
 };
-
-void SearchFlt(const TSearchFltInfo &filter, std::list<TAdvTripInfo> &flts);
-void SearchMktFlt(const TSearchFltInfo &filter, std::set<int> &point_ids);
 
 // Функции сравнивают елементы неупорядоченного list или vector
-
 template <class T>
 bool compareVectors(std::vector<T> a, std::vector<T> b)
 {

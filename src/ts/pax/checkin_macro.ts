@@ -771,18 +771,22 @@ $(defmacro SVC_REQUEST_2982410821479
   display_id
   segment1_props
   segment2_props
+  segment2_props2
 {    <passenger id=\"$(pax_id)\" surname=\"ŠŽ’Ž‚€\" name=\"ˆˆ€\" category=\"ADT\" birthdate=\"1976-05-01\" sex=\"female\">
       <document number=\"7774441110\" expiration_date=\"$(date_format %Y-%m-%d +1y)\" country=\"RUS\"/>
       <segment id=\"0\" $(segment1_props) subclass=\"Y\">
         <ticket number=\"2982410821479\" coupon_num=\"1\" display_id=\"$(display_id)\"/>
         <recloc crs=\"DT\">04VSFC</recloc>
         <recloc crs=\"UT\">054C82</recloc>
-      </segment>
+      </segment>\
+$(if $(eq $(segment2_props) "") "" {
       <segment id=\"1\" $(segment2_props) subclass=\"Y\">
         <ticket number=\"2982410821479\" coupon_num=\"2\" display_id=\"$(display_id)\"/>
         <recloc crs=\"DT\">04VSFC</recloc>
         <recloc crs=\"UT\">054C82</recloc>
-      </segment>
+      </segment>})\
+$(if $(eq $(segment2_props2) "") "" {
+      <segment id=\"1\" $(segment2_props2) subclass=\"Y\"/>})
     </passenger>}
 )
 
@@ -791,20 +795,23 @@ $(defmacro SVC_REQUEST_2982410821480
   display_id
   segment1_props
   segment2_props
-  trfer_only=false
+  segment2_props2
 {    <passenger id=\"$(pax_id)\" surname=\"ŒŽ’Ž‚€\" name=\"ˆˆ€\" category=\"ADT\" birthdate=\"1976-05-01\" sex=\"female\">
       <document number=\"7774441110\" expiration_date=\"$(date_format %Y-%m-%d +1y)\" country=\"RUS\"/>
       <segment id=\"0\" $(segment1_props) subclass=\"Y\">
         <ticket number=\"2982410821480\" coupon_num=\"1\" display_id=\"$(display_id)\"/>
         <recloc crs=\"DT\">04VSFC</recloc>
         <recloc crs=\"UT\">054C82</recloc>
-      </segment>
+      </segment>\
+$(if $(eq $(segment2_props) "") "" {
       <segment id=\"1\" $(segment2_props) subclass=\"Y\">
-        <ticket number=\"2982410821480\" coupon_num=\"2\" display_id=\"$(display_id)\"/>\
-$(if $(eq $(trfer_only) "true") "" {
+        <ticket number=\"2982410821480\" coupon_num=\"2\" display_id=\"$(display_id)\"/>
         <recloc crs=\"DT\">04VSFC</recloc>
-        <recloc crs=\"UT\">054C82</recloc>})
-      </segment>
+        <recloc crs=\"UT\">054C82</recloc>
+      </segment>})\
+$(if $(eq $(segment2_props2) "") "" {
+      <segment id=\"1\" $(segment2_props2) subclass=\"Y\"/>})
     </passenger>}
 )
+
 
