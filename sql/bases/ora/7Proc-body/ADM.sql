@@ -3041,6 +3041,7 @@ END sync_ETL_options;
 
 PROCEDURE sync_MVT_options(vid            typeb_addrs.id%TYPE,
                            vbasic_type    typeb_addr_options.tlg_type%TYPE,
+                           vversion       typeb_addr_options.value%TYPE,
                            vnoend         typeb_addr_options.value%TYPE,
                            vsetting_user  history_events.open_user%TYPE,
                            vstation       history_events.open_desk%TYPE)
@@ -3052,6 +3053,7 @@ BEGIN
   OPEN cur FOR
     SELECT vid AS typeb_addrs_id, src.tlg_type, src.category, dest.id,
            DECODE(src.category,
+                                'VERSION',       vversion,
                                 'NOEND',         vnoend,
                                                  default_value) AS value
     FROM (SELECT * FROM typeb_addr_options WHERE typeb_addrs_id=vid) dest

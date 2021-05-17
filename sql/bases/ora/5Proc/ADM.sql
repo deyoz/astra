@@ -434,6 +434,7 @@ PROCEDURE sync_ETL_options(vid            typeb_addrs.id%TYPE,
 
 PROCEDURE sync_MVT_options(vid            typeb_addrs.id%TYPE,
                            vbasic_type    typeb_addr_options.tlg_type%TYPE,
+                           vversion       typeb_addr_options.value%TYPE,
                            vnoend         typeb_addr_options.value%TYPE,
                            vsetting_user  history_events.open_user%TYPE,
                            vstation       history_events.open_desk%TYPE);
