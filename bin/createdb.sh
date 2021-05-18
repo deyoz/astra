@@ -22,6 +22,8 @@ build_ora_database()
       checkresult create_ora_db $?
       ( cd src && make install-edimessages )
       checkresult installedimessages $?
+      ( cd src && ./nosir.tcl -html_to_db ../${oradir}/4load/html )
+      checkresult html_to_db $?
     )
 }
 

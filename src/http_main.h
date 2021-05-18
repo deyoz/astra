@@ -68,7 +68,7 @@ struct httpParams:public std::map<std::string,std::string,ci_less>
   }
   std::string trace( ) {
     std::ostringstream buf;
-    buf << "heardes: " << std::endl;
+    buf << "headers: " << std::endl;
     for ( auto header : *this  ) {
       buf << "'" << header.first << "'=" << header.second << "'";
     }
