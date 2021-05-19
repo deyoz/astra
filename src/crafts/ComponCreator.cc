@@ -1558,7 +1558,6 @@ std::string makeLibraCfgString(int f, int c, int y)
     }
     result += 'Э' + std::to_string(y);
   }
-
   return result;
 }
 
@@ -2003,7 +2002,7 @@ void ComponSetter::createBaseLibraCompon( ComponLibraFinder::AstraSearchResult& 
         if ( find( im->second.begin(), im->second.end(), AISLE_RIGHT_CODE_SEAT ) != im->second.end() ) {
            aisle.AddRight( );
         }
-        if (seat.visible = ( find( im->second.begin(), im->second.end(), DISABLE_CODE_SEAT ) == im->second.end() )) {
+        if ( true == (seat.visible = ( find( im->second.begin(), im->second.end(), DISABLE_CODE_SEAT ) == im->second.end() )) ) {
           seat_props.emplace( SALONS2::getSeatKey::get( seatSalon->num, seat.x, seat.y ), im->first );
         }
       }
@@ -2290,10 +2289,7 @@ ComponSetter::TStatus ComponSetter::AutoSetCraft( bool pr_tranzit_routes ) {
     }
     return NoChanges; // не требуется назначение компоновки
   }
-  catch( EXCEPTIONS::Exception &e ) {
-    LogError( STDLOG ) << __func__ << ", point_id=" << fltInfo.point_id << ", error=" << e.what();
-  }
-  catch( EXMLError &e ) {
+  catch( const EXCEPTIONS::Exception &e ) {
     LogError( STDLOG ) << __func__ << ", point_id=" << fltInfo.point_id << ", error=" << e.what();
   }
   catch( ... ) {
