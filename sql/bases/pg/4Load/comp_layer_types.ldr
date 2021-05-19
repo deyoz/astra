@@ -1,0 +1,36 @@
+LOAD DATA
+INFILE *
+INTO TABLE comp_layer_types
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,name
+,priority
+,del_if_comp_chg
+,color
+,figure
+,pr_occupy
+,name_lat
+)
+BEGINDATA
+"PROT_APAY"|"Резервирование после оплаты (WEB)"|42|0|"$00FFFF80"|"framework"|0|"Reservation after payment (WEB)"
+"PNL_APAY"|"Резервирование после оплаты (PNL/ADL)"|43|0|"$00FFFF80"|"framework"|0|"Reservation after payment (PNL/ADL)"
+"PROT_BPAY"|"Резервирование перед оплатой (WEB)"|47|0|"$00FFFF80"|"framework"|0|"Reservation before payment (WEB)"
+"PNL_BPAY"|"Резервирование перед оплатой (PNL/ADL)"|48|0|"$00FFFF80"|"framework"|0|"Reservation before payment (PNL/ADL)"
+"DISABLE"|"Недоступные места"|11|1|"$00015F96"||0|"Inaccessible seats"
+"CHECKIN"|"Рассадка при регистрации"|20|0|"$00FF8000"||1|"Checking-in seating chart"
+"PNL_CKIN"|"Рассадка брони из PNL/ADL"|60|0|"$00008000"|"framework"|0|"Reservation seating chart from PNL/ADL"
+"PRL_TRZT"|"Рассадка транзита из PRL"|17|0|"$00800000"||1|"Transit seating chart from PRL"
+"SOM_TRZT"|"Рассадка транзита из SOM"|18|0|"$00800000"||1|"Transit seating chart from SOM"
+"TRANZIT"|"Рассадка при регистрации (транзит)"|15|0|"$00800000"||1|"Checking-in seating chart (transit)"
+"BLOCK_CENT"|"Блокировка центровки"|10|1|"$00003484"||0|"Balance interlock"
+"PROTECT"|"Резервирование"|70|1|"$0080FFFF"|"framework"|0|"Reservation"
+"BLOCK_TRZT"|"Ручная блокировка транзита"|16|0|"$00800000"||1|"Transit manual blocking"
+"PROT_TRZT"|"Ручная разметка транзита"|40|0|"$00800000"|"framework"|0|"Manual marking of transit"
+"PROT_CKIN"|"Ручная разметка брони"|50|0|"$0080FF80"|"framework"|0|"Manual marking of reservation"
+"UNCOMFORT"|"Неудобные места"|80|1|"$FFFFFF"|"ldrect"|0|"Uncomfortable seats"
+"SMOKE"|"Места для курящих"|90|1|"$00808080"|"rdrect"|0|"Smoking seats"
+"GOSHOW"|"Рассадка при регистрации (подсадка)"|21|0|"$00FF8000"||1|"Checking-in seating chart (GOSHOW)"
+"TCHECKIN"|"Рассадка при сквозной регистрации"|19|0|"$00FF8000"||1|"One-time checking-in seating chart"

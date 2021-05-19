@@ -62,6 +62,15 @@ namespace PgOra
         { "SP_PG_GROUP_FR", { "FR_FORMS2" } },
         { "SP_PG_GROUP_LIBTLG", { "TEXT_TLG_H2H" } },
         { "SP_PG_GROUP_PP_TLG", { "POSTPONED_TLG", "POSTPONED_TLG_CONTEXT" } },
+        { "SP_PG_GROUP_COMP", {
+            "COMPARE_COMP_LAYERS",
+            "COMP_LAYER_TYPES",
+            "COMP_LAYER_PRIORITIES",
+            "COMPART_DESC_TYPES",
+            "COMPART_DESC_SETS",
+            "COMP_LAYER_RULES",
+            "COMP_TARIFF_COLORS",
+            "COMP_ELEM_TYPES"} },
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
