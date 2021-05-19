@@ -1,3 +1,153 @@
+$(defmacro CKIN_PAX_LIST_REQUEST
+  point_dep
+  lang=RU
+  capture=off
+{
+
+!! capture=$(capture) err=ignore
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='$(lang)' term_id='2479792165'>
+    <PaxList>
+      <dev_model/>
+      <fmt_type/>
+      <prnParams>
+        <pr_lat>0</pr_lat>
+        <encoding>UTF-16LE</encoding>
+        <offset>20</offset>
+        <top>0</top>
+      </prnParams>
+      <point_id>$(point_dep)</point_id>
+      <tripcounters>
+        <fields>
+          <class/>
+        </fields>
+      </tripcounters>
+      <LoadForm/>
+    </PaxList>
+  </query>
+</term>
+
+})
+
+$(defmacro CKIN_PAX_LIST_ITEM
+  pax_id
+  reg_no
+  surname
+  name
+  airp_arv
+  last_trfer
+  last_tckin_seg
+  subclass
+  seat_no
+  seats
+  pers_type
+  bag_amount
+  bag_weight
+  rk_weight
+  excess
+  tags
+  grp_id
+  cl_grp_id
+  hall_id=777
+  point_arv
+  user_id
+  status_id
+{      <pax>
+        <pax_id>$(pax_id)</pax_id>
+        <reg_no>$(reg_no)</reg_no>
+        <surname>$(surname)</surname>
+        <name>$(name)</name>
+        <airp_arv>$(airp_arv)</airp_arv>\
+$(if $(eq $(last_trfer) "") "" {
+        <last_trfer>$(last_trfer)</last_trfer>})\
+$(if $(eq $(last_tckin_seg) "") "" {
+        <last_tckin_seg>$(last_tckin_seg)</last_tckin_seg>})
+        <subclass>$(subclass)</subclass>\
+$(if $(eq $(seat_no) "") {
+        <seat_no/>} {
+        <seat_no>$(seat_no)</seat_no>})\
+$(if $(eq $(seats) "") "" {
+        <seats>$(seats)</seats>})\
+$(if $(eq $(pers_type) "") "" {
+        <pers_type>$(pers_type)</pers_type>})\
+$(if $(eq $(bag_amount) "") "" {
+        <bag_amount>$(bag_amount)</bag_amount>})\
+$(if $(eq $(bag_weight) "") "" {
+        <bag_weight>$(bag_weight)</bag_weight>})\
+$(if $(eq $(rk_weight) "") "" {
+        <rk_weight>$(rk_weight)</rk_weight>})\
+$(if $(eq $(excess) "") "" {
+        <excess>$(excess)</excess>})\
+$(if $(eq $(tags) "") "" {
+        <tags>$(tags)</tags>})
+        <grp_id>$(grp_id)</grp_id>
+        <cl_grp_id>$(cl_grp_id)</cl_grp_id>
+        <hall_id>$(hall_id)</hall_id>
+        <point_arv>$(point_arv)</point_arv>
+        <user_id>$(user_id)</user_id>\
+$(if $(eq $(status_id) "") "" {
+        <status_id>$(status_id)</status_id>})
+      </pax>})
+
+#########################################################################################
+
+$(defmacro BRD_PAX_LIST_REQUEST
+  point_dep
+  lang=RU
+  capture=off
+{
+
+!! capture=$(capture) err=ignore
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='brd' ver='1' opr='PIKE' screen='BRDBUS.EXE' mode='STAND' lang='$(lang)' term_id='2479792165'>
+    <PaxList>
+      <dev_model/>
+      <fmt_type/>
+      <prnParams>
+        <pr_lat>0</pr_lat>
+        <encoding>UTF-16LE</encoding>
+        <offset>20</offset>
+        <top>0</top>
+      </prnParams>
+      <point_id>$(point_dep)</point_id>
+    </PaxList>
+  </query>
+</term>
+
+})
+
+#########################################################################################
+
+$(defmacro CRS_LIST_REQUEST
+  point_dep
+  lang=RU
+  capture=off
+{
+
+!! capture=$(capture) err=ignore
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='prepreg' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='$(lang)' term_id='2479792165'>
+    <ViewCRSList>
+      <dev_model/>
+      <fmt_type/>
+      <prnParams>
+        <pr_lat>0</pr_lat>
+        <encoding>UTF-16LE</encoding>
+        <offset>20</offset>
+        <top>0</top>
+      </prnParams>
+      <point_id>$(point_dep)</point_id>
+    </ViewCRSList>
+  </query>
+</term>
+
+})
+
+#########################################################################################
+
 $(defmacro LOAD_PAX_BY_GRP_ID
     point_dep
     grp_id
@@ -617,6 +767,63 @@ $(if $(eq $(document) "") <document/> $(document))
    <norms/>}
 )
 
+$(defmacro NEW_CHECKIN
+  pax_id
+  surname
+  name
+  pers_type=ВЗ
+  seats=1
+  subclass=Э
+  transfer_subclass
+{    <pax_id>$(pax_id)</pax_id>
+    <surname>$(surname)</surname>
+    <name>$(name)</name>
+    <pers_type>$(pers_type)</pers_type>
+    <seat_no/>
+    <preseat_no/>
+    <seat_type/>
+    <seats>$(seats)</seats>
+    <ticket_no/>
+    <coupon_no/>
+    <ticket_rem/>
+    <ticket_confirm>0</ticket_confirm>
+    <subclass>$(subclass)</subclass>
+    <bag_pool_num/>\
+$(if $(eq $(transfer_subclass) "") {
+    <transfer/>} {
+    <transfer>
+      <segment>
+         <subclass>$(get_elem_id etSubcls $(transfer_subclass))</subclass>
+      </segment>
+    </transfer>})}
+)
+
+$(defmacro CHANGE_CHECKIN
+  pax_id
+  surname
+  name
+  pers_type=ВЗ
+  subclass=Э
+  bag_pool_num
+  refuse
+{    <pax_id>$(pax_id)</pax_id>
+    <surname>$(surname)</surname>
+    <name>$(name)</name>
+    <pers_type>$(pers_type)</pers_type>\
+$(if $(eq $(refuse) "") {
+    <refuse/>} {
+    <refuse>$(refuse)</refuse>})
+    <ticket_no/>
+    <coupon_no/>
+    <ticket_rem/>
+    <ticket_confirm>0</ticket_confirm>\
+$(if $(eq $(bag_pool_num) "") {
+    <bag_pool_num/>} {
+    <bag_pool_num>$(bag_pool_num)</bag_pool_num>})
+    <subclass>$(subclass)</subclass>
+    <tid>$(get_single_pax_tid $(pax_id))</tid>}
+)
+
 $(defmacro NEW_CHECKIN_2982410821479
   pax_id
   coupon_no
@@ -813,5 +1020,57 @@ $(if $(eq $(segment2_props2) "") "" {
       <segment id=\"1\" $(segment2_props2) subclass=\"Y\"/>})
     </passenger>}
 )
+
+$(defmacro BAG_WT
+  num
+  bag_type
+  airline
+  pr_cabin
+  amount
+  weight
+  bag_pool_num
+  id
+{  <bag>\
+$(if $(eq $(bag_type) "") {
+    <bag_type/>} {
+    <bag_type>$(bag_type)</bag_type>})
+    <airline>$(airline)</airline>\
+$(if $(eq $(id) "") "" {
+    <id>$(id)</id>})
+    <num>$(num)</num>
+    <pr_cabin>$(pr_cabin)</pr_cabin>
+    <amount>$(amount)</amount>
+    <weight>$(weight)</weight>
+    <value_bag_num/>
+    <pr_liab_limit>0</pr_liab_limit>
+    <to_ramp>0</to_ramp>
+    <using_scales>0</using_scales>
+    <is_trfer>0</is_trfer>
+    <bag_pool_num>$(bag_pool_num)</bag_pool_num>
+  </bag>})
+
+$(defmacro TAG
+  num
+  tag_type
+  no
+  bag_num
+  pr_print=0
+  color
+{  <tag>
+    <num>$(num)</num>
+    <tag_type>$(tag_type)</tag_type>
+    <no>$(no)</no>\
+$(if $(eq $(color) "") {
+    <color/>} {
+    <color>$(color)</color>})\
+$(if $(eq $(bag_num) "") {
+    <bag_num/>} {
+    <bag_num>$(bag_num)</bag_num>})
+    <pr_print>$(pr_print)</pr_print>
+  </tag>})
+
+
+
+
 
 

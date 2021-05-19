@@ -1812,4 +1812,277 @@ $(PAX_LIST_2CREWMEN $(get http_user_id) $(get point_dep) $(get point_arv)
   REPKIN   $(get grp_id2) $(get pax_id2))
 
 
+%%
+
+### test 7 - ΰ¥£¨αβΰ ζ¨ο ΅ £ ¦  weight concept
+### ¤¥« ¥¬ ΰ¥£¨αβΰ ζ¨ξ ­  αªΆ®§­λε α¥£¬¥­β ε
+###
+#########################################################################################
+
+$(init_term)
+$(set_user_time_type LocalAirp PIKE)
+
+$(set today $(date_format %d.%m.%Y +0))
+$(set tomor $(date_format %d.%m.%Y +1))
+
+$(PNL_UT_580)
+$(PNL_UT_461)
+
+$(NEW_SPP_FLIGHT_REQUEST
+{ $(new_spp_point ’ 580 TU3 65021 ""                   ‘— "$(get tomor) 12:00")
+  $(new_spp_point_last             "$(get tomor) 15:00" ‚ ) })
+
+$(NEW_SPP_FLIGHT_REQUEST
+{ $(new_spp_point ’ 461 TU3 65021 ""                   ‚ "$(get tomor) 16:00")
+  $(new_spp_point_last             "$(get tomor) 21:20" ™ ) })
+
+$(set point_dep1 $(get_point_dep_for_flight ’ 580 "" $(yymmdd +1) ‘—))
+$(set point_arv1 $(get_next_trip_point_id $(get point_dep1)))
+$(set point_dep2 $(get_point_dep_for_flight ’ 461 "" $(yymmdd +1) ‚))
+$(set point_arv2 $(get_next_trip_point_id $(get point_dep2)))
+
+$(set pax_id_adl1_1 $(get_pax_id $(get point_dep1) ‚‡‘‹›‰ …‚›‰))
+$(set pax_id_adl1_2 $(get_pax_id $(get point_dep2) ‚‡‘‹›‰ …‚›‰))
+$(set pax_id_chd1_1 $(get_pax_id $(get point_dep1) …… …‚›‰))
+$(set pax_id_chd1_2 $(get_pax_id $(get point_dep2) …… …‚›‰))
+$(set pax_id_inf1_1 $(get_pax_id $(get point_dep1) ‹€„……– …‚›‰))
+$(set pax_id_inf1_2 $(get_pax_id $(get point_dep2) ‹€„……– …‚›‰))
+$(set pax_id_adl2_1 $(get_pax_id $(get point_dep1) ‚‡‘‹›‰ ‚’‰))
+$(set pax_id_adl2_2 $(get_pax_id $(get point_dep2) ‚‡‘‹›‰ ‚’‰))
+$(set pax_id_chd2_1 $(get_pax_id $(get point_dep1) …… ‚’‰))
+$(set pax_id_chd2_2 $(get_pax_id $(get point_dep2) …… ‚’‰))
+$(set pax_id_inf2_1 $(get_pax_id $(get point_dep1) ‹€„……– ‚’‰))
+$(set pax_id_inf2_2 $(get_pax_id $(get point_dep2) ‹€„……– ‚’‰))
+$(set pax_id_adl3_1 $(get_pax_id $(get point_dep1) ‚‡‘‹›‰ ’…’‰))
+$(set pax_id_adl3_2 $(get_pax_id $(get point_dep2) ‚‡‘‹›‰ ’…’‰))
+$(set pax_id_chd3_1 $(get_pax_id $(get point_dep1) …… ’…’‰))
+$(set pax_id_chd3_2 $(get_pax_id $(get point_dep2) …… ’…’‰))
+$(set pax_id_inf3_1 $(get_pax_id $(get point_dep1) ‹€„……– ’…’‰))
+$(set pax_id_inf3_2 $(get_pax_id $(get point_dep2) ‹€„……– ’…’‰))
+
+$(NEW_TCHECKIN_REQUEST capture=off lang=EN hall=1
+$(TRANSFER_SEGMENT ’ 461 "" $(dd +1) ‚ ™)
+{$(NEW_CHECKIN_SEGMENT $(get point_dep1) $(get point_arv1) ‘— ‚
+{<passengers>
+  <pax>
+$(NEW_CHECKIN $(get pax_id_adl1_1) ‚‡‘‹›‰ …‚›‰ ‚‡ 1  )
+  </pax>
+  <pax>
+$(NEW_CHECKIN $(get pax_id_adl2_1) ‚‡‘‹›‰ ‚’‰ ‚‡ 1  )
+  </pax>
+  <pax>
+$(NEW_CHECKIN $(get pax_id_chd1_1) …… …‚›‰  1  )
+  </pax>
+  <pax>
+$(NEW_CHECKIN $(get pax_id_chd2_1) …… ‚’‰  1  )
+  </pax>
+  <pax>
+$(NEW_CHECKIN $(get pax_id_inf1_1) ‹€„……– …‚›‰  0  )
+  </pax>
+  <pax>
+$(NEW_CHECKIN $(get pax_id_inf2_1) ‹€„……– ‚’‰  0  )
+  </pax>
+</passengers>})
+$(NEW_CHECKIN_SEGMENT $(get point_dep2) $(get point_arv2) ‚ ™
+{<passengers>
+  <pax>
+$(NEW_CHECKIN $(get pax_id_adl1_2) ‚‡‘‹›‰ …‚›‰ ‚‡ 1 )
+  </pax>
+  <pax>
+$(NEW_CHECKIN $(get pax_id_adl2_2) ‚‡‘‹›‰ ‚’‰ ‚‡ 1 )
+  </pax>
+  <pax>
+$(NEW_CHECKIN $(get pax_id_chd1_2) …… …‚›‰  1 )
+  </pax>
+  <pax>
+$(NEW_CHECKIN $(get pax_id_chd2_2) …… ‚’‰  1 )
+  </pax>
+  <pax>
+$(NEW_CHECKIN $(get pax_id_inf1_2) ‹€„……– …‚›‰  0 )
+  </pax>
+  <pax>
+$(NEW_CHECKIN $(get pax_id_inf2_2) ‹€„……– ‚’‰  0 )
+  </pax>
+</passengers>})})
+
+$(set grp_id_adl1_1 $(get_single_grp_id $(get pax_id_adl1_1)))
+$(set grp_id_adl1_2 $(get_single_grp_id $(get pax_id_adl1_2)))
+
+$(CHANGE_TCHECKIN_REQUEST capture=off lang=EN hall=1
+{$(CHANGE_CHECKIN_SEGMENT $(get point_dep1) $(get point_arv1) ‘— ‚
+                          $(get grp_id_adl1_1) $(get_single_grp_tid $(get pax_id_adl1_1))
+{<passengers>
+  <pax>
+$(CHANGE_CHECKIN $(get pax_id_adl2_1) ‚‡‘‹›‰ ‚’‰ ‚‡  bag_pool_num=2)
+  </pax>
+  <pax>
+$(CHANGE_CHECKIN $(get pax_id_chd2_1) …… ‚’‰   bag_pool_num=3)
+  </pax>
+  <pax>
+$(CHANGE_CHECKIN $(get pax_id_inf2_1) ‹€„……– ‚’‰   bag_pool_num=1)
+  </pax>
+</passengers>})
+$(CHANGE_CHECKIN_SEGMENT $(get point_dep2) $(get point_arv2) ‚ ™
+                         $(get grp_id_adl1_2) $(get_single_grp_tid $(get pax_id_adl1_2))
+{<passengers>
+  <pax>
+$(CHANGE_CHECKIN $(get pax_id_adl2_2) ‚‡‘‹›‰ ‚’‰ ‚‡  bag_pool_num=2)
+  </pax>
+  <pax>
+$(CHANGE_CHECKIN $(get pax_id_chd2_2) …… ‚’‰   bag_pool_num=3)
+  </pax>
+  <pax>
+$(CHANGE_CHECKIN $(get pax_id_inf2_2) ‹€„……– ‚’‰   bag_pool_num=1)
+  </pax>
+</passengers>})}
+{<value_bags/>
+<bags>
+$(BAG_WT 1 "" ’ pr_cabin=1 amount=1 weight= 6 bag_pool_num=1)
+$(BAG_WT 2 "" ’ pr_cabin=1 amount=1 weight= 3 bag_pool_num=1)
+$(BAG_WT 3 "" ’ pr_cabin=0 amount=1 weight=15 bag_pool_num=2)
+$(BAG_WT 4 "" ’ pr_cabin=0 amount=1 weight= 7 bag_pool_num=2)
+$(BAG_WT 5 "" ’ pr_cabin=0 amount=1 weight= 2 bag_pool_num=3)
+$(BAG_WT 6 "" ’ pr_cabin=1 amount=1 weight= 5 bag_pool_num=3)
+$(BAG_WT 7 "" ’ pr_cabin=1 amount=2 weight= 6 bag_pool_num=3)
+$(BAG_WT 8 "" ’ pr_cabin=0 amount=3 weight= 8 bag_pool_num=3)
+</bags>
+<tags pr_print=\"0\">
+$(TAG 1 RUCH 0298103998 bag_num=5)
+$(TAG 2 RUCH 0298103999 bag_num=3)
+$(TAG 3 RUCH 0298104000 bag_num=4)
+$(TAG 4 RUCH 0298104002 bag_num=8)
+$(TAG 5 RUCH 0298104003 bag_num=8)
+$(TAG 6 RUCH 0298104004 bag_num=8)
+</tags>}
+)
+
+$(set uid $(get_user_id PIKE))
+
+$(CKIN_PAX_LIST_REQUEST $(get point_dep1) capture=on)
+
+>> lines=auto
+    <flight>’580/$(date_format %d +1)... ‘—</flight>
+    <passengers>
+$(CKIN_PAX_LIST_ITEM $(get pax_id_adl1_1) 1 ‚‡‘‹›‰ …‚›‰ ‚ ™(’461) ™(’461)  ... "" ""   ""  ""   ""   ""   ""                           $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
+$(CKIN_PAX_LIST_ITEM $(get pax_id_adl2_1) 2 ‚‡‘‹›‰ ‚’‰ ‚ ™(’461) ™(’461)  ... "" ""   "2" "22" ""   "52" "0298103999, 0298104000"     $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
+$(CKIN_PAX_LIST_ITEM $(get pax_id_chd1_1) 3 ……  …‚›‰ ‚ ™(’461) ™(’461)  ... "" "" ""  ""   ""   ""   ""                           $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
+$(CKIN_PAX_LIST_ITEM $(get pax_id_chd2_1) 4 ……  ‚’‰ ‚ ™(’461) ™(’461)  ... "" "" "4" "10" "11" ""   "0298103998, 0298104002-004" $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
+$(CKIN_PAX_LIST_ITEM $(get pax_id_inf1_1) 5 ‹€„……– …‚›‰ ‚ ™(’461) ™(’461)  ""  0  "" ""  ""   ""   ""   ""                           $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
+$(CKIN_PAX_LIST_ITEM $(get pax_id_inf2_1) 6 ‹€„……– ‚’‰ ‚ ™(’461) ™(’461)  ""  0  "" ""  ""   "9"  ""  ""                            $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
+    </passengers>
+
+$(CKIN_PAX_LIST_REQUEST $(get point_dep2) capture=on)
+
+>> lines=auto
+    <flight>’461/$(date_format %d +1)... ‚</flight>
+    <passengers>
+$(CKIN_PAX_LIST_ITEM $(get pax_id_adl1_2) 1 ‚‡‘‹›‰ …‚›‰ ™ "" ""  ... "" ""   ""  ""   ""   ""   ""                           $(get grp_id_adl1_2) 12 1 $(get point_arv2) $(get uid) 1)
+$(CKIN_PAX_LIST_ITEM $(get pax_id_adl2_2) 2 ‚‡‘‹›‰ ‚’‰ ™ "" ""  ... "" ""   "2" "22" ""   ""   "0298103999, 0298104000"     $(get grp_id_adl1_2) 12 1 $(get point_arv2) $(get uid) 1)
+$(CKIN_PAX_LIST_ITEM $(get pax_id_chd1_2) 3 ……  …‚›‰ ™ "" ""  ... "" "" ""  ""   ""   ""   ""                           $(get grp_id_adl1_2) 12 1 $(get point_arv2) $(get uid) 1)
+$(CKIN_PAX_LIST_ITEM $(get pax_id_chd2_2) 4 ……  ‚’‰ ™ "" ""  ... "" "" "4" "10" "11" ""   "0298103998, 0298104002-004" $(get grp_id_adl1_2) 12 1 $(get point_arv2) $(get uid) 1)
+$(CKIN_PAX_LIST_ITEM $(get pax_id_inf1_2) 5 ‹€„……– …‚›‰ ™ "" ""  ""  0  "" ""  ""   ""   ""   ""                           $(get grp_id_adl1_2) 12 1 $(get point_arv2) $(get uid) 1)
+$(CKIN_PAX_LIST_ITEM $(get pax_id_inf2_2) 6 ‹€„……– ‚’‰ ™ "" ""  ""  0  "" ""  ""   "9"  ""  ""                            $(get grp_id_adl1_2) 12 1 $(get point_arv2) $(get uid) 1)
+    </passengers>
+
+$(defmacro head_off_the_shoulders
+  refuse
+{
+
+$(CHANGE_TCHECKIN_REQUEST capture=off lang=EN hall=1
+{$(CHANGE_CHECKIN_SEGMENT $(get point_dep1) $(get point_arv1) ‘— ‚
+                          $(get grp_id_adl1_1) $(get_single_grp_tid $(get pax_id_adl1_1))
+{<passengers>
+  <pax>
+$(CHANGE_CHECKIN $(get pax_id_adl2_1) ‚‡‘‹›‰ ‚’‰ ‚‡  bag_pool_num=2  refuse=$(refuse))
+  </pax>
+  <pax>
+$(CHANGE_CHECKIN $(get pax_id_inf1_1) ‹€„……– …‚›‰   bag_pool_num="" refuse=$(refuse))
+  </pax>
+</passengers>})
+$(CHANGE_CHECKIN_SEGMENT $(get point_dep2) $(get point_arv2) ‚ ™
+                         $(get grp_id_adl1_2) $(get_single_grp_tid $(get pax_id_adl1_2))
+{<passengers>
+  <pax>
+$(CHANGE_CHECKIN $(get pax_id_adl2_2) ‚‡‘‹›‰ ‚’‰ ‚‡  bag_pool_num=2  refuse=$(refuse))
+  </pax>
+  <pax>
+$(CHANGE_CHECKIN $(get pax_id_inf1_2) ‹€„……– …‚›‰   bag_pool_num="" refuse=$(refuse))
+  </pax>
+</passengers>})}
+)
+
+$(CKIN_PAX_LIST_REQUEST $(get point_dep1) capture=on)
+
+>> lines=auto
+    <flight>’580/$(date_format %d +1)... ‘—</flight>
+    <passengers>
+$(CKIN_PAX_LIST_ITEM $(get pax_id_adl1_1) 1 ‚‡‘‹›‰ …‚›‰ ‚ ™(’461) ™(’461)  ... "" ""   ""  ""   ""   ""   ""                           $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
+$(CKIN_PAX_LIST_ITEM $(get pax_id_chd1_1) 3 ……  …‚›‰ ‚ ™(’461) ™(’461)  ... "" "" ""  ""   ""   ""   ""                           $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
+$(CKIN_PAX_LIST_ITEM $(get pax_id_chd2_1) 4 ……  ‚’‰ ‚ ™(’461) ™(’461)  ... "" "" "4" "10" "11" "30" "0298103998, 0298104002-004" $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
+$(CKIN_PAX_LIST_ITEM $(get pax_id_inf2_1) 6 ‹€„……– ‚’‰ ‚ ™(’461) ™(’461)  ""  0  "" ""  ""   "9"  ""   ""                           $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
+    </passengers>
+
+$(CKIN_PAX_LIST_REQUEST $(get point_dep2) capture=on)
+
+>> lines=auto
+    <flight>’461/$(date_format %d +1)... ‚</flight>
+    <passengers>
+$(CKIN_PAX_LIST_ITEM $(get pax_id_adl1_2) 1 ‚‡‘‹›‰ …‚›‰ ™ "" ""  ... "" ""   ""  ""   ""   ""   ""                           $(get grp_id_adl1_2) 12 1 $(get point_arv2) $(get uid) 1)
+$(CKIN_PAX_LIST_ITEM $(get pax_id_chd1_2) 3 ……  …‚›‰ ™ "" ""  ... "" "" ""  ""   ""   ""   ""                           $(get grp_id_adl1_2) 12 1 $(get point_arv2) $(get uid) 1)
+$(CKIN_PAX_LIST_ITEM $(get pax_id_chd2_2) 4 ……  ‚’‰ ™ "" ""  ... "" "" "4" "10" "11" ""   "0298103998, 0298104002-004" $(get grp_id_adl1_2) 12 1 $(get point_arv2) $(get uid) 1)
+$(CKIN_PAX_LIST_ITEM $(get pax_id_inf2_2) 6 ‹€„……– ‚’‰ ™ "" ""  ""  0  "" ""  ""   "9"  ""  ""                            $(get grp_id_adl1_2) 12 1 $(get point_arv2) $(get uid) 1)
+    </passengers>
+
+})
+
+### ―®®β¬¥­ο¥¬ ―®­¥¬­®£γ ― ªα®Ά
+$(head_off_the_shoulders ‡)  #α­ η «  ―® §¤®ΰ®Άμξ ‚‡+
+$(head_off_the_shoulders €)  #―®β®¬ ¨ε ¦¥ ―® ®θ¨΅ª¥  £¥­β 
+
+
+### ―®β®¬ ―®®β¬¥­ο¥¬ ¤Άγε 
+
+$(CHANGE_TCHECKIN_REQUEST capture=off lang=EN hall=1
+{$(CHANGE_CHECKIN_SEGMENT $(get point_dep1) $(get point_arv1) ‘— ‚
+                          $(get grp_id_adl1_1) $(get_single_grp_tid $(get pax_id_adl1_1))
+{<passengers>
+  <pax>
+$(CHANGE_CHECKIN $(get pax_id_chd1_1) …… …‚›‰   bag_pool_num="" refuse=€)
+  </pax>
+  <pax>
+$(CHANGE_CHECKIN $(get pax_id_chd2_1) …… ‚’‰   bag_pool_num=3  refuse=€)
+  </pax>
+</passengers>})
+$(CHANGE_CHECKIN_SEGMENT $(get point_dep2) $(get point_arv2) ‚ ™
+                         $(get grp_id_adl1_2) $(get_single_grp_tid $(get pax_id_adl1_2))
+{<passengers>
+  <pax>
+$(CHANGE_CHECKIN $(get pax_id_chd1_2) …… …‚›‰   bag_pool_num="" refuse=€)
+  </pax>
+  <pax>
+$(CHANGE_CHECKIN $(get pax_id_chd2_2) …… ‚’‰   bag_pool_num=3  refuse=€)
+  </pax>
+</passengers>})}
+)
+
+
+$(CKIN_PAX_LIST_REQUEST $(get point_dep1) capture=on)
+
+>> lines=auto
+    <flight>’580/$(date_format %d +1)... ‘—</flight>
+    <passengers>
+$(CKIN_PAX_LIST_ITEM $(get pax_id_adl1_1) 1 ‚‡‘‹›‰ …‚›‰ ‚ ™(’461) ™(’461)  ... "" ""   ""  ""   ""   ""   ""                           $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
+$(CKIN_PAX_LIST_ITEM $(get pax_id_inf2_1) 6 ‹€„……– ‚’‰ ‚ ™(’461) ™(’461)  ""  0  "" ""  ""   "9"  "9"  ""                           $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
+    </passengers>
+
+$(CKIN_PAX_LIST_REQUEST $(get point_dep2) capture=on)
+
+>> lines=auto
+    <flight>’461/$(date_format %d +1)... ‚</flight>
+    <passengers>
+$(CKIN_PAX_LIST_ITEM $(get pax_id_adl1_2) 1 ‚‡‘‹›‰ …‚›‰ ™ "" ""  ... "" ""   ""  ""   ""   ""   ""                           $(get grp_id_adl1_2) 12 1 $(get point_arv2) $(get uid) 1)
+$(CKIN_PAX_LIST_ITEM $(get pax_id_inf2_2) 6 ‹€„……– ‚’‰ ™ "" ""  ""  0  "" ""  ""   "9"  ""   ""                           $(get grp_id_adl1_2) 12 1 $(get point_arv2) $(get uid) 1)
+    </passengers>
+
+
 
