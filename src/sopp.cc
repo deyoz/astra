@@ -85,12 +85,12 @@ const
       "ORDER BY points.move_id,point_num";*/
 
 /*
-  A/k   Time_in    A/p  Time_out
-  A/k   Time_in    A/p  NULL
-  A/k   NULL       A/p  Time_out
-  A/k   '01.01.01' A/p  '01.01.01'
-  NULL  Time_in    A/p  NULL
-  NULL  '01.01.01  A/p  '01.01.01
+  A/k   Time_in      A/p  Time_out
+  A/k   Time_in      A/p  NULL
+  A/k   NULL         A/p  Time_out
+  A/k   '01.01.1900' A/p  '01.01.1900'
+  NULL  Time_in      A/p  NULL
+  NULL  '01.01.1900  A/p  '01.01.1900
 */
 const char* points_SOPP_SQL_N =
       "SELECT points.move_id,points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
@@ -103,7 +103,7 @@ const char* points_SOPP_SQL_N =
       "  WHERE points.pr_del!=-1 AND "
       "        (:where_spp_date_time_out_sql OR "
       "         :where_spp_date_time_in_sql OR "
-      "         time_out=TO_DATE('01.01.0001','DD.MM.YYYY') ) "
+      "         time_out=TO_DATE('01.01.1900','DD.MM.YYYY') ) "
       "        :or_where_airline_sql "
       "        :where_airp_sql "
       " ) p "
@@ -119,12 +119,12 @@ const char* points_SOPP_SQL_N =
       "( "
       " SELECT move_id FROM points "
       "  WHERE points.pr_del!=-1 AND "
-      "        time_out in (:where_spp_date_sql,TO_DATE('01.01.0001','DD.MM.YYYY')) "
+      "        time_out in (:where_spp_date_sql,TO_DATE('01.01.1900','DD.MM.YYYY')) "
       "        :where_airp_sql :where_airline_sql "
       " UNION "
       " SELECT  move_id FROM points "
       "  WHERE points.pr_del!=-1 AND "
-      "        time_in IN (:where_spp_date_sql,TO_DATE('01.01.0001','DD.MM.YYYY')) AND "
+      "        time_in IN (:where_spp_date_sql,TO_DATE('01.01.1900','DD.MM.YYYY')) AND "
       "        ( airline IS NULL :or_where_airline_sql )"
       "        :where_airp_sql "
       " ) p "
@@ -151,8 +151,8 @@ const char* points_SOPP_SQL_N =
       " UNION "
       " SELECT move_id FROM points "
       "  WHERE points.pr_del!=-1 AND "
-      "        time_in=TO_DATE('01.01.0001','DD.MM.YYYY') AND "
-      "        time_out=TO_DATE('01.01.0001','DD.MM.YYYY') AND "
+      "        time_in=TO_DATE('01.01.1900','DD.MM.YYYY') AND "
+      "        time_out=TO_DATE('01.01.1900','DD.MM.YYYY') AND "
       "        ( airline IS NULL :or_where_airline_sql )"
       "        :where_airp_sql "
       " ) p "
@@ -180,8 +180,8 @@ const char* points_SOPP_SQL_N =
       " UNION ALL "
       " SELECT move_id FROM points "
       "  WHERE points.pr_del!=-1 AND "
-      "        time_in=TO_DATE('01.01.0001','DD.MM.YYYY') AND "
-      "        time_out=TO_DATE('01.01.0001','DD.MM.YYYY') AND "
+      "        time_in=TO_DATE('01.01.1900','DD.MM.YYYY') AND "
+      "        time_out=TO_DATE('01.01.1900','DD.MM.YYYY') AND "
       "        ( airline IS NULL :or_where_airline_sql )"
       "        :where_airp_sql "
       " )  "  */
@@ -224,7 +224,7 @@ const char* points_ISG_SQL =
     "         :where_sql AND "
     "         ( time_in >= :first_date AND time_in < :next_date OR "
     "           time_out >= :first_date AND time_out < :next_date OR "
-    "           time_in = TO_DATE('01.01.0001','DD.MM.YYYY') AND time_out = TO_DATE('01.01.0001','DD.MM.YYYY') ) ) p "
+    "           time_in = TO_DATE('01.01.1900','DD.MM.YYYY') AND time_out = TO_DATE('01.01.1900','DD.MM.YYYY') ) ) p "
     "WHERE points.move_id = p.move_id AND "
     "      points.point_id = trip_crew.point_id(+) and "
     "      move_ref.move_id = p.move_id AND "
