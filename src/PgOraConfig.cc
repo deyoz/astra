@@ -73,7 +73,7 @@ namespace PgOra
                               "MOVE_ARX_EXT"      , "ARX_VALUE_BAG"      , "ARX_TRIP_STAGES", "ARX_VALUE_BAG_TAXES" , "ARX_LIMITED_CAPABILITY_STAT", "ARX_PAY_SERVICES" }},
         { "SP_PG_GROUP_SPPCKIN", {"TRIP_ALARMS", "TRIP_APIS_PARAMS", "TRIP_RPT_PERSON", "UTG_PRL"} },
         { "SP_PG_GROUP_TLG_QUE",   { "TLGS", "TLGS_TEXT", "TLG_QUEUE", "TLG_ERROR", "TLG_STAT" } },
-        { "SP_PG_GROUP_COMP_1", {
+        { "SP_PG_GROUP_COMP", {
             "COMPARE_COMP_LAYERS",
             "COMP_LAYER_TYPES",
             "COMP_LAYER_PRIORITIES",
