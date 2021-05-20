@@ -48,6 +48,7 @@ astra_SOURCES = \
   apps_interaction.cc \
   arx_daily.cc \
   astra_callbacks.cc \
+  astra_calls.cc \
   astra_consts.cc \
   astra_context.cc \
   astra_elem_utils.cc \
@@ -270,6 +271,7 @@ noinst_HEADERS = \
   apps_interaction.h \
   arx_daily.h \
   astra_callbacks.h \
+  astra_calls.h \
   astra_consts.h \
   astra_context.h \
   astra_elem_utils.h \

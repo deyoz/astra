@@ -1,0 +1,32 @@
+export ENABLE_SHARED=1
+export BUILD_TESTS=1
+export MAKE_J=8
+
+export EMBEDDED_RPATH=1
+#export WITH_MESPRO=1
+export EXTERNAL_LIBS=$(pwd)/externallibs
+export LOCAL_LIBS=$(pwd)/locallibs
+
+export CPP_STD_VERSION="c++17"
+export MY_LOCAL_CFLAGS=""
+export MY_LOCAL_LDFLAGS=""
+export BUILD_PG=1
+export PLATFORM="m64"
+export CC=$LOCALCC
+export CXX=$LOCALCXX
+
+export ASTRA_FLAGS="-Wno-deprecated-declarations"
+
+#./buildFromScratch.sh xren --build_external_libs
+#./buildFromScratch.sh xren --build_external_libs --configlibs --buildlibs --configastra --buildastra
+#./buildFromScratch.sh xren --configlibs --buildlibs --configastra --buildastra
+#./buildFromScratch.sh xren --build_external_libs
+#./buildFromScratch.sh xren --configlibs --buildlibs  
+#./buildFromScratch.sh xren --buildlibs #--buildastra
+#./buildFromScratch.sh xren --configastra --buildastra
+
+./buildFromScratch.sh astra_stable/stable@localhost:1521/ora12 --createdb --createtcl --runtests
+
+#./buildFromScratch.sh xren --buildastra
+#./buildFromScratch.sh xren --createdb
+#SYSPAROL=system/manager@localhost:1521/ora12 ./buildFromScratch.sh astra_stable/stable@localhost:1521/ora12

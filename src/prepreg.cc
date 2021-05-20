@@ -12,7 +12,7 @@
 #include "tripinfo.h"
 #include "docs/docs_common.h"
 #include "stat/stat_utils.h"
-#include "salons.h"
+#include "crafts/ComponCreator.h"
 #include "points.h"
 #include "term_version.h"
 #include "trip_tasks.h"
@@ -429,7 +429,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
                                         << PrmSmpl<int>("tranzit", tranzit), evtFlt, point_id );
       node = node->next;
     };
-    SALONS2::AutoSetCraft( point_id );
+    ComponCreator::AutoSetCraft( point_id );
   };
   bool pr_check_trip_tasks = false;
 
@@ -525,7 +525,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
 
     for ( vector<int>::iterator ipoint_id=check_diffcomp_alarms.begin();
           ipoint_id!=check_diffcomp_alarms.end(); ipoint_id++ ) {
-      SALONS2::check_diffcomp_alarm( *ipoint_id );
+      ComponCreator::check_diffcomp_alarm( *ipoint_id );
     }
     if ( !check_waitlist_alarms.empty() ) {
       if ( pr_isTranzitSalons ) {

@@ -13,7 +13,7 @@
 #include "base_tables.h"
 #include "docs/docs_common.h"
 #include "stat/stat_main.h"
-#include "salons.h"
+#include "crafts/ComponCreator.h"
 #include "seats.h"
 #include "aodb.h"
 #include "misc.h"
@@ -21,6 +21,7 @@
 #include "trip_tasks.h"
 #include "code_convert.h"
 #include "flt_settings.h"
+#include "crafts/ComponCreator.h"
 
 #include "serverlib/perfom.h"
 
@@ -1748,8 +1749,9 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
 
   if ( this->events.isFlag( teInitComps ) ) {
     TReqInfo::Instance()->LocaleToLog( "EVT.SALONS.ASSIGNE_LAYOUT", evtDisp, move_id, this->key.point_id );
-    SALONS2::TFindSetCraft res = SALONS2::AutoSetCraft( this->key.point_id );
-    if ( res != SALONS2::rsComp_Found && res != SALONS2::rsComp_NoChanges ) {
+    ComponCreator::ComponSetter::TStatus status = ComponCreator::AutoSetCraft( this->key.point_id );
+    if ( status != ComponCreator::ComponSetter::Created &&
+         status != ComponCreator::ComponSetter::NoChanges ) {
       if ( this->key.pr_reg &&
            ( this->key.events.isFlag( dmChangeAirline ) ||
              this->key.events.isFlag( dmChangeFltNo ) ||
@@ -1774,8 +1776,8 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
        this->events.isFlag( teSetCraftTakeoff ) ||
        this->events.isFlag( teChangeBortTakeoff ) ||
        this->events.isFlag( teSetBortTakeoff ) ) {
-    SALONS2::check_diffcomp_alarm( this->key.point_id );
-    SALONS2:: check_waitlist_alarm_on_tranzit_routes( this->key.point_id, __FUNCTION__ );
+    ComponCreator::check_diffcomp_alarm( this->key.point_id );
+    SALONS2::check_waitlist_alarm_on_tranzit_routes( this->key.point_id, __FUNCTION__ );
   }
   if ( this->events.isFlag( teSetACTIN ) ||
        this->events.isFlag( teChangeACTIN ) ) {

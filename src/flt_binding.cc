@@ -1,6 +1,6 @@
 #include "flt_binding.h"
 #include "oralib.h"
-#include "salons.h"
+#include "crafts/ComponCreator.h"
 #include "comp_layers.h"
 #include "alarms.h"
 #include "trip_tasks.h"
@@ -45,7 +45,7 @@ void crs_recount(int point_id_tlg, int point_id_spp, bool check_comp)
     ProgTrace(TRACE5, "crs_recount: point_id_spp=%d, check_comp=%s", Qry.FieldAsInteger("point_id_spp"), check_comp?"true":"false");
     if (check_comp)
     {
-      SALONS2::AutoSetCraft( Qry.FieldAsInteger("point_id_spp") );
+      ComponCreator::AutoSetCraft( Qry.FieldAsInteger("point_id_spp") );
     };
   };
 };

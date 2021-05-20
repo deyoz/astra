@@ -39,6 +39,10 @@ class SimpleProp {
     SimpleProp( ) {
       clear();
     }
+    bool inSection( int row ) const {
+      return ( (row >= getFirstRow() || getFirstRow() == ASTRA::NoExists) &&
+              (row <= getLastRow() || getLastRow() == ASTRA::NoExists) ); // внутри секции или нет границ секции
+    }
     void operator = (const SimpleProp &simpleProp) {
       this->name = simpleProp.getName();
       this->first_row = simpleProp.getFirstRow();
@@ -205,7 +209,21 @@ struct less_than_SimpleProp
     }
 };
 
-class simpleProps:public std::vector<SimpleProp> {
+class seacherProps: public std::vector<SimpleProp> {
+  public:
+    bool get( int row, std::string& code ) {
+      code.clear();
+      for ( const auto& p : *this ) {
+        if ( p.inSection( row ) ) {
+          code = p.getName();
+          return true;
+        }
+      }
+      return false;
+    }
+};
+
+class simpleProps:public seacherProps {
   private:
     std::string code;
     simpleProps& adjustmentIndexRowFunc( const adjustmentIndexRow &rows );

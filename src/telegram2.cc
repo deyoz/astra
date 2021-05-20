@@ -116,7 +116,7 @@ string getDefaultSex()
   std::set<ASTRA::TCompLayerType> search_layers;
   for ( int ilayer=0; ilayer<(int)cltTypeNum; ilayer++ ) {
     ASTRA::TCompLayerType layer_type = (ASTRA::TCompLayerType)ilayer;
-    BASIC_SALONS::TCompLayerType layer_elem;
+    BASIC_SALONS::TCompLayerElem layer_elem;
     if ( BASIC_SALONS::TCompLayerTypes::Instance()->getElem( layer_type, layer_elem ) &&
          layer_elem.getOccupy() ) {
       search_layers.insert( layer_type );

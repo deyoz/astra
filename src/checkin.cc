@@ -5949,7 +5949,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         }
 
         if ( first_pax_on_flight ) {
-          SALONS2::setManualCompChg( grp.point_dep );
+          ComponCreator::setManualCompChg( grp.point_dep );
         }
       }
 

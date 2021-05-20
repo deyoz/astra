@@ -30,6 +30,7 @@
 #include "docs/docs_vouchers.h"
 #include "stat/stat_utils.h"
 #include "salons.h"
+#include "crafts/ComponCreator.h"
 #include "seats.h"
 #include "term_version.h"
 #include "flt_binding.h"
@@ -5380,17 +5381,21 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   //exec_stages!!!
 
   reSetCraft = false;
-  SALONS2::TSetsCraftPoints cpoints;
+  std::vector<int> cpoints;
   for ( vector<int>::iterator i=setcraft_points.begin(); i!=setcraft_points.end(); i++ ) {
     if ( find( cpoints.begin(), cpoints.end(), *i ) != cpoints.end() ) {
       tst();
       continue;
     }
-    SALONS2::TFindSetCraft res = SALONS2::AutoSetCraft( *i, cpoints );
-    if ( ch_craft && res != SALONS2::rsComp_Found && res != SALONS2::rsComp_NoChanges ) {
+    ComponCreator::ComponSetter componSetter( *i );
+    ComponCreator::ComponSetter::TStatus status = componSetter.AutoSetCraft( true );
+    if ( ch_craft && 
+         status != ComponCreator::ComponSetter::TStatus::Created &&
+         status != ComponCreator::ComponSetter::TStatus::NoChanges ) {
           reSetCraft = true;
           ch_craft = false;
     }
+    cpoints = componSetter;
   }
 
   if ( reSetCraft )
@@ -5406,7 +5411,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   //тревога различие компоновок
   for ( std::vector<int>::iterator i=points_check_diffcomp_alarm.begin();
         i!=points_check_diffcomp_alarm.end(); i++ ) {
-    SALONS2::check_diffcomp_alarm(*i);
+    ComponCreator::check_diffcomp_alarm(*i);
   }
 
   if ( sync_trip_comp_layers )

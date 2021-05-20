@@ -24,6 +24,7 @@
 #include "serverlib/str_utils.h"
 #include "seat_number.h"
 #include "flt_settings.h"
+#include "crafts/ComponCreator.h"
 
 #define NICKNAME "DJEK"
 #include <serverlib/slogger.h>
@@ -79,7 +80,7 @@ void ZoneLoadsTranzitSalons(int point_id,
     info.getByPointId( point_id );
     SALONS2::TSalonList salonList;
     salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, NoExists ), "", NoExists );
-    if ( !(salonList.getCompId() > 0 && GetTripSets( tsCraftNoChangeSections, info )) ) {
+    if ( !(salonList.getCompId() > 0 && SALONS2::isComponSeatsNoChanges( info )) ) {
       return;
     }
     simpleProps sections( SECTION );
@@ -237,29 +238,57 @@ void getFlightTuneCompRef( int point_id, bool use_filter, const string &trip_air
   }
 }
 
-void getFlightBaseCompRef( int point_id, bool onlySetComp, bool use_filter,
-                           const string &trip_airline,
-                           const string &trip_craft,
-                           const string &trip_bort,
+struct CompParams {
+   enum TCond  { fcOnleSetCompon, fcFiltered, fcLibra };
+   BitSet<TCond> conds;
+   std::string filter_airline;
+   std::string filter_craft;
+   std::string filter_bort;
+   CompParams( const BitSet<TCond>& vconds,
+               std::string vfilter_airline,
+               std::string vfilter_craft,
+               std::string vfilter_bort ) {
+     conds = vconds;
+     filter_airline = vfilter_airline;
+     filter_craft = vfilter_craft;
+     filter_bort = vfilter_bort;
+  }
+};
+
+void getFlightBaseCompRef( int point_id,
+                           const CompParams& compParams,
                            vector<TShowComps> &comps )
 {
   TQuery Qry( &OraSession );
   string sql;
-  if ( !onlySetComp )
+  if ( !compParams.conds.isFlag( CompParams::TCond::fcOnleSetCompon ) ) {
     sql =
       "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "
       "       comps.descr,0 as pr_comp, comps.airline, comps.airp "
-      " FROM comps, points "
-      "WHERE points.craft = comps.craft AND points.point_id = :point_id "
-      " UNION ";
+      " FROM comps, points ";
+    if ( compParams.conds.isFlag( CompParams::TCond::fcLibra ) ) {
+      sql += ",libra_comps ";
+    }
+    sql +=
+      "WHERE points.craft = comps.craft AND points.point_id = :point_id ";
+    if ( compParams.conds.isFlag( CompParams::TCond::fcLibra ) ) {
+      sql += " AND libra_comps.comp_id=comps.comp_id ";
+    }
+    sql +=  " UNION ";
+  }
   sql +=
     "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "
     "       comps.descr,1 as pr_comp, null airline, null airp "
     " FROM comps, points, trip_sets "
-    "WHERE points.point_id=trip_sets.point_id AND "
-    "      points.craft = comps.craft AND points.point_id = :point_id AND "
+    "WHERE points.point_id=trip_sets.point_id AND ";
+//  if ( !compParams.isLibra ) {
+    sql += "      points.craft = comps.craft AND ";
+//  }
+  sql +=
+    " points.point_id = :point_id AND "
     "      trip_sets.comp_id = comps.comp_id "
     "ORDER BY craft, bort, classes, descr";
+  LogTrace(TRACE5) << sql;
   Qry.SQLText = sql;
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
@@ -268,12 +297,12 @@ void getFlightBaseCompRef( int point_id, bool onlySetComp, bool use_filter,
     comp.comp_id = Qry.FieldAsInteger( "comp_id" );
     comp.craft = Qry.FieldAsString( "craft" );
     comp.bort = Qry.FieldAsString( "bort" );
-      comp.classes = Qry.FieldAsString( "classes" );
-      comp.descr = Qry.FieldAsString( "descr" );
+    comp.classes = Qry.FieldAsString( "classes" );
+    comp.descr = Qry.FieldAsString( "descr" );
     switch ( Qry.FieldAsInteger( "pr_comp" ) ) {
       case 0:
-        if ( !comp.craft.empty() && comp.craft == trip_craft &&
-             !comp.bort.empty() && comp.bort == trip_bort )
+        if ( !comp.craft.empty() && comp.craft == compParams.filter_craft &&
+             !comp.bort.empty() && comp.bort == compParams.filter_bort )
           comp.comp_type = ctBaseBort;
         else
           comp.comp_type = ctBase;
@@ -282,11 +311,11 @@ void getFlightBaseCompRef( int point_id, bool onlySetComp, bool use_filter,
         comp.comp_type = ctCurrent;
         break;
     };
-      comp.airline = Qry.FieldAsString( "airline" );
-      comp.airp = Qry.FieldAsString( "airp" );
-    if ( !use_filter ||
+    comp.airline = Qry.FieldAsString( "airline" );
+    comp.airp = Qry.FieldAsString( "airp" );
+    if ( !compParams.conds.isFlag( CompParams::TCond::fcFiltered ) ||
          ( comp.comp_type != ctBase && comp.comp_type != ctBaseBort ) || /* поиск компоновки только по компоновкам нужной А/К или портовым компоновкам */
-             ( ( comp.airline.empty() || trip_airline == comp.airline ) &&
+             ( ( comp.airline.empty() || compParams.filter_airline == comp.airline ) &&
                filterComponsForView( comp.airline, comp.airp ) ) ) {
       setCompName( comp );
       comps.push_back( comp );
@@ -389,7 +418,7 @@ void SalonFormInterface::RefreshPaxSalons(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
     if ( comp_id > 0 ) { //строго завязать базовые компоновки с назначенными на рейс
       TTripInfo info;
       info.getByPointId( point_id );
-      if ( GetTripSets( tsCraftNoChangeSections, info ) ) {
+      if ( isComponSeatsNoChanges( info ) ) {
         componPropCodes::Instance()->buildSections( comp_id, TReqInfo::Instance()->desk.lang, dataNode, TAdjustmentRows().get( salonList ) );
       }
     }
@@ -447,49 +476,63 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     string craft = Qry.FieldAsString( "craft" );
     string bort = Qry.FieldAsString( "bort" );
     vector<TShowComps> comps, comps_tmp;
-    getFlightTuneCompRef( point_id, true, trip_airline, comps );
-    if ( Qry.FieldAsInteger( "pr_tranzit" ) ) {
-      TTripRoute route;
-      TTripRouteItem item;
-      route.GetPriorAirp( NoExists,
-                          point_id,
-                          Qry.FieldAsInteger( "point_num" ),
-                          Qry.FieldAsInteger( "first_point" ),
-                          Qry.FieldAsInteger( "pr_tranzit" ),
-                          trtNotCancelled,
-                          item );
-      if ( item.point_id != NoExists ) { // нашли пред. пункт
-        // если компоновка базовая в пред. пункте, то надо передать базовую иначе текущую
-        Qry.SetVariable( "point_id", item.point_id );
-        Qry.Execute();
-        if ( !Qry.Eof && craft == Qry.FieldAsString( "craft" ) ) {
-          ProgTrace( TRACE5, "GetPriorAirp: point_id=%d, comp_id=%d", item.point_id, Qry.FieldAsInteger( "comp_id" ) );
-          if ( Qry.FieldAsInteger( "comp_id" ) >= 0 ) { // базовая
-            getFlightBaseCompRef( item.point_id, true, false, trip_airline, craft, bort, comps_tmp );
-          }
-          else {
-            getFlightTuneCompRef( item.point_id, false, trip_airline, comps_tmp ); // редактированная
-          }
-          if ( !comps_tmp.empty() ) {
-            TTripInfo info;
-            info.Init( Qry );
-            string StrVal = GetTripName( info, ecDisp, true, false ) + " ";
-            if ( craft != Qry.FieldAsString( "craft" ) )
-              StrVal += string(" ") + Qry.FieldAsString( "craft" );
-            if ( bort != Qry.FieldAsString( "bort" ) )
-              StrVal += string(" ") + Qry.FieldAsString( "bort" );
-            comps_tmp.begin()->comp_type = ctPrior;
-            setCompName( *comps_tmp.begin() );
-            comps_tmp.begin()->name = StrVal + " " + comps_tmp.begin()->name;
-            comps.insert( comps.end(), *comps_tmp.begin() );
+    TTripInfo info;
+    info.Init( Qry );
+    LogTrace(TRACE5) << info.airline << info.airp;
+    if ( ComponCreator::LibraComps::isLibraMode( info ) ) {
+      tst();
+      ComponCreator::SychAHMCompsFromBort( trip_airline, craft, bort ); //синхронизация компоновок
+      BitSet<CompParams::TCond> conds;
+      conds.setFlag( CompParams::TCond::fcLibra );
+      getFlightBaseCompRef( point_id, CompParams( conds, trip_airline, craft, bort ), comps );
+    }
+    else {
+      getFlightTuneCompRef( point_id, true, trip_airline, comps );
+      if ( Qry.FieldAsInteger( "pr_tranzit" ) ) {
+        TTripRoute route;
+        TTripRouteItem item;
+        route.GetPriorAirp( NoExists,
+                            point_id,
+                            Qry.FieldAsInteger( "point_num" ),
+                            Qry.FieldAsInteger( "first_point" ),
+                            Qry.FieldAsInteger( "pr_tranzit" ),
+                            trtNotCancelled,
+                            item );
+        if ( item.point_id != NoExists ) { // нашли пред. пункт
+          // если компоновка базовая в пред. пункте, то надо передать базовую иначе текущую
+          Qry.SetVariable( "point_id", item.point_id );
+          Qry.Execute();
+          if ( !Qry.Eof && craft == Qry.FieldAsString( "craft" ) ) {
+            ProgTrace( TRACE5, "GetPriorAirp: point_id=%d, comp_id=%d", item.point_id, Qry.FieldAsInteger( "comp_id" ) );
+            if ( Qry.FieldAsInteger( "comp_id" ) >= 0 ) { // базовая
+              BitSet<CompParams::TCond> conds;
+              conds.setFlag( CompParams::TCond::fcOnleSetCompon );
+              getFlightBaseCompRef( item.point_id, CompParams( conds, trip_airline, craft, bort ), comps_tmp );
+            }
+            else {
+              getFlightTuneCompRef( item.point_id, false, trip_airline, comps_tmp ); // редактированная
+            }
+            if ( !comps_tmp.empty() ) {
+              info.Init( Qry );
+              string StrVal = GetTripName( info, ecDisp, true, false ) + " ";
+              if ( craft != Qry.FieldAsString( "craft" ) )
+                StrVal += string(" ") + Qry.FieldAsString( "craft" );
+              if ( bort != Qry.FieldAsString( "bort" ) )
+                StrVal += string(" ") + Qry.FieldAsString( "bort" );
+              comps_tmp.begin()->comp_type = ctPrior;
+              setCompName( *comps_tmp.begin() );
+              comps_tmp.begin()->name = StrVal + " " + comps_tmp.begin()->name;
+              comps.insert( comps.end(), *comps_tmp.begin() );
+            }
           }
         }
       }
+      BitSet<CompParams::TCond> conds;
+      conds.setFlag( CompParams::TCond::fcFiltered );
+      getFlightBaseCompRef( point_id, CompParams( conds, trip_airline, craft, bort ), comps );
     }
-    getFlightBaseCompRef( point_id, false, true, trip_airline, craft, bort, comps );
     //sort comps for client
     sort( comps.begin(), comps.end(), CompareShowComps );
-    string StrVal;
     xmlNodePtr compsNode = NULL;
     for (vector<TShowComps>::iterator i=comps.begin(); i!=comps.end(); i++ ) {
       if ( !compsNode )
@@ -542,7 +585,7 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   if ( comp_id > 0 ) { //строго завязать базовые компоновки с назначенными на рейс
     TTripInfo info;
     info.getByPointId( point_id );
-    if ( GetTripSets( tsCraftNoChangeSections, info ) ) {
+      if ( isComponSeatsNoChanges( info ) ) {
         componPropCodes::Instance()->buildSections( comp_id, TReqInfo::Instance()->desk.lang, dataNode, TAdjustmentRows().get( salonList ) );
     }
   }
@@ -605,7 +648,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.CreateVariable( "point_id", otInteger, trip_id );
   Qry.DeclareVariable( "comp_id", otInteger );
   // пришла новая компоновка, но не пришел comp_id - значит были изменения компоновки - "сохраните базовую компоновку."
-  bool pr_notchangecraft = GetTripSets( tsCraftNoChangeSections, info );
+  bool pr_notchangecraft = isComponSeatsNoChanges( info );
   if ( pr_notchangecraft ) {
     if ( comp_id == -2 && !cSet )
       throw UserException( "MSG.SALONS.SAVE_BASE_COMPON" );
@@ -633,7 +676,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   salonList.WriteFlight( trip_id, saveContructivePlaces );
   bool pr_initcomp = NodeAsInteger( "initcomp", reqNode );
   /* инициализация VIP */
-  SALONS2::InitVIP( trip_id );
+  ComponCreator::InitVIP( info, Qry );
   string lexema_id;
   LEvntPrms params;
   string comp_lang;
@@ -658,9 +701,9 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     params << PrmSmpl<string>("cls", NodeAsString("classes", refcompNode))
               << PrmLexema("lang", (comp_lang == "лат.")?"EVT.LANGUAGE_LAT":"EVT.LANGUAGE_RUS");
   }
-  SALONS2::setTRIP_CLASSES( trip_id );
+  ComponCreator::setFlightClasses( trip_id );
   //set flag auto change in false state
-  SALONS2::setManualCompChg( trip_id );
+  ComponCreator::setManualCompChg( trip_id );
   SALONS2::CompCheckSum checksum = SALONS2::CompCheckSum::calcFromDB( trip_id );
   Qry.Clear();
   Qry.SQLText = "UPDATE trip_sets SET crc_comp=:crc_comp,crc_base_comp=:crc_base_comp WHERE point_id=:point_id";
@@ -686,7 +729,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       TReqInfo::Instance()->LocaleToLog("EVT.SALON_CHANGES", LEvntPrms() << *(dynamic_cast<PrmEnum*>(*iter)), evtFlt, (*iter)->get_sub_type(), trip_id);
   }
   // конец перечитки
-  SALONS2::check_diffcomp_alarm( trip_id );
+  ComponCreator::check_diffcomp_alarm( trip_id );
   SALONS2::check_waitlist_alarm_on_tranzit_routes( trip_id, "SalonFormInterface::Write" );
   xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
 //  #warning 8. new parse + salonChangesToText
@@ -739,8 +782,9 @@ void SalonFormInterface::ComponShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
       throw UserException( "MSG.SALONS.NOT_FOUND" );
     Qry.SetVariable( "point_id", item.point_id );
     Qry.Execute();
-    if ( !Qry.Eof )
+    if ( !Qry.Eof ) {
       ProgTrace( TRACE5, "prior_crc_comp=%d", Qry.FieldAsInteger( "crc_comp" ) );
+    }
     if ( Qry.Eof ||
          ( crc_comp != 0 &&
            Qry.FieldAsInteger( "crc_comp" ) != 0 &&
@@ -786,7 +830,7 @@ void SalonFormInterface::ComponShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
   if ( pNode ) {
     TTripInfo info;
     info.getByPointId( NodeAsInteger( pNode ) );
-    pr_notchangecraft = GetTripSets( tsCraftNoChangeSections, info );
+    pr_notchangecraft = isComponSeatsNoChanges( info );
     SALONS2::CreateSalonMenu( info, salonsNode );
   }
   if ( pr_notchangecraft && comp_id >= 0 ) {
@@ -821,8 +865,13 @@ void SalonFormInterface::ComponWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   if ( componSets.modify != SALONS2::mNone &&
        componSets.modify != SALONS2::mAdd ) {
     priorsalonList.ReadCompon( comp_id, ASTRA::NoExists );
+    bool isLibraComps = ComponCreator::LibraComps::isLibraComps(comp_id, ComponCreator::LibraComps::ctComp);
+    if ( isLibraComps &&
+         salonList._seats.basechecksum() != priorsalonList._seats.basechecksum() ) {
+      throw UserException( "MSG.CHANGE_NOT_AVAILABLE_LIBRA_COMPS" );
+    }
     if (  componSets.modify == SALONS2::mChange &&
-         !TReqInfo::Instance()->desk.compatible( SALON_SECTION_VERSION ) &&
+         (!TReqInfo::Instance()->desk.compatible( SALON_SECTION_VERSION )||isLibraComps) &&
          SALONS2::haveConstructiveCompon( comp_id, rComponSalons ) ) {
       if ( salonList._seats.basechecksum() != priorsalonList._seats.basechecksum() ) {
         throw UserException( "MSG.CHANGE_COMPON_NOT_AVAILABLE_UPDATE_TERM" );
@@ -1270,7 +1319,7 @@ BitSet<SEATS2::TChangeLayerSeatsProps>
       salonList.getPassengers( passengers, flags );
       passengers.BuildWaitList( point_id, salonList.getSeatDescription(), dataNode );
     }
-    if ( comp_id > 0 && GetTripSets( tsCraftNoChangeSections, fltInfo ) &&
+    if ( comp_id > 0 && isComponSeatsNoChanges( fltInfo ) &&
          TReqInfo::Instance()->client_type == ctTerm ) { //строго завязать базовые компоновки с назначенными на рейс
       componPropCodes::Instance()->buildSections( comp_id, TReqInfo::Instance()->desk.lang, dataNode, TAdjustmentRows().get( salonList ) );
     }
@@ -1523,7 +1572,9 @@ void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr req
       salonList.Build( salonsNode );
       comp_id = salonList.getCompId();
       if ( comp_id > 0 ) { //строго завязать базовые компоновки с назначенными на рейс
-        if ( GetTripSets( tsCraftNoChangeSections, fltInfo ) ) {
+        TTripInfo info;
+        info.getByPointId( point_id );
+        if ( isComponSeatsNoChanges( info ) ) {
           componPropCodes::Instance()->buildSections( comp_id, TReqInfo::Instance()->desk.lang, dataNode, TAdjustmentRows().get( salonList ) );
         }
       }
@@ -1576,7 +1627,7 @@ void SalonFormInterface::WaitList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     if ( comp_id > 0 ) {
       TTripInfo info;
       info.getByPointId( point_id );
-      if ( GetTripSets( tsCraftNoChangeSections, info ) ) { //строго завязать базовые компоновки с назначенными на рейс
+      if ( isComponSeatsNoChanges( info ) ) { //строго завязать базовые компоновки с назначенными на рейс
         componPropCodes::Instance()->buildSections( comp_id, TReqInfo::Instance()->desk.lang, dataNode, TAdjustmentRows().get( salonList ) );
       }
     }
@@ -1616,7 +1667,7 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   }
   int comp_id;
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
-  bool pr_notchangecraft = GetTripSets( tsCraftNoChangeSections, info );
+  bool pr_notchangecraft = isComponSeatsNoChanges( info );
   try {
     SALONS2::TSalonPassengers::const_iterator ipasses = passengers.find( point_id );
     if ( ipasses != passengers.end() ) {

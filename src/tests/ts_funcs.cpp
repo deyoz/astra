@@ -477,7 +477,7 @@ static std::string FP_autoSetCraft(const std::vector<std::string>& p)
 {
     assert(p.size() == 1);
     int point_id = std::stoi(p.at(0));
-    SALONS2::AutoSetCraft(point_id);
+    ComponCreator::AutoSetCraft( point_id );
     return "";
 }
 
@@ -1148,6 +1148,13 @@ static std::string FP_checkTripAlarms(const std::vector<std::string>& par)
     return formatTripAlarms(getTripAlarms("TRIP_ALARMS", point_id));
 }
 
+static std::string FP_descTest(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() == 1);
+    std::cout << "Test #" << par.at(0) << std::endl;
+    return "";
+}          
+
 static std::string FP_checkFlightTasks(const std::vector<std::string>& par)
 {
     ASSERT(par.size() == 1);
@@ -1391,6 +1398,7 @@ FP_REGISTER("run_trip_task", FP_run_trip_task);
 FP_REGISTER("check_pax_alarms", FP_checkPaxAlarms);
 FP_REGISTER("check_crs_pax_alarms", FP_checkCrsPaxAlarms);
 FP_REGISTER("check_trip_alarms", FP_checkTripAlarms);
+FP_REGISTER("desc_test", FP_descTest);
 FP_REGISTER("check_flight_tasks", FP_checkFlightTasks);
 FP_REGISTER("update_msg", FP_runUpdateMsg);
 FP_REGISTER("resend", FP_runResendTlg);

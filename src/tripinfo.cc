@@ -1185,7 +1185,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
               reqInfo->screen.name == "BRDBUS.EXE" ||
               reqInfo->screen.name == "EXAM.EXE" ||
               reqInfo->screen.name == "DOCS.EXE") {
-            rem = TripAlarmString( alarm ) + SALONS2::getDiffCompsAlarmRoutes( point_id );
+            rem = TripAlarmString( alarm );
           }
           break;
         case Alarm::TlgIn:
@@ -2663,7 +2663,7 @@ void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
         rem = TripAlarmString( alarm );
         break;
       case Alarm::DiffComps:
-        rem = TripAlarmString( alarm ) + SALONS2::getDiffCompsAlarmRoutes( point_id );
+        rem = TripAlarmString( alarm );
         break;
       case Alarm::Brd:
         rem = TripAlarmString( alarm );

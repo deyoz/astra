@@ -10,7 +10,7 @@
 #include "astra_service.h"
 #include "astra_date_time.h"
 #include "apis_creator.h"
-#include "salons.h"
+#include "crafts/ComponCreator.h"
 #include "term_version.h"
 #include "comp_layers.h"
 #include "alarms.h"
@@ -963,8 +963,10 @@ void SetCraft( int point_id, TStage stage )
   string craft = Qry.FieldAsString( "craft" );
   if ( (stage == sPrepCheckIn && (!Qry.FieldIsNULL( "bort" ) || string( "‘Ž—" ) != Qry.FieldAsString( "airp" ))) ||
        (stage == sOpenCheckIn && string( "‘Ž—" ) == Qry.FieldAsString( "airp" )) ) {
-    SALONS2::TFindSetCraft res = SALONS2::AutoSetCraft( point_id );
-    if ( res != SALONS2::rsComp_Found && res != SALONS2::rsComp_NoChanges ) {
+    ComponCreator::ComponSetter componSetter( point_id );
+    ComponCreator::ComponSetter::TStatus status = componSetter.AutoSetCraft( true );
+    if ( status != ComponCreator::ComponSetter::Created &&
+         status != ComponCreator::ComponSetter::NoChanges ) {
         TReqInfo::Instance()->LocaleToLog("EVT.LAYOUT_NOT_FOUND", LEvntPrms()
                                           << PrmElem<std::string>("craft", etCraft, craft), evtFlt, point_id );
     }
@@ -978,9 +980,8 @@ void PrepCheckIn( int point_id )
 
 void OpenCheckIn( int point_id )
 {
-    tst();
-    SetCraft( point_id, sOpenCheckIn );
-  SALONS2::setManualCompChg( point_id );
+  SetCraft( point_id, sOpenCheckIn );
+  ComponCreator::setManualCompChg( point_id );
 }
 
 void OpenWEBCheckIn( int point_id )
