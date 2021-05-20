@@ -581,6 +581,31 @@ static std::string FP_getPaxId(const std::vector<std::string>& p)
   }
 }
 
+static std::string FP_getUnaccompId(const std::vector<std::string>& p)
+{
+  assert(p.size() == 2);
+  PointId_t pointDep(std::stoi(p.at(0)));
+  int rowNumRequired=std::stoi(p.at(1));
+
+  ASSERT(rowNumRequired>=1);
+
+  auto cur = make_curs("SELECT grp_id FROM pax_grp "
+                       "WHERE point_dep=:point_dep AND class IS NULL AND status NOT IN ('E') "
+                       "ORDER BY grp_id");
+
+  int grp_id;
+  cur.def(grp_id)
+     .bind(":point_dep", pointDep)
+     .exec();
+
+  int rowNum=0;
+  while (!cur.fen()) {
+    if ((++rowNum)==rowNumRequired) return std::to_string(grp_id);
+  }
+
+  return "";
+}
+
 static std::string FP_getSingleGrpId(const std::vector<std::string>& p)
 {
   assert(p.size() == 1 || p.size() == 3);
@@ -683,6 +708,16 @@ static std::string FP_getSinglePaxTid(const std::vector<std::string>& p)
     assert(pax.getByPaxId( paxId.get() ));
     return std::to_string(pax.tid);
   }
+}
+
+static std::string FP_getUnaccompTid(const std::vector<std::string>& p)
+{
+  assert(p.size() == 1);
+
+  CheckIn::TSimplePaxGrpItem grp;
+  GrpId_t grpId(std::stoi(p.at(0)));
+  assert(grp.getByGrpId( grpId.get() ));
+  return std::to_string(grp.tid);
 }
 
 static std::string FP_getCrsPaxUniqRef(const std::vector<std::string>& p)
@@ -1462,11 +1497,13 @@ FP_REGISTER("make_spp", FP_make_spp);
 FP_REGISTER("run_daemon", FP_run_daemon);
 FP_REGISTER("auto_set_craft", FP_autoSetCraft);
 FP_REGISTER("get_pax_id", FP_getPaxId);
+FP_REGISTER("get_unaccomp_id", FP_getUnaccompId);
 FP_REGISTER("get_single_grp_id", FP_getSingleGrpId);
 FP_REGISTER("get_single_pax_id", FP_getSinglePaxId);
 FP_REGISTER("get_single_tid", FP_getSingleGrpTid); //deprecated! use get_single_grp_tid instead
 FP_REGISTER("get_single_grp_tid", FP_getSingleGrpTid);
 FP_REGISTER("get_single_pax_tid", FP_getSinglePaxTid);
+FP_REGISTER("get_unaccomp_tid", FP_getUnaccompTid);
 FP_REGISTER("get_crs_pax_unique_ref", FP_getCrsPaxUniqRef);
 FP_REGISTER("get_iatci_tab_id", FP_getIatciTabId);
 FP_REGISTER("get_point_tid", FP_getPointTid);

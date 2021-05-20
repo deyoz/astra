@@ -30,7 +30,7 @@ $(defmacro CKIN_PAX_LIST_REQUEST
 
 })
 
-$(defmacro CKIN_PAX_LIST_ITEM
+$(defmacro CKIN_LIST_PAX
   pax_id
   reg_no
   surname
@@ -89,6 +89,38 @@ $(if $(eq $(tags) "") "" {
 $(if $(eq $(status_id) "") "" {
         <status_id>$(status_id)</status_id>})
       </pax>})
+
+$(defmacro CKIN_LIST_BAG
+  airp_arv
+  last_trfer
+  bag_amount
+  bag_weight
+  rk_weight
+  excess
+  tags
+  grp_id
+  hall_id=777
+  point_arv
+  user_id
+{      <bag>
+        <airp_arv>$(airp_arv)</airp_arv>\
+$(if $(eq $(last_trfer) "") "" {
+        <last_trfer>$(last_trfer)</last_trfer>})\
+$(if $(eq $(bag_amount) "") "" {
+        <bag_amount>$(bag_amount)</bag_amount>})\
+$(if $(eq $(bag_weight) "") "" {
+        <bag_weight>$(bag_weight)</bag_weight>})\
+$(if $(eq $(rk_weight) "") "" {
+        <rk_weight>$(rk_weight)</rk_weight>})\
+$(if $(eq $(excess) "") "" {
+        <excess>$(excess)</excess>})\
+$(if $(eq $(tags) "") "" {
+        <tags>$(tags)</tags>})
+        <grp_id>$(grp_id)</grp_id>
+        <hall_id>$(hall_id)</hall_id>
+        <point_arv>$(point_arv)</point_arv>
+        <user_id>$(user_id)</user_id>
+      </bag>})
 
 #########################################################################################
 
@@ -231,6 +263,23 @@ $(passengers)
         </segment>}
 )
 
+$(defmacro NEW_UNACCOMP_SEGMENT
+  point_dep
+  point_arv
+  airp_dep
+  airp_arv
+  status=K
+{        <segment>
+          <point_dep>$(point_dep)</point_dep>
+          <point_arv>$(point_arv)</point_arv>
+          <airp_dep>$(get_elem_id etAirp $(airp_dep))</airp_dep>
+          <airp_arv>$(get_elem_id etAirp $(airp_arv))</airp_arv>
+          <class/>
+          <status>$(status)</status>
+          <wl_type/>
+        </segment>}
+)
+
 $(defmacro CHANGE_CHECKIN_SEGMENT
   point_dep
   point_arv
@@ -249,6 +298,24 @@ $(defmacro CHANGE_CHECKIN_SEGMENT
           <grp_id>$(grp_id)</grp_id>
           <tid>$(grp_tid)</tid>
 $(passengers)
+        </segment>}
+)
+
+$(defmacro CHANGE_UNACCOMP_SEGMENT
+  point_dep
+  point_arv
+  airp_dep
+  airp_arv
+  grp_id
+  grp_tid
+{        <segment>
+          <point_dep>$(point_dep)</point_dep>
+          <point_arv>$(point_arv)</point_arv>
+          <airp_dep>$(get_elem_id etAirp $(airp_dep))</airp_dep>
+          <airp_arv>$(get_elem_id etAirp $(airp_arv))</airp_arv>
+          <class/>
+          <grp_id>$(grp_id)</grp_id>
+          <tid>$(grp_tid)</tid>
         </segment>}
 )
 
@@ -331,6 +398,36 @@ $(segments)
 
 })
 
+$(defmacro NEW_UNACCOMP_REQUEST
+  transfer
+  segments
+  hall=777
+  lang=RU
+  capture=off
+{
+
+!! capture=$(capture) err=ignore
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='$(lang)' term_id='2479792165'>
+    <TCkinSaveUnaccompBag>
+      <agent_stat_period>3</agent_stat_period>\
+$(if $(eq $(transfer) "") {
+    <transfer/>} {
+    <transfer>
+$(transfer)
+    </transfer>})
+      <segments>
+$(segments)
+      </segments>
+      <hall>$(hall)</hall>
+    </TCkinSaveUnaccompBag>
+  </query>
+</term>
+
+})
+
+
 #########################################################################################
 ### возможность записи изменений по любому кол-ву участников в секции passengers
 
@@ -385,6 +482,35 @@ $(segments)
       <bag_refuse/>
 $(bags_tags_etc)
     </TCkinSavePax>
+  </query>
+</term>
+
+})
+
+$(defmacro CHANGE_UNACCOMP_REQUEST
+  segments
+  bags_tags_etc
+  hall=777
+  bag_refuse
+  lang=RU
+  capture=off
+{
+
+!! capture=$(capture) err=ignore
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='$(lang)' term_id='2479792165'>
+    <TCkinSaveUnaccompBag>
+      <agent_stat_period>3</agent_stat_period>
+      <segments>
+$(segments)
+      </segments>
+      <hall>$(hall)</hall>\
+$(if $(eq $(bag_refuse) "") {
+      <bag_refuse/>} {
+      <bag_refuse>$(bag_refuse)</bag_refuse>})
+$(bags_tags_etc)
+    </TCkinSaveUnaccompBag>
   </query>
 </term>
 
@@ -775,7 +901,8 @@ $(defmacro NEW_CHECKIN
   seats=1
   subclass=Э
   transfer_subclass
-{    <pax_id>$(pax_id)</pax_id>
+{  <pax>
+    <pax_id>$(pax_id)</pax_id>
     <surname>$(surname)</surname>
     <name>$(name)</name>
     <pers_type>$(pers_type)</pers_type>
@@ -795,7 +922,8 @@ $(if $(eq $(transfer_subclass) "") {
       <segment>
          <subclass>$(get_elem_id etSubcls $(transfer_subclass))</subclass>
       </segment>
-    </transfer>})}
+    </transfer>})
+  </pax>}
 )
 
 $(defmacro CHANGE_CHECKIN
@@ -806,7 +934,8 @@ $(defmacro CHANGE_CHECKIN
   subclass=Э
   bag_pool_num
   refuse
-{    <pax_id>$(pax_id)</pax_id>
+{  <pax>
+    <pax_id>$(pax_id)</pax_id>
     <surname>$(surname)</surname>
     <name>$(name)</name>
     <pers_type>$(pers_type)</pers_type>\
@@ -821,7 +950,8 @@ $(if $(eq $(bag_pool_num) "") {
     <bag_pool_num/>} {
     <bag_pool_num>$(bag_pool_num)</bag_pool_num>})
     <subclass>$(subclass)</subclass>
-    <tid>$(get_single_pax_tid $(pax_id))</tid>}
+    <tid>$(get_single_pax_tid $(pax_id))</tid>
+  </pax>}
 )
 
 $(defmacro NEW_CHECKIN_2982410821479

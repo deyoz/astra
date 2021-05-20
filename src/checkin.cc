@@ -2792,7 +2792,8 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "            pax_grp.point_dep=:point_id AND pax_grp.class IS NULL) last_tckin_seg "
     "WHERE pax_grp.grp_id=last_trfer.grp_id(+) AND "
     "      pax_grp.grp_id=last_tckin_seg.grp_id(+) AND "
-    "      point_dep=:point_id AND class IS NULL AND status NOT IN ('E') ";
+    "      point_dep=:point_id AND class IS NULL AND status NOT IN ('E') "
+    "ORDER BY pax_grp.grp_id";
 
   //ProgTrace(TRACE5, "%s", sql.str().c_str());
 
