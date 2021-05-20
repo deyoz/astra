@@ -71,6 +71,7 @@ namespace PgOra
             "COMP_LAYER_RULES",
             "COMP_TARIFF_COLORS",
             "COMP_ELEM_TYPES"} },
+        { "SP_PG_GROUP_CRYPT", { "CRYPT_FILE_PARAMS", "CRYPT_FILES", "CRYPT_REQ_DATA", "CRYPT_SERVER", "CRYPT_SETS", "CRYPT_TERM_CERT", "CRYPT_TERM_REQ" } },
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)

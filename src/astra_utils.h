@@ -5,6 +5,7 @@
 #include <map>
 #include <set>
 #include <vector>
+#include <optional>
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/local_time/local_time.hpp>
@@ -20,6 +21,7 @@
 #include <libtlg/tlgnum.h>
 #include "astra_types.h"
 #include <serverlib/dbcpp_cursctl.h>
+#include <serverlib/str_utils.h>
 
 using BASIC::date_time::TDateTime;
 
@@ -845,5 +847,7 @@ class Cache
 };
 
 } //namespace ASTRA
+
+std::optional<int> getDeskGroupByCode(const std::string& desk);
 
 #endif /*_ASTRA_UTILS_H_*/
