@@ -12,7 +12,7 @@ $(set_user_time_type LocalAirp PIKE)
     <cache_apply>
       <params>
         <code>CRYPT_SETS</code>
-        <interface_ver>681835749</interface_ver>
+        <interface_ver>$(cache_iface_ver CRYPT_SETS)</interface_ver>
         <data_ver>-1</data_ver>
       </params>
       <rows>
