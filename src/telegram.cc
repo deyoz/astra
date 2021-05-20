@@ -2395,18 +2395,18 @@ void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info, bool completed, b
   if (info.num==1)
   {
     DB::TQuery InsQry(PgOra::getRWSession("TYPEB_OUT_EXTRA"), STDLOG);
-    Qry.SQLText=
+    InsQry.SQLText=
       "INSERT INTO typeb_out_extra(tlg_id, lang, text) "
       "VALUES(:tlg_id, :lang, :text)";
-    Qry.CreateVariable("tlg_id", otInteger, info.id);
-    Qry.DeclareVariable("lang", otString);
-    Qry.DeclareVariable("text", otString);
+    InsQry.CreateVariable("tlg_id", otInteger, info.id);
+    InsQry.DeclareVariable("lang", otString);
+    InsQry.DeclareVariable("text", otString);
     for(map<string,string>::const_iterator e=info.extra.begin(); e!=info.extra.end(); ++e)
     {
       if (e->second.empty()) continue;
-      Qry.SetVariable("lang", e->first);
-      Qry.SetVariable("text", e->second.substr(0,250));
-      Qry.Execute();
+      InsQry.SetVariable("lang", e->first);
+      InsQry.SetVariable("text", e->second.substr(0,250));
+      InsQry.Execute();
     };
   };
 
