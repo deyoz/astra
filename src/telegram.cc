@@ -2340,7 +2340,7 @@ void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info, bool completed, b
     "  completed,has_errors,time_create,time_send_scd,time_send_act, "
     "  originator_id,airline_mark,manual_creation) "
     "VALUES(:id,:num,:type,:point_id,:addr,:origin,:heading,:body,:ending,:pr_lat, "
-    "  :completed,:has_errors,COALESCE(:time_create,:nowutc),:time_send_scd,NULL, "
+    "  :completed,:has_errors,:time_create,:time_send_scd,NULL, "
     "  :originator_id,:airline_mark,:manual_creation)";
 
   /*
@@ -2375,9 +2375,7 @@ void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info, bool completed, b
   if (info.time_create!=NoExists)
     Qry.CreateVariable("time_create",otDate,info.time_create);
   else
-    Qry.CreateVariable("time_create",otDate,FNull);
-
-  Qry.CreateVariable("nowutc",otDate, NowUTC());
+    Qry.CreateVariable("time_create",otDate,NowUTC());
 
   if (info.time_send_scd!=NoExists)
     Qry.CreateVariable("time_send_scd",otDate,info.time_send_scd);
