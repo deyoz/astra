@@ -491,8 +491,7 @@ std::map<CrsDataNumKey, CrsDataValue> getCrsDataGroupBySender(const TAdvTripInfo
 std::map<CrsDataSegKey, CrsDataValue> loadTripData(const PointId_t& point_id)
 {
   std::map<CrsDataSegKey, CrsDataValue> result;
-  DB::TQuery Qry(PgOra::getROSession("TRIP_DATA"));
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("TRIP_DATA"), STDLOG);
   Qry.SQLText =
       "SELECT airp_arv,class,resa,tranzit "
       "FROM trip_data "
@@ -904,7 +903,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
   };
 
   if ( pr_check_trip_tasks ) {
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
     Qry.SQLText =
       "SELECT move_id FROM points WHERE point_id=:point_id";
     Qry.CreateVariable( "point_id", otInteger, point_id );

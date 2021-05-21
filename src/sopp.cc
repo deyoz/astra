@@ -1156,11 +1156,6 @@ string internal_ReadData_N( TSOPPTrips &trips, TDateTime first_date, TDateTime n
   else
     RegQry.SQLText = regSQL;
   RegQry.DeclareVariable( "point_id", otInteger );
-  TQuery ResaQry( &OraSession );
-  if ( !arx ) {
-    ResaQry.SQLText = resaSQL;
-    ResaQry.DeclareVariable( "point_id", otInteger );
-  }
 
   TQuery Trfer_outQry( &OraSession );
   TQuery Trfer_inQry( &OraSession );
@@ -1438,10 +1433,9 @@ string internal_ReadData_N( TSOPPTrips &trips, TDateTime first_date, TDateTime n
         ///////////////////////// resa ///////////////////////////
         if ( !arx ) {
 //        	ProgTrace( TRACE5, "tr->point_id=%d", tr->point_id );
-            ResaQry.SetVariable( "point_id", tr->point_id );
-            ResaQry.Execute();
-          if ( !ResaQry.Eof ) {
-            tr->resa = ResaQry.FieldAsInteger( "resa" );
+          const int crs_ok = get_crs_ok(PointId_t(tr->point_id));
+          if ( crs_ok != ASTRA::NoExists ) {
+            tr->resa = crs_ok;
           }
         }
         ////////////////////// trfer  ///////////////////////////////
@@ -1876,11 +1870,6 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
   else
     RegQry.SQLText = regSQL;
   RegQry.DeclareVariable( "point_id", otInteger );
-  TQuery ResaQry( &OraSession );
-  if ( !arx ) {
-    ResaQry.SQLText = resaSQL;
-    ResaQry.DeclareVariable( "point_id", otInteger );
-  }
 
   TQuery Trfer_outQry( &OraSession );
   TQuery Trfer_inQry( &OraSession );
@@ -2160,10 +2149,9 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
         ///////////////////////// resa ///////////////////////////
         if ( !arx ) {
 //        	ProgTrace( TRACE5, "tr->point_id=%d", tr->point_id );
-            ResaQry.SetVariable( "point_id", tr->point_id );
-            ResaQry.Execute();
-          if ( !ResaQry.Eof ) {
-            tr->resa = ResaQry.FieldAsInteger( "resa" );
+          const int crs_ok = get_crs_ok(PointId_t(tr->point_id));
+          if ( crs_ok != ASTRA::NoExists ) {
+            tr->resa = crs_ok;
           }
         }
         ////////////////////// trfer  ///////////////////////////////

@@ -6739,8 +6739,7 @@ void loadCrsDataStat(int point_id, const std::string& sender,
                      TDateTime& last_rbd,
                      int& pr_pnl)
 {
-  DB::TQuery Qry(PgOra::getRWSession("CRS_DATA_STAT"));
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getRWSession("CRS_DATA_STAT"), STDLOG);
   Qry.SQLText=
     "SELECT last_resa,last_tranzit,last_avail,last_cfg,last_rbd,pr_pnl "
     "FROM crs_data_stat "
@@ -6769,8 +6768,7 @@ void loadCrsDataStat(int point_id, const std::string& sender,
 std::optional<bool> getCrsSet_pr_numeric_pnl(const std::string& sender,
                                              const TFltInfo& flt)
 {
-  DB::TQuery Qry(PgOra::getROSession("CRS_SET"));
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("CRS_SET"), STDLOG);
   Qry.SQLText=
     "SELECT pr_numeric_pnl FROM crs_set "
     "WHERE crs=:crs AND airline=:airline AND "

@@ -2120,8 +2120,7 @@ std::set<std::string> GetCrsList(const PointId_t& point_id)
   std::set<std::string> result;
   const std::set<PointIdTlg_t> point_id_tlgs = getPointIdTlgByPointIdsSpp(point_id);
   for (const PointIdTlg_t& point_id_tlg: point_id_tlgs) {
-    DB::TQuery Qry(PgOra::getROSession("CRS_DATA_STAT"));
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession("CRS_DATA_STAT"), STDLOG);
     Qry.SQLText=
         "SELECT DISTINCT crs FROM crs_data_stat "
         "WHERE point_id=:point_id_tlg";
