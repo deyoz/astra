@@ -1972,12 +1972,12 @@ $(BAG_WT 7 "" ’ pr_cabin=0 amount=1 weight= 7 bag_pool_num=2)
 $(BAG_WT 8 "" ’ pr_cabin=0 amount=3 weight= 8 bag_pool_num=3)
 </bags>
 <tags pr_print=\"0\">
-$(TAG 1 RUCH 0298103998 bag_num=2)
-$(TAG 2 RUCH 0298103999 bag_num=5)
-$(TAG 3 RUCH 0298104000 bag_num=7)
-$(TAG 4 RUCH 0298104002 bag_num=8)
-$(TAG 5 RUCH 0298104003 bag_num=8)
-$(TAG 6 RUCH 0298104004 bag_num=8)
+$(TAG 1 RUCH 0298103998 bag_num=2 color=Œ€)
+$(TAG 2 RUCH 0298103999 bag_num=5 color=Œ€)
+$(TAG 3 RUCH 0298104000 bag_num=7 color=Œ€)
+$(TAG 4 RUCH 0298104002 bag_num=8 color=Œ€)
+$(TAG 5 RUCH 0298104003 bag_num=8 color=Œ€)
+$(TAG 6 RUCH 0298104004 bag_num=8 color=Œ€)
 </tags>}
 )
 
@@ -2020,9 +2020,9 @@ $(BAG_WT 1 "" ’ pr_cabin=1 amount=1  weight=11  bag_pool_num=1)
 $(BAG_WT 2 "" ’ pr_cabin=0 amount=3  weight=24  bag_pool_num=1)
 </bags>
 <tags pr_print=\"0\">
-$(TAG 1 RUCH 1298401555 bag_num=2)
-$(TAG 2 RUCH 1298401556 bag_num=2)
-$(TAG 3 RUCH 0298401557 bag_num=2)
+$(TAG 1 RUCH 1298401555 bag_num=2 color=‘ˆ)
+$(TAG 2 RUCH 1298401556 bag_num=2 color=†)
+$(TAG 3 RUCH 0298401557 bag_num=2 color=)
 </tags>}
 )
 
@@ -2063,19 +2063,19 @@ $(CKIN_PAX_LIST_REQUEST $(get point_dep1) capture=on)
     <flight>’580/$(date_format %d +1)... ‘—</flight>
     <passengers>
 $(CKIN_LIST_PAX $(get pax_id_adl1_1) 1 ‚‡‘‹›‰ …‚›‰ ‚Š ™(’461) ™(’461)  ... "" ""   ""  ""   ""   ""   ""                           $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
-$(CKIN_LIST_PAX $(get pax_id_adl2_1) 2 ‚‡‘‹›‰ ‚’‰ ‚Š ™(’461) ™(’461)  ... "" ""   "2" "22" ""   "52" "0298103999, 0298104000"     $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
+$(CKIN_LIST_PAX $(get pax_id_adl2_1) 2 ‚‡‘‹›‰ ‚’‰ ‚Š ™(’461) ™(’461)  ... "" ""   "2" "22" ""   "52" "Œ€0298103999, Œ€0298104000" $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
 $(CKIN_LIST_PAX $(get pax_id_chd1_1) 3 ……Š  …‚›‰ ‚Š ™(’461) ™(’461)  ... "" "" ""  ""   ""   ""   ""                           $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
-$(CKIN_LIST_PAX $(get pax_id_chd2_1) 4 ……Š  ‚’‰ ‚Š ™(’461) ™(’461)  ... "" "" "4" "10" "11" ""   "0298103998, 0298104002-004" $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
+$(CKIN_LIST_PAX $(get pax_id_chd2_1) 4 ……Š  ‚’‰ ‚Š ™(’461) ™(’461)  ... "" "" "4" "10" "11" ""   "Œ€0298103998, Œ€0298104002-004" $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
 $(CKIN_LIST_PAX $(get pax_id_inf1_1) 5 Œ‹€„……– …‚›‰ ‚Š ™(’461) ™(’461)  ""  0  "Œ" ""  ""   ""   ""   ""                           $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
 $(CKIN_LIST_PAX $(get pax_id_inf2_1) 6 Œ‹€„……– ‚’‰ ‚Š ™(’461) ™(’461)  ""  0  "Œ" ""  ""   "9"  ""  ""                            $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
 $(CKIN_LIST_PAX $(get pax_id_adl3_1) 7 ‚‡‘‹›‰ ’…’ˆ‰ ‚Š ™(’461) ™(’461)  ... "" ""   "10" "100" "4" "104" "0103-104, 0000000001,009-010,099,101-102, 00105-106" $(get grp_id_adl3_1) 12 1 $(get point_arv1) $(get uid))
 $(CKIN_LIST_PAX $(get pax_id_chd3_1) 8 ……Š  ’…’ˆ‰ ‚Š ™(’461) ™(’461)  ... "" "" ""  ""   ""   ""   ""                           $(get grp_id_chd3_1) 12 1 $(get point_arv1) $(get uid))
     </passengers>
     <unaccomp_bag>
-$(CKIN_LIST_BAG ‚Š ™(’461) "3" "24" "11" "35" "0298401557, 1298401555-556"  $(get grp_id_unacc1) 1 $(get point_arv1) $(get uid))
-$(CKIN_LIST_BAG ‚Š ™(’461) ""  ""   "7"  "7"  ""                            $(get grp_id_unacc2) 1 $(get point_arv1) $(get uid))
-$(CKIN_LIST_BAG ‚Š ™(’461) "4" "30" ""   "30" "00002-003, 111298401002-003" $(get grp_id_unacc3) 1 $(get point_arv1) $(get uid))
-$(CKIN_LIST_BAG ‚Š ™(’461) ""  ""   ""   ""   ""                            $(get grp_id_unacc4) 1 $(get point_arv1) $(get uid))
+$(CKIN_LIST_BAG ‚Š ™(’461) "3" "24" "11" "35" "†1298401556, 0298401557, ‘ˆ1298401555"  $(get grp_id_unacc1) 1 $(get point_arv1) $(get uid))
+$(CKIN_LIST_BAG ‚Š ™(’461) ""  ""   "7"  "7"  ""                                $(get grp_id_unacc2) 1 $(get point_arv1) $(get uid))
+$(CKIN_LIST_BAG ‚Š ™(’461) "4" "30" ""   "30" "00002-003, 111298401002-003"     $(get grp_id_unacc3) 1 $(get point_arv1) $(get uid))
+$(CKIN_LIST_BAG ‚Š ™(’461) ""  ""   ""   ""   ""                                $(get grp_id_unacc4) 1 $(get point_arv1) $(get uid))
     </unaccomp_bag>
     <defaults>
 
@@ -2085,9 +2085,9 @@ $(CKIN_PAX_LIST_REQUEST $(get point_dep2) capture=on)
     <flight>’461/$(date_format %d +1)... ‚Š</flight>
     <passengers>
 $(CKIN_LIST_PAX $(get pax_id_adl1_2) 1 ‚‡‘‹›‰ …‚›‰ ™ "" ""  ... "" ""   ""  ""   ""   ""   ""                           $(get grp_id_adl1_2) 12 1 $(get point_arv2) $(get uid) 1)
-$(CKIN_LIST_PAX $(get pax_id_adl2_2) 2 ‚‡‘‹›‰ ‚’‰ ™ "" ""  ... "" ""   "2" "22" ""   ""   "0298103999, 0298104000"     $(get grp_id_adl1_2) 12 1 $(get point_arv2) $(get uid) 1)
+$(CKIN_LIST_PAX $(get pax_id_adl2_2) 2 ‚‡‘‹›‰ ‚’‰ ™ "" ""  ... "" ""   "2" "22" ""   ""   "Œ€0298103999, Œ€0298104000" $(get grp_id_adl1_2) 12 1 $(get point_arv2) $(get uid) 1)
 $(CKIN_LIST_PAX $(get pax_id_chd1_2) 3 ……Š  …‚›‰ ™ "" ""  ... "" "" ""  ""   ""   ""   ""                           $(get grp_id_adl1_2) 12 1 $(get point_arv2) $(get uid) 1)
-$(CKIN_LIST_PAX $(get pax_id_chd2_2) 4 ……Š  ‚’‰ ™ "" ""  ... "" "" "4" "10" "11" ""   "0298103998, 0298104002-004" $(get grp_id_adl1_2) 12 1 $(get point_arv2) $(get uid) 1)
+$(CKIN_LIST_PAX $(get pax_id_chd2_2) 4 ……Š  ‚’‰ ™ "" ""  ... "" "" "4" "10" "11" ""   "Œ€0298103998, Œ€0298104002-004" $(get grp_id_adl1_2) 12 1 $(get point_arv2) $(get uid) 1)
 $(CKIN_LIST_PAX $(get pax_id_inf1_2) 5 Œ‹€„……– …‚›‰ ™ "" ""  ""  0  "Œ" ""  ""   ""   ""   ""                           $(get grp_id_adl1_2) 12 1 $(get point_arv2) $(get uid) 1)
 $(CKIN_LIST_PAX $(get pax_id_inf2_2) 6 Œ‹€„……– ‚’‰ ™ "" ""  ""  0  "Œ" ""  ""   "9"  ""   ""                           $(get grp_id_adl1_2) 12 1 $(get point_arv2) $(get uid) 1)
 $(CKIN_LIST_PAX $(get pax_id_adl3_2) 7 ‚‡‘‹›‰ ’…’ˆ‰ ™ "" ""  ... "" ""   "10" "100" "4" "" "0103-104, 0000000001,009-010,099,101-102, 00105-106" $(get grp_id_adl3_2) 12 1 $(get point_arv2) $(get uid) 1)
@@ -2137,16 +2137,16 @@ $(CHANGE_CHECKIN $(get pax_id_adl3_2) ‚‡‘‹›‰ ’…’ˆ‰ ‚‡  bag_pool_num=1  refus
 </passengers>})}
 )
 
-$(CKIN_PAX_LIST_REQUEST $(get point_dep1) capture=on)
+$(CKIN_PAX_LIST_REQUEST $(get point_dep1) lang=EN capture=on)
 
 >> lines=auto
-    <flight>’580/$(date_format %d +1)... ‘—</flight>
+    <flight>UT580/$(date_format %d +1)... AER</flight>
     <passengers>
-$(CKIN_LIST_PAX $(get pax_id_adl1_1) 1 ‚‡‘‹›‰ …‚›‰ ‚Š ™(’461) ™(’461)  ... "" ""   ""  ""   ""   ""   ""                           $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
-$(CKIN_LIST_PAX $(get pax_id_chd1_1) 3 ……Š  …‚›‰ ‚Š ™(’461) ™(’461)  ... "" "" ""  ""   ""   ""   ""                           $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
-$(CKIN_LIST_PAX $(get pax_id_chd2_1) 4 ……Š  ‚’‰ ‚Š ™(’461) ™(’461)  ... "" "" "4" "10" "11" "30" "0298103998, 0298104002-004" $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
-$(CKIN_LIST_PAX $(get pax_id_inf2_1) 6 Œ‹€„……– ‚’‰ ‚Š ™(’461) ™(’461)  ""  0  "Œ" ""  ""   "9"  ""   ""                           $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
-$(CKIN_LIST_PAX $(get pax_id_chd3_1) 8 ……Š  ’…’ˆ‰ ‚Š ™(’461) ™(’461)  ... "" "" ""  ""   ""   ""   ""                           $(get grp_id_chd3_1) 12 1 $(get point_arv1) $(get uid))
+$(CKIN_LIST_PAX $(get pax_id_adl1_1) 1 ‚‡‘‹›‰ …‚›‰ VKO TJM(UT461) TJM(UT461) Y ... "" ""    ""  ""   ""   ""   ""                           $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
+$(CKIN_LIST_PAX $(get pax_id_chd1_1) 3 ……Š  …‚›‰ VKO TJM(UT461) TJM(UT461) Y ... "" "CHD" ""  ""   ""   ""   ""                           $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
+$(CKIN_LIST_PAX $(get pax_id_chd2_1) 4 ……Š  ‚’‰ VKO TJM(UT461) TJM(UT461) Y ... "" "CHD" "4" "10" "11" "30" "CR0298103998, CR0298104002-004" $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
+$(CKIN_LIST_PAX $(get pax_id_inf2_1) 6 Œ‹€„……– ‚’‰ VKO TJM(UT461) TJM(UT461) Y ""  0  "INF" ""  ""   "9"  ""   ""                           $(get grp_id_adl1_1) 12 1 $(get point_arv1) $(get uid))
+$(CKIN_LIST_PAX $(get pax_id_chd3_1) 8 ……Š  ’…’ˆ‰ VKO TJM(UT461) TJM(UT461) Y ... "" "CHD" ""  ""   ""   ""   ""                           $(get grp_id_chd3_1) 12 1 $(get point_arv1) $(get uid))
     </passengers>
     <unaccomp_bag/>
     <defaults>
@@ -2158,8 +2158,8 @@ $(CKIN_PAX_LIST_REQUEST $(get point_dep2) capture=on)
     <passengers>
 $(CKIN_LIST_PAX $(get pax_id_adl1_2) 1 ‚‡‘‹›‰ …‚›‰ ™ "" ""  ... "" ""   ""  ""   ""   ""   ""                           $(get grp_id_adl1_2) 12 1 $(get point_arv2) $(get uid) 1)
 $(CKIN_LIST_PAX $(get pax_id_chd1_2) 3 ……Š  …‚›‰ ™ "" ""  ... "" "" ""  ""   ""   ""   ""                           $(get grp_id_adl1_2) 12 1 $(get point_arv2) $(get uid) 1)
-$(CKIN_LIST_PAX $(get pax_id_chd2_2) 4 ……Š  ‚’‰ ™ "" ""  ... "" "" "4" "10" "11" ""   "0298103998, 0298104002-004" $(get grp_id_adl1_2) 12 1 $(get point_arv2) $(get uid) 1)
-$(CKIN_LIST_PAX $(get pax_id_inf2_2) 6 Œ‹€„……– ‚’‰ ™ "" ""  ""  0  "Œ" ""  ""   "9"  ""  ""                            $(get grp_id_adl1_2) 12 1 $(get point_arv2) $(get uid) 1)
+$(CKIN_LIST_PAX $(get pax_id_chd2_2) 4 ……Š  ‚’‰ ™ "" ""  ... "" "" "4" "10" "11" ""   "Œ€0298103998, Œ€0298104002-004" $(get grp_id_adl1_2) 12 1 $(get point_arv2) $(get uid) 1)
+$(CKIN_LIST_PAX $(get pax_id_inf2_2) 6 Œ‹€„……– ‚’‰ ™ "" ""  ""  0  "Œ" ""  ""   "9"  ""   ""                           $(get grp_id_adl1_2) 12 1 $(get point_arv2) $(get uid) 1)
 $(CKIN_LIST_PAX $(get pax_id_chd3_2) 8 ……Š  ’…’ˆ‰ ™ "" ""  ... "" "" ""  ""   ""   ""   ""                           $(get grp_id_chd3_2) 12 1 $(get point_arv2) $(get uid) 1)
     </passengers>
     <unaccomp_bag/>

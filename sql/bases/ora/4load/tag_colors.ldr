@@ -1,0 +1,31 @@
+LOAD DATA
+INFILE *
+INTO TABLE tag_colors
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,code_lat
+,name
+,name_lat
+,id
+)
+BEGINDATA
+"Б"|"WH"|"Белый"|"White"|1
+"Г"|"LB"|"Голубой"|"Light blue"|2
+"Ж"|"YE"|"Желтый"|"Yellow"|3
+"З"|"GR"|"Зеленый"|"Green"|4
+"К"|"RE"|"Красный"|"Red"|5
+"О"|"OR"|"Оранжевый"|"Orange"|6
+"С"|"DB"|"Синий"|"Dark blue"|7
+"Ф"|"PU"|"Фиолетовый"|"Purple"|8
+"Ч"|"BL"|"Черный"|"Black"|9
+"КО"|"BR"|"Коричневый"|"Brown"|10
+"СИ"|"LI"|"Сиреневый"|"Lilac"|11
+"РО"|"PI"|"Розовый"|"Pink"|12
+"МА"|"CR"|"Малиновый"|"Crimson"|13
+"СЗ"|"LG"|"Светло-зеленый"|"Light green"|14
+"ТЗ"|"DG"|"Темно-зеленый"|"Dark green"|15
+"СК"|"LR"|"Светло-коричневый"|"Light brown"|16
+"ТК"|"DR"|"Темно-коричневый"|"Dark brown"|17
