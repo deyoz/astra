@@ -146,6 +146,7 @@ int init_locale(void)
     init_pnr_callbacks();
     init_rfisc_callbacks();
     initPassengerCallbacks();
+    dbo::initStructures();
     APPS::init_callbacks();
     IAPI::init_callbacks();
     PaxCalcData::init_callbacks();
