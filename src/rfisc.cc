@@ -2104,11 +2104,6 @@ void TPaidRFISCList::copyDB(const GrpId_t& grpIdSrc, const GrpId_t& grpIdDest)
     }
   }
   PaidRFISCListDest.toDB(grpIdDest);
-  try {
-      callbacks<RFISCCallbacks>()->afterRFISCChange(TRACE5, grpIdDest.get());
-  } catch(...) {
-      CallbacksExceptionFilter(STDLOG);
-  }
 }
 
 int countPaidExcessPC(const TPaidRFISCList& PaidRFISCList, bool include_all_svc)
