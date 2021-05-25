@@ -55,6 +55,12 @@ bool alwaysOCI8()
 }
 
 namespace {
+bool trace_ora_sql()
+{
+    static bool trace_sql = readIntFromTcl("TRACE_ORA_SQL", 0);
+    return trace_sql == 1;
+}
+
 #ifdef XP_TESTING
 void Sleep(int t)
 {
@@ -2228,6 +2234,12 @@ void CursCtl::fetch_start(unsigned count)
 
 void CursCtl::exec(const char*)
 {
+    if (trace_ora_sql())
+    {
+        LogTrace(TRACE3) << "oracle query: " << nick << ":" << file << ":" << line
+                         << " " << StrUtils::ReplaceInStr(oracledata->sqltext(), "\n", " ");
+    }
+
     exec_start();
 
     if (oracledata->err8())

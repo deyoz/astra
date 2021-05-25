@@ -1116,7 +1116,7 @@ void TQuery::InitPieces( )
 void TQuery::Execute( )
 {
   if (trace_ora_sql()) {
-    LogTrace(TRACE3) << "oralib execute " << nick << ":" << file << ":" << line
+    LogTrace(TRACE3) << "oracle query: " << nick << ":" << file << ":" << line
                      << " " << StrUtils::ReplaceInStr(this->SQLText.SQLText(), "\n", " ");
   }
   int iters; // для не OCI_STMT_SELECT задает время выполнения; 0 = OCI_STMT_SELECT

@@ -9,13 +9,14 @@ def parse_line(line: str):
     sql_text = line[space_ind+1:]
     p = Parser(sql_text)
 
-    print(fileline, p.tables)
+    print(fileline, ','.join(p.tables), "'%s'" % sql_text[:-1])
 
 def main():
+    prefix = 'oracle query: '
     for line in fileinput.input():
-        ind = line.find("oralib execute")
+        ind = line.find(prefix)
         if ind > 0:
-            parse_line(line[ind + 15:])
+            parse_line(line[ind + len(prefix):])
 
 if __name__ == "__main__":
     main()
