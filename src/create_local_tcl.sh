@@ -102,6 +102,9 @@ set ONE_LOGGER 0
 set START_EMAIL_SENDER 0
 set ALWAYS_OCI8 0
 
+# trace all ora sql if set TRACE_ORA_SQL 1
+set TRACE_ORA_SQL 0
+
 set SP_PG_GROUP_ET 3
 set SP_PG_GROUP_EMD 3
 set SP_PG_GROUP_CRS_SVC 3

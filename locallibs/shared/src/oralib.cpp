@@ -8,9 +8,11 @@
 #include "setup.h"
 #include "exceptions.h"
 #include "stl_utils.h"
+#include "serverlib/str_utils.h"
+#include "serverlib/tcl_utils.h"
 
 #define NICKNAME "DJEK"
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 
 using namespace std;
@@ -23,6 +25,12 @@ const char* emptyStr = "";
 std::map<std::string,int> sqlCounters;
 int queryCount = 0;
 #endif
+
+static bool trace_ora_sql()
+{
+  static bool trace_sql = readIntFromTcl("TRACE_ORA_SQL", 0);
+  return trace_sql == 1;
+}
 
 TSQLText::TSQLText( )
 {
@@ -1105,9 +1113,12 @@ void TQuery::InitPieces( )
    }
 }
 
-
 void TQuery::Execute( )
 {
+  if (trace_ora_sql()) {
+    LogTrace(TRACE3) << "oralib execute " << nick << ":" << file << ":" << line
+                     << " " << StrUtils::ReplaceInStr(this->SQLText.SQLText(), "\n", " ");
+  }
   int iters; // для не OCI_STMT_SELECT задает время выполнения; 0 = OCI_STMT_SELECT
              // если не OCI_STMT_SELECT и =0 => ошибка
   int cerror;
