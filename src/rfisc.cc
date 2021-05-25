@@ -3,6 +3,7 @@
 #include "qrys.h"
 #include "term_version.h"
 #include "base_callbacks.h"
+#include "passenger.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -1366,7 +1367,7 @@ bool TPaidRFISCStatusList::deleteIfFound(const TPaidRFISCStatus& item)
   return false;
 }
 
-TGrpServiceAutoItem& TGrpServiceAutoItem::fromDB(TQuery &Qry)
+TGrpServiceAutoItem& TGrpServiceAutoItem::fromDB(DB::TQuery &Qry)
 {
   clear();
   TPaxSegKey::fromDB(Qry);
@@ -1374,7 +1375,7 @@ TGrpServiceAutoItem& TGrpServiceAutoItem::fromDB(TQuery &Qry)
   return *this;
 }
 
-const TGrpServiceAutoItem& TGrpServiceAutoItem::toDB(TQuery &Qry) const
+const TGrpServiceAutoItem& TGrpServiceAutoItem::toDB(DB::TQuery &Qry) const
 {
   TPaxSegKey::toDB(Qry);
   TPaxASVCItem::toDB(Qry);
@@ -1415,47 +1416,107 @@ bool TGrpServiceAutoItem::equalWithoutEMD(const TGrpServiceAutoItem& item) const
          service_name==item.service_name;
 }
 
-void TGrpServiceList::fromDB(int grp_id, bool without_refused)
+std::map<PaxId_t,CheckIn::TSimplePaxItem> getPaxItemMap(int id, bool is_grp_id)
+{
+  std::map<PaxId_t,CheckIn::TSimplePaxItem> result;
+  std::list<CheckIn::TSimplePaxItem> paxes;
+  if (is_grp_id) {
+    paxes = CheckIn::TSimplePaxItem::getByGrpId(GrpId_t(id));
+    for (const CheckIn::TSimplePaxItem& pax: paxes) {
+      result.emplace(PaxId_t(pax.id), pax);
+    }
+  } else {
+    CheckIn::TSimplePaxItem pax;
+    if (pax.getByPaxId(id)) {
+      result.emplace(PaxId_t(pax.id), pax);
+    }
+  }
+  return result;
+}
+
+void TGrpServiceList::fromDB(const GrpId_t& grp_id, bool without_refused)
 {
   clear();
-  TCachedQuery Qry(without_refused?
-                     "SELECT pax_services.* FROM pax, pax_services "
-                     "WHERE pax_services.pax_id=pax.pax_id AND pax.grp_id=:grp_id AND pax.refuse IS NULL":
-                     "SELECT pax_services.* FROM pax, pax_services "
-                     "WHERE pax_services.pax_id=pax.pax_id AND pax.grp_id=:grp_id",
-                   QParams() << QParam("grp_id", otInteger, grp_id));
+  std::map<PaxId_t,CheckIn::TSimplePaxItem> pax_map;
+  if (without_refused) {
+    pax_map = getPaxItemMap(grp_id.get(), true /*is_grp_id*/);
+  }
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("PAX_SERVICES"),
+        "SELECT * FROM pax_services "
+        "WHERE grp_id=:grp_id",
+        QParams() << QParam("grp_id", otInteger, grp_id.get()),
+        STDLOG);
   Qry.get().Execute();
-  for(; !Qry.get().Eof; Qry.get().Next())
-    push_back(TGrpServiceItem().fromDB(Qry.get()));
+  for(; !Qry.get().Eof; Qry.get().Next()) {
+    TGrpServiceItem item;
+    item.fromDB(Qry.get());
+    if (without_refused) {
+      const auto pax_pos = pax_map.find(PaxId_t(item.pax_id));
+      if (pax_pos != pax_map.end()) {
+        const CheckIn::TSimplePaxItem& pax = pax_pos->second;
+        if (!pax.refuse.empty()) {
+          continue;
+        }
+      }
+    }
+    push_back(item);
+  }
+}
+
+TGrpServiceAutoList& TGrpServiceAutoList::fromDB(const GrpId_t& grp_id, bool without_refused)
+{
+  return fromDB(grp_id.get(), true /*is_grp_id*/, without_refused);
+}
+
+TGrpServiceAutoList& TGrpServiceAutoList::fromDB(const PaxId_t& pax_id, bool without_refused)
+{
+  return fromDB(pax_id.get(), false /*is_grp_id*/, without_refused);
 }
 
 TGrpServiceAutoList& TGrpServiceAutoList::fromDB(int id, bool is_grp_id, bool without_refused)
 {
+  LogTrace(TRACE6) << "TGrpServiceAutoList::" << __func__
+                   << ": id=" << id
+                   << ", is_grp_id=" << is_grp_id
+                   << ", without_refused=" << without_refused;
   clear();
-  TCachedQuery Qry(is_grp_id?
-                   (without_refused?
-                      "SELECT pax_services_auto.* FROM pax, pax_services_auto "
-                      "WHERE pax_services_auto.pax_id=pax.pax_id AND pax.grp_id=:id AND pax.refuse IS NULL":
-                      "SELECT pax_services_auto.* FROM pax, pax_services_auto "
-                      "WHERE pax_services_auto.pax_id=pax.pax_id AND pax.grp_id=:id"):
-                   (without_refused?
-                      "SELECT pax_services_auto.* FROM pax, pax_services_auto "
-                      "WHERE pax_services_auto.pax_id=pax.pax_id AND pax.pax_id=:id AND pax.refuse IS NULL":
-                      "SELECT * FROM pax_services_auto WHERE pax_id=:id"),
-                   QParams() << QParam("id", otInteger, id));
-  Qry.get().Execute();
+  std::map<PaxId_t,CheckIn::TSimplePaxItem> pax_map;
+  if (without_refused) {
+    pax_map = getPaxItemMap(id, is_grp_id);
+  }
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("PAX_SERVICES_AUTO"),
+        "SELECT * FROM pax_services_auto "
+        + std::string(is_grp_id ? "WHERE grp_id=:id"
+                                : "WHERE pax_id=:id"),
+        QParams() << QParam("id", otInteger, id),
+        STDLOG);
+    Qry.get().Execute();
   for(; !Qry.get().Eof; Qry.get().Next())
   {
     TGrpServiceAutoItem item;
     item.fromDB(Qry.get());
+    if (without_refused) {
+      const auto pax_pos = pax_map.find(PaxId_t(item.pax_id));
+      if (pax_pos != pax_map.end()) {
+        const CheckIn::TSimplePaxItem& pax = pax_pos->second;
+        if (!pax.refuse.empty()) {
+          continue;
+        }
+      }
+    }
     if (!item.isSuitableForAutoCheckin()) continue;
     push_back(item);
   }
   return *this;
 }
 
-void TGrpServiceListWithAuto::fromDB(int grp_id, bool without_refused)
+void TGrpServiceListWithAuto::fromDB(const GrpId_t& grp_id, bool without_refused)
 {
+  LogTrace(TRACE6) << "TGrpServiceListWithAuto::" << __func__
+                   << ": grp_id=" << grp_id
+                   << ", without_refused=" << without_refused;
   clear();
 
   TGrpServiceList list1;
@@ -1464,7 +1525,7 @@ void TGrpServiceListWithAuto::fromDB(int grp_id, bool without_refused)
     push_back(*i);
 
   TGrpServiceAutoList list2;
-  list2.fromDB(grp_id, true, without_refused);
+  list2.fromDB(grp_id, without_refused);
   for(TGrpServiceAutoList::const_iterator i=list2.begin(); i!=list2.end(); ++i)
     addItem(*i);
 }
@@ -1689,37 +1750,56 @@ void TPaidRFISCListWithAuto::fromDB(int id, bool is_grp_id, bool squeeze)
   list1.fromDB(id, is_grp_id);
 
   TGrpServiceAutoList list2;
-  list2.fromDB(id, is_grp_id);
+  if (is_grp_id) {
+    list2.fromDB(GrpId_t(id));
+  } else {
+    list2.fromDB(PaxId_t(id));
+  }
 
   set(list1, list2, squeeze);
 }
 
 void TGrpServiceList::clearDB(const GrpId_t& grpId)
 {
-  TCachedQuery Qry("DELETE FROM (SELECT * FROM pax, pax_services WHERE pax_services.pax_id=pax.pax_id AND pax.grp_id=:grp_id)",
-                   QParams() << QParam("grp_id", otInteger, grpId.get()));
+  DB::TCachedQuery Qry(
+        PgOra::getRWSession("PAX_SERVICES"),
+        "DELETE FROM pax_services "
+        "WHERE grp_id=:grp_id",
+        QParams() << QParam("grp_id", otInteger, grpId.get()),
+        STDLOG);
   Qry.get().Execute();
 }
 
 void TGrpServiceAutoList::clearDB(const GrpId_t& grpId)
 {
-  TCachedQuery Qry("DELETE FROM (SELECT * FROM pax, pax_services_auto WHERE pax_services_auto.pax_id=pax.pax_id AND pax.grp_id=:grp_id)",
-                   QParams() << QParam("grp_id", otInteger, grpId.get()));
+  DB::TCachedQuery Qry(
+        PgOra::getRWSession("PAX_SERVICES_AUTO"),
+        "DELETE FROM pax_services_auto "
+        "WHERE grp_id=:grp_id",
+        QParams() << QParam("grp_id", otInteger, grpId.get()),
+        STDLOG);
   Qry.get().Execute();
 }
 
-void TGrpServiceList::toDB(int grp_id) const
+void TGrpServiceList::toDB(const GrpId_t& grp_id) const
 {
-  clearDB(GrpId_t(grp_id));
-  TCachedQuery Qry("INSERT INTO pax_services(pax_id, transfer_num, list_id, rfisc, service_type, airline, service_quantity) "
-                   "VALUES(:pax_id, :transfer_num, :list_id, :rfisc, :service_type, :airline, :service_quantity)",
-                   QParams() << QParam("pax_id", otInteger)
-                             << QParam("transfer_num", otInteger)
-                             << QParam("list_id", otInteger)
-                             << QParam("rfisc", otString)
-                             << QParam("service_type", otString)
-                             << QParam("airline", otString)
-                             << QParam("service_quantity", otInteger));
+  clearDB(grp_id);
+  DB::TCachedQuery Qry(
+        PgOra::getRWSession("PAX_SERVICES"),
+        "INSERT INTO pax_services ("
+        "pax_id, grp_id, transfer_num, list_id, rfisc, service_type, airline, service_quantity"
+        ") VALUES ("
+        ":pax_id, :grp_id, :transfer_num, :list_id, :rfisc, :service_type, :airline, :service_quantity"
+        ")",
+        QParams() << QParam("grp_id", otInteger, grp_id.get())
+        << QParam("pax_id", otInteger)
+        << QParam("transfer_num", otInteger)
+        << QParam("list_id", otInteger)
+        << QParam("rfisc", otString)
+        << QParam("service_type", otString)
+        << QParam("airline", otString)
+        << QParam("service_quantity", otInteger),
+        STDLOG);
   for(TGrpServiceList::const_iterator i=begin(); i!=end(); ++i)
   {
     i->toDB(Qry.get());
@@ -1727,21 +1807,34 @@ void TGrpServiceList::toDB(int grp_id) const
   }
 }
 
-void TGrpServiceAutoList::toDB(int grp_id) const
+void TGrpServiceAutoList::toDB(const GrpId_t& grp_id, bool clear) const
 {
-  clearDB(GrpId_t(grp_id));
-  TCachedQuery Qry("INSERT INTO pax_services_auto(pax_id, transfer_num, rfic, rfisc, service_quantity, ssr_code, service_name, emd_type, emd_no, emd_coupon) "
-                   "VALUES(:pax_id, :transfer_num, :rfic, :rfisc, :service_quantity, :ssr_code, :service_name, :emd_type, :emd_no, :emd_coupon)",
-                   QParams() << QParam("pax_id", otInteger)
-                             << QParam("transfer_num", otInteger)
-                             << QParam("rfic", otString)
-                             << QParam("rfisc", otString)
-                             << QParam("service_quantity", otInteger)
-                             << QParam("ssr_code", otString)
-                             << QParam("service_name", otString)
-                             << QParam("emd_type", otString)
-                             << QParam("emd_no", otString)
-                             << QParam("emd_coupon", otInteger));
+  LogTrace(TRACE6) << "TGrpServiceAutoList::" << __func__
+                   << ": grp_id=" << grp_id;
+  if (clear) {
+    clearDB(grp_id);
+  }
+  DB::TCachedQuery Qry(
+        PgOra::getRWSession("PAX_SERVICES_AUTO"),
+        "INSERT INTO pax_services_auto ("
+        "pax_id, grp_id, transfer_num, rfic, rfisc, service_quantity, "
+        "ssr_code, service_name, emd_type, emd_no, emd_coupon"
+        ") VALUES ("
+        ":pax_id, :grp_id, :transfer_num, :rfic, :rfisc, :service_quantity, "
+        ":ssr_code, :service_name, :emd_type, :emd_no, :emd_coupon"
+        ")",
+        QParams() << QParam("pax_id", otInteger)
+        << QParam("grp_id", otInteger, grp_id.get())
+        << QParam("transfer_num", otInteger)
+        << QParam("rfic", otString)
+        << QParam("rfisc", otString)
+        << QParam("service_quantity", otInteger)
+        << QParam("ssr_code", otString)
+        << QParam("service_name", otString)
+        << QParam("emd_type", otString)
+        << QParam("emd_no", otString)
+        << QParam("emd_coupon", otInteger),
+        STDLOG);
 
   Statistic<CheckIn::TPaxASVCItem> svcStat;
   for(const TGrpServiceAutoItem& item : *this)
@@ -1759,54 +1852,68 @@ void TGrpServiceAutoList::toDB(int grp_id) const
     Qry.get().Execute();
   }
   try {
-      callbacks<RFISCCallbacks>()->afterRFISCChange(TRACE5, grp_id);
+      callbacks<RFISCCallbacks>()->afterRFISCChange(TRACE5, grp_id.get());
   } catch(...) {
       CallbacksExceptionFilter(STDLOG);
   }
 }
 
-void TGrpServiceList::copyDB(const GrpId_t& grpIdSrc, const GrpId_t& grpIdDest)
+void TGrpServiceList::copyDB(const GrpId_t& grp_id_src, const GrpId_t& grp_id_dest)
 {
-  clearDB(grpIdDest);
-  TCachedQuery Qry(
-    "INSERT INTO pax_services(pax_id, transfer_num, list_id, rfisc, service_type, airline, service_quantity) "
-    "SELECT dest.pax_id, "
-    "       pax_services.transfer_num+src.seg_no-dest.seg_no, "
-    "       pax_services.list_id, "
-    "       pax_services.rfisc, "
-    "       pax_services.service_type, "
-    "       pax_services.airline, "
-    "       pax_services.service_quantity " +
-    TCkinRoute::copySubselectSQL("pax_services", {}, true),
-    QParams() << QParam("grp_id_src", otInteger, grpIdSrc.get())
-              << QParam("grp_id_dest", otInteger, grpIdDest.get()));
-  Qry.get().Execute();
+  LogTrace(TRACE6) << "TGrpServiceList::" << __func__
+                   << ": grp_id_src=" << grp_id_src
+                   << ", grp_id_dest=" << grp_id_dest;
+
+  TGrpServiceList grpServiceListDest;
+  TGrpServiceList grpServiceListSrc;
+  grpServiceListSrc.fromDB(grp_id_src);
+  for (const TGrpServiceItem& grpService: grpServiceListSrc) {
+    const std::vector<PaxGrpRoute> routes = PaxGrpRoute::load(PaxId_t(grpService.pax_id),
+                                                              grpService.trfer_num,
+                                                              grp_id_src,
+                                                              grp_id_dest);
+    for (const PaxGrpRoute& route: routes) {
+      const int pax_id = route.dest.pax_id.get();
+      const int transfer_num = grpService.trfer_num + route.src.seg_no - route.dest.seg_no;
+      const TPaxSegRFISCKey& old_rfisc_item = grpService;
+      TPaxSegRFISCKey new_rfisc_item = old_rfisc_item;
+      Sirena::TPaxSegKey &new_paxseg_key = new_rfisc_item;
+      new_paxseg_key = Sirena::TPaxSegKey(pax_id, transfer_num);
+
+      const TGrpServiceItem new_grpService(
+            new_rfisc_item, grpService.service_quantity);
+      grpServiceListDest.push_back(new_grpService);
+    }
+  }
+  grpServiceListDest.toDB(grp_id_dest);
 }
 
-void TGrpServiceAutoList::copyDB(const GrpId_t& grpIdSrc, const GrpId_t& grpIdDest, bool not_clear)
+void TGrpServiceAutoList::copyDB(const GrpId_t& grp_id_src, const GrpId_t& grp_id_dest,
+                                 bool clear)
 {
-  if (!not_clear) clearDB(grpIdDest);
-  TCachedQuery Qry(
-    "INSERT INTO pax_services_auto(pax_id, transfer_num, rfic, rfisc, service_quantity, ssr_code, service_name, emd_type, emd_no, emd_coupon) "
-    "SELECT dest.pax_id, "
-    "       pax_services_auto.transfer_num+src.seg_no-dest.seg_no, "
-    "       pax_services_auto.rfic, "
-    "       pax_services_auto.rfisc, "
-    "       pax_services_auto.service_quantity, "
-    "       pax_services_auto.ssr_code, "
-    "       pax_services_auto.service_name, "
-    "       pax_services_auto.emd_type, "
-    "       pax_services_auto.emd_no, "
-    "       pax_services_auto.emd_coupon " +
-    TCkinRoute::copySubselectSQL("pax_services_auto", {}, true),
-    QParams() << QParam("grp_id_src", otInteger, grpIdSrc.get())
-              << QParam("grp_id_dest", otInteger, grpIdDest.get()));
-  Qry.get().Execute();
-  try {
-      callbacks<RFISCCallbacks>()->afterRFISCChange(TRACE5, grpIdDest.get());
-  } catch(...) {
-      CallbacksExceptionFilter(STDLOG);
+  LogTrace(TRACE6) << "TGrpServiceAutoList::" << __func__
+                   << ": grp_id_src=" << grp_id_src
+                   << ", grp_id_dest=" << grp_id_dest;
+
+  TGrpServiceAutoList grpServiceAutoListDest;
+  TGrpServiceAutoList grpServiceAutoListSrc;
+  grpServiceAutoListSrc.fromDB(grp_id_src);
+  for (const TGrpServiceAutoItem& grpServiceAuto: grpServiceAutoListSrc) {
+    const std::vector<PaxGrpRoute> routes = PaxGrpRoute::load(PaxId_t(grpServiceAuto.pax_id),
+                                                              grpServiceAuto.trfer_num,
+                                                              grp_id_src,
+                                                              grp_id_dest);
+    for (const PaxGrpRoute& route: routes) {
+      const int pax_id = route.dest.pax_id.get();
+      const int transfer_num = grpServiceAuto.trfer_num + route.src.seg_no - route.dest.seg_no;
+      const Sirena::TPaxSegKey new_paxseg_key(pax_id, transfer_num);
+      const CheckIn::TPaxASVCItem& old_svc_item = grpServiceAuto;
+
+      const TGrpServiceAutoItem new_grpServiceAuto(new_paxseg_key, old_svc_item);
+      grpServiceAutoListDest.push_back(new_grpServiceAuto);
+    }
   }
+  grpServiceAutoListDest.toDB(grp_id_dest, clear);
 }
 
 bool TGrpServiceAutoList::sameDocExists(const CheckIn::TPaxASVCItem& asvc) const
@@ -1838,7 +1945,7 @@ void TGrpServiceListWithAuto::split(int grp_id, TGrpServiceList& list1, TGrpServ
   list1.clear();
   list2.clear();
   TGrpServiceAutoList prior;
-  prior.fromDB(grp_id, true);
+  prior.fromDB(GrpId_t(grp_id));
   for(TGrpServiceList::const_iterator i=begin(); i!=end(); ++i)
   {
     if (i->is_auto_service())

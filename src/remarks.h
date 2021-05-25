@@ -334,8 +334,8 @@ class TServiceBasic
              emd_type.empty();
     }
 
-    const TServiceBasic& toDB(TQuery &Qry) const;
-    TServiceBasic& fromDB(TQuery &Qry);
+    const TServiceBasic& toDB(DB::TQuery &Qry) const;
+    TServiceBasic& fromDB(DB::TQuery &Qry);
 
     void rcpt_service_types(std::set<ASTRA::TRcptServiceType> &service_types) const;
     bool service_quantity_valid() const { return service_quantity!=ASTRA::NoExists && service_quantity>0; }
@@ -392,8 +392,8 @@ class TPaxASVCItem : public TPaxRemBasic, public TServiceBasic
       return operator ==(item);
     }
     const TPaxASVCItem& toXML(xmlNodePtr node) const;
-    const TPaxASVCItem& toDB(TQuery &Qry) const;
-    TPaxASVCItem& fromDB(TQuery &Qry);
+    const TPaxASVCItem& toDB(DB::TQuery &Qry) const;
+    TPaxASVCItem& fromDB(DB::TQuery &Qry);
     std::string rem_code() const
     {
       return "ASVC";

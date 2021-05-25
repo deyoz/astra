@@ -558,9 +558,10 @@ class TGrpServiceAutoItem : public Sirena::TPaxSegKey, public CheckIn::TPaxASVCI
       TPaxASVCItem::clear();
     }
     TGrpServiceAutoItem() { clear(); }
-    TGrpServiceAutoItem(const TPaxSegKey &key, const TPaxASVCItem &item) : TPaxSegKey(key), TPaxASVCItem(item) {}
-    TGrpServiceAutoItem& fromDB(TQuery &Qry);
-    const TGrpServiceAutoItem& toDB(TQuery &Qry) const;
+    TGrpServiceAutoItem(const TPaxSegKey &key, const TPaxASVCItem &item)
+      : TPaxSegKey(key), TPaxASVCItem(item) {}
+    TGrpServiceAutoItem& fromDB(DB::TQuery &Qry);
+    const TGrpServiceAutoItem& toDB(DB::TQuery &Qry) const;
     bool isSuitableForAutoCheckin() const
     {
       return RFIC!="C";
@@ -605,20 +606,23 @@ class TGrpServiceItem : public TPaxSegRFISCKey
 class TGrpServiceAutoList : public std::list<TGrpServiceAutoItem>
 {
   public:
-    TGrpServiceAutoList& fromDB(int id, bool is_grp_id, bool without_refused=false);
-    void toDB(int grp_id) const;
+    TGrpServiceAutoList& fromDB(const GrpId_t& grp_id, bool without_refused=false);
+    TGrpServiceAutoList& fromDB(const PaxId_t& grp_id, bool without_refused=false);
+    void toDB(const GrpId_t& grp_id, bool clear=true) const;
     static void clearDB(const GrpId_t& grpId);
-    static void copyDB(const GrpId_t& grpIdSrc, const GrpId_t& grpIdDest, bool not_clear=false);
+    static void copyDB(const GrpId_t& grpIdSrc, const GrpId_t& grpIdDest, bool clear=true);
     bool sameDocExists(const CheckIn::TPaxASVCItem& asvc) const;
     bool removeEqualWithoutEMD(const TGrpServiceAutoItem& item);
     void replaceWithoutEMDFrom(const TGrpServiceAutoList& list);
+  private:
+    TGrpServiceAutoList& fromDB(int id, bool is_grp_id, bool without_refused=false);
 };
 
 class TGrpServiceList : public std::list<TGrpServiceItem>
 {
   public:
-    void fromDB(int grp_id, bool without_refused=false);
-    void toDB(int grp_id) const;
+    void fromDB(const GrpId_t& grp_id, bool without_refused=false);
+    void toDB(const GrpId_t& grp_id) const;
 
     void addBagInfo(int grp_id,
                     int tckin_seg_count,
@@ -639,7 +643,7 @@ class TGrpServiceListWithAuto : public std::list<TGrpServiceItem>
 {
   public:
     void addItem(const TGrpServiceAutoItem& svcAuto);
-    void fromDB(int grp_id, bool without_refused=false);
+    void fromDB(const GrpId_t& grp_id, bool without_refused=false);
     bool fromXML(xmlNodePtr node);
     void toXML(xmlNodePtr node) const;
     void split(int grp_id, TGrpServiceList& list1, TGrpServiceAutoList& list2) const;

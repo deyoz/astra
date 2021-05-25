@@ -448,8 +448,7 @@ void GetCheckedByCouponNo(const std::string& tick_no, int coupon_no, std::list<T
                    << ": tick_no=" << tick_no
                    << ", coupon_no=" << coupon_no;
   items.clear();
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("ORACLE"), STDLOG);
   Qry.SQLText=GetSQL(allCheckedByTickNoAndCouponNo);
   Qry.CreateVariable("ticket_no", otString, tick_no);
   Qry.CreateVariable("coupon_no", otInteger, coupon_no);
@@ -879,7 +878,7 @@ const TETickItem& TETickItem::toDB(const TEdiAction ediAction) const
   return *this;
 }
 
-TETCoupon& TETCoupon::fromDB(TQuery &Qry)
+TETCoupon& TETCoupon::fromDB(DB::TQuery &Qry)
 {
   clear();
   no=Qry.FieldAsString("ticket_no");
@@ -888,7 +887,7 @@ TETCoupon& TETCoupon::fromDB(TQuery &Qry)
   return *this;
 }
 
-TETCtxtItem& TETCtxtItem::fromDB(TQuery &Qry, bool from_crs)
+TETCtxtItem& TETCtxtItem::fromDB(DB::TQuery &Qry, bool from_crs)
 {
   clear();
   et.fromDB(Qry);
@@ -2714,8 +2713,7 @@ void ETStatusInterface::ETCheckStatusForRollback(int point_id,
     {
       if ((fltParams.ets_exchange_status!=ETSExchangeStatus::NotConnected || check_connect) && !fltParams.ets_no_exchange)
       {
-        TQuery Qry(&OraSession);
-        Qry.Clear();
+        DB::TQuery Qry(PgOra::getROSession("ORACLE"), STDLOG);
         Qry.SQLText=PaxETList::GetSQL(PaxETList::allCheckedByTickNoAndCouponNo);
         Qry.DeclareVariable("ticket_no",otString);
         Qry.DeclareVariable("coupon_no",otInteger);
@@ -3087,8 +3085,7 @@ void ETStatusInterface::ETCheckStatus(int id,
   //mtick.clear(); добавляем уже к заполненному
   if (TReqInfo::Instance()->duplicate) return;
   int point_id=NoExists;
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("ORACLE"), STDLOG);
   switch (area)
   {
     case csaFlt:
@@ -3118,7 +3115,6 @@ void ETStatusInterface::ETCheckStatus(int id,
 
       if ((fltParams.ets_exchange_status!=ETSExchangeStatus::NotConnected || check_connect) && !fltParams.ets_no_exchange)
       {
-        Qry.Clear();
         ostringstream sql;
         sql <<
           "SELECT pax_grp.airp_dep, pax_grp.airp_arv, pax_grp.class, pax.* "
@@ -4014,6 +4010,7 @@ void EMDAutoBoundInterface::tryBindEmd(const TCkinGrpIds &tckinGrpIds,
                                        const boost::optional< std::list<TEMDCtxtItem> > &confirmed_emd,
                                        TEMDChangeStatusList &emdList)
 {
+  LogTrace(TRACE6) << "EMDAutoBoundInterface::" << __func__;
   emdList.clear();
 
   if (tckinGrpIds.empty()) return;
@@ -4027,13 +4024,13 @@ void EMDAutoBoundInterface::tryBindEmd(const TCkinGrpIds &tckinGrpIds,
   paid_rfisc.fromDB(firstGrpId.get(), true);
   //оплаченные услуги
   CheckIn::TServicePaymentList payment;
-  payment.fromDB(firstGrpId.get());
+  payment.fromDB(firstGrpId);
   //св-ва EMD (удаленные и отвязанные вручную EMD)
   CheckIn::TGrpEMDProps emdProps;
   CheckIn::TGrpEMDProps::fromDB(firstGrpId.get(), emdProps);
   //автоматически зарегистрированные услуги
   TGrpServiceAutoList svcsAuto;
-  svcsAuto.fromDB(firstGrpId.get(), true);
+  svcsAuto.fromDB(firstGrpId);
 
   bool enlargedServicePayment=tryEnlargeServicePayment(paid_rfisc, payment, svcsAuto, tckinGrpIds, emdProps, confirmed_emd);
   bool checkinServicesAuto=tryCheckinServicesAuto(svcsAuto, payment, tckinGrpIds, emdProps, confirmed_emd);
@@ -4062,11 +4059,11 @@ void EMDAutoBoundInterface::tryBindEmd(const TCkinGrpIds &tckinGrpIds,
         if (enlargedServicePayment)
         {
           paid_rfisc.toDB(grpId);
-          payment.toDB(grpId.get());
+          payment.toDB(grpId, PointId_t(grpInfoBefore.point_dep));
         }
         if (checkinServicesAuto)
         {
-          svcsAuto.toDB(grpId.get());
+          svcsAuto.toDB(grpId);
         }
       }
       else

@@ -153,7 +153,31 @@ const TPaymentDoc& TPaymentDoc::toDB(TQuery &Qry) const
   return *this;
 }
 
+const TPaymentDoc& TPaymentDoc::toDB(DB::TQuery &Qry) const
+{
+  Qry.SetVariable("doc_type", doc_type);
+  Qry.SetVariable("doc_aircode", doc_aircode);
+  Qry.SetVariable("doc_no", doc_no);
+  doc_coupon!=ASTRA::NoExists?Qry.SetVariable("doc_coupon", doc_coupon):
+                              Qry.SetVariable("doc_coupon", FNull);
+  service_quantity!=ASTRA::NoExists?Qry.SetVariable("service_quantity", service_quantity):
+                                    Qry.SetVariable("service_quantity", FNull);
+  return *this;
+}
+
 TPaymentDoc& TPaymentDoc::fromDB(TQuery &Qry)
+{
+  clear();
+  doc_type=Qry.FieldAsString("doc_type");
+  doc_aircode=Qry.FieldAsString("doc_aircode");
+  doc_no=Qry.FieldAsString("doc_no");
+  if (!Qry.FieldIsNULL("doc_coupon"))
+    doc_coupon=Qry.FieldAsInteger("doc_coupon");
+  service_quantity=Qry.FieldAsInteger("service_quantity");
+  return *this;
+}
+
+TPaymentDoc& TPaymentDoc::fromDB(DB::TQuery &Qry)
 {
   clear();
   doc_type=Qry.FieldAsString("doc_type");
@@ -216,17 +240,17 @@ std::string TServicePaymentItem::traceStr() const
     << "pax_id=" << (pax_id!=ASTRA::NoExists?IntToString(pax_id):"NoExists") << ", "
     << "trfer_num=" << (trfer_num!=ASTRA::NoExists?IntToString(trfer_num):"NoExists") << ", "
     << "doc_weight=" << (doc_weight!=ASTRA::NoExists?IntToString(doc_weight):"NoExists");
-  if (pc) s << ", " << pc.get().traceStr();
-  if (wt) s << ", " << wt.get().traceStr();
+  if (pc) s << ", " << pc->traceStr();
+  if (wt) s << ", " << wt->traceStr();
   return s.str();
 }
 
 std::string TServicePaymentItem::key_str(const std::string& lang) const
 {
   if (pc)
-    return pc.get().str(lang);
+    return pc->str(lang);
   else if (wt)
-    return wt.get().str(lang);
+    return wt->str(lang);
   else
     return "";
 }
@@ -234,9 +258,9 @@ std::string TServicePaymentItem::key_str(const std::string& lang) const
 std::string TServicePaymentItem::key_str_compatible() const
 {
   if (pc)
-    return pc.get().RFISC;
+    return pc->RFISC;
   else if (wt)
-    return wt.get().bag_type;
+    return wt->bag_type;
   else
     return "";
 }
@@ -247,8 +271,8 @@ const TServicePaymentItem& TServicePaymentItem::toXML(xmlNodePtr node) const
   TPaymentDoc::toXML(node);
   NewTextChild(node, "pax_id", pax_id, ASTRA::NoExists);
   NewTextChild(node, "transfer_num", trfer_num);
-  if (pc) pc.get().toXML(node);
-  else if (wt) wt.get().toXML(node);
+  if (pc) pc->toXML(node);
+  else if (wt) wt->toXML(node);
   NewTextChild(node, "doc_weight", doc_weight, ASTRA::NoExists);
   NewTextChild(node, "read_only", (int)is_auto_service(), (int)false);
   return *this;
@@ -278,12 +302,12 @@ TServicePaymentItem& TServicePaymentItem::fromXML(xmlNodePtr node, bool is_unacc
   if (GetNodeFast("rfisc",node2)!=NULL)
   {
     pc=TRFISCKey();
-    pc.get().fromXML(node);
+    pc->fromXML(node);
   }
   else
   {
     wt=TBagTypeKey();
-    wt.get().fromXML(node);
+    wt->fromXML(node);
   };
   doc_weight=NodeAsIntegerFast("doc_weight", node2, ASTRA::NoExists);
   return *this;
@@ -301,12 +325,12 @@ TServicePaymentItem& TServicePaymentItem::fromXMLcompatible(xmlNodePtr node, boo
   if (baggage_pc)
   {
     pc=TRFISCKey();
-    pc.get().fromXMLcompatible(node);
+    pc->fromXMLcompatible(node);
   }
   else
   {
     wt=TBagTypeKey();
-    wt.get().fromXMLcompatible(node);
+    wt->fromXMLcompatible(node);
   };
 
   if (!baggage_pc)
@@ -314,7 +338,7 @@ TServicePaymentItem& TServicePaymentItem::fromXMLcompatible(xmlNodePtr node, boo
   return *this;
 }
 
-const TServicePaymentItem& TServicePaymentItem::toDB(TQuery &Qry) const
+const TServicePaymentItem& TServicePaymentItem::toDB(DB::TQuery &Qry) const
 {
   TPaymentDoc::toDB(Qry);
   pax_id!=ASTRA::NoExists?Qry.SetVariable("pax_id", pax_id):
@@ -323,15 +347,15 @@ const TServicePaymentItem& TServicePaymentItem::toDB(TQuery &Qry) const
                              Qry.SetVariable("transfer_num", FNull);
   if (!pc) TRFISCKey().toDB(Qry);   //устанавливаем FNull
   if (!wt) TBagTypeKey().toDB(Qry);
-  if (pc) pc.get().toDB(Qry);
-  else if (wt) wt.get().toDB(Qry);
+  if (pc) pc->toDB(Qry);
+  else if (wt) wt->toDB(Qry);
   doc_weight!=ASTRA::NoExists?Qry.SetVariable("doc_weight", doc_weight):
                               Qry.SetVariable("doc_weight", FNull);
 
   return *this;
 }
 
-TServicePaymentItem& TServicePaymentItem::fromDB(TQuery &Qry)
+TServicePaymentItem& TServicePaymentItem::fromDB(DB::TQuery &Qry)
 {
   clear();
   TPaymentDoc::fromDB(Qry);
@@ -341,28 +365,95 @@ TServicePaymentItem& TServicePaymentItem::fromDB(TQuery &Qry)
   if (!Qry.FieldIsNULL("rfisc"))
   {
     pc=TRFISCKey();
-    pc.get().fromDB(Qry);
-    pc.get().getListItem();
+    pc->fromDB(Qry);
+    pc->getListItem();
   }
   else
   {
     wt=TBagTypeKey();
-    wt.get().fromDB(Qry);
-    wt.get().getListItem();
+    wt->fromDB(Qry);
+    wt->getListItem();
   }
   if (!Qry.FieldIsNULL("doc_weight"))
     doc_weight=Qry.FieldAsInteger("doc_weight");
   return *this;
 }
 
-void TServicePaymentList::fromDB(int grp_id)
+bool GrpEmdPaymentKey::operator <(const GrpEmdPaymentKey& key) const
+{
+  if (grp_id != key.grp_id) {
+    return grp_id < key.grp_id;
+  }
+  if (emd_no != key.emd_no) {
+    return emd_no < key.emd_no;
+  }
+  return emd_coupon < key.emd_coupon;
+}
+
+void TServicePaymentList::fromDB(const GrpId_t& grp_id)
 {
   clear();
-  TCachedQuery Qry("SELECT * FROM service_payment WHERE grp_id=:grp_id",
-                   QParams() << QParam("grp_id", otInteger, grp_id));
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("SERVICE_PAYMENT"),
+        "SELECT * FROM service_payment "
+        "WHERE grp_id=:grp_id",
+        QParams() << QParam("grp_id", otInteger, grp_id.get()),
+        STDLOG);
   Qry.get().Execute();
   for(; !Qry.get().Eof; Qry.get().Next())
     push_back(TServicePaymentItem().fromDB(Qry.get()));
+}
+
+GrpEmdPaymentMap makeGrpEmdPaymentMap(DB::TQuery& Qry,
+                                      const::std::set<std::string>& doc_types)
+{
+  GrpEmdPaymentMap result;
+  Qry.Execute();
+  for(; !Qry.Eof; Qry.Next()) {
+    TServicePaymentItem item;
+    item.fromDB(Qry);
+    if (!doc_types.empty()) {
+      if (doc_types.find(item.doc_type) == doc_types.end()) {
+        continue;
+      }
+    }
+    const GrpEmdPaymentKey key = {
+      GrpId_t(Qry.FieldAsInteger("grp_id")),
+      item.doc_no,
+      item.doc_coupon
+    };
+    const std::list<CheckIn::TServicePaymentItem> item_list = { item };
+    auto res = result.emplace(key, item_list);
+    if (res.second) {
+      res.first->second.push_back(item);
+    }
+  }
+
+  return result;
+}
+
+GrpEmdPaymentMap TServicePaymentList::getGrpEmdPaymentMap(const GrpId_t& grp_id,
+                                                          const::std::set<std::string>& doc_types)
+{
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("SERVICE_PAYMENT"),
+        "SELECT * FROM service_payment "
+        "WHERE grp_id=:grp_id",
+        QParams() << QParam("grp_id", otInteger, grp_id.get()),
+        STDLOG);
+  return makeGrpEmdPaymentMap(Qry.get(), doc_types);
+}
+
+GrpEmdPaymentMap TServicePaymentList::getGrpEmdPaymentMap(const PointId_t& point_id,
+                                                          const::std::set<std::string>& doc_types)
+{
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("SERVICE_PAYMENT"),
+        "SELECT * FROM service_payment "
+        "WHERE point_id=:point_id",
+        QParams() << QParam("point_id", otInteger, point_id.get()),
+        STDLOG);
+  return makeGrpEmdPaymentMap(Qry.get(), doc_types);
 }
 
 void TServicePaymentListWithAuto::dump(const string &file, int line) const
@@ -392,7 +483,7 @@ bool TServicePaymentListWithAuto::isRFISCGrpExists(int pax_id, const string &grp
       // работает далеко не всегда корректно (c) Влад
     if (i.pc and (i.pax_id == pax_id || i.pax_id == ASTRA::NoExists) and i.trfer_num == 0)
     {
-      TPaxSegRFISCKey key(Sirena::TPaxSegKey(i.pax_id, i.trfer_num), i.pc.get());
+      TPaxSegRFISCKey key(Sirena::TPaxSegKey(i.pax_id, i.trfer_num), *i.pc);
 
       if (TRFISCListItemsCache::isRFISCGrpExists(key, grp, subgrp)) return true;
     };
@@ -406,12 +497,12 @@ void TServicePaymentListWithAuto::fromDB(int grp_id)
   clearCache();
 
   TServicePaymentList list1;
-  list1.fromDB(grp_id);
+  list1.fromDB(GrpId_t(grp_id));
   for(const TServicePaymentItem& i : list1)
     push_back(i);
 
   TGrpServiceAutoList list2;
-  list2.fromDB(grp_id, true);
+  list2.fromDB(GrpId_t(grp_id));
   for(const TGrpServiceAutoItem& i : list2)
     if (i.withEMD())
       push_back(TServicePaymentItem(i));
@@ -419,33 +510,43 @@ void TServicePaymentListWithAuto::fromDB(int grp_id)
 
 void TServicePaymentList::clearDB(const GrpId_t& grpId)
 {
-  TCachedQuery Qry("DELETE FROM service_payment WHERE grp_id=:grp_id",
-                   QParams() << QParam("grp_id", otInteger, grpId.get()));
+  DB::TCachedQuery Qry(
+        PgOra::getRWSession("SERVICE_PAYMENT"),
+        "DELETE FROM service_payment "
+        "WHERE grp_id=:grp_id",
+        QParams() << QParam("grp_id", otInteger, grpId.get()),
+        STDLOG);
   Qry.get().Execute();
 }
 
-void TServicePaymentList::toDB(int grp_id) const
+void TServicePaymentList::toDB(const GrpId_t& grp_id, const PointId_t& point_id) const
 {
   clearDB(GrpId_t(grp_id));
-  TCachedQuery Qry("INSERT INTO service_payment(grp_id, pax_id, transfer_num, list_id, bag_type, rfisc, service_type, airline, service_quantity, "
-                   "  doc_type, doc_aircode, doc_no, doc_coupon, doc_weight) "
-                   "VALUES(:grp_id, :pax_id, :transfer_num, :list_id, :bag_type, :rfisc, :service_type, :airline, :service_quantity, "
-                   "  :doc_type, :doc_aircode, :doc_no, :doc_coupon, :doc_weight) ",
-
-                   QParams() << QParam("grp_id", otInteger, grp_id)
-                             << QParam("pax_id", otInteger)
-                             << QParam("transfer_num", otInteger)
-                             << QParam("list_id", otInteger)
-                             << QParam("bag_type", otString)
-                             << QParam("rfisc", otString)
-                             << QParam("service_type", otString)
-                             << QParam("airline", otString)
-                             << QParam("service_quantity", otInteger)
-                             << QParam("doc_type", otString)
-                             << QParam("doc_aircode", otString)
-                             << QParam("doc_no", otString)
-                             << QParam("doc_coupon", otInteger)
-                             << QParam("doc_weight", otInteger));
+  DB::TCachedQuery Qry(
+        PgOra::getRWSession("SERVICE_PAYMENT"),
+        "INSERT INTO service_payment("
+        "grp_id, pax_id, point_id, transfer_num, list_id, bag_type, rfisc, service_type, "
+        "airline, service_quantity, doc_type, doc_aircode, doc_no, doc_coupon, doc_weight"
+        ") VALUES ("
+        ":grp_id, :pax_id, :point_id, :transfer_num, :list_id, :bag_type, :rfisc, :service_type, "
+        ":airline, :service_quantity, :doc_type, :doc_aircode, :doc_no, :doc_coupon, :doc_weight"
+        ") ",
+        QParams() << QParam("grp_id", otInteger, grp_id.get())
+        << QParam("point_id", otInteger, point_id.get())
+        << QParam("pax_id", otInteger)
+        << QParam("transfer_num", otInteger)
+        << QParam("list_id", otInteger)
+        << QParam("bag_type", otString)
+        << QParam("rfisc", otString)
+        << QParam("service_type", otString)
+        << QParam("airline", otString)
+        << QParam("service_quantity", otInteger)
+        << QParam("doc_type", otString)
+        << QParam("doc_aircode", otString)
+        << QParam("doc_no", otString)
+        << QParam("doc_coupon", otInteger)
+        << QParam("doc_weight", otInteger),
+        STDLOG);
   for(const TServicePaymentItem& i : *this)
   {
     i.toDB(Qry.get());
@@ -467,93 +568,64 @@ void TServicePaymentList::toDB(int grp_id) const
     };
   }
 
-  TGrpAlarmHook::set(Alarm::UnboundEMD, grp_id);
+  TGrpAlarmHook::set(Alarm::UnboundEMD, grp_id.get());
 }
 
-std::string TServicePaymentList::copySelectSQL()
+void TServicePaymentList::copyDB(const GrpId_t& grp_id_src, const GrpId_t& grp_id_dest)
 {
-  return
-      "SELECT dest.grp_id, "
-      "       dest.pax_id, "
-      "       service_payment.transfer_num+src.seg_no-dest.seg_no AS transfer_num, "
-      "       service_payment.list_id, "
-      "       service_payment.bag_type, "
-      "       service_payment.rfisc, "
-      "       service_payment.service_type, "
-      "       service_payment.airline, "
-      "       service_payment.service_quantity, "
-      "       service_payment.doc_type, "
-      "       service_payment.doc_aircode, "
-      "       service_payment.doc_no, "
-      "       service_payment.doc_coupon, "
-      "       service_payment.doc_weight " +
-      TCkinRoute::copySubselectSQL("service_payment", {}, true) +
-      "      AND service_payment.pax_id IS NOT NULL AND service_payment.doc_weight IS NULL ";
-}
+  LogTrace(TRACE6) << "TServicePaymentList::" << __func__
+                   << ": grp_id_src=" << grp_id_src
+                   << ", grp_id_dest=" << grp_id_dest;
+  clearDB(grp_id_dest);
 
-std::string TServicePaymentList::copySelectSQL2()
-{
-  return
-      "SELECT dest.grp_id, "
-      "       NULL AS pax_id, "
-      "       service_payment.transfer_num+src.seg_no-dest.seg_no AS transfer_num, "
-      "       service_payment.list_id, "
-      "       service_payment.bag_type, "
-      "       service_payment.rfisc, "
-      "       service_payment.service_type, "
-      "       service_payment.airline, "
-      "       service_payment.service_quantity, "
-      "       service_payment.doc_type, "
-      "       service_payment.doc_aircode, "
-      "       service_payment.doc_no, "
-      "       service_payment.doc_coupon, "
-      "       service_payment.doc_weight " +
-      TCkinRoute::copySubselectSQL("service_payment", {}, false) +
-      "      AND service_payment.pax_id IS NULL AND service_payment.doc_weight IS NULL ";
-}
-
-void TServicePaymentList::copyDBOneByOne(const GrpId_t& grpIdSrc, const GrpId_t& grpIdDest)
-{
-  TServicePaymentList list;
-
-  TCachedQuery Qry(copySelectSQL()+" UNION ALL "+copySelectSQL2(),
-                   QParams() << QParam("grp_id_src", otInteger, grpIdSrc.get())
-                             << QParam("grp_id_dest", otInteger, grpIdDest.get()));
-  Qry.get().Execute();
-  for(; !Qry.get().Eof; Qry.get().Next())
-    list.push_back(TServicePaymentItem().fromDB(Qry.get()));
-
-  list.toDB(grpIdDest.get());
-}
-
-void TServicePaymentList::copyDB(const GrpId_t& grpIdSrc, const GrpId_t& grpIdDest)
-{
-  clearDB(grpIdDest);
-  TCachedQuery Qry(
-    "INSERT INTO service_payment(grp_id, pax_id, transfer_num, list_id, bag_type, rfisc, service_type, airline, service_quantity, "
-    "  doc_type, doc_aircode, doc_no, doc_coupon, doc_weight) " +
-    //привязанные к pax_id:
-    copySelectSQL() +
-    " UNION ALL " +
-    //непривязанные к pax_id:
-    //неправильный расчет платности багажа при wt на последующих сегментах. Надо вводить is_trfer возможно, аналогично багажу
-    copySelectSQL2(),
-    QParams() << QParam("grp_id_src", otInteger, grpIdSrc.get())
-              << QParam("grp_id_dest", otInteger, grpIdDest.get()));
-
-  try
-  {
-    Qry.get().Execute();
+  std::optional<PointId_t> point_id_dest;
+  TServicePaymentList servicePaymentListDest;
+  TServicePaymentList servicePaymentListSrc;
+  servicePaymentListSrc.fromDB(grp_id_src);
+  for (const TServicePaymentItem& servicePayment: servicePaymentListSrc) {
+    if (servicePayment.doc_weight != ASTRA::NoExists) {
+      continue;
+    }
+    if (servicePayment.pax_id != ASTRA::NoExists) {
+      // привязанные к pax_id:
+      const std::vector<PaxGrpRoute> routes = PaxGrpRoute::load(PaxId_t(servicePayment.pax_id),
+                                                                servicePayment.trfer_num,
+                                                                grp_id_src,
+                                                                grp_id_dest);
+      for (const PaxGrpRoute& route: routes) {
+        point_id_dest = route.dest.point_id;
+        const int pax_id = route.dest.pax_id.get();
+        const int transfer_num = servicePayment.trfer_num + route.src.seg_no - route.dest.seg_no;
+        const Sirena::TPaxSegKey new_paxseg_key(pax_id, transfer_num);
+        const TPaymentDoc& old_payment_doc = servicePayment;
+        const TServicePaymentItem new_servicePayment(
+              new_paxseg_key, old_payment_doc, servicePayment.pc,
+              servicePayment.wt, servicePayment.doc_weight);
+        servicePaymentListDest.push_back(new_servicePayment);
+      }
+    } else {
+      // непривязанные к pax_id:
+      // неправильный расчет платности багажа при wt на последующих сегментах.
+      // надо вводить is_trfer возможно, аналогично багажу
+      const std::vector<GrpRoute> routes = GrpRoute::load(servicePayment.trfer_num,
+                                                          grp_id_src,
+                                                          grp_id_dest);
+      for (const GrpRoute& route: routes) {
+        point_id_dest = route.dest.point_id;
+        const int transfer_num = servicePayment.trfer_num + route.src.seg_no - route.dest.seg_no;
+        const Sirena::TPaxSegKey new_paxseg_key(ASTRA::NoExists /*pax_id*/, transfer_num);
+        const TPaymentDoc& old_payment_doc = servicePayment;
+        const TServicePaymentItem new_servicePayment(
+              new_paxseg_key, old_payment_doc, servicePayment.pc,
+              servicePayment.wt, servicePayment.doc_weight);
+        servicePaymentListDest.push_back(new_servicePayment);
+      }
+    }
   }
-  catch(const EOracleError& E)
-  {
-    if (E.Code==1)
-      copyDBOneByOne(grpIdSrc, grpIdDest);
-    else
-      throw;
-  };
 
-  TGrpAlarmHook::set(Alarm::UnboundEMD, grpIdDest.get());
+  if (point_id_dest) {
+    servicePaymentListDest.toDB(grp_id_dest, *point_id_dest);
+  }
 }
 
 void TServicePaymentListWithAuto::toXML(xmlNodePtr node) const
@@ -589,25 +661,25 @@ void TServicePaymentList::getAllListKeys(int grp_id, bool is_unaccomp)
       if (item.pc)
       {
         if (is_unaccomp)
-          item.pc.get().getListKeyUnaccomp(grp_id, item.trfer_num, boost::none, "TServicePaymentList");
+          item.pc->getListKeyUnaccomp(grp_id, item.trfer_num, boost::none, "TServicePaymentList");
         else
         {
           if (item.pax_id!=ASTRA::NoExists)
-            item.pc.get().getListKeyByPaxId(item.pax_id, item.trfer_num, boost::none, "TServicePaymentList");
+            item.pc->getListKeyByPaxId(item.pax_id, item.trfer_num, boost::none, "TServicePaymentList");
           else
-            item.pc.get().getListKeyByGrpId(grp_id, item.trfer_num, boost::none, "TServicePaymentList");
+            item.pc->getListKeyByGrpId(grp_id, item.trfer_num, boost::none, "TServicePaymentList");
         }
       }
       else if (item.wt)
       {
         if (is_unaccomp)
-          item.wt.get().getListKeyUnaccomp(grp_id, item.trfer_num, boost::none, "TServicePaymentList");
+          item.wt->getListKeyUnaccomp(grp_id, item.trfer_num, boost::none, "TServicePaymentList");
         else
         {
           if (item.pax_id!=ASTRA::NoExists)
-            item.wt.get().getListKeyByPaxId(item.pax_id, item.trfer_num, boost::none, "TServicePaymentList");
+            item.wt->getListKeyByPaxId(item.pax_id, item.trfer_num, boost::none, "TServicePaymentList");
           else
-            item.wt.get().getListKeyByGrpId(grp_id, item.trfer_num, boost::none, "TServicePaymentList");
+            item.wt->getListKeyByGrpId(grp_id, item.trfer_num, boost::none, "TServicePaymentList");
         }
       };
     }
@@ -635,25 +707,25 @@ void TServicePaymentList::getAllListItems(int grp_id, bool is_unaccomp)
       if (item.pc)
       {
         if (is_unaccomp)
-          item.pc.get().getListItemUnaccomp(grp_id, item.trfer_num, boost::none, "TServicePaymentList");
+          item.pc->getListItemUnaccomp(grp_id, item.trfer_num, boost::none, "TServicePaymentList");
         else
         {
           if (item.pax_id!=ASTRA::NoExists)
-            item.pc.get().getListItemByPaxId(item.pax_id, item.trfer_num, boost::none, "TServicePaymentList");
+            item.pc->getListItemByPaxId(item.pax_id, item.trfer_num, boost::none, "TServicePaymentList");
           else
-            item.pc.get().getListItemByGrpId(grp_id, item.trfer_num, boost::none, "TServicePaymentList");
+            item.pc->getListItemByGrpId(grp_id, item.trfer_num, boost::none, "TServicePaymentList");
         }
       }
       else if (item.wt)
       {
         if (is_unaccomp)
-          item.wt.get().getListItemUnaccomp(grp_id, item.trfer_num, boost::none, "TServicePaymentList");
+          item.wt->getListItemUnaccomp(grp_id, item.trfer_num, boost::none, "TServicePaymentList");
         else
         {
           if (item.pax_id!=ASTRA::NoExists)
-            item.wt.get().getListItemByPaxId(item.pax_id, item.trfer_num, boost::none, "TServicePaymentList");
+            item.wt->getListItemByPaxId(item.pax_id, item.trfer_num, boost::none, "TServicePaymentList");
           else
-            item.wt.get().getListItemByGrpId(grp_id, item.trfer_num, boost::none, "TServicePaymentList");
+            item.wt->getListItemByGrpId(grp_id, item.trfer_num, boost::none, "TServicePaymentList");
         }
       };
     }
@@ -680,7 +752,7 @@ bool TServicePaymentList::dec(const TPaxSegRFISCKey &key)
     {
       TServicePaymentItem &item=*i;
       if (item.pc &&
-          item.pc.get()==key &&
+          *item.pc==key &&
           item.trfer_num==key.trfer_num &&
           item.pax_id==pax_id)
       {
@@ -699,7 +771,7 @@ int TServicePaymentListWithAuto::getDocWeight(const TBagTypeListKey &key) const
 {
   int result=0;
   for(TServicePaymentListWithAuto::const_iterator i=begin(); i!=end(); ++i)
-    if (i->wt && key==i->wt.get() && i->trfer_num==0)
+    if (i->wt && key==*i->wt && i->trfer_num==0)
     {
       if (i->doc_weight!=ASTRA::NoExists && i->doc_weight>0)
         result+=i->doc_weight;
@@ -817,7 +889,7 @@ void ServicePaymentFromXML(xmlNodePtr node,
         item.fromXMLcompatible(itemNode, baggage_pc);
         if (item.pc)
         {
-          if (item.pc.get().RFISC.empty())
+          if (item.pc->RFISC.empty())
             throw UserException("MSG.EMD_ATTACHED_TO_UNKNOWN_RFISC", LParams()<<LParam("emd_no",item.no_str()));
         };
       }
@@ -846,7 +918,7 @@ void TryCleanServicePayment(const WeightConcept::TPaidBagList &curr_paid,
   {
     //были изменения EMD с терминала
     for(CheckIn::TServicePaymentList::iterator i=curr_payment.get().begin(); i!=curr_payment.get().end();)
-      if (i->wt && bag_types.find(i->wt.get())==bag_types.end())
+      if (i->wt && bag_types.find(*i->wt)==bag_types.end())
         i=curr_payment.get().erase(i);
       else
         ++i;
@@ -856,7 +928,7 @@ void TryCleanServicePayment(const WeightConcept::TPaidBagList &curr_paid,
     CheckIn::TServicePaymentList payment;
     bool modified=false;
     for(CheckIn::TServicePaymentList::const_iterator i=prior_payment.begin(); i!=prior_payment.end(); ++i)
-      if (i->wt && bag_types.find(i->wt.get())==bag_types.end())
+      if (i->wt && bag_types.find(*i->wt)==bag_types.end())
         modified=true;
       else
         payment.push_back(*i);
@@ -882,7 +954,7 @@ bool TryCleanServicePayment(const TPaidRFISCList &curr_paid,
   {
     if (i->pc)
     {
-      TPaxSegRFISCKey key(Sirena::TPaxSegKey(i->pax_id, i->trfer_num), i->pc.get());
+      TPaxSegRFISCKey key(Sirena::TPaxSegKey(i->pax_id, i->trfer_num), *i->pc);
 
       if (rfiscs.find(key)==rfiscs.end())
       {

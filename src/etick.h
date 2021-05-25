@@ -156,7 +156,7 @@ void TlgETDisplay(int point_id_spp);
 class TETCoupon : public AstraEdifact::TCoupon
 {
   public:
-    TETCoupon& fromDB(TQuery &Qry);
+    TETCoupon& fromDB(DB::TQuery &Qry);
 };
 
 class TETCtxtItem : public AstraEdifact::TCtxtItem
@@ -186,7 +186,7 @@ class TETCtxtItem : public AstraEdifact::TCtxtItem
       return et < ctxt.et;
     }
 
-    TETCtxtItem& fromDB(TQuery &Qry, bool from_crs);
+    TETCtxtItem& fromDB(DB::TQuery &Qry, bool from_crs);
 };
 
 class TETickItem

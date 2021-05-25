@@ -18,7 +18,7 @@ static bool updatePaidRFISC(const CheckIn::TServicePaymentItem &emd,
   if (!emd.isEMD() ||
       !emd.pc ||
       !emd.service_quantity_valid()) return false;
-  TPaxSegRFISCKey key(Sirena::TPaxSegKey(emd.pax_id, emd.trfer_num), emd.pc.get());
+  TPaxSegRFISCKey key(Sirena::TPaxSegKey(emd.pax_id, emd.trfer_num), *emd.pc);
   TPaidRFISCList::iterator p=paid_rfisc.find(key);
   if (p!=paid_rfisc.end() && p->second.need_positive())
   {
@@ -269,7 +269,7 @@ bool tryEnlargeServicePayment(TPaidRFISCList &paid_rfisc,
                 for(; p!=payment.end(); ++p)
                   if (p->isEMD() &&
                       p->pc &&
-                      p->pc.get().RFISC==curr_added.rfisc &&
+                      p->pc->RFISC==curr_added.rfisc &&
                       p->trfer_num==curr_added.continuous_segs &&
                       p->pax_id==i->first &&
                       be->second.find(p->doc_no)!=be->second.end()) break;

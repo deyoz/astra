@@ -612,7 +612,7 @@ void PaymentInterface::LoadReceipts(int id, bool pr_grp, bool pr_lat, xmlNodePtr
     {
       const CheckIn::TServicePaymentItem &item=*i;
       if (item.trfer_num!=0) continue;
-      if (item.pc && !item.pc.get().isBaggageOrCarryOn("PaymentInterface::LoadReceipts")) continue;
+      if (item.pc && !item.pc->isBaggageOrCarryOn("PaymentInterface::LoadReceipts")) continue;
       xmlNodePtr receiptNode=NewTextChild(node,"receipt");
       NewTextChild(receiptNode,"id",EMD_RCPT_ID);
       if (item.isEMD())

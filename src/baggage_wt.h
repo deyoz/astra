@@ -55,6 +55,7 @@ class TBagTypeListKey
     const TBagTypeListKey& toDB(TQuery &Qry) const;
     const TBagTypeListKey& toDB(DB::TQuery &Qry) const;
     TBagTypeListKey& fromDB(TQuery &Qry);
+    TBagTypeListKey& fromDB(DB::TQuery &Qry);
     const TBagTypeListKey& key() const { return *this; }
     void key(const TBagTypeListKey& _key) { *this=_key; }
     bool isRegular() const { return bag_type==WeightConcept::REGULAR_BAG_TYPE; }
@@ -146,6 +147,7 @@ class TBagTypeKey : public TBagTypeListKey
     const TBagTypeKey& toDB(DB::TQuery &Qry) const;
     const TBagTypeKey& toDBcompatible(TQuery &Qry, const std::string &where) const;
     TBagTypeKey& fromDB(TQuery &Qry);
+    TBagTypeKey& fromDB(DB::TQuery &Qry);
     TBagTypeKey& fromDBcompatible(TQuery &Qry);
     TBagTypeKey& fromDBcompatible(DB::TQuery &Qry);
     void getListItemIfNone();

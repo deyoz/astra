@@ -138,7 +138,9 @@ class TPaymentDoc
   TPaymentDoc& fromXML(xmlNodePtr node);
   TPaymentDoc& fromXMLcompatible(xmlNodePtr node);
   const TPaymentDoc& toDB(TQuery &Qry) const;
+  const TPaymentDoc& toDB(DB::TQuery &Qry) const;
   TPaymentDoc& fromDB(TQuery &Qry);
+  TPaymentDoc& fromDB(DB::TQuery &Qry);
   std::string no_str() const;
   std::string emd_no_str() const;
   bool isEMD() const;
@@ -166,28 +168,44 @@ class TServicePaymentItem : public TPaymentDoc
   public:
     int pax_id;
     int trfer_num;
-    boost::optional<TRFISCKey> pc;
-    boost::optional<TBagTypeKey> wt;
+    int grp_id;
+    std::optional<TRFISCKey> pc;
+    std::optional<TBagTypeKey> wt;
     int doc_weight;
   TServicePaymentItem()
   {
     clear();
   }
-  TServicePaymentItem(const TGrpServiceAutoItem& item) : TPaymentDoc(item)
+  TServicePaymentItem(const TGrpServiceAutoItem& item)
+    : TPaymentDoc(item)
   {
     clear();
     pax_id=item.pax_id;
     trfer_num=item.trfer_num;
     pc=TRFISCKey();
-    pc.get().list_item=TRFISCListItem(item);
-    (TRFISCListKey&)(pc.get())=pc.get().list_item.get();
+    pc->list_item=TRFISCListItem(item);
+    (TRFISCListKey&)(*pc)=pc->list_item.get();
+  }
+  TServicePaymentItem(const Sirena::TPaxSegKey& pax_seg_key,
+                      const TPaymentDoc& item,
+                      const std::optional<TRFISCKey>& pc,
+                      const std::optional<TBagTypeKey>& wt,
+                      int doc_weight)
+    : TPaymentDoc(item)
+  {
+    clear();
+    pax_id = pax_seg_key.pax_id;
+    trfer_num = pax_seg_key.trfer_num;
+    this->pc = pc;
+    this->wt = wt;
+    this->doc_weight = doc_weight;
   }
   void clear()
   {
     pax_id=ASTRA::NoExists;
     trfer_num=ASTRA::NoExists;
-    pc=boost::none;
-    wt=boost::none;
+    pc={};
+    wt={};
     doc_weight=ASTRA::NoExists;
   }
   bool operator == (const TServicePaymentItem &item) const
@@ -203,18 +221,18 @@ class TServicePaymentItem : public TPaymentDoc
   {
     if (!(pc==item.pc))
       return (pc && !item.pc) ||
-             (pc && item.pc && pc.get() < item.pc.get());
+             (pc && item.pc && *pc < *item.pc);
     if (!(wt==item.wt))
       return (wt && !item.wt) ||
-             (wt && item.wt && wt.get() < item.wt.get());
+             (wt && item.wt && *wt < *item.wt);
     return TPaymentDoc::operator <(item);
   }
   const TServicePaymentItem& toXML(xmlNodePtr node) const;
   const TServicePaymentItem& toXMLcompatible(xmlNodePtr node) const;
   TServicePaymentItem& fromXML(xmlNodePtr node, bool is_unaccomp);
   TServicePaymentItem& fromXMLcompatible(xmlNodePtr node, bool baggage_pc);
-  const TServicePaymentItem& toDB(TQuery &Qry) const;
-  TServicePaymentItem& fromDB(TQuery &Qry);
+  const TServicePaymentItem& toDB(DB::TQuery &Qry) const;
+  TServicePaymentItem& fromDB(DB::TQuery &Qry);
   bool similar(const TServicePaymentItem &item) const
   {
     return sameDoc(item) &&
@@ -229,7 +247,7 @@ class TServicePaymentItem : public TPaymentDoc
   std::string key_str_compatible() const;
   bool is_auto_service() const
   {
-    return pc && pc.get().service_type==TServiceType::Unknown;
+    return pc && pc->service_type==TServiceType::Unknown;
   }
 };
 
@@ -247,8 +265,8 @@ void splitServicePaymentItems(const T &src,
   {
     if (i->pc)
     {
-      if (!i->pc.get().list_item)  throw EXCEPTIONS::Exception("%s: !i->pc.get().list_item", __FUNCTION__);
-        if (!i->pc.get().list_item.get().isBaggageOrCarryOn())
+      if (!i->pc->list_item)  throw EXCEPTIONS::Exception("%s: !i->pc->list_item", __FUNCTION__);
+        if (!i->pc->list_item.get().isBaggageOrCarryOn())
       {
         other_svc.push_back(*i);
         continue; //выводим только багаж
@@ -263,12 +281,19 @@ void splitServicePaymentItems(const T &src,
   };
 }
 
+struct GrpEmdPaymentKey
+{
+  GrpId_t grp_id;
+  std::string emd_no;
+  int emd_coupon;
+
+  bool operator < (const GrpEmdPaymentKey& key) const;
+};
+
+typedef std::map<GrpEmdPaymentKey,std::list<CheckIn::TServicePaymentItem>> GrpEmdPaymentMap;
+
 class TServicePaymentList : public std::list<TServicePaymentItem>
 {
-  private:
-    static std::string copySelectSQL();
-    static std::string copySelectSQL2();
-    static void copyDBOneByOne(const GrpId_t& grpIdSrc, const GrpId_t& grpIdDest);
   public:
     void getCompatibleWithPriorTermVersions(TServicePaymentList &compatible,
                                             TServicePaymentList &not_compatible,
@@ -276,8 +301,12 @@ class TServicePaymentList : public std::list<TServicePaymentItem>
     {
       splitServicePaymentItems<TServicePaymentList>(*this, compatible, not_compatible, other_svc);
     }
-    void fromDB(int grp_id);
-    void toDB(int grp_id) const;
+    void fromDB(const GrpId_t& grp_id);
+    static GrpEmdPaymentMap getGrpEmdPaymentMap(const GrpId_t& grp_id,
+                                                const::std::set<std::string>& doc_types = {});
+    static GrpEmdPaymentMap getGrpEmdPaymentMap(const PointId_t& point_id,
+                                                const::std::set<std::string>& doc_types = {});
+    void toDB(const GrpId_t& grp_id, const PointId_t& point_id) const;
     void getAllListKeys(int grp_id, bool is_unaccomp);
     void getAllListItems(int grp_id, bool is_unaccomp);
     bool dec(const TPaxSegRFISCKey &key);

@@ -31,6 +31,7 @@ std::string getPaxsSQL(const TListType ltype);
 void printSQLs();
 int print_sql(int argc, char **argv);
 void GetUnboundBagEMD(int point_id, std::multiset<CheckIn::TPaxASVCItem> &asvc);
+void GetUnboundEMD(int id, std::multiset<CheckIn::TPaxASVCItem> &asvc, bool is_pax_id, bool only_one, bool bag);
 bool ExistsUnboundBagEMD(int point_id);
 bool ExistsPaxUnboundBagEMD(int pax_id);
 void getWithoutEMD(int id, TGrpServiceAutoList &svcsAuto, bool is_pax_id);
@@ -188,8 +189,8 @@ class TPaxEMDItem : public CheckIn::TPaxASVCItem
       trfer_num=ASTRA::NoExists;
       emd_no_base.clear();
     }
-    const TPaxEMDItem& toDB(TQuery &Qry) const;
-    TPaxEMDItem& fromDB(TQuery &Qry);
+    const TPaxEMDItem& toDB(DB::TQuery &Qry) const;
+    TPaxEMDItem& fromDB(DB::TQuery &Qry);
     std::string traceStr() const;
     bool valid() const;
 };

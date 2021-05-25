@@ -3,6 +3,7 @@
 #include "payment_base.h"
 #include "astra_elem_utils.h"
 #include "ckin_search.h"
+#include "emdoc.h"
 #include <regex>
 
 #define NICKNAME "VLAD"
@@ -491,7 +492,7 @@ void TSvcList::addChecked(const TCheckedReqPassengers &req_grps, int grp_id, int
 {
   //вручную введенные на стойке
   TGrpServiceList svcs;
-  svcs.fromDB(grp_id, !req_grps.include_refused);
+  svcs.fromDB(GrpId_t(grp_id), !req_grps.include_refused);
   svcs.addBagInfo(grp_id, tckin_seg_count, trfer_seg_count, req_grps.include_refused);
   svcs.addBagList(_additionalBagList, tckin_seg_count, trfer_seg_count);
 
@@ -501,7 +502,7 @@ void TSvcList::addChecked(const TCheckedReqPassengers &req_grps, int grp_id, int
   statusList.set(paid);
 
   CheckIn::TServicePaymentList payment;
-  payment.fromDB(grp_id);
+  payment.fromDB(GrpId_t(grp_id));
   for(const TGrpServiceItem& svc : svcs)
   {
     if (!req_grps.pax_included(grp_id, svc.pax_id)) continue;
@@ -516,7 +517,7 @@ void TSvcList::addChecked(const TCheckedReqPassengers &req_grps, int grp_id, int
 
   //автоматически зарегистрированные
   TGrpServiceAutoList svcsAuto;
-  svcsAuto.fromDB(grp_id, true, !req_grps.include_refused);
+  svcsAuto.fromDB(GrpId_t(grp_id), !req_grps.include_refused);
   for(const TGrpServiceAutoItem& svcAuto : svcsAuto)
     for(TGrpServiceItem& svc : svcs)
     {
@@ -563,14 +564,13 @@ void TSvcList::addUnbound(const TCheckedReqPassengers &req_grps, int grp_id, int
   if (!req_grps.include_unbound_svcs ||
       !req_grps.pax_included(grp_id, pax_id)) return;
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText = PaxASVCList::GetSQL(PaxASVCList::unboundByPaxId);
-  Qry.CreateVariable( "id", otInteger, pax_id );
-  Qry.Execute();
-  vector<CheckIn::TPaxASVCItem> asvc;
-  for(;!Qry.Eof;Qry.Next())
-    asvc.push_back(CheckIn::TPaxASVCItem().fromDB(Qry));
+  multiset<CheckIn::TPaxASVCItem> asvc_unbound;
+  PaxASVCList::GetUnboundEMD(pax_id, asvc_unbound,
+                             true /*is_pax_id*/,
+                             false /*only_one*/,
+                             false /*bag*/);
+  std::vector<CheckIn::TPaxASVCItem> asvc;
+  asvc.insert(asvc.begin(), asvc_unbound.begin(), asvc_unbound.end());
   addASVCs(pax_id, asvc);
 }
 

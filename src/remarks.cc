@@ -656,7 +656,7 @@ const TPaxASVCItem& TPaxASVCItem::toXML(xmlNodePtr node) const
   return *this;
 };
 
-const TServiceBasic& TServiceBasic::toDB(TQuery &Qry) const
+const TServiceBasic& TServiceBasic::toDB(DB::TQuery &Qry) const
 {
   Qry.SetVariable("rfic", RFIC);
   Qry.SetVariable("rfisc", RFISC);
@@ -667,7 +667,7 @@ const TServiceBasic& TServiceBasic::toDB(TQuery &Qry) const
   return *this;
 }
 
-const TPaxASVCItem& TPaxASVCItem::toDB(TQuery &Qry) const
+const TPaxASVCItem& TPaxASVCItem::toDB(DB::TQuery &Qry) const
 {
   TServiceBasic::toDB(Qry);
   Qry.SetVariable("emd_no", emd_no);
@@ -676,7 +676,7 @@ const TPaxASVCItem& TPaxASVCItem::toDB(TQuery &Qry) const
   return *this;
 }
 
-TServiceBasic& TServiceBasic::fromDB(TQuery &Qry)
+TServiceBasic& TServiceBasic::fromDB(DB::TQuery &Qry)
 {
   clear();
   RFIC=Qry.FieldAsString("rfic");
@@ -688,7 +688,7 @@ TServiceBasic& TServiceBasic::fromDB(TQuery &Qry)
   return *this;
 }
 
-TPaxASVCItem& TPaxASVCItem::fromDB(TQuery &Qry)
+TPaxASVCItem& TPaxASVCItem::fromDB(DB::TQuery &Qry)
 {
   clear();
   TServiceBasic::fromDB(Qry);
@@ -1055,22 +1055,28 @@ bool PaxASVCFromDB(PaxId_t pax_id, vector<TPaxASVCItem> &asvc, bool from_crs)
     return PaxASVC_CrsFromDB(pax_id, asvc);
   }
   asvc.clear();
-  const char* sql=
-    "SELECT * FROM pax_asvc WHERE pax_id=:pax_id";
 
   QParams ASVCQryParams;
   ASVCQryParams << QParam("pax_id", otInteger, pax_id.get());
-  TCachedQuery PaxASVCQry(sql, ASVCQryParams);
+  DB::TCachedQuery PaxASVCQry(
+        PgOra::getROSession("PAX_ASVC"),
+        "SELECT * FROM pax_asvc "
+        "WHERE pax_id=:pax_id",
+        ASVCQryParams,
+        STDLOG);
   PaxASVCQry.get().Execute();
   if (!PaxASVCQry.get().Eof)
   {
-    const char* rem_sql=
-      "SELECT rem FROM pax_rem WHERE pax_id=:pax_id AND rem_code=:rem_code";
-
     QParams RemQryParams;
     RemQryParams << QParam("pax_id", otInteger, pax_id.get())
                  << QParam("rem_code", otString);
-    TCachedQuery PaxRemQry(rem_sql, RemQryParams);
+    DB::TCachedQuery PaxRemQry(
+          PgOra::getROSession("PAX_ASVC"),
+          "SELECT rem FROM pax_rem "
+          "WHERE pax_id=:pax_id "
+          "AND rem_code=:rem_code",
+          RemQryParams,
+          STDLOG);
 
     for(;!PaxASVCQry.get().Eof;PaxASVCQry.get().Next())
     {

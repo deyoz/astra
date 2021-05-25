@@ -866,13 +866,13 @@ TPaxCtxt& TPaxCtxt::fromXML(xmlNodePtr node)
   return *this;
 }
 
-TPaxCtxt& TPaxCtxt::paxFromDB(TQuery &Qry, bool from_crs)
+TPaxCtxt& TPaxCtxt::paxFromDB(DB::TQuery &Qry, bool from_crs)
 {
   pax.clear();
   pax.id=Qry.FieldAsInteger("pax_id");
   pax.surname=Qry.FieldAsString("surname");
   pax.name=Qry.FieldAsString("name");
-  pax.pers_type=DecodePerson(Qry.FieldAsString("pers_type"));
+  pax.pers_type=DecodePerson(Qry.FieldAsString("pers_type").c_str());
   if (!from_crs)
   {
     pax.grp_id=Qry.FieldAsInteger("grp_id");

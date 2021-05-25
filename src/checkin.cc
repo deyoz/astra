@@ -4016,8 +4016,7 @@ void CheckServicePayment(int grp_id,
 
   if (!curr_payment) return;
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("ORACLE"), STDLOG);
   Qry.SQLText= PaxASVCList::GetSQL(PaxASVCList::oneWithTknByGrpId);
   Qry.CreateVariable("grp_id", otInteger, grp_id);
   Qry.DeclareVariable("emd_no", otString);
@@ -4049,7 +4048,7 @@ void CheckServicePayment(int grp_id,
       if (item.trfer_num!=asvc.trfer_num)
         throw UserException("MSG.EMD_WRONG_ATTACHMENT_DIFFERENT_SEG",
                             LParams() << LParam("emd", item.no_str()));
-      if (item.pc && item.pc.get().RFISC!=asvc.RFISC)
+      if (item.pc && item.pc->RFISC!=asvc.RFISC)
         throw UserException("MSG.EMD_WRONG_ATTACHMENT_DIFFERENT_RFISC",
                             LParams() << LParam("emd", item.no_str()));
     }
@@ -4111,6 +4110,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                                CheckIn::TAfterSaveInfoList &AfterSaveInfoList,
                                bool& httpWasSent)
 {
+  LogTrace(TRACE6) << "CheckInInterface::" << __func__;
   Timing::Points timing("Timing::SavePax");
 
   timing.start("SavePax");
@@ -5283,7 +5283,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         GetGrpToLogInfo(grp.id, grpInfoBefore); //для всех сегментов
         if (needCheckUnattachedTrferAlarm)
           InboundTrfer::GetCheckedTags(grp.id, idGrp, grpTagsBefore); //для всех сегментов
-        paymentBefore.fromDB(grp.id);
+        paymentBefore.fromDB(GrpId_t(grp.id));
         paymentBeforeWithAuto.fromDB(grp.id);
         //BSM
         if (BSMsend)
@@ -5556,13 +5556,13 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           if (grp.svc)
           {
             grp.svc.get().getAllListItems();
-            grp.svc.get().toDB(grp.id);
+            grp.svc.get().toDB(GrpId_t(grp.id));
           }
 
           if (grp.svc_auto && !new_checkin)
           {
             TGrpServiceAutoList svcsAutoBefore;
-            svcsAutoBefore.fromDB(grp.id, true);
+            svcsAutoBefore.fromDB(GrpId_t(grp.id));
             grp.svc_auto.get().replaceWithoutEMDFrom(svcsAutoBefore); //ASVC без EMD удаляются только через ADL, вручную не будут пока
 
             CheckIn::TGrpEMDProps handmadeAutoEMDDiff;
@@ -5572,7 +5572,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
             handmadeEMDDiff.insert(handmadeAutoEMDDiff.begin(), handmadeAutoEMDDiff.end());
 
-            grp.svc_auto.get().toDB(grp.id);
+            grp.svc_auto.get().toDB(GrpId_t(grp.id));
           }
 
           if (grp.wt)
@@ -5617,7 +5617,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           if (grp.payment)
           {
             grp.payment.get().getAllListItems(grp.id, pr_unaccomp);
-            grp.payment.get().toDB(grp.id);
+            grp.payment.get().toDB(GrpId_t(grp.id), PointId_t(grp.point_dep));
           }
 
           SaveTagPacks(reqNode);
@@ -6129,9 +6129,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     for(TSegList::reverse_iterator iSegListItem=segList.rbegin(); iSegListItem!=segList.rend(); ++iSegListItem)
     {
       if (iSegListItem->grp.svc_auto)
-        iSegListItem->grp.svc_auto.get().toDB(iSegListItem->grp.id);
+        iSegListItem->grp.svc_auto.get().toDB(GrpId_t(iSegListItem->grp.id));
       if (iNextSegListItem!=segList.rend())
-        TGrpServiceAutoList::copyDB(GrpId_t(iNextSegListItem->grp.id), GrpId_t(iSegListItem->grp.id), true);
+        TGrpServiceAutoList::copyDB(GrpId_t(iNextSegListItem->grp.id), GrpId_t(iSegListItem->grp.id), false /*clear*/);
       iNextSegListItem=iSegListItem;
     }
   };
@@ -6178,10 +6178,17 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         {
           paid.toDB(grpId);
           CheckIn::TServicePaymentList payment;
-          payment.fromDB(grpId.get());
+          payment.fromDB(grpId);
           update_payment=CheckIn::TryCleanServicePayment(paid, payment);
-          if (update_payment)
-            payment.toDB(grpId.get());
+          if (update_payment) {
+            for (const TSegListItem& segItem: segList) {
+              if (segItem.grp.id == grpId.get()) {
+                LogTrace(TRACE6) << "payment.toDB";
+                payment.toDB(grpId, PointId_t(segItem.grp.point_dep));
+                break;
+              }
+            }
+          }
         }
         else
         {
@@ -6883,6 +6890,8 @@ void CheckInInterface::LoadIatciPax(xmlNodePtr reqNode, xmlNodePtr resNode,
 
 void CheckInInterface::LoadPaxByGrpId(const GrpId_t& grpId, xmlNodePtr reqNode, xmlNodePtr resNode, bool afterSavePax)
 {
+  LogTrace(TRACE6) << "CheckInInterface::" << __func__
+                   << ": grp_id=" << grpId;
   TReqInfo *reqInfo = TReqInfo::Instance();
 
   xmlNodePtr node;
@@ -6956,7 +6965,7 @@ void CheckInInterface::LoadPaxByGrpId(const GrpId_t& grpId, xmlNodePtr reqNode, 
     if (iGrpId==tckinGrpIds.begin())
     {
       group_bag.fromDB(grp.id, ASTRA::NoExists, false);
-      svc.fromDB(grp.id);
+      svc.fromDB(GrpId_t(grp.id));
     };
 
     TTrferRoute trfer;
@@ -7089,7 +7098,7 @@ void CheckInInterface::LoadPaxByGrpId(const GrpId_t& grpId, xmlNodePtr reqNode, 
         TPaidRFISCList PaidRFISCList;
         PaidRFISCList.fromDB(grp.id, true);
         TGrpServiceAutoList svcsAuto;
-        svcsAuto.fromDB(grp.id, true);
+        svcsAuto.fromDB(GrpId_t(grp.id));
 
         CalcPaidRFISCView(TPaidRFISCListWithAuto().set(PaidRFISCList, svcsAuto), PaidRFISCViewMap);
         PaidRFISCViewToXML(PaidRFISCViewMap, resNode);

@@ -233,7 +233,7 @@ class TPaxCtxt
 
     const TPaxCtxt& toXML(xmlNodePtr node) const;
     TPaxCtxt& fromXML(xmlNodePtr node);
-    TPaxCtxt& paxFromDB(TQuery &Qry, bool from_crs);
+    TPaxCtxt& paxFromDB(DB::TQuery &Qry, bool from_crs);
 };
 
 class TCtxtItem : public TPaxCtxt, public TOriginCtxt

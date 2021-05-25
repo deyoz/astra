@@ -2243,7 +2243,7 @@ bool BagPaymentCompleted(int grp_id, int *value_bag_count)
     for(CheckIn::TServicePaymentListWithAuto::const_iterator i=payment.begin(); i!=payment.end(); ++i)
       if (i->trfer_num==0 && i->wt && i->doc_weight!=ASTRA::NoExists)
       {
-        string bag_type=i->wt.get().bag_type;
+        string bag_type=i->wt->bag_type;
         if (rcpt_paid_bag.find(bag_type)==rcpt_paid_bag.end())
           rcpt_paid_bag[bag_type]=i->doc_weight;
         else

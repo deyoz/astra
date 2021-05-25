@@ -403,7 +403,24 @@ TBagTypeListKey& TBagTypeListKey::fromDB(TQuery &Qry)
   return *this;
 }
 
+TBagTypeListKey& TBagTypeListKey::fromDB(DB::TQuery &Qry)
+{
+  clear();
+  bag_type=Qry.FieldAsString("bag_type");
+  airline=Qry.FieldAsString("airline");
+  return *this;
+}
+
 TBagTypeKey& TBagTypeKey::fromDB(TQuery &Qry)
+{
+  clear();
+  TBagTypeListKey::fromDB(Qry);
+  if (!Qry.FieldIsNULL("list_id"))
+    list_id=Qry.FieldAsInteger("list_id");
+  return *this;
+}
+
+TBagTypeKey& TBagTypeKey::fromDB(DB::TQuery &Qry)
 {
   clear();
   TBagTypeListKey::fromDB(Qry);
