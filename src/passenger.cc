@@ -4079,17 +4079,6 @@ std::set<PnrId_t> loadPnrIdSetByPnrAddrs(const std::string& addr)
   return result;
 }
 
-std::set<PaxId_t> loadPaxIdSetByPnrAddrs(const std::string& addr, bool skip_deleted)
-{
-  std::set<PaxId_t> result;
-  const std::set<PnrId_t> pnr_id_set = loadPnrIdSetByPnrAddrs(addr);
-  for (const PnrId_t& pnr_id: pnr_id_set) {
-    const std::set<PaxId_t> pax_id_set = TypeB::loadPaxIdSet(pnr_id, skip_deleted);
-    result.insert(pax_id_set.begin(), pax_id_set.end());
-  }
-  return result;
-}
-
 std::set<PaxId_t> loadCrsPnrPaxIdSet(const PnrId_t& pnr_id)
 {
   std::set<PaxId_t> result;
@@ -4103,7 +4092,7 @@ std::set<PaxId_t> loadCrsPnrPaxIdSet(const PnrId_t& pnr_id)
   Qry.CreateVariable("pnr_id", otInteger, pnr_id.get());
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next()) {
-    result.emplace(Qry.FieldAsInteger("pnr_id"));
+    result.emplace(Qry.FieldAsInteger("pax_id"));
   }
   return result;
 }
@@ -4121,11 +4110,7 @@ std::set<PaxId_t> loadCrsPnrPaxIdSetByPnrAddrs(const std::string& addr)
 
 void TPnrAddrInfo::addSearchPaxIds(const PaxOrigin& origin, std::set<PaxId_t>& searchPaxIds) const
 {
-  if (origin == paxPnl) {
-    searchPaxIds = loadPaxIdSetByPnrAddrs(addr, false /*skip_deleted*/);
-    return;
-  }
-  if (origin == paxCheckIn) {
+  if (origin == paxCheckIn || origin == paxPnl) {
     searchPaxIds = loadCrsPnrPaxIdSetByPnrAddrs(addr);
     return;
   }
