@@ -197,8 +197,9 @@ std::vector<msg> readMessagesByElapsedTime(const Dates::DateTime_t & elapsed)
 {
     msg read_msg;
     // проверим, есть ли сообщения без ответа или нуждающиеся в повторной отправке
-    auto cur = make_curs("select SEND_TIME, MSG_ID, SEND_ATTEMPTS "
-                          "from APPS_MESSAGES where SEND_TIME < :elapsed ");
+    auto cur = make_db_curs("select SEND_TIME, MSG_ID, SEND_ATTEMPTS "
+                            "from APPS_MESSAGES where SEND_TIME < :elapsed ",
+                            PgOra::getROSession("APPS_MESSAGES"));
     cur
         .def(read_msg.send_time)
         .def(read_msg.msg_id)
