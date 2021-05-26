@@ -52,6 +52,18 @@ using namespace boost::local_time;
 using namespace boost::posix_time;
 using namespace AstraLocale;
 
+#ifdef XP_TESTING
+namespace xp_testing {
+    bool isSelfCheckinRequestOnJxtGrp(const std::string& login)
+    {
+        //добавляйте в WebLogins только те, которые отрабатывают как grp3_jxt, но при этом должны иметь client_type=ctWeb/ctKiosk/ctMobile
+        //не добавляйте сюда логины для входящих http! Используйте, например, $(CREATE_USER)+$(CREATE_DESK)+$(ADD_HTTP_CLIENT) и вызов "!! req_type=http"
+        static const std::vector<std::string> WebLogins { "KIOSK2" };
+        LogTrace(TRACE3) << __func__ << " called for login: " << login;
+        return algo::contains(WebLogins, login);
+    }
+}//namespace xp_testing
+#endif//XP_TESTING
 
 std::optional<int> getDeskGroupByCode(const std::string& desk)
 {
@@ -298,6 +310,12 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   user.user_type = (TUserType)Qry.FieldAsInteger( "type" );
   user.login = Qry.FieldAsString( "login" );
 
+
+#ifdef XP_TESTING
+      if(inTestMode()) {
+           InitData.pr_web = InitData.pr_web || xp_testing::isSelfCheckinRequestOnJxtGrp(user.login);
+      }
+#endif//XP_TESTING
 
   Qry.Clear();
   Qry.SQLText =
