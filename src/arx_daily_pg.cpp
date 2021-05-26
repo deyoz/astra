@@ -79,9 +79,6 @@ bool CLEANUP_PG()
 {
     // Если читаем из PG, то пусть и PG-архиватор занимается удалением данных
     // из неархивных таблиц
-#ifdef XP_TESTING
-    return false;
-#endif
     return READ_PG();
 }
 
@@ -1298,17 +1295,15 @@ void arx_bi_stat(const PointId_t& point_id, const Dates::DateTime_t & part_key)
     }
 }
 
-
-
 void arx_agent_stat(const PointId_t& point_id, const Dates::DateTime_t & part_key)
 {
     std::vector<dbo::AGENT_STAT> agents_stat{};
     dbo::Session session(dbo::Postgres);
-    PgOra::supportsPg("AGENT_STAT") ?  agents_stat = session.query<dbo::AGENT_STAT>()
+    agents_stat = PgOra::supportsPg("AGENT_STAT") ?  session.query<dbo::AGENT_STAT>()
             .where("point_id = :point_id")
             .for_update(true)
             .setBind({{"point_id", point_id.get()}})
-            :  agents_stat = dbo::readOraAgentsStat(point_id);
+                                                  : dbo::readOraAgentsStat(point_id);
 
     for(const auto &as : agents_stat) {
         dbo::ARX_AGENT_STAT ascs(as, part_key);

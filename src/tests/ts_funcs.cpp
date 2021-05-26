@@ -22,7 +22,6 @@
 #include "tlg/remote_system_context.h"
 #include "tlg/edi_tlg.h"
 #include "tlg/apps_handler.h"
-#include "arx_daily.h"
 #include "arx_daily_pg.h"
 #include "dbostructures.h"
 #include "iapi_interaction.h"
@@ -919,20 +918,6 @@ static std::string FP_run_trip_task(const std::vector<std::string>& par)
     return "";
 }
 
-void updateAppsMsg(int msg_id, Dates::DateTime_t send_time, int send_attempts)
-{
-    //LogTrace(TRACE5) << __FUNCTION__ << " send_time: " << send_time << " send_attempts:" << send_attempts;
-    auto cur = make_curs(
-               "update APPS_MESSAGES "
-               "set SEND_ATTEMPTS = :send_attempts, SEND_TIME = :send_time "
-               "where MSG_ID = :msg_id ");
-    cur
-        .bind(":send_attempts", send_attempts)
-        .bind(":send_time", send_time)
-        .bind(":msg_id", msg_id)
-        .exec();
-}
-
 static std::string FP_runUpdateMsg(const std::vector<std::string>& par)
 {
     ASSERT(par.size() == 3);
@@ -943,7 +928,7 @@ static std::string FP_runUpdateMsg(const std::vector<std::string>& par)
     Dates::DateTime_t send_time = Dates::second_clock::universal_time() - seconds(send_time_after);
 
     LogTrace(TRACE5) << __FUNCTION__ << " time: " << HelpCpp::string_cast(send_time, "%H%M%S");
-    updateAppsMsg(msg_id, send_time, send_attempts);
+    APPS::updateAppsMsg(msg_id, send_time, send_attempts);
     return "";
 }
 
@@ -1014,25 +999,16 @@ static std::string FP_dump_db_table(const std::vector<tok::Param>& params)
     return "";
 }
 
-static std::string FP_agent_stat_equal(const std::vector<tok::Param>& params)
-{
-    std::vector<dbo::ARX_AGENT_STAT> ora_arx_agents_stat = dbo::readOraArxAgentsStat();
-    std::vector<dbo::ARX_AGENT_STAT> pg_arx_agents_stats = dbo::Session(dbo::Postgres).query<dbo::ARX_AGENT_STAT>();
-    ASSERT(ora_arx_agents_stat == pg_arx_agents_stats);
-    return "";
-}
 
-static std::string FP_tables_equal(const std::vector<tok::Param>& params)
+static std::string FP_check_dump(const std::vector<tok::Param>& params)
 {
     ASSERT(params.size() > 0);
     std::string tableName = params[0].value;
-    std::string connect, fields, where, order;
+    std::string fields, where, order;
     bool display = false;
 
     for (size_t i = 1; i < params.size(); ++i) {
-        if (params[i].name == "connect") {
-            connect = params[i].value;
-        } else if (params[i].name == "fields") {
+        if (params[i].name == "fields") {
             fields = params[i].value;
         } else if (params[i].name == "where") {
             where = params[i].value;
@@ -1051,17 +1027,9 @@ static std::string FP_tables_equal(const std::vector<tok::Param>& params)
     if(!order.empty()) {
         resultQuery += " order by " + order;
     }
-    dbo::Session session;
-    std::string postgresDump = session.dump("pg", tableName, {}, resultQuery);
-    std::string oracleDump =  session.dump("ora", tableName, {}, resultQuery);
-//    LogTrace(TRACE5) << __FUNCTION__ << " :" << postgresDump;
-//    LogTrace(TRACE5) << __FUNCTION__ << " :" << oracleDump;
-    if(oracleDump != postgresDump) {
-        ProgTrace(TRACE5,"tables %s are not equal",tableName.c_str());
-    }
-    ASSERT(oracleDump == postgresDump);
-    return "";
+    return dbo::Session().dump(tableName, {}, resultQuery);
 }
+
 
 static std::vector<string> getPaxAlarms(const std::string& table_name, int pax_id)
 {
@@ -1195,7 +1163,6 @@ static std::string FP_runArchStep(const std::vector<std::string>& par)
     //LogTrace(TRACE5) << __FUNCTION__ << " time: " << DateTimeToStr( utcdate, "DD.MM.YYYY" ); //HelpCpp::string_cast(send_time, "%H%M%S");
 
     PG_ARX::test_arx_daily(date, step);
-    test_arx_daily(BoostToDateTime(date), step);
 
     return "";
 }
@@ -1205,7 +1172,6 @@ static std::string FP_runArch(const std::vector<std::string>& par)
     ASSERT(par.size() == 1);
     Dates::DateTime_t date = HelpCpp::time_cast(par.at(0).c_str(), "%d%m%y");
     bool resultPg = PG_ARX::arx_daily(date);
-    bool result = arx_daily(BoostToDateTime(date));
     return "";
 }
 
@@ -1408,8 +1374,6 @@ FP_REGISTER("run_arch_step", FP_runArchStep);
 FP_REGISTER("run_arch", FP_runArch);
 FP_REGISTER("db_dump_table", FP_dump_table_astra);
 // FP_REGISTER("dump_db_table", FP_dump_db_table);
-FP_REGISTER("are_tables_equal", FP_tables_equal);
-FP_REGISTER("are_agent_stat_equal", FP_agent_stat_equal);
 FP_REGISTER("collect_flight_stat", FP_collectFlightStat);
 FP_REGISTER("init_iapi_request_id", FP_initIapiRequestId);
 FP_REGISTER("get_bcbp", FP_getBCBP);
@@ -1423,6 +1387,7 @@ FP_REGISTER("last_tlg_num", FP_lastTlgNum);
 FP_REGISTER("last_typeb_in_id", FP_lastTypeBInId);
 FP_REGISTER("nosir_departed_flt", FP_departedFlt);
 FP_REGISTER("nosir_basel_stat", FP_baselAeroStat);
+FP_REGISTER("check_dump", FP_check_dump);
 
 #include "xp_testing.h"
 

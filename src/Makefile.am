@@ -46,7 +46,7 @@ astra_SOURCES = \
   apis_tools.cc \
   apis_utils.cc \
   apps_interaction.cc \
-  arx_daily.cc \
+  arx_daily_pg.cpp \
   astra_callbacks.cc \
   astra_calls.cc \
   astra_consts.cc \
@@ -222,8 +222,7 @@ astra_SOURCES = \
   PgOraConfig.cc \
   wb_messages.cc \
   dbo.cpp \
-  dbostructures.cpp \
-  arx_daily_pg.cpp
+  dbostructures.cpp
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
@@ -272,7 +271,7 @@ noinst_HEADERS = \
   apis_settings.h \
   apis_tools.h \
   apps_interaction.h \
-  arx_daily.h \
+  arx_daily_pg.h \
   astra_callbacks.h \
   astra_calls.h \
   astra_consts.h \
@@ -445,7 +444,4 @@ noinst_HEADERS = \
   PgOraConfig.h \
   wb_messages.h \
   dbo.h \
-  dbostructures.h \
-  arx_daily_pg.h
-
-
+  dbostructures.h

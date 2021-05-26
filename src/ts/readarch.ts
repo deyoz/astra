@@ -62,8 +62,6 @@ $(CHECKIN_PAX_TRANSFER $(get pax_id1) $(get point_dep_UT_298) $(get point_arv_UT
 
 $(run_arch_step $(ddmmyy +151))
 
-$(dump_table MOVE_ARX_EXT fields = "move_id, part_key, date_range")
-$(dump_table ARX_TRFER_PAX_STAT)
 
 !! capture=on
 $(RUN_TRFER_PAX_STAT $(date_format %d.%m.%Y -160) $(date_format %d.%m.%Y +21))
@@ -208,8 +206,6 @@ $(PREPARE_SEASON_SCD ž’ ‘Ž— ‹• 100 1004 TU5 $(date_format %d.%m.%Y +12) $(date_
 $(make_spp $(ddmmyy +265))
 
 $(set point_dep $(get_dep_point_id €Œ‘ ž’ 300 $(yymmdd +1)))
-
-$(dump_table POINTS fields="point_id, move_id, airline, flt_no, airp, scd_in, scd_out, est_in, est_out, act_in, act_out, time_in, time_out, airp_fmt")
 
 $(run_arch_step $(ddmmyy +387))
 
@@ -451,12 +447,6 @@ $(set grp_id $(get_single_grp_id $(get point_dep_UT_298) OZ OFER))
 
 $(run_arch_step $(ddmmyy +151))
 
-$(dump_table MOVE_ARX_EXT fields = "move_id, part_key, date_range")
-$(dump_table ARX_TRFER_PAX_STAT)
-
-$(dump_table arx_pax_grp)
-$(dump_table arx_pax)
-$(dump_table arx_points)
 
 !! capture=on
 $(PAX_LIST_RUN  $(get point_dep_UT_298) $(date_format %d.%m.%Y))
@@ -545,15 +535,7 @@ $(sql {INSERT INTO trip_hall(point_id, type, hall, pr_misc)
 !!
 $(CHECKIN_PAX $(get pax_id_TUMALI) $(get point_dep_UT_100) $(get point_arv_UT_100) ž’ 100 ‘Ž— ‹• TUMALI VALERII 2986145115578 ‚‡ UA FA144642 UA 16.04.1968 25.06.2025 M)
 
-$(dump_table points)
-
 $(run_arch_step $(ddmmyy +141))
-
-$(are_tables_equal ARX_PAX)
-$(are_tables_equal ARX_PAX_GRP)
-$(are_tables_equal ARX_STAT_AD)
-$(are_tables_equal ARX_STAT_SERVICES)
-$(are_tables_equal ARX_POINTS)
 
 !! capture=on
 $(RUN_ACTUAL_DEPARTURED_STAT $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21))
@@ -713,13 +695,8 @@ $(CHECKIN_PAX $(get pax_id_BURYAKOV) $(get point_dep_UT_100) $(get point_arv_UT_
 
 $(KICK_IN_SILENT)
 
-$(dump_table rfisc_list_items)
-$(dump_table pax_services_auto)
-$(dump_table points)
 
 $(run_arch_step $(ddmmyy +141))
-
-$(are_tables_equal ARX_STAT_SERVICES)
 
 !!capture = on
 $(RUN_SERVICES_STAT $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21))
@@ -809,11 +786,7 @@ $(sql {INSERT INTO trip_hall(point_id, type, hall, pr_misc)
 !!
 $(CHECKIN_PAX $(get pax_id_TUMALI) $(get point_dep_UT_100) $(get point_arv_UT_100) ž’ 100 ‘Ž— ‹• TUMALI VALERII 2986145115578 ‚‡ UA FA144642 UA 16.04.1968 25.06.2025 M)
 
-$(dump_table points)
 $(run_arch_step $(ddmmyy +141))
-
-$(are_tables_equal ARX_POINTS)
-$(are_tables_equal MOVE_ARX_EXT)
 
 $(nosir_departed_flt $(yyyymmdd +10) $(yyyymmdd +30))
 
@@ -853,14 +826,7 @@ $(sql {INSERT INTO trip_hall(point_id, type, hall, pr_misc)
 !!
 $(CHECKIN_PAX $(get pax_id_TUMALI) $(get point_dep_UT_100) $(get point_arv_UT_100) ž’ 100 ‘Ž— ‹• TUMALI VALERII 2986145115578 ‚‡ UA FA144642 UA 16.04.1968 25.06.2025 M)
 
-$(dump_table points)
-$(dump_table airlines)
-
 $(run_arch_step $(ddmmyy +141))
-
-$(are_tables_equal ARX_POINTS)
-$(are_tables_equal ARX_TRIP_CLASSES)
-#$(are_tables_equal ARX_EVENTS order="ev_order, lang")
 
 !!capture = on
 $(READ_ARX_TRIPS $(date_format %d.%m.%Y +20))
@@ -1012,11 +978,12 @@ $(run_arch_step $(ddmmyy +141))
 
 $(nosir_basel_stat $(date_format %d.%m.%Y +20) 09:00:00 $(get point_dep_UT_100))
 
+#-3h ¯®â®¬ã çâ® utc ¢à¥¬ï
 ??
-$(dump_table basel_stat display="on")
->> lines=auto
-[‘Ž—] [$(get pax_id_TUMALI)] [$(get point_dep_UT_100)] [...] [NULL] [NULL] [0] [NULL] [1] [...] [ŠŽŽŒ] [NULL] [$(yymmdd +20)] [$(yymmdd +20)] [NULL] [ž’100] [...] [TUMALI/VALERII] [0] [0] [NULL] [NULL] [§ à¥£¨áâà¨à®¢ ­] [NULL] [NULL] [0] $()
-
+$(check_dump basel_stat)
+>>
+[‘Ž—] [$(get pax_id_TUMALI)] [$(get point_dep_UT_100)] [$(date_format %d.%m.%Y -3h)] [NULL] [NULL] [0] [NULL] [1] [$(date_format %d.%m.%Y -3h)] [ŠŽŽŒ] [NULL] [$(date_format %d.%m.%Y +20)] [$(date_format %d.%m.%Y +20)] [NULL] [ž’100] [...] [TUMALI/VALERII] [0] [0] [NULL] [NULL] [§ à¥£¨áâà¨à®¢ ­] [NULL] [NULL] [0] $()
+$()
 
 %%
 #########################################################################################
@@ -1074,13 +1041,6 @@ $(set grp_id2 $(get_single_grp_id $(get point_dep_UT_190) OZ OFER))
 $(set grp_id3 $(get_single_grp_id $(get point_dep_UT_450) OZ OFER))
 
 $(run_arch_step $(ddmmyy +151))
-
-$(dump_table MOVE_ARX_EXT fields = "move_id, part_key, date_range")
-$(dump_table ARX_TRFER_PAX_STAT)
-
-$(dump_table arx_pax_grp)
-$(dump_table arx_pax)
-$(dump_table arx_points)
 
 !! capture=on
 $(RUN_PAX_SRC_STAT $(date_format %d.%m.%Y -10) $(date_format %d.%m.%Y +10)  OZ)
@@ -1215,9 +1175,7 @@ $(make_spp $(ddmmyy +265))
 
 $(set point_dep $(get_dep_point_id €Œ‘ ž’ 300 $(yymmdd +1)))
 
-$(dump_table POINTS fields="point_id, move_id, airline, flt_no, airp, scd_in, scd_out, est_in, est_out, act_in, act_out, time_in, time_out, airp_fmt")
 $(run_arch_step $(ddmmyy +387))
-$(dump_table ARX_POINTS)
 
 !! capture=on
 $(RUN_FLT_TASK_LOG $(get point_dep) $(date_format %d.%m.%Y +1))
@@ -1292,9 +1250,7 @@ $(make_spp $(ddmmyy +265))
 
 $(set point_dep $(get_dep_point_id €Œ‘ ž’ 300 $(yymmdd +1)))
 
-$(dump_table POINTS fields="point_id, move_id, airline, flt_no, airp, scd_in, scd_out, est_in, est_out, act_in, act_out, time_in, time_out, airp_fmt")
 $(run_arch_step $(ddmmyy +387))
-$(dump_table ARX_POINTS)
 
 !! capture=on
 $(RUN_FLT_LOG $(get point_dep) $(date_format %d.%m.%Y +1))
@@ -1495,9 +1451,7 @@ $(make_spp $(ddmmyy +265))
 $(set point_dep_300 $(get_dep_point_id €Œ‘ ž’ 300 $(yymmdd +1)))
 $(set point_dep_100 $(get_dep_point_id ‘Ž— ž’ 100 $(yymmdd +265)))
 
-$(dump_table POINTS fields="point_id, move_id, airline, flt_no, airp, scd_in, scd_out, est_in, est_out, act_in, act_out, time_in, time_out, airp_fmt")
 $(run_arch_step $(ddmmyy +387))
-$(dump_table ARX_POINTS)
 
 !! capture=on
 $(RUN_FLT_CBOX_DROP_DOWN $(date_format %d.%m.%Y ) $(date_format %d.%m.%Y +266))
@@ -1555,11 +1509,7 @@ $(CHECKIN_PAX $(get pax_id_TUMALI) $(get point_dep) $(get point_arv) ž’ 100 ‘Ž— 
 
 $(set grp_id $(get_single_grp_id $(get point_dep) TUMALI VALERII))
 
-$(dump_table POINTS fields="point_id, move_id, airline, flt_no, airp, scd_in, scd_out, est_in, est_out, act_in, act_out, time_in, time_out, airp_fmt")
-$(dump_table PAX)
-
 $(run_arch_step $(ddmmyy +150))
-$(dump_table ARX_POINTS)
 
 !! capture=on
 $(RUN_LOG_RUN $(get point_dep) $(get grp_id) $(date_format %d.%m.%Y +20) 1)
@@ -1648,8 +1598,6 @@ $(CHECKIN_PAX $(get pax_id_TUMALI) $(get point_dep) $(get point_arv) ž’ 100 ‘Ž— 
 
 $(set grp_id $(get_single_grp_id $(get point_dep) TUMALI VALERII))
 
-$(dump_table POINTS fields="point_id, move_id, airline, flt_no, airp, scd_in, scd_out, est_in, est_out, act_in, act_out, time_in, time_out, airp_fmt")
-$(dump_table PAX)
 
 $(run_arch_step $(ddmmyy +150))
 
@@ -1716,16 +1664,15 @@ $(CHECKIN_PAX $(get pax_id_TUMALI) $(get point_dep) $(get point_arv) ž’ 100 ‘Ž— 
 
 $(set grp_id $(get_single_grp_id $(get point_dep) TUMALI VALERII))
 
-$(dump_table POINTS fields="point_id, move_id, airline, flt_no, airp, scd_in, scd_out, est_in, est_out, act_in, act_out, time_in, time_out, airp_fmt")
-
-$(dump_table EVENTS_BILINGUAL order="ev_order, lang")
-
 $(run_arch_step $(ddmmyy +140))
 
-$(dump_table ARX_EVENTS order="ev_order, lang")
+$(set first_date "$(date_format %d.%m.%Y +0) $(date_format %H:%M:%S -4h)")
+$(set last_date "$(date_format %d.%m.%Y +1) $(date_format %H:%M:%S -4h)")
+
+$(db_dump_table ARX_EVENTS)
 
 !! capture=on
-$(RUN_SYSTEM_LOG $(date_format %d.%m.%Y +0 ) $(date_format %d.%m.%Y +1))
+$(RUN_SYSTEM_LOG $(get first_date) $(get last_date))
 >>
 <?xml version='1.0' encoding='CP866'?>
 <term>
@@ -2089,13 +2036,14 @@ $(db_dump_table POINTS)
 $(run_arch_step $(ddmmyy +1))
 
 ??
-$(dump_table POINTS display="on")
->> lines=auto
-[NULL] [NULL] [ž’] [0] [‘Ž—] [0] [NULL] [’“5] [1] [NULL] [NULL] [NULL] [100] [NULL] [...] [NULL] [NULL] [...] [0] [0] [1] [0] [NULL] [NULL] [$(yymmdd +1)] [NULL] [NULL] [...] [NULL] [$(yymmdd +1)] [¯] $()
-[NULL] [NULL] [NULL] [NULL] [‹•] [0] [NULL] [NULL] [NULL] [NULL] [NULL] [...] [NULL] [NULL] [...] [NULL] [NULL] [...] [1] [0] [0] [0] [NULL] [NULL] [NULL] [NULL] [NULL] [...] [000101] [000101] [NULL] $()
+$(check_dump POINTS)
+>>
+[...] [...] [0] [‘Ž—] [0] [NULL] [ž’] [100] [NULL] [’“5] [NULL] [NULL] [NULL] [NULL] [$(date_format %d.%m.%Y +1)] [NULL] [NULL] [NULL] [$(date_format %d.%m.%Y +1)] [¯] [NULL] [NULL] [NULL] [NULL] [1] [0] [0] [0] [1] [NULL] [...] $()
+[...] [...] [1] [‹•] [0] [...] [NULL] [NULL] [NULL] [NULL] [NULL] [NULL] [NULL] [NULL] [NULL] [NULL] [NULL] [01.01.1900] [01.01.1900] [NULL] [NULL] [NULL] [NULL] [NULL] [0] [0] [0] [NULL] [NULL] [NULL] [...] $()
+$()
 
 $(run_arch_step $(ddmmyy +122))
 ??
-$(dump_table POINTS)
+$(check_dump POINTS)
 >>
 $()

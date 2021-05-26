@@ -3792,8 +3792,8 @@ $(defmacro RUN_SYSTEM_LOG
         <offset>20</offset>
         <top>0</top>
       </prnParams>
-      <FirstDate>$(first_date) 00:00:00</FirstDate>
-      <LastDate>$(last_date) 00:00:00</LastDate>
+      <FirstDate>$(first_date)</FirstDate>
+      <LastDate>$(last_date)</LastDate>
       <evtFlt>…‰</evtFlt>
       <evtPax>€‘</evtPax>
       <evtPay>‹</evtPay>
@@ -4086,4 +4086,13 @@ $(defmacro MESSAGE_TAG
     </command>}
 )
 
+$(defmacro CHECK_DUMP
+    tablename
+    textdump=""
+{
+    $(dump_table $(tablename) display="on")
+    >> lines=auto
+    textdump
+}
+)
 
