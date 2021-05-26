@@ -247,7 +247,7 @@ $(NEW_SPP_FLIGHT_REQUEST
 
 })
 
-$(defmacro PAX_RESPONSE_1479_1
+$(defmacro PAX_RESPONSE_1479_1_RU
 {      <passenger lastname='KOTOVA' name='IRINA' date_of_birth='01.05.1976' category='adult' gender='female' document_no='7774441110' pax_id='$(get pax_id_1479_1)' status='checked'>
         <flight carrier='ЮТ' flight_no='580' departure='СОЧ' destination='ВНК' departure_time='$(get tomor+0) 12:00' arrival_time='$(get tomor+0) 15:00' check_in_status='open' web_check_in_status='open' boarding_status='close'>
           <ticket>2982410821479</ticket>
@@ -258,7 +258,18 @@ $(defmacro PAX_RESPONSE_1479_1
         </flight>
       </passenger>})
 
-$(defmacro PAX_RESPONSE_1480_1
+$(defmacro PAX_RESPONSE_1479_1_EN
+{      <passenger lastname='KOTOVA' name='IRINA' date_of_birth='01.05.1976' category='adult' gender='female' document_no='7774441110' pax_id='$(get pax_id_1479_1)' status='checked'>
+        <flight carrier='UT' flight_no='580' departure='AER' destination='VKO' departure_time='$(get tomor+0) 12:00' arrival_time='$(get tomor+0) 15:00' check_in_status='open' web_check_in_status='open' boarding_status='close'>
+          <ticket>2982410821479</ticket>
+          <reclocs>
+            <recloc crs='DT'>04VSFC</recloc>
+            <recloc crs='UT'>054C82</recloc>
+          </reclocs>
+        </flight>
+      </passenger>})
+
+$(defmacro PAX_RESPONSE_1480_1_RU
 {      <passenger lastname='MOTOVA' name='IRINA' date_of_birth='01.05.1976' category='adult' gender='female' document_no='7774441110' pax_id='$(get pax_id_1480_1)' status='not_checked'>
         <flight carrier='ЮТ' flight_no='580' departure='СОЧ' destination='ВНК' departure_time='$(get tomor+0) 12:00' arrival_time='$(get tomor+0) 15:00' check_in_status='open' web_check_in_status='open' boarding_status='close'>
           <ticket>2982410821480</ticket>
@@ -269,7 +280,18 @@ $(defmacro PAX_RESPONSE_1480_1
         </flight>
       </passenger>})
 
-$(defmacro PAX_RESPONSE_1479_2
+$(defmacro PAX_RESPONSE_1480_1_EN
+{      <passenger lastname='MOTOVA' name='IRINA' date_of_birth='01.05.1976' category='adult' gender='female' document_no='7774441110' pax_id='$(get pax_id_1480_1)' status='not_checked'>
+        <flight carrier='UT' flight_no='580' departure='AER' destination='VKO' departure_time='$(get tomor+0) 12:00' arrival_time='$(get tomor+0) 15:00' check_in_status='open' web_check_in_status='open' boarding_status='close'>
+          <ticket>2982410821480</ticket>
+          <reclocs>
+            <recloc crs='DT'>04VSFC</recloc>
+            <recloc crs='UT'>054C82</recloc>
+          </reclocs>
+        </flight>
+      </passenger>})
+
+$(defmacro PAX_RESPONSE_1479_2_RU
 {      <passenger lastname='KOTOVA' name='IRINA' date_of_birth='01.05.1976' category='adult' gender='female' document_no='7774441110' pax_id='$(get pax_id_1479_2)' status='checked'>
         <flight carrier='ЮТ' flight_no='461' departure='ВНК' destination='РЩН' departure_time='$(get tomor+0) 16:00' arrival_time='$(get tomor+0) 21:20' check_in_status='close' web_check_in_status='close' boarding_status='close'>
           <ticket>2982410821479</ticket>
@@ -280,7 +302,7 @@ $(defmacro PAX_RESPONSE_1479_2
         </flight>
       </passenger>})
 
-$(defmacro PAX_RESPONSE_1480_2
+$(defmacro PAX_RESPONSE_1480_2_RU
 {      <passenger lastname='MOTOVA' name='IRINA' date_of_birth='01.05.1976' category='adult' gender='female' document_no='7774441110' pax_id='$(get pax_id_1480_2)' status='not_checked'>
         <flight carrier='ЮТ' flight_no='461' departure='ВНК' destination='РЩН' departure_time='$(get tomor+0) 16:00' arrival_time='$(get tomor+0) 21:20' check_in_status='close' web_check_in_status='close' boarding_status='close'>
           <ticket>2982410821480</ticket>
@@ -694,6 +716,9 @@ $(NEW_CHECKIN_2982410821479 $(get pax_id_1479_2) 2)
   </pax>
 </passengers>})})
 
+$(set grp_id_1479_1 $(get_single_grp_id $(get pax_id_1479_1)))
+$(set grp_id_1479_2 $(get_single_grp_id $(get pax_id_1479_2)))
+
 ### поиск по номеру рейса
 
 $(SEARCH_PASSENGERS_REQUEST $(get http_heading) VKO carrier=UT)
@@ -710,8 +735,8 @@ $(SEARCH_PASSENGERS_REQUEST $(get http_heading) AER
   flight_no=580
   departure_date_scd=$(date_format %d.%m.%Y +1))
 $(SEARCH_PASSENGERS_RESPONSE
-{$(PAX_RESPONSE_1479_1)
-$(PAX_RESPONSE_1480_1)})
+{$(PAX_RESPONSE_1479_1_RU)
+$(PAX_RESPONSE_1480_1_RU)})
 
 $(SEARCH_PASSENGERS_REQUEST $(get http_heading) VKO
   carrier=UT
@@ -726,20 +751,20 @@ $(SEARCH_PASSENGERS_REQUEST $(get http_heading) VKO
   departure_date_scd=$(date_format %d.%m.%Y +1)
   destination=TJM)
 $(SEARCH_PASSENGERS_RESPONSE
-{$(PAX_RESPONSE_1479_2)
-$(PAX_RESPONSE_1480_2)})
+{$(PAX_RESPONSE_1479_2_RU)
+$(PAX_RESPONSE_1480_2_RU)})
 
 ### поиск по номеру PNR
 
 $(SEARCH_PASSENGERS_REQUEST $(get http_heading) VKO recloc=04VSFC)
 $(SEARCH_PASSENGERS_RESPONSE
-{$(PAX_RESPONSE_1479_2)
-$(PAX_RESPONSE_1480_2)})
+{$(PAX_RESPONSE_1479_2_RU)
+$(PAX_RESPONSE_1480_2_RU)})
 
 ### поиск по номеру билета
 
 $(SEARCH_PASSENGERS_REQUEST $(get http_heading) AER ticket_no=2982410821480)
-$(SEARCH_PASSENGERS_RESPONSE $(PAX_RESPONSE_1480_1))
+$(SEARCH_PASSENGERS_RESPONSE $(PAX_RESPONSE_1480_1_RU))
 
 ### поиск по номеру документа
 
@@ -758,10 +783,10 @@ $(SEARCH_PASSENGERS_RESPONSE)
 $(SEARCH_PASSENGERS_REQUEST $(get http_heading) AER search_depth=48 document_no=13578642)
 $(SEARCH_PASSENGERS_RESPONSE)
 
-$(SEARCH_PASSENGERS_REQUEST $(get http_heading) AER search_depth=48 document_no=7774441110)
-$(SEARCH_PASSENGERS_RESPONSE
-{$(PAX_RESPONSE_1479_1)
-$(PAX_RESPONSE_1480_1)})
+$(SEARCH_PASSENGERS_REQUEST $(get http_heading) AER search_depth=48 document_no=7774441110 lang=EN)
+$(SEARCH_PASSENGERS_RESPONSE lang=EN
+{$(PAX_RESPONSE_1479_1_EN)
+$(PAX_RESPONSE_1480_1_EN)})
 
 ### поиск по фамилии
 
@@ -769,9 +794,64 @@ $(SEARCH_PASSENGERS_REQUEST $(get http_heading) AER search_depth=3 lastname=МОТО
 $(SEARCH_PASSENGERS_RESPONSE)
 
 $(SEARCH_PASSENGERS_REQUEST $(get http_heading) AER search_depth=48 lastname=МОТОВА)
-$(SEARCH_PASSENGERS_RESPONSE $(PAX_RESPONSE_1480_1))
+$(SEARCH_PASSENGERS_RESPONSE $(PAX_RESPONSE_1480_1_RU))
 
 $(SEARCH_PASSENGERS_REQUEST $(get http_heading) VKO search_depth=48 lastname=KOTOVA)
-$(SEARCH_PASSENGERS_RESPONSE $(PAX_RESPONSE_1479_2))
+$(SEARCH_PASSENGERS_RESPONSE $(PAX_RESPONSE_1479_2_RU))
 
 
+### поиск по штрих-коду
+
+$(SEARCH_PASSENGERS_REQUEST $(get http_heading) AER barcode=ХРЕНЬ)
+$(SEARCH_PASSENGERS_ERROR "Wrong &lt;barcode&gt;: unknown item 1 &lt;Format Code&gt;")
+
+$(SEARCH_PASSENGERS_REQUEST $(get http_heading) AER barcode=$(get_bcbp $(get grp_id_1479_1) $(get pax_id_1479_1) RU))
+$(SEARCH_PASSENGERS_RESPONSE $(PAX_RESPONSE_1479_1_RU))
+
+$(SEARCH_PASSENGERS_REQUEST $(get http_heading) VKO barcode=$(get_bcbp $(get grp_id_1479_2) $(get pax_id_1479_2) EN))
+$(SEARCH_PASSENGERS_RESPONSE $(PAX_RESPONSE_1479_2_RU))
+
+### поиск по всем критериям
+
+$(SEARCH_PASSENGERS_REQUEST $(get http_heading) СОЧ
+  barcode=$(get_bcbp $(get grp_id_1479_1) $(get pax_id_1479_1) EN)
+  carrier=ЮТ
+  flight_no=580
+  departure_date_scd=$(date_format %d.%m.%Y +1)
+  destination=ВНК
+  recloc=04ВСФЦ
+  ticket_no=2982410821479
+  search_depth=48
+  document_no=7774441110
+  lastname=КОТОВА)
+$(SEARCH_PASSENGERS_RESPONSE $(PAX_RESPONSE_1479_1_RU))
+
+### поиск со всеми пустыми критериями
+
+$(SEARCH_PASSENGERS_REQUEST $(get http_heading) СОЧ
+  barcode=""
+  carrier=""
+  flight_no=""
+  departure_date_scd=""
+  destination=""
+  recloc=""
+  ticket_no=""
+  search_depth=""
+  document_no=""
+  lastname="")
+$(SEARCH_PASSENGERS_ERROR "Not enough parameters to search")
+
+### поиск по билету со всеми остальными пустыми критериями
+
+$(SEARCH_PASSENGERS_REQUEST $(get http_heading) СОЧ
+  barcode=""
+  carrier=""
+  flight_no=""
+  departure_date_scd=""
+  destination=""
+  recloc=""
+  ticket_no=2982410821479
+  search_depth=""
+  document_no=""
+  lastname="")
+$(SEARCH_PASSENGERS_RESPONSE $(PAX_RESPONSE_1479_1_RU))
