@@ -125,6 +125,7 @@ class Search
       conditions.clear();
       params.clear();
       useSearchPaxIds = false;
+      searchPaxIds.clear();
     }
 
     template <class Criterion, class ... Criterions>
@@ -136,19 +137,29 @@ class Search
         criterion.addSQLTablesForSearch(origin, tables);
         criterion.addSQLConditionsForSearch(origin, conditions);
         criterion.addSQLParamsForSearch(origin, params);
-        if (!useSearchPaxIds) {
-          useSearchPaxIds = criterion.useSearchPaxIds(origin);
-        }
-        if (useSearchPaxIds) {
-          if (searchPaxIds.empty()) {
+
+        if (criterion.useSearchPaxIds(origin))
+        {
+          if (!useSearchPaxIds)
+          {
+            //встретили первый критерий, который заполняет searchPaxIds
             criterion.addSearchPaxIds(origin, searchPaxIds);
-          } else {
-            std::set<PaxId_t> result;
-            std::set<PaxId_t> searchPaxIdsNew;
-            criterion.addSearchPaxIds(origin, searchPaxIdsNew);
-            std::set_intersection(searchPaxIds.begin(), searchPaxIds.end(),
-                                  searchPaxIdsNew.begin(), searchPaxIdsNew.end(),
-                                  std::inserter(result,result.begin()));
+            useSearchPaxIds=true;
+          }
+          else
+          {
+            //уже был критерий, который зачитал searchPaxIds
+            if (!searchPaxIds.empty())
+            {
+              //зачитываем set<PaxId_t> по текущему критерию и находим пересечение с searchPaxIds
+              std::set<PaxId_t> result;
+              std::set<PaxId_t> searchPaxIdsNew;
+              criterion.addSearchPaxIds(origin, searchPaxIdsNew);
+              std::set_intersection(searchPaxIds.cbegin(), searchPaxIds.cend(),
+                                    searchPaxIdsNew.cbegin(), searchPaxIdsNew.cend(),
+                                    std::inserter(result,result.begin()));
+              searchPaxIds=result;
+            }
           }
         }
       }
