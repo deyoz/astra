@@ -448,19 +448,20 @@ bool Search::addPassengers(CheckIn::TSimplePaxList& paxs)
 
   string sql = getSQLText();
 
-//  LogTrace(TRACE5) << __FUNCTION__ << ": " << endl << sql;
-//  LogTrace(TRACE5) << __FUNCTION__ << ": " << endl << params;
+  LogTrace(TRACE6) << __FUNCTION__ << ": " << endl << sql;
 
   if (useSearchPaxIds) {
     for (PaxId_t pax_id: searchPaxIds) {
-      params.clear();
+      params.remove_if([](const QParam& param){ return param.name=="pax_id"; });
       params << QParam("pax_id", otInteger, pax_id.get());
+      LogTrace(TRACE6) << __FUNCTION__ << ": " << endl << params;
       if (!executePaxQuery(sql, paxs)) {
         return false;
       }
     }
     return true;
   }
+  LogTrace(TRACE6) << __FUNCTION__ << ": " << endl << params;
   return executePaxQuery(sql, paxs);
 }
 
