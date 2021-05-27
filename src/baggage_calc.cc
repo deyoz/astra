@@ -2221,6 +2221,7 @@ bool BagPaymentCompleted(int grp_id, int *value_bag_count)
       };
       DB::TQuery Qry(PgOra::getROSession(table_name), STDLOG);
       Qry.SQLText = sql;
+      Qry.CreateVariable("grp_id", otInteger, grp_id);
       Qry.Execute();
       for(;!Qry.Eof;Qry.Next())
       {

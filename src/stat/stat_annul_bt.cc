@@ -218,14 +218,15 @@ void RunAnnulBTStat(
         "   amount, "
         "   weight, "
         "   user_id "
-        "FROM annul_bag ";
+        "FROM annul_bag "
+        "WHERE ";
 
-    LogTrace5 << __func__ << " point_id: " << point_id;
+    LogTrace(TRACE5) << __func__ << " point_id: " << point_id;
     if(point_id == ASTRA::NoExists) {
         params.AccessClause(SQLText);
-        SQLText += "WHERE scd_out >= :first_date AND scd_out < :last_date ";
+        SQLText += " scd_out >= :first_date AND scd_out < :last_date ";
     } else {
-        SQLText += "WHERE point_id = :point_id ";
+        SQLText += " point_id = :point_id ";
     }
 
     DB::TCachedQuery Qry(
