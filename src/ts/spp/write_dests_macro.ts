@@ -150,6 +150,8 @@ $(dests)
   </query>
 </term>
 
+})
+
 $(defmacro change_spp_point_last
   point_id
   scd_in   #формат даты: dd.mm.yyyy hh:nn
