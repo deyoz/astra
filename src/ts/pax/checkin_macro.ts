@@ -786,9 +786,7 @@ $(if $(eq $(segment2_props) "") "" {
         <recloc crs=\"UT\">054C82</recloc>
       </segment>})\
 $(if $(eq $(segment2_props2) "") "" {
-      <segment id=\"1\" $(segment2_props2) subclass=\"Y\">
-        <ticket number=\"2982410821479\" coupon_num=\"2\" display_id=\"$(display_id)\"/>
-      </segment>})
+      <segment id=\"1\" $(segment2_props2) subclass=\"Y\"/>})
     </passenger>}
 )
 
@@ -812,9 +810,7 @@ $(if $(eq $(segment2_props) "") "" {
         <recloc crs=\"UT\">054C82</recloc>
       </segment>})\
 $(if $(eq $(segment2_props2) "") "" {
-      <segment id=\"1\" $(segment2_props2) subclass=\"Y\">
-        <ticket number=\"2982410821480\" coupon_num=\"2\" display_id=\"$(display_id)\"/>
-      </segment>})
+      <segment id=\"1\" $(segment2_props2) subclass=\"Y\"/>})
     </passenger>}
 )
 

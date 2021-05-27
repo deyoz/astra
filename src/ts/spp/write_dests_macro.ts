@@ -6,15 +6,12 @@ $(defmacro new_spp_point
   scd_in   #формат даты: dd.mm.yyyy hh:nn
   airp
   scd_out  #формат даты: dd.mm.yyyy hh:nn
-  suffix
   trip_type=п
 {          <dest>
             <modify/>
             <airp>$(airp)</airp>
             <airline>$(airline)</airline>
             <flt_no>$(flt_no)</flt_no>\
-$(if $(eq $(suffix) "") "" {
-            <suffix>$(suffix)</suffix>})\
 $(if $(eq $(craft) "") "" {
             <craft>$(craft)</craft>})\
 $(if $(eq $(bort) "") "" {
