@@ -105,7 +105,7 @@ void ArxRunAnnulBTStat(
             QryParams << QParam("flt_no", otInteger, params.flt_no);
         }
         UsersReader::Instance().updateUsers();
-        DB::TCachedQuery Qry(PgOra::getROSession("ARX_POINTS"), SQLText, QryParams);
+        DB::TCachedQuery Qry(PgOra::getROSession("ARX_POINTS"), SQLText, QryParams, STDLOG);
         Qry.get().Execute();
         if(not Qry.get().Eof) {
             int col_part_key = Qry.get().FieldIndex("part_key");

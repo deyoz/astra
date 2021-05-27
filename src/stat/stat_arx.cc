@@ -320,7 +320,7 @@ void ArxFltTaskLogRun(TDateTime part_key, XMLRequestCtxt *ctxt,
             throw UserException("MSG.ERR_MSG.ARX_EVENTS_DISABLED");
     }
     {
-        DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"));
+        DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"), STDLOG);
         Qry.SQLText =
             "select airline from arx_points "
             "where part_key = :part_key and point_id = :point_id "; // pr_del >= 0 - не надо, т.к. в архиве нет удаленных рейсов
@@ -347,7 +347,7 @@ void ArxFltTaskLogRun(TDateTime part_key, XMLRequestCtxt *ctxt,
     TPerfTimer tm;
     tm.Init();
     xmlNodePtr rowsNode = NULL;
-    DB::TQuery Qry(PgOra::getROSession("ARX_EVENTS"));
+    DB::TQuery Qry(PgOra::getROSession("ARX_EVENTS"), STDLOG);
     Qry.SQLText = SQLQuery;
     Qry.CreateVariable("lang", otString, TReqInfo::Instance()->desk.lang);
     Qry.CreateVariable("point_id", otInteger, point_id);
@@ -399,7 +399,7 @@ void ArxFltTaskLogRun(TDateTime part_key, XMLRequestCtxt *ctxt,
             string screen = Qry.FieldAsString(col_screen);
             if(screen.size()) {
                 if(screen_map.find(screen) == screen_map.end()) {
-                    DB::TQuery Qry(*get_main_ora_sess(STDLOG));
+                    DB::TQuery Qry(*get_main_ora_sess(STDLOG), STDLOG);
                     Qry.SQLText = "select name from screen where exe = :exe";
                     Qry.CreateVariable("exe", otString, screen);
                     Qry.Execute();
@@ -557,7 +557,7 @@ void ArxFltLogRun(TDateTime part_key, XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     STAT::set_variables(resNode);
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
     NewTextChild(variablesNode, "report_title", getLocaleText("Журнал операций рейса"));
-    DB::TQuery Qry(PgOra::getROSession("ARX_EVENTS"));
+    DB::TQuery Qry(PgOra::getROSession("ARX_EVENTS"), STDLOG);
     int count = 0;
 
     xmlNodePtr paxLogNode = NewTextChild(resNode, "PaxLog");
@@ -571,7 +571,7 @@ void ArxFltLogRun(TDateTime part_key, XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
         if(ARX_EVENTS_DISABLED()) {
             throw UserException("MSG.ERR_MSG.ARX_EVENTS_DISABLED");
         }
-        DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"));
+        DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"), STDLOG);
         Qry.SQLText =
             "select move_id, airline from arx_points "
             "where part_key = :part_key and point_id = :point_id "; // pr_del >= 0 - не надо, т.к. в архиве нет удаленных рейсов
@@ -683,7 +683,7 @@ void ArxFltLogRun(TDateTime part_key, XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
                 string screen = Qry.FieldAsString(col_screen);
                 if(screen.size()) {
                     if(screen_map.find(screen) == screen_map.end()) {
-                        DB::TQuery Qry(PgOra::getROSession("SCREEN"));
+                        DB::TQuery Qry(PgOra::getROSession("SCREEN"), STDLOG);
                         Qry.SQLText = "select name from screen where exe = :exe";
                         Qry.CreateVariable("exe", otString, screen);
                         Qry.Execute();
@@ -890,7 +890,7 @@ void ArxLogRun(TDateTime part_key, XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     xmlNodePtr paxLogNode = NewTextChild(resNode, "PaxLog");
     xmlNodePtr headerNode = NewTextChild(paxLogNode, "header");
     NewTextChild(headerNode, "col", "Агент"); // Для совместимости со старой версией терминала
-    DB::TQuery AirlineQry(PgOra::getROSession("ARX_POINTS"));
+    DB::TQuery AirlineQry(PgOra::getROSession("ARX_POINTS"), STDLOG);
     AirlineQry.CreateVariable("point_id", otInteger, point_id);
 
     if(ARX_EVENTS_DISABLED())
@@ -898,7 +898,7 @@ void ArxLogRun(TDateTime part_key, XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     AirlineQry.SQLText = "select airline from arx_points where point_id = :point_id and part_key = :part_key and pr_del >= 0";
     AirlineQry.CreateVariable("part_key", otDate, part_key);
 
-    DB::TQuery Qry(PgOra::getROSession("ARX_EVENTS"));
+    DB::TQuery Qry(PgOra::getROSession("ARX_EVENTS"), STDLOG);
     Qry.SQLText =
         "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
         "       ev_user, station, ev_order, COALESCE(part_num, 1) AS part_num "
@@ -1123,7 +1123,7 @@ void ArxSystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNod
     xmlNodePtr headerNode = NewTextChild(paxLogNode, "header");
     NewTextChild(headerNode, "col", "Агент"); // для совместимости со старой версией терминала
 
-    DB::TQuery Qry(PgOra::getROSession("ARX_EVENTS"));
+    DB::TQuery Qry(PgOra::getROSession("ARX_EVENTS"), STDLOG);
     map<int, string> TripItems;
     xmlNodePtr rowsNode = NULL;
     TDeskAccess desk_access;
@@ -1257,7 +1257,7 @@ void ArxSystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNod
             if(!Qry.FieldIsNULL(col_point_id)) {
                 int point_id = Qry.FieldAsInteger(col_point_id);
                 if(TripItems.find(point_id) == TripItems.end()) {
-                    DB::TQuery tripQry(PgOra::getROSession("ARX_POINTS"));
+                    DB::TQuery tripQry(PgOra::getROSession("ARX_POINTS"), STDLOG);
                     string SQLText =
                         "select " + TTripInfo::selectedFields() +
                         " from arx_points "
@@ -1656,7 +1656,7 @@ void ArxPaxListRun(Dates::DateTime_t part_key, xmlNodePtr reqNode, xmlNodePtr re
     int point_id = NodeAsIntegerFast("point_id", paramNode);
     get_compatible_report_form("ArxPaxList", reqNode, resNode);
 
-    DB::TQuery Qry(PgOra::getROSession("ARX_PAX_GRP"));
+    DB::TQuery Qry(PgOra::getROSession("ARX_PAX_GRP"), STDLOG);
     string SQLText;
     SQLText =
         "SELECT "
@@ -2083,7 +2083,7 @@ void ArxPaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, 
     if(IncMonth(FirstDate, 1) < LastDate)
         throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_ONE_MONTH");
     TPerfTimer tm;
-    DB::TQuery Qry(PgOra::getROSession("ARX_PAX_GRP"));
+    DB::TQuery Qry(PgOra::getROSession("ARX_PAX_GRP"), STDLOG);
     Qry.CreateVariable("FirstDate", otDate, FirstDate);
     Qry.CreateVariable("LastDate", otDate, LastDate);
     //Qry.CreateVariable("pr_lat", otInteger, info.desk.lang != AstraLocale::LANG_RU);
@@ -2220,7 +2220,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     if(IncMonth(FirstDate, 1) < LastDate)
         throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_ONE_MONTH");
     TPerfTimer tm;
-    DB::TQuery Qry(*get_main_ora_sess(STDLOG));
+    DB::TQuery Qry(*get_main_ora_sess(STDLOG), STDLOG);
     Qry.CreateVariable("FirstDate", otDate, FirstDate);
     Qry.CreateVariable("LastDate", otDate, LastDate);
     Qry.CreateVariable("pr_lat", otInteger, TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU);

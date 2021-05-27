@@ -222,7 +222,7 @@ void ArxGetFltCBoxList(TScreenState scr, TDateTime first_date, TDateTime last_da
     LogTrace5 << __func__ << " first_date: " << DateTimeToBoost(first_date)
               << " last_date: " << DateTimeToBoost(last_date);
     TReqInfo &reqInfo = *(TReqInfo::Instance());
-    DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"));
+    DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"), STDLOG);
     Qry.CreateVariable("FirstDate", otDate, first_date);
     Qry.CreateVariable("LastDate", otDate, last_date);
     TPerfTimer tm;
@@ -272,7 +272,7 @@ void ArxGetFltCBoxList(TScreenState scr, TDateTime first_date, TDateTime last_da
 void GetFltCBoxList(TScreenState scr, TDateTime first_date, TDateTime last_date, bool pr_show_del, vector<TPointsRow> &points)
 {
     TReqInfo &reqInfo = *(TReqInfo::Instance());
-    DB::TQuery Qry(*get_main_ora_sess(STDLOG));
+    DB::TQuery Qry(*get_main_ora_sess(STDLOG), STDLOG);
     Qry.CreateVariable("FirstDate", otDate, first_date);
     Qry.CreateVariable("LastDate", otDate, last_date);
     TPerfTimer tm;

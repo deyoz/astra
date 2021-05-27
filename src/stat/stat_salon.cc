@@ -99,7 +99,7 @@ void get_arx_points(const TStatParams &params, list<pair<TDateTime, TTripInfo>> 
         SQLText +=
             "   arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate ";
 
-        DB::TCachedQuery Qry(PgOra::getROSession("ARX_POINTS"), SQLText, QryParams);
+        DB::TCachedQuery Qry(PgOra::getROSession("ARX_POINTS"), SQLText, QryParams, STDLOG);
         Qry.get().Execute();
 
         if(not Qry.get().Eof) {
@@ -177,7 +177,7 @@ void RunSalonStat(
                 " id1 = :point_id ";
             DbCpp::Session &sess = (point.first == NoExists ? PgOra::getROSession("EVENTS_BILINGUAL")
                                                             : PgOra::getROSession("ARX_EVENTS"));
-            Qry = DB::TCachedQuery(sess , SQLText, QryParams);
+            Qry = DB::TCachedQuery(sess , SQLText, QryParams, STDLOG);
         }
 
         Qry->get().SetVariable("point_id", point.second.point_id);

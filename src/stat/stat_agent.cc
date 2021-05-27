@@ -76,7 +76,7 @@ void ArxRunAgentStat(const TStatParams &params,
     auto & Users =  UsersReader::Instance();
     Users.updateUsers();
 
-    DB::TQuery Qry(PgOra::getROSession("ARX_AGENT_STAT"));
+    DB::TQuery Qry(PgOra::getROSession("ARX_AGENT_STAT"), STDLOG);
     string SQLText =
         "SELECT \n"
         "  arx_points.point_id, \n"

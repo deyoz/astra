@@ -199,7 +199,7 @@ void ArxRunTrferPaxStat(
         SQLText +=
             "   arx_trfer_pax_stat.scd_out >= :FirstDate AND arx_trfer_pax_stat.scd_out < :LastDate and "
             "   arx_trfer_pax_stat.pax_id = arx_pax.pax_id ";
-        DB::TCachedQuery Qry(PgOra::getROSession("ARX_POINTS"), SQLText, QryParams);
+        DB::TCachedQuery Qry(PgOra::getROSession("ARX_POINTS"), SQLText, QryParams, STDLOG);
         Qry.get().Execute();
         LogTrace(TRACE5) << __func__ << "    " << SQLText;
         int pr_lat = static_cast<int>(TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);

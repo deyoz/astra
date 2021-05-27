@@ -1521,7 +1521,7 @@ void ArxRunPactDetailStat(const vector<TPact>& result_pacts, const TStatParams &
                           TPrintAirline &prn_airline)
 {
     LogTrace5 << __func__;
-    DB::TQuery Qry(PgOra::getROSession("ARX_STAT"));
+    DB::TQuery Qry(PgOra::getROSession("ARX_STAT"), STDLOG);
     for(int pass = 1; pass<=2; pass++) {
         ostringstream sql;
         sql << "SELECT \n"
@@ -1661,7 +1661,7 @@ void RunPactDetailStat(const TStatParams &params,
     vector<TPact> pacts = readPacts(params);
 
     ostringstream sql;
-    DB::TQuery Qry(PgOra::getROSession("STAT"));
+    DB::TQuery Qry(PgOra::getROSession("STAT"), STDLOG);
     sql << "SELECT \n"
         " points.airline, \n"
         " points.airp, \n"
@@ -1712,7 +1712,7 @@ void ArxRunDetailStat(const TStatParams &params,
                    TPrintAirline &airline)
 {
     LogTrace5 << __func__;
-    DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"));
+    DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"), STDLOG);
     Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
     Qry.CreateVariable("LastDate", otDate, params.LastDate);
     Qry.CreateVariable("web", otString, EncodeClientType(ctWeb));
@@ -1788,7 +1788,7 @@ void RunDetailStat(const TStatParams &params,
                    TDetailStat &DetailStat, TDetailStatRow &DetailStatTotal,
                    TPrintAirline &airline)
 {
-    DB::TQuery Qry(PgOra::getROSession("POINTS"));
+    DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
     Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
     Qry.CreateVariable("LastDate", otDate, params.LastDate);
     Qry.CreateVariable("web", otString, EncodeClientType(ctWeb));
@@ -1935,7 +1935,7 @@ void ArxRunFullStat(const TStatParams &params,
                  TPrintAirline &airline)
 {
     LogTrace5 << __func__;
-    DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"));
+    DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"), STDLOG);
     Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
     Qry.CreateVariable("LastDate", otDate, params.LastDate);
     if (params.statType==statFull)
@@ -2015,7 +2015,7 @@ void RunFullStat(const TStatParams &params,
                  TFullStat &FullStat, TFullStatRow &FullStatTotal,
                  TPrintAirline &airline)
 {
-    DB::TQuery Qry(PgOra::getROSession("POINTS"));
+    DB::TQuery Qry(PgOra::getROSession("POINTS"), STDLOG);
     Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
     Qry.CreateVariable("LastDate", otDate, params.LastDate);
     if (params.statType==statFull)

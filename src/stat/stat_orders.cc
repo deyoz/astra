@@ -325,8 +325,9 @@ void TFileParams::get(int file_id)
 {
     items.clear();
     DB::TCachedQuery Qry(PgOra::getROSession("FILE_PARAMS"),
-            "select name, value from file_params where id = :file_id", QParams() << QParam("file_id", otInteger, file_id)
-            );
+            "select name, value from file_params where id = :file_id",
+            QParams() << QParam("file_id", otInteger, file_id),
+            STDLOG);
     Qry.get().Execute();
     for(; not Qry.get().Eof; Qry.get().Next())
         items[Qry.get().FieldAsString("name")] = Qry.get().FieldAsString("value");

@@ -300,7 +300,7 @@ int arx_ego_stat(int argc,char **argv)
     if (!getDateRangeFromArgs(argc, argv, FirstDate, LastDate))
         return 1;
 
-    DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"));
+    DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"), STDLOG);
     int processed=0;
 
     const string delim = ";";

@@ -98,7 +98,7 @@ void TripAlarms( int point_id, BitSet<Alarm::Enum> &Alarms )
         Alarms.setFlag( Alarm::ETStatus );
     }
 
-    DB::TQuery AlarmsQry(PgOra::getROSession("TRIP_ALARMS"));
+    DB::TQuery AlarmsQry(PgOra::getROSession("TRIP_ALARMS"), STDLOG);
     AlarmsQry.SQLText = "select alarm_type from trip_alarms where point_id = :point_id";
     AlarmsQry.CreateVariable("point_id", otInteger, point_id);
     AlarmsQry.Execute();
@@ -119,7 +119,7 @@ string TripAlarmString( Alarm::Enum alarm )
 
 bool get_alarm( int point_id, Alarm::Enum alarm_type )
 {
-    DB::TQuery Qry(PgOra::getROSession("TRIP_ALARMS"));
+    DB::TQuery Qry(PgOra::getROSession("TRIP_ALARMS"), STDLOG);
     Qry.SQLText = "select * from trip_alarms where point_id = :point_id and alarm_type = :alarm_type";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("alarm_type", otString, AlarmTypes().encode(alarm_type));
@@ -131,7 +131,7 @@ bool get_alarm( int point_id, Alarm::Enum alarm_type )
 void set_alarm( int point_id, Alarm::Enum alarm_type, bool alarm_value )
 {
     LogTrace(TRACE5) << __FUNCTION__ <<  "point_id: " << point_id << " alarm_type: " << alarm_type << " alarm: " << (bool)(alarm_value);
-    DB::TQuery Qry(PgOra::getRWSession("TRIP_ALARMS"));
+    DB::TQuery Qry(PgOra::getRWSession("TRIP_ALARMS"), STDLOG);
     if(alarm_value)
         Qry.SQLText = "insert into trip_alarms(point_id, alarm_type) values(:point_id, :alarm_type)";
     else

@@ -97,7 +97,7 @@ const std::string get_msg_identifier ()
 
 std::optional<std::string> get_trip_apis_param(const PointId_t& pointId, const std::string& format, const std::string& param_name)
 {
-  DB::TQuery Qry(PgOra::getROSession("TRIP_APIS_PARAMS"));
+  DB::TQuery Qry(PgOra::getROSession("TRIP_APIS_PARAMS"), STDLOG);
   Qry.SQLText=
     "SELECT param_value "
     "FROM trip_apis_params "
@@ -126,8 +126,8 @@ void set_trip_apis_param(const PointId_t& pointId, const std::string& format, co
       "INSERT INTO trip_apis_params(point_id, format, param_name, param_value) "
       "VALUES (:point_id, :format, :param_name, :param_value) ";
 
-  DB::TCachedQuery UpdQry(PgOra::getRWSession("TRIP_APIS_PARAMS"), UpdSql, QryParams);
-  DB::TCachedQuery InsQry(PgOra::getRWSession("TRIP_APIS_PARAMS"), InsSql, QryParams);
+  DB::TCachedQuery UpdQry(PgOra::getRWSession("TRIP_APIS_PARAMS"), UpdSql, QryParams, STDLOG);
+  DB::TCachedQuery InsQry(PgOra::getRWSession("TRIP_APIS_PARAMS"), InsSql, QryParams, STDLOG);
 
   try
   {

@@ -103,7 +103,8 @@ void file_to_db(const string& init_path, const string& file_path)
         QParams()
             << QParam("id",      otInteger, id)
             << QParam("page_no", otInteger)
-            << QParam("text",    otString)
+            << QParam("text",    otString),
+        STDLOG
     );
     longToDB(Qry.get(), "text", file_data);
 }
@@ -143,7 +144,8 @@ int html_from_db(int argc, char **argv)
             "where "
             "   HTML_PAGES.id = HTML_PAGES_TEXT.id "
             "order by "
-            "   name, page_no"
+            "   name, page_no",
+            STDLOG
         );
         Qry1.get().Execute();
         map<string, string> pages;
@@ -213,8 +215,8 @@ void THTMLResource::get(const string &aname)
             "   HTML_PAGES.id = HTML_PAGES_TEXT.id "
             "order by "
             "   page_no",
-            QParams()
-            << QParam("name", otString, aname)
+            QParams() << QParam("name", otString, aname),
+            STDLOG
             );
     Qry.get().Execute();
     if(not Qry.get().Eof) {

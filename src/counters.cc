@@ -300,7 +300,8 @@ void TCrsCountersMap::deleteCrsCountersOnly(const PointId_t& point_id)
   DB::TCachedQuery Qry(PgOra::getRWSession("CRS_COUNTERS"),
         "DELETE FROM crs_counters "
         "WHERE point_dep=:point_dep",
-        QParams() << QParam("point_dep", otInteger, point_id.get()));
+        QParams() << QParam("point_dep", otInteger, point_id.get()),
+        STDLOG);
   Qry.get().Execute();
 }
 

@@ -122,7 +122,7 @@ int main_srv_tcl(int supervisorSocket, int argc, char *argv[])
 
 bool update_tlg_stat_time_send(const AIRSRV_MSG& tlg_in)
 {
-    DB::TQuery TlgUpdQry(PgOra::getRWSession("TLG_STAT"));
+    DB::TQuery TlgUpdQry(PgOra::getRWSession("TLG_STAT"), STDLOG);
     TDateTime nowUTC = NowUTC();
     TlgUpdQry.SQLText=
       "UPDATE tlg_stat SET time_send=:utc "
@@ -136,7 +136,7 @@ bool update_tlg_stat_time_send(const AIRSRV_MSG& tlg_in)
 
 bool update_tlg_stat_time_receive(const AIRSRV_MSG& tlg_in)
 {
-    DB::TQuery TlgUpdQry(PgOra::getRWSession("TLG_STAT"));
+    DB::TQuery TlgUpdQry(PgOra::getRWSession("TLG_STAT"), STDLOG);
     TDateTime nowUTC = NowUTC();
     TlgUpdQry.SQLText=
       "UPDATE tlg_stat SET time_receive=:utc "
@@ -150,7 +150,7 @@ bool update_tlg_stat_time_receive(const AIRSRV_MSG& tlg_in)
 
 bool del_from_tlg_queue_by_status(const AIRSRV_MSG& tlg_in, const std::string& status)
 {
-    DB::TQuery TlgUpdQry(PgOra::getRWSession("TLG_QUEUE"));
+    DB::TQuery TlgUpdQry(PgOra::getRWSession("TLG_QUEUE"), STDLOG);
     TlgUpdQry.SQLText=
       "DELETE FROM tlg_queue "
       "WHERE sender= :sender AND tlg_num= :tlg_num AND "
@@ -164,7 +164,7 @@ bool del_from_tlg_queue_by_status(const AIRSRV_MSG& tlg_in, const std::string& s
 
 bool del_from_tlg_queue(const AIRSRV_MSG& tlg_in)
 {
-    DB::TQuery TlgUpdQry(PgOra::getRWSession("TLG_QUEUE"));
+    DB::TQuery TlgUpdQry(PgOra::getRWSession("TLG_QUEUE"), STDLOG);
     TlgUpdQry.SQLText=
       "DELETE FROM tlg_queue "
       "WHERE sender= :sender AND tlg_num= :tlg_num AND "
@@ -178,7 +178,7 @@ bool del_from_tlg_queue(const AIRSRV_MSG& tlg_in)
 bool upd_tlg_queue_status(const AIRSRV_MSG& tlg_in,
                           const std::string& curStatus, const std::string& newStatus)
 {
-    DB::TQuery TlgUpdQry(PgOra::getRWSession("TLG_QUEUE"));
+    DB::TQuery TlgUpdQry(PgOra::getRWSession("TLG_QUEUE"), STDLOG);
     TlgUpdQry.SQLText=
       "UPDATE tlg_queue SET status= :new_status "
       "WHERE sender= :sender AND tlg_num= :tlg_num AND "
@@ -193,7 +193,7 @@ bool upd_tlg_queue_status(const AIRSRV_MSG& tlg_in,
 
 bool upd_tlgs_by_error(const AIRSRV_MSG& tlg_in, const std::string& error)
 {
-    DB::TQuery TlgUpdQry(PgOra::getRWSession("TLGS"));
+    DB::TQuery TlgUpdQry(PgOra::getRWSession("TLGS"), STDLOG);
     TlgUpdQry.SQLText=
       "UPDATE tlgs SET error= :error "
       "WHERE tlg_num= :tlg_num AND sender= :sender AND "
@@ -340,7 +340,7 @@ void process_tlg(void)
 
         //сначала ищем id телеграммы, если таковая уже была
         {
-          DB::TQuery TlgQry(PgOra::getROSession("TLGS"));
+          DB::TQuery TlgQry(PgOra::getROSession("TLGS"), STDLOG);
           TlgQry.SQLText=
             "SELECT id FROM tlgs WHERE tlg_num= :tlg_num AND sender= :sender ";
           TlgQry.CreateVariable("sender",otString,tlg_in.Sender);

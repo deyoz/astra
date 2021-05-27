@@ -72,7 +72,7 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_crs");
 
-    DB::TQuery docsQry(PgOra::getROSession("CRS_PAX_DOC"));
+    DB::TQuery docsQry(PgOra::getROSession("CRS_PAX_DOC"), STDLOG);
     docsQry.SQLText = "select * from crs_pax_doc where pax_id = :pax_id and rem_code = 'DOCS'";
     docsQry.DeclareVariable("pax_id", otInteger);
     //ремарки пассажиров

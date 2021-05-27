@@ -17,7 +17,6 @@ namespace DB {
 class TQuery
 {
 public:
-    TQuery(DbCpp::Session& sess);
     TQuery(DbCpp::Session& sess, STDLOG_SIGNATURE);
     ~TQuery();
 
@@ -81,8 +80,6 @@ private:
 class TCachedQuery
 {
 public:
-    TCachedQuery(DbCpp::Session& sess, const std::string& sqlText, const QParams& p);
-    TCachedQuery(DbCpp::Session& sess, const std::string& sqlText);
     TCachedQuery(DbCpp::Session& sess, const std::string& sqlText, const QParams& p, STDLOG_SIGNATURE);
     TCachedQuery(DbCpp::Session& sess, const std::string& sqlText, STDLOG_SIGNATURE);
     ~TCachedQuery() {}

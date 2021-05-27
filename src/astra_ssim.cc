@@ -610,7 +610,7 @@ void ScdPeriodToDb( const ssim::ScdPeriod &scd )
   QryIns.Execute();
 
   // запись в sched_days
-  auto SchdQry = DB::TQuery(PgOra::getROSession("SCHED_DAYS"));
+  auto SchdQry = DB::TQuery(PgOra::getROSession("SCHED_DAYS"), STDLOG);
   SchdQry.SQLText = "SELECT trip_id FROM sched_days s, ssm_schedule m WHERE m.flight=:flight and s.ssm_id=m.ssm_id FETCH FIRST 1 ROWS ONLY";
   SchdQry.CreateVariable("flight", otString, flight);
   SchdQry.Execute();
@@ -812,7 +812,7 @@ ssim::ScdPeriods ScdPeriodsFromDb( const ct::Flight& flt, const Period& prd )
   // если у периода нет второй даты, то end = pos_infin
   TDateTime start = BoostToDateTimeCorrectInfinity(prd.start);
   TDateTime end = BoostToDateTimeCorrectInfinity(prd.end);
-  DB::TQuery Qry(PgOra::getROSession("SCHED_DAYS"));
+  DB::TQuery Qry(PgOra::getROSession("SCHED_DAYS"), STDLOG);
   Qry.SQLText =
       "SELECT s.move_id move_id, m.first as first, m.last as last, m.days days "
       " FROM sched_days s, ssm_schedule m "

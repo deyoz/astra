@@ -142,7 +142,7 @@ bool handle_tlg(void)
 
   time_t time_start=time(NULL);
 
-  static DB::TQuery TlgQry(PgOra::getROSession("TLG_QUEUE"));
+  static DB::TQuery TlgQry(PgOra::getROSession("TLG_QUEUE"), STDLOG);
   if (TlgQry.SQLText.empty())
   {
     //внимание порядок объединения таблиц важен!
