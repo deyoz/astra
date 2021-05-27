@@ -1801,21 +1801,19 @@ void RunDetailStat(const TStatParams &params,
 
     Qry.SQLText = GetStatSQLText(params,0).c_str();
 
-    if (params.seance==seanceAirline)
+    if(params.seance==seanceAirline)
     {
       //цикл по компаниям
-      if (params.airlines.elems_permit())
-      {
+      if (params.airlines.elems_permit()) {
         for(set<string>::const_iterator i=params.airlines.elems().begin();
                                         i!=params.airlines.elems().end(); i++)
         {
           Qry.SetVariable("ak",*i);
           GetDetailStat(params, Qry, DetailStat, DetailStatTotal, airline, "");
-        };
-      };
-    };
-
-    if (params.seance==seanceAirport)
+        }
+      }
+    }
+    else if(params.seance==seanceAirport)
     {
       //цикл по портам
       if (params.airps.elems_permit())
@@ -1827,8 +1825,9 @@ void RunDetailStat(const TStatParams &params,
           GetDetailStat(params, Qry, DetailStat, DetailStatTotal, airline, "");
         };
       };
-    };
-    GetDetailStat(params, Qry, DetailStat, DetailStatTotal, airline, "");
+    } else {
+        GetDetailStat(params, Qry, DetailStat, DetailStatTotal, airline, "");
+    }
 
     ArxRunDetailStat(params, DetailStat, DetailStatTotal, airline);
 };
@@ -2043,10 +2042,9 @@ void RunFullStat(const TStatParams &params,
           Qry.SetVariable("ak",*i);
           GetFullStat(params, Qry, FullStat, FullStatTotal, airline);
         };
-      };
-    };
-
-    if (params.seance==seanceAirport)
+      }
+    }
+    else if (params.seance==seanceAirport)
     {
       //цикл по портам
       if (params.airps.elems_permit())
@@ -2056,10 +2054,12 @@ void RunFullStat(const TStatParams &params,
         {
           Qry.SetVariable("ap",*i);
           GetFullStat(params, Qry, FullStat, FullStatTotal, airline);
-        };
-      };
-    };
-    GetFullStat(params, Qry, FullStat, FullStatTotal, airline);
+        }
+      }
+    }
+    else {
+        GetFullStat(params, Qry, FullStat, FullStatTotal, airline);
+    }
 
     ArxRunFullStat(params, FullStat, FullStatTotal, airline);
 };
