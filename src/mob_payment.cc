@@ -3,6 +3,7 @@
 #include "sopp.h"
 #include "tripinfo.h"
 #include "checkin.h"
+#include <serverlib/testmode.h>
 
 #define NICKNAME "VLAD"
 #include "serverlib/slogger.h"
@@ -454,6 +455,10 @@ void SearchPassengersResponse::filterPassengers(const SearchPassengersRequest& r
       p=passengers.erase(p);
     else
       ++p;
+#ifdef XP_TESTING
+  if (inTestMode()) passengers.sort([](const Passenger& pax1, const Passenger& pax2) {return pax1.id<pax2.id; });
+#endif/*XP_TESTING*/
+
 }
 
 const SearchPassengersResponse& SearchPassengersResponse::toXML(xmlNodePtr node) const
@@ -596,6 +601,10 @@ void SearchFlightsResponse::searchFlights(const SearchFlightsRequest& req)
 
     add(flt);
   }
+#ifdef XP_TESTING
+  if (inTestMode()) flights.sort([](const Flight& flt1, const Flight& flt2) {return flt1.point_id<flt2.point_id; });
+#endif/*XP_TESTING*/
+
 }
 
 const SearchFlightsResponse& SearchFlightsResponse::toXML(xmlNodePtr node) const
