@@ -34,6 +34,7 @@ public:
 enum TCacheFieldCharCase {ecNormal, ecUpperCase, ecLowerCase};
 enum TCacheFieldType {ftSignedNumber, ftUnsignedNumber, ftDate, ftTime, ftString, ftBoolean, ftStringList, ftUTF,
                       ftUnknown, NumFieldType};
+enum TCacheConvertType {ctInteger,ctDouble,ctDateTime,ctString};
 enum TCacheUpdateStatus {usUnmodified, usModified, usInserted, usDeleted};
 enum TCacheQueryType {cqtSelect,cqtRefresh,cqtInsert,cqtUpdate,cqtDelete};
 enum TCacheElemCategory {
@@ -166,6 +167,14 @@ struct TCacheField2 {
         ElemCategory = cecNone;
     }
 };
+
+struct TParam {
+    std::string Value;
+    TCacheConvertType DataType;
+    TParam() { DataType = ctString; };
+};
+
+typedef std::map<std::string, TParam> TParams;
 
 typedef struct {
     std::vector<std::string> cols;
