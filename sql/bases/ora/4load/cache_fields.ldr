@@ -661,7 +661,6 @@ BEGINDATA
 "USERS"|5|"TYPE_NAME"|"Тип"|22|||"S"|50||0|0|0|"USER_TYPES"|"NAME_LAT/NAME"|1||
 "USERS"|5|"TYPE_NAME"|"Тип"|22|||"S"|50||0|0|0|"USER_TYPES"|"NAME/NAME_LAT"|1|"RU"|
 "USERS"|7|"PR_DENIAL"|"Откл."||||"B"|1||0|0|0|||||
-"USERS"|18|"USER_NAME"||0|||"S"|100||0|0|1|||||
 "RIGHTS"|1|"RIGHT_ID"||0|||"NU"|4||0|1|1|||||
 "RIGHTS"|2|"NAME"|"Операция"|75|||"S"|150||0|0|1|||||
 "RIGHTS"|3|"NAME_LAT"|"Операция (лат.)"|75|||"S"|150||1|0|1|||||
@@ -775,7 +774,6 @@ BEGINDATA
 "AIRLINE_PROFILES"|5|"AIRP"||0|||"S"|3||0|0|0|"AIRPS"|"CODE"|2||1
 "AIRLINE_PROFILES"|6|"AIRP_VIEW"|"А/п"||"U"||"S"|3||0|0|0|"AIRPS"|"CODE_LAT/CODE"|2||
 "AIRLINE_PROFILES"|6|"AIRP_VIEW"|"А/п"||"U"||"S"|3||0|0|0|"AIRPS"|"CODE/CODE_LAT"|2|"RU"|
-"AIRLINE_PROFILES"|7|"PROFILE_NAME"||0|||"S"|100||0|0|1|||||
 "PROFILE_RIGHTS"|1|"PROFILE_ID"||0|||"NU"|9||0|1|0|"AIRLINE_PROFILES"|"PROFILE_ID"|1||1
 "PROFILE_RIGHTS"|2|"PROFILE_NAME"|"Профиль А/К"|30|||"S"|100||0|0|0|"AIRLINE_PROFILES"|"NAME"|1||
 "PROFILE_RIGHTS"|3|"RIGHT_ID"||0|||"NU"|4||0|1|0|"RIGHTS"|"RIGHT_ID"|2||1
@@ -2505,7 +2503,7 @@ BEGINDATA
 "WEB_CLIENTS"|4|"DESCR"|"Описание"|20|"U"||"S"|100||0|0|0|||||
 "WEB_CLIENTS"|5|"DESK"|"Пульт"||"U"||"S"|6||0|0|0|"DESKS"|"CODE"|||
 "WEB_CLIENTS"|6|"USER_ID"|"Пользователь"|0|||"NU"|9||0|0|0|"USERS"|"USER_ID"|2||1
-"WEB_CLIENTS"|7|"USER_NAME"|"Пользователь"|50|||"S"|100||0|0|0|"USERS"|"USER_NAME"|2||
+"WEB_CLIENTS"|7|"DESCR"|"Пользователь"|50|||"S"|100||0|0|0|"USERS"|"USER_NAME"|2||
 "WEB_CLIENTS"|8|"KIOSK_ADDR"||0|||"NU"|9||1|0|0|"KIOSK_ADDR"|"ID"|3||
 "WEB_CLIENTS"|9|"KIOSK_ADDR_NAME"|"Адрес киоска"|30|||"S"|200||1|0|0|"KIOSK_ADDR"|"NAME"|3||
 "WEB_CLIENTS"|10|"KIOSK_ID"|"Ид. киоска"|30|||"S"|50||1|0|0|||||

@@ -412,8 +412,7 @@ class TRolesARO:public TARO {
         {
             int id = Qry.FieldAsInteger(0);
             ostringstream result;
-            TQuery dummyQry(&OraSession);
-            result << id << ";" << get_role_name(id, dummyQry);
+            result << id << ";" << get_role_name(id);
             return result.str();
 
         }
