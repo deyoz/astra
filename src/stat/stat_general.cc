@@ -63,7 +63,7 @@ std::vector<Dates::time_period> get_airp_periods(TDateTime firstDate, TDateTime 
 "  WHERE (period_last_date IS NULL OR period_last_date>:FirstDate) AND period_first_date<:LastDate \n"
 " ) periods \n", PgOra::getROSession("PACTS"));
 
-    cur
+    cur.stb()
        .def(period_first)
        .def(period_last)
        .bind(":FirstDate", DateTimeToBoost(firstDate))
@@ -125,7 +125,7 @@ std::vector<Dates::time_period> get_airline_periods(TDateTime firstDate, TDateTi
 "  WHERE (period_last_date IS NULL OR period_last_date>:FirstDate) AND period_first_date<:LastDate \n"
 " ) periods \n", PgOra::getROSession("PACTS"));
 
-    cur
+    cur.stb()
        .def(period_first)
        .def(period_last)
        .bind(":FirstDate", DateTimeToBoost(firstDate))
@@ -156,7 +156,10 @@ std::vector<std::string> read_airline_list(const Dates::time_period & period)
                             "        first_date <= :period_first_date AND  \n"
                             "        (last_date IS NULL OR last_date > :period_first_date) AND \n"
                             "        airline IS NOT NULL) \n", PgOra::getROSession("PACTS"));
-    cur.defNull(airline, "").bind(":period_first_date", period.begin()).exec();
+    cur.stb()
+       .defNull(airline, "")
+       .bind(":period_first_date", period.begin())
+       .exec();
     std::vector<std::string> airlines;
     while(!cur.fen()) {
         airlines.push_back(airline);
@@ -181,7 +184,10 @@ std::vector<std::string> read_airp_list(const Dates::time_period & period)
                             "        first_date <= :period_first_date AND  \n"
                             "        (last_date IS NULL OR :period_first_date < last_date) ) \n",
                             PgOra::getROSession("PACTS"));
-    cur.def(airp).bind(":period_first_date", period.begin()).exec();
+    cur.stb()
+       .def(airp)
+       .bind(":period_first_date", period.begin())
+       .exec();
     std::vector<std::string> airps;
     while(!cur.fen()) {
         airps.push_back(airp);
