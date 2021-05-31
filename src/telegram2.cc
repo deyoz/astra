@@ -2170,7 +2170,6 @@ void TWItem::get(int grp_id, int bag_pool_num)
         << QParam("rkAmount", otInteger)
         << QParam("rkWeight", otInteger)
         << QParam("excess_wt", otInteger)
-        << QParam("excess_pc", otInteger)
         << QParam("pax_id", otInteger);
     TCachedQuery Qry(
             "declare "
