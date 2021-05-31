@@ -881,7 +881,7 @@ void TPrnTagStore::confirm_print(bool pr_print, TDevOper::Enum op_type)
         paramsIns << QParam("seat_no", otString, get_fmt_seat("list", seat_no_lat))
                << QParam("seat_no_lat", otString, get_fmt_seat("list", true));
     }
-    if(tag_list[TAG::BI_HALL].processed) {
+    if(tag_list[TAG::BI_HALL].processed && BIHallInfo.hall_id != ASTRA::NoExists) {
         fields += ", hall_id";
         holders += ", :hall_id";
         paramsIns << QParam("hall_id", otInteger, BIHallInfo.hall_id);
