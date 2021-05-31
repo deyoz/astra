@@ -54,9 +54,12 @@ void ExceptionFilter(string &body, TypeB::TDetailCreateInfo &info)
 {
     try {
         throw;
-    } catch(UserException &E) {
+    } catch(const UserException &E) {
         body = info.err_lst.add_err(TypeB::DEFAULT_ERR, E.getLexemaData());
-    } catch(exception &E) {
+    } catch(const EOracleError &E) {
+        E.showProgError();
+        body = info.err_lst.add_err(TypeB::DEFAULT_ERR, E.what());
+    } catch(const exception &E) {
         body = info.err_lst.add_err(TypeB::DEFAULT_ERR, E.what());
     } catch(...) {
         body = info.err_lst.add_err(TypeB::DEFAULT_ERR, "unknown error");
