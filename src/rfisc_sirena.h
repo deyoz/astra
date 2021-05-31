@@ -479,6 +479,7 @@ class TAvailabilityRes : public TAvailability, public TAvailabilityResMap
     void rfiscsToDB(const TCkinGrpIds &tckinGrpIds, TBagConcept::Enum bag_concept, bool old_version) const;
     void normsToDB(const TCkinGrpIds &tckinGrpIds) const;
     void brandsToDB(const TCkinGrpIds &tckinGrpIds) const;
+    void setAdditionalListId(const GrpId_t &grp_id) const;
     void setAdditionalListId(const TCkinGrpIds &tckinGrpIds) const;
 };
 

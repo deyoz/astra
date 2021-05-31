@@ -249,8 +249,7 @@ class TRFISCListItem : public TRFISCListKey
     TRFISCListItem& fromSirenaXML(xmlNodePtr node);
 
     const TRFISCListItem& toXML(xmlNodePtr node, const boost::optional<TRFISCListItem> &def=boost::none) const;
-    const TRFISCListItem& toDB(TQuery &Qry) const;
-    TRFISCListItem& fromDB(TQuery &Qry);
+    const TRFISCListItem& toDB(DB::TQuery &Qry) const;
     TRFISCListItem& fromDB(DB::TQuery &Qry);
     std::string traceStr() const;
 
@@ -264,17 +263,10 @@ typedef std::list<TRFISCListItem> TRFISCListItems;
 class TRFISCKey : public TRFISCListKey
 {
   private:
-    enum GetItemWay
-    {
-      Unaccomp,
-      ByGrpId,
-      ByPaxId,
-      ByBagPool
-    };
-    void getListKey(GetItemWay way, int id, int transfer_num, int bag_pool_num,
+    void getListKey(ServiceGetItemWay way, int id, int transfer_num, int bag_pool_num,
                     boost::optional<TServiceCategory::Enum> category,
                     const std::string &where);
-    void getListItem(GetItemWay way, int id, int transfer_num, int bag_pool_num,
+    void getListItem(ServiceGetItemWay way, int id, int transfer_num, int bag_pool_num,
                      boost::optional<TServiceCategory::Enum> category,
                      const std::string &where);
 
@@ -298,40 +290,21 @@ class TRFISCKey : public TRFISCListKey
     const TRFISCKey& toDB(DB::TQuery &Qry) const;
     TRFISCKey& fromDB(TQuery &Qry);
     TRFISCKey& fromDB(DB::TQuery &Qry);
+    static boost::optional<TRFISCListItem> getListItem(int list_id,
+                                                       const std::string& rfisc,
+                                                       const std::string& service_type,
+                                                       const std::string& airline);
+
     void getListItemIfNone();
     void getListItem();
-    void getListItemUnaccomp (int grp_id, int transfer_num, boost::optional<TServiceCategory::Enum> category, const std::string &where)
-    {
-      getListItem(Unaccomp, grp_id, transfer_num, ASTRA::NoExists, category, where);
-    }
-    void getListItemByGrpId  (int grp_id, int transfer_num, boost::optional<TServiceCategory::Enum> category, const std::string &where)
-    {
-      getListItem(ByGrpId, grp_id, transfer_num, ASTRA::NoExists, category, where);
-    }
-    void getListItemByPaxId  (int pax_id, int transfer_num, boost::optional<TServiceCategory::Enum> category, const std::string &where)
-    {
-      getListItem(ByPaxId, pax_id, transfer_num, ASTRA::NoExists, category, where);
-    }
-    void getListItemByBagPool(int grp_id, int transfer_num, int bag_pool_num, boost::optional<TServiceCategory::Enum> category, const std::string &where)
-    {
-      getListItem(ByBagPool, grp_id, transfer_num, bag_pool_num, category, where);
-    }
-    void getListKeyUnaccomp (int grp_id, int transfer_num, boost::optional<TServiceCategory::Enum> category, const std::string &where)
-    {
-      getListKey(Unaccomp, grp_id, transfer_num, ASTRA::NoExists, category, where);
-    }
-    void getListKeyByGrpId  (int grp_id, int transfer_num, boost::optional<TServiceCategory::Enum> category, const std::string &where)
-    {
-      getListKey(ByGrpId, grp_id, transfer_num, ASTRA::NoExists, category, where);
-    }
-    void getListKeyByPaxId  (int pax_id, int transfer_num, boost::optional<TServiceCategory::Enum> category, const std::string &where)
-    {
-      getListKey(ByPaxId, pax_id, transfer_num, ASTRA::NoExists, category, where);
-    }
-    void getListKeyByBagPool(int grp_id, int transfer_num, int bag_pool_num, boost::optional<TServiceCategory::Enum> category, const std::string &where)
-    {
-      getListKey(ByBagPool, grp_id, transfer_num, bag_pool_num, category, where);
-    }
+    void getListItemUnaccomp (int grp_id, int transfer_num, boost::optional<TServiceCategory::Enum> category, const std::string &where);
+    void getListItemByGrpId  (int grp_id, int transfer_num, boost::optional<TServiceCategory::Enum> category, const std::string &where);
+    void getListItemByPaxId  (int pax_id, int transfer_num, boost::optional<TServiceCategory::Enum> category, const std::string &where);
+    void getListItemByBagPool(int grp_id, int transfer_num, int bag_pool_num, boost::optional<TServiceCategory::Enum> category, const std::string &where);
+    void getListKeyUnaccomp (int grp_id, int transfer_num, boost::optional<TServiceCategory::Enum> category, const std::string &where);
+    void getListKeyByGrpId  (int grp_id, int transfer_num, boost::optional<TServiceCategory::Enum> category, const std::string &where);
+    void getListKeyByPaxId  (int pax_id, int transfer_num, boost::optional<TServiceCategory::Enum> category, const std::string &where);
+    void getListKeyByBagPool(int grp_id, int transfer_num, int bag_pool_num, boost::optional<TServiceCategory::Enum> category, const std::string &where);
     std::string traceStr() const;
     bool isBaggageOrCarryOn(const std::string &where) const;
 
@@ -372,7 +345,9 @@ class ServiceListId
     int forTerminal() const { return term_list_id!=ASTRA::NoExists?-term_list_id:list_id; }
 
     const ServiceListId& toDB(TQuery &Qry) const;
+    const ServiceListId& toDB(DB::TQuery &Qry) const;
     ServiceListId& fromDB(TQuery &Qry);
+    ServiceListId& fromDB(DB::TQuery &Qry);
     const ServiceListId& toXML(xmlNodePtr node) const;
     ServiceListId& fromXML(xmlNodePtr node);
 };
@@ -487,8 +462,8 @@ class TPaxServiceListsKey : public Sirena::TPaxSegKey
       return category<key.category;
     }
 
-    const TPaxServiceListsKey& toDB(TQuery &Qry) const;
-    TPaxServiceListsKey& fromDB(TQuery &Qry);
+    const TPaxServiceListsKey& toDB(DB::TQuery &Qry) const;
+    TPaxServiceListsKey& fromDB(DB::TQuery &Qry);
 };
 
 class TPaxServiceListsItem : public TPaxServiceListsKey, public ServiceListId
@@ -501,8 +476,8 @@ class TPaxServiceListsItem : public TPaxServiceListsKey, public ServiceListId
       ServiceListId::clear();
     }
 
-    const TPaxServiceListsItem& toDB(TQuery &Qry) const;
-    TPaxServiceListsItem& fromDB(TQuery &Qry);
+    const TPaxServiceListsItem& toDB(DB::TQuery &Qry) const;
+    TPaxServiceListsItem& fromDB(DB::TQuery &Qry);
     const TPaxServiceListsItem& toXML(xmlNodePtr node) const;
     std::string traceStr() const;
 };
@@ -511,7 +486,7 @@ class TPaxServiceLists : public std::set<TPaxServiceListsItem>
 {
   public:
     void fromDB(int id, bool is_unaccomp);
-    void toDB(bool is_unaccomp) const;
+    void toDB(const GrpId_t& grp_id, bool is_unaccomp) const;
     void toXML(int id, bool is_unaccomp, int tckin_seg_count, const TCkinRoute& ckinRouteAfter, xmlNodePtr node);
 };
 

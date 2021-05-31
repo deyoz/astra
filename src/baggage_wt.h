@@ -104,8 +104,8 @@ class TBagTypeListItem : public TBagTypeListKey
     const std::string& descr_view(const std::string& lang="") const;
 
     const TBagTypeListItem& toXML(xmlNodePtr node, const boost::optional<TBagTypeListItem> &def=boost::none) const;
-    const TBagTypeListItem& toDB(TQuery &Qry) const;
-    TBagTypeListItem& fromDB(TQuery &Qry);
+    const TBagTypeListItem& toDB(DB::TQuery &Qry) const;
+    TBagTypeListItem& fromDB(DB::TQuery &Qry);
 
     bool isBaggageOrCarryOn() const;
     bool isBaggageInCabinOrCarryOn() const;
@@ -115,17 +115,10 @@ class TBagTypeListItem : public TBagTypeListKey
 class TBagTypeKey : public TBagTypeListKey
 {
   private:
-    enum GetItemWay
-    {
-      Unaccomp,
-      ByGrpId,
-      ByPaxId,
-      ByBagPool
-    };
-    void getListKey(GetItemWay way, int id, int transfer_num, int bag_pool_num,
+    void getListKey(ServiceGetItemWay way, int id, int transfer_num, int bag_pool_num,
                     boost::optional<TServiceCategory::Enum> category,
                     const std::string &where);
-    void getListItem(GetItemWay way, int id, int transfer_num, int bag_pool_num,
+    void getListItem(ServiceGetItemWay way, int id, int transfer_num, int bag_pool_num,
                      boost::optional<TServiceCategory::Enum> category,
                      const std::string &where);
 
@@ -143,47 +136,25 @@ class TBagTypeKey : public TBagTypeListKey
     }
 
     const TBagTypeKey& toXML(xmlNodePtr node) const;
-    const TBagTypeKey& toDB(TQuery &Qry) const;
     const TBagTypeKey& toDB(DB::TQuery &Qry) const;
+    const TBagTypeKey& toDBcompatible(DB::TQuery &Qry, const std::string &where) const;
     const TBagTypeKey& toDBcompatible(TQuery &Qry, const std::string &where) const;
-    TBagTypeKey& fromDB(TQuery &Qry);
     TBagTypeKey& fromDB(DB::TQuery &Qry);
-    TBagTypeKey& fromDBcompatible(TQuery &Qry);
     TBagTypeKey& fromDBcompatible(DB::TQuery &Qry);
+    TBagTypeKey& fromDBcompatible(TQuery &Qry);
+    static boost::optional<TBagTypeListItem> getListItem(int list_id,
+                                                         const std::string& bag_type,
+                                                         const std::string& airline);
     void getListItemIfNone();
     void getListItem();
-    void getListItemUnaccomp (int grp_id, int transfer_num, boost::optional<TServiceCategory::Enum> category, const std::string &where)
-    {
-      getListItem(Unaccomp, grp_id, transfer_num, ASTRA::NoExists, category, where);
-    }
-    void getListItemByGrpId  (int grp_id, int transfer_num, boost::optional<TServiceCategory::Enum> category, const std::string &where)
-    {
-      getListItem(ByGrpId, grp_id, transfer_num, ASTRA::NoExists, category, where);
-    }
-    void getListItemByPaxId  (int pax_id, int transfer_num, boost::optional<TServiceCategory::Enum> category, const std::string &where)
-    {
-      getListItem(ByPaxId, pax_id, transfer_num, ASTRA::NoExists, category, where);
-    }
-    void getListItemByBagPool(int grp_id, int transfer_num, int bag_pool_num, boost::optional<TServiceCategory::Enum> category, const std::string &where)
-    {
-      getListItem(ByBagPool, grp_id, transfer_num, bag_pool_num, category, where);
-    }
-    void getListKeyUnaccomp (int grp_id, int transfer_num, boost::optional<TServiceCategory::Enum> category, const std::string &where)
-    {
-      getListKey(Unaccomp, grp_id, transfer_num, ASTRA::NoExists, category, where);
-    }
-    void getListKeyByGrpId  (int grp_id, int transfer_num, boost::optional<TServiceCategory::Enum> category, const std::string &where)
-    {
-      getListKey(ByGrpId, grp_id, transfer_num, ASTRA::NoExists, category, where);
-    }
-    void getListKeyByPaxId  (int pax_id, int transfer_num, boost::optional<TServiceCategory::Enum> category, const std::string &where)
-    {
-      getListKey(ByPaxId, pax_id, transfer_num, ASTRA::NoExists, category, where);
-    }
-    void getListKeyByBagPool(int grp_id, int transfer_num, int bag_pool_num, boost::optional<TServiceCategory::Enum> category, const std::string &where)
-    {
-      getListKey(ByBagPool, grp_id, transfer_num, bag_pool_num, category, where);
-    }
+    void getListItemUnaccomp(int grp_id, int transfer_num, boost::optional<TServiceCategory::Enum> category, const std::string &where);
+    void getListItemByGrpId(int grp_id, int transfer_num, boost::optional<TServiceCategory::Enum> category, const std::string &where);
+    void getListItemByPaxId(int pax_id, int transfer_num, boost::optional<TServiceCategory::Enum> category, const std::string &where);
+    void getListItemByBagPool(int grp_id, int transfer_num, int bag_pool_num, boost::optional<TServiceCategory::Enum> category, const std::string &where);
+    void getListKeyUnaccomp(int grp_id, int transfer_num, boost::optional<TServiceCategory::Enum> category, const std::string &where);
+    void getListKeyByGrpId(int grp_id, int transfer_num, boost::optional<TServiceCategory::Enum> category, const std::string &where);
+    void getListKeyByPaxId(int pax_id, int transfer_num, boost::optional<TServiceCategory::Enum> category, const std::string &where);
+    void getListKeyByBagPool(int grp_id, int transfer_num, int bag_pool_num, boost::optional<TServiceCategory::Enum> category, const std::string &where);
     std::string traceStr() const;
 };
 

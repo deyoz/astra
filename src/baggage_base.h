@@ -169,6 +169,19 @@ class TBagTotals
     }
 };
 
+enum class ServiceGetItemWay
+{
+  Unaccomp,
+  ByGrpId,
+  ByPaxId,
+  ByBagPool
+};
+
+std::set<int> getServiceListIdSet(ServiceGetItemWay way, int id, int transfer_num, int bag_pool_num,
+                                  boost::optional<TServiceCategory::Enum> category);
+std::set<int> getServiceListIdSet(int crc, bool rfisc_used);
+int saveServiceLists(int crc, bool rfisc_used);
+
 namespace Sirena
 {
 
@@ -195,8 +208,8 @@ class TSimplePaxNormItem : public TLocaleTextMap
     TSimplePaxNormItem& fromSirenaXML(xmlNodePtr node);
     void fromSirenaXMLAdv(xmlNodePtr node, bool carry_on);
 
-    const TSimplePaxNormItem& toDB(TQuery &Qry) const;
-    TSimplePaxNormItem& fromDB(TQuery &Qry);
+    const TSimplePaxNormItem& toDB(DB::TQuery &Qry) const;
+    TSimplePaxNormItem& fromDB(DB::TQuery &Qry);
 
     TSimplePaxNormItem()
     {
@@ -283,8 +296,8 @@ class TPaxNormListKey : public TPaxSegKey
 
     TPaxNormListKey& fromSirenaXML(xmlNodePtr node);
 
-    const TPaxNormListKey& toDB(TQuery &Qry) const;
-    TPaxNormListKey& fromDB(TQuery &Qry);
+    const TPaxNormListKey& toDB(DB::TQuery &Qry) const;
+    TPaxNormListKey& fromDB(DB::TQuery &Qry);
 };
 
 typedef std::map<TPaxNormListKey, TSimplePaxNormItem> TPaxNormList;
@@ -297,14 +310,14 @@ class TPaxNormItem : public TSimplePaxNormItem, public TPaxSegKey
       TSimplePaxNormItem::clear();
       TPaxSegKey::clear();
     }
-    const TPaxNormItem& toDB(TQuery &Qry) const
+    const TPaxNormItem& toDB(DB::TQuery &Qry) const
     {
       TSimplePaxNormItem::toDB(Qry);
       TPaxSegKey::toDB(Qry);
       return *this;
     }
 
-    TPaxNormItem& fromDB(TQuery &Qry)
+    TPaxNormItem& fromDB(DB::TQuery &Qry)
     {
       TSimplePaxNormItem::fromDB(Qry);
       TPaxSegKey::fromDB(Qry);
@@ -324,11 +337,19 @@ class TPaxBrandItem : public TSimplePaxBrandItem, public TPaxSegKey
     }
 };
 
-void PaxNormsFromDB(int pax_id, TPaxNormList &norms);
-void PaxBrandsFromDB(int pax_id, TPaxBrandList &brands);
+void PaxNormsFromDB(const GrpId_t& grp_id, TPaxNormList &norms);
+void PaxNormsFromDB(const PaxId_t& pax_id, TPaxNormList &norms);
+void PaxBrandsFromDB(const GrpId_t& grp_id, TPaxBrandList &brands);
+void PaxBrandsFromDB(const PaxId_t& pax_id, TPaxBrandList &brands);
+void PaxNormsToDB(const GrpId_t& grp_id, const std::list<TPaxNormItem> &norms);
+void PaxNormsToDB(const GrpId_t& grp_id, const TPaxNormList& norms);
 void PaxNormsToDB(const TCkinGrpIds &tckinGrpIds, const std::list<TPaxNormItem> &norms);
+void PaxBrandsToDB(const GrpId_t& grp_id, const std::list<TPaxBrandItem> &norms);
+void PaxBrandsToDB(const GrpId_t& grp_id, const TPaxBrandList& norms);
 void PaxBrandsToDB(const TCkinGrpIds &tckinGrpIds, const std::list<TPaxBrandItem> &norms);
-std::string getRFISCsFromBaggageNorm(int pax_id);
+void DeletePaxNorms(const GrpId_t& grp_id);
+void DeletePaxBrands(const GrpId_t& grp_id);
+std::string getRFISCsFromBaggageNorm(const PaxId_t& pax_id);
 
 } //namespace Sirena
 

@@ -5,6 +5,7 @@
 #include "ckin_search.h"
 #include "emdoc.h"
 #include <regex>
+#include <serverlib/oci_err.h>
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -408,9 +409,108 @@ void TAvailabilityRes::rfiscsToDB(const TCkinGrpIds &tckinGrpIds, TBagConcept::E
   for(TCkinGrpIds::const_iterator iGrpId=tckinGrpIds.begin(); iGrpId!=tckinGrpIds.end(); ++iGrpId)
   {
     if (iGrpId==tckinGrpIds.begin())
-      serviceLists.toDB(false);
+      serviceLists.toDB(*iGrpId, false);
     else
       CopyPaxServiceLists(*tckinGrpIds.begin(), *iGrpId, false, true);
+  }
+}
+
+void updatePaxServiceLists_AdditionalId(const PaxId_t& pax_id, int transfer_num, int category,
+                                        int additional_list_id)
+{
+  DB::TQuery Qry(PgOra::getRWSession("PAX_SERVICE_LISTS"), STDLOG);
+  Qry.SQLText =
+      "UPDATE pax_service_lists "
+      "SET additional_list_id=:additional_list_id "
+      "WHERE pax_id=:pax_id "
+      "AND transfer_num=:transfer_num "
+      "AND category=:category";
+  Qry.CreateVariable("pax_id", otInteger, pax_id.get());
+  Qry.CreateVariable("transfer_num", otInteger, transfer_num);
+  Qry.CreateVariable("category", otInteger, category);
+  Qry.CreateVariable("additional_list_id", otInteger, additional_list_id);
+  Qry.Execute();
+}
+
+void saveServiceListsGroup(int list_id, int additional_list_id)
+{
+  DB::TQuery QryUpd(PgOra::getRWSession("SERVICE_LISTS_GROUP"), STDLOG);
+  QryUpd.SQLText =
+  "UPDATE service_lists_group "
+  "SET last_access=:datetime "
+  "WHERE list_id=:list_id "
+  "AND additional_list_id=:additional_list_id";
+  QryUpd.CreateVariable("list_id", otInteger, list_id);
+  QryUpd.CreateVariable("additional_list_id", otInteger, additional_list_id);
+  QryUpd.CreateVariable("datetime", otDate, NowUTC());
+  QryUpd.Execute();
+
+  if (QryUpd.RowsProcessed() == 0) {
+    const int term_list_id = PgOra::getSeqNextVal("SERVICE_LISTS_GROUP__SEQ");
+    try {
+      DB::TQuery QryIns(PgOra::getRWSession("SERVICE_LISTS_GROUP"), STDLOG);
+      QryIns.SQLText =
+          "INSERT INTO service_lists_group ("
+          "term_list_id, list_id, additional_list_id, last_access"
+          ") VALUES ("
+          ":term_list_id, :list_id, :additional_list_id, :datetime)";
+      QryIns.CreateVariable("term_list_id", otInteger, term_list_id);
+      QryIns.CreateVariable("list_id", otInteger, list_id);
+      QryIns.CreateVariable("additional_list_id", otInteger, additional_list_id);
+      QryIns.CreateVariable("datetime", otDate, NowUTC());
+      QryIns.Execute();
+    } catch (EOracleError &err) {
+      if (err.Code != CERR_U_CONSTRAINT) {
+        throw;
+      }
+    }
+  }
+}
+
+void TAvailabilityRes::setAdditionalListId(const GrpId_t &grp_id) const
+{
+  DB::TQuery Qry(PgOra::getROSession({"PAX_NORMS_TEXT","PAX_SERVICE_LISTS","SERVICE_LISTS"}), STDLOG);
+  Qry.SQLText =
+      "SELECT pax_service_lists.pax_id, "
+      "       pax_service_lists.category, "
+      "       pax_service_lists.transfer_num, "
+      "       pax_service_lists.list_id, "
+      "       pax_norms_text.airline "
+      "FROM pax_service_lists, pax_norms_text, service_lists "
+      "WHERE pax_service_lists.pax_id=pax_norms_text.pax_id AND "
+      "      pax_service_lists.transfer_num=pax_norms_text.transfer_num AND "
+      "      pax_service_lists.category=(CASE WHEN pax_norms_text.carry_on = 0 THEN 1 ELSE 2 END) AND "
+      "      pax_norms_text.lang='RU' AND pax_norms_text.page_no=1 AND "
+      "      pax_service_lists.list_id=service_lists.id AND service_lists.rfisc_used<>0 AND "
+      "      pax_norms_text.grp_id=:grp_id "
+      "ORDER BY pax_id, category, transfer_num";
+  Qry.CreateVariable("grp_id", otInteger, grp_id.get());
+  Qry.Execute();
+
+  int pax_id = ASTRA::NoExists;
+  int category = ASTRA::NoExists;
+  int list_id = ASTRA::NoExists;
+  std::string airline;
+
+  for (; !Qry.Eof; Qry.Next()) {
+    if (Qry.FieldAsInteger("transfer_num") == 0) {
+      pax_id = Qry.FieldAsInteger("pax_id");
+      category = Qry.FieldAsInteger("category");
+      list_id = Qry.FieldAsInteger("list_id");
+      airline = Qry.FieldAsString("airline");
+    } else {
+      if (pax_id == Qry.FieldAsInteger("pax_id")
+          && category == Qry.FieldAsInteger("category")
+          && airline != Qry.FieldAsString("airline")
+          && list_id != Qry.FieldAsInteger("list_id"))
+      {
+        updatePaxServiceLists_AdditionalId(PaxId_t(Qry.FieldAsInteger("pax_id")),
+                                           Qry.FieldAsInteger("transfer_num"),
+                                           Qry.FieldAsInteger("category"),
+                                           list_id);
+        saveServiceListsGroup(Qry.FieldAsInteger("list_id"), list_id);
+      }
+    }
   }
 }
 
@@ -418,14 +518,9 @@ void TAvailabilityRes::setAdditionalListId(const TCkinGrpIds &tckinGrpIds) const
 {
   if (tckinGrpIds.size()<=1) return;
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText = "BEGIN ckin.set_additional_list_id(:grp_id); END;";
-  Qry.DeclareVariable("grp_id", otInteger);
   for(const GrpId_t& grpId : tckinGrpIds)
   {
-    Qry.SetVariable("grp_id", grpId.get());
-    Qry.Execute();
+    setAdditionalListId(grpId);
   }
 }
 
@@ -1189,7 +1284,7 @@ void TAvailabilityReq::bagTypesToDB(const TCkinGrpIds &tckinGrpIds, bool copy_al
   for(TCkinGrpIds::const_iterator iGrpId=tckinGrpIds.begin(); iGrpId!=tckinGrpIds.end(); ++iGrpId)
   {
     if (iGrpId==tckinGrpIds.begin())
-      serviceLists.toDB(false);
+      serviceLists.toDB(*iGrpId, false);
     else if (copy_all_segs)
       CopyPaxServiceLists(*tckinGrpIds.begin(), *iGrpId, false, false);
   }
@@ -1244,22 +1339,60 @@ void unaccBagTypesToDB(int grp_id, bool ignore_unaccomp_sets) //!!! потом удалит
       serviceLists.insert(serviceItem);
     };
   };
-  serviceLists.toDB(true);
+  serviceLists.toDB(GrpId_t(grp_id), true);
 }
 
-void CopyPaxServiceLists(const GrpId_t& grpIdSrc, const GrpId_t& grpIdDest, bool is_grp_id, bool rfisc_used)
+void DeleteServiceLists(const GrpId_t& grp_id, bool is_grp_id, bool rfisc_used)
+{
+  DB::TQuery Qry(
+        PgOra::getRWSession({(is_grp_id ? "GRP_SERVICE_LISTS" : "PAX_SERVICE_LISTS"),
+                             "SERVICE_LISTS"}), STDLOG);
+  Qry.SQLText=
+      is_grp_id
+      ? "DELETE FROM "
+        "  (SELECT * FROM grp_service_lists, service_lists "
+        "   WHERE grp_service_lists.list_id=service_lists.id AND "
+        "         grp_service_lists.grp_id=:grp_id AND service_lists.rfisc_used=:rfisc_used)"
+      : "DELETE FROM "
+        "  (SELECT * FROM pax_service_lists, service_lists "
+        "   WHERE pax_service_lists.list_id=service_lists.id AND "
+        "         pax_service_lists.grp_id=:grp_id AND service_lists.rfisc_used=:rfisc_used)";
+  Qry.CreateVariable("grp_id", otInteger, grp_id.get());
+  Qry.CreateVariable("rfisc_used", otInteger, (int)rfisc_used);
+  Qry.Execute();
+}
+
+void SavePaxServiceLists(const GrpId_t& grp_id, const PaxId_t& pax_id, int transfer_num,
+                         int category, int list_id)
+{
+  DB::TQuery Qry(PgOra::getRWSession("PAX_SERVICE_LISTS"), STDLOG);
+  Qry.SQLText=
+      "INSERT INTO pax_service_lists ("
+      "grp_id, pax_id, transfer_num, category, list_id"
+      ") VALUES ("
+      ":grp_id, :pax_id, :transfer_num, :category, :list_id"
+      ")";
+  Qry.CreateVariable("grp_id", otInteger, grp_id.get());
+  Qry.CreateVariable("pax_id", otInteger, pax_id.get());
+  Qry.CreateVariable("transfer_num", otInteger, transfer_num);
+  Qry.CreateVariable("category", otInteger, category);
+  Qry.CreateVariable("list_id", otInteger, list_id);
+  Qry.Execute();
+}
+
+void CopyPaxServiceLists(const GrpId_t& grp_id_src, const GrpId_t& grp_id_dest, bool is_grp_id, bool rfisc_used)
 {
   if (is_grp_id)
     throw Exception("%s: not supported! (grpIdSrc=%d, grpIdDest=%d, is_grp_id=%d rfisc_used=%d)",
-                    grpIdSrc.get(), grpIdDest.get(), (int)is_grp_id, (int)rfisc_used);
+                    grp_id_src.get(), grp_id_dest.get(), (int)is_grp_id, (int)rfisc_used);
 
   int list_id=ASTRA::NoExists;
   if (!rfisc_used)
   {
     TTripInfo operFlt;
-    if (!operFlt.getByGrpId(grpIdDest.get())) return;
+    if (!operFlt.getByGrpId(grp_id_dest.get())) return;
 
-    string airline=WeightConcept::GetCurrSegBagAirline(grpIdDest.get()); //CopyPaxServiceLists - checked!
+    string airline=WeightConcept::GetCurrSegBagAirline(grp_id_dest.get()); //CopyPaxServiceLists - checked!
     if (airline.empty()) return;
 
     TBagTypeList list;
@@ -1268,49 +1401,51 @@ void CopyPaxServiceLists(const GrpId_t& grpIdSrc, const GrpId_t& grpIdDest, bool
     list_id=list.toDBAdv();
   };
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=is_grp_id?"DELETE FROM "
-                        "  (SELECT * FROM grp_service_lists, service_lists "
-                        "   WHERE grp_service_lists.list_id=service_lists.id AND "
-                        "         grp_service_lists.grp_id=:grp_id AND service_lists.rfisc_used=:rfisc_used)":
-                        "DELETE FROM "
-                        "  (SELECT * FROM pax_service_lists, service_lists, pax "
-                        "   WHERE pax_service_lists.list_id=service_lists.id AND "
-                        "         pax_service_lists.pax_id=pax.pax_id AND "
-                        "         pax.grp_id=:grp_id AND service_lists.rfisc_used=:rfisc_used)";
-  Qry.CreateVariable("grp_id", otInteger, grpIdDest.get());
-  Qry.CreateVariable("rfisc_used", otInteger, (int)rfisc_used);
-  Qry.Execute();
+  DeleteServiceLists(grp_id_dest, is_grp_id, rfisc_used);
 
   ostringstream sql;
-  sql << "INSERT INTO pax_service_lists(pax_id, transfer_num, category, list_id) "
-         "SELECT dest.pax_id, "
-         "       pax_service_lists.transfer_num+src.seg_no-dest.seg_no, "
+  sql << "SELECT pax_service_lists.pax_id, "
+         "       pax_service_lists.transfer_num, "
          "       pax_service_lists.category, ";
-  if (rfisc_used)
+  if (rfisc_used) {
     sql << "       pax_service_lists.list_id ";
-  else
-    sql << "       :list_id ";
-
-  sql << TCkinRoute::copySubselectSQL("pax_service_lists", {"service_lists"}, true)
-      << "      AND pax_service_lists.list_id=service_lists.id "
-         "      AND service_lists.rfisc_used=:rfisc_used ";
-  Qry.Clear();
+  } else {
+    sql << "       :list_id AS list_id ";
+  }
+  sql << "FROM pax_service_lists, service_lists "
+         "WHERE pax_service_lists.list_id=service_lists.id "
+         "AND service_lists.rfisc_used=:rfisc_used "
+         "AND pax_service_lists.grp_id=:grp_id_src";
+  DB::TQuery Qry(PgOra::getROSession({"PAX_SERVICE_LISTS","SERVICE_LISTS"}), STDLOG);
   Qry.SQLText=sql.str();
-  if (!rfisc_used)
+  if (!rfisc_used) {
     Qry.CreateVariable("list_id", otInteger, list_id);
-  Qry.CreateVariable("grp_id_src", otInteger, grpIdSrc.get());
-  Qry.CreateVariable("grp_id_dest", otInteger, grpIdDest.get());
+  }
+  Qry.CreateVariable("grp_id_src", otInteger, grp_id_src.get());
   Qry.CreateVariable("rfisc_used", otInteger, (int)rfisc_used);
   Qry.Execute();
+  for (; !Qry.Eof; Qry.Next()) {
+    const int pax_id_src = Qry.FieldAsInteger("pax_id");
+    const int transfer_num_src = Qry.FieldAsInteger("transfer_num");
+    const int category_src = Qry.FieldAsInteger("category");
+    const int list_id_src = Qry.FieldAsInteger("list_id");
+    const std::vector<PaxGrpRoute> routes = PaxGrpRoute::load(PaxId_t(pax_id_src),
+                                                              transfer_num_src,
+                                                              grp_id_src,
+                                                              grp_id_dest);
+    for (const PaxGrpRoute& route: routes) {
+      const int pax_id = route.dest.pax_id.get();
+      const int transfer_num = transfer_num_src + route.src.seg_no - route.dest.seg_no;
+      SavePaxServiceLists(grp_id_dest, PaxId_t(pax_id), transfer_num, category_src, list_id_src);
+    }
+  }
 }
 
 void ServicePaymentInterface::LoadServiceLists(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText="SELECT rfisc_used FROM service_lists WHERE id=:id";
+  DB::TQuery Qry(PgOra::getROSession("SERVICE_LISTS"), STDLOG);
+  Qry.SQLText="SELECT rfisc_used FROM service_lists "
+              "WHERE id=:id";
   Qry.DeclareVariable("id", otInteger);
   xmlNodePtr svcNode=NewTextChild(resNode, "service_lists");
   for(xmlNodePtr node=NodeAsNode("service_lists", reqNode)->children; node!=NULL; node=node->next)

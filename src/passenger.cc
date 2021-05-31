@@ -2728,7 +2728,7 @@ static void getBaggageInHoldList(int id, T& list)
 
 void TSimplePaxItem::getBaggageListForSBDO(TRFISCListWithProps& list) const
 {
-  std::string rfiscs=Sirena::getRFISCsFromBaggageNorm(id);
+  std::string rfiscs=Sirena::getRFISCsFromBaggageNorm(PaxId_t(id));
   if (rfiscs.empty())
   {
     list.clear();
@@ -3869,9 +3869,9 @@ void PaxBrandsNormsToStream(const TTrferRoute &trfer, const CheckIn::TPaxItem &p
     << pax.full_name() << "(" << ElemIdToCodeNative(etPersType, EncodePerson(pax.pers_type)) << "):" << endl;
 
   TPaxNormList norms;
-  PaxNormsFromDB(pax.id, norms);
+  PaxNormsFromDB(PaxId_t(pax.id), norms);
   TPaxBrandList brands;
-  PaxBrandsFromDB(pax.id, brands);
+  PaxBrandsFromDB(PaxId_t(pax.id), brands);
 
   for(int pass=0; pass<2; pass++)
   {
@@ -4183,7 +4183,6 @@ TPnrAddrs& TPnrAddrs::getByPnrIdFast(int pnr_id)
 std::optional<AirlineCode_t> getTlgAirline(const PnrId_t& pnr_id)
 {
   LogTrace(TRACE6) << __func__ << ": pnr_id=" << pnr_id;
-  std::set<PointIdTlg_t> result;
   DB::TQuery Qry(PgOra::getROSession("CRS_PNR"), STDLOG);
   Qry.SQLText =
       "SELECT point_id "

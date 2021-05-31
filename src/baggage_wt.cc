@@ -86,7 +86,7 @@ TBagTypeListKey& TBagTypeListKey::fromXMLcompatible(xmlNodePtr node)
   return *this;
 }
 
-const TBagTypeListItem& TBagTypeListItem::toDB(TQuery &Qry) const
+const TBagTypeListItem& TBagTypeListItem::toDB(DB::TQuery &Qry) const
 {
   Qry.SetVariable("bag_type", bag_type==WeightConcept::REGULAR_BAG_TYPE?WeightConcept::REGULAR_BAG_TYPE_IN_DB:bag_type);
   Qry.SetVariable("airline", airline);
@@ -113,19 +113,6 @@ const TBagTypeListKey& TBagTypeListKey::toDB(DB::TQuery &Qry) const
   return *this;
 }
 
-const TBagTypeKey& TBagTypeKey::toDB(TQuery &Qry) const
-{
-  TBagTypeListKey::toDB(Qry);
-  if (!(*this==TBagTypeKey()) && list_id==ASTRA::NoExists) //!!!vlad
-  {
-    ProgError(STDLOG, "TBagTypeKey::toDB: list_id==ASTRA::NoExists! (%s)", traceStr().c_str());
-    ProgError(STDLOG, "SQL=%s", Qry.SQLText.SQLText());
-  };
-  list_id!=ASTRA::NoExists?Qry.SetVariable("list_id", list_id):
-                           Qry.SetVariable("list_id", FNull);
-  return *this;
-}
-
 const TBagTypeKey& TBagTypeKey::toDB(DB::TQuery &Qry) const
 {
   TBagTypeListKey::toDB(Qry);
@@ -133,6 +120,20 @@ const TBagTypeKey& TBagTypeKey::toDB(DB::TQuery &Qry) const
   {
     ProgError(STDLOG, "TBagTypeKey::toDB: list_id==ASTRA::NoExists! (%s)\nSQL=%s",
               traceStr().c_str(), Qry.SQLText.c_str());
+  };
+  list_id!=ASTRA::NoExists?Qry.SetVariable("list_id", list_id):
+                           Qry.SetVariable("list_id", FNull);
+  return *this;
+}
+
+const TBagTypeKey& TBagTypeKey::toDBcompatible(DB::TQuery &Qry, const std::string &where) const
+{
+  BagTypeToDB(Qry, bag_type, where);
+  Qry.SetVariable("airline", airline);
+  if (!(*this==TBagTypeKey()) && list_id==ASTRA::NoExists) //!!!vlad
+  {
+    ProgError(STDLOG, "TBagTypeKey::toDB: list_id==ASTRA::NoExists! (%s)", traceStr().c_str());
+    ProgError(STDLOG, "SQL=%s", Qry.SQLText.c_str());
   };
   list_id!=ASTRA::NoExists?Qry.SetVariable("list_id", list_id):
                            Qry.SetVariable("list_id", FNull);
@@ -162,79 +163,58 @@ std::string TBagTypeKey::traceStr() const
   return s.str();
 }
 
-void TBagTypeKey::getListKey(GetItemWay way, int id, int transfer_num, int bag_pool_num,
+std::string getAirlineByBagTypeList(int list_id, const std::string& bag_type, std::string& error)
+{
+  DB::TQuery Qry(PgOra::getROSession("BAG_TYPE_LIST_ITEMS"), STDLOG);
+  Qry.SQLText =
+      "SELECT DISTINCT airline "
+      "FROM bag_type_list_items "
+      "WHERE list_id=:list_id "
+      "AND bag_type=:bag_type ";
+  Qry.CreateVariable("list_id", otInteger, list_id);
+  Qry.CreateVariable("bag_type", otString, bag_type);;
+  Qry.Execute();
+  if (!Qry.Eof)
+  {
+    const std::string result = Qry.FieldAsString("airline");
+    Qry.Next();
+    if (!Qry.Eof) {
+      error="airline duplicate";
+    }
+    return result;
+  } else {
+    error="airline not found";
+  }
+  return std::string();
+}
+
+void TBagTypeKey::getListKey(ServiceGetItemWay way, int id, int transfer_num, int bag_pool_num,
                              boost::optional<TServiceCategory::Enum> category,
                              const std::string &where)
 {
   if (!airline.empty()) return;
-  ostringstream sql;
-  QParams QryParams;
-  if (way==Unaccomp)
-  {
-    sql << "SELECT DISTINCT bag_type_list_items.airline \n"
-           "FROM grp_service_lists, bag_type_list_items \n"
-           "WHERE grp_service_lists.list_id=bag_type_list_items.list_id AND \n"
-           "      grp_service_lists.grp_id=:id AND \n"
-           "      grp_service_lists.transfer_num=:transfer_num AND \n";
-  };
-  if (way==ByGrpId)
-  {
-    sql << "SELECT DISTINCT bag_type_list_items.airline \n"
-           "FROM pax, pax_service_lists, bag_type_list_items \n"
-           "WHERE pax.pax_id=pax_service_lists.pax_id AND \n"
-           "      pax_service_lists.list_id=bag_type_list_items.list_id AND \n"
-           "      pax.grp_id=:id AND \n"
-           "      pax_service_lists.transfer_num=:transfer_num AND \n";
-  };
-  if (way==ByPaxId)
-  {
-    sql << "SELECT DISTINCT bag_type_list_items.airline \n"
-           "FROM pax_service_lists, bag_type_list_items \n"
-           "WHERE pax_service_lists.list_id=bag_type_list_items.list_id AND \n"
-           "      pax_service_lists.pax_id=:id AND \n"
-           "      pax_service_lists.transfer_num=:transfer_num AND \n";
-  };
-  if (way==ByBagPool)
-  {
-    sql << "SELECT DISTINCT bag_type_list_items.airline \n"
-           "FROM pax_service_lists, bag_type_list_items \n"
-           "WHERE pax_service_lists.list_id=bag_type_list_items.list_id AND \n"
-           "      pax_service_lists.pax_id=ckin.get_bag_pool_pax_id(:id, :bag_pool_num) AND \n"
-           "      pax_service_lists.transfer_num=:transfer_num AND \n";
-    QryParams << QParam("bag_pool_num", otInteger, bag_pool_num);
-  };
 
-  sql << "      bag_type_list_items.bag_type=:bag_type \n";
-
-  if (category)
-  {
-    if (way==Unaccomp)
-      sql << "      AND grp_service_lists.category=:category \n";
-    else
-      sql << "      AND pax_service_lists.category=:category \n";
-    QryParams << QParam("category", otInteger, (int)category.get());
+  std::string error;
+  const auto list_id_set = getServiceListIdSet(way, id, transfer_num, bag_pool_num, category);
+  for (int list_id: list_id_set) {
+    const std::string current_airline = getAirlineByBagTypeList(list_id,
+                                                                bag_type==WeightConcept::REGULAR_BAG_TYPE
+                                                                ? WeightConcept::REGULAR_BAG_TYPE_IN_DB
+                                                                : bag_type,
+                                                                error);
+    if (!airline.empty() && airline != current_airline) {
+      error="airline duplicate";
+      break;
+    } else {
+      airline = current_airline;
+    }
   }
-
-  QryParams << QParam("id", otInteger, id)
-            << QParam("transfer_num", otInteger, transfer_num)
-            << QParam("bag_type", otString, bag_type);
-
-  TCachedQuery Qry(sql.str(), QryParams);
-  if (bag_type==WeightConcept::REGULAR_BAG_TYPE)
-    Qry.get().SetVariable("bag_type", WeightConcept::REGULAR_BAG_TYPE_IN_DB);
-  Qry.get().Execute();
-  string error;
-  if (!Qry.get().Eof && !Qry.get().FieldIsNULL("airline"))
-  {
-    airline=Qry.get().FieldAsString("airline");
-    Qry.get().Next();
-    if (!Qry.get().Eof) error="airline duplicate";
+  if (airline.empty()) {
+    error="airline not found";
   }
-  else error="airline not found";
 
   if (!error.empty())
   {
-    ProgTrace(TRACE5, "\n%s", Qry.get().SQLText.SQLText());
     throw EConvertError("%s: %s: %s (way=%d, id=%d, transfer_num=%d, bag_pool_num=%s, category=%s, bag_type=%s)",
                         where.c_str(),
                         __FUNCTION__,
@@ -248,7 +228,7 @@ void TBagTypeKey::getListKey(GetItemWay way, int id, int transfer_num, int bag_p
   };
 }
 
-void TBagTypeKey::getListItem(GetItemWay way, int id, int transfer_num, int bag_pool_num,
+void TBagTypeKey::getListItem(ServiceGetItemWay way, int id, int transfer_num, int bag_pool_num,
                               boost::optional<TServiceCategory::Enum> category,
                               const std::string &where)
 {
@@ -269,76 +249,20 @@ void TBagTypeKey::getListItem(GetItemWay way, int id, int transfer_num, int bag_
                     category?ServiceCategories().encode(category.get()).c_str():"",
                     traceStr().c_str());
 
-  ostringstream sql;
-  QParams QryParams;
-  if (way==Unaccomp)
-  {
-    sql << "SELECT bag_type_list_items.* \n"
-           "FROM grp_service_lists, bag_type_list_items \n"
-           "WHERE grp_service_lists.list_id=bag_type_list_items.list_id AND \n"
-           "      grp_service_lists.grp_id=:id AND \n"
-           "      grp_service_lists.transfer_num=:transfer_num AND \n";
-  };
-  if (way==ByGrpId)
-  {
-    sql << "SELECT bag_type_list_items.* \n"
-           "FROM pax, pax_service_lists, bag_type_list_items \n"
-           "WHERE pax.pax_id=pax_service_lists.pax_id AND \n"
-           "      pax_service_lists.list_id=bag_type_list_items.list_id AND \n"
-           "      pax.grp_id=:id AND \n"
-           "      pax_service_lists.transfer_num=:transfer_num AND \n";
-  };
-  if (way==ByPaxId)
-  {
-    sql << "SELECT bag_type_list_items.* \n"
-           "FROM pax_service_lists, bag_type_list_items \n"
-           "WHERE pax_service_lists.list_id=bag_type_list_items.list_id AND \n"
-           "      pax_service_lists.pax_id=:id AND \n"
-           "      pax_service_lists.transfer_num=:transfer_num AND \n";
-  };
-  if (way==ByBagPool)
-  {
-    sql << "SELECT bag_type_list_items.* \n"
-           "FROM pax_service_lists, bag_type_list_items \n"
-           "WHERE pax_service_lists.list_id=bag_type_list_items.list_id AND \n"
-           "      pax_service_lists.pax_id=ckin.get_bag_pool_pax_id(:id, :bag_pool_num) AND \n"
-           "      pax_service_lists.transfer_num=:transfer_num AND \n";
-    QryParams << QParam("bag_pool_num", otInteger, bag_pool_num);
-  };
-
-  sql << "      bag_type_list_items.bag_type=:bag_type AND \n"
-         "      bag_type_list_items.airline=:airline \n";
-
-  if (category)
-  {
-    if (way==Unaccomp)
-      sql << "      AND grp_service_lists.category=:category \n";
-    else
-      sql << "      AND pax_service_lists.category=:category \n";
-    QryParams << QParam("category", otInteger, (int)category.get());
-  }
-  sql << "      AND rownum<2 \n";
-
-  QryParams << QParam("id", otInteger, id)
-            << QParam("transfer_num", otInteger, transfer_num)
-            << QParam("bag_type", otString)
-            << QParam("airline", otString);
-
-  TCachedQuery Qry(sql.str(), QryParams);
-  TBagTypeListKey::toDB(Qry.get());
-  if (bag_type==WeightConcept::REGULAR_BAG_TYPE)
-    Qry.get().SetVariable("bag_type", WeightConcept::REGULAR_BAG_TYPE_IN_DB);
-  Qry.get().Execute();
-  if (!Qry.get().Eof && !Qry.get().FieldIsNULL("list_id"))
-  {
-    list_id=Qry.get().FieldAsInteger("list_id");
-    list_item=TBagTypeListItem();
-    list_item.get().fromDB(Qry.get());
+  const auto list_id_set = getServiceListIdSet(way, id, transfer_num, bag_pool_num, category);
+  for (int list_id_: list_id_set) {
+    const auto result = getListItem(list_id_,
+                                    bag_type,
+                                    airline);
+    if (result) {
+      list_id = list_id_;
+      list_item = *result;
+      break;
+    }
   }
 
   if (list_id==ASTRA::NoExists)
   {
-    ProgTrace(TRACE5, "\n%s", Qry.get().SQLText.SQLText());
     throw EConvertError("%s: %s: list_id not found (way=%d, id=%d, transfer_num=%d, bag_pool_num=%s, category=%s, %s)",
                         where.c_str(),
                         __FUNCTION__,
@@ -356,31 +280,99 @@ void TBagTypeKey::getListItemIfNone()
   if (!list_item) getListItem();
 }
 
-void TBagTypeKey::getListItem()
+boost::optional<TBagTypeListItem> TBagTypeKey::getListItem(int list_id,
+                                                           const std::string& bag_type,
+                                                           const std::string& airline)
 {
-  list_item=boost::none;
-  if (list_id==ASTRA::NoExists) return;
+  if (list_id==ASTRA::NoExists) return boost::none;
 
-  TCachedQuery Qry("SELECT * "
-                   "FROM bag_type_list_items "
-                   "WHERE bag_type_list_items.list_id=:list_id AND "
-                   "      bag_type_list_items.bag_type=:bag_type AND "
-                   "      bag_type_list_items.airline=:airline",
-                   QParams() << QParam("list_id", otInteger, list_id)
-                             << QParam("bag_type", otString)
-                             << QParam("airline", otString));
-  TBagTypeListKey::toDB(Qry.get());
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("BAG_TYPE_LIST_ITEMS"),
+        "SELECT * "
+        "FROM bag_type_list_items "
+        "WHERE list_id=:list_id "
+        "AND bag_type=:bag_type "
+        "AND airline=:airline",
+        QParams() << QParam("list_id", otInteger, list_id)
+        << QParam("bag_type", otString, bag_type)
+        << QParam("airline", otString, airline),
+        STDLOG);
   if (bag_type==WeightConcept::REGULAR_BAG_TYPE)
     Qry.get().SetVariable("bag_type", WeightConcept::REGULAR_BAG_TYPE_IN_DB);
 
   Qry.get().Execute();
   if (Qry.get().Eof)
-    throw Exception("%s: item not found (%s)",  __FUNCTION__,  traceStr().c_str());
-  list_item=TBagTypeListItem();
-  list_item.get().fromDB(Qry.get());
+    return boost::none;
+  return TBagTypeListItem().fromDB(Qry.get());
 }
 
-TBagTypeListItem& TBagTypeListItem::fromDB(TQuery &Qry)
+void TBagTypeKey::getListItem()
+{
+  if (list_id==ASTRA::NoExists) return;
+  list_item=getListItem(list_id, bag_type, airline);
+
+  if (!list_item) {
+    throw Exception("%s: item not found (%s)",  __FUNCTION__,  traceStr().c_str());
+  }
+}
+
+void TBagTypeKey::getListItemUnaccomp(int grp_id, int transfer_num,
+                                      boost::optional<TServiceCategory::Enum> category,
+                                      const std::string &where)
+{
+  getListItem(ServiceGetItemWay::Unaccomp, grp_id, transfer_num, ASTRA::NoExists, category, where);
+}
+
+void TBagTypeKey::getListItemByGrpId(int grp_id, int transfer_num,
+                                     boost::optional<TServiceCategory::Enum> category,
+                                     const std::string &where)
+{
+  getListItem(ServiceGetItemWay::ByGrpId, grp_id, transfer_num, ASTRA::NoExists, category, where);
+}
+
+void TBagTypeKey::getListItemByPaxId(int pax_id, int transfer_num,
+                                     boost::optional<TServiceCategory::Enum> category,
+                                     const std::string &where)
+{
+  getListItem(ServiceGetItemWay::ByPaxId, pax_id, transfer_num, ASTRA::NoExists, category, where);
+}
+
+void TBagTypeKey::getListItemByBagPool(int grp_id, int transfer_num, int bag_pool_num,
+                                       boost::optional<TServiceCategory::Enum> category,
+                                       const std::string &where)
+{
+  getListItem(ServiceGetItemWay::ByBagPool, grp_id, transfer_num, bag_pool_num, category, where);
+}
+
+void TBagTypeKey::getListKeyUnaccomp(int grp_id, int transfer_num,
+                                     boost::optional<TServiceCategory::Enum> category,
+                                     const std::string &where)
+{
+  getListKey(ServiceGetItemWay::Unaccomp, grp_id, transfer_num, ASTRA::NoExists, category, where);
+}
+
+void TBagTypeKey::getListKeyByGrpId(int grp_id, int transfer_num,
+                                    boost::optional<TServiceCategory::Enum> category,
+                                    const std::string &where)
+{
+  getListKey(ServiceGetItemWay::ByGrpId, grp_id, transfer_num, ASTRA::NoExists, category, where);
+}
+
+void TBagTypeKey::getListKeyByPaxId(int pax_id, int transfer_num,
+                                    boost::optional<TServiceCategory::Enum> category,
+                                    const std::string &where)
+{
+  getListKey(ServiceGetItemWay::ByPaxId, pax_id, transfer_num, ASTRA::NoExists, category, where);
+}
+
+void TBagTypeKey::getListKeyByBagPool(int grp_id, int transfer_num, int bag_pool_num,
+                                      boost::optional<TServiceCategory::Enum> category,
+                                      const std::string &where)
+{
+  getListKey(ServiceGetItemWay::ByBagPool, grp_id, transfer_num, bag_pool_num, category, where);
+}
+
+TBagTypeListItem& TBagTypeListItem::fromDB(DB::TQuery &Qry)
 {
   clear();
   bag_type=Qry.FieldAsString("bag_type");
@@ -395,28 +387,11 @@ TBagTypeListItem& TBagTypeListItem::fromDB(TQuery &Qry)
   return *this;
 }
 
-TBagTypeListKey& TBagTypeListKey::fromDB(TQuery &Qry)
-{
-  clear();
-  bag_type=Qry.FieldAsString("bag_type");
-  airline=Qry.FieldAsString("airline");
-  return *this;
-}
-
 TBagTypeListKey& TBagTypeListKey::fromDB(DB::TQuery &Qry)
 {
   clear();
   bag_type=Qry.FieldAsString("bag_type");
   airline=Qry.FieldAsString("airline");
-  return *this;
-}
-
-TBagTypeKey& TBagTypeKey::fromDB(TQuery &Qry)
-{
-  clear();
-  TBagTypeListKey::fromDB(Qry);
-  if (!Qry.FieldIsNULL("list_id"))
-    list_id=Qry.FieldAsInteger("list_id");
   return *this;
 }
 
@@ -429,7 +404,7 @@ TBagTypeKey& TBagTypeKey::fromDB(DB::TQuery &Qry)
   return *this;
 }
 
-TBagTypeKey& TBagTypeKey::fromDBcompatible(TQuery &Qry)
+TBagTypeKey& TBagTypeKey::fromDBcompatible(DB::TQuery &Qry)
 {
   clear();
   bag_type=BagTypeFromDB(Qry);
@@ -439,7 +414,7 @@ TBagTypeKey& TBagTypeKey::fromDBcompatible(TQuery &Qry)
   return *this;
 }
 
-TBagTypeKey& TBagTypeKey::fromDBcompatible(DB::TQuery &Qry)
+TBagTypeKey& TBagTypeKey::fromDBcompatible(TQuery &Qry)
 {
   clear();
   bag_type=BagTypeFromDB(Qry);
@@ -488,12 +463,14 @@ void TBagTypeList::toXML(int list_id, xmlNodePtr node) const
 void TBagTypeList::fromDB(int list_id, bool only_visible)
 {
   clear();
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  if (only_visible)
-    Qry.SQLText = "SELECT * FROM bag_type_list_items WHERE list_id=:list_id AND visible<>0";
-  else
-    Qry.SQLText = "SELECT * FROM bag_type_list_items WHERE list_id=:list_id";
+  DB::TQuery Qry(PgOra::getROSession("BAG_TYPE_LIST_ITEMS"), STDLOG);
+  if (only_visible) {
+    Qry.SQLText = "SELECT * FROM bag_type_list_items "
+                  "WHERE list_id=:list_id AND visible<>0";
+  } else {
+    Qry.SQLText = "SELECT * FROM bag_type_list_items "
+                  "WHERE list_id=:list_id";
+  }
   Qry.CreateVariable( "list_id", otInteger, list_id );
   Qry.Execute();
   for ( ;!Qry.Eof; Qry.Next())
@@ -506,11 +483,13 @@ void TBagTypeList::fromDB(int list_id, bool only_visible)
 
 void TBagTypeList::toDB(int list_id) const
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getRWSession("BAG_TYPE_LIST_ITEMS"), STDLOG);
   Qry.SQLText =
-    "INSERT INTO bag_type_list_items(list_id, bag_type, airline, category, name, name_lat, descr, descr_lat, visible) "
-    "VALUES(:list_id, :bag_type, :airline, :category, :name, :name_lat, :descr, :descr_lat, :visible)";
+    "INSERT INTO bag_type_list_items("
+    "list_id, bag_type, airline, category, name, name_lat, descr, descr_lat, visible "
+    ") VALUES("
+    ":list_id, :bag_type, :airline, :category, :name, :name_lat, :descr, :descr_lat, :visible"
+    ")";
   Qry.CreateVariable( "list_id", otInteger, list_id );
   Qry.DeclareVariable( "bag_type", otString );
   Qry.DeclareVariable( "airline", otString );
@@ -550,31 +529,14 @@ int TBagTypeList::toDBAdv() const
 {
   int crc_tmp=crc();
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText = "SELECT id FROM service_lists WHERE crc=:crc AND rfisc_used=:rfisc_used";
-  Qry.CreateVariable( "rfisc_used", otInteger, (int)false );
-  Qry.CreateVariable( "crc", otInteger, crc_tmp );
-  Qry.Execute();
-  for(; !Qry.Eof; Qry.Next())
-  {
-    int list_id=Qry.FieldAsInteger("id");
+  const std::set<int> list_id_set = getServiceListIdSet(crc_tmp, false /*rfisc_used*/);
+  for(int list_id: list_id_set) {
     TBagTypeList list;
     list.fromDB(list_id);
     if (*this==list) return list_id;
-  };
+  }
 
-  Qry.Clear();
-  Qry.SQLText =
-      "BEGIN "
-      "  SELECT service_lists__seq.nextval INTO :id FROM dual; "
-      "  INSERT INTO service_lists(id, crc, rfisc_used, time_create) VALUES(:id, :crc, :rfisc_used, SYSTEM.UTCSYSDATE); "
-      "END;";
-  Qry.CreateVariable("rfisc_used", otInteger, (int)false);
-  Qry.CreateVariable("id", otInteger, FNull);
-  Qry.CreateVariable("crc", otInteger, crc_tmp);
-  Qry.Execute();
-  int list_id=Qry.GetVariableAsInteger("id");
+  const int list_id = saveServiceLists(crc_tmp, false /*rfisc_used*/);
   toDB(list_id);
   return list_id;
 }

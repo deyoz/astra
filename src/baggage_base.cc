@@ -98,6 +98,109 @@ TBagQuantity& TBagQuantity::operator += (const TBagQuantity &item)
   return *this;
 }
 
+std::optional<PaxId_t> getPaxIdByBagPool(const GrpId_t& grp_id, int bag_pool_num)
+{
+  TQuery Qry(&OraSession, STDLOG);
+  Qry.SQLText =
+      "SELECT ckin.get_bag_pool_pax_id(:grp_id, :bag_pool_num) AS pax_id FROM DUAL";
+  Qry.CreateVariable("grp_id", otInteger, grp_id.get());
+  Qry.CreateVariable("bag_pool_num", otInteger, bag_pool_num);
+  Qry.Execute();
+  if (Qry.Eof) {
+    return {};
+  }
+  return PaxId_t(Qry.FieldAsInteger("pax_id"));
+}
+
+std::set<int> getServiceListIdSet(ServiceGetItemWay way, int id, int transfer_num, int bag_pool_num,
+                                  boost::optional<TServiceCategory::Enum> category)
+{
+  ostringstream sql;
+  QParams QryParams;
+  if (way==ServiceGetItemWay::Unaccomp)
+  {
+    sql << "SELECT DISTINCT list_id \n"
+           "FROM grp_service_lists \n"
+           "WHERE grp_id=:id AND \n"
+           "      transfer_num=:transfer_num";
+  };
+  if (way==ServiceGetItemWay::ByGrpId)
+  {
+    sql << "SELECT DISTINCT list_id \n"
+           "FROM pax_service_lists \n"
+           "WHERE grp_id=:id AND \n"
+           "      transfer_num=:transfer_num";
+  };
+  if (way==ServiceGetItemWay::ByPaxId || way==ServiceGetItemWay::ByBagPool)
+  {
+    sql << "SELECT DISTINCT list_id \n"
+           "FROM pax_service_lists \n"
+           "WHERE pax_id=:id AND \n"
+           "      transfer_num=:transfer_num";
+  };
+
+  if (category)
+  {
+    if (way==ServiceGetItemWay::Unaccomp) {
+      sql << "      AND grp_service_lists.category=:category \n";
+    } else {
+      sql << "      AND pax_service_lists.category=:category \n";
+    }
+    QryParams << QParam("category", otInteger, (int)category.get());
+  }
+
+  if (way==ServiceGetItemWay::ByBagPool)
+  {
+    const std::optional<PaxId_t> pax_id = getPaxIdByBagPool(GrpId_t(id), bag_pool_num);
+    QryParams << QParam("id", otInteger, pax_id ? pax_id->get() : ASTRA::NoExists);
+  } else {
+    QryParams << QParam("id", otInteger, id);
+  }
+  QryParams << QParam("transfer_num", otInteger, transfer_num);
+
+  std::set<int> result;
+  TCachedQuery Qry(sql.str(), QryParams);
+  Qry.get().Execute();
+  for(;!Qry.get().Eof; Qry.get().Next()) {
+    result.insert(Qry.get().FieldAsInteger("list_id"));
+  }
+  return result;
+}
+
+std::set<int> getServiceListIdSet(int crc, bool rfisc_used)
+{
+  std::set<int> result;
+  DB::TQuery Qry(PgOra::getROSession("SERVICE_LISTS"), STDLOG);
+  Qry.SQLText = "SELECT id FROM service_lists "
+                "WHERE crc=:crc "
+                "AND rfisc_used=:rfisc_used";
+  Qry.CreateVariable("rfisc_used", otInteger, int(rfisc_used));
+  Qry.CreateVariable("crc", otInteger, crc);
+  Qry.Execute();
+  for(; !Qry.Eof; Qry.Next()) {
+    result.insert(Qry.FieldAsInteger("id"));
+  }
+  return result;
+}
+
+int saveServiceLists(int crc, bool rfisc_used)
+{
+  const int list_id = PgOra::getSeqNextVal("SERVICE_LISTS__SEQ");
+  DB::TQuery QryIns(PgOra::getRWSession("SERVICE_LISTS"), STDLOG);
+  QryIns.SQLText =
+    "INSERT INTO service_lists("
+    "id, crc, rfisc_used, time_create"
+    ") VALUES("
+    ":id, :crc, :rfisc_used, :datetime"
+    ") ";
+  QryIns.CreateVariable("id", otInteger, list_id);
+  QryIns.CreateVariable("crc", otInteger, crc);
+  QryIns.CreateVariable("rfisc_used", otInteger, int(rfisc_used));
+  QryIns.CreateVariable("datetime", otDate, NowUTC());
+  QryIns.Execute();
+  return list_id;
+}
+
 namespace Sirena
 {
 
@@ -247,14 +350,14 @@ TPaxNormListKey& TPaxNormListKey::fromSirenaXML(xmlNodePtr node)
   return *this;
 }
 
-const TPaxNormListKey& TPaxNormListKey::toDB(TQuery &Qry) const
+const TPaxNormListKey& TPaxNormListKey::toDB(DB::TQuery &Qry) const
 {
   TPaxSegKey::toDB(Qry);
   Qry.SetVariable("carry_on", (int)carry_on);
   return *this;
 }
 
-TPaxNormListKey& TPaxNormListKey::fromDB(TQuery &Qry)
+TPaxNormListKey& TPaxNormListKey::fromDB(DB::TQuery &Qry)
 {
   clear();
   TPaxSegKey::fromDB(Qry);
@@ -325,7 +428,7 @@ void TSimplePaxNormItem::fromSirenaXMLAdv(xmlNodePtr node, bool carry_on)
   };
 }
 
-const TSimplePaxNormItem& TSimplePaxNormItem::toDB(TQuery &Qry) const
+const TSimplePaxNormItem& TSimplePaxNormItem::toDB(DB::TQuery &Qry) const
 {
   Qry.SetVariable("carry_on", (int)carry_on);
   Qry.SetVariable("airline", airline);
@@ -334,7 +437,7 @@ const TSimplePaxNormItem& TSimplePaxNormItem::toDB(TQuery &Qry) const
   return *this;
 }
 
-TSimplePaxNormItem& TSimplePaxNormItem::fromDB(TQuery &Qry)
+TSimplePaxNormItem& TSimplePaxNormItem::fromDB(DB::TQuery &Qry)
 {
   clear();
   carry_on=Qry.FieldAsInteger("carry_on")!=0;
@@ -366,63 +469,74 @@ void TSimplePaxBrandItem::fromSirenaXMLAdv(xmlNodePtr node)
   };
 }
 
-void CopyPaxNorms(const GrpId_t& grpIdSrc, const GrpId_t& grpIdDest)
+void CopyPaxNorms(const GrpId_t& grp_id_src, const GrpId_t& grp_id_dest)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText="DELETE FROM (SELECT * FROM pax, pax_norms_text WHERE pax.pax_id=pax_norms_text.pax_id AND pax.grp_id=:grp_id)";
-  Qry.CreateVariable("grp_id", otInteger, grpIdDest.get());
-  Qry.Execute();
-  Qry.Clear();
-  Qry.SQLText=
-    "INSERT INTO pax_norms_text(pax_id, transfer_num, carry_on, lang, page_no, airline, concept, rfiscs, text) "
-    "SELECT dest.pax_id, "
-    "       pax_norms_text.transfer_num+src.seg_no-dest.seg_no, "
-    "       pax_norms_text.carry_on, "
-    "       pax_norms_text.lang, "
-    "       pax_norms_text.page_no, "
-    "       pax_norms_text.airline, "
-    "       pax_norms_text.concept, "
-    "       pax_norms_text.rfiscs, "
-    "       pax_norms_text.text " +
-    TCkinRoute::copySubselectSQL("pax_norms_text", {}, true);
-  Qry.CreateVariable("grp_id_src", otInteger, grpIdSrc.get());
-  Qry.CreateVariable("grp_id_dest", otInteger, grpIdDest.get());
+  LogTrace(TRACE6) << __func__
+                     << ": grp_id_src=" << grp_id_src
+                     << ", grp_id_dest=" << grp_id_dest;
+  TPaxNormList norms_dest;
+  TPaxNormList norms_src;
+  PaxNormsFromDB(grp_id_src, norms_src);
+  for (const auto& norm: norms_src) {
+    const TPaxNormListKey& key = norm.first;
+    const TSimplePaxNormItem& item = norm.second;
+    const std::vector<PaxGrpRoute> routes = PaxGrpRoute::load(PaxId_t(key.pax_id),
+                                                              key.trfer_num,
+                                                              grp_id_src,
+                                                              grp_id_dest);
+    for (const PaxGrpRoute& route: routes) {
+      const int pax_id = route.dest.pax_id.get();
+      const int transfer_num = key.trfer_num + route.src.seg_no - route.dest.seg_no;
+      const Sirena::TPaxSegKey new_paxseg_key(pax_id, transfer_num);
+      norms_dest.emplace(TPaxNormListKey(new_paxseg_key, key.carry_on), item);
+    }
+  }
+  PaxNormsToDB(grp_id_dest, norms_dest);
+}
+
+void CopyPaxBrands(const GrpId_t& grp_id_src, const GrpId_t& grp_id_dest)
+{
+  LogTrace(TRACE6) << __func__
+                     << ": grp_id_src=" << grp_id_src
+                     << ", grp_id_dest=" << grp_id_dest;
+  TPaxBrandList brands_dest;
+  TPaxBrandList brands_src;
+  PaxBrandsFromDB(grp_id_src, brands_src);
+  for (const auto& brand: brands_src) {
+    const TPaxSegKey& key = brand.first;
+    const TSimplePaxBrandItem& item = brand.second;
+    const std::vector<PaxGrpRoute> routes = PaxGrpRoute::load(PaxId_t(key.pax_id),
+                                                              key.trfer_num,
+                                                              grp_id_src,
+                                                              grp_id_dest);
+    for (const PaxGrpRoute& route: routes) {
+      const int pax_id = route.dest.pax_id.get();
+      const int transfer_num = key.trfer_num + route.src.seg_no - route.dest.seg_no;
+      const Sirena::TPaxSegKey new_paxseg_key(pax_id, transfer_num);
+      brands_dest.emplace(new_paxseg_key, item);
+    }
+  }
+  PaxBrandsToDB(grp_id_dest, brands_dest);
+}
+
+void DeletePaxNorms(const GrpId_t& grp_id)
+{
+  DB::TQuery Qry(PgOra::getRWSession("PAX_NORMS_TEXT"), STDLOG);
+  Qry.SQLText="DELETE FROM pax_norms_text "
+              "WHERE grp_id=:grp_id";
+  Qry.CreateVariable("grp_id", otInteger, grp_id.get());
   Qry.Execute();
 }
 
-void CopyPaxBrands(const GrpId_t& grpIdSrc, const GrpId_t& grpIdDest)
+void MakeQry_PaxNormsToDB(DB::TQuery& Qry, const GrpId_t& grp_id)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText="DELETE FROM (SELECT * FROM pax, pax_brands WHERE pax.pax_id=pax_brands.pax_id AND pax.grp_id=:grp_id)";
-  Qry.CreateVariable("grp_id", otInteger, grpIdDest.get());
-  Qry.Execute();
-  Qry.Clear();
   Qry.SQLText=
-    "INSERT INTO pax_brands(pax_id, transfer_num, lang, page_no, text) "
-    "SELECT dest.pax_id, "
-    "       pax_brands.transfer_num+src.seg_no-dest.seg_no, "
-    "       pax_brands.lang, "
-    "       pax_brands.page_no, "
-    "       pax_brands.text " +
-    TCkinRoute::copySubselectSQL("pax_brands", {}, true);
-  Qry.CreateVariable("grp_id_src", otInteger, grpIdSrc.get());
-  Qry.CreateVariable("grp_id_dest", otInteger, grpIdDest.get());
-  Qry.Execute();
-}
-
-void PaxNormsToDB(const GrpId_t& grpId, const list<TPaxNormItem> &norms)
-{
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText="DELETE FROM (SELECT * FROM pax, pax_norms_text WHERE pax.pax_id=pax_norms_text.pax_id AND pax.grp_id=:grp_id)";
-  Qry.CreateVariable("grp_id", otInteger, grpId.get());
-  Qry.Execute();
-  Qry.Clear();
-  Qry.SQLText=
-    "INSERT INTO pax_norms_text(pax_id, transfer_num, carry_on, lang, page_no, airline, concept, rfiscs, text) "
-    "VALUES(:pax_id, :transfer_num, :carry_on, :lang, :page_no, :airline, :concept, :rfiscs, :text)";
+    "INSERT INTO pax_norms_text ("
+    "grp_id, pax_id, transfer_num, carry_on, lang, page_no, airline, concept, rfiscs, text"
+    ") VALUES ("
+    ":grp_id, :pax_id, :transfer_num, :carry_on, :lang, :page_no, :airline, :concept, :rfiscs, :text"
+    ")";
+  Qry.CreateVariable("grp_id", otInteger, grp_id.get());
   Qry.DeclareVariable("pax_id", otInteger);
   Qry.DeclareVariable("transfer_num", otInteger);
   Qry.DeclareVariable("carry_on", otInteger);
@@ -432,6 +546,32 @@ void PaxNormsToDB(const GrpId_t& grpId, const list<TPaxNormItem> &norms)
   Qry.DeclareVariable("concept", otString);
   Qry.DeclareVariable("rfiscs", otString);
   Qry.DeclareVariable("text", otString);
+}
+
+void PaxNormsToDB(const GrpId_t& grp_id, const TPaxNormList& norms)
+{
+  DeletePaxNorms(grp_id);
+  DB::TQuery Qry(PgOra::getRWSession("PAX_NORMS_TEXT"), STDLOG);
+  MakeQry_PaxNormsToDB(Qry, grp_id);
+  for(TPaxNormList::const_iterator i=norms.begin(); i!=norms.end(); ++i)
+  {
+    Qry.SetVariable("pax_id", i->first.pax_id);
+    Qry.SetVariable("transfer_num", i->first.trfer_num);
+    i->first.toDB(Qry);
+    i->second.toDB(Qry);
+    for(TPaxNormItem::const_iterator j=i->second.begin(); j!=i->second.end(); ++j)
+    {
+      Qry.SetVariable("lang", j->second.lang);
+      longToDB(Qry, "text", j->second.text);
+    }
+  }
+}
+
+void PaxNormsToDB(const GrpId_t& grp_id, const list<TPaxNormItem> &norms)
+{
+  DeletePaxNorms(grp_id);
+  DB::TQuery Qry(PgOra::getRWSession("PAX_NORMS_TEXT"), STDLOG);
+  MakeQry_PaxNormsToDB(Qry, grp_id);
   for(list<TPaxNormItem>::const_iterator i=norms.begin(); i!=norms.end(); ++i)
   {
     Qry.SetVariable("pax_id", i->pax_id);
@@ -441,26 +581,58 @@ void PaxNormsToDB(const GrpId_t& grpId, const list<TPaxNormItem> &norms)
     {
       Qry.SetVariable("lang", j->second.lang);
       longToDB(Qry, "text", j->second.text);
-    };
-  };
-};
+    }
+  }
+}
 
-void PaxBrandsToDB(const GrpId_t& grpId, const list<TPaxBrandItem> &norms)
+void MakeQry_PaxBrandsToDB(DB::TQuery& Qry, const GrpId_t& grp_id)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText="DELETE FROM (SELECT * FROM pax, pax_brands WHERE pax.pax_id=pax_brands.pax_id AND pax.grp_id=:grp_id)";
-  Qry.CreateVariable("grp_id", otInteger, grpId.get());
-  Qry.Execute();
-  Qry.Clear();
   Qry.SQLText=
-    "INSERT INTO pax_brands(pax_id, transfer_num, lang, page_no, text) "
-    "VALUES(:pax_id, :transfer_num, :lang, :page_no, :text)";
+    "INSERT INTO pax_brands ("
+    "grp_id, pax_id, transfer_num, lang, page_no, text"
+    ") VALUES ("
+    ":grp_id, :pax_id, :transfer_num, :lang, :page_no, :text"
+    ")";
+  Qry.CreateVariable("grp_id", otInteger, grp_id.get());
+  Qry.DeclareVariable("pax_id", otInteger);
   Qry.DeclareVariable("pax_id", otInteger);
   Qry.DeclareVariable("transfer_num", otInteger);
   Qry.DeclareVariable("lang", otString);
   Qry.DeclareVariable("page_no", otInteger);
   Qry.DeclareVariable("text", otString);
+}
+
+void DeletePaxBrands(const GrpId_t& grp_id)
+{
+  DB::TQuery Qry(PgOra::getRWSession("PAX_BRANDS"), STDLOG);
+  Qry.SQLText="DELETE FROM pax_brands "
+              "WHERE grp_id=:grp_id";
+  Qry.CreateVariable("grp_id", otInteger, grp_id.get());
+  Qry.Execute();
+}
+
+void PaxBrandsToDB(const GrpId_t& grp_id, const TPaxBrandList& norms)
+{
+  DeletePaxBrands(grp_id);
+  DB::TQuery Qry(PgOra::getRWSession("PAX_BRANDS"), STDLOG);
+  MakeQry_PaxBrandsToDB(Qry, grp_id);
+  for(TPaxBrandList::const_iterator i=norms.begin(); i!=norms.end(); ++i)
+  {
+    Qry.SetVariable("pax_id", i->first.pax_id);
+    Qry.SetVariable("transfer_num", i->first.trfer_num);
+    for(TSimplePaxBrandItem::const_iterator j=i->second.begin(); j!=i->second.end(); ++j)
+    {
+      Qry.SetVariable("lang", j->second.lang);
+      longToDB(Qry, "text", j->second.text);
+    }
+  }
+}
+
+void PaxBrandsToDB(const GrpId_t& grp_id, const list<TPaxBrandItem> &norms)
+{
+  DeletePaxBrands(grp_id);
+  DB::TQuery Qry(PgOra::getRWSession("PAX_BRANDS"), STDLOG);
+  MakeQry_PaxBrandsToDB(Qry, grp_id);
   for(list<TPaxBrandItem>::const_iterator i=norms.begin(); i!=norms.end(); ++i)
   {
     Qry.SetVariable("pax_id", i->pax_id);
@@ -469,9 +641,9 @@ void PaxBrandsToDB(const GrpId_t& grpId, const list<TPaxBrandItem> &norms)
     {
       Qry.SetVariable("lang", j->second.lang);
       longToDB(Qry, "text", j->second.text);
-    };
-  };
-};
+    }
+  }
+}
 
 void PaxNormsToDB(const TCkinGrpIds &tckinGrpIds, const list<TPaxNormItem> &norms)
 {
@@ -495,13 +667,8 @@ void PaxBrandsToDB(const TCkinGrpIds &tckinGrpIds, const list<TPaxBrandItem> &no
   }
 }
 
-void PaxNormsFromDB(int pax_id, TPaxNormList &norms)
+void PaxNormsFromDB(DB::TQuery& Qry, TPaxNormList &norms)
 {
-  norms.clear();
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText="SELECT * FROM pax_norms_text WHERE pax_id=:id ORDER BY page_no";
-  Qry.CreateVariable("id", otInteger, pax_id);
   Qry.Execute();
   for(; !Qry.Eof; Qry.Next())
   {
@@ -515,21 +682,38 @@ void PaxNormsFromDB(int pax_id, TPaxNormList &norms)
     textItem.lang=Qry.FieldAsString("lang");
     textItem.text=Qry.FieldAsString("text");
     TPaxNormItem::iterator i=n->second.find(textItem.lang);
-    if (i!=n->second.end())
+    if (i!=n->second.end()) {
       i->second.text+=textItem.text;
-    else
+    } else {
       n->second.insert(make_pair(textItem.lang, textItem));
+    }
   }
 }
 
-void PaxBrandsFromDB(int pax_id, TPaxBrandList &brands)
+void PaxNormsFromDB(const GrpId_t& grp_id, TPaxNormList &norms)
 {
-  brands.clear();
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT * FROM pax_brands WHERE pax_id=:id ORDER BY page_no";
-  Qry.CreateVariable("id", otInteger, pax_id);
+  norms.clear();
+  DB::TQuery Qry(PgOra::getROSession("PAX_NORMS_TEXT"), STDLOG);
+  Qry.SQLText="SELECT * FROM pax_norms_text "
+              "WHERE grp_id=:grp_id "
+              "ORDER BY page_no";
+  Qry.CreateVariable("grp_id", otInteger, grp_id.get());
+  PaxNormsFromDB(Qry, norms);
+}
+
+void PaxNormsFromDB(const PaxId_t& pax_id, TPaxNormList &norms)
+{
+  norms.clear();
+  DB::TQuery Qry(PgOra::getROSession("PAX_NORMS_TEXT"), STDLOG);
+  Qry.SQLText="SELECT * FROM pax_norms_text "
+              "WHERE pax_id=:pax_id "
+              "ORDER BY page_no";
+  Qry.CreateVariable("pax_id", otInteger, pax_id.get());
+  PaxNormsFromDB(Qry, norms);
+}
+
+void PaxBrandsFromDB(DB::TQuery& Qry, TPaxBrandList &brands)
+{
   Qry.Execute();
   for(; !Qry.Eof; Qry.Next())
   {
@@ -541,19 +725,44 @@ void PaxBrandsFromDB(int pax_id, TPaxBrandList &brands)
     textItem.lang=Qry.FieldAsString("lang");
     textItem.text=Qry.FieldAsString("text");
     TPaxBrandItem::iterator i=b->second.find(textItem.lang);
-    if (i!=b->second.end())
+    if (i!=b->second.end()) {
       i->second.text+=textItem.text;
-    else
-      b->second.insert(make_pair(textItem.lang, textItem));
+    } else {
+      b->second.emplace(textItem.lang, textItem);
+    }
   }
 }
 
-std::string getRFISCsFromBaggageNorm(int pax_id)
+void PaxBrandsFromDB(const GrpId_t& grp_id, TPaxBrandList &brands)
+{
+  brands.clear();
+  DB::TQuery Qry(PgOra::getROSession("PAX_BRANDS"), STDLOG);
+  Qry.SQLText=
+    "SELECT * FROM pax_brands "
+    "WHERE grp_id=:grp_id "
+    "ORDER BY page_no";
+  Qry.CreateVariable("grp_id", otInteger, grp_id.get());
+  PaxBrandsFromDB(Qry, brands);
+}
+
+void PaxBrandsFromDB(const PaxId_t& pax_id, TPaxBrandList &brands)
+{
+  brands.clear();
+  DB::TQuery Qry(PgOra::getROSession("PAX_BRANDS"), STDLOG);
+  Qry.SQLText=
+    "SELECT * FROM pax_brands "
+    "WHERE pax_id=:pax_id "
+    "ORDER BY page_no";
+  Qry.CreateVariable("pax_id", otInteger, pax_id.get());
+  PaxBrandsFromDB(Qry, brands);
+}
+
+std::string getRFISCsFromBaggageNorm(const PaxId_t& pax_id)
 {
   TPaxNormList norms;
   PaxNormsFromDB(pax_id, norms);
 
-  TPaxNormListKey key(TPaxSegKey(pax_id, 0), false);
+  TPaxNormListKey key(TPaxSegKey(pax_id.get(), 0), false);
   TPaxNormList::const_iterator n=norms.find(key);
   if (n!=norms.end()) return n->second.rfiscs;
 
@@ -646,7 +855,5 @@ int get_max_tckin_num(int grp_id)
   else
     return 0;
 }
-
-
 
 
