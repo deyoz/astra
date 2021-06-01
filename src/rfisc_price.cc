@@ -370,7 +370,7 @@ TPriceRFISCList::TPriceRFISCList()
 
 void TPriceRFISCList::Lock(int grp_id)
 {
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getRWSession("SVC_PRICES"), STDLOG);
   Qry.SQLText =
     "SELECT * FROM svc_prices WHERE grp_id=:grp_id FOR UPDATE";
   Qry.CreateVariable( "grp_id",otInteger,grp_id);
@@ -380,7 +380,7 @@ void TPriceRFISCList::Lock(int grp_id)
 void TPriceRFISCList::fromContextDB(int grp_id)
 {
   clear();
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("SVC_PRICES"), STDLOG);
   Qry.SQLText =
     "SELECT * FROM svc_prices WHERE grp_id=:grp_id ORDER BY page_no";
   Qry.CreateVariable( "grp_id",otInteger,grp_id);
@@ -402,28 +402,28 @@ void TPriceRFISCList::fromContextDB(int grp_id)
 
 void TPriceRFISCList::toContextDB(int grp_id,bool pr_only_del) const
 {
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
+  DB::TQuery QryDel(PgOra::getRWSession("SVC_PRICES"), STDLOG);
+  QryDel.SQLText =
   "DELETE svc_prices WHERE grp_id=:grp_id";
-  Qry.CreateVariable("grp_id",otInteger,grp_id);
-  Qry.Execute();
+  QryDel.CreateVariable("grp_id",otInteger,grp_id);
+  QryDel.Execute();
   if ( pr_only_del ) {
     return;
   }
-  Qry.Clear();
-  Qry.SQLText =
+  DB::TQuery QryIns(PgOra::getRWSession("SVC_PRICES"), STDLOG);
+  QryIns.SQLText =
     "INSERT INTO svc_prices(grp_id,xml,page_no,time_create) "
     " VALUES(:grp_id,:xml,:page_no,:time_create)";
-  Qry.CreateVariable("grp_id",otInteger,grp_id);
-  Qry.DeclareVariable("page_no",otInteger);
-  Qry.DeclareVariable("xml",otString);
-  Qry.CreateVariable("time_create",otDate,BASIC::date_time::NowUTC());
+  QryIns.CreateVariable("grp_id",otInteger,grp_id);
+  QryIns.DeclareVariable("page_no",otInteger);
+  QryIns.DeclareVariable("xml",otString);
+  QryIns.CreateVariable("time_create",otDate,BASIC::date_time::NowUTC());
   xmlNodePtr rootNode;
   XMLDoc doc("TPriceRFISCList",rootNode,__func__);
   toContextXML( rootNode );
   std::string value = XMLTreeToText( doc.docPtr() );
   LogTrace(TRACE5) << __func__ << std::endl << value;
-  longToDB(Qry, "xml", value, true);
+  longToDB(QryIns, "xml", value, true);
 }
 
 void TPriceRFISCList::toDB(int grp_id) const
