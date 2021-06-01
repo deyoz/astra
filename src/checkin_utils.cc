@@ -476,7 +476,8 @@ void seatingWhenNewCheckIn(const TSegListItem& seg,
   // есть право на регистрацию, статус рейса окончание, есть право сажать на чужие заброн. места
   bool pr_lat_seat=salonList.isCraftLat();
   boost::posix_time::ptime mst2 = boost::posix_time::microsec_clock::local_time();
-  LogTrace(TRACE5) << "SeatsPassengers: " << boost::posix_time::time_duration(mst2 - mst1).total_milliseconds() << " msecs";
+  LogTrace(TRACE5) << "SeatsPassengers: " << grp.point_dep << "|"
+                   << boost::posix_time::time_duration(mst2 - mst1).total_milliseconds() << " msecs";
 
   int i=0;
   bool change_agent_seat_no = false;
