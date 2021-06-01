@@ -2177,7 +2177,7 @@ void ArxPaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, 
         {
           sql << " AND arx_pax_grp.part_key = arx_bag_tags.part_key \n"
                  " AND arx_pax_grp.grp_id = arx_bag_tags.grp_id \n"
-                 " AND arx_bag_tags.no like '%'||:tag_no \n";
+                 " AND CAST(arx_bag_tags.no AS VARCHAR) like '%'||:tag_no \n";
         };
 
         fillSqlSrcRunQuery(sql, info, airline, city, surname, flt_no, ticket_no,
