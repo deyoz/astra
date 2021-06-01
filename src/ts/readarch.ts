@@ -2047,3 +2047,199 @@ $(run_arch_step $(ddmmyy +122))
 $(check_dump POINTS)
 >>
 $()
+
+
+%%
+#########################################################################################
+
+###
+#   Тест №17
+#
+#   Описание: пассажиров: 61,
+#             интерактив: выкл
+#
+#   Чтение архива из stat_general.cc
+###
+#########################################################################################
+
+$(init_jxt_pult МОВРОМ)
+$(set_desk_version 201707-0195750)
+$(login)
+
+################################################################################
+
+$(PREPARE_SEASON_SCD ЮТ СОЧ ЛХР 100 -1 TU5 $(date_format %d.%m.%Y +10) $(date_format %d.%m.%Y +30))
+$(make_spp $(ddmmyy +20))
+$(deny_ets_interactive ЮТ 100 СОЧ)
+$(INB_PNL_UT AER LHR 100 $(ddmon +20 en))
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set pax_id_TUMALI $(get_pax_id $(get point_dep) TUMALI VALERII))
+
+!!
+$(CHECKIN_PAX $(get pax_id_TUMALI) $(get point_dep) $(get point_arv) ЮТ 100 СОЧ ЛХР TUMALI VALERII 2986145115578 ВЗ UA FA144642 UA 16.04.1968 25.06.2025 M)
+
+$(set grp_id $(get_single_grp_id $(get point_dep) TUMALI VALERII))
+
+
+$(run_arch_step $(ddmmyy +150))
+
+$(defmacro RUN_GENERAL_STAT_AK
+    first_date
+    last_date
+    stat_mode
+    stat_type
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='stat' ver='1' opr='PIKE' screen='STAT.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <run_stat>
+      <dev_model/>
+      <fmt_type/>
+      <prnParams>
+        <pr_lat>0</pr_lat>
+        <encoding>UTF-16LE</encoding>
+        <offset>20</offset>
+        <top>0</top>
+      </prnParams>
+      <stat_mode>$(stat_mode)</stat_mode>
+      <stat_type>$(stat_type)</stat_type>
+      <FirstDate>$(first_date) 00:00:00</FirstDate>
+      <LastDate>$(last_date) 00:00:00</LastDate>
+      <ak>ЮТ</ak>
+      <ap/>
+      <seance>АК</seance>
+      <flt_no/>
+      <source>STAT</source>
+      <LoadForm/>
+    </run_stat>
+  </query>
+</term>}
+})  #end_of_macro
+
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Детализированная Общая)
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Детализированная Саморегистрация)
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Детализированная "Отпр. телеграммы")
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Общая Общая)
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Общая "Отпр. телеграммы")
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Общая Договор)
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Общая Саморегистрация)
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Общая "По агентам")
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Отпр. телеграммы")
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Саморегистрация)
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Общая)
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "По агентам")
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Багажные RFISC")
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Огр. возмож.")
+#$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Аннул. бирки")
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная PFS)
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Трансфер)
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Расселение)
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Бизнес приглашения")
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Ваучеры)
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Факт. вылет")
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Репринт)
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Услуги)
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Ремарки)
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Изменения салона")
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "SBDO (Zamar)")
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Итого "По агентам")
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Несопр. багаж")
+
+
+%%
+#########################################################################################
+
+###
+#   Тест №18
+#
+#   Описание: пассажиров: 61,
+#             интерактив: выкл
+#
+#   Чтение архива из stat_general.cc
+###
+#########################################################################################
+
+$(init_jxt_pult МОВРОМ)
+$(set_desk_version 201707-0195750)
+$(login)
+
+################################################################################
+
+$(PREPARE_SEASON_SCD ЮТ СОЧ ЛХР 100 -1 TU5 $(date_format %d.%m.%Y +10) $(date_format %d.%m.%Y +30))
+$(make_spp $(ddmmyy +20))
+$(deny_ets_interactive ЮТ 100 СОЧ)
+$(INB_PNL_UT AER LHR 100 $(ddmon +20 en))
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set pax_id_TUMALI $(get_pax_id $(get point_dep) TUMALI VALERII))
+
+!!
+$(CHECKIN_PAX $(get pax_id_TUMALI) $(get point_dep) $(get point_arv) ЮТ 100 СОЧ ЛХР TUMALI VALERII 2986145115578 ВЗ UA FA144642 UA 16.04.1968 25.06.2025 M)
+
+$(set grp_id $(get_single_grp_id $(get point_dep) TUMALI VALERII))
+
+
+$(run_arch_step $(ddmmyy +150))
+
+$(defmacro RUN_GENERAL_STAT_AP
+    first_date
+    last_date
+    stat_mode
+    stat_type
+{{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='stat' ver='1' opr='PIKE' screen='STAT.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <run_stat>
+      <dev_model/>
+      <fmt_type/>
+      <prnParams>
+        <pr_lat>0</pr_lat>
+        <encoding>UTF-16LE</encoding>
+        <offset>20</offset>
+        <top>0</top>
+      </prnParams>
+      <stat_mode>$(stat_mode)</stat_mode>
+      <stat_type>$(stat_type)</stat_type>
+      <FirstDate>$(first_date) 00:00:00</FirstDate>
+      <LastDate>$(last_date) 00:00:00</LastDate>
+      <ak/>
+      <ap>ВНК</ap>
+      <seance>АП</seance>
+      <flt_no/>
+      <source>STAT</source>
+      <LoadForm/>
+    </run_stat>
+  </query>
+</term>}
+})  #end_of_macro
+
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Детализированная Общая)
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Детализированная Саморегистрация)
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Детализированная "Отпр. телеграммы")
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Общая Общая)
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Общая "Отпр. телеграммы")
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Общая Договор)
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Общая Саморегистрация)
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Общая "По агентам")
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Отпр. телеграммы")
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Саморегистрация)
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Общая)
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "По агентам")
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Багажные RFISC")
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Огр. возмож.")
+#$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Аннул. бирки")
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная PFS)
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Трансфер)
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Расселение)
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Бизнес приглашения")
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Ваучеры)
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Факт. вылет")
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Репринт)
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Услуги)
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Ремарки)
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Изменения салона")
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "SBDO (Zamar)")
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Итого "По агентам")
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Несопр. багаж")
