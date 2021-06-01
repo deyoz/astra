@@ -3281,7 +3281,7 @@ class TAdulstWithBabys:public std::map<std::string,std::vector<TAdultWithBabys>>
 
       int i = 0;
       ostringstream logm;
-      logm << "passGrps.size=" << passGrps.size() << "issubgrp=" << issubgrp << std::endl;
+      logm << "passGrps.size=" << passGrps.size() << " issubgrp=" << issubgrp << std::endl;
       for ( auto& g : passGrps ) {
         i++;
         logm << i << " wo_aisle=" << g.wo_aisle << std::endl;
@@ -3458,9 +3458,7 @@ void SeatsPassengersGrps( SALONS2::TSalons *Salons,
       SeatPlaces >> seatsGrps; //сохраняем места
       ProgTrace( TRACE5, "seatsGrps.size()=%zu", seatsGrps.size() );
       SeatPlaces.Clear();
-      tst();
       if ( !passGrps.empty() ) {
-        tst();
         if ( ipassGrp != passGrps.end() ) {
           std::vector<TPassengers>::iterator jpassGrp = passGrps.end() - 1;
           for ( int i=0; i<passengers.getCount(); i++ ) {
@@ -3491,7 +3489,6 @@ void SeatsPassengersGrps( SALONS2::TSalons *Salons,
           }
           if ( ipassGrp == jpassGrp ) { // закончили, возвращаем всю входную группу в переменную passengers
             passengers = *jpassGrp;
-            tst();
             break;
           }
         }
@@ -3533,7 +3530,6 @@ void SeatsPassengersGrps( SALONS2::TSalons *Salons,
   paxsSeats.clear();
   passengers.sortByIndex();
   SeatsStat.stop(__FUNCTION__);
-  tst();
 }
 
 
@@ -3958,16 +3954,16 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
            SeatAlg = (TSeatAlg)FSeatAlg;
            switch(FSeatAlg) {
              case 0:
-               ProgTrace(TRACE5, "start sSeatGrpOnBasePlace:SeatOnlyBasePlace=%d,FCanUserSUBCLS=%d,FCanINFT=%d,prINFT=%d,AllowedAttrsSeat.pr_isWorkINFT=%d",
-                         SeatOnlyBasePlace,FCanUserSUBCLS,FCanINFT,prINFT,AllowedAttrsSeat.pr_isWorkINFT); //!!! в этом алгоритме тормозит
+               ProgTrace(TRACE5, "start %d sSeatGrpOnBasePlace:SeatOnlyBasePlace=%d,FCanUserSUBCLS=%d,FCanINFT=%d,prINFT=%d,AllowedAttrsSeat.pr_isWorkINFT=%d",
+                         Salons->trip_id, SeatOnlyBasePlace,FCanUserSUBCLS,FCanINFT,prINFT,AllowedAttrsSeat.pr_isWorkINFT); //!!! в этом алгоритме тормозит
                break;
              case 1:
-               ProgTrace(TRACE5, "start sSeatGrp:SeatOnlyBasePlace=%d,FCanUserSUBCLS=%d,FCanINFT=%d,prINFT=%d,AllowedAttrsSeat.pr_isWorkINFT=%d",
-                         SeatOnlyBasePlace,FCanUserSUBCLS,FCanINFT,prINFT,AllowedAttrsSeat.pr_isWorkINFT);
+               ProgTrace(TRACE5, "start %d sSeatGrp:SeatOnlyBasePlace=%d,FCanUserSUBCLS=%d,FCanINFT=%d,prINFT=%d,AllowedAttrsSeat.pr_isWorkINFT=%d",
+                         Salons->trip_id, SeatOnlyBasePlace,FCanUserSUBCLS,FCanINFT,prINFT,AllowedAttrsSeat.pr_isWorkINFT);
                break;
              case 2:
-               ProgTrace(TRACE5, "start sSeatPassengers:SeatOnlyBasePlace=%d,FCanUserSUBCLS=%d,FCanINFT=%d,prINFT=%d,AllowedAttrsSeat.pr_isWorkINFT=%d",
-                         SeatOnlyBasePlace,FCanUserSUBCLS,FCanINFT,prINFT,AllowedAttrsSeat.pr_isWorkINFT);
+               ProgTrace(TRACE5, "start %d sSeatPassengers:SeatOnlyBasePlace=%d,FCanUserSUBCLS=%d,FCanINFT=%d,prINFT=%d,AllowedAttrsSeat.pr_isWorkINFT=%d",
+                         Salons->trip_id, SeatOnlyBasePlace,FCanUserSUBCLS,FCanINFT,prINFT,AllowedAttrsSeat.pr_isWorkINFT);
                break;
            }
 
@@ -4110,7 +4106,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                        canUseOneRow = FCanUseOneRow;
                        /* учет проходов */
                        for ( int FCanUseTube=0; FCanUseTube<=(passengers.wo_aisle?0:1); FCanUseTube++ ) {
-                         ProgTrace(TRACE5, "wo_aisle=%d", passengers.wo_aisle );
+                         //ProgTrace(TRACE5, "wo_aisle=%d", passengers.wo_aisle );
                          /* для рассадки отдельных пассажиров не надо учитывать проходы */
                          if ( !FCanUseTube &&
                               !paxsSeats.empty() &&
@@ -4177,7 +4173,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
 
              } /* end for condRates */
            } /* end for CanUseRem */
-           ProgTrace(TRACE5, "end" );
+           ProgTrace(TRACE5, "finish %d", Salons->trip_id );
          } /* end for FSeatAlg */
        } /* end for FCanUseRemarks */
      } /*  end for FCanUseElem_Type */
