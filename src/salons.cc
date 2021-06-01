@@ -970,7 +970,7 @@ void TSalons::Clear( )
 }
 
 bool TPlace::isLayer( ASTRA::TCompLayerType layer, int pax_id) const {
-    LogTrace(TRACE5) << __func__ << ": yname: " << yname << ", xname: " << yname << " layers.size(): " << layers.size();
+    LogTrace(TRACE5) << __func__ << ": yname: " << yname << ", xname: " << xname << " layers.size(): " << layers.size();
     for (std::vector<TPlaceLayer>::const_iterator i=layers.begin(); i!=layers.end(); i++ ) {
         if ( i->layer_type == layer && ( pax_id == -1 || i->pax_id == pax_id ) )
             return true;
