@@ -2423,15 +2423,23 @@ bool TSimplePaxItem::getByPaxId(int pax_id, TDateTime part_key)
   return true;
 }
 
-bool TSimplePaxItem::getCrsByPaxId(PaxId_t pax_id)
+bool TSimplePaxItem::getCrsByPaxId(PaxId_t pax_id, bool skip_deleted)
 {
   clear();
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, pax_id.get());
   DB::TCachedQuery PaxQry(
-        PgOra::getROSession("CRS_PAX"),
-        "SELECT * FROM crs_pax "
-        "WHERE pax_id=:pax_id ",
+        PgOra::getROSession("CRS_PAX-CRS_PNR"),
+        "SELECT crs_pax.*, "
+        + CheckIn::TSimplePaxItem::origSubclassFromCrsSQL() + " AS subclass, "
+        + CheckIn::TSimplePaxItem::cabinSubclassFromCrsSQL() + " AS cabin_subclass, "
+        + CheckIn::TSimplePaxItem::cabinClassFromCrsSQL() + " AS cabin_class, "
+        "NULL AS cabin_class_grp "
+        "FROM crs_pax, crs_pnr "
+        "WHERE crs_pax.pax_id=:pax_id "
+        "AND crs_pax.pnr_id=crs_pnr.pnr_id "
+        "AND crs_pnr.system='CRS' "
+        + std::string(skip_deleted ? "AND pr_del=0 " : ""),
         QryParams, STDLOG);
   PaxQry.get().Execute();
   if (PaxQry.get().Eof) return false;
