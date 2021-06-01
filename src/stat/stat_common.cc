@@ -315,6 +315,8 @@ void TStatParams::get(xmlNodePtr reqNode)
     seance = seanceAll;
     if (seance_str=="Ää") seance=seanceAirline;
     if (seance_str=="Äè") seance=seanceAirport;
+    LogTrace(TRACE6) << __func__ << ": seance_str=" << seance_str;
+    LogTrace(TRACE6) << __func__ << ": seance=" << seance;
 
     bool all_seances_permit = info.user.access.rights().permitted(615);
 
@@ -367,6 +369,33 @@ void TStatParams::AccessClause(
         else
             SQLText += " " + (tab.empty() ? tab : tab + ".") + airline_col + " NOT IN " + GetSQLEnum(airlines.elems()) + "and ";
     };
+}
+
+bool TStatParams::accessGranted(const TTripInfo& fltInfo) const
+{
+  if (!airps.elems().empty()) {
+      if (airps.elems_permit()) {
+          if (airps.elems().find(fltInfo.airp) == airps.elems().end()) {
+              return false;
+          }
+      } else {
+          if (airps.elems().find(fltInfo.airp) != airps.elems().end()) {
+              return false;
+          }
+      }
+  }
+  if (!airlines.elems().empty()) {
+      if (airlines.elems_permit()) {
+         if (airlines.elems().find(fltInfo.airline) == airlines.elems().end()) {
+             return false;
+         }
+      } else {
+         if (airlines.elems().find(fltInfo.airline) != airlines.elems().end()) {
+             return false;
+         }
+      }
+  }
+  return true;
 }
 
 string TPrintAirline::get() const

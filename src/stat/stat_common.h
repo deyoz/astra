@@ -8,6 +8,8 @@
 #include "arx_daily_pg.h"
 #include <optional>
 
+class TTripInfo;
+
 namespace STAT {
     static const std::string PARAM_SEANCE_TYPE           = "seance_type";
     static const std::string PARAM_DESK_CITY             = "desk_city";
@@ -179,6 +181,7 @@ struct TStatParams {
             const std::string &airline_col = "airline",
             const std::string &airp_col = "airp"
             ) const;
+    bool accessGranted(const TTripInfo& fltInfo) const;
     TStatParams(TStatOverflow::Enum stat_source);
 };
 

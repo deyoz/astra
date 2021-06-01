@@ -199,12 +199,6 @@ void RunAnnulBTStat(
           QParams() << QParam("user_id", otInteger), STDLOG);
 
     QParams QryParams;
-    if(point_id == NoExists) {
-        QryParams << QParam("first_date", otDate, params.FirstDate)
-                       << QParam("last_date", otDate, params.LastDate);
-    } else {
-        QryParams << QParam("point_id", otInteger, point_id);
-    }
     std::string SQLText =
         "SELECT "
         "   id, "
@@ -223,10 +217,12 @@ void RunAnnulBTStat(
 
     LogTrace(TRACE5) << __func__ << " point_id: " << point_id;
     if(point_id == ASTRA::NoExists) {
-        params.AccessClause(SQLText);
         SQLText += " scd_out >= :first_date AND scd_out < :last_date ";
+        QryParams << QParam("first_date", otDate, params.FirstDate)
+                  << QParam("last_date", otDate, params.LastDate);
     } else {
         SQLText += " point_id = :point_id ";
+        QryParams << QParam("point_id", otInteger, point_id);
     }
 
     DB::TCachedQuery Qry(
@@ -274,6 +270,9 @@ void RunAnnulBTStat(
             CheckIn::TSimplePaxGrpItem grpItem;
             if (!grpItem.getByGrpId(Qry.get().FieldAsInteger(col_grp_id))) {
               continue;
+            }
+            if (!params.accessGranted(fltInfo)) {
+                continue;
             }
 
             prn_airline.check(fltInfo.airline);

@@ -188,28 +188,9 @@ void RunBIStat(
             if(params.flt_no != ASTRA::NoExists && params.flt_no != fltInfo.flt_no) {
                 continue;
             }
-            if (!params.airps.elems().empty()) {
-                if (params.airps.elems_permit()) {
-                    if (params.airps.elems().find(fltInfo.airp) == params.airps.elems().end()) {
-                        continue;
-                    }
-                } else {
-                    if (params.airps.elems().find(fltInfo.airp) != params.airps.elems().end()) {
-                        continue;
-                    }
-                }
+            if (!params.accessGranted(fltInfo)) {
+                continue;
             }
-            if (!params.airlines.elems().empty()) {
-                if (params.airlines.elems_permit()) {
-                   if (params.airlines.elems().find(fltInfo.airline) == params.airlines.elems().end()) {
-                       continue;
-                   }
-                } else {
-                   if (params.airlines.elems().find(fltInfo.airline) != params.airlines.elems().end()) {
-                       continue;
-                   }
-                }
-            };
 
             TBIStatRow row;
             if(col_part_key >= 0)
