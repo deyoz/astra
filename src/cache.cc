@@ -61,6 +61,8 @@ void TCacheTable::Init(xmlNodePtr cacheNode)
     throw Exception("wrong message format");
   getParams(GetNode("params", cacheNode), Params); /* общие параметры */
   getParams(GetNode("sqlparams", cacheNode), SQLParams); /* параметры запроса sql */
+  LogTrace(TRACE6) << "Params: " << Params;
+  LogTrace(TRACE6) << "SQLParams: " << SQLParams;
   if ( Params.find( TAG_CODE ) == Params.end() )
     throw Exception("wrong message format");
   string code = Params[TAG_CODE].Value;

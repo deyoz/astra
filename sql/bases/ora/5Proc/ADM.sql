@@ -18,6 +18,14 @@ PROCEDURE check_chars_in_name(str	  IN VARCHAR2,
                               cache_field IN cache_fields.name%TYPE,
                               vlang       IN locale_messages.lang%TYPE);
 
+PROCEDURE check_period(pr_new           BOOLEAN,
+                       vfirst_date      DATE,
+                       vlast_date       DATE,
+                       vnow             DATE,
+                       first        OUT DATE,
+                       last         OUT DATE,
+                       pr_opd       OUT BOOLEAN);
+
 PROCEDURE modify_originator(
        vid              typeb_originators.id%TYPE,
        vlast_date       typeb_originators.last_date%TYPE,

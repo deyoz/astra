@@ -9,6 +9,9 @@
 #include "hist.h"
 
 enum TCacheConvertType {ctInteger,ctDouble,ctDateTime,ctString};
+
+std::ostream & operator <<(std::ostream& os, TCacheConvertType value);
+
 enum TCacheUpdateStatus {usUnmodified, usModified, usInserted, usDeleted};
 enum TCacheQueryType {cqtSelect, cqtRefresh, cqtInsert, cqtUpdate, cqtDelete};
 
@@ -19,6 +22,8 @@ struct TParam {
 };
 
 typedef std::map<std::string, TParam> TParams;
+
+std::ostream & operator <<(std::ostream& os, const TParams& params);
 
 class FieldsForLogging
 {
@@ -119,8 +124,18 @@ class Row
     Row& setFromBoolean(const std::string& name, const std::optional<bool>& value);
 
     std::string getAsString(const std::string& name) const;
+
     std::optional<int> getAsInteger(const std::string& name) const;
+    int getAsInteger(const std::string& name, int defaultValue) const;
+    int getAsInteger_ThrowOnEmpty(const std::string& name) const;
+
     std::optional<bool> getAsBoolean(const std::string& name) const;
+    bool getAsBoolean(const std::string& name, bool defaultValue) const;
+    bool getAsBoolean_ThrowOnEmpty(const std::string& name) const;
+
+    std::optional<TDateTime> getAsDateTime(const std::string& name) const;
+    TDateTime getAsDateTime(const std::string& name, TDateTime defaultValue) const;
+    TDateTime getAsDateTime_ThrowOnEmpty(const std::string& name) const;
 };
 
 void setRowId(const std::string& fieldName,

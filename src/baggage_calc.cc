@@ -303,16 +303,23 @@ BagNormInfo& BagNormInfo::fromDB(DB::TQuery &Qry)
 
 void BagNormInfo::addDirectActionNorm(const TNormItem& norm)
 {
-  static TDateTime firstDate=NoExists;
-  if (firstDate==NoExists) StrToDateTime("01.01.2020", "dd.mm.yyyy", firstDate);
+  static TDateTime first_date=NoExists;
+  if (first_date==NoExists) StrToDateTime("01.01.2020", "dd.mm.yyyy", first_date);
 
-  TCachedQuery Qry("INSERT INTO bag_norms(id, first_date, norm_type, amount, weight, per_unit, pr_del, direct_action, tid ) "
-                   "VALUES(id__seq.nextval, :first_date, :norm_type, :amount, :weight, :per_unit, 0, 1, tid__seq.nextval)",
-                   QParams() << QParam("first_date", otDate, firstDate)
-                             << QParam("norm_type", otString)
-                             << QParam("amount", otInteger)
-                             << QParam("weight", otInteger)
-                             << QParam("per_unit", otInteger));
+  DB::TCachedQuery Qry(
+        PgOra::getRWSession("BAG_NORMS"),
+        "INSERT INTO bag_norms("
+        "id, first_date, norm_type, amount, weight, per_unit, pr_del, direct_action, tid "
+        ") VALUES("
+        ":id, :first_date, :norm_type, :amount, :weight, :per_unit, 0, 1, :tid)",
+        QParams() << QParam("id", otInteger, PgOra::getSeqCurrVal_int("ID__SEQ"))
+                  << QParam("tid", otInteger, PgOra::getSeqNextVal_int("TID__SEQ"))
+                  << QParam("first_date", otDate, first_date)
+                  << QParam("norm_type", otString)
+                  << QParam("amount", otInteger)
+                  << QParam("weight", otInteger)
+                  << QParam("per_unit", otInteger),
+        STDLOG);
   norm.toDB(Qry.get());
   Qry.get().Execute();
 }
@@ -322,20 +329,21 @@ boost::optional<BagNormInfo> BagNormInfo::getDirectActionNorm(const TNormItem& n
   if (norm.weight==NoExists)
     throw Exception("%s: norm.weight==NoExists", __func__);
 
-  DB::TCachedQuery Qry(PgOra::getROSession("BAG_NORMS"),
-                       "SELECT * FROM bag_norms "
-                       "WHERE direct_action=:direct_action AND "
-                       "      norm_type=:norm_type AND "
-                       "      weight=:weight AND "
-                       "      (amount IS NULL AND :amount IS NULL OR amount=:amount) AND "
-                       "      (per_unit IS NULL AND :per_unit IS NULL OR per_unit=:per_unit) "
-                       "ORDER BY id",
-                       QParams() << QParam("direct_action", otInteger, (int)true)
-                                 << QParam("norm_type", otString)
-                                 << QParam("amount", otInteger)
-                                 << QParam("weight", otInteger)
-                                 << QParam("per_unit", otInteger),
-                       STDLOG);
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("BAG_NORMS"),
+        "SELECT * FROM bag_norms "
+        "WHERE direct_action=:direct_action AND "
+        "      norm_type=:norm_type AND "
+        "      weight=:weight AND "
+        "      (amount IS NULL AND :amount IS NULL OR amount=:amount) AND "
+        "      (per_unit IS NULL AND :per_unit IS NULL OR per_unit=:per_unit) "
+        "ORDER BY id",
+        QParams() << QParam("direct_action", otInteger, (int)true)
+                  << QParam("norm_type", otString)
+                  << QParam("amount", otInteger)
+                  << QParam("weight", otInteger)
+                  << QParam("per_unit", otInteger),
+        STDLOG);
   norm.toDB(Qry.get());
   Qry.get().Execute();
   if (Qry.get().Eof) return boost::none;

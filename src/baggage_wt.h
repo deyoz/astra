@@ -299,7 +299,9 @@ class TPaxNormItem : public TBagTypeKey
   }
   const TPaxNormItem& toXML(xmlNodePtr node) const;
   TPaxNormItem& fromXML(xmlNodePtr node);
+  const TPaxNormItem& toDB(DB::TQuery &Qry) const;
   const TPaxNormItem& toDB(TQuery &Qry) const;
+  TPaxNormItem& fromDB(DB::TQuery &Qry);
   TPaxNormItem& fromDB(TQuery &Qry);
 
   bool normNotExists() const
@@ -328,6 +330,10 @@ class TPaxNormComplex : public TPaxNormItem, public TNormItem
     {
       fromDB(Qry);
     }
+    TPaxNormComplex(DB::TQuery &Qry)
+    {
+      fromDB(Qry);
+    }
 
     void clear()
     {
@@ -336,6 +342,13 @@ class TPaxNormComplex : public TPaxNormItem, public TNormItem
     }
 
     TPaxNormComplex& fromDB(TQuery &Qry)
+    {
+      TPaxNormItem::fromDB(Qry);
+      TNormItem::fromDB(Qry);
+      return *this;
+    }
+
+    TPaxNormComplex& fromDB(DB::TQuery &Qry)
     {
       TPaxNormItem::fromDB(Qry);
       TNormItem::fromDB(Qry);
@@ -398,8 +411,8 @@ class TPaidBagItem : public TBagTypeKey
   };
   const TPaidBagItem& toXML(xmlNodePtr node) const;
   TPaidBagItem& fromXML(xmlNodePtr node);
-  const TPaidBagItem& toDB(TQuery &Qry) const;
-  TPaidBagItem& fromDB(TQuery &Qry);
+  const TPaidBagItem& toDB(DB::TQuery &Qry) const;
+  TPaidBagItem& fromDB(DB::TQuery &Qry);
   TPaidBagItem& fromDBO(const dbo::ARX_PAID_BAG & apb, const dbo::ARX_BAG_RATES & bag_rate);
   int priority() const;
   std::string bag_type_view(const std::string& lang="") const;

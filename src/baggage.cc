@@ -1277,11 +1277,16 @@ void TGroupBagItem::copyDB(const GrpId_t& src, const GrpId_t& dest, const PointI
 {
   if (src==dest) return;
 
+  make_db_curs("DELETE FROM paid_bag WHERE grp_id=:grp_id",
+               PgOra::getRWSession("PAID_BAG"))
+      .stb()
+      .bind(":grp_id", dest.get())
+      .exec();
+
   auto cur=make_db_curs("BEGIN "
                      "  DELETE FROM value_bag WHERE grp_id=:grp_id_dest; "
                      "  DELETE FROM unaccomp_bag_info WHERE grp_id=:grp_id_dest; "
                      "  DELETE FROM bag2 WHERE grp_id=:grp_id_dest; "
-                     "  DELETE FROM paid_bag WHERE grp_id=:grp_id_dest; "
                      "  DELETE FROM bag_tags WHERE grp_id=:grp_id_dest; "
                      "  INSERT INTO value_bag(grp_id,num,value,value_cur,tax_id,tax,tax_trfer) "
                      "  SELECT :grp_id_dest ,num,value,value_cur,NULL,NULL,NULL "

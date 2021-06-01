@@ -68,6 +68,12 @@ namespace PgOra
         { "SP_PG_GROUP_PAX_EVENTS",{ "PAX_EVENTS", "PAX_CUSTOM_ALARMS" } },
         { "SP_PG_GROUP_BAG_RECEIPTS",{ "BAG_PREPAY", "BAG_RECEIPTS", "BAG_RCPT_KITS", "BAG_PAY_TYPES" } },
         { "SP_PG_GROUP_HOTEL_ACMD",{ "HOTEL_ACMD_DATES", "HOTEL_ACMD_FREE_PAX", "HOTEL_ACMD_PAX", "HOTEL_ACMD", "HIST_HOTEL_ACMD" } },
+        { "SP_PG_GROUP_KASSA",{ "PAX_NORMS", "GRP_NORMS",
+                                "BAG_NORMS", "HIST_BAG_NORMS",
+                                "BAG_RATES", "HIST_BAG_RATES",
+                                // "VALUE_BAG_TAXES", "HIST_VALUE_BAG_TAXES", // VALUE_BAG
+                                "EXCHANGE_RATES", "HIST_EXCHANGE_RATES",
+                                "PAID_BAG", "PAID_BAG_EMD_PROPS" } },
 
         { "SP_PG_GROUP_WB",    { "WB_MSG", "WB_MSG_TEXT" } },
         { "SP_PG_GROUP_SCHED", { "SCHED_DAYS", "SEASON_SPP", "ROUTES", "SSM_SCHEDULE"} },

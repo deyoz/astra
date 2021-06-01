@@ -117,6 +117,7 @@ astra_SOURCES = \
   httpClient.cc \
   iapi_interaction.cc \
   images.cc \
+  kassa.cc \
   load_fr.cc \
   locale.cc \
   libra.cc \
@@ -349,6 +350,7 @@ noinst_HEADERS = \
   httpClient.h \
   iapi_interaction.h \
   images.h \
+  kassa.h \
   load_fr.h \
   libra.h \
   maindcs.h \

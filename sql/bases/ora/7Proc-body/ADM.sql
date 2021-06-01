@@ -55,6 +55,50 @@ BEGIN
   END IF;
 END check_chars_in_name;
 
+PROCEDURE check_period(pr_new           BOOLEAN,
+                       vfirst_date      DATE,
+                       vlast_date       DATE,
+                       vnow             DATE,
+                       first        OUT DATE,
+                       last         OUT DATE,
+                       pr_opd       OUT BOOLEAN)
+IS
+BEGIN
+  IF (vfirst_date IS NULL) AND (vlast_date IS NULL) THEN
+    system.raise_user_exception('MSG.TABLE.NOT_SET_RANGE');
+  END IF;
+  IF (vfirst_date IS NOT NULL) AND (vlast_date IS NOT NULL) AND
+     (TRUNC(vfirst_date)>TRUNC(vlast_date)) THEN
+    system.raise_user_exception('MSG.TABLE.INVALID_RANGE');
+  END IF;
+
+  first:=TRUNC(vfirst_date);
+  IF first IS NOT NULL THEN
+    IF first<TRUNC(vnow) THEN
+      IF pr_new THEN
+        system.raise_user_exception('MSG.TABLE.FIRST_DATE_BEFORE_TODAY');
+      ELSE
+        first:=TRUNC(vnow);
+      END IF;
+    END IF;
+    IF first=TRUNC(vnow) THEN first:=vnow; END IF;
+    pr_opd:=false;
+  ELSE
+    pr_opd:=true;
+  END IF;
+  last:=TRUNC(vlast_date);
+  IF last IS NOT NULL THEN
+    IF last<TRUNC(vnow) THEN
+      system.raise_user_exception('MSG.TABLE.LAST_DATE_BEFORE_TODAY');
+    END IF;
+    last:=last+1;
+  END IF;
+  IF pr_opd THEN
+    first:=last;
+    last:=NULL;
+  END IF;
+END check_period;
+
 PROCEDURE modify_originator(
        vid              typeb_originators.id%TYPE,
        vlast_date       typeb_originators.last_date%TYPE,
@@ -140,7 +184,7 @@ pr_opd  BOOLEAN;
 info	 adm.TCacheInfo;
 lparams  system.TLexemeParams;
 BEGIN
-  kassa.check_period(vid IS NULL,vfirst_date,vlast_date,system.UTCSYSDATE,first,last,pr_opd);
+  adm.check_period(vid IS NULL,vfirst_date,vlast_date,system.UTCSYSDATE,first,last,pr_opd);
 
   IF not(pr_opd) THEN
     IF vaddr IS NULL THEN
@@ -2469,7 +2513,7 @@ BEGIN
     system.raise_user_exception('MSG.INVALID_FLIGHT_DAYS', lparams);
   END IF;
 
-  kassa.check_period(vid IS NULL,vfirst_date,vlast_date,vnow,first,last,pr_opd);
+  adm.check_period(vid IS NULL,vfirst_date,vlast_date,vnow,first,last,pr_opd);
 
   IF vtid IS NULL THEN SELECT tid__seq.nextval INTO tidh FROM dual; ELSE tidh:=vtid; END IF;
 

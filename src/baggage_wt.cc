@@ -683,12 +683,17 @@ const TNormItem& TNormItem::toXML(xmlNodePtr node) const
 bool TNormItem::getByNormId(int normId, bool& isDirectActionNorm)
 {
   isDirectActionNorm=false;
-  TCachedQuery NormQry("SELECT norm_type, amount, weight, per_unit, direct_action FROM bag_norms WHERE id=:id",
-                       QParams() << QParam("id", otInteger, normId));
-  NormQry.get().Execute();
-  if (NormQry.get().Eof) return false;
-  fromDB(NormQry.get());
-  isDirectActionNorm=NormQry.get().FieldAsInteger("direct_action")!=0;
+  DB::TCachedQuery Qry(
+        PgOra::getROSession("BAG_NORMS"),
+        "SELECT norm_type, amount, weight, per_unit, direct_action "
+        "FROM bag_norms "
+        "WHERE id=:id",
+        QParams() << QParam("id", otInteger, normId),
+        STDLOG);
+  Qry.get().Execute();
+  if (Qry.get().Eof) return false;
+  fromDB(Qry.get());
+  isDirectActionNorm=Qry.get().FieldAsInteger("direct_action")!=0;
   return true;
 }
 
@@ -800,6 +805,38 @@ TPaxNormItem& TPaxNormItem::fromXML(xmlNodePtr node)
   return *this;
 };
 
+const TPaxNormItem& TPaxNormItem::toDB(DB::TQuery &Qry) const
+{
+  TBagTypeKey::toDBcompatible(Qry, "TPaxNormItem::toDB");
+  if (norm_id!=ASTRA::NoExists)
+  {
+    Qry.SetVariable("norm_id",norm_id);
+    Qry.SetVariable("norm_trfer",(int)norm_trfer);
+  }
+  else
+  {
+    Qry.SetVariable("norm_id",FNull);
+    Qry.SetVariable("norm_trfer",FNull);
+  };
+  if (!handmade)
+    throw Exception("TPaxNormItem::toDB: !handmade");
+  Qry.SetVariable("handmade",(int)handmade.get());
+  return *this;
+};
+
+TPaxNormItem& TPaxNormItem::fromDB(DB::TQuery &Qry)
+{
+  clear();
+  TBagTypeKey::fromDBcompatible(Qry);
+  if (!Qry.FieldIsNULL("norm_id"))
+  {
+    norm_id=Qry.FieldAsInteger("norm_id");
+    norm_trfer=Qry.FieldAsInteger("norm_trfer")!=0;
+  };
+  handmade=Qry.FieldAsInteger("handmade")!=0;
+  return *this;
+};
+
 const TPaxNormItem& TPaxNormItem::toDB(TQuery &Qry) const
 {
   TBagTypeKey::toDBcompatible(Qry, "TPaxNormItem::toDB");
@@ -908,24 +945,29 @@ bool PaxNormsFromDB(TDateTime part_key, int pax_id, TPaxNormComplexContainer &no
   {
       return PaxNormsFromDBArx(part_key, pax_id, norms);
   }
-  const char* sql=
-      "SELECT pax_norms.*, "
-      "       bag_norms.norm_type, bag_norms.amount, bag_norms.weight, bag_norms.per_unit "
-      "FROM pax_norms,bag_norms "
-      "WHERE pax_norms.norm_id=bag_norms.id(+) AND pax_norms.pax_id=:pax_id ";
-  QParams QryParams;
-
-  QryParams << QParam("pax_id", otInteger, pax_id);
-  TCachedQuery NormQry(sql, QryParams);
-  NormQry.get().Execute();
+  DB::TCachedQuery Qry(
+        PgOra::getROSession({"PAX_NORMS", "BAG_NORMS"}),
+        "SELECT "
+        "  pax_norms.*, "
+        "  bag_norms.norm_type, "
+        "  bag_norms.amount, "
+        "  bag_norms.weight, "
+        "  bag_norms.per_unit "
+        "FROM pax_norms "
+        "  LEFT OUTER JOIN bag_norms "
+        "    ON pax_norms.norm_id = bag_norms.id "
+        "WHERE pax_norms.pax_id = :pax_id ",
+        QParams() << QParam("pax_id", otInteger, pax_id),
+        STDLOG);
+  Qry.get().Execute();
 
   //!!!потом удалить, когда станет pax_norms.airline NOT NULL
   if (part_key==ASTRA::NoExists)
   {
-    for(; !NormQry.get().Eof; NormQry.get().Next())
+    for(; !Qry.get().Eof; Qry.get().Next())
     {
       TPaxNormComplex n;
-      n.fromDB(NormQry.get());
+      n.fromDB(Qry.get());
       n.getListKeyByPaxId(pax_id, 0, boost::none, __func__);
       norms.insert(n);
     }
@@ -996,28 +1038,34 @@ bool GrpNormsFromDB(TDateTime part_key, int grp_id, TPaxNormComplexContainer &no
     {
         return GrpNormsFromDBArx(part_key, grp_id, norms);
     }
-    const char* sql=
-      "SELECT grp_norms.*, "
-      "       bag_norms.norm_type, bag_norms.amount, bag_norms.weight, bag_norms.per_unit "
-      "FROM grp_norms,bag_norms "
-      "WHERE grp_norms.norm_id=bag_norms.id(+) AND grp_norms.grp_id=:grp_id ";
-    QParams QryParams;
-    QryParams << QParam("grp_id", otInteger, grp_id);
-    TCachedQuery NormQry(sql, QryParams);
-    NormQry.get().Execute();
+    DB::TCachedQuery Qry(
+          PgOra::getROSession({"GRP_NORMS","BAG_NORMS"}),
+          "SELECT "
+          "  grp_norms.*, "
+          "  bag_norms.norm_type, "
+          "  bag_norms.amount, "
+          "  bag_norms.weight, "
+          "  bag_norms.per_unit "
+          "FROM grp_norms "
+          "  LEFT OUTER JOIN bag_norms "
+          "    ON grp_norms.norm_id = bag_norms.id "
+          "WHERE grp_norms.grp_id = :grp_id ",
+          QParams() << QParam("grp_id", otInteger, grp_id),
+          STDLOG);
+    Qry.get().Execute();
     //!!!потом удалить, когда станет grp_norms.airline NOT NULL
     if (part_key==ASTRA::NoExists)
     {
-        for(; !NormQry.get().Eof; NormQry.get().Next())
+        for(; !Qry.get().Eof; Qry.get().Next())
         {
           TPaxNormComplex n;
-          n.fromDB(NormQry.get());
+          n.fromDB(Qry.get());
           n.getListKeyUnaccomp(grp_id, 0, boost::none, __func__);
           norms.insert(n);
         }
     }
     return !norms.empty();
-};
+}
 
 void NormsToXML(const TPaxNormComplexContainer &norms, xmlNodePtr node)
 {
@@ -1034,26 +1082,28 @@ void PaxNormsToDB(int pax_id, const boost::optional< TPaxNormItemContainer > &no
 
   LogTrace(TRACE5) << __func__ << ": pax_id=" << pax_id;
 
-  TQuery NormQry(&OraSession);
-  NormQry.Clear();
-  NormQry.SQLText="DELETE FROM pax_norms WHERE pax_id=:pax_id";
-  NormQry.CreateVariable("pax_id",otInteger,pax_id);
-  NormQry.Execute();
-  NormQry.SQLText=
+  DB::TQuery QryDel(PgOra::getRWSession("PAX_NORMS"), STDLOG);
+  QryDel.SQLText="DELETE FROM pax_norms WHERE pax_id=:pax_id";
+  QryDel.CreateVariable("pax_id",otInteger,pax_id);
+  QryDel.Execute();
+
+  DB::TQuery QryIns(PgOra::getRWSession("PAX_NORMS"), STDLOG);
+  QryIns.SQLText=
     "INSERT INTO pax_norms(pax_id, list_id, bag_type, bag_type_str, airline, norm_id, norm_trfer, handmade) "
     "VALUES(:pax_id, :list_id, :bag_type, :bag_type_str, :airline, :norm_id, :norm_trfer, :handmade)";
-  NormQry.DeclareVariable("list_id",otInteger);
-  NormQry.DeclareVariable("bag_type",otInteger);
-  NormQry.DeclareVariable("bag_type_str",otString);
-  NormQry.DeclareVariable("airline",otString);
-  NormQry.DeclareVariable("norm_id",otInteger);
-  NormQry.DeclareVariable("norm_trfer",otInteger);
-  NormQry.DeclareVariable("handmade",otInteger);
+  QryIns.CreateVariable("pax_id",otInteger,pax_id);
+  QryIns.DeclareVariable("list_id",otInteger);
+  QryIns.DeclareVariable("bag_type",otInteger);
+  QryIns.DeclareVariable("bag_type_str",otString);
+  QryIns.DeclareVariable("airline",otString);
+  QryIns.DeclareVariable("norm_id",otInteger);
+  QryIns.DeclareVariable("norm_trfer",otInteger);
+  QryIns.DeclareVariable("handmade",otInteger);
   for(TPaxNormItem n : norms.get())
   {
     n.getListItemByPaxId(pax_id, 0, boost::none, __func__);
-    n.toDB(NormQry);
-    NormQry.Execute();
+    n.toDB(QryIns);
+    QryIns.Execute();
   }
 }
 
@@ -1063,26 +1113,27 @@ void GrpNormsToDB(int grp_id, const boost::optional< TPaxNormItemContainer > &no
 
   LogTrace(TRACE5) << __func__ << ": grp_id=" << grp_id;
 
-  TQuery NormQry(&OraSession);
-  NormQry.Clear();
-  NormQry.SQLText="DELETE FROM grp_norms WHERE grp_id=:grp_id";
-  NormQry.CreateVariable("grp_id",otInteger,grp_id);
-  NormQry.Execute();
-  NormQry.SQLText=
+  DB::TQuery QryDel(PgOra::getRWSession("GRP_NORMS"), STDLOG);
+  QryDel.SQLText="DELETE FROM grp_norms WHERE grp_id=:grp_id";
+  QryDel.CreateVariable("grp_id",otInteger,grp_id);
+  QryDel.Execute();
+  DB::TQuery QryIns(PgOra::getRWSession("GRP_NORMS"), STDLOG);
+  QryIns.SQLText=
     "INSERT INTO grp_norms(grp_id, list_id, bag_type, bag_type_str, airline, norm_id, norm_trfer, handmade) "
     "VALUES(:grp_id, :list_id, :bag_type, :bag_type_str, :airline, :norm_id, :norm_trfer, :handmade)";
-  NormQry.DeclareVariable("list_id",otInteger);
-  NormQry.DeclareVariable("bag_type",otInteger);
-  NormQry.DeclareVariable("bag_type_str",otString);
-  NormQry.DeclareVariable("airline",otString);
-  NormQry.DeclareVariable("norm_id",otInteger);
-  NormQry.DeclareVariable("norm_trfer",otInteger);
-  NormQry.DeclareVariable("handmade",otInteger);
+  QryIns.CreateVariable("grp_id",otInteger,grp_id);
+  QryIns.DeclareVariable("list_id",otInteger);
+  QryIns.DeclareVariable("bag_type",otInteger);
+  QryIns.DeclareVariable("bag_type_str",otString);
+  QryIns.DeclareVariable("airline",otString);
+  QryIns.DeclareVariable("norm_id",otInteger);
+  QryIns.DeclareVariable("norm_trfer",otInteger);
+  QryIns.DeclareVariable("handmade",otInteger);
   for(TPaxNormItem n : norms.get())
   {
     n.getListItemUnaccomp(grp_id, 0, boost::none, __func__);
-    n.toDB(NormQry);
-    NormQry.Execute();
+    n.toDB(QryIns);
+    QryIns.Execute();
   }
 }
 
@@ -1127,7 +1178,7 @@ TPaidBagItem& TPaidBagItem::fromXML(xmlNodePtr node)
   return *this;
 };
 
-const TPaidBagItem& TPaidBagItem::toDB(TQuery &Qry) const
+const TPaidBagItem& TPaidBagItem::toDB(DB::TQuery &Qry) const
 {
   TBagTypeKey::toDBcompatible(Qry, "TPaidBagItem::toDB");
   Qry.SetVariable("weight",weight);
@@ -1148,7 +1199,7 @@ const TPaidBagItem& TPaidBagItem::toDB(TQuery &Qry) const
   return *this;
 };
 
-TPaidBagItem& TPaidBagItem::fromDB(TQuery &Qry)
+TPaidBagItem& TPaidBagItem::fromDB(DB::TQuery &Qry)
 {
   clear();
   TBagTypeKey::fromDBcompatible(Qry);
@@ -1268,39 +1319,44 @@ void PaidBagToDB(int grp_id, bool is_unaccomp,
 {
   paid.getAllListItems(grp_id, is_unaccomp);
 
-  TQuery BagQry(&OraSession);
-  BagQry.Clear();
-  BagQry.SQLText="DELETE FROM paid_bag WHERE grp_id=:grp_id";
-  BagQry.CreateVariable("grp_id",otInteger,grp_id);
-  BagQry.Execute();
-  BagQry.SQLText=
-    "INSERT INTO paid_bag(grp_id, list_id, bag_type, bag_type_str, airline, weight, rate_id, rate_trfer, handmade) "
-    "VALUES(:grp_id, :list_id, :bag_type, :bag_type_str, :airline, :weight, :rate_id, :rate_trfer, :handmade)";
-  BagQry.DeclareVariable("list_id",otInteger);
-  BagQry.DeclareVariable("bag_type",otInteger);
-  BagQry.DeclareVariable("bag_type_str",otString);
-  BagQry.DeclareVariable("airline",otString);
-  BagQry.DeclareVariable("weight",otInteger);
-  BagQry.DeclareVariable("rate_id",otInteger);
-  BagQry.DeclareVariable("rate_trfer",otInteger);
-  BagQry.DeclareVariable("handmade",otInteger);
+  DB::TQuery QryDel(PgOra::getRWSession("PAID_BAG"), STDLOG);
+  QryDel.SQLText="DELETE FROM paid_bag WHERE grp_id=:grp_id";
+  QryDel.CreateVariable("grp_id",otInteger,grp_id);
+  QryDel.Execute();
+
+  DB::TQuery QryIns(PgOra::getRWSession("PAID_BAG"), STDLOG);
+  QryIns.SQLText=
+    "INSERT INTO paid_bag("
+    "grp_id, list_id, bag_type, bag_type_str, airline, weight, rate_id, rate_trfer, handmade"
+    ") VALUES("
+    ":grp_id, :list_id, :bag_type, :bag_type_str, :airline, :weight, :rate_id, :rate_trfer, :handmade"
+    ")";
+  QryIns.CreateVariable("grp_id",otInteger,grp_id);
+  QryIns.DeclareVariable("list_id",otInteger);
+  QryIns.DeclareVariable("bag_type",otInteger);
+  QryIns.DeclareVariable("bag_type_str",otString);
+  QryIns.DeclareVariable("airline",otString);
+  QryIns.DeclareVariable("weight",otInteger);
+  QryIns.DeclareVariable("rate_id",otInteger);
+  QryIns.DeclareVariable("rate_trfer",otInteger);
+  QryIns.DeclareVariable("handmade",otInteger);
   int excess_wt=0;
   for(TPaidBagList::iterator i=paid.begin(); i!=paid.end(); ++i)
   {
     excess_wt+=i->weight;
-    i->toDB(BagQry);
-    BagQry.Execute();
-  };
+    i->toDB(QryIns);
+    QryIns.Execute();
+  }
 
-  BagQry.Clear();
-  BagQry.SQLText=
+  DB::TQuery QryGrp(PgOra::getRWSession("PAX_GRP"), STDLOG);
+  QryGrp.SQLText =
     "UPDATE pax_grp "
     "SET excess_wt=:excess_wt "
     "WHERE grp_id=:grp_id";
-  BagQry.CreateVariable("grp_id", otInteger, grp_id);
-  BagQry.CreateVariable("excess_wt", otInteger, excess_wt);
-  BagQry.Execute();
-};
+  QryGrp.CreateVariable("grp_id", otInteger, grp_id);
+  QryGrp.CreateVariable("excess_wt", otInteger, excess_wt);
+  QryGrp.Execute();
+}
 
 TPaidBagItem& TPaidBagItem::fromDBO(const dbo::ARX_PAID_BAG & apb, const dbo::ARX_BAG_RATES & bag_rate)
 {
@@ -1373,16 +1429,21 @@ void PaidBagFromDB(TDateTime part_key, int grp_id, TPaidBagList &paid)
         return PaidBagFromDBArx(part_key, grp_id, paid);
     }
     paid.clear();
-    const char* sql=
-      "SELECT paid_bag.*, bag_rates.rate, bag_rates.rate_cur "
-      "FROM paid_bag,bag_rates "
-      "WHERE paid_bag.rate_id=bag_rates.id(+) AND paid_bag.grp_id=:grp_id";
-    QParams QryParams;
-    QryParams << QParam("grp_id", otInteger, grp_id);
-    TCachedQuery BagQry(sql, QryParams);
-    BagQry.get().Execute();
-    for(;!BagQry.get().Eof;BagQry.get().Next())
-    paid.push_back(TPaidBagItem().fromDB(BagQry.get()));
+    DB::TCachedQuery Qry(
+          PgOra::getROSession({"PAID_BAG", "BAG_RATES"}),
+          "SELECT "
+          "  paid_bag.*, "
+          "  bag_rates.rate, "
+          "  bag_rates.rate_cur "
+          "FROM paid_bag "
+          "  LEFT OUTER JOIN bag_rates "
+          "    ON paid_bag.rate_id = bag_rates.id "
+          "WHERE paid_bag.grp_id = :grp_id",
+          QParams() << QParam("grp_id", otInteger, grp_id),
+          STDLOG);
+    Qry.get().Execute();
+    for(;!Qry.get().Eof;Qry.get().Next())
+    paid.push_back(TPaidBagItem().fromDB(Qry.get()));
 }
 
 std::string GetCurrSegBagAirline(int grp_id)

@@ -991,10 +991,10 @@ bool TryCleanServicePayment(const TPaidRFISCList &curr_paid,
 TGrpEMDProps& TGrpEMDProps::fromDB(int grp_id, TGrpEMDProps &props)
 {
   props.clear();
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("PAID_BAG_EMD_PROPS"), STDLOG);
   Qry.SQLText=
-    "SELECT * FROM paid_bag_emd_props WHERE grp_id=:grp_id";
+    "SELECT * FROM paid_bag_emd_props "
+    "WHERE grp_id=:grp_id";
   Qry.CreateVariable("grp_id", otInteger, grp_id);
   Qry.Execute();
   for(; !Qry.Eof; Qry.Next())
@@ -1007,34 +1007,46 @@ TGrpEMDProps& TGrpEMDProps::fromDB(int grp_id, TGrpEMDProps &props)
 
 void TGrpEMDProps::toDB(int grp_id, const TGrpEMDProps &props)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "BEGIN "
-    "  UPDATE paid_bag_emd_props "
-    "  SET grp_id=:grp_id, "
-    "      manual_bind=NVL(:manual_bind, manual_bind), "
-    "      not_auto_checkin=NVL(:not_auto_checkin, not_auto_checkin) "
-    "  WHERE emd_no=:emd_no AND emd_coupon=:emd_coupon; "
-    "  IF SQL%NOTFOUND THEN "
-    "    INSERT INTO paid_bag_emd_props(grp_id, emd_no, emd_coupon, manual_bind, not_auto_checkin) "
-    "    VALUES(:grp_id, :emd_no, :emd_coupon, NVL(:manual_bind, 0), NVL(:not_auto_checkin,0)); "
-    "  END IF; "
-    "END;";
-  Qry.CreateVariable("grp_id", otInteger, grp_id);
-  Qry.DeclareVariable("emd_no", otString);
-  Qry.DeclareVariable("emd_coupon", otInteger);
-  Qry.DeclareVariable("manual_bind" ,otInteger);
-  Qry.DeclareVariable("not_auto_checkin" ,otInteger);
   for(TGrpEMDProps::const_iterator i=props.begin(); i!=props.end(); ++i)
   {
-    Qry.SetVariable("emd_no", i->emd_no);
-    Qry.SetVariable("emd_coupon", i->emd_coupon);
-    i->manual_bind?Qry.SetVariable("manual_bind", (int)i->manual_bind.get()):
-                   Qry.SetVariable("manual_bind", FNull);
-    i->not_auto_checkin?Qry.SetVariable("not_auto_checkin", (int)i->not_auto_checkin.get()):
-                        Qry.SetVariable("not_auto_checkin", FNull);
-    Qry.Execute();
+    QParams params;
+    params << QParam("grp_id", otInteger, grp_id)
+           << QParam("emd_no", otString, i->emd_no)
+           << QParam("emd_coupon", otInteger, i->emd_coupon);
+    if (i->manual_bind) {
+      params << QParam("manual_bind", otInteger, int(i->manual_bind.get()));
+    } else {
+      params << QParam("manual_bind", otInteger, FNull);
+    }
+    if (i->not_auto_checkin) {
+      params << QParam("not_auto_checkin", otInteger, int(i->not_auto_checkin.get()));
+    } else {
+      params << QParam("not_auto_checkin", otInteger, FNull);
+    }
+
+    DB::TCachedQuery QryUpd(
+          PgOra::getRWSession("PAID_BAG_EMD_PROPS"),
+          "UPDATE paid_bag_emd_props "
+          "SET grp_id=:grp_id, "
+          "    manual_bind=COALESCE(:manual_bind, manual_bind), "
+          "    not_auto_checkin=COALESCE(:not_auto_checkin, not_auto_checkin) "
+          "WHERE emd_no=:emd_no "
+          "AND emd_coupon=:emd_coupon ",
+          params,
+          STDLOG);
+    QryUpd.get().Execute();
+    if (QryUpd.get().RowsProcessed() == 0) {
+      DB::TCachedQuery QryIns(
+            PgOra::getRWSession("PAID_BAG_EMD_PROPS"),
+            "INSERT INTO paid_bag_emd_props("
+            "grp_id, emd_no, emd_coupon, manual_bind, not_auto_checkin"
+            ") VALUES("
+            ":grp_id, :emd_no, :emd_coupon, COALESCE(:manual_bind, 0), COALESCE(:not_auto_checkin,0)"
+            ") ",
+            params,
+            STDLOG);
+      QryIns.get().Execute();
+    }
   };
 }
 

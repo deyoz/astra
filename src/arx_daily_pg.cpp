@@ -1991,7 +1991,10 @@ int arx_value_bag_taxes(const Dates::DateTime_t& arx_date, int remain_rows)
 
     std::vector<dbo::VALUE_BAG_TAXES> bag_taxes = session.query<dbo::VALUE_BAG_TAXES>()
             .where("last_date < :arx_date AND "
-                   "NOT EXISTS (SELECT * FROM value_bag WHERE value_bag.tax_id=value_bag_taxes.id FETCH FIRST 1 ROWS ONLY)")
+                   "NOT EXISTS ("
+                   "SELECT * FROM value_bag "
+                   "WHERE value_bag.tax_id=value_bag_taxes.id "
+                   "FETCH FIRST 1 ROWS ONLY)")
             .fetch_first(":remain_rows")
             .for_update(true)
             .setBind({{":arx_date", arx_date},

@@ -12,6 +12,28 @@ using namespace std;
 using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
 
+std::ostream & operator <<(std::ostream& os, TCacheConvertType value)
+{
+  switch (value) {
+  case ctInteger:  os << "ctInteger";  break;
+  case ctDouble:   os << "ctDouble";   break;
+  case ctDateTime: os << "ctDateTime"; break;
+  case ctString:   os << "ctString";   break;
+  }
+  return os;
+}
+
+std::ostream & operator <<(std::ostream& os, const TParams& params)
+{
+  for (const auto& param: params) {
+    const std::string& name = param.first;
+    const TParam& data = param.second;
+    os << std::endl << "param { name:'" << name << "', type:" << data.DataType << ", value:'" << data.Value << "' }";
+  }
+
+  return os;
+}
+
 void FieldsForLogging::set(const std::string& name, const std::string& value)
 {
   fields[upperc(name)]=value;
@@ -433,6 +455,24 @@ std::optional<int> Row::getAsInteger(const std::string& name) const
   return i;
 }
 
+int Row::getAsInteger(const string& name, int defaultValue) const
+{
+  const std::optional<int> value = getAsInteger(name);
+  if (!value) {
+    return defaultValue;
+  }
+  return *value;
+}
+
+int Row::getAsInteger_ThrowOnEmpty(const string& name) const
+{
+  const std::optional<int> value = getAsInteger(name);
+  if (!value) {
+    throw Exception("%s: field '%s' value is empty", __func__, name.c_str());
+  }
+  return *value;
+}
+
 std::optional<bool> Row::getAsBoolean(const std::string& name) const
 {
   string value=fieldValue(name, __func__);
@@ -443,6 +483,54 @@ std::optional<bool> Row::getAsBoolean(const std::string& name) const
     throw EConvertError("%s: cannot convert field '%s' (value=%s)", __func__, name.c_str(), value.c_str());
 
   return i!=0;
+}
+
+bool Row::getAsBoolean(const string& name, bool defaultValue) const
+{
+  const std::optional<bool> value = getAsBoolean(name);
+  if (!value) {
+    return defaultValue;
+  }
+  return *value;
+}
+
+bool Row::getAsBoolean_ThrowOnEmpty(const string& name) const
+{
+  const std::optional<bool> value = getAsBoolean(name);
+  if (!value) {
+    throw Exception("%s: field '%s' value is empty", __func__, name.c_str());
+  }
+  return *value;
+}
+
+std::optional<TDateTime> Row::getAsDateTime(const string& name) const
+{
+  string value=fieldValue(name, __func__);
+  if (value.empty()) return std::nullopt;
+
+  TDateTime result;
+  if (StrToDateTime(value.c_str(), result) == EOF)
+      throw EConvertError("%s: cannot convert field '%s' (value=%s)", __func__, name.c_str(), value.c_str());
+
+  return result;
+}
+
+TDateTime Row::getAsDateTime(const string& name, TDateTime defaultValue) const
+{
+  const std::optional<TDateTime> value = getAsDateTime(name);
+  if (!value) {
+    return defaultValue;
+  }
+  return *value;
+}
+
+TDateTime Row::getAsDateTime_ThrowOnEmpty(const string& name) const
+{
+  const std::optional<TDateTime> value = getAsDateTime(name);
+  if (!value) {
+    throw Exception("%s: field '%s' value is empty", __func__, name.c_str());
+  }
+  return *value;
 }
 
 void setRowId(const std::string& fieldName,

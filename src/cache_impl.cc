@@ -2,6 +2,7 @@
 #include "PgOraConfig.h"
 #include "astra_elems.h"
 #include "astra_types.h"
+#include "kassa.h"
 
 #include <serverlib/algo.h>
 #include <serverlib/str_utils.h>
@@ -1211,7 +1212,7 @@ std::string BagNorms::getSelectOrRefreshSql(const bool isRefreshSql) const
          "FROM bag_norms "
          "WHERE direct_action=0"
       << " AND " << airlineSqlFilter()
-      << " AND (last_date IS NULL OR last_date>=:now_local)"
+      << " AND (last_date IS NULL OR last_date >= :now_local)"
       << (isRefreshSql?" AND tid>:tid":" AND pr_del=0")
       << " AND " << getSQLFilter("city_dep", AccessControl::PermittedCitiesOrNull);
 
@@ -1238,81 +1239,46 @@ void BagNorms::onApplyingRowChanges(const TCacheUpdateStatus status,
   if (status==usInserted)
   {
     const CacheTable::Row& row=newRow.value();
-
-    DB::TQuery Qry(PgOra::getRWSession("ORACLE"), STDLOG);
-
-    Qry.SQLText=
-      "BEGIN "
-      "  kassa.add_bag_norm(:id,:airline,:pr_trfer,:city_dep,:city_arv,:pax_cat,:subclass,:class,:flt_no,:craft,:trip_type, "
-      "                     :first_date,:last_date,:bag_type,:amount,:weight,:per_unit,:norm_type,:extra,:tid, "
-      "                     :SYS_user_descr,:SYS_desk_code); "
-      "END;";
-
-    CreateVariable("id", ctInteger, row.getAsString("id"), Qry);
-    if (type_!=Type::Basic)
-    {
-      CreateVariable("airline", ctString, row.getAsString("airline"), Qry);
-      CreateVariable("subclass", ctString, row.getAsString("subclass"), Qry);
-      CreateVariable("flt_no", ctInteger, row.getAsString("flt_no"), Qry);
-    }
-    else
-    {
-      CreateVariable("airline", ctString, "", Qry);
-      CreateVariable("subclass", ctString, "", Qry);
-      CreateVariable("flt_no", ctInteger, "", Qry);
-    }
-    CreateVariable("pr_trfer", ctInteger, row.getAsString("pr_trfer"), Qry);
-    CreateVariable("city_dep", ctString, row.getAsString("city_dep"), Qry);
-    CreateVariable("city_arv", ctString, row.getAsString("city_arv"), Qry);
-    CreateVariable("pax_cat", ctString, row.getAsString("pax_cat"), Qry);
-    CreateVariable("class", ctString, row.getAsString("class"), Qry);
-    CreateVariable("craft", ctString, row.getAsString("craft"), Qry);
-    CreateVariable("trip_type", ctString, row.getAsString("trip_type"), Qry);
-    CreateVariable("first_date", ctDateTime, row.getAsString("first_date"), Qry);
-    CreateVariable("last_date", ctDateTime, row.getAsString("last_date"), Qry);
-    CreateVariable("bag_type", ctInteger, row.getAsString("bag_type"), Qry);
-    CreateVariable("amount", ctInteger, row.getAsString("amount"), Qry);
-    CreateVariable("weight", ctInteger, row.getAsString("weight"), Qry);
-    CreateVariable("per_unit", ctInteger, row.getAsString("per_unit"), Qry);
-    CreateVariable("norm_type", ctString, row.getAsString("norm_type"), Qry);
-    CreateVariable("extra", ctString, row.getAsString("extra"), Qry);
-    Qry.CreateVariable("tid", otInteger, getCurrentTid()); //когда вводится много строк, можно сгенерить единый tid для них
-    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
-    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
-
-    Qry.Execute();
+    Kassa::BagNorm::add(
+                row.getAsInteger_ThrowOnEmpty("id"),
+                type_ != Type::Basic ? row.getAsString("airline") : "",
+                row.getAsBoolean("pr_trfer"),
+                row.getAsString("city_dep"),
+                row.getAsString("city_arv"),
+                row.getAsString("pax_cat"),
+                type_ != Type::Basic ? row.getAsString("subclass") : "",
+                row.getAsString("class"),
+                type_ != Type::Basic ? row.getAsInteger("flt_no", ASTRA::NoExists) : ASTRA::NoExists,
+                row.getAsString("craft"),
+                row.getAsString("trip_type"),
+                row.getAsDateTime_ThrowOnEmpty("first_date"),
+                row.getAsDateTime("last_date", ASTRA::NoExists),
+                row.getAsInteger("bag_type", ASTRA::NoExists),
+                row.getAsInteger("amount", ASTRA::NoExists),
+                row.getAsInteger("weight", ASTRA::NoExists),
+                row.getAsInteger("per_unit", ASTRA::NoExists),
+                row.getAsString("norm_type"),
+                row.getAsString("extra"),
+                getCurrentTid(),
+                TReqInfo::Instance()->user.descr,
+                TReqInfo::Instance()->desk.code);
   }
 
   if (status==usModified)
   {
-    DB::TQuery Qry(PgOra::getRWSession("ORACLE"), STDLOG);
-
-    Qry.SQLText=
-      "BEGIN "
-      "  kassa.modify_bag_norm(:OLD_id,:last_date,:SYS_user_descr,:SYS_desk_code); "
-      "END;";
-
-    CreateVariable("OLD_id", ctInteger, oldRow.value().getAsString("id"), Qry);
-    CreateVariable("last_date", ctDateTime, newRow.value().getAsString("last_date"), Qry);
-    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
-    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
-
-    Qry.Execute();
+    Kassa::BagNorm::modifyById(
+                oldRow.value().getAsInteger_ThrowOnEmpty("id"),
+                newRow.value().getAsDateTime("last_date", ASTRA::NoExists),
+                TReqInfo::Instance()->user.descr,
+                TReqInfo::Instance()->desk.code);
   }
 
   if (status==usDeleted)
   {
-    DB::TQuery Qry(PgOra::getRWSession("ORACLE"), STDLOG);
-
-    Qry.SQLText=
-      "BEGIN "
-      "  kassa.delete_bag_norm(:OLD_id,:SYS_user_descr,:SYS_desk_code); "
-      "END;";
-    CreateVariable("OLD_id", ctInteger, oldRow.value().getAsString("id"), Qry);
-    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
-    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
-
-    Qry.Execute();
+    Kassa::BagNorm::deleteById(
+                oldRow.value().getAsInteger_ThrowOnEmpty("id"),
+                TReqInfo::Instance()->user.descr,
+                TReqInfo::Instance()->desk.code);
   }
 
 }
@@ -1326,7 +1292,7 @@ std::string BagRates::getSelectOrRefreshSql(const bool isRefreshSql) const
          "       bag_type, first_date, " << lastDateSelectSQL("BAG_RATES") << ", rate, rate_cur, min_weight, extra, pr_del, tid "
          "FROM bag_rates "
          "WHERE " << airlineSqlFilter()
-      << " AND (last_date IS NULL OR last_date>=:now_local)"
+      << " AND (last_date IS NULL OR last_date >= :now_local)"
       << (isRefreshSql?" AND tid>:tid":" AND pr_del=0")
       << " AND " << getSQLFilter("city_dep", AccessControl::PermittedCitiesOrNull);
 
@@ -1348,79 +1314,45 @@ void BagRates::onApplyingRowChanges(const TCacheUpdateStatus status,
   {
     const CacheTable::Row& row=newRow.value();
 
-    DB::TQuery Qry(PgOra::getRWSession("ORACLE"), STDLOG);
-
-    Qry.SQLText=
-      "BEGIN "
-      "  kassa.add_bag_rate(:id,:airline,:pr_trfer,:city_dep,:city_arv,:pax_cat,:subclass,:class,:flt_no,:craft,:trip_type, "
-      "                     :first_date,:last_date,:bag_type,:rate,:rate_cur,:min_weight,:extra,:tid, "
-      "                     :SYS_user_descr,:SYS_desk_code); "
-      "END;";
-
-    CreateVariable("id", ctInteger, row.getAsString("id"), Qry);
-    if (type_!=Type::Basic)
-    {
-      CreateVariable("airline", ctString, row.getAsString("airline"), Qry);
-      CreateVariable("subclass", ctString, row.getAsString("subclass"), Qry);
-      CreateVariable("flt_no", ctInteger, row.getAsString("flt_no"), Qry);
-    }
-    else
-    {
-      CreateVariable("airline", ctString, "", Qry);
-      CreateVariable("subclass", ctString, "", Qry);
-      CreateVariable("flt_no", ctInteger, "", Qry);
-    }
-    CreateVariable("pr_trfer", ctInteger, row.getAsString("pr_trfer"), Qry);
-    CreateVariable("city_dep", ctString, row.getAsString("city_dep"), Qry);
-    CreateVariable("city_arv", ctString, row.getAsString("city_arv"), Qry);
-    CreateVariable("pax_cat", ctString, row.getAsString("pax_cat"), Qry);
-    CreateVariable("class", ctString, row.getAsString("class"), Qry);
-    CreateVariable("craft", ctString, row.getAsString("craft"), Qry);
-    CreateVariable("trip_type", ctString, row.getAsString("trip_type"), Qry);
-    CreateVariable("first_date", ctDateTime, row.getAsString("first_date"), Qry);
-    CreateVariable("last_date", ctDateTime, row.getAsString("last_date"), Qry);
-    CreateVariable("bag_type", ctInteger, row.getAsString("bag_type"), Qry);
-    CreateVariable("rate", ctDouble, row.getAsString("rate"), Qry);
-    CreateVariable("rate_cur", ctString, row.getAsString("rate_cur"), Qry);
-    CreateVariable("min_weight", ctInteger, row.getAsString("min_weight"), Qry);
-    CreateVariable("extra", ctString, row.getAsString("extra"), Qry);
-    Qry.CreateVariable("tid", otInteger, getCurrentTid()); //когда вводится много строк, можно сгенерить единый tid для них
-    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
-    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
-
-    Qry.Execute();
+    Kassa::BagRate::add(
+                row.getAsInteger_ThrowOnEmpty("id"),
+                type_ != Type::Basic ? row.getAsString("airline") : "",
+                row.getAsBoolean("pr_trfer"),
+                row.getAsString("city_dep"),
+                row.getAsString("city_arv"),
+                row.getAsString("pax_cat"),
+                type_ != Type::Basic ? row.getAsString("subclass") : "",
+                row.getAsString("class"),
+                type_ != Type::Basic ? row.getAsInteger("flt_no", ASTRA::NoExists) : ASTRA::NoExists,
+                row.getAsString("craft"),
+                row.getAsString("trip_type"),
+                row.getAsDateTime_ThrowOnEmpty("first_date"),
+                row.getAsDateTime("last_date", ASTRA::NoExists),
+                row.getAsInteger("bag_type", ASTRA::NoExists),
+                row.getAsInteger_ThrowOnEmpty("rate"),
+                row.getAsString("rate_cur"),
+                row.getAsInteger("min_weight", ASTRA::NoExists),
+                row.getAsString("extra"),
+                getCurrentTid(),
+                TReqInfo::Instance()->user.descr,
+                TReqInfo::Instance()->desk.code);
   }
 
   if (status==usModified)
   {
-    DB::TQuery Qry(PgOra::getRWSession("ORACLE"), STDLOG);
-
-    Qry.SQLText=
-      "BEGIN "
-      "  kassa.modify_bag_rate(:OLD_id,:last_date,:SYS_user_descr,:SYS_desk_code); "
-      "END;";
-
-    CreateVariable("OLD_id", ctInteger, oldRow.value().getAsString("id"), Qry);
-    CreateVariable("last_date", ctDateTime, newRow.value().getAsString("last_date"), Qry);
-    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
-    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
-
-    Qry.Execute();
+    Kassa::BagRate::modifyById(
+                oldRow.value().getAsInteger_ThrowOnEmpty("id"),
+                newRow.value().getAsDateTime("last_date", ASTRA::NoExists),
+                TReqInfo::Instance()->user.descr,
+                TReqInfo::Instance()->desk.code);
   }
 
   if (status==usDeleted)
   {
-    DB::TQuery Qry(PgOra::getRWSession("ORACLE"), STDLOG);
-
-    Qry.SQLText=
-      "BEGIN "
-      "  kassa.delete_bag_rate(:OLD_id,:SYS_user_descr,:SYS_desk_code); "
-      "END;";
-    CreateVariable("OLD_id", ctInteger, oldRow.value().getAsString("id"), Qry);
-    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
-    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
-
-    Qry.Execute();
+    Kassa::BagRate::deleteById(
+                oldRow.value().getAsInteger_ThrowOnEmpty("id"),
+                TReqInfo::Instance()->user.descr,
+                TReqInfo::Instance()->desk.code);
   }
 }
 
@@ -1433,7 +1365,7 @@ std::string ValueBagTaxes::getSelectOrRefreshSql(const bool isRefreshSql) const
          "       first_date, " << lastDateSelectSQL("VALUE_BAG_TAXES") << ", tax, min_value, min_value_cur, extra, pr_del, tid "
          "FROM value_bag_taxes "
          "WHERE " << airlineSqlFilter()
-      << " AND (last_date IS NULL OR last_date>=:now_local)"
+      << " AND (last_date IS NULL OR last_date >= :now_local)"
       << (isRefreshSql?" AND tid>:tid":" AND pr_del=0")
       << " AND " << getSQLFilter("city_dep", AccessControl::PermittedCitiesOrNull);
 
@@ -1455,70 +1387,38 @@ void ValueBagTaxes::onApplyingRowChanges(const TCacheUpdateStatus status,
   {
     const CacheTable::Row& row=newRow.value();
 
-    DB::TQuery Qry(PgOra::getRWSession("ORACLE"), STDLOG);
-
-    Qry.SQLText=
-      "BEGIN "
-      "  kassa.add_value_bag_tax(:id,:airline,:pr_trfer,:city_dep,:city_arv, "
-      "                          :first_date,:last_date,:tax,:min_value,:min_value_cur,:extra,:tid, "
-      "                          :SYS_user_descr,:SYS_desk_code); "
-      "END;";
-
-    CreateVariable("id", ctInteger, row.getAsString("id"), Qry);
-    if (type_!=Type::Basic)
-    {
-      CreateVariable("airline", ctString, row.getAsString("airline"), Qry);
-    }
-    else
-    {
-      CreateVariable("airline", ctString, "", Qry);
-    }
-    CreateVariable("pr_trfer", ctInteger, row.getAsString("pr_trfer"), Qry);
-    CreateVariable("city_dep", ctString, row.getAsString("city_dep"), Qry);
-    CreateVariable("city_arv", ctString, row.getAsString("city_arv"), Qry);
-    CreateVariable("first_date", ctDateTime, row.getAsString("first_date"), Qry);
-    CreateVariable("last_date", ctDateTime, row.getAsString("last_date"), Qry);
-    CreateVariable("tax", ctDouble, row.getAsString("tax"), Qry);
-    CreateVariable("min_value", ctDouble, row.getAsString("min_value"), Qry);
-    CreateVariable("min_value_cur", ctString, row.getAsString("min_value_cur"), Qry);
-    CreateVariable("extra", ctString, row.getAsString("extra"), Qry);
-    Qry.CreateVariable("tid", otInteger, getCurrentTid()); //когда вводится много строк, можно сгенерить единый tid для них
-    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
-    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
-
-    Qry.Execute();
+    Kassa::ValueBagTax::add(
+                row.getAsInteger_ThrowOnEmpty("id"),
+                type_ != Type::Basic ? row.getAsString("airline") : "",
+                row.getAsBoolean("pr_trfer"),
+                row.getAsString("city_dep"),
+                row.getAsString("city_arv"),
+                row.getAsDateTime_ThrowOnEmpty("first_date"),
+                row.getAsDateTime("last_date", ASTRA::NoExists),
+                row.getAsInteger_ThrowOnEmpty("tax"),
+                row.getAsInteger("min_value", ASTRA::NoExists),
+                row.getAsString("min_value_cur"),
+                row.getAsString("extra"),
+                getCurrentTid(),
+                TReqInfo::Instance()->user.descr,
+                TReqInfo::Instance()->desk.code);
   }
 
   if (status==usModified)
   {
-    DB::TQuery Qry(PgOra::getRWSession("ORACLE"), STDLOG);
-
-    Qry.SQLText=
-      "BEGIN "
-      "  kassa.modify_value_bag_tax(:OLD_id,:last_date,:SYS_user_descr,:SYS_desk_code); "
-      "END;";
-
-    CreateVariable("OLD_id", ctInteger, oldRow.value().getAsString("id"), Qry);
-    CreateVariable("last_date", ctDateTime, newRow.value().getAsString("last_date"), Qry);
-    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
-    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
-
-    Qry.Execute();
+    Kassa::ValueBagTax::modifyById(
+                oldRow.value().getAsInteger_ThrowOnEmpty("id"),
+                newRow.value().getAsDateTime("last_date", ASTRA::NoExists),
+                TReqInfo::Instance()->user.descr,
+                TReqInfo::Instance()->desk.code);
   }
 
   if (status==usDeleted)
   {
-    DB::TQuery Qry(PgOra::getRWSession("ORACLE"), STDLOG);
-
-    Qry.SQLText=
-      "BEGIN "
-      "  kassa.delete_value_bag_tax(:OLD_id,:SYS_user_descr,:SYS_desk_code); "
-      "END;";
-    CreateVariable("OLD_id", ctInteger, oldRow.value().getAsString("id"), Qry);
-    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
-    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
-
-    Qry.Execute();
+    Kassa::ValueBagTax::deleteById(
+                oldRow.value().getAsInteger_ThrowOnEmpty("id"),
+                TReqInfo::Instance()->user.descr,
+                TReqInfo::Instance()->desk.code);
   }
 }
 
@@ -1531,7 +1431,7 @@ std::string ExchangeRates::getSelectOrRefreshSql(const bool isRefreshSql) const
          "       first_date, " << lastDateSelectSQL("EXCHANGE_RATES") << ", extra, pr_del, tid "
          "FROM exchange_rates "
          "WHERE " << airlineSqlFilter()
-      << " AND (last_date IS NULL OR last_date>=:now_local)"
+      << " AND (last_date IS NULL OR last_date >= :now_local)"
       << (isRefreshSql?" AND tid>:tid":" AND pr_del=0");
 
   if (type_!=Type::Basic)
@@ -1559,67 +1459,36 @@ void ExchangeRates::onApplyingRowChanges(const TCacheUpdateStatus status,
   {
     const CacheTable::Row& row=newRow.value();
 
-    DB::TQuery Qry(PgOra::getRWSession("ORACLE"), STDLOG);
-
-    Qry.SQLText=
-      "BEGIN "
-      "  kassa.add_exchange_rate(:id,:airline,:rate1,:cur1,:rate2,:cur2, "
-      "                          :first_date,:last_date,:extra,:tid,:SYS_user_descr,:SYS_desk_code); "
-      "END;";
-
-    CreateVariable("id", ctInteger, row.getAsString("id"), Qry);
-    if (type_!=Type::Basic)
-    {
-      CreateVariable("airline", ctString, row.getAsString("airline"), Qry);
-    }
-    else
-    {
-      CreateVariable("airline", ctString, "", Qry);
-    }
-    CreateVariable("rate1", ctInteger, row.getAsString("rate1"), Qry);
-    CreateVariable("cur1", ctString, row.getAsString("cur1"), Qry);
-    CreateVariable("rate2", ctDouble, row.getAsString("rate2"), Qry);
-    CreateVariable("cur2", ctString, row.getAsString("cur2"), Qry);
-    CreateVariable("first_date", ctDateTime, row.getAsString("first_date"), Qry);
-    CreateVariable("last_date", ctDateTime, row.getAsString("last_date"), Qry);
-    CreateVariable("extra", ctString, row.getAsString("extra"), Qry);
-    Qry.CreateVariable("tid", otInteger, getCurrentTid()); //когда вводится много строк, можно сгенерить единый tid для них
-    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
-    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
-
-    Qry.Execute();
+    Kassa::ExchangeRate::add(
+                row.getAsInteger_ThrowOnEmpty("id"),
+                type_ != Type::Basic ? row.getAsString("airline") : "",
+                row.getAsInteger_ThrowOnEmpty("rate1"),
+                row.getAsString("cur1"),
+                row.getAsInteger_ThrowOnEmpty("rate2"),
+                row.getAsString("cur2"),
+                row.getAsDateTime_ThrowOnEmpty("first_date"),
+                row.getAsDateTime("last_date", ASTRA::NoExists),
+                row.getAsString("extra"),
+                getCurrentTid(),
+                TReqInfo::Instance()->user.descr,
+                TReqInfo::Instance()->desk.code);
   }
 
   if (status==usModified)
   {
-    DB::TQuery Qry(PgOra::getRWSession("ORACLE"), STDLOG);
-
-    Qry.SQLText=
-      "BEGIN "
-      "  kassa.modify_exchange_rate(:OLD_id,:last_date,:SYS_user_descr,:SYS_desk_code); "
-      "END;";
-
-    CreateVariable("OLD_id", ctInteger, oldRow.value().getAsString("id"), Qry);
-    CreateVariable("last_date", ctDateTime, newRow.value().getAsString("last_date"), Qry);
-    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
-    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
-
-    Qry.Execute();
+    Kassa::ExchangeRate::modifyById(
+                oldRow.value().getAsInteger_ThrowOnEmpty("id"),
+                newRow.value().getAsDateTime("last_date", ASTRA::NoExists),
+                TReqInfo::Instance()->user.descr,
+                TReqInfo::Instance()->desk.code);
   }
 
   if (status==usDeleted)
   {
-    DB::TQuery Qry(PgOra::getRWSession("ORACLE"), STDLOG);
-
-    Qry.SQLText=
-      "BEGIN "
-      "  kassa.delete_exchange_rate(:OLD_id,:SYS_user_descr,:SYS_desk_code); "
-      "END;";
-    CreateVariable("OLD_id", ctInteger, oldRow.value().getAsString("id"), Qry);
-    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
-    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
-
-    Qry.Execute();
+    Kassa::ExchangeRate::deleteById(
+                oldRow.value().getAsInteger_ThrowOnEmpty("id"),
+                TReqInfo::Instance()->user.descr,
+                TReqInfo::Instance()->desk.code);
   }
 }
 
