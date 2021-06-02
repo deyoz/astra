@@ -2062,10 +2062,20 @@ $()
 ###
 #########################################################################################
 
+
 $(init_jxt_pult МОВРОМ)
 $(set_desk_version 201707-0195750)
-$(login)
 
+$(sql "insert into ARO_AIRPS(ARO_ID, AIRP, ID) values (5, 'ВНК', id__seq.nextval)")
+$(sql "insert into ARO_AIRPS(ARO_ID, AIRP, ID) values (5, 'СОЧ', id__seq.nextval)")
+$(sql "insert into ARO_AIRPS(ARO_ID, AIRP, ID) values (5, 'РОЩ', id__seq.nextval)")
+
+$(sql "insert into ARO_AIRLINES(ARO_ID, AIRLINE, ID) values (5, 'ЮТ', id__seq.nextval)")
+$(sql "insert into ARO_AIRLINES(ARO_ID, AIRLINE, ID) values (5, 'СУ', id__seq.nextval)")
+
+$(sql "insert into PACTS(AIRLINE, AIRP, DESCR, FIRST_DATE, LAST_DATE, ID) values ('ЮТ', 'СОЧ', 'ТЕСТ', sysdate-30, null, id__seq.nextval)")
+
+$(login)
 ################################################################################
 
 $(PREPARE_SEASON_SCD ЮТ СОЧ ЛХР 100 -1 TU5 $(date_format %d.%m.%Y +10) $(date_format %d.%m.%Y +30))
@@ -2108,6 +2118,7 @@ $(defmacro RUN_GENERAL_STAT_AK
       <LastDate>$(last_date) 00:00:00</LastDate>
       <ak>ЮТ</ak>
       <ap/>
+      <Seance>АК</Seance>
       <seance>АК</seance>
       <flt_no/>
       <source>STAT</source>
@@ -2131,7 +2142,7 @@ $(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) П
 $(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "По агентам")
 $(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Багажные RFISC")
 $(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Огр. возмож.")
-#$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Аннул. бирки")
+$(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Аннул. бирки")
 $(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная PFS)
 $(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Трансфер)
 $(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Расселение)
@@ -2162,6 +2173,16 @@ $(RUN_GENERAL_STAT_AK  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) П
 
 $(init_jxt_pult МОВРОМ)
 $(set_desk_version 201707-0195750)
+
+$(sql "insert into ARO_AIRPS(ARO_ID, AIRP, ID) values (5, 'ВНК', id__seq.nextval)")
+$(sql "insert into ARO_AIRPS(ARO_ID, AIRP, ID) values (5, 'СОЧ', id__seq.nextval)")
+$(sql "insert into ARO_AIRPS(ARO_ID, AIRP, ID) values (5, 'РОЩ', id__seq.nextval)")
+
+$(sql "insert into ARO_AIRLINES(ARO_ID, AIRLINE, ID) values (5, 'ЮТ', id__seq.nextval)")
+$(sql "insert into ARO_AIRLINES(ARO_ID, AIRLINE, ID) values (5, 'СУ', id__seq.nextval)")
+
+$(sql "insert into PACTS(AIRLINE, AIRP, DESCR, FIRST_DATE, LAST_DATE, ID) values ('ЮТ', 'СОЧ', 'ТЕСТ', sysdate-30, null, id__seq.nextval)")
+
 $(login)
 
 ################################################################################
@@ -2206,6 +2227,7 @@ $(defmacro RUN_GENERAL_STAT_AP
       <LastDate>$(last_date) 00:00:00</LastDate>
       <ak/>
       <ap>ВНК</ap>
+      <Seance>АП</Seance>
       <seance>АП</seance>
       <flt_no/>
       <source>STAT</source>
@@ -2229,7 +2251,7 @@ $(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) П
 $(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "По агентам")
 $(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Багажные RFISC")
 $(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Огр. возмож.")
-#$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Аннул. бирки")
+$(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Аннул. бирки")
 $(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная PFS)
 $(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Трансфер)
 $(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная Расселение)

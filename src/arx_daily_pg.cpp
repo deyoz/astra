@@ -708,11 +708,12 @@ std::optional<std::string> next_airp(Dates::DateTime_t part_key, int first_point
     LogTrace(TRACE6) << __func__ << " part_key: " << part_key << " first_point: " << first_point
               << " point_num: " << point_num;
     dbo::Session session;
-    std::optional<std::string> airp = session.query<std::string>("SELECT airp")
+    std::vector<std::string> airps = session.query<std::string>("SELECT airp")
             .from("arx_points")
             .where("part_key = :part_key AND first_point=:first_point AND point_num > :point_num AND pr_del=0 ORDER BY point_num")
             .setBind({{":part_key", part_key}, {":first_point", first_point}, {":point_num", point_num}});
-    return airp;
+    if(airps.empty()) { return std::nullopt; }
+    return airps.front();
 }
 
 
