@@ -1945,6 +1945,12 @@ $(set grp_id_unacc2 $(get_unaccomp_id $(get point_dep1) 2))
 $(set grp_id_unacc3 $(get_unaccomp_id $(get point_dep1) 3))
 $(set grp_id_unacc4 $(get_unaccomp_id $(get point_dep1) 4))
 
+### здесь неожиданно тест для кэша GRP_BAG_TYPES1
+
+$(LOAD_GRP_BAG_TYPES_OUTDATED 1 $(get grp_id_adl1_1))
+$(LOAD_GRP_BAG_TYPES_OUTDATED 2 $(get grp_id_adl1_1))
+$(LOAD_GRP_BAG_TYPES $(get grp_id_adl1_1) EN)
+
 $(CHANGE_TCHECKIN_REQUEST capture=off lang=EN hall=1
 {$(CHANGE_CHECKIN_SEGMENT $(get point_dep1) $(get point_arv1) СОЧ ВНК
                           $(get grp_id_adl1_1) $(get_single_grp_tid $(get pax_id_adl1_1))

@@ -7,6 +7,7 @@
 #include "astra_elems.h"
 #include "astra_utils.h"
 #include "db_tquery.h"
+#include "cache_callbacks.h"
 
 #include "jxtlib/JxtInterface.h"
 
@@ -34,7 +35,6 @@ public:
 enum TCacheFieldCharCase {ecNormal, ecUpperCase, ecLowerCase};
 enum TCacheFieldType {ftSignedNumber, ftUnsignedNumber, ftDate, ftTime, ftString, ftBoolean, ftStringList, ftUTF,
                       ftUnknown, NumFieldType};
-enum TCacheConvertType {ctInteger,ctDouble,ctDateTime,ctString};
 enum TCacheUpdateStatus {usUnmodified, usModified, usInserted, usDeleted};
 enum TCacheQueryType {cqtSelect,cqtRefresh,cqtInsert,cqtUpdate,cqtDelete};
 enum TCacheElemCategory {
@@ -168,14 +168,6 @@ struct TCacheField2 {
     }
 };
 
-struct TParam {
-    std::string Value;
-    TCacheConvertType DataType;
-    TParam() { DataType = ctString; };
-};
-
-typedef std::map<std::string, TParam> TParams;
-
 typedef struct {
     std::vector<std::string> cols;
     std::vector<std::string> old_cols;
@@ -185,16 +177,6 @@ typedef struct {
 
 typedef std::vector<TRow> TTable;
 
-class FieldsForLogging
-{
-  private:
-    std::map<std::string, std::string> fields;
-  public:
-    void set(const std::string& name, const std::string& value);
-    std::string get(const std::string& name) const;
-    void trace() const;
-};
-
 class TCacheTable;
 
 typedef void  (*TBeforeRefreshEvent)(TCacheTable &, DB::TQuery &, const TCacheQueryType);
@@ -203,10 +185,9 @@ typedef void  (*TAfterApplyEvent)(TCacheTable &, const TRow &, DB::TQuery &, con
 typedef void  (*TBeforeApplyAllEvent)(TCacheTable &);
 typedef void  (*TAfterApplyAllEvent)(TCacheTable &);
 
-enum TUpdateDataType {upNone, upExists, upClearAll};
-
 class TCacheTable {
     protected:
+        std::unique_ptr<CacheTableCallbacks> callbacks;
         TParams Params, SQLParams;
         std::string Title;
         std::string SelectSQL;
@@ -214,6 +195,7 @@ class TCacheTable {
         std::string InsertSQL;
         std::string UpdateSQL;
         std::string DeleteSQL;
+        std::string dbSessionObjectName;
         ASTRA::TEventType EventType;
         bool Logging;
         bool KeepLocally;
@@ -229,13 +211,16 @@ class TCacheTable {
         int curVerIface;
         int clientVerIface;
         TTable table;
+        std::optional<CacheTable::SelectedRows> selectedRows;
 
         void getPerms( );
         bool pr_irefresh, pr_dconst;
-        TUpdateDataType refresh_data_type;
+        CacheTable::RefreshStatus refresh_data_type;
         void getParams(xmlNodePtr paramNode, TParams &vparams);
         bool refreshInterface();
-        TUpdateDataType refreshData();
+        CacheTable::RefreshStatus refreshData();
+        CacheTable::RefreshStatus refreshDataIndividual();
+        CacheTable::RefreshStatus refreshDataCommon();
         virtual void initChildTables();
         virtual void initFields();
         void XMLInterface(const xmlNodePtr resNode);
@@ -268,6 +253,7 @@ class TCacheTable {
         void ApplyUpdates(xmlNodePtr reqNode);
         bool changeIfaceVer();
         std::string code();
+        std::optional<int> dataVersion() const;
         std::string getSelectSql() { return SelectSQL; }
         int FieldIndex( const std::string name );
         std::string FieldValue( const std::string name, const TRow &row );

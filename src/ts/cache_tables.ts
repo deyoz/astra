@@ -168,11 +168,6 @@ $(LOAD_CACHE GENDER_TYPES)
 $(LOAD_CACHE GRAPH_STAGES)
 $(LOAD_CACHE GRAPH_STAGES_WO_INACTIVE)
 $(LOAD_CACHE GRAPH_TIMES)
-$(LOAD_CACHE GRP_BAG_TYPES)
-$(LOAD_CACHE GRP_BAG_TYPES1)
-$(LOAD_CACHE GRP_BAG_TYPES2)
-$(LOAD_CACHE GRP_RFISC)
-$(LOAD_CACHE GRP_RFISC1)
 $(LOAD_CACHE GRP_STATUS_TYPES)
 $(LOAD_CACHE HALLS)
 $(LOAD_CACHE HOTEL_ACMD)
@@ -343,5 +338,333 @@ $(LOAD_CACHE WEB_CKIN_SETS)
 $(LOAD_CACHE WEB_CLIENTS)
 $(LOAD_CACHE WEB_SALES)
 
+%%
 
+### test 2
+### FILE_TYPES
+#########################################################################################
+
+$(init_term)
+
+!! capture=on
+$(cache PIKE RU FILE_TYPES "" "")
+
+>> lines=auto
+      <rows tid='-1'>
+        <row pr_del='0'>
+          <col>1CCEK</col>
+          <col>Выгрузка 1С (Челябинск)</col>
+        </row>
+        <row pr_del='0'>
+          <col>AODBI</col>
+          <col>AODB зарузка</col>
+        </row>
+        <row pr_del='0'>
+          <col>AODBO</col>
+          <col>AODB выгрузка</col>
+        </row>
+        <row pr_del='0'>
+          <col>APIS_ES</col>
+          <col>Апис (Испания)</col>
+        </row>
+        <row pr_del='0'>
+          <col>APIS_LT</col>
+          <col>Апис (Литва)</col>
+        </row>
+        <row pr_del='0'>
+          <col>APIS_TR</col>
+          <col>Turkish Apis</col>
+        </row>
+        <row pr_del='0'>
+          <col>CENTR</col>
+          <col>Центровка</col>
+        </row>
+        <row pr_del='0'>
+          <col>CHCKD</col>
+          <col>Результаты регистрации</col>
+        </row>
+        <row pr_del='0'>
+          <col>FIDS</col>
+          <col>Выгрузка Fids</col>
+        </row>
+        <row pr_del='0'>
+          <col>MERIDIAN</col>
+          <col>Меридиан</col>
+        </row>
+        <row pr_del='0'>
+          <col>MINTRANS</col>
+          <col>Выгрузка для Минтранса</col>
+        </row>
+        <row pr_del='0'>
+          <col>MQRF</col>
+          <col>Отправка даннных по рейсу в Rabbit MQ</col>
+        </row>
+        <row pr_del='0'>
+          <col>MQRO</col>
+          <col>Отправка даннных регистрации в Rabbit MQ</col>
+        </row>
+        <row pr_del='0'>
+          <col>ROZYSK_SIR</col>
+          <col>Сирена-розыск</col>
+        </row>
+        <row pr_del='0'>
+          <col>SOFI</col>
+          <col>Выгрузка КПБ</col>
+        </row>
+        <row pr_del='0'>
+          <col>SPCEK</col>
+          <col>Выгрузка СПП (Челябинск)</col>
+        </row>
+        <row pr_del='0'>
+          <col>UTG</col>
+          <col>UTG выгрузка</col>
+        </row>
+      </rows>
+
+%%
+
+### test 3
+### AIRLINES
+#########################################################################################
+
+$(init_term)
+
+$(set max_tid 681836912)
+$(set not_max_tid 681825960)
+$(set readonly 0)
+$(set iface_ver $(cache_iface_ver AIRLINES))
+
+### tid интерфейса совпадает, tid данных максимальный
+### ничего не грузим
+
+!! capture=on
+$(cache PIKE RU AIRLINES $(get iface_ver) $(get max_tid))
+
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer ...>
+    <interface id='cache'/>
+    <data>
+      <code>AIRLINES</code>
+      <Forbidden>0</Forbidden>
+      <ReadOnly>$(get readonly)</ReadOnly>
+      <keep_locally>1</keep_locally>
+      <keep_deleted_rows>1</keep_deleted_rows>
+      <user_depend>0</user_depend>
+    </data>
+  </answer>
+</term>
+
+
+### tid интерфейса совпадает, tid данных не максимальный
+### грузим недостающие данные
+
+!! capture=on
+$(cache PIKE RU AIRLINES $(get iface_ver) $(get not_max_tid))
+
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer ...>
+    <interface id='cache'/>
+    <data>
+      <code>AIRLINES</code>
+      <Forbidden>0</Forbidden>
+      <ReadOnly>$(get readonly)</ReadOnly>
+      <keep_locally>1</keep_locally>
+      <keep_deleted_rows>1</keep_deleted_rows>
+      <user_depend>0</user_depend>
+      <rows tid='$(get max_tid)'>
+        <row pr_del='0'>
+          <col>0Z</col>
+          <col/>
+          <col/>
+          <col/>
+          <col/>
+          <col/>
+          <col/>
+          <col>MIRNY AIR ENTERPRISE</col>
+          <col>MIRNY AIR ENTERPRISE</col>
+          <col>МИР</col>
+          <col>МИР</col>
+          <col>494045</col>
+        </row>
+        <row pr_del='1'>
+          <col>5F</col>
+          <col/>
+          <col/>
+          <col/>
+          <col/>
+          <col/>
+          <col/>
+          <col>ARCTIC CIRCLE AIR SERVICE</col>
+          <col>ARCTIC CIRCLE AIR SERVICE</col>
+          <col/>
+          <col/>
+          <col>21364</col>
+        </row>
+        <row pr_del='1'>
+          <col>AAA</col>
+          <col/>
+          <col/>
+          <col/>
+          <col/>
+          <col/>
+          <col/>
+          <col>MIRNY AIR ENTERPRISE</col>
+          <col>MIRNY AIR ENTERPRISE</col>
+          <col>МИР</col>
+          <col>МИР</col>
+          <col>528793</col>
+        </row>
+        <row pr_del='0'>
+          <col>ИЖ</col>
+          <col>I8</col>
+          <col>ИЗА</col>
+          <col>IZA</col>
+          <col>23A</col>
+          <col>ИЖАВИА</col>
+          <col/>
+          <col>ОАО ИЖАВИА</col>
+          <col>IZHAVIA</col>
+          <col>ИЖВ</col>
+          <col>ИЖВ</col>
+          <col>8</col>
+        </row>
+        <row pr_del='0'>
+          <col>КЛ</col>
+          <col>N4</col>
+          <col/>
+          <col>NWS</col>
+          <col>КЛ</col>
+          <col/>
+          <col/>
+          <col>СЕВЕРНЫЙ ВЕТЕР</col>
+          <col>NORDWIND</col>
+          <col>МОВ</col>
+          <col>МОВ</col>
+          <col>72</col>
+        </row>
+        <row pr_del='0'>
+          <col>МД</col>
+          <col>5F</col>
+          <col/>
+          <col/>
+          <col>МД</col>
+          <col>SUD-AEROCARGO</col>
+          <col/>
+          <col>АО АК SUD AEROCARGO</col>
+          <col>SUD AEROCARGO</col>
+          <col>КГЛ</col>
+          <col>КГЛ</col>
+          <col>142</col>
+        </row>
+        <row pr_del='0'>
+          <col>Н5</col>
+          <col/>
+          <col/>
+          <col/>
+          <col/>
+          <col/>
+          <col/>
+          <col>АЙ ФЛАЙ</col>
+          <col/>
+          <col/>
+          <col/>
+          <col>38666</col>
+        </row>
+        <row pr_del='0'>
+          <col>ФЛ</col>
+          <col>F7</col>
+          <col>RSY</col>
+          <col>RSY</col>
+          <col>ФЛ</col>
+          <col>АЙ ФЛАЙ</col>
+          <col/>
+          <col>ООО АЙ ФЛАЙ</col>
+          <col/>
+          <col>МОВ</col>
+          <col>МОВ</col>
+          <col>908030</col>
+        </row>
+      </rows>
+    </data>
+  </answer>
+</term>
+
+
+### tid интерфейса совпадает, tid данных отсутствует
+### грузим все данные
+
+!! capture=on
+$(cache PIKE RU AIRLINES $(get iface_ver) "")
+
+>> lines=auto
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer ...>
+    <interface id='cache'/>
+    <data>
+      <code>AIRLINES</code>
+      <Forbidden>0</Forbidden>
+      <ReadOnly>$(get readonly)</ReadOnly>
+      <keep_locally>1</keep_locally>
+      <keep_deleted_rows>1</keep_deleted_rows>
+      <user_depend>0</user_depend>
+      <rows tid='$(get max_tid)'>
+        <row pr_del='0'>
+          <col>01</col>
+
+
+### tid интерфейса не совпадает, tid данных максимальный
+### грузим интерфейс и все данные
+
+!! capture=on
+$(cache PIKE RU AIRLINES $(+ $(get iface_ver) 1) $(get max_tid))
+>> lines=auto
+        </fields>
+      </iface>
+      <rows tid='$(get max_tid)'>
+        <row pr_del='0'>
+          <col>01</col>
+
+
+### tid интерфейса не совпадает, tid данных не максимальный
+### грузим интерфейс и все данные
+
+!! capture=on
+$(cache PIKE RU AIRLINES $(+ $(get iface_ver) 1) $(get not_max_tid))
+
+>> lines=auto
+        </fields>
+      </iface>
+      <rows tid='$(get max_tid)'>
+        <row pr_del='0'>
+          <col>01</col>
+
+
+$(sql {UPDATE airlines SET pr_del=1, tid=$(+ $(get max_tid) 1) WHERE pr_del=0})
+
+### tid интерфейса совпадает, tid данных не максимальный
+### грузим недостающие данные
+
+!! capture=on
+$(cache PIKE RU AIRLINES $(get iface_ver) $(get max_tid))
+
+>> lines=auto
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer ...>
+    <interface id='cache'/>
+    <data>
+      <code>AIRLINES</code>
+      <Forbidden>0</Forbidden>
+      <ReadOnly>$(get readonly)</ReadOnly>
+      <keep_locally>1</keep_locally>
+      <keep_deleted_rows>1</keep_deleted_rows>
+      <user_depend>0</user_depend>
+      <rows tid='$(+ $(get max_tid) 1)'>
+        <row pr_del='1'>
+          <col>01</col>
 

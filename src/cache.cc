@@ -17,6 +17,7 @@
 #include "qrys.h"
 #include "trip_tasks.h"
 #include "PgOraConfig.h"
+#include "cache_impl.h"
 #include "jxtlib/xml_stuff.h"
 #include <serverlib/algo.h>
 #include <serverlib/cursctl.h>
@@ -64,12 +65,12 @@ void TCacheTable::Init(xmlNodePtr cacheNode)
   if ( Params.find( TAG_CODE ) == Params.end() )
     throw Exception("wrong message format");
   string code = Params[TAG_CODE].Value;
-  if (code.find("USE_ACCESS")==0)
-    throw UserException("MSG.WORKING_WITH_TABLE_PROHIBITED.USE_ACCESS_SCREEN");
   Forbidden = true;
   ReadOnly = true;
   clientVerData = -1;
   clientVerIface = -1;
+
+  callbacks.reset(SpawnCacheTableCallbacks(code));
 
   DB::TQuery Qry(PgOra::getROSession("CACHE_TABLES"), STDLOG);
   Qry.SQLText = "SELECT title, select_sql, refresh_sql, insert_sql, update_sql, delete_sql, "
@@ -82,11 +83,24 @@ void TCacheTable::Init(xmlNodePtr cacheNode)
   if ( Qry.Eof )
     throw Exception( "table " + string( code ) + " not found" );
   Title = Qry.FieldAsString( "title" );
-  SelectSQL = Qry.FieldAsString("select_sql");
-  RefreshSQL = Qry.FieldAsString("refresh_sql");
-  InsertSQL = Qry.FieldAsString("insert_sql");
-  UpdateSQL = Qry.FieldAsString("update_sql");
-  DeleteSQL = Qry.FieldAsString("delete_sql");
+  if (callbacks)
+  {
+    SelectSQL  = callbacks->selectSql();
+    RefreshSQL = callbacks->refreshSql();
+    InsertSQL  = callbacks->insertSql();
+    UpdateSQL  = callbacks->updateSql();
+    DeleteSQL  = callbacks->deleteSql();
+    dbSessionObjectName = callbacks->dbSessionObjectName();
+  }
+  else
+  {
+    SelectSQL  = Qry.FieldAsString("select_sql");
+    RefreshSQL = Qry.FieldAsString("refresh_sql");
+    InsertSQL  = Qry.FieldAsString("insert_sql");
+    UpdateSQL  = Qry.FieldAsString("update_sql");
+    DeleteSQL  = Qry.FieldAsString("delete_sql");
+    dbSessionObjectName = "ORACLE";
+  }
   Logging = Qry.FieldAsInteger("logging") != 0;
   KeepLocally = Qry.FieldAsInteger("keep_locally") != 0;
   KeepDeletedRows = Qry.FieldAsInteger("keep_deleted_rows") != 0;
@@ -119,6 +133,7 @@ void TCacheTable::Init(xmlNodePtr cacheNode)
 void TCacheTable::Clear()
 {
   table.clear();
+  selectedRows=std::nullopt;
 }
 
 bool TCacheTable::refreshInterface()
@@ -617,23 +632,46 @@ static std::string getSpecialElem(const TCacheField2& field,
   }
 }
 
-TUpdateDataType TCacheTable::refreshData()
+
+CacheTable::RefreshStatus TCacheTable::refreshData()
+{
+  if (SelectSQL.empty())
+    return refreshDataIndividual();
+  else
+    return refreshDataCommon();
+}
+
+
+CacheTable::RefreshStatus TCacheTable::refreshDataIndividual()
+{
+  Clear();
+
+  size_t fieldIdx=0;
+  std::map<std::string, size_t> fieldIndexes;
+  for(const TCacheField2& field : FFields)
+    fieldIndexes.emplace(field.Name, fieldIdx++);
+
+  selectedRows.emplace(fieldIndexes, dataVersion());
+
+  if (callbacks)
+    callbacks->onSelectOrRefresh(SQLParams, selectedRows.value());
+
+  return selectedRows.value().status();
+}
+
+CacheTable::RefreshStatus TCacheTable::refreshDataCommon()
 {
     Clear();
     string code = Params[TAG_CODE].Value;
 
-    string stid = Params[ TAG_REFRESH_DATA ].Value;
-
-    TrimString( stid );
-    if ( stid.empty() || StrToInt( stid.c_str(), clientVerData ) == EOF )
-      clientVerData = -1; /* не задана версия, значит обновлять всегда все */
+    clientVerData=dataVersion().value_or(-1);
     ProgTrace(TRACE5, "Client version data: %d", clientVerData );
 
     /*Попробуем найти в именах переменных :user_id
       потому что возможно чтение данных по опред. авиакомпании */
     TCacheQueryType query_type;
     std::vector<std::string> vars;
-    DB::TQuery Qry(PgOra::getROSession("ORACLE"), STDLOG);
+    DB::TQuery Qry(PgOra::getROSession(dbSessionObjectName), STDLOG);
     vector<string>::iterator f;
     if ( RefreshSQL.empty() || clientVerData < 0 ) { /* считываем все заново */
       Qry.SQLText = SelectSQL;
@@ -808,12 +846,12 @@ TUpdateDataType TCacheTable::refreshData()
 
     ProgTrace( TRACE5, "Server version data: %d", clientVerData );
     if ( !table.empty() ) // начитали изменения
-        return upExists;
+        return CacheTable::RefreshStatus::Exists;
     else
         if ( clientVerData >= 0 ) // нет изменений
-            return upNone;
+            return CacheTable::RefreshStatus::None;
         else
-            return upClearAll; // все удалили
+            return CacheTable::RefreshStatus::ClearAll; // все удалили
 }
 
 void TCacheTable::refresh()
@@ -833,7 +871,7 @@ void TCacheTable::refresh()
         refresh_data_type = refreshData();
     }
     else
-        refresh_data_type = upNone;
+        refresh_data_type = CacheTable::RefreshStatus::None;
 }
 
 void TCacheTable::buildAnswer(xmlNodePtr resNode)
@@ -863,7 +901,7 @@ void TCacheTable::buildAnswer(xmlNodePtr resNode)
     if(pr_irefresh)
         XMLInterface(dataNode);
 
-    if ( refresh_data_type != upNone || pr_irefresh )
+    if ( refresh_data_type != CacheTable::RefreshStatus::None || pr_irefresh )
         XMLData(dataNode);
 }
 
@@ -939,13 +977,18 @@ void TCacheTable::XMLInterface(const xmlNodePtr dataNode)
 
 void TCacheTable::XMLData(const xmlNodePtr dataNode)
 {
+  if (selectedRows)
+  {
+    selectedRows.value().toXML(dataNode);
+    return;
+  }
+
     xmlNodePtr tabNode = NewTextChild(dataNode, "rows");
     SetProp( tabNode, "tid", clientVerData );
-    for(TTable::iterator it = table.begin(); it != table.end(); it++) {
+    for(TTable::iterator it = table.begin(); it != table.end(); ++it) {
         xmlNodePtr rowNode = NewTextChild(tabNode, "row");
         SetProp(rowNode, "pr_del", (it->status == usDeleted));
-        int colidx = 0;
-        for(vector<string>::iterator ir = it->cols.begin(); ir != it->cols.end(); ir++,colidx++) {
+        for(vector<string>::iterator ir = it->cols.begin(); ir != it->cols.end(); ++ir) {
             NewTextChild(rowNode, "col", ir->c_str());
         }
     }
@@ -996,9 +1039,24 @@ void TCacheTable::parse_updates(xmlNodePtr rowsNode)
 string TCacheTable::code()
 {
   if ( Params.find( TAG_CODE ) == Params.end() )
-    throw Exception("cache not inizialize");
+    throw Exception("cache not inizialized");
   return Params[TAG_CODE].Value;
 }
+
+std::optional<int> TCacheTable::dataVersion() const
+{
+  const auto cacheDataVersion=algo::find_opt<std::optional>(Params, TAG_REFRESH_DATA);
+  if (!cacheDataVersion) return std::nullopt;
+
+  string s=cacheDataVersion.value().Value;
+
+  TrimString(s);
+  int result;
+  if (s.empty() || StrToInt(s.c_str(), result) == EOF) return std::nullopt;
+
+  return result;
+}
+
 
 int TCacheTable::FieldIndex( const string name )
 {
@@ -1426,44 +1484,6 @@ void TCacheTable::OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus,
                                         << enum1 << enum2, EventType);
 }
 
-void DeclareVariablesFromParams(const std::vector<string> &vars, const TParams &SQLParams, DB::TQuery &Qry)
-{
-  for ( vector<string>::const_iterator r=vars.begin(); r!=vars.end(); r++ ) {
-    if ( Qry.GetVariableIndex( r->c_str() ) == -1 ) {
-      map<std::string, TParam>::const_iterator ip = SQLParams.find( *r );
-      if ( ip != SQLParams.end() ) {
-        ProgTrace( TRACE5, "Declare variable from SQLParams r->c_str()=%s", r->c_str() );
-        switch( ip->second.DataType ) {
-          case ctInteger:
-            Qry.DeclareVariable( *r, otInteger );
-            break;
-          case ctDouble:
-            Qry.DeclareVariable( *r, otFloat );
-            break;
-          case ctDateTime:
-            Qry.DeclareVariable( *r, otDate );
-            break;
-          case ctString:
-            Qry.DeclareVariable( *r, otString );
-            break;
-        }
-      }
-    }
-  }
-};
-
-void SetVariablesFromParams(const std::vector<string> &vars, const TParams &SQLParams,
-                            DB::TQuery &Qry, FieldsForLogging& fieldsForLogging)
-{
-  for( map<std::string, TParam>::const_iterator iv=SQLParams.begin(); iv!=SQLParams.end(); iv++ ) {
-    if ( Qry.GetVariableIndex( iv->first.c_str() ) == -1 ) continue;
-    Qry.SetVariable( iv->first, iv->second.Value );
-    fieldsForLogging.set(iv->first, iv->second.Value);
-    ProgTrace( TRACE5, "SetVariable name=%s, value=%s",
-              iv->first.c_str(),iv->second.Value.c_str() );
-  }
-};
-
 void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
 {
   parse_updates(GetNode("rows", reqNode));
@@ -1685,8 +1705,8 @@ void TCacheTable::SetVariables(const TRow &row, const std::vector<std::string> &
     }
   }
 
-  SetVariablesFromParams(vars, SQLParams, Qry, fieldsForLogging);
-  SetVariablesFromParams(vars, row.params, Qry, fieldsForLogging);
+  SetVariablesFromParams(SQLParams, Qry, fieldsForLogging);
+  SetVariablesFromParams(row.params, Qry, fieldsForLogging);
 }
 
 int TCacheTable::getIfaceVer() {
