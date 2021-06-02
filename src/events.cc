@@ -35,7 +35,7 @@ int getMoveId(TDateTime part_key, int point_id)
     dbo::Session session;
     if ( part_key != NoExists ) {
         std::optional<int> move_id = session.query<int>("SELECT move_id").from("arx_points")
-                .where("WHERE part_key=:part_key AND point_id=:point_id AND pr_del>=0")
+                .where(" part_key=:part_key AND point_id=:point_id AND pr_del>=0")
                 .setBind({{"point_id", point_id}, {":part_key", DateTimeToBoost(part_key)}});
         if(move_id) {
             res_move_id = *move_id;
