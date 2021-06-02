@@ -2121,9 +2121,9 @@ $(defmacro RUN_GENERAL_STAT_AK
       <LastDate>$(last_date) 00:00:00</LastDate>
       <ak>ûí</ak>
       <ap/>
+      <flt_no/>
       <Seance>Ää</Seance>
       <seance>Ää</seance>
-      <flt_no/>
       <source>STAT</source>
       <LoadForm/>
     </run_stat>
@@ -2229,10 +2229,10 @@ $(defmacro RUN_GENERAL_STAT_AP
       <FirstDate>$(first_date) 00:00:00</FirstDate>
       <LastDate>$(last_date) 00:00:00</LastDate>
       <ak/>
-      <ap>Ççä</ap>
+      <ap>ëéó</ap>
+      <flt_no/>
       <Seance>Äè</Seance>
       <seance>Äè</seance>
-      <flt_no/>
       <source>STAT</source>
       <LoadForm/>
     </run_stat>
