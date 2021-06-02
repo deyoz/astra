@@ -197,11 +197,6 @@ std::vector<std::string> read_airp_list(const Dates::time_period & period, const
     return airps;
 }
 
-std::string query_air_list(const std::vector<std::string> & list)
-{
-    return StrUtils::join(", ",list);
-}
-
 string ArxGetStatSQLText(const TStatParams &params, int pass, const std::string& airline_list,
                          const std::string& airp_list)
 {
@@ -1747,11 +1742,10 @@ void ArxRunDetailStat(const TStatParams &params,
               auto periods =  get_airline_periods(params.FirstDate, params.LastDate, airl);
 
               for(auto & period : periods) {
-                  Qry.CreateVariable(":period_first_date", otDate, BoostToDateTime(period.begin()));
-                  Qry.CreateVariable(":period_last_date", otDate, BoostToDateTime(period.end()));
+                  Qry.CreateVariable("period_first_date", otDate, BoostToDateTime(period.begin()));
+                  Qry.CreateVariable("period_last_date", otDate, BoostToDateTime(period.end()));
 
-                  std::string airp_list = query_air_list(read_airp_list(period, airl));
-                  Qry.SQLText = ArxGetStatSQLText(params,pass, "", airp_list).c_str();
+                  Qry.SQLText = ArxGetStatSQLText(params,pass, "", GetSQLEnum(read_airp_list(period, airl))).c_str();
                   GetDetailStat(params, Qry, DetailStat, DetailStatTotal, airline, "");
               }
             };
@@ -1770,11 +1764,10 @@ void ArxRunDetailStat(const TStatParams &params,
               auto periods = get_airp_periods(params.FirstDate, params.LastDate, airp);
 
               for(const auto & period : periods) {
-                  Qry.CreateVariable(":period_first_date", otDate, BoostToDateTime(period.begin()));
-                  Qry.CreateVariable(":period_last_date", otDate, BoostToDateTime(period.end()));
+                  Qry.CreateVariable("period_first_date", otDate, BoostToDateTime(period.begin()));
+                  Qry.CreateVariable("period_last_date", otDate, BoostToDateTime(period.end()));
 
-                  std::string airline_list = query_air_list(read_airline_list(period, airp));
-                  Qry.SQLText = ArxGetStatSQLText(params,pass, airline_list, "").c_str();
+                  Qry.SQLText = ArxGetStatSQLText(params,pass, GetSQLEnum(read_airline_list(period, airp)), "").c_str();
                   GetDetailStat(params, Qry, DetailStat, DetailStatTotal, airline, "");
               }
             };
@@ -1968,11 +1961,10 @@ void ArxRunFullStat(const TStatParams &params,
                   auto periods = get_airline_periods(params.FirstDate, params.LastDate, airl);
 
                   for(const auto & period : periods) {
-                      Qry.CreateVariable(":period_first_date", otDate, BoostToDateTime(period.begin()));
-                      Qry.CreateVariable(":period_last_date", otDate, BoostToDateTime(period.end()));
+                      Qry.CreateVariable("period_first_date", otDate, BoostToDateTime(period.begin()));
+                      Qry.CreateVariable("period_last_date", otDate, BoostToDateTime(period.end()));
 
-                      std::string airp_list = query_air_list(read_airp_list(period, airl));
-                      Qry.SQLText = ArxGetStatSQLText(params,pass, "", airp_list).c_str();
+                      Qry.SQLText = ArxGetStatSQLText(params,pass, "", GetSQLEnum(read_airp_list(period, airl))).c_str();
                       GetFullStat(params, Qry, FullStat, FullStatTotal, airline);
                   }
                 };
@@ -1991,11 +1983,10 @@ void ArxRunFullStat(const TStatParams &params,
                   auto periods = get_airp_periods(params.FirstDate, params.LastDate, airp);
 
                   for(const auto & period : periods) {
-                      Qry.CreateVariable(":period_first_date", otDate, BoostToDateTime(period.begin()));
-                      Qry.CreateVariable(":period_last_date", otDate, BoostToDateTime(period.end()));
+                      Qry.CreateVariable("period_first_date", otDate, BoostToDateTime(period.begin()));
+                      Qry.CreateVariable("period_last_date", otDate, BoostToDateTime(period.end()));
 
-                      std::string airline_list = query_air_list(read_airline_list(period, airp));
-                      Qry.SQLText = ArxGetStatSQLText(params,pass, airline_list, "").c_str();
+                      Qry.SQLText = ArxGetStatSQLText(params,pass, GetSQLEnum(read_airline_list(period, airp)), "").c_str();
                       GetFullStat(params, Qry, FullStat, FullStatTotal, airline);
                   }
                 };
