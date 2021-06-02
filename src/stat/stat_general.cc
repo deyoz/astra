@@ -200,6 +200,7 @@ std::vector<std::string> read_airp_list(const Dates::time_period & period, const
 string ArxGetStatSQLText(const TStatParams &params, int pass, const std::string& airline_list,
                          const std::string& airp_list)
 {
+    LogTrace(TRACE6) << __func__ << "airline_list: "<< airline_list << " airp_list: " << airp_list;
     static const string sum_pax_by_client_type =
         " SUM(CASE WHEN client_type = :web     THEN (adult + child + baby) ELSE 0 END) web, \n"
         " SUM(CASE WHEN client_type = :web     THEN term_bag               ELSE 0 END) web_bag, \n"
@@ -1714,23 +1715,26 @@ void ArxRunDetailStat(const TStatParams &params,
                    TDetailStat &DetailStat, TDetailStatRow &DetailStatTotal,
                    TPrintAirline &airline)
 {
-    LogTrace5 << __func__;
     DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"));
-    Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
-    Qry.CreateVariable("LastDate", otDate, params.LastDate);
+
     Qry.CreateVariable("web", otString, EncodeClientType(ctWeb));
     Qry.CreateVariable("kiosk", otString, EncodeClientType(ctKiosk));
     Qry.CreateVariable("mobile", otString, EncodeClientType(ctMobile));
     if (params.seance==seanceAirline) Qry.DeclareVariable("ak",otString);
     if (params.seance==seanceAirport) Qry.DeclareVariable("ap",otString);
     if(params.flt_no != NoExists)  Qry.CreateVariable("flt_no", otString, params.flt_no);
-    Qry.CreateVariable("arx_trip_date_range", otDate, params.LastDate + ARX_TRIP_DATE_RANGE());
+    //Qry.CreateVariable("arx_trip_date_range", otDate, params.LastDate + ARX_TRIP_DATE_RANGE());
 
     for(int pass = 1; pass <= 2; pass++) {
         Qry.SQLText = ArxGetStatSQLText(params,pass, "", "").c_str();
         if (params.seance==seanceAirport || params.seance==seanceAirline) {
             Qry.CreateVariable("arx_date_range", otDate, ARX_TRIP_DATE_RANGE());
+        } else {
+            Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
+            Qry.CreateVariable("LastDate", otDate, params.LastDate);
+            Qry.CreateVariable("arx_trip_date_range", otDate, params.LastDate + ARX_TRIP_DATE_RANGE());
         }
+
         if (params.seance==seanceAirline)
         {
           //цикл по компаниям
@@ -1928,10 +1932,8 @@ void ArxRunFullStat(const TStatParams &params,
                  TFullStat &FullStat, TFullStatRow &FullStatTotal,
                  TPrintAirline &airline)
 {
-    LogTrace5 << __func__;
     DB::TQuery Qry(PgOra::getROSession("ARX_POINTS"));
-    Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
-    Qry.CreateVariable("LastDate", otDate, params.LastDate);
+
     if (params.statType==statFull)
     {
       Qry.CreateVariable("web", otString, EncodeClientType(ctWeb));
@@ -1942,14 +1944,18 @@ void ArxRunFullStat(const TStatParams &params,
     if (params.seance==seanceAirport) Qry.DeclareVariable("ap",otString);
     if(params.flt_no != NoExists)
         Qry.CreateVariable("flt_no", otString, params.flt_no);
-    Qry.CreateVariable("arx_trip_date_range", otDate, params.LastDate+ARX_TRIP_DATE_RANGE());
 
     for(int pass = 1; pass <= 2; pass++) {
         Qry.SQLText = ArxGetStatSQLText(params,pass, "", "");
             //ProgTrace(TRACE5, "RunFullStat: pass=%d SQL=\n%s", pass, Qry.SQLText.SQLText());
         if (params.seance==seanceAirport || params.seance==seanceAirline) {
             Qry.CreateVariable("arx_date_range", otDate, ARX_TRIP_DATE_RANGE());
+        } else {
+            Qry.CreateVariable("FirstDate", otDate, params.FirstDate);
+            Qry.CreateVariable("LastDate", otDate, params.LastDate);
+            Qry.CreateVariable("arx_trip_date_range", otDate, params.LastDate+ARX_TRIP_DATE_RANGE());
         }
+
         if (params.seance==seanceAirline)
         {
             //цикл по компаниям
@@ -1963,7 +1969,6 @@ void ArxRunFullStat(const TStatParams &params,
                   for(const auto & period : periods) {
                       Qry.CreateVariable("period_first_date", otDate, BoostToDateTime(period.begin()));
                       Qry.CreateVariable("period_last_date", otDate, BoostToDateTime(period.end()));
-
                       Qry.SQLText = ArxGetStatSQLText(params,pass, "", GetSQLEnum(read_airp_list(period, airl))).c_str();
                       GetFullStat(params, Qry, FullStat, FullStatTotal, airline);
                   }
