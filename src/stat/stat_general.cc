@@ -197,10 +197,9 @@ std::vector<std::string> read_airp_list(const Dates::time_period & period, const
     return airps;
 }
 
-string ArxGetStatSQLText(const TStatParams &params, int pass, const std::string& airline_list,
-                         const std::string& airp_list)
+string ArxGetStatSQLText(const TStatParams &params, int pass, const std::vector<std::string>& airline_list,
+                         const std::vector<std::string>& airp_list)
 {
-    LogTrace(TRACE6) << __func__ << "airline_list: "<< airline_list << " airp_list: " << airp_list;
     static const string sum_pax_by_client_type =
         " SUM(CASE WHEN client_type = :web     THEN (adult + child + baby) ELSE 0 END) web, \n"
         " SUM(CASE WHEN client_type = :web     THEN term_bag               ELSE 0 END) web_bag, \n"
@@ -307,10 +306,14 @@ string ArxGetStatSQLText(const TStatParams &params, int pass, const std::string&
       sql << "         move_arx_ext.part_key = arx_points.part_key AND move_arx_ext.move_id = arx_points.move_id AND \n"
              "         arx_points.scd_out >= :period_first_date AND arx_points.scd_out < :period_last_date AND \n";
 
-      if(params.seance==seanceAirport)
-        sql << "        arx_points.airline NOT IN " << airline_list << " \n";
-      if(params.seance==seanceAirline)
-        sql << "        arx_points.airp IN " << airp_list << " \n";
+      if(!airline_list.empty()) {
+          if(params.seance==seanceAirport)
+            sql << "        arx_points.airline NOT IN " << GetSQLEnum(airline_list) << " \n";
+      }
+      if(!airp_list.empty()) {
+          if(params.seance==seanceAirline)
+            sql << "        arx_points.airp IN " << GetSQLEnum(airp_list) << " \n";
+      }
       sql << "  ) arx_ext \n";
     };
   }
@@ -392,10 +395,14 @@ string ArxGetStatSQLText(const TStatParams &params, int pass, const std::string&
 
   if (pass==1)
   {
-    if(params.seance==seanceAirport)
-      sql << " AND arx_points.airline NOT IN " << airline_list << " \n";
-    if(params.seance==seanceAirline)
-      sql << " AND arx_points.airp IN " << airp_list << " \n";
+    if(!airline_list.empty()) {
+        if(params.seance==seanceAirport)
+          sql << " AND arx_points.airline NOT IN " << GetSQLEnum(airline_list) << " \n";
+    }
+    if(!airp_list.empty()) {
+        if(params.seance==seanceAirline)
+          sql << " AND arx_points.airp IN " << GetSQLEnum(airp_list) << " \n";
+    }
   };
 
   if (params.statType==statFull)
@@ -1726,7 +1733,7 @@ void ArxRunDetailStat(const TStatParams &params,
     //Qry.CreateVariable("arx_trip_date_range", otDate, params.LastDate + ARX_TRIP_DATE_RANGE());
 
     for(int pass = 1; pass <= 2; pass++) {
-        Qry.SQLText = ArxGetStatSQLText(params,pass, "", "").c_str();
+        Qry.SQLText = ArxGetStatSQLText(params,pass, {}, {}).c_str();
         if (params.seance==seanceAirport || params.seance==seanceAirline) {
             Qry.CreateVariable("arx_date_range", otDate, ARX_TRIP_DATE_RANGE());
         } else {
@@ -1749,7 +1756,7 @@ void ArxRunDetailStat(const TStatParams &params,
                   Qry.CreateVariable("period_first_date", otDate, BoostToDateTime(period.begin()));
                   Qry.CreateVariable("period_last_date", otDate, BoostToDateTime(period.end()));
 
-                  Qry.SQLText = ArxGetStatSQLText(params,pass, "", GetSQLEnum(read_airp_list(period, airl))).c_str();
+                  Qry.SQLText = ArxGetStatSQLText(params,pass, {}, read_airp_list(period, airl)).c_str();
                   GetDetailStat(params, Qry, DetailStat, DetailStatTotal, airline, "");
               }
             };
@@ -1771,7 +1778,7 @@ void ArxRunDetailStat(const TStatParams &params,
                   Qry.CreateVariable("period_first_date", otDate, BoostToDateTime(period.begin()));
                   Qry.CreateVariable("period_last_date", otDate, BoostToDateTime(period.end()));
 
-                  Qry.SQLText = ArxGetStatSQLText(params,pass, GetSQLEnum(read_airline_list(period, airp)), "").c_str();
+                  Qry.SQLText = ArxGetStatSQLText(params,pass,read_airline_list(period, airp), {}).c_str();
                   GetDetailStat(params, Qry, DetailStat, DetailStatTotal, airline, "");
               }
             };
@@ -1946,7 +1953,7 @@ void ArxRunFullStat(const TStatParams &params,
         Qry.CreateVariable("flt_no", otString, params.flt_no);
 
     for(int pass = 1; pass <= 2; pass++) {
-        Qry.SQLText = ArxGetStatSQLText(params,pass, "", "");
+        Qry.SQLText = ArxGetStatSQLText(params,pass, {}, {});
             //ProgTrace(TRACE5, "RunFullStat: pass=%d SQL=\n%s", pass, Qry.SQLText.SQLText());
         if (params.seance==seanceAirport || params.seance==seanceAirline) {
             Qry.CreateVariable("arx_date_range", otDate, ARX_TRIP_DATE_RANGE());
@@ -1969,7 +1976,7 @@ void ArxRunFullStat(const TStatParams &params,
                   for(const auto & period : periods) {
                       Qry.CreateVariable("period_first_date", otDate, BoostToDateTime(period.begin()));
                       Qry.CreateVariable("period_last_date", otDate, BoostToDateTime(period.end()));
-                      Qry.SQLText = ArxGetStatSQLText(params,pass, "", GetSQLEnum(read_airp_list(period, airl))).c_str();
+                      Qry.SQLText = ArxGetStatSQLText(params,pass, {}, read_airp_list(period, airl)).c_str();
                       GetFullStat(params, Qry, FullStat, FullStatTotal, airline);
                   }
                 };
@@ -1991,7 +1998,7 @@ void ArxRunFullStat(const TStatParams &params,
                       Qry.CreateVariable("period_first_date", otDate, BoostToDateTime(period.begin()));
                       Qry.CreateVariable("period_last_date", otDate, BoostToDateTime(period.end()));
 
-                      Qry.SQLText = ArxGetStatSQLText(params,pass, GetSQLEnum(read_airline_list(period, airp)), "").c_str();
+                      Qry.SQLText = ArxGetStatSQLText(params,pass, read_airline_list(period, airp), {}).c_str();
                       GetFullStat(params, Qry, FullStat, FullStatTotal, airline);
                   }
                 };
