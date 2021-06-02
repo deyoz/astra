@@ -400,7 +400,7 @@ string ArxGetStatSQLText(const TStatParams &params, int pass, const std::string&
 
   if (params.statType==statFull)
   {
-    sql << "GROUP BY \n"
+    sql << " GROUP BY \n"
            " arx_points.airp, \n"
            " arx_points.airline, \n"
            " arx_points.flt_no, \n"
@@ -410,7 +410,7 @@ string ArxGetStatSQLText(const TStatParams &params, int pass, const std::string&
   };
   if (params.statType==statShort)
   {
-    sql << "GROUP BY \n";
+    sql << " GROUP BY \n";
     if(params.airp_column_first)
       sql << " arx_points.airp \n";
     else
@@ -418,7 +418,7 @@ string ArxGetStatSQLText(const TStatParams &params, int pass, const std::string&
   };
   if (params.statType==statDetail)
   {
-    sql << "GROUP BY \n"
+    sql << " GROUP BY \n"
            " arx_points.airp, \n"
            " arx_points.airline \n";
   };
@@ -797,7 +797,9 @@ void GetDetailStat(const TStatParams &params, DB::TQuery &Qry,
                    TDetailStat &DetailStat, TDetailStatRow &DetailStatTotal,
                    TPrintAirline &airline, string pact_descr = "")
 {
+  LogTrace(TRACE5) << __func__ << " Qry SQL TEXT: " << Qry.SQLText;
   Qry.Execute();
+  tst();
   for(; !Qry.Eof; Qry.Next())
   {
     TDetailStatRow row;
