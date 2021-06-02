@@ -304,15 +304,15 @@ string ArxGetStatSQLText(const TStatParams &params, int pass, const std::vector<
                  "         move_arx_ext.part_key <= :period_last_date + move_arx_ext.date_range AND \n";
       }
       sql << "         move_arx_ext.part_key = arx_points.part_key AND move_arx_ext.move_id = arx_points.move_id AND \n"
-             "         arx_points.scd_out >= :period_first_date AND arx_points.scd_out < :period_last_date AND \n";
+             "         arx_points.scd_out >= :period_first_date AND arx_points.scd_out < :period_last_date \n";
 
       if(!airline_list.empty()) {
           if(params.seance==seanceAirport)
-            sql << "        arx_points.airline NOT IN " << GetSQLEnum(airline_list) << " \n";
+            sql << " AND  arx_points.airline NOT IN " << GetSQLEnum(airline_list) << " \n";
       }
       if(!airp_list.empty()) {
           if(params.seance==seanceAirline)
-            sql << "        arx_points.airp IN " << GetSQLEnum(airp_list) << " \n";
+            sql << " AND arx_points.airp IN " << GetSQLEnum(airp_list) << " \n";
       }
       sql << "  ) arx_ext \n";
     };
