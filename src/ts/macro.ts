@@ -2470,6 +2470,7 @@ $(defmacro GET_ARX_EVENTS
     <point_id>$(point_id)</point_id>
     <part_key>$(part_key) 09:00:00</part_key>
     <EventsTypes>
+      <type>„ˆ‘</type>
       <type>…‰</type>
       <type>ƒ”</type>
       <type>€‘</type>
