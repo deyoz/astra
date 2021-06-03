@@ -3030,6 +3030,10 @@ void internalRead( TFilter &filter, vector<TViewPeriod> &viewp, int trip_id = No
   if ( trip_id > NoExists )
     SQry.CreateVariable( "trip_id", otInteger, trip_id );
   SQry.Execute();
+
+  if ( !SQry.RowCount() )
+    throw AstraLocale::UserException( "MSG.NO_FLIGHTS_IN_SCHED" );
+
   int idx_trip_id = SQry.FieldIndex("trip_id");
   int idx_smove_id = SQry.FieldIndex("move_id");
   int idx_first_day = SQry.FieldIndex("first_day");
@@ -3039,8 +3043,6 @@ void internalRead( TFilter &filter, vector<TViewPeriod> &viewp, int trip_id = No
   int idx_tlg = SQry.FieldIndex("tlg");
   int idx_region = SQry.FieldIndex("region");
 
-  if ( !SQry.RowCount() )
-    AstraLocale::showErrorMessage( "MSG.NO_FLIGHTS_IN_SCHED" );
   // может нам надо получить все сразу маршруты
   GetDests( mapds, filter );
   /* теперь перейдем к выборке и фильтрации диапазонов */

@@ -3,12 +3,8 @@
 include(ts/macro.ts)
 include(ts/adm_macro.ts)
 
-$(settcl APPS_H2H_ADDR APTXS)
-$(settcl APPS_ROT_NAME APPGT)
 
 $(init_term)
-
-$(init_apps ž’ –‡ APPS_21 closeout=true inbound=true outbound=false)
 
 $(PREPARE_SEASON_SCD UT UFA AER 422 -1 TU5 $(date_format %d.%m.%Y -1000) $(date_format %d.%m.%Y +100))
 

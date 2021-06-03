@@ -1,10 +1,20 @@
 include(ts/pnl/pnl_ut_c7y56.ts)
 
+$(defmacro GET_CERTIFICATES
+{{<?xml version='1.0' encoding='UTF-8'?>
+<term>
+  <query handle='0' id='MainDCS' ver='1' opr='' screen='MAINDCS.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <GetCertificates/>
+  </query>
+</term>}
+}) #end-of-defmacro GET_CERTIFICATES
+
+#########################################################################################
+
 $(defmacro login
   user=PIKE
   passwd=PIKE
-{
-{<?xml version='1.0' encoding='CP866'?>
+{{<?xml version='1.0' encoding='CP866'?>
  <term>
    <query handle='0' id='MainDCS' ver='1' opr='' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
      <UserLogon>
@@ -26,8 +36,7 @@ $(defmacro login
 
 $(defmacro logoff
   user=PIKE
-{
-{<?xml version='1.0' encoding='CP866'?>
+{{<?xml version='1.0' encoding='CP866'?>
 <term>
   <query handle='0' id='MainDCS' ver='1' opr='$(user)' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
     <UserLogoff/>
