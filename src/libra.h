@@ -24,15 +24,6 @@ namespace LIBRA
 // если нашли в Либре, то поиск в наших аналога. Если нашли - назначили все недостоющие свойства, не нашли - пустая компоновка только на основе Либры.
 // пусть вручную добавляют свойства. Поиск аналога у нас только по борту или еще по конфирурации и типу ВС?
 
-class TCompon
-{
-private:
-  void ComponFromBort( const std::string& bort );
-  void ReadCompon( int comp_id );
-  void ReadSections( int comp_id );
-  void ConfigList( int comp_id );
-public:
-};
-
+bool LIBRA_ENABLED();
 
 }

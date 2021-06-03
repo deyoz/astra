@@ -16,6 +16,17 @@
 using namespace OciCpp;
 
 /////////////////////////////////////////////////////////////////////////////////////////
+namespace LIBRA {
+
+bool LIBRA_ENABLED()
+{
+  static int VAR=ASTRA::NoExists;
+  if (VAR==ASTRA::NoExists)
+      VAR=getTCLParam("LIBRA_ENABLED",0,1,0);
+    return VAR!=0;
+}          
+
+}//namespace LIBRA
 
 namespace  {
 
