@@ -545,7 +545,6 @@ bool TDestInfo::fromDB(int point_id, bool pr_throw)
   try
   {
     TQuery Qry(&OraSession);
-    Qry.Clear();
     Qry.SQLText=
       "SELECT scd_in, est_in, act_in, airp FROM points WHERE point_id=:point_id AND pr_del=0";
     Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -810,6 +809,56 @@ bool TFlightInfo::fromDB(int point_id, bool pr_throw)
     return true;
 }
 
+bool getPrPermit(int pointId, ASTRA::TClientType clientType, int grpId)
+{
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT pr_permit "
+       "FROM trip_ckin_client "
+       "WHERE point_id = :point_id "
+         "AND client_type = :client_type "
+         "AND desk_grp_id = :grp_id",
+        PgOra::getROSession("TRIP_CKIN_CLIENT")
+    );
+
+    int pr_permit;
+
+    cur.stb()
+       .def(pr_permit)
+       .bind(":point_id", pointId)
+       .bind(":client_type", EncodeClientType(clientType))
+       .bind(":grp_id", grpId)
+       .exfet();
+
+    if (DbCpp::ResultCode::NoDataFound == cur.err()) {
+        return false;
+    }
+
+    return pr_permit;
+}
+
+bool getPrPaidCkin(int pointId)
+{
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT pr_permit "
+       "FROM trip_paid_ckin "
+       "WHERE point_id = :point_id",
+        PgOra::getROSession("TRIP_PAID_CKIN")
+    );
+
+    int pr_paid_ckin;
+
+    cur.stb()
+       .def(pr_paid_ckin)
+       .bind(":point_id", pointId)
+       .exfet();
+
+    if (DbCpp::ResultCode::NoDataFound == cur.err()) {
+        return false;
+    }
+
+    return pr_paid_ckin;
+}
+
 bool TFlightInfo::fromDBadditional(bool first_segment, bool pr_throw)
 {
   if (oper.point_id==NoExists)
@@ -825,7 +874,6 @@ bool TFlightInfo::fromDBadditional(bool first_segment, bool pr_throw)
     stage_statuses[stCheckIn]=tripStages.getStage( stCheckIn );
     stage_statuses[stBoarding]=tripStages.getStage( stBoarding );
 
-    TQuery Qry(&OraSession);
     TReqInfo *reqInfo = TReqInfo::Instance();
     //std::map<TStage, TDateTime> stages
     stage_times.clear();
@@ -866,22 +914,13 @@ bool TFlightInfo::fromDBadditional(bool first_segment, bool pr_throw)
       {
         //проверяем возможность регистрации для киоска только на первом сегменте
         TCkinClients::iterator iClient=find(ckin_clients.begin(),ckin_clients.end(),EncodeClientType(reqInfo->client_type));
-        if (iClient!=ckin_clients.end())
-        {
-          Qry.Clear();
-          Qry.SQLText=
-            "SELECT pr_permit FROM trip_ckin_client "
-            "WHERE point_id=:point_id AND client_type=:client_type AND desk_grp_id=:desk_grp_id";
-          Qry.CreateVariable("point_id", otInteger, oper.point_id);
-          Qry.CreateVariable("client_type", otString, EncodeClientType(reqInfo->client_type));
-          Qry.CreateVariable("desk_grp_id", otInteger, reqInfo->desk.grp_id);
-          Qry.Execute();
-          if (Qry.Eof || Qry.FieldAsInteger("pr_permit")==0)
-          {
+        if (iClient!=ckin_clients.end()) {
+          if (false == getPrPermit(oper.point_id, reqInfo->client_type, reqInfo->desk.grp_id)) {
             ckin_clients.erase(iClient);
-            if (stage_statuses[stKIOSKCheckIn]==sOpenKIOSKCheckIn ||
-                stage_statuses[stKIOSKCheckIn]==sCloseKIOSKCheckIn)
+            if (stage_statuses[stKIOSKCheckIn]==sOpenKIOSKCheckIn
+             || stage_statuses[stKIOSKCheckIn]==sCloseKIOSKCheckIn) {
               stage_statuses[stKIOSKCheckIn]=sNoActive;
+            }
           };
         };
       };
@@ -896,27 +935,19 @@ bool TFlightInfo::fromDBadditional(bool first_segment, bool pr_throw)
       };
     };
 
-    Qry.Clear();
-    Qry.SQLText =
-      "SELECT trip_paid_ckin.pr_permit AS pr_paid_ckin "
-      "FROM trip_paid_ckin "
-      "WHERE trip_paid_ckin.point_id=:point_id";
-    Qry.CreateVariable( "point_id", otInteger, oper.point_id );
-    Qry.Execute();
-    pr_paid_ckin = false;
-    if (!Qry.Eof)
-      pr_paid_ckin = Qry.FieldAsInteger("pr_paid_ckin")!=0;
-    free_seating=SALONS2::isFreeSeating(oper.point_id);
+    pr_paid_ckin = getPrPaidCkin(oper.point_id);
+    free_seating = SALONS2::isFreeSeating(oper.point_id);
     if (reqInfo->isSelfCkinClientType())
       have_to_select_seats = GetSelfCkinSets(tsRegWithSeatChoice, oper, reqInfo->client_type);
   }
   catch(UserException &E)
   {
-    ProgTrace(TRACE5, ">>>> %s", getLocaleText(E.getLexemaData()).c_str());
-    if ( pr_throw )
+    LogTrace(TRACE5) << ">>>> " << getLocaleText(E.getLexemaData());
+    if ( pr_throw ) {
       throw;
-    else
+    } else {
       return false;
+    }
   };
   return true;
 };
@@ -2266,6 +2297,60 @@ bool TPNRFilter::isEqualFlight(const TAdvTripInfo& oper, const TSimpleMktFlight&
   return true;
 }
 
+bool getKioskPrTckin(int pointId, ASTRA::TClientType clientType, int grpId)
+{
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT pr_tckin "
+       "FROM trip_ckin_client "
+       "WHERE point_id = :point_id "
+         "AND client_type = :client_type "
+         "AND desk_grp_id = :grp_id",
+        PgOra::getROSession("TRIP_CKIN_CLIENT")
+    );
+
+    int pr_tckin;
+
+    cur.stb()
+       .def(pr_tckin)
+       .bind(":point_id", pointId)
+       .bind(":client_type", EncodeClientType(clientType))
+       .bind(":grp_id", grpId)
+       .exfet();
+
+    if (DbCpp::ResultCode::NoDataFound == cur.err()) {
+        return false;
+    }
+
+    return pr_tckin;
+}
+
+bool getRegularPrTckin(int pointId, ASTRA::TClientType clientType)
+{
+    // !!!ctMobile
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT pr_tckin "
+       "FROM trip_ckin_client "
+       "WHERE point_id = :point_id "
+         "AND client_type = :client_type "
+         "AND desk_grp_id IS NULL",
+        PgOra::getROSession("TRIP_CKIN_CLIENT")
+    );
+
+    int pr_tckin;
+
+    cur.stb()
+       .def(pr_tckin)
+       .bind(":point_id", pointId)
+       .bind(":client_type", EncodeClientType(clientType))
+       .exfet();
+
+    if (DbCpp::ResultCode::NoDataFound == cur.err()) {
+        return false;
+    }
+
+    return pr_tckin;
+}
+
 void getTCkinData( const TFlightInfo& first_flt,
                    const TDestInfo& first_dest,
                    const TPNRSegInfo& first_seg,
@@ -2281,37 +2366,22 @@ void getTCkinData( const TFlightInfo& first_flt,
 
   //поиск стыковочных сегментов (возвращаем вектор point_id)
 
-  TQuery Qry(&OraSession);
   map<int, CheckIn::TTransferItem> crs_trfer;
   CheckInInterface::GetOnwardCrsTransfer(first_seg.pnr_id, true, first_flt.oper, first_dest.airp_arv, crs_trfer);
   if (!crs_trfer.empty())
   {
-    //проверяем разрешение сквозной регистрации для данного типа клиента
-    Qry.Clear();
-    if (reqInfo->client_type==ctKiosk)
-    {
-      Qry.SQLText=
-        "SELECT pr_tckin FROM trip_ckin_client "
-        "WHERE point_id=:point_id AND client_type=:client_type AND desk_grp_id=:desk_grp_id";
-      Qry.CreateVariable("desk_grp_id", otInteger, reqInfo->desk.grp_id);
-      Qry.CreateVariable("client_type", otString, EncodeClientType(reqInfo->client_type));
+    // проверяем разрешение сквозной регистрации для данного типа клиента
+    bool pr_tckin = (ctKiosk == reqInfo->client_type)
+      ? getKioskPrTckin(first_flt.oper.point_id, ctWeb, reqInfo->desk.grp_id)
+      : getRegularPrTckin(first_flt.oper.point_id, ctWeb);
+
+    if (false == pr_tckin) {
+        // сквозная регистрация запрещена
+        LogTrace(TRACE5) << ">>>> Through check-in not permitted (point_id=" << first_flt.oper.point_id
+                                                         << ", client_type=" << EncodeClientType(reqInfo->client_type)
+                                                         << ", desk_grp_id=" << reqInfo->desk.grp_id << ")";
+        return;
     }
-    else
-    {
-      Qry.SQLText=
-        "SELECT pr_tckin FROM trip_ckin_client "
-        "WHERE point_id=:point_id AND client_type=:client_type AND desk_grp_id IS NULL";
-      Qry.CreateVariable("client_type", otString, EncodeClientType(ctWeb)); //!!!ctMobile
-    };
-    Qry.CreateVariable("point_id", otInteger, first_flt.oper.point_id);
-    Qry.Execute();
-    if (Qry.Eof || Qry.FieldAsInteger("pr_tckin")==0)
-    {
-      //сквозная регистрация запрещена
-      ProgTrace(TRACE5, ">>>> Through check-in not permitted (point_id=%d, client_type=%s, desk_grp_id=%d)",
-                        first_flt.oper.point_id, EncodeClientType(reqInfo->client_type), reqInfo->desk.grp_id);
-      return;
-    };
 
     map<int, pair<CheckIn::Segments, TTrferSetsInfo> > trfer_segs;
     traceTrfer(TRACE5, "getTCkinData: crs_trfer", crs_trfer);
@@ -2333,6 +2403,9 @@ void getTCkinData( const TFlightInfo& first_flt,
       //цикл по стыковочным сегментам и по трансферным рейсам
       map<int, pair<CheckIn::Segments, TTrferSetsInfo> >::const_iterator s=trfer_segs.begin();
       map<int, CheckIn::TTransferItem>::const_iterator f=crs_trfer.begin();
+
+      TQuery Qry(&OraSession);
+
       for(;s!=trfer_segs.end() && f!=crs_trfer.end();++s,++f)
       {
         seg_no++;

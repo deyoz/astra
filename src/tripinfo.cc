@@ -228,39 +228,39 @@ void setSQLTripList( TQuery &Qry, const TTripListSQLFilter &filter )
   Qry.SQLText=sql.str().c_str();
 };
 
-TStage getFinalStage( TQuery &Qry, const int point_id, const TStage_Type stage_type )
+TStage getFinalStage(const int point_id, const TStage_Type stage_type)
 {
-  const char* sql="SELECT stage_id FROM trip_final_stages WHERE point_id=:point_id AND stage_type=:stage_type";
-  if (strcmp(Qry.SQLText.SQLText(),sql)!=0)
-  {
-    Qry.Clear();
-    Qry.SQLText=sql;
-    Qry.DeclareVariable("point_id", otInteger);
-    Qry.DeclareVariable("stage_type", otInteger);
-  };
-  Qry.SetVariable("point_id",point_id);
-  Qry.SetVariable("stage_type",(int)stage_type);
-  Qry.Execute();
-  if (!Qry.Eof)
-    return (TStage)Qry.FieldAsInteger("stage_id");
-  else
-    return sNoActive;
-};
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT stage_id FROM trip_final_stages "
+       "WHERE point_id = :point_id "
+       "AND stage_type = :stage_type",
+        PgOra::getROSession("TRIP_FINAL_STAGES")
+    );
 
-bool checkFinalStages( TQuery &Qry, const int point_id, const TTripListSQLFilter &filter)
+    int stage;
+
+    cur.stb()
+       .def(stage)
+       .bind(":point_id", point_id)
+       .bind(":stage_type", (int)stage_type)
+       .exfet();
+
+    if (DbCpp::ResultCode::NoDataFound == cur.err()) {
+        return sNoActive;
+    }
+
+    return (TStage)stage;
+}
+
+bool checkFinalStages(const int point_id, const TTripListSQLFilter &filter)
 {
   if (filter.final_stages.empty()) return true;
 
-  const char* sql="SELECT stage_id FROM trip_final_stages WHERE point_id=:point_id AND stage_type=:stage_type";
-  if (strcmp(Qry.SQLText.SQLText(),sql)!=0)
-  {
-    Qry.Clear();
-    Qry.SQLText=sql;
-    Qry.DeclareVariable("point_id", otInteger);
-    Qry.DeclareVariable("stage_type", otInteger);
-  };
+  TQuery Qry( &OraSession );
+  Qry.SQLText = "SELECT stage_id FROM trip_final_stages WHERE point_id=:point_id AND stage_type=:stage_type";
+  Qry.CreateVariable("point_id", otInteger, point_id);
+  Qry.DeclareVariable("stage_type", otInteger);
 
-  Qry.SetVariable("point_id",point_id);
   //фильтрация по final_stages
   map< TStage_Type, vector<TStage> >::const_iterator iStage=filter.final_stages.begin();
   for(; iStage!=filter.final_stages.end(); iStage++)
@@ -480,7 +480,7 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     vector< pair<TDateTime, TDateTime> > ranges;
 
     TQuery Qry( &OraSession );
-    TQuery StagesQry( &OraSession );
+
     if (advanced_trip_list)
     {
       if (listInfo.date==NoExists)
@@ -496,7 +496,7 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         {
           int point_id=Qry.FieldAsInteger("point_id");
           TTripInfo info(Qry);
-          if (!(!checkFinalStages(StagesQry, point_id, SQLfilter) ||
+          if (!(!checkFinalStages(point_id, SQLfilter) ||
                 (!listInfo.filter.airp_dep.empty() && listInfo.filter.airp_dep!=info.airp)))
           {
             //рейс подходит
@@ -554,7 +554,7 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         {
           int point_id=Qry.FieldAsInteger("point_id");
 
-          if (!checkFinalStages(StagesQry, point_id, SQLfilter)) {
+          if (!checkFinalStages(point_id, SQLfilter)) {
               if(!inTestMode()) continue; //пропускаем, рейс не подходит по final_stages
           }
 
@@ -610,7 +610,7 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 else
                 {
                   //анализ активности
-                  TStage stage=getFinalStage(StagesQry, point_id, stCheckIn);
+                  TStage stage=getFinalStage(point_id, stCheckIn);
                   if (stage==sNoActive)
                     listItem.b_color="clSilver";
                   else
@@ -926,12 +926,12 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   filter.point_id=point_id;
 
   TQuery Qry( &OraSession );
-  TQuery StagesQry( &OraSession );
+
   setSQLTripList( Qry, filter );
   //ProgTrace(TRACE5, "TripInfo SQL=%s", Qry.SQLText.SQLText());
   Qry.Execute();
   if (Qry.Eof) return false;
-  if (!checkFinalStages(StagesQry, point_id, filter)) return false;
+  if (!checkFinalStages(point_id, filter)) return false;
 
   TAdvTripInfo info(Qry);
   xmlNodePtr node = NewTextChild( dataNode, "tripheader" );
@@ -2604,7 +2604,7 @@ void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
   //////////////////////HEADER////////////////////////////////////////////////
 
   TQuery Qry( &OraSession );
-  //TQuery StagesQry( &OraSession );
+
   Qry.SQLText =
     "SELECT " + TTripInfo::selectedFields() + "litera, bort, trip_type "
     "FROM points WHERE point_id=:point_id AND pr_del>=0";

@@ -106,68 +106,127 @@ bool CompatibleStageType( TStage_Type stage_type )
   return false;
 }
 
+void FillTakeoffStage(const int poind_id, const TStage stage, TTripStage &tripStage)
+{
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT scd_out, est_out, act_out "
+       "FROM points WHERE point_id = :point_id",
+        PgOra::getROSession("POINTS")
+    );
+
+    Dates::DateTime_t scd;
+    Dates::DateTime_t est;
+    Dates::DateTime_t act;
+
+    cur.stb()
+       .defNull(scd, Dates::not_a_date_time)
+       .defNull(est, Dates::not_a_date_time)
+       .defNull(act, Dates::not_a_date_time)
+       .bind(":point_id", poind_id)
+       .exfet();
+
+    if (DbCpp::ResultCode::NoDataFound != cur.err()) {
+        tripStage.scd = dbo::isNull(scd) ? NoExists : BoostToDateTime(scd);
+        tripStage.est = dbo::isNull(est) ? NoExists : BoostToDateTime(est);
+        tripStage.act = dbo::isNull(act) ? NoExists : BoostToDateTime(act);
+        tripStage.old_est = tripStage.est;
+        tripStage.old_act = tripStage.act;
+        tripStage.pr_auto = 0;
+        tripStage.stage = stage;
+    }
+}
+
+void FillStage(const int poind_id, const TStage stage, TTripStage &tripStage)
+{
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT scd, est, act, pr_auto "
+       "FROM trip_stages "
+       "WHERE point_id = :point_id "
+         "AND stage_id = :stage",
+        PgOra::getROSession("TRIP_STAGES")
+    );
+
+    Dates::DateTime_t scd;
+    Dates::DateTime_t est;
+    Dates::DateTime_t act;
+
+    cur.stb()
+       .def(scd)
+       .defNull(est, Dates::not_a_date_time)
+       .defNull(act, Dates::not_a_date_time)
+       .def(tripStage.pr_auto)
+       .bind(":point_id", poind_id)
+       .bind(":stage", (int)stage)
+       .exfet();
+
+    if (DbCpp::ResultCode::NoDataFound != cur.err()) {
+        tripStage.scd = BoostToDateTime(scd);
+        tripStage.est = dbo::isNull(est) ? NoExists : BoostToDateTime(est);
+        tripStage.act = dbo::isNull(act) ? NoExists : BoostToDateTime(act);
+        tripStage.old_est = tripStage.est;
+        tripStage.old_act = tripStage.act;
+        tripStage.stage = stage;
+    }
+}
+
+void TTripStages::LoadStage(const int point_id, const TStage stage, TTripStage &ts )
+{
+    if (sTakeoff == stage) {
+        FillTakeoffStage(point_id, stage, ts);
+    } else {
+        FillStage(point_id, stage, ts);
+    }
+}
+
+TMapTripStages loadStages(const int point_id)
+{
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT stage_id, scd, est, act, pr_auto "
+       "FROM trip_stages "
+       "WHERE point_id = :point_id",
+        PgOra::getROSession("TRIP_STAGES")
+    );
+
+    TTripStage tripStage;
+
+    int stage;
+    Dates::DateTime_t scd;
+    Dates::DateTime_t est;
+    Dates::DateTime_t act;
+
+    cur.stb()
+       .def(stage)
+       .def(scd)
+       .defNull(est, Dates::not_a_date_time)
+       .defNull(act, Dates::not_a_date_time)
+       .def(tripStage.pr_auto)
+       .bind(":point_id", point_id)
+       .exec();
+
+    TMapTripStages result;
+
+    while (!cur.fen()) {
+        tripStage.scd = BoostToDateTime(scd);
+        tripStage.est = dbo::isNull(est) ? NoExists : BoostToDateTime(est);
+        tripStage.act = dbo::isNull(act) ? NoExists : BoostToDateTime(act);
+        tripStage.old_est = tripStage.est;
+        tripStage.old_act = tripStage.act;
+        tripStage.stage = (TStage)stage;
+        result.insert({tripStage.stage, tripStage});
+    }
+
+    return result;
+}
+
 TTripStages::TTripStages( int vpoint_id )
 {
-  point_id = vpoint_id;
-  TTripStages::LoadStages( vpoint_id, tripstages );
-}
-
-void TTripStages::LoadStage( int vpoint_id, TStage stage, TTripStage &ts )
-{
-    QParams QryParams;
-    QryParams
-        << QParam("point_id", otInteger, vpoint_id)
-        << QParam("stage", otInteger, stage);
-    string qry;
-    if(stage == sTakeoff)
-        qry =
-            "SELECT :stage stage_id, scd_out scd, est_out est, act_out act, 0 pr_auto, 0 pr_manual "
-            " FROM points WHERE point_id=:point_id";
-    else
-        qry =
-            "SELECT stage_id, scd, est, act, pr_auto, pr_manual "
-            " FROM trip_stages WHERE point_id=:point_id and stage_id = :stage";
-    TCachedQuery Qry(qry, QryParams);
-    Qry.get().Execute();
-    ts.fromDB(Qry.get());
-}
-
-void TTripStage::fromDB(TQuery &Qry)
-{
-    if(Qry.Eof) return;
-    if ( Qry.FieldIsNULL( "scd" ) )
-      scd = NoExists;
-    else
-      scd = Qry.FieldAsDateTime( "scd" );
-    if ( Qry.FieldIsNULL( "est" ) )
-      est = NoExists;
-    else
-      est = Qry.FieldAsDateTime( "est" );
-    old_est = est;
-    if ( Qry.FieldIsNULL( "act" ) )
-      act = NoExists;
-    else
-      act = Qry.FieldAsDateTime( "act" );
-    old_act = act;
-    pr_auto = Qry.FieldAsInteger( "pr_auto" );
-    stage = (TStage)Qry.FieldAsInteger( "stage_id" );
+    point_id = vpoint_id;
+    tripstages = loadStages(vpoint_id);
 }
 
 void TTripStages::LoadStages( int vpoint_id, TMapTripStages &ts )
 {
-  ts.clear();
-  TQuery Qry( &OraSession );
-  Qry.SQLText = "SELECT stage_id, scd, est, act, pr_auto, pr_manual "\
-                " FROM trip_stages WHERE point_id=:point_id";
-  Qry.DeclareVariable( "point_id", otInteger );
-  Qry.SetVariable( "point_id", vpoint_id );
-  Qry.Execute();
-  while ( !Qry.Eof ) {
-    TTripStage  tripStage;
-    tripStage.fromDB(Qry);
-    ts.insert( make_pair( tripStage.stage, tripStage ) );
-    Qry.Next();
-  }
+    ts = loadStages(vpoint_id);
 }
 
 void TTripStages::ParseStages( xmlNodePtr node, TMapTripStages &ts )
@@ -208,39 +267,77 @@ void TTripStages::ParseStages( xmlNodePtr node, TMapTripStages &ts )
     }
 }
 
+void fillAirpPrDelPrActOut(const int point_id, std::string& airp, bool& pr_del, bool& pr_act_out)
+{
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT act_out, pr_del, airp "
+       "FROM points "
+       "WHERE point_id = :point_id",
+        PgOra::getROSession("POINTS")
+    );
+
+    Dates::DateTime_t act_out;
+
+    cur.stb()
+       .defNull(act_out, Dates::not_a_date_time)
+       .def(pr_del)
+       .def(airp)
+       .bind(":point_id", point_id)
+       .exfet();
+
+    if (cur.rowcount() != 1) {
+        throw EXCEPTIONS::Exception( "fillAirpPrDelPrActOut: point_id not defined");
+    }
+
+    pr_act_out = dbo::isNotNull(act_out);
+}
+
 void TTripStages::WriteStagesUTC( int point_id, TMapTripStages &ts )
 {
   TFlights flights;
   flights.Get( point_id, ftTranzit );
   flights.Lock(__FUNCTION__);
 
-    TReqInfo *reqInfo = TReqInfo::Instance();
-    std::string airp;
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
-   "SELECT act_out,airp,pr_del FROM points WHERE points.point_id=:point_id";// FOR UPDATE";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  int pr_del = Qry.FieldAsInteger( "pr_del" );
-  airp = Qry.FieldAsString( "airp" );
-  bool pr_act_out = !Qry.FieldIsNULL( "act_out" );
-  Qry.Clear();
-  Qry.SQLText =
-    "BEGIN "
-    " UPDATE trip_stages SET est=:est,act=:act,pr_auto=DECODE(:pr_auto,-1,pr_auto,:pr_auto), "
-    "                        pr_manual=DECODE(:pr_manual,-1,pr_manual,:pr_manual) "
-    "  WHERE point_id=:point_id AND stage_id=:stage_id; "
-    " IF SQL%NOTFOUND THEN "
-    "  INSERT INTO trip_stages(point_id,stage_id,scd,est,act,pr_auto,pr_manual,ignore_auto) "
-    "   SELECT :point_id,:stage_id,NVL(:act,:est),:est,:act,0,DECODE(:pr_manual,-1,0,:pr_manual),:ignore_auto FROM dual; "
-    " END IF; "
-    "END; ";
+  TReqInfo *reqInfo = TReqInfo::Instance();
+
+  std::string airp;
+  bool pr_del;
+  bool pr_act_out;
+
+  fillAirpPrDelPrActOut(point_id, airp, pr_del, pr_act_out);
+
+  DB::TQuery Qry(PgOra::getRWSession("TRIP_STAGES"), STDLOG);
+  Qry.SQLText = PgOra::supportsPg("TRIP_STAGES")
+   ? "INSERT INTO trip_stages( point_id, stage_id, scd, est, act, pr_auto, "     "pr_manual, ignore_auto) "
+                     "VALUES (:point_id,:stage_id,:scd,:est,:act, "    "0,:insert_pr_manual,:ignore_auto) "
+     "ON CONFLICT(point_id, stage_id) "
+     "DO UPDATE trip_stages "
+     "SET est = :est, act = :act, "
+         "pr_auto = CASE :pr_auto WHEN -1 THEN pr_auto ELSE :pr_auto END, "
+         "pr_manual = CASE :pr_manual WHEN -1 THEN pr_manual ELSE :pr_manual END "
+     "WHERE point_id = :point_id "
+       "AND stage_id = :stage_id; "
+   : "BEGIN "
+         "UPDATE trip_stages "
+         "SET est = :est, act = :act, "
+             "pr_auto = CASE :pr_auto WHEN -1 THEN pr_auto ELSE :pr_auto END, "
+             "pr_manual = CASE :pr_manual WHEN -1 THEN pr_manual ELSE :pr_manual END "
+         "WHERE point_id = :point_id "
+           "AND stage_id = :stage_id; "
+         "IF SQL%NOTFOUND THEN "
+             "INSERT INTO trip_stages( point_id, stage_id, scd, est, act, pr_auto, "     "pr_manual, ignore_auto) "
+                             "VALUES (:point_id,:stage_id,:scd,:est,:act, "    "0,:insert_pr_manual,:ignore_auto); "
+         "END IF; "
+     "END;";
+
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.DeclareVariable( "stage_id", otInteger );
+  Qry.DeclareVariable( "scd", otDate );
   Qry.DeclareVariable( "est", otDate );
   Qry.DeclareVariable( "act", otDate );
   Qry.DeclareVariable( "pr_auto", otInteger );
   Qry.DeclareVariable( "pr_manual", otInteger );
+  Qry.DeclareVariable( "insert_pr_manual", otInteger );
   Qry.CreateVariable( "ignore_auto", otInteger, pr_act_out || pr_del != 0 );
 
   TStagesRules *sr = TStagesRules::Instance();
@@ -249,36 +346,56 @@ void TTripStages::WriteStagesUTC( int point_id, TMapTripStages &ts )
 
   for ( TMapTripStages::iterator i=ts.begin(); i!=ts.end(); i++ ) {
 
-    if ( sr->isClientStage( (int)i->first ) && !sr->canClientStage( CkinClients, (int)i->first ) )
+    TStage stage = i->first;
+    TTripStage& trip_stage = i->second;
+
+    if ( sr->isClientStage( (int)stage ) && !sr->canClientStage( CkinClients, (int)stage ) )
       continue;
 
-    Qry.SetVariable( "stage_id", (int)i->first );
-    if ( i->second.est == NoExists )
-       Qry.SetVariable( "est", FNull );
-    else
-         Qry.SetVariable( "est", i->second.est );
-    if ( i->second.act == NoExists )
-      Qry.SetVariable( "act", FNull );
-    else
-      Qry.SetVariable( "act", i->second.act );
-    if ( i->second.old_act > NoExists && i->second.act == NoExists )
-       Qry.SetVariable( "pr_auto", 0 );
-     else
-       Qry.SetVariable( "pr_auto", -1 );
-    int pr_manual;
-    if ( i->second.est == i->second.old_est )
-      pr_manual = -1;
-    else
-      if ( i->second.est == NoExists )
+    Qry.SetVariable( "stage_id", (int)stage );
+
+    if ( trip_stage.est == NoExists ) {
+        Qry.SetVariable( "est", FNull );
+    } else {
+        Qry.SetVariable( "est", trip_stage.est );
+    }
+
+    if ( trip_stage.act == NoExists ) {
+        Qry.SetVariable( "act", FNull );
+    } else {
+        Qry.SetVariable( "act", trip_stage.act );
+    }
+
+    if ( trip_stage.old_act > NoExists && trip_stage.act == NoExists ) {
+        Qry.SetVariable( "pr_auto", 0 );
+    } else {
+        Qry.SetVariable( "pr_auto", -1 );
+    }
+
+    if ( trip_stage.act != NoExists ) {
+        Qry.SetVariable("scd", trip_stage.act);
+    } else if ( trip_stage.est != NoExists ) {
+        Qry.SetVariable("scd", trip_stage.est);
+    } else {
+        Qry.SetVariable("scd", FNull);
+    }
+
+    int pr_manual = 1;
+    int insert_pr_manual = 1;
+    if ( trip_stage.est == trip_stage.old_est ) {
+        pr_manual = -1;
+        insert_pr_manual = 0;
+    } else if ( trip_stage.est == NoExists ) {
         pr_manual = 0;
-      else
-          pr_manual = 1;
+        insert_pr_manual = 0;
+    }
     Qry.SetVariable( "pr_manual", pr_manual );
+    Qry.SetVariable( "insert_pr_manual", insert_pr_manual );
     Qry.Execute( );
 
-    if ( i->second.old_act == NoExists && i->second.act > NoExists ) { // вызов функции обработки шага
+    if ( trip_stage.old_act == NoExists && trip_stage.act > NoExists ) { // вызов функции обработки шага
       try {
-         exec_stage( point_id, (int)i->first );
+         exec_stage( point_id, (int)stage );
       }
       catch( std::exception &E ) {
         ProgError( STDLOG, "std::exception: %s", E.what() );
@@ -294,28 +411,28 @@ void TTripStages::WriteStagesUTC( int point_id, TMapTripStages &ts )
     TTripAlarmHook::set(Alarm::UnboundEMD, point_id);
     string lexema_id;
     LEvntPrms params;
-    params << PrmStage("stage", i->first, airp);
-    if ( i->second.old_act == NoExists && i->second.act > NoExists )
+    params << PrmStage("stage", stage, airp);
+    if ( trip_stage.old_act == NoExists && trip_stage.act > NoExists )
       lexema_id = "EVT.STAGE.COMPLETED_ACT_EST_TIME";
-    if ( i->second.old_act > NoExists && i->second.act == NoExists )
+    if ( trip_stage.old_act > NoExists && trip_stage.act == NoExists )
       lexema_id = "EVT.STAGE.CANCELED";
-    if ( i->second.est > NoExists )
-      params << PrmDate("est_time", i->second.est, "=hh:nn dd.mm.yy (UTC)");
+    if ( trip_stage.est > NoExists )
+      params << PrmDate("est_time", trip_stage.est, "=hh:nn dd.mm.yy (UTC)");
     else
       params << PrmLexema("est_time", "EVT.UNKNOWN");
-    if ( i->second.act > NoExists )
-      params << PrmDate("act_time", i->second.act, "=hh:nn dd.mm.yy (UTC)");
+    if ( trip_stage.act > NoExists )
+      params << PrmDate("act_time", trip_stage.act, "=hh:nn dd.mm.yy (UTC)");
     else
       params << PrmLexema("act_time", "EVT.UNKNOWN");
-    reqInfo->LocaleToLog(lexema_id, params, evtGraph, point_id, (int)i->first );
+    reqInfo->LocaleToLog(lexema_id, params, evtGraph, point_id, (int)stage );
   }
-  Qry.Clear();
-  Qry.SQLText =
+  TQuery syncTripFinalStagesQry( &OraSession );
+  syncTripFinalStagesQry.SQLText =
     "BEGIN "
     "  gtimer.sync_trip_final_stages(:point_id); "
     "END;";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
+  syncTripFinalStagesQry.CreateVariable( "point_id", otInteger, point_id );
+  syncTripFinalStagesQry.Execute();
 }
 
 void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
@@ -362,7 +479,7 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
 void TTripStages::LoadStages( int vpoint_id )
 {
   point_id = vpoint_id;
-  TTripStages::LoadStages( vpoint_id, tripstages );
+  tripstages = loadStages(vpoint_id);
 }
 
 TDateTime TTripStages::time( TStage stage ) const
@@ -390,7 +507,7 @@ TTripStageTimes TTripStages::getStageTimes( TStage stage ) const
 void TTripStages::ReadCkinClients( int point_id, TCkinClients &ckin_clients )
 {
     ckin_clients.clear();
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("TRIP_CKIN_CLIENT"), STDLOG);
   Qry.SQLText =
     "SELECT client_type FROM trip_ckin_client "
     " WHERE point_id=:point_id AND pr_permit!=0";
@@ -441,99 +558,162 @@ TStagesRules *TStagesRules::Instance()
   return instance_;
 }
 
-TStagesRules::TStagesRules()
+std::vector<TStage_name> loadGraphStages()
 {
-    UpdateGraph_Stages( );
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT stage_id, name, name_lat, NULL airp FROM graph_stages "
+       "UNION "
+       "SELECT stage_id, name, name_lat, airp FROM stage_names "
+       "ORDER BY stage_id, airp",
+        PgOra::getROSession("GRAPH_STAGES")
+    );
 
-  Update();
+    int stage_id;
+    std::string name;
+    std::string name_lat;
+    std::string airp;
+
+    cur.def(stage_id)
+       .def(name)
+       .defNull(name_lat, "")
+       .defNull(airp, "")
+       .exec();
+
+    std::vector<TStage_name> result;
+
+    while (!cur.fen()) {
+        TStage_name stage_name;
+        stage_name.stage = TStage(stage_id);
+        stage_name.name = name;
+        stage_name.name_lat = name_lat;
+        stage_name.airp = airp;
+        result.push_back(stage_name);
+    }
+
+    return result;
+}
+
+std::map<int,TCkinClients> loadClientStages()
+{
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT client_type, stage_id "
+       "FROM ckin_client_stages "
+       "ORDER BY stage_id, client_type",
+        PgOra::getROSession("CKIN_CLIENT_STAGES")
+    );
+
+    std::string client_type;
+    int stage_id;
+
+    cur.def(client_type)
+       .def(stage_id)
+       .exec();
+
+    std::map<int,TCkinClients> result;
+
+    while (!cur.fen()) {
+        result[stage_id].push_back(client_type);
+    }
+
+    return result;
 }
 
 void TStagesRules::UpdateGraph_Stages( )
 {
-    Graph_Stages.clear();
-    ClientStages.clear();
-    TQuery Qry( &OraSession );
-  Qry.SQLText =
-    "SELECT stage_id, name, name_lat, NULL airp FROM graph_stages "
-    "UNION "
-    "SELECT stage_id, name, name_lat, airp FROM stage_names "
-    " ORDER BY stage_id, airp";
-  Qry.Execute();
-
-  while ( !Qry.Eof ) {
-    TStage_name n;
-    n.stage = (TStage)Qry.FieldAsInteger( "stage_id" );
-    n.airp = Qry.FieldAsString( "airp" );
-    n.name = Qry.FieldAsString( "name" );
-    n.name_lat = Qry.FieldAsString( "name_lat" );
-    Graph_Stages.push_back( n );
-    Qry.Next();
-  }
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT client_type, stage_id FROM ckin_client_stages ORDER BY stage_id, client_type";
-  Qry.Execute();
-  while ( !Qry.Eof ) {
-    ClientStages[ Qry.FieldAsInteger( "stage_id" ) ].push_back( Qry.FieldAsString( "client_type" ) );
-    Qry.Next();
-  }
-
+    Graph_Stages = loadGraphStages();
+    ClientStages = loadClientStages();
 }
 
-void TStagesRules::Update()
+std::map<TStageStep,TMapRules> loadGraphRules()
 {
-  TQuery Qry( &OraSession );
-  Qry.Clear();
-  Qry.SQLText = "SELECT target_stage,cond_stage,num,next "\
-                "FROM graph_rules "\
-                "ORDER BY target_stage,num";
- Qry.Execute();
- TStageStep Step;
- TRule rule;
- while ( !Qry.Eof ) {
-   TStage Stage = (TStage)Qry.FieldAsInteger( "target_stage" );
-   if ( Qry.FieldAsInteger( "next" ) )
-     Step = stNext;
-   else
-     Step = stPrior;
-   rule.num = Qry.FieldAsInteger( "num" );
-   rule.cond_stage = (TStage)Qry.FieldAsInteger( "cond_stage" );
-   GrphRls[ Step ][ Stage ].push_back( rule );
-   Qry.Next();
- }
- /* загрузка статусов */
- Qry.Clear();
- Qry.SQLText =
-   "SELECT stage_id, stage_type, status, status_lat "
-   " FROM stage_statuses ORDER BY stage_type";
- Qry.Execute();
- TStage_Type stage_type;
- TStage_Status status;
- while ( !Qry.Eof ) {
-   stage_type = (TStage_Type)Qry.FieldAsInteger( "stage_type" );
-   status.stage = (TStage)Qry.FieldAsInteger( "stage_id" );
-   status.status = Qry.FieldAsString( "status" );
-   status.status_lat = Qry.FieldAsString( "status_lat" );
-   StageStatuses[ stage_type ].push_back( status );
-   Qry.Next();
- }
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT target_stage, cond_stage, num, next "
+       "FROM graph_rules "
+       "ORDER BY target_stage, num",
+        PgOra::getROSession("GRAPH_RULES")
+    );
 
- Qry.Clear();
- Qry.SQLText = "SELECT target_stage, level "\
-               " FROM "\
-               "( SELECT target_stage, cond_stage "\
-               "    FROM graph_rules "\
-               " WHERE next = 1 ) a "\
-               " START WITH cond_stage = 0 "\
-               " CONNECT BY PRIOR target_stage = cond_stage";
- Qry.Execute();
- while ( !Qry.Eof ) {
-   TStage_Level gl;
-   gl.stage = (TStage)Qry.FieldAsInteger( "target_stage" );
-   gl.level = Qry.FieldAsInteger( "level" );
-   GrphLvl.push_back( gl );
-   Qry.Next();
- }
+    int stage;
+    int cond_stage;
+    TRule rule;
+    int step;
+
+    cur.def(stage)
+       .def(cond_stage)
+       .def(rule.num)
+       .def(step)
+       .exec();
+
+    std::map<TStageStep,TMapRules> result;
+
+    while (!cur.fen()) {
+        rule.cond_stage = TStage(cond_stage);
+        result[TStageStep(step)][TStage(stage)].push_back(rule);
+    }
+
+    return result;
+}
+
+TMapStatuses loadStageStatuses()
+{
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT stage_type, stage_id, status, status_lat "
+       "FROM stage_statuses "
+       "ORDER BY stage_type",
+        PgOra::getROSession("STAGE_STATUSES")
+    );
+
+    int stage_type;
+    int stage;
+    TStage_Status status;
+
+    cur.def(stage_type)
+       .def(stage)
+       .def(status.status)
+       .defNull(status.status_lat, "")
+       .exec();
+
+    TMapStatuses result;
+
+    while (!cur.fen()) {
+        status.stage = TStage(stage);
+        result[TStage_Type(stage_type)].push_back(status);
+    }
+
+    return result;
+}
+
+TGraph_Level loadGraphLevel()
+{
+    TQuery Qry( &OraSession );
+    Qry.SQLText = "SELECT target_stage, level "
+                  "FROM (SELECT target_stage, cond_stage "
+                        "FROM graph_rules "
+                        "WHERE next = 1) a "
+                  "START WITH cond_stage = 0 "
+                  "CONNECT BY PRIOR target_stage = cond_stage";
+    Qry.Execute();
+
+    TGraph_Level result;
+
+    while ( !Qry.Eof ) {
+        TStage_Level gl;
+        gl.stage = (TStage)Qry.FieldAsInteger( "target_stage" );
+        gl.level = Qry.FieldAsInteger( "level" );
+        result.push_back( gl );
+        Qry.Next();
+    }
+
+    return result;
+}
+
+TStagesRules::TStagesRules()
+{
+    UpdateGraph_Stages();
+    ClientStages = loadClientStages();
+    GrphRls = loadGraphRules();
+    StageStatuses = loadStageStatuses();
+    GrphLvl = loadGraphLevel();
 }
 
 string getLocaleName( const string &name, const string &name_lat, bool is_lat )
@@ -680,7 +860,71 @@ bool TStagesRules::isClientStage( int stage_id )
     return !ClientStages[ stage_id ].empty();
 }
 
+int calculatePriority(const TStageTime& stage_time)
+{
+    int result = 0;
+    if (!stage_time.airline.empty())   { result |= 8; }
+    if (!stage_time.airp.empty())      { result |= 4; }
+    if (!stage_time.craft.empty())     { result |= 2; }
+    if (!stage_time.trip_type.empty()) { result |= 1; }
+    return result;
+}
 
+std::vector<TStageTime> loadStageTimes(const TStage stage)
+{
+    std::vector<TStageTime> result;
+    {
+        DbCpp::CursCtl cur = make_db_curs(
+           "SELECT time "
+           "FROM graph_stages "
+           "WHERE stage_id = :stage",
+            PgOra::getROSession("GRAPH_STAGES")
+        );
+
+        int stime;
+
+        cur.stb()
+           .def(stime)
+           .bind(":stage", int(stage))
+           .EXfet();
+
+        if (DbCpp::ResultCode::NoDataFound != cur.err()) {
+            result.emplace_back(TStageTime{ .time = stime, .priority = -1});
+        }
+    }
+
+    {
+        DbCpp::CursCtl cur = make_db_curs(
+           "SELECT DISTINCT airline, airp, craft, trip_type, time "
+           "FROM graph_times "
+           "WHERE stage_id = :stage",
+            PgOra::getROSession("GRAPH_TIMES")
+        );
+
+        TStageTime stage_time;
+
+        cur.stb()
+           .defNull(stage_time.airline, "")
+           .defNull(stage_time.airp, "")
+           .defNull(stage_time.craft, "")
+           .defNull(stage_time.trip_type, "")
+           .def(stage_time.time)
+           .bind(":stage", int(stage))
+           .exec();
+
+        while (!cur.fen()) {
+            stage_time.priority = calculatePriority(stage_time);
+            result.push_back(stage_time);
+        }
+    }
+
+    std::stable_sort(result.begin(), result.end(), [](const TStageTime& lhs, const TStageTime& rhs) {
+        return std::tie(lhs.priority, lhs.airline, lhs.airp, lhs.craft, lhs.trip_type, lhs.time)
+             < std::tie(rhs.priority, rhs.airline, rhs.airp, rhs.craft, rhs.trip_type, rhs.time);
+    });
+
+    return result;
+}
 
 TStageTimes::TStageTimes( TStage istage )
 {
@@ -690,32 +934,7 @@ TStageTimes::TStageTimes( TStage istage )
 
 void TStageTimes::GetStageTimes( )
 {
-  times.clear();
-  TQuery Qry( &OraSession );
-  Qry.SQLText  = "SELECT airline, airp, craft, trip_type, time, "
-                 "       DECODE( airline, NULL, 0, 8 )+ "
-                 "       DECODE( airp, NULL, 0, 4 )+ "
-                 "       DECODE( craft, NULL, 0, 2 )+ "
-                 "       DECODE( trip_type, NULL, 0, 1 ) AS priority "
-                 " FROM graph_times "
-                 " WHERE stage_id=:stage "
-                 "UNION "
-                 "SELECT NULL, NULL, NULL, NULL, time, -1 FROM graph_stages "
-                 "WHERE stage_id=:stage "
-                 " ORDER BY priority, airline, airp, craft, trip_type ";
-  Qry.CreateVariable( "stage", otInteger, stage );
-  Qry.Execute();
-  while ( !Qry.Eof ) {
-    TStageTime st;
-    st.airline = Qry.FieldAsString( "airline" );
-    st.airp = Qry.FieldAsString( "airp" );
-    st.craft = Qry.FieldAsString( "craft" );
-    st.trip_type = Qry.FieldAsString( "trip_type" );
-    st.time = Qry.FieldAsInteger( "time" );
-    st.priority = Qry.FieldAsInteger( "priority" );
-    times.push_back( st );
-    Qry.Next();
-  }
+    times = loadStageTimes(stage);
 }
 
 TDateTime TStageTimes::GetTime( const string &airline, const string &airp,
@@ -1162,28 +1381,43 @@ void Takeoff( int point_id )
                      time_end-time_start,point_id);
 }
 
-
 void SetTripStages_IgnoreAuto( int point_id, bool ignore_auto )
 {
-  ProgTrace( TRACE5, "SetTripStages_IgnoreAuto: point_id=%d, ignore_auto=%d", point_id, ignore_auto );
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "UPDATE trip_stages SET ignore_auto=:ignore_auto WHERE point_id=:point_id";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "ignore_auto", otInteger, ignore_auto );
-  Qry.Execute();
-  if ( Qry.RowsProcessed() > 0 ) {
-    ProgTrace( TRACE5, "SetTripStages_IgnoreAuto: point_id=%d, set ignore_auto=%d",
-               point_id, ignore_auto );
-  }
+    LogTrace(TRACE5) << __FUNCTION__ << ": point_id=" << point_id << ", ignore_auto=" << ignore_auto;
+
+    DbCpp::CursCtl cur = make_db_curs(
+       "UPDATE trip_stages "
+       "SET ignore_auto = :ignore_auto "
+       "WHERE point_id = :point_id",
+        PgOra::getRWSession("TRIP_STAGES")
+    );
+
+    cur.stb()
+       .bind(":ignore_auto", ignore_auto)
+       .bind(":point_id", point_id)
+       .exec();
+
+    if (cur.rowcount() > 0) {
+        LogTrace(TRACE5) << __FUNCTION__ << ": point_id=" << point_id << ", set ignore_auto=" << ignore_auto;
+    }
 }
 
 bool CheckStageACT( int point_id, TStage stage_id )
 {
-  TQuery Qry(&OraSession);
-  Qry.SQLText = "SELECT act FROM trip_stages WHERE point_id=:point_id AND stage_id=:stage_id AND act IS NOT NULL";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "stage_id", otInteger, stage_id );
-  Qry.Execute();
-  return !Qry.Eof;
-};
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT 1 "
+       "FROM trip_stages "
+       "WHERE point_id = :point_id "
+         "AND stage_id = :stage_id "
+         "AND act IS NOT NULL",
+        PgOra::getROSession("TRIP_STAGES")
+    );
+
+    cur.stb()
+       .bind(":point_id", point_id)
+       .bind(":stage_id", (int)stage_id)
+       .EXfet();
+
+    return DbCpp::ResultCode::NoDataFound != cur.err();
+}
+

@@ -7351,6 +7351,37 @@ static void putTripStages(int point_id)
   Qry.Execute();
 }
 
+void addTripCkinClient(
+    const int          point_id,
+    const TClientType  client_type,
+    const bool         pr_permit,
+    const bool         pr_waitlist,
+    const bool         pr_tckin,
+    const bool         pr_upd_stage,
+    const int          desk_grp_id)
+{
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText=
+        "INSERT INTO trip_ckin_client("
+                "point_id, client_type, pr_permit, pr_waitlist, pr_tckin, pr_upd_stage, desk_grp_id) "
+        "VALUES(:point_id,:client_type,:pr_permit,:pr_waitlist,:pr_tckin,:pr_upd_stage,:desk_grp_id)";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.CreateVariable("client_type", otString, EncodeClientType(client_type));
+    Qry.CreateVariable("pr_permit", otInteger, (int)pr_permit);
+    Qry.CreateVariable("pr_waitlist", otInteger, (int)pr_waitlist);
+    Qry.CreateVariable("pr_tckin", otInteger, (int)pr_tckin);
+    Qry.CreateVariable("pr_upd_stage", otInteger, (int)pr_upd_stage);
+
+    if (NoExists != desk_grp_id) {
+        Qry.CreateVariable("desk_grp_id", otInteger, desk_grp_id);
+    } else {
+        Qry.CreateVariable("desk_grp_id", otInteger, FNull);
+    }
+
+    Qry.Execute();
+}
+
 void set_flight_sets(int point_id, int f, int c, int y)
 {
   //лочим рейс - весь маршрут, т.к. pr_tranzit может поменяться
@@ -7371,19 +7402,6 @@ void set_flight_sets(int point_id, int f, int c, int y)
   TAdvTripInfo flt(Qry);
 
   TTripSetList().initDB(point_id, f, c, y);
-
-  TQuery InsQry(&OraSession);
-  InsQry.Clear();
-  InsQry.SQLText=
-    "INSERT INTO trip_ckin_client(point_id, client_type, pr_permit, pr_waitlist, pr_tckin, pr_upd_stage, desk_grp_id) "
-    "VALUES(:point_id, :client_type, :pr_permit, :pr_waitlist, :pr_tckin, :pr_upd_stage, :desk_grp_id)";
-  InsQry.CreateVariable("point_id", otInteger, point_id);
-  InsQry.DeclareVariable("client_type", otString);
-  InsQry.DeclareVariable("pr_permit", otInteger);
-  InsQry.DeclareVariable("pr_waitlist", otInteger);
-  InsQry.DeclareVariable("pr_tckin", otInteger);
-  InsQry.DeclareVariable("pr_upd_stage", otInteger);
-  InsQry.DeclareVariable("desk_grp_id", otInteger);
 
   Qry.Clear();
   Qry.SQLText=
@@ -7433,14 +7451,7 @@ void set_flight_sets(int point_id, int f, int c, int y)
           (client_type==ctWeb && desk_grp_id!=NoExists) ||
           (client_type==ctMobile && desk_grp_id!=NoExists)))
     {
-      InsQry.SetVariable("client_type", EncodeClientType(client_type));
-      InsQry.SetVariable("pr_permit", (int)pr_permit);
-      InsQry.SetVariable("pr_waitlist", (int)pr_waitlist);
-      InsQry.SetVariable("pr_tckin", (int)pr_tckin);
-      InsQry.SetVariable("pr_upd_stage", (int)pr_upd_stage);
-      desk_grp_id!=NoExists?InsQry.SetVariable("desk_grp_id", desk_grp_id):
-                            InsQry.SetVariable("desk_grp_id", FNull);
-      InsQry.Execute();
+      addTripCkinClient(point_id, client_type, pr_permit, pr_waitlist, pr_tckin, pr_upd_stage, desk_grp_id);
 
       LEvntPrms params;
       params << PrmLexema("action", (pr_permit?"EVT.CKIN_ALLOWED":"EVT.CKIN_NOT_ALLOWED"));

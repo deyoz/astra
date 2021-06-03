@@ -1058,6 +1058,29 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
     res_checkin += "\n";
 }
 
+void setMaxCommerce(const int point_id, const int max_commerce)
+{
+    make_db_curs(
+   "UPDATE trip_sets SET max_commerce = :max_commerce "
+   "WHERE point_id = :point_id",
+    PgOra::getRWSession("TRIP_SETS"))
+   .stb()
+   .bind("max_commerce", max_commerce)
+   .bind("point_id", point_id)
+   .exec();
+}
+
+void setNullMaxCommerce(const int point_id)
+{
+    make_db_curs(
+   "UPDATE trip_sets SET max_commerce = NULL "
+   "WHERE point_id = :point_id",
+    PgOra::getRWSession("TRIP_SETS"))
+   .stb()
+   .bind("point_id", point_id)
+   .exec();
+}
+
 void ParseFlight( const std::string &point_addr, const std::string &airp, std::string &linestr, AODB_Flight &fl )
 {
   int err=0;
@@ -1234,17 +1257,6 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
     }
     err++;
     bool overload_alarm = false;
-    // запись в БД
-    TQuery QrySet(&OraSession);
-    QrySet.SQLText =
-        "BEGIN "
-        " IF :max_commerce IS NOT NULL THEN "
-        "  UPDATE trip_sets SET max_commerce=:max_commerce WHERE point_id=:point_id;"
-        " END IF; "
-        "END;";
-    QrySet.DeclareVariable( "point_id", otInteger );
-    QrySet.DeclareVariable( "max_commerce", otInteger );
-
 
     err++;
     TFndFlts pflts;
@@ -1393,13 +1405,11 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
       err++;
       // создаем времена технологического графика только для пункта вылета из ВНК и далее по маршруту
       set_flight_sets(point_id);
-      QrySet.SetVariable( "point_id", point_id );
-      if ( fl.max_load != NoExists )
-        QrySet.SetVariable( "max_commerce", fl.max_load );
-      else
-        QrySet.SetVariable( "max_commerce", FNull );
       err++;
-      QrySet.Execute();
+      // запись в БД
+      if ( fl.max_load != NoExists ) {
+          setMaxCommerce(point_id, fl.max_load);
+      }
       err++;
       int num = 0;
       for ( vector<AODB_Dest>::iterator it=fl.dests.begin(); it!=fl.dests.end(); it++ ) {
@@ -1513,17 +1523,12 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
         SetTripStages_IgnoreAuto( point_id, new_ignore_auto );
       }
       overload_alarm = Get_AODB_overload_alarm( point_id, fl.max_load );
-      Qry.Clear();
-      Qry.SQLText =
-          "UPDATE trip_sets SET max_commerce=:max_commerce WHERE point_id=:point_id";
-      Qry.CreateVariable( "point_id", otInteger, point_id );
-      Qry.DeclareVariable( "max_commerce", otInteger );
-      if ( fl.max_load != NoExists )
-        Qry.SetVariable( "max_commerce", fl.max_load );
-      else
-        QrySet.SetVariable( "max_commerce", FNull );
-      err++;
-      Qry.Execute();
+
+      if ( fl.max_load != NoExists ) {
+        setMaxCommerce(point_id, fl.max_load);
+      } else {
+        setNullMaxCommerce(point_id);
+      }
       err++;
       check_overload_alarm( point_id );
     } // end update

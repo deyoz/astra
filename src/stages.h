@@ -74,7 +74,6 @@ class TTripStage : public TTripStageTimes
     TDateTime old_est;
     TDateTime old_act;
     int pr_auto;
-    void fromDB(TQuery &Qry);
     TTripStage() {
       old_est = ASTRA::NoExists;
       old_act = ASTRA::NoExists;
@@ -176,7 +175,6 @@ class TStagesRules {
   private:
     std::map<int,TCkinClients> ClientStages;
     std::vector<TStage_name> Graph_Stages;
-    void Update();
   public:
     std::map<TStageStep,TMapRules> GrphRls;
     TGraph_Level GrphLvl;
