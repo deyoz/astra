@@ -1042,6 +1042,7 @@ void ComponLibraFinder::AstraSearchResult::ReadFromAHMCompId( const std::string&
 }
 
 bool LibraComps::isLibraComps( int id, bool isComps, BASIC::date_time::TDateTime& time_create ) {
+  if ( !LIBRA::LIBRA_ENABLED() ) return false;
   TQuery Qry(&OraSession);
   if ( !isComps ) {
     Qry.SQLText =

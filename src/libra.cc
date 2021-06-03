@@ -58,6 +58,15 @@ static bool LIBRA_HTTP_STAT()
     return static_cast<bool>(stat);
 }
 
+
+bool LIBRA_ENABLED()
+{
+  static int VAR=NoExists;
+  if (VAR==NoExists)
+    VAR=getTCLParam("LIBRA_ENABLED",0,1,0);
+  return VAR!=0;
+}
+
 //---------------------------------------------------------------------------------------
 
 enum class HttpMode {
