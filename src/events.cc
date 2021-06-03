@@ -77,7 +77,7 @@ void readFromArx(Dates::DateTime_t part_key, int move_id, int point_id, const ve
             sql << "SELECT msg, time, id2 AS point_id, \n"
                    "   (CASE when type=:evtPax THEN id2 WHEN type=:evtPay THEN id2 ELSE -1 END) AS reg_no, \n"
                    "   (CASE when type=:evtPax THEN id3 WHEN type=:evtPay THEN id3 ELSE -1 END) AS grp_id, \n"
-                   "   ev_user, station, ev_order, COALESCE(part_num, 1) AS part_num \n"
+                   "   ev_user, station, ev_order, part_num \n"
                    "FROM arx_events \n"
                    "WHERE part_key=:part_key AND (lang=:lang OR lang='ZZ') AND \n"
                    "   type=:evtDisp AND id1=:move_id \n";
@@ -91,7 +91,7 @@ void readFromArx(Dates::DateTime_t part_key, int move_id, int point_id, const ve
             sql << "SELECT msg, time, id1 AS point_id, \n"
                    "    (CASE when type=:evtPax THEN id2 WHEN type=:evtPay THEN id2 ELSE -1 END) AS reg_no, \n"
                    "    (CASE when type=:evtPax THEN id3 WHEN type=:evtPay THEN id3 ELSE -1 END) AS grp_id, \n"
-                   "    ev_user, station, ev_order, COALESCE(part_num, 1) AS part_num \n"
+                   "    ev_user, station, ev_order, part_num \n"
                    "FROM arx_events \n"
                    "WHERE part_key=:part_key AND (lang=:lang OR lang='ZZ') AND \n"
                    " type IN " << GetSQLEnum(eventTypes) << " AND id1=:point_id \n";
@@ -117,16 +117,15 @@ void readFromArx(Dates::DateTime_t part_key, int move_id, int point_id, const ve
         cur.bind(":point_id", point_id);
     }
 
-    cur
-        .def(msg)
+    cur.def(msg)
         .def(time)
-        .defNull(read_point_id, ASTRA::NoExists) //nullable
-        .defNull(reg_no, ASTRA::NoExists) //nullable
-        .defNull(grp_id, ASTRA::NoExists) //nullable
-        .def(ev_user)
-        .defNull(station, "") //nullable
+        .defNull(read_point_id, ASTRA::NoExists)
+        .defNull(reg_no, ASTRA::NoExists)
+        .defNull(grp_id, ASTRA::NoExists)
+        .defNull(ev_user, "")
+        .defNull(station, "")
         .def(ev_order)
-        .def(part_num)
+        .defNull(part_num,1)
         .bind(":lang", TReqInfo::Instance()->desk.lang)
         .bind(":part_key", part_key)
         .bind(":evtPax",EncodeEventType(ASTRA::evtPax))
