@@ -39,9 +39,95 @@ enum TDevParamCategory{dpcSession,dpcFormat,dpcModel};
 
 const int NEW_TERM_VER_NOTICE=1;
 
+bool haveDeskNoticesVersion(const std::string& term_mode, const std::string& prior_version)
+{
+  DB::TQuery QryNotice(PgOra::getROSession("DESK_NOTICES"), STDLOG);
+  QryNotice.SQLText=
+    "SELECT 1 FROM desk_notices "
+    "WHERE notice_type=:notice_type "
+    "AND term_mode=:term_mode "
+    "AND last_version=:last_version ";
+  QryNotice.CreateVariable("notice_type", otString, NEW_TERM_VER_NOTICE);
+  QryNotice.CreateVariable("term_mode", otString, term_mode);
+  QryNotice.CreateVariable("last_version", otString, prior_version);
+  QryNotice.Execute();
+  return !QryNotice.Eof;
+}
+
+void deleteLocaleNotices(int notice_id)
+{
+  DB::TQuery Qry(PgOra::getRWSession("LOCALE_NOTICES"), STDLOG);
+  Qry.SQLText = "DELETE FROM locale_notices WHERE notice_id=:notice_id";
+  Qry.CreateVariable("notice_id", otInteger, notice_id);
+  Qry.Execute();
+}
+
+void deleteDeskDisableNotices(int notice_id)
+{
+  DB::TQuery Qry(PgOra::getRWSession("DESK_DISABLE_NOTICES"), STDLOG);
+  Qry.SQLText = "DELETE FROM desk_disable_notices WHERE notice_id=:notice_id";
+  Qry.CreateVariable("notice_id", otInteger, notice_id);
+  Qry.Execute();
+}
+
+void deleteDeskNotices(int notice_id)
+{
+  DB::TQuery Qry(PgOra::getRWSession("DESK_NOTICES"), STDLOG);
+  Qry.SQLText = "DELETE FROM desk_notices WHERE notice_id=:notice_id";
+  Qry.CreateVariable("notice_id", otInteger, notice_id);
+  Qry.Execute();
+}
+
+int getNewDeskNoticeId(const std::string& term_mode, const std::string& prior_version)
+{
+  DB::TQuery Qry(PgOra::getRWSession("DESK_NOTICES"), STDLOG);
+  Qry.SQLText =
+      "SELECT notice_id FROM desk_notices "
+      "WHERE notice_type=:notice_type "
+      "AND term_mode=:term_mode "
+      "FOR UPDATE ";
+  Qry.CreateVariable("notice_type", otString, NEW_TERM_VER_NOTICE);
+  Qry.CreateVariable("term_mode", otString, term_mode);
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next()) {
+    const int notice_id = Qry.FieldAsInteger("notice_id");
+    deleteLocaleNotices(notice_id);
+    deleteDeskDisableNotices(notice_id);
+    deleteDeskNotices(notice_id);
+  }
+  const int new_notice_id = PgOra::getSeqNextVal("CYCLE_ID__SEQ");
+  DB::TQuery QryIns(PgOra::getRWSession("DESK_NOTICES"), STDLOG);
+  QryIns.SQLText =
+      "INSERT INTO desk_notices("
+      "notice_id, notice_type, term_mode, last_version, default_disable, always_enabled, time_create, pr_del"
+      ") VALUES( "
+      ":new_notice_id, :notice_type, :term_mode, :last_version, 0, 0, :datetime, 0); ";
+  QryIns.CreateVariable("new_notice_id", otInteger, new_notice_id);
+  QryIns.CreateVariable("notice_type", otString, NEW_TERM_VER_NOTICE);
+  QryIns.CreateVariable("term_mode", otString, term_mode);
+  QryIns.CreateVariable("last_version", otString, prior_version);
+  QryIns.CreateVariable("datetime", otDate, NowUTC());
+  QryIns.Execute();
+  return new_notice_id;
+}
+
+void saveLocalNotices(int notice_id, const std::string& lang, const std::string& text)
+{
+  DB::TQuery Qry(PgOra::getROSession("LOCALE_NOTICES"), STDLOG);
+  Qry.SQLText=
+      "INSERT INTO locale_notices("
+      "notice_id, lang, text"
+      ") VALUES("
+      ":notice_id, :lang, :text"
+      ")";
+  Qry.CreateVariable("notice_id", otInteger, notice_id);
+  Qry.CreateVariable("lang", otString, lang);
+  Qry.CreateVariable("text", otString, text);
+  Qry.Execute();
+}
+
 int SetTermVersionNotice(int argc,char **argv)
 {
-  TQuery Qry(&OraSession);
   string version, term_mode;
   ostringstream prior_version;
   try
@@ -56,9 +142,9 @@ int SetTermVersionNotice(int argc,char **argv)
     i--;
     prior_version << version.substr(0,7) << setw(7) << setfill('0') << i;
     ProgTrace(TRACE5, "SetTermVersionNotice: prior_version=%s", prior_version.str().c_str());
-    Qry.Clear();
-    Qry.SQLText="SELECT code FROM term_modes WHERE code=UPPER(:term_mode)";
-    Qry.CreateVariable("term_mode", otString, argv[1]);
+    DB::TQuery Qry(PgOra::getROSession("TERM_MODES"), STDLOG);
+    Qry.SQLText="SELECT code FROM term_modes WHERE code = :term_mode";
+    Qry.CreateVariable("term_mode", otString, StrUtils::ToUpper(argv[1]));
     Qry.Execute();
     if (Qry.Eof) throw EConvertError("wrong platform");
     term_mode=Qry.FieldAsString("code");
@@ -78,70 +164,34 @@ int SetTermVersionNotice(int argc,char **argv)
   };
 
   //проверим notice_id на совпадение
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT notice_id FROM desk_notices "
-    "WHERE notice_type=:notice_type AND term_mode=:term_mode AND "
-    "      last_version=:last_version ";
-  Qry.CreateVariable("notice_type", otString, NEW_TERM_VER_NOTICE);
-  Qry.CreateVariable("term_mode", otString, term_mode);
-  Qry.CreateVariable("last_version", otString, prior_version.str());
-  Qry.Execute();
-  if (!Qry.Eof)
+  if (haveDeskNoticesVersion(term_mode, prior_version.str()))
   {
     printf("Error: version %s has already been introduced\n", version.c_str());
     return 0;
-  };
+  }
 
-  Qry.Clear();
-  Qry.SQLText=
-    "DECLARE "
-    "  CURSOR cur IS "
-    "    SELECT notice_id FROM desk_notices "
-    "    WHERE notice_type=:notice_type AND term_mode=:term_mode FOR UPDATE; "
-    "BEGIN "
-    "  FOR curRow IN cur LOOP "
-    "    DELETE FROM locale_notices WHERE notice_id=curRow.notice_id; "
-    "    DELETE FROM desk_disable_notices WHERE notice_id=curRow.notice_id; "
-    "    DELETE FROM desk_notices WHERE notice_id=curRow.notice_id; "
-    "  END LOOP; "
-    "  SELECT cycle_id__seq.nextval INTO :notice_id FROM dual; "
-    "  INSERT INTO desk_notices(notice_id, notice_type, term_mode, last_version, default_disable, always_enabled, time_create, pr_del) "
-    "  VALUES(:notice_id, :notice_type, :term_mode, :last_version, 0, 0, system.UTCSYSDATE, 0); "
-    "END; ";
-  Qry.DeclareVariable("notice_id", otInteger);
-  Qry.CreateVariable("notice_type", otString, NEW_TERM_VER_NOTICE);
-  Qry.CreateVariable("term_mode", otString, term_mode);
-  Qry.CreateVariable("last_version", otString, prior_version.str());
-  Qry.Execute();
-  int notice_id=Qry.GetVariableAsInteger("notice_id");
+  const int notice_id = getNewDeskNoticeId(term_mode, prior_version.str());
 
   map<string,string> text;
-  Qry.Clear();
-  Qry.SQLText="SELECT code AS lang FROM lang_types";
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
+  DB::TQuery QryLang(PgOra::getROSession("LANG_TYPES"), STDLOG);
+  QryLang.SQLText="SELECT code AS lang FROM lang_types";
+  QryLang.Execute();
+  for(;!QryLang.Eof;QryLang.Next())
   {
-    const char* lang=Qry.FieldAsString("lang");
+    const std::string lang=QryLang.FieldAsString("lang");
     text[lang] = getLocaleText("MSG.NOTICE.NEW_TERM_VERSION",
                                LParams() << LParam("version", version) << LParam("term_mode", term_mode), lang);
-  };
+  }
 
-  Qry.Clear();
-  Qry.SQLText="INSERT INTO locale_notices(notice_id, lang, text) VALUES(:notice_id, :lang, :text)";
-  Qry.CreateVariable("notice_id", otInteger, notice_id);
-  Qry.DeclareVariable("lang", otString);
-  Qry.DeclareVariable("text", otString);
-  for(map<string,string>::iterator i=text.begin();i!=text.end();i++)
-  {
-    Qry.SetVariable("lang", i->first);
-    Qry.SetVariable("text", i->second);
-    Qry.Execute();
-  };
+  for(map<string,string>::iterator i=text.begin();i!=text.end();i++) {
+    const std::string& lang = i->first;
+    const std::string& text = i->second;
+    saveLocalNotices(notice_id, lang, text);
+  }
 
   puts("New version of the terminal has successfully introduced");
   return 0;
-};
+}
 
 void SetTermVersionNoticeHelp(const char *name)
 {
@@ -160,22 +210,47 @@ void GetNotices(xmlNodePtr resNode)
             EncodeOperMode(reqInfo->desk.mode).c_str(),
             reqInfo->desk.version.c_str());*/
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"DESK_NOTICES", "LOCALE_NOTICES", "DESK_DISABLE_NOTICES"}), STDLOG);
   Qry.SQLText=
-    "SELECT desk_notices.notice_id, locale_notices.text, default_disable, always_enabled "
-    "FROM desk_notices, locale_notices, "
-    "     (SELECT notice_id FROM desk_disable_notices WHERE desk=:desk) desk_disable_notices "
-    "WHERE desk_notices.notice_id=locale_notices.notice_id AND locale_notices.lang=:lang AND "
-    "      desk_notices.notice_id=desk_disable_notices.notice_id(+) AND "
-    "      (desk_disable_notices.notice_id IS NULL OR desk_notices.always_enabled<>0) AND "
-    "      (desk IS NULL OR desk=:desk) AND "
-    "      (desk_grp_id IS NULL OR desk_grp_id=:desk_grp_id) AND "
-    "      (term_mode IS NULL OR term_mode=:term_mode) AND "
-    "      (first_version IS NULL OR first_version<=:version) AND "
-    "      (last_version IS NULL OR last_version>=:version) AND "
-    "      pr_del=0 "
-    "ORDER BY time_create";
+      "SELECT desk_notices.notice_id, locale_notices.text, default_disable, always_enabled "
+      "FROM desk_notices "
+      "  LEFT OUTER JOIN ( "
+      "    SELECT notice_id "
+      "    FROM desk_disable_notices "
+      "    WHERE desk = :desk "
+      "  ) desk_disable_notices "
+      "    ON desk_notices.notice_id = desk_disable_notices.notice_id "
+      "  JOIN locale_notices "
+      "    ON desk_notices.notice_id = locale_notices.notice_id "
+      "WHERE ( "
+      "  locale_notices.lang = :lang "
+      "  AND ( "
+      "    desk_disable_notices.notice_id IS NULL "
+      "    OR desk_notices.always_enabled <> 0 "
+      "  ) "
+      "  AND ( "
+      "    desk IS NULL "
+      "    OR desk = :desk "
+      "  ) "
+      "  AND ( "
+      "    desk_grp_id IS NULL "
+      "    OR desk_grp_id = :desk_grp_id "
+      "  ) "
+      "  AND ( "
+      "    term_mode IS NULL "
+      "    OR term_mode = :term_mode "
+      "  ) "
+      "  AND ( "
+      "    first_version IS NULL "
+      "    OR first_version <= :version "
+      "  ) "
+      "  AND ( "
+      "    last_version IS NULL "
+      "    OR last_version >= :version "
+      "  ) "
+      "  AND pr_del = 0 "
+      ") "
+      "ORDER BY time_create ";
   Qry.CreateVariable("desk",otString,reqInfo->desk.code);
   Qry.CreateVariable("lang",otString,reqInfo->desk.lang);
   Qry.CreateVariable("desk_grp_id",otInteger,reqInfo->desk.grp_id);
@@ -205,8 +280,7 @@ void CheckTermExpireDate(void)
     if (reqInfo->client_type!=ctTerm) return;
     if (!reqInfo->desk.compatible(OLDEST_SUPPORTED_VERSION))
       throw AstraLocale::UserException("MSG.TERM_VERSION.NOT_SUPPORTED");
-    TQuery Qry(&OraSession);
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession("TERM_EXPIRE_DATES"), STDLOG);
     Qry.SQLText=
       "SELECT MIN(expire_date) AS expire_date "
       "FROM term_expire_dates "
@@ -260,9 +334,12 @@ void CheckTermExpireDate(void)
 void MainDCSInterface::DisableNotices(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   xmlNodePtr node=NodeAsNode("notices",reqNode);
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText="INSERT INTO desk_disable_notices(desk, notice_id) VALUES(:desk, :notice_id)";
+  DB::TQuery Qry(PgOra::getRWSession("DESK_DISABLE_NOTICES"), STDLOG);
+  Qry.SQLText="INSERT INTO desk_disable_notices("
+              "desk, notice_id"
+              ") VALUES("
+              ":desk, :notice_id"
+              ")";
   Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
   Qry.DeclareVariable("notice_id", otInteger);
   for(node=node->children;node!=NULL;node=node->next)
@@ -272,18 +349,18 @@ void MainDCSInterface::DisableNotices(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     {
       Qry.Execute();
     }
-    catch(EOracleError E)
+    catch(EOracleError& E)
     {
+      E.showProgError();
       //if (E.Code!=1) throw; надо бы так, но а вдруг мы удалили id из desk_notices?
-    };
-  };
-};
+    }
+  }
+}
 
 void GetModuleList(xmlNodePtr resNode)
 {
   TReqInfo *reqinfo = TReqInfo::Instance();
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"USER_ROLES","ROLE_RIGHTS","SCREEN_RIGHTS","SCREEN"}), STDLOG);
   Qry.SQLText=
     "SELECT DISTINCT screen.id,screen.name,screen.exe,screen.view_order "
     "FROM user_roles,role_rights,screen_rights,screen "
@@ -325,8 +402,7 @@ void GetEventCmd( const vector<string> &event_names,
 {
   events.clear();
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("DEV_EVENT_CMD"), STDLOG);
   Qry.SQLText=
     "SELECT DISTINCT dev_model,sess_type,fmt_type,desk_grp_id,event_name "
     "FROM dev_event_cmd "
@@ -349,8 +425,7 @@ void GetEventCmd( const vector<string> &event_names,
     first_desk_grp_id=Qry.FieldAsInteger("desk_grp_id");
 
 
-  TQuery CmdQry(&OraSession);
-  CmdQry.Clear();
+  DB::TQuery CmdQry(PgOra::getROSession("DEV_EVENT_CMD"), STDLOG);
   CmdQry.SQLText=
     "SELECT cmd_data,cmd_order,wait_prior_cmd,cmd_fmt_hex,cmd_fmt_file, "
     "       binary,posted,error_show,error_log,error_abort "
@@ -1077,30 +1152,35 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       "                dev_model_sess_fmt.dev_model,"
       "                dev_model_sess_fmt.sess_type,"
       "                dev_model_sess_fmt.fmt_type"
-      " FROM dev_model_sess_fmt, dev_sess_modes, dev_fmt_opers "
+      "FROM dev_model_sess_fmt, dev_sess_modes, dev_fmt_opers "
       "WHERE dev_sess_modes.term_mode=:term_mode AND "
       "      dev_sess_modes.sess_type=dev_model_sess_fmt.sess_type AND "
       "      dev_fmt_opers.op_type=:op_type AND "
       "      dev_fmt_opers.fmt_type=dev_model_sess_fmt.fmt_type AND "
       "      dev_model_sess_fmt.dev_model=:dev_model ";
-  TQuery DefQry(&OraSession);
-  if ( variant_model.empty() ) {
-    string sql =
-      "SELECT dev_oper_types.code AS op_type, "
-      "       dev_model_defaults.dev_model, "
-      "       dev_model_defaults.sess_type, "
-      "       dev_model_defaults.fmt_type "
-      "FROM dev_oper_types,dev_model_defaults "
-      "WHERE dev_oper_types.code=dev_model_defaults.op_type(+) AND "
-      "      dev_model_defaults.term_mode(+)=:term_mode ";
-    if ( pr_default_sets ) {
-        sql += " AND dev_oper_types.code=:op_type";
+  DB::TQuery DefQry(
+        variant_model.empty()
+        ? PgOra::getROSession({"DEV_OPER_TYPES", "DEV_MODEL_DEFAULTS"})
+        : PgOra::getROSession({"DEV_MODEL_SESS_FMT", "DEV_SESS_MODES", "DEV_FMT_OPERS"}), STDLOG);
+  if (variant_model.empty()) {
+    DefQry.SQLText =
+        "SELECT "
+        "  dev_oper_types.code AS op_type, "
+        "  dev_model_defaults.dev_model, "
+        "  dev_model_defaults.sess_type, "
+        "  dev_model_defaults.fmt_type "
+        "FROM dev_oper_types "
+        "  LEFT OUTER JOIN dev_model_defaults "
+        "    ON ( "
+        "      dev_oper_types.code = dev_model_defaults.op_type "
+        "      AND dev_model_defaults.term_mode = :term_mode "
+        "    ) ";
+    if (pr_default_sets) {
+        DefQry.SQLText += " WHERE dev_oper_types.code=:op_type";
     }
-    DefQry.SQLText=sql;
-  }
-  else {
+  } else {
     DefQry.SQLText=dev_model_sql;
-    DefQry.CreateVariable( "dev_model", otString, variant_model );
+    DefQry.CreateVariable("dev_model", otString, variant_model);
   }
   DefQry.CreateVariable("term_mode",otString,EncodeOperMode(reqInfo->desk.mode));
   if ( !variant_model.empty() || pr_default_sets )
@@ -1109,10 +1189,10 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
 
   vector<TDevModelDefaults> DevModelDefaults;
   for( ;!DefQry.Eof;DefQry.Next() ) { // цикл по типам операций или цикл по возможным вариантам настроек заданной операции
-    DevModelDefaults.push_back( TDevModelDefaults( DefQry.FieldAsString( "op_type" ),
-                                                   DefQry.FieldAsString( "dev_model" ),
-                                                   DefQry.FieldAsString( "sess_type" ),
-                                                   DefQry.FieldAsString( "fmt_type" ) ) );
+    DevModelDefaults.push_back( TDevModelDefaults( DefQry.FieldAsString( "op_type" ).c_str(),
+                                                   DefQry.FieldAsString( "dev_model" ).c_str(),
+                                                   DefQry.FieldAsString( "sess_type" ).c_str(),
+                                                   DefQry.FieldAsString( "fmt_type" ).c_str() ) );
   }
 
   map<TDevOper::Enum, TPlatformParams > opers;
@@ -1134,11 +1214,11 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
     if (variant_model.empty())
     {
       //не идет перевыбор dev_model через "Настройки оборудования" в терминале
-      DefQry.Clear();
-      DefQry.SQLText=dev_model_sql;
-      DefQry.CreateVariable( "term_mode", otString, EncodeOperMode(reqInfo->desk.mode));
-      DefQry.DeclareVariable( "op_type", otString );
-      DefQry.DeclareVariable( "dev_model", otString );
+      DB::TQuery DefQry2(PgOra::getROSession({"DEV_MODEL_SESS_FMT", "DEV_SESS_MODES", "DEV_FMT_OPERS"}), STDLOG);
+      DefQry2.SQLText=dev_model_sql;
+      DefQry2.CreateVariable( "term_mode", otString, EncodeOperMode(reqInfo->desk.mode));
+      DefQry2.DeclareVariable( "op_type", otString );
+      DefQry2.DeclareVariable( "dev_model", otString );
 
       for(vector<TDevModelDefaults>::iterator def=DevModelDefaults.begin();
                                               def!=DevModelDefaults.end(); def++)
@@ -1149,24 +1229,24 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
         TDevOper::Enum oper=DevOperTypes().decode(def->op_type);
         if (!opers[oper].addr.empty())
         {
-          DefQry.SetVariable( "op_type", def->op_type );
-          DefQry.SetVariable( "dev_model", opers[oper].dev_model );
-          DefQry.Execute();
-          if (!DefQry.Eof)
+          DefQry2.SetVariable( "op_type", def->op_type );
+          DefQry2.SetVariable( "dev_model", opers[oper].dev_model );
+          DefQry2.Execute();
+          if (!DefQry2.Eof)
           {
-            def->dev_model=DefQry.FieldAsString( "dev_model" );
-            def->sess_type=DefQry.FieldAsString( "sess_type" );
-            def->fmt_type=DefQry.FieldAsString( "fmt_type" );
+            def->dev_model=DefQry2.FieldAsString( "dev_model" );
+            def->sess_type=DefQry2.FieldAsString( "sess_type" );
+            def->fmt_type=DefQry2.FieldAsString( "fmt_type" );
           };
         };
       };
     };
   };
 
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession({"DEV_MODEL_SESS_FMT","DEV_SESS_MODES","DEV_FMT_OPERS"}), STDLOG);
   Qry.SQLText =
     "SELECT dev_model_sess_fmt.dev_model,dev_model_sess_fmt.sess_type,dev_model_sess_fmt.fmt_type "
-    " FROM dev_model_sess_fmt,dev_sess_modes,dev_fmt_opers "
+    "FROM dev_model_sess_fmt,dev_sess_modes,dev_fmt_opers "
     "WHERE dev_model_sess_fmt.dev_model=:dev_model AND "
     "      dev_model_sess_fmt.sess_type=:sess_type AND "
     "      dev_model_sess_fmt.fmt_type=:fmt_type AND "
@@ -1271,7 +1351,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       pNode = NewTextChild( newoperNode, "dev_model_code", dev_model );
       SetProp( pNode, "dev_model_name", ElemIdToNameLong(etDevModel,dev_model) );
         sess_name = ElemIdToNameLong( etDevSessType, Qry.FieldAsString("sess_type") );
-        ProgTrace( TRACE5, "sess_type=%s, sess_name=%s", Qry.FieldAsString("sess_type"), sess_name.c_str() );
+        ProgTrace( TRACE5, "sess_type=%s, sess_name=%s", Qry.FieldAsString("sess_type").c_str(), sess_name.c_str() );
         fmt_name = ElemIdToNameLong( etDevFmtType, Qry.FieldAsString("fmt_type") );
 
       if ( !sess_name.empty() && !fmt_name.empty() ) {
@@ -1334,14 +1414,15 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
 void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
-    TQuery Qry(&OraSession);
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getRWSession("USERS2"), STDLOG);
     Qry.SQLText =
       "SELECT user_id, login, passwd, descr, pr_denial, desk "
       "FROM users2 "
-      "WHERE login= UPPER(:userr) AND passwd= UPPER(:passwd) FOR UPDATE ";
-    Qry.CreateVariable("userr", otString, NodeAsString("userr", reqNode));
-    Qry.CreateVariable("passwd", otString, NodeAsString("passwd", reqNode));
+      "WHERE login = :userr "
+      "AND passwd = :passwd "
+      "FOR UPDATE ";
+    Qry.CreateVariable("userr", otString, StrUtils::ToUpper(NodeAsString("userr", reqNode)));
+    Qry.CreateVariable("passwd", otString, StrUtils::ToUpper(NodeAsString("passwd", reqNode)));
     Qry.Execute();
     if ( Qry.RowCount() == 0 )
       throw AstraLocale::UserException("MSG.WRONG_LOGIN_OR_PASSWD");
@@ -1366,41 +1447,56 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
        }
     }
 
-
-    Qry.Clear();
-    Qry.SQLText =
-      "BEGIN "
-      "  UPDATE users2 SET desk = NULL WHERE desk = :desk; "
-      "  UPDATE users2 SET desk = :desk WHERE user_id = :user_id; "
-      "  UPDATE desks "
-      "  SET version = :version, last_logon = system.UTCSYSDATE, term_id=:term_id, term_mode=:term_mode "
-      "  WHERE code = :desk; "
-      "END;";
-    Qry.CreateVariable("user_id", otInteger, reqInfo->user.user_id);
-    Qry.CreateVariable("desk", otString, reqInfo->desk.code);
     if (GetNode("term_version", reqNode)==NULL)
       throw AstraLocale::UserException("MSG.TERM_VERSION.NOT_SUPPORTED");
-    Qry.CreateVariable("version", otString, NodeAsString("term_version", reqNode));
+
+    DB::TQuery QryClrDesk(PgOra::getRWSession("USERS2"), STDLOG);
+    QryClrDesk.SQLText =
+        "UPDATE users2 "
+        "SET desk = NULL "
+        "WHERE desk = :desk ";
+    QryClrDesk.CreateVariable("desk", otString, reqInfo->desk.code);
+    QryClrDesk.Execute();
+
+    DB::TQuery QryUpdUser(PgOra::getRWSession("USERS2"), STDLOG);
+    QryUpdUser.SQLText =
+        "UPDATE users2 "
+        "SET desk = :desk "
+        "WHERE user_id = :user_id ";
+    QryUpdUser.CreateVariable("user_id", otInteger, reqInfo->user.user_id);
+    QryUpdUser.CreateVariable("desk", otString, reqInfo->desk.code);
+    QryUpdUser.Execute();
+
+    DB::TQuery QryUpdDesk(PgOra::getRWSession("USERS2"), STDLOG);
+    QryUpdDesk.SQLText =
+      "UPDATE desks SET "
+      "version = :version, "
+      "last_logon = :datetime, "
+      "term_id=:term_id, "
+      "term_mode=:term_mode "
+      "WHERE code = :desk ";
+    QryUpdDesk.CreateVariable("desk", otString, reqInfo->desk.code);
+    QryUpdDesk.CreateVariable("datetime", otDate, NowUTC());
+    QryUpdDesk.CreateVariable("version", otString, NodeAsString("term_version", reqNode));
     xmlNodePtr propNode;
     if ((propNode = GetNode("/term/query/@term_id",ctxt->reqDoc))!=NULL)
-      Qry.CreateVariable("term_id", otFloat, NodeAsFloat(propNode));
+      QryUpdDesk.CreateVariable("term_id", otFloat, NodeAsFloat(propNode));
     else
-      Qry.CreateVariable("term_id", otFloat, FNull);
-    Qry.CreateVariable("term_mode", otString, EncodeOperMode(reqInfo->desk.mode));
-    Qry.Execute();
+      QryUpdDesk.CreateVariable("term_id", otFloat, FNull);
+    QryUpdDesk.CreateVariable("term_mode", otString, EncodeOperMode(reqInfo->desk.mode));
+    QryUpdDesk.Execute();
 
 #ifdef XP_TESTING
     if(inTestMode())
     {
         // добавляем немного привелегий юзеру
-        Qry.Clear();
-        Qry.SQLText =
-          "BEGIN\n"
-          "  DELETE from user_roles;\n"
-          "  INSERT INTO user_roles VALUES(1, 1, :user_id);\n"
-          "END; ";
-        Qry.CreateVariable("user_id", otInteger, reqInfo->user.user_id);
-        Qry.Execute();
+        DB::TQuery QryDelRoles(PgOra::getRWSession("USER_ROLES"), STDLOG);
+        QryDelRoles.SQLText = "DELETE from user_roles";
+        QryDelRoles.Execute();
+        DB::TQuery QryAddRoles(PgOra::getRWSession("USER_ROLES"), STDLOG);
+        QryAddRoles.SQLText = "INSERT INTO user_roles VALUES(1, 1, :user_id)";
+        QryAddRoles.CreateVariable("user_id", otInteger, reqInfo->user.user_id);
+        QryAddRoles.Execute();
     }
 #endif//XP_TESTING
 
@@ -1473,8 +1569,10 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 void MainDCSInterface::UserLogoff(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
-    TQuery Qry(&OraSession);
-    Qry.SQLText = "UPDATE users2 SET desk = NULL WHERE user_id = :user_id";
+    DB::TQuery Qry(PgOra::getRWSession("USERS2"), STDLOG);
+    Qry.SQLText = "UPDATE users2 SET "
+                  "desk = NULL "
+                  "WHERE user_id = :user_id";
     Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
     Qry.Execute();
     RemoveSessionParamsContext();
@@ -1488,31 +1586,30 @@ void MainDCSInterface::UserLogoff(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 void MainDCSInterface::ChangePasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
-    TQuery Qry(&OraSession);
     if (GetNode("old_passwd", reqNode)!=NULL)
     {
-      Qry.Clear();
+      DB::TQuery Qry(PgOra::getRWSession("USERS2"), STDLOG);
       Qry.SQLText =
-        "SELECT passwd FROM users2 WHERE user_id = :user_id FOR UPDATE";
+        "SELECT passwd FROM users2 "
+        "WHERE user_id = :user_id "
+        "FOR UPDATE";
       Qry.CreateVariable("user_id", otInteger, reqInfo->user.user_id);
       Qry.Execute();
       if (Qry.Eof) throw Exception("user not found (user_id=%d)",reqInfo->user.user_id);
-      if (strcmp(Qry.FieldAsString("passwd"),NodeAsString("old_passwd", reqNode))!=0)
+      if (strcmp(Qry.FieldAsString("passwd").c_str(),NodeAsString("old_passwd", reqNode))!=0)
         throw AstraLocale::UserException("MSG.PASSWORD.CURRENT_WRONG_SET");
     };
-    Qry.Clear();
-    Qry.SQLText =
-      "BEGIN "
-      "  UPDATE users2 SET passwd = :passwd WHERE user_id = :user_id; "
-      "  hist.synchronize_history('users2',:user_id,:SYS_user_descr,:SYS_desk_code); "
-      "END; ";
-    Qry.CreateVariable("user_id", otInteger, reqInfo->user.user_id);
-    Qry.CreateVariable("passwd", otString, NodeAsString("passwd", reqNode));
-    Qry.CreateVariable( "SYS_user_descr", otString, reqInfo->user.descr );
-    Qry.CreateVariable( "SYS_desk_code", otString, reqInfo->desk.code );
-    Qry.Execute();
-    if(Qry.RowsProcessed() == 0)
+    DB::TQuery QryUpd(PgOra::getRWSession("USERS2"), STDLOG);
+    QryUpd.SQLText =
+        "UPDATE users2 SET "
+        "passwd = :passwd "
+        "WHERE user_id = :user_id ";
+    QryUpd.CreateVariable("user_id", otInteger, reqInfo->user.user_id);
+    QryUpd.CreateVariable("passwd", otString, NodeAsString("passwd", reqNode));
+    QryUpd.Execute();
+    if(QryUpd.RowsProcessed() == 0)
         throw Exception("user not found (user_id=%d)",reqInfo->user.user_id);
+    ASTRA::syncHistory("users2", reqInfo->user.user_id, reqInfo->user.descr, reqInfo->desk.code);
     TReqInfo::Instance()->LocaleToLog("EVT.PASSWORD.MODIFIED", evtAccess);
     AstraLocale::showMessage("MSG.PASSWORD.MODIFIED");
 }
@@ -1524,40 +1621,44 @@ void MainDCSInterface::GetDeviceList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   string op_type;
   if (GetNode("operation",reqNode)!=NULL) op_type=NodeAsString("operation",reqNode);
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"DEV_OPER_TYPES",
+                                      "DEV_MODELS",
+                                      "DEV_MODEL_SESS_FMT",
+                                      "DEV_SESS_MODES",
+                                      "DEV_FMT_OPERS"}), STDLOG);
   ostringstream sql;
 
-  sql <<
-    "SELECT dev_oper_types.code AS op_type, "
-    "       dev_model_code "
-    " FROM dev_oper_types, "
-    "  (SELECT DISTINCT "
-    "          dev_models.code AS dev_model_code, "
-    "          dev_fmt_opers.op_type "
-    "   FROM dev_models, "
-    "        dev_model_sess_fmt,dev_sess_modes,dev_fmt_opers "
-    "   WHERE dev_model_sess_fmt.dev_model=dev_models.code AND "
-    "         dev_model_sess_fmt.sess_type=dev_sess_modes.sess_type AND "
-    "         dev_model_sess_fmt.fmt_type=dev_fmt_opers.fmt_type AND "
-    "         dev_sess_modes.term_mode=:term_mode ";
+  sql << "SELECT "
+         "  dev_oper_types.code AS op_type, "
+         "  dev_model_code "
+         "FROM dev_oper_types "
+         "  LEFT OUTER JOIN ( "
+         "    SELECT DISTINCT "
+         "      dev_models.code AS dev_model_code, "
+         "      dev_fmt_opers.op_type "
+         "    FROM dev_models "
+         "      JOIN dev_model_sess_fmt "
+         "        ON dev_model_sess_fmt.dev_model = dev_models.code "
+         "      JOIN dev_sess_modes "
+         "        ON dev_model_sess_fmt.sess_type = dev_sess_modes.sess_type "
+         "      JOIN dev_fmt_opers "
+         "        ON dev_model_sess_fmt.fmt_type = dev_fmt_opers.fmt_type "
+         "    WHERE ( "
+         "      dev_sess_modes.term_mode = :term_mode ";
+  if (!op_type.empty()) {
+    sql << "      AND dev_fmt_opers.op_type = :op_type ";
+  }
+  sql << "    ) "
+         "  ) dev_models "
+         "    ON dev_oper_types.code = dev_models.op_type ";
+  if (!op_type.empty()) {
+    sql << "WHERE dev_oper_types.code = :op_type ";
+  }
+  sql << "ORDER BY op_type, dev_model_code ";
 
-  if (!op_type.empty())
-    sql << " AND dev_fmt_opers.op_type=:op_type ";
-
-  sql <<
-    "  ) dev_models "
-    "WHERE dev_oper_types.code=dev_models.op_type(+) ";
-
-  if (!op_type.empty())
-    sql << " AND dev_oper_types.code=:op_type ";
-
-  sql <<
-    "ORDER BY op_type,dev_model_code";
-
-  if (!op_type.empty())
+  if (!op_type.empty()) {
     Qry.CreateVariable("op_type",otString,op_type);
-
+  }
 
   Qry.SQLText=sql.str().c_str();
   Qry.CreateVariable("term_mode",otString,EncodeOperMode(reqInfo->desk.mode));

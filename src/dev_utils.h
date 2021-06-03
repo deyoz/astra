@@ -536,7 +536,7 @@ class DeviceParams : public std::map<DeviceParamKey, DeviceParam>
     void add(const DeviceParam& param);
     void replaceValue(const DeviceParam& param, bool onlyIfEditable=false);
     void replaceValue(const std::string& name, const std::string& value, bool onlyIfEditable=false);
-    void fromDB(TQuery &Qry);
+    void fromDB(DB::TQuery &Qry);
     void fromXML(xmlNodePtr paramsNode);
     void toXML(xmlNodePtr paramsNode, bool editable) const;
     bool getAsBoolean(const std::string& name, const bool& def) const;

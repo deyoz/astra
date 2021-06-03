@@ -2131,7 +2131,6 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
   TInquiryGroup grp;
   TInquiryGroupSummary sum;
-  TQuery Qry(&OraSession);
   if (!pr_unaccomp)
   {
     readTripCounters(point_dep,resNode);
@@ -2141,23 +2140,23 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     fmt.persCountFmt=0;
     fmt.infSeatsFmt=0;
 
-    Qry.Clear();
-    Qry.SQLText=
+    DB::TQuery QryDesk(PgOra::getROSession({"DESKS","DESK_GRP_SETS"}), STDLOG);
+    QryDesk.SQLText=
       "SELECT pers_count_fmt,inf_seats_fmt "
       "FROM desks,desk_grp_sets "
       "WHERE desks.grp_id=desk_grp_sets.grp_id AND desks.code=:desk ";
-    Qry.CreateVariable("desk",otString,TReqInfo::Instance()->desk.code);
-    Qry.Execute();
-    if (!Qry.Eof)
+    QryDesk.CreateVariable("desk",otString,TReqInfo::Instance()->desk.code);
+    QryDesk.Execute();
+    if (!QryDesk.Eof)
     {
-      if (!Qry.FieldIsNULL("pers_count_fmt"))
+      if (!QryDesk.FieldIsNULL("pers_count_fmt"))
       {
-        fmt.persCountFmt=Qry.FieldAsInteger("pers_count_fmt");
+        fmt.persCountFmt=QryDesk.FieldAsInteger("pers_count_fmt");
         if (fmt.persCountFmt!=0) fmt.persCountFmt=1;
       }
-      if (!Qry.FieldIsNULL("inf_seats_fmt"))
+      if (!QryDesk.FieldIsNULL("inf_seats_fmt"))
       {
-        fmt.infSeatsFmt=Qry.FieldAsInteger("inf_seats_fmt");
+        fmt.infSeatsFmt=QryDesk.FieldAsInteger("inf_seats_fmt");
         if (fmt.infSeatsFmt!=0) fmt.infSeatsFmt=1;
       }
     }
@@ -2181,6 +2180,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
   xmlNodePtr node;
 
+  TQuery Qry(&OraSession);
   if (pax_status==psTransit)
   {
     Qry.Clear();

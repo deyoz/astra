@@ -21,6 +21,7 @@
 #include "jxtlib/xml_stuff.h"
 #include <serverlib/algo.h>
 #include <serverlib/cursctl.h>
+#include <serverlib/dbcpp_cursctl.h>
 
 #define NICKNAME "DJEK"
 #include "serverlib/slogger.h"
@@ -2200,9 +2201,10 @@ void CacheTableTermRequest::queryPropsToXml(xmlNodePtr queryNode) const
 {
   if (queryNode==nullptr) return;
 
-  auto cur = make_curs(
+  DbCpp::CursCtl cur = make_db_curs(
     "SELECT desks.term_mode, desks.term_id FROM users2, desks "
-    "WHERE users2.desk=desks.code AND users2.login=:login");
+    "WHERE users2.desk=desks.code AND users2.login=:login",
+    PgOra::getROSession({"USERS2", "DESKS"}));
   string mode;
   uint32_t termId;
   cur.def(mode)
@@ -2210,7 +2212,7 @@ void CacheTableTermRequest::queryPropsToXml(xmlNodePtr queryNode) const
      .bind(":login", queryLogin)
      .EXfet();
 
-  ASSERT(cur.err() != NO_DATA_FOUND);
+  ASSERT(cur.err() != DbCpp::ResultCode::NoDataFound);
 
   SetProp(queryNode, "handle", 0);
   SetProp(queryNode, "id", "cache");

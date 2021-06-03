@@ -823,24 +823,63 @@ string ElemIdToElem(TElemType type, int id, const vector< pair<TElemFmt,string> 
     catch (const EBaseTableError&) {};
   } else
   {
-    TQuery Qry(&OraSession);
     //не base_table
+    std::string table_name;
+    std::string sql;
     switch(type)
     {
-                case etHall: Qry.SQLText="SELECT name,name_lat FROM halls2 WHERE id=:id"; break;
-              case etBIHall: Qry.SQLText="SELECT name,name_lat FROM bi_halls WHERE id=:id"; break;
-             case etDeskGrp: Qry.SQLText="SELECT descr AS name, descr_lat AS name_lat FROM desk_grp WHERE grp_id=:id"; break;
-              case etRemGrp: Qry.SQLText="SELECT name, name_lat FROM rem_grp WHERE id=:id"; break;
-               case etUsers: Qry.SQLText="SELECT descr AS name, descr AS name_lat FROM users2 WHERE user_id=:id"; break;
-               case etRoles: Qry.SQLText="SELECT name AS name, name AS name_lat FROM roles WHERE role_id=:id"; break;
-            case etProfiles: Qry.SQLText="SELECT name AS name, name AS name_lat FROM airline_profiles WHERE profile_id=:id"; break;
-        case etAirpTerminal: Qry.SQLText="SELECT name AS name, name AS name_lat FROM airp_terminals WHERE id=:id"; break;
-               case etBrand: Qry.SQLText="SELECT code, code code_lat, name, name_lat FROM brands WHERE id=:id"; break;
-               case etHotel: Qry.SQLText="SELECT hotel_name name, hotel_name name_lat FROM hotel_acmd WHERE id=:id"; break;
-       case etHotelRoomType: Qry.SQLText="SELECT name, name name_lat FROM hotel_room_types WHERE id=:id"; break;
-           case etKiosksGrp: Qry.SQLText="SELECT name, name name_lat FROM kiosks_grp WHERE id=:id"; break;
-                    default: throw Exception("Unexpected elem type %s", EncodeElemType(type));
+    case etHall:
+      table_name = "HALLS2";
+      sql = "SELECT name,name_lat FROM halls2 WHERE id=:id";
+      break;
+    case etBIHall:
+      table_name = "BI_HALLS";
+      sql = "SELECT name,name_lat FROM bi_halls WHERE id=:id";
+      break;
+    case etDeskGrp:
+      table_name = "DESK_GRP";
+      sql = "SELECT descr AS name, descr_lat AS name_lat FROM desk_grp WHERE grp_id=:id";
+      break;
+    case etRemGrp:
+      table_name = "REM_GRP";
+      sql = "SELECT name, name_lat FROM rem_grp WHERE id=:id";
+      break;
+    case etUsers:
+      table_name = "USERS2";
+      sql = "SELECT descr AS name, descr AS name_lat FROM users2 WHERE user_id=:id";
+      break;
+    case etRoles:
+      table_name = "ROLES";
+      sql = "SELECT name AS name, name AS name_lat FROM roles WHERE role_id=:id";
+      break;
+    case etProfiles:
+      table_name = "AIRLINE_PROFILES";
+      sql = "SELECT name AS name, name AS name_lat FROM airline_profiles WHERE profile_id=:id";
+      break;
+    case etAirpTerminal:
+      table_name = "AIRP_TERMINALS";
+      sql = "SELECT name AS name, name AS name_lat FROM airp_terminals WHERE id=:id";
+      break;
+    case etBrand:
+      table_name = "BRANDS";
+      sql = "SELECT code, code code_lat, name, name_lat FROM brands WHERE id=:id";
+      break;
+    case etHotel:
+      table_name = "HOTEL_ACMD";
+      sql = "SELECT hotel_name name, hotel_name name_lat FROM hotel_acmd WHERE id=:id";
+      break;
+    case etHotelRoomType:
+      table_name = "HOTEL_ROOM_TYPES";
+      sql = "SELECT name, name name_lat FROM hotel_room_types WHERE id=:id";
+      break;
+    case etKiosksGrp:
+      table_name = "KIOSKS_GRP";
+      sql = "SELECT name, name name_lat FROM kiosks_grp WHERE id=:id";
+      break;
+    default: throw Exception("Unexpected elem type %s", EncodeElemType(type));
     };
+    DB::TQuery Qry(PgOra::getROSession(table_name), STDLOG);
+    Qry.SQLText = sql;
     Qry.CreateVariable("id",otInteger,id);
     Qry.Execute();
     for(vector< pair<TElemFmt,string> >::const_iterator i=fmts.begin();i!=fmts.end();i++)

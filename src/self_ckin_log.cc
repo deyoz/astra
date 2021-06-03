@@ -113,8 +113,11 @@ void TKiosksGrp::fromDB(int _kiosk_addr)
     clear();
     kiosk_addr = _kiosk_addr;
     if(kiosk_addr == NoExists) return;
-    TCachedQuery Qry("select kiosk_id from web_clients where kiosk_addr = :kiosk_addr",
-            QParams() << QParam("kiosk_addr", otInteger, kiosk_addr));
+    DB::TCachedQuery Qry(
+          PgOra::getROSession("WEB_CLIENTS"),
+          "select kiosk_id from web_clients where kiosk_addr = :kiosk_addr",
+          QParams() << QParam("kiosk_addr", otInteger, kiosk_addr),
+          STDLOG);
     Qry.get().Execute();
     for(; not Qry.get().Eof; Qry.get().Next())
         items.push_back(Qry.get().FieldAsString("kiosk_id"));

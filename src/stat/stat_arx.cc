@@ -251,47 +251,61 @@ void GetSystemLogStationSQL(TQuery &Qry)
     Qry.CreateVariable("SYS_user_id", otInteger, TReqInfo::Instance()->user.user_id);
 }
 
-void GetSystemLogModuleSQL(TQuery &Qry)
+void GetSystemLogModuleSQL(DB::TQuery &Qry)
 {
-    string SQLText =
-        "select -1, null module, -1 view_order from dual "
+    std::string dual;
+    if (!PgOra::supportsPg("SCREEN")) {
+      dual = "from dual ";
+    }
+    std::string SQLText =
+        "select -1, null module, -1 view_order " + dual +
         "union "
         "select 0, '";
     SQLText += getLocaleText(SYSTEM_USER);
     SQLText +=
-        "' module, 0 view_order from dual "
+        "' module, 0 view_order " + dual +
         "union "
         "select id, name, view_order from screen where view_order is not null order by view_order";
     Qry.SQLText = SQLText;
 }
 
+template <typename T>
+void addCboxNode(T &Qry, xmlNodePtr resNode)
+{
+  try {
+      Qry.Execute();
+  } catch (EOracleError &E) {
+      if(E.Code == 376)
+          throw AstraLocale::UserException("MSG.ONE_OF_DB_FILES_UNAVAILABLE.CALL_ADMIN");
+      else
+          throw;
+  }
+  xmlNodePtr cboxNode = NewTextChild(resNode, "cbox");
+  while(!Qry.Eof) {
+      xmlNodePtr fNode = NewTextChild(cboxNode, "f");
+      NewTextChild(fNode, "key", Qry.FieldAsInteger(0));
+      NewTextChild(fNode, "value", getLocaleText(Qry.FieldAsString(1)));
+      Qry.Next();
+  }
+}
+
 void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     string cbox = NodeAsString("cbox", reqNode);
-    TQuery Qry(&OraSession);
-    if(cbox == "AgentCBox")
-        GetSystemLogAgentSQL(Qry);
-    else if(cbox == "StationCBox")
-        GetSystemLogStationSQL(Qry);
-    else if(cbox == "ModuleCBox")
-        GetSystemLogModuleSQL(Qry);
-    else
+    if (cbox == "AgentCBox" || cbox == "StationCBox") {
+      TQuery Qry(&OraSession, STDLOG);
+      if(cbox == "AgentCBox") {
+          GetSystemLogAgentSQL(Qry);
+      } else if(cbox == "StationCBox") {
+          GetSystemLogStationSQL(Qry);
+      }
+      addCboxNode(Qry, resNode);
+    } else if(cbox == "ModuleCBox") {
+      DB::TQuery Qry(PgOra::getROSession("SCREEN"), STDLOG);
+      GetSystemLogModuleSQL(Qry);
+      addCboxNode(Qry, resNode);
+    } else {
         throw Exception("StatInterface::CommonCBoxDropDown: unknown cbox: %s", cbox.c_str());
-
-    try {
-        Qry.Execute();
-    } catch (EOracleError &E) {
-        if(E.Code == 376)
-            throw AstraLocale::UserException("MSG.ONE_OF_DB_FILES_UNAVAILABLE.CALL_ADMIN");
-        else
-            throw;
-    }
-    xmlNodePtr cboxNode = NewTextChild(resNode, "cbox");
-    while(!Qry.Eof) {
-        xmlNodePtr fNode = NewTextChild(cboxNode, "f");
-        NewTextChild(fNode, "key", Qry.FieldAsInteger(0));
-        NewTextChild(fNode, "value", getLocaleText(Qry.FieldAsString(1)));
-        Qry.Next();
     }
 }
 
@@ -400,7 +414,7 @@ void ArxFltTaskLogRun(TDateTime part_key, XMLRequestCtxt *ctxt,
             string screen = Qry.FieldAsString(col_screen);
             if(screen.size()) {
                 if(screen_map.find(screen) == screen_map.end()) {
-                    DB::TQuery Qry(*get_main_ora_sess(STDLOG), STDLOG);
+                    DB::TQuery Qry(PgOra::getROSession("SCREEN"), STDLOG);
                     Qry.SQLText = "select name from screen where exe = :exe";
                     Qry.CreateVariable("exe", otString, screen);
                     Qry.Execute();
@@ -526,7 +540,7 @@ void StatInterface::FltTaskLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
             string screen = Qry.FieldAsString(col_screen);
             if(screen.size()) {
                 if(screen_map.find(screen) == screen_map.end()) {
-                    TQuery Qry(&OraSession);
+                    DB::TQuery Qry(PgOra::getROSession("SCREEN"), STDLOG);
                     Qry.SQLText = "select name from screen where exe = :exe";
                     Qry.CreateVariable("exe", otString, screen);
                     Qry.Execute();
@@ -850,7 +864,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 string screen = Qry.FieldAsString(col_screen);
                 if(screen.size()) {
                     if(screen_map.find(screen) == screen_map.end()) {
-                        TQuery Qry(&OraSession);
+                        DB::TQuery Qry(PgOra::getROSession("SCREEN"), STDLOG);
                         Qry.SQLText = "select name from screen where exe = :exe";
                         Qry.CreateVariable("exe", otString, screen);
                         Qry.Execute();
@@ -1319,13 +1333,13 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     NewTextChild(variablesNode, "report_title", getLocaleText("Операции в системе"));
     string module;
 
-    TQuery Qry(&OraSession);
     xmlNodePtr moduleNode = GetNode("module", reqNode);
     if(not moduleNode)
         ;
     else if(NodeIsNULL(moduleNode))
         module = SYSTEM_USER;
     else {
+        DB::TQuery Qry(PgOra::getROSession("SCREEN"), STDLOG);
         Qry.SQLText = "select exe from screen where id = :module";
         Qry.CreateVariable("module", otInteger, NodeAsInteger(moduleNode));
         Qry.Execute();
@@ -1362,7 +1376,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     map<int, string> TripItems;
     xmlNodePtr rowsNode = NULL;
     TDeskAccess desk_access;
-    Qry.Clear();
+    TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT msg, time, "
         "       DECODE(type, :evtFlt, id1, :evtFltTask, id1, :evtPax, id1, :evtPay, id1, :evtGraph, id1, :evtTlg, id1, "

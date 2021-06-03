@@ -95,6 +95,96 @@ namespace PgOra
         { "SP_PG_GROUP_TYPEB_IN", { "TLGS_IN", "TYPEB_PARSE_PROCESSES", "TYPEB_IN_HISTORY", "TYPEB_IN_ERRORS", "TYPEB_IN_BODY", "TYPEB_IN" } },
         { "SP_PG_GROUP_TYPEB_OUT", { "TLG_OUT", "TYPEB_OUT_ERRORS", "TYPEB_OUT_EXTRA" } },
         { "SP_PG_GROUP_TLG_IN_OUT_SEQ", { "TLG_IN_OUT__SEQ" } },
+
+        // ASTRA MINIMUM
+
+        { "SP_PG_GROUP_MIN_BASE_TABLES", {
+                "AIRLINES",
+                "AIRPS",
+                "LANG_TYPES",
+                "TRIP_TYPES",
+                "CITIES",
+                "CRAFTS",
+        }},
+
+        { "SP_PG_GROUP_DESK", {
+                "DESK_LOGGING",         // 4load: adm_cache_tables.ldr, cache_fields.ldr, cache_tables.ldr
+                "DESK_TRACES",          // 4load: adm_cache_tables.ldr, cache_fielddesks.ldr, cache_tables.ldr
+                "DESK_NOTICES",         // +
+                "LOCALE_NOTICES",       // +
+                "DESK_DISABLE_NOTICES", // +
+                "DESK_OWNERS",          // 4load: adm_cache_tables.ldr, cache_fields.ldr, cache_tables.ldr, desk_owners.ldr
+                                        // 7Proc: ADM
+                "DESKS",                // 4load: adm_cache_tables.ldr, cache_fields.ldr, cache_tables.ldr, desks.ldr
+                                        // 7Proc: ADM
+                "DESK_GRP",
+                "TERM_EXPIRE_DATES",    // +
+        }},
+        { "SP_PG_GROUP_PROFILES", {
+                "AIRLINE_PROFILES",     // profile_rights
+                                        // 4load: cache_fields.ldr, cache_tables.ldr
+                                        // 7Proc: ADM
+                "PROFILE_RIGHTS",       // 4load: adm_cache_tables.ldr, cache_fields.ldr, cache_tables.ldr
+                                        // 7Proc: ADM
+                "LOCALE_MESSAGES",      // client_error_list,
+                                        // // 7Proc: ADM, SYSTEM
+        }},
+        { "SP_PG_GROUP_RIGHTS", {
+                "SCREEN",               // 4load: screen.ldr
+                "SCREEN_RIGHTS",        // user_roles,role_rights,screen
+                "USER_ROLES",           // rights_list,role_rights,role_assign_rights,
+                                        // adm.cc: LoadAdm(): adm_cache_tables,cache_tables,user_roles,role_rights
+                                        // 4load: cache_tables.ldr, user_roles.ldr, history_tables.ldr,
+                                        // 7Proc: ADM
+                "ROLE_RIGHTS",          // rights_list,role_rights,role_assign_rights,
+                                        // adm.cc: LoadAdm(): adm_cache_tables,cache_tables,user_roles,role_rights
+                                        // 4load: cache_tables.ldr, role_rights.ldr, history_tables.ldr,
+                                        // 7Proc: ADM
+                "ROLE_ASSIGN_RIGHTS",   // access.cc: AccessInterface::Clone
+                                        // 4load: cache_tables.ldr, role_assign_rights.ldr, history_tables.ldr,
+                                        // 7Proc: ADM
+                "ARO_AIRLINES",         // access.cc: TARO, TAirlinesARO
+                                        // 4load: history_tables.ldr,
+                                        // 7Proc: ADM
+                "ARO_AIRPS",            // access.cc: TARO, TAirpsARO
+                                        // 4load: history_tables.ldr,
+                                        // 7Proc: ADM
+        }},
+        { "SP_PG_GROUP_USERS", {
+                "USERS2",               // user_sets, user_set_types, desks, web_clients
+                                        // 4load: cache_tables.ldr, users2.ldr, history_tables.ldr,
+                                        // 7Proc: ADM
+                                        // brd.cc: BrdInterface::GetPaxQuery()
+                                        // sofi.cc: createSofiFile()
+                                        // stat_agent.cc: RunAgentStat()
+                                        // stat_arx.cc: 7Proc: ADM: adm.check_user_access
+                                        // stat_rem.cc: RunRemStat()
+                                        // stat_rfisc.cc: get_rfisc_stat()
+                                        // stat_unacc.cc: RunUNACCStat()
+                                        // stat_rfisc.cc: get_rfisc_stat()
+                "USER_SETS",            // users2,user_set_types
+                "USER_SET_TYPES",       // base_tables.h
+                                        // 4load: cache_tables.ldr, user_set_types.ldr,
+                "PRN_FORMS_LAYOUT",     // 4load: cache_fields.ldr, cache_tables.ldr
+                "WEB_CLIENTS",
+        }},
+        { "SP_PG_GROUP_DEV", {
+                "DEV_FMT_TYPES",        // base_tables.h
+                                        // 4load: cache_fields.ldr, cache_tables.ldr
+                "DEV_MODELS",           // base_tables.h
+                                        // 4load: cache_fields.ldr, cache_tables.ldr
+                "DEV_OPER_TYPES",       // base_tables.h
+                                        // 4load: cache_fields.ldr, cache_tables.ldr, dev_oper_types.ldr
+                "DEV_MODEL_DEFAULTS",   // dev_oper_types
+                "DEV_SESS_TYPES",       // base_tables.h
+                "DEV_EVENT_CMD",        // +
+                "DEV_MODEL_PARAMS",     // dev_sess_modes
+                "DEV_FMT_OPERS",        // dev_model_params, dev_model_sess_fmt, dev_sess_modes
+                                        // 4load: cache_fields.ldr, cache_tables.ldr
+                "DEV_SESS_MODES",       // dev_model_params, dev_model_sess_fmt, dev_fmt_opers
+                "DEV_MODEL_SESS_FMT",   // dev_sess_modes, dev_fmt_opers
+                                        // 4load: cache_tables.ldr
+        }},
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)

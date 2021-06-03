@@ -1682,7 +1682,7 @@ void DeviceParams::replaceValue(const std::string& name, const std::string& valu
                 onlyIfEditable );
 }
 
-void DeviceParams::fromDB(TQuery &Qry)
+void DeviceParams::fromDB(DB::TQuery &Qry)
 {
   clear();
   for(; !Qry.Eof; Qry.Next())
@@ -1775,7 +1775,7 @@ SessParams::SessParams(const std::string& dev_model,
                        const std::string& sess_type,
                        const std::string& fmt_type) : CategorizedParams(sess_type)
 {
-  TQuery SessParamsQry( &OraSession );
+  DB::TQuery SessParamsQry(PgOra::getROSession({"DEV_MODEL_PARAMS","DEV_SESS_MODES"}), STDLOG);
   SessParamsQry.SQLText=
     "SELECT dev_model_params.sess_type AS param_type, "
     "       param_name,subparam_name,param_value,editable "
@@ -1806,7 +1806,7 @@ FmtParams::FmtParams(const std::string& operation,
                      const std::string& sess_type,
                      const std::string& fmt_type) : CategorizedParams(fmt_type)
 {
-  TQuery FmtParamsQry( &OraSession );
+  DB::TQuery FmtParamsQry(PgOra::getROSession({"DEV_MODEL_PARAMS","DEV_FMT_OPERS"}), STDLOG);
   FmtParamsQry.SQLText=
       "SELECT dev_model_params.fmt_type AS param_type, "
       "       param_name,subparam_name,param_value,editable "
@@ -1833,7 +1833,7 @@ FmtParams::FmtParams(const std::string& operation,
 
 ModelParams::ModelParams(const std::string& dev_model) : CategorizedParams(dev_model)
 {
-  TQuery ModelParamsQry( &OraSession );
+  DB::TQuery ModelParamsQry(PgOra::getROSession("DEV_MODEL_PARAMS"), STDLOG);
   ModelParamsQry.SQLText=
     "SELECT NULL AS param_type, "
     "       param_name,subparam_name,param_value,editable "

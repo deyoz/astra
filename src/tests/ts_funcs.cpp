@@ -890,7 +890,7 @@ static std::string FP_setUserTime(const std::vector<std::string>& par)
         "INSERT INTO user_sets(user_id, time) SELECT user_id, :time FROM users2 WHERE login=:login":
         "UPDATE user_sets SET time=:time WHERE user_id IN (SELECT user_id FROM users2 WHERE login=:login)";
 
-      auto cur = make_curs(sql);
+      auto cur = make_db_curs(sql, PgOra::getRWSession({"USER_SETS", "USERS2"}));
       cur.bind(":time", time)
          .bind(":login", par.at(1))
          .exec();

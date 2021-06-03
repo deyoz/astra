@@ -6,6 +6,8 @@
 #include "astra_consts.h"
 #include "oralib.h"
 #include "term_version.h"
+#include "db_tquery.h"
+#include "PgOraConfig.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -75,21 +77,17 @@ void AdmInterface::SetDefaultPasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 {
   TReqInfo *reqInfo=TReqInfo::Instance();
   //reqInfo->user.check_access( amWrite );
-  TQuery Qry(&OraSession);
-  int user_id = NodeAsInteger( "user_id", reqNode );
-  Qry.SQLText =
-    "BEGIN "
-    "  UPDATE users2 SET passwd=login WHERE user_id=:user_id; "
-    "  hist.synchronize_history('users2',:user_id,:SYS_user_descr,:SYS_desk_code); "
-    "END; ";
-  Qry.CreateVariable( "user_id", otInteger, user_id );
-  Qry.CreateVariable( "SYS_user_descr", otString, reqInfo->user.descr );
-  Qry.CreateVariable( "SYS_desk_code", otString, reqInfo->desk.code );
-  Qry.Execute();
-  if ( Qry.RowsProcessed() == 0 )
+  const int user_id = NodeAsInteger( "user_id", reqNode );
+  DB::TQuery QryUpd(PgOra::getRWSession("USERS2"), STDLOG);
+  QryUpd.SQLText ="UPDATE users2 SET passwd=login WHERE user_id=:user_id ";
+  QryUpd.CreateVariable( "user_id", otInteger, user_id );
+  QryUpd.Execute();
+  if ( QryUpd.RowsProcessed() == 0 )
     throw Exception("Невозможно сбросить пароль");
+
+  ASTRA::syncHistory("users2", user_id, reqInfo->user.descr, reqInfo->desk.code);
   SetProp( resNode, "handle", "1" );
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getRWSession("USERS2"), STDLOG);
   Qry.SQLText =
     "SELECT descr, login FROM users2 WHERE user_id=:user_id";
   Qry.DeclareVariable( "user_id", otInteger );
@@ -101,8 +99,4 @@ void AdmInterface::SetDefaultPasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                            LParams() << LParam("user", (string)Qry.FieldAsString( "descr" ))<<
                                         LParam("passwd",(string)Qry.FieldAsString( "login" )) );
 }
-
-
-
-
 

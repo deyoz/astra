@@ -725,12 +725,14 @@ AstraEngine::AstraEngine()
 int AstraEngine::getUserId() const
 {
     int usrId = -1;
-    OciCpp::CursCtl cur = make_curs(
-"select USER_ID from USERS2 where LOGIN=:api_login");
+    DbCpp::CursCtl cur = make_db_curs(
+          "select USER_ID from USERS2 "
+          "where LOGIN=:api_login",
+          PgOra::getROSession("USERS2"));
     cur.bind(":api_login", "IATCIUSR")
        .def(usrId)
        .EXfet();
-    if(cur.err() == NO_DATA_FOUND) {
+    if(cur.err() == DbCpp::ResultCode::NoDataFound) {
         LogError(STDLOG) << "Unable to find IATCI user!";
     }
 

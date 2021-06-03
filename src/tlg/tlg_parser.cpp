@@ -7162,17 +7162,9 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
     {
       const int new_id = PgOra::getSeqNextVal_int("ID__SEQ");
       insertCrsSet(new_id, info.sender, con.flt);
-      Qry.Clear();
-      Qry.SQLText=
-        "BEGIN "
-        "  hist.synchronize_history('crs_set',:new_id,:SYS_user_descr,:SYS_desk_code); "
-        "END;";
-      Qry.CreateVariable("new_id", otInteger, new_id);
-      Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
-      Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
       try
       {
-        Qry.Execute();
+        ASTRA::syncHistory("crs_set", new_id, TReqInfo::Instance()->user.descr, TReqInfo::Instance()->desk.code);
       }
       catch(const EOracleError &E)
       {

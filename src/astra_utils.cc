@@ -158,8 +158,7 @@ void TReqInfo::clearPerform()
 void TReqInfo::Initialize( const std::string &city )
 {
   clear();
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("CITIES"), STDLOG);
   Qry.SQLText=
     "SELECT tz_region FROM cities WHERE cities.code=:city AND cities.pr_del=0";
   Qry.DeclareVariable( "city", otString );
@@ -173,7 +172,7 @@ void TReqInfo::Initialize( const std::string &city )
   desk.tz_region = Qry.FieldAsString( "tz_region" );
   desk.time = UTCToLocal( NowUTC(), desk.tz_region );
   user.access.set_total_permit();
-};
+}
 
 void TReqInfo::Initialize( TReqInfoInitData &InitData )
 {
@@ -220,94 +219,91 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
     }
   }
 
-  string sql;
-
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText = "SELECT id,pr_logon FROM screen WHERE exe = :exe";
-  Qry.DeclareVariable( "exe", otString );
-  Qry.SetVariable( "exe", screen.name );
-  Qry.Execute();
-  if ( Qry.RowCount() == 0 )
+  DB::TQuery QryScreen(PgOra::getROSession("SCREEN"), STDLOG);
+  QryScreen.SQLText = "SELECT id,pr_logon FROM screen WHERE exe = :exe";
+  QryScreen.DeclareVariable( "exe", otString );
+  QryScreen.SetVariable( "exe", screen.name );
+  QryScreen.Execute();
+  if ( QryScreen.RowCount() == 0 )
     throw EXCEPTIONS::Exception( (string)"Unknown screen " + screen.name );
-  screen.id = Qry.FieldAsInteger( "id" );
-  screen.pr_logon = Qry.FieldAsInteger( "pr_logon" );
+  screen.id = QryScreen.FieldAsInteger( "id" );
+  screen.pr_logon = QryScreen.FieldAsInteger( "pr_logon" );
 
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT desks.version, NVL(desks.under_constr,0) AS under_constr, "
+  DB::TQuery QryDesks(PgOra::getROSession({"DESKS","DESK_GRP"}), STDLOG);
+  QryDesks.SQLText =
+    "SELECT desks.version, COALESCE(desks.under_constr,0) AS under_constr, "
     "       desks.currency, desks.term_id, "
     "       desk_grp.grp_id, desk_grp.city, desk_grp.airp, desk_grp.airline "
     "FROM desks,desk_grp "
     "WHERE desks.grp_id = desk_grp.grp_id AND desks.code = :pult";
-  Qry.DeclareVariable( "pult", otString );
-  Qry.SetVariable( "pult", deskUpper );
-  Qry.Execute();
-  if ( Qry.RowCount() == 0 )
+  QryDesks.DeclareVariable( "pult", otString );
+  QryDesks.SetVariable( "pult", deskUpper );
+  QryDesks.Execute();
+  if ( QryDesks.RowCount() == 0 )
     throw AstraLocale::UserException( "MSG.PULT_NOT_REGISTERED");
-  if (Qry.FieldAsInteger("under_constr")!=0)
+  if (QryDesks.FieldAsInteger("under_constr")!=0)
     throw AstraLocale::UserException( "MSG.SERVER_TEMPORARILY_UNAVAILABLE" );
-  desk.city = Qry.FieldAsString( "city" );
-  desk.airp = Qry.FieldAsString( "airp" );
-  desk.airline = Qry.FieldAsString( "airline" );
-  desk.version = Qry.FieldAsString( "version" );
-  desk.currency = Qry.FieldAsString( "currency" );
-  desk.grp_id = Qry.FieldAsInteger( "grp_id" );
-  desk.term_id = Qry.FieldIsNULL("term_id")?NoExists:Qry.FieldAsFloat( "term_id" );
+  desk.city = QryDesks.FieldAsString( "city" );
+  desk.airp = QryDesks.FieldAsString( "airp" );
+  desk.airline = QryDesks.FieldAsString( "airline" );
+  desk.version = QryDesks.FieldAsString( "version" );
+  desk.currency = QryDesks.FieldAsString( "currency" );
+  desk.grp_id = QryDesks.FieldAsInteger( "grp_id" );
+  desk.term_id = QryDesks.FieldIsNULL("term_id")?NoExists:QryDesks.FieldAsFloat( "term_id" );
 
   ProgTrace( TRACE5, "terminal version='%s'", desk.version.c_str() );
 
-  Qry.Clear();
-  Qry.SQLText=
+  DB::TQuery QryCities(PgOra::getROSession("CITIES"), STDLOG);
+  QryCities.SQLText=
     "SELECT tz_region FROM cities WHERE cities.code=:city AND cities.pr_del=0";
-  Qry.DeclareVariable( "city", otString );
-  Qry.SetVariable( "city", desk.city );
-  Qry.Execute();
-  if (Qry.Eof)
+  QryCities.DeclareVariable( "city", otString );
+  QryCities.SetVariable( "city", desk.city );
+  QryCities.Execute();
+  if (QryCities.Eof)
     throw AstraLocale::UserException("MSG.DESK_CITY_NOT_DEFINED");
-  if (Qry.FieldIsNULL("tz_region"))
+  if (QryCities.FieldIsNULL("tz_region"))
     throw AstraLocale::UserException("MSG.CITY.REGION_NOT_DEFINED", LParams() << LParam("city", ElemIdToCodeNative(etCity,desk.city)));
-  desk.tz_region = Qry.FieldAsString( "tz_region" );
+  desk.tz_region = QryCities.FieldAsString( "tz_region" );
   desk.time = UTCToLocal( NowUTC(), desk.tz_region );
   if ( !screen.pr_logon ||
        (!InitData.pr_web && !InitData.checkUserLogon) )
     return;
-  Qry.Clear();
+  DB::TQuery QryUsers2(PgOra::getROSession("USERS2"), STDLOG);
   if ( InitData.pr_web ) {
-    Qry.SQLText =
+    QryUsers2.SQLText =
       "SELECT user_id, login, descr, type, pr_denial "
       "FROM users2 "
       "WHERE login = :login ";
-    Qry.CreateVariable( "login", otString, InitData.opr );
-    Qry.Execute();
-    if (Qry.Eof)
+    QryUsers2.CreateVariable( "login", otString, InitData.opr );
+    QryUsers2.Execute();
+    if (QryUsers2.Eof)
       throw AstraLocale::UserException( "MSG.USER.ACCESS_DENIED");
   }
   else {
     if (InitData.term_id!=desk.term_id)
       throw AstraLocale::UserException( "MSG.USER.NEED_TO_LOGIN" );
 
-    Qry.SQLText =
+    QryUsers2.SQLText =
       "SELECT user_id, login, descr, type, pr_denial "
       "FROM users2 "
       "WHERE desk = :pult ";
-    Qry.CreateVariable( "pult", otString, deskUpper );
-    Qry.Execute();
-    if (Qry.Eof)
+    QryUsers2.CreateVariable( "pult", otString, deskUpper );
+    QryUsers2.Execute();
+    if (QryUsers2.Eof)
       throw AstraLocale::UserException( "MSG.USER.NEED_TO_LOGIN" );
     if ( !InitData.opr.empty() )
-      if ( InitData.opr != Qry.FieldAsString( "login" ) )
+      if ( InitData.opr != QryUsers2.FieldAsString( "login" ) )
         throw AstraLocale::UserException( "MSG.USER.NEED_TO_LOGIN" );
   };
 
-  if ( Qry.FieldAsInteger( "pr_denial" ) == -1 )
+  if ( QryUsers2.FieldAsInteger( "pr_denial" ) == -1 )
     throw AstraLocale::UserException( "MSG.USER.DELETED");
-  if ( Qry.FieldAsInteger( "pr_denial" ) != 0 )
+  if ( QryUsers2.FieldAsInteger( "pr_denial" ) != 0 )
     throw AstraLocale::UserException( "MSG.USER.ACCESS_DENIED");
-  user.user_id = Qry.FieldAsInteger( "user_id" );
-  user.descr = Qry.FieldAsString( "descr" );
-  user.user_type = (TUserType)Qry.FieldAsInteger( "type" );
-  user.login = Qry.FieldAsString( "login" );
+  user.user_id = QryUsers2.FieldAsInteger( "user_id" );
+  user.descr = QryUsers2.FieldAsString( "descr" );
+  user.user_type = (TUserType)QryUsers2.FieldAsInteger( "type" );
+  user.login = QryUsers2.FieldAsString( "login" );
 
 
 #ifdef XP_TESTING
@@ -316,37 +312,21 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
       }
 #endif//XP_TESTING
 
-  Qry.Clear();
-  Qry.SQLText =
+  DB::TQuery QryWebClients(PgOra::getROSession("WEB_CLIENTS"), STDLOG);
+  QryWebClients.SQLText =
     "SELECT client_type FROM web_clients "
     "WHERE desk=:desk OR user_id=:user_id";
-  Qry.CreateVariable( "desk", otString, deskUpper );
-  Qry.CreateVariable( "user_id", otInteger, user.user_id );
-  Qry.Execute();
-  if ( (!Qry.Eof && !InitData.pr_web) ||
-        (Qry.Eof && InitData.pr_web) ) //???
+  QryWebClients.CreateVariable( "desk", otString, deskUpper );
+  QryWebClients.CreateVariable( "user_id", otInteger, user.user_id );
+  QryWebClients.Execute();
+  if ( (!QryWebClients.Eof && !InitData.pr_web) ||
+        (QryWebClients.Eof && InitData.pr_web) ) //???
         throw AstraLocale::UserException( "MSG.USER.ACCESS_DENIED" );
 
   if ( InitData.pr_web )
-    client_type = DecodeClientType( Qry.FieldAsString( "client_type" ) );
+    client_type = DecodeClientType( QryWebClients.FieldAsString( "client_type" ).c_str() );
   else
     client_type = ctTerm;
-
-  //если служащий порта - проверим пульт с которого он заходит
-  /*if (user.user_type==utAirport)
-  {
-    Qry.Clear();
-    sql = string( "SELECT airps.city " ) +
-                  "FROM aro_airps,airps " +
-                  "WHERE aro_airps.airp=airps.code AND "
-                  "      airps.city=:city AND aro_airps.aro_id=:user_id AND rownum<2 ";
-    Qry.SQLText=sql;
-    Qry.CreateVariable("city",otString,desk.city);
-    Qry.CreateVariable("user_id",otInteger,user.user_id);
-    Qry.Execute();
-    if (Qry.Eof)
-      throw AstraLocale::UserException( "MSG.USER.ACCESS_DENIED_FROM_DESK", LParams() << LParam("desk", desk.code));
-  };*/
 
   user.access.fromDB(user.user_id, user.user_type);
 
@@ -375,42 +355,43 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   user.access.merge_airps(airps);
 
   //проверим ограничение доступа по собственникам пульта
-  Qry.Clear();
-  Qry.SQLText=
+  DB::TQuery QryDeskOwners(PgOra::getROSession("DESK_OWNERS"), STDLOG);
+  QryDeskOwners.SQLText=
     "SELECT airline,pr_denial FROM desk_owners "
-    "WHERE desk=:desk ORDER BY airline NULLS FIRST";
-  Qry.CreateVariable("desk",otString,InitData.pult);
-  Qry.Execute();
+    "WHERE desk=:desk "
+    "ORDER BY airline NULLS FIRST";
+  QryDeskOwners.CreateVariable("desk",otString,InitData.pult);
+  QryDeskOwners.Execute();
   bool pr_denial_all=true;
-  if (!Qry.Eof && Qry.FieldIsNULL("airline"))
+  if (!QryDeskOwners.Eof && QryDeskOwners.FieldIsNULL("airline"))
   {
-    pr_denial_all=Qry.FieldAsInteger("pr_denial")!=0;
-    Qry.Next();
+    pr_denial_all=QryDeskOwners.FieldAsInteger("pr_denial")!=0;
+    QryDeskOwners.Next();
   };
 
   airlines.clear();
   airlines.set_elems_permit(pr_denial_all);
-  for(;!Qry.Eof;Qry.Next())
+  for(;!QryDeskOwners.Eof;QryDeskOwners.Next())
   {
-    if (Qry.FieldIsNULL("airline")) continue;
-    bool pr_denial=Qry.FieldAsInteger("pr_denial")!=0;
+    if (QryDeskOwners.FieldIsNULL("airline")) continue;
+    bool pr_denial=QryDeskOwners.FieldAsInteger("pr_denial")!=0;
     if ((!pr_denial_all && pr_denial) ||
         (pr_denial_all && !pr_denial))
-      airlines.add_elem(Qry.FieldAsString("airline"));
+      airlines.add_elem(QryDeskOwners.FieldAsString("airline"));
   };
   user.access.merge_airlines(airlines);
   if (airlines.totally_not_permitted())
     throw AstraLocale::UserException( "MSG.DESK.TURNED_OFF" );
 
   //пользовательские настройки
-  Qry.Clear();
-  Qry.SQLText=
+  DB::TQuery QryUserSets(PgOra::getROSession("USER_SETS"), STDLOG);
+  QryUserSets.SQLText=
     "SELECT time,disp_airline,disp_airp,disp_craft,disp_suffix "
     "FROM user_sets "
     "WHERE user_id=:user_id";
-  Qry.CreateVariable("user_id",otInteger,user.user_id);
-  Qry.Execute();
-  if (!Qry.Eof)
+  QryUserSets.CreateVariable("user_id",otInteger,user.user_id);
+  QryUserSets.Execute();
+  if (!QryUserSets.Eof)
   {
     for(int i=0;i<5;i++)
     {
@@ -423,15 +404,15 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
         case 3: field="disp_craft"; break;
         case 4: field="disp_suffix"; break;
       };
-      if (!Qry.FieldIsNULL(field))
+      if (!QryUserSets.FieldIsNULL(field))
       {
-        switch(Qry.FieldAsInteger(field))
+        switch(QryUserSets.FieldAsInteger(field))
         {
           case ustTimeUTC:
           case ustTimeLocalDesk:
           case ustTimeLocalAirp:
             if (i==0)
-              user.sets.time=(TUserSettingType)Qry.FieldAsInteger(field);
+              user.sets.time=(TUserSettingType)QryUserSets.FieldAsInteger(field);
             break;
           case ustCodeNative:
           case ustCodeInter:
@@ -439,17 +420,17 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
           case ustCodeICAOInter:
           case ustCodeMixed:
             if (i==1)
-              user.sets.disp_airline=(TUserSettingType)Qry.FieldAsInteger(field);
+              user.sets.disp_airline=(TUserSettingType)QryUserSets.FieldAsInteger(field);
             if (i==2)
-              user.sets.disp_airp=(TUserSettingType)Qry.FieldAsInteger(field);
+              user.sets.disp_airp=(TUserSettingType)QryUserSets.FieldAsInteger(field);
             if (i==3)
-              user.sets.disp_craft=(TUserSettingType)Qry.FieldAsInteger(field);
+              user.sets.disp_craft=(TUserSettingType)QryUserSets.FieldAsInteger(field);
             break;
           case ustEncNative:
           case ustEncLatin:
           case ustEncMixed:
             if (i==4)
-              user.sets.disp_suffix=(TUserSettingType)Qry.FieldAsInteger(field);
+              user.sets.disp_suffix=(TUserSettingType)QryUserSets.FieldAsInteger(field);
             break;
           default: ;
         };
@@ -467,8 +448,7 @@ bool TReqInfo::tracing()
   if (vtracing_init) return vtracing;
   vtracing_init=true;
   vtracing=isSelfCkinClientType();
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("WEB_CLIENTS"), STDLOG);
   Qry.SQLText="SELECT tracing_search FROM web_clients WHERE desk=:desk";
   Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
   Qry.Execute();
@@ -586,36 +566,39 @@ bool TAccess::profiledRightPermitted(const PointId_t& pointId, const int right_i
 void TAccess::fromDB(int user_id, TUserType user_type)
 {
   clear();
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.CreateVariable( "user_id", otInteger, user_id );
+  DB::TQuery QryRoles(PgOra::getROSession({"USER_ROLES","ROLE_RIGHTS"}), STDLOG);
 
   //права
-  Qry.SQLText=
+  QryRoles.SQLText=
     "SELECT DISTINCT role_rights.right_id "
     "FROM user_roles,role_rights "
     "WHERE user_roles.role_id=role_rights.role_id AND "
     "      user_roles.user_id=:user_id ";
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
-    _rights.add_elem(Qry.FieldAsInteger("right_id"));
+  QryRoles.CreateVariable( "user_id", otInteger, user_id );
+  QryRoles.Execute();
+  for(;!QryRoles.Eof;QryRoles.Next())
+    _rights.add_elem(QryRoles.FieldAsInteger("right_id"));
 
   //доступ к а/к
-  Qry.SQLText="SELECT airline FROM aro_airlines WHERE aro_id=:user_id";
-  Qry.Execute();
-  if (!Qry.Eof)
-    for(;!Qry.Eof;Qry.Next())
-      _airlines.add_elem(Qry.FieldAsString("airline"));
+  DB::TQuery QryAroAL(PgOra::getROSession("ARO_AIRLINES"), STDLOG);
+  QryAroAL.SQLText="SELECT airline FROM aro_airlines WHERE aro_id=:user_id";
+  QryAroAL.CreateVariable("user_id", otInteger, user_id);
+  QryAroAL.Execute();
+  if (!QryAroAL.Eof)
+    for(;!QryAroAL.Eof;QryAroAL.Next())
+      _airlines.add_elem(QryAroAL.FieldAsString("airline"));
   else
     if (user_type==utSupport ||
         user_type==utAirport) _airlines.set_elems_permit(false);
 
   //доступ к а/п
-  Qry.SQLText="SELECT airp FROM aro_airps WHERE aro_id=:user_id";
-  Qry.Execute();
-  if (!Qry.Eof)
-    for(;!Qry.Eof;Qry.Next())
-      _airps.add_elem(Qry.FieldAsString("airp"));
+  DB::TQuery QryAroAP(PgOra::getROSession("ARO_AIRPS"), STDLOG);
+  QryAroAP.SQLText="SELECT airp FROM aro_airps WHERE aro_id=:user_id";
+  QryAroAP.CreateVariable("user_id", otInteger, user_id);
+  QryAroAP.Execute();
+  if (!QryAroAP.Eof)
+    for(;!QryAroAP.Eof;QryAroAP.Next())
+      _airps.add_elem(QryAroAP.FieldAsString("airp"));
   else
     if (user_type==utSupport ||
         user_type==utAirline) _airps.set_elems_permit(false);
@@ -1445,8 +1428,6 @@ void showBasicInfo(void)
 
   NewTextChild(resNode, "server_id", SERVER_ID() );
 
-  TQuery Qry(&OraSession);
-
   if (!reqInfo->user.login.empty())
   {
     node = NewTextChild(resNode,"user");
@@ -1477,31 +1458,32 @@ void showBasicInfo(void)
     xmlNodePtr setsNode = NewTextChild(node, "settings");
     NewTextChild(setsNode,"defer_etstatus",(int)false);  //устаревшая технология отложенного подтверждения ЭБ удалена
 
-    Qry.Clear();
-    Qry.SQLText="SELECT file_size,send_size,send_portion,backup_num FROM desk_logging WHERE desk=:desk";
-    Qry.CreateVariable("desk",otString,reqInfo->desk.code);
-    Qry.Execute();
-    if (!Qry.Eof)
+    DB::TQuery QryLog(PgOra::getROSession("DESK_LOGGING"), STDLOG);
+    QryLog.SQLText="SELECT file_size,send_size,send_portion,backup_num "
+                   "FROM desk_logging WHERE desk=:desk";
+    QryLog.CreateVariable("desk",otString,reqInfo->desk.code);
+    QryLog.Execute();
+    if (!QryLog.Eof)
     {
       xmlNodePtr loggingNode=NewTextChild(node,"logging");
-      NewTextChild(loggingNode,"file_size",Qry.FieldAsInteger("file_size"));
-      NewTextChild(loggingNode,"send_size",Qry.FieldAsInteger("send_size"));
-      NewTextChild(loggingNode,"send_portion",Qry.FieldAsInteger("send_portion"));
-      NewTextChild(loggingNode,"backup_num",Qry.FieldAsInteger("backup_num"));
+      NewTextChild(loggingNode,"file_size",QryLog.FieldAsInteger("file_size"));
+      NewTextChild(loggingNode,"send_size",QryLog.FieldAsInteger("send_size"));
+      NewTextChild(loggingNode,"send_portion",QryLog.FieldAsInteger("send_portion"));
+      NewTextChild(loggingNode,"backup_num",QryLog.FieldAsInteger("backup_num"));
       xmlNodePtr rangesNode=NewTextChild(loggingNode,"trace_ranges");
-      Qry.Clear();
-      Qry.SQLText="SELECT first_trace,last_trace FROM desk_traces WHERE desk=:desk";
-      Qry.CreateVariable("desk",otString,reqInfo->desk.code);
-      Qry.Execute();
+      DB::TQuery QryTrace(PgOra::getROSession("DESK_TRACES"), STDLOG);
+      QryTrace.SQLText="SELECT first_trace,last_trace FROM desk_traces WHERE desk=:desk";
+      QryTrace.CreateVariable("desk",otString,reqInfo->desk.code);
+      QryTrace.Execute();
       int trace_level=-1;
-      for(;!Qry.Eof;Qry.Next())
+      for(;!QryTrace.Eof;QryTrace.Next())
       {
         xmlNodePtr rangeNode=NewTextChild(rangesNode,"range");
-        NewTextChild(rangeNode,"first_trace",Qry.FieldAsInteger("first_trace"));
-        NewTextChild(rangeNode,"last_trace",Qry.FieldAsInteger("last_trace"));
+        NewTextChild(rangeNode,"first_trace",QryTrace.FieldAsInteger("first_trace"));
+        NewTextChild(rangeNode,"last_trace",QryTrace.FieldAsInteger("last_trace"));
 
-        if (trace_level<Qry.FieldAsInteger("last_trace"))
-          trace_level=Qry.FieldAsInteger("last_trace");
+        if (trace_level<QryTrace.FieldAsInteger("last_trace"))
+          trace_level=QryTrace.FieldAsInteger("last_trace");
       };
       if (trace_level>=0) NewTextChild(node,"trace_level",trace_level);
     };
@@ -1518,14 +1500,19 @@ void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 {
   if (reqNode==NULL) return;
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"CLIENT_ERROR_LIST","LOCALE_MESSAGES"}), STDLOG);
   Qry.SQLText =
-    "SELECT client_error_list.type "
-    "FROM client_error_list,locale_messages "
-    "WHERE client_error_list.text=locale_messages.id(+) AND "
-    "      (:text like client_error_list.text OR "
-    "       locale_messages.text IS NOT NULL AND :text like '%'||locale_messages.text||'%') ";
+      "SELECT client_error_list.type "
+      "FROM client_error_list "
+      "  LEFT OUTER JOIN locale_messages "
+      "    ON client_error_list.text = locale_messages.id "
+      "WHERE ( "
+      "  :text LIKE client_error_list.text "
+      "  OR ( "
+      "    locale_messages.text IS NOT NULL "
+      "    AND :text LIKE '%'||locale_messages.text||'%' "
+      "  ) "
+      ") ";
   Qry.DeclareVariable("text",otString);
 
   xmlNodePtr node=reqNode->children;
@@ -1579,8 +1566,7 @@ const std::string &CityTZRegion(string city, bool with_exception)
 string DeskCity(string desk, bool with_exception)
 {
   if (desk.empty()) throw EXCEPTIONS::Exception("Desk not specified");
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"DESK_GRP","DESKS"}), STDLOG);
   Qry.SQLText =
     "SELECT desk_grp.city "
     "FROM desk_grp,desks "
@@ -1929,6 +1915,31 @@ XMLDoc createXmlDoc2(const std::string& xml)
     }
     xml_decode_nodelist(doc.docPtr()->children);
     return doc;
+}
+
+void syncHistory(const string& table_name, int id,
+                 const std::string& sys_user_descr, const std::string& sys_desk_code)
+{
+  TQuery Qry(&OraSession, STDLOG);
+  Qry.SQLText =
+      "BEGIN "
+      "  hist.synchronize_history(:table_name,:id,:sys_user_descr,:sys_desk_code); "
+      "END;";
+  Qry.CreateVariable("table_name", otString, table_name);
+  Qry.CreateVariable("id", otInteger, id);
+  Qry.CreateVariable("sys_user_descr", otString, sys_user_descr);
+  Qry.CreateVariable("sys_desk_code", otString, sys_desk_code);
+  try {
+      Qry.Execute();
+  } catch(EOracleError &E) {
+      if (E.Code >= 20000) {
+          std::string str = E.what();
+          EOracleError2UserException(str);
+          throw UserException(str);
+      } else {
+          throw;
+      }
+  }
 }
 
 }// namespace ASTRA

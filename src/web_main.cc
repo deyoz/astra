@@ -62,7 +62,7 @@ InetClient getInetClient(const string &client_id)
 {
   InetClient client;
   client.client_id = client_id;
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession({"WEB_CLIENTS","USERS2"}), STDLOG);
   Qry.SQLText =
     "SELECT client_type,web_clients.desk,login "
     "FROM web_clients,users2 "
@@ -82,7 +82,7 @@ InetClient getInetClient(const string &client_id)
 InetClient getInetClientByKioskId(const string &kiosk_id)
 {
   InetClient client;
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession({"WEB_CLIENTS","USERS2"}), STDLOG);
   Qry.SQLText =
     "SELECT client_type,web_clients.desk,login,client_id "
       "FROM web_clients,users2 "

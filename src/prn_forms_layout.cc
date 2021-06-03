@@ -1,5 +1,7 @@
 #include "prn_forms_layout.h"
 #include "oralib.h"
+#include "db_tquery.h"
+#include "PgOraConfig.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -40,7 +42,7 @@ const std::string &TPrnFormsLayout::get(TDevOper::Enum op_type, const std::strin
         << ")";
     if(not items) {
         items = boost::in_place();
-        TQuery Qry(&OraSession);
+        DB::TQuery Qry(PgOra::getROSession("PRN_FORMS_LAYOUT"), STDLOG);
         Qry.SQLText =
             "select op_type, param_name, param_value from prn_forms_layout where "
             "  param_name in ( "

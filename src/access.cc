@@ -8,6 +8,8 @@
 #include <set>
 #include "misc.h"
 #include "qrys.h"
+#include "db_tquery.h"
+#include "PgOraConfig.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -49,69 +51,120 @@ string get_rights_table(TRightListType rlt)
     return table;
 }
 
+int checkProfileAccess(int profile_id, int user_id, int err_code)
+{
+  TQuery Qry(&OraSession, STDLOG);
+  Qry.SQLText =
+      "BEGIN "
+      "  :profile_id:=adm.check_profile_access(:profile_id,:user_id,:err_code); "
+      "END;";
+  Qry.CreateVariable("profile_id", otInteger, profile_id);
+  Qry.CreateVariable("user_id", otInteger, user_id);
+  Qry.CreateVariable("err_code", otInteger, err_code);
+  Qry.Execute();
+  return Qry.GetVariableAsInteger("profile_id");;
+}
+
+int checkRightAccess(int right_id, int user_id, int err_code)
+{
+  TQuery Qry(&OraSession, STDLOG);
+  Qry.SQLText =
+      "BEGIN "
+      "  :right_id:=adm.check_right_access(:right_id,:user_id,:err_code); "
+      "END;";
+  Qry.CreateVariable("right_id", otInteger, right_id);
+  Qry.CreateVariable("user_id", otInteger, user_id);
+  Qry.CreateVariable("err_code", otInteger, err_code);
+  Qry.Execute();
+  return Qry.GetVariableAsInteger("right_id");
+}
+
+int saveProfileRights(int profile_id, int right_id)
+{
+  const int new_id = PgOra::getSeqNextVal("ID__SEQ");
+  DB::TCachedQuery Qry(
+        PgOra::getRWSession("PROFILE_RIGHTS"),
+        "INSERT INTO profile_rights("
+        "profile_id,right_id,id "
+        ") VALUES("
+        ":profile_id,:right_id,:new_id"
+        ") ",
+        QParams() << QParam("profile_id", otInteger, profile_id)
+                  << QParam("right_id", otInteger, right_id)
+                  << QParam("new_id", otInteger, new_id),
+        STDLOG);
+  Qry.get().Execute();
+  return new_id;
+}
+
+int deleteProfileRights(int profile_id, int right_id)
+{
+  QParams params;
+  params << QParam("profile_id", otInteger, profile_id)
+         << QParam("right_id", otInteger, right_id);
+  QParams delParams = params;
+  DB::TCachedQuery Qry(
+        PgOra::getRWSession("PROFILE_RIGHTS"),
+        "SELECT id FROM profile_rights "
+        "WHERE profile_id=:profile_id AND right_id=:right_id "
+        "FOR UPDATE ",
+        params << QParam("id", otInteger),
+        STDLOG);
+  Qry.get().Execute();
+
+  DB::TCachedQuery QryDel(
+        PgOra::getRWSession("PROFILE_RIGHTS"),
+        "DELETE FROM profile_rights "
+        "WHERE profile_id=:profile_id AND right_id=:right_id ",
+        delParams,
+        STDLOG);
+  QryDel.get().Execute();
+  return Qry.get().FieldAsInteger("id");
+}
+
+std::optional<int> getErrorMsgCode(TRightState state)
+{
+  if (state == rsOn) {
+    return 1; /*enter denied*/
+  }
+  if (state == rsOff) {
+    return 2; /*modify denied*/
+  }
+  return {};
+}
+
 void AccessInterface::SaveProfileRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo &reqInfo = *(TReqInfo::Instance());
     if (!reqInfo.user.access.rights().permitted(980))
         throw AstraLocale::UserException("MSG.NO_ACCESS");
     TReqInfo &info = *(TReqInfo::Instance());
-    int profile_id = NodeAsInteger("profile_id", reqNode);
     xmlNodePtr itemNode = NodeAsNode("items", reqNode)->children;
-    TQuery Qry(&OraSession);
-    Qry.CreateVariable("user_id", otInteger, info.user.user_id);
-    Qry.CreateVariable("profile_id", otInteger, profile_id);
-    Qry.DeclareVariable("right_id", otInteger);
-    Qry.CreateVariable("SYS_user_descr", otString, reqInfo.user.descr);
-    Qry.CreateVariable("SYS_desk_code", otString, reqInfo.desk.code);
     for(; itemNode; itemNode = itemNode->next) {
         string lexema_id;
         LEvntPrms params;
         xmlNodePtr dataNode = itemNode->children;
+        int profile_id = NodeAsInteger("profile_id", reqNode);
         int right_id = NodeAsIntegerFast("id", dataNode);
-        Qry.SetVariable("right_id", right_id);
         TRightState state = TRightState(NodeAsIntegerFast("state", dataNode));
-        string SQLText;
-        switch(state) {
-            case rsOn:
-                SQLText =
-                    "DECLARE "
-                    "  vid NUMBER(9); "
-                    "BEGIN "
-                    "  :profile_id:=adm.check_profile_access(:profile_id,:user_id,1); "
-                    "  :right_id:=adm.check_right_access(:right_id,:user_id,1); "
-                    "  INSERT INTO profile_rights(profile_id,right_id,id) VALUES(:profile_id,:right_id,id__seq.nextval) "
-                    "  RETURNING id INTO vid; "
-                    "  hist.synchronize_history('profile_rights',vid,:SYS_user_descr,:SYS_desk_code); "
-                    "END;";
-                lexema_id = "MSG.ACCESS.PROFILE.OPERATION.ON";
-                params << PrmElem<int>("name", etProfiles, profile_id, efmtNameLong) << PrmSmpl<int>("id", profile_id)
-                       << PrmElem<int>("right", etRight, right_id, efmtNameLong);
-                break;
-            case rsOff:
-                SQLText =
-                    "DECLARE "
-                    "  vid    NUMBER(9); "
-                    "BEGIN "
-                    "  :profile_id:=adm.check_profile_access(:profile_id,:user_id,2); "
-                    "  :right_id:=adm.check_right_access(:right_id,:user_id,2); "
-                    "  DELETE FROM profile_rights "
-                    "  WHERE profile_id=:profile_id AND right_id=:right_id RETURNING id INTO vid; "
-                    "  hist.synchronize_history('profile_rights',vid,:SYS_user_descr,:SYS_desk_code); "
-                    "END;";
-                lexema_id = "MSG.ACCESS.PROFILE.OPERATION.OFF";
-                params << PrmElem<int>("name", etProfiles, profile_id, efmtNameLong) << PrmSmpl<int>("id", profile_id)
-                       << PrmElem<int>("right", etRight, right_id, efmtNameLong);                break;
+        auto error_msg_code = getErrorMsgCode(state);
+        if (!error_msg_code) {
+          continue;
         }
-        Qry.SQLText = SQLText;
-        try {
-            Qry.Execute();
-        } catch(EOracleError &E) {
-            if ( E.Code >= 20000 ) {
-                string str = E.what();
-                EOracleError2UserException(str);
-                throw UserException( str );
-            } else
-                throw;
+        profile_id = checkProfileAccess(profile_id, info.user.user_id, *error_msg_code);
+        right_id = checkRightAccess(right_id, info.user.user_id, *error_msg_code);
+        if (state == rsOn) {
+          const int new_id = saveProfileRights(profile_id, right_id);
+          ASTRA::syncHistory("profile_rights", new_id, reqInfo.user.descr, reqInfo.desk.code);
+          lexema_id = "MSG.ACCESS.PROFILE.OPERATION.ON";
+          params << PrmElem<int>("name", etProfiles, profile_id, efmtNameLong) << PrmSmpl<int>("id", profile_id)
+                 << PrmElem<int>("right", etRight, right_id, efmtNameLong);
+        } else if (state == rsOff) {
+          const int deleted_id = deleteProfileRights(profile_id, right_id);
+          ASTRA::syncHistory("profile_rights", deleted_id, reqInfo.user.descr, reqInfo.desk.code);
+          lexema_id = "MSG.ACCESS.PROFILE.OPERATION.OFF";
+          params << PrmElem<int>("name", etProfiles, profile_id, efmtNameLong) << PrmSmpl<int>("id", profile_id)
+                 << PrmElem<int>("right", etRight, right_id, efmtNameLong);
         }
         info.LocaleToLog(lexema_id, params, evtAccess);
     }
@@ -129,12 +182,12 @@ void AccessInterface::SaveRoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     if (rlt != rltRights && rlt != rltAssignRights)
         throw Exception("AccessInterface::RoleRights: unexpected TRightListType: %d", rlt);
     xmlNodePtr itemNode = NodeAsNode("items", reqNode)->children;
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession(table), STDLOG);
     Qry.CreateVariable("user_id", otInteger, info.user.user_id);
     Qry.CreateVariable("role_id", otInteger, role_id);
     Qry.DeclareVariable("right_id", otInteger);
-    Qry.CreateVariable("SYS_user_descr", otString, reqInfo.user.descr);
-    Qry.CreateVariable("SYS_desk_code", otString, reqInfo.desk.code);
+    Qry.CreateVariable("sys_user_descr", otString, reqInfo.user.descr);
+    Qry.CreateVariable("sys_desk_code", otString, reqInfo.desk.code);
     for(; itemNode; itemNode = itemNode->next) {
         string lexema_id;
         LEvntPrms params;
@@ -153,7 +206,7 @@ void AccessInterface::SaveRoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
                     "  :right_id:=adm.check_right_access(:right_id,:user_id,1); "
                     "  INSERT INTO " + table + "(role_id,right_id,id) VALUES(:role_id,:right_id,id__seq.nextval) "
                     "  RETURNING id INTO vid; "
-                    "  hist.synchronize_history('" + table + "',vid,:SYS_user_descr,:SYS_desk_code); "
+                    "  hist.synchronize_history('" + table + "',vid,:sys_user_descr,:sys_desk_code); "
                     "END;";
                 lexema_id = (rlt==rltRights)?"EVT.ACCESS_OPERATION_ON":"EVT.ASSIGNE_OPERATION_ON";
                 params << PrmElem<int>("name", etRoles, role_id, efmtNameLong) << PrmSmpl<int>("id", role_id)
@@ -168,7 +221,7 @@ void AccessInterface::SaveRoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
                     "  :right_id:=adm.check_right_access(:right_id,:user_id,2); "
                     "  DELETE FROM " + table + " "
                     "  WHERE role_id=:role_id AND right_id=:right_id RETURNING id INTO vid; "
-                    "  hist.synchronize_history('" + table + "',vid,:SYS_user_descr,:SYS_desk_code); "
+                    "  hist.synchronize_history('" + table + "',vid,:sys_user_descr,:sys_desk_code); "
                     "END;";
                 lexema_id = (rlt==rltRights)?"EVT.ACCESS_OPERATION_OFF":"EVT.ASSIGNE_OPERATION_OFF";
                 params << PrmElem<int>("name", etRoles, role_id, efmtNameLong) << PrmSmpl<int>("id", role_id)
@@ -191,51 +244,67 @@ void AccessInterface::SaveRoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     }
 }
 
+int getUserId(const std::string& login)
+{
+  DB::TQuery Qry(PgOra::getROSession("USERS2"), STDLOG);
+  Qry.SQLText = "SELECT user_id FROM users2 "
+                "WHERE login = :login";
+  Qry.CreateVariable("login", otString, login);
+  Qry.Execute();
+  if(!Qry.Eof) {
+    return Qry.FieldAsInteger("user_id");
+  }
+  return ASTRA::NoExists;
+}
+
 void AccessInterface::CmpRole(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     int role_id = NodeAsInteger("role", reqNode);
-    string login = NodeAsString("login", reqNode);
-    TQuery Qry(&OraSession);
-    Qry.SQLText = "select user_id from users2 where login = :login";
-    Qry.CreateVariable("login", otString, login);
-    Qry.Execute();
-    if(Qry.Eof)
+    const int user_id = getUserId(NodeAsString("login", reqNode));
+    if(user_id == ASTRA::NoExists)
         throw UserException("Неверно введен логин пользователя");
-    int user_id = Qry.FieldAsInteger("user_id");
-    Qry.Clear();
-    Qry.SQLText = "select adm.check_role_aro_access(:role_id, :user_id) from dual";
-    Qry.CreateVariable("role_id", otInteger, role_id);
-    Qry.CreateVariable("user_id", otInteger, user_id);
-    Qry.Execute();
-    if(Qry.FieldAsInteger(0) == 0)
+    TQuery QryCheck(&OraSession, STDLOG);
+    QryCheck.SQLText = "select adm.check_role_aro_access(:role_id, :user_id) from dual";
+    QryCheck.CreateVariable("role_id", otInteger, role_id);
+    QryCheck.CreateVariable("user_id", otInteger, user_id);
+    QryCheck.Execute();
+    if(QryCheck.FieldAsInteger(0) == 0)
         NewTextChild(resNode, "aro", "Пользователю запрещен доступ к а/к или а/п роли");
-    Qry.SQLText =
-        "SELECT\n"
-        "    rights_list.name\n"
-        "FROM\n"
-        "  rights_list, "
-        "  (SELECT role_rights.right_id\n"
-        "   FROM role_rights\n"
-        "   WHERE role_id=:role_id\n"
-        "   UNION\n"
-        "   SELECT role_assign_rights.right_id\n"
-        "   FROM role_assign_rights\n"
-        "   WHERE role_id=:role_id) role_rights,\n"
-        "  (SELECT role_assign_rights.right_id\n"
-        "   FROM user_roles,role_assign_rights\n"
-        "   WHERE user_roles.role_id=role_assign_rights.role_id AND\n"
-        "         user_roles.user_id=:user_id) user_rights\n"
-        "WHERE role_rights.right_id=user_rights.right_id(+) AND\n"
-        "      user_rights.right_id IS NULL and\n"
-        "      role_rights.right_id = rights_list.ida\n";
-    Qry.Execute();
-    if(not Qry.Eof) {
+    DB::TQuery QryRights(
+          PgOra::getROSession({"RIGHTS_LIST","ROLE_RIGHTS","ROLE_ASSIGN_RIGHTS","USER_ROLES"}), STDLOG);
+    QryRights.SQLText =
+        "SELECT rights_list.name "
+        "FROM rights_list "
+        "  JOIN ( "
+        "    ( "
+        "      SELECT role_rights.right_id "
+        "      FROM role_rights "
+        "      WHERE role_id = :role_id "
+        "      UNION "
+        "      SELECT role_assign_rights.right_id "
+        "      FROM role_assign_rights "
+        "      WHERE role_id = :role_id "
+        "    ) role_rights "
+        "      LEFT OUTER JOIN ( "
+        "        SELECT role_assign_rights.right_id "
+        "        FROM user_roles "
+        "          JOIN role_assign_rights "
+        "            ON user_roles.role_id = role_assign_rights.role_id "
+        "        WHERE user_roles.user_id = :user_id "
+        "      ) user_rights "
+        "        ON role_rights.right_id = user_rights.right_id "
+        "  ) "
+        "    ON role_rights.right_id = rights_list.ida "
+        "WHERE user_rights.right_id IS NULL";
+    QryRights.CreateVariable("role_id", otInteger, role_id);
+    QryRights.CreateVariable("user_id", otInteger, user_id);
+    QryRights.Execute();
+    if(not QryRights.Eof) {
         xmlNodePtr rightsNode = NewTextChild(resNode, "rights");
-        for(; not Qry.Eof; Qry.Next())
-            NewTextChild(rightsNode, "item", Qry.FieldAsString("name"));
-
+        for(; not QryRights.Eof; QryRights.Next()) {
+            NewTextChild(rightsNode, "item", QryRights.FieldAsString("name"));
+        }
     }
-
 }
 
 void AccessInterface::Clone(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -258,7 +327,7 @@ void AccessInterface::Clone(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             "  if sql%rowcount > 0 then "
             "    for i in ids.first..ids.last "
             "    loop "
-            "      hist.synchronize_history('role_rights', ids(i), :SYS_user_descr, :SYS_desk_code); "
+            "      hist.synchronize_history('role_rights', ids(i), :sys_user_descr, :sys_desk_code); "
             "    end loop; "
             "    if :pr_force = 0 then "
             "      raise_application_error(-20000, 'role_rights found'); "
@@ -268,7 +337,7 @@ void AccessInterface::Clone(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             "  if sql%rowcount > 0 then "
             "    for i in ids.first..ids.last "
             "    loop "
-            "      hist.synchronize_history('role_assign_rights', ids(i), :SYS_user_descr, :SYS_desk_code); "
+            "      hist.synchronize_history('role_assign_rights', ids(i), :sys_user_descr, :sys_desk_code); "
             "    end loop; "
             "    if :pr_force = 0 then "
             "      raise_application_error(-20000, 'role_assign_rights found'); "
@@ -277,19 +346,19 @@ void AccessInterface::Clone(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             "  FOR rec in (select right_id from role_rights where role_id = :src_role) LOOP "
             "    select id__seq.nextval into vid from dual; "
             "    insert into role_rights(role_id, right_id, id) values (:dst_role, rec.right_id, vid); "
-            "    hist.synchronize_history('role_rights', vid, :SYS_user_descr, :SYS_desk_code); "
+            "    hist.synchronize_history('role_rights', vid, :sys_user_descr, :sys_desk_code); "
             "  END LOOP; "
             "  FOR rec in (select right_id from role_assign_rights where role_id = :src_role) LOOP "
             "    select id__seq.nextval into vid from dual; "
             "    insert into role_assign_rights(role_id, right_id, id) values (:dst_role, rec.right_id, vid); "
-            "    hist.synchronize_history('role_assign_rights', vid, :SYS_user_descr, :SYS_desk_code); "
+            "    hist.synchronize_history('role_assign_rights', vid, :sys_user_descr, :sys_desk_code); "
             "  END LOOP; "
             "end; ";
     Qry.CreateVariable("src_role", otInteger, src_role);
     Qry.CreateVariable("dst_role", otInteger, dst_role);
     Qry.CreateVariable("pr_force", otInteger, pr_force);
-    Qry.CreateVariable("SYS_user_descr", otString, reqInfo.user.descr);
-    Qry.CreateVariable("SYS_desk_code", otString, reqInfo.desk.code);
+    Qry.CreateVariable("sys_user_descr", otString, reqInfo.user.descr);
+    Qry.CreateVariable("sys_desk_code", otString, reqInfo.desk.code);
     try {
         Qry.Execute();
     } catch(EOracleError &E) {
@@ -343,8 +412,8 @@ void AccessInterface::RoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 {
     TReqInfo &info = *(TReqInfo::Instance());
     string table = get_rights_table(DecodeRightListType(NodeAsString("rlt", reqNode)));
-    TQuery Qry(&OraSession);
-    string SQLText =
+    DB::TQuery Qry(PgOra::getROSession({"RIGHTS_LIST",table}), STDLOG);
+    Qry.SQLText =
         "select "
         "   rights_list.ida, "
         "   rights_list.name, "
@@ -358,7 +427,6 @@ void AccessInterface::RoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         "   adm.check_role_view_access(" + table + ".role_id, :user_id)<>0 "
         "order by "
         "   ida ";
-    Qry.SQLText = SQLText;
     Qry.CreateVariable("role_id", otInteger, NodeAsInteger("role_id", reqNode));
     Qry.CreateVariable("user_id", otInteger, info.user.user_id);
     Qry.Execute();
@@ -609,7 +677,7 @@ class TSearchResultXML {
                 TRolesARO &user_roles,
                 TAirpsARO &user_airps,
                 TAirlinesARO &user_airlines,
-                TQuery &Qry,
+                DB::TQuery &Qry,
                 xmlNodePtr resNode,
                 xmlNodePtr &rowsNode,
                 int user_id);
@@ -631,7 +699,7 @@ void TSearchResultXML::build(
         TRolesARO &user_roles,
         TAirpsARO &user_airps,
         TAirlinesARO &user_airlines,
-        TQuery &Qry,
+        DB::TQuery &Qry,
         xmlNodePtr resNode,
         xmlNodePtr &rowsNode,
         int user_id)
@@ -768,91 +836,121 @@ void TUserData::search(xmlNodePtr resNode)
         if(not pr_find) return;
     } else
         users.push_back(user_id);
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession({"USERS2","USER_SETS","USER_SET_TYPES"}), STDLOG);
     string SQLText =
         "SELECT "
-        "       users2.user_id, "
-        "       login, "
-        "       descr, "
-        "       type, "
-        "       pr_denial, "
-        "       time_fmt.code AS time_fmt_code, "
-        "       disp_airline_fmt.code AS disp_airline_fmt_code, "
-        "       disp_airp_fmt.code AS disp_airp_fmt_code, "
-        "       disp_craft_fmt.code AS disp_craft_fmt_code, "
-        "       disp_suffix_fmt.code AS disp_suffix_fmt_code "
-        "FROM users2,user_sets, "
-        "     user_set_types time_fmt, "
-        "     user_set_types disp_airline_fmt, "
-        "     user_set_types disp_airp_fmt, "
-        "     user_set_types disp_craft_fmt, "
-        "     user_set_types disp_suffix_fmt  "
-        "WHERE "
-        "      users2.user_id=user_sets.user_id(+) AND "
-        "      DECODE(user_sets.time,        00,00,01,01,02,02,01)=time_fmt.code AND  "
-        "      DECODE(user_sets.disp_airline,05,05,06,06,07,07,08,08,09,09,09)=disp_airline_fmt.code AND  "
-        "      DECODE(user_sets.disp_airp,   05,05,06,06,07,07,08,08,09,09,09)=disp_airp_fmt.code AND "
-        "      DECODE(user_sets.disp_craft,  05,05,06,06,07,07,08,08,09,09,09)=disp_craft_fmt.code AND "
-        "      DECODE(user_sets.disp_suffix, 15,15,16,16,17,17,17)=disp_suffix_fmt.code and "
-        "      adm.check_user_view_access(users2.user_id,:SYS_user_id)<>0 ";
+        "  users2.user_id, "
+        "  login, "
+        "  descr, "
+        "  type, "
+        "  pr_denial, "
+        "  time_fmt.code AS time_fmt_code, "
+        "  disp_airline_fmt.code AS disp_airline_fmt_code, "
+        "  disp_airp_fmt.code AS disp_airp_fmt_code, "
+        "  disp_craft_fmt.code AS disp_craft_fmt_code, "
+        "  disp_suffix_fmt.code AS disp_suffix_fmt_code "
+        "FROM users2 "
+        "  LEFT OUTER JOIN user_sets "
+        "    ON users2.user_id = user_sets.user_id "
+        "  CROSS JOIN user_set_types time_fmt "
+        "  CROSS JOIN user_set_types disp_airline_fmt "
+        "  CROSS JOIN user_set_types disp_airp_fmt "
+        "  CROSS JOIN user_set_types disp_craft_fmt "
+        "  CROSS JOIN user_set_types disp_suffix_fmt "
+        "WHERE ( "
+        "  CASE "
+        "    WHEN user_sets.time = 0 THEN 0 "
+        "    WHEN user_sets.time = 1 THEN 1 "
+        "    WHEN user_sets.time = 2 THEN 2 "
+        "    ELSE 1 "
+        "  END = time_fmt.code "
+        "  AND CASE "
+        "    WHEN user_sets.disp_airline = 5 THEN 5 "
+        "    WHEN user_sets.disp_airline = 6 THEN 6 "
+        "    WHEN user_sets.disp_airline = 7 THEN 7 "
+        "    WHEN user_sets.disp_airline = 8 THEN 8 "
+        "    ELSE 9 "
+        "  END = disp_airline_fmt.code "
+        "  AND CASE "
+        "    WHEN user_sets.disp_airp = 5 THEN 5 "
+        "    WHEN user_sets.disp_airp = 6 THEN 6 "
+        "    WHEN user_sets.disp_airp = 7 THEN 7 "
+        "    WHEN user_sets.disp_airp = 8 THEN 8 "
+        "    ELSE 9 "
+        "  END = disp_airp_fmt.code "
+        "  AND CASE "
+        "    WHEN user_sets.disp_craft = 5 THEN 5 "
+        "    WHEN user_sets.disp_craft = 6 THEN 6 "
+        "    WHEN user_sets.disp_craft = 7 THEN 7 "
+        "    WHEN user_sets.disp_craft = 8 THEN 8 "
+        "    ELSE 9 "
+        "  END = disp_craft_fmt.code "
+        "  AND CASE "
+        "    WHEN user_sets.disp_suffix = 15 THEN 15 "
+        "    WHEN user_sets.disp_suffix = 16 THEN 16 "
+        "    ELSE 17 "
+        "  END = disp_suffix_fmt.code "
+        "  AND adm.check_user_view_access(users2.user_id, :sys_user_id) <> 0 "
+        ") ";
     // связки с user_set_types необходимы для правильной работы поиска по параметрам *_fmt_code
     // чтобы юзеры с параметрами по умолчанию (т.е. для к-рых нет записей в user_set_types)
     // правильно доставались
     if(not users.empty()) {
-        SQLText += "      and users2.user_id = :user_id ";
+        SQLText += "  AND users2.user_id = :user_id ";
         Qry.DeclareVariable("user_id", otInteger);
     }
 
     if(user_id < 0) {
         if(not descr.empty()) {
-            SQLText += " and users2.descr like :descr||'%' ";
+            SQLText += " AND users2.descr LIKE :descr||'%' ";
             Qry.CreateVariable("descr", otString, descr);
         }
         if(not login.empty()) {
-            SQLText += " and users2.login like :login||'%' ";
+            SQLText += " AND users2.login LIKE :login||'%' ";
             Qry.CreateVariable("login", otString, login);
         }
         if(user_type >= 0) {
-            SQLText += " and users2.type = :user_type ";
+            SQLText += " AND users2.type = :user_type ";
             Qry.CreateVariable("user_type", otInteger, user_type);
         }
         if(time_fmt >= 0) {
-            SQLText += " and time_fmt.code = :time_fmt ";
+            SQLText += " AND time_fmt.code = :time_fmt ";
             Qry.CreateVariable("time_fmt", otInteger, time_fmt);
         }
         if(airline_fmt >= 0) {
-            SQLText += " and disp_airline_fmt.code = :airline_fmt ";
+            SQLText += " AND disp_airline_fmt.code = :airline_fmt ";
             Qry.CreateVariable("airline_fmt", otInteger, airline_fmt);
         }
         if(airp_fmt >= 0) {
-            SQLText += " and disp_airp_fmt.code = :airp_fmt ";
+            SQLText += " AND disp_airp_fmt.code = :airp_fmt ";
             Qry.CreateVariable("airp_fmt", otInteger, airp_fmt);
         }
         if(craft_fmt >= 0) {
-            SQLText += " and disp_craft_fmt.code = :craft_fmt ";
+            SQLText += " AND disp_craft_fmt.code = :craft_fmt ";
             Qry.CreateVariable("craft_fmt", otInteger, craft_fmt);
         }
         if(suff_fmt >= 0) {
-            SQLText += " and disp_suffix_fmt.code = :suff_fmt ";
+            SQLText += " AND disp_suffix_fmt.code = :suff_fmt ";
             Qry.CreateVariable("suff_fmt", otInteger, suff_fmt);
         }
         if(pr_denial >= 0) {
-            SQLText += " and users2.pr_denial = :pr_denial ";
+            SQLText += " AND users2.pr_denial = :pr_denial ";
             Qry.CreateVariable("pr_denial", otInteger, pr_denial);
         }
     }
     Qry.SQLText = SQLText;
-    Qry.CreateVariable("SYS_user_id", otInteger, TReqInfo::Instance()->user.user_id);
+    Qry.CreateVariable("sys_user_id", otInteger, TReqInfo::Instance()->user.user_id);
 
     TSearchResultXML srx;
     xmlNodePtr rowsNode = NULL;
-    if(users.empty())
+    if(users.empty()) {
         srx.build(user_roles, user_airps, user_airlines, Qry, resNode, rowsNode, user_id);
-    else
+    } else {
         for(vector<int>::iterator iv = users.begin(); iv != users.end(); iv++) {
             Qry.SetVariable("user_id", *iv);
             srx.build(user_roles, user_airps, user_airlines, Qry, resNode, rowsNode, user_id);
         }
+    }
 }
 
 void TUserData::create_vars(TQuery &Qry, bool pr_update)
@@ -862,7 +960,7 @@ void TUserData::create_vars(TQuery &Qry, bool pr_update)
         Qry.CreateVariable("descr", otString, descr);
     Qry.CreateVariable("type_code", otString, user_type);
     Qry.CreateVariable("pr_denial", otString, pr_denial);
-    Qry.CreateVariable("SYS_user_id", otInteger, TReqInfo::Instance()->user.user_id);
+    Qry.CreateVariable("sys_user_id", otInteger, TReqInfo::Instance()->user.user_id);
     create_var(Qry, "time_fmt_code", time_fmt);
     create_var(Qry, "disp_airline_fmt_code", airline_fmt);
     create_var(Qry, "disp_airp_fmt_code", airp_fmt);
@@ -883,12 +981,12 @@ void TUserData::del()
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "BEGIN "
-        "  adm.delete_user(:OLD_user_id,:SYS_user_id,:SYS_user_descr,:SYS_desk_code); "
+        "  adm.delete_user(:old_user_id,:sys_user_id,:sys_user_descr,:sys_desk_code); "
         "END;";
-    Qry.CreateVariable("SYS_user_id", otInteger, TReqInfo::Instance()->user.user_id);
-    Qry.CreateVariable("OLD_user_id", otInteger, user_id);
-    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
-    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
+    Qry.CreateVariable("sys_user_id", otInteger, TReqInfo::Instance()->user.user_id);
+    Qry.CreateVariable("old_user_id", otInteger, user_id);
+    Qry.CreateVariable("sys_user_descr", otString, TReqInfo::Instance()->user.descr);
+    Qry.CreateVariable("sys_desk_code", otString, TReqInfo::Instance()->desk.code);
     try {
         Qry.Execute();
         TReqInfo::Instance()->LocaleToLog("EVT.USER_DELETED", LEvntPrms()
@@ -918,14 +1016,14 @@ void TUserData::update_aro(bool pr_insert)
             "begin "
             "  INSERT INTO aro_airlines(aro_id,airline,id) VALUES(:user_id,:airline,id__seq.nextval) "
             "  RETURNING id INTO vid; "
-            "  hist.synchronize_history('aro_airlines',vid,:SYS_user_descr,:SYS_desk_code);"
-            "  :user_id:=adm.check_user_access(:user_id,:SYS_user_id,1); "
-            "  :airline:=adm.check_airline_access(:airline,:airline,:SYS_user_id,1); "
+            "  hist.synchronize_history('aro_airlines',vid,:sys_user_descr,:sys_desk_code);"
+            "  :user_id:=adm.check_user_access(:user_id,:sys_user_id,1); "
+            "  :airline:=adm.check_airline_access(:airline,:airline,:sys_user_id,1); "
             "end; ";
         Qry.CreateVariable("sys_user_id", otInteger, info.user.user_id);
         Qry.CreateVariable("user_id", otInteger, user_id);
-        Qry.CreateVariable("SYS_user_descr", otString, info.user.descr);
-        Qry.CreateVariable("SYS_desk_code", otString, info.desk.code);
+        Qry.CreateVariable("sys_user_descr", otString, info.user.descr);
+        Qry.CreateVariable("sys_desk_code", otString, info.desk.code);
         Qry.DeclareVariable("airline", otString);
         for(set<string>::iterator iv = airlines.begin(); iv != airlines.end(); iv++) {
             Qry.SetVariable("airline", *iv);
@@ -955,17 +1053,17 @@ void TUserData::update_aro(bool pr_insert)
             "declare "
             "  vid aro_airlines.id%TYPE; "
             "begin "
-            "  if :first <> 0 then :user_id:=adm.check_user_access(:user_id,:SYS_user_id,2); end if; "
-            "  :airline:=adm.check_airline_access(:airline,:airline,:SYS_user_id,1); "
+            "  if :first <> 0 then :user_id:=adm.check_user_access(:user_id,:sys_user_id,2); end if; "
+            "  :airline:=adm.check_airline_access(:airline,:airline,:sys_user_id,1); "
             "  delete from aro_airlines where aro_id = :user_id and airline = :airline "
             "  RETURNING id INTO vid; "
-            "  hist.synchronize_history('aro_airlines',vid,:SYS_user_descr,:SYS_desk_code);"
+            "  hist.synchronize_history('aro_airlines',vid,:sys_user_descr,:sys_desk_code);"
             "end; ";
         delQry.CreateVariable("user_id", otInteger, user_id);
         delQry.CreateVariable("sys_user_id", otInteger, info.user.user_id);
         delQry.CreateVariable("first", otInteger, 1);
-        delQry.CreateVariable("SYS_user_descr", otString, info.user.descr);
-        delQry.CreateVariable("SYS_desk_code", otString, info.desk.code);
+        delQry.CreateVariable("sys_user_descr", otString, info.user.descr);
+        delQry.CreateVariable("sys_desk_code", otString, info.desk.code);
         delQry.DeclareVariable("airline", otString);
         for(; not Qry.Eof; Qry.Next()) {
             string airline = Qry.FieldAsString(0);
@@ -984,14 +1082,14 @@ void TUserData::update_aro(bool pr_insert)
             "begin "
             "  INSERT INTO aro_airps(aro_id,airp,id) VALUES(:user_id,:airp,id__seq.nextval) "
             "  RETURNING id INTO vid; "
-            "  hist.synchronize_history('aro_airps',vid,:SYS_user_descr,:SYS_desk_code);"
-            "  :user_id:=adm.check_user_access(:user_id,:SYS_user_id,1); "
-            "  :airp:=adm.check_airp_access(:airp,:airp,:SYS_user_id,1); "
+            "  hist.synchronize_history('aro_airps',vid,:sys_user_descr,:sys_desk_code);"
+            "  :user_id:=adm.check_user_access(:user_id,:sys_user_id,1); "
+            "  :airp:=adm.check_airp_access(:airp,:airp,:sys_user_id,1); "
             "end; ";
         Qry.CreateVariable("sys_user_id", otInteger, info.user.user_id);
         Qry.CreateVariable("user_id", otInteger, user_id);
-        Qry.CreateVariable("SYS_user_descr", otString, info.user.descr);
-        Qry.CreateVariable("SYS_desk_code", otString, info.desk.code);
+        Qry.CreateVariable("sys_user_descr", otString, info.user.descr);
+        Qry.CreateVariable("sys_desk_code", otString, info.desk.code);
         Qry.DeclareVariable("airp", otString);
         for(set<string>::iterator iv = airps.begin(); iv != airps.end(); iv++) {
             Qry.SetVariable("airp", *iv);
@@ -1021,17 +1119,17 @@ void TUserData::update_aro(bool pr_insert)
             "declare "
             "  vid aro_airps.id%TYPE; "
             "begin "
-            "  if :first <> 0 then :user_id:=adm.check_user_access(:user_id,:SYS_user_id,2); end if; "
-            "  :airp:=adm.check_airp_access(:airp,:airp,:SYS_user_id,1); "
+            "  if :first <> 0 then :user_id:=adm.check_user_access(:user_id,:sys_user_id,2); end if; "
+            "  :airp:=adm.check_airp_access(:airp,:airp,:sys_user_id,1); "
             "  delete from aro_airps where aro_id = :user_id and airp = :airp "
             "  RETURNING id INTO vid; "
-            "  hist.synchronize_history('aro_airps',vid,:SYS_user_descr,:SYS_desk_code);"
+            "  hist.synchronize_history('aro_airps',vid,:sys_user_descr,:sys_desk_code);"
             "end; ";
         delQry.CreateVariable("user_id", otInteger, user_id);
         delQry.CreateVariable("sys_user_id", otInteger, info.user.user_id);
         delQry.CreateVariable("first", otInteger, 1);
-        delQry.CreateVariable("SYS_user_descr", otString, info.user.descr);
-        delQry.CreateVariable("SYS_desk_code", otString, info.desk.code);
+        delQry.CreateVariable("sys_user_descr", otString, info.user.descr);
+        delQry.CreateVariable("sys_desk_code", otString, info.desk.code);
         delQry.DeclareVariable("airp", otString);
         for(; not Qry.Eof; Qry.Next()) {
             string airp = Qry.FieldAsString(0);
@@ -1051,14 +1149,14 @@ void TUserData::update_aro(bool pr_insert)
             "begin "
             "  INSERT INTO user_roles(user_id,role_id,id) VALUES(:user_id,:role, id__seq.nextval) "
             "  RETURNING id INTO vid; "
-            "  hist.synchronize_history('user_roles',vid,:SYS_user_descr,:SYS_desk_code); "
-            "  :user_id:=adm.check_user_access(:user_id,:SYS_user_id,1); "
-            "  :role:=adm.check_role_access(:role,:SYS_user_id,1); "
+            "  hist.synchronize_history('user_roles',vid,:sys_user_descr,:sys_desk_code); "
+            "  :user_id:=adm.check_user_access(:user_id,:sys_user_id,1); "
+            "  :role:=adm.check_role_access(:role,:sys_user_id,1); "
             "end; ";
         Qry.CreateVariable("sys_user_id", otInteger, info.user.user_id);
         Qry.CreateVariable("user_id", otInteger, user_id);
-        Qry.CreateVariable("SYS_user_descr", otString, info.user.descr);
-        Qry.CreateVariable("SYS_desk_code", otString, info.desk.code);
+        Qry.CreateVariable("sys_user_descr", otString, info.user.descr);
+        Qry.CreateVariable("sys_desk_code", otString, info.desk.code);
         Qry.DeclareVariable("role", otInteger);
         vector<string> role_ids;
         for(set<string>::iterator iv = roles.begin(); iv != roles.end(); iv++) {
@@ -1095,17 +1193,17 @@ void TUserData::update_aro(bool pr_insert)
             "declare "
             "  vid user_roles.id%TYPE; "
             "begin "
-            "  if :first <> 0 then :user_id:=adm.check_user_access(:user_id,:SYS_user_id,2); end if; "
-            "  :role_id:=adm.check_role_access(:role_id,:SYS_user_id,2); "
+            "  if :first <> 0 then :user_id:=adm.check_user_access(:user_id,:sys_user_id,2); end if; "
+            "  :role_id:=adm.check_role_access(:role_id,:sys_user_id,2); "
             "  delete from user_roles where user_id = :user_id and role_id = :role_id "
             "  RETURNING id INTO vid; "
-            "  hist.synchronize_history('user_roles',vid,:SYS_user_descr,:SYS_desk_code); "
+            "  hist.synchronize_history('user_roles',vid,:sys_user_descr,:sys_desk_code); "
             "end; ";
         delQry.CreateVariable("user_id", otInteger, user_id);
         delQry.CreateVariable("sys_user_id", otInteger, info.user.user_id);
         delQry.CreateVariable("first", otInteger, 1);
-        delQry.CreateVariable("SYS_user_descr", otString, info.user.descr);
-        delQry.CreateVariable("SYS_desk_code", otString, info.desk.code);
+        delQry.CreateVariable("sys_user_descr", otString, info.user.descr);
+        delQry.CreateVariable("sys_desk_code", otString, info.desk.code);
         delQry.DeclareVariable("role_id", otInteger);
         for(; not Qry.Eof; Qry.Next()) {
             int role_id = Qry.FieldAsInteger(0);
@@ -1143,14 +1241,14 @@ void TUserData::update()
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "BEGIN "
-        "  adm.update_user(:OLD_user_id,:login,:type_code,:pr_denial,:SYS_user_id, "
+        "  adm.update_user(:old_user_id,:login,:type_code,:pr_denial,:sys_user_id, "
         "                  :time_fmt_code,:disp_airline_fmt_code,:disp_airp_fmt_code, "
-        "                  :disp_craft_fmt_code,:disp_suffix_fmt_code,:SYS_user_descr,:SYS_desk_code); "
+        "                  :disp_craft_fmt_code,:disp_suffix_fmt_code,:sys_user_descr,:sys_desk_code); "
         "END;";
     create_vars(Qry, true);
-    Qry.CreateVariable("OLD_user_id", otInteger, user_id);
-    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
-    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
+    Qry.CreateVariable("old_user_id", otInteger, user_id);
+    Qry.CreateVariable("sys_user_descr", otString, TReqInfo::Instance()->user.descr);
+    Qry.CreateVariable("sys_desk_code", otString, TReqInfo::Instance()->desk.code);
     try {
         Qry.Execute();
     }
@@ -1195,15 +1293,13 @@ void TUserData::insert()
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "BEGIN "
-        "  adm.insert_user(:login,:descr,:type_code,:pr_denial,:SYS_user_id, "
+        "  adm.insert_user(:login,:descr,:type_code,:pr_denial,:sys_user_id, "
         "                  :time_fmt_code,:disp_airline_fmt_code,:disp_airp_fmt_code, "
-        "                  :disp_craft_fmt_code,:disp_suffix_fmt_code,:SYS_user_descr,:SYS_desk_code); "
-        "  select user_id into :user_id from users2 where login = :login; "
+        "                  :disp_craft_fmt_code,:disp_suffix_fmt_code,:sys_user_descr,:sys_desk_code); "
         "END;";
     create_vars(Qry);
-    Qry.DeclareVariable("user_id", otInteger);
-    Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
-    Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
+    Qry.CreateVariable("sys_user_descr", otString, TReqInfo::Instance()->user.descr);
+    Qry.CreateVariable("sys_desk_code", otString, TReqInfo::Instance()->desk.code);
     try {
         Qry.Execute();
     }
@@ -1217,7 +1313,9 @@ void TUserData::insert()
         else
             throw;
     };
-    user_id = Qry.GetVariableAsInteger("user_id");
+    const int user_id_ = getUserId(login);
+    if(user_id_ != ASTRA::NoExists)
+      user_id = user_id_;
     to_log();
     update_aro(true);
 }

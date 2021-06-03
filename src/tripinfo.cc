@@ -2212,8 +2212,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     PointsQry.DeclareVariable("point_id",otInteger);
     map<int, pair<string,int> > points; //кэшируем информацию по пунктам
 
-    TQuery UsersQry(&OraSession);
-    UsersQry.Clear();
+    DB::TQuery UsersQry(PgOra::getROSession("USERS2"), STDLOG);
     UsersQry.SQLText="SELECT descr FROM users2 WHERE user_id=:user_id";
     UsersQry.DeclareVariable("user_id",otInteger);
     map<int, string> users; //кэшируем информацию по агентам

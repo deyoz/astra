@@ -846,6 +846,9 @@ class Cache
     };
 };
 
+void syncHistory(const std::string& table_name, int id,
+                 const std::string& sys_user_descr, const std::string& sys_desk_code);
+
 } //namespace ASTRA
 
 std::optional<int> getDeskGroupByCode(const std::string& desk);

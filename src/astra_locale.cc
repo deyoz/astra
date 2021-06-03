@@ -6,6 +6,8 @@
 #include "oralib.h"
 #include "exceptions.h"
 #include "astra_locale.h"
+#include "db_tquery.h"
+#include "PgOraConfig.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -40,11 +42,11 @@ void TLocaleMessages::Invalidate( std::string lang, bool pr_term )
 	else
 		tid = server_msgs.get_tid( lang );
 	ProgTrace( TRACE5, "before Invalidate: lang=%s, pr_term=%d, tid=%d, server_msgs.msgs.size()=%zu, client_msgs.msgs.size()=%zu", lang.c_str(), pr_term, tid, server_msgs.msgs.size(), client_msgs.msgs.size() );
-	TQuery Qry(&OraSession);
 	if ( tid >= 0 ) {
+    DB::TQuery Qry(PgOra::getROSession("LOCALE_MESSAGES"), STDLOG);
 	  Qry.SQLText =
 	    "SELECT tid "
-	    " FROM locale_messages "
+      "FROM locale_messages "
 	    "WHERE lang=:lang AND (pr_term=:pr_term OR pr_term IS NULL) AND tid>:tid AND rownum < 2";
 	  Qry.CreateVariable( "tid", otInteger, tid );
 	  Qry.CreateVariable( "lang", otString, lang );
@@ -59,7 +61,7 @@ void TLocaleMessages::Invalidate( std::string lang, bool pr_term )
   		client_msgs.clear( lang );
   	else
   	  server_msgs.clear( lang );
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession("LOCALE_MESSAGES"), STDLOG);
 	  Qry.SQLText =
 	    "SELECT id,text,tid,pr_del "
 	    " FROM locale_messages "
@@ -256,17 +258,3 @@ LParser::LParser( const string &lexema )
 }
 
 } //end namespace AstraLocale
-/* Когда телать обновления? при рестарте или каждый раз или по таймеру или по признаку */
-/*create table lang_types (
-code varchar2(2),
-name varchar2(50)
-)
-
-
-CREATE TABLE locale_messages (
-ID VARCHAR2(2000) NOT NULL,
-LANG VARCHAR2(20) NOT NULL,
-TEXT VARCHAR2(2000) NOT NULL,
-PR_DEL NUMBER(1) NOT NULL,
-TID NUMBER(9) NOT NULL)
-*/
