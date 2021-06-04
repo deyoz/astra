@@ -2170,28 +2170,32 @@ void ArxPaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, 
         };
         sql << "WHERE \n";
         if (pass==1) {
-          sql << " arx_points.part_key >= :FirstDate AND arx_points.part_key <:arx_trip_date_range AND \n";
+          sql << " arx_points.part_key >= :FirstDate AND arx_points.part_key <:arx_trip_date_range \n";
         }
         if (pass==2) {
-          sql << " arx_points.part_key = arx_ext.part_key AND arx_points.move_id = arx_ext.move_id AND \n";
+          sql << " arx_points.part_key = arx_ext.part_key AND arx_points.move_id = arx_ext.move_id \n";
         }
-        sql << " arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND \n"
-               " arx_points.part_key = arx_pax_grp.part_key AND \n"
-               " arx_points.point_id = arx_pax_grp.point_dep AND \n"
-               " arx_pax_grp.part_key= arx_pax.part_key AND \n"
-               " arx_pax_grp.grp_id  = arx_pax.grp_id AND \n"
-               " arx_points.pr_del>=0 \n";
+        sql << " AND arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate \n"
+               " AND arx_points.part_key = arx_pax_grp.part_key \n"
+               " AND arx_points.point_id = arx_pax_grp.point_dep \n"
+               " AND arx_pax_grp.part_key= arx_pax.part_key \n"
+               " AND arx_pax_grp.grp_id  = arx_pax.grp_id \n"
+               " AND arx_points.pr_del>=0 \n"
+               " AND arx_pax_grp.part_key >= :FirstDate AND arx_pax_grp.part_key <:arx_trip_date_range \n"
+               " AND arx_pax.part_key >= :FirstDate AND arx_pax.part_key <:arx_trip_date_range \n";
         if(!document.empty())
         {
           sql << " AND arx_pax.part_key = arx_pax_doc.part_key \n"
                  " AND arx_pax.pax_id   = arx_pax_doc.pax_id \n"
-                 " AND arx_pax_doc.no like '%'||:document||'%' \n";
+                 " AND arx_pax_doc.no like '%'||:document||'%' \n"
+                 " AND arx_pax_doc.part_key >= :FirstDate AND arx_pax_doc.part_key <:arx_trip_date_range \n";
         };
         if(!tag_no.empty())
         {
           sql << " AND arx_pax_grp.part_key = arx_bag_tags.part_key \n"
                  " AND arx_pax_grp.grp_id = arx_bag_tags.grp_id \n"
-                 " AND CAST(arx_bag_tags.no AS VARCHAR) like '%'||:tag_no \n";
+                 " AND CAST(arx_bag_tags.no AS VARCHAR) like '%'||:tag_no \n"
+                 " AND arx_bag_tags.part_key >= :FirstDate AND arx_bag_tags.part_key <:arx_trip_date_range \n";
         };
 
         fillSqlSrcRunQuery(sql, info, airline, city, surname, flt_no, ticket_no,
@@ -2200,6 +2204,7 @@ void ArxPaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, 
 
         //ProgTrace(TRACE5, "PaxSrcRun: pass=%d SQL=\n%s", pass, sql.str().c_str());
         Qry.SQLText = sql.str().c_str();
+        LogTrace5 << __func__ << "SQL TEXT: " << Qry.SQLText;
         try {
             tm.Init();
             Qry.Execute();
