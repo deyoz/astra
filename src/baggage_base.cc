@@ -117,27 +117,26 @@ std::set<int> getServiceListIdSet(ServiceGetItemWay way, int id, int transfer_nu
 {
   ostringstream sql;
   QParams QryParams;
-  if (way==ServiceGetItemWay::Unaccomp)
-  {
+  std::string table_name;
+  if (way == ServiceGetItemWay::Unaccomp) {
+    table_name = "GRP_SERVICE_LISTS";
     sql << "SELECT DISTINCT list_id \n"
            "FROM grp_service_lists \n"
            "WHERE grp_id=:id AND \n"
            "      transfer_num=:transfer_num";
-  };
-  if (way==ServiceGetItemWay::ByGrpId)
-  {
+  } else if (way == ServiceGetItemWay::ByGrpId) {
+    table_name = "PAX_SERVICE_LISTS";
     sql << "SELECT DISTINCT list_id \n"
            "FROM pax_service_lists \n"
            "WHERE grp_id=:id AND \n"
            "      transfer_num=:transfer_num";
-  };
-  if (way==ServiceGetItemWay::ByPaxId || way==ServiceGetItemWay::ByBagPool)
-  {
+  } else if (way==ServiceGetItemWay::ByPaxId || way==ServiceGetItemWay::ByBagPool) {
+    table_name = "PAX_SERVICE_LISTS";
     sql << "SELECT DISTINCT list_id \n"
            "FROM pax_service_lists \n"
            "WHERE pax_id=:id AND \n"
            "      transfer_num=:transfer_num";
-  };
+  }
 
   if (category)
   {
@@ -159,7 +158,7 @@ std::set<int> getServiceListIdSet(ServiceGetItemWay way, int id, int transfer_nu
   QryParams << QParam("transfer_num", otInteger, transfer_num);
 
   std::set<int> result;
-  TCachedQuery Qry(sql.str(), QryParams);
+  DB::TCachedQuery Qry(PgOra::getROSession(table_name), sql.str(), QryParams, STDLOG);
   Qry.get().Execute();
   for(;!Qry.get().Eof; Qry.get().Next()) {
     result.insert(Qry.get().FieldAsInteger("list_id"));

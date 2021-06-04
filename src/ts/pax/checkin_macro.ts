@@ -1455,6 +1455,8 @@ $(cache PIKE RU RFISC_BAG_PROPS $(cache_iface_ver RFISC_BAG_PROPS) ""
          min_weight:1
          max_weight:10)
 
+$(dump_table RFISC_BAG_PROPS)
+
 !! capture=on err=ignore
 $(cache PIKE $(lang) GRP_RFISC$(num) "" ""
         $(cache_sql_param bag_types_id integer $(grp_id))

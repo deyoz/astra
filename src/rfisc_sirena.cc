@@ -1349,14 +1349,18 @@ void DeleteServiceLists(const GrpId_t& grp_id, bool is_grp_id, bool rfisc_used)
                              "SERVICE_LISTS"}), STDLOG);
   Qry.SQLText=
       is_grp_id
-      ? "DELETE FROM "
-        "  (SELECT * FROM grp_service_lists, service_lists "
-        "   WHERE grp_service_lists.list_id=service_lists.id AND "
-        "         grp_service_lists.grp_id=:grp_id AND service_lists.rfisc_used=:rfisc_used)"
-      : "DELETE FROM "
-        "  (SELECT * FROM pax_service_lists, service_lists "
-        "   WHERE pax_service_lists.list_id=service_lists.id AND "
-        "         pax_service_lists.grp_id=:grp_id AND service_lists.rfisc_used=:rfisc_used)";
+      ? "DELETE FROM grp_service_lists "
+        "WHERE (grp_id, transfer_num, category) IN "
+        "  (SELECT grp_id, transfer_num, category FROM grp_service_lists, service_lists "
+        "   WHERE grp_service_lists.list_id=service_lists.id "
+        "   AND grp_service_lists.grp_id=:grp_id "
+        "   AND service_lists.rfisc_used=:rfisc_used) "
+      : "DELETE FROM pax_service_lists "
+        "WHERE (pax_id, transfer_num, category) IN "
+        "  (SELECT pax_id, transfer_num, category FROM pax_service_lists, service_lists "
+        "   WHERE pax_service_lists.list_id=service_lists.id "
+        "   AND pax_service_lists.grp_id=:grp_id "
+        "   AND service_lists.rfisc_used=:rfisc_used)";
   Qry.CreateVariable("grp_id", otInteger, grp_id.get());
   Qry.CreateVariable("rfisc_used", otInteger, (int)rfisc_used);
   Qry.Execute();

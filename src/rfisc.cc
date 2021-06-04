@@ -919,7 +919,7 @@ void TRFISCList::dump() const
     LogTrace(TRACE5) << "TRFISCList::dump: " << i.second.traceStr();
 }
 
-TRFISCBagProps& TRFISCBagProps::fromDB(TQuery &Qry)
+TRFISCBagProps& TRFISCBagProps::fromDB(DB::TQuery &Qry)
 {
   clear();
   airline=Qry.FieldAsString("airline");
@@ -938,8 +938,7 @@ TRFISCBagProps& TRFISCBagProps::fromDB(TQuery &Qry)
 void TRFISCBagPropsList::fromDB(const set<string> &airlines)
 {
   clear();
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("RFISC_BAG_PROPS"), STDLOG);
   Qry.SQLText =
     "SELECT * FROM rfisc_bag_props WHERE airline=:airline";
   for(set<string>::const_iterator a=airlines.begin(); a!=airlines.end(); ++a)

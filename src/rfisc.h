@@ -402,7 +402,7 @@ class TRFISCBagProps
       rem_code_ldm.clear();
     }
 
-    TRFISCBagProps& fromDB(TQuery &Qry);
+    TRFISCBagProps& fromDB(DB::TQuery &Qry);
 };
 
 class TRFISCBagPropsList : public std::map<TRFISCListKey, TRFISCBagProps>
