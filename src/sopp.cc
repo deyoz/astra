@@ -595,7 +595,7 @@ void read_TripStages( vector<TSoppStage> &stages, TDateTime part_key, int point_
     TCkinClients ckin_clients;
     stages.clear();
 
-  TQuery StagesQry( &OraSession );
+  DB::TQuery StagesQry(PgOra::getROSession("TRIP_STAGES"), STDLOG);
   TTripStages::ReadCkinClients( point_id, ckin_clients );
   StagesQry.SQLText = stagesSQL;
   StagesQry.CreateVariable( "point_id", otInteger, point_id );
@@ -4228,7 +4228,6 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   }
   std::vector<LexemaData> warnings;
   bool ch_craft = false;
-  TQuery Qry(&OraSession);
   TQuery DelQry(&OraSession);
   DelQry.SQLText =
    " UPDATE points SET point_num=point_num-1 WHERE point_num<=:point_num AND move_id=:move_id AND pr_del=-1 ";
@@ -4516,9 +4515,9 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
 
   beforeDestsWrite(move_id, dests);
 
-  Qry.Clear();
   bool insert = ( move_id == NoExists );
   if ( insert ) {
+    TQuery Qry(&OraSession);
   /* необходимо сделать проверку на не существование рейса*/
     Qry.SQLText =
      "BEGIN "\
@@ -4534,7 +4533,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     TFlights flights;
     flights.Get( lock_point_id, ftAll );
     flights.Lock(__FUNCTION__);
-    Qry.Clear();
+    TQuery Qry(&OraSession);
     Qry.SQLText =
      "UPDATE move_ref SET reference=:reference WHERE move_id=:move_id ";
     Qry.CreateVariable( "move_id", otInteger, move_id );
@@ -4560,6 +4559,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   std::vector<int> points_tranzit_check_wait_alarm;
   std::vector<int> points_check_diffcomp_alarm;
   bool sync_trip_comp_layers = false;
+  TQuery Qry(&OraSession);
   for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
     set_pr_del = false;
     //set_act_out = false;
@@ -4567,21 +4567,13 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
       id->point_num = point_num;
     }
     if ( id->modify ) {
-      Qry.Clear();
-      Qry.SQLText =
-       "SELECT cycle_tid__seq.nextval n FROM dual ";
-      Qry.Execute();
-      new_tid = Qry.FieldAsInteger( "n" );
+      new_tid = PgOra::getSeqNextVal_int("CYCLE_TID__SEQ");
       insert_point = id->point_id == NoExists;
       if ( insert_point ) { //insert
         if ( !insert ) {
           ch_dests = true;
         }
-        Qry.Clear();
-        Qry.SQLText =
-          "SELECT point_id.nextval point_id FROM dual";
-        Qry.Execute();
-        id->point_id = Qry.FieldAsInteger( "point_id" );
+        id->point_id = PgOra::getSeqNextVal_int("POINT_ID");
       }
     }
     if ( id->pr_del != -1 ) {
@@ -7216,8 +7208,7 @@ void set_trip_sets(const TAdvTripInfo &flt)
 
 static void setStageSettings(const TTripInfo& fltInfo, StageInitPropsContainer& initProps)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("STAGE_SETS"), STDLOG);
   Qry.SQLText=
     "SELECT stage_id, pr_auto, "
     "       CASE WHEN airline IS NULL THEN 0 ELSE 2 END + "
@@ -7244,8 +7235,7 @@ static void setStageSettings(const TTripInfo& fltInfo, StageInitPropsContainer& 
 
 static void setStageTimes(const TTripInfo& fltInfo, StageInitPropsContainer& initProps)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession("GRAPH_TIMES"), STDLOG);
   Qry.SQLText=
     "SELECT stage_id, time, "
     "       CASE WHEN airline IS NULL THEN 0 ELSE 8 END + "
@@ -7278,8 +7268,7 @@ static void setStageTimes(const TTripInfo& fltInfo, StageInitPropsContainer& ini
 
 static void putTripStages(int point_id)
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+  DB::TQuery Qry(PgOra::getROSession({"POINTS", "TRIP_TYPES"}), STDLOG);
   Qry.SQLText=
     "SELECT " + TTripInfo::selectedFields("points") + " "
     "FROM points, trip_types "
@@ -7297,8 +7286,7 @@ static void putTripStages(int point_id)
   setStageTimes(flt, initProps);
   bool ignore_auto=flt.act_out_exists() || !flt.match(FlightProps(FlightProps::NotCancelled)); //рейс отменен либо вылетел
 
-  TQuery InsQry(&OraSession);
-  InsQry.Clear();
+  DB::TQuery InsQry(PgOra::getRWSession("TRIP_STAGES"), STDLOG);
   InsQry.SQLText=
     "INSERT INTO trip_stages(point_id, stage_id, scd, est, act, pr_auto, pr_manual, ignore_auto) "
     "VALUES(:point_id, :stage_id, :scd, NULL, NULL, :pr_auto, 0, :ignore_auto ) ";
@@ -7308,22 +7296,22 @@ static void putTripStages(int point_id)
   InsQry.DeclareVariable("pr_auto", otInteger);
   InsQry.CreateVariable("ignore_auto", otInteger, (int)ignore_auto);
 
-  Qry.Clear();
-  Qry.SQLText=
+  DB::TQuery GraphQry(PgOra::getROSession({"GRAPH_STAGES", "TRIP_STAGES"}), STDLOG);
+  GraphQry.SQLText=
     "SELECT stage_id, pr_auto, time "
     "FROM graph_stages "
     "WHERE stage_id > 0 AND stage_id < 99 AND "
     "      NOT EXISTS(SELECT stage_id FROM trip_stages WHERE point_id = :point_id AND stage_id = graph_stages.stage_id) "
     "ORDER BY stage_id ";
-  Qry.CreateVariable("point_id", otInteger, flt.point_id);
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
+  GraphQry.CreateVariable("point_id", otInteger, flt.point_id);
+  GraphQry.Execute();
+  for(;!GraphQry.Eof;GraphQry.Next())
   {
-    TStage stageId=static_cast<TStage>(Qry.FieldAsInteger("stage_id"));
+    TStage stageId=static_cast<TStage>(GraphQry.FieldAsInteger("stage_id"));
     boost::optional<bool> autoAttribute=initProps.getAutoAttribute(stageId);
-    if (!autoAttribute) autoAttribute=Qry.FieldAsInteger("pr_auto")!=0;
+    if (!autoAttribute) autoAttribute=GraphQry.FieldAsInteger("pr_auto")!=0;
     boost::optional<int> timeBeforeScdOut=initProps.getTimeBeforeScdOut(stageId);
-    if (!timeBeforeScdOut) timeBeforeScdOut=Qry.FieldAsInteger("time");
+    if (!timeBeforeScdOut) timeBeforeScdOut=GraphQry.FieldAsInteger("time");
 
     TDateTime scd=flt.scd_out!=NoExists?flt.scd_out-timeBeforeScdOut.get()/1440.0:NoExists;
 
@@ -7342,13 +7330,13 @@ static void putTripStages(int point_id)
     TReqInfo::Instance()->LocaleToLog("EVT.STAGE.PLAN_TIME", params, evtGraph, point_id);
   };
 
-  Qry.Clear();
-  Qry.SQLText =
+  DB::TQuery SyncQry(PgOra::getRWSession("gtimer.sync_trip_final_stages"), STDLOG);
+  SyncQry.SQLText =
     "BEGIN "
     "  gtimer.sync_trip_final_stages(:point_id); "
     "END;";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
+  SyncQry.CreateVariable( "point_id", otInteger, point_id );
+  SyncQry.Execute();
 }
 
 void addTripCkinClient(

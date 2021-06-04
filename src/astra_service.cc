@@ -53,6 +53,8 @@ const std::string FILE_FIDS_TYPE = "FIDS";
 
 #define ENDL "\r\n"
 
+std::optional<TStage> findFinalStage(const int point_id, const TStage_Type stage_type); //tripinfo.cc tripinfo.h
+
 void CommitWork( int file_id );
 
 struct TStats {
@@ -940,29 +942,18 @@ void createSofiFileDATA( int receipt_id )
 
 
 class TAODBPointAddr: public TPointAddr {
-  TQuery *StagesQry;
 public:
-  TAODBPointAddr( ):TPointAddr( string(FILE_AODB_OUT_TYPE), true ) {
-    StagesQry = new TQuery(&OraSession);
-    StagesQry->SQLText =
-      "SELECT stage_id FROM trip_final_stages WHERE point_id=:point_id AND stage_type=:ckin_stage_type";
-    StagesQry->CreateVariable( "ckin_stage_type", otInteger, stCheckIn );
-    StagesQry->DeclareVariable( "point_id", otInteger );
-  }
-  ~TAODBPointAddr( ) {
-    delete StagesQry;
-  }
+  TAODBPointAddr( ):TPointAddr( string(FILE_AODB_OUT_TYPE), true ) {}
   virtual bool validateParams( const string &point_addr, const vector<string> &ailines,
                                const vector<string> &airps, const vector<int> &flt_nos,
                                const map<string,string> &params, int point_id ) {
     return ( airps.size() == 1 ); // выбираем рейсы. Это необходимое условие
   }
   virtual bool validatePoints( int point_id ) {
-    StagesQry->SetVariable( "point_id", point_id );
-    StagesQry->Execute();
-    return ( !StagesQry->Eof &&
-              StagesQry->FieldAsInteger( "stage_id" ) != sNoActive &&
-              StagesQry->FieldAsInteger( "stage_id" ) != sPrepCheckIn );
+    std::optional<TStage> stageOpt = findFinalStage(point_id, stCheckIn);
+    return stageOpt
+        && stageOpt.value() != sNoActive
+        && stageOpt.value() != sPrepCheckIn;
   }
 };
 
@@ -1120,18 +1111,8 @@ static int update_file_sets(const std::string &code, const std::string &airp, in
 }
 
 class TCheckinDataPointAddr: public TPointAddr {
-  TQuery *StagesQry;
 public:
-  TCheckinDataPointAddr( ):TPointAddr( string(FILE_CHECKINDATA_TYPE), true ) {
-    StagesQry = new TQuery(&OraSession);
-    StagesQry->SQLText =
-      "SELECT stage_id FROM trip_final_stages WHERE point_id=:point_id AND stage_type=:ckin_stage_type";
-    StagesQry->CreateVariable( "ckin_stage_type", otInteger, stCheckIn );
-    StagesQry->DeclareVariable( "point_id", otInteger );
-  }
-  ~TCheckinDataPointAddr( ) {
-    delete StagesQry;
-  }
+  TCheckinDataPointAddr( ):TPointAddr( string(FILE_CHECKINDATA_TYPE), true ) {}
   virtual bool validateParams( const string &point_addr, const vector<string> &ailines,
                                const vector<string> &airps, const vector<int> &flt_nos,
                                const map<string,string> &params, int point_id ) {
@@ -1154,11 +1135,10 @@ public:
   }
 
   virtual bool validatePoints( int point_id ) {
-    StagesQry->SetVariable( "point_id", point_id );
-    StagesQry->Execute();
-    return ( !StagesQry->Eof &&
-              StagesQry->FieldAsInteger( "stage_id" ) != sNoActive &&
-              StagesQry->FieldAsInteger( "stage_id" ) != sPrepCheckIn );
+    std::optional<TStage> stageOpt = findFinalStage(point_id, stCheckIn);
+    return stageOpt
+        && stageOpt.value() != sNoActive
+        && stageOpt.value() != sPrepCheckIn;
   }
 };
 
@@ -1243,11 +1223,6 @@ bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileD
     "SELECT point_num,first_point,pr_tranzit,airline, flt_no, suffix,suffix_fmt,airp,scd_out,est_out,act_out,pr_del FROM points "
     " WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
-  TQuery StageQry( &OraSession );
-  StageQry.SQLText =
-    "SELECT stage_id FROM trip_final_stages WHERE point_id=:point_id AND stage_type=:stage_type";
-  StageQry.CreateVariable( "point_id", otInteger, point_id );
-  StageQry.CreateVariable( "stage_type", otInteger, stCheckIn );
   Qry.Execute();
   if ( Qry.Eof )
     return false;
@@ -1322,8 +1297,8 @@ bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileD
           NewTextChild( node ,"status", "close" );
         else {
           tst();
-          StageQry.Execute();
-          if ( StageQry.FieldAsInteger( "stage_id" ) == sOpenCheckIn )
+          std::optional<TStage> stageOpt = findFinalStage(point_id, stCheckIn);
+          if (stageOpt && stageOpt.value() == sOpenCheckIn )
             NewTextChild( node ,"status", "checkin" );
           else
             NewTextChild( node ,"status", "close" );
@@ -1455,18 +1430,8 @@ bool createCheckinDataFiles( int point_id, const std::string &point_addr, TFileD
 }
 
 class TUTG_PointAddr: public TPointAddr {
-  TQuery *StagesQry;
 public:
-  TUTG_PointAddr( ):TPointAddr( string(FILE_UTG_TYPE), true ) {
-    StagesQry = new TQuery(&OraSession);
-    StagesQry->SQLText =
-      "SELECT stage_id FROM trip_final_stages WHERE point_id=:point_id AND stage_type=:ckin_stage_type";
-    StagesQry->CreateVariable( "ckin_stage_type", otInteger, stCheckIn );
-    StagesQry->DeclareVariable( "point_id", otInteger );
-  }
-  ~TUTG_PointAddr( ) {
-    delete StagesQry;
-  }
+  TUTG_PointAddr( ):TPointAddr( string(FILE_UTG_TYPE), true ) {}
   virtual bool validateParams( const string &point_addr, const vector<string> &ailines,
                                const vector<string> &airps, const vector<int> &flt_nos,
                                const map<string,string> &params, int point_id ) {
@@ -1474,10 +1439,9 @@ public:
       return idx != params.end() and idx->second.find("PRL");
   }
   virtual bool validatePoints( int point_id ) {
-    StagesQry->SetVariable( "point_id", point_id );
-    StagesQry->Execute();
-    return ( !StagesQry->Eof &&
-              StagesQry->FieldAsInteger( "stage_id" ) == sOpenCheckIn );
+    std::optional<TStage> stageOpt = findFinalStage(point_id, stCheckIn);
+    return stageOpt
+        && stageOpt.value() == sOpenCheckIn;
   }
 };
 

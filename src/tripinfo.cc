@@ -228,7 +228,7 @@ void setSQLTripList( TQuery &Qry, const TTripListSQLFilter &filter )
   Qry.SQLText=sql.str().c_str();
 };
 
-TStage getFinalStage(const int point_id, const TStage_Type stage_type)
+std::optional<TStage> findFinalStage(const int point_id, const TStage_Type stage_type)
 {
     DbCpp::CursCtl cur = make_db_curs(
        "SELECT stage_id FROM trip_final_stages "
@@ -246,31 +246,41 @@ TStage getFinalStage(const int point_id, const TStage_Type stage_type)
        .exfet();
 
     if (DbCpp::ResultCode::NoDataFound == cur.err()) {
-        return sNoActive;
+        return std::nullopt;
     }
 
     return (TStage)stage;
 }
 
+
+TStage getFinalStage(const int point_id, const TStage_Type stage_type)
+{
+    std::optional<TStage> stageOpt = findFinalStage(point_id, stage_type);
+
+    if (stageOpt) {
+        return *stageOpt;
+    }
+
+    return sNoActive;
+}
+
 bool checkFinalStages(const int point_id, const TTripListSQLFilter &filter)
 {
-  if (filter.final_stages.empty()) return true;
+    if (filter.final_stages.empty()) {
+        return true;
+    }
 
-  TQuery Qry( &OraSession );
-  Qry.SQLText = "SELECT stage_id FROM trip_final_stages WHERE point_id=:point_id AND stage_type=:stage_type";
-  Qry.CreateVariable("point_id", otInteger, point_id);
-  Qry.DeclareVariable("stage_type", otInteger);
-
-  //фильтрация по final_stages
-  map< TStage_Type, vector<TStage> >::const_iterator iStage=filter.final_stages.begin();
-  for(; iStage!=filter.final_stages.end(); iStage++)
-  {
-    Qry.SetVariable("stage_type",(int)iStage->first);
-    Qry.Execute();
-    if (!Qry.Eof &&
-        find(iStage->second.begin(),iStage->second.end(),(TStage)Qry.FieldAsInteger("stage_id"))!=iStage->second.end()) break;
-  };
-  return iStage!=filter.final_stages.end();
+    //фильтрация по final_stages
+    for (auto iStage = filter.final_stages.cbegin();
+        iStage != filter.final_stages.cend();
+        ++iStage) {
+        std::optional<TStage> stageOpt = findFinalStage(point_id, iStage->first);
+        if (stageOpt
+         && find(iStage->second.cbegin(), iStage->second.cend(), stageOpt.value()) != iStage->second.cend()) {
+            return true;
+        }
+    };
+    return false;
 };
 
 struct TTripListColumn

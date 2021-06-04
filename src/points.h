@@ -451,7 +451,6 @@ template <typename T> class PointsKeyTrip : public KeyTrip<T> {
 
 class TPoints {
 private:
-  int getPoint_id();
   void WriteDest( TPointsDest &dest );  //работает без использования Lock()
 public:
   BitSet<TPointsEvents> events;

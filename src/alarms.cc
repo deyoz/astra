@@ -69,42 +69,94 @@ void addTaskForCheckingAlarm(int point_id, Alarm::Enum alarm)
   add_trip_task(TTripTaskKey(point_id, CHECK_ALARM, AlarmTypes().encode(alarm)));
 }
 
+bool getPrSalon(const int point_id)
+{
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT COUNT(*) "
+       "FROM trip_comp_elems "
+       "WHERE point_id = :point_id "
+         "AND ROWNUM <= 1",
+        PgOra::getROSession("TRIP_COMP_ELEMS")
+    );
+
+    int pr_salon;
+
+    cur.stb()
+       .def(pr_salon)
+       .bind(":point_id", point_id)
+       .exfet();
+
+    return pr_salon;
+}
+
+void getPrEtStatusAct(const int point_id, int& pr_etstatus, Dates::DateTime_t& act)
+{
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT trip_sets.pr_etstatus, trip_stages.act "
+       "FROM trip_sets "
+       "LEFT OUTER JOIN trip_stages "
+           "ON (trip_stages.point_id = trip_sets.point_id "
+           "AND trip_stages.stage_id = :stage_id) "
+       "WHERE trip_sets.point_id = :point_id",
+        PgOra::getROSession({"TRIP_SETS", "TRIP_STAGES"})
+    );
+
+    cur.stb()
+       .def(pr_etstatus)
+       .defNull(act, Dates::not_a_date_time)
+       .bind(":point_id", point_id)
+       .bind(":stage_id", sOpenCheckIn)
+       .EXfet();
+
+    if (DbCpp::ResultCode::NoDataFound == cur.err()) {
+        throw Exception("Flight not found in trip_sets (point_id=%d)", point_id);
+    }
+}
+
+void fillTripAlarmFlags(const int point_id, BitSet<Alarm::Enum> &Alarms)
+{
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT alarm_type "
+       "FROM trip_alarms "
+       "WHERE point_id = :point_id",
+        PgOra::getROSession("TRIP_ALARMS")
+    );
+
+    std::string alarmType;
+
+    cur.stb()
+       .def(alarmType)
+       .bind(":point_id", point_id)
+       .exec();
+
+    while (!cur.fen()) {
+        Alarms.setFlag(AlarmTypes().decode(alarmType));
+    }
+}
+
 void TripAlarms( int point_id, BitSet<Alarm::Enum> &Alarms )
 {
     Alarms.clearFlags();
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "SELECT pr_etstatus,pr_salon,act "
-        " FROM trip_sets, trip_stages, "
-        " ( SELECT COUNT(*) pr_salon FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2 ) a "
-        " WHERE trip_sets.point_id=:point_id AND "
-        "       trip_stages.point_id(+)=trip_sets.point_id AND "
-        "       trip_stages.stage_id(+)=:OpenCheckIn ";
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.CreateVariable( "OpenCheckIn", otInteger, sOpenCheckIn );
-    Qry.Execute();
-    if (Qry.Eof) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
+
+    int pr_etstatus;
+    Dates::DateTime_t act;
+
+    getPrEtStatusAct(point_id, pr_etstatus, act);
 
     TTripSetList setList;
     setList.fromDB(point_id);
-    if (setList.empty()) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
+    if (setList.empty()) throw Exception("Flight not found in trip_sets (point_id=%d)", point_id);
 
-    if ( !Qry.FieldAsInteger( "pr_salon" ) &&
-         !Qry.FieldIsNULL( "act" ) &&
-         !setList.value<bool>(tsFreeSeating) ) {
+    if (!getPrSalon(point_id)
+     && dbo::isNotNull(act)
+     && !setList.value<bool>(tsFreeSeating) ) {
         Alarms.setFlag( Alarm::Salon );
     }
-    if ( Qry.FieldAsInteger( "pr_etstatus" ) < 0 ) {
+    if (pr_etstatus < 0) {
         Alarms.setFlag( Alarm::ETStatus );
     }
 
-    DB::TQuery AlarmsQry(PgOra::getROSession("TRIP_ALARMS"), STDLOG);
-    AlarmsQry.SQLText = "select alarm_type from trip_alarms where point_id = :point_id";
-    AlarmsQry.CreateVariable("point_id", otInteger, point_id);
-    AlarmsQry.Execute();
-    for(; not AlarmsQry.Eof; AlarmsQry.Next()) {
-        Alarms.setFlag(AlarmTypes().decode(AlarmsQry.FieldAsString("alarm_type")));
-    }
+    fillTripAlarmFlags(point_id, Alarms);
 }
 
 string TripAlarmName( Alarm::Enum alarm )

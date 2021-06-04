@@ -435,20 +435,40 @@ void TTripStages::WriteStagesUTC( int point_id, TMapTripStages &ts )
   syncTripFinalStagesQry.Execute();
 }
 
+std::string findAirpFromPoints(int point_id)
+{
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT airp "
+       "FROM points "
+       "WHERE point_id = :point_id",
+        PgOra::getROSession("POINTS")
+    );
+
+    std::string airp;
+
+    cur.stb()
+       .def(airp)
+       .bind(":point_id", point_id)
+       .exfet();
+
+    if (DbCpp::ResultCode::NoDataFound == cur.err()) {
+        throw EXCEPTIONS::Exception( "findAirpFromPoints: point_id not defined");
+    }
+
+    return airp;
+}
+
 void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
 {
   TFlights flights;
   flights.Get( point_id, ftTranzit );
   flights.Lock(__FUNCTION__);
 
-    TReqInfo *reqInfo = TReqInfo::Instance();
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
-   "SELECT airp FROM points WHERE points.point_id=:point_id";// FOR UPDATE";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  string region, airp;
-  airp = Qry.FieldAsString( "airp" );
+  TReqInfo *reqInfo = TReqInfo::Instance();
+
+  std::string region;
+  std::string airp = findAirpFromPoints(point_id);
+
     if ( reqInfo->user.sets.time == ustTimeLocalAirp )
       region = AirpTZRegion( airp );
   for ( TMapTripStages::iterator i=ts.begin(); i!=ts.end(); i++ ) {
@@ -507,16 +527,25 @@ TTripStageTimes TTripStages::getStageTimes( TStage stage ) const
 void TTripStages::ReadCkinClients( int point_id, TCkinClients &ckin_clients )
 {
     ckin_clients.clear();
-    DB::TQuery Qry(PgOra::getROSession("TRIP_CKIN_CLIENT"), STDLOG);
-  Qry.SQLText =
-    "SELECT client_type FROM trip_ckin_client "
-    " WHERE point_id=:point_id AND pr_permit!=0";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  while ( !Qry.Eof ) {
-    ckin_clients.push_back( Qry.FieldAsString( "client_type" ) );
-    Qry.Next();
-  }
+
+    DbCpp::CursCtl cur = make_db_curs(
+       "SELECT client_type "
+       "FROM trip_ckin_client "
+       "WHERE point_id = :point_id "
+         "AND pr_permit != 0",
+        PgOra::getROSession("TRIP_CKIN_CLIENT")
+    );
+
+    std::string client_type;
+
+    cur.stb()
+       .def(client_type)
+       .bind(":point_id", point_id)
+       .exec();
+
+    if (!cur.fen()) {
+        ckin_clients.push_back(client_type);
+    }
 }
 
 TStage TTripStages::getStage( TStage_Type stage_type )

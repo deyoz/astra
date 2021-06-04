@@ -2839,36 +2839,36 @@ void GetUnattachedTags(int point_id,
 */
 };
 
-void GetNextTrferCheckedFlts(int id,
-                             TIdType id_type,
-                             set<int> &point_ids)
+void GetNextTrferCheckedFlts(const int id, const TIdType id_type, std::set<int>& point_ids)
 {
-  point_ids.clear();
+    point_ids.clear();
 
-  if (id_type!=idFlt && id_type!=idGrp)
-    throw Exception("GetNextTrferCheckedFlts: wrong id_type");
+    DB::TQuery Qry(PgOra::getRWSession({"TRANSFER", "TRFER_TRIPS", "TRIP_STAGES", "PAX_GRP"}), STDLOG);
+    Qry.SQLText = TIdType::idFlt == id_type
+     ? "SELECT trfer_trips.point_id_spp "
+       "FROM transfer, trfer_trips, trip_stages, pax_grp "
+       "WHERE trfer_trips.point_id = transfer.point_id_trfer "
+         "AND trfer_trips.point_id_spp = trip_stages.point_id "
+         "AND transfer.grp_id = pax_grp.grp_id "
+         "AND pax_grp.point_dep = :id "
+         "AND transfer.transfer_num = 1 "
+         "AND trip_stages.stage_id = :stage_id "
+         "AND trip_stages.act IS NOT NULL"
+     : "SELECT trfer_trips.point_id_spp "
+       "FROM transfer, trfer_trips, trip_stages "
+       "WHERE trfer_trips.point_id = transfer.point_id_trfer "
+         "AND trfer_trips.point_id_spp = trip_stages.point_id "
+         "AND transfer.grp_id = :id "
+         "AND transfer.transfer_num = 1 "
+         "AND trip_stages.stage_id = :stage_id "
+         "AND trip_stages.act IS NOT NULL";
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
+    Qry.CreateVariable("id", otInteger, id);
+    Qry.CreateVariable("stage_id", otInteger, sCloseCheckIn);
 
-  ostringstream sql;
-  sql << "SELECT trfer_trips.point_id_spp "
-         "FROM transfer, trfer_trips, trip_stages ";
-  if (id_type==idFlt)
-    sql << ", pax_grp ";
-
-  sql << "WHERE trfer_trips.point_id=transfer.point_id_trfer AND "
-         "      trfer_trips.point_id_spp=trip_stages.point_id AND ";
-
-  if (id_type==idFlt)
-    sql << "      transfer.grp_id=pax_grp.grp_id AND "
-           "      pax_grp.point_dep=:id AND ";
-  if (id_type==idGrp)
-    sql << "      transfer.grp_id=:id AND ";
-
-  sql << "      transfer.transfer_num=1 AND "
-         "      trip_stages.stage_id=:stage_id AND "
-         "      trip_stages.act IS NOT NULL ";
+    for (Qry.Execute(); !Qry.Eof; Qry.Next()) {
+        point_ids.insert(Qry.FieldAsInteger("point_id_spp"));
+    }
 /*
   //это более подробный анализ, но он требует более внимательного отношения к местам вызова процедуры
   //поэтому пока делаем проще и используем более быстрый SQL запрос
@@ -2889,14 +2889,7 @@ void GetNextTrferCheckedFlts(int id,
          "      pax_grp.bag_refuse=0 AND pax_grp.status NOT IN ('T', 'E') AND "
          "      (pax_grp.class IS NULL OR pax.pr_brd=1 AND pax.bag_pool_num IS NOT NULL) ";
 */
-  Qry.SQLText=sql.str();
-  Qry.CreateVariable("id", otInteger, id);
-  Qry.CreateVariable("stage_id", otInteger, sCloseCheckIn);
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
-    point_ids.insert(Qry.FieldAsInteger("point_id_spp"));
-
-};
+}
 
 }; //namespace InboundTrfer
 

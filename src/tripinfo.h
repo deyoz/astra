@@ -116,6 +116,7 @@ class TTripInfoSQLParams: public TTripListSQLFilter
 };
 
 void setSQLTripList( TQuery &Qry, const TTripListSQLFilter &filter );
+std::optional<TStage> findFinalStage(const int point_id, const TStage_Type stage_type);
 
 const std::string CREW_CLASS_ID=" ";
 const std::string CREW_CLASS_VIEW=" ";

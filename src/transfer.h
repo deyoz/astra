@@ -571,8 +571,8 @@ void GetUnattachedTags(int point_id,
                        const std::vector<TrferList::TGrpItem> &grps_tlg,
                        TUnattachedTagMap &result);
 
-void GetNextTrferCheckedFlts(int id,  //м.б. point_id или grp_id
-                             ASTRA::TIdType id_type,
+void GetNextTrferCheckedFlts(const int id,  //м.б. point_id или grp_id
+                             const ASTRA::TIdType id_type,
                              std::set<int> &point_ids);
 
 void GetNewGrpInfo(int point_id,

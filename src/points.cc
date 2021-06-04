@@ -1020,15 +1020,6 @@ void TPointsDest::DoEvents( int move_id, const TPointsDest &dest )
 
 ////////////////////////////////////////////////////
 
-int TPoints::getPoint_id()
-{
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "SELECT point_id.nextval point_id FROM dual";
-  Qry.Execute();
-  return Qry.FieldAsInteger( "point_id" );
-}
-
 void TPoints::WriteDest( TPointsDest &dest )
 {
   if ( dest.events.emptyFlags() &&
@@ -1039,13 +1030,9 @@ void TPoints::WriteDest( TPointsDest &dest )
   }
   ProgTrace( TRACE5, "WriteDest" );
   TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "SELECT cycle_tid__seq.nextval n FROM dual ";
-    Qry.Execute();
-    dest.tid = Qry.FieldAsInteger( "n" );
+    dest.tid = PgOra::getSeqNextVal_int("CYCLE_TID__SEQ");
     if ( dest.status == tdInsert ) {
     ProgTrace( TRACE5, "insert" );
-    Qry.Clear();
     Qry.SQLText =
       "BEGIN "
       " UPDATE points SET point_num=point_num+1 WHERE point_num>=:point_num AND move_id=:move_id; "
@@ -1061,7 +1048,6 @@ void TPoints::WriteDest( TPointsDest &dest )
   }
   else {
     ProgTrace( TRACE5, "update, point_id=%d, est_out=%s", dest.point_id, DateTimeToStr( dest.est_out ).c_str() );
-    Qry.Clear();
     Qry.SQLText =
       "BEGIN "
       " IF :point_num<0 THEN "
@@ -1987,7 +1973,7 @@ void TPoints::Save( bool isShowMsg )
       ilast = id;
     if ( id->point_id == ASTRA::NoExists ) {
       id->status = tdInsert;
-      id->point_id = getPoint_id();
+      id->point_id = PgOra::getSeqNextVal_int("POINT_ID");
     }
     else
       id->status = tdUpdate;
