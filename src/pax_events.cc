@@ -65,7 +65,7 @@ void TPaxEvent::toDB(int pax_id, TPaxEventTypes::Enum pax_event)
           "   :desk, "
           "   :station "
           ") ",
-          QParams() << QParam("ev_order", otInteger, PgOra::getSeqCurrVal_int("EVENTS__SEQ"))
+          QParams() << QParam("ev_order", otInteger, PgOra::getSeqNextVal_int("EVENTS__SEQ"))
                     << QParam("pax_id", otInteger, pax_id)
                     << QParam("pax_event", otString, TPaxEventTypesCode().encode(pax_event))
                     << QParam("time", otDate, NowUTC())
