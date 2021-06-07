@@ -1,6 +1,8 @@
 #include "pax_events.h"
 #include "qrys.h"
 #include "astra_utils.h"
+#include "db_tquery.h"
+#include "PgOraConfig.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -11,15 +13,15 @@ using namespace BASIC::date_time;
 bool TPaxEvent::fromDB(int pax_id, TPaxEventTypes::Enum pax_event)
 {
     clear();
-    TCachedQuery Qry(
-            "select * from pax_events where "
-            "   pax_id = :pax_id and "
-            "   pax_event = :pax_event "
-            "order by "
-            "   ev_order desc ",
-            QParams()
-            << QParam("pax_id", otInteger, pax_id)
-            << QParam("pax_event", otString, TPaxEventTypesCode().encode(pax_event)));
+    DB::TCachedQuery Qry(
+          PgOra::getROSession("PAX_EVENTS"),
+          "SELECT * FROM pax_events "
+          "WHERE pax_id = :pax_id "
+          "AND pax_event = :pax_event "
+          "ORDER BY ev_order DESC ",
+          QParams() << QParam("pax_id", otInteger, pax_id)
+                    << QParam("pax_event", otString, TPaxEventTypesCode().encode(pax_event)),
+          STDLOG);
     bool result = false;
     Qry.get().Execute();
     if(not Qry.get().Eof) {
@@ -35,34 +37,40 @@ bool TPaxEvent::fromDB(int pax_id, TPaxEventTypes::Enum pax_event)
 
 void TPaxEvent::toDB(int pax_id, TPaxEventTypes::Enum pax_event)
 {
-    TCachedQuery gateQry(
-            "select name from stations where desk = :desk and work_mode = 'è'",
-            QParams() << QParam("desk", otString, TReqInfo::Instance()->desk.code));
+    DB::TCachedQuery gateQry(
+          PgOra::getROSession("STATIONS"),
+          "SELECT name FROM stations "
+          "WHERE desk = :desk "
+          "AND work_mode = 'è'",
+          QParams() << QParam("desk", otString, TReqInfo::Instance()->desk.code),
+          STDLOG);
     gateQry.get().Execute();
     string gate;
     if(not gateQry.get().Eof)
         gate = gateQry.get().FieldAsString("name");
-    TCachedQuery Qry(
-            "insert into pax_events ( "
-            "   ev_order, "
-            "   pax_id, "
-            "   pax_event, "
-            "   time, "
-            "   desk, "
-            "   station "
-            ") values ( "
-            "   events__seq.nextval, "
-            "   :pax_id, "
-            "   :pax_event, "
-            "   :time, "
-            "   :desk, "
-            "   :station "
-            ") ",
-            QParams()
-            << QParam("pax_id", otInteger, pax_id)
-            << QParam("pax_event", otString, TPaxEventTypesCode().encode(pax_event))
-            << QParam("time", otDate, NowUTC())
-            << QParam("desk", otString, TReqInfo::Instance()->desk.code)
-            << QParam("station", otString, gate));
+    DB::TCachedQuery Qry(
+          PgOra::getROSession("PAX_EVENTS"),
+          "INSERT INTO pax_events ( "
+          "   ev_order, "
+          "   pax_id, "
+          "   pax_event, "
+          "   time, "
+          "   desk, "
+          "   station "
+          ") VALUES ( "
+          "   :ev_order, "
+          "   :pax_id, "
+          "   :pax_event, "
+          "   :time, "
+          "   :desk, "
+          "   :station "
+          ") ",
+          QParams() << QParam("ev_order", otInteger, PgOra::getSeqCurrVal_int("EVENTS__SEQ"))
+                    << QParam("pax_id", otInteger, pax_id)
+                    << QParam("pax_event", otString, TPaxEventTypesCode().encode(pax_event))
+                    << QParam("time", otDate, NowUTC())
+                    << QParam("desk", otString, TReqInfo::Instance()->desk.code)
+                    << QParam("station", otString, gate),
+          STDLOG);
     Qry.get().Execute();
 }

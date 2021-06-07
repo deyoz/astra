@@ -204,30 +204,21 @@ void TCustomAlarms::fromDB(bool all, int id)
 
     string SQLText;
     SQLText =
-        "select "
-        "   pa.pax_id, "
-        "   pa.alarm_type "
-        "from ";
-    if(all) {
-        SQLText +=
-            "   pax_grp, "
-            "   pax, ";
-    }
-    SQLText +=
-        "   pax_custom_alarms pa "
-        "where ";
-    if(all)
-        SQLText +=
-            "   pax_grp.point_dep = :id and "
-            "   pax_grp.grp_id = pax.grp_id and "
-            "   pax.pax_id = pa.pax_id ";
-    else
-        SQLText += "   pa.pax_id = :id ";
+        "SELECT pax_id, alarm_type "
+        "FROM pax_custom_alarms "
+        "WHERE ";
+    SQLText += all ? " point_id = :id "
+                   : " pax_id = :id ";
 
-    TCachedQuery Qry(SQLText, QParams() << QParam("id", otInteger, id));
+    DB::TCachedQuery Qry(
+          PgOra::getROSession("PAX_CUSTOM_ALARMS"),
+          SQLText,
+          QParams() << QParam("id", otInteger, id),
+          STDLOG);
     Qry.get().Execute();
-    for(; not Qry.get().Eof; Qry.get().Next())
+    for(; not Qry.get().Eof; Qry.get().Next()) {
         items[Qry.get().FieldAsInteger("pax_id")].insert(Qry.get().FieldAsInteger("alarm_type"));
+    }
 }
 
 void TCustomAlarms::trace(TRACE_SIGNATURE) const
@@ -242,10 +233,21 @@ void TCustomAlarms::trace(TRACE_SIGNATURE) const
 void TCustomAlarms::toDB() const
 {
     trace(TRACE5);
-    TCachedQuery delQry("delete from pax_custom_alarms where pax_id = :pax_id",
-            QParams() << QParam("pax_id", otInteger));
-    TCachedQuery Qry("insert into pax_custom_alarms(pax_id, alarm_type) values(:pax_id, :alarm_type)",
-            QParams() << QParam("pax_id", otInteger) << QParam("alarm_type", otInteger));
+    DB::TCachedQuery delQry(
+          PgOra::getRWSession("PAX_CUSTOM_ALARMS"),
+          "DELETE FROM pax_custom_alarms "
+          "WHERE pax_id = :pax_id",
+          QParams() << QParam("pax_id", otInteger),
+          STDLOG);
+    DB::TCachedQuery Qry(
+          PgOra::getRWSession("PAX_CUSTOM_ALARMS"),
+          "INSERT INTO pax_custom_alarms("
+          "pax_id, alarm_type"
+          ") VALUES("
+          ":pax_id, :alarm_type"
+          ")",
+          QParams() << QParam("pax_id", otInteger) << QParam("alarm_type", otInteger),
+          STDLOG);
     for(const auto &pax: items) {
         delQry.get().SetVariable("pax_id", pax.first);
         delQry.get().Execute();
