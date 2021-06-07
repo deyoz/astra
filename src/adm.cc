@@ -21,28 +21,43 @@ void AdmInterface::LoadAdm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 {
   TReqInfo *ri = TReqInfo::Instance();
   //ri->user.check_access( amRead );
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  string sql=
-    string("SELECT adm_cache_tables.cache,NVL(adm_cache_tables.title,cache_tables.title) AS title, ")+
-    "       depth,num "
-    "FROM adm_cache_tables,cache_tables,user_roles,role_rights "+
-    "WHERE adm_cache_tables.cache=cache_tables.code AND "
-    "      user_roles.role_id=role_rights.role_id AND "
-    "      role_rights.right_id IN (select_right,insert_right,update_right,delete_right) AND "
-    "      user_roles.user_id=:user_id "
-    "UNION "
-    "SELECT adm_cache_tables.cache,NVL(adm_cache_tables.title,cache_tables.title), "
-    "       depth,num "
-    "FROM adm_cache_tables,cache_tables "
-    "WHERE adm_cache_tables.cache=cache_tables.code AND "
-    "      cache_tables.select_right IS NULL "
-    "UNION "
-    "SELECT cache,title,depth,num FROM adm_cache_tables WHERE cache IS NULL "
-    "ORDER BY num ";
-  Qry.SQLText=sql;
-  Qry.DeclareVariable( "user_id", otInteger );
-  Qry.SetVariable( "user_id", ri->user.user_id );
+  DB::TQuery Qry(PgOra::getROSession({"ADM_CACHE_TABLES","CACHE_TABLES","USER_ROLES","ROLE_RIGHTS"}), STDLOG);
+  Qry.SQLText =
+      "SELECT "
+      "  adm_cache_tables.cache, "
+      "  COALESCE(adm_cache_tables.title, cache_tables.title) AS title, "
+      "  depth, "
+      "  num "
+      "FROM adm_cache_tables "
+      "  JOIN cache_tables "
+      "    ON adm_cache_tables.cache = cache_tables.code "
+      "  CROSS JOIN ( "
+      "    user_roles "
+      "      JOIN role_rights "
+      "        ON user_roles.role_id = role_rights.role_id "
+      "  ) "
+      "WHERE ( "
+      "  role_rights.right_id IN ( "
+      "    select_right, insert_right, update_right, delete_right "
+      "  ) "
+      "  AND user_roles.user_id = :user_id "
+      ") "
+      "UNION "
+      "SELECT "
+      "  adm_cache_tables.cache, "
+      "  COALESCE(adm_cache_tables.title, cache_tables.title), "
+      "  depth, "
+      "  num "
+      "FROM adm_cache_tables "
+      "  JOIN cache_tables "
+      "    ON adm_cache_tables.cache = cache_tables.code "
+      "WHERE cache_tables.select_right IS NULL "
+      "UNION "
+      "SELECT cache, title, depth, num "
+      "FROM adm_cache_tables "
+      "WHERE cache IS NULL "
+      "ORDER BY num ";
+  Qry.CreateVariable("user_id", otInteger, ri->user.user_id);
   Qry.Execute();
   xmlNodePtr node = NewTextChild( resNode, "CacheTables" );
   xmlNodePtr rowNode=NULL;

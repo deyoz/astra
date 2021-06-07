@@ -77,9 +77,9 @@ void TCacheTable::Init(xmlNodePtr cacheNode)
   Qry.SQLText = "SELECT title, select_sql, refresh_sql, insert_sql, update_sql, delete_sql, "
                 "       logging, keep_locally, keep_deleted_rows, event_type, tid, need_refresh, "
                 "       select_right, insert_right, update_right, delete_right "
-                " FROM cache_tables WHERE code = :code";
-  Qry.DeclareVariable("code", otString);
-  Qry.SetVariable("code", code);
+                "FROM cache_tables "
+                "WHERE code = :code";
+  Qry.CreateVariable("code", otString, code);
   Qry.Execute();
   if ( Qry.Eof )
     throw Exception( "table " + string( code ) + " not found" );
@@ -155,7 +155,7 @@ bool TCacheTable::refreshInterface()
 void TCacheTable::initChildTables()
 {
     string code = Params[TAG_CODE].Value;
-    DB::TQuery Qry(PgOra::getROSession("CACHE_TABLES"), STDLOG);
+    DB::TQuery Qry(PgOra::getROSession({"CACHE_TABLES","CACHE_CHILD_TABLES","CACHE_CHILD_FIELDS"}), STDLOG);
     Qry.SQLText =
         "SELECT "
         "  cache_child_tables.cache_child, "
@@ -2059,13 +2059,15 @@ boost::optional<int> CacheTableTermRequest::getInterfaceVersion(const std::strin
 {
   boost::optional<int> result;
 
-  auto cur = make_curs("SELECT tid FROM cache_tables WHERE code=:code");
+  auto cur = make_db_curs("SELECT tid FROM cache_tables WHERE code=:code",
+                          PgOra::getROSession("CACHE_TABLES"));
   int tid;
-  cur.def(tid)
+  cur.stb()
+     .def(tid)
      .bind(":code", StrUtils::ToUpper(cacheCode))
      .EXfet();
 
-  if(cur.err() != NO_DATA_FOUND) result=tid;
+  if(cur.err() != DbCpp::ResultCode::NoDataFound) result=tid;
 
   return result;
 }

@@ -412,7 +412,11 @@ void loadBagNorms(const TFltInfo &flt,
   static string trip_bag_norms_sql;
   if (trip_bag_norms_sql.empty())
   {
-    TCachedQuery CacheTablesQry("SELECT select_sql FROM cache_tables WHERE code='TRIP_BAG_NORMS2'", QParams());
+    DB::TCachedQuery CacheTablesQry(
+          PgOra::getROSession("CACHE_TABLES"),
+          "SELECT select_sql FROM cache_tables WHERE code=:code",
+          QParams() << QParam("code", otString, "TRIP_BAG_NORMS2"),
+          STDLOG);
     CacheTablesQry.get().Execute();
     if (CacheTablesQry.get().Eof) throw Exception("%s: trip_bag_norms_sql not defined!", __FUNCTION__);
     trip_bag_norms_sql=CacheTablesQry.get().FieldAsString("select_sql");
