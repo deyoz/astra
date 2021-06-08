@@ -441,59 +441,60 @@ void TCacheTable::initFields()
     }
 }
 
-void FieldsForLogging::set(const std::string& name, const std::string& value)
+bool TCacheTable::VariableExists(const std::string& name, const std::set<string> &vars)
 {
-  fields[upperc(name)]=value;
+  string nameUpper(upperc(name));
+  return algo::any_of(vars, [&nameUpper](const auto& var) { return upperc(var)==nameUpper; });
 }
 
-std::string FieldsForLogging::get(const std::string& name) const
+void TCacheTable::CreateSysVariable(const std::string& name, const int value,
+                                    std::set<string> &vars, DB::TQuery& Qry,
+                                    FieldsForLogging& fieldsForLogging)
 {
-  const auto value=algo::find_opt<boost::optional>(fields, upperc(name));
-  if (!value)
-    throw Exception("FieldsForLogging::get: field '%s' not defined");
-  return value.value();
-}
-
-void FieldsForLogging::trace() const
-{
-  for(const auto& f : fields)
-    LogTrace(TRACE5) << f.first << " = " << f.second;
-}
-
-void TCacheTable::DeclareSysVariable(const std::string& name, const int value,
-                                     std::vector<string> &vars, DB::TQuery& Qry,
-                                     FieldsForLogging& fieldsForLogging)
-{
-  vector<string>::iterator f = find( vars.begin(), vars.end(), upperc(name) );
-  if ( f != vars.end() ) {
-    Qry.CreateVariable(name, otInteger, value);
-    vars.erase( f );
-    fieldsForLogging.set(name, IntToString(value));
+  string nameUpper(upperc(name));
+  for(set<string>::iterator v=vars.begin(); v!=vars.end(); )
+  {
+    if (upperc(*v)==nameUpper)
+    {
+      Qry.CreateVariable(*v, otInteger, value);
+      fieldsForLogging.set(*v, IntToString(value));
+      LogTrace(TRACE5) << "CreateVariable('" << *v << "', otInteger, " << value << ")";
+      v=Erase(vars, v);
+      continue;
+    }
+    ++v;
   }
 }
 
-void TCacheTable::DeclareSysVariable(const std::string& name, const std::string& value,
-                                     std::vector<string> &vars, DB::TQuery& Qry,
-                                     FieldsForLogging& fieldsForLogging)
+void TCacheTable::CreateSysVariable(const std::string& name, const std::string& value,
+                                    std::set<string> &vars, DB::TQuery& Qry,
+                                    FieldsForLogging& fieldsForLogging)
 {
-  vector<string>::iterator f = find( vars.begin(), vars.end(), upperc(name) );
-  if ( f != vars.end() ) {
-    Qry.CreateVariable(name, otString, value);
-    vars.erase( f );
-    fieldsForLogging.set(name, value);
+  string nameUpper(upperc(name));
+  for(set<string>::iterator v=vars.begin(); v!=vars.end(); )
+  {
+    if (upperc(*v)==nameUpper)
+    {
+      Qry.CreateVariable(*v, otString, value);
+      fieldsForLogging.set(*v, value);
+      LogTrace(TRACE5) << "CreateVariable('" << *v << "', otString, '" << value << "')";
+      v=Erase(vars, v);
+      continue;
+    }
+    ++v;
   }
 }
 
-void TCacheTable::DeclareSysVariables(std::vector<string> &vars, DB::TQuery& Qry,
-                                      FieldsForLogging& fieldsForLogging)
+void TCacheTable::CreateSysVariables(std::set<string> &vars, DB::TQuery& Qry,
+                                     FieldsForLogging& fieldsForLogging)
 {
-  DeclareSysVariable("SYS_user_id",      TReqInfo::Instance()->user.user_id, vars, Qry, fieldsForLogging);
-  DeclareSysVariable("SYS_user_descr",   TReqInfo::Instance()->user.descr,   vars, Qry, fieldsForLogging);
-  DeclareSysVariable("SYS_desk_lang",    TReqInfo::Instance()->desk.lang,    vars, Qry, fieldsForLogging);
-  DeclareSysVariable("SYS_desk_code",    TReqInfo::Instance()->desk.code,    vars, Qry, fieldsForLogging);
-  DeclareSysVariable("SYS_desk_version", TReqInfo::Instance()->desk.version, vars, Qry, fieldsForLogging);
-  DeclareSysVariable("SYS_canon_name", OWN_CANON_NAME(), vars, Qry, fieldsForLogging);
-  DeclareSysVariable("SYS_point_addr", OWN_POINT_ADDR(), vars, Qry, fieldsForLogging);
+  CreateSysVariable("SYS_user_id",      TReqInfo::Instance()->user.user_id, vars, Qry, fieldsForLogging);
+  CreateSysVariable("SYS_user_descr",   TReqInfo::Instance()->user.descr,   vars, Qry, fieldsForLogging);
+  CreateSysVariable("SYS_desk_lang",    TReqInfo::Instance()->desk.lang,    vars, Qry, fieldsForLogging);
+  CreateSysVariable("SYS_desk_code",    TReqInfo::Instance()->desk.code,    vars, Qry, fieldsForLogging);
+  CreateSysVariable("SYS_desk_version", TReqInfo::Instance()->desk.version, vars, Qry, fieldsForLogging);
+  CreateSysVariable("SYS_canon_name", OWN_CANON_NAME(), vars, Qry, fieldsForLogging);
+  CreateSysVariable("SYS_point_addr", OWN_POINT_ADDR(), vars, Qry, fieldsForLogging);
 };
 
 string get_role_name(int role_id)
@@ -671,54 +672,27 @@ CacheTable::RefreshStatus TCacheTable::refreshDataCommon()
     /*Попробуем найти в именах переменных :user_id
       потому что возможно чтение данных по опред. авиакомпании */
     TCacheQueryType query_type;
-    std::vector<std::string> vars;
+    std::set<std::string> vars;
+    FieldsForLogging fieldsForLogging; //заполняется, но не используется
     DB::TQuery Qry(PgOra::getROSession(dbSessionObjectName), STDLOG);
     vector<string>::iterator f;
     if ( RefreshSQL.empty() || clientVerData < 0 ) { /* считываем все заново */
       Qry.SQLText = SelectSQL;
       query_type = cqtSelect;
-      FindVariables(Qry.SQLText, false, vars);
+      vars=getSQLVariables(Qry.SQLText);
       clientVerData = -1;
     }
     else { /* обновляем с использованием RefreshSQL и clientVerData */
       Qry.SQLText = RefreshSQL;
       query_type = cqtRefresh;
       /* выделение всех переменных без повтора */
-      FindVariables( Qry.SQLText, false, vars );
+      vars=getSQLVariables(Qry.SQLText);
       /* задание переменной TID */
-      f = find( vars.begin(), vars.end(), "TID" );
-      if ( f != vars.end() ) {
-        Qry.DeclareVariable( "tid", otInteger );
-        Qry.SetVariable( "tid", clientVerData );
-        ProgTrace( TRACE5, "set clientVerData: tid variable %d", clientVerData );
-        vars.erase( f );
-      }
+      CreateSysVariable("TID", clientVerData, vars, Qry, fieldsForLogging);
     }
 
-    FieldsForLogging fieldsForLogging;
-    DeclareSysVariables(vars, Qry, fieldsForLogging);
-
-    /* пробег по переменным в запросе, лишние переменные, которые пришли не учитываем */
-    for(vector<string>::iterator v = vars.begin(); v != vars.end(); v++ )
-    {
-        otFieldType vtype;
-        switch( SQLParams[ *v ].DataType ) {
-          case ctInteger: vtype = otInteger;
-                          break;
-          case ctDouble: vtype = otFloat;
-                 break;
-          case ctDateTime: vtype = otDate;
-                           break;
-          default: vtype = otString;
-        }
-        Qry.DeclareVariable( *v, vtype );
-        if ( !SQLParams[ *v ].Value.empty() )
-          Qry.SetVariable( *v, SQLParams[ *v ].Value );
-        else
-          Qry.SetVariable( *v, FNull );
-        ProgTrace( TRACE5, "variable %s = %s, type=%i", v->c_str(),
-                   SQLParams[ *v ].Value.c_str(), vtype );
-    }
+    CreateSysVariables(vars, Qry, fieldsForLogging);
+    CreateVariablesFromParams(vars, SQLParams, Qry, false);
 
     if(OnBeforeRefresh)
       try {
@@ -883,20 +857,10 @@ void TCacheTable::buildAnswer(xmlNodePtr resNode)
     NewTextChild(dataNode, "ReadOnly", ReadOnly);
     NewTextChild(dataNode, "keep_locally", KeepLocally );
     NewTextChild(dataNode, "keep_deleted_rows", KeepDeletedRows );
-    vector<string> sql_vars;
-    bool user_depend = false;
-    if (!user_depend)
-    {
-      FindVariables(SelectSQL, false, sql_vars);
-      if ( find( sql_vars.begin(), sql_vars.end(), "SYS_USER_ID" ) != sql_vars.end() )
-        user_depend = true;
-    };
-    if (!user_depend)
-    {
-      FindVariables(RefreshSQL, false, sql_vars);
-      if ( find( sql_vars.begin(), sql_vars.end(), "SYS_USER_ID" ) != sql_vars.end() )
-        user_depend = true;
-    };
+
+    bool user_depend = VariableExists("SYS_user_id", getSQLVariables(SelectSQL)) ||
+                       VariableExists("SYS_user_id", getSQLVariables(RefreshSQL));
+
     NewTextChild( dataNode, "user_depend", (int)user_depend );
 
     if(pr_irefresh)
@@ -1407,7 +1371,7 @@ void OnLoggingF( TCacheTable &cache, const TRow &row, TCacheUpdateStatus UpdateS
 }
 
 void TCacheTable::OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus,
-                             const std::vector<std::string>& vars,
+                             const std::set<std::string>& vars,
                              const FieldsForLogging& fieldsForLogging)
 {
   string code = this->code();
@@ -1431,14 +1395,14 @@ void TCacheTable::OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus,
   if ( UpdateStatus == usModified || UpdateStatus == usInserted ) {
     int Idx=0;
     for(vector<TCacheField2>::iterator iv = FFields.begin(); iv != FFields.end(); iv++, Idx++) {
-      if ( iv->VarIdx[0] < 0 )
+      if ( iv->varNames[0].empty() )
         continue;
       str1.clear();
       if ( iv->Title.empty() )
         str1 += iv->Name;
       else
         str1 += iv->Title;
-      str1 += "='" + fieldsForLogging.get(vars[ iv->VarIdx[ 0 ] ]) + "'";
+      str1 += "='" + fieldsForLogging.get(iv->varNames[ 0 ].front()) + "'";
       enum1.prms << PrmSmpl<string>("", str1);
     }
   }
@@ -1446,11 +1410,13 @@ void TCacheTable::OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus,
     int Idx=0;
     bool empty = true;
     for(vector<TCacheField2>::iterator iv = FFields.begin(); iv != FFields.end(); iv++, Idx++) {
-      ProgTrace( TRACE5, "l=%d, Name=%s, Ident=%d, Idx=%d, iv->VarIdx[0]=%d, iv->VarIdx[1]=%d",
-                 l, iv->Name.c_str(), iv->Ident, Idx, iv->VarIdx[0], iv->VarIdx[1] );
+      LogTrace(TRACE5) << "l=" << l << ", Name=" << iv->Name
+                       << ", Ident=" << iv->Ident << ", Idx=" << Idx
+                       << ", iv->varNames[0]=" << LogCont(",", iv->varNames[0])
+                       << ", iv->varNames[1]=" << LogCont(",", iv->varNames[1]);
       if ( (!l && !iv->Ident) ||
-           (UpdateStatus == usInserted && iv->VarIdx[ 0 ] < 0) ||
-           (UpdateStatus != usInserted && iv->VarIdx[ 1 ] < 0) )
+           (UpdateStatus == usInserted && iv->varNames[ 0 ].empty()) ||
+           (UpdateStatus != usInserted && iv->varNames[ 1 ].empty()) )
         continue;
       str2.clear();
       if ( !iv->Title.empty() )
@@ -1458,9 +1424,9 @@ void TCacheTable::OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus,
       else
         str2 += iv->Name;
       if ( UpdateStatus == usInserted )
-        str2 += "='" + fieldsForLogging.get(vars[ iv->VarIdx[ 0 ] ]) + "'";
+        str2 += "='" + fieldsForLogging.get(iv->varNames[ 0 ].front()) + "'";
       else
-        str2 += "='" + fieldsForLogging.get(vars[ iv->VarIdx[ 1 ] ]) + "'";
+        str2 += "='" + fieldsForLogging.get(iv->varNames[ 1 ].front()) + "'";
       empty = false;
       ProgTrace( TRACE5, "str2=|%s|", str2.c_str() );
       enum2.prms << PrmSmpl<string>("", str2);
@@ -1526,16 +1492,15 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
           break;
     }
     if (!sql.empty()) {
-      std::vector<std::string> vars;
-      FindVariables(sql, false, vars);
-      bool tidExists = find(vars.begin(), vars.end(), "TID") != vars.end();
+      std::set<std::string> vars=getSQLVariables(sql);
+      bool tidExists = VariableExists("TID", vars);
       if ( tidExists && NewVerData < 0 ) {
         NewVerData = PgOra::getSeqNextVal("tid__seq");
       }
       FieldsForLogging fieldsForLogging;
       DB::TQuery Qry(PgOra::getROSession("ORACLE"), STDLOG);
       Qry.SQLText = sql;
-      DeclareSysVariables(vars, Qry, fieldsForLogging);
+      CreateSysVariables(vars, Qry, fieldsForLogging);
       DeclareVariables( vars, Qry ); //заранее создаем все переменные
       if ( tidExists ) {
         Qry.DeclareVariable( "tid", otInteger );
@@ -1636,7 +1601,7 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
   }
 }
 
-void TCacheTable::DeclareVariables(const std::vector<string> &vars, DB::TQuery& Qry)
+void TCacheTable::DeclareVariables(const std::set<string> &vars, DB::TQuery& Qry)
 {
   vector<string>::const_iterator f;
   for( vector<TCacheField2>::iterator iv = FFields.begin(); iv != FFields.end(); iv++ ) {
@@ -1646,68 +1611,84 @@ void TCacheTable::DeclareVariables(const std::vector<string> &vars, DB::TQuery& 
         VarName = iv->Name;
       else
         VarName = "OLD_" + iv->Name;
-      f = find( vars.begin(), vars.end(), VarName );
-      if ( f != vars.end()) {
+
+      iv->varNames[i].clear();
+
+      for(set<string>::const_iterator v=vars.begin(); v!=vars.end(); ++v)
+      {
+        if (upperc(*v)!=VarName) continue;
+
         switch(iv->DataType) {
           case ftSignedNumber:
           case ftUnsignedNumber:
                  if ((iv->Scale>0) || (iv->DataSize>9))
-                   Qry.DeclareVariable(VarName,otFloat);
+                 {
+                   Qry.DeclareVariable(*v, otFloat);
+                   LogTrace(TRACE5) << "DeclareVariable('" << *v << "', otFloat)";
+                 }
                  else
-                   Qry.DeclareVariable(VarName,otInteger);
+                 {
+                   Qry.DeclareVariable(*v, otInteger);
+                   LogTrace(TRACE5) << "DeclareVariable('" << *v << "', otInteger)";
+                 }
                  break;
           case ftDate:
           case ftTime:
-                 Qry.DeclareVariable(VarName,otDate);
+                 Qry.DeclareVariable(*v, otDate);
+                 LogTrace(TRACE5) << "DeclareVariable('" << *v << "', otDate)";
                  break;
           case ftString:
           case ftUTF:
           case ftStringList:
-                 Qry.DeclareVariable(VarName,otString);
+                 Qry.DeclareVariable(*v, otString);
+                 LogTrace(TRACE5) << "DeclareVariable('" << *v << "', otString)";
                  break;
           case ftBoolean:
-                 Qry.DeclareVariable(VarName,otInteger);
+                 Qry.DeclareVariable(*v, otInteger);
+                 LogTrace(TRACE5) << "DeclareVariable('" << *v << "', otInteger)";
                  break;
           default:;
         }
-                iv->VarIdx[i] = distance( vars.begin(), f );
-                ProgTrace( TRACE5, "variable name=%s, iv->VarIdx[i]=%d, i=%d",
-                           VarName.c_str(), iv->VarIdx[i], i );
-      }
-      else {
-        iv->VarIdx[i] = -1;
+
+        iv->varNames[i].push_back(*v);
       }
     }
   }
   DeclareVariablesFromParams(vars, SQLParams, Qry);
 }
 
-void TCacheTable::SetVariables(const TRow &row, const std::vector<std::string> &vars,
+void TCacheTable::SetVariables(const TRow &row, const std::set<std::string> &vars,
                                DB::TQuery& Qry, FieldsForLogging& fieldsForLogging)
 {
   string value;
   int Idx=0;
   for(vector<TCacheField2>::iterator iv = FFields.begin(); iv != FFields.end(); iv++, Idx++) {
     for(int i = 0; i < 2; i++) {
-      //ProgTrace(TRACE5, "TCacheTable::SetVariables: i = %d, Name = %s", i, iv->Name.c_str());
-      if(iv->VarIdx[i] >= 0) { /* есть индекс переменной */
+      if(!iv->varNames[i].empty()) { /* есть индекс переменной */
         if(i == 0)
           value = row.cols[ Idx ]; /* берем из нужного столбца данных, которые пришли */
         else
           value = row.old_cols[ Idx ];
-        if ( !value.empty() )
-          Qry.SetVariable( vars[ iv->VarIdx[i] ],value.c_str());
-        else
-          Qry.SetVariable( vars[ iv->VarIdx[i] ],FNull);
-        fieldsForLogging.set(vars[ iv->VarIdx[i] ], value);
-        ProgTrace( TRACE5, "SetVariable name=%s, value=%s, ind=%d",
-                   vars[ iv->VarIdx[i] ].c_str(), value.c_str(), Idx );
+        for(const string& varName : iv->varNames[i])
+        {
+          if (!value.empty())
+          {
+            Qry.SetVariable(varName, value);
+            LogTrace(TRACE5) << "SetVariable('" << varName << "', '" << value << "')";
+          }
+          else
+          {
+            Qry.SetVariable(varName, FNull);
+            LogTrace(TRACE5) << "SetVariable('" << varName << "', FNull)";
+          }
+          fieldsForLogging.set(varName, value);
+        }
       }
     }
   }
 
-  SetVariablesFromParams(SQLParams, Qry, fieldsForLogging);
-  SetVariablesFromParams(row.params, Qry, fieldsForLogging);
+  SetVariablesFromParams(vars, SQLParams, Qry, fieldsForLogging);
+  SetVariablesFromParams(vars, row.params, Qry, fieldsForLogging);
 }
 
 int TCacheTable::getIfaceVer() {

@@ -2462,9 +2462,9 @@ int ConvertORACLEDate_TO_Str( void *Data, char *Value )
   else return EOF;
 };
 
-void FindVariables( const string &SQL, bool IncludeDuplicates, vector<string> &vars )
+std::set<std::string> getSQLVariables(const std::string &SQL)
 {
-  vars.clear();
+  std::set<std::string> vars;
   string s = SQL + "\xD\xA";
   char Mode = 'S';
   string EndC;
@@ -2499,9 +2499,7 @@ void FindVariables( const string &SQL, bool IncludeDuplicates, vector<string> &v
                 c == '#' ||
                 c == '$' ||
                 c >= (unsigned char)'\x80' )) {
-          VarName = upperc( VarName );
-          if ( !VarName.empty() && ( IncludeDuplicates || find( vars.begin(), vars.end(), VarName ) == vars.end() ) )
-            vars.push_back( VarName );
+          if (!VarName.empty()) vars.insert(VarName);
           Mode = 'S';
         }
         else {
@@ -2517,6 +2515,7 @@ void FindVariables( const string &SQL, bool IncludeDuplicates, vector<string> &v
           Mode = 'S';
     }
   }
+  return vars;
 }
 
 TSession OraSession;

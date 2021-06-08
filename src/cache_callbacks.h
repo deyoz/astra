@@ -29,9 +29,14 @@ class FieldsForLogging
 
 
 
-void DeclareVariablesFromParams(const std::vector<std::string> &vars, const TParams &SQLParams, DB::TQuery &Qry);
-void SetVariablesFromParams(const TParams &SQLParams, DB::TQuery &Qry, FieldsForLogging& fieldsForLogging);
-void CreateVariablesFromParams(const std::vector<std::string> &vars, const TParams &SQLParams, DB::TQuery &Qry);
+void DeclareVariablesFromParams(const std::set<std::string> &vars, const TParams &SQLParams, DB::TQuery &Qry,
+                                const bool onlyIfParamExists=true);
+
+void SetVariablesFromParams(const std::set<std::string> &vars, const TParams &SQLParams, DB::TQuery &Qry,
+                            FieldsForLogging& fieldsForLogging, const bool onlyIfParamExists=true);
+
+void CreateVariablesFromParams(const std::set<std::string> &vars, const TParams &SQLParams, DB::TQuery &Qry,
+                               const bool onlyIfParamExists=true);
 
 
 namespace CacheTable

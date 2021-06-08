@@ -10,51 +10,100 @@
 using namespace std;
 using namespace EXCEPTIONS;
 
-void DeclareVariablesFromParams(const std::vector<string> &vars, const TParams &SQLParams, DB::TQuery &Qry)
+void FieldsForLogging::set(const std::string& name, const std::string& value)
+{
+  fields[upperc(name)]=value;
+}
+
+std::string FieldsForLogging::get(const std::string& name) const
+{
+  const auto value=algo::find_opt<boost::optional>(fields, upperc(name));
+  if (!value)
+    throw Exception("FieldsForLogging::get: field '%s' not defined");
+  return value.value();
+}
+
+void FieldsForLogging::trace() const
+{
+  for(const auto& f : fields)
+    LogTrace(TRACE5) << f.first << " = " << f.second;
+}
+
+void DeclareVariablesFromParams(const std::set<string> &vars, const TParams &SQLParams, DB::TQuery &Qry,
+                                const bool onlyIfParamExists)
 {
   for(const string& var : vars) {
     if ( Qry.GetVariableIndex( var ) == -1 ) {
       map<std::string, TParam>::const_iterator ip = SQLParams.find( upperc(var) );
-      if ( ip != SQLParams.end() ) {
+      if ( ip != SQLParams.end() )
+      {
         switch( ip->second.DataType ) {
           case ctInteger:
             Qry.DeclareVariable( var, otInteger );
-            LogTrace(TRACE5) << "DeclareVariable('" << ip->first << "', otInteger)";
+            LogTrace(TRACE5) << "DeclareVariable('" << var << "', otInteger)";
             break;
           case ctDouble:
             Qry.DeclareVariable( var, otFloat );
-            LogTrace(TRACE5) << "DeclareVariable('" << ip->first << "', otFloat)";
+            LogTrace(TRACE5) << "DeclareVariable('" << var << "', otFloat)";
             break;
           case ctDateTime:
             Qry.DeclareVariable( var, otDate );
-            LogTrace(TRACE5) << "DeclareVariable('" << ip->first << "', otDate)";
+            LogTrace(TRACE5) << "DeclareVariable('" << var << "', otDate)";
             break;
           case ctString:
             Qry.DeclareVariable( var, otString );
-            LogTrace(TRACE5) << "DeclareVariable('" << ip->first << "', otString)";
+            LogTrace(TRACE5) << "DeclareVariable('" << var << "', otString)";
             break;
+        }
+      }
+      else
+      {
+        if (!onlyIfParamExists) {
+          Qry.DeclareVariable( var, otString );
+          LogTrace(TRACE5) << "DeclareVariable('" << var << "', otString)";
         }
       }
     }
   }
 }
 
-void SetVariablesFromParams(const TParams &SQLParams,
-                            DB::TQuery &Qry, FieldsForLogging& fieldsForLogging)
+void SetVariablesFromParams(const std::set<string> &vars, const TParams &SQLParams, DB::TQuery &Qry,
+                            FieldsForLogging& fieldsForLogging, const bool onlyIfParamExists)
 {
-  for(const auto& param : SQLParams) {
-    if ( Qry.GetVariableIndex( param.first ) == -1 ) continue;
-    Qry.SetVariable( param.first, param.second.Value );
-    fieldsForLogging.set(param.first, param.second.Value);
-    LogTrace(TRACE5) << "SetVariable('" << param.first << "', '" << param.second.Value << "')";
+  for(const string& var : vars) {
+    if ( Qry.GetVariableIndex( var ) == -1 ) continue;
+    map<std::string, TParam>::const_iterator ip = SQLParams.find( upperc(var) );
+    if ( ip != SQLParams.end() )
+    {
+      if (!ip->second.Value.empty())
+      {
+        Qry.SetVariable( var, ip->second.Value );
+        LogTrace(TRACE5) << "SetVariable('" << var << "', '" << ip->second.Value << "')";
+      }
+      else
+      {
+        Qry.SetVariable( var, FNull );
+        LogTrace(TRACE5) << "SetVariable('" << var << "', FNull)";
+      }
+      fieldsForLogging.set(var, ip->second.Value);
+    }
+    else
+    {
+      if (!onlyIfParamExists) {
+        Qry.SetVariable( var, FNull );
+        LogTrace(TRACE5) << "SetVariable('" << var << "', FNull)";
+        fieldsForLogging.set(var, "");
+      }
+    }
   }
 }
 
-void CreateVariablesFromParams(const std::vector<string> &vars, const TParams &SQLParams, DB::TQuery &Qry)
+void CreateVariablesFromParams(const std::set<string> &vars, const TParams &SQLParams, DB::TQuery &Qry,
+                               const bool onlyIfParamExists)
 {
   FieldsForLogging fieldsForLogging;
-  DeclareVariablesFromParams(vars, SQLParams, Qry);
-  SetVariablesFromParams(SQLParams, Qry, fieldsForLogging);
+  DeclareVariablesFromParams(vars, SQLParams, Qry, onlyIfParamExists);
+  SetVariablesFromParams(vars, SQLParams, Qry, fieldsForLogging, onlyIfParamExists);
 }
 
 

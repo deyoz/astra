@@ -148,7 +148,7 @@ struct TCacheField2 {
     std::string ReferName;
     int ReferLevel;
     int ReferIdent;
-    int VarIdx[2];
+    std::vector<std::string> varNames[2];
     int num;
     TCacheElemCategory ElemCategory;
     TElemType ElemType;
@@ -162,8 +162,6 @@ struct TCacheField2 {
         ReadOnly = true;
         ReferLevel = 0;
         ReferIdent = -1;
-        VarIdx[0] = -1;
-        VarIdx[1] = -1;
         ElemCategory = cecNone;
     }
 };
@@ -225,21 +223,22 @@ class TCacheTable {
         virtual void initFields();
         void XMLInterface(const xmlNodePtr resNode);
         void XMLData(const xmlNodePtr resNode);
-        void DeclareSysVariable(const std::string& name, const int value,
-                                std::vector<std::string> &vars, DB::TQuery& Qry,
+        bool VariableExists(const std::string& name, const std::set<std::string> &vars);
+        void CreateSysVariable(const std::string& name, const int value,
+                               std::set<std::string> &vars, DB::TQuery& Qry,
+                               FieldsForLogging& fieldsForLogging);
+        void CreateSysVariable(const std::string& name, const std::string& value,
+                               std::set<std::string> &vars, DB::TQuery& Qry,
+                               FieldsForLogging& fieldsForLogging);
+        void CreateSysVariables(std::set<std::string> &vars, DB::TQuery& Qry,
                                 FieldsForLogging& fieldsForLogging);
-        void DeclareSysVariable(const std::string& name, const std::string& value,
-                                std::vector<std::string> &vars, DB::TQuery& Qry,
-                                FieldsForLogging& fieldsForLogging);
-        void DeclareSysVariables(std::vector<std::string> &vars, DB::TQuery& Qry,
-                                 FieldsForLogging& fieldsForLogging);
-        void DeclareVariables(const std::vector<std::string> &vars, DB::TQuery& Qry);
-        void SetVariables(const TRow &row, const std::vector<std::string> &vars,
+        void DeclareVariables(const std::set<std::string> &vars, DB::TQuery& Qry);
+        void SetVariables(const TRow &row, const std::set<std::string> &vars,
                           DB::TQuery& Qry, FieldsForLogging& fieldsForLogging);
         void parse_updates(xmlNodePtr rowsNode);
         int getIfaceVer();
         void OnLogging(const TRow &row, TCacheUpdateStatus UpdateStatus,
-                       const std::vector<std::string> &vars,
+                       const std::set<std::string> &vars,
                        const FieldsForLogging& fieldsForLogging);
         void Clear();
     public:
