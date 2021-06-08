@@ -186,6 +186,15 @@ namespace PgOra
                 "DEV_MODEL_SESS_FMT",   // dev_sess_modes, dev_fmt_opers
                                         // 4load: cache_tables.ldr
         }},
+        { "SP_PG_GROUP_CACHE_TABLES", {
+                "CACHE_TABLES",         // 7Proc: ADM
+                "CACHE_FIELDS",
+                "CACHE_CHILD_TABLES",
+                "CACHE_CHILD_FIELDS",
+                "ADM_CACHE_TABLES",
+        }}
+
+        // ASTRA MINIMUM END
     };
 
     static std::string getGroupByName(std::string objectName, const GroupsType& groups)
