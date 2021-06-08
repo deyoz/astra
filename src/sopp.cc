@@ -50,7 +50,6 @@
 #include "iapi_interaction.h"
 #include "check_grp_unification.h"
 #include "serverlib/cursctl.h"
-#include "gtimer.h"
 #include "PgOraConfig.h"
 
 #define NICKNAME "DJEK"
@@ -7331,7 +7330,13 @@ static void putTripStages(int point_id)
     TReqInfo::Instance()->LocaleToLog("EVT.STAGE.PLAN_TIME", params, evtGraph, point_id);
   };
 
-  gtimer::sync_trip_final_stages(point_id);
+  DB::TQuery SyncQry(PgOra::getRWSession("gtimer.sync_trip_final_stages"), STDLOG);
+  SyncQry.SQLText =
+    "BEGIN "
+    "  gtimer.sync_trip_final_stages(:point_id); "
+    "END;";
+  SyncQry.CreateVariable( "point_id", otInteger, point_id );
+  SyncQry.Execute();
 }
 
 void addTripCkinClient(
