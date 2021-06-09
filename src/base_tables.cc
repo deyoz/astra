@@ -4,6 +4,7 @@
 #include "exceptions.h"
 #include "stl_utils.h"
 #include "astra_consts.h"
+#include "PgOraConfig.h"
 #include "serverlib/logger.h"
 
 #define NICKNAME "VLAD"
@@ -178,7 +179,7 @@ void TBaseTable::load_table()
 {
   if(!pr_init || !pr_actual)
   {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession(get_table_name()), STDLOG);
     if (!pr_init)
     {
       ProgTrace(TRACE5,"%s: Qry.SQLText = get_select_sql_text=%s",get_table_name(), get_select_sql_text() );
@@ -247,7 +248,7 @@ const TBaseTableRow& TBaseTable::get_row(std::string field, int value, bool with
 };
 
 //////////////////////////////////////////////////////////////
-void TNameBaseTable::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TNameBaseTable::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
     int idx;
     if ( (idx=Qry.GetFieldIndex( "name" )) >= 0 )
@@ -258,7 +259,7 @@ void TNameBaseTable::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow 
     ((TNameBaseTableRow*)*row)->name_lat=((TNameBaseTableRow*)*row)->name;
 }
 /////////////////////////////////////////////////////////////
-void TIdBaseTable::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TIdBaseTable::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   ((TIdBaseTableRow*)*row)->id=Qry.FieldAsInteger("id");
   if (*replaced_row==NULL)
@@ -305,7 +306,7 @@ const TBaseTableRow& TIdBaseTable::get_row(std::string field, int value, bool wi
   return TBaseTable::get_row(field,value,with_deleted);
 }
 /////////////////////////////////////////////////////////////
-void TCodeBaseTable::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TCodeBaseTable::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
     int idx;
   ((TCodeBaseTableRow*)*row)->code=Qry.FieldAsString("code");
@@ -390,7 +391,7 @@ const TBaseTableRow& TCodeBaseTable::get_row(std::string field, std::string valu
   return TBaseTable::get_row(field,value,with_deleted);
 }
 //////////////////////////////////////////////////////////////////
-void TTIDBaseTable::create_variables(TQuery &Qry, bool pr_refresh)
+void TTIDBaseTable::create_variables(DB::TQuery &Qry, bool pr_refresh)
 {
   TCodeBaseTable::create_variables(Qry, pr_refresh);
   if (pr_refresh)
@@ -398,7 +399,7 @@ void TTIDBaseTable::create_variables(TQuery &Qry, bool pr_refresh)
   new_tid=tid;
 };
 
-void TTIDBaseTable::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TTIDBaseTable::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   ((TTIDBaseTableRow*)*row)->id=Qry.FieldAsInteger("id");
   ((TTIDBaseTableRow*)*row)->pr_del=Qry.FieldAsInteger("pr_del")!=0;
@@ -516,7 +517,7 @@ const TBaseTableRow& TICAOBaseTable::get_row(std::string field, std::string valu
   return TCodeBaseTable::get_row(field,value,with_deleted);
 };
 
-void TICAOBaseTable::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TICAOBaseTable::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   ((TICAOBaseTableRow*)*row)->code_icao=Qry.FieldAsString("code_icao");
   ((TICAOBaseTableRow*)*row)->code_icao_lat=Qry.FieldAsString("code_icao_lat");
@@ -557,7 +558,7 @@ const TBaseTableRow& TCountries::get_row(std::string field, std::string value, b
   return TCodeBaseTable::get_row(field,value,with_deleted);
 };
 
-void TCountries::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TCountries::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TCountriesRow;
   mem.create(*row, STDLOG);
@@ -565,7 +566,7 @@ void TCountries::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **re
   TTIDBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TAirps::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TAirps::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TAirpsRow;
   mem.create(*row, STDLOG);
@@ -573,14 +574,14 @@ void TAirps::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replac
   TICAOBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TPersTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
+void TPersTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
   *row = new TPersTypesRow;
   mem.create(*row, STDLOG);
   ((TPersTypesRow*)*row)->priority=Qry.FieldAsInteger("priority");
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 }
 
-void TGenderTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TGenderTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TGenderTypesRow;
   mem.create(*row, STDLOG);
@@ -588,14 +589,14 @@ void TGenderTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TReportTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TReportTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TReportTypesRow;
   mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TTagColors::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TTagColors::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TTagColorsRow;
   mem.create(*row, STDLOG);
@@ -636,7 +637,7 @@ const TBaseTableRow& TPaxDocCountries::get_row(std::string field, std::string va
   return TCodeBaseTable::get_row(field,value,with_deleted);
 };
 
-void TPaxDocCountries::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TPaxDocCountries::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TPaxDocCountriesRow;
   mem.create(*row, STDLOG);
@@ -644,7 +645,7 @@ void TPaxDocCountries::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRo
   TTIDBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TPaxDocTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TPaxDocTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TPaxDocTypesRow;
   mem.create(*row, STDLOG);
@@ -654,7 +655,7 @@ void TPaxDocTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TPaxDocSubtypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TPaxDocSubtypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TPaxDocSubtypesRow;
   mem.create(*row, STDLOG);
@@ -663,7 +664,7 @@ void TPaxDocSubtypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 }
 
-void TTypeBOptionValues::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TTypeBOptionValues::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TTypeBOptionValuesRow;
   mem.create(*row, STDLOG);
@@ -672,7 +673,7 @@ void TTypeBOptionValues::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTable
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 }
 
-void TTypeBTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TTypeBTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TTypeBTypesRow;
   mem.create(*row, STDLOG);
@@ -684,7 +685,7 @@ void TTypeBTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **r
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 }
 
-void TCities::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TCities::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TCitiesRow;
   mem.create(*row, STDLOG);
@@ -693,7 +694,7 @@ void TCities::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **repla
   TTIDBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TAirlines::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TAirlines::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TAirlinesRow;
   mem.create(*row, STDLOG);
@@ -738,7 +739,7 @@ const TBaseTableRow& TAirlines::get_row(std::string field, std::string value, bo
   return TICAOBaseTable::get_row(field,value,with_deleted);
 };
 
-void TClasses::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TClasses::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TClassesRow;
   mem.create(*row, STDLOG);
@@ -746,7 +747,7 @@ void TClasses::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **repl
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TSubcls::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TSubcls::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TSubclsRow;
   mem.create(*row, STDLOG);
@@ -754,21 +755,21 @@ void TSubcls::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **repla
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TTripSuffixes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TTripSuffixes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TTripSuffixesRow;
   mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TCrafts::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TCrafts::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TCraftsRow;
   mem.create(*row, STDLOG);
   TICAOBaseTable::create_row(Qry,row,replaced_row);
 }
 
-void TCustomAlarmTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TCustomAlarmTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
     *row = new TCustomAlarmTypesRow;
   mem.create(*row, STDLOG);
@@ -776,28 +777,28 @@ void TCustomAlarmTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableR
     TTIDBaseTable::create_row(Qry,row,replaced_row);
 }
 
-void TCurrency::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TCurrency::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
     *row = new TCurrencyRow;
   mem.create(*row, STDLOG);
     TTIDBaseTable::create_row(Qry,row,replaced_row);
 }
 
-void TRefusalTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TRefusalTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
     *row = new TRefusalTypesRow;
   mem.create(*row, STDLOG);
     TTIDBaseTable::create_row(Qry,row,replaced_row);
 }
 
-void TPayTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TPayTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
     *row = new TPayTypesRow;
   mem.create(*row, STDLOG);
     TTIDBaseTable::create_row(Qry,row,replaced_row);
 }
 
-void TRcptDocTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TRcptDocTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
     *row = new TRcptDocTypesRow;
   mem.create(*row, STDLOG);
@@ -806,7 +807,7 @@ void TRcptDocTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow *
     TTIDBaseTable::create_row(Qry,row,replaced_row);
 }
 
-void TTripTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TTripTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TTripTypesRow;
   mem.create(*row, STDLOG);
@@ -814,7 +815,7 @@ void TTripTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **re
   TTIDBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TClsGrp::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TClsGrp::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TClsGrpRow;
   mem.create(*row, STDLOG);
@@ -825,37 +826,37 @@ void TClsGrp::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **repla
   TTIDBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TAlarmTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
+void TAlarmTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
     *row = new TAlarmTypesRow;
   mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry, row, replaced_row);
 };
 
-void TDevModels::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
+void TDevModels::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
     *row = new TDevModelsRow;
   mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry, row, replaced_row);
 };
 
-void TDevSessTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
+void TDevSessTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
   *row = new TDevSessTypesRow;
   mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry, row, replaced_row);
 };
 
-void TDevFmtTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
+void TDevFmtTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
     *row = new TDevFmtTypesRow;
   mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry, row, replaced_row);
 };
 
-void TDevOperTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
+void TDevOperTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
     *row = new TDevOperTypesRow;
   mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry, row, replaced_row);
 };
 
-void TGrpStatusTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TGrpStatusTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TGrpStatusTypesRow;
   mem.create(*row, STDLOG);
@@ -864,7 +865,7 @@ void TGrpStatusTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TClientTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TClientTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TClientTypesRow;
   mem.create(*row, STDLOG);
@@ -874,14 +875,14 @@ void TClientTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TCompLayerTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TCompLayerTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TCompLayerTypesRow;
   mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TGraphStages::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TGraphStages::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TGraphStagesRow;
   mem.create(*row, STDLOG);
@@ -891,35 +892,35 @@ void TGraphStages::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **
   TIdBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TMiscSetTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TMiscSetTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TMiscSetTypesRow;
   mem.create(*row, STDLOG);
   TIdBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TSeatAlgoTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TSeatAlgoTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TSeatAlgoTypesRow;
   mem.create(*row, STDLOG);
   TIdBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TRights::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TRights::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TRightsRow;
   mem.create(*row, STDLOG);
   TIdBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TUserTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TUserTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TUserTypesRow;
   mem.create(*row, STDLOG);
   TIdBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TUserSetTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TUserSetTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TUserSetTypesRow;
   mem.create(*row, STDLOG);
@@ -929,14 +930,14 @@ void TUserSetTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow *
   TIdBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TBagNormTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TBagNormTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
     *row = new TBagNormTypesRow;
   mem.create(*row, STDLOG);
     TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TBagTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TBagTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TBagTypesRow;
   mem.create(*row, STDLOG);
@@ -945,28 +946,28 @@ void TBagTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **rep
   TIdBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TLangTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TLangTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
     *row = new TLangTypesRow;
   mem.create(*row, STDLOG);
     TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TStationModes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TStationModes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
     *row = new TStationModesRow;
   mem.create(*row, STDLOG);
     TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TSeasonTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TSeasonTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
     *row = new TSeasonTypesRow;
   mem.create(*row, STDLOG);
     TIdBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TFormTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TFormTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
     *row = new TFormTypesRow;
   mem.create(*row, STDLOG);
@@ -978,7 +979,7 @@ void TFormTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **re
     TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TCkinRemTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TCkinRemTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
     *row = new TCkinRemTypesRow;
   mem.create(*row, STDLOG);
@@ -988,20 +989,20 @@ void TCkinRemTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow *
     TTIDBaseTable::create_row(Qry,row,replaced_row);
 }
 
-void TMsgTransports::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
+void TMsgTransports::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
   *row = new TMsgTransportsRow;
   mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry, row, replaced_row);
 };
 
-void TRateColors::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TRateColors::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TRateColorsRow;
   mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TBIPrintTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TBIPrintTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TBIPrintTypesRow;
   mem.create(*row, STDLOG);
@@ -1009,21 +1010,21 @@ void TBIPrintTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow *
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void TVoucherTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TVoucherTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TVoucherTypesRow;
   mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
-void DCSActions::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void DCSActions::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new DCSActionsRow;
   mem.create(*row, STDLOG);
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 }
 
-void TPayMethodTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+void TPayMethodTypes::create_row(DB::TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TTypeBOptionValuesRow;
   mem.create(*row, STDLOG);

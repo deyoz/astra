@@ -122,8 +122,7 @@ std::string TCheckerFlt::checkLitera( const std::string &value, CheckMode mode )
   std::string tmp = value;
   tmp =  TrimString( tmp );
   if ( !tmp.empty() ) {
-    TQuery Qry(&OraSession);
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession("TRIP_LITERS"), STDLOG);
     Qry.SQLText = "SELECT code FROM trip_liters WHERE code=:code AND pr_del=0";
     Qry.CreateVariable( "code", otString, tmp );
     Qry.Execute();
@@ -191,8 +190,7 @@ TElemStruct TCheckerFlt::checkCraft( const std::string &value, CheckMode mode, b
         craft.code = tmp;
       }
       catch( EConvertError &e ) {
-        TQuery Qry(&OraSession);
-        Qry.Clear();
+        DB::TQuery Qry(PgOra::getROSession("CRAFTS"), STDLOG);
         Qry.SQLText = "SELECT code FROM crafts WHERE ( name=:code OR name_lat=:code ) AND pr_del=0 ";
         Qry.CreateVariable( "code", otString, craft.code );
         Qry.Execute();
@@ -234,8 +232,7 @@ TElemStruct TCheckerFlt::checkAirp( const std::string &value, CheckMode mode, bo
         airp.code = tmp;
       }
       catch( EConvertError &e ) {
-        TQuery Qry(&OraSession);
-        Qry.Clear();
+        DB::TQuery Qry(PgOra::getROSession("AIRPS"), STDLOG);
         Qry.SQLText = "SELECT code FROM airps WHERE ( name=:code OR name_lat=:code ) AND pr_del=0 ";
         Qry.CreateVariable( "code", otString, airp.code );
         Qry.Execute();

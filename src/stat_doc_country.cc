@@ -155,8 +155,7 @@ int stat_belgorod(int argc, char **argv)
     const string endl="\r\n";
 
     set<string> moscow_airps;
-    TQuery Qry(&OraSession);
-    Qry.Clear();
+    DB::TQuery Qry(PgOra::getROSession("AIRPS"), STDLOG);
     Qry.SQLText =
             "SELECT code FROM airps WHERE city=:city AND pr_del=0";
     Qry.CreateVariable("city", otString, "ŒŽ‚");

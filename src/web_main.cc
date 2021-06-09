@@ -2587,24 +2587,32 @@ void WebRequestsIface::GetCacheTable(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   ProgTrace( TRACE5, "WebRequestsIface::GetCacheTable: table_name=%s, tid=%d", table_name.c_str(), tid );
   n = NewTextChild( resNode, "GetCacheTable" );
   NewTextChild( n, "table_name", table_name );
-  TQuery Qry(&OraSession);
+
   if ( tid != ASTRA::NoExists ) {
-    Qry.SQLText =
-      string("SELECT tid FROM ")  + table_name + " WHERE tid>:tid AND rownum<2";
-    Qry.CreateVariable( "tid", otInteger, tid );
-    Qry.Execute();
-    if ( Qry.Eof ) {
+    ASSERT(table_name != "pax_doc_countries_ext");
+    DB::TQuery TidQry(PgOra::getROSession(table_name), STDLOG);
+    TidQry.SQLText =
+      string("SELECT tid FROM ")  + table_name + " WHERE tid>:tid FETCH FIRST 1 ROWS ONLY";
+    TidQry.CreateVariable( "tid", otInteger, tid );
+    TidQry.Execute();
+    if ( TidQry.Eof ) {
       NewTextChild( n, "tid", tid );
       return;
     }
     tid = ASTRA::NoExists;
   }
-  Qry.Clear();
+
+  DB::TQuery Qry(table_name == "pax_doc_countries_ext"  ? PgOra::getROSession({"PAX_DOC_COUNTRIES", "COUNTRIES"})
+                                                        : PgOra::getROSession(table_name),
+                 STDLOG);
   string sql;
   if ( table_name == "pax_doc_countries_ext" ) {
     sql =
-      "SELECT p.code,p.code code_lat,p.name,p.name_lat,p.country,c.code_lat country_lat,p.pr_del,p.tid FROM pax_doc_countries p, countries c "
-      "WHERE p.country=c.code(+) AND p.pr_del=0 "
+      "SELECT p.code,p.code code_lat,p.name,p.name_lat,p.country,c.code_lat country_lat,p.pr_del,p.tid "
+      "FROM pax_doc_countries p "
+      "LEFT OUTER JOIN countries c "
+      "ON p.country = c.code "
+      "WHERE p.pr_del = 0 "
       "ORDER BY code";
   }
   else {

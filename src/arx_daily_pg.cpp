@@ -594,7 +594,7 @@ std::set<ckin::birks_row> read_birks(Dates::DateTime_t part_key, int grp_id, con
         auto cur2 = make_db_curs(ora_select + " from TAG_TYPES,TAG_COLORS "
                                               " where TAG_TYPES.CODE = :tag_type and "
                                               "       TAG_COLORS.CODE = :color ",
-                                 PgOra::getROSession("TAG_TYPES"));
+                                 PgOra::getROSession({"TAG_TYPES", "TAG_COLORS"}));
         cur2.def(row.no_len)
             .def(row.color_view)
             .bind(":lang", lang)
@@ -635,7 +635,7 @@ std::set<ckin::birks_row> read_birks(Dates::DateTime_t part_key, int grp_id, int
         auto cur = make_db_curs(ora_select + " from TAG_TYPES,TAG_COLORS "
                                              " where TAG_TYPES.CODE = :tag_type and "
                                              "       TAG_COLORS.CODE = :color ",
-                                PgOra::getROSession("TAG_TYPES"));
+                                PgOra::getROSession({"TAG_TYPES", "TAG_COLORS"}));
         cur.def(row.no_len)
            .def(row.color_view)
            .bind(":lang", lang)

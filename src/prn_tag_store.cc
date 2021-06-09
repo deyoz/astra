@@ -13,6 +13,8 @@
 #include "seats_utils.h"
 #include "franchise.h"
 #include "flt_settings.h"
+#include "db_tquery.h"
+#include "PgOraConfig.h"
 #include <serverlib/str_utils.h>
 #include <serverlib/testmode.h>
 #include <boost/algorithm/string/split.hpp>
@@ -3288,7 +3290,7 @@ string TPrnTagStore::BR_AIRCODE(TFieldParams fp)
 
 string TPrnTagStore::BR_AIRLINE(TFieldParams fp)
 {
-    TQuery Qry(&OraSession);
+    DB::TQuery Qry(PgOra::getROSession("AIRLINES"), STDLOG);
     Qry.SQLText = "SELECT code FROM airlines WHERE aircode=:aircode AND pr_del=0";
     Qry.CreateVariable("aircode", otString, rcpt.aircode);
     Qry.Execute();
@@ -3632,7 +3634,7 @@ string get_mso_point(const string &aairp, TTagLang &tag_lang)
     TBaseTable &airps = base_tables.get("airps");
     string city = airps.get_row("code", aairp).AsString("city");
     string point = tag_lang.ElemIdToTagElem(etCity, city, efmtNameLong);
-    TQuery airpsQry(&OraSession);
+    DB::TQuery airpsQry(PgOra::getROSession("AIRPS"), STDLOG);
     airpsQry.SQLText =  "select count(*) from airps where city = :city and pr_del = 0";
     airpsQry.CreateVariable("city", otString, city);
     airpsQry.Execute();

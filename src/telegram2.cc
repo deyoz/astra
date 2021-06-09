@@ -5982,7 +5982,7 @@ bool check_delay_code(int delay_code)
 
 bool check_delay_code(const string &delay_code)
 {
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("DELAYS"), STDLOG);
   Qry.SQLText =
     "SELECT num FROM delays WHERE code=:code";
   Qry.CreateVariable( "code", otString, delay_code );

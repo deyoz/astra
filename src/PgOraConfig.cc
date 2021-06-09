@@ -95,19 +95,19 @@ namespace PgOra
         { "SP_PG_GROUP_CRYPT", { "CRYPT_FILE_PARAMS", "CRYPT_FILES", "CRYPT_REQ_DATA", "CRYPT_SERVER", "CRYPT_SETS", "CRYPT_TERM_CERT", "CRYPT_TERM_REQ" } },
         { "SP_PG_GROUP_TYPEB_IN", { "TLGS_IN", "TYPEB_PARSE_PROCESSES", "TYPEB_IN_HISTORY", "TYPEB_IN_ERRORS", "TYPEB_IN_BODY", "TYPEB_IN" } },
         { "SP_PG_GROUP_TYPEB_OUT", { "TLG_OUT", "TYPEB_OUT_ERRORS", "TYPEB_OUT_EXTRA" } },
-        { "SP_PG_GROUP_TLG_IN_OUT_SEQ", { "TLG_IN_OUT__SEQ" } },
+        { "SP_PG_GROUP_TLG_IN_OUT_SEQ", { "TLG_IN_OUT__SEQ" } },        
+        { "SP_PG_GROUP_BASETABLES", { "AIRLINES",         "AIRPS",        "CITIES",
+                                      "CRAFTS",           "COUNTRIES"     "PERS_TYPES",
+                                      "PAX_CATS",         "TRIP_TYPES",   "DELAYS",
+                                      "TRIP_LITERS",      "REFUSAL_TYPES","TAG_TYPES",
+                                      "RFIC_TYPES",       "PAY_TYPES",    "RCPT_DOC_TYPES",
+                                      "PAX_DOC_SUBTYPES", "PAX_DOC_TYPES","PERS_WEIGHTS",
+                                      "PAX_DOC_COUNTRIES","TAG_COLORS",   "GENDER_TYPES",
+                                      "SEAT_DESCR" } },
+
+        { "SP_PG_GROUP_ADM", { "ROT" } },
 
         // ASTRA MINIMUM
-
-        { "SP_PG_GROUP_MIN_BASE_TABLES", {
-                "AIRLINES",
-                "AIRPS",
-                "LANG_TYPES",
-                "TRIP_TYPES",
-                "CITIES",
-                "CRAFTS",
-        }},
-
         { "SP_PG_GROUP_DESK", {
                 "DESK_LOGGING",         // 4load: adm_cache_tables.ldr, cache_fields.ldr, cache_tables.ldr
                 "DESK_TRACES",          // 4load: adm_cache_tables.ldr, cache_fielddesks.ldr, cache_tables.ldr

@@ -10,9 +10,11 @@
 #include "tripinfo.h"
 #include "salonform.h"
 #include "iatci_help.h"
+#include "PgOraConfig.h"
 #include "tlg/CheckinBaseTypesOci.h"
 
 #include <serverlib/cursctl.h>
+#include <serverlib/dbcpp_cursctl.h>
 #include <serverlib/xml_tools.h>
 #include <serverlib/xml_stuff.h>
 #include <serverlib/dates_io.h>
@@ -2047,14 +2049,17 @@ static void copyBagPoolNums(const XmlSegment& paxSeg, std::list<XmlSegment>& trf
 
 static const BaseTables::Company awkByAccode(const std::string& accode)
 {
-    Ticketing::Airline_t awk_ida;
-    OciCpp::CursCtl cur = make_curs(
-"select ID from AIRLINES where AIRCODE=:accode and PR_DEL=0");
-    cur.def(awk_ida)
-       .bind(":accode", accode)
-       .EXfet();
+    Ticketing::Airline_t::BaseType ida;
+    auto cur = make_db_curs(
+"select ID from AIRLINES where AIRCODE=:accode and PR_DEL=0",
+                PgOra::getROSession("AIRLINES"));
+    cur
+            .def(ida)
+            .bind(":accode", accode)
+            .EXfet();
 
-    ASSERT(cur.err() != NO_DATA_FOUND);
+    ASSERT(cur.err() != DbCpp::ResultCode::NoDataFound);
+    Ticketing::Airline_t awk_ida(ida);
     const BaseTables::Company awk(awk_ida);
     return awk;
 }

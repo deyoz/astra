@@ -428,10 +428,11 @@ string ElemToElemId(TElemType type, const string &elem, TElemFmt &fmt, const std
   }
   else
   {
-    TQuery Qry(&OraSession);
     switch (type) {
         case etDelayType:
-            Qry.SQLText =
+        {
+          DB::TQuery Qry(PgOra::getROSession("DELAYS"), STDLOG);
+          Qry.SQLText =
             "SELECT code AS id, code, code_lat FROM delays where :code IN (code, code_lat)";
           Qry.CreateVariable( "code", otString, elem );
           Qry.Execute();
@@ -442,9 +443,13 @@ string ElemToElemId(TElemType type, const string &elem, TElemFmt &fmt, const std
           else
             fmt = efmtCodeNative;
           }
-            break;
+        }
+        break;
+
         case etTripLiter:
-            Qry.SQLText =
+        {
+          DB::TQuery Qry(PgOra::getROSession("TRIP_LITERS"), STDLOG);
+          Qry.SQLText =
             "SELECT code AS id, code, code_lat FROM trip_liters where :code IN (code, code_lat)";
           Qry.CreateVariable( "code", otString, elem );
           Qry.Execute();
@@ -455,7 +460,9 @@ string ElemToElemId(TElemType type, const string &elem, TElemFmt &fmt, const std
           else
             fmt = efmtCodeNative;
           }
-            break;
+        }
+        break;
+
       //надо бы добавить в будущем etValidatorType
         default:;
     }
@@ -463,7 +470,7 @@ string ElemToElemId(TElemType type, const string &elem, TElemFmt &fmt, const std
   };
 
   return id;
-};
+}
 
 string ElemToElemId(TElemType type, const string &elem, TElemFmt &fmt, bool with_deleted)
 {

@@ -1,7 +1,7 @@
 #include "basetables.h"
-#include "tlg/CheckinBaseTypesOci.h"
+#include "PgOraConfig.h"
 
-#include <serverlib/cursctl.h>
+#include <serverlib/dbcpp_cursctl.h>
 
 #define NICKNAME "ANTON"
 #define NICKTRACE ANTON_TRACE
@@ -25,15 +25,16 @@ template<> bool CommonData<T::IdaType>::GetInstanceCode_help(\
         const char *code,\
         T::IdaType &ida)\
 {\
-    T::IdaType IdaTmp(ida);\
-    OciCpp::CursCtl c=make_curs(sql);\
+    T::IdaType::BaseType IdaTmp = 0;\
+    auto c = make_db_curs(sql, PgOra::getROSession("SP_PG_GROUP_BASETABLES"));\
     c.\
             bind(":code",code).\
-            def(ida).\
+            def(IdaTmp).\
             EXfet();\
 \
-    if(c.err()==NO_DATA_FOUND)\
+    if(c.err()==DbCpp::ResultCode::NoDataFound)\
         return false;\
+    ida = T::IdaType(IdaTmp);\
     return true;\
 }
 
@@ -45,17 +46,18 @@ template<> bool CommonData<T::IdaType>::GetInstanceCode_help(\
         const char *code,\
         T::IdaType &ida)\
 {\
-    T::IdaType IdaTmp(ida);\
-    OciCpp::CursCtl c=make_curs(sql);\
+    T::IdaType::BaseType IdaTmp = 0;\
+    auto c = make_db_curs(sql, PgOra::getROSession("ROT"));\
     static std::string ownCanonName = readStringFromTcl("OWN_CANON_NAME", "ASTRA");\
     c.\
             bind(":code",code).\
             bind(":own_canon_name",ownCanonName).\
-            def(ida).\
+            def(IdaTmp).\
             EXfet();\
 \
-    if(c.err()==NO_DATA_FOUND)\
+    if(c.err()==DbCpp::ResultCode::NoDataFound)\
         return false;\
+    ida = T::IdaType(IdaTmp);\
     return true;\
 }
 
@@ -70,12 +72,14 @@ __INIT_ROT_TAB__ (Router_impl);
 Country_impl::Country_impl(IdaType ida)
 {
     ida_ = ida;
-    OciCpp::CursCtl c = make_curs(
+    auto c = make_db_curs(
             "SELECT RTRIM(CODE), RTRIM(CODE_LAT), RTRIM(NAME), RTRIM(NAME_LAT), "
             "RTRIM(CODE_ISO), PR_DEL "
-            "FROM COUNTRIES WHERE ID=:ida");
-    c.autoNull()
-     .bind(":ida", ida)
+            "FROM COUNTRIES WHERE ID=:ida",
+                PgOra::getROSession("COUNTRIES"));
+    c.stb()
+     .autoNull()
+     .bind(":ida", ida.get())
      .def(rcode_)
      .defNull(lcode_, "")
      .def(rname_)
@@ -95,12 +99,14 @@ const Country_impl* Country_impl::GetInstance(const char* code)
 City_impl::City_impl(IdaType ida)
 {
     ida_ = ida;
-    OciCpp::CursCtl c = make_curs(
+    auto c = make_db_curs(
             "SELECT RTRIM(CODE), RTRIM(CODE_LAT), RTRIM(NAME), RTRIM(NAME_LAT), "
             "TZ_REGION, COUNTRY, PR_DEL "
-            "FROM CITIES WHERE ID=:ida");
-    c.autoNull()
-     .bind(":ida", ida)
+            "FROM CITIES WHERE ID=:ida",
+                PgOra::getROSession("CITIES"));
+    c.stb()
+     .autoNull()
+     .bind(":ida", ida.get())
      .def(rcode_)
      .defNull(lcode_, "")
      .def(rname_)
@@ -122,12 +128,14 @@ const City_impl* City_impl::GetInstance(const char* code)
 Port_impl::Port_impl(IdaType ida)
 {
     ida_ = ida;
-    OciCpp::CursCtl c = make_curs(
+    auto c = make_db_curs(
             "SELECT RTRIM(CODE), RTRIM(CODE_LAT), RTRIM(NAME), RTRIM(NAME_LAT), "
             "RTRIM(CODE_ICAO), RTRIM(CODE_ICAO_LAT), CITY, PR_DEL "
-            "FROM AIRPS WHERE ID=:ida");
-    c.autoNull()
-     .bind(":ida", ida)
+            "FROM AIRPS WHERE ID=:ida",
+                PgOra::getROSession("AIRPS"));
+    c.stb()
+     .autoNull()
+     .bind(":ida", ida.get())
      .def(rcode_)
      .defNull(lcode_, "")
      .def(rname_)
@@ -150,12 +158,14 @@ const Port_impl* Port_impl::GetInstance(const char* code)
 Company_impl::Company_impl(IdaType ida)
 {
     ida_ = ida;
-    OciCpp::CursCtl c = make_curs(
+    auto c = make_db_curs(
             "SELECT RTRIM(CODE), RTRIM(CODE_LAT), RTRIM(NAME), RTRIM(NAME_LAT), "
             "RTRIM(CODE_ICAO), RTRIM(CODE_ICAO_LAT), AIRCODE, PR_DEL "
-            "FROM AIRLINES WHERE ID=:ida");
-    c.autoNull()
-     .bind(":ida", ida)
+            "FROM AIRLINES WHERE ID=:ida",
+                PgOra::getROSession("AIRLINES"));
+    c.stb()
+     .autoNull()
+     .bind(":ida", ida.get())
      .def(rcode_)
      .defNull(lcode_, "")
      .def(rname_)
@@ -183,13 +193,15 @@ Router_impl::Router_impl(IdaType ida)
     short translit = 0;
     short loopback = 0;
     int remAddrNumTmp = 0;
-    OciCpp::CursCtl c = make_curs(
+    auto c = make_db_curs(
             "SELECT CANON_NAME, OWN_CANON_NAME, RESP_TIMEOUT, "
             "IP_ADDRESS, IP_PORT, "
             "H2H, H2H_ADDR, OUR_H2H_ADDR, H2H_REM_ADDR_NUM, ROUTER_TRANSLIT, LOOPBACK "
             "FROM ROT "
-            "WHERE ID=:ida");
-    c.      bind(":ida", ida).
+            "WHERE ID=:ida",
+                PgOra::getROSession("ROT"));
+    c.      stb().
+            bind(":ida", ida.get()).
             def(canon_name_).
             def(own_canon_name_).
             defNull(resp_timeout_, (short)15).
@@ -203,7 +215,7 @@ Router_impl::Router_impl(IdaType ida)
             defNull(loopback, defval).
             EXfet();
 
-    if(c.err() != NO_DATA_FOUND) {
+    if(c.err() != DbCpp::ResultCode::NoDataFound) {
         closed_ = 0;
     }
 

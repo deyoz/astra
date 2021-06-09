@@ -33,7 +33,7 @@ void TPersWeights::Update()
 {
   weights.clear();
   TPerTypeWeight p;
-  TQuery Qry(&OraSession);
+  DB::TQuery Qry(PgOra::getROSession("PERS_WEIGHTS"), STDLOG);
   Qry.SQLText =
     "SELECT id,airline,craft,bort,class,subclass,pr_summer,first_date,"
     "       last_date,male,female,child,infant FROM pers_weights";
