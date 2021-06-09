@@ -103,7 +103,8 @@ namespace PgOra
                                       "RFIC_TYPES",       "PAY_TYPES",    "RCPT_DOC_TYPES",
                                       "PAX_DOC_SUBTYPES", "PAX_DOC_TYPES","PERS_WEIGHTS",
                                       "PAX_DOC_COUNTRIES","TAG_COLORS",   "GENDER_TYPES",
-                                      "SEAT_DESCR" } },
+                                      "DEV_SESS_TYPES",   "DEV_FMT_TYPES","DEV_MODELS",
+                                      "SEAT_DESCR",       "LANG_TYPES" } },
 
         { "SP_PG_GROUP_ADM", { "ROT" } },
 
@@ -170,14 +171,9 @@ namespace PgOra
                 "WEB_CLIENTS",
         }},
         { "SP_PG_GROUP_DEV", {
-                "DEV_FMT_TYPES",        // base_tables.h
-                                        // 4load: cache_fields.ldr, cache_tables.ldr
-                "DEV_MODELS",           // base_tables.h
-                                        // 4load: cache_fields.ldr, cache_tables.ldr
                 "DEV_OPER_TYPES",       // base_tables.h
                                         // 4load: cache_fields.ldr, cache_tables.ldr, dev_oper_types.ldr
                 "DEV_MODEL_DEFAULTS",   // dev_oper_types
-                "DEV_SESS_TYPES",       // base_tables.h
                 "DEV_EVENT_CMD",        // +
                 "DEV_MODEL_PARAMS",     // dev_sess_modes
                 "DEV_FMT_OPERS",        // dev_model_params, dev_model_sess_fmt, dev_sess_modes

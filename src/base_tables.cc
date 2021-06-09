@@ -179,7 +179,7 @@ void TBaseTable::load_table()
 {
   if(!pr_init || !pr_actual)
   {
-    DB::TQuery Qry(PgOra::getROSession(get_table_name()), STDLOG);
+    DB::TQuery Qry(PgOra::getROSession("SP_PG_GROUP_BASETABLES"), STDLOG);
     if (!pr_init)
     {
       ProgTrace(TRACE5,"%s: Qry.SQLText = get_select_sql_text=%s",get_table_name(), get_select_sql_text() );
