@@ -476,7 +476,7 @@ std::set<TlgId_t> loadFailedTlgIdsWOSource(const TTlgSearchParams& search_params
   DB::TQuery Qry(PgOra::getROSession({"TLGS_IN", "TLG_SOURCE"}), STDLOG);
   std::ostringstream sql;
   sql << "SELECT DISTINCT tlgs_in.id "
-         "FROM tlgs_in, tlg_source "
+         "FROM tlgs_in "
          "WHERE NOT EXISTS ( "
          "  SELECT 1 FROM tlg_source "
          "  WHERE tlg_source.tlg_id = tlgs_in.id "
@@ -676,7 +676,7 @@ std::set<FailedTlgKey> loadFailedTlgIdsWOBind(const TTlgSearchParams& search_par
   DB::TQuery Qry(PgOra::getROSession({"TLGS_IN", "TLG_SOURCE", "TLG_BINDING"}), STDLOG);
   std::ostringstream sql;
   sql << "SELECT DISTINCT tlgs_in.id, tlg_source.point_id_tlg "
-         "FROM tlgs_in, tlg_source, tlg_binding "
+         "FROM tlgs_in, tlg_source "
          "WHERE tlgs_in.id=tlg_source.tlg_id "
          "AND NOT EXISTS ( "
          "  SELECT 1 FROM tlg_binding "
