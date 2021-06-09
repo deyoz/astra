@@ -27,7 +27,9 @@ class FieldsForLogging
     void trace() const;
 };
 
+void DeclareVariable(const std::string& name, const TCacheConvertType type, DB::TQuery &Qry);
 
+void SetVariable(const std::string& name, const TCacheConvertType type, const std::string& value, DB::TQuery &Qry);
 
 void DeclareVariablesFromParams(const std::set<std::string> &vars, const TParams &SQLParams, DB::TQuery &Qry,
                                 const bool onlyIfParamExists=true);

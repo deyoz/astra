@@ -164,6 +164,8 @@ struct TCacheField2 {
         ReferIdent = -1;
         ElemCategory = cecNone;
     }
+
+    TCacheConvertType cacheConvertType() const;
 };
 
 typedef struct {

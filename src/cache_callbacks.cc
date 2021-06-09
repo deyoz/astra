@@ -8,6 +8,7 @@
 #include "serverlib/slogger.h"
 
 using namespace std;
+using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
 
 void FieldsForLogging::set(const std::string& name, const std::string& value)
@@ -29,6 +30,72 @@ void FieldsForLogging::trace() const
     LogTrace(TRACE5) << f.first << " = " << f.second;
 }
 
+void DeclareVariable(const string& name, const TCacheConvertType type, DB::TQuery &Qry)
+{
+  switch( type ) {
+    case ctInteger:
+      Qry.DeclareVariable( name, otInteger );
+      LogTrace(TRACE5) << "DeclareVariable('" << name << "', otInteger)";
+      break;
+    case ctDouble:
+      Qry.DeclareVariable( name, otFloat );
+      LogTrace(TRACE5) << "DeclareVariable('" << name << "', otFloat)";
+      break;
+    case ctDateTime:
+      Qry.DeclareVariable( name, otDate );
+      LogTrace(TRACE5) << "DeclareVariable('" << name << "', otDate)";
+      break;
+    case ctString:
+      Qry.DeclareVariable( name, otString );
+      LogTrace(TRACE5) << "DeclareVariable('" << name << "', otString)";
+      break;
+  }
+}
+
+void SetVariable(const string& name, const TCacheConvertType type, const string& value, DB::TQuery &Qry)
+{
+  if (value.empty())
+  {
+    Qry.SetVariable( name, FNull );
+    LogTrace(TRACE5) << "SetVariable('" << name << "', FNull)";
+    return;
+  }
+
+  switch( type ) {
+    case ctInteger:
+      {
+        int i;
+        if (StrToInt( value.c_str(), i ) == EOF)
+          throw EConvertError("Cannot convert variable %s to an Integer", value.c_str());
+        Qry.SetVariable( name, i );
+        LogTrace(TRACE5) << "SetVariable('" << name << "', " << i << ")";
+      }
+      break;
+    case ctDouble:
+      {
+        double f;
+        if (StrToFloat( value.c_str(), f ) == EOF)
+          throw EConvertError("Cannot convert variable %s to an Float", value.c_str());
+        Qry.SetVariable( name, f );
+        LogTrace(TRACE5) << "SetVariable('" << name << "', " << f << ")";
+      }
+      break;
+    case ctDateTime:
+      {
+        TDateTime d;
+        if (StrToDateTime( value.c_str(), d ) == EOF)
+          throw EConvertError("Cannot convert variable %s to an DateTime", value.c_str());
+        Qry.SetVariable( name, d );
+        LogTrace(TRACE5) << "SetVariable('" << name << "', " << value << ")";
+      }
+      break;
+    case ctString:
+      Qry.SetVariable( name, value );
+      LogTrace(TRACE5) << "SetVariable('" << name << "', '" << value << "')";
+      break;
+  }
+}
+
 void DeclareVariablesFromParams(const std::set<string> &vars, const TParams &SQLParams, DB::TQuery &Qry,
                                 const bool onlyIfParamExists)
 {
@@ -37,31 +104,12 @@ void DeclareVariablesFromParams(const std::set<string> &vars, const TParams &SQL
       map<std::string, TParam>::const_iterator ip = SQLParams.find( upperc(var) );
       if ( ip != SQLParams.end() )
       {
-        switch( ip->second.DataType ) {
-          case ctInteger:
-            Qry.DeclareVariable( var, otInteger );
-            LogTrace(TRACE5) << "DeclareVariable('" << var << "', otInteger)";
-            break;
-          case ctDouble:
-            Qry.DeclareVariable( var, otFloat );
-            LogTrace(TRACE5) << "DeclareVariable('" << var << "', otFloat)";
-            break;
-          case ctDateTime:
-            Qry.DeclareVariable( var, otDate );
-            LogTrace(TRACE5) << "DeclareVariable('" << var << "', otDate)";
-            break;
-          case ctString:
-            Qry.DeclareVariable( var, otString );
-            LogTrace(TRACE5) << "DeclareVariable('" << var << "', otString)";
-            break;
-        }
+        DeclareVariable(var, ip->second.DataType, Qry);
       }
       else
       {
-        if (!onlyIfParamExists) {
-          Qry.DeclareVariable( var, otString );
-          LogTrace(TRACE5) << "DeclareVariable('" << var << "', otString)";
-        }
+        if (!onlyIfParamExists)
+          DeclareVariable(var, ctString, Qry);
       }
     }
   }
@@ -75,23 +123,13 @@ void SetVariablesFromParams(const std::set<string> &vars, const TParams &SQLPara
     map<std::string, TParam>::const_iterator ip = SQLParams.find( upperc(var) );
     if ( ip != SQLParams.end() )
     {
-      if (!ip->second.Value.empty())
-      {
-        Qry.SetVariable( var, ip->second.Value );
-        LogTrace(TRACE5) << "SetVariable('" << var << "', '" << ip->second.Value << "')";
-      }
-      else
-      {
-        Qry.SetVariable( var, FNull );
-        LogTrace(TRACE5) << "SetVariable('" << var << "', FNull)";
-      }
+      SetVariable(var, ip->second.DataType, ip->second.Value, Qry);
       fieldsForLogging.set(var, ip->second.Value);
     }
     else
     {
       if (!onlyIfParamExists) {
-        Qry.SetVariable( var, FNull );
-        LogTrace(TRACE5) << "SetVariable('" << var << "', FNull)";
+        SetVariable(var, ctString, "", Qry);
         fieldsForLogging.set(var, "");
       }
     }

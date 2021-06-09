@@ -1601,6 +1601,29 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
   }
 }
 
+TCacheConvertType TCacheField2::cacheConvertType() const
+{
+  switch(DataType) {
+    case ftSignedNumber:
+    case ftUnsignedNumber:
+           if ((Scale>0) || (DataSize>9))
+             return ctDouble;
+           else
+             return ctInteger;
+    case ftDate:
+    case ftTime:
+           return ctDateTime;
+    case ftString:
+    case ftUTF:
+    case ftStringList:
+           return ctString;
+    case ftBoolean:
+           return ctInteger;
+    default:
+           throw Exception("%s: wrong DataType", __func__);
+  }
+}
+
 void TCacheTable::DeclareVariables(const std::set<string> &vars, DB::TQuery& Qry)
 {
   vector<string>::const_iterator f;
@@ -1618,38 +1641,7 @@ void TCacheTable::DeclareVariables(const std::set<string> &vars, DB::TQuery& Qry
       {
         if (upperc(*v)!=VarName) continue;
 
-        switch(iv->DataType) {
-          case ftSignedNumber:
-          case ftUnsignedNumber:
-                 if ((iv->Scale>0) || (iv->DataSize>9))
-                 {
-                   Qry.DeclareVariable(*v, otFloat);
-                   LogTrace(TRACE5) << "DeclareVariable('" << *v << "', otFloat)";
-                 }
-                 else
-                 {
-                   Qry.DeclareVariable(*v, otInteger);
-                   LogTrace(TRACE5) << "DeclareVariable('" << *v << "', otInteger)";
-                 }
-                 break;
-          case ftDate:
-          case ftTime:
-                 Qry.DeclareVariable(*v, otDate);
-                 LogTrace(TRACE5) << "DeclareVariable('" << *v << "', otDate)";
-                 break;
-          case ftString:
-          case ftUTF:
-          case ftStringList:
-                 Qry.DeclareVariable(*v, otString);
-                 LogTrace(TRACE5) << "DeclareVariable('" << *v << "', otString)";
-                 break;
-          case ftBoolean:
-                 Qry.DeclareVariable(*v, otInteger);
-                 LogTrace(TRACE5) << "DeclareVariable('" << *v << "', otInteger)";
-                 break;
-          default:;
-        }
-
+        DeclareVariable(*v, iv->cacheConvertType(), Qry);
         iv->varNames[i].push_back(*v);
       }
     }
@@ -1671,16 +1663,7 @@ void TCacheTable::SetVariables(const TRow &row, const std::set<std::string> &var
           value = row.old_cols[ Idx ];
         for(const string& varName : iv->varNames[i])
         {
-          if (!value.empty())
-          {
-            Qry.SetVariable(varName, value);
-            LogTrace(TRACE5) << "SetVariable('" << varName << "', '" << value << "')";
-          }
-          else
-          {
-            Qry.SetVariable(varName, FNull);
-            LogTrace(TRACE5) << "SetVariable('" << varName << "', FNull)";
-          }
+          SetVariable(varName, iv->cacheConvertType(), value, Qry);
           fieldsForLogging.set(varName, value);
         }
       }
