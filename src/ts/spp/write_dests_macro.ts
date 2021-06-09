@@ -189,3 +189,51 @@ $(CHANGE_SPP_FLIGHT_REQUEST $(point_dep)
   $(change_spp_point_last $(get_next_trip_point_id $(point_dep)) $(scd_in2) "" "" $(airp2)) })
 })
 
+$(defmacro PREPARE_FLIGHTS
+  date1
+  date2
+  date3
+{
+
+$(set now+2h $(date_format {%d.%m.%Y %H:%M} +2h))
+$(set now+3h $(date_format {%d.%m.%Y %H:%M} +3h))
+$(set now+4h $(date_format {%d.%m.%Y %H:%M} +4h))
+$(set now+5h $(date_format {%d.%m.%Y %H:%M} +5h))
+$(set now+7h $(date_format {%d.%m.%Y %H:%M} +7h))
+$(set now+8h $(date_format {%d.%m.%Y %H:%M} +8h))
+
+$(NEW_SPP_FLIGHT_REQUEST
+{ $(new_spp_point S7 371 777 "" ""            Ççä $(get now+2h))
+  $(new_spp_point_last          $(get now+4h) ëéó ) })
+
+$(NEW_SPP_FLIGHT_REQUEST
+{ $(new_spp_point SU 553 321 "" ""            Ççä $(get now+5h))
+  $(new_spp_point_last          $(get now+8h) óãÅ ) })
+
+$(NEW_SPP_FLIGHT_REQUEST
+{ $(new_spp_point U6 159 737 "" ""            ëéó $(get now+2h) suffix=D)
+  $(new_spp_point U6 159 737 "" $(get now+3h) Ççä $(get now+3h) suffix=D)
+  $(new_spp_point U6 159 737 "" $(get now+4h) LED $(get now+5h) suffix=D)
+  $(new_spp_point_last           $(get now+7h) äÉÑ ) })
+
+$(NEW_SPP_FLIGHT_REQUEST
+{ $(new_spp_point ûí 580 TU3 65021 ""               ëéó "$(date1) 12:00")
+  $(new_spp_point_last             "$(date1) 15:00" Ççä ) })
+
+$(NEW_SPP_FLIGHT_REQUEST
+{ $(new_spp_point ûí 461 TU3 65021 ""               Ççä "$(date1) 16:00")
+  $(new_spp_point_last             "$(date1) 21:20" êôç ) })
+
+$(NEW_SPP_FLIGHT_REQUEST
+{ $(new_spp_point UT 804 TU3 65021 ""               VKO "$(date1) 22:30")
+  $(new_spp_point_last             "$(date2) 01:15" LED ) })
+
+$(NEW_SPP_FLIGHT_REQUEST
+{ $(new_spp_point UT 804 TU3 65021 ""               VKO "$(date2) 22:30")
+  $(new_spp_point_last             "$(date3) 01:15" LED ) })
+
+$(NEW_SPP_FLIGHT_REQUEST
+{ $(new_spp_point UT 298 TU3 65021 ""               VKO "$(date1) 15:30")
+  $(new_spp_point_last             "$(date1) 16:45" PRG ) })
+
+})

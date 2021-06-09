@@ -564,9 +564,7 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         {
           int point_id=Qry.FieldAsInteger("point_id");
 
-          if (!checkFinalStages(point_id, SQLfilter)) {
-              if(!inTestMode()) continue; //пропускаем, рейс не подходит по final_stages
-          }
+          if (!checkFinalStages(point_id, SQLfilter)) continue; //пропускаем, рейс не подходит по final_stages
 
           TTripInfo info(Qry);
 

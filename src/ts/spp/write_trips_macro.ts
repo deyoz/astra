@@ -83,7 +83,7 @@ $(if $(eq $(stage_id2) "") "" {
 
 $(defmacro PREP_CHECKIN
   point_id
-  act="$(date_format %d.%m.%Y) $(date_format %H:%M)"
+  act=$(date_format {%d.%m.%Y %H:%M})
 {
 
 $(SET_STAGE $(point_id) $(act) 10)
@@ -105,7 +105,7 @@ $(SET_STAGE $(point_id) $(act) 10 20)
 
 $(defmacro CLOSE_CHECKIN
   point_id
-  act="$(date_format %d.%m.%Y) $(date_format %H:%M)"
+  act=$(date_format {%d.%m.%Y %H:%M})
 {
 
 $(SET_STAGE $(point_id) $(act) 30)
@@ -116,7 +116,7 @@ $(SET_STAGE $(point_id) $(act) 30)
 
 $(defmacro CLOSE_CHECKIN_CANCEL
   point_id
-  act="$(date_format %d.%m.%Y) $(date_format %H:%M)"
+  act=$(date_format {%d.%m.%Y %H:%M})
 {
 
 $(CANCEL_STAGE $(point_id) $(act) 30)
@@ -127,7 +127,7 @@ $(CANCEL_STAGE $(point_id) $(act) 30)
 
 $(defmacro OPEN_WEB_CHECKIN
   point_id
-  act="$(date_format %d.%m.%Y) $(date_format %H:%M)"
+  act=$(date_format {%d.%m.%Y %H:%M})
 {
 
 $(SET_STAGE $(point_id) $(act) 25)
@@ -138,7 +138,7 @@ $(SET_STAGE $(point_id) $(act) 25)
 
 $(defmacro CLOSE_WEB_CHECKIN
   point_id
-  act="$(date_format %d.%m.%Y) $(date_format %H:%M)"
+  act=$(date_format {%d.%m.%Y %H:%M})
 {
 
 $(SET_STAGE $(point_id) $(act) 35)
@@ -149,7 +149,7 @@ $(SET_STAGE $(point_id) $(act) 35)
 
 $(defmacro CLOSE_WEB_CHECKIN_CANCEL
   point_id
-  act="$(date_format %d.%m.%Y) $(date_format %H:%M)"
+  act=$(date_format {%d.%m.%Y %H:%M})
 {
 
 $(CANCEL_STAGE $(point_id) $(act) 35)
@@ -160,7 +160,7 @@ $(CANCEL_STAGE $(point_id) $(act) 35)
 
 $(defmacro OPEN_BOARDING
   point_id
-  act="$(date_format %d.%m.%Y) $(date_format %H:%M)"
+  act=$(date_format {%d.%m.%Y %H:%M})
 {
 
 $(SET_STAGE $(point_id) $(act) 40)
@@ -171,7 +171,7 @@ $(SET_STAGE $(point_id) $(act) 40)
 
 $(defmacro CLOSE_BOARDING
   point_id
-  act="$(date_format %d.%m.%Y) $(date_format %H:%M)"
+  act=$(date_format {%d.%m.%Y %H:%M})
 {
 
 $(SET_STAGE $(point_id) $(act) 50)
@@ -182,10 +182,21 @@ $(SET_STAGE $(point_id) $(act) 50)
 
 $(defmacro CLOSE_BOARDING_CANCEL
   point_id
-  act="$(date_format %d.%m.%Y) $(date_format %H:%M)"
+  act=$(date_format {%d.%m.%Y %H:%M})
 {
 
 $(CANCEL_STAGE $(point_id) $(act) 50)
+
+}) #end-of-macro
+
+#########################################################################################
+
+$(defmacro REMOVE_GANGWAY
+  point_id
+  act=$(date_format {%d.%m.%Y %H:%M})
+{
+
+$(SET_STAGE $(point_id) $(act) 70)
 
 }) #end-of-macro
 

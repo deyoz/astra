@@ -149,12 +149,13 @@ $(defmacro UPDATE_USER
   airlines
   roles
   lang=RU
+  opr=PIKE
 {
 
 !! capture=on
 <?xml version='1.0' encoding='CP866'?>
 <term>
-  <query handle='0' id='access' ver='1' opr='PIKE' screen='ACCESS.EXE' mode='STAND' lang='$(lang)' term_id='2479792165'>
+  <query handle='0' id='access' ver='1' opr='$(opr)' screen='ACCESS.EXE' mode='STAND' lang='$(lang)' term_id='2479792165'>
     <apply_updates>
       <users>
         <item index='0' status='modified'>

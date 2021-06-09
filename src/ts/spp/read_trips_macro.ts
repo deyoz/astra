@@ -143,5 +143,107 @@ $(defmacro GET_BAG_TRANSFER_REQUEST
 
 })
 
+$(defmacro GET_ADV_TRIP_LIST_CHECKIN_REQUEST
+  date #%d.%m.%Y
+  lang=RU
+  capture=off
+{
+!! capture=$(capture)
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='trips' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='$(lang)' term_id='2479792165'>
+    <GetAdvTripList>
+      <date>$(date) 00:00:00</date>
+      <filter>
+        <pr_takeoff>1</pr_takeoff>
+      </filter>
+      <view>
+        <codes_fmt>5</codes_fmt>
+      </view>
+    </GetAdvTripList>
+  </query>
+</term>
 
+})
 
+$(defmacro GET_ADV_TRIP_LIST_PREP_CHECKIN_REQUEST
+  date #%d.%m.%Y
+  lang=RU
+  capture=off
+{
+!! capture=$(capture)
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='trips' ver='1' opr='PIKE' screen='PREPREG.EXE' mode='STAND' lang='$(lang)' term_id='2479792165'>
+    <GetAdvTripList>
+      <date>$(date) 00:00:00</date>
+      <filter/>
+      <view>
+        <codes_fmt>5</codes_fmt>
+      </view>
+    </GetAdvTripList>
+  </query>
+</term>
+
+})
+
+$(defmacro GET_ADV_TRIP_LIST_BOARDING_REQUEST
+  date #%d.%m.%Y
+  lang=RU
+  capture=off
+{
+!! capture=$(capture)
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='trips' ver='1' opr='PIKE' screen='BRDBUS.EXE' mode='STAND' lang='$(lang)' term_id='2479792165'>
+    <GetAdvTripList>
+      <date>$(date) 00:00:00</date>
+      <filter/>
+      <view>
+        <codes_fmt>5</codes_fmt>
+      </view>
+    </GetAdvTripList>
+  </query>
+</term>
+
+})
+
+$(defmacro GET_ADV_TRIP_LIST_RESPONSE
+  date #%d.%m.%Y
+  trips
+{
+
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer ...>
+    <date>$(date) 00:00:00</date>\
+$(if $(eq $(trips) "") {
+    <trips/>} {
+    <trips>
+$(trips)
+    </trips>})
+  </answer>
+</term>
+
+})
+
+$(defmacro adv_trip_list_item
+  point_id
+  name
+  date #dd
+  airp
+  name_sort_order
+  date_sort_order
+  airp_sort_order
+{      <trip>
+        <point_id>$(point_id)</point_id>
+        <name>$(name)</name>
+        <date>$(date)...</date>
+        <airp>$(airp)</airp>
+        <name_sort_order>$(name_sort_order)</name_sort_order>\
+$(if $(eq $(date_sort_order) "") "" {
+        <date_sort_order>$(date_sort_order)</date_sort_order>})\
+$(if $(eq $(airp_sort_order) "") "" {
+        <airp_sort_order>$(airp_sort_order)</airp_sort_order>})
+      </trip>})
