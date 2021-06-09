@@ -2268,3 +2268,42 @@ $(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) П
 $(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "SBDO (Zamar)")
 $(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Итого "По агентам")
 $(RUN_GENERAL_STAT_AP  $(date_format %d.%m.%Y +20) $(date_format %d.%m.%Y +21) Подробная "Несопр. багаж")
+
+%%
+#########################################################################################
+###
+#   Тест №19
+#
+#   Описание: пассажиров: 61,
+#             интерактив: выкл
+#
+#   Чтение архива из sopp.cc ReadDests -> arx_internal_ReadDests
+#
+###
+#########################################################################################
+
+$(init_term)
+
+$(init_apps ЮТ ЦЗ APPS_21 closeout=false inbound=true outbound=true)
+$(init_apps ЮТ ГБ APPS_21 closeout=false inbound=true outbound=true)
+
+$(PREPARE_SEASON_SCD_WITHOUT_ARRIVE_TIME ЮТ СОЧ ЛХР 100  -1 TU5 $(date_format %d.%m.%Y +0) $(date_format %d.%m.%Y +5))
+
+$(make_spp $(ddmmyy +1))
+$(deny_ets_interactive ЮТ 100 СОЧ)
+
+$(INB_PNL_UT AER LHR 100 $(ddmon +1 en))
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+
+$(set move_id $(get_move_id $(get point_dep)))
+$(set pax_id $(get_pax_id $(get point_dep) TUMALI VALERII))
+
+$(auto_set_craft $(get point_dep))
+
+$(db_dump_table POINTS)
+
+$(run_arch_step $(ddmmyy +1))
+
+$(READ_DESTS $(get move_id) $(date_format %d.%m.%Y +1))

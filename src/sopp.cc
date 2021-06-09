@@ -3982,14 +3982,14 @@ void arx_internal_ReadDests( int move_id, TSOPPDests &dests, string &reference, 
     if ( !Qry.Eof )  reference = Qry.FieldAsString( "reference" );
     dests.clear();
     Qry.ClearParams();
-    DB::TQuery MQry(PgOra::getROSession("ARX_MOVE_REF"), STDLOG);
+    DB::TQuery MQry(PgOra::getROSession("ARX_POINTS"), STDLOG);
       MQry.SQLText =
     "SELECT point_id,point_num,first_point,airp,airp_fmt,airline,airline_fmt,flt_no,suffix,suffix_fmt,craft,craft_fmt,bort,"
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
     "       pr_tranzit,pr_reg,arx_points.pr_del pr_del "
     " FROM arx_points "
     " WHERE arx_points.part_key=:part_key AND arx_points.move_id=:move_id AND "
-    "       arx_points.pr_del!=-1 "
+    "       arx_points.pr_del <> -1 "
     " ORDER BY point_num ";
     MQry.CreateVariable( "part_key", otDate, part_key );
     MQry.CreateVariable( "move_id", otInteger, move_id );
@@ -3999,7 +3999,7 @@ void arx_internal_ReadDests( int move_id, TSOPPDests &dests, string &reference, 
     DQry.SQLText = arx_trip_delays_SQL;
     DQry.CreateVariable( "part_key", otDate, part_key );
     DQry.DeclareVariable( "point_id", otInteger );
-    readDestsFromDb(dests, Qry, DQry);
+    readDestsFromDb(dests, MQry, DQry);
 }
 
 void internal_ReadDests( int move_id, TSOPPDests &dests, string &reference, TDateTime part_key )
