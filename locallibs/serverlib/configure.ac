@@ -59,8 +59,8 @@ AS_IF(["$have_amqp_cpp"], [ AC_DEFINE([HAVE_AMQP_CPP], [1], [Have amqp-cpp libra
 AM_CONDITIONAL([HAVE_AMQP_CPP], ["$have_amqp_cpp"])
 AM_CONDITIONAL([ENABLE_ORACLE], [test x$enable_oracle_support = xyes])
 
-if test x$enable_oracle_support; then
-    ENABLE_ORACLE="-DENABLE_ORACLE"
+if test x$enable_oracle_support = xyes; then
+    ENABLE_ORACLE_FLAGS="-DENABLE_ORACLE"
 fi
 
 AC_ARG_ENABLE([xp-testing],
@@ -132,8 +132,8 @@ AX_CXX_FLAG_CHECK_ADD(["-Werror=c++11-narrowing"], [ALLWARNX])
 
 ALLWARN="-g -pipe -Wall -Wextra -Werror=format -Wno-error=format-security -Wno-error=format-nonliteral -Wtype-limits -Werror=uninitialized -Werror=init-self -Werror=return-type -Wempty-body -Werror=switch"
 ALLWARNC="" # -std=c99
-CXXFLAGS="$CFLAGS $ALLWARN $ALLWARNX $ENABLE_PG $ENABLE_ORACLE $ENABLE_PG_TESTS $MY_LOCAL_CFLAGS"
-CFLAGS="$CFLAGS $ALLWARN $ALLWARNC $ENABLE_PG $ENABLE_ORACLE $MY_LOCAL_CFLAGS"
+CXXFLAGS="$CFLAGS $ALLWARN $ALLWARNX $ENABLE_PG $ENABLE_ORACLE_FLAGS $ENABLE_PG_TESTS $MY_LOCAL_CFLAGS"
+CFLAGS="$CFLAGS $ALLWARN $ALLWARNC $ENABLE_PG $ENABLE_ORACLE_FLAGS $MY_LOCAL_CFLAGS"
 
 AC_SUBST(PLATFORM_FLAG, ["-${PLATFORM:-pipe}"])
 AC_SUBST(SERVERLIB_CFLAGS, ["$CFLAGS"])
@@ -169,7 +169,7 @@ if test x$enable_pg = xyes; then
     echo PostgreSQL enabled
 fi
 
-if test x$enable_oracle_support; then
+if test x$enable_oracle_support = xyes; then
     echo ORACLE enabled
 else
     echo "================ ORACLE NOT enabled ================"
