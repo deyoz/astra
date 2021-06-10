@@ -395,7 +395,7 @@ std::optional<int> get_bag_pool_pax_id(Dates::DateTime_t part_key, int grp_id,
     return res;
 }
 
-TBagInfo get_bagInfo2(Dates::DateTime_t part_key, int grp_id, std::optional<int> pax_id,
+std::optional<TBagInfo> get_bagInfo2(Dates::DateTime_t part_key, int grp_id, std::optional<int> pax_id,
                       std::optional<int> bag_pool_num)
 {
     LogTrace(TRACE6) << __func__ << " part_key: " << part_key << " grp_id: " << grp_id
@@ -407,7 +407,7 @@ TBagInfo get_bagInfo2(Dates::DateTime_t part_key, int grp_id, std::optional<int>
     std::optional<int> pool_pax_id = pax_id;
     if(pax_id) {
         if(!bag_pool_num) {
-            return bagInfo;
+            return std::nullopt;
         }
         pool_pax_id = get_bag_pool_pax_id(part_key, grp_id, bag_pool_num);
     }
@@ -423,10 +423,10 @@ TBagInfo get_bagInfo2(Dates::DateTime_t part_key, int grp_id, std::optional<int>
         query += pax_id ? " AND bag_pool_num=:bag_pool_num " : "";
         auto cur = make_db_curs(query, PgOra::getROSession("ARX_BAG2"));
         cur.stb()
-           .defNull(bagInfo.bagAmount,ASTRA::NoExists)
-           .defNull(bagInfo.bagWeight,ASTRA::NoExists)
-           .defNull(bagInfo.rkAmount,ASTRA::NoExists)
-           .defNull(bagInfo.rkWeight,ASTRA::NoExists)
+           .defNull(bagInfo.bagAmount,0)
+           .defNull(bagInfo.bagWeight,0)
+           .defNull(bagInfo.rkAmount,0)
+           .defNull(bagInfo.rkWeight,0)
            .bind(":part_key", part_key)
            .bind(":grp_id", grp_id);
         if(pax_id) {
@@ -436,7 +436,7 @@ TBagInfo get_bagInfo2(Dates::DateTime_t part_key, int grp_id, std::optional<int>
         if(cur.err() == DbCpp::ResultCode::NoDataFound) {
             LogTrace(TRACE6) << __func__ << " Query error. Not found data by grp_id: " << grp_id
                              << " part_key: " << part_key ;
-            return bagInfo;
+            return std::nullopt;
         }
     }
     return bagInfo;
@@ -446,32 +446,36 @@ std::optional<int> get_bagAmount2(Dates::DateTime_t part_key, int grp_id,
                                   std::optional<int> pax_id,
                                   std::optional<int> bag_pool_num)
 {
-    TBagInfo bagInfo = get_bagInfo2(part_key, grp_id, pax_id, bag_pool_num);
-    return bagInfo.bagAmount;
+    std::optional<TBagInfo> bagInfo = get_bagInfo2(part_key, grp_id, pax_id, bag_pool_num);
+    if(!bagInfo) return std::nullopt;
+    return bagInfo->bagAmount;
 }
 
 std::optional<int> get_bagWeight2(Dates::DateTime_t part_key, int grp_id,
                                   std::optional<int> pax_id,
                                   std::optional<int> bag_pool_num)
 {
-    TBagInfo bagInfo = get_bagInfo2(part_key, grp_id, pax_id, bag_pool_num);
-    return bagInfo.bagWeight;
+    std::optional<TBagInfo> bagInfo = get_bagInfo2(part_key, grp_id, pax_id, bag_pool_num);
+    if(!bagInfo) return std::nullopt;
+    return bagInfo->bagWeight;
 }
 
 std::optional<int> get_rkAmount2(Dates::DateTime_t part_key, int grp_id,
                                  std::optional<int> pax_id,
                                  std::optional<int> bag_pool_num)
 {
-    TBagInfo bagInfo = get_bagInfo2(part_key, grp_id, pax_id, bag_pool_num);
-    return bagInfo.rkAmount;
+    std::optional<TBagInfo> bagInfo = get_bagInfo2(part_key, grp_id, pax_id, bag_pool_num);
+    if(!bagInfo) return std::nullopt;
+    return bagInfo->rkAmount;
 }
 
 std::optional<int> get_rkWeight2(Dates::DateTime_t part_key, int grp_id,
                                  std::optional<int> pax_id,
                                  std::optional<int> bag_pool_num)
 {
-    TBagInfo bagInfo = get_bagInfo2(part_key, grp_id, pax_id, bag_pool_num);
-    return bagInfo.rkWeight;
+    std::optional<TBagInfo> bagInfo = get_bagInfo2(part_key, grp_id, pax_id, bag_pool_num);
+    if(!bagInfo) return std::nullopt;
+    return bagInfo->rkWeight;
 }
 
 std::optional<int> get_excess_wt(Dates::DateTime_t part_key, int grp_id,

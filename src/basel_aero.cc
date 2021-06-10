@@ -574,7 +574,6 @@ void get_basel_aero_arx_flight_stat(TDateTime part_key, int point_id, std::vecto
        .bind(":point_id", point_id)
        .exec();
     while(!cur.fen()) {
-        PG_ARX::TBagInfo bag_info = PG_ARX::get_bagInfo2(DateTimeToBoost(part_key), grp_id, pax_id, bag_pool_num);
         int arch_excess_wt = PG_ARX::get_excess_wt(DateTimeToBoost(part_key), grp_id, pax_id, excess_wt, excess, bag_refuse).value_or(0);
         std::string tags  = PG_ARX::get_birks2(DateTimeToBoost(part_key), grp_id, pax_id, bag_pool_num,"RU").value_or("");
         TBaselStat stat;
@@ -592,9 +591,9 @@ void get_basel_aero_arx_flight_stat(TDateTime part_key, int point_id, std::vecto
         else
           stat.viewName = "ÅÄÉÄÜ ÅÖá ëéèêéÇéÜÑÖçàü";
         stat.viewName = stat.viewName.substr(0,130);
-        stat.viewPCT = bag_info.bagAmount;
-        stat.viewWeight = bag_info.bagWeight;
-        stat.viewCarryon = bag_info.rkWeight;
+        stat.viewPCT = PG_ARX::get_bagAmount2(DateTimeToBoost(part_key), grp_id, pax_id, bag_pool_num).value_or(0);
+        stat.viewWeight = PG_ARX::get_bagWeight2(DateTimeToBoost(part_key), grp_id, pax_id, bag_pool_num).value_or(0);
+        stat.viewCarryon = PG_ARX::get_rkWeight2(DateTimeToBoost(part_key), grp_id, pax_id, bag_pool_num).value_or(0);
         stat.viewPayWeight = TComplexBagExcess(TBagPieces(excess_pc),TBagKilos(arch_excess_wt)).getDeprecatedInt();
         stat.viewTag = tags.substr(0,100);
         pair<TDateTime, TDateTime> times(NoExists, NoExists);
