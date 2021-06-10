@@ -47,7 +47,8 @@ void TLocaleMessages::Invalidate( std::string lang, bool pr_term )
 	  Qry.SQLText =
 	    "SELECT tid "
       "FROM locale_messages "
-	    "WHERE lang=:lang AND (pr_term=:pr_term OR pr_term IS NULL) AND tid>:tid AND rownum < 2";
+        "WHERE lang=:lang AND (pr_term=:pr_term OR pr_term IS NULL) AND tid>:tid "
+      "FETCH FIRST 1 ROWS ONLY";
 	  Qry.CreateVariable( "tid", otInteger, tid );
 	  Qry.CreateVariable( "lang", otString, lang );
 	  Qry.CreateVariable( "pr_term", otInteger, pr_term );
