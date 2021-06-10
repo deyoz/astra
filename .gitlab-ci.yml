@@ -1,5 +1,6 @@
 stages:
   - build
+  - build_noora
 
 variables:
   GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_COMMIT_REF_SLUG
@@ -17,6 +18,22 @@ build:
 
   variables:
     ENABLE_ORACLE: "1"
+
+  artifacts:
+    name: "tclmonlog"
+    paths:
+      - src/tclmon.log
+    when: on_failure
+
+build_noora:
+  stage: build
+
+  script:
+    - ./buildFromScratch.sh astra_trunk/trunk --build_external_libs --configlibs --buildlibs --configastra --buildastra --createtcl --createdb
+    - (cd src && make xp-tests XP_LIST=demo.ts_demo_season_ts)
+
+  variables:
+    ENABLE_ORACLE: "0"
 
   artifacts:
     name: "tclmonlog"
