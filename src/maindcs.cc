@@ -922,16 +922,16 @@ void GetSessionAirlines(const vector<string> &run_params, TSessionAirlines &airl
       {
         QParams QryParams;
         QryParams << QParam("code", otString, code);
-        TCachedQuery Qry(
+        DB::TCachedQuery Qry(PgOra::getROSession({"AIRLINES", "TERM_PARAM_AIRLINES"}),
           "SELECT DISTINCT term_param_airlines.airline, "
-          "       NVL(term_param_airlines.code, airlines.code) AS code, "
-          "       NVL(term_param_airlines.code_lat, airlines.code_lat) AS code_lat, "
-          "       NVL(term_param_airlines.aircode, airlines.aircode) AS aircode "
+          "   COALESCE(term_param_airlines.code, airlines.code) AS code, "
+          "   COALESCE(term_param_airlines.code_lat, airlines.code_lat) AS code_lat, "
+          "   COALESCE(term_param_airlines.aircode, airlines.aircode) AS aircode "
           "FROM airlines, term_param_airlines "
           "WHERE term_param_airlines.airline=airlines.code AND airlines.pr_del=0 AND "
           "      :code IN (term_param_airlines.code, "
           "                term_param_airlines.code_lat, "
-          "                term_param_airlines.aircode) ", QryParams);
+          "                term_param_airlines.aircode) ", QryParams, STDLOG);
         Qry.get().Execute();
         if (!Qry.get().Eof)
         {
