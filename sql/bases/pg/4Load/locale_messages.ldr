@@ -5908,8 +5908,8 @@ BEGINDATA
 "Завтрак"|"EN"|"Breakfast"|0|0|1
 "Обед"|"EN"|"Lunch"|0|0|1
 "Ужин"|"EN"|"Dinner"|0|0|1
-"MSG.COLLECT_STAT_INFO"|"RU"|"Заказанный отчет будет доступен для просмотра в разделе
-"MSG.COLLECT_STAT_INFO"|"EN"|"The requested report will be available in ""Orders / F2"".
+"MSG.COLLECT_STAT_INFO"|"RU"|"Заказанный отчет будет доступен для просмотра в разделе"|0|0|0
+"MSG.COLLECT_STAT_INFO"|"EN"|"The requested report will be available in ""Orders / F2"|0|0|0
 "MSG.CHECK_DOCO.INVALID_SUBTYPE"|"EN"|"Field data '[fieldname%s]' are specified incorrectly"|0|0|0
 "MSG.CHECK_DOCO.INVALID_ISSUE_COUNTRY"|"RU"|"Необходимо ввести код гос-ва в поле '[fieldname%s]'"|0|0|0
 "MSG.CHECK_DOCO.INVALID_ISSUE_COUNTRY"|"EN"|"Необходимо ввести код гос-ва в поле '[fieldname%s]'"|0|0|0
@@ -5928,19 +5928,19 @@ BEGINDATA
 "MSG.END_TIME_NOT_SET"|"EN"|"Final time of the period not specified"|0|0|1
 "QST.CANCEL_FILE_TRANSFER"|"RU"|"Прервать передачу отчета?"|0|0|1
 "QST.CANCEL_FILE_TRANSFER"|"EN"|"Cancel report transfer?"|0|0|1
-"Операции киосков саморегистрации"|"EN"|"Self-service check-in kiosks operations"|0|0|
+"Операции киосков саморегистрации"|"EN"|"Self-service check-in kiosks operations"|0|0|0
 "MSG.STAT_ORDERS.FILE_TRANSFER_ERROR"|"RU"|"Ошибка передачи отчета. Статус отчета [status%s]"|0|0|0
 "MSG.STAT_ORDERS.FILE_TRANSFER_ERROR"|"EN"|"File transfer error. The status of order is [status%s]"|0|0|0
 "MSG.STAT_ORDERS.CANT_DEL_RUNNING"|"RU"|"Невозможно удалить выполняющийся отчет"|0|0|0
 "MSG.STAT_ORDERS.CANT_DEL_RUNNING"|"EN"|"Impossible to delete running order."|0|0|0
 "MSG.STAT_ORDERS.ORDER_IS_EMPTY"|"RU"|"Отчет пустой"|0|0|0
 "MSG.STAT_ORDERS.ORDER_IS_EMPTY"|"EN"|"The order is empty"|0|0|0
-"MSG.STAT_ORDERS.MAX_ORDERS_SIZE_EXCEEDED"|"RU"|"Размер отчетов превысил максимально допустимый ([max%s]).
-"MSG.STAT_ORDERS.MAX_ORDERS_SIZE_EXCEEDED"|"EN"|"Reports size exceeded maximum allowed of [max%s].
-"MSG.STAT_ORDERS.IS_RUNNING"|"RU"|"Заказанный ранее отчет находится в обработке.
-"MSG.STAT_ORDERS.IS_RUNNING"|"EN"|"An order created earlier is currently running.
-"MSG.STAT_ORDERS.ORDERS_MAX_TOTAL_SIZE_EXCEEDED"|"RU"|"Недостаточно памяти для создания отчета.
-"MSG.STAT_ORDERS.ORDERS_MAX_TOTAL_SIZE_EXCEEDED"|"EN"|"Not enough memory for creating the report.
+"MSG.STAT_ORDERS.MAX_ORDERS_SIZE_EXCEEDED"|"RU"|"Размер отчетов превысил максимально допустимый ([max%s])"|0|0|0
+"MSG.STAT_ORDERS.MAX_ORDERS_SIZE_EXCEEDED"|"EN"|"Reports size exceeded maximum allowed of [max%s]."|0|0|0
+"MSG.STAT_ORDERS.IS_RUNNING"|"RU"|"Заказанный ранее отчет находится в обработке.|0|0|0
+"MSG.STAT_ORDERS.IS_RUNNING"|"EN"|"An order created earlier is currently running.|0|0|0
+"MSG.STAT_ORDERS.ORDERS_MAX_TOTAL_SIZE_EXCEEDED"|"RU"|"Недостаточно памяти для создания отчета.|0|0|0
+"MSG.STAT_ORDERS.ORDERS_MAX_TOTAL_SIZE_EXCEEDED"|"EN"|"Not enough memory for creating the report.|0|0|0
 "(подпись, ФИО, штамп)"|"EN"|"(signature, name, stamp)"|0|0|1
 "Фильтр отображения данных"|"EN"|"Data selection filter"|0|0|1
 "Работа с экранами"|"EN"|"Screens"|0|0|1
@@ -6000,7 +6000,7 @@ BEGINDATA
 "MSG.DIFFERENTE_PRICE"|"RU"|"Для цвета '[color%s]' заданы различные величины тарифов: [seat1%s] - [tariff1%s], [seat2%s] - [tariff2%s]"|0|0|0
 "MSG.DIFFERENTE_PRICE"|"EN"|"Colour '[color%s]' identifies different fare notions: [seat1%s] - [tariff1%s], [seat2%s] - [tariff2%s]"|0|0|0
 "Услуга"|"EN"|"Service"|0|0|0
-"Бренд"|"EN"|"Brand"|0|0|
+"Бренд"|"EN"|"Brand"|0|0|0
 "Бренды"|"EN"|"Brands"|0|0|0
 "Цвета тарифов"|"EN"|"Fares colouring"|0|0|0
 "Код тарифа"|"EN"|"Fare basis"|0|0|0
