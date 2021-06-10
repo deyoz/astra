@@ -1508,6 +1508,7 @@ struct TAPISFormat_EDI_VN : public TEdiAPISFormat // ÇúÖíçÄå
 {
   TAPISFormat_EDI_VN()
   {
+    add_rule(r_bagTagSerials);
     add_rule(r_convertPaxNames);
     add_rule(r_processDocNumber);
     add_rule(r_notOmitCrew);
