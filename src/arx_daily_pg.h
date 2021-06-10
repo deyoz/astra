@@ -41,7 +41,7 @@ struct TBagInfo
     int rkWeight = 0; //NUMBER(6)
 };
 
-TBagInfo get_bagInfo2(Dates::DateTime_t part_key, int grp_id, std::optional<int> pax_id,
+std::optional<TBagInfo> get_bagInfo2(Dates::DateTime_t part_key, int grp_id, std::optional<int> pax_id,
                        std::optional<int> bag_pool_num);
 std::optional<int> get_bagAmount2(Dates::DateTime_t part_key, int grp_id, std::optional<int> pax_id,
                     std::optional<int> bag_pool_num);

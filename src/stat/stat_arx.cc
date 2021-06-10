@@ -131,18 +131,13 @@ void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList
           int pr_lat =  TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU;
           std::string seat_no = Qry.FieldAsString(col_seat_no);
           Dates::DateTime_t b_part_key = DateTimeToBoost(part_key);
-          NewTextChild(paxNode, "bag_amount", PG_ARX::get_bagAmount2(b_part_key,
-                                                grp_id, pax_id, bag_pool_num).value_or(0));
-          NewTextChild(paxNode, "bag_weight", PG_ARX::get_bagWeight2(b_part_key,
-                                                grp_id, pax_id, bag_pool_num).value_or(0));
-          NewTextChild(paxNode, "rk_weight",  PG_ARX::get_rkWeight2(b_part_key,
-                                                grp_id, pax_id, bag_pool_num).value_or(0));
+          NewTextChild(paxNode, "bag_amount", PG_ARX::get_bagAmount2(b_part_key, grp_id, pax_id, bag_pool_num).value_or(0));
+          NewTextChild(paxNode, "bag_weight", PG_ARX::get_bagWeight2(b_part_key, grp_id, pax_id, bag_pool_num).value_or(0));
+          NewTextChild(paxNode, "rk_weight",  PG_ARX::get_rkWeight2(b_part_key,  grp_id, pax_id, bag_pool_num).value_or(0));
 
-          excessNodeList.add(paxNode, "excess", TBagPieces(excess_pc),
-            TBagKilos(PG_ARX::get_excess_wt(b_part_key, grp_id, pax_id, excess_wt,
-                                            excess, bag_refuse).value_or(0)));
-          NewTextChild(paxNode, "tags", PG_ARX::get_birks2(b_part_key, grp_id, pax_id,
-                                                           bag_pool_num, pr_lat).value_or(""));
+          excessNodeList.add(paxNode, "excess", TBagPieces(excess_pc), TBagKilos(PG_ARX::get_excess_wt(
+                             b_part_key, grp_id, pax_id, excess_wt, excess, bag_refuse).value_or(0)));
+          NewTextChild(paxNode, "tags", PG_ARX::get_birks2(b_part_key, grp_id, pax_id, bag_pool_num, pr_lat).value_or(""));
           NewTextChild(paxNode, "seat_no",  get_seat_no(seats, seat_no));
       } else {
           int col_bag_amount = Qry.FieldIndex("bag_amount");
@@ -161,15 +156,6 @@ void PaxListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList
                                                 TBagKilos(Qry.FieldAsInteger(col_excess_wt)));
           NewTextChild(paxNode, "tags", Qry.FieldAsString(col_tags));
           NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
-
-//          NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
-//          NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
-//          NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
-
-//          excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger("excess_pc")),
-//                                                TBagKilos(Qry.FieldAsInteger("excess_wt")));
-//          NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
-//          NewTextChild(paxNode, "seat_no", Qry.FieldAsString("seat_no"));
       }
 
       NewTextChild(paxNode, "grp_id", grp_id);
@@ -1604,23 +1590,18 @@ void UnaccompListToXML(DB::TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNod
           int bag_refuse = Qry.FieldAsInteger("bag_refuse");
           int pr_lat = TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU;
           Dates::DateTime_t b_part_key = DateTimeToBoost(part_key);
-          NewTextChild(paxNode, "bag_amount", PG_ARX::get_bagAmount2(b_part_key,
-                                                grp_id, std::nullopt, 0).value_or(0));
-          NewTextChild(paxNode, "bag_weight", PG_ARX::get_bagWeight2(b_part_key,
-                                                grp_id, std::nullopt, 0).value_or(0));
-          NewTextChild(paxNode, "rk_weight",  PG_ARX::get_rkWeight2(b_part_key,
-                                                grp_id, std::nullopt, 0).value_or(0));
-          excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger(col_excess_pc)),
-                  TBagKilos(PG_ARX::get_excess_wt(b_part_key,
-                            grp_id, std::nullopt, excess_wt, excess, bag_refuse).value_or(0)));
-          NewTextChild(paxNode, "tags", PG_ARX::get_birks2(b_part_key,
-                                            grp_id, std::nullopt, 0, pr_lat).value_or(""));
+          NewTextChild(paxNode, "bag_amount", PG_ARX::get_bagAmount2(b_part_key, grp_id, std::nullopt, 0).value_or(0));
+          NewTextChild(paxNode, "bag_weight", PG_ARX::get_bagWeight2(b_part_key, grp_id, std::nullopt, 0).value_or(0));
+          NewTextChild(paxNode, "rk_weight",  PG_ARX::get_rkWeight2(b_part_key,  grp_id, std::nullopt, 0).value_or(0));
+          excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger(col_excess_pc)), TBagKilos(PG_ARX::get_excess_wt(
+                              b_part_key,grp_id, std::nullopt, excess_wt, excess, bag_refuse).value_or(0)));
+          NewTextChild(paxNode, "tags", PG_ARX::get_birks2(b_part_key, grp_id, std::nullopt, 0, pr_lat).value_or(""));
       } else {
           NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
           NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
           NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
-          excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger("excess_pc")),
-                                                TBagKilos(Qry.FieldAsInteger("excess_wt")));
+
+          excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger("excess_pc")), TBagKilos(Qry.FieldAsInteger("excess_wt")));
           NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
       }
       NewTextChild(paxNode, "grp_id", grp_id);
@@ -1728,7 +1709,10 @@ void ArxPaxListRun(Dates::DateTime_t part_key, xmlNodePtr reqNode, xmlNodePtr re
         "  arx_pax_grp.airp_arv, "
         "  arx_pax_grp.excess_pc, "
         "  arx_pax_grp.grp_id, "
-        "  arx_pax_grp.hall "
+        "  arx_pax_grp.hall, "
+        "  arx_pax_grp.excess_wt, "
+        "  arx_pax_grp.excess, "
+        "  arx_pax_grp.bag_refuse "
         "FROM arx_pax_grp, arx_points "
         "WHERE point_dep=:point_id AND class IS NULL and "
         "   arx_pax_grp.status NOT IN ('E') AND "
@@ -1749,6 +1733,7 @@ void ArxPaxListRun(Dates::DateTime_t part_key, xmlNodePtr reqNode, xmlNodePtr re
     }
     Qry.CreateVariable("part_key", otDate, BoostToDateTime(part_key));
     Qry.Execute();
+    LogTrace5 << " Qry SQL TEXT: " << Qry.SQLText;
     UnaccompListToXML(Qry, resNode, excessNodeList, false, 0, count, true);
 
     xmlNodePtr paxListNode = GetNode("paxList", resNode);
