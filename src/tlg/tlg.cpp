@@ -20,7 +20,6 @@
 #include <serverlib/testmode.h>
 #include <serverlib/TlgLogger.h>
 #include <serverlib/posthooks.h>
-#include <serverlib/cursctl.h>
 #include <edilib/edi_user_func.h>
 #include <edilib/edi_tables.h>
 #include <libtlg/tlg_outbox.h>

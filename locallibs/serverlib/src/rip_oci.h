@@ -50,7 +50,7 @@ struct OciSelectorRipHelper<std::string>
     static const int type = SQLT_STR;
     static const External::type data_type = External::string;
     static const int canBindout = 0;
-    
+
     static int size(const void* addr) { return strlen(static_cast<const char*>(addr)) + 1; }
 
     template<typename RipType>

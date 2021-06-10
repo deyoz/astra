@@ -7,11 +7,14 @@
 
 #include "dbcpp_db_type.h"
 
+#ifdef ENABLE_ORACLE
 namespace OciCpp
 {
     class OciSession;
     class CursCtl;
 }
+#endif
+
 namespace PgCpp
 {
     class Session;
@@ -55,7 +58,7 @@ namespace DbCpp
 
         bool isOracle() const { return getType() == DbType::Oracle; }
     };
-
+#ifdef ENABLE_ORACLE
     class OraSession final : public Session
     {
         friend class OracleImpl;
@@ -97,6 +100,7 @@ namespace DbCpp
         std::unique_ptr<OciCpp::OciSession> mSession;
         bool mReleaseOnDestruction;
     };
+#endif
 
     class PgSession_wo_CheckSQL final : public Session
     {
@@ -207,8 +211,10 @@ namespace DbCpp
         friend class PgAutonomousSessionManager;
     };
 
+#ifdef ENABLE_ORACLE
     OraSession& mainOraSession(const char* nick, const char* file, int line);
     OraSession* mainOraSessionPtr(const char* nick, const char* file, int line);
+#endif
 
     PgSession& mainPgManagedSession(const char* nick, const char* file, int line);
     PgSession* mainPgManagedSessionPtr(const char* nick, const char* file, int line,

@@ -13,7 +13,7 @@
 #endif /*HAVE_CONFIG_H*/
 
 #include "remote_system_context.h"
-#include "CheckinBaseTypesOci.h"
+// #include "CheckinBaseTypesOci.h"
 #include "exceptions.h"
 #include "edi_utils.h"
 #include "astra_utils.h"
@@ -21,7 +21,7 @@
 #include "astra_consts.h"
 
 #include <serverlib/posthooks.h>
-#include <serverlib/cursctl.h>
+#include <serverlib/dbcpp_cursctl.h>
 #include <etick/etick_msg.h>
 #include <etick/exceptions.h>
 
@@ -58,13 +58,14 @@ void SystemContext::checkContinuity() const
 Ticketing::SystemAddrs_t SystemContext::getNextId()
 {
     int val = 0;
-    OciCpp::CursCtl cur = make_curs("select SYST_ADDRS_SEQ.nextval from dual");
+    DbCpp::CursCtl cur = make_db_curs("select SYST_ADDRS_SEQ.nextval from dual",
+                                      PgOra::getRWSession("SYST_ADDRS_SEQ"));
     cur.def(val).EXfet();
 
     return Ticketing::SystemAddrs_t(val);
 }
 
-SystemContext SystemContext::defSelData(OciCpp::CursCtl& cur)
+SystemContext SystemContext::defSelData(DbCpp::CursCtl& cur)
 {
     int systemId = 0;
     std::string airline;
@@ -84,7 +85,7 @@ SystemContext SystemContext::defSelData(OciCpp::CursCtl& cur)
        .defNull(ediProfileName, "");
     cur.exfet();
 
-    if(cur.err() == NO_DATA_FOUND)
+    if (cur.err() == DbCpp::ResultCode::NoDataFound)
     {
         throw system_not_found();
     }
@@ -159,9 +160,10 @@ void SystemContext::deleteDb()
 void SystemContext::addDb()
 {
     ProgTrace(TRACE0, "SystemContext::addDb");
-    OciCpp::CursCtl cur = make_curs(
-"insert into EDI_ADDRS (ADDR, CANON_NAME) "
-"values (:addr, :canon_name)");
+    DbCpp::CursCtl cur = make_db_curs(
+        "insert into EDI_ADDRS (ADDR, CANON_NAME) "
+        "values (:addr, :canon_name)",
+        PgOra::getRWSession("EDI_ADDRS"));
     cur.stb()
        .bind(":addr", remoteAddrEdifact())
        .bind(":canon_name", routerCanonName());
@@ -256,9 +258,12 @@ EdsSystemContext* EdsSystemContext::read(const std::string& airl,
 "order by PRIORITY desc";
 
     short null = -1, nnull = 0;
-    OciCpp::CursCtl cur = make_curs(sql);
-    cur.bind(":airl", airl)
-       .bind(":flt_no", flNum?flNum.get():0, flNum?&nnull:&null);
+    DbCpp::CursCtl cur = make_db_curs(sql,
+                                      PgOra::getRWSession("ET_ADDR_SET"));
+    cur
+        .stb()
+        .bind(":airl", airl)
+        .bind(":flt_no", flNum ? flNum.get() : 0, flNum ? &nnull : &null);
 
     SystemContext sysCtxt;
     try
@@ -287,7 +292,7 @@ SystemContext* EdsSystemContext::readByEdiAddrs(const std::string& source, const
 "and (EDI_OWN_ADDR_EXT = :dest_ext or :dest_ext is null) ";
     sql += "order by PRIORITY desc";
 
-    OciCpp::CursCtl cur = make_curs(sql);
+    DbCpp::CursCtl cur = make_db_curs(sql, PgOra::getRWSession("ET_ADDR_SET"));
     cur.bind(":src", source)
        .bind(":src_ext", source_ext)
        .bind(":dest", dest)
@@ -363,7 +368,7 @@ void EdsSystemContext::deleteDb()
 
     int systemId = ida().get();
 
-    OciCpp::CursCtl cur = make_curs(sql);
+    DbCpp::CursCtl cur = make_db_curs(sql, PgOra::getRWSession("ET_ADDR_SET"));
     cur.bind(":id", systemId)
        .exec();
 
@@ -384,14 +389,14 @@ void EdsSystemContext::addDb()
     std::string ediAddr = remoteAddrEdifact();
     std::string ourEdiAddr = ourAddrEdifact();
 
-    OciCpp::CursCtl cur = make_curs(sql);
+    DbCpp::CursCtl cur = make_db_curs(sql, PgOra::getRWSession("ET_ADDR_SET"));
     cur.bind(":airline", airl)
        .bind(":edi_addr", ediAddr)
        .bind(":edi_own_addr", ourEdiAddr)
        .bind(":id", systemId)
        .exec();
 
-    if(cur.err() == CERR_DUPK)
+    if(cur.err() == DbCpp::ResultCode::ConstraintFail)
     {
         throw DuplicateRecord();
     }
@@ -413,7 +418,7 @@ void EdsSystemContext::updateDb()
     std::string ediAddr = remoteAddrEdifact();
     std::string ourEdiAddr = ourAddrEdifact();
 
-    OciCpp::CursCtl cur = make_curs(sql);
+    DbCpp::CursCtl cur = make_db_curs(sql, PgOra::getRWSession("ET_ADDR_SET"));
     cur.bind(":airline", airl)
        .bind(":edi_addr", ediAddr)
        .bind(":edi_own_addr", ourEdiAddr)
@@ -453,9 +458,11 @@ DcsSystemContext* DcsSystemContext::read(const std::string& airl,
 "order by PRIORITY desc";
 
     short null = -1, nnull = 0;
-    OciCpp::CursCtl cur = make_curs(sql);
-    cur.bind(":airl", airl)
-       .bind(":flt_no", flNum?flNum.get():0, flNum?&nnull:&null);
+    DbCpp::CursCtl cur = make_db_curs(sql, PgOra::getROSession("ET_ADDR_SET"));
+    cur
+        .stb()
+        .bind(":airl", airl)
+        .bind(":flt_no", flNum ? flNum.get() : 0, flNum ? &nnull : &null);
 
     try
     {
@@ -488,11 +495,13 @@ DcsSystemContext* DcsSystemContext::read(const std::string& airl,
 "order by PRIORITY desc";
 
     short null = -1, nnull = 0;
-    OciCpp::CursCtl cur = make_curs(sql);
-    cur.bind(":airl", airl)
-       .bind(":flt_no", flNum?flNum.get():0, flNum?&nnull:&null)
-       .bind(":our_airl", ourAirl)
-       .bind(":our_flt_no", ourFlNum?ourFlNum.get():0, ourFlNum?&nnull:&null);
+    DbCpp::CursCtl cur = make_db_curs(sql, PgOra::getROSession("ET_ADDR_SET"));
+    cur
+        .stb()
+        .bind(":airl", airl)
+        .bind(":flt_no", flNum ? flNum.get() : 0, flNum ? &nnull : &null)
+        .bind(":our_airl", ourAirl)
+        .bind(":our_flt_no", ourFlNum ? ourFlNum.get() : 0, ourFlNum ? &nnull : &null);
 
     try
     {
@@ -514,8 +523,10 @@ DcsSystemContext DcsSystemContext::read(Ticketing::SystemAddrs_t id)
     std::string sql = getSelectSql();
     sql += "where ID=:id";
 
-    OciCpp::CursCtl cur = make_curs(sql);
-    cur.bind(":id", id.get());
+    DbCpp::CursCtl cur = make_db_curs(sql, PgOra::getROSession("ET_ADDR_SET"));
+    cur
+        .stb()
+        .bind(":id", id.get());
     return DcsSystemContext(defSelData(cur));
 }
 
@@ -531,7 +542,7 @@ SystemContext* DcsSystemContext::readByEdiAddrs(const std::string& source, const
 "and (EDI_OWN_ADDR_EXT = :dest_ext or :dest_ext is null) ";
     sql += "order by PRIORITY desc";
 
-    OciCpp::CursCtl cur = make_curs(sql);
+    DbCpp::CursCtl cur = make_db_curs(sql, PgOra::getROSession("ET_ADDR_SET"));
     cur.bind(":src", source)
        .bind(":src_ext", source_ext)
        .bind(":dest", dest)
@@ -612,7 +623,7 @@ void DcsSystemContext::addDb()
 "values "
 "(:airline, :edi_addr, :edi_own_addr, :air_addr, :air_own_addr, :edifact_profile, :id) ";
 
-    OciCpp::CursCtl cur = make_curs(sql);
+    DbCpp::CursCtl cur = make_db_curs(sql, PgOra::getRWSession("ET_ADDR_SET"));
     cur.stb()
        .bind(":airline",         airline())
        .bind(":edi_addr",        remoteAddrEdifact())
@@ -623,7 +634,7 @@ void DcsSystemContext::addDb()
        .bind(":id",              ida().get())
        .exec();
 
-    if(cur.err() == CERR_DUPK)
+    if(cur.err() == DbCpp::ResultCode::ConstraintFail)
     {
         throw DuplicateRecord();
     }
@@ -768,34 +779,32 @@ SystemContext SystemContextMaker::getSystemContext()
 
 std::string createRot(const RotParams &par)
 {
-    Ticketing::RouterId_t rot;
+    Ticketing::RouterId_t::BaseType router_id = 0;
 
-    OciCpp::CursCtl cur = make_curs(
-"select ID from ROT where CANON_NAME=:cn");
+    DbCpp::CursCtl cur = make_db_curs(
+        "select ID from ROT where CANON_NAME=:cn", PgOra::getROSession("ROT"));
     cur.bind(":cn", par.canon_name)
-       .def(rot)
+       .def(router_id)
        .exfet();
 
-    if(!rot)
+    if (!router_id)
     {
         LogTrace(TRACE3) << "create rot: " << par.canon_name;
 
-        make_curs("begin "
-"insert into ROT (CANON_NAME, OWN_CANON_NAME, ROUTER_TRANSLIT, ID, LOOPBACK, IP_ADDRESS, IP_PORT, H2H, H2H_ADDR, OUR_H2H_ADDR) "
-"values "
-"(:canon_name, 'ASTRA', :translit, id__seq.nextval, 1, '0.0.0.0', '8888', :h2h, :h2h_addr, :our_h2h_addr) "
-"returning id into :id; end;").
-        bind(":canon_name",   par.canon_name).
-        bind(":translit",     par.translit).
-        bind(":h2h",          par.h2h?1:0).
-        bind(":h2h_addr",     par.h2h_addr).
-        bind(":our_h2h_addr", par.our_h2h_addr).
-        bindOut(":id",        rot).
-        exec();
+        make_db_curs(
+            "insert into ROT (CANON_NAME, OWN_CANON_NAME, ROUTER_TRANSLIT, ID, LOOPBACK, IP_ADDRESS, IP_PORT, H2H, H2H_ADDR, OUR_H2H_ADDR) "
+            "values "
+            "(:canon_name, 'ASTRA', :translit, id__seq.nextval, 1, '0.0.0.0', '8888', :h2h, :h2h_addr, :our_h2h_addr) ",
+            PgOra::getRWSession("ROT"))
+            .stb()
+            .bind(":canon_name", par.canon_name)
+            .bind(":translit", par.translit)
+            .bind(":h2h", par.h2h ? 1 : 0)
+            .bind(":h2h_addr", par.h2h_addr)
+            .bind(":our_h2h_addr", par.our_h2h_addr)
+            .exec();
 
         BaseTables::CacheData<BaseTables::Router_impl>::clearCache();
-
-        LogTrace(TRACE3) << "rot.ida = " << rot << " for canon_name = " << par.canon_name;
     }
     return par.canon_name;
 }
@@ -809,23 +818,25 @@ std::string createIatciEdifactProfile()
                                   "IATA",
                                   1);
 
-    make_curs("delete from EDIFACT_PROFILES where NAME=:name")
-            .bind(":name", p.m_profileName)
-            .exec();
+    make_db_curs("delete from EDIFACT_PROFILES where NAME=:name",
+                 PgOra::getRWSession({"EDIFACT_PROFILES"}))
+        .bind(":name", p.m_profileName)
+        .exec();
 
     LogTrace(TRACE3) << "create edifact profile: " << p.m_profileName;
 
-    make_curs(
-"insert into EDIFACT_PROFILES (NAME, VERSION, SUB_VERSION, CTRL_AGENCY, SYNTAX_NAME, SYNTAX_VER) "
-"values "
-"(:name, :version, :sub_version, :ctrl_agency, :syntax_name, :syntax_ver)")
-            .bind(":name",        p.m_profileName)
-            .bind(":version",     p.m_version)
-            .bind(":sub_version", p.m_subVersion)
-            .bind(":ctrl_agency", p.m_ctrlAgency)
-            .bind(":syntax_name", p.m_syntaxName)
-            .bind(":syntax_ver",  p.m_syntaxVer)
-            .exec();
+    make_db_curs(
+        "insert into EDIFACT_PROFILES (NAME, VERSION, SUB_VERSION, CTRL_AGENCY, SYNTAX_NAME, SYNTAX_VER) "
+        "values "
+        "(:name, :version, :sub_version, :ctrl_agency, :syntax_name, :syntax_ver)",
+        PgOra::getRWSession("EDIFACT_PROFILES"))
+        .bind(":name", p.m_profileName)
+        .bind(":version", p.m_version)
+        .bind(":sub_version", p.m_subVersion)
+        .bind(":ctrl_agency", p.m_ctrlAgency)
+        .bind(":syntax_name", p.m_syntaxName)
+        .bind(":syntax_ver", p.m_syntaxVer)
+        .exec();
 
     return p.m_profileName;
 }

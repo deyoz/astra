@@ -3,13 +3,15 @@
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <map>
-
+#ifdef ENABLE_ORACLE
 #include "cursctl.h"
 #include "dates_oci.h"
+#include "oci_err.h"
+#endif // ENABLE_ORACLE
 #include "dbcpp_db_type.h"
 #include "dbcpp_session.h"
 #include "enum.h"
-#include "oci_err.h"
+
 #include "pg_cursctl.h"
 #include "test.h"
 #include "testmode.h"
@@ -149,6 +151,8 @@ namespace PgCpp
         }
     }
 }
+
+#ifdef ENABLE_ORACLE
 namespace OciCpp
 {
     template <> void default_ptr_t_fill(void* out, CharBuffer const& m)
@@ -177,6 +181,7 @@ namespace OciCpp
         return *this;
     }
 }
+#endif // ENABLE_ORACLE
 
 namespace DbCpp
 {
@@ -214,7 +219,7 @@ namespace DbCpp
     {
         return os << enumToStr(code);
     }
-
+#ifdef ENABLE_ORACLE
     static const std::multimap<ResultCode, OciCppErrs> sOraErrorCodeMapper = {
         { ResultCode::Ok, CERR_OK },
         { ResultCode::BadSqlText, CERR_INVALID_IDENTIFIER },
@@ -240,7 +245,7 @@ namespace DbCpp
         { ResultCode::REQUIRED_NEXT_PIECE, REQUIRED_NEXT_PIECE },
         { ResultCode::REQUIRED_NEXT_BUFFER, REQUIRED_NEXT_BUFFER },
     };
-
+#endif // ENABLE_ORACLE
     static const std::map<ResultCode, PgCpp::ResultCode> sPgErrorCodeMapper = {
         { ResultCode::Ok, PgCpp::Ok },
         { ResultCode::Fatal, PgCpp::Fatal },
@@ -280,6 +285,7 @@ namespace DbCpp
         throw comtech::Exception(STDLOG, __func__, "Unknown DbCpp::ResultCode");
     }
 
+#ifdef ENABLE_ORACLE
     static ResultCode oraErrorCodeMapper(int code)
     {
         for (const auto& p : sOraErrorCodeMapper)
@@ -302,7 +308,7 @@ namespace DbCpp
         }
         return errors;
     }
-
+#endif
     class CursCtlImpl
     {
     public:
@@ -556,6 +562,7 @@ namespace DbCpp
     {                                                                                              \
         mCursCtl.bind(n, t, const_cast<short*>(ind));                                              \
     }
+#ifdef ENABLE_ORACLE
     class OracleImpl final : public CursCtlImpl
     {
     public:
@@ -710,6 +717,7 @@ namespace DbCpp
         OciCpp::CursCtl mCursCtl;
         bool mIsStable;
     };
+#endif // ENABLE_ORACLE
 #undef defineType
 
 #define defineType(TYPE)                                                                           \
@@ -787,7 +795,11 @@ namespace DbCpp
     {
         if (sess.getType() == DbType::Oracle)
         {
+#ifdef ENABLE_ORACLE
             mImpl.reset(new OracleImpl(sess, n, f, l, sql, cacheit));
+#else // ENABLE_ORACLE
+            throw std::runtime_error("CursCtl::CursCtl oracle session in non-oracle build");
+#endif // ENABLE_ORACLE
         } else
         {
             mImpl.reset(new PostgresImpl(sess, n, f, l, sql, cacheit));
@@ -848,19 +860,23 @@ namespace DbCpp
     {
         throw comtech::Exception(msg);
     }
-
-    CursCtl make_curs_(const char* n, const char* f, int l, const std::string& sql)
-    {
-        return mainOraSession(n, f, l).createCursor(n, f, l, sql);
-    }
     CursCtl make_curs_(const char* n, const char* f, int l, const std::string& sql, Session& sess)
     {
         return sess.createCursor(n, f, l, sql);
     }
+
+#ifdef ENABLE_ORACLE
+    CursCtl make_curs_(const char *n, const char *f, int l, const std::string &sql)
+    {
+        return mainOraSession(n, f, l).createCursor(n, f, l, sql);
+    }
+
     CursCtl make_curs_no_cache_(const char* n, const char* f, int l, const std::string& sql)
     {
         return mainOraSession(n, f, l).createCursorNoCache(n, f, l, sql);
     }
+#endif // ENABLE_ORACLE
+
     CursCtl make_curs_no_cache_(const char* n, const char* f, int l, const std::string& sql,
                                 Session& sess)
     {

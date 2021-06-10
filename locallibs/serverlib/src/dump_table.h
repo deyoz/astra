@@ -2,7 +2,9 @@
 
 #include <list>
 #include <string>
+#ifdef ENABLE_ORACLE
 #include "cursctl.h"
+#endif // ENABLE_ORACLE
 #include "pg_cursctl.h"
 #include "dbcpp_cursctl.h"
 
@@ -37,6 +39,7 @@ private:
     [[noreturn]] virtual void throwTableDoesNotExist() const = 0;
 };
 
+#ifdef ENABLE_ORACLE
 class OraDumpTable: public DumpTable<OciCpp::CursCtl>
 {
 public:
@@ -50,6 +53,7 @@ private:
     OciCpp::CursCtl createCursor(const std::string& sql) const override;
     [[noreturn]] void throwTableDoesNotExist() const override;
 };
+#endif //ENABLE_ORACLE
 
 class PgDumpTable: public DumpTable<PgCpp::CursCtl>
 {
@@ -79,11 +83,13 @@ private:
 
 } // ServerFramework
 
+#ifdef ENABLE_ORACLE
 namespace OciCpp {
 
 using DumpTable = ServerFramework::OraDumpTable;
 
 }
+#endif // ENABLE_ORACLE
 
 namespace DbCpp {
 

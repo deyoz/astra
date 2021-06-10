@@ -94,7 +94,7 @@ static void updateIatciSettings(const IatciSettings& sett)
 }
 
 IatciSettings readIatciSettings(const Ticketing::SystemAddrs_t& dcsId, bool createDefault)
-{ 
+{
     auto cur = make_db_curs(
 "select CKI, CKX, CKU, BPR, PLF, SMF, IFM "
 "from IATCI_SETTINGS "
@@ -143,8 +143,9 @@ bool checkExistance(const Ticketing::SystemAddrs_t& dcsId)
                 PgOra::getROSession("IATCI_SETTINGS"));
 
     cur
-            .bind(":dcs_id", dcsId.get())
-            .exfet();
+        .stb()
+        .bind(":dcs_id", dcsId.get())
+        .exfet();
 
     return (cur.err() != DbCpp::ResultCode::NoDataFound);
 }

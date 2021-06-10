@@ -1,9 +1,17 @@
 #include "edilib_db_callbacks.h"
-#include "edilib_dbora_callbacks.h"
 #include "edi_session.h"
 #include "edi_except.h"
 #include "serverlib/string_cast.h"
 #include "edi_sess_except.h"
+
+#ifdef ENABLE_ORACLE
+#include "edilib_dbora_callbacks.h"
+#elif ENABLE_PG
+// Do nothing
+#else 
+#error "You have to have at least one impl of DB"
+#endif // ENABLE_ORACLE
+
 #define NICKNAME "ROMAN"
 
 namespace edilib {
@@ -13,7 +21,13 @@ const EdilibDbCallbacks *EdilibDbCallbacks::_instance = 0;
 const EdilibDbCallbacks *EdilibDbCallbacks::instance()
 {
     if(not _instance) {
+#ifdef ENABLE_ORACLE
         _instance = new EdilibOraCallbacks();
+#elif ENABLE_PG
+        throw std::runtime_error("EdilibDbCallbacks::instance: unimplemented initializer for PG");
+#else 
+#error "You have to have at least one impl of DB"
+#endif // ENABLE_ORACLE
     }
     return _instance;
 }

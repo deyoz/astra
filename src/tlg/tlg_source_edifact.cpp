@@ -8,7 +8,6 @@
 
 #include <edilib/edi_user_func.h>
 #include <libtlg/telegrams.h>
-#include <serverlib/cursctl.h>
 
 #define NICKNAME "ANTON"
 #define NICKTRACE ANTON_TRACE

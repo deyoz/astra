@@ -1,7 +1,6 @@
 #pragma once
 
 #include <boost/optional.hpp>
-#include <serverlib/cursctl.h>
 #include "passenger.h"
 #include "oralib.h"
 #include "apis_utils.h"

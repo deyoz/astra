@@ -2,27 +2,32 @@
 #include <mpatrol.h>
 #endif
 //  implementation requires it
-#include <serverlib/cursctl.h>
 #include <serverlib/posthooks.h>
 #include <serverlib/daemon_kicker.h>
-#include <serverlib/dates_oci.h>
 #include <serverlib/timer.h>
 #include <serverlib/tcl_utils.h>
-#include <serverlib/int_parameters_oci.h>
 #include <serverlib/EdiHelpManager.h>
-#include <serverlib/oci_selector_char.h>
 
 #define NICKNAME "NONSTOP"
 #define NICKTRACE NONSTOP_TRACE
 #include <serverlib/test.h>
 #include <serverlib/slogger.h>
-#include <serverlib/rip_oci.h>
+#include <serverlib/dates.h>
+
 
 #include "telegrams.h"
 #include "express.h"
 #include "hth.h"
 #include "types.h"
 #include "gateway.h"
+
+#ifdef ENABLE_ORACLE
+#include <serverlib/cursctl.h>
+#include <serverlib/dates_oci.h>
+#include <serverlib/int_parameters_oci.h>
+#include <serverlib/oci_selector_char.h>
+#include <serverlib/rip_oci.h>
+#endif
 
 
 static bool tlgnumFillLeadingZeroes()
@@ -110,75 +115,9 @@ TlgCallbacksAbstractDb::TlgCallbacksAbstractDb()
     m_defaultHandler = readIntFromTcl("DEF_TLG_OBRZAP", 1);
 }
 
-bool TlgCallbacks::saveBadTlg(const AIRSRV_MSG& tlg, int error)
-{
-    std::string err;
-    switch (error) {
-    case ROT_ERR:
-        err = "˜ˆŠ€ ’€‹ˆ–› ROT";
-        break;
-    case POINTS_ERR:
-        err = "˜ˆŠ€ ’€‹ˆ–› POINTS";
-        break;
-    case WRITE_HTH_LONG_ERR:
-        err = "˜ˆŠ€ ‡€ˆ‘ˆ ‘€‰ HTH ’‹ƒ";
-        break;
-    case WRITE_HTH_PART_ERR:
-        err = "˜ˆŠ€ ‡€ˆ‘ˆ —€‘’ˆ HTH ’‹ƒ";
-        break;
-    case WRITE_LONG_ERR:
-        err = "˜ˆŠ€ ‡€ˆ‘ˆ ‘€‰ HTH ’‹ƒ";
-        break;
-    case WRITE_PART_ERR:
-        err = "˜ˆŠ€ ‡€ˆ‘ˆ —€‘’ˆ ’‹ƒ";
-        break;
-    case TYPE_ERR:
-        err = "…ˆ‡‚…‘’›‰ ’ˆ ’‹ƒ";
-        break;
-    case BAD_EDIFACT:
-        err = "BAD_EDIFACT";
-        break;
-    default:
-        err = "˜ˆŠ€ ‡€ˆ‘ˆ ’‹ƒ";
-    }
 
-    try {
-        Dates::ptime curr_tm = Dates::currentDateTime();
-        make_curs("insert into text_tlg_bad(rem_num, type, ttl, sender, text, date1, errtext) "
-            "values (:num, :tp, :ttl, :sndr, :body, :curr_tm, :err)")
-            .bind(":num", tlg.num).bind(":tp", tlg.type).bind(":ttl", tlg.TTL)
-            .bind(":sndr", tlg.Sender).bind(":err", err)
-            .bind(":curr_tm", OciCpp::to_oracle_datetime(curr_tm))
-            .bindFull(":body", const_cast<char*>(tlg.body), strlen(tlg.body), 0, 0, SQLT_LNG)
-            .exec();
-        return true;
-    } catch (const OciCpp::ociexception& e) {
-        ProgError(STDLOG, "SqlErr while save_bad_tlg() %s", e.what());
-        return false;
-    }
-}
 
-tlgnum_t TlgCallbacks::nextExpressNum()
-{
-    tlgnum_t::num_t::base_type tlgNum;
-    HelpCpp::Timer tm("TlgCallbacks::nextExpressNum");
-    OciCpp::CursCtl cr = make_curs("SELECT NUMXPRTLG_SEQ.NEXTVAL FROM DUAL");
-    cr.def(tlgNum);
-    cr.EXfet();
-    LogTrace(TRACE1) << tm;
-    return tlgnum_t(tlgNum, true);
-}
 
-boost::optional<tlgnum_t> TlgCallbacks::nextNum()
-{
-    HelpCpp::Timer tm("TlgCallbacks::nextNum");
-    OciCpp::CursCtl cr = make_curs("SELECT NUMTLG_SEQ.NEXTVAL FROM DUAL");
-    std::string num;
-    cr.def(num);
-    cr.EXfet();
-    LogTrace(TRACE1) << tm;
-    return tlgnum_t(num);
-}
 
 static bool validHth(const HthInfo& hth)
 {
@@ -189,80 +128,6 @@ static bool validHth(const HthInfo& hth)
     return true;
 }
 
-Expected<TlgResult, int> TlgCallbacks::putTlg(const std::string& body,
-        tlg_text_filter filter,
-        int from_addr, int to_addr, hth::HthInfo *hth)
-{
-    boost::optional<tlgnum_t> nextNum = telegrams::callbacks()->nextNum();
-    if (!nextNum) {
-        ProgTrace(TRACE5, "nextNum failed");
-        return -1;
-    }
-
-    tlgnum_t tlgNum = *nextNum;
-
-    int part;
-    const size_t MAX_FRAG_TLG_LEN = 2000;
-    std::string curPart;
-
-    const std::string tlgText = (filter.empty() ? body : filter(tlgNum, body));
-    const size_t tlgLength = tlgText.size();
-    if (tlgLength <= MAX_FRAG_TLG_LEN) {
-        part = 0;
-        curPart = tlgText;
-    } else {
-        part = 1;
-        curPart.assign(tlgText, 0, MAX_FRAG_TLG_LEN);
-    }
-
-    try {
-        ProgTrace(TRACE5, "tlgText=[%s]", tlgText.c_str());
-        LogTrace(TRACE5) << "inserting tlg with tlgNum=" << tlgNum << " size=" << tlgText.size();
-        Dates::ptime curr_tm = Dates::currentDateTime();
-        make_curs(
-                "INSERT INTO text_tlg_new(msg_id, text, date1, multy_part, from_addr, to_addr, instance) "
-                "VALUES(:tlgNum, :cur_frag, :curr_tm, :multi, :from_addr, :to_addr, :instance)")
-            .bind("tlgNum", tlgNum.num).bind(":cur_frag", curPart).bind(":multi", part)
-            .bind(":from_addr", from_addr)
-            .bind(":to_addr", to_addr)
-            .bind(":curr_tm", OciCpp::to_oracle_datetime(curr_tm))
-            .bind(":instance", ServerFramework::EdiHelpManager::instanceName())
-            .exec();
-
-        if (hth) {
-            if (!validHth(*hth)) {
-                hth::trace(TRACE1, *hth);
-                ProgError(STDLOG, "invalid HthInfo");
-                return -1;
-            }
-
-            int ret = writeHthInfo(tlgNum, *hth);
-            if (ret) {
-                LogError(STDLOG) << tlgNum << ": writeHthInfo failed";
-                return -1;
-            }
-        }
-
-        if (!part)
-            return TlgResult(tlgNum);
-
-        size_t pos = MAX_FRAG_TLG_LEN;
-        do {
-            part++;
-            curPart.assign(tlgText, pos, MAX_FRAG_TLG_LEN);
-
-            make_curs("INSERT INTO text_tlg_part(msg_id, text, part) VALUES(:tlgNum, :cur_frag, :frag_part)")
-                .bind(":tlgNum", tlgNum.num).bind(":cur_frag", curPart).bind(":frag_part", part)
-                .exec();
-            pos += MAX_FRAG_TLG_LEN;
-        } while (pos < tlgLength);
-        LogTrace(TRACE5) << "Tlg " << tlgNum << " fragmented in " << part << " parts";
-        return TlgResult(tlgNum);
-    } catch (const OciCpp::ociexception& e) {
-        LogError(STDLOG) << tlgNum << " putTlg filed: " << e.what();
-        return -1;
-    }
-}
 
 Expected<TlgResult, int> TlgCallbacksAbstractDb::writeTlg(INCOMING_INFO* ii, const char* body, bool kickAirimp)
 {
@@ -305,50 +170,7 @@ Expected<TlgResult, int> TlgCallbacksAbstractDb::writeTlg(INCOMING_INFO* ii, con
     return result;
 }
 
-int TlgCallbacks::writeHthInfo(const tlgnum_t& msgId, const hth::HthInfo& hthInfo)
-{
-    LogTrace(TRACE5) << hthInfo;
-    try {
-        Dates::ptime curr_tm = Dates::currentDateTime();
-        make_curs(
-                "INSERT INTO text_tlg_h2h (msg_id, type, rcvr, sndr, tpr, qri5, qri6,"
-                " part, end, rem_addr_num, err, timestamp) "
-                "VALUES (:id1, :hth_type, :hth_rcvr, :hth_sndr, :hth_tpr, :hth_qri5, :hth_qri6,"
-                " :hth_part, :hth_end, :rem_addr_num, :hth_err, :curr_tm)")
-            .bind(":id1", msgId.num).bind(":hth_type", std::string(1, hthInfo.type))
-            .bind(":hth_rcvr", hthInfo.receiver).bind(":hth_sndr", hthInfo.sender)
-            .bind(":hth_tpr", hthInfo.tpr)
-            .bind(":hth_part", std::string(1, hthInfo.part))
-            .bind(":hth_end", (int)hthInfo.end)
-            .bind(":hth_qri5", std::string(1, hthInfo.qri5))
-            .bind(":hth_qri6", std::string(1, hthInfo.qri6))
-            .bind(":rem_addr_num", std::string(1, hthInfo.remAddrNum))
-            .bind(":hth_err", hthInfo.why)
-            .bind(":curr_tm", OciCpp::to_oracle_datetime(curr_tm))
-            .exec();
-    } catch (const OciCpp::ociexception& e) {
-        LogTrace(TRACE0) << hthInfo;
-        LogError(STDLOG) << "writeHthInfo failed " << msgId << " : " << e.what();
-        return 1;
-    }
-    return 0;
-}
 
-void TlgCallbacks::deleteHth(const tlgnum_t& msgId)
-{
-    make_curs("delete from TEXT_TLG_H2H where MSG_ID = :msg_id")
-        .bind(":msg_id", msgId.num.get()).exec();
-}
-
-void TlgCallbacks::splitError(const tlgnum_t& num)
-{
-    make_curs("UPDATE TEXT_TLG_NEW SET ERRTEXT = :err WHERE MSG_ID = :id")
-        .bind(":id", num.num.get())
-        .bind(":err", "SPLIT FAILED")
-        .exec();
-
-    errorQueue().addTlg(num, "SPLITTER", 101, "SPLIT FAILED");
-}
 
 void TlgCallbacksAbstractDb::joinError(const tlgnum_t& num)
 {
@@ -405,45 +227,9 @@ int TlgCallbacks::partsEndNum(int rtr, const std::string& msgUid)
     return recs.front().Part;
 }
 
-int TlgCallbacks::readHthInfo(const tlgnum_t& msgId, HthInfo& hthInfo)
-{
-    std::string type, qri5, qri6, remAddrNum, part;
-    int end = 0;
-    OciCpp::CursCtl cr = make_curs(
-            "SELECT TYPE, SNDR, RCVR, TPR, ERR, PART, END, QRI5, QRI6, REM_ADDR_NUM "
-            "FROM TEXT_TLG_H2H WHERE MSG_ID=:id");
-    cr.bind(":id", msgId.num.get())
-        .autoNull()
-        .def(type).def(hthInfo.sender).def(hthInfo.receiver)
-        .def(hthInfo.tpr).def(hthInfo.why).defNull(part, std::string())
-        .defNull(end, 0).def(qri5).def(qri6).def(remAddrNum)
-        .EXfet();
-    if (cr.err() == NO_DATA_FOUND) {
-        LogTrace(TRACE5) << "Can't get header param of HTH tlg NO_DATA_FOUND for msg_id: " <<  msgId;
-        return -1;
-    }
-    ASSERT(part.length() == 1 || part.length() == 0);
-    hthInfo.type = type[0];
-    hthInfo.part = part.empty() ? 0 : part[0];
-    hthInfo.end  = end;
-    hthInfo.qri5 = qri5[0];
-    hthInfo.qri6 = qri6[0];
-    hthInfo.remAddrNum = remAddrNum[0];
 
-    hth::trace(TRACE5, hthInfo);
 
-    return 0;
-}
 
-bool TlgCallbacks::tlgIsHth(const tlgnum_t& msgId)
-{
-    OciCpp::CursCtl cur = make_curs("SELECT 1 FROM TEXT_TLG_H2H WHERE MSG_ID=:id");
-    cur.bind(":id", msgId.num.get()).EXfet();
-    if (cur.err() == NO_DATA_FOUND)
-        return false;
-
-    return true;
-}
 
 int TlgCallbacksAbstractDb::getTlg(const tlgnum_t& tlgNum, TlgInfo& info, std::string& tlgText)
 {
@@ -480,20 +266,7 @@ int TlgCallbacks::readTlg(const tlgnum_t& msg_id, std::string& tlgText)
     return TlgCallbacksAbstractDb::readTlg(msg_id, tlgText);
 }
 
-void TlgCallbacks::savepoint(const std::string &sp_name) const
-{
-    make_curs("savepoint " + sp_name).exec();
-}
 
-void TlgCallbacks::rollback(const std::string &sp_name) const
-{
-    make_curs("rollback to savepoint " + sp_name).exec();
-}
-
-void TlgCallbacks::rollback() const
-{
-    ::rollback();
-}
 
 Expected<tlgnum_t, int> TlgCallbacksAbstractDb::sendExpressTlg(const char* expressSenderSockName, const OUT_INFO& oi, const char* body)
 {
@@ -579,5 +352,264 @@ void Telegrams::setAirQPartCallbacks(AirQPartCallbacks *cb)
         delete m_airqpart_mgr;
     m_airqpart_mgr = new AirQPartManager(cb);
 }
+
+#ifdef ENABLE_ORACLE
+
+using hth::HthInfo;
+
+
+bool TlgCallbacks::saveBadTlg(const AIRSRV_MSG& tlg, int error)
+{
+    std::string err;
+    switch (error) {
+    case ROT_ERR:
+        err = "˜ˆŠ€ ’€‹ˆ–› ROT";
+        break;
+    case POINTS_ERR:
+        err = "˜ˆŠ€ ’€‹ˆ–› POINTS";
+        break;
+    case WRITE_HTH_LONG_ERR:
+        err = "˜ˆŠ€ ‡€ˆ‘ˆ ‘€‰ HTH ’‹ƒ";
+        break;
+    case WRITE_HTH_PART_ERR:
+        err = "˜ˆŠ€ ‡€ˆ‘ˆ —€‘’ˆ HTH ’‹ƒ";
+        break;
+    case WRITE_LONG_ERR:
+        err = "˜ˆŠ€ ‡€ˆ‘ˆ ‘€‰ HTH ’‹ƒ";
+        break;
+    case WRITE_PART_ERR:
+        err = "˜ˆŠ€ ‡€ˆ‘ˆ —€‘’ˆ ’‹ƒ";
+        break;
+    case TYPE_ERR:
+        err = "…ˆ‡‚…‘’›‰ ’ˆ ’‹ƒ";
+        break;
+    case BAD_EDIFACT:
+        err = "BAD_EDIFACT";
+        break;
+    default:
+        err = "˜ˆŠ€ ‡€ˆ‘ˆ ’‹ƒ";
+    }
+
+    try {
+        Dates::ptime curr_tm = Dates::currentDateTime();
+        make_curs("insert into text_tlg_bad(rem_num, type, ttl, sender, text, date1, errtext) "
+            "values (:num, :tp, :ttl, :sndr, :body, :curr_tm, :err)")
+            .bind(":num", tlg.num).bind(":tp", tlg.type).bind(":ttl", tlg.TTL)
+            .bind(":sndr", tlg.Sender).bind(":err", err)
+            .bind(":curr_tm", OciCpp::to_oracle_datetime(curr_tm))
+            .bindFull(":body", const_cast<char*>(tlg.body), strlen(tlg.body), 0, 0, SQLT_LNG)
+            .exec();
+        return true;
+    } catch (const OciCpp::ociexception& e) {
+        ProgError(STDLOG, "SqlErr while save_bad_tlg() %s", e.what());
+        return false;
+    }
+}
+
+
+tlgnum_t TlgCallbacks::nextExpressNum()
+{
+    tlgnum_t::num_t::base_type tlgNum;
+    HelpCpp::Timer tm("TlgCallbacks::nextExpressNum");
+    OciCpp::CursCtl cr = make_curs("SELECT NUMXPRTLG_SEQ.NEXTVAL FROM DUAL");
+    cr.def(tlgNum);
+    cr.EXfet();
+    LogTrace(TRACE1) << tm;
+    return tlgnum_t(tlgNum, true);
+}
+
+boost::optional<tlgnum_t> TlgCallbacks::nextNum()
+{
+    HelpCpp::Timer tm("TlgCallbacks::nextNum");
+    OciCpp::CursCtl cr = make_curs("SELECT NUMTLG_SEQ.NEXTVAL FROM DUAL");
+    std::string num;
+    cr.def(num);
+    cr.EXfet();
+    LogTrace(TRACE1) << tm;
+    return tlgnum_t(num);
+}
+
+
+Expected<TlgResult, int> TlgCallbacks::putTlg(const std::string& body,
+        tlg_text_filter filter,
+        int from_addr, int to_addr, hth::HthInfo *hth)
+{
+    boost::optional<tlgnum_t> nextNum = telegrams::callbacks()->nextNum();
+    if (!nextNum) {
+        ProgTrace(TRACE5, "nextNum failed");
+        return -1;
+    }
+
+    tlgnum_t tlgNum = *nextNum;
+
+    int part;
+    const size_t MAX_FRAG_TLG_LEN = 2000;
+    std::string curPart;
+
+    const std::string tlgText = (filter.empty() ? body : filter(tlgNum, body));
+    const size_t tlgLength = tlgText.size();
+    if (tlgLength <= MAX_FRAG_TLG_LEN) {
+        part = 0;
+        curPart = tlgText;
+    } else {
+        part = 1;
+        curPart.assign(tlgText, 0, MAX_FRAG_TLG_LEN);
+    }
+
+    try {
+        ProgTrace(TRACE5, "tlgText=[%s]", tlgText.c_str());
+        LogTrace(TRACE5) << "inserting tlg with tlgNum=" << tlgNum << " size=" << tlgText.size();
+        Dates::ptime curr_tm = Dates::currentDateTime();
+        make_curs(
+                "INSERT INTO text_tlg_new(msg_id, text, date1, multy_part, from_addr, to_addr, instance) "
+                "VALUES(:tlgNum, :cur_frag, :curr_tm, :multi, :from_addr, :to_addr, :instance)")
+            .bind("tlgNum", tlgNum.num).bind(":cur_frag", curPart).bind(":multi", part)
+            .bind(":from_addr", from_addr)
+            .bind(":to_addr", to_addr)
+            .bind(":curr_tm", OciCpp::to_oracle_datetime(curr_tm))
+            .bind(":instance", ServerFramework::EdiHelpManager::instanceName())
+            .exec();
+
+        if (hth) {
+            if (!validHth(*hth)) {
+                hth::trace(TRACE1, *hth);
+                ProgError(STDLOG, "invalid HthInfo");
+                return -1;
+            }
+
+            int ret = writeHthInfo(tlgNum, *hth);
+            if (ret) {
+                LogError(STDLOG) << tlgNum << ": writeHthInfo failed";
+                return -1;
+            }
+        }
+
+        if (!part)
+            return TlgResult(tlgNum);
+
+        size_t pos = MAX_FRAG_TLG_LEN;
+        do {
+            part++;
+            curPart.assign(tlgText, pos, MAX_FRAG_TLG_LEN);
+
+            make_curs("INSERT INTO text_tlg_part(msg_id, text, part) VALUES(:tlgNum, :cur_frag, :frag_part)")
+                .bind(":tlgNum", tlgNum.num).bind(":cur_frag", curPart).bind(":frag_part", part)
+                .exec();
+            pos += MAX_FRAG_TLG_LEN;
+        } while (pos < tlgLength);
+        LogTrace(TRACE5) << "Tlg " << tlgNum << " fragmented in " << part << " parts";
+        return TlgResult(tlgNum);
+    } catch (const OciCpp::ociexception& e) {
+        LogError(STDLOG) << tlgNum << " putTlg filed: " << e.what();
+        return -1;
+    }
+}
+
+
+int TlgCallbacks::writeHthInfo(const tlgnum_t& msgId, const hth::HthInfo& hthInfo)
+{
+    LogTrace(TRACE5) << hthInfo;
+    try {
+        Dates::ptime curr_tm = Dates::currentDateTime();
+        make_curs(
+                "INSERT INTO text_tlg_h2h (msg_id, type, rcvr, sndr, tpr, qri5, qri6,"
+                " part, end, rem_addr_num, err, timestamp) "
+                "VALUES (:id1, :hth_type, :hth_rcvr, :hth_sndr, :hth_tpr, :hth_qri5, :hth_qri6,"
+                " :hth_part, :hth_end, :rem_addr_num, :hth_err, :curr_tm)")
+            .bind(":id1", msgId.num).bind(":hth_type", std::string(1, hthInfo.type))
+            .bind(":hth_rcvr", hthInfo.receiver).bind(":hth_sndr", hthInfo.sender)
+            .bind(":hth_tpr", hthInfo.tpr)
+            .bind(":hth_part", std::string(1, hthInfo.part))
+            .bind(":hth_end", (int)hthInfo.end)
+            .bind(":hth_qri5", std::string(1, hthInfo.qri5))
+            .bind(":hth_qri6", std::string(1, hthInfo.qri6))
+            .bind(":rem_addr_num", std::string(1, hthInfo.remAddrNum))
+            .bind(":hth_err", hthInfo.why)
+            .bind(":curr_tm", OciCpp::to_oracle_datetime(curr_tm))
+            .exec();
+    } catch (const OciCpp::ociexception& e) {
+        LogTrace(TRACE0) << hthInfo;
+        LogError(STDLOG) << "writeHthInfo failed " << msgId << " : " << e.what();
+        return 1;
+    }
+    return 0;
+}
+
+void TlgCallbacks::deleteHth(const tlgnum_t& msgId)
+{
+    make_curs("delete from TEXT_TLG_H2H where MSG_ID = :msg_id")
+        .bind(":msg_id", msgId.num.get()).exec();
+}
+
+void TlgCallbacks::splitError(const tlgnum_t& num)
+{
+    make_curs("UPDATE TEXT_TLG_NEW SET ERRTEXT = :err WHERE MSG_ID = :id")
+        .bind(":id", num.num.get())
+        .bind(":err", "SPLIT FAILED")
+        .exec();
+
+    errorQueue().addTlg(num, "SPLITTER", 101, "SPLIT FAILED");
+}
+
+
+int TlgCallbacks::readHthInfo(const tlgnum_t& msgId, HthInfo& hthInfo)
+{
+    std::string type, qri5, qri6, remAddrNum, part;
+    int end = 0;
+    OciCpp::CursCtl cr = make_curs(
+            "SELECT TYPE, SNDR, RCVR, TPR, ERR, PART, END, QRI5, QRI6, REM_ADDR_NUM "
+            "FROM TEXT_TLG_H2H WHERE MSG_ID=:id");
+    cr.bind(":id", msgId.num.get())
+        .autoNull()
+        .def(type).def(hthInfo.sender).def(hthInfo.receiver)
+        .def(hthInfo.tpr).def(hthInfo.why).defNull(part, std::string())
+        .defNull(end, 0).def(qri5).def(qri6).def(remAddrNum)
+        .EXfet();
+    if (cr.err() == NO_DATA_FOUND) {
+        LogTrace(TRACE5) << "Can't get header param of HTH tlg NO_DATA_FOUND for msg_id: " <<  msgId;
+        return -1;
+    }
+    ASSERT(part.length() == 1 || part.length() == 0);
+    hthInfo.type = type[0];
+    hthInfo.part = part.empty() ? 0 : part[0];
+    hthInfo.end  = end;
+    hthInfo.qri5 = qri5[0];
+    hthInfo.qri6 = qri6[0];
+    hthInfo.remAddrNum = remAddrNum[0];
+
+    hth::trace(TRACE5, hthInfo);
+
+    return 0;
+}
+
+
+bool TlgCallbacks::tlgIsHth(const tlgnum_t& msgId)
+{
+    OciCpp::CursCtl cur = make_curs("SELECT 1 FROM TEXT_TLG_H2H WHERE MSG_ID=:id");
+    cur.bind(":id", msgId.num.get()).EXfet();
+    if (cur.err() == NO_DATA_FOUND)
+        return false;
+
+    return true;
+}
+
+
+void TlgCallbacks::savepoint(const std::string &sp_name) const
+{
+    make_curs("savepoint " + sp_name).exec();
+}
+
+void TlgCallbacks::rollback(const std::string &sp_name) const
+{
+    make_curs("rollback to savepoint " + sp_name).exec();
+}
+
+
+void TlgCallbacks::rollback() const
+{
+    ::rollback();
+}
+
+#endif //ENABLE_ORACLE
 
 }//namespace telegrams

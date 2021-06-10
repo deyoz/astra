@@ -2,6 +2,11 @@
 #include <ctype.h>
 #include <string.h>
 
+#ifndef ENABLE_ORACLE
+#error Compilation without oracle support
+#else
+
+
 #include <oci.h>
 #include "commit_rollback.h"
 
@@ -67,12 +72,12 @@ typedef cda_text* cda_text_ptr;
 #ifdef __cplusplus
 
 
-// Remove 'warning: useless cast' in gcc 4.8 
+// Remove 'warning: useless cast' in gcc 4.8
 template < typename T1, typename T2 >
 struct __type_cast {
   inline static T1 cast(T2 s) {return reinterpret_cast<T1>(s);}
 };
-template < typename T > 
+template < typename T >
 struct __type_cast<T,T> {
   inline static  T cast(T s) {return s;}
 };
@@ -302,3 +307,4 @@ int Oexec_l_asm(cda_text *Cur,int el_size,int alen_skip,int num_el);
 #ifdef __cplusplus
 } // extern "C"
 #endif
+#endif //ENABLE_ORACLE

@@ -48,14 +48,12 @@
 #include <serverlib/exception.h>
 #include <serverlib/func_placeholders.h>
 #include <serverlib/posthooks.h>
-#include <serverlib/cursctl.h>
 #include <serverlib/dbcpp_cursctl.h>
 #include <serverlib/dates_oci.h>
 #include <serverlib/str_utils.h>
 #include <serverlib/tcl_utils.h>
 #include <serverlib/dates_io.h>
 #include <serverlib/dump_table.h>
-#include <serverlib/rip_oci.h>
 #include <serverlib/pg_rip.h>
 #include <jxtlib/jxtlib.h>
 #include <jxtlib/utf2cp866.h>
@@ -422,8 +420,9 @@ static std::vector<PointsPair> pointsPairVector()
     std::vector<PointsPair> res;
     PointId_t::base_type point_id_spp;
     PointIdTlg_t::base_type point_id_tlg;
-    OciCpp::CursCtl cur = make_curs(
-"select POINT_ID_SPP, POINT_ID_TLG from TLG_BINDING order by POINT_ID_TLG desc");
+    auto cur = make_db_curs(
+        "select POINT_ID_SPP, POINT_ID_TLG from TLG_BINDING order by POINT_ID_TLG desc",
+        PgOra::getROSession("TLG_BINDING"));
 
     cur
             .def(point_id_spp)
@@ -488,8 +487,8 @@ static std::string getNextTripPointId(int pointId)
 
 static int getMoveId(int pointId)
 {
-   OciCpp::CursCtl cur = make_curs(
-"select MOVE_ID from POINTS where POINT_ID=:point_id");
+   auto cur = make_db_curs(
+"select MOVE_ID from POINTS where POINT_ID=:point_id", PgOra::getROSession("POINTS"));
 
    int move_id = 0;
    cur.bind(":point_id", pointId)
@@ -563,19 +562,21 @@ static std::string FP_getPaxId(const std::vector<std::string>& p)
   {
     RegNo_t regNo(std::stoi(p.at(1)));
 
-
-    auto cur = make_curs("SELECT pax.pax_id "
-                         "FROM pax_grp, pax "
-                         "WHERE pax_grp.grp_id=pax.grp_id AND "
-                         "      pax_grp.point_dep=:point_dep AND pax.reg_no=:reg_no "
-                         "ORDER BY pax.pax_id");  //может быть РМ с рег. номером взрослого
+    auto cur = make_db_curs("SELECT pax.pax_id "
+                            "FROM pax_grp, pax "
+                            "WHERE pax_grp.grp_id=pax.grp_id AND "
+                            "      pax_grp.point_dep=:point_dep AND pax.reg_no=:reg_no "
+                            "ORDER BY pax.pax_id",
+                            PgOra::getROSession("PAX")); //может быть РМ с рег. номером взрослого
     int pax_id;
-    cur.def(pax_id)
-       .bind(":point_dep", pointDep)
-       .bind(":reg_no", regNo)
-       .exfet(); //может быть РМ с рег. номером взрослого (дублирование regNo)
+    cur
+        .stb()
+        .def(pax_id)
+        .bind(":point_dep", pointDep.get())
+        .bind(":reg_no", regNo.get())
+        .exfet(); //может быть РМ с рег. номером взрослого (дублирование regNo)
 
-    if(cur.err() == NO_DATA_FOUND) return "";
+    if(cur.err() == DbCpp::ResultCode::NoDataFound) return "";
 
     return std::to_string(pax_id);
   }
@@ -589,14 +590,17 @@ static std::string FP_getUnaccompId(const std::vector<std::string>& p)
 
   ASSERT(rowNumRequired>=1);
 
-  auto cur = make_curs("SELECT grp_id FROM pax_grp "
-                       "WHERE point_dep=:point_dep AND class IS NULL AND status NOT IN ('E') "
-                       "ORDER BY grp_id");
+  auto cur = make_db_curs("SELECT grp_id FROM pax_grp "
+                          "WHERE point_dep=:point_dep AND class IS NULL AND status NOT IN ('E') "
+                          "ORDER BY grp_id",
+                          PgOra::getROSession("PAX_GRP"));
 
   int grp_id;
-  cur.def(grp_id)
-     .bind(":point_dep", pointDep)
-     .exec();
+  cur
+      .stb()
+      .def(grp_id)
+      .bind(":point_dep", pointDep.get())
+      .exec();
 
   int rowNum=0;
   while (!cur.fen()) {
@@ -732,17 +736,19 @@ static std::string FP_getCrsPaxUniqRef(const std::vector<std::string>& p)
                      << surname << "/" << name;
 
     std::string uniqRef;
-    auto cur = make_curs(
+    auto cur = make_db_curs(
 "select UNIQUE_REFERENCE from CRS_PAX, CRS_PNR "
 "where CRS_PAX.PNR_ID=CRS_PNR.PNR_ID "
 "and CRS_PAX.SURNAME=:surname and CRS_PAX.NAME=:name "
-"and CRS_PNR.POINT_ID=:point_dep");
+"and CRS_PNR.POINT_ID=:point_dep",
+PgOra::getROSession("PAX_GRP"));
     cur
-            .defNull(uniqRef, "")
-            .bind(":point_dep", pointDep)
-            .bind(":surname",   surname)
-            .bind(":name",      name)
-            .EXfet();
+        .stb()
+        .defNull(uniqRef, "")
+        .bind(":point_dep", pointDep.get())
+        .bind(":surname", surname.get())
+        .bind(":name", name.get())
+        .EXfet();
 
     return uniqRef;
 }
@@ -759,10 +765,11 @@ static std::string FP_getIatciTabId(const std::vector<std::string>& p)
                 PgOra::getROSession("IATCI_TABS"));
 
     cur
-            .def(id)
-            .bind(":grp_id", grpId.get())
-            .bind(":tab_ind",tabInd)
-            .EXfet();
+        .stb()
+        .def(id)
+        .bind(":grp_id", grpId.get())
+        .bind(":tab_ind", tabInd)
+        .EXfet();
 
     if(cur.err() == DbCpp::ResultCode::NoDataFound) {
         throw EXCEPTIONS::Exception("Iatci tab not found by grp_id=" + std::to_string(grpId.get())
@@ -777,8 +784,8 @@ static std::string FP_getPointTid(const std::vector<std::string>& p)
     assert(p.size() == 1);
     int pointId = std::stoi(p.at(0));
     int tid = 0;
-    OciCpp::CursCtl cur = make_curs(
-"select TID from POINTS where POINT_ID=:point_id");
+    auto cur = make_db_curs(
+        "select TID from POINTS where POINT_ID=:point_id", PgOra::getROSession("POINTS"));
     cur.def(tid)
        .bind(":point_id", pointId)
        .EXfet();
@@ -812,8 +819,9 @@ static std::string FP_getElemId(const std::vector<std::string>& p)
 
 static std::string FP_getRandomBpTypeCode(const std::vector<std::string>& p)
 {
-    OciCpp::CursCtl cur = make_curs(
-"select CODE from BP_TYPES where CODE in ('TST') AND op_type='PRINT_BP' order by dbms_random.random");
+    auto cur = make_db_curs(
+        "select CODE from BP_TYPES where CODE in ('TST') AND op_type='PRINT_BP' order by dbms_random.random",
+        PgOra::getROSession("BP_TYPES"));
     std::string code;
     cur.def(code).exfet();
     return code;
@@ -856,7 +864,7 @@ static std::string FP_setDeskVersion(const std::vector<std::string>& par)
         sql += " where CODE=:code";
     }
 
-    auto cur = make_curs(sql);
+    auto cur = make_db_curs(sql, PgOra::getRWSession("DESKS"));
     cur.bind(":version", par.at(0));
 
     if(par.size() > 1) {
@@ -940,16 +948,17 @@ static std::string FP_initApps(const std::vector<tok::Param>& par)
                      << "prdenial: "   << prdenial   << "; "
                      << "precheckin: " << precheckin << "; ";
 
+    make_db_curs(
+        "delete from APPS_SETS where AIRLINE=:airline and APPS_COUNTRY=:country",
+        PgOra::getRWSession("APPS_SETS"))
+        .bind(":airline", airline)
+        .bind(":country", country)
+        .exec();
 
-    make_curs(
-"delete from APPS_SETS where AIRLINE=:airline and APPS_COUNTRY=:country")
-            .bind(":airline", airline)
-            .bind(":country", country)
-            .exec();
-
-    make_curs(
+    make_db_curs(
 "insert into APPS_SETS(AIRLINE, APPS_COUNTRY, FORMAT, FLT_CLOSEOUT, INBOUND, OUTBOUND, PR_DENIAL, PRE_CHECKIN, ID) "
-"values(:airline, :country, :format, :closeout, :inbound, :outbound, :prdenial, :precheckin, id__seq.nextval)")
+"values(:airline, :country, :format, :closeout, :inbound, :outbound, :prdenial, :precheckin, id__seq.nextval)",
+PgOra::getRWSession("APPS_SETS"))
             .bind(":airline", airline)
             .bind(":country", country)
             .bind(":format",  format)
@@ -1196,11 +1205,14 @@ static std::vector<string> getTripAlarms(const std::string& table_name, int poin
 static std::vector<string> getFlightTasks(const std::string& table_name, const PointId_t& point_id)
 {
     std::string task;
-    auto cur = make_curs(
-               "select NAME from "+table_name+" where POINT_ID=:point_id order by ID");
-    cur.def(task)
-            .bind(":point_id", point_id)
-            .exec();
+    auto cur = make_db_curs(
+               "select NAME from "+table_name+" where POINT_ID=:point_id order by ID",
+               PgOra::getROSession(StrUtils::ToUpper(table_name)));
+    cur
+        .stb()
+        .def(task)
+        .bind(":point_id", point_id.get())
+        .exec();
     std::vector<std::string> res;
     while(!cur.fen()) {
         res.push_back(task);

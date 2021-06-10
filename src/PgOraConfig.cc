@@ -2,6 +2,9 @@
 #include "hooked_session.h"
 #include "exceptions.h"
 
+#ifdef ENABLE_ORACLE
+#include <serverlib/cursctl.h>
+#endif
 #include <serverlib/algo.h>
 #include <serverlib/dbcpp_cursctl.h>
 #include <serverlib/dbcpp_session.h>
@@ -260,7 +263,12 @@ namespace PgOra
             }
             return *get_main_pg_ro_sess(STDLOG);
         }
+#ifdef ENABLE_ORACLE
         return *get_main_ora_sess(STDLOG);
+#else
+        LogError(STDLOG) << "Force PG session for obj: " << objectName;
+        return *get_main_pg_ro_sess(STDLOG);
+#endif
     }
 
     DbCpp::Session& getRWSession(const std::string& objectName)
@@ -274,7 +282,12 @@ namespace PgOra
             }
             return *get_main_pg_rw_sess(STDLOG);
         }
+#ifdef ENABLE_ORACLE
         return *get_main_ora_sess(STDLOG);
+#else
+        LogError(STDLOG) << "Force PG session for obj: " << objectName;
+        return *get_main_pg_rw_sess(STDLOG);
+#endif
     }
 
     DbCpp::Session& getAutoSession(const std::string& objectName)
@@ -283,7 +296,12 @@ namespace PgOra
         {
             return *get_main_pg_au_sess(STDLOG);
         }
+#ifdef ENABLE_ORACLE
         return *get_main_ora_sess(STDLOG);
+#else
+        LogError(STDLOG) << "Force PG session for obj: " << objectName;
+        return *get_main_pg_au_sess(STDLOG);
+#endif
     }
 
     bool areROSessionsEqual(const std::list<std::string>& objects)
@@ -417,13 +435,13 @@ namespace PgOra
 } // namespace PgOra
 
 #include "stdio.h"
-#include <serverlib/cursctl.h>
-
 static int count_ora_tabs()
 {
     int cnt=0;
+#ifdef ENABLE_ORACLE
     auto cur = make_curs("select count(*) from user_tables");
     cur.def(cnt).EXfet();
+#endif //ENABLE_ORACLE
     return cnt;
 }
 
@@ -443,3 +461,4 @@ int print_pg_tables(int argc, char **argv)
               << " " << ((1.0 * tab_cnt)/tab_ora_count)*100 << "% moved." << std::endl;
     return 0;
 }
+

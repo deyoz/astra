@@ -21,7 +21,6 @@
 #include "custom_alarms.h"
 #include "apis_creator.h"
 #include "apps_interaction.h"
-#include <serverlib/cursctl.h>
 #include "passenger.h"
 #include "db_tquery.h"
 #include "PgOraConfig.h"
@@ -903,7 +902,8 @@ static bool setAlarmByPaxId(const PaxId_t paxId, const Alarm::Enum alarmType,
       if(Qry.RowsProcessed()>0) return true;
 
   } catch (EOracleError &E) {
-      if(E.Code != CERR_U_CONSTRAINT && E.Code != CERR_I_CONSTRAINT) throw; // parent key not found, unique constraint violated
+    if (E.Code != CERR_U_CONSTRAINT && E.Code != CERR_I_CONSTRAINT)
+      throw; // parent key not found, unique constraint violated
   }
 
   return false;
@@ -1071,7 +1071,8 @@ std::set<PaxId_t> getPaxIdsWithAlarm(const PointId_t pointId,
               "AND point_id = :point_id ",
               PgOra::getROSession("PAX_ALARMS"));
 
-        cur.def(pax_id)
+        cur.stb()
+           .def(pax_id)
            .bind(":point_id", pointId.get())
            .bind(":alarm", alarm)
            .exec();
@@ -1090,7 +1091,9 @@ std::set<PaxId_t> getPaxIdsWithAlarm(const PointId_t pointId,
                        "WHERE alarm_type = :alarm "
                        "AND point_id = :point_id ",
                        PgOra::getROSession("CRS_PAX_ALARMS"));
-            cur.def(pax_id)
+            cur
+               .stb()
+               .def(pax_id)
                .bind(":point_id", pointIdTlg.get())
                .bind(":alarm", alarm)
                .exec();

@@ -1,9 +1,12 @@
 #include "jxtlib_db_callbacks.h"
-#include "jxtlib_dbora_callbacks.h"
 #include "jxtlib.h"
 #include "jxt_tools.h"
 #define NICKNAME "ROMAN"
 #include <serverlib/slogger.h>
+
+#ifdef ENABLE_ORACLE
+#include "jxtlib_dbora_callbacks.h"
+#endif // ENABLE_ORACLE
 
 namespace jxtlib
 {

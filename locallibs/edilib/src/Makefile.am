@@ -19,10 +19,10 @@ all-local: $(lib_LTLIBRARIES)
 clean-local:
 	-rm -f $(top_srcdir)/lib/edilib.a
 
-AM_CFLAGS = -fexceptions @ORACLE_CXXFLAGS@ @EDILIB_CFLAGS@
-AM_LDFLAGS = @ORACLE_LDFLAGS@ @TCLLIB_LDFLAGS@ @SERVERLIB_LIBS@
+AM_CFLAGS = -fexceptions @EDILIB_CFLAGS@
+AM_LDFLAGS = @TCLLIB_LDFLAGS@ @SERVERLIB_LIBS@
 
-AM_CPPFLAGS =@SERVERLIB_CXXFLAGS@ @LIBTLG_CXXFLAGS@ @ORACLE_CXXFLAGS@ \
+AM_CPPFLAGS =@SERVERLIB_CXXFLAGS@ @LIBTLG_CXXFLAGS@  \
              @BOOST_CPPFLAGS@ @TCLLIB_CXXFLAGS@ @EDILIB_CFLAGS@ \
              -I$(top_srcdir)/include/edilib -I$(top_srcdir)/include
 
@@ -32,7 +32,7 @@ libedifact_la_SOURCES =   edi_all.h      edi_malloc.h \
 			edi_func.h     edi_sql_func.h       edi_test.h \
 			msgproc.awk edi_msg.dat \
 			edi_delete.cpp    edi_insert.cpp \
-			edi_read_table.cpp  edi_sql_insert.cpp  edi_test_tab.cpp \
+			edi_read_table.cpp   edi_test_tab.cpp \
 			edi_err.cpp       edi_logger.cpp   edi_print.cpp  edi_sess.cpp \
 			edi_sql_slct.cpp  edi_types.cpp \
 			edi_get.cpp       edi_msgproc.cpp  edi_put.cpp \
@@ -42,8 +42,8 @@ libedifact_la_SOURCES =   edi_all.h      edi_malloc.h \
 			EdiSessionTimeOut.cpp fse_types.cpp edi_stuff.cpp \
 			edi_session_rc.cpp edi_handler.cpp EdiProcInd.cpp \
 			edi_sql_insert_main.cpp \
-			edilib_db_callbacks.cpp edilib_dbora_callbacks.cpp \
-			edilib_dbpg_callbacks.cpp
+			edilib_db_callbacks.cpp \
+			edilib_dbpg_callbacks.cpp edi_sql_insert.cpp
 
 include_HEADERS = \
 			$(ERRMSG_H)  edi_func_cpp.h  edi_logger.h \
@@ -52,7 +52,16 @@ include_HEADERS = \
             EdiSessionTimeOut.h fse_types.h edi_response_handler.h \
             edi_request_handler.h edi_handler.h edi_session_rc.h \
 			EdiProcInd.h \
-			edilib_db_callbacks.h edilib_dbora_callbacks.h edilib_dbpg_callbacks.h
+			edilib_db_callbacks.h edilib_dbpg_callbacks.h
+
+
+if ENABLE_ORACLE
+AM_CFLAGS += @ORACLE_CXXFLAGS@ -DENABLE_ORACLE=1
+AM_CPPFLAGS += @ORACLE_CXXFLAGS@ -DENABLE_ORACLE=1
+AM_LDFLAGS += @ORACLE_LDFLAGS@
+libedifact_la_SOURCES += edilib_dbora_callbacks.cpp #
+include_HEADERS += edilib_dbora_callbacks.h
+endif
 
 $(ERRMSG_H):
 	./msgproc.awk ./edi_msg.dat

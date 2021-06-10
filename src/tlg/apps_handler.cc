@@ -19,8 +19,6 @@
 #include <serverlib/pg_cursctl.h>
 #include <serverlib/pg_rip.h>
 
-#include <serverlib/cursctl.h>
-#include <serverlib/dates_oci.h>
 #include <serverlib/query_runner.h>
 #include <serverlib/posthooks.h>
 #include <serverlib/ourtime.h>

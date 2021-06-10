@@ -1,7 +1,6 @@
 #ifdef ENABLE_PG
 #include <tcl.h>
 #include <stdlib.h>
-#include <serverlib/cursctl.h>
 
 #include <serverlib/EdiHelpManager.h>
 #include <serverlib/pg_int_parameters.h>

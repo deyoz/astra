@@ -22,7 +22,9 @@
 #include "lngv.h"
 #include "lngv_user.h"
 #include "str_utils.h"
+#ifdef ENABLE_ORACLE
 #include "oci_seq.h"
+#endif
 #include "va_holder.h"
 
 #define NICKNAME "SYSTEM"
@@ -63,7 +65,7 @@ namespace gregorian
 {
 void fillDateTimeFacet(boost::gregorian::date_facet *fac, Language lang);
 
-date from_normal_string(const std::string& s) 
+date from_normal_string(const std::string& s)
 {
     return date_time::from_normal_string<date>(s);
 }
@@ -307,7 +309,7 @@ std::string CallStackRegisterManager::dump()
 }
 
 
-    
+
 
 date_facet  *dateFacet(const char * format,int l)
 {
@@ -531,7 +533,7 @@ static T date_time_cast(const char *data, const char *format="", int l=-1, bool 
     if(strict && string_cast(D,format,l)!=data) {
         std::stringstream msg;
         msg  <<("Parse failed. Invalid Date/Time data=")
-            << " data=" << data << " format=" << format 
+            << " data=" << data << " format=" << format
             << " l=" << l << " strict=" << strict;
         throw comtech::Exception(msg.str());
     }
@@ -551,7 +553,7 @@ boost::posix_time::time_duration timed_cast(const char *data, const char *format
     return date_time_cast<boost::posix_time::time_duration>(data, format, l, strict);
 }
 
-// do not throw 
+// do not throw
 template <typename T>
 static T simple_date_time_cast__(const char *data, const char *format="", int l=-1)
 {
@@ -609,6 +611,7 @@ std::string memdump(const void *aBuf_void, size_t aBufLen, int markIndex)
     return res;
 }
 
+#ifdef ENABLE_ORACLE
 ObjIdType objId()
 {
     return boost::lexical_cast<ObjIdType>(
@@ -620,6 +623,7 @@ ObjIdType objId(const std::string& sequence, OciCpp::OciSession* sess)
     return boost::lexical_cast<ObjIdType>(
         OciCpp::Sequence((sess ? *sess : OciCpp::mainSession()), sequence).nextval<std::string>(STDLOG));
 }
+#endif
 
 static void bigdiv(const std::string& s, unsigned divider, std::string& res, unsigned& reminder)
 {
@@ -747,7 +751,7 @@ vector<string> getFilenamesByMask(string const &mask)
     if(ret!=0){
         throw runtime_error("glob failed ["+mask +"] :"+ strerror(errno));
     }
-    
+
     res.assign(&namelist.gl_pathv[0],&namelist.gl_pathv[namelist.gl_pathc]);
     globfree(&namelist);
     return res;
@@ -799,22 +803,22 @@ START_TEST(simple_date_time)
     try
     {
         char date_str[7]={" "};
-        date d= simple_date_cast(date_str);        
+        date d= simple_date_cast(date_str);
         fail_unless(d.is_not_a_date(),"fail not-a-date-time");
 
-        ptime t= simple_time_cast(date_str);        
+        ptime t= simple_time_cast(date_str);
         fail_unless(t.is_not_a_date_time(),"fail not-a-date-time");
- 
+
         ptime t1 = simple_time_cast("20091211T172550", "%Y%m%dT%H%M%S");
         fail_unless("172550"==string_cast(t1,"%H%M%S",0),"fail formatting");
         fail_unless("20091211"==string_cast(t1,"%Y%m%d",0),"fail formatting");
-  
+
         ptime t2 = simple_time_cast("20091210", "%Y%m%d");
         fail_unless("20091210"==string_cast(t2,"%Y%m%d",0),"fail formatting");
-        
+
         date d3 = simple_date_cast("20071101", "%Y%m%d");
         fail_unless("20071101"==string_cast(d3,"%Y%m%d",0),"fail formatting");
-  
+
     }
     catch (const comtech::Exception &e)
     {
@@ -1064,7 +1068,7 @@ START_TEST(test_bool_opr)
         fail_unless(0,"bool operator returned true");
     }
 
-    
+
 }
 END_TEST
 

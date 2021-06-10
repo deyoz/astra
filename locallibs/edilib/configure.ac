@@ -63,6 +63,8 @@ AC_SUBST(EDILIB_CFLAGS, $edi_cflags)
 
 AM_CONDITIONAL(ENABLE_SESSION_MNG, test "$enable_serverlib" = yes)
 
+AM_CONDITIONAL([ENABLE_ORACLE], [test x$enable_oracle_support = xyes])
+
 CXXFLAGS="$CXXFLAGS $SERVERLIB_CXXFLAGS"
 CFLAGS="$CFLAGS $SERVERLIB_CFLAGS"
 

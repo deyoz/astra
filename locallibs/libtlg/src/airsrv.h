@@ -27,8 +27,13 @@ public:
     virtual ~Airsrv();
     virtual void processMessage(AIRSRV_MSG& msg, const RouterInfo& ri);
     int run();
+#ifdef ENABLE_ORACLE
     virtual void commit();
     virtual void rollback();
+#else // ENABLE_ORACLE
+    virtual void commit() = 0;
+    virtual void rollback() = 0;
+#endif // ENABLE_ORACLE
 
 protected:
     virtual int getQueueNumber(const char *tlgBody, bool ediTlg, int rtrIndex);

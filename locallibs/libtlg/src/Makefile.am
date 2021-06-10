@@ -11,23 +11,32 @@ noinst_HEADERS = tlgnum.h types.h telegrams.h tlg_func.h net_func.h \
 libtlg_la_SOURCES = telegrams.cc tlg_func.cc net_func.cc airsrv.cc \
 					tlgjoin.cc sender.cc express.cc express_sender.cc \
 					tlgsplit.cc hth.cc external_tests.cc tlg_outbox.cc air_q_callbacks.cc \
-					tlg_loader.cc air_q_dbora_callbacks.cc air_q_dbpg_callbacks.cc
+					tlg_loader.cc air_q_dbpg_callbacks.cc
 
-AM_CPPFLAGS = @CFLAGS@ @SERVERLIB_CXXFLAGS@ @EDILIB_CXXFLAGS@ @BOOST_CPPFLAGS@ @ORACLE_CXXFLAGS@
+AM_CPPFLAGS = @CFLAGS@ @SERVERLIB_CXXFLAGS@ @EDILIB_CXXFLAGS@ @BOOST_CPPFLAGS@
+
+if ENABLE_ORACLE
+AM_CPPFLAGS += @ORACLE_CXXFLAGS@ -DENABLE_ORACLE=1
+libtlg_la_SOURCES += air_q_dbora_callbacks.cc
+endif
 
 if XP_TESTING
 bin_PROGRAMS = testapp
 
 testapp_SOURCES = testapp.cc
-testapp_LDFLAGS = @ORACLE_LDFLAGS@ @BOOST_LDFLAGS@ @BOOST_REGEX_LIB@
+testapp_LDFLAGS = @BOOST_LDFLAGS@ @BOOST_REGEX_LIB@
 testapp_LDADD = libtlg.la \
 	@SERVERLIB_LIBS@ \
 	@EDILIB_LIBS@ \
 	@CHECK_LIBS@ \
-	@ORACLE_LIBS@ \
 	@BOOST_REGEX_LIB@
 
-xp-tests: 
+if ENABLE_ORACLE
+testapp_LDFLAGS += @ORACLE_LDFLAGS@
+testapp_LDADD += @ORACLE_LIBS@
+endif
+
+xp-tests:
 	@if [ ! -d ./Cores ]; then \
 		mkdir ./Cores; \
 	fi; \

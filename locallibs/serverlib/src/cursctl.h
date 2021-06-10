@@ -1,5 +1,7 @@
 #pragma once
-
+#ifndef ENABLE_ORACLE
+#error THIS FILE IS ONLY FOR ORACLE
+#else
 #include <string>
 #include <iosfwd>
 #include <stdint.h>
@@ -182,7 +184,7 @@ template <> struct OciSelector<std::string> : public OciSelector<const std::stri
     static const bool auto_null_value=true;
 };
 
-template <> struct OciSelector< void * > 
+template <> struct OciSelector< void * >
 {
 };
 
@@ -456,7 +458,7 @@ public:
             Logger::getTracer().ProgTrace(TRACESYS, "%s", "In bind_");
             buf.print();
         }
-        if (stableBind() && maxarrlen==0) //FIXME 
+        if (stableBind() && maxarrlen==0) //FIXME
         {
             OciSelector<T>::to(buf.data, buf.value_addr, buf.ind ? *buf.ind : buf.indic);
         }
@@ -629,7 +631,7 @@ CursCtl make_curs_no_cache_(std::string const &sql, OciSession* sess, const char
 
 class CursorCache;
 class Oracle8Data;
-class OciSession 
+class OciSession
 {
     friend class Oracle8Data;
     template<typename Type, typename Dummy> friend struct OciSelector;
@@ -669,7 +671,7 @@ public:
     CursCtl createCursor(const char* nick, const char* file, int line, const std::string& str);
 
     Lda_Def* getLd() { return lda_; } // to use in old OCI7 code
-    int mode() const { return mode_; } 
+    int mode() const { return mode_; }
     const OciSessionNativeData& native() const { return native_; }
     const std::string& getLogin() const { return connectionParams_.login; }
     std::string getConnectString() const;
@@ -719,7 +721,7 @@ void openGlobalCursors();
 void putSession(const std::string& name, std::shared_ptr<OciCpp::OciSession> session);
 OciSession& getSession(const std::string& name);
 
-// Increase cache size (ora - 20 by default, we need more)  
+// Increase cache size (ora - 20 by default, we need more)
 bool oci8_set_cache_size(OCISvcCtx *svchp,OCIError *errhp);
 void  pragma_autonomous_transaction(std::string &at1,std::string &at2);
 
@@ -730,3 +732,4 @@ namespace OciCpp { \
 OCICPP_OCI_NUMERIC_TYPE_TRAITS(T, SQLT_INT); \
 OciSelectorNum(T) \
 }
+#endif

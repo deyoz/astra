@@ -22,8 +22,6 @@
 #include "tlg/edi_msg.h"
 
 #include <serverlib/dates_oci.h>
-#include <serverlib/rip_oci.h>
-#include <serverlib/cursctl.h>
 #include <serverlib/savepoint.h>
 #include <serverlib/dump_table.h>
 #include <serverlib/xml_stuff.h>
@@ -478,13 +476,16 @@ namespace
 
             GrpId_t::base_type pointDep = ASTRA::NoExists,
                                pointArv = ASTRA::NoExists;
-            OciCpp::CursCtl cur = make_curs(
-                    "select POINT_DEP, POINT_ARV from PAX_GRP where GRP_ID=:grp_id");
-            cur.bind(":grp_id", grpId)
-               .def(pointDep)
-               .def(pointArv)
-               .EXfet();
-            if(cur.err() == NO_DATA_FOUND) {
+            auto cur = make_db_curs(
+                    "select POINT_DEP, POINT_ARV from PAX_GRP where GRP_ID=:grp_id",
+                    PgOra::getROSession("PAX_GRP"));
+            cur
+                .stb()
+                .bind(":grp_id", grpId.get())
+                .def(pointDep)
+                .def(pointArv)
+                .EXfet();
+            if(cur.err() == DbCpp::ResultCode::NoDataFound) {
                 LogWarning(STDLOG) << "Group " << grpId << " not found!";
                 throw EXCEPTIONS::Exception("Group %d not found", grpId);
             }
@@ -524,15 +525,18 @@ namespace
             int flNum = 0;
             boost::gregorian::date scdOut;
 
-            OciCpp::CursCtl cur = make_curs(
-                    "select AIRLINE, FLT_NO, SCD_OUT, AIRP from POINTS where POINT_ID=:point_id");
-            cur.bind(":point_id", pointId)
-               .defNull(airl, "")
-               .defNull(flNum, 0)
-               .defNull(scdOut, boost::gregorian::date())
-               .def(airp)
-               .EXfet();
-            if(cur.err() == NO_DATA_FOUND) {
+            auto cur = make_db_curs(
+                    "select AIRLINE, FLT_NO, SCD_OUT, AIRP from POINTS where POINT_ID=:point_id",
+                    PgOra::getROSession("POINTS"));
+            cur
+                .stb()
+                .bind(":point_id", pointId.get())
+                .defNull(airl, "")
+                .defNull(flNum, 0)
+                .defNull(scdOut, boost::gregorian::date())
+                .def(airp)
+                .EXfet();
+            if(cur.err() == DbCpp::ResultCode::NoDataFound) {
                 LogWarning(STDLOG) << "Point " << pointId << " not found!";
                 throw EXCEPTIONS::Exception("Point %d not found", pointId);
             }

@@ -1,6 +1,7 @@
 #!/bin/bash
 export BUILD_TESTS=${BUILD_TESTS:? BUILD_TESTS not set}
 export ENABLE_SHARED=${ENABLE_SHARED:? ENABLE_SHARED not set}
+export ENABLE_ORACLE=${ENABLE_ORACLE:? ENABLE_ORACLE not set}
 export ASTRA_HOME=$(pwd)
 export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:$(pwd)/pkgconfig"
 export MAKE_J=${MAKE_J:-`grep -c ^processor /proc/cpuinfo`}
@@ -43,7 +44,7 @@ else
 fi
 if echo $CXX | fgrep -w clang ; then
     export MY_LOCAL_CFLAGS="-pipe -Wno-mismatched-tags -Wno-overloaded-virtual -Wno-invalid-source-encoding -Qunused-arguments -fstack-protector -Wstack-protector -foptimize-sibling-calls -Werror-unknown-warning-option ${MY_LOCAL_CFLAGS}"
-    # ubsan is broken in 3.2 ... -fsanitize=undefined 
+    # ubsan is broken in 3.2 ... -fsanitize=undefined
 elif [ $($CXX -dumpversion | sed 's/\./0/' | sed 's/\..*//') -ge 408 ]; then
     export MY_LOCAL_CFLAGS="-Wno-unused-local-typedefs $MY_LOCAL_CFLAGS"
 fi
@@ -68,7 +69,7 @@ fi
 
 set_cxx11="1"
 buildboost="1"
-                                   
+
 
 EXTERNALLIBS_DIR=${SIRENA_EXTERNALS:-$(pwd)/externallibs}
 
@@ -77,13 +78,13 @@ if [[ -n "$WITH_MESPRO" ]] ; then
     export MESPRO_CFLAGS="-DUSE_MESPRO -I$MESPRO_HOME/include"
     export MESPRO_CXXFLAGS="-DUSE_MESPRO -I$MESPRO_HOME/include"
     export MESPRO_LDFLAGS="-L$MESPRO_HOME"
-                    
+
     if [[ -n $EMBEDDED_RPATH ]] ; then
          MESPRO_LDFLAGS="$MESPRO_LDFLAGS -Wl,-rpath=$MESPRO_HOME"
     fi;
     echo "export MESPRO_CFLAGS=$MESPRO_CFLAGS"
 fi;
-                                     
+
 
 function build_externallib() {
     SIRENA_HOME=$PWD ./bin/astra_update_and_build.sh $1 $EXTERNALLIBS_DIR/$1

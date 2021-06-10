@@ -12,10 +12,7 @@
 #include "exceptions.h"
 #include "tlg.h"
 
-#include <serverlib/int_parameters_oci.h>
 #include <serverlib/dates_oci.h>
-#include <serverlib/rip_oci.h>
-#include <serverlib/cursctl.h>
 #include <serverlib/dates.h>
 #include <serverlib/dbcpp_cursctl.h>
 

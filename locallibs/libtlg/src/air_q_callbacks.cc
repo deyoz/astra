@@ -4,13 +4,15 @@
 
 #include "air_q_callbacks.h"
 
-#include <serverlib/cursctl.h>
-#include <serverlib/dates_oci.h>
+
+// #include <serverlib/dates_oci.h>
 #include <serverlib/posthooks.h>
 #include <serverlib/tcl_utils.h>
-#include <serverlib/int_parameters_oci.h>
-#include <serverlib/rip_oci.h>
+// #include <serverlib/int_parameters_oci.h>
+// #include <serverlib/rip_oci.h>
+#ifdef ENABLE_ORACLE
 #include <serverlib/oracle_connection_param.h>
+#endif
 
 #define NICKNAME "ANTON"
 #define NICKTRACE ANTON_TRACE
@@ -45,9 +47,9 @@ std::string AirQPartOrder::fieldPlaceholder(OrderField of)
         return "";
     };
 }
-    
+
 //---------------------------------------------------------------------------------------
-    
+
 AirQOutStat::AirQOutStat()
 {
     const tlgnum_t dummy("0");
@@ -85,9 +87,13 @@ static std::string airQUser()
         LogTrace(TRACE0) << "AIRQ_CONNECT_STRING is " << cs;
         if(!cs.empty())
         {
+#ifdef ENABLE_ORACLE
             oracle_connection_param ora_param;
             split_connect_string(cs, ora_param);
             user = ora_param.login;
+#else // ENABLE_ORACLE
+            throw std::runtime_error("airQUser is oracle-only feature");
+#endif // ENABLE_ORACLE
         }
     }
     return user;

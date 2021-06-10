@@ -622,9 +622,11 @@ bool existsTlgIn(const TlgId_t& tlg_id, const std::string& tlg_type)
         "AND type=:tlg_type "
         "FETCH FIRST 1 ROWS ONLY ",
         PgOra::getROSession("TLGS_IN"));
-  cur.bind(":tlg_id", tlg_id.get())
-     .bind(":tlg_type", tlg_type)
-     .EXfet();
+  cur
+      .stb()
+      .bind(":tlg_id", tlg_id.get())
+      .bind(":tlg_type", tlg_type)
+      .EXfet();
   return cur.err() != DbCpp::ResultCode::NoDataFound;
 }
 
@@ -1843,7 +1845,9 @@ int countTlgTransfer(const PointIdTlg_t& point_id)
           "WHERE point_id_in=:point_id "
           "AND point_id_in<>point_id_out ",
           PgOra::getROSession("TLG_TRANSFER"));
-    cur.def(result)
+    cur
+        .stb()
+        .def(result)
         .bind(":point_id", point_id.get())
         .EXfet();
     return result;
@@ -1857,9 +1861,11 @@ bool existsTlgTransfer(const PointIdTlg_t& point_id, const TlgId_t& tlg_id)
           "AND tlg_id=:tlg_id "
           "FETCH FIRST 1 ROWS ONLY ",
           PgOra::getROSession("TLG_TRANSFER"));
-    cur.bind(":point_id", point_id.get())
-       .bind(":tlg_id", tlg_id.get())
-       .EXfet();
+    cur
+        .stb()
+        .bind(":point_id", point_id.get())
+        .bind(":tlg_id", tlg_id.get())
+        .EXfet();
     return cur.err() != DbCpp::ResultCode::NoDataFound;
 }
 
@@ -1870,9 +1876,11 @@ bool deleteTlgSource(const PointIdTlg_t& point_id, const TlgId_t& tlg_id)
         "WHERE point_id_tlg=:point_id "
         "AND tlg_id=:tlg_id ",
         PgOra::getRWSession("TLG_SOURCE"));
-  cur.bind(":point_id", point_id.get())
-     .bind(":tlg_id", tlg_id.get())
-     .exec();
+  cur
+      .stb()
+      .bind(":point_id", point_id.get())
+      .bind(":tlg_id", tlg_id.get())
+      .exec();
   return cur.rowcount() > 0;
 }
 

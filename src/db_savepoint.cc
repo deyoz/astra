@@ -2,7 +2,9 @@
 #include "hooked_session.h"
 #include "pg_session.h"
 
+#ifdef ENABLE_ORACLE
 #include <serverlib/cursctl.h>
+#endif
 #include <serverlib/dbcpp_cursctl.h>
 
 #define NICKNAME "ANTON"
@@ -27,8 +29,10 @@ void Savepoint::rollback()
 void execSpCmd(const std::string& cmd)
 {
     LogTrace(TRACE3) << "DB " << cmd;
+#ifdef ENABLE_ORACLE
     // ocicpp
     make_curs_no_cache(cmd).exec();
+#endif // ENABLE_ORACLE
     // pgcpp
     make_pg_curs_nocache(PgCpp::getPgManaged(), cmd).exec();
     // dbcpp

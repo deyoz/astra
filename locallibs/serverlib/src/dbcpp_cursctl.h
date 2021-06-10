@@ -21,11 +21,12 @@ namespace PgCpp
 {
     class CursCtl;
 }
-
+#ifdef ENABLE_ORACLE
 namespace OciCpp
 {
     class CursCtl;
 }
+#endif
 
 namespace DbCpp
 {
@@ -177,7 +178,6 @@ namespace DbCpp
 
         std::unique_ptr<class CursCtlImpl> mImpl;
     };
-
     CursCtl make_curs_(const char* n, const char* f, int l, const std::string& sql);
     CursCtl make_curs_(const char* n, const char* f, int l, const std::string& sql, Session& sess);
     CursCtl make_curs_no_cache_(const char* n, const char* f, int l, const std::string& sql);

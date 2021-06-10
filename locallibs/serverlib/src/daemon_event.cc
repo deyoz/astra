@@ -16,7 +16,9 @@
 #include "profiler.h"
 #include "exception.h"
 #include "ourtime.h"
+#ifdef ENABLE_ORACLE
 #include "oci8.h"
+#endif
 #include "monitor_ctl.h"
 #include "perfom.h"
 #include "posthooks.h"
@@ -24,6 +26,7 @@
 #include "daemon_event.h"
 #include "deadlock_exception.h"
 #include "new_daemon.h"
+#include "string_cast.h"
 
 static int runTask__(const ServerFramework::DaemonTaskPtr& pTask, const char* buff, size_t buffSz, const boost::posix_time::ptime& time)
 {
@@ -569,7 +572,7 @@ void TclmonDaemonEvent::init()
     TclmonDaemonEventImpl* p = reinterpret_cast<TclmonDaemonEventImpl*>(pImpl_.get());
     p->init();
 }
-
+#ifdef ENABLE_ORACLE
 /***  AqDaemonEvent  ***/
 class AqDaemonEventImpl;
 class AqEventCallback
@@ -647,5 +650,8 @@ void AqDaemonEvent::init()
     ProgTrace(TRACE5, "AqDaemonEvent::init: pImpl_=%p", p);
     p->init();
 }
+
+#endif /* ENABLE_ORACLE */
+
 } // namespace ServerFramework
 

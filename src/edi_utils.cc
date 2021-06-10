@@ -777,9 +777,10 @@ void WritePostponedContext(tlgnum_t tnum, int reqCtxtId)
                 PgOra::getRWSession("POSTPONED_TLG_CONTEXT"));
 
     cur
-            .bind(":msg_id",      tnum.num.get())
-            .bind(":req_ctxt_id", reqCtxtId)
-            .exec();
+        .stb()
+        .bind(":msg_id", tnum.num.get())
+        .bind(":req_ctxt_id", reqCtxtId)
+        .exec();
 }
 
 int ReadPostponedContext(tlgnum_t tnum, bool clear)
@@ -790,9 +791,10 @@ int ReadPostponedContext(tlgnum_t tnum, bool clear)
 
     int reqCtxtId = 0;
     cur
-            .def(reqCtxtId)
-            .bind(":msg_id", tnum.num.get())
-            .exfet();
+        .stb()
+        .def(reqCtxtId)
+        .bind(":msg_id", tnum.num.get())
+        .exfet();
 
     if(clear) {
         ClearPostponedContext(tnum);
@@ -805,10 +807,11 @@ void ClearPostponedContext(tlgnum_t tnum)
 {
     LogTrace(TRACE1) << __FUNCTION__ << " msg_id=" << tnum;
     make_db_curs(
-"delete from POSTPONED_TLG_CONTEXT where MSG_ID = :msg_id",
-                PgOra::getRWSession("POSTPONED_TLG_CONTEXT"))
-            .bind(":msg_id", tnum.num.get())
-            .exec();
+        "delete from POSTPONED_TLG_CONTEXT where MSG_ID = :msg_id",
+        PgOra::getRWSession("POSTPONED_TLG_CONTEXT"))
+        .stb()
+        .bind(":msg_id", tnum.num.get())
+        .exec();
 }
 
 void TOriginCtxt::toXML(xmlNodePtr node)

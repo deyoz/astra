@@ -46,6 +46,8 @@ AC_ARG_ENABLE([xp-testing],
     ],\
     [AM_CONDITIONAL([XP_TESTING], [test 1 = 0])] )
 
+AM_CONDITIONAL([ENABLE_ORACLE], [test x$enable_oracle_support = xyes])
+
 if test x$enable_xp_testing = xyes; then
     AC_DEFINE([XP_TESTING],,[XP TESTING support])
     PKG_CHECK_MODULES([CHECK], [check], AC_MSG_NOTICE($CHECK_LIBS), AC_MSG_ERROR([libcheck not found]))

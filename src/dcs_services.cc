@@ -93,13 +93,14 @@ const Settings& RequiredRfiscs::filterRoughly(const SettingsFilter& filter)
 
   LogTrace(TRACE5) << __func__ << ": " << filter;
 
-  auto cur = make_curs(
+  auto cur = make_db_curs(
     "SELECT " + Setting::selectedFields() +
     "FROM dcs_service_applying "
     "WHERE airline=:airline AND "
     "      dcs_service=:dcs_service AND "
     "      (class IS NULL OR class=:class) AND "
-    "      pr_denial=0 ");
+    "      pr_denial=0 ",
+    PgOra::getROSession("DCS_SERVICE_APPLYING"));
 
 
 
@@ -107,10 +108,12 @@ const Settings& RequiredRfiscs::filterRoughly(const SettingsFilter& filter)
 
   Setting::curDef(cur, setting);
 
-  cur.bind(":airline", filter.airline.get())
-     .bind(":dcs_service", dcsActions().encode(filter.dcsAction))
-     .bind(":class", filter.cl.get())
-     .exec();
+  cur
+      .stb()
+      .bind(":airline", filter.airline.get())
+      .bind(":dcs_service", dcsActions().encode(filter.dcsAction))
+      .bind(":class", filter.cl.get())
+      .exec();
 
   while(!cur.fen())
   {

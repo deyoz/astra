@@ -4,8 +4,11 @@
 #include <serverlib/tscript.h>
 #include <serverlib/EdiHelpManager.h>
 #include <serverlib/str_utils.h>
+#ifdef ENABLE_ORACLE
 #include <serverlib/cursctl.h>
+#endif
 #include <serverlib/dbcpp_session.h>
+#include <serverlib/commit_rollback.h>
 #include <libtlg/tlg_outbox.h>
 #include <jxtlib/xml_tools.h>
 #include <jxtlib/utf2cp866.h>
@@ -56,8 +59,10 @@ namespace xp_testing { namespace tscript {
 
         virtual void beforeFunctionCall()
         {
+#ifdef ENABLE_ORACLE
             OciCpp::mainSession().set7();
             OraSession.Initialize(OciCpp::mainSession().getLd());
+#endif //ENABLE_ORACLE
             tlgAccumulator_.clear();
             ServerFramework::listenRedisplay();
         }
@@ -82,15 +87,19 @@ namespace xp_testing { namespace tscript {
 
         virtual void beforeTest()
         {
+#ifdef ENABLE_ORACLE
             LogTrace(TRACE3) << __func__ << " tscript ************* savepoint tscript";
             make_curs("savepoint tscript").exec();
+#endif //ENABLE_ORACLE
             TsCallbacks::beforeTest();
         }
 
         virtual void afterTest()
         {
+#ifdef ENABLE_ORACLE
             LogTrace(TRACE3) << __func__ << " tscript ************* savepoint tscript";
             make_curs("rollback to savepoint tscript").exec();
+#endif //ENABLE_ORACLE
             DbCpp::mainPgManagedSession(STDLOG).rollbackInTestMode();
             if(auto arxSess = dynamic_cast<DbCpp::PgSession*>(get_arx_pg_rw_sess(STDLOG))) {
                 arxSess->rollbackInTestMode();

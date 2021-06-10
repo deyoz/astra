@@ -1205,7 +1205,9 @@ namespace ServerFramework
         add("balancer_clients_stats", "logbalancer", balancer::main_balancer_clients_stats);
 #ifdef XP_TESTING
         add("daemon", "logdaemon", main_test_daemon);
+#ifdef ENABLE_ORACLE
         add("edi_help_checker", "logdaemon", main_edi_help_checker_daemon);
+#endif //ENABLE_ORACLE
 #endif // XP_TESTING
     }
 

@@ -17,7 +17,6 @@
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/slogger.h"
 #include "apis_utils.h"
-#include <serverlib/cursctl.h>
 
 using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
@@ -561,18 +560,21 @@ bool TAdvTripInfo::getByPointId(const int point_id, const FlightProps &props)
 
 bool TAdvTripInfo::transitable(const PointId_t& pointId)
 {
-  auto cur = make_curs("SELECT 1 AS transitable "
+  auto cur = make_db_curs("SELECT 1 AS transitable "
                        "FROM points a, points b "
                        "WHERE b.move_id=a.move_id AND "
                        "      a.point_id=:point_id AND a.pr_del=0 AND "
                        "      b.point_num<a.point_num AND b.pr_del=0 AND "
-                       "      rownum<2");
+                       "      rownum<2",
+                       PgOra::getROSession("POINTS"));
 
   bool result=false;
 
-  cur.def(result)
-     .bind(":point_id", pointId.get())
-     .EXfet();
+  cur
+      .stb()
+      .def(result)
+      .bind(":point_id", pointId.get())
+      .EXfet();
 
   return result;
 }
@@ -1564,10 +1566,11 @@ boost::optional<GrpId_t> TCkinRoute::toDB(const std::list<TCkinRouteInsertItem> 
 {
   if (tckinGroups.size()<=1) return {};
 
-  auto cur=make_curs("INSERT INTO tckin_pax_grp "
+  auto cur=make_db_curs("INSERT INTO tckin_pax_grp "
                      "  (tckin_id, grp_num, seg_no, transit_num, grp_id, first_reg_no, pr_depend) "
                      "VALUES "
-                     "  (:tckin_id, :grp_num, :seg_no, :transit_num, :grp_id, :first_reg_no, :pr_depend)");
+                     "  (:tckin_id, :grp_num, :seg_no, :transit_num, :grp_id, :first_reg_no, :pr_depend)",
+                     PgOra::getRWSession("TCKIN_PAX_GRP"));
 
   bool firstGrp=true;
   int grp_num=1;
@@ -1583,14 +1586,16 @@ boost::optional<GrpId_t> TCkinRoute::toDB(const std::list<TCkinRouteInsertItem> 
       transit_num=0;
     }
 
-    cur.bind(":tckin_id", tckinGroups.front().grpId.get())
-       .bind(":grp_num", grp_num++)
-       .bind(":seg_no", seg_no)
-       .bind(":transit_num", transit_num++)
-       .bind(":grp_id", i.grpId.get())
-       .bind(":first_reg_no", i.firstRegNo?i.firstRegNo.get().get():0, i.firstRegNo?&nnull:&null)
-       .bind(":pr_depend", !firstGrp)
-       .exec();
+    cur
+        .stb()
+        .bind(":tckin_id", tckinGroups.front().grpId.get())
+        .bind(":grp_num", grp_num++)
+        .bind(":seg_no", seg_no)
+        .bind(":transit_num", transit_num++)
+        .bind(":grp_id", i.grpId.get())
+        .bind(":first_reg_no", i.firstRegNo ? i.firstRegNo.get().get() : 0, i.firstRegNo ? &nnull : &null)
+        .bind(":pr_depend", !firstGrp)
+        .exec();
 
     firstGrp=false;
   }
@@ -1915,21 +1920,23 @@ int SeparateTCkin(int grp_id,
   int tckin_id=NoExists;
   int grp_num=NoExists;
 
-  auto cur=make_curs("SELECT tckin_id, grp_num FROM tckin_pax_grp WHERE grp_id=:grp_id");
+  auto cur=make_db_curs("SELECT tckin_id, grp_num FROM tckin_pax_grp WHERE grp_id=:grp_id",
+                     PgOra::getROSession("TCKIN_PAX_GRP"));
 
   cur.bind(":grp_id", grp_id)
      .def(tckin_id)
      .def(grp_num)
      .EXfet();
 
-  if (cur.err() == NO_DATA_FOUND) return NoExists;
+  if (cur.err() == DbCpp::ResultCode::NoDataFound) return NoExists;
 
   if (upd_depend==cssNone) return tckin_id;
 
   if (tid!=NoExists && upd_tid!=cssNone)
   {
-    auto upd=make_curs("UPDATE pax_grp SET tid=:tid "
-                  "WHERE grp_id IN (SELECT grp_id FROM tckin_pax_grp " + whereSQL(upd_tid) + ") ");
+    auto upd=make_db_curs("UPDATE pax_grp SET tid=:tid "
+                  "WHERE grp_id IN (SELECT grp_id FROM tckin_pax_grp " + whereSQL(upd_tid) + ") ",
+                  PgOra::getRWSession("TCKIN_PAX_GRP"));
     upd.bind(":tckin_id", tckin_id)
        .bind(":grp_num", grp_num)
        .bind(":tid", tid)
@@ -1937,7 +1944,8 @@ int SeparateTCkin(int grp_id,
   }
 
 
-  auto upd=make_curs("UPDATE tckin_pax_grp SET pr_depend=0 " + whereSQL(upd_depend));
+  auto upd=make_db_curs("UPDATE tckin_pax_grp SET pr_depend=0 " + whereSQL(upd_depend),
+                        PgOra::getRWSession("TCKIN_PAX_GRP"));
   upd.bind(":tckin_id", tckin_id)
      .bind(":grp_num", grp_num)
      .exec();

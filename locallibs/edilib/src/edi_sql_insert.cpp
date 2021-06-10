@@ -6,7 +6,6 @@
 #include <ctype.h>
 #include <errno.h>
 
-#include <serverlib/cursctl.h>
 #include "edi_sql_insert.h"
 #include "edi_sql_func.h"
 #include "edi_user_func.h"
@@ -16,7 +15,13 @@
 #define NICKTRACE ROMAN_TRACE
 #include "edi_test.h"
 
+#ifdef ENABLE_ORACLE
+#include <serverlib/cursctl.h>
+#endif
+
 unsigned int FileLine;
+
+
 
 int insert_to_ora_from_dir(const char *dir)
 {
@@ -38,7 +43,11 @@ int insert_to_ora_from_dir_cur(const char *dir)
     close_edi_files(&Fp);
 
     if(ret<=0) {
+#ifdef ENABLE_ORACLE
         rollback();
+#else // ENABLE_ORACLE
+        throw std::runtime_error("insert_to_ora_from_dir_cur: cannot rollback without oracle");
+#endif // ENABLE_ORACLE
     }
     return ret;
 }

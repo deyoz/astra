@@ -21,7 +21,6 @@
 
 #define NICKNAME "DJEK"
 #include <serverlib/slogger.h>
-#include <serverlib/cursctl.h>
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -948,9 +947,10 @@ static bool updateCrsCabinClass(const CheckIn::TSimplePaxItem& pax,
                           LParams() << LParam("fieldname", getLocaleText("CAP.PNL_EDIT_FORM.CABIN_CLASS")));
   }
 
-  auto upd=make_curs("UPDATE crs_pax "
-                     "SET cabin_class=:cabin_class "
-                     "WHERE pax_id=:pax_id AND pr_del=0");
+  auto upd = make_db_curs("UPDATE crs_pax "
+                          "SET cabin_class=:cabin_class "
+                          "WHERE pax_id=:pax_id AND pr_del=0",
+                          PgOra::getRWSession("CRS_PAX"));
 
   upd.bind(":cabin_class", cabinClass)
      .bind(":pax_id", pax.id)
@@ -1011,9 +1011,10 @@ static bool updateCrsBagNorm(const CheckIn::TSimplePaxItem& pax,
     }
   }
 
-  auto upd=make_curs("UPDATE crs_pax "
-                     "SET bag_norm=:bag_norm, bag_norm_unit=:bag_norm_unit "
-                     "WHERE pax_id=:pax_id AND pr_del=0");
+  auto upd = make_db_curs("UPDATE crs_pax "
+                          "SET bag_norm=:bag_norm, bag_norm_unit=:bag_norm_unit "
+                          "WHERE pax_id=:pax_id AND pr_del=0",
+                          PgOra::getRWSession("CRS_PAX"));
 
   if (bagNorm)
   {

@@ -18,8 +18,8 @@ AC_PROG_CC
 #Не создавать Shared библиотеки
 #AC_DISABLE_SHARED
 # Цитата (quoting):
-# This macro adds many new tests to the configure script 
-# so that the generated libtool script will understand 
+# This macro adds many new tests to the configure script
+# so that the generated libtool script will understand
 # the characteristics of the host
 #AC_PROG_LIBTOOL
 AC_PROG_RANLIB
@@ -32,6 +32,7 @@ CHECK_TCL
 MRJ_CHECK_SERVERLIB
 PKG_CHECK_MODULES([ICU], [icu-i18n >= 57], , AC_MSG_ERROR([Need icu57!]))
 
+AM_CONDITIONAL([ENABLE_ORACLE], [test x$enable_oracle_support = xyes])
 AC_SUBST(COMMON_CXXFLAGS, [`${SERVERLIB_PATH}/dependlibs-config --cxxflags`])
 AC_SUBST(COMMON_CFLAGS, [`${SERVERLIB_PATH}/dependlibs-config --cflags`])
 CXXFLAGS="$CXXFLAGS $COMMON_CXXFLAGS $ICU_INCLUDE_PATH"

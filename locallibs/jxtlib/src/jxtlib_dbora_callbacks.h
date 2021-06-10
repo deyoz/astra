@@ -2,6 +2,10 @@
 #include <string>
 #include "jxtlib_db_callbacks.h"
 
+#ifndef ENABLE_ORACLE
+#error "This file is for oracle builds only"
+#endif // ENABLE_ORACLE
+
 namespace jxtlib
 {
 

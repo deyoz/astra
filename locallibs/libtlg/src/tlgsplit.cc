@@ -4,7 +4,6 @@
 #include <boost/format.hpp>
 #include <boost/scoped_ptr.hpp>
 
-#include <serverlib/cursctl.h>
 #include <serverlib/savepoint.h>
 
 #ifdef HAVE_CONFIG_H

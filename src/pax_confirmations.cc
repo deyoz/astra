@@ -1,5 +1,5 @@
 #include "pax_confirmations.h"
-#include <serverlib/cursctl.h>
+#include <serverlib/dbcpp_cursctl.h>
 #include <serverlib/algo.h>
 
 #define NICKNAME "VLAD"
@@ -130,8 +130,9 @@ void AppliedMessages::toDB(const Segments& segs) const
 {
   if (messagesByPaxId.empty() && messagesByNorecId.empty()) return;
 
-  auto cur = make_curs("INSERT INTO pax_confirmations(pax_id, id, text) "
-                       "VALUES(:pax_id, :id, :text)");
+  auto cur = make_db_curs("INSERT INTO pax_confirmations(pax_id, id, text) "
+                       "VALUES(:pax_id, :id, :text)",
+                       PgOra::getROSession("PAX_CONFIRMATIONS"));
 
   for(const Segment& seg : segs)
   {
@@ -143,11 +144,13 @@ void AppliedMessages::toDB(const Segments& segs) const
 
       for(const AppliedMessage& m : messages)
       {
-        cur.noThrowError(CERR_U_CONSTRAINT)
-           .bind(":pax_id", paxPair.first.get())
-           .bind(":id", m.id)
-           .bind(":text", m.text)
-           .exec();
+        cur
+            .stb()
+            .noThrowError(DbCpp::ResultCode::ConstraintFail)
+            .bind(":pax_id", paxPair.first.get())
+            .bind(":id", m.id)
+            .bind(":text", m.text)
+            .exec();
       }
     }
   }
@@ -192,12 +195,13 @@ void AppliedMessages::toLog(const Segments& segs) const
 
 void AppliedMessages::get(int id, bool isGrpId)
 {
-  auto cur = make_curs(isGrpId?"SELECT pax_confirmations.pax_id, pax_confirmations.id, pax_confirmations.text "
+  auto cur = make_db_curs(isGrpId?"SELECT pax_confirmations.pax_id, pax_confirmations.id, pax_confirmations.text "
                                "FROM pax, pax_confirmations "
                                "WHERE pax.pax_id=pax_confirmations.pax_id AND pax.grp_id=:id":
                                "SELECT pax_id, id, text "
                                "FROM pax_confirmations "
-                               "WHERE pax_id=:id");
+                               "WHERE pax_id=:id",
+                               PgOra::getROSession("PAX_CONFIRMATIONS"));
   int pax_id;
   int msg_id;
   string msg_text;
@@ -289,14 +293,15 @@ const Settings& Messages::filterRoughly(const SettingsFilter& filter)
 
   LogTrace(TRACE5) << __func__ << ": " << filter;
 
-  auto cur = make_curs(
+  auto cur = make_db_curs(
     "SELECT " + Setting::selectedFields() +
     "FROM confirmation_sets "
     "WHERE airline=:airline AND "
     "      (airp_dep IS NULL OR airp_dep=:airp_dep) AND "
     "      (class IS NULL OR class=:class) AND "
     "      (subclass IS NULL OR subclass=:subclass) AND "
-    "      dcs_action=:dcs_action ");
+    "      dcs_action=:dcs_action ",
+    PgOra::getROSession("CONFIRMATION_SETS"));
 
 
 
@@ -304,12 +309,14 @@ const Settings& Messages::filterRoughly(const SettingsFilter& filter)
 
   Setting::curDef(cur, setting);
 
-  cur.bind(":airline", filter.airline.get())
-     .bind(":airp_dep", filter.airpDep.get())
-     .bind(":class", filter.cl.get())
-     .bind(":subclass", filter.subcl.get())
-     .bind(":dcs_action", dcsActions().encode(filter.dcsAction))
-     .exec();
+  cur
+      .stb()
+      .bind(":airline", filter.airline.get())
+      .bind(":airp_dep", filter.airpDep.get())
+      .bind(":class", filter.cl.get())
+      .bind(":subclass", filter.subcl.get())
+      .bind(":dcs_action", dcsActions().encode(filter.dcsAction))
+      .exec();
 
   while(!cur.fen())
   {

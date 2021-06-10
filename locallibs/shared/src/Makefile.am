@@ -27,11 +27,16 @@ AM_CPPFLAGS = @TCLLIB_CXXFLAGS@ @SERVERLIB_CXXFLAGS@ @BOOST_CPPFLAGS@ @ORACLE_CX
 AM_LDFLAGS = @TCLLIB_LDFLAGS@ @ORACLE_LDFLAGS@ @SERVERLIB_LIBS@ @ORACLE_LIBS@ @ICU_LIBS@
 
 libshared_a_SOURCES = builder.h misc.h parser.cpp  ssod.h \
-			exceptions.h exceptions.cpp oralib.cpp parser.h stl_utils.cpp \
+			exceptions.h exceptions.cpp parser.h stl_utils.cpp \
 			misc.cpp oralib.h ssod.cpp stl_utils.h memory_manager.h memory_manager.cpp \
 			date_time.h date_time.cpp
 #builder.cpp
 
+if ENABLE_ORACLE
+libshared_a_SOURCES += oralib.cpp
+else
+libshared_a_SOURCES += fake_oralib.cpp
+endif
 
 $(AUTOMSG):
 	$(top_srcdir)/src/msgproc.awk $(top_srcdir)/src/edi_msg.dat

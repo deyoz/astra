@@ -11,10 +11,9 @@
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/algorithm/string/classification.hpp>
 
-#include <serverlib/cursctl.h>
+#include <serverlib/ociexception.h>
 #include <serverlib/str_utils.h>
 #include <serverlib/tcl_utils.h>
-#include <serverlib/int_parameters_oci.h>
 
 #define NICKNAME "NONSTOP"
 #define NICKTRACE NONSTOP_TRACE
@@ -316,7 +315,7 @@ protected:
         try  {
             callbacks()->partsAdd(m_rtr, localMsgId, partnumber, endFlag, msgUid);
             return true;
-        } catch (const OciCpp::ociexception& e) {
+        } catch (const std::runtime_error& e) {
             LogError(STDLOG) << "adding part failed: " << e.what();
             LogTrace(TRACE1) << "localMsgId=" << localMsgId << ", rtr=" << m_rtr
                 << ", msgUid=" << msgUid << ", partnumber=" << partnumber << ", endFlag=" << endFlag;

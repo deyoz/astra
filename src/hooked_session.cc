@@ -305,7 +305,12 @@ using ArxPgSession_ReadOnly  = SessionTraits<DoNothingHooks,      ArxPgConnectio
 
 DbCpp::Session* get_main_ora_sess(STDLOG_SIGNATURE)
 {
+#ifdef ENABLE_ORACLE
     return DbCpp::mainOraSessionPtr(STDLOG_VARIABLE);
+#else
+    LogError(STDLOG) << "Oracle not enabled. get_main_ora_sess returns 0";
+    return 0;
+#endif //ENABLE_ORACLE
 }
 
 //

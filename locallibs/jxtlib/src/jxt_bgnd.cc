@@ -6,11 +6,14 @@
 #define NICKNAME "ILYA"
 #define NICKTRACE ILYA_TRACE
 #include <serverlib/test.h>
-#include <serverlib/cursctl.h>
 #include "xml_tools.h"
 #include "xmllibcpp.h"
 #include "jxt_bgnd.h"
 #include "jxtlib.h"
+
+#ifdef ENABLE_ORACLE
+#include <serverlib/cursctl.h>
+#endif
 
 using namespace std;
 using namespace OciCpp;
@@ -93,6 +96,7 @@ void JxtBgndHandler::loadData()
   ProgTrace(TRACE2,"loadData");
   tasks.clear();
   TaskParams tp;
+#ifdef ENABLE_ORACLE
   CursCtl c=make_curs("SELECT CHECK_TIME, TASK_ID FROM JXT_BGND WHERE TERM=:V1");
   c.bind(":V1",pult).def(tp.check_timeout).def(tp.task_id).exec();
   while(!c.fen())
@@ -101,11 +105,16 @@ void JxtBgndHandler::loadData()
     addTask(tp,false);
   }
   data_loaded=true;
+#else
+  throw std::runtime_error("JxtBgndHandler::loadData called without oracle");
+#endif
+
 }
 
 void JxtBgndHandler::saveData(const TaskParams &tp) const
 {
   ProgTrace(TRACE2,"saveData");
+#ifdef ENABLE_ORACLE
   CursCtl c=make_curs("DELETE FROM JXT_BGND WHERE TERM=:V1 AND TASK_ID=:V2");
   c.bind(":V1",pult).bind(":V2",tp.task_id).exec();
 
@@ -113,14 +122,20 @@ void JxtBgndHandler::saveData(const TaskParams &tp) const
     "TERM) VALUES (:ct,SYSDATE,:t_id,:pul)");
   c2.bind(":ct",tp.check_timeout).bind(":t_id",tp.task_id).bind(":pul",pult).
      exec();
+#else
+  throw std::runtime_error("JxtBgndHandler::saveData called without oracle");
+#endif
 }
 
 void JxtBgndHandler::delTask(const std::string &task_id)
 {
   ProgTrace(TRACE2,"delTask(%s)",task_id.c_str());
+#ifdef ENABLE_ORACLE
   CursCtl c=make_curs("DELETE FROM JXT_BGND WHERE TERM=:V1 AND TASK_ID=:V2");
   c.bind(":V1",pult).bind(":V2",task_id).exec();
-
+#else
+  throw std::runtime_error("JxtBgndHandler::delTask called without oracle");
+#endif
   tasks.clear();
   data_loaded=false;
   loadData();
@@ -130,9 +145,13 @@ void JxtBgndHandler::delTask(const std::string &task_id)
 void JxtBgndHandler::delAllTasks(int exp_time)
 {
   ProgTrace(TRACE2,"delAllTasks(%i)",exp_time);
+#ifdef ENABLE_ORACLE
   CursCtl c=make_curs("DELETE FROM JXT_BGND WHERE TERM=:V1 AND "
                       "START_TIME<SYSDATE-:exp_time/(24*60)");
   c.bind(":V1",pult).bind(":exp_time",exp_time).exec();
+#else
+  throw std::runtime_error("JxtBgndHandler::delAllTasks called without oracle");
+#endif
   tasks.clear();
   data_loaded=false;
   setJxtCheckTimeout();

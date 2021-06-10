@@ -1,8 +1,9 @@
 #include "EdifactProfile.h"
 #include "exceptions.h"
 
-#include <serverlib/cursctl.h>
+#include <serverlib/dbcpp_cursctl.h>
 #include <serverlib/str_utils.h>
+#include "PgOraConfig.h"
 
 #define NICKNAME "ANTON"
 #define NICKTRACE ANTON_TRACE
@@ -52,10 +53,11 @@ std::string EdifactProfile::version() const
 
 EdifactProfile EdifactProfile::readByName(const std::string& profileName)
 {
-    OciCpp::CursCtl cur = make_curs(
-"select NAME, VERSION, SUB_VERSION, CTRL_AGENCY, SYNTAX_NAME, SYNTAX_VER "
-"from EDIFACT_PROFILES "
-"where NAME=:profile_name");
+    DbCpp::CursCtl cur = make_db_curs(
+        "select NAME, VERSION, SUB_VERSION, CTRL_AGENCY, SYNTAX_NAME, SYNTAX_VER "
+        "from EDIFACT_PROFILES "
+        "where NAME=:profile_name",
+        PgOra::getROSession("EDIFACT_PROFILES"));
 
     EdifactProfileData p;
 
@@ -69,7 +71,7 @@ EdifactProfile EdifactProfile::readByName(const std::string& profileName)
             .def(p.m_syntaxVer)
             .EXfet();
 
-    if(cur.err() == NO_DATA_FOUND) {
+    if(cur.err() == DbCpp::ResultCode::NoDataFound) {
         throw EXCEPTIONS::Exception("No such EdifactProfile: %s", profileName.c_str());
     }
 

@@ -25,7 +25,7 @@ std::string getRedisplay();
 void setRedisplay(const std::string& redisp);
 
 class InternalMsgId;
-void imitate_confirm_notify_oraside_for_bloody_httpsrv(const InternalMsgId& msgid, const std::string& signal);
+void imitate_confirm_notify_dbside_for_bloody_httpsrv(const InternalMsgId& msgid, const std::string& signal);
 #endif /*XP_TESTING*/
 
 class InternalMsgId;

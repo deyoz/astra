@@ -145,9 +145,11 @@ void DumpTable<Curs>::exec(DumpTableOut const& out)
       + HelpCpp:: string_cast(count) + " -------------------");
 }
 
-template class DumpTable<OciCpp::CursCtl>;
 template class DumpTable<PgCpp::CursCtl>;
 template class DumpTable<DbCpp::CursCtl>;
+
+#ifdef ENABLE_ORACLE
+template class DumpTable<OciCpp::CursCtl>;
 
 OraDumpTable::OraDumpTable(OciCpp::OciSession& sess, const std::string& table)
     : DumpTable<OciCpp::CursCtl>{table}, sess_{sess}
@@ -172,6 +174,7 @@ void OraDumpTable::throwTableDoesNotExist() const
 {
     throw OciCpp::ociexception('[' + sess_.getConnectString() + "] table " + table_ + " doesn't exist");
 }
+#endif //ENABLE_ORACLE
 
 PgDumpTable::PgDumpTable(PgCpp::SessionDescriptor sess, const std::string& table)
     : DumpTable<PgCpp::CursCtl>{table}, sess_{sess}
@@ -229,10 +232,13 @@ namespace {
 
 void setup()
 {
+#ifdef ENABLE_ORACLE
     testInitDB();
     OciCpp::openGlobalCursors();
+#endif // ENABLE_ORACLE
 }
 
+#ifdef ENABLE_ORACLE
 START_TEST(test_dump_table)
 {
     try {
@@ -250,6 +256,7 @@ START_TEST(test_dump_table)
     }
 }
 END_TEST
+#endif // ENABLE_ORACLE
 
 static const char* getTestConnectString()
 {
@@ -275,6 +282,7 @@ START_TEST(test_pg_dump_table)
 }
 END_TEST
 
+#ifdef ENABLE_ORACLE
 #define SUITENAME "SqlUtil"
 TCASEREGISTER(setup, 0)
 {
@@ -282,6 +290,7 @@ TCASEREGISTER(setup, 0)
 }
 TCASEFINISH
 #undef SUITENAME // "SqlUtil"
+#endif //ENABLE_ORACLE
 
 #define SUITENAME "PgSqlUtil"
 TCASEREGISTER(0, 0)

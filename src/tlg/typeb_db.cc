@@ -22,13 +22,13 @@ std::set<PaxId_t> loadPaxIdSet(const PointIdTlg_t& point_id, const std::string& 
   std::set<PaxId_t> result;
   int pax_id = ASTRA::NoExists;
   auto cur = make_db_curs(
-        "SELECT pax_id "
-        "FROM crs_pnr, crs_pax "
-        "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
-        "      crs_pnr.point_id=:point_id AND "
-        "      (:system IS NULL OR system=:system) AND "
-        "      (:sender IS NULL OR sender=:sender) ",
-        PgOra::getROSession("CRS_PAX"));
+      "SELECT pax_id "
+      "FROM crs_pnr, crs_pax "
+      "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
+      "      crs_pnr.point_id=:point_id AND "
+      "      (:system IS NULL OR system=:system) AND "
+      "      (:sender IS NULL OR sender=:sender) ",
+      PgOra::getROSession({"CRS_PAX", "CRS_PNR"}));
 
   cur.stb()
       .def(pax_id)

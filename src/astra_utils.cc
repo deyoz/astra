@@ -22,7 +22,6 @@
 #include <serverlib/sirena_queue.h>
 #include <serverlib/testmode.h>
 #include <serverlib/lwriter.h>
-#include <serverlib/cursctl.h>
 #include <serverlib/dump_table.h>
 #include <serverlib/EdiHelpManager.h>
 #include <serverlib/query_runner.h>
@@ -1812,8 +1811,10 @@ namespace ASTRA
 void dumpTable(const std::string& table,
                int loglevel, const char* nick, const char* file, int line)
 {
+#ifdef ENABLE_ORACLE
     OciCpp::DumpTable dt(table);
     dt.exec(loglevel, nick, file, line);
+#endif // ENABLE_ORACLE
 }
 
 void commit_(bool withCommitHooks)

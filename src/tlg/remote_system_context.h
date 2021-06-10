@@ -35,7 +35,7 @@
 #include <boost/optional.hpp>
 
 
-namespace OciCpp { class CursCtl; }
+namespace DbCpp { class CursCtl; }
 
 
 namespace Ticketing
@@ -173,7 +173,7 @@ namespace RemoteSystemContext
     protected:
         static Ticketing::SystemAddrs_t getNextId();
 
-        static SystemContext defSelData(OciCpp::CursCtl& cur);
+        static SystemContext defSelData(DbCpp::CursCtl& cur);
 
     public:
         Ticketing::SystemAddrs_t ida() const            { return Ida;                  }

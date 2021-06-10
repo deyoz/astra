@@ -27,8 +27,6 @@
 #include <etick/exceptions.h>
 #include <jxtlib/cont_tools.h>
 #include <jxtlib/xml_stuff.h>
-#include <serverlib/cursctl.h>
-#include <serverlib/ocilocal.h>
 #include <serverlib/ehelpsig.h>
 #include <serverlib/dates_io.h>
 #include <serverlib/posthooks.h>

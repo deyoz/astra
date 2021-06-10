@@ -3,6 +3,10 @@
 #define oralibH
 #include <vector>
 #include <string>
+#include "serverlib/oci_err.h"
+#ifndef ENABLE_ORACLE
+#include "fake_oralib.h"
+#else
 #include <oci.h>
 #include "setup.h"
 #include "date_time.h"
@@ -16,7 +20,7 @@
 //#define SQL_COUNTERS
 
 #ifdef SQL_COUNTERS
-extern std::map<std::string,int> sqlCounters; 
+extern std::map<std::string,int> sqlCounters;
 extern int queryCount;
 #endif
 
@@ -404,5 +408,5 @@ int ConvertDateTime_TO_ORACLEDate( const TDateTime &VDateTime, void *Value );
 std::set<std::string> getSQLVariables(const std::string &SQL);
 
 extern TSession OraSession;
-
+#endif // !ENABLE_ORACLE
 #endif

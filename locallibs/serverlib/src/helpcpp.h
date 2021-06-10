@@ -352,7 +352,7 @@ std::string vsprintf_string_ap(char const *str , va_list ap);
 std::string vsprintf_string(char const *str , ...);
 
 template<typename T>
-typename T::mapped_type mapAt(const T& m, typename T::key_type i) 
+typename T::mapped_type mapAt(const T& m, typename T::key_type i)
 {
     typename T::const_iterator it(m.find(i));
     if (it == m.end()) {
@@ -369,7 +369,7 @@ typename T::mapped_type findInMap(const T& m, typename T::key_type k, typename T
 }
 
 template<typename T>
-void setInsert(T &m, const typename T::value_type& v) 
+void setInsert(T &m, const typename T::value_type& v)
 {
     typename T::iterator it(m.find(v));
     if (it != m.end()) {
@@ -506,8 +506,10 @@ bool rough_lte(T lhs, T rhs, T epsilon = std::numeric_limits<T>::epsilon()) // o
 
 typedef uint64_t ObjIdType;
 
+#ifdef ENABLE_ORACLE
 ObjIdType objId();
 ObjIdType objId(const std::string& sequence, OciCpp::OciSession* sess = nullptr);
+#endif
 
 std::string convertToId(const std::string& src, unsigned len, const std::string& prefix, const std::string& dict);
 std::string convertToId(const std::string& src, unsigned len, const std::string& prefix);

@@ -397,8 +397,10 @@ void PaxEvents::onChange(TRACE_SIGNATURE,
   boost::optional<std::string> sql=updatePLSQL(attrs, crsDeleted, crsDocNo, crsFqtTierLevel);
   if (!sql) return; //ничего не меняем
 
-  auto cur=make_curs(sql.get());
-  cur.bind(":pax_calc_data_id", paxId().get());
+  auto cur = make_db_curs(sql.get(), PgOra::getRWSession("PAX_CALC_DATA"));
+  cur
+      .stb()
+      .bind(":pax_calc_data_id", paxId().get());
   if (crsDeleted)
     cur.bind(":crs_deleted", crsDeleted.get());
   if (crsDocNo)

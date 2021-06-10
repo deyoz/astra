@@ -265,7 +265,6 @@ unsigned DamerauLevenshteinDistance_lim(
 
 #ifdef XP_TESTING
 #define NICKNAME "DMITRYVM,KHONOV"
-#include "cursctl.h"
 #include "xp_test_utils.h"
 #include "checkunit.h"
 namespace

@@ -1,7 +1,5 @@
 #include "dbostructures.h"
 #include "pg_session.h"
-#include <serverlib/cursctl.h>
-#include <serverlib/rip_oci.h>
 #include <serverlib/dates_oci.h>
 #include "hooked_session.h"
 
@@ -175,7 +173,9 @@ std::vector<dbo::AGENT_STAT> readOraAgentsStat(PointId_t point_id)
     "  ast.drk_amount.inc, ast.drk_amount.dec, "
     "  ast.drk_weight.inc, ast.drk_weight.dec "
     "from agent_stat ast where ast.point_id = :point_id ");
-    cur.def(user_id).def(desk).def(ondate).def(pax_time).def(pax_amount)
+    cur
+        .stb()
+        .def(user_id).def(desk).def(ondate).def(pax_time).def(pax_amount)
        .def(dpax_amount_inc).def(dpax_amount_dec)
        .def(dtckin_amount_inc).def(dtckin_amount_dec)
        .def(dbag_amount_inc).def(dbag_amount_dec)

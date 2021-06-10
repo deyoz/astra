@@ -19,13 +19,16 @@
 #include <serverlib/xml_tools.h>
 #include <serverlib/exception.h>
 #include <serverlib/rip.h>
-#include <serverlib/rip_oci.h>
 #include <serverlib/dates_oci.h>
 #include <serverlib/new_daemon.h>
 #include <serverlib/daemon_event.h>
 #include <serverlib/monitor_ctl.h>
+
+#ifdef ENABLE_ORACLE
 #include <serverlib/oci8.h>
 #include <serverlib/oci8cursor.h>
+#include <serverlib/rip_oci.h>
+#endif //ENABLE_ORACLE
 
 #include <list>
 
@@ -36,7 +39,9 @@
 
 namespace AstraCalls {
 
+#ifdef ENABLE_ORACLE
 using namespace OciCpp;
+#endif //ENABLE_ORACLE
 using namespace BASIC::date_time;
 
 /*LogWarning(STDLOG) << "Exception cathed during call '" << func_name << "'. " << e.what();*/
@@ -592,6 +597,8 @@ DeferredAstraCall DeferredAstraCall::create(xmlNodePtr reqNode,
 
 std::list<DeferredAstraCall> DeferredAstraCall::read4handle(unsigned limit)
 {
+    std::list<DeferredAstraCall> lDac;
+#ifdef ENABLE_ORACLE
     Oci8Session os(STDLOG, mainSession());
     Curs8Ctl cur(STDLOG,
 "select ID, XML_REQ, TIME_CREATE, SOURCE "
@@ -612,8 +619,6 @@ std::list<DeferredAstraCall> DeferredAstraCall::read4handle(unsigned limit)
         .bind(":created", (int)Status::Created)
         .exec();
 
-    std::list<DeferredAstraCall> lDac;
-
     unsigned count = 0;
     while(!cur.fen())
     {
@@ -625,12 +630,13 @@ std::list<DeferredAstraCall> DeferredAstraCall::read4handle(unsigned limit)
                                          Status::Created,
                                          source));
     }
-
+#endif //ENABLE_ORACLE
     return lDac;
 }
 
 int DeferredAstraCall::removeOld()
 {
+#ifdef ENABLE_ORACLE
     auto hoursAgo = Dates::second_clock::universal_time() - Dates::hours(12);
 
     Oci8Session os(STDLOG, mainSession());
@@ -642,10 +648,14 @@ int DeferredAstraCall::removeOld()
         .exec();
 
     return cur.rowcount();
+#else
+    return 0;
+#endif // ENABLE_ORACLE
 }
 
 void DeferredAstraCall::writeDb() const
 {
+#ifdef ENABLE_ORACLE
     Oci8Session os(STDLOG, mainSession());
     Curs8Ctl cur(STDLOG,
 "insert into DEFERRED_ASTRA_CALLS(ID, XML_REQ, TIME_CREATE, STATUS, SOURCE) "
@@ -660,10 +670,12 @@ void DeferredAstraCall::writeDb() const
     if(cur.rowcount() != 1) {
         LogWarning(STDLOG) << __func__ << ": " << cur.rowcount() << " rows were inserted";
     }
+#endif // ENABLE_ORACLE
 }
 
 void DeferredAstraCall::deleteDb() const
 {
+#ifdef ENABLE_ORACLE
     Oci8Session os(STDLOG, mainSession());
     Curs8Ctl cur(STDLOG,
 "delete from DEFERRED_ASTRA_CALLS where ID=:id", &os);
@@ -673,10 +685,12 @@ void DeferredAstraCall::deleteDb() const
     if(cur.rowcount() != 1) {
         LogWarning(STDLOG) << __func__ << ": " << cur.rowcount() << " rows were deleted";
     }
+#endif // ENABLE_ORACLE
 }
 
 void DeferredAstraCall::updateDb() const
 {
+#ifdef ENABLE_ORACLE
     Oci8Session os(STDLOG, mainSession());
     Curs8Ctl cur(STDLOG,
 "update DEFERRED_ASTRA_CALLS set "
@@ -693,15 +707,19 @@ void DeferredAstraCall::updateDb() const
     if(cur.rowcount() != 1) {
         LogWarning(STDLOG) << __func__ << ": " << cur.rowcount() << " rows were updated";
     }
+#endif //ENABLE_ORACLE
 }
 
 AstraCallId DeferredAstraCall::genNextId()
 {
+    AstraCallId::base_type id = 0;
+#ifdef ENABLE_ORACLE
     Oci8Session os(STDLOG, mainSession());
     Curs8Ctl cur(STDLOG,
 "select DEFERRED_ASTRA_CALLS__SEQ.nextval from DUAL", &os);
-    AstraCallId::base_type id;
+
     cur.def(id).EXfet();
+#endif //ENABLE_ORACLE
     return AstraCallId(id);
 }
 

@@ -6,8 +6,10 @@
 #include "astra_context.h"
 #include "httpClient.h"
 
+#ifdef ENABLE_ORACLE
 #include <serverlib/oci8.h>
 #include <serverlib/oci8cursor.h>
+#endif // ENABLE_ORACLE
 #include <serverlib/str_utils.h>
 
 #include <optional>
@@ -483,6 +485,7 @@ void addRights2Req(xmlNodePtr rootNode)
 std::string callLibraPkg(const std::string& xml_in)
 {
     std::string xml_out;
+#ifdef ENABLE_ORACLE
     Oci8Session os(STDLOG, mainSession());
     Curs8Ctl cur(STDLOG,
 "declare\n"
@@ -500,6 +503,9 @@ std::string callLibraPkg(const std::string& xml_in)
 "select CLOB_OUT from WB_REF_ASTRA_TMP", &os);
     selCur.defClob(xml_out)
           .EXfet();
+#else
+    throw EXCEPTIONS::ExceptionFmt(STDLOG) << "Oracle not enabled. failed to call callLibraPkg";
+#endif // ENABLE_ORACLE
 
     LogTrace(TRACE5) << "xml_out=" << xml_out;
     return xml_out;

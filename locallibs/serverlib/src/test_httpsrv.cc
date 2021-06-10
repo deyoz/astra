@@ -932,7 +932,7 @@ START_TEST(Check_Timeouts)
 }
 END_TEST;
 
-
+#ifdef ENABLE_ORACLE
 START_TEST(Check_Perespros)
 {
     httpsrv::xp_testing::set_need_real_commit(true);
@@ -1050,6 +1050,7 @@ START_TEST(Check_Perespros)
     commit();
 
 } END_TEST;
+#endif // ORACLE
 
 static char const* find_ntlmapp()
 {

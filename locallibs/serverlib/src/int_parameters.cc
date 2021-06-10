@@ -1,7 +1,9 @@
 #ifdef XP_TESTING
 
 #include "int_parameters.h"
+#ifdef ENABLE_ORACLE
 #include "int_parameters_oci.h"
+#endif
 
 #include "int_parameters_serialization.h"
 #include <sstream>
@@ -100,6 +102,7 @@ MakeStrParamType(StrType1, 1);
 MakeStrParamType(StrType2, 2);
 
 #ifndef ENABLE_PG_TESTS
+#ifdef ENABLE_ORACLE
 START_TEST(parint_ocicpp)
 {
     Type4 t1;
@@ -186,6 +189,7 @@ START_TEST(parint_bindOut)
     ck_assert_int_eq(p.get(), 3);
 }
 END_TEST
+#endif /* ENABLE_ORACLE */
 #endif /*ENABLE_PG_TESTS*/
 
 START_TEST(parint_compare)
@@ -317,6 +321,7 @@ TCASEFINISH
 #undef SUITENAME
 
 #ifndef ENABLE_PG_TESTS
+#ifdef ENABLE_ORACLE
 #define SUITENAME "SqlUtil"
 TCASEREGISTER(testInitDB, 0)
     ADD_TEST(parint_types)
@@ -327,6 +332,7 @@ TCASEREGISTER(testInitDB, 0)
     ADD_TEST(parstr_ocicpp)
 TCASEFINISH
 #undef SUITENAME
+#endif /* ENABLE_ORACLE */
 #endif /*ENABLE_PG_TESTS*/
 } // namespace
 

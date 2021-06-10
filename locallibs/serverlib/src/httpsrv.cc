@@ -35,13 +35,17 @@
 #include "monitor_ctl.h"
 #include "logger.h"
 #include "ourtime.h"
-#include "cursctl.h"
 #include "pg_cursctl.h"
 #include "testmode.h"
 #include "posthooks.h"
 #include "daemon_kicker.h"
 #include "daemon_event.h"
+#ifdef ENABLE_ORACLE
+#include "cursctl.h"
 #include "dates_oci.h"
+#endif //ENABLE_ORACLE
+#include "dates.h"
+#include "commit_rollback.h"
 #include "daemon_impl.h"
 #include "zlib_employment.h"
 #include "EdiHelpManager.h"
@@ -613,7 +617,7 @@ static void UseCACerts(SSL_CTX* ctx, const std::vector<X509*>& certs)
 /*******************************************************************************
  * Чтение CA сертификатов
  ******************************************************************************/
-
+#ifdef ENABLE_ORACLE
 static std::vector<Certificate> ReadCACerts(const Domain& domain)
 {
     std::vector<Certificate> result;
@@ -627,6 +631,7 @@ static std::vector<Certificate> ReadCACerts(const Domain& domain)
         result.push_back(Certificate(cert));
     return result;
 }
+#endif /* ENABLE_ORACLE */
 
 /*******************************************************************************
  * Поддержка Transfer-Encoding: chunked
@@ -1044,6 +1049,7 @@ private:
 
         try {
             if (req_.useSSL) {
+#ifdef ENABLE_ORACLE
                 sslContext_.set_options(boost::asio::ssl::context::default_workarounds | boost::asio::ssl::context::no_sslv2);
                 SSL_CTX* ctx = sslContext_.native_handle();
 
@@ -1071,8 +1077,12 @@ private:
 
                 }
                 stream_ = stream_holder::create_stream(io_, &sslContext_);
+#else // ENABLE_ORACLE
+                throw std::runtime_error("HttpsConn::init called without oracle support");
+#endif // ENABLE_ORACLE
             }
             else
+
                 stream_ = stream_holder::create_stream(io_);
 
             resolver_.async_resolve(
@@ -2718,9 +2728,13 @@ static void ForkForTest()
     if (fork() == 0) {
         prctl(PR_SET_PDEATHSIG, SIGHUP);
         set_signal(term3);
+#ifdef ENABLE_ORACLE
         auto save_sess = OciCpp::mainSessionPtr();
+#endif /* ENABLE_ORACLE */
         InitLogTime("HTTP_F");
+#ifdef ENABLE_ORACLE
         OciCpp::createMainSession(STDLOG,get_connect_string());
+#endif /* ENABLE_ORACLE */
         httpsrv::Run(boost::optional<int>());
     } else {
         sleep(3);
@@ -2771,7 +2785,9 @@ int main_httpsrv(int supervisorSocket, int /*argc*/, char* /*argv*/[])
     set_signal(term3);
     InitLogTime("HTTPSRV");
     monitor_special();
+#ifdef ENABLE_ORACLE
     OciCpp::createMainSession(STDLOG,get_connect_string());
+#endif /* ENABLE_ORACLE */
 
     httpsrv::Run(boost::optional<int>(supervisorSocket));
     return 0;

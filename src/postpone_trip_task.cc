@@ -38,11 +38,13 @@ boost::optional<TTripTaskKey> deleteDbPg(edilib::EdiSessionId_t sessId)
 
   std::string name, params;
   int point_id;
-  cur.bind(":session_id", sessId.get()).
-      def(point_id).
-      def(name).
-      def(params).
-      EXfet();
+  cur
+      .stb()
+      .bind(":session_id", sessId.get())
+      .def(point_id)
+      .def(name)
+      .def(params)
+      .EXfet();
 
   if(cur.err() != PgCpp::ResultCode::NoDataFound)
   {

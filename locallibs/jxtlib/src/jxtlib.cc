@@ -7,7 +7,6 @@
 #include <serverlib/perfom.h>
 #include <serverlib/posthooks.h>
 #include <serverlib/testmode.h>
-#include <serverlib/ocilocal.h>
 #include "jxtlib.h"
 #include "jxt_cont.h"
 #include "jxt_cont_impl.h"

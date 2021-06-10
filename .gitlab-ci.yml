@@ -15,6 +15,9 @@ build:
   script:
     ./buildFromScratch.sh astra_trunk/trunk
 
+  environment:
+    ENABLE_ORACLE="1"
+
   artifacts:
     name: "tclmonlog"
     paths:

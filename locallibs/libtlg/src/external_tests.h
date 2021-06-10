@@ -37,15 +37,19 @@ void setExternalDb(ExternalDb* db);
 
 /*** TESTS  ***/
 void check_split_join_common();
+#ifdef ENABLE_ORACLE
 void check_split_join_hth();
 void check_split_join_typeb();
 void check_split_join_true_typeb();
+#endif // ENABLE_ORACLE
 
 void check_join_pfs();
 void check_split_bad_router_sizes();
+void check_split_join_too_small_part_sizes(const std::string& filename);
+#ifdef ENABLE_ORACLE
 void check_split_typeb_from_file(const std::string& filename);
 void check_split_join_common_from_file(const std::string& filename, bool mustSplit = true);
-void check_split_join_too_small_part_sizes(const std::string& filename);
+#endif // ENABLE_ORACLE
 
 void check_save_bad_tlg();
 

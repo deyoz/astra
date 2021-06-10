@@ -2,7 +2,9 @@
 #define NICKNAME "NONSTOP"
 #include "slogger.h"
 
+#ifdef ENABLE_ORACLE
 #include "cursctl.h"
+
 
 namespace OciCpp 
 {
@@ -24,6 +26,7 @@ void Savepoint::reset()
     make_curs("savepoint " + point).exec();
 }
 } // OciCpp
+#endif /* ENABLE_ORACLE */
 
 #ifdef ENABLE_PG
 #include "pg_cursctl.h"

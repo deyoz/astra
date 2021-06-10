@@ -1,5 +1,4 @@
 #include <stdlib.h>
-#include <serverlib/cursctl.h>
 #include "astra_consts.h"
 #include "date_time.h"
 #include "exceptions.h"
@@ -229,12 +228,13 @@ bool PersWeightRules::intequal( PersWeightRules *p )
 bool PersWeightRules::really_write(int point_id)
 {
     std::string trip_sets_src;
-    auto cur = make_curs("SELECT weight_src FROM trip_sets WHERE point_id=:point_id");
+    auto cur = make_db_curs("SELECT weight_src FROM trip_sets WHERE point_id=:point_id",
+                            PgOra::getROSession("TRIP_SETS"));
     cur.defNull(trip_sets_src,PERS_WEIGHT_NOT_SET_SRC)
      .bind(":point_id", point_id)
      .exec();
 
-    if(cur.fen()) // нет строки в таблице trip_sets, нечего обновлять
+    if(!!cur.fen()) // нет строки в таблице trip_sets, нечего обновлять
       return false;
 
     TTripInfo info;
@@ -254,8 +254,9 @@ bool PersWeightRules::really_write(int point_id)
       return false;
     }
     if ( trip_sets_src != source ) { // если не указан либо указан другой источник информации, то  обновить источник
-      auto cur = make_curs("UPDATE trip_sets SET weight_src=:weight_src"
-                           " WHERE point_id=:point_id");
+      auto cur = make_db_curs("UPDATE trip_sets SET weight_src=:weight_src"
+                              " WHERE point_id=:point_id",
+                              PgOra::getRWSession("TRIP_SETS"));
       cur.bind(":weight_src",source)
          .bind(":point_id", point_id)
          .exec();

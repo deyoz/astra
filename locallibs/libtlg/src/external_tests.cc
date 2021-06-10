@@ -80,6 +80,7 @@ void readTlgFromFile(const string& filename, string& str)
     }
 }
 
+#ifdef ENABLE_ORACLE
 void splitJoin(const string& tlgText, int rtr, bool isEdifact = false, hth::HthInfo* p_hthInfo = NULL, bool mustSplit = true)
 {
     ProgTrace(TRACE5, "%s: rtr=%d, isEdifact=%d, hth=%d", __FUNCTION__, rtr, isEdifact, (p_hthInfo == NULL));
@@ -161,6 +162,7 @@ void splitJoin(const string& tlgText, int rtr, bool isEdifact = false, hth::HthI
         << "\nAFTER (" << new_area.size() << "):\n" << new_area;
     fail_unless(new_area == old_area, "bad joined");
 }
+#endif // ENABLE_ORACLE
 
 void splitTlgFromFile(const std::string& filename, int rtr)
 {
@@ -208,7 +210,7 @@ void setExternalDb(ExternalDb* db)
 }
 
 /*** TESTS  ***/
-
+#ifdef ENABLE_ORACLE
 void check_split_join_common()
 {
     const int rtr = p_db->prepareCommonRouter();
@@ -260,7 +262,7 @@ void check_split_join_too_small_part_sizes(const std::string& filename)
     p_db->setRouterMaxPartSizes(rtr, 20);
     splitJoin(tlg, rtr, false, NULL, false);
 }
-
+#endif
 void check_split_bad_router_sizes()
 {
     size_t partSz = MAX_TLG_SIZE - 1;
@@ -702,6 +704,7 @@ const char* pfsPartsJoined =
 "ENDPFS";
 }
 
+#ifdef ENABLE_ORACLE
 static void check_pfs_whole(const char* tlgText, const INCOMING_INFO& ii)
 {
     setTclVar("ENABLE_PFS_JOINER", "1");
@@ -720,6 +723,7 @@ static void check_pfs_whole(const char* tlgText, const INCOMING_INFO& ii)
     if (newTlgNum != result->tlgNum)
         fail_unless(0,"nothing must be joined");
 }
+#endif // ENABLE_ORACLE
 
 void check_split_pnl()
 {
@@ -828,6 +832,7 @@ void check_split_adl_file(const std::string& fullAdlFile, const std::string& spl
 }
 
 //int joinTlgParts(const char* tlgBody, const RouterInfo& ri, const INCOMING_INFO& ii, tlgnum_t& localMsgId, const tlgnum_t& remoteMsgId)
+#ifdef ENABLE_ORACLE
 void check_join_pfs()
 {
     setTclVar("ENABLE_PFS_JOINER", "1");
@@ -885,6 +890,7 @@ void check_join_pfs()
         fail_unless(new_area == pfsPartsJoined, "bad joined");
     }
 }
+#endif
 
 namespace
 {
@@ -1034,6 +1040,7 @@ const char * part5 =
 "UNT+697+1'"
 "UNZ+1+V22GM5ERFS0001'";
 
+#ifdef ENABLE_ORACLE
 int joinPart(const char * partBody, const char * partName, INCOMING_INFO& ii)
 {
     using namespace telegrams;
@@ -1056,10 +1063,10 @@ int joinPart(const char * partBody, const char * partName, INCOMING_INFO& ii)
         return joinTlgParts(partBody, ri, ii, localMsgId, result->tlgNum);
     }
 }
-
+#endif // ENABLE_ORACLE
 } // namespace
 
-
+#ifdef ENABLE_ORACLE
 void check_hth_join_asc_order()
 {
     const int rtr = p_db->prepareCommonRouter();
@@ -1119,7 +1126,7 @@ void check_hth_join_rand_order()
     fail_unless(joinPart(part2, "part2", ii) == 1);
     fail_unless(p_db->countParts() == 0);
 }
-
+#endif // ENABLE_ORACLE
 }
 
 } // namespace telegrams

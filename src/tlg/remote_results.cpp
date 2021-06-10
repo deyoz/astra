@@ -1,11 +1,12 @@
 #include "remote_results.h"
 #include "exceptions.h"
+#ifdef ENABLE_ORACLE
 #include "astra_dates_oci.h"
-
 #include <serverlib/oci8cursor.h>
+#include <serverlib/int_parameters_oci.h>
+#endif
 #include <serverlib/EdiHelpManager.h>
 #include <serverlib/query_runner.h>
-#include <serverlib/int_parameters_oci.h>
 #include <tclmon/internal_msgid.h>
 
 #define NICKNAME "ROMAN"
@@ -64,7 +65,7 @@ struct defsupport
     Ticketing::SystemAddrs_t::base_type RemoteSystem;
 
     RemoteResults make()
-    {       
+    {
         RemoteResults rr;
         rr.DateCr       = DateCr;
         rr.Status       = RemoteStatus(Status);
@@ -81,6 +82,7 @@ struct defsupport
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
+#ifdef ENABLE_ORACLE
 namespace
 {
 
@@ -103,6 +105,7 @@ inline void OciDef(Curs8Ctl &cur, defsupport &def)
 }
 
 } //namespace
+#endif //ENABLE_ORACLE
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
@@ -147,6 +150,7 @@ void RemoteResults::add(const std::string &msgId,
 */
 void RemoteResults::readDb(/*const std::string &pult,*/ std::list<RemoteResults> &lres)
 {
+#ifdef ENABLE_ORACLE
     defsupport defs;
 
     Oci8Session os(STDLOG, mainSession());
@@ -171,6 +175,9 @@ void RemoteResults::readDb(/*const std::string &pult,*/ std::list<RemoteResults>
                 .bind(":INTID", msgIdAsStr)
                 .exec();
     }
+#else
+    throw EXCEPTIONS::Exception("Oracle not enabled");
+#endif
 }
 /*
 для Астры неприемлемо завязываться на пульт, только на msgid либо на ид. edifact сессии
@@ -195,6 +202,7 @@ pRemoteResults RemoteResults::readSingle(/*const std::string &pult*/)
 
 pRemoteResults RemoteResults::readDb(const edilib::EdiSessionId_t &Id)
 {
+#ifdef ENABLE_ORACLE
     defsupport defs;
     Oci8Session os(STDLOG, mainSession());
     Curs8Ctl cur(STDLOG,
@@ -211,10 +219,14 @@ pRemoteResults RemoteResults::readDb(const edilib::EdiSessionId_t &Id)
     } else {
         return pRemoteResults(new RemoteResults(defs.make()));
     }
+#else
+    throw EXCEPTIONS::Exception("Oracle not enabled");
+#endif
 }
 
 void RemoteResults::writeDb()
 {
+#ifdef ENABLE_ORACLE
     Oci8Session os(STDLOG, mainSession());
     Curs8Ctl cur(STDLOG,
             "insert into REMOTE_RESULTS "
@@ -230,10 +242,14 @@ void RemoteResults::writeDb()
             .bind(":EDISESSION_ID", ediSession().get())
             .bind(":REMOTE_ID",     remoteSystem().get())
             .exec();
+#else
+    throw EXCEPTIONS::Exception("Oracle not enabled");
+#endif
 }
 
 void RemoteResults::updateDb() const
 {
+#ifdef ENABLE_ORACLE
     Oci8Session os(STDLOG, mainSession());
     Curs8Ctl cur(STDLOG,
             "update REMOTE_RESULTS set "
@@ -250,6 +266,9 @@ void RemoteResults::updateDb() const
             .bindBlob(":RAWDATA",   rawData())
             .bind(":EDISESSION_ID", ediSession().get())
             .exec();
+#else
+    throw EXCEPTIONS::Exception("Oracle not enabled");
+#endif
 }
 
 /*
@@ -270,6 +289,7 @@ void RemoteResults::removeOld() const
 
 void RemoteResults::deleteDb(const edilib::EdiSessionId_t &Id)
 {
+#ifdef ENABLE_ORACLE
     Oci8Session os(STDLOG, mainSession());
     Curs8Ctl cur(STDLOG,
                  "delete from REMOTE_RESULTS where EDISESSION_ID = :SID", &os);
@@ -278,10 +298,14 @@ void RemoteResults::deleteDb(const edilib::EdiSessionId_t &Id)
           .exec();
 
     LogTrace(TRACE3) << __FUNCTION__ << ": " << cur.rowcount() << " rows deleted.";
+#else
+    throw EXCEPTIONS::Exception("Oracle not enabled");
+#endif
 }
 
 void RemoteResults::cleanOldRecords(const int min_ago)
 {
+#ifdef ENABLE_ORACLE
     using namespace Dates;
     LogTrace(TRACE3) << __FUNCTION__;
     const auto amin_ago = second_clock::local_time() - minutes(min_ago);
@@ -291,6 +315,9 @@ void RemoteResults::cleanOldRecords(const int min_ago)
     cur
             .bind(":min_ago", amin_ago)
             .exec();
+#else
+    throw EXCEPTIONS::Exception("Oracle not enabled");
+#endif
 }
 
 bool RemoteResults::isSystemPult() const

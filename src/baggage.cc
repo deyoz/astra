@@ -5,7 +5,6 @@
 #include "term_version.h"
 #include "qrys.h"
 #include "baggage_tags.h"
-#include <serverlib/cursctl.h>
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -1218,7 +1217,7 @@ void TGroupBagItem::copyPaxPool(const GrpId_t& src, const GrpId_t& dest)
 {
   if (src==dest) return;
 
-  auto cur=make_curs("MERGE INTO pax "
+  auto cur=make_db_curs("MERGE INTO pax "
                      "USING "
                      "( "
                      "SELECT pax1.bag_pool_num, pax2.pax_id "
@@ -1233,8 +1232,10 @@ void TGroupBagItem::copyPaxPool(const GrpId_t& src, const GrpId_t& dest)
                      "ON (pax.pax_id=src.pax_id) "
                      "WHEN MATCHED THEN "
                      "UPDATE SET pax.bag_pool_num=src.bag_pool_num, "
-                     "           pax.tid=DECODE(pax.bag_pool_num, src.bag_pool_num, pax.tid, cycle_tid__seq.currval)");
-  cur.bind(":grp_id_src", src.get())
+                     "           pax.tid=DECODE(pax.bag_pool_num, src.bag_pool_num, pax.tid, cycle_tid__seq.currval)",
+                     PgOra::getRWSession("PAX"));
+  cur.stb()
+     .bind(":grp_id_src", src.get())
      .bind(":grp_id_dest", dest.get())
      .exec();
 }
@@ -1249,7 +1250,7 @@ void TGroupBagItem::copyDB(const GrpId_t& src, const GrpId_t& dest)
 {
   if (src==dest) return;
 
-  auto cur=make_curs("BEGIN "
+  auto cur=make_db_curs("BEGIN "
                      "  DELETE FROM value_bag WHERE grp_id=:grp_id_dest; "
                      "  DELETE FROM unaccomp_bag_info WHERE grp_id=:grp_id_dest; "
                      "  DELETE FROM bag2 WHERE grp_id=:grp_id_dest; "
@@ -1271,10 +1272,13 @@ void TGroupBagItem::copyDB(const GrpId_t& src, const GrpId_t& dest)
                      "  INSERT INTO unaccomp_bag_info(grp_id,num,original_tag_no,surname,name,airline,flt_no,suffix,scd) "
                      "  SELECT :grp_id_dest,num,original_tag_no,surname,name,airline,flt_no,suffix,scd "
                      "  FROM unaccomp_bag_info WHERE grp_id=:grp_id_src; "
-                     "END; ");
-  cur.bind(":grp_id_src", src.get())
-     .bind(":grp_id_dest", dest.get())
-     .exec();
+                     "END; ",
+                    PgOra::getRWSession("VALUE_BAG"));
+  cur
+      .stb()
+      .bind(":grp_id_src", src.get())
+      .bind(":grp_id_dest", dest.get())
+      .exec();
 
   copyPaxPool(src, dest);
 }

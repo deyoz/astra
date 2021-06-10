@@ -12,13 +12,16 @@
 #include "tclmon.h"
 #include "tcl_utils.h"
 #include "testmode.h"
-#include "ocilocal.h"
 #include "posthooks.h"
 #include "monitor_ctl.h"
 #include "query_runner.h"
 #include "ourtime.h"
 #include "sirenaproc.h"
+
+#ifdef ENABLE_ORACLE
+#include "ocilocal.h"
 #include "cursctl.h"
+#endif
 
 #define NICKNAME "NONSTOP"
 #include "slogger.h"
@@ -415,6 +418,8 @@ public:
     }
 };
 
+#ifdef ENABLE_ORACLE
+
 class EdiCheckTask :
     public ServerFramework::BaseDaemonTask
 {
@@ -463,6 +468,8 @@ public:
     }
 };
 
+#endif /* ENABLE_ORACLE */
+
 } // namespace
 
 int main_test_daemon(int supervisorSocket, int argc, char *argv[])
@@ -491,7 +498,7 @@ int main_test_daemon(int supervisorSocket, int argc, char *argv[])
     d.run();
     return 0;
 }
-
+#ifdef ENABLE_ORACLE
 int main_edi_help_checker_daemon(int supervisorSocket, int argc, char *argv[])
 {
     NewDaemon d("EDI_CHECKER");
@@ -504,5 +511,6 @@ int main_edi_help_checker_daemon(int supervisorSocket, int argc, char *argv[])
 
     return 0;
 }
+#endif
 
 #endif // XP_TESTING

@@ -4,7 +4,9 @@
 #include "new_daemon.h"
 #include "daemon_event.h"
 #include "daemon_task.h"
+#ifdef ENABLE_ORACLE
 #include "cursctl.h"
+#endif //ENABLE_ORACLE
 #include "pg_cursctl.h"
 #include "helpcpp.h"
 #include "testmode.h"
@@ -41,6 +43,7 @@ void check(const std::string& type, std::function<void ()> f)
     }
 }
 
+#ifdef ENABLE_ORACLE
 class OraAttemptsCounter : public AttemptsCounter
 {
 public:
@@ -93,6 +96,7 @@ public:
             .exec();
     }
 };
+#endif //ENBLE_ORACLE
 
 class PgAttemptsCounter : public AttemptsCounter
 {
@@ -226,7 +230,9 @@ void setupAttemptCounter(const std::string& type, std::function<void ()> funcCle
         countersForTests[type] = AttemptsCounterPtr(new NopAttemptsCounter(type));
     }
 #endif // XP_TESTING
+#ifdef ENABLE_ORACLE
     counters.emplace(type, AttemptsCounterPtr(new OraAttemptsCounter(type, funcClear)));
+#endif //ENABLE_ORACLE
 }
 
 void setupAttemptCounter(const std::string& type, std::function<void ()> funcClear, PgCpp::SessionDescriptor sd)

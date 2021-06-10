@@ -3,6 +3,9 @@
 #include "exceptions.h"
 #include "qrys.h"
 
+#ifdef ENABLE_ORACLE
+#include <serverlib/cursctl.h>
+#endif
 #include <serverlib/dbcpp_cursctl.h>
 #include <serverlib/dbcpp_session.h>
 #include <serverlib/pg_cursctl.h>
@@ -1123,7 +1126,6 @@ bool concurrentSave(TQuery& qryUpd, TQuery& qryIns)
 #include "xp_testing.h"
 #include "pg_session.h"
 
-#include <serverlib/cursctl.h>
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 
@@ -1255,16 +1257,16 @@ END_TEST;
 START_TEST(rowcount_rowsprocessed_eof)
 {
     // create tables
-    make_curs("drop table TEST_ORA_ROWCOUNT")
-            .noThrowError(CERR_TABLE_NOT_EXISTS)
-            .exec();
-    make_curs("create table TEST_ORA_ROWCOUNT(ID number)")
-            .exec();
-
     get_pg_curs_autocommit("drop table if exists TEST_PG_ROWCOUNT").exec();
     get_pg_curs_autocommit("create table TEST_PG_ROWCOUNT(ID integer)").exec();
 
     // Ora
+#ifdef ENABLE_ORACLE
+    make_curs("drop table TEST_ORA_ROWCOUNT")
+        .noThrowError(CERR_TABLE_NOT_EXISTS)
+        .exec();
+    make_curs("create table TEST_ORA_ROWCOUNT(ID number)")
+        .exec();
     DB::TQuery OraQry(*get_main_ora_sess(STDLOG), STDLOG);
     OraQry.SQLText = "insert into TEST_ORA_ROWCOUNT(ID) values(:id)";
     OraQry.CreateVariable("id", otInteger, 10);
@@ -1312,7 +1314,7 @@ START_TEST(rowcount_rowsprocessed_eof)
     OraQry.SQLText = "update TEST_ORA_ROWCOUNT set ID=100 where ID=9999";
     OraQry.Execute();
     fail_unless(OraQry.RowsProcessed() == 0);
-
+#endif //ENABLE_ORACLE
 
     // Pg
     DB::TQuery PgQry(*get_main_pg_rw_sess(STDLOG), STDLOG);
@@ -1365,6 +1367,7 @@ START_TEST(rowcount_rowsprocessed_eof)
     PgQry.Execute();
     fail_unless(PgQry.RowsProcessed() == 0);
 
+#ifdef ENABLE_ORACLE
 
     fail_unless(oraRp1 == pgRp1, "Ora.RowsProcessed[%d] != Pg.RowProcessed[%d]", oraRp1, pgRp1);
     fail_unless(oraRc1 == pgRc1, "Ora.RowCount[%d] != Pg.RowCount[%d]", oraRc1, pgRc1);
@@ -1391,6 +1394,7 @@ START_TEST(rowcount_rowsprocessed_eof)
     int PgEof = PgQry.Eof;
 
     fail_unless(OraEof == PgEof);
+#endif //ENABLE_ORACLE
 }
 END_TEST;
 
@@ -1518,6 +1522,7 @@ END_TEST;
 
 START_TEST(check_ora_sessions)
 {
+#ifdef ENABLE_ORACLE
     // create table
     make_curs("drop table TEST_ORA_SESSIONS")
             .noThrowError(CERR_TABLE_NOT_EXISTS)
@@ -1577,6 +1582,7 @@ START_TEST(check_ora_sessions)
 
     fail_unless(ids1 == ids2);
     fail_unless(ids1 == ids3);
+#endif //ENABLE_ORACLE
 }
 END_TEST;
 

@@ -1,6 +1,9 @@
 #include "AirportControl.h"
 #include "basetables.h"
 #include "PgOraConfig.h"
+#ifdef ENABLE_ORACLE
+#include <serverlib/cursctl.h>
+#endif
 #include "tlg/CheckinBaseTypesOci.h"
 
 #include "pg_session.h"
@@ -136,6 +139,7 @@ AirportControl* AirportControl::readDb(const Ticketing::TicketNum_t& tickNum,
     Dates::DateTime_t rDateCr;
 
     cur
+            .stb()
             .def(rTick)
             .def(rCpn)
             .def(rDateCr)
@@ -205,6 +209,7 @@ void AirportControl::deleteDb(const AirportControl& ac)
                 PgOra::getRWSession("AIRPORT_CONTROLS"));
 
     cur
+            .stb()
             .bind(":tnum", ac.ticknum().get())
             .bind(":cnum", ac.cpnnum().get())
             .exec();

@@ -48,6 +48,8 @@ if test x$enable_xp_testing = xyes; then
     PKG_CHECK_MODULES([CHECK], [check], AC_MSG_NOTICE($CHECK_LIBS), AC_MSG_ERROR([libcheck not found]))
 fi
 
+AM_CONDITIONAL([ENABLE_ORACLE], [test x$enable_oracle_support = xyes])
+
 socklen_type=socklen_t
 AC_ARG_WITH(socketlength_type,
 [  --with-socketlength_type=type       define special socketlen type (default socklen_t)])

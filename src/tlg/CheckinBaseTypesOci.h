@@ -1,9 +1,11 @@
 #pragma once
 
 #include "CheckinBaseTypes.h"
+#ifdef ENABLE_ORACLE
 #include <serverlib/cursctl.h>
+#endif
 #include <serverlib/slogger_nonick.h>
-
+#ifdef ENABLE_ORACLE
 #define OciSelectorParInt(base_t) template <Ticketing::IDS I> \
 struct OciSelector<Ticketing::Value<I,base_t> > { \
     enum{ canOdef = 1}; \
@@ -85,3 +87,5 @@ OciSelectorParInt(unsigned int);
 OciSelectorParInt(unsigned long);
 OciSelectorParInt(unsigned short);
 }//namespace OciCpp
+
+#endif //ENABLE_ORACLE

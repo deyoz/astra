@@ -6,7 +6,9 @@
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 
 #include "dates.h"
+#ifdef ENABLE_ORACLE
 #include "cursctl.h"
+#endif
 
 namespace OciCpp {
 
@@ -30,6 +32,8 @@ oracle_datetime to_oracle_datetime(boost::posix_time::ptime const & t);
 
 namespace OciCpp
 {
+
+#ifdef ENABLE_ORACLE
 
 template<> struct OciSelector<const oracle_datetime>
 {
@@ -96,35 +100,6 @@ template<> struct OciSelector<boost::gregorian::date> : public OciSelector<const
     static void from(char* out_ptr, const char* in_ptr, indicator ind);
 };
 
-//-----------------------------------------------------------------------
-//-----------------------------------------------------------------------
-#if 0
-template <> struct OciSelector<const std::chrono::system_clock::time_point>
-{
-    typedef unsigned char __base_type_[22];
-    enum{ canObind = 1 };
-    enum { canBindArray = 1 };
-    static constexpr int len = sizeof(__base_type_);
-    enum { type = SQLT_VNU/*OciNumericTypeTraits<__base_type_>::otype*/ };
-    static constexpr External::type data_type = External::wrapper;
-    static bool canBind(const std::chrono::system_clock::time_point&) { return true; }
-    static void to(buf_ptr_t& dst, const void* src, indicator& indic);    
-    static void* addr(const std::chrono::system_clock::time_point* a) { return a; }
-    static int size(const void* a) { return  len; }
-    static void check(std::chrono::system_clock::time_point const *){}//{a->get();}
-    static buf_ptr_t conv (const std::chrono::system_clock::time_point *p);
-    static buf_ptr_t convnull();
-};
-
-template <> struct OciSelector<std::chrono::system_clock::time_point> : public OciSelector<const std::chrono::system_clock::time_point>
-{
-    enum{ canOdef = 1 };
-    enum{ canBindout = 1 };
-    static void from(char* out_ptr, const char* in_ptr, indicator ind);
-};
-#endif // 0
-//-----------------------------------------------------------------------
-//-----------------------------------------------------------------------
-
+#endif // ENABLE_ORACLE
 
 } // OciCpp

@@ -12,15 +12,14 @@
 #include <sstream>
 #include <map>
 #include <vector>
+#include <cstring>
 
 #include <serverlib/dates_io.h>
-#include <serverlib/cursctl.h>
 #include <serverlib/str_utils.h>
 
 #include "jxt_cont.h"
 #include "jxt_cont_impl.h"
 #include "jxtlib_db_callbacks.h"
-#include <serverlib/oci_selector_char.h>
 
 using namespace std;
 using namespace OciCpp;

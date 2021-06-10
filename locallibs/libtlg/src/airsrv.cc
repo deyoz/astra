@@ -16,7 +16,6 @@
 #endif
 
 #include <serverlib/exception.h>
-#include <serverlib/cursctl.h>
 #include <edilib/edi_user_func.h>
 #include <serverlib/monitor_ctl.h>
 #include <serverlib/daemon_kicker.h>
@@ -37,6 +36,10 @@
 #include "router_cache.h"
 #include "gateway.h"
 #include "types.h"
+
+#ifdef ENABLE_ORACLE
+#include <serverlib/cursctl.h>
+#endif
 
 namespace
 {
@@ -267,8 +270,11 @@ private:
             timer_.expires_from_now(boost::posix_time::seconds(ReinitRoutersTimeout_));
             timer_.async_wait([this](auto&& error){ this->handle_timer(error); });
         }
+#ifdef ENABLE_ORACLE
         airsrv_.rollback(); // критично для PG, для ORA не повредит.
+#endif // ENABLE_ORACLE
     }
+
     void handle_socket(const boost::system::error_code& err, size_t bytes_transferred) {
         InitLogTime("AIRSRV");
         LogTrace(TRACE5) << "err=" << err << " bytes_transferred=" << bytes_transferred;
@@ -484,6 +490,70 @@ int Airsrv::tlg_in(AIRSRV_MSG& tlg, const tlgnum_t& tlgNum, const RouterInfo& ri
     return 0;
 }
 
+
+#ifdef ENABLE_ORACLE
+
+void Airsrv::commit()
+{
+    make_curs("commit").exec();
+}
+
+void Airsrv::rollback()
+{
+    make_curs("rollback").exec();
+}
+
+
+
+void Airsrv::processMessage(AIRSRV_MSG& msg, const RouterInfo& ri)
+{
+    static const bool saveBadInputTlg = readIntFromTcl("AIRSRV_SAVE_BAD_TLG", 0);
+
+    try {
+        emptyHookTables();
+        int ret = processTlg(msg, ri);
+        if (ret < 0) {
+            rollback();
+            callRollbackPostHooks();
+            ProgError(STDLOG, "processTlg()=%d, => do save_bad_tlg()", ret);
+
+            if (saveBadInputTlg) {
+                if (callbacks()->saveBadTlg(msg, ret)) {
+                    commit();
+                    ProgTrace(TRACE1, "bad tlg saved");
+                } else {
+                    rollback();
+                    ProgError(STDLOG, "bad tlg not saved");
+                    return;
+                }
+            }
+        } else {
+            callPostHooksBefore();
+            commit();
+            ProgTrace(TRACE5, "Commited");
+            callPostHooksAfter();
+            ProgTrace(TRACE5, "After hooks finished");
+        }
+
+    } catch (const comtech::Exception &e) {
+        e.error(STDLOG);
+        rollback();
+    }
+    callPostHooksAlways();
+}
+
+#else // ENABLE_ORACLE
+
+void Airsrv::processMessage(AIRSRV_MSG& msg, const RouterInfo& ri)
+{
+    std::ignore = msg;
+    std::ignore = ri;
+    LogError(STDLOG) << "Airsrv::processMessage called without oracle support";
+    throw std::runtime_error("NonOracle: Airsrv::processMessage");
+}
+
+#endif // ENABLE_ORACLE
+
 int Airsrv::tlg_ack(AIRSRV_MSG& tlg, const tlgnum_t& tlgNum, const RouterInfo& ri)
 {
     if (tlgNum.express) {// EXPRESS telegrams
@@ -600,53 +670,6 @@ void Airsrv::setHandler(telegrams::TLG_TYPE type, const HandlerType& handler) //
 }
 
 
-void Airsrv::processMessage(AIRSRV_MSG& msg, const RouterInfo& ri)
-{
-    static const bool saveBadInputTlg = readIntFromTcl("AIRSRV_SAVE_BAD_TLG", 0);
-
-    try {
-        emptyHookTables();
-        int ret = processTlg(msg, ri);
-        if (ret < 0) {
-            rollback();
-            callRollbackPostHooks();
-            ProgError(STDLOG, "processTlg()=%d, => do save_bad_tlg()", ret);
-
-            if (saveBadInputTlg) {
-                if (callbacks()->saveBadTlg(msg, ret)) {
-                    commit();
-                    ProgTrace(TRACE1, "bad tlg saved");
-                } else {
-                    rollback();
-                    ProgError(STDLOG, "bad tlg not saved");
-                    return;
-                }
-            }
-        } else {
-            callPostHooksBefore();
-            commit();
-            ProgTrace(TRACE5, "Commited");
-            callPostHooksAfter();
-            ProgTrace(TRACE5, "After hooks finished");
-        }
-
-    } catch (const comtech::Exception &e) {
-        e.error(STDLOG);
-        rollback();
-    }
-    callPostHooksAlways();
-}
-
-void Airsrv::commit()
-{
-    make_curs("commit").exec();
-}
-
-void Airsrv::rollback()
-{
-    make_curs("rollback").exec();
-}
-
 }   //  telegrams
 
 #ifdef XP_TESTING
@@ -657,6 +680,9 @@ void Airsrv::rollback()
 
 void initAirsrvTests()
 {}
+
+#ifdef ENABLE_ORACLE
+// Because this tests requires oracle
 
 namespace
 {
@@ -784,5 +810,5 @@ TCASEREGISTER(0, 0)
 TCASEFINISH
 
 }
-
+#endif // ENABLE_ORACLE
 #endif // XP_TESTING

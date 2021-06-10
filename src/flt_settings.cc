@@ -1,10 +1,8 @@
 #include "flt_settings.h"
 #include "exceptions.h"
 #include "qrys.h"
-#include "serverlib/cursctl.h"
 
 #define NICKNAME "VLAD"
-#include "serverlib/slogger.h"
 
 using namespace EXCEPTIONS;
 using namespace ASTRA;
@@ -428,7 +426,7 @@ TTripSetList& TTripSetList::getTransitSets(const TTripInfo &flt, boost::optional
   clear();
   pr_tranzit=boost::none;
 
-  auto cur=make_curs("SELECT pr_tranzit, pr_reg, bort_changing, brd_with_autoreg, "
+  auto cur=make_db_curs("SELECT pr_tranzit, pr_reg, bort_changing, brd_with_autoreg, "
                      "       DECODE(airline,NULL,0,8)+ "
                      "       DECODE(flt_no,NULL,0,2)+ "
                      "       DECODE(airp_dep,NULL,0,4) AS priority "
@@ -436,7 +434,8 @@ TTripSetList& TTripSetList::getTransitSets(const TTripInfo &flt, boost::optional
                      "WHERE (airline IS NULL OR airline=:airline) AND "
                      "      (flt_no IS NULL OR flt_no=:flt_no) AND "
                      "      (airp_dep IS NULL OR airp_dep=:airp_dep) "
-                     "ORDER BY priority DESC ");
+                     "ORDER BY priority DESC ",
+                     PgOra::getROSession("TRANZIT_SET"));
 
   bool pr_tranzit_tmp=false;
   bool pr_reg=DefaultTripSets(tsTransitReg);
@@ -451,7 +450,7 @@ TTripSetList& TTripSetList::getTransitSets(const TTripInfo &flt, boost::optional
      .def(brd_with_autoreg)
      .exfet();
 
-  if (cur.err() != NO_DATA_FOUND)
+  if (cur.err() != DbCpp::ResultCode::NoDataFound)
     pr_tranzit=pr_tranzit_tmp;
 
   emplace(tsTransitReg, pr_reg);

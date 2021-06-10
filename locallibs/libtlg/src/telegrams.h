@@ -194,14 +194,13 @@ class TlgCallbacks: public TlgCallbacksAbstractDb
 {
 public:
     virtual ~TlgCallbacks() {}
+#ifdef ENABLE_ORACLE
 
     virtual bool saveBadTlg(const AIRSRV_MSG& tlg, int error) override;
     virtual Expected<TlgResult, int> putTlg(const std::string& tlgText,
             tlg_text_filter filter = tlg_text_filter(),
             int from_addr = 0, int to_addr = 0, hth::HthInfo *hth = 0) override;
 
-    virtual int readTlg(const tlgnum_t& msg_id, boost::posix_time::ptime& saveTime, int& router, std::string& tlgText) override = 0;
-    virtual int readTlg(const tlgnum_t& msg_id, std::string& tlgText) override;
 
     /**
      * Функция заполняет следующий номер телеграмы.
@@ -222,15 +221,17 @@ public:
     virtual int defaultHandler() const override {   return m_defaultHandler; }
     virtual void splitError(const tlgnum_t& num) override;
 
-    virtual std::list<tlgnum_t> partsReadAll(int rtr, const std::string& uid) override;
-    virtual int partsCountAll(int rtr, const std::string& uid) override;
-    virtual void partsDeleteAll(int rtr, const std::string& uid) override;
-    virtual void partsAdd(int rtr, const tlgnum_t& localMsgId, int partnumber, bool endFlag, const std::string& msgUid) override;
-    virtual int partsEndNum(int rtr, const std::string& msgUid) override;
-
     virtual void savepoint(const std::string &sp_name) const override;
     virtual void rollback(const std::string &sp_name) const override;
     virtual void rollback() const override;
+#endif //ENABLE_ORACLE
+    virtual int readTlg(const tlgnum_t &msg_id, boost::posix_time::ptime &saveTime, int &router, std::string &tlgText) override = 0;
+    virtual int readTlg(const tlgnum_t &msg_id, std::string &tlgText) override;
+    virtual std::list<tlgnum_t> partsReadAll(int rtr, const std::string &uid) override;
+    virtual int partsCountAll(int rtr, const std::string &uid) override;
+    virtual void partsDeleteAll(int rtr, const std::string &uid) override;
+    virtual void partsAdd(int rtr, const tlgnum_t &localMsgId, int partnumber, bool endFlag, const std::string &msgUid) override;
+    virtual int partsEndNum(int rtr, const std::string &msgUid) override;
 };
 
 class Telegrams

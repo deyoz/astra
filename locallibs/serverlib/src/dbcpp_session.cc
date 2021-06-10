@@ -2,10 +2,11 @@
 #ifdef ENABLE_PG
 
 #include <libpq-fe.h>
-
+#ifdef ENABLE_ORACLE
 #include "cursctl.h"
-#include "dbcpp_cursctl.h"
 #include "oci8cursor.h"
+#endif
+#include "dbcpp_cursctl.h"
 #include "pg_cursctl.h"
 #include "pg_session.h"
 #include "testmode.h"
@@ -59,6 +60,7 @@ namespace DbCpp
 
       return os;
     }
+#ifdef ENABLE_ORACLE
 
     OraSession::OraSession(const char* n, const char* f, int l, const std::string& connStr)
         : mSession(new OciCpp::OciSession(n, f, l, connStr))
@@ -81,7 +83,7 @@ namespace DbCpp
         }
     }
 
-    CursCtl OraSession::createCursor(const char* n, const char* f, int l, const char* sql)
+    CursCtl OraSession::createCursor(const char *n, const char *f, int l, const char *sql)
     {
         return CursCtl(*this, n, f, l, sql, true);
     }
@@ -143,7 +145,7 @@ namespace DbCpp
     {
         throw comtech::Exception(STDLOG, __func__, "Call of unsupported OraSession method");
     }
-
+#endif /* ENABLE_ORACLE */
     static void beginManagedTransaction(const char* nick, const char* file, int line,
                                         PgCpp::Session& session)
     {
@@ -663,7 +665,7 @@ namespace DbCpp
         return mPgSession->createPgCursor(n, f, l, sql,cacheit);
     }
 
-
+#ifdef ENABLE_ORACLE
     static std::unique_ptr<OraSession> mainSessPtr;
     OraSession& mainOraSession(STDLOG_SIGNATURE)
     {
@@ -674,7 +676,7 @@ namespace DbCpp
         return *mainSessPtr;
     }
     OraSession* mainOraSessionPtr(STDLOG_SIGNATURE) { return &mainOraSession(STDLOG_VARIABLE); }
-
+#endif /* ENABLE_ORACLE */
     struct RollbackOnDestruction
     {
         void operator()(PgSession_wo_CheckSQL* session) const

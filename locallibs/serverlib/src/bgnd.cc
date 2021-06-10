@@ -3,10 +3,15 @@
 #include "str_utils.h"
 #include "bgnd.h"
 #include "bgnd_task.h"
+
+#include "dates.h"
+#ifdef ENABLE_ORACLE
 #include "oci_seq.h"
 #include "cursctl.h"
 #include "rip_oci.h"
 #include "dates_oci.h"
+#endif //ENABLE_ORACLE
+
 #include "posthooks.h"
 #include "daemon_kicker.h"
 #include "new_daemon.h"
@@ -30,6 +35,7 @@ namespace
 static std::unique_ptr<bgnd::Storage> storage;
 
 static const size_t MaxPartSize = 4000;
+#ifdef ENABLE_ORACLE
 class OracleStorage : public bgnd::Storage
 {
 public:
@@ -172,6 +178,7 @@ public:
           .exec();
     }
 };
+#endif //ENABLE_ORACLE
 
 class PgStorage : public bgnd::Storage
 {
@@ -475,6 +482,7 @@ int BgndRequestTask::run(const boost::posix_time::ptime& tm, const BgndReqId& id
     return 0;
 }
 
+#ifdef ENABLE_ORACLE
 void setupOracleStorage()
 {
     ServerFramework::setupAttemptCounter("BGND",
@@ -484,6 +492,7 @@ void setupOracleStorage()
                 "   WHERE PA.ID = BR.ID)").exec(); });
     Storage::setupStorage(new OracleStorage);
 }
+#endif //ENABLE_ORACLE
 
 void setupPgStorage()
 {
@@ -523,17 +532,17 @@ const std::string TEST_TAG = "BGND";
 const ct::UserId tstUserId("auth00000000001");
 const ct::CommandId tstCmdId("cmd000000000001");
 
-void setupOra()
-{
-    testInitDB();
-    bgnd::setupOracleStorage();
-}
+// void setupOra()
+// {
+//     testInitDB();
+//     bgnd::setupOracleStorage();
+// }
 
-void setupPg()
-{
-    testInitDB();
-    bgnd::setupPgStorage();
-}
+// void setupPg()
+// {
+//     testInitDB();
+//     bgnd::setupPgStorage();
+// }
 
 START_TEST(check_bgnd_reqs)
 {
@@ -705,7 +714,7 @@ START_TEST(check_bgnd)
 } END_TEST
 
 #define SUITENAME "bgndOra"
-TCASEREGISTER(setupOra, 0)
+TCASEREGISTER(0, 0)
 {
     // Закомментрировано в Астре
 //    ADD_TEST(check_bgnd_reqs);
@@ -717,7 +726,7 @@ TCASEREGISTER(setupOra, 0)
 TCASEFINISH
 #undef SUITENAME
 #define SUITENAME "bgndPg"
-TCASEREGISTER(setupPg, 0)
+TCASEREGISTER(0, 0)
 {
     // Закомментрировано в Астре
 //    ADD_TEST(check_bgnd_reqs);

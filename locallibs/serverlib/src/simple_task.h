@@ -1,5 +1,8 @@
 #ifndef __SIMPLE_TASK_H
 #define __SIMPLE_TASK_H
+#ifndef ENABLE_ORACLE
+#error Compilation without oracle support
+#endif
 
 #include "daemon_task.h"
 #include "strong_types.h"

@@ -43,10 +43,11 @@ int MagicTab::toNeg() const
                     PgOra::getRWSession("IATCI_TABS"));
 
         cur
-                .bind(":id",      id)
-                .bind(":grp_id",  m_grpId.get())
-                .bind(":tab_ind", m_tabInd)
-                .exec();
+            .stb()
+            .bind(":id", id)
+            .bind(":grp_id", m_grpId.get())
+            .bind(":tab_ind", m_tabInd)
+            .exec();
         LogTrace(TRACE1) << "New iatci tab_id (-)" << id << " was generated "
                          << "for grp_id:" << m_grpId << " and tab_ind:" << m_tabInd;
     }
@@ -83,10 +84,11 @@ int MagicTab::read(const GrpId_t& grpId, unsigned tabInd)
 
     int id = 0;
     cur
-            .bind(":grp_id", grpId.get())
-            .bind(":tab_ind",tabInd)
-            .def(id)
-            .EXfet();
+        .stb()
+        .bind(":grp_id", grpId.get())
+        .bind(":tab_ind", tabInd)
+        .def(id)
+        .EXfet();
     if(cur.err() == DbCpp::ResultCode::NoDataFound) {
         LogTrace(TRACE1) << "Iatci tab " << grpId << "," << tabInd << " not found in DB!";
         return 0;
@@ -910,7 +912,7 @@ ServiceDetails::SsrInfo::SsrInfo(const std::string& ssrCode, const std::string& 
     : m_ssrCode(ssrCode), m_ssrText(ssrText),
       m_isInfantTicket(isInftTicket), m_freeText(freeText),
       m_airline(airline), m_quantity(quantity)
-{    
+{
     if(m_freeText.length() > MaxFreeTextLen) {
         throw AstraLocale::UserException("MSG.TOO_LONG_SSR_FREE_TEXT");
     }
@@ -963,16 +965,16 @@ bool ServiceDetails::SsrInfo::isTkne() const
 
 boost::optional<Ticketing::TicketCpn_t> ServiceDetails::SsrInfo::toTicketCpn() const
 {
-    LogTrace(TRACE3) << __FUNCTION__ 
+    LogTrace(TRACE3) << __FUNCTION__
                      << " ssr_code=" << m_ssrCode << "; "
                      << " ssr_text=" << m_ssrText;
-           
+
     if(m_ssrCode == "TKNE" && m_ssrText.length() == 14/*ticknum(13)+cpnnum(1)*/) {
         return Ticketing::TicketCpn_t(m_ssrText.substr(0, 13),
                                       boost::lexical_cast<int>(m_ssrText.substr(13, 1)));
     }
-    
-    return boost::none;    
+
+    return boost::none;
 }
 
 //
@@ -1386,7 +1388,7 @@ void CascadeHostDetails::setFirstAirlineAndLocation(const std::string& firstAirl
                           		            const std::string& firstLocation)
 {
     m_airline  = firstAirline;
-    m_location = firstLocation;                               
+    m_location = firstLocation;
 }
 
 std::string CascadeHostDetails::toKeyString() const

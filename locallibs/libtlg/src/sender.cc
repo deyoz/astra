@@ -13,7 +13,6 @@
 #include <tclmon/tclmon.h>
 #include <tclmon/tcl_utils.h>
 #include <serverlib/exception.h>
-#include <serverlib/cursctl.h>
 #include <serverlib/monitor_ctl.h>
 #include <serverlib/ourtime.h>
 #include <serverlib/posthooks.h>

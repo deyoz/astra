@@ -20,8 +20,6 @@
 #include "cache_impl.h"
 #include "jxtlib/xml_stuff.h"
 #include <serverlib/algo.h>
-#include <serverlib/cursctl.h>
-#include <serverlib/dbcpp_cursctl.h>
 
 #define NICKNAME "DJEK"
 #include "serverlib/slogger.h"

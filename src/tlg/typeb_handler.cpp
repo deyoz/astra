@@ -31,7 +31,6 @@
 #include <serverlib/posthooks.h>
 #include <serverlib/ourtime.h>
 #include <serverlib/TlgLogger.h>
-#include <serverlib/cursctl.h>
 #include <serverlib/TlgLogger.h>
 #include <serverlib/testmode.h>
 
@@ -602,7 +601,7 @@ void handle_tpb_tlg(const tlg_info &tlg)
     ASTRA::commit();
 
     int typeb_tlg_id=NoExists;
-    int typeb_tlg_num=1;    
+    int typeb_tlg_num=1;
     std::string typeb_tlg_type = "";
     ostringstream merge_key;
 

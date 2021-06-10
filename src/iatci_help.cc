@@ -17,7 +17,6 @@
 
 #include <serverlib/dates_io.h>
 #include <serverlib/xml_stuff.h>
-#include <serverlib/cursctl.h>
 #include <serverlib/dbcpp_cursctl.h>
 #include <serverlib/algo.h>
 
@@ -246,10 +245,11 @@ void IatciXmlDb::saveXml(const GrpId_t& grpId, const std::string& xmlText)
 "values (:grp_id, :page_no, :xml_text)",
                 PgOra::getRWSession("GRP_IATCI_XML"));
         cur
-                .bind(":grp_id",   grpId.get())
-                .bind(":page_no",  pageNo)
-                .bind(":xml_text", page)
-                .exec();
+            .stb()
+            .bind(":grp_id", grpId.get())
+            .bind(":page_no", pageNo)
+            .bind(":xml_text", page)
+            .exec();
     }
 }
 
@@ -260,8 +260,9 @@ void IatciXmlDb::delXml(const GrpId_t& grpId)
 "delete from GRP_IATCI_XML where GRP_ID=:grp_id",
                 PgOra::getRWSession("GRP_IATCI_XML"));
     cur
-            .bind(":grp_id", grpId.get())
-            .exec();
+        .stb()
+        .bind(":grp_id", grpId.get())
+        .exec();
 }
 
 std::string IatciXmlDb::load(const GrpId_t& grpId)
@@ -273,9 +274,10 @@ std::string IatciXmlDb::load(const GrpId_t& grpId)
 "order by PAGE_NO",
                 PgOra::getROSession("GRP_IATCI_XML"));
     cur
-            .bind(":grp_id", grpId.get())
-            .def(page)
-            .exec();
+        .stb()
+        .bind(":grp_id", grpId.get())
+        .def(page)
+        .exec();
 
     while(!cur.fen()) {
         res += page;
@@ -291,8 +293,9 @@ bool IatciXmlDb::exists(const GrpId_t& grpId)
 "select 1 from GRP_IATCI_XML where GRP_ID=:grp_id",
                 PgOra::getROSession("GRP_IATCI_XML"));
     cur
-            .bind(":grp_id", grpId.get())
-            .exfet();
+        .stb()
+        .bind(":grp_id", grpId.get())
+        .exfet();
 
     return cur.err() != DbCpp::ResultCode::NoDataFound;
 }
@@ -1246,13 +1249,14 @@ void saveDeferredCkiData(tlgnum_t msgId, const DeferredIatciData& defferedData)
                 PgOra::getRWSession("DEFERRED_CKI_DATA"));
 
     cur
-            .bind(":msg_id", msgId.num.get())
-            .bind(":data1", parts[0])
-            .bind(":data2", parts[1])
-            .bind(":data3", parts[2])
-            .bind(":data4", parts[3])
-            .bind(":data5", parts[4])
-            .exec();
+        .stb()
+        .bind(":msg_id", msgId.num.get())
+        .bind(":data1", parts[0])
+        .bind(":data2", parts[1])
+        .bind(":data3", parts[2])
+        .bind(":data4", parts[3])
+        .bind(":data5", parts[4])
+        .exec();
 }
 
 static boost::optional<DeferredIatciData> readDeferredCkiData(tlgnum_t msgId)
@@ -1263,14 +1267,15 @@ static boost::optional<DeferredIatciData> readDeferredCkiData(tlgnum_t msgId)
 
     std::vector<std::string> data(5);
     cur
-            .autoNull()
-            .defNull(data[0], "")
-            .defNull(data[1], "")
-            .defNull(data[2], "")
-            .defNull(data[3], "")
-            .defNull(data[4], "")
-            .bind(":msg_id", msgId.num.get())
-            .EXfet();
+        .stb()
+        .autoNull()
+        .defNull(data[0], "")
+        .defNull(data[1], "")
+        .defNull(data[2], "")
+        .defNull(data[3], "")
+        .defNull(data[4], "")
+        .bind(":msg_id", msgId.num.get())
+        .EXfet();
 
     std::string serialized(data[0] + data[1] + data[2] + data[3] + data[4]);
     if(serialized.empty()) {
@@ -1288,8 +1293,9 @@ static void cleanupDeferredCkiData(tlgnum_t msgId)
                 PgOra::getRWSession("DEFERRED_CKI_DATA"));
 
     cur
-            .bind(":msg_id", msgId.num.get())
-            .exec();
+        .stb()
+        .bind(":msg_id", msgId.num.get())
+        .exec();
 }
 
 static std::list<dcrcka::Result> readCkiData(edilib::EdiSessionId_t sessId)
@@ -1300,14 +1306,15 @@ static std::list<dcrcka::Result> readCkiData(edilib::EdiSessionId_t sessId)
 
     std::vector<std::string> data(5);
     cur
-            .autoNull()
-            .defNull(data[0], "")
-            .defNull(data[1], "")
-            .defNull(data[2], "")
-            .defNull(data[3], "")
-            .defNull(data[4], "")
-            .bind(":sess_id", sessId.get())
-            .EXfet();
+        .stb()
+        .autoNull()
+        .defNull(data[0], "")
+        .defNull(data[1], "")
+        .defNull(data[2], "")
+        .defNull(data[3], "")
+        .defNull(data[4], "")
+        .bind(":sess_id", sessId.get())
+        .EXfet();
 
     std::string serialized(data[0] + data[1] + data[2] + data[3] + data[4]);
     if(serialized.empty()) {
@@ -1325,8 +1332,9 @@ static void cleanupCkiData(edilib::EdiSessionId_t sessId)
                 PgOra::getRWSession("CKI_DATA"));
 
     cur
-            .bind(":sess_id", sessId.get())
-            .exec();
+        .stb()
+        .bind(":sess_id", sessId.get())
+        .exec();
 }
 
 boost::optional<DeferredIatciData> loadDeferredCkiData(tlgnum_t msgId)
@@ -1353,13 +1361,14 @@ void saveCkiData(edilib::EdiSessionId_t sessId, const std::list<dcrcka::Result>&
 "values (:sess_id, :data1, :data2, :data3, :data4, :data5)",
                 PgOra::getRWSession("CKI_DATA"));
     cur
-            .bind(":sess_id", sessId.get())
-            .bind(":data1", parts[0])
-            .bind(":data2", parts[1])
-            .bind(":data3", parts[2])
-            .bind(":data4", parts[3])
-            .bind(":data5", parts[4])
-            .exec();
+        .stb()
+        .bind(":sess_id", sessId.get())
+        .bind(":data1", parts[0])
+        .bind(":data2", parts[1])
+        .bind(":data3", parts[2])
+        .bind(":data4", parts[3])
+        .bind(":data5", parts[4])
+        .exec();
 }
 
 std::list<dcrcka::Result> loadCkiData(edilib::EdiSessionId_t sessId)
@@ -1458,12 +1467,13 @@ std::string denormSeatNum(const std::string& seatNum)
 std::string readBPGate(int pointId)
 {
     std::string gate;
-    make_curs(
+    make_db_curs(
 "select STATIONS.NAME from STATIONS, TRIP_STATIONS "
 "where POINT_ID=:point_id "
 "and STATIONS.DESK=TRIP_STATIONS.DESK "
 "and STATIONS.WORK_MODE=TRIP_STATIONS.WORK_MODE "
-"and STATIONS.WORK_MODE=:work_mode")
+"and STATIONS.WORK_MODE=:work_mode",
+PgOra::getROSession({"STATIONS", "TRIP_STATIONS"}))
             .def(gate)
             .bind(":point_id",  pointId)
             .bind(":work_mode", "è")

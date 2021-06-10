@@ -1,7 +1,10 @@
 #pragma once
 
 #include <string>
+
+#ifdef ENABLE_ORACLE
 #include <serverlib/cursctl.h>
+
 
 namespace OciCpp 
 {
@@ -31,6 +34,8 @@ private:
 };
 
 } // OciCpp
+
+#endif /* ENABLE_ORACLE */
 
 #ifdef ENABLE_PG
 #include <serverlib/pg_cursctl.h>

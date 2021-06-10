@@ -70,7 +70,6 @@
 #include "tlg/typeb_db.h"
 
 #include <jxtlib/jxt_cont.h>
-#include <serverlib/cursctl.h>
 #include <serverlib/xml_stuff.h>
 #include <serverlib/savepoint.h>
 #include <serverlib/testmode.h>
@@ -1159,19 +1158,21 @@ std::map<int, CheckIn::TTransferItem> CheckInInterface::getCrsTransferMap(const 
 {
     int pnr_id = 0, point_id = 0;
     std::string airp_arv;
-    auto cur = make_curs(
-               "select POINT_ID_SPP, CRS_PAX.PNR_ID, AIRP_ARV "
-               ", PERS_TYPE "
-               "from CRS_PAX, CRS_PNR, TLG_BINDING "
-               "where PAX_ID = :pax_id and CRS_PAX.PNR_ID = CRS_PNR.PNR_ID and "
-               "      CRS_PNR.POINT_ID = TLG_BINDING.POINT_ID_TLG");
+    auto cur = make_db_curs(
+        "select POINT_ID_SPP, CRS_PAX.PNR_ID, AIRP_ARV "
+        ", PERS_TYPE "
+        "from CRS_PAX, CRS_PNR, TLG_BINDING "
+        "where PAX_ID = :pax_id and CRS_PAX.PNR_ID = CRS_PNR.PNR_ID and "
+        "      CRS_PNR.POINT_ID = TLG_BINDING.POINT_ID_TLG",
+        PgOra::getROSession({"CRS_PAX", "CRS_PNR", "TLG_BINDING"}));
     cur
+        .stb()
         .def(point_id)
         .def(pnr_id)
         .def(airp_arv)
         .bind(":pax_id", pax_id.get())
         .EXfet();
-    if(cur.err() == NO_DATA_FOUND) {
+    if(cur.err() == DbCpp::ResultCode::NoDataFound) {
         LogTrace(TRACE5) << __FUNCTION__ << " No data found";
         return {};
     }

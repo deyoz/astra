@@ -14,7 +14,6 @@
 #include "base_tables.h"
 #include "checkin.h"
 #include <serverlib/algo.h>
-#include <serverlib/cursctl.h>
 #include <serverlib/dbcpp_cursctl.h>
 #include "PgOraConfig.h"
 #include "db_tquery.h"
@@ -147,15 +146,17 @@ bool existsPax(PaxId_t pax_id)
 namespace CheckIn
 {
 
-std::optional<TPaxSegmentPair> buildSegment(OciCpp::CursCtl & cur, const PaxId_t pax_id)
+std::optional<TPaxSegmentPair> buildSegment(DbCpp::CursCtl & cur, const PaxId_t pax_id)
 {
     int point_id;
     std::string airp_arv;
-    cur.def(point_id)
-       .def(airp_arv)
-       .bind(":pax_id",pax_id.get())
-       .exfet();
-    if(cur.err() == NO_DATA_FOUND) {
+    cur
+        .stb()
+        .def(point_id)
+        .def(airp_arv)
+        .bind(":pax_id", pax_id.get())
+        .exfet();
+    if(cur.err() == DbCpp::ResultCode::NoDataFound) {
         return std::nullopt;
     }
     return TPaxSegmentPair{point_id, airp_arv};
@@ -163,20 +164,22 @@ std::optional<TPaxSegmentPair> buildSegment(OciCpp::CursCtl & cur, const PaxId_t
 
 std::optional<TPaxSegmentPair> paxSegment(const PaxId_t &pax_id)
 {
-    auto cur = make_curs(
+    auto cur = make_db_curs(
                "select POINT_DEP, AIRP_ARV "
                "from PAX_GRP, PAX "
-               "where PAX_ID=:pax_id and PAX_GRP.GRP_ID=PAX.GRP_ID");
+               "where PAX_ID=:pax_id and PAX_GRP.GRP_ID=PAX.GRP_ID",
+               PgOra::getROSession({"PAX_GRP", "PAX"}));
     return buildSegment(cur, pax_id);
 }
 
 std::optional<TPaxSegmentPair> crsSegment(const PaxId_t& pax_id)
 {
-    auto cur = make_curs(
+    auto cur = make_db_curs(
                "select POINT_ID_SPP, AIRP_ARV "
                "from CRS_PAX, CRS_PNR, TLG_BINDING "
                "where PAX_ID=:pax_id and CRS_PAX.PNR_ID = CRS_PNR.PNR_ID "
-               "and CRS_PNR.POINT_ID = TLG_BINDING.POINT_ID_TLG");
+               "and CRS_PNR.POINT_ID = TLG_BINDING.POINT_ID_TLG",
+               PgOra::getROSession({"CRS_PAX", "CRS_PNR", "TLG_BINDING"}));
     return buildSegment(cur, pax_id);
 }
 
@@ -364,13 +367,16 @@ int TPaxTknItem::checkedInETCount() const
 {
   if (!validET()) return 0;
 
-  auto cur=make_curs("SELECT COUNT(*) FROM pax_grp, pax "
+  auto cur=make_db_curs("SELECT COUNT(*) FROM pax_grp, pax "
                      "WHERE pax.grp_id=pax_grp.grp_id AND "
                      "      pax.ticket_no=:ticket_no AND pax.coupon_no=:coupon_no AND "
-                     "      pax_grp.status<>:transit");
+                     "      pax_grp.status<>:transit",
+                     PgOra::getROSession({"PAX_GRP", "PAX"}));
   int result=0;
 
-  cur.bind(":ticket_no", no)
+  cur
+     .stb()
+     .bind(":ticket_no", no)
      .bind(":coupon_no", coupon)
      .bind(":transit", EncodePaxStatus(ASTRA::psTransit))
      .def(result)
@@ -2758,11 +2764,14 @@ boost::optional<TBagQuantity> TSimplePaxItem::getCrsBagNorm(const PaxId_t& paxId
   int dbBagNorm=ASTRA::NoExists;
   string dbBagNormUnit;
 
-  auto cur=make_curs("SELECT bag_norm, bag_norm_unit FROM crs_pax WHERE pax_id=:pax_id AND pr_del=0");
-  cur.bind(":pax_id", paxId.get())
-     .defNull(dbBagNorm, ASTRA::NoExists)
-     .defNull(dbBagNormUnit, "")
-     .exfet();
+  auto cur = make_db_curs("SELECT bag_norm, bag_norm_unit FROM crs_pax WHERE pax_id=:pax_id AND pr_del=0",
+                          PgOra::getROSession("CRS_PAX"));
+  cur
+      .stb()
+      .bind(":pax_id", paxId.get())
+      .defNull(dbBagNorm, ASTRA::NoExists)
+      .defNull(dbBagNormUnit, "")
+      .exfet();
 
   if (dbBagNorm!=ASTRA::NoExists && dbBagNorm>=0 && !dbBagNormUnit.empty())
     return TBagQuantity(dbBagNorm, dbBagNormUnit);

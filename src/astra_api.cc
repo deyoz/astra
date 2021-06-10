@@ -13,14 +13,11 @@
 #include "PgOraConfig.h"
 #include "tlg/CheckinBaseTypesOci.h"
 
-#include <serverlib/cursctl.h>
-#include <serverlib/dbcpp_cursctl.h>
 #include <serverlib/xml_tools.h>
 #include <serverlib/xml_stuff.h>
 #include <serverlib/dates_io.h>
 #include <serverlib/str_utils.h>
 #include <serverlib/algo.h>
-#include <serverlib/rip_oci.h>
 #include <jxtlib/jxt_cont.h>
 #include <jxtlib/jxt_cont_impl.h>
 #include <etick/exceptions.h>
@@ -1348,18 +1345,21 @@ PointId_t findArvPointId(const PointId_t& pointDep,
 GrpId_t findGrpIdByRegNo(const PointId_t& pointDep,
                          const RegNo_t& regNo)
 {
-    OciCpp::CursCtl cur = make_curs(
+    auto cur = make_db_curs(
 "select PAX_GRP.GRP_ID from PAX, PAX_GRP "
 "where PAX.GRP_ID = PAX_GRP.GRP_ID "
 "and PAX_GRP.POINT_DEP = :point_dep "
 "and PAX.REG_NO = :regno "
 "and PAX.REFUSE is null "
-"and PAX_GRP.STATUS not in ('E')");
+"and PAX_GRP.STATUS not in ('E')",
+PgOra::getROSession({"PAX", "PAX_GRP"}));
     GrpId_t::base_type grpId = 0;
-    cur.def(grpId)
-       .bind(":point_dep", pointDep)
-       .bind(":regno",     regNo)
-       .EXfet();
+    cur
+        .stb()
+        .def(grpId)
+        .bind(":point_dep", pointDep.get())
+        .bind(":regno", regNo.get())
+        .EXfet();
 
     LogTrace(TRACE3) << "grp_id:" << grpId << " "
                      << "found by point_dep:" << pointDep << " and "
@@ -1370,18 +1370,21 @@ GrpId_t findGrpIdByRegNo(const PointId_t& pointDep,
 GrpId_t findGrpIdByPaxId(const PointId_t& pointDep,
                          const PaxId_t& paxId)
 {
-    OciCpp::CursCtl cur = make_curs(
+    auto cur = make_db_curs(
 "select PAX_GRP.GRP_ID from PAX, PAX_GRP "
 "where PAX.GRP_ID = PAX_GRP.GRP_ID "
 "and PAX_GRP.POINT_DEP = :point_dep "
 "and PAX.PAX_ID = :pax_id "
 "and PAX.REFUSE is null "
-"and PAX_GRP.STATUS not in ('E')");
+"and PAX_GRP.STATUS not in ('E')",
+PgOra::getROSession({"PAX", "PAX_GRP"}));
     GrpId_t::base_type grpId = 0;
-    cur.def(grpId)
-       .bind(":point_dep", pointDep)
-       .bind(":pax_id",    paxId)
-       .EXfet();
+    cur
+        .stb()
+        .def(grpId)
+        .bind(":point_dep", pointDep.get())
+        .bind(":pax_id", paxId.get())
+        .EXfet();
 
     LogTrace(TRACE3) << "grp_id:" << grpId << " "
                      << "found by point_dep:" << pointDep << " and "
@@ -1694,7 +1697,7 @@ static boost::optional<XmlBags> makeBags(const XmlBags& oldBags,
 {
     if(/*oldBags.empty() && */delBags.empty() && newBags.empty()) {
         return boost::none;
-    }   
+    }
 
     XmlBags ret;
 
@@ -1711,7 +1714,7 @@ static boost::optional<XmlBags> makeBags(const XmlBags& oldBags,
     for(const auto& oldBag: oldBags.bags) {
         if(oldBag.pax_id != ASTRA::NoExists &&
            !algo::contains(paxIds, oldBag.pax_id)) continue;
-           
+
         if(oldBag.bag_pool_num != ASTRA::NoExists &&
            !algo::contains(poolNums, oldBag.bag_pool_num)) continue;
 
@@ -1849,7 +1852,7 @@ static void handleIatciCkuPax(const PointId_t& pointDep,
         ASSERT(!trferSegs.empty());
         auto currEdiSeg = std::next(loadPaxXmlRes.lSeg.begin());
         auto currTrferSeg = trferSegs.begin();
-        for(; currEdiSeg != loadPaxXmlRes.lSeg.end(); ++currEdiSeg, ++currTrferSeg) {            
+        for(; currEdiSeg != loadPaxXmlRes.lSeg.end(); ++currEdiSeg, ++currTrferSeg) {
             std::string trfersegKey = currTrferSeg->toKeyString();
             if(cascade) {
                 std::string cascadeKey = cascade->toKeyString();
@@ -1975,7 +1978,7 @@ static void updateBaggageQuery(XmlSegment& seg, std::list<XmlSegment>& trferSegs
     if(bagTags.empty()) {
         LogTrace(TRACE3) << "Bag tags are empty!";
         return;
-    }  
+    }
 
     unsigned bagTagNum = 0;
     for(int paxId: tagPaxIds)
@@ -2030,7 +2033,7 @@ static void updateBaggageQuery(XmlSegment& seg, std::list<XmlSegment>& trferSegs
 
 static void copyBagPoolNums(const XmlSegment& paxSeg, std::list<XmlSegment>& trferSegs)
 {
-    for(XmlSegment& trferSeg: trferSegs) {        
+    for(XmlSegment& trferSeg: trferSegs) {
         ASSERT(trferSeg.passengers.size() == paxSeg.passengers.size());
 
         auto srcPaxIt = paxSeg.passengers.begin();
@@ -2220,7 +2223,7 @@ IatciCheckinResult updateIatciPaxes(xmlNodePtr reqNode, xmlNodePtr ediResNode)
         return IatciCheckinResult{ grpId,
                                    loadPaxXmlRes.toIatciFirst(iatci::dcrcka::Result::Update) };
     }
- 
+
     // Необходимо достать "наш" сегмент, чтобы сформировать ответ.
     // Не смог придумать ничего, кроме как взять его из дисплея группы
     LoadPaxXmlResult loadPaxXmlRes = AstraEngine::singletone().LoadGrp(PointId_t(0)/*fake pointId*/,
@@ -2328,7 +2331,7 @@ iatci::dcrcka::Result cancelCheckinIatciPaxes(const iatci::CkxParams& ckxParams)
                                                    outbFlt);
 }
 
- 
+
 IatciCheckinResult cancelCheckinIatciPax(xmlNodePtr reqNode, xmlNodePtr ediResNode)
 {
     if(!StatusOfAllTicketsChanged(ediResNode)) {
@@ -2346,7 +2349,7 @@ IatciCheckinResult cancelCheckinIatciPax(xmlNodePtr reqNode, xmlNodePtr ediResNo
     return IatciCheckinResult{ grpId,
                                LoadPaxXmlResult(reqNode).toIatciFirst(iatci::dcrcka::Result::Cancel) };
 }
- 
+
 
 iatci::dcrcka::Result fillPaxList(const iatci::PlfParams& plfParams)
 {

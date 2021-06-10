@@ -7,8 +7,8 @@ namespace ServerFramework
 class EdiHelpDbOraCallbacks : public EdiHelpDbCallbacks
 {
 public:
-    virtual boost::optional<ConfirmInfo> confirm_notify_oraside(const char *pult, int session_id) const override;
-    virtual boost::optional<ConfirmInfo> confirm_notify_oraside(const InternalMsgId& msgid, int session_id,
+    virtual boost::optional<ConfirmInfo> confirm_notify_dbside(const char *pult, int session_id) const override;
+    virtual boost::optional<ConfirmInfo> confirm_notify_dbside(const InternalMsgId& msgid, int session_id,
                                                                 const std::string &instance_name) const override;
     virtual void clear_old_records() const override;
     virtual std::list<EdiHelp> select_all(const char *pult) const override;

@@ -8,10 +8,12 @@
 #include <errno.h>
 
 #include <serverlib/test.h>
-#include <serverlib/cursctl.h>
 #include "edilib/edi_user_func.h"
 #include <serverlib/monitor_ctl.h>
 #include "edilib/edilib_db_callbacks.h"
+
+
+
 
 int edi_load_messages_main (int argc, char *argv[])
 {
@@ -75,8 +77,9 @@ int edi_load_messages_main (int argc, char *argv[])
         } else  ProgTrace (TRACE5,"Delete old database messages - Ok!");
     }
 
-    if(Ret == 1)
+    if(Ret == 1) {
         Ret = insert_to_ora_from_dir_cur((argc == 3)?argv[2]:"./");
+    }
     if(!Ret) {
         printf("Inserting messages to oracle failed !\n");
         ProgError(STDLOG,"Inserting messages to oracle failed !");

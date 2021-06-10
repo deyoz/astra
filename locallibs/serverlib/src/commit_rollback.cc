@@ -1,6 +1,8 @@
 #include "commit_rollback.h"
 
+#ifdef ENABLE_ORACLE
 #include "cursctl.h"
+#endif // ENABLE_ORACLE
 #include "dbcpp_session.h"
 #include "pg_cursctl.h"
 
@@ -9,7 +11,9 @@
 
 void commit()
 {
+#ifdef ENABLE_ORACLE
     OciCpp::mainSession().commit();
+#endif // ENABLE_ORACLE
 #ifdef ENABLE_PG
     PgCpp::commit();
     if (auto sess = DbCpp::mainPgManagedSessionPtr(STDLOG, false)) {
@@ -20,7 +24,9 @@ void commit()
 
 void commitInTestMode()
 {
+#ifdef ENABLE_ORACLE
     OciCpp::mainSession().commitInTestMode();
+#endif // ENABLE_ORACLE
 #ifdef ENABLE_PG
 #ifdef XP_TESTING
     PgCpp::commitInTestMode();
@@ -33,7 +39,9 @@ void commitInTestMode()
 
 void rollback()
 {
+#ifdef ENABLE_ORACLE
     OciCpp::mainSession().rollback();
+#endif // ENABLE_ORACLE
 #ifdef ENABLE_PG
     PgCpp::rollback();
     if (auto sess = DbCpp::mainPgManagedSessionPtr(STDLOG, false)) {
@@ -44,7 +52,9 @@ void rollback()
 
 void rollbackInTestMode()
 {
+#ifdef ENABLE_ORACLE
     OciCpp::mainSession().rollbackInTestMode();
+#endif // ENABLE_ORACLE
 #ifdef ENABLE_PG
 #ifdef XP_TESTING
     PgCpp::rollbackInTestMode();

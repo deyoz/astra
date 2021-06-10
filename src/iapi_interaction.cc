@@ -245,6 +245,7 @@ static bool updateIapiPaxData(const PointId_t& pointId,
                 PgOra::getRWSession("IAPI_PAX_DATA"));
 
     cur
+            .stb()
             .bind(":point_id",        pointId.get())
             .bind(":pax_id",          paxId.get())
             .bind(":country_control", countryControl.get())
@@ -269,13 +270,14 @@ static bool insertIapiPaxData(const PointId_t& pointId,
                 PgOra::getRWSession("IAPI_PAX_DATA"));
 
     cur
-            .bind(":point_id",        pointId.get())
-            .bind(":pax_id",          paxId.get())
-            .bind(":country_control", countryControl.get())
-            .bind(":free_text",       freeText)
-            .bind(":status",          status)
-            .bind(":msg_id",          msgId)
-            .exec();
+        .stb()
+        .bind(":point_id", pointId.get())
+        .bind(":pax_id", paxId.get())
+        .bind(":country_control", countryControl.get())
+        .bind(":free_text", freeText)
+        .bind(":status", status)
+        .bind(":msg_id", msgId)
+        .exec();
 
     return cur.rowcount() > 0;
 }
@@ -288,9 +290,10 @@ bool PassengerStatus::allowedToBoarding(const PaxId_t& paxId)
 
     std::string status;
     cur
-            .defNull(status, "")
-            .bind(":pax_id", paxId.get())
-            .exec();
+        .stb()
+        .defNull(status, "")
+        .bind(":pax_id", paxId.get())
+        .exec();
     while(!cur.fen()) {
         if(!allowedToBoarding(statusTypes().decode(status))) {
             return false;
@@ -357,12 +360,13 @@ const PassengerStatus& PassengerStatus::updateByResponse(const std::string& msgI
 
     auto encStatus = statusTypes().encode(m_status);
     cur
-            .bind(":pax_id",          m_paxId.get())
-            .bind(":country_control", m_countryControl.get())
-            .bind(":status",          encStatus)
-            .bind(":free_text",       m_freeText)
-            .bind(":msg_id",          msgId)
-            .exec();
+        .stb()
+        .bind(":pax_id", m_paxId.get())
+        .bind(":country_control", m_countryControl.get())
+        .bind(":status", encStatus)
+        .bind(":free_text", m_freeText)
+        .bind(":msg_id", msgId)
+        .exec();
 
     if(cur.rowcount() > 0) {
         writeToLogAndCheckAlarm(false);
@@ -385,11 +389,12 @@ const PassengerStatus& PassengerStatus::updateByCusRequest(bool& notRequestedBef
 
     auto encStatus = statusTypes().encode(m_status);
     cur
-            .bind(":pax_id",          m_paxId.get())
-            .bind(":country_control", m_countryControl.get())
-            .bind(":status",          encStatus)
-            .bind(":free_text",       m_freeText)
-            .exec();
+        .stb()
+        .bind(":pax_id", m_paxId.get())
+        .bind(":country_control", m_countryControl.get())
+        .bind(":status", encStatus)
+        .bind(":free_text", m_freeText)
+        .exec();
 
     if(cur.rowcount() > 0) {
         writeToLogAndCheckAlarm(true);
@@ -699,9 +704,10 @@ std::vector<std::string> statusesFromDb(const PaxId_t& paxId)
 
     std::string status;
     cur
-            .defNull(status, "")
-            .bind(":pax_id", paxId.get())
-            .exec();
+        .stb()
+        .defNull(status, "")
+        .bind(":pax_id", paxId.get())
+        .exec();
 
     while(!cur.fen()) {
         res.emplace_back(status);

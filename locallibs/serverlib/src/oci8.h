@@ -2,6 +2,10 @@
 
 #include <string>
 #include <vector>
+#ifndef ENABLE_ORACLE
+#error THIS FILE IS ONLY FOR ORACLE
+#else
+
 #include "cursctl.h"
     extern "C" {
 #include <oci.h>
@@ -80,3 +84,4 @@ OCILobLocator* createLob(Oci8Session& os, const std::vector<uint8_t>& data, ub4 
 OCILobLocator* createLobLocator(Oci8Session& os);
 
 } // namespace OciCpp
+#endif // ENABLE_ORACLE

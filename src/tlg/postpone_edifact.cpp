@@ -7,14 +7,18 @@
 #include "tlg_source_edifact.h"
 #include "tlg.h"
 
-#include <serverlib/cursctl.h>
-#include <serverlib/dates_oci.h>
+#ifdef ENABLE_ORACLE
 #include <serverlib/int_parameters_oci.h>
-#include <serverlib/testmode.h>
+#include <serverlib/cursctl.h>
 #include <serverlib/rip_oci.h>
+#endif //ENABLE_ORACLE
+
+#include <serverlib/dates_oci.h>
+#include <serverlib/testmode.h>
 #include <edilib/edi_user_func.h>
 #include <edilib/edi_tables.h>
 #include <serverlib/dbcpp_cursctl.h>
+#include "exceptions.h"
 
 #include "PgOraConfig.h"
 
@@ -48,9 +52,10 @@ void PostponeEdiHandling::insertDb(const tlgnum_t& tnum, edilib::EdiSessionId_t 
                 PgOra::getRWSession("POSTPONED_TLG"));
 
     cur
-            .bind(":msg", tnum.num.get())
-            .bind(":edisess", sessId.get())
-            .exec();
+        .stb()
+        .bind(":msg", tnum.num.get())
+        .bind(":edisess", sessId.get())
+        .exec();
 
     LogTrace(TRACE1) << "insert into POSTPONED_TLG for edisess=" << sessId << "; msg_id=" << tnum;
 }
@@ -58,6 +63,7 @@ void PostponeEdiHandling::insertDb(const tlgnum_t& tnum, edilib::EdiSessionId_t 
 static boost::optional<tlgnum_t> deleteDbOra(edilib::EdiSessionId_t sessId)
 {
     char tnum[telegrams::TLG_NUM_LENGTH + 1] = {};
+#ifdef ENABLE_ORACLE
     auto cur = make_curs(
 "begin\n"
 ":msg:=NULL;\n"
@@ -90,6 +96,9 @@ static boost::optional<tlgnum_t> deleteDbOra(edilib::EdiSessionId_t sessId)
         if(!tmpNum.empty())
             return tlgnum_t(tnum);
     }
+#else
+    throw EXCEPTIONS::Exception("Oracle not enabled. deleteDbOra failed");
+#endif //ENABLE_ORACLE
 
     return boost::none;
 }
@@ -103,9 +112,10 @@ static boost::optional<tlgnum_t> deleteDbPg(edilib::EdiSessionId_t sessId)
 
     tlgnum_t::num_t::base_type msg_id;
     cur
-            .def(msg_id)
-            .bind(":sess_id", sessId.get())
-            .exfet();
+        .stb()
+        .def(msg_id)
+        .bind(":sess_id", sessId.get())
+        .exfet();
 
     if(cur.err() != DbCpp::ResultCode::NoDataFound) {
         auto cur = make_db_curs(
@@ -215,10 +225,11 @@ void PostponeEdiHandling::deleteWaiting(const tlgnum_t& tnum)
 {
     LogTrace(TRACE3) << "delete postponed records for tlgnum: " << tnum;
     make_db_curs(
-"delete from POSTPONED_TLG where MSG_ID = :msg",
-               PgOra::getRWSession("POSTPONED_TLG"))
-            .bind(":msg", tnum.num.get())
-            .exec();
+        "delete from POSTPONED_TLG where MSG_ID = :msg",
+        PgOra::getRWSession("POSTPONED_TLG"))
+        .stb()
+        .bind(":msg", tnum.num.get())
+        .exec();
 }
 
 void PostponeEdiHandling::postpone(const tlgnum_t& tnum, edilib::EdiSessionId_t sessId)
@@ -250,9 +261,10 @@ boost::optional<tlgnum_t> PostponeEdiHandling::findPostponeTlg(edilib::EdiSessio
 "select MSG_ID from POSTPONED_TLG where EDISESS_ID = :sess_id",
                 PgOra::getROSession("POSTPONED_TLG"));
     cur
-            .bind(":sess_id", sessId.get())
-            .def(msg_id)
-            .EXfet();
+        .stb()
+        .bind(":sess_id", sessId.get())
+        .def(msg_id)
+        .EXfet();
     if(cur.err() != DbCpp::ResultCode::NoDataFound) {
         return tlgnum_t(msg_id);
     }

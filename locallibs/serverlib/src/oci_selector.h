@@ -1,7 +1,11 @@
 #pragma once
 
 #include <vector>
+#ifdef ENABLE_ORACLE
 #include <oci.h>
+#else
+typedef int sb2;
+#endif //ENABLE_ORACLE
 
 namespace OciCpp {
 

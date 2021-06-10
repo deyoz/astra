@@ -8,9 +8,14 @@
 
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 
+#ifdef ENABLE_ORACLE
 #include "cursctl.h"
-#include "pg_cursctl.h"
 #include "dates_oci.h"
+#include "oci_selector_char.h"
+#endif /* ENABLE_ORACLE */
+
+#include "pg_cursctl.h"
+#include "commit_rollback.h"
 #include "query_runner.h"
 #include "sirena_queue.h"
 #include "EdiHelpManager.h"
@@ -22,7 +27,7 @@
 #include "log_manager.h"
 #include "lwriter.h"
 #include "testmode.h"
-#include "oci_selector_char.h"
+
 
 #define NICKNAME "SYSTEM"
 #include "slogger.h"
@@ -147,12 +152,14 @@ int ApplicationCallbacks::jxt_proc(const char *body, int blen,
   return newlen;
 }
 
+
 int ApplicationCallbacks::text_proc(const char *mes1, char *mes2, size_t len1, int *len2, int *err_code)
 {
     static const char requestWithPerespros[] = "Œ˜‡"; //Œ­®£®˜ £®¢ë© ‡ ¯à®á
 
     if (SIRENATECHHEAD < len1) {
         if (!strncmp(mes1 + SIRENATECHHEAD, requestWithPerespros, sizeof(requestWithPerespros) - 1)){
+#ifdef ENABLE_ORACLE
             static const char waitAnswer[] = "PROCESS REQUEST FAULT";
             static const char pult[] = "ŒŽ‚Š€Œ";
             int* const msgId = get_internal_msgid();
@@ -193,6 +200,9 @@ int ApplicationCallbacks::text_proc(const char *mes1, char *mes2, size_t len1, i
             mes2[1] = sizeof(waitAnswer)%256;
 
             set_flag_and_timeout(MSG_ANSW_STORE_WAIT_SIG, 15);
+#else // ENABLE_ORACLE
+            throw std::runtime_error("ApplicationCallbacks::text_proc called without oracle support");
+#endif // ENABLE_ORACLE
         } else {
             static const char res[] = "HELLO FROM TEXT_PROC";
             const int anslen = sizeof res;
@@ -260,7 +270,9 @@ void ApplicationCallbacks::http_handle(HTTP::reply& rep, const HTTP::request& re
 
 void ApplicationCallbacks::connect_db()
 {
+#ifdef ENABLE_ORACLE
     OciCpp::createMainSession(STDLOG,get_connect_string());
+#endif //ENABLE_ORACLE
 }
 
 int ApplicationCallbacks::commit_db()

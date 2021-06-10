@@ -56,7 +56,7 @@ static void init_serverlib_tests()
 {
     init_localtime_tests();
     init_period_tests();
-    init_int_parameters();
+    init_int_parameters();    
     init_right_parameters();
     init_json_tests();
     init_message_tests();

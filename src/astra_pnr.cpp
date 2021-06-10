@@ -122,18 +122,20 @@ static void saveTicketWc(const std::string& recloc,
     }
 
     make_db_curs(
-"delete from WC_TICKET where TICKNUM=:ticknum",
-                PgOra::getRWSession("WC_TICKET"))
-            .bind(":ticknum", ticket.ticknumt().get())
-            .exec();
+        "delete from WC_TICKET where TICKNUM=:ticknum",
+        PgOra::getRWSession("WC_TICKET"))
+        .stb()
+        .bind(":ticknum", ticket.ticknumt().get())
+        .exec();
 
     make_db_curs(
-"insert into WC_TICKET(RECLOC, TICKNUM) "
-"values (:recloc, :ticknum)",
-                PgOra::getRWSession("WC_TICKET"))
-            .bind(":recloc",  recloc)
-            .bind(":ticknum", ticket.ticknumt().get())
-            .exec();
+        "insert into WC_TICKET(RECLOC, TICKNUM) "
+        "values (:recloc, :ticknum)",
+        PgOra::getRWSession("WC_TICKET"))
+        .stb()
+        .bind(":recloc", recloc)
+        .bind(":ticknum", ticket.ticknumt().get())
+        .exec();
 }
 
 static void savePnrEdifact(const std::string& recloc,
@@ -327,9 +329,10 @@ boost::optional<WcTicket> readWcTicket(const Ticketing::TicketNum_t& tickNum)
 
     std::string recloc;
     cur
-            .def(recloc)
-            .bind(":ticknum", tickNum.get())
-            .EXfet();
+        .stb()
+        .def(recloc)
+        .bind(":ticknum", tickNum.get())
+        .EXfet();
 
     if(cur.err() == DbCpp::ResultCode::NoDataFound) {
         return boost::none;
@@ -348,11 +351,12 @@ boost::optional<WcCoupon> readWcCoupon(const Ticketing::TicketNum_t& tickNum,
     std::string recloc;
     int status = 0;
     cur
-            .def(recloc)
-            .def(status)
-            .bind(":ticknum", tickNum.get())
-            .bind(":cpnnum",  cpnNum.get())
-            .EXfet();
+        .stb()
+        .def(recloc)
+        .def(status)
+        .bind(":ticknum", tickNum.get())
+        .bind(":cpnnum", cpnNum.get())
+        .EXfet();
 
     if(cur.err() == DbCpp::ResultCode::NoDataFound) {
         return boost::none;
@@ -371,11 +375,12 @@ WcCoupon readWcCouponByRl(const std::string& recloc,
 
     int status = 0;
     cur
-            .def(status)
-            .bind(":recloc",  recloc)
-            .bind(":ticknum", tickNum.get())
-            .bind(":cpnnum",  cpnNum.get())
-            .EXfet();
+        .stb()
+        .def(status)
+        .bind(":recloc", recloc)
+        .bind(":ticknum", tickNum.get())
+        .bind(":cpnnum", cpnNum.get())
+        .EXfet();
 
     if(cur.err() == DbCpp::ResultCode::NoDataFound) {
         throw WcCouponNotFound(recloc, tickNum, cpnNum);

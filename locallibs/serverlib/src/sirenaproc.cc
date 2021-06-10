@@ -9,7 +9,7 @@
 #include "lwriter.h"
 #include "memcached_api.h"
 #include "monitor_ctl.h"
-#include "cursctl.h"
+
 #include "query_runner.h"
 #include "ourtime.h"
 #include "profiler.h"
@@ -22,7 +22,11 @@
 #include "pg_cursctl.h"
 #endif // ENABLE_PG
 
+#ifdef ENABLE_ORACLE
+#include "cursctl.h"
 using namespace OciCpp;
+#endif
+
 using std::cerr;
 using std::endl;
 extern "C" int our_signal(int sig, void(*f)(int), sigset_t sigs)
@@ -48,7 +52,7 @@ extern "C" int our_signal(int sig, void(*f)(int), sigset_t sigs)
         ProgTrace(TRACE0, "sigaction failed for signal: #%d", sig);
         return -2;
     }
-    return 0;    
+    return 0;
 }
 bool setupCore();
 clock_t tm1=0;
@@ -76,7 +80,7 @@ void PerfomTest(int label)
 extern "C"
 void PerfomTest1(int label)
 {
-  tm2=times(&stm2);  
+  tm2=times(&stm2);
 /*  printf("LABEL=%d:REQUEST EXECUTION TIME - %ld ms\n",label,MSec(tm2-tm1));*/
   ProgTrace(TRACE1,"LABEL=%d:REQUEST EXECUTION TIME - %ld ms\n",label,MSec(tm2-tm1));
 }
@@ -194,8 +198,8 @@ extern "C" void term3(int signo)
                 sigemptyset(&se);
                 sigaddset(&se,SIGABRT);
                 sigaddset(&se,signo);
-                our_signal(signo,SIG_DFL,se); 
-                our_signal(SIGABRT,SIG_DFL,se); 
+                our_signal(signo,SIG_DFL,se);
+                our_signal(SIGABRT,SIG_DFL,se);
                 if(setupCore() and not waschdir)
                 {
                     waschdir = 1;
@@ -237,7 +241,7 @@ extern "C" void term3(int signo)
         case SIGTERM:
         case SIGXFSZ:
             break;
-        default: 
+        default:
             monitor_restart();
     }
     _exit(1); // man 2 _exit
@@ -327,31 +331,39 @@ if(*((char *)&a)!=1){
     fputs("wrong byte order - check -D RISC_ORDER\n",stderr);
     exit(1);
 }
-}    
+}
 void connect2DB2(void)
 {
     ServerFramework::applicationCallbacks()
-        ->connect_db(); 
+        ->connect_db();
 }
 extern "C" int connect2DB(void)
 {
-    try {
+#ifdef ENABLE_ORACLE
+    try
+    {
+#endif // ENABLE_ORACLE
         ServerFramework::applicationCallbacks()
-            ->connect_db(); 
-    }catch (OciCpp::ociexception &e){
-         ProgError(STDLOG,"%s",e.what()); 
-         return -1;
+            ->connect_db();
+#ifdef ENABLE_ORACLE
     }
+    catch (OciCpp::ociexception &e)
+    {
+        ProgError(STDLOG, "%s", e.what());
+        return -1;
+    }
+#endif // ENABLE_ORACLE
     return 0;
 }
 
-// TODO move abort inside the only one function connect2DB 
+// TODO move abort inside the only one function connect2DB
 void testInitDB()
 {
     if (connect2DB()) {
         fprintf(stderr, "connect2DB failed");
         Abort(5);
     }
+#ifdef ENABLE_ORACLE
     OciCpp::CursCtl c=make_curs_no_cache("SELECT KEK FROM XP_TESTING");
     c.noThrowError(942);
     c.exec();
@@ -362,7 +374,10 @@ void testInitDB()
     }
     // specially for XP_TESTING - sets SP_XP_TESTING
     OciCpp::CursCtl("SAVEPOINT SP_XP_TESTING").exec();
+#endif // ENABLE_ORACLE
 }
+
+
 
 void initTest()
 {
@@ -377,6 +392,8 @@ void testShutDBConnection()
         memcache::callbacks()->flushAll();
     }
 }
+
+
 
 #ifdef ENABLE_PG
 static const char* getPgConnectString()

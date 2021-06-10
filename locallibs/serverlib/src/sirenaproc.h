@@ -4,7 +4,6 @@
 #ifdef __cplusplus
 void testInitDB();
 void testShutDBConnection();
-
 namespace PgCpp {
     namespace details {
         class SessionDescription;

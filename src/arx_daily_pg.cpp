@@ -12,15 +12,12 @@
 #include <optional>
 #include "boost/date_time/local_time/local_time.hpp"
 
-//#include "pg_session.h"
 #include <serverlib/pg_cursctl.h>
 #include <serverlib/pg_rip.h>
-#include <serverlib/cursctl.h>
 #include <serverlib/testmode.h>
 #include <serverlib/dates_oci.h>
 #include <serverlib/dates_io.h>
 #include <serverlib/tcl_utils.h>
-#include <serverlib/rip_oci.h>
 #include <serverlib/oci_rowid.h>
 #include <serverlib/dbcpp_cursctl.h>
 #include <serverlib/timer.h>
@@ -252,6 +249,7 @@ std::string get_seat_no(const PaxId_t& pax_id, int seats, int is_jmp, std::strin
     LogTrace(TRACE6) << __func__<< " pax_id: " << pax_id << " seats: " << seats << " is_jmpg: " << is_jmp << " status: "
               << status << " point_id: " << point_id << " fmt: " << fmt;
     char result[50] = {};
+#ifdef ENABLE_ORACLE
     short null = -1, nnull = 0; //-1 - NULL , 0 - value
     auto cur = make_curs(
                 "BEGIN \n"
@@ -268,6 +266,9 @@ std::string get_seat_no(const PaxId_t& pax_id, int seats, int is_jmp, std::strin
        .bind(":only_lat", only_lat)
        .bindOutNull(":result", result, "")
        .exec();
+#else
+    LogError(STDLOG) << "Oracle not enabled. get_seat_no returns empty result.";
+#endif // ENABLE_ORACLE
     return std::string(result);
 }
 
@@ -1505,7 +1506,8 @@ void deleteBagReceipts(const PointId_t& point_id)
     auto cur = make_db_curs("select bag_receipts.receipt_id, bag_receipts.kit_id from BAG_RECEIPTS "
                             " left join BAG_RCPT_KITS on bag_receipts.kit_id = bag_rcpt_kits.kit_id AND "
                             " bag_receipts.kit_num = bag_rcpt_kits.kit_num "
-                            " WHERE bag_receipts.point_id = :point_id FOR UPDATE");
+                            " WHERE bag_receipts.point_id = :point_id FOR UPDATE",
+                            PgOra::getRWSession({"BAG_RECEIPTS", "BAG_RCPT_KITS"}));
     cur.def(bag.receipt_id).defNull(bag.kit_id, ASTRA::NoExists).bind(":point_id", point_id.get()).exec();
     while(!cur.fen()) {
         bag_receipts.push_back(bag);

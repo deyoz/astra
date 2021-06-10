@@ -5,15 +5,18 @@
 #include <iomanip>
 #include <tcl.h>
 #include "EdiHelpManager.h"
-#include "cursctl.h"
 #include "query_runner.h"
 #include "posthooks.h"
 #include "ehelpsig.h"
 #include "timer.h"
 #include "EdiHelpDbCallbacks.h"
+#include "timer.h"
+
+#ifdef ENABLE_ORACLE
+#include "cursctl.h"
 #include "dates_oci.h"
 #include "std_array_oci.h"
-#include "timer.h"
+#endif
 
 #include "tcl_utils.h"
 #include "internal_msgid.h"
@@ -197,7 +200,7 @@ static void dumpEdihelp(const InternalMsgId& msgid)
         LogTrace(TRACE1) << "  " << eh;
 }
 
-static void confirm_notify_oraside(const boost::optional<ConfirmInfo> &ci,
+static void confirm_notify_dbside(const boost::optional<ConfirmInfo> &ci,
                                    const std::string &key, int session_id)
 {
     if(not ci) {
@@ -223,36 +226,36 @@ static void confirm_notify_oraside(const boost::optional<ConfirmInfo> &ci,
     }
 }
 
-static void confirm_notify_oraside(const char *pult, int session_id)
+static void confirm_notify_dbside(const char *pult, int session_id)
 {
     HelpCpp::Timer timer;
 
     LogTrace(TRACE1) << __FUNCTION__ << ": pult = " << pult << ", instance = " << ServerFramework::EdiHelpManager::instanceName();
 
-    const auto ci = EdiHelpDbCallbacks::instance()->confirm_notify_oraside(pult, session_id);
+    const auto ci = EdiHelpDbCallbacks::instance()->confirm_notify_dbside(pult, session_id);
     if(not ci or ci->leftover > 1)
         dumpEdihelp(pult);
 
-    confirm_notify_oraside(ci, pult, session_id);
+    confirm_notify_dbside(ci, pult, session_id);
 
     LogTrace(TRACE1) << __FUNCTION__ << ": " << timer;
 }
 
-static void confirm_notify_oraside(const InternalMsgId& msgid, int session_id)
+static void confirm_notify_dbside(const InternalMsgId& msgid, int session_id)
 {
     HelpCpp::Timer timer;
 
-    const auto ci = EdiHelpDbCallbacks::instance()->confirm_notify_oraside(msgid, session_id, EdiHelpManager::instanceName());
+    const auto ci = EdiHelpDbCallbacks::instance()->confirm_notify_dbside(msgid, session_id, EdiHelpManager::instanceName());
     if(not ci or ci->leftover > 1)
         dumpEdihelp(msgid);
 
-    confirm_notify_oraside(ci, msgid.asString(), session_id);
+    confirm_notify_dbside(ci, msgid.asString(), session_id);
 
     LogTrace(TRACE1) << __FUNCTION__ << ": " << timer;
 }
 
-#ifdef XP_TESTING
-void imitate_confirm_notify_oraside_for_bloody_httpsrv(const ServerFramework::InternalMsgId& msgid, const std::string& signal)
+#if defined(XP_TESTING) && defined(ENABLE_ORACLE)
+void imitate_confirm_notify_dbside_for_bloody_httpsrv(const ServerFramework::InternalMsgId& msgid, const std::string& signal)
 {
     if(not inTestMode()) {
         return;
@@ -289,12 +292,12 @@ void imitate_confirm_notify_oraside_for_bloody_httpsrv(const ServerFramework::In
 
 void EdiHelpManager::confirm_notify(const char *pult, int session_id)
 {
-    confirm_notify_oraside(pult, session_id);
+    confirm_notify_dbside(pult, session_id);
 }
 
 void EdiHelpManager::confirm_notify(const InternalMsgId& msgid, int session_id)
 {
-    confirm_notify_oraside(msgid, session_id);
+    confirm_notify_dbside(msgid, session_id);
 }
 
 bool EdiHelpManager::mustWait() const
@@ -334,7 +337,7 @@ START_TEST(int_msg_id)
 }
 END_TEST
 
-void confirm_notify_oraside_tst()
+void confirm_notify_dbside_tst()
 {
     using namespace ServerFramework;
     QueryRunner qr(std::make_shared<EdiHelpManager>(MSG_ANSW_STORE_WAIT_SIG));
@@ -342,10 +345,10 @@ void confirm_notify_oraside_tst()
     qr.getEdiHelpManager().configForPerespros(STDLOG, "LALA###", 1010, 20);
     dumpEdihelp("Œ‚Œ");
 
-    confirm_notify_oraside("Œ‚Œ", 1010);
+    confirm_notify_dbside("Œ‚Œ", 1010);
 }
 
-void confirm_notify_oraside_long_msg_test_tst()
+void confirm_notify_dbside_long_msg_test_tst()
 {
     using namespace ServerFramework;
     static const auto msgtext = "ZH/BUYTICKET/FORWARD=\"FROM=2000002/TO=2010290/DAY=22/MONTH=09/TIME=21:05/TRAIN=126Ÿ/CARRIER=’Š‘/N_CAR=18/TYPE_CAR=Š/SERVICE_CLASS=2‹/N_UP=2/N_DOWN=2/DIAPASON=1-15/SEX=‘/IN_ONE_KUPE=1/REMOTECHECKIN=1\"/BACKWARD=\"FROM=2010290/TO=2000002/DAY=27/MONTH=09/TIME=22:55/TRAIN=126—/CARRIER=’Š‘/N_CAR=18/TYPE_CAR=Š/SERVICE_CLASS=2‹/N_UP=2/N_DOWN=2/DIAPASON=1-15/SEX=‘/REMOTECHECKIN=1\"/ISSUBURBANTRAIN=0/DIRECTIONGROUP=0/RZHDPROVIDER=GRAND/PHONE=+79174036096/EMAIL=ELVIRAAVIA@MAIL.RU/FOP=/ISRESERVATION=0/ADULT_DOC=\"8010036445/Œ€Š€‚=‚‹€„ˆ‘‹€‚=€‹…Š‘€„‚ˆ—/17021965/RUS/Œ/[-]/////1/1////ELVIRAAVIA@MAIL.RU/+79174036096\"/ADULT_DOC=\"8005175298/•€Œ‚€=‹ˆŸ=…’‚€/18061976/RUS/F/[-]/////1/1////ELVIRAAVIA@MAIL.RU/+79174036096\"/ADULT_DOC=\"8012731497/“’€Š‚€=ƒ€‹ˆ€=œ…‚€/07031968/RUS/F/[-]/////1/1////ELVIRAAVIA@MAIL.RU/+79174036096\"/ADULT_DOC=\"8018858952/ƒ€‰“‹‹ˆ€=…‹…€=‚ˆŠ’‚€/24091973/RUS/F/[-]/////1/1////ELVIRAAVIA@MAIL.RU/+79174036096\"/FLAGS=63/STAN=7T78DD/STAN2=7T78DK/MULTISTAGE=GRANDasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdaasdasd"; // 1300 chars
@@ -353,7 +356,7 @@ void confirm_notify_oraside_long_msg_test_tst()
     qr.setPult("Œ‚Œ");
     qr.getEdiHelpManager().configForPerespros(STDLOG, msgtext, 1010, 20);
     dumpEdihelp("Œ‚Œ");
-    confirm_notify_oraside("Œ‚Œ", 1010);
+    confirm_notify_dbside("Œ‚Œ", 1010);
 }
 
 #define SUITENAME "Serverlib"

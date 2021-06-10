@@ -18,8 +18,9 @@
 
 #include <jxtlib/JxtInterface.h>
 #include <jxtlib/jxtlib_dbpg_callbacks.h>
+#ifdef ENABLE_ORACLE
 #include <jxtlib/jxtlib_dbora_callbacks.h>
-#include <serverlib/ocilocal.h>
+#endif //ENABLE_ORACLE
 #include <serverlib/dbcpp_cursctl.h>
 #include <serverlib/TlgLogger.h>
 #include <serverlib/EdiHelpDbPgCallbacks.h>
@@ -31,6 +32,7 @@
 #define NICKTRACE ANTON_TRACE
 #include <serverlib/slogger.h>
 
+#define NON_IMPLEMENTED_CALL throw EXCEPTIONS::Exception("Non-implemented call");
 
 namespace {
 class AstraTlgCallbacks: public telegrams::TlgCallbacks
@@ -55,11 +57,38 @@ public:
     virtual int readHthInfo(const tlgnum_t&, hth::HthInfo& hthInfo) override;
     virtual int writeHthInfo(const tlgnum_t&, const hth::HthInfo& hthInfo) override;
     virtual void deleteHth(const tlgnum_t&) override;
+
+    virtual boost::optional<tlgnum_t> nextNum() override {
+        NON_IMPLEMENTED_CALL
+    }
+    virtual tlgnum_t nextExpressNum() override {
+        NON_IMPLEMENTED_CALL
+    }
+    virtual void splitError(const tlgnum_t &num) override {
+        NON_IMPLEMENTED_CALL
+    }
+    virtual bool saveBadTlg(const telegrams::AIRSRV_MSG &tlg, int error) override
+    {
+        NON_IMPLEMENTED_CALL
+    }
+    virtual Expected<telegrams::TlgResult, int> putTlg(const std::string &tlgText,
+                                                       telegrams::tlg_text_filter filter = telegrams::tlg_text_filter(),
+                                                       int from_addr = 0, int to_addr = 0, hth::HthInfo *hth = 0)
+    {
+        NON_IMPLEMENTED_CALL
+    }
+    virtual void savepoint(const std::string &sp_name) const override {
+        NON_IMPLEMENTED_CALL
+    }
+    virtual void rollback(const std::string &sp_name) const override {
+        NON_IMPLEMENTED_CALL
+    }
+    virtual void rollback() const override {
+        NON_IMPLEMENTED_CALL
+    }
 };
 
 //
-
-#define NON_IMPLEMENTED_CALL throw EXCEPTIONS::Exception("Non-implemented call");
 
 telegrams::ErrorQueue& AstraTlgCallbacks::errorQueue()
 {
@@ -112,8 +141,9 @@ bool AstraTlgCallbacks::tlgIsHth(const tlgnum_t& msgId)
 "select 1 from TEXT_TLG_H2H where MSG_ID = :id",
                 PgOra::getROSession("TEXT_TLG_H2H"));
     cur
-            .bind(":id", msgId.num.get())
-            .EXfet();
+        .stb()
+        .bind(":id", msgId.num.get())
+        .EXfet();
     if(cur.err() == DbCpp::ResultCode::NoDataFound) {
         return false;
     }
@@ -130,19 +160,20 @@ int AstraTlgCallbacks::readHthInfo(const tlgnum_t& msgId, hth::HthInfo& hthInfo)
 "from TEXT_TLG_H2H where MSG_ID = :id",
                 PgOra::getROSession("TEXT_TLG_H2H"));
     cur
-            .autoNull()
-            .bind(":id", msgId.num.get())
-            .def(type)
-            .def(hthInfo.sender)
-            .def(hthInfo.receiver)
-            .def(hthInfo.tpr)
-            .def(hthInfo.why)
-            .defNull(part, std::string())
-            .defNull(end, 0)
-            .def(qri5)
-            .def(qri6)
-            .def(remAddrNum)
-            .EXfet();
+        .stb()
+        .autoNull()
+        .bind(":id", msgId.num.get())
+        .def(type)
+        .def(hthInfo.sender)
+        .def(hthInfo.receiver)
+        .def(hthInfo.tpr)
+        .def(hthInfo.why)
+        .defNull(part, std::string())
+        .defNull(end, 0)
+        .def(qri5)
+        .def(qri6)
+        .def(remAddrNum)
+        .EXfet();
     if(cur.err() == DbCpp::ResultCode::NoDataFound) {
         LogTrace(TRACE5) << "Can't get header param of HTH tlg NO_DATA_FOUND for msg_id: " <<  msgId;
         return -1;
@@ -195,10 +226,11 @@ int AstraTlgCallbacks::writeHthInfo(const tlgnum_t& msgId, const hth::HthInfo& h
 void AstraTlgCallbacks::deleteHth(const tlgnum_t& msgId)
 {
     make_db_curs(
-"delete from TEXT_TLG_H2H where MSG_ID = :msg_id",
-                PgOra::getRWSession("TEXT_TLG_H2H"))
-            .bind(":msg_id", msgId.num.get())
-            .exec();
+        "delete from TEXT_TLG_H2H where MSG_ID = :msg_id",
+        PgOra::getRWSession("TEXT_TLG_H2H"))
+        .stb()
+        .bind(":msg_id", msgId.num.get())
+        .exec();
 }
 
 #undef NON_IMPLEMENTED_CALL
@@ -232,7 +264,9 @@ void init_edilib_callbacks()
     if(PgOra::supportsPg("EDISESSION")) {
         edilib::EdilibDbCallbacks::setEdilibDbCallbacks(new edilib::EdilibPgCallbacks(PgCpp::getPgManaged()));
     } else {
+#ifdef ENABLE_ORACLE
         edilib::EdilibDbCallbacks::setEdilibDbCallbacks(new edilib::EdilibOraCallbacks());
+#endif //ENABLE_ORACLE
     }
 }
 
@@ -245,9 +279,11 @@ void init_jxtlib_callbacks()
 {
     if (PgOra::supportsPg("CONT"))
         jxtlib::JxtlibDbCallbacks::setJxtlibDbCallbacks(new jxtlib::JxtlibDbPgCallbacks(PgCpp::getPgManaged()));
+#ifdef ENABLE_ORACLE
     else
         //default initialization in jxtlib with oracle callbacks
         jxtlib::JxtlibDbCallbacks::setJxtlibDbCallbacks(new jxtlib::JxtlibDbOraCallbacks());
+#endif //ENABLE_ORACLE
 }
 
 int init_locale(void)

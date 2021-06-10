@@ -17,10 +17,8 @@
 
 #include <serverlib/str_utils.h>
 #include <serverlib/tcl_utils.h>
-#include <serverlib/cursctl.h>
 #include <serverlib/dump_table.h>
 #include <serverlib/algo.h>
-#include <serverlib/rip_oci.h>
 #include <serverlib/dates_oci.h>
 #include <serverlib/dates_io.h>
 
@@ -641,6 +639,7 @@ void AppsManifestDTO::save(const ManifestRequest &request, const std::string& ms
                "(point_id, msg_id, msg_text) "
                "VALUES (:point_id, :msg_id, :msg_text)", PgOra::getRWSession("APPS_MANIFEST_DATA"));
     cur
+        .stb()
         .bind(":msg_id",      msg_id)
         .bind(":point_id",    request.getPointId().get())
         .bind(":msg_text",    msg_text)
@@ -811,8 +810,10 @@ Opt<AppsPaxDTO> AppsPaxDTO::load(const PaxId_t& pax_id, const AppsSettingsId_t& 
     auto cur = make_db_curs(
                readQuery + "where PAX_ID = :pax_id and SETTINGS_ID = :settings_id",
                 PgOra::getROSession("APPS_PAX_DATA"));
-    cur.bind(":pax_id", pax_id.get())
-       .bind(":settings_id", settings_id.get());
+    cur
+        .stb()
+        .bind(":pax_id", pax_id.get())
+        .bind(":settings_id", settings_id.get());
     AppsPaxDTO appsReader(cur);
     if(!appsReader.execute())
     {
@@ -1547,22 +1548,24 @@ Opt<AppsSettings> AppsSettings::readSettings(const AirlineCode_t& airline,
     bool denial;
     bool pre_checkin;
 
-    auto cur = make_curs(
+    auto cur = make_db_curs(
                "select FORMAT, ID, FLT_CLOSEOUT, INBOUND, OUTBOUND, PR_DENIAL, PRE_CHECKIN "
                "from APPS_SETS "
-               "where AIRLINE=:airline and APPS_COUNTRY=:country and PR_DENIAL=0");
+               "where AIRLINE=:airline and APPS_COUNTRY=:country and PR_DENIAL=0",
+               PgOra::getROSession("APPS_SETS"));
     cur
-            .def(format)
-            .def(id)
-            .def(flt_closeout)
-            .def(inbound)
-            .def(outbound)
-            .def(denial)
-            .def(pre_checkin)
-            .bind(":airline", airline)
-            .bind(":country", country)
-            .EXfet();
-    if(cur.err() == NO_DATA_FOUND) {
+        .stb()
+        .def(format)
+        .def(id)
+        .def(flt_closeout)
+        .def(inbound)
+        .def(outbound)
+        .def(denial)
+        .def(pre_checkin)
+        .bind(":airline", airline.get())
+        .bind(":country", country.get())
+        .EXfet();
+    if(cur.err() == DbCpp::ResultCode::NoDataFound) {
         LogTrace(TRACE5) <<  __FUNCTION__ << " NO DATA FOUND ";
         return std::nullopt;
     }
@@ -1585,23 +1588,25 @@ Opt<AppsSettings> AppsSettings::readSettings(const AppsSettingsId_t & id)
     bool denial;
     bool pre_checkin;
 
-    auto cur = make_curs(
+    auto cur = make_db_curs(
                "select FORMAT, FLT_CLOSEOUT, INBOUND, OUTBOUND, PR_DENIAL, AIRLINE, "
                "APPS_COUNTRY, PRE_CHECKIN "
                "from APPS_SETS "
-               "where ID=:id and PR_DENIAL=0");
+               "where ID=:id and PR_DENIAL=0",
+               PgOra::getROSession("APPS_SETS"));
     cur
-            .def(format)
-            .def(flt_closeout)
-            .def(inbound)
-            .def(outbound)
-            .def(denial)
-            .def(airline)
-            .def(country)
-            .def(pre_checkin)
-            .bind(":id", id.get())
-            .EXfet();
-    if(cur.err() == NO_DATA_FOUND) {
+        .stb()
+        .def(format)
+        .def(flt_closeout)
+        .def(inbound)
+        .def(outbound)
+        .def(denial)
+        .def(airline)
+        .def(country)
+        .def(pre_checkin)
+        .bind(":id", id.get())
+        .EXfet();
+    if(cur.err() == DbCpp::ResultCode::NoDataFound) {
         LogTrace(TRACE5) <<  __FUNCTION__ << " NO DATA FOUND ";
         return std::nullopt;
     }
@@ -2143,12 +2148,14 @@ void PaxRequest::ifNeedDeleteApps(const std::string& status, bool needNew, bool 
 
 bool isAlreadyCheckedIn(const PaxId_t& pax_id)
 {
-    auto cur = make_curs(
-               "select 1 from PAX where PAX_ID=:pax_id and REFUSE is null");
+    auto cur = make_db_curs(
+               "select 1 from PAX where PAX_ID=:pax_id and REFUSE is null",
+               PgOra::getROSession("PAX"));
     cur
+        .stb()
         .bind(":pax_id", pax_id.get())
         .exfet();
-    return cur.err() != NO_DATA_FOUND;
+    return cur.err() != DbCpp::ResultCode::NoDataFound;
 }
 
 Opt<AppsSettings> appsSetsForTripItem(const TAdvTripRouteItem& item)
@@ -2296,16 +2303,18 @@ public:
 Opt<PaxRequest> PaxRequest::createByPaxId(const PaxId_t& pax_id, const std::string& override_type)
 {
     LogTrace(TRACE5) << __FUNCTION__<< " pax_id: " << pax_id;
-    auto cur = make_curs(
+    auto cur = make_db_curs(
                 "select POINT_DEP, STATUS, SURNAME, NAME, PAX.GRP_ID,  AIRP_DEP, AIRP_ARV "
                 ", PERS_TYPE, IS_FEMALE, REG_NO, REFUSE "
                 "from PAX_GRP, PAX "
-                "where PAX_ID = :pax_id and PAX_GRP.GRP_ID = PAX.GRP_ID");
+                "where PAX_ID = :pax_id and PAX_GRP.GRP_ID = PAX.GRP_ID",
+                PgOra::getROSession("PAX"));
     CheckInInfo info = {};
     std::string refuse;
     int reg_no = 0;
     const int NullFemale = -1;
     cur
+        .stb()
         .def(info.point_dep)
         .def(info.status)
         .def(info.surname)
@@ -2316,10 +2325,10 @@ Opt<PaxRequest> PaxRequest::createByPaxId(const PaxId_t& pax_id, const std::stri
         .def(info.pers_type)
         .defNull(info.is_female, NullFemale)
         .def(reg_no)
-        .defNull(refuse,"")
+        .defNull(refuse, "")
         .bind(":pax_id", pax_id.get())
         .EXfet();
-    if(cur.err() == NO_DATA_FOUND) {
+    if(cur.err() == DbCpp::ResultCode::NoDataFound) {
         return std::nullopt;
     }
     Opt<TTripInfo> point_info = getPointInfo(PointId_t(info.point_dep));
@@ -2373,22 +2382,24 @@ Opt<PaxRequest> PaxRequest::createByCrsPaxId(const PaxId_t &pax_id, const std::s
     LogTrace(TRACE5) << __FUNCTION__<< " pax_id: " << pax_id;
     bool pr_del;
     CheckInInfo info;
-    auto cur = make_curs(
-               "select SURNAME, NAME, POINT_ID_SPP,  AIRP_ARV "
-               ", PERS_TYPE, PR_DEL "
-               "from CRS_PAX, CRS_PNR, TLG_BINDING "
-               "where PAX_ID = :pax_id and CRS_PAX.PNR_ID = CRS_PNR.PNR_ID and "
-               "      CRS_PNR.POINT_ID = TLG_BINDING.POINT_ID_TLG");
+    auto cur = make_db_curs(
+        "select SURNAME, NAME, POINT_ID_SPP,  AIRP_ARV "
+        ", PERS_TYPE, PR_DEL "
+        "from CRS_PAX, CRS_PNR, TLG_BINDING "
+        "where PAX_ID = :pax_id and CRS_PAX.PNR_ID = CRS_PNR.PNR_ID and "
+        "      CRS_PNR.POINT_ID = TLG_BINDING.POINT_ID_TLG",
+        PgOra::getROSession({"CRS_PAX", "CRS_PNR", "TLG_BINDING"}));
     cur
+        .stb()
         .def(info.surname)
-        .defNull(info.name,"")
+        .defNull(info.name, "")
         .def(info.point_dep)
         .def(info.airp_arv)
         .def(info.pers_type)
         .def(pr_del)
         .bind(":pax_id", pax_id.get())
         .EXfet();
-    if(cur.err() == NO_DATA_FOUND) {
+    if(cur.err() == DbCpp::ResultCode::NoDataFound) {
         return std::nullopt;
     }
     auto point_info = getPointInfo(PointId_t(info.point_dep));
@@ -2500,8 +2511,9 @@ std::vector<std::string> statusesFromDb(const PaxId_t& pax_id)
                "where PAX_ID = :pax_id order by SEND_TIME desc", PgOra::getROSession("APPS_PAX_DATA"));
     std::string status;
     cur
-        .defNull(status,"")
-        .bind(":pax_id",pax_id.get())
+        .stb()
+        .defNull(status, "")
+        .bind(":pax_id", pax_id.get())
         .exec();
 
     while(!cur.fen()) {
@@ -3037,16 +3049,18 @@ std::vector<PaxId_t> paxesToCancel(const PointId_t& point_dep, const PointId_t& 
  * Для таких пассажиров нужно послать отмену */
 
     int pax_id;
-    auto cur = make_curs("select PAX_ID from PAX_GRP, PAX "
+    auto cur = make_db_curs("select PAX_ID from PAX_GRP, PAX "
                          "where PAX_GRP.GRP_ID = PAX.GRP_ID and "
                          "PAX_GRP.POINT_DEP = :point_dep    and "
                          "PAX_GRP.POINT_ARV = :point_arv    and "
                          "(PAX.NAME is null or PAX.NAME<>'CBBG') and "
-                         "PR_BRD=0 and PAX_GRP.STATUS != 'E' " );
+                         "PR_BRD=0 and PAX_GRP.STATUS != 'E' ",
+                         PgOra::getROSession("PAX"));
     cur
+        .stb()
         .def(pax_id)
-        .bind(":point_dep", point_dep)
-        .bind(":point_arv", point_arv)
+        .bind(":point_dep", point_dep.get())
+        .bind(":point_arv", point_arv.get())
         .exec();
 
     //Возвращаем вектор pax_id по которым надо слать отмену
@@ -3063,6 +3077,7 @@ int msgIdToCancel(const PaxId_t &pax_id, const std::string & status)
                             "where PAX_ID = :pax_id and STATUS = :status and CICX_MSG_ID is NULL",
                             PgOra::getROSession("APPS_PAX_DATA"));
     cur
+        .stb()
         .def(cirq_msg_id)
         .bind(":pax_id", pax_id.get())
         .bind(":status", status)
@@ -3199,12 +3214,14 @@ void ifNeedAddTaskSendApps(const PointId_t& point_id, const std::string &task_na
 void sendInfo(const PointId_t& point_id, const PointIdTlg_t& point_id_tlg)
 {
     ProgTrace(TRACE5, "sendAPPSInfo: point_id %d, point_id_tlg: %d", point_id.get(), point_id_tlg.get());
-    auto cur = make_curs(
-               "select PAX_ID, AIRP_ARV from CRS_PNR, CRS_PAX "
-               "where CRS_PNR.PNR_ID=CRS_PAX.PNR_ID and POINT_ID=:point_id_tlg");
+    auto cur = make_db_curs(
+        "select PAX_ID, AIRP_ARV from CRS_PNR, CRS_PAX "
+        "where CRS_PNR.PNR_ID=CRS_PAX.PNR_ID and POINT_ID=:point_id_tlg",
+        PgOra::getROSession({"CRS_PAX", "CRS_PNR"}));
     std::string airp_arv;
     int pax_id;
     cur
+        .stb()
         .def(pax_id)
         .def(airp_arv)
         .bind(":point_id_tlg", point_id_tlg.get())
@@ -3224,12 +3241,13 @@ void sendInfo(const PointId_t& point_id, const PointIdTlg_t& point_id_tlg)
 void sendAllInfo(const TTripTaskKey &task)
 {
     LogTrace(TRACE5) << __FUNCTION__;
-    auto cur = make_curs(
-               "select POINT_ID_TLG "
-               "from TLG_BINDING, POINTS "
-               "where TLG_BINDING.POINT_ID_SPP=POINTS.POINT_ID and "
-               "   POINT_ID_SPP=:point_id_spp and "
-               "   POINTS.PR_DEL=0 AND POINTS.PR_REG<>0");
+    auto cur = make_db_curs(
+        "select POINT_ID_TLG "
+        "from TLG_BINDING, POINTS "
+        "where TLG_BINDING.POINT_ID_SPP=POINTS.POINT_ID and "
+        "   POINT_ID_SPP=:point_id_spp and "
+        "   POINTS.PR_DEL=0 AND POINTS.PR_REG<>0",
+        PgOra::getROSession({"POINTS", "TLG_BINDING"}));
     int point_id_tlg;
     cur
         .def(point_id_tlg)

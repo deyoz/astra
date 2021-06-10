@@ -18,7 +18,9 @@
 #include "serverlib/msg_const.h"
 #include "serverlib/monitor.h"
 #include "serverlib/sirena_queue.h"
+#ifdef ENABLE_ORACLE
 #include "serverlib/cursctl.h"
+#endif //ENABLE_ORACLE
 #include "tclmon/mespro_crypt.h"
 
 #define NICKNAME "VLAD"
@@ -111,20 +113,26 @@ class AstraApplication : public ServerFramework::ApplicationCallbacks
     {
       ServerFramework::QueryRunner query_runner (ServerFramework::TextQueryRunner());
       query_runner.getEdiHelpManager().multiMsgidMode(true);
+#ifdef ENABLE_ORACLE
       OciCpp::mainSession().set7(); //переключение в OCI8 не идет, но на всякий случай подстрахуемся!
+#endif //ENABLE_ORACLE
       int i= jxtlib::JXTLib::Instance()->GetCallbacks()->Main(body,blen,head,hlen,res,len);
       return i;
     }
     virtual void http_handle(ServerFramework::HTTP::reply& rep, const ServerFramework::HTTP::request& req)
     {
+#ifdef ENABLE_ORACLE
       OciCpp::mainSession().set7(); //это очень плохо что где-то в serverlib постоянно идет переключение на OCI8 !
+#endif // ENABLE_ORACLE
       AstraHTTP::http_main(rep, req);
     }
 
     virtual std::tuple<Grp2Head, std::vector<uint8_t>> internet_proc(const Grp2Head& head, const std::vector<uint8_t>& body) override
     {
       //ProgError(STDLOG, "OciCpp::mainSession()=%d", OciCpp::mainSession().mode());
+#ifdef ENABLE_ORACLE
       OciCpp::mainSession().set7(); //это очень плохо что где-то в serverlib постоянно идет переключение на OCI8 !
+#endif // ENABLE_ORACLE
 
       std::string shead(head.begin(), head.end());
       std::vector<uint8_t> h, abody;
@@ -144,8 +152,10 @@ class AstraApplication : public ServerFramework::ApplicationCallbacks
     virtual void connect_db()
     {
          ApplicationCallbacks::connect_db();
-      OciCpp::mainSession().set7();
+#ifdef ENABLE_ORACLE
+         OciCpp::mainSession().set7();
          OraSession.Initialize(OciCpp::mainSession().getLd() );
+#endif // ENABLE_ORACLE
     }
     virtual void on_exit(void)
     {
@@ -173,7 +183,7 @@ class AstraApplication : public ServerFramework::ApplicationCallbacks
     {
         return ::form_crypt_error(res,res_len,head,hlen,error);
     }
-#ifdef USE_MESPRO
+#if defined USE_MESPRO && defined ENABLE_ORACLE
     virtual void getMesProParams(const char *head, int hlen, int *error, MPCryptParams &params)
     {
       OciCpp::mainSession().set7();

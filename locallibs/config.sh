@@ -43,6 +43,12 @@ if [ "${ENABLE_SHARED}" = "1" ]; then
     echo not turning shared on
 fi
 
+if [ "$ORACLE_SUPPORT" = "0" ]; then
+      WITH_PARAMS="$WITH_PARAMS --disable-oracle-support"
+else
+      WITH_PARAMS="$WITH_PARAMS --enable-oracle-support"
+fi
+
 WITH_PARAMS="$WITH_PARAMS --enable-pg --enable-pg-tests"
 
 CONFIG_CACHE_FILE=`pwd`/config.cache
@@ -50,9 +56,9 @@ rm -rf $CONFIG_CACHE_FILE
 for i in $@; do
     if [ -f $i/Makefile ] ; then
     	(cd $i && make distclean) || echo 'make distclean failed. Probably not configured before.'
-    fi 
-    ORA_PARAMS=$WITH_ORACLE_PARAMS   
+    fi
+    ORA_PARAMS=$WITH_ORACLE_PARAMS
     [[ $i == libjms ]] && ORA_PARAMS='--without-oracle'
-    
-    (cd $i && ./Config -f $WITH_PARAMS $ORA_PARAMS --cache-file=$CONFIG_CACHE_FILE) || exit 1    
+
+    (cd $i && ./Config -f $WITH_PARAMS $ORA_PARAMS --cache-file=$CONFIG_CACHE_FILE) || exit 1
 done

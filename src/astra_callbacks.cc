@@ -40,7 +40,6 @@
 #include "jxtlib/jxtlib.h"
 #include "serverlib/msg_const.h"
 #include "serverlib/query_runner.h"
-#include "serverlib/ocilocal.h"
 #include "serverlib/perfom.h"
 #include "external_spp_synch.h"
 #include "rfisc_sirena.h"

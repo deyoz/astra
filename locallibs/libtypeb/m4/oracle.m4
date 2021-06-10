@@ -78,6 +78,28 @@ AC_DEFUN([MRJ_CHECK_ORACLE],
   ora_ldflags=
   ora_lib=-lclntsh
 
+  AC_ARG_ENABLE([oracle-support],
+    [
+      AS_HELP_STRING([--enable-oracle-support],[Enable Oracle support @<:@default=no@:>@])
+    ],
+    [
+      AS_CASE(
+        ${enableval}, [yes], [], [no], [],
+        [AC_MSG_ERROR([bad value ${enableval} for --enable-oracle-support])]
+      )
+      if test $enableval = no; then
+        have_oracle=no
+        enable_oracle_support=no
+      elif test $enableval != yes; then
+        enable_oracle_support=yes
+      fi
+    ],
+    [
+      enable_oracle_support=no
+      have_oracle=no
+    ]
+  )
+
   if test $have_oracle = no; then
     dnl yeah, this is backwards.
     AC_DEFINE(TO_NO_ORACLE, 1, [Define if you do _not_ have Oracle.])

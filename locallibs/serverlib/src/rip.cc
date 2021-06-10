@@ -23,6 +23,7 @@ void init_right_parameters()
 }
 
 #ifndef ENABLE_PG_TESTS
+#ifdef ENABLE_ORACLE
 #ifdef XP_TESTING
 #include "rip_oci.h"
 #include "oci_row.h"
@@ -208,4 +209,5 @@ TCASEFINISH
 } // namespace
 
 #endif /* XP_TESTING */
+#endif /* ENABLE_ORACLE */
 #endif /*ENABLE_PG_TESTS*/

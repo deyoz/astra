@@ -8,7 +8,9 @@
 #include "tcl_utils.h"
 #include "smtp.h"
 #include "dates.h"
+#ifdef ENABLE_ORACLE
 #include "cursctl.h"
+#endif /* ENABLE_ORACLE */
 #include "helpcpp.h"
 #include "ourtime.h"
 #include "new_daemon.h"
@@ -139,10 +141,16 @@ namespace SMTP {
     EmailMsgDbCallbacks *EmailHandler::_callbacks = 0;
     EmailMsgDbCallbacks *EmailHandler::callbacks()
     {
-        if(_callbacks == 0)
+        if(_callbacks == 0) {
+#ifdef ENABLE_ORACLE
             _callbacks = new EmailMsgDbOraCallbacks(0,0,0);
+#else // ENABLE_ORACLE
+            throw std::runtime_error("EmailHandler::callbacks called without oracle support");
+#endif // ENABLE_ORACLE
+        }
         return _callbacks;
     }
+    
     void EmailHandler::setCallbacks(EmailMsgDbCallbacks *callbacks)
     {
         if(_callbacks)

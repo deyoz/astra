@@ -5,7 +5,6 @@
 #include <boost/regex.hpp>
 
 #include <serverlib/helpcpp.h>
-#include <serverlib/cursctl.h>
 #include <serverlib/str_utils.h>
 #include "etick/tick_data.h"
 

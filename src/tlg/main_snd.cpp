@@ -513,8 +513,7 @@ bool scan_tlg(bool sendOutAStepByStep)
 #include <serverlib/timer.h>
 #include <serverlib/dbcpp_cursctl.h>
 #include <serverlib/pg_cursctl.h>
-#include <serverlib/cursctl.h>
-#include <serverlib/ocilocal.h>
+
 #include <serverlib/dbcpp_session.h>
 #include <random>
 

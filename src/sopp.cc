@@ -49,7 +49,6 @@
 #include "comp_layers.h"
 #include "iapi_interaction.h"
 #include "check_grp_unification.h"
-#include "serverlib/cursctl.h"
 #include "gtimer.h"
 #include "PgOraConfig.h"
 

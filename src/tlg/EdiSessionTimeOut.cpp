@@ -17,7 +17,7 @@
 
 #include <edilib/edi_func_cpp.h>
 #include <edilib/edi_session.h>
-#include <serverlib/ocilocal.h>
+// #include <serverlib/ocilocal.h>
 
 #include <boost/scoped_ptr.hpp>
 

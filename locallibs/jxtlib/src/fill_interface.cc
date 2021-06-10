@@ -10,7 +10,6 @@
 #include <algorithm>
 #include "jxtlib_db_callbacks.h"
 
-#include <serverlib/cursctl.h>
 #include "xml_tools.h"
 #include "xmllibcpp.h"
 #include "xml_cpp.h"
@@ -18,6 +17,10 @@
 
 #define NICKNAME "MIKHAIL"
 #include <serverlib/slogger.h>
+
+#ifdef ENABLE_ORACLE
+#include <serverlib/cursctl.h>
+#endif
 
 using namespace std;
 
@@ -265,8 +268,11 @@ static bool doAllSql(const std::string& filename)
             descr += tmp += "\n";
     }
     in.close();
-
+#ifdef ENABLE_ORACLE
     OciCpp::CursCtl("begin\n" + descr + "end;").exec();
+#else
+    throw std::runtime_error("doAllSql: cannot call OciCpp::CursCtl");
+#endif
     return true;
 }
 

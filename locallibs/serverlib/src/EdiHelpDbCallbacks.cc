@@ -1,5 +1,8 @@
 #include "serverlib/EdiHelpDbCallbacks.h"
+
+#ifdef ENABLE_ORACLE
 #include "serverlib/EdiHelpDbOraCallbacks.h"
+#endif
 #include "serverlib/EdiHelpDbPgCallbacks.h"
 
 #include "serverlib/tcl_utils.h"
@@ -36,7 +39,11 @@ EdiHelpDbCallbacks *EdiHelpDbCallbacks::instance()
         if(usePg()) {
             EdiHelpDbCallbacks::Instance = new EdiHelpDbPgCallbacks(getPgManaged());
         } else {
-            EdiHelpDbCallbacks::Instance = new EdiHelpDbOraCallbacks();
+#ifdef ENABLE_ORACLE
+         EdiHelpDbCallbacks::Instance = new EdiHelpDbOraCallbacks();
+#else // ENABLE_ORACLE
+        throw std::runtime_error("EdiHelpDbCallbacks::instance called in non-oracle build");
+#endif // ENABLE_ORACLE
         }
     }
     return Instance;

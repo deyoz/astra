@@ -176,7 +176,7 @@ static unsigned leftover_edihelp(PgCpp::SessionDescriptor sd, const InternalMsgI
     return count;
 }
 
-boost::optional<ConfirmInfo> EdiHelpDbPgCallbacks::confirm_notify_oraside(const char *pult, int session_id) const
+boost::optional<ConfirmInfo> EdiHelpDbPgCallbacks::confirm_notify_dbside(const char *pult, int session_id) const
 {
     LogTrace(TRACE3) << __FUNCTION__ << '(' << pult << ", " << session_id << ')';
 
@@ -210,7 +210,7 @@ boost::optional<ConfirmInfo> EdiHelpDbPgCallbacks::confirm_notify_oraside(const 
     }
 }
 
-boost::optional<ConfirmInfo> EdiHelpDbPgCallbacks::confirm_notify_oraside(
+boost::optional<ConfirmInfo> EdiHelpDbPgCallbacks::confirm_notify_dbside(
         const InternalMsgId& msgid, int session_id, const std::string &instance_name) const
 {
     LogTrace(TRACE3) << __FUNCTION__ << '(' << msgid << ", " << session_id << ')';

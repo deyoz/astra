@@ -6,7 +6,6 @@
 #include "astra_consts.h"
 #include "astra_types.h"
 #include "brands.h"
-#include <serverlib/cursctl.h>
 
 namespace DCSServiceApplying
 {
@@ -61,7 +60,7 @@ class Setting
       return result;
     }
 
-    static void curDef(OciCpp::CursCtl& cur, Setting& setting)
+    static void curDef(DbCpp::CursCtl& cur, Setting& setting)
     {
       cur.def(setting.id)
          .defNull(setting.brand_airline, "")

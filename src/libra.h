@@ -2,7 +2,6 @@
 
 #include "xml_unit.h"
 
-#include <serverlib/oci8.h>
 #include <serverlib/str_utils.h>
 #include <jxtlib/JxtInterface.h>
 

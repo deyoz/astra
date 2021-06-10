@@ -1,6 +1,6 @@
 #ifdef ENABLE_PG
 #include "smtp_dbpg_callbacks.h"
-#include "serverlib/cursctl.h"
+#include <cstring>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 #include "serverlib/dates.h"
 #include "serverlib/pg_cursctl.h"

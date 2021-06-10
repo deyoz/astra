@@ -30,8 +30,8 @@ class EdiHelpDbCallbacks
 {
     static EdiHelpDbCallbacks *Instance;
 public:
-    virtual boost::optional<ConfirmInfo> confirm_notify_oraside(const char *pult, int session_id) const = 0;
-    virtual boost::optional<ConfirmInfo> confirm_notify_oraside(const InternalMsgId& msgid, int session_id,
+    virtual boost::optional<ConfirmInfo> confirm_notify_dbside(const char *pult, int session_id) const = 0;
+    virtual boost::optional<ConfirmInfo> confirm_notify_dbside(const InternalMsgId& msgid, int session_id,
                                                                 const std::string &instance_name) const = 0;
     virtual std::list<EdiHelp> select_all(const char *pult) const = 0;
     virtual std::list<EdiHelp> select_all(const InternalMsgId& msgid) const = 0;

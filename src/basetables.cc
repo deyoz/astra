@@ -16,7 +16,6 @@ char const* const CompanyExceptionConf::thing="company";
 char const* const CountryExceptionConf::thing="country";
 char const* const RouterExceptionConf::thing ="router";
 
-
 #define __INIT_BT_TAB__(T) \
 template <> std::set<CacheData<T>::cache_elem,CacheData<T>::cache_elem_comp>\
         CacheData<T>::cache = std::set<CacheData<T>::cache_elem,CacheData<T>::cache_elem_comp>();\
@@ -217,6 +216,8 @@ Router_impl::Router_impl(IdaType ida)
 
     if(c.err() != DbCpp::ResultCode::NoDataFound) {
         closed_ = 0;
+    } else {
+        LogTrace(TRACE3) << "c.err() == " << c.err() << " ida = " << ida << " canon_name_ = " << canon_name_;
     }
 
     IsH2h_    = (H2H != 0);

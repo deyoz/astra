@@ -2,7 +2,7 @@ AC_INIT([serverlib], [0.1])
 ##AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE
 
-if test "x$LIBROOT" = "x" ; then 
+if test "x$LIBROOT" = "x" ; then
     export LIBROOT=$HOME
 fi
 echo "use LIBROOT=$LIBROOT"
@@ -43,7 +43,7 @@ fi
 if ! test "$WITH_MESPRO" = ""; then
     AC_SUBST(MESPRO_CFLAGS, ["$MESPRO_CFLAGS"])
     AC_SUBST(MESPRO_CXXFLAGS, ["$MESPRO_CXXFLAGS"])
-    AC_SUBST(MESPRO_LDFLAGS, ["$MESPRO_LDFLAGS"])        
+    AC_SUBST(MESPRO_LDFLAGS, ["$MESPRO_LDFLAGS"])
 fi
 
 CHECK_TCL
@@ -57,10 +57,15 @@ MRJ_CHECK_GLIBCXX_DEBUG
 PKG_CHECK_MODULES([AMQP_CPP], [amqp-cpp > 4], have_amqp_cpp=true, have_amqp_cpp=false)
 AS_IF(["$have_amqp_cpp"], [ AC_DEFINE([HAVE_AMQP_CPP], [1], [Have amqp-cpp library])])
 AM_CONDITIONAL([HAVE_AMQP_CPP], ["$have_amqp_cpp"])
+AM_CONDITIONAL([ENABLE_ORACLE], [test x$enable_oracle_support = xyes])
+
+if test x$enable_oracle_support; then
+    ENABLE_ORACLE="-DENABLE_ORACLE"
+fi
 
 AC_ARG_ENABLE([xp-testing],
               [AS_HELP_STRING([--enable-xp-testing],[Enable xp-testing])],
-              [ 
+              [
                   [if test x$no_check != xyes; then enable_xp_testing=yes; fi]
                   AM_CONDITIONAL([XP_TESTING], [test x$enable_xp_testing = xyes])
               ],\
@@ -75,7 +80,7 @@ PKG_CHECK_MODULES([MEMCACHED], [libmemcached >= 1],
                   [AC_MSG_NOTICE(libmemcached not found)])
 PKG_CHECK_MODULES(XML, libxml-2.0, [AC_MSG_NOTICE($XML_LIBS)], AC_MSG_ERROR([libxml2 not found]))
 PKG_CHECK_MODULES(XSLT, libxslt, [AC_MSG_NOTICE($XSLT_LIBS)], AC_MSG_ERROR([libxslt not found]))
-PKG_CHECK_MODULES(ZLIB, zlib, 
+PKG_CHECK_MODULES(ZLIB, zlib,
               [
                  AC_MSG_NOTICE($ZLIB_LIBS)
                  AC_DEFINE(WITH_ZLIB, , [zlib enabled])
@@ -127,8 +132,8 @@ AX_CXX_FLAG_CHECK_ADD(["-Werror=c++11-narrowing"], [ALLWARNX])
 
 ALLWARN="-g -pipe -Wall -Wextra -Werror=format -Wno-error=format-security -Wno-error=format-nonliteral -Wtype-limits -Werror=uninitialized -Werror=init-self -Werror=return-type -Wempty-body -Werror=switch"
 ALLWARNC="" # -std=c99
-CXXFLAGS="$CFLAGS $ALLWARN $ALLWARNX $ENABLE_PG $ENABLE_PG_TESTS $MY_LOCAL_CFLAGS"
-CFLAGS="$CFLAGS $ALLWARN $ALLWARNC $ENABLE_PG $MY_LOCAL_CFLAGS"
+CXXFLAGS="$CFLAGS $ALLWARN $ALLWARNX $ENABLE_PG $ENABLE_ORACLE $ENABLE_PG_TESTS $MY_LOCAL_CFLAGS"
+CFLAGS="$CFLAGS $ALLWARN $ALLWARNC $ENABLE_PG $ENABLE_ORACLE $MY_LOCAL_CFLAGS"
 
 AC_SUBST(PLATFORM_FLAG, ["-${PLATFORM:-pipe}"])
 AC_SUBST(SERVERLIB_CFLAGS, ["$CFLAGS"])
@@ -141,7 +146,7 @@ if ! test -d lib ; then
     mkdir lib
     cd lib
     ln -s ../src/libserver.la libserver.la
-elif ! test -f lib/libserver.la ; then 
+elif ! test -f lib/libserver.la ; then
     cd lib
     ln -s ../src/libserver.la libserver.la
 fi
@@ -149,10 +154,10 @@ fi
 #rm -f src/rsyslog.conf
 #sed -s "s/LOGDIR/$PWD/g" src/rsyslog.conf.in > src/rsyslog.conf
 
-echo 
+echo
 echo Configuration for $PACKAGE $VERSION :
 echo --------------------------------
-echo 
+echo
 echo Source code location ....: $srcdir
 echo Host System Type ........: $host
 echo CFLAGS  .................: $CFLAGS
@@ -162,6 +167,12 @@ if test x$enable_xp_testing = xyes; then
 fi
 if test x$enable_pg = xyes; then
     echo PostgreSQL enabled
+fi
+
+if test x$enable_oracle_support; then
+    echo ORACLE enabled
+else
+    echo "================ ORACLE NOT enabled ================"
 fi
 echo Now type 'make' to build $PACKAGE $VERSION
 echo

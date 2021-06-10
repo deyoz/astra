@@ -9,7 +9,9 @@
 #include "func_placeholders.h"
 #include "exception.h"
 #include "profiler.h"
+#ifdef ENABLE_ORACLE
 #include "cursctl.h"
+#endif
 #include "helpcpp.h"
 #include "string_cast.h"
 #include "helpcppheavy.h"
@@ -284,6 +286,7 @@ static std::string FP_sql(const std::vector<tok::Param>& params)
                 cur.exec();
                 rowcount = cur.rowcount();
             } else {
+#ifdef ENABLE_ORACLE
                 if (session.empty()) {
                     OciCpp::CursCtl cur = make_curs(params[i].value);
                     cur.exec();
@@ -293,6 +296,9 @@ static std::string FP_sql(const std::vector<tok::Param>& params)
                     cur.exec();
                     rowcount = cur.rowcount();
                 }
+#else
+                throw std::runtime_error("No oracle support");
+#endif
             }
             os << "\n" << rowcount << " rows processed";
         }
@@ -309,6 +315,7 @@ static std::string FP_sql(const std::vector<tok::Param>& params)
 template<typename DumpTable>
 std::shared_ptr<DumpTable> getDumpTable(const std::string& session, const std::string& tableName);
 
+#ifdef ENABLE_ORACLE
 template<>
 std::shared_ptr<ServerFramework::OraDumpTable> getDumpTable<ServerFramework::OraDumpTable>(
         const std::string& session, const std::string& tableName)
@@ -317,6 +324,7 @@ std::shared_ptr<ServerFramework::OraDumpTable> getDumpTable<ServerFramework::Ora
               ? std::make_shared<ServerFramework::OraDumpTable>(tableName)
               : std::make_shared<ServerFramework::OraDumpTable>(OciCpp::getSession(session), tableName);
 }
+#endif //ENABLE_ORACLE
 
 template<>
 std::shared_ptr<ServerFramework::PgDumpTable> getDumpTable<ServerFramework::PgDumpTable>(
@@ -375,10 +383,12 @@ static std::string dump_table(const std::vector<tok::Param>& params)
     return answer;
 }
 
+#ifdef ENABLE_ORACLE
 static std::string FP_dump_table(const std::vector<tok::Param>& params)
 {
     return dump_table<ServerFramework::OraDumpTable>(params);
 }
+#endif //ENABLE_ORACLE
 
 static std::string FP_pg_dump_table(const std::vector<tok::Param>& params)
 {
@@ -390,6 +400,7 @@ static std::string FP_db_dump_table(const std::vector<tok::Param>& params)
     return dump_table<ServerFramework::DbDumpTable>(params);
 }
 
+#ifdef ENABLE_ORACLE
 static std::string FP_savepoint(const std::vector<std::string>& p)
 {
     ASSERT(p.size() == 1 || p.size() == 2);
@@ -463,6 +474,8 @@ static std::string FP_edi_help(const std::vector<std::string> &args)
 
     return res.str().substr(1);
 }
+
+#endif /* ENABLE_ORACLE */
 
 static std::string FP_start_prof(const std::vector<std::string>& p)
 {
@@ -729,7 +742,7 @@ static std::string FP_rpad(const std::vector<std::string>& p)
 static std::string FP_replace(const std::vector<std::string> &p)
 {
     ASSERT(p.size() == 3);
-    return StrUtils::replaceSubstrCopy(p[0], p[1], p[2]);   
+    return StrUtils::replaceSubstrCopy(p[0], p[1], p[2]);
 }
 
 static std::string FP_length(const std::vector<std::string>& p)
@@ -830,13 +843,15 @@ FP_REGISTER("-", FP_minus)
 FP_REGISTER("if", FP_if);
 FP_REGISTER("eq", FP_eq);
 FP_REGISTER("cat", FP_cat)
+FP_REGISTER("pg_dump_table", FP_db_dump_table)
+#ifdef ENABLE_ORACLE
 FP_REGISTER("sql",  FP_sql)
 FP_REGISTER("dump_table", FP_dump_table)
-FP_REGISTER("pg_dump_table", FP_db_dump_table)
 FP_REGISTER("savepoint", FP_savepoint)
 FP_REGISTER("clean_edi_help", FP_clean_edi_help)
 FP_REGISTER("clear_edi_help", FP_clear_edi_help)
 FP_REGISTER("edi_help",  FP_edi_help)
+#endif //ENABLE_ORACLE
 FP_REGISTER("start_prof", FP_start_prof)
 FP_REGISTER("stop_prof", FP_stop_prof)
 FP_REGISTER("ddhhmi", FP_ddhhmi)

@@ -7,7 +7,6 @@
 #include "astra_types.h"
 #include "brands.h"
 #include "remarks.h"
-#include <serverlib/cursctl.h>
 
 namespace PaxConfirmations
 {
@@ -92,7 +91,7 @@ class Setting
       return result;
     }
 
-    static void curDef(OciCpp::CursCtl& cur, Setting& setting)
+    static void curDef(DbCpp::CursCtl& cur, Setting& setting)
     {
       cur.def(setting.id)
          .defNull(setting.rfisc, "")
