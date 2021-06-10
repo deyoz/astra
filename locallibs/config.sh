@@ -43,7 +43,7 @@ if [ "${ENABLE_SHARED}" = "1" ]; then
     echo not turning shared on
 fi
 
-if [ "$ORACLE_SUPPORT" = "0" ]; then
+if [ "$ENABLE_ORACLE" = "0" ]; then
       WITH_PARAMS="$WITH_PARAMS --disable-oracle-support"
 else
       WITH_PARAMS="$WITH_PARAMS --enable-oracle-support"

@@ -1,4 +1,4 @@
-#!/bin/sh 
+#!/bin/sh
 
 if [ -f locallibs/external_env_file ]; then . locallibs/external_env_file; fi
 
@@ -32,7 +32,7 @@ fi
 if [ "$BUILD_TESTS" = "1" ]; then
       WITH_PARAMS="$WITH_PARAMS --enable-xp-testing"
 fi
-if [ "$ORACLE_SUPPORT" = "1" ]; then
+if [ "$ENABLE_ORACLE" = "1" ]; then
       WITH_PARAMS="$WITH_PARAMS --enable-oracle-support"
 fi
 
