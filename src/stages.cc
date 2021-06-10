@@ -22,7 +22,6 @@
 #include "apps_interaction.h"
 #include "etick.h"
 #include "counters.h"
-#include "gtimer.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -317,7 +316,7 @@ void TTripStages::WriteStagesUTC( int point_id, TMapTripStages &ts )
          "pr_auto = CASE :pr_auto WHEN -1 THEN pr_auto ELSE :pr_auto END, "
          "pr_manual = CASE :pr_manual WHEN -1 THEN pr_manual ELSE :pr_manual END "
      "WHERE point_id = :point_id "
-       "AND stage_id = :stage_id"
+       "AND stage_id = :stage_id; "
    : "BEGIN "
          "UPDATE trip_stages "
          "SET est = :est, act = :act, "
@@ -427,8 +426,13 @@ void TTripStages::WriteStagesUTC( int point_id, TMapTripStages &ts )
       params << PrmLexema("act_time", "EVT.UNKNOWN");
     reqInfo->LocaleToLog(lexema_id, params, evtGraph, point_id, (int)stage );
   }
-
-  gtimer::sync_trip_final_stages(point_id);
+  TQuery syncTripFinalStagesQry( &OraSession );
+  syncTripFinalStagesQry.SQLText =
+    "BEGIN "
+    "  gtimer.sync_trip_final_stages(:point_id); "
+    "END;";
+  syncTripFinalStagesQry.CreateVariable( "point_id", otInteger, point_id );
+  syncTripFinalStagesQry.Execute();
 }
 
 std::string findAirpFromPoints(int point_id)
@@ -1050,7 +1054,15 @@ void astra_timer( TDateTime utcdate )
    "      trip_stages.time_auto_not_act >= :now - 3 "
    " ORDER BY trip_stages.point_id, trip_stages.stage_id ";
   Qry.CreateVariable( "now", otDate, utcdate );
-
+  TQuery QExecStage(&OraSession);
+  QExecStage.SQLText =
+   "BEGIN "
+   " :exec_stage := gtimer.ExecStage(:point_id,:stage_id,:act);"
+   "END;";
+  QExecStage.DeclareVariable( "point_id", otInteger );
+  QExecStage.DeclareVariable( "stage_id", otInteger );
+  QExecStage.DeclareVariable( "exec_stage", otInteger );
+  QExecStage.DeclareVariable( "act", otDate );
   bool pr_exit = false;
   int count=0;
 
@@ -1070,14 +1082,16 @@ void astra_timer( TDateTime utcdate )
       TFlights flightsForLock;
       flightsForLock.Get( point_id, ftTranzit );
       flightsForLock.Lock(__FUNCTION__);
+        QExecStage.SetVariable( "point_id", point_id );
+        QExecStage.SetVariable( "stage_id", stage_id );
       TDateTime execTime2 = NowUTC();
       bool pr_exec_stage = false;
       try {
-          Dates::DateTime_t b_act_stage;
-          pr_exec_stage = gtimer::execStage(point_id, TStage(stage_id), b_act_stage); // признак того должен ли выполниться шаг + отметка о выполнении шага тех. графика
+          QExecStage.Execute(); // признак того должен ли выполниться шаг + отметка о выполнении шага тех. графика
           if ( NowUTC() - execTime2 > 1.0/(1440.0*60) )
               ProgTrace( TRACE5, "Attention execute QCanStage time > 1 sec !!!, time=%s, count=%d", DateTimeToStr( NowUTC() - execTime2, "nn:ss" ).c_str(), count );
-          TDateTime act_stage = BoostToDateTime(b_act_stage);
+          pr_exec_stage = QExecStage.GetVariableAsInteger( "exec_stage" );
+          TDateTime act_stage = QExecStage.GetVariableAsDateTime( "act" );
           if ( pr_exec_stage ) {
               // запись в лог о выполнении шага
           TReqInfo::Instance()->LocaleToLog( "EVT.STAGE.COMPLETED_ACT_TIME", LEvntPrms() << PrmStage("stage", (TStage)stage_id, airp)

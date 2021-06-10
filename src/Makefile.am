@@ -108,7 +108,6 @@ astra_SOURCES = \
   flt_settings.cc \
   flt_tasks_daemon.cc \
   file_queue.cc \
-  gtimer.cc \
   hist.cc \
   http_io.cpp \
   http_main.cc \
