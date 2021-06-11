@@ -5628,7 +5628,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       {
         if (segList.needCopyBaggage(GrpId_t(grp.id), trfer.size()))
           //запросом записываем в остальные группы багаж, бирки, ценный багаж
-          CheckIn::TGroupBagItem::copyDB(GrpId_t(AfterSaveInfo.segs.front().grp_id), GrpId_t(grp.id));
+          CheckIn::TGroupBagItem::copyDB(GrpId_t(AfterSaveInfo.segs.front().grp_id), GrpId_t(grp.id), PointId_t(grp.point_dep));
 
         if (!unknown_concept)
         {

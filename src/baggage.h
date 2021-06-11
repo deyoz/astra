@@ -345,7 +345,7 @@ class TGroupBagItem
     static void checkTagUniquenessOnFlight(int grp_id);
     static void copyPaxPool(const GrpId_t& src, const GrpId_t& dest);
     static void copyPaxPool(const std::list<TCkinRouteInsertItem> &tckinGroups);
-    static void copyDB(const GrpId_t& src, const GrpId_t& dest);
+    static void copyDB(const GrpId_t& src, const GrpId_t& dest, const PointId_t& point_dest);
 };
 
 bool unknownTagTypeOnFlight(int point_id);

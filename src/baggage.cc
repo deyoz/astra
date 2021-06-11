@@ -1246,7 +1246,7 @@ void TGroupBagItem::copyPaxPool(const std::list<TCkinRouteInsertItem> &tckinGrou
     copyPaxPool(tckinGroups.front().grpId, i.grpId);
 }
 
-void TGroupBagItem::copyDB(const GrpId_t& src, const GrpId_t& dest)
+void TGroupBagItem::copyDB(const GrpId_t& src, const GrpId_t& dest, const PointId_t& point_dest)
 {
   if (src==dest) return;
 
@@ -1264,10 +1264,10 @@ void TGroupBagItem::copyDB(const GrpId_t& src, const GrpId_t& dest)
                      "    list_id, bag_type_str, service_type, airline, point_dep) "
                      "  SELECT :grp_id_dest,num,id,bag_type,rfisc,pr_cabin,amount,weight,value_bag_num, "
                      "    pr_liab_limit,0,using_scales,bag_pool_num,hall,user_id,desk,time_create,1,0, "
-                     "    list_id, bag_type_str, service_type, airline, point_dep "
+                     "    list_id, bag_type_str, service_type, airline, :point_id_dest "
                      "  FROM bag2 WHERE grp_id=:grp_id_src; "
                      "  INSERT INTO bag_tags(grp_id,num,tag_type,no,color,bag_num,pr_print,point_dep) "
-                     "  SELECT :grp_id_dest,num,tag_type,no,color,bag_num,pr_print,point_dep "
+                     "  SELECT :grp_id_dest,num,tag_type,no,color,bag_num,pr_print, :point_id_dest "
                      "  FROM bag_tags WHERE grp_id=:grp_id_src; "
                      "  INSERT INTO unaccomp_bag_info(grp_id,num,original_tag_no,surname,name,airline,flt_no,suffix,scd) "
                      "  SELECT :grp_id_dest,num,original_tag_no,surname,name,airline,flt_no,suffix,scd "
@@ -1278,6 +1278,7 @@ void TGroupBagItem::copyDB(const GrpId_t& src, const GrpId_t& dest)
       .stb()
       .bind(":grp_id_src", src.get())
       .bind(":grp_id_dest", dest.get())
+      .bind(":point_id_dest", point_dest.get())
       .exec();
 
   copyPaxPool(src, dest);
