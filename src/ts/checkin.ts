@@ -1652,6 +1652,11 @@ $(PAX_LIST_2CREWMEN $(get http_user_id) $(get point_dep) $(get point_arv)
 
 #########################################################################################
 ### регистрируем экипаж разными группами и меняем фамилии
+### попутно проверяем конвертацию а/к, а/п на основе таблиц CONVERT_...
+
+$(db_sql convert_airps {INSERT INTO convert_airps(system_name, code_external, code_internal) VALUES('MERIDIAN', 'SRO', 'СРО')})
+$(db_sql convert_airps {INSERT INTO convert_airps(system_name, code_external, code_internal) VALUES('MERIDIAN', 'ДМЕ', 'ДМД')})
+$(db_sql convert_airlines {INSERT INTO convert_airlines(system_name, code_external, code_internal) VALUES('MERIDIAN', 'САРТВ', '6В')})
 
 !! capture=on http_heading=$(get http_heading)
 <?xml version='1.0' encoding='CP866'?>
@@ -1659,15 +1664,15 @@ $(PAX_LIST_2CREWMEN $(get http_user_id) $(get point_dep) $(get point_arv)
   <query lang='RU'>
     <CREWCHECKIN>
       <FLIGHT>
-        <AIRLINE>6W</AIRLINE>
+        <AIRLINE>САРТВ</AIRLINE>
         <FLT_NO>776</FLT_NO>
         <SUFFIX/>
         <SCD>$(get tomor)</SCD>
-        <AIRP_DEP>RTW</AIRP_DEP>
+        <AIRP_DEP>SRO</AIRP_DEP>
       </FLIGHT>
       <CREW_GROUPS>
         <CREW_GROUP>
-          <AIRP_ARV>DME</AIRP_ARV>
+          <AIRP_ARV>ДМЕ</AIRP_ARV>
           <CREW_MEMBERS>
             <CREW_MEMBER>
                 <CREW_TYPE>CR1</CREW_TYPE>

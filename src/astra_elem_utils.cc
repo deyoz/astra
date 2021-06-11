@@ -19,7 +19,7 @@ using namespace EXCEPTIONS;
 string airl_fromXML(xmlNodePtr node, TCheckFieldFromXML check_type, const string &trace_info, const string &system_name)
 {
   if (node==NULL) throw EXCEPTIONS::Exception("%s: airl_fromXML(node==NULL)!", trace_info.c_str());
-  return airl_fromXML(NodeAsString(node), check_type, trace_info, (const char*)(node->name));
+  return airl_fromXML(NodeAsString(node), check_type, trace_info, (const char*)(node->name), system_name);
 }
 
 string airl_fromXML(const string &value, TCheckFieldFromXML check_type, const string &trace_info, const string &node_name, const string &system_name)
