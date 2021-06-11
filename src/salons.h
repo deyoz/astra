@@ -109,9 +109,9 @@ struct TSalonPoint {
     int y;
     int num;
     TSalonPoint() {
-        x = 0;
-        y = 0;
-        num = 0;
+        x = ASTRA::NoExists;
+        y = ASTRA::NoExists;
+        num = ASTRA::NoExists;
     }
     TSalonPoint( int ax, int ay, int anum ) {
         x = ax;
@@ -124,16 +124,21 @@ struct TSalonPoint {
              num == value.num );
     }
     bool operator < ( const TSalonPoint &value ) const {
-    if ( num != value.num ) {
-      return ( num < value.num );
+      if ( num != value.num ) {
+        return ( num < value.num );
+      }
+      if ( y != value.y ) {
+        return( y < value.y );
+      }
+      if ( x != value.x ) {
+        return ( x < value.x );
+      }
+      return false;
     }
-    if ( y != value.y ) {
-      return( y < value.y );
-    }
-    if ( x != value.x ) {
-      return ( x < value.x );
-    }
-    return false;
+    bool isEmpty() const {
+      return ( x == ASTRA::NoExists ||
+               y == ASTRA::NoExists ||
+               num == ASTRA::NoExists );
     }
 };
 
@@ -1106,26 +1111,31 @@ struct TCompSectionLayers {
 
 class TPlaceList {
   private:
+    std::map<std::string,TPoint> CacheSeatName;
     std::vector<std::string> xs, ys;
   public:
     TPlaces places;
     int num;
     TPlace *place( int idx );
-    TPlace *place( TPoint &p );
-    int GetPlaceIndex( TPoint &p );
+    TPlace *place( const TPoint &p );
+    int GetPlaceIndex( const TPoint &p );
     int GetPlaceIndex( int x, int y );
     int GetXsCount();
     int GetYsCount();
-    bool ValidPlace( TPoint &p );
-    std::string GetPlaceName( TPoint &p );
+    bool ValidPlace( const TPoint &p );
+    std::string GetPlaceName( const TPoint &p );
     std::string GetXsName( int x );
     std::string GetYsName( int y );
-    bool GetisPlaceXY( std::string placeName, TPoint &p );
+    bool GetIsPlaceXY( const std::string& placeName, TPoint &p );
+    bool GetIsNormalizePlaceXY( const std::string& xname,
+                                const std::string& yname,
+                                TSalonPoint &p );
     int Add( TPlace &pl );
     void clearSeats() {
       places.clear();
       xs.clear();
       ys.clear();
+      CacheSeatName.clear();
     }
     bool isEmpty() {
       return places.empty();
@@ -1683,14 +1693,6 @@ class TPropsPoints: public std::vector<TPointInRoute> {
 
 typedef std::pair<int,TPlace> TSalonSeat;
 
-class TSalonChanges: public std::vector<TSalonSeat> {
-  public:
-    TRFISCMode RFISCMode;
-    TSalonChanges( ) {
-      this->RFISCMode = rTariff;
-    }
-};
-
 class CraftSeats: public std::vector<TPlaceList*> {
   public:
     void Clear();
@@ -1860,8 +1862,34 @@ class TSalonList {
     void getLayerPlacesCompSection( TCompSection &compSection,
                                     std::map<ASTRA::TCompLayerType, TPlaces> &uselayers_places,
                                     int &seats_count );
-
 };
+
+class TSalonChanges: public std::vector<TSalonSeat> {
+  private:
+    TRFISCMode _RFISCMode;
+    int _point_dep;
+  public:
+    TSalonChanges( int point_dep, TRFISCMode RFISCMode ) {
+      _point_dep = point_dep;
+      _RFISCMode = RFISCMode;
+    }
+    TSalonChanges( ) {
+      _point_dep = ASTRA::NoExists;
+      _RFISCMode = rTariff;
+    }
+    TRFISCMode RFISCMode() const {
+      return _RFISCMode;
+    }
+    void setRFISCMode( TRFISCMode RFISCMode ) {
+      _RFISCMode = RFISCMode;
+    }
+    //если false - то не смогли сравнить, требуется перечитка всего салона
+    TSalonChanges& get( const TSalonList& oldSalon,
+                        const TSalonList& newSalon );
+    void toXML(xmlNodePtr dataNode, bool pr_lat_seat,
+               const std::optional<std::map<int,TPaxList> >& pax_list );
+};
+
 
 class TAdjustmentRows: public adjustmentIndexRow {
   public:

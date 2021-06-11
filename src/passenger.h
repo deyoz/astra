@@ -742,7 +742,7 @@ class TSimplePaxItem
     std::string subcl;
     TComplexClass cabin;
     int bag_pool_num;
-    int tid;
+    int tid;  //crs
     TPaxTknItem tkn;
     bool TknExists;
     ASTRA::TGender::Enum gender;

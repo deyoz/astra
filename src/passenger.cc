@@ -2408,6 +2408,8 @@ TSimplePaxItem& TSimplePaxItem::fromDBCrs(DB::TQuery &Qry, bool withTkn)
     seat_no = Qry.FieldAsString("seat_no");
   if (Qry.GetFieldIndex("reg_no")>=0)
     reg_no = Qry.FieldIsNULL("reg_no")?ASTRA::NoExists:Qry.FieldAsInteger("reg_no");
+  if (Qry.GetFieldIndex("tid")>=0)
+    tid = Qry.FieldIsNULL("tid")?ASTRA::NoExists:Qry.FieldAsInteger("tid");
 
   subcl = Qry.FieldAsString("subclass");
   cabin.fromDB(Qry, "cabin_");

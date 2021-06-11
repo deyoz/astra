@@ -5,9 +5,11 @@ METASOURCES = AUTO
 lib_LIBRARIES = libcraft.a
 libcraft_a_SOURCES = \
   CraftCaches.cc \
-  ComponCreator.cc
+  ComponCreator.cc \
+  SeatsPlanter.cc
         
 
 noinst_HEADERS = \
   CraftCaches.h \
-  ComponCreator.h
+  ComponCreator.h \
+  SeatsPlanter.h

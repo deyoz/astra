@@ -44,8 +44,6 @@ class SeatNumber
     static const boost::optional<std::string>& normalizeFirstIataRow();
     static const boost::optional<std::string>& normalizeLastIataRow();
     static std::string normalizePrevIataRowOrException(const std::string& row);
-
-    static std::string stupidlyChangeEncoding(const std::string& seatNumber);
 };
 
 

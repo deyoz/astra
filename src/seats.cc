@@ -290,109 +290,78 @@ TUseLayers UseLayers; // можно ли использовать место со слоем для рассадки пасса
 
 bool CanUseSmoke; /* поиск курящих мест */
 
-struct TAllowedAttributesSeat {
-  vector<string> ElemTypes; /* разрешенные типы мест поиск мест по типу (табуретка)*/
-  bool pr_isWorkINFT; /* РГ */
-  int point_id;
-  bool pr_INFT; /*признак рассадки подгруппы INFT */
-  TAllowedAttributesSeat() {
-    point_id = ASTRA::NoExists;
-  }
-  void clearElems() {
-    ElemTypes.clear();
-  }
-  void clearINFT() {
-    pr_INFT = false;
-  }
-  void clearAll() {
-    clearElems();
-    clearINFT();
-  }
-  static void getValidChildElem_Types( vector<string> &elems ) {
-    elems.clear();
-    elems.push_back( "Д" ); //!!! здесь коды разрешенных мест
-    elems.push_back( "К" ); //!!!
-  }
-  void getValidChildElem_Types( ) {
-    getValidChildElem_Types( ElemTypes );
-  }
-
-  bool isWorkINFT( int vpoint_id ) {
-    SeatsStat.start(__FUNCTION__);
-    point_id = vpoint_id;
-    if ( TReqInfo::Instance()->client_type == ctTerm ||
-         TReqInfo::Instance()->client_type == ctPNL ) {
-      pr_isWorkINFT = false;
-      SeatsStat.stop(__FUNCTION__);
-      return pr_isWorkINFT;
-    }
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-      "SELECT airline FROM points WHERE point_id=:point_id";
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.Execute();
-    if ( Qry.Eof ) {
-      ProgError( STDLOG, "isWorkINFT: flight not found!!!, point_id=%d", point_id );
-    }
-    pr_isWorkINFT = ( !Qry.Eof &&
-                      (string("РГ") == Qry.FieldAsString( "airline")/* || string("ЮТ") == Qry.FieldAsString( "airline")*/));
+bool TAllowedAttributesSeat::isWorkINFT( int vpoint_id ) {
+  SeatsStat.start(__FUNCTION__);
+  point_id = vpoint_id;
+  if ( TReqInfo::Instance()->client_type == ctTerm ||
+       TReqInfo::Instance()->client_type == ctPNL ) {
+    pr_isWorkINFT = false;
     SeatsStat.stop(__FUNCTION__);
     return pr_isWorkINFT;
   }
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT airline FROM points WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  if ( Qry.Eof ) {
+    ProgError( STDLOG, "isWorkINFT: flight not found!!!, point_id=%d", point_id );
+  }
+  pr_isWorkINFT = ( !Qry.Eof &&
+                    (string("РГ") == Qry.FieldAsString( "airline")/* || string("ЮТ") == Qry.FieldAsString( "airline")*/));
+  SeatsStat.stop(__FUNCTION__);
+  return pr_isWorkINFT;
+}
 
-  bool passSeat( SALONS2::TPlace *place ) {
-    return passSeat( ElemTypes, pr_INFT, *place );
-  }
-  bool passSeat( const vector<string> &elems,
-                 bool _pr_INFT,
-                 const SALONS2::TPlace &place ) {
-    bool res = (elems.empty() || find( elems.begin(), elems.end(), place.elem_type ) != elems.end());
-    if ( !pr_isWorkINFT || !res ) {
-      return res;
-    }
-    bool pr_exists = false;
-    if ( !place.rems.empty() ) {
-      for ( std::vector<TRem>::const_iterator jrem=place.rems.begin(); jrem!=place.rems.end(); jrem++ ) {
-        if ( string( "INFT" ) == jrem->rem ) {
-          if ( !jrem->pr_denial ) {
-            pr_exists = true;
-          }
-          break;
-        }
-      }
-    }
-    else {
-      std::map<int, std::vector<TSeatRemark>,classcomp > remarks;
-      place.GetRemarks( remarks );
-      if ( remarks.find( point_id ) != remarks.end() ) {
-        for ( std::vector<TSeatRemark>::iterator jrem=remarks[ point_id ].begin(); jrem!=remarks[ point_id ].end(); jrem++ ) {
-          if ( string( "INFT" ) == jrem->value ) {
-            if ( !jrem->pr_denial ) {
-              pr_exists = true;
-            }
-            break;
-          }
-        }
-      }
-    }
-    //ProgTrace( TRACE5, "(%d,%d),_pr_INFT=%d, pr_exists=%d",place.x,place.y,_pr_INFT,pr_exists);
-    return ( _pr_INFT == pr_exists );
-  }
-  bool passSeats( const std::string &pers_type,
-                  bool _pr_INFT,
-                  const std::vector<SALONS2::TPlace> &places ) {
-    vector<string> elems;
-    if ( pers_type != "ВЗ" ) { // проверка на места у аварийного выхода
-      getValidChildElem_Types( elems );
-    }
-    for (std::vector<SALONS2::TPlace>::const_iterator ipl=places.begin(); ipl!=places.end(); ipl++ ) {
-      if ( !passSeat( elems, _pr_INFT, *ipl ) ) {
-        return false;
-      }
-    }
-    return true;
-  }
-};
+bool TAllowedAttributesSeat::passSeat( const vector<string> &elems,
+                                       bool _pr_INFT,
+                                       const SALONS2::TPlace &place ) {
+ bool res = (elems.empty() || find( elems.begin(), elems.end(), place.elem_type ) != elems.end());
+ if ( !pr_isWorkINFT || !res ) {
+   return res;
+ }
+ bool pr_exists = false;
+ if ( !place.rems.empty() ) {
+   for ( std::vector<TRem>::const_iterator jrem=place.rems.begin(); jrem!=place.rems.end(); jrem++ ) {
+     if ( string( "INFT" ) == jrem->rem ) {
+       if ( !jrem->pr_denial ) {
+         pr_exists = true;
+       }
+       break;
+     }
+   }
+ }
+ else {
+   std::map<int, std::vector<TSeatRemark>,classcomp > remarks;
+   place.GetRemarks( remarks );
+   if ( remarks.find( point_id ) != remarks.end() ) {
+     for ( std::vector<TSeatRemark>::iterator jrem=remarks[ point_id ].begin(); jrem!=remarks[ point_id ].end(); jrem++ ) {
+       if ( string( "INFT" ) == jrem->value ) {
+         if ( !jrem->pr_denial ) {
+           pr_exists = true;
+         }
+         break;
+       }
+     }
+   }
+ }
+ //ProgTrace( TRACE5, "(%d,%d),_pr_INFT=%d, pr_exists=%d",place.x,place.y,_pr_INFT,pr_exists);
+ return ( _pr_INFT == pr_exists );
+}
+bool TAllowedAttributesSeat::passSeats( const std::string &pers_type,
+                                        bool _pr_INFT,
+                                        const std::vector<SALONS2::TPlace> &places ) {
+ vector<string> elems;
+ if ( pers_type != "ВЗ" ) { // проверка на места у аварийного выхода
+   getValidChildElem_Types( elems );
+ }
+ for (std::vector<SALONS2::TPlace>::const_iterator ipl=places.begin(); ipl!=places.end(); ipl++ ) {
+   if ( !passSeat( elems, _pr_INFT, *ipl ) ) {
+     return false;
+   }
+ }
+return true;
+}
 
 TAllowedAttributesSeat AllowedAttrsSeat;
 
@@ -1997,7 +1966,7 @@ bool TSeatPlaces::SeatsPassenger_OnBasePlace( string &placeName, TSeatStep Step 
       for ( vector<SALONS2::TPlaceList*>::iterator iplaceList=CurrSalon::get().placelists.begin();
             iplaceList!=CurrSalon::get().placelists.end(); iplaceList++ ) {
         SALONS2::TPoint FP;
-        if ( (*iplaceList)->GetisPlaceXY( placeName, FP ) ) {
+        if ( (*iplaceList)->GetIsPlaceXY( placeName, FP ) ) {
           CurrSalon::get().SetCurrPlaceList( *iplaceList );
           if ( SeatSubGrp_On( FP, Step, 0 ) ) {
             tst();
@@ -2699,8 +2668,7 @@ void TPassengers::Add( const SALONS2::TSalonList &salonList, TPassenger &pass )
                   plList!=salonList._seats.end(); plList++ ) {
               TPlaceList* placeList = *plList;
               TPoint p;
-              tst();
-              if ( placeList->GetisPlaceXY( pass.preseat_no, p ) ) {
+              if ( placeList->GetIsPlaceXY( pass.preseat_no, p ) ) {
                 coord.placeListIdx = placeList->num;
                 break;
               }
@@ -2914,7 +2882,7 @@ bool ExistsBasePlace( const TTripInfo& fltInfo,
   for ( vector<SALONS2::TPlaceList*>::iterator plList=Salons.placelists.begin();
         plList!=Salons.placelists.end(); plList++ ) {
     placeList = *plList;
-    if ( placeList->GetisPlaceXY( placeName, FP ) ) {
+    if ( placeList->GetIsPlaceXY( placeName, FP ) ) {
       int j = 0;
       for ( ; j<pass.countPlace; j++ ) {
         if ( !placeList->ValidPlace( FP ) )
@@ -3650,7 +3618,7 @@ class AnomalisticConditionsPayment
               plList!=Salons->placelists.end(); plList++ ) {
           TPlaceList* placeList = *plList;
           TPoint FP;
-          if ( placeList->GetisPlaceXY( pass.preseat_no, FP ) ) {
+          if ( placeList->GetIsPlaceXY( pass.preseat_no, FP ) ) {
             for ( int j=0; j<pass.countPlace; j++ ) {
               if ( !placeList->ValidPlace( FP ) )
                 break;
@@ -3700,7 +3668,7 @@ class AnomalisticConditionsPayment
               plList!=Salons->placelists.end(); plList++ ) {
           TPlaceList* placeList = *plList;
           TPoint FP;
-          if ( placeList->GetisPlaceXY( pass.preseat_no, FP ) ) {
+          if ( placeList->GetIsPlaceXY( pass.preseat_no, FP ) ) {
             for ( int j=0; j<pass.countPlace; j++ ) {
               if ( !placeList->ValidPlace( FP ) )
                 break;
@@ -4331,7 +4299,7 @@ bool getCurrSeat( const TSalonList &salonList,
 {
     isalonList = salonList._seats.end();
     for( isalonList = salonList._seats.begin(); isalonList != salonList._seats.end(); isalonList++ ) {
-        if ( (*isalonList)->GetisPlaceXY( string(r.first.row)+r.first.line, coord ) ) {
+        if ( (*isalonList)->GetIsPlaceXY( string(r.first.row)+r.first.line, coord ) ) {
             return true;
         }
     }
@@ -4937,18 +4905,6 @@ BitSet<TChangeLayerSeatsProps>
         throw UserException( "MSG.SEATS.SET_LAYER_NOT_AVAIL" );
     }
   }
-/*  { //mvd
-    switch ( layer_type ) {
-      case cltGoShow:
-        case cltTranzit:
-      case cltCheckin:
-      case cltTCheckin:
-        rozysk::sync_pax(pax_id, TReqInfo::Instance()->desk.code, TReqInfo::Instance()->user.descr );
-        break;
-      default:
-        break;
-    }
-  }*/
 
   tid = curr_tid;
 

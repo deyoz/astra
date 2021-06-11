@@ -47,6 +47,7 @@ BEGINDATA
 57|"Оформление багажа для экипажа"|"Baggage check-in for crew"|"MISC"|530
 61|"Запрет рассадки на резерв после оплаты (PNL/ADL)"|"Ban seating to reserved after payment (PNL/ADL)"|"MISC"|3010
 95|"Приоритет разметки в зависимости от авиакомпании"|"Приоритет разметки в зависимости от авиакомпании"|"MISC"|3012
+96|"Работа с услугами при пересадке на места с RFISC"|"Работа с услугами при пересадке на места с RFISC"|"MISC"|3012
 62|"Расчет стоимости в салоне по свойству мест с ЛО"|"Cost account in layout on the property of WL seats"|"MISC"|3010
 90|"Оплата на стойке DCS"|"Payment at DCS counter"|"MISC"|3011
 204|"Поисковый запрос регистрации для чартеров"|"Check-in search inquiry for charters"|"SELF_CKIN"|2040

@@ -302,6 +302,7 @@ bool isTagCUWS(xmlNodePtr reqNode);
 bool isTagAddRequestSBDO(xmlNodePtr reqNode);
 bool isTagConfirmRequestSBDO(xmlNodePtr reqNode);
 bool isTagRevokeRequestSBDO(xmlNodePtr reqNode);
+bool isTagReseatRFISC(xmlNodePtr reqNode);
 
 #endif /*_EDI_UTILS_H_*/
 
