@@ -179,7 +179,8 @@ tst();
         //TGrpServiceListWithAuto svc; //это полный список услуг?
         //svc.fromDB(g->id);
         TPaidRFISCList paidRFISC;
-        paidRFISC.fromDB(paxRoute.front().dest.grp_id); //это введено с терминала и оценено
+        //paidRFISC.fromDB(paxRoute.front().dest.grp_id);//это введено с терминала и оценено
+        paidRFISC.fromDB((int)paxRoute.front().dest.grp_id.get(),true); //это введено с терминала и оценено
         tst();
         //del_rfisc - эту услугу надо удалить, если она еще не оплачена
         //add_rfisc - эту услугу надо добавить, если еще нет такой вообще(не важно оплачана она или нет
@@ -1458,3 +1459,4 @@ bool isSitDownPlease( int point_id, const std::string& whence ) {
 
 
 } //end namespace RESEAT
+
