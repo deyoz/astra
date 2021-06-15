@@ -9,6 +9,7 @@
 #include "points.h"
 #include "counters.h"
 #include "db_savepoint.h"
+#include "crafts/SeatsPlanter.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "ANNA"
@@ -264,16 +265,19 @@ void syncCabinClass(const TTripTaskKey &task)
       if (pax.hasCabinSeatNumber())
       {
         //высаживаем пассажира из салона
-        BitSet<SEATS2::TChangeLayerFlags> change_layer_flags;
-        change_layer_flags.setFlag(SEATS2::flSyncCabinClass);
-
-        IntChangeSeatsN( fltInfo.point_id, pax.id, pax.tid, "", "",
-                         SEATS2::stDropseat,
-                         cltUnknown,
-                         NoExists,
-                         change_layer_flags,
-                         0, NoExists, NULL, NULL,
-                         __func__);
+        if ( RESEAT::isSitDownPlease(fltInfo.point_id, __func__) )
+          RESEAT::FreeUpSeatsSyncCabinClass( fltInfo.point_id, pax.id, pax.tid, __func__ );
+        else {
+          BitSet<SEATS2::TChangeLayerFlags> change_layer_flags;
+          change_layer_flags.setFlag(SEATS2::flSyncCabinClass);
+          IntChangeSeatsN( fltInfo.point_id, pax.id, pax.tid, "", "",
+                           SEATS2::stDropseat,
+                           cltUnknown,
+                           NoExists,
+                           change_layer_flags,
+                           0, NoExists, NULL, NULL,
+                           __func__);
+        }
       };
 
       setComplexClassGrp(rbds, actualCabin.get());
@@ -1282,17 +1286,21 @@ void changeSeatsAndUpdateTids(TWebPaxForSaveSegs &segs)
                            changed);
         if (changed)
         {
-          IntChangeSeatsN( currPaxForChng.point_dep,
-                           currPaxForChng.paxId(),
-                           currPaxForChng.pax_tid,
-                           curr_xname, curr_yname,
-                           SEATS2::stReseat,
-                           cltUnknown,
-                           NoExists,
-                           BitSet<SEATS2::TChangeLayerFlags>(),
-                           0, NoExists,
-                           NULL, NULL,
-                           __func__ );
+          if ( RESEAT::isSitDownPlease(currPaxForChng.point_dep, __func__) )
+            RESEAT::Reseat( currPaxForChng.point_dep, currPaxForChng.paxId(),
+                            currPaxForChng.pax_tid, TSeat(curr_yname,curr_xname), __func__ );
+          else
+            IntChangeSeatsN( currPaxForChng.point_dep,
+                             currPaxForChng.paxId(),
+                             currPaxForChng.pax_tid,
+                             curr_xname, curr_yname,
+                             SEATS2::stReseat,
+                             cltUnknown,
+                             NoExists,
+                             BitSet<SEATS2::TChangeLayerFlags>(),
+                             0, NoExists,
+                             NULL, NULL,
+                             __func__ );
           static_cast<CheckIn::TSimplePaxItem&>(currPaxForChng).tid=currPaxForChng.pax_tid;
         };
       }

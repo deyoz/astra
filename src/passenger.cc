@@ -2378,6 +2378,8 @@ TSimplePaxItem& TSimplePaxItem::fromDBCrs(DB::TQuery &Qry, bool withTkn)
     seat_no = Qry.FieldAsString("seat_no");
   if (Qry.GetFieldIndex("reg_no")>=0)
     reg_no = Qry.FieldIsNULL("reg_no")?ASTRA::NoExists:Qry.FieldAsInteger("reg_no");
+  if (Qry.GetFieldIndex("tid")>=0)
+    tid = Qry.FieldIsNULL("tid")?ASTRA::NoExists:Qry.FieldAsInteger("tid");
 
   subcl = Qry.FieldAsString("subclass");
   cabin.fromDB(Qry, "cabin_");
@@ -3105,6 +3107,9 @@ TSimplePnrItem& TSimplePnrItem::fromDB(TQuery &Qry)
   cl=Qry.FieldAsString("class");
   cabin_cl=Qry.FieldAsString("cabin_class");
   status=Qry.FieldAsString("status");
+  if(Qry.GetFieldIndex("point_id") >= 0) {
+    point_id_tlg=Qry.FieldAsInteger("point_id");
+  }
   return *this;
 }
 
@@ -3167,7 +3172,8 @@ bool TSimplePnrItem::getByPaxId(int pax_id)
                    "       crs_pnr.airp_arv, "+
                    TSimplePaxItem::origClassFromCrsSQL()+" AS class, "+
                    TSimplePaxItem::cabinClassFromCrsSQL()+" AS cabin_class, "
-                   "       crs_pnr.status "
+                   "       crs_pnr.status, "
+                   "       crs_pnr.point_id "
                    "FROM crs_pnr, crs_pax "
                    "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND crs_pax.pax_id=:pax_id",
                    QParams() << QParam("pax_id", otInteger, pax_id));

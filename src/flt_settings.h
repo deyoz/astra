@@ -51,8 +51,9 @@ enum TTripSetType { /*не привязанные к рейсу*/
                     tsNotUseBagNormFromET=82,           //Не применять весовую норму из ЭБ
                     tsPayAtDesk=90,                     //Оплата на стойке регистрации
                     tsReseatOnRFISC=93,                 //сообщение при пересадке пассажира на место с разметкой RFISC
-                    tsAirlineCompLayerPriority=95,//расчет приоритета слоев по коду АК
-                    
+                    tsAirlineCompLayerPriority=95,      //расчет приоритета слоев по коду АК
+                    tsReseatRequiredRFISCService=96,    //Работа с услугами при пересадке на места с RFISC
+
                     /*привязанные к рейсу (есть соответствующие поля в таблице trip_sets и CheckBox в "Подготовке к регистрации")*/
                     tsCheckLoad=2,                  //Контроль загрузки при регистрации
                     tsOverloadReg=3,                //Разрешение регистрации при превышении загрузки

@@ -1210,6 +1210,125 @@ std::string flight_view(int grp_id, int seg_no)
   return "";
 }
 
+std::vector<GrpRoute> GrpRoute::load(int transfer_num,
+                                     const GrpId_t& grp_id_src,
+                                     const GrpId_t& grp_id_dest)
+{
+  LogTrace(TRACE6) << "GrpRoute::" << __func__
+                   << ": transfer_num=" << transfer_num
+                   << ", grp_id_src=" << grp_id_src
+                   << ", grp_id_dest=" << grp_id_dest;
+  std::vector<GrpRoute> result;
+  DB::TQuery Qry(PgOra::getROSession("PAX_GRP-TCKIN_PAX_GRP"), STDLOG);
+  Qry.SQLText = "(SELECT tckin_pax_grp.grp_id AS src_grp_id, "
+                "        pax_grp.point_dep AS src_point_id, "
+                "        tckin_pax_grp.tckin_id AS src_tckin_id, "
+                "        tckin_pax_grp.seg_no AS src_seg_no "
+                " FROM tckin_pax_grp, pax_grp "
+                " WHERE tckin_pax_grp.transit_num=0 AND "
+                "       pax_grp.grp_id=tckin_pax_grp.grp_id AND "
+                "       tckin_pax_grp.grp_id=:grp_id_src) src, "
+                "(SELECT tckin_pax_grp.grp_id AS dest_grp_id, "
+                "        pax_grp.point_dep AS dest_point_id, "
+                "        tckin_pax_grp.tckin_id AS dest_tckin_id, "
+                "        tckin_pax_grp.seg_no AS dest_seg_no "
+                " FROM tckin_pax_grp, pax_grp "
+                " WHERE tckin_pax_grp.transit_num=0 AND "
+                "       pax_grp.grp_id=tckin_pax_grp.grp_id AND "
+                "       tckin_pax_grp.grp_id=:grp_id_dest) dest "
+                "WHERE src.tckin_id=dest.tckin_id "
+                "AND src.grp_id = :grp_id_src "
+                "AND (:transfer_num + src.seg_no - dest.seg_no) >= 0 ";
+  Qry.CreateVariable("transfer_num", otInteger, transfer_num);
+  Qry.CreateVariable("grp_id_src", otInteger, grp_id_src.get());
+  Qry.CreateVariable("grp_id_dest", otInteger, grp_id_dest.get());
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    const GrpRouteItem src = {
+      GrpId_t(Qry.FieldAsInteger("src_grp_id")),
+      PointId_t(Qry.FieldAsInteger("src_point_id")),
+      Qry.FieldAsInteger("src_tckin_id"),
+      Qry.FieldAsInteger("src_seg_no")
+    };
+    const GrpRouteItem dest = {
+      GrpId_t(Qry.FieldAsInteger("dest_grp_id")),
+      PointId_t(Qry.FieldAsInteger("dest_point_id")),
+      Qry.FieldAsInteger("dest_tckin_id"),
+      Qry.FieldAsInteger("dest_seg_no")
+    };
+    result.push_back(GrpRoute{src, dest});
+  }
+  return result;
+}
+
+std::vector<PaxGrpRoute> PaxGrpRoute::load(const PaxId_t& pax_id,
+                                           int transfer_num,
+                                           const GrpId_t& grp_id_src,
+                                           const GrpId_t& grp_id_dest)
+{
+  LogTrace(TRACE6) << "PaxGrpRoute::" << __func__
+                   << ": pax_id=" << pax_id
+                   << ", transfer_num=" << transfer_num
+                   << ", grp_id_src=" << grp_id_src
+                   << ", grp_id_dest=" << grp_id_dest;
+  std::vector<PaxGrpRoute> result;
+  DB::TQuery Qry(PgOra::getROSession("PAX-TCKIN_PAX_GRP"), STDLOG);
+  Qry.SQLText = "SELECT src.*, dest.* FROM "
+                "(SELECT pax.pax_id AS src_pax_id, "
+                "        tckin_pax_grp.grp_id AS src_grp_id, "
+                "        pax_grp.point_dep AS src_point_id, "
+                "        tckin_pax_grp.tckin_id AS src_tckin_id, "
+                "        tckin_pax_grp.seg_no AS src_seg_no, "
+                "        tckin_pax_grp.first_reg_no-pax.reg_no AS src_distance "
+                " FROM pax, pax_grp, tckin_pax_grp "
+                " WHERE pax.grp_id=tckin_pax_grp.grp_id AND "
+                "       pax.grp_id=pax_grp.grp_id AND "
+                "       tckin_pax_grp.transit_num=0 AND "
+                "       pax.grp_id=:grp_id_src) src, "
+                "(SELECT pax.pax_id AS dest_pax_id, "
+                "        tckin_pax_grp.grp_id AS dest_grp_id, "
+                "        pax_grp.point_dep AS dest_point_id, "
+                "        tckin_pax_grp.tckin_id AS dest_tckin_id, "
+                "        tckin_pax_grp.seg_no AS dest_seg_no, "
+                "        tckin_pax_grp.first_reg_no-pax.reg_no AS dest_distance "
+                " FROM pax, pax_grp, tckin_pax_grp "
+                " WHERE pax.grp_id=tckin_pax_grp.grp_id AND "
+                "       pax.grp_id=pax_grp.grp_id AND "
+                "       tckin_pax_grp.transit_num=0 AND "
+                "       pax.grp_id=:grp_id_dest) dest "
+                "WHERE src_tckin_id=dest_tckin_id AND "
+                "      src_distance=dest_distance AND "
+                "      src_pax_id=:pax_id AND "
+                "      (:transfer_num + src_seg_no - dest_seg_no) >= 0 ";
+  Qry.CreateVariable("pax_id", otInteger, pax_id.get());
+  Qry.CreateVariable("transfer_num", otInteger, transfer_num);
+  Qry.CreateVariable("grp_id_src", otInteger, grp_id_src.get());
+  Qry.CreateVariable("grp_id_dest", otInteger, grp_id_dest.get());
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    const PaxGrpRouteItem src = {
+      GrpId_t(Qry.FieldAsInteger("src_grp_id")),
+      PointId_t(Qry.FieldAsInteger("src_point_id")),
+      Qry.FieldAsInteger("src_tckin_id"),
+      Qry.FieldAsInteger("src_seg_no"),
+      PaxId_t(Qry.FieldAsInteger("src_pax_id")),
+      Qry.FieldAsInteger("src_distance")
+    };
+    const PaxGrpRouteItem dest = {
+      GrpId_t(Qry.FieldAsInteger("dest_grp_id")),
+      PointId_t(Qry.FieldAsInteger("dest_point_id")),
+      Qry.FieldAsInteger("dest_tckin_id"),
+      Qry.FieldAsInteger("dest_seg_no"),
+      PaxId_t(Qry.FieldAsInteger("dest_pax_id")),
+      Qry.FieldAsInteger("dest_distance")
+    };
+    result.push_back(PaxGrpRoute{src, dest});
+  }
+  return result;
+}
+
 TCkinRouteItem::TCkinRouteItem(TQuery &Qry)
 {
   grp_num=Qry.FieldAsInteger("grp_num");

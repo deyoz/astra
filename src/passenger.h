@@ -740,7 +740,7 @@ class TSimplePaxItem
     std::string subcl;
     TComplexClass cabin;
     int bag_pool_num;
-    int tid;
+    int tid;  //crs
     TPaxTknItem tkn;
     bool TknExists;
     ASTRA::TGender::Enum gender;
@@ -1010,6 +1010,7 @@ class TSimplePnrItem
     std::string cl;
     std::string cabin_cl;
     std::string status;
+    int point_id_tlg;
 
     TSimplePnrItem() { clear(); }
 
@@ -1020,6 +1021,7 @@ class TSimplePnrItem
       cl.clear();
       cabin_cl.clear();
       status.clear();
+      point_id_tlg=ASTRA::NoExists;
     }
 
     TSimplePnrItem& fromDB(TQuery &Qry);
