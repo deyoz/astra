@@ -711,6 +711,7 @@ class TComplexClass
 
     const TComplexClass& toDB(TQuery &Qry, const std::string& fieldPrefix) const;
     TComplexClass& fromDB(TQuery &Qry, const std::string& fieldPrefix);
+    TComplexClass& fromDB(DB::TQuery &Qry, const std::string& fieldPrefix);
     const TComplexClass& toXML(xmlNodePtr node, const std::string& fieldPrefix) const;
 };
 
@@ -738,7 +739,7 @@ class TSimplePaxItem
     std::string subcl;
     TComplexClass cabin;
     int bag_pool_num;
-    int tid;
+    int tid;  //crs
     TPaxTknItem tkn;
     bool TknExists;
     ASTRA::TGender::Enum gender;
@@ -789,7 +790,9 @@ class TSimplePaxItem
     TSimplePaxItem& fromPax(const dbo::ARX_PAX &arx_pax);
     TSimplePaxItem& fromDB(TQuery &Qry);
     TSimplePaxItem& fromDBCrs(TQuery &Qry, bool withTkn);
+    TSimplePaxItem& fromDBCrs(DB::TQuery &Qry, bool withTkn);
     bool getByPaxId(int pax_id, TDateTime part_key = ASTRA::NoExists);
+    bool getCrsByPaxId(PaxId_t pax_id, bool skip_deleted = false);
     static std::list<TSimplePaxItem> getByGrpId(GrpId_t grp_id);
     std::string full_name() const;
     bool isCBBG() const;
@@ -1004,6 +1007,7 @@ class TSimplePnrItem
     std::string cl;
     std::string cabin_cl;
     std::string status;
+    int point_id_tlg;
 
     TSimplePnrItem() { clear(); }
 

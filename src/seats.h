@@ -467,6 +467,45 @@ struct TSublsRems {
 
 typedef std::map<ASTRA::TCompLayerType,bool> TUseLayers;
 
+struct TAllowedAttributesSeat {
+  std::vector<std::string> ElemTypes; /* разрешенные типы мест поиск мест по типу (табуретка)*/
+  bool pr_isWorkINFT; /* РГ */
+  int point_id;
+  bool pr_INFT; /*признак рассадки подгруппы INFT */
+  TAllowedAttributesSeat() {
+    point_id = ASTRA::NoExists;
+  }
+  void clearElems() {
+    ElemTypes.clear();
+  }
+  void clearINFT() {
+    pr_INFT = false;
+  }
+  void clearAll() {
+    clearElems();
+    clearINFT();
+  }
+  static void getValidChildElem_Types( std::vector<std::string> &elems ) {
+    elems.clear();
+    elems.push_back( "Д" ); //!!! здесь коды разрешенных мест
+    elems.push_back( "К" ); //!!!
+  }
+  void getValidChildElem_Types( ) {
+    getValidChildElem_Types( ElemTypes );
+  }
+
+  bool isWorkINFT( int vpoint_id );
+  bool passSeat( SALONS2::TPlace *place ) {
+    return passSeat( ElemTypes, pr_INFT, *place );
+  }
+  bool passSeat( const std::vector<std::string> &elems,
+                 bool _pr_INFT,
+                 const SALONS2::TPlace &place );
+  bool passSeats( const std::string &pers_type,
+                  bool _pr_INFT,
+                  const std::vector<SALONS2::TPlace> &places );
+};
+
 /* тут описаны будут доступные ф-ции */
 /* автоматическая пересадка пассажиров при изменении компоновки */
 void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, TSeatAlgoParams ASeatAlgoParams );
@@ -490,6 +529,14 @@ void SaveTripSeatRanges( int point_id, ASTRA::TCompLayerType layer_type, TSeatRa
 TSeatAlgoParams GetSeatAlgo(TQuery &Qry, std::string airline, int flt_no, std::string airp_dep);
 bool IsSubClsRem( const std::string &airline, const std::string &subclass, std::string &rem );
 bool isCheckinWOChoiceSeats( int point_id );
+
+bool UsedPayedPreseatForPassenger( const TTripInfo& fltInfo,
+                                   BASIC_SALONS::TCompLayerTypes::Enum flag,
+                                   TPlace &seat, const TPassenger &pass, bool check_rfisc  );
+void SyncPRSA( const std::string &airline_oper,
+               int pax_id,
+               TSeatTariffMap::TStatus tariffs_status,
+               const std::vector<std::pair<TSeatRange,TRFISC> > &tariffs );
 
 extern TPassengers Passengers;
 } // end namespace SEATS2

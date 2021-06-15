@@ -46,6 +46,11 @@ public:
   void AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void Tranzit(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
+  static void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode,
+                           SEATS2::TSeatsType seat_type );
+
+  static void AfterRefreshEMD(xmlNodePtr reqNode, xmlNodePtr resNode);
+
   // iatci
   static void ShowRemote(xmlNodePtr resNode, const iatci::dcrcka::Result& res);
   static void ReseatRemote(xmlNodePtr resNode,
@@ -128,5 +133,8 @@ void ZonePax( int point_id, std::vector<T1> &PaxItems, std::vector<SALONS2::TCom
     }
   }
 }
+
+void getSeat_no( int pax_id, bool pr_pnl, const std::string &format,
+                 std::string &seat_no, std::string &slayer_type, int &tid );
 
 #endif /*_SALONFORM_H_*/

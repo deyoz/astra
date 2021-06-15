@@ -82,3 +82,4 @@ BEGINDATA
 80|"Запрет посадки JMP"|"Boarding prohibited to JMP"|"MISC"|3010
 81|"Изменение статуса ЭБ при посадке (посадка дольше!)"|"Changing ET status while boarding (longer!)"|"MISC"|117
 93|"Сообщение о пересадке на места размеченные RFISC"|"Changing seat message which marked RFISC"|"MISC"|3011
+96|"Работа с услугами при пересадке на места с RFISC"|"Работа с услугами при пересадке на места с RFISC"|"MISC"|3012

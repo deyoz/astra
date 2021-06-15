@@ -358,6 +358,51 @@ TPaxTknItem fromPax(const dbo::PAX &pax){
     return paxTknItem;
 }
 
+TSimplePaxItem& TSimplePaxItem::fromDBCrs(DB::TQuery &Qry, bool withTkn)
+{
+  clear();
+  id=Qry.FieldAsInteger("pax_id");
+  pnr_id=Qry.FieldAsInteger("pnr_id");
+  surname=Qry.FieldAsString("surname");
+  name=Qry.FieldAsString("name");
+  if (isTest())
+  {
+    pers_type=ASTRA::adult;
+    seats=1;
+  }
+  else
+  {
+    pers_type=DecodePerson(Qry.FieldAsString("pers_type").c_str());
+    seat_type=Qry.FieldAsString("seat_type");
+    seats=Qry.FieldAsInteger("seats");
+  }
+  if (Qry.GetFieldIndex("seat_no")>=0)
+    seat_no = Qry.FieldAsString("seat_no");
+  if (Qry.GetFieldIndex("reg_no")>=0)
+    reg_no = Qry.FieldIsNULL("reg_no")?ASTRA::NoExists:Qry.FieldAsInteger("reg_no");
+  if (Qry.GetFieldIndex("tid")>=0)
+    tid = Qry.FieldIsNULL("tid")?ASTRA::NoExists:Qry.FieldAsInteger("tid");
+
+  subcl = Qry.FieldAsString("subclass");
+  cabin.fromDB(Qry, "cabin_");
+
+  if (withTkn)
+  {
+    if (isTest())
+    {
+      tkn.no=Qry.FieldAsString("tkn_no");
+      if (!tkn.no.empty())
+      {
+        tkn.coupon=1;
+        tkn.rem="TKNE";
+      };
+    }
+    else LoadCrsPaxTkn(id, tkn);
+  }
+  TknExists=withTkn;
+  return *this;
+}
+
 bool LoadPaxTkn(TDateTime part_key, int pax_id, TPaxTknItem &tkn)
 {
     if(part_key == ASTRA::NoExists) {
@@ -2170,6 +2215,15 @@ TComplexClass& TComplexClass::fromDB(TQuery &Qry, const std::string& fieldPrefix
   return *this;
 }
 
+TComplexClass& TComplexClass::fromDB(DB::TQuery &Qry, const std::string& fieldPrefix)
+{
+  clear();
+  subcl=Qry.FieldAsString(fieldPrefix+"subclass");
+  cl=Qry.FieldAsString(fieldPrefix+"class");
+  cl_grp=Qry.FieldIsNULL(fieldPrefix+"class_grp")?ASTRA::NoExists:Qry.FieldAsInteger(fieldPrefix+"class_grp");
+  return *this;
+}
+
 TSimplePaxItem& TSimplePaxItem::fromDB(TQuery &Qry)
 {
   clear();
@@ -2221,6 +2275,8 @@ TSimplePaxItem& TSimplePaxItem::fromDBCrs(TQuery &Qry, bool withTkn)
     seat_no = Qry.FieldAsString("seat_no");
   if (Qry.GetFieldIndex("reg_no")>=0)
     reg_no = Qry.FieldIsNULL("reg_no")?ASTRA::NoExists:Qry.FieldAsInteger("reg_no");
+  if (Qry.GetFieldIndex("tid")>=0)
+      tid = Qry.FieldIsNULL("tid")?ASTRA::NoExists:Qry.FieldAsInteger("tid");
 
   subcl = Qry.FieldAsString("subclass");
   cabin.fromDB(Qry, "cabin_");
@@ -2313,6 +2369,30 @@ bool TSimplePaxItem::getByPaxId(int pax_id, TDateTime part_key)
       if (PaxQry.get().Eof) return false;
       fromDB(PaxQry.get());
   }
+  return true;
+}
+
+bool TSimplePaxItem::getCrsByPaxId(PaxId_t pax_id, bool skip_deleted)
+{
+  clear();
+  QParams QryParams;
+  QryParams << QParam("pax_id", otInteger, pax_id.get());
+  DB::TCachedQuery PaxQry(
+        PgOra::getROSession("CRS_PAX-CRS_PNR"),
+        "SELECT crs_pax.*, "
+        + CheckIn::TSimplePaxItem::origSubclassFromCrsSQL() + " AS subclass, "
+        + CheckIn::TSimplePaxItem::cabinSubclassFromCrsSQL() + " AS cabin_subclass, "
+        + CheckIn::TSimplePaxItem::cabinClassFromCrsSQL() + " AS cabin_class, "
+        "NULL AS cabin_class_grp "
+        "FROM crs_pax, crs_pnr "
+        "WHERE crs_pax.pax_id=:pax_id "
+        "AND crs_pax.pnr_id=crs_pnr.pnr_id "
+        "AND crs_pnr.system='CRS' "
+        + std::string(skip_deleted ? "AND pr_del=0 " : ""),
+        QryParams);
+  PaxQry.get().Execute();
+  if (PaxQry.get().Eof) return false;
+  fromDBCrs(PaxQry.get(), false /*withTkn*/);
   return true;
 }
 
@@ -2974,6 +3054,9 @@ TSimplePnrItem& TSimplePnrItem::fromDB(TQuery &Qry)
   cl=Qry.FieldAsString("class");
   cabin_cl=Qry.FieldAsString("cabin_class");
   status=Qry.FieldAsString("status");
+  if(Qry.GetFieldIndex("point_id") >= 0) {
+    point_id_tlg=Qry.FieldAsInteger("point_id");
+  }
   return *this;
 }
 
@@ -3036,7 +3119,8 @@ bool TSimplePnrItem::getByPaxId(int pax_id)
                    "       crs_pnr.airp_arv, "+
                    TSimplePaxItem::origClassFromCrsSQL()+" AS class, "+
                    TSimplePaxItem::cabinClassFromCrsSQL()+" AS cabin_class, "
-                   "       crs_pnr.status "
+                   "       crs_pnr.status, "
+                   "       crs_pnr.point_id "
                    "FROM crs_pnr, crs_pax "
                    "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND crs_pax.pax_id=:pax_id",
                    QParams() << QParam("pax_id", otInteger, pax_id));
