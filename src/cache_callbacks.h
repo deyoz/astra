@@ -103,7 +103,7 @@ class CacheTableCallbacks
     virtual std::string insertSql() const =0;
     virtual std::string updateSql() const =0;
     virtual std::string deleteSql() const =0;
-    virtual std::string dbSessionObjectName() const =0;
+    virtual std::list<std::string> dbSessionObjectNames() const =0;
     virtual void onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedRows& rows) const =0;
 
     virtual ~CacheTableCallbacks();
@@ -127,7 +127,7 @@ class CacheTableReadonlyHandmade : public CacheTableCallbacks
     std::string insertSql() const { return ""; }
     std::string updateSql() const { return ""; }
     std::string deleteSql() const { return ""; }
-    std::string dbSessionObjectName() const { return ""; }
+    std::list<std::string> dbSessionObjectNames() const { return {}; }
 };
 
 

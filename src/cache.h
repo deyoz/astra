@@ -195,7 +195,7 @@ class TCacheTable {
         std::string InsertSQL;
         std::string UpdateSQL;
         std::string DeleteSQL;
-        std::string dbSessionObjectName;
+        std::list<std::string> dbSessionObjectNames;
         ASTRA::TEventType EventType;
         bool Logging;
         bool KeepLocally;

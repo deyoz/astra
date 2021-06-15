@@ -19,6 +19,14 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="GRP_RFISC1")          return new CacheTable::GrpRfiscOutdated;
   if (cacheCode=="GRP_RFISC")           return new CacheTable::GrpRfisc;
   if (cacheCode=="FILE_TYPES")          return new CacheTable::FileTypes;
+  if (cacheCode=="TERM_PROFILE_RIGHTS") return new CacheTable::TermProfileRights;
+  if (cacheCode=="PRN_FORMS_LAYOUT")    return new CacheTable::PrnFormsLayout;
+  if (cacheCode=="TRIP_SUFFIXES")       return new CacheTable::TripSuffixes;
+#ifndef ENABLE_ORACLE
+  if (cacheCode=="AIRLINES")            return new CacheTable::Airlines;
+  if (cacheCode=="AIRPS")               return new CacheTable::Airps;
+  if (cacheCode=="TRIP_TYPES")          return new CacheTable::TripTypes;
+#endif ENABLE_ORACLE
   return nullptr;
 }
 

@@ -89,7 +89,7 @@ void TCacheTable::Init(xmlNodePtr cacheNode)
     InsertSQL  = callbacks->insertSql();
     UpdateSQL  = callbacks->updateSql();
     DeleteSQL  = callbacks->deleteSql();
-    dbSessionObjectName = callbacks->dbSessionObjectName();
+    dbSessionObjectNames = callbacks->dbSessionObjectNames();
   }
   else
   {
@@ -98,7 +98,7 @@ void TCacheTable::Init(xmlNodePtr cacheNode)
     InsertSQL  = Qry.FieldAsString("insert_sql");
     UpdateSQL  = Qry.FieldAsString("update_sql");
     DeleteSQL  = Qry.FieldAsString("delete_sql");
-    dbSessionObjectName = "ORACLE";
+    dbSessionObjectNames = {"ORACLE"};
   }
   Logging = Qry.FieldAsInteger("logging") != 0;
   KeepLocally = Qry.FieldAsInteger("keep_locally") != 0;
@@ -672,7 +672,8 @@ CacheTable::RefreshStatus TCacheTable::refreshDataCommon()
     TCacheQueryType query_type;
     std::set<std::string> vars;
     FieldsForLogging fieldsForLogging; //заполняется, но не используется
-    DB::TQuery Qry(PgOra::getROSession(dbSessionObjectName), STDLOG);
+    ASSERT(PgOra::areROSessionsEqual(dbSessionObjectNames));
+    DB::TQuery Qry(PgOra::getROSession(dbSessionObjectNames.front()), STDLOG);
     vector<string>::iterator f;
     if ( RefreshSQL.empty() || clientVerData < 0 ) { /* считываем все заново */
       Qry.SQLText = SelectSQL;

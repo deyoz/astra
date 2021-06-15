@@ -668,3 +668,136 @@ $(cache PIKE RU AIRLINES $(get iface_ver) $(get max_tid))
         <row pr_del='1'>
           <col>01</col>
 
+%%
+
+### test 4
+### PRN_FORMS_LAYOUT
+#########################################################################################
+
+$(init_term)
+
+!! capture=on
+$(cache PIKE RU PRN_FORMS_LAYOUT $(cache_iface_ver PRN_FORMS_LAYOUT) "")
+
+>>
+<?xml version='1.0' encoding='CP866'?>
+<term>
+  <answer ...>
+    <interface id='cache'/>
+    <data>
+      <code>PRN_FORMS_LAYOUT</code>
+      <Forbidden>0</Forbidden>
+      <ReadOnly>1</ReadOnly>
+      <keep_locally>1</keep_locally>
+      <keep_deleted_rows>0</keep_deleted_rows>
+      <user_depend>0</user_depend>
+      <rows tid='-1'>
+        <row pr_del='0'>
+          <col>1</col>
+          <col>PRINT_BP</col>
+          <col>Посадочные талоны</col>
+          <col>BP_MODELS</col>
+          <col>BP_TYPES</col>
+          <col>Список бланков</col>
+          <col>Список форм для бланка:</col>
+          <col>BP_BLANK_LIST</col>
+          <col>airline_bp_set</col>
+          <col>trip_bp</col>
+          <col>Бланки пос. талонов</col>
+          <col>Бланки пос. талонов рейса</col>
+          <col>QST.INSERT_BLANK_BOARDINGPASS_W_SEG</col>
+          <col>QST.INSERT_BLANK_BOARDINGPASS_WO_SEG</col>
+          <col>MSG.WAIT_PRINTING_BOARDING_PASS</col>
+        </row>
+        <row pr_del='0'>
+          <col>2</col>
+          <col>PRINT_BT</col>
+          <col>Багажные бирки</col>
+          <col>BT_MODELS</col>
+          <col>TAG_TYPES_PRINTABLE</col>
+          <col>Список бирок</col>
+          <col>Список форм для бирки:</col>
+          <col>BT_BLANK_LIST</col>
+          <col>airline_bt_set</col>
+          <col>trip_bt</col>
+          <col>Бланки баг. бирок</col>
+          <col>Бланки баг. бирок рейса</col>
+          <col/>
+          <col/>
+          <col/>
+        </row>
+        <row pr_del='0'>
+          <col>3</col>
+          <col>PRINT_BR</col>
+          <col>Багажные квитанции</col>
+          <col>BR_MODELS</col>
+          <col>FORM_TYPES</col>
+          <col>Список багажных квитанций</col>
+          <col>Список форм для багажной квитанции:</col>
+          <col>BR_BLANK_LIST</col>
+          <col/>
+          <col/>
+          <col/>
+          <col/>
+          <col/>
+          <col/>
+          <col/>
+        </row>
+        <row pr_del='0'>
+          <col>4</col>
+          <col>PRINT_BI</col>
+          <col>Приглашения</col>
+          <col>BI_MODELS</col>
+          <col>BI_TYPES</col>
+          <col>Список приглашений</col>
+          <col>Список форм для приглашения:</col>
+          <col>BI_BLANK_LIST</col>
+          <col>airline_bi_set</col>
+          <col>trip_bi</col>
+          <col>Бланки приглашений</col>
+          <col>Бланки приглашений рейса</col>
+          <col>QST.INSERT_BLANK_INVITATION_W_SEG</col>
+          <col>QST.INSERT_BLANK_INVITATION_WO_SEG</col>
+          <col>MSG.WAIT_PRINTING_INVITATION</col>
+        </row>
+        <row pr_del='0'>
+          <col>5</col>
+          <col>PRINT_VO</col>
+          <col>Ваучеры</col>
+          <col>VO_MODELS</col>
+          <col>VO_TYPES</col>
+          <col>Список ваучеров</col>
+          <col>Список форм для ваучера:</col>
+          <col>VO_BLANK_LIST</col>
+          <col>airline_vo_set</col>
+          <col>trip_vo</col>
+          <col>Бланки ваучеров</col>
+          <col>Бланки ваучеров рейса</col>
+          <col>QST.INSERT_BLANK_VO_W_SEG</col>
+          <col>QST.INSERT_BLANK_VO_WO_SEG</col>
+          <col>MSG.WAIT_PRINTING_VOUCHERS_PASS</col>
+        </row>
+        <row pr_del='0'>
+          <col>6</col>
+          <col>PRINT_EMDA</col>
+          <col>EMDA</col>
+          <col>EMDA_MODELS</col>
+          <col>EMDA_TYPES</col>
+          <col>Список EMDA</col>
+          <col>Список форм для EMDA:</col>
+          <col>EMDA_BLANK_LIST</col>
+          <col>airline_emda_set</col>
+          <col>trip_emda</col>
+          <col>Бланки EMDA</col>
+          <col>Бланки EMDA рейса</col>
+          <col/>
+          <col/>
+          <col>MSG.WAIT_PRINTING_EMDA</col>
+        </row>
+      </rows>
+    </data>
+  </answer>
+</term>
+
+
+
