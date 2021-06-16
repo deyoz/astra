@@ -725,7 +725,9 @@ void TLogLocale::fromXML(xmlNodePtr node)
 }
 
 void TLogLocale::toDB(const string &screen, const string &user_descr, const string &desk_code)
-{
+{  
+  ev_time = NowUTC();
+  ev_order = PgOra::getSeqNextVal_int("EVENTS__SEQ");
   QParams QryParams;
   QryParams << QParam("type", otString, EncodeEventType(ev_type))
             << QParam("sub_type", otString, sub_type.substr(0, 100))
@@ -735,8 +737,8 @@ void TLogLocale::toDB(const string &screen, const string &user_descr, const stri
             << QParam("msg", otString)
             << QParam("lang", otString)
             << QParam("part_num", otInteger)
-            << QParam("ev_time", otDate, FNull)
-            << QParam("ev_order", otInteger, FNull);
+            << QParam("ev_time", otDate, ev_time)
+            << QParam("ev_order", otInteger, ev_order);
 
   if(id1!=0 && id1!=NoExists)
     QryParams << QParam("id1", otInteger, id1);
@@ -753,21 +755,16 @@ void TLogLocale::toDB(const string &screen, const string &user_descr, const stri
   else
     QryParams << QParam("id3", otInteger, FNull);
 
-  TCachedQuery CachedQry(
-        "BEGIN "
-        "  IF :ev_time IS NULL OR :ev_order IS NULL THEN"
-        "    SELECT system.UTCSYSDATE, events__seq.nextval INTO :ev_time, :ev_order FROM dual; "
-        "  END IF; "
-        "  IF :part_num IS NULL THEN :part_num:=1; ELSE :part_num:=:part_num+1; END IF; "
+  DB::TCachedQuery CachedQry(PgOra::getRWSession("EVENTS_BILINGUAL"),
         "  INSERT INTO events_bilingual(type,sub_type,time,ev_order,part_num,msg,screen,ev_user,station,id1,id2,id3,lang) "
         "  VALUES(:type,:sub_type,:ev_time,:ev_order,:part_num,"
-        "         :msg,:screen,:ev_user,:station,:id1,:id2,:id3,:lang); "
-        "END;", QryParams);
+        "         :msg,:screen,:ev_user,:station,:id1,:id2,:id3,:lang) ",
+        QryParams, STDLOG);
 
-  TQuery &Qry=CachedQry.get();
+  DB::TQuery &Qry = CachedQry.get();
 
   for (std::vector<std::string>::iterator lang = vlangs.begin(); lang != vlangs.end(); lang++) {
-    Qry.SetVariable("part_num", FNull);
+    int part_num = 0;
     (*lang == AstraLocale::LANG_RU)?Qry.SetVariable("lang", AstraLocale::LANG_RU):
                                     Qry.SetVariable("lang", AstraLocale::LANG_EN);
     std::string message;
@@ -775,18 +772,11 @@ void TLogLocale::toDB(const string &screen, const string &user_descr, const stri
     vector<string> strs;
     SeparateString(message.c_str(), 250, strs);
     for (vector<string>::iterator i=strs.begin(); i!=strs.end(); i++) {
+      Qry.SetVariable("part_num", ++part_num);
       Qry.SetVariable("msg", *i);
       Qry.Execute();
     }
   }
-  if (!Qry.VariableIsNULL("ev_time"))
-    ev_time=Qry.GetVariableAsDateTime("ev_time");
-  else
-    ev_time=ASTRA::NoExists;
-  if (!Qry.VariableIsNULL("ev_order"))
-    ev_order=Qry.GetVariableAsInteger("ev_order");
-  else
-    ev_order=ASTRA::NoExists;
 }
 
 /***************************************************************************************/
