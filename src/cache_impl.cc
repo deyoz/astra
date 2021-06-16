@@ -26,7 +26,7 @@ CacheTableCallbacks* SpawnCacheTableCallbacks(const std::string& cacheCode)
   if (cacheCode=="AIRLINES")            return new CacheTable::Airlines;
   if (cacheCode=="AIRPS")               return new CacheTable::Airps;
   if (cacheCode=="TRIP_TYPES")          return new CacheTable::TripTypes;
-#endif ENABLE_ORACLE
+#endif //ENABLE_ORACLE
   return nullptr;
 }
 
@@ -326,6 +326,104 @@ void GrpRfisc::onSelectOrRefresh(const TParams& sqlParams, CacheTable::SelectedR
         .setFromString(Qry, idxNameLat)
         .addRow();
   }
+}
+
+//FileTypes
+
+std::string FileTypes::selectSql() const {
+  return "SELECT code, name FROM file_types WHERE code NOT IN ('BSM', 'HTTP_TYPEB') ORDER BY code";
+}
+std::list<std::string> FileTypes::dbSessionObjectNames() const {
+  return {"FILE_TYPES"};
+}
+
+//Airlines
+
+std::string Airlines::selectSql() const {
+  return "SELECT id, code, code_lat, code_icao, code_icao_lat, name, name_lat, short_name, short_name_lat, aircode, city, tid, pr_del "
+         "FROM airlines ORDER BY code";
+}
+std::string Airlines::refreshSql() const {
+  return "SELECT id, code, code_lat, code_icao, code_icao_lat, name, name_lat, short_name, short_name_lat, aircode, city, tid, pr_del "
+         "FROM airlines WHERE tid>:tid ORDER BY code";
+}
+std::list<std::string> Airlines::dbSessionObjectNames() const {
+  return {"AIRLINES"};
+}
+
+//Airps
+
+std::string Airps::selectSql() const {
+  return "SELECT id, code, code_lat, code_icao, code_icao_lat, city, city AS city_name, name, name_lat, tid, pr_del "
+         "FROM airps ORDER BY code";
+}
+std::string Airps::refreshSql() const {
+  return "SELECT id, code, code_lat, code_icao, code_icao_lat, city, city AS city_name, name, name_lat, tid, pr_del "
+         "FROM airps WHERE tid>:tid ORDER BY code";
+}
+std::list<std::string> Airps::dbSessionObjectNames() const {
+  return {"AIRPS"};
+}
+
+//TripTypes
+
+std::string TripTypes::selectSql() const {
+  return "SELECT id, code, code_lat, name, name_lat, pr_reg, tid, pr_del FROM trip_types ORDER BY code";
+}
+std::string TripTypes::refreshSql() const {
+  return "SELECT id, code, code_lat, name, name_lat, pr_reg, tid, pr_del FROM trip_types WHERE tid>:tid ORDER BY code";
+}
+std::list<std::string> TripTypes::dbSessionObjectNames() const {
+  return {"TRIP_TYPES"};
+}
+
+//TripSuffixes
+
+std::string TripSuffixes::selectSql() const {
+  return "SELECT code,code_lat FROM trip_suffixes ORDER BY code";
+}
+std::list<std::string> TripSuffixes::dbSessionObjectNames() const {
+  return {"TRIP_SUFFIXES"};
+}
+
+//TermProfileRights
+
+std::string TermProfileRights::selectSql() const {
+  return "select airline, airp, right_id, 1 user_type "
+         "from airline_profiles ap, profile_rights pr "
+         "where ap.profile_id = pr.profile_id AND "
+         "      right_id NOT IN (191, 192)";
+}
+std::list<std::string> TermProfileRights::dbSessionObjectNames() const {
+  return {"AIRLINE_PROFILES", "PROFILE_RIGHTS"};
+}
+
+//PrnFormsLayout
+
+std::string PrnFormsLayout::selectSql() const {
+  return
+   "select "
+   "  id "
+   "  ,op_type "
+   "  ,max(CASE param_name WHEN 'btn_caption'          THEN param_value END) btn_caption "
+   "  ,max(CASE param_name WHEN 'models_cache'         THEN param_value END) models_cache "
+   "  ,max(CASE param_name WHEN 'types_cache'          THEN param_value END) types_cache "
+   "  ,max(CASE param_name WHEN 'blanks_lbl'           THEN param_value END) blanks_lbl "
+   "  ,max(CASE param_name WHEN 'forms_lbl'            THEN param_value END) forms_lbl "
+   "  ,max(CASE param_name WHEN 'blank_list_cache'     THEN param_value END) blank_list_cache "
+   "  ,max(CASE param_name WHEN 'airline_set_cache'    THEN param_value END) airline_set_cache "
+   "  ,max(CASE param_name WHEN 'trip_set_cache'       THEN param_value END) trip_set_cache "
+   "  ,max(CASE param_name WHEN 'airline_set_caption'  THEN param_value END) airline_set_caption "
+   "  ,max(CASE param_name WHEN 'trip_set_caption'     THEN param_value END) trip_set_caption "
+   "  ,max(CASE param_name WHEN 'msg_insert_blank_seg' THEN param_value END) msg_insert_blank_seg "
+   "  ,max(CASE param_name WHEN 'msg_insert_blank'     THEN param_value END) msg_insert_blank "
+   "  ,max(CASE param_name WHEN 'msg_wait_printing'    THEN param_value END) msg_wait_printing "
+   "from prn_forms_layout "
+   "group by id, op_type "
+   "order by id";
+}
+std::list<std::string> PrnFormsLayout::dbSessionObjectNames() const {
+  return {"PRN_FORMS_LAYOUT"};
 }
 
 }

@@ -708,102 +708,107 @@ CacheTable::RefreshStatus TCacheTable::refreshDataCommon()
 
     ProgTrace(TRACE5, "SQLText=%s", Qry.SQLText.c_str());
     Qry.Execute();
-    // ищем, чтобы все поля, которые описаны в кэше были в запросе
-    vector<int> vecFieldIdx;
-    for(vector<TCacheField2>::iterator i = FFields.begin(); i != FFields.end(); i++)
-    {
-        int FieldIdx = Qry.GetFieldIndex(i->Name);
-        if( FieldIdx < 0)
-        {
-          if (i->ElemCategory==cecCode ||
-              i->ElemCategory==cecName ||
-              i->ElemCategory==cecNameShort)
-          {
-            //проверим - поле может быть _VIEW
-            if (i->Name.size()>5 && i->Name.substr(i->Name.size()-5)=="_VIEW")
-              FieldIdx = Qry.GetFieldIndex(i->Name.substr(0,i->Name.size()-5));
-          };
-
-          if( FieldIdx < 0)
-            throw Exception("Field '" + code + "." + i->Name + "' not found in select_sql");
-        };
-        vecFieldIdx.push_back( FieldIdx );
-    }
-    vector< boost::optional<bool> > vecFieldIntType(vecFieldIdx.size());
-
-    int tidIdx = Qry.GetFieldIndex("TID");
-    int delIdx = Qry.GetFieldIndex("PR_DEL");
-    if ( clientVerData >= 0 && delIdx < 0 )
-        throw Exception( "Field '" + code +".PR_DEL' not found");
 
     bool trip_bag_norms=(TCacheTable::code()=="TRIP_BAG_NORMS");
     TRow tmp_row;
 
-    //читаем кэш
-    for(; !Qry.Eof; Qry.Next())
+    // ищем, чтобы все поля, которые описаны в кэше были в запросе
+    // если запрос не возвращает строк, то в PG не сможем проверить поля
+    if (!Qry.Eof)
     {
-      if( tidIdx >= 0 && Qry.FieldAsInteger( tidIdx ) > clientVerData )
-        clientVerData = Qry.FieldAsInteger( tidIdx );
-      TRow local_row;
-      TRow &row=(trip_bag_norms && Qry.FieldAsInteger("id")==1000000000)?tmp_row:local_row;
-      int j=0;
-      for(vector<TCacheField2>::iterator i = FFields.begin(); i != FFields.end(); i++,j++)
+      vector<int> vecFieldIdx;
+      for(vector<TCacheField2>::const_iterator i = FFields.begin(); i != FFields.end(); ++i)
       {
-        if(Qry.FieldIsNULL(vecFieldIdx[ j ] ))
-          row.cols.push_back( "" );
-        else {
-            switch( i->DataType ) {
-              case ftSignedNumber:
-              case ftUnsignedNumber:
-                if ( i->Scale > 0 || i->DataSize > 9 )
-                  row.cols.push_back( Qry.FieldAsString( vecFieldIdx[ j ] ) );
-                else
-                  row.cols.push_back( IntToString( Qry.FieldAsInteger( vecFieldIdx[ j ] ) ) );
-                break;
-              case ftBoolean:
-                  row.cols.push_back( IntToString( (int)(Qry.FieldAsInteger( vecFieldIdx[ j ] ) !=0 ) ) );
-                break;
-              default:
-                if (i->ElemCategory!=cecNone)
-                {
-                  string value;
-                  if (!vecFieldIntType[ j ])
-                  {
-                    try
-                    {
-                      value=getSpecialElem(*i, Qry.FieldAsString(vecFieldIdx[ j ]));
-                    }
-                    catch(const Exception&) {}
-                    vecFieldIntType[ j ]=value.empty();
-                  }
-                  if (value.empty())
-                  {
-                    if (vecFieldIntType[ j ].value())
-                    try
-                    {
-                      value=getSpecialElem(*i, Qry.FieldAsInteger(vecFieldIdx[ j ]));
-                    }
-                    catch(const Exception&)
-                    {
-                      LogError(STDLOG) << Qry.FieldAsString(vecFieldIdx[ j ]);
-                      throw;
-                    }
-                    else
-                      value=getSpecialElem(*i, Qry.FieldAsString(vecFieldIdx[ j ]));
-                  }
-                  row.cols.push_back(value);
-                }
-                else row.cols.push_back( Qry.FieldAsString(vecFieldIdx[ j ]) );
-                break;
-            }
-        }
+          int FieldIdx = Qry.GetFieldIndex(i->Name);
+          if( FieldIdx < 0)
+          {
+            if (i->ElemCategory==cecCode ||
+                i->ElemCategory==cecName ||
+                i->ElemCategory==cecNameShort)
+            {
+              //проверим - поле может быть _VIEW
+              if (i->Name.size()>5 && i->Name.substr(i->Name.size()-5)=="_VIEW")
+                FieldIdx = Qry.GetFieldIndex(i->Name.substr(0,i->Name.size()-5));
+            };
+
+            if( FieldIdx < 0)
+              throw Exception("Field '" + code + "." + i->Name + "' not found in select_sql");
+          };
+          vecFieldIdx.push_back( FieldIdx );
       }
-      if(delIdx >= 0 &&  Qry.FieldAsInteger(delIdx) != 0)
-        row.status = usDeleted;
-      else
-        row.status = usUnmodified;
-      if (!(trip_bag_norms && Qry.FieldAsInteger("id")==1000000000))
-        table.push_back(row);
+      vector< boost::optional<bool> > vecFieldIntType(vecFieldIdx.size());
+
+      int tidIdx = Qry.GetFieldIndex("TID");
+      int delIdx = Qry.GetFieldIndex("PR_DEL");
+      if ( clientVerData >= 0 && delIdx < 0 )
+          throw Exception( "Field '" + code +".PR_DEL' not found");
+
+      //читаем кэш
+      for(; !Qry.Eof; Qry.Next())
+      {
+        if( tidIdx >= 0 && Qry.FieldAsInteger( tidIdx ) > clientVerData )
+          clientVerData = Qry.FieldAsInteger( tidIdx );
+        TRow local_row;
+        TRow &row=(trip_bag_norms && Qry.FieldAsInteger("id")==1000000000)?tmp_row:local_row;
+        int j=0;
+        for(vector<TCacheField2>::iterator i = FFields.begin(); i != FFields.end(); i++,j++)
+        {
+          if(Qry.FieldIsNULL(vecFieldIdx[ j ] ))
+            row.cols.push_back( "" );
+          else {
+              switch( i->DataType ) {
+                case ftSignedNumber:
+                case ftUnsignedNumber:
+                  if ( i->Scale > 0 || i->DataSize > 9 )
+                    row.cols.push_back( Qry.FieldAsString( vecFieldIdx[ j ] ) );
+                  else
+                    row.cols.push_back( IntToString( Qry.FieldAsInteger( vecFieldIdx[ j ] ) ) );
+                  break;
+                case ftBoolean:
+                    row.cols.push_back( IntToString( (int)(Qry.FieldAsInteger( vecFieldIdx[ j ] ) !=0 ) ) );
+                  break;
+                default:
+                  if (i->ElemCategory!=cecNone)
+                  {
+                    string value;
+                    if (!vecFieldIntType[ j ])
+                    {
+                      try
+                      {
+                        value=getSpecialElem(*i, Qry.FieldAsString(vecFieldIdx[ j ]));
+                      }
+                      catch(const Exception&) {}
+                      vecFieldIntType[ j ]=value.empty();
+                    }
+                    if (value.empty())
+                    {
+                      if (vecFieldIntType[ j ].value())
+                      try
+                      {
+                        value=getSpecialElem(*i, Qry.FieldAsInteger(vecFieldIdx[ j ]));
+                      }
+                      catch(const Exception&)
+                      {
+                        LogError(STDLOG) << Qry.FieldAsString(vecFieldIdx[ j ]);
+                        throw;
+                      }
+                      else
+                        value=getSpecialElem(*i, Qry.FieldAsString(vecFieldIdx[ j ]));
+                    }
+                    row.cols.push_back(value);
+                  }
+                  else row.cols.push_back( Qry.FieldAsString(vecFieldIdx[ j ]) );
+                  break;
+              }
+          }
+        }
+        if(delIdx >= 0 &&  Qry.FieldAsInteger(delIdx) != 0)
+          row.status = usDeleted;
+        else
+          row.status = usUnmodified;
+        if (!(trip_bag_norms && Qry.FieldAsInteger("id")==1000000000))
+          table.push_back(row);
+      }
     }
 
     if (trip_bag_norms && !table.empty() && !tmp_row.cols.empty())
