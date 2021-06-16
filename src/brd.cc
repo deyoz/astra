@@ -41,6 +41,27 @@ using namespace EXCEPTIONS;
 using namespace std;
 using namespace AstraLocale;
 
+namespace {
+
+std::string get_last_trfer_airp(const GrpId_t& grp_id)
+{
+  std::string result;
+  DB::TQuery Qry(PgOra::getROSession("TRANSFER"), STDLOG);
+  Qry.SQLText =
+      "SELECT airp_arv "
+      "FROM transfer "
+      "WHERE grp_id = :grp_id "
+      "AND pr_final <> 0 ";
+  Qry.CreateVariable("grp_id", otInteger, grp_id.get());
+  Qry.Execute();
+  if (!Qry.Eof) {
+    result = Qry.FieldAsString("airp_arv");
+  }
+  return result;
+}
+
+} // namespace
+
 void BrdInterface::readTripData( int point_id, xmlNodePtr dataNode )
 {
   xmlNodePtr tripdataNode = NewTextChild( dataNode, "tripdata" );
@@ -560,7 +581,6 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
         "SELECT "
         "    pax_grp.grp_id, "
         "    pax_grp.airp_arv, "
-        "    NVL(report.get_last_trfer_airp(pax_grp.grp_id),pax_grp.airp_arv) AS last_airp_arv, "
         "    pax_grp.class, NVL(pax.cabin_class, pax_grp.class) AS cabin_class, "
         "    pax_grp.status, "
         "    pax_grp.client_type, "
@@ -1706,7 +1726,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       int col_class=Qry.FieldIndex("class");
       int col_cabin_class=Qry.FieldIndex("cabin_class");
       int col_airp_arv=Qry.FieldIndex("airp_arv");
-      int col_last_airp_arv=Qry.FieldIndex("last_airp_arv");
       int col_status=Qry.FieldIndex("status");
       int col_seat_no=Qry.FieldIndex("seat_no");
       int col_seats=Qry.FieldIndex("seats");
@@ -1744,16 +1763,20 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       AllAPIAttrs allAPIAttrs(fltInfo.scd_out);
       for(;!Qry.Eof;Qry.Next())
       {
-          int grp_id=Qry.FieldAsInteger(col_grp_id);
-          int pax_id=Qry.FieldAsInteger(col_pax_id);
-          int crs_pax_id=Qry.FieldIsNULL(col_crs_pax_id)?NoExists:Qry.FieldAsInteger(col_crs_pax_id);
-          string surname=Qry.FieldAsString(col_surname);
-          string name=Qry.FieldAsString(col_name);
-          string airp_arv=Qry.FieldAsString(col_airp_arv);
-          TPaxStatus grp_status=DecodePaxStatus(Qry.FieldAsString(col_status));
-          TCrewType::Enum crew_type = CrewTypes().decode(Qry.FieldAsString("crew_type"));
-          ASTRA::TPaxTypeExt pax_ext(grp_status, crew_type);
-          bool docoConfirmed=Qry.FieldAsInteger(col_doco_confirm)!=0;
+          const int grp_id=Qry.FieldAsInteger(col_grp_id);
+          const int pax_id=Qry.FieldAsInteger(col_pax_id);
+          const int crs_pax_id=Qry.FieldIsNULL(col_crs_pax_id)?NoExists:Qry.FieldAsInteger(col_crs_pax_id);
+          const std::string surname=Qry.FieldAsString(col_surname);
+          const std::string name=Qry.FieldAsString(col_name);
+          const std::string airp_arv=Qry.FieldAsString(col_airp_arv);
+          const TPaxStatus grp_status=DecodePaxStatus(Qry.FieldAsString(col_status));
+          const TCrewType::Enum crew_type = CrewTypes().decode(Qry.FieldAsString("crew_type"));
+          const ASTRA::TPaxTypeExt pax_ext(grp_status, crew_type);
+          const bool docoConfirmed=Qry.FieldAsInteger(col_doco_confirm)!=0;
+          std::string last_airp_arv = get_last_trfer_airp(GrpId_t(grp_id));
+          if (last_airp_arv.empty()) {
+              last_airp_arv = airp_arv;
+          }
 
           if(not custom_alarms or not showWholeFlight) {
               custom_alarms = boost::in_place();
@@ -1766,12 +1789,12 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           NewTextChild(paxNode, "pr_brd",  Qry.FieldAsInteger(col_pr_brd)!=0, false);
           NewTextChild(paxNode, "pr_exam", Qry.FieldAsInteger(col_pr_exam)!=0, false);
           NewTextChild(paxNode, "reg_no", Qry.FieldAsInteger(col_reg_no));
-          NewTextChild(paxNode, "surname", Qry.FieldAsString(col_surname));
-          NewTextChild(paxNode, "name", Qry.FieldAsString(col_name), "");
+          NewTextChild(paxNode, "surname", surname);
+          NewTextChild(paxNode, "name", name, "");
           NewTextChild(paxNode, "pers_type", ElemIdToCodeNative(etPersType, Qry.FieldAsString(col_pers_type)), def_pers_type);
           NewTextChild(paxNode, "class", classIdsToCodeNative(Qry.FieldAsString(col_class),
                                                               Qry.FieldAsString(col_cabin_class)), def_class);
-          NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_last_airp_arv)));
+          NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, last_airp_arv));
           NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
           NewTextChild(paxNode, "seats", Qry.FieldAsInteger(col_seats), 1);
           if (!free_seating)

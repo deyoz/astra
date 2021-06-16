@@ -15,25 +15,41 @@ using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
 
 const string AIRP_PERIODS =
-"(SELECT DECODE(SIGN(period_first_date-:FirstDate),1,period_first_date,:FirstDate) AS period_first_date, \n"
-"         DECODE(SIGN(period_last_date- :LastDate),-1,period_last_date, :LastDate) AS period_last_date \n"
-"  FROM \n"
-"   (SELECT distinct change_point AS period_first_date, \n"
-"           report.get_airp_period_last_date(:ap,change_point) AS period_last_date \n"
-"    FROM pacts, \n"
-"     (SELECT first_date AS change_point \n"
-"      FROM pacts \n"
-"      WHERE airp=:ap \n"
-"      UNION \n"
-"      SELECT last_date   \n"
-"      FROM pacts \n"
-"      WHERE airp=:ap AND last_date IS NOT NULL) a \n"
-"    WHERE airp=:ap AND  \n"
-"          change_point>=first_date AND  \n"
-"          (last_date IS NULL OR change_point<last_date) AND \n"
-"          airline IS NULL) periods \n"
-"  WHERE (period_last_date IS NULL OR period_last_date>:FirstDate) AND period_first_date<:LastDate \n"
-" ) periods \n";
+    "SELECT "
+    "  CASE WHEN SIGN(period_first_date - :FirstDate) = 1 "
+    "  THEN period_first_date ELSE :FirstDate END AS period_first_date, "
+    "  CASE WHEN SIGN(period_last_date - :LastDate) = -1 "
+    "  THEN period_last_date ELSE :LastDate END AS period_last_date "
+    "FROM ( "
+    "  SELECT DISTINCT "
+    "    change_point AS period_first_date, "
+    "    (SELECT MIN(period_last_date) "
+    "     FROM ( "
+    "       SELECT first_date AS period_last_date "
+    "       FROM pacts "
+    "       WHERE airp = :ap "
+    "       AND first_date > change_point "
+    "       UNION "
+    "       SELECT last_date "
+    "       FROM pacts "
+    "       WHERE airp = :ap AND last_date > change_point AND last_date IS NOT NULL "
+    "     ) min_last "
+    "    ) AS period_last_date "
+    "  FROM pacts, "
+    "       (SELECT first_date AS change_point "
+    "        FROM pacts "
+    "        WHERE airp=:ap "
+    "        UNION "
+    "        SELECT last_date "
+    "        FROM pacts "
+    "        WHERE airp=:ap AND last_date IS NOT NULL) a "
+    "  WHERE airp = :ap "
+    "  AND change_point >= first_date "
+    "  AND airline IS NULL "
+    "  AND (last_date IS NULL OR change_point < last_date) "
+    ") periods "
+    "WHERE period_first_date < :LastDate "
+    "AND (period_last_date IS NULL OR period_last_date > :FirstDate) ";
 
 std::vector<Dates::time_period> get_airp_periods(TDateTime firstDate, TDateTime lastDate,
                                                  const std::string& airp)
@@ -41,28 +57,8 @@ std::vector<Dates::time_period> get_airp_periods(TDateTime firstDate, TDateTime 
     std::vector<Dates::time_period> periods;
     Dates::DateTime_t period_first, period_last;
 
-    auto cur = make_db_curs(
-"(SELECT "
-"   CASE WHEN SIGN(period_first_date-:FirstDate) = 1 THEN period_first_date ELSE :FirstDate END AS period_first_date, \n"
-"   CASE WHEN SIGN(period_last_date- :LastDate) = -1 THEN period_last_date ELSE :LastDate END AS period_last_date \n"
-"  FROM \n"
-"   (SELECT distinct change_point AS period_first_date, \n"
-"           report.get_airp_period_last_date(:ap,change_point) AS period_last_date \n"
-"    FROM pacts, \n"
-"     (SELECT first_date AS change_point \n"
-"      FROM pacts \n"
-"      WHERE airp=:ap \n"
-"      UNION \n"
-"      SELECT last_date   \n"
-"      FROM pacts \n"
-"      WHERE airp=:ap AND last_date IS NOT NULL) a \n"
-"    WHERE airp=:ap AND  \n"
-"          change_point>=first_date AND  \n"
-"          (last_date IS NULL OR change_point<last_date) AND \n"
-"          airline IS NULL) periods \n"
-"  WHERE (period_last_date IS NULL OR period_last_date>:FirstDate) AND period_first_date<:LastDate \n"
-") \n", PgOra::getROSession("PACTS"));
-
+    auto cur = make_db_curs(AIRP_PERIODS,
+                            PgOra::getROSession("PACTS"));
     cur.stb()
        .def(period_first)
        .def(period_last)
@@ -79,24 +75,37 @@ std::vector<Dates::time_period> get_airp_periods(TDateTime firstDate, TDateTime 
 
 
 const string AIRLINE_PERIODS =
-"(SELECT DECODE(SIGN(period_first_date-:FirstDate),1,period_first_date,:FirstDate) AS period_first_date, \n"
-"         DECODE(SIGN(period_last_date- :LastDate),-1,period_last_date, :LastDate) AS period_last_date \n"
-"  FROM \n"
-"   (SELECT distinct change_point AS period_first_date, \n"
-"           report.get_airline_period_last_date(:ak,change_point) AS period_last_date \n"
-"    FROM pacts,  \n"
-"     (SELECT first_date AS change_point \n"
-"      FROM pacts \n"
-"      WHERE airline=:ak \n"
-"      UNION \n"
-"      SELECT last_date   \n"
-"      FROM pacts \n"
-"      WHERE airline=:ak AND last_date IS NOT NULL) a \n"
-"    WHERE airline=:ak AND  \n"
-"          change_point>=first_date AND  \n"
-"          (last_date IS NULL OR change_point<last_date)) periods \n"
-"  WHERE (period_last_date IS NULL OR period_last_date>:FirstDate) AND period_first_date<:LastDate \n"
-") periods \n";
+    "SELECT "
+    "  CASE WHEN SIGN(period_first_date - :FirstDate) = 1 THEN period_first_date ELSE :FirstDate END AS period_first_date, "
+    "  CASE WHEN SIGN(period_last_date - :LastDate) = -1 THEN period_last_date ELSE :LastDate END AS period_last_date "
+    "FROM ( "
+    "  SELECT DISTINCT "
+    "    change_point AS period_first_date, "
+    "    (SELECT MIN(period_last_date) "
+    "     FROM ( "
+    "        SELECT first_date AS period_last_date "
+    "        FROM pacts "
+    "        WHERE airline = :ak AND first_date > change_point "
+    "        UNION "
+    "        SELECT last_date "
+    "        FROM pacts "
+    "        WHERE airline = :ak AND last_date > change_point AND last_date IS NOT NULL "
+    "     ) min_last "
+    "    ) AS period_last_date "
+    "  FROM pacts, "
+    "       (SELECT first_date AS change_point "
+    "        FROM pacts "
+    "        WHERE airline = :ak "
+    "        UNION "
+    "        SELECT last_date "
+    "        FROM pacts "
+    "        WHERE airline=:ak AND last_date IS NOT NULL) a "
+    "  WHERE airline = :ak "
+    "  AND change_point >= first_date "
+    "  AND (last_date IS NULL OR change_point < last_date) "
+    ") periods "
+    "WHERE period_first_date < :LastDate "
+    "AND (period_last_date IS NULL OR period_last_date > :FirstDate) ";
 
 std::vector<Dates::time_period> get_airline_periods(TDateTime firstDate, TDateTime lastDate,
                                                  const std::string& airline)
@@ -104,27 +113,7 @@ std::vector<Dates::time_period> get_airline_periods(TDateTime firstDate, TDateTi
     std::vector<Dates::time_period> periods;
     Dates::DateTime_t period_first, period_last;
 
-    auto cur = make_db_curs(
-"(SELECT "
-"   CASE WHEN SIGN(period_first_date - :FirstDate) = 1 THEN period_first_date ELSE :FirstDate END AS period_first_date, \n"
-"   CASE WHEN SIGN(period_last_date - :LastDate) = -1 THEN period_last_date ELSE :LastDate END AS period_last_date \n"
-"  FROM \n"
-"   (SELECT distinct change_point AS period_first_date, \n"
-"           report.get_airline_period_last_date(:ak,change_point) AS period_last_date \n"
-"    FROM pacts, \n"
-"     (SELECT first_date AS change_point \n"
-"      FROM pacts \n"
-"      WHERE airline=:ak \n"
-"      UNION \n"
-"      SELECT last_date   \n"
-"      FROM pacts \n"
-"      WHERE airline=:ak AND last_date IS NOT NULL) a \n"
-"      WHERE airline=:ak AND  \n"
-"          change_point>=first_date AND  \n"
-"          (last_date IS NULL OR change_point<last_date)) periods \n"
-"  WHERE (period_last_date IS NULL OR period_last_date>:FirstDate) AND period_first_date<:LastDate \n"
-") \n", PgOra::getROSession("PACTS"));
-
+    auto cur = make_db_curs(AIRLINE_PERIODS, PgOra::getROSession("PACTS"));
     cur.stb()
        .def(period_first)
        .def(period_last)
@@ -526,9 +515,9 @@ string GetStatSQLText(const TStatParams &params, int pass)
       params.seance==seanceAirline)
   {
       if(params.seance==seanceAirport)
-        sql << "," << AIRP_PERIODS;
+        sql << ",(" << AIRP_PERIODS << ") periods ";
       if(params.seance==seanceAirline)
-        sql << "," << AIRLINE_PERIODS;
+        sql << ",(" << AIRLINE_PERIODS << ") periods ";;
   }
 
   sql << "WHERE \n";

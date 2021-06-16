@@ -2764,7 +2764,6 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  last_tckin_seg.flt_no AS tckin_seg_flt_no, "
     "  last_tckin_seg.suffix AS tckin_seg_suffix, "
     "  last_tckin_seg.airp_arv AS tckin_seg_airp_arv, "
-    "  report.get_last_tckin_seg(pax_grp.grp_id) AS last_tckin_seg, "
     "  ckin.get_bagAmount2(pax_grp.grp_id,NULL,NULL) AS bag_amount, "
     "  ckin.get_bagWeight2(pax_grp.grp_id,NULL,NULL) AS bag_weight, "
     "  ckin.get_rkWeight2(pax_grp.grp_id,NULL,NULL) AS rk_weight, "
