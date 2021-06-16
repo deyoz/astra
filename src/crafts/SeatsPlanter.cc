@@ -35,6 +35,7 @@ struct ReseatRfiscData {
   enum EnumRFISC { doAdd, doDelete };
   int point_id;
   int pax_id;
+  int front_grp_id;
   TPaxSegRFISCKey del_rfisc, add_rfisc;
   TSeat del_seat, add_seat;
   void RFISCToXML( xmlNodePtr node,
@@ -178,6 +179,8 @@ tst();
         if (g!=grps.begin()) continue;
         //TGrpServiceListWithAuto svc; //это полный список услуг?
         //svc.fromDB(g->id);
+        front_grp_id = paxRoute.front().dest.grp_id.get();
+        LogTrace(TRACE5) << front_grp_id;
         TPaidRFISCList paidRFISC;
         //paidRFISC.fromDB(paxRoute.front().dest.grp_id);//это введено с терминала и оценено
         paidRFISC.fromDB((int)paxRoute.front().dest.grp_id.get(),true); //это введено с терминала и оценено
@@ -235,7 +238,7 @@ tst();
     }
 
     static bool reseatRFISCDispatcher(xmlNodePtr reqNode, xmlNodePtr externalSysResNode,
-                                      xmlNodePtr resNode ) {
+                                      xmlNodePtr resNode, int& front_grp_id ) {
       LogTrace(TRACE5) << __func__ << " isDoomedToWait " << isDoomedToWait();
       LogTrace(TRACE5) << "request " << XMLTreeToText(reqNode->doc);
       if (externalSysResNode)
@@ -249,6 +252,7 @@ tst();
       r.fromXML(doc.docPtr()->children);
       xmlNodePtr emulChngNode = r.createTCkinSavePaxQuery( reqNode, resNode);
       r.toXML(doc.docPtr()->children);
+      front_grp_id = r.front_grp_id;
       LogTrace(TRACE5) <<  doc.text();
       AstraContext::ClearContext(getContextName(),0);
       AstraContext::SetContext(getContextName(),0,doc.text());
@@ -263,7 +267,7 @@ tst();
       toXML( doc.docPtr()->children );
       AstraContext::ClearContext(getContextName(),0);
       AstraContext::SetContext(getContextName(),0,doc.text());
-      return reseatRFISCDispatcher( reqNode, externalSysResNode, resNode );
+      return reseatRFISCDispatcher( reqNode, externalSysResNode, resNode, front_grp_id );
     }
 
 };
@@ -639,7 +643,8 @@ private:
     }
   }
 
-  EnumSeatsProps checkRequeredServiceOnRfics( xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode ) {
+  EnumSeatsProps checkRequeredServiceOnRfics( xmlNodePtr reqNode, xmlNodePtr externalSysResNode,
+                                              xmlNodePtr resNode, int& front_grp_id ) {
     LogTrace(TRACE5) << __func__;
     if ( reqNode == nullptr ||
          resNode == nullptr )
@@ -665,6 +670,8 @@ private:
         throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL");
       if ( !r.reseat( reqNode, externalSysResNode, resNode ) ) //если нет записи данных по пассажирским услугам, то надо выйти и ждать, иначе делаем запись пересадки
         return EnumSeatsProps::propExit;
+      front_grp_id = r.front_grp_id;
+      LogTrace(TRACE5) << front_grp_id;
       _resPropsSets.setFlag(propChangeRFISCService);
       LogTrace(TRACE5) << __func__ << " saving..";
     }
@@ -1274,6 +1281,7 @@ public:
     AstraContext::SetContext(ReseatPaxRFISCServiceChanger::getContextName(),0,doc.text());//ConvertCodepage(doc.text(), "UTF-8", "CP866"));
     tst();
     MessageSaver savePaxMessage;
+    int front_grp_id;
 
     try {
       fromDB(); // начитка данных по пассажиру
@@ -1297,7 +1305,8 @@ public:
       if ( EnumSeatsProps::propExit == checkChangeSeatsForPay() ) //проверка изменения места по оплате
         return _resPropsSets;
       checkRequiredRfiscs();
-      if ( EnumSeatsProps::propExit == checkRequeredServiceOnRfics( reqNode, externalSysResNode, resNode ) ) //началось добавление или удаление услуги
+      if ( EnumSeatsProps::propExit == checkRequeredServiceOnRfics( reqNode, externalSysResNode,
+                                                                    resNode, front_grp_id ) ) //началось добавление или удаление услуги
         return _resPropsSets;
       savePaxMessage.fromXML(resNode);
       doChangeSeats(whence);
@@ -1333,7 +1342,7 @@ public:
       showErrorMessageAndRollback( ue.getLexemaData( ) );
     }
     if (_resPropsSets.isFlag(propChangeRFISCService)) { //надо добавить ответ от SavePax
-      CheckInInterface::LoadPaxByGrpId(GrpId_t(pax.grp_id), nullptr, NewTextChild( emulResNode, "SavePax"), true);
+      CheckInInterface::LoadPaxByGrpId(GrpId_t(front_grp_id), nullptr, NewTextChild( emulResNode, "SavePax"), true);
     }
     MessageSaver currMessage;
     currMessage.fromXML(resNode);
