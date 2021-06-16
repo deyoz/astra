@@ -369,7 +369,12 @@ namespace PgOra
         if (supportsPg(sequenceName)) {
             return ("SELECT NEXTVAL('" + sequenceName + "')");
         }
+#ifdef ENABLE_ORACLE
         return ("SELECT " + sequenceName + ".NEXTVAL FROM DUAL");
+#else
+        LogError(STDLOG) << "Force PG syntax for seq: " << sequenceName;
+        return ("SELECT NEXTVAL('" + sequenceName + "')");
+#endif
     }
 
     std::string makeSeqCurrVal(const std::string& sequenceName)
@@ -377,7 +382,12 @@ namespace PgOra
         if (supportsPg(sequenceName)) {
             return ("SELECT CURRVAL('" + sequenceName + "')");
         }
+#ifdef ENABLE_ORACLE
         return ("SELECT " + sequenceName + ".CURRVAL FROM DUAL");
+#else
+        LogError(STDLOG) << "Force PG syntax for seq: " << sequenceName;
+        return ("SELECT CURRVAL('" + sequenceName + "')");
+#endif
     }
 
     template<class T>
