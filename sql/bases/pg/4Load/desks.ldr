@@ -1,0 +1,19 @@
+LOAD DATA
+INFILE *
+INTO TABLE DESKS
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,grp_id
+,under_constr
+,version
+,last_logon
+,currency
+,term_id
+,id
+,term_mode
+)
+BEGINDATA
+"åéÇêéå"|1||"201707-0195750"||"???"||3|"STAND"

@@ -1,0 +1,36 @@
+LOAD DATA
+INFILE *
+INTO TABLE screen
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+id
+,name
+,exe
+,view_order
+,pr_logon
+)
+BEGINDATA
+1|"Сезонное расписание"|"SEASON.EXE"|1|1
+2|"Информ. по движению"|"ISG.EXE"|2|1
+3|"Обеспечение СПП"|"GOSP.EXE"|3|1
+4|"Перевозки"|"SOPP.EXE"|4|1
+5|"Подготовка к рег."|"PREPREG.EXE"|6|1
+6|"Регистрация"|"AIR.EXE"|7|1
+7|"Посадка"|"BRDBUS.EXE"|9|1
+8|"Оплата багажа"|"KASSA.EXE"|12|1
+9|"Документация"|"DOCS.EXE"|10|1
+10|"Телеграммы"|"TLG.EXE"|11|1
+11|"Информ. по архиву"|"ARX.EXE"|20|1
+13|"Информ. для центровки"|"CENT.EXE"|5|1
+18|"Администрирование"|"ADM.EXE"|14|1
+50|"Главный модуль"|"MAINDCS.EXE"||1
+70|"Report test"|"PROJECT1.EXE"||1
+60|"Просмотр файлов"|"FILES.EXE"||0
+30|"Шифрование"|"CRYPT.EXE"|30|1
+15|"Файл сервис"|"ASTRASERV.EXE"||0
+21|"Печатные формы"|"PRNTEST.EXE"|21|1
+19|"Статистика"|"STAT.EXE"|19|1
+22|"Доступ"|"ACCESS.EXE"|22|1
+14|"Досмотр"|"EXAM.EXE"|8|1
