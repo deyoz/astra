@@ -108,6 +108,23 @@ class ReseatPaxRFISCServiceChanger: public ReseatRfiscData {
         paidRFISC.insert( make_pair(rfisc,item));
       }
     }
+    int getHall(xmlNodePtr reqNode) {
+      if (TReqInfo::Instance()->desk.compatible(RESEAT_TO_RFISC_VERSION) ) {
+        return NodeAsInteger("hall",reqNode);
+      }
+      TQuery Qry( &OraSession );
+      Qry.SQLText =
+        "SELECT hall FROM pax_grp WHERE desk=:desk AND time_create>=:time_create AND rownum<2";
+      Qry.CreateVariable("desk",otString,TReqInfo::Instance()->desk.code);
+      Qry.CreateVariable("time_create",otDate, NowUTC() - 1);
+      Qry.Execute();
+      if ( Qry.Eof ) {
+        CheckIn::TSimplePaxGrpItem grp;
+        grp.getByPaxId(NodeAsInteger("pax_id",reqNode));
+        return grp.hall;
+      }
+      else return Qry.FieldAsInteger("hall");
+    }
     xmlNodePtr createTCkinSavePaxQuery(xmlNodePtr reqNode,xmlNodePtr resNode) {
       //делаем doc запрос со всеми атрибутами - пультом, версией терминала и прочим
       LogTrace(TRACE5) << __func__;
@@ -217,7 +234,8 @@ class ReseatPaxRFISCServiceChanger: public ReseatRfiscData {
           RemoveNode(GetNode("name_view",itemNode)); //этот тег лишний для SavePax
         }
       }
-      NewTextChild(emulChngNode, "agent_stat_period", -1);
+      NewTextChild(emulChngNode, "agent_stat_period", NodeAsInteger("agent_stat_period",reqNode,-1));
+      NodeSetContent(GetNode("hall",emulChngNode), getHall(reqNode));
       //нет тега <segment><bag_refuse/>
       return emulChngNode;
     }
@@ -253,6 +271,7 @@ class ReseatPaxRFISCServiceChanger: public ReseatRfiscData {
       r.toXML(doc.docPtr()->children);
       front_grp_id = r.front_grp_id;
       LogTrace(TRACE5) <<  doc.text();
+      LogTrace(TRACE5) << "request " << XMLTreeToText(reqNode->doc);
       AstraContext::ClearContext(getContextName(),0);
       AstraContext::SetContext(getContextName(),0,doc.text());
       return CheckInInterface::SavePax(emulChngNode, externalSysResNode, nullptr);
