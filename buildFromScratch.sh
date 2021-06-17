@@ -298,7 +298,11 @@ if [ "$createdb" = "1" ]; then
     checkresult bin/createdb.sh $?
 fi
 if [ "$runtests" = "1" ]; then
-    (cd src && time XP_LIST_EXCLUDE=Serverlib,SqlUtil,httpsrv,httpsrv_ext,ssim XP_CUTLOGGING=0 ASTRA_SRC=$ASTRA_HOME/src make xp-tests)
+    if [ "$ENABLE_ORACLE" = "0" ]; then
+        (cd src && time XP_CUTLOGGING=0 ASTRA_SRC=$ASTRA_HOME/src XP_LIST=demo.ts_demo_season_ts make xp-tests)
+    else
+        (cd src && time XP_LIST_EXCLUDE=Serverlib,SqlUtil,httpsrv,httpsrv_ext,ssim XP_CUTLOGGING=0 ASTRA_SRC=$ASTRA_HOME/src make xp-tests)
+    fi
     testsresult=$?
     if [ ! -d "src/xplogs" ]; then
         mkdir src/xplogs
