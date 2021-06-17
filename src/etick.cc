@@ -1355,7 +1355,7 @@ Ticketing::Ticket TETickItem::makeTicket(const AstraEdifact::TFltParams& fltPara
                                          const CouponStatus& real_status) const
 {
   Coupon_info ci(et.coupon, et.status);
-  TDateTime scd_local=UTCToLocal(fltParams.fltInfo.act_est_scd_out(),
+  TDateTime scd_local=UTCToLocal(fltParams.fltInfo.est_scd_out(),
                                  AirpTZRegion(fltParams.fltInfo.airp));
   ptime scd(DateTimeToBoost(scd_local));
 
