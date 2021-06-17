@@ -35,6 +35,7 @@ struct ReseatRfiscData {
   enum EnumRFISC { doAdd, doDelete };
   int point_id;
   int pax_id;
+  int front_grp_id;
   TPaxSegRFISCKey del_rfisc, add_rfisc;
   TSeat del_seat, add_seat;
   void RFISCToXML( xmlNodePtr node,
@@ -82,6 +83,7 @@ class ReseatPaxRFISCServiceChanger: public ReseatRfiscData {
         rfisc.getListItemByPaxId(pax_id,0,TServiceCategory::Other,__func__);
       }
       catch(EXCEPTIONS::EConvertError& e) {
+        tst();
         throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL");
       }
 
@@ -128,16 +130,15 @@ class ReseatPaxRFISCServiceChanger: public ReseatRfiscData {
       const std::vector<PaxGrpRoute> paxRoute = PaxGrpRoute::load(PaxId_t(pax_id),0/*???*/,
                                                                   GrpId_t(pax.grp_id),
                                                                   GrpId_t(route.empty()?pax.grp_id:route.front().grp_id));
-      if ( route.empty() ||
-           paxRoute.empty() ) //???
-        throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL");
+/*      if ( route.empty() ) //???
+        throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL");*/
       tst();
-      LogTrace(TRACE5) << "dest pax_id " << paxRoute.front().dest.pax_id <<
+/*      LogTrace(TRACE5) << "dest pax_id " << paxRoute.front().dest.pax_id <<
                           " grp_id " << paxRoute.front().dest.grp_id <<
                           " seg_no " << paxRoute.front().dest.seg_no;
       LogTrace(TRACE5) << "src pax_id " << paxRoute.front().src.pax_id <<
                           " grp_id " << paxRoute.front().src.grp_id  <<
-                          " seg_no " << paxRoute.front().src.seg_no;
+                          " seg_no " << paxRoute.front().src.seg_no;*/
       int trfer_num = 0; //!!! плохой поиск
       if (!route.empty())
       {
@@ -166,37 +167,41 @@ class ReseatPaxRFISCServiceChanger: public ReseatRfiscData {
       }
       if (grps.empty())
         throw UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
-tst();
       //???const CheckIn::TSimplePaxGrpItem& first=grps.front();
       xmlNodePtr segsNode=NewTextChild(emulChngNode,"segments");
       for(list<CheckIn::TSimplePaxGrpItem>::const_iterator g=grps.begin(); g!=grps.end(); ++g)
       {
-          tst();
         xmlNodePtr segNode=NewTextChild(segsNode,"segment");
         g->toEmulXML((g==grps.begin())?emulChngNode:nullptr, segNode);
         NewTextChild(segNode,"passengers");
         if (g!=grps.begin()) continue;
         //TGrpServiceListWithAuto svc; //это полный список услуг?
         //svc.fromDB(g->id);
+        front_grp_id = paxRoute.empty()?pax.grp_id:paxRoute.front().dest.grp_id.get();
         TPaidRFISCList paidRFISC;
         //paidRFISC.fromDB(paxRoute.front().dest.grp_id);//это введено с терминала и оценено
-        paidRFISC.fromDB((int)paxRoute.front().dest.grp_id.get(),true); //это введено с терминала и оценено
-        tst();
+        paidRFISC.fromDB(paxRoute.empty()?pax.grp_id:paxRoute.front().dest.grp_id.get(),true); //это введено с терминала и оценено
         //del_rfisc - эту услугу надо удалить, если она еще не оплачена
         //add_rfisc - эту услугу надо добавить, если еще нет такой вообще(не важно оплачана она или нет
-        add_rfisc.pax_id = paxRoute.front().dest.pax_id.get();
-        add_rfisc.airline = route.front().operFlt.airline;
+        add_rfisc.pax_id = paxRoute.empty()?pax_id:paxRoute.front().dest.pax_id.get();
+        if ( route.empty() ) {
+          TTripInfo fltInfo;
+          fltInfo.getByPaxId(pax_id);
+          add_rfisc.airline = fltInfo.airline;
+          del_rfisc.airline = fltInfo.airline;
+        }
+        else {
+          add_rfisc.airline = route.front().operFlt.airline;
+          del_rfisc.airline = route.front().operFlt.airline;
+        }
         add_rfisc.trfer_num = trfer_num;
         add_rfisc.service_type = TServiceType::FlightRelated;
-tst();
         doService( add_rfisc,
                    paidRFISC,
                    ReseatRfiscData::EnumRFISC::doAdd );
-        del_rfisc.pax_id = paxRoute.front().dest.pax_id.get();
-        del_rfisc.airline = route.front().operFlt.airline;
+        del_rfisc.pax_id = paxRoute.empty()?pax_id:paxRoute.front().dest.pax_id.get();
         del_rfisc.trfer_num = trfer_num;
         del_rfisc.service_type = TServiceType::FlightRelated;
-tst();
         doService( del_rfisc,
                    paidRFISC,
                    ReseatRfiscData::EnumRFISC::doDelete );
@@ -206,15 +211,12 @@ tst();
           /*if ( !p.second.need_positive()   ||
                !p.second.paid_positive() )
             continue;*/
-tst();
           const TGrpServiceItem& s = static_cast<const TGrpServiceItem&>(p.second);
           xmlNodePtr itemNode;
           s.toXML( itemNode=NewTextChild( servsNode, "item" ) );
           RemoveNode(GetNode("name_view",itemNode)); //этот тег лишний для SavePax
-tst();
         }
       }
-      tst();
       NewTextChild(emulChngNode, "agent_stat_period", -1);
       //нет тега <segment><bag_refuse/>
       return emulChngNode;
@@ -235,7 +237,7 @@ tst();
     }
 
     static bool reseatRFISCDispatcher(xmlNodePtr reqNode, xmlNodePtr externalSysResNode,
-                                      xmlNodePtr resNode ) {
+                                      xmlNodePtr resNode, int& front_grp_id ) {
       LogTrace(TRACE5) << __func__ << " isDoomedToWait " << isDoomedToWait();
       LogTrace(TRACE5) << "request " << XMLTreeToText(reqNode->doc);
       if (externalSysResNode)
@@ -249,6 +251,7 @@ tst();
       r.fromXML(doc.docPtr()->children);
       xmlNodePtr emulChngNode = r.createTCkinSavePaxQuery( reqNode, resNode);
       r.toXML(doc.docPtr()->children);
+      front_grp_id = r.front_grp_id;
       LogTrace(TRACE5) <<  doc.text();
       AstraContext::ClearContext(getContextName(),0);
       AstraContext::SetContext(getContextName(),0,doc.text());
@@ -263,7 +266,7 @@ tst();
       toXML( doc.docPtr()->children );
       AstraContext::ClearContext(getContextName(),0);
       AstraContext::SetContext(getContextName(),0,doc.text());
-      return reseatRFISCDispatcher( reqNode, externalSysResNode, resNode );
+      return reseatRFISCDispatcher( reqNode, externalSysResNode, resNode, front_grp_id );
     }
 
 };
@@ -639,7 +642,8 @@ private:
     }
   }
 
-  EnumSeatsProps checkRequeredServiceOnRfics( xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode ) {
+  EnumSeatsProps checkRequeredServiceOnRfics( xmlNodePtr reqNode, xmlNodePtr externalSysResNode,
+                                              xmlNodePtr resNode, int& front_grp_id ) {
     LogTrace(TRACE5) << __func__;
     if ( reqNode == nullptr ||
          resNode == nullptr )
@@ -665,6 +669,8 @@ private:
         throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL");
       if ( !r.reseat( reqNode, externalSysResNode, resNode ) ) //если нет записи данных по пассажирским услугам, то надо выйти и ждать, иначе делаем запись пересадки
         return EnumSeatsProps::propExit;
+      front_grp_id = r.front_grp_id;
+      LogTrace(TRACE5) << front_grp_id;
       _resPropsSets.setFlag(propChangeRFISCService);
       LogTrace(TRACE5) << __func__ << " saving..";
     }
@@ -1274,6 +1280,7 @@ public:
     AstraContext::SetContext(ReseatPaxRFISCServiceChanger::getContextName(),0,doc.text());//ConvertCodepage(doc.text(), "UTF-8", "CP866"));
     tst();
     MessageSaver savePaxMessage;
+    int front_grp_id;
 
     try {
       fromDB(); // начитка данных по пассажиру
@@ -1297,7 +1304,8 @@ public:
       if ( EnumSeatsProps::propExit == checkChangeSeatsForPay() ) //проверка изменения места по оплате
         return _resPropsSets;
       checkRequiredRfiscs();
-      if ( EnumSeatsProps::propExit == checkRequeredServiceOnRfics( reqNode, externalSysResNode, resNode ) ) //началось добавление или удаление услуги
+      if ( EnumSeatsProps::propExit == checkRequeredServiceOnRfics( reqNode, externalSysResNode,
+                                                                    resNode, front_grp_id ) ) //началось добавление или удаление услуги
         return _resPropsSets;
       savePaxMessage.fromXML(resNode);
       doChangeSeats(whence);
@@ -1333,7 +1341,7 @@ public:
       showErrorMessageAndRollback( ue.getLexemaData( ) );
     }
     if (_resPropsSets.isFlag(propChangeRFISCService)) { //надо добавить ответ от SavePax
-      CheckInInterface::LoadPaxByGrpId(GrpId_t(pax.grp_id), nullptr, NewTextChild( emulResNode, "SavePax"), true);
+      CheckInInterface::LoadPaxByGrpId(GrpId_t(front_grp_id), nullptr, NewTextChild( emulResNode, "SavePax"), true);
     }
     MessageSaver currMessage;
     currMessage.fromXML(resNode);
@@ -1345,7 +1353,10 @@ public:
     LogTrace(TRACE5) << doc.text();
     LogTrace(TRACE5) << XMLTreeToText(resNode->doc);
     AstraContext::ClearContext(ReseatPaxRFISCServiceChanger::getContextName(),0);
-    AstraContext::SetContext(ReseatPaxRFISCServiceChanger::getContextName(),0,doc.text());//ConvertCodepage(doc.text(), "UTF-8", "CP866"));
+    AstraContext::SetContext(ReseatPaxRFISCServiceChanger::getContextName(),0,doc.text());
+    if ( isDoomedToWait() )
+      return _resPropsSets;
+    AfterRefreshEMD(reqNode,resNode);
     return _resPropsSets;
   }
 };
